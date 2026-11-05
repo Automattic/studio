@@ -12,7 +12,7 @@ Feedback reaches a real queue the WordPress Studio team reads. The user decides 
 
 ## 1. Find out what to report
 
-When the user invoked `/feedback` with text after it, that text is the feedback. When they invoked it bare, ask in one short question what they want to tell the WordPress Studio team, and offer the three kinds: something broken, something they wish Studio did, or anything else.
+When the user invoked `/feedback` with text after it, that text is the feedback. When they invoked it bare, ask in one short question what they want to tell the WordPress Studio team, and offer the three kinds: something broken, something they wish WordPress Studio did, or anything else.
 
 Do not ask for details you already have. This chat usually holds them: what the user was trying to do, which WordPress Studio tool ran, and the error it returned.
 
@@ -27,7 +27,7 @@ Write the message for a WordPress Studio engineer who was not in this chat:
 
 Pick the type: `bug` for something broken, `request` for a feature or improvement, `general` for anything else, including praise.
 
-Offer a chat summary. If this chat has work in it (tools ran, errors came back, a site was built or changed), add a short section headed **What happened in this chat**: the steps taken in order, the Studio tools called, and any errors, in a few lines. Leave it out when the chat is only the feedback request itself. Include the raw transcript only when the user asks for it, since it can hold private content; a summary is usually enough to reproduce the problem.
+Offer a chat summary. If this chat has work in it (tools ran, errors came back, a site was built or changed), add a short section headed **What happened in this chat**: the steps taken in order, the WordPress Studio tools called, and any errors, in a few lines. Leave it out when the chat is only the feedback request itself. Include the raw transcript only when the user asks for it, since it can hold private content; a summary is usually enough to reproduce the problem.
 
 Leave out passwords, API keys, tokens and private site content unless the user asks to include them. Do not add the WordPress Studio version or operating system: the tool adds them.
 

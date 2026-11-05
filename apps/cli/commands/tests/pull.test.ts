@@ -473,6 +473,78 @@ describe( 'CLI: studio pull single pull phase', () => {
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 	} );
 
+	it.each( [
+		{
+			remoteWpVersion: '7.1.4',
+			commands: [ 'pull-files', 'pull-db', 'apply-runtime' ],
+			filesArgs: [ '--include=:wp-content:' ],
+		},
+		{
+			remoteWpVersion: undefined,
+			commands: [ 'pull-files', 'pull-db', 'flat-docroot', 'apply-runtime' ],
+			filesArgs: [],
+		},
+	] )(
+		'keeps its own core when the remote runs $remoteWpVersion',
+		async ( { remoteWpVersion, commands, filesArgs } ) => {
+			const technicalSiteDirectory = fs.mkdtempSync(
+				path.join( os.tmpdir(), 'studio-import-pull-core-' )
+			);
+			const sitePath = path.join( technicalSiteDirectory, 'site' );
+			const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
+			const pulledWpContent = path.join( rawDirectory, 'srv', 'htdocs', 'wp-content' );
+			fs.mkdirSync( path.join( sitePath, 'wp-includes' ), { recursive: true } );
+			fs.mkdirSync( path.join( sitePath, 'wp-content' ) );
+			fs.mkdirSync( pulledWpContent, { recursive: true } );
+			fs.writeFileSync(
+				path.join( sitePath, 'wp-includes', 'version.php' ),
+				"<?php\n$wp_version = '7.1.4';\n"
+			);
+			const reprint = vi
+				.spyOn( reprintClient, 'runReprintCommandUntilComplete' )
+				.mockResolvedValue( { stdout: '{"ok":true}', stderr: '', exitCode: 0 } );
+
+			await runFullPull(
+				{
+					sitePath,
+					technicalSiteDirectory,
+					rawDirectory,
+					stateDirectory: path.join( technicalSiteDirectory, 'state' ),
+					runtimeDirectory: path.join( technicalSiteDirectory, 'runtime' ),
+					localUrl: 'http://localhost:8881',
+				} as never,
+				'https://example.com/?reprint-api-jetpack',
+				false,
+				false,
+				{},
+				{
+					...emptyReprintMetadata,
+					sourceSite: {
+						...emptyReprintMetadata.sourceSite,
+						contentDirectory: '/srv/htdocs/wp-content',
+						wordpressRoots: [ '/wordpress/core/7.1.4' ],
+					},
+				},
+				undefined,
+				remoteWpVersion
+			);
+
+			const calls = reprint.mock.calls.map( ( call ) => call[ 0 ] as string[] );
+			expect( calls.map( ( args ) => args[ 0 ] ) ).toEqual( commands );
+			expect( calls[ 0 ].slice( 2, -4 ) ).toEqual( filesArgs );
+			if ( remoteWpVersion ) {
+				expect( fs.realpathSync( path.join( sitePath, 'wp-content' ) ) ).toBe(
+					fs.realpathSync( pulledWpContent )
+				);
+			} else {
+				// Flatten replaces the site's own core files with links to the pulled core.
+				expect( calls[ 2 ] ).toContain( '--force' );
+			}
+
+			fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
+		}
+	);
+
 	it( 'uses only the selected directories when uploads are omitted', async () => {
 		const technicalSiteDirectory = fs.mkdtempSync(
 			path.join( os.tmpdir(), 'studio-import-pull-skip-uploads-' )

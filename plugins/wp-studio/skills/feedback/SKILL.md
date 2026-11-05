@@ -1,6 +1,6 @@
 ---
 name: feedback
-description: Send the user's feedback about WordPress Studio to the Studio team — a bug, a feature request, or general feedback — with the context from this chat. Use this when the user invokes /feedback, asks to report something to the Studio team, or agrees to send feedback after a Studio tool failed.
+description: Send the user's feedback about WordPress Studio to the WordPress Studio team — a bug, a feature request, or general feedback — with the context from this chat. Use this when the user invokes /feedback, asks to report something to the WordPress Studio team, or agrees to send feedback after a WordPress Studio tool failed.
 ---
 
 1. If you have not called the `studio_instructions` tool in this conversation yet, call it first and follow what it returns for the rest of the session.

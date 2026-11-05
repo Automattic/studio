@@ -246,6 +246,15 @@ export const generateImagesTool = defineTool(
 			aspectRatio: image.aspectRatio,
 		} ) );
 
+		// Each image as the markup was told to use it: where its attachment
+		// went, which WordPress names apart from a file already there.
+		const named = ( target: ( typeof targets )[ number ] ) => {
+			const attachment = attachments.get( target.resolvedPath );
+			return attachment
+				? `${ attachment.file }, attachment ID ${ attachment.id }, URL ${ attachment.url }`
+				: target.path;
+		};
+
 		const generation = generateImages( host.userAgent, requests )
 			.catch( ( error ): GenerateImageResult[] =>
 				requests.map( () => ( { ok: false, error: String( error ) } ) )
@@ -260,7 +269,7 @@ export const generateImagesTool = defineTool(
 							const hint = result.filtered
 								? ' (safety filter — rewrite the subject in plain, everyday terms and call generate_images again for this image)'
 								: '';
-							failures.push( `FAILED ${ target.path }: ${ result.error }${ hint }` );
+							failures.push( `FAILED ${ named( target ) }: ${ result.error }${ hint }` );
 							return;
 						}
 						const file = attachments.get( target.resolvedPath )?.file ?? target.resolvedPath;
@@ -286,7 +295,7 @@ export const generateImagesTool = defineTool(
 						);
 						const error = errors[ to ] ?? 'WordPress did not save it';
 						results[ index ] = { ok: false, error };
-						failures.push( `FAILED ${ targets[ index ].path }: ${ error }` );
+						failures.push( `FAILED ${ named( targets[ index ] ) }: ${ error }` );
 					}
 				}
 				if ( site ) {
@@ -312,12 +321,7 @@ export const generateImagesTool = defineTool(
 					`Generating ${ targets.length } image${
 						targets.length === 1 ? '' : 's'
 					} in the background. Use them in the markup now:`,
-					...targets.map( ( target ) => {
-						const attachment = attachments.get( target.resolvedPath );
-						return attachment
-							? `- ${ attachment.file }, attachment ID ${ attachment.id }, URL ${ attachment.url }`
-							: `- ${ target.path }`;
-					} ),
+					...targets.map( ( target ) => `- ${ named( target ) }` ),
 				].join( '\n' )
 			),
 			pending: generation,

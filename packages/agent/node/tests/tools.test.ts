@@ -591,7 +591,7 @@ describe( 'Studio AI MCP tools', () => {
 				exitCode: 0,
 				stdout: JSON.stringify( [
 					{ id: 7, file: 'wp-content/uploads/2026/09/hero.png', url: urlOf( 'hero.png' ) },
-					{ id: 8, file: 'wp-content/uploads/2026/09/buns.png', url: urlOf( 'buns.png' ) },
+					{ id: 8, file: 'wp-content/uploads/2026/09/buns-1.png', url: urlOf( 'buns-1.png' ) },
 				] ),
 				stderr: '',
 			} )
@@ -611,8 +611,14 @@ describe( 'Studio AI MCP tools', () => {
 					'hero.png'
 				) }`
 			);
+			// As the markup was told to use it: WordPress names it apart from a buns.png already there.
 			expect( await result.pending ).toContain(
-				`FAILED ${ path.join( uploads, 'buns.png' ) }: Timed out`
+				`FAILED ${ path.join(
+					uploads,
+					'2026',
+					'09',
+					'buns-1.png'
+				) }, attachment ID 8, URL ${ urlOf( 'buns-1.png' ) }: Timed out`
 			);
 			await expect(
 				readFile( path.join( uploads, '2026', '09', 'hero.png' ), 'utf8' )

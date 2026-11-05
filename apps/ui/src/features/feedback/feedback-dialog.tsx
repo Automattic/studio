@@ -234,9 +234,7 @@ function FeedbackForm() {
 								{ __( 'Include this chat’s transcript' ) }
 							</FieldLabel>
 							<FieldDescription>
-								{ __(
-									'What was said, the tools that ran and any errors. Check it for private details before sending.'
-								) }
+								{ __( 'What was said, the tools that ran and any errors.' ) }
 							</FieldDescription>
 						</FieldContent>
 					</Field>

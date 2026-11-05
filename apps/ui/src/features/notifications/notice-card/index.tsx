@@ -1,6 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { ChevronRightIcon, XIcon } from 'lucide-react';
+import { ChevronRightIcon } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import {
 	noticeToText,
@@ -11,7 +11,7 @@ import {
 } from '@/data/app-messages';
 import { useCopyText } from '@/data/host/use-copy-text';
 import { ErrorIcon, InfoIcon, SuccessIcon, WarningIcon } from '@/lib/icons';
-import { Button, IconButton, Spinner } from '@/lib/ui';
+import { Button, DismissButton, Spinner } from '@/lib/ui';
 import styles from './style.module.css';
 
 type Notice = Pick<
@@ -127,6 +127,7 @@ function NoticeDescription( {
 					<button
 						type="button"
 						className={ styles.toggle }
+						data-notice-toggle=""
 						aria-expanded={ expanded }
 						aria-label={ sprintf(
 							/* translators: %s: notification title. */
@@ -185,8 +186,24 @@ export function NoticeCard( {
 			<CopyNoticeButton notice={ notice } />
 		) : null );
 	return (
-		<div className={ clsx( styles.card, className ) }>
-			<div className={ styles.row } data-expanded={ expanded || undefined }>
+		<div
+			className={ clsx( styles.card, className ) }
+			role="presentation"
+			onClick={ ( event ) => {
+				const target = event.target;
+				if (
+					event.defaultPrevented ||
+					! ( target instanceof Element ) ||
+					! event.currentTarget.contains( target ) ||
+					target.closest( 'button, a, input, select, textarea, [contenteditable]' ) ||
+					event.currentTarget.ownerDocument.getSelection()?.isCollapsed === false
+				) {
+					return;
+				}
+				event.currentTarget.querySelector< HTMLButtonElement >( '[data-notice-toggle]' )?.click();
+			} }
+		>
+			<div className={ styles.row }>
 				{ notice.processing ? (
 					<span className={ styles.processing } aria-hidden="true">
 						<Spinner />
@@ -206,6 +223,7 @@ export function NoticeCard( {
 						<button
 							type="button"
 							className={ styles.toggle }
+							data-notice-toggle=""
 							aria-expanded={ expanded }
 							aria-label={ sprintf(
 								/* translators: %s: notification title. */
@@ -241,18 +259,14 @@ export function NoticeCard( {
 			) : null }
 
 			{ onDismiss ? (
-				<IconButton
+				<DismissButton
 					className={ styles.close }
-					icon={ <XIcon /> }
 					label={ __( 'Dismiss' ) }
 					aria-label={ sprintf(
 						/* translators: %s: notification title. */
 						__( 'Dismiss %s' ),
 						notice.title
 					) }
-					variant="outline"
-					size="icon-2xs"
-					shape="round"
 					onClick={ onDismiss }
 				/>
 			) : null }

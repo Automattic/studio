@@ -33,7 +33,7 @@ const WORDPRESS_COM_PROVIDED_PLUGINS = new Set( [
 	'polldaddy',
 ] );
 
-type ArchiveEntry = {
+export type ArchiveEntry = {
 	// Path inside the archive, e.g. `wp-content/plugins/my-plugin/my-plugin.php`.
 	name: string;
 	// Real path of the file to read, with symlinks resolved.
@@ -52,7 +52,7 @@ export type PreviewArchiveOptions = {
  * For a WordPress.com preview, files a pulled site links from its host's managed tree are left out
  * too, as are plugins WordPress.com provides: the WordPress.com site has them.
  */
-async function listArchiveEntries(
+export async function listArchiveEntries(
 	siteFolder: string,
 	{ onWpcom }: PreviewArchiveOptions
 ): Promise< ArchiveEntry[] > {

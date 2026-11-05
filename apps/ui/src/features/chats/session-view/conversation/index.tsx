@@ -58,11 +58,9 @@ function MediaArtifactImage( { widget }: { widget: StudioChatArtifactWidgetDraft
 
 	if ( src ) {
 		return (
-			<img
-				className={ styles.mediaArtifactImage }
-				src={ src }
-				alt={ getMediaAltText( widget, __( 'Image' ) ) }
-			/>
+			<div className={ styles.mediaArtifactImage }>
+				<img src={ src } alt={ getMediaAltText( widget, __( 'Image' ) ) } />
+			</div>
 		);
 	}
 	return (

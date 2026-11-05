@@ -11,7 +11,6 @@ import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { getSnapshotsFromConfig, saveSnapshotToConfig } from 'cli/lib/snapshots';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
-import { validateSiteSize } from 'cli/lib/validation';
 import { LoggerError } from 'cli/logger';
 import { runCommand } from '../create';
 
@@ -63,6 +62,9 @@ vi.mock( 'cli/logger', () => ( {
 	LoggerError: class LoggerError extends Error {},
 } ) );
 
+vi.mock( 'cli/lib/site-versions', () => ( {
+	getSiteVersion: vi.fn().mockResolvedValue( 'version-1' ),
+} ) );
 vi.mock( 'cli/lib/site-operations', () => ( {
 	withSiteOperation: vi.fn( ( _folder: string, _kind: string, fn: () => unknown ) => fn() ),
 } ) );
@@ -136,7 +138,6 @@ describe( 'Preview Create Command', () => {
 	it( 'creates the preview on WordPress.com for any account', async () => {
 		await runCommand( mockFolder );
 
-		expect( validateSiteSize ).toHaveBeenCalledWith( mockFolder, { onWpcom: true } );
 		expect( withSiteOperation ).toHaveBeenCalledWith(
 			mockFolder,
 			'export',
@@ -160,7 +161,8 @@ describe( 'Preview Create Command', () => {
 			mockSiteUrl,
 			mockAuthToken.id,
 			'Test Site Preview 1',
-			mockShareUrl
+			mockShareUrl,
+			'version-1'
 		);
 		expect( mockReportSuccess ).toHaveBeenCalledWith(
 			`Preview site available at: ${ mockShareUrl }`

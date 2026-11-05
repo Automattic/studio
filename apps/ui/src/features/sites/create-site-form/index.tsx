@@ -6,7 +6,7 @@ import {
 import { validateAdminEmail, validateAdminUsername } from '@studio/common/lib/passwords';
 import { getLatestVersionLabel } from '@studio/common/lib/wordpress-versions';
 import { __, sprintf } from '@wordpress/i18n';
-import { ChevronDownIcon, FileIcon, XIcon } from 'lucide-react';
+import { ChevronDownIcon, XIcon } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
@@ -27,10 +27,8 @@ import {
 	AlertDescription,
 	AlertTitle,
 	Button,
-	Field,
 	FieldError,
 	FieldGroup,
-	FieldTitle,
 	IconButton,
 	Popover,
 } from '@/lib/ui';
@@ -54,7 +52,7 @@ import { usePathAutoGenerate } from './use-path-auto-generate';
 import type { SelectedSiteFolder } from '@/data/core';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
-import type { FormEvent, ReactElement, ReactNode } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 
 export type { CreateSiteFormDraft, CreateSiteFormValues } from './form-data';
 
@@ -74,15 +72,8 @@ interface CreateSiteFormProps {
 	requiresCustomDomain?: boolean;
 	submitError?: string | CreateSiteFormError;
 	children?: ReactNode;
-	typeControl?: ReactNode;
 	sourceControl?: ReactNode;
-	sourceDetails?: ReactNode;
-	onChangeSource?: () => void;
-	sourceActionLabel?: string;
 	actionsContainer?: HTMLElement | null;
-	// What the site starts from, shown under its name.
-	source?: string;
-	sourceIcon?: ReactElement;
 	// Whether the folder already holds a WordPress site, which Studio adds as it is.
 	onExistingChange?: ( existing: boolean ) => void;
 	// Refuses a folder holding a WordPress site, for a site whose files come from elsewhere.
@@ -106,14 +97,8 @@ export function CreateSiteForm( {
 	requiresCustomDomain,
 	submitError,
 	children,
-	typeControl,
 	sourceControl,
-	sourceDetails,
-	onChangeSource,
-	sourceActionLabel,
 	actionsContainer,
-	source,
-	sourceIcon,
 	onExistingChange,
 	requiresEmptyPath,
 	requiresExistingPath,
@@ -543,19 +528,16 @@ export function CreateSiteForm( {
 	return (
 		<form id={ formId } className={ styles.form } onSubmit={ handleSubmit }>
 			<FieldGroup className={ styles.panel }>
-				<div className={ styles.identity } data-paired={ !! typeControl || undefined }>
-					<TextField
-						label={ __( 'Site name' ) }
-						value={ data.name }
-						onChange={ ( event ) => handleChange( { name: event.target.value } ) }
-						onFocus={ () => setIsNameFocused( true ) }
-						onBlur={ () => setIsNameFocused( false ) }
-						error={ isNameEdited && ! isNameFocused ? nameError : undefined }
-						required
-						autoFocus
-					/>
-					{ typeControl }
-				</div>
+				<TextField
+					label={ __( 'Site name' ) }
+					value={ data.name }
+					onChange={ ( event ) => handleChange( { name: event.target.value } ) }
+					onFocus={ () => setIsNameFocused( true ) }
+					onBlur={ () => setIsNameFocused( false ) }
+					error={ isNameEdited && ! isNameFocused ? nameError : undefined }
+					required
+					autoFocus
+				/>
 
 				<PathField
 					data={ data }
@@ -568,27 +550,6 @@ export function CreateSiteForm( {
 				/>
 
 				{ sourceControl }
-
-				{ ( existing && ! sourceControl ) || source ? (
-					<Field>
-						<FieldTitle>{ __( 'Start with' ) }</FieldTitle>
-						<div className={ styles.source }>
-							{ existing ? <FileIcon /> : sourceIcon }
-							<span>{ existing ? __( 'Existing local WordPress site' ) : source }</span>
-							{ ! existing && onChangeSource ? (
-								<Button
-									variant="inline-text"
-									size="inline"
-									onClick={ onChangeSource }
-									disabled={ isSubmitting || isSubmitDisabled }
-								>
-									{ sourceActionLabel ?? __( 'Change' ) }
-								</Button>
-							) : null }
-						</div>
-						{ ! existing ? sourceDetails : null }
-					</Field>
-				) : null }
 
 				{ children }
 

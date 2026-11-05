@@ -853,10 +853,18 @@ export async function showOpenFolderDialog(
 	}
 	if ( options?.allowSiteFiles ) return readSiteSource( selectedPath );
 	const blueprint = options?.allowBlueprints ? await readBlueprintSource( selectedPath ) : null;
+	const isEmpty = blueprint
+		? false
+		: await isEmptyDir( selectedPath ).catch( ( error: unknown ) => {
+				if ( options?.usePath && isErrnoException( error ) && error.code === 'ENOENT' ) {
+					return true;
+				}
+				throw error;
+		  } );
 	return {
 		path: selectedPath,
 		name: nodePath.basename( selectedPath ),
-		isEmpty: blueprint ? false : await isEmptyDir( selectedPath ),
+		isEmpty,
 		isWordPress: blueprint ? false : isWordPressDirectory( selectedPath ),
 		...( blueprint ? { blueprint } : {} ),
 	};

@@ -19,6 +19,7 @@ import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useFileDrop } from '@/data/use-composer-attachments';
 import { saveComposerDraft } from '@/features/composer';
@@ -51,7 +52,7 @@ import {
 import { BlueprintDetails } from './blueprint-details';
 import { BlueprintGallery, getUseCaseLabel, getUseCases } from './blueprint-gallery';
 import { ConnectPanel } from './connect-panel';
-import { AddSiteContext } from './context';
+import { AddSiteContext, type CreatedSetupSite } from './context';
 import { CreatePanel } from './create-panel';
 import { ImportPanel } from './import-panel';
 import styles from './style.module.css';
@@ -63,6 +64,7 @@ import type { AddSiteSection } from '@/features/sites/use-open-add-site';
 import type { AiProviderId } from '@studio/agent/protocol/providers';
 import type { BlueprintUseCase } from '@studio/common/lib/blueprint-catalog';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
+import type { NewSiteBehavior } from '@studio/common/lib/user-settings/preferences';
 
 type View =
 	| { name: 'gallery'; useCase?: BlueprintUseCase }
@@ -71,8 +73,10 @@ type View =
 	| { name: 'connect' }
 	| { name: 'import' };
 
-function getInitialView( section: AddSiteSection ): View {
-	if ( section === 'blank' ) return { name: 'setup' };
+function getInitialView( section: AddSiteSection, behavior?: NewSiteBehavior ): View {
+	if ( section === 'blank' || ( section === 'create' && behavior === 'blank' ) ) {
+		return { name: 'setup' };
+	}
 	if ( section === 'upload' || section === 'import' ) return { name: 'import' };
 	return { name: section === 'connect' ? 'connect' : 'gallery' };
 }
@@ -89,6 +93,7 @@ const getFinalFocus = () =>
 export function AddSiteDialog() {
 	const connector = useConnector();
 	const { data: sites } = useSites();
+	const { data: preferences } = useUserPreferences();
 	const navigate = useNavigate();
 	const { addSite, pin, settings } = useSearch( { strict: false } ) as {
 		addSite?: AddSiteSection;
@@ -97,7 +102,10 @@ export function AddSiteDialog() {
 	};
 	const [ openedWith, setOpenedWith ] = useState( addSite );
 	const [ chosenView, replaceView ] = useState< View | null >( null );
-	const initialView = useMemo( () => getInitialView( addSite ?? 'create' ), [ addSite ] );
+	const initialView = useMemo(
+		() => getInitialView( addSite ?? 'create', preferences?.newSiteBehavior ),
+		[ addSite, preferences?.newSiteBehavior ]
+	);
 	const view = chosenView ?? initialView;
 	const scrollArea = useRef< HTMLDivElement >( null );
 	const scrollPositions = useRef( new Map< View, number >() );
@@ -118,7 +126,7 @@ export function AddSiteDialog() {
 		return () => cancelAnimationFrame( frame );
 	}, [ view ] );
 	const [ progress, setProgress ] = useState< string | null >( null );
-	const [ hasCreatedSite, setHasCreatedSite ] = useState( false );
+	const [ createdSite, setCreatedSite ] = useState< CreatedSetupSite >();
 	const [ followedSite, followSite ] = useState< string >();
 	const [ actions, setActions ] = useState< HTMLElement | null >( null );
 	const [ formActions, setFormActions ] = useState< HTMLElement | null >( null );
@@ -153,7 +161,7 @@ export function AddSiteDialog() {
 			replaceView( null );
 			setViewHistory( [] );
 			setProgress( null );
-			setHasCreatedSite( false );
+			setCreatedSite( undefined );
 			followSite( undefined );
 			setLastViewed( undefined );
 			setSetupDraft( undefined );
@@ -351,7 +359,8 @@ export function AddSiteDialog() {
 		folderResetKey,
 		removeFolder,
 		setBlueprintTransferred,
-		onSiteCreated: () => setHasCreatedSite( true ),
+		createdSite,
+		setCreatedSite,
 		briefDraftKey,
 		aiChoice,
 		setAiChoice,
@@ -379,7 +388,7 @@ export function AddSiteDialog() {
 	const goBack = () => {
 		if ( progress ) return;
 		upload.cancel();
-		if ( hasCreatedSite || ( ! back && view.name === 'gallery' && ! view.useCase ) ) {
+		if ( createdSite || ( ! back && view.name === 'gallery' && ! view.useCase ) ) {
 			close();
 			return;
 		}

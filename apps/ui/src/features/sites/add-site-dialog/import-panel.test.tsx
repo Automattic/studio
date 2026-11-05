@@ -121,7 +121,7 @@ describe( 'Add site › Import', () => {
 		);
 	} );
 
-	it( 'retries AI setup without importing again or deleting a restored site', async () => {
+	it( 'keeps AI recovery through Settings without importing again or deleting the restored site', async () => {
 		const { connector, dialog, submit } = await setup();
 		connector.createSession.mockRejectedValueOnce( new Error( 'Chat storage unavailable' ) );
 		fireEvent.change(
@@ -129,6 +129,10 @@ describe( 'Add site › Import', () => {
 			{ target: { value: 'Refresh this restored bakery site' } }
 		);
 		await submit();
+		await screen.findByText( 'Your site was created, but the AI chat could not start.' );
+		act( () => connector.emit( 'onOpenSettings', { settingId: 'ai' } ) );
+		const settings = await screen.findByRole( 'dialog', { name: 'Settings' } );
+		fireEvent.click( within( settings ).getByRole( 'button', { name: /Close .*ettings/ } ) );
 		await screen.findByText( 'Your site was created, but the AI chat could not start.' );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Try again' } ) );
 		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledOnce() );

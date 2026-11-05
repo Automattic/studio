@@ -6,22 +6,6 @@ import styles from './style.module.css';
 
 export const SITE_FILE_UPLOAD_TYPES = [ '.json', ...ACCEPTED_ADD_SITE_FILE_TYPES ];
 
-function SiteFileUploadDescription() {
-	return __( 'Blueprints, backups, and WordPress exports' );
-}
-
-function SiteFileUploadTypes() {
-	return (
-		<p className={ styles.fileTypes }>
-			{ sprintf(
-				// translators: %s is a comma-separated list of supported file extensions.
-				__( 'Supported files: %s.' ),
-				SITE_FILE_UPLOAD_TYPES.join( ', ' )
-			) }
-		</p>
-	);
-}
-
 interface SiteFileUploadProps {
 	disabled?: boolean;
 	onFile: ( file: File ) => void;
@@ -46,7 +30,7 @@ export function SiteFileUpload( { disabled = false, onFile }: SiteFileUploadProp
 			<DropZone
 				className={ styles.zone }
 				title={ __( 'Drop your file here' ) }
-				description={ <SiteFileUploadDescription /> }
+				description={ __( 'Blueprints, backups, and WordPress exports' ) }
 			>
 				<Button
 					className={ styles.choose }
@@ -57,7 +41,13 @@ export function SiteFileUpload( { disabled = false, onFile }: SiteFileUploadProp
 				>
 					{ __( 'Choose file' ) }
 				</Button>
-				<SiteFileUploadTypes />
+				<p className={ styles.fileTypes }>
+					{ sprintf(
+						// translators: %s is a comma-separated list of supported file extensions.
+						__( 'Supported files: %s.' ),
+						SITE_FILE_UPLOAD_TYPES.join( ', ' )
+					) }
+				</p>
 			</DropZone>
 		</div>
 	);

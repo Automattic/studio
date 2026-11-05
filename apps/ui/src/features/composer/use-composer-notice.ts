@@ -80,7 +80,6 @@ export function useComposerNotice(
 	};
 	if ( ! user ) {
 		return {
-			kind: 'connect-provider',
 			message: __( 'Connect a provider to build and edit your site.' ),
 			action: connect,
 		};

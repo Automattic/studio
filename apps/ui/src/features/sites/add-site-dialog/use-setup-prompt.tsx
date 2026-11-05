@@ -23,18 +23,23 @@ import {
 import { Alert, AlertDescription, AlertTitle, Button, Field, FieldTitle } from '@/lib/ui';
 import { useAddSite } from './context';
 import styles from './style.module.css';
-import type { CreateSiteFormError } from '@/features/sites/create-site-form';
 
 export function useSetupPrompt( { enabled = true, busy = false } = {} ) {
 	const connector = useConnector();
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const { setProgress, formActions, briefDraftKey, aiChoice, setAiChoice, source } = useAddSite();
+	const {
+		setProgress,
+		formActions,
+		briefDraftKey,
+		aiChoice,
+		setAiChoice,
+		source,
+		createdSite,
+		setCreatedSite,
+	} = useAddSite();
 	const composer = useRef< ComposerHandle >( null );
-	const createdSiteId = useRef< string | undefined >( undefined );
-	const chatId = useRef< string | undefined >( undefined );
 	const brief = useRef< ReturnType< ComposerHandle[ 'getSubmission' ] > >( null );
-	const [ error, setError ] = useState< CreateSiteFormError >();
 	const [ retrying, setRetrying ] = useState( false );
 	const { data: settings } = useAiSettings();
 	const { data: quota } = useStudioAssistantQuota();
@@ -47,33 +52,37 @@ export function useSetupPrompt( { enabled = true, busy = false } = {} ) {
 		resolveSessionModelForProvider( [], provider, {
 			canUsePaidModels: canUsePaidAiModels( quota, user?.email ),
 		} );
-	const openSite = () =>
-		navigate( { to: '/sites/$siteId/new', params: { siteId: createdSiteId.current! } } );
-	const startChat = async () => {
-		if ( ! createdSiteId.current || ! brief.current ) return;
+	const openSite = ( siteId: string ) =>
+		navigate( { to: '/sites/$siteId/new', params: { siteId } } );
+	const startChat = async ( created = createdSite ) => {
+		if ( ! created?.brief ) return;
+		let chatId = created.chatId;
 		setRetrying( true );
 		setProgress( __( 'Starting chat…' ) );
 		try {
-			chatId.current ??= (
-				await openNewSession( { connector, queryClient }, createdSiteId.current )
-			).id;
-			await connector.setSessionProvider( chatId.current, provider, model );
+			chatId ??= ( await openNewSession( { connector, queryClient }, created.siteId ) ).id;
+			setCreatedSite( { ...created, chatId } );
+			await connector.setSessionProvider( chatId, provider, model );
 			queryClient.setQueryData(
-				[ ...SESSIONS_QUERY_KEY, chatId.current ],
-				await connector.getSession( chatId.current )
+				[ ...SESSIONS_QUERY_KEY, chatId ],
+				await connector.getSession( chatId )
 			);
 			pendingPromptSlot.set( {
-				sessionId: chatId.current,
+				sessionId: chatId,
 				prompt:
-					brief.current.prompt || __( 'Build this site using the attached files as references.' ),
-				attachments: brief.current.attachments,
+					created.brief.prompt || __( 'Build this site using the attached files as references.' ),
+				attachments: created.brief.attachments,
 			} );
-			await navigate( { to: '/sessions/$sessionId', params: { sessionId: chatId.current } } );
+			await navigate( { to: '/sessions/$sessionId', params: { sessionId: chatId } } );
 		} catch ( failure ) {
-			setError( {
-				title: __( 'Your site was created, but the AI chat could not start.' ),
-				message: __( 'Try starting the chat again, or open your site.' ),
-				details: getErrorMessage( failure ),
+			setCreatedSite( {
+				...created,
+				chatId,
+				error: {
+					title: __( 'Your site was created, but the AI chat could not start.' ),
+					message: __( 'Try starting the chat again, or open your site.' ),
+					details: getErrorMessage( failure ),
+				},
 			} );
 		} finally {
 			setProgress( null );
@@ -82,7 +91,11 @@ export function useSetupPrompt( { enabled = true, busy = false } = {} ) {
 	};
 	const actions = (
 		<>
-			<Button variant="outline" disabled={ retrying } onClick={ () => void openSite() }>
+			<Button
+				variant="outline"
+				disabled={ retrying }
+				onClick={ () => createdSite && void openSite( createdSite.siteId ) }
+			>
 				{ __( 'Open site' ) }
 			</Button>
 			<Button loading={ retrying } onClick={ () => void startChat() }>
@@ -90,11 +103,11 @@ export function useSetupPrompt( { enabled = true, busy = false } = {} ) {
 			</Button>
 		</>
 	);
-	const recovery = error ? (
+	const recovery = createdSite?.error ? (
 		<>
 			<Alert variant="destructive">
-				<AlertTitle>{ error.title }</AlertTitle>
-				<AlertDescription>{ error.message }</AlertDescription>
+				<AlertTitle>{ createdSite.error.title }</AlertTitle>
+				<AlertDescription>{ createdSite.error.message }</AlertDescription>
 			</Alert>
 			{ formActions ? createPortal( actions, formActions ) : null }
 		</>
@@ -128,15 +141,16 @@ export function useSetupPrompt( { enabled = true, busy = false } = {} ) {
 	return {
 		field,
 		recovery,
-		hasCreatedSite: () => !! createdSiteId.current,
+		hasCreatedSite: () => !! createdSite,
 		capture: () => {
 			brief.current = enabled ? composer.current?.getSubmission() ?? null : null;
 			return !! brief.current;
 		},
 		finish: async ( siteId: string ) => {
-			createdSiteId.current = siteId;
-			if ( brief.current ) await startChat();
-			else await openSite();
+			const created = { siteId, brief: brief.current };
+			setCreatedSite( created );
+			if ( created.brief ) await startChat( created );
+			else await openSite( siteId );
 		},
 	};
 }

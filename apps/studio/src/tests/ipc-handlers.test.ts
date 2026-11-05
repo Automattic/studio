@@ -145,6 +145,20 @@ describe( 'site source picker', () => {
 		}
 	);
 
+	it( 'accepts a destination that does not exist yet without presenting a picker', async () => {
+		await expect(
+			showOpenFolderDialog( mockIpcMainInvokeEvent, 'Choose folder', '/sites/new-destination', {
+				usePath: true,
+			} )
+		).resolves.toEqual( {
+			path: '/sites/new-destination',
+			name: 'new-destination',
+			isEmpty: true,
+			isWordPress: false,
+		} );
+		expect( dialog.showOpenDialog ).not.toHaveBeenCalled();
+	} );
+
 	it( 'reads a dropped Blueprint folder without presenting a picker', async () => {
 		vol.fromJSON( { '/sites/starter/blueprint.json': JSON.stringify( { steps: [] } ) } );
 		const result = await showOpenFolderDialog( mockIpcMainInvokeEvent, 'Open', '/sites/starter', {

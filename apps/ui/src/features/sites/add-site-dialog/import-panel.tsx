@@ -57,7 +57,6 @@ export function ImportPanel( { backup: selectedFile }: { backup: SiteBackup } ) 
 		isBlueprintValid,
 		setupDraft,
 		setSetupDraft,
-		onSiteCreated,
 	} = useAddSite();
 	const [ restoredDraft ] = useState( setupDraft );
 	const selectedFolder = usePendingSiteFolder();
@@ -121,7 +120,6 @@ export function ImportPanel( { backup: selectedFile }: { backup: SiteBackup } ) 
 				suppressTracksEvent: true,
 			} );
 			importCompleted = true;
-			onSiteCreated();
 			await prompt.finish( site.id );
 		} catch ( error ) {
 			const failureDetails =

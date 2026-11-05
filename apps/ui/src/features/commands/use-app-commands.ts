@@ -57,7 +57,7 @@ export function useAppCommands(): PaletteCommand[] {
 		colorScheme,
 		sidebarOpen,
 		settingCommands,
-		openAddSite: () => openAddSite( 'blank' ),
+		openAddSite: () => openAddSite(),
 		openSettings: () => openSettings(),
 		openSite,
 		openChat: ( session ) => {

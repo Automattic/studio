@@ -1,11 +1,19 @@
 import { createContext, useContext } from 'react';
 import type { AiModelId, SelectedSiteFolder, SyncSite } from '@/data/core';
+import type { ComposerHandle } from '@/features/composer';
 import type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
-import type { CreateSiteFormDraft } from '@/features/sites/create-site-form';
+import type { CreateSiteFormDraft, CreateSiteFormError } from '@/features/sites/create-site-form';
 import type { AiProviderId } from '@studio/agent/protocol/providers';
 import type { Dispatch, SetStateAction } from 'react';
 
 export type SiteBackup = File | { path: string; name: string };
+
+export interface CreatedSetupSite {
+	siteId: string;
+	chatId?: string;
+	brief: ReturnType< ComposerHandle[ 'getSubmission' ] >;
+	error?: CreateSiteFormError;
+}
 
 export type SetupSource =
 	| { type: 'blank' }
@@ -37,7 +45,8 @@ interface AddSiteContextValue {
 	onFile: ( file: File ) => void;
 	onFolder: ( path?: string, usePath?: boolean ) => Promise< void >;
 	setBlueprintTransferred: ( transferred: boolean ) => void;
-	onSiteCreated: () => void;
+	createdSite?: CreatedSetupSite;
+	setCreatedSite: Dispatch< SetStateAction< CreatedSetupSite | undefined > >;
 	briefDraftKey: string;
 	aiChoice?: { model: AiModelId; provider: AiProviderId };
 	setAiChoice: ( choice: { model: AiModelId; provider: AiProviderId } ) => void;

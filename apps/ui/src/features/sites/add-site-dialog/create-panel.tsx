@@ -51,7 +51,6 @@ export function CreatePanel( { remote }: { remote?: SyncSite } ) {
 		setSource,
 		folderResetKey,
 		setBlueprintTransferred,
-		onSiteCreated,
 	} = useAddSite();
 	const [ restoredDraft ] = useState( setupDraft );
 	const { data: sites } = useSites();
@@ -141,7 +140,6 @@ export function CreatePanel( { remote }: { remote?: SyncSite } ) {
 					  }
 					: {} ),
 			} );
-			onSiteCreated();
 			pinNewSite( site.id );
 			await prompt.finish( site.id );
 		} catch {

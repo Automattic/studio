@@ -122,6 +122,16 @@ const studioConnect = async () => {
 const searchBox = () => screen.getByRole( 'textbox', { name: 'Search settings' } );
 
 describe( 'WordPress Studio settings', () => {
+	it( 'saves the preference for skipping the starting-point gallery', async () => {
+		const { connector } = await setup();
+		await choose( 'When adding a site', 'Start with a blank site' );
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+				{ newSiteBehavior: 'blank' },
+				undefined
+			)
+		);
+	} );
 	it.each( [ undefined, true, false ] )(
 		'saves the split-view startup setting from %s',
 		async ( value ) => {
@@ -166,6 +176,7 @@ describe( 'WordPress Studio settings', () => {
 
 	it.each( [
 		{ colorScheme: 'dark' as const },
+		{ newSiteBehavior: 'blank' as const },
 		{ accentColor: '#069e08' },
 		{ tintIntensity: 20 },
 		{ contrast: 30 },

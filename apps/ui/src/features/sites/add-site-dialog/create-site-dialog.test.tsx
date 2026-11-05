@@ -31,13 +31,11 @@ const remote = {
 afterEach( () => vi.unstubAllGlobals() );
 
 function setup( {
-	behavior = 'choose',
 	blueprint = portfolio,
 	path = '/?addSite=create',
 	colorScheme = 'light',
 	strict = false,
 }: {
-	behavior?: 'choose' | 'blank';
 	blueprint?: Blueprint | null;
 	path?: string;
 	colorScheme?: 'light' | 'dark';
@@ -63,11 +61,7 @@ function setup( {
 			getFilePath: async () => '/tmp/upload/backup.zip',
 		}
 	);
-	const history = createMemoryHistory( {
-		initialEntries: [
-			behavior === 'blank' && path === '/?addSite=create' ? '/?addSite=blank' : path,
-		],
-	} );
+	const history = createMemoryHistory( { initialEntries: [ path ] } );
 	const queryClient = createTestQueryClient();
 	const view = strict
 		? {
@@ -80,11 +74,7 @@ function setup( {
 				queryClient,
 				user: userEvent.setup(),
 		  }
-		: renderApp( {
-				connector,
-				path: behavior === 'blank' && path === '/?addSite=create' ? '/?addSite=blank' : path,
-				queryClient,
-		  } );
+		: renderApp( { connector, path, queryClient } );
 	return { ...view, connector, site };
 }
 
@@ -198,7 +188,7 @@ describe( 'Add site flow', () => {
 	);
 
 	it( 'keeps the name, custom folder and AI brief when going Back to the chooser and returning', async () => {
-		const { connector } = setup( { behavior: 'blank' } );
+		const { connector } = setup( { path: '/?addSite=blank' } );
 		connector.selectSiteFolder.mockResolvedValue( {
 			name: 'custom',
 			path: '/sites/custom',
@@ -417,7 +407,7 @@ describe( 'Add site flow', () => {
 	} );
 
 	it( 'opens direct blank setup with the standard Back and close controls', async () => {
-		const { connector } = setup( { behavior: 'blank' } );
+		const { connector } = setup( { path: '/?addSite=blank' } );
 		expect( await screen.findByLabelText( 'Site name' ) ).toHaveFocus();
 		expect( screen.queryByRole( 'tablist' ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'combobox', { name: 'Type' } ) ).not.toBeInTheDocument();
@@ -795,8 +785,9 @@ describe( 'Modal-wide file drops', () => {
 						? '/?addSite=import'
 						: area === 'upload'
 						? '/?addSite=upload'
+						: area === 'setup'
+						? '/?addSite=blank'
 						: '/?addSite=create',
-				behavior: area === 'setup' ? 'blank' : 'choose',
 			} );
 			const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
 			connector.extractBlueprintBundle.mockResolvedValueOnce( extracted() );
@@ -849,7 +840,7 @@ describe( 'Modal-wide file drops', () => {
 	} );
 
 	it( 'preserves edits and a valid Blueprint after a failed replacement', async () => {
-		const { connector } = setup( { behavior: 'blank' } );
+		const { connector } = setup( { path: '/?addSite=blank' } );
 		await screen.findByLabelText( 'Site name' );
 		connector.extractBlueprintBundle.mockResolvedValueOnce( extracted() );
 		drop( screen.getByRole( 'dialog', { name: 'Add site' } ) );
@@ -880,7 +871,7 @@ describe( 'Modal-wide file drops', () => {
 	} );
 
 	it( 'cleans a superseded bundle and ignores drops during creation', async () => {
-		const { connector } = setup( { behavior: 'blank' } );
+		const { connector } = setup( { path: '/?addSite=blank' } );
 		await screen.findByLabelText( 'Site name' );
 		let complete!: ( value: ReturnType< typeof extracted > ) => void;
 		connector.extractBlueprintBundle.mockReturnValueOnce(

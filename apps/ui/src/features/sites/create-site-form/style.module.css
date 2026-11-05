@@ -12,7 +12,6 @@
 	gap: var( --space-5 );
 }
 
-.identity,
 .paired {
 	display: grid;
 	grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
@@ -20,22 +19,8 @@
 	gap: var( --space-3 );
 }
 
-.identity {
-	grid-template-columns: minmax( 0, 1fr );
-}
-
-.identity[data-paired] {
-	grid-template-columns: minmax( 0, 1fr ) 144px;
-}
-
 .paired:has( > :only-child ) {
 	grid-template-columns: minmax( 0, 1fr );
-}
-
-@container ( width < 380px ) {
-	.identity[data-paired] {
-		grid-template-columns: minmax( 0, 1fr );
-	}
 }
 
 .actions {
@@ -225,27 +210,4 @@
 	font-size: var( --text-2xs );
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
-}
-
-.source {
-	display: flex;
-	align-items: center;
-	gap: var( --space-3 );
-	padding: var( --space-3 );
-	border: 1px solid var( --border );
-	border-radius: var( --radius-lg );
-	background: var( --background );
-}
-
-.source svg {
-	flex: none;
-	color: var( --muted-foreground );
-}
-
-.source > span {
-	flex: 1;
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }

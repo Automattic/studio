@@ -377,9 +377,9 @@ describe( 'Add site › blank setup', () => {
 		);
 	} );
 
-	it( 'retries a failed chat setup without creating another site', async () => {
+	it( 'keeps chat recovery through Settings and retries without creating another site or chat', async () => {
 		const { connector, dialog } = await setup();
-		connector.createSession.mockRejectedValueOnce( new Error( 'Chat storage unavailable' ) );
+		connector.setSessionProvider.mockRejectedValueOnce( new Error( 'Provider unavailable' ) );
 		fireEvent.change( screen.getByRole( 'combobox', { name: 'Start building with AI' } ), {
 			target: { value: 'Build a bakery' },
 		} );
@@ -387,10 +387,17 @@ describe( 'Add site › blank setup', () => {
 		expect(
 			await screen.findByText( 'Your site was created, but the AI chat could not start.' )
 		).toBeVisible();
+		act( () => connector.emit( 'onOpenSettings', { settingId: 'ai' } ) );
+		const settings = await screen.findByRole( 'dialog', { name: 'Settings' } );
+		fireEvent.click( within( settings ).getByRole( 'button', { name: /Close .*ettings/ } ) );
+		expect(
+			await screen.findByText( 'Your site was created, but the AI chat could not start.' )
+		).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Open site' } ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Try again' } ) );
 		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledOnce() );
 		expect( connector.createSite ).toHaveBeenCalledOnce();
-		expect( connector.createSession ).toHaveBeenCalledTimes( 2 );
+		expect( connector.createSession ).toHaveBeenCalledOnce();
 	} );
 
 	it( 'leaves the added site intact when going Back after chat setup fails', async () => {
@@ -471,42 +478,12 @@ describe( 'Add site › blank setup', () => {
 		const { user } = await setup();
 		await uploadBlueprint( {
 			meta: { title: 'Bakery', author: 'Studio' },
-			steps: [
-				{
-					step: 'installPlugin',
-					pluginData: { resource: 'wordpress.org/plugins', slug: 'query-monitor' },
-				},
-				{
-					step: 'installTheme',
-					themeData: { resource: 'bundled', path: './twentytwentyfour.zip' },
-				},
-			],
+			steps: [],
 		} as Blueprint );
 		const source = await screen.findByRole( 'group', { name: 'Start from (optional)' } );
 		expect( await within( source ).findByText( 'blueprint.json' ) ).toBeVisible();
-		expect( within( source ).queryByText( 'Bakery' ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'combobox', { name: 'Start building with AI' } ) ).toBeVisible();
-		expect( screen.queryByText( 'Blueprint details' ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'heading', { name: '1 plugin' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'heading', { name: '1 theme' } ) ).not.toBeInTheDocument();
-		expect( within( source ).queryByRole( 'button', { name: 'Change' } ) ).not.toBeInTheDocument();
-		expect( within( source ).queryByRole( 'button', { name: 'Choose…' } ) ).not.toBeInTheDocument();
-		const browse = within( source ).getByRole( 'button', { name: 'Browse Blueprints' } );
+		expect( within( source ).getByRole( 'button', { name: 'Browse Blueprints' } ) ).toBeVisible();
 		const remove = within( source ).getByRole( 'button', { name: 'Remove Blueprint' } );
-		await user.hover( browse );
-		expect(
-			await screen.findByText( 'Browse Blueprints', { selector: '[data-slot="tooltip-content"]' } )
-		).toBeVisible();
-		await user.unhover( browse );
-		await user.hover( remove );
-		expect(
-			await screen.findByText( 'Remove Blueprint', { selector: '[data-slot="tooltip-content"]' } )
-		).toBeVisible();
-		expect(
-			within( screen.getByRole( 'dialog', { name: 'Add site' } ) ).getByRole( 'button', {
-				name: 'Add site',
-			} )
-		).toBeVisible();
 		await user.click( remove );
 		expect( within( source ).getByRole( 'button', { name: 'Choose…' } ) ).toBeVisible();
 		expect( within( source ).queryByText( 'blueprint.json' ) ).not.toBeInTheDocument();

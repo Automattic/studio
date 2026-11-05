@@ -17,6 +17,7 @@ import {
 	SIDEBAR_SITE_SORTS,
 	SIDEBAR_CHAT_SORTS,
 	INTERFACE_PREFERENCE_DEFAULTS,
+	NEW_SITE_BEHAVIORS,
 	QUIT_SITES_BEHAVIORS,
 	SUPPORTED_COLOR_SCHEMES,
 } from '@studio/common/lib/user-settings/preferences';
@@ -27,6 +28,7 @@ import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type {
 	ColorScheme,
 	ColorTint,
+	NewSiteBehavior,
 	QuitSitesBehavior,
 	SidebarPinnedSort,
 	SidebarSiteSort,
@@ -63,6 +65,7 @@ export interface UserPreferences extends ColorTint {
 	autoStartSiteOnChat: boolean;
 	openChatOnSiteStart: boolean;
 	batchAnnotations: boolean;
+	newSiteBehavior: NewSiteBehavior;
 }
 
 // Passed in, so this stays a pure reader over the config files.
@@ -108,6 +111,7 @@ export const userPreferencesPatchSchema = z.object( {
 	autoStartSiteOnChat: z.boolean().nullish(),
 	openChatOnSiteStart: z.boolean().nullish(),
 	batchAnnotations: z.boolean().nullish(),
+	newSiteBehavior: z.enum( NEW_SITE_BEHAVIORS ).nullish(),
 	accentColor: z
 		.string()
 		.regex( /^#[0-9a-f]{6}$/i )
@@ -139,6 +143,7 @@ const APP_CONFIG_KEYS = [
 	[ 'autoStartSiteOnChat', 'autoStartSiteOnChat' ],
 	[ 'openChatOnSiteStart', 'openChatOnSiteStart' ],
 	[ 'batchAnnotations', 'batchAnnotations' ],
+	[ 'newSiteBehavior', 'newSiteBehavior' ],
 	[ 'accentColor', 'accentColor' ],
 	[ 'tintIntensity', 'tintIntensity' ],
 	[ 'contrast', 'contrast' ],
@@ -163,6 +168,7 @@ export async function readUserPreferences( {
 		batchAnnotations,
 		showRecentChats,
 		autoCollapseSites,
+		newSiteBehavior,
 	} = INTERFACE_PREFERENCE_DEFAULTS;
 
 	const sidebarChatOrder = sidebarChatOrderSchema.catch( {} ).parse( config.sidebarChatOrder );
@@ -201,6 +207,10 @@ export async function readUserPreferences( {
 			.catch( openChatOnSiteStart )
 			.parse( config.openChatOnSiteStart ),
 		batchAnnotations: z.boolean().catch( batchAnnotations ).parse( config.batchAnnotations ),
+		newSiteBehavior: z
+			.enum( NEW_SITE_BEHAVIORS )
+			.catch( newSiteBehavior )
+			.parse( config.newSiteBehavior ),
 		...getColorTint( config ),
 	};
 }

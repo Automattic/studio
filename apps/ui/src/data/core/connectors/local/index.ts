@@ -907,6 +907,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async openExternalUrl( url ) {
 			window.open( url, '_blank', 'noopener,noreferrer' );
 		},
+		async sendFeedback( feedback ) {
+			return api< { feedbackId: number } >( '/feedback', {
+				method: 'POST',
+				body: JSON.stringify( feedback ),
+			} );
+		},
 		async getWapuuScore() {
 			return readWapuuScore( WAPUU_SCORE_STORAGE_KEY );
 		},

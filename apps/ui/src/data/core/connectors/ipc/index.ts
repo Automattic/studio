@@ -762,6 +762,12 @@ export function createIpcConnector(): Connector {
 			ipcApi.openURL( url );
 		},
 
+		async sendFeedback( feedback ) {
+			return ( await unwrapIpcError( ipcApi.sendFeedback( feedback ) ) ) as {
+				feedbackId: number;
+			};
+		},
+
 		async getWapuuScore(): Promise< number | undefined > {
 			return ( await ipcApi.getWapuuScore() ) as number | undefined;
 		},

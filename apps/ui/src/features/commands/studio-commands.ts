@@ -1,6 +1,6 @@
 import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
 import { __, sprintf } from '@wordpress/i18n';
-import { SettingsIcon } from 'lucide-react';
+import { MessageSquareTextIcon, SettingsIcon } from 'lucide-react';
 import { getSections, getSettingsCommandAliases } from '@/data/settings-sections';
 import { getSessionTitle } from '@/features/chats';
 import {
@@ -106,6 +106,7 @@ export function getAppCommands( {
 	toggleSidebar,
 	openNotifications,
 	openWhatsNew,
+	openFeedback,
 	collapseAll,
 }: {
 	sites: SiteDetails[];
@@ -121,6 +122,7 @@ export function getAppCommands( {
 	toggleSidebar: () => void;
 	openNotifications: () => void;
 	openWhatsNew: () => void;
+	openFeedback: () => void;
 	// Set while the sidebar has more than one site unfolded.
 	collapseAll?: () => void;
 } ): PaletteCommand[] {
@@ -195,6 +197,16 @@ export function getAppCommands( {
 			icon: WhatsNewIcon,
 			keywords: [ __( 'New features' ) ],
 			run: openWhatsNew,
+		},
+		{
+			id: 'send-feedback',
+			group: 'commands',
+			label: __( 'Send feedback' ),
+			icon: MessageSquareTextIcon,
+			description: __( 'Tell the Studio team about a bug or an idea.' ),
+			aliases: [ __( 'Feedback' ) ],
+			keywords: [ __( 'Report a bug' ), __( 'Feature request' ), __( 'Studio team' ) ],
+			run: openFeedback,
 		},
 		...( collapseAll
 			? [

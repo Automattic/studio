@@ -74,6 +74,8 @@ import {
 	getConnectedWpcomSitesForLocalSite,
 	removeConnectedWpcomSite,
 } from '@studio/common/lib/connected-sites';
+import { getErrorMessage } from '@studio/common/lib/error-formatting';
+import { sendStudioFeedback, STUDIO_FEEDBACK_TYPES } from '@studio/common/lib/feedback';
 import {
 	arePathsEqual,
 	calculateDirectorySizeForArchive,
@@ -236,6 +238,8 @@ export interface LocalServerOptions {
 	recordTracksEvent?: ( event: TracksEventName, props?: TracksProps ) => Promise< void >;
 	// Screenshots a page of a running site; absent when no browser is available.
 	capturePreview?: ( url: string, size: { width: number; height: number } ) => Promise< Buffer >;
+	// `WordPressStudio/<version>`, sent with feedback reports. Injected by `studio ui`.
+	userAgent?: string;
 }
 
 export interface LocalServer {
@@ -1591,6 +1595,35 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				},
 			} );
 			res.status( 204 ).end();
+		} )
+	);
+
+	// --- Feedback — one report to the Studio team, through the shared sender ---
+	api.post(
+		'/feedback',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = z
+				.object( { type: z.enum( STUDIO_FEEDBACK_TYPES ), message: z.string().trim().min( 1 ) } )
+				.safeParse( req.body ?? {} );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'type and message required' } );
+				return;
+			}
+			const token = await readAuthToken();
+			if ( ! token?.accessToken ) {
+				res.status( 401 ).json( { error: 'Log in to WordPress.com to send feedback.' } );
+				return;
+			}
+			try {
+				res.json(
+					await sendStudioFeedback( parsed.data, {
+						accessToken: token.accessToken,
+						userAgent: options.userAgent ?? 'WordPressStudio',
+					} )
+				);
+			} catch ( error ) {
+				res.status( 502 ).json( { error: getErrorMessage( error ) ?? String( error ) } );
+			}
 		} )
 	);
 

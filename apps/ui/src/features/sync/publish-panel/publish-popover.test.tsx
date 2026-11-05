@@ -140,6 +140,12 @@ describe( 'PublishPopover', () => {
 			const destination = { ...remote, pushNeedsUpgrade };
 			const { connector, ready } = setup( [ destination ], true, true, false );
 			connector.fetchSyncableWpcomSites.mockResolvedValue( [ destination ] );
+			if ( pushNeedsUpgrade ) {
+				// WordPress.com refuses Backup requests for sites without a qualifying plan.
+				connector.getLatestRewindId.mockRejectedValue(
+					new Error( 'Sorry, syncing isn’t available for this site.' )
+				);
+			}
 			await ready;
 			const pull = await screen.findByRole( 'button', { name: 'Pull changes' } );
 			expect( pull ).toBeEnabled();
@@ -164,6 +170,7 @@ describe( 'PublishPopover', () => {
 					'This website needs a hosting plan that supports publishing from WordPress Studio.'
 				)
 			).not.toBeInTheDocument();
+			expect( connector.getLatestRewindId ).toHaveBeenCalledTimes( pushNeedsUpgrade ? 0 : 1 );
 		}
 	);
 

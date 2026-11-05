@@ -53,6 +53,7 @@ describe( 'site versions', () => {
 		],
 		[ 'a published post', true, () => query( "INSERT INTO wp_posts VALUES ('Hello', 'publish')" ) ],
 		[ 'a debug log', false, () => write( 'wp-content/debug.log', 'notice' ) ],
+		[ 'a page cache', false, () => write( 'wp-content/cache/page_optimize/a', 'css' ) ],
 		[
 			'a file rewritten with the same content',
 			false,

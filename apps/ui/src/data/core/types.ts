@@ -517,7 +517,7 @@ export interface Connector {
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
 
-	// Sends feedback about Studio to the Studio team and returns the ID the
+	// Sends feedback about WordPress Studio to the WordPress Studio team and returns the ID the
 	// service assigned it. Needs the WordPress.com login.
 	sendFeedback( feedback: StudioFeedback ): Promise< { feedbackId: number } >;
 

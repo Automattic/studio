@@ -203,9 +203,9 @@ export function getAppCommands( {
 			group: 'commands',
 			label: __( 'Send feedback' ),
 			icon: MessageSquareTextIcon,
-			description: __( 'Share your experience with the Studio team.' ),
+			description: __( 'Share your experience with the WordPress Studio team.' ),
 			aliases: [ __( 'Feedback' ) ],
-			keywords: [ __( 'Report a bug' ), __( 'Feature request' ), __( 'Studio team' ) ],
+			keywords: [ __( 'Report a bug' ), __( 'Feature request' ), __( 'WordPress Studio team' ) ],
 			run: openFeedback,
 		},
 		...( collapseAll

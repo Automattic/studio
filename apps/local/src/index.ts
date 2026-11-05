@@ -1598,7 +1598,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// --- Feedback — one report to the Studio team, through the shared sender ---
+	// --- Feedback — one report to the WordPress Studio team, through the shared sender ---
 	api.post(
 		'/feedback',
 		asyncHandler( async ( req: Request, res: Response ) => {

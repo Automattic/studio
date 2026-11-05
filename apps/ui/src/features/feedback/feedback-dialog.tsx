@@ -42,7 +42,7 @@ const getTypeOptions = (): Array< { value: StudioFeedbackType; label: string } >
 ];
 
 /**
- * Sends feedback to the Studio team without going through a chat. Opened by
+ * Sends feedback to the WordPress Studio team without going through a chat. Opened by
  * the `feedback` search param (`?feedback=true`).
  */
 export function FeedbackDialog() {
@@ -92,7 +92,7 @@ function FeedbackForm() {
 					<DialogTitle>{ __( 'Send feedback' ) }</DialogTitle>
 					<DialogDescription>
 						{ __(
-							'Log in to WordPress.com to send feedback to the Studio team, or report it on GitHub.'
+							'Log in to WordPress.com to send feedback to the WordPress Studio team, or report it on GitHub.'
 						) }
 					</DialogDescription>
 				</DialogHeader>
@@ -121,7 +121,7 @@ function FeedbackForm() {
 							sprintf(
 								/* translators: %s: the ID the feedback service assigned to the report */
 								__(
-									'Thanks for helping make Studio better. The reference ID for your feedback submission is <id>%s</id>.'
+									'Thanks for helping make WordPress Studio better. The reference ID for your feedback submission is <id>%s</id>.'
 								),
 								String( send.data.feedbackId )
 							),
@@ -158,7 +158,9 @@ function FeedbackForm() {
 			<DialogHeader>
 				<DialogTitle>{ __( 'Send feedback' ) }</DialogTitle>
 				<DialogDescription>
-					{ __( 'Goes to the Studio team at Automattic, with your Studio version and OS.' ) }
+					{ __(
+						'Goes to the WordPress Studio team at Automattic, with your WordPress Studio version and operating system.'
+					) }
 				</DialogDescription>
 			</DialogHeader>
 			<div className={ styles.fields }>

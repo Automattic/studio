@@ -163,6 +163,7 @@ import {
 	listSiteEmails,
 	readSiteEmail,
 } from '@studio/common/sites/site-email';
+import { readGlobalStyles } from '@studio/common/sites/site-identity';
 import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import {
 	deleteAllPreviewSites,
@@ -1027,7 +1028,11 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			res.json( await readSiteDesign( sitePath, activeThemeSlug( sitePath ) ) );
+			res.json(
+				await readSiteDesign( sitePath, activeThemeSlug( sitePath ), () =>
+					readGlobalStyles( execute, sitePath )
+				)
+			);
 		} )
 	);
 

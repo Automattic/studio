@@ -8,6 +8,7 @@
 import { createHash, randomUUID } from 'crypto';
 import { mkdir, readdir, readFile, rename, rm, unlink, writeFile } from 'fs/promises';
 import path from 'path';
+import { PREVIEW_SHORTCUTS_SCRIPT } from './preview-shortcuts-script.ts';
 import { getMuPluginsPath } from './well-known-paths.ts';
 
 export interface MuPlugin {
@@ -68,6 +69,18 @@ function getLoaderMuPluginContent( muPluginsDir: string ): string {
 
 function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	const muPlugins: MuPlugin[] = [];
+	muPlugins.push( {
+		filename: '0-preview-shortcuts.php',
+		content: `<?php
+		function studio_preview_shortcuts() {
+			echo <<<'STUDIO_PREVIEW_SHORTCUTS'
+<script>${ PREVIEW_SHORTCUTS_SCRIPT }</script>
+STUDIO_PREVIEW_SHORTCUTS;
+		}
+		add_action( 'wp_head', 'studio_preview_shortcuts' );
+		add_action( 'login_head', 'studio_preview_shortcuts' );
+		`,
+	} );
 
 	// Capture PHP errors so a failed site start can show why (STU-1757).
 	if ( options.errorLogPath ) {
@@ -303,6 +316,22 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 				'supportsMenus' => (bool) ( get_registered_nav_menus() || current_theme_supports( 'menus' ) ),
 			];
 			echo json_encode( $result );
+		} );
+
+		/**
+		 * Gets merged core, theme and user styles for block themes.
+		 *
+		 * @when after_wp_load
+		 */
+		WP_CLI::add_command( 'studio get-global-styles', function() {
+			if ( ! wp_is_block_theme() ) {
+				echo wp_json_encode( null );
+				return;
+			}
+			echo wp_json_encode( [
+				'settings' => (object) wp_get_global_settings(),
+				'styles' => (object) wp_get_global_styles( [], [ 'transforms' => [ 'resolve-variables' ] ] ),
+			] );
 		} );
 
 		`,

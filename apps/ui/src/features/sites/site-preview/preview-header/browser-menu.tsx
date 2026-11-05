@@ -44,7 +44,11 @@ function BrowserMenuItems( { actions, adminBar, disabled }: BrowserMenuItemsProp
 				</>
 			) : null }
 			{ adminBar ? (
-				<Menu.SubmenuRoot>
+				<Menu.SubmenuRoot
+					onOpenChange={ ( open ) => {
+						if ( open ) adminBar.onRead();
+					} }
+				>
 					<Menu.SubmenuTrigger disabled={ disabled || adminBar.saving }>
 						{ __( 'Admin bar' ) }
 					</Menu.SubmenuTrigger>

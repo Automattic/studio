@@ -1,10 +1,10 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
+import { READ_ADMIN_BAR_VISIBILITY_SCRIPT } from '@studio/common/lib/preview-shortcuts-script';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { useSyncExternalStore, type ComponentProps } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts } from '@/data/app-messages';
 import { useSites } from '@/data/queries/use-sites';
-import { USER_PREFERENCES_QUERY_KEY } from '@/data/queries/use-user-preferences';
 import { updateResponsivePreview } from '@/data/responsive-preview';
 import { SessionUIProvider } from '@/data/use-session-ui';
 import {
@@ -90,6 +90,7 @@ async function renderPreview(
 type Guest = HTMLElement & {
 	reload: ReturnType< typeof vi.fn >;
 	loadURL: ReturnType< typeof vi.fn >;
+	adminBarVisible: boolean;
 };
 
 function page() {
@@ -101,7 +102,10 @@ function guest( extra: Record< string, unknown > = {} ) {
 	Object.assign( element, {
 		loadURL: vi.fn( async () => {} ),
 		reload: vi.fn(),
-		executeJavaScript: vi.fn( async () => undefined ),
+		adminBarVisible: false,
+		executeJavaScript: vi.fn( async ( script: string ) =>
+			script === READ_ADMIN_BAR_VISIBILITY_SCRIPT ? element.adminBarVisible : undefined
+		),
 		getWebContentsId: () => 42,
 		...extra,
 	} );
@@ -115,6 +119,24 @@ function finishLoading( runtime: Runtime ) {
 		fireEvent( element, new Event( 'did-stop-loading' ) );
 	} else {
 		fireEvent.load( element );
+	}
+}
+
+function reportAdminBarVisibility( runtime: Runtime, visible: boolean ) {
+	const element = page()!;
+	if ( runtime === 'desktop' ) {
+		( element as Guest ).adminBarVisible = visible;
+		fireEvent( element, new Event( 'did-navigate' ) );
+		fireEvent( element, new Event( 'did-stop-loading' ) );
+	} else {
+		fireEvent(
+			window,
+			new MessageEvent( 'message', {
+				source: ( element as HTMLIFrameElement ).contentWindow,
+				origin: SITE_URL,
+				data: { type: 'studio:preview:admin-bar-state', visible },
+			} )
+		);
 	}
 }
 
@@ -815,12 +837,16 @@ describe( 'preview browser menu', () => {
 			const before = runtime === 'desktop' ? guest() : page()!;
 			if ( runtime === 'desktop' ) fireEvent( before, new Event( 'dom-ready' ) );
 			finishLoading( runtime );
+			reportAdminBarVisibility( runtime, ! defaultHidden );
 			const openAdminBar = async () => {
 				await openBrowserOptions( user );
 				fireEvent.click( screen.getByRole( 'menuitem', { name: 'Admin bar' } ) );
 				return screen.findByRole( 'menuitemradio', { name: defaultLabel } );
 			};
-			expect( await openAdminBar() ).toBeChecked();
+			await openAdminBar();
+			await waitFor( () =>
+				expect( screen.getByRole( 'menuitemradio', { name: defaultLabel } ) ).toBeChecked()
+			);
 			expect( screen.getAllByRole( 'menuitemradio' ) ).toHaveLength( 2 );
 			await user.click( screen.getByRole( 'menuitemradio', { name: overrideLabel } ) );
 			await waitFor( () =>
@@ -839,19 +865,25 @@ describe( 'preview browser menu', () => {
 					);
 				else expect( ( before as Guest ).reload ).toHaveBeenCalledOnce();
 			} );
+			reportAdminBarVisibility( runtime, defaultHidden );
 			await openAdminBar();
-			expect( screen.getByRole( 'menuitemradio', { name: overrideLabel } ) ).toBeChecked();
+			await waitFor( () =>
+				expect( screen.getByRole( 'menuitemradio', { name: overrideLabel } ) ).toBeChecked()
+			);
 			await user.click( screen.getByRole( 'menuitemradio', { name: defaultLabel } ) );
 			await waitFor( () =>
 				expect( connector.setSiteFrontendAdminBar ).toHaveBeenLastCalledWith( 'one', null )
 			);
+			reportAdminBarVisibility( runtime, ! defaultHidden );
 			await openAdminBar();
-			expect( screen.getByRole( 'menuitemradio', { name: defaultLabel } ) ).toBeChecked();
+			await waitFor( () =>
+				expect( screen.getByRole( 'menuitemradio', { name: defaultLabel } ) ).toBeChecked()
+			);
 		}
 	);
 
 	it.each( [ 'browser', 'desktop' ] as const )(
-		'signs in from the %s Show action even when it is already selected, after saving',
+		'signs in from the logged-out %s Show action after saving',
 		async ( runtime ) => {
 			const connector = createFakeConnector( { sites: [ site() ] } );
 			let finish = () => {};
@@ -864,6 +896,7 @@ describe( 'preview browser menu', () => {
 			const before = runtime === 'desktop' ? guest() : page()!;
 			if ( runtime === 'desktop' ) fireEvent( before, new Event( 'dom-ready' ) );
 			finishLoading( runtime );
+			reportAdminBarVisibility( runtime, false );
 			const postMessage =
 				runtime === 'browser'
 					? vi.spyOn( ( before as HTMLIFrameElement ).contentWindow!, 'postMessage' )
@@ -871,7 +904,7 @@ describe( 'preview browser menu', () => {
 			await openBrowserOptions( user );
 			fireEvent.click( screen.getByRole( 'menuitem', { name: 'Admin bar' } ) );
 			const show = await screen.findByRole( 'menuitemradio', { name: 'Show' } );
-			expect( show ).toBeChecked();
+			expect( show ).not.toBeChecked();
 			await user.click( show );
 			await waitFor( () =>
 				expect( connector.setSiteFrontendAdminBar ).toHaveBeenCalledWith( 'one', null )
@@ -950,31 +983,46 @@ describe( 'preview browser menu', () => {
 		}
 	);
 
-	it.each( [ undefined, false, true ] )(
-		'updates the selected value when the Studio default changes (site override: %s)',
-		async ( hideFrontendAdminBar ) => {
+	it.each( [
+		[ 'browser', false, undefined ],
+		[ 'desktop', false, undefined ],
+		[ 'browser', true, undefined ],
+		[ 'desktop', true, undefined ],
+		[ 'browser', true, false ],
+		[ 'desktop', true, false ],
+		[ 'browser', false, true ],
+		[ 'desktop', false, true ],
+	] as const )(
+		'reflects the %s page across login without changing preferences (default: %s, override: %s)',
+		async ( runtime, defaultHidden, hideFrontendAdminBar ) => {
 			const connector = createFakeConnector( {
 				sites: [ site( { hideFrontendAdminBar } ) ],
-				preferences: { hideFrontendAdminBar: false },
+				preferences: { hideFrontendAdminBar: defaultHidden },
 			} );
-			const { user, queryClient } = await renderPreview( 'browser', {}, connector );
+			const { user } = await renderPreview( runtime, {}, connector );
+			if ( runtime === 'desktop' ) {
+				guest();
+				fireEvent( page()!, new Event( 'dom-ready' ) );
+			}
+			finishLoading( runtime );
+			reportAdminBarVisibility( runtime, false );
 			await openBrowserOptions( user );
 			fireEvent.click( screen.getByRole( 'menuitem', { name: 'Admin bar' } ) );
-			expect(
-				await screen.findByRole( 'menuitemradio', { name: hideFrontendAdminBar ? 'Hide' : 'Show' } )
-			).toBeChecked();
-			await act( async () => {
-				await connector.setUserPreferences( { hideFrontendAdminBar: true } );
-				await queryClient.invalidateQueries( { queryKey: USER_PREFERENCES_QUERY_KEY } );
-			} );
+			await waitFor( () =>
+				expect( screen.getByRole( 'menuitemradio', { name: 'Hide' } ) ).toBeChecked()
+			);
+			const visibleAfterLogin = ! ( hideFrontendAdminBar ?? defaultHidden );
+			reportAdminBarVisibility( runtime, visibleAfterLogin );
 			await waitFor( () =>
 				expect(
 					screen.getByRole( 'menuitemradio', {
-						name: hideFrontendAdminBar === false ? 'Show' : 'Hide',
+						name: visibleAfterLogin ? 'Show' : 'Hide',
 					} )
 				).toBeChecked()
 			);
 			expect( connector.setSiteFrontendAdminBar ).not.toHaveBeenCalled();
+			expect( connector.setUserPreferences ).not.toHaveBeenCalled();
+			expect( connector.state.sites[ 0 ].hideFrontendAdminBar ).toBe( hideFrontendAdminBar );
 			expect( page()!.getAttribute( 'src' ) ).not.toContain( '/studio-auto-login' );
 		}
 	);
@@ -988,6 +1036,7 @@ describe( 'preview browser menu', () => {
 			connector.setSiteFrontendAdminBar.mockRejectedValueOnce( new Error( 'Disk full' ) );
 			const { user } = await renderPreview( 'browser', {}, connector );
 			const before = page();
+			reportAdminBarVisibility( 'browser', value === 'Hide' );
 			await openBrowserOptions( user );
 			fireEvent.click( screen.getByRole( 'menuitem', { name: 'Admin bar' } ) );
 			await user.click( await screen.findByRole( 'menuitemradio', { name: value } ) );

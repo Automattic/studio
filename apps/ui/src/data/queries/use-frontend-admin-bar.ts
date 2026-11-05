@@ -13,13 +13,17 @@ type FrontendAdminBarPreference = 'show' | 'hide';
 export function useFrontendAdminBar( {
 	site,
 	active,
+	visible,
 	onReload,
 	onShow,
+	onRead,
 }: {
 	site: SiteDetails;
 	active: boolean;
+	visible: boolean | null;
 	onReload: () => void;
 	onShow: () => void;
+	onRead: () => void;
 } ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
@@ -79,7 +83,8 @@ export function useFrontendAdminBar( {
 	} );
 
 	return {
-		value: hidden ? ( 'hide' as const ) : ( 'show' as const ),
+		value: visible === null ? '' : visible ? ( 'show' as const ) : ( 'hide' as const ),
+		onRead,
 		saving: save.isPending || ! preferences,
 		onChange: ( value: FrontendAdminBarPreference ) => {
 			if ( save.isPending ) return;

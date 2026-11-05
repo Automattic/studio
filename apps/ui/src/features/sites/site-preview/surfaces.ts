@@ -30,6 +30,7 @@ export interface PreviewSurfaceState {
 	browser: BrowserNavigationState;
 	// The annotation inspector is running in the page.
 	inspectorReady: boolean;
+	adminBarVisible: boolean | null;
 	browserCommand: BrowserCommand | null;
 	// The last reload command, which a frame applies by remounting. Kept apart
 	// from `browserCommand` so a later back or forward doesn't remount it again.
@@ -52,6 +53,7 @@ export function createPreviewSurface( path: string, reloadNonce: number ): Previ
 		path,
 		browser: EMPTY_BROWSER_STATE,
 		inspectorReady: false,
+		adminBarVisible: null,
 		browserCommand: null,
 		reloadCommandId: 0,
 		reloadNonce,
@@ -65,6 +67,7 @@ function arePreviewSurfacesEqual( a: PreviewSurfaceState, b: PreviewSurfaceState
 		a.browserCommand === b.browserCommand &&
 		a.reloadCommandId === b.reloadCommandId &&
 		a.inspectorReady === b.inspectorReady &&
+		a.adminBarVisible === b.adminBarVisible &&
 		areBrowserStatesEqual( a.browser, b.browser )
 	);
 }

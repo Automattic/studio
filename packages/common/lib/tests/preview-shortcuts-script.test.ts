@@ -1,7 +1,10 @@
 /** @vitest-environment node */
 import { runInNewContext } from 'node:vm';
 import { describe, expect, it, vi } from 'vitest';
-import { PREVIEW_SHORTCUTS_SCRIPT } from '../preview-shortcuts-script';
+import {
+	PREVIEW_SHORTCUTS_SCRIPT,
+	READ_ADMIN_BAR_VISIBILITY_SCRIPT,
+} from '../preview-shortcuts-script';
 
 function createPage( pathname = '/', apple = true ) {
 	const postMessage = vi.fn();
@@ -12,7 +15,8 @@ function createPage( pathname = '/', apple = true ) {
 		addEventListener: ( name: string, handler: ( event: object ) => void ) =>
 			handlers.set( name, handler ),
 	};
-	const document = { addEventListener: window.addEventListener };
+	const bar = { visible: false, checkVisibility: () => bar.visible };
+	const document = { addEventListener: window.addEventListener, getElementById: () => bar };
 	const location = { pathname, href: `http://localhost:9010${ pathname }`, assign: vi.fn() };
 	runInNewContext( PREVIEW_SHORTCUTS_SCRIPT, { window, document, location, URL } );
 	const login = ( source: unknown = parent, origin = 'http://localhost:8081' ) =>
@@ -26,6 +30,12 @@ function createPage( pathname = '/', apple = true ) {
 			source,
 			origin,
 			data: { type: 'studio:preview-shortcuts:init', apple },
+		} );
+	const readAdminBar = ( source: unknown = parent, origin = 'http://localhost:8081' ) =>
+		handlers.get( 'message' )!( {
+			source,
+			origin,
+			data: { type: 'studio:preview:read-admin-bar' },
 		} );
 	const press = ( overrides = {} ) => {
 		const event = {
@@ -44,10 +54,53 @@ function createPage( pathname = '/', apple = true ) {
 		handlers.get( 'keydown' )!( event );
 		return event;
 	};
-	return { initialize, press, postMessage, login, location };
+	return { initialize, press, postMessage, login, location, bar, readAdminBar };
 }
 
 describe( 'browser preview shortcut bridge', () => {
+	it( 'reports the actual toolbar visibility at initialization and when asked again', () => {
+		const page = createPage();
+		page.initialize();
+		expect( page.postMessage ).toHaveBeenLastCalledWith(
+			{ type: 'studio:preview:admin-bar-state', visible: false },
+			'http://localhost:8081'
+		);
+		page.bar.visible = true;
+		page.readAdminBar();
+		expect( page.postMessage ).toHaveBeenLastCalledWith(
+			{ type: 'studio:preview:admin-bar-state', visible: true },
+			'http://localhost:8081'
+		);
+	} );
+
+	it( 'only reports toolbar state to its initialized parent origin', () => {
+		const page = createPage();
+		page.readAdminBar();
+		expect( page.postMessage ).not.toHaveBeenCalled();
+		page.initialize();
+		page.postMessage.mockClear();
+		page.readAdminBar( {} );
+		page.readAdminBar( undefined, 'https://unrelated.test' );
+		expect( page.postMessage ).not.toHaveBeenCalled();
+	} );
+
+	it( 'treats a missing toolbar as hidden and checks CSS visibility when present', () => {
+		expect(
+			runInNewContext( READ_ADMIN_BAR_VISIBILITY_SCRIPT, {
+				document: { getElementById: () => null },
+			} )
+		).toBe( false );
+		const checkVisibility = vi.fn( () => true );
+		expect(
+			runInNewContext( READ_ADMIN_BAR_VISIBILITY_SCRIPT, {
+				document: { getElementById: () => ( { checkVisibility } ) },
+			} )
+		).toBe( true );
+		expect( checkVisibility ).toHaveBeenCalledWith( {
+			checkOpacity: true,
+			checkVisibilityCSS: true,
+		} );
+	} );
 	it( 'signs in through the local endpoint and returns to the current page', () => {
 		const page = createPage( '/sample-page/' );
 		page.location.href += '?preview=1#details';
@@ -100,7 +153,10 @@ describe( 'browser preview shortcut bridge', () => {
 		const page = createPage( path );
 		page.initialize();
 		expect( page.press().preventDefault ).not.toHaveBeenCalled();
-		expect( page.postMessage ).not.toHaveBeenCalled();
+		expect( page.postMessage ).not.toHaveBeenCalledWith(
+			{ type: 'studio:preview-shortcuts:command-palette' },
+			'http://localhost:8081'
+		);
 	} );
 
 	it( 'does not intercept keys without a handshake from its parent', () => {
@@ -123,6 +179,9 @@ describe( 'browser preview shortcut bridge', () => {
 		const page = createPage();
 		page.initialize();
 		expect( page.press( overrides ).preventDefault ).not.toHaveBeenCalled();
-		expect( page.postMessage ).not.toHaveBeenCalled();
+		expect( page.postMessage ).not.toHaveBeenCalledWith(
+			{ type: 'studio:preview-shortcuts:command-palette' },
+			'http://localhost:8081'
+		);
 	} );
 } );

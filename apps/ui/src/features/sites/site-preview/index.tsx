@@ -204,8 +204,10 @@ function SitePreviewContent( {
 	const adminBarActions = useFrontendAdminBar( {
 		site,
 		active: adminBarActive,
+		visible: activeSurface?.adminBarVisible ?? null,
 		onReload: reloadFrontend,
 		onShow: showFrontendAdminBar,
+		onRead: () => sendSurfaceCommand( 'site', 'read-admin-bar' ),
 	} );
 	const responsiveSettings = useResponsivePreview( site.id );
 	const responsiveEnabled = responsiveSettings.enabled && canPreview && activeSurfaceKey === 'site';
@@ -521,6 +523,11 @@ function SitePreviewContent( {
 											browserCommand={ surface.browserCommand }
 											onBrowserStateChange={ ( state ) => handleSurfaceBrowserState( key, state ) }
 											onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
+											onAdminBarVisibilityChange={
+												key === 'site' && ! live
+													? ( adminBarVisible ) => patchSurface( key, { adminBarVisible } )
+													: undefined
+											}
 											onLoad={ ( url, guestId ) => handleSurfaceLoad( key, url, guestId ) }
 										/>
 									) : (
@@ -530,6 +537,11 @@ function SitePreviewContent( {
 											title={ site.name }
 											browserCommand={ surface.browserCommand }
 											onCommandHandled={ () => patchSurface( key, { browserCommand: null } ) }
+											onAdminBarVisibilityChange={
+												key === 'site' && ! live
+													? ( adminBarVisible ) => patchSurface( key, { adminBarVisible } )
+													: undefined
+											}
 											onLoad={ ( src ) => {
 												setLoadedFrames( ( frames ) => ( { ...frames, [ key ]: frameKey } ) );
 												handleSurfaceNavigation( key, src );

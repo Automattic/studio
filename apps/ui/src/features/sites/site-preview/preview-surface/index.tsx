@@ -62,6 +62,7 @@ export function FrameSurface( {
 	onSettle,
 	browserCommand,
 	onCommandHandled,
+	onAdminBarVisibilityChange,
 }: {
 	src: string;
 	title: string;
@@ -70,12 +71,22 @@ export function FrameSurface( {
 	onSettle: ( src: string, title: string | null, failed: boolean ) => void;
 	browserCommand?: BrowserCommand | null;
 	onCommandHandled?: () => void;
+	onAdminBarVisibilityChange?: ( visible: boolean | null ) => void;
 } ) {
 	const frame = useRef< HTMLIFrameElement >( null );
+	const onAdminBarVisibilityRef = useRef( onAdminBarVisibilityChange );
 	useEffect( () => {
-		if ( browserCommand?.type !== 'login' ) return;
+		onAdminBarVisibilityRef.current = onAdminBarVisibilityChange;
+	}, [ onAdminBarVisibilityChange ] );
+	useEffect( () => {
+		if ( browserCommand?.type !== 'login' && browserCommand?.type !== 'read-admin-bar' ) return;
 		frame.current?.contentWindow?.postMessage(
-			{ type: 'studio:preview:login' },
+			{
+				type:
+					browserCommand.type === 'login'
+						? 'studio:preview:login'
+						: 'studio:preview:read-admin-bar',
+			},
 			new URL( src ).origin
 		);
 		onCommandHandled?.();
@@ -86,11 +97,16 @@ export function FrameSurface( {
 			if (
 				! iframe ||
 				event.source !== iframe.contentWindow ||
-				event.origin !== new URL( iframe.src ).origin ||
-				event.data?.type !== 'studio:preview-shortcuts:command-palette'
+				event.origin !== new URL( iframe.src ).origin
 			) {
 				return;
 			}
+			if ( event.data?.type === 'studio:preview:admin-bar-state' ) {
+				if ( typeof event.data.visible === 'boolean' )
+					onAdminBarVisibilityRef.current?.( event.data.visible );
+				return;
+			}
+			if ( event.data?.type !== 'studio:preview-shortcuts:command-palette' ) return;
 			iframe.blur();
 			document.dispatchEvent(
 				new KeyboardEvent( 'keydown', {
@@ -114,6 +130,7 @@ export function FrameSurface( {
 			src={ src }
 			title={ title }
 			onLoad={ ( event ) => {
+				onAdminBarVisibilityRef.current?.( null );
 				const { src: loadedSrc } = event.currentTarget;
 				event.currentTarget.contentWindow?.postMessage(
 					{ type: 'studio:preview-shortcuts:init', apple: isAppleOS() },

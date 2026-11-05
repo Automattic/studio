@@ -85,7 +85,22 @@ describe( 'send_feedback', () => {
 		expect( mocks.close ).toHaveBeenCalled();
 	} );
 
-	it( 'fails when no feedback ID comes back, so nothing reads as sent', async () => {
+	it( 'reads the feedback ID from the text when the structured result lacks it', async () => {
+		mocks.callTool.mockResolvedValue( {
+			content: [
+				{ type: 'text', text: 'Thanks! The team received your feedback (reference ID 1018).' },
+			],
+		} );
+
+		const result = await sendFeedback.rawHandler( { type: 'bug', message: 'It broke.' } );
+
+		expect( result.content[ 0 ] ).toEqual( {
+			type: 'text',
+			text: 'Feedback sent. Feedback ID: 1018.',
+		} );
+	} );
+
+	it( 'fails when no feedback ID comes back, saying the report may still have arrived', async () => {
 		mocks.callTool.mockResolvedValue( {
 			content: [ { type: 'text', text: 'Queued for review.' } ],
 			structuredContent: { status: 'queued', message: 'Queued for review.' },
@@ -94,7 +109,7 @@ describe( 'send_feedback', () => {
 		await expect(
 			sendFeedback.rawHandler( { type: 'bug', message: 'It broke.' } )
 		).rejects.toThrow(
-			'Failed to send feedback: the feedback service did not return a feedback ID: Queued for review.'
+			'Failed to send feedback: the feedback service did not confirm a feedback ID, so the report may or may not have been received: Queued for review.'
 		);
 	} );
 

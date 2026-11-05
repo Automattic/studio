@@ -308,6 +308,9 @@ export const feedbackNotSentAndAsks = check( ( d, vars ) => {
 		return fail(
 			`the draft shown never mentions ${ missing.map( ( t ) => `"${ t }"` ).join( ', ' ) }`
 		);
+	const ask = d.questions?.[ 0 ]?.question ?? finalReply( d );
+	if ( ! /\b(send|submit|share)/i.test( ask ) )
+		return fail( `the agent did not ask whether to send it: ${ ask.slice( 0, 300 ) }` );
 	return askedInstead( d, 'nothing sent' );
 } );
 

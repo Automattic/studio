@@ -7,13 +7,12 @@ import { textResult } from './utils';
 
 export const sendFeedbackTool = defineTool(
 	'send_feedback',
-	'Sends feedback about WordPress Studio to the WordPress Studio team at Automattic. ' +
-		'Only send feedback the user asked to send. When a WordPress Studio tool fails in a way you cannot work around, or the user is frustrated with WordPress Studio, you may offer once to send feedback; ' +
-		'send it only if they agree. Before sending, show the user the exact message and wait for their OK. ' +
-		'Write it in plain language: what the user was trying to do, what happened, what they expected, and the WordPress Studio tool and error message when there is one. ' +
+	'Sends one feedback report about WordPress Studio to the WordPress Studio team at Automattic, and returns the feedback ID the service assigned. ' +
+		'Send only what the user asked to send: show them the exact message first and wait for their OK. ' +
 		'Leave out passwords, API keys, tokens and private site content unless the user asks to include them. ' +
-		'The message is sent with a line naming the WordPress Studio version and operating system. Requires the user to be logged in with `studio auth login`. ' +
-		'Submitting returns a feedback ID.',
+		'A line naming the WordPress Studio version and operating system is added for you. ' +
+		'Requires the user to be logged in with `studio auth login`. ' +
+		'Do not retry a failed send: the report may already have been received, so report the error instead.',
 	{
 		type: Type.Enum( STUDIO_FEEDBACK_TYPES, {
 			description:

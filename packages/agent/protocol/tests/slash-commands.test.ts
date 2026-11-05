@@ -1,10 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import {
 	buildSkillInvocationPrompt,
+	expandSkillCommandPrompt,
 	getAiSkillCommands,
 	getSlashCommandMatches,
 	resolveSkillFromPrompt,
 } from '@studio/agent/protocol/slash-commands';
+
+describe( 'expandSkillCommandPrompt', () => {
+	it( 'expands only the bare command and passes arguments through untouched', () => {
+		expect( expandSkillCommandPrompt( '/feedback' ) ).toBe(
+			buildSkillInvocationPrompt( 'feedback' )
+		);
+		expect( expandSkillCommandPrompt( '/feedback the preview did not reload' ) ).toBe(
+			'/feedback the preview did not reload'
+		);
+		expect( expandSkillCommandPrompt( 'Fix the header' ) ).toBe( 'Fix the header' );
+	} );
+} );
 
 describe( 'resolveSkillFromPrompt', () => {
 	it( 'resolves the bare slash form the `studio ui` server forwards untouched', () => {
@@ -28,8 +41,13 @@ describe( 'resolveSkillFromPrompt', () => {
 	// The name is reported to analytics, so prompt text must never leak out through it.
 	it( 'returns undefined for slash text that is not a known skill', () => {
 		expect( resolveSkillFromPrompt( '/not-a-skill' ) ).toBeUndefined();
-		expect( resolveSkillFromPrompt( '/rank-me-up extra words' ) ).toBeUndefined();
+		expect( resolveSkillFromPrompt( '/rank-me-upgrade' ) ).toBeUndefined();
 		expect( resolveSkillFromPrompt( '/../../etc/passwd' ) ).toBeUndefined();
+	} );
+
+	it( 'resolves a command followed by arguments to the catalog name only', () => {
+		expect( resolveSkillFromPrompt( '/feedback the preview did not reload' ) ).toBe( 'feedback' );
+		expect( resolveSkillFromPrompt( '/liberate https://example.com' ) ).toBe( 'liberate' );
 	} );
 
 	it( 'does not treat a prompt merely mentioning a skill as an invocation', () => {

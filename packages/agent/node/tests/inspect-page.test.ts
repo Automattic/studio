@@ -29,13 +29,15 @@ const HEALTHY = `<!doctype html><meta name="viewport" content="width=device-widt
 <footer style="font-size:10px"><p>Bakery, 12 Main Street, Springfield</p><p>Call us on 555 0100 to order</p><p>Copyright Bakery, all rights reserved</p></footer>
 </div></body>`;
 
-// The same page with PHP's error output, an image that is not there and a
-// row wider than a phone, as a server with an error answers it.
+// The same page with PHP's error output, an image that is not there, a row
+// wider than a phone and the page's background between its header and main
+// (eval19: 5 of 5 branch sites), as a server with an error answers it.
 const BROKEN = `<!doctype html><meta name="viewport" content="width=device-width">
 <body style="margin:0"><br />
 <b>Warning</b>:  Undefined variable $hours in <b>/srv/wp-content/themes/bakery/functions.php</b> on line <b>12</b><br />
-<div class="wp-site-blocks" style="padding:0 20px">
-<main><img src="/missing.jpg" alt="Loaves"><div class="price-row" style="width:900px">Prices</div></main>
+<div class="wp-site-blocks">
+<header style="background:#123;height:60px"></header>
+<main style="background:#eee;margin-top:24px"><img src="/missing.jpg" alt="Loaves"><div class="price-row" style="width:900px">Prices</div></main>
 </div></body>`;
 
 describe.runIf( CHROMIUM )( 'inspecting a page', () => {
@@ -93,6 +95,10 @@ describe.runIf( CHROMIUM )( 'inspecting a page', () => {
 				'PHP printed "Warning: Undefined variable $hours" (/srv/wp-content/themes/bakery/functions.php:12).',
 				`The image ${ siteUrl }/missing.jpg did not load.`,
 				expect.stringMatching( /^The page is \d+px wide in a 390px viewport/ ),
+				expect.stringMatching(
+					/^The page's background shows as a strip between full-width blocks/
+				),
+				expect.stringMatching( /^ {2}y \d+–\d+ \(24px\), between header and main$/ ),
 			] )
 		);
 	}, 60000 );

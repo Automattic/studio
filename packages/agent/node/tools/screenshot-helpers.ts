@@ -5,6 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { getSharedBrowser } from '@studio/agent/node/browser-utils';
 import { resolveScreenshotDirectory } from '@studio/agent/node/screenshot-storage';
 import {
+	pageBandGaps,
 	pageBreakage,
 	pageContrast,
 	pageSticky,
@@ -533,6 +534,7 @@ export async function inspectPage(
 			...( status >= 400 ? [ `The server answers ${ status }.` ] : [] ),
 			...( await pageBreakage( page ) ),
 			...( await pageOverflow( page ) ),
+			...( await pageBandGaps( page ) ),
 			...( await pageContrast( page ) ),
 			...( await pageSticky( page ) ),
 		];

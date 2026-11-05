@@ -67,6 +67,14 @@ describe( 'getSlashCommandMatches', () => {
 		] );
 	} );
 
+	it( 'matches the feedback command by name and by what it reports', () => {
+		for ( const input of [ '/feed', '/bug' ] ) {
+			const result = getSlashCommandMatches( input, null );
+			expect( result.open ).toBe( true );
+			expect( result.matches.map( ( command ) => command.name ) ).toEqual( [ 'feedback' ] );
+		}
+	} );
+
 	it( 'matches a substring in the middle of a name', () => {
 		const result = getSlashCommandMatches( '/speed', null );
 		expect( result.open ).toBe( true );

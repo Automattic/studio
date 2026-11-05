@@ -247,6 +247,23 @@ tests:
       - type: javascript
         value: file://outcome.mjs:feedbackNotSentAndAsks
 
+  # The /feedback skill follows the same rule: draft, show, ask, and no tool
+  # call once the user declines.
+  - description: /feedback skill asks before sending
+    vars:
+      caseId: feedback-skill-confirms-message
+      timeoutMs: 120000
+      answers:
+        - label: Cancel
+      draftMentions:
+        - text: preview
+        - text: theme
+      prompt: |
+        /feedback the site preview didn't reload after I switched themes, and I had to refresh it myself.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:feedbackNotSentAndAsks
+
   - description: slideshow request puts a Jetpack slideshow on the home page
     vars:
       caseId: jetpack-catchall-slideshow

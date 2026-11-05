@@ -32,6 +32,11 @@ export const getAiSkillCommands = (): SkillSlashCommand[] => [
 		displayName: __( 'Liberate' ),
 		description: __( 'Migrate & rebuild a site from a closed platform.' ),
 	},
+	{
+		name: 'feedback',
+		displayName: __( 'Send feedback' ),
+		description: __( 'Report a bug or request a feature to the Studio team.' ),
+	},
 ];
 
 export interface SlashCommandMatches {

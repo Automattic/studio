@@ -54,12 +54,24 @@
 }
 
 .attachmentPreviewArtwork {
+	composes: imageOutline from '@/lib/theme/recipes.module.css';
+	position: relative;
 	display: block;
 	width: 100%;
 	height: var( --attachment-preview-artwork-height );
 	overflow: hidden;
 	border-bottom: 1px solid var( --border );
 	background-color: var( --chat );
+}
+
+.attachmentPreviewArtwork:has( > img ) {
+	border-bottom: 0;
+	border-start-start-radius: inherit;
+	border-start-end-radius: inherit;
+}
+
+.attachmentPreviewArtwork:not( :has( > img ) )::after {
+	content: none;
 }
 
 .attachmentPreviewImage {

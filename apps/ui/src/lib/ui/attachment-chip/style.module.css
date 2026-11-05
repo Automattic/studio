@@ -30,7 +30,7 @@
 		padding: 0;
 	}
 
-	.trigger {
+	.trigger[data-slot] {
 		--button-hover-background: color-mix(
 			in oklab,
 			var( --attachment-chip-background, var( --muted ) ) 95%,

@@ -2,17 +2,14 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
-import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
-import { createsPreviewsOnWpcom } from '@studio/common/lib/snapshots';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { type Snapshot } from '@studio/common/types/snapshot';
 import { __, sprintf } from '@wordpress/i18n';
-import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { countSitePreviews, getNextSnapshotSequence } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
-import { createPreviewSite, type PreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
+import { createPreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { getSnapshotsFromConfig, saveSnapshotToConfig } from 'cli/lib/snapshots';
@@ -54,12 +51,11 @@ export async function runCommand(
 		};
 		const token = await requireAuthToken();
 		reportStep( LoggerAction.VALIDATE, __( 'Validating…' ), 0 );
-		const onWpcom = await createsPreviewsOnWpcom( token.accessToken );
-		await validateSiteSize( siteFolder, { onWpcom } );
+		await validateSiteSize( siteFolder, { onWpcom: true } );
 
 		reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
 		await withSiteOperation( siteFolder, 'export', () =>
-			archiveSiteContent( siteFolder, archivePath, { onWpcom } )
+			archiveSiteContent( siteFolder, archivePath, { onWpcom: true } )
 		);
 		archiveBytes = fs.statSync( archivePath, { throwIfNoEntry: false } )?.size;
 		logger.reportSuccess( __( 'Archive created' ) );
@@ -77,22 +73,11 @@ export async function runCommand(
 		}
 
 		reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
-		let preview: PreviewSite;
-		if ( onWpcom ) {
-			const attachmentId = await uploadPreviewArchive( archivePath, token.accessToken );
-			logger.reportSuccess( __( 'Archive uploaded' ) );
+		const attachmentId = await uploadPreviewArchive( archivePath, token.accessToken );
+		logger.reportSuccess( __( 'Archive uploaded' ) );
 
-			reportStep( LoggerAction.READY, __( 'Creating preview site…' ), 60 );
-			preview = await createPreviewSite( attachmentId, snapshotName, token.accessToken );
-		} else {
-			const wordpressVersion = getWordPressVersion( siteFolder );
-			const upload = await uploadArchive( archivePath, token.accessToken, wordpressVersion );
-			logger.reportSuccess( __( 'Archive uploaded' ) );
-
-			reportStep( LoggerAction.READY, __( 'Creating preview site…' ), 60 );
-			await waitForSiteReady( upload.site_id, token.accessToken );
-			preview = { siteId: upload.site_id, hostname: upload.site_url };
-		}
+		reportStep( LoggerAction.READY, __( 'Creating preview site…' ), 60 );
+		const preview = await createPreviewSite( attachmentId, snapshotName, token.accessToken );
 		const link = preview.shareUrl ?? `https://${ preview.hostname }`;
 		logger.reportSuccess( sprintf( __( 'Preview site available at: %s' ), link ) );
 

@@ -4,10 +4,7 @@ import {
 	parseInspectorMessage,
 	type InspectorEvent,
 } from '@studio/agent/protocol/inspector/page-script';
-import {
-	READ_ADMIN_BAR_VISIBILITY_SCRIPT,
-	READ_AUTO_LOGIN_SCRIPT,
-} from '@studio/common/lib/preview-shortcuts-script';
+import { READ_ADMIN_BAR_VISIBILITY_SCRIPT } from '@studio/common/lib/preview-shortcuts-script';
 import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useColorScheme } from '@/data/host/use-color-scheme';
@@ -49,7 +46,6 @@ interface WebviewSurfaceProps {
 	onBrowserStateChange?: ( state: BrowserNavigationState ) => void;
 	onNavigate?: ( url: string ) => void;
 	onAdminBarVisibilityChange?: ( visible: boolean | null ) => void;
-	onAutoLogin?: () => void;
 	// A page finished loading, with the webview's guest id for capturing it.
 	onLoad?: ( url: string, guestId: number ) => void;
 	// Whether to inject the annotation inspector into the guest page. Off for
@@ -74,7 +70,6 @@ export function WebviewSurface( {
 	onBrowserStateChange,
 	onNavigate,
 	onAdminBarVisibilityChange,
-	onAutoLogin,
 	onLoad,
 	inspector = true,
 }: WebviewSurfaceProps ) {
@@ -88,8 +83,6 @@ export function WebviewSurface( {
 	const onNavigateRef = useRef( onNavigate );
 	const onAdminBarVisibilityRef = useRef( onAdminBarVisibilityChange );
 	const visibilityRequestRef = useRef( 0 );
-	const onAutoLoginRef = useRef( onAutoLogin );
-	const loginGeneration = useRef( 0 );
 	const onLoadRef = useRef( onLoad );
 	const browserStateRef = useRef< BrowserNavigationState >( EMPTY_BROWSER_STATE );
 	const domReadyRef = useRef( false );
@@ -111,9 +104,6 @@ export function WebviewSurface( {
 	useEffect( () => {
 		onAdminBarVisibilityRef.current = onAdminBarVisibilityChange;
 	}, [ onAdminBarVisibilityChange ] );
-	useEffect( () => {
-		onAutoLoginRef.current = onAutoLogin;
-	}, [ onAutoLogin ] );
 	useEffect( () => {
 		onLoadRef.current = onLoad;
 	}, [ onLoad ] );
@@ -227,16 +217,6 @@ export function WebviewSurface( {
 			setDocumentVersion( ( version ) => version + 1 );
 			publishDocumentTitle();
 			readAdminBarVisibility();
-			if ( onAutoLoginRef.current ) {
-				const generation = loginGeneration.current;
-				void webview
-					.executeJavaScript( READ_AUTO_LOGIN_SCRIPT, false )
-					.then( ( loggedIn ) => {
-						if ( generation === loginGeneration.current && loggedIn === true )
-							onAutoLoginRef.current?.();
-					} )
-					.catch( () => undefined );
-			}
 			publishNavigationHistory();
 			if ( ! inspectorEnabledRef.current ) {
 				return;
@@ -309,7 +289,6 @@ export function WebviewSurface( {
 		const handleStartNavigation = ( event: Event ) => {
 			const { isMainFrame, isInPlace } = event as WebviewStartNavigationEvent;
 			if ( isMainFrame && ! isInPlace ) {
-				loginGeneration.current += 1;
 				visibilityRequestRef.current += 1;
 				onAdminBarVisibilityRef.current?.( null );
 			}
@@ -359,7 +338,6 @@ export function WebviewSurface( {
 		publishBrowserState();
 		return () => {
 			domReadyRef.current = false;
-			loginGeneration.current += 1;
 			visibilityRequestRef.current += 1;
 			webview.removeEventListener( 'dom-ready', handleDomReady );
 			webview.removeEventListener( 'console-message', handleConsoleMessage );

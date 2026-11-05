@@ -7,19 +7,7 @@ export const READ_ADMIN_BAR_VISIBILITY_SCRIPT = `(() => {
 	return bar.getClientRects().length > 0 && style.visibility === 'visible' && style.opacity !== '0';
 })()`;
 
-export const READ_AUTO_LOGIN_SCRIPT = `(() => {
-	const loggedIn = document.documentElement.getAttribute('data-studio-auto-login') === 'true';
-	document.documentElement.removeAttribute('data-studio-auto-login');
-	return loggedIn;
-})()`;
-
 export const PREVIEW_SHORTCUTS_SCRIPT = `(() => {
-	const script = document.currentScript;
-	const loginCookie = script?.dataset.studioAutoLoginCookie;
-	if (loginCookie && document.cookie.split(';').some((cookie) => cookie.trim() === loginCookie + '=1')) {
-		document.cookie = loginCookie + '=; Max-Age=0; Path=/; SameSite=Lax' + (location.protocol === 'https:' ? '; Secure' : '');
-		if (script.dataset.studioLoggedIn === 'true') document.documentElement.setAttribute('data-studio-auto-login', 'true');
-	}
 	if (window.parent === window) return;
 	let hostOrigin;
 	let apple;
@@ -53,7 +41,6 @@ export const PREVIEW_SHORTCUTS_SCRIPT = `(() => {
 		apple = event.data.apple;
 		navigationId = event.data.navigationId;
 		reportAdminBar();
-		if (${ READ_AUTO_LOGIN_SCRIPT }) window.parent.postMessage({ type: 'studio:preview:auto-login', navigationId }, hostOrigin);
 	});
 	document.addEventListener('keydown', (event) => {
 		if (!hostOrigin || location.pathname.split('/').includes('wp-admin')) return;

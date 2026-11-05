@@ -65,7 +65,6 @@ export function FrameSurface( {
 	browserCommand,
 	onCommandHandled,
 	onAdminBarVisibilityChange,
-	onAutoLogin,
 }: {
 	src: string;
 	title: string;
@@ -77,28 +76,14 @@ export function FrameSurface( {
 	browserCommand?: BrowserCommand | null;
 	onCommandHandled?: () => void;
 	onAdminBarVisibilityChange?: ( visible: boolean | null ) => void;
-	onAutoLogin?: () => void;
 } ) {
 	const frame = useRef< HTMLIFrameElement >( null );
-	const callbacks = useRef( {
-		onAdminBarVisibilityChange,
-		onNavigate,
-		onLoadingChange,
-		onSettle,
-		onAutoLogin,
-	} );
+	const callbacks = useRef( { onAdminBarVisibilityChange, onNavigate, onLoadingChange, onSettle } );
 	const navigationId = useRef( 0 );
-	const notifiedLogin = useRef< number | null >( null );
 	const pendingProbe = useRef( 0 );
 	useEffect( () => {
-		callbacks.current = {
-			onAdminBarVisibilityChange,
-			onNavigate,
-			onLoadingChange,
-			onSettle,
-			onAutoLogin,
-		};
-	}, [ onAdminBarVisibilityChange, onNavigate, onLoadingChange, onSettle, onAutoLogin ] );
+		callbacks.current = { onAdminBarVisibilityChange, onNavigate, onLoadingChange, onSettle };
+	}, [ onAdminBarVisibilityChange, onNavigate, onLoadingChange, onSettle ] );
 	useEffect( () => {
 		if ( browserCommand?.type !== 'login' && browserCommand?.type !== 'read-admin-bar' ) return;
 		frame.current?.contentWindow?.postMessage(
@@ -120,16 +105,6 @@ export function FrameSurface( {
 				event.source !== iframe.contentWindow ||
 				event.origin !== new URL( iframe.src ).origin
 			) {
-				return;
-			}
-			if ( event.data?.type === 'studio:preview:auto-login' ) {
-				if (
-					event.data.navigationId !== navigationId.current ||
-					notifiedLogin.current === navigationId.current
-				)
-					return;
-				notifiedLogin.current = navigationId.current;
-				callbacks.current.onAutoLogin?.();
 				return;
 			}
 			if ( event.data?.type === 'studio:preview:navigating' ) {

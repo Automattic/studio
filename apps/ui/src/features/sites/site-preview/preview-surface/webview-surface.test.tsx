@@ -1,78 +1,9 @@
 import { INSPECTOR_BRIDGE_PREFIX } from '@studio/agent/protocol/inspector/page-script';
-import {
-	READ_ADMIN_BAR_VISIBILITY_SCRIPT,
-	READ_AUTO_LOGIN_SCRIPT,
-} from '@studio/common/lib/preview-shortcuts-script';
+import { READ_ADMIN_BAR_VISIBILITY_SCRIPT } from '@studio/common/lib/preview-shortcuts-script';
 import { act, fireEvent, waitFor } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 import { renderWithProviders } from '@/test/render';
 import { WebviewSurface } from './webview-surface';
-
-it.each( [ true, false ] )(
-	'announces only a confirmed new desktop session (confirmation: %s)',
-	async ( confirmation ) => {
-		const onAutoLogin = vi.fn();
-		const view = renderWithProviders(
-			<WebviewSurface
-				url="http://localhost:9010"
-				reloadNonce={ 0 }
-				inspector={ false }
-				onAutoLogin={ onAutoLogin }
-			/>
-		);
-		await waitFor( () => expect( view.container.querySelector( 'webview' ) ).not.toBeNull() );
-		const guest = view.container.querySelector( 'webview' )!;
-		let pending = confirmation;
-		Object.assign( guest, {
-			getWebContentsId: () => 42,
-			executeJavaScript: vi.fn( async ( script: string ) => {
-				if ( script !== READ_AUTO_LOGIN_SCRIPT ) return '';
-				const result = pending;
-				pending = false;
-				return result;
-			} ),
-		} );
-		fireEvent( guest, new Event( 'dom-ready' ) );
-		fireEvent( guest, new Event( 'did-stop-loading' ) );
-		await act( async () => {} );
-		expect( onAutoLogin ).toHaveBeenCalledTimes( confirmation ? 1 : 0 );
-	}
-);
-
-it( 'ignores an automatic login confirmation after navigation or unmount', async () => {
-	const onAutoLogin = vi.fn();
-	const view = renderWithProviders(
-		<WebviewSurface
-			url="http://localhost:9010"
-			reloadNonce={ 0 }
-			inspector={ false }
-			onAutoLogin={ onAutoLogin }
-		/>
-	);
-	await waitFor( () => expect( view.container.querySelector( 'webview' ) ).not.toBeNull() );
-	const guest = view.container.querySelector( 'webview' )!;
-	let finish = ( _value: boolean ) => {};
-	Object.assign( guest, {
-		getWebContentsId: () => 42,
-		executeJavaScript: vi.fn( ( script: string ) =>
-			script === READ_AUTO_LOGIN_SCRIPT
-				? new Promise< boolean >( ( resolve ) => {
-						finish = resolve;
-				  } )
-				: Promise.resolve( '' )
-		),
-	} );
-	fireEvent( guest, new Event( 'dom-ready' ) );
-	fireEvent(
-		guest,
-		Object.assign( new Event( 'did-start-navigation' ), { isMainFrame: true, isInPlace: false } )
-	);
-	await act( async () => finish( true ) );
-	fireEvent( guest, new Event( 'dom-ready' ) );
-	view.unmount();
-	await act( async () => finish( true ) );
-	expect( onAutoLogin ).not.toHaveBeenCalled();
-} );
 
 it( 'reads actual toolbar visibility after load and ignores an older document response', async () => {
 	const onAdminBarVisibilityChange = vi.fn();

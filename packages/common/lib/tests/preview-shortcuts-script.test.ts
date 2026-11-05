@@ -4,41 +4,19 @@ import { describe, expect, it, vi } from 'vitest';
 import {
 	PREVIEW_SHORTCUTS_SCRIPT,
 	READ_ADMIN_BAR_VISIBILITY_SCRIPT,
-	READ_AUTO_LOGIN_SCRIPT,
 } from '../preview-shortcuts-script';
 
-function createPage(
-	pathname = '/',
-	apple = true,
-	options: { cookie?: string; loggedIn?: boolean; embedded?: boolean } = {}
-) {
+function createPage( pathname = '/', apple = true ) {
 	const postMessage = vi.fn();
 	const parent = { postMessage };
 	const handlers = new Map< string, ( event: object ) => void >();
-	const window: {
-		parent: unknown;
-		addEventListener: ( name: string, handler: ( event: object ) => void ) => void;
-	} = {
+	const window = {
 		parent,
 		addEventListener: ( name: string, handler: ( event: object ) => void ) =>
 			handlers.set( name, handler ),
 	};
-	if ( options.embedded === false ) window.parent = window;
 	const bar = { visible: false, checkVisibility: () => bar.visible };
-	const attributes = new Map< string, string >();
 	const document = {
-		cookie: options.cookie ?? '',
-		currentScript: {
-			dataset: {
-				studioAutoLoginCookie: 'studio_auto_login_site',
-				studioLoggedIn: options.loggedIn ? 'true' : 'false',
-			},
-		},
-		documentElement: {
-			getAttribute: ( name: string ) => attributes.get( name ) ?? null,
-			setAttribute: ( name: string, value: string ) => attributes.set( name, value ),
-			removeAttribute: ( name: string ) => attributes.delete( name ),
-		},
 		title: 'Preview page',
 		addEventListener: window.addEventListener,
 		getElementById: () => bar,
@@ -80,51 +58,10 @@ function createPage(
 		handlers.get( 'keydown' )!( event );
 		return event;
 	};
-	return { initialize, press, postMessage, login, location, bar, readAdminBar, handlers, document };
+	return { initialize, press, postMessage, login, location, bar, readAdminBar, handlers };
 }
 
 describe( 'browser preview shortcut bridge', () => {
-	it( 'reports confirmed automatic login once after the parent handshake', () => {
-		const page = createPage( '/', true, { cookie: 'studio_auto_login_site=1', loggedIn: true } );
-		expect( page.document.cookie ).toContain( 'Max-Age=0' );
-		expect( page.postMessage ).not.toHaveBeenCalled();
-		page.initialize();
-		page.initialize();
-		page.readAdminBar();
-		page.handlers.get( 'pageshow' )!( {} );
-		expect(
-			page.postMessage.mock.calls.filter(
-				( [ message ] ) => message.type === 'studio:preview:auto-login'
-			)
-		).toEqual( [
-			[ { type: 'studio:preview:auto-login', navigationId: 7 }, 'http://localhost:8081' ],
-		] );
-	} );
-
-	it.each( [
-		{ cookie: '', loggedIn: true },
-		{ cookie: 'studio_auto_login_other=1', loggedIn: true },
-		{ cookie: 'studio_auto_login_site=1', loggedIn: false },
-	] )( 'does not announce an existing, unrelated, or failed session: %j', ( options ) => {
-		const page = createPage( '/', true, options );
-		page.initialize();
-		expect(
-			page.postMessage.mock.calls.some(
-				( [ message ] ) => message.type === 'studio:preview:auto-login'
-			)
-		).toBe( false );
-	} );
-
-	it( 'lets the desktop consume the same confirmation once', () => {
-		const page = createPage( '/', true, {
-			cookie: 'studio_auto_login_site=1',
-			loggedIn: true,
-			embedded: false,
-		} );
-		expect( runInNewContext( READ_AUTO_LOGIN_SCRIPT, { document: page.document } ) ).toBe( true );
-		expect( runInNewContext( READ_AUTO_LOGIN_SCRIPT, { document: page.document } ) ).toBe( false );
-		expect( page.postMessage ).not.toHaveBeenCalled();
-	} );
 	it( 'reports the actual toolbar visibility at initialization and when asked again', () => {
 		const page = createPage();
 		page.initialize();

@@ -1095,14 +1095,50 @@ describe( 'Composer sending', () => {
 } );
 
 describe( 'Composer drafts and attachments', () => {
+	it.each( [ 'file', 'image', 'annotations' ] )(
+		'opens a %s preview on hover without moving typing focus',
+		async ( kind ) => {
+			if ( kind === 'image' ) {
+				saveComposerDraft( 'test', { text: '', attachments: [ image( 'reference' ) ] } );
+			} else if ( kind === 'annotations' ) {
+				stageNote( 'Shorten the title' );
+				stageNote( 'Give the content more space' );
+			}
+			const { user, input } = await setup( { annotationSiteId: SITE } );
+			if ( kind === 'file' ) upload( 'notes.txt' );
+			const label =
+				kind === 'annotations'
+					? '2 annotations'
+					: kind === 'image'
+					? 'Preview reference.png'
+					: 'Preview notes.txt';
+			const trigger = await screen.findByRole( 'button', { name: label } );
+			await user.click( input );
+
+			await user.hover( trigger );
+
+			const preview = await screen.findByRole( 'dialog', {
+				name:
+					kind === 'annotations' ? 'Annotations' : kind === 'image' ? 'reference.png' : 'notes.txt',
+			} );
+			expect( preview ).toBeVisible();
+			expect( trigger ).toHaveAttribute( 'aria-expanded', 'true' );
+			expect( input ).toHaveFocus();
+			if ( kind === 'annotations' ) {
+				expect(
+					within( preview ).getAllByRole( 'button', { name: /Edit annotation/ } )
+				).toHaveLength( 2 );
+			}
+			await user.keyboard( '{Escape}' );
+			await waitFor( () => expect( preview ).not.toBeInTheDocument() );
+		}
+	);
+
 	it( 'opens an attachment preview on click and restores focus when dismissed', async () => {
 		const { user } = await setup();
 		upload( 'notes.txt' );
 		const trigger = await screen.findByRole( 'button', { name: 'Preview notes.txt' } );
 
-		await user.hover( trigger );
-		expect( trigger ).toHaveAttribute( 'aria-expanded', 'false' );
-		expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
 		await user.click( trigger );
 
 		const preview = await screen.findByRole( 'dialog', { name: 'notes.txt' } );

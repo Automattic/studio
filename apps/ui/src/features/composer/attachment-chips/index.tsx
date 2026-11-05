@@ -70,6 +70,7 @@ function AttachmentChip( {
 		<>
 			<Popover.Root>
 				<Popover.Trigger
+					openOnHover
 					render={
 						<AttachmentChipTrigger
 							className={ imageSrc ? styles.imageTrigger : undefined }
@@ -100,12 +101,12 @@ function AttachmentChip( {
 						</div>
 					) }
 					<div className={ styles.attachmentPreviewDetails }>
-						<span className={ styles.attachmentPreviewName }>{ attachment.name }</span>
-						<span className={ styles.attachmentPreviewMeta }>
+						<Popover.Title>{ attachment.name }</Popover.Title>
+						<Popover.Description>
 							{ [ getComposerAttachmentTypeDescription( attachment, __( 'File' ) ), sizeLabel ]
 								.filter( Boolean )
 								.join( ' · ' ) }
-						</span>
+						</Popover.Description>
 					</div>
 				</Popover.Popup>
 			</Popover.Root>

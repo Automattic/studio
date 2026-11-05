@@ -71,6 +71,7 @@ export function AnnotationReviewChip( {
 				} }
 			>
 				<Popover.Trigger
+					openOnHover
 					render={
 						<AttachmentChipTrigger ref={ trigger } disabled={ busy } aria-label={ label } />
 					}

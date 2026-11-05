@@ -51,8 +51,6 @@
 	max-width: calc( 100vw - 32px );
 	padding: 0;
 	overflow: hidden;
-	border-radius: var( --radius-lg );
-	user-select: none;
 }
 
 .attachmentPreviewArtwork {
@@ -88,24 +86,6 @@
 }
 
 .attachmentPreviewDetails {
-	display: flex;
-	min-width: 0;
-	flex-direction: column;
-	gap: var( --space-0_5 );
-	padding: var( --space-2 ) var( --space-2_5 );
-	color: var( --foreground );
-}
-
-.attachmentPreviewName {
-	composes: truncate from '@/lib/theme/recipes.module.css';
-	font-size: var( --text-xxs );
-	font-weight: var( --font-weight-semibold );
-	line-height: var( --leading-tight );
-}
-
-.attachmentPreviewMeta {
-	composes: truncate from '@/lib/theme/recipes.module.css';
-	color: var( --muted-foreground );
-	font-size: var( --text-2xs );
-	line-height: 1.2;
+	padding: var( --space-3 );
+	overflow-wrap: anywhere;
 }

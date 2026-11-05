@@ -128,6 +128,7 @@ export default defineConfig(
 				projectService: {
 					allowDefaultProject: [
 						'apps/mcp-ui/vite.config.ts',
+						'apps/mcp-ui/vitest.config.ts',
 						'plugins/wp-studio/scripts/*.mjs',
 						'apps/ui/vite.config.ts',
 						'apps/ui/vitest.setup.ts',

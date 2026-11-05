@@ -39,6 +39,9 @@ it( 'records each header transition once, with only layout and lookup context', 
 	] ) {
 		fireEvent.click( screen.getByRole( 'button', { name } ) );
 		expect( toggle() ).toHaveAttribute( 'data-workspace-layout', layout );
+		if ( name === 'Hide panel' || name === 'Show panel' ) {
+			expect( document.querySelector( '[data-layout-moving]' ) ).toBeInTheDocument();
+		}
 	}
 	expect( layoutEvents( connector ) ).toEqual(
 		[ 'panel', 'split', 'chat', 'split' ].map( ( layout ) => [ event, { layout }, 'one' ] )
@@ -58,22 +61,80 @@ it( 'records menu/shortcut transitions, including the Chat tab, and suppresses n
 	);
 } );
 
-it( 'records command palette selections through the same setters', async () => {
-	const { connector } = await setup();
-	for ( const layout of [ 'Panel', 'Chat', 'Split view' ] ) {
+it( 'offers one panel toggle without separate layout commands in the palette', async () => {
+	await setup();
+	act( () => setCommandPaletteOpen( true ) );
+	const input = await screen.findByRole( 'combobox', { name: 'Search commands' } );
+	fireEvent.change( input, { target: { value: 'panel' } } );
+	expect( await screen.findByRole( 'option', { name: 'Toggle panel' } ) ).toBeVisible();
+	fireEvent.change( input, { target: { value: 'Switch to' } } );
+	expect(
+		screen.queryByRole( 'option', { name: /^Switch to (Panel|Chat|Split view)/ } )
+	).not.toBeInTheDocument();
+} );
+
+it.each( [ 'menu', 'slash', 'palette' ] )(
+	'shows and hides the panel instantly through %s without changing preferences',
+	async ( source ) => {
+		const { connector } = await setup();
+		for ( const layout of [ 'chat', 'split' ] ) {
+			if ( source === 'palette' ) {
+				act( () => setCommandPaletteOpen( true ) );
+				const input = await screen.findByRole( 'combobox', { name: 'Search commands' } );
+				fireEvent.change( input, { target: { value: 'panel' } } );
+			} else if ( source === 'slash' ) {
+				const input = await screen.findByRole( 'combobox' );
+				fireEvent.change( input, { target: { value: 'Keep this draft /panel' } } );
+			} else {
+				fireEvent.click( await screen.findByRole( 'button', { name: 'Add' } ) );
+			}
+			fireEvent.click(
+				await screen.findByRole( 'option', {
+					name:
+						source === 'palette'
+							? 'Toggle panel'
+							: 'Toggle panel Show or hide the panel beside your chat.',
+				} )
+			);
+			expect( document.querySelector( '[data-layout-moving]' ) ).not.toBeInTheDocument();
+			await waitFor( () => expect( toggle() ).toHaveAttribute( 'data-workspace-layout', layout ) );
+			if ( source === 'slash' ) {
+				expect( screen.getByRole( 'combobox' ) ).toHaveValue( 'Keep this draft ' );
+			}
+		}
+		expect( layoutEvents( connector ) ).toEqual(
+			[ 'chat', 'split' ].map( ( layout ) => [ event, { layout }, 'one' ] )
+		);
+		expect( connector.continueSession ).not.toHaveBeenCalled();
+		expect( connector.setUserPreferences ).not.toHaveBeenCalled();
+	}
+);
+
+it( 'uses the panel visibility on site home and restores it from the Chat tab', async () => {
+	const { connector, history } = await setup( true, '/sites/one' );
+	act( () => setCommandPaletteOpen( true ) );
+	fireEvent.change( await screen.findByRole( 'combobox', { name: 'Search commands' } ), {
+		target: { value: 'panel' },
+	} );
+	fireEvent.click( await screen.findByRole( 'option', { name: 'Toggle panel' } ) );
+	await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
+	await waitFor( () => expect( toggle() ).toHaveAttribute( 'data-workspace-layout', 'chat' ) );
+	connector.trackEvent.mockClear();
+	for ( let attempt = 0; attempt < 2; attempt++ ) {
 		act( () => setCommandPaletteOpen( true ) );
 		const input = await screen.findByRole( 'combobox', { name: 'Search commands' } );
-		fireEvent.change( input, { target: { value: `Switch to ${ layout }` } } );
-		fireEvent.click(
-			await screen.findByRole( 'option', { name: `Switch to ${ layout } My site` } )
-		);
-		await waitFor( () =>
-			expect( screen.queryByRole( 'dialog', { name: 'Command palette' } ) ).not.toBeInTheDocument()
-		);
+		fireEvent.change( input, { target: { value: 'panel' } } );
+		fireEvent.click( await screen.findByRole( 'option', { name: 'Toggle panel' } ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
+		await waitFor( () => expect( toggle() ).toHaveAttribute( 'data-workspace-layout', 'split' ) );
+		if ( attempt === 0 ) {
+			fireEvent.click( screen.getByRole( 'button', { name: 'Expand panel' } ) );
+			act( () => connector.emit( 'onSetWorkspaceLayout', 'chat' ) );
+			expect( toggle() ).toHaveAttribute( 'data-workspace-layout', 'chat' );
+			connector.trackEvent.mockClear();
+		}
 	}
-	expect( layoutEvents( connector ) ).toEqual(
-		[ 'panel', 'chat', 'split' ].map( ( layout ) => [ event, { layout }, 'one' ] )
-	);
+	expect( layoutEvents( connector ) ).toEqual( [ [ event, { layout: 'split' }, 'one' ] ] );
 } );
 
 it.each( [ true, false ] )(

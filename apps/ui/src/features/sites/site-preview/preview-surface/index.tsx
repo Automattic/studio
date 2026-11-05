@@ -4,6 +4,7 @@ import {
 	type InspectorEvent,
 } from '@studio/agent/protocol/inspector/page-script';
 import { __ } from '@wordpress/i18n';
+import { isAppleOS } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
@@ -120,6 +121,33 @@ export function FrameSurface( {
 		}
 	}, [ annotations, colorScheme, page ] );
 
+	useEffect( () => {
+		const onMessage = ( event: MessageEvent ) => {
+			const iframe = ref.current;
+			if (
+				! iframe ||
+				event.source !== iframe.contentWindow ||
+				event.origin !== new URL( iframe.src ).origin ||
+				event.data?.type !== 'studio:preview-shortcuts:command-palette'
+			) {
+				return;
+			}
+			iframe.blur();
+			document.dispatchEvent(
+				new KeyboardEvent( 'keydown', {
+					key: 'k',
+					code: 'KeyK',
+					metaKey: isAppleOS(),
+					ctrlKey: ! isAppleOS(),
+					bubbles: true,
+					cancelable: true,
+				} )
+			);
+		};
+		window.addEventListener( 'message', onMessage );
+		return () => window.removeEventListener( 'message', onMessage );
+	}, [] );
+
 	return (
 		<iframe
 			ref={ ref }
@@ -128,6 +156,10 @@ export function FrameSurface( {
 			title={ title }
 			onLoad={ ( event ) => {
 				const { src: loadedSrc } = event.currentTarget;
+				event.currentTarget.contentWindow?.postMessage(
+					{ type: 'studio:preview-shortcuts:init', apple: isAppleOS() },
+					new URL( loadedSrc ).origin
+				);
 				const pageTitle = getIframeTitle( event.currentTarget );
 				onLoad( loadedSrc );
 				// A frame fires `load` for the browser's own error page too, and

@@ -25,6 +25,7 @@ type ToastInput = {
 	title: string;
 	description?: string;
 	action?: ToastAction;
+	// Zero keeps the notice visible until it is dismissed or replaced.
 	durationMs?: number;
 	dismissible?: boolean;
 	processing?: boolean;
@@ -109,7 +110,12 @@ function clearExpiryTimer( id: string ) {
 // visible — queued failures keep their full linger time.
 function scheduleExpiry( toast: ToastMessage ) {
 	clearExpiryTimer( toast.id );
-	if ( ! rendererMounted || toast.processing || toast.dismissible === false ) {
+	if (
+		! rendererMounted ||
+		toast.processing ||
+		toast.dismissible === false ||
+		toast.durationMs === 0
+	) {
 		return;
 	}
 	const timer = setTimeout( () => {
@@ -158,8 +164,10 @@ function makeRoomForQueuedToast() {
 		visible.some( ( item ) => item.leaving )
 	)
 		return;
-	const oldestProgress = visible.find( ( item ) => item.processing && item.dismissible !== false );
-	if ( oldestProgress ) dismissToast( oldestProgress.id );
+	const oldestPersistent = visible.find(
+		( item ) => ( item.processing || item.durationMs === 0 ) && item.dismissible !== false
+	);
+	if ( oldestPersistent ) dismissToast( oldestPersistent.id );
 }
 
 function promoteQueued() {

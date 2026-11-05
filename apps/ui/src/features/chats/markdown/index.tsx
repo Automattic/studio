@@ -4,7 +4,6 @@ import { isValidElement, memo, useMemo } from 'react';
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useConnector } from '@/data/core';
-import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { CopyButton } from '@/features/chats/copy-button';
 import { ToolLink } from '@/features/chats/tool-link';
 import { CODE_TEXT_ATTRIBUTE } from '@/features/chats/use-text-context-menu';
@@ -121,7 +120,6 @@ export const Markdown = memo( function Markdown( {
 	streaming?: boolean;
 } ) {
 	const connector = useConnector();
-	const navigatePreview = useOptionalSessionPreviewUI()?.navigate;
 
 	const components = useMemo< Components >( () => {
 		return {
@@ -134,7 +132,7 @@ export const Markdown = memo( function Markdown( {
 						<ToolLink
 							icon={ <AppearanceIcon aria-hidden="true" /> }
 							aria-label={ __( 'Open design system' ) }
-							onClick={ () => navigatePreview?.( DESIGN_SYSTEM_PREVIEW_PATH ) }
+							path={ DESIGN_SYSTEM_PREVIEW_PATH }
 						>
 							{ __( 'Design System' ) }
 						</ToolLink>
@@ -160,7 +158,7 @@ export const Markdown = memo( function Markdown( {
 				);
 			},
 		};
-	}, [ connector, navigatePreview ] );
+	}, [ connector ] );
 
 	const blocks = splitMarkdownBlocks( children );
 	return (

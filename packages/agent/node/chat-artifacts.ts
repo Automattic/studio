@@ -63,7 +63,7 @@ export function withDesignSystemPreview< TTool extends FileWritingTool >(
 		...tool,
 		description: `${
 			tool.description ?? ''
-		} After successfully updating a site's DESIGN.md, include [Design System](${ DESIGN_SYSTEM_PREVIEW_PATH }) in your final reply so the user can open it in Studio.`,
+		} After successfully updating a site's DESIGN.md, your final reply must include [Design System](${ DESIGN_SYSTEM_PREVIEW_PATH }) within a natural sentence describing the result. Choose wording that fits the user's request; do not append a separate links row or a canned acknowledgment.`,
 		async execute( toolCallId: string, params: { path?: unknown }, ...rest: unknown[] ) {
 			const result = await tool.execute( toolCallId, params, ...rest );
 			const filePath = path.resolve( cwd, String( params.path ) );

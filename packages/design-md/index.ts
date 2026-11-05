@@ -604,3 +604,5 @@ function compact< T extends Record< string, unknown > >( object: T ): Partial< T
 	);
 	return entries.length ? ( Object.fromEntries( entries ) as Partial< T > ) : undefined;
 }
+
+export { themeJsonDesign } from './theme-json';

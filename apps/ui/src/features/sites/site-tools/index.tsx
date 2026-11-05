@@ -1,5 +1,5 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
-import { designSheet, parseDesignMd } from '@studio/design-md';
+import { designSheet, parseDesignMd, themeJsonDesign } from '@studio/design-md';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useMemo, useRef } from 'react';
@@ -86,7 +86,9 @@ function useAvailableSiteTools( site: SiteDetails, live: boolean ) {
 	const designAvailable = useMemo( () => {
 		if ( ! design ) return false;
 		try {
-			designSheet( parseDesignMd( design.design ) );
+			designSheet(
+				design.design ? parseDesignMd( design.design ) : themeJsonDesign( design.themeJson )
+			);
 			return true;
 		} catch {
 			return false;

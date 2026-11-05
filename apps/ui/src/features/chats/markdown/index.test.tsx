@@ -3,6 +3,8 @@ import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import { SessionUIProvider, useSessionPreviewUI } from '@/data/use-session-ui';
 import { CODE_TEXT_ATTRIBUTE } from '@/features/chats/use-text-context-menu';
+import { PreviewTabs, SitePreview } from '@/features/sites';
+import { makeSite } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { Markdown } from '.';
 
@@ -24,31 +26,69 @@ function renderMarkdown( markdown: string ) {
 }
 
 describe( 'Markdown', () => {
-	it( 'opens inline design system links in the preview instead of an external browser', async () => {
-		function PreviewState() {
-			const preview = useSessionPreviewUI();
-			return (
-				<>
-					<button onClick={ () => preview.setSite( 'site-a' ) }>Select site</button>
-					<output aria-label="Preview path">{ preview.path }</output>
-				</>
+	it.each( [ true, false ] )(
+		'opens tool links in a new panel tab (panel open: %s)',
+		async ( open ) => {
+			const site = makeSite( { id: 'site-a', name: 'Example', running: true } );
+			function PreviewState() {
+				const preview = useSessionPreviewUI();
+				return (
+					<>
+						<button
+							onClick={ () => {
+								preview.setSite( site.id );
+								preview.updatePath( '/about/' );
+								preview.setOpen( open );
+							} }
+						>
+							Select site
+						</button>
+						<output aria-label="Panel open">{ String( preview.open ) }</output>
+						{ preview.siteId ? (
+							<>
+								<PreviewTabs site={ site } path={ preview.path } />
+								<SitePreview
+									site={ site }
+									path={ preview.path }
+									reloadNonce={ preview.reloadNonce }
+									onPathChange={ preview.updatePath }
+									collapsed={ ! preview.open }
+								/>
+							</>
+						) : null }
+					</>
+				);
+			}
+			const { connector } = renderWithProviders(
+				<SessionUIProvider>
+					<Markdown>Updated the [design system](studio:design-system) with warmer colors.</Markdown>
+					<PreviewState />
+				</SessionUIProvider>
+			);
+			fireEvent.click( await screen.findByRole( 'button', { name: 'Select site' } ) );
+			const firstTab = screen.getByRole( 'tab', { name: 'Example' } );
+			const firstPage = document.querySelector( 'iframe' );
+			expect( firstPage ).toHaveAttribute( 'src', 'http://localhost:9010/about/' );
+			const chip = screen.getByRole( 'button', { name: 'Open design system' } );
+			expect( chip.closest( 'p' ) ).toHaveTextContent(
+				'Updated the Design System with warmer colors.'
+			);
+			fireEvent.click( chip );
+			expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 );
+			expect( screen.getByRole( 'tab', { name: 'Design system' } ) ).toHaveAttribute(
+				'aria-selected',
+				'true'
+			);
+			expect( screen.getByLabelText( 'Panel open' ) ).toHaveTextContent( 'true' );
+			expect( document.querySelector( 'iframe' ) ).toBe( firstPage );
+			expect( connector.openExternalUrl ).not.toHaveBeenCalled();
+			fireEvent.click( firstTab );
+			expect( firstTab ).toHaveAttribute( 'aria-selected', 'true' );
+			expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
+				'http://localhost:9010/about/'
 			);
 		}
-		const { connector } = renderWithProviders(
-			<SessionUIProvider>
-				<Markdown>Updated the [design system](studio:design-system) with warmer colors.</Markdown>
-				<PreviewState />
-			</SessionUIProvider>
-		);
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Select site' } ) );
-		const chip = screen.getByRole( 'button', { name: 'Open design system' } );
-		expect( chip.closest( 'p' ) ).toHaveTextContent(
-			'Updated the Design System with warmer colors.'
-		);
-		fireEvent.click( chip );
-		expect( screen.getByLabelText( 'Preview path' ) ).toHaveTextContent( 'studio:design-system' );
-		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
-	} );
+	);
 
 	it( 'does not allow arbitrary custom URL schemes', async () => {
 		renderMarkdown( '[unsafe](javascript:alert%281%29) [other](studio:other)' );

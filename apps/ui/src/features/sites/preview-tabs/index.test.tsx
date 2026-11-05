@@ -1009,3 +1009,36 @@ it( 'reopens a batched design note in its existing tab without scrolling', async
 		'Give this title more space'
 	);
 } );
+
+it( 'opens a WordPress style board without DESIGN.md and reloads saved style changes', async () => {
+	const { connector, queryClient, user } = await setup();
+	const board = ( color: string ) => ( {
+		design: null,
+		themeJson: {
+			settings: {
+				color: {
+					palette: {
+						theme: [
+							{ slug: 'ink', color: '#111111' },
+							{ slug: 'base', color: '#ffffff' },
+							{ slug: 'accent', color },
+						],
+					},
+				},
+			},
+			styles: { typography: { fontFamily: 'Inter, sans-serif' } },
+		},
+	} );
+	connector.getSiteDesign.mockResolvedValue( board( '#123456' ) );
+	await act( () => queryClient.invalidateQueries( { queryKey: [ 'site-design', 'one' ] } ) );
+	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+	await user.click( await screen.findByRole( 'menuitem', { name: 'Design system' } ) );
+	expect( await screen.findByRole( 'heading', { name: 'Color' } ) ).toBeVisible();
+	expect( screen.getByText( '#123456' ) ).toBeVisible();
+	expect( screen.queryByText( /DESIGN.md/ ) ).not.toBeInTheDocument();
+	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeDisabled();
+	connector.getSiteDesign.mockResolvedValue( board( '#654321' ) );
+	await user.click( screen.getByRole( 'button', { name: 'Reload preview' } ) );
+	expect( await screen.findByText( '#654321' ) ).toBeVisible();
+	expect( screen.queryByText( '#123456' ) ).not.toBeInTheDocument();
+} );

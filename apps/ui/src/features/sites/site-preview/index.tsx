@@ -219,7 +219,9 @@ function SitePreviewContent( {
 		visible: activeSurface?.adminBarVisible ?? null,
 		onReload: reloadFrontend,
 		onShow: showFrontendAdminBar,
-		onRead: () => sendSurfaceCommand( 'site', 'read-admin-bar' ),
+		onRead: () => {
+			if ( adminBarActive ) sendSurfaceCommand( 'site', 'read-admin-bar' );
+		},
 	} );
 	const responsiveSettings = useResponsivePreview( site.id );
 	const responsiveEnabled = responsiveSettings.enabled && canPreview && activeSurfaceKey === 'site';
@@ -429,7 +431,7 @@ function SitePreviewContent( {
 			onJump={ goToHistoryIndex }
 			onPathChange={ onPathChange }
 			browserActions={ browserActions }
-			adminBarActions={ adminBarActive ? adminBarActions : undefined }
+			adminBarActions={ ! live && ! rendered && ! blank ? adminBarActions : undefined }
 			onOpenExternal={ blank ? undefined : openExternal }
 			onExternalNavigate={ ( url ) => void connector.openExternalUrl( url ) }
 			responsive={ responsive }

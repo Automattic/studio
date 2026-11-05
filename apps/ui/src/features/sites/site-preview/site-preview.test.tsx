@@ -919,10 +919,11 @@ describe( 'preview browser menu', () => {
 			reportAdminBarVisibility( 'browser', path === '/wp-admin/', `${ SITE_URL }${ path }` );
 			expect( address() ).toHaveValue( `${ SITE_URL }${ path === '/' ? '' : path }` );
 			expect( page() ).toBe( before );
-			if ( path !== '/' )
-				expect(
-					screen.queryByRole( 'button', { name: 'Browser options' } )
-				).not.toBeInTheDocument();
+			await openBrowserOptions( user );
+			const adminBar = screen.getByRole( 'menuitem', { name: 'Admin bar' } );
+			if ( path === '/' ) expect( adminBar ).not.toHaveAttribute( 'aria-disabled', 'true' );
+			else expect( adminBar ).toHaveAttribute( 'aria-disabled', 'true' );
+			await user.keyboard( '{Escape}' );
 		}
 		await openBrowserOptions( user );
 		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Admin bar' } ) );
@@ -1231,23 +1232,26 @@ describe( 'preview browser menu', () => {
 		} );
 	} );
 
-	it.each( [
-		'/wp-admin/',
-		'/wp-login.php',
-		'/wp-login.php?action=logout&_wpnonce=test',
-		'/wp-signup.php',
-		'/wp-activate.php?key=test',
-		'/studio-auto-login?redirect_to=http%3A%2F%2Flocalhost%3A9010%2F',
-		'/phpmyadmin/',
-		'studio:email',
-		DESIGN_SYSTEM_PREVIEW_PATH,
-	] )( 'does not offer the local frontend setting on %s', async ( path ) => {
-		const { user } = await renderPreview( 'desktop', { path } );
-		const options = screen.queryByRole( 'button', { name: 'Browser options' } );
-		if ( options ) {
+	describe.each( [ 'browser', 'desktop' ] as const )( '%s unavailable pages', ( runtime ) => {
+		it.each( [
+			'/wp-admin/',
+			'/wp-login.php',
+			'/wp-login.php?action=logout&_wpnonce=test',
+			'/wp-signup.php',
+			'/wp-activate.php?key=test',
+			'/studio-auto-login?redirect_to=http%3A%2F%2Flocalhost%3A9010%2F',
+			'/phpmyadmin/',
+		] )( 'keeps the admin bar control visible and disabled on %s', async ( path ) => {
+			const connector = createFakeConnector();
+			const { user } = await renderPreview( runtime, { path }, connector );
 			await openBrowserOptions( user );
-			expect( screen.queryByRole( 'menuitem', { name: 'Admin bar' } ) ).not.toBeInTheDocument();
-		}
+			const adminBar = screen.getByRole( 'menuitem', { name: 'Admin bar' } );
+			expect( adminBar ).toBeVisible();
+			expect( adminBar ).toHaveAttribute( 'aria-disabled', 'true' );
+			fireEvent.click( adminBar );
+			expect( screen.queryByRole( 'menuitemradio', { name: 'Show' } ) ).not.toBeInTheDocument();
+			expect( connector.setSiteFrontendAdminBar ).not.toHaveBeenCalled();
+		} );
 	} );
 
 	it( 'does not offer guest browser actions for the rendered email surface', async () => {

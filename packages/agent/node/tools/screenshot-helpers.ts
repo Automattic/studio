@@ -8,6 +8,7 @@ import {
 	pageBandGaps,
 	pageBreakage,
 	pageContrast,
+	pageHeaderWraps,
 	pageSticky,
 	pageLayout,
 	pageOverflow,
@@ -535,6 +536,7 @@ export async function inspectPage(
 			...( await pageBreakage( page ) ),
 			...( await pageOverflow( page ) ),
 			...( await pageBandGaps( page ) ),
+			...( await pageHeaderWraps( page ) ),
 			...( await pageContrast( page ) ),
 			...( await pageSticky( page ) ),
 		];

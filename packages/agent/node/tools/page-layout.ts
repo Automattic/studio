@@ -268,6 +268,70 @@ export function pageBandGaps( page: Page ): Promise< string[] > {
 	} );
 }
 
+/**
+ * Each row of the header whose items take more than one line: a flex row
+ * wraps an item that does not fit onto a line of its own, as WordPress's flex
+ * layout and the navigation block let theirs.
+ */
+export function pageHeaderWraps( page: Page ): Promise< string[] > {
+	return page.evaluate( () => {
+		const generated = /^(is-|has-|wp-container-|wp-elements-|wp-block-[a-z-]+-is-layout-)/;
+		const label = ( element: Element ) =>
+			element.tagName.toLowerCase() +
+			[ ...element.classList ]
+				.filter( ( name ) => ! generated.test( name ) )
+				.slice( 0, 3 )
+				.map( ( name ) => `.${ name }` )
+				.join( '' );
+		const header = document.querySelector( '.wp-site-blocks > header' );
+		const lines: string[] = [];
+		for ( const row of header ? [ header, ...header.querySelectorAll( '*' ) ] : [] ) {
+			const style = getComputedStyle( row );
+			if ( ! /flex$/.test( style.display ) || ! style.flexDirection.startsWith( 'row' ) ) {
+				continue;
+			}
+			const items = [ ...row.children ].filter(
+				( item ) =>
+					item.getBoundingClientRect().height > 0 &&
+					! [ 'absolute', 'fixed' ].includes( getComputedStyle( item ).position )
+			);
+			// An item starts a line when it starts below every item of the one before.
+			const starts: Element[] = [];
+			let bottom = -Infinity;
+			for ( const item of items ) {
+				const rect = item.getBoundingClientRect();
+				if ( rect.top >= bottom - 1 ) {
+					starts.push( item );
+					bottom = rect.bottom;
+				} else {
+					bottom = Math.max( bottom, rect.bottom );
+				}
+			}
+			if ( starts.length < 2 ) {
+				continue;
+			}
+			const text = ( item: Element ) => {
+				const words = ( item.textContent ?? '' ).replace( /\s+/g, ' ' ).trim();
+				return words
+					? `"${ words.length > 40 ? `${ words.slice( 0, 40 ) }…` : words }"`
+					: label( item );
+			};
+			lines.push(
+				`${ row === header ? 'The header' : `The header's ${ label( row ) }` } lays its ${
+					items.length
+				} items out in a row, ${ row.clientWidth }px wide, and they take ${
+					starts.length
+				} lines: ${ starts.slice( 1 ).map( text ).join( ', ' ) } ${
+					starts.length > 2 ? 'start lines' : 'starts a line'
+				} of ${
+					starts.length > 2 ? 'their' : 'its'
+				} own, as the row wraps the items that do not fit.`
+			);
+		}
+		return lines;
+	} );
+}
+
 /** Whether the page is wider than its viewport, and the elements that make it so. */
 export function pageOverflow( page: Page ): Promise< string[] > {
 	return page.evaluate( ( maxCauses ) => {

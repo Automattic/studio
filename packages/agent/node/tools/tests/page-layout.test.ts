@@ -3,6 +3,7 @@ import { chromium } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
 	pageContrast,
+	pageHeaderWraps,
 	pageLayout,
 	pageSticky,
 	pageTextFit,
@@ -108,6 +109,62 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 			'  y 90–114 (24px), between header.wp-block-template-part and main.wp-block-group',
 			'  y 614–638 (24px), between div.wp-block-group.alignfull.hero and div.wp-block-group.alignfull.stats',
 		] );
+	} );
+
+	// The shapes of eval19's headers, in a 1000px viewport: a flex row of title,
+	// navigation and button, as WordPress lays out a flex group and the
+	// navigation's links, wrapping those that do not fit.
+	const flex = 'display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center';
+	const nav = `<nav class="wp-block-navigation"><ul class="wp-block-navigation__container" style="display:flex;flex-wrap:wrap;gap:28px;margin:0;padding:0;list-style:none">${ [
+		'Home',
+		'Services',
+		'About',
+		'Contact',
+	]
+		.map( ( link ) => `<li><a style="font-size:20px">${ link }</a></li>` )
+		.join( '' ) }</ul></nav>`;
+	const button = ( width: number ) =>
+		`<div class="wp-block-buttons"><a class="wp-block-button__link" style="display:block;width:${ width }px">Book Appointment</a></div>`;
+	it.each( [
+		{
+			name: 'one that fits',
+			row: `<div class="wp-block-group" style="${ flex }"><p class="wp-block-site-title" style="width:300px">Brightside</p>${ nav }${ button(
+				180
+			) }</div>`,
+			lines: [],
+		},
+		{
+			// Branch run 5.
+			name: 'a button that does not fit',
+			row: `<div class="wp-block-group" style="${ flex }"><p class="wp-block-site-title" style="width:520px">Brightside Family Dental</p>${ nav }${ button(
+				220
+			) }</div>`,
+			lines: [
+				'The header\'s div.wp-block-group lays its 3 items out in a row, 1000px wide, and they take 2 lines: "Book Appointment" starts a line of its own, as the row wraps the items that do not fit.',
+			],
+		},
+		{
+			// Branch run 2: a row that does not wrap squeezes the navigation, whose links do.
+			name: 'a navigation squeezed by a row that does not wrap',
+			row: `<div class="wp-block-group" style="${ flex };flex-wrap:nowrap"><p class="wp-block-site-title" style="flex-shrink:0;width:520px">Brightside Family Dental</p>${ nav }<div style="flex-shrink:0">${ button(
+				220
+			) }</div></div>`,
+			lines: [
+				'The header\'s ul.wp-block-navigation__container lays its 4 items out in a row, 260px wide, and they take 2 lines: "Contact" starts a line of its own, as the row wraps the items that do not fit.',
+			],
+		},
+		{
+			name: 'a centered title above its navigation, which is no row',
+			row: `<div class="wp-block-group" style="text-align:center"><p class="wp-block-site-title">Brightside</p>${ nav }</div>`,
+			lines: [],
+		},
+	] )( 'names the rows of the header that wrap: $name', async ( { row, lines } ) => {
+		expect(
+			await open(
+				`<div class="wp-site-blocks"><header class="wp-block-template-part">${ row }</header><main style="display:flex;flex-wrap:wrap"><p style="width:600px">a</p><p style="width:600px">b</p></main></div>`,
+				pageHeaderWraps
+			)
+		).toEqual( lines );
 	} );
 
 	it( 'says when the page is wider than its viewport, and what reaches past it', async () => {

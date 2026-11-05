@@ -30,13 +30,13 @@ const HEALTHY = `<!doctype html><meta name="viewport" content="width=device-widt
 </div></body>`;
 
 // The same page with PHP's error output, an image that is not there, a row
-// wider than a phone and the page's background between its header and main
-// (eval19: 5 of 5 branch sites), as a server with an error answers it.
+// wider than a phone, the page's background between its header and main
+// (eval19: 5 of 5 branch sites) and a header row that wraps, as a server with an error answers it.
 const BROKEN = `<!doctype html><meta name="viewport" content="width=device-width">
 <body style="margin:0"><br />
 <b>Warning</b>:  Undefined variable $hours in <b>/srv/wp-content/themes/bakery/functions.php</b> on line <b>12</b><br />
 <div class="wp-site-blocks">
-<header style="background:#123;height:60px"></header>
+<header style="background:#123;display:flex;flex-wrap:wrap"><p style="width:240px;margin:0">Bakery</p><p style="width:240px;margin:0">Order a cake</p></header>
 <main style="background:#eee;margin-top:24px"><img src="/missing.jpg" alt="Loaves"><div class="price-row" style="width:900px">Prices</div></main>
 </div></body>`;
 
@@ -99,6 +99,9 @@ describe.runIf( CHROMIUM )( 'inspecting a page', () => {
 					/^The page's background shows as a strip between full-width blocks/
 				),
 				expect.stringMatching( /^ {2}y \d+–\d+ \(24px\), between header and main$/ ),
+				expect.stringMatching(
+					/^The header lays its 2 items out in a row.*"Order a cake" starts a line/
+				),
 			] )
 		);
 	}, 60000 );

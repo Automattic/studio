@@ -392,6 +392,16 @@ async function sendPageForms( sitePath: string, links: string[] ) {
 					await field.fill( VISITOR[ type ] );
 				}
 			}
+			// A visitor picks an option of each list, the first that is not a placeholder.
+			for ( const field of await form.locator( 'select:visible' ).all() ) {
+				const value = await field.evaluate(
+					( select: HTMLSelectElement ) =>
+						[ ...select.options ].find( ( option ) => option.value && ! option.disabled )?.value
+				);
+				if ( value ) {
+					await field.selectOption( value ).catch( () => undefined );
+				}
+			}
 			await form
 				.locator( 'button[type="submit"], input[type="submit"], button:not([type])' )
 				.first()
@@ -593,6 +603,7 @@ export async function homeStyles( url: string ) {
 					tag: el.tagName.toLowerCase(),
 					text: ( el.textContent ?? '' ).trim().slice( 0, 60 ),
 					textTransform: getComputedStyle( el ).textTransform,
+					fontFamily: getComputedStyle( el ).fontFamily,
 					first: el === topTitle,
 				} ) );
 				// How far an element's text sits from the middle of what holds it, in

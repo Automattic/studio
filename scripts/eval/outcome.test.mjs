@@ -1360,3 +1360,36 @@ test( 'restyleApplied judges the last turn against the first', () => {
 		expect( failed.reason ).toContain( miss );
 	}
 } );
+
+test( 'redesigned judges the last turn against the first in two of three ways', () => {
+	const first = {
+		palette: [ '#ffffff', '#1a1a1a', '#c0392b', '#f4efe6' ],
+		headings: [ { tag: 'h1', first: true, fontFamily: '"Playfair Display", serif' } ],
+		pageBackground: 'rgb(244, 239, 230)',
+	};
+	const result = ( styles ) =>
+		run( checks.redesigned, {
+			...outcome( { name: 'Black Lantern Tattoo', created: true, home: { styles } } ),
+			homeStylesByTurn: [ { 'Black Lantern Tattoo': first } ],
+		} ).pass;
+	const palette = [ '#0b0b0b', '#f2f2f2', '#e63946', '#1a1a1a' ];
+	const font = [ { ...first.headings[ 0 ], fontFamily: 'Anton, sans-serif' } ];
+	const page = 'rgb(11, 11, 11)';
+	for ( const [ change, passes ] of [
+		[ { palette, headings: font, pageBackground: page }, true ],
+		[ { palette, headings: font }, true ],
+		[ { headings: font, pageBackground: page }, true ],
+		[ { palette }, false ],
+		[ { headings: font }, false ],
+		// Three of four colors kept, the title's font the same but quoted otherwise.
+		[
+			{
+				palette: [ ...first.palette.slice( 0, 3 ), '#000' ],
+				headings: [ { ...first.headings[ 0 ], fontFamily: "'Playfair Display'" } ],
+				pageBackground: page,
+			},
+			false,
+		],
+	] )
+		expect( result( { ...first, ...change } ), JSON.stringify( change ) ).toBe( passes );
+} );

@@ -1258,6 +1258,50 @@ export const restyleApplied = check( ( d, vars ) => {
 		  );
 } );
 
+// The user asked for the site again, "a lot more" of something: the home page
+// after the last turn looks unlike the first turn's in two of three ways. At
+// most half the theme's palette colors remain, the top title is set in another
+// font family, or the page has another background color.
+export const redesigned = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const styles = s.home?.styles;
+	const first = d.homeStylesByTurn?.[ 0 ]?.[ s.name ];
+	if ( ! styles || styles.error ) return fail( `no home page styles: ${ styles?.error }` );
+	if ( ! first || first.error )
+		return fail( `no home page styles after the first turn: ${ first?.error }` );
+	const kept = ( first.palette || [] ).filter( ( color ) =>
+		( styles.palette || [] ).includes( color )
+	);
+	const family = ( st ) => {
+		const title = st.headings?.find( ( heading ) => heading.first ) ?? st.headings?.[ 0 ];
+		return title?.fontFamily
+			?.split( ',' )[ 0 ]
+			.trim()
+			.replace( /^['"]|['"]$/g, '' )
+			.toLowerCase();
+	};
+	const changes = [
+		[
+			!! first.palette?.length && kept.length * 2 <= first.palette.length,
+			`${ kept.length } of ${ first.palette?.length ?? 0 } palette colors kept`,
+		],
+		[
+			!! family( first ) && !! family( styles ) && family( first ) !== family( styles ),
+			`top title font ${ family( first ) } -> ${ family( styles ) }`,
+		],
+		[
+			( first.pageBackground ?? 'rgb(255, 255, 255)' ) !==
+				( styles.pageBackground ?? 'rgb(255, 255, 255)' ),
+			`page background ${ first.pageBackground } -> ${ styles.pageBackground }`,
+		],
+	];
+	const made = changes.filter( ( [ changed ] ) => changed ).length;
+	const summary = changes.map( ( [ , text ] ) => text ).join( '; ' );
+	return made >= 2
+		? pass( `redesigned (${ made } of 3): ${ summary }` )
+		: fail( `only ${ made } of 3 design changes: ${ summary }` );
+} );
+
 // The dental office's follow-ups, on the home page after the last turn: the
 // phone number moved from the header to the footer, the body text between its
 // first size and the size the second turn made it, a photo across the whole

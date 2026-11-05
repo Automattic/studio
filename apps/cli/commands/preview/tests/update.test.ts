@@ -3,15 +3,26 @@ import path from 'path';
 import { DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import { createsPreviewsOnWpcom } from '@studio/common/lib/snapshots';
 import { Archiver } from 'archiver';
 import { vi } from 'vitest';
 import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
-import { updatePreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
+import {
+	createPreviewSite,
+	deleteSnapshotSite,
+	updatePreviewSite,
+	uploadPreviewArchive,
+} from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
-import { updateSnapshotInConfig, getSnapshotsFromConfig } from 'cli/lib/snapshots';
+import {
+	deleteSnapshotFromConfig,
+	getSnapshotsFromConfig,
+	saveSnapshotToConfig,
+	updateSnapshotInConfig,
+} from 'cli/lib/snapshots';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { LoggerError } from 'cli/logger';
 import { mockReportSuccess, mockReportError } from 'cli/tests/test-utils';
@@ -29,6 +40,10 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 		getSiteByFolder: vi.fn(),
 	};
 } );
+vi.mock( import( '@studio/common/lib/snapshots' ), async ( importOriginal ) => ( {
+	...( await importOriginal() ),
+	createsPreviewsOnWpcom: vi.fn().mockResolvedValue( false ),
+} ) );
 vi.mock( 'cli/lib/archive' );
 vi.mock( 'cli/lib/site-tracks' );
 vi.mock( 'cli/lib/api' );
@@ -48,6 +63,7 @@ vi.mock( 'cli/logger', () => ( {
 		reportSuccess = mockReportSuccess;
 		reportError = mockReportError;
 		reportResult = vi.fn();
+		reportWarning = vi.fn();
 	},
 	LoggerError: class LoggerError extends Error {},
 } ) );
@@ -106,6 +122,7 @@ describe( 'Preview Update Command', () => {
 			site_url: mockSiteUrl,
 			site_id: mockAtomicSiteId,
 		} );
+		vi.mocked( createsPreviewsOnWpcom ).mockResolvedValue( false );
 		vi.mocked( waitForSiteReady ).mockResolvedValue( true );
 		vi.mocked( updateSnapshotInConfig ).mockResolvedValue( mockSnapshot );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( {
@@ -187,6 +204,59 @@ describe( 'Preview Update Command', () => {
 		expect( mockReportSuccess ).toHaveBeenCalledWith(
 			`Preview site available at: https://${ mockSiteUrl }`
 		);
+		expect( mockReportError ).not.toHaveBeenCalled();
+	} );
+
+	it.each( [
+		[ 'deletes the old site', undefined ],
+		[ 'keeps the new preview when deleting the old site fails', new Error( 'delete failed' ) ],
+	] )( 'moves a Jurassic Ninja preview to WordPress.com and %s', async ( _label, deleteError ) => {
+		const newHost = 'new-preview.wpcomstaging.com';
+		const shareUrl = `https://${ newHost }/?share=abc123`;
+		const newSnapshot = {
+			...mockSnapshot,
+			url: newHost,
+			atomicSiteId: 999,
+			shareUrl,
+		};
+		vi.mocked( createsPreviewsOnWpcom ).mockResolvedValue( true );
+		vi.mocked( uploadPreviewArchive ).mockResolvedValue( 678 );
+		vi.mocked( createPreviewSite ).mockResolvedValue( {
+			siteId: 999,
+			hostname: newHost,
+			shareUrl,
+		} );
+		vi.mocked( saveSnapshotToConfig ).mockResolvedValue( newSnapshot );
+		if ( deleteError ) {
+			vi.mocked( deleteSnapshotSite ).mockRejectedValue( deleteError );
+		}
+
+		const result = await runCommand( mockFolder, mockSiteUrl, false );
+
+		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath, {
+			onWpcom: true,
+		} );
+		expect( createPreviewSite ).toHaveBeenCalledWith(
+			678,
+			mockSnapshot.name,
+			mockAuthToken.accessToken
+		);
+		expect( uploadArchive ).not.toHaveBeenCalled();
+		expect( updateSnapshotInConfig ).not.toHaveBeenCalled();
+		expect( saveSnapshotToConfig ).toHaveBeenCalledWith(
+			mockFolder,
+			999,
+			newHost,
+			mockAuthToken.id,
+			mockSnapshot.name,
+			shareUrl,
+			'version-1'
+		);
+		expect( deleteSnapshotFromConfig ).toHaveBeenCalledWith( mockSiteUrl );
+		expect( deleteSnapshotSite ).toHaveBeenCalledWith( mockSnapshot, mockAuthToken.accessToken );
+		expect( mockReportSuccess ).toHaveBeenCalledWith( expect.stringContaining( 'link changed' ) );
+		expect( mockReportSuccess ).toHaveBeenCalledWith( expect.stringContaining( shareUrl ) );
+		expect( result ).toBe( newSnapshot );
 		expect( mockReportError ).not.toHaveBeenCalled();
 	} );
 

@@ -120,6 +120,7 @@ import { requestStudioAssistantQuota } from '@studio/common/lib/studio-assistant
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import { getLocalFileSize, listLocalFileTree } from '@studio/common/lib/sync/local-file-tree';
+import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
 import {
 	fetchHostingPhpVersion,
 	fetchLatestRewindId,
@@ -1800,7 +1801,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.json( [] );
 				return;
 			}
-			res.json( await fetchSyncableSites( token.accessToken ) );
+			res.json(
+				await fetchSyncableSites( token.accessToken, { planRequired: ! isReprintPullEnabled() } )
+			);
 		} )
 	);
 

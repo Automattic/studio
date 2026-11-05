@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { isReprintPullEnabled } from 'cli/lib/pull/pull-engine';
+import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
 import { parseSyncOptions } from 'cli/lib/sync-api';
 import { StudioArgv } from 'cli/types';
 

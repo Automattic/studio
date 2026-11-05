@@ -172,11 +172,6 @@ function FeedbackForm() {
 		>
 			<DialogHeader>
 				<DialogTitle>{ __( 'Send feedback' ) }</DialogTitle>
-				<DialogDescription>
-					{ __(
-						'Goes to the WordPress Studio team at Automattic, with your WordPress Studio version and operating system.'
-					) }
-				</DialogDescription>
 			</DialogHeader>
 			<div className={ styles.fields }>
 				<Field>

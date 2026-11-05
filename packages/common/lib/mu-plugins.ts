@@ -8,6 +8,7 @@
 import { createHash, randomUUID } from 'crypto';
 import { mkdir, readdir, readFile, rename, rm, unlink, writeFile } from 'fs/promises';
 import path from 'path';
+import { PREVIEW_SHORTCUTS_SCRIPT } from './preview-shortcuts-script.ts';
 import {
 	getFrontendUrl,
 	HEADLESS_ROUTES,
@@ -331,6 +332,18 @@ if ( STUDIO_HEADLESS_MODE ) {
 
 function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	const muPlugins: MuPlugin[] = [];
+	muPlugins.push( {
+		filename: '0-preview-shortcuts.php',
+		content: `<?php
+		function studio_preview_shortcuts() {
+			echo <<<'STUDIO_PREVIEW_SHORTCUTS'
+<script>${ PREVIEW_SHORTCUTS_SCRIPT }</script>
+STUDIO_PREVIEW_SHORTCUTS;
+		}
+		add_action( 'wp_head', 'studio_preview_shortcuts' );
+		add_action( 'login_head', 'studio_preview_shortcuts' );
+		`,
+	} );
 
 	if ( options.headless ) {
 		muPlugins.push( {

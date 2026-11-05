@@ -23,6 +23,13 @@ export function forwardPreviewShortcut(
 	) {
 		return false;
 	}
+	if ( input.code === 'KeyK' ) {
+		const pathname = URL.parse( guest.getURL() )?.pathname ?? '';
+		if ( /(?:^|\/)wp-admin(?:\/|$)/.test( pathname ) ) {
+			return false;
+		}
+	}
+
 	host.focus();
 	host.sendInputEvent( {
 		type: 'keyDown',

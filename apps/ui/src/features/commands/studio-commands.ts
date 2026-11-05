@@ -203,7 +203,7 @@ export function getAppCommands( {
 			group: 'commands',
 			label: __( 'Send feedback' ),
 			icon: MessageSquareTextIcon,
-			description: __( 'Tell the Studio team about a bug or an idea.' ),
+			description: __( 'Share your experience with the Studio team.' ),
 			aliases: [ __( 'Feedback' ) ],
 			keywords: [ __( 'Report a bug' ), __( 'Feature request' ), __( 'Studio team' ) ],
 			run: openFeedback,

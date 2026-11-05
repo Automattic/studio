@@ -49,7 +49,7 @@ describe( 'FeedbackDialog', () => {
 		);
 		expect( send ).toBeEnabled();
 		fireEvent.click( send );
-		await screen.findByText( 'Reference ID 1018' );
+		await screen.findByText( '1018', { selector: 'strong' } );
 		expect( connector.sendFeedback ).toHaveBeenCalledWith( {
 			type: 'bug',
 			message: 'The preview did not reload.',
@@ -99,7 +99,7 @@ describe( 'FeedbackDialog', () => {
 		await user.type( within( dialog ).getByRole( 'textbox', { name: 'Message' } ), 'See chat.' );
 		fireEvent.click( within( dialog ).getByRole( 'checkbox', { name: /Include this chat/ } ) );
 		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Send' } ) );
-		await screen.findByText( 'Reference ID 7' );
+		await screen.findByText( '7', { selector: 'strong' } );
 		const [ sent ] = connector.sendFeedback.mock.calls[ 0 ];
 		expect( sent.message ).toBe(
 			[

@@ -1,6 +1,7 @@
 import { REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
 import { useMutation } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
+import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { useId, useMemo, useState } from 'react';
 import { errorMessage } from '@/data/app-messages';
@@ -115,17 +116,19 @@ function FeedbackForm() {
 			<>
 				<DialogHeader>
 					<DialogTitle>{ __( 'Feedback sent' ) }</DialogTitle>
-					<DialogDescription>{ __( 'Thanks for helping make Studio better.' ) }</DialogDescription>
-				</DialogHeader>
-				<div className={ styles.sent }>
-					<span className={ styles.reference }>
-						{ sprintf(
-							/* translators: %s: the ID the feedback service assigned to the report */
-							__( 'Reference ID %s' ),
-							String( send.data.feedbackId )
+					<DialogDescription>
+						{ createInterpolateElement(
+							sprintf(
+								/* translators: %s: the ID the feedback service assigned to the report */
+								__(
+									'Thanks for helping make Studio better. The reference ID for your feedback submission is <id>%s</id>.'
+								),
+								String( send.data.feedbackId )
+							),
+							{ id: <strong /> }
 						) }
-					</span>
-				</div>
+					</DialogDescription>
+				</DialogHeader>
 				<DialogFooter>
 					<DialogClose render={ <Button /> }>{ __( 'Done' ) }</DialogClose>
 				</DialogFooter>

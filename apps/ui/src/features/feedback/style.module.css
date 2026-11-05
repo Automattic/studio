@@ -7,14 +7,3 @@
 	flex-direction: column;
 	gap: 12px;
 }
-
-.sent {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-}
-
-.reference {
-	color: var( --muted-foreground );
-	font-size: var( --text-sm );
-}

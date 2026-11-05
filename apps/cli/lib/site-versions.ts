@@ -19,6 +19,9 @@ export type SiteVersion = {
 
 const DATABASE_PATH = 'wp-content/database/.ht.sqlite';
 const DEBUG_LOG_PATH = 'wp-content/debug.log';
+// Caches that plugins fill as the site is visited, such as Page Optimize on a site pulled from
+// WordPress.com. They are rebuilt from the site, so they aren't part of its version.
+const CACHE_DIRECTORY = 'wp-content/cache/';
 
 // Rows WordPress writes while the site is visited or its admin is open, without anyone changing
 // the site: transients and the cron schedule, login sessions and admin screen settings, edit locks,
@@ -72,7 +75,7 @@ export function getSiteVersions( siteId: string ): SiteVersion[] {
 
 /**
  * Hashes the files a preview of the site holds, except the database, which is hashed by content
- * instead, and the debug log. A file whose size and modification time match the latest version
+ * instead, the debug log and caches. A file whose size and modification time match the latest version
  * keeps that version's hash, so only changed files are read.
  */
 async function hashFiles(
@@ -83,7 +86,11 @@ async function hashFiles(
 	const entries = await listArchiveEntries( siteFolder, { onWpcom: false } );
 	const files: Record< string, FileEntry > = {};
 	for ( const { name, sourcePath } of entries.sort( ( a, b ) => a.name.localeCompare( b.name ) ) ) {
-		if ( name.startsWith( 'wp-content/database/' ) || name === DEBUG_LOG_PATH ) {
+		if (
+			name.startsWith( 'wp-content/database/' ) ||
+			name.startsWith( CACHE_DIRECTORY ) ||
+			name === DEBUG_LOG_PATH
+		) {
 			continue;
 		}
 		const stat = fs.statSync( sourcePath );

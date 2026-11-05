@@ -815,6 +815,11 @@ export async function validateBlocks(
 							} catch {
 								return [];
 							}
+							// The classes it saves for any value, as has-text-color
+							// beside has-<slug>-color, which name no value.
+							const fixed = [ ...classes ].filter(
+								( name ) => ! name.includes( probe ) && ! saved.has( name )
+							);
 							return [ ...classes ].flatMap( ( name ) => {
 								const at = name.indexOf( probe );
 								return at < 0
@@ -823,6 +828,7 @@ export async function validateBlocks(
 											{
 												key,
 												kind,
+												fixed,
 												before: name.slice( 0, at ),
 												after: name.slice( at + probe.length ),
 											},
@@ -840,9 +846,9 @@ export async function validateBlocks(
 						if ( ownClasses( result ).has( name ) ) {
 							continue;
 						}
-						for ( const { key, kind, before, after } of templates ) {
+						for ( const { key, kind, fixed, before, after } of templates ) {
 							const value =
-								name.startsWith( before ) && name.endsWith( after )
+								! fixed.includes( name ) && name.startsWith( before ) && name.endsWith( after )
 									? name.slice( before.length, name.length - after.length )
 									: '';
 							if ( ! value ) {

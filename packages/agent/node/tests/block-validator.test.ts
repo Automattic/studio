@@ -334,11 +334,22 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 				'<!-- wp:button {"style":{"border":{"width":"1px"}}} -->\n<div class="wp-block-button"><a class="wp-block-button__link has-cream-border-color has-border-color wp-element-button" style="border-width:1px;padding-top:1rem">Go</a></div>\n<!-- /wp:button -->',
 			saved: '"borderColor":"cream"',
 		},
+		{
+			// eval22 redo port 1: an outline button's has-text-color with no color, stored as textColor "text".
+			name: 'core/button, none from has-text-color, which it saves for every text color',
+			written:
+				'<!-- wp:button {"className":"is-style-outline"} -->\n<div class="wp-block-button is-style-outline"><a class="wp-block-button__link has-text-color wp-element-button" style="padding-top:1rem">Go</a></div>\n<!-- /wp:button -->',
+			saved: undefined,
+		},
 	] )(
 		'stores the value a class names where $name saves it from',
 		async ( { written, saved } ) => {
 			const report = await validateBlocks( written, siteUrl! );
 			expect( report.invalidBlocks ).toBeGreaterThan( 0 );
+			if ( ! saved ) {
+				expect( report.proposedFix?.fixedContent ?? '' ).not.toContain( '"textColor"' );
+				return;
+			}
 			expect( report.proposedFix?.losses ).toEqual( [] );
 			expect( report.proposedFix?.report.invalidBlocks ).toBe( 0 );
 			expect( report.proposedFix?.fixedContent ).toContain( saved );

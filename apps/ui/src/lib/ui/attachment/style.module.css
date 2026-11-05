@@ -1,14 +1,36 @@
 @layer ui {
 	.remove {
 		composes: dismissIcon from '@/lib/theme/recipes.module.css';
-		composes: floating from '@/lib/ui/surface/style.module.css';
-		--button-background: var( --surface );
+		--button-background: transparent;
 		--button-control-size: var( --space-5 );
 
 		position: absolute;
 		inset-block-start: var( --attachment-remove-inset, var( --space-1 ) );
 		inset-inline-end: var( --attachment-remove-inset, var( --space-1 ) );
 		z-index: 1;
+	}
+
+	.remove[data-slot] {
+		--button-hover-background: transparent;
+		--button-hover-color: var( --popover-foreground );
+	}
+
+	.face {
+		composes: floating from '@/lib/ui/surface/style.module.css';
+
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		height: 100%;
+		border-radius: inherit;
+		pointer-events: none;
+	}
+
+	.remove:focus-visible .face {
+		outline: var( --focus-width ) solid var( --ring );
+		outline-offset: 2px;
+		transition: none;
 	}
 
 	.remove::after {
@@ -21,10 +43,7 @@
 		.remove[data-slot] {
 			transition:
 				opacity var( --motion-duration-feedback ) ease-out,
-				transform var( --motion-duration-layout ) var( --motion-ease-spring ),
-				color var( --motion-duration-feedback ) ease,
-				background-color var( --motion-duration-feedback ) ease,
-				border-color var( --motion-duration-feedback ) ease;
+				transform var( --motion-duration-layout ) var( --motion-ease-spring );
 		}
 
 		.remove {
@@ -42,6 +61,16 @@
 
 		*:focus-within > .remove[data-slot] {
 			transition: none;
+		}
+
+		@media ( prefers-reduced-motion: no-preference ) {
+			.face {
+				transition: transform var( --motion-duration-surface ) var( --motion-ease-enter );
+			}
+
+			.remove:hover:not( :active, :disabled, [data-disabled], :focus-visible ) .face {
+				transform: scale( 1.05 );
+			}
 		}
 	}
 

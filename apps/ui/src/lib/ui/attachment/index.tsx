@@ -1,23 +1,30 @@
 import { clsx } from 'clsx';
 import { XIcon } from 'lucide-react';
-import { Button, type ButtonProps } from '@/lib/ui/button';
+import { IconButton, type ButtonProps } from '@/lib/ui/button';
 import styles from './style.module.css';
 
-export function AttachmentRemoveButton( {
+export function DismissButton( {
 	className,
+	label,
 	...props
-}: Omit< ButtonProps, 'variant' | 'size' | 'shape' | 'children' > ) {
+}: Omit< ButtonProps, 'variant' | 'size' | 'shape' | 'children' > & { label: string } ) {
 	return (
-		<Button
+		<IconButton
 			{ ...props }
+			icon={
+				<span className={ styles.face }>
+					<XIcon />
+				</span>
+			}
+			label={ label }
 			data-slot="attachment-remove"
 			data-color-scheme="light"
 			variant="ghost"
 			size="icon-2xs"
 			shape="round"
 			className={ clsx( styles.remove, className ) }
-		>
-			<XIcon />
-		</Button>
+		/>
 	);
 }
+
+export { DismissButton as AttachmentRemoveButton };

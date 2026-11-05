@@ -110,7 +110,7 @@ function AttachmentChip( {
 					</div>
 				</Popover.Popup>
 			</Popover.Root>
-			<AttachmentRemoveButton aria-label={ __( 'Remove attachment' ) } onClick={ onRemove } />
+			<AttachmentRemoveButton label={ __( 'Remove attachment' ) } onClick={ onRemove } />
 		</>
 	);
 	return imageSrc ? (

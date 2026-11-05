@@ -176,7 +176,7 @@ export function AnnotationReviewChip( {
 				</Popover.Popup>
 			</Popover.Root>
 			<AttachmentRemoveButton
-				aria-label={ __( 'Remove attachment' ) }
+				label={ __( 'Remove attachment' ) }
 				disabled={ busy }
 				onClick={ onRemove }
 			/>

@@ -15,7 +15,7 @@ import { emitCliEvent } from 'cli/lib/daemon-client';
 import { createPreviewSite, type PreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
-import { recordSiteVersion } from 'cli/lib/site-versions';
+import { getSiteVersion } from 'cli/lib/site-versions';
 import { getSnapshotsFromConfig, saveSnapshotToConfig } from 'cli/lib/snapshots';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
@@ -60,10 +60,10 @@ export async function runCommand(
 
 		reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
 		// The version is taken under the same lock as the archive, so it's what the preview holds.
-		const version = await withSiteOperation( siteFolder, 'export', async () => {
-			const recorded = await recordSiteVersion( site.id, siteFolder );
+		const versionId = await withSiteOperation( siteFolder, 'export', async () => {
+			const version = await getSiteVersion( site.id, siteFolder );
 			await archiveSiteContent( siteFolder, archivePath, { onWpcom } );
-			return recorded;
+			return version;
 		} );
 		archiveBytes = fs.statSync( archivePath, { throwIfNoEntry: false } )?.size;
 		logger.reportSuccess( __( 'Archive created' ) );
@@ -108,7 +108,7 @@ export async function runCommand(
 			token.id,
 			snapshotName,
 			preview.shareUrl,
-			version.id
+			versionId
 		);
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 		await emitCliEvent( { event: SNAPSHOT_EVENTS.CREATED, data: { snapshotUrl: snapshot.url } } );

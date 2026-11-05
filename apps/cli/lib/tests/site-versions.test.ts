@@ -2,7 +2,7 @@ import fs from 'fs';
 import { DatabaseSync } from 'node:sqlite';
 import os from 'os';
 import path from 'path';
-import { getSiteVersions, isSiteAtVersion, recordSiteVersion } from 'cli/lib/site-versions';
+import { getSiteVersion } from 'cli/lib/site-versions';
 
 describe( 'site versions', () => {
 	let root: string;
@@ -72,24 +72,15 @@ describe( 'site versions', () => {
 				query( "UPDATE wp_options SET option_value = 'Renamed' WHERE option_name = 'blogname'" ),
 		],
 	] )( 'tells whether the site changed after %s', async ( _, changed, change ) => {
-		const version = await recordSiteVersion( 'one', site );
+		const version = await getSiteVersion( 'one', site );
 		change();
-		expect( await isSiteAtVersion( 'one', site, version.id ) ).toBe( ! changed );
+		expect( ( await getSiteVersion( 'one', site ) ) === version ).toBe( ! changed );
 	} );
 
-	it( 'keeps one record per version', async () => {
-		const first = await recordSiteVersion( 'one', site );
-		await recordSiteVersion( 'one', site );
+	it( 'keeps one file of hashes per site, however many versions it has', async () => {
+		await getSiteVersion( 'one', site );
 		write( 'wp-content/uploads/a.jpg', 'jpg' );
-		const second = await recordSiteVersion( 'one', site );
-		expect( getSiteVersions( 'one' ).map( ( version ) => version.id ) ).toEqual(
-			expect.arrayContaining( [ first.id, second.id ] )
-		);
-		expect( getSiteVersions( 'one' ) ).toHaveLength( 2 );
-		expect( Object.keys( second.files ) ).toEqual( [
-			'wp-config.php',
-			'wp-content/themes/active/style.css',
-			'wp-content/uploads/a.jpg',
-		] );
+		await getSiteVersion( 'one', site );
+		expect( fs.readdirSync( path.join( root, 'config', 'versions' ) ) ).toEqual( [ 'one.json' ] );
 	} );
 } );

@@ -70,7 +70,7 @@ vi.mock( 'cli/logger', () => ( {
 } ) );
 
 vi.mock( 'cli/lib/site-versions', () => ( {
-	recordSiteVersion: vi.fn().mockResolvedValue( { id: 'version-1' } ),
+	getSiteVersion: vi.fn().mockResolvedValue( 'version-1' ),
 } ) );
 vi.mock( 'cli/lib/site-operations', () => ( {
 	withSiteOperation: vi.fn( ( _folder: string, _kind: string, fn: () => unknown ) => fn() ),

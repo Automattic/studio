@@ -607,25 +607,37 @@ describe( 'Snapshots Module', () => {
 					snapshots: [
 						preview( 'made-elsewhere.wpcomstaging.com', 1, '' ),
 						preview( 'taken.wpcomstaging.com', 2, 'other-site' ),
-						preview( 'pulled-before.wpcomstaging.com', 4, 'pulled-site' ),
+						{
+							...preview( 'pulled-before.wpcomstaging.com', 4, 'pulled-site' ),
+							versionId: 'old',
+							syncedAt: 1,
+						},
 					],
 				} )
 			);
 			const standing = { hostname: 'unlisted.wpcomstaging.com', expiresAt: 9000 };
 
 			for ( const atomicSiteId of [ 1, 2, 3, 4 ] ) {
-				await linkPulledPreview( 'pulled-site', atomicSiteId, 42, standing, `v${ atomicSiteId }` );
+				// The pull of preview 4 was partial, which leaves its sync unknown.
+				const sync =
+					atomicSiteId === 4 ? undefined : { versionId: `v${ atomicSiteId }`, syncedAt: 5 };
+				await linkPulledPreview( 'pulled-site', atomicSiteId, 42, standing, sync );
 				mocks.readFile.mockResolvedValue( mocks.writeFile.mock.lastCall?.[ 1 ] );
 			}
 
 			const savedData = JSON.parse( mocks.writeFile.mock.lastCall?.[ 1 ] );
 			expect(
-				savedData.snapshots.map( ( s: Snapshot ) => [ s.url, s.localSiteId, s.versionId ] )
+				savedData.snapshots.map( ( s: Snapshot ) => [
+					s.url,
+					s.localSiteId,
+					s.versionId,
+					s.syncedAt,
+				] )
 			).toEqual( [
-				[ 'made-elsewhere.wpcomstaging.com', 'pulled-site', 'v1' ],
-				[ 'taken.wpcomstaging.com', 'other-site', undefined ],
-				[ 'pulled-before.wpcomstaging.com', 'pulled-site', 'v4' ],
-				[ 'unlisted.wpcomstaging.com', 'pulled-site', 'v3' ],
+				[ 'made-elsewhere.wpcomstaging.com', 'pulled-site', 'v1', 5 ],
+				[ 'taken.wpcomstaging.com', 'other-site', undefined, undefined ],
+				[ 'pulled-before.wpcomstaging.com', 'pulled-site', undefined, undefined ],
+				[ 'unlisted.wpcomstaging.com', 'pulled-site', 'v3', 5 ],
 			] );
 		} );
 	} );

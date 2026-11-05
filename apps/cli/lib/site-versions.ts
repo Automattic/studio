@@ -2,20 +2,10 @@ import { createHash } from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
+import { writeFile } from 'atomically';
 import { listArchiveEntries } from 'cli/lib/archive';
 
 type FileEntry = { hash: string; size: number; mtimeMs: number };
-
-/**
- * What a local site held at one moment: a hash of every file that makes up its content and of its
- * database. Two versions with the same `id` hold the same site.
- */
-export type SiteVersion = {
-	id: string;
-	createdAt: number;
-	files: Record< string, FileEntry >;
-	database: string | null;
-};
 
 const DATABASE_PATH = 'wp-content/database/.ht.sqlite';
 const DEBUG_LOG_PATH = 'wp-content/debug.log';
@@ -47,40 +37,38 @@ function isVolatileRow( table: string, row: Record< string, unknown > ): boolean
 	return false;
 }
 
-function versionsDirectory( siteId: string ): string {
-	return path.join( getConfigDirectory(), 'versions', siteId );
+// The file hashes from the site's last version, so the next one only reads the files that changed.
+function hashCachePath( siteId: string ): string {
+	return path.join( getConfigDirectory(), 'versions', `${ siteId }.json` );
 }
 
-function readVersion( file: string ): SiteVersion | null {
+function readHashCache( siteId: string ): Record< string, FileEntry > {
 	try {
-		return JSON.parse( fs.readFileSync( file, 'utf8' ) ) as SiteVersion;
+		return JSON.parse( fs.readFileSync( hashCachePath( siteId ), 'utf8' ) );
 	} catch {
-		return null;
+		return {};
 	}
 }
 
-/** The versions recorded for a site, newest first. */
-export function getSiteVersions( siteId: string ): SiteVersion[] {
-	const directory = versionsDirectory( siteId );
-	if ( ! fs.existsSync( directory ) ) {
-		return [];
-	}
-	return fs
-		.readdirSync( directory )
-		.filter( ( name ) => name.endsWith( '.json' ) )
-		.map( ( name ) => readVersion( path.join( directory, name ) ) )
-		.filter( ( version ): version is SiteVersion => version !== null )
-		.sort( ( a, b ) => b.createdAt - a.createdAt );
+async function writeHashCache( siteId: string, files: Record< string, FileEntry > ) {
+	const file = hashCachePath( siteId );
+	await fs.promises.mkdir( path.dirname( file ), { recursive: true } );
+	await writeFile( file, JSON.stringify( files ) );
+}
+
+/** Removes what Studio keeps to work out the site's version, for a deleted site. */
+export function deleteSiteVersionData( siteId: string ): void {
+	fs.rmSync( hashCachePath( siteId ), { force: true } );
 }
 
 /**
  * Hashes the files a preview of the site holds, except the database, which is hashed by content
  * instead, the debug log and caches. A file whose size and modification time match the latest version
- * keeps that version's hash, so only changed files are read.
+ * keeps its cached hash, so only changed files are read.
  */
 async function hashFiles(
 	siteFolder: string,
-	previous: Record< string, FileEntry >
+	cached: Record< string, FileEntry >
 ): Promise< Record< string, FileEntry > > {
 	// The files every preview of the site holds, wherever it's made.
 	const entries = await listArchiveEntries( siteFolder, { onWpcom: false } );
@@ -94,7 +82,7 @@ async function hashFiles(
 			continue;
 		}
 		const stat = fs.statSync( sourcePath );
-		const known = previous[ name ];
+		const known = cached[ name ];
 		if ( known && known.size === stat.size && known.mtimeMs === stat.mtimeMs ) {
 			files[ name ] = known;
 			continue;
@@ -144,44 +132,18 @@ async function hashDatabase( siteFolder: string ): Promise< string | null > {
 	}
 }
 
-/** Works out the site's current version without recording it. */
-async function getCurrentSiteVersion( siteId: string, siteFolder: string ): Promise< SiteVersion > {
-	const latest = getSiteVersions( siteId )[ 0 ];
-	const files = await hashFiles( siteFolder, latest?.files ?? {} );
+/**
+ * The site's version: a hash of every file that makes up its content and of its database. The
+ * site holds the same content as long as its version stays the same.
+ */
+export async function getSiteVersion( siteId: string, siteFolder: string ): Promise< string > {
+	const files = await hashFiles( siteFolder, readHashCache( siteId ) );
 	const database = await hashDatabase( siteFolder );
+	await writeHashCache( siteId, files );
 	const id = createHash( 'sha256' );
 	for ( const [ relativePath, { hash } ] of Object.entries( files ) ) {
 		id.update( `${ relativePath }\0${ hash }\n` );
 	}
 	id.update( `database\0${ database ?? '' }\n` );
-	return { id: id.digest( 'hex' ).slice( 0, 16 ), createdAt: Date.now(), files, database };
-}
-
-/**
- * Records the site's current version and returns it. Recording a version the site already has
- * keeps the first record of it.
- */
-export async function recordSiteVersion(
-	siteId: string,
-	siteFolder: string
-): Promise< SiteVersion > {
-	const version = await getCurrentSiteVersion( siteId, siteFolder );
-	const directory = versionsDirectory( siteId );
-	const file = path.join( directory, `${ version.id }.json` );
-	const existing = readVersion( file );
-	if ( existing ) {
-		return existing;
-	}
-	fs.mkdirSync( directory, { recursive: true } );
-	fs.writeFileSync( file, JSON.stringify( version ) );
-	return version;
-}
-
-/** Whether the site still holds the given version, i.e. nothing changed since it was recorded. */
-export async function isSiteAtVersion(
-	siteId: string,
-	siteFolder: string,
-	versionId: string
-): Promise< boolean > {
-	return ( await getCurrentSiteVersion( siteId, siteFolder ) ).id === versionId;
+	return id.digest( 'hex' ).slice( 0, 16 );
 }

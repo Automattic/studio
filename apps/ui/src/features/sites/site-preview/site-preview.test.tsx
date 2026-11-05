@@ -2,6 +2,8 @@ import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifact
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { useSyncExternalStore, type ComponentProps } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { getVisibleToasts } from '@/data/app-messages';
+import { useSites } from '@/data/queries/use-sites';
 import { updateResponsivePreview } from '@/data/responsive-preview';
 import { SessionUIProvider } from '@/data/use-session-ui';
 import {
@@ -52,10 +54,12 @@ function createPropsStore( initial: Props ) {
 
 function Harness( { store }: { store: ReturnType< typeof createPropsStore > } ) {
 	const props = useSyncExternalStore( store.subscribe, store.get );
+	const { data: sites } = useSites();
+	const currentSite = sites?.find( ( site ) => site.id === props.site.id ) ?? props.site;
 	return (
 		<SiteHeaderActionsProvider host="panel">
 			<SessionUIProvider>
-				<SitePreview { ...props } />
+				<SitePreview { ...props } site={ currentSite } />
 			</SessionUIProvider>
 		</SiteHeaderActionsProvider>
 	);
@@ -695,6 +699,10 @@ describe( 'preview address bar', () => {
 } );
 
 describe( 'preview browser menu', () => {
+	async function openBrowserOptions( user: { keyboard: ( keys: string ) => Promise< void > } ) {
+		act( () => screen.getByRole( 'button', { name: 'Browser options' } ).focus() );
+		await user.keyboard( '{ArrowDown}' );
+	}
 	afterEach( () => {
 		setPreviewColorScheme( 'system' );
 		localStorage.removeItem( 'studio-preview-recent-locations:one' );
@@ -712,6 +720,7 @@ describe( 'preview browser menu', () => {
 		expect( screen.getAllByRole( 'menuitem' ).map( ( item ) => item.textContent ) ).toEqual( [
 			'Open DevTools',
 			'Appearance',
+			'Admin bar',
 			'Clear browsing data',
 		] );
 		await user.click( screen.getByRole( 'menuitem', { name: 'Open DevTools' } ) );
@@ -767,12 +776,124 @@ describe( 'preview browser menu', () => {
 	} );
 
 	it( 'does not offer Electron-only actions in the browser app', async () => {
-		await renderPreview( 'browser' );
-		expect( screen.queryByRole( 'button', { name: 'Browser options' } ) ).not.toBeInTheDocument();
+		const { user } = await renderPreview( 'browser' );
+		await openBrowserOptions( user );
+		expect( screen.getByRole( 'menuitem', { name: 'Admin bar' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'menuitem', { name: 'Open DevTools' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'menuitem', { name: 'Appearance' } ) ).not.toBeInTheDocument();
 		expect(
 			screen.getByRole( 'button', { name: 'Open this page in your browser' } )
 		).toBeInTheDocument();
 	} );
+
+	it.each( [ 'browser', 'desktop' ] as const )(
+		'saves a %s site override before reloading and can return to the Studio default',
+		async ( runtime ) => {
+			const connector = createFakeConnector( { sites: [ site() ] } );
+			let finishSave = () => {};
+			connector.setSiteFrontendAdminBar.mockImplementationOnce(
+				( _siteId, hidden ) =>
+					new Promise< void >( ( resolve ) => {
+						finishSave = () => {
+							connector.state.sites[ 0 ].hideFrontendAdminBar = hidden ?? undefined;
+							resolve();
+						};
+					} )
+			);
+			const { user } = await renderPreview( runtime, {}, connector );
+			const before = runtime === 'desktop' ? guest() : page()!;
+			if ( runtime === 'desktop' ) fireEvent( before, new Event( 'dom-ready' ) );
+			finishLoading( runtime );
+			const openAdminBar = async () => {
+				await openBrowserOptions( user );
+				fireEvent.click( screen.getByRole( 'menuitem', { name: 'Admin bar' } ) );
+				return screen.findByRole( 'menuitemradio', { name: 'Use Studio default' } );
+			};
+			expect( await openAdminBar() ).toBeChecked();
+			await user.click( screen.getByRole( 'menuitemradio', { name: 'Hide' } ) );
+			await waitFor( () =>
+				expect( connector.setSiteFrontendAdminBar ).toHaveBeenCalledWith( 'one', true )
+			);
+			if ( runtime === 'desktop' ) expect( ( before as Guest ).reload ).not.toHaveBeenCalled();
+			else expect( page() ).toBe( before );
+			await act( async () => finishSave() );
+			await waitFor( () => {
+				if ( runtime === 'desktop' ) expect( ( before as Guest ).reload ).toHaveBeenCalledOnce();
+				else expect( page() ).not.toBe( before );
+			} );
+			await openAdminBar();
+			expect( screen.getByRole( 'menuitemradio', { name: 'Hide' } ) ).toBeChecked();
+			await user.click( screen.getByRole( 'menuitemradio', { name: 'Use Studio default' } ) );
+			await waitFor( () =>
+				expect( connector.setSiteFrontendAdminBar ).toHaveBeenLastCalledWith( 'one', null )
+			);
+			await openAdminBar();
+			expect( screen.getByRole( 'menuitemradio', { name: 'Use Studio default' } ) ).toBeChecked();
+		}
+	);
+
+	it( 'keeps the selected value and page intact when a save fails', async () => {
+		const connector = createFakeConnector( { sites: [ site() ] } );
+		connector.setSiteFrontendAdminBar.mockRejectedValueOnce( new Error( 'Disk full' ) );
+		const { user } = await renderPreview( 'browser', {}, connector );
+		const before = page();
+		await openBrowserOptions( user );
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Admin bar' } ) );
+		await user.click( await screen.findByRole( 'menuitemradio', { name: 'Hide' } ) );
+		await waitFor( () =>
+			expect( getVisibleToasts() ).toContainEqual(
+				expect.objectContaining( {
+					title: 'Could not update the admin bar setting. Please try again.',
+					intent: 'error',
+				} )
+			)
+		);
+		expect( page() ).toBe( before );
+		await openBrowserOptions( user );
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Admin bar' } ) );
+		expect(
+			await screen.findByRole( 'menuitemradio', { name: 'Use Studio default' } )
+		).toBeChecked();
+	} );
+
+	it( 'applies a pending save to its original site after switching sites', async () => {
+		const connector = createFakeConnector( {
+			sites: [ site(), site( { id: 'two', name: 'Second site' } ) ],
+		} );
+		let finish = () => {};
+		connector.setSiteFrontendAdminBar.mockImplementationOnce(
+			() =>
+				new Promise< void >( ( resolve ) => {
+					finish = resolve;
+				} )
+		);
+		const { user, update, queryClient } = await renderPreview( 'browser', {}, connector );
+		await openBrowserOptions( user );
+		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Admin bar' } ) );
+		await user.click( await screen.findByRole( 'menuitemradio', { name: 'Hide' } ) );
+		await waitFor( () =>
+			expect( connector.setSiteFrontendAdminBar ).toHaveBeenCalledWith( 'one', true )
+		);
+		update( { site: site( { id: 'two', name: 'Second site' } ) } );
+		await act( async () => finish() );
+		await waitFor( () => {
+			const sites = queryClient.getQueryData< Props[ 'site' ][] >( [ 'sites' ] );
+			expect( sites?.find( ( site ) => site.id === 'one' )?.hideFrontendAdminBar ).toBe( true );
+			expect( sites?.find( ( site ) => site.id === 'two' )?.hideFrontendAdminBar ).toBeUndefined();
+		} );
+	} );
+
+	it.each( [ '/wp-admin/', '/phpmyadmin/', 'studio:email', DESIGN_SYSTEM_PREVIEW_PATH ] )(
+		'does not offer the local frontend setting on %s',
+		async ( path ) => {
+			const { user } = await renderPreview( 'desktop', { path } );
+			const options = screen.queryByRole( 'button', { name: 'Browser options' } );
+			if ( options ) {
+				await openBrowserOptions( user );
+				expect( screen.queryByRole( 'menuitem', { name: 'Admin bar' } ) ).not.toBeInTheDocument();
+			}
+		}
+	);
 
 	it( 'does not offer guest browser actions for the rendered email surface', async () => {
 		await renderPreview( 'desktop', { path: 'studio:email' } );

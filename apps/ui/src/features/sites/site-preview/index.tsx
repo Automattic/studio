@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } f
 import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
 import { previewTabsKey, usePreviewTabs } from '@/data/preview-tabs';
+import { useFrontendAdminBar } from '@/data/queries/use-frontend-admin-bar';
 import { useSiteDesign } from '@/data/queries/use-site-design';
 import {
 	useIsSiteStarting,
@@ -171,6 +172,17 @@ function SitePreviewContent( {
 	const viewportRef = useRef< HTMLDivElement | null >( null );
 	const previewBrowser = usePreviewBrowser( viewportRef );
 	const browserActions = canUseWebview && ! rendered && ! blank ? previewBrowser : undefined;
+	const reloadFrontend = useCallback(
+		() => sendSurfaceCommand( 'site', 'reload' ),
+		[ sendSurfaceCommand ]
+	);
+	const adminBarActive =
+		! live && ! blank && canPreview && activeRealm === 'frontend' && ! collapsed && ! inactive;
+	const adminBarActions = useFrontendAdminBar( {
+		site,
+		active: adminBarActive,
+		onReload: reloadFrontend,
+	} );
 	const responsiveSettings = useResponsivePreview( site.id );
 	const responsiveEnabled = responsiveSettings.enabled && canPreview && activeSurfaceKey === 'site';
 	const [ availableSize, setAvailableSize ] = useState( { width: 0, height: 0 } );
@@ -379,6 +391,7 @@ function SitePreviewContent( {
 			onJump={ goToHistoryIndex }
 			onPathChange={ onPathChange }
 			browserActions={ browserActions }
+			adminBarActions={ adminBarActive ? adminBarActions : undefined }
 			onOpenExternal={ blank ? undefined : openExternal }
 			onExternalNavigate={ ( url ) => void connector.openExternalUrl( url ) }
 			responsive={ responsive }

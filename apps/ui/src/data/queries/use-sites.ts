@@ -418,6 +418,7 @@ function applySiteEvent( queryClient: QueryClient, event: SiteEvent ): boolean {
 	const metadata = {
 		sortOrder: cached.sortOrder,
 		autoStart: cached.autoStart,
+		hideFrontendAdminBar: cached.hideFrontendAdminBar,
 	} satisfies Record< keyof SiteMetadata, unknown >;
 	const updated: SiteDetails = {
 		...site,

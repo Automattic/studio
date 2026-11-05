@@ -335,6 +335,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.updateSitesSortOrder( updates );
 		},
 
+		async setSiteFrontendAdminBar( siteId, hidden ) {
+			await ipcApi.setSiteFrontendAdminBar( siteId, hidden );
+		},
+
 		async getSiteThumbnail( siteId ): Promise< string | null > {
 			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
 		},

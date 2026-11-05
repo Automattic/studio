@@ -156,7 +156,12 @@ import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/site
 import { buildSiteSetArgs, getSiteEditOptions } from '@studio/common/sites/edit';
 import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
-import { listSitesWithMetadata, updateSiteMetadata } from '@studio/common/sites/metadata';
+import {
+	listSitesWithMetadata,
+	setSiteFrontendAdminBar,
+	updateSiteMetadata,
+	type SiteMetadata,
+} from '@studio/common/sites/metadata';
 import { designFixesSchema, fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
 import {
 	ensureSiteEmailDirectory,
@@ -276,7 +281,7 @@ const AUTH_CALLBACK_HTML = `<!DOCTYPE html>
 
 // The agentic UI's SiteDetails shape. The CLI's `site list` already reports
 // nearly all of it; `sortOrder` comes from `app.json`, merged in by callers.
-function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
+function toSiteDetails( site: SiteListItem & SiteMetadata, sortOrder?: number ) {
 	return {
 		id: site.id,
 		name: site.name,
@@ -300,6 +305,7 @@ function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
 		operation: site.operation,
 		emailPath: site.emailPath,
 		sortOrder,
+		hideFrontendAdminBar: site.hideFrontendAdminBar,
 	};
 }
 
@@ -852,6 +858,23 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				)
 			);
 			res.status( 204 ).end();
+		} )
+	);
+
+	api.patch(
+		'/sites/:id/frontend-admin-bar',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = z.object( { hidden: z.boolean().nullable() } ).safeParse( req.body );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'hidden must be a boolean or null' } );
+				return;
+			}
+			if ( ! ( await readSite( req.params.id ) ) ) {
+				res.status( 404 ).json( { error: 'Site not found.' } );
+				return;
+			}
+			await setSiteFrontendAdminBar( req.params.id, parsed.data.hidden );
+			res.sendStatus( 204 );
 		} )
 	);
 

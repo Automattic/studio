@@ -24,4 +24,17 @@ describe( 'createIpcConnector chat startup preference', () => {
 		await connector.setUserPreferences( { autoStartSiteOnChat: false } );
 		expect( setUserPreferences ).toHaveBeenCalledExactlyOnceWith( { autoStartSiteOnChat: false } );
 	} );
+
+	it( 'passes site admin bar overrides and reset through the preload bridge', async () => {
+		const setSiteFrontendAdminBar = vi.fn().mockResolvedValue( undefined );
+		vi.stubGlobal( 'ipcApi', { setSiteFrontendAdminBar } );
+		vi.stubGlobal( 'ipcListener', { subscribe: vi.fn() } );
+		const connector = createIpcConnector();
+		await connector.setSiteFrontendAdminBar( 'one', false );
+		await connector.setSiteFrontendAdminBar( 'one', null );
+		expect( setSiteFrontendAdminBar.mock.calls ).toEqual( [
+			[ 'one', false ],
+			[ 'one', null ],
+		] );
+	} );
 } );

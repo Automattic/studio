@@ -8,6 +8,8 @@ export type ColorScheme = ( typeof SUPPORTED_COLOR_SCHEMES )[ number ];
 
 export const DEFAULT_COLOR_SCHEME: ColorScheme = 'system';
 
+export const DEFAULT_HIDE_FRONTEND_ADMIN_BAR = false;
+
 export const QUIT_SITES_BEHAVIORS = [ 'stop', 'stop-and-auto-start', 'leave-running' ] as const;
 export type QuitSitesBehavior = ( typeof QUIT_SITES_BEHAVIORS )[ number ];
 

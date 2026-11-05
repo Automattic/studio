@@ -302,6 +302,18 @@ function PreferencesPanel( {
 					/>
 				</SettingsRow>
 
+				<SettingsRow
+					title={ __( 'Hide WordPress admin bar by default' ) }
+					description={ __(
+						'Hide the admin bar on local site frontends, including in external browsers. Override this for each site in Browser options.'
+					) }
+				>
+					<SettingsToggle
+						label={ __( 'Hide WordPress admin bar by default' ) }
+						checked={ data.hideFrontendAdminBar }
+						onChange={ ( hideFrontendAdminBar ) => onChange( { hideFrontendAdminBar } ) }
+					/>
+				</SettingsRow>
 				<SidebarSettings />
 				<SettingsRow
 					title={ __( 'Reset interface' ) }

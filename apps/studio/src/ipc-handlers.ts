@@ -113,7 +113,10 @@ import {
 	startSite,
 	stopSite,
 } from '@studio/common/sites/lifecycle';
-import { updateSiteMetadata } from '@studio/common/sites/metadata';
+import {
+	setSiteFrontendAdminBar as writeSiteFrontendAdminBar,
+	updateSiteMetadata,
+} from '@studio/common/sites/metadata';
 import {
 	designFixesSchema,
 	fixSiteDesign,
@@ -499,6 +502,14 @@ function readProcessManagerLogs( siteId: string ): { stdout?: string[]; stderr?:
 
 export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
 	return getSites();
+}
+
+export async function setSiteFrontendAdminBar(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	hidden: boolean | null
+): Promise< void > {
+	await writeSiteFrontendAdminBar( siteId, hidden );
 }
 
 export async function createSite(

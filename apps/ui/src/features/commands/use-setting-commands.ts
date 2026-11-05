@@ -44,6 +44,16 @@ function useSettingToggles(): SettingToggles {
 		return {};
 	}
 	return {
+		'hide-frontend-admin-bar': toggle(
+			'hideFrontendAdminBar',
+			preferences.hideFrontendAdminBar,
+			preferences.hideFrontendAdminBar
+				? __( 'Show WordPress admin bar by default' )
+				: __( 'Hide WordPress admin bar by default' ),
+			preferences.hideFrontendAdminBar
+				? __( 'WordPress admin bar hiding disabled by default.' )
+				: __( 'WordPress admin bar hidden by default.' )
+		),
 		'show-recent-chats': toggle(
 			'showRecentChats',
 			showRecentChats,

@@ -90,7 +90,6 @@
 		flex-direction: column;
 	}
 
-
 	.field[data-orientation='horizontal'] {
 		align-items: center;
 	}

@@ -94,35 +94,6 @@ describe( 'useAutoStartSites', () => {
 } );
 
 describe( 'useCreateSite', () => {
-	it( 'keeps one dismissible failure per destination and replaces it after a successful retry', async () => {
-		const connector = createFakeConnector();
-		connector.createSite
-			.mockRejectedValueOnce( new Error( 'Folder is not empty' ) )
-			.mockRejectedValueOnce( new Error( 'Permission denied' ) )
-			.mockResolvedValueOnce( makeSite( { name: 'Bakery' } ) );
-		const { result } = renderHook( () => useCreateSite(), { wrapper: providers( connector ) } );
-		const params = { name: 'Bakery', path: '/sites/bakery' };
-		await expect( result.current.mutateAsync( params ) ).rejects.toThrow();
-		const id = getVisibleToasts()[ 0 ].id;
-		expect( getVisibleToasts()[ 0 ] ).toMatchObject( {
-			title: 'Couldn’t create site: Bakery',
-			description: 'Folder is not empty',
-			durationMs: 0,
-		} );
-		expect( getVisibleToasts()[ 0 ].dismissible ).not.toBe( false );
-		await expect( result.current.mutateAsync( params ) ).rejects.toThrow();
-		expect( getVisibleToasts() ).toHaveLength( 1 );
-		expect( getVisibleToasts()[ 0 ] ).toMatchObject( { id, description: 'Permission denied' } );
-		await result.current.mutateAsync( params );
-		expect( getVisibleToasts() ).toHaveLength( 1 );
-		expect( getVisibleToasts()[ 0 ] ).toMatchObject( {
-			id,
-			title: 'Site created: Bakery',
-			intent: 'success',
-			durationMs: 4_500,
-		} );
-	} );
-
 	it( 'announces the created site, and a failure', async () => {
 		const connector = createFakeConnector();
 		connector.createSite

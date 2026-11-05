@@ -155,3 +155,6 @@ scripts/eval/test-sites/
 
 # Codex
 .codex/
+
+# Amp orb portals
+.amp/portals/*

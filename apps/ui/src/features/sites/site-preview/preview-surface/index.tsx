@@ -1,5 +1,7 @@
 import { __ } from '@wordpress/i18n';
+import { isAppleOS } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
+import { useEffect, useRef } from 'react';
 import { normalizeDocumentTitle } from '@/features/sites/site-preview/browser-state';
 import { GlobeIcon } from '@/lib/icons';
 import { Button, Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/lib/ui';
@@ -64,13 +66,46 @@ export function FrameSurface( {
 	// Whether the server answered for the page, once asked.
 	onSettle: ( src: string, title: string | null, failed: boolean ) => void;
 } ) {
+	const frame = useRef< HTMLIFrameElement >( null );
+	useEffect( () => {
+		const onMessage = ( event: MessageEvent ) => {
+			const iframe = frame.current;
+			if (
+				! iframe ||
+				event.source !== iframe.contentWindow ||
+				event.origin !== new URL( iframe.src ).origin ||
+				event.data?.type !== 'studio:preview-shortcuts:command-palette'
+			) {
+				return;
+			}
+			iframe.blur();
+			document.dispatchEvent(
+				new KeyboardEvent( 'keydown', {
+					key: 'k',
+					code: 'KeyK',
+					metaKey: isAppleOS(),
+					ctrlKey: ! isAppleOS(),
+					bubbles: true,
+					cancelable: true,
+				} )
+			);
+		};
+		window.addEventListener( 'message', onMessage );
+		return () => window.removeEventListener( 'message', onMessage );
+	}, [] );
+
 	return (
 		<iframe
+			ref={ frame }
 			className={ styles.iframe }
 			src={ src }
 			title={ title }
 			onLoad={ ( event ) => {
 				const { src: loadedSrc } = event.currentTarget;
+				event.currentTarget.contentWindow?.postMessage(
+					{ type: 'studio:preview-shortcuts:init', apple: isAppleOS() },
+					new URL( loadedSrc ).origin
+				);
 				const pageTitle = getIframeTitle( event.currentTarget );
 				onLoad( loadedSrc );
 				// A frame fires `load` for the browser's own error page too, and

@@ -186,15 +186,29 @@ export async function readWpcomSites(): Promise< WpcomAccount > {
 	};
 }
 
-export async function readLoginUrl() {
-	return text( metaOf( await callTool( 'wpcom_login' ) ).url );
+export async function readLoginUrl( journeyId: string ) {
+	const meta = metaOf( await callTool( 'wpcom_login', { journeyId } ) );
+	return { url: text( meta.url ), attemptId: text( meta.authAttemptId ) || undefined };
 }
 
-export async function logIn( token: string ) {
-	const result = unwrap( await callTool( 'wpcom_login', { token } ) );
+export async function logIn( args: {
+	token: string;
+	attemptId?: string;
+	journeyId: string;
+	retry: boolean;
+} ) {
+	const result = unwrap( await callTool( 'wpcom_login', args ) );
 	if ( result.isError ) {
 		throw new Error( text( result.content?.[ 0 ]?.text ) || 'That token did not work. Try again.' );
 	}
+}
+
+export async function recordLoginEvent( args: {
+	event: 'prompt_viewed' | 'launch_failed';
+	journeyId?: string;
+	attemptId?: string;
+} ) {
+	await callTool( 'wpcom_login_event', args );
 }
 
 export async function waitForSiteChanges( since?: number ) {

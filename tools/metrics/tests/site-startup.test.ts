@@ -60,6 +60,9 @@ test.describe( 'Startup Metrics', () => {
 				await expect( statusButton ).toHaveAttribute( 'data-state', 'stopped', {
 					timeout: 120_000,
 				} );
+				// The button can read `stopped` while the stop is still finishing and
+				// the button is disabled; don't count that wait as startup time.
+				await expect( runButton ).toBeEnabled( { timeout: 120_000 } );
 
 				const startTime = Date.now();
 				await runButton.click();

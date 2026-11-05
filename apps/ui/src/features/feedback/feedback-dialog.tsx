@@ -115,9 +115,7 @@ function FeedbackForm() {
 			<>
 				<DialogHeader>
 					<DialogTitle>{ __( 'Feedback sent' ) }</DialogTitle>
-					<DialogDescription>
-						{ __( 'Thanks! The Studio team reviews reports in batches.' ) }
-					</DialogDescription>
+					<DialogDescription>{ __( 'Thanks for helping make Studio better.' ) }</DialogDescription>
 				</DialogHeader>
 				<div className={ styles.sent }>
 					<span className={ styles.reference }>

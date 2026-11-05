@@ -376,6 +376,39 @@ describe( 'CLI: studio create', () => {
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 
+		it.each( [ false, true ] )(
+			'rejects an invalid destination before capturing a URL source (keep-source: %s)',
+			async ( keepSource ) => {
+				createPathExistsMock( true );
+				vi.mocked( isEmptyDir ).mockResolvedValue( false );
+				const liberate = vi.fn();
+				const reportError = vi
+					.spyOn( Logger.prototype, 'reportError' )
+					.mockImplementation( () => {} );
+				const parser = registerCommand(
+					yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } ),
+					{ liberate }
+				).exitProcess( false );
+
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					...( keepSource ? [ '--keep-source' ] : [] ),
+				] );
+
+				expect( reportError ).toHaveBeenCalledWith(
+					expect.objectContaining( {
+						message: 'The selected directory is not empty nor an existing WordPress site.',
+					} )
+				);
+				expect( liberate ).not.toHaveBeenCalled();
+				expect( updateServerFiles ).not.toHaveBeenCalled();
+				expect( downloadWordPress ).not.toHaveBeenCalled();
+				expect( saveCliConfig ).not.toHaveBeenCalled();
+			}
+		);
+
 		it( 'should error if site path is already in use', async () => {
 			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
 				version: 1,

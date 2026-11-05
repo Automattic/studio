@@ -134,6 +134,20 @@ function parseFlowType( value: string | undefined ): TracksSiteCreateFlowType | 
 	return SITE_CREATE_FLOW_TYPES.find( ( flowType ) => flowType === value );
 }
 
+async function validateSitePath( sitePath: string ) {
+	const pathExistsResult = await pathExists( sitePath );
+	const isEmptyDirResult = pathExistsResult && ( await isEmptyDir( sitePath ) );
+	const isWordPressDirResult = pathExistsResult && isWordPressDirectory( sitePath );
+
+	if ( pathExistsResult && ! isEmptyDirResult && ! isWordPressDirResult ) {
+		throw new LoggerError(
+			__( 'The selected directory is not empty nor an existing WordPress site.' )
+		);
+	}
+
+	return { pathExistsResult, isWordPressDirResult };
+}
+
 export async function runCommand(
 	sitePath: string,
 	options: CreateCommandOptions,
@@ -163,16 +177,7 @@ export async function runCommand(
 
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating site configuration…' ) );
-
-		const pathExistsResult = await pathExists( sitePath );
-		const isEmptyDirResult = pathExistsResult && ( await isEmptyDir( sitePath ) );
-		const isWordPressDirResult = pathExistsResult && isWordPressDirectory( sitePath );
-
-		if ( pathExistsResult && ! isEmptyDirResult && ! isWordPressDirResult ) {
-			throw new LoggerError(
-				__( 'The selected directory is not empty nor an existing WordPress site.' )
-			);
-		}
+		const { pathExistsResult, isWordPressDirResult } = await validateSitePath( sitePath );
 
 		let blueprintUri: string | undefined;
 		let blueprint: BlueprintV1Declaration | undefined;
@@ -736,6 +741,10 @@ export async function commandHandler(
 	};
 
 	try {
+		// Fail fast: a source capture can take many minutes, so reject an unusable
+		// destination before it starts.
+		await validateSitePath( sitePath );
+
 		let preparedImport: PreparedSourceImport | undefined;
 		if ( argv.from ) {
 			preparedImport = await prepareSourceImport( argv.from, sitePath, siteName, defaultLogger, {

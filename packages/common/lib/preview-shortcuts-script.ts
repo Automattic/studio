@@ -3,7 +3,15 @@ export const PREVIEW_SHORTCUTS_SCRIPT = `(() => {
 	let hostOrigin;
 	let apple;
 	window.addEventListener('message', (event) => {
-		if (event.source !== window.parent || event.data?.type !== 'studio:preview-shortcuts:init') return;
+		if (event.source !== window.parent) return;
+		if (event.data?.type === 'studio:preview:login') {
+			if (!hostOrigin || event.origin !== hostOrigin || location.pathname.split('/').includes('wp-admin')) return;
+			const login = new URL('/studio-auto-login', location.href);
+			login.searchParams.set('redirect_to', location.href);
+			location.assign(login.toString());
+			return;
+		}
+		if (event.data?.type !== 'studio:preview-shortcuts:init') return;
 		if ((!event.origin.startsWith('http://') && !event.origin.startsWith('https://')) || typeof event.data.apple !== 'boolean') return;
 		hostOrigin = event.origin;
 		apple = event.data.apple;

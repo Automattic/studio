@@ -8,6 +8,7 @@ import { Button, Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } 
 import { ResponsiveViewport } from '../responsive-preview/viewport';
 import styles from './style.module.css';
 import type { ResponsivePreviewSettings } from '@/data/responsive-preview';
+import type { BrowserCommand } from '@/features/sites/site-preview/browser-state';
 import type { ReactNode } from 'react';
 
 export { WebviewSurface } from './webview-surface';
@@ -59,14 +60,26 @@ export function FrameSurface( {
 	title,
 	onLoad,
 	onSettle,
+	browserCommand,
+	onCommandHandled,
 }: {
 	src: string;
 	title: string;
 	onLoad: ( src: string ) => void;
 	// Whether the server answered for the page, once asked.
 	onSettle: ( src: string, title: string | null, failed: boolean ) => void;
+	browserCommand?: BrowserCommand | null;
+	onCommandHandled?: () => void;
 } ) {
 	const frame = useRef< HTMLIFrameElement >( null );
+	useEffect( () => {
+		if ( browserCommand?.type !== 'login' ) return;
+		frame.current?.contentWindow?.postMessage(
+			{ type: 'studio:preview:login' },
+			new URL( src ).origin
+		);
+		onCommandHandled?.();
+	}, [ browserCommand, onCommandHandled, src ] );
 	useEffect( () => {
 		const onMessage = ( event: MessageEvent ) => {
 			const iframe = frame.current;

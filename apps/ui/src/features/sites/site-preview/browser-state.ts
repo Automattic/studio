@@ -19,7 +19,7 @@ export interface BrowserNavigationState {
 
 export interface BrowserCommand {
 	id: number;
-	type: BrowserShortcutCommand | 'go-to-history';
+	type: BrowserShortcutCommand | 'go-to-history' | 'login';
 	historyIndex?: number;
 }
 

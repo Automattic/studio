@@ -1,4 +1,5 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
+import { getSiteBrowserUrl } from '@studio/common/lib/user-settings/site-browser-url';
 import { __ } from '@wordpress/i18n';
 import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -178,10 +179,33 @@ function SitePreviewContent( {
 	);
 	const adminBarActive =
 		! live && ! blank && canPreview && activeRealm === 'frontend' && ! collapsed && ! inactive;
+	const showFrontendAdminBar = useCallback( () => {
+		if ( ! canUseWebview ) {
+			sendSurfaceCommand( 'site', 'login' );
+			return;
+		}
+		const currentPath = activeSurface?.path ?? safePath;
+		const loginPath = currentPath.startsWith( '/studio-auto-login' )
+			? currentPath
+			: getPathFromPreviewUrl( getSiteBrowserUrl( { url: siteUrl }, currentPath ), siteUrl );
+		if ( ! loginPath ) return;
+		if ( currentPath === loginPath ) sendSurfaceCommand( 'site', 'reload' );
+		else patchSurface( 'site', { path: loginPath } );
+		onPathChange?.( loginPath );
+	}, [
+		activeSurface?.path,
+		canUseWebview,
+		onPathChange,
+		patchSurface,
+		safePath,
+		sendSurfaceCommand,
+		siteUrl,
+	] );
 	const adminBarActions = useFrontendAdminBar( {
 		site,
 		active: adminBarActive,
 		onReload: reloadFrontend,
+		onShow: showFrontendAdminBar,
 	} );
 	const responsiveSettings = useResponsivePreview( site.id );
 	const responsiveEnabled = responsiveSettings.enabled && canPreview && activeSurfaceKey === 'site';
@@ -504,6 +528,8 @@ function SitePreviewContent( {
 											key={ frameKey }
 											src={ surfaceUrl }
 											title={ site.name }
+											browserCommand={ surface.browserCommand }
+											onCommandHandled={ () => patchSurface( key, { browserCommand: null } ) }
 											onLoad={ ( src ) => {
 												setLoadedFrames( ( frames ) => ( { ...frames, [ key ]: frameKey } ) );
 												handleSurfaceNavigation( key, src );

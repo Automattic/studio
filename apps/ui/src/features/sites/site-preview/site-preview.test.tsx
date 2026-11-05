@@ -793,7 +793,7 @@ describe( 'preview browser menu', () => {
 		[ 'browser', true ],
 		[ 'desktop', true ],
 	] as const )(
-		'saves a %s site override before reloading and can return to the default (hidden: %s)',
+		'saves a %s site override before navigating and can return to the default (hidden: %s)',
 		async ( runtime, defaultHidden ) => {
 			const connector = createFakeConnector( {
 				sites: [ site() ],
@@ -830,8 +830,14 @@ describe( 'preview browser menu', () => {
 			else expect( page() ).toBe( before );
 			await act( async () => finishSave() );
 			await waitFor( () => {
-				if ( runtime === 'desktop' ) expect( ( before as Guest ).reload ).toHaveBeenCalledOnce();
-				else expect( page() ).not.toBe( before );
+				if ( runtime !== 'desktop' ) {
+					if ( defaultHidden ) expect( page() ).toBe( before );
+					else expect( page() ).not.toBe( before );
+				} else if ( defaultHidden )
+					expect( ( before as Guest ).loadURL ).toHaveBeenCalledWith(
+						expect.stringContaining( '/studio-auto-login?' )
+					);
+				else expect( ( before as Guest ).reload ).toHaveBeenCalledOnce();
 			} );
 			await openAdminBar();
 			expect( screen.getByRole( 'menuitemradio', { name: overrideLabel } ) ).toBeChecked();
@@ -841,6 +847,106 @@ describe( 'preview browser menu', () => {
 			);
 			await openAdminBar();
 			expect( screen.getByRole( 'menuitemradio', { name: defaultLabel } ) ).toBeChecked();
+		}
+	);
+
+	it.each( [ 'browser', 'desktop' ] as const )(
+		'signs in from the %s Show action even when it is already selected, after saving',
+		async ( runtime ) => {
+			const connector = createFakeConnector( { sites: [ site() ] } );
+			let finish = () => {};
+			connector.setSiteFrontendAdminBar.mockImplementationOnce(
+				() => new Promise< void >( ( resolve ) => ( finish = resolve ) )
+			);
+			const onPathChange = vi.fn();
+			const path = '/sample-page/?preview=1#details';
+			const { user } = await renderPreview( runtime, { path, onPathChange }, connector );
+			const before = runtime === 'desktop' ? guest() : page()!;
+			if ( runtime === 'desktop' ) fireEvent( before, new Event( 'dom-ready' ) );
+			finishLoading( runtime );
+			const postMessage =
+				runtime === 'browser'
+					? vi.spyOn( ( before as HTMLIFrameElement ).contentWindow!, 'postMessage' )
+					: undefined;
+			await openBrowserOptions( user );
+			fireEvent.click( screen.getByRole( 'menuitem', { name: 'Admin bar' } ) );
+			const show = await screen.findByRole( 'menuitemradio', { name: 'Show' } );
+			expect( show ).toBeChecked();
+			await user.click( show );
+			await waitFor( () =>
+				expect( connector.setSiteFrontendAdminBar ).toHaveBeenCalledWith( 'one', null )
+			);
+			expect( onPathChange ).not.toHaveBeenCalled();
+			if ( runtime === 'desktop' ) expect( ( before as Guest ).loadURL ).not.toHaveBeenCalled();
+			else expect( page() ).toBe( before );
+			await act( async () => finish() );
+			if ( runtime === 'browser' ) {
+				await waitFor( () =>
+					expect( postMessage ).toHaveBeenCalledWith( { type: 'studio:preview:login' }, SITE_URL )
+				);
+				expect( onPathChange ).not.toHaveBeenCalled();
+				expect( page() ).toBe( before );
+				expect( page() ).toHaveAttribute( 'src', `${ SITE_URL }${ path }` );
+				return;
+			}
+			await waitFor( () => expect( onPathChange ).toHaveBeenCalledOnce() );
+			const loginUrl = new URL( onPathChange.mock.calls[ 0 ][ 0 ], SITE_URL );
+			expect( loginUrl.pathname ).toBe( '/studio-auto-login' );
+			expect( loginUrl.searchParams.get( 'redirect_to' ) ).toBe( `${ SITE_URL }${ path }` );
+			await waitFor( () =>
+				expect( ( before as Guest ).loadURL ).toHaveBeenCalledWith( loginUrl.toString() )
+			);
+			expect( ( before as Guest ).reload ).not.toHaveBeenCalled();
+		}
+	);
+
+	it.each( [
+		[ 'browser', 'site' ],
+		[ 'desktop', 'site' ],
+		[ 'browser', 'admin' ],
+		[ 'desktop', 'admin' ],
+		[ 'browser', 'collapsed' ],
+		[ 'desktop', 'collapsed' ],
+	] as const )(
+		'does not sign in after leaving the %s preview during a save (%s)',
+		async ( runtime, destination ) => {
+			const connector = createFakeConnector( {
+				sites: [ site(), site( { id: 'two', name: 'Second site' } ) ],
+			} );
+			let finish = () => {};
+			connector.setSiteFrontendAdminBar.mockImplementationOnce(
+				() => new Promise< void >( ( resolve ) => ( finish = resolve ) )
+			);
+			const onPathChange = vi.fn();
+			const { user, update } = await renderPreview( runtime, { onPathChange }, connector );
+			const before = runtime === 'desktop' ? guest() : page()!;
+			if ( runtime === 'desktop' ) fireEvent( before, new Event( 'dom-ready' ) );
+			finishLoading( runtime );
+			const postMessage =
+				runtime === 'browser'
+					? vi.spyOn( ( before as HTMLIFrameElement ).contentWindow!, 'postMessage' )
+					: undefined;
+			await openBrowserOptions( user );
+			fireEvent.click( screen.getByRole( 'menuitem', { name: 'Admin bar' } ) );
+			await user.click( await screen.findByRole( 'menuitemradio', { name: 'Show' } ) );
+			await waitFor( () => expect( connector.setSiteFrontendAdminBar ).toHaveBeenCalledOnce() );
+			update(
+				destination === 'site'
+					? { site: site( { id: 'two', name: 'Second site' } ) }
+					: destination === 'admin'
+					? { path: '/wp-admin/' }
+					: { collapsed: true }
+			);
+			await act( async () => finish() );
+			expect( onPathChange ).not.toHaveBeenCalledWith(
+				expect.stringContaining( '/studio-auto-login' )
+			);
+			if ( postMessage )
+				expect( postMessage ).not.toHaveBeenCalledWith(
+					{ type: 'studio:preview:login' },
+					SITE_URL
+				);
+			expect( page()!.getAttribute( 'src' ) ).not.toContain( '/studio-auto-login' );
 		}
 	);
 
@@ -869,30 +975,38 @@ describe( 'preview browser menu', () => {
 				).toBeChecked()
 			);
 			expect( connector.setSiteFrontendAdminBar ).not.toHaveBeenCalled();
+			expect( page()!.getAttribute( 'src' ) ).not.toContain( '/studio-auto-login' );
 		}
 	);
 
-	it( 'keeps the selected value and page intact when a save fails', async () => {
-		const connector = createFakeConnector( { sites: [ site() ] } );
-		connector.setSiteFrontendAdminBar.mockRejectedValueOnce( new Error( 'Disk full' ) );
-		const { user } = await renderPreview( 'browser', {}, connector );
-		const before = page();
-		await openBrowserOptions( user );
-		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Admin bar' } ) );
-		await user.click( await screen.findByRole( 'menuitemradio', { name: 'Hide' } ) );
-		await waitFor( () =>
-			expect( getVisibleToasts() ).toContainEqual(
-				expect.objectContaining( {
-					title: 'Could not update the admin bar setting. Please try again.',
-					intent: 'error',
-				} )
-			)
-		);
-		expect( page() ).toBe( before );
-		await openBrowserOptions( user );
-		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Admin bar' } ) );
-		expect( await screen.findByRole( 'menuitemradio', { name: 'Show' } ) ).toBeChecked();
-	} );
+	it.each( [ 'Show', 'Hide' ] )(
+		'keeps the selected value and page intact when %s fails',
+		async ( value ) => {
+			const connector = createFakeConnector( {
+				sites: [ site( { hideFrontendAdminBar: value === 'Show' } ) ],
+			} );
+			connector.setSiteFrontendAdminBar.mockRejectedValueOnce( new Error( 'Disk full' ) );
+			const { user } = await renderPreview( 'browser', {}, connector );
+			const before = page();
+			await openBrowserOptions( user );
+			fireEvent.click( screen.getByRole( 'menuitem', { name: 'Admin bar' } ) );
+			await user.click( await screen.findByRole( 'menuitemradio', { name: value } ) );
+			await waitFor( () =>
+				expect( getVisibleToasts() ).toContainEqual(
+					expect.objectContaining( {
+						title: 'Could not update the admin bar setting. Please try again.',
+						intent: 'error',
+					} )
+				)
+			);
+			expect( page() ).toBe( before );
+			await openBrowserOptions( user );
+			fireEvent.click( screen.getByRole( 'menuitem', { name: 'Admin bar' } ) );
+			expect(
+				await screen.findByRole( 'menuitemradio', { name: value === 'Show' ? 'Hide' : 'Show' } )
+			).toBeChecked();
+		}
+	);
 
 	it( 'applies a pending save to its original site after switching sites', async () => {
 		const connector = createFakeConnector( {

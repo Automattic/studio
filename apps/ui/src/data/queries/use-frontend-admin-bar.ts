@@ -8,22 +8,31 @@ import { SITES_QUERY_KEY } from './use-sites';
 import { useUserPreferences } from './use-user-preferences';
 import type { SiteDetails } from '@/data/core';
 
-export type FrontendAdminBarPreference = 'show' | 'hide';
+type FrontendAdminBarPreference = 'show' | 'hide';
 
 export function useFrontendAdminBar( {
 	site,
 	active,
 	onReload,
+	onShow,
 }: {
 	site: SiteDetails;
 	active: boolean;
 	onReload: () => void;
+	onShow: () => void;
 } ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	const { data: preferences } = useUserPreferences();
 	const defaultHidden = preferences?.hideFrontendAdminBar ?? DEFAULT_HIDE_FRONTEND_ADMIN_BAR;
 	const hidden = site.hideFrontendAdminBar ?? defaultHidden;
+	const preview = useRef( { siteId: site.id, active, onShow } );
+	useEffect( () => {
+		preview.current = { siteId: site.id, active, onShow };
+		return () => {
+			preview.current.active = false;
+		};
+	}, [ active, onShow, site.id ] );
 	const lastApplied = useRef( { siteId: site.id, hidden } );
 	useEffect( () => {
 		if ( lastApplied.current.siteId !== site.id ) {
@@ -39,10 +48,19 @@ export function useFrontendAdminBar( {
 
 	const save = useMutation( {
 		scope: { id: 'frontend-admin-bar' },
-		mutationFn: ( { siteId, hidden }: { siteId: string; hidden: boolean | null } ) =>
-			connector.setSiteFrontendAdminBar( siteId, hidden ),
-		onSuccess: async ( _result, { siteId, hidden } ) => {
+		mutationFn: ( {
+			siteId,
+			hidden,
+		}: {
+			siteId: string;
+			hidden: boolean | null;
+			value: FrontendAdminBarPreference;
+		} ) => connector.setSiteFrontendAdminBar( siteId, hidden ),
+		onSuccess: async ( _result, { siteId, hidden, value } ) => {
 			await queryClient.cancelQueries( { queryKey: SITES_QUERY_KEY } );
+			const currentPreview = preview.current;
+			const show = value === 'show' && currentPreview.active && currentPreview.siteId === siteId;
+			if ( show ) lastApplied.current = { siteId, hidden: false };
 			queryClient.setQueryData< SiteDetails[] >(
 				SITES_QUERY_KEY,
 				( sites ) =>
@@ -55,17 +73,18 @@ export function useFrontendAdminBar( {
 							: current
 					)
 			);
+			if ( show ) currentPreview.onShow();
 		},
 		onError: () => toast.error( __( 'Could not update the admin bar setting. Please try again.' ) ),
 	} );
 
 	return {
 		value: hidden ? ( 'hide' as const ) : ( 'show' as const ),
-		saving: save.isPending,
+		saving: save.isPending || ! preferences,
 		onChange: ( value: FrontendAdminBarPreference ) => {
 			if ( save.isPending ) return;
 			const hidden = value === 'hide';
-			save.mutate( { siteId: site.id, hidden: hidden === defaultHidden ? null : hidden } );
+			save.mutate( { siteId: site.id, hidden: hidden === defaultHidden ? null : hidden, value } );
 		},
 	};
 }

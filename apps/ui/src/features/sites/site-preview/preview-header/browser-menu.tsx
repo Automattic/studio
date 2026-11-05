@@ -2,10 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { EllipsisVerticalIcon } from 'lucide-react';
 import { Button, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import type { PreviewColorScheme } from '../preview-surface/webview';
-import type {
-	FrontendAdminBarPreference,
-	useFrontendAdminBar,
-} from '@/data/queries/use-frontend-admin-bar';
+import type { useFrontendAdminBar } from '@/data/queries/use-frontend-admin-bar';
 
 export interface PreviewBrowserActions {
 	colorScheme: PreviewColorScheme;
@@ -52,14 +49,13 @@ function BrowserMenuItems( { actions, adminBar, disabled }: BrowserMenuItemsProp
 						{ __( 'Admin bar' ) }
 					</Menu.SubmenuTrigger>
 					<Menu.SubmenuPopup>
-						<Menu.RadioGroup
-							value={ adminBar.value }
-							onValueChange={ ( value ) =>
-								adminBar.onChange( value as FrontendAdminBarPreference )
-							}
-						>
-							<Menu.RadioItem value="show">{ __( 'Show' ) }</Menu.RadioItem>
-							<Menu.RadioItem value="hide">{ __( 'Hide' ) }</Menu.RadioItem>
+						<Menu.RadioGroup value={ adminBar.value }>
+							<Menu.RadioItem value="show" onClick={ () => adminBar.onChange( 'show' ) }>
+								{ __( 'Show' ) }
+							</Menu.RadioItem>
+							<Menu.RadioItem value="hide" onClick={ () => adminBar.onChange( 'hide' ) }>
+								{ __( 'Hide' ) }
+							</Menu.RadioItem>
 						</Menu.RadioGroup>
 					</Menu.SubmenuPopup>
 				</Menu.SubmenuRoot>

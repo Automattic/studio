@@ -578,13 +578,13 @@ async function homeImageFrames( url: string ) {
 // styles: where the header sits after a scroll, the order of its menu and
 // title, the buttons' corners and colors, the headings' case, the footer's
 // text sizes and the palette's colors.
-export async function homeStyles( url: string ) {
+export async function homeStyles( url: string, siteName: string ) {
 	try {
 		const browser = await getSharedBrowser();
 		const page = await browser.newPage( { viewport: { width: 1280, height: 900 } } );
 		try {
 			await page.goto( url, { waitUntil: 'load', timeout: 30000 } );
-			return await page.evaluate( () => {
+			return await page.evaluate( ( name ) => {
 				const visible = ( el: Element ) => {
 					const box = el.getBoundingClientRect();
 					const style = getComputedStyle( el );
@@ -595,7 +595,14 @@ export async function homeStyles( url: string ) {
 					...document.querySelectorAll( 'footer.wp-block-template-part, footer' ),
 				].at( -1 );
 				const nav = header?.querySelector( '.wp-block-navigation' );
-				const title = header?.querySelector( '.wp-block-site-title, .wp-block-site-logo' );
+				// The site title or logo, else what in the header reads as the site's
+				// name, as a paragraph "SPOKE & CHAIN" does.
+				const asName = ( text: string ) => text.replace( /\s+/g, ' ' ).trim().toLowerCase();
+				const title =
+					header?.querySelector( '.wp-block-site-title, .wp-block-site-logo' ) ??
+					[ ...( header?.querySelectorAll( '*' ) ?? [] ) ]
+						.reverse()
+						.find( ( el ) => asName( el.textContent ?? '' ) === asName( name ) );
 				const left = ( el: Element | null | undefined ) =>
 					el ? Math.round( el.getBoundingClientRect().left ) : null;
 				const navLeft = left( nav );
@@ -637,15 +644,18 @@ export async function homeStyles( url: string ) {
 							height: Math.round( el.getBoundingClientRect().height ),
 						};
 					} );
-				// "The big title at the top": the largest heading on the first
-				// screen, whichever its level (eval5's Athletic hero was an h2).
+				// "The big title at the top": the first screen's h1, else its largest
+				// heading, whichever its level (eval5's Athletic hero was an h2).
 				const shown = [ ...document.querySelectorAll( 'h1, h2, h3, h4, h5, h6' ) ].filter(
 					visible
 				);
 				const size = ( el: Element ) => parseFloat( getComputedStyle( el ).fontSize );
-				const topTitle = shown
-					.filter( ( el ) => el.getBoundingClientRect().top < window.innerHeight )
-					.reduce< Element | undefined >(
+				const onFirstScreen = shown.filter(
+					( el ) => el.getBoundingClientRect().top < window.innerHeight
+				);
+				const topTitle =
+					onFirstScreen.find( ( el ) => el.tagName === 'H1' ) ??
+					onFirstScreen.reduce< Element | undefined >(
 						( largest, el ) => ( ! largest || size( el ) > size( largest ) ? el : largest ),
 						undefined
 					);
@@ -888,7 +898,7 @@ export async function homeStyles( url: string ) {
 					firstScreenImages,
 					faults,
 				};
-			} );
+			}, siteName );
 		} finally {
 			await page.close();
 		}
@@ -948,7 +958,7 @@ async function captureSiteOutcome(
 		const home = {
 			...( await renderHome( url ) ),
 			imageFrames: await homeImageFrames( url ),
-			styles: await homeStyles( url ),
+			styles: await homeStyles( url, site.name ),
 		};
 		outcome.homeScreenshot = ( await saveHomeScreenshot( url, screenshot ) )
 			? screenshot
@@ -1035,7 +1045,7 @@ export async function captureHomeStyles( before: SiteFingerprint[] ) {
 		try {
 			await connectToDaemon();
 			await runStartSiteCommand( sitePath, true, true, new Logger() );
-			styles[ name ] = await homeStyles( getSiteUrl( await getSiteByFolder( sitePath ) ) );
+			styles[ name ] = await homeStyles( getSiteUrl( await getSiteByFolder( sitePath ) ), name );
 		} catch ( error ) {
 			styles[ name ] = { error: error instanceof Error ? error.message : String( error ) };
 		}

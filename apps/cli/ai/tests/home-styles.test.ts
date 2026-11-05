@@ -41,6 +41,11 @@ const PAGE = `<p class="skip" style="position:absolute;left:0;clip-path:inset(50
 	<p>Body text for the median size of the page, at sixteen pixels.</p></section>
 	<section style="position:relative;padding:0 40px"><p>A heading under an overlay</p><div style="position:absolute;inset:0;background:rgba(0,0,0,.5)"></div></section>`;
 
+const HEADER = `<header style="display:flex;justify-content:space-between;padding:20px 40px">
+	<nav class="wp-block-navigation"><a href="/">Home</a> <a href="/services/">Services</a></nav>
+	<div style="display:flex;gap:20px"><p style="font-size:24px">SPOKE <span>&amp;</span> CHAIN</p><a href="/contact/">book a repair</a></div></header>
+	<main><h1 style="font-size:40px">Your bike on the road, fast.</h1><h2 style="font-size:56px">what we fix</h2></main>`;
+
 describe.runIf( CHROMIUM )( 'the eval home page styles', () => {
 	let server: http.Server;
 	let url: string;
@@ -50,6 +55,8 @@ describe.runIf( CHROMIUM )( 'the eval home page styles', () => {
 			response.end(
 				request.url === '/page'
 					? `<!doctype html><body style="margin:0;font-size:16px">${ PAGE }</body>`
+					: request.url === '/header'
+					? `<!doctype html><body style="margin:0">${ HEADER }</body>`
 					: `<!doctype html><body style="margin:0"><main>Home</main><footer style="width:1000px;margin:auto">${
 							FOOTERS[ request.url?.slice( 1 ) ?? '' ]
 					  }</footer></body>`
@@ -72,7 +79,7 @@ describe.runIf( CHROMIUM )( 'the eval home page styles', () => {
 	] )(
 		'measures the %s footer as off center: %s',
 		async ( footer, off ) => {
-			const styles = ( await homeStyles( url + footer ) ) as {
+			const styles = ( await homeStyles( url + footer, 'Brightside Family Dental' ) ) as {
 				footerText: { offCenter: number }[];
 			};
 			const farthest = Math.max( ...styles.footerText.map( ( text ) => text.offCenter ) );
@@ -82,8 +89,23 @@ describe.runIf( CHROMIUM )( 'the eval home page styles', () => {
 		60000
 	);
 
+	// eval23 picky port 1: the name a paragraph, and the hero h1 smaller than a section's h2.
+	it( "finds the site's name in the header by its text, and the first screen's h1 as its top title", async () => {
+		const styles = ( await homeStyles( url + 'header', 'Spoke & Chain' ) ) as {
+			navLeft: number;
+			titleLeft: number;
+			headings: { text: string; first: boolean }[];
+		};
+		expect( styles.titleLeft ).toBeGreaterThan( styles.navLeft );
+		expect( styles.headings.filter( ( heading ) => heading.first ) ).toEqual( [
+			expect.objectContaining( { text: 'Your bike on the road, fast.' } ),
+		] );
+	}, 60000 );
+
 	it( 'names the faults a visitor sees at a glance, and only those', async () => {
-		const { faults } = ( await homeStyles( url + 'page' ) ) as { faults: string[] };
+		const { faults } = ( await homeStyles( url + 'page', 'Brightside Family Dental' ) ) as {
+			faults: string[];
+		};
 		expect(
 			faults.map( ( fault ) => fault.replace( /\(x .*\)|, [\d.]+:1|\d+(\.\d+)?px/g, '' ) )
 		).toEqual( [

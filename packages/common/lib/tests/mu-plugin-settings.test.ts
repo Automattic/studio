@@ -1,6 +1,7 @@
-import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import * as atomically from 'atomically';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	readSiteMetadata,
@@ -11,6 +12,8 @@ import * as appConfig from '../app-config';
 import { syncMuPluginSettings } from '../mu-plugin-settings';
 import { readUserPreferences, writeUserPreferences } from '../user-settings/user-preferences';
 import { getMuPluginSettingsPath } from '../well-known-paths';
+
+vi.mock( 'atomically', { spy: true } );
 
 let configDir: string;
 const preferencesContext = () => ( { sitesRoot: configDir } );
@@ -102,14 +105,13 @@ describe( 'MU plugin browser settings', () => {
 	} );
 
 	it( 'leaves the saved preference unchanged if publishing the runtime settings fails', async () => {
-		await mkdir( getMuPluginSettingsPath(), { recursive: true } );
+		vi.mocked( atomically.writeFile ).mockRejectedValueOnce( new Error( 'publish failed' ) );
 		await expect(
 			writeUserPreferences( { hideFrontendAdminBar: true }, preferencesContext() )
-		).rejects.toThrow();
+		).rejects.toThrow( 'publish failed' );
 		expect( ( await readUserPreferences( preferencesContext() ) ).hideFrontendAdminBar ).toBe(
 			false
 		);
-		await rm( getMuPluginSettingsPath(), { recursive: true } );
 		await writeUserPreferences( { hideFrontendAdminBar: true }, preferencesContext() );
 		expect( ( await runtimeSettings() ).hideFrontendAdminBar ).toBe( true );
 	} );

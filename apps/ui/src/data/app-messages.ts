@@ -164,8 +164,10 @@ function makeRoomForQueuedToast() {
 		visible.some( ( item ) => item.leaving )
 	)
 		return;
-	const oldestProgress = visible.find( ( item ) => item.processing && item.dismissible !== false );
-	if ( oldestProgress ) dismissToast( oldestProgress.id );
+	const oldestPersistent = visible.find(
+		( item ) => ( item.processing || item.durationMs === 0 ) && item.dismissible !== false
+	);
+	if ( oldestPersistent ) dismissToast( oldestPersistent.id );
 }
 
 function promoteQueued() {

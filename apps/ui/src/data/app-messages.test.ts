@@ -90,6 +90,19 @@ describe( 'app-messages', () => {
 		expect( getNoticeHistory().filter( ( item ) => item.id === 'export-0' ) ).toHaveLength( 1 );
 	} );
 
+	it( 'makes room for new errors when persistent failures fill the deck, retaining their history', () => {
+		for ( const name of [ 'A', 'B', 'C' ] ) {
+			toast.error( `Could not create ${ name }`, { id: `create-site:${ name }`, durationMs: 0 } );
+		}
+		toast.error( 'Disk full' );
+		settleExit();
+		expect( titles() ).toEqual( [ 'Could not create B', 'Could not create C', 'Disk full' ] );
+		expect( getQueuedToastCount() ).toBe( 0 );
+		expect( getNoticeHistory().find( ( item ) => item.id === 'create-site:A' )?.title ).toBe(
+			'Could not create A'
+		);
+	} );
+
 	it( 'does not strand errors behind queued progress during simultaneous exits', () => {
 		for ( let index = 0; index < 6; index++ ) toast.processing( `Export ${ index }` );
 		toast.error( 'Disk full' );

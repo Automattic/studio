@@ -7,7 +7,7 @@ import {
 } from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { formatProgressLabel } from '@studio/common/lib/progress-label';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { getSiteTracksProps } from '@studio/common/lib/site-tracks';
 import { buildSyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
 import {
 	SYNC_IGNORE_DEFAULTS,
@@ -31,6 +31,7 @@ import { selectSyncItemsForPush } from 'cli/lib/sync-selector';
 import { findSyncSiteByIdentifier, pickSyncSite } from 'cli/lib/sync-site-picker';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { findFailureCode } from 'cli/lib/utils';
+import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { handleExportEvents } from './export';
 import type { SyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
@@ -66,6 +67,7 @@ export async function runCommand(
 		}
 		if ( ! suppressTracksEvent ) {
 			await recordSyncPushEvent(
+				siteFolder,
 				buildSyncEventProps( {
 					startedAt,
 					site: pushed.remoteSite,
@@ -86,7 +88,10 @@ export async function runCommand(
 	// Backing out of the site picker or the item selector returns without
 	// completing — a cancel, which emits nothing.
 	if ( pushed.completed && ! suppressTracksEvent ) {
-		await recordSyncPushEvent( buildSyncEventProps( { startedAt, site: pushed.remoteSite } ) );
+		await recordSyncPushEvent(
+			siteFolder,
+			buildSyncEventProps( { startedAt, site: pushed.remoteSite } )
+		);
 	}
 	return pushed.completed ? pushed.remoteSite : undefined;
 }
@@ -104,14 +109,7 @@ async function runPush(
 ): Promise< void > {
 	let remoteSite: SyncSite | undefined;
 
-	const token = await readAuthToken();
-	if ( ! token ) {
-		throw new LoggerError(
-			__( 'Authentication required. Please log in with `studio auth login`.' ),
-			undefined,
-			'auth'
-		);
-	}
+	const token = await requireAuthToken( 'auth' );
 
 	logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
 	const site = await getSiteByFolder( siteFolder );
@@ -405,9 +403,13 @@ function getImportFailureMessage( response: Extract< ImportResponse, { status: '
 	return __( 'Something went wrong while updating the live site.' );
 }
 
-async function recordSyncPushEvent( props: SyncEventProps ): Promise< void > {
+async function recordSyncPushEvent( siteFolder: string, props: SyncEventProps ): Promise< void > {
 	try {
-		await recordTracksEvent( TRACKS_EVENTS.SYNC_PUSH, { ...props, ...getTracksOrigin() } );
+		await recordTracksEvent( TRACKS_EVENTS.SYNC_PUSH, {
+			...props,
+			...( await getSiteTracksProps( { siteFolder } ) ),
+			...getTracksOrigin(),
+		} );
 	} catch {
 		// Best-effort telemetry — never block or fail the push.
 	}

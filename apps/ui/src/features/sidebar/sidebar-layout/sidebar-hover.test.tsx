@@ -1,7 +1,9 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createFakeConnector, makeSite } from '@/test/fake-connector';
+import { closeNoticeHistory } from '@/features/notifications';
+import { createFakeConnector, makeSession, makeSite } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
+import styles from './style.module.css';
 
 const sites = [
 	makeSite( { id: 'one', name: 'My site' } ),
@@ -10,11 +12,15 @@ const sites = [
 
 const originalWidth = window.innerWidth;
 
-async function setup( width = 1280 ) {
+async function setup( width = 1280, sessions: ReturnType< typeof makeSession >[] = [] ) {
 	Object.defineProperty( window, 'innerWidth', { configurable: true, value: width } );
 	localStorage.setItem( 'studio-ui-sidebar-collapsed', 'true' );
 	const view = renderApp( {
-		connector: createFakeConnector( { sites, user: null } ),
+		connector: createFakeConnector( {
+			sites,
+			user: null,
+			sessions: sessions.map( ( summary ) => ( { summary, entries: [] } ) ),
+		} ),
 		path: '/sites/one',
 	} );
 	const trigger = await waitFor( () => {
@@ -37,18 +43,60 @@ const switcherClosed = () =>
 		expect( screen.queryByRole( 'button', { name: 'Close sidebar' } ) ).not.toBeInTheDocument()
 	);
 
-beforeEach( () => localStorage.clear() );
+beforeEach( () => {
+	localStorage.clear();
+	closeNoticeHistory();
+} );
 afterEach( () =>
 	Object.defineProperty( window, 'innerWidth', { configurable: true, value: originalWidth } )
 );
 
 describe( 'sidebar hover overlay', () => {
-	it( 'lists the sites on hover and closes once one opens', async () => {
-		const { connector, history, open } = await setup();
+	it( 'closes notification history when the palette hides its sidebar and does not reopen it', async () => {
+		const { user, trigger, open } = await setup( 540 );
+		const switcher = await open();
+		fireEvent.click( within( switcher ).getByRole( 'button', { name: /Notification history/ } ) );
+		expect( await screen.findByText( 'No notifications.' ) ).toBeVisible();
+		const isApple = /Mac|iPhone|iPad/.test( navigator.platform );
+		fireEvent.keyDown( document, { code: 'KeyK', key: 'k', metaKey: isApple, ctrlKey: ! isApple } );
+		const input = await screen.findByRole( 'combobox', { name: 'Search commands' } );
+		await waitFor( () =>
+			expect( screen.queryByText( 'No notifications.' ) ).not.toBeInTheDocument()
+		);
+		fireEvent.keyDown( input, { key: 'Escape' } );
+		await waitFor( () =>
+			expect( screen.queryByRole( 'dialog', { name: 'Command palette' } ) ).not.toBeInTheDocument()
+		);
+		await user.unhover( trigger );
+		await open();
+		expect( screen.queryByText( 'No notifications.' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'keeps the flyout open while toggling sites and closes when a chat opens', async () => {
+		const { connector, history, open } = await setup( 1280, [
+			makeSession( {
+				id: 'flyout-chat',
+				title: 'Saved flyout chat',
+				ownerSiteId: 'two',
+				ownerSitePath: sites[ 1 ].path,
+			} ),
+		] );
 		const switcher = await open();
 		fireEvent.click( await within( switcher ).findByRole( 'button', { name: /^Other site/ } ) );
-		await switcherClosed();
 		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
+		expect( screen.getByRole( 'dialog', { name: 'Sidebar' } ) ).toBeVisible();
+		const site = within( switcher ).getByRole( 'button', { name: /^Other site/ } );
+		expect( site ).toHaveAttribute( 'aria-expanded', 'true' );
+		fireEvent.click( site );
+		expect( site ).toHaveAttribute( 'aria-expanded', 'false' );
+		expect( screen.getByRole( 'dialog', { name: 'Sidebar' } ) ).toBeVisible();
+		fireEvent.click( site );
+		fireEvent.click(
+			within(
+				await within( switcher ).findByRole( 'group', { name: 'Other site chats' } )
+			).getByRole( 'button', { name: 'Saved flyout chat' } )
+		);
+		await switcherClosed();
 		expect( connector.createSession ).not.toHaveBeenCalled();
 	} );
 
@@ -70,7 +118,10 @@ describe( 'sidebar hover overlay', () => {
 		).toBeInTheDocument();
 		expect( screen.queryByRole( 'dialog', { name: 'Sidebar' } ) ).not.toBeInTheDocument();
 		expect( document.activeElement ).toHaveAccessibleName( 'Hide sidebar' );
-		expect( document.activeElement?.closest( 'aside' )?.scrollTop ).toBe( 0 );
+		expect(
+			document.activeElement?.closest( 'aside' )?.querySelector( `.${ styles.sidebarScroll }` )
+				?.scrollTop
+		).toBe( 0 );
 	} );
 } );
 
@@ -159,7 +210,7 @@ it( 'focuses and keeps a narrow flyover open when the shortcut commits a hover p
 it.each( [
 	[ 'Add site', 'Add site' ],
 	[ 'Settings', 'Settings' ],
-	[ 'Log in', 'Do more with WordPress.com' ],
+	[ 'Log in', 'Do more with WordPress' ],
 ] )( 'dismisses the flyout while keeping the %s dialog open', async ( button, title ) => {
 	const { open, user, trigger, connector } = await setup( 800 );
 	const sidebar = await open();

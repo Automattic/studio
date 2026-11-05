@@ -6,6 +6,7 @@ import { useConnector } from '@/data/core';
 import { setCommandPaletteOpen, useCommandPaletteOpen } from '@/data/use-command-palette';
 import { useOpenHeaderPanel } from '@/data/use-open-header-panel';
 import { useOpenSettings } from '@/data/use-open-settings';
+import { usePanelCommand } from '@/data/use-panel-command';
 import { useSessionUIDispatch, useSessionPreviewUI } from '@/data/use-session-ui';
 import { setAnnotating, useSiteAnnotations } from '@/features/annotations';
 import { useChatActions } from '@/features/chats';
@@ -31,12 +32,11 @@ import type { AiSessionSummary, SiteDetails } from '@/data/core';
 export function CommandPalette( {
 	site,
 	session,
-	chatHidden,
+	panelShown,
 }: {
 	site?: SiteDetails;
 	session?: AiSessionSummary;
-	// Set where the chat can be hidden beside the preview.
-	chatHidden?: boolean;
+	panelShown?: boolean;
 } ) {
 	const open = useCommandPaletteOpen();
 	const commands = useAppCommands();
@@ -64,7 +64,7 @@ export function CommandPalette( {
 			key={ site.id }
 			site={ site }
 			session={ session }
-			chatHidden={ chatHidden }
+			panelShown={ panelShown }
 			{ ...palette }
 		/>
 	) : (
@@ -75,10 +75,14 @@ export function CommandPalette( {
 function SiteCommands( {
 	site,
 	session,
-	chatHidden,
+	panelShown,
 	commands,
 	...palette
-}: PaletteProps & { site: SiteDetails; session?: AiSessionSummary; chatHidden?: boolean } ) {
+}: PaletteProps & {
+	site: SiteDetails;
+	session?: AiSessionSummary;
+	panelShown?: boolean;
+} ) {
 	const navigate = useNavigate();
 	const openSettings = useOpenSettings();
 	const connector = useConnector();
@@ -93,11 +97,22 @@ function SiteCommands( {
 	const openHeaderPanel = useOpenHeaderPanel();
 	const annotations = useSiteAnnotations( site.id );
 	const settingCommands = useSettingCommands( 'site', site );
+	const panelCommand = usePanelCommand( site.id );
+
+	useEffect(
+		() =>
+			connector.onNewChat( () => {
+				replaceOpenDialogs( () => {
+					preview.setChatHidden( false, site.id );
+					void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+				} );
+			} ),
+		[ connector, navigate, preview, site.id ]
+	);
 
 	const siteCommands = getSiteCommands( {
 		site,
-		chatHidden,
-		previewShown: preview.open && preview.siteId === site.id,
+		panelShown: panelShown ?? preview.open,
 		canAnnotate: connector.capabilities.annotatePreview,
 		annotating: annotations.active,
 		actions,
@@ -112,18 +127,31 @@ function SiteCommands( {
 		},
 		reloadPreview: () => dispatch( { type: 'preview/reload' } ),
 		annotate: ( active ) => setAnnotating( site.id, active ),
-		showPreview: ( show ) => {
-			preview.setSite( site.id );
-			preview.setOpen( show );
-		},
-		setChatHidden: ( hidden ) => preview.setChatHidden( hidden, site.id ),
 		copyUrl: () =>
 			void connector
 				.copyText( getSiteUrl( site ) )
 				.then( () => toast.success( __( 'Site URL copied' ) ) ),
 	} );
 
-	const props = { ...palette, commands: [ ...commands, ...siteCommands ] };
+	const props = {
+		...palette,
+		commands: [
+			...commands,
+			...siteCommands,
+			...( panelCommand
+				? [
+						{
+							id: panelCommand.name,
+							group: 'commands' as const,
+							label: panelCommand.displayName,
+							keywords: [ __( 'Split view' ), __( 'Layout' ) ],
+							icon: panelCommand.icon,
+							run: panelCommand.run,
+						},
+				  ]
+				: [] ),
+		],
+	};
 	return (
 		<>
 			{ session && ! session.archived ? (

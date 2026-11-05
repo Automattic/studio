@@ -1,7 +1,3 @@
-.prompt {
-	padding-bottom: var( --space-2 );
-}
-
 .privacy {
 	text-align: start;
 	display: flex;

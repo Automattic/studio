@@ -1,7 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { useConnector } from '@/data/core';
-import { useSettleFromMutation } from '@/data/queries/use-sync-site';
-import { applySyncActivity } from '@/data/sync-activity';
+import { useSettleSync, useSettleFromMutation } from '@/data/queries/use-sync-site';
 
 interface ImportSiteInput {
 	siteId: string;
@@ -15,11 +14,12 @@ interface ImportSiteInput {
 export function useImportSite() {
 	const connector = useConnector();
 	const settleFromMutation = useSettleFromMutation();
+	const recordActivity = useSettleSync();
 	return useMutation< void, Error, ImportSiteInput >( {
 		mutationFn: ( { siteId, backupPath, suppressTracksEvent } ) =>
 			connector.importSiteFromBackup( siteId, backupPath, { suppressTracksEvent } ),
 		onMutate: ( { siteId } ) => {
-			applySyncActivity( siteId, { kind: 'pending', direction: 'import' } );
+			recordActivity( siteId, { kind: 'pending', direction: 'import' } );
 		},
 		onSuccess: ( _result, { siteId } ) => settleFromMutation( siteId, 'import' ),
 		onError: ( error, { siteId } ) => settleFromMutation( siteId, 'import', error ),

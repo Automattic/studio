@@ -11,6 +11,7 @@ import {
 	pickAnnotation,
 	removeAnnotations,
 	stageAnnotations,
+	subscribeAnnotationReview,
 } from '@/features/annotations';
 import { Composer, type ComposerHandle } from '@/features/composer';
 import { Button } from '@/lib/ui';
@@ -262,7 +263,7 @@ describe( 'Chat composer', () => {
 		const { input, onSend, history } = await setup();
 		fireEvent.change( input, { target: { value: 'Keep this draft' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Connect AI providers/ } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Connect providers/ } ) );
 		await waitFor( () => expect( history.location.search ).toContain( 'settings=ai' ) );
 		expect( input ).toHaveValue( 'Keep this draft' );
 		expect( onSend ).not.toHaveBeenCalled();
@@ -378,12 +379,14 @@ describe( 'Chat composer', () => {
 		fireEvent.change( input, { target: { value: '/ann' } } );
 		await screen.findByRole( 'listbox' );
 		expect( screen.getByRole( 'group', { name: 'Skills' } ) ).toBeVisible();
+		expect( screen.queryByText( 'Skills' ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'group', { name: 'Commands' } ) ).not.toBeInTheDocument();
 		fireEvent.keyDown( input, { key: 'Escape' } );
 		await waitFor( () => expect( screen.queryByRole( 'listbox' ) ).not.toBeInTheDocument() );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
 		const picker = await screen.findByRole( 'listbox' );
 		expect( screen.getByRole( 'group', { name: 'Skills' } ) ).toBeVisible();
+		expect( within( picker ).getByText( 'Skills' ) ).toBeVisible();
 		const files = screen.getByRole( 'option', { name: 'Add files' } );
 		fireEvent.keyDown( picker, { key: 'Home' } );
 		expect( files ).toHaveAttribute( 'aria-selected', 'true' );
@@ -400,26 +403,37 @@ describe( 'Chat composer', () => {
 		expect( onSend ).not.toHaveBeenCalled();
 	} );
 
-	it( 'opens the multiple-file picker from the menu and attaches the selected file', async () => {
-		const { onSend } = await setup();
-		const fileInput = screen.getByLabelText( 'Upload attachments' ) as HTMLInputElement;
-		const picker = vi.spyOn( fileInput, 'click' );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: 'Add files' } ) );
-		await waitFor( () => expect( picker ).toHaveBeenCalledOnce() );
-		expect( fileInput.multiple ).toBe( true );
-		fireEvent.change( fileInput, {
-			target: { files: [ new File( [ 'Notes' ], 'notes.txt', { type: 'text/plain' } ) ] },
-		} );
-		expect( await screen.findByText( 'notes.txt' ) ).toBeVisible();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
-		await waitFor( () =>
-			expect( onSend ).toHaveBeenCalledWith(
-				'Please review the attached files.',
-				expect.objectContaining( { files: [ expect.objectContaining( { name: 'notes.txt' } ) ] } )
-			)
-		);
-	} );
+	it.each( [ 'menu', 'slash' ] )(
+		'opens the multiple-file picker from %s and attaches the selected file',
+		async ( source ) => {
+			const { input, onSend } = await setup();
+			const fileInput = screen.getByLabelText( 'Upload attachments' ) as HTMLInputElement;
+			const picker = vi.spyOn( fileInput, 'click' );
+			if ( source === 'slash' ) {
+				fireEvent.change( input, { target: { value: '/add' } } );
+				await screen.findByRole( 'option', { name: 'Add files' } );
+				fireEvent.keyDown( input, { key: 'Enter' } );
+			} else {
+				fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+				fireEvent.click( await screen.findByRole( 'option', { name: 'Add files' } ) );
+			}
+			await waitFor( () => expect( picker ).toHaveBeenCalledOnce() );
+			expect( input ).toHaveValue( '' );
+			expect( onSend ).not.toHaveBeenCalled();
+			expect( fileInput.multiple ).toBe( true );
+			fireEvent.change( fileInput, {
+				target: { files: [ new File( [ 'Notes' ], 'notes.txt', { type: 'text/plain' } ) ] },
+			} );
+			expect( await screen.findByText( 'notes.txt' ) ).toBeVisible();
+			fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+			await waitFor( () =>
+				expect( onSend ).toHaveBeenCalledWith(
+					'Please review the attached files.',
+					expect.objectContaining( { files: [ expect.objectContaining( { name: 'notes.txt' } ) ] } )
+				)
+			);
+		}
+	);
 
 	it( 'keeps Enter submission, Shift+Enter and IME composition behavior', async () => {
 		const { input, onSend } = await setup();
@@ -472,7 +486,17 @@ describe( 'Chat composer', () => {
 } );
 
 describe( 'Composer parity', () => {
-	const liveUrl = 'https://example.com';
+	it( 'omits local site controls when the chat targets the live site', async () => {
+		const onStartSite = vi.fn();
+		const onStopSite = vi.fn();
+		await setup( { environment: 'live', onStartSite, onStopSite } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+		await screen.findByRole( 'option', { name: 'Add files' } );
+		expect(
+			screen.queryByRole( 'option', { name: /^Start site(?: |$)/ } )
+		).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'option', { name: 'Stop site' } ) ).not.toBeInTheDocument();
+	} );
 
 	it( 'hides Auto-start while its chip is active and restores the command after removal', async () => {
 		const { input, onSend } = await setup( { canAutoStart: true } );
@@ -507,37 +531,39 @@ describe( 'Composer parity', () => {
 		'changes the target through %s without sending or losing the draft',
 		async ( source ) => {
 			const change = vi.fn();
-			const { input, onSend } = await setup( { liveUrl, onEnvironmentChange: change } );
+			const { input, onSend } = await setup( { environment: 'live', onEnvironmentChange: change } );
 			fireEvent.change( input, {
-				target: { value: source === 'slash' ? 'Please /live' : 'Keep this draft' },
+				target: { value: source === 'slash' ? 'Please /local' : 'Keep this draft' },
 			} );
 			if ( source === 'slash' ) {
 				fireEvent.keyDown( input, { key: 'Enter' } );
 			} else {
 				fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-				fireEvent.click(
-					await screen.findByRole( 'option', { name: `Work on live site ${ liveUrl }` } )
-				);
+				fireEvent.click( await screen.findByRole( 'option', { name: /^Work on local site/ } ) );
 			}
-			expect( change ).toHaveBeenCalledWith( 'live' );
+			expect( change ).toHaveBeenCalledWith( 'local' );
 			expect( onSend ).not.toHaveBeenCalled();
 			expect( input ).toHaveValue( source === 'slash' ? 'Please ' : 'Keep this draft' );
 		}
 	);
 
-	it( 'keeps /live in the draft when Enter picks it while the chat is busy', async () => {
+	it( 'keeps /local in the draft when Enter picks it while the chat is busy', async () => {
 		const change = vi.fn();
-		const { input, onSend } = await setup( { busy: true, liveUrl, onEnvironmentChange: change } );
-		fireEvent.change( input, { target: { value: '/live' } } );
+		const { input, onSend } = await setup( {
+			busy: true,
+			environment: 'live',
+			onEnvironmentChange: change,
+		} );
+		fireEvent.change( input, { target: { value: '/local' } } );
 		fireEvent.keyDown( input, { key: 'Enter' } );
 		expect( change ).not.toHaveBeenCalled();
 		expect( onSend ).not.toHaveBeenCalled();
-		expect( input ).toHaveValue( '/live' );
+		expect( input ).toHaveValue( '/local' );
 	} );
 
 	it( 'shows only the active Live chip and returns to local', async () => {
 		const change = vi.fn();
-		await setup( { environment: 'live', liveUrl, onEnvironmentChange: change } );
+		await setup( { environment: 'live', onEnvironmentChange: change } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Remove Live' } ) );
 		expect( change ).toHaveBeenCalledWith( 'local' );
 		expect( screen.queryByRole( 'button', { name: 'Remove Auto-start' } ) ).not.toBeInTheDocument();
@@ -700,6 +726,55 @@ describe( 'Annotation attachments in the composer', () => {
 			expect( screen.queryByRole( 'listitem', { name: /^1 annotation,/ } ) ).not.toBeInTheDocument()
 		);
 		expect( getSiteAnnotations( SITE ).notes ).toHaveLength( 0 );
+	} );
+
+	it( 'opens the annotation chip as an editable list and deletes individual notes', async () => {
+		const first = stageNote( 'Make the heading shorter' );
+		const second = stageNote( 'Make the background warmer' );
+		const review = vi.fn();
+		const unsubscribe = subscribeAnnotationReview( SITE, review );
+		try {
+			const { user } = await setup( { annotationSiteId: SITE } );
+			await user.click( screen.getByRole( 'button', { name: '2 annotations' } ) );
+			expect(
+				await screen.findByRole( 'button', { name: 'Edit annotation 1: Make the heading shorter' } )
+			).not.toHaveFocus();
+			await user.keyboard( '{Escape}' );
+			await user.keyboard( '{Enter}' );
+			await waitFor( () =>
+				expect( screen.getAllByRole( 'button', { name: /Edit annotation/ } )[ 0 ] ).toHaveFocus()
+			);
+			await user.keyboard( '{ArrowDown}' );
+			expect(
+				screen.getByRole( 'button', { name: 'Edit annotation 2: Make the background warmer' } )
+			).toHaveFocus();
+			await user.keyboard( '{ArrowUp}' );
+			expect(
+				screen.getByRole( 'button', { name: 'Edit annotation 1: Make the heading shorter' } )
+			).toBeVisible();
+			await user.click( screen.getByRole( 'button', { name: 'Delete annotation 1' } ) );
+			expect( getSiteAnnotations( SITE ).notes.map( ( note ) => note.id ) ).toEqual( [ second ] );
+			await waitFor( () =>
+				expect(
+					screen.getByRole( 'button', { name: 'Edit annotation 2: Make the background warmer' } )
+				).toHaveFocus()
+			);
+			await user.keyboard( '{Escape}' );
+			expect( screen.getByRole( 'button', { name: '1 annotation' } ) ).toHaveFocus();
+			await user.click( screen.getByRole( 'button', { name: '1 annotation' } ) );
+			await user.click(
+				screen.getByRole( 'button', { name: 'Edit annotation 2: Make the background warmer' } )
+			);
+			expect( review ).toHaveBeenCalledExactlyOnceWith( second );
+			expect(
+				screen.queryByRole( 'button', { name: 'Edit annotation 2: Make the background warmer' } )
+			).not.toBeInTheDocument();
+			expect( getSiteAnnotations( SITE ).notes.some( ( note ) => note.id === first ) ).toBe(
+				false
+			);
+		} finally {
+			unsubscribe();
+		}
 	} );
 
 	it( 'groups staged notes and removes them together without changing the text after a rejected send', async () => {
@@ -913,6 +988,41 @@ describe( 'Composer as a form field', () => {
 } );
 
 describe( 'Composer sending', () => {
+	it.each( [
+		{ label: 'Start site', props: { onStartSite: vi.fn() }, text: '' },
+		{ label: 'Send message', props: {}, text: 'Build a homepage' },
+		{ label: 'Stop response', props: { busy: true }, text: '' },
+	] )( 'shows the $label control’s tooltip', async ( { label, props, text } ) => {
+		const { input, user } = await setup( props );
+		if ( text ) {
+			fireEvent.change( input, { target: { value: text } } );
+		}
+		await user.hover( screen.getByRole( 'button', { name: label } ) );
+		expect( await screen.findByText( label ) ).toBeVisible();
+	} );
+
+	it.each( [ 'attachment', 'annotation' ] )(
+		'keeps Send available for an %s without text when the site can start',
+		async ( content ) => {
+			if ( content === 'attachment' ) {
+				saveComposerDraft( 'test', { text: '', attachments: [ image( 'ordinary' ) ] } );
+			} else {
+				stageNote( 'Shorten this heading' );
+			}
+			const onStartSite = vi.fn();
+			await setup( { onStartSite, annotationSiteId: SITE } );
+			expect( screen.getByRole( 'button', { name: 'Send message' } ) ).toBeEnabled();
+			expect( screen.queryByRole( 'button', { name: 'Start site' } ) ).not.toBeInTheDocument();
+			expect( onStartSite ).not.toHaveBeenCalled();
+		}
+	);
+
+	it( 'keeps Stop available during an active response when the site can start', async () => {
+		await setup( { busy: true, onStartSite: vi.fn() } );
+		expect( screen.getByRole( 'button', { name: 'Stop response' } ) ).toBeEnabled();
+		expect( screen.queryByRole( 'button', { name: 'Start site' } ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'holds sends behind the out-of-credits notice', async () => {
 		const connector = createFakeConnector();
 		connector.getStudioAssistantQuota.mockResolvedValue( OUT_OF_CREDITS );
@@ -968,10 +1078,10 @@ describe( 'Composer sending', () => {
 
 describe( 'Composer drafts and attachments', () => {
 	it( 'previews an attachment while its chip is hovered', async () => {
-		await setup();
+		const { user } = await setup();
 		upload( 'notes.txt' );
 
-		fireEvent.mouseEnter( await screen.findByRole( 'listitem', { name: /^notes\.txt/ } ) );
+		await user.hover( await screen.findByRole( 'listitem', { name: /^notes\.txt/ } ) );
 
 		expect(
 			await screen.findByText( 'notes.txt text', {}, { timeout: 2000 } )

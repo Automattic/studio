@@ -8,7 +8,6 @@ import { canUsePaidAiModels } from '@studio/common/lib/studio-assistant-quota';
 import { useNavigate, useRouter } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { ArrowDownIcon } from 'lucide-react';
 import {
 	useCallback,
 	useEffect,
@@ -28,6 +27,7 @@ import { useIsOutOfAiCredits } from '@/data/queries/use-is-out-of-ai-credits';
 import {
 	useSession,
 	useSessionLiveSite,
+	useSessions,
 	useSetSessionEnvironment,
 } from '@/data/queries/use-sessions';
 import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
@@ -37,10 +37,12 @@ import {
 	useIsSiteStopping,
 	useSites,
 	useStartSite,
+	useStopSite,
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSelectionTime } from '@/data/use-open-site';
 import { SessionUIProvider, useOptionalSessionPreviewUI } from '@/data/use-session-ui';
+import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import {
 	getSiteAnnotations,
 	hasAnnotationContent,
@@ -60,8 +62,9 @@ import {
 	type ComposerHandle,
 } from '@/features/composer';
 import { PreviewParticles, StoppedSitePreview } from '@/features/sites';
+import { ArrowDownIcon } from '@/lib/icons';
 import { getMotionDuration } from '@/lib/theme';
-import { Button, IconButton } from '@/lib/ui';
+import { Button, IconButton, VisuallyHidden } from '@/lib/ui';
 import { Conversation } from './conversation';
 import { QueuedPrompts } from './queued-prompts';
 import { SessionFrame } from './session-frame';
@@ -78,6 +81,7 @@ interface SessionViewProps {
 	siteId?: string;
 	headerStart?: ReactNode;
 	hideHeader?: boolean;
+	panelVisible?: boolean;
 }
 
 export function SessionView( props: SessionViewProps ) {
@@ -88,15 +92,23 @@ export function SessionView( props: SessionViewProps ) {
 	);
 }
 
-function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: SessionViewProps ) {
+function SessionViewContent( {
+	sessionId,
+	siteId,
+	headerStart,
+	hideHeader,
+	panelVisible = false,
+}: SessionViewProps ) {
 	const draftKey = sessionId ?? `site:${ siteId }`;
 	const { draft, update: updateDraft } = useSiteChatDraft( siteId );
 	const sendDraft = useSendSiteDraft( siteId );
 	const navigate = useNavigate();
 	const { data, isLoading, error, refetch } = useSession( sessionId );
 	const { data: sites } = useSites();
+	const { data: sessions } = useSessions();
+	const sessionSummary = data?.summary ?? sessions?.find( ( session ) => session.id === sessionId );
 	const ownerSite = sessionId
-		? findAiSessionOwnerSite( sites, data?.summary )
+		? findAiSessionOwnerSite( sites, sessionSummary )
 		: sites?.find( ( site ) => site.id === siteId );
 	useEffect( () => {
 		if ( ! sessionId && sites && ! ownerSite ) {
@@ -104,7 +116,7 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 		}
 	}, [ navigate, ownerSite, sessionId, sites ] );
 	const effectiveEnvironment = useSessionLiveSite(
-		sessionId ? data?.summary : draft,
+		sessionId ? sessionSummary : draft,
 		ownerSite?.id
 	)
 		? 'live'
@@ -137,7 +149,7 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 		( ! sessionId && draft.provider ) ||
 		getEffectiveSessionProvider( data?.entries ?? [], aiSettings );
 	const isWpcom = sessionProvider === 'wpcom';
-	const notice = useComposerNotice( sessionProvider );
+	const notice = useComposerNotice( sessionProvider, ownerSite?.id );
 	// A fresh wpcom session defaults to balanced when the paid tiers are
 	// unlocked, fast otherwise.
 	const defaultModel = useMemo(
@@ -269,11 +281,15 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 	const [ frameNode, setFrameNode ] = useState< HTMLDivElement | null >( null );
 	const { data: preferences } = useUserPreferences();
 	const { mutate: startSite } = useStartSite();
+	const { mutate: startSitePreview } = useStartSiteWithChat();
+	const { mutate: stopSite } = useStopSite();
 	const isSiteStarting = useIsSiteStarting( ownerSite?.id );
 	const isSiteStopping = useIsSiteStopping( ownerSite?.id );
 	const revealingSiteId = useOptionalSessionPreviewUI()?.revealingSiteId;
 	const siteLoading =
-		isSiteStarting || isSiteStopping || ( !! ownerSite && revealingSiteId === ownerSite.id );
+		! isSiteStopping && ( isSiteStarting || ( !! ownerSite && revealingSiteId === ownerSite.id ) );
+	const showStoppedPreview =
+		!! ownerSite && ( ! ownerSite.running || isSiteStopping ) && ! isSiteStarting;
 	const selectionTime = useSiteSelectionTime( ownerSite?.id );
 	const isSiteBusy = useIsSiteBusy( ownerSite );
 	const canAutoStart = !! ownerSite && effectiveEnvironment === 'local';
@@ -298,8 +314,6 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 		? sprintf(
 				isSiteStarting
 					? /* translators: %s: site name. */ __( 'Starting %s' )
-					: isSiteStopping
-					? /* translators: %s: site name. */ __( 'Stopping %s' )
 					: /* translators: %s: site name. */ __( 'Work with %s' ),
 				ownerSite.name
 		  )
@@ -416,10 +430,7 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 		( ! ownerSite && ! data ) ||
 		isQuotaLoading
 	) {
-		// Use the same SessionFrame with an empty header and a structural
-		// ComposerSkeleton so the scroll area has the exact same dimensions
-		// as the loaded view — otherwise the empty-state dots jump
-		// mid-transition.
+		// Match the loaded view's scroll area while the chat is loading.
 		return (
 			<SessionFrame
 				header={ hideHeader ? null : <div className={ styles.header } /> }
@@ -429,9 +440,7 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 					</div>
 				}
 			>
-				<div className={ styles.emptyState }>
-					<PreviewParticles />
-				</div>
+				<div className={ styles.emptyState } />
 			</SessionFrame>
 		);
 	}
@@ -447,7 +456,6 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 						start={ headerStart }
 						siteName={ data?.summary.ownerSiteName }
 						site={ ownerSite }
-						effectiveEnvironment={ effectiveEnvironment }
 					/>
 				)
 			}
@@ -456,7 +464,7 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 					className={ clsx(
 						styles.column,
 						styles.composerColumn,
-						fadeAfterQuotaCheck && styles.fadeInQuick
+						! showEmpty && fadeAfterQuotaCheck && styles.fadeInQuick
 					) }
 				>
 					<QueuedPrompts
@@ -469,7 +477,7 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 							className={ styles.scrollToLatestButton }
 							icon={ <ArrowDownIcon /> }
 							label={ __( 'Jump to latest' ) }
-							variant="outline"
+							variant="default"
 							shape="round"
 							data-visible={ isScrolledAway || undefined }
 							inert={ ! isScrolledAway }
@@ -496,9 +504,18 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 						onSwitchSession={ switchSession }
 						placeholder={ composerPlaceholder }
 						placeholderBusy={ isSiteStarting || isSiteStopping }
-						canAutoStart={ canAutoStart }
+						canAutoStart={ canAutoStart && ! ownerSite?.running }
+						onStartSite={
+							canAutoStart && ( ! ownerSite.running || isSiteStarting || isSiteStopping )
+								? () => startSitePreview( ownerSite.id )
+								: undefined
+						}
+						onStopSite={
+							canAutoStart && ownerSite.running ? () => stopSite( ownerSite.id ) : undefined
+						}
+						siteActionDisabled={ isSiteBusy }
+						isSiteStarting={ isSiteStarting }
 						environment={ effectiveEnvironment }
-						liveUrl={ liveSite?.url }
 						onEnvironmentChange={
 							ownerSite
 								? ( environment ) =>
@@ -516,19 +533,22 @@ function SessionViewContent( { sessionId, siteId, headerStart, hideHeader }: Ses
 					/>
 				</div>
 			}
+			background={
+				emptySessionId === draftKey ? (
+					<div className={ styles.emptyState } data-hidden={ ! showEmpty || undefined }>
+						{ siteLoading && ! panelVisible ? (
+							<VisuallyHidden role="status">{ __( 'Loading site preview' ) }</VisuallyHidden>
+						) : null }
+						<PreviewParticles
+							active={ siteLoading && ! panelVisible }
+							showLogo={ siteLoading && ! panelVisible }
+							selectionTime={ ownerSite?.running ? undefined : selectionTime }
+						/>
+						{ showStoppedPreview ? <StoppedSitePreview site={ ownerSite } /> : null }
+					</div>
+				) : null
+			}
 		>
-			{ emptySessionId === draftKey ? (
-				<div className={ styles.emptyState } data-hidden={ ! showEmpty || undefined }>
-					<PreviewParticles
-						active={ siteLoading }
-						showLogo={ siteLoading }
-						selectionTime={ ownerSite?.running ? undefined : selectionTime }
-					/>
-					{ ownerSite && ! ownerSite.running && ! isSiteStarting ? (
-						<StoppedSitePreview site={ ownerSite } />
-					) : null }
-				</div>
-			) : null }
 			<div data-chat-transcript className={ clsx( styles.column, styles.conversationSpacing ) }>
 				{ data ? (
 					<Conversation

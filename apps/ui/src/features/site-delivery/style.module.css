@@ -41,10 +41,6 @@
 	gap: var( --space-1 );
 }
 
-.headerActions:not( [hidden] ) {
-	display: flex;
-}
-
 .tabs[hidden],
 .publishHeader[hidden] {
 	display: none;

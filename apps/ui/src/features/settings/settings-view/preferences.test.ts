@@ -4,6 +4,7 @@ import type { UserPreferences } from '@/data/core';
 
 const SAVED_PREFERENCES: UserPreferences = {
 	editor: 'vscode',
+	browser: null,
 	terminal: 'terminal',
 	colorScheme: 'system',
 	quitSitesBehavior: 'stop',
@@ -26,6 +27,7 @@ describe( 'settings preference helpers', () => {
 			} )
 		).toEqual( {
 			editor: UNSET,
+			browser: UNSET,
 			terminal: UNSET,
 			colorScheme: 'system',
 			quitSitesBehavior: UNSET,
@@ -33,11 +35,13 @@ describe( 'settings preference helpers', () => {
 			analyticsEnabled: true,
 			defaultSiteDirectory: '/Users/example/Studio',
 			autoStartSiteOnChat: false,
-			confirmDeleteAnnotations: true,
+			openChatOnSiteStart: true,
+			batchAnnotations: true,
 		} );
 	} );
 
 	it( 'persists the editor/terminal UNSET sentinel as null', () => {
+		expect( toPreferencesPatch( { browser: UNSET } ) ).toEqual( { browser: null } );
 		expect( toPreferencesPatch( { editor: UNSET } ) ).toEqual( { editor: null } );
 		expect( toPreferencesPatch( { terminal: UNSET } ) ).toEqual( { terminal: null } );
 	} );

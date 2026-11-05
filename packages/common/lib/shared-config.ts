@@ -50,8 +50,8 @@ export const sharedConfigSchema = z
 		sessions: z.record( z.string(), sharedSessionMetadataSchema ).optional(),
 		// WordPress.com sites connected to local sites, keyed by user id.
 		// Both Studio and the Studio CLI read and write this field through
-		// the helpers in `./connected-sites.ts`.
-		connectedWpcomSites: z.record( z.string(), z.array( syncSiteSchema ) ).optional(),
+		// the helpers in `./connected-sites.ts`. Loose, so a build keeps the fields a newer one added.
+		connectedWpcomSites: z.record( z.string(), z.array( syncSiteSchema.loose() ) ).optional(),
 		// Spacefast sign-in and the Space each local site publishes to, keyed by local
 		// site id. Read and written through `./spacefast/config.ts`.
 		spacefastAuth: spacefastAuthSchema.optional(),

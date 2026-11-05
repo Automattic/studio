@@ -3,9 +3,9 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
-import { __ } from '@wordpress/i18n';
 import {
 	createBlueprintTempDir,
+	findBlueprintInBundle,
 	removeBlueprintTempDir,
 } from '@studio/common/lib/blueprint-bundle';
 import { extractZip } from '@studio/common/lib/extract-zip';
@@ -32,16 +32,7 @@ export async function extractBlueprintBundle(
 	try {
 		await extractZip( resolvedZipPath, tempDir );
 
-		const blueprintJsonPath = path.join( tempDir, 'blueprint.json' );
-		try {
-			await fs.promises.access( blueprintJsonPath );
-		} catch {
-			throw new Error(
-				__(
-					'No blueprint.json found in the ZIP file. Please ensure the ZIP contains a blueprint.json at its root.'
-				)
-			);
-		}
+		const blueprintJsonPath = await findBlueprintInBundle( tempDir );
 
 		const fileContents = await fs.promises.readFile( blueprintJsonPath, 'utf-8' );
 		const blueprintJson = JSON.parse( fileContents ) as BlueprintV1Declaration;

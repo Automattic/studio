@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -37,6 +38,7 @@ import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
+import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import {
 	isSqliteIntegrationAvailable,
@@ -1395,6 +1397,7 @@ describe( 'CLI: studio create', () => {
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
+				'create',
 				expect.objectContaining( {
 					blueprint: expect.any( Object ),
 				} )
@@ -1485,6 +1488,7 @@ describe( 'CLI: studio create', () => {
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
+				'create',
 				expect.objectContaining( { siteLanguage: 'sv_SE' } )
 			);
 		} );
@@ -1502,6 +1506,7 @@ describe( 'CLI: studio create', () => {
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
+				'create',
 				expect.objectContaining( { siteLanguage: 'sv_SE' } )
 			);
 		} );
@@ -1867,28 +1872,118 @@ $table_prefix = 'wp_';
 	} );
 
 	describe( 'Tracks: studio_site_created', () => {
+		beforeEach( () => {
+			vi.stubEnv( 'STUDIO_TRACKS_ORIGIN', '' );
+		} );
 		const mockRecord = vi.mocked( recordTracksEvent );
 
 		const testBlueprint: Blueprint = { steps: [] };
 
-		it( 'emits flow_type "new" with config + timing for a plain create', async () => {
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
+		it.each( [
+			{ origin: '', channel: 'studio-cli' },
+			{ origin: 'studio-ui:v2', channel: 'studio-ui' },
+		] )(
+			'emits the creation UUID with config, timing and $channel origin',
+			async ( { origin, channel } ) => {
+				vi.stubEnv( 'STUDIO_TRACKS_ORIGIN', origin );
+				await runCommand( mockSitePath, { ...defaultTestOptions } );
 
-			expect( mockRecord ).toHaveBeenCalledTimes( 1 );
-			expect( mockRecord ).toHaveBeenCalledWith(
+				expect( mockRecord ).toHaveBeenCalledTimes( 1 );
+				expect( mockRecord ).toHaveBeenCalledWith(
+					TRACKS_EVENTS.SITE_CREATE,
+					expect.objectContaining( {
+						flow_type: 'new',
+						php_version: '8.3',
+						wp_version: '6.5',
+						custom_domain: false,
+						ssl_enabled: false,
+						channel,
+						site_id: expect.stringMatching(
+							/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+						),
+					} )
+				);
+				const props = mockRecord.mock.calls[ 0 ][ 1 ] as Record< string, unknown >;
+				expect( typeof props.time_ms ).toBe( 'number' );
+				expect( props.time_ms as number ).toBeGreaterThanOrEqual( 0 );
+			}
+		);
+
+		it( 'persists a separate UUID and reuses it for preview create/update', async () => {
+			const operationalId = crypto.randomUUID();
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				siteId: operationalId,
+				name: 'Private site title',
+			} );
+
+			const props = mockRecord.mock.calls[ 0 ][ 1 ] ?? {};
+			const config = await readCliConfig();
+			expect( config.sites[ 0 ].tracksId ).toBe( props.site_id );
+			expect( props.site_id ).not.toBe( operationalId );
+			expect( props.site_id ).not.toBe( mockSitePath );
+			expect( props.site_id ).not.toBe( 'Private site title' );
+			config.snapshots = [
+				{
+					atomicSiteId: 12345,
+					userId: 42,
+					localSiteId: operationalId,
+					url: 'private-preview.wp.build',
+					date: Date.now(),
+				},
+			];
+			const createdPreview = await getSiteTracksProps( mockSitePath, config.snapshots[ 0 ] );
+			const updatedPreview = await getSiteTracksProps( mockSitePath, config.snapshots[ 0 ] );
+			expect( createdPreview.site_id ).toBe( props.site_id );
+			expect( updatedPreview ).toEqual( createdPreview );
+			expect( createdPreview.preview_id ).not.toBe( props.site_id );
+			await runCommand( '/test/site/another-site', { ...defaultTestOptions } );
+			expect( mockRecord ).toHaveBeenCalledTimes( 2 );
+			expect( mockRecord.mock.calls[ 1 ][ 1 ]?.site_id ).not.toBe( props.site_id );
+		} );
+
+		it( 'reuses a UUID initialized by preview before the creation event', async () => {
+			let previewSiteId: string | undefined;
+			vi.mocked( openSiteInBrowser ).mockImplementationOnce( async () => {
+				previewSiteId = ( await getSiteTracksProps( mockSitePath ) ).site_id;
+			} );
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
+			expect( previewSiteId ).toEqual( expect.any( String ) );
+			expect( mockRecord.mock.calls[ 0 ][ 1 ]?.site_id ).toBe( previewSiteId );
+		} );
+
+		it( 'keeps creation and its event successful when ID storage fails', async () => {
+			vi.mocked( openSiteInBrowser ).mockImplementationOnce( async () => {
+				vi.mocked( saveCliConfig ).mockRejectedValueOnce( new Error( 'Storage unavailable' ) );
+			} );
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions } )
+			).resolves.toBeUndefined();
+			expect( mockRecord ).toHaveBeenCalledExactlyOnceWith(
 				TRACKS_EVENTS.SITE_CREATE,
 				expect.objectContaining( {
 					flow_type: 'new',
-					php_version: '8.3',
-					wp_version: '6.5',
-					custom_domain: false,
-					ssl_enabled: false,
 					channel: 'studio-cli',
+					time_ms: expect.any( Number ),
 				} )
 			);
-			const props = mockRecord.mock.calls[ 0 ][ 1 ] as Record< string, unknown >;
-			expect( typeof props.time_ms ).toBe( 'number' );
-			expect( props.time_ms as number ).toBeGreaterThanOrEqual( 0 );
+			expect( mockRecord.mock.calls[ 0 ][ 1 ] ).not.toHaveProperty( 'site_id' );
+		} );
+
+		it( 'omits site_id if the saved record cannot be resolved', async () => {
+			vi.mocked( openSiteInBrowser ).mockImplementationOnce( async () => {
+				( await readCliConfig() ).sites = [];
+			} );
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
+			expect( mockRecord ).toHaveBeenCalledTimes( 1 );
+			expect( mockRecord.mock.calls[ 0 ][ 1 ] ).not.toHaveProperty( 'site_id' );
+		} );
+
+		it( 'does not emit or initialize an ID if creation fails before a record exists', async () => {
+			vi.mocked( portFinder.getOpenPort ).mockRejectedValueOnce( new Error( 'No port' ) );
+			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow();
+			expect( mockRecord ).not.toHaveBeenCalled();
+			expect( saveCliConfig ).not.toHaveBeenCalled();
 		} );
 
 		it( 'derives flow_type "blueprint" from a blueprint when no flowType is given', async () => {
@@ -1928,6 +2023,67 @@ $table_prefix = 'wp_';
 			);
 		} );
 
+		it.each( [ 'url', 'capture', 'directory' ] as const )(
+			'reports flow_type "static_site_import" with source "%s" for --from',
+			async ( source ) => {
+				const root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-tracks-from-' ) );
+				const sitePath = path.join( root, 'site' );
+				let from = 'https://example.com';
+				if ( source !== 'url' ) {
+					from = path.join( root, source );
+					await fs.promises.mkdir( path.join( from, 'website' ), { recursive: true } );
+					await fs.promises.writeFile(
+						path.join( from, 'website', 'index.html' ),
+						'<main>Hello</main>'
+					);
+					if ( source === 'capture' ) {
+						await fs.promises.writeFile(
+							path.join( from, 'capture-receipt.json' ),
+							JSON.stringify( {
+								schema: 'blocks-engine-capture/capture-receipt/v1',
+								title: 'Example Brand',
+							} )
+						);
+					}
+				}
+				const liberate = vi.fn().mockImplementation( async ( _url: string, outputDir: string ) => {
+					const website = path.join( outputDir, 'example.com', 'website' );
+					await fs.promises.mkdir( website, { recursive: true } );
+					await fs.promises.writeFile(
+						path.join( website, 'index.html' ),
+						'<main>Liberated</main>'
+					);
+					return { websiteDir: website, compareCommand: () => '' };
+				} );
+				vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+				vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+				const parser = registerCommand(
+					yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+					{ liberate }
+				).exitProcess( false );
+
+				try {
+					await parser.parseAsync( [
+						'create',
+						'--from',
+						from,
+						'--name',
+						'Imported Site',
+						'--no-start',
+						'--skip-browser',
+					] );
+
+					expect( mockRecord ).toHaveBeenCalledTimes( 1 );
+					expect( mockRecord ).toHaveBeenCalledWith(
+						TRACKS_EVENTS.SITE_CREATE,
+						expect.objectContaining( { flow_type: 'static_site_import', source } )
+					);
+				} finally {
+					await fs.promises.rm( root, { recursive: true, force: true } );
+				}
+			}
+		);
+
 		it( 'reports custom_domain/ssl_enabled as booleans and never sends the domain string', async () => {
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
@@ -1939,7 +2095,7 @@ $table_prefix = 'wp_';
 				TRACKS_EVENTS.SITE_CREATE,
 				expect.objectContaining( { custom_domain: true, ssl_enabled: true } )
 			);
-			const props = mockRecord.mock.calls[ 0 ][ 1 ];
+			const props = mockRecord.mock.calls[ 0 ][ 1 ] ?? {};
 			expect( JSON.stringify( props ) ).not.toContain( 'mysite.local' );
 		} );
 

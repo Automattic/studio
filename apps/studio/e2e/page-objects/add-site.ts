@@ -1,5 +1,4 @@
 import { type Page, expect } from '@playwright/test';
-import { ACCEPTED_ADD_SITE_FILE_TYPES } from '@studio/common/constants';
 import Sidebar from './sidebar';
 
 export type CreateSiteOptions = {
@@ -25,24 +24,18 @@ export default class AddSite {
 		return this.dialog.getByTestId( 'create-site-submit' );
 	}
 
-	get backupFileInput() {
-		return this.dialog.locator(
-			`input[type="file"][accept="${ ACCEPTED_ADD_SITE_FILE_TYPES.join( ',' ) }"]`
-		);
-	}
-
-	get blueprintFileInput() {
-		return this.dialog.locator(
-			'input[type="file"][accept="application/json,.json,application/zip,.zip"]'
-		);
+	get fileInput() {
+		return this.dialog.locator( 'input[type="file"][accept*=".json"]' );
 	}
 
 	// Opens Add site: it opens by itself with no sites, from the sidebar's "Add site" otherwise.
 	async open() {
-		const addSiteButton = new Sidebar( this.page ).addSiteButton;
+		const sidebar = new Sidebar( this.page );
+		const addSiteButton = sidebar.addSiteButton;
 		await expect( this.dialog.or( addSiteButton ).first() ).toBeVisible( { timeout: 60_000 } );
 		if ( ! ( await this.dialog.isVisible() ) ) {
-			await addSiteButton.click();
+			await sidebar.ensureOpen();
+			await addSiteButton.and( this.page.locator( ':not([inert] *)' ) ).click();
 		}
 		await expect( this.dialog ).toBeVisible();
 	}
@@ -57,14 +50,15 @@ export default class AddSite {
 	// Creates a site and resolves with its name once the dialog has closed on it.
 	async createSite( { siteName, pickFolder, blueprintPath }: CreateSiteOptions = {} ) {
 		await this.open();
-		await this.dialog.getByRole( 'button', { name: 'Start with Blank site' } ).click();
-		await expect( this.siteNameInput ).toBeVisible();
-
 		// A Blueprint renames the site, so upload it before setting the name.
 		if ( blueprintPath ) {
-			await this.blueprintFileInput.setInputFiles( blueprintPath );
-			await expect( this.submitButton ).toHaveText( 'Create site from Blueprint' );
+			await this.dialog.getByRole( 'tab', { name: 'Import', exact: true } ).click();
+			await this.fileInput.setInputFiles( blueprintPath );
+			await expect( this.submitButton ).toHaveText( 'Create site' );
+		} else {
+			await this.dialog.getByRole( 'button', { name: 'Start with Blank site' } ).click();
 		}
+		await expect( this.siteNameInput ).toBeVisible();
 		if ( siteName ) {
 			await this.siteNameInput.fill( siteName );
 		}
@@ -92,7 +86,7 @@ export default class AddSite {
 	async importSite( backupPath: string, siteName?: string ) {
 		await this.open();
 		await this.dialog.getByRole( 'tab', { name: 'Import', exact: true } ).click();
-		await this.backupFileInput.setInputFiles( backupPath );
+		await this.fileInput.setInputFiles( backupPath );
 		await expect( this.siteNameInput ).toBeVisible();
 		if ( siteName ) {
 			await this.siteNameInput.fill( siteName );

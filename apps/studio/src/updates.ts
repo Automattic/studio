@@ -143,6 +143,11 @@ export function setupUpdates() {
 			// Corresponds to errors: "The Internet connection appears to be offline." and "The network connection was lost."
 			// We don't need to stop polling, the internet might come back.
 			queueUpdateCheck();
+			lastError = {
+				reason: 'generic',
+				detail: __( 'Check your internet connection and try again.' ),
+			};
+			emitAppUpdateStatus();
 			return;
 		}
 
@@ -494,6 +499,10 @@ function versionFromUpdateUrl( url: string | undefined ): string | null {
 
 export async function getAppUpdateStatus( _event: IpcMainInvokeEvent ): Promise< AppUpdateStatus > {
 	return buildAppUpdateStatus();
+}
+
+export async function checkForAppUpdates( _event: IpcMainInvokeEvent ): Promise< void > {
+	await manualCheckForUpdates();
 }
 
 export async function installAppUpdate( _event: IpcMainInvokeEvent ): Promise< void > {

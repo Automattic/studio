@@ -1,4 +1,6 @@
 .root {
+	--motion-ease-layout: var( --motion-ease-drawer );
+
 	/* The sidebar and its sticky header/footer share one surface. */
 	--studio-sidebar-bg: var( --chrome );
 
@@ -19,15 +21,19 @@
 	background-color: var( --studio-sidebar-bg );
 	display: flex;
 	flex-direction: column;
-	/* The sidebar itself scrolls so the scrollbar gutter affects the
-	   (sticky) header and footer identically to the middle content —
-	   avoiding the misalignment you get when the scrollbar lives on an
-	   inner wrapper. */
-	overflow-y: auto;
-	scrollbar-width: none;
+	overflow: hidden;
 	-webkit-app-region: drag;
 	/* Eases with the frame when the width resets, so its rows don't snap ahead. */
 	transition: width var( --motion-duration-layout ) var( --motion-ease-layout );
+}
+
+.sidebarScroll {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	scrollbar-width: none;
 }
 
 /* Collapsing animates this frame's width while the sidebar inside keeps its
@@ -45,8 +51,8 @@
 
 /* While dragging or arrow-keying the handle the width updates every step; the
    collapse transition above would animate toward each step and lag behind.
-   Drop it for the duration of the drag (mirrors `.rootPreviewResizing` in
-   preview-split-frame). */
+   Drop it for the duration of the drag (mirrors `.rootPanelResizing` in
+   panel-split-frame). */
 .sidebarResizing,
 .sidebarResizing .sidebar,
 .root:has( > .resizeHandle:focus-visible ) :is( .sidebarFrame, .sidebar ) {
@@ -57,17 +63,40 @@
    pushes the footer to the bottom in the flex column when content is
    shorter than the viewport. Rows scrolling under it fade out. */
 .sidebarFooter {
+	composes: surfaceFade from '@/lib/theme/recipes.module.css';
+	--fade-surface: var( --studio-sidebar-bg );
 	margin-top: auto;
 	position: sticky;
 	bottom: 0;
 	z-index: 1;
-	padding-top: var( --space-6 );
-	background: linear-gradient( to bottom, transparent, var( --studio-sidebar-bg ) 32px );
+	padding-top: var( --surface-fade-size );
+
 	pointer-events: none;
 	-webkit-app-region: no-drag;
 }
 
-.sidebarFooter > * {
+.sidebarFooter::before {
+	top: 0;
+	height: 100%;
+	z-index: -1;
+	display: none;
+}
+
+[data-scroll-bottom] > .sidebarFooter::before {
+	display: block;
+}
+
+.footerBlur {
+	height: 100%;
+	z-index: -1;
+	display: none;
+}
+
+[data-scroll-bottom] > .sidebarFooter > .footerBlur {
+	display: block;
+}
+
+.sidebarFooter > :not( .footerBlur ) {
 	pointer-events: auto;
 }
 
@@ -77,7 +106,7 @@
 	content: '';
 	position: absolute;
 	z-index: 2;
-	top: 0;
+	top: 1px;
 	bottom: 0;
 	inset-inline-end: 0;
 	width: 1px;
@@ -118,10 +147,12 @@
 	justify-content: flex-start;
 }
 
-/* Hovering or dragging the handle darkens the column edge. */
-.root:has( > .resizeHandle:hover ) .sidebarFrame::after,
+.root:has( > .resizeHandle:hover ) .sidebarFrame:not( .sidebarResizing )::after {
+	background-color: var( --surface-4 );
+}
+
 .sidebarResizing::after {
-	background-color: color-mix( in oklab, var( --foreground ) 15%, transparent );
+	background-color: var( --accent );
 }
 
 .sidebarCards {
@@ -137,24 +168,26 @@
 }
 
 .sidebarFlyout {
+	--motion-ease-layout: var( --motion-ease-drawer );
 	--surface: var( --chrome );
 	--studio-sidebar-bg: var( --chrome );
+	--sidebar-flyout-top-inset: calc( var( --space-3 ) - var( --space-0_5 ) );
+
 	width: var( --sidebar-width );
-	max-width: calc( 100vw - 16px );
+	max-width: calc( 100vw - 12px );
+	padding-block-start: var( --sidebar-flyout-top-inset );
 	overflow: hidden;
 }
 
 .sidebarFlyoutContents {
 	display: flex;
 	flex-direction: column;
-	height: calc( 100dvh - var( --band-height ) - 16px );
+	height: calc(
+		100dvh - var( --band-height ) - var( --space-1_5 ) - var( --sidebar-flyout-top-inset )
+	);
 	overflow-y: auto;
 	scrollbar-width: none;
 	-webkit-app-region: no-drag;
-}
-
-.sidebarFlyoutContents .sidebarFlyoutList {
-	padding-block-start: var( --space-1 );
 }
 
 @media ( prefers-reduced-motion: no-preference ) {
@@ -167,12 +200,12 @@
 	.sidebarFlyout[data-starting-style],
 	.sidebarFlyout[data-ending-style] {
 		scale: 1;
-		translate: calc( -100% - 8px ) 0;
+		translate: calc( -100% - 6px ) 0;
 	}
 
 	.sidebarFlyout:dir( rtl )[data-starting-style],
 	.sidebarFlyout:dir( rtl )[data-ending-style] {
-		translate: calc( 100% + 8px ) 0;
+		translate: calc( 100% + 6px ) 0;
 	}
 }
 

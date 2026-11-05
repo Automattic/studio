@@ -1,9 +1,121 @@
 .trigger {
-	min-width: max-content;
+	--control-size: 32px;
+	min-width: 0;
+	flex-shrink: 1;
+	padding-inline-end: var( --space-1_5 );
 	color: var( --foreground );
 	-webkit-app-region: no-drag;
 }
 
+.siteName {
+	composes: truncate from '@/lib/theme/recipes.module.css';
+	min-width: 0;
+}
+
 .items {
 	min-width: 200px;
+}
+
+@container site-header ( max-width: 240px ) {
+	.siteName {
+		display: none;
+	}
+}
+
+.chatTab {
+	--surface: var( --muted );
+
+	position: relative;
+	flex: 0 1 160px;
+	width: 160px;
+	max-width: 160px;
+	min-width: 0;
+	height: 32px;
+	border-radius: var( --radius-md );
+	background-color: var( --muted );
+	transition: none;
+	-webkit-app-region: no-drag;
+}
+
+.chatTab:is( :hover, :focus-within, :has( [aria-expanded='true'] ) ) {
+	--surface: var( --hover );
+
+	background-color: var( --hover );
+}
+
+.chatTrigger {
+	width: 100%;
+	min-width: 0;
+	justify-content: flex-start;
+	gap: var( --space-1_5 );
+	padding-inline: var( --space-2 ) 32px;
+	border-radius: var( --radius-md );
+	color: var( --muted-foreground );
+	font-size: var( --text-xs );
+	transition: none;
+}
+
+.chatTrigger svg {
+	flex: none;
+	width: 16px;
+	height: 16px;
+}
+
+.chatTab:is( :hover, :focus-within ) .chatTrigger {
+	color: var( --foreground );
+}
+
+.chatName {
+	composes: truncate from '@/lib/theme/recipes.module.css';
+	min-width: 0;
+}
+
+.chatMenu {
+	position: absolute;
+	inset-inline-end: 4px;
+	top: 4px;
+	border-radius: var( --radius-sm );
+	opacity: 0;
+	pointer-events: none;
+	transition: none;
+}
+
+.chatMenu svg {
+	width: 16px;
+	height: 16px;
+}
+
+.chatTab:is( :hover, :focus-within ) .chatMenu,
+.chatMenu[aria-expanded='true'] {
+	opacity: 1;
+	pointer-events: auto;
+}
+
+.chatTab[data-chat-active] {
+	--surface: var( --muted );
+
+	background: var( --muted );
+}
+
+.chatTab[data-chat-active] .chatTrigger {
+	color: var( --foreground );
+}
+
+@media ( max-width: 540px ) {
+	.chatTab {
+		flex: 0 0 32px;
+		width: 32px;
+	}
+
+	.chatTrigger {
+		padding-inline: var( --space-2 );
+	}
+
+	.chatName {
+		display: none;
+	}
+
+	.chatTab:has( .chatMenu:is( :hover, :focus-visible, [aria-expanded='true'] ) ) .chatTrigger svg {
+		visibility: hidden;
+	}
 }

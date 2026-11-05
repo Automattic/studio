@@ -2,25 +2,32 @@ import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
+import { useSites } from '@/data/queries/use-sites';
 import {
 	PANEL_WIDTHS_RESET_EVENT,
-	PREVIEW_SPLIT_MIN_WIDTH,
+	PANEL_SPLIT_MIN_WIDTH,
 	SIDEBAR_COLLAPSED_STORAGE_KEY,
 	SIDEBAR_PANEL_CONFIG,
 	SIDEBAR_PANEL_STORAGE_KEY,
 } from '@/data/resizable-panels';
 import {
+	SidebarHeaderActionContext,
 	SidebarCollapsedContext,
 	SidebarOpenContext,
 	SidebarHoverContext,
 	SidebarToggleContext,
 } from '@/data/use-sidebar-collapsed';
 import { UserMenu } from '@/features/account';
-import { AppMessageCards, AppMessageHistoryRecorder, AppToasts } from '@/features/notifications';
+import {
+	AppMessageCards,
+	AppMessageHistoryRecorder,
+	AppToasts,
+	closeNoticeHistory,
+} from '@/features/notifications';
 import { SidebarHeader } from '@/features/sidebar/sidebar-header';
 import { SiteList } from '@/features/sidebar/site-list';
-import { useStoredFlag } from '@/lib/hooks';
-import { Popover, ResizeHandle, ResizeOverlay, useHasOpenDialog } from '@/lib/ui';
+import { useScrollFade, useStoredFlag } from '@/lib/hooks';
+import { Popover, ResizeHandle, ResizeOverlay, ScrollBlur, useHasOpenDialog } from '@/lib/ui';
 import styles from './style.module.css';
 import { useResizablePanel } from './use-resizable-panel';
 import type { CSSProperties, ReactNode } from 'react';
@@ -33,38 +40,34 @@ const findToggle = () =>
 		( toggle ) => ! toggle.closest( '[inert]' )
 	);
 
-function SidebarContents( {
-	active,
-	floating = false,
-	onSiteOpen,
-}: {
-	active: boolean;
-	floating?: boolean;
-	onSiteOpen?: () => void;
-} ) {
+function SidebarContents( { active, onSiteOpen }: { active: boolean; onSiteOpen?: () => void } ) {
 	return (
 		<>
-			<SiteList
-				className={ floating ? styles.sidebarFlyoutList : undefined }
-				sections
-				active={ active }
-				onSiteOpen={ onSiteOpen }
-			/>
+			<SiteList sections active={ active } onSiteOpen={ onSiteOpen } />
 			<div className={ styles.sidebarFooter }>
+				<ScrollBlur edge="bottom" className={ styles.footerBlur } />
 				{ active ? <AppMessageCards className={ styles.sidebarCards } /> : null }
-				<UserMenu />
+				<UserMenu active={ active } />
 			</div>
 		</>
 	);
 }
 
-export function SidebarLayout( { children }: { children: ReactNode } ) {
+export function SidebarLayout( {
+	children,
+	headerAction,
+}: {
+	children: ReactNode;
+	headerAction?: ReactNode;
+} ) {
 	const connector = useConnector();
 	const hasOpenDialog = useHasOpenDialog();
 	const sidebarResize = useResizablePanel( {
 		config: SIDEBAR_PANEL_CONFIG,
 		storageKey: SIDEBAR_PANEL_STORAGE_KEY,
 	} );
+	const sites = useSites();
+	const emptyWorkspace = sites.isSuccess && sites.data.length === 0;
 	const [ collapsed, setCollapsed ] = useStoredFlag( SIDEBAR_COLLAPSED_STORAGE_KEY, false );
 
 	const [ sidebarFlyoutState, setSidebarFlyoutState ] = useState< 'closed' | 'hover' | 'open' >(
@@ -74,6 +77,9 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 	const sidebarFlyoutOpen = sidebarFlyoutState === 'open';
 	const [ instantSidebarDock, setInstantSidebarDock ] = useState( false );
 	const dockedSidebarRef = useRef< HTMLElement >( null );
+	const setDockedFade = useScrollFade< HTMLDivElement >();
+	const setFlyoutFade = useScrollFade< HTMLElement >();
+	const dockedSidebarScrollRef = useRef< HTMLDivElement >( null );
 	useLayoutEffect( () => {
 		if ( ! instantSidebarDock ) return;
 		if ( dockedSidebarRef.current ) {
@@ -121,7 +127,15 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 		return () => window.removeEventListener( PANEL_WIDTHS_RESET_EVENT, reopen );
 	}, [ closeSidebarFlyout, setCollapsed ] );
 	// A narrow window unpins the sidebar; widening it never pins it automatically.
-	const overlay = sidebarResize.viewportWidth - sidebarResize.width < PREVIEW_SPLIT_MIN_WIDTH;
+	const overlay = sidebarResize.viewportWidth - sidebarResize.width < PANEL_SPLIT_MIN_WIDTH;
+	const wasEmptyWorkspace = useRef( false );
+	useEffect( () => {
+		if ( ! sites.isSuccess ) return;
+		if ( emptyWorkspace || ( wasEmptyWorkspace.current && ! overlay ) ) {
+			setCollapsed( emptyWorkspace );
+		}
+		wasEmptyWorkspace.current = emptyWorkspace;
+	}, [ sites.isSuccess, emptyWorkspace, overlay, setCollapsed ] );
 	useEffect( () => {
 		if ( overlay ) setCollapsed( true );
 		return clearHoverTimer;
@@ -134,8 +148,14 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 	const docked = ! overlay && ! collapsed;
 	const open = docked || sidebarFlyoutOpen;
 	const sidebarFlyoutVisible = sidebarFlyoutState !== 'closed';
+	useEffect( () => {
+		if ( ! docked && ! sidebarFlyoutVisible ) closeNoticeHistory();
+	}, [ docked, sidebarFlyoutVisible ] );
+	useEffect( () => {
+		if ( hasOpenDialog ) closeNoticeHistory();
+	}, [ hasOpenDialog ] );
 	useLayoutEffect( () => {
-		if ( docked && dockedSidebarRef.current ) dockedSidebarRef.current.scrollTop = 0;
+		if ( docked && dockedSidebarScrollRef.current ) dockedSidebarScrollRef.current.scrollTop = 0;
 		if ( sidebarFlyoutVisible && sidebarFlyoutRef.current ) sidebarFlyoutRef.current.scrollTop = 0;
 	}, [ docked, sidebarFlyoutVisible ] );
 	const hoverEnter = useCallback( () => {
@@ -185,119 +205,136 @@ export function SidebarLayout( { children }: { children: ReactNode } ) {
 	useEffect( () => connector.onToggleSidebar( toggleSidebar ), [ connector, toggleSidebar ] );
 
 	return (
-		<SidebarCollapsedContext.Provider value={ ! docked }>
-			<SidebarOpenContext.Provider value={ open }>
-				<SidebarToggleContext.Provider value={ toggleSidebar }>
-					<SidebarHoverContext.Provider
-						value={ { peek, onEnter: hoverEnter, onLeave: hoverLeave } }
-					>
-						<div className={ clsx( styles.root, instantSidebarDock && styles.instantSidebarDock ) }>
+		<SidebarHeaderActionContext.Provider value={ headerAction }>
+			<SidebarCollapsedContext.Provider value={ ! docked }>
+				<SidebarOpenContext.Provider value={ open }>
+					<SidebarToggleContext.Provider value={ toggleSidebar }>
+						<SidebarHoverContext.Provider
+							value={ { peek, onEnter: hoverEnter, onLeave: hoverLeave } }
+						>
 							<div
-								ref={ sidebarFlyoutAnchor }
-								className={ styles.sidebarFlyoutAnchor }
-								aria-hidden
-							/>
-							{ ! instantSidebarDock && (
-								<Popover.Root
-									open={ peek || sidebarFlyoutOpen }
-									onOpenChange={ ( next, details ) => {
-										if (
-											details.reason === 'escape-key' &&
-											sidebarFlyoutRef.current?.querySelector( '[data-selected]' )
-										) {
-											details.cancel();
-											return;
-										}
-										const target = details.event.target;
-										if ( target instanceof Element && target.closest( '[data-sidebar-toggle]' ) ) {
-											details.cancel();
-											return;
-										}
-										if ( ! next ) closeSidebarFlyout();
-									} }
-								>
-									<Popover.Popup
-										// Sidebar items own dialogs that must survive the flyout closing.
-										keepMounted={ hasOpenDialog }
-										anchor={ sidebarFlyoutAnchor }
-										side="bottom"
-										align="start"
-										sideOffset={ 8 }
-										alignOffset={ 8 }
-										initialFocus={ () =>
-											sidebarFlyoutOpen
-												? sidebarFlyoutRef.current?.querySelector< HTMLElement >(
-														'button:not(:disabled)'
-												  ) ?? false
-												: false
-										}
-										finalFocus={ () => {
-											if ( ! restoreSidebarFlyoutFocus.current ) return false;
-											restoreSidebarFlyoutFocus.current = false;
-											return findToggle() ?? false;
-										} }
-										aria-label={ __( 'Sidebar' ) }
-										className={ styles.sidebarFlyout }
-										style={ sidebarStyle }
-									>
-										<aside
-											className={ styles.sidebarFlyoutContents }
-											ref={ sidebarFlyoutRef }
-											onPointerEnter={ clearHoverTimer }
-											onPointerLeave={ hoverLeave }
-										>
-											<SidebarContents
-												active={ peek || sidebarFlyoutOpen }
-												floating
-												onSiteOpen={ closeSidebarFlyout }
-											/>
-										</aside>
-									</Popover.Popup>
-								</Popover.Root>
-							) }
-							<div
-								className={ clsx(
-									styles.sidebarFrame,
-									! docked && styles.sidebarCollapsed,
-									sidebarResize.isResizing && styles.sidebarResizing
-								) }
-								style={ sidebarStyle }
-								inert={ ! docked }
+								className={ clsx( styles.root, instantSidebarDock && styles.instantSidebarDock ) }
 							>
-								<aside ref={ dockedSidebarRef } className={ styles.sidebar }>
-									<SidebarHeader />
-									<SidebarContents active={ docked } />
-								</aside>
+								<div
+									ref={ sidebarFlyoutAnchor }
+									className={ styles.sidebarFlyoutAnchor }
+									aria-hidden
+								/>
+								{ ! instantSidebarDock && (
+									<Popover.Root
+										open={ peek || sidebarFlyoutOpen }
+										onOpenChange={ ( next, details ) => {
+											if (
+												details.reason === 'escape-key' &&
+												sidebarFlyoutRef.current?.querySelector( '[data-selected]' )
+											) {
+												details.cancel();
+												return;
+											}
+											const target = details.event.target;
+											if (
+												target instanceof Element &&
+												target.closest( '[data-sidebar-toggle]' )
+											) {
+												details.cancel();
+												return;
+											}
+											if ( ! next ) closeSidebarFlyout();
+										} }
+									>
+										<Popover.Popup
+											// Sidebar items own dialogs that must survive the flyout closing.
+											keepMounted={ hasOpenDialog }
+											anchor={ sidebarFlyoutAnchor }
+											side="bottom"
+											align="start"
+											sideOffset={ 0 }
+											alignOffset={ 6 }
+											initialFocus={ () =>
+												sidebarFlyoutOpen
+													? sidebarFlyoutRef.current?.querySelector< HTMLElement >(
+															'button:not(:disabled)'
+													  ) ?? false
+													: false
+											}
+											finalFocus={ () => {
+												if ( ! restoreSidebarFlyoutFocus.current ) return false;
+												restoreSidebarFlyoutFocus.current = false;
+												return findToggle() ?? false;
+											} }
+											aria-label={ __( 'Sidebar' ) }
+											className={ styles.sidebarFlyout }
+											style={ sidebarStyle }
+										>
+											<aside
+												className={ styles.sidebarFlyoutContents }
+												ref={ ( node ) => {
+													sidebarFlyoutRef.current = node;
+													setFlyoutFade( node );
+												} }
+												onPointerEnter={ clearHoverTimer }
+												onPointerLeave={ hoverLeave }
+											>
+												<SidebarContents
+													active={ peek || sidebarFlyoutOpen }
+													onSiteOpen={ closeSidebarFlyout }
+												/>
+											</aside>
+										</Popover.Popup>
+									</Popover.Root>
+								) }
+								<div
+									className={ clsx(
+										styles.sidebarFrame,
+										! docked && styles.sidebarCollapsed,
+										sidebarResize.isResizing && styles.sidebarResizing
+									) }
+									style={ sidebarStyle }
+									inert={ ! docked }
+								>
+									<aside ref={ dockedSidebarRef } className={ styles.sidebar }>
+										<SidebarHeader action={ docked ? headerAction : undefined } />
+										<div
+											ref={ ( node ) => {
+												dockedSidebarScrollRef.current = node;
+												setDockedFade( node );
+											} }
+											className={ styles.sidebarScroll }
+										>
+											<SidebarContents active={ docked } />
+										</div>
+									</aside>
+								</div>
+								{ sidebarFlyoutState !== 'closed' ? (
+									<button
+										type="button"
+										className={ styles.sidebarFlyoutBackdrop }
+										aria-label={ __( 'Close sidebar' ) }
+										tabIndex={ -1 }
+										onClick={ closeSidebarFlyout }
+									/>
+								) : null }
+								{ docked ? (
+									<ResizeHandle
+										className={ styles.resizeHandle }
+										label={ __( 'Resize sidebar' ) }
+										minWidth={ sidebarResize.minWidth }
+										maxWidth={ sidebarResize.maxWidth }
+										width={ sidebarResize.width }
+										onResizeStart={ sidebarResize.handleResizeStart }
+										onKeyDown={ sidebarResize.handleKeyDown }
+										onReset={ sidebarResize.resetWidth }
+									/>
+								) : null }
+								<main className={ styles.main }>{ children }</main>
+								{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
+								<AppToasts />
+								<AppMessageHistoryRecorder />
 							</div>
-							{ sidebarFlyoutState !== 'closed' ? (
-								<button
-									type="button"
-									className={ styles.sidebarFlyoutBackdrop }
-									aria-label={ __( 'Close sidebar' ) }
-									tabIndex={ -1 }
-									onClick={ closeSidebarFlyout }
-								/>
-							) : null }
-							{ docked ? (
-								<ResizeHandle
-									className={ styles.resizeHandle }
-									label={ __( 'Resize sidebar' ) }
-									minWidth={ sidebarResize.minWidth }
-									maxWidth={ sidebarResize.maxWidth }
-									width={ sidebarResize.width }
-									onResizeStart={ sidebarResize.handleResizeStart }
-									onKeyDown={ sidebarResize.handleKeyDown }
-									onReset={ sidebarResize.resetWidth }
-								/>
-							) : null }
-							<main className={ styles.main }>{ children }</main>
-							{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
-							<AppToasts />
-							<AppMessageHistoryRecorder />
-						</div>
-					</SidebarHoverContext.Provider>
-				</SidebarToggleContext.Provider>
-			</SidebarOpenContext.Provider>
-		</SidebarCollapsedContext.Provider>
+						</SidebarHoverContext.Provider>
+					</SidebarToggleContext.Provider>
+				</SidebarOpenContext.Provider>
+			</SidebarCollapsedContext.Provider>
+		</SidebarHeaderActionContext.Provider>
 	);
 }

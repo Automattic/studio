@@ -8,7 +8,7 @@ import type { UserPreferences } from '@/data/core';
 async function setup( preferences: Partial< UserPreferences > = {} ) {
 	const connector = createFakeConnector( { preferences } );
 	renderWithProviders( <StudioCliSection />, { connector } );
-	const toggle = await screen.findByRole( 'switch', { name: 'Studio CLI for terminal' } );
+	const toggle = await screen.findByRole( 'switch', { name: 'WordPress Studio CLI for terminal' } );
 	return { connector, toggle };
 }
 
@@ -28,7 +28,9 @@ describe( 'Studio CLI setting', () => {
 		await act( async () => fail( new Error( 'Permission denied' ) ) );
 		await waitFor( () => expect( toggle ).not.toBeChecked() );
 		expect(
-			screen.getByText( 'An error occurred while updating the Studio CLI. Please try again.' )
+			screen.getByText(
+				'An error occurred while updating the WordPress Studio CLI. Please try again.'
+			)
 		).toBeVisible();
 	} );
 

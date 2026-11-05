@@ -26,6 +26,7 @@
 
 .advancedCollapse {
 	display: grid;
+	overflow: hidden;
 	grid-template-rows: 0fr;
 	margin-top: calc( var( --space-6 ) * -1 );
 	transition:
@@ -35,14 +36,20 @@
 
 .advancedCollapseOpen {
 	grid-template-rows: 1fr;
+	overflow: visible;
 	margin-top: 0;
 }
 
 .advancedCollapseInner {
+	visibility: hidden;
 	overflow: hidden;
 	min-height: 0;
 	padding: var( --space-1 );
 	margin: calc( var( --space-1 ) * -1 );
+}
+
+.advancedCollapseOpen .advancedCollapseInner {
+	visibility: visible;
 }
 
 .advancedErrorCount {
@@ -72,11 +79,6 @@
 	overflow-wrap: anywhere;
 }
 
-.panelFooter {
-	padding-top: var( --space-6 );
-	border-top: 1px solid var( --border );
-}
-
 .source {
 	display: flex;
 	align-items: center;
@@ -92,7 +94,8 @@
 	color: var( --muted-foreground );
 }
 
-.source span {
+.source > span {
+	flex: 1;
 	min-width: 0;
 	overflow: hidden;
 	text-overflow: ellipsis;

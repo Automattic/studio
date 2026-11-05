@@ -286,7 +286,7 @@ describe( 'CreateSiteForm path', () => {
 		expect( screen.getByRole( 'button', { name: 'Create site' } ) ).toBeDisabled();
 	} );
 
-	it( 'opens Advanced settings on its own for a folder it cannot use, keeping focus on the name', async () => {
+	it( 'shows folder errors without opening Advanced settings, keeping focus on the name', async () => {
 		const connector = createFakeConnector();
 		connector.generateProposedSitePath.mockResolvedValue( {
 			path: '/sites/full',
@@ -298,12 +298,15 @@ describe( 'CreateSiteForm path', () => {
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: /Advanced settings/ } ) ).toHaveAttribute(
 				'aria-expanded',
-				'true'
+				'false'
 			)
 		);
-		expect( localPath() ).toHaveAccessibleDescription(
-			'Choose an empty folder or an existing WordPress site.'
+		await waitFor( () =>
+			expect( localPath() ).toHaveAccessibleDescription(
+				'Choose an empty folder or an existing WordPress site.'
+			)
 		);
+		expect( localPath() ).toBeVisible();
 		expect( submitButton() ).toBeDisabled();
 	} );
 
@@ -411,9 +414,7 @@ describe( 'CreateSiteForm fields', () => {
 		fireEvent.click( screen.getByRole( 'combobox', { name: 'WordPress version' } ) );
 		expect(
 			await screen.findByRole( 'option', { name: /Auto-update \(6\.9\)/ } )
-		).toHaveTextContent(
-			'WordPress installs updates on its own schedule. Will install version 6.9.'
-		);
+		).toHaveTextContent( /^Auto-update \(6\.9\)$/ );
 		expect( screen.getByRole( 'group', { name: 'Beta & Nightly' } ) ).toBeInTheDocument();
 		fireEvent.keyDown( screen.getByRole( 'listbox' ), { key: 'Escape' } );
 		await waitFor( () => expect( submitButton() ).toBeEnabled() );
@@ -458,8 +459,6 @@ describe( 'CreateSiteForm fields', () => {
 	it( 'shows an actionable submission error with optional technical details', async () => {
 		const { onCancel } = await renderForm( {
 			initialValues: { name: 'Imported site', path: '/sites/imported-site' },
-			submitLabel: 'Retry import',
-			cancelLabel: 'Choose another backup',
 			submitError: {
 				title: 'WordPress Studio could not import this backup.',
 				message: 'The incomplete site was removed.',
@@ -469,8 +468,8 @@ describe( 'CreateSiteForm fields', () => {
 		const alert = screen.getByRole( 'alert' );
 		expect( alert ).toHaveTextContent( 'WordPress Studio could not import this backup.' );
 		expect( alert ).toHaveTextContent( 'The incomplete site was removed.' );
-		expect( screen.getByRole( 'button', { name: 'Retry import' } ) ).toBeVisible();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Choose another backup' } ) );
+		expect( screen.getByRole( 'button', { name: 'Create site' } ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel' } ) );
 		expect( onCancel ).toHaveBeenCalledOnce();
 		fireEvent.click( screen.getByText( 'View technical details' ) );
 		expect( screen.getByText( 'CLI command failed' ) ).toBeVisible();

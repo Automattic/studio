@@ -1,11 +1,24 @@
 /**
  * @vitest-environment node
  */
-import { app, autoUpdater, clipboard, dialog, shell, type MessageBoxOptions } from 'electron';
+import {
+	app,
+	autoUpdater,
+	clipboard,
+	dialog,
+	shell,
+	type MessageBoxOptions,
+	type IpcMainInvokeEvent,
+} from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { vi } from 'vitest';
 import { sendIpcEventToRenderer, type AppUpdateStatus } from 'src/ipc-utils';
-import { manualCheckForUpdates, setupUpdates, switchToNightlyAndUpdate } from 'src/updates';
+import {
+	checkForAppUpdates,
+	manualCheckForUpdates,
+	setupUpdates,
+	switchToNightlyAndUpdate,
+} from 'src/updates';
 
 function getLastDialogOptions(): MessageBoxOptions {
 	const lastCall = vi.mocked( dialog.showMessageBox ).mock.lastCall as unknown as [
@@ -295,6 +308,27 @@ describe( 'update status emissions', () => {
 		} );
 	} );
 
+	it.each( [ -1009, -1005 ] )(
+		'ends download progress on a connection error (%s) and allows retry',
+		async ( code ) => {
+			vi.useFakeTimers();
+			try {
+				setupDarwinUpdates();
+				await getHandler( 'error' )?.( Object.assign( new Error( 'Connection lost' ), { code } ) );
+				expect( getLastEmittedStatus() ).toMatchObject( {
+					state: 'error',
+					detail: 'Check your internet connection and try again.',
+				} );
+				vi.mocked( autoUpdater.checkForUpdates ).mockClear();
+				await checkForAppUpdates( {} as IpcMainInvokeEvent );
+				expect( autoUpdater.checkForUpdates ).toHaveBeenCalledOnce();
+			} finally {
+				vi.clearAllTimers();
+				vi.useRealTimers();
+			}
+		}
+	);
+
 	it( 'reports a read-only volume error to the sidebar instead of a dialog', async () => {
 		// Not part of the shared electron mock; only this path calls it.
 		( app as unknown as { isInApplicationsFolder: () => boolean } ).isInApplicationsFolder = () =>
@@ -311,6 +345,16 @@ describe( 'update status emissions', () => {
 			} );
 		} );
 		expect( dialog.showMessageBox ).not.toHaveBeenCalled();
+	} );
+
+	it( 'retries through the renderer handler after an updater failure and clears the error', async () => {
+		setupDarwinUpdates();
+		await getHandler( 'error' )?.( new Error( 'Download failed' ) );
+		vi.mocked( autoUpdater.checkForUpdates ).mockClear();
+		await checkForAppUpdates( {} as IpcMainInvokeEvent );
+		expect( autoUpdater.checkForUpdates ).toHaveBeenCalledOnce();
+		await getHandler( 'checking-for-update' )?.();
+		expect( getLastEmittedStatus() ).toEqual( { state: 'checking', currentVersion: '1.8.2' } );
 	} );
 
 	it( 'queries the nightly feed for the version after switching channels', async () => {

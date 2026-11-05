@@ -31,10 +31,11 @@
 
 /* The negative margin cancels the header's gap while the slot is empty. */
 .headerSlot {
+	--control-size: 32px;
 	display: inline-flex;
 	flex-shrink: 0;
 	width: 0;
-	margin-inline-end: calc( -1 * var( --space-1 ) );
+	margin-inline-end: calc( -1 * var( --band-gap ) );
 	overflow: hidden;
 	opacity: 0;
 	transition:
@@ -51,4 +52,12 @@
 		width var( --motion-duration-layout ) var( --motion-ease-layout ),
 		margin var( --motion-duration-layout ) var( --motion-ease-layout ),
 		opacity 0s var( --motion-duration-layout );
+}
+
+.headerSlotWithAction {
+	gap: var( --band-gap );
+}
+
+.headerSlotVisible.headerSlotWithAction {
+	width: calc( 2 * var( --control-size ) + var( --band-gap ) );
 }

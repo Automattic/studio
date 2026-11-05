@@ -1,12 +1,13 @@
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
+import { useContext } from 'react';
 import {
+	SidebarHeaderActionContext,
 	useSidebarCollapsed,
 	useSidebarOpen,
 	useSidebarHover,
 	useToggleSidebar,
 } from '@/data/use-sidebar-collapsed';
-import { AppMessageCardsDot } from '@/features/notifications';
 import { SidebarIcon } from '@/lib/icons';
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import styles from './style.module.css';
@@ -19,7 +20,7 @@ export function SidebarToggle() {
 	const control = (
 		<Button
 			variant="ghost"
-			size="icon"
+			size="icon-sm"
 			aria-label={ collapsed || hover.peek ? __( 'Show sidebar' ) : __( 'Hide sidebar' ) }
 			aria-expanded={ ! collapsed || hover.peek }
 			data-sidebar-toggle
@@ -48,7 +49,6 @@ export function SidebarToggle() {
 					<TooltipContent side="bottom">{ __( 'Hide sidebar' ) }</TooltipContent>
 				</Tooltip>
 			) }
-			{ collapsed ? <AppMessageCardsDot /> : null }
 		</span>
 	);
 }
@@ -58,13 +58,19 @@ export function SidebarToggle() {
 // header along instead of jumping.
 export function HeaderSidebarToggle() {
 	const collapsed = useSidebarCollapsed();
+	const action = useContext( SidebarHeaderActionContext );
 	return (
 		<span
-			className={ clsx( styles.headerSlot, collapsed && styles.headerSlotVisible ) }
+			className={ clsx(
+				styles.headerSlot,
+				collapsed && styles.headerSlotVisible,
+				action && styles.headerSlotWithAction
+			) }
 			data-sidebar-header-slot
 			inert={ ! collapsed }
 		>
 			<SidebarToggle />
+			{ collapsed ? action : null }
 		</span>
 	);
 }

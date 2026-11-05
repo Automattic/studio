@@ -14,9 +14,46 @@
 		white-space: nowrap;
 	}
 
-	/* The hairline under a header in the workspace's top band. */
 	.bandEdge {
 		box-shadow: inset 0 -1px 0 var( --border );
+	}
+
+	.headerFade {
+		mask-image: linear-gradient(
+			to bottom,
+			rgb( 0 0 0 / var( --header-fade-opacity, 0 ) )
+				calc( var( --header-fade-height, var( --band-height ) ) * 0.15 ),
+			#000 var( --header-fade-height, var( --band-height ) )
+		);
+	}
+
+	.scrollFade {
+		mask-image: linear-gradient( to bottom, var( --surface-header-fade-stops ) ),
+			linear-gradient( #000, #000 ), linear-gradient( to top, var( --surface-fade-stops ) );
+		mask-size:
+			100% max( 0px, calc( var( --scroll-fade-top, 0px ) - var( --scroll-fade-top-inset, 0px ) ) ),
+			100%
+				max( 0px, calc( 100% - var( --scroll-fade-top, 0px ) - var( --scroll-fade-bottom, 0px ) ) ),
+			100%
+				max(
+					0px,
+					calc( var( --scroll-fade-bottom, 0px ) - var( --scroll-fade-bottom-inset, 0px ) )
+				);
+		mask-position:
+			left 0 top var( --scroll-fade-top-inset, 0px ),
+			left 0 top var( --scroll-fade-top, 0px ),
+			left 0 bottom var( --scroll-fade-bottom-inset, 0px );
+		mask-repeat: no-repeat;
+	}
+
+	.surfaceFade::before {
+		position: absolute;
+		inset-inline: 0;
+		height: var( --surface-fade-size );
+		background: var( --fade-surface );
+		mask-image: linear-gradient( to bottom, var( --surface-overlay-fade-stops ) );
+		content: '';
+		pointer-events: none;
 	}
 
 	/* A hairline drawn inside an image's frame, so the image keeps its full size. */
@@ -24,7 +61,7 @@
 		position: absolute;
 		inset: 0;
 		border-radius: inherit;
-		box-shadow: inset 0 0 0 1px var( --border );
+		box-shadow: inset 0 0 0 var( --image-outline-width, 1px ) var( --border );
 		content: '';
 		pointer-events: none;
 	}
@@ -57,5 +94,31 @@
 		border-radius: inherit;
 		content: '';
 		pointer-events: none;
+	}
+}
+
+@layer ui {
+	.errorShake[data-feedback='shake'] {
+		animation: errorShake var( --error-shake-duration, var( --motion-duration-layout ) )
+			var( --motion-ease-layout );
+	}
+	@keyframes errorShake {
+		20% {
+			transform: translateX( calc( var( --error-shake-distance, 6px ) * -1 ) );
+		}
+		40% {
+			transform: translateX( calc( var( --error-shake-distance, 6px ) * 5 / 6 ) );
+		}
+		60% {
+			transform: translateX( calc( var( --error-shake-distance, 6px ) * -0.5 ) );
+		}
+		80% {
+			transform: translateX( calc( var( --error-shake-distance, 6px ) / 6 ) );
+		}
+	}
+	@media ( prefers-reduced-motion: reduce ) {
+		.errorShake[data-feedback='shake'] {
+			animation: none;
+		}
 	}
 }

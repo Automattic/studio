@@ -263,7 +263,7 @@ describe( 'blueprint-settings', () => {
 			expect( result.siteName ).toBeUndefined();
 		} );
 
-		it( 'should use first setSiteOptions step with blogname', () => {
+		it( 'uses the last setSiteOptions step with blogname', () => {
 			const blueprint: BlueprintV1Declaration = {
 				steps: [
 					{ step: 'setSiteOptions', options: { blogname: 'First Name' } },
@@ -273,7 +273,7 @@ describe( 'blueprint-settings', () => {
 
 			const result = extractFormValuesFromBlueprint( blueprint );
 
-			expect( result.siteName ).toBe( 'First Name' );
+			expect( result.siteName ).toBe( 'Second Name' );
 		} );
 
 		it( 'should set requiresCustomDomain when enableMultisite step is present', () => {
@@ -738,5 +738,34 @@ describe( 'blueprint-settings', () => {
 			};
 			expect( generateDefaultBlueprintDescription( blueprint ) ).toBe( 'Installs 1 plugin.' );
 		} );
+	} );
+} );
+
+describe( 'Blueprint site-title shorthand', () => {
+	it( 'preserves the top-level title and lets the last explicit step override it', () => {
+		const blueprint: BlueprintV1Declaration = {
+			siteOptions: { blogname: 'SYSTEM' },
+			steps: [
+				{ step: 'setSiteOptions', options: { blogname: 'First' } },
+				{ step: 'setSiteOptions', options: { blogdescription: 'Description' } },
+				{ step: 'setSiteOptions', options: { blogname: 'Final Title' } },
+			],
+		};
+		expect(
+			extractFormValuesFromBlueprint( { siteOptions: blueprint.siteOptions } ).siteName
+		).toBe( 'SYSTEM' );
+		expect( extractFormValuesFromBlueprint( blueprint ).siteName ).toBe( 'Final Title' );
+		const updated = updateBlueprintWithFormValues( blueprint, { siteName: 'My Edited Title' } );
+		expect( extractFormValuesFromBlueprint( updated ).siteName ).toBe( 'My Edited Title' );
+		expect( updated.siteOptions?.blogname ).toBe( 'My Edited Title' );
+		expect( extractFormValuesFromBlueprint( blueprint ).siteName ).toBe( 'Final Title' );
+	} );
+
+	it( 'updates a title supplied only through shorthand', () => {
+		const updated = updateBlueprintWithFormValues(
+			{ siteOptions: { blogname: 'SYSTEM', blogdescription: 'Issue 01' } },
+			{ siteName: 'Edited' }
+		);
+		expect( updated.siteOptions ).toEqual( { blogname: 'Edited', blogdescription: 'Issue 01' } );
 	} );
 } );

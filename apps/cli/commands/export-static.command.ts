@@ -17,11 +17,7 @@ export const builder = ( yargs: StudioArgv ) => {
 			),
 			coerce: ( value: string ) => {
 				const url = URL.parse( value );
-				if (
-					! url ||
-					! [ 'http:', 'https:' ].includes( url.protocol ) ||
-					url.pathname !== '/'
-				) {
+				if ( ! url || ! [ 'http:', 'https:' ].includes( url.protocol ) || url.pathname !== '/' ) {
 					throw new Error(
 						__( 'base-url must be an http(s) URL without a path, e.g. https://example.com' )
 					);

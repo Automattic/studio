@@ -4,325 +4,353 @@ Unreleased
 2.1.0
 =====
 <!-- Release notes generated using configuration in .github/release.yml at HEAD -->
-* Studio Code: move the site-building workflow into a build-site skill shared by every runtime #5132
-* Run the screenshot-all-timing eval on an image-capable tier #5136
-* Keep daemon logs and site process exit codes from failed CLI e2e runs #5127
-* Studio Code: expose top-level skills to plugins and add edit-manage-site #5137
-* Remove dead Desktop main-process code left over from the Classic UI #5139
-* build(deps): bump anthropics/claude-code-action from 1.0.244 to 1.0.248 #5148
-* build(deps): bump actions/upload-artifact from 7.0.1 to 7.0.2 #5147
-* Open the Desktop window without waiting for the site list #5140
-* build(deps-dev): bump the electron group with 2 updates #5151
-* Share local media containment and reject rebound hosts in studio ui #5141
-* Run Desktop CLI commands through the shared CLI runner #5142
-* Declare all three MCP annotations on every Studio tool #5152
-* Explain the running-sites limit in both Studio apps #5143
-* build(deps): bump ruby/setup-ruby from 1.328.0 to 1.329.0 #5149
-* Fill in placeholders in block validation messages #5161
-* CLI: name --from imports from the captured source (skip the name prompt, match DLA's receipt schema) #5157
-* Keep the name and URL of connected sites gone from WordPress.com #5160
-* Studio Code: Drop the payload-limit prose the Write, Edit and Bash refusals already carry #5162
-* Studio Code: Say in the screenshot result when the user cannot see it #5165
-* Agentic UI: add copy buttons for the site URL and local path #5021
-* Read and write user preferences through one shared module #5144
-* Studio Code: Give the agent its WordPress.com site's plan features instead of describing plan tiers #5170
-* Codex plugin: OpenAI review metadata, and Studio's tools on first start #5155
-* Codex plugin: add the demo recording for OpenAI's review #5173
-* Share push, pull, cancel and sync lookups between Desktop and studio ui #5145
-* Show symlinked folders as folders in the push tree and count their size #5174
-* Keep import reports out of the theme `studio create --from` generates #5176
-* Describe the shared-operation architecture and drop stale docs #5178
-* Fix sync cancel, folder names in open-in-terminal/editor, and smaller Desktop edge cases #5177
-* Install the bundled PHP atomically to fix Windows first-launch site start failures #5179
-* WordPress Studio plugin for Claude Code #5180
-* Prepare the WordPress Studio plugin for Anthropic's directory #5185
-* build(deps): bump the ruby-minor-and-patch group with 2 updates #5181
-* Studio Code: Reload the preview in the app when the agent finishes, instead of asking the agent to #5171
-* Studio Code: Drop the prompt rules that repeat the file tools' own guidance #5189
-* Studio Code: Drop the plan guardrail that repeats the hosting-plans-helper skill #5190
-* Studio Code evals: Report token usage and support follow-up messages #5193
-* Studio Code: State the active site in the system prompt instead of prepending it to every message #5192
-* STUDIO.md: Drop the skills list that agents already discover from the installed skills #5195
-* Studio Code evals: Report where a run's time and context go #5197
-* Clear the avoidable review findings on the plugin for Anthropic's directory #5199
-* Keep the desktop app booting when dev-only setup fails on Intel Macs #5201
-* build(deps): bump the wordpress group across 1 directory with 30 updates #5028
-* build(deps): bump the eslint group across 1 directory with 4 updates #5150
-* Skip non-PE binaries in the Windows signing hook #5202
-* Remove the fs-ext binary cleanup left over from the Playground runtime #5203
-* CLI: move the create --from static import pipeline into its own module #5194
-* build(deps): bump the electron-forge group across 1 directory with 13 updates #5026
-* Fail site starts clearly when the custom domain proxy can't start #5206
-* Skip ports another app holds on any local address when picking a site port #5207
-* Stop agent tools from guessing between sites that share a name #5208
-* Remove the experimental hosted backend #5211
-* Keep agent runs, their questions and transcripts in sync after a reload or dropped connection #5209
-* Fall back to Local in studio ui when a chat's live site was disconnected #5212
-* STUDIO.md: State the core-files rule once, with its reason #5210
-* Manage WordPress skills from studio ui too #5213
-* Let the macOS app handle wp-studio:// links #5214
-* Studio Code: Continue a turn that ends with an empty reply #5205
-* Workspace shell matching the rebuild: one band, Rich's sidebar and menus, hideable chat, no site overview #5215
-* build(deps-dev): bump vite from 8.2.2 to 8.3.4 #5220
-* build(deps): bump follow-redirects from 1.16.0 to 1.16.1 #5219
-* Sidebar chat actions: rename, read/unread, archive with undo #5216
-* Bump Playwright to 1.64.1: fix capture crash from CDP responses for crashed sessions #5218
+* Redesigned workspace: one header band, a new sidebar and menus, a chat you can hide, and no site overview #5215
+* Give the app its own design system, ported from the redesign #5289
+* Match the redesign's global foundations and gather the theme in one place #5364
+* Draw every icon with the redesign's icon set #5340
+* Match the redesign's motion across the app #5344
+* Appearance settings: accent color, tint intensity and contrast #5339
+* Show the Desktop app as WordPress Studio and adopt the new app icons #5362
+* Show colored app logos in the Open in menus #5360
+* Final fidelity pass for starting and opening chats #5373
 * Restyle dialogs and toasts app-wide #5221
-* build(deps): bump anthropics/claude-code-action from 1.0.248 to 1.0.252 #5222
-* build(deps-dev): bump the electron group with 2 updates #5224
-* build(deps-dev): bump the vite group across 1 directory with 2 updates #5227
-* Studio Code evals: Let the agent ask the user, and run on a WordPress.com site #5230
-* E2E: Cover each backup format and Blueprint step once, in the CLI suite #5232
-* Keep a saved preference when a stale fetch resolves after the save #5233
-* Studio Code: Bring the remote-site runbook with a WordPress.com active site instead of a rule to load it #5231
-* Eval: judge each case on the outcome a user would see #5167
-* Studio Code: List the user's WordPress.com sites in site_list #5234
-* Studio Code: Refuse writes to a Studio site's WordPress core instead of forbidding them in the prompt #5164
-* Studio CLI: Load the MCP server only when studio mcp runs #5235
-* Native PHP: don't serve dotfiles or the SQLite database directory #5198
-* Allow triggering the PHP CLI version check workflow manually #5243
-* Update knip to v6 so it no longer blocks the TypeScript 7 upgrade #5204
-* Type-check the Forge config and fix its Forge 8 type errors #5244
+* Dialogs fade in on the shell's timing, including Rename chat #5246
+* Dialog backdrops, blocked sends and the composer beside the preview move like the redesign #5418
+* Simplify dialog backdrops and align command palette styling #5536
+* Improve spacing and sizing in small dialogs #5507
+* Improve primary button contrast and hover states #5498
+* Improve rounded button spacing and mute composer chevrons #5551
+* Keep active controls opaque and unify button feedback #5535
+* Unify send and plus icons across Studio #5488
+* Unify clipboard copy controls across Studio #5509
+* Distinguish sidebar and Settings selection from hover #5534
+* Soften chat and command palette surfaces #5545
+* Refine chat, dialog, and sidebar surfaces #5578
+* Polish interface controls and appearance #5562
+* Use accent colors for user messages and Publish #5572
+* Welcome new users with one dialog over the empty workspace #5374
+* What's New: Announce the redesign and show it once per content version #5375
+* Match the redesign's header band and chat pane menu #5353
+* Keep chat controls in a shared workspace header #5541
+* Remember chat and preview layouts per site #5538
+* Restore each site's last chat when switching sites #5580
+* Open sites without creating empty chats #5473
+* Replace the site dropdown with the site actions menu #5282
+* Use the site menu for workspace lifecycle actions #5510
+* Remove the Stop button from the workspace header #5477
+* Remove busy-state explanations from action menus #5453
+* Improve the Open in menu order and start stopped sites automatically #5550
+* Refine site controls, chat navigation, and preview behavior #5563
+* Show a button to reopen the hidden chat beside the site menu #5485
+* Keep the sidebar toggle and site menu in place as the chat hides and shows #5487
+* Keep the hidden chat closed when opening site settings #5448
+* Start from a site's context menu opens it, Export waits for a busy site, and the empty workspace follows sites #5421
+* Match the redesign's sidebar groups, rows, menus and footer #5354
 * Pinned sites and chats in the sidebar, shared by both Studio apps #5223
-* build(deps): bump the sentry group across 1 directory with 13 updates #5228
-* Needs input group: chats waiting on your answer move to the top of the sidebar #5229
-* Dialogs fade in from 97% on the shell's timing, including Rename chat #5246
-* Update type packages, keeping TypeScript on 6.0 #5245
 * Add a site straight into Pinned from the Pinned group's + #5247
-* Stop stray WP-CLI output from crashing the app on launch #5248
-* Small windows: the sidebar opens over the workspace, and Studio stops resizing the window #5249
-* build(deps): bump the testing group across 1 directory with 8 updates #5226
+* Needs input group: chats waiting on your answer move to the top of the sidebar #5229
+* Sidebar chat actions: rename, read/unread, archive with undo #5216
 * Select several sites and chats in the sidebar and act on them at once #5250
-* Search sites, chats and commands from a ⌘K command palette #5252
-* E2E: Run desktop test files in two parallel workers #5236
-* Move Studio and site settings into one searchable dialog #5255
-* Native PHP: balance POST requests across the worker pool #5240
-* Instructions and skills settings: switch them on or off for all sites and per site #5256
-* E2E: Upload each desktop session's daemon logs when a run fails #5261
-* Keep Studio's local wp-config.php constants out of push archives #5251
-* Blur the settings dialog while another dialog opens over it #5270
+* Small windows: the sidebar opens over the workspace, and Studio stops resizing the window #5249
+* Make the sidebar reliable: every chat reachable, overlay closes on picks, bulk shortcuts, run-once toast actions, persisted state #5294
+* Restyle the sidebar message cards as toasts #5371
+* Make the sidebar card actions run again, so Restart installs a downloaded update #5528
+* Replace the update-ready notice with an accent update button #5554
+* Start a sidebar multi-selection from the open chat, never from its site row #5387
+* Keep the sidebar multi-selection through bulk actions, and reach row menus from the keyboard #5414
+* Allow excluding sites from bulk removal #5533
+* Show the site list's error state instead of refetching it in a loop #5404
+* Show the chat list's error instead of refetching it in a loop #5431
+* Sidebar reachable on the empty workspace, restored by Reset interface, and sliders that don't jump back #5426
+* Sidebar row actions and Share's ready dot show on hover, and Escape keeps focus on the sidebar toggle #5428
+* Sidebar groups reopen on their first item and fold their sites #5413
+* Dragged sites fold, drops land on their new slot, and drops outside a list move nothing #5423
+* Fix sidebar drag previews and drop feedback #5478
+* Add sidebar sorting menus and interface reset defaults #5480
+* Mark as unread sticks on the open chat, and Add AI credits returns focus to the Model button #5416
+* Select the next Recent chat after archiving #5444
+* Keep archived chat navigation within its site or Recent #5491
+* Keep parent sites collapsed when opening Recent chats #5445
+* Keep parent sites collapsed when opening pinned chats #5469
+* Keep sidebar chat selection with navigation history #5532
+* Keep the sidebar divider visible above the footer gradient #5446
+* Unify sidebar hover previews and narrow-window flyovers #5456
+* Reset the sidebar scroll position when reopening #5462
+* Prevent automatic sidebar docking when widening the window #5464
+* Dismiss the floating sidebar when opening a dialog #5463
+* Polish sidebar layout and interface details #5556
+* Make sidebar hover feedback immediate #5560
+* Polish sidebar scrolling and small interface details #5584
 * Restyle the composer and transcript to match the redesign #5264
-* Update PHP 8.2.35-studio-1 metadata #5266
-* Update PHP 8.4.27-studio-1 metadata #5268
-* Update PHP 8.3.36-studio-1 metadata #5269
-* Update PHP 8.5.12-studio-1 metadata #5267
+* Match the redesign's transcript #5369
+* Composer: match the redesign's command list, model picker, column, chips, notices and queue #5350
+* Make chat runs recover and port the redesign's chat behaviors #5292
+* Keep agent runs, their questions and transcripts in sync after a reload or dropped connection #5209
+* Split agent runs and keep a slow active-runs snapshot from overwriting newer run state #5381
+* Keep a chat idle when its run finishes before the send is acknowledged #5405
+* Stream replies as they arrive and re-render only what changed in the transcript #5398
+* Let signed-out Anthropic chats run, show chat requirements as notices, anchor the transcript on prompts, and highlight code #5299
+* Switch a chat between its local and live site from the composer #5271
+* Fall back to Local in studio ui when a chat's live site was disconnected #5212
+* Hide the Work on live site command from the composer for now #5569
+* Empty the composer on send so a reopened chat doesn't bring the sent message back #5402
+* A failed send keeps attachments added meanwhile, Enter on a disabled /live doesn't send it, and the welcome dialog drops its unreachable Cancel #5433
+* Unify command surfaces and refine composer feedback #5573
+* Render agent questions on native radios and checkboxes with a questionnaire primitive #5395
+* Unify chat message grouping and questionnaire navigation #5474
+* Remove questionnaire option subtext #5502
+* Improve chat activity states #5460
+* Keep the chat dot grid continuous through site loading #5468
+* Fix the doubled chat preview divider border #5466
+* Fix the session UI provider crash at / and the chat blanking when the model picker opens #5368
+* Stop the chat from looping on its loading skeleton when the AI credits request fails #5288
+* Keep the AI usage notice up while a failed quota check is retried #5388
+* Keep Balanced and Strong unlocked once an account has bought AI credits #5482
+* Offer the design system view from the chat instead of switching to it #5519
+* Match the redesign's site preview, Publish, Share and annotations #5356
 * Preview header: Start/Stop, address field actions, and a More menu when narrow #5272
 * Preview lifecycle: a stopped site's screenshot in the chat, captured in both apps #5273
-* Keep toast edges and the close button visible in Safari #5275
-* Switch a chat between its local and live site from the composer #5271
-* Keep Studio mu-plugins in a stable folder so WP-CLI runs with another TMPDIR don't break running sites #5253
-* Open the system's terminal on Linux instead of requiring GNOME Terminal #5242
-* Run Studio's quit cleanup once when will-quit fires again #5281
+* Preview a Live chat's remote site, and let the agent reload the preview with refresh_browser #5336
+* Add responsive site preview controls #5543
+* Simplify preview actions and add design system navigation #5461
+* Fix preview address editing and polish dropdown behavior #5465
+* Keep the preview header, reload and address bar working at the edges #5417
+* Keep the preview frame mounted when Back or Forward follows a reload #5389
+* Improve the stopped-site thumbnail start button #5537
+* Keep preview controls available for stopped sites #5579
+* Stage preview annotations with images in the chat draft, sendable from the composer or a Send bar #5283
+* Align the CLI's /annotate with the app's annotation flow #5285
+* Annotation Cancel exits, iframes keep Annotate ready, and limits count every note #5409
+* Prompt users to connect an AI provider before annotating #5496
+* Fix annotation Send behavior and queue direct feedback #5501
+* Refine annotation markers and stage notes before sending #5549
+* Unify annotation and element attachment chips #5546
+* Keep annotation highlights flush with the viewport edge #5564
 * Move publishing and pulling into a Publish panel in the preview header #5278
 * Share previews from the preview header and a Sharing settings tab #5280
-* Replace the site dropdown with the site actions menu #5282
-* Stage preview annotations with images in the chat draft, sendable from the composer or a Send bar #5283
-* CLI: Clear the local token on logout even when WordPress.com rejects the revoke #5286
-* Align the CLI's /annotate with the app's annotation flow #5285
+* Preview, Publish and Share edges, plus Delete site #5293
+* Unify preview sharing and publishing #5511
+* Simplify Share and Publish load errors #5529
+* Publish once per checkout, and keep Share and the payment gate in step with the browser trip #5420
+* Keep publish and pull reviews in the delivery dialog #5552
+* Open the publish dialog directly from site menus #5559
+* Add a switcher for connected publishing sites #5571
+* Make preview creation and actions easier to discover #5570
+* Connect requires an empty folder instead of pulling over an existing local site #5403
+* Connect asks for an empty folder instead of suggesting an existing WordPress site #5411
+* Keep the name and URL of connected sites gone from WordPress.com #5160
+* Show symlinked folders as folders in the push tree and count their size #5174
+* Keep Studio's local wp-config.php constants out of push archives #5251
 * Add sites from a dialog over the workspace, with Blueprint details #5284
-* Give the agentic UI its own design system, ported from the rebuild #5289
-* Eval: Stop a run at a matching tool call, and add skill routing cases #5287
-* Make chat runs recover and port the rebuild's chat behaviors #5292
-* Make the sidebar reliable: every chat reachable, overlay closes on picks, bulk shortcuts, run-once toast actions, persisted state #5294
+* Add site dialog: match the redesign tab by tab, on shared primitives #5352
+* Add site: a Connect setup step, the When adding a site preference, and follow-ups #5290
+* Add site keeps the typed setup and the focus when going Back #5424
+* Clean up the site creation step from a Blueprint #5467
+* Refine site creation and Blueprint setup #5565
+* Download only Blueprint bundles listed in Studio's catalog #5454
+* Improve Personal Blog Blueprint previews and gallery order #5544
+* Update the Substrata Blueprint slug after the library rename #5548
+* Move Studio and site settings into one searchable dialog #5255
+* Settings: match the redesign's settings dialog tab by tab #5355
+* Settings and account: exit guard, setting links, search, history, AI providers #5291
+* Settings search finds shortcuts, credit balance, snapshots, color and Connect provider #5422
+* Settings report failed copies and toggles, keep a failed directory, and a reopened login prompt waits for the running login #5415
+* Settings tabs, rows and messages make sense to screen readers #5419
+* Translate settings labels on first load and tidy dependencies, reduced motion and stale docs #5376
+* Blur the settings dialog while another dialog opens over it #5270
+* Keep a site settings change when another save follows it #5406
+* Keep a saved preference when a stale fetch resolves after the save #5233
+* Instructions and skills settings: switch them on or off for all sites and per site #5256
+* Manage WordPress skills from studio ui too #5213
+* Add a preferred browser for opening Studio sites #5574
+* Show the site's local path in site settings #5484
+* Remove the Studio Code on/off preference #5443
+* Remove the logout spinner from General settings #5500
+* Delete site no longer remembers a cancelled "move to Trash" choice #5400
+* Explain the running-sites limit in both Studio apps #5143
+* Search sites, chats and commands from a ⌘K command palette #5252
+* Shortcuts and palette: the redesign's keyboard model, and settings in ⌘K #5303
+* Run simple settings actions directly from the command menu #5582
+* Don't open the command palette over a dialog that stays open #5401
+* Fix the command palette sidebar icon and export label #5479
+* Let notifications be revisited: a marked bell, dismissable and replayable history items, focus-paused toasts, and login toasts #5306
+* Open notifications from the palette with the sidebar hidden, and close the history and toasts cleanly #5425
+* Improve notification layout, actions, and copy #5475
+* Reduce notification close icons to match composer attachments #5503
+* Keep toast edges and the close button visible in Safari #5275
+* Stack toasts above dialogs and popovers above both, on named layer tokens #5363
+* Failure toasts show the CLI's message alone, and an auth change looks the account up once #5412
+* Report account refresh failures through notifications #5530
+* Replace the online pre-check with the real request's network error #5452
+* Clarify the login action in account prompts #5489
+* Simplify welcome and account dialogs #5494
+* Polish account dialog spacing and loading feedback #5508
+* Point Studio's links to wordpress.studio #5566
+* Studio Code: Move the site-building workflow into a build-site skill shared by every runtime #5132
+* Studio Code: Expose top-level skills to plugins and add edit-manage-site #5137
+* Studio Code: Give the agent its WordPress.com site's plan features instead of describing plan tiers #5170
+* Studio Code: List the user's WordPress.com sites in site_list #5234
+* Studio Code: Bring the remote-site runbook with a WordPress.com active site instead of a rule to load it #5231
+* Studio Code: State the active site in the system prompt instead of prepending it to every message #5192
+* Studio Code: Reload the preview in the app when the agent finishes, instead of asking the agent to #5171
+* Studio Code: Say in the screenshot result when the user cannot see it #5165
+* Studio Code: Continue a turn that ends with an empty reply #5205
+* Studio Code: Continue a turn whose tool call leaked into the reply as DSML markup #5346
+* Studio Code: Stop agent tools from guessing between sites that share a name #5208
+* Studio Code: Refuse writes to a Studio site's WordPress core instead of forbidding them in the prompt #5164
+* Studio Code: Fill in placeholders in block validation messages #5161
 * Studio Code: Flag block attributes the block type does not declare #5300
-* Eval: Fail a case that goes over its tool call or token budget #5304
-* Studio Code: Read the file a wp_cli --post_content path names #5305
-* Studio Code: Record tool calls, errors, checks and token usage on studio_code_turn_completed #5297
 * Studio Code: Show a core block's declared settings in tool results that show the block #5307
-* CI: Skip desktop E2E and performance metrics on Studio Code agent-only changes #5308
+* Studio Code: Read the file a wp_cli --post_content path names #5305
 * Studio Code: Refuse wp_cli --post_content JSON that does not parse #5310
 * Studio Code: Read wp_cli --post_content quoting the way a shell does #5312
-* E2E: Drop desktop site tests that repeat CLI E2E checks and merge the two adopt-directory tests #5311
-* Studio CLI: Import each date-fns function from its own path #5313
-* Studio Code: State the active site's WordPress version, block types, and Site Editor copies as facts #5301
-* build(deps): bump anthropics/claude-code-action from 1.0.252 to 1.0.255 #5319
-* build(deps-dev): bump typescript-eslint from 8.71.2 to 8.72.0 in the eslint group #5324
-* build(deps-dev): bump vite from 8.3.4 to 8.3.5 in the vite group across 1 directory #5325
-* Settings and account: exit guard, setting links, search, history, AI providers #5291
-* Shortcuts and palette: the rebuild's keyboard model, and settings in ⌘K #5303
-* Stop the chat from looping on its loading skeleton when the AI credits request fails #5288
-* Limit Dependabot to security updates #5328
-* Preview, Publish and Share edges, plus Delete site #5293
-* WordPress Studio plugin: address OpenAI's review (annotations, no generic WordPress.com tool in ChatGPT, informational plans) #5326
-* Add site: a Connect setup step, the When adding a site preference, and follow-ups #5290
-* Fix Dependabot security alerts with a lockfile refresh #5330
 * Studio Code: Refuse a file path given as wp_cli --post_content instead of rewriting the command #5327
-* Upgrade TanStack Router so a superseded route redirect can't close a dialog opened after it #5329
-* Let notifications be revisited: a marked bell, dismissable and replayable history items, focus-paused toasts, and login toasts #5306
-* Fix the trunk build: restore openNoticeHistory for the command palette #5334
-* Bump Node to 24.22.1 to stop Windows CI processes crashing with 0xC0000409 #5332
-* Fix the trunk unit tests: mock useNoticeHistory for the user menu's notification bell #5335
-* Let signed-out Anthropic chats run, show chat requirements as notices, anchor the transcript on prompts, and highlight code #5299
-* Preview a Live chat's remote site, and let the agent reload the preview with refresh_browser #5336
-* E2E: Record the app window in each failed desktop test's trace #5315
-* Eval: Keep each routing case's skills in one test #5341
-* CLI: Time each site-start step in the studio_site_start Tracks event #5338
-* Studio MCP: Add the declared settings of core blocks to tool results #5333
-* Appearance settings: accent color, tint intensity and contrast #5339
-* CI: Move the trunk performance baseline to the Add site dialog #5342
-* Agentic UI: draw every icon with the rebuild's set #5340
+* Studio Code: State the active site's WordPress version, block types, and Site Editor copies as facts #5301
 * Studio Code: State saved Site Editor copies in tool results, when a call touches the theme file they replace #5343
-* Match the rebuild's motion in the agentic UI #5344
-* Composer: match the rebuild's command list, model picker, column, chips, notices and queue #5350
-* Studio Code: Continue a turn whose tool call leaked into the reply as DSML markup #5346
-* Remove the unused useLiveWpcomSites hook #5357
-* Agentic UI: match the rebuild's header band and chat pane menu #5353
-* Show the rebuild's colored app logos in the Open in menus #5360
-* Agentic UI: match the rebuild's site preview, Publish, Share and annotations #5356
-* Agentic UI: Match the rebuild's sidebar groups, rows, menus and footer #5354
-* Settings: match the rebuild's settings dialog tab by tab #5355
-* Add site dialog: match the rebuild tab by tab, on shared primitives #5352
-* Show the Desktop app as WordPress Studio and adopt the new app icons #5362
-* Agentic UI: Remove dead code left by the port #5366
-* Agentic UI: Remove the primitives' unused parts #5365
-* Agentic UI: Stack toasts above dialogs and popovers above both, on named layer tokens #5363
-* Agentic UI: Match the rebuild's global foundations and gather the theme in lib/theme #5364
-* Agentic UI: Keep the data layer below components and colocate single-use hooks #5367
 * Studio Code: Revert active site facts and saved Site Editor copy notes #5361
-* Agentic UI: Adopt a base reset like the rebuild's preflight and drop the declarations it covers #5370
-* Agentic UI: match the rebuild's transcript #5369
-* Agentic UI: Restyle the sidebar message cards as toasts #5371
-* Agentic UI: Fix the session UI provider crash at / and the chat blanking when the model picker opens #5368
+* Studio Code: Drop the payload-limit prose the Write, Edit and Bash refusals already carry #5162
+* Studio Code: Drop the prompt rules that repeat the file tools' own guidance #5189
+* Studio Code: Drop the plan guardrail that repeats the hosting-plans-helper skill #5190
+* Studio Code: Record tool calls, errors, checks and token usage on studio_code_turn_completed #5297
+* Studio Code: Report the skills a turn loads in studio_code_turn_completed #5407
+* Studio Code: Move the agent into a @studio/agent package #5514
+* STUDIO.md: Drop the skills list that agents already discover from the installed skills #5195
+* STUDIO.md: State the core-files rule once, with its reason #5210
+* Evals: Report token usage and support follow-up messages #5193
+* Evals: Report where a run's time and context go #5197
+* Evals: Let the agent ask the user, and run on a WordPress.com site #5230
+* Evals: Judge each case on the outcome a user would see #5167
+* Evals: Stop a run at a matching tool call, and add skill routing cases #5287
+* Evals: Fail a case that goes over its tool call or token budget #5304
+* Evals: Keep each routing case's skills in one test #5341
+* Evals: Run the screenshot-all-timing eval on an image-capable tier #5136
+* WordPress Studio plugin for Claude Code #5180
+* Prepare the WordPress Studio plugin for Anthropic's directory #5185
+* Clear the avoidable review findings on the plugin for Anthropic's directory #5199
+* Codex plugin: OpenAI review metadata, and Studio's tools on first start #5155
+* Codex plugin: Add the demo recording for OpenAI's review #5173
+* WordPress Studio plugin: Address OpenAI's review (annotations, no generic WordPress.com tool in ChatGPT, informational plans) #5326
+* Studio MCP: Declare all three MCP annotations on every Studio tool #5152
+* Studio MCP: Add the declared settings of core blocks to tool results #5333
+* CLI: Load the MCP server only when studio mcp runs #5235
+* CLI: Name --from imports from the captured source (skip the name prompt, match DLA's receipt schema) #5157
+* CLI: Keep import reports out of the theme `studio create --from` generates #5176
+* CLI: Clear the local token on logout even when WordPress.com rejects the revoke #5286
+* CLI: Authenticate pull-reprint with Reprint public keys #5486
+* CLI: Install the bundled PHP atomically to fix Windows first-launch site start failures #5179
+* CLI: Install the bundled WordPress into server-files atomically so concurrent commands never copy a partial install #5314
+* CLI: Set Studio's install options inside wp core install #5492
+* CLI: Skip setting admin credentials right after the installer set them #5512
+* CLI: Bump the SQLite integration to v3.1.2 and keep the database at its fixed path #5515
+* CLI: Fail site starts clearly when the custom domain proxy can't start #5206
+* CLI: Skip ports another app holds on any local address when picking a site port #5207
+* CLI: Give each PHP worker a distinct port #5259
+* CLI: Keep Studio mu-plugins in a stable folder so WP-CLI runs with another TMPDIR don't break running sites #5253
+* CLI: Save the email each site sends, one folder per site #5359
+* CLI: Clear the graceful-stop timer so site stop returns as soon as the site is down #5476
+* CLI: Drop open proxy connections when stopping a site #5531
+* CLI: Load each command's implementation when the command runs #5495
+* CLI: Load @inquirer/prompts when a prompt is shown #5316
+* CLI: Import each date-fns function from its own path #5313
+* CLI: Write the opcache file cache only on Windows #5504
+* CLI: Remove import runtime versions no import uses any more #5518
+* CLI: Time each site-start step in the studio_site_start Tracks event #5338
+* Native PHP: Don't serve dotfiles or the SQLite database directory #5198
+* Native PHP: Balance POST requests across the worker pool #5240
+* Native PHP: Update the bundled PHP binaries to 8.2.35, 8.3.36, 8.4.27 and 8.5.12 #5266 #5269 #5268 #5267
+* Desktop: Open the window without waiting for the site list #5140
+* Desktop: Start a site from its path in cli.json instead of listing every site first #5351
+* Desktop: Apply site events to the site list instead of refetching it #5506
+* Desktop: Finish site creation when the CLI reports done, not when telemetry lets the process exit #5522
+* Desktop: Show the site a start or stop reports, instead of waiting for its process to exit #5524
+* Desktop: Stop stray WP-CLI output from crashing the app on launch #5248
+* Desktop: Keep the app booting when dev-only setup fails on Intel Macs #5201
+* Desktop: Let the macOS app handle wp-studio:// links #5214
+* Desktop: Open deep links that arrive before the app is ready, and reveal a linked setting each time #5410
+* Desktop: Fix the duplicate fullscreen menu item on macOS #5497
+* Desktop: Open the system's terminal on Linux instead of requiring GNOME Terminal #5242
+* Desktop: Run Studio's quit cleanup once when will-quit fires again #5281
+* Desktop: Fix sync cancel, folder names in open-in-terminal/editor, and smaller edge cases #5177
+* Desktop: Skip non-PE binaries in the Windows signing hook #5202
+* Desktop: Run CLI commands through the shared CLI runner #5142
+* Desktop: Remove dead main-process code left over from the Classic UI #5139
+* Remove the experimental hosted backend #5211
+* Share local media containment and reject rebound hosts in studio ui #5141
+* Read and write user preferences through one shared module #5144
+* Share push, pull, cancel and sync lookups between Desktop and studio ui #5145
+* Remove the fs-ext binary cleanup left over from the Playground runtime #5203
+* CLI: Move the create --from static import pipeline into its own module #5194
 * Agentic UI: Reorganize apps/ui into lib packages and features #5372
-* Agentic UI: Final fidelity pass fixes for starting and opening chats #5373
-* Agentic UI: Welcome new users with one dialog over the empty workspace #5374
-* What's New: Announce the redesign and show it once per content version #5375
-* Agentic UI: Translate settings labels on first load and tidy dependencies, reduced motion and stale docs #5376
-* build(deps): bump body-parser #5378
-* Agentic UI: Split agent runs and keep a slow active-runs snapshot from overwriting newer run state #5381
+* Agentic UI: Keep the data layer below components and colocate single-use hooks #5367
 * Agentic UI: Break the import cycle through the feature entries and lint against new ones #5377
-* build(deps-dev): bump electron from 44.9.0 to 44.9.1 #5380
 * Agentic UI: Split the command palette into command definitions, search and bindings #5382
 * Agentic UI: Split the sidebar site list into row, chat and group modules with pure collections #5383
 * Agentic UI: Split the composer into its picker, attachments, notice, commands and draft hooks #5384
-* Agentic UI: Split the site preview into header, surface, navigation hooks and tested helpers, and the create-site form #5386
 * Agentic UI: Split the chat conversation into messages, trace rows, agent questions and a tested transcript derivation #5385
-* Agentic UI: Start a sidebar multi-selection from the open chat, never from its site row #5387
-* Agentic UI: Keep the AI usage notice up while a failed quota check is retried #5388
-* Agentic UI: Keep the preview frame mounted when Back or Forward follows a reload #5389
-* Agentic UI: Close the CSS design-system gaps with tokens, shared recipes, surface stepping, scoped dark mode and a token lint #5390
-* Report the skills a turn loads in studio_code_turn_completed #5407
-* Agentic UI: Check apps/ui for unused code in CI #5391
-* Agentic UI: Show the site list's error state instead of refetching it in a loop #5404
-* Agentic UI: Keep a chat idle when its run finishes before the send is acknowledged #5405
-* Agentic UI: Connect requires an empty folder instead of pulling over an existing local site #5403
-* Agentic UI: Use Button variants instead of local button overrides in Publish and the account prompt #5394
-* Agentic UI: Render agent questions on native radios and checkboxes with a questionnaire primitive #5395
-* Agentic UI: Delete site no longer remembers a cancelled "move to Trash" choice #5400
-* Agentic UI: Keep a site settings change when another save follows it #5406
+* Agentic UI: Split the site preview into header, surface, navigation hooks and tested helpers, and the create-site form #5386
 * Agentic UI: Build the sidebar rows on a sidebar kit with real list semantics #5399
-* Agentic UI: Empty the composer on send so a reopened chat doesn't bring the sent message back #5402
-* Agentic UI: Stream replies as they arrive and re-render only what changed in the transcript #5398
-* Agentic UI: Don't open the command palette over a dialog that stays open #5401
-* Agentic UI: Open notifications from the palette with the sidebar hidden, and close the history and toasts cleanly #5425
-* Agentic UI: Sidebar reachable on the empty workspace, restored by Reset interface, and sliders that don't jump back #5426
-* Agentic UI: Connect asks for an empty folder instead of suggesting an existing WordPress site #5411
-* Agentic UI: Sidebar row actions and Share's ready dot read on hover, and Escape keeps focus on the sidebar toggle #5428
-* Agentic UI: Sidebar groups reopen on their first item and fold their sites #5413
-* Agentic UI: Fix the flaky preference save-order test #5429
-* Agentic UI: Publish once per checkout, and keep Share and the payment gate in step with the browser trip #5420
-* Agentic UI: Keep the sidebar multi-selection through bulk actions, and reach row menus from the keyboard #5414
-* Agentic UI: Add site keeps the typed setup and the focus when going Back #5424
-* Studio: Open deep links that arrive before the app is ready, and reveal a linked setting each time #5410
-* Agentic UI: Annotation Cancel exits, iframes keep Annotate ready, and limits count every note #5409
-* Agentic UI: Keep the preview header, reload and address bar working at the edges #5417
-* Agentic UI: Dialog backdrops, blocked sends and the composer beside the preview move like the rebuild #5418
-* Agentic UI: Failure toasts show the CLI's message alone, and an auth change looks the account up once #5412
-* Agentic UI: Settings tabs, rows and messages make sense to screen readers #5419
-* Agentic UI: Start from a site's context menu opens it, Export waits for a busy site, and the empty workspace follows sites #5421
-* Agentic UI: Settings search finds shortcuts, credit balance, snapshots, colour and Connect provider #5422
-* Agentic UI: Dragged sites fold, drops land on their new slot, and drops outside a list move nothing #5423
-* Agentic UI: Settings report failed copies and toggles, keep a failed directory, and a reopened login prompt waits for the running login #5415
-* Agentic UI: Mark as unread sticks on the open chat, and Add AI credits returns focus to the Model button #5416
-* Agentic UI: Test behavior over a fake connector and port the rebuild's unit tests #5408
-* Agentic UI: Show the chat list's error instead of refetching it in a loop #5431
-* Studio: Fold the agentic UI's critical flows into the Desktop e2e and keep it to flows that need the real app #5430
-* Agentic UI: Proxy the studio ui API from the browser dev server #5392
-* Agentic UI tests: Remove the mock-heavy unit tests the behavior tests cover, and rewrite the rest over the fake connector #5432
+* Agentic UI: Use Button variants instead of local button overrides in Publish and the account prompt #5394
+* Agentic UI: Adopt a base reset like the redesign's preflight and drop the declarations it covers #5370
+* Agentic UI: Close the CSS design-system gaps with tokens, shared recipes, surface stepping, scoped dark mode and a token lint #5390
+* Agentic UI: Remove dead code left by the port #5366
+* Agentic UI: Remove the primitives' unused parts #5365
+* Agentic UI: Remove the unused useLiveWpcomSites hook #5357
 * Agentic UI: Lint feature code that reaches into the UI primitives #5396
-* Agentic UI: A failed send keeps attachments added meanwhile, Enter on a disabled /live doesn't send it, and the welcome dialog drops its unreachable Cancel #5433
+* Agentic UI: Check apps/ui for unused code in CI #5391
+* Agentic UI: Proxy the studio ui API from the browser dev server #5392
 * Agentic UI: Add playground pages for the chat transcript and the preview animation #5397
 * Agentic UI: Say which primitive to use and how to restyle one in the lib/ui README #5393
+* Agentic UI tests: Test behavior over a fake connector and port the redesign's unit tests #5408
+* Agentic UI tests: Remove the mock-heavy unit tests the behavior tests cover, and rewrite the rest over the fake connector #5432
+* Agentic UI tests: Fix the flaky preference save-order test #5429
 * Remove dead code, low-value tests and stale comments across the repo, apps/ui first, and run knip repo-wide #5441
-* Adding markdown versions of developer docs to the repository #5182
-* build(deps): bump undici from 7.29.0 to 7.30.1 in /docs/user #5442
-* Remove the Studio Code on/off preference #5443
-* Keep the sidebar divider visible above the footer gradient #5446
-* Select the next Recent chat after archiving #5444
-* Keep hidden chat closed when opening site settings #5448
-* Download only blueprint bundles listed in Studio's catalog #5454
-* Remove busy-state explanations from action menus #5453
-* Unify sidebar hover previews and narrow-window flyovers #5456
-* Replace the online pre-check with the real request's network error #5452
-* Keep parent sites collapsed when opening Recent chats #5445
-* Simplify preview actions and add design system navigation #5461
-* Improve chat activity states #5460
-* Reset sidebar scroll position when reopening #5462
-* Fix doubled chat preview divider border #5466
-* Keep parent sites collapsed when opening pinned chats #5469
-* Clean up site creation step from blueprint #5467
-* Keep the chat dot grid continuous through site loading #5468
-* Fix preview address editing and polish dropdown behavior #5465
-* Prevent automatic sidebar docking when widening the window #5464
-* Remove the Stop button from the workspace header #5477
-* Fix command palette sidebar icon and export label #5479
-* Dismiss floating sidebar when opening a dialog #5463
-* Improve notification layout, actions, and copy #5475
-* Fix sidebar drag previews and drop feedback #5478
-* Unify chat message grouping and questionnaire navigation #5474
-* Add sidebar sorting menus and interface reset defaults #5480
-* Open sites without creating empty chats #5473
-* Clear the graceful-stop timer so site stop returns as soon as the site is down #5476
-* Keep Balanced and Strong unlocked once an account has bought AI credits #5482
-* Studio CLI: Load @inquirer/prompts when a prompt is shown #5316
-* Save the email each site sends, one folder per site #5359
-* Show the site's local path in site settings #5484
-* Agentic UI: Show a button to reopen the hidden chat beside the site menu #5485
-* Give each PHP worker a distinct port #5259
-* CLI: Install the bundled WordPress into server-files atomically so concurrent commands never copy a partial install #5314
-* Keep archived chat navigation within its site or Recent #5491
-* Unify send and plus icons across Studio #5488
-* CLI: Set Studio's install options inside wp core install #5492
-* Improve primary button contrast and hover states #5498
-* Fix duplicate fullscreen menu item on macOS #5497
-* CLI: Shrink the concurrent server-files install test so it fits Windows CI's time limit #5499
-* Remove the logout spinner from General settings #5500
-* Prompt users to connect an AI provider before annotating #5496
-* Clarify the login action in account prompts #5489
-* Fix annotation Send behavior and queue direct feedback #5501
-* Remove questionnaire option subtext #5502
-* Simplify welcome and account dialogs #5494
-* Agentic UI: Keep the sidebar toggle and site menu in place as the chat hides and shows #5487
-* CLI: Load each command's implementation when the command runs #5495
-* Reduce notification close icons to match composer attachments #5503
-* Metrics: Time site starts from the moment the site shows as running #5505
-* CLI: Write the opcache file cache only on Windows #5504
-* Studio: Start a site from its path in cli.json instead of listing every site first #5351
-* Studio: Apply site events to the site list instead of refetching it #5506
-* Improve spacing and sizing in small dialogs #5507
-* Polish account dialog spacing and loading feedback #5508
-* Unify clipboard copy controls across Studio #5509
-* Use the site menu for workspace lifecycle actions #5510
-* Bump the SQLite integration to v3.1.2 and keep the database at its fixed path #5515
-* CLI: Remove import runtime versions no import uses any more #5518
-* pull-reprint: authenticate with Reprint public keys #5486
-* Offer the design system view from the chat instead of switching to it #5519
-* CLI: Skip setting admin credentials right after the installer set them #5512
-* Remove the unused Claude GitHub Actions workflows #5521
+* Upgrade TanStack Router so a superseded route redirect can't close a dialog opened after it #5329
+* Bump Playwright to 1.64.1 to fix a capture crash from CDP responses for crashed sessions #5218
+* Update knip to v6 so it no longer blocks the TypeScript 7 upgrade #5204
+* Type-check the Forge config and fix its Forge 8 type errors #5244
+* Update type packages, keeping TypeScript on 6.0 #5245
+* Describe the shared-operation architecture and drop stale docs #5178
+* Add Markdown versions of the developer docs to the repository #5182
+* E2E: Cover each backup format and Blueprint step once, in the CLI suite #5232
+* E2E: Run desktop test files in two parallel workers #5236
+* E2E: Upload each desktop session's daemon logs when a run fails #5261
+* E2E: Drop desktop site tests that repeat CLI E2E checks and merge the two adopt-directory tests #5311
+* E2E: Record the app window in each failed desktop test's trace #5315
+* E2E: Fold the agentic UI's critical flows into the Desktop e2e and keep it to flows that need the real app #5430
+* E2E: Keep daemon logs and site process exit codes from failed CLI e2e runs #5127
+* E2E: Shrink the concurrent server-files install test so it fits Windows CI's time limit #5499
+* CI: Skip desktop E2E and performance metrics on Studio Code agent-only changes #5308
+* CI: Move the trunk performance baseline to the Add site dialog #5342
 * CI: Download the Windows RELEASES artifacts whichever path separator they were uploaded with #5523
-* Studio Code: Move the agent into a @studio/agent package #5514
-* Studio: Finish site creation when the CLI reports done, not when telemetry lets the process exit #5522
-* Studio: Show the site a start or stop reports, instead of waiting for its process to exit #5524
-* Agentic UI: Make the sidebar card actions run again, so Restart installs a downloaded update #5528
-* Unify preview sharing and publishing #5511
-* Simplify Share and Publish load errors #5529
-* Report account refresh failures through notifications #5530
-* CLI: Drop open proxy connections when stopping a site #5531
-* Distinguish sidebar and Settings selection from hover #5534
-* Keep sidebar chat selection with navigation history #5532
-* Allow excluding sites from bulk removal #5533
-* Simplify dialog backdrops and align command palette styling #5536
-* Keep active controls opaque and unify button feedback #5535
+* CI: Bump Node to 24.22.1 to stop Windows CI processes crashing with 0xC0000409 #5332
+* CI: Allow triggering the PHP CLI version check workflow manually #5243
+* CI: Remove the unused Claude GitHub Actions workflows #5521
+* CI: Fix the trunk build: restore openNoticeHistory for the command palette #5334
+* CI: Fix the trunk unit tests: mock useNoticeHistory for the user menu's notification bell #5335
+* Metrics: Time site starts from the moment the site shows as running #5505
+* Limit Dependabot to security updates #5328
+* Fix Dependabot security alerts with a lockfile refresh #5330
+* build(deps): bump the wordpress group across 1 directory with 30 updates #5028
+* build(deps): bump the electron-forge group across 1 directory with 13 updates #5026
+* build(deps): bump the sentry group across 1 directory with 13 updates #5228
+* build(deps): bump the testing group across 1 directory with 8 updates #5226
+* build(deps): bump the eslint group across 1 directory with 4 updates #5150
+* build(deps): bump follow-redirects from 1.16.0 to 1.16.1 #5219
+* build(deps): bump body-parser #5378
+* build(deps): bump undici from 7.29.0 to 7.30.1 in /docs/user #5442
+* build(deps): bump anthropics/claude-code-action from 1.0.244 to 1.0.248 #5148
+* build(deps): bump anthropics/claude-code-action from 1.0.248 to 1.0.252 #5222
+* build(deps): bump anthropics/claude-code-action from 1.0.252 to 1.0.255 #5319
+* build(deps): bump actions/upload-artifact from 7.0.1 to 7.0.2 #5147
+* build(deps): bump ruby/setup-ruby from 1.328.0 to 1.329.0 #5149
+* build(deps): bump the ruby-minor-and-patch group with 2 updates #5181
+* build(deps-dev): bump the electron group with 2 updates #5151
+* build(deps-dev): bump the electron group with 2 updates #5224
+* build(deps-dev): bump electron from 44.9.0 to 44.9.1 #5380
+* build(deps-dev): bump vite from 8.2.2 to 8.3.4 #5220
+* build(deps-dev): bump the vite group across 1 directory with 2 updates #5227
+* build(deps-dev): bump vite from 8.3.4 to 8.3.5 in the vite group across 1 directory #5325
+* build(deps-dev): bump typescript-eslint from 8.71.2 to 8.72.0 in the eslint group #5324
 * @crweiner made their first contribution in https://github.com/Automattic/studio/pull/5021
 **Full Changelog**: https://github.com/Automattic/studio/compare/v2.0.4...v2.1.0
 

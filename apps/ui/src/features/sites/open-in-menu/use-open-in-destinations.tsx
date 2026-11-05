@@ -1,6 +1,7 @@
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { captureException } from '@studio/common/lib/error-reporting';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
+import { browserConfig } from '@studio/common/lib/user-settings/browser';
 import {
 	getFirstInstalledEditor,
 	supportedEditorConfig,
@@ -11,8 +12,8 @@ import { CodeIcon } from 'lucide-react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
-import { useStartSite } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { AppIcon } from '@/features/sites/app-icon';
 import { DATABASE_HOME_PATH } from '@/features/sites/site-preview/address-bar';
 import {
@@ -74,7 +75,10 @@ export function useOpenInDestinations(
 	const connector = useConnector();
 	const { data: userPreferences } = useUserPreferences();
 	const { data: installedApps } = useInstalledApps();
-	const startSite = useStartSite();
+	const browserLabel = userPreferences?.browser
+		? browserConfig[ userPreferences.browser ].name
+		: installedApps?.defaultBrowser?.name ?? __( 'Browser' );
+	const startSite = useStartSiteWithChat();
 
 	const fileManager = getFileManager();
 	const editor =
@@ -112,6 +116,23 @@ export function useOpenInDestinations(
 
 	const destinations: Array< OpenInDestinationEntry | false > = [
 		{
+			id: 'browser',
+			label: browserLabel,
+			logo: (
+				<AppIcon
+					app={ userPreferences?.browser ?? installedApps?.defaultBrowser?.browser }
+					fallback={ <ExternalLinkIcon /> }
+				/>
+			),
+			disabled: false,
+			open: () =>
+				open( 'browser', __( 'Browser' ), () => {
+					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, { browser: 'external' } );
+					// The front end opens logged out; only WP Admin signs the user in.
+					return openSiteUrl( '/', { autoLogin: false } );
+				} ),
+		},
+		{
 			id: 'files',
 			label: fileManager.label,
 			logo: fileManager.logo,
@@ -120,20 +141,6 @@ export function useOpenInDestinations(
 				open( 'files', fileManager.label, () => {
 					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_FOLDER );
 					return connector.openSiteFolder( site.id );
-				} ),
-		},
-		{
-			id: 'browser',
-			label: __( 'Browser' ),
-			// Not the globe: the address bar already uses that for the site's
-			// front end, and this one leaves Studio.
-			logo: <ExternalLinkIcon />,
-			disabled: false,
-			open: () =>
-				open( 'browser', __( 'Browser' ), () => {
-					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, { browser: 'external' } );
-					// The front end opens logged out; only WP Admin signs the user in.
-					return openSiteUrl( '/', { autoLogin: false } );
 				} ),
 		},
 		!! editor && {

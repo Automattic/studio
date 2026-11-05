@@ -254,17 +254,6 @@
 .connectedSiteRow:last-child {
 	padding-block-end: 0;
 }
-.connectedAddressText {
-	font-size: var( --text-xs );
-	line-height: var( --text-xs--line-height );
-	composes: truncate from '@/lib/theme/recipes.module.css';
-	display: block;
-	text-align: start;
-	min-width: 0;
-	flex-shrink: 1;
-	font-weight: var( --font-weight-medium );
-	color: var( --foreground );
-}
 .siteValue {
 	color: var( --muted-foreground );
 	font-size: var( --text-xs );
@@ -338,4 +327,63 @@
 
 .transferFooter > :only-child {
 	grid-column: 1 / -1;
+}
+
+.destinationCard {
+	position: relative;
+}
+.destinationTrigger {
+	padding: 0;
+	border: 0;
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	width: 100%;
+	height: 100%;
+	border-radius: var( --radius-xl );
+}
+.destinationActions {
+	display: flex;
+	align-items: center;
+	gap: var( --space-1 );
+}
+.destinationAction {
+	position: relative;
+	z-index: 2;
+}
+.destinationChevronSlot {
+	display: grid;
+	place-items: center;
+	flex-shrink: 0;
+	width: var( --button-control-size, var( --space-8 ) );
+	height: var( --button-control-size, var( --space-8 ) );
+}
+.destinationChevron {
+	width: var( --space-4 );
+	height: var( --space-4 );
+	color: var( --muted-foreground );
+}
+.destinationMenu {
+	width: var( --anchor-width );
+	max-height: var( --available-height );
+	overflow-y: auto;
+}
+.destinationOption {
+	padding: 0;
+}
+.destinationOptionCard {
+	white-space: normal;
+	flex: 1;
+	min-width: 0;
+	background: transparent;
+}
+
+.destinationValue {
+	opacity: 0;
+}
+.connectDestination {
+	margin-block-start: var( --space-1_5 );
+	border-block-start: 1px solid var( --border );
+	border-radius: 0;
+	padding-block-start: var( --space-3 );
 }

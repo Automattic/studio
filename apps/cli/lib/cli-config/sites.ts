@@ -1,3 +1,4 @@
+import path from 'path';
 import { arePathsEqual, isWordPressDirectory } from '@studio/common/lib/fs-utils';
 import { __ } from '@wordpress/i18n';
 import { LoggerError } from 'cli/logger';
@@ -24,6 +25,20 @@ export async function getSiteByFolder( siteFolder: string ): Promise< SiteData >
 	}
 
 	return site;
+}
+
+// Like WP-CLI, finds the site from any directory inside it, not only its root.
+export async function getSiteContainingFolder( folder: string ): Promise< SiteData > {
+	const config = await readCliConfig();
+	for ( let directory = path.resolve( folder ); ; directory = path.dirname( directory ) ) {
+		const site = config.sites.find( ( candidate ) => arePathsEqual( candidate.path, directory ) );
+		if ( site ) {
+			return site;
+		}
+		if ( path.dirname( directory ) === directory ) {
+			return getSiteByFolder( folder );
+		}
+	}
 }
 
 export async function findSiteByFolder( siteFolder: string ): Promise< SiteData | undefined > {

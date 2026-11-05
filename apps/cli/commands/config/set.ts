@@ -422,7 +422,7 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 
 			logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 			try {
-				await startWordPressServer( site, logger );
+				await startWordPressServer( site, logger, 'config' );
 			} catch ( error ) {
 				if ( ! credentialsChanged ) {
 					throw error;
@@ -431,7 +431,7 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 				// failed to apply would leave the site unable to start.
 				site = await restoreAdminCredentials( site.id, previousCredentials );
 				await stopWordPressServer( site.id );
-				await startWordPressServer( site, logger );
+				await startWordPressServer( site, logger, 'config' );
 				throw new LoggerError(
 					__( 'Failed to update the admin credentials. The previous credentials were restored.' ),
 					error

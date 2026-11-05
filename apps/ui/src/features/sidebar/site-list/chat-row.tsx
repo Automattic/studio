@@ -109,8 +109,8 @@ export function ChatRow( {
 								</SidebarMenuLabel>
 								{ needsInput ? (
 									<Badge
-										variant="accent"
 										size="icon"
+										variant="accent"
 										role="status"
 										aria-label={ __( 'WordPress Studio needs an answer.' ) }
 									>

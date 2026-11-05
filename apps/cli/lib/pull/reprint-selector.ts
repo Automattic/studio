@@ -1,5 +1,5 @@
 /**
- * Selective-sync prompts for `pull-reprint`.
+ * Selective-sync prompts for `studio pull`.
  *
  * The folder tree comes from the same WordPress.com backup API used by
  * `studio pull` and the Desktop UI. Reprint only receives the resulting

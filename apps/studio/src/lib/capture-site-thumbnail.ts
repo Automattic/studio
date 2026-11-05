@@ -1,6 +1,7 @@
 import fs from 'fs';
 import nodePath from 'path';
 import { sequential } from '@studio/common/lib/sequential';
+import { writeSitePreview } from '@studio/common/lib/site-preview-cache';
 import { createScreenshotWindow } from 'src/screenshot-window';
 import { getSiteThumbnailPath } from 'src/storage/paths';
 
@@ -17,7 +18,9 @@ export const captureSiteThumbnail = sequential< [ { id: string; url: string } ],
 		try {
 			await fs.promises.mkdir( nodePath.dirname( outPath ), { recursive: true } );
 			image = await waitForCapture();
-			await fs.promises.writeFile( outPath, image.toPNG() );
+			const png = image.toPNG();
+			await fs.promises.writeFile( outPath, png );
+			await writeSitePreview( id, png );
 		} catch ( error ) {
 			// A failed load keeps the previous thumbnail; a failed write must not leave a partial one.
 			if ( image ) {

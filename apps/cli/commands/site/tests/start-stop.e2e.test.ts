@@ -8,6 +8,7 @@
  * Needs the CLI built first (skips otherwise). Tagged `e2e` (slower manual suite):
  * `npm test -- --tagsFilter='e2e'`.
  */
+import fs from 'fs';
 import net from 'net';
 import path from 'path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -109,4 +110,30 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'CLI e2e: studio site start/stop'
 
 		expect( await isSiteRunning( env, sitePath ) ).toBe( false );
 	} );
+
+	it(
+		'starts a site whose plugin has a fatal error',
+		{ tags: [ 'e2e' ], timeout: 180_000 },
+		async () => {
+			if ( ! env ) {
+				throw new Error( 'CLI e2e env was not initialised' );
+			}
+
+			// As a snippet pasted into a plugin or a theme's functions.php leaves it.
+			const muPlugins = path.join( sitePath, 'wp-content', 'mu-plugins' );
+			fs.mkdirSync( muPlugins, { recursive: true } );
+			fs.writeFileSync(
+				path.join( muPlugins, 'fatal.php' ),
+				'<?php\nundefined_function_from_a_tutorial();\n'
+			);
+
+			const result = await runCli(
+				[ 'site', 'start', '--path', sitePath, '--skip-browser', '--skip-log-details' ],
+				env
+			);
+			expect( result.code, result.stderr ).toBe( 0 );
+
+			expect( await isSiteRunning( env, sitePath ) ).toBe( true );
+		}
+	);
 } );

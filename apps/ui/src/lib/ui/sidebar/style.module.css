@@ -22,16 +22,19 @@
 		display: inline-flex;
 		flex: 1;
 		align-items: center;
-		gap: var( --space-1 );
+		gap: var( --space-1_5 );
 		height: 100%;
 		padding: 0 var( --space-2 );
 		border-radius: var( --radius-md );
 		color: var( --muted-foreground );
 		font-weight: var( --font-weight-medium );
+	}
+
+	.groupLabel[aria-expanded] {
 		cursor: pointer;
 	}
 
-	.groupLabel:hover {
+	.groupLabel[aria-expanded]:hover {
 		color: var( --foreground );
 	}
 
@@ -42,7 +45,9 @@
 
 	.groupLabel > svg {
 		opacity: 0;
-		transition: rotate var( --motion-duration-feedback ) ease;
+		transition:
+			rotate var( --motion-duration-feedback ) ease,
+			opacity var( --motion-duration-feedback ) ease;
 	}
 
 	.groupLabel[aria-expanded='true'] > svg {
@@ -64,6 +69,7 @@
 	.menu {
 		display: flex;
 		flex-direction: column;
+		gap: 1px;
 	}
 
 	.item {
@@ -120,7 +126,7 @@
 
 	.button:is( [data-active], [data-selected], [data-popup-open] ),
 	.item:is( [data-selected], [data-popup-open] ) > .button {
-		background-color: var( --selected );
+		background-color: var( --hover );
 	}
 
 	.button[data-muted]:hover {

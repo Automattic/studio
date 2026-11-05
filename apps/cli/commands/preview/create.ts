@@ -15,6 +15,7 @@ import { emitCliEvent } from 'cli/lib/daemon-client';
 import { createPreviewSite, type PreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
+import { getSiteVersion } from 'cli/lib/site-versions';
 import { getSnapshotsFromConfig, saveSnapshotToConfig } from 'cli/lib/snapshots';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
@@ -31,6 +32,7 @@ export type ReportPreviewStep = ( action: LoggerAction, message: string, progres
  * create. Shared by `preview create` and by `preview update` when it moves a Jurassic Ninja preview.
  */
 export async function createWpcomPreviewSite( {
+	siteId,
 	siteFolder,
 	archivePath,
 	name,
@@ -39,6 +41,7 @@ export async function createWpcomPreviewSite( {
 	reportStep,
 	onArchiveBytes,
 }: {
+	siteId: string;
 	siteFolder: string;
 	archivePath: string;
 	name: string;
@@ -46,13 +49,16 @@ export async function createWpcomPreviewSite( {
 	logger: Logger< LoggerAction >;
 	reportStep: ReportPreviewStep;
 	onArchiveBytes?: ( bytes: number | undefined ) => void;
-} ): Promise< { preview: PreviewSite; archiveBytes: number | undefined } > {
+} ): Promise< { preview: PreviewSite; archiveBytes: number | undefined; versionId: string } > {
 	await validateSiteSize( siteFolder, { onWpcom: true } );
 
 	reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
-	await withSiteOperation( siteFolder, 'export', () =>
-		archiveSiteContent( siteFolder, archivePath, { onWpcom: true } )
-	);
+	// The version is taken under the same lock as the archive, so it's what the preview holds.
+	const versionId = await withSiteOperation( siteFolder, 'export', async () => {
+		const version = await getSiteVersion( siteId, siteFolder );
+		await archiveSiteContent( siteFolder, archivePath, { onWpcom: true } );
+		return version;
+	} );
 	const archiveBytes = fs.statSync( archivePath, { throwIfNoEntry: false } )?.size;
 	onArchiveBytes?.( archiveBytes );
 	logger.reportSuccess( __( 'Archive created' ) );
@@ -63,7 +69,7 @@ export async function createWpcomPreviewSite( {
 
 	reportStep( LoggerAction.READY, __( 'Creating preview site…' ), 60 );
 	const preview = await createPreviewSite( attachmentId, name, accessToken );
-	return { preview, archiveBytes };
+	return { preview, archiveBytes, versionId };
 }
 
 export async function runCommand(
@@ -111,8 +117,10 @@ export async function runCommand(
 		}
 
 		let preview: PreviewSite;
+		let versionId: string;
 		if ( onWpcom ) {
-			( { preview, archiveBytes } = await createWpcomPreviewSite( {
+			( { preview, archiveBytes, versionId } = await createWpcomPreviewSite( {
+				siteId: site.id,
 				siteFolder,
 				archivePath,
 				name: snapshotName,
@@ -125,9 +133,12 @@ export async function runCommand(
 			await validateSiteSize( siteFolder, { onWpcom } );
 
 			reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
-			await withSiteOperation( siteFolder, 'export', () =>
-				archiveSiteContent( siteFolder, archivePath, { onWpcom } )
-			);
+			// The version is taken under the same lock as the archive, so it's what the preview holds.
+			versionId = await withSiteOperation( siteFolder, 'export', async () => {
+				const version = await getSiteVersion( site.id, siteFolder );
+				await archiveSiteContent( siteFolder, archivePath, { onWpcom } );
+				return version;
+			} );
 			archiveBytes = fs.statSync( archivePath, { throwIfNoEntry: false } )?.size;
 			logger.reportSuccess( __( 'Archive created' ) );
 
@@ -150,7 +161,8 @@ export async function runCommand(
 			preview.hostname,
 			token.id,
 			snapshotName,
-			preview.shareUrl
+			preview.shareUrl,
+			versionId
 		);
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 		await emitCliEvent( { event: SNAPSHOT_EVENTS.CREATED, data: { snapshotUrl: snapshot.url } } );

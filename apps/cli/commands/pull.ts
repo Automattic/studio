@@ -55,6 +55,7 @@ import {
 } from 'cli/lib/pull/reprint-metadata';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { buildAutoLoginUrl } from 'cli/lib/site-utils';
+import { getSiteVersion } from 'cli/lib/site-versions';
 import { exitOnCancel, reportSyncActivity } from 'cli/lib/sync-activity';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { findFailureCode } from 'cli/lib/utils';
@@ -119,14 +120,28 @@ async function findPreview( source: PullSource ): Promise< StandingPreview | nul
 /**
  * Makes a pulled preview this local site's preview, so updating it pushes this site's changes back.
  * Best-effort: the pull has already succeeded.
+ *
+ * `pulledAt` is when a full pull started, so an edit made on the preview while it ran counts as
+ * one the site doesn't have. A partial pull leaves the site and preview in an unknown state.
  */
 async function linkPreview(
 	localSiteId: string,
+	localPath: string,
 	source: PullSource,
-	preview: StandingPreview
+	preview: StandingPreview,
+	pulledAt: number | undefined
 ): Promise< void > {
 	try {
-		await linkPulledPreview( localSiteId, source.wpComSite.id, source.wpComToken.id, preview );
+		const sync = pulledAt
+			? { versionId: await getSiteVersion( localSiteId, localPath ), syncedAt: pulledAt }
+			: undefined;
+		await linkPulledPreview(
+			localSiteId,
+			source.wpComSite.id,
+			source.wpComToken.id,
+			preview,
+			sync
+		);
 	} catch {
 		// The pulled site still works; only the preview link is missing.
 	}
@@ -392,6 +407,9 @@ async function pullSite(
 			} );
 
 			run.localChangesApplied = true;
+			const isFullPull =
+				! selection.skipFiles && ! selection.skipDatabase && ! selection.fileOnlyPaths?.length;
+			const pulledAt = isFullPull ? Date.now() : undefined;
 			await runFullPull(
 				studioMetadata,
 				apiUrl,
@@ -410,9 +428,6 @@ async function pullSite(
 				record.runtimeBlueprintPath = studioMetadata.runtimeBlueprintPath;
 			} );
 			logger.reportSuccess( `Site "${ site.name }" updated` );
-			if ( run.preview ) {
-				await linkPreview( site.id, sourceSite, run.preview );
-			}
 			await rememberConnection( site.id, sourceSite.wpComSite );
 			run.warning = await getPushSizeWarning( site.path );
 			if ( run.warning ) {
@@ -435,6 +450,10 @@ async function pullSite(
 			await startPulledSite( site, logger, runtimeStartOptions, {
 				restart: ! isRepull && wasRunning,
 			} );
+			// After the start, so what WordPress writes as it boots is part of the pulled version.
+			if ( run.preview ) {
+				await linkPreview( site.id, localPath, sourceSite, run.preview, pulledAt );
+			}
 
 			if ( studioMetadata.localUrl ) {
 				console.log( '' );

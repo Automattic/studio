@@ -21,6 +21,7 @@ import { emitCliEvent } from 'cli/lib/daemon-client';
 import { deleteSnapshotSite, updatePreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
+import { getSiteVersion } from 'cli/lib/site-versions';
 import {
 	deleteSnapshotFromConfig,
 	getSnapshotsFromConfig,
@@ -108,6 +109,7 @@ export async function runCommand(
 
 		if ( movesToWpcom ) {
 			const created = await createWpcomPreviewSite( {
+				siteId: site.id,
 				siteFolder,
 				archivePath,
 				name: snapshotToUpdate.name ?? site.name,
@@ -123,7 +125,8 @@ export async function runCommand(
 				created.preview.hostname,
 				token.id,
 				snapshotToUpdate.name ?? site.name,
-				created.preview.shareUrl
+				created.preview.shareUrl,
+				created.versionId
 			);
 			await deleteSnapshotFromConfig( snapshotToUpdate.url );
 			await emitCliEvent( {
@@ -148,9 +151,12 @@ export async function runCommand(
 			await validateSiteSize( siteFolder, { onWpcom } );
 
 			reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
-			await withSiteOperation( siteFolder, 'export', () =>
-				archiveSiteContent( siteFolder, archivePath, { onWpcom } )
-			);
+			// The version is taken under the same lock as the archive, so it's what the preview holds.
+			const versionId = await withSiteOperation( siteFolder, 'export', async () => {
+				const version = await getSiteVersion( site.id, siteFolder );
+				await archiveSiteContent( siteFolder, archivePath, { onWpcom } );
+				return version;
+			} );
 			archiveBytes = fs.statSync( archivePath, { throwIfNoEntry: false } )?.size;
 			logger.reportSuccess( __( 'Archive created' ) );
 
@@ -188,7 +194,8 @@ export async function runCommand(
 			snapshot = await updateSnapshotInConfig(
 				snapshotToUpdate.atomicSiteId,
 				siteFolder,
-				shareUrl
+				shareUrl,
+				versionId
 			);
 			logger.reportSuccess(
 				sprintf( __( 'Preview site available at: %s' ), getSnapshotLink( snapshot ) )

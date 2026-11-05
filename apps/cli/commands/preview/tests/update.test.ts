@@ -68,6 +68,9 @@ vi.mock( 'cli/logger', () => ( {
 	LoggerError: class LoggerError extends Error {},
 } ) );
 
+vi.mock( 'cli/lib/site-versions', () => ( {
+	getSiteVersion: vi.fn().mockResolvedValue( 'version-1' ),
+} ) );
 vi.mock( 'cli/lib/site-operations', () => ( {
 	withSiteOperation: vi.fn( ( _folder: string, _kind: string, fn: () => unknown ) => fn() ),
 } ) );
@@ -164,7 +167,12 @@ describe( 'Preview Update Command', () => {
 			mockAuthToken.accessToken
 		);
 		expect( uploadArchive ).not.toHaveBeenCalled();
-		expect( updateSnapshotInConfig ).toHaveBeenCalledWith( mockAtomicSiteId, mockFolder, shareUrl );
+		expect( updateSnapshotInConfig ).toHaveBeenCalledWith(
+			mockAtomicSiteId,
+			mockFolder,
+			shareUrl,
+			'version-1'
+		);
 		expect( mockReportSuccess ).toHaveBeenCalledWith( `Preview site available at: ${ shareUrl }` );
 	} );
 
@@ -190,7 +198,8 @@ describe( 'Preview Update Command', () => {
 		expect( updateSnapshotInConfig ).toHaveBeenCalledWith(
 			mockAtomicSiteId,
 			mockFolder,
-			undefined
+			undefined,
+			'version-1'
 		);
 		expect( mockReportSuccess ).toHaveBeenCalledWith(
 			`Preview site available at: https://${ mockSiteUrl }`
@@ -240,7 +249,8 @@ describe( 'Preview Update Command', () => {
 			newHost,
 			mockAuthToken.id,
 			mockSnapshot.name,
-			shareUrl
+			shareUrl,
+			'version-1'
 		);
 		expect( deleteSnapshotFromConfig ).toHaveBeenCalledWith( mockSiteUrl );
 		expect( deleteSnapshotSite ).toHaveBeenCalledWith( mockSnapshot, mockAuthToken.accessToken );

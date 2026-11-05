@@ -15,7 +15,7 @@ import { emitCliEvent } from 'cli/lib/daemon-client';
 import { createPreviewSite, type PreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
-import { recordSiteVersion } from 'cli/lib/site-versions';
+import { getSiteVersion } from 'cli/lib/site-versions';
 import { getSnapshotsFromConfig, saveSnapshotToConfig } from 'cli/lib/snapshots';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
@@ -24,6 +24,53 @@ import { validateSiteSize } from 'cli/lib/validation';
 import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
+
+export type ReportPreviewStep = ( action: LoggerAction, message: string, progress: number ) => void;
+
+/**
+ * The WordPress.com steps of making a preview from a local site: validate, archive, upload and
+ * create. Shared by `preview create` and by `preview update` when it moves a Jurassic Ninja preview.
+ */
+export async function createWpcomPreviewSite( {
+	siteId,
+	siteFolder,
+	archivePath,
+	name,
+	accessToken,
+	logger,
+	reportStep,
+	onArchiveBytes,
+}: {
+	siteId: string;
+	siteFolder: string;
+	archivePath: string;
+	name: string;
+	accessToken: string;
+	logger: Logger< LoggerAction >;
+	reportStep: ReportPreviewStep;
+	onArchiveBytes?: ( bytes: number | undefined ) => void;
+} ): Promise< { preview: PreviewSite; archiveBytes: number | undefined; versionId: string } > {
+	await validateSiteSize( siteFolder, { onWpcom: true } );
+
+	reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
+	// The version is taken under the same lock as the archive, so it's what the preview holds.
+	const versionId = await withSiteOperation( siteFolder, 'export', async () => {
+		const version = await getSiteVersion( siteId, siteFolder );
+		await archiveSiteContent( siteFolder, archivePath, { onWpcom: true } );
+		return version;
+	} );
+	const archiveBytes = fs.statSync( archivePath, { throwIfNoEntry: false } )?.size;
+	onArchiveBytes?.( archiveBytes );
+	logger.reportSuccess( __( 'Archive created' ) );
+
+	reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
+	const attachmentId = await uploadPreviewArchive( archivePath, accessToken );
+	logger.reportSuccess( __( 'Archive uploaded' ) );
+
+	reportStep( LoggerAction.READY, __( 'Creating preview site…' ), 60 );
+	const preview = await createPreviewSite( attachmentId, name, accessToken );
+	return { preview, archiveBytes, versionId };
+}
 
 export async function runCommand(
 	siteFolder: string,
@@ -56,17 +103,6 @@ export async function runCommand(
 		const token = await requireAuthToken();
 		reportStep( LoggerAction.VALIDATE, __( 'Validating…' ), 0 );
 		const onWpcom = await createsPreviewsOnWpcom( token.accessToken );
-		await validateSiteSize( siteFolder, { onWpcom } );
-
-		reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
-		// The version is taken under the same lock as the archive, so it's what the preview holds.
-		const version = await withSiteOperation( siteFolder, 'export', async () => {
-			const recorded = await recordSiteVersion( site.id, siteFolder );
-			await archiveSiteContent( siteFolder, archivePath, { onWpcom } );
-			return recorded;
-		} );
-		archiveBytes = fs.statSync( archivePath, { throwIfNoEntry: false } )?.size;
-		logger.reportSuccess( __( 'Archive created' ) );
 
 		let snapshotName = name;
 		if ( ! snapshotName ) {
@@ -80,15 +116,33 @@ export async function runCommand(
 			);
 		}
 
-		reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
 		let preview: PreviewSite;
+		let versionId: string;
 		if ( onWpcom ) {
-			const attachmentId = await uploadPreviewArchive( archivePath, token.accessToken );
-			logger.reportSuccess( __( 'Archive uploaded' ) );
-
-			reportStep( LoggerAction.READY, __( 'Creating preview site…' ), 60 );
-			preview = await createPreviewSite( attachmentId, snapshotName, token.accessToken );
+			( { preview, archiveBytes, versionId } = await createWpcomPreviewSite( {
+				siteId: site.id,
+				siteFolder,
+				archivePath,
+				name: snapshotName,
+				accessToken: token.accessToken,
+				logger,
+				reportStep,
+				onArchiveBytes: ( bytes ) => ( archiveBytes = bytes ),
+			} ) );
 		} else {
+			await validateSiteSize( siteFolder, { onWpcom } );
+
+			reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
+			// The version is taken under the same lock as the archive, so it's what the preview holds.
+			versionId = await withSiteOperation( siteFolder, 'export', async () => {
+				const version = await getSiteVersion( site.id, siteFolder );
+				await archiveSiteContent( siteFolder, archivePath, { onWpcom } );
+				return version;
+			} );
+			archiveBytes = fs.statSync( archivePath, { throwIfNoEntry: false } )?.size;
+			logger.reportSuccess( __( 'Archive created' ) );
+
+			reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
 			const wordpressVersion = getWordPressVersion( siteFolder );
 			const upload = await uploadArchive( archivePath, token.accessToken, wordpressVersion );
 			logger.reportSuccess( __( 'Archive uploaded' ) );
@@ -108,7 +162,7 @@ export async function runCommand(
 			token.id,
 			snapshotName,
 			preview.shareUrl,
-			version.id
+			versionId
 		);
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 		await emitCliEvent( { event: SNAPSHOT_EVENTS.CREATED, data: { snapshotUrl: snapshot.url } } );

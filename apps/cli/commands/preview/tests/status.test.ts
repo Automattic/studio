@@ -4,7 +4,7 @@ import path from 'path';
 import { getPreviewStatus } from 'cli/commands/preview/status';
 import { findSiteById } from 'cli/lib/cli-config/sites';
 import { getPreviewEditedAt } from 'cli/lib/preview-sites';
-import { recordSiteVersion } from 'cli/lib/site-versions';
+import { getSiteVersion } from 'cli/lib/site-versions';
 import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
@@ -39,14 +39,14 @@ describe( 'getPreviewStatus', () => {
 		[ 'the preview was edited', false, 3000, { localChanged: false, previewChanged: true } ],
 		[ 'both changed', true, 3000, { localChanged: true, previewChanged: true } ],
 	] )( 'reports %s since the last sync', async ( _, editLocal, previewEditedAt, expected ) => {
-		const version = await recordSiteVersion( 'one', sitePath );
+		const versionId = await getSiteVersion( 'one', sitePath );
 		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [
 			{
 				url: 'preview.wpcomstaging.com',
 				atomicSiteId: 7,
 				localSiteId: 'one',
 				date: 2000,
-				versionId: version.id,
+				versionId,
 				syncedAt: 2000,
 			},
 		] );

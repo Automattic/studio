@@ -88,14 +88,15 @@ export async function saveSnapshotToConfig(
 
 /**
  * Attaches a pulled preview to the local site it was pulled into, so updating the preview pushes
- * this site to it. A preview already attached to another local site keeps that link.
+ * this site to it. A preview already attached to another local site keeps that link. Without
+ * `sync`, the pull was partial, so what the two have in common is unknown.
  */
 export async function linkPulledPreview(
 	localSiteId: string,
 	atomicSiteId: number,
 	userId: number,
 	preview: StandingPreview,
-	versionId?: string
+	sync?: { versionId: string; syncedAt: number }
 ): Promise< void > {
 	try {
 		await lockCliConfig();
@@ -120,8 +121,8 @@ export async function linkPulledPreview(
 			return;
 		}
 		snapshot.localSiteId = localSiteId;
-		snapshot.versionId = versionId;
-		snapshot.syncedAt = Date.now();
+		snapshot.versionId = sync?.versionId;
+		snapshot.syncedAt = sync?.syncedAt;
 		await saveCliConfig( config );
 	} finally {
 		await unlockCliConfig();

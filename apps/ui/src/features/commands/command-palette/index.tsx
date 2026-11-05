@@ -6,6 +6,7 @@ import { useConnector } from '@/data/core';
 import { setCommandPaletteOpen, useCommandPaletteOpen } from '@/data/use-command-palette';
 import { useOpenHeaderPanel } from '@/data/use-open-header-panel';
 import { useOpenSettings } from '@/data/use-open-settings';
+import { usePanelCommand } from '@/data/use-panel-command';
 import { useSessionUIDispatch, useSessionPreviewUI } from '@/data/use-session-ui';
 import { setAnnotating, useSiteAnnotations } from '@/features/annotations';
 import { useChatActions } from '@/features/chats';
@@ -24,13 +25,6 @@ import { replaceOpenDialogs } from '@/lib/ui';
 import { PaletteDialog, type PaletteProps } from './palette-dialog';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
-interface PanelFullscreen {
-	active: boolean;
-	open?: boolean;
-	onOpenChange?: ( open: boolean ) => void;
-	onChange: ( active: boolean ) => void;
-}
-
 /**
  * ⌘K (Ctrl+K elsewhere) searches sites, chats and the commands for the current
  * site and chat.
@@ -38,14 +32,11 @@ interface PanelFullscreen {
 export function CommandPalette( {
 	site,
 	session,
-	chatHidden,
-	panelFullscreen,
+	panelShown,
 }: {
 	site?: SiteDetails;
 	session?: AiSessionSummary;
-	// Set where the chat can be hidden beside the panel.
-	chatHidden?: boolean;
-	panelFullscreen?: PanelFullscreen;
+	panelShown?: boolean;
 } ) {
 	const open = useCommandPaletteOpen();
 	const commands = useAppCommands();
@@ -73,8 +64,7 @@ export function CommandPalette( {
 			key={ site.id }
 			site={ site }
 			session={ session }
-			chatHidden={ chatHidden }
-			panelFullscreen={ panelFullscreen }
+			panelShown={ panelShown }
 			{ ...palette }
 		/>
 	) : (
@@ -85,15 +75,13 @@ export function CommandPalette( {
 function SiteCommands( {
 	site,
 	session,
-	chatHidden,
-	panelFullscreen,
+	panelShown,
 	commands,
 	...palette
 }: PaletteProps & {
 	site: SiteDetails;
 	session?: AiSessionSummary;
-	chatHidden?: boolean;
-	panelFullscreen?: PanelFullscreen;
+	panelShown?: boolean;
 } ) {
 	const navigate = useNavigate();
 	const openSettings = useOpenSettings();
@@ -109,6 +97,7 @@ function SiteCommands( {
 	const openHeaderPanel = useOpenHeaderPanel();
 	const annotations = useSiteAnnotations( site.id );
 	const settingCommands = useSettingCommands( 'site', site );
+	const panelCommand = usePanelCommand( site.id );
 
 	useEffect(
 		() =>
@@ -123,12 +112,7 @@ function SiteCommands( {
 
 	const siteCommands = getSiteCommands( {
 		site,
-		chatHidden,
-		panelShown: panelFullscreen?.open ?? preview.open,
-		showPanel: ( open ) => {
-			if ( panelFullscreen?.onOpenChange ) panelFullscreen.onOpenChange( open );
-			else preview.setOpen( open, { siteId: site.id, instant: true } );
-		},
+		panelShown: panelShown ?? preview.open,
 		canAnnotate: connector.capabilities.annotatePreview,
 		annotating: annotations.active,
 		actions,
@@ -143,20 +127,31 @@ function SiteCommands( {
 		},
 		reloadPreview: () => dispatch( { type: 'preview/reload' } ),
 		annotate: ( active ) => setAnnotating( site.id, active ),
-		setPanelFullscreen: ( hidden ) => {
-			if ( panelFullscreen ) panelFullscreen.onChange( hidden );
-			else {
-				preview.setOpen( true, { siteId: site.id, instant: true } );
-				preview.setChatHidden( hidden, site.id, { instant: true } );
-			}
-		},
 		copyUrl: () =>
 			void connector
 				.copyText( getSiteUrl( site ) )
 				.then( () => toast.success( __( 'Site URL copied' ) ) ),
 	} );
 
-	const props = { ...palette, commands: [ ...commands, ...siteCommands ] };
+	const props = {
+		...palette,
+		commands: [
+			...commands,
+			...siteCommands,
+			...( panelCommand
+				? [
+						{
+							id: panelCommand.name,
+							group: 'commands' as const,
+							label: panelCommand.displayName,
+							keywords: [ __( 'Split view' ), __( 'Layout' ) ],
+							icon: panelCommand.icon,
+							run: panelCommand.run,
+						},
+				  ]
+				: [] ),
+		],
+	};
 	return (
 		<>
 			{ session && ! session.archived ? (

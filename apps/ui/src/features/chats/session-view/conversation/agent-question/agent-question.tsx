@@ -220,5 +220,9 @@ function QuestionOptionImage( { path }: { path: string } ) {
 	if ( ! localFileQuery.data ) {
 		return <span className={ styles.questionOptionImageLoading } aria-hidden="true" />;
 	}
-	return <img className={ styles.questionOptionImage } src={ localFileQuery.data } alt="" />;
+	return (
+		<span className={ styles.questionOptionImage }>
+			<img src={ localFileQuery.data } alt="" />
+		</span>
+	);
 }

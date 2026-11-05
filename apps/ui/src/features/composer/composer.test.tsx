@@ -379,12 +379,14 @@ describe( 'Chat composer', () => {
 		fireEvent.change( input, { target: { value: '/ann' } } );
 		await screen.findByRole( 'listbox' );
 		expect( screen.getByRole( 'group', { name: 'Skills' } ) ).toBeVisible();
+		expect( screen.queryByText( 'Skills' ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'group', { name: 'Commands' } ) ).not.toBeInTheDocument();
 		fireEvent.keyDown( input, { key: 'Escape' } );
 		await waitFor( () => expect( screen.queryByRole( 'listbox' ) ).not.toBeInTheDocument() );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
 		const picker = await screen.findByRole( 'listbox' );
 		expect( screen.getByRole( 'group', { name: 'Skills' } ) ).toBeVisible();
+		expect( within( picker ).getByText( 'Skills' ) ).toBeVisible();
 		const files = screen.getByRole( 'option', { name: 'Add files' } );
 		fireEvent.keyDown( picker, { key: 'Home' } );
 		expect( files ).toHaveAttribute( 'aria-selected', 'true' );
@@ -401,26 +403,37 @@ describe( 'Chat composer', () => {
 		expect( onSend ).not.toHaveBeenCalled();
 	} );
 
-	it( 'opens the multiple-file picker from the menu and attaches the selected file', async () => {
-		const { onSend } = await setup();
-		const fileInput = screen.getByLabelText( 'Upload attachments' ) as HTMLInputElement;
-		const picker = vi.spyOn( fileInput, 'click' );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: 'Add files' } ) );
-		await waitFor( () => expect( picker ).toHaveBeenCalledOnce() );
-		expect( fileInput.multiple ).toBe( true );
-		fireEvent.change( fileInput, {
-			target: { files: [ new File( [ 'Notes' ], 'notes.txt', { type: 'text/plain' } ) ] },
-		} );
-		expect( await screen.findByText( 'notes.txt' ) ).toBeVisible();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
-		await waitFor( () =>
-			expect( onSend ).toHaveBeenCalledWith(
-				'Please review the attached files.',
-				expect.objectContaining( { files: [ expect.objectContaining( { name: 'notes.txt' } ) ] } )
-			)
-		);
-	} );
+	it.each( [ 'menu', 'slash' ] )(
+		'opens the multiple-file picker from %s and attaches the selected file',
+		async ( source ) => {
+			const { input, onSend } = await setup();
+			const fileInput = screen.getByLabelText( 'Upload attachments' ) as HTMLInputElement;
+			const picker = vi.spyOn( fileInput, 'click' );
+			if ( source === 'slash' ) {
+				fireEvent.change( input, { target: { value: '/add' } } );
+				await screen.findByRole( 'option', { name: 'Add files' } );
+				fireEvent.keyDown( input, { key: 'Enter' } );
+			} else {
+				fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+				fireEvent.click( await screen.findByRole( 'option', { name: 'Add files' } ) );
+			}
+			await waitFor( () => expect( picker ).toHaveBeenCalledOnce() );
+			expect( input ).toHaveValue( '' );
+			expect( onSend ).not.toHaveBeenCalled();
+			expect( fileInput.multiple ).toBe( true );
+			fireEvent.change( fileInput, {
+				target: { files: [ new File( [ 'Notes' ], 'notes.txt', { type: 'text/plain' } ) ] },
+			} );
+			expect( await screen.findByText( 'notes.txt' ) ).toBeVisible();
+			fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+			await waitFor( () =>
+				expect( onSend ).toHaveBeenCalledWith(
+					'Please review the attached files.',
+					expect.objectContaining( { files: [ expect.objectContaining( { name: 'notes.txt' } ) ] } )
+				)
+			);
+		}
+	);
 
 	it( 'keeps Enter submission, Shift+Enter and IME composition behavior', async () => {
 		const { input, onSend } = await setup();
@@ -473,6 +486,18 @@ describe( 'Chat composer', () => {
 } );
 
 describe( 'Composer parity', () => {
+	it( 'omits local site controls when the chat targets the live site', async () => {
+		const onStartSite = vi.fn();
+		const onStopSite = vi.fn();
+		await setup( { environment: 'live', onStartSite, onStopSite } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+		await screen.findByRole( 'option', { name: 'Add files' } );
+		expect(
+			screen.queryByRole( 'option', { name: /^Start site(?: |$)/ } )
+		).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'option', { name: 'Stop site' } ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'hides Auto-start while its chip is active and restores the command after removal', async () => {
 		const { input, onSend } = await setup( { canAutoStart: true } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
@@ -750,6 +775,24 @@ describe( 'Annotation attachments in the composer', () => {
 		} finally {
 			unsubscribe();
 		}
+	} );
+
+	it( 'switches from annotations to a file preview without moving focus back', async () => {
+		stageNote( 'Make the heading shorter' );
+		const { user } = await setup( { annotationSiteId: SITE } );
+		upload( 'notes.txt' );
+		const annotations = screen.getByRole( 'button', { name: '1 annotation' } );
+		const file = await screen.findByRole( 'button', { name: 'Preview notes.txt' } );
+
+		await user.click( annotations );
+		await screen.findByRole( 'dialog', { name: 'Annotations' } );
+		await user.click( file );
+
+		await screen.findByRole( 'dialog', { name: 'notes.txt' } );
+		await waitFor( () => expect( file ).toHaveFocus() );
+		expect( annotations ).toHaveAttribute( 'aria-expanded', 'false' );
+		await user.keyboard( '{Escape}' );
+		await waitFor( () => expect( file ).toHaveFocus() );
 	} );
 
 	it( 'groups staged notes and removes them together without changing the text after a rejected send', async () => {
@@ -1052,15 +1095,100 @@ describe( 'Composer sending', () => {
 } );
 
 describe( 'Composer drafts and attachments', () => {
-	it( 'previews an attachment while its chip is hovered', async () => {
+	it.each( [ 'file', 'image', 'annotations' ] )(
+		'opens a %s preview on hover without moving typing focus',
+		async ( kind ) => {
+			if ( kind === 'image' ) {
+				saveComposerDraft( 'test', { text: '', attachments: [ image( 'reference' ) ] } );
+			} else if ( kind === 'annotations' ) {
+				stageNote( 'Shorten the title' );
+				stageNote( 'Give the content more space' );
+			}
+			const { user, input } = await setup( { annotationSiteId: SITE } );
+			if ( kind === 'file' ) upload( 'notes.txt' );
+			const label =
+				kind === 'annotations'
+					? '2 annotations'
+					: kind === 'image'
+					? 'Preview reference.png'
+					: 'Preview notes.txt';
+			const trigger = await screen.findByRole( 'button', { name: label } );
+			await user.click( input );
+
+			await user.hover( trigger );
+
+			const preview = await screen.findByRole( 'dialog', {
+				name:
+					kind === 'annotations' ? 'Annotations' : kind === 'image' ? 'reference.png' : 'notes.txt',
+			} );
+			expect( preview ).toBeVisible();
+			expect( trigger ).toHaveAttribute( 'aria-expanded', 'true' );
+			expect( input ).toHaveFocus();
+			if ( kind === 'annotations' ) {
+				expect(
+					within( preview ).getAllByRole( 'button', { name: /Edit annotation/ } )
+				).toHaveLength( 2 );
+			}
+			await user.keyboard( '{Escape}' );
+			await waitFor( () => expect( preview ).not.toBeInTheDocument() );
+		}
+	);
+
+	it( 'opens an attachment preview on click and restores focus when dismissed', async () => {
 		const { user } = await setup();
 		upload( 'notes.txt' );
+		const trigger = await screen.findByRole( 'button', { name: 'Preview notes.txt' } );
 
-		await user.hover( await screen.findByRole( 'listitem', { name: /^notes\.txt/ } ) );
+		await user.click( trigger );
 
-		expect(
-			await screen.findByText( 'notes.txt text', {}, { timeout: 2000 } )
-		).toBeInTheDocument();
+		const preview = await screen.findByRole( 'dialog', { name: 'notes.txt' } );
+		expect( within( preview ).getByText( 'notes.txt text' ) ).toBeInTheDocument();
+		await user.unhover( trigger );
+		expect( trigger ).toHaveAttribute( 'aria-expanded', 'true' );
+		await user.keyboard( '{Escape}' );
+		await waitFor( () => expect( preview ).not.toBeInTheDocument() );
+		expect( trigger ).toHaveFocus();
+
+		await user.keyboard( '{Enter}' );
+		await screen.findByRole( 'dialog', { name: 'notes.txt' } );
+		await user.keyboard( '{Escape}' );
+		await waitFor( () => expect( trigger ).toHaveFocus() );
+	} );
+
+	it( 'previews file details even when no visual preview is available', async () => {
+		saveComposerDraft( 'test', {
+			text: '',
+			attachments: [
+				{
+					id: 'document',
+					kind: 'file',
+					name: 'document.pdf',
+					path: '/tmp/document.pdf',
+					mimeType: 'application/pdf',
+					size: 2048,
+				},
+			],
+		} );
+		const { user, input } = await setup();
+
+		await user.click( screen.getByRole( 'button', { name: 'Preview document.pdf' } ) );
+
+		const preview = await screen.findByRole( 'dialog', { name: 'document.pdf' } );
+		expect( within( preview ).getByText( 'application/pdf · 2 KB' ) ).toBeInTheDocument();
+		await user.click( input );
+		await waitFor( () => expect( preview ).not.toBeInTheDocument() );
+		expect( input ).toHaveFocus();
+	} );
+
+	it( 'removes an attachment without opening its preview', async () => {
+		const { user } = await setup();
+		upload( 'notes.txt' );
+		await screen.findByRole( 'button', { name: 'Preview notes.txt' } );
+
+		await user.click( screen.getByRole( 'button', { name: 'Remove attachment' } ) );
+
+		expect( screen.queryByRole( 'listitem', { name: /^notes\.txt/ } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'restores text and attachments independently for each session', async () => {

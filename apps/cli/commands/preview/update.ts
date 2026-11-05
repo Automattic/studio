@@ -4,7 +4,12 @@ import path from 'node:path';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
-import { getSnapshotLink, isSnapshotExpired, isWpcomPreview } from '@studio/common/lib/snapshots';
+import {
+	createsPreviewsOnWpcom,
+	getSnapshotLink,
+	isSnapshotExpired,
+	isWpcomPreview,
+} from '@studio/common/lib/snapshots';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { Snapshot } from '@studio/common/types/snapshot';
 import { __, _n, sprintf } from '@wordpress/i18n';
@@ -13,11 +18,16 @@ import { cleanup, archiveSiteContent } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { countSitePreviews } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
-import { updatePreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
+import { deleteSnapshotSite, updatePreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
-import { recordSiteVersion } from 'cli/lib/site-versions';
-import { getSnapshotsFromConfig, updateSnapshotInConfig } from 'cli/lib/snapshots';
+import { getSiteVersion } from 'cli/lib/site-versions';
+import {
+	deleteSnapshotFromConfig,
+	getSnapshotsFromConfig,
+	saveSnapshotToConfig,
+	updateSnapshotInConfig,
+} from 'cli/lib/snapshots';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { classifyPreviewFailure } from 'cli/lib/utils';
@@ -25,6 +35,7 @@ import { validateSiteSize } from 'cli/lib/validation';
 import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
+import { createWpcomPreviewSite } from './create';
 
 async function getSnapshotToUpdate(
 	snapshots: Snapshot[],
@@ -93,58 +104,103 @@ export async function runCommand(
 			throw new LoggerError( __( 'Cannot update an expired preview site.' ), undefined, 'expired' );
 		}
 		const onWpcom = isWpcomPreview( snapshotToUpdate );
-		await validateSiteSize( siteFolder, { onWpcom } );
+		const movesToWpcom = ! onWpcom && ( await createsPreviewsOnWpcom( token.accessToken ) );
+		let snapshot: Snapshot;
 
-		reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
-		// The version is taken under the same lock as the archive, so it's what the preview holds.
-		const version = await withSiteOperation( siteFolder, 'export', async () => {
-			const recorded = await recordSiteVersion( site.id, siteFolder );
-			await archiveSiteContent( siteFolder, archivePath, { onWpcom } );
-			return recorded;
-		} );
-		archiveBytes = fs.statSync( archivePath, { throwIfNoEntry: false } )?.size;
-		logger.reportSuccess( __( 'Archive created' ) );
-
-		reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
-		let shareUrl: string | undefined;
-		if ( onWpcom ) {
-			const attachmentId = await uploadPreviewArchive(
+		if ( movesToWpcom ) {
+			const created = await createWpcomPreviewSite( {
+				siteId: site.id,
+				siteFolder,
 				archivePath,
-				token.accessToken,
-				snapshotToUpdate.atomicSiteId
+				name: snapshotToUpdate.name ?? site.name,
+				accessToken: token.accessToken,
+				logger,
+				reportStep,
+				onArchiveBytes: ( bytes ) => ( archiveBytes = bytes ),
+			} );
+			reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );
+			snapshot = await saveSnapshotToConfig(
+				siteFolder,
+				created.preview.siteId,
+				created.preview.hostname,
+				token.id,
+				snapshotToUpdate.name ?? site.name,
+				created.preview.shareUrl,
+				created.versionId
 			);
-			logger.reportSuccess( __( 'Archive uploaded' ) );
-
-			reportStep( LoggerAction.READY, __( 'Updating preview site…' ), 60 );
-			( { shareUrl } = await updatePreviewSite(
-				snapshotToUpdate.atomicSiteId,
-				attachmentId,
-				token.accessToken
-			) );
+			await deleteSnapshotFromConfig( snapshotToUpdate.url );
+			await emitCliEvent( {
+				event: SNAPSHOT_EVENTS.DELETED,
+				data: { snapshotUrl: snapshotToUpdate.url },
+			} );
+			try {
+				await deleteSnapshotSite( snapshotToUpdate, token.accessToken );
+			} catch {
+				logger.reportWarning(
+					__( 'Could not delete the old preview site. It will expire on its own.' )
+				);
+			}
+			logger.reportSuccess(
+				sprintf(
+					/* translators: %s: new preview link */
+					__( 'Your preview moved to WordPress.com, so its link changed. New link: %s' ),
+					getSnapshotLink( snapshot )
+				)
+			);
 		} else {
-			// A preview made on Jurassic Ninja.
-			await uploadArchive(
-				archivePath,
-				token.accessToken,
-				getWordPressVersion( siteFolder ),
-				snapshotToUpdate.atomicSiteId
+			await validateSiteSize( siteFolder, { onWpcom } );
+
+			reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
+			// The version is taken under the same lock as the archive, so it's what the preview holds.
+			const versionId = await withSiteOperation( siteFolder, 'export', async () => {
+				const version = await getSiteVersion( site.id, siteFolder );
+				await archiveSiteContent( siteFolder, archivePath, { onWpcom } );
+				return version;
+			} );
+			archiveBytes = fs.statSync( archivePath, { throwIfNoEntry: false } )?.size;
+			logger.reportSuccess( __( 'Archive created' ) );
+
+			reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
+			let shareUrl: string | undefined;
+			if ( onWpcom ) {
+				const attachmentId = await uploadPreviewArchive(
+					archivePath,
+					token.accessToken,
+					snapshotToUpdate.atomicSiteId
+				);
+				logger.reportSuccess( __( 'Archive uploaded' ) );
+
+				reportStep( LoggerAction.READY, __( 'Updating preview site…' ), 60 );
+				( { shareUrl } = await updatePreviewSite(
+					snapshotToUpdate.atomicSiteId,
+					attachmentId,
+					token.accessToken
+				) );
+			} else {
+				// A preview made on Jurassic Ninja.
+				await uploadArchive(
+					archivePath,
+					token.accessToken,
+					getWordPressVersion( siteFolder ),
+					snapshotToUpdate.atomicSiteId
+				);
+				logger.reportSuccess( __( 'Archive uploaded' ) );
+
+				reportStep( LoggerAction.READY, __( 'Updating preview site…' ), 60 );
+				await waitForSiteReady( snapshotToUpdate.atomicSiteId, token.accessToken );
+			}
+
+			reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );
+			snapshot = await updateSnapshotInConfig(
+				snapshotToUpdate.atomicSiteId,
+				siteFolder,
+				shareUrl,
+				versionId
 			);
-			logger.reportSuccess( __( 'Archive uploaded' ) );
-
-			reportStep( LoggerAction.READY, __( 'Updating preview site…' ), 60 );
-			await waitForSiteReady( snapshotToUpdate.atomicSiteId, token.accessToken );
+			logger.reportSuccess(
+				sprintf( __( 'Preview site available at: %s' ), getSnapshotLink( snapshot ) )
+			);
 		}
-
-		reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );
-		const snapshot = await updateSnapshotInConfig(
-			snapshotToUpdate.atomicSiteId,
-			siteFolder,
-			shareUrl,
-			version.id
-		);
-		logger.reportSuccess(
-			sprintf( __( 'Preview site available at: %s' ), getSnapshotLink( snapshot ) )
-		);
 		await emitCliEvent( { event: SNAPSHOT_EVENTS.UPDATED, data: { snapshotUrl: snapshot.url } } );
 		await recordPreviewUpdateEvent( siteFolder, preview, {
 			success: true,

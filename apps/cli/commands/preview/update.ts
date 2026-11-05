@@ -3,11 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
-import {
-	getSnapshotLink,
-	isSnapshotExpired,
-	isWpcomPreview,
-} from '@studio/common/lib/snapshots';
+import { getSnapshotLink, isSnapshotExpired, isWpcomPreview } from '@studio/common/lib/snapshots';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { Snapshot } from '@studio/common/types/snapshot';
 import { __, _n, sprintf } from '@wordpress/i18n';

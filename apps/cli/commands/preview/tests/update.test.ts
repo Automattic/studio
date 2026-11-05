@@ -12,7 +12,6 @@ import {
 	updatePreviewSite,
 	uploadPreviewArchive,
 } from 'cli/lib/preview-sites';
-import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import {
 	deleteSnapshotFromConfig,
@@ -265,7 +264,9 @@ describe( 'Preview Update Command', () => {
 	} );
 
 	it( 'records a failed preview_site_update Tracks event with a failure_reason', async () => {
-		vi.mocked( uploadPreviewArchive ).mockRejectedValue( new LoggerError( 'Failed to upload archive' ) );
+		vi.mocked( uploadPreviewArchive ).mockRejectedValue(
+			new LoggerError( 'Failed to upload archive' )
+		);
 
 		await expect( runCommand( mockFolder, mockSiteUrl, false ) ).rejects.toThrow( LoggerError );
 

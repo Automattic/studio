@@ -1,10 +1,6 @@
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import { vi } from 'vitest';
-import {
-	enableReprintExporter,
-	getWpComSites,
-	installReprintPublicKey,
-} from 'cli/lib/api';
+import { enableReprintExporter, getWpComSites, installReprintPublicKey } from 'cli/lib/api';
 
 vi.mock( 'wpcom' );
 vi.mock( 'wpcom-xhr-request' );

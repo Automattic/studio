@@ -32,13 +32,22 @@ export function staticSiteImportSourcePath( sitePath: string ): string {
  * Its staged source travels with it, so resuming needs neither the original capture nor a new one.
  */
 export function stagedUrlImport( sitePath: string, sourceUrl: string ): string | undefined {
+	const staged = readStagedImport( sitePath );
+	return staged?.source === sourceUrl && fs.existsSync( staticSiteImportSourcePath( sitePath ) )
+		? staged.request
+		: undefined;
+}
+
+/** Whether `sitePath` holds an unfinished import of `source`, which re-running the command resumes. */
+export function hasStagedImportOf( sitePath: string, source: string ): boolean {
+	return readStagedImport( sitePath )?.source === source;
+}
+
+function readStagedImport( sitePath: string ): { request: string; source: unknown } | undefined {
 	try {
 		const request = fs.readFileSync( staticSiteImportRequestPath( sitePath ), 'utf-8' );
 		const staged = JSON.parse( request ) as { source_metadata?: { source_path?: unknown } };
-		return staged.source_metadata?.source_path === sourceUrl &&
-			fs.existsSync( staticSiteImportSourcePath( sitePath ) )
-			? request
-			: undefined;
+		return { request, source: staged.source_metadata?.source_path };
 	} catch {
 		return undefined;
 	}

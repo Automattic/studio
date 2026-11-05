@@ -49,8 +49,8 @@ export const sharedConfigSchema = z
 		sessions: z.record( z.string(), sharedSessionMetadataSchema ).optional(),
 		// WordPress.com sites connected to local sites, keyed by user id.
 		// Both Studio and the Studio CLI read and write this field through
-		// the helpers in `./connected-sites.ts`.
-		connectedWpcomSites: z.record( z.string(), z.array( syncSiteSchema ) ).optional(),
+		// the helpers in `./connected-sites.ts`. Loose, so a build keeps the fields a newer one added.
+		connectedWpcomSites: z.record( z.string(), z.array( syncSiteSchema.loose() ) ).optional(),
 		// AI provider selection and the Anthropic API key, shared by Studio and
 		// the Studio CLI. Typed as plain strings so an unknown provider value
 		// written by a newer build degrades gracefully instead of failing the

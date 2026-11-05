@@ -170,7 +170,7 @@ function SitePreviewContent( {
 	const canAnnotate =
 		canAnnotateSurface &&
 		( activeSurfaceKey === 'design'
-			? !! siteDesign.data
+			? !! siteDesign.data?.design
 			: activeSurfaceKey === 'email' || !! activeSurface?.inspectorReady );
 	const viewportRef = useRef< HTMLDivElement | null >( null );
 	const previewBrowser = usePreviewBrowser( viewportRef );
@@ -403,6 +403,8 @@ function SitePreviewContent( {
 					isAnnotationsBusy( annotations ),
 				disabledReason: blank
 					? __( 'Open a project page to annotate.' )
+					: activeSurfaceKey === 'design' && ! siteDesign.data?.design
+					? __( 'Annotation is available for design systems created by Studio Code.' )
 					: activeSurfaceKey === 'database'
 					? __( 'Not available for Database' )
 					: ! canAnnotateSurface
@@ -483,6 +485,7 @@ function SitePreviewContent( {
 												<DesignSystemView
 													siteId={ site.id }
 													siteDesign={ siteDesign.data ?? null }
+													error={ siteDesign.error }
 													onAnnotationPick={ handleAnnotationPick }
 													onAnnotationAnchor={ handleDesignAnchor }
 												/>

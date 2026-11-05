@@ -38,8 +38,16 @@
 }
 
 .mediaArtifactImage {
+	composes: imageOutline from '@/lib/theme/recipes.module.css';
+	position: relative;
 	max-width: 100%;
 	border-radius: var( --radius-lg );
+}
+
+.mediaArtifactImage img {
+	display: block;
+	width: 100%;
+	border-radius: inherit;
 }
 
 .marker {

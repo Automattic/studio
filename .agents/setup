@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Prepares an Amp orb: installs the Node version pinned in .nvmrc and the npm dependencies,
+# then builds the CLI and UI.
+set -euo pipefail
+
+cd "$(dirname "${BASH_SOURCE[0]}")/.."
+
+step() {
+	echo "==> $1"
+	SECONDS=0
+}
+done_step() {
+	echo "    done in ${SECONDS}s"
+}
+
+# Node from .nvmrc, installed under ~/.local (which precedes /usr/local/bin on the orb's PATH)
+# so the orb's preinstalled Node stays untouched.
+node_version="$(sed 's/^v//' .nvmrc)"
+node_dir="$HOME/.local/share/node-v$node_version"
+step "Node $node_version"
+if [ ! -x "$node_dir/bin/node" ]; then
+	case "$(uname -m)" in
+		x86_64) node_arch=x64 ;;
+		aarch64) node_arch=arm64 ;;
+		*) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
+	esac
+	tmp_dir="$(mktemp -d)"
+	curl -fsSL "https://nodejs.org/dist/v$node_version/node-v$node_version-linux-$node_arch.tar.xz" \
+		| tar -xJ -C "$tmp_dir" --strip-components=1
+	mkdir -p "$(dirname "$node_dir")"
+	rm -rf "$node_dir"
+	mv "$tmp_dir" "$node_dir"
+fi
+mkdir -p "$HOME/.local/bin"
+for bin in node npm npx corepack; do
+	ln -sfn "$node_dir/bin/$bin" "$HOME/.local/bin/$bin"
+done
+export PATH="$HOME/.local/bin:$PATH"
+node --version
+done_step
+
+# `npm ci` always deletes node_modules, so skip it when the restored install already matches
+# the lockfile, patches and Node version. The postinstall also downloads WordPress, PHP,
+# translations and agent skills.
+step "npm dependencies"
+deps_fingerprint="$(
+	{
+		node --version
+		sha256sum package-lock.json
+		find apps/studio/patches -type f -exec sha256sum {} + 2>/dev/null | sort
+	} | sha256sum | cut -d' ' -f1
+)"
+deps_marker="node_modules/.orb-setup-fingerprint"
+if [ -f "$deps_marker" ] && [ "$(cat "$deps_marker")" = "$deps_fingerprint" ]; then
+	echo "    node_modules is up to date"
+else
+	npm ci --no-audit --no-fund --no-progress
+	echo "$deps_fingerprint" > "$deps_marker"
+fi
+done_step
+
+# Builds the CLI together with apps/ui so `node apps/cli/dist/cli/main.mjs ui` works right away.
+# Rebuilt on every run because a stale snapshot may hold the output of an older checkout.
+step "CLI and UI build"
+npm run cli:build:ui
+done_step

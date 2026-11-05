@@ -22,9 +22,11 @@
 	margin-bottom: var( --space-10 );
 }
 
-.eyebrow {
+.eyebrow,
+.sectionTitle {
 	font-size: var( --text-xxs );
-	opacity: 0.65;
+	font-weight: var( --font-weight-semibold );
+	opacity: 0.55;
 	text-transform: uppercase;
 	letter-spacing: 0.12em;
 }
@@ -119,11 +121,6 @@
 	margin: 0 0 var( --space-4 );
 	padding-top: var( --space-2 );
 	border-top: 1px solid var( --ds-hairline );
-	font-size: var( --text-xxs );
-	font-weight: var( --font-weight-semibold );
-	letter-spacing: 0.12em;
-	text-transform: uppercase;
-	opacity: 0.55;
 }
 
 .specimens {

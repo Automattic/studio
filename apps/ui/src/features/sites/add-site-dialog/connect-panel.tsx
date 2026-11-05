@@ -43,6 +43,7 @@ createWpcomSiteUrl.searchParams.set( 'section', 'studio-sync' );
 createWpcomSiteUrl.searchParams.set( 'showDomainStep', 'true' );
 
 function getEnvironmentLabel( site: SyncSite ): string {
+	if ( site.preview ) return __( 'Preview' );
 	if ( site.isPressable && site.environmentType === 'development' ) return __( 'Development' );
 	if ( site.isPressable && site.environmentType === 'staging' ) return __( 'Staging' );
 	if ( site.isStaging ) return __( 'Staging' );
@@ -50,7 +51,8 @@ function getEnvironmentLabel( site: SyncSite ): string {
 }
 
 function getEnvironmentVariant( site: SyncSite ) {
-	return site.isStaging ||
+	return site.preview ||
+		site.isStaging ||
 		( site.isPressable &&
 			( site.environmentType === 'development' || site.environmentType === 'staging' ) )
 		? 'accent'

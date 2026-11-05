@@ -75,6 +75,17 @@ export const syncSupportValues = [
 
 export type SyncSupport = ( typeof syncSupportValues )[ number ];
 
+// A preview WordPress.com still has standing: unpaid and not torn down.
+export const standingPreviewSchema = z.object( {
+	// The host the preview is served from: its preview link's host once it has one.
+	hostname: z.string().optional(),
+	// When it expires (ms).
+	expiresAt: z.number().optional(),
+	shareUrl: z.string().optional(),
+} );
+
+export type StandingPreview = z.infer< typeof standingPreviewSchema >;
+
 // Sync site representation
 export const syncSiteSchema = z.object( {
 	id: z.number(),
@@ -94,6 +105,8 @@ export const syncSiteSchema = z.object( {
 	planName: z.string().optional(),
 	hasStudioPublishingPlan: z.boolean().optional(),
 	createdAt: z.string().optional(),
+	// Set when the site is one of the user's previews.
+	preview: standingPreviewSchema.optional(),
 } );
 
 export type SyncSite = z.infer< typeof syncSiteSchema >;

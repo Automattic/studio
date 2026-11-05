@@ -12,8 +12,14 @@ import {
 } from '@studio/common/types/sync';
 import { backupLsItemSchema, backupLsResponseBodySchema } from '@studio/common/types/sync-tree';
 import { isReprintPullEnabled } from './pull-engine';
+import { getStandingPreviews } from './standing-previews';
 import { transformSitesResponse } from './transform-sites';
-import type { SyncSite, ImportResponse, SyncOption } from '@studio/common/types/sync';
+import type {
+	SyncSite,
+	ImportResponse,
+	StandingPreview,
+	SyncOption,
+} from '@studio/common/types/sync';
 import type { BackupLsItem } from '@studio/common/types/sync-tree';
 
 const SITE_FIELDS = [
@@ -34,21 +40,30 @@ const SITE_FIELDS = [
 export async function fetchSyncableSites( token: string ): Promise< SyncSite[] > {
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 
-	const rawResponse = await wpcom.req.get(
-		{
-			apiNamespace: 'rest/v1.2',
-			path: '/me/sites',
-		},
-		{
-			fields: SITE_FIELDS,
-			filter: 'atomic,wpcom',
-			options: 'created_at,wpcom_staging_blog_ids',
-			site_activity: 'active',
-		}
-	);
+	const [ rawResponse, previews ] = await Promise.all( [
+		wpcom.req.get(
+			{
+				apiNamespace: 'rest/v1.2',
+				path: '/me/sites',
+			},
+			{
+				fields: SITE_FIELDS,
+				filter: 'atomic,wpcom',
+				options: 'created_at,wpcom_staging_blog_ids',
+				site_activity: 'active',
+			}
+		),
+		// `/me/sites` doesn't say which sites are previews. Without the list they show as plain sites.
+		getStandingPreviews( token ).catch( () => new Map< number, StandingPreview >() ),
+	] );
 
 	const parsed = sitesEndpointResponseSchema.parse( rawResponse );
-	return transformSitesResponse( parsed.sites, { reprintPull: isReprintPullEnabled() } );
+	return transformSitesResponse( parsed.sites, { reprintPull: isReprintPullEnabled() } ).map(
+		( site ) => {
+			const preview = previews.get( site.id );
+			return preview ? { ...site, preview } : site;
+		}
+	);
 }
 
 export async function initiateBackup(

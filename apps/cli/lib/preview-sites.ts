@@ -1,6 +1,7 @@
 import fs from 'fs';
 import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_GB } from '@studio/common/constants';
 import { isWpcomPreview } from '@studio/common/lib/snapshots';
+import { getStandingPreviews } from '@studio/common/lib/sync/standing-previews';
 import { createTusUpload } from '@studio/common/lib/sync/tus-upload';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
@@ -39,27 +40,6 @@ const importResponseSchema = z
 
 // `preview_sites` is left out when the user has none. `expires_at` is in seconds. `share_url` is the
 // preview link WordPress.com creates when the site's first build is done, and '' until then.
-const standingPreviewsSchema = z.object( {
-	preview_sites: z
-		.array(
-			z.object( {
-				blog_id: z.number(),
-				site_slug: z.string().optional(),
-				expires_at: z.number().optional(),
-				share_url: z.string().optional(),
-			} )
-		)
-		.optional(),
-} );
-
-export type StandingPreview = {
-	// The host the preview is served from: its preview link's host once it has one.
-	hostname?: string;
-	// When it expires (ms).
-	expiresAt?: number;
-	shareUrl?: string;
-};
-
 function wpcom( token: string ) {
 	return wpcomFactory( token, wpcomXhrRequest );
 }
@@ -201,28 +181,6 @@ export async function updatePreviewSite(
 
 	await waitForPreviewImport( siteId, token, previousImportId );
 	return getPreviewLink( siteId, token );
-}
-
-/**
- * The user's previews WordPress.com still has standing (unpaid and not torn down), by site ID. A
- * preview that was bought, expired or deleted elsewhere is not among them.
- */
-export async function getStandingPreviews(
-	token: string
-): Promise< Map< number, StandingPreview > > {
-	const response = standingPreviewsSchema.parse(
-		await wpcom( token ).req.get( { apiNamespace: 'wpcom/v2', path: '/wow-funnel/pending' } )
-	);
-	return new Map(
-		( response.preview_sites ?? [] ).map( ( site ) => [
-			site.blog_id,
-			{
-				hostname: site.share_url ? new URL( site.share_url ).hostname : site.site_slug,
-				expiresAt: site.expires_at === undefined ? undefined : site.expires_at * 1000,
-				shareUrl: site.share_url || undefined,
-			},
-		] )
-	);
 }
 
 const modifiedSchema = z.array( z.object( { modified: z.string().nullable().optional() } ) );

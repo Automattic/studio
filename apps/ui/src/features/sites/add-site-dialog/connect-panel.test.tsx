@@ -57,6 +57,14 @@ describe( 'ConnectPanel', () => {
 		expect( onConnect ).not.toHaveBeenCalled();
 	} );
 
+	it( 'labels a preview and finds it by that label', async () => {
+		setup( [ site( 1, { name: 'Shop' } ), site( 2, { name: 'Draft', preview: {} } ) ] );
+		fireEvent.change( await screen.findByRole( 'searchbox' ), { target: { value: 'preview' } } );
+		const row = ( await screen.findByText( 'Draft' ) ).closest( 'button' )!;
+		expect( within( row ).getByText( 'Preview' ) ).toBeVisible();
+		expect( screen.queryByText( 'Shop' ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'leaves out connected sites, separates unavailable ones and searches', async () => {
 		const pressable = site( 1, {
 			name: 'Pressable store',

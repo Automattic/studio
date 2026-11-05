@@ -31,6 +31,7 @@ import { blockEditorOf } from '@studio/agent/node/block-validation-gate';
 import { validateBlocks } from '@studio/agent/node/block-validator';
 import { getSharedBrowser } from '@studio/agent/node/browser-utils';
 import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
+import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
 import { readCliConfig } from 'cli/lib/cli-config/core';
@@ -38,6 +39,7 @@ import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { Logger } from 'cli/logger';
+import type { Locator } from 'playwright';
 
 const execFileAsync = promisify( execFile );
 
@@ -373,7 +375,52 @@ const VISITOR: Record< string, string > = {
 	number: '1',
 };
 
-async function sendPageForms( sitePath: string, links: string[] ) {
+// The fields a visitor sees and fills, leaving out a spam trap a form hides
+// from them: off the page, clipped to nothing, or hidden from assistive tech.
+export async function seenFields( form: Locator, selector: string ) {
+	const fields = await form.locator( selector ).all();
+	const seen = await Promise.all(
+		fields.map( ( field ) =>
+			field.evaluate( ( element ) => {
+				const box = element.getBoundingClientRect();
+				if (
+					element.closest( '[aria-hidden="true"]' ) ||
+					box.right <= 0 ||
+					box.left >= document.documentElement.scrollWidth
+				) {
+					return false;
+				}
+				for ( let parent = element.parentElement; parent; parent = parent.parentElement ) {
+					const style = getComputedStyle( parent );
+					const clips = style.overflow !== 'visible' || style.clip !== 'auto';
+					const rect = parent.getBoundingClientRect();
+					if ( clips && ( rect.width < 2 || rect.height < 2 ) ) {
+						return false;
+					}
+				}
+				return true;
+			} )
+		)
+	);
+	return fields.filter( ( _, i ) => seen[ i ] );
+}
+
+// The emails the site sent that Studio saved for its Email view (sendmail.php),
+// with the soft line breaks of quoted-printable text joined.
+function siteEmails( siteId: string ): string[] {
+	try {
+		const directory = getSiteEmailDirectory( siteId );
+		return readdirSync( directory )
+			.filter( ( name ) => name.endsWith( '.eml' ) )
+			.map( ( name ) =>
+				readFileSync( path.join( directory, name ), 'utf8' ).replace( /=\r?\n/g, '' )
+			);
+	} catch {
+		return [];
+	}
+}
+
+async function sendPageForms( sitePath: string, siteId: string, links: string[] ) {
 	const sent: Array< { page: string; marker: string; afterText: string; error?: string } > = [];
 	const browser = await getSharedBrowser();
 	for ( const link of links ) {
@@ -384,7 +431,7 @@ async function sendPageForms( sitePath: string, links: string[] ) {
 			const form = page.locator( 'form:has(textarea):not([action*="wp-comments-post"])' ).first();
 			if ( ! ( await form.count() ) ) continue;
 			await form.locator( 'textarea:visible' ).first().fill( marker );
-			for ( const field of await form.locator( 'input:visible' ).all() ) {
+			for ( const field of await seenFields( form, 'input:visible' ) ) {
 				const type = ( await field.getAttribute( 'type' ) ) ?? 'text';
 				if ( type === 'checkbox' || type === 'radio' ) {
 					await field.check().catch( () => undefined );
@@ -393,7 +440,7 @@ async function sendPageForms( sitePath: string, links: string[] ) {
 				}
 			}
 			// A visitor picks an option of each list, the first that is not a placeholder.
-			for ( const field of await form.locator( 'select:visible' ).all() ) {
+			for ( const field of await seenFields( form, 'select:visible' ) ) {
 				const value = await field.evaluate(
 					( select: HTMLSelectElement ) =>
 						[ ...select.options ].find( ( option ) => option.value && ! option.disabled )?.value
@@ -436,7 +483,10 @@ echo 'STORED_JSON=' . wp_json_encode( array(
 ) ) . "\\n";`,
 			] ).catch( ( error ) => `STORED_JSON=${ JSON.stringify( { error: String( error ) } ) }` );
 			const stored = found.match( /STORED_JSON=(.*)/ );
-			return { ...entry, stored: stored ? JSON.parse( stored[ 1 ] ) : null };
+			const emails = siteEmails( siteId ).filter( ( text ) =>
+				text.includes( entry.marker )
+			).length;
+			return { ...entry, stored: stored ? { ...JSON.parse( stored[ 1 ] ), emails } : null };
 		} )
 	);
 }
@@ -914,7 +964,7 @@ async function captureSiteOutcome(
 		const pages = ( state.content as Array< { type: string; link: string } > )
 			.filter( ( item ) => item.type === 'page' )
 			.map( ( item ) => item.link );
-		outcome.formsSent = await sendPageForms( sitePath, pages ).catch( ( error ) => [
+		outcome.formsSent = await sendPageForms( sitePath, site.id, pages ).catch( ( error ) => [
 			{ error: error instanceof Error ? error.message : String( error ) },
 		] );
 

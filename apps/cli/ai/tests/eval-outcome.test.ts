@@ -4,8 +4,9 @@ import path from 'path';
 import { readSiteFacts } from '@studio/agent/node/site-facts';
 import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';
 import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
+import { chromium } from 'playwright';
 import { expect, it, vi } from 'vitest';
-import { captureTurnOutcome, fingerprintSites } from 'cli/ai/eval-outcome';
+import { captureTurnOutcome, fingerprintSites, seenFields } from 'cli/ai/eval-outcome';
 import { cliAgentHost } from 'cli/ai/host';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 
@@ -100,3 +101,34 @@ it( "fingerprints a site whose Studio loader Studio rewrote as unchanged, and a 
 		[]
 	);
 } );
+
+// eval21 redo port 2: the scorer filled the booking form's spam trap, a field
+// moved off the page in a box clipped to nothing, and the form dropped the message.
+it.runIf( existsSync( chromium.executablePath() ) )(
+	'fills only the fields a visitor sees, not a spam trap hidden from them',
+	async () => {
+		const browser = await chromium.launch();
+		try {
+			const page = await browser.newPage();
+			await page.setContent( `<form>
+				<p style="position:absolute;left:-9999px;height:0;overflow:hidden" aria-hidden="true"><input name="trap-offpage"></p>
+				<p style="height:0;overflow:hidden"><input name="trap-clipped"></p>
+				<div aria-hidden="true"><input name="trap-aria"></div>
+				<div style="overflow:auto;height:80px"><input name="name"><select name="artist"><option>Kestrel</option></select></div>
+				<textarea name="idea"></textarea>
+			</form>` );
+			const names = async ( selector: string ) =>
+				Promise.all(
+					( await seenFields( page.locator( 'form' ), selector ) ).map( ( field ) =>
+						field.getAttribute( 'name' )
+					)
+				);
+			expect( [
+				...( await names( 'input:visible' ) ),
+				...( await names( 'select:visible' ) ),
+			] ).toEqual( [ 'name', 'artist' ] );
+		} finally {
+			await browser.close();
+		}
+	}
+);

@@ -933,6 +933,12 @@ describe( 'native feature checks', () => {
 			true,
 		],
 		[
+			'emailed, as Studio saves the email for its Email view',
+			{ postTypes: [], metaKeys: [], optionNames: [], emails: 1 },
+			'<!-- wp:jetpack/contact-form /-->',
+			true,
+		],
+		[
 			'stored nowhere',
 			{ postTypes: [], metaKeys: [], optionNames: [] },
 			'<!-- wp:jetpack/contact-form /-->',

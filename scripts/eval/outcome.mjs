@@ -1065,7 +1065,8 @@ const htmlBlockForm = ( text ) =>
 	);
 
 // A visitor's message, sent through a published page's form, is stored on the
-// site (formsSent: the post types, meta keys or options now holding it), and
+// site (formsSent: the post types, meta keys or options now holding it) or
+// emailed, as Studio saves each email a site sends for its Email view, and
 // the page's form is not a Custom HTML block.
 export const contactFormWorks = check( ( d, vars ) => {
 	const s = site( d, vars );
@@ -1078,6 +1079,7 @@ export const contactFormWorks = check( ( d, vars ) => {
 		...( f.stored?.postTypes || [] ).map( ( t ) => `a ${ t } post` ),
 		...( f.stored?.metaKeys || [] ).map( ( k ) => `post meta ${ k }` ),
 		...( f.stored?.optionNames || [] ).map( ( o ) => `option ${ o }` ),
+		...( f.stored?.emails ? [ "an email Studio saved for the site's Email view" ] : [] ),
 	];
 	const stored = sent.find( ( f ) => where( f ).length );
 	if ( ! stored )

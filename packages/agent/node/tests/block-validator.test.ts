@@ -292,6 +292,13 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			saved: '{"width":"100%","height":"auto","aspectRatio":"4/3","sizeSlug":"large"}',
 		},
 		{
+			// eval22 picky port 2: Chrome reads a var() shorthand's longhands as empty.
+			name: 'a shorthand holding a preset',
+			written:
+				'<!-- wp:group {"style":{"border":{"width":"1px"}}} -->\n<div class="wp-block-group has-border-color" style="border-color:var(--wp--preset--color--accent-5);border-width:1px"></div>\n<!-- /wp:group -->',
+			saved: '"border":{"width":"1px","color":"var:preset|color|accent-5"}',
+		},
+		{
 			name: 'in a number attribute the block saves the style from',
 			written:
 				'<!-- wp:cover -->\n<div class="wp-block-cover" style="min-height:500px"><span aria-hidden="true" class="wp-block-cover__background has-background-dim-100 has-background-dim"></span><div class="wp-block-cover__inner-container"></div></div>\n<!-- /wp:cover -->',

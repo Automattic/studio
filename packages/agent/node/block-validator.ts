@@ -1030,14 +1030,37 @@ export async function validateBlocks(
 				// An element's inline styles as the browser reads them, so .85rem is
 				// 0.85rem. A shorthand sets each longhand it leaves out to initial,
 				// which is what an unset longhand is, so those are left out.
+				// A shorthand holding a var() sets its longhands only once the
+				// variable is computed, so the browser reads them as empty: it stands
+				// as written, as border-color:var(--wp--preset--color--accent).
 				function declarations( element: HTMLElement ) {
-					return new Map(
+					const read = new Map(
 						Array.from( element.style )
 							.map(
 								( property ) => [ property, element.style.getPropertyValue( property ) ] as const
 							)
 							.filter( ( [ , value ] ) => value !== 'initial' )
 					);
+					for ( const declaration of String( element.getAttribute( 'style' ) ?? '' ).split(
+						';'
+					) ) {
+						const colon = declaration.indexOf( ':' );
+						const property = declaration.slice( 0, colon ).trim().toLowerCase();
+						const value = element.style.getPropertyValue( property );
+						const scratch = document.createElement( 'div' );
+						scratch.style.setProperty( property, value );
+						const longhands = Array.from( scratch.style );
+						if (
+							colon > 0 &&
+							value &&
+							longhands.length > 1 &&
+							longhands.every( ( longhand ) => scratch.style.getPropertyValue( longhand ) === '' )
+						) {
+							longhands.forEach( ( longhand ) => read.delete( longhand ) );
+							read.set( property, value );
+						}
+					}
+					return read;
 				}
 
 				// The block made again with the inline styles written in its own markup

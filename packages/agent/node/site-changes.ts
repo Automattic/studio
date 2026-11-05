@@ -258,7 +258,13 @@ export class SiteChanges {
 		// Reported by site and source, in their order, however the checks interleave.
 		sites.forEach( ( site, i ) => {
 			for ( const report of reports[ i ].flat() ) {
-				this.open?.record( site.path, `${ site.path }#${ report.key }`, report.problem );
+				// A report on a post is on what a call changed in it.
+				this.open?.record(
+					site.path,
+					`${ site.path }#${ report.key }`,
+					report.problem,
+					report.post !== undefined
+				);
 				if ( elsewhere( site, report ) ) {
 					continue;
 				}

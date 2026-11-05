@@ -29,6 +29,8 @@ interface OpenProblemsState {
 	// The latest problem of each file or post validated, while it has one.
 	open: Record< string, string >;
 	raised: string[];
+	// The files and posts changed since their problem was raised, and still open.
+	changedSinceRaised: string[];
 	// The problems open at the agent's last look at a site, and those it was told again.
 	looked: string[];
 	repeated: string[];
@@ -39,6 +41,7 @@ export class OpenProblems {
 		sites: [],
 		open: {},
 		raised: [],
+		changedSinceRaised: [],
 		looked: [],
 		repeated: [],
 	};
@@ -52,13 +55,19 @@ export class OpenProblems {
 		>
 	) {}
 
-	/** Records the latest validation of a site's file or post, open while it has a problem. */
-	record( site: string, key: string, problem?: string ): void {
+	/**
+	 * Records the latest validation of a site's file or post, open while it has
+	 * a problem; `changed` when it validates content changed since the last.
+	 */
+	record( site: string, key: string, problem?: string, changed = false ): void {
 		if ( ! this.state.sites.includes( site ) ) {
 			this.state.sites.push( site );
 		}
 		if ( problem ) {
 			this.state.open[ key ] = problem;
+			if ( changed && ! this.state.changedSinceRaised.includes( key ) ) {
+				this.state.changedSinceRaised.push( key );
+			}
 		} else {
 			delete this.state.open[ key ];
 		}
@@ -97,7 +106,15 @@ export class OpenProblems {
 		return problems.flat().filter( ( problem ): problem is string => !! problem );
 	}
 
-	/** The open problems not raised before, which are raised now. */
+	/**
+	 * The open problems not raised before, which are raised now, and once more
+	 * a problem raised before that a change to its file or post since left
+	 * open. Raised once, one left for the user is not raised again; changed,
+	 * it is one the agent set out to fix: in eval22 an agent ran
+	 * convert_to_blocks on a page whose 8 invalid Jetpack fields it was told
+	 * about at the end of its turn, which left them invalid, and ended the
+	 * turn saying each page validates.
+	 */
 	async raise(): Promise< string[] > {
 		const siteProblems = await Promise.all(
 			this.state.sites.map( async ( site ) => {
@@ -107,9 +124,13 @@ export class OpenProblems {
 				);
 			} )
 		);
-		const problems = [ ...Object.values( this.state.open ), ...siteProblems.flat() ].filter(
-			( problem ) => ! this.state.raised.includes( problem )
-		);
+		const again = Object.entries( this.state.open )
+			.filter( ( [ key ] ) => this.state.changedSinceRaised.includes( key ) )
+			.map( ( [ , problem ] ) => problem );
+		this.state.changedSinceRaised = [];
+		const problems = [
+			...new Set( [ ...Object.values( this.state.open ), ...siteProblems.flat() ] ),
+		].filter( ( problem ) => ! this.state.raised.includes( problem ) || again.includes( problem ) );
 		this.state.raised.push( ...problems );
 		return problems;
 	}

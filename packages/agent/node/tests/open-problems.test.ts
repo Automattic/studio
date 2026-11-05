@@ -72,6 +72,40 @@ describe( 'OpenProblems', () => {
 		] );
 	} );
 
+	// eval22 redo port 1: convert_to_blocks saved page 8 to the post, which left its
+	// 8 invalid Jetpack fields, raised when the turn ended, invalid.
+	it( 'raises a post problem again once a change to the post leaves it open', async () => {
+		const problem = 'page 8: 8 block(s) do not match what the block saves';
+		let content = 'fields as written';
+		const posts = {
+			name: 'posts',
+			read: async () => ( { 8: content } ),
+			check: async (
+				_site: HostSite,
+				before: Record< string, string >,
+				after: Record< string, string >
+			) => ( {
+				reports: before[ 8 ] === after[ 8 ] ? [] : [ { key: '8', post: 8, problem } ],
+			} ),
+		};
+		const open = new OpenProblems( [] );
+		const changes = new SiteChanges(
+			createFakeHost(),
+			open,
+			async () => [ { path: '/a' } as HostSite ],
+			[ posts ]
+		);
+		await changes.snapshot();
+		content = 'fields as edited';
+		await changes.settle();
+		expect( await open.raise() ).toEqual( [ problem ] );
+		await changes.settle();
+		expect( await open.raise() ).toEqual( [] );
+		content = 'fields as converted';
+		await changes.settle();
+		expect( await open.raise() ).toEqual( [ problem ] );
+	} );
+
 	it( "tags the problems as Studio's checks", () => {
 		expect( describeOpenProblems( [ 'a', 'b' ] ) ).toBe(
 			"<studio-checks>\nStudio checked the sites this turn changed. Each item is how WordPress treats the site as it is now. The turn is done when each is resolved, or, for one that needs the user's choice, when the user is asked:\n- a\n- b\n</studio-checks>"

@@ -572,6 +572,28 @@ describe( 'the gate', () => {
 		expect( ( await gate.settle() ).summaries ).toEqual( [] );
 	} );
 
+	// eval22 redo port 1: the 8 invalid Jetpack fields of page 8, raised when the
+	// turn ended, which convert_to_blocks then left invalid.
+	it( 'raises a problem again once a change to its file leaves it open, and not before', async () => {
+		const file = write( 'wp-content/themes/t/templates/page-book.html', 'fields as written' );
+		const problem = 'page 8: 8 block(s) do not match what the block saves';
+		const open = new OpenProblems( [] );
+		const gate = new BlockValidationGate( async ( filePath ) => {
+			const content = readFileSync( filePath, 'utf8' );
+			return { ...ok( 'page 8: 8 invalid block(s)', content ), problem };
+		}, open );
+		gate.track( file, site );
+		await gate.settle();
+		expect( await open.raise() ).toEqual( [ problem ] );
+		await gate.settle();
+		expect( await open.raise() ).toEqual( [] );
+		writeFileSync( file, 'fields as converted' );
+		await gate.settle();
+		await gate.settle();
+		expect( await open.raise() ).toEqual( [ problem ] );
+		expect( await open.raise() ).toEqual( [] );
+	} );
+
 	it( "leaves another agent's files for that agent's settle", async () => {
 		const mine = write( 'wp-content/themes/t/templates/home.html', 'home' );
 		const theirs = write( 'wp-content/themes/t/templates/page.html', 'page' );

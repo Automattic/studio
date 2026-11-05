@@ -691,6 +691,8 @@ interface Tracked {
 	// The result once it has come, which a call that does not wait can report.
 	validated?: FileValidation;
 	reported?: string;
+	// The content whose validation the open problems last recorded.
+	recorded?: string;
 }
 
 export class BlockValidationGate {
@@ -741,7 +743,13 @@ export class BlockValidationGate {
 			const result = await this.current( filePath, tracked.siteRoot ).then(
 				( current ) => current && this.applyFix( filePath, current, saved )
 			);
-			this.open?.record( tracked.siteRoot, filePath, result?.problem );
+			this.open?.record(
+				tracked.siteRoot,
+				filePath,
+				result?.problem,
+				result !== undefined && result.contentHash !== tracked.recorded
+			);
+			tracked.recorded = result?.contentHash;
 			if ( ! result ) {
 				this.files.delete( filePath );
 				continue;

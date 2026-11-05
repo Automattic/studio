@@ -43,15 +43,24 @@ async function submitFeedback(
 	}
 }
 
+// The ID the service assigned: from the structured result, or failing that
+// from its text ("Feedback ID: 1018", "reference ID 1018").
+function readFeedbackId( data: FeedbackResult | undefined, text: string ): number | undefined {
+	if ( typeof data?.feedback_id === 'number' ) {
+		return data.feedback_id;
+	}
+	const match = /\b(?:feedback|reference)\s*ID\b\D{0,10}(\d+)/i.exec( text );
+	return match ? Number( match[ 1 ] ) : undefined;
+}
+
 export const sendFeedbackTool = defineTool(
 	'send_feedback',
-	'Sends feedback about WordPress Studio to the WordPress Studio team at Automattic. ' +
-		'Only send feedback the user asked to send. When a WordPress Studio tool fails in a way you cannot work around, or the user is frustrated with WordPress Studio, you may offer once to send feedback; ' +
-		'send it only if they agree. Before sending, show the user the exact message and wait for their OK. ' +
-		'Write it in plain language: what the user was trying to do, what happened, what they expected, and the WordPress Studio tool and error message when there is one. ' +
+	'Sends one feedback report about WordPress Studio to the WordPress Studio team at Automattic, and returns the feedback ID the service assigned. ' +
+		'Send only what the user asked to send: show them the exact message first and wait for their OK. ' +
 		'Leave out passwords, API keys, tokens and private site content unless the user asks to include them. ' +
-		'The message is sent with a line naming the WordPress Studio version and operating system. Requires the user to be logged in with `studio auth login`. ' +
-		'Submitting returns a feedback ID.',
+		'A line naming the WordPress Studio version and operating system is added for you. ' +
+		'Requires the user to be logged in with `studio auth login`. ' +
+		'Do not retry a failed send: the report may already have been received, so report the error instead.',
 	{
 		type: Type.Enum( [ 'bug', 'request', 'general' ], {
 			description:
@@ -78,20 +87,26 @@ export const sendFeedbackTool = defineTool(
 				type: args.type,
 				content: `[${ userAgent } on ${ process.platform }]\n\n${ message }`,
 			} );
-			const text = ( result.content as { type: string; text?: string }[] | undefined )
-				?.map( ( item ) => item.text ?? '' )
-				.join( '\n' )
-				.trim();
+			const text =
+				( result.content as { type: string; text?: string }[] | undefined )
+					?.map( ( item ) => item.text ?? '' )
+					.join( '\n' )
+					.trim() ?? '';
 			if ( result.isError ) {
 				throw new Error( text || 'the feedback service returned an error' );
 			}
-			const data = result.structuredContent as FeedbackResult | undefined;
-			if ( typeof data?.feedback_id !== 'number' ) {
+			const feedbackId = readFeedbackId(
+				result.structuredContent as FeedbackResult | undefined,
+				text
+			);
+			if ( feedbackId === undefined ) {
 				throw new Error(
-					`the feedback service did not return a feedback ID${ text ? `: ${ text }` : '' }`
+					`the feedback service did not confirm a feedback ID, so the report may or may not have been received${
+						text ? `: ${ text }` : ''
+					}`
 				);
 			}
-			return textResult( `Feedback sent. Feedback ID: ${ data.feedback_id }.` );
+			return textResult( `Feedback sent. Feedback ID: ${ feedbackId }.` );
 		} catch ( error ) {
 			throw new Error(
 				`Failed to send feedback: ${ error instanceof Error ? error.message : String( error ) }`

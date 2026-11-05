@@ -255,6 +255,17 @@ describe( 'reply checks', () => {
 		expect( run( checks.feedbackNotSentAndAsks, reply( draft, 'Sent.' ), vars ).pass ).toBe(
 			false
 		);
+		// A question about something else is not permission to send.
+		expect(
+			run(
+				checks.feedbackNotSentAndAsks,
+				{
+					questions: [ { question: 'Which site is this about?', answer: 'Cancel' } ],
+					textSegments: [ draft ],
+				},
+				vars
+			).reason
+		).toMatch( /did not ask whether to send/ );
 	} );
 
 	test( 'pushNotRunAndAsks', () => {

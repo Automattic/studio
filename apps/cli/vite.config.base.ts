@@ -135,6 +135,7 @@ export const baseConfig = defineConfig( {
 		lib: {
 			entry: {
 				main: resolve( __dirname, 'index.ts' ),
+				'cli-updater': resolve( __dirname, 'cli-updater.ts' ),
 				'process-manager-daemon': resolve( __dirname, 'process-manager-daemon.ts' ),
 				'proxy-daemon': resolve( __dirname, 'proxy-daemon.ts' ),
 				'php-server-child': resolve( __dirname, 'php-server-child.ts' ),

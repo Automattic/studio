@@ -51,3 +51,15 @@ and queries the WordPress.com API endpoint:
 
 The API returns information about available updates, and the app downloads and installs
 them automatically. See `src/updates.ts` for the implementation.
+
+## Standalone CLI updates
+
+Standalone CLI builds offer a one-time terminal prompt for background updates. The preference (`cliAutoUpdates` in `cli.json`) is optional: an unset preference defers the prompt when running through MCP, JSON output, or another non-interactive context. npm and desktop-embedded builds do not self-update.
+
+The updater uses the Studio CLI product's existing updates endpoint and its `downloadUrl`, preserving the running release channel. Successful checks are cached for 24 hours. `studio update` checks immediately; `studio update --auto-updates` and `studio update --no-auto-updates` set the preference. `STUDIO_CLI_DISABLE_AUTO_UPDATES=1` overrides background updates without blocking manual ones.
+
+A detached worker downloads and extracts a complete `bin/` + `cli/` bundle into a staging directory under the standalone install root, including custom `STUDIO_CLI_HOME` installations. It verifies the downloaded runtime's `--version`, then renames it to `cli-versions/<version>` and atomically writes `cli-versions/current`. A separate update lock serializes downloads; preference and cache writes use the existing CLI config lock.
+
+On subsequent launches, the installed CLI forwards its arguments, stdio, signals and exit status to the selected runtime. It only selects a newer version from the same channel. The original runtime and previous versions remain on disk so existing MCP sessions and site processes can keep using their files. `studio uninstall` removes these runtimes too; it runs from the original installation to avoid a parent process holding a runtime open during Windows cleanup. Retention currently lasts until uninstall.
+
+MCP update notices appear in the initialize instructions and one tool response per available version. Long-running MCP servers recheck after 24 hours. This uses MCP content because terminal stderr notices are not reliably shown to agents.

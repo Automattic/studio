@@ -21,11 +21,6 @@ const STUDIO_API_BASE = 'https://public-api.wordpress.com/wpcom/v2/studio-app';
 const STUDIO_UPDATES_ENDPOINT = `${ STUDIO_API_BASE }/updates`;
 const CLI_PRODUCT_SLUG = 'wordpress-com-studio-cli';
 
-// Branded short URL for the installer scripts — redirects to public-api's install.sh/.ps1
-// (STU-1928). Only the banner's install command uses this; the update check above stays on
-// the API host.
-const STUDIO_INSTALL_BASE = 'https://wordpress.studio';
-
 const NPM_UPDATE_COMMAND = 'npm update -g wp-studio';
 
 type UpdateCheck = z.infer< typeof updateCheckSchema >;
@@ -33,7 +28,17 @@ type CliConfigUpdateCheckField = 'updateCheck' | 'standaloneUpdateCheck';
 export type CliInstallKind = 'npm' | 'standalone' | 'embedded';
 
 const npmRegistryResponseSchema = z.object( { version: z.string() } );
-const updatesEndpointResponseSchema = z.object( { version: z.string() } );
+const updatesEndpointResponseSchema = z.object( {
+	version: z.string(),
+	downloadUrl: z.string().optional(),
+} );
+
+export interface CliUpdate {
+	currentVersion: string;
+	latestVersion: string;
+	updateCommand: string;
+	downloadUrl?: string;
+}
 
 /**
  * Reads a cached update check from cli.json. Fails safe: `readCliConfig` throws on a
@@ -80,32 +85,45 @@ export async function setupUpdateNotifier(
 	currentVersion: string,
 	installKind: CliInstallKind = getCliInstallKind()
 ): Promise< void > {
-	if ( Boolean( process.send ) || hasJsonFlag() ) {
+	if (
+		Boolean( process.send ) ||
+		hasJsonFlag() ||
+		process.argv
+			.slice( 2 )
+			.some( ( arg ) =>
+				[ 'mcp', 'update', 'uninstall', '--help', '-h', '--version', '-v' ].includes( arg )
+			)
+	) {
 		return;
 	}
 
-	switch ( installKind ) {
-		case 'npm':
-			await notifyNpm( currentVersion );
-			break;
-		case 'standalone':
-			await notifyStandalone( currentVersion );
-			break;
-		case 'embedded':
-			break;
+	const update = await getAvailableCliUpdate( currentVersion, installKind );
+	if ( update ) {
+		process.stderr.write(
+			formatUpdateBanner( currentVersion, update.latestVersion, update.updateCommand )
+		);
 	}
+}
+
+export async function getAvailableCliUpdate(
+	currentVersion: string,
+	installKind: CliInstallKind = getCliInstallKind(),
+	force = false
+): Promise< CliUpdate | null > {
+	if ( ! semver.valid( currentVersion ) || installKind === 'embedded' ) {
+		return null;
+	}
+	return installKind === 'npm'
+		? checkNpm( currentVersion, force )
+		: checkStandalone( currentVersion, force );
 }
 
 async function fetchNpmLatestVersion(): Promise< string | null > {
 	try {
-		const controller = new AbortController();
-		const timeout = setTimeout( () => controller.abort(), FETCH_TIMEOUT_MS );
-
 		const response = await fetch( NPM_REGISTRY_URL, {
-			signal: controller.signal,
+			signal: AbortSignal.timeout( FETCH_TIMEOUT_MS ),
 			headers: { Accept: 'application/json' },
 		} );
-		clearTimeout( timeout );
 
 		if ( ! response.ok ) {
 			return null;
@@ -118,14 +136,16 @@ async function fetchNpmLatestVersion(): Promise< string | null > {
 	}
 }
 
-async function notifyNpm( currentVersion: string ): Promise< void > {
+async function checkNpm( currentVersion: string, force: boolean ): Promise< CliUpdate | null > {
 	const updateCheck = await readUpdateCheck( 'updateCheck' );
 	const now = Date.now();
+	let latestVersion = updateCheck?.latestVersion;
 
 	// Fetch and cache if stale or missing (up to FETCH_TIMEOUT_MS)
-	if ( ! updateCheck || now - updateCheck.lastChecked >= UPDATE_CHECK_INTERVAL_MS ) {
+	if ( force || ! updateCheck || now - updateCheck.lastChecked >= UPDATE_CHECK_INTERVAL_MS ) {
 		const version = await fetchNpmLatestVersion();
 		if ( version ) {
+			latestVersion = version;
 			try {
 				await updateCliConfigWithPartial( {
 					updateCheck: { lastChecked: now, latestVersion: version },
@@ -136,23 +156,18 @@ async function notifyNpm( currentVersion: string ): Promise< void > {
 		}
 	}
 
-	// Read again in case we just updated the cache on the first run
-	const latestCheck = await readUpdateCheck( 'updateCheck' );
-
 	if (
-		latestCheck &&
-		semver.valid( latestCheck.latestVersion ) &&
-		semver.valid( currentVersion ) &&
-		semver.gt( latestCheck.latestVersion, currentVersion )
+		latestVersion &&
+		semver.valid( latestVersion ) &&
+		semver.gt( latestVersion, currentVersion )
 	) {
-		process.stderr.write(
-			formatUpdateBanner( currentVersion, latestCheck.latestVersion, NPM_UPDATE_COMMAND )
-		);
+		return { currentVersion, latestVersion, updateCommand: NPM_UPDATE_COMMAND };
 	}
+	return null;
 }
 
 type StandaloneCheckResult =
-	| { kind: 'update'; latestVersion: string }
+	| { kind: 'update'; latestVersion: string; downloadUrl?: string }
 	| { kind: 'current' }
 	| { kind: 'error' };
 
@@ -164,14 +179,10 @@ async function fetchStandaloneUpdate( currentVersion: string ): Promise< Standal
 		url.searchParams.set( 'studioArch', process.arch );
 		url.searchParams.set( 'version', currentVersion );
 
-		const controller = new AbortController();
-		const timeout = setTimeout( () => controller.abort(), FETCH_TIMEOUT_MS );
-
 		const response = await fetch( url, {
-			signal: controller.signal,
+			signal: AbortSignal.timeout( FETCH_TIMEOUT_MS ),
 			headers: { Accept: 'application/json' },
 		} );
-		clearTimeout( timeout );
 
 		// The endpoint replies 204 when the client is already on the latest build.
 		if ( response.status === 204 ) {
@@ -182,21 +193,26 @@ async function fetchStandaloneUpdate( currentVersion: string ): Promise< Standal
 		}
 
 		const data = updatesEndpointResponseSchema.parse( await response.json() );
-		return { kind: 'update', latestVersion: data.version };
+		return { kind: 'update', latestVersion: data.version, downloadUrl: data.downloadUrl };
 	} catch {
 		return { kind: 'error' };
 	}
 }
 
-async function notifyStandalone( currentVersion: string ): Promise< void > {
+async function checkStandalone(
+	currentVersion: string,
+	force: boolean
+): Promise< CliUpdate | null > {
 	const cached = await readUpdateCheck( 'standaloneUpdateCheck' );
 	const now = Date.now();
 
 	let latestVersion: string | null = null;
+	let downloadUrl: string | undefined;
 
 	// ~/.studio is shared across installs, so a cache left by a different channel (e.g. a
 	// prior nightly) must not be trusted for this one — refetch on a channel mismatch.
 	if (
+		! force &&
 		cached &&
 		now - cached.lastChecked < UPDATE_CHECK_INTERVAL_MS &&
 		channelForVersion( cached.latestVersion ) === channelForVersion( currentVersion )
@@ -204,9 +220,13 @@ async function notifyStandalone( currentVersion: string ): Promise< void > {
 		latestVersion = cached.latestVersion;
 	} else {
 		const result = await fetchStandaloneUpdate( currentVersion );
+		if ( force && result.kind === 'error' ) {
+			throw new Error( __( 'Could not check for Studio CLI updates. Please try again.' ) );
+		}
 
 		if ( result.kind === 'update' ) {
 			latestVersion = result.latestVersion;
+			downloadUrl = result.downloadUrl;
 		} else if ( result.kind === 'current' ) {
 			// Treat the running version as latest so we stay quiet until the TTL elapses.
 			latestVersion = currentVersion;
@@ -230,18 +250,22 @@ async function notifyStandalone( currentVersion: string ): Promise< void > {
 	if (
 		latestVersion &&
 		semver.valid( latestVersion ) &&
-		semver.valid( currentVersion ) &&
+		channelForVersion( latestVersion ) === channelForVersion( currentVersion ) &&
 		semver.gt( latestVersion, currentVersion )
 	) {
-		process.stderr.write(
-			formatUpdateBanner( currentVersion, latestVersion, standaloneUpdateCommand( currentVersion ) )
-		);
+		return {
+			currentVersion,
+			latestVersion,
+			updateCommand: 'studio update',
+			downloadUrl,
+		};
 	}
+	return null;
 }
 
 type UpdateChannel = 'production' | 'beta' | 'nightly';
 
-function channelForVersion( version: string ): UpdateChannel {
+export function channelForVersion( version: string ): UpdateChannel {
 	if ( /-dev\.|-dev\d/.test( version ) ) {
 		return 'nightly';
 	}
@@ -249,33 +273,6 @@ function channelForVersion( version: string ): UpdateChannel {
 		return 'beta';
 	}
 	return 'production';
-}
-
-/**
- * The OS-appropriate installer one-liner to update a standalone (curl-installed) CLI,
- * pinned to the running version's channel via STUDIO_CLI_VERSION. Production uses the
- * installer default (`latest`); nightly/beta use the matching CDN alias.
- *
- * The `beta` CDN alias is still pending (wpcom follow-up), but no beta CLI builds exist
- * yet, so the beta branch is currently unreachable in practice.
- */
-export function standaloneUpdateCommand(
-	currentVersion: string,
-	platform: NodeJS.Platform = process.platform
-): string {
-	const channel = channelForVersion( currentVersion );
-	const alias = channel === 'production' ? '' : channel;
-
-	if ( platform === 'win32' ) {
-		const prefix = alias ? `$env:STUDIO_CLI_VERSION='${ alias }'; ` : '';
-		return `${ prefix }irm ${ STUDIO_INSTALL_BASE }/install.ps1 | iex`;
-	}
-
-	// The env var must sit on the `bash` side of the pipe. In `VAR=x curl … | bash`,
-	// `VAR=x` scopes to curl only, so the piped bash runs install.sh without it and
-	// falls back to `latest`. `curl … | VAR=x bash` is what actually pins the channel.
-	const prefix = alias ? `STUDIO_CLI_VERSION=${ alias } ` : '';
-	return `curl -fsSL ${ STUDIO_INSTALL_BASE }/install.sh | ${ prefix }bash`;
 }
 
 export function formatUpdateBanner(

@@ -11,7 +11,7 @@ export function AnnotateHint(
 			dismissalKey="annotateHintDismissed"
 			title={ __( 'Annotate your site' ) }
 			description={ __(
-				'Click anything or drag to select an area, then describe the change. Click Annotate again to exit annotation mode.'
+				'Click anything, or drag to select an area, then describe the change. Click Annotate again when you’re done.'
 			) }
 		/>
 	);

@@ -39,13 +39,18 @@ export function deriveWhatsNewAutostart( {
 	if ( siteCount < 1 || ! agenticReady || hints === undefined ) {
 		return null;
 	}
+	if (
+		hints.walkthroughStep &&
+		! [ 'ineligible', 'completed', 'skipped' ].includes( hints.walkthroughStep )
+	) {
+		return null;
+	}
 	if ( ( hints.whatsNewSeenVersion ?? 0 ) >= WHATS_NEW_VERSION ) {
 		return null;
 	}
-	// Someone who hasn't been through the orientation guide gets that instead,
-	// and nothing in What's New is news to them: mark it seen so the two never
-	// stack. Orientation autostarts on exactly the state that returns 'mark-seen'.
 	const orientationSeen =
+		hints.walkthroughStep === 'completed' ||
+		hints.walkthroughStep === 'skipped' ||
 		( hints.tourCompletedVersion ?? 0 ) >= ORIENTATION_GUIDE_VERSION ||
 		( hints.tourDismissedVersion ?? 0 ) >= ORIENTATION_GUIDE_VERSION;
 	return orientationSeen ? 'show' : 'mark-seen';

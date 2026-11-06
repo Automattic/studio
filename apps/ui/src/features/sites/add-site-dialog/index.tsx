@@ -7,10 +7,13 @@ import { __ } from '@wordpress/i18n';
 import { ChevronLeftIcon, CloudDownloadIcon } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useConnector } from '@/data/core';
+import { useOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
+import { useSites } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useFileDrop } from '@/data/use-composer-attachments';
+import { Walkthrough } from '@/features/onboarding';
 import { BlueprintErrorDialog } from '@/features/sites/blueprint-error-dialog';
 import { SiteFileUpload } from '@/features/sites/blueprint-upload';
 import { isBlueprintFile } from '@/features/sites/blueprint-upload/load-blueprint-file';
@@ -82,9 +85,19 @@ export function AddSiteDialog() {
 		settings?: string;
 	};
 	const { data: preferences } = useUserPreferences();
+	const { data: onboardingHints } = useOnboardingHints();
+	const { data: sites } = useSites();
 	const [ openedWith, setOpenedWith ] = useState( addSite );
 	const [ chosenView, replaceView ] = useState< View | null >( null );
-	const view = chosenView ?? getInitialView( addSite ?? 'create', preferences?.newSiteBehavior );
+	const touringSiteOptions = [ 'intro', 'create' ].includes(
+		onboardingHints?.walkthroughStep ?? ''
+	);
+	const view =
+		chosenView ??
+		getInitialView(
+			addSite ?? 'create',
+			touringSiteOptions ? undefined : preferences?.newSiteBehavior
+		);
 	const [ viewHistory, setViewHistory ] = useState< View[] >( [] );
 	const setView = ( next: View ) => {
 		setViewHistory( ( history ) => [ ...history, view ] );
@@ -403,6 +416,7 @@ export function AddSiteDialog() {
 		<Dialog
 			replaceable
 			open={ !! addSite && ! settings }
+			disablePointerDismissal={ onboardingHints?.walkthroughStep === 'create' }
 			onOpenChange={ ( open ) => ! open && close() }
 		>
 			<DialogContent
@@ -423,6 +437,17 @@ export function AddSiteDialog() {
 				{ upload.isLoading ? (
 					<VisuallyHidden role="status">{ __( 'Loading file…' ) }</VisuallyHidden>
 				) : null }
+				<Walkthrough
+					inSiteDialog
+					onContinue={ sites?.length ? close : undefined }
+					createStage={
+						view.name === 'details'
+							? 'details'
+							: view.name === 'setup' && ! view.remote
+							? 'setup'
+							: 'gallery'
+					}
+				/>
 				{ hasSidebar ? (
 					<Tabs
 						orientation="vertical"

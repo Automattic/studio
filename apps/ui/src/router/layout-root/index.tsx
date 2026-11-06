@@ -11,7 +11,7 @@ import { SessionUIProvider } from '@/data/use-session-ui';
 import { useAppMenuNavigation } from '@/features/commands';
 import { useAiCreditsPurchaseResult } from '@/features/credits';
 import { FeedbackDialog } from '@/features/feedback';
-import { WelcomeDialog } from '@/features/onboarding';
+import { WelcomeDialog, Walkthrough } from '@/features/onboarding';
 import { WapuuWorldMount, SettingsDialog } from '@/features/settings';
 import { AddSiteDialog, isAddSiteSection } from '@/features/sites';
 import type { AiSessionSummary, Connector, SiteDetails } from '@/data/core';
@@ -132,6 +132,7 @@ export const rootRoute = createRootRouteWithContext< RouterContext >()( {
 			<AddSiteDialog />
 			<WelcomeDialog />
 			<FeedbackDialog />
+			<Walkthrough />
 		</SessionUIProvider>
 	),
 } );

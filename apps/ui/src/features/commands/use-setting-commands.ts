@@ -1,5 +1,6 @@
 import { getLocalizedLink, REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
 import { __ } from '@wordpress/i18n';
+import { CompassIcon } from 'lucide-react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
@@ -10,6 +11,7 @@ import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { getSettingCommands } from '@/features/commands/studio-commands';
+import { useOpenGettingStarted } from '@/features/onboarding';
 import { ResetTipsIcon } from '@/lib/icons';
 import type { SiteDetails, UserPreferences } from '@/data/core';
 import type { PaletteCommand, SettingToggles } from '@/features/commands/studio-commands';
@@ -115,6 +117,7 @@ export function useSettingCommands(
 	const locale = useUserLocale();
 	const resetAppearance = useResetAppearance();
 	const resetInterface = useResetInterface();
+	const gettingStarted = useOpenGettingStarted();
 	const setHints = useSetOnboardingHints();
 
 	const commands = getSettingCommands( {
@@ -143,6 +146,19 @@ export function useSettingCommands(
 		openSettings,
 	} );
 	if ( scope === 'studio' ) {
+		commands.push( {
+			id: 'take-tour',
+			group: 'commands',
+			label: __( 'Take a tour' ),
+			icon: CompassIcon,
+			aliases: [ __( 'Getting started' ), __( 'Walkthrough' ) ],
+			keywords: [ __( 'Tour' ), __( 'Onboarding' ) ],
+			run: () => {
+				void gettingStarted
+					.open()
+					.catch( () => toast.error( __( 'Could not start the tour. Please try again.' ) ) );
+			},
+		} );
 		commands.push( {
 			id: 'reset-tips',
 			group: 'commands',

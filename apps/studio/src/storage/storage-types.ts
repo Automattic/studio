@@ -62,10 +62,21 @@ interface PromptWindowsSpeedUpResult {
 // Persisted verbatim; the desktop never inspects it, so a structural shape keeps
 // the two sides decoupled.
 export interface OnboardingHintsState {
+	walkthroughStep?:
+		| 'intro'
+		| 'create'
+		| 'composer'
+		| 'annotate'
+		| 'share'
+		| 'publish'
+		| 'completed'
+		| 'skipped'
+		| 'ineligible';
 	tourCompletedVersion?: number;
 	tourDismissedVersion?: number;
 	migratedFromClassic?: boolean;
 	whatsNewSeenVersion?: number;
+	annotateHintDismissed?: boolean;
 }
 
 export const EMPTY_USER_DATA: UserData = {

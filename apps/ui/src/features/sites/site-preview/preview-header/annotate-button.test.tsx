@@ -49,9 +49,9 @@ describe( 'Annotate first-use helper', () => {
 		await user.click( button );
 		const tip = await screen.findByRole( 'dialog', { name: 'Annotate your site' } );
 		expect( tip ).toHaveAccessibleDescription(
-			'Click anything or drag to select an area, then describe the change. Click Annotate again to exit annotation mode.'
+			'Click anything, or drag to select an area, then describe the change. Click Annotate again when you’re done.'
 		);
-		expect( tip ).toHaveAttribute( 'data-instant', 'true' );
+		expect( tip ).not.toHaveAttribute( 'data-instant' );
 		expect( button ).toHaveAttribute( 'aria-pressed', 'true' );
 		expect( button ).toHaveFocus();
 		await waitFor( () =>

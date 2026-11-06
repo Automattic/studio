@@ -88,6 +88,7 @@ export function BlueprintGallery( {
 						type="button"
 						className={ styles.card }
 						data-start-blank
+						data-walkthrough="create"
 						aria-label={ __( 'Start with Blank site' ) }
 						onClick={ () => {
 							void connector
@@ -106,12 +107,13 @@ export function BlueprintGallery( {
 						<span className={ styles.cardTitle }>{ __( 'Blank site' ) }</span>
 					</button>
 				) : null }
-				{ items.map( ( blueprint ) => (
+				{ items.map( ( blueprint, index ) => (
 					<button
 						key={ blueprint.slug }
 						type="button"
 						className={ styles.card }
 						data-blueprint-slug={ blueprint.slug }
+						data-walkthrough={ index === 0 ? 'create-design' : undefined }
 						aria-label={ sprintf(
 							// translators: %s is a Blueprint name.
 							__( 'View %s' ),

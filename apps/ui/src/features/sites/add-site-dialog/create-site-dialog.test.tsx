@@ -8,7 +8,7 @@ import { App } from '@/app';
 import { rememberAccountJourney } from '@/data/account-analytics';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { createTestQueryClient, renderApp } from '@/test/render';
-import type { SiteDetails, SyncSite } from '@/data/core';
+import type { OnboardingHintsState, SiteDetails, SyncSite } from '@/data/core';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
 
 const portfolio: Blueprint = {
@@ -36,12 +36,16 @@ function setup( {
 	path = '/?addSite=create',
 	colorScheme = 'light',
 	strict = false,
+	sites = [],
+	walkthroughStep,
 }: {
 	behavior?: 'choose' | 'blank';
 	blueprint?: Blueprint | null;
 	path?: string;
 	colorScheme?: 'light' | 'dark';
 	strict?: boolean;
+	sites?: SiteDetails[];
+	walkthroughStep?: OnboardingHintsState[ 'walkthroughStep' ];
 } = {} ) {
 	vi.stubGlobal(
 		'fetch',
@@ -53,8 +57,9 @@ function setup( {
 	);
 	const site = makeSite( { id: 'created', name: 'New site', path: '/sites/new' } );
 	const connector = createFakeConnector(
-		{ preferences: { newSiteBehavior: behavior, colorScheme } },
+		{ sites, preferences: { newSiteBehavior: behavior, colorScheme } },
 		{
+			...( walkthroughStep ? { getOnboardingHints: async () => ( { walkthroughStep } ) } : {} ),
 			createSite: async () => {
 				connector.state.sites = [ ...connector.state.sites, site ];
 				return site;
@@ -98,6 +103,51 @@ async function submit( name = 'Create site' ) {
 }
 
 describe( 'Add site flow', () => {
+	it.each( [ 'choose', 'blank' ] as const )(
+		'keeps the %s dialog open on outside presses during the creation tour, but allows the close button',
+		async ( behavior ) => {
+			const { user, history } = setup( { behavior, walkthroughStep: 'create' } );
+			const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
+			fireEvent.click(
+				screen
+					.getAllByRole( 'presentation', { hidden: true } )
+					.find( ( element ) => element.dataset.variant === 'dimmed' )!
+			);
+			expect( dialog ).toBeVisible();
+			expect( history.location.search ).toContain( 'addSite=create' );
+			await user.click( screen.getByRole( 'button', { name: 'Close Add site' } ) );
+			await waitFor( () => expect( dialog ).not.toBeInTheDocument() );
+			expect( history.location.search ).not.toContain( 'addSite' );
+		}
+	);
+
+	it.each( [ undefined, 'skipped', 'completed', 'ineligible' ] as const )(
+		'allows outside presses with no sites when the tour is %s',
+		async ( walkthroughStep ) => {
+			const { history } = setup( { walkthroughStep } );
+			const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
+			fireEvent.click(
+				screen
+					.getAllByRole( 'presentation', { hidden: true } )
+					.find( ( element ) => element.dataset.variant === 'dimmed' )!
+			);
+			await waitFor( () => expect( dialog ).not.toBeInTheDocument() );
+			expect( history.location.search ).not.toContain( 'addSite' );
+		}
+	);
+
+	it( 'allows outside presses to close the dialog when a site already exists', async () => {
+		const { history } = setup( { sites: [ makeSite() ] } );
+		const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
+		fireEvent.click(
+			screen
+				.getAllByRole( 'presentation', { hidden: true } )
+				.find( ( element ) => element.dataset.variant === 'dimmed' )!
+		);
+		await waitFor( () => expect( dialog ).not.toBeInTheDocument() );
+		expect( history.location.search ).not.toContain( 'addSite' );
+	} );
+
 	it.each( [ 'light', 'dark' ] as const )(
 		'completes the original connect journey when the initial pull fails and the user retries (%s)',
 		async ( colorScheme ) => {

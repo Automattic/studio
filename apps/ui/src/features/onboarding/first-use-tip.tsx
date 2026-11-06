@@ -3,6 +3,7 @@ import { useOnboardingHints, useSetOnboardingHints } from '@/data/queries/use-on
 import { FeaturePopover, Popover, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import { useOnboardingGuide } from './onboarding-guide/use-onboarding-guide';
 import { useRootDialogOpen } from './onboarding-guide/use-root-dialog-open';
+import { isWalkthroughPending } from './walkthrough';
 
 export function FirstUseTip( {
 	children,
@@ -26,7 +27,12 @@ export function FirstUseTip( {
 	const { isOpen: guideOpen } = useOnboardingGuide();
 	const dialogOpen = useRootDialogOpen();
 	const eligible =
-		enabled && hints !== undefined && ! hints[ dismissalKey ] && ! guideOpen && ! dialogOpen;
+		enabled &&
+		hints !== undefined &&
+		! isWalkthroughPending( hints.walkthroughStep ) &&
+		! hints[ dismissalKey ] &&
+		! guideOpen &&
+		! dialogOpen;
 	const [ open, setOpen ] = useState( false );
 	const triggerId = useId();
 	const descriptionId = useId();
@@ -42,7 +48,13 @@ export function FirstUseTip( {
 		setOpen( true );
 		markSeen( { [ dismissalKey ]: true } );
 	}, [ active, enabled, eligible, guideOpen, dialogOpen, dismissalKey, markSeen ] );
-	const visible = open && active && enabled && ! guideOpen && ! dialogOpen;
+	const visible =
+		open &&
+		active &&
+		enabled &&
+		! isWalkthroughPending( hints?.walkthroughStep ) &&
+		! guideOpen &&
+		! dialogOpen;
 	const dismiss = () => setOpen( false );
 
 	return (
@@ -54,7 +66,7 @@ export function FirstUseTip( {
 				if ( ! nextOpen ) dismiss();
 			} }
 		>
-			<Tooltip disabled={ visible }>
+			<Tooltip disabled={ visible || isWalkthroughPending( hints?.walkthroughStep ) }>
 				<TooltipTrigger
 					render={
 						<Popover.Trigger
@@ -68,7 +80,6 @@ export function FirstUseTip( {
 				<TooltipContent side="bottom">{ tooltip }</TooltipContent>
 			</Tooltip>
 			<FeaturePopover.Popup
-				instant
 				side="bottom"
 				align="end"
 				initialFocus={ false }

@@ -54,7 +54,7 @@ it( 'sets up a new local site for a remote site no local site is connected to', 
 	const { connector } = setup( { syncable: [ remote( 41 ), remote( 42 ) ] } );
 	await screen.findByRole( 'button', { name: 'First site' } );
 	act( () => connector.emit( 'onPullSite', { remoteSiteId: 42 } ) );
-	expect( await screen.findByText( 'remote-42.example.com' ) ).toBeVisible();
+	expect( await screen.findByText( 'https://remote-42.example.com' ) ).toBeVisible();
 	expect( connector.createSite ).not.toHaveBeenCalled();
 } );
 

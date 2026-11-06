@@ -61,7 +61,6 @@
 
 .action {
 	border-radius: var( --radius-sm );
-	transition: none;
 }
 
 .action svg {

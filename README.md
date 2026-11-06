@@ -86,7 +86,6 @@ WordPress Studio welcomes bug reports, feature proposals, code contributions, an
 
 - [Report a bug](https://github.com/Automattic/studio/issues/new?assignees=&labels=Needs+triage%2C%5BType%5D+Bug&projects=&template=bug_report.yml).
 - [Suggest a feature](https://github.com/Automattic/studio/issues/new?assignees=&labels=%5BType%5D+Feature+Request&projects=&template=feature_request.yml&title=Feature+Request%3A).
-- Submit a pull request with a bug fix or enhancement.
 - [Help translate WordPress Studio](https://translate.wordpress.com/projects/studio/).
 
 To set up the development environment and run WordPress Studio from source, start with the [contributing guidelines](CONTRIBUTING.md) and [code contributions guide](docs/code-contributions.md).

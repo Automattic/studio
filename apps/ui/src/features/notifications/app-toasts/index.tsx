@@ -13,7 +13,6 @@ import {
 	type ToastMessage,
 } from '@/data/app-messages';
 import { NoticeCard } from '@/features/notifications/notice-card';
-import { useNoticeHistoryOpen } from '@/features/notifications/notice-history';
 import styles from './style.module.css';
 
 const pauseAll = () => getVisibleToasts().forEach( ( item ) => pauseToastExpiry( item.id ) );
@@ -25,6 +24,7 @@ function ToastDeck() {
 	return (
 		<Toast.Viewport
 			className={ styles.viewport }
+			data-overflow={ toasts.length > 3 || undefined }
 			aria-label={ __( 'Notifications' ) }
 			onMouseEnter={ pauseAll }
 			onMouseLeave={ resumeAll }
@@ -90,7 +90,6 @@ function ToastDeck() {
 
 export function AppToasts() {
 	const toasts = useVisibleToasts();
-	const historyOpen = useNoticeHistoryOpen();
 	const [ manager ] = useState( Toast.createToastManager );
 	const synced = useRef< readonly ToastMessage[] >( [] );
 
@@ -118,16 +117,9 @@ export function AppToasts() {
 		synced.current = toasts;
 	}, [ toasts, manager ] );
 
-	// The history lists them, so they hide and run out their time meanwhile.
-	useEffect( () => {
-		if ( historyOpen ) {
-			resumeAll();
-		}
-	}, [ historyOpen ] );
-
 	return (
-		<Toast.Provider toastManager={ manager } timeout={ 0 } limit={ 3 }>
-			{ historyOpen ? null : <ToastDeck /> }
+		<Toast.Provider toastManager={ manager } timeout={ 0 } limit={ Infinity }>
+			<ToastDeck />
 		</Toast.Provider>
 	);
 }

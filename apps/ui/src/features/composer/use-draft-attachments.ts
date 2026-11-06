@@ -27,6 +27,7 @@ export function useDraftAttachments( {
 	textareaRef: RefObject< HTMLTextAreaElement | null >;
 } ) {
 	const {
+		error: attachmentError,
 		attachments,
 		addFiles,
 		removeAttachment,
@@ -75,6 +76,7 @@ export function useDraftAttachments( {
 			: removeAttachment( attachment.id );
 
 	return {
+		attachmentError,
 		attachments,
 		restoreAttachments,
 		pasteHandlers,

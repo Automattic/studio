@@ -212,9 +212,8 @@ describe( 'AnnotationOverlay', () => {
 			await waitFor( () =>
 				expect( images().map( ( item ) => item.name ) ).toEqual( [ 'four.png' ] )
 			);
-			expect( getVisibleToasts().map( ( toast ) => toast.title ) ).toContain(
-				'You can attach up to 4 images'
-			);
+			expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'You can attach up to 4 images' );
+			expect( getVisibleToasts() ).toEqual( [] );
 		} );
 
 		it( 'rejects unsupported images instead of attaching them as filesystem paths', async () => {

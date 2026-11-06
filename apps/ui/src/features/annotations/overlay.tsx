@@ -4,13 +4,13 @@ import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
 import { PaperclipIcon } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { toast } from '@/data/app-messages';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useComposerAttachments, useFileDrop } from '@/data/use-composer-attachments';
 import { SendIcon, TrashIcon } from '@/lib/icons';
 import { isImeComposing, isShortcut } from '@/lib/keyboard';
 import {
 	DropOverlay,
+	FieldError,
 	AttachmentRemoveButton,
 	Button,
 	IconButton,
@@ -121,14 +121,19 @@ function NoteEditor( {
 		left: EDGE,
 		top: EDGE,
 	} );
-	const { attachments, addFiles, removeAttachment, pasteHandlers } = useComposerAttachments(
-		note.images
-	);
+	const {
+		attachments,
+		addFiles,
+		removeAttachment,
+		pasteHandlers,
+		error: attachmentError,
+		setError: setAttachmentError,
+	} = useComposerAttachments( note.images );
 	const addImages = useCallback(
 		( files: FileList | File[] ) => {
 			const list = Array.from( files );
 			if ( list.some( ( file ) => ! isStudioChatImageMimeType( file.type ) ) ) {
-				toast.error( __( 'Only PNG, JPEG, GIF, and WebP images can be attached' ) );
+				setAttachmentError( __( 'Only PNG, JPEG, GIF, and WebP images can be attached' ) );
 				return;
 			}
 			const otherImages = getSiteAnnotations( siteId )
@@ -137,7 +142,7 @@ function NoteEditor( {
 			setAnnotationsPreparing( siteId, true );
 			void addFiles( list, otherImages ).finally( () => setAnnotationsPreparing( siteId, false ) );
 		},
-		[ addFiles, note.id, siteId ]
+		[ addFiles, note.id, siteId, setAttachmentError ]
 	);
 	const isDragging = useFileDrop( editorNode, addImages );
 
@@ -241,6 +246,7 @@ function NoteEditor( {
 					submit( isShortcut( event.nativeEvent, 'Enter' ) );
 				} }
 			/>
+			{ attachmentError ? <FieldError role="alert">{ attachmentError }</FieldError> : null }
 			<div className={ styles.toolbar }>
 				<IconButton
 					size="icon"

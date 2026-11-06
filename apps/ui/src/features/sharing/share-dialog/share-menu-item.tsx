@@ -33,7 +33,7 @@ function PreviewLink( {
 				}
 				void connector.copyText( getSnapshotUrl( snapshot ) ).then(
 					() => toast.success( __( 'Link copied' ) ),
-					() => toast.error( __( 'Could not copy' ) )
+					() => toast.error( __( 'Could not copy' ), { id: 'clipboard-error' } )
 				);
 			} }
 		>

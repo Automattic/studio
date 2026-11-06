@@ -1,7 +1,7 @@
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
+import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import splitStyles from '@/features/sites/panel-split-frame/style.module.css';
 import { createFakeConnector, makeSession, makeSite } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
@@ -527,7 +527,7 @@ describe( 'site lifecycle and preview', () => {
 			connector.emit( 'onSiteEvent', { event: SITE_EVENTS.UPDATED, siteId: 'one', running: true } )
 		);
 		expect( connector.startSite ).toHaveBeenCalledTimes( 1 );
-		expect( getNoticeHistory() ).toHaveLength( 0 );
+		expect( getVisibleToasts() ).toHaveLength( 0 );
 	} );
 
 	it.each( [ false, true ] )(
@@ -595,7 +595,7 @@ describe( 'site lifecycle and preview', () => {
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Start My site' } ) );
 		await screen.findByRole( 'button', { name: 'Stop My site' } );
 		expect( connector.startSite ).toHaveBeenCalledTimes( 2 );
-		expect( getNoticeHistory() ).toHaveLength( 0 );
+		expect( getVisibleToasts() ).toHaveLength( 0 );
 	} );
 
 	it( 'shows a failed start without claiming the site is running', async () => {

@@ -1,11 +1,11 @@
 /**
- * What Studio adds to the conversation: its notes on a tool's result, and its
- * checks of the sites at the end of a turn. They reach the model in the
+ * What Studio adds to the conversation: its notes on a tool's result, its
+ * checks of the sites at the end of a turn, and the context a turn starts from. They reach the model in the
  * tool's or the user's role, so they are tagged as Studio's, the way Pi tags
  * the summaries it adds. The same text reaches every surface.
  */
 export function studioMessage(
-	kind: 'notes' | 'checks',
+	kind: 'notes' | 'checks' | 'context',
 	lines: Array< string | undefined >
 ): string | undefined {
 	const body = lines.filter( Boolean ).join( '\n' );

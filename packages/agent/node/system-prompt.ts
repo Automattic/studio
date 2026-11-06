@@ -1,6 +1,7 @@
 import path from 'path';
 import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from './global-instructions';
 import { formatActiveSite } from './site-selection';
+import { studioMessage } from './studio-message';
 import type { RemoteHost } from './remote-hosts';
 import type { SiteInfo } from './types';
 
@@ -15,8 +16,20 @@ export interface BuildSystemPromptOptions {
 	// Another agent (Codex, Claude Code, …) drives the Studio tools over MCP,
 	// with its own file tools and conversation.
 	external?: boolean;
-	// The site this turn works on. The prompt is rebuilt every turn, so this
-	// always reflects the current site, also after compaction.
+	// The hosts besides this computer that the user's sites are on.
+	remoteHosts?: Record< string, RemoteHost >;
+	// Facts about the computer Bash commands run on, one line each.
+	environmentFacts?: string[];
+}
+
+// What a turn starts from that can change between turns: the site the user has
+// open, or their sites when none is, and where Bash starts. It reaches the
+// model as a message when it changes rather than in the system prompt, so the
+// system prompt stays the same for the whole conversation and the provider's
+// prompt cache holds across turns: a prompt naming the sites changes near its
+// top as soon as a turn creates one, and every later token is read uncached.
+export interface TurnContextOptions {
+	// The site this turn works on.
 	activeSite?: SiteInfo | null;
 	// Facts about the active site read from its own data, one line each (for
 	// example the WordPress version it runs).
@@ -25,8 +38,6 @@ export interface BuildSystemPromptOptions {
 	remoteHosts?: Record< string, RemoteHost >;
 	// The folder each Bash command starts in.
 	shellDirectory?: string;
-	// Facts about the computer Bash commands run on, one line each.
-	environmentFacts?: string[];
 	// The user's local sites, stated when no site is active.
 	localSites?: Array< { name: string; path: string } >;
 }
@@ -72,17 +83,13 @@ function hostEnvironment( remoteHosts: Record< string, RemoteHost > ): string {
 
 const environment = (
 	remoteHosts: Record< string, RemoteHost >,
-	shellDirectory?: string,
-	facts: string[] = [],
-	localSites?: Array< { name: string; path: string } >
+	facts: string[] = []
 ) => `## Environment
 
 - Studio runs the user's local WordPress sites on this computer. Each one is a complete WordPress install in its own folder: WordPress core (\`wp-includes/\`, \`wp-admin/\`) and every installed theme and plugin (\`wp-content/\`) are on disk.${ hostEnvironment(
 	remoteHosts
 ) }
-- The active site is the one the user has open in Studio.${
-	localSites ? localSitesLine( localSites, shellDirectory ) : ''
-}${ shellDirectory ? `\n- Each Bash command starts in ${ shellDirectory }.` : '' }${ facts
+- The active site is the one the user has open in Studio.${ facts
 	.map( ( fact ) => `\n- ${ fact }` )
 	.join( '' ) }`;
 
@@ -99,20 +106,26 @@ export function buildSystemPrompt( options: BuildSystemPromptOptions = {} ): str
 	const remoteHosts = options.remoteHosts ?? {};
 	const environmentSection = options.external
 		? externalEnvironment( remoteHosts )
-		: environment(
-				remoteHosts,
-				options.shellDirectory,
-				options.environmentFacts,
-				options.activeSite ? undefined : options.localSites
-		  );
+		: environment( remoteHosts, options.environmentFacts );
 	return `${ identity }
 
-${ environmentSection }${ buildActiveSiteSection(
-		options.activeSite,
-		options.activeSiteFacts,
-		remoteHosts
-	) }${ buildUserInstructionsSection( options.userInstructions ) }
+${ environmentSection }${ buildUserInstructionsSection( options.userInstructions ) }
 `;
+}
+
+/** The turn's context as Studio states it to the model, tagged as Studio's. */
+export function buildTurnContext( options: TurnContextOptions = {} ): string {
+	const { activeSite, shellDirectory, localSites } = options;
+	const lines = `${
+		! activeSite && localSites ? localSitesLine( localSites, shellDirectory ) : ''
+	}${
+		shellDirectory ? `\n- Each Bash command starts in ${ shellDirectory }.` : ''
+	}${ buildActiveSiteSection(
+		activeSite,
+		options.activeSiteFacts,
+		options.remoteHosts ?? {}
+	) }`.trim();
+	return studioMessage( 'context', [ lines ] ) ?? '';
 }
 
 function buildActiveSiteSection(

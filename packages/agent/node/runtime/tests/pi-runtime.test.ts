@@ -22,6 +22,7 @@ const mocks = vi.hoisted( () => ( {
 	nextEvents: null as AgentSessionEvent[] | null,
 	continueEvents: [] as AgentSessionEvent[][],
 	customMessages: [] as Array< { message: unknown; options: unknown } >,
+	turnContexts: [] as string[],
 	onCustomMessage: null as ( () => void ) | null,
 	studioRoot: '/tmp/studio-ai-pi-runtime',
 	bashCwd: '',
@@ -338,7 +339,24 @@ class FakeSession {
 		}
 	}
 
-	async sendCustomMessage( message: unknown, options: unknown ): Promise< void > {
+	get messages(): unknown[] {
+		return this.state.messages;
+	}
+
+	async sendCustomMessage(
+		message: { customType: string; content: string; display: boolean },
+		options: { deliverAs?: string }
+	): Promise< void > {
+		// Pi adds a next-turn message to the session with the prompt it comes with.
+		if ( options.deliverAs === 'nextTurn' ) {
+			mocks.turnContexts.push( message.content );
+			this.options.sessionManager?.appendCustomMessageEntry(
+				message.customType,
+				message.content,
+				message.display
+			);
+			return;
+		}
 		mocks.customMessages.push( { message, options } );
 		mocks.onCustomMessage?.();
 		for ( const event of mocks.continueEvents.shift() ?? [] ) {
@@ -425,6 +443,7 @@ describe( 'pi runtime', () => {
 		mocks.nextEvents = null;
 		mocks.continueEvents = [];
 		mocks.customMessages = [];
+		mocks.turnContexts = [];
 		mocks.onCustomMessage = null;
 		mocks.openProblems = [];
 		mocks.turnEnd = [];
@@ -477,9 +496,45 @@ describe( 'pi runtime', () => {
 			} );
 			await handle.result;
 			expect( mocks.bashCwd ).toBe( folder );
-			expect( handle.systemPrompt() ).toContain( `- Each Bash command starts in ${ folder }.` );
+			expect( mocks.turnContexts.at( -1 ) ).toContain(
+				`- Each Bash command starts in ${ folder }.`
+			);
 		}
 		fs.rmSync( site, { recursive: true, force: true } );
+	} );
+
+	// eval23: the system prompt named the user's sites, so the turn after one
+	// that created a site sent a new prompt and the provider cache missed on
+	// 82-132k tokens. The prompt stays the same; what changed is a message.
+	it( 'keeps the system prompt across turns and states a changed site list with the prompt', async () => {
+		const all = host.sites.all;
+		const session = newSession();
+		const turn = async () => {
+			const handle = agent.runTurn( {
+				prompt: 'hello',
+				session,
+				env: WPCOM_ENV,
+				onEvent: () => {},
+			} );
+			await handle.result;
+			return handle.systemPrompt();
+		};
+		try {
+			host.sites.all = async () => [];
+			const first = await turn();
+			host.sites.all = async () => [ { ...fakeSite, id: '1', name: 'Shop', path: '/sites/shop' } ];
+			const second = await turn();
+			const third = await turn();
+
+			expect( second ).toBe( first );
+			expect( third ).toBe( first );
+			expect( first ).not.toContain( 'local sites' );
+			expect( mocks.turnContexts ).toHaveLength( 2 );
+			expect( mocks.turnContexts[ 0 ] ).toContain( 'the user has no local sites yet' );
+			expect( mocks.turnContexts[ 1 ] ).toContain( '"Shop" (/sites/shop)' );
+		} finally {
+			host.sites.all = all;
+		}
 	} );
 
 	it( 'reports the system prompt its model requests carry', async () => {
@@ -996,7 +1051,7 @@ describe( 'pi runtime', () => {
 				await getCreatedTool( 'Write' ).execute( 'w', { path: 'shop/style.css', content: '' } );
 				mocks.nextEvents = [ { type: 'agent_end', willRetry: false, messages: [] } ];
 				await tool.execute( 's', { task: 'write the about page' } );
-				expect( mocks.createdSessions.at( -1 )!.systemPrompt ).toContain(
+				expect( mocks.turnContexts.at( -1 ) ).toContain(
 					`- Each Bash command starts in ${ site }.`
 				);
 			} finally {

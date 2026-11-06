@@ -1,7 +1,7 @@
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { describe, expect, it } from 'vitest';
 import { getSkillScopedToolNames, loadSkills } from '../skills';
-import { buildSystemPrompt, PROXY_IDENTITY } from '../system-prompt';
+import { buildSystemPrompt, buildTurnContext, PROXY_IDENTITY } from '../system-prompt';
 import { resolveStudioTools } from '../tools';
 import { createFakeHost, fakeWpcom } from './fake-host';
 
@@ -44,47 +44,61 @@ describe( 'buildSystemPrompt', () => {
 		}
 	} );
 
+	it( 'leaves the identity to the external agent', () => {
+		expect( buildSystemPrompt( { external: true } ) ).not.toContain( 'You are' );
+	} );
+
+	it( 'appends the user standing instructions when set', () => {
+		const prompt = buildSystemPrompt( { userInstructions: 'Always answer in French.' } );
+		expect( prompt ).toContain( "## The user's standing instructions" );
+		expect( prompt ).toContain( 'Always answer in French.' );
+		expect( buildSystemPrompt() ).not.toContain( 'standing instructions' );
+	} );
+
+	it( 'truncates oversized standing instructions with a visible notice', () => {
+		const prompt = buildSystemPrompt( { userInstructions: 'a'.repeat( 20_000 ) } );
+		expect( prompt ).toContain( 'truncated here' );
+		expect( prompt ).not.toContain( 'a'.repeat( 17_000 ) );
+	} );
+} );
+
+describe( 'buildTurnContext', () => {
 	it( "names the user's local sites when none is active, up to a bound", () => {
 		const sites = Array.from( { length: 23 }, ( _, i ) => ( {
 			name: `Site ${ i }`,
 			path: i ? `/sites/site-${ i }` : '/elsewhere/site-0',
 		} ) );
-		const prompt = buildSystemPrompt( { shellDirectory: '/sites', localSites: sites } );
+		const prompt = buildTurnContext( { shellDirectory: '/sites', localSites: sites } );
 		expect( prompt ).toContain(
 			'- No site is open in Studio. The user\'s local sites: "Site 0" (/elsewhere/site-0), "Site 1" (site-1),'
 		);
 		expect( prompt ).toContain( '"Site 19" (site-19), and 3 more.' );
 		expect( prompt ).not.toContain( 'Site 20' );
-		expect( buildSystemPrompt( { localSites: [] } ) ).toContain(
+		expect( buildTurnContext( { localSites: [] } ) ).toContain(
 			'No site is open in Studio, and the user has no local sites yet.'
 		);
 		expect(
-			buildSystemPrompt( {
+			buildTurnContext( {
 				localSites: sites,
 				activeSite: { name: 'My Site', path: '/sites/my-site', running: true },
 			} )
 		).not.toContain( 'Site 0' );
 	} );
 
-	it( 'leaves the identity to the external agent', () => {
-		expect( buildSystemPrompt( { external: true } ) ).not.toContain( 'You are' );
-	} );
-
-	it( 'states the active site in its own section, above the user instructions', () => {
-		const prompt = buildSystemPrompt( {
-			userInstructions: 'Always answer in French.',
+	it( "states the active site in its own section, tagged as Studio's", () => {
+		const context = buildTurnContext( {
+			shellDirectory: '/sites/my-site',
 			activeSite: { name: 'My Site', path: '/sites/my-site', running: true },
 		} );
 
-		expect( prompt ).toContain( '## Active site\n\n"My Site" at /sites/my-site (running)' );
-		expect( prompt.indexOf( '## Active site' ) ).toBeLessThan(
-			prompt.indexOf( "## The user's standing instructions" )
+		expect( context ).toBe(
+			'<studio-context>\n- Each Bash command starts in /sites/my-site.\n\n## Active site\n\n"My Site" at /sites/my-site (running)\n</studio-context>'
 		);
-		expect( buildSystemPrompt( {} ) ).not.toContain( '## Active site' );
+		expect( buildTurnContext( {} ) ).not.toContain( '## Active site' );
 	} );
 
 	it( "lists the active site's facts under it, one per line", () => {
-		const prompt = buildSystemPrompt( {
+		const prompt = buildTurnContext( {
 			activeSite: { name: 'My Site', path: '/sites/my-site', running: true },
 			activeSiteFacts: [ 'WordPress 7.1.3.' ],
 		} );
@@ -93,7 +107,7 @@ describe( 'buildSystemPrompt', () => {
 	} );
 
 	it( 'states a WordPress.com active site with its ID and URL', () => {
-		const prompt = buildSystemPrompt( {
+		const prompt = buildTurnContext( {
 			activeSite: {
 				name: 'Live',
 				path: '',
@@ -110,7 +124,7 @@ describe( 'buildSystemPrompt', () => {
 	} );
 
 	it( "names the folder where Studio saves the active site's email", () => {
-		const prompt = buildSystemPrompt( {
+		const prompt = buildTurnContext( {
 			activeSite: { id: 'site-1', name: 'Mailer', path: '/sites/mailer', running: true },
 		} );
 
@@ -119,19 +133,6 @@ describe( 'buildSystemPrompt', () => {
 				'site-1'
 			) } (one .eml file per message)`
 		);
-	} );
-
-	it( 'appends the user standing instructions when set', () => {
-		const prompt = buildSystemPrompt( { userInstructions: 'Always answer in French.' } );
-		expect( prompt ).toContain( "## The user's standing instructions" );
-		expect( prompt ).toContain( 'Always answer in French.' );
-		expect( buildSystemPrompt() ).not.toContain( 'standing instructions' );
-	} );
-
-	it( 'truncates oversized standing instructions with a visible notice', () => {
-		const prompt = buildSystemPrompt( { userInstructions: 'a'.repeat( 20_000 ) } );
-		expect( prompt ).toContain( 'truncated here' );
-		expect( prompt ).not.toContain( 'a'.repeat( 17_000 ) );
 	} );
 } );
 

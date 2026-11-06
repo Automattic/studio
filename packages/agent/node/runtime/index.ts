@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { type AgentTool } from '@earendil-works/pi-agent-core';
+import { type AgentMessage, type AgentTool } from '@earendil-works/pi-agent-core';
 import {
 	type Api,
 	type Credential,
@@ -39,7 +39,7 @@ import { SiteChanges } from '@studio/agent/node/site-changes';
 import { readActiveSiteFacts } from '@studio/agent/node/site-facts';
 import { createSiteNotes } from '@studio/agent/node/site-notes';
 import { studioMessage } from '@studio/agent/node/studio-message';
-import { buildSystemPrompt } from '@studio/agent/node/system-prompt';
+import { buildSystemPrompt, buildTurnContext } from '@studio/agent/node/system-prompt';
 import { resolveStudioTools } from '@studio/agent/node/tools';
 import { createAskUserQuestionTool } from '@studio/agent/node/tools/ask-user-question';
 import { bindTool } from '@studio/agent/node/tools/define-tool';
@@ -504,7 +504,7 @@ async function createStudioAgentSession(
 		readActiveSiteFacts( config.host, config.activeSite ),
 		readMcpServers( config.host.remoteHosts ),
 		serveWpCli( config.host ),
-		// With no active site, the prompt names the user's sites.
+		// With no active site, the turn's context names the user's sites.
 		config.activeSite ? undefined : config.host.sites.all(),
 	] );
 
@@ -520,7 +520,7 @@ async function createStudioAgentSession(
 	const site = config.activeSite;
 	const localSite = site && ! site.remote ? site.path : undefined;
 	const siteNotes = createSiteNotes( config.host, {
-		// The Active site section already states this turn's facts.
+		// The turn's context already states this turn's facts.
 		stated: new Map( localSite ? [ [ path.resolve( localSite ), activeSiteFacts ] ] : [] ),
 		gate: blockValidationGate,
 		open: openProblems,
@@ -568,9 +568,11 @@ async function createStudioAgentSession(
 		tools.map( ( tool ) => tool.name )
 	);
 	const systemPrompt = buildSystemPrompt( {
-		shellDirectory: shellDirectory( config ),
 		environmentFacts: environmentFacts(),
 		userInstructions,
+	} );
+	const turnContext = buildTurnContext( {
+		shellDirectory: shellDirectory( config ),
 		activeSite: config.activeSite,
 		activeSiteFacts: activeSiteFacts.flat(),
 		localSites,
@@ -629,7 +631,27 @@ async function createStudioAgentSession(
 	activateTools = () =>
 		result.session.setActiveToolsByName( skillScope.activeToolNames( allToolNames ) );
 	activateTools();
+	// The turn's context comes with its prompt when it differs from the one
+	// the conversation last stated, also when compaction summed that one up.
+	if ( turnContext !== lastTurnContext( result.session.messages ) ) {
+		await result.session.sendCustomMessage(
+			{ customType: TURN_CONTEXT_TYPE, content: turnContext, display: false },
+			{ deliverAs: 'nextTurn' }
+		);
+	}
 	return result.session;
+}
+
+const TURN_CONTEXT_TYPE = 'studio.turn_context';
+
+function lastTurnContext( messages: AgentMessage[] ): string | undefined {
+	for ( let index = messages.length - 1; index >= 0; index-- ) {
+		const message = messages[ index ];
+		if ( message.role === 'custom' && message.customType === TURN_CONTEXT_TYPE ) {
+			return typeof message.content === 'string' ? message.content : undefined;
+		}
+	}
+	return undefined;
 }
 
 function buildModel(

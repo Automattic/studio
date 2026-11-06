@@ -2,7 +2,7 @@ import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import type { RemoteHost } from './remote-hosts';
 import type { SiteInfo } from './types';
 
-// The active site, as the system prompt states it: which site the session is
+// The active site, as the turn's context states it: which site the session is
 // attached to, rebuilt every turn from Studio's site data.
 export function formatActiveSite(
 	site: SiteInfo,

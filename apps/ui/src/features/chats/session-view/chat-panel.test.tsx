@@ -779,9 +779,20 @@ describe( 'Annotation drafts during an active run', () => {
 	it( 'sends a direct annotation immediately while the chat is idle', async () => {
 		const { connector, input } = await setupChat( { pinnedProvider: 'wpcom' } );
 		fireEvent.change( input, { target: { value: 'Keep my draft' } } );
+		let accept!: () => void;
+		const originalContinue = connector.continueSession.getMockImplementation()!;
+		connector.continueSession.mockImplementationOnce( async ( ...args ) => {
+			await new Promise< void >( ( resolve ) => {
+				accept = resolve;
+			} );
+			return originalContinue( ...args );
+		} );
 		const id = addNote();
 		act( () => requestAnnotationSend( { siteId: SITE_ID, noteIds: [ id ] } ) );
 		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledOnce() );
+		expect( getSiteAnnotations( SITE_ID ).notes[ 0 ].staged ).not.toBe( true );
+		expect( screen.queryByRole( 'listitem', { name: /^1 annotation,/ } ) ).not.toBeInTheDocument();
+		await act( async () => accept() );
 		expect( connector.continueSession.mock.calls[ 0 ][ 2 ] ).toEqual(
 			expect.objectContaining( {
 				visualAnnotations: expect.arrayContaining( [

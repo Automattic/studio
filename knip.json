@@ -21,6 +21,7 @@
 		"apps/cli": {
 			"entry": [
 				"index.ts",
+				"cli-updater.ts",
 				"php-server-child.ts",
 				"process-manager-daemon.ts",
 				"proxy-daemon.ts",

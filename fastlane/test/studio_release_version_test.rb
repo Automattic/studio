@@ -119,3 +119,5 @@ class StudioReleaseVersionTest < Minitest::Test
     assert_nil StudioReleaseVersion.beta_number(nil)
   end
 end
+
+# CI skip probe: Fastlane change. Do not merge.

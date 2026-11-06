@@ -472,6 +472,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async updateSitesSortOrder( updates ) {
 			await api( '/sites/sort-order', { method: 'POST', body: JSON.stringify( { updates } ) } );
 		},
+
+		async setSiteFrontendAdminBar( siteId, hidden ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/frontend-admin-bar`, {
+				method: 'PATCH',
+				body: JSON.stringify( { hidden } ),
+			} );
+		},
 		// Export downloads the archive in the browser (no native Save-As dialog).
 		async exportFullSite( siteId, options ): Promise< string | null > {
 			options?.onStarted?.();

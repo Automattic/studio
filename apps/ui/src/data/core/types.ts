@@ -122,6 +122,7 @@ export interface SiteDetails {
 	// True for sites that were running when the app quit with the
 	// "Stop, restart on next launch" behavior; the renderer starts them on boot.
 	autoStart?: boolean;
+	hideFrontendAdminBar?: boolean;
 	// The Studio operation currently holding the site, from the CLI. Present
 	// regardless of who started it — the user, the desktop app, or the agent.
 	operation?: SiteOperation;
@@ -210,6 +211,7 @@ export interface Connector {
 	updateSite( site: SiteDetails, wpVersion?: string ): Promise< void >;
 	// Persists the sidebar's manual site order (each site's `sortOrder`).
 	updateSitesSortOrder( updates: { siteId: string; sortOrder: number }[] ): Promise< void >;
+	setSiteFrontendAdminBar( siteId: string, hidden: boolean | null ): Promise< void >;
 	// The last page of the site captured in a preview, shown while it's stopped.
 	// Null when the site has not been captured yet.
 	getSiteThumbnail( siteId: string ): Promise< string | null >;
@@ -727,6 +729,7 @@ export interface UserPreferences {
 	// Start a stopped local site when a chat message is sent to it.
 	autoStartSiteOnChat?: boolean;
 	openChatOnSiteStart?: boolean;
+	hideFrontendAdminBar?: boolean;
 	// Save annotation notes for a combined send.
 	batchAnnotations?: boolean;
 	newSiteBehavior?: NewSiteBehavior;

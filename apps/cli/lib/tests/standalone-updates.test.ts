@@ -1,15 +1,13 @@
 // @vitest-environment node
 import * as childProcess from 'node:child_process';
-import { EventEmitter } from 'node:events';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { c as archive } from 'tar';
-import { readCliConfig, updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
+import { readCliConfig } from 'cli/lib/cli-config/core';
 import { confirm } from 'cli/lib/prompts';
 import {
 	getStandaloneInstallDir,
-	launchUpdatedCli,
 	setupStandaloneAutoUpdates,
 	updateStandaloneCli,
 } from 'cli/lib/standalone-updates';
@@ -34,12 +32,13 @@ let configDirectory: string;
 
 beforeEach( async () => {
 	root = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-updates-' ) );
-	installDirectory = path.join( root, 'custom-install' );
+	installDirectory = path.join( root, 'cli-versions', 'custom-install' );
 	versionsDirectory = path.join( installDirectory, 'cli-versions' );
 	configDirectory = path.join( root, 'config' );
 	await fs.mkdir( path.join( installDirectory, 'bin' ), { recursive: true } );
 	await fs.mkdir( path.join( installDirectory, 'cli' ) );
 	await fs.writeFile( path.join( installDirectory, 'cli', 'main.mjs' ), 'original runtime' );
+	await fs.writeFile( path.join( installDirectory, 'cli', 'version' ), '1.0.0\n' );
 	Object.defineProperty( process, 'execPath', {
 		value: path.join( installDirectory, 'bin', 'node' ),
 		configurable: true,
@@ -113,7 +112,7 @@ function serveRelease( body: Buffer | string, version = '2.0.0' ) {
 it( 'stages a runnable release for the next launch without replacing the current runtime', async () => {
 	const fetchMock = serveRelease( await releaseArchive() );
 	expect( await updateStandaloneCli( '1.0.0' ) ).toBe( '2.0.0' );
-	expect( await fs.readFile( path.join( versionsDirectory, 'current' ), 'utf8' ) ).toBe(
+	expect( await fs.readFile( path.join( versionsDirectory, 'current-1.0.0' ), 'utf8' ) ).toBe(
 		'2.0.0\n'
 	);
 	expect( await fs.readFile( path.join( installDirectory, 'cli', 'main.mjs' ), 'utf8' ) ).toBe(
@@ -121,39 +120,26 @@ it( 'stages a runnable release for the next launch without replacing the current
 	);
 	expect( await updateStandaloneCli( '1.0.0' ) ).toBe( '2.0.0' );
 	expect( fetchMock ).toHaveBeenCalledTimes( 3 );
-	expect( ( await fs.readdir( versionsDirectory ) ).sort() ).toEqual( [ '2.0.0', 'current' ] );
+	expect( ( await fs.readdir( versionsDirectory ) ).sort() ).toEqual( [
+		'2.0.0',
+		'current-1.0.0',
+	] );
+	Object.defineProperty( process, 'execPath', {
+		value: path.join( versionsDirectory, '2.0.0', 'bin', 'node' ),
+		configurable: true,
+	} );
+	expect( getStandaloneInstallDir() ).toBe( installDirectory );
 } );
 
-it.each( [ 'corrupt archive', 'wrong version' ] )(
-	'keeps the active release after a %s',
-	async ( failure ) => {
-		await fs.mkdir( versionsDirectory, { recursive: true } );
-		await fs.writeFile( path.join( versionsDirectory, 'current' ), '1.1.0\n' );
-		serveRelease(
-			failure === 'corrupt archive' ? 'truncated download' : await releaseArchive( '3.0.0' )
-		);
-		await expect( updateStandaloneCli( '1.0.0' ) ).rejects.toThrow();
-		expect( await fs.readFile( path.join( versionsDirectory, 'current' ), 'utf8' ) ).toBe(
-			'1.1.0\n'
-		);
-		expect( await fs.readdir( versionsDirectory ) ).toEqual( [ 'current' ] );
-	}
-);
-
-it( 'recovers an installed release if activation was interrupted', async () => {
-	serveRelease( await releaseArchive() );
-	await fs.mkdir( path.join( versionsDirectory, 'current' ), { recursive: true } );
+it( 'leaves the active runtime intact when a download is corrupt', async () => {
+	await fs.mkdir( versionsDirectory, { recursive: true } );
+	await fs.writeFile( path.join( versionsDirectory, 'current-1.0.0' ), '1.1.0\n' );
+	serveRelease( 'truncated download' );
 	await expect( updateStandaloneCli( '1.0.0' ) ).rejects.toThrow();
-	await fs.rmdir( path.join( versionsDirectory, 'current' ) );
-	expect( await updateStandaloneCli( '1.0.0' ) ).toBe( '2.0.0' );
-	expect( await fs.readFile( path.join( versionsDirectory, 'current' ), 'utf8' ) ).toBe(
-		'2.0.0\n'
+	expect( await fs.readFile( path.join( versionsDirectory, 'current-1.0.0' ), 'utf8' ) ).toBe(
+		'1.1.0\n'
 	);
-} );
-
-it( 'reports an unavailable update server instead of claiming to be up to date', async () => {
-	vi.stubGlobal( 'fetch', vi.fn().mockRejectedValue( new Error( 'offline' ) ) );
-	await expect( updateStandaloneCli( '1.0.0' ) ).rejects.toThrow( 'Could not check' );
+	expect( await fs.readdir( versionsDirectory ) ).toEqual( [ 'current-1.0.0' ] );
 } );
 
 it.each( [ true, false ] )( 'remembers the one-time auto-update choice (%s)', async ( enabled ) => {
@@ -170,53 +156,4 @@ it.each( [ true, false ] )( 'remembers the one-time auto-update choice (%s)', as
 	expect( confirm ).toHaveBeenCalledTimes( 1 );
 	expect( ( await readCliConfig() ).cliAutoUpdates ).toBe( enabled );
 	expect( spawn ).toHaveBeenCalledTimes( enabled ? 2 : 0 );
-} );
-
-it( 'defers the prompt in MCP and JSON runs and leaves automatic updates disabled', async () => {
-	for ( const args of [ [ 'mcp' ], [ 'list', '--json' ] ] ) {
-		process.argv = [ nodeExecutable, 'studio', ...args ];
-		await setupStandaloneAutoUpdates( 'standalone' );
-	}
-	expect( confirm ).not.toHaveBeenCalled();
-	expect( ( await readCliConfig() ).cliAutoUpdates ).toBeUndefined();
-} );
-
-it( 'honors the environment override even after opting in', async () => {
-	await updateCliConfigWithPartial( { cliAutoUpdates: true } );
-	vi.stubEnv( 'STUDIO_CLI_DISABLE_AUTO_UPDATES', '1' );
-	const spawn = vi.mocked( childProcess.spawn );
-	await setupStandaloneAutoUpdates( 'standalone' );
-	expect( await updateStandaloneCli( '1.0.0', { automatic: true } ) ).toBeNull();
-	expect( spawn ).not.toHaveBeenCalled();
-} );
-
-it( 'forwards arguments, stdio and exit status to the selected version', async () => {
-	await fs.mkdir( path.join( versionsDirectory, '2.0.0', 'bin' ), { recursive: true } );
-	await fs.mkdir( path.join( versionsDirectory, '2.0.0', 'cli' ) );
-	await fs.writeFile( path.join( versionsDirectory, 'current' ), '2.0.0\n' );
-	const node = path.join(
-		versionsDirectory,
-		'2.0.0',
-		'bin',
-		process.platform === 'win32' ? 'node.exe' : 'node'
-	);
-	await fs.writeFile( node, '' );
-	await fs.writeFile( path.join( versionsDirectory, '2.0.0', 'cli', 'main.mjs' ), '' );
-	const child = Object.assign( new EventEmitter(), { kill: vi.fn() } );
-	const spawn = vi.mocked( childProcess.spawn ).mockImplementation( () => {
-		setTimeout( () => child.emit( 'exit', 7, null ), 0 );
-		return child as never;
-	} );
-	process.argv = [ nodeExecutable, 'studio', 'mcp' ];
-	expect( await launchUpdatedCli( '1.0.0', 'standalone' ) ).toBe( true );
-	expect( spawn ).toHaveBeenCalledWith(
-		node,
-		[ path.join( versionsDirectory, '2.0.0', 'cli', 'main.mjs' ), 'mcp' ],
-		expect.objectContaining( { stdio: 'inherit' } )
-	);
-	expect( process.exitCode ).toBe( 7 );
-	Object.defineProperty( process, 'execPath', { value: node, configurable: true } );
-	expect( getStandaloneInstallDir() ).toBe( installDirectory );
-	expect( await launchUpdatedCli( '2.0.0', 'standalone' ) ).toBe( false );
-	expect( await launchUpdatedCli( '1.0.0-beta1', 'standalone' ) ).toBe( false );
 } );

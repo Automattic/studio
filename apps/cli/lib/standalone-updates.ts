@@ -1,9 +1,8 @@
 import { execFile, spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { Readable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
 import { promisify } from 'node:util';
+import { downloadFile } from '@studio/common/lib/download-file';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { __ } from '@wordpress/i18n';
 import { writeFile } from 'atomically';
@@ -19,24 +18,22 @@ import {
 } from 'cli/lib/update-notifier';
 
 export const CLI_VERSIONS_DIRECTORY = 'cli-versions';
-const DOWNLOAD_TIMEOUT_MS = 10 * 60 * 1000;
 const execFileAsync = promisify( execFile );
 
 export function getStandaloneInstallDir(): string {
 	const runtimeDirectory = path.dirname( path.dirname( process.execPath ) );
-	return path.basename( path.dirname( runtimeDirectory ) ) === CLI_VERSIONS_DIRECTORY
-		? path.dirname( path.dirname( runtimeDirectory ) )
+	const versionsDirectory = path.dirname( runtimeDirectory );
+	const installDirectory = path.dirname( versionsDirectory );
+	return path.basename( versionsDirectory ) === CLI_VERSIONS_DIRECTORY &&
+		semver.valid( path.basename( runtimeDirectory ) ) &&
+		fs.existsSync( path.join( installDirectory, 'cli', 'version' ) )
+		? installDirectory
 		: runtimeDirectory;
 }
 
-async function readActiveVersion( installDirectory: string ): Promise< string | null > {
+async function readActiveVersion( file: string ): Promise< string | null > {
 	try {
-		const version = (
-			await fs.promises.readFile(
-				path.join( installDirectory, CLI_VERSIONS_DIRECTORY, 'current' ),
-				'utf8'
-			)
-		).trim();
+		const version = ( await fs.promises.readFile( file, 'utf8' ) ).trim();
 		return semver.valid( version ) === version ? version : null;
 	} catch {
 		return null;
@@ -48,58 +45,6 @@ function runtimePaths( directory: string ) {
 		node: path.join( directory, 'bin', process.platform === 'win32' ? 'node.exe' : 'node' ),
 		main: path.join( directory, 'cli', 'main.mjs' ),
 	};
-}
-
-// Keep the installed launcher and its runtime intact. Processes already using an older
-// version (including MCP servers and site daemons) can finish using that version's files.
-export async function launchUpdatedCli(
-	currentVersion: string,
-	installKind: CliInstallKind = getCliInstallKind()
-): Promise< boolean > {
-	if (
-		installKind !== 'standalone' ||
-		process.send ||
-		process.argv.slice( 2 ).includes( 'uninstall' ) ||
-		! semver.valid( currentVersion )
-	) {
-		return false;
-	}
-	const installDirectory = getStandaloneInstallDir();
-	const version = await readActiveVersion( installDirectory );
-	if (
-		! version ||
-		channelForVersion( version ) !== channelForVersion( currentVersion ) ||
-		! semver.gt( version, currentVersion )
-	) {
-		return false;
-	}
-	const runtime = runtimePaths( path.join( installDirectory, CLI_VERSIONS_DIRECTORY, version ) );
-	if ( ! fs.existsSync( runtime.node ) || ! fs.existsSync( runtime.main ) ) {
-		return false;
-	}
-	return new Promise( ( resolve ) => {
-		const child = spawn( runtime.node, [ runtime.main, ...process.argv.slice( 2 ) ], {
-			stdio: 'inherit',
-			windowsHide: true,
-		} );
-		const onInterrupt = () => child.kill( 'SIGINT' );
-		const onTerminate = () => child.kill( 'SIGTERM' );
-		process.on( 'SIGINT', onInterrupt );
-		process.on( 'SIGTERM', onTerminate );
-		const cleanup = () => {
-			process.off( 'SIGINT', onInterrupt );
-			process.off( 'SIGTERM', onTerminate );
-		};
-		child.once( 'error', () => {
-			cleanup();
-			resolve( false );
-		} );
-		child.once( 'exit', ( code, signal ) => {
-			cleanup();
-			process.exitCode = code ?? ( signal === 'SIGINT' ? 130 : 143 );
-			resolve( true );
-		} );
-	} );
 }
 
 export async function setupStandaloneAutoUpdates(
@@ -129,7 +74,7 @@ export async function setupStandaloneAutoUpdates(
 			enabled = await confirm(
 				{
 					message: __(
-						'Keep Studio CLI up to date automatically? Updates download in the background and take effect on your next launch.'
+						'Keep Studio CLI up to date automatically? Updates take effect on your next launch.'
 					),
 					default: true,
 				},
@@ -170,17 +115,28 @@ export async function updateStandaloneCli(
 		}
 	}
 	const installDirectory = getStandaloneInstallDir();
+	const installedVersion = (
+		await fs.promises.readFile( path.join( installDirectory, 'cli', 'version' ), 'utf8' )
+	).trim();
+	if ( ! semver.valid( installedVersion ) ) {
+		throw new Error( __( 'Invalid installed Studio CLI version.' ) );
+	}
+	if ( channelForVersion( installedVersion ) !== channelForVersion( currentVersion ) ) {
+		return null;
+	}
 	const versionsDirectory = path.join( installDirectory, CLI_VERSIONS_DIRECTORY );
+	// A manual reinstall changes this key, so an old update cannot replace the new install.
+	const currentFile = path.join( versionsDirectory, `current-${ installedVersion }` );
 	await fs.promises.mkdir( versionsDirectory, { recursive: true } );
 	const lock = path.join( versionsDirectory, 'update.lock' );
-	await lockFileAsync( lock, { wait: 0, stale: 15 * 60 * 1000 } );
+	await lockFileAsync( lock, { wait: 0, stale: 60 * 60 * 1000 } );
 	let stagingDirectory: string | undefined;
 	try {
 		const update = await getAvailableCliUpdate( currentVersion, 'standalone', true );
-		if ( ! update ) {
+		if ( ! update || semver.lte( update.latestVersion, installedVersion ) ) {
 			return null;
 		}
-		const active = await readActiveVersion( installDirectory );
+		const active = await readActiveVersion( currentFile );
 		if (
 			active &&
 			channelForVersion( active ) === channelForVersion( update.latestVersion ) &&
@@ -198,19 +154,12 @@ export async function updateStandaloneCli(
 		const destination = path.join( versionsDirectory, update.latestVersion );
 		if ( fs.existsSync( destination ) ) {
 			await verifyRuntime( destination, update.latestVersion );
-			await writeFile( path.join( versionsDirectory, 'current' ), `${ update.latestVersion }\n` );
+			await writeFile( currentFile, `${ update.latestVersion }\n` );
 			return update.latestVersion;
 		}
 		stagingDirectory = await fs.promises.mkdtemp( path.join( versionsDirectory, '.download-' ) );
 		const archive = path.join( stagingDirectory, 'studio.tgz' );
-		const response = await fetch( url, { signal: AbortSignal.timeout( DOWNLOAD_TIMEOUT_MS ) } );
-		if ( ! response.ok || ! response.body ) {
-			throw new Error( __( 'Failed to download the Studio CLI update.' ) );
-		}
-		await pipeline(
-			Readable.fromWeb( response.body as Parameters< typeof Readable.fromWeb >[ 0 ] ),
-			fs.createWriteStream( archive )
-		);
+		await downloadFile( url.toString(), archive );
 		const extracted = path.join( stagingDirectory, 'extracted' );
 		await fs.promises.mkdir( extracted );
 		await extract( { file: archive, cwd: extracted, strict: true } );
@@ -220,7 +169,7 @@ export async function updateStandaloneCli(
 		}
 		await verifyRuntime( extracted, update.latestVersion );
 		await fs.promises.rename( extracted, destination );
-		await writeFile( path.join( versionsDirectory, 'current' ), `${ update.latestVersion }\n` );
+		await writeFile( currentFile, `${ update.latestVersion }\n` );
 		return update.latestVersion;
 	} finally {
 		if ( stagingDirectory ) {

@@ -5,6 +5,23 @@
 #   macOS: /Applications/Studio.app/Contents/Resources/bin/studio-cli.sh
 #   Linux: /usr/lib/studio/resources/bin/studio-cli.sh
 BIN_DIR=$(dirname "$(realpath "$0")")
+INSTALL_DIR=$(dirname "$BIN_DIR")
+if [ -f "$INSTALL_DIR/cli/version" ]; then
+	INSTALLED_VERSION=$(cat "$INSTALL_DIR/cli/version")
+	CURRENT_FILE="$INSTALL_DIR/cli-versions/current-$INSTALLED_VERSION"
+	if [ -f "$CURRENT_FILE" ]; then
+		CURRENT_VERSION=$(cat "$CURRENT_FILE")
+		case "$CURRENT_VERSION" in
+			''|*[!0-9A-Za-z.+-]*) ;;
+			*)
+				UPDATED_DIR="$INSTALL_DIR/cli-versions/$CURRENT_VERSION"
+				if [ -x "$UPDATED_DIR/bin/node" ] && [ -f "$UPDATED_DIR/cli/main.mjs" ]; then
+					BIN_DIR="$UPDATED_DIR/bin"
+				fi
+				;;
+		esac
+	fi
+fi
 BUNDLED_NODE_EXECUTABLE="$BIN_DIR/node"
 CLI_SCRIPT="$(dirname "$BIN_DIR")/cli/main.mjs"
 

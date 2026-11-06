@@ -107,6 +107,7 @@ export const baseConfig = defineConfig( {
 			writeBundle( options ) {
 				const outDir = options.dir ?? resolve( __dirname, 'dist/cli' );
 				mkdirSync( outDir, { recursive: true } );
+				writeFileSync( resolve( outDir, 'version' ), `${ packageJson.version }\n` );
 				writeFileSync(
 					resolve( outDir, 'package.json' ),
 					JSON.stringify( { type: 'module' }, null, 2 ) + '\n'

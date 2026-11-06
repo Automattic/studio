@@ -36,14 +36,11 @@ const version = __STUDIO_CLI_VERSION__;
 suppressPunycodeWarning();
 
 async function main() {
-	const standaloneUpdates =
-		getCliInstallKind() === 'standalone' ? await import( 'cli/lib/standalone-updates' ) : null;
-	if ( await standaloneUpdates?.launchUpdatedCli( version ) ) {
-		return;
-	}
-
 	const yargsLocale = await loadTranslations();
-	await standaloneUpdates?.setupStandaloneAutoUpdates();
+	if ( getCliInstallKind() === 'standalone' ) {
+		const { setupStandaloneAutoUpdates } = await import( 'cli/lib/standalone-updates' );
+		await setupStandaloneAutoUpdates();
+	}
 	await setupUpdateNotifier( version );
 
 	if ( semver.lt( process.version, __MINIMUM_NODE_VERSION__ ) ) {

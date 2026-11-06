@@ -34,7 +34,6 @@ const updatesEndpointResponseSchema = z.object( {
 } );
 
 export interface CliUpdate {
-	currentVersion: string;
 	latestVersion: string;
 	updateCommand: string;
 	downloadUrl?: string;
@@ -161,7 +160,7 @@ async function checkNpm( currentVersion: string, force: boolean ): Promise< CliU
 		semver.valid( latestVersion ) &&
 		semver.gt( latestVersion, currentVersion )
 	) {
-		return { currentVersion, latestVersion, updateCommand: NPM_UPDATE_COMMAND };
+		return { latestVersion, updateCommand: NPM_UPDATE_COMMAND };
 	}
 	return null;
 }
@@ -254,7 +253,6 @@ async function checkStandalone(
 		semver.gt( latestVersion, currentVersion )
 	) {
 		return {
-			currentVersion,
 			latestVersion,
 			updateCommand: 'studio update',
 			downloadUrl,

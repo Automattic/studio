@@ -6,6 +6,8 @@ import { Logger, LoggerError } from 'cli/logger';
 import type { builder } from 'cli/commands/update.command';
 import type { CommandArgs } from 'cli/types';
 
+const logger = new Logger< string >();
+
 export async function commandHandler( argv: CommandArgs< typeof builder > ): Promise< void > {
 	const installKind = getCliInstallKind();
 	if ( installKind !== 'standalone' ) {
@@ -14,6 +16,7 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ): Pro
 				? __( 'This Studio CLI was installed via npm. Update it with: npm update -g wp-studio' )
 				: __( 'This Studio CLI is bundled with the Studio desktop app. Update it through the app.' )
 		);
+		process.exitCode = 1;
 		return;
 	}
 	try {
@@ -36,9 +39,7 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ): Pro
 				: __( 'Studio CLI is up to date.' )
 		);
 	} catch ( error ) {
-		new Logger< string >().reportError(
-			new LoggerError( __( 'Failed to update Studio CLI.' ), error )
-		);
+		logger.reportError( new LoggerError( __( 'Failed to update Studio CLI.' ), error ) );
 		process.exitCode = 1;
 	}
 }

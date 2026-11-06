@@ -2,7 +2,9 @@
 
 set -eu
 
-# Determines if a CI job should be skipped based on the files changed in the PR.
+# Determines if a CI job should be skipped based on the changed files.
+# Webhook PR and trunk builds can skip; STUDIO_CI_FULL_BUILD=1 forces a full run.
+# trunk compares HEAD to its first parent; CI_CHANGED_FILES_BASE supplies a wider range.
 #
 # Usage:
 #   should-skip-job.sh --job-type <type>
@@ -28,11 +30,9 @@ set -eu
 # These are documentation, configuration, and metadata files
 COMMON_NON_CODE_PATTERNS=(
   # Documentation
-  "*.md"
-  "*.txt"
+  '!(*/*).md'
+  '*/README.md'
   "docs/**"
-  "CODE-OF-CONDUCT.md"
-  "SECURITY.md"
   "LICENSE*"
 
   # Editor and IDE config
@@ -43,8 +43,8 @@ COMMON_NON_CODE_PATTERNS=(
   ".gitignore"
   ".gitattributes"
 
-  # GitHub-specific (workflows, templates, dependabot)
-  ".github/**"
+  # GitHub Markdown documentation and templates
+  ".github/*.md"
 
   # Ruby/Fastlane - only affects CI distribution, not app code
   "fastlane/**"
@@ -53,16 +53,12 @@ COMMON_NON_CODE_PATTERNS=(
   ".ruby-version"
   ".bundle/**"
 
-  # CI configuration changes don't need app tests
-  ".buildkite/**"
-
   # Installer assets and configuration
   "installers/**"
   "apps/studio/assets/appx/**"
 
   # Claude AI configuration
   ".claude/**"
-  "CLAUDE.md"
 )
 
 # Localization files - changes here don't affect runtime behavior or performance
@@ -117,7 +113,8 @@ show_skip_message() {
 
   # Post annotation to Buildkite UI
   if command -v buildkite-agent &> /dev/null; then
-    echo "$message" | buildkite-agent annotate --style "info" --context "$context"
+    echo "$message" | buildkite-agent annotate --style "info" --context "$context" \
+      || echo "Could not annotate the skipped job" >&2
   fi
 
   echo "~~~ :fast_forward: $message"
@@ -144,39 +141,28 @@ if [[ -z "$job_type" ]]; then
   exit 1
 fi
 
-git_pr_changed_files() {
-  local mode="$1"; shift
+if [[ "${STUDIO_CI_FULL_BUILD:-}" == 1 || "${BUILDKITE_SOURCE:-}" != webhook ||
+      -n "${BUILDKITE_TAG:-}" ]]; then
+  exit 1
+fi
 
-  [[ "${BUILDKITE_PULL_REQUEST:-false}" =~ ^[0-9]+$ ]] || return 1
+if [[ "${BUILDKITE_PULL_REQUEST-false}" =~ ^[0-9]+$ ]]; then
+  changed_files=(pr_changed_files)
+elif [[ "${BUILDKITE_PULL_REQUEST-false}" == false && "${BUILDKITE_BRANCH:-}" == trunk ]]; then
+  changed_files=(commit_changed_files)
+  if [[ -n "${CI_CHANGED_FILES_BASE:-}" ]]; then
+    changed_files+=(--base "$CI_CHANGED_FILES_BASE")
+  fi
+else
+  exit 1
+fi
 
-  git fetch --no-tags "https://github.com/Automattic/studio.git" "$BUILDKITE_PULL_REQUEST_BASE_BRANCH" &> /dev/null || return 1
-
-  local changed_files=()
-  while IFS= read -r -d '' file; do
-    changed_files+=("$file")
-  done < <(git --no-pager diff --name-only -z --merge-base FETCH_HEAD HEAD)
-  [[ ${#changed_files[@]} -gt 0 ]] || return 1
-
-  local file pattern matched
-  for file in "${changed_files[@]}"; do
-    matched="false"
-    for pattern in "$@"; do
-      # shellcheck disable=SC2053
-      if [[ "$file" == ${pattern} ]]; then
-        matched="true"
-        break
-      fi
-    done
-    [[ "$mode" == "--all-match" && "$matched" == "false" ]] && return 1
-    [[ "$mode" == "--any-match" && "$matched" == "true" ]] && return 0
-  done
-
-  [[ "$mode" == "--all-match" ]] && return 0
-  return 1
-}
-
-if ! command -v pr_changed_files &> /dev/null; then
-  pr_changed_files() { git_pr_changed_files "$@"; }
+# Docker jobs mount the toolkit; use anonymous HTTPS for this public repo there.
+if [[ -d /a8c-ci-toolkit/bin ]]; then
+  export PATH="$PATH:/a8c-ci-toolkit/bin"
+  config_index=${GIT_CONFIG_COUNT:-0}
+  export GIT_CONFIG_COUNT=$((config_index + 1))
+  export "GIT_CONFIG_KEY_${config_index}=url.https://github.com/.insteadOf" "GIT_CONFIG_VALUE_${config_index}=git@github.com:"
 fi
 
 case "$job_type" in
@@ -184,7 +170,7 @@ case "$job_type" in
     # Skip validation jobs (lint, unit tests, e2e) if ALL changes are in
     # non-code files OR localization-only changes
     PATTERNS=("${COMMON_NON_CODE_PATTERNS[@]}" "${LOCALIZATION_PATTERNS[@]}")
-    if pr_changed_files --all-match "${PATTERNS[@]}"; then
+    if "${changed_files[@]}" --all-match "${PATTERNS[@]}"; then
       show_skip_message "$job_type"
       exit 0
     fi
@@ -193,7 +179,7 @@ case "$job_type" in
   "e2e")
     # Skip desktop e2e if ALL changes are in non-code files, localization, OR agent files.
     PATTERNS=("${COMMON_NON_CODE_PATTERNS[@]}" "${LOCALIZATION_PATTERNS[@]}" "${AGENT_PATTERNS[@]}")
-    if pr_changed_files --all-match "${PATTERNS[@]}"; then
+    if "${changed_files[@]}" --all-match "${PATTERNS[@]}"; then
       show_skip_message "$job_type"
       exit 0
     fi
@@ -203,7 +189,7 @@ case "$job_type" in
     # Skip metrics if ALL changes are in non-code files, localization, test files, OR agent files.
     # Neither test nor agent file changes affect what the metrics suites measure.
     PATTERNS=("${COMMON_NON_CODE_PATTERNS[@]}" "${LOCALIZATION_PATTERNS[@]}" "${TEST_PATTERNS[@]}" "${AGENT_PATTERNS[@]}")
-    if pr_changed_files --all-match "${PATTERNS[@]}"; then
+    if "${changed_files[@]}" --all-match "${PATTERNS[@]}"; then
       show_skip_message "$job_type"
       exit 0
     fi
@@ -212,7 +198,7 @@ case "$job_type" in
   "build")
     # Skip build if ALL changes are in non-code files.
     # Note: Does NOT skip on localization changes - builds should include translation updates.
-    if pr_changed_files --all-match "${COMMON_NON_CODE_PATTERNS[@]}"; then
+    if "${changed_files[@]}" --all-match "${COMMON_NON_CODE_PATTERNS[@]}"; then
       show_skip_message "$job_type"
       exit 0
     fi
@@ -221,7 +207,9 @@ case "$job_type" in
   "fastlane")
     # Run only if at least one changed file is fastlane/ or Ruby-setup-related.
     # Other job types treat fastlane changes as non-code; this one is the inverse.
-    if ! pr_changed_files --any-match "${FASTLANE_PATTERNS[@]}"; then
+    "${changed_files[@]}" || exit 1
+    relevant=$("${changed_files[@]}" --stdout --any-match "${FASTLANE_PATTERNS[@]}") || exit 1
+    if [[ "$relevant" == false ]]; then
       show_skip_message "$job_type"
       exit 0
     fi

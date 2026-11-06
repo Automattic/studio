@@ -4,7 +4,7 @@
 
 Start with a blank site, a Blueprint, or an existing WordPress site. Work through the desktop app, the command line, or an AI agent connected through MCP. Share previews for feedback, publish to [WordPress.com](https://wordpress.com/) or [Pressable](https://pressable.com/), or export your site to host elsewhere.
 
-[Get started](#get-started) · [Local development](#develop-locally) · [AI](#build-and-edit-with-ai) · [Previews](#share-previews) · [Publishing & syncing](#publish-and-pull-changes) · [Agents & CLI](#use-the-cli-and-your-own-agents)
+[Get started ↗](https://developer.wordpress.com/docs/developer-tools/studio/) · [Local development ↗](https://developer.wordpress.com/docs/developer-tools/studio/sites/) · [AI ↗](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/) · [Previews ↗](https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/) · [Publishing & syncing ↗](https://developer.wordpress.com/docs/developer-tools/studio/sync/) · [Agents ↗](https://developer.wordpress.com/docs/developer-tools/studio/mcp-on-studio/) · [CLI ↗](https://developer.wordpress.com/docs/developer-tools/studio/cli/)
 
 ## Get started
 

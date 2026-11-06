@@ -71,6 +71,7 @@
 	}
 
 	.list .menuItem {
+		height: var( --control-size );
 		border-radius: var( --command-radius );
 	}
 
@@ -112,6 +113,10 @@
 	/* The palette's long list scrolls without a bar. */
 	.list[data-size='default'] {
 		scrollbar-width: none;
+	}
+
+	.list[data-size='default'] .menuItem {
+		padding-inline-end: var( --space-4 );
 	}
 
 	.list[data-size='default'] .icon {

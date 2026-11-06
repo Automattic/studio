@@ -115,7 +115,11 @@ function CreditPurchaseRow() {
 					onChange={ setCredits }
 				/>
 			) : null }
-			<Button disabled={ isLoading } onClick={ () => openCheckout( selected?.credits ) }>
+			<Button
+				variant="accent"
+				disabled={ isLoading }
+				onClick={ () => openCheckout( selected?.credits ) }
+			>
 				{ __( 'Buy credits' ) }
 			</Button>
 		</SettingsRow>
@@ -171,7 +175,7 @@ function AiCreditsRows() {
 			<MeterRow label={ __( 'AI usage is currently unavailable.' ) }>
 				<div>
 					<Button variant="ghost" onClick={ () => void refetch() }>
-						{ __( 'Try again' ) }
+						{ __( 'Refresh' ) }
 					</Button>
 				</div>
 			</MeterRow>

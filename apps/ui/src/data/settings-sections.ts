@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { BugIcon, ChartNoAxesColumnIncreasingIcon, FileTextIcon, SettingsIcon } from 'lucide-react';
+import { BugIcon, FileTextIcon, SettingsIcon } from 'lucide-react';
 import {
 	AppearanceIcon,
 	CodeIcon,
@@ -13,6 +13,7 @@ import {
 	SiteSettingsIcon,
 	SkillsIcon,
 	TerminalIcon,
+	UsageIcon,
 } from '@/lib/icons';
 import type { ComponentType } from 'react';
 
@@ -298,7 +299,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 		{
 			id: 'usage',
 			label: __( 'Usage' ),
-			icon: ChartNoAxesColumnIncreasingIcon,
+			icon: UsageIcon,
 			settings: [
 				{
 					...setting(

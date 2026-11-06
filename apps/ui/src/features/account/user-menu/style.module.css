@@ -1,5 +1,5 @@
-/* The sidebar footer: the account avatar at the start, Settings and the
-   notification bell at the end, as 32px controls inset 12px. Pinning to the
+/* The sidebar footer: the account avatar at the start, notifications and
+   updates at the end, as 32px controls inset 12px. Pinning to the
    sidebar bottom is handled by the layout's `sidebarFooter` wrapper. */
 .root {
 	padding: 0 var( --space-3 ) var( --space-2_5 );
@@ -20,12 +20,14 @@
 	height: 24px;
 }
 
-.spacer {
-	flex: 1;
+.loginTrigger {
+	--button-background: var( --studio-sidebar-bg, var( --chrome ) );
+
+	margin-inline-start: calc( -1 * var( --space-0_5 ) );
 }
 
-.update {
-	margin-inline-end: var( --band-gap );
+.spacer {
+	flex: 1;
 }
 
 .popup {

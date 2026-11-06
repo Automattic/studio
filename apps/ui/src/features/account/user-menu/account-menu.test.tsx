@@ -30,12 +30,50 @@ function setup( user: AuthUser | null = null ) {
 const PROMPT = 'Do more with WordPress';
 
 async function openLoginDialog() {
-	fireEvent.click( await screen.findByRole( 'button', { name: 'Log in' } ) );
+	fireEvent.click( await screen.findByRole( 'button', { name: 'Account' } ) );
+	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Log in or create account' } ) );
 	const dialog = await screen.findByRole( 'dialog', { name: PROMPT } );
 	return within( dialog ).findByRole( 'button', { name: 'Log in' } );
 }
 
 describe( 'AccountMenu', () => {
+	it( 'offers settings and support in the signed-out account menu before opening login', async () => {
+		const { connector, history } = setup();
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Account' } ) );
+		expect(
+			await screen.findByRole( 'menuitem', { name: 'Log in or create account' } )
+		).toBeVisible();
+		expect( screen.getByRole( 'menuitem', { name: 'Providers' } ) ).toBeVisible();
+		expect( screen.getByRole( 'menuitem', { name: 'Support' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'menuitem', { name: 'Log out' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'dialog', { name: PROMPT } ) ).not.toBeInTheDocument();
+		expect( connector.authenticate ).not.toHaveBeenCalled();
+		fireEvent.click( screen.getByRole( 'menuitem', { name: /Settings/ } ) );
+		await waitFor( () => expect( history.location.search ).toContain( 'settings=general' ) );
+	} );
+
+	it.each( [ 'Help Center', 'Keyboard shortcuts', 'Send feedback' ] )(
+		'opens %s from Support',
+		async ( label ) => {
+			const { user, connector, history } = setup( TEST_USER );
+			await user.click( await screen.findByRole( 'button', { name: TEST_USER.displayName } ) );
+			await user.click( await screen.findByRole( 'menuitem', { name: 'Support' } ) );
+			expect( screen.queryByRole( 'menuitem', { name: 'About' } ) ).not.toBeInTheDocument();
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
+			if ( label === 'Help Center' ) {
+				expect( connector.openExternalUrl ).toHaveBeenCalledWith(
+					'https://developer.wordpress.com/docs/developer-tools/studio/'
+				);
+			} else {
+				await waitFor( () =>
+					expect( history.location.search ).toContain(
+						label === 'Keyboard shortcuts' ? 'settings=keyboard' : 'feedback=true'
+					)
+				);
+			}
+		}
+	);
+
 	it.each( [ 'retry', 'background' ] )(
 		'clears account errors after %s recovery',
 		async ( recovery ) => {
@@ -96,7 +134,7 @@ describe( 'AccountMenu', () => {
 		expect( within( menu ).getByText( TEST_USER.displayName ) ).toBeVisible();
 		expect( within( menu ).getByText( TEST_USER.email ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Log out' } ) );
-		await screen.findByRole( 'button', { name: 'Log in' } );
+		await screen.findByRole( 'button', { name: 'Account' } );
 		expect( screen.queryByRole( 'dialog', { name: PROMPT } ) ).not.toBeInTheDocument();
 		expect( await screen.findByText( 'Logged out of WordPress.com' ) ).toBeVisible();
 		expect( connector.logout ).toHaveBeenCalledOnce();
@@ -164,7 +202,8 @@ describe( 'AccountMenu', () => {
 
 	it( 'opens the shared settings while logged out', async () => {
 		const { history } = setup();
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Settings' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Account' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: /Settings/ } ) );
 		await waitFor( () => expect( history.location.search ).toContain( 'settings=general' ) );
 	} );
 
@@ -210,7 +249,7 @@ describe( 'AccountMenu', () => {
 		await screen.findByText( 'Login failed' );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Close' } ) );
 		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
-		await screen.findByRole( 'button', { name: 'Log in' } );
+		await screen.findByRole( 'button', { name: 'Account' } );
 		await openLoginDialog();
 		expect( screen.queryByText( 'Login failed' ) ).not.toBeInTheDocument();
 	} );

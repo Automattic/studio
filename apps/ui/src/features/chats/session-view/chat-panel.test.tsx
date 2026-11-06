@@ -253,7 +253,7 @@ describe( 'Composer access notices', () => {
 		expect( within( alert ).getAllByRole( 'button' ) ).toHaveLength( 1 );
 		fireEvent.change( input, { target: { value: 'Preserve this draft' } } );
 		const calls = connector.getAiSettings.mock.calls.length;
-		fireEvent.click( within( alert ).getByRole( 'button', { name: 'Try again' } ) );
+		fireEvent.click( within( alert ).getByRole( 'button', { name: 'Refresh' } ) );
 		await waitFor( () =>
 			expect( connector.getAiSettings.mock.calls.length ).toBeGreaterThan( calls )
 		);

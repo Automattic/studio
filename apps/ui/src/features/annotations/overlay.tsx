@@ -273,7 +273,7 @@ function NoteEditor( {
 					<TooltipTrigger
 						render={
 							<Button
-								variant={ hasContent ? 'accent' : 'default' }
+								variant="accent"
 								size="icon"
 								shape="round"
 								className={ styles.save }

@@ -69,7 +69,7 @@
 	--border: color-mix( in oklab, oklch( from var( --foreground ) l calc( var( --tint-intensity, 0 ) * 0.0006 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) ) calc( 10% + var( --contrast, 0 ) * 0.2% ), transparent );
 	--popover-border: rgb( 0 0 0 / 7% );
 	--input: var( --border );
-	--backdrop: color-mix( in oklab, var( --foreground ) 15%, transparent );
+	--backdrop: rgb( 0 0 0 / 25% );
 
 	/* Vivid status dots, a step brighter than the text colors above. */
 	--status-running: #16a34a;
@@ -160,6 +160,8 @@
 		rgb( 0 0 0 / calc( 1 - var( --surface-fade-high ) ) ) 25%,
 		rgb( 0 0 0 / calc( 1 - var( --surface-fade-mid ) ) ) 50%,
 		rgb( 0 0 0 / calc( 1 - var( --surface-fade-low ) ) ) 75%, #000;
+	--surface-strong-overlay-fade-stops: transparent, rgb( 0 0 0 / 0.35 ) 25%,
+		rgb( 0 0 0 / 0.8 ) 50%, rgb( 0 0 0 / 0.97 ) 75%, #000;
 	--surface-header-fade-stops: transparent 45%,
 		rgb( 0 0 0 / var( --surface-fade-low ) ) 65%,
 		rgb( 0 0 0 / var( --surface-fade-mid ) ) 85%, #000;
@@ -236,7 +238,7 @@
 	--warning: #f0c33c;
 	--destructive: #ff8085;
 	--destructive-foreground: var( --background );
-	--backdrop: color-mix( in oklab, var( --background ) 40%, transparent );
+	--backdrop: rgb( 0 0 0 / 35% );
 }
 
 /* Re-resolved per element so a surface that steps `--muted` up also steps its

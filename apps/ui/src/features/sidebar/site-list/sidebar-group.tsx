@@ -40,6 +40,23 @@ export function SiteListGroup( {
 	children: ReactNode;
 } ) {
 	const [ storedExpanded, setExpanded ] = useStoredFlag( `studio-ui-sidebar-group-${ id }`, true );
+	const headerRef = useRef< HTMLDivElement >( null );
+	useEffect( () => {
+		const header = headerRef.current;
+		if ( ! header || typeof IntersectionObserver === 'undefined' ) return;
+		let scrollport = header.parentElement;
+		while ( scrollport && ! /auto|scroll/.test( getComputedStyle( scrollport ).overflowY ) ) {
+			scrollport = scrollport.parentElement;
+		}
+		const observer = new IntersectionObserver(
+			( [ entry ] ) => {
+				header.toggleAttribute( 'data-clipped', entry.intersectionRatio < 1 );
+			},
+			{ root: scrollport, threshold: 1 }
+		);
+		observer.observe( header );
+		return () => observer.disconnect();
+	}, [ hidden ] );
 	const expanded = storedExpanded || ! foldable;
 	useOpenOnAddedItems( itemKeys, expanded, () => setExpanded( true ) );
 	if ( hidden ) {
@@ -52,7 +69,7 @@ export function SiteListGroup( {
 			aria-label={ title }
 			open={ foldable && expanded }
 		>
-			<SidebarGroupHeader className={ styles.groupHeader }>
+			<SidebarGroupHeader ref={ headerRef } className={ styles.groupHeader }>
 				<SidebarGroupLabel
 					expanded={ foldable ? expanded : undefined }
 					onExpandedChange={ ( next ) => {

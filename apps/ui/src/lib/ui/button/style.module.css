@@ -74,7 +74,7 @@
 	}
 
 	.button:has( > [data-icon='inline-start'] ) {
-		padding-inline-start: var( --space-1_5 );
+		padding-inline-start: calc( var( --space-2 ) - 1px );
 	}
 
 	.button:has(
@@ -174,9 +174,27 @@
 	}
 
 	.button[data-variant='muted'] {
-		--button-hover-background: var( --hover );
+		--surface: var( --muted );
+		--button-hover-background: var( --surface );
 
-		--button-background: var( --muted );
+		--button-background: var( --surface );
+		color: var( --foreground );
+	}
+
+	.button[data-variant='muted']:is(
+			:is( :hover, :active ):not( :disabled, [data-disabled] ),
+			[aria-expanded='true'],
+			[aria-pressed='true']
+		) {
+		--surface: var( --selected );
+	}
+
+	.button[data-variant='muted']:is(
+			:is( :hover, :active ):not( :disabled, [data-disabled] ),
+			[aria-expanded='true'],
+			[aria-pressed='true']
+		)
+		> [data-slot='kbd'][data-variant='default'] {
 		color: var( --foreground );
 	}
 

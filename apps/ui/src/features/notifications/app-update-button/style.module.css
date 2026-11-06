@@ -1,0 +1,19 @@
+.update {
+	justify-content: space-between;
+	min-height: 36px;
+	padding-block: var( --space-0_5 );
+	padding-inline-end: var( --space-0_5 );
+	background: color-mix( in srgb, var( --accent ) 10%, transparent );
+	color: var( --accent-text );
+}
+
+.update[data-highlighted] {
+	background-color: color-mix( in srgb, var( --accent ) 16%, transparent );
+	color: var( --accent-text );
+}
+
+.action {
+	width: auto;
+	padding-inline: var( --space-2 );
+	border-radius: var( --radius-sm );
+}

@@ -781,7 +781,12 @@ export function pageContrast( page: Page ): Promise< string[] > {
 				.reverse()
 				.reduce( ( below, layer ) => over( layer, layer[ 3 ], below ), [ 255, 255, 255, 1 ] );
 			const fill = style.getPropertyValue( '-webkit-text-fill-color' );
-			const text = rgba( fill && rgba( fill )[ 3 ] > 0 ? fill : style.color );
+			const filled = rgba( fill && rgba( fill )[ 3 ] > 0 ? fill : style.color );
+			// Outlined text, with no fill, shows as its stroke.
+			const text =
+				filled[ 3 ] === 0 && parseFloat( style.getPropertyValue( '-webkit-text-stroke-width' ) ) > 0
+					? rgba( style.getPropertyValue( '-webkit-text-stroke-color' ) )
+					: filled;
 			const shown = over( text, text[ 3 ] * opacity( element ), background );
 			const [ light, dark ] = [ luminance( shown ), luminance( background ) ].sort(
 				( a, b ) => b - a

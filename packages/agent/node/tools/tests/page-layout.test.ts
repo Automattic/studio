@@ -322,6 +322,7 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 
 	// eval7 picky 1: a theme's `html { scroll-behavior: smooth }` left text
 	// below the first screen unread, as a scroll to it had not moved yet.
+	// eval23 redo port 2: outlined text (a transparent fill, a stroke) shows its stroke.
 	it.each( [ '', 'html{scroll-behavior:smooth}' ] )(
 		'names text a visitor cannot read against what is painted behind it (%s)',
 		async ( smooth ) => {
@@ -333,7 +334,8 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 			<div style="background:linear-gradient(#0b1633,#0b1633)"><p style="color:#fff">Over a gradient</p></div>
 			<div style="position:relative"><span style="position:absolute;inset:0;background:#0b1633"></span><p style="position:relative;color:#fff">Over an overlay</p></div>
 			<p style="color:rgba(11,22,51,.35)">Faded</p>
-			<div class="wp-block-group has-text-color has-background" style="background:#0b1633;color:#1a2540"><p>Dim</p></div>`,
+			<div class="wp-block-group has-text-color has-background" style="background:#0b1633;color:#1a2540"><p>Dim</p></div>
+			<div style="background:#0b1633"><p style="color:transparent;-webkit-text-stroke:1px #c6e24b">Outlined</p><p style="color:transparent;-webkit-text-stroke:1px #1a2540">Outlined dim</p></div>`,
 				pageContrast
 			);
 			expect( lines ).toEqual( [
@@ -342,6 +344,7 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 				'  h2 "Below the fold", at y 2038, is #0b1633 text on #0b1633, a contrast ratio of 1.0:1. Its section sets the text color #ffffff, which the heading does not take: a heading color in theme.json (styles.elements.heading, styles.elements.h2 or styles.blocks.core/heading) is a rule on the heading itself, which wins over the color it would inherit.',
 				'  p "Faded", at y 2140, is #aaaeb8 text on #ffffff, a contrast ratio of 2.2:1.',
 				'  p "Dim", at y 2158, is #1a2540 text on #0b1633, a contrast ratio of 1.2:1.',
+				'  p "Outlined dim", at y 2194, is #1a2540 text on #0b1633, a contrast ratio of 1.2:1.',
 			] );
 		}
 	);

@@ -29,7 +29,7 @@ const FOOTERS: Record< string, string > = {
 	icon: `<div style="width:160px;margin:auto;text-align:center"><p style="display:flex;justify-content:center;gap:8px"><span style="font-size:30px">*</span> 128 Brightside Way, Suite 200</p></div>`,
 };
 
-// eval17 and eval18's home pages as a visitor sees them, in one: what each fault looks like, and what is not one.
+// eval17 and eval18's home pages as a visitor sees them, in one: what each fault looks like, and what is not one, as a ticker running across the window.
 const PAGE = `<p class="skip" style="position:absolute;left:0;clip-path:inset(50%)">Skip to content</p>
 	<section style="padding:0 40px"><p>A welcome set in from the window's edge.</p></section>
 	<section><p>A welcome against the window's edge.</p></section>
@@ -39,7 +39,9 @@ const PAGE = `<p class="skip" style="position:absolute;left:0;clip-path:inset(50
 	<section style="padding:0 40px"><h2 style="font-size:48px">A heading as long as a sentence, set large</h2><ul><li style="font-size:48px">Call us, or book online in under a minute.</li><li>Short</li></ul>
 	<blockquote style="font-size:32px">A testimonial set large, as a design does</blockquote>
 	<p>Body text for the median size of the page, at sixteen pixels.</p></section>
-	<section style="position:relative;padding:0 40px"><p>A heading under an overlay</p><div style="position:absolute;inset:0;background:rgba(0,0,0,.5)"></div></section>`;
+	<section style="position:relative;padding:0 40px"><p>A heading under an overlay</p><div style="position:absolute;inset:0;background:rgba(0,0,0,.5)"></div></section>
+	<style>@keyframes ticker{to{transform:translateX(-50%)}}</style>
+	<section style="overflow:hidden"><div style="display:flex;gap:40px;width:max-content;animation:ticker 20s linear infinite"><p style="white-space:nowrap">Fresh bread daily · Open seven days · Order ahead</p><p style="white-space:nowrap">Fresh bread daily · Open seven days · Order ahead</p><p style="white-space:nowrap">Fresh bread daily · Open seven days · Order ahead</p></div></section>`;
 
 const HEADER = `<header style="display:flex;justify-content:space-between;padding:20px 40px">
 	<nav class="wp-block-navigation"><a href="/">Home</a> <a href="/services/">Services</a></nav>

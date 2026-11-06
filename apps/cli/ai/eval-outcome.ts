@@ -584,7 +584,7 @@ export async function homeStyles( url: string, siteName: string ) {
 		const page = await browser.newPage( { viewport: { width: 1280, height: 900 } } );
 		try {
 			await page.goto( url, { waitUntil: 'load', timeout: 30000 } );
-			return await page.evaluate( ( name ) => {
+			return await page.evaluate( async ( name ) => {
 				const visible = ( el: Element ) => {
 					const box = el.getBoundingClientRect();
 					const style = getComputedStyle( el );
@@ -807,12 +807,40 @@ export async function homeStyles( url: string, siteName: string ) {
 					range.selectNodeContents( el );
 					return [ ...range.getClientRects() ].filter( ( rect ) => rect.width );
 				};
+				const span = ( el: Element ) => {
+					const rects = lineRects( el );
+					return rects.length
+						? {
+								left: Math.min( ...rects.map( ( rect ) => rect.left ) ),
+								right: Math.max( ...rects.map( ( rect ) => rect.right ) ),
+						  }
+						: null;
+				};
+				const atEdge = ( box: { left: number; right: number } | null ) =>
+					!! box && ( box.left < 4 || box.right > viewport - 4 );
+				// Text in motion, as a ticker that runs across the window, is where it
+				// is for a moment: what touches the edge counts once it stays put.
+				const edgeSpans = new Map(
+					texts
+						.map( ( el ) => [ el, span( el ) ] as const )
+						.filter( ( [ , box ] ) => atEdge( box ) )
+				);
+				if ( edgeSpans.size ) await new Promise( ( resolve ) => setTimeout( resolve, 300 ) );
+				const moving = ( el: Element ) => {
+					const [ before, after ] = [ edgeSpans.get( el ), span( el ) ];
+					return (
+						! before ||
+						! after ||
+						Math.abs( after.left - before.left ) >= 1 ||
+						Math.abs( after.right - before.right ) >= 1
+					);
+				};
 				for ( const el of texts ) {
 					const rects = lineRects( el );
 					if ( ! rects.length ) continue;
 					const left = Math.min( ...rects.map( ( rect ) => rect.left ) );
 					const right = Math.max( ...rects.map( ( rect ) => rect.right ) );
-					if ( left < 4 || right > viewport - 4 )
+					if ( edgeSpans.has( el ) && ! moving( el ) )
 						faults.push(
 							`${ quote( el ) } touches the window's edge (x ${ Math.round( left ) }–${ Math.round(
 								right

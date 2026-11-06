@@ -141,6 +141,8 @@
 	.description[data-error] {
 		display: grid;
 		color: var( --destructive );
+		font-size: var( --text-xs );
+		line-height: var( --text-xs--line-height );
 	}
 
 	.description
@@ -177,5 +179,23 @@
 	.error {
 		color: var( --destructive );
 		font-size: var( --text-sm );
+	}
+
+	.errorMessage {
+		display: flex;
+		align-items: flex-start;
+		gap: var( --space-1 );
+	}
+
+	.errorIcon {
+		flex: none;
+		width: var( --space-4 );
+		height: var( --space-4 );
+		margin-block-start: calc( ( 1lh - var( --space-4 ) ) / 2 );
+	}
+
+	.errorText {
+		min-width: 0;
+		overflow-wrap: anywhere;
 	}
 }

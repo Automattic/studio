@@ -18,23 +18,6 @@
 		var( --shadow-xs );
 }
 
-/* Text-input chrome, like the form inputs beside it, instead of the chat composer. */
-.shellField {
-	border-radius: var( --radius-lg );
-	background-color: color-mix( in srgb, var( --chrome ) 60%, transparent );
-}
-
-.shellField:has( .input:focus-visible ) {
-	border-color: var( --input );
-	box-shadow: none;
-	outline: var( --focus-width ) solid var( --ring );
-	outline-offset: var( --focus-width );
-}
-
-.shellField .input {
-	min-height: calc( 3lh + 28px );
-}
-
 .fileInput {
 	display: none;
 }

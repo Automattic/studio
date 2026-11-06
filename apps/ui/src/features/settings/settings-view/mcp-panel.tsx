@@ -3,6 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { CopyButton } from '@/features/chats';
 import { LearnMoreLink } from '@/features/onboarding';
 import { CodeBlock, Field, FieldDescription } from '@/lib/ui';
+import { AgentAppsSection } from './agent-apps-section';
 import { SettingsGroup, SettingsRow } from './rows';
 import styles from './style.module.css';
 
@@ -38,14 +39,15 @@ export function McpPanel() {
 					description={
 						<>
 							{ __(
-								'Connect other AI assistants to WordPress Studio to create, configure, and inspect your local WordPress sites.'
+								'Connect AI apps to WordPress Studio to create, configure, and inspect your local WordPress sites.'
 							) }{ ' ' }
 							<LearnMoreLink docsLinksKey="docsMcp" />
 						</>
 					}
 				/>
 			</SettingsGroup>
-			<SettingsGroup title={ __( 'Install instructions' ) }>
+			<AgentAppsSection />
+			<SettingsGroup title={ __( 'Manual setup' ) }>
 				<Field>
 					<FieldDescription width="full">{ __( 'Install the Studio CLI:' ) }</FieldDescription>
 					<CopyableCode
@@ -54,7 +56,7 @@ export function McpPanel() {
 						label={ __( 'Copy install command' ) }
 					/>
 					<FieldDescription width="full">
-						{ __( 'Then add this configuration to your assistant:' ) }
+						{ __( 'Then add this configuration to your app:' ) }
 					</FieldDescription>
 					<CopyableCode
 						code={ getMcpServerConfigJson() }

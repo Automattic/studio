@@ -7,6 +7,6 @@ export function getBlueprintScreenshots( blueprint: Blueprint ): string[] {
 	return blueprint.slug === 'substrata' ? [ home, oliveTree, coastalRituals ] : [ blueprint.image ];
 }
 
-export function getBlueprintThumbnail( blueprint: Blueprint ): string {
+export function getBlueprintThumbnail( blueprint: Pick< Blueprint, 'slug' | 'image' > ): string {
 	return blueprint.slug === 'substrata' ? home : blueprint.image;
 }

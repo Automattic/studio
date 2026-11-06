@@ -2,6 +2,7 @@ import { once } from 'events';
 import fs from 'fs';
 import * as configFile from '@studio/common/lib/cli-config-file';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import { createTusUpload } from '@studio/common/lib/sync/tus-upload';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
@@ -23,13 +24,7 @@ vi.mock( '@studio/common/lib/sync/constants', async ( importActual ) => ( {
 	...( await importActual< typeof import('@studio/common/lib/sync/constants') >() ),
 	SYNC_POLL_INTERVAL_MS: 0,
 } ) );
-// Reads the archive to the end, as the real upload does before the push removes it.
-vi.mock( '@studio/common/lib/sync/tus-upload', () => ( {
-	createTusUpload: ( { file }: { file: Readable } ) => ( {
-		promise: once( file.resume(), 'close' ).then( () => 'attachment-1' ),
-		abort: vi.fn(),
-	} ),
-} ) );
+vi.mock( '@studio/common/lib/sync/tus-upload', () => ( { createTusUpload: vi.fn() } ) );
 vi.mock( 'cli/lib/cli-config/sites', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/cli-config/sites') >() ),
 	getSiteByFolder: vi.fn(),
@@ -71,6 +66,11 @@ describe( 'CLI: studio push', () => {
 		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( site );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ remoteSite ] );
+		// Reads the archive to the end, as the real upload does before the push removes it.
+		vi.mocked( createTusUpload ).mockImplementation( ( { file } ) => ( {
+			promise: once( ( file as Readable ).resume(), 'close' ).then( () => 'attachment-1' ),
+			abort: vi.fn(),
+		} ) );
 		vi.mocked( getExporter ).mockImplementation( async ( { backupFile } ) => {
 			return {
 				on: vi.fn(),
@@ -106,19 +106,6 @@ describe( 'CLI: studio push', () => {
 		expect( vi.mocked( recordTracksEvent ).mock.calls[ 0 ][ 1 ] ).not.toHaveProperty(
 			'preview_id'
 		);
-	} );
-
-	it( 'does not resolve or record telemetry when the push event is suppressed', async () => {
-		vi.mocked( pollImportStatus ).mockResolvedValue( {
-			success: true,
-			status: 'finished',
-		} as never );
-		const read = vi.spyOn( configFile, 'readCliConfigFileRaw' );
-		await runCommand( site.path, [ 'all' ], String( remoteSite.id ), undefined, {
-			suppressTracksEvent: true,
-		} );
-		expect( recordTracksEvent ).not.toHaveBeenCalled();
-		expect( read ).not.toHaveBeenCalled();
 	} );
 
 	it( 'keeps a successful push and its event when the site ID cannot be read', async () => {
@@ -166,4 +153,53 @@ describe( 'CLI: studio push', () => {
 			message: expect.stringContaining( 'The database failed to import on the live site.' ),
 		} );
 	} );
+
+	it.each( [
+		[
+			'export',
+			'local_export',
+			() =>
+				vi.mocked( getExporter ).mockResolvedValue( {
+					on: vi.fn(),
+					export: () => Promise.reject( new Error( 'Export crashed' ) ),
+				} as never ),
+		],
+		[
+			'upload',
+			'upload',
+			() =>
+				vi.mocked( createTusUpload ).mockImplementation( ( { file } ) => ( {
+					promise: once( ( file as Readable ).resume(), 'close' ).then( () =>
+						Promise.reject( new Error( 'Upload crashed' ) )
+					),
+					abort: vi.fn(),
+				} ) ),
+		],
+		[
+			'remote backup',
+			'remote_backup',
+			() => vi.mocked( pollImportStatus ).mockRejectedValue( new Error( 'Poll crashed' ) ),
+		],
+		[
+			'remote import',
+			'remote_import',
+			() =>
+				vi
+					.mocked( pollImportStatus )
+					.mockResolvedValueOnce( { success: true, status: 'archive_import_started' } as never )
+					.mockRejectedValue( new Error( 'Poll crashed' ) ),
+		],
+	] )(
+		'attributes an uncoded failure during the %s to that step',
+		async ( _, failureReason, fail ) => {
+			fail();
+
+			await expect( runCommand( site.path, [ 'all' ], String( remoteSite.id ) ) ).rejects.toThrow();
+
+			expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith(
+				TRACKS_EVENTS.SYNC_PUSH,
+				expect.objectContaining( { success: false, failure_reason: failureReason } )
+			);
+		}
+	);
 } );

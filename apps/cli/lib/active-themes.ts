@@ -11,7 +11,8 @@ export async function readActiveThemes( siteFolder: string ): Promise< Set< stri
 		const wpConfig = fs.readFileSync( path.join( siteFolder, 'wp-config.php' ), 'utf8' );
 		const prefix = /\$table_prefix\s*=\s*['"](\w+)['"]/.exec( wpConfig )?.[ 1 ] ?? 'wp_';
 		const { DatabaseSync } = await import( 'node:sqlite' );
-		const database = new DatabaseSync( dbPath, { readOnly: true } );
+		// Waits for a running site's write to finish rather than failing, which would keep every theme.
+		const database = new DatabaseSync( dbPath, { readOnly: true, timeout: 5000 } );
 		try {
 			const rows = database
 				.prepare(

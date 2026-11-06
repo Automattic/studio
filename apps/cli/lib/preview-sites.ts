@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_GB } from '@studio/common/constants';
+import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { isWpcomPreview } from '@studio/common/lib/snapshots';
 import { createTusUpload } from '@studio/common/lib/sync/tus-upload';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
@@ -10,6 +11,7 @@ import { z } from 'zod';
 import { deleteSnapshot } from 'cli/lib/api';
 import { LoggerError } from 'cli/logger';
 import type { Snapshot } from '@studio/common/types/snapshot';
+import type { SyncSite } from '@studio/common/types/sync';
 
 // A preview site is an unlaunched WordPress.com site built from the archive of a local site. It
 // stays private ("coming soon") and is shared through a preview link, until the owner buys a plan
@@ -24,6 +26,8 @@ export type PreviewSite = {
 	hostname: string;
 	// Jurassic Ninja previews are public and have no preview link.
 	shareUrl?: string;
+	// The paid site WordPress.com shows this preview as changes to, when it accepted the link.
+	liveSiteId?: number;
 };
 
 const newSiteResponseSchema = z.object( {
@@ -48,6 +52,7 @@ const standingPreviewsSchema = z.object( {
 				site_slug: z.string().optional(),
 				expires_at: z.number().optional(),
 				share_url: z.string().optional(),
+				live_site_id: z.number().optional(),
 			} )
 		)
 		.optional(),
@@ -59,6 +64,7 @@ export type StandingPreview = {
 	// When it expires (ms).
 	expiresAt?: number;
 	shareUrl?: string;
+	liveSiteId?: number;
 };
 
 function wpcom( token: string ) {
@@ -142,18 +148,31 @@ async function waitForPreviewImport(
  * success), and the preview it opens.
  */
 async function getPreviewLink( siteId: number, token: string ): Promise< PreviewSite > {
-	const shareUrl = ( await getStandingPreviews( token ) ).get( siteId )?.shareUrl;
+	const { shareUrl, liveSiteId } = ( await getStandingPreviews( token ) ).get( siteId ) ?? {};
 	if ( ! shareUrl ) {
 		throw new LoggerError( __( 'The preview site has no preview link.' ) );
 	}
-	return { siteId, hostname: new URL( shareUrl ).hostname, shareUrl };
+	return { siteId, hostname: new URL( shareUrl ).hostname, shareUrl, liveSiteId };
+}
+
+/**
+ * The site a preview of the local site offers to link to: its only connected production site that
+ * is not Pressable and not known to need a plan to push. WordPress.com checks the plan itself and
+ * ignores a site that doesn't qualify, so a stale or missing `pushNeedsUpgrade` is safe.
+ */
+export async function getLivePreviewSite( localSiteId: string ): Promise< SyncSite | undefined > {
+	const qualifying = ( await getConnectedWpcomSitesForLocalSite( localSiteId ) ).filter(
+		( site ) => ! site.isStaging && ! site.isPressable && site.pushNeedsUpgrade !== true
+	);
+	return qualifying.length === 1 ? qualifying[ 0 ] : undefined;
 }
 
 /** Builds a preview site from an archive uploaded with site ID 0. */
 export async function createPreviewSite(
 	attachmentId: number,
 	title: string,
-	token: string
+	token: string,
+	liveSiteId?: number
 ): Promise< PreviewSite > {
 	let siteId: number;
 	try {
@@ -169,7 +188,10 @@ export async function createPreviewSite(
 					find_available_url: true,
 					options: {
 						wow_funnel: PREVIEW_FUNNEL,
-						wow_funnel_args: { attachment_id: String( attachmentId ) },
+						wow_funnel_args: {
+							attachment_id: String( attachmentId ),
+							...( liveSiteId && { live_site_id: String( liveSiteId ) } ),
+						},
 						// Use a ready-made site when one is available, so the preview comes up faster.
 						from_wfm: true,
 					},
@@ -189,7 +211,8 @@ export async function createPreviewSite(
 export async function updatePreviewSite(
 	siteId: number,
 	attachmentId: number,
-	token: string
+	token: string,
+	liveSiteId?: number
 ): Promise< PreviewSite > {
 	const previousImportId = ( await getLatestImport( siteId, token ).catch( () => null ) )?.importId;
 
@@ -197,7 +220,12 @@ export async function updatePreviewSite(
 		await wpcom( token ).req.post( {
 			apiNamespace: 'wpcom/v2',
 			path: `/sites/${ siteId }/wow-funnel/update`,
-			body: { args: { attachment_id: String( attachmentId ) } },
+			body: {
+				args: {
+					attachment_id: String( attachmentId ),
+					...( liveSiteId && { live_site_id: String( liveSiteId ) } ),
+				},
+			},
 		} );
 	} catch ( error ) {
 		throw new LoggerError( __( 'Failed to update preview site' ), error );
@@ -224,6 +252,7 @@ export async function getStandingPreviews(
 				hostname: site.share_url ? new URL( site.share_url ).hostname : site.site_slug,
 				expiresAt: site.expires_at === undefined ? undefined : site.expires_at * 1000,
 				shareUrl: site.share_url || undefined,
+				liveSiteId: site.live_site_id,
 			},
 		] )
 	);

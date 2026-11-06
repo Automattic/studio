@@ -35,7 +35,6 @@ import type {
 	SidebarSiteSort,
 	SidebarChatSort,
 	ColorScheme,
-	NewSiteBehavior,
 	QuitSitesBehavior,
 } from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
@@ -250,7 +249,7 @@ export interface Connector {
 	generateNumberedSiteName( baseName: string, usedSites: SiteDetails[] ): Promise< string >;
 	selectSiteFolder(
 		defaultPath: string,
-		options?: { allowBlueprints?: boolean }
+		options?: { allowBlueprints?: boolean; allowSiteFiles?: boolean; usePath?: boolean }
 	): Promise< SelectedSiteFolder | null >;
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
 
@@ -754,7 +753,6 @@ export interface UserPreferences {
 	hideFrontendAdminBar?: boolean;
 	// Save annotation notes for a combined send.
 	batchAnnotations?: boolean;
-	newSiteBehavior?: NewSiteBehavior;
 	// The appearance tint: a `#rrggbb` accent color, and percentages.
 	accentColor?: string;
 	tintIntensity?: number;
@@ -827,6 +825,7 @@ export interface ProposedSitePath {
 }
 
 export interface SelectedSiteFolder {
+	file?: { path: string; name: string };
 	blueprint?: BlueprintSource;
 	path: string;
 	name: string;

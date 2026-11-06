@@ -96,6 +96,7 @@ interface ComposerProps {
 	// `getSubmission()` — no Send/Stop control, Enter inserts a newline.
 	variant?: 'chat' | 'field';
 	placeholder?: string;
+	ariaLabel?: string;
 	// The placeholder describes work in progress (e.g. the site starting).
 	placeholderBusy?: boolean;
 	// Offers the auto-start preference, for a chat on a local site.
@@ -142,6 +143,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		autoFocus = false,
 		variant = 'chat',
 		placeholder: placeholderOverride,
+		ariaLabel,
 		placeholderBusy = false,
 		canAutoStart = false,
 		onStartSite,
@@ -189,7 +191,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		provider,
 	} );
 	const isWpcom = sessionProvider === 'wpcom';
-	const isOutOfCredits = useIsOutOfAiCredits() && ! isField && isWpcom;
+	const isOutOfCredits = useIsOutOfAiCredits() && isWpcom;
 	const { openAddCredits, purchase, closePurchase } = useAddCredits();
 	const notice =
 		blockingNotice ??
@@ -402,10 +404,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		send,
 	} );
 
-	const openFilePicker = useCallback( () => {
-		fileInputRef.current?.click();
-	}, [] );
-
 	const focusTextareaFromShell = useCallback( ( event: MouseEvent< HTMLDivElement > ) => {
 		if ( ! shouldShellFocusTextarea( event.target ) ) {
 			return;
@@ -427,16 +425,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		: busy
 		? __( 'Queue message' )
 		: __( 'Send message' );
-	const addLabel = isField ? __( 'Upload attachment' ) : __( 'Add' );
-
 	const addButton = (
-		<Button
-			variant="ghost"
-			size="icon"
-			shape="round"
-			aria-label={ addLabel }
-			onClick={ isField ? openFilePicker : undefined }
-		>
+		<Button variant="ghost" size="icon" shape="round" aria-label={ __( 'Add' ) }>
 			<PlusIcon />
 		</Button>
 	);
@@ -458,7 +448,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				<InputGroup
 					ref={ setShellNode }
 					variant="composer"
-					className={ clsx( styles.shell, isField && styles.shellField ) }
+					className={ styles.shell }
 					onMouseDown={ focusTextareaFromShell }
 				>
 					{ isDraggingFiles && fileDropTarget
@@ -483,7 +473,10 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 							className={ clsx( styles.input, placeholderBusy && styles.inputShimmering ) }
 							placeholder={ placeholder }
 							aria-label={
-								answerQuestion ? __( 'Answer WordPress Studio' ) : __( 'Message WordPress Studio' )
+								ariaLabel ??
+								( answerQuestion
+									? __( 'Answer WordPress Studio' )
+									: __( 'Message WordPress Studio' ) )
 							}
 							value={ value }
 							role="combobox"
@@ -540,7 +533,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 					</div>
 					<div className={ styles.toolbar }>
 						<div className={ styles.leftActions }>
-							{ isField ? addButton : <Popover.Trigger render={ addButton } /> }
+							<Popover.Trigger render={ addButton } />
 							{ autoStartOn ? (
 								<ModeChip
 									icon={ StartSiteIcon }

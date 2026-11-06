@@ -1,5 +1,3 @@
-import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import { buildSyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
 import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
@@ -248,8 +246,6 @@ type LiveSyncVariables< Options > = {
 	siteId: string;
 	remoteSiteId: number;
 	options?: Options;
-	// Supplied by callers whose site isn't in the connected-sites cache yet.
-	syncSite?: Pick< SyncSite, 'isPressable' >;
 };
 
 function useLiveSync< Options >(
@@ -262,29 +258,8 @@ function useLiveSync< Options >(
 	) => Promise< void >
 ) {
 	const connector = useConnector();
-	const queryClient = useQueryClient();
 	const settleFromMutation = useSettleFromMutation();
 	const recordActivity = useSettleSync();
-	// `sync_type` comes from the connected site; a cache miss reports `unknown`.
-	const track = (
-		{ siteId, remoteSiteId, syncSite }: LiveSyncVariables< Options >,
-		startedAt: number,
-		error?: unknown
-	) =>
-		void connector.trackEvent(
-			direction === 'push' ? TRACKS_EVENTS.SYNC_PUSH : TRACKS_EVENTS.SYNC_PULL,
-			buildSyncEventProps( {
-				startedAt,
-				site:
-					syncSite ??
-					queryClient
-						.getQueryData< SyncSite[] >( connectedWpcomSitesQueryKey( siteId ) )
-						?.find( ( site ) => site.id === remoteSiteId ),
-				error,
-			} ),
-			...( direction === 'push' ? [ siteId ] : [] )
-		);
-
 	return useMutation( {
 		mutationKey: direction === 'push' ? PUSH_TO_LIVE_MUTATION_KEY : PULL_FROM_LIVE_MUTATION_KEY,
 		mutationFn: ( { siteId, remoteSiteId, options }: LiveSyncVariables< Options > ) =>
@@ -292,25 +267,20 @@ function useLiveSync< Options >(
 		onMutate: ( { siteId, remoteSiteId } ) => {
 			recordActivity( siteId, { kind: 'pending', direction, remoteSiteId } );
 			return {
-				startedAt: Date.now(),
 				journey:
 					direction === 'push'
 						? getAccountJourney( connector, 'publish', siteId )
 						: getAccountJourney( connector, 'connect_site', `${ siteId }:${ remoteSiteId }` ),
 			};
 		},
-		onSuccess: ( _result, variables, { startedAt, journey } ) => {
+		onSuccess: ( _result, variables, { journey } ) => {
 			completeAccountJourney( connector, journey, {
 				completion_kind: direction === 'push' ? 'sync_push' : 'sync_pull',
 			} );
 			settleFromMutation( variables.siteId, direction );
-			track( variables, startedAt );
 		},
-		onError: ( error, variables, context ) => {
+		onError: ( error, variables ) => {
 			settleFromMutation( variables.siteId, direction, error );
-			if ( ! isSyncCancelledError( error ) ) {
-				track( variables, context?.startedAt ?? Date.now(), error );
-			}
 		},
 	} );
 }

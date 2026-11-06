@@ -424,8 +424,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				`/site-defaults/path?name=${ encodeURIComponent( siteName ) }`
 			);
 		},
-		// No native folder picker in a browser: the create form has the path typed
-		// (see capabilities.nativeFolderPicker), and this checks what it holds.
+		// The browser has no native folder picker; this checks a known path.
 		async selectSiteFolder( folderPath, options ): Promise< SelectedSiteFolder | null > {
 			return api< SelectedSiteFolder >( '/site-defaults/folder', {
 				method: 'POST',

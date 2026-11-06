@@ -68,7 +68,6 @@ describe( 'pullSite', () => {
 				'themes/one,two',
 				'--only',
 				'uploads',
-				'--suppress-tracks-event',
 			],
 			{ output: 'capture' }
 		);
@@ -97,7 +96,6 @@ describe( 'pushSite', () => {
 				'themes',
 				'--include-only',
 				'wp-content/themes/twentytwentyfive',
-				'--suppress-tracks-event',
 			],
 			{ output: 'capture' }
 		);

@@ -40,13 +40,6 @@ export default class AddSite {
 		await expect( this.dialog ).toBeVisible();
 	}
 
-	async openAdvancedSettings() {
-		const toggle = this.dialog.getByRole( 'button', { name: 'Advanced settings' } );
-		if ( ( await toggle.getAttribute( 'aria-expanded' ) ) !== 'true' ) {
-			await toggle.click();
-		}
-	}
-
 	// Creates a site and resolves with its name once the dialog has closed on it.
 	async createSite( { siteName, pickFolder, blueprintPath }: CreateSiteOptions = {} ) {
 		await this.open();
@@ -54,7 +47,6 @@ export default class AddSite {
 		if ( blueprintPath ) {
 			await this.dialog.getByRole( 'tab', { name: 'Import', exact: true } ).click();
 			await this.fileInput.setInputFiles( blueprintPath );
-			await expect( this.submitButton ).toHaveText( 'Create site' );
 		} else {
 			await this.dialog.getByRole( 'button', { name: 'Start with Blank site' } ).click();
 		}
@@ -66,13 +58,10 @@ export default class AddSite {
 		const name = await this.siteNameInput.inputValue();
 
 		if ( pickFolder ) {
-			await this.openAdvancedSettings();
-			await this.dialog
-				.getByRole( 'button', { name: /select a different folder|Select a folder/ } )
-				.click();
-			await expect(
-				this.dialog.getByRole( 'button', { name: /select a different folder$/ } )
-			).toBeVisible();
+			const folder = this.dialog.getByRole( 'textbox', { name: 'Site folder' } );
+			const previousPath = await folder.getAttribute( 'title' );
+			await this.dialog.getByRole( 'button', { name: 'Change…', exact: true } ).click();
+			await expect( folder ).not.toHaveAttribute( 'title', previousPath ?? '' );
 		}
 
 		await this.submitButton.click();

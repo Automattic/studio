@@ -180,6 +180,7 @@ import {
 } from '@studio/common/sites/site-email';
 import { readGlobalStyles } from '@studio/common/sites/site-identity';
 import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
+import { readSiteSource } from '@studio/common/sites/site-source';
 import {
 	deleteAllPreviewSites,
 	deletePreviewSite,
@@ -1186,6 +1187,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				}
 			}
 			try {
+				if ( confined && req.body?.allowSiteFiles === true ) {
+					res.json( await readSiteSource( confined ) );
+					return;
+				}
 				const blueprint =
 					confined && req.body?.allowBlueprints === true
 						? await readBlueprintSource( confined )

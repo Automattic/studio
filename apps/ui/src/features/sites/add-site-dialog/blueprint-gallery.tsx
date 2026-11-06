@@ -140,7 +140,7 @@ export function BlueprintGallery( {
 								/>
 							</PreviewFrame>
 							<span className={ styles.action } aria-hidden="true">
-								<span className={ styles.actionLabel }>{ __( 'View site' ) }</span>
+								<span className={ styles.actionLabel }>{ __( 'View Blueprint' ) }</span>
 							</span>
 						</span>
 						<span className={ styles.cardTitle }>{ blueprint.title }</span>

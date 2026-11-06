@@ -1,4 +1,5 @@
 import { clsx } from 'clsx';
+import { NeedsInputIcon } from '@/lib/icons';
 import { Label } from '@/lib/ui/label';
 import styles from './style.module.css';
 import type { ComponentProps, ReactNode } from 'react';
@@ -116,8 +117,9 @@ export function FieldDescription( {
 					<span aria-hidden="true" className={ styles.reserved }>
 						{ content }
 					</span>
-					<span role="alert" className={ styles.reserved }>
-						{ error }
+					<span role="alert" className={ clsx( styles.reserved, styles.errorMessage ) }>
+						<NeedsInputIcon className={ styles.errorIcon } />
+						<span className={ styles.errorText }>{ error }</span>
 					</span>
 				</>
 			) : (
@@ -127,16 +129,19 @@ export function FieldDescription( {
 	);
 }
 
-export function FieldError( { className, ...props }: ComponentProps< 'div' > ) {
-	if ( ! props.children ) {
+export function FieldError( { className, children, ...props }: ComponentProps< 'div' > ) {
+	if ( ! children ) {
 		return null;
 	}
 	return (
 		<div
 			role="alert"
 			data-slot="field-error"
-			className={ clsx( styles.error, className ) }
+			className={ clsx( styles.error, styles.errorMessage, className ) }
 			{ ...props }
-		/>
+		>
+			<NeedsInputIcon className={ styles.errorIcon } />
+			<span className={ styles.errorText }>{ children }</span>
+		</div>
 	);
 }

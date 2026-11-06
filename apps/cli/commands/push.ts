@@ -35,6 +35,7 @@ import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { handleExportEvents } from './export';
 import type { SyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
+import type { SyncFailurePhase } from '@studio/common/lib/sync/classify-sync-failure';
 import type { ImportResponse, PushPhase, SyncSite } from '@studio/common/types/sync';
 import type { builder } from 'cli/commands/push.command';
 import type { CommandArgs } from 'cli/types';
@@ -46,7 +47,7 @@ export async function runCommand(
 	syncOptions?: SyncOption[],
 	remoteSiteIdentifier?: string,
 	logger: Logger< LoggerAction > = defaultLogger,
-	{ includeOnly, suppressTracksEvent = false }: PushFlags = {}
+	{ includeOnly }: PushFlags = {}
 ): Promise< SyncSite | undefined > {
 	const startedAt = Date.now();
 	// The remote site is only known part-way through, but the setup steps before
@@ -65,17 +66,15 @@ export async function runCommand(
 				message: error instanceof Error ? error.message : String( error ),
 			} );
 		}
-		if ( ! suppressTracksEvent ) {
-			await recordSyncPushEvent(
-				siteFolder,
-				buildSyncEventProps( {
-					startedAt,
-					site: pushed.remoteSite,
-					error,
-					hint: { code: findFailureCode( error ) },
-				} )
-			);
-		}
+		await recordSyncPushEvent(
+			siteFolder,
+			buildSyncEventProps( {
+				startedAt,
+				site: pushed.remoteSite,
+				error,
+				hint: { code: findFailureCode( error ), phase: pushed.failurePhase },
+			} )
+		);
 		throw error;
 	}
 
@@ -87,7 +86,7 @@ export async function runCommand(
 	}
 	// Backing out of the site picker or the item selector returns without
 	// completing — a cancel, which emits nothing.
-	if ( pushed.completed && ! suppressTracksEvent ) {
+	if ( pushed.completed ) {
 		await recordSyncPushEvent(
 			siteFolder,
 			buildSyncEventProps( { startedAt, site: pushed.remoteSite } )
@@ -96,8 +95,22 @@ export async function runCommand(
 	return pushed.completed ? pushed.remoteSite : undefined;
 }
 
-type PushFlags = { includeOnly?: string[]; suppressTracksEvent?: boolean };
-type PushOutcome = { siteId?: string; remoteSite?: SyncSite; completed?: boolean };
+type PushFlags = { includeOnly?: string[] };
+type PushOutcome = {
+	siteId?: string;
+	remoteSite?: SyncSite;
+	completed?: boolean;
+	// The step a failure is attributed to when its error names no cause of its own.
+	failurePhase?: SyncFailurePhase;
+};
+
+const FAILURE_PHASES: Record< PushPhase, SyncFailurePhase > = {
+	creatingBackup: 'local_export',
+	uploading: 'upload',
+	creatingRemoteBackup: 'remote_backup',
+	applyingChanges: 'remote_import',
+	finishing: 'remote_import',
+};
 
 async function runPush(
 	siteFolder: string,
@@ -115,7 +128,10 @@ async function runPush(
 	const site = await getSiteByFolder( siteFolder );
 	logger.reportSuccess( __( 'Site loaded' ) );
 	pushed.siteId = site.id;
-	const reportPhase = ( phase?: PushPhase, progress?: number ) =>
+	const reportPhase = ( phase?: PushPhase, progress?: number ) => {
+		if ( phase ) {
+			pushed.failurePhase = FAILURE_PHASES[ phase ];
+		}
 		void reportSyncActivity( site.id, {
 			kind: 'pending',
 			direction: 'push',
@@ -123,6 +139,7 @@ async function runPush(
 			...( phase ? { phase } : {} ),
 			...( progress === undefined ? {} : { progress: Math.round( progress ) } ),
 		} );
+	};
 	reportPhase();
 
 	logger.reportStart(
@@ -162,6 +179,7 @@ async function runPush(
 		specificSelectionPaths = selection.specificSelectionPaths;
 	}
 
+	reportPhase( 'creatingBackup' );
 	const tempDir = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-sync' ) );
 
 	try {
@@ -207,7 +225,6 @@ async function runPush(
 			);
 		}
 
-		reportPhase( 'creatingBackup' );
 		handleExportEvents( exporter, logger );
 		await withSiteOperation( site.path, 'export', () => exporter.export() );
 
@@ -421,7 +438,6 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 	try {
 		await runCommand( argv.path, argv.options, argv.remoteSite, defaultLogger, {
 			includeOnly: argv.includeOnly,
-			suppressTracksEvent: argv.suppressTracksEvent,
 		} );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {

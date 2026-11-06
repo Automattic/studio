@@ -13,7 +13,7 @@ import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { useOffline } from '@/lib/hooks';
-import type { ComposerNotice } from '@/features/composer';
+import type { ComposerNotice } from './notice-tab';
 import type { AiProviderId } from '@studio/agent/protocol/providers';
 
 /**
@@ -79,7 +79,10 @@ export function useComposerNotice(
 		onClick: () => openSettings( 'ai', undefined, undefined, { intent: 'build', scope: siteId } ),
 	};
 	if ( ! user ) {
-		return { message: __( 'Connect a provider to build and edit your site.' ), action: connect };
+		return {
+			message: __( 'Connect a provider to build and edit your site.' ),
+			action: connect,
+		};
 	}
 	if ( quotaError ) {
 		return { message: __( 'AI usage is currently unavailable.' ), action: retry };

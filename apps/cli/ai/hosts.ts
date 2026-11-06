@@ -136,7 +136,6 @@ const wpcom: RemoteHost = {
 				target,
 				false,
 				pullSelectionFromSyncOptions( syncOptions ),
-				false,
 				onProgress
 			);
 		} else {

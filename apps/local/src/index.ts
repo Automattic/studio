@@ -42,6 +42,7 @@ import { isAiProviderId, providerServesModel } from '@studio/agent/protocol/prov
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH, DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
+import { isAgentAppId } from '@studio/common/lib/agent-apps';
 import {
 	getSiteAgentFiles,
 	getSkillsStatusForAllSites,
@@ -67,6 +68,11 @@ import {
 	siteListItemSchema,
 } from '@studio/common/lib/cli-events';
 import { CliCommandError, createCliRunner, runCliCommand } from '@studio/common/lib/cli-process';
+import {
+	connectAgentApp,
+	detectAgentApps,
+	refreshAgentPlugins,
+} from '@studio/common/lib/connect-agent-app';
 import {
 	addConnectedWpcomSite,
 	getAllConnectedWpcomSitesForCurrentUser,
@@ -372,6 +378,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	}
 
 	const cliRunner = createCliRunner( { cliBinary, nodeBinary } );
+	void refreshAgentPlugins( { nodeBinary: nodeBinary ?? process.execPath, cliBinary } ).catch(
+		() => undefined
+	);
 	const execute = cliRunner.executeCliCommand;
 	const uploads = new Map< string, { path: string; directory: string } >();
 
@@ -1540,6 +1549,33 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/installed-apps',
 		asyncHandler( async ( _req: Request, res: Response ) => {
 			res.json( await detectInstalledAppsWithDefaultBrowser() );
+		} )
+	);
+
+	// Agent apps Settings installs the Studio plugin in.
+	api.get(
+		'/agent-apps',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json(
+				await detectAgentApps( { nodeBinary: nodeBinary ?? process.execPath, cliBinary } )
+			);
+		} )
+	);
+
+	api.post(
+		'/agent-apps/:id/connect',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { id } = req.params;
+			if ( ! isAgentAppId( id ) ) {
+				res.status( 400 ).json( { error: `Unknown agent app: ${ id }` } );
+				return;
+			}
+			await connectAgentApp( id, {
+				nodeBinary: nodeBinary ?? process.execPath,
+				cliBinary,
+				openUrl,
+			} );
+			res.status( 204 ).end();
 		} )
 	);
 

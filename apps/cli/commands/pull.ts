@@ -61,6 +61,7 @@ import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/track
 import { findFailureCode } from 'cli/lib/utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
+import type { SyncFailurePhase } from '@studio/common/lib/sync/classify-sync-failure';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { builder } from 'cli/commands/pull.command';
 import type { CommandArgs } from 'cli/types';
@@ -82,8 +83,7 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 						only: argv.only as string[] | undefined,
 						skipDatabase: argv[ 'skip-database' ] as boolean,
 						skipFiles: argv[ 'skip-files' ] as boolean,
-				  },
-			argv.suppressTracksEvent
+				  }
 		);
 		// The pulled site's server keeps handles open.
 		process.exit( 0 );
@@ -197,6 +197,8 @@ interface PullRun {
 	warning?: string;
 	localChangesApplied: boolean;
 	completed: boolean;
+	// The step a failure is attributed to when its error names no cause of its own.
+	failurePhase?: SyncFailurePhase;
 }
 
 /**
@@ -212,7 +214,6 @@ export async function runCommand(
 	remoteSite?: string,
 	verbose = false,
 	cliSelection: CliSelectionOptions = {},
-	suppressTracksEvent = false,
 	onProgress?: ( message: string ) => void
 ): Promise< SyncSite | undefined > {
 	const startedAt = Date.now();
@@ -249,14 +250,14 @@ export async function runCommand(
 	}
 
 	// A user who cancels the site picker or the selection emits nothing: cancels aren't failures.
-	if ( ! suppressTracksEvent && ( run.completed || pullError !== undefined ) ) {
+	if ( run.completed || pullError !== undefined ) {
 		try {
 			await recordTracksEvent( TRACKS_EVENTS.SYNC_PULL, {
 				...buildSyncEventProps( {
 					startedAt,
 					site: run.remoteSite,
 					error: pullError,
-					hint: { code: findFailureCode( pullError ) },
+					hint: { code: findFailureCode( pullError ), phase: run.failurePhase },
 				} ),
 				site_kind: getSiteKind( run ),
 				...getTracksOrigin(),
@@ -312,6 +313,7 @@ async function pullSite(
 		return;
 	}
 	run.remoteSite = sourceSite.wpComSite;
+	run.failurePhase = 'remote_backup';
 	run.preview = await findPreview( sourceSite );
 	const exporter = await enableReprintExporter(
 		sourceSite.wpComSite.id,
@@ -418,7 +420,10 @@ async function pullSite(
 				selection,
 				reprintMetadata,
 				reinstallKey,
-				sourceSite.wpComSite.wpVersion
+				sourceSite.wpComSite.wpVersion,
+				( phase ) => {
+					run.failurePhase = phase;
+				}
 			);
 
 			// Makes `studio site start` serve the pulled runtime instead of the blank install.
@@ -651,7 +656,8 @@ export async function runFullPull(
 	selection: PullSelection = {},
 	reprintMetadata: ReprintMetadata = emptyReprintMetadata,
 	reinstallKey?: () => Promise< void >,
-	remoteWpVersion?: string
+	remoteWpVersion?: string,
+	onPhase?: ( phase: SyncFailurePhase ) => void
 ): Promise< void > {
 	// The database lives in the pulled wp-content, or in the local one when
 	// the remote's location is unknown and the database isn't pulled.
@@ -739,6 +745,8 @@ export async function runFullPull(
 			`--fs-root=${ metadata.rawDirectory }`,
 		] );
 	}
+
+	onPhase?.( 'local_import' );
 
 	if ( isScoped && ! keptCoreVersion ) {
 		ensureScopedPullWpConfig( metadata, reprintMetadata );

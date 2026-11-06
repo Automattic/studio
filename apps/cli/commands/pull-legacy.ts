@@ -45,6 +45,7 @@ import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { handleImportEvents } from './import';
 import type { SyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
+import type { SyncFailurePhase } from '@studio/common/lib/sync/classify-sync-failure';
 import type { SyncOption, SyncSite } from '@studio/common/types/sync';
 import type { builder } from 'cli/commands/pull.command';
 import type { CommandArgs } from 'cli/types';
@@ -57,7 +58,6 @@ export async function runCommand(
 	siteIdentifier?: string,
 	syncIncludePathList?: string[],
 	logger: Logger< LoggerAction > = defaultLogger,
-	suppressTracksEvent = false,
 	confirmLargeBackup?: () => Promise< boolean >
 ): Promise< SyncSite | undefined > {
 	let pullError: unknown;
@@ -65,6 +65,7 @@ export async function runCommand(
 	let remoteSite: SyncSite | undefined;
 	let pullCompleted = false;
 	let siteId: string | undefined;
+	let failurePhase: SyncFailurePhase | undefined;
 	let stopReportingProgress = () => {};
 	const startedAt = Date.now();
 
@@ -114,6 +115,7 @@ export async function runCommand(
 		}
 
 		// Pull progress: Backup (0-50%) → Download (50-80%) → Import (80-100%)
+		failurePhase = 'remote_backup';
 		logger.reportStart(
 			LoggerAction.INITIATE_BACKUP,
 			formatProgressLabel( __( 'Initializing remote backup…' ), 0 )
@@ -191,6 +193,7 @@ export async function runCommand(
 			fs.mkdirSync( tempDir, { recursive: true } );
 			const destPath = path.join( tempDir, `pull-${ remoteSite.id }-${ Date.now() }.tar.gz` );
 			await downloadBackup( downloadUrl, destPath );
+			failurePhase = 'local_import';
 
 			await withSiteOperation( site.path, 'import', async () => {
 				const wasServerRunning = !! ( await isServerRunning( site.id ) );
@@ -269,13 +272,13 @@ export async function runCommand(
 	// head of the error chain and mislead the classifier. A user declining the site picker or the
 	// size warning returns early without setting either flag, and emits nothing — cancels aren't
 	// failures.
-	if ( ! suppressTracksEvent && ( pullCompleted || pullError !== undefined ) ) {
+	if ( pullCompleted || pullError !== undefined ) {
 		await recordSyncPullEvent(
 			buildSyncEventProps( {
 				startedAt,
 				site: remoteSite,
 				error: pullError,
-				hint: { code: findFailureCode( pullError ) },
+				hint: { code: findFailureCode( pullError ), phase: failurePhase },
 			} )
 		);
 	}
@@ -342,7 +345,6 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 			argv.remoteSite,
 			argv.includePathList as string[] | undefined,
 			defaultLogger,
-			argv.suppressTracksEvent,
 			process.stdin.isTTY
 				? () =>
 						confirm( {

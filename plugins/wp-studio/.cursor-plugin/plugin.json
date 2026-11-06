@@ -1,0 +1,36 @@
+{
+  "name": "wp-studio",
+  "displayName": "WordPress Studio",
+  "version": "0.1.1",
+  "description": "Build, design, and manage WordPress sites with WordPress Studio: create local sites with Studio's design workflow, preview them, and publish to WordPress.com.",
+  "author": {
+    "name": "Automattic Inc."
+  },
+  "homepage": "https://wordpress.studio/",
+  "repository": "https://github.com/Automattic/studio",
+  "license": "GPL-2.0-or-later",
+  "logo": "assets/logo.png",
+  "category": "developer-tools",
+  "keywords": [
+    "wordpress",
+    "wordpress-studio",
+    "wordpress-com",
+    "site-builder",
+    "block-theme"
+  ],
+  "minClientVersions": {
+    "grokbot": "never"
+  },
+  "skills": "./skills/",
+  "mcpServers": {
+    "wordpress-studio": {
+      "command": "node",
+      "args": [
+        "${CURSOR_PLUGIN_ROOT}/scripts/bootstrap-mcp.mjs"
+      ],
+      "env": {
+        "STUDIO_PLUGIN_ID": "wp-studio@studio"
+      }
+    }
+  }
+}

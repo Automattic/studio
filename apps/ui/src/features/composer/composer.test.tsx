@@ -969,6 +969,17 @@ describe( 'Composer model picker', () => {
 } );
 
 describe( 'Composer as a form field', () => {
+	it( 'shows the credits notice while the form owns submission', async () => {
+		const connector = createFakeConnector(
+			{},
+			{ getStudioAssistantQuota: async () => OUT_OF_CREDITS }
+		);
+		await setup( { variant: 'field' }, connector );
+		expect( await screen.findByText( 'Add AI credits to send another message.' ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Add credits' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'button', { name: 'Send message' } ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'has no send control and hands its draft over through the ref', async () => {
 		const onModelChange = vi.fn();
 		const { connector, ref, input, onSend } = await setup( {
@@ -980,8 +991,7 @@ describe( 'Composer as a form field', () => {
 		} );
 
 		expect( screen.queryByRole( 'button', { name: 'Send message' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'Add' } ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Upload attachment' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Add' } ) ).toBeInTheDocument();
 		expect( ref.current?.getSubmission() ).toBeNull();
 
 		expect( input ).toHaveAttribute( 'placeholder', 'Describe the site' );

@@ -59,6 +59,7 @@ import {
 	Composer,
 	ComposerSkeleton,
 	pendingPromptSlot,
+	useComposerNotice,
 	type ComposerHandle,
 } from '@/features/composer';
 import { PreviewParticles, StoppedSitePreview } from '@/features/sites';
@@ -71,7 +72,6 @@ import { SessionFrame } from './session-frame';
 import { SessionHeader } from './session-header';
 import styles from './style.module.css';
 import { useAnchoredScroll } from './use-anchored-scroll';
-import { useComposerNotice } from './use-composer-notice';
 import { useMarkChatRead } from './use-mark-chat-read';
 import { useSendSiteDraft } from './use-send-site-draft';
 import { useSessionCommands } from './use-session-commands';

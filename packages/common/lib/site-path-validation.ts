@@ -24,6 +24,10 @@ function getContentsError( { isEmpty, isWordPress }: SitePathDetails, requiresEm
 		return undefined;
 	}
 	if ( requiresEmptyPath ) {
+		if ( isWordPress )
+			return __(
+				'Choose an empty folder to use a source. The selected folder already contains a WordPress site.'
+			);
 		return __( 'Choose an empty folder for your site.' );
 	}
 	return isWordPress ? undefined : __( 'Choose an empty folder or an existing WordPress site.' );
@@ -49,7 +53,7 @@ export function validateProposedSitePath(
 		return {
 			...base,
 			error: __(
-				'The directory is already associated with another Studio site. Please choose a different site name or a custom local path.'
+				'This folder is already associated with another Studio site. Choose a different site name or local folder.'
 			),
 		};
 	}
@@ -60,7 +64,8 @@ export function validateProposedSitePath(
 export function validateSelectedSitePath(
 	result: SelectedSitePathDetails,
 	pathExists: boolean,
-	requiresEmptyPath = false
+	requiresEmptyPath = false,
+	requiresExistingPath = false
 ): PathValidationResult {
 	const base = {
 		path: result.path,
@@ -72,10 +77,13 @@ export function validateSelectedSitePath(
 		return {
 			...base,
 			error: __(
-				'The directory is already associated with another Studio site. Please choose a different custom local path.'
+				'This folder is already associated with another Studio site. Choose a different local folder.'
 			),
 		};
 	}
-	const error = getContentsError( result, requiresEmptyPath );
+	const error =
+		requiresExistingPath && ! result.isWordPress
+			? __( 'Choose a folder containing an existing WordPress site.' )
+			: getContentsError( result, requiresEmptyPath );
 	return error ? { ...base, error } : base;
 }

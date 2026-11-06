@@ -20,7 +20,7 @@ describe( 'validateProposedSitePath', () => {
 
 	it( 'rejects paths already used by Studio', () => {
 		expect( validateProposedSitePath( availablePath, true ).error ).toBe(
-			'The directory is already associated with another Studio site. Please choose a different site name or a custom local path.'
+			'This folder is already associated with another Studio site. Choose a different site name or local folder.'
 		);
 	} );
 
@@ -40,7 +40,7 @@ describe( 'validateSelectedSitePath', () => {
 
 	it( 'uses the custom-path conflict message', () => {
 		expect( validateSelectedSitePath( selectedPath, true ).error ).toBe(
-			'The directory is already associated with another Studio site. Please choose a different custom local path.'
+			'This folder is already associated with another Studio site. Choose a different local folder.'
 		);
 	} );
 
@@ -49,7 +49,11 @@ describe( 'validateSelectedSitePath', () => {
 			expect(
 				validateSelectedSitePath( { ...selectedPath, isEmpty: false, isWordPress }, false, true )
 					.error
-			).toBe( 'Choose an empty folder for your site.' );
+			).toBe(
+				isWordPress
+					? 'Choose an empty folder to use a source. The selected folder already contains a WordPress site.'
+					: 'Choose an empty folder for your site.'
+			);
 		}
 	} );
 

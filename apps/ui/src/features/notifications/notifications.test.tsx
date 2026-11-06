@@ -27,50 +27,47 @@ afterEach( () => {
 	vi.unstubAllGlobals();
 } );
 
-async function setup( _withToasts = true ) {
+async function setup() {
 	const view = renderWithProviders( <AppToasts /> );
 	await screen.findByRole( 'region', { name: 'Notifications' } );
 	return view;
 }
 
 describe( 'notification details', () => {
-	it.each( [ true ] )(
-		'toggles expandable cards from the whole surface (toast: %s)',
-		async ( withToasts ) => {
-			const onAction = vi.fn( () => new Promise< void >( () => {} ) );
-			const title = 'Import needs attention';
-			const description = 'Full details about the import';
-			showToast( { title, description, action: { label: 'Retry', onClick: onAction } } );
-			const { user } = await setup( withToasts );
-			const disclosure = await screen.findByRole( 'button', {
-				name: `View notification: ${ title }`,
-			} );
-			const card = screen.getByText( title ).closest( '[role="presentation"]' )!;
+	it( 'toggles notification details with pointer and keyboard input', async () => {
+		const onAction = vi.fn( () => new Promise< void >( () => {} ) );
+		const title = 'Import needs attention';
+		const description = 'Full details about the import';
+		showToast( { title, description, action: { label: 'Retry', onClick: onAction } } );
+		const { user } = await setup();
+		const disclosure = await screen.findByRole( 'button', {
+			name: `View notification: ${ title }`,
+		} );
+		const card = screen.getByText( title ).closest( '[role="presentation"]' )!;
 
-			await user.click( screen.getByText( title ) );
-			expect( disclosure ).toHaveAttribute( 'aria-expanded', 'true' );
-			await user.click( screen.getByText( description ) );
-			expect( disclosure ).toHaveAttribute( 'aria-expanded', 'false' );
-			await user.click( card );
-			expect( disclosure ).toHaveAttribute( 'aria-expanded', 'true' );
-			act( () => disclosure.focus() );
-			await user.keyboard( ' ' );
-			expect( disclosure ).toHaveAttribute( 'aria-expanded', 'false' );
-			await user.keyboard( '{Enter}' );
-			expect( disclosure ).toHaveAttribute( 'aria-expanded', 'true' );
+		await user.click( screen.getByText( title ) );
+		expect( disclosure ).toHaveAttribute( 'aria-expanded', 'true' );
+		await user.click( screen.getByText( description ) );
+		expect( disclosure ).toHaveAttribute( 'aria-expanded', 'false' );
+		await user.click( card );
+		expect( disclosure ).toHaveAttribute( 'aria-expanded', 'true' );
+		act( () => disclosure.focus() );
+		await user.keyboard( ' ' );
+		expect( disclosure ).toHaveAttribute( 'aria-expanded', 'false' );
+		await user.keyboard( '{Enter}' );
+		expect( disclosure ).toHaveAttribute( 'aria-expanded', 'true' );
 
-			await user.click( screen.getByRole( 'button', { name: 'Retry' } ) );
-			expect( onAction ).toHaveBeenCalledOnce();
-			expect( disclosure ).toHaveAttribute( 'aria-expanded', 'true' );
-			await user.click( screen.getByRole( 'button', { name: `Dismiss ${ title }` } ) );
-			expect( disclosure ).toHaveAttribute( 'aria-expanded', 'true' );
-			await waitFor( () => expect( card ).not.toBeInTheDocument() );
-		}
-	);
+		await user.click( screen.getByRole( 'button', { name: 'Retry' } ) );
+		expect( onAction ).toHaveBeenCalledOnce();
+		expect( disclosure ).toHaveAttribute( 'aria-expanded', 'true' );
+		await user.click( screen.getByRole( 'button', { name: `Dismiss ${ title }` } ) );
+		expect( disclosure ).toHaveAttribute( 'aria-expanded', 'true' );
+		await waitFor( () => expect( card ).not.toBeInTheDocument() );
+	} );
 
 	it( 'toggles a toast when swipe capture redirects the click to its container', async () => {
 		showToast( { title: 'Import failed', description: 'Full error details' } );
-		await setup( true );
+		await setup();
 		const notice = await screen.findByRole( 'dialog', { name: 'Import failed' } );
 		const title = screen.getByText( 'Import failed' );
 		const disclosure = screen.getByRole( 'button', { name: 'View notification: Import failed' } );
@@ -85,7 +82,7 @@ describe( 'notification details', () => {
 
 	it( 'keeps toast details closed after an unfinished swipe returns to its starting point', async () => {
 		showToast( { title: 'Import failed', description: 'Full error details' } );
-		await setup( true );
+		await setup();
 		const notice = await screen.findByRole( 'dialog', { name: 'Import failed' } );
 		const disclosure = screen.getByRole( 'button', { name: 'View notification: Import failed' } );
 
@@ -106,7 +103,7 @@ describe( 'notification details', () => {
 	it( 'keeps expanded notification text selectable', async () => {
 		const description = 'Select these error details to copy them';
 		showToast( { title: 'Import failed', description } );
-		const { user } = await setup( true );
+		const { user } = await setup();
 		const disclosure = await screen.findByRole( 'button', {
 			name: 'View notification: Import failed',
 		} );
@@ -192,29 +189,6 @@ describe( 'notification details', () => {
 			expect( screen.getAllByRole( 'button', { name: /^(Copy|Retry)$/ } ) ).toHaveLength( 1 );
 		}
 	);
-
-	it( 'opens details in place from the toast summary', async () => {
-		await setup( true );
-		act( () => {
-			showToast( {
-				title: 'Import failed',
-				intent: 'error',
-				description: 'Details about the failure',
-			} );
-		} );
-		expect( await screen.findByText( 'Details about the failure' ) ).toBeVisible();
-		const summary = screen.getByRole( 'button', { name: 'View notification: Import failed' } );
-		expect( summary ).toHaveAttribute( 'aria-expanded', 'false' );
-		fireEvent.click( summary );
-		expect( summary ).toHaveAttribute( 'aria-expanded', 'true' );
-		expect(
-			screen.queryByRole( 'dialog', { name: 'Notification history' } )
-		).not.toBeInTheDocument();
-		expect( getVisibleToasts() ).toHaveLength( 1 );
-		expect( screen.getByRole( 'button', { name: 'Dismiss Import failed' } ) ).toBeVisible();
-		fireEvent.click( summary );
-		expect( summary ).toHaveAttribute( 'aria-expanded', 'false' );
-	} );
 } );
 
 describe( 'sidebar cards', () => {

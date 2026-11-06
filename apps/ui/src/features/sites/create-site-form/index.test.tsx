@@ -691,12 +691,20 @@ describe( 'CreateSiteForm path', () => {
 } );
 
 describe( 'CreateSiteForm fields', () => {
-	it( 'opens and closes advanced settings in a popover, preserving edits', async () => {
-		await renderForm( { initialValues: { name: 'Bakery' } } );
+	it( 'reveals advanced settings inside the form and preserves edits when collapsed', async () => {
+		const { user } = await renderForm( { initialValues: { name: 'Bakery' } } );
 		const control = screen.getByRole( 'button', { name: 'Advanced' } );
 		expect( control ).toHaveAttribute( 'aria-expanded', 'false' );
 		expect( screen.queryByRole( 'combobox', { name: 'PHP version' } ) ).not.toBeInTheDocument();
-		fireEvent.click( control );
+		await user.click( control );
+		const region = screen.getByRole( 'region', { name: 'Advanced' } );
+		expect( siteName().closest( 'form' ) ).toContainElement( region );
+		expect( control ).toHaveAttribute( 'aria-controls', region.id );
+		await waitFor( () =>
+			expect( region ).toContainElement( document.activeElement as HTMLElement )
+		);
+		await user.click( siteName() );
+		expect( control ).toHaveAttribute( 'aria-expanded', 'true' );
 		await chooseOption( 'PHP version', '8.2' );
 		fireEvent.click( control );
 		expect( control ).toHaveAttribute( 'aria-expanded', 'false' );

@@ -78,7 +78,6 @@
 	text-overflow: ellipsis;
 }
 
-.advancedPopup,
 .credentialsPopup {
 	display: flex;
 	flex-direction: column;
@@ -88,21 +87,17 @@
 	padding: var( --space-5 );
 }
 
-.advancedPopup {
-	padding: var( --space-3 );
-}
-
-.advanced {
-	display: flex;
-	flex: 1;
-	flex-direction: column;
-	gap: var( --space-1 );
-	min-width: 0;
-}
-
 .advancedTrigger {
-	align-self: flex-start;
 	gap: var( --space-1 );
+	margin-inline-end: auto;
+}
+
+.advancedChevron {
+	transition: rotate var( --motion-duration-layout ) var( --motion-ease-layout );
+}
+
+.advancedTrigger[aria-expanded='true'] .advancedChevron {
+	rotate: 180deg;
 }
 
 .advancedFields {

@@ -55,6 +55,7 @@ export const INTERFACE_PREFERENCE_DEFAULTS = {
 	quitSitesBehavior: null,
 	autoStartSiteOnChat: false,
 	openChatOnSiteStart: true,
+	hideFrontendAdminBar: DEFAULT_HIDE_FRONTEND_ADMIN_BAR,
 	batchAnnotations: true,
 	showRecentChats: true,
 	autoCollapseSites: true,

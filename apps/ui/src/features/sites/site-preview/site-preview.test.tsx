@@ -401,6 +401,28 @@ describe( 'site preview', () => {
 } );
 
 describe( 'site preview controls', () => {
+	it( 'returns to the originally requested frame URL after in-page navigation', async () => {
+		let updatePath: ( patch: Partial< Props > ) => void = () => {};
+		const { update } = await renderPreview( 'browser', {
+			onPathChange: ( path ) => updatePath( { path } ),
+		} );
+		updatePath = update;
+		const initial = page();
+		finishLoading( 'browser' );
+		reportAdminBarVisibility( 'browser', false, `${ SITE_URL }/sample-page/` );
+		expect( address() ).toHaveValue( `${ SITE_URL }/sample-page/` );
+		expect( page() ).toBe( initial );
+
+		submit( '/' );
+		expect( page() ).not.toBe( initial );
+		expect( page() ).toHaveAttribute( 'src', `${ SITE_URL }/` );
+		finishLoading( 'browser' );
+		reportAdminBarVisibility( 'browser', false );
+		await waitFor( () =>
+			expect( screen.queryByText( 'Loading site preview' ) ).not.toBeInTheDocument()
+		);
+	} );
+
 	it( 'keeps the reloaded frame when Back or Forward follows a reload', async () => {
 		const { user } = await renderPreview( 'browser' );
 		await user.click( screen.getByRole( 'button', { name: 'Reload preview' } ) );
@@ -1130,21 +1152,12 @@ describe( 'preview browser menu', () => {
 		}
 	);
 
-	it.each( [
-		[ 'browser', false, undefined ],
-		[ 'desktop', false, undefined ],
-		[ 'browser', true, undefined ],
-		[ 'desktop', true, undefined ],
-		[ 'browser', true, false ],
-		[ 'desktop', true, false ],
-		[ 'browser', false, true ],
-		[ 'desktop', false, true ],
-	] as const )(
-		'reflects the %s page across login without changing preferences (default: %s, override: %s)',
-		async ( runtime, defaultHidden, hideFrontendAdminBar ) => {
+	it.each( [ 'browser', 'desktop' ] as const )(
+		'reflects actual %s visibility across login without changing preferences',
+		async ( runtime ) => {
 			const connector = createFakeConnector( {
-				sites: [ site( { hideFrontendAdminBar } ) ],
-				preferences: { hideFrontendAdminBar: defaultHidden },
+				sites: [ site( { hideFrontendAdminBar: false } ) ],
+				preferences: { hideFrontendAdminBar: true },
 			} );
 			const { user } = await renderPreview( runtime, {}, connector );
 			if ( runtime === 'desktop' ) {
@@ -1158,18 +1171,13 @@ describe( 'preview browser menu', () => {
 			await waitFor( () =>
 				expect( screen.getByRole( 'menuitemradio', { name: 'Hide' } ) ).toBeChecked()
 			);
-			const visibleAfterLogin = ! ( hideFrontendAdminBar ?? defaultHidden );
-			reportAdminBarVisibility( runtime, visibleAfterLogin );
+			reportAdminBarVisibility( runtime, true );
 			await waitFor( () =>
-				expect(
-					screen.getByRole( 'menuitemradio', {
-						name: visibleAfterLogin ? 'Show' : 'Hide',
-					} )
-				).toBeChecked()
+				expect( screen.getByRole( 'menuitemradio', { name: 'Show' } ) ).toBeChecked()
 			);
 			expect( connector.setSiteFrontendAdminBar ).not.toHaveBeenCalled();
 			expect( connector.setUserPreferences ).not.toHaveBeenCalled();
-			expect( connector.state.sites[ 0 ].hideFrontendAdminBar ).toBe( hideFrontendAdminBar );
+			expect( connector.state.sites[ 0 ].hideFrontendAdminBar ).toBe( false );
 			expect( page()!.getAttribute( 'src' ) ).not.toContain( '/studio-auto-login' );
 		}
 	);

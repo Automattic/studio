@@ -87,7 +87,7 @@ describe( 'preview iframe shortcuts', () => {
 		expect( onAdminBarVisibilityChange ).not.toHaveBeenCalled();
 	} );
 
-	it( 'reports the actual redirect and disables actions as the frame navigates away', async () => {
+	it( 'reports each page once and disables actions as the frame navigates away', async () => {
 		const {
 			frame,
 			onNavigate,
@@ -112,8 +112,20 @@ describe( 'preview iframe shortcuts', () => {
 			title: 'Dashboard',
 		} );
 		expect( onNavigate ).toHaveBeenCalledWith( `${ origin }/wp-admin/` );
-		expect( onSettle ).toHaveBeenCalledWith( `${ origin }/wp-admin/`, 'Dashboard', false );
+		expect( onSettle ).toHaveBeenCalledExactlyOnceWith(
+			`${ origin }/wp-admin/`,
+			'Dashboard',
+			false
+		);
 		expect( frame.src ).toBe( `${ origin }/` );
+		report( {
+			type: 'studio:preview:admin-bar-state',
+			visible: false,
+			url: `${ origin }/wp-admin/`,
+			title: 'Dashboard',
+		} );
+		expect( onAdminBarVisibilityChange ).toHaveBeenLastCalledWith( false );
+		expect( onSettle ).toHaveBeenCalledOnce();
 		report( { type: 'studio:preview:navigating' } );
 		expect( onAdminBarVisibilityChange ).toHaveBeenLastCalledWith( null );
 		expect( onLoadingChange ).toHaveBeenLastCalledWith( true );

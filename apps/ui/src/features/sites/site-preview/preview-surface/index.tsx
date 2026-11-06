@@ -81,6 +81,11 @@ export function FrameSurface( {
 	const callbacks = useRef( { onAdminBarVisibilityChange, onNavigate, onLoadingChange, onSettle } );
 	const navigationId = useRef( 0 );
 	const pendingProbe = useRef( 0 );
+	const reportedPage = useRef< {
+		navigationId: number;
+		url: string;
+		title: string | null;
+	} | null >( null );
 	useEffect( () => {
 		callbacks.current = { onAdminBarVisibilityChange, onNavigate, onLoadingChange, onSettle };
 	}, [ onAdminBarVisibilityChange, onNavigate, onLoadingChange, onSettle ] );
@@ -129,7 +134,17 @@ export function FrameSurface( {
 				}
 				pendingProbe.current += 1;
 				callbacks.current.onNavigate?.( url );
-				callbacks.current.onSettle( url, normalizeDocumentTitle( title ), false );
+				const pageTitle = normalizeDocumentTitle( title );
+				const previous = reportedPage.current;
+				if (
+					! previous ||
+					previous.navigationId !== reportedNavigationId ||
+					previous.url !== url ||
+					previous.title !== pageTitle
+				) {
+					reportedPage.current = { navigationId: reportedNavigationId, url, title: pageTitle };
+					callbacks.current.onSettle( url, pageTitle, false );
+				}
 				callbacks.current.onAdminBarVisibilityChange?.( visible );
 				return;
 			}

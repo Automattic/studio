@@ -29,6 +29,7 @@ export interface PreviewSurfaceState {
 	path: string;
 	// Observing a navigation must not reload the frame that reported it.
 	requestedPath: string;
+	navigationRequestId: number;
 	browser: BrowserNavigationState;
 	// The annotation inspector is running in the page.
 	inspectorReady: boolean;
@@ -54,6 +55,7 @@ export function createPreviewSurface( path: string, reloadNonce: number ): Previ
 	return {
 		path,
 		requestedPath: path,
+		navigationRequestId: 0,
 		browser: EMPTY_BROWSER_STATE,
 		inspectorReady: false,
 		adminBarVisible: null,
@@ -67,6 +69,7 @@ function arePreviewSurfacesEqual( a: PreviewSurfaceState, b: PreviewSurfaceState
 	return (
 		a.path === b.path &&
 		a.requestedPath === b.requestedPath &&
+		a.navigationRequestId === b.navigationRequestId &&
 		a.reloadNonce === b.reloadNonce &&
 		a.browserCommand === b.browserCommand &&
 		a.reloadCommandId === b.reloadCommandId &&
@@ -127,6 +130,7 @@ export function aimMountedSurface(
 						...surface,
 						path,
 						requestedPath: path,
+						navigationRequestId: surface.navigationRequestId + 1,
 						adminBarVisible: null,
 						browser: { ...surface.browser, loading: true, failed: false },
 					},
@@ -136,7 +140,7 @@ export function aimMountedSurface(
 
 // A frame remounts, and so reloads, whenever its key changes.
 export function getFrameKey( siteUrl: string, surface: PreviewSurfaceState ) {
-	return `${ siteUrl }${ surface.requestedPath }#${ surface.reloadNonce }#${ surface.reloadCommandId }`;
+	return `${ siteUrl }${ surface.requestedPath }#${ surface.navigationRequestId }#${ surface.reloadNonce }#${ surface.reloadCommandId }`;
 }
 
 export function getSafePath( path: unknown ) {

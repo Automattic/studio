@@ -338,7 +338,7 @@ export function SiteSettingsForm( {
 			{ ( control ) => (
 				<SiteSelect
 					{ ...control }
-					size="sm"
+					size="default"
 					aria-label={ title }
 					value={
 						key === 'wpVersion' && data[ key ] === '' ? AUTO_UPDATE_SELECT_VALUE : data[ key ]
@@ -440,8 +440,13 @@ export function SiteSettingsForm( {
 										{ __(
 											'Test features that require HTTPS and catch issues before your site goes live.'
 										) }
-										{ learnMore( 'docsSslInStudio' ) } <CertificateTrustNotice />
+										{ learnMore( 'docsSslInStudio' ) }
 									</>
+								) }
+								{ data.enableHttps && (
+									<div className={ styles.certificateNotice }>
+										<CertificateTrustNotice />
+									</div>
 								) }
 							</>
 						) }
@@ -565,7 +570,7 @@ export function SiteSettingsForm( {
 							{ __( 'Write PHP errors to wp-content/debug.log.' ) }
 							{ logExists ? (
 								<span className={ styles.debugLogAction }>
-									<Button variant="outline" size="sm" onClick={ handleOpenLog }>
+									<Button variant="outline" size="default" onClick={ handleOpenLog }>
 										{ __( 'Open log file' ) }
 									</Button>
 								</span>

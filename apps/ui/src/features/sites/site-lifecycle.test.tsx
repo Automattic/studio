@@ -3,7 +3,7 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
 import splitStyles from '@/features/sites/panel-split-frame/style.module.css';
-import { createFakeConnector, makeSession, makeSite } from '@/test/fake-connector';
+import { createFakeConnector, makeSession, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { SiteDetails } from '@/data/core';
 
@@ -492,7 +492,8 @@ describe( 'site lifecycle and preview', () => {
 		fireEvent.keyDown( input, keys );
 		input.remove();
 		fireEvent.keyDown( document.body, { ...keys, repeat: true } );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Settings' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: TEST_USER.displayName } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: /Settings/ } ) );
 		await screen.findByRole( 'dialog', { name: 'Settings' } );
 		fireEvent.keyDown( document.body, keys );
 		expect( connector.startSite ).not.toHaveBeenCalled();

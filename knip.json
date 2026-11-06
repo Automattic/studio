@@ -36,7 +36,7 @@
 				"src/main.local.tsx",
 				"src/main.static.tsx",
 				"src/site-viewer.ts",
-				"src/dev/{chat,animation,annotate-tip,update-preview}.tsx"
+				"src/dev/{chat,animation,annotate-tip,update-preview,sidebar-preview}.tsx"
 			],
 			"project": "src/**/*.{ts,tsx}"
 		},

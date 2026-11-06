@@ -22,7 +22,7 @@ import {
 	usePublishSetupError,
 } from '@/features/sync/use-sync-connect-site-listener';
 import { useOffline } from '@/lib/hooks';
-import { GlobeIcon, RefreshIcon } from '@/lib/icons';
+import { GlobeIcon, RefreshIcon, SyncIcon } from '@/lib/icons';
 import {
 	Button,
 	IconButton,
@@ -420,7 +420,7 @@ export function PublishPanel( {
 					>
 						{ __( 'Existing site…' ) }
 					</Button>
-					<Button size="lg" disabled={ offline || busy } onClick={ startSetup }>
+					<Button variant="accent" size="lg" disabled={ offline || busy } onClick={ startSetup }>
 						{ __( 'New site…' ) }
 					</Button>
 				</div>
@@ -435,7 +435,7 @@ export function PublishPanel( {
 			{ ! loading && ( view === 'start' || ( view === 'publish' && ! destination ) ) ? (
 				<EmptyHeader className={ styles.emptyIntro }>
 					<EmptyMedia className={ styles.emptyIcon }>
-						<GlobeIcon width="40" height="40" aria-hidden="true" />
+						<SyncIcon width="40" height="40" aria-hidden="true" />
 					</EmptyMedia>
 					<h2 className={ styles.emptyTitle }>{ __( 'Publish your WordPress' ) }</h2>
 					<EmptyDescription className={ styles.emptyDescription }>

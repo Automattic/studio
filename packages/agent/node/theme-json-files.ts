@@ -10,7 +10,9 @@
  * which WordPress reads as an array, failed every page. Of a style
  * variation of the active theme, it says what WordPress lists it as.
  */
+import fs from 'fs';
 import { boundedText } from '@studio/agent/node/bounded-list';
+import { jsonSyntaxError } from '@studio/agent/node/json-syntax';
 import { printedJson, runWpCli } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { OpenProblems } from '@studio/agent/node/open-problems';
@@ -135,7 +137,9 @@ export async function themeJsonFileRead(
 	const output = await runWpCli( host, site, [ 'eval', READ( file ) ] );
 	const read = printedJson< Read >( output, 'THEME_JSON_READ=' );
 	const problem = ! read.decoded
-		? `WordPress cannot decode ${ relativePath } as JSON (wp_json_file_decode in wp-includes/functions.php): ${ read.error }. It reads nothing from it until the file is valid JSON.`
+		? `WordPress cannot decode ${ relativePath } as JSON (wp_json_file_decode in wp-includes/functions.php): ${
+				read.error
+		  }. It reads nothing from it until the file is valid JSON.${ syntaxAt( file ) }`
 		: read.fails
 		? `WordPress fails reading ${ relativePath } as new WP_Theme_JSON( $decoded ) (WP_Theme_JSON_Resolver in wp-includes/class-wp-theme-json-resolver.php): ${ read.fails }. Each page the theme renders fails the same way while it is active. A value of the wrong form does this: the schema gives each setting and style its form (https://schemas.wp.org/trunk/theme.json), as Twenty Twenty-Five's theme.json writes them.`
 		: dropNote( read, relativePath );
@@ -144,6 +148,20 @@ export async function themeJsonFileRead(
 		problem,
 		notes: [ problem, listed ].filter( ( note ): note is string => !! note ),
 	};
+}
+
+// Where the file stops parsing, which json_decode's error does not say.
+function syntaxAt( file: string ): string {
+	let text: string;
+	try {
+		text = fs.readFileSync( file, 'utf8' );
+	} catch {
+		return '';
+	}
+	const error = jsonSyntaxError( text );
+	return error
+		? ` JSON parsing stops at line ${ error.line }, column ${ error.column } (${ error.reason }): \`${ error.excerpt }\`.`
+		: '';
 }
 
 function listedNote( { listed }: Read ): string | undefined {

@@ -28,6 +28,27 @@ describe.runIf( WORDPRESS )( 'what WordPress makes of a theme.json just written'
 	} );
 	afterAll( () => rmSync( site.path, { recursive: true, force: true } ) );
 
+	// port eval24 redo: an edit left "css" without its closing quote, and a CSS escape is no JSON escape.
+	it.each( [
+		[
+			'{\n\t"styles": {\n\t\t"css": ".a{animation:none}\n\t\t"spacing": {}\n\t}\n}',
+			'line 3, column 29 (Bad control character in string literal): `…"styles": {\\n\\t\\t"css": ".a{animation:none}\\n\\t\\t"spacing"',
+		],
+		[
+			'{ "styles": { "css": "a::before{content:\'\\2726\'}" } }',
+			'line 1, column 43 (Bad escaped character)',
+		],
+	] )(
+		'says where the file stops parsing as JSON',
+		async ( text, at ) => {
+			writeFileSync( file, text );
+			expect( ( await themeJsonFileRead( host, site, file, 'theme.json' ) ).problem ).toContain(
+				`. It reads nothing from it until the file is valid JSON. JSON parsing stops at ${ at }`
+			);
+		},
+		60000
+	);
+
 	// port c-2 climbing-gym: a "spacingScale" of 1.4 failed every page once the theme was active.
 	it( 'says what the read throws, and nothing once the value has its form', async () => {
 		expect( await read( { version: 3, settings: { spacing: { spacingScale: 1.4 } } } ) ).toMatch(

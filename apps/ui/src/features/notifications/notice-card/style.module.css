@@ -170,8 +170,8 @@
 	transform: none;
 	pointer-events: auto;
 	inset-block-start: calc( var( --space-1_5 ) * -1 );
-	inset-inline-start: calc( var( --space-1_5 ) * -1 );
-	inset-inline-end: auto;
+	inset-inline-start: auto;
+	inset-inline-end: calc( var( --space-1_5 ) * -1 );
 }
 
 .trailing {

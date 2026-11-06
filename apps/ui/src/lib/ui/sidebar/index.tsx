@@ -56,11 +56,6 @@ export function SidebarGroupLabel( {
 	);
 }
 
-/** A placeholder for a group label that's loading. */
-export function SidebarGroupLabelSkeleton() {
-	return <Skeleton className={ styles.groupLabelSkeleton } />;
-}
-
 export function SidebarMenu( { className, ...props }: ComponentProps< 'ul' > ) {
 	return <ul data-slot="sidebar-menu" className={ clsx( styles.menu, className ) } { ...props } />;
 }
@@ -156,11 +151,10 @@ export function SidebarMenuActions( {
 	);
 }
 
-/** A placeholder row: an icon and a label of the given width. */
+/** A placeholder row with a single bar of the given width. */
 export function SidebarMenuSkeleton( { width }: { width: string } ) {
 	return (
 		<div className={ styles.skeleton }>
-			<Skeleton className={ styles.skeletonIcon } />
 			<Skeleton
 				className={ styles.skeletonLabel }
 				style={ { '--skeleton-width': width } as CSSProperties }

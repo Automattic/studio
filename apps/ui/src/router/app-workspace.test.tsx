@@ -999,7 +999,8 @@ describe( 'Studio workspace', () => {
 			fireEvent.click(
 				await screen.findByRole( 'button', { name: running ? 'Hide panel' : 'Show panel' } )
 			);
-			fireEvent.click( screen.getByRole( 'button', { name: 'Settings' } ) );
+			fireEvent.click( screen.getByRole( 'button', { name: TEST_USER.displayName } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: /Settings/ } ) );
 			const settings = await screen.findByRole( 'dialog', { name: 'Settings' } );
 			fireEvent.click( within( settings ).getByRole( 'button', { name: 'Reset interface' } ) );
 			await waitFor( () =>
@@ -1019,7 +1020,8 @@ describe( 'Studio workspace', () => {
 		setup( { signedIn: true, path: '/sites/one/new', sites: [ site( { running: true } ) ] } );
 		await chooseWorkspaceLayout( 'Panel' );
 		await waitForFullscreen( true );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Settings' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: TEST_USER.displayName } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: /Settings/ } ) );
 		const settings = await screen.findByRole( 'dialog', { name: 'Settings' } );
 		fireEvent.click( within( settings ).getByRole( 'button', { name: 'Reset interface' } ) );
 		await waitFor( () =>
@@ -1460,7 +1462,8 @@ describe( 'Studio workspace', () => {
 			expect( input ).toHaveValue( 'Keep this text ' );
 			expect( connector.startSite ).not.toHaveBeenCalled();
 			expect( connector.continueSession ).not.toHaveBeenCalled();
-			fireEvent.click( screen.getByRole( 'button', { name: /^Settings$/ } ) );
+			fireEvent.click( screen.getByRole( 'button', { name: TEST_USER.displayName } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: /Settings/ } ) );
 			const setting = await screen.findByRole( 'switch', {
 				name: /Start site when sending a prompt/,
 			} );

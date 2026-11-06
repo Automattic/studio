@@ -6,7 +6,7 @@ Start with a blank site, a Blueprint, or an existing WordPress site. Work throug
 
 Powered by [WordPress.com](https://wordpress.com/).
 
-> **Image placeholder:** Main workspace showing the site list, chat, and live preview.
+![WordPress Studio showing the site list, AI chat, and a live preview of the Moire site](/docs/assets/wordpress-studio-main.jpg)
 
 ## Get started
 
@@ -34,8 +34,6 @@ Run WordPress on your machine with a bundled native PHP runtime and a SQLite dat
 
 [Explore local development features](https://developer.wordpress.com/docs/developer-tools/studio/sites/)
 
-> **Image placeholder:** Site settings showing PHP and WordPress versions, local domain, and developer tools.
-
 ## Build and edit with AI
 
 Use the built-in agent to create pages, develop plugins and themes, investigate issues, and run WP-CLI commands. It works with your site’s files and WordPress installation, with a live preview alongside the conversation.
@@ -46,8 +44,6 @@ Connect through WordPress.com or use your own Anthropic API key. AI usage is sub
 
 [Learn about AI features](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/)
 
-> **Image placeholder:** A development request in chat alongside the resulting site preview, showing an element selected for a change.
-
 ## Share previews
 
 Create a cloud-hosted preview of a local site to share with clients and teammates. Preview links remain accessible when your computer is offline, so you can gather feedback without running a tunnel or deploying to production.
@@ -55,8 +51,6 @@ Create a cloud-hosted preview of a local site to share with clients and teammate
 Preview sites are free, require a WordPress.com account, and expire after seven days without updates.
 
 [Learn about preview sites](https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/)
-
-> **Image placeholder:** Share controls with a preview link ready to copy.
 
 ## Publish and pull changes
 
@@ -67,8 +61,6 @@ Choose what to transfer: the full site, database, individual plugins or themes, 
 For other hosts, export your site and move it through your preferred deployment workflow.
 
 [Learn about publishing and syncing](https://developer.wordpress.com/docs/developer-tools/studio/sync/)
-
-> **Image placeholder:** Publish controls showing a connected site and selective transfer options.
 
 ## Use the CLI and your own agents
 

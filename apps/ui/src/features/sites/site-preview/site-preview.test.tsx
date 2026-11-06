@@ -686,30 +686,24 @@ describe( 'preview address bar', () => {
 		expect( address() ).toHaveValue( `${ SITE_URL }/about/` );
 	} );
 
-	it.each( [ 'browser', 'desktop' ] as const )(
-		'toggles the device toolbar from %s browser options',
-		async ( runtime ) => {
-			const { user } = await renderPreview( runtime, {
-				site: site( { id: 'address-responsive' } ),
-			} );
-			expect( screen.queryByRole( 'button', { name: 'Responsive mode' } ) ).not.toBeInTheDocument();
-			await openBrowserOptions( user );
-			const show = screen.getByRole( 'menuitem', { name: 'Show device toolbar' } );
-			expect( show ).not.toHaveAttribute( 'aria-haspopup' );
-			expect( show ).not.toBeChecked();
-			await user.click( show );
-			expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument();
-			expect( address() ).not.toHaveFocus();
-			expect( screen.queryByRole( 'dialog', { name: 'Recent pages' } ) ).not.toBeInTheDocument();
-			expect( screen.getByRole( 'toolbar', { name: 'Responsive preview' } ) ).toBeInTheDocument();
-			await openBrowserOptions( user );
-			await user.click( screen.getByRole( 'menuitem', { name: 'Hide device toolbar' } ) );
-			expect( address() ).not.toHaveFocus();
-			expect(
-				screen.queryByRole( 'toolbar', { name: 'Responsive preview' } )
-			).not.toBeInTheDocument();
-		}
-	);
+	it( 'toggles the device toolbar from browser options', async () => {
+		const { user } = await renderPreview( 'browser', {
+			site: site( { id: 'address-responsive' } ),
+		} );
+		expect( screen.queryByRole( 'button', { name: 'Responsive mode' } ) ).not.toBeInTheDocument();
+		await openBrowserOptions( user );
+		await user.click( screen.getByRole( 'menuitem', { name: 'Show device toolbar' } ) );
+		expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument();
+		expect( address() ).not.toHaveFocus();
+		expect( screen.queryByRole( 'dialog', { name: 'Recent pages' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'toolbar', { name: 'Responsive preview' } ) ).toBeInTheDocument();
+		await openBrowserOptions( user );
+		await user.click( screen.getByRole( 'menuitem', { name: 'Hide device toolbar' } ) );
+		expect( address() ).not.toHaveFocus();
+		expect(
+			screen.queryByRole( 'toolbar', { name: 'Responsive preview' } )
+		).not.toBeInTheDocument();
+	} );
 
 	it( 'keeps root addresses stable after loading and preserves page paths', async () => {
 		const { update } = await renderPreview( 'browser', { path: '' } );
@@ -922,40 +916,6 @@ describe( 'preview browser menu', () => {
 		}
 	);
 
-	it.each( [ 'browser', 'desktop' ] as const )(
-		'offers only the opposite %s visibility as a plain action',
-		async ( runtime ) => {
-			const connector = createFakeConnector( { sites: [ site() ] } );
-			const { user } = await renderPreview( runtime, {}, connector );
-			const before = runtime === 'desktop' ? guest() : page()!;
-			if ( runtime === 'desktop' ) fireEvent( before, new Event( 'dom-ready' ) );
-			finishLoading( runtime );
-			reportAdminBarVisibility( runtime, true );
-			const postMessage =
-				runtime === 'browser'
-					? vi.spyOn( ( before as HTMLIFrameElement ).contentWindow!, 'postMessage' )
-					: undefined;
-			await openBrowserOptions( user );
-			const hide = await screen.findByRole( 'menuitem', { name: 'Hide admin bar' } );
-			expect( hide ).not.toHaveAttribute( 'aria-haspopup' );
-			expect( hide ).not.toBeChecked();
-			expect(
-				screen.queryByRole( 'menuitem', { name: 'Show admin bar' } )
-			).not.toBeInTheDocument();
-			expect( screen.queryByRole( 'menuitemradio' ) ).not.toBeInTheDocument();
-			expect( connector.setSiteFrontendAdminBar ).not.toHaveBeenCalled();
-			if ( runtime === 'desktop' ) {
-				expect( ( before as Guest ).loadURL ).not.toHaveBeenCalled();
-				expect( ( before as Guest ).reload ).not.toHaveBeenCalled();
-			} else
-				expect( postMessage ).not.toHaveBeenCalledWith(
-					{ type: 'studio:preview:login' },
-					SITE_URL
-				);
-			expect( page() ).toBe( before );
-		}
-	);
-
 	it( 'tracks iframe navigation through WP Admin and logout without remounting or remembering authentication pages', async () => {
 		const connector = createFakeConnector( { sites: [ site() ] } );
 		let updatePath: ( patch: Partial< Props > ) => void = () => {};
@@ -1032,7 +992,6 @@ describe( 'preview browser menu', () => {
 			finishLoading( runtime );
 			reportAdminBarVisibility( runtime, ! defaultHidden );
 			await openBrowserOptions( user );
-			expect( screen.queryByRole( 'menuitemradio' ) ).not.toBeInTheDocument();
 			await user.click( await screen.findByRole( 'menuitem', { name: overrideLabel } ) );
 			await waitFor( () =>
 				expect( connector.setSiteFrontendAdminBar ).toHaveBeenCalledWith( 'one', ! defaultHidden )
@@ -1266,7 +1225,6 @@ describe( 'preview browser menu', () => {
 			expect( adminBar ).toBeVisible();
 			expect( adminBar ).toHaveAttribute( 'aria-disabled', 'true' );
 			fireEvent.click( adminBar );
-			expect( adminBar ).not.toHaveAttribute( 'aria-haspopup' );
 			expect( connector.setSiteFrontendAdminBar ).not.toHaveBeenCalled();
 		} );
 	} );

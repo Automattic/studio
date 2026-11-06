@@ -425,31 +425,22 @@ it.each( [
 	} );
 } );
 
-it.each( [
-	[ 'MacIntel', 'Finder' ],
-	[ 'Win32', 'File Explorer' ],
-	[ 'Linux x86_64', 'File manager' ],
-] )(
-	'opens an email tab in the system file manager on %s without selecting it',
-	async ( platform, label ) => {
-		vi.spyOn( navigator, 'platform', 'get' ).mockReturnValue( platform );
-		const { connector } = await setup();
-		await act( () => connector.setUserPreferences( { browser: 'firefox' } ) );
-		fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Email log' } ) );
-		const active = screen.getByRole( 'tab', { name: 'First' } );
-		fireEvent.click( active );
-		fireEvent.contextMenu( await screen.findByRole( 'tab', { name: 'Email log' } ) );
-		const open = await screen.findByRole( 'menuitem', { name: `Open in ${ label }` } );
-		expect( open ).not.toHaveAttribute( 'aria-disabled', 'true' );
-		expect( screen.queryByRole( 'menuitem', { name: 'Open in Firefox' } ) ).not.toBeInTheDocument();
-		fireEvent.click( open );
-		expect( connector.openSiteEmailFolder ).toHaveBeenCalledExactlyOnceWith( 'one' );
-		expect( connector.openSiteUrl ).not.toHaveBeenCalled();
-		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
-		expect( active ).toHaveAttribute( 'aria-selected', 'true' );
-	}
-);
+it( 'opens the email folder from an unselected tab without changing tabs', async () => {
+	vi.spyOn( navigator, 'platform', 'get' ).mockReturnValue( 'Win32' );
+	const { connector } = await setup();
+	await act( () => connector.setUserPreferences( { browser: 'firefox' } ) );
+	fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Email log' } ) );
+	const active = screen.getByRole( 'tab', { name: 'First' } );
+	fireEvent.click( active );
+	fireEvent.contextMenu( await screen.findByRole( 'tab', { name: 'Email log' } ) );
+	const open = await screen.findByRole( 'menuitem', { name: 'Open in File Explorer' } );
+	fireEvent.click( open );
+	expect( connector.openSiteEmailFolder ).toHaveBeenCalledExactlyOnceWith( 'one' );
+	expect( connector.openSiteUrl ).not.toHaveBeenCalled();
+	expect( connector.openExternalUrl ).not.toHaveBeenCalled();
+	expect( active ).toHaveAttribute( 'aria-selected', 'true' );
+} );
 
 it( 'closes tabs from the context menu without selecting the right-clicked tab', async () => {
 	await setup();

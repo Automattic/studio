@@ -78,7 +78,6 @@ describe( 'sidebar site menu', () => {
 describe( 'site title actions', () => {
 	it.each( [
 		[ 'Browser', '/', { autoLogin: false } ],
-		[ 'WordPress admin', '/wp-admin/', undefined ],
 		[ 'phpMyAdmin', '/phpmyadmin/index.php?route=/database/structure&db=wordpress', undefined ],
 	] )( 'starts a stopped site before opening %s', async ( label, path, options ) => {
 		let finishStart!: () => void;
@@ -103,13 +102,15 @@ describe( 'site title actions', () => {
 		);
 	} );
 
-	it.each( [ 'Browser', 'WordPress admin', 'phpMyAdmin' ] )(
+	it.each( [ 'Browser', 'Admin', 'phpMyAdmin' ] )(
 		'does not open %s when starting fails',
 		async ( label ) => {
 			const { connector } = setup();
 			connector.startSite.mockRejectedValueOnce( new Error( 'Start failed' ) );
 			fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
-			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
+			fireEvent.click(
+				await screen.findByRole( 'menuitem', { name: label === 'Admin' ? 'Tools' : 'Open in' } )
+			);
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
 			await screen.findAllByText( 'Start failed' );
 			expect( connector.openSiteUrl ).not.toHaveBeenCalled();
@@ -184,11 +185,6 @@ describe( 'site title actions', () => {
 					autoLogin: false,
 				} )
 			);
-			await waitFor( () => expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument() );
-			await openIn( 'WordPress admin' );
-			await waitFor( () =>
-				expect( connector.openSiteUrl ).toHaveBeenLastCalledWith( 'one', '/wp-admin/' )
-			);
 		} );
 
 		it( 'opens the frontend project in the editor and terminal', async () => {
@@ -251,7 +247,7 @@ describe( 'site title actions', () => {
 	it( 'stops the selected running site from its title menu', async () => {
 		const { connector } = setup( [ site( { running: true } ) ] );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
-		expect( screen.queryByRole( 'menuitem', { name: /^Start site/ } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'menuitem', { name: /^Start(?:\s|$)/ } ) ).not.toBeInTheDocument();
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop site' } ) );
 		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( 'one' ) );

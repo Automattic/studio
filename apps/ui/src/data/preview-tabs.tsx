@@ -1,5 +1,6 @@
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getFrontendUrl } from '@studio/common/lib/site-frontend';
+import { QueryClientContext } from '@tanstack/react-query';
 import {
 	createContext,
 	useCallback,
@@ -10,6 +11,7 @@ import {
 	type ReactNode,
 } from 'react';
 import { useConnector } from '@/data/core';
+import { isSiteRestarting } from '@/data/site-restarts';
 
 export interface PreviewTab {
 	id: string;
@@ -19,7 +21,6 @@ export interface PreviewTab {
 export interface PreviewTabWorkspace {
 	tabs: PreviewTab[];
 	selectedId: string;
-	chatSelected: boolean;
 	focusRequest: number;
 }
 type Workspaces = Record< string, PreviewTabWorkspace >;
@@ -35,6 +36,7 @@ export const previewTabsKey = ( siteId: string, liveUrl?: string ) =>
 	`${ siteId }:${ liveUrl ?? 'local' }`;
 export function PreviewTabsProvider( { children }: { children: ReactNode } ) {
 	const connector = useConnector();
+	const queryClient = useContext( QueryClientContext );
 	const [ workspaces, setWorkspaces ] = useState< Workspaces >( {} );
 	useEffect(
 		() =>
@@ -47,7 +49,11 @@ export function PreviewTabsProvider( { children }: { children: ReactNode } ) {
 							)
 						)
 					);
-				} else if ( event.event === SITE_EVENTS.UPDATED && ! event.running ) {
+				} else if (
+					event.event === SITE_EVENTS.UPDATED &&
+					! event.running &&
+					! isSiteRestarting( queryClient, event.siteId )
+				) {
 					setWorkspaces( ( current ) => {
 						const key = previewTabsKey( event.siteId );
 						const workspace = current[ key ];
@@ -66,7 +72,7 @@ export function PreviewTabsProvider( { children }: { children: ReactNode } ) {
 					} );
 				}
 			} ),
-		[ connector ]
+		[ connector, queryClient ]
 	);
 	const update = useCallback(
 		(
@@ -92,7 +98,6 @@ export function usePreviewTabs( key: string, initialPath = '/' ) {
 		() => ( {
 			tabs: [ { id: `${ key }:initial`, path: initialPath, title: null } ],
 			selectedId: `${ key }:initial`,
-			chatSelected: false,
 			focusRequest: 0,
 		} ),
 		[ key, initialPath ]
@@ -128,24 +133,15 @@ export function usePreviewTabs( key: string, initialPath = '/' ) {
 			...current,
 			tabs: [ ...current.tabs, { id, path, title: null } ],
 			selectedId: id,
-			chatSelected: false,
 			focusRequest: current.focusRequest + 1,
 		} ) );
 	};
 	const select = ( id: string ) =>
 		update( ( current ) =>
-			( current.selectedId === id && ! current.chatSelected ) ||
-			! current.tabs.some( ( tab ) => tab.id === id )
+			current.selectedId === id || ! current.tabs.some( ( tab ) => tab.id === id )
 				? current
-				: { ...current, selectedId: id, chatSelected: false }
+				: { ...current, selectedId: id }
 		);
-	const setChatSelected = useCallback(
-		( chatSelected: boolean ) =>
-			update( ( current ) =>
-				current.chatSelected === chatSelected ? current : { ...current, chatSelected }
-			),
-		[ update ]
-	);
 	const closeMany = ( ids: readonly string[] ) => {
 		const replacementId = crypto.randomUUID();
 		update( ( current ) => {
@@ -177,7 +173,6 @@ export function usePreviewTabs( key: string, initialPath = '/' ) {
 		patch,
 		add,
 		select,
-		setChatSelected,
 		closeMany,
 		update,
 	};

@@ -1,4 +1,5 @@
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { QueryClientContext } from '@tanstack/react-query';
 import {
 	createContext,
 	useCallback,
@@ -11,6 +12,7 @@ import {
 } from 'react';
 import { useConnector } from '@/data/core';
 import { getDefaultPanelLayout, PANEL_WIDTHS_RESET_EVENT } from '@/data/resizable-panels';
+import { isSiteRestarting } from '@/data/site-restarts';
 
 // App-wide UI store (mounted once in the root route, shared by every route
 // and dialog under it). Holds the slices of UI state that the chat agent
@@ -236,6 +238,7 @@ export function SessionUIProvider( { children }: { children: ReactNode } ) {
 
 function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
 	const connector = useConnector();
+	const queryClient = useContext( QueryClientContext );
 	const [ state, dispatch ] = useReducer( reducer, INITIAL_STATE );
 	useEffect( () => {
 		const reset = () => dispatch( { type: 'panel/reset-layout' } );
@@ -246,11 +249,15 @@ function SessionUIProviderRoot( { children }: { children: ReactNode } ) {
 	useEffect(
 		() =>
 			connector.onSiteEvent( ( event ) => {
-				if ( event.event === SITE_EVENTS.UPDATED && event.running === false ) {
+				if (
+					event.event === SITE_EVENTS.UPDATED &&
+					event.running === false &&
+					! isSiteRestarting( queryClient, event.siteId )
+				) {
 					dispatch( { type: 'preview/reset-site-path', siteId: event.siteId } );
 				}
 			} ),
-		[ connector ]
+		[ connector, queryClient ]
 	);
 
 	return (

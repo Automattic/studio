@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
 import { previewTabsKey, usePreviewTabs, type PreviewTab } from '@/data/preview-tabs';
 import { useIsSiteBusy, useStopSite } from '@/data/queries/use-sites';
+import { useIsSiteRestarting } from '@/data/site-restarts';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
 import { getSiteFrontendUrl } from '@/features/sites/get-site-url';
 import { useOpenInDestinations } from '@/features/sites/open-in-menu/use-open-in-destinations';
@@ -44,7 +45,8 @@ export function PreviewTabs( {
 	const { id: siteId, name: siteName } = site;
 	// A headless site's frontend app, which its tabs address by absolute URL.
 	const frontendOrigin = getFrontendOrigin( liveUrl ? undefined : getSiteFrontendUrl( site ) );
-	const running = !! liveUrl || site.running;
+	const restarting = useIsSiteRestarting( siteId );
+	const running = !! liveUrl || site.running || restarting;
 	const busy = useIsSiteBusy( site );
 	const stopSite = useStopSite();
 	const preview = useSessionPreviewUI();
@@ -120,7 +122,7 @@ export function PreviewTabs( {
 			observer.disconnect();
 			strip.removeEventListener( 'scroll', updateFades );
 		};
-	}, [ running, workspace.selectedId, workspace.chatSelected, workspace.tabs.length ] );
+	}, [ running, workspace.selectedId, workspace.tabs.length ] );
 	const { setOpen } = preview;
 	useEffect( () => {
 		const onKeyDown = ( event: KeyboardEvent ) => {
@@ -176,7 +178,7 @@ export function PreviewTabs( {
 		<div className={ styles.root } data-preview-tabs>
 			{ running ? (
 				<Tabs
-					value={ workspace.chatSelected ? null : workspace.selectedId }
+					value={ workspace.selectedId }
 					onValueChange={ ( value ) => select( String( value ) ) }
 					className={ styles.tabs }
 				>
@@ -203,11 +205,10 @@ export function PreviewTabs( {
 												className={ styles.tab }
 												data-tab-reorder-id={ tab.id }
 												data-drag-source={ reorder.drag?.id === tab.id || undefined }
-												style={ { transform: `translateX(${ reorder.getOffset( tab.id ) }px)` } }
-												data-preview-selected={
-													( ! workspace.chatSelected && tab.id === workspace.selectedId ) ||
-													undefined
-												}
+												style={ {
+													transform: `translateX(${ reorder.getOffset( tab.id ) }px)`,
+												} }
+												data-preview-selected={ tab.id === workspace.selectedId || undefined }
 											/>
 										}
 									>

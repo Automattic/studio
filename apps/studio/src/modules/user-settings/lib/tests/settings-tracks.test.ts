@@ -114,11 +114,13 @@ describe( 'AI provider settings', () => {
 		provider: 'wpcom',
 		hasAnthropicApiKey: false,
 		anthropicApiKeyPreview: null,
+		hasChatGptAccount: false,
 	} as const;
 	const anthropicWithKey = {
 		provider: 'anthropic-api-key',
 		hasAnthropicApiKey: true,
 		anthropicApiKeyPreview: keyPreview,
+		hasChatGptAccount: false,
 	} as const;
 
 	it( 'emits studio_setting_ai_provider_change when a key is added', async () => {
@@ -127,6 +129,7 @@ describe( 'AI provider settings', () => {
 			provider: 'wpcom',
 			hasAnthropicApiKey: true,
 			anthropicApiKeyPreview: keyPreview,
+			hasChatGptAccount: false,
 		} );
 
 		await saveAnthropicApiKey( event, 'sk-ant-api03-testkey-1234' );
@@ -134,6 +137,7 @@ describe( 'AI provider settings', () => {
 		expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
 			provider: 'wpcom',
 			has_anthropic_api_key: true,
+			has_chatgpt_account: false,
 			surface: 'settings',
 		} );
 	} );
@@ -158,6 +162,7 @@ describe( 'AI provider settings', () => {
 		expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
 			provider: 'wpcom',
 			has_anthropic_api_key: false,
+			has_chatgpt_account: false,
 			surface: 'settings',
 		} );
 	} );
@@ -168,6 +173,7 @@ describe( 'AI provider settings', () => {
 			provider: 'anthropic-api-key',
 			hasAnthropicApiKey: true,
 			anthropicApiKeyPreview: 'sk-ant-api03-tes...9999',
+			hasChatGptAccount: false,
 		} );
 
 		await saveAnthropicApiKey( event, 'sk-ant-api03-otherkey-9999' );
@@ -175,6 +181,7 @@ describe( 'AI provider settings', () => {
 		expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
 			provider: 'anthropic-api-key',
 			has_anthropic_api_key: true,
+			has_chatgpt_account: false,
 			surface: 'settings',
 		} );
 	} );

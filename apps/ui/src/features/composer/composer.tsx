@@ -1,4 +1,8 @@
-import { aiModelSupportsImages } from '@studio/agent/protocol/models';
+import {
+	aiModelSupportsImages,
+	DEFAULT_EFFORT,
+	type AiEffortLevel,
+} from '@studio/agent/protocol/models';
 import { resolveSkillFromPrompt } from '@studio/agent/protocol/slash-commands';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
@@ -112,6 +116,9 @@ interface ComposerProps {
 	// The site whose preview annotations go out with the next message.
 	annotationSiteId?: string;
 	onModelChange?: ( model: AiModelId, provider: AiProviderId ) => void;
+	// The chat's reasoning effort, shown for models that let the user choose it.
+	effort?: AiEffortLevel;
+	onEffortChange?: ( effort: AiEffortLevel ) => void;
 	// Why the chat can't send right now; a send attempt shakes it.
 	notice?: ComposerNotice;
 }
@@ -153,6 +160,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		dropTarget,
 		annotationSiteId,
 		onModelChange,
+		effort = DEFAULT_EFFORT,
+		onEffortChange,
 		notice: blockingNotice,
 	},
 	ref
@@ -294,6 +303,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 
 	const {
 		changeModel,
+		changeEffort,
 		pendingModel,
 		familySwitchInFlight,
 		cancelFamilyChange,
@@ -306,6 +316,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		ownerSiteId,
 		onSwitchSession,
 		onModelChange,
+		onEffortChange,
 		isModelLocked,
 		text: value,
 		attachments,
@@ -571,6 +582,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 									open={ modelOpen }
 									onOpenChange={ setModelOpen }
 									model={ model }
+									effort={ effort }
+									onEffortChange={ changeEffort }
 									providers={ providers }
 									sessionProvider={ sessionProvider }
 									isModelLocked={ isModelLocked }

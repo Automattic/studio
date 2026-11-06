@@ -1,3 +1,4 @@
+import { DEFAULT_EFFORT, readSessionEffort } from '@studio/agent/protocol/models';
 import {
 	getEffectiveSessionProvider,
 	resolveSessionModelForProvider,
@@ -160,6 +161,8 @@ function SessionViewContent( {
 		[ data?.entries, sessionProvider, quota, authUser?.email ]
 	);
 	const currentModel = ( ! sessionId && draft.model ) || defaultModel;
+	const currentEffort =
+		( ! sessionId && draft.effort ) || readSessionEffort( data?.entries ?? [] ) || DEFAULT_EFFORT;
 	const sendMessage = useCallback(
 		( prompt: string, options?: Parameters< typeof sendSessionMessage >[ 1 ] ) =>
 			sessionId
@@ -498,6 +501,8 @@ function SessionViewContent( {
 						onModelChange={
 							sessionId ? undefined : ( model, provider ) => updateDraft( { model, provider } )
 						}
+						effort={ currentEffort }
+						onEffortChange={ sessionId ? undefined : ( effort ) => updateDraft( { effort } ) }
 						autoFocus={ isEmpty }
 						entries={ data?.entries }
 						ownerSiteId={ ownerSite?.id }

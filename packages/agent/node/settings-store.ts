@@ -1,6 +1,8 @@
 import { validateAnthropicApiKey } from '@studio/common/lib/anthropic-key';
 import { readCliConfigFileRaw } from '@studio/common/lib/cli-config-file';
 import { readSharedConfig, updateSharedConfig } from '@studio/common/lib/shared-config';
+import { __ } from '@wordpress/i18n';
+import { deleteChatGptCredential, hasChatGptCredential } from '@studio/agent/node/credential-store';
 import {
 	DEFAULT_AI_PROVIDER,
 	isAiProviderId,
@@ -71,7 +73,7 @@ function previewKey( key: string ): string {
 	return `${ key.slice( 0, KEY_PREFIX_LENGTH ) }...${ key.slice( -KEY_SUFFIX_LENGTH ) }`;
 }
 
-function toAiSettings( config: AiProviderConfig ): AiSettings {
+function toAiSettings( config: AiProviderConfig, hasChatGptAccount: boolean ): AiSettings {
 	const key = config.anthropicApiKey;
 	return {
 		provider:
@@ -80,11 +82,16 @@ function toAiSettings( config: AiProviderConfig ): AiSettings {
 				: DEFAULT_AI_PROVIDER,
 		hasAnthropicApiKey: Boolean( key ),
 		anthropicApiKeyPreview: key ? previewKey( key ) : null,
+		hasChatGptAccount,
 	};
 }
 
 export async function readAiSettings(): Promise< AiSettings > {
-	return toAiSettings( await readAiProviderConfig() );
+	const [ config, hasChatGptAccount ] = await Promise.all( [
+		readAiProviderConfig(),
+		hasChatGptCredential(),
+	] );
+	return toAiSettings( config, hasChatGptAccount );
 }
 
 async function updateAiProviderConfig( update: AiProviderConfig ): Promise< AiSettings > {
@@ -92,7 +99,7 @@ async function updateAiProviderConfig( update: AiProviderConfig ): Promise< AiSe
 	// (e.g. only aiProvider) doesn't orphan the other field there.
 	const config = { ...( await readAiProviderConfig() ), ...update };
 	await updateSharedConfig( config );
-	return toAiSettings( config );
+	return toAiSettings( config, await hasChatGptCredential() );
 }
 
 /**
@@ -133,8 +140,25 @@ export async function setAiProvider( provider: AiProviderId ): Promise< AiSettin
 			throw new InvalidAnthropicApiKeyError( validation.message );
 		}
 	}
+	if ( provider === 'chatgpt' && ! ( await hasChatGptCredential() ) ) {
+		throw new Error( __( 'Sign in with ChatGPT first.' ) );
+	}
 
 	return updateAiProviderConfig( { aiProvider: provider } );
+}
+
+/**
+ * Signs out of ChatGPT. When ChatGPT was the selected provider, new chats go
+ * back to WordPress.com rather than default to a provider that can't run.
+ * Signing in runs in the CLI, which ships pi (see `signInWithChatGpt` in
+ * `@studio/common/lib/chatgpt-sign-in`).
+ */
+export async function disconnectChatGpt(): Promise< AiSettings > {
+	await deleteChatGptCredential();
+	if ( ( await readSelectedAiProvider() ) === 'chatgpt' ) {
+		return updateAiProviderConfig( { aiProvider: DEFAULT_AI_PROVIDER } );
+	}
+	return readAiSettings();
 }
 
 /** Persists the provider without validation — for flows that already ran it. */

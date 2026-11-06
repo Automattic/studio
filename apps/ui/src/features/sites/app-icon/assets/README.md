@@ -1,13 +1,19 @@
-# App menu icons
+# App icons
 
-Bundled PNGs keep the Open in menu offline and identical in the desktop and
-local browser renderers. These are static brand assets, not icons discovered
-from the user's installed applications. Missing assets and image load errors
-fall back to the menu's original symbol.
+Bundled PNGs keep the Open in menu and the AI providers in Settings offline and
+identical in the desktop and local browser renderers. These are static brand
+assets, not icons discovered from the user's installed applications. Missing
+assets and image load errors fall back to the original symbol.
 
 Cursor, Visual Studio Code, Ghostty, Warp, Finder, and Terminal were exported
 from their macOS application bundle icons on October 6, 2026, using `sips` at
 64 pixels. Brand artwork belongs to its respective owner.
+
+Claude and ChatGPT were exported from their macOS application bundle icons on
+November 3, 2026, using `sips` at 256 pixels, for Settings' 32-pixel logos.
+
+WordPress.com uses the WordPress logo, white on a WordPress blue tile with the
+margin of the macOS app icons, kept as an SVG.
 
 The phpMyAdmin icon was converted from the project's
 [favicon](https://github.com/phpmyadmin/phpmyadmin/blob/master/public/favicon.ico).

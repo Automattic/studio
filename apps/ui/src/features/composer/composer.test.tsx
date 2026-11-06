@@ -31,6 +31,7 @@ const ANTHROPIC_KEY = {
 	provider: 'wpcom' as const,
 	hasAnthropicApiKey: true,
 	anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+	hasChatGptAccount: false,
 };
 
 const OUT_OF_CREDITS = {
@@ -968,6 +969,68 @@ describe( 'Composer model picker', () => {
 	} );
 } );
 
+describe( 'Composer effort in the model picker', () => {
+	const option = ( name: string ) =>
+		screen.findByRole( 'option', { name: new RegExp( `^${ name }` ) } );
+	const pick = async ( name: string ) => fireEvent.click( await option( name ) );
+	const onClaude = {
+		model: 'claude-sonnet-5' as const,
+		entries: [ sessionContextEntry( 'anthropic-api-key' ) ],
+	};
+
+	it( 'offers no effort choice on the WordPress.com tiers', async () => {
+		await setup();
+
+		fireEvent.click( await modelButton() );
+		await option( 'Fast' );
+		expect( screen.queryByRole( 'option', { name: /^Effort/ } ) ).not.toBeInTheDocument();
+	} );
+
+	it( "saves the chat's effort from the nested level", async () => {
+		const connector = createFakeConnector( {}, { getAiSettings: async () => ANTHROPIC_KEY } );
+		await setup( onClaude, connector );
+
+		fireEvent.click( await modelButton() );
+		expect( await option( 'Effort' ) ).toHaveTextContent( 'Medium' );
+		await pick( 'Effort' );
+		expect( await option( 'Medium' ) ).toHaveAttribute( 'aria-selected', 'true' );
+		await pick( 'High' );
+
+		await waitFor( () =>
+			expect( connector.setSessionEffort ).toHaveBeenCalledWith( 'test', 'high' )
+		);
+		await waitFor( () => expect( screen.queryByRole( 'option' ) ).not.toBeInTheDocument() );
+	} );
+
+	it( 'goes back to the models without changing the effort', async () => {
+		const connector = createFakeConnector( {}, { getAiSettings: async () => ANTHROPIC_KEY } );
+		await setup( onClaude, connector );
+
+		fireEvent.click( await modelButton() );
+		await pick( 'Effort' );
+		await pick( 'Back' );
+
+		expect( await option( 'Sonnet 5' ) ).toBeInTheDocument();
+		expect( connector.setSessionEffort ).not.toHaveBeenCalled();
+	} );
+
+	it( "keeps a new chat's effort until the chat exists", async () => {
+		const connector = createFakeConnector( {}, { getAiSettings: async () => ANTHROPIC_KEY } );
+		const onEffortChange = vi.fn();
+		await setup(
+			{ ...onClaude, sessionId: undefined, provider: 'anthropic-api-key', onEffortChange },
+			connector
+		);
+
+		fireEvent.click( await modelButton() );
+		await pick( 'Effort' );
+		await pick( 'Max' );
+
+		await waitFor( () => expect( onEffortChange ).toHaveBeenCalledWith( 'max' ) );
+		expect( connector.setSessionEffort ).not.toHaveBeenCalled();
+	} );
+} );
+
 describe( 'Composer as a form field', () => {
 	it( 'has no send control and hands its draft over through the ref', async () => {
 		const onModelChange = vi.fn();
@@ -1065,7 +1128,7 @@ describe( 'Composer sending', () => {
 		);
 		const trigger = await modelButton();
 		await waitFor( () =>
-			expect( trigger ).toHaveAccessibleDescription( 'Sonnet 5 · Anthropic API' )
+			expect( trigger ).toHaveAccessibleDescription( 'Sonnet 5 · Anthropic API · Effort: Medium' )
 		);
 
 		fireEvent.change( input, { target: { value: 'One more' } } );

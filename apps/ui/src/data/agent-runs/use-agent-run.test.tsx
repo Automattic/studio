@@ -327,6 +327,7 @@ describe( 'useAgentRun queued handoff', () => {
 						provider,
 						hasAnthropicApiKey: true,
 						anthropicApiKeyPreview: 'test',
+						hasChatGptAccount: false,
 					} ),
 				}
 			);

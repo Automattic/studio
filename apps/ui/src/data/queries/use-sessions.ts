@@ -13,6 +13,7 @@ import type {
 	SessionEntry,
 	SyncSite,
 } from '@/data/core';
+import type { AiEffortLevel } from '@studio/agent/protocol/models';
 
 export const SESSIONS_QUERY_KEY = [ 'sessions' ] as const;
 
@@ -24,6 +25,16 @@ export function createModelChangeEntry( modelId: AiModelId ): SessionEntry {
 		timestamp: new Date().toISOString(),
 		provider: '',
 		modelId,
+	} as unknown as SessionEntry;
+}
+
+export function createThinkingLevelEntry( thinkingLevel: AiEffortLevel ): SessionEntry {
+	return {
+		type: 'thinking_level_change',
+		id: Math.random().toString( 36 ).slice( 2, 10 ),
+		parentId: null,
+		timestamp: new Date().toISOString(),
+		thinkingLevel,
 	} as unknown as SessionEntry;
 }
 

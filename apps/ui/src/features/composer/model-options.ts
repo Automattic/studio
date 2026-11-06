@@ -6,6 +6,7 @@ import {
 } from '@studio/common/lib/studio-assistant-quota';
 import { __, sprintf } from '@wordpress/i18n';
 import type { AiModelId } from '@/data/core';
+import type { AiEffortLevel } from '@studio/agent/protocol/models';
 
 export function getModelDescription( id: AiModelId ): string {
 	switch ( id ) {
@@ -13,12 +14,29 @@ export function getModelDescription( id: AiModelId ): string {
 			return __( 'Quick fixes and questions' );
 		case 'balanced':
 		case 'claude-sonnet-5':
+		case 'gpt-6.1-terra':
 			return __( 'Build features, style pages, and fix bugs' );
 		case 'strong':
 		case 'claude-opus-5':
+		case 'gpt-6.1-sol':
 			return __( 'Plan complex builds and solve harder problems' );
 		default:
 			return '';
+	}
+}
+
+export function getEffortDescription( level: AiEffortLevel ): string {
+	switch ( level ) {
+		case 'low':
+			return __( 'Fastest replies, fewest tokens' );
+		case 'medium':
+			return __( 'Balances speed and depth' );
+		case 'high':
+			return __( 'Thinks longer on harder tasks' );
+		case 'xhigh':
+			return __( 'Thinks much longer' );
+		case 'max':
+			return __( 'Most thorough, slowest' );
 	}
 }
 

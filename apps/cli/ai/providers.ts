@@ -1,4 +1,5 @@
 import { getWpcomAiGatewayBaseUrl } from '@studio/agent/node';
+import { hasChatGptCredential } from '@studio/agent/node/credential-store';
 import { persistAnthropicApiKey, readAnthropicApiKey } from '@studio/agent/node/settings-store';
 import { DEFAULT_MODEL, type AiModelId } from '@studio/agent/protocol/models';
 import {
@@ -11,12 +12,14 @@ import { validateAnthropicApiKey } from '@studio/common/lib/anthropic-key';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getStudioUserAgent as buildStudioUserAgent } from '@studio/common/lib/user-agent';
 import { __ } from '@wordpress/i18n';
+import { runCommand as runChatGptLoginCommand } from 'cli/commands/ai/chatgpt/login';
 import { password } from 'cli/lib/prompts';
 import { LoggerError } from 'cli/logger';
 
 export const AI_PROVIDERS: Record< AiProviderId, string > = {
 	wpcom: 'WordPress.com',
 	'anthropic-api-key': 'Anthropic · API key',
+	chatgpt: 'ChatGPT plan',
 };
 
 export type { AiProviderId };
@@ -196,6 +199,32 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 			const env = createBaseEnvironment();
 			env.ANTHROPIC_API_KEY = apiKey;
 			return env;
+		},
+	} ),
+	chatgpt: defineProvider( {
+		id: 'chatgpt',
+		autoFallbackWhenUnavailable: false,
+		isVisible: async () => true,
+		isReady: hasChatGptCredential,
+		prepare: async ( options ) => {
+			if ( ! options?.force && ( await hasChatGptCredential() ) ) {
+				return;
+			}
+			try {
+				await runChatGptLoginCommand();
+			} catch ( error ) {
+				throw new LoggerError( error instanceof Error ? error.message : String( error ) );
+			}
+		},
+		// The runtime reads the ChatGPT tokens from the credential store and pi
+		// refreshes them there, so nothing rides in the environment.
+		resolveEnv: async () => {
+			if ( ! ( await hasChatGptCredential() ) ) {
+				throw new LoggerError(
+					__( 'ChatGPT sign-in required. Switch to ChatGPT with /provider to sign in.' )
+				);
+			}
+			return createBaseEnvironment();
 		},
 	} ),
 };

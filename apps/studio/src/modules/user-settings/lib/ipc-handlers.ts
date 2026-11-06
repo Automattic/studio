@@ -5,10 +5,12 @@ import {
 } from '@studio/agent/node/global-instructions';
 import {
 	readAiSettings,
+	disconnectChatGpt as disconnectChatGptInConfig,
 	saveAnthropicApiKey as saveAnthropicApiKeyToConfig,
 	setAiProvider as setAiProviderInConfig,
 } from '@studio/agent/node/settings-store';
 import { isAiProviderId } from '@studio/agent/protocol/providers';
+import { signInWithChatGpt } from '@studio/common/lib/chatgpt-sign-in';
 import { getInstructionsLengthBucket } from '@studio/common/lib/record-tracks-event';
 import {
 	detectInstalledAppsWithDefaultBrowser,
@@ -28,6 +30,7 @@ import {
 import { getUserLocaleWithFallback, loadLocaleData, setMacAppLanguage } from 'src/lib/locale-node';
 import { refreshSpotlightIndex } from 'src/lib/spotlight';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
+import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { defaultSitePath } from 'src/storage/paths';
 import { OnboardingHintsState } from 'src/storage/storage-types';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
@@ -111,19 +114,22 @@ export async function getAiSettings() {
 	return readAiSettings();
 }
 
-// One event for both handlers: clearing the key also moves the provider back to WordPress.com.
-// The key is never sent; the preview comparison only detects a key being swapped.
+// One event for every handler: clearing the key or signing out of ChatGPT also moves the provider
+// back to WordPress.com. The key is never sent; the preview comparison only detects a key being
+// swapped.
 async function recordAiSettingsChange( previous: AiSettings, next: AiSettings ): Promise< void > {
 	const unchanged =
 		previous.provider === next.provider &&
 		previous.hasAnthropicApiKey === next.hasAnthropicApiKey &&
-		previous.anthropicApiKeyPreview === next.anthropicApiKeyPreview;
+		previous.anthropicApiKeyPreview === next.anthropicApiKeyPreview &&
+		previous.hasChatGptAccount === next.hasChatGptAccount;
 	if ( unchanged ) {
 		return;
 	}
 	await recordTracksEvent( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
 		provider: next.provider,
 		has_anthropic_api_key: next.hasAnthropicApiKey,
+		has_chatgpt_account: next.hasChatGptAccount,
 		surface: 'settings',
 	} );
 }
@@ -131,6 +137,22 @@ async function recordAiSettingsChange( previous: AiSettings, next: AiSettings ):
 export async function saveAnthropicApiKey( _event: IpcMainInvokeEvent, key: string | null ) {
 	const previous = await readAiSettings();
 	const settings = await saveAnthropicApiKeyToConfig( key );
+	await recordAiSettingsChange( previous, settings );
+	return settings;
+}
+
+// Resolves once the user finishes signing in in their browser.
+export async function connectChatGpt( _event: IpcMainInvokeEvent ) {
+	const previous = await readAiSettings();
+	await signInWithChatGpt( executeCliCommand );
+	const settings = await readAiSettings();
+	await recordAiSettingsChange( previous, settings );
+	return settings;
+}
+
+export async function disconnectChatGpt( _event: IpcMainInvokeEvent ) {
+	const previous = await readAiSettings();
+	const settings = await disconnectChatGptInConfig();
 	await recordAiSettingsChange( previous, settings );
 	return settings;
 }

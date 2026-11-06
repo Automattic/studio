@@ -12,6 +12,7 @@ const withKey = ( provider: AiSettings[ 'provider' ] ): Partial< Connector > => 
 		provider,
 		hasAnthropicApiKey: true,
 		anthropicApiKeyPreview: 'test',
+		hasChatGptAccount: false,
 	} ),
 } );
 

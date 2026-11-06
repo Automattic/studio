@@ -348,15 +348,26 @@ export function runCliCommand< T >(
 		logPrefix?: string;
 		env?: NodeJS.ProcessEnv;
 		onProgress?: ( message: string ) => void;
+		// Stops the CLI process, which rejects the promise like any failed command.
+		signal?: AbortSignal;
 	} = {}
 ): Promise< T > {
 	return new Promise( ( resolve, reject ) => {
 		let result: z.ZodSafeParseResult< T > | undefined;
-		const [ emitter ] = execute( args, {
+		const [ emitter, child ] = execute( args, {
 			output: 'capture',
 			logPrefix: options.logPrefix,
 			env: options.env,
 		} );
+		const { signal } = options;
+		if ( signal ) {
+			const stop = () => killChild( child );
+			if ( signal.aborted ) {
+				stop();
+			}
+			signal.addEventListener( 'abort', stop, { once: true } );
+			child.once( 'close', () => signal.removeEventListener( 'abort', stop ) );
+		}
 		const settle = () => {
 			if ( result?.success ) {
 				resolve( result.data );

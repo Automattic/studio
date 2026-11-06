@@ -738,6 +738,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { model } ),
 			} );
 		},
+		async setSessionEffort( sessionId, effort ) {
+			await api( `/sessions/${ encodeURIComponent( sessionId ) }/effort`, {
+				method: 'POST',
+				body: JSON.stringify( { effort } ),
+			} );
+		},
 		async setSessionProvider( sessionId, provider, model ) {
 			await api( `/sessions/${ encodeURIComponent( sessionId ) }/provider`, {
 				method: 'POST',
@@ -841,6 +847,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'PUT',
 				body: JSON.stringify( { provider } ),
 			} );
+		},
+		async connectChatGpt(): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings/chatgpt', { method: 'POST' } );
+		},
+		async disconnectChatGpt(): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings/chatgpt', { method: 'DELETE' } );
 		},
 
 		// The server runs on the user's machine, so it opens paths in OS apps on

@@ -1,6 +1,7 @@
 import fs from 'fs';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
 import {
+	type Api,
 	type Credential,
 	type CredentialInfo,
 	type CredentialStore,
@@ -31,6 +32,7 @@ import {
 import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
 import { type TSchema } from 'typebox';
 import { withDesignSystemPreview } from '@studio/agent/node/chat-artifacts';
+import { CHATGPT_PI_PROVIDER, FileCredentialStore } from '@studio/agent/node/credential-store';
 import { readGlobalInstructions } from '@studio/agent/node/global-instructions';
 import { isImageGenerationAvailable } from '@studio/agent/node/image-generation';
 import { createResultNotes } from '@studio/agent/node/result-notes';
@@ -41,10 +43,13 @@ import { bindTool } from '@studio/agent/node/tools/define-tool';
 import { createPresentDesignOptionsTool } from '@studio/agent/node/tools/present-design-options';
 import { createSkillTool } from '@studio/agent/node/tools/skill';
 import {
+	aiModelSupportsEffort,
 	aiModelSupportsImages,
+	DEFAULT_EFFORT,
 	DEFAULT_MODEL,
 	getAiModel,
 	getAiModelFamily,
+	readSessionEffort,
 	type AiModelFamily,
 	type AiModelId,
 } from '@studio/agent/protocol/models';
@@ -73,6 +78,12 @@ type StudioWpcomModel =
 	| Model< 'openai-responses' >
 	| Model< 'anthropic-messages' >;
 type StudioModel = StudioWpcomModel | Model< 'anthropic-messages' >;
+// The families whose credentials Studio passes in the environment each turn;
+// `openai` reads them from the credential store instead.
+type EnvCredentialFamily = Exclude< AiModelFamily, 'openai' >;
+type StudioModelSetup =
+	| { ok: true; model: Model< Api >; modelRuntime: ModelRuntime }
+	| { ok: false; reason: string };
 type ProviderConfigInput = Parameters< ModelRuntime[ 'registerProvider' ] >[ 1 ];
 
 const STUDIO_WPCOM_PROVIDER = 'studio-wpcom';
@@ -153,7 +164,7 @@ interface ResolvedCredentials {
 }
 
 function resolveCredentials(
-	family: AiModelFamily,
+	family: EnvCredentialFamily,
 	env: Record< string, string >
 ): { ok: true; creds: ResolvedCredentials } | { ok: false; reason: string } {
 	if ( family === 'studio' ) {
@@ -234,23 +245,84 @@ function syntheticErrorAgentEnd(
 	};
 }
 
+// pi's own OpenAI provider serves these models: it reads the Sign in with
+// ChatGPT tokens from Studio's credential store, refreshes them, and trims
+// requests to what the plan's tokens accept.
+async function setUpChatGptModel( modelId: AiModelId ): Promise< StudioModelSetup > {
+	const credentials = new FileCredentialStore();
+	// With nothing stored, pi would fall back to an OPENAI_API_KEY from the
+	// environment and bill that API account instead of the plan.
+	if ( ( await credentials.read( CHATGPT_PI_PROVIDER ) )?.type !== 'oauth' ) {
+		return {
+			ok: false,
+			reason:
+				'ChatGPT provider selected but no ChatGPT account is signed in. Sign in with ChatGPT with /provider.',
+		};
+	}
+	const modelRuntime = await ModelRuntime.create( { credentials, modelsPath: null } );
+	const catalogModel = modelRuntime.getModel( CHATGPT_PI_PROVIDER, modelId );
+	if ( ! catalogModel ) {
+		return { ok: false, reason: `pi's OpenAI catalog has no ${ modelId } model.` };
+	}
+	try {
+		// Refreshes an expiring token now, so a sign-in that stopped working
+		// fails before the turn starts rather than on its first request.
+		await modelRuntime.getAuth( catalogModel );
+	} catch ( error ) {
+		// pi wraps the provider's error in a generic "OAuth refresh failed".
+		const { cause } = ( error ?? {} ) as { cause?: unknown };
+		const detail = cause instanceof Error ? cause : error;
+		return {
+			ok: false,
+			reason: `Couldn't refresh your ChatGPT sign-in (${
+				detail instanceof Error ? detail.message : String( detail )
+			}). If this keeps happening, sign in with ChatGPT again.`,
+		};
+	}
+	return {
+		ok: true,
+		// The same ceiling as Studio's other models: compaction starts sooner and
+		// each request uses less of the plan.
+		model: { ...catalogModel, contextWindow: Math.min( catalogModel.contextWindow, 200_000 ) },
+		modelRuntime,
+	};
+}
+
+async function setUpModel(
+	modelId: AiModelId,
+	family: AiModelFamily,
+	env: Record< string, string >
+): Promise< StudioModelSetup > {
+	if ( family === 'openai' ) {
+		return setUpChatGptModel( modelId );
+	}
+	const resolved = resolveCredentials( family, env );
+	if ( ! resolved.ok ) {
+		return resolved;
+	}
+	const model = buildModel( modelId, family, resolved.creds );
+	return {
+		ok: true,
+		model,
+		modelRuntime: await createModelRuntime( model, family, resolved.creds ),
+	};
+}
+
 async function runAgentSessionTurn(
 	config: ResolvedStudioAgentTurnConfig,
 	controller: AbortController,
 	setActiveSession: ( session: AgentSession | undefined ) => void
 ): Promise< void > {
-	const family = getAiModelFamily( config.model );
-	const resolved = resolveCredentials( family, config.env );
-	if ( ! resolved.ok ) {
-		config.onEvent( syntheticErrorAgentEnd( 'error', resolved.reason ) );
-		return;
-	}
-
 	let session: AgentSession | undefined;
 	let unsubscribe: ( () => void ) | undefined;
 	const payloadGuardState: StudioToolPayloadGuardState = {};
 	try {
-		session = await createStudioAgentSession( config, family, resolved.creds, payloadGuardState );
+		const setup = await setUpModel( config.model, getAiModelFamily( config.model ), config.env );
+		if ( ! setup.ok ) {
+			config.onEvent( syntheticErrorAgentEnd( 'error', setup.reason ) );
+			return;
+		}
+		session = await createStudioAgentSession( config, setup, payloadGuardState );
 		setActiveSession( session );
 		let emptyStopContinues = 0;
 		let continueAfterEmptyStop = false;
@@ -324,11 +396,9 @@ async function runAgentSessionTurn(
 
 async function createStudioAgentSession(
 	config: ResolvedStudioAgentTurnConfig,
-	family: AiModelFamily,
-	creds: ResolvedCredentials,
+	{ model, modelRuntime }: { model: Model< Api >; modelRuntime: ModelRuntime },
 	payloadGuardState: StudioToolPayloadGuardState
 ): Promise< AgentSession > {
-	const model = buildModel( config.model, family, creds );
 	const visionEnabled = aiModelSupportsImages( config.model );
 	const [ userInstructions, imageGenerationEnabled ] = await Promise.all( [
 		readGlobalInstructions(),
@@ -350,7 +420,6 @@ async function createStudioAgentSession(
 	const toolDefinitions = tools.map( ( tool ) =>
 		toToolDefinition( config.host, tool, payloadGuardState, pendingWork, resultNotes )
 	);
-	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
 	const { sitesRoot } = config.host;
 	const resourceLoader = new DefaultResourceLoader( {
@@ -372,7 +441,10 @@ async function createStudioAgentSession(
 		agentDir: sitesRoot,
 		modelRuntime,
 		model,
-		thinkingLevel: 'medium',
+		// The effort the user picked for this chat, on models that offer a choice.
+		thinkingLevel: aiModelSupportsEffort( config.model )
+			? readSessionEffort( config.session.getEntries() ) ?? DEFAULT_EFFORT
+			: DEFAULT_EFFORT,
 		sessionManager: config.session,
 		settingsManager,
 		resourceLoader,
@@ -386,7 +458,7 @@ async function createStudioAgentSession(
 
 function buildModel(
 	modelId: AiModelId,
-	family: AiModelFamily,
+	family: EnvCredentialFamily,
 	creds: ResolvedCredentials
 ): StudioModel {
 	const baseUrl = creds.baseURL.replace( /\/+$/, '' );
@@ -515,7 +587,7 @@ class InMemoryCredentialStore implements CredentialStore {
 
 async function createModelRuntime(
 	model: StudioModel,
-	family: AiModelFamily,
+	family: EnvCredentialFamily,
 	creds: ResolvedCredentials
 ): Promise< ModelRuntime > {
 	const modelRuntime = await ModelRuntime.create( {

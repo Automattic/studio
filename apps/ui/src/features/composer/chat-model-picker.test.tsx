@@ -30,8 +30,13 @@ const allowanceQuota: StudioAssistantQuota = {
 
 function connectorFor( {
 	anthropic = false,
+	chatGpt = false,
 	quota = async () => paidQuota,
-}: { anthropic?: boolean; quota?: () => Promise< StudioAssistantQuota | null > } = {} ) {
+}: {
+	anthropic?: boolean;
+	chatGpt?: boolean;
+	quota?: () => Promise< StudioAssistantQuota | null >;
+} = {} ) {
 	return createFakeConnector(
 		{},
 		{
@@ -39,6 +44,7 @@ function connectorFor( {
 				provider: 'wpcom',
 				hasAnthropicApiKey: anthropic,
 				anthropicApiKeyPreview: null,
+				hasChatGptAccount: chatGpt,
 			} ),
 			getStudioAssistantQuota: quota,
 			getStudioAssistantTopUpPricing: async () =>
@@ -72,6 +78,21 @@ describe( 'Chat model picker', () => {
 		const current = await screen.findByRole( 'option', { name: /Opus 5/ } );
 		expect( current ).toHaveAttribute( 'aria-selected', 'true' );
 		expect( current ).toHaveTextContent( 'Claude · Plan complex builds and solve harder problems' );
+	} );
+
+	it( 'names each provider beside its models', async () => {
+		const { trigger } = await renderPicker(
+			'gpt-6.1-sol',
+			connectorFor( { anthropic: true, chatGpt: true } )
+		);
+		fireEvent.click( trigger );
+		expect( await screen.findByRole( 'option', { name: /GPT-6.1 Sol/ } ) ).toHaveTextContent(
+			'ChatGPT · Plan complex builds and solve harder problems'
+		);
+		expect( screen.getByRole( 'option', { name: /GPT-6.1 Terra/ } ) ).toHaveTextContent(
+			'ChatGPT · Build features, style pages, and fix bugs'
+		);
+		expect( screen.getByRole( 'option', { name: /Sonnet 5/ } ) ).toHaveTextContent( 'Claude ·' );
 	} );
 
 	it( 'lists the tiers and closes after selection', async () => {

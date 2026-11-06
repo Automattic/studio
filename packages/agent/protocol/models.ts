@@ -2,7 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { isStudioCustomEntryOfType } from '@studio/agent/protocol/sessions/entry-types';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
-export type AiModelFamily = 'anthropic' | 'studio';
+export type AiModelFamily = 'anthropic' | 'openai' | 'studio';
 
 export interface AiModel {
 	/** Stable model id, kept in settings and session history. */
@@ -25,12 +25,18 @@ export interface AiModel {
 	 * access, and `isAiModelId` never consults this.
 	 */
 	requiresPaidAiCredits?: boolean;
+	/**
+	 * Whether the user can pick the model's reasoning effort. Every model that
+	 * sets it supports all of `AI_EFFORT_LEVELS` in pi's catalog.
+	 */
+	supportsEffort?: boolean;
 }
 
 // The `studio` family are capability tiers, not concrete models: the wpcom
 // proxy's `studio-agent` lane resolves each alias to an upstream model
 // server-side, so the mapping can be retuned without a client release. The
-// `anthropic` family exists for the direct Anthropic · API key provider only.
+// `anthropic` family exists for the direct Anthropic · API key provider only,
+// and `openai` for Sign in with ChatGPT.
 export const AI_MODELS = [
 	{ id: 'fast', label: 'Fast', family: 'studio', supportsImages: false },
 	{
@@ -47,8 +53,10 @@ export const AI_MODELS = [
 		family: 'studio',
 		requiresPaidAiCredits: true,
 	},
-	{ id: 'claude-sonnet-5', label: 'Sonnet 5', family: 'anthropic' },
-	{ id: 'claude-opus-5', label: 'Opus 5', family: 'anthropic' },
+	{ id: 'claude-sonnet-5', label: 'Sonnet 5', family: 'anthropic', supportsEffort: true },
+	{ id: 'claude-opus-5', label: 'Opus 5', family: 'anthropic', supportsEffort: true },
+	{ id: 'gpt-6.1-terra', label: 'GPT-6.1 Terra', family: 'openai', supportsEffort: true },
+	{ id: 'gpt-6.1-sol', label: 'GPT-6.1 Sol', family: 'openai', supportsEffort: true },
 ] as const satisfies readonly AiModel[];
 
 export type AiModelId = ( typeof AI_MODELS )[ number ][ 'id' ];
@@ -103,6 +111,53 @@ export function aiModelRequiresPaidCredits( id: AiModelId ): boolean {
 // image support is the safe default.
 export function aiModelSupportsImages( id: AiModelId ): boolean {
 	return MODEL_BY_ID.get( id )?.supportsImages ?? true;
+}
+
+export function aiModelSupportsEffort( id: AiModelId ): boolean {
+	return MODEL_BY_ID.get( id )?.supportsEffort ?? false;
+}
+
+// pi's thinking levels, minus `off` and `minimal`: the agent plans and uses
+// tools, which needs some reasoning.
+export const AI_EFFORT_LEVELS = [ 'low', 'medium', 'high', 'xhigh', 'max' ] as const;
+
+export type AiEffortLevel = ( typeof AI_EFFORT_LEVELS )[ number ];
+
+export const DEFAULT_EFFORT: AiEffortLevel = 'medium';
+
+export function isAiEffortLevel( value: string ): value is AiEffortLevel {
+	return ( AI_EFFORT_LEVELS as readonly string[] ).includes( value );
+}
+
+export function getAiEffortLabel( level: AiEffortLevel ): string {
+	switch ( level ) {
+		case 'low':
+			return __( 'Low' );
+		case 'medium':
+			return __( 'Medium' );
+		case 'high':
+			return __( 'High' );
+		case 'xhigh':
+			return __( 'Extra high' );
+		case 'max':
+			return __( 'Max' );
+	}
+}
+
+/**
+ * The effort the session last recorded: the `thinking_level_change` entry the
+ * UI writes when the user picks one, or the one pi records when a session
+ * starts. Undefined when none is recorded or it's a level Studio doesn't offer.
+ */
+export function readSessionEffort( entries: SessionEntry[] ): AiEffortLevel | undefined {
+	for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
+		const entry = entries[ index ];
+		if ( entry.type === 'thinking_level_change' ) {
+			const level = ( entry as { thinkingLevel?: unknown } ).thinkingLevel;
+			return typeof level === 'string' && isAiEffortLevel( level ) ? level : undefined;
+		}
+	}
+	return undefined;
 }
 
 /**

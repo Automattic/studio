@@ -8,6 +8,7 @@ export * from './bell-icon';
 export * from './chat-icon';
 export * from './chevron-down-icon';
 export * from './circle-check-icon';
+export * from './chatgpt-icon';
 export * from './claude-icon';
 export * from './code-icon';
 export * from './collapse-all-icon';

@@ -1,5 +1,9 @@
 import { aiModelRequiresPaidCredits } from '@studio/agent/protocol/models';
-import { AI_PROVIDER_IDS, getEffectiveSessionProvider } from '@studio/agent/protocol/providers';
+import {
+	AI_PROVIDER_IDS,
+	getEffectiveSessionProvider,
+	isAiProviderConnected,
+} from '@studio/agent/protocol/providers';
 import { canUsePaidAiModels } from '@studio/common/lib/studio-assistant-quota';
 import { useCallback, useMemo } from 'react';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
@@ -32,7 +36,7 @@ export function useModelAccess( {
 	// Connected providers are available in saved chats and site drafts.
 	const providers = AI_PROVIDER_IDS.filter(
 		( id ) =>
-			( id === 'wpcom' ? !! authUser : aiSettings?.hasAnthropicApiKey ) &&
+			( id === 'wpcom' ? !! authUser : isAiProviderConnected( id, aiSettings ) ) &&
 			( !! sessionId || !! provider || id === sessionProvider )
 	);
 	const canUsePaidTiers = canUsePaidAiModels( quota, authUser?.email );

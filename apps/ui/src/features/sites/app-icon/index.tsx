@@ -1,8 +1,10 @@
 import { useState, type ReactNode } from 'react';
 import arc from './assets/arc.png';
 import brave from './assets/brave.png';
+import chatgpt from './assets/chatgpt.png';
 import chrome from './assets/chrome.png';
 import chromium from './assets/chromium.png';
+import claude from './assets/claude.png';
 import cursor from './assets/cursor.png';
 import dia from './assets/dia.png';
 import duckduckgo from './assets/duckduckgo.png';
@@ -18,14 +20,17 @@ import terminal from './assets/terminal.png';
 import vivaldi from './assets/vivaldi.png';
 import vscode from './assets/vscode.png';
 import warp from './assets/warp.png';
+import wordpressCom from './assets/wordpress-com.svg';
 import zen from './assets/zen.png';
 import styles from './style.module.css';
 
 const icons: Record< string, string > = {
 	arc,
 	brave,
+	chatgpt,
 	chrome,
 	chromium,
+	claude,
 	cursor,
 	dia,
 	duckduckgo,
@@ -41,6 +46,7 @@ const icons: Record< string, string > = {
 	vivaldi,
 	vscode,
 	warp,
+	'wordpress-com': wordpressCom,
 	zen,
 };
 

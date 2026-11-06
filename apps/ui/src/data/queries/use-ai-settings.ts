@@ -34,3 +34,25 @@ export function useSaveAnthropicApiKey() {
 		},
 	} );
 }
+
+export function useConnectChatGpt() {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation( {
+		mutationFn: () => connector.connectChatGpt(),
+		onSuccess: ( settings ) => {
+			queryClient.setQueryData< AiSettings >( AI_SETTINGS_QUERY_KEY, settings );
+		},
+	} );
+}
+
+export function useDisconnectChatGpt() {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation( {
+		mutationFn: () => connector.disconnectChatGpt(),
+		onSuccess: ( settings ) => {
+			queryClient.setQueryData< AiSettings >( AI_SETTINGS_QUERY_KEY, settings );
+		},
+	} );
+}

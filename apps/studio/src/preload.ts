@@ -127,6 +127,8 @@ const api: IpcApi = {
 	getAiSettings: () => ipcRendererInvoke( 'getAiSettings' ),
 	saveAnthropicApiKey: ( key ) => ipcRendererInvoke( 'saveAnthropicApiKey', key ),
 	setAiProvider: ( provider ) => ipcRendererInvoke( 'setAiProvider', provider ),
+	connectChatGpt: () => ipcRendererInvoke( 'connectChatGpt' ),
+	disconnectChatGpt: () => ipcRendererInvoke( 'disconnectChatGpt' ),
 	saveWapuuScore: ( score ) => ipcRendererInvoke( 'saveWapuuScore', score ),
 	getWapuuScore: () => ipcRendererInvoke( 'getWapuuScore' ),
 	getUserPreferences: () => ipcRendererInvoke( 'getUserPreferences' ),
@@ -172,6 +174,8 @@ const api: IpcApi = {
 	listActiveAiAgentRuns: () => ipcRendererInvoke( 'listActiveAiAgentRuns' ),
 	setAiSessionModel: ( sessionId, model ) =>
 		ipcRendererInvoke( 'setAiSessionModel', sessionId, model ),
+	setAiSessionEffort: ( sessionId, effort ) =>
+		ipcRendererInvoke( 'setAiSessionEffort', sessionId, effort ),
 	setAiSessionProvider: ( sessionId, provider, model ) =>
 		ipcRendererInvoke( 'setAiSessionProvider', sessionId, provider, model ),
 	setAiSessionEnvironment: ( sessionId, environment ) =>

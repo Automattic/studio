@@ -568,6 +568,10 @@ export function createIpcConnector(): Connector {
 			await ipcApi.setAiSessionModel( sessionId, model );
 		},
 
+		async setSessionEffort( sessionId, effort ) {
+			await ipcApi.setAiSessionEffort( sessionId, effort );
+		},
+
 		async setSessionProvider( sessionId, provider, model ) {
 			await ipcApi.setAiSessionProvider( sessionId, provider, model );
 		},
@@ -677,6 +681,12 @@ export function createIpcConnector(): Connector {
 		},
 		async setAiProvider( provider ): Promise< AiSettings > {
 			return unwrapIpcError( ipcApi.setAiProvider( provider ) );
+		},
+		async connectChatGpt(): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.connectChatGpt() );
+		},
+		async disconnectChatGpt(): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.disconnectChatGpt() );
 		},
 
 		async getInstalledApps(): Promise< InstalledApps > {

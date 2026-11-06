@@ -40,6 +40,7 @@ describe( 'ai settings store', () => {
 			provider: 'wpcom',
 			hasAnthropicApiKey: false,
 			anthropicApiKeyPreview: null,
+			hasChatGptAccount: false,
 		} );
 	} );
 
@@ -50,6 +51,7 @@ describe( 'ai settings store', () => {
 			provider: 'wpcom',
 			hasAnthropicApiKey: true,
 			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+			hasChatGptAccount: false,
 		} );
 		expect( readShared().anthropicApiKey ).toBe( 'sk-ant-api03-testkey-abcd1234' );
 		expect( fs.existsSync( cliConfigPath() ) ).toBe( false );
@@ -126,6 +128,7 @@ describe( 'ai settings store', () => {
 			provider: 'wpcom',
 			hasAnthropicApiKey: false,
 			anthropicApiKeyPreview: null,
+			hasChatGptAccount: false,
 		} );
 		const written = readShared();
 		expect( written.anthropicApiKey ).toBeUndefined();

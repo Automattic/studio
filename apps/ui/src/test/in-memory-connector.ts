@@ -273,6 +273,7 @@ export function createInMemoryConnector(
 		continueSession: async () => ( { runId: `run-${ nextId++ }` } ),
 		getActiveAgentRuns: async () => [],
 		setSessionModel: async () => {},
+		setSessionEffort: async () => {},
 		setSessionProvider: async () => {},
 		setSessionEnvironment: async ( id, environment ) => {
 			const session = findSession( id );
@@ -302,16 +303,31 @@ export function createInMemoryConnector(
 			provider: 'wpcom',
 			hasAnthropicApiKey: false,
 			anthropicApiKeyPreview: null,
+			hasChatGptAccount: false,
 		} ),
 		saveAnthropicApiKey: async ( key ) => ( {
 			provider: 'wpcom',
 			hasAnthropicApiKey: !! key,
 			anthropicApiKeyPreview: key ? 'sk-ant-…test' : null,
+			hasChatGptAccount: false,
 		} ),
 		setAiProvider: async ( provider ) => ( {
 			provider,
 			hasAnthropicApiKey: false,
 			anthropicApiKeyPreview: null,
+			hasChatGptAccount: false,
+		} ),
+		connectChatGpt: async () => ( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: false,
+			anthropicApiKeyPreview: null,
+			hasChatGptAccount: true,
+		} ),
+		disconnectChatGpt: async () => ( {
+			provider: 'wpcom',
+			hasAnthropicApiKey: false,
+			anthropicApiKeyPreview: null,
+			hasChatGptAccount: false,
 		} ),
 		getInstalledApps: async () => installedApps(),
 		getAppGlobals: async () => ( { platform: 'darwin', isWindowsStore: false } ),

@@ -163,6 +163,27 @@ async function main() {
 					.demandCommand( 1, __( 'You must provide a valid code sessions command' ) );
 			}
 		);
+		aiYargs.command(
+			'chatgpt',
+			__( 'Sign in or out of ChatGPT to use your Plus or Pro plan' ),
+			async ( chatgptYargs ) => {
+				const [
+					{ registerCommand: registerChatGptLoginCommand },
+					{ registerCommand: registerChatGptLogoutCommand },
+				] = await Promise.all( [
+					import( 'cli/commands/ai/chatgpt/login' ),
+					import( 'cli/commands/ai/chatgpt/logout' ),
+				] );
+				chatgptYargs.option( 'path', {
+					hidden: true,
+				} );
+				registerChatGptLoginCommand( chatgptYargs );
+				registerChatGptLogoutCommand( chatgptYargs );
+				chatgptYargs
+					.version( false )
+					.demandCommand( 1, __( 'You must provide a valid code chatgpt command' ) );
+			}
+		);
 		aiYargs
 			.example( [
 				[ 'studio code', __( 'Start an interactive chat with the AI agent' ) ],

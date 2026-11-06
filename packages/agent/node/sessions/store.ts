@@ -300,6 +300,24 @@ export async function appendModelChangeEntry(
 	await fs.appendFile( summary.filePath, JSON.stringify( entry ) + '\n', { encoding: 'utf8' } );
 }
 
+// pi's own entry for a session's thinking level, which it reads on resume.
+export async function appendThinkingLevelChangeEntry(
+	rootDirectory: string,
+	sessionIdOrPrefix: string,
+	thinkingLevel: string
+): Promise< void > {
+	const summary = await resolveSessionByIdOrPrefix( rootDirectory, sessionIdOrPrefix );
+	const parentId = await readLastEntryId( summary.filePath );
+	const entry = {
+		type: 'thinking_level_change',
+		id: shortId(),
+		parentId,
+		timestamp: new Date().toISOString(),
+		thinkingLevel,
+	};
+	await fs.appendFile( summary.filePath, JSON.stringify( entry ) + '\n', { encoding: 'utf8' } );
+}
+
 export async function deleteAiSession(
 	rootDirectory: string,
 	sessionIdOrPrefix: string

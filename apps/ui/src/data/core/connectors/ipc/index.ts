@@ -19,6 +19,7 @@ import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import type {
+	AgentApp,
 	ActiveAgentRun,
 	AiSessionSummary,
 	AiSessionPlacementUpdatedEvent,
@@ -686,6 +687,13 @@ export function createIpcConnector(): Connector {
 
 		async getInstalledApps(): Promise< InstalledApps > {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
+		},
+
+		async getAgentApps(): Promise< AgentApp[] > {
+			return ( await ipcApi.getAgentApps() ) as AgentApp[];
+		},
+		async connectAgentApp( id ): Promise< void > {
+			await unwrapIpcError( ipcApi.connectAgentApp( id ) );
 		},
 
 		async getAppGlobals(): Promise< AppGlobals > {

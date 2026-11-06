@@ -9,6 +9,7 @@ import type {
 	LoadedAiSession,
 } from '@studio/agent/protocol/sessions/types';
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
+import type { AgentApp, AgentAppId } from '@studio/common/lib/agent-apps';
 import type { SiteAgentFile, SiteAgentFileKind } from '@studio/common/lib/agent-skills';
 import type { AuthAnalytics, OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
 import type { SiteEvent, SiteListItem, SnapshotEvent } from '@studio/common/lib/cli-events';
@@ -78,6 +79,7 @@ export type {
 	SiteEmailAddress,
 	SiteEmailSummary,
 } from '@studio/common/sites/site-email';
+export type { AgentApp, AgentAppId } from '@studio/common/lib/agent-apps';
 
 export type InstalledApps = Record<
 	SupportedEditor | SupportedTerminal | SupportedBrowser,
@@ -489,6 +491,12 @@ export interface Connector {
 	// form are filtered against this so users can't pick something that isn't
 	// installed.
 	getInstalledApps(): Promise< InstalledApps >;
+
+	// Agent apps Settings connects to Studio, with whether each is installed.
+	getAgentApps(): Promise< AgentApp[] >;
+	// Installs the Studio plugin with the app's own CLI, or for Cursor opens
+	// its prompt to add Studio's MCP server. Rejects with the app's error.
+	connectAgentApp( id: AgentAppId ): Promise< void >;
 
 	// Host environment facts used to gate native-only UI (e.g. the Studio CLI
 	// toggle is hidden in Windows Store builds). Browser connectors report

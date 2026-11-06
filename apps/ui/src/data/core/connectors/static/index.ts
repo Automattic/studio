@@ -193,6 +193,13 @@ export function createStaticConnector(): Connector {
 		async sendFeedback() {
 			throw new UnsupportedError( 'sendFeedback' );
 		},
+		// Agent apps run Studio's CLI, which a page doesn't have.
+		async getAgentApps() {
+			return [];
+		},
+		async connectAgentApp() {
+			throw new UnsupportedError( 'connectAgentApp' );
+		},
 
 		async exportFullSite( siteId, options ) {
 			const record = await sites.get( siteId );

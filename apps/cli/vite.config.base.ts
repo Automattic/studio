@@ -1,5 +1,5 @@
 import { execSync } from 'child_process';
-import { cpSync, existsSync, mkdirSync, writeFileSync } from 'fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { createRequire } from 'module';
 import { resolve } from 'path';
 import semver from 'semver';
@@ -39,6 +39,30 @@ if ( ! minimumNodeVersion ) {
 
 const bundledWpFilesPath = resolve( __dirname, '..', '..', 'wp-files' );
 const phpSourceCodePath = resolve( __dirname, 'php' );
+
+// Settings installs the Studio plugin in agent apps from a marketplace Studio
+// writes from these, copied to `<chunk dir>/agent-plugins` with this version
+// (see `connect-agent-app.ts` in @studio/common). Its server is Studio's own CLI,
+// so the launcher scripts stay out, and so do the directory listing's screenshots.
+const pluginsSourcePath = resolve( __dirname, '../../plugins' );
+const AGENT_PLUGIN_FILES = [
+	'.claude-plugin/marketplace.json',
+	'.agents/plugins/marketplace.json',
+	'wp-studio/.claude-plugin',
+	'wp-studio/.codex-plugin',
+	'wp-studio/.cursor-plugin',
+	'wp-studio/.grok-plugin',
+	'wp-studio/.mcp.json',
+	'wp-studio/agents',
+	'wp-studio/assets/logo.png',
+	'wp-studio/skills',
+];
+const AGENT_PLUGIN_MANIFESTS = [
+	'.claude-plugin',
+	'.codex-plugin',
+	'.cursor-plugin',
+	'.grok-plugin',
+];
 
 // The `studio ui` command serves the built browser UI (apps/ui `dist-local`)
 // from `<chunk dir>/ui`, so it must sit next to the built chunks too. Built
@@ -113,6 +137,20 @@ export const baseConfig = defineConfig( {
 				}
 				if ( existsSync( bundledWpFilesPath ) ) {
 					cpSync( bundledWpFilesPath, resolve( outDir, 'wp-files' ), { recursive: true } );
+				}
+				const agentPlugins = resolve( outDir, 'agent-plugins' );
+				for ( const file of AGENT_PLUGIN_FILES ) {
+					cpSync( resolve( pluginsSourcePath, file ), resolve( agentPlugins, file ), {
+						recursive: true,
+					} );
+				}
+				for ( const manifest of AGENT_PLUGIN_MANIFESTS ) {
+					const file = resolve( agentPlugins, 'wp-studio', manifest, 'plugin.json' );
+					const fields = JSON.parse( readFileSync( file, 'utf8' ) );
+					writeFileSync(
+						file,
+						JSON.stringify( { ...fields, version: packageJson.version }, null, 2 ) + '\n'
+					);
 				}
 
 				if ( existsSync( localUiDistPath ) ) {

@@ -295,6 +295,7 @@ function getStudioSections( signedIn: boolean, nativeSites = true ): Section[] {
 			id: 'mcp',
 			label: __( 'MCP' ),
 			icon: McpIcon,
+			aliases: [ __( 'Agent apps' ), 'Claude Code', 'ChatGPT', 'Codex', 'Cursor', 'Grok Build' ],
 			settings: [
 				setting(
 					'section',

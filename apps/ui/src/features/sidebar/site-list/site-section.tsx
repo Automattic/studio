@@ -8,6 +8,7 @@ import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/q
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOpenSite } from '@/data/use-open-site';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
+import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
 import { XdebugIcon } from '@/features/sidebar/xdebug-icon';
 import { GlobeIcon, NeedsInputIcon, NewChatIcon } from '@/lib/icons';
 import {
@@ -97,6 +98,7 @@ export function SiteSection( {
 	const displayActivity = siteActivity ?? 'idle';
 	const openSite = useOpenSite();
 	const preview = useOptionalSessionPreviewUI();
+	const runLayoutTransition = useUserWorkspaceLayoutTransition( site.id );
 	const handleOpenSite = () => {
 		onOpen?.();
 		if ( ! onOpen ) onSiteOpen?.();
@@ -171,8 +173,10 @@ export function SiteSection( {
 					label={ sprintf( __( 'New chat for %s' ), site.name ) }
 					onClick={ () => {
 						onSiteOpen?.();
-						preview?.setChatHidden( false, site.id );
-						void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+						runLayoutTransition( () => {
+							preview?.setChatHidden( false, site.id );
+							return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+						} );
 					} }
 				/>
 				<SiteStatusButton

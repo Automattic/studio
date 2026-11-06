@@ -7,8 +7,10 @@ import { useConnector } from '@/data/core';
 import { previewTabsKey, usePreviewTabs, type PreviewTab } from '@/data/preview-tabs';
 import { useIsSiteBusy, useStopSite } from '@/data/queries/use-sites';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
+import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
 import { useOpenInDestinations } from '@/features/sites/open-in-menu/use-open-in-destinations';
-import { getPreviewRealm, getRealmOpenEvent } from '@/features/sites/site-preview/address-bar';
+import { getPreviewRealm } from '@/features/sites/site-preview/address-bar';
+import { usePreviewOpenTracks } from '@/features/sites/site-preview/use-preview-open-tracks';
 import { getSiteTool, SiteToolMenuItems, useSiteToolActions } from '@/features/sites/site-tools';
 import { PlusIcon } from '@/lib/icons';
 import { isDialogOpen, isShortcut } from '@/lib/keyboard';
@@ -39,6 +41,8 @@ export function PreviewTabs( {
 	const busy = useIsSiteBusy( site );
 	const stopSite = useStopSite();
 	const preview = useSessionPreviewUI();
+	const runLayoutTransition = useUserWorkspaceLayoutTransition( siteId );
+	const trackOpen = usePreviewOpenTracks();
 	const { workspace, add, patch, select, closeMany, update } = usePreviewTabs(
 		previewTabsKey( siteId, liveUrl ),
 		path
@@ -123,7 +127,7 @@ export function PreviewTabs( {
 			)
 				return;
 			event.preventDefault();
-			setOpen( true, { siteId } );
+			runLayoutTransition( () => setOpen( true, { siteId } ) );
 			requestAnimationFrame( () => {
 				newTabButton.current?.focus();
 				if ( newTabButton.current?.getAttribute( 'aria-expanded' ) !== 'true' ) {
@@ -133,11 +137,11 @@ export function PreviewTabs( {
 		};
 		document.addEventListener( 'keydown', onKeyDown );
 		return () => document.removeEventListener( 'keydown', onKeyDown );
-	}, [ busy, setOpen, siteId ] );
+	}, [ busy, setOpen, siteId, runLayoutTransition ] );
 	const openInBrowser = ( tab: PreviewTab ) => {
 		if ( tab.path === null ) return;
 		const realm = getPreviewRealm( tab.path );
-		void connector.trackEvent( getRealmOpenEvent( realm ), { browser: 'external' } );
+		trackOpen( tab.path, 'external' );
 		const opening = liveUrl
 			? connector.openExternalUrl( `${ liveUrl.replace( /\/$/, '' ) }${ tab.path }` )
 			: connector.openSiteUrl( siteId, tab.path, {
@@ -151,7 +155,7 @@ export function PreviewTabs( {
 		const isLastTab = workspace.tabs.every( ( tab ) => ids.includes( tab.id ) );
 		closeMany( ids );
 		if ( isLastTab ) {
-			preview.setOpen( false, { siteId } );
+			runLayoutTransition( () => preview.setOpen( false, { siteId } ) );
 			if ( ! liveUrl && site.running && ! busy ) stopSite.mutate( siteId );
 		}
 		requestAnimationFrame( () => {
@@ -167,7 +171,13 @@ export function PreviewTabs( {
 			{ running ? (
 				<Tabs
 					value={ workspace.chatSelected ? null : workspace.selectedId }
-					onValueChange={ ( value ) => select( String( value ) ) }
+					onValueChange={ ( value ) => {
+						const id = String( value );
+						if ( id === workspace.selectedId ) return;
+						const tab = workspace.tabs.find( ( tab ) => tab.id === id );
+						if ( tab?.path !== null && tab?.path !== undefined ) trackOpen( tab.path );
+						select( id );
+					} }
 					className={ styles.tabs }
 				>
 					<TabsList

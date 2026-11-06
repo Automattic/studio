@@ -8,12 +8,14 @@ import { useSiteDesign } from '@/data/queries/use-site-design';
 import { useIsSiteBusy } from '@/data/queries/use-sites';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
+import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
 import { getSiteUrl } from '@/features/sites/get-site-url';
 import {
 	DATABASE_HOME_PATH,
 	EMAIL_PREVIEW_PATH,
 	getRealmNavigationPath,
 } from '@/features/sites/site-preview/address-bar';
+import { usePreviewOpenTracks } from '@/features/sites/site-preview/use-preview-open-tracks';
 import { AppearanceIcon, DatabaseIcon, GlobeIcon, MailIcon, WordPressIcon } from '@/lib/icons';
 import { isDialogOpen, isTextEntry } from '@/lib/keyboard';
 import { Button, Kbd, Menu } from '@/lib/ui';
@@ -50,6 +52,8 @@ export function useSiteToolActions(
 	const preview = useSessionPreviewUI();
 	const startSite = useStartSiteWithChat();
 	const tabs = usePreviewTabs( previewTabsKey( site.id, liveUrl ) );
+	const runLayoutTransition = useUserWorkspaceLayoutTransition( site.id );
+	const trackOpen = usePreviewOpenTracks();
 	const open = async ( path: string, newTab = false ) => {
 		tabs.setChatSelected( false );
 		const location = liveUrl ? path : getRealmNavigationPath( path, getSiteUrl( site ) );
@@ -65,12 +69,15 @@ export function useSiteToolActions(
 			! ( await startSite.mutateAsync( site.id ).catch( () => false ) )
 		)
 			return;
-		preview.setSite( site.id );
-		if ( ! onNavigate && ! newTab ) preview.updatePath( location );
-		preview.setOpen( true );
-		if ( preview.siteId !== site.id ) {
-			void navigate( { to: '/sites/$siteId', params: { siteId: site.id } } );
-		}
+		trackOpen( path );
+		runLayoutTransition( () => {
+			preview.setSite( site.id );
+			if ( ! onNavigate && ! newTab ) preview.updatePath( location );
+			preview.setOpen( true );
+			if ( preview.siteId !== site.id ) {
+				return navigate( { to: '/sites/$siteId', params: { siteId: site.id } } );
+			}
+		} );
 	};
 	return {
 		openBrowser: () => void open( '/', true ),

@@ -16,7 +16,6 @@ export function useOpenGettingStarted() {
 		if ( ! sites || isPending ) return;
 		await setHints( {
 			walkthroughStep: siteId ? 'intro' : 'create',
-			annotateHintDismissed: false,
 		} );
 		if ( siteId ) {
 			setChatHidden?.( false, siteId );

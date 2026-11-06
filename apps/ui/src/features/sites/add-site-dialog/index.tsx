@@ -22,8 +22,8 @@ import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useFileDrop } from '@/data/use-composer-attachments';
-import { Walkthrough } from '@/features/onboarding';
 import { saveComposerDraft } from '@/features/composer';
+import { Walkthrough } from '@/features/onboarding';
 import { BlueprintErrorDialog } from '@/features/sites/blueprint-error-dialog';
 import { createSelectedBlueprint } from '@/features/sites/blueprint-selection';
 import { SiteFileUpload } from '@/features/sites/blueprint-upload';
@@ -96,7 +96,6 @@ export function AddSiteDialog() {
 		settings?: string;
 	};
 	const { data: onboardingHints } = useOnboardingHints();
-	const { data: sites } = useSites();
 	const [ openedWith, setOpenedWith ] = useState( addSite );
 	const [ chosenView, replaceView ] = useState< View | null >( null );
 	const initialView = useMemo( () => getInitialView( addSite ?? 'create' ), [ addSite ] );
@@ -586,11 +585,7 @@ export function AddSiteDialog() {
 					inSiteDialog
 					onContinue={ sites?.length ? close : undefined }
 					createStage={
-						view.name === 'details'
-							? 'details'
-							: view.name === 'setup' && ! view.remote
-							? 'setup'
-							: 'gallery'
+						view.name === 'details' ? 'details' : view.name === 'setup' ? 'setup' : 'gallery'
 					}
 				/>
 				{ hasSidebar ? (

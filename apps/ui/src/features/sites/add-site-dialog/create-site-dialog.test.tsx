@@ -105,10 +105,13 @@ async function submit( name = 'Add site' ) {
 }
 
 describe( 'Add site flow', () => {
-	it.each( [ 'choose', 'blank' ] as const )(
+	it.each( [ 'create', 'blank' ] as const )(
 		'keeps the %s dialog open on outside presses during the creation tour, but allows the close button',
-		async ( behavior ) => {
-			const { user, history } = setup( { behavior, walkthroughStep: 'create' } );
+		async ( section ) => {
+			const { user, history } = setup( {
+				path: `/?addSite=${ section }`,
+				walkthroughStep: 'create',
+			} );
 			const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
 			fireEvent.click(
 				screen
@@ -116,7 +119,7 @@ describe( 'Add site flow', () => {
 					.find( ( element ) => element.dataset.variant === 'dimmed' )!
 			);
 			expect( dialog ).toBeVisible();
-			expect( history.location.search ).toContain( 'addSite=create' );
+			expect( history.location.search ).toContain( `addSite=${ section }` );
 			await user.click( screen.getByRole( 'button', { name: 'Close Add site' } ) );
 			await waitFor( () => expect( dialog ).not.toBeInTheDocument() );
 			expect( history.location.search ).not.toContain( 'addSite' );

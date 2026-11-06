@@ -3,11 +3,9 @@ import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useId, useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useOnboardingHints, useSetOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import { useSites } from '@/data/queries/use-sites';
-import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { FeaturePopover } from '@/lib/ui';
 import { useOnboardingGuide } from './onboarding-guide/use-onboarding-guide';
 import { WHATS_NEW_VERSION } from './onboarding-guide/whats-new';
@@ -17,10 +15,6 @@ import type { OnboardingHintsState } from '@/data/core';
 type Step = NonNullable< OnboardingHintsState[ 'walkthroughStep' ] >;
 type CreateStage = 'gallery' | 'details' | 'setup';
 type GalleryStep = 'fresh' | 'design';
-
-export function isWalkthroughPending( step: Step | undefined ): boolean {
-	return step !== undefined && ! [ 'completed', 'skipped', 'ineligible' ].includes( step );
-}
 
 function getStep(
 	step: Step,
@@ -73,15 +67,6 @@ function getStep(
 					'Say what you want in plain words. Add a page, swap the colors, fix the thing that’s bugging you.'
 				),
 				action: __( 'Next' ),
-				next: 'annotate' as const,
-			};
-		case 'annotate':
-			return {
-				title: __( 'Point at it' ),
-				description: __(
-					'Select anything on the page and say what should change. Easier than describing where it is.'
-				),
-				action: __( 'Next' ),
 				next: 'share' as const,
 			};
 		case 'share':
@@ -132,16 +117,10 @@ export function Walkthrough( {
 } ) {
 	const connector = useConnector();
 	const { open: openGettingStarted } = useOpenGettingStarted();
-	const preview = useOptionalSessionPreviewUI();
-	const setPanelOpen = preview?.setOpen;
-	const setChatHidden = preview?.setChatHidden;
-	const siteId = preview?.siteId;
 	const { data: hints } = useOnboardingHints();
 	const { mutate: setHints } = useSetOnboardingHints();
 	const { data: sites } = useSites();
-	const currentSite = sites?.find( ( site ) => site.id === siteId );
-	const { data: user, isSuccess: userLoaded } = useAuthUser();
-	const { data: aiSettings, isSuccess: aiSettingsLoaded } = useAiSettings();
+	const { data: user } = useAuthUser();
 	const descriptionId = useId();
 	const [ target, setTarget ] = useState< {
 		element: HTMLElement | null;
@@ -156,11 +135,6 @@ export function Walkthrough( {
 	const [ dismissedCreateStages, setDismissedCreateStages ] = useState< CreateStage[] >( [] );
 	const [ suspended, setSuspended ] = useState( false );
 	const [ composerBlocked, setComposerBlocked ] = useState( false );
-	const canAnnotate =
-		connector.capabilities.annotatePreview &&
-		( !! user || !! aiSettings?.hasAnthropicApiKey ) &&
-		( ! currentSite || !! currentSite.running ) &&
-		! composerBlocked;
 	const { welcome, settings, addSite } = useSearch( { strict: false } ) as {
 		welcome?: true;
 		settings?: string;
@@ -200,13 +174,6 @@ export function Walkthrough( {
 	}, [ connector, openGettingStarted, inSiteDialog ] );
 
 	useEffect( () => {
-		if ( ! inSiteDialog && step === 'annotate' && canAnnotate && ! blocked && siteId ) {
-			setChatHidden?.( false, siteId );
-			setPanelOpen?.( true, { siteId } );
-		}
-	}, [ inSiteDialog, step, canAnnotate, blocked, siteId, setPanelOpen, setChatHidden ] );
-
-	useEffect( () => {
 		if ( inSiteDialog ) return;
 		if ( step === 'intro' && addSite ) {
 			setHints( { walkthroughStep: 'create' } );
@@ -214,20 +181,10 @@ export function Walkthrough( {
 		if ( step === 'create' && sites?.length && ! welcome && ! addSite ) {
 			setHints( { walkthroughStep: 'composer', whatsNewSeenVersion: WHATS_NEW_VERSION } );
 		}
-		if ( step === 'annotate' && userLoaded && aiSettingsLoaded && ! canAnnotate ) {
-			setHints( { walkthroughStep: 'share' } );
+		if ( step === 'annotate' ) {
+			setHints( { walkthroughStep: 'share', annotateHintDismissed: true } );
 		}
-	}, [
-		step,
-		sites?.length,
-		welcome,
-		addSite,
-		canAnnotate,
-		userLoaded,
-		aiSettingsLoaded,
-		setHints,
-		inSiteDialog,
-	] );
+	}, [ step, sites?.length, welcome, addSite, setHints, inSiteDialog ] );
 
 	useEffect( () => {
 		if ( ! hasContent || blocked ) {
@@ -237,13 +194,7 @@ export function Walkthrough( {
 		const findTarget = () => {
 			const target = Array.from(
 				document.querySelectorAll< HTMLElement >( `[data-walkthrough~="${ targetStep }"]` )
-			).find(
-				( element ) =>
-					isAvailable( element ) &&
-					( targetStep !== 'annotate' ||
-						! ( element instanceof HTMLButtonElement ? element : element.querySelector( 'button' ) )
-							?.disabled )
-			);
+			).find( isAvailable );
 			const nextElement =
 				targetStep === 'create'
 					? Array.from(
@@ -336,7 +287,7 @@ export function Walkthrough( {
 			( ! open && step !== 'create' ) ||
 			! nextStep ||
 			! anchor ||
-			! [ 'create', 'annotate', 'share', 'publish' ].includes( step ?? '' ) ||
+			! [ 'create', 'share', 'publish' ].includes( step ?? '' ) ||
 			( step === 'create' && createStage === 'gallery' )
 		)
 			return;
@@ -354,7 +305,6 @@ export function Walkthrough( {
 			setHints( {
 				walkthroughStep: nextStep,
 				whatsNewSeenVersion: WHATS_NEW_VERSION,
-				...( step === 'annotate' ? { annotateHintDismissed: true } : {} ),
 			} );
 		};
 		document.addEventListener( 'click', act, true );
@@ -362,14 +312,7 @@ export function Walkthrough( {
 	}, [ open, anchor, step, nextStep, setHints, createStage ] );
 
 	if ( ! content ) return null;
-	const steps = [
-		'create',
-		'create-design',
-		'composer',
-		...( canAnnotate ? [ 'annotate' ] : [] ),
-		'share',
-		'publish',
-	];
+	const steps = [ 'create', 'create-design', 'composer', 'share', 'publish' ];
 	const firstStep = step === 'create' && createStage === 'gallery' && galleryStep === 'fresh';
 	const stepLabel = sprintf(
 		/* translators: 1: current walkthrough step, 2: total number of steps. */
@@ -405,7 +348,6 @@ export function Walkthrough( {
 		setHints( {
 			walkthroughStep: next,
 			whatsNewSeenVersion: WHATS_NEW_VERSION,
-			...( step === 'annotate' ? { annotateHintDismissed: true } : {} ),
 		} );
 	};
 	return (

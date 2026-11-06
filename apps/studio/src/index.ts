@@ -14,6 +14,7 @@ import {
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { PROTOCOL_PREFIX } from '@studio/common/constants';
+import { refreshAgentPlugins } from '@studio/common/lib/connect-agent-app';
 import { runMigrations } from '@studio/common/lib/migration';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
@@ -66,6 +67,7 @@ import { stopCliCommands } from 'src/modules/cli/lib/execute-command';
 import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
+import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 import {
 	loadUserData,
 	lockAppdata,
@@ -436,6 +438,11 @@ async function appBoot() {
 		console.log( `App locale: ${ app.getLocale() }` );
 		console.log( `System locale: ${ app.getSystemLocale() }` );
 		console.log( `Used language: ${ locale }` );
+
+		void refreshAgentPlugins( {
+			nodeBinary: getBundledNodeBinaryPath(),
+			cliBinary: getCliPath(),
+		} ).catch( ( error ) => console.error( 'Failed to refresh the agent app plugins', error ) );
 
 		// By default Electron automatically approves all permissions requests (e.g. notifications, webcam)
 		// We'll opt-in to permissions we specifically need instead.

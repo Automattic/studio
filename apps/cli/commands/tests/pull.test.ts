@@ -487,10 +487,17 @@ describe( 'CLI: studio pull single pull phase', () => {
 	] )(
 		'keeps its own core when the remote runs $remoteWpVersion',
 		async ( { remoteWpVersion, commands, filesArgs } ) => {
-			const technicalSiteDirectory = fs.mkdtempSync(
-				path.join( os.tmpdir(), 'studio-import-pull-core-' )
+			const technicalSiteDirectory = fs.realpathSync(
+				fs.mkdtempSync( path.join( os.tmpdir(), 'studio-import-pull-core-' ) )
 			);
-			const sitePath = path.join( technicalSiteDirectory, 'site' );
+			// The site's path goes through a symlink to a deeper directory, as `/tmp` does on macOS.
+			fs.mkdirSync( path.join( technicalSiteDirectory, 'private', 'sites' ), { recursive: true } );
+			fs.symlinkSync(
+				path.join( technicalSiteDirectory, 'private', 'sites' ),
+				path.join( technicalSiteDirectory, 'sites' ),
+				'junction'
+			);
+			const sitePath = path.join( technicalSiteDirectory, 'sites', 'site' );
 			const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
 			const pulledWpContent = path.join( rawDirectory, 'srv', 'htdocs', 'wp-content' );
 			fs.mkdirSync( path.join( sitePath, 'wp-includes' ), { recursive: true } );
@@ -1118,6 +1125,58 @@ describe( 'CLI: studio pull delta re-pull of a completed pull', () => {
 			'pull-files',
 		] );
 	} );
+
+	it.each( [
+		[ 'preflight', 'remote_backup' ],
+		[ 'pull-files', 'remote_backup' ],
+		[ 'flat-docroot', 'local_import' ],
+	] )(
+		'records an uncoded failure in %s as the step it happened in',
+		async ( failingCommand, failureReason ) => {
+			const { runCommand } = await loadRunCommandWithFakeHome();
+			mockWpComPullSource();
+			const sitePath = path.join( fakeHome, 'Studio', 'Failing-Site' );
+			seedCliConfigSite( fakeHome, [
+				makeSiteRecord( {
+					id: 'failing-id',
+					name: 'Failing Site',
+					path: sitePath,
+					importComplete: true,
+					status: 'ready',
+				} ),
+			] );
+			fs.mkdirSync( path.join( fakeHome, '.studio', 'pulls', 'failing-id', 'state' ), {
+				recursive: true,
+			} );
+
+			const tracks = await import( 'cli/lib/tracks' );
+			const recordTracksEvent = vi
+				.spyOn( tracks, 'recordTracksEvent' )
+				.mockResolvedValue( undefined );
+			const reprintClientMod = await import( 'cli/lib/pull/reprint-client' );
+			vi.spyOn( reprintClientMod, 'runReprintCommandUntilComplete' ).mockImplementation(
+				async ( args ) => {
+					if ( args[ 0 ] === failingCommand ) {
+						throw new Error( `${ failingCommand } crashed` );
+					}
+					const stdout =
+						args[ 0 ] === 'preflight'
+							? JSON.stringify( { data: { ok: true, php: { version: '8.3' } } } )
+							: JSON.stringify( emptyReprintMetadata );
+					return { stdout, stderr: '', exitCode: 0 };
+				}
+			);
+			vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+			vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
+
+			await expect( runCommand( sitePath, 'https://example.com', false ) ).rejects.toThrow();
+
+			expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith(
+				tracks.TRACKS_EVENTS.SYNC_PULL,
+				expect.objectContaining( { success: false, failure_reason: failureReason } )
+			);
+		}
+	);
 } );
 
 describe( 'CLI: studio pull first-pull selective sync', () => {

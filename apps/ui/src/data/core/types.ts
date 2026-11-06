@@ -9,6 +9,7 @@ import type {
 	LoadedAiSession,
 } from '@studio/agent/protocol/sessions/types';
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
+import type { AgentApp, AgentAppId } from '@studio/common/lib/agent-apps';
 import type { SiteAgentFile, SiteAgentFileKind } from '@studio/common/lib/agent-skills';
 import type { AuthAnalytics, OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
 import type { SiteEvent, SiteListItem, SnapshotEvent } from '@studio/common/lib/cli-events';
@@ -34,7 +35,6 @@ import type {
 	SidebarSiteSort,
 	SidebarChatSort,
 	ColorScheme,
-	NewSiteBehavior,
 	QuitSitesBehavior,
 } from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
@@ -78,6 +78,7 @@ export type {
 	SiteEmailAddress,
 	SiteEmailSummary,
 } from '@studio/common/sites/site-email';
+export type { AgentApp, AgentAppId } from '@studio/common/lib/agent-apps';
 
 export type InstalledApps = Record<
 	SupportedEditor | SupportedTerminal | SupportedBrowser,
@@ -122,6 +123,7 @@ export interface SiteDetails {
 	// True for sites that were running when the app quit with the
 	// "Stop, restart on next launch" behavior; the renderer starts them on boot.
 	autoStart?: boolean;
+	hideFrontendAdminBar?: boolean;
 	// The Studio operation currently holding the site, from the CLI. Present
 	// regardless of who started it — the user, the desktop app, or the agent.
 	operation?: SiteOperation;
@@ -210,6 +212,7 @@ export interface Connector {
 	updateSite( site: SiteDetails, wpVersion?: string ): Promise< void >;
 	// Persists the sidebar's manual site order (each site's `sortOrder`).
 	updateSitesSortOrder( updates: { siteId: string; sortOrder: number }[] ): Promise< void >;
+	setSiteFrontendAdminBar( siteId: string, hidden: boolean | null ): Promise< void >;
 	// The last page of the site captured in a preview, shown while it's stopped.
 	// Null when the site has not been captured yet.
 	getSiteThumbnail( siteId: string ): Promise< string | null >;
@@ -241,7 +244,7 @@ export interface Connector {
 	generateNumberedSiteName( baseName: string, usedSites: SiteDetails[] ): Promise< string >;
 	selectSiteFolder(
 		defaultPath: string,
-		options?: { allowBlueprints?: boolean }
+		options?: { allowBlueprints?: boolean; allowSiteFiles?: boolean; usePath?: boolean }
 	): Promise< SelectedSiteFolder | null >;
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
 
@@ -482,6 +485,12 @@ export interface Connector {
 	// form are filtered against this so users can't pick something that isn't
 	// installed.
 	getInstalledApps(): Promise< InstalledApps >;
+
+	// Agent apps Settings connects to Studio, with whether each is installed.
+	getAgentApps(): Promise< AgentApp[] >;
+	// Installs the Studio plugin with the app's own CLI, or for Cursor opens
+	// its prompt to add Studio's MCP server. Rejects with the app's error.
+	connectAgentApp( id: AgentAppId ): Promise< void >;
 
 	// Host environment facts used to gate native-only UI (e.g. the Studio CLI
 	// toggle is hidden in Windows Store builds). Browser connectors report
@@ -735,9 +744,9 @@ export interface UserPreferences {
 	// Start a stopped local site when a chat message is sent to it.
 	autoStartSiteOnChat?: boolean;
 	openChatOnSiteStart?: boolean;
+	hideFrontendAdminBar?: boolean;
 	// Save annotation notes for a combined send.
 	batchAnnotations?: boolean;
-	newSiteBehavior?: NewSiteBehavior;
 	// The appearance tint: a `#rrggbb` accent color, and percentages.
 	accentColor?: string;
 	tintIntensity?: number;
@@ -810,6 +819,7 @@ export interface ProposedSitePath {
 }
 
 export interface SelectedSiteFolder {
+	file?: { path: string; name: string };
 	blueprint?: BlueprintSource;
 	path: string;
 	name: string;

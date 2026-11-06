@@ -1,4 +1,5 @@
 import { prepareBlueprint } from '@studio/common/lib/blueprint-selection';
+import type { Blueprint as CatalogBlueprint } from '@studio/common/lib/studio-blueprints-api';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export interface SelectedBlueprint {
@@ -11,6 +12,19 @@ export interface SelectedBlueprint {
 	filePath?: string;
 	tempDir?: string;
 	bundleUrl?: string;
+}
+
+export function toSelectedBlueprint( blueprint: CatalogBlueprint ): SelectedBlueprint {
+	return {
+		slug: blueprint.slug,
+		title: blueprint.title,
+		excerpt: blueprint.excerpt,
+		image: blueprint.image,
+		blueprint: blueprint.blueprint as BlueprintV1Declaration,
+		file: { name: blueprint.title, size: 0 },
+		filePath: blueprint.filePath,
+		bundleUrl: blueprint.bundle_url ?? undefined,
+	};
 }
 
 export async function createSelectedBlueprint(

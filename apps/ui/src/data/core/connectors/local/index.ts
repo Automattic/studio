@@ -8,6 +8,7 @@ import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
 import type {
+	AgentApp,
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
 	AiSessionSummary,
@@ -422,8 +423,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				`/site-defaults/path?name=${ encodeURIComponent( siteName ) }`
 			);
 		},
-		// No native folder picker in a browser: the create form has the path typed
-		// (see capabilities.nativeFolderPicker), and this checks what it holds.
+		// The browser has no native folder picker; this checks a known path.
 		async selectSiteFolder( folderPath, options ): Promise< SelectedSiteFolder | null > {
 			return api< SelectedSiteFolder >( '/site-defaults/folder', {
 				method: 'POST',
@@ -471,6 +471,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async updateSitesSortOrder( updates ) {
 			await api( '/sites/sort-order', { method: 'POST', body: JSON.stringify( { updates } ) } );
+		},
+
+		async setSiteFrontendAdminBar( siteId, hidden ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/frontend-admin-bar`, {
+				method: 'PATCH',
+				body: JSON.stringify( { hidden } ),
+			} );
 		},
 		// Export downloads the archive in the browser (no native Save-As dialog).
 		async exportFullSite( siteId, options ): Promise< string | null > {
@@ -797,6 +804,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// detection, server-side) so the preferences picker offers only what's there.
 		async getInstalledApps(): Promise< InstalledApps > {
 			return api< InstalledApps >( '/installed-apps' );
+		},
+
+		async getAgentApps(): Promise< AgentApp[] > {
+			return api< AgentApp[] >( '/agent-apps' );
+		},
+		async connectAgentApp( id ): Promise< void > {
+			await api< void >( `/agent-apps/${ id }/connect`, { method: 'POST' } );
 		},
 
 		async getAppGlobals(): Promise< AppGlobals > {

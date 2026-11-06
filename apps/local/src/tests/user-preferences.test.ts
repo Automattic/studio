@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import os from 'node:os';
 import path from 'node:path';
 import * as defaultBrowser from '@studio/common/lib/user-settings/default-browser';
+import { getMuPluginSettingsPath } from '@studio/common/lib/well-known-paths';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { startLocalServer, type LocalServer } from '../index';
 
@@ -75,6 +76,18 @@ it( 'reports the host default browser alongside installed applications', async (
 } );
 
 describe( 'GET/PATCH /api/user-preferences', () => {
+	it( 'persists and clears the admin bar default shared with the desktop and PHP', async () => {
+		expect( ( await getPreferences() ).hideFrontendAdminBar ).toBe( false );
+		expect( ( await patchPreferences( { hideFrontendAdminBar: true } ) ).status ).toBe( 204 );
+		expect( ( await getPreferences() ).hideFrontendAdminBar ).toBe( true );
+		expect( JSON.parse( readFileSync( getMuPluginSettingsPath(), 'utf8' ) ) ).toEqual( {
+			hideFrontendAdminBar: true,
+			sites: {},
+		} );
+		expect( ( await patchPreferences( { hideFrontendAdminBar: null } ) ).status ).toBe( 204 );
+		expect( ( await getPreferences() ).hideFrontendAdminBar ).toBe( false );
+		expect( ( await patchPreferences( { hideFrontendAdminBar: 'hide' } ) ).status ).toBe( 400 );
+	} );
 	it( 'reports what the desktop stored', async () => {
 		writeAppConfig( { preferredEditor: 'zed', preferredTerminal: 'iterm', colorScheme: 'dark' } );
 
@@ -137,6 +150,42 @@ describe( 'GET/PATCH /api/user-preferences', () => {
 
 		expect( response.status ).toBe( 400 );
 		expect( readAppConfigFile() ).toEqual( before );
+	} );
+} );
+
+describe( 'PATCH /api/sites/:id/frontend-admin-bar', () => {
+	const patchAdminBar = ( siteId: string, hidden: unknown ) =>
+		fetch( `${ server.url }/api/sites/${ siteId }/frontend-admin-bar`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify( { hidden } ),
+		} );
+
+	it( 'sets and clears only the site override, preserving the default and other metadata', async () => {
+		writeFileSync(
+			path.join( configDir, 'cli.json' ),
+			JSON.stringify( { sites: [ { id: 'one', name: 'One', path: configDir } ] } )
+		);
+		writeAppConfig( {
+			hideFrontendAdminBar: true,
+			siteMetadata: { one: { sortOrder: 2, autoStart: true } },
+		} );
+		expect( ( await patchAdminBar( 'one', false ) ).status ).toBe( 204 );
+		expect( JSON.parse( readFileSync( getMuPluginSettingsPath(), 'utf8' ) ) ).toEqual( {
+			hideFrontendAdminBar: true,
+			sites: { one: false },
+		} );
+		expect( ( await patchAdminBar( 'one', null ) ).status ).toBe( 204 );
+		expect( readAppConfigFile().siteMetadata ).toEqual( {
+			one: { sortOrder: 2, autoStart: true },
+		} );
+	} );
+
+	it( 'rejects malformed preferences and unknown sites', async () => {
+		expect( ( await patchAdminBar( 'one', 'hide' ) ).status ).toBe( 400 );
+		expect( ( await patchAdminBar( 'one', undefined ) ).status ).toBe( 400 );
+		expect( ( await patchAdminBar( 'missing', true ) ).status ).toBe( 404 );
+		expect( readAppConfigFile() ).toEqual( {} );
 	} );
 } );
 

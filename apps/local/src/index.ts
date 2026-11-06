@@ -42,6 +42,7 @@ import { isAiProviderId, providerServesModel } from '@studio/agent/protocol/prov
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH, DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
+import { isAgentAppId } from '@studio/common/lib/agent-apps';
 import {
 	getSiteAgentFiles,
 	getSkillsStatusForAllSites,
@@ -68,6 +69,11 @@ import {
 	siteListItemSchema,
 } from '@studio/common/lib/cli-events';
 import { CliCommandError, createCliRunner, runCliCommand } from '@studio/common/lib/cli-process';
+import {
+	connectAgentApp,
+	detectAgentApps,
+	refreshAgentPlugins,
+} from '@studio/common/lib/connect-agent-app';
 import {
 	addConnectedWpcomSite,
 	getAllConnectedWpcomSitesForCurrentUser,
@@ -161,7 +167,12 @@ import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/site
 import { buildSiteSetArgs, getSiteEditOptions } from '@studio/common/sites/edit';
 import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
-import { listSitesWithMetadata, updateSiteMetadata } from '@studio/common/sites/metadata';
+import {
+	listSitesWithMetadata,
+	setSiteFrontendAdminBar,
+	updateSiteMetadata,
+	type SiteMetadata,
+} from '@studio/common/sites/metadata';
 import { designFixesSchema, fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
 import {
 	ensureSiteEmailDirectory,
@@ -170,6 +181,7 @@ import {
 } from '@studio/common/sites/site-email';
 import { readGlobalStyles } from '@studio/common/sites/site-identity';
 import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
+import { readSiteSource } from '@studio/common/sites/site-source';
 import {
 	deleteAllPreviewSites,
 	deletePreviewSite,
@@ -284,7 +296,7 @@ const AUTH_CALLBACK_HTML = `<!DOCTYPE html>
 
 // The agentic UI's SiteDetails shape. The CLI's `site list` already reports
 // nearly all of it; `sortOrder` comes from `app.json`, merged in by callers.
-function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
+function toSiteDetails( site: SiteListItem & SiteMetadata, sortOrder?: number ) {
 	return {
 		id: site.id,
 		name: site.name,
@@ -308,6 +320,7 @@ function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
 		operation: site.operation,
 		emailPath: site.emailPath,
 		sortOrder,
+		hideFrontendAdminBar: site.hideFrontendAdminBar,
 	};
 }
 
@@ -373,6 +386,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	}
 
 	const cliRunner = createCliRunner( { cliBinary, nodeBinary } );
+	void refreshAgentPlugins( { nodeBinary: nodeBinary ?? process.execPath, cliBinary } ).catch(
+		() => undefined
+	);
 	const execute = cliRunner.executeCliCommand;
 	const uploads = new Map< string, { path: string; directory: string } >();
 
@@ -864,6 +880,23 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	api.patch(
+		'/sites/:id/frontend-admin-bar',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = z.object( { hidden: z.boolean().nullable() } ).safeParse( req.body );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'hidden must be a boolean or null' } );
+				return;
+			}
+			if ( ! ( await readSite( req.params.id ) ) ) {
+				res.status( 404 ).json( { error: 'Site not found.' } );
+				return;
+			}
+			await setSiteFrontendAdminBar( req.params.id, parsed.data.hidden );
+			res.sendStatus( 204 );
+		} )
+	);
+
 	api.get(
 		'/sites/:id/thumbnail',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -1156,6 +1189,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				}
 			}
 			try {
+				if ( confined && req.body?.allowSiteFiles === true ) {
+					res.json( await readSiteSource( confined ) );
+					return;
+				}
 				const blueprint =
 					confined && req.body?.allowBlueprints === true
 						? await readBlueprintSource( confined )
@@ -1557,6 +1594,33 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/installed-apps',
 		asyncHandler( async ( _req: Request, res: Response ) => {
 			res.json( await detectInstalledAppsWithDefaultBrowser() );
+		} )
+	);
+
+	// Agent apps Settings installs the Studio plugin in.
+	api.get(
+		'/agent-apps',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json(
+				await detectAgentApps( { nodeBinary: nodeBinary ?? process.execPath, cliBinary } )
+			);
+		} )
+	);
+
+	api.post(
+		'/agent-apps/:id/connect',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { id } = req.params;
+			if ( ! isAgentAppId( id ) ) {
+				res.status( 400 ).json( { error: `Unknown agent app: ${ id }` } );
+				return;
+			}
+			await connectAgentApp( id, {
+				nodeBinary: nodeBinary ?? process.execPath,
+				cliBinary,
+				openUrl,
+			} );
+			res.status( 204 ).end();
 		} )
 	);
 

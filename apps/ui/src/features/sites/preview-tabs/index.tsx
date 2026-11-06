@@ -173,7 +173,7 @@ export function PreviewTabs( {
 					value={ workspace.chatSelected ? null : workspace.selectedId }
 					onValueChange={ ( value ) => {
 						const id = String( value );
-						if ( id === workspace.selectedId ) return;
+						if ( id === workspace.selectedId && ! workspace.chatSelected ) return;
 						const tab = workspace.tabs.find( ( tab ) => tab.id === id );
 						if ( tab?.path !== null && tab?.path !== undefined ) trackOpen( tab.path );
 						select( id );

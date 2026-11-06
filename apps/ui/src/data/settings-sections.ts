@@ -20,8 +20,8 @@ import type { ComponentType } from 'react';
 const STUDIO_SECTIONS = [
 	'general',
 	'appearance',
-	'sharing',
 	'ai',
+	'sharing',
 	'mcp',
 	'usage',
 	'skills',
@@ -240,23 +240,6 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			],
 		},
 		{
-			id: 'sharing',
-			label: __( 'Sharing' ),
-			icon: ShareIcon,
-			settings: [
-				{
-					...setting(
-						'section',
-						__( 'Sharing previews on WordPress.com' ),
-						__( 'Share a temporary copy of your local site with anyone.' ),
-						'preview-sites'
-					),
-					aliases: [ __( 'Snapshots' ) ],
-				},
-				setting( 'section', __( 'Live previews' ) ),
-			],
-		},
-		{
 			id: 'ai',
 			label: __( 'Providers' ),
 			icon: IntelligenceIcon,
@@ -280,6 +263,23 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					__( 'The provider new chats use.' ),
 					'default-provider'
 				),
+			],
+		},
+		{
+			id: 'sharing',
+			label: __( 'Sharing' ),
+			icon: ShareIcon,
+			settings: [
+				{
+					...setting(
+						'section',
+						__( 'Sharing previews on WordPress.com' ),
+						__( 'Share a temporary copy of your local site with anyone.' ),
+						'preview-sites'
+					),
+					aliases: [ __( 'Snapshots' ) ],
+				},
+				setting( 'section', __( 'Live previews' ) ),
 			],
 		},
 		{

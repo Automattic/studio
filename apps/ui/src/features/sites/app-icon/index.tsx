@@ -13,6 +13,7 @@ import finder from './assets/finder.png';
 import firefoxDeveloper from './assets/firefox-developer.png';
 import firefox from './assets/firefox.png';
 import ghostty from './assets/ghostty.png';
+import github from './assets/github.png';
 import grok from './assets/grok.svg';
 import opera from './assets/opera.png';
 import phpmyadmin from './assets/phpmyadmin.png';
@@ -39,6 +40,7 @@ const icons: Record< string, string > = {
 	firefox,
 	'firefox-developer': firefoxDeveloper,
 	ghostty,
+	github,
 	'grok-build': grok,
 	opera,
 	phpmyadmin,

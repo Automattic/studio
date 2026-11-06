@@ -140,6 +140,7 @@
 	/* The workspace's top band, its controls, and the short column separators
 	   drawn inside it. */
 	--band-height: 48px;
+	--band-tab-width: 160px;
 	--control-size: 36px;
 	--band-inset: var( --space-2 );
 	--band-separator-height: 16px;

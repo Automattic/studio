@@ -108,22 +108,6 @@
 	overflow-y: auto;
 }
 
-.advancedGrid {
-	display: grid;
-	grid-template-columns: repeat( auto-fit, minmax( min( 100%, 180px ), 1fr ) );
-	gap: var( --space-4 );
-	align-items: start;
-}
-
-.credentialsTrigger {
-	align-self: flex-start;
-}
-
-.domainField,
-.certificateNotice {
-	grid-column: 1 / -1;
-}
-
 .advancedControl {
 	flex: 0 1 152px;
 	width: 152px;

@@ -1,9 +1,11 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
+import { getSiteBrowserUrl } from '@studio/common/lib/user-settings/site-browser-url';
 import { __ } from '@wordpress/i18n';
 import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
 import { previewTabsKey, usePreviewTabs } from '@/data/preview-tabs';
+import { useFrontendAdminBar } from '@/data/queries/use-frontend-admin-bar';
 import { useSiteDesign } from '@/data/queries/use-site-design';
 import {
 	useIsSiteStarting,
@@ -34,9 +36,13 @@ import { VisuallyHidden } from '@/lib/ui';
 import {
 	EMAIL_PREVIEW_PATH,
 	getFrontendAppRelativePath,
+	getFrontendOrigin,
+	getPathFromPreviewUrl,
 	getPreviewLocationFromUrl,
+	getPreviewRealm,
 	getRealmNavigationPath,
 	getRealmOpenEvent,
+	isWordPressAuthPath,
 } from './address-bar';
 import { EMPTY_BROWSER_STATE, type BrowserNavigationState } from './browser-state';
 import { PreviewHeader } from './preview-header';
@@ -143,6 +149,20 @@ function SitePreviewContent( {
 		onPathChange,
 		active: ! inactive,
 	} );
+	// Resolved here rather than in the render loop below: a call there with a
+	// surface path reads to the React Compiler as a late mutation of `safePath`.
+	const surfaceUrls = Object.fromEntries(
+		Object.entries( surfaces ).map( ( [ key, surface ] ) => {
+			const surfaceKey = key as PreviewSurfaceKey;
+			return [
+				key,
+				{
+					url: getSurfaceUrl( surfaceKey, surface.path, siteUrl, frontendUrl ),
+					requestedUrl: getSurfaceUrl( surfaceKey, surface.requestedPath, siteUrl, frontendUrl ),
+				},
+			];
+		} )
+	) as Partial< Record< PreviewSurfaceKey, { url: string; requestedUrl: string } > >;
 	const siteDesign = useSiteDesign( site );
 	const annotations = useSiteAnnotations( site.id );
 	// Surfaces Studio draws itself, with no page to load.
@@ -155,7 +175,7 @@ function SitePreviewContent( {
 		rendered: rendered || blank,
 		publish: ! inactive && ! blank,
 	} );
-	// Frames report no loading state, so track which load each one finished.
+	// Track the first load too, before a frame can report in-page navigation.
 	const [ loadedFrames, setLoadedFrames ] = useState<
 		Partial< Record< PreviewSurfaceKey, string > >
 	>( {} );
@@ -180,6 +200,55 @@ function SitePreviewContent( {
 	const viewportRef = useRef< HTMLDivElement | null >( null );
 	const previewBrowser = usePreviewBrowser( viewportRef );
 	const browserActions = canUseWebview && ! rendered && ! blank ? previewBrowser : undefined;
+	const reloadFrontend = useCallback(
+		() => sendSurfaceCommand( 'site', 'reload' ),
+		[ sendSurfaceCommand ]
+	);
+	const adminBarActive =
+		! live &&
+		! blank &&
+		canPreview &&
+		activeRealm === 'frontend' &&
+		! collapsed &&
+		! inactive &&
+		getPreviewRealm( activeSurface?.path ?? safePath, getFrontendOrigin( frontendUrl ) ) ===
+			'frontend' &&
+		! isWordPressAuthPath( activeSurface?.path ?? safePath ) &&
+		! ( activeSurface?.path ?? safePath ).startsWith( '/studio-auto-login' );
+	const showFrontendAdminBar = useCallback( () => {
+		if ( ! canUseWebview ) {
+			sendSurfaceCommand( 'site', 'login' );
+			return;
+		}
+		const currentPath = activeSurface?.path ?? safePath;
+		const loginPath = currentPath.startsWith( '/studio-auto-login' )
+			? currentPath
+			: getPathFromPreviewUrl( getSiteBrowserUrl( { url: siteUrl }, currentPath ), siteUrl );
+		if ( ! loginPath ) return;
+		if ( currentPath === loginPath ) sendSurfaceCommand( 'site', 'reload' );
+		else patchSurface( 'site', { path: loginPath, requestedPath: loginPath } );
+		onPathChange?.( loginPath );
+	}, [
+		activeSurface?.path,
+		canUseWebview,
+		onPathChange,
+		patchSurface,
+		safePath,
+		sendSurfaceCommand,
+		siteUrl,
+	] );
+	const adminBarActions = useFrontendAdminBar( {
+		site,
+		active: adminBarActive,
+		available: ! navigating && ! browserState.failed && ! isStarting && ! isStopping,
+		path: activeSurface?.path ?? safePath,
+		visible: activeSurface?.adminBarVisible ?? null,
+		onReload: reloadFrontend,
+		onShow: showFrontendAdminBar,
+		onRead: () => {
+			if ( adminBarActive ) sendSurfaceCommand( 'site', 'read-admin-bar' );
+		},
+	} );
 	const responsiveSettings = useResponsivePreview( site.id );
 	const responsiveEnabled =
 		responsiveSettings.enabled && canPreview && isPageSurface( activeSurfaceKey );
@@ -404,6 +473,7 @@ function SitePreviewContent( {
 			onJump={ goToHistoryIndex }
 			onPathChange={ onPathChange }
 			browserActions={ browserActions }
+			adminBarActions={ ! live && ! rendered && ! blank ? adminBarActions : undefined }
 			onOpenExternal={ blank ? undefined : openExternal }
 			onExternalNavigate={ ( url ) => void connector.openExternalUrl( url ) }
 			responsive={ responsive }
@@ -444,7 +514,7 @@ function SitePreviewContent( {
 								return null;
 							}
 							const active = key === activeSurfaceKey;
-							const surfaceUrl = getSurfaceUrl( key, surface.path, siteUrl, frontendUrl );
+							const surfaceUrl = surfaceUrls[ key ]?.url ?? `${ siteUrl }${ surface.path }`;
 							const pageSurface = isPageSurface( key );
 							if ( key === 'design' ) {
 								return (
@@ -511,16 +581,33 @@ function SitePreviewContent( {
 											browserCommand={ surface.browserCommand }
 											onBrowserStateChange={ ( state ) => handleSurfaceBrowserState( key, state ) }
 											onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
+											onAdminBarVisibilityChange={
+												key === 'site' && ! live
+													? ( adminBarVisible ) => patchSurface( key, { adminBarVisible } )
+													: undefined
+											}
 											onLoad={ ( url, guestId ) => handleSurfaceLoad( key, url, guestId ) }
 										/>
 									) : (
 										<FrameSurface
 											key={ frameKey }
-											src={ surfaceUrl }
+											src={
+												surfaceUrls[ key ]?.requestedUrl ?? `${ siteUrl }${ surface.requestedPath }`
+											}
 											title={ site.name }
-											onLoad={ ( src ) => {
+											browserCommand={ surface.browserCommand }
+											onCommandHandled={ () => patchSurface( key, { browserCommand: null } ) }
+											onAdminBarVisibilityChange={
+												key === 'site' && ! live
+													? ( adminBarVisible ) => patchSurface( key, { adminBarVisible } )
+													: undefined
+											}
+											onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
+											onLoadingChange={ ( loading ) => {
+												patchSurface( key, { browser: { ...surface.browser, loading } } );
+											} }
+											onLoad={ () => {
 												setLoadedFrames( ( frames ) => ( { ...frames, [ key ]: frameKey } ) );
-												handleSurfaceNavigation( key, src );
 											} }
 											onSettle={ ( src, title, failed ) => {
 												if ( ! failed ) {

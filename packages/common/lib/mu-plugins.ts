@@ -8,6 +8,7 @@
 import { createHash, randomUUID } from 'crypto';
 import { mkdir, readdir, readFile, rename, rm, unlink, writeFile } from 'fs/promises';
 import path from 'path';
+import { syncMuPluginSettings } from './mu-plugin-settings.ts';
 import { PREVIEW_SHORTCUTS_SCRIPT } from './preview-shortcuts-script.ts';
 import {
 	getFrontendUrl,
@@ -15,7 +16,7 @@ import {
 	REVALIDATE_SECRET_HEADER,
 	type SiteFrontend,
 } from './site-frontend.ts';
-import { getMuPluginsPath } from './well-known-paths.ts';
+import { getMuPluginsPath, getMuPluginSettingsPath } from './well-known-paths.ts';
 
 export interface MuPlugin {
 	filename: string;
@@ -78,9 +79,16 @@ function getHeadlessConstants( frontend: HeadlessMuPluginOptions ): string {
 		.join( '\n' );
 }
 
+export interface LoaderMuPluginOptions {
+	// Identifies the site to the shared mu-plugins (`STUDIO_SITE_ID`).
+	siteId?: string;
+	// Set for a headless site: the settings of the headless mu-plugin.
+	frontend?: HeadlessMuPluginOptions;
+}
+
 function getLoaderMuPluginContent(
 	muPluginsDir: string,
-	frontend?: HeadlessMuPluginOptions
+	{ siteId, frontend }: LoaderMuPluginOptions = {}
 ): string {
 	const escapedMuPluginsDir = escapePhpSingleQuotedString( muPluginsDir );
 	const headlessConstants = frontend
@@ -88,6 +96,11 @@ function getLoaderMuPluginContent(
 		// Studio headless site: where the headless mu-plugin sends links, previews and revalidation.
 ${ getHeadlessConstants( frontend ) }
 `
+		: '';
+	const siteIdDefinition = siteId
+		? "if ( ! defined( 'STUDIO_SITE_ID' ) ) define( 'STUDIO_SITE_ID', '" +
+		  escapePhpSingleQuotedString( siteId ) +
+		  "' );"
 		: '';
 
 	return `<?php
@@ -110,6 +123,7 @@ ${ getHeadlessConstants( frontend ) }
 		if ( ! defined( 'WP_ENVIRONMENT_TYPE' ) ) define( 'WP_ENVIRONMENT_TYPE', 'local' );
 ${ headlessConstants }
 		$studio_mu_plugins_dir = '${ escapedMuPluginsDir }';
+		${ siteIdDefinition }
 
 		if ( is_dir( $studio_mu_plugins_dir ) ) {
 			$files = glob( $studio_mu_plugins_dir . '/*.php' );
@@ -342,6 +356,7 @@ STUDIO_PREVIEW_SHORTCUTS;
 		}
 		add_action( 'wp_head', 'studio_preview_shortcuts' );
 		add_action( 'login_head', 'studio_preview_shortcuts' );
+		add_action( 'admin_head', 'studio_preview_shortcuts' );
 		`,
 	} );
 
@@ -412,13 +427,21 @@ STUDIO_PREVIEW_SHORTCUTS;
 		`,
 	} );
 
-	// Studio-specific: Hide admin bar for screenshots and health check
 	muPlugins.push( {
 		filename: '0-thumbnails.php',
 		content: `<?php
-		// Facilitates the taking of screenshots to be used as thumbnails.
-		if ( isset( $_GET['studio-hide-adminbar'] ) ) {
-			add_filter( 'show_admin_bar', '__return_false' );
+		$studio_browser_settings = json_decode( (string) @file_get_contents( '${ escapePhpSingleQuotedString(
+			getMuPluginSettingsPath()
+		) }' ), true );
+		$studio_hide_admin_bar = is_array( $studio_browser_settings ) && ( $studio_browser_settings['hideFrontendAdminBar'] ?? false ) === true;
+		if ( defined( 'STUDIO_SITE_ID' ) && is_array( $studio_browser_settings['sites'] ?? null ) ) {
+			$studio_site_override = $studio_browser_settings['sites'][STUDIO_SITE_ID] ?? null;
+			if ( is_bool( $studio_site_override ) ) {
+				$studio_hide_admin_bar = $studio_site_override;
+			}
+		}
+		if ( isset( $_GET['studio-hide-adminbar'] ) || $studio_hide_admin_bar ) {
+			add_filter( 'show_admin_bar', '__return_false', PHP_INT_MAX );
 		}
 		`,
 	} );
@@ -854,6 +877,7 @@ async function writeFileIfChanged( filePath: string, content: string ): Promise<
  * Write the Studio mu-plugins for a WordPress instance and return their directory.
  */
 export async function getMuPlugins( options: MuPluginOptions = {} ): Promise< string > {
+	await syncMuPluginSettings();
 	const muPlugins = getStandardMuPlugins( options );
 	const muPluginsDir = getMuPluginsDirectory( muPlugins );
 	try {
@@ -875,7 +899,7 @@ export async function getMuPlugins( options: MuPluginOptions = {} ): Promise< st
 export async function writeStudioMuPlugins(
 	siteFolder: string,
 	isWpAutoUpdating: MuPluginOptions[ 'isWpAutoUpdating' ],
-	frontend?: HeadlessMuPluginOptions
+	options: LoaderMuPluginOptions = {}
 ): Promise< string > {
 	const muPluginsDir = path.join( siteFolder, 'wp-content', 'mu-plugins' );
 	await mkdir( muPluginsDir, { recursive: true } );
@@ -883,11 +907,11 @@ export async function writeStudioMuPlugins(
 
 	const studioMuPluginsDir = await getMuPlugins( {
 		isWpAutoUpdating,
-		headless: Boolean( frontend ),
+		headless: Boolean( options.frontend ),
 	} );
 	await writeFileIfChanged(
 		path.join( muPluginsDir, STUDIO_LOADER_MU_PLUGIN_FILENAME ),
-		getLoaderMuPluginContent( studioMuPluginsDir, frontend )
+		getLoaderMuPluginContent( studioMuPluginsDir, options )
 	);
 	return studioMuPluginsDir;
 }

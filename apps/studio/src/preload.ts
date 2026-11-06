@@ -44,6 +44,8 @@ const api: IpcApi = {
 	renamePreviewSite: ( hostname, name ) => ipcRendererInvoke( 'renamePreviewSite', hostname, name ),
 	deleteAllSnapshots: () => ipcRendererInvoke( 'deleteAllSnapshots' ),
 	getSiteDetails: () => ipcRendererInvoke( 'getSiteDetails' ),
+	setSiteFrontendAdminBar: ( siteId, hidden ) =>
+		ipcRendererInvoke( 'setSiteFrontendAdminBar', siteId, hidden ),
 	openSiteURL: ( id, relativeURL = '', { autoLogin = true, target } = {} ) =>
 		ipcRendererSend( 'openSiteURL', id, relativeURL, { autoLogin, target } ),
 	openURL: ( url ) => ipcRendererSend( 'openURL', url ),
@@ -179,6 +181,7 @@ const api: IpcApi = {
 	interruptAiAgentRun: ( runId ) => ipcRendererInvoke( 'interruptAiAgentRun', runId ),
 	answerAiAgentQuestion: ( runId, answers ) =>
 		ipcRendererInvoke( 'answerAiAgentQuestion', runId, answers ),
+	sendFeedback: ( feedback ) => ipcRendererInvoke( 'sendFeedback', feedback ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

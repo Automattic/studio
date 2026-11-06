@@ -307,11 +307,10 @@ abstract class BaseBackupImporter extends BaseImporter {
 		}
 
 		await keepSqliteIntegrationUpdated( site.path );
-		await writeStudioMuPlugins(
-			site.path,
-			site.isWpAutoUpdating,
-			getHeadlessMuPluginOptions( site.frontend )
-		);
+		await writeStudioMuPlugins( site.path, site.isWpAutoUpdating, {
+			siteId: site.id,
+			frontend: getHeadlessMuPluginOptions( site.frontend ),
+		} );
 
 		this.emit( ImportEvents.IMPORT_WP_CONTENT_COMPLETE );
 	}

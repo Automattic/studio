@@ -53,9 +53,13 @@ export function getSurfaceUrl(
 // reload at its own size rather than a resize plus a fresh load.
 export interface PreviewSurfaceState {
 	path: string;
+	// Observing a navigation must not reload the frame that reported it.
+	requestedPath: string;
+	navigationRequestId: number;
 	browser: BrowserNavigationState;
 	// The annotation inspector is running in the page.
 	inspectorReady: boolean;
+	adminBarVisible: boolean | null;
 	browserCommand: BrowserCommand | null;
 	// The last reload command, which a frame applies by remounting. Kept apart
 	// from `browserCommand` so a later back or forward doesn't remount it again.
@@ -76,8 +80,11 @@ export interface MountedSurfaces {
 export function createPreviewSurface( path: string, reloadNonce: number ): PreviewSurfaceState {
 	return {
 		path,
+		requestedPath: path,
+		navigationRequestId: 0,
 		browser: EMPTY_BROWSER_STATE,
 		inspectorReady: false,
+		adminBarVisible: null,
 		browserCommand: null,
 		reloadCommandId: 0,
 		reloadNonce,
@@ -87,10 +94,13 @@ export function createPreviewSurface( path: string, reloadNonce: number ): Previ
 function arePreviewSurfacesEqual( a: PreviewSurfaceState, b: PreviewSurfaceState ) {
 	return (
 		a.path === b.path &&
+		a.requestedPath === b.requestedPath &&
+		a.navigationRequestId === b.navigationRequestId &&
 		a.reloadNonce === b.reloadNonce &&
 		a.browserCommand === b.browserCommand &&
 		a.reloadCommandId === b.reloadCommandId &&
 		a.inspectorReady === b.inspectorReady &&
+		a.adminBarVisible === b.adminBarVisible &&
 		areBrowserStatesEqual( a.browser, b.browser )
 	);
 }
@@ -106,6 +116,12 @@ export function patchMountedSurface(
 		return current;
 	}
 	const next = { ...surface, ...patch };
+	if (
+		( patch.reloadCommandId !== undefined && patch.reloadCommandId !== surface.reloadCommandId ) ||
+		( patch.reloadNonce !== undefined && patch.reloadNonce !== surface.reloadNonce )
+	) {
+		next.requestedPath = next.path;
+	}
 	return arePreviewSurfacesEqual( surface, next )
 		? current
 		: { ...current, byKey: { ...current.byKey, [ key ]: next } };
@@ -132,12 +148,25 @@ export function aimMountedSurface(
 	}
 	return surface.path === path
 		? current
-		: { ...current, byKey: { ...current.byKey, [ key ]: { ...surface, path } } };
+		: {
+				...current,
+				byKey: {
+					...current.byKey,
+					[ key ]: {
+						...surface,
+						path,
+						requestedPath: path,
+						navigationRequestId: surface.navigationRequestId + 1,
+						adminBarVisible: null,
+						browser: { ...surface.browser, loading: true, failed: false },
+					},
+				},
+		  };
 }
 
 // A frame remounts, and so reloads, whenever its key changes.
 export function getFrameKey( siteUrl: string, surface: PreviewSurfaceState ) {
-	return `${ siteUrl }${ surface.path }#${ surface.reloadNonce }#${ surface.reloadCommandId }`;
+	return `${ siteUrl }${ surface.requestedPath }#${ surface.navigationRequestId }#${ surface.reloadNonce }#${ surface.reloadCommandId }`;
 }
 
 export function getSafePath( path: unknown ) {

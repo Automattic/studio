@@ -138,6 +138,18 @@ describe( 'writeStudioMuPlugins', () => {
 		expect( generatedPlugins ).not.toContain( '0-disable-auto-updates.php' );
 	} );
 
+	it( 'identifies the site in its loader while keeping shared plugins reusable', async () => {
+		const plugins = await writeStudioMuPlugins( sitePath, true, { siteId: "site'one" } );
+		const loader = await readFile(
+			join( sitePath, 'wp-content', 'mu-plugins', STUDIO_LOADER_MU_PLUGIN_FILENAME ),
+			'utf8'
+		);
+		expect( loader ).toContain( "define( 'STUDIO_SITE_ID', 'site\\'one' )" );
+		expect( await writeStudioMuPlugins( sitePath, true, { siteId: 'another-site' } ) ).toBe(
+			plugins
+		);
+	} );
+
 	it.each( [
 		[ 'enables them when the flag is true', true, '0-enable-auto-updates.php' ],
 		[ 'disables them only on an explicit false', false, '0-disable-auto-updates.php' ],
@@ -378,11 +390,13 @@ describe( 'writeStudioMuPlugins headless', () => {
 	it( "defines the site's settings in its loader, before it loads the bundle", async () => {
 		const sitePath = await makeSite();
 		const muPluginsDir = await writeStudioMuPlugins( sitePath, false, {
-			url: 'http://localhost:3000/',
-			previewSecret: "pre'view\\secret",
-			revalidateSecret: 'revalidate-secret',
-			headlessMode: true,
-			api: 'graphql',
+			frontend: {
+				url: 'http://localhost:3000/',
+				previewSecret: "pre'view\\secret",
+				revalidateSecret: 'revalidate-secret',
+				headlessMode: true,
+				api: 'graphql',
+			},
 		} );
 
 		const loader = await readLoader( sitePath );
@@ -411,13 +425,17 @@ describe( 'writeStudioMuPlugins headless', () => {
 		const classicSite = await makeSite();
 
 		const firstDir = await writeStudioMuPlugins( firstSite, false, {
-			url: 'http://localhost:3001',
-			previewSecret: 'first',
+			frontend: {
+				url: 'http://localhost:3001',
+				previewSecret: 'first',
+			},
 		} );
 		const secondDir = await writeStudioMuPlugins( secondSite, false, {
-			url: 'http://localhost:3002',
-			previewSecret: 'second',
-			headlessMode: true,
+			frontend: {
+				url: 'http://localhost:3002',
+				previewSecret: 'second',
+				headlessMode: true,
+			},
 		} );
 		const classicDir = await writeStudioMuPlugins( classicSite, false );
 

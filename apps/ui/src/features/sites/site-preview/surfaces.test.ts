@@ -81,6 +81,23 @@ describe( 'getFrameKey', () => {
 } );
 
 describe( 'patchMountedSurface', () => {
+	it( 'keeps in-frame navigation mounted and reloads the actual current page', () => {
+		const initial = mounted( { site: createPreviewSurface( '/', 0 ) } );
+		const navigated = patchMountedSurface( initial, 'site', {
+			path: '/wp-admin/post.php?post=1&action=edit',
+		} );
+		expect( getFrameKey( SITE_URL, navigated.byKey.site! ) ).toBe(
+			getFrameKey( SITE_URL, initial.byKey.site! )
+		);
+		expect( aimMountedSurface( navigated, 'site-1', 'site', navigated.byKey.site!.path, 0 ) ).toBe(
+			navigated
+		);
+		const reloaded = patchMountedSurface( navigated, 'site', { reloadCommandId: 1 } );
+		expect( reloaded.byKey.site!.requestedPath ).toBe( navigated.byKey.site!.path );
+		expect( getFrameKey( SITE_URL, reloaded.byKey.site! ) ).not.toBe(
+			getFrameKey( SITE_URL, initial.byKey.site! )
+		);
+	} );
 	it( 'patches a mounted surface and keeps the same state when nothing changes', () => {
 		const current = mounted( { site: createPreviewSurface( '/', 0 ) } );
 

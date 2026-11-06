@@ -11,6 +11,7 @@ import {
 	ChatIcon,
 	CollapseAllIcon,
 	GlobeIcon,
+	FeedbackIcon,
 	PinIcon,
 	RenameIcon,
 	SidebarIcon,
@@ -106,6 +107,7 @@ export function getAppCommands( {
 	toggleSidebar,
 	openNotifications,
 	openWhatsNew,
+	openFeedback,
 	collapseAll,
 }: {
 	sites: SiteDetails[];
@@ -121,6 +123,7 @@ export function getAppCommands( {
 	toggleSidebar: () => void;
 	openNotifications: () => void;
 	openWhatsNew: () => void;
+	openFeedback: () => void;
 	// Set while the sidebar has more than one site unfolded.
 	collapseAll?: () => void;
 } ): PaletteCommand[] {
@@ -195,6 +198,15 @@ export function getAppCommands( {
 			icon: WhatsNewIcon,
 			keywords: [ __( 'New features' ) ],
 			run: openWhatsNew,
+		},
+		{
+			id: 'send-feedback',
+			group: 'commands',
+			label: __( 'Send feedback' ),
+			icon: FeedbackIcon,
+			aliases: [ __( 'Feedback' ) ],
+			keywords: [ __( 'Report a bug' ), __( 'Feature request' ), __( 'WordPress Studio team' ) ],
+			run: openFeedback,
 		},
 		...( collapseAll
 			? [

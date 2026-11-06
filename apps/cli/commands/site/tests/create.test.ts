@@ -856,7 +856,7 @@ describe( 'CLI: studio create', () => {
 			}
 		} );
 
-		it( 'imports a capture that lost a few routes and keeps it for review', async () => {
+		it( 'imports a mostly-failed capture with a bounded warning and keeps it for review', async () => {
 			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-partial-capture-' ) );
 			const sitePath = path.join( siteRoot, 'site' );
 			const capturePath = `${ sitePath }-source`;
@@ -870,14 +870,12 @@ describe( 'CLI: studio create', () => {
 					websiteRoot: 'website',
 					entrypoint: 'website/index.html',
 					source: { url: 'https://example.com/' },
-					discoveryDiagnostics: [
-						{
-							code: 'route_capture_failed',
-							url: 'https://example.com/contact',
-							reason: 'HTTP 500',
-						},
-					],
-					summary: { routesDiscovered: 14, routesCaptured: 13, routesSkipped: 0, routesFailed: 2 },
+					discoveryDiagnostics: Array.from( { length: 13 }, ( _, index ) => ( {
+						code: 'route_capture_failed',
+						url: `https://example.com/page-${ index }`,
+						reason: 'HTTP 500',
+					} ) ),
+					summary: { routesDiscovered: 14, routesCaptured: 1, routesSkipped: 0, routesFailed: 13 },
 				} )
 			);
 			const reportWarning = vi.spyOn( Logger.prototype, 'reportWarning' );
@@ -897,9 +895,9 @@ describe( 'CLI: studio create', () => {
 									outputDir,
 									summary: {
 										routesDiscovered: 14,
-										routesCaptured: 12,
+										routesCaptured: 1,
 										routesSkipped: 0,
-										routesFailed: 2,
+										routesFailed: 13,
 									},
 								} ),
 							} ),
@@ -921,10 +919,20 @@ describe( 'CLI: studio create', () => {
 				expect( process.exitCode ).toBeUndefined();
 				expect( runBlueprint ).toHaveBeenCalled();
 				expect( reportWarning ).toHaveBeenCalledWith(
-					expect.stringContaining( 'could not capture 1 of 14 routes' )
+					expect.stringContaining( 'could not capture 13 of 14 routes' )
 				);
 				expect( reportWarning ).toHaveBeenCalledWith(
-					expect.stringContaining( 'https://example.com/contact: HTTP 500' )
+					expect.stringContaining( 'https://example.com/page-0: HTTP 500' )
+				);
+				expect( reportWarning ).toHaveBeenCalledWith(
+					expect.stringContaining( 'https://example.com/page-9: HTTP 500' )
+				);
+				expect( reportWarning ).not.toHaveBeenCalledWith(
+					expect.stringContaining( 'https://example.com/page-10' )
+				);
+				expect( reportWarning ).toHaveBeenCalledWith( expect.stringContaining( '…and 3 more.' ) );
+				expect( reportWarning ).toHaveBeenCalledWith(
+					expect.stringContaining( path.join( capturePath, 'example.com', 'diagnostics.json' ) )
 				);
 				expect( fs.existsSync( capturePath ) ).toBe( true );
 			} finally {

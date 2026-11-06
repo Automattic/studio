@@ -482,7 +482,10 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 			stopSignal.throwIfAborted();
 		}
 
-		await writeStudioMuPlugins( config.sitePath, config.isWpAutoUpdating, config.frontend );
+		await writeStudioMuPlugins( config.sitePath, config.isWpAutoUpdating, {
+			siteId: config.siteId,
+			frontend: config.frontend,
+		} );
 		stopSignal.throwIfAborted();
 
 		if ( ! isImportedSite ) {
@@ -801,11 +804,10 @@ async function ipcMessageHandler( packet: unknown ) {
 					abortController.signal,
 					blueprintConfig
 				);
-				await writeStudioMuPlugins(
-					blueprintConfig.sitePath,
-					blueprintConfig.isWpAutoUpdating,
-					blueprintConfig.frontend
-				);
+				await writeStudioMuPlugins( blueprintConfig.sitePath, blueprintConfig.isWpAutoUpdating, {
+					siteId: blueprintConfig.siteId,
+					frontend: blueprintConfig.frontend,
+				} );
 				await installWordPress(
 					blueprintConfig,
 					blueprintPhpVersion,

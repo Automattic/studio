@@ -13,6 +13,7 @@ import {
 	getRealmNavigationPath,
 	getRealmOpenEvent,
 	isFrontendAppPath,
+	isWordPressAuthPath,
 	toFrontendAppPath,
 	type PreviewRealm,
 } from './address-bar';
@@ -182,7 +183,7 @@ export function usePreviewSurfaces( {
 	}, [ siteId, frontendUrl ] );
 	useEffect( () => {
 		// Auto-login is a transient hop, not a place to return to.
-		if ( path.startsWith( '/studio-auto-login' ) ) {
+		if ( path.startsWith( '/studio-auto-login' ) || isWordPressAuthPath( path ) ) {
 			return;
 		}
 		lastRealmPathsRef.current ??= getDefaultRealmPaths( frontendUrl );

@@ -37,6 +37,7 @@ describe( 'settings preference helpers', () => {
 			autoStartSiteOnChat: false,
 			openChatOnSiteStart: true,
 			batchAnnotations: true,
+			hideFrontendAdminBar: false,
 		} );
 	} );
 

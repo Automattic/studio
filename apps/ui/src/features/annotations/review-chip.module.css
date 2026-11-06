@@ -10,18 +10,16 @@
 }
 .popup {
 	--surface: var( --composer );
+	--popover-border: var( --input );
 
 	width: max-content;
 	max-width: min( 320px, var( --annotation-popup-max-width, 320px ), calc( 100vw - 16px ) );
 	padding: var( --space-1_5 );
-	border: 1px solid var( --input );
-	border-radius: var( --radius-3xl );
 	background-color: var( --surface );
-	box-shadow: var( --shadow-xs );
 	color: var( --foreground );
 }
 .notes {
-	max-height: min( 288px, calc( var( --available-height ) - 2 * var( --space-1_5 ) - 2px ) );
+	max-height: min( 288px, calc( var( --available-height ) - 2 * var( --space-1_5 ) ) );
 	overflow-y: auto;
 }
 .row {
@@ -29,7 +27,7 @@
 	display: flex;
 	align-items: center;
 	padding-block: var( --space-1 );
-	border-radius: calc( var( --radius-3xl ) - var( --space-1_5 ) );
+	border-radius: var( --radius-md );
 }
 .row:hover,
 .row:has( :focus-visible ) {

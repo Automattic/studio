@@ -105,6 +105,24 @@ export function googleFontsUrl(
 	display: 'swap' | 'block' = 'swap'
 ): string | undefined {
 	const query = [ ...fontFamilies( styles ) ]
+		.filter(
+			( [ family ] ) =>
+				! [
+					'serif',
+					'sans-serif',
+					'monospace',
+					'cursive',
+					'fantasy',
+					'system-ui',
+					'ui-serif',
+					'ui-sans-serif',
+					'ui-monospace',
+					'ui-rounded',
+					'emoji',
+					'math',
+					'fangsong',
+				].includes( family.toLowerCase() )
+		)
 		.map(
 			( [ family, { weights } ] ) =>
 				`family=${ family.replace( / /g, '+' ) }:wght@${ [ ...weights ]
@@ -604,3 +622,5 @@ function compact< T extends Record< string, unknown > >( object: T ): Partial< T
 	);
 	return entries.length ? ( Object.fromEntries( entries ) as Partial< T > ) : undefined;
 }
+
+export { themeJsonDesign } from './theme-json';

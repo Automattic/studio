@@ -4,6 +4,7 @@ import {
 	applyDesignToThemeJson,
 	applyThemeToDesign,
 	designDrift,
+	designSheet,
 	fontFamilyName,
 	googleFontsUrl,
 	parseDesignMd,
@@ -14,7 +15,7 @@ import { z } from 'zod';
 import { downloadThemeFonts } from '../lib/theme-fonts';
 
 export interface SiteDesign {
-	design: string;
+	design: string | null;
 	themeJson: Record< string, unknown >;
 }
 
@@ -66,6 +67,7 @@ async function readSiteDesignFiles( files: SiteDesignFiles ): Promise< SiteDesig
 		return null;
 	}
 	try {
+		designSheet( parseDesignMd( design ) );
 		return { design, themeJson: JSON.parse( themeJson ) };
 	} catch {
 		return null;
@@ -73,15 +75,21 @@ async function readSiteDesignFiles( files: SiteDesignFiles ): Promise< SiteDesig
 }
 
 /**
- * Reads a site's design system: DESIGN.md at its root and the active theme's
- * theme.json. Resolves null when either is missing.
+ * Reads the site's DESIGN.md board, falling back to WordPress's resolved
+ * global styles when the board is unavailable.
  */
 export async function readSiteDesign(
 	sitePath: string,
-	resolveThemeSlug: () => Promise< string | undefined >
+	resolveThemeSlug: () => Promise< string | undefined >,
+	resolveGlobalStyles: () => Promise< Record< string, unknown > | null >
 ): Promise< SiteDesign | null > {
 	const files = await locateSiteDesign( sitePath, resolveThemeSlug );
-	return files && readSiteDesignFiles( files );
+	const design = files && ( await readSiteDesignFiles( files ) );
+	if ( design ) {
+		return design;
+	}
+	const themeJson = await resolveGlobalStyles();
+	return themeJson ? { design: null, themeJson } : null;
 }
 
 /**
@@ -95,7 +103,7 @@ export async function fixSiteDesign(
 ): Promise< SiteDesign | null > {
 	const files = await locateSiteDesign( sitePath, resolveThemeSlug );
 	const current = files && ( await readSiteDesignFiles( files ) );
-	if ( ! files || ! current ) {
+	if ( ! files || ! current?.design ) {
 		return null;
 	}
 	const tokens = parseDesignMd( current.design );

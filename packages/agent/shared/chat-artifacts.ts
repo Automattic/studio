@@ -4,6 +4,7 @@ import {
 	type StudioChatArtifactData,
 	type StudioChatArtifactWidgetDraft,
 } from '@studio/agent/protocol/chat-artifacts';
+import type { AgentToolResult } from '@earendil-works/pi-agent-core';
 import type { StudioAgentHost, StudioAgentUi } from '@studio/agent/shared/host';
 
 export async function emitChatArtifactWidgets(
@@ -40,7 +41,11 @@ function cloneChatArtifactWidgets(
 
 interface FileWritingTool {
 	description?: string;
-	execute( toolCallId: string, params: { path?: unknown }, ...rest: unknown[] ): Promise< unknown >;
+	execute(
+		toolCallId: string,
+		params: { path?: unknown },
+		...rest: unknown[]
+	): Promise< AgentToolResult< unknown > >;
 }
 
 /**
@@ -59,17 +64,28 @@ export function withDesignSystemPreview< TTool extends FileWritingTool >(
 		...tool,
 		description: `${
 			tool.description ?? ''
-		} After successfully updating a site's DESIGN.md, include [Design System](${ DESIGN_SYSTEM_PREVIEW_PATH }) in your final reply so the user can open it in Studio.`,
+		} After successfully updating a site's DESIGN.md, include [Design System](${ DESIGN_SYSTEM_PREVIEW_PATH }) within a natural sentence describing the result in your final reply.`,
 		async execute( toolCallId: string, params: { path?: unknown }, ...rest: unknown[] ) {
 			const result = await tool.execute( toolCallId, params, ...rest );
 			const filePath = path.resolve( host.sitesRoot, String( params.path ) );
 			if (
+				! result.isError &&
 				path.basename( filePath ) === 'DESIGN.md' &&
 				( await host.files.isDirectory( path.join( path.dirname( filePath ), 'wp-content' ) ) )
 			) {
 				await emitChatArtifactWidgets( ui, [
 					{ type: 'site-preview', widgetProps: { path: DESIGN_SYSTEM_PREVIEW_PATH } },
 				] ).catch( () => undefined );
+				return {
+					...result,
+					content: [
+						...result.content,
+						{
+							type: 'text' as const,
+							text: `The updated design system is available at [Design System](${ DESIGN_SYSTEM_PREVIEW_PATH }). Include this link within a natural sentence in your final reply.`,
+						},
+					],
+				};
 			}
 			return result;
 		},

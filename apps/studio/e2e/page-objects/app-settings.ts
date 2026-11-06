@@ -12,9 +12,10 @@ export default class AppSettings {
 	async open() {
 		await new Sidebar( this.page ).ensureOpen();
 		await this.page
-			.getByRole( 'button', { name: 'Settings', exact: true } )
+			.getByRole( 'button', { name: 'Account', exact: true } )
 			.and( this.page.locator( ':not([inert] *)' ) )
 			.click();
+		await this.page.getByRole( 'menuitem', { name: /^Settings/ } ).click();
 		await expect( this.closeButton ).toBeVisible();
 	}
 

@@ -654,7 +654,14 @@ export const questionnaireSkip = check( ( d ) => {
 
 export const designSystemReplyLink = check( ( d ) => {
 	const text = finalReply( d );
-	return /\[[^\]\n]+\]\(studio:design-system\)/.test( text )
-		? pass( 'final reply links to the design system' )
-		: fail( `final reply lacks the design system link: ${ text.slice( 0, 500 ) }` );
+	const paragraph = text
+		.split( /\n\s*\n/ )
+		.find( ( part ) => /\[[^\]\n]+\]\(studio:design-system\)/.test( part ) );
+	if ( ! paragraph ) {
+		return fail( `final reply lacks the design system link: ${ text.slice( 0, 500 ) }` );
+	}
+	const prose = paragraph.replace( /\[[^\]\n]*\]\([^)]+\)/g, '' );
+	return /\p{L}/u.test( prose )
+		? pass( 'final reply includes the design system link within prose' )
+		: fail( `design system link is in a standalone links row: ${ paragraph }` );
 } );

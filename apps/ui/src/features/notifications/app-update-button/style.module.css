@@ -17,3 +17,47 @@
 	padding-inline: var( --space-2 );
 	border-radius: var( --radius-sm );
 }
+.sidebarButton {
+	position: relative;
+	overflow: hidden;
+	justify-content: flex-end;
+	padding-inline: calc( ( var( --control-size ) - 16px ) / 2 - 1px );
+	transition:
+		width var( --motion-duration-layout ) var( --motion-ease-layout ),
+		background-color var( --motion-duration-feedback ) ease;
+}
+
+.label {
+	position: absolute;
+	top: 50%;
+	inset-inline: var( --space-2 ) var( --control-size );
+	transform: translateY( -50% );
+	text-align: center;
+	opacity: 0;
+	transition: opacity var( --motion-duration-surface ) ease;
+}
+
+.sidebarButton[data-expandable]:focus-visible {
+	width: 100%;
+}
+
+.sidebarButton[data-expandable]:focus-visible .label {
+	opacity: 1;
+}
+
+@media ( hover: hover ) {
+	.sidebarButton[data-expandable]:hover {
+		width: 100%;
+	}
+
+	.sidebarButton[data-expandable]:hover .label {
+		opacity: 1;
+	}
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.sidebarButton,
+	.label {
+		transition: none;
+	}
+}

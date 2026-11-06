@@ -38,8 +38,8 @@
 .groupPanel,
 .chatsPanel {
 	overflow: clip;
-	transition-duration: calc( var( --motion-duration-layout ) * 2 / 3 );
-	transition-timing-function: var( --motion-ease-layout );
+	transition-duration: calc( var( --motion-duration-layout ) * 3 / 4 );
+	transition-timing-function: var( --motion-ease-drawer );
 }
 
 .groupPanel:has( [data-drag-source] ),

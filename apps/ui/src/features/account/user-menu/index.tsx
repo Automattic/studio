@@ -100,10 +100,11 @@ export function UserMenu( { active = true }: { active?: boolean } ) {
 						) }
 					</Menu.Popup>
 				</Menu.Root>
-				<span className={ styles.spacer } aria-hidden="true" />
+				<div className={ styles.updateSlot }>
+					<AppUpdateButton />
+				</div>
 				{ isOffline && <OfflineIndicator /> }
 				<NoticeHistoryButton active={ active } />
-				<AppUpdateButton />
 			</div>
 			<AccountPromptDialog
 				open={ promptOpen }

@@ -1,5 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
+import { clsx } from 'clsx';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAppUpdateStatus, useRetryAppUpdate } from '@/data/queries/use-app-update';
@@ -64,17 +65,25 @@ export function AppUpdateButton( {
 
 	return (
 		<IconButton
-			className={ className }
-			size="icon-sm"
+			className={ clsx( styles.sidebarButton, className ) }
+			data-expandable={ status.state === 'ready' && ! install.isPending ? '' : undefined }
+			size="icon"
 			variant="accent"
 			icon={ <UpdateIcon /> }
 			label={ label }
+			tooltip={ status.state !== 'ready' }
 			loading={ checking || downloading || install.isPending }
-			loadingMode="replace"
+			loadingMode={ checking || downloading || install.isPending ? 'replace' : 'leading' }
 			onClick={ () => {
 				if ( failed ) retry.mutate();
 				else if ( status.state === 'ready' ) install.mutate();
 			} }
-		/>
+		>
+			{ status.state === 'ready' && ! install.isPending ? (
+				<span className={ styles.label } aria-hidden="true">
+					{ __( 'Update' ) }
+				</span>
+			) : null }
+		</IconButton>
 	);
 }

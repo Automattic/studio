@@ -144,7 +144,7 @@ describe( 'AppUpdateButton', () => {
 		await act( () => connector.emit( 'onAppUpdateStatusChanged', ready ) );
 		const trigger = await screen.findByRole( 'button', { name: 'Update available' } );
 		await user.hover( trigger );
-		expect( await screen.findByText( 'Update available' ) ).toBeVisible();
+		expect( await screen.findByText( 'Update', { exact: true } ) ).toBeVisible();
 		expect( connector.installAppUpdate ).not.toHaveBeenCalled();
 		await user.click( trigger );
 		await waitFor( () => expect( connector.installAppUpdate ).toHaveBeenCalledOnce() );

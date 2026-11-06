@@ -15,6 +15,11 @@
 		color: var( --muted-foreground );
 	}
 
+	.input[data-size='sm'] {
+		height: 32px;
+		border-radius: var( --radius-md );
+	}
+
 	.input:disabled {
 		cursor: not-allowed;
 		opacity: 0.5;

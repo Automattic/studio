@@ -490,21 +490,18 @@ describe( 'Add site › blank setup', () => {
 	} );
 
 	it( 'requires a custom domain for a multisite Blueprint', async () => {
-		await setup();
+		const { dialog } = await setup();
 		await uploadBlueprint( { steps: [ { step: 'enableMultisite' } ] } );
 		await screen.findByText( 'blueprint.json', { selector: 'span' } );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Edit Domain' } ) );
-		const domainSettings = await screen.findByRole( 'group', { name: 'Domain' } );
-		const toggle = await within( domainSettings ).findByRole( 'switch', {
-			name: 'Use custom domain',
-		} );
-		expect( toggle ).toBeChecked();
-		expect(
-			within( domainSettings ).getByText( 'This Blueprint requires a custom domain.' )
-		).toBeVisible();
-		expect( within( domainSettings ).getByRole( 'textbox', { name: 'Domain name' } ) ).toHaveValue(
-			'network.wp.local'
-		);
+		const domain = await screen.findByRole( 'textbox', { name: 'Domain name' } );
+		expect( domain ).toHaveAccessibleDescription( 'This Blueprint requires a custom domain.' );
+		expect( domain ).toHaveValue( 'network.wp.local' );
+		fireEvent.change( domain, { target: { value: 'localhost' } } );
+		expect( domain ).toBeInvalid();
+		expect( within( dialog ).getByRole( 'button', { name: 'Add site' } ) ).toBeDisabled();
+		fireEvent.change( domain, { target: { value: 'network.local' } } );
+		expect( domain ).toBeValid();
+		expect( within( dialog ).getByRole( 'button', { name: 'Add site' } ) ).toBeEnabled();
 	} );
 
 	it( 'uses a selected WordPress folder in place, synchronizes Change, and restores defaults on Remove', async () => {

@@ -55,12 +55,7 @@ const advanced = () => {
 	const control = screen.getByRole( 'button', { name: 'Advanced' } );
 	if ( control.getAttribute( 'aria-expanded' ) !== 'true' ) fireEvent.click( control );
 };
-const editSettings = ( name: string ) =>
-	fireEvent.click( screen.getByRole( 'button', { name: `Edit ${ name }` } ) );
-const done = () =>
-	fireEvent.click(
-		screen.getByRole( 'button', { name: /^Edit (Admin account|Domain)$/, expanded: true } )
-	);
+const credentials = () => fireEvent.click( screen.getByRole( 'button', { name: 'Change' } ) );
 
 async function chooseOption( select: string, option: string | RegExp ) {
 	fireEvent.click( screen.getByRole( 'combobox', { name: select } ) );
@@ -88,8 +83,8 @@ describe( 'CreateSiteForm suggestions', () => {
 		expect( siteName() ).toHaveValue( 'My manual name' );
 		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( '6.8' );
 		expect( screen.getByRole( 'combobox', { name: 'PHP version' } ) ).toHaveTextContent( '8.3' );
-		editSettings( 'Admin account' );
-		expect( screen.getByLabelText( /Admin username/ ) ).toHaveValue( 'blueprint-admin' );
+		credentials();
+		expect( screen.getByLabelText( /Username/ ) ).toHaveValue( 'blueprint-admin' );
 	} );
 
 	it( 'starts from the fields edited in an earlier opening, over suggestions', async () => {
@@ -104,16 +99,16 @@ describe( 'CreateSiteForm suggestions', () => {
 		} );
 		expect( siteName() ).toHaveValue( 'My draft ' );
 		advanced();
-		editSettings( 'Admin account' );
-		expect( screen.getByLabelText( /Admin username/ ) ).toHaveValue( 'blueprint-admin' );
+		credentials();
+		expect( screen.getByLabelText( /Username/ ) ).toHaveValue( 'blueprint-admin' );
 		expect( onDraftChange ).toHaveBeenLastCalledWith( { name: 'My draft ' } );
 	} );
 
 	it( 'replaces earlier suggestions and restores defaults, keeping edits', async () => {
 		const { update } = await renderForm( { initialValues: { name: 'Suggested site' } } );
 		advanced();
-		editSettings( 'Admin account' );
-		const defaultPassword = ( screen.getByLabelText( /Admin password/ ) as HTMLInputElement ).value;
+		credentials();
+		const defaultPassword = ( screen.getByLabelText( /Password/ ) as HTMLInputElement ).value;
 		update( {
 			initialValues: {
 				name: 'First Blueprint',
@@ -127,7 +122,7 @@ describe( 'CreateSiteForm suggestions', () => {
 				adminEmail: 'first@example.com',
 			},
 		} );
-		fireEvent.change( screen.getByLabelText( /Admin username/ ), {
+		fireEvent.change( screen.getByLabelText( /Username/ ), {
 			target: { value: 'manual-admin' },
 		} );
 		update( { initialValues: { name: 'Second Blueprint', adminEmail: 'second@example.com' } } );
@@ -140,19 +135,17 @@ describe( 'CreateSiteForm suggestions', () => {
 			RecommendedPHPVersion
 		);
 		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( DEFAULT_WORDPRESS_VERSION );
-		expect( screen.getByLabelText( /Admin username/ ) ).toHaveValue( 'manual-admin' );
-		expect( screen.getByLabelText( /Admin password/ ) ).toHaveValue( defaultPassword );
-		expect( screen.getByLabelText( /Admin email/ ) ).toHaveValue( 'second@example.com' );
-		done();
-		editSettings( 'Domain' );
-		expect( screen.getByRole( 'switch', { name: 'Use custom domain' } ) ).not.toBeChecked();
-		done();
-		editSettings( 'Admin account' );
+		expect( screen.getByLabelText( /Username/ ) ).toHaveValue( 'manual-admin' );
+		expect( screen.getByLabelText( /Password/ ) ).toHaveValue( defaultPassword );
+		expect( screen.getByLabelText( /Email/ ) ).toHaveValue( 'second@example.com' );
+		credentials();
+		expect( screen.getByLabelText( 'Domain name' ) ).toHaveValue( 'localhost' );
+		credentials();
 
 		update( { initialValues: { name: 'Suggested site' } } );
 		expect( siteName() ).toHaveValue( 'Suggested site' );
-		expect( screen.getByLabelText( /Admin username/ ) ).toHaveValue( 'manual-admin' );
-		expect( screen.getByLabelText( /Admin email/ ) ).toHaveValue( 'admin@localhost.com' );
+		expect( screen.getByLabelText( /Username/ ) ).toHaveValue( 'manual-admin' );
+		expect( screen.getByLabelText( /Email/ ) ).toHaveValue( 'admin@localhost.com' );
 	} );
 
 	it( 'shows validation errors from suggestions', async () => {
@@ -160,11 +153,37 @@ describe( 'CreateSiteForm suggestions', () => {
 		update( { initialValues: { name: 'Blueprint site', customDomain: 'example.com' } } );
 		advanced();
 		expect( await screen.findByText( 'The domain name must end with .local' ) ).toBeVisible();
-		editSettings( 'Domain' );
 		const domain = screen.getByLabelText( 'Domain name' );
 		expect( domain ).toBeInvalid();
 		fireEvent.change( domain, { target: { value: 'example.local' } } );
 		await waitFor( () => expect( domain ).toBeValid() );
+	} );
+
+	it( 'keeps localhost when reopening over a Blueprint domain suggestion', async () => {
+		const initialValues = { name: 'Shop', customDomain: 'shop.local', enableHttps: true };
+		const onDraftChange = vi.fn();
+		const { unmount } = await renderForm( { initialValues, onDraftChange } );
+		advanced();
+		fireEvent.change( screen.getByLabelText( 'Domain name' ), {
+			target: { value: 'localhost' },
+		} );
+		unmount();
+
+		const { onSubmit } = await renderForm( {
+			initialValues,
+			draft: onDraftChange.mock.lastCall?.[ 0 ],
+		} );
+		advanced();
+		expect( screen.getByLabelText( 'Domain name' ) ).toHaveValue( 'localhost' );
+		expect( screen.getByRole( 'button', { name: 'Enable HTTPS' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+		await waitFor( () => expect( submitButton() ).toBeEnabled() );
+		fireEvent.click( submitButton() );
+		expect( onSubmit ).toHaveBeenCalledWith(
+			expect.objectContaining( { customDomain: undefined, enableHttps: false } )
+		);
 	} );
 } );
 
@@ -587,8 +606,10 @@ describe( 'CreateSiteForm path', () => {
 			)
 		).toBeVisible();
 		advanced();
-		expect( screen.queryByLabelText( /Admin username/ ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'switch', { name: 'Use custom domain' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByLabelText( /Username/ ) ).not.toBeInTheDocument();
+		await waitFor( () =>
+			expect( screen.queryByLabelText( 'Domain name' ) ).not.toBeInTheDocument()
+		);
 		await waitFor( () =>
 			expect( screen.queryByText( 'WordPress version' ) ).not.toBeInTheDocument()
 		);
@@ -807,50 +828,53 @@ describe( 'CreateSiteForm fields', () => {
 			screen.getByText( 'Review the advanced settings to finish creating your site.' )
 		).toBeVisible();
 		fireEvent.click( control );
-		expect(
-			screen.getByRole( 'button', { name: 'Edit Admin account' } )
-		).toHaveAccessibleDescription( 'Please enter a valid email address.' );
-		editSettings( 'Admin account' );
-		expect( screen.getByLabelText( /Admin email/ ) ).toHaveAccessibleDescription(
+		expect( screen.getByRole( 'button', { name: 'Change' } ) ).toHaveAccessibleDescription(
 			'Please enter a valid email address.'
 		);
-		fireEvent.change( screen.getByLabelText( /Admin email/ ), {
+		credentials();
+		expect( screen.getByLabelText( /Email/ ) ).toHaveAccessibleDescription(
+			'Please enter a valid email address.'
+		);
+		fireEvent.change( screen.getByLabelText( /Email/ ), {
 			target: { value: 'owner@example.com' },
 		} );
-		done();
+		credentials();
 		await waitFor( () => expect( submitButton() ).toBeEnabled() );
 	} );
 
-	it( 'keeps account and domain edits when their sections close and submits them', async () => {
-		const { onSubmit } = await renderForm( { initialValues: { name: 'Bakery' } } );
+	it( 'keeps credentials and domain edits when popovers close and submits them', async () => {
+		const { onSubmit, user } = await renderForm( { initialValues: { name: 'Bakery' } } );
 		advanced();
-		expect( screen.queryByLabelText( /Admin username/ ) ).not.toBeInTheDocument();
-		editSettings( 'Admin account' );
-		fireEvent.change( screen.getByLabelText( /Admin username/ ), {
+		expect( screen.queryByLabelText( /Username/ ) ).not.toBeInTheDocument();
+		await user.click( screen.getByRole( 'button', { name: 'Change' } ) );
+		fireEvent.change( screen.getByLabelText( /Username/ ), {
 			target: { value: 'baker' },
 		} );
-		done();
-		expect( screen.getByRole( 'button', { name: 'Edit Admin account' } ) ).toHaveTextContent(
-			'baker'
-		);
-		editSettings( 'Admin account' );
-		expect( screen.getByLabelText( /Admin username/ ) ).toHaveValue( 'baker' );
-		done();
-		editSettings( 'Domain' );
-		fireEvent.click( screen.getByRole( 'switch', { name: 'Use custom domain' } ) );
+		fireEvent.change( screen.getByLabelText( /Password/ ), {
+			target: { value: 'my-password' },
+		} );
+		fireEvent.change( screen.getByLabelText( /Email/ ), {
+			target: { value: 'baker@example.com' },
+		} );
+		await user.keyboard( '{Escape}' );
+		await user.click( screen.getByRole( 'button', { name: 'Change' } ) );
+		expect( screen.getByLabelText( /Username/ ) ).toHaveValue( 'baker' );
+		await user.keyboard( '{Escape}' );
 		fireEvent.change( screen.getByLabelText( 'Domain name' ), {
 			target: { value: 'bakery.local' },
 		} );
-		fireEvent.click( screen.getByRole( 'switch', { name: 'Enable HTTPS' } ) );
-		done();
-		expect( screen.getByRole( 'button', { name: 'Edit Domain' } ) ).toHaveTextContent(
-			'bakery.local'
-		);
+		await user.click( screen.getByRole( 'button', { name: 'Enable HTTPS' } ) );
+		expect( screen.getByRole( 'button', { name: 'Disable HTTPS' } ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Advanced' } ) );
+		advanced();
+		expect( screen.getByLabelText( 'Domain name' ) ).toHaveValue( 'bakery.local' );
 		await waitFor( () => expect( submitButton() ).toBeEnabled() );
 		fireEvent.click( submitButton() );
 		expect( onSubmit ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				adminUsername: 'baker',
+				adminPassword: 'my-password',
+				adminEmail: 'baker@example.com',
 				customDomain: 'bakery.local',
 				enableHttps: true,
 			} )

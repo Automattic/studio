@@ -1,12 +1,9 @@
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
-import {
-	generateCustomDomainFromSiteName,
-	getDomainNameValidationError,
-} from '@studio/common/lib/domains';
+import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import { validateAdminEmail, validateAdminUsername } from '@studio/common/lib/passwords';
 import { getLatestVersionLabel } from '@studio/common/lib/wordpress-versions';
 import { __, sprintf } from '@wordpress/i18n';
-import { ChevronDownIcon, XIcon } from 'lucide-react';
+import { ChevronDownIcon, LockIcon, LockOpenIcon } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
@@ -17,7 +14,6 @@ import {
 	getWpVersionOptions,
 	SelectField,
 	TextField,
-	ToggleField,
 	validateAdminPassword,
 	validateSiteName,
 } from '@/features/sites/site-fields';
@@ -27,8 +23,12 @@ import {
 	AlertDescription,
 	AlertTitle,
 	Button,
+	Field,
+	FieldContent,
+	FieldDescription,
 	FieldError,
 	FieldGroup,
+	FieldTitle,
 	IconButton,
 	Popover,
 } from '@/lib/ui';
@@ -46,7 +46,6 @@ import {
 	type FormData,
 } from './form-data';
 import { PathField } from './path-field';
-import { SettingsSection } from './settings-section';
 import styles from './style.module.css';
 import { usePathAutoGenerate } from './use-path-auto-generate';
 import type { SelectedSiteFolder } from '@/data/core';
@@ -110,6 +109,7 @@ export function CreateSiteForm( {
 }: CreateSiteFormProps ) {
 	const formId = useId();
 	const advancedId = useId();
+	const credentialsId = useId();
 	const [ defaults ] = useState( createDefaultFormData );
 	const suggestedFieldsRef = useRef( getSuggestedFields( initialValues ?? {} ) );
 	const [ data, setData ] = useState< FormData >( () =>
@@ -170,6 +170,7 @@ export function CreateSiteForm( {
 		offline: isOffline,
 	} );
 	const [ advanced, setAdvanced ] = useState( { open: false, attention: '', focusOnOpen: false } );
+	const [ credentialsOpen, setCredentialsOpen ] = useState( false );
 
 	const handleChangePartial = useCallback( ( update: Partial< FormData > ) => {
 		setData( ( prev ) => ( { ...prev, ...update } ) );
@@ -200,9 +201,7 @@ export function CreateSiteForm( {
 	const handleChange = useCallback( ( update: Partial< FormData > ) => {
 		isSubmitQueuedRef.current = false;
 		for ( const key of Object.keys( update ) ) {
-			if ( key === 'useCustomDomain' ) {
-				dirtyFieldsRef.current.add( 'customDomain' );
-			} else if ( INITIAL_VALUE_FIELDS.includes( key as keyof CreateSiteFormValues ) ) {
+			if ( INITIAL_VALUE_FIELDS.includes( key as keyof CreateSiteFormValues ) ) {
 				dirtyFieldsRef.current.add( key as keyof CreateSiteFormValues );
 			}
 		}
@@ -237,13 +236,14 @@ export function CreateSiteForm( {
 		( ! data.matchSiteName || data.name.trim() )
 			? getFolderNameError( splitFolderPath( data.path ).name )
 			: '' );
+	const { customDomain, enableHttps } = getSubmittedValues( data );
 	const advancedErrors = {
 		adminUsername: validateAdminUsername( data.adminUsername ),
 		adminPassword: validateAdminPassword( data.adminPassword ),
 		adminEmail: validateAdminEmail( data.adminEmail ),
 		customDomain: getDomainNameValidationError(
-			data.useCustomDomain,
-			data.customDomain || generateCustomDomainFromSiteName( data.name ),
+			!! customDomain || !! requiresCustomDomain,
+			customDomain ?? '',
 			existingDomainNames
 		),
 	};
@@ -281,7 +281,11 @@ export function CreateSiteForm( {
 			} );
 	}, [ existing, pathError, data.path, onFolderChange, resetPathKey ] );
 	useEffect( () => {
-		const values = { ...getSubmittedValues( data ), name: data.name };
+		const values = {
+			...getSubmittedValues( data ),
+			name: data.name,
+			customDomain: data.customDomain,
+		};
 		onDraftChange?.( {
 			...Object.fromEntries(
 				[ ...dirtyFieldsRef.current ].map( ( field ) => [ field, values[ field ] ] )
@@ -329,12 +333,15 @@ export function CreateSiteForm( {
 		);
 	const offlineMessage = __( 'Changing WordPress version requires an internet connection.' );
 	const advancedLabel = __( 'Advanced' );
+	const credentialsError =
+		advancedErrors.adminUsername || advancedErrors.adminPassword || advancedErrors.adminEmail;
 	const advancedSettings = (
 		<Popover.Root
 			open={ showAdvanced }
-			onOpenChange={ ( open ) =>
-				setAdvanced( ( previous ) => ( { ...previous, open, focusOnOpen: true } ) )
-			}
+			onOpenChange={ ( open ) => {
+				setAdvanced( ( previous ) => ( { ...previous, open, focusOnOpen: true } ) );
+				if ( ! open ) setCredentialsOpen( false );
+			} }
 		>
 			<div className={ styles.advanced }>
 				<Popover.Trigger
@@ -354,82 +361,98 @@ export function CreateSiteForm( {
 				</Popover.Trigger>
 			</div>
 			<Popover.Popup
+				aria-label={ advancedLabel }
 				className={ styles.advancedPopup }
 				side="bottom"
 				align="start"
 				keepMounted
 				initialFocus={ advanced.focusOnOpen ? undefined : false }
 			>
-				<div className={ styles.popupHeading }>
-					<Popover.Title>{ advancedLabel }</Popover.Title>
-					<IconButton
-						variant="outline"
-						icon={ <XIcon /> }
-						label={ __( 'Close Advanced' ) }
-						size="icon-xs"
-						tooltip={ false }
-						onClick={ () => setAdvanced( ( previous ) => ( { ...previous, open: false } ) ) }
-					/>
-				</div>
 				<FieldGroup className={ styles.advancedFields } inert={ isSubmitting || undefined }>
-					<div className={ styles.paired }>
-						{ existing ? null : wpVersionOptions ? (
-							<SelectField
-								label={ __( 'WordPress version' ) }
-								orientation="vertical"
-								fullWidth
-								description={ wpVersionDescription }
-								value={ data.wpVersion }
-								options={ wpVersionOptions }
-								disabled={ isOffline }
-								disabledReason={ offlineMessage }
-								onChange={ ( wpVersion ) => handleChange( { wpVersion } ) }
-							/>
-						) : (
-							<TextField
-								label={ __( 'WordPress version' ) }
-								placeholder={ DEFAULT_WORDPRESS_VERSION }
-								value={ data.wpVersion }
-								onChange={ ( event ) => handleChange( { wpVersion: event.target.value } ) }
-							/>
-						) }
+					{ existing ? null : wpVersionOptions ? (
 						<SelectField
-							label={ __( 'PHP version' ) }
-							orientation="vertical"
-							fullWidth
-							value={ data.phpVersion }
-							options={ getPhpVersionOptions() }
-							onChange={ ( phpVersion ) =>
-								handleChange( { phpVersion: phpVersion as SupportedPHPVersion } )
-							}
+							label={ __( 'WordPress version' ) }
+							size="sm"
+							className={ styles.advancedControl }
+							description={ wpVersionDescription }
+							value={ data.wpVersion }
+							options={ wpVersionOptions }
+							disabled={ isOffline }
+							disabledReason={ offlineMessage }
+							onChange={ ( wpVersion ) => handleChange( { wpVersion } ) }
 						/>
-					</div>
-					<div className={ styles.settingsRows }>
-						<div className={ styles.fileAccess }>
-							<SelectField
-								label={ __( 'File access' ) }
-								value={ data.fileAccess }
-								options={ getFileAccessOptions() }
-								onChange={ ( fileAccess ) =>
-									handleChange( { fileAccess: fileAccess as SiteFileAccess } )
-								}
-							/>
-						</div>
-						{ ! existing && (
-							<>
-								<SettingsSection
-									label={ __( 'Admin account' ) }
-									summary={ data.adminUsername }
-									error={
-										advancedErrors.adminUsername ||
-										advancedErrors.adminPassword ||
-										advancedErrors.adminEmail
-									}
+					) : (
+						<TextField
+							label={ __( 'WordPress version' ) }
+							orientation="horizontal"
+							size="sm"
+							controlClassName={ styles.advancedControl }
+							placeholder={ DEFAULT_WORDPRESS_VERSION }
+							value={ data.wpVersion }
+							onChange={ ( event ) => handleChange( { wpVersion: event.target.value } ) }
+						/>
+					) }
+					<SelectField
+						label={ __( 'PHP version' ) }
+						size="sm"
+						className={ styles.advancedControl }
+						value={ data.phpVersion }
+						options={ getPhpVersionOptions() }
+						onChange={ ( phpVersion ) =>
+							handleChange( { phpVersion: phpVersion as SupportedPHPVersion } )
+						}
+					/>
+					<SelectField
+						label={ __( 'File access' ) }
+						size="sm"
+						className={ styles.advancedControl }
+						value={ data.fileAccess }
+						options={ getFileAccessOptions() }
+						onChange={ ( fileAccess ) =>
+							handleChange( { fileAccess: fileAccess as SiteFileAccess } )
+						}
+					/>
+					{ ! existing && (
+						<>
+							<Field orientation="horizontal" aria-labelledby={ credentialsId }>
+								<FieldContent>
+									<FieldTitle id={ credentialsId }>{ __( 'WordPress credentials' ) }</FieldTitle>
+									{ ! credentialsOpen && (
+										<FieldError id={ `${ credentialsId }-error` }>{ credentialsError }</FieldError>
+									) }
+								</FieldContent>
+								<Popover.Root
+									open={ showAdvanced && credentialsOpen }
+									onOpenChange={ setCredentialsOpen }
 								>
-									<FieldGroup className={ styles.popupFields }>
-										<div className={ styles.paired }>
+									<Popover.Trigger
+										render={
+											<Button
+												variant="ghost"
+												size="sm"
+												aria-describedby={
+													credentialsError && ! credentialsOpen
+														? `${ credentialsId }-error`
+														: undefined
+												}
+											/>
+										}
+									>
+										{ __( 'Change' ) }
+									</Popover.Trigger>
+									<Popover.Popup
+										aria-label={ __( 'WordPress credentials' ) }
+										className={ styles.credentialsPopup }
+										side="right"
+										align="start"
+										sideOffset={ 24 }
+									>
+										<FieldGroup className={ styles.advancedFields }>
 											<TextField
-												label={ __( 'Admin username' ) }
+												label={ __( 'Username' ) }
+												orientation="horizontal"
+												size="sm"
+												controlClassName={ styles.advancedControl }
 												value={ data.adminUsername }
 												error={ advancedErrors.adminUsername }
 												autoComplete="off"
@@ -439,7 +462,10 @@ export function CreateSiteForm( {
 												}
 											/>
 											<TextField
-												label={ __( 'Admin password' ) }
+												label={ __( 'Password' ) }
+												orientation="horizontal"
+												size="sm"
+												controlClassName={ styles.advancedControl }
 												type="password"
 												value={ data.adminPassword }
 												error={ advancedErrors.adminPassword }
@@ -449,61 +475,52 @@ export function CreateSiteForm( {
 													handleChange( { adminPassword: event.target.value } )
 												}
 											/>
-										</div>
-										<TextField
-											label={ __( 'Admin email' ) }
-											type="email"
-											value={ data.adminEmail }
-											error={ advancedErrors.adminEmail }
-											required
-											onChange={ ( event ) => handleChange( { adminEmail: event.target.value } ) }
-										/>
-									</FieldGroup>
-								</SettingsSection>
-								<SettingsSection
-									label={ __( 'Domain' ) }
-									summary={
-										data.useCustomDomain
-											? data.customDomain || generateCustomDomainFromSiteName( data.name )
-											: __( 'localhost' )
-									}
-									error={ advancedErrors.customDomain }
-								>
-									<FieldGroup className={ styles.popupFields }>
-										<ToggleField
-											label={ __( 'Use custom domain' ) }
-											description={
-												requiresCustomDomain
-													? __( 'This Blueprint requires a custom domain.' )
-													: __( 'Your system password will be required to set up the domain.' )
-											}
-											checked={ data.useCustomDomain }
-											disabled={ requiresCustomDomain }
-											onChange={ ( useCustomDomain ) => handleChange( { useCustomDomain } ) }
-										/>
-										{ data.useCustomDomain && (
-											<>
-												<TextField
-													label={ __( 'Domain name' ) }
-													value={ data.customDomain }
-													error={ advancedErrors.customDomain }
-													onChange={ ( event ) =>
-														handleChange( { customDomain: event.target.value } )
-													}
-												/>
-												<ToggleField
-													label={ __( 'Enable HTTPS' ) }
-													description={ <CertificateTrustNotice /> }
-													checked={ data.enableHttps }
-													onChange={ ( enableHttps ) => handleChange( { enableHttps } ) }
-												/>
-											</>
-										) }
-									</FieldGroup>
-								</SettingsSection>
-							</>
-						) }
-					</div>
+											<TextField
+												label={ __( 'Email' ) }
+												orientation="horizontal"
+												size="sm"
+												controlClassName={ styles.advancedControl }
+												type="email"
+												value={ data.adminEmail }
+												error={ advancedErrors.adminEmail }
+												required
+												onChange={ ( event ) => handleChange( { adminEmail: event.target.value } ) }
+											/>
+										</FieldGroup>
+									</Popover.Popup>
+								</Popover.Root>
+							</Field>
+							<TextField
+								label={ __( 'Domain name' ) }
+								orientation="horizontal"
+								size="sm"
+								controlClassName={ styles.advancedControl }
+								value={ data.customDomain }
+								placeholder="localhost"
+								error={ advancedErrors.customDomain }
+								description={
+									requiresCustomDomain
+										? __( 'This Blueprint requires a custom domain.' )
+										: undefined
+								}
+								onChange={ ( event ) => handleChange( { customDomain: event.target.value } ) }
+								endAdornment={
+									<IconButton
+										icon={ enableHttps ? <LockIcon /> : <LockOpenIcon /> }
+										label={ enableHttps ? __( 'Disable HTTPS' ) : __( 'Enable HTTPS' ) }
+										size="icon-xs"
+										disabled={ ! customDomain || !! advancedErrors.customDomain }
+										onClick={ () => handleChange( { enableHttps: ! enableHttps } ) }
+									/>
+								}
+							/>
+							{ enableHttps && (
+								<FieldDescription className={ styles.certificateNotice }>
+									<CertificateTrustNotice />
+								</FieldDescription>
+							) }
+						</>
+					) }
 				</FieldGroup>
 			</Popover.Popup>
 		</Popover.Root>

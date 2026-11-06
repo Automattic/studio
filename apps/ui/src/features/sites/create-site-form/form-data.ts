@@ -1,5 +1,4 @@
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
-import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
 import {
 	DEFAULT_ADMIN_EMAIL,
 	DEFAULT_ADMIN_USERNAME,
@@ -44,7 +43,6 @@ export interface FormData {
 	phpVersion: SupportedPHPVersion;
 	fileAccess: SiteFileAccess;
 	wpVersion: string;
-	useCustomDomain: boolean;
 	customDomain: string;
 	enableHttps: boolean;
 	adminUsername: string;
@@ -76,8 +74,7 @@ export function createDefaultFormData(): FormData {
 		phpVersion: RecommendedPHPVersion,
 		fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
 		wpVersion: DEFAULT_WORDPRESS_VERSION,
-		useCustomDomain: false,
-		customDomain: '',
+		customDomain: 'localhost',
 		enableHttps: false,
 		adminUsername: DEFAULT_ADMIN_USERNAME,
 		adminPassword: generatePassword(),
@@ -117,7 +114,6 @@ export function applyInitialValues(
 		fileAccess: { fileAccess: defaults.fileAccess },
 		wpVersion: { wpVersion: defaults.wpVersion },
 		customDomain: {
-			useCustomDomain: defaults.useCustomDomain,
 			customDomain: defaults.customDomain,
 		},
 		enableHttps: { enableHttps: defaults.enableHttps },
@@ -143,7 +139,6 @@ export function applyInitialValues(
 		next.isPathPending = false;
 	}
 	if ( values.customDomain !== undefined && ! dirtyFields.has( 'customDomain' ) ) {
-		next.useCustomDomain = !! values.customDomain;
 		next.customDomain = values.customDomain;
 	}
 	updatePathForSiteName( prev, next );
@@ -158,9 +153,6 @@ export function applyInitialValues(
 export function applyFormChange( prev: FormData, update: Partial< FormData > ): FormData {
 	const next: FormData = { ...prev, ...update };
 	updatePathForSiteName( prev, next );
-	if ( ! prev.useCustomDomain && next.useCustomDomain && ! next.customDomain ) {
-		next.customDomain = generateCustomDomainFromSiteName( next.name );
-	}
 	return next;
 }
 
@@ -185,16 +177,16 @@ function updatePathForSiteName( prev: FormData, next: FormData ) {
 }
 
 export function getSubmittedValues( data: FormData ): CreateSiteFormValues {
+	const domain = data.customDomain.trim();
+	const customDomain = domain && domain !== 'localhost' ? domain : undefined;
 	return {
 		name: data.name.trim(),
 		path: data.path,
 		phpVersion: data.phpVersion,
 		fileAccess: data.fileAccess,
 		wpVersion: data.wpVersion,
-		customDomain: data.useCustomDomain
-			? data.customDomain || generateCustomDomainFromSiteName( data.name )
-			: undefined,
-		enableHttps: data.useCustomDomain && data.enableHttps,
+		customDomain,
+		enableHttps: !! customDomain && data.enableHttps,
 		adminUsername: data.adminUsername,
 		adminPassword: data.adminPassword,
 		adminEmail: data.adminEmail,

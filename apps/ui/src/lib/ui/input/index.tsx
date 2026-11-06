@@ -6,16 +6,19 @@ import type { ComponentProps, ReactNode } from 'react';
 export function Input( {
 	className,
 	variant = 'default',
+	size = 'default',
 	endAdornment,
 	...props
-}: ComponentProps< typeof BaseInput > & {
+}: Omit< ComponentProps< typeof BaseInput >, 'size' > & {
 	variant?: 'default' | 'group' | 'ghost';
+	size?: 'default' | 'sm';
 	endAdornment?: ReactNode;
 } ) {
 	const input = (
 		<BaseInput
 			data-slot="input"
 			data-variant={ variant }
+			data-size={ size }
 			data-adorned={ endAdornment ? true : undefined }
 			className={ clsx( styles.input, className ) }
 			{ ...props }

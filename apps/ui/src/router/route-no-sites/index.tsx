@@ -7,7 +7,15 @@ import { useSites } from '@/data/queries/use-sites';
 import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
 import { HeaderSidebarToggle } from '@/features/sidebar';
 import { PreviewParticles, useOpenAddSite } from '@/features/sites';
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, Button } from '@/lib/ui';
+import {
+	Empty,
+	EmptyContent,
+	EmptyDescription,
+	EmptyHeader,
+	EmptyTitle,
+	Button,
+	StudioIcon,
+} from '@/lib/ui';
 import { dashboardLayoutRoute } from '../layout-dashboard';
 import styles from './style.module.css';
 
@@ -85,8 +93,12 @@ function NoSitesContent() {
 			<div className={ styles.dots } aria-hidden="true">
 				<PreviewParticles active />
 			</div>
+			<StudioIcon />
+			<EmptyHeader>
+				<EmptyTitle className={ styles.title }>{ __( 'Welcome to WordPress Studio' ) }</EmptyTitle>
+			</EmptyHeader>
 			<EmptyContent>
-				<Button variant="accent" data-add-first-site onClick={ () => openAddSite() }>
+				<Button variant="accent" size="lg" data-add-first-site onClick={ () => openAddSite() }>
 					{ __( 'Start here' ) }
 				</Button>
 			</EmptyContent>

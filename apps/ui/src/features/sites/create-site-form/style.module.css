@@ -88,6 +88,10 @@
 	padding: var( --space-5 );
 }
 
+.advancedPopup {
+	padding: var( --space-3 );
+}
+
 .advanced {
 	display: flex;
 	flex: 1;

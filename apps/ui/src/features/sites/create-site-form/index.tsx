@@ -373,7 +373,6 @@ export function CreateSiteForm( {
 						<SelectField
 							label={ __( 'WordPress version' ) }
 							size="sm"
-							className={ styles.advancedControl }
 							description={ wpVersionDescription }
 							value={ data.wpVersion }
 							options={ wpVersionOptions }
@@ -395,7 +394,6 @@ export function CreateSiteForm( {
 					<SelectField
 						label={ __( 'PHP version' ) }
 						size="sm"
-						className={ styles.advancedControl }
 						value={ data.phpVersion }
 						options={ getPhpVersionOptions() }
 						onChange={ ( phpVersion ) =>
@@ -405,7 +403,6 @@ export function CreateSiteForm( {
 					<SelectField
 						label={ __( 'File access' ) }
 						size="sm"
-						className={ styles.advancedControl }
 						value={ data.fileAccess }
 						options={ getFileAccessOptions() }
 						onChange={ ( fileAccess ) =>
@@ -428,7 +425,7 @@ export function CreateSiteForm( {
 									<Popover.Trigger
 										render={
 											<Button
-												variant="ghost"
+												variant="outline"
 												size="sm"
 												aria-describedby={
 													credentialsError && ! credentialsOpen
@@ -445,7 +442,7 @@ export function CreateSiteForm( {
 										className={ styles.credentialsPopup }
 										side="right"
 										align="start"
-										sideOffset={ 24 }
+										sideOffset={ 16 }
 									>
 										<FieldGroup className={ styles.advancedFields }>
 											<TextField

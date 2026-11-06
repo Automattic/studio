@@ -372,10 +372,11 @@ export function CreateSiteForm( {
 			role="region"
 			aria-labelledby={ `${ advancedId }-trigger` }
 		>
-			<FieldGroup className={ styles.advancedFields } inert={ isSubmitting || undefined }>
+			<FieldGroup className={ styles.advancedGrid } inert={ isSubmitting || undefined }>
 				{ existing ? null : wpVersionOptions ? (
 					<SelectField
 						label={ __( 'WordPress version' ) }
+						orientation="vertical"
 						description={ wpVersionDescription }
 						value={ data.wpVersion }
 						options={ wpVersionOptions }
@@ -386,8 +387,6 @@ export function CreateSiteForm( {
 				) : (
 					<TextField
 						label={ __( 'WordPress version' ) }
-						orientation="horizontal"
-						controlClassName={ styles.advancedControl }
 						placeholder={ DEFAULT_WORDPRESS_VERSION }
 						value={ data.wpVersion }
 						onChange={ ( event ) => handleChange( { wpVersion: event.target.value } ) }
@@ -395,6 +394,7 @@ export function CreateSiteForm( {
 				) }
 				<SelectField
 					label={ __( 'PHP version' ) }
+					orientation="vertical"
 					value={ data.phpVersion }
 					options={ getPhpVersionOptions() }
 					onChange={ ( phpVersion ) =>
@@ -403,6 +403,7 @@ export function CreateSiteForm( {
 				/>
 				<SelectField
 					label={ __( 'File access' ) }
+					orientation="vertical"
 					value={ data.fileAccess }
 					options={ getFileAccessOptions() }
 					onChange={ ( fileAccess ) =>
@@ -411,7 +412,7 @@ export function CreateSiteForm( {
 				/>
 				{ ! existing && (
 					<>
-						<Field orientation="horizontal" aria-labelledby={ credentialsId }>
+						<Field aria-labelledby={ credentialsId }>
 							<FieldContent>
 								<FieldTitle id={ credentialsId }>{ __( 'WordPress credentials' ) }</FieldTitle>
 								{ ! credentialsOpen && (
@@ -426,6 +427,7 @@ export function CreateSiteForm( {
 									render={
 										<Button
 											variant="outline"
+											className={ styles.credentialsTrigger }
 											aria-describedby={
 												credentialsError && ! credentialsOpen
 													? `${ credentialsId }-error`
@@ -483,27 +485,31 @@ export function CreateSiteForm( {
 								</Popover.Popup>
 							</Popover.Root>
 						</Field>
-						<TextField
-							label={ __( 'Domain name' ) }
-							orientation="horizontal"
-							controlClassName={ styles.advancedControl }
-							value={ data.customDomain }
-							placeholder="localhost"
-							error={ advancedErrors.customDomain }
-							description={
-								requiresCustomDomain ? __( 'This Blueprint requires a custom domain.' ) : undefined
-							}
-							onChange={ ( event ) => handleChange( { customDomain: event.target.value } ) }
-							endAdornment={
-								<IconButton
-									icon={ enableHttps ? <LockIcon /> : <LockOpenIcon /> }
-									label={ enableHttps ? __( 'Disable HTTPS' ) : __( 'Enable HTTPS' ) }
-									size="icon-xs"
-									disabled={ ! customDomain || !! advancedErrors.customDomain }
-									onClick={ () => handleChange( { enableHttps: ! enableHttps } ) }
-								/>
-							}
-						/>
+						<div className={ styles.domainField }>
+							<TextField
+								label={ __( 'Domain name' ) }
+								orientation="horizontal"
+								controlClassName={ styles.advancedControl }
+								value={ data.customDomain }
+								placeholder="localhost"
+								error={ advancedErrors.customDomain }
+								description={
+									requiresCustomDomain
+										? __( 'This Blueprint requires a custom domain.' )
+										: undefined
+								}
+								onChange={ ( event ) => handleChange( { customDomain: event.target.value } ) }
+								endAdornment={
+									<IconButton
+										icon={ enableHttps ? <LockIcon /> : <LockOpenIcon /> }
+										label={ enableHttps ? __( 'Disable HTTPS' ) : __( 'Enable HTTPS' ) }
+										size="icon-xs"
+										disabled={ ! customDomain || !! advancedErrors.customDomain }
+										onClick={ () => handleChange( { enableHttps: ! enableHttps } ) }
+									/>
+								}
+							/>
+						</div>
 						{ enableHttps && (
 							<FieldDescription className={ styles.certificateNotice }>
 								<CertificateTrustNotice />

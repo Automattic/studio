@@ -108,19 +108,56 @@
 	pointer-events: none;
 }
 
-/* Headers share the full list's sticky bounds so the next one covers the
-   previous one without pushing it out of position. */
 .group {
-	display: contents;
+	display: flex;
+	flex-direction: column;
+	flex-shrink: 0;
+	padding-block: 0;
 }
 
 .groupHeader {
+	container-type: scroll-state;
 	flex-shrink: 0;
 	margin-block-start: var( --space-3 );
 	position: sticky;
 	top: 0;
 	z-index: 1;
+	isolation: isolate;
+}
+
+.group:first-child > .groupHeader {
+	margin-block-start: var( --space-1_5 );
+	top: var( --space-1_5 );
+}
+
+.groupHeader::before {
+	position: absolute;
+	inset: 0;
+	bottom: calc( -1 * var( --space-1 ) );
+	z-index: -1;
 	background: var( --studio-sidebar-bg );
+	mask-image: linear-gradient(
+		to top,
+		transparent,
+		rgb( 0 0 0 / 0.6 ) 10%,
+		rgb( 0 0 0 / 0.9 ) 20%,
+		rgb( 0 0 0 / 0.99 ) 30%,
+		#000 45%
+	);
+	opacity: 0;
+	transition: opacity var( --motion-duration-surface ) ease;
+	content: '';
+	pointer-events: none;
+}
+
+.group:first-child > .groupHeader::before {
+	top: calc( -1 * var( --space-1_5 ) );
+}
+
+@container scroll-state( stuck: top ) {
+	.groupHeader::before {
+		opacity: 1;
+	}
 }
 
 .groupHeader:hover .groupHoverAction,
@@ -128,6 +165,10 @@
 .groupHoverAction[aria-expanded='true'] {
 	opacity: 1;
 	pointer-events: auto;
+}
+
+.groupHeader[data-clipped] > :not( :first-child ) {
+	visibility: hidden;
 }
 
 @media ( hover: none ) {
@@ -138,8 +179,17 @@
 }
 
 @media ( prefers-reduced-motion: reduce ) {
+	.groupHeader::before {
+		transition: none;
+	}
+
 	.groupPanel,
 	.chatsPanel {
 		transition-duration: 0s;
 	}
+}
+
+.loadingMenu {
+	gap: var( --space-1 );
+	padding-block-start: var( --space-3 );
 }

@@ -113,7 +113,7 @@ export function RenamePreview( { snapshot, onDone }: { snapshot: Snapshot; onDon
 				<Button variant="ghost" onClick={ onDone }>
 					{ __( 'Cancel' ) }
 				</Button>
-				<Button type="submit" loading={ rename.isPending }>
+				<Button variant="accent" type="submit" loading={ rename.isPending }>
 					{ __( 'Save' ) }
 				</Button>
 			</div>

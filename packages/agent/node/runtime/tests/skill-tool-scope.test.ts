@@ -36,6 +36,13 @@ describe( 'SkillToolScope', () => {
 		expect( scope.activeToolNames( ALL ) ).toEqual( [ 'Read', 'wp_cli', 'need_for_speed' ] );
 	} );
 
+	it( 'sends feedback only once the feedback skill is loaded', () => {
+		const scope = new SkillToolScope( sessionWithSkillCall() );
+		expect( scope.activeToolNames( [ 'Read', 'send_feedback' ] ) ).toEqual( [ 'Read' ] );
+		scope.unlock( 'feedback' );
+		expect( scope.activeToolNames( [ 'Read', 'send_feedback' ] ) ).toContain( 'send_feedback' );
+	} );
+
 	it( 'restores tools from skills loaded earlier in the conversation', () => {
 		const scope = new SkillToolScope( sessionWithSkillCall( 'taxonomist' ) );
 		expect( scope.activeToolNames( ALL ) ).toContain( 'install_taxonomy_scripts' );

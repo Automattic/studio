@@ -33,7 +33,11 @@ steps:
     key: lint
     command: bash .buildkite/commands/run-lint.sh
     plugins:
+      - $CI_TOOLKIT_PLUGIN
       - $DOCKER_PLUGIN:
+          expand-volume-vars: true
+          volumes:
+            - "$$A8C_CI_TOOLKIT_PLUGIN_DIR:/a8c-ci-toolkit:ro"
           image: "$NODE_DOCKER_IMAGE"
           propagate-environment: true
           mount-buildkite-agent: true
@@ -47,7 +51,11 @@ steps:
     key: fastlane_tests
     command: bash .buildkite/commands/run-fastlane-tests.sh
     plugins:
+      - $CI_TOOLKIT_PLUGIN
       - $DOCKER_PLUGIN:
+          expand-volume-vars: true
+          volumes:
+            - "$$A8C_CI_TOOLKIT_PLUGIN_DIR:/a8c-ci-toolkit:ro"
           image: "$RUBY_DOCKER_IMAGE"
           propagate-environment: true
           mount-buildkite-agent: true
@@ -81,7 +89,11 @@ steps:
         agents:
           queue: default
         plugins:
+          - $CI_TOOLKIT_PLUGIN
           - $DOCKER_PLUGIN:
+              expand-volume-vars: true
+              volumes:
+                - "$$A8C_CI_TOOLKIT_PLUGIN_DIR:/a8c-ci-toolkit:ro"
               image: "$NODE_DOCKER_IMAGE"
               propagate-environment: true
               mount-buildkite-agent: true
@@ -110,7 +122,11 @@ steps:
         agents:
           queue: default
         plugins:
+          - $CI_TOOLKIT_PLUGIN
           - $DOCKER_PLUGIN:
+              expand-volume-vars: true
+              volumes:
+                - "$$A8C_CI_TOOLKIT_PLUGIN_DIR:/a8c-ci-toolkit:ro"
               image: "$NODE_DOCKER_IMAGE"
               propagate-environment: true
               mount-buildkite-agent: true
@@ -155,7 +171,11 @@ steps:
           queue: default
         timeout_in_minutes: 30
         plugins:
+          - $CI_TOOLKIT_PLUGIN
           - $DOCKER_PLUGIN:
+              expand-volume-vars: true
+              volumes:
+                - "$$A8C_CI_TOOLKIT_PLUGIN_DIR:/a8c-ci-toolkit:ro"
               image: "$NODE_DOCKER_IMAGE"
               propagate-environment: true
               mount-buildkite-agent: true

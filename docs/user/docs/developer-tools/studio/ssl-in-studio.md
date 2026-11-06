@@ -34,8 +34,6 @@ To enable HTTPS for a new or existing site:
 
 [![The Create a blank site form in WordPress Studio with Advanced settings expanded, showing Use custom domain and Enable HTTPS turned on and a .wp.local domain name.](https://developer.wordpress.com/wp-content/uploads/2025/03/create-site-https.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/03/create-site-https.webp)
 
-[![An existing site's Settings in WordPress Studio, with Use custom domain and Enable HTTPS turned on under Local domain and the domain set to wren-barley.wp.local.](https://developer.wordpress.com/wp-content/uploads/2025/03/site-settings-domain.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/03/site-settings-domain.webp)
-
 6.  Click **Create site** or **Save**, depending on whether you are creating a new site or editing an existing one. 
 7.  When prompted, give your permission for WordPress Studio to modify the system hosts file. WordPress Studio will configure everything else automatically. 
 8.  For HTTPS connections, a root certificate authority will be generated and installed. Until your computer trusts it, the **Enable HTTPS** option shows a button to fix that: **Show certificate** on macOS, which opens the certificate file in Finder, or **Trust certificate** on Windows and Linux, which trusts it for you. On macOS, you’ll need to manually install the certificate to avoid browser warnings. [Refer to the guide below for more details](#macos).
@@ -55,12 +53,12 @@ On macOS, you need to manually trust the CA. To do this, find the certificate fi
 2.  This will open the folder containing the certificate file (`studio-ca.crt`). Double-click the file to install the certificate and automatically open the **Keychain Access** tool on your machine.
 3.  Locate the **WordPress Studio CA** certificate. You can filter the items by the word `studio`.
 
-![A screenshot depicting the Keychain Access application on a Mac and the WordPress Studio CA certificate.](https://developer.wordpress.com/wp-content/uploads/2025/03/ssl-keychain.png)
+![A screenshot depicting the Keychain Access application on a Mac and the WordPress Studio CA certificate.](https://developer.wordpress.com/wp-content/uploads/2025/03/ssl-keychain.webp)
 
 4.  Double-click the certificate and expand the **Trust** section.
 5.  Set “**Secure Sockets Layer(SSL)**” to *“***Always Trust**.” You can leave all other settings the same.
 
-![A screenshot depicting the Keychain Access application on a Mac and how to set the SSL setting to "Always Trust" on the WordPress Studio CA certificate.](https://developer.wordpress.com/wp-content/uploads/2025/03/ssl-certificate-always-trust.png)
+![A screenshot depicting the Keychain Access application on a Mac and how to set the SSL setting to "Always Trust" on the WordPress Studio CA certificate.](https://developer.wordpress.com/wp-content/uploads/2025/03/ssl-certificate-always-trust.webp)
 
 6.  Close the dialog and enter your password to confirm.
 
@@ -76,17 +74,11 @@ Use this fallback only if auto-trust didn’t take effect.
 
 1.  Open `about:preferences#privacy`.
 2.  Scroll to **Certificates** and click **View Certificates…**.
-
-[![The Security section of Firefox settings, with the Manage certificates button under Certificates.](https://developer.wordpress.com/wp-content/uploads/2025/03/cleanshot-2026-05-18-at-11.54.43402x.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/03/cleanshot-2026-05-18-at-11.54.43402x.png)
-
 3.  Switch to the **Authorities** tab and click **Import…**.
-
-[![Firefox's Certificate Manager on the Authorities tab, with the Import button.](https://developer.wordpress.com/wp-content/uploads/2025/03/cleanshot-2026-05-18-at-11.54.52402x.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/03/cleanshot-2026-05-18-at-11.54.52402x.png)
-
 4.  Select `~/.studio/certificates/studio-ca.crt`.
 5.  Check **Trust this CA to identify websites** and click **OK**.
 
-[![Firefox's Downloading Certificate dialog asking whether to trust "WordPress Studio CA", with "Trust this CA to identify websites" checked.](https://developer.wordpress.com/wp-content/uploads/2025/03/cleanshot-2026-05-18-at-11.55.19402x.png?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/03/cleanshot-2026-05-18-at-11.55.19402x.png)
+[![Firefox's Downloading Certificate dialog asking whether to trust "WordPress Studio CA", with "Trust this CA to identify websites" checked.](https://developer.wordpress.com/wp-content/uploads/2025/03/firefox-trust-ca.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/03/firefox-trust-ca.webp)
 
 6.  Fully quit and relaunch Firefox.
 

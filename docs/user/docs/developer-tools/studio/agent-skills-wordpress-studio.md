@@ -27,7 +27,23 @@ WordPress Studio ships with the following built-in skills:
 
 When a skill is installed, WordPress Studio copies it into the site directory, under `.agents/skills/<skill-id>`:
 
-![Folder structure of a web development project showing directories and files related to WordPress, including 'wp-config.php' and various folders like 'skills' and 'studio-cli'.](https://developer.wordpress.com/wp-content/uploads/2026/04/image-6.png?w=624)
+```text
+my-site/
+├── .agents/
+│   └── skills/
+│       ├── studio-cli/
+│       │   └── SKILL.md
+│       ├── wp-block-development/
+│       ├── wp-block-themes/
+│       ├── wp-rest-api/
+│       └── wp-wpcli-and-ops/
+├── .claude/
+│   └── skills/          → .agents/skills/
+├── wp-admin/
+├── wp-content/
+├── wp-includes/
+└── wp-config.php
+```
 
 For agents that use Claude’s directory layout, WordPress Studio also creates a symlink at `.claude/skills/<skill-id>` pointing to the same location. No additional configuration is needed for Claude Code to pick up the skill.
 
@@ -35,11 +51,9 @@ For agents that use Claude’s directory layout, WordPress Studio also creates a
 
 There are two ways to manage skills in WordPress Studio – globally and per site.
 
-You can find the global settings for skills in **Settings → Skills**. Open **Settings** from the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux), and select the **Skills** page:
+You can find the global settings for skills in **Settings → Skills**. Open **Settings** from the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux), and select the **Skills** page.
 
-[![The Skills page of WordPress Studio's Settings, with the WordPress skills toggle and a Manage skills for this site link.](https://developer.wordpress.com/wp-content/uploads/2026/04/settings-skills.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/settings-skills.webp)
-
-From that screen you can:
+From that page you can:
 
 -   Turn on **WordPress skills** to install every available skill at once
 -   Turn on the toggle next to an individual skill to install it

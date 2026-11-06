@@ -75,7 +75,33 @@ When a new version of WordPress Studio is ready to install, an **Update availabl
 Press ⌘K (Ctrl+K on Windows and Linux) to open the command palette, where you can jump to any site or chat, run a site action, or change a setting. Press ⌘, (Ctrl+, on Windows and Linux) to open **Settings**, and ⌘B (Ctrl+B) to show or hide the sidebar. The full list of shortcuts is in **Settings → Keyboard**.
 
 [![The WordPress Studio command palette with a Search commands field and lists of quick actions and site actions such as New site, New chat, Settings, and Open WordPress Admin](https://developer.wordpress.com/wp-content/uploads/2024/04/command-palette.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2024/04/command-palette.webp)
-[![The Keyboard section of WordPress Studio Settings listing shortcuts such as Open command palette, Open settings, Add site, and Toggle sidebar](https://developer.wordpress.com/wp-content/uploads/2024/04/settings-keyboard.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2024/04/settings-keyboard.webp)
+
+The shortcuts, as listed in **Settings → Keyboard**:
+
+| Action | macOS | Windows and Linux |
+| --- | --- | --- |
+| Open command palette | ⌘K | Ctrl+K |
+| Open settings | ⌘, | Ctrl+, |
+| Add site | ⌘N | Ctrl+N |
+| Toggle sidebar | ⌘B | Ctrl+B |
+| Close dialog or menu | Esc | Esc |
+| Back in settings or preview | ⌘[ | Ctrl+[ |
+| Forward in settings or preview | ⌘] | Ctrl+] |
+| Start or stop active site | ⌥⌘S | Alt+Ctrl+S |
+| Rename site | ⌥⌘R | Alt+Ctrl+R |
+| Pin or unpin site | ⌥⌘P | Alt+Ctrl+P |
+| Rename chat | ⌥⌘R | Alt+Ctrl+R |
+| Pin or unpin chat | ⌥⌘P | Alt+Ctrl+P |
+| Archive chat | ⇧⌘A | Shift+Ctrl+A |
+| Rename the focused site or chat | F2 | F2 |
+| Answer with an option | 1–9 | 1–9 |
+| Send message | ↩ | Enter |
+| Insert newline | ⇧↩ | Shift+Enter |
+| Stop response | Esc | Esc |
+| Toggle site preview | ⇧⌘B | Shift+Ctrl+B |
+| Reload preview | ⌘R | Ctrl+R |
+| Go back in preview | ⌘← | Alt+← |
+| Go forward in preview | ⌘→ | Alt+→ |
 
 ### [Connect to WordPress.com](#connect-wordpress-com)
 
@@ -89,8 +115,6 @@ To connect WordPress Studio to WordPress.com:
 2.  A new browser window will open. Log into WordPress.com.
 3.  On the authorization screen, click **Approve** to connect WordPress Studio to your account.
 4.  Once approved, a popup will appear prompting you to open the WordPress Studio app. Click on the **“Open Studio”** button to finalize the process.
-
-[![The WordPress Studio window while logged out, with the sites sidebar, the WordPress Studio Code chat, and the site preview, and the Log in button at the bottom of the sidebar](https://developer.wordpress.com/wp-content/uploads/2024/04/main-window-signed-out.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2024/04/main-window-signed-out.webp)
 
 Once you’ve logged into WordPress.com, your account menu replaces the **Log in** button at the bottom of the sidebar, WordPress Studio Code can use your WordPress.com AI credits, and the **Publish** and **Share** buttons above the site preview let you publish your site and share preview links. If they still ask you to log in, you might need to *restart* the desktop application.
 

@@ -30,8 +30,8 @@ set -eu
 # These are documentation, configuration, and metadata files
 COMMON_NON_CODE_PATTERNS=(
   # Documentation
-  '!(*/*).md'
-  '*/README.md'
+  "*.md"
+  "*.txt"
   "docs/**"
   "LICENSE*"
 
@@ -43,8 +43,9 @@ COMMON_NON_CODE_PATTERNS=(
   ".gitignore"
   ".gitattributes"
 
-  # GitHub Markdown documentation and templates
-  ".github/*.md"
+  # Preserve the existing GitHub and CI tooling exclusions for app checks.
+  ".github/**"
+  ".buildkite/**"
 
   # Ruby/Fastlane - only affects CI distribution, not app code
   "fastlane/**"

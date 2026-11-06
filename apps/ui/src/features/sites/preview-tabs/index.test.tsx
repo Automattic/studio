@@ -126,7 +126,7 @@ it( 'opens DevTools for the selected browser tab while retaining the other guest
 			if ( id === 42 ) await user.click( first );
 			screen.getByRole( 'button', { name: 'Browser options' } ).focus();
 			await user.keyboard( '{ArrowDown}' );
-			await user.click( screen.getByRole( 'menuitem', { name: 'Open DevTools' } ) );
+			await user.click( screen.getByRole( 'menuitem', { name: 'Developer tools' } ) );
 			expect( openWebviewDevTools ).toHaveBeenLastCalledWith( id );
 		}
 		expect( document.querySelector( 'webview' ) ).toBe( firstGuest );
@@ -427,17 +427,31 @@ it.each( [
 	} );
 } );
 
-it( 'disables opening Studio-rendered tool tabs externally', async () => {
-	const { connector } = await setup();
-	fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
-	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Email log' } ) );
-	fireEvent.contextMenu( await screen.findByRole( 'tab', { name: 'Email log' } ) );
-	const open = await screen.findByRole( 'menuitem', { name: 'Open in Browser' } );
-	expect( open ).toHaveAttribute( 'aria-disabled', 'true' );
-	fireEvent.click( open );
-	expect( connector.openSiteUrl ).not.toHaveBeenCalled();
-	expect( connector.openExternalUrl ).not.toHaveBeenCalled();
-} );
+it.each( [
+	[ 'MacIntel', 'Finder' ],
+	[ 'Win32', 'File Explorer' ],
+	[ 'Linux x86_64', 'File manager' ],
+] )(
+	'opens an email tab in the system file manager on %s without selecting it',
+	async ( platform, label ) => {
+		vi.spyOn( navigator, 'platform', 'get' ).mockReturnValue( platform );
+		const { connector } = await setup();
+		await act( () => connector.setUserPreferences( { browser: 'firefox' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Email log' } ) );
+		const active = screen.getByRole( 'tab', { name: 'First' } );
+		fireEvent.click( active );
+		fireEvent.contextMenu( await screen.findByRole( 'tab', { name: 'Email log' } ) );
+		const open = await screen.findByRole( 'menuitem', { name: `Open in ${ label }` } );
+		expect( open ).not.toHaveAttribute( 'aria-disabled', 'true' );
+		expect( screen.queryByRole( 'menuitem', { name: 'Open in Firefox' } ) ).not.toBeInTheDocument();
+		fireEvent.click( open );
+		expect( connector.openSiteEmailFolder ).toHaveBeenCalledExactlyOnceWith( 'one' );
+		expect( connector.openSiteUrl ).not.toHaveBeenCalled();
+		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
+		expect( active ).toHaveAttribute( 'aria-selected', 'true' );
+	}
+);
 
 it( 'closes tabs from the context menu without selecting the right-clicked tab', async () => {
 	await setup();
@@ -524,6 +538,9 @@ it( 'shares the same tool items with the site menu and opens each preview tool i
 		'true'
 	);
 	expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 4 );
+	expect(
+		screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } )
+	).not.toBeInTheDocument();
 } );
 
 it( 'starts a stopped project from Browser and uses its first preview tab', async () => {

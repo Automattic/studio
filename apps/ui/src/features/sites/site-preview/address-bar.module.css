@@ -13,6 +13,8 @@
 }
 
 .addressBar:is( :hover, :focus-within ) {
+	--surface: var( --hover );
+
 	background-color: var( --hover );
 }
 
@@ -58,11 +60,7 @@
 }
 
 .action {
-	--button-hover-color: var( --muted-foreground );
-	--button-hover-background: color-mix( in srgb, var( --foreground ) 10%, var( --hover ) );
-
 	border-radius: var( --radius-sm );
-	color: var( --muted-foreground );
 	transition: none;
 }
 

@@ -12,20 +12,37 @@ export interface PreviewBrowserActions {
 	clearing: boolean;
 }
 
+export interface PreviewResponsiveActions {
+	active: boolean;
+	disabled: boolean;
+	onClick: () => void;
+}
+
 interface BrowserMenuItemsProps {
 	actions?: PreviewBrowserActions;
 	adminBar?: ReturnType< typeof useFrontendAdminBar >;
+	responsive?: PreviewResponsiveActions;
 	disabled?: boolean;
 }
 
-function BrowserMenuItems( { actions, adminBar, disabled }: BrowserMenuItemsProps ) {
+function BrowserMenuItems( { actions, adminBar, responsive, disabled }: BrowserMenuItemsProps ) {
 	return (
 		<>
+			{ responsive ? (
+				<Menu.Item disabled={ disabled || responsive.disabled } onClick={ responsive.onClick }>
+					{ responsive.active ? __( 'Hide device toolbar' ) : __( 'Show device toolbar' ) }
+				</Menu.Item>
+			) : null }
+			{ adminBar ? (
+				<Menu.Item
+					disabled={ disabled || adminBar.disabled }
+					onClick={ () => adminBar.onChange( adminBar.value === 'show' ? 'hide' : 'show' ) }
+				>
+					{ adminBar.value === 'show' ? __( 'Hide admin bar' ) : __( 'Show admin bar' ) }
+				</Menu.Item>
+			) : null }
 			{ actions ? (
 				<>
-					<Menu.Item disabled={ disabled } onClick={ actions.onOpenDevTools }>
-						{ __( 'Open DevTools' ) }
-					</Menu.Item>
 					<Menu.SubmenuRoot>
 						<Menu.SubmenuTrigger disabled={ disabled }>{ __( 'Appearance' ) }</Menu.SubmenuTrigger>
 						<Menu.SubmenuPopup>
@@ -41,35 +58,10 @@ function BrowserMenuItems( { actions, adminBar, disabled }: BrowserMenuItemsProp
 							</Menu.RadioGroup>
 						</Menu.SubmenuPopup>
 					</Menu.SubmenuRoot>
-				</>
-			) : null }
-			{ adminBar ? (
-				<Menu.SubmenuRoot>
-					<Menu.SubmenuTrigger disabled={ disabled || adminBar.disabled }>
-						{ __( 'Admin bar' ) }
-					</Menu.SubmenuTrigger>
-					<Menu.SubmenuPopup>
-						<Menu.RadioGroup value={ adminBar.value }>
-							<Menu.RadioItem
-								value="show"
-								disabled={ disabled || adminBar.disabled }
-								onClick={ () => adminBar.onChange( 'show' ) }
-							>
-								{ __( 'Show' ) }
-							</Menu.RadioItem>
-							<Menu.RadioItem
-								value="hide"
-								disabled={ disabled || adminBar.disabled }
-								onClick={ () => adminBar.onChange( 'hide' ) }
-							>
-								{ __( 'Hide' ) }
-							</Menu.RadioItem>
-						</Menu.RadioGroup>
-					</Menu.SubmenuPopup>
-				</Menu.SubmenuRoot>
-			) : null }
-			{ actions ? (
-				<>
+					<Menu.Separator />
+					<Menu.Item disabled={ disabled } onClick={ actions.onOpenDevTools }>
+						{ __( 'Developer tools' ) }
+					</Menu.Item>
 					<Menu.Separator />
 					<Menu.Item
 						disabled={ disabled || actions.clearing }
@@ -102,6 +94,7 @@ export function BrowserMenu( {
 									variant="ghost"
 									size="icon-sm"
 									className={ className }
+									data-preview-browser-options
 									aria-label={ __( 'Browser options' ) }
 								/>
 							}

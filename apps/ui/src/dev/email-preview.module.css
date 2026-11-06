@@ -1,0 +1,13 @@
+.preview {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-4 );
+}
+
+.stage {
+	height: max( 560px, calc( 100dvh - 180px ) );
+	overflow: hidden;
+	border: 1px solid var( --border );
+	border-radius: var( --radius-lg );
+	background: var( --background );
+}

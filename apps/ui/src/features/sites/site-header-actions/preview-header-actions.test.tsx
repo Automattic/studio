@@ -232,39 +232,40 @@ it( 'keeps browser actions directly available in a narrow preview', async () => 
 	expect( screen.getByRole( 'button', { name: 'Browser options' } ) ).toBe( options );
 	options.focus();
 	await user.keyboard( '{ArrowDown}' );
-	await user.click( await screen.findByRole( 'menuitem', { name: 'Open DevTools' } ) );
+	await user.click( await screen.findByRole( 'menuitem', { name: 'Developer tools' } ) );
 	await waitFor( () => expect( openWebviewDevTools ).toHaveBeenCalledExactlyOnceWith( 7 ) );
 } );
 
-it( 'keeps responsive mode on the right as the browser row compacts', async () => {
+it( 'keeps the device toolbar available in browser options as the row compacts', async () => {
 	const { user, resize } = await renderHeader( 'responsive-overflow', createFakeConnector(), 1000 );
-	const toggle = screen.getByRole( 'button', { name: 'Responsive mode' } );
 	const options = screen.getByRole( 'button', { name: 'Browser options' } );
 	const browser = screen.getByRole( 'toolbar', { name: 'Preview browser controls' } );
-	expect( browser ).toContainElement( toggle );
-	expect( toggle.nextElementSibling ).toBe( options );
+	expect( browser ).toContainElement( options );
+	expect( screen.queryByRole( 'button', { name: 'Responsive mode' } ) ).not.toBeInTheDocument();
 	expect(
 		screen.getByRole( 'textbox', { name: 'Address' } ).closest( 'form' )
-	).not.toContainElement( toggle );
-	await user.click( toggle );
-	expect( toggle ).toHaveAttribute( 'aria-pressed', 'true' );
+	).not.toContainElement( options );
+	options.focus();
+	await user.keyboard( '{ArrowDown}' );
+	await user.click( screen.getByRole( 'menuitem', { name: 'Show device toolbar' } ) );
 	expect( screen.getByRole( 'toolbar', { name: 'Responsive preview' } ) ).toBeInTheDocument();
 	await resize( 320 );
-	expect( screen.getByRole( 'button', { name: 'Responsive mode' } ) ).toBe( toggle );
 	expect( screen.getByRole( 'button', { name: 'Browser options' } ) ).toBe( options );
-	expect( toggle ).toHaveFocus();
-	await user.keyboard( '{Tab}{ArrowDown}' );
-	expect( screen.getByRole( 'menuitem', { name: 'Open DevTools' } ) ).toHaveFocus();
+	expect( options ).toHaveFocus();
+	await user.keyboard( '{ArrowDown}' );
+	await waitFor( () =>
+		expect( screen.getByRole( 'menuitem', { name: 'Hide device toolbar' } ) ).toHaveFocus()
+	);
 	await user.keyboard( '{Escape}' );
 	expect( options ).toHaveFocus();
 	expect(
 		screen.queryByRole( 'button', { name: 'More preview actions' } )
 	).not.toBeInTheDocument();
-	await user.click( toggle );
-	expect( toggle ).toHaveAttribute( 'aria-pressed', 'false' );
+	await user.keyboard( '{ArrowDown}' );
+	await user.click( screen.getByRole( 'menuitem', { name: 'Hide device toolbar' } ) );
 	expect( screen.queryByRole( 'toolbar', { name: 'Responsive preview' } ) ).not.toBeInTheDocument();
 	await resize( 1000 );
-	expect( screen.getByRole( 'button', { name: 'Responsive mode' } ) ).toBe( toggle );
+	expect( screen.getByRole( 'button', { name: 'Browser options' } ) ).toBe( options );
 } );
 
 it( 'keeps Annotate in the browser header at mobile widths', async () => {
@@ -294,9 +295,9 @@ it( 'keeps site actions in the main header without mobile browser overflow', asy
 		screen.queryByRole( 'button', { name: 'More preview actions' } )
 	).not.toBeInTheDocument();
 	expect( screen.queryByRole( 'button', { name: 'Stop site' } ) ).not.toBeInTheDocument();
-	for ( const name of [ 'Back', 'Forward', 'Reload preview', 'Responsive mode' ] )
+	for ( const name of [ 'Back', 'Forward', 'Reload preview', 'Browser options' ] )
 		expect( within( browser ).getByRole( 'button', { name } ) ).toBeVisible();
-	expect( screen.getByRole( 'button', { name: 'Responsive mode' } ) ).toBeVisible();
+	expect( screen.queryByRole( 'button', { name: 'Responsive mode' } ) ).not.toBeInTheDocument();
 	await resize( 1000 );
 	expect(
 		screen.queryByRole( 'button', { name: 'More preview actions' } )
@@ -343,13 +344,13 @@ it.each( [ true, false ] )(
 	}
 );
 
-it( 'moves focus to responsive mode when a narrow window hides the address', async () => {
+it( 'moves focus to browser options when a narrow window hides the address', async () => {
 	const { resize } = await renderHeader( 'address-focus', createFakeConnector(), 1000 );
 	const input = screen.getByRole( 'textbox', { name: 'Address' } );
 	act( () => input.focus() );
 	await resize( 390 );
 	expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: 'Responsive mode' } ) ).toHaveFocus();
+	expect( screen.getByRole( 'button', { name: 'Browser options' } ) ).toHaveFocus();
 } );
 
 it( 'keeps browser navigation focused when the preview narrows', async () => {

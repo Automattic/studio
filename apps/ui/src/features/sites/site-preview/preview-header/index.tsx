@@ -2,10 +2,14 @@ import { __ } from '@wordpress/i18n';
 import { useWindowControlsInset } from '@/data/host/use-window-controls-inset';
 import { useSiteHeader } from '@/features/sites/site-header-actions';
 import { PreviewAddressBar } from '@/features/sites/site-preview/address-bar';
-import { RotateCwIcon, ResponsiveIcon } from '@/lib/icons';
+import { RotateCwIcon } from '@/lib/icons';
 import { IconButton, VisuallyHidden } from '@/lib/ui';
 import { BrowserHistoryButton } from './browser-history-button';
-import { BrowserMenu, type PreviewBrowserActions } from './browser-menu';
+import {
+	BrowserMenu,
+	type PreviewBrowserActions,
+	type PreviewResponsiveActions,
+} from './browser-menu';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { useFrontendAdminBar } from '@/data/queries/use-frontend-admin-bar';
@@ -31,7 +35,7 @@ interface PreviewHeaderProps {
 	browserActions?: PreviewBrowserActions;
 	adminBarActions?: ReturnType< typeof useFrontendAdminBar >;
 	onExternalNavigate?: ( url: string ) => void;
-	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
+	responsive?: PreviewResponsiveActions;
 }
 
 export function PreviewHeader( {
@@ -72,21 +76,6 @@ export function PreviewHeader( {
 			disabled={ ! canPreview || isStarting || isStopping }
 		/>
 	);
-
-	const responsiveButton = responsive ? (
-		<IconButton
-			size="icon-sm"
-			data-preview-responsive
-			icon={ <ResponsiveIcon /> }
-			label={ responsive.active ? __( 'Exit responsive mode' ) : __( 'Responsive mode' ) }
-			aria-label={ __( 'Responsive mode' ) }
-			variant="accent-ghost"
-			aria-pressed={ responsive.active }
-			disabled={ responsive.disabled }
-			onClick={ responsive.onClick }
-			tooltipSide="bottom"
-		/>
-	) : null;
 
 	return (
 		<div
@@ -146,11 +135,11 @@ export function PreviewHeader( {
 					ref={ inactive ? undefined : attachAnnotationSpace }
 					className={ styles.previewActions }
 				/>
-				{ responsiveButton }
-				{ canPreview && ( browserActions || adminBarActions ) ? (
+				{ canPreview && ( browserActions || adminBarActions || responsive ) ? (
 					<BrowserMenu
 						actions={ browserActions }
 						adminBar={ adminBarActions }
+						responsive={ responsive }
 						disabled={ disabled }
 					/>
 				) : null }

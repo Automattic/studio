@@ -211,7 +211,7 @@ export async function prepareWpCliCommand(
 ): Promise< WpCliProcess > {
 	const phpVersion = resolveSupportedPhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
 	await ensurePhpBinaryAvailable( phpVersion );
-	await writeStudioMuPlugins( site.path, site.isWpAutoUpdating );
+	await writeStudioMuPlugins( site.path, site.isWpAutoUpdating, site.id );
 
 	// Reprint-pulled sites wire SQLite through runtime.php (loaded as auto_prepend_file),
 	// so load it here too. No-op for normal sites (helper returns undefined).

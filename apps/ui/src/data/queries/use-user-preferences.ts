@@ -33,7 +33,7 @@ export function useSaveUserPreferences() {
 			// the patch when it settles.
 			await queryClient.cancelQueries( { queryKey: USER_PREFERENCES_QUERY_KEY } );
 			const previous = queryClient.getQueryData< UserPreferences >( USER_PREFERENCES_QUERY_KEY );
-			if ( ! previous || 'studioCliInstalled' in partial ) {
+			if ( ! previous || 'studioCliInstalled' in partial || 'hideFrontendAdminBar' in partial ) {
 				return undefined;
 			}
 			queryClient.setQueryData< UserPreferences >( USER_PREFERENCES_QUERY_KEY, {
@@ -60,6 +60,10 @@ export function useSaveUserPreferences() {
 			// A fetch that started during the save may have read the preferences
 			// before it landed; cancel it so its result can't overwrite the save.
 			await queryClient.cancelQueries( { queryKey: USER_PREFERENCES_QUERY_KEY } );
+			// Reload previews from the committed value, including after overlapping saves.
+			if ( 'hideFrontendAdminBar' in partial ) {
+				return queryClient.invalidateQueries( { queryKey: USER_PREFERENCES_QUERY_KEY } );
+			}
 			if ( context ) {
 				return;
 			}

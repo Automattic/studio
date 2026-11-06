@@ -19,6 +19,7 @@
 	},
 	"dependencies": {
 		"@automattic/generate-password": "^0.2.0",
+		"@modelcontextprotocol/sdk": "^1.27.1",
 		"@sentry/core": "^11.8.0",
 		"@vscode/sudo-prompt": "^9.3.2",
 		"@wordpress/i18n": "^6.30.0",

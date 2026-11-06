@@ -77,7 +77,11 @@ import {
 	removeStaticSiteImportBundle,
 	type PreparedSourceImport,
 } from 'cli/lib/static-site-import/prepare';
-import { StaticSiteImportRun } from 'cli/lib/static-site-import/run';
+import {
+	hasStagedImportOf,
+	StaticSiteImportRun,
+	stagedUrlImport,
+} from 'cli/lib/static-site-import/run';
 import {
 	classifySourceImport,
 	isUrl,
@@ -131,6 +135,68 @@ function parseFlowType( value: string | undefined ): TracksSiteCreateFlowType | 
 	return SITE_CREATE_FLOW_TYPES.find( ( flowType ) => flowType === value );
 }
 
+async function validateSitePath( sitePath: string ) {
+	const exists = await pathExists( sitePath );
+	const isEmpty = exists && ( await isEmptyDir( sitePath ) );
+	const isWordPressDir = exists && isWordPressDirectory( sitePath );
+
+	if ( exists && ! isEmpty && ! isWordPressDir ) {
+		throw new LoggerError(
+			__( 'The selected directory is not empty nor an existing WordPress site.' )
+		);
+	}
+
+	return { exists, isWordPressDir };
+}
+
+function validateCustomDomain( customDomain: string | undefined, sites: SiteData[] ) {
+	if ( ! customDomain ) {
+		return;
+	}
+	const existingDomains = sites
+		.map( ( site ) => site.customDomain )
+		.filter( ( domain ): domain is string => Boolean( domain ) );
+	const domainError = getDomainNameValidationError( true, customDomain, existingDomains );
+	if ( domainError ) {
+		throw new LoggerError( domainError );
+	}
+}
+
+/**
+ * The checks `runCommand` would fail on that can run before the import source is prepared, so a
+ * `--from` create fails before it spends minutes capturing or downloading that source.
+ */
+async function validateBeforeSourceImport(
+	sitePath: string,
+	source: string,
+	options: Pick< CreateCommandOptions, 'customDomain' | 'adminUsername' | 'adminEmail' >
+) {
+	await validateSitePath( sitePath );
+
+	const { sites } = await readCliConfig();
+	const isSiteInUse = sites.some( ( site ) => arePathsEqual( site.path, sitePath ) );
+	if ( isSiteInUse ) {
+		// A staged import resumes on the existing site, so its creation options aren't reapplied.
+		const canResume = isUrl( source )
+			? Boolean( stagedUrlImport( sitePath, source ) )
+			: hasStagedImportOf( sitePath, source );
+		if ( canResume ) {
+			return;
+		}
+		throw new LoggerError( __( 'The selected directory is already in use.' ) );
+	}
+
+	validateCustomDomain( options.customDomain, sites );
+
+	const adminEmail = options.adminEmail?.trim();
+	const adminError =
+		( options.adminUsername && validateAdminUsername( options.adminUsername ) ) ||
+		( adminEmail && validateAdminEmail( adminEmail ) );
+	if ( adminError ) {
+		throw new LoggerError( adminError );
+	}
+}
+
 export async function runCommand(
 	sitePath: string,
 	options: CreateCommandOptions,
@@ -161,15 +227,8 @@ export async function runCommand(
 	try {
 		logger.reportStart( LoggerAction.VALIDATE, __( 'Validating site configuration…' ) );
 
-		const pathExistsResult = await pathExists( sitePath );
-		const isEmptyDirResult = pathExistsResult && ( await isEmptyDir( sitePath ) );
-		const isWordPressDirResult = pathExistsResult && isWordPressDirectory( sitePath );
-
-		if ( pathExistsResult && ! isEmptyDirResult && ! isWordPressDirResult ) {
-			throw new LoggerError(
-				__( 'The selected directory is not empty nor an existing WordPress site.' )
-			);
-		}
+		const { exists: pathExistsResult, isWordPressDir: isWordPressDirResult } =
+			await validateSitePath( sitePath );
 
 		let blueprintUri: string | undefined;
 		let blueprint: BlueprintV1Declaration | undefined;
@@ -223,19 +282,7 @@ export async function runCommand(
 			portFinder.addUnavailablePort( site.port );
 		}
 
-		if ( options.customDomain ) {
-			const existingDomains = cliConfig.sites
-				.map( ( site ) => site.customDomain )
-				.filter( ( domain ): domain is string => Boolean( domain ) );
-			const domainError = getDomainNameValidationError(
-				true,
-				options.customDomain,
-				existingDomains
-			);
-			if ( domainError ) {
-				throw new LoggerError( domainError );
-			}
-		}
+		validateCustomDomain( options.customDomain, cliConfig.sites );
 
 		logger.reportSuccess( __( 'Site configuration validated' ) );
 
@@ -735,6 +782,7 @@ export async function commandHandler(
 	try {
 		let preparedImport: PreparedSourceImport | undefined;
 		if ( argv.from ) {
+			await validateBeforeSourceImport( sitePath, argv.from, config );
 			preparedImport = await prepareSourceImport( argv.from, sitePath, siteName, defaultLogger, {
 				siteNameIsExplicit: argv.name !== undefined,
 				staticSiteImporter: argv.staticSiteImporterPath

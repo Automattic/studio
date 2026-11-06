@@ -2,7 +2,6 @@ import { emitChatArtifactWidgets } from '@studio/agent/node/chat-artifacts';
 import { convertToBlocksTool } from './convert-to-blocks';
 import { createPreviewTool } from './create-preview';
 import { createSiteTool } from './create-site';
-import { scaffoldThemeTool } from './scaffold-theme';
 import { bindTool } from './define-tool';
 import { deletePreviewTool } from './delete-preview';
 import { deleteSiteTool } from './delete-site';
@@ -18,6 +17,8 @@ import { publishTargetsTool } from './publish-targets';
 import { pullSiteTool } from './pull-site';
 import { pushSiteTool } from './push-site';
 import { auditSeoTool } from './rank-me-up';
+import { scaffoldThemeTool } from './scaffold-theme';
+import { sendFeedbackTool } from './send-feedback';
 import { getSiteInfoTool } from './site-info';
 import { startSiteTool } from './start-site';
 import { stopSiteTool } from './stop-site';
@@ -58,6 +59,7 @@ export const studioToolDefinitions: StudioToolDefinition[] = [
 	importSiteTool,
 	exportSiteTool,
 	openAnnotationBrowserTool,
+	sendFeedbackTool,
 ];
 
 // The Studio tools as they appear to an agent, bound to `host`: each decides

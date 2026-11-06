@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getStudioUserAgent } from '@studio/common/lib/user-agent';
 import { __ } from '@wordpress/i18n';
 import { openBrowser } from 'cli/lib/browser';
 import { capturePreview } from 'cli/lib/capture-preview';
@@ -44,6 +45,7 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 		recordTracksEvent: ( event, props ) =>
 			recordTracksEvent( event, { ...getTracksOrigin(), ...props } ),
 		capturePreview,
+		userAgent: getStudioUserAgent( __STUDIO_CLI_VERSION__ ),
 	} );
 
 	// The browser UI's equivalent of the desktop's `appBoot` launch event. No

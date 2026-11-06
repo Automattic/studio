@@ -316,6 +316,7 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		need_for_speed: __( 'Audit performance' ),
 		rank_me_up: __( 'Audit SEO' ),
 		install_taxonomy_scripts: __( 'Install taxonomy scripts' ),
+		send_feedback: __( 'Send feedback' ),
 		AskUserQuestion: __( 'Ask user' ),
 		Read: __( 'Read' ),
 		Write: __( 'Write' ),

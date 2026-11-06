@@ -11,6 +11,7 @@ import {
 	getPreviewRealm,
 	getRealmNavigationPath,
 	getRealmOpenEvent,
+	isWordPressAuthPath,
 	type PreviewRealm,
 } from './address-bar';
 import { EMPTY_BROWSER_STATE, type BrowserCommand } from './browser-state';
@@ -169,7 +170,7 @@ export function usePreviewSurfaces( {
 	}, [ siteId ] );
 	useEffect( () => {
 		// Auto-login is a transient hop, not a place to return to.
-		if ( path.startsWith( '/studio-auto-login' ) ) {
+		if ( path.startsWith( '/studio-auto-login' ) || isWordPressAuthPath( path ) ) {
 			return;
 		}
 		lastRealmPathsRef.current[ getPreviewRealm( path ) ] = path;

@@ -10,8 +10,9 @@ import {
 	getSiteAnnotations,
 } from '@/features/annotations';
 import { clearComposerDrafts } from '@/features/composer';
-import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
+import { createFakeConnector, makeSession, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
+import type { SessionEntry } from '@/data/core';
 
 beforeEach( () => {
 	localStorage.clear();
@@ -51,6 +52,58 @@ async function newBrowserTab() {
 	await waitFor( () => expect( selectedTab() ).toHaveFocus() );
 	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).not.toHaveFocus();
 }
+
+it.each( [ true, false ] )(
+	'opens a chat tool link in a new tab (panel open: %s)',
+	async ( open ) => {
+		const connector = createFakeConnector( {
+			sites: [ makeSite( { id: 'one', name: 'First', running: true } ) ],
+			sessions: [
+				{
+					summary: makeSession( { id: 'chat', ownerSiteId: 'one' } ),
+					entries: [
+						{
+							id: 'reply',
+							type: 'message',
+							message: {
+								role: 'assistant',
+								content: [
+									{
+										type: 'text',
+										text: 'Updated the [design system](studio:design-system) with warmer colors.',
+									},
+								],
+							},
+						} as SessionEntry,
+					],
+				},
+			],
+		} );
+		const { user } = renderApp( { connector, path: '/sessions/chat' } );
+		const chip = await screen.findByRole( 'button', { name: 'Open design system' } );
+		if ( screen.queryByRole( 'button', { name: 'Show panel' } ) )
+			await user.click( screen.getByRole( 'button', { name: 'Show panel' } ) );
+		const address = screen.getByRole( 'textbox', { name: 'Address' } );
+		await user.clear( address );
+		await user.type( address, '/about/{Enter}' );
+		const firstTab = screen.getByRole( 'tab', { name: 'First' } );
+		const firstPage = document.querySelector( 'iframe' );
+		if ( ! open ) await user.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
+		await user.click( chip );
+		expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 );
+		expect( screen.getByRole( 'tab', { name: 'Design system' } ) ).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
+		expect( screen.getByRole( 'button', { name: 'Hide panel' } ) ).toBeVisible();
+		expect( document.querySelector( 'iframe' ) ).toBe( firstPage );
+		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
+		await user.click( firstTab );
+		expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
+			'http://localhost:9010/about/'
+		);
+	}
+);
 
 it( 'opens DevTools for the selected browser tab while retaining the other guests', async () => {
 	const userAgent = window.navigator.userAgent;
@@ -961,7 +1014,10 @@ it( 'reopens a batched design note in its existing tab without scrolling', async
 	const { connector, queryClient, user } = await setup( true, true );
 	const styles = {
 		settings: {},
-		styles: { color: { background: '#ffffff', text: '#111111' }, typography: { fontFamily: 'Inter' } },
+		styles: {
+			color: { background: '#ffffff', text: '#111111' },
+			typography: { fontFamily: 'Inter' },
+		},
 	};
 	connector.getGlobalStyles.mockResolvedValue( styles );
 	await act( () => queryClient.setQueryData( [ 'global-styles', 'one' ], styles ) );

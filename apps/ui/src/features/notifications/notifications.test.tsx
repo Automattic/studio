@@ -49,6 +49,99 @@ const bell = () => screen.getByRole( 'button', { name: /Notification history/ } 
 const hasDot = () => bell().getAttribute( 'aria-label' )?.includes( 'notifications available' );
 
 describe( 'notifications popover', () => {
+	it.each( [ false, true ] )(
+		'toggles expandable cards from the whole surface (toast: %s)',
+		async ( withToasts ) => {
+			const onAction = vi.fn( () => new Promise< void >( () => {} ) );
+			const title = 'Import needs attention';
+			const description = 'Full details about the import';
+			showToast( { title, description, action: { label: 'Retry', onClick: onAction } } );
+			const { user } = await setup( withToasts );
+			if ( ! withToasts ) await user.click( bell() );
+			const disclosure = await screen.findByRole( 'button', {
+				name: `View notification: ${ title }`,
+			} );
+			const card = screen.getByText( title ).closest( '[role="presentation"]' )!;
+
+			await user.click( screen.getByText( title ) );
+			expect( disclosure ).toHaveAttribute( 'aria-expanded', 'true' );
+			await user.click( screen.getByText( description ) );
+			expect( disclosure ).toHaveAttribute( 'aria-expanded', 'false' );
+			await user.click( card );
+			expect( disclosure ).toHaveAttribute( 'aria-expanded', 'true' );
+			act( () => disclosure.focus() );
+			await user.keyboard( ' ' );
+			expect( disclosure ).toHaveAttribute( 'aria-expanded', 'false' );
+			await user.keyboard( '{Enter}' );
+			expect( disclosure ).toHaveAttribute( 'aria-expanded', 'true' );
+
+			await user.click( screen.getByRole( 'button', { name: 'Retry' } ) );
+			expect( onAction ).toHaveBeenCalledOnce();
+			expect( disclosure ).toHaveAttribute( 'aria-expanded', 'true' );
+			await user.click( screen.getByRole( 'button', { name: `Dismiss ${ title }` } ) );
+			expect( disclosure ).toHaveAttribute( 'aria-expanded', 'true' );
+			await waitFor( () => expect( card ).not.toBeInTheDocument() );
+		}
+	);
+
+	it( 'toggles a toast when swipe capture redirects the click to its container', async () => {
+		showToast( { title: 'Import failed', description: 'Full error details' } );
+		await setup( true );
+		const notice = await screen.findByRole( 'dialog', { name: 'Import failed' } );
+		const title = screen.getByText( 'Import failed' );
+		const disclosure = screen.getByRole( 'button', { name: 'View notification: Import failed' } );
+
+		for ( const expanded of [ 'true', 'false' ] ) {
+			fireEvent.pointerDown( title, { button: 0, clientX: 50, clientY: 50 } );
+			fireEvent.pointerUp( notice, { clientX: 51, clientY: 50 } );
+			fireEvent.click( notice, { clientX: 51, clientY: 50, detail: 1 } );
+			expect( disclosure ).toHaveAttribute( 'aria-expanded', expanded );
+		}
+	} );
+
+	it( 'keeps toast details closed after an unfinished swipe returns to its starting point', async () => {
+		showToast( { title: 'Import failed', description: 'Full error details' } );
+		await setup( true );
+		const notice = await screen.findByRole( 'dialog', { name: 'Import failed' } );
+		const disclosure = screen.getByRole( 'button', { name: 'View notification: Import failed' } );
+
+		fireEvent.pointerDown( screen.getByText( 'Import failed' ), {
+			button: 0,
+			clientX: 50,
+			clientY: 50,
+		} );
+		fireEvent.pointerMove( notice, { clientX: 60, clientY: 50 } );
+		fireEvent.pointerMove( notice, { clientX: 50, clientY: 50 } );
+		fireEvent.pointerUp( notice, { clientX: 50, clientY: 50 } );
+		fireEvent.click( notice, { clientX: 50, clientY: 50, detail: 1 } );
+
+		expect( disclosure ).toHaveAttribute( 'aria-expanded', 'false' );
+		expect( notice ).toBeVisible();
+	} );
+
+	it( 'keeps expanded notification text selectable', async () => {
+		const description = 'Select these error details to copy them';
+		showToast( { title: 'Import failed', description } );
+		const { user } = await setup( true );
+		const disclosure = await screen.findByRole( 'button', {
+			name: 'View notification: Import failed',
+		} );
+		await user.click( disclosure );
+		const details = screen.getByText( description );
+		const selection = document.getSelection()!;
+		const range = document.createRange();
+		range.selectNodeContents( details );
+		selection.removeAllRanges();
+		selection.addRange( range );
+		try {
+			fireEvent.click( details );
+			expect( selection.toString() ).toBe( description );
+			expect( disclosure ).toHaveAttribute( 'aria-expanded', 'true' );
+		} finally {
+			selection.removeAllRanges();
+		}
+	} );
+
 	it( 'places actions beside the expandable summary and outside its button', async () => {
 		showToast( {
 			title: 'A very long notification title',

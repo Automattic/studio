@@ -7,6 +7,7 @@
  */
 import { wpcomApproval, type HostSiteListing, type RemoteHost } from '@studio/agent/node';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
 import { spacefast } from 'cli/ai/spacefast-host';
 import { getWpComSites } from 'cli/lib/api';
 import { parseSyncOptions } from 'cli/lib/sync-api';
@@ -124,7 +125,6 @@ const wpcom: RemoteHost = {
 	},
 	async pull( site, target, options, onProgress ) {
 		const syncOptions = parseSyncOptions( options );
-		const { isReprintPullEnabled } = await import( 'cli/lib/pull/pull-engine' );
 		let pulled;
 		if ( isReprintPullEnabled() ) {
 			const [ { runCommand }, { pullSelectionFromSyncOptions } ] = await Promise.all( [

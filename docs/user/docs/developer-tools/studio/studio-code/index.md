@@ -97,6 +97,7 @@ While chatting, you can use slash commands for quick actions:
 | /clear | Clear the conversation and start a fresh session | Terminal |
 | /credits | Show your AI credit balance and buy more AI credits | Terminal |
 | /exit | Exit the chat | Terminal |
+| /feedback | Send feedback about WordPress Studio to the WordPress Studio team | Terminal and desktop |
 | /liberate | Migrate and rebuild a site from a closed platform to WordPress | Terminal and desktop |
 | /login | Log in to WordPress.com | Terminal |
 | /logout | Log out of WordPress.com | Terminal |

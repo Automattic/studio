@@ -110,7 +110,7 @@ describe( 'Studio AI MCP tools', () => {
 		expect( annotations.site_list ).toEqual( REMOTE_READ );
 		expect( annotations.site_info ).toEqual( READ_ONLY );
 		expect( annotations.site_create ).toEqual( LOCAL_CHANGE );
-		for ( const name of [ 'site_delete', 'site_push', 'site_pull', 'wp_cli' ] ) {
+		for ( const name of [ 'site_delete', 'site_push', 'site_pull', 'wp_cli', 'send_feedback' ] ) {
 			const { readOnlyHint, destructiveHint, openWorldHint } = annotations[ name ];
 			expect( readOnlyHint || ( ! destructiveHint && ! openWorldHint ) ).toBe( false );
 		}
@@ -444,13 +444,13 @@ describe( 'Studio AI MCP tools', () => {
 	it( 'updates previews with a normalized hostname', async () => {
 		const result = await getTool( 'preview_update' ).rawHandler( {
 			nameOrPath: 'My Site',
-			host: 'https://demo.wordpress.com/',
+			host: 'https://demo.wp.build/',
 			overwrite: true,
 		} as never );
 
 		expect( host.previews.update ).toHaveBeenCalledWith(
 			mockSite,
-			'demo.wordpress.com',
+			'demo.wp.build',
 			true,
 			expect.any( Function )
 		);
@@ -464,14 +464,11 @@ describe( 'Studio AI MCP tools', () => {
 
 		await expect(
 			getTool( 'preview_delete' ).rawHandler( {
-				host: 'https://demo.wordpress.com/',
+				host: 'https://demo.wp.build/',
 			} as never )
 		).rejects.toThrow( 'Failed to delete preview site: Preview site not found.' );
 
-		expect( host.previews.delete ).toHaveBeenCalledWith(
-			'demo.wordpress.com',
-			expect.any( Function )
-		);
+		expect( host.previews.delete ).toHaveBeenCalledWith( 'demo.wp.build', expect.any( Function ) );
 	} );
 
 	it.each( [

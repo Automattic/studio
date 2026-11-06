@@ -29,10 +29,17 @@ function anchorFor( element: Element, point: VisualAnnotationTarget[ 'point' ] )
 export function useDesignAnnotations( {
 	siteId,
 	root,
+	enabled = true,
 	onAnnotationPick,
 	onAnnotationAnchor,
-}: DesignAnnotationProps & { siteId: string; root: HTMLElement | null } ) {
-	const { active, notes, editingId, blockedNavigation } = useSiteAnnotations( siteId );
+}: DesignAnnotationProps & { siteId: string; root: HTMLElement | null; enabled?: boolean } ) {
+	const {
+		active: annotationActive,
+		notes,
+		editingId,
+		blockedNavigation,
+	} = useSiteAnnotations( siteId );
+	const active = enabled && annotationActive;
 	const targets = useRef( new Map< string, VisualAnnotationTarget >() );
 	const editing = notes.find( ( note ) => note.id === editingId && note.targetKey );
 

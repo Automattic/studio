@@ -61,7 +61,8 @@
 		position: absolute;
 		inset: 0;
 		border-radius: inherit;
-		box-shadow: inset 0 0 0 var( --image-outline-width, 1px ) var( --border );
+		box-shadow: inset 0 0 0 var( --image-outline-width, 1px )
+			var( --image-outline-color, color-mix( in oklab, var( --foreground ) 12%, transparent ) );
 		content: '';
 		pointer-events: none;
 	}
@@ -81,12 +82,13 @@
 }
 
 @layer ui {
+	.imagePreviewFrame {
+		composes: imageOutline;
+		box-shadow: var( --preview-frame-shadow, var( --shadow-preview ) );
+	}
+
 	.previewFrame {
-		box-shadow: var(
-			--preview-frame-shadow,
-			0 0 0 1px var( --border ),
-			0 1px 3px rgb( 0 0 0 / 10% )
-		);
+		box-shadow: var( --preview-frame-shadow, 0 0 0 1px var( --border ), var( --shadow-preview ) );
 	}
 	.previewFrame::after {
 		position: absolute;

@@ -63,3 +63,4 @@ export { DisconnectIcon } from './disconnect-icon';
 export { RefreshIcon } from './refresh-icon';
 
 export * from './unread-status-icon';
+export * from './feedback-icon';

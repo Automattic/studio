@@ -4,10 +4,18 @@
 import { IpcMainInvokeEvent, dialog, shell } from 'electron';
 import { existsSync } from 'fs';
 import { normalize } from 'path';
+import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { readSitePath } from '@studio/common/sites/site-path';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
-import { getFileSize, openURL, readBlueprintFile, showOpenFolderDialog } from 'src/ipc-handlers';
+import {
+	fetchSyncableWpcomSites,
+	getFileSize,
+	openURL,
+	readBlueprintFile,
+	showOpenFolderDialog,
+} from 'src/ipc-handlers';
+import { getAuthenticationToken } from 'src/lib/oauth';
 
 vi.mock( 'fs' );
 vi.mock( 'fs/promises', async () => {
@@ -15,6 +23,8 @@ vi.mock( 'fs/promises', async () => {
 	return { default: fs.promises };
 } );
 vi.mock( '@studio/common/sites/site-path' );
+vi.mock( '@studio/common/lib/sync/sync-api' );
+vi.mock( 'src/lib/oauth' );
 
 beforeEach( () => {
 	vol.reset();
@@ -24,6 +34,28 @@ const mockIpcMainInvokeEvent = {
 	sender: { isDestroyed: vi.fn().mockReturnValue( false ) },
 	// Double assert the type with `unknown` to simplify mocking this value
 } as unknown as IpcMainInvokeEvent;
+
+describe( 'fetchSyncableWpcomSites', () => {
+	afterEach( () => vi.unstubAllEnvs() );
+
+	it.each( [
+		{ flag: undefined, planRequired: true },
+		{ flag: '1', planRequired: false },
+	] )(
+		'requires a plan: $planRequired with Reprint flag $flag',
+		async ( { flag, planRequired } ) => {
+			vi.stubEnv( 'STUDIO_ENABLE_PULL_REPRINT', flag );
+			vi.mocked( getAuthenticationToken ).mockResolvedValue( {
+				accessToken: 'test-token',
+			} as Awaited< ReturnType< typeof getAuthenticationToken > > );
+			vi.mocked( fetchSyncableSites ).mockResolvedValue( [] );
+
+			await fetchSyncableWpcomSites( mockIpcMainInvokeEvent );
+
+			expect( fetchSyncableSites ).toHaveBeenCalledWith( 'test-token', { planRequired } );
+		}
+	);
+} );
 
 describe( 'readBlueprintFile', () => {
 	it( 'deletes the temporary deep-link file after reading it', async () => {

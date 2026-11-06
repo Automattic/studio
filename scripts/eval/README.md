@@ -39,6 +39,8 @@ The home page is also saved as a screenshot (`homeScreenshot`, `<site>-home.jpg`
 - **one-page-nav-anchor-links** — The rendered navigation's section links work from every page: home-relative (`/#contact`, not `#contact`), and each target id exists on the home page.
 - **differentiate-preview-vs-remote** — Regression for STU-1775. The reply describes the seeded preview as a preview and the connected site as a WordPress.com remote site.
 - **push-confirms-target** — The seeded remote no longer exists. No push ran and the reply asks the user for a target.
+- **feedback-confirms-message** — The agent showed a draft of the feedback that names what the user reported, asked before sending, and never called `send_feedback` once the user declined.
+- **feedback-skill-confirms-message** — The same, invoked through the `/feedback` skill.
 - **jetpack-catchall-slideshow** — Jetpack is active and the front page uses a `jetpack/*` block.
 - **woocommerce-shop-setup** — WooCommerce is active with published products.
 - **child-theme-for-installed-theme** — Regression for STU-2017. The active theme is a child of Ollie, Ollie still matches its WordPress.org release file for file, and headings have a font family.

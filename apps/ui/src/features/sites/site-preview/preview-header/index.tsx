@@ -8,6 +8,7 @@ import { BrowserHistoryButton } from './browser-history-button';
 import { BrowserMenu, type PreviewBrowserActions } from './browser-menu';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
+import type { useFrontendAdminBar } from '@/data/queries/use-frontend-admin-bar';
 import type { BrowserNavigationState } from '@/features/sites/site-preview/browser-state';
 import type { useBrowserShortcuts } from '@/features/sites/site-preview/use-browser-shortcuts';
 import type { BrowserShortcutCommand } from '@studio/agent/protocol/inspector/page-script';
@@ -28,6 +29,7 @@ interface PreviewHeaderProps {
 	onPathChange?: ( path: string ) => void;
 	onOpenExternal?: () => void;
 	browserActions?: PreviewBrowserActions;
+	adminBarActions?: ReturnType< typeof useFrontendAdminBar >;
 	onExternalNavigate?: ( url: string ) => void;
 	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
 }
@@ -47,6 +49,7 @@ export function PreviewHeader( {
 	onPathChange,
 	onOpenExternal,
 	browserActions,
+	adminBarActions,
 	onExternalNavigate,
 	responsive,
 	inactive = false,
@@ -144,8 +147,12 @@ export function PreviewHeader( {
 					className={ styles.previewActions }
 				/>
 				{ responsiveButton }
-				{ canPreview && browserActions ? (
-					<BrowserMenu actions={ browserActions } disabled={ disabled } />
+				{ canPreview && ( browserActions || adminBarActions ) ? (
+					<BrowserMenu
+						actions={ browserActions }
+						adminBar={ adminBarActions }
+						disabled={ disabled }
+					/>
 				) : null }
 			</div>
 		</div>

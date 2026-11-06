@@ -24,7 +24,6 @@ interface PanelSplitFrameProps {
 	panelOpen?: boolean;
 	// The panel fills the frame over the hidden chat; the sidebar stays.
 	chatHidden?: boolean;
-	chatTabActive?: boolean;
 	// Skip movement when restoring a different workspace.
 	instant?: boolean;
 	children?: ReactNode;
@@ -37,13 +36,11 @@ export function PanelSplitFrame( {
 	panel,
 	panelOpen = false,
 	chatHidden = false,
-	chatTabActive = false,
 	instant = false,
 	children,
 }: PanelSplitFrameProps ) {
 	const showPanel = panelOpen && panel != null;
 	const contentCollapsed = showPanel && chatHidden;
-	const showingChatTab = contentCollapsed && chatTabActive;
 	const { rootRef, containerWidth, contentWidthVar, isResizing, handleProps } = usePanelSplit( {
 		showPanel,
 		siteId,
@@ -64,15 +61,13 @@ export function PanelSplitFrame( {
 		mounted: panel != null,
 		open: showPanel,
 		collapsed: contentCollapsed,
-		chatSelected: showingChatTab,
 	} );
 	if (
 		previousPanel.siteId !== siteId ||
 		previousPanel.navigationKey !== navigationKey ||
 		previousPanel.mounted !== ( panel != null ) ||
 		previousPanel.open !== showPanel ||
-		previousPanel.collapsed !== contentCollapsed ||
-		previousPanel.chatSelected !== showingChatTab
+		previousPanel.collapsed !== contentCollapsed
 	) {
 		setPreviousPanel( {
 			siteId,
@@ -80,7 +75,6 @@ export function PanelSplitFrame( {
 			mounted: panel != null,
 			open: showPanel,
 			collapsed: contentCollapsed,
-			chatSelected: showingChatTab,
 		} );
 		const toggled =
 			previousPanel.open !== showPanel || previousPanel.collapsed !== contentCollapsed;
@@ -90,9 +84,7 @@ export function PanelSplitFrame( {
 			previousPanel.mounted &&
 			panel != null;
 		if ( toggled || ! samePanel ) {
-			setAnimatingPanelToggle(
-				toggled && samePanel && ! instant && ! ( previousPanel.chatSelected && ! showPanel )
-			);
+			setAnimatingPanelToggle( toggled && samePanel && ! instant );
 		}
 	}
 
@@ -114,9 +106,9 @@ export function PanelSplitFrame( {
 
 	const [ lastExpanded, setLastExpanded ] = useState( contentCollapsed );
 	if ( showPanel && lastExpanded !== contentCollapsed ) setLastExpanded( contentCollapsed );
-	const panelVisible = ( showPanel || animatingPanelToggle ) && ! showingChatTab;
+	const panelVisible = showPanel || animatingPanelToggle;
 	const renderPanel = ! showPanel && animatingPanelToggle ? lastVisiblePanel : panel;
-	const renderedPanel = renderPanel?.( { collapsed: ! showPanel || showingChatTab } );
+	const renderedPanel = renderPanel?.( { collapsed: ! showPanel } );
 	const rootStyle = {
 		'--panel-layout-duration': animatingPanelToggle ? 'var(--motion-duration-layout)' : '0ms',
 		'--panel-frame-boundary': showPanel ? ( contentCollapsed ? '0px' : contentWidthVar ) : '100%',
@@ -126,14 +118,13 @@ export function PanelSplitFrame( {
 			: contentWidthVar,
 	} as CSSProperties;
 	// The panel covers the chat as it closes; keep its layout intact underneath.
-	const contentHidden = contentCollapsed && ! animatingPanelToggle && ! showingChatTab;
+	const contentHidden = contentCollapsed && ! animatingPanelToggle;
 	// Which pane reaches the window's top-right corner. The panel sits at the
 	// inline end, so in RTL it only gets there when it fills the frame, and the
 	// content only when the sidebar isn't there.
 	const contentInCorner =
-		showingChatTab ||
-		( ! contentCollapsed && ( ! showPanel || ( isRTL() && isSidebarCollapsed ) ) );
-	const panelInCorner = showPanel && ! showingChatTab && ( contentCollapsed || ! isRTL() );
+		! contentCollapsed && ( ! showPanel || ( isRTL() && isSidebarCollapsed ) );
+	const panelInCorner = showPanel && ( contentCollapsed || ! isRTL() );
 
 	return (
 		<>
@@ -155,11 +146,10 @@ export function PanelSplitFrame( {
 					className={ clsx(
 						styles.contentColumn,
 						contentCollapsed && styles.contentColumnCollapsed,
-						showingChatTab && styles.contentColumnFull,
 						contentHidden && styles.contentColumnHidden
 					) }
 					aria-hidden={ contentHidden || undefined }
-					inert={ contentCollapsed && ! showingChatTab }
+					inert={ contentCollapsed }
 				>
 					<WindowControlsCornerContext.Provider value={ contentInCorner }>
 						{ children }
@@ -170,10 +160,10 @@ export function PanelSplitFrame( {
 						className={ clsx(
 							styles.panelSlot,
 							panelVisible && styles.panelSlotVisible,
-							showPanel && ! showingChatTab && styles.panelSlotInteractive
+							showPanel && styles.panelSlotInteractive
 						) }
-						aria-hidden={ ! showPanel || showingChatTab }
-						inert={ ! showPanel || showingChatTab }
+						aria-hidden={ ! showPanel }
+						inert={ ! showPanel }
 					>
 						<WindowControlsCornerContext.Provider value={ panelInCorner }>
 							{ renderedPanel }

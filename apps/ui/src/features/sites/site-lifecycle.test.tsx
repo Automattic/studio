@@ -230,7 +230,7 @@ describe( 'site lifecycle and preview', () => {
 			frame()!,
 			Object.assign( new Event( 'did-fail-load' ), { errorCode: -102, isMainFrame: true } )
 		);
-		expect( await screen.findByText( 'Preview could not load.' ) ).toBeVisible();
+		expect( await screen.findByText( 'Browser could not load.' ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Try again' } ) ).toBeVisible();
 		expect( panelShown() ).toBe( true );
 	} );

@@ -217,7 +217,7 @@ export function PreviewLoadFailed( { onRetry }: { onRetry: () => void } ) {
 	return (
 		<PanelLoadError
 			className={ styles.loadFailed }
-			message={ __( 'Preview could not load.' ) }
+			message={ __( 'Browser could not load.' ) }
 			onRetry={ onRetry }
 		/>
 	);

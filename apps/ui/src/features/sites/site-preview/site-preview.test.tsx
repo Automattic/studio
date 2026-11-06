@@ -326,7 +326,7 @@ describe( 'site preview', () => {
 			webview,
 			Object.assign( new Event( 'did-fail-load' ), { errorCode: -102, isMainFrame: true } )
 		);
-		expect( screen.getByText( 'Preview could not load.' ) ).toBeVisible();
+		expect( screen.getByText( 'Browser could not load.' ) ).toBeVisible();
 		await user.click( screen.getByRole( 'button', { name: 'Try again' } ) );
 		await waitFor( () => expect( webview.reload ).toHaveBeenCalledOnce() );
 	} );
@@ -356,7 +356,7 @@ describe( 'site preview', () => {
 		await user.click( await screen.findByRole( 'button', { name: 'Try again' } ) );
 		finishLoading( 'browser' );
 		await waitFor( () =>
-			expect( screen.queryByText( 'Preview could not load.' ) ).not.toBeInTheDocument()
+			expect( screen.queryByText( 'Browser could not load.' ) ).not.toBeInTheDocument()
 		);
 		expect( fetch ).toHaveBeenCalledWith( `${ SITE_URL }/`, expect.anything() );
 	} );
@@ -372,7 +372,7 @@ describe( 'site preview', () => {
 			webview,
 			Object.assign( new Event( 'did-fail-load' ), { errorCode: -102, isMainFrame: false } )
 		);
-		expect( screen.queryByText( 'Preview could not load.' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Browser could not load.' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'queues early reloads until the Electron guest is ready', async () => {

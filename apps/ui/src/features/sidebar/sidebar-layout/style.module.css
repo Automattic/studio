@@ -76,8 +76,9 @@
 }
 
 .sidebarFooter::before {
-	top: 0;
-	height: 100%;
+	top: calc( -1 * var( --space-2 ) );
+	height: calc( 100% + var( --space-2 ) );
+	mask-image: linear-gradient( to bottom, var( --surface-strong-overlay-fade-stops ) );
 	z-index: -1;
 	display: none;
 }

@@ -149,7 +149,6 @@ export function SiteToolLauncher( {
 				<Button
 					key={ id }
 					variant="muted"
-					className={ styles.launcherButton }
 					layout="inline"
 					disabled={ busy }
 					onClick={ actions[ action ] }

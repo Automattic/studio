@@ -32,7 +32,6 @@
 
 	.textarea[data-variant='default']:focus-visible {
 		border-color: var( --ring );
-		box-shadow: inset 0 0 0 1px var( --ring );
 	}
 
 	.textarea[aria-invalid='true'] {

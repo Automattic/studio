@@ -53,7 +53,7 @@ export type ButtonProps = ComponentProps< typeof BaseButton > & {
 };
 
 export function Button( {
-	variant = 'default',
+	variant = 'outline',
 	size = 'default',
 	shape = 'default',
 	layout = 'default',

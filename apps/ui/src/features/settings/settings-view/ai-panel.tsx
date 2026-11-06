@@ -145,6 +145,7 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 								onChange={ ( event ) => setKey( event.target.value ) }
 							/>
 							<Button
+								variant="accent"
 								type="submit"
 								disabled={ pending || ( ! key.trim() && ! hasKey ) }
 								loading={ saveKey.isPending || setProvider.isPending }

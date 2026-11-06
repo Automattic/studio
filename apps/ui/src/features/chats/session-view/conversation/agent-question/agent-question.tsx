@@ -198,7 +198,9 @@ export function AgentQuestion( {
 							<Button variant="outline" onClick={ onSkip }>
 								{ __( 'Skip' ) }
 							</Button>
-							<Button onClick={ onAnswer }>{ submitLabel }</Button>
+							<Button variant="accent" onClick={ onAnswer }>
+								{ submitLabel }
+							</Button>
 						</div>
 					</div>
 				) : null }

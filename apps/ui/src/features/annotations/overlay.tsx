@@ -53,7 +53,7 @@ interface AnnotationOverlayProps {
 }
 
 const EDGE = 8;
-const MARKER_CLEARANCE = 18;
+const CORNER_OFFSET = 8;
 /** The note editor drawn over an annotated preview. */
 export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlayProps ) {
 	const annotations = useSiteAnnotations( siteId );
@@ -150,19 +150,23 @@ function NoteEditor( {
 		const container = editor?.parentElement;
 		if ( ! editor || ! container ) return;
 		const measure = () => {
-			const cornerRadius = parseFloat( getComputedStyle( editor ).borderTopLeftRadius ) || 0;
+			const desiredLeft =
+				anchor.left + CORNER_OFFSET + editor.offsetWidth <= container.clientWidth - EDGE
+					? anchor.left + CORNER_OFFSET
+					: anchor.left - CORNER_OFFSET - editor.offsetWidth;
 			const left = Math.max(
 				EDGE,
-				Math.min( anchor.left - cornerRadius, container.clientWidth - editor.offsetWidth - EDGE )
+				Math.min( desiredLeft, container.clientWidth - editor.offsetWidth - EDGE )
 			);
+			const markerOffset = left === desiredLeft ? CORNER_OFFSET : 22;
 			const height = Math.max( editor.offsetHeight, editor.scrollHeight );
-			const below = Math.max( 0, container.clientHeight - EDGE - anchor.top - MARKER_CLEARANCE );
-			const above = Math.max( 0, anchor.top - MARKER_CLEARANCE - EDGE );
+			const below = Math.max( 0, container.clientHeight - EDGE - anchor.top - markerOffset );
+			const above = Math.max( 0, anchor.top - markerOffset - EDGE );
 			const placeBelow = height <= below || ( height > above && below >= above );
 			const maxHeight = placeBelow ? below : above;
 			const top = placeBelow
-				? anchor.top + MARKER_CLEARANCE
-				: anchor.top - MARKER_CLEARANCE - Math.min( height, maxHeight );
+				? anchor.top + markerOffset
+				: anchor.top - markerOffset - Math.min( height, maxHeight );
 			setPosition( ( old ) =>
 				old.left === left && old.top === top && old.maxHeight === maxHeight
 					? old
@@ -273,7 +277,7 @@ function NoteEditor( {
 					<TooltipTrigger
 						render={
 							<Button
-								variant={ hasContent ? 'accent' : 'default' }
+								variant="accent"
 								size="icon"
 								shape="round"
 								className={ styles.save }

@@ -85,14 +85,11 @@ export const syncSiteSchema = z.object( {
 	isPressable: z.boolean(),
 	environmentType: z.string().nullable().optional(),
 	syncSupport: z.enum( syncSupportValues ),
-	// Whether the site can be pulled, which can differ from `syncSupport`: a Reprint pull needs no
-	// plan (`STUDIO_ENABLE_PULL_REPRINT`). Connections stored before it existed don't have it.
-	pullSupport: z.enum( syncSupportValues ).optional(),
 	lastPullTimestamp: z.string().nullable(),
 	lastPushTimestamp: z.string().nullable(),
 	wpVersion: z.string().optional(),
 	planName: z.string().optional(),
-	hasStudioPublishingPlan: z.boolean().optional(),
+	pushNeedsUpgrade: z.boolean().optional(),
 	createdAt: z.string().optional(),
 } );
 

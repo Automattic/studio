@@ -8,6 +8,7 @@ import { Button, Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } 
 import { ResponsiveViewport } from '../responsive-preview/viewport';
 import styles from './style.module.css';
 import type { ResponsivePreviewSettings } from '@/data/responsive-preview';
+import type { BrowserCommand } from '@/features/sites/site-preview/browser-state';
 import type { ReactNode } from 'react';
 
 export { WebviewSurface } from './webview-surface';
@@ -59,25 +60,95 @@ export function FrameSurface( {
 	title,
 	onLoad,
 	onSettle,
+	onNavigate,
+	onLoadingChange,
+	browserCommand,
+	onCommandHandled,
+	onAdminBarVisibilityChange,
 }: {
 	src: string;
 	title: string;
 	onLoad: ( src: string ) => void;
 	// Whether the server answered for the page, once asked.
 	onSettle: ( src: string, title: string | null, failed: boolean ) => void;
+	onNavigate?: ( url: string ) => void;
+	onLoadingChange?: ( loading: boolean ) => void;
+	browserCommand?: BrowserCommand | null;
+	onCommandHandled?: () => void;
+	onAdminBarVisibilityChange?: ( visible: boolean | null ) => void;
 } ) {
 	const frame = useRef< HTMLIFrameElement >( null );
+	const callbacks = useRef( { onAdminBarVisibilityChange, onNavigate, onLoadingChange, onSettle } );
+	const navigationId = useRef( 0 );
+	const pendingProbe = useRef( 0 );
+	const reportedPage = useRef< {
+		navigationId: number;
+		url: string;
+		title: string | null;
+	} | null >( null );
+	useEffect( () => {
+		callbacks.current = { onAdminBarVisibilityChange, onNavigate, onLoadingChange, onSettle };
+	}, [ onAdminBarVisibilityChange, onNavigate, onLoadingChange, onSettle ] );
+	useEffect( () => {
+		if ( browserCommand?.type !== 'login' && browserCommand?.type !== 'read-admin-bar' ) return;
+		frame.current?.contentWindow?.postMessage(
+			{
+				type:
+					browserCommand.type === 'login'
+						? 'studio:preview:login'
+						: 'studio:preview:read-admin-bar',
+			},
+			new URL( src ).origin
+		);
+		onCommandHandled?.();
+	}, [ browserCommand, onCommandHandled, src ] );
 	useEffect( () => {
 		const onMessage = ( event: MessageEvent ) => {
 			const iframe = frame.current;
 			if (
 				! iframe ||
 				event.source !== iframe.contentWindow ||
-				event.origin !== new URL( iframe.src ).origin ||
-				event.data?.type !== 'studio:preview-shortcuts:command-palette'
+				event.origin !== new URL( iframe.src ).origin
 			) {
 				return;
 			}
+			if ( event.data?.type === 'studio:preview:navigating' ) {
+				if ( event.data.navigationId !== navigationId.current ) return;
+				pendingProbe.current += 1;
+				callbacks.current.onAdminBarVisibilityChange?.( null );
+				callbacks.current.onLoadingChange?.( true );
+				return;
+			}
+			if ( event.data?.type === 'studio:preview:admin-bar-state' ) {
+				const { visible, url, title, navigationId: reportedNavigationId } = event.data;
+				if (
+					reportedNavigationId !== navigationId.current ||
+					( typeof visible !== 'boolean' && visible !== null ) ||
+					typeof url !== 'string'
+				)
+					return;
+				try {
+					if ( new URL( url ).origin !== event.origin ) return;
+				} catch {
+					return;
+				}
+				pendingProbe.current += 1;
+				callbacks.current.onNavigate?.( url );
+				const pageTitle = normalizeDocumentTitle( title );
+				const previous = reportedPage.current;
+				if (
+					! previous ||
+					previous.navigationId !== reportedNavigationId ||
+					previous.url !== url ||
+					previous.title !== pageTitle
+				) {
+					reportedPage.current = { navigationId: reportedNavigationId, url, title: pageTitle };
+					callbacks.current.onSettle( url, pageTitle, false );
+				}
+				callbacks.current.onAdminBarVisibilityChange?.( visible );
+				return;
+			}
+			if ( event.data?.type !== 'studio:preview-shortcuts:command-palette' ) return;
 			iframe.blur();
 			document.dispatchEvent(
 				new KeyboardEvent( 'keydown', {
@@ -91,7 +162,10 @@ export function FrameSurface( {
 			);
 		};
 		window.addEventListener( 'message', onMessage );
-		return () => window.removeEventListener( 'message', onMessage );
+		return () => {
+			pendingProbe.current += 1;
+			window.removeEventListener( 'message', onMessage );
+		};
 	}, [] );
 
 	return (
@@ -101,16 +175,23 @@ export function FrameSurface( {
 			src={ src }
 			title={ title }
 			onLoad={ ( event ) => {
+				callbacks.current.onAdminBarVisibilityChange?.( null );
+				navigationId.current += 1;
+				const probe = ++pendingProbe.current;
 				const { src: loadedSrc } = event.currentTarget;
 				event.currentTarget.contentWindow?.postMessage(
-					{ type: 'studio:preview-shortcuts:init', apple: isAppleOS() },
+					{
+						type: 'studio:preview-shortcuts:init',
+						apple: isAppleOS(),
+						navigationId: navigationId.current,
+					},
 					new URL( loadedSrc ).origin
 				);
 				const pageTitle = getIframeTitle( event.currentTarget );
 				onLoad( loadedSrc );
 				// A frame fires `load` for the browser's own error page too, and
 				// it's cross-origin, so ask the server whether it's there at all.
-				void fetch( loadedSrc, {
+				void fetch( new URL( '/', loadedSrc ).toString(), {
 					method: 'HEAD',
 					mode: 'no-cors',
 					cache: 'no-store',
@@ -119,7 +200,10 @@ export function FrameSurface( {
 						() => false,
 						() => true
 					)
-					.then( ( failed ) => onSettle( loadedSrc, pageTitle, failed ) );
+					.then( ( failed ) => {
+						if ( probe === pendingProbe.current )
+							callbacks.current.onSettle( loadedSrc, pageTitle, failed );
+					} );
 			} }
 		/>
 	);

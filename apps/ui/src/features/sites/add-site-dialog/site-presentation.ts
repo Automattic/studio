@@ -8,17 +8,15 @@ interface PresentedRemoteSite {
 	group: ConnectSiteGroup;
 }
 
-// Connecting a site pulls it into the new local site, so what counts is whether it can be pulled.
 export function presentRemoteSites( remoteSites: SyncSite[] ): PresentedRemoteSite[] {
 	return remoteSites.flatMap( ( site ) => {
-		const support = site.pullSupport ?? site.syncSupport;
-		if ( support === 'already-connected' ) return [];
+		if ( site.syncSupport === 'already-connected' ) return [];
 		let group: ConnectSiteGroup = 'unavailable';
-		if ( support === 'syncable' ) {
+		if ( site.syncSupport === 'syncable' ) {
 			group = 'available';
-		} else if ( support === 'needs-transfer' ) {
+		} else if ( site.syncSupport === 'needs-transfer' ) {
 			group = 'needs-transfer';
-		} else if ( support === 'needs-upgrade' ) {
+		} else if ( site.syncSupport === 'needs-upgrade' ) {
 			group = 'needs-upgrade';
 		}
 		return [ { site, group } ];

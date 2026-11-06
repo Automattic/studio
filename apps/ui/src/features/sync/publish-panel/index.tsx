@@ -185,7 +185,8 @@ export function PublishPanel( {
 	const availableWebsites = pickable.isLoading || pickable.error ? [] : pickable.data ?? [];
 	const selectableWebsites = [ ...websites, ...availableWebsites ].filter(
 		( website, index, all ) =>
-			! websiteIssue( website ) && all.findIndex( ( item ) => item.id === website.id ) === index
+			! websiteIssue( website, 'pull' ) &&
+			all.findIndex( ( item ) => item.id === website.id ) === index
 	);
 	const connectedWebsite = (
 		<>

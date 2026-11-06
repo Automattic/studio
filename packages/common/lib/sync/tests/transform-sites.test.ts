@@ -74,19 +74,6 @@ describe( 'transformSitesResponse', () => {
 		expect( result.find( ( s ) => s.id === 2 )?.syncSupport ).toBe( 'needs-upgrade' );
 	} );
 
-	it.each( [
-		[ 'Backup', false, 'needs-upgrade' ],
-		[ 'Reprint', true, 'syncable' ],
-	] )(
-		'needs a plan to push to an unpaid Atomic site, and to pull it with %s',
-		( _, reprintPull, expected ) => {
-			const unpaid = { ...atomicSite(), plan: freeSite().plan };
-			const [ site ] = transformSitesResponse( [ unpaid ], { reprintPull } );
-
-			expect( site ).toMatchObject( { syncSupport: 'needs-upgrade', pullSupport: expected } );
-		}
-	);
-
 	it( 'reports software_version as wpVersion when present, undefined when omitted', () => {
 		const result = transformSitesResponse( [ atomicSite(), simpleBusinessSite() ] );
 
@@ -94,15 +81,27 @@ describe( 'transformSitesResponse', () => {
 		expect( result.find( ( s ) => s.id === 1 )?.wpVersion ).toBeUndefined();
 	} );
 
-	it( 'flags sites on a paid plan that includes publishing from Studio', () => {
-		const expired = { ...atomicSite(), ID: 4, plan: { ...atomicSite().plan, expired: true } };
-		const result = transformSitesResponse( [ atomicSite(), freeSite(), expired ] );
+	it.each( [
+		{
+			name: 'unpaid Atomic',
+			site: { ...atomicSite(), plan: freeSite().plan },
+			pushNeedsUpgrade: true,
+		},
+		{ name: 'Atomic with the sync feature', site: atomicSite(), pushNeedsUpgrade: false },
+		{
+			name: 'Pressable without a plan',
+			site: {
+				...atomicSite(),
+				is_wpcom_atomic: false,
+				hosting_provider_guess: 'pressable',
+				plan: undefined,
+			},
+			pushNeedsUpgrade: false,
+		},
+	] )( 'allows pulling from $name and reports push eligibility', ( { site, pushNeedsUpgrade } ) => {
+		const [ result ] = transformSitesResponse( [ site ], { planRequired: false } );
 
-		expect( result.map( ( site ) => site.hasStudioPublishingPlan ) ).toEqual( [
-			true,
-			false,
-			false,
-		] );
+		expect( result ).toMatchObject( { syncSupport: 'syncable', pushNeedsUpgrade } );
 	} );
 } );
 

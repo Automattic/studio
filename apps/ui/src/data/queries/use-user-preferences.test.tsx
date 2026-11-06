@@ -115,4 +115,31 @@ describe( 'useSaveUserPreferences', () => {
 		);
 		expect( connector.getUserPreferences ).toHaveBeenCalledTimes( 2 );
 	} );
+
+	it( 'publishes the admin bar preference to the cache only after a successful save', async () => {
+		const { result, connector } = renderPreferenceHooks();
+		await waitFor( () => expect( result.current.preferences.data ).toBeDefined() );
+		let finish = () => {};
+		connector.setUserPreferences.mockImplementationOnce(
+			() =>
+				new Promise< void >( ( resolve ) => {
+					finish = () => {
+						connector.state.preferences.hideFrontendAdminBar = true;
+						resolve();
+					};
+				} )
+		);
+		act( () => result.current.save.mutate( { hideFrontendAdminBar: true } ) );
+		await waitFor( () => expect( result.current.save.isPending ).toBe( true ) );
+		expect( result.current.preferences.data?.hideFrontendAdminBar ).not.toBe( true );
+		await act( async () => finish() );
+		await waitFor( () =>
+			expect( result.current.preferences.data?.hideFrontendAdminBar ).toBe( true )
+		);
+		connector.setUserPreferences.mockRejectedValueOnce( new Error( 'Disk full' ) );
+		await act( () =>
+			result.current.save.mutateAsync( { hideFrontendAdminBar: false } ).catch( () => {} )
+		);
+		expect( result.current.preferences.data?.hideFrontendAdminBar ).toBe( true );
+	} );
 } );

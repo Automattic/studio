@@ -24,15 +24,12 @@ describe( 'remote site presentation', () => {
 			remoteSite( 2, { syncSupport: 'already-connected' } ),
 			remoteSite( 3, { syncSupport: 'needs-upgrade' } ),
 			remoteSite( 4, { syncSupport: 'missing-permissions' } ),
-			// Connecting pulls the site, which a Reprint pull can do without a plan.
-			remoteSite( 5, { syncSupport: 'needs-upgrade', pullSupport: 'syncable' } ),
 		];
 
 		expect( presentRemoteSites( remoteSites ) ).toMatchObject( [
 			{ site: { id: 1 }, group: 'available' },
 			{ site: { id: 3 }, group: 'needs-upgrade' },
 			{ site: { id: 4 }, group: 'unavailable' },
-			{ site: { id: 5 }, group: 'available' },
 		] );
 	} );
 

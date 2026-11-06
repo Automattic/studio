@@ -1,11 +1,10 @@
 import { sitesEndpointSiteSchema } from '@studio/common/types/sync';
-import { getSyncSupport, hasStudioPublishingPlan, isPressableSite } from './sync-support';
+import { getSyncSupport, pushNeedsUpgrade, isPressableSite } from './sync-support';
 import type { SitesEndpointSite, SyncSite, SyncSupport } from '@studio/common/types/sync';
 
 export function transformSingleSiteResponse(
 	site: SitesEndpointSite,
 	syncSupport: SyncSupport,
-	pullSupport: SyncSupport,
 	isStaging: boolean
 ): SyncSite {
 	return {
@@ -17,12 +16,11 @@ export function transformSingleSiteResponse(
 		isPressable: isPressableSite( site ),
 		environmentType: site.environment_type,
 		syncSupport,
-		pullSupport,
 		lastPullTimestamp: null,
 		lastPushTimestamp: null,
 		wpVersion: site.options?.software_version,
 		planName: site.plan?.product_name_short,
-		hasStudioPublishingPlan: hasStudioPublishingPlan( site ),
+		pushNeedsUpgrade: pushNeedsUpgrade( site ),
 		createdAt: site.options?.created_at,
 	};
 }
@@ -35,15 +33,15 @@ export function transformSingleSiteResponse(
  *                           When provided, used to: 1) keep deleted sites in the list if they're connected, and
  *                           2) determine sync support status (already-connected vs syncable).
  * @param options.onParseError - Optional callback for site parse errors (e.g. Sentry.captureException)
- * @param options.reprintPull - Whether pulls use Reprint, which needs no plan with the Studio sync
- *                           feature. Push always needs one.
+ * @param options.planRequired - Whether syncing needs a plan with the Studio sync feature. Defaults
+ *                           to true; a Reprint pull passes false.
  */
 export function transformSitesResponse(
 	sites: unknown[],
 	options?: {
 		connectedSiteIds?: number[];
 		onParseError?: ( error: unknown ) => void;
-		reprintPull?: boolean;
+		planRequired?: boolean;
 	}
 ): SyncSite[] {
 	const connectedSiteIds = options?.connectedSiteIds ?? [];
@@ -70,12 +68,11 @@ export function transformSitesResponse(
 		)
 		.map( ( site ) => {
 			const isStaging = allStagingSiteIds.includes( site.ID );
-			const syncSupport = getSyncSupport( site, connectedSiteIds );
-			const pullSupport = options?.reprintPull
-				? getSyncSupport( site, connectedSiteIds, { planRequired: false } )
-				: syncSupport;
+			const syncSupport = getSyncSupport( site, connectedSiteIds, {
+				planRequired: options?.planRequired,
+			} );
 
-			return transformSingleSiteResponse( site, syncSupport, pullSupport, isStaging );
+			return transformSingleSiteResponse( site, syncSupport, isStaging );
 		} );
 }
 
@@ -88,14 +85,16 @@ export function withWpcomDetails( connections: SyncSite[], wpcomSites: SyncSite[
 	return connections.map( ( connection ) => {
 		const { id, localSiteId, lastPullTimestamp, lastPushTimestamp } = connection;
 		const site = wpcomSites.find( ( candidate ) => candidate.id === id );
-		const connectedSupport = ( support: SyncSupport | undefined ) =>
-			! site ? 'deleted' : support === 'syncable' ? 'already-connected' : support;
+		const syncSupport = ! site
+			? 'deleted'
+			: site.syncSupport === 'syncable'
+			? 'already-connected'
+			: site.syncSupport;
 		return {
 			// A site gone from WordPress.com keeps the name and URL it was connected under.
 			...( site ?? connection ),
 			localSiteId,
-			syncSupport: connectedSupport( site?.syncSupport ) ?? 'deleted',
-			pullSupport: connectedSupport( site?.pullSupport ),
+			syncSupport,
 			lastPullTimestamp,
 			lastPushTimestamp,
 		};

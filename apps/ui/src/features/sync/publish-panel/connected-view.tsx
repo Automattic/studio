@@ -94,9 +94,9 @@ export function ConnectedView( {
 		open && direction === 'pull' && ! pending && ! offline
 	);
 	const selection = direction === 'push' ? push : pull;
-	const issue = accessIssue ?? websiteIssue( remote, direction );
-	// A Reprint pull needs no plan, so a site that can't be published to can still be pulled.
 	const pullIssue = accessIssue ?? websiteIssue( remote, 'pull' );
+	const pushIssue = accessIssue ?? websiteIssue( remote, 'push' );
+	const issue = direction === 'pull' ? pullIssue : pushIssue;
 	const finished =
 		activity !== dismissedActivity &&
 		activity?.kind !== 'pending' &&
@@ -184,7 +184,7 @@ export function ConnectedView( {
 							ref={ publishButton }
 							variant="accent"
 							size="lg"
-							disabled={ disabled || Boolean( issue ) }
+							disabled={ disabled || Boolean( pushIssue ) }
 							onClick={ () => {
 								setView( 'publish' );
 								setReviewing( true );

@@ -473,6 +473,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async updateSitesSortOrder( updates ) {
 			await api( '/sites/sort-order', { method: 'POST', body: JSON.stringify( { updates } ) } );
 		},
+
+		async setSiteFrontendAdminBar( siteId, hidden ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/frontend-admin-bar`, {
+				method: 'PATCH',
+				body: JSON.stringify( { hidden } ),
+			} );
+		},
 		// Export downloads the archive in the browser (no native Save-As dialog).
 		async exportFullSite( siteId, options ): Promise< string | null > {
 			options?.onStarted?.();
@@ -910,6 +917,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// External links work natively in the browser.
 		async openExternalUrl( url ) {
 			window.open( url, '_blank', 'noopener,noreferrer' );
+		},
+		async sendFeedback( feedback ) {
+			return api< { feedbackId: number } >( '/feedback', {
+				method: 'POST',
+				body: JSON.stringify( feedback ),
+			} );
 		},
 		async getWapuuScore() {
 			return readWapuuScore( WAPUU_SCORE_STORAGE_KEY );

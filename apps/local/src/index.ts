@@ -74,6 +74,8 @@ import {
 	getConnectedWpcomSitesForLocalSite,
 	removeConnectedWpcomSite,
 } from '@studio/common/lib/connected-sites';
+import { getErrorMessage } from '@studio/common/lib/error-formatting';
+import { sendStudioFeedback, STUDIO_FEEDBACK_TYPES } from '@studio/common/lib/feedback';
 import {
 	arePathsEqual,
 	calculateDirectorySizeForArchive,
@@ -120,6 +122,7 @@ import { requestStudioAssistantQuota } from '@studio/common/lib/studio-assistant
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import { getLocalFileSize, listLocalFileTree } from '@studio/common/lib/sync/local-file-tree';
+import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
 import {
 	fetchHostingPhpVersion,
 	fetchLatestRewindId,
@@ -127,6 +130,7 @@ import {
 	fetchSyncableSites,
 } from '@studio/common/lib/sync/sync-api';
 import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
+import { getStudioUserAgent } from '@studio/common/lib/user-agent';
 import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor';
 import {
 	detectInstalledApps,
@@ -156,7 +160,12 @@ import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/site
 import { buildSiteSetArgs, getSiteEditOptions } from '@studio/common/sites/edit';
 import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
-import { listSitesWithMetadata, updateSiteMetadata } from '@studio/common/sites/metadata';
+import {
+	listSitesWithMetadata,
+	setSiteFrontendAdminBar,
+	updateSiteMetadata,
+	type SiteMetadata,
+} from '@studio/common/sites/metadata';
 import { designFixesSchema, fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
 import {
 	ensureSiteEmailDirectory,
@@ -238,6 +247,8 @@ export interface LocalServerOptions {
 	recordTracksEvent?: ( event: TracksEventName, props?: TracksProps ) => Promise< void >;
 	// Screenshots a page of a running site; absent when no browser is available.
 	capturePreview?: ( url: string, size: { width: number; height: number } ) => Promise< Buffer >;
+	// `WordPressStudio/<version>`, sent with feedback reports. Injected by `studio ui`.
+	userAgent?: string;
 }
 
 export interface LocalServer {
@@ -278,7 +289,7 @@ const AUTH_CALLBACK_HTML = `<!DOCTYPE html>
 
 // The agentic UI's SiteDetails shape. The CLI's `site list` already reports
 // nearly all of it; `sortOrder` comes from `app.json`, merged in by callers.
-function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
+function toSiteDetails( site: SiteListItem & SiteMetadata, sortOrder?: number ) {
 	return {
 		id: site.id,
 		name: site.name,
@@ -302,6 +313,7 @@ function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
 		operation: site.operation,
 		emailPath: site.emailPath,
 		sortOrder,
+		hideFrontendAdminBar: site.hideFrontendAdminBar,
 	};
 }
 
@@ -854,6 +866,23 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				)
 			);
 			res.status( 204 ).end();
+		} )
+	);
+
+	api.patch(
+		'/sites/:id/frontend-admin-bar',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = z.object( { hidden: z.boolean().nullable() } ).safeParse( req.body );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'hidden must be a boolean or null' } );
+				return;
+			}
+			if ( ! ( await readSite( req.params.id ) ) ) {
+				res.status( 404 ).json( { error: 'Site not found.' } );
+				return;
+			}
+			await setSiteFrontendAdminBar( req.params.id, parsed.data.hidden );
+			res.sendStatus( 204 );
 		} )
 	);
 
@@ -1600,6 +1629,35 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	// --- Feedback — one report to the WordPress Studio team, through the shared sender ---
+	api.post(
+		'/feedback',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = z
+				.object( { type: z.enum( STUDIO_FEEDBACK_TYPES ), message: z.string().trim().min( 1 ) } )
+				.safeParse( req.body ?? {} );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'type and message required' } );
+				return;
+			}
+			const token = await readAuthToken();
+			if ( ! token?.accessToken ) {
+				res.status( 401 ).json( { error: 'Log in to WordPress.com to send feedback.' } );
+				return;
+			}
+			try {
+				res.json(
+					await sendStudioFeedback( parsed.data, {
+						accessToken: token.accessToken,
+						userAgent: options.userAgent ?? getStudioUserAgent(),
+					} )
+				);
+			} catch ( error ) {
+				res.status( 502 ).json( { error: getErrorMessage( error ) ?? String( error ) } );
+			}
+		} )
+	);
+
 	api.get(
 		'/onboarding',
 		asyncHandler( async ( _req: Request, res: Response ) => {
@@ -1806,7 +1864,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.json( [] );
 				return;
 			}
-			res.json( await fetchSyncableSites( token.accessToken ) );
+			res.json(
+				await fetchSyncableSites( token.accessToken, { planRequired: ! isReprintPullEnabled() } )
+			);
 		} )
 	);
 

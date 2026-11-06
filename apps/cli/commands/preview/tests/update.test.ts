@@ -1,12 +1,9 @@
 import os from 'os';
 import path from 'path';
 import { DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
-import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { readAuthToken } from '@studio/common/lib/shared-config';
-import { createsPreviewsOnWpcom } from '@studio/common/lib/snapshots';
 import { Archiver } from 'archiver';
 import { vi } from 'vitest';
-import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import {
@@ -15,7 +12,6 @@ import {
 	updatePreviewSite,
 	uploadPreviewArchive,
 } from 'cli/lib/preview-sites';
-import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import {
 	deleteSnapshotFromConfig,
@@ -28,7 +24,6 @@ import { LoggerError } from 'cli/logger';
 import { mockReportSuccess, mockReportError } from 'cli/tests/test-utils';
 import { runCommand } from '../update';
 
-vi.mock( '@studio/common/lib/get-wordpress-version' );
 vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
 	...( await importOriginal() ),
 	readAuthToken: vi.fn(),
@@ -40,13 +35,8 @@ vi.mock( 'cli/lib/cli-config/sites', async () => {
 		getSiteByFolder: vi.fn(),
 	};
 } );
-vi.mock( import( '@studio/common/lib/snapshots' ), async ( importOriginal ) => ( {
-	...( await importOriginal() ),
-	createsPreviewsOnWpcom: vi.fn().mockResolvedValue( false ),
-} ) );
 vi.mock( 'cli/lib/archive' );
 vi.mock( 'cli/lib/site-tracks' );
-vi.mock( 'cli/lib/api' );
 vi.mock( 'cli/lib/preview-sites' );
 vi.mock( 'cli/lib/snapshots' );
 vi.mock( 'cli/lib/validation', () => ( {
@@ -80,7 +70,8 @@ describe( 'Preview Update Command', () => {
 	const mockBasename = 'folder';
 	const mockDate = 1234567890;
 	const mockArchivePath = path.join( os.tmpdir(), `${ mockBasename }-${ mockDate }.zip` );
-	const mockSiteUrl = 'test-preview.wp.build';
+	const mockSiteUrl = 'test-preview.wpcomstaging.com';
+	const mockShareUrl = `https://${ mockSiteUrl }/?share=abc123`;
 	const mockAtomicSiteId = 12345;
 	const mockAuthToken = {
 		accessToken: 'mock-auth-token',
@@ -97,6 +88,7 @@ describe( 'Preview Update Command', () => {
 		date: Date.now(),
 		name: 'Test Snapshot',
 		userId: 123,
+		shareUrl: mockShareUrl,
 	};
 	const mockArchiver: Partial< Archiver > = {
 		on: vi.fn(),
@@ -118,12 +110,12 @@ describe( 'Preview Update Command', () => {
 		vi.mocked( readAuthToken ).mockResolvedValue( mockAuthToken );
 		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [ mockSnapshot ] );
 		vi.mocked( archiveSiteContent ).mockResolvedValue( mockArchiver as Archiver );
-		vi.mocked( uploadArchive ).mockResolvedValue( {
-			site_url: mockSiteUrl,
-			site_id: mockAtomicSiteId,
+		vi.mocked( uploadPreviewArchive ).mockResolvedValue( 678 );
+		vi.mocked( updatePreviewSite ).mockResolvedValue( {
+			siteId: mockAtomicSiteId,
+			hostname: mockSiteUrl,
+			shareUrl: mockShareUrl,
 		} );
-		vi.mocked( createsPreviewsOnWpcom ).mockResolvedValue( false );
-		vi.mocked( waitForSiteReady ).mockResolvedValue( true );
 		vi.mocked( updateSnapshotInConfig ).mockResolvedValue( mockSnapshot );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( {
 			id: mockSnapshot.localSiteId,
@@ -139,19 +131,7 @@ describe( 'Preview Update Command', () => {
 	} );
 
 	it( 'updates a WordPress.com preview through the preview funnel', async () => {
-		const wpcomHost = 'test-preview.wpcomstaging.com';
-		const shareUrl = `https://${ wpcomHost }/?share=abc123`;
-		const wpcomSnapshot = { ...mockSnapshot, url: wpcomHost, shareUrl };
-		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [ wpcomSnapshot ] );
-		vi.mocked( updateSnapshotInConfig ).mockResolvedValue( wpcomSnapshot );
-		vi.mocked( uploadPreviewArchive ).mockResolvedValue( 678 );
-		vi.mocked( updatePreviewSite ).mockResolvedValue( {
-			siteId: mockAtomicSiteId,
-			hostname: wpcomHost,
-			shareUrl,
-		} );
-
-		await runCommand( mockFolder, wpcomHost, false );
+		await runCommand( mockFolder, mockSiteUrl, false );
 
 		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath, {
 			onWpcom: true,
@@ -166,51 +146,25 @@ describe( 'Preview Update Command', () => {
 			678,
 			mockAuthToken.accessToken
 		);
-		expect( uploadArchive ).not.toHaveBeenCalled();
+		expect( createPreviewSite ).not.toHaveBeenCalled();
 		expect( updateSnapshotInConfig ).toHaveBeenCalledWith(
 			mockAtomicSiteId,
 			mockFolder,
-			shareUrl,
-			'version-1'
-		);
-		expect( mockReportSuccess ).toHaveBeenCalledWith( `Preview site available at: ${ shareUrl }` );
-	} );
-
-	it( 'updates a Jurassic Ninja preview', async () => {
-		vi.mocked( getWordPressVersion ).mockReturnValue( '6.8.1' );
-		await runCommand( mockFolder, mockSiteUrl, false );
-
-		expect( withSiteOperation ).toHaveBeenCalledWith(
-			mockFolder,
-			'export',
-			expect.any( Function )
-		);
-		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath, {
-			onWpcom: false,
-		} );
-		expect( uploadArchive ).toHaveBeenCalledWith(
-			mockArchivePath,
-			mockAuthToken.accessToken,
-			'6.8.1',
-			mockSnapshot.atomicSiteId
-		);
-		expect( waitForSiteReady ).toHaveBeenCalledWith( mockAtomicSiteId, mockAuthToken.accessToken );
-		expect( updateSnapshotInConfig ).toHaveBeenCalledWith(
-			mockAtomicSiteId,
-			mockFolder,
-			undefined,
+			mockShareUrl,
 			'version-1'
 		);
 		expect( mockReportSuccess ).toHaveBeenCalledWith(
-			`Preview site available at: https://${ mockSiteUrl }`
+			`Preview site available at: ${ mockShareUrl }`
 		);
-		expect( mockReportError ).not.toHaveBeenCalled();
 	} );
 
 	it.each( [
 		[ 'deletes the old site', undefined ],
 		[ 'keeps the new preview when deleting the old site fails', new Error( 'delete failed' ) ],
 	] )( 'moves a Jurassic Ninja preview to WordPress.com and %s', async ( _label, deleteError ) => {
+		const jurassicNinjaHost = 'test-preview.wp.build';
+		const jurassicNinjaSnapshot = { ...mockSnapshot, url: jurassicNinjaHost, shareUrl: undefined };
+		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [ jurassicNinjaSnapshot ] );
 		const newHost = 'new-preview.wpcomstaging.com';
 		const shareUrl = `https://${ newHost }/?share=abc123`;
 		const newSnapshot = {
@@ -219,8 +173,6 @@ describe( 'Preview Update Command', () => {
 			atomicSiteId: 999,
 			shareUrl,
 		};
-		vi.mocked( createsPreviewsOnWpcom ).mockResolvedValue( true );
-		vi.mocked( uploadPreviewArchive ).mockResolvedValue( 678 );
 		vi.mocked( createPreviewSite ).mockResolvedValue( {
 			siteId: 999,
 			hostname: newHost,
@@ -231,7 +183,7 @@ describe( 'Preview Update Command', () => {
 			vi.mocked( deleteSnapshotSite ).mockRejectedValue( deleteError );
 		}
 
-		const result = await runCommand( mockFolder, mockSiteUrl, false );
+		const result = await runCommand( mockFolder, jurassicNinjaHost, false );
 
 		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath, {
 			onWpcom: true,
@@ -241,7 +193,7 @@ describe( 'Preview Update Command', () => {
 			mockSnapshot.name,
 			mockAuthToken.accessToken
 		);
-		expect( uploadArchive ).not.toHaveBeenCalled();
+		expect( updatePreviewSite ).not.toHaveBeenCalled();
 		expect( updateSnapshotInConfig ).not.toHaveBeenCalled();
 		expect( saveSnapshotToConfig ).toHaveBeenCalledWith(
 			mockFolder,
@@ -252,8 +204,11 @@ describe( 'Preview Update Command', () => {
 			shareUrl,
 			'version-1'
 		);
-		expect( deleteSnapshotFromConfig ).toHaveBeenCalledWith( mockSiteUrl );
-		expect( deleteSnapshotSite ).toHaveBeenCalledWith( mockSnapshot, mockAuthToken.accessToken );
+		expect( deleteSnapshotFromConfig ).toHaveBeenCalledWith( jurassicNinjaHost );
+		expect( deleteSnapshotSite ).toHaveBeenCalledWith(
+			jurassicNinjaSnapshot,
+			mockAuthToken.accessToken
+		);
 		expect( mockReportSuccess ).toHaveBeenCalledWith( expect.stringContaining( 'link changed' ) );
 		expect( mockReportSuccess ).toHaveBeenCalledWith( expect.stringContaining( shareUrl ) );
 		expect( result ).toBe( newSnapshot );
@@ -276,7 +231,7 @@ describe( 'Preview Update Command', () => {
 	} );
 
 	it( 'includes resolved IDs on an update failure', async () => {
-		vi.mocked( uploadArchive ).mockRejectedValueOnce( new Error( 'Upload failed' ) );
+		vi.mocked( uploadPreviewArchive ).mockRejectedValueOnce( new Error( 'Upload failed' ) );
 		await expect( runCommand( mockFolder, mockSiteUrl, false ) ).rejects.toThrow();
 		expect( getSiteTracksProps ).toHaveBeenCalledWith( mockFolder, mockSnapshot );
 		expect( recordTracksEvent ).toHaveBeenCalledWith(
@@ -309,7 +264,9 @@ describe( 'Preview Update Command', () => {
 	} );
 
 	it( 'records a failed preview_site_update Tracks event with a failure_reason', async () => {
-		vi.mocked( uploadArchive ).mockRejectedValue( new LoggerError( 'Failed to upload archive' ) );
+		vi.mocked( uploadPreviewArchive ).mockRejectedValue(
+			new LoggerError( 'Failed to upload archive' )
+		);
 
 		await expect( runCommand( mockFolder, mockSiteUrl, false ) ).rejects.toThrow( LoggerError );
 
@@ -339,7 +296,7 @@ describe( 'Preview Update Command', () => {
 	} );
 
 	it( 'should always clean up archive file even on error', async () => {
-		vi.mocked( uploadArchive ).mockImplementation( () => {
+		vi.mocked( uploadPreviewArchive ).mockImplementation( () => {
 			throw new LoggerError( 'Upload failed' );
 		} );
 
@@ -378,8 +335,6 @@ describe( 'Preview Update Command', () => {
 			phpVersion: '8.0',
 		} );
 		await runCommand( mockFolder, mockSiteUrl, true );
-		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath, {
-			onWpcom: false,
-		} );
+		expect( updatePreviewSite ).toHaveBeenCalled();
 	} );
 } );

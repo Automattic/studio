@@ -2,14 +2,11 @@ import { SKIPPED_QUESTION, STOPPED_WITHOUT_ANSWER } from '@studio/agent/protocol
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest';
 import {
-	agentQuestionEntry,
-	askUserAnswerEntry,
-} from '@/features/chats/session-view/conversation/test-entries';
-import {
 	loadedSession,
 	renderConversation,
 	renderInteractiveConversation,
 } from '@/features/chats/session-view/conversation/test-render';
+import { agentQuestionEntry, askUserAnswerEntry } from '@/test/session-entries';
 import type { SessionEntry } from '@/data/core';
 
 function multiSelectEntry( question: string, options: string[] ) {

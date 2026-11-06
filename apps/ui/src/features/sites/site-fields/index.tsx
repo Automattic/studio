@@ -45,7 +45,6 @@ import {
 	SelectLabel,
 	SelectTrigger,
 	SelectValue,
-	Switch,
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
@@ -421,39 +420,6 @@ export function SelectField( {
 			disabled={ disabled }
 		>
 			<SiteSelect id={ id } aria-describedby={ describedBy } disabled={ disabled } { ...props } />
-		</FieldLayoutRow>
-	);
-}
-
-export function ToggleField( {
-	label,
-	description,
-	error,
-	checked,
-	disabled,
-	onChange,
-}: Omit< FieldLayout, 'orientation' > & {
-	checked: boolean;
-	disabled?: boolean;
-	onChange: ( checked: boolean ) => void;
-} ) {
-	const { id, describedBy, element } = useDescription( { description, error } );
-	return (
-		<FieldLayoutRow
-			id={ id }
-			label={ label }
-			description={ element }
-			orientation="horizontal"
-			disabled={ disabled }
-		>
-			<Switch
-				id={ id }
-				aria-describedby={ describedBy }
-				aria-invalid={ error ? true : undefined }
-				checked={ checked }
-				disabled={ disabled }
-				onCheckedChange={ ( next ) => onChange( next ) }
-			/>
 		</FieldLayoutRow>
 	);
 }

@@ -191,6 +191,8 @@ export function createInMemoryConnector(
 		startSite: async ( id ) => updateSite( id, { running: true } ),
 		stopSite: async ( id ) => updateSite( id, { running: false } ),
 		updateSite: async ( site ) => updateSite( site.id, site ),
+		setSiteFrontendAdminBar: async ( siteId, hidden ) =>
+			updateSite( siteId, { hideFrontendAdminBar: hidden ?? undefined } ),
 		updateSitesSortOrder: async ( updates ) => {
 			for ( const { siteId, sortOrder } of updates ) {
 				updateSite( siteId, { sortOrder } );
@@ -334,6 +336,7 @@ export function createInMemoryConnector(
 		openStudioLogs: async () => {},
 		trackEvent: async () => {},
 		openExternalUrl: async () => {},
+		sendFeedback: async () => ( { feedbackId: 1 } ),
 		getWapuuScore: async () => undefined,
 		saveWapuuScore: async () => {},
 		popupAppMenu: async () => {},

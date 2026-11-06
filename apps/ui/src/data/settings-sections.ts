@@ -147,6 +147,14 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				),
 				setting(
 					'action',
+					__( 'Hide admin bar' ),
+					__(
+						'Hide the WordPress admin bar by default on local sites. Change this for individual sites in Browser options.'
+					),
+					'hide-frontend-admin-bar'
+				),
+				setting(
+					'action',
 					__( 'Show recent chats' ),
 					__( 'Show recent chats in the sidebar.' ),
 					'show-recent-chats'

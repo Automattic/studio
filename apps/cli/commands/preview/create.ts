@@ -2,12 +2,9 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
-import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
-import { createsPreviewsOnWpcom } from '@studio/common/lib/snapshots';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { type Snapshot } from '@studio/common/types/snapshot';
 import { __, sprintf } from '@wordpress/i18n';
-import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { countSitePreviews, getNextSnapshotSequence } from 'cli/lib/cli-config/snapshots';
@@ -102,7 +99,6 @@ export async function runCommand(
 		};
 		const token = await requireAuthToken();
 		reportStep( LoggerAction.VALIDATE, __( 'Validating…' ), 0 );
-		const onWpcom = await createsPreviewsOnWpcom( token.accessToken );
 
 		let snapshotName = name;
 		if ( ! snapshotName ) {
@@ -116,41 +112,16 @@ export async function runCommand(
 			);
 		}
 
-		let preview: PreviewSite;
-		let versionId: string;
-		if ( onWpcom ) {
-			( { preview, archiveBytes, versionId } = await createWpcomPreviewSite( {
-				siteId: site.id,
-				siteFolder,
-				archivePath,
-				name: snapshotName,
-				accessToken: token.accessToken,
-				logger,
-				reportStep,
-				onArchiveBytes: ( bytes ) => ( archiveBytes = bytes ),
-			} ) );
-		} else {
-			await validateSiteSize( siteFolder, { onWpcom } );
-
-			reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
-			// The version is taken under the same lock as the archive, so it's what the preview holds.
-			versionId = await withSiteOperation( siteFolder, 'export', async () => {
-				const version = await getSiteVersion( site.id, siteFolder );
-				await archiveSiteContent( siteFolder, archivePath, { onWpcom } );
-				return version;
-			} );
-			archiveBytes = fs.statSync( archivePath, { throwIfNoEntry: false } )?.size;
-			logger.reportSuccess( __( 'Archive created' ) );
-
-			reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
-			const wordpressVersion = getWordPressVersion( siteFolder );
-			const upload = await uploadArchive( archivePath, token.accessToken, wordpressVersion );
-			logger.reportSuccess( __( 'Archive uploaded' ) );
-
-			reportStep( LoggerAction.READY, __( 'Creating preview site…' ), 60 );
-			await waitForSiteReady( upload.site_id, token.accessToken );
-			preview = { siteId: upload.site_id, hostname: upload.site_url };
-		}
+		const { preview, versionId } = await createWpcomPreviewSite( {
+			siteId: site.id,
+			siteFolder,
+			archivePath,
+			name: snapshotName,
+			accessToken: token.accessToken,
+			logger,
+			reportStep,
+			onArchiveBytes: ( bytes ) => ( archiveBytes = bytes ),
+		} );
 		const link = preview.shareUrl ?? `https://${ preview.hostname }`;
 		logger.reportSuccess( sprintf( __( 'Preview site available at: %s' ), link ) );
 

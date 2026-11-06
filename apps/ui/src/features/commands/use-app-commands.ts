@@ -13,6 +13,7 @@ import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { useSidebarOpen, useToggleSidebar } from '@/data/use-sidebar-collapsed';
 import { getAppCommands, getPaletteChats } from '@/features/commands/studio-commands';
 import { useSettingCommands } from '@/features/commands/use-setting-commands';
+import { useOpenFeedback } from '@/features/feedback';
 import { openNoticeHistory } from '@/features/notifications';
 import { useOpenWhatsNew } from '@/features/onboarding';
 import { useCollapseAll } from '@/features/sidebar';
@@ -50,6 +51,7 @@ export function useAppCommands(): PaletteCommand[] {
 	const collapseAll = useCollapseAll();
 	const settingCommands = useSettingCommands( 'studio' );
 	const openWhatsNew = useOpenWhatsNew();
+	const openFeedback = useOpenFeedback();
 
 	return getAppCommands( {
 		sites,
@@ -72,6 +74,7 @@ export function useAppCommands(): PaletteCommand[] {
 		toggleSidebar: () => setPendingAction( 'sidebar' ),
 		openNotifications: () => setPendingAction( 'notifications' ),
 		openWhatsNew,
+		openFeedback,
 		collapseAll,
 	} );
 }

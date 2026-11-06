@@ -57,12 +57,28 @@ export async function installOwnCore( sitePath: string, version: string ): Promi
 	}
 }
 
-/** Points the site's wp-content at the pulled one, which already has what only the site had. */
+function realPath( target: string ): string | undefined {
+	try {
+		return fs.realpathSync( target );
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * Points the site's wp-content at the pulled one, which already has what only the site had. The
+ * target is absolute: a relative one breaks when the site's path goes through a symlink, as `/tmp`
+ * does on macOS. A junction on Windows needs no special rights; other platforms ignore the type.
+ */
 export function linkPulledWpContent( sitePath: string, pulledWpContent: string ): void {
 	const link = path.join( sitePath, 'wp-content' );
-	if ( fs.lstatSync( link, { throwIfNoEntry: false } )?.isSymbolicLink() ) {
+	if (
+		fs.lstatSync( link, { throwIfNoEntry: false } )?.isSymbolicLink() &&
+		realPath( link ) === realPath( pulledWpContent )
+	) {
 		return;
 	}
+	// Removes a link, not what it points to.
 	fs.rmSync( link, { recursive: true, force: true } );
-	fs.symlinkSync( path.relative( sitePath, pulledWpContent ), link );
+	fs.symlinkSync( pulledWpContent, link, 'junction' );
 }

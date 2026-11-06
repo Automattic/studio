@@ -4,8 +4,6 @@
 
 Start with a blank site, a Blueprint, or an existing WordPress site. Work through the desktop app, the command line, or an AI agent connected through MCP. Share previews for feedback, publish to [WordPress.com](https://wordpress.com/) or [Pressable](https://pressable.com/), or export your site to host elsewhere.
 
-![WordPress Studio showing the site list, AI chat, and a live preview of the Moire site](/docs/assets/wordpress-studio-main.jpg)
-
 ## Get started
 
 Download WordPress Studio for your platform:

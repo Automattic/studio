@@ -67,6 +67,98 @@ async function chooseOption( select: string, option: string | RegExp ) {
 afterEach( () => vi.restoreAllMocks() );
 
 describe( 'CreateSiteForm suggestions', () => {
+	it( 'shows the generated name as a placeholder and waits for its folder before creating', async () => {
+		const pending = deferred< ProposedPath >();
+		const connector = createFakeConnector();
+		connector.generateProposedSitePath.mockReturnValue( pending.promise );
+		const { onSubmit } = await renderForm( { suggestedName: 'Blue Note' }, connector );
+		expect( siteName() ).toHaveValue( '' );
+		expect( siteName() ).toHaveAttribute( 'placeholder', 'Blue Note' );
+		expect( siteName() ).not.toBeRequired();
+		expect( siteName() ).toBeValid();
+		expect( submitButton() ).toBeEnabled();
+		fireEvent.click( submitButton() );
+		expect( onSubmit ).not.toHaveBeenCalled();
+		await pending.resolve( { path: '/sites/blue-note', isEmpty: true, isWordPress: false } );
+		await waitFor( () =>
+			expect( onSubmit ).toHaveBeenCalledWith(
+				expect.objectContaining( { name: 'Blue Note', path: '/sites/blue-note' } )
+			)
+		);
+	} );
+
+	it( 'uses a typed name and restores the suggestion and folder when it is cleared', async () => {
+		const { onSubmit } = await renderForm( { suggestedName: 'Blue Note' } );
+		fireEvent.change( siteName(), { target: { value: 'My studio' } } );
+		expect( siteName() ).toHaveValue( 'My studio' );
+		await waitFor( () => expect( localPath() ).toHaveValue( 'My studio' ) );
+		fireEvent.click( submitButton() );
+		expect( onSubmit ).toHaveBeenLastCalledWith(
+			expect.objectContaining( { name: 'My studio', path: '/sites/My studio' } )
+		);
+		fireEvent.change( siteName(), { target: { value: '' } } );
+		expect( siteName() ).toHaveValue( '' );
+		await waitFor( () => expect( localPath() ).toHaveValue( 'Blue Note' ) );
+		fireEvent.change( siteName(), { target: { value: ' ' } } );
+		expect( localPath() ).toHaveValue( 'Blue Note' );
+		expect( siteName() ).toBeValid();
+		fireEvent.click( submitButton() );
+		expect( onSubmit ).toHaveBeenLastCalledWith(
+			expect.objectContaining( { name: 'Blue Note', path: '/sites/Blue Note' } )
+		);
+	} );
+
+	it( 'keeps a chosen folder in sync with the placeholder after resetting its name', async () => {
+		const { user, onSubmit } = await renderForm( {
+			suggestedName: 'Blue Note',
+			initialValues: { path: '/projects/custom' },
+		} );
+		await user.click(
+			screen.getByRole( 'button', { name: 'Reset folder name to match site name' } )
+		);
+		expect( localPath() ).toHaveValue( 'blue-note' );
+		fireEvent.change( siteName(), { target: { value: 'My bakery' } } );
+		expect( localPath() ).toHaveValue( 'my-bakery' );
+		fireEvent.change( siteName(), { target: { value: '' } } );
+		expect( siteName() ).toHaveValue( '' );
+		expect( localPath() ).toHaveValue( 'blue-note' );
+		fireEvent.click( submitButton() );
+		await waitFor( () =>
+			expect( onSubmit ).toHaveBeenCalledWith(
+				expect.objectContaining( { name: 'Blue Note', path: '/projects/blue-note' } )
+			)
+		);
+	} );
+
+	it( 'submits the suggested name with a custom domain without filling the name input', async () => {
+		const { onSubmit } = await renderForm( { suggestedName: 'Hello Dolly' } );
+		await waitFor( () => expect( localPath() ).toHaveValue( 'Hello Dolly' ) );
+		advanced();
+		fireEvent.change( screen.getByRole( 'textbox', { name: 'Domain name' } ), {
+			target: { value: 'hello-dolly.wp.local' },
+		} );
+		expect( siteName() ).toHaveValue( '' );
+		fireEvent.click( submitButton() );
+		expect( onSubmit ).toHaveBeenCalledWith(
+			expect.objectContaining( { name: 'Hello Dolly', customDomain: 'hello-dolly.wp.local' } )
+		);
+	} );
+
+	it( 'keeps a typed name when the placeholder suggestion arrives later', async () => {
+		const { update } = await renderForm( {
+			selectedFolder: {
+				name: 'Selected folder',
+				path: '/sites/selected-folder',
+				isEmpty: true,
+				isWordPress: false,
+			},
+		} );
+		fireEvent.change( siteName(), { target: { value: 'My studio' } } );
+		update( { suggestedName: 'Blue Note' } );
+		expect( siteName() ).toHaveValue( 'My studio' );
+		expect( siteName() ).toHaveAttribute( 'placeholder', 'Blue Note' );
+	} );
+
 	it( 'applies later suggestions only to the fields the user has not edited', async () => {
 		const { update } = await renderForm();
 		fireEvent.change( siteName(), { target: { value: 'My manual name' } } );

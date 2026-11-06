@@ -53,11 +53,6 @@ export const builder = ( builderYargs: StudioArgv ) => {
 			hidden: ! reprint,
 			describe: __( 'Show detailed error information and executed commands' ),
 			default: false,
-		} )
-		.option( 'suppress-tracks-event', {
-			type: 'boolean',
-			default: false,
-			hidden: true,
 		} );
 };
 

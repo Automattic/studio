@@ -33,6 +33,7 @@ vi.mock( 'cli/lib/import-export/import/import-manager', async ( importActual ) =
 } ) );
 vi.mock( 'cli/lib/site-operations' );
 vi.mock( 'cli/lib/sync-activity' );
+vi.mock( 'cli/lib/tracks' );
 vi.mock( 'cli/lib/sync-api', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/sync-api') >() ),
 	fetchSyncableSites: vi.fn(),
@@ -89,14 +90,7 @@ describe( 'CLI: studio pull', () => {
 				importBackup.mockRejectedValue( new Error( 'boom' ) );
 			}
 
-			await runCommand(
-				site.path,
-				[ 'all' ],
-				String( remoteSite.id ),
-				undefined,
-				undefined,
-				true
-			).catch( () => undefined );
+			await runCommand( site.path, [ 'all' ], String( remoteSite.id ) ).catch( () => undefined );
 
 			expect( steps ).toEqual( expected );
 			expect( vi.mocked( reportSyncActivity ).mock.calls.at( -1 ) ).toEqual( [
@@ -114,15 +108,7 @@ describe( 'CLI: studio pull', () => {
 		const messages: string[] = [];
 		const logger = new Logger< never >( { onProgress: ( message ) => messages.push( message ) } );
 
-		await runCommand(
-			site.path,
-			[ 'all' ],
-			String( remoteSite.id ),
-			undefined,
-			logger,
-			true,
-			confirm
-		);
+		await runCommand( site.path, [ 'all' ], String( remoteSite.id ), undefined, logger, confirm );
 
 		expect( steps.includes( 'import' ) ).toBe( imported );
 		expect( messages.some( ( message ) => message.includes( 'exceeds' ) ) ).toBe( ! confirm );
@@ -137,9 +123,7 @@ describe( 'CLI: studio pull', () => {
 			const failure = failingStep === 'start' ? vi.mocked( startWordPressServer ) : importBackup;
 			failure.mockRejectedValueOnce( new Error( 'boom' ) );
 
-			await expect(
-				runCommand( site.path, [ 'all' ], String( remoteSite.id ), undefined, undefined, true )
-			).rejects.toThrow();
+			await expect( runCommand( site.path, [ 'all' ], String( remoteSite.id ) ) ).rejects.toThrow();
 
 			expect( vi.mocked( reportSyncActivity ).mock.calls.at( -1 ) ).toEqual( [
 				site.id,

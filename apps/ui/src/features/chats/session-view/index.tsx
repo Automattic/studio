@@ -84,6 +84,11 @@ interface SessionViewProps {
 	panelVisible?: boolean;
 }
 
+function SiteSelectionParticles( { siteId, active }: { siteId?: string; active: boolean } ) {
+	const selectionTime = useSiteSelectionTime( siteId );
+	return <PreviewParticles active={ active } showLogo={ active } selectionTime={ selectionTime } />;
+}
+
 export function SessionView( props: SessionViewProps ) {
 	return (
 		<SessionUIProvider>
@@ -290,7 +295,6 @@ function SessionViewContent( {
 		! isSiteStopping && ( isSiteStarting || ( !! ownerSite && revealingSiteId === ownerSite.id ) );
 	const showStoppedPreview =
 		!! ownerSite && ( ! ownerSite.running || isSiteStopping ) && ! isSiteStarting;
-	const selectionTime = useSiteSelectionTime( ownerSite?.id );
 	const isSiteBusy = useIsSiteBusy( ownerSite );
 	const canAutoStart = !! ownerSite && effectiveEnvironment === 'local';
 	const { data: connectedSites } = useConnectedWpcomSites( ownerSite?.id );
@@ -539,10 +543,9 @@ function SessionViewContent( {
 						{ siteLoading && ! panelVisible ? (
 							<VisuallyHidden role="status">{ __( 'Loading site preview' ) }</VisuallyHidden>
 						) : null }
-						<PreviewParticles
+						<SiteSelectionParticles
 							active={ siteLoading && ! panelVisible }
-							showLogo={ siteLoading && ! panelVisible }
-							selectionTime={ ownerSite?.running ? undefined : selectionTime }
+							siteId={ ownerSite?.running ? undefined : ownerSite?.id }
 						/>
 						{ showStoppedPreview ? <StoppedSitePreview site={ ownerSite } /> : null }
 					</div>

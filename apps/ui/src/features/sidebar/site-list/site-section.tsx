@@ -1,7 +1,7 @@
 import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useEffect, useRef } from 'react';
+import { startTransition, useEffect, useRef } from 'react';
 import { useSiteAgentActivity } from '@/data/agent-runs/use-agent-run';
 import { sitePinKey } from '@/data/queries/use-sidebar-pins';
 import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
@@ -107,8 +107,9 @@ export function SiteSection( {
 	const preview = useOptionalSessionPreviewUI();
 	const handleOpenSite = () => {
 		onOpen?.();
+		if ( onOpen && isActive && expanded ) return;
 		if ( ! onOpen ) onSiteOpen?.();
-		openSite( site );
+		startTransition( () => openSite( site ) );
 	};
 	const handleStartSite = () => {
 		if ( ! isActive ) handleOpenSite();

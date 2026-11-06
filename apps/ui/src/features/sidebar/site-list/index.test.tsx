@@ -1,5 +1,6 @@
-import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, renderHook, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useSiteSelectionTime } from '@/data/use-open-site';
 import { rememberVisit } from '@/features/sidebar/last-visited';
 import {
 	createFakeConnector,
@@ -84,6 +85,62 @@ function drag( row: HTMLElement, toY: number ) {
 beforeEach( () => localStorage.clear() );
 
 describe( 'sidebar site list', () => {
+	it( 'opens and folds cached chats while the selected conversation is still loading', async () => {
+		const { connector, history } = await setup( {
+			sites: [ { ...mySite, running: true }, runningSite ],
+			sessions: [ chat( 'latest', '2026-06-20T12:00:00.000Z' ) ],
+		} );
+		connector.getSession.mockImplementation( () => new Promise( () => {} ) );
+		const site = await siteButton( 'My site' );
+
+		fireEvent.click( site );
+
+		await waitFor( () => expect( site ).toHaveAttribute( 'aria-expanded', 'true' ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/latest' ) );
+		expect( await screen.findByRole( 'group', { name: 'My site chats' } ) ).toBeVisible();
+
+		fireEvent.click( site );
+
+		await waitFor( () => expect( site ).toHaveAttribute( 'aria-expanded', 'false' ) );
+		expect( history.location.pathname ).toBe( '/sessions/latest' );
+	} );
+
+	it( 'folds the active site without navigating away from its chat', async () => {
+		const { history, connector } = await setup( {
+			sessions: [ chat( 'latest', '2026-06-20T12:00:00.000Z' ) ],
+			path: '/sessions/latest',
+		} );
+		const site = await siteButton( 'My site' );
+		await waitFor( () => expect( site ).toHaveAttribute( 'aria-expanded', 'true' ) );
+		connector.trackEvent.mockClear();
+
+		fireEvent.click( site );
+
+		await waitFor( () => expect( site ).toHaveAttribute( 'aria-expanded', 'false' ) );
+		expect( history.location.pathname ).toBe( '/sessions/latest' );
+		expect( connector.trackEvent ).not.toHaveBeenCalledWith( 'studio_panel_opened', {
+			panel: 'assistant',
+		} );
+	} );
+
+	it( 'lights the dots when opening a site, but not when folding its chats', async () => {
+		await setup( { sessions: [ chat( 'latest', '2026-06-20T12:00:00.000Z' ) ] } );
+		const { result } = renderHook( () => useSiteSelectionTime( 'one' ) );
+		const site = await siteButton( 'My site' );
+		fireEvent.click( site );
+		await waitFor( () => expect( site ).toHaveAttribute( 'aria-expanded', 'true' ) );
+		const openedAt = result.current;
+		expect( openedAt ).toEqual( expect.any( Number ) );
+
+		fireEvent.click( site );
+		await waitFor( () => expect( site ).toHaveAttribute( 'aria-expanded', 'false' ) );
+		expect( result.current ).toBe( openedAt );
+
+		fireEvent.click( site );
+		await waitFor( () => expect( site ).toHaveAttribute( 'aria-expanded', 'true' ) );
+		expect( result.current ).toBeGreaterThan( openedAt! );
+	} );
+
 	it( 'records external Open in destinations and internal project tools separately', async () => {
 		const { connector } = await setup();
 		await openIn( 'My site' );

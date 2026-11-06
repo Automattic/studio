@@ -25,6 +25,7 @@
  * registries with the code loaded and skipped, and where WordPress lists each.
  */
 import { activeCode } from '@studio/agent/node/active-code';
+import { boundedText } from '@studio/agent/node/bounded-list';
 import {
 	describeRemoteFonts,
 	REMOTE_STYLES,
@@ -169,10 +170,7 @@ function describeRegistered(
 	added: Registered,
 	outOfRest: Registered
 ): string {
-	const names = ( items: string[] ) =>
-		items.length > MAX_NAMES
-			? `${ items.slice( 0, MAX_NAMES ).join( ', ' ) } and ${ items.length - MAX_NAMES } more`
-			: items.join( ', ' );
+	const names = ( items: string[] ) => boundedText( items, MAX_NAMES );
 	const holds = Object.keys( REGISTRIES ).filter( ( registry ) => added[ registry ]?.length );
 	const none = Object.keys( REGISTRIES ).filter( ( registry ) => ! added[ registry ]?.length );
 	return `${ site.name }: with ${ list( changed ) } loaded, WordPress registers ${ [

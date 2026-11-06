@@ -1,4 +1,5 @@
 import path from 'path';
+import { boundedText } from './bounded-list';
 import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from './global-instructions';
 import { formatActiveSite } from './site-selection';
 import { studioMessage } from './studio-message';
@@ -58,13 +59,10 @@ function localSitesLine(
 		shellDirectory && sitePath.startsWith( shellDirectory + path.sep )
 			? sitePath.slice( shellDirectory.length + 1 )
 			: sitePath;
-	const listed = sites
-		.slice( 0, LISTED_SITES_MAX )
-		.map( ( site ) => `"${ site.name }" (${ folder( site.path ) })` );
-	const more = sites.length - listed.length;
-	return `\n- No site is open in Studio. The user's local sites: ${ listed.join( ', ' ) }${
-		more ? `, and ${ more } more` : ''
-	}.`;
+	return `\n- No site is open in Studio. The user's local sites: ${ boundedText(
+		sites.map( ( site ) => `"${ site.name }" (${ folder( site.path ) })` ),
+		LISTED_SITES_MAX
+	) }.`;
 }
 
 // The WordPress.com AI proxy admits Studio requests only when the system prompt

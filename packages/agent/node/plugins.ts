@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from 'fs';
 import path from 'path';
+import { boundedText } from '@studio/agent/node/bounded-list';
 import type { WordPressSite } from '@studio/agent/node/site-database';
 
 // The plugins WordPress loads (the active_plugins option), by plugin file:
@@ -11,13 +12,18 @@ export function activePlugins( site: WordPressSite ): string[] {
 		: [];
 }
 
+// Enough to name the plugins of a site that runs many.
+const MAX_LISTED_PLUGINS = 30;
+
 /** Site fact: the active plugins. */
 export function activePluginsFact( site: WordPressSite ): string | undefined {
 	if ( site.option( 'active_plugins' ) === undefined ) {
 		return undefined;
 	}
 	const plugins = activePlugins( site );
-	return `Active plugins: ${ plugins.length ? plugins.join( ', ' ) : 'none' }.`;
+	return `Active plugins: ${
+		plugins.length ? boundedText( plugins, MAX_LISTED_PLUGINS ) : 'none'
+	}.`;
 }
 
 /**

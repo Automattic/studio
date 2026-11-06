@@ -28,6 +28,7 @@ import { existsSync, mkdirSync } from 'fs';
 import { readFile, readdir, rename, rm, writeFile } from 'fs/promises';
 import path from 'path';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
+import { boundedLines } from '@studio/agent/node/bounded-list';
 import {
 	GLOBAL_STYLES,
 	saveGlobalStyles,
@@ -265,8 +266,11 @@ function pageAddresses( site: WordPressSite ): string[][] {
 // attachment under its parent held the one asked for: wp_unique_post_slug()
 // (wp-includes/post.php) checks a page's slug against both, and suffixes -2,
 // -3 and so on until one is free, so a link to the slug asked for misses it.
+// Enough to show how WordPress numbers a slug that is taken.
+const MAX_TAKEN_SLUGS = 5;
+
 function takenPageSlugs( site: WordPressSite ): string[] {
-	return site
+	const lines = site
 		.query< { id: number; slug: string; holder: number; type: string; taken: string } >(
 			`SELECT page.ID AS id, page.post_name AS slug, holder.ID AS holder, holder.post_type AS type, holder.post_name AS taken
 			FROM ${ site.prefix }posts page JOIN ${ site.prefix }posts holder
@@ -281,6 +285,7 @@ function takenPageSlugs( site: WordPressSite ): string[] {
 			( { id, slug, holder, type, taken } ) =>
 				`Page ${ id } has the slug ${ slug }, not ${ taken }, as ${ type } ${ holder } holds ${ taken }: WordPress gives a page and the pages and attachments under its parent one set of slugs (wp_unique_post_slug() in wp-includes/post.php).`
 		);
+	return boundedLines( lines, MAX_TAKEN_SLUGS );
 }
 
 /**

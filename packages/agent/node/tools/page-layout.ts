@@ -4,6 +4,7 @@
  * theme's header, main and footer, and the blocks main holds) and whether the
  * page is wider than its viewport, measured after the page settles.
  */
+import { boundedLines } from '@studio/agent/node/bounded-list';
 import type { getSharedBrowser } from '@studio/agent/node/browser-utils';
 
 type Browser = Awaited< ReturnType< typeof getSharedBrowser > >;
@@ -15,7 +16,7 @@ const MAX_REGIONS = 40;
 const MAX_CAUSES = 5;
 
 export async function pageLayout( page: Page ): Promise< string[] > {
-	const regions = page.evaluate( ( maxRegions ) => {
+	const regions = page.evaluate( () => {
 		// Classes that name a block or the author's own, not the layout WordPress generates.
 		const generated = /^(is-|has-|wp-container-|wp-elements-|wp-block-[a-z-]+-is-layout-)/;
 		const label = ( element: Element ) =>
@@ -137,15 +138,10 @@ export async function pageLayout( page: Page ): Promise< string[] > {
 			}`;
 		};
 		const lines: string[] = [];
-		let more = 0;
 		const visit = ( parent: Element, depth: number ) => {
 			for ( const element of parent.children ) {
 				const rect = element.getBoundingClientRect();
 				if ( rect.width === 0 || rect.height === 0 ) {
-					continue;
-				}
-				if ( lines.length >= maxRegions ) {
-					more++;
 					continue;
 				}
 				const top = Math.round( rect.top + window.scrollY );
@@ -165,13 +161,10 @@ export async function pageLayout( page: Page ): Promise< string[] > {
 			}
 		};
 		visit( document.querySelector( '.wp-site-blocks' ) ?? document.body, 0 );
-		if ( more ) {
-			lines.push( `…and ${ more } more` );
-		}
 		return lines;
-	}, MAX_REGIONS );
+	} );
 	return [
-		...( await regions ),
+		...boundedLines( await regions, MAX_REGIONS ),
 		...( await pageBandGaps( page ) ),
 		...( await pageOverflow( page ) ),
 	];
@@ -333,8 +326,8 @@ export function pageHeaderWraps( page: Page ): Promise< string[] > {
 }
 
 /** Whether the page is wider than its viewport, and the elements that make it so. */
-export function pageOverflow( page: Page ): Promise< string[] > {
-	return page.evaluate( ( maxCauses ) => {
+export async function pageOverflow( page: Page ): Promise< string[] > {
+	const { lines, causes } = await page.evaluate( () => {
 		const generated = /^(is-|has-|wp-container-|wp-elements-|wp-block-[a-z-]+-is-layout-)/;
 		// An element with no id or class of its own is named by its text, as one
 		// link among many is.
@@ -447,13 +440,11 @@ export function pageOverflow( page: Page ): Promise< string[] > {
 					}px box, as the browser does not wrap it there${ where( box ) }.`
 				);
 			}
-			lines.push( ...found.slice( 0, maxCauses ) );
-			if ( found.length > maxCauses ) {
-				lines.push( `  …and ${ found.length - maxCauses } more.` );
-			}
+			return { lines, causes: found };
 		}
-		return lines;
-	}, MAX_CAUSES );
+		return { lines, causes: [] };
+	} );
+	return [ ...lines, ...boundedLines( causes, MAX_CAUSES, '  ' ) ];
 }
 
 // Enough lines to show where text does not fit without flooding the result.
@@ -473,8 +464,8 @@ export interface TextFit {
  * wp-includes/css/dist/block-library/style.css). A word the page hyphenates
  * is not counted.
  */
-export function pageTextFit( page: Page ): Promise< TextFit > {
-	return page.evaluate( ( maxLines ) => {
+export async function pageTextFit( page: Page ): Promise< TextFit > {
+	const { edges, breaks } = await page.evaluate( () => {
 		const generated = /^(is-|has-|wp-container-|wp-elements-|wp-block-[a-z-]+-is-layout-)/;
 		// An element with no class of its own is named by its text, as one link among many is.
 		const label = ( element: Element, byText = true ) => {
@@ -599,12 +590,12 @@ export function pageTextFit( page: Page ): Promise< TextFit > {
 				"The theme's styles.spacing.padding, the padding WordPress puts between the page's content and the viewport's edges, is core's 0px (wp-includes/theme.json); with settings.useRootPaddingAwareAlignments true, WordPress applies it inside each .has-global-padding container, so full-width blocks still reach the edges (get_root_layout_rules() in wp-includes/class-wp-theme-json.php)."
 			);
 		}
-		const limit = ( lines: string[] ) =>
-			lines.length > maxLines
-				? [ ...lines.slice( 0, maxLines ), `…and ${ lines.length - maxLines } more` ]
-				: lines;
-		return { edges: limit( edges ), breaks: limit( breaks ) };
-	}, MAX_TEXT_LINES );
+		return { edges, breaks };
+	} );
+	return {
+		edges: boundedLines( edges, MAX_TEXT_LINES ),
+		breaks: boundedLines( breaks, MAX_TEXT_LINES ),
+	};
 }
 
 /**
@@ -647,8 +638,8 @@ export async function pageWideTextBreaks( page: Page ): Promise< string[] > {
  * over an image, a gradient or a pseudo-element's background is not measured,
  * as no one color is behind it.
  */
-export function pageContrast( page: Page ): Promise< string[] > {
-	return page.evaluate( ( maxLines ) => {
+export async function pageContrast( page: Page ): Promise< string[] > {
+	const lines = await page.evaluate( () => {
 		const generated = /^(is-|has-|wp-container-|wp-elements-|wp-block-[a-z-]+-is-layout-)/;
 		const label = ( element: Element ) => {
 			const tag = element.tagName.toLowerCase();
@@ -826,18 +817,14 @@ export function pageContrast( page: Page ): Promise< string[] > {
 			lines.push( line );
 		}
 		window.scrollTo( { top: scrollY, behavior: 'instant' } );
-		if ( ! lines.length ) {
-			return [];
-		}
-		const shown =
-			lines.length > maxLines
-				? [ ...lines.slice( 0, maxLines ), `…and ${ lines.length - maxLines } more` ]
-				: lines;
-		return [
-			'Text a visitor cannot read, under the 3:1 contrast WCAG 2 asks of large text (4.5:1 of other text; success criterion 1.4.3):',
-			...shown.map( ( line ) => `  ${ line }` ),
-		];
-	}, MAX_TEXT_LINES );
+		return lines;
+	} );
+	return lines.length
+		? [
+				'Text a visitor cannot read, under the 3:1 contrast WCAG 2 asks of large text (4.5:1 of other text; success criterion 1.4.3):',
+				...boundedLines( lines, MAX_TEXT_LINES ).map( ( line ) => `  ${ line }` ),
+		  ]
+		: [];
 }
 
 // Each element styled to stick to the top whose parent is no taller than it:

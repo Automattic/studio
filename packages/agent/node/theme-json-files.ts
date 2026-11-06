@@ -10,6 +10,7 @@
  * which WordPress reads as an array, failed every page. Of a style
  * variation of the active theme, it says what WordPress lists it as.
  */
+import { boundedText } from '@studio/agent/node/bounded-list';
 import { printedJson, runWpCli } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { OpenProblems } from '@studio/agent/node/open-problems';
@@ -164,11 +165,10 @@ function dropNote( read: Read, relativePath: string ): string | undefined {
 	if ( ! read.dropped.length ) {
 		return undefined;
 	}
-	const shown = read.dropped.slice( 0, SHOWN ).join( ', ' );
-	const more = read.dropped.length > SHOWN ? `, and ${ read.dropped.length - SHOWN } more` : '';
+	const shown = boundedText( read.dropped, SHOWN );
 	return read.version
-		? `WordPress reads ${ relativePath } as ( new WP_Theme_JSON( $decoded ) )->get_raw_data() (WP_Theme_JSON_Resolver in wp-includes/class-wp-theme-json-resolver.php), which removes the keys the theme.json schema has no place for (WP_Theme_JSON's VALID_TOP_LEVEL_KEYS, VALID_SETTINGS and VALID_STYLES, and its block and element names, in wp-includes/class-wp-theme-json.php), so these change nothing on the site: ${ shown }${ more }. The schema gives each setting and style its form (https://schemas.wp.org/trunk/theme.json), as Twenty Twenty-Five's theme.json writes them.`
-		: `${ relativePath } has no "version", so WordPress keeps only { "version": ${ read.latest } } of it (WP_Theme_JSON_Schema::migrate in wp-includes/class-wp-theme-json-schema.php, which WP_Theme_JSON runs on each theme JSON file it reads), and none of these reach the site: ${ shown }${ more }. It reads them all with "version": ${ read.latest }, as Twenty Twenty-Five's theme JSON files have.`;
+		? `WordPress reads ${ relativePath } as ( new WP_Theme_JSON( $decoded ) )->get_raw_data() (WP_Theme_JSON_Resolver in wp-includes/class-wp-theme-json-resolver.php), which removes the keys the theme.json schema has no place for (WP_Theme_JSON's VALID_TOP_LEVEL_KEYS, VALID_SETTINGS and VALID_STYLES, and its block and element names, in wp-includes/class-wp-theme-json.php), so these change nothing on the site: ${ shown }. The schema gives each setting and style its form (https://schemas.wp.org/trunk/theme.json), as Twenty Twenty-Five's theme.json writes them.`
+		: `${ relativePath } has no "version", so WordPress keeps only { "version": ${ read.latest } } of it (WP_Theme_JSON_Schema::migrate in wp-includes/class-wp-theme-json-schema.php, which WP_Theme_JSON runs on each theme JSON file it reads), and none of these reach the site: ${ shown }. It reads them all with "version": ${ read.latest }, as Twenty Twenty-Five's theme JSON files have.`;
 }
 
 /**

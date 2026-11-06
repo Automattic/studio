@@ -78,11 +78,17 @@ describe( 'Studio AI MCP tools', () => {
 		goto: vi.fn(),
 		on: vi.fn(),
 		// The page layout's scripts read the page's blocks and return lines.
-		evaluate: vi.fn( async ( script: unknown, args?: number | { source?: string } ) => {
+		evaluate: vi.fn( async ( script: unknown, args?: { source?: string } ) => {
 			if ( String( script ).includes( 'hyphens' ) ) {
 				return { edges: [], breaks: [] };
 			}
-			if ( typeof args === 'number' || String( script ).includes( 'wp-site-blocks' ) ) {
+			if ( String( script ).includes( 'scrolls sideways' ) ) {
+				return { lines: [], causes: [] };
+			}
+			if ( String( script ).includes( 'luminance' ) ) {
+				return [];
+			}
+			if ( String( script ).includes( 'wp-site-blocks' ) ) {
 				return [ 'main: y 0–900 (900px tall), x 0–1040' ];
 			}
 			return args?.source ? scaledBuffer.toString( 'base64' ) : documentHeight;

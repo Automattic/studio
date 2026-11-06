@@ -1,5 +1,6 @@
 import { readdir } from 'fs/promises';
 import path from 'path';
+import { boundedText } from '@studio/agent/node/bounded-list';
 import { activeIsBlockTheme, activeThemes, themesDir } from '@studio/agent/node/themes';
 import { wpEvalJson } from '@studio/agent/node/tools/utils';
 import type { StudioAgentHost } from '@studio/agent/node/host';
@@ -215,6 +216,9 @@ export function savedCopyWriteNote( site: WordPressSite, file: string ): string 
 		  } from its copy saved in the Site Editor (post ${ copy.id }), not from this file.`;
 }
 
+// Enough to name the copies of a site whose theme was reworked in the Site Editor.
+const MAX_LISTED_COPIES = 10;
+
 /**
  * Site fact: the copies WordPress renders in place of theme files, or, for a
  * block theme (templates/index.html, WP_Theme::is_block_theme()), that there
@@ -227,9 +231,11 @@ export async function savedCopiesFact(
 	const copies = readSavedCopies( site );
 	if ( copies.length ) {
 		const files = await themeFilesOf( host, site, copies );
-		return `Saved in the Site Editor, so WordPress renders them in place of the active theme's files: ${ copies
-			.map( ( copy ) => describeCopy( copy, files ) )
-			.join( '; ' ) }.`;
+		return `Saved in the Site Editor, so WordPress renders them in place of the active theme's files: ${ boundedText(
+			copies.map( ( copy ) => describeCopy( copy, files ) ),
+			MAX_LISTED_COPIES,
+			'; '
+		) }.`;
 	}
 	return activeIsBlockTheme( site )
 		? "Nothing is saved in the Site Editor for the active theme, so WordPress renders its templates, parts and theme.json as the theme's files have them."

@@ -49,6 +49,40 @@ it( 'states the WordPress version, the active theme and whether WordPress update
 	] );
 } );
 
+// A site's lists are stated at a bound, so a site with many of something reads
+// at the length of one with a few.
+it( 'states the active plugins and the numbered page slugs up to a bound', async () => {
+	vi.stubEnv( 'DEV_CONFIG_DIR', mkdtempSync( path.join( os.tmpdir(), 'config-' ) ) );
+	const site = createSite( 'wp_' );
+	const plugins = Array.from( { length: 32 }, ( _, i ) => `p${ i }.php` );
+	site.setOptions( {
+		active_plugins: `a:32:{${ plugins
+			.map( ( plugin, i ) => `i:${ i };s:${ plugin.length }:"${ plugin }";` )
+			.join( '' ) }}`,
+	} );
+	for ( let id = 10; id < 17; id++ ) {
+		site.save( id, 'page', `team-${ id }-2`, '', 1, 'publish', 'Team' );
+		site.save( id + 100, 'page', `team-${ id }`, '', 1, 'publish', 'Team' );
+	}
+	vi.mocked( host.sites.findByFolder ).mockResolvedValue( {
+		...fakeSite,
+		id: 'site-id',
+		path: site.root,
+	} as HostSite );
+	try {
+		const facts = await site.facts();
+		expect( facts ).toContain(
+			`Active plugins: ${ plugins.slice( 0, 30 ).join( ', ' ) }, and 2 more.`
+		);
+		const slugs = facts.filter( ( fact ) => /^Page \d+ has the slug|^…and/.test( fact ) );
+		expect( slugs ).toHaveLength( 6 );
+		expect( slugs.at( -1 ) ).toBe( '…and 2 more' );
+	} finally {
+		vi.mocked( host.sites.findByFolder ).mockReset();
+		vi.unstubAllEnvs();
+	}
+} );
+
 it( 'states that WordPress is not installed until the site first starts', async () => {
 	const site = createSite( 'wp_' );
 	rmSync( path.join( site.root, 'wp-content/database' ), { recursive: true } );

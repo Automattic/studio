@@ -30,6 +30,7 @@ import {
 	type PresetValuesResult,
 	type ValidationReportBase,
 } from '@studio/agent/node/block-validator';
+import { boundedText } from '@studio/agent/node/bounded-list';
 import { rewriteNotes } from '@studio/agent/node/file-rewrites';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { themePresets } from '@studio/agent/node/theme-presets';
@@ -198,12 +199,7 @@ async function describeSavingBlocks( html: string, siteUrl: string ): Promise< s
 	if ( ! elements.length ) {
 		return [];
 	}
-	const named = ( blocks: string[] ) =>
-		blocks.length > MAX_SAVING_BLOCKS
-			? `${ blocks.slice( 0, MAX_SAVING_BLOCKS ).join( ', ' ) } and ${
-					blocks.length - MAX_SAVING_BLOCKS
-			  } more`
-			: blocks.join( ', ' );
+	const named = ( blocks: string[] ) => boundedText( blocks, MAX_SAVING_BLOCKS );
 	return [
 		`The site's blocks whose save makes its elements, created with their defaults (createBlock() and getSaveContent() in @wordpress/blocks): ${ elements
 			.map( ( { element, blocks } ) => `<${ element }> ${ named( blocks ) }` )

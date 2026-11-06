@@ -11,6 +11,7 @@
  */
 import { readdir, readFile } from 'fs/promises';
 import path from 'path';
+import { boundedText } from '@studio/agent/node/bounded-list';
 import { render } from '@studio/agent/node/page-render';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 
@@ -140,13 +141,12 @@ export async function missingSourceText(
 	if ( ! missing.length || missing.length === all.length ) {
 		return undefined;
 	}
-	const listed = missing
-		.slice( 0, SHOWN )
-		.map( ( [ , { text, files } ] ) => `"${ text }" (${ files.join( ', ' ) })` );
-	const more = missing.length > SHOWN ? `, and ${ missing.length - SHOWN } more` : '';
+	const listed = boundedText(
+		missing.map( ( [ , { text, files } ] ) => `"${ text }" (${ files.join( ', ' ) })` ),
+		SHOWN,
+		'; '
+	);
 	return `${ site.url.replace( /\/$/, '' ) } shows ${ all.length - missing.length } of the ${
 		all.length
-	} runs of text in the HTML pages in its folder, and none of its front page and the pages it links to, as a visitor gets them, show: ${ listed.join(
-		'; '
-	) }${ more }. Text in every one of those pages, as a header or footer is, goes in the site's header or footer template part; the rest on the page it was on.`;
+	} runs of text in the HTML pages in its folder, and none of its front page and the pages it links to, as a visitor gets them, show: ${ listed }. Text in every one of those pages, as a header or footer is, goes in the site's header or footer template part; the rest on the page it was on.`;
 }

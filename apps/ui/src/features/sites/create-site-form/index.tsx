@@ -376,7 +376,6 @@ export function CreateSiteForm( {
 				{ existing ? null : wpVersionOptions ? (
 					<SelectField
 						label={ __( 'WordPress version' ) }
-						size="sm"
 						description={ wpVersionDescription }
 						value={ data.wpVersion }
 						options={ wpVersionOptions }
@@ -388,7 +387,6 @@ export function CreateSiteForm( {
 					<TextField
 						label={ __( 'WordPress version' ) }
 						orientation="horizontal"
-						size="sm"
 						controlClassName={ styles.advancedControl }
 						placeholder={ DEFAULT_WORDPRESS_VERSION }
 						value={ data.wpVersion }
@@ -397,7 +395,6 @@ export function CreateSiteForm( {
 				) }
 				<SelectField
 					label={ __( 'PHP version' ) }
-					size="sm"
 					value={ data.phpVersion }
 					options={ getPhpVersionOptions() }
 					onChange={ ( phpVersion ) =>
@@ -406,7 +403,6 @@ export function CreateSiteForm( {
 				/>
 				<SelectField
 					label={ __( 'File access' ) }
-					size="sm"
 					value={ data.fileAccess }
 					options={ getFileAccessOptions() }
 					onChange={ ( fileAccess ) =>
@@ -430,7 +426,6 @@ export function CreateSiteForm( {
 									render={
 										<Button
 											variant="outline"
-											size="sm"
 											aria-describedby={
 												credentialsError && ! credentialsOpen
 													? `${ credentialsId }-error`
@@ -452,7 +447,6 @@ export function CreateSiteForm( {
 										<TextField
 											label={ __( 'Username' ) }
 											orientation="horizontal"
-											size="sm"
 											controlClassName={ styles.advancedControl }
 											value={ data.adminUsername }
 											error={ advancedErrors.adminUsername }
@@ -465,7 +459,6 @@ export function CreateSiteForm( {
 										<TextField
 											label={ __( 'Password' ) }
 											orientation="horizontal"
-											size="sm"
 											controlClassName={ styles.advancedControl }
 											type="password"
 											value={ data.adminPassword }
@@ -479,7 +472,6 @@ export function CreateSiteForm( {
 										<TextField
 											label={ __( 'Email' ) }
 											orientation="horizontal"
-											size="sm"
 											controlClassName={ styles.advancedControl }
 											type="email"
 											value={ data.adminEmail }
@@ -494,7 +486,6 @@ export function CreateSiteForm( {
 						<TextField
 							label={ __( 'Domain name' ) }
 							orientation="horizontal"
-							size="sm"
 							controlClassName={ styles.advancedControl }
 							value={ data.customDomain }
 							placeholder="localhost"

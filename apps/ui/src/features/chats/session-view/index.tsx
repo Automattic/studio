@@ -84,11 +84,6 @@ interface SessionViewProps {
 	panelVisible?: boolean;
 }
 
-function SiteSelectionParticles( { siteId, active }: { siteId?: string; active: boolean } ) {
-	const selectionTime = useSiteSelectionTime( siteId );
-	return <PreviewParticles active={ active } showLogo={ active } selectionTime={ selectionTime } />;
-}
-
 export function SessionView( props: SessionViewProps ) {
 	return (
 		<SessionUIProvider>
@@ -295,6 +290,7 @@ function SessionViewContent( {
 		! isSiteStopping && ( isSiteStarting || ( !! ownerSite && revealingSiteId === ownerSite.id ) );
 	const showStoppedPreview =
 		!! ownerSite && ( ! ownerSite.running || isSiteStopping ) && ! isSiteStarting;
+	const selectionTime = useSiteSelectionTime( ownerSite?.id );
 	const isSiteBusy = useIsSiteBusy( ownerSite );
 	const canAutoStart = !! ownerSite && effectiveEnvironment === 'local';
 	const { data: connectedSites } = useConnectedWpcomSites( ownerSite?.id );
@@ -366,7 +362,7 @@ function SessionViewContent( {
 	useEffect( () => {
 		if ( ! isChatReady || ! annotationSiteId ) return;
 		return subscribeAnnotationSend( annotationSiteId, ( { noteIds } ) => {
-			stageAnnotations( annotationSiteId, noteIds );
+			if ( ! noteIds ) stageAnnotations( annotationSiteId );
 			if ( composerBusy && ! noteIds ) return;
 			if ( ! noteIds ) {
 				return composerRef.current?.send();
@@ -543,9 +539,10 @@ function SessionViewContent( {
 						{ siteLoading && ! panelVisible ? (
 							<VisuallyHidden role="status">{ __( 'Loading site preview' ) }</VisuallyHidden>
 						) : null }
-						<SiteSelectionParticles
+						<PreviewParticles
 							active={ siteLoading && ! panelVisible }
-							siteId={ ownerSite?.running ? undefined : ownerSite?.id }
+							showLogo={ siteLoading && ! panelVisible }
+							selectionTime={ ownerSite?.running ? undefined : selectionTime }
 						/>
 						{ showStoppedPreview ? <StoppedSitePreview site={ ownerSite } /> : null }
 					</div>

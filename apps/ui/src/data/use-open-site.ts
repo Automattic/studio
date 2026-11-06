@@ -1,6 +1,6 @@
 import { aiSessionBelongsToSite } from '@studio/agent/protocol/sessions/owner-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import { useNavigate, useRouter } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { useSyncExternalStore } from 'react';
 import { useConnector } from '@/data/core';
 import { resumeChat } from '@/data/last-visited';
@@ -13,25 +13,29 @@ let selection: { siteId: string; time: number } | null = null;
 const selectionListeners = new Set< () => void >();
 
 export function useSiteSelectionTime( siteId: string | undefined ): number | undefined {
-	return useSyncExternalStore(
+	const current = useSyncExternalStore(
 		( listener ) => {
 			selectionListeners.add( listener );
 			return () => selectionListeners.delete( listener );
 		},
-		() => ( selection && selection.siteId === siteId ? selection.time : undefined )
+		() => selection
 	);
+	return current && current.siteId === siteId ? current.time : undefined;
 }
 
-export function useOpenSite() {
+export function useOpenSite( { animateSelection = true } = {} ) {
 	const navigate = useNavigate();
-	const router = useRouter();
 	const connector = useConnector();
 	const { data: sessions } = useSessions();
 	const preview = useOptionalSessionPreviewUI();
 
 	return ( site: SiteDetails ) => {
-		selection = { siteId: site.id, time: performance.now() };
-		selectionListeners.forEach( ( listener ) => listener() );
+		if ( animateSelection ) {
+			selection = { siteId: site.id, time: performance.now() };
+			selectionListeners.forEach( ( listener ) => listener() );
+		}
+		void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'assistant' } );
+		preview?.setSite( site.id, { running: !! site.running } );
 		const session = resumeChat(
 			site.id,
 			( sessions ?? [] ).filter(
@@ -39,11 +43,6 @@ export function useOpenSite() {
 					!! session.firstPrompt && ! session.archived && aiSessionBelongsToSite( session, site )
 			)
 		);
-		const pathname =
-			site.running && session ? `/sessions/${ session.id }` : `/sites/${ site.id }/new`;
-		if ( router.state.location.pathname === pathname ) return;
-		void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'assistant' } );
-		preview?.setSite( site.id, { running: !! site.running } );
 		if ( site.running && session ) {
 			void navigate( { to: '/sessions/$sessionId', params: { sessionId: session.id } } );
 		} else {

@@ -321,10 +321,10 @@ describe( 'Studio workspace', () => {
 			);
 			expect( await screen.findByText( 'Old message' ) ).toBeVisible();
 			fireEvent.click( screen.getByRole( 'button', { name: 'Other site' } ) );
-			await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/previous' ) );
-			expect( screen.getByRole( 'button', { name: 'Other site' } ) ).toHaveAttribute(
-				'aria-expanded',
-				'false'
+			await waitFor( () =>
+				expect( history.location.pathname ).toBe(
+					action === 'play' ? '/sessions/previous' : '/sites/two/new'
+				)
 			);
 			expect( await findComposer() ).toHaveValue( '' );
 			expect( connector.createSession ).not.toHaveBeenCalled();

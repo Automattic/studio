@@ -16,9 +16,7 @@ WordPress Studio Code in the WordPress Studio desktop app is built into a friend
 
 Open your WordPress Studio desktop app and select a site in the sidebar (or add a new site). WordPress Studio Code is the chat next to the site preview: type your request in the chat box at the bottom. If you haven’t connected an AI provider yet, the chat box shows “Connect a provider to build and edit your site.” Click **Connect** to log in with WordPress.com or add your own Anthropic API key.
 
-<!-- TODO screenshot: capture by hand in Studio 2.0, logged in to WordPress.com: a Studio Code chat for a selected site, with a reply in the transcript. -->
-<!-- Logged out, `main-window-signed-out.png` from `npm run screenshots` shows the chat with “Connect a provider to build and edit your site.” -->
-[![WordPress Studio Code chat for a selected site](https://developer.wordpress.com/wp-content/uploads/2026/04/studio-code.png)](https://developer.wordpress.com/wp-content/uploads/2026/04/studio-code.png)
+[![The WordPress Studio window with a site selected: the sidebar, a WordPress Studio Code chat polishing the site’s home page, and the site preview beside it.](https://developer.wordpress.com/wp-content/uploads/2026/04/workspace-chat.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/workspace-chat.webp)
 
 ### [WordPress Studio Code in WordPress Studio CLI](#2-studio-code-in-studio-cli)
 
@@ -33,7 +31,7 @@ And can install it globally to use `studio code` directly:
 npm i -g wp-studio@latest
 studio code
 
-![WordPress Studio Code running in a terminal window](https://developer.wordpress.com/wp-content/uploads/2026/04/studio-code-terminal-wordpress-studio.png)
+![WordPress Studio Code running in a terminal window](https://developer.wordpress.com/wp-content/uploads/2026/04/studio-code-terminal.webp)
 
 Press the ↓ arrow to work in your local WordPress Studio sites, or ↓ and → to work in your WordPress.com- or Jetpack-connected sites.
 
@@ -138,7 +136,7 @@ When the agent edits a block theme’s template or template part that you’ve c
 
 While chatting, you can use slash commands for quick actions. In the desktop app, type `/` in the chat box to list the commands and skills that match, or click **+** to see them all: **Add files** and the commands come first, followed by the skills under **Skills**. The desktop app shows commands and skills by name, for example **Choose model** for `/model`, **Performance Audit** for `/need-for-speed`, and **SEO Audit** for `/rank-me-up`.
 
-[![The chat box + menu open, listing Add files, Auto-start, Choose model, and Connect AI providers, then Skills: Visual Annotations, Taxonomist, Performance Audit, SEO Audit, and Liberate.](https://developer.wordpress.com/wp-content/uploads/2026/04/composer-add-menu-1.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/composer-add-menu-1.webp)
+[![The chat box + menu open, listing Add files, Auto-start, Choose model, and Connect AI providers, then Skills: Visual Annotations, Taxonomist, Performance Audit, SEO Audit, and Liberate.](https://developer.wordpress.com/wp-content/uploads/2026/04/composer-add-menu.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/composer-add-menu.webp)
 
 | Command | Description | Available in… |
 | --- | --- | --- |

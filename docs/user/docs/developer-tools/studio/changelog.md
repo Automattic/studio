@@ -533,7 +533,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 ## [1.7.0](#28-1-7-0)
 
-[![Settings menu in a WordPress application showing options for language, code editor, terminal application, and WordPress Studio CLI.](https://developer.wordpress.com/wp-content/uploads/2025/05/studio-enable-cli-1.jpg)](https://developer.wordpress.com/wp-content/uploads/2025/05/studio-enable-cli-1.jpg)
+[![Settings menu in a WordPress application showing options for language, code editor, terminal application, and WordPress Studio CLI.](https://developer.wordpress.com/wp-content/uploads/2025/05/changelog-1-7-0-enable-cli.webp)](https://developer.wordpress.com/wp-content/uploads/2025/05/changelog-1-7-0-enable-cli.webp)
 
 -   Expanded the [WordPress Studio CLI](https://developer.wordpress.com/docs/developer-tools/studio/cli/)
     -   Added site management commands
@@ -583,7 +583,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 ## [1.6.6](#31-1-6-6)
 
-[![Screenshot of the 'Add a site' interface in WordPress Studio, displaying options to create a new site, start from a Blueprint, pull an existing site, or import from a backup.](https://developer.wordpress.com/wp-content/uploads/2025/07/studio-changelog-166.jpg)](https://developer.wordpress.com/wp-content/uploads/2025/07/studio-changelog-166.jpg)
+[![Screenshot of the 'Add a site' interface in WordPress Studio, displaying options to create a new site, start from a Blueprint, pull an existing site, or import from a backup.](https://developer.wordpress.com/wp-content/uploads/2025/07/changelog-1-6-6-add-site.webp)](https://developer.wordpress.com/wp-content/uploads/2025/07/changelog-1-6-6-add-site.webp)
 
 -   Added a new “Pull an existing site” flow to create a local site directly from a live WordPress.com site.
 -   Added a “Publish site” button to deploy local sites back to WordPress.com.
@@ -656,7 +656,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 ## [1.6.1](#36-1-6-1)
 
-[![The context menu in WordPress Studio 1.6.1.](https://developer.wordpress.com/wp-content/uploads/2025/07/studio-context-menu.jpg)](https://developer.wordpress.com/wp-content/uploads/2025/07/studio-context-menu.jpg)
+[![The context menu in WordPress Studio 1.6.1.](https://developer.wordpress.com/wp-content/uploads/2025/07/changelog-1-6-1-context-menu.webp)](https://developer.wordpress.com/wp-content/uploads/2025/07/changelog-1-6-1-context-menu.webp)
 
 -   Added a new site context menu for quicker access to common actions in the site sidebar, as shown in the image above.
 -   Improved progress reporting during site imports for better clarity.
@@ -670,7 +670,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 ## [1.6.0](#37-1-6-0)
 
-![](https://developer.wordpress.com/wp-content/uploads/2025/10/studio-add-site-blueprints-16-1.jpg)
+![](https://developer.wordpress.com/wp-content/uploads/2025/10/changelog-1-6-0-blueprints.webp)
 
 -   Added support for [Blueprints](https://developer.wordpress.com/docs/developer-tools/studio/blueprints/), allowing you to define plugins, themes, and settings for new sites to create consistent environments faster. This work introduces a new “**Add site**” flow featuring a dedicated screen where you can choose between adding an empty site, selecting a Blueprint, or importing a backup.
     -   [Learn more in our blog post](https://wordpress.com/blog/2025/10/08/introducing-blueprints-in-wordpress-studio-1-6-0/)
@@ -703,7 +703,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 ## [1.5.5](#39-1-5-5)
 
-![a screenshot of the Pull from Production modal window in WordPress Studio with Files and folders checked](https://developer.wordpress.com/wp-content/uploads/2025/07/wordpress-studio-selective-sync.jpg)
+![a screenshot of the Pull from Production modal window in WordPress Studio with Files and folders checked](https://developer.wordpress.com/wp-content/uploads/2025/07/changelog-1-5-5-selective-sync.webp)
 
 -   Introducing Selective Sync. No more all-or-nothing deployments. Push or pull only what you need. Ideal for shipping themes or plugins safely.
     -   [Learn more in our blog post](https://wordpress.com/blog/2025/07/14/selective-push-pull-wordpress-studio/)
@@ -717,7 +717,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 ## [1.5.4](#40-1-5-4)
 
-![An orange arrow pointing to the preferences wheel in WordPress Studio](https://developer.wordpress.com/wp-content/uploads/2025/07/wordpress-studio-open-preferences.jpg)
+![An orange arrow pointing to the preferences wheel in WordPress Studio](https://developer.wordpress.com/wp-content/uploads/2025/07/changelog-1-5-4-open-preferences.webp)
 
 -   There’s a new Settings button that makes it easier to jump straight into your WordPress Studio preferences, where you can specify your app language and default code editor and terminal application. 
 
@@ -737,7 +737,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 ## [1.5.2](#42-1-5-2)
 
-![The connect modal window in WordPress Studio showing WordPress.com and Pressable sites](https://developer.wordpress.com/wp-content/uploads/2025/07/wordpress-studio-sync-connect.jpg)
+![The connect modal window in WordPress Studio showing WordPress.com and Pressable sites](https://developer.wordpress.com/wp-content/uploads/2025/07/changelog-1-5-2-sync-connect.webp)
 
 -   You can now sync WordPress Studio sites directly with Pressable staging and production sites.
     -   [Learn more in Pressable’s blog post](https://pressable.com/blog/build-locally-sync-seamlessly-studio-now-works-with-pressable/)
@@ -751,7 +751,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 ## [1.5.1](#43-1-5-1)
 
-![The preferences window in WordPress Studio showing drop-down menus for language, code editor, and terminal](https://developer.wordpress.com/wp-content/uploads/2025/07/wordpress-studio-editor-preferences-1.jpg)
+![The preferences window in WordPress Studio showing drop-down menus for language, code editor, and terminal](https://developer.wordpress.com/wp-content/uploads/2025/07/changelog-1-5-1-editor-preferences.webp)
 
 -   Choose your preferred code editor (Visual Studio Code, Cursor, Windsurf, PhpStorm, or WebStorm) and terminal app (Terminal, Command Prompt, Warp, Ghostty, or iTerm2) for easy access to your WordPress Studio files.
     -   [Learn more in our blog post](https://wordpress.com/blog/2025/05/12/preferences-studio/)
@@ -764,7 +764,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 ## [1.5.0](#44-1-5-0)
 
-![An orange arrow pointing to the Install CLI menu item in WordPress Studio](https://developer.wordpress.com/wp-content/uploads/2025/07/wordpress-studio-install-cli.jpg)
+![An orange arrow pointing to the Install CLI menu item in WordPress Studio](https://developer.wordpress.com/wp-content/uploads/2025/07/changelog-1-5-0-install-cli.webp)
 
 -   WordPress Studio now includes a CLI for managing Preview Sites so you can create, list, and delete Preview Sites right from your terminal. Perfect for developers who want to script common tasks or streamline their local workflow.
     -   [Explore the docs](https://developer.wordpress.com/docs/developer-tools/studio/cli/)
@@ -784,7 +784,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 ## [1.3.9](#46-1-3-9)
 
-![the use custom domain modal window in WordPress Studio](https://developer.wordpress.com/wp-content/uploads/2025/07/wordpress-studio-use-custom-domain.jpg)
+![the use custom domain modal window in WordPress Studio](https://developer.wordpress.com/wp-content/uploads/2025/07/changelog-1-3-9-custom-domain.webp)
 
 -   WordPress Studio now supports SSL for custom domains, allowing you to develop with SSL/HTTPS enabled and to create a more production-like environment locally.
     -   [Learn more in our blog post](https://wordpress.com/blog/2025/03/31/studio-custom-domains-https/)
@@ -798,7 +798,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 ## [1.3.8](#47-1-3-8)
 
-![The add site window in WordPress Studio showing drop-down menus for PHP and WordPress versions](https://developer.wordpress.com/wp-content/uploads/2025/07/studio-add-site-php-wordpress-version.jpg)
+![The add site window in WordPress Studio showing drop-down menus for PHP and WordPress versions](https://developer.wordpress.com/wp-content/uploads/2025/07/changelog-1-3-8-php-wordpress-version.webp)
 
 -   Choose the PHP and WordPress version you need when creating a site to test compatibility, reproduce bugs locally, or build for specific client requirements.
     -   [Learn more in our blog post](https://wordpress.com/blog/2025/03/17/studio-wordpress-php-versions/)
@@ -838,7 +838,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 ## [1.3.4](#51-1-3-4)
 
-![The Preview Sites area on WordPress Studio](https://developer.wordpress.com/wp-content/uploads/2025/07/wordpress-studio-preview-sites.jpg)
+![The Preview Sites area on WordPress Studio](https://developer.wordpress.com/wp-content/uploads/2025/07/changelog-1-3-4-preview-sites.webp)
 
 -   Demo Sites are now called Preview Sites. With 2 GB of space each, you can work with larger themes, more media assets, and richer content during your development process.
     -   [Learn more in our blog post](https://wordpress.com/blog/2025/02/24/studio-preview-sites/)
@@ -890,7 +890,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 ## [1.2.2](#56-1-2-2)
 
-![The WordPress Studio listing in the Microsoft Store](https://developer.wordpress.com/wp-content/uploads/2025/07/wordpress-studio-microsoft-store.jpg)
+![The WordPress Studio listing in the Microsoft Store](https://developer.wordpress.com/wp-content/uploads/2025/07/changelog-1-2-2-microsoft-store.webp)
 
 -   WordPress Studio is now available as an AppX installer, making it easier than ever to install directly [from the Microsoft Store](https://apps.microsoft.com/detail/9pntbl35pzvs?hl=en-US&gl=US) on Windows devices.
 -   We’ve improved the accuracy of theme and plugin exports, so your backups are cleaner and more portable across environments.
@@ -911,7 +911,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 ## [1.2.0](#58-1-2-0)
 
-![The WordPress Studio Assistant RUN button in WordPress Studio](https://developer.wordpress.com/wp-content/uploads/2025/07/wordpress-studio-assistant-run.jpg)
+![The WordPress Studio Assistant RUN button in WordPress Studio](https://developer.wordpress.com/wp-content/uploads/2025/07/changelog-1-2-0-assistant-run.webp)
 
 -   Meet WordPress Studio Assistant, your new built-in AI for getting the most out of WordPress Studio. With the WordPress Studio Assistant, you can quickly configure new sites, manage existing sites, and run complex WP-CLI commands, all through a simple and intuitive chat interface.
     -   [Learn more in our blog post](https://wordpress.com/blog/2024/10/29/studio-assistant/)
@@ -961,7 +961,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 ## [1.1.0](#63-1-1-0)
 
-![An orange arrow pointing out the import/export section in WordPress Studio](https://developer.wordpress.com/wp-content/uploads/2025/07/wordpress-studio-import-export.jpg)
+![An orange arrow pointing out the import/export section in WordPress Studio](https://developer.wordpress.com/wp-content/uploads/2025/07/changelog-1-1-0-import-export.webp)
 
 -   You can now export and import full WordPress sites with a single click, making it easier to move projects between machines, collaborate with teammates, or work on a production or staging site on any WordPress host.
     -   [Explore the docs](https://developer.wordpress.com/docs/developer-tools/studio/import-export/)

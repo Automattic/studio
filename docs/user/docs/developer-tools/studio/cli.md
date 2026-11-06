@@ -63,7 +63,7 @@ You can see a high-level overview at any time with:
 
 studio --help
 
-[![Screenshot of a command line interface displaying the WordPress Studio CLI help menu with various commands and options.](https://developer.wordpress.com/wp-content/uploads/2025/05/studio-ai-studio-help-3.jpg)](https://developer.wordpress.com/wp-content/uploads/2025/05/studio-ai-studio-help-3.jpg)
+[![Screenshot of a command line interface displaying the WordPress Studio CLI help menu with various commands and options.](https://developer.wordpress.com/wp-content/uploads/2025/05/cli-help.webp)](https://developer.wordpress.com/wp-content/uploads/2025/05/cli-help.webp)
 
 Most commands are designed to be run from the root directory of a WordPress Studio-managed site. To target a different site directory than your current working directory, use the `--path` option:
 
@@ -430,7 +430,7 @@ studio auth login              # if needed
 studio preview create          # initial deployment
 studio preview update <host>   # after subsequent changes
 
-[![A terminal window displaying a Bash command execution showing the creation of a preview site, including validation and archive creation messages, along with a link to the live site and total time taken.](https://developer.wordpress.com/wp-content/uploads/2025/05/studio-ai-create-preview-2.jpg)](https://developer.wordpress.com/wp-content/uploads/2025/05/studio-ai-create-preview-2.jpg)
+[![A terminal window displaying a Bash command execution showing the creation of a preview site, including validation and archive creation messages, along with a link to the live site and total time taken.](https://developer.wordpress.com/wp-content/uploads/2025/05/cli-preview-create.webp)](https://developer.wordpress.com/wp-content/uploads/2025/05/cli-preview-create.webp)
 
 This is particularly useful when:
 

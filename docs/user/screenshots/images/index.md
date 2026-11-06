@@ -73,3 +73,35 @@ These need a WordPress.com login, a connected live site, or Studio Code output.
 | --- | --- | --- |
 | WordPress.com authorization screen with Approve, opened by Log in | `index.md` | — |
 | Browser prompt to open the Studio app after approving the login | `index.md` | — |
+
+## Kept by hand
+
+These are not captured by `npm run screenshots`: they show pages outside Studio, a terminal, or a Studio release that is gone. Each was downloaded once from its upload on developer.wordpress.com (the **Source** column) and converted to WebP, and is kept here as is. Replace one by hand when its page changes, and keep its file name, since the docs site matches images by name.
+
+| File | Shows | Used on | Source |
+| --- | --- | --- | --- |
+| `blueprint-builder.webp` | The Blueprint builder in WordPress Playground | `guides/how-to-create-custom-blueprints.md` | `2025/10/blueprint-builder-2.jpg` |
+| `ssl-keychain.webp` | Keychain Access on macOS with the WordPress Studio CA certificate | `ssl-in-studio.md` | `2025/03/ssl-keychain.png` |
+| `ssl-certificate-always-trust.webp` | Keychain Access: the certificate’s Trust section set to Always Trust | `ssl-in-studio.md` | `2025/03/ssl-certificate-always-trust.png` |
+| `firefox-settings-certificates.webp` | Firefox settings → Privacy & Security → Certificates, with View Certificates | `ssl-in-studio.md` | `2025/03/cleanshot-2026-05-18-at-11.54.43402x.png` |
+| `firefox-certificate-manager.webp` | Firefox’s Certificate Manager on the Authorities tab, with Import | `ssl-in-studio.md` | `2025/03/cleanshot-2026-05-18-at-11.54.52402x.png` |
+| `firefox-trust-ca.webp` | Firefox’s Downloading Certificate dialog trusting WordPress Studio CA for websites | `ssl-in-studio.md` | `2025/03/cleanshot-2026-05-18-at-11.55.19402x.png` |
+| `cli-help.webp` | `studio --help` in a terminal | `cli.md` | `2025/05/studio-ai-studio-help-3.jpg` |
+| `cli-preview-create.webp` | `studio preview create` in a terminal, with the preview link | `cli.md` | `2025/05/studio-ai-create-preview-2.jpg` |
+| `studio-code-terminal.webp` | `studio code` in a terminal: the WordPress Studio banner and prompt | `studio-code/index.md` | `2026/04/studio-code-terminal-wordpress-studio.png` |
+| `site-skills-folder.webp` | A site folder in Finder: `.agents/skills/` with the installed skills | `agent-skills-wordpress-studio.md` | `2026/04/image-6.png` |
+| `changelog-1-7-0-enable-cli.webp` | Studio 1.7.0: Preferences with Studio CLI | `changelog.md` | `2025/05/studio-enable-cli-1.jpg` |
+| `changelog-1-6-6-add-site.webp` | Studio 1.6.6: the Add a site dialog | `changelog.md` | `2025/07/studio-changelog-166.jpg` |
+| `changelog-1-6-1-context-menu.webp` | Studio 1.6.1: the site context menu | `changelog.md` | `2025/07/studio-context-menu.jpg` |
+| `changelog-1-6-0-blueprints.webp` | Studio 1.6.0: Add a site → Blueprints | `changelog.md` | `2025/10/studio-add-site-blueprints-16-1.jpg` |
+| `changelog-1-5-5-selective-sync.webp` | Studio 1.5.5: Pull from Production with Files and folders checked | `changelog.md` | `2025/07/wordpress-studio-selective-sync.jpg` |
+| `changelog-1-5-4-open-preferences.webp` | Studio 1.5.4: the Preferences gear in the sidebar | `changelog.md` | `2025/07/wordpress-studio-open-preferences.jpg` |
+| `changelog-1-5-2-sync-connect.webp` | Studio 1.5.2: Connect with WordPress.com and Pressable sites | `changelog.md` | `2025/07/wordpress-studio-sync-connect.jpg` |
+| `changelog-1-5-1-editor-preferences.webp` | Studio 1.5.1: Preferences with language, code editor and terminal | `changelog.md` | `2025/07/wordpress-studio-editor-preferences-1.jpg` |
+| `changelog-1-5-0-install-cli.webp` | Studio 1.5.0: the Install CLI menu item | `changelog.md` | `2025/07/wordpress-studio-install-cli.jpg` |
+| `changelog-1-3-9-custom-domain.webp` | Studio 1.3.9: the Use custom domain dialog | `changelog.md` | `2025/07/wordpress-studio-use-custom-domain.jpg` |
+| `changelog-1-3-8-php-wordpress-version.webp` | Studio 1.3.8: Add site with PHP and WordPress version menus | `changelog.md` | `2025/07/studio-add-site-php-wordpress-version.jpg` |
+| `changelog-1-3-4-preview-sites.webp` | Studio 1.3.4: the Preview sites area | `changelog.md` | `2025/07/wordpress-studio-preview-sites.jpg` |
+| `changelog-1-2-2-microsoft-store.webp` | Studio 1.2.2: the Studio listing in the Microsoft Store | `changelog.md` | `2025/07/wordpress-studio-microsoft-store.jpg` |
+| `changelog-1-2-0-assistant-run.webp` | Studio 1.2.0: the Assistant’s Run button | `changelog.md` | `2025/07/wordpress-studio-assistant-run.jpg` |
+| `changelog-1-1-0-import-export.webp` | Studio 1.1.0: the Import / Export section | `changelog.md` | `2025/07/wordpress-studio-import-export.jpg` |

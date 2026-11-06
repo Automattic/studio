@@ -186,6 +186,13 @@ export function createStaticConnector(): Connector {
 		async fixSiteDesignDrift() {
 			throw new UnsupportedError( 'fixSiteDesignDrift' );
 		},
+		async setSiteFrontendAdminBar() {
+			throw new UnsupportedError( 'setSiteFrontendAdminBar' );
+		},
+		// The feedback service's client names Studio with a User-Agent, which a page can't set.
+		async sendFeedback() {
+			throw new UnsupportedError( 'sendFeedback' );
+		},
 
 		async exportFullSite( siteId, options ) {
 			const record = await sites.get( siteId );

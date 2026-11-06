@@ -94,7 +94,9 @@ export function ConnectedView( {
 		open && direction === 'pull' && ! pending && ! offline
 	);
 	const selection = direction === 'push' ? push : pull;
-	const issue = accessIssue ?? websiteIssue( remote );
+	const pullIssue = accessIssue ?? websiteIssue( remote, 'pull' );
+	const pushIssue = accessIssue ?? websiteIssue( remote, 'push' );
+	const issue = direction === 'pull' ? pullIssue : pushIssue;
 	const finished =
 		activity !== dismissedActivity &&
 		activity?.kind !== 'pending' &&
@@ -170,7 +172,7 @@ export function ConnectedView( {
 							ref={ pullButton }
 							variant="outline"
 							size="lg"
-							disabled={ disabled || Boolean( issue ) }
+							disabled={ disabled || Boolean( pullIssue ) }
 							onClick={ () => {
 								setView( 'pull' );
 								setReviewing( true );
@@ -182,7 +184,7 @@ export function ConnectedView( {
 							ref={ publishButton }
 							variant="accent"
 							size="lg"
-							disabled={ disabled || Boolean( issue ) }
+							disabled={ disabled || Boolean( pushIssue ) }
 							onClick={ () => {
 								setView( 'publish' );
 								setReviewing( true );

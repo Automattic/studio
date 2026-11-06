@@ -12,9 +12,9 @@ export function renderSkill( name: string ): string {
 }
 
 // Returns `null` when no skills are discovered so the caller skips
-// registering the tool entirely.
-export function createSkillTool(): StudioToolDefinition | null {
-	const skills = loadSkills();
+// registering the tool entirely. `excluded` skills need tools the host lacks.
+export function createSkillTool( excluded: string[] = [] ): StudioToolDefinition | null {
+	const skills = loadSkills().filter( ( skill ) => ! excluded.includes( skill.name ) );
 	if ( skills.length === 0 ) return null;
 
 	const skillIndex = skills.map( ( s ) => `- ${ s.name }: ${ s.description }` ).join( '\n' );

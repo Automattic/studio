@@ -7,6 +7,7 @@ import { nodeHostServices } from '@studio/agent/node/node-host';
 import { validateBlocks } from '@studio/agent/shared/block-validator';
 import { generateImages } from '@studio/agent/shared/image-generation';
 import {
+	resolveConversationTools,
 	resolveStudioTools,
 	studioToolDefinitions,
 	withChatArtifactEmission,
@@ -147,11 +148,25 @@ describe( 'Studio AI MCP tools', () => {
 			'site_pull',
 			'wp_cli',
 			'wpcom_request',
+			'send_feedback',
 			'validate_blocks',
 		] ) {
 			const { readOnlyHint, destructiveHint, openWorldHint } = annotations[ name ];
 			expect( readOnlyHint || ( ! destructiveHint && ! openWorldHint ) ).toBe( false );
 		}
+	} );
+
+	it( 'offers send_feedback and the feedback skill only when the host sends feedback', () => {
+		const offered = () => {
+			const tools = resolveConversationTools( host, { tracks: {} as never } );
+			return {
+				tool: tools.some( ( tool ) => tool.name === 'send_feedback' ),
+				skill: tools.find( ( tool ) => tool.name === 'Skill' )?.description.includes( 'feedback:' ),
+			};
+		};
+		expect( offered() ).toEqual( { tool: false, skill: false } );
+		host.sendFeedback = vi.fn();
+		expect( offered() ).toEqual( { tool: true, skill: true } );
 	} );
 
 	it( 'leaves out wpcom_request only for hosts that turn it off', () => {
@@ -701,13 +716,13 @@ describe( 'Studio AI MCP tools', () => {
 	it( 'updates previews with a normalized hostname', async () => {
 		const result = await getTool( 'preview_update' ).rawHandler( {
 			nameOrPath: 'My Site',
-			host: 'https://demo.wordpress.com/',
+			host: 'https://demo.wp.build/',
 			overwrite: true,
 		} as never );
 
 		expect( host.previews.update ).toHaveBeenCalledWith(
 			mockSite,
-			'demo.wordpress.com',
+			'demo.wp.build',
 			true,
 			expect.any( Function )
 		);
@@ -721,14 +736,11 @@ describe( 'Studio AI MCP tools', () => {
 
 		await expect(
 			getTool( 'preview_delete' ).rawHandler( {
-				host: 'https://demo.wordpress.com/',
+				host: 'https://demo.wp.build/',
 			} as never )
 		).rejects.toThrow( 'Failed to delete preview site: Preview site not found.' );
 
-		expect( host.previews.delete ).toHaveBeenCalledWith(
-			'demo.wordpress.com',
-			expect.any( Function )
-		);
+		expect( host.previews.delete ).toHaveBeenCalledWith( 'demo.wp.build', expect.any( Function ) );
 	} );
 
 	it.each( [

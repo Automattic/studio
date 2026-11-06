@@ -2,14 +2,17 @@ import path from 'path';
 import { nodeHostServices, type HostSite, type StudioAgentHost } from '@studio/agent/node';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
+import { sendStudioFeedback } from '@studio/common/lib/feedback';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
+import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
 import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { withWpcomDetails } from '@studio/common/lib/sync/transform-sites';
 import { getAiPayloadsPath } from '@studio/common/lib/well-known-paths';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { __ } from '@wordpress/i18n';
+import { getStudioUserAgent } from 'cli/ai/providers';
 import { runCommand as runExportCommand } from 'cli/commands/export';
 import { runCommand as runImportCommand } from 'cli/commands/import';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
@@ -31,7 +34,6 @@ import { getWpComSites } from 'cli/lib/api';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { findSiteByFolder, getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { isReprintPullEnabled } from 'cli/lib/pull/pull-engine';
 import { pullSelectionFromSyncOptions } from 'cli/lib/pull/pull-selection';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
@@ -238,5 +240,7 @@ export const cliAgentHost: StudioAgentHost = {
 	tracks: {
 		record: ( event, props ) => recordTracksEvent( event, { ...getTracksOrigin(), ...props } ),
 	},
+	sendFeedback: ( feedback, accessToken ) =>
+		sendStudioFeedback( feedback, { accessToken, userAgent: getStudioUserAgent() } ),
 	...nodeHostServices(),
 };

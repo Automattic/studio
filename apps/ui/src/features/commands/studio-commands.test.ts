@@ -26,6 +26,7 @@ const appCommands = ( overrides: Partial< Parameters< typeof getAppCommands >[ 0
 		toggleSidebar: vi.fn(),
 		openNotifications: vi.fn(),
 		openWhatsNew: vi.fn(),
+		openFeedback: vi.fn(),
 		...overrides,
 	} );
 

@@ -229,6 +229,37 @@ export async function getStandingPreviews(
 	);
 }
 
+const modifiedSchema = z.array( z.object( { modified: z.string().nullable().optional() } ) );
+
+/**
+ * When the preview's content was last edited on WordPress.com (ms): the latest modification of its
+ * posts, pages and other content, and of its templates and template parts. Studio's own pushes keep
+ * the local site's modification times, so a time after the last push or pull is an edit made on the
+ * preview. Edits to settings alone don't show.
+ */
+export async function getPreviewEditedAt( siteId: number, token: string ): Promise< number > {
+	const [ posts, templates, templateParts ] = await Promise.all( [
+		wpcom( token ).req.get(
+			{ apiNamespace: 'rest/v1.1', path: `/sites/${ siteId }/posts` },
+			{ type: 'any', status: 'any', order_by: 'modified', number: 1, fields: 'modified' }
+		),
+		...[ 'templates', 'template-parts' ].map( ( kind ) =>
+			wpcom( token ).req.get(
+				{ apiNamespace: 'wp/v2', path: `/sites/${ siteId }/${ kind }` },
+				{ _fields: 'modified', per_page: 100 }
+			)
+		),
+	] );
+	const times = [
+		...modifiedSchema.parse( z.object( { posts: z.unknown() } ).parse( posts ).posts ),
+		...modifiedSchema.parse( templates ),
+		...modifiedSchema.parse( templateParts ),
+	]
+		.map( ( item ) => ( item.modified ? Date.parse( item.modified ) : NaN ) )
+		.filter( ( time ) => ! Number.isNaN( time ) );
+	return Math.max( 0, ...times );
+}
+
 export async function deletePreviewSite( siteId: number, token: string ): Promise< void > {
 	try {
 		// The site is reverted and then deleted in the background.

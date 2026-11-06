@@ -3,6 +3,7 @@ import type { StudioChatArtifactData } from '@studio/agent/protocol/chat-artifac
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
 import type { VisualAnnotation } from '@studio/agent/protocol/visual-annotations';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
+import type { StudioFeedback } from '@studio/common/lib/feedback';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { SiteStatus } from '@studio/common/types/site-status';
 import type { Snapshot } from '@studio/common/types/snapshot';
@@ -225,4 +226,7 @@ export interface StudioAgentHost {
 	annotate?( url: string, timeoutMs: number ): Promise< BrowserAnnotation[] | null >;
 	// The conversation follows a site the agent creates.
 	selectSite?( site: SiteInfo ): Promise< void > | void;
+	// Sends a feedback report to the WordPress Studio team, returning the ID the
+	// service assigned it: send_feedback and the feedback skill.
+	sendFeedback?( feedback: StudioFeedback, accessToken: string ): Promise< { feedbackId: number } >;
 }

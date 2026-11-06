@@ -19,7 +19,7 @@ import { enableReprintExporter } from 'cli/lib/api';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { linkPulledPreview } from 'cli/lib/cli-config/snapshots';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { getStandingPreviews } from 'cli/lib/preview-sites';
+import { getStandingPreviews, type StandingPreview } from 'cli/lib/preview-sites';
 import {
 	canKeepOwnCore,
 	hasOwnCore,
@@ -41,6 +41,7 @@ import {
 	resolveSourceSite,
 } from 'cli/lib/pull/pull-source';
 import { savePulledSiteStartOptions, startPulledSite } from 'cli/lib/pull/pulled-site-server';
+import { getPushSizeWarning } from 'cli/lib/pull/push-size-warning';
 import {
 	type ReprintProcessResult,
 	runReprintCommandUntilComplete,
@@ -54,6 +55,7 @@ import {
 } from 'cli/lib/pull/reprint-metadata';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { buildAutoLoginUrl } from 'cli/lib/site-utils';
+import { getSiteVersion } from 'cli/lib/site-versions';
 import { exitOnCancel, reportSyncActivity } from 'cli/lib/sync-activity';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { findFailureCode } from 'cli/lib/utils';
@@ -103,20 +105,54 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 }
 
 /**
- * When the pulled site is one of the user's preview sites, makes it this local site's preview, so
- * updating it pushes this site's changes back. Best-effort: the pull has already succeeded.
+ * The source site's standing preview, or null when it is not one of the user's previews. Undefined
+ * when previews could not be listed: that is not worth failing a pull over.
  */
-async function linkIfPreview( localSiteId: string, source: PullSource ): Promise< void > {
+async function findPreview( source: PullSource ): Promise< StandingPreview | null | undefined > {
 	try {
-		const preview = ( await getStandingPreviews( source.wpComToken.accessToken ) ).get(
-			source.wpComSite.id
-		);
-		if ( preview ) {
-			await linkPulledPreview( localSiteId, source.wpComSite.id, source.wpComToken.id, preview );
-		}
+		const previews = await getStandingPreviews( source.wpComToken.accessToken );
+		return previews.get( source.wpComSite.id ) ?? null;
 	} catch {
-		// Listing previews is not worth failing a finished pull over.
+		return undefined;
 	}
+}
+
+/**
+ * Makes a pulled preview this local site's preview, so updating it pushes this site's changes back.
+ * Best-effort: the pull has already succeeded.
+ *
+ * `pulledAt` is when a full pull started, so an edit made on the preview while it ran counts as
+ * one the site doesn't have. A partial pull leaves the site and preview in an unknown state.
+ */
+async function linkPreview(
+	localSiteId: string,
+	localPath: string,
+	source: PullSource,
+	preview: StandingPreview,
+	pulledAt: number | undefined
+): Promise< void > {
+	try {
+		const sync = pulledAt
+			? { versionId: await getSiteVersion( localSiteId, localPath ), syncedAt: pulledAt }
+			: undefined;
+		await linkPulledPreview(
+			localSiteId,
+			source.wpComSite.id,
+			source.wpComToken.id,
+			preview,
+			sync
+		);
+	} catch {
+		// The pulled site still works; only the preview link is missing.
+	}
+}
+
+/** `site_kind` for `studio_sync_pull`: whether the pull came from one of the user's previews. */
+function getSiteKind( run: PullRun ): 'preview' | 'site' | 'unknown' {
+	if ( run.preview === undefined ) {
+		return 'unknown';
+	}
+	return run.preview ? 'preview' : 'site';
 }
 
 /** The connected site this local site was last pulled from, so a repeat `studio pull` needs no site. */
@@ -156,6 +192,9 @@ class PullError extends LoggerError {
 interface PullRun {
 	siteId?: string;
 	remoteSite?: SyncSite;
+	preview?: StandingPreview | null;
+	// Shown with the success, e.g. that the site is too big to push back.
+	warning?: string;
 	localChangesApplied: boolean;
 	completed: boolean;
 }
@@ -204,7 +243,7 @@ export async function runCommand(
 						localChangesApplied: run.localChangesApplied,
 				  }
 				: run.completed
-				? { kind: 'success', direction: 'pull' }
+				? { kind: 'success', direction: 'pull', warning: run.warning }
 				: { kind: 'cancelled', direction: 'pull' }
 		);
 	}
@@ -219,6 +258,7 @@ export async function runCommand(
 					error: pullError,
 					hint: { code: findFailureCode( pullError ) },
 				} ),
+				site_kind: getSiteKind( run ),
 				...getTracksOrigin(),
 			} );
 		} catch {
@@ -272,6 +312,7 @@ async function pullSite(
 		return;
 	}
 	run.remoteSite = sourceSite.wpComSite;
+	run.preview = await findPreview( sourceSite );
 	const exporter = await enableReprintExporter(
 		sourceSite.wpComSite.id,
 		sourceSite.wpComToken.accessToken,
@@ -366,6 +407,9 @@ async function pullSite(
 			} );
 
 			run.localChangesApplied = true;
+			const isFullPull =
+				! selection.skipFiles && ! selection.skipDatabase && ! selection.fileOnlyPaths?.length;
+			const pulledAt = isFullPull ? Date.now() : undefined;
 			await runFullPull(
 				studioMetadata,
 				apiUrl,
@@ -384,8 +428,11 @@ async function pullSite(
 				record.runtimeBlueprintPath = studioMetadata.runtimeBlueprintPath;
 			} );
 			logger.reportSuccess( `Site "${ site.name }" updated` );
-			await linkIfPreview( site.id, sourceSite );
 			await rememberConnection( site.id, sourceSite.wpComSite );
+			run.warning = await getPushSizeWarning( site.path );
+			if ( run.warning ) {
+				logger.reportWarning( run.warning );
+			}
 
 			// The pulled database has no local admin user, so auto-login needs credentials to create one.
 			if ( ! site.adminPassword ) {
@@ -403,6 +450,10 @@ async function pullSite(
 			await startPulledSite( site, logger, runtimeStartOptions, {
 				restart: ! isRepull && wasRunning,
 			} );
+			// After the start, so what WordPress writes as it boots is part of the pulled version.
+			if ( run.preview ) {
+				await linkPreview( site.id, localPath, sourceSite, run.preview, pulledAt );
+			}
 
 			if ( studioMetadata.localUrl ) {
 				console.log( '' );

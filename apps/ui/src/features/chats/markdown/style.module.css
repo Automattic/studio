@@ -8,6 +8,20 @@
 	overflow-wrap: break-word;
 }
 
+.imageFrame {
+	composes: imageOutline from '@/lib/theme/recipes.module.css';
+	position: relative;
+	display: inline-block;
+	max-width: 100%;
+	border-radius: var( --radius-lg );
+}
+
+.imageFrame img {
+	display: block;
+	max-width: 100%;
+	border-radius: inherit;
+}
+
 /* Block margins collapse, so a heading, quote or table keeps its own space
    whatever sits next to it. */
 .root > * {

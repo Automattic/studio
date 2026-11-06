@@ -22,6 +22,7 @@ import { pushSiteTool } from './push-site';
 import { auditSeoTool } from './rank-me-up';
 import { refreshBrowserTool } from './refresh-browser';
 import { scaffoldThemeTool } from './scaffold-theme';
+import { sendFeedbackTool } from './send-feedback';
 import { getSiteInfoTool } from './site-info';
 import { createSkillTool } from './skill';
 import { startSiteTool } from './start-site';
@@ -71,6 +72,7 @@ export function studioToolDefinitions( host: StudioAgentHost ): StudioToolDefini
 		exportSiteTool,
 		openAnnotationBrowserTool,
 		refreshBrowserTool,
+		sendFeedbackTool,
 	];
 }
 
@@ -111,6 +113,9 @@ export function resolveStudioTools(
 		if ( candidate.name === openAnnotationBrowserTool.name && ! host.annotate ) {
 			return [];
 		}
+		if ( candidate.name === sendFeedbackTool.name && ! host.sendFeedback ) {
+			return [];
+		}
 		let tool = candidate;
 		if ( candidate.name === takeScreenshotTool.name ) {
 			tool = createTakeScreenshotTool( {
@@ -145,7 +150,8 @@ export function resolveConversationTools(
 		tracks: DesignTracksContext;
 	}
 ): AnyStudioAgentTool[] {
-	const skillTool = createSkillTool();
+	// The feedback skill only works through send_feedback.
+	const skillTool = createSkillTool( host.sendFeedback ? [] : [ 'feedback' ] );
 	return [
 		...resolveStudioTools( host, { ...options, canAskUser: Boolean( onAskUser ), tracks } ),
 		...( onAskUser ? [ bindTool( createAskUserQuestionTool( onAskUser ), host ) ] : [] ),

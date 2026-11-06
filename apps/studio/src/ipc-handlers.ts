@@ -61,6 +61,7 @@ import {
 import { SITE_EVENTS, type SiteListItem } from '@studio/common/lib/cli-events';
 import { CliCommandError } from '@studio/common/lib/cli-process';
 import { stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
+import { sendStudioFeedback, type StudioFeedback } from '@studio/common/lib/feedback';
 import {
 	calculateDirectorySizeForArchive,
 	isWordPressDirectory,
@@ -91,6 +92,7 @@ import {
 	listLocalFileTree as listSiteFileTree,
 } from '@studio/common/lib/sync/local-file-tree';
 import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
+import { getStudioUserAgent } from '@studio/common/lib/user-agent';
 import { supportedEditorConfig, SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import {
 	readOnboardingCompleted,
@@ -113,7 +115,10 @@ import {
 	startSite,
 	stopSite,
 } from '@studio/common/sites/lifecycle';
-import { updateSiteMetadata } from '@studio/common/sites/metadata';
+import {
+	setSiteFrontendAdminBar as writeSiteFrontendAdminBar,
+	updateSiteMetadata,
+} from '@studio/common/sites/metadata';
 import {
 	designFixesSchema,
 	fixSiteDesign,
@@ -499,6 +504,14 @@ function readProcessManagerLogs( siteId: string ): { stdout?: string[]; stderr?:
 
 export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< SiteDetails[] > {
 	return getSites();
+}
+
+export async function setSiteFrontendAdminBar(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	hidden: boolean | null
+): Promise< void > {
+	await writeSiteFrontendAdminBar( siteId, hidden );
 }
 
 export async function createSite(
@@ -1519,3 +1532,14 @@ export {
 	setWebviewColorScheme,
 	clearWebviewBrowsingData,
 } from 'src/lib/preview-browser';
+
+export async function sendFeedback( _event: IpcMainInvokeEvent, feedback: StudioFeedback ) {
+	const token = await readAuthToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( 'Log in to WordPress.com to send feedback.' );
+	}
+	return sendStudioFeedback( feedback, {
+		accessToken: token.accessToken,
+		userAgent: getStudioUserAgent( app.getVersion() ),
+	} );
+}

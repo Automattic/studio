@@ -100,6 +100,8 @@
 }
 
 .userAttachmentPreview {
+	composes: imageOutline from '@/lib/theme/recipes.module.css';
+	position: relative;
 	display: flex;
 	flex: none;
 	align-items: center;
@@ -111,6 +113,10 @@
 	border-radius: 4px;
 	background-color: var( --background );
 	color: var( --muted-foreground );
+}
+
+.userAttachmentPreview:not( :has( > img ) )::after {
+	content: none;
 }
 
 .userAttachmentPreview img {

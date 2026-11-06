@@ -10,6 +10,10 @@ vi.mock( '@studio/common/lib/app-config', () => ( {
 		mutate( appConfig.current ),
 } ) );
 vi.mock( './list', () => ( { listSites } ) );
+vi.mock( '@studio/common/lib/mu-plugin-settings', () => ( {
+	updateMuPluginSettings: async ( mutate: ( config: Record< string, unknown > ) => void ) =>
+		mutate( appConfig.current ),
+} ) );
 
 describe( 'site metadata', () => {
 	beforeEach( () => {

@@ -2,18 +2,18 @@ import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifact
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import {
+	loadedSession,
+	renderConversation,
+} from '@/features/chats/session-view/conversation/test-render';
+import { createFakeConnector } from '@/test/fake-connector';
+import {
 	agentQuestionEntry,
 	assistantTextEntry,
 	assistantToolCallEntry,
 	promptEntry,
 	toolResultEntry,
 	turnClosedEntry,
-} from '@/features/chats/session-view/conversation/test-entries';
-import {
-	loadedSession,
-	renderConversation,
-} from '@/features/chats/session-view/conversation/test-render';
-import { createFakeConnector } from '@/test/fake-connector';
+} from '@/test/session-entries';
 import type { SessionEntry } from '@/data/core';
 
 describe( 'Conversation copy buttons', () => {

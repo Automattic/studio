@@ -44,6 +44,16 @@ function useSettingToggles(): SettingToggles {
 		return {};
 	}
 	return {
+		'hide-frontend-admin-bar': toggle(
+			'hideFrontendAdminBar',
+			preferences.hideFrontendAdminBar,
+			preferences.hideFrontendAdminBar
+				? __( 'Show admin bar by default' )
+				: __( 'Hide admin bar by default' ),
+			preferences.hideFrontendAdminBar
+				? __( 'Admin bar shown by default.' )
+				: __( 'Admin bar hidden by default.' )
+		),
 		'show-recent-chats': toggle(
 			'showRecentChats',
 			showRecentChats,

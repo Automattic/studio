@@ -45,6 +45,14 @@ function resolveSitePath( path: string, siteUrl: string ): URL {
 
 export type PreviewRealm = 'frontend' | 'admin' | 'database' | 'email' | 'design';
 
+export function isWordPressAuthPath( path: string ): boolean {
+	if ( path.startsWith( '/studio-auto-login' ) ) {
+		const redirect = new URLSearchParams( path.split( '?' )[ 1 ] ?? '' ).get( 'redirect_to' );
+		if ( redirect ) path = redirect.replace( /^https?:\/\/[^/?#]*/i, '' );
+	}
+	return /(?:^|\/)wp-(?:login|signup|activate)\.php\/?$/.test( path.split( /[?#]/ )[ 0 ] );
+}
+
 export const DATABASE_HOME_PATH = '/phpmyadmin/index.php?route=/database/structure&db=wordpress';
 
 // Studio renders the site's email itself, like the design system, so a path
@@ -160,6 +168,7 @@ function getRecentLocationKey( path: string ): string {
 function deduplicateRecentLocations( locations: RecentPreviewLocation[] ): RecentPreviewLocation[] {
 	const unique = new Map< string, RecentPreviewLocation >();
 	for ( const location of locations ) {
+		if ( isWordPressAuthPath( location.path ) ) continue;
 		const key = getRecentLocationKey( location.path );
 		const existing = unique.get( key );
 		const title = location.title?.trim() || undefined;

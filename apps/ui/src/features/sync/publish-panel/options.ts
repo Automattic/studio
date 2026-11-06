@@ -37,7 +37,7 @@ export function overwriteDescription( direction: TransferDirection ) {
 		  );
 }
 
-export function websiteIssue( site: SyncSite ) {
+export function websiteIssue( site: SyncSite, direction: TransferDirection ) {
 	switch ( site.syncSupport ) {
 		case 'deleted':
 			return __( 'This website has been deleted. Choose another website.' );
@@ -52,7 +52,9 @@ export function websiteIssue( site: SyncSite ) {
 		case 'unsupported':
 			return __( 'Publishing and pulling require a supported WordPress.com or Pressable website.' );
 		default:
-			return null;
+			return direction === 'push' && site.pushNeedsUpgrade
+				? __( 'This website needs a hosting plan that supports publishing from WordPress Studio.' )
+				: null;
 	}
 }
 

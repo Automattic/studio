@@ -89,7 +89,7 @@ export const syncSiteSchema = z.object( {
 	lastPushTimestamp: z.string().nullable(),
 	wpVersion: z.string().optional(),
 	planName: z.string().optional(),
-	hasStudioPublishingPlan: z.boolean().optional(),
+	pushNeedsUpgrade: z.boolean().optional(),
 	createdAt: z.string().optional(),
 } );
 

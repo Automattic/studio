@@ -12,6 +12,7 @@ import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visua
 import type { SiteAgentFile, SiteAgentFileKind } from '@studio/common/lib/agent-skills';
 import type { AuthAnalytics, OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
 import type { SiteEvent, SiteListItem, SnapshotEvent } from '@studio/common/lib/cli-events';
+import type { StudioFeedback } from '@studio/common/lib/feedback';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type {
 	TracksAuthSource,
@@ -121,6 +122,7 @@ export interface SiteDetails {
 	// True for sites that were running when the app quit with the
 	// "Stop, restart on next launch" behavior; the renderer starts them on boot.
 	autoStart?: boolean;
+	hideFrontendAdminBar?: boolean;
 	// The Studio operation currently holding the site, from the CLI. Present
 	// regardless of who started it — the user, the desktop app, or the agent.
 	operation?: SiteOperation;
@@ -214,6 +216,7 @@ export interface Connector {
 	updateSite( site: SiteDetails, wpVersion?: string ): Promise< void >;
 	// Persists the sidebar's manual site order (each site's `sortOrder`).
 	updateSitesSortOrder( updates: { siteId: string; sortOrder: number }[] ): Promise< void >;
+	setSiteFrontendAdminBar( siteId: string, hidden: boolean | null ): Promise< void >;
 	// The last page of the site captured in a preview, shown while it's stopped.
 	// Null when the site has not been captured yet.
 	getSiteThumbnail( siteId: string ): Promise< string | null >;
@@ -530,6 +533,10 @@ export interface Connector {
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
 
+	// Sends feedback about WordPress Studio to the WordPress Studio team and returns the ID the
+	// service assigned it. Needs the WordPress.com login.
+	sendFeedback( feedback: StudioFeedback ): Promise< { feedbackId: number } >;
+
 	// Wapuu World easter-egg high score. Returns undefined when no score has
 	// been recorded yet; saving keeps only the highest score seen.
 	getWapuuScore(): Promise< number | undefined >;
@@ -736,6 +743,7 @@ export interface UserPreferences {
 	// Start a stopped local site when a chat message is sent to it.
 	autoStartSiteOnChat?: boolean;
 	openChatOnSiteStart?: boolean;
+	hideFrontendAdminBar?: boolean;
 	// Save annotation notes for a combined send.
 	batchAnnotations?: boolean;
 	newSiteBehavior?: NewSiteBehavior;

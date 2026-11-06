@@ -40,6 +40,33 @@ function renderEmail( emails: SiteEmail[] ) {
 }
 
 describe( 'EmailView', () => {
+	it( 'retries the email list after it could not load', async () => {
+		const connector = createFakeConnector();
+		connector.getSiteEmails.mockRejectedValueOnce( new Error( 'Offline' ) );
+		renderWithProviders( <EmailView siteId="site-1" active={ false } onOpenLink={ vi.fn() } />, {
+			connector,
+		} );
+		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent( 'Email log could not load.' );
+		expect( screen.queryByText( 'Select an email to read it.' ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Try again' } ) );
+		expect( await screen.findByText( 'No email yet' ) ).toBeVisible();
+	} );
+
+	it( 'retries a failed email read without claiming the email is gone', async () => {
+		const connector = createFakeConnector( { emails: { 'site-1': [ makeEmail() ] } } );
+		connector.getSiteEmail.mockRejectedValueOnce( new Error( 'Offline' ) );
+		renderWithProviders( <EmailView siteId="site-1" active={ false } onOpenLink={ vi.fn() } />, {
+			connector,
+		} );
+		fireEvent.click( await screen.findByRole( 'option', { name: /Password Reset/ } ) );
+		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent( 'Email log could not load.' );
+		expect( screen.queryByText( 'This email is gone.' ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Try again' } ) );
+		expect(
+			await screen.findByRole( 'article', { name: '[My Site] Password Reset' } )
+		).toBeVisible();
+	} );
+
 	it( 'says when the site has sent no email', async () => {
 		renderEmail( [] );
 

@@ -129,12 +129,6 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				),
 				setting(
 					'navigate',
-					__( 'When adding a site' ),
-					__( 'Choose a starting point or go straight to creating a blank site.' ),
-					'new-site-behavior'
-				),
-				setting(
-					'navigate',
 					__( 'When WordPress Studio quits' ),
 					__( 'Choose what happens to running sites when you quit WordPress Studio.' ),
 					'quit-behavior'

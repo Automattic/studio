@@ -40,4 +40,18 @@
 		font-size: var( --text-sm );
 		line-height: var( --leading-relaxed );
 	}
+
+	.zone[data-size='sm'] .text {
+		gap: var( --space-1 );
+		text-wrap: balance;
+	}
+
+	.zone[data-size='sm'] :is( .label, .help ) {
+		font-size: var( --text-xs );
+		line-height: var( --text-xs--line-height );
+	}
+
+	.zone[data-size='sm'] .help {
+		line-height: var( --leading-relaxed );
+	}
 }

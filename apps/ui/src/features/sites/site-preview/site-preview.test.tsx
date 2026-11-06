@@ -326,9 +326,25 @@ describe( 'site preview', () => {
 			webview,
 			Object.assign( new Event( 'did-fail-load' ), { errorCode: -102, isMainFrame: true } )
 		);
-		expect( screen.getByText( 'Preview could not load' ) ).toBeVisible();
+		expect( screen.getByText( 'Browser could not load.' ) ).toBeVisible();
 		await user.click( screen.getByRole( 'button', { name: 'Try again' } ) );
 		await waitFor( () => expect( webview.reload ).toHaveBeenCalledOnce() );
+	} );
+
+	it( 'retries the design system query from the panel error', async () => {
+		const connector = createFakeConnector();
+		connector.getGlobalStyles.mockRejectedValueOnce( new Error( 'Offline' ) );
+		const { user } = await renderPreview(
+			'browser',
+			{ path: DESIGN_SYSTEM_PREVIEW_PATH },
+			connector
+		);
+		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent(
+			'Design system could not load.'
+		);
+		await user.click( screen.getByRole( 'button', { name: 'Try again' } ) );
+		expect( await screen.findByText( 'This site has no design system.' ) ).toBeVisible();
+		expect( connector.getGlobalStyles ).toHaveBeenCalledTimes( 2 );
 	} );
 
 	it( 'asks the site whether a framed page is there, and retries when it is not', async () => {
@@ -338,7 +354,7 @@ describe( 'site preview', () => {
 		await user.click( await screen.findByRole( 'button', { name: 'Try again' } ) );
 		finishLoading( 'browser' );
 		await waitFor( () =>
-			expect( screen.queryByText( 'Preview could not load' ) ).not.toBeInTheDocument()
+			expect( screen.queryByText( 'Browser could not load.' ) ).not.toBeInTheDocument()
 		);
 		expect( fetch ).toHaveBeenCalledWith( `${ SITE_URL }/`, expect.anything() );
 	} );
@@ -354,7 +370,7 @@ describe( 'site preview', () => {
 			webview,
 			Object.assign( new Event( 'did-fail-load' ), { errorCode: -102, isMainFrame: false } )
 		);
-		expect( screen.queryByText( 'Preview could not load' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Browser could not load.' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'queues early reloads until the Electron guest is ready', async () => {

@@ -118,7 +118,10 @@ export function useComposerAttachments( initialAttachments: ComposerAttachment[]
 
 // Files dragged anywhere over `target`. The depth count keeps the state steady
 // while the pointer crosses child elements; a drop or cancel anywhere resets it.
-export function useFileDrop( target: HTMLElement | null, onFiles: ( files: FileList ) => void ) {
+export function useFileDrop(
+	target: HTMLElement | null,
+	onFiles: ( files: FileList, transfer: DataTransfer ) => void
+) {
 	const [ isDragging, setIsDragging ] = useState( false );
 
 	useEffect( () => {
@@ -139,17 +142,20 @@ export function useFileDrop( target: HTMLElement | null, onFiles: ( files: FileL
 			Array.from( event.dataTransfer?.types ?? [] ).includes( 'Files' );
 		const onDragEnter = ( event: DragEvent ) => {
 			if ( hasFiles( event ) ) {
+				event.stopPropagation();
 				depth += 1;
 				setIsDragging( true );
 			}
 		};
 		const onDragOver = ( event: DragEvent ) => {
 			if ( hasFiles( event ) ) {
+				event.stopPropagation();
 				event.preventDefault();
 			}
 		};
 		const onDragLeave = ( event: DragEvent ) => {
 			if ( hasFiles( event ) ) {
+				event.stopPropagation();
 				depth = Math.max( 0, depth - 1 );
 				setIsDragging( depth > 0 );
 			}
@@ -159,9 +165,10 @@ export function useFileDrop( target: HTMLElement | null, onFiles: ( files: FileL
 				return;
 			}
 			event.preventDefault();
+			event.stopPropagation();
 			reset();
 			if ( event.dataTransfer?.files.length ) {
-				onFiles( event.dataTransfer.files );
+				onFiles( event.dataTransfer.files, event.dataTransfer );
 			}
 		};
 		const listeners = {

@@ -483,6 +483,9 @@ function SitePreviewContent( {
 												<DesignSystemView
 													siteId={ site.id }
 													globalStyles={ globalStyles.data ?? null }
+													error={ globalStyles.error }
+													onRetry={ () => void globalStyles.refetch() }
+													retrying={ globalStyles.isFetching }
 													onAnnotationPick={ handleAnnotationPick }
 													onAnnotationAnchor={ handleDesignAnchor }
 												/>
@@ -518,6 +521,7 @@ function SitePreviewContent( {
 											: undefined
 									}
 									loading={ loadingStage }
+									failed={ surface.browser.failed }
 								>
 									{ canUseWebview ? (
 										<WebviewSurface

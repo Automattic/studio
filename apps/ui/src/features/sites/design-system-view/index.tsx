@@ -8,6 +8,7 @@ import {
 } from '@studio/common/sites/design-sheet';
 import { __, sprintf } from '@wordpress/i18n';
 import { useMemo, useState } from 'react';
+import { PanelLoadError } from '@/features/sites/panel-load-error';
 import { useDesignAnnotations, type DesignAnnotationProps } from './annotations';
 import styles from './style.module.css';
 import type { GlobalStyles } from '@/data/core';
@@ -53,11 +54,17 @@ const STYLE_PATHS: Record< string, string > = {
 export function DesignSystemView( {
 	siteId,
 	globalStyles,
+	error,
+	onRetry,
+	retrying,
 	onAnnotationPick,
 	onAnnotationAnchor,
 }: {
 	siteId: string;
 	globalStyles: GlobalStyles;
+	error?: Error | null;
+	onRetry: () => void;
+	retrying?: boolean;
 } & DesignAnnotationProps ) {
 	const view = useMemo( () => {
 		if ( ! globalStyles ) {
@@ -76,6 +83,16 @@ export function DesignSystemView( {
 	const [ root, attachRoot ] = useState< HTMLDivElement | null >( null );
 	const annotate = useDesignAnnotations( { siteId, root, onAnnotationPick, onAnnotationAnchor } );
 
+	if ( error || ( view && 'error' in view ) ) {
+		return (
+			<PanelLoadError
+				message={ __( 'Design system could not load.' ) }
+				onRetry={ onRetry }
+				retrying={ retrying }
+			/>
+		);
+	}
+
 	if ( ! view ) {
 		return (
 			<div className={ styles.message }>
@@ -83,15 +100,6 @@ export function DesignSystemView( {
 				<p className={ styles.messageDetail }>
 					{ __( 'The design system shows the Styles of a block theme.' ) }
 				</p>
-			</div>
-		);
-	}
-
-	if ( 'error' in view ) {
-		return (
-			<div className={ styles.message }>
-				<p>{ __( "The site's Styles could not be shown." ) }</p>
-				<p className={ styles.messageDetail }>{ view.error }</p>
 			</div>
 		);
 	}

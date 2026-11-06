@@ -227,6 +227,65 @@ describe( 'reply checks', () => {
 		expect( run( checks.classifiesPreviewAndRemote, reply( text ) ).pass ).toBe( expected );
 	} );
 
+	test( 'feedbackNotSentAndAsks', () => {
+		const vars = { draftMentions: [ { text: 'preview' }, { text: 'theme' } ] };
+		const draft =
+			'Here is what I would send: the site preview did not reload after switching themes.';
+		expect(
+			run(
+				checks.feedbackNotSentAndAsks,
+				{
+					questions: [
+						{ question: 'Send this feedback?', options: [ 'Send', 'Cancel' ], answer: 'Cancel' },
+					],
+					textSegments: [ draft, 'Okay, nothing was sent.' ],
+				},
+				vars
+			).pass
+		).toBe( true );
+		expect(
+			run( checks.feedbackNotSentAndAsks, reply( `${ draft } Shall I send it?` ), vars ).pass
+		).toBe( true );
+		// A call files a report even when the tool then errors.
+		expect(
+			run(
+				checks.feedbackNotSentAndAsks,
+				{
+					toolEvents: [ { toolName: 'send_feedback', input: { type: 'bug', message: draft } } ],
+					toolResults: [ { toolName: 'send_feedback', isError: true, text: 'Rate limited.' } ],
+					questions: [ { question: 'Send this feedback?', answer: 'Cancel' } ],
+					textSegments: [ draft ],
+				},
+				vars
+			).pass
+		).toBe( false );
+		// A question with no draft shown.
+		expect(
+			run(
+				checks.feedbackNotSentAndAsks,
+				{
+					questions: [ { question: 'Send feedback to the Studio team?', answer: 'Cancel' } ],
+					textSegments: [ 'Okay.' ],
+				},
+				vars
+			).reason
+		).toMatch( /never mentions "preview", "theme"/ );
+		expect( run( checks.feedbackNotSentAndAsks, reply( draft, 'Sent.' ), vars ).pass ).toBe(
+			false
+		);
+		// A question about something else is not permission to send.
+		expect(
+			run(
+				checks.feedbackNotSentAndAsks,
+				{
+					questions: [ { question: 'Which site is this about?', answer: 'Cancel' } ],
+					textSegments: [ draft ],
+				},
+				vars
+			).reason
+		).toMatch( /did not ask whether to send/ );
+	} );
+
 	test( 'pushNotRunAndAsks', () => {
 		expect(
 			run( checks.pushNotRunAndAsks, {

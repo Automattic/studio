@@ -32,6 +32,11 @@ export const getAiSkillCommands = (): SkillSlashCommand[] => [
 		displayName: __( 'Liberate' ),
 		description: __( 'Migrate & rebuild a site from a closed platform.' ),
 	},
+	{
+		name: 'feedback',
+		displayName: __( 'Send feedback' ),
+		description: __( 'Request a feature or report a bug to the WordPress Studio team.' ),
+	},
 ];
 
 export interface SlashCommandMatches {
@@ -73,21 +78,23 @@ export function buildSkillInvocationPrompt( name: string ): string {
 	return `Run the /${ name } skill using the Skill tool.`;
 }
 
-// Which predefined skill a prompt invokes, or `undefined`. Handles both shapes that reach the agent:
-// the bare `/rank-me-up` and the sentence it expands into. Only catalog names are returned —
-// callers report this to analytics.
+// Which predefined skill a prompt invokes, or `undefined`. Handles the shapes that reach the
+// agent: the bare `/rank-me-up`, the command with arguments (`/feedback the preview broke`), and
+// the sentence the bare form expands into. Only catalog names are returned — callers report this
+// to analytics.
 export function resolveSkillFromPrompt( prompt: string ): string | undefined {
 	const trimmed = prompt.trim();
 	const name = trimmed.startsWith( '/' )
-		? trimmed.slice( 1 )
+		? trimmed.slice( 1 ).split( /\s/, 1 )[ 0 ]
 		: getAiSkillCommands().find( ( cmd ) => buildSkillInvocationPrompt( cmd.name ) === trimmed )
 				?.name;
 	return getAiSkillCommands().find( ( cmd ) => cmd.name === name )?.name;
 }
 
 // Expand a bare skill prompt (e.g. `/rank-me-up`) into the instruction the
-// agent acts on, matching the CLI's interactive main loop.
+// agent acts on, matching the CLI's interactive main loop. A command with
+// arguments is passed through, so the agent sees what the user typed after it.
 export function expandSkillCommandPrompt( prompt: string ): string {
 	const name = resolveSkillFromPrompt( prompt );
-	return name ? buildSkillInvocationPrompt( name ) : prompt;
+	return name && prompt.trim() === `/${ name }` ? buildSkillInvocationPrompt( name ) : prompt;
 }

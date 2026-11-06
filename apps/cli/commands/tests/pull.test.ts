@@ -487,10 +487,17 @@ describe( 'CLI: studio pull single pull phase', () => {
 	] )(
 		'keeps its own core when the remote runs $remoteWpVersion',
 		async ( { remoteWpVersion, commands, filesArgs } ) => {
-			const technicalSiteDirectory = fs.mkdtempSync(
-				path.join( os.tmpdir(), 'studio-import-pull-core-' )
+			const technicalSiteDirectory = fs.realpathSync(
+				fs.mkdtempSync( path.join( os.tmpdir(), 'studio-import-pull-core-' ) )
 			);
-			const sitePath = path.join( technicalSiteDirectory, 'site' );
+			// The site's path goes through a symlink to a deeper directory, as `/tmp` does on macOS.
+			fs.mkdirSync( path.join( technicalSiteDirectory, 'private', 'sites' ), { recursive: true } );
+			fs.symlinkSync(
+				path.join( technicalSiteDirectory, 'private', 'sites' ),
+				path.join( technicalSiteDirectory, 'sites' ),
+				'junction'
+			);
+			const sitePath = path.join( technicalSiteDirectory, 'sites', 'site' );
 			const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
 			const pulledWpContent = path.join( rawDirectory, 'srv', 'htdocs', 'wp-content' );
 			fs.mkdirSync( path.join( sitePath, 'wp-includes' ), { recursive: true } );

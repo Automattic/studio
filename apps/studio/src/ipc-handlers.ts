@@ -61,6 +61,7 @@ import {
 import { SITE_EVENTS, type SiteListItem } from '@studio/common/lib/cli-events';
 import { CliCommandError } from '@studio/common/lib/cli-process';
 import { stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
+import { sendStudioFeedback, type StudioFeedback } from '@studio/common/lib/feedback';
 import {
 	calculateDirectorySizeForArchive,
 	isWordPressDirectory,
@@ -91,6 +92,7 @@ import {
 	listLocalFileTree as listSiteFileTree,
 } from '@studio/common/lib/sync/local-file-tree';
 import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
+import { getStudioUserAgent } from '@studio/common/lib/user-agent';
 import { supportedEditorConfig, SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import {
 	readOnboardingCompleted,
@@ -1519,3 +1521,14 @@ export {
 	setWebviewColorScheme,
 	clearWebviewBrowsingData,
 } from 'src/lib/preview-browser';
+
+export async function sendFeedback( _event: IpcMainInvokeEvent, feedback: StudioFeedback ) {
+	const token = await readAuthToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( 'Log in to WordPress.com to send feedback.' );
+	}
+	return sendStudioFeedback( feedback, {
+		accessToken: token.accessToken,
+		userAgent: getStudioUserAgent( app.getVersion() ),
+	} );
+}

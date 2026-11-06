@@ -12,7 +12,7 @@ Feedback reaches a real queue the WordPress Studio team reads. The user decides 
 
 ## 1. Find out what to report
 
-When the user invoked `/feedback` with text after it, that text is the feedback. When they invoked it bare, ask in one short question what they want to tell the WordPress Studio team, and offer the three kinds: something broken, something they wish WordPress Studio did, or anything else.
+When the user invoked `/feedback` with text after it, that text is the feedback. When they invoked it bare, ask in one short question what they want to tell the WordPress Studio team, and offer these three choices in this exact order, matching the feedback dialog: **Bug report**, **Feature request**, **General feedback**. Use these labels in a questionnaire too.
 
 Do not ask for details you already have. This chat usually holds them: what the user was trying to do, which WordPress Studio tool ran, and the error it returned.
 
@@ -25,7 +25,7 @@ Write the message for a WordPress Studio engineer who was not in this chat:
 - What they expected instead.
 - For a feature request: what they want to do and why.
 
-Pick the type: `bug` for something broken, `request` for a feature or improvement, `general` for anything else, including praise.
+Map the choices to the tool type: **Bug report** → `bug`, **Feature request** → `request`, **General feedback** → `general` (including praise).
 
 Offer a chat summary. If this chat has work in it (tools ran, errors came back, a site was built or changed), add a short section headed **What happened in this chat**: the steps taken in order, the WordPress Studio tools called, and any errors, in a few lines. Leave it out when the chat is only the feedback request itself. Include the raw transcript only when the user asks for it, since it can hold private content; a summary is usually enough to reproduce the problem.
 

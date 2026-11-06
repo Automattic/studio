@@ -334,6 +334,7 @@ export function createInMemoryConnector(
 		openStudioLogs: async () => {},
 		trackEvent: async () => {},
 		openExternalUrl: async () => {},
+		sendFeedback: async () => ( { feedbackId: 1 } ),
 		getWapuuScore: async () => undefined,
 		saveWapuuScore: async () => {},
 		popupAppMenu: async () => {},

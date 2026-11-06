@@ -175,7 +175,7 @@ describe( 'CreateSiteForm suggestions', () => {
 		} );
 		advanced();
 		expect( screen.getByLabelText( 'Domain name' ) ).toHaveValue( 'localhost' );
-		expect( screen.getByRole( 'button', { name: 'Enable HTTPS' } ) ).toHaveAttribute(
+		expect( screen.getByRole( 'switch', { name: 'Enable HTTPS' } ) ).toHaveAttribute(
 			'aria-disabled',
 			'true'
 		);
@@ -868,14 +868,19 @@ describe( 'CreateSiteForm fields', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Change' } ) );
 		expect( screen.getByLabelText( /Username/ ) ).toHaveValue( 'baker' );
 		await user.keyboard( '{Escape}' );
+		const https = screen.getByRole( 'switch', { name: 'Enable HTTPS' } );
+		expect( https ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( https ).not.toBeChecked();
 		fireEvent.change( screen.getByLabelText( 'Domain name' ), {
 			target: { value: 'bakery.local' },
 		} );
-		await user.click( screen.getByRole( 'button', { name: 'Enable HTTPS' } ) );
-		expect( screen.getByRole( 'button', { name: 'Disable HTTPS' } ) ).toBeVisible();
+		expect( https ).not.toHaveAttribute( 'aria-disabled', 'true' );
+		await user.click( https );
+		expect( https ).toBeChecked();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Advanced' } ) );
 		advanced();
 		expect( screen.getByLabelText( 'Domain name' ) ).toHaveValue( 'bakery.local' );
+		expect( screen.getByRole( 'switch', { name: 'Enable HTTPS' } ) ).toBeChecked();
 		await waitFor( () => expect( submitButton() ).toBeEnabled() );
 		fireEvent.click( submitButton() );
 		expect( onSubmit ).toHaveBeenCalledWith(

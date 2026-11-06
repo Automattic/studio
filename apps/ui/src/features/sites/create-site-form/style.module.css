@@ -114,6 +114,16 @@
 	min-width: 0;
 }
 
+.domainControls {
+	gap: var( --space-4 );
+	min-width: 0;
+}
+
+.httpsToggle {
+	flex: none;
+	white-space: nowrap;
+}
+
 .certificateNotice:empty {
 	display: none;
 }

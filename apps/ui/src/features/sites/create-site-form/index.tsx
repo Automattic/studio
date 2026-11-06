@@ -3,7 +3,7 @@ import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import { validateAdminEmail, validateAdminUsername } from '@studio/common/lib/passwords';
 import { getLatestVersionLabel } from '@studio/common/lib/wordpress-versions';
 import { __, sprintf } from '@wordpress/i18n';
-import { ChevronDownIcon, LockIcon, LockOpenIcon } from 'lucide-react';
+import { ChevronDownIcon } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
@@ -29,9 +29,10 @@ import {
 	FieldDescription,
 	FieldError,
 	FieldGroup,
+	FieldLabel,
 	FieldTitle,
-	IconButton,
 	Popover,
+	Switch,
 } from '@/lib/ui';
 import { getFolderNameError, splitFolderPath } from './folder-path';
 import {
@@ -485,8 +486,7 @@ export function CreateSiteForm( {
 						</Field>
 						<TextField
 							label={ __( 'Domain name' ) }
-							orientation="horizontal"
-							controlClassName={ styles.advancedControl }
+							controlClassName={ styles.domainControls }
 							value={ data.customDomain }
 							placeholder="localhost"
 							error={ advancedErrors.customDomain }
@@ -494,14 +494,17 @@ export function CreateSiteForm( {
 								requiresCustomDomain ? __( 'This Blueprint requires a custom domain.' ) : undefined
 							}
 							onChange={ ( event ) => handleChange( { customDomain: event.target.value } ) }
-							endAdornment={
-								<IconButton
-									icon={ enableHttps ? <LockIcon /> : <LockOpenIcon /> }
-									label={ enableHttps ? __( 'Disable HTTPS' ) : __( 'Enable HTTPS' ) }
-									size="icon-xs"
-									disabled={ ! customDomain || !! advancedErrors.customDomain }
-									onClick={ () => handleChange( { enableHttps: ! enableHttps } ) }
-								/>
+							action={
+								<FieldLabel htmlFor={ `${ formId }-https` } className={ styles.httpsToggle }>
+									{ __( 'HTTPS' ) }
+									<Switch
+										id={ `${ formId }-https` }
+										aria-label={ __( 'Enable HTTPS' ) }
+										checked={ enableHttps }
+										disabled={ ! customDomain || !! advancedErrors.customDomain }
+										onCheckedChange={ ( checked ) => handleChange( { enableHttps: checked } ) }
+									/>
+								</FieldLabel>
 							}
 						/>
 						{ enableHttps && (

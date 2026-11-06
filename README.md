@@ -1,6 +1,6 @@
 # WordPress Studio
 
-[WordPress Studio](https://wordpress.studio/) is a free, open source development environment for WordPress. Create and manage local sites, build plugins and themes, and use AI to work on real WordPress projects. No Docker, external web server, or database setup required.
+[WordPress Studio](https://developer.wordpress.com/studio/) is a free, open source development environment for WordPress. Create and manage local sites, build plugins and themes, and use AI to work on real WordPress projects. No Docker, external web server, or database setup required.
 
 Start with a blank site, a Blueprint, or an existing WordPress site. Work through the desktop app, the command line, or an AI agent connected through MCP. Share previews for feedback, publish to [WordPress.com](https://wordpress.com/) or [Pressable](https://pressable.com/), or export your site to host elsewhere.
 

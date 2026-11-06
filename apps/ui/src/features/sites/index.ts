@@ -1,4 +1,5 @@
 export { AddSiteDialog } from './add-site-dialog';
+export { AppIcon } from './app-icon';
 export { createSelectedBlueprint } from './blueprint-selection';
 export { DeleteSiteDialog } from './delete-site-dialog';
 export { getPreviewHomePath, getSiteFrontendUrl, getSiteUrl } from './get-site-url';

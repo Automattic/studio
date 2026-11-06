@@ -1,6 +1,5 @@
 import { AI_PROVIDER_LABELS } from '@studio/agent/protocol/providers';
 import { __ } from '@wordpress/i18n';
-import { CheckIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { getProviderIntent } from '@/data/account-analytics';
 import { useConnector } from '@/data/core';
@@ -12,17 +11,10 @@ import {
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { LearnMoreLink } from '@/features/onboarding';
 import { useOffline } from '@/lib/hooks';
-import { Badge, Button, Input } from '@/lib/ui';
-import { SettingsGroup, SettingsRow, SettingsSelect } from './rows';
+import { Button, Input } from '@/lib/ui';
+import { connectedBadge, SettingsGroup, SettingsRow, SettingsSelect } from './rows';
 import styles from './style.module.css';
 import type { AiProviderId } from '@studio/agent/protocol/providers';
-
-const connectedBadge = () => (
-	<Badge size="xs" variant="accent">
-		<CheckIcon aria-hidden="true" />
-		{ __( 'Connected' ) }
-	</Badge>
-);
 
 function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } ) {
 	const settings = useAiSettings();

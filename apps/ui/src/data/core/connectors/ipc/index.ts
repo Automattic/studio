@@ -20,6 +20,7 @@ import { getSiteFolderForTarget, type SiteOpenTarget } from '@studio/common/site
 import { __ } from '@wordpress/i18n';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import type {
+	AgentApp,
 	ActiveAgentRun,
 	AiSessionSummary,
 	AiSessionPlacementUpdatedEvent,
@@ -267,7 +268,9 @@ export function createIpcConnector(): Connector {
 
 		async selectSiteFolder( defaultPath, options ): Promise< SelectedSiteFolder | null > {
 			const response = ( await ipcApi.showOpenFolderDialog(
-				options?.allowBlueprints
+				options?.allowSiteFiles
+					? __( 'Choose a site source' )
+					: options?.allowBlueprints
 					? __( 'Open a site or Blueprint' )
 					: __( 'Choose folder for site' ),
 				defaultPath,
@@ -691,6 +694,13 @@ export function createIpcConnector(): Connector {
 
 		async getInstalledApps(): Promise< InstalledApps > {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
+		},
+
+		async getAgentApps(): Promise< AgentApp[] > {
+			return ( await ipcApi.getAgentApps() ) as AgentApp[];
+		},
+		async connectAgentApp( id ): Promise< void > {
+			await unwrapIpcError( ipcApi.connectAgentApp( id ) );
 		},
 
 		async getAppGlobals(): Promise< AppGlobals > {

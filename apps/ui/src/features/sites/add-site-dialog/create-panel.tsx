@@ -3,29 +3,23 @@ import {
 	updateBlueprintWithFormValues,
 } from '@studio/common/lib/blueprint-settings';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
-import { getErrorMessage } from '@studio/common/lib/error-formatting';
-import { useNavigate } from '@tanstack/react-router';
-import { __, _n, sprintf } from '@wordpress/i18n';
-import { CloudDownloadIcon } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { useConnector } from '@/data/core';
+import { __ } from '@wordpress/i18n';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
 	useExistingCustomDomains,
 	useProposedSiteName,
 } from '@/data/queries/use-create-site-helpers';
 import { useCreateSite, useSites } from '@/data/queries/use-sites';
-import { useWordPressOrgPackageName } from '@/data/queries/use-wordpress-org-package-name';
 import { CreateSiteForm } from '@/features/sites/create-site-form';
-import { pendingBlueprintSlot } from '@/features/sites/pending-blueprint';
-import { pendingSiteFolderSlot } from '@/features/sites/pending-site-folder';
-import { UploadIcon } from '@/lib/icons';
+import { usePendingSiteFolder } from '@/features/sites/pending-site-folder';
 import { useConnectSite } from './connect-site';
 import { useAddSite } from './context';
-import localStyles from './create-panel.module.css';
+import { SetupSourceField } from './setup-source-field';
 import { getRemoteSiteName } from './site-presentation';
-import type { SyncSite } from '@/data/core';
+import { useSetupPrompt } from './use-setup-prompt';
+import type { SelectedSiteFolder, SyncSite } from '@/data/core';
 import type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
-import type { CreateSiteFormError, CreateSiteFormValues } from '@/features/sites/create-site-form';
+import type { CreateSiteFormValues } from '@/features/sites/create-site-form';
 
 function mapBlueprintSettingsToFormValues(
 	blueprint: SelectedBlueprint
@@ -45,187 +39,7 @@ function mapBlueprintSettingsToFormValues(
 	};
 }
 
-function getSourceIdentifier( source: string ): string {
-	const normalized = source.split( /[?#]/, 1 )[ 0 ].replace( /\/$/, '' );
-	const filename = normalized.split( '/' ).pop() || normalized;
-	try {
-		return decodeURIComponent( filename ).replace( /\.(git|zip)$/i, '' );
-	} catch {
-		return filename.replace( /\.(git|zip)$/i, '' );
-	}
-}
-
-interface BlueprintPackage {
-	name: string;
-	url?: string;
-	wordpressOrg?: {
-		kind: 'plugin' | 'theme';
-		slug: string;
-	};
-}
-
-function BlueprintPackageName( { package: blueprintPackage }: { package: BlueprintPackage } ) {
-	const connector = useConnector();
-	const { name, url, wordpressOrg } = blueprintPackage;
-	const { data: wordpressOrgName } = useWordPressOrgPackageName(
-		wordpressOrg?.kind,
-		wordpressOrg?.slug
-	);
-	const displayName = wordpressOrgName ?? name;
-
-	if ( ! url ) {
-		return displayName;
-	}
-	const linkLabel = url.startsWith( 'https://wordpress.org/' )
-		? __( 'Open on WordPress.org' )
-		: __( 'Open source page' );
-
-	return (
-		<a
-			href={ url }
-			title={ linkLabel }
-			target="_blank"
-			rel="noreferrer noopener"
-			onClick={ ( event ) => {
-				event.preventDefault();
-				void connector.openExternalUrl( url );
-			} }
-		>
-			{ displayName }
-		</a>
-	);
-}
-
-function getResourceDetails(
-	resource: unknown,
-	kind: 'plugin' | 'theme'
-): BlueprintPackage | null {
-	if ( typeof resource === 'string' ) {
-		return { name: getSourceIdentifier( resource ) };
-	}
-	if ( ! resource || typeof resource !== 'object' ) {
-		return null;
-	}
-	const details = resource as Record< string, unknown >;
-	if ( typeof details.slug === 'string' && details.slug ) {
-		return {
-			name: details.slug,
-			url: `https://wordpress.org/${ kind === 'plugin' ? 'plugins' : 'themes' }/${ details.slug }/`,
-			wordpressOrg: { kind, slug: details.slug },
-		};
-	}
-	if ( typeof details.url === 'string' && details.url ) {
-		return { name: getSourceIdentifier( details.url ), url: details.url };
-	}
-	if ( typeof details.path === 'string' && details.path ) {
-		const name = getSourceIdentifier( details.path );
-		return {
-			name,
-			wordpressOrg: { kind, slug: name },
-		};
-	}
-	return null;
-}
-
-function getBlueprintPackages( blueprint: SelectedBlueprint[ 'blueprint' ] ) {
-	const plugins: BlueprintPackage[] = [];
-	const themes: BlueprintPackage[] = [];
-	for ( const rawStep of blueprint.steps ?? [] ) {
-		if ( ! rawStep || typeof rawStep !== 'object' ) continue;
-		const step = rawStep as unknown as Record< string, unknown >;
-		if ( step.step === 'installPlugin' ) {
-			const details = getResourceDetails( step.pluginData ?? step.pluginZipFile, 'plugin' );
-			if ( details ) plugins.push( details );
-		}
-		if ( step.step === 'installTheme' ) {
-			const details = getResourceDetails( step.themeData ?? step.themeZipFile, 'theme' );
-			if ( details ) themes.push( details );
-		}
-	}
-	return {
-		plugins: [ ...new Map( plugins.map( ( item ) => [ item.name, item ] ) ).values() ],
-		themes: [ ...new Map( themes.map( ( item ) => [ item.name, item ] ) ).values() ],
-	};
-}
-
-function SelectedBlueprintSummary( { selected }: { selected: SelectedBlueprint } ) {
-	const packages = getBlueprintPackages( selected.blueprint );
-
-	return (
-		<section className={ localStyles.summary } aria-label={ __( 'Blueprint details' ) }>
-			<div
-				className={ `${ localStyles.summaryOverview } ${
-					selected.image ? '' : localStyles.summaryOverviewWithoutImage
-				}` }
-			>
-				{ selected.image && (
-					<div className={ localStyles.summaryImageViewport }>
-						<img src={ selected.image } alt="" className={ localStyles.summaryImage } />
-					</div>
-				) }
-				<div className={ localStyles.summaryContent }>
-					{ selected.excerpt && (
-						<p className={ localStyles.summaryExcerpt }>{ selected.excerpt }</p>
-					) }
-				</div>
-			</div>
-			{ ( packages.plugins.length > 0 || packages.themes.length > 0 ) && (
-				<div className={ localStyles.summaryPackages }>
-					{ packages.plugins.length > 0 && (
-						<div className={ localStyles.summaryPackageGroup }>
-							<h3>
-								{ sprintf(
-									_n( '%d plugin', '%d plugins', packages.plugins.length ),
-									packages.plugins.length
-								) }
-							</h3>
-							<ul>
-								{ packages.plugins.map( ( plugin ) => (
-									<li key={ plugin.name }>
-										<BlueprintPackageName package={ plugin } />
-									</li>
-								) ) }
-							</ul>
-						</div>
-					) }
-					{ packages.themes.length > 0 && (
-						<div className={ localStyles.summaryPackageGroup }>
-							<h3>
-								{ sprintf(
-									_n( '%d theme', '%d themes', packages.themes.length ),
-									packages.themes.length
-								) }
-							</h3>
-							<ul>
-								{ packages.themes.map( ( theme ) => (
-									<li key={ theme.name }>
-										<BlueprintPackageName package={ theme } />
-									</li>
-								) ) }
-							</ul>
-						</div>
-					) }
-				</div>
-			) }
-		</section>
-	);
-}
-
-/**
- * The setup form for a new site: blank, from a Blueprint, or the local copy of
- * the `remote` site picked in Connect.
- */
-export function CreatePanel( {
-	remote,
-	onCancel,
-	onChooseSource,
-}: {
-	remote?: SyncSite;
-	onCancel: () => void;
-	onChooseSource?: () => void;
-} ) {
-	const connector = useConnector();
-	const navigate = useNavigate();
+export function CreatePanel( { remote }: { remote?: SyncSite } ) {
 	const {
 		setProgress,
 		pinNewSite,
@@ -233,101 +47,64 @@ export function CreatePanel( {
 		setSetupDraft,
 		formActions,
 		isBlueprintValid,
-		setIsBlueprintValid,
+		source,
+		setSource,
+		folderResetKey,
+		setBlueprintTransferred,
 	} = useAddSite();
 	const [ restoredDraft ] = useState( setupDraft );
 	const { data: sites } = useSites();
 	const existingDomainNames = useExistingCustomDomains();
+	const selectedBlueprint = source.type === 'blueprint' ? source.blueprint : undefined;
 	const { data: proposedName } = useProposedSiteName(
 		sites,
-		remote && getRemoteSiteName( remote )
+		remote
+			? getRemoteSiteName( remote )
+			: selectedBlueprint
+			? extractFormValuesFromBlueprint( selectedBlueprint.blueprint ).siteName ||
+			  selectedBlueprint.title
+			: undefined
 	);
 	const createSite = useCreateSite();
 	const connectSite = useConnectSite();
-	const [ selectedBlueprint, setSelectedBlueprint ] = useState< SelectedBlueprint | null >( null );
 	const [ existing, setExisting ] = useState( false );
 	const [ submittedInitialValues, setSubmittedInitialValues ] =
 		useState< Partial< CreateSiteFormValues > | null >( null );
-	const selectedBlueprintRef = useRef< SelectedBlueprint | null >( null );
-	const blueprintLifecycleRef = useRef( { generation: 0 } );
-	const transferredTempDirRef = useRef< string | null >( null );
-	const [ submitError, setSubmitError ] = useState< string | CreateSiteFormError >( '' );
-	const pendingBlueprint = useSyncExternalStore(
-		pendingBlueprintSlot.subscribe,
-		pendingBlueprintSlot.getSnapshot
-	);
-	const pendingFolder = useSyncExternalStore(
-		pendingSiteFolderSlot.subscribe,
-		pendingSiteFolderSlot.getSnapshot
-	);
-	const [ selectedFolder, setSelectedFolder ] = useState( pendingFolder );
-	useEffect( () => {
-		if ( ! pendingFolder ) return;
-		setSelectedFolder( pendingFolder );
-		pendingSiteFolderSlot.clear( pendingFolder );
-	}, [ pendingFolder ] );
-	const requiresCustomDomain = useMemo(
-		() =>
-			!! selectedBlueprint &&
-			!! extractFormValuesFromBlueprint( selectedBlueprint.blueprint ).requiresCustomDomain,
-		[ selectedBlueprint ]
-	);
-
-	const cleanupBlueprint = useCallback(
-		( blueprint: SelectedBlueprint | null ) => {
-			if ( blueprint?.tempDir && blueprint.tempDir !== transferredTempDirRef.current ) {
-				void connector.cleanupBlueprintTempDir( blueprint.tempDir ).catch( () => undefined );
-			}
-		},
-		[ connector ]
-	);
-
-	const replaceBlueprint = useCallback(
-		( blueprint: SelectedBlueprint | null ) => {
-			if ( selectedBlueprintRef.current === blueprint ) return;
-			cleanupBlueprint( selectedBlueprintRef.current );
-			selectedBlueprintRef.current = blueprint;
-			setSelectedBlueprint( blueprint );
-			setSubmitError( '' );
-		},
-		[ cleanupBlueprint ]
-	);
-
-	useEffect( () => {
-		if ( ! pendingBlueprint ) return;
-		replaceBlueprint( pendingBlueprint );
-		pendingBlueprintSlot.clear( pendingBlueprint );
-	}, [ pendingBlueprint, replaceBlueprint ] );
-
-	useEffect( () => {
-		const lifecycle = blueprintLifecycleRef.current;
-		const generation = ++lifecycle.generation;
-		return () => {
-			// Strict Mode replays setup immediately; only release files after a real unmount.
-			queueMicrotask( () => {
-				if ( lifecycle.generation === generation ) {
-					cleanupBlueprint( selectedBlueprintRef.current );
-				}
-			} );
-			setProgress( null );
-		};
-	}, [ cleanupBlueprint, setProgress ] );
-
+	const selectedFolder = usePendingSiteFolder();
+	const working = useRef( false );
+	const prompt = useSetupPrompt( { enabled: ! remote, busy: submittedInitialValues !== null } );
+	useEffect( () => () => setProgress( null ), [ setProgress ] );
+	const requiresCustomDomain =
+		!! selectedBlueprint &&
+		!! extractFormValuesFromBlueprint( selectedBlueprint.blueprint ).requiresCustomDomain;
 	const initialValues = useMemo(
 		() => ( {
-			...( proposedName ? { name: proposedName } : {} ),
 			...( selectedBlueprint ? mapBlueprintSettingsToFormValues( selectedBlueprint ) : {} ),
+			...( proposedName ? { name: proposedName } : {} ),
 		} ),
 		[ proposedName, selectedBlueprint ]
 	);
 
-	const handleSubmit = async ( values: CreateSiteFormValues ) => {
-		const blueprint = existing ? null : selectedBlueprintRef.current;
-		setSubmittedInitialValues( initialValues );
-		setSubmitError( '' );
-		setProgress( __( 'Creating site…' ) );
-		transferredTempDirRef.current = blueprint?.tempDir ?? null;
+	const onFolderChange = useCallback(
+		( folder: SelectedSiteFolder ) => {
+			if (
+				source.type === 'blank' ||
+				( source.type === 'folder' && source.folder.path !== folder.path )
+			) {
+				setSource( { type: 'folder', folder } );
+			}
+		},
+		[ source, setSource ]
+	);
 
+	const handleSubmit = async ( values: CreateSiteFormValues ) => {
+		if ( working.current || prompt.hasCreatedSite() ) return;
+		working.current = true;
+		const blueprint = existing ? undefined : selectedBlueprint;
+		const hasPrompt = prompt.capture();
+		setSubmittedInitialValues( initialValues );
+		setProgress( __( 'Creating site…' ) );
+		setBlueprintTransferred( !! blueprint );
 		try {
 			const mergedBlueprint = blueprint
 				? updateBlueprintWithFormValues( blueprint.blueprint, {
@@ -352,6 +129,7 @@ export function CreatePanel( {
 			}
 			const site = await createSite.mutateAsync( {
 				...params,
+				...( hasPrompt ? { flowType: 'ai' as const } : {} ),
 				...( mergedBlueprint && blueprint
 					? {
 							blueprint: {
@@ -363,57 +141,49 @@ export function CreatePanel( {
 					: {} ),
 			} );
 			pinNewSite( site.id );
-			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
-		} catch ( error ) {
+			await prompt.finish( site.id );
+		} catch {
 			setSubmittedInitialValues( null );
 			setProgress( null );
-			setSubmitError( {
-				title: __( 'WordPress Studio could not create the site.' ),
-				message: blueprint
-					? __( 'Review the Blueprint, the site name and the local folder, then try again.' )
-					: __( 'Review the site name and local folder, then try again.' ),
-				details: getErrorMessage( error ),
-			} );
-			// The server keeps an uploaded bundle when creation fails; it's ours to clean up again.
-			transferredTempDirRef.current = null;
+			setBlueprintTransferred( false );
+		} finally {
+			working.current = false;
 		}
 	};
-
+	if ( prompt.recovery ) return prompt.recovery;
 	return (
-		<div className={ localStyles.page }>
-			<CreateSiteForm
-				actionsContainer={ formActions }
-				selectedFolder={ selectedFolder ?? undefined }
-				initialValues={ submittedInitialValues ?? initialValues }
-				existingDomainNames={ existingDomainNames }
-				onSubmit={ handleSubmit }
-				onCancel={ onCancel }
-				isSubmitting={ submittedInitialValues !== null }
-				isSubmitDisabled={ ! isBlueprintValid }
-				requiresCustomDomain={ requiresCustomDomain }
-				submitError={ submitError }
-				source={ selectedBlueprint?.title ?? remote?.url.replace( /^https?:\/\//, '' ) }
-				sourceIcon={ selectedBlueprint ? <UploadIcon /> : <CloudDownloadIcon /> }
-				onChangeSource={
-					selectedBlueprint
-						? () => {
-								setIsBlueprintValid( true );
-								replaceBlueprint( null );
-						  }
-						: onChooseSource
-				}
-				sourceActionLabel={ selectedBlueprint ? __( 'Remove' ) : undefined }
-				onExistingChange={ setExisting }
-				requiresEmptyPath={ !! remote }
-				showFrontendChoice={ ! remote }
-				draft={ restoredDraft }
-				onDraftChange={ setSetupDraft }
-				sourceDetails={
-					selectedBlueprint ? (
-						<SelectedBlueprintSummary selected={ selectedBlueprint } />
-					) : undefined
-				}
-			/>
-		</div>
+		<CreateSiteForm
+			actionsContainer={ formActions }
+			selectedFolder={ selectedFolder ?? undefined }
+			initialValues={ submittedInitialValues ?? initialValues }
+			existingDomainNames={ existingDomainNames }
+			onSubmit={ handleSubmit }
+			isSubmitting={ submittedInitialValues !== null }
+			isSubmitDisabled={
+				! isBlueprintValid ||
+				( ! remote &&
+					! existing &&
+					( ( source.type === 'blueprint' && ! selectedBlueprint ) || source.type === 'import' ) )
+			}
+			requiresCustomDomain={ requiresCustomDomain }
+			sourceControl={ <SetupSourceField disabled={ submittedInitialValues !== null } /> }
+			onExistingChange={ setExisting }
+			onFolderChange={ onFolderChange }
+			resetPathKey={ folderResetKey }
+			requiresExistingPath={ source.type === 'folder' }
+			folderDescription={
+				selectedBlueprint
+					? __( 'Studio will create a site from this blueprint in an empty folder.' )
+					: remote
+					? __( 'Studio will create a local copy of this site in an empty folder.' )
+					: undefined
+			}
+			requiresEmptyPath={ !! remote || !! selectedBlueprint }
+			showFrontendChoice={ ! remote }
+			draft={ restoredDraft }
+			onDraftChange={ setSetupDraft }
+		>
+			{ prompt.field }
+		</CreateSiteForm>
 	);
 }

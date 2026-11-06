@@ -208,7 +208,6 @@ export const cliAgentHost: StudioAgentHost = {
 						remoteSite,
 						false,
 						pullSelectionFromSyncOptions( parseSyncOptions( options ) ),
-						false,
 						onProgress
 				  )
 				: runLegacyPullCommand(

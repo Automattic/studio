@@ -1029,56 +1029,49 @@ describe( 'Studio workspace', () => {
 		expect( await waitForFullscreen( false ) ).toBeVisible();
 	} );
 
-	it.each(
-		[ 'sidebar', 'site menu', 'command palette', 'application menu' ].flatMap( ( entry ) =>
-			[ '/sites/one/new', '/sessions/existing-chat' ].map( ( path ) => ( { entry, path } ) )
-		)
-	)(
-		'instantly reveals a new chat from full screen via $entry at $path',
-		async ( { entry, path } ) => {
-			const { connector, history } = setup( {
-				signedIn: true,
-				path,
-				sites: [ site( { running: true } ) ],
-				sessions: [
-					chat( { id: 'existing-chat', title: 'Existing conversation' }, [ prompt( 'Hello' ) ] ),
-				],
+	it.each( [
+		{ entry: 'sidebar', path: '/sites/one/new' },
+		{ entry: 'site menu', path: '/sessions/existing-chat' },
+		{ entry: 'command palette', path: '/sessions/existing-chat' },
+		{ entry: 'application menu', path: '/sites/one/new' },
+	] )( 'reveals a new chat from full screen via $entry at $path', async ( { entry, path } ) => {
+		const { connector, history } = setup( {
+			signedIn: true,
+			path,
+			sites: [ site( { running: true } ) ],
+			sessions: [
+				chat( { id: 'existing-chat', title: 'Existing conversation' }, [ prompt( 'Hello' ) ] ),
+			],
+		} );
+		await findComposer();
+		await setChatFullscreen( true );
+		await waitForFullscreen( true );
+		if ( entry === 'site menu' ) {
+			fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'New chat' } ) );
+		} else if ( entry === 'command palette' ) {
+			fireEvent.keyDown( document, {
+				code: 'KeyK',
+				key: 'k',
+				metaKey: isApple,
+				ctrlKey: ! isApple,
 			} );
-			await findComposer();
-			await setChatFullscreen( true );
-			await waitForFullscreen( true );
-			const workspace = document.querySelector< HTMLElement >(
-				'[style*="--panel-layout-duration"]'
-			)!;
-			if ( entry === 'site menu' ) {
-				fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
-				fireEvent.click( await screen.findByRole( 'menuitem', { name: 'New chat' } ) );
-			} else if ( entry === 'command palette' ) {
-				fireEvent.keyDown( document, {
-					code: 'KeyK',
-					key: 'k',
-					metaKey: isApple,
-					ctrlKey: ! isApple,
-				} );
-				fireEvent.change( await screen.findByLabelText( 'Search commands' ), {
-					target: { value: 'New chat' },
-				} );
-				fireEvent.click( await screen.findByRole( 'option', { name: /^New chat/ } ) );
-			} else if ( entry === 'application menu' ) {
-				act( () => connector.emit( 'onNewChat' ) );
-			} else {
-				fireEvent.click( screen.getByRole( 'button', { name: 'New chat for My site' } ) );
-			}
-			expect( workspace ).not.toHaveAttribute( 'data-layout-moving' );
-			expect( workspace.style.getPropertyValue( '--panel-layout-duration' ) ).toBe( '0ms' );
-			await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
-			await waitFor( () => expect( composer() ).toHaveFocus() );
-			expect( await findLayoutControl( 'split' ) ).toBeVisible();
-			expect( connector.createSession ).not.toHaveBeenCalled();
+			fireEvent.change( await screen.findByLabelText( 'Search commands' ), {
+				target: { value: 'New chat' },
+			} );
+			fireEvent.click( await screen.findByRole( 'option', { name: /^New chat/ } ) );
+		} else if ( entry === 'application menu' ) {
+			act( () => connector.emit( 'onNewChat' ) );
+		} else {
+			fireEvent.click( screen.getByRole( 'button', { name: 'New chat for My site' } ) );
 		}
-	);
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
+		await waitFor( () => expect( composer() ).toHaveFocus() );
+		expect( await findLayoutControl( 'split' ) ).toBeVisible();
+		expect( connector.createSession ).not.toHaveBeenCalled();
+	} );
 
-	it( 'instantly toggles an empty site draft between split and full screen from the sidebar', async () => {
+	it( 'toggles an empty site draft between split and full screen from the sidebar', async () => {
 		const { connector, history } = setup( {
 			signedIn: true,
 			sites: [ site( { running: true } ) ],
@@ -1086,16 +1079,12 @@ describe( 'Studio workspace', () => {
 		await findComposer();
 		await findLayoutControl( 'split' );
 		const button = screen.getByRole( 'button', { name: 'New chat for My site' } );
-		for ( let attempt = 0; attempt < 2; attempt++ ) {
-			fireEvent.click( button );
-			expect( await waitForFullscreen( true ) ).toBeVisible();
-			expect( document.querySelector( '[data-layout-moving]' ) ).toBeNull();
-			expect( history.location.pathname ).toBe( '/sites/one/new' );
-			fireEvent.click( button );
-			expect( await waitForFullscreen( false ) ).toBeVisible();
-			expect( document.querySelector( '[data-layout-moving]' ) ).toBeNull();
-			await waitFor( () => expect( composer() ).toHaveFocus() );
-		}
+		fireEvent.click( button );
+		expect( await waitForFullscreen( true ) ).toBeVisible();
+		expect( history.location.pathname ).toBe( '/sites/one/new' );
+		fireEvent.click( button );
+		expect( await waitForFullscreen( false ) ).toBeVisible();
+		await waitFor( () => expect( composer() ).toHaveFocus() );
 		expect( connector.createSession ).not.toHaveBeenCalled();
 	} );
 

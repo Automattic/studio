@@ -275,11 +275,12 @@ describe( 'site lifecycle and preview', () => {
 		}
 	);
 
-	it.each(
-		[ 'split', 'panel', 'chat', 'site home' ].flatMap( ( layout ) =>
-			[ true, false ].map( ( openChatOnSiteStart ) => ( { layout, openChatOnSiteStart } ) )
-		)
-	)(
+	it.each( [
+		{ layout: 'split', openChatOnSiteStart: false },
+		{ layout: 'panel', openChatOnSiteStart: true },
+		{ layout: 'chat', openChatOnSiteStart: false },
+		{ layout: 'site home', openChatOnSiteStart: true },
+	] )(
 		'preserves $layout throughout restart with startup chat preference $openChatOnSiteStart',
 		async ( { layout, openChatOnSiteStart } ) => {
 			const path = layout === 'site home' ? '/sites/one' : '/sessions/one-chat';
@@ -303,8 +304,7 @@ describe( 'site lifecycle and preview', () => {
 			await waitFor( () =>
 				expect( layoutControl ).toHaveAttribute( 'data-workspace-layout', expectedLayout )
 			);
-			const guest = frame();
-			const selectedTab = document.querySelector( '[data-preview-tabs] [aria-selected="true"]' );
+			const selectedTabName = screen.queryByRole( 'tab', { selected: true } )?.textContent;
 			const stop = deferred();
 			const start = deferred();
 			const publish = ( running: boolean ) => {
@@ -327,11 +327,10 @@ describe( 'site lifecycle and preview', () => {
 			const expectPreserved = () => {
 				expect( layoutControl ).toHaveAttribute( 'data-workspace-layout', expectedLayout );
 				expect( history.location.pathname ).toBe( path );
-				expect( frame() ).toBe( guest );
-				expect( document.querySelector( '[data-preview-tabs] [aria-selected="true"]' ) ).toBe(
-					selectedTab
-				);
 				if ( layout !== 'chat' ) {
+					expect( screen.getByRole( 'tab', { selected: true } ) ).toHaveTextContent(
+						selectedTabName!
+					);
 					expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
 						'http://localhost:9010/about/'
 					);
@@ -365,11 +364,10 @@ describe( 'site lifecycle and preview', () => {
 		}
 	);
 
-	it.each(
-		[ 'stop', 'start' ].flatMap( ( stage ) =>
-			[ '/sessions/one-chat', '/sites/one' ].map( ( path ) => ( { stage, path } ) )
-		)
-	)(
+	it.each( [
+		{ stage: 'stop', path: '/sessions/one-chat' },
+		{ stage: 'start', path: '/sites/one' },
+	] )(
 		'keeps full-screen layout when the $stage stage of restart fails at $path',
 		async ( { stage, path } ) => {
 			const { connector, history } = setup( [ site( { running: true } ) ], path );

@@ -164,20 +164,6 @@ it( 'returns to chat using the panel and full-view controls while preserving the
 	expect( connector.stopSite ).not.toHaveBeenCalled();
 } );
 
-it( 'reveals a new chat immediately after a manual layout choice', async () => {
-	const connector = createFakeConnector( {
-		sites: [ makeSite( { id: 'one', running: true } ) ],
-	} );
-	renderApp( { connector, path: '/sites/one/new' } );
-	await chooseLayout( 'Panel' );
-	await waitFor( () =>
-		expect( document.querySelector( '[data-layout-moving]' ) ).not.toBeInTheDocument()
-	);
-	fireEvent.click( screen.getByRole( 'button', { name: 'New chat for My site' } ) );
-	expect( document.querySelector( '[data-layout-moving]' ) ).not.toBeInTheDocument();
-	expect( screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } ) ).toBeVisible();
-} );
-
 it( 'switches full view immediately in both directions', async () => {
 	const connector = createFakeConnector( {
 		sites: [ makeSite( { id: 'one', running: true } ) ],

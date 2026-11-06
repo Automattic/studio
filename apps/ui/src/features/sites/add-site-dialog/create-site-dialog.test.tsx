@@ -245,7 +245,7 @@ describe( 'Add site flow', () => {
 			within( screen.getByRole( 'tablist', { name: 'Ways to add a site' } ) ).getAllByRole( 'tab' )
 		).toHaveLength( 9 );
 		const card = await screen.findByRole( 'button', { name: 'View Portfolio' } );
-		expect( within( card ).getByText( 'View site' ) ).toBeInTheDocument();
+		expect( within( card ).getByText( 'View Blueprint' ) ).toBeInTheDocument();
 		expect( within( card ).queryByRole( 'button' ) ).not.toBeInTheDocument();
 	} );
 

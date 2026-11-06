@@ -68,6 +68,15 @@ export function PathField( {
 	const { parent: parentPath, name: folderName } = splitFolderPath( path );
 	const suggestedName = sanitizeFolderName( item.name );
 	const existing = requiresExistingPath || ( item.isWordPress && ! requiresEmptyPath );
+	const hint = existing
+		? __( 'Studio will use this WordPress site in place. No files will be moved.' )
+		: description;
+	const describedBy = [
+		hint ? `${ id }-hint` : undefined,
+		error || pickerError ? `${ id }-error` : undefined,
+	]
+		.filter( Boolean )
+		.join( ' ' );
 	const showReset = item.hasCustomPath && !! suggestedName && folderName !== suggestedName;
 	const { parent: ancestor, name: parentName } = splitFolderPath( parentPath.slice( 0, -1 ) );
 	const separator = parentPath.slice( -1 );
@@ -147,7 +156,7 @@ export function PathField( {
 						disabled={ disabled }
 						title={ path }
 						aria-invalid={ error ? true : undefined }
-						aria-describedby={ `${ id }-hint${ error || pickerError ? ` ${ id }-error` : '' }` }
+						aria-describedby={ describedBy || undefined }
 					/>
 				) : (
 					<InputGroup title={ path }>
@@ -177,9 +186,7 @@ export function PathField( {
 							disabled={ disabled || ! parentPath }
 							title={ path }
 							aria-invalid={ error ? true : undefined }
-							aria-describedby={ `${ id }-parent ${ id }-hint${
-								error || pickerError ? ` ${ id }-error` : ''
-							}` }
+							aria-describedby={ [ `${ id }-parent`, describedBy ].filter( Boolean ).join( ' ' ) }
 							onChange={ ( event ) => {
 								const name = event.target.value;
 								if ( /[\\/]/.test( name ) ) return;
@@ -216,11 +223,7 @@ export function PathField( {
 			{ error || pickerError ? (
 				<FieldDescription id={ `${ id }-error` } error={ error || pickerError } />
 			) : null }
-			<FieldDescription id={ `${ id }-hint` }>
-				{ existing
-					? __( 'Studio will use this WordPress site in place. No files will be moved.' )
-					: description ?? __( 'Studio will create a new WordPress site in this folder.' ) }
-			</FieldDescription>
+			{ hint ? <FieldDescription id={ `${ id }-hint` }>{ hint }</FieldDescription> : null }
 		</Field>
 	);
 }

@@ -73,7 +73,8 @@
 }
 
 .card:is( :hover, :focus-visible ) .blank::after {
-	border: var( --focus-width ) solid var( --ring );
+	border-style: solid;
+	border-color: var( --accent );
 }
 
 .blankIcon {

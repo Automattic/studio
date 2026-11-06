@@ -26,6 +26,8 @@
 .sourceDropZone {
 	gap: var( --space-3 );
 	padding-block: var( --space-6 );
+	border: 0;
+	background-color: var( --muted );
 }
 
 .sourceDropZone p:empty {

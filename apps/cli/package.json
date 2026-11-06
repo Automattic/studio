@@ -42,7 +42,7 @@
 		"cli-table3": "^0.6.5",
 		"date-fns": "^4.1.0",
 		"fs-extra": "^11.3.4",
-		"glob": "^13.0.6",
+		"glob": "^14.0.2",
 		"http-proxy": "^1.18.1",
 		"ignore": "^7.0.5",
 		"node-forge": "^1.4.1",

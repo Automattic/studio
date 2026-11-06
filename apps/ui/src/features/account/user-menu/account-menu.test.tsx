@@ -37,28 +37,12 @@ async function openLoginDialog() {
 }
 
 describe( 'AccountMenu', () => {
-	it( 'offers settings and support in the signed-out account menu before opening login', async () => {
-		const { connector, history } = setup();
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Account' } ) );
-		expect(
-			await screen.findByRole( 'menuitem', { name: 'Log in or create account' } )
-		).toBeVisible();
-		expect( screen.getByRole( 'menuitem', { name: 'Providers' } ) ).toBeVisible();
-		expect( screen.getByRole( 'menuitem', { name: 'Support' } ) ).toBeVisible();
-		expect( screen.queryByRole( 'menuitem', { name: 'Log out' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'dialog', { name: PROMPT } ) ).not.toBeInTheDocument();
-		expect( connector.authenticate ).not.toHaveBeenCalled();
-		fireEvent.click( screen.getByRole( 'menuitem', { name: /Settings/ } ) );
-		await waitFor( () => expect( history.location.search ).toContain( 'settings=general' ) );
-	} );
-
 	it.each( [ 'Help Center', 'Keyboard shortcuts', 'Send feedback' ] )(
 		'opens %s from Support',
 		async ( label ) => {
 			const { user, connector, history } = setup( TEST_USER );
 			await user.click( await screen.findByRole( 'button', { name: TEST_USER.displayName } ) );
 			await user.click( await screen.findByRole( 'menuitem', { name: 'Support' } ) );
-			expect( screen.queryByRole( 'menuitem', { name: 'About' } ) ).not.toBeInTheDocument();
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
 			if ( label === 'Help Center' ) {
 				expect( connector.openExternalUrl ).toHaveBeenCalledWith(

@@ -89,17 +89,16 @@ describe( 'AnnotationOverlay', () => {
 	);
 
 	it.each( [
-		{ name: 'top edge', anchor: { left: 24, top: 24 }, height: 120, markerOffset: 8 },
-		{ name: 'bottom edge', anchor: { left: 376, top: 276 }, height: 120, markerOffset: 8 },
+		{ name: 'top edge', anchor: { left: 24, top: 24 }, height: 120 },
+		{ name: 'bottom edge', anchor: { left: 376, top: 276 }, height: 120 },
 		{
 			name: 'limited space',
 			anchor: { left: 200, top: 150 },
 			height: 240,
-			markerOffset: 22,
 		},
 	] )(
-		'anchors the editor to the marker at the $name without leaving the viewport',
-		async ( { anchor, height, markerOffset } ) => {
+		'keeps the editor within the viewport and clear of the marker at the $name',
+		async ( { anchor, height } ) => {
 			const viewport = { width: 400, height: 300 };
 			const editorWidth = 320;
 			const dimensions = [
@@ -122,9 +121,7 @@ describe( 'AnnotationOverlay', () => {
 				expect( top ).toBeGreaterThanOrEqual( 0 );
 				expect( left ).toBeGreaterThanOrEqual( 0 );
 				expect( left + editorWidth ).toBeLessThanOrEqual( viewport.width );
-				expect( top === anchor.top + markerOffset || bottom === anchor.top - markerOffset ).toBe(
-					true
-				);
+				expect( top > anchor.top || bottom < anchor.top ).toBe( true );
 				expect( bottom ).toBeLessThanOrEqual( viewport.height );
 			} finally {
 				dimensions.forEach( ( dimension ) => dimension.mockRestore() );

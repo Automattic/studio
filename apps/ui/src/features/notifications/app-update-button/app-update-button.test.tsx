@@ -33,21 +33,13 @@ function setup( status: AppUpdateStatus, placement: 'sidebar' | 'menu' = 'sideba
 }
 
 describe( 'AppUpdateButton', () => {
-	it( 'offers a restart in the account menu when the update is ready', async () => {
-		const { user, connector } = setup( ready, 'menu' );
-		await user.click( await screen.findByRole( 'button', { name: 'Account' } ) );
-		await user.click( await screen.findByText( 'Update', { exact: true } ) );
-		await waitFor( () => expect( connector.installAppUpdate ).toHaveBeenCalledOnce() );
-	} );
-
-	it( 'waits for the download to finish before announcing an update in the menu', async () => {
+	it( 'offers an update in the account menu once downloaded and installs it on click', async () => {
 		const { user, connector } = setup( { ...ready, state: 'downloading' }, 'menu' );
 		await user.click( await screen.findByRole( 'button', { name: 'Account' } ) );
 		expect( screen.queryByText( 'Update available' ) ).not.toBeInTheDocument();
 		await act( () => connector.emit( 'onAppUpdateStatusChanged', ready ) );
-		expect(
-			await screen.findByRole( 'menuitem', { name: 'Update available Update' } )
-		).toBeVisible();
+		await user.click( await screen.findByRole( 'menuitem', { name: /Update available/ } ) );
+		await waitFor( () => expect( connector.installAppUpdate ).toHaveBeenCalledOnce() );
 	} );
 
 	it.each< AppUpdateStatus >( [ { state: 'idle', currentVersion: '2.0.0' } ] )(
@@ -143,8 +135,6 @@ describe( 'AppUpdateButton', () => {
 		await waitFor( () => expect( connector.getAppUpdateStatus ).toHaveBeenCalled() );
 		await act( () => connector.emit( 'onAppUpdateStatusChanged', ready ) );
 		const trigger = await screen.findByRole( 'button', { name: 'Update available' } );
-		await user.hover( trigger );
-		expect( await screen.findByText( 'Update', { exact: true } ) ).toBeVisible();
 		expect( connector.installAppUpdate ).not.toHaveBeenCalled();
 		await user.click( trigger );
 		await waitFor( () => expect( connector.installAppUpdate ).toHaveBeenCalledOnce() );

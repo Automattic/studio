@@ -83,9 +83,7 @@ it( 'reveals a notice label when its action receives keyboard focus', async () =
 		</div>
 	);
 	const action = view.getByRole( 'button' );
-	const row = action.parentElement!;
-	vi.spyOn( row, 'querySelector' ).mockReturnValue( action );
-	fireEvent.focusIn( action );
+	act( () => action.focus() );
 	await act( () => vi.advanceTimersByTime( 600 ) );
 	expect( animate ).toHaveBeenCalledOnce();
 } );

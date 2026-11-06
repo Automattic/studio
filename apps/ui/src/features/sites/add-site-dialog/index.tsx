@@ -56,11 +56,9 @@ import { CreatePanel } from './create-panel';
 import { ImportPanel } from './import-panel';
 import styles from './style.module.css';
 import { useSetupSource } from './use-setup-source';
-import type { AiModelId } from '@/data/core';
 import type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
 import type { CreateSiteFormDraft } from '@/features/sites/create-site-form';
 import type { AddSiteSection } from '@/features/sites/use-open-add-site';
-import type { AiProviderId } from '@studio/agent/protocol/providers';
 import type { BlueprintUseCase } from '@studio/common/lib/blueprint-catalog';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
 
@@ -128,13 +126,11 @@ export function AddSiteDialog() {
 	const { source, setSource, setBlueprintTransferred, folderResetKey, removeFolder } =
 		useSetupSource();
 	const briefDraftKey = useId();
-	const [ aiChoice, setAiChoice ] = useState< { model: AiModelId; provider: AiProviderId } >();
 	useEffect( () => {
 		if ( addSite ) return;
 		scrollPositions.current.clear();
 		setSource( { type: 'blank' } );
 		saveComposerDraft( briefDraftKey, { text: '', attachments: [] } );
-		setAiChoice( undefined );
 	}, [ addSite, briefDraftKey, setSource ] );
 	const popup = useRef< HTMLDivElement >( null );
 	const createTab = useRef< HTMLButtonElement >( null );
@@ -354,8 +350,6 @@ export function AddSiteDialog() {
 		createdSite,
 		setCreatedSite,
 		briefDraftKey,
-		aiChoice,
-		setAiChoice,
 	};
 
 	const close = () => {
@@ -444,7 +438,11 @@ export function AddSiteDialog() {
 	const panel = (
 		<DialogPanel
 			scrollRef={ scrollArea }
-			footer={ view.name === 'setup' ? <DialogFooter ref={ setFormActions } /> : undefined }
+			footer={
+				view.name === 'setup' ? (
+					<DialogFooter ref={ setFormActions } className={ styles.setupFooter } />
+				) : undefined
+			}
 			header={
 				<PanelHeader
 					leading={

@@ -7,7 +7,8 @@ import { canUsePaidAiModels } from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { useRef, useState } from 'react';
+import { PaperclipIcon } from 'lucide-react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
@@ -15,43 +16,64 @@ import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { openNewSession, SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import {
-	Composer,
+	toComposerSendAttachments,
+	useComposerAttachments,
+	useFileDrop,
+} from '@/data/use-composer-attachments';
+import {
+	getComposerDraft,
 	pendingPromptSlot,
+	saveComposerDraft,
 	useComposerNotice,
-	type ComposerHandle,
 } from '@/features/composer';
-import { Alert, AlertDescription, AlertTitle, Button, Field, FieldTitle } from '@/lib/ui';
+import {
+	Alert,
+	AlertDescription,
+	AlertTitle,
+	AttachmentChip,
+	AttachmentRemoveButton,
+	Button,
+	DropOverlay,
+	Field,
+	FieldDescription,
+	FieldLabel,
+	IconButton,
+	InputGroup,
+	InputGroupTextarea,
+} from '@/lib/ui';
 import { useAddSite } from './context';
 import styles from './style.module.css';
+import type { SetupBrief } from './context';
 
 export function useSetupPrompt( { enabled = true, busy = false } = {} ) {
 	const connector = useConnector();
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const {
-		setProgress,
-		formActions,
-		briefDraftKey,
-		aiChoice,
-		setAiChoice,
-		source,
-		createdSite,
-		setCreatedSite,
-	} = useAddSite();
-	const composer = useRef< ComposerHandle >( null );
-	const brief = useRef< ReturnType< ComposerHandle[ 'getSubmission' ] > >( null );
+	const { setProgress, formActions, briefDraftKey, createdSite, setCreatedSite } = useAddSite();
+	const inputId = useId();
+	const fileInput = useRef< HTMLInputElement >( null );
+	const brief = useRef< SetupBrief | null >( null );
+	const [ initialDraft ] = useState( () => getComposerDraft( briefDraftKey ) );
+	const [ text, setText ] = useState( initialDraft.text );
+	const { attachments, addFiles, removeAttachment, pasteHandlers } = useComposerAttachments(
+		initialDraft.attachments
+	);
+	useEffect( () => {
+		saveComposerDraft( briefDraftKey, { text, attachments } );
+	}, [ briefDraftKey, text, attachments ] );
+	const [ dropTarget, setDropTarget ] = useState< HTMLDivElement | null >( null );
+	const attachFiles = useCallback( ( files: FileList ) => void addFiles( files ), [ addFiles ] );
+	const dragging = useFileDrop( busy ? null : dropTarget, attachFiles );
 	const [ retrying, setRetrying ] = useState( false );
 	const { data: settings } = useAiSettings();
 	const { data: quota } = useStudioAssistantQuota();
 	const { data: user } = useAuthUser();
-	const provider = aiChoice?.provider ?? getEffectiveSessionProvider( [], settings );
+	const provider = getEffectiveSessionProvider( [], settings );
 	const notice = useComposerNotice( provider );
 	const providerConnected = provider === 'wpcom' ? !! user : !! settings?.hasAnthropicApiKey;
-	const model =
-		aiChoice?.model ??
-		resolveSessionModelForProvider( [], provider, {
-			canUsePaidModels: canUsePaidAiModels( quota, user?.email ),
-		} );
+	const model = resolveSessionModelForProvider( [], provider, {
+		canUsePaidModels: canUsePaidAiModels( quota, user?.email ),
+	} );
 	const openSite = ( siteId: string ) =>
 		navigate( { to: '/sites/$siteId/new', params: { siteId } } );
 	const startChat = async ( created = createdSite ) => {
@@ -114,28 +136,74 @@ export function useSetupPrompt( { enabled = true, busy = false } = {} ) {
 	) : null;
 	const field = enabled ? (
 		<Field className={ styles.brief } hidden={ ! providerConnected } inert={ ! providerConnected }>
-			<FieldTitle className={ styles.briefTitle }>
-				{ __( 'Start building with AI' ) }
-				<span className={ styles.briefOptional }>{ __( '(optional)' ) }</span>
-			</FieldTitle>
-			<Composer
-				ref={ composer }
-				variant="field"
-				ariaLabel={ __( 'Start building with AI' ) }
-				draftKey={ briefDraftKey }
-				busy={ busy }
-				model={ model }
-				provider={ provider }
-				notice={ notice }
-				onModelChange={ ( model, provider ) => setAiChoice( { model, provider } ) }
-				onSend={ async () => undefined }
-				onInterrupt={ async () => undefined }
-				placeholder={
-					source.type === 'blueprint'
-						? __( 'Describe how you’d like to customize this Blueprint…' )
-						: __( 'Describe your site, or add reference files…' )
-				}
-			/>
+			<FieldLabel htmlFor={ inputId }>{ __( 'Instructions' ) }</FieldLabel>
+			<InputGroup ref={ setDropTarget }>
+				{ dragging && <DropOverlay>{ __( 'Drop to attach' ) }</DropOverlay> }
+				{ attachments.length > 0 && (
+					<ul className={ styles.briefAttachments } aria-label={ __( 'Attachments' ) }>
+						{ attachments.map( ( attachment ) => (
+							<AttachmentChip
+								render={ <li /> }
+								key={ attachment.id }
+								aria-label={ attachment.name }
+							>
+								<PaperclipIcon aria-hidden="true" />
+								<span className={ styles.briefAttachmentName }>{ attachment.name }</span>
+								<AttachmentRemoveButton
+									label={ __( 'Remove attachment' ) }
+									disabled={ busy }
+									onClick={ () => removeAttachment( attachment.id ) }
+								/>
+							</AttachmentChip>
+						) ) }
+					</ul>
+				) }
+				<InputGroupTextarea
+					id={ inputId }
+					className={ styles.briefTextarea }
+					size="sm"
+					rows={ 3 }
+					value={ text }
+					disabled={ busy }
+					onChange={ ( event ) => setText( event.target.value ) }
+					onPaste={ pasteHandlers.onPaste }
+					placeholder={ __( 'Describe what you’d like to build or change (optional)…' ) }
+				/>
+				<div className={ styles.briefToolbar }>
+					<IconButton
+						icon={ <PaperclipIcon /> }
+						label={ __( 'Attach files' ) }
+						size="icon-sm"
+						disabled={ busy }
+						onClick={ () => fileInput.current?.click() }
+					/>
+					<input
+						ref={ fileInput }
+						type="file"
+						multiple
+						aria-label={ __( 'Upload attachments' ) }
+						className={ styles.fileInput }
+						disabled={ busy }
+						onChange={ ( event ) => {
+							if ( event.target.files ) attachFiles( event.target.files );
+							event.target.value = '';
+						} }
+					/>
+				</div>
+			</InputGroup>
+			{ notice && (
+				<FieldDescription>
+					{ notice.message }
+					{ notice.action && (
+						<>
+							{ ' ' }
+							<Button variant="inline-link" size="inline" onClick={ notice.action.onClick }>
+								{ notice.action.label }
+							</Button>
+						</>
+					) }
+				</FieldDescription>
+			) }
 		</Field>
 	) : null;
 	return {
@@ -143,7 +211,11 @@ export function useSetupPrompt( { enabled = true, busy = false } = {} ) {
 		recovery,
 		hasCreatedSite: () => !! createdSite,
 		capture: () => {
-			brief.current = enabled ? composer.current?.getSubmission() ?? null : null;
+			const prompt = text.trim();
+			brief.current =
+				enabled && ( prompt || attachments.length )
+					? { prompt, attachments: toComposerSendAttachments( attachments ) }
+					: null;
 			return !! brief.current;
 		},
 		finish: async ( siteId: string ) => {

@@ -71,7 +71,7 @@ describe( 'Add site › blank setup', () => {
 	it( 'shows only the selected source after choosing a Blueprint', async () => {
 		const { connector, dialog } = await setup();
 		fireEvent.change( screen.getByLabelText( 'Site name' ), { target: { value: 'My bakery' } } );
-		fireEvent.change( screen.getByRole( 'combobox', { name: 'Start building with AI' } ), {
+		fireEvent.change( screen.getByRole( 'textbox', { name: 'Instructions' } ), {
 			target: { value: 'Make this a bakery' },
 		} );
 		await uploadBlueprint( { steps: [] } );
@@ -136,29 +136,29 @@ describe( 'Add site › blank setup', () => {
 	it( 'chooses a backup inline and retains the name and AI brief when returning to blank', async () => {
 		const { dialog } = await setup();
 		fireEvent.change( screen.getByLabelText( 'Site name' ), { target: { value: 'My bakery' } } );
-		fireEvent.change( screen.getByRole( 'combobox', { name: 'Start building with AI' } ), {
+		fireEvent.change( screen.getByRole( 'textbox', { name: 'Instructions' } ), {
 			target: { value: 'A bakery with a weekly menu' },
 		} );
 		expect( screen.queryByRole( 'combobox', { name: 'Type' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: /^Choose(?: file|…)$/ } ) ).toBeVisible();
-		expect( screen.getByRole( 'combobox', { name: 'Start building with AI' } ) ).toBeVisible();
+		expect( screen.getByRole( 'textbox', { name: 'Instructions' } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tablist' ) ).not.toBeInTheDocument();
 		expect(
 			within( screen.getByRole( 'dialog', { name: 'Add site' } ) ).getByRole( 'button', {
 				name: 'Add site',
 			} )
 		).toBeEnabled();
-		fireEvent.change( dialog.querySelector( 'input[type="file"]' )!, {
+		fireEvent.change( within( dialog ).getByLabelText( 'Choose a Blueprint or backup' ), {
 			target: { files: [ new File( [ 'backup' ], 'bakery.wpress' ) ] },
 		} );
 		expect( await screen.findByText( 'bakery.wpress' ) ).toBeVisible();
 		expect(
 			screen.queryByRole( 'button', { name: 'Start with a Blueprint' } )
 		).not.toBeInTheDocument();
-		expect( screen.getByRole( 'combobox', { name: 'Start building with AI' } ) ).toBeVisible();
+		expect( screen.getByRole( 'textbox', { name: 'Instructions' } ) ).toBeVisible();
 		expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'My bakery' );
 		await startBlank();
-		expect( screen.getByRole( 'combobox', { name: 'Start building with AI' } ) ).toHaveValue(
+		expect( screen.getByRole( 'textbox', { name: 'Instructions' } ) ).toHaveValue(
 			'A bakery with a weekly menu'
 		);
 	} );
@@ -180,17 +180,17 @@ describe( 'Add site › blank setup', () => {
 			} )
 		);
 		fireEvent.change( screen.getByLabelText( 'Site name' ), { target: { value: 'My portfolio' } } );
-		fireEvent.change( screen.getByRole( 'combobox', { name: 'Start building with AI' } ), {
+		fireEvent.change( screen.getByRole( 'textbox', { name: 'Instructions' } ), {
 			target: { value: 'Add my photography projects' },
 		} );
-		expect( screen.getByRole( 'combobox', { name: 'Start building with AI' } ) ).toBeVisible();
+		expect( screen.getByRole( 'textbox', { name: 'Instructions' } ) ).toBeVisible();
 		await uploadBlueprint( { steps: [] } );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Browse Blueprints' } ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'View Portfolio' } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Use Blueprint' } ) );
 		expect( await screen.findByLabelText( 'Site name' ) ).toHaveValue( 'My portfolio' );
 		expect( screen.getByRole( 'group', { name: 'Start from (optional)' } ) ).toBeVisible();
-		expect( screen.getByRole( 'combobox', { name: 'Start building with AI' } ) ).toHaveValue(
+		expect( screen.getByRole( 'textbox', { name: 'Instructions' } ) ).toHaveValue(
 			'Add my photography projects'
 		);
 		expect( connector.createSite ).not.toHaveBeenCalled();
@@ -201,7 +201,7 @@ describe( 'Add site › blank setup', () => {
 
 	it( 'creates the site before handing its initial brief to the chat exactly once', async () => {
 		const { connector, dialog } = await setup();
-		fireEvent.change( screen.getByRole( 'combobox', { name: 'Start building with AI' } ), {
+		fireEvent.change( screen.getByRole( 'textbox', { name: 'Instructions' } ), {
 			target: { value: 'Build a bakery site' },
 		} );
 		await createSite( dialog );
@@ -228,7 +228,7 @@ describe( 'Add site › blank setup', () => {
 
 	it( 'keeps the initial brief pending if its provider disconnects before adding the site', async () => {
 		const { connector, dialog, history } = await setup();
-		fireEvent.change( screen.getByRole( 'combobox', { name: 'Start building with AI' } ), {
+		fireEvent.change( screen.getByRole( 'textbox', { name: 'Instructions' } ), {
 			target: { value: 'Build my portfolio' },
 		} );
 		act( () => {
@@ -237,7 +237,7 @@ describe( 'Add site › blank setup', () => {
 		} );
 		await waitFor( () =>
 			expect(
-				within( dialog ).queryByRole( 'combobox', { name: 'Start building with AI' } )
+				within( dialog ).queryByRole( 'textbox', { name: 'Instructions' } )
 			).not.toBeInTheDocument()
 		);
 		await createSite( dialog );
@@ -251,12 +251,12 @@ describe( 'Add site › blank setup', () => {
 
 	it( 'hides AI without a connected provider and adds the site without a chat', async () => {
 		const { connector, dialog, history } = await setup( { user: null } );
-		expect( within( dialog ).getByText( 'Start building with AI' ) ).not.toBeVisible();
+		expect( within( dialog ).getByText( 'Instructions' ) ).not.toBeVisible();
 		expect(
 			within( dialog ).queryByRole( 'button', { name: 'Connect a provider' } )
 		).not.toBeInTheDocument();
 		expect(
-			within( dialog ).queryByRole( 'combobox', { name: 'Start building with AI' } )
+			within( dialog ).queryByRole( 'textbox', { name: 'Instructions' } )
 		).not.toBeInTheDocument();
 		expect( within( dialog ).queryByRole( 'button', { name: 'Add' } ) ).not.toBeInTheDocument();
 		fireEvent.change( within( dialog ).getByLabelText( 'Site name' ), {
@@ -274,9 +274,9 @@ describe( 'Add site › blank setup', () => {
 	it( 'keeps AI hidden without a provider while offline', async () => {
 		vi.spyOn( navigator, 'onLine', 'get' ).mockReturnValue( false );
 		const { dialog } = await setup( { user: null } );
-		expect( within( dialog ).getByText( 'Start building with AI' ) ).not.toBeVisible();
+		expect( within( dialog ).getByText( 'Instructions' ) ).not.toBeVisible();
 		expect(
-			within( dialog ).queryByRole( 'combobox', { name: 'Start building with AI' } )
+			within( dialog ).queryByRole( 'textbox', { name: 'Instructions' } )
 		).not.toBeInTheDocument();
 		expect(
 			within( dialog ).queryByRole( 'button', { name: 'Connect a provider' } )
@@ -287,7 +287,7 @@ describe( 'Add site › blank setup', () => {
 		vi.spyOn( navigator, 'onLine', 'get' ).mockReturnValue( false );
 		const { dialog } = await setup();
 		expect(
-			await within( dialog ).findByRole( 'combobox', { name: 'Start building with AI' } )
+			await within( dialog ).findByRole( 'textbox', { name: 'Instructions' } )
 		).toBeVisible();
 		expect(
 			within( dialog ).getByText( 'You are offline. Reconnect to send a message.' )
@@ -317,7 +317,7 @@ describe( 'Add site › blank setup', () => {
 		fireEvent.change( within( dialog ).getByLabelText( 'Site name' ), {
 			target: { value: 'Bakery' },
 		} );
-		const input = within( dialog ).getByRole( 'combobox', { name: 'Start building with AI' } );
+		const input = within( dialog ).getByRole( 'textbox', { name: 'Instructions' } );
 		fireEvent.change( input, { target: { value: 'Build a seasonal bakery site' } } );
 		fireEvent.change( within( dialog ).getByLabelText( 'Upload attachments' ), {
 			target: { files: [ new File( [ 'Menu notes' ], 'menu.txt', { type: 'text/plain' } ) ] },
@@ -334,7 +334,7 @@ describe( 'Add site › blank setup', () => {
 		} );
 		await waitFor( () =>
 			expect(
-				within( dialog ).queryByRole( 'combobox', { name: 'Start building with AI' } )
+				within( dialog ).queryByRole( 'textbox', { name: 'Instructions' } )
 			).not.toBeInTheDocument()
 		);
 		act( () => history.push( '/?addSite=blank&settings=ai' ) );
@@ -358,16 +358,16 @@ describe( 'Add site › blank setup', () => {
 		fireEvent.click( within( settings ).getByRole( 'button', { name: /Close .*ettings/ } ) );
 		const restored = await screen.findByRole( 'dialog', { name: 'Add site' } );
 		expect( within( restored ).getByLabelText( 'Site name' ) ).toHaveValue( 'Bakery' );
-		expect(
-			within( restored ).getByRole( 'combobox', { name: 'Start building with AI' } )
-		).toHaveValue( 'Build a seasonal bakery site' );
+		expect( within( restored ).getByRole( 'textbox', { name: 'Instructions' } ) ).toHaveValue(
+			'Build a seasonal bakery site'
+		);
 		expect(
 			await within( restored ).findByRole( 'listitem', { name: /^menu\.txt/ } )
 		).toBeVisible();
 		expect(
 			within( restored ).queryByText( 'Connect a provider to build and edit your site.' )
 		).not.toBeInTheDocument();
-		expect( await within( restored ).findByRole( 'button', { name: 'Model' } ) ).toBeVisible();
+		expect( within( restored ).queryByRole( 'button', { name: 'Model' } ) ).not.toBeInTheDocument();
 		await createSite( restored );
 		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledOnce() );
 		expect( connector.setSessionProvider ).toHaveBeenCalledWith(
@@ -380,7 +380,7 @@ describe( 'Add site › blank setup', () => {
 	it( 'keeps chat recovery through Settings and retries without creating another site or chat', async () => {
 		const { connector, dialog } = await setup();
 		connector.setSessionProvider.mockRejectedValueOnce( new Error( 'Provider unavailable' ) );
-		fireEvent.change( screen.getByRole( 'combobox', { name: 'Start building with AI' } ), {
+		fireEvent.change( screen.getByRole( 'textbox', { name: 'Instructions' } ), {
 			target: { value: 'Build a bakery' },
 		} );
 		await createSite( dialog );
@@ -403,7 +403,7 @@ describe( 'Add site › blank setup', () => {
 	it( 'leaves the added site intact when going Back after chat setup fails', async () => {
 		const { connector, dialog } = await setup();
 		connector.createSession.mockRejectedValueOnce( new Error( 'Chat storage unavailable' ) );
-		fireEvent.change( screen.getByRole( 'combobox', { name: 'Start building with AI' } ), {
+		fireEvent.change( screen.getByRole( 'textbox', { name: 'Instructions' } ), {
 			target: { value: 'Build a bakery' },
 		} );
 		await createSite( dialog );
@@ -421,7 +421,7 @@ describe( 'Add site › blank setup', () => {
 			steps: [ { step: 'setSiteOptions', options: { blogdescription: 'Starter' } } ],
 		} );
 		await screen.findByText( 'blueprint.json', { selector: 'span' } );
-		fireEvent.change( screen.getByRole( 'combobox', { name: 'Start building with AI' } ), {
+		fireEvent.change( screen.getByRole( 'textbox', { name: 'Instructions' } ), {
 			target: { value: 'Customize this for my bakery' },
 		} );
 		await createSite( dialog );
@@ -615,9 +615,7 @@ describe( 'Add site › blank setup', () => {
 			'Studio will use this WordPress site in place. No files will be moved.'
 		);
 		expect( within( dialog ).getByRole( 'heading', { name: 'Add site' } ) ).toBeVisible();
-		expect(
-			within( dialog ).getByRole( 'combobox', { name: 'Start building with AI' } )
-		).toBeVisible();
+		expect( within( dialog ).getByRole( 'textbox', { name: 'Instructions' } ) ).toBeVisible();
 		await createSite( dialog );
 		await waitFor( () => expect( history.location.pathname ).toMatch( /^\/sessions\/|\/new$/ ) );
 		expect( connector.createSite.mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'flowType' );

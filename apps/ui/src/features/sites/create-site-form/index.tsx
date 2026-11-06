@@ -548,6 +548,8 @@ export function CreateSiteForm( {
 					autoFocus
 				/>
 
+				{ children }
+
 				<PathField
 					data={ data }
 					error={ pathError }
@@ -559,8 +561,6 @@ export function CreateSiteForm( {
 				/>
 
 				{ sourceControl }
-
-				{ children }
 
 				{ advancedSettings }
 

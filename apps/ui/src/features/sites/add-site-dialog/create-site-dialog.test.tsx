@@ -202,14 +202,14 @@ describe( 'Add site flow', () => {
 		await waitFor( () =>
 			expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute( 'title', '/sites/custom' )
 		);
-		fireEvent.change( screen.getByRole( 'combobox', { name: 'Start building with AI' } ), {
+		fireEvent.change( screen.getByRole( 'textbox', { name: 'Instructions' } ), {
 			target: { value: 'A bakery with a seasonal menu' },
 		} );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Back' } ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Start with Blank site' } ) );
 		expect( await screen.findByLabelText( 'Site name' ) ).toHaveValue( 'My bakery' );
 		expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute( 'title', '/sites/custom' );
-		expect( screen.getByRole( 'combobox', { name: 'Start building with AI' } ) ).toHaveValue(
+		expect( screen.getByRole( 'textbox', { name: 'Instructions' } ) ).toHaveValue(
 			'A bakery with a seasonal menu'
 		);
 	} );

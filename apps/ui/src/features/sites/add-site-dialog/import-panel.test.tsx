@@ -107,10 +107,9 @@ describe( 'Add site › Import', () => {
 				finishImport = resolve;
 			} )
 		);
-		fireEvent.change(
-			within( dialog ).getByRole( 'combobox', { name: 'Start building with AI' } ),
-			{ target: { value: 'Refresh this restored bakery site' } }
-		);
+		fireEvent.change( within( dialog ).getByRole( 'textbox', { name: 'Instructions' } ), {
+			target: { value: 'Refresh this restored bakery site' },
+		} );
 		await submit();
 		await waitFor( () => expect( connector.importSiteFromBackup ).toHaveBeenCalledOnce() );
 		expect( connector.createSession ).not.toHaveBeenCalled();
@@ -124,10 +123,9 @@ describe( 'Add site › Import', () => {
 	it( 'keeps AI recovery through Settings without importing again or deleting the restored site', async () => {
 		const { connector, dialog, submit } = await setup();
 		connector.createSession.mockRejectedValueOnce( new Error( 'Chat storage unavailable' ) );
-		fireEvent.change(
-			within( dialog ).getByRole( 'combobox', { name: 'Start building with AI' } ),
-			{ target: { value: 'Refresh this restored bakery site' } }
-		);
+		fireEvent.change( within( dialog ).getByRole( 'textbox', { name: 'Instructions' } ), {
+			target: { value: 'Refresh this restored bakery site' },
+		} );
 		await submit();
 		await screen.findByText( 'Your site was created, but the AI chat could not start.' );
 		act( () => connector.emit( 'onOpenSettings', { settingId: 'ai' } ) );

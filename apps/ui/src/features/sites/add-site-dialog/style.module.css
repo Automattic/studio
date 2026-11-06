@@ -10,6 +10,10 @@
 	translate: -50% -50%;
 }
 
+.setupFooter {
+	padding-block-start: var( --space-4 );
+}
+
 .fileInput {
 	display: none;
 }
@@ -127,6 +131,32 @@
 .briefOptional {
 	color: var( --muted-foreground );
 	font-weight: var( --font-weight-normal );
+}
+
+.briefTextarea {
+	min-height: calc( 2 * var( --text-sm--line-height ) + var( --space-4 ) );
+}
+
+.briefToolbar {
+	display: flex;
+	align-items: center;
+	width: 100%;
+	padding: 0 var( --space-1 ) var( --space-1 );
+}
+
+.briefAttachments {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var( --space-1 );
+	width: 100%;
+	padding: var( --space-2 ) var( --space-2 ) 0;
+}
+
+.briefAttachmentName {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .leading {

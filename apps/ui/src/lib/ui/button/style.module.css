@@ -212,10 +212,7 @@
 	}
 
 	.button[data-variant='accent-ghost']:is( [aria-pressed='true'], [aria-expanded='true'] ) {
-		--button-hover-background: light-dark(
-			color-mix( in srgb, var( --accent ) 8%, transparent ),
-			color-mix( in srgb, var( --accent ) 15%, transparent )
-		);
+		--button-hover-background: var( --accent-subtle );
 		--button-hover-color: var( --accent-text );
 	}
 
@@ -223,10 +220,8 @@
 			[aria-pressed='true'],
 			[aria-expanded='true']
 		):hover:not( :disabled, [data-disabled] ) {
-		--button-hover-background: light-dark(
-			color-mix( in srgb, var( --accent ) 14%, transparent ),
-			color-mix( in srgb, var( --accent ) 22%, transparent )
-		);
+		--button-hover-background: var( --accent-subtle-hover );
+		--button-hover-color: var( --accent-text-hover );
 	}
 
 	.button[data-variant='muted-ghost'] {

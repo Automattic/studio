@@ -18,13 +18,17 @@
 	z-index: -1;
 	inset: 0;
 	border-radius: inherit;
-	background: color-mix( in oklab, var( --accent ) 10%, transparent );
+	background: var( --accent-subtle );
 	content: '';
 	pointer-events: none;
 }
 
+.toolLink:hover {
+	color: var( --accent-text-hover );
+}
+
 .toolLink:hover::after {
-	background: color-mix( in oklab, var( --accent ) 16%, transparent );
+	background: var( --accent-subtle-hover );
 }
 
 .toolLink svg {

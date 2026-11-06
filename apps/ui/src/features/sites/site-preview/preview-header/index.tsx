@@ -25,6 +25,7 @@ interface PreviewHeaderProps {
 	live: boolean;
 	canPreview: boolean;
 	isStarting: boolean;
+	isRestarting?: boolean;
 	isStopping: boolean;
 	browserState: BrowserNavigationState;
 	shortcuts: ReturnType< typeof useBrowserShortcuts >;
@@ -45,6 +46,7 @@ export function PreviewHeader( {
 	live,
 	canPreview,
 	isStarting,
+	isRestarting = false,
 	isStopping,
 	browserState,
 	shortcuts,
@@ -95,7 +97,11 @@ export function PreviewHeader( {
 		>
 			{ isStarting || isStopping ? (
 				<VisuallyHidden role="status">
-					{ isStopping ? __( 'Stopping site…' ) : __( 'Starting site…' ) }
+					{ isRestarting
+						? __( 'Restarting site…' )
+						: isStopping
+						? __( 'Stopping site…' )
+						: __( 'Starting site…' ) }
 				</VisuallyHidden>
 			) : null }
 			<div className={ styles.headerSide }>

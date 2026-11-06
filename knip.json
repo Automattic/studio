@@ -32,7 +32,7 @@
 			"project": "**/*.ts"
 		},
 		"apps/ui": {
-			"entry": ["src/main.local.tsx", "src/dev/{chat,animation,annotate-tip,update-preview,email-preview}.tsx"],
+			"entry": ["src/main.local.tsx", "src/dev/{chat,animation,annotate-tip,update-preview,email-preview,sidebar-preview}.tsx"],
 			"project": "src/**/*.{ts,tsx}"
 		},
 		"apps/local": {

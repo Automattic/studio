@@ -31,8 +31,6 @@ And can install it globally to use `studio code` directly:
 npm i -g wp-studio@latest
 studio code
 
-![WordPress Studio Code running in a terminal window](https://developer.wordpress.com/wp-content/uploads/2026/04/studio-code-terminal.webp)
-
 Press the ↓ arrow to work in your local WordPress Studio sites, or ↓ and → to work in your WordPress.com- or Jetpack-connected sites.
 
 ## [Connect to WordPress.com](#3-connect-to-wordpress-com)
@@ -105,8 +103,6 @@ Instead of describing which part of the page you mean, you can point at it. In t
 5.  Click more elements to add more notes. Click a marker to edit its note, or click **Delete annotation** (the trash can) to remove it.
 6.  Click **Send** in the toolbar, or send from the chat box. WordPress Studio Code gets your message and every note, each with the element it points at.
 
-[![WordPress Studio in annotation mode, with the site preview of a bakery site and the Annotations toolbar, with Cancel and Send buttons, at the bottom of the preview.](https://developer.wordpress.com/wp-content/uploads/2026/04/annotate-toolbar.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/annotate-toolbar.webp)
-
 [![Annotating a site preview: numbered markers 1 and 2 on the heading and the Order button, and an open note on the hero photo reading “Swap in a photo of our sourdough”, with the attach, delete, and save buttons. The chat box shows 2 annotations, and the toolbar shows Send 2.](https://developer.wordpress.com/wp-content/uploads/2026/04/annotate-note.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/annotate-note.webp)
 
 [![The WordPress Studio window with Annotate turned on above the site preview: two notes marked 1 and 2 on the page wait in the chat box as 2 annotations, and the Annotations toolbar shows Cancel and Send 2.](https://developer.wordpress.com/wp-content/uploads/2026/04/annotate-staged.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/annotate-staged.webp)
@@ -177,8 +173,6 @@ Switch tiers at any time, including mid-conversation:
 
 -   **Desktop**: click the model button in the chat box (it shows the current tier, such as **Fast**), or choose **Choose model** from the **+** menu
 -   **Terminal**: run the `/model` command
-
-[![The WordPress Studio Code model menu open above the chat box, with Fast selected and Balanced and Strong grayed out, and Get more credits and Connect provider listed under Actions.](https://developer.wordpress.com/wp-content/uploads/2026/09/model-menu.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/09/model-menu.webp)
 
 If you use your own Anthropic API key, the model menu lists **Sonnet 5** and **Opus 5** instead of tiers. See [AI providers](#ai-providers).
 

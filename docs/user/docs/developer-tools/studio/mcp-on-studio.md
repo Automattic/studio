@@ -20,8 +20,6 @@ claude mcp add wordpress-studio -- studio mcp
 codex mcp add wordpress-studio -- studio mcp
 ```
 
-[![The MCP page of WordPress Studio's Settings, with the command to install the WordPress Studio CLI and the MCP configuration to add to your assistant.](https://developer.wordpress.com/wp-content/uploads/2026/04/settings-mcp.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/settings-mcp.webp)
-
 Common configuration file locations are:
 
 -   Claude Desktop

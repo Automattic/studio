@@ -13,8 +13,6 @@ Sometimes you just need to see what WordPress is logging. WordPress Studio makes
 3.  Turn on **Debug log**.
 4.  Click **Save** at the top of the dialog.
 
-[![The Debug page of a site's settings in WordPress Studio, with the Xdebug toggle turned on in the Debugging section.](https://developer.wordpress.com/wp-content/uploads/2026/01/site-settings-debug.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/01/site-settings-debug.webp)
-
 When the debug log is enabled, your site will capture PHP errors, notices, and warnings to `wp-content/debug.log`. Once the file exists, an **Open log file** button appears on the **Debug** page, so you can jump directly to the file without hunting for its path.
 
 You can also write your own messages to the log using PHP’s `error_log()` function:

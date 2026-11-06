@@ -34,8 +34,6 @@ To enable HTTPS for a new or existing site:
 
 [![The Create a blank site form in WordPress Studio with Advanced settings expanded, showing Use custom domain and Enable HTTPS turned on and a .wp.local domain name.](https://developer.wordpress.com/wp-content/uploads/2025/03/create-site-https.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/03/create-site-https.webp)
 
-[![An existing site's Settings in WordPress Studio, with Use custom domain and Enable HTTPS turned on under Local domain and the domain set to wren-barley.wp.local.](https://developer.wordpress.com/wp-content/uploads/2025/03/site-settings-domain.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/03/site-settings-domain.webp)
-
 6.  Click **Create site** or **Save**, depending on whether you are creating a new site or editing an existing one. 
 7.  When prompted, give your permission for WordPress Studio to modify the system hosts file. WordPress Studio will configure everything else automatically. 
 8.  For HTTPS connections, a root certificate authority will be generated and installed. Until your computer trusts it, the **Enable HTTPS** option shows a button to fix that: **Show certificate** on macOS, which opens the certificate file in Finder, or **Trust certificate** on Windows and Linux, which trusts it for you. On macOS, you’ll need to manually install the certificate to avoid browser warnings. [Refer to the guide below for more details](#macos).
@@ -76,13 +74,7 @@ Use this fallback only if auto-trust didn’t take effect.
 
 1.  Open `about:preferences#privacy`.
 2.  Scroll to **Certificates** and click **View Certificates…**.
-
-[![The Security section of Firefox settings, with the Manage certificates button under Certificates.](https://developer.wordpress.com/wp-content/uploads/2025/03/firefox-settings-certificates.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/03/firefox-settings-certificates.webp)
-
 3.  Switch to the **Authorities** tab and click **Import…**.
-
-[![Firefox's Certificate Manager on the Authorities tab, with the Import button.](https://developer.wordpress.com/wp-content/uploads/2025/03/firefox-certificate-manager.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/03/firefox-certificate-manager.webp)
-
 4.  Select `~/.studio/certificates/studio-ca.crt`.
 5.  Check **Trust this CA to identify websites** and click **OK**.
 

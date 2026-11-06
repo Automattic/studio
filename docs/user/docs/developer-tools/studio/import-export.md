@@ -33,8 +33,6 @@ To add a new site to WordPress Studio from backup, you’ll need a `.tar.gz`, `.
 3.  On the **Create your site** screen, name your site and choose its **Local path**.
 4.  Click **Import site**.
 
-[![The Import tab of the Add site screen in WordPress Studio, with a Drop a WordPress backup here area and a Choose file button.](https://developer.wordpress.com/wp-content/uploads/2025/01/add-site-import.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/add-site-import.webp)
-
 Any imported site is started by default and visible in the sidebar. If the import fails, WordPress Studio explains what went wrong in plain language and lets you try again.
 
 ## [How to update an existing WordPress Studio site from a backup](#1-how-to-update-an-existing-wordpress-studio-site-from-a-backup)
@@ -44,8 +42,6 @@ To update an existing WordPress Studio site from a backup, you’ll need a `.tar
 1.  Open the site menu: click the **Site menu** button (globe) at the top left of the site’s header, or right-click the site in the sidebar.
 2.  Click **Import** and select your backup file.
 3.  When WordPress Studio asks whether to overwrite the site, click **Import** to overwrite your WordPress Studio site with your backup file.
-
-[![The confirmation WordPress Studio shows before importing a backup into an existing site, asking whether to overwrite it, with Cancel and Import buttons.](https://developer.wordpress.com/wp-content/uploads/2025/01/import-overwrite-dialog.webp)](https://developer.wordpress.com/wp-content/uploads/2025/01/import-overwrite-dialog.webp)
 
 The WordPress Studio site will be replaced from the provided `.tar.gz`, `.tar`, `.zip`, or `.wpress` backup. However, when you import a `.sql` file to an existing site, the database dump will be imported on top of the existing site, and when you import a WordPress export (`.xml`) file, its posts, pages, terms, authors, and media are added to the existing site.
 
@@ -58,8 +54,6 @@ To export a site from WordPress Studio:
 1.  Open the site menu: click the **Site menu** button (globe) at the top left of the site’s header, or right-click the site in the sidebar.
 2.  Choose **Export**, then **Export site** to generate a full-site `.zip` file, or **Export database** to generate a `.sql` file.
 3.  Choose the destination and click **Save.**
-
-[![The site menu in WordPress Studio with its Export submenu open, showing Export site and Export database.](https://developer.wordpress.com/wp-content/uploads/2025/01/site-menu-export.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/site-menu-export.webp)
 
 Other site actions, such as starting and stopping the site, are unavailable while an import or export is running.
 

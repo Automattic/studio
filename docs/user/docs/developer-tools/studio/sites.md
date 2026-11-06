@@ -24,7 +24,6 @@ To add a new site to WordPress Studio:
     -   **Admin username**, **Admin password**, and **Admin email**
 6.  Click **Create site**.
 
-[![The Create a blank site screen in WordPress Studio's Add site dialog, with Site name, Local path, WordPress version set to Auto-update, PHP version, and Advanced settings collapsed, above the Cancel and Create site buttons.](https://developer.wordpress.com/wp-content/uploads/2025/01/create-site.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/create-site.webp)
 [![The Create a blank site screen in WordPress Studio with Advanced settings expanded, showing File access set to Site directory and the Use custom domain toggle, which notes that your system password will be required.](https://developer.wordpress.com/wp-content/uploads/2025/01/create-site-advanced.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/create-site-advanced.webp)
 
 Any new site is started by default and opens in the site preview.
@@ -175,8 +174,6 @@ You can also open your sites with several terminal applications:
 
 To select a preferred code editor, browser, or terminal application, click **Settings** at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux). On the **General** page, choose a **Default code editor**, **Default browser**, and **Default terminal app**. With **Default browser** set to **System default**, sites open in your computer’s default browser, and the **Open in** menu shows **Browser**.
 
-[![The General page of WordPress Studio's Settings, with the Language, Default code editor, Default browser, Default terminal app, and Default directory options under Application.](https://developer.wordpress.com/wp-content/uploads/2025/01/settings-general.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/settings-general.webp)
-
 ## [Site settings](#site-settings)
 
 WordPress Studio keeps the settings for the app and for each site in one **Settings** dialog. Use the **App** and **Site** switch at the top left to move between them, or search for a setting by name.
@@ -204,8 +201,6 @@ A site’s settings are grouped into these pages:
 ### [Edit a site](#10-edit-a-site)
 
 To edit a site, change any of its settings. **Save** and **Discard** buttons appear at the top of the dialog as soon as you change something; click **Save** to apply your changes. You can edit the site’s name, switch to different PHP and WordPress versions, and change the admin credentials and domain. Saving settings doesn’t overwrite the WordPress admin email, and changing only the admin username renames the admin user. You can also change the WordPress version of a site that has never been started.
-
-[![The PHP page of a site's settings in WordPress Studio, with the PHP version set to 8.4 and File access set to Site directory.](https://developer.wordpress.com/wp-content/uploads/2026/06/site-settings-php.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/06/site-settings-php.webp)
 
 Please note that when selecting different PHP and WordPress versions, ensure they are compatible with the plugins and themes installed on your site. If you encounter any errors on your WordPress Studio site after making these changes, reviewing your active plugins and themes is a good first step in troubleshooting.
 

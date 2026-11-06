@@ -15,8 +15,6 @@ To create a preview site:
 3.  [Log in to WordPress.com](https://developer.wordpress.com/docs/developer-tools/studio#connect-wordpress-com) if you haven’t already.
 4.  Under **Share a preview**, click **Create preview**. The button shows **Creating preview…** while WordPress Studio builds the preview.
 
-[![The Share tab of the Share and publish panel in WordPress Studio, showing Share a preview and the Create preview button.](https://developer.wordpress.com/wp-content/uploads/2025/01/share-create-preview.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/share-create-preview.webp)
-
 Your preview site should be ready to view in a few seconds, and it will be available to access publicly for seven days. You can close the panel while you wait. The **Share** button shows a spinner while a preview is being created or updated, and a dot when the preview is ready. WordPress Studio also shows a notification when the preview is ready, with a **Copy link** button.
 
 The **Share** panel lists the site’s previews, newest first. Each one shows its name and when it expires. Click a preview’s name to open it in your browser. Open its **Preview actions** (**⋯**) menu to:

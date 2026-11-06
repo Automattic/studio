@@ -25,8 +25,6 @@ It’s especially useful for:
 
 The option isn’t available in the Microsoft Store version of WordPress Studio. If you installed the CLI with the standalone installer, the option is turned on and can’t be changed in the app: run `studio uninstall` to remove that CLI.
 
-[![The General page of WordPress Studio's Settings, with the WordPress Studio CLI for terminal option turned on under WordPress Studio CLI.](https://developer.wordpress.com/wp-content/uploads/2025/05/settings-studio-cli.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/05/settings-studio-cli.webp)
-
 ### [Standalone installer](#2-standalone-installer)
 
 #### macOS / Linux
@@ -63,7 +61,35 @@ You can see a high-level overview at any time with:
 
 studio --help
 
-[![Screenshot of a command line interface displaying the WordPress Studio CLI help menu with various commands and options.](https://developer.wordpress.com/wp-content/uploads/2025/05/cli-help.webp)](https://developer.wordpress.com/wp-content/uploads/2025/05/cli-help.webp)
+```text
+WordPress Studio CLI
+
+Commands:
+  studio auth                  Manage authentication
+  studio code                  AI agent for building and managing WordPress sites
+  studio create                Create a new site
+  studio list                  List sites
+  studio start                 Start site
+  studio stop                  Stop site(s)
+  studio delete [sites..]      Delete site
+  studio status                Get status of site
+  studio push                  Push your local site to a WordPress.com site
+  studio pull                  Pull a WordPress.com site to your local site
+  studio import <import-file>  Import a backup file to site
+  studio export [export-file]  Export site to a backup file
+  studio ui                    Start the local Studio web UI and open it in your browser
+  studio uninstall             Uninstall the standalone Studio CLI
+  studio preview               Manage preview sites
+  studio config                Manage site configuration
+  studio wp                    WP-CLI
+  studio blueprint             Browse and use blueprints
+  studio mcp                   MCP server for AI agents
+
+Options:
+  -p, --path     Path to the WordPress files         [string] [default: Current directory]
+  -v, --version  Show version number                                             [boolean]
+  -h, --help     Show help                                                       [boolean]
+```
 
 Most commands are designed to be run from the root directory of a WordPress Studio-managed site. To target a different site directory than your current working directory, use the `--path` option:
 
@@ -430,7 +456,14 @@ studio auth login              # if needed
 studio preview create          # initial deployment
 studio preview update <host>   # after subsequent changes
 
-[![A terminal window displaying a Bash command execution showing the creation of a preview site, including validation and archive creation messages, along with a link to the live site and total time taken.](https://developer.wordpress.com/wp-content/uploads/2025/05/cli-preview-create.webp)](https://developer.wordpress.com/wp-content/uploads/2025/05/cli-preview-create.webp)
+`studio preview create` validates the site, archives and uploads it, and prints the preview link:
+
+```text
+✔ Archive created
+✔ Archive uploaded
+✔ Preview site available at: https://wrenandbarley.wp.build
+✔ Preview site saved to Studio
+```
 
 This is particularly useful when:
 

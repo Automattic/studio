@@ -82,7 +82,6 @@ describe( 'command palette', () => {
 			expect( history.location.pathname ).toBe( '/sites/one/new' );
 			expect( connector.setOnboardingHints ).toHaveBeenCalledWith( {
 				walkthroughStep: 'intro',
-				annotateHintDismissed: false,
 			} );
 			expect( connector.setOnboardingCompleted ).not.toHaveBeenCalled();
 			expect( connector.setUserPreferences ).not.toHaveBeenCalled();

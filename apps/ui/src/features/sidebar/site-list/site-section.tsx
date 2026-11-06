@@ -4,10 +4,13 @@ import { clsx } from 'clsx';
 import { useEffect, useRef } from 'react';
 import { useSiteAgentActivity } from '@/data/agent-runs/use-agent-run';
 import { sitePinKey } from '@/data/queries/use-sidebar-pins';
+import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
 import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOpenSite } from '@/data/use-open-site';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
+import { getStagedAnnotations } from '@/features/annotations';
+import { getComposerDraft } from '@/features/composer';
 import { XdebugIcon } from '@/features/sidebar/xdebug-icon';
 import { GlobeIcon, NeedsInputIcon, NewChatIcon } from '@/lib/icons';
 import {
@@ -67,11 +70,16 @@ export function SiteSection( {
 	const navigate = useNavigate();
 	const sectionRef = useRef< HTMLLIElement >( null );
 	const isActive = isChatActive || isContextActive;
-	const showChats = expanded && ( chats.length > 0 || loadError );
+	const { draft } = useSiteChatDraft( site.id );
+	const pendingChat =
+		draft.pendingPrompt !== undefined && ! chats.some( ( chat ) => chat.id === draft.sessionId );
+	const showChats = expanded && ( chats.length > 0 || pendingChat || loadError );
 	const agentActivity = useSiteAgentActivity( row.sessionIds );
 	const needsInput = ! expanded && agentActivity === 'pending-question';
 	// Highlighted, with its actions showing, unless its open chat is listed under it.
-	const highlighted = ( isChatActive && ( ! showChats || ! activeSessionId ) ) || isContextActive;
+	const highlighted =
+		( isChatActive && ( ! showChats || ( ! activeSessionId && ! pendingChat ) ) ) ||
+		isContextActive;
 	// Keep the active site visible — e.g. when launch restores a site that
 	// sits below the sidebar's fold. `nearest` no-ops when already visible.
 	useEffect( () => {
@@ -95,7 +103,7 @@ export function SiteSection( {
 			? 'sync'
 			: undefined;
 	const displayActivity = siteActivity ?? 'idle';
-	const openSite = useOpenSite();
+	const openSite = useOpenSite( { animateSelection: ! ( onOpen && isActive && expanded ) } );
 	const preview = useOptionalSessionPreviewUI();
 	const handleOpenSite = () => {
 		onOpen?.();
@@ -140,7 +148,9 @@ export function SiteSection( {
 								className={ status === 'transitioning' ? 'studio-shimmer' : undefined }
 								aria-current={ isChatActive ? 'page' : undefined }
 								aria-pressed={ pressed }
-								aria-expanded={ onOpen && chats.length > 0 ? showChats : undefined }
+								aria-expanded={
+									onOpen && ( chats.length > 0 || pendingChat ) ? showChats : undefined
+								}
 							>
 								{ site.name }
 							</SidebarMenuLabel>
@@ -171,8 +181,21 @@ export function SiteSection( {
 					label={ sprintf( __( 'New chat for %s' ), site.name ) }
 					onClick={ () => {
 						onSiteOpen?.();
-						preview?.setChatHidden( false, site.id );
-						void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+						const draft = getComposerDraft( `site:${ site.id }` );
+						const hideChat =
+							isChatActive &&
+							! activeSessionId &&
+							!! site.running &&
+							preview?.siteId === site.id &&
+							preview.open &&
+							! preview.chatHidden &&
+							! draft.text &&
+							draft.attachments.length === 0 &&
+							getStagedAnnotations( site.id ).length === 0;
+						preview?.setChatHidden( hideChat, site.id, { instant: true } );
+						if ( ! hideChat ) {
+							return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+						}
 					} }
 				/>
 				<SiteStatusButton
@@ -190,6 +213,16 @@ export function SiteSection( {
 				loadError={ loadError }
 				reorderable={ reorderable }
 				activeSessionId={ activeSessionId }
+				pendingChat={
+					pendingChat
+						? { label: draft.pendingPrompt ?? '', active: isChatActive && ! activeSessionId }
+						: undefined
+				}
+				onOpenDraft={ () => {
+					onSiteOpen?.();
+					preview?.setChatHidden( false, site.id );
+					return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+				} }
 				onReorderChats={ onReorderChats }
 				onSiteOpen={ onSiteOpen }
 			/>

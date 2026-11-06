@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createFakeConnector, makeSession, makeSite } from '@/test/fake-connector';
+import { createFakeConnector, makeSession, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { AgentRunEvent, AiSessionSummary, UserPreferences } from '@/data/core';
 import type { FakeConnector } from '@/test/fake-connector';
@@ -87,7 +87,12 @@ describe( 'sidebar site sections', () => {
 			[ 'Settings', 'Close settings' ],
 			[ 'Add site', 'Close Add site' ],
 		] ) {
-			fireEvent.click( screen.getByRole( 'button', { name: open } ) );
+			if ( open === 'Settings' ) {
+				fireEvent.click( screen.getByRole( 'button', { name: TEST_USER.displayName } ) );
+				fireEvent.click( await screen.findByRole( 'menuitem', { name: /Settings/ } ) );
+			} else {
+				fireEvent.click( screen.getByRole( 'button', { name: open } ) );
+			}
 			const dialog = await screen.findByRole( 'dialog', { name: open } );
 			expect( shortcutChat ).toHaveAttribute( 'aria-current', 'page' );
 			fireEvent.click( within( dialog ).getByRole( 'button', { name: close } ) );

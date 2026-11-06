@@ -126,7 +126,7 @@ test.describe( 'Sites', () => {
 				{ id: guestId, url }
 			);
 		await loadInPreview( 'http://127.0.0.1:1/' );
-		await expect( session.mainWindow.getByText( 'Preview could not load' ) ).toBeVisible();
+		await expect( session.mainWindow.getByText( 'Browser could not load.' ) ).toBeVisible();
 		await loadInPreview( siteUrl );
 		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );
 

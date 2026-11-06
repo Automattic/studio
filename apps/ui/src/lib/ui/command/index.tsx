@@ -1,5 +1,6 @@
 import { clsx } from 'clsx';
 import { useId } from 'react';
+import { MarqueeLabel } from '@/lib/ui/marquee-label';
 import * as Popover from '@/lib/ui/popover';
 import styles from './style.module.css';
 import type { ComponentProps, ComponentType, KeyboardEvent, ReactNode, Ref } from 'react';
@@ -135,6 +136,7 @@ export function CommandList( {
 								key={ value }
 								id={ optionId( value ) }
 								role="option"
+								data-marquee-row
 								aria-selected={ value === active?.value }
 								aria-disabled={ disabled || undefined }
 								data-highlighted={ value === active?.value ? '' : undefined }
@@ -148,7 +150,7 @@ export function CommandList( {
 								{ description ? (
 									<span className={ styles.text }>
 										<span className={ styles.label }>{ itemLabel }</span>
-										<span className={ styles.description }>{ description }</span>
+										<MarqueeLabel className={ styles.description }>{ description }</MarqueeLabel>
 									</span>
 								) : (
 									<span className={ styles.label }>{ itemLabel }</span>

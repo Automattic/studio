@@ -28,7 +28,6 @@ import { Input, Button } from '@/lib/ui';
 import { AccountSection } from './account-section';
 import { ColorTintSettings } from './color-tint-settings';
 import { InstructionsEditor } from './instructions-editor';
-import { NewSiteBehaviorRow } from './new-site-behavior-row';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
 import {
 	SettingsGroup,
@@ -255,7 +254,6 @@ function PreferencesPanel( {
 				</SettingsRow>
 			</SettingsGroup>
 			<SettingsGroup title={ __( 'Interface' ) }>
-				<NewSiteBehaviorRow />
 				<SettingsRow
 					title={ __( 'When WordPress Studio quits' ) }
 					description={ __(

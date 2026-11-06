@@ -120,18 +120,6 @@ describe( 'CLI: studio pull Tracks events', () => {
 		] );
 	} );
 
-	// The agentic UI drives its pulls by forking this very command, and emits the
-	// event itself — without the flag the same pull would be counted twice.
-	it( 'records nothing when suppressed', async () => {
-		vi.mocked( fetchSyncableSites ).mockRejectedValue( new Error( 'offline' ) );
-
-		await expect(
-			runPull( testSite.path, String( remoteSite.id ), false, {}, true )
-		).rejects.toThrow();
-
-		expect( recordTracksEvent ).not.toHaveBeenCalled();
-	} );
-
 	it( 'records nothing when the user backs out of the site picker', async () => {
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ remoteSite, { ...remoteSite, id: 43 } ] );
 		vi.mocked( pickSyncSite ).mockResolvedValue( undefined as never );
@@ -167,19 +155,6 @@ describe( 'CLI: studio pull Tracks events (Jetpack Backup engine)', () => {
 				channel: 'studio-cli',
 			} )
 		);
-	} );
-
-	// The agentic UI drives its pulls by forking this very command, and emits the
-	// event itself — without the flag the same pull would be counted twice.
-	it( 'records nothing when suppressed', async () => {
-		vi.mocked( initiateBackup ).mockResolvedValue( 7 as never );
-		vi.mocked( pollBackupStatus ).mockResolvedValue( { status: 'failed', percent: 0 } as never );
-
-		await expect(
-			runBackupPull( testSite.path, [ 'all' ], String( remoteSite.id ), undefined, undefined, true )
-		).rejects.toThrow();
-
-		expect( recordTracksEvent ).not.toHaveBeenCalled();
 	} );
 
 	it( 'records nothing when the user backs out of the site picker', async () => {

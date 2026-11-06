@@ -12,6 +12,7 @@ import { showToast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useSiteEmail, useSiteEmails } from '@/data/queries/use-site-emails';
 import { useSiteAnnotations, type PreviewAnnotation } from '@/features/annotations';
+import { PanelLoadError } from '@/features/sites/panel-load-error';
 import { ArrowLeftIcon, FolderIcon, MailIcon } from '@/lib/icons';
 import {
 	CodeBlock,
@@ -386,7 +387,13 @@ export function EmailView( {
 
 	return (
 		<div ref={ containerRef } className={ styles.container }>
-			{ emails.data && ! count ? (
+			{ emails.isError && ! emails.data ? (
+				<PanelLoadError
+					message={ __( 'Email log could not load.' ) }
+					onRetry={ () => void emails.refetch() }
+					retrying={ emails.isFetching }
+				/>
+			) : emails.data && ! count ? (
 				<Empty className={ styles.empty }>
 					<EmptyHeader>
 						<EmptyMedia>
@@ -434,7 +441,11 @@ export function EmailView( {
 							/>
 						</header>
 						{ emails.isError ? (
-							<p className={ styles.error }>{ __( 'Studio could not read the email.' ) }</p>
+							<PanelLoadError
+								message={ __( 'Email log could not load.' ) }
+								onRetry={ () => void emails.refetch() }
+								retrying={ emails.isFetching }
+							/>
 						) : ! emails.data ? (
 							<EmailListSkeleton />
 						) : (
@@ -475,6 +486,12 @@ export function EmailView( {
 								onOpenLink={ onOpenLink }
 								onAnnotationPick={ onAnnotationPick }
 								onAnnotationAnchor={ onAnnotationAnchor }
+							/>
+						) : email.isError ? (
+							<PanelLoadError
+								message={ __( 'Email log could not load.' ) }
+								onRetry={ () => void email.refetch() }
+								retrying={ email.isFetching }
 							/>
 						) : email.isPending ? (
 							<div className={ styles.hint }>

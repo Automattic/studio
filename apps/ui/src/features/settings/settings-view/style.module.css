@@ -36,6 +36,43 @@
 	text-wrap: pretty;
 }
 
+.rowLead {
+	display: flex;
+	flex: 1 1 auto;
+	align-items: flex-start;
+	gap: var( --space-2 );
+	min-width: 0;
+}
+
+.agentAppError {
+	display: block;
+	margin-block-start: var( --space-1 );
+	color: var( --destructive );
+}
+
+.rowIcon {
+	--app-icon-size: 32px;
+
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+	width: var( --app-icon-size );
+	height: var( --app-icon-size );
+}
+
+/* App icons leave a margin around their artwork, which the fallback keeps. */
+.appIconFallback {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 80%;
+	height: 80%;
+	border-radius: var( --radius-md );
+	background-color: var( --muted );
+	color: var( --muted-foreground );
+}
+
 .rowTitle {
 	display: flex;
 	align-items: center;
@@ -61,7 +98,7 @@
 .settingsControl {
 	display: flex;
 	align-items: center;
-	gap: var( --space-2 );
+	gap: var( --space-2 ) var( --space-1 );
 }
 
 .settingsRow[data-orientation='vertical'] > .settingsControl {
@@ -275,13 +312,13 @@
 
 .pathForm {
 	display: flex;
-	gap: var( --space-2 );
+	gap: var( --space-1 );
 }
 
 .keyForm {
 	display: flex;
 	align-items: center;
-	gap: var( --space-2 );
+	gap: var( --space-1 );
 }
 
 .settingsControl:has( > .colorControl, > .sliderControl ) {
@@ -293,7 +330,7 @@
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: var( --space-2 );
+	gap: var( --space-2 ) var( --space-1 );
 	width: 100%;
 }
 

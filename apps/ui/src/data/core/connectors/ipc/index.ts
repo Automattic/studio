@@ -262,7 +262,9 @@ export function createIpcConnector(): Connector {
 
 		async selectSiteFolder( defaultPath, options ): Promise< SelectedSiteFolder | null > {
 			const response = ( await ipcApi.showOpenFolderDialog(
-				options?.allowBlueprints
+				options?.allowSiteFiles
+					? __( 'Choose a site source' )
+					: options?.allowBlueprints
 					? __( 'Open a site or Blueprint' )
 					: __( 'Choose folder for site' ),
 				defaultPath,

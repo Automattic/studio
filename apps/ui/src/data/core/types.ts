@@ -33,7 +33,6 @@ import type {
 	SidebarSiteSort,
 	SidebarChatSort,
 	ColorScheme,
-	NewSiteBehavior,
 	QuitSitesBehavior,
 } from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
@@ -724,7 +723,6 @@ export interface UserPreferences {
 	openChatOnSiteStart?: boolean;
 	// Save annotation notes for a combined send.
 	batchAnnotations?: boolean;
-	newSiteBehavior?: NewSiteBehavior;
 	// The appearance tint: a `#rrggbb` accent color, and percentages.
 	accentColor?: string;
 	tintIntensity?: number;

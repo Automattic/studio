@@ -106,20 +106,15 @@ describe( 'site creation', () => {
 		expect( await screen.findByRole( 'button', { name: 'Stop New site' } ) ).toBeEnabled();
 	} );
 
-	it.each( [
-		{ pinned: false, behavior: 'choose' },
-		{ pinned: true, behavior: 'choose' },
-		{ pinned: false, behavior: 'blank' },
-		{ pinned: true, behavior: 'blank' },
-	] as const )(
-		'creates a site from its sidebar group ($behavior, pinned: $pinned)',
-		async ( { pinned, behavior } ) => {
+	it.each( [ false, true ] )(
+		'creates a site from its sidebar group (pinned: %s)',
+		async ( pinned ) => {
 			localStorage.setItem( 'studio-ui-sidebar-group-pinned', 'false' );
 			localStorage.setItem( 'studio-ui-sidebar-group-sites', 'false' );
 			const { connector } = renderApp( {
 				connector: createFakeConnector( {
 					sites: [ mySite() ],
-					preferences: { sidebarPins: [ 'site:one' ], newSiteBehavior: behavior },
+					preferences: { sidebarPins: [ 'site:one' ] },
 				} ),
 			} );
 			await screen.findByRole( 'button', { name: 'Site menu' } );
@@ -127,8 +122,7 @@ describe( 'site creation', () => {
 				screen.getByRole( 'button', { name: pinned ? 'Add pinned site' : 'Add site' } )
 			);
 			const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
-			if ( behavior === 'choose' ) await openBlankSetup( dialog );
-			else await within( dialog ).findByRole( 'textbox', { name: 'Site name' } );
+			await openBlankSetup( dialog );
 			fireEvent.change( within( dialog ).getByLabelText( 'Site name' ), {
 				target: { value: 'New site' },
 			} );
@@ -166,45 +160,24 @@ describe( 'site creation', () => {
 		}
 	);
 
-	it.each( [ 'choose', 'blank' ] as const )(
-		'honors %s from the native Add Site menu',
-		async ( behavior ) => {
-			const { connector } = renderApp( {
-				connector: createFakeConnector( {
-					sites: [ mySite() ],
-					preferences: { newSiteBehavior: behavior },
-				} ),
-			} );
-			await screen.findByRole( 'button', { name: 'Site menu' } );
-			act( () => connector.emit( 'onToggleSidebar' ) );
-			expect(
-				( await screen.findAllByRole( 'button', { name: 'Show sidebar' } ) )[ 0 ]
-			).toBeVisible();
-			expect(
-				screen.queryByRole( 'button', { name: 'New chat for active site' } )
-			).not.toBeInTheDocument();
-			act( () => connector.emit( 'onToggleSidebar' ) );
-			act( () => connector.emit( 'onAddSite' ) );
-			const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
-			if ( behavior === 'choose' ) {
-				expect(
-					await within( dialog ).findByRole( 'button', { name: 'Start with Blank site' } )
-				).toBeVisible();
-			} else {
-				expect(
-					await within( dialog ).findByRole( 'textbox', { name: 'Site name' } )
-				).toBeVisible();
-			}
-		}
-	);
-
-	it( 'skips the gallery in an empty workspace when the blank-site preference is set', async () => {
-		await resetAddSiteOffer();
-		renderApp( {
-			connector: createFakeConnector( { preferences: { newSiteBehavior: 'blank' } } ),
+	it( 'opens the gallery from the native Add Site menu', async () => {
+		const { connector } = renderApp( {
+			connector: createFakeConnector( { sites: [ mySite() ] } ),
 		} );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
+		act( () => connector.emit( 'onToggleSidebar' ) );
+		expect(
+			( await screen.findAllByRole( 'button', { name: 'Show sidebar' } ) )[ 0 ]
+		).toBeVisible();
+		expect(
+			screen.queryByRole( 'button', { name: 'New chat for active site' } )
+		).not.toBeInTheDocument();
+		act( () => connector.emit( 'onToggleSidebar' ) );
+		act( () => connector.emit( 'onAddSite' ) );
 		const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
-		expect( await within( dialog ).findByRole( 'textbox', { name: 'Site name' } ) ).toBeVisible();
+		expect(
+			await within( dialog ).findByRole( 'button', { name: 'Start with Blank site' } )
+		).toBeVisible();
 	} );
 
 	it( 'opens Add site with a deep-linked Blueprint', async () => {

@@ -285,33 +285,21 @@ describe( 'command palette', () => {
 		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
 	} );
 
-	it.each( [ 'choose', 'blank' ] as const )(
-		'honors %s when New site is chosen',
-		async ( behavior ) => {
-			vi.stubGlobal(
-				'fetch',
-				vi.fn( async () => Response.json( { blueprints: [] } ) )
-			);
-			await renderPalette( {
-				connector: createFakeConnector( {
-					sites: [ testSite ],
-					preferences: { newSiteBehavior: behavior },
-				} ),
-			} );
-			await openPalette();
-			fireEvent.click( option( 'New site' ) );
-			const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
-			if ( behavior === 'choose' ) {
-				expect(
-					await within( dialog ).findByRole( 'button', { name: 'Start with Blank site' } )
-				).toBeVisible();
-			} else {
-				expect(
-					await within( dialog ).findByRole( 'textbox', { name: 'Site name' } )
-				).toBeVisible();
-			}
-		}
-	);
+	it( 'opens the gallery when New site is chosen', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn( async () => Response.json( { blueprints: [] } ) )
+		);
+		await renderPalette( {
+			connector: createFakeConnector( { sites: [ testSite ] } ),
+		} );
+		await openPalette();
+		fireEvent.click( option( 'New site' ) );
+		const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
+		expect(
+			await within( dialog ).findByRole( 'button', { name: 'Start with Blank site' } )
+		).toBeVisible();
+	} );
 
 	it( 'omits site commands without a site', async () => {
 		const { history, user } = renderApp( { connector: createFakeConnector(), path: '/sites' } );

@@ -19,7 +19,6 @@ import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
-import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useFileDrop } from '@/data/use-composer-attachments';
 import { saveComposerDraft } from '@/features/composer';
@@ -64,7 +63,6 @@ import type { AddSiteSection } from '@/features/sites/use-open-add-site';
 import type { AiProviderId } from '@studio/agent/protocol/providers';
 import type { BlueprintUseCase } from '@studio/common/lib/blueprint-catalog';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
-import type { NewSiteBehavior } from '@studio/common/lib/user-settings/preferences';
 
 type View =
 	| { name: 'gallery'; useCase?: BlueprintUseCase }
@@ -73,10 +71,8 @@ type View =
 	| { name: 'connect' }
 	| { name: 'import' };
 
-function getInitialView( section: AddSiteSection, behavior?: NewSiteBehavior ): View {
-	if ( section === 'blank' || ( section === 'create' && behavior === 'blank' ) ) {
-		return { name: 'setup' };
-	}
+function getInitialView( section: AddSiteSection ): View {
+	if ( section === 'blank' ) return { name: 'setup' };
 	if ( section === 'upload' || section === 'import' ) return { name: 'import' };
 	return { name: section === 'connect' ? 'connect' : 'gallery' };
 }
@@ -93,7 +89,6 @@ const getFinalFocus = () =>
 export function AddSiteDialog() {
 	const connector = useConnector();
 	const { data: sites } = useSites();
-	const { data: preferences } = useUserPreferences();
 	const navigate = useNavigate();
 	const { addSite, pin, settings } = useSearch( { strict: false } ) as {
 		addSite?: AddSiteSection;
@@ -102,10 +97,7 @@ export function AddSiteDialog() {
 	};
 	const [ openedWith, setOpenedWith ] = useState( addSite );
 	const [ chosenView, replaceView ] = useState< View | null >( null );
-	const initialView = useMemo(
-		() => getInitialView( addSite ?? 'create', preferences?.newSiteBehavior ),
-		[ addSite, preferences?.newSiteBehavior ]
-	);
+	const initialView = useMemo( () => getInitialView( addSite ?? 'create' ), [ addSite ] );
 	const view = chosenView ?? initialView;
 	const scrollArea = useRef< HTMLDivElement >( null );
 	const scrollPositions = useRef( new Map< View, number >() );

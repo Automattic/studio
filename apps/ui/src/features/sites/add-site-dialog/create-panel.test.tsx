@@ -37,7 +37,10 @@ async function setup(
 	const view = renderApp( { connector, path: '/?addSite=blank' } );
 	const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
 	await waitFor( () =>
-		expect( within( dialog ).getByLabelText( 'Site name' ) ).toHaveValue( 'My WordPress Website' )
+		expect( within( dialog ).getByRole( 'textbox', { name: 'Site name' } ) ).toHaveAttribute(
+			'placeholder',
+			'Blue Note'
+		)
 	);
 	return { ...view, dialog };
 }
@@ -428,6 +431,17 @@ describe( 'Add site › blank setup', () => {
 		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledOnce() );
 		expect( connector.createSite.mock.calls[ 0 ][ 0 ].blueprint ).toBeDefined();
 		expect( connector.continueSession.mock.calls[ 0 ][ 1 ] ).toBe( 'Customize this for my bakery' );
+	} );
+
+	it( 'uses the placeholder suggestion when the site name is left empty', async () => {
+		const { connector, dialog } = await setup();
+		expect( within( dialog ).getByRole( 'textbox', { name: 'Site name' } ) ).toHaveValue( '' );
+		await createSite( dialog );
+		await waitFor( () =>
+			expect( connector.createSite ).toHaveBeenCalledWith(
+				expect.objectContaining( { name: 'Blue Note', path: '/sites/Blue Note' } )
+			)
+		);
 	} );
 
 	it( 'switches between blank and uploaded Blueprint setup', async () => {

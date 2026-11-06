@@ -80,9 +80,9 @@ export function CreatePanel( { remote }: { remote?: SyncSite } ) {
 	const initialValues = useMemo(
 		() => ( {
 			...( selectedBlueprint ? mapBlueprintSettingsToFormValues( selectedBlueprint ) : {} ),
-			...( proposedName ? { name: proposedName } : {} ),
+			...( ( remote || selectedBlueprint ) && proposedName ? { name: proposedName } : {} ),
 		} ),
-		[ proposedName, selectedBlueprint ]
+		[ remote, proposedName, selectedBlueprint ]
 	);
 
 	const onFolderChange = useCallback(
@@ -156,6 +156,7 @@ export function CreatePanel( { remote }: { remote?: SyncSite } ) {
 			actionsContainer={ formActions }
 			selectedFolder={ selectedFolder ?? undefined }
 			initialValues={ submittedInitialValues ?? initialValues }
+			suggestedName={ proposedName }
 			existingDomainNames={ existingDomainNames }
 			onSubmit={ handleSubmit }
 			isSubmitting={ submittedInitialValues !== null }

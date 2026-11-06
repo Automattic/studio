@@ -527,6 +527,8 @@ function SitePreviewContent( {
 													siteId={ site.id }
 													siteDesign={ siteDesign.data ?? null }
 													error={ siteDesign.error }
+													onRetry={ () => void siteDesign.refetch() }
+													retrying={ siteDesign.isFetching }
 													onAnnotationPick={ handleAnnotationPick }
 													onAnnotationAnchor={ handleDesignAnchor }
 												/>
@@ -562,6 +564,7 @@ function SitePreviewContent( {
 											: undefined
 									}
 									loading={ loadingStage }
+									failed={ surface.browser.failed }
 								>
 									{ canUseWebview ? (
 										<WebviewSurface

@@ -228,13 +228,19 @@ export function pageBandGaps( page: Page ): Promise< string[] > {
 			if ( ! parent ) {
 				continue;
 			}
-			const blocks = [ ...parent.children ].filter( ( element ) => {
+			// Two blocks side by side in the flow, both full width: a narrower block
+			// between two is what separates them, not the page's background.
+			const blocks = [ ...parent.children ].filter( shown );
+			const fullWidth = ( element: Element ) => {
 				const rect = element.getBoundingClientRect();
-				return rect.height > 0 && rect.left <= 0 && rect.right >= viewport - 1;
-			} );
+				return rect.left <= 0 && rect.right >= viewport - 1;
+			};
 			const background = behind( parent );
 			blocks.slice( 1 ).forEach( ( block, index ) => {
 				const before = blocks[ index ];
+				if ( ! fullWidth( before ) || ! fullWidth( block ) ) {
+					return;
+				}
 				const bottom = before.getBoundingClientRect().bottom + window.scrollY;
 				const gap = Math.round( block.getBoundingClientRect().top + window.scrollY - bottom );
 				const faces = [ edge( before, 'bottom' ), edge( block, 'top' ) ];

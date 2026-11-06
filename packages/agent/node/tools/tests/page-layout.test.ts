@@ -100,9 +100,12 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 				<div class="wp-block-group alignfull stats" style="background:#2743c4;height:200px"></div>
 				<div class="wp-block-group alignfull" style="padding:40px 0"><div class="card" style="background:#2743c4;height:160px"></div></div>
 				<div class="wp-block-group alignfull" style="background:#10111a;height:200px"></div>
+				<div class="wp-block-group" style="max-width:600px;margin-inline:auto;height:300px"></div>
+				<div class="wp-block-group alignfull band" style="background:#2743c4;height:200px"></div>
 			</main>
 		</div>` );
-		// Not where the page's color meets the gap, as past a block's padding, which reads as its own space.
+		// Not where the page's color meets the gap, as past a block's padding, which reads as its own space,
+		// nor across a narrower block between two, which port eval24 redo run 1 read as a 1856px strip.
 		expect(
 			layout.filter( ( line ) => line.includes( 'background' ) || line.startsWith( '  y' ) )
 		).toEqual( [

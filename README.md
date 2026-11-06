@@ -60,3 +60,5 @@ For details, please see our [Contributing Guidelines](CONTRIBUTING.md) and [Code
 ## License
 
 WordPress Studio is [GPLv2 licensed](LICENSE.md).
+
+<!-- CI skip probe: docs. Do not merge. -->

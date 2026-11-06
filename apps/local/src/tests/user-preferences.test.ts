@@ -16,7 +16,6 @@ function writeAppConfig( config: unknown ): void {
 	writeFileSync( path.join( configDir, 'app.json' ), JSON.stringify( config ), 'utf-8' );
 }
 
-// `{}` when absent: a rejected write leaves no app.json at all.
 function readAppConfigFile(): Record< string, unknown > {
 	const configPath = path.join( configDir, 'app.json' );
 	return existsSync( configPath ) ? JSON.parse( readFileSync( configPath, 'utf-8' ) ) : {};
@@ -182,10 +181,11 @@ describe( 'PATCH /api/sites/:id/frontend-admin-bar', () => {
 	} );
 
 	it( 'rejects malformed preferences and unknown sites', async () => {
+		const before = readAppConfigFile();
 		expect( ( await patchAdminBar( 'one', 'hide' ) ).status ).toBe( 400 );
 		expect( ( await patchAdminBar( 'one', undefined ) ).status ).toBe( 400 );
 		expect( ( await patchAdminBar( 'missing', true ) ).status ).toBe( 404 );
-		expect( readAppConfigFile() ).toEqual( {} );
+		expect( readAppConfigFile() ).toEqual( before );
 	} );
 } );
 

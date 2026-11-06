@@ -48,7 +48,7 @@ export default class AppSettings {
 	}
 
 	get themeSelect() {
-		return this.page.getByRole( 'combobox', { name: 'Theme' } );
+		return this.page.getByRole( 'combobox', { name: 'Interface theme' } );
 	}
 
 	get instructionsInput() {

@@ -8,6 +8,7 @@ import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
 import type {
+	AgentApp,
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
 	AiSessionSummary,
@@ -804,6 +805,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// detection, server-side) so the preferences picker offers only what's there.
 		async getInstalledApps(): Promise< InstalledApps > {
 			return api< InstalledApps >( '/installed-apps' );
+		},
+
+		async getAgentApps(): Promise< AgentApp[] > {
+			return api< AgentApp[] >( '/agent-apps' );
+		},
+		async connectAgentApp( id ): Promise< void > {
+			await api< void >( `/agent-apps/${ id }/connect`, { method: 'POST' } );
 		},
 
 		async getAppGlobals(): Promise< AppGlobals > {

@@ -291,6 +291,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			id: 'mcp',
 			label: __( 'MCP' ),
 			icon: McpIcon,
+			aliases: [ __( 'Agent apps' ), 'Claude Code', 'ChatGPT', 'Codex', 'Cursor', 'Grok Build' ],
 			settings: [
 				setting(
 					'section',

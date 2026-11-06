@@ -7,7 +7,7 @@ import { useCopyText } from '@/data/host/use-copy-text';
 import { findSettingId } from '@/data/settings-sections';
 import { SettingsLinkContext } from '@/features/settings/settings-dialog/context';
 import { LinkIcon } from '@/lib/icons';
-import { Button, type ButtonProps } from '@/lib/ui';
+import { Badge, Button, type ButtonProps } from '@/lib/ui';
 import {
 	Field,
 	FieldContent,
@@ -26,6 +26,14 @@ import {
 } from '@/lib/ui';
 import styles from './style.module.css';
 import type { ReactNode } from 'react';
+
+/** A row's badge for a connected account or app. */
+export const connectedBadge = () => (
+	<Badge size="xs" variant="accent">
+		<CheckIcon aria-hidden="true" />
+		{ __( 'Connected' ) }
+	</Badge>
+);
 
 /** A card of setting rows, with an optional heading above it. */
 export function SettingsGroup( {
@@ -66,6 +74,7 @@ const SettingsRowContext = createContext< ControlProps >( {} );
 export function SettingsRow( {
 	title,
 	settingId,
+	icon,
 	badge,
 	description,
 	additionalContent,
@@ -75,6 +84,8 @@ export function SettingsRow( {
 }: {
 	title: string;
 	settingId?: string;
+	// Shown before the title and description, like an app's logo.
+	icon?: ReactNode;
 	// Shown next to the title, like a "Connected" status.
 	badge?: ReactNode;
 	description?: ReactNode;
@@ -99,6 +110,30 @@ export function SettingsRow( {
 	};
 	const content = typeof children === 'function' ? children( control ) : children;
 	const fieldTitle = <FieldTitle id={ `${ rowId }-title` }>{ title }</FieldTitle>;
+	const fieldContent = (
+		<FieldContent>
+			{ linkId || badge ? (
+				<div className={ styles.rowTitle }>
+					{ fieldTitle }
+					{ badge }
+					{ linkId ? <SettingLinkButton id={ linkId } title={ title } /> : null }
+				</div>
+			) : (
+				fieldTitle
+			) }
+			{ hasDescription ? (
+				<FieldDescription
+					id={ `${ rowId }-description` }
+					className={ styles.rowDescription }
+					width={ content ? 'default' : 'full' }
+					error={ error }
+					additionalContent={ additionalContent }
+				>
+					{ description }
+				</FieldDescription>
+			) : null }
+		</FieldContent>
+	);
 	return (
 		<Field
 			orientation={ stacked || ! content ? 'vertical' : 'horizontal' }
@@ -107,28 +142,14 @@ export function SettingsRow( {
 			data-settings-row
 			data-setting-id={ id }
 		>
-			<FieldContent>
-				{ linkId || badge ? (
-					<div className={ styles.rowTitle }>
-						{ fieldTitle }
-						{ badge }
-						{ linkId ? <SettingLinkButton id={ linkId } title={ title } /> : null }
-					</div>
-				) : (
-					fieldTitle
-				) }
-				{ hasDescription ? (
-					<FieldDescription
-						id={ `${ rowId }-description` }
-						className={ styles.rowDescription }
-						width={ content ? 'default' : 'full' }
-						error={ error }
-						additionalContent={ additionalContent }
-					>
-						{ description }
-					</FieldDescription>
-				) : null }
-			</FieldContent>
+			{ icon ? (
+				<div className={ styles.rowLead }>
+					<div className={ styles.rowIcon }>{ icon }</div>
+					{ fieldContent }
+				</div>
+			) : (
+				fieldContent
+			) }
 			{ content ? (
 				<div className={ styles.settingsControl }>
 					<SettingsRowContext.Provider value={ control }>{ content }</SettingsRowContext.Provider>

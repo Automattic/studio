@@ -325,6 +325,7 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		install_curated_admin: __( 'Install curated admin' ),
 		verify_curated_admin: __( 'Verify curated admin' ),
 		wpcom_request: __( 'WordPress.com API' ),
+		send_feedback: __( 'Send feedback' ),
 		AskUserQuestion: __( 'Ask user' ),
 		Read: __( 'Read' ),
 		Write: __( 'Write' ),

@@ -4,6 +4,7 @@ import {
 	fontFamilyName,
 	googleFontsUrl,
 	parseDesignMd,
+	themeJsonDesign,
 	type Style,
 } from '@studio/design-md';
 import { __, sprintf } from '@wordpress/i18n';
@@ -23,9 +24,8 @@ const titleCase = ( key: string ) =>
 	key.replace( /[-_]+/g, ' ' ).replace( /\b\w/g, ( char ) => char.toUpperCase() );
 
 function fontStyle( style: Style ): CSSProperties {
-	const family = fontFamilyName( style.fontFamily );
 	return {
-		fontFamily: family ? `"${ family }", sans-serif` : undefined,
+		fontFamily: typeof style.fontFamily === 'string' ? style.fontFamily : undefined,
 		fontWeight: style.fontWeight as CSSProperties[ 'fontWeight' ],
 		letterSpacing: dimension( style.letterSpacing ),
 		textTransform: style.textTransform as CSSProperties[ 'textTransform' ],
@@ -58,39 +58,55 @@ function proseSections( design: string ): Array< { title: string; body: string }
 export function DesignSystemView( {
 	siteId,
 	siteDesign,
+	error,
 	onAnnotationPick,
 	onAnnotationAnchor,
 }: {
 	siteId: string;
 	siteDesign: SiteDesign | null;
+	error?: Error | null;
 } & DesignAnnotationProps ) {
 	const view = useMemo( () => {
 		if ( ! siteDesign ) {
 			return null;
 		}
 		try {
-			const tokens = parseDesignMd( siteDesign.design );
+			const tokens = siteDesign.design
+				? parseDesignMd( siteDesign.design )
+				: themeJsonDesign( siteDesign.themeJson );
 			return {
 				tokens,
 				sheet: designSheet( tokens ),
-				drift: designDrift( tokens, siteDesign.themeJson ),
-				prose: proseSections( siteDesign.design ),
+				drift: siteDesign.design ? designDrift( tokens, siteDesign.themeJson ) : null,
+				prose: siteDesign.design ? proseSections( siteDesign.design ) : [],
 			};
 		} catch ( error ) {
 			return { error: error instanceof Error ? error.message : String( error ) };
 		}
 	}, [ siteDesign ] );
 	const [ root, attachRoot ] = useState< HTMLDivElement | null >( null );
-	const annotate = useDesignAnnotations( { siteId, root, onAnnotationPick, onAnnotationAnchor } );
+	const annotate = useDesignAnnotations( {
+		siteId,
+		root,
+		enabled: !! siteDesign?.design,
+		onAnnotationPick,
+		onAnnotationAnchor,
+	} );
+
+	if ( error ) {
+		return (
+			<div className={ styles.message } role="alert">
+				<p>{ __( 'The design system could not be loaded. Try reloading the preview.' ) }</p>
+			</div>
+		);
+	}
 
 	if ( ! view ) {
 		return (
 			<div className={ styles.message }>
-				<p>{ __( 'This site has no design system.' ) }</p>
+				<p>{ __( 'No design system is available for this theme.' ) }</p>
 				<p className={ styles.messageDetail }>
-					{ __(
-						'Studio Code saves one as DESIGN.md when it designs a site, next to the theme.json of its block theme.'
-					) }
+					{ __( 'Design systems are available for block themes.' ) }
 				</p>
 			</div>
 		);
@@ -99,8 +115,16 @@ export function DesignSystemView( {
 	if ( 'error' in view ) {
 		return (
 			<div className={ styles.message }>
-				<p>{ __( 'DESIGN.md could not be read.' ) }</p>
-				<p className={ styles.messageDetail }>{ view.error }</p>
+				<p>
+					{ siteDesign?.design
+						? __( 'DESIGN.md could not be read.' )
+						: __( 'The theme’s design system could not be read.' ) }
+				</p>
+				<p className={ styles.messageDetail }>
+					{ siteDesign?.design
+						? view.error
+						: __( 'The theme does not provide enough colors to display a design system.' ) }
+				</p>
 			</div>
 		);
 	}
@@ -175,9 +199,7 @@ export function DesignSystemView( {
 		>
 			{ fontsUrl ? <link rel="stylesheet" href={ fontsUrl } precedence="default" /> : null }
 			<header className={ styles.header }>
-				<p className={ styles.eyebrow } style={ fontStyle( sheet.label ) }>
-					{ __( 'Design system' ) }
-				</p>
+				<p className={ styles.eyebrow }>{ __( 'Design system' ) }</p>
 				{ tokens.name ? (
 					<h1
 						className={ styles.title }
@@ -202,7 +224,7 @@ export function DesignSystemView( {
 						{ annotate.marker( 'description' ) }
 					</p>
 				) : null }
-				<DriftPanel siteId={ siteId } drift={ drift } />
+				{ drift ? <DriftPanel siteId={ siteId } drift={ drift } /> : null }
 			</header>
 
 			<div className={ styles.sections }>

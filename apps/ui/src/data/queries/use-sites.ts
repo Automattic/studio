@@ -61,16 +61,20 @@ export function useCreateSite() {
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationFn: ( params: CreateSiteParams ) => connector.createSite( params ),
-		onSuccess: ( site ) => {
+		onSuccess: ( site, { path } ) => {
 			// translators: %s is the site name.
-			toast.success( sprintf( __( 'Site created: %s' ), site.name ) );
+			toast.success( sprintf( __( 'Site created: %s' ), site.name ), {
+				id: `create-site:${ path }`,
+			} );
 			return queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
-		onError: ( error, { name } ) =>
+		onError: ( error, { name, path } ) =>
 			// translators: %s is the site name.
 			toast.error( sprintf( __( 'Couldn’t create site: %s' ), name ), {
+				id: `create-site:${ path }`,
 				description: getErrorMessage( error ),
 				action: openStudioLogsAction( connector ),
+				durationMs: 0,
 			} ),
 	} );
 }
@@ -418,6 +422,7 @@ function applySiteEvent( queryClient: QueryClient, event: SiteEvent ): boolean {
 	const metadata = {
 		sortOrder: cached.sortOrder,
 		autoStart: cached.autoStart,
+		hideFrontendAdminBar: cached.hideFrontendAdminBar,
 	} satisfies Record< keyof SiteMetadata, unknown >;
 	const updated: SiteDetails = {
 		...site,

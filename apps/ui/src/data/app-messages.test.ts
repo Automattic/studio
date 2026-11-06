@@ -90,6 +90,19 @@ describe( 'app-messages', () => {
 		expect( getNoticeHistory().filter( ( item ) => item.id === 'export-0' ) ).toHaveLength( 1 );
 	} );
 
+	it( 'makes room for new errors when persistent failures fill the deck, retaining their history', () => {
+		for ( const name of [ 'A', 'B', 'C' ] ) {
+			toast.error( `Could not create ${ name }`, { id: `create-site:${ name }`, durationMs: 0 } );
+		}
+		toast.error( 'Disk full' );
+		settleExit();
+		expect( titles() ).toEqual( [ 'Could not create B', 'Could not create C', 'Disk full' ] );
+		expect( getQueuedToastCount() ).toBe( 0 );
+		expect( getNoticeHistory().find( ( item ) => item.id === 'create-site:A' )?.title ).toBe(
+			'Could not create A'
+		);
+	} );
+
 	it( 'does not strand errors behind queued progress during simultaneous exits', () => {
 		for ( let index = 0; index < 6; index++ ) toast.processing( `Export ${ index }` );
 		toast.error( 'Disk full' );
@@ -136,6 +149,33 @@ describe( 'app-messages', () => {
 		expect( titles() ).toEqual( [ 'Quick' ] );
 
 		vi.advanceTimersByTime( 1 );
+		settleExit();
+		expect( titles() ).toEqual( [] );
+	} );
+
+	it( 'keeps a zero-duration failure until dismissed, including after hover or focus resumes', () => {
+		const id = toast.error( 'Could not create site', { durationMs: 0 } );
+		vi.advanceTimersByTime( 60_000 );
+		pauseToastExpiry( id );
+		resumeToastExpiry( id );
+		vi.advanceTimersByTime( 60_000 );
+		expect( titles() ).toEqual( [ 'Could not create site' ] );
+		expect( getVisibleToasts()[ 0 ].leaving ).not.toBe( true );
+		dismissToast( id );
+		settleExit();
+		expect( titles() ).toEqual( [] );
+		expect( getNoticeHistory()[ 0 ].title ).toBe( 'Could not create site' );
+	} );
+
+	it( 'keeps a queued persistent failure after promotion and expires its successful replacement', () => {
+		for ( const title of [ 'a', 'b', 'c' ] ) toast.info( title );
+		toast.error( 'Could not create site', { id: 'creation', durationMs: 0 } );
+		vi.advanceTimersByTime( 60_000 );
+		expect( titles() ).toEqual( [ 'Could not create site' ] );
+		expect( getVisibleToasts()[ 0 ].leaving ).not.toBe( true );
+		toast.success( 'Site created', { id: 'creation' } );
+		expect( titles() ).toEqual( [ 'Site created' ] );
+		vi.advanceTimersByTime( 4_500 );
 		settleExit();
 		expect( titles() ).toEqual( [] );
 	} );

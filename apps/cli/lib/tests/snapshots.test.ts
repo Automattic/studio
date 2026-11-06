@@ -129,6 +129,7 @@ describe( 'Snapshots Module', () => {
 				atomicSiteId: mockAtomicSiteId,
 				localSiteId: mockSiteId,
 				date: 1234567890,
+				syncedAt: 1234567890,
 				name: 'Test Site Preview 1',
 				userId: mockUserId,
 				sequence: 1,
@@ -187,6 +188,7 @@ describe( 'Snapshots Module', () => {
 				atomicSiteId: mockAtomicSiteId + 1,
 				localSiteId: mockSiteId,
 				date: 1234567890,
+				syncedAt: 1234567890,
 				name: 'Test Site Preview 2',
 				userId: mockUserId,
 				sequence: 2,
@@ -590,7 +592,7 @@ describe( 'Snapshots Module', () => {
 	} );
 
 	describe( 'linkPulledPreview', () => {
-		it( 'attaches a pulled preview to the local site, unless another site already has it', async () => {
+		it( 'attaches a pulled preview and its version to the local site, unless another site has it', async () => {
 			const preview = ( url: string, atomicSiteId: number, localSiteId: string ) => ( {
 				url,
 				atomicSiteId,
@@ -605,21 +607,37 @@ describe( 'Snapshots Module', () => {
 					snapshots: [
 						preview( 'made-elsewhere.wpcomstaging.com', 1, '' ),
 						preview( 'taken.wpcomstaging.com', 2, 'other-site' ),
+						{
+							...preview( 'pulled-before.wpcomstaging.com', 4, 'pulled-site' ),
+							versionId: 'old',
+							syncedAt: 1,
+						},
 					],
 				} )
 			);
 			const standing = { hostname: 'unlisted.wpcomstaging.com', expiresAt: 9000 };
 
-			for ( const atomicSiteId of [ 1, 2, 3 ] ) {
-				await linkPulledPreview( 'pulled-site', atomicSiteId, 42, standing );
+			for ( const atomicSiteId of [ 1, 2, 3, 4 ] ) {
+				// The pull of preview 4 was partial, which leaves its sync unknown.
+				const sync =
+					atomicSiteId === 4 ? undefined : { versionId: `v${ atomicSiteId }`, syncedAt: 5 };
+				await linkPulledPreview( 'pulled-site', atomicSiteId, 42, standing, sync );
 				mocks.readFile.mockResolvedValue( mocks.writeFile.mock.lastCall?.[ 1 ] );
 			}
 
 			const savedData = JSON.parse( mocks.writeFile.mock.lastCall?.[ 1 ] );
-			expect( savedData.snapshots.map( ( s: Snapshot ) => [ s.url, s.localSiteId ] ) ).toEqual( [
-				[ 'made-elsewhere.wpcomstaging.com', 'pulled-site' ],
-				[ 'taken.wpcomstaging.com', 'other-site' ],
-				[ 'unlisted.wpcomstaging.com', 'pulled-site' ],
+			expect(
+				savedData.snapshots.map( ( s: Snapshot ) => [
+					s.url,
+					s.localSiteId,
+					s.versionId,
+					s.syncedAt,
+				] )
+			).toEqual( [
+				[ 'made-elsewhere.wpcomstaging.com', 'pulled-site', 'v1', 5 ],
+				[ 'taken.wpcomstaging.com', 'other-site', undefined, undefined ],
+				[ 'pulled-before.wpcomstaging.com', 'pulled-site', undefined, undefined ],
+				[ 'unlisted.wpcomstaging.com', 'pulled-site', 'v3', 5 ],
 			] );
 		} );
 	} );

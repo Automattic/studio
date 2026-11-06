@@ -18,6 +18,7 @@ export type { QuitSitesBehavior };
 interface AppdataSiteData {
 	sortOrder?: number;
 	autoStart?: boolean;
+	hideFrontendAdminBar?: boolean;
 }
 
 interface NightlyPromptResult {
@@ -38,6 +39,7 @@ export interface UserData {
 	preferredEditor?: SupportedEditor;
 	preferredBrowser?: SupportedBrowser;
 	colorScheme?: 'system' | 'light' | 'dark';
+	hideFrontendAdminBar?: boolean;
 	/** Beta features the user opted into, by key. Migration 09 removes the classic-era `enableAgenticUi`. */
 	betaFeatures?: Record< string, boolean >;
 	quitSitesBehavior?: QuitSitesBehavior;

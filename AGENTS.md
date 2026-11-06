@@ -18,7 +18,7 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 - **Auth**: `auth login|logout|status` - WordPress.com OAuth (tokens valid 2 weeks)
 - **Preview Sites**: See `apps/cli/commands/preview/`
 - **Local Sites**: See `apps/cli/commands/site/`
-- **Agentic UI (`apps/ui`)**: To verify UI changes, run `npm run cli:build:ui && node apps/cli/dist/cli/main.mjs ui --no-open`, then open http://localhost:8081 with a browser tool (Playwright/Chrome MCP) and check both light and dark themes. Note: plain `cli:build` does NOT rebuild `apps/ui` — use `cli:build:ui`. Default port 8081 (`--port` to override).
+- **Agentic UI (`apps/ui`)**: To verify UI changes, run `npm run cli:build:ui && node apps/cli/dist/cli/main.mjs ui --no-open`, then open http://localhost:8081 with a browser tool (Playwright/Chrome MCP) and check both light and dark themes. Note: plain `cli:build` does NOT rebuild `apps/ui` — use `cli:build:ui`. Default port 8081 (`--port` to override). In Amp orbs 8081 is already in use, so pass another port (e.g. `--port 8099`).
 - **MCP Apps (`apps/mcp-ui`)**: `npm run cli:build:mcp-ui` builds the page into the CLI; plain `cli:build` does NOT rebuild it. Verify it in an agent app that renders MCP Apps, in light and dark; the WordPress library opens from the ChatGPT app's sidebar once the Studio plugin is installed.
 
 ## Agent Evals (Studio Code)

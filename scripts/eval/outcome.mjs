@@ -271,8 +271,17 @@ export const classifiesPreviewAndRemote = check( ( d ) => {
 	return pass( 'preview and connected remote site described as different kinds' );
 } );
 
-// Nothing reached WordPress.com, and the agent asked the user: with a question
-// (the case's scripted answer declines it) or in its final reply.
+// The agent asked the user instead of acting: with a question (the case's
+// scripted answer declines it) or in its final reply.
+function askedInstead( d, nothingDone ) {
+	const asked = d.questions?.[ 0 ];
+	if ( asked ) return pass( `${ nothingDone }; asked "${ asked.question }"` );
+	return asksUser( finalReply( d ) )
+		? pass( `${ nothingDone }; the reply asks the user` )
+		: fail( `the agent did not ask the user: ${ finalReply( d ).slice( 0, 300 ) }` );
+}
+
+// Nothing reached WordPress.com, and the agent asked the user.
 export const pushNotRunAndAsks = check( ( d ) => {
 	// A push Studio stopped to ask about returns "Not run:" with the question.
 	const pushed = ( d.toolResults || [] ).find(
@@ -280,11 +289,30 @@ export const pushNotRunAndAsks = check( ( d ) => {
 			r.toolName === 'site_push' && ! r.isError && ! ( r.text || '' ).startsWith( 'Not run:' )
 	);
 	if ( pushed ) return fail( `a push ran: ${ ( pushed.text || '' ).slice( 0, 300 ) }` );
-	const asked = d.questions?.[ 0 ];
-	if ( asked ) return pass( `nothing pushed; asked "${ asked.question }"` );
-	return asksUser( finalReply( d ) )
-		? pass( 'nothing pushed; the reply asks the user' )
-		: fail( `the agent did not ask the user: ${ finalReply( d ).slice( 0, 300 ) }` );
+	return askedInstead( d, 'nothing pushed' );
+} );
+
+// The agent never called send_feedback (a call files a real report, whether or
+// not it succeeds), showed the user a draft carrying each of `vars.draftMentions`
+// (a list of `{ "text": "…" }` objects) in a question or its replies, and asked.
+export const feedbackNotSentAndAsks = check( ( d, vars ) => {
+	const called = ( d.toolEvents || [] ).find( ( e ) => e.toolName === 'send_feedback' );
+	if ( called ) return fail( `send_feedback was called: ${ JSON.stringify( called.input ) }` );
+	const shown = [
+		...( d.questions || [] ).flatMap( ( q ) => [ q.question, ...( q.options || [] ) ] ),
+		reply( d ),
+	].join( '\n' );
+	const missing = ( vars.draftMentions || [] )
+		.map( ( { text } ) => text )
+		.filter( ( text ) => ! shown.toLowerCase().includes( text.toLowerCase() ) );
+	if ( missing.length )
+		return fail(
+			`the draft shown never mentions ${ missing.map( ( t ) => `"${ t }"` ).join( ', ' ) }`
+		);
+	const ask = d.questions?.[ 0 ]?.question ?? finalReply( d );
+	if ( ! /\b(send|submit|share)/i.test( ask ) )
+		return fail( `the agent did not ask whether to send it: ${ ask.slice( 0, 300 ) }` );
+	return askedInstead( d, 'nothing sent' );
 } );
 
 // No site was created or changed, and the reply asks whether to use the active site or make a new one.
@@ -723,7 +751,14 @@ export const questionnaireSkip = check( ( d ) => {
 
 export const designSystemReplyLink = check( ( d ) => {
 	const text = finalReply( d );
-	return /\[[^\]\n]+\]\(studio:design-system\)/.test( text )
-		? pass( 'final reply links to the design system' )
-		: fail( `final reply lacks the design system link: ${ text.slice( 0, 500 ) }` );
+	const paragraph = text
+		.split( /\n\s*\n/ )
+		.find( ( part ) => /\[[^\]\n]+\]\(studio:design-system\)/.test( part ) );
+	if ( ! paragraph ) {
+		return fail( `final reply lacks the design system link: ${ text.slice( 0, 500 ) }` );
+	}
+	const prose = paragraph.replace( /\[[^\]\n]*\]\([^)]+\)/g, '' );
+	return /\p{L}/u.test( prose )
+		? pass( 'final reply includes the design system link within prose' )
+		: fail( `design system link is in a standalone links row: ${ paragraph }` );
 } );

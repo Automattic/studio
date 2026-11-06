@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { readAppConfig, updateAppConfig } from '@studio/common/lib/app-config';
+import { updateMuPluginSettings } from '@studio/common/lib/mu-plugin-settings';
 import { listSites } from './list';
+import { readSite } from './site-path';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 
@@ -12,6 +14,7 @@ import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 const siteMetadataFields = z.object( {
 	sortOrder: z.number().optional().catch( undefined ),
 	autoStart: z.boolean().optional().catch( undefined ),
+	hideFrontendAdminBar: z.boolean().optional().catch( undefined ),
 } );
 
 const siteMetadataRecordSchema = z
@@ -28,7 +31,11 @@ export async function readSiteMetadata(): Promise< Record< string, SiteMetadata 
 export async function updateSiteMetadata(
 	patches: Record< string, Partial< SiteMetadata > | null >
 ): Promise< void > {
-	await updateAppConfig( ( config ) => {
+	const changesAdminBar = Object.values( patches ).some(
+		( patch ) => patch === null || 'hideFrontendAdminBar' in patch
+	);
+	const update = changesAdminBar ? updateMuPluginSettings : updateAppConfig;
+	await update( ( config ) => {
 		const siteMetadata = siteMetadataRecordSchema.parse( config.siteMetadata );
 		for ( const [ siteId, patch ] of Object.entries( patches ) ) {
 			if ( patch ) {
@@ -41,13 +48,24 @@ export async function updateSiteMetadata(
 	} );
 }
 
+export async function setSiteFrontendAdminBar(
+	siteId: string,
+	hidden: boolean | null
+): Promise< void > {
+	const value = z.boolean().nullable().parse( hidden );
+	if ( ! ( await readSite( siteId ) ) ) {
+		throw new Error( 'Site not found.' );
+	}
+	await updateSiteMetadata( { [ siteId ]: { hideFrontendAdminBar: value ?? undefined } } );
+}
+
 /** The CLI's site list, with each site's Studio-owned metadata merged in. */
 export async function listSitesWithMetadata(
 	execute: ExecuteCliCommand
 ): Promise< ( SiteListItem & SiteMetadata )[] > {
 	const [ sites, metadata ] = await Promise.all( [ listSites( execute ), readSiteMetadata() ] );
 	return sites.map( ( site ) => {
-		const { sortOrder, autoStart } = metadata[ site.id ] ?? {};
-		return { ...site, sortOrder, autoStart };
+		const { sortOrder, autoStart, hideFrontendAdminBar } = metadata[ site.id ] ?? {};
+		return { ...site, sortOrder, autoStart, hideFrontendAdminBar };
 	} );
 }

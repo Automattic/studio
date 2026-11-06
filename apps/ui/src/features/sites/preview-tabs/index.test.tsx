@@ -10,8 +10,9 @@ import {
 	getSiteAnnotations,
 } from '@/features/annotations';
 import { clearComposerDrafts } from '@/features/composer';
-import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
+import { createFakeConnector, makeSession, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
+import type { SessionEntry } from '@/data/core';
 
 beforeEach( () => {
 	localStorage.clear();
@@ -51,6 +52,58 @@ async function newBrowserTab() {
 	await waitFor( () => expect( selectedTab() ).toHaveFocus() );
 	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).not.toHaveFocus();
 }
+
+it.each( [ true, false ] )(
+	'opens a chat tool link in a new tab (panel open: %s)',
+	async ( open ) => {
+		const connector = createFakeConnector( {
+			sites: [ makeSite( { id: 'one', name: 'First', running: true } ) ],
+			sessions: [
+				{
+					summary: makeSession( { id: 'chat', ownerSiteId: 'one' } ),
+					entries: [
+						{
+							id: 'reply',
+							type: 'message',
+							message: {
+								role: 'assistant',
+								content: [
+									{
+										type: 'text',
+										text: 'Updated the [design system](studio:design-system) with warmer colors.',
+									},
+								],
+							},
+						} as SessionEntry,
+					],
+				},
+			],
+		} );
+		const { user } = renderApp( { connector, path: '/sessions/chat' } );
+		const chip = await screen.findByRole( 'button', { name: 'Open design system' } );
+		if ( screen.queryByRole( 'button', { name: 'Show panel' } ) )
+			await user.click( screen.getByRole( 'button', { name: 'Show panel' } ) );
+		const address = screen.getByRole( 'textbox', { name: 'Address' } );
+		await user.clear( address );
+		await user.type( address, '/about/{Enter}' );
+		const firstTab = screen.getByRole( 'tab', { name: 'First' } );
+		const firstPage = document.querySelector( 'iframe' );
+		if ( ! open ) await user.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
+		await user.click( chip );
+		expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 );
+		expect( screen.getByRole( 'tab', { name: 'Design system' } ) ).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
+		expect( screen.getByRole( 'button', { name: 'Hide panel' } ) ).toBeVisible();
+		expect( document.querySelector( 'iframe' ) ).toBe( firstPage );
+		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
+		await user.click( firstTab );
+		expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
+			'http://localhost:9010/about/'
+		);
+	}
+);
 
 it( 'opens DevTools for the selected browser tab while retaining the other guests', async () => {
 	const userAgent = window.navigator.userAgent;
@@ -1008,4 +1061,37 @@ it( 'reopens a batched design note in its existing tab without scrolling', async
 	expect( await screen.findByRole( 'textbox', { name: 'Describe the change' } ) ).toHaveValue(
 		'Give this title more space'
 	);
+} );
+
+it( 'opens a WordPress style board without DESIGN.md and reloads saved style changes', async () => {
+	const { connector, queryClient, user } = await setup();
+	const board = ( color: string ) => ( {
+		design: null,
+		themeJson: {
+			settings: {
+				color: {
+					palette: {
+						theme: [
+							{ slug: 'ink', color: '#111111' },
+							{ slug: 'base', color: '#ffffff' },
+							{ slug: 'accent', color },
+						],
+					},
+				},
+			},
+			styles: { typography: { fontFamily: 'Inter, sans-serif' } },
+		},
+	} );
+	connector.getSiteDesign.mockResolvedValue( board( '#123456' ) );
+	await act( () => queryClient.invalidateQueries( { queryKey: [ 'site-design', 'one' ] } ) );
+	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+	await user.click( await screen.findByRole( 'menuitem', { name: 'Design system' } ) );
+	expect( await screen.findByRole( 'heading', { name: 'Color' } ) ).toBeVisible();
+	expect( screen.getByText( '#123456' ) ).toBeVisible();
+	expect( screen.queryByText( /DESIGN.md/ ) ).not.toBeInTheDocument();
+	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeDisabled();
+	connector.getSiteDesign.mockResolvedValue( board( '#654321' ) );
+	await user.click( screen.getByRole( 'button', { name: 'Reload preview' } ) );
+	expect( await screen.findByText( '#654321' ) ).toBeVisible();
+	expect( screen.queryByText( '#123456' ) ).not.toBeInTheDocument();
 } );

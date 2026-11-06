@@ -4,12 +4,18 @@ import path from 'path';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { type Snapshot } from '@studio/common/types/snapshot';
+import { type SyncSite } from '@studio/common/types/sync';
 import { __, sprintf } from '@wordpress/i18n';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { countSitePreviews, getNextSnapshotSequence } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
-import { createPreviewSite, type PreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
+import {
+	createPreviewSite,
+	getLivePreviewSite,
+	type PreviewSite,
+	uploadPreviewArchive,
+} from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { getSiteVersion } from 'cli/lib/site-versions';
@@ -46,7 +52,12 @@ export async function createWpcomPreviewSite( {
 	logger: Logger< LoggerAction >;
 	reportStep: ReportPreviewStep;
 	onArchiveBytes?: ( bytes: number | undefined ) => void;
-} ): Promise< { preview: PreviewSite; archiveBytes: number | undefined; versionId: string } > {
+} ): Promise< {
+	preview: PreviewSite;
+	archiveBytes: number | undefined;
+	versionId: string;
+	liveSite: SyncSite | undefined;
+} > {
 	await validateSiteSize( siteFolder, { onWpcom: true } );
 
 	reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
@@ -65,8 +76,9 @@ export async function createWpcomPreviewSite( {
 	logger.reportSuccess( __( 'Archive uploaded' ) );
 
 	reportStep( LoggerAction.READY, __( 'Creating preview site…' ), 60 );
-	const preview = await createPreviewSite( attachmentId, name, accessToken );
-	return { preview, archiveBytes, versionId };
+	const liveSite = await getLivePreviewSite( siteId );
+	const preview = await createPreviewSite( attachmentId, name, accessToken, liveSite?.id );
+	return { preview, archiveBytes, versionId, liveSite };
 }
 
 export async function runCommand(
@@ -112,7 +124,7 @@ export async function runCommand(
 			);
 		}
 
-		const { preview, versionId } = await createWpcomPreviewSite( {
+		const { preview, versionId, liveSite } = await createWpcomPreviewSite( {
 			siteId: site.id,
 			siteFolder,
 			archivePath,
@@ -124,6 +136,15 @@ export async function runCommand(
 		} );
 		const link = preview.shareUrl ?? `https://${ preview.hostname }`;
 		logger.reportSuccess( sprintf( __( 'Preview site available at: %s' ), link ) );
+		if ( liveSite && preview.liveSiteId === liveSite.id ) {
+			logger.reportSuccess(
+				sprintf(
+					/* translators: %s: Name or URL of the connected WordPress.com site */
+					__( 'Publish to %s to apply these changes.' ),
+					liveSite.name || liveSite.url
+				)
+			);
+		}
 
 		reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );
 		snapshot = await saveSnapshotToConfig(

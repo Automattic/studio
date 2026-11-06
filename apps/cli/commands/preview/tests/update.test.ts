@@ -144,7 +144,8 @@ describe( 'Preview Update Command', () => {
 		expect( updatePreviewSite ).toHaveBeenCalledWith(
 			mockAtomicSiteId,
 			678,
-			mockAuthToken.accessToken
+			mockAuthToken.accessToken,
+			undefined
 		);
 		expect( createPreviewSite ).not.toHaveBeenCalled();
 		expect( updateSnapshotInConfig ).toHaveBeenCalledWith(
@@ -191,7 +192,8 @@ describe( 'Preview Update Command', () => {
 		expect( createPreviewSite ).toHaveBeenCalledWith(
 			678,
 			mockSnapshot.name,
-			mockAuthToken.accessToken
+			mockAuthToken.accessToken,
+			undefined
 		);
 		expect( updatePreviewSite ).not.toHaveBeenCalled();
 		expect( updateSnapshotInConfig ).not.toHaveBeenCalled();

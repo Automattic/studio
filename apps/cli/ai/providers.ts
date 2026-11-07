@@ -162,7 +162,6 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 			env.STUDIO_WPCOM_BASE_URL = `${ gatewayBaseUrl.replace( /\/+$/, '' ) }/v1`;
 			env.STUDIO_WPCOM_API_KEY = accessToken;
 			const headers: Record< string, string > = {
-				'User-Agent': getStudioUserAgent(),
 				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER,
 			};
 			if ( options?.sessionId ) {

@@ -147,8 +147,8 @@ export interface AuthUser {
 
 // What native affordances the host environment offers, so the UI can choose
 // between a native flow and a browser-friendly fallback (instead of branching on
-// "am I in Electron"). The desktop app has them all; the browser (`studio ui`)
-// does not.
+// "am I in Electron"). The desktop app has them all; `studio ui` and Studio on
+// the web have fewer.
 interface ConnectorCapabilities {
 	// A native OS folder picker is available (`selectSiteFolder`). When false,
 	// the UI offers an editable path field instead.
@@ -164,6 +164,11 @@ interface ConnectorCapabilities {
 	// `~/.studio/daemon/logs` and everything else to the terminal that started
 	// it, so there is no single log to point a browser user at.
 	studioLogs: boolean;
+	// Sites run on native PHP from a folder on this machine, with what that
+	// brings: opening the folder in an app, site email, phpMyAdmin, custom
+	// domains, Xdebug, a site's agent files, file access, and a choice of PHP and
+	// WordPress versions. Studio on the web runs them in Playground instead.
+	nativeSites: boolean;
 }
 
 export interface Connector {
@@ -513,6 +518,15 @@ export interface Connector {
 	// when it's gone.
 	getSiteEmails( siteId: string ): Promise< SiteEmailSummary[] >;
 	getSiteEmail( siteId: string, emailId: string ): Promise< SiteEmail | null >;
+
+	// Connects a preview <iframe> whose pages can run Studio's scripts (Studio
+	// on the web, through each site's bridge), for the annotation inspector:
+	// `onPage` after each page load, `onLog` with the page's inspector messages,
+	// and `run` to run a script in the page. Absent where frames can't be reached.
+	connectPreviewFrame?(
+		iframe: HTMLIFrameElement,
+		listeners: { onPage(): void; onLog( message: string ): void }
+	): { run( script: string ): void; dispose(): void };
 
 	// The site's WordPress debug log, resolved host-side from the site id. Its
 	// existence is a query, not a `SiteDetails` field: the file comes and goes

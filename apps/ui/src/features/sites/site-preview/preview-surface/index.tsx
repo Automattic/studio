@@ -1,12 +1,21 @@
+import {
+	INSPECTOR_PAGE_SCRIPT,
+	parseInspectorMessage,
+	type InspectorEvent,
+} from '@studio/agent/protocol/inspector/page-script';
 import { __ } from '@wordpress/i18n';
 import { isAppleOS } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useConnector } from '@/data/core';
+import { useColorScheme } from '@/data/host/use-color-scheme';
 import { PanelLoadError } from '@/features/sites/panel-load-error';
 import { normalizeDocumentTitle } from '@/features/sites/site-preview/browser-state';
 import { ResponsiveViewport } from '../responsive-preview/viewport';
+import { buildInspectorCommandScript } from './inspector-command';
 import styles from './style.module.css';
 import type { ResponsivePreviewSettings } from '@/data/responsive-preview';
+import type { SiteAnnotations } from '@/features/annotations';
 import type { BrowserCommand } from '@/features/sites/site-preview/browser-state';
 import type { ReactNode } from 'react';
 
@@ -57,8 +66,9 @@ function getIframeTitle( iframe: HTMLIFrameElement ) {
 	}
 }
 
-// Non-Electron fallback: plain iframe, no inspector. Reloads by remounting;
-// back/forward aren't reachable from the host.
+// Non-Electron fallback: plain iframe, with the annotation inspector where the
+// connector can reach the frame's pages. Reloads by remounting; back/forward
+// aren't reachable from the host.
 export function FrameSurface( {
 	src,
 	title,
@@ -69,6 +79,9 @@ export function FrameSurface( {
 	browserCommand,
 	onCommandHandled,
 	onAdminBarVisibilityChange,
+	annotations,
+	onInspectorReady,
+	onInspectorEvent,
 }: {
 	src: string;
 	title: string;
@@ -80,8 +93,13 @@ export function FrameSurface( {
 	browserCommand?: BrowserCommand | null;
 	onCommandHandled?: () => void;
 	onAdminBarVisibilityChange?: ( visible: boolean | null ) => void;
+	annotations?: SiteAnnotations;
+	onInspectorReady?: ( ready: boolean ) => void;
+	onInspectorEvent?: ( event: InspectorEvent ) => void;
 } ) {
-	const frame = useRef< HTMLIFrameElement >( null );
+	const connector = useConnector();
+	const ref = useRef< HTMLIFrameElement | null >( null );
+	const [ page, setPage ] = useState< { run( script: string ): void } | null >( null );
 	const callbacks = useRef( { onAdminBarVisibilityChange, onNavigate, onLoadingChange, onSettle } );
 	const navigationId = useRef( 0 );
 	const pendingProbe = useRef( 0 );
@@ -95,7 +113,7 @@ export function FrameSurface( {
 	}, [ onAdminBarVisibilityChange, onNavigate, onLoadingChange, onSettle ] );
 	useEffect( () => {
 		if ( browserCommand?.type !== 'login' && browserCommand?.type !== 'read-admin-bar' ) return;
-		frame.current?.contentWindow?.postMessage(
+		ref.current?.contentWindow?.postMessage(
 			{
 				type:
 					browserCommand.type === 'login'
@@ -106,9 +124,46 @@ export function FrameSurface( {
 		);
 		onCommandHandled?.();
 	}, [ browserCommand, onCommandHandled, src ] );
+
+	const inspector = !! annotations;
+	const listenersRef = useRef( { onInspectorReady, onInspectorEvent } );
+	useEffect( () => {
+		listenersRef.current = { onInspectorReady, onInspectorEvent };
+	}, [ onInspectorReady, onInspectorEvent ] );
+
+	useEffect( () => {
+		const iframe = ref.current;
+		if ( ! inspector || ! iframe || ! connector.connectPreviewFrame ) return;
+		const connection = connector.connectPreviewFrame( iframe, {
+			onPage() {
+				connection.run( INSPECTOR_PAGE_SCRIPT );
+				// A new object for each page: its inspector starts with no notes.
+				setPage( { ...connection } );
+				listenersRef.current.onInspectorReady?.( true );
+			},
+			onLog( message ) {
+				const event = parseInspectorMessage( message, iframe.getBoundingClientRect() );
+				if ( event ) listenersRef.current.onInspectorEvent?.( event );
+			},
+		} );
+		return () => {
+			connection.dispose();
+			setPage( null );
+			listenersRef.current.onInspectorReady?.( false );
+		};
+	}, [ connector, inspector ] );
+
+	// Mirrors the notes into the page, in the theme's accent.
+	const colorScheme = useColorScheme();
+	useEffect( () => {
+		if ( page && annotations && ref.current ) {
+			page.run( buildInspectorCommandScript( annotations, ref.current ) );
+		}
+	}, [ annotations, colorScheme, page ] );
+
 	useEffect( () => {
 		const onMessage = ( event: MessageEvent ) => {
-			const iframe = frame.current;
+			const iframe = ref.current;
 			if (
 				! iframe ||
 				event.source !== iframe.contentWindow ||
@@ -174,7 +229,7 @@ export function FrameSurface( {
 
 	return (
 		<iframe
-			ref={ frame }
+			ref={ ref }
 			className={ styles.iframe }
 			src={ src }
 			title={ title }

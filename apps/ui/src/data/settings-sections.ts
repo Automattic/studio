@@ -81,7 +81,7 @@ const setting = (
 	icon,
 } );
 
-function getStudioSections( signedIn: boolean ): Section[] {
+function getStudioSections( signedIn: boolean, nativeSites = true ): Section[] {
 	const sections: Section[] = [
 		{
 			command: 'settings',
@@ -96,32 +96,36 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					'language',
 					LanguageIcon
 				),
-				setting(
-					'navigate',
-					__( 'Default code editor' ),
-					__( 'The default code editor for your sites.' ),
-					'code-editor',
-					CodeIcon
-				),
-				setting(
-					'navigate',
-					__( 'Default browser' ),
-					__( 'The browser used to open your sites, WP Admin, and phpMyAdmin.' ),
-					'browser'
-				),
-				setting(
-					'navigate',
-					__( 'Default terminal app' ),
-					__( 'The default terminal for your sites.' ),
-					'terminal',
-					TerminalIcon
-				),
-				setting(
-					'navigate',
-					__( 'Default directory' ),
-					__( 'The folder where WordPress Studio creates new sites.' ),
-					'default-directory'
-				),
+				...( nativeSites
+					? [
+							setting(
+								'navigate',
+								__( 'Default code editor' ),
+								__( 'The default code editor for your sites.' ),
+								'code-editor',
+								CodeIcon
+							),
+							setting(
+								'navigate',
+								__( 'Default browser' ),
+								__( 'The browser used to open your sites, WP Admin, and phpMyAdmin.' ),
+								'browser'
+							),
+							setting(
+								'navigate',
+								__( 'Default terminal app' ),
+								__( 'The default terminal for your sites.' ),
+								'terminal',
+								TerminalIcon
+							),
+							setting(
+								'navigate',
+								__( 'Default directory' ),
+								__( 'The folder where WordPress Studio creates new sites.' ),
+								'default-directory'
+							),
+					  ]
+					: [] ),
 				setting(
 					'action',
 					__( 'Improve WordPress Studio for everyone' ),
@@ -362,11 +366,16 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			aliases: [ __( 'Keyboard shortcuts' ) ],
 		},
 	];
-	return sections.filter( ( section ) => signedIn || section.id !== 'usage' );
+	// MCP sets up the local CLI, and skills are installed into site folders.
+	return sections.filter(
+		( section ) =>
+			( signedIn || section.id !== 'usage' ) &&
+			( nativeSites || ( section.id !== 'mcp' && section.id !== 'skills' ) )
+	);
 }
 
-function getSiteSections(): Section[] {
-	return [
+function getSiteSections( nativeSites = true ): Section[] {
+	const sections: Section[] = [
 		{
 			command: 'site-settings',
 			id: 'site',
@@ -379,30 +388,36 @@ function getSiteSections(): Section[] {
 					__( 'Name shown in WordPress Studio.' ),
 					'site-name'
 				),
-				setting(
-					'navigate',
-					__( 'WordPress version' ),
-					__( 'Choose the WordPress release for this site.' ),
-					'wordpress-version'
-				),
-				setting(
-					'navigate',
-					__( 'Automatic updates' ),
-					__( 'Keep WordPress updated to the latest released version.' ),
-					'automatic-updates'
-				),
-				setting(
-					'navigate',
-					__( 'Use custom domain' ),
-					__( 'Use a local address like my-site.local.' ),
-					'custom-domain'
-				),
-				setting(
-					'navigate',
-					__( 'Enable HTTPS' ),
-					__( 'Test features that require HTTPS and catch issues before your site goes live.' ),
-					'https'
-				),
+				...( nativeSites
+					? [
+							setting(
+								'navigate',
+								__( 'WordPress version' ),
+								__( 'Choose the WordPress release for this site.' ),
+								'wordpress-version'
+							),
+							setting(
+								'navigate',
+								__( 'Automatic updates' ),
+								__( 'Keep WordPress updated to the latest released version.' ),
+								'automatic-updates'
+							),
+							setting(
+								'navigate',
+								__( 'Use custom domain' ),
+								__( 'Use a local address like my-site.local.' ),
+								'custom-domain'
+							),
+							setting(
+								'navigate',
+								__( 'Enable HTTPS' ),
+								__(
+									'Test features that require HTTPS and catch issues before your site goes live.'
+								),
+								'https'
+							),
+					  ]
+					: [] ),
 				setting(
 					'navigate',
 					__( 'Username' ),
@@ -434,12 +449,16 @@ function getSiteSections(): Section[] {
 					__( 'Sets the value returned by wp_get_environment_type().' ),
 					'environment'
 				),
-				setting(
-					'navigate',
-					__( 'Xdebug' ),
-					__( 'Connect a debugger to inspect PHP execution.' ),
-					'xdebug'
-				),
+				...( nativeSites
+					? [
+							setting(
+								'navigate',
+								__( 'Xdebug' ),
+								__( 'Connect a debugger to inspect PHP execution.' ),
+								'xdebug'
+							),
+					  ]
+					: [] ),
 				setting(
 					'navigate',
 					__( 'Debug log' ),
@@ -496,10 +515,19 @@ function getSiteSections(): Section[] {
 			],
 		},
 	];
+	return sections.filter(
+		( section ) =>
+			nativeSites || ! [ 'php', 'site-skills', 'site-instructions' ].includes( section.id )
+	);
 }
 
-export function getSections( scope: SettingsScope, { signedIn = true } = {} ): Section[] {
-	return scope === 'studio' ? getStudioSections( signedIn ) : getSiteSections();
+export function getSections(
+	scope: SettingsScope,
+	{ signedIn = true, nativeSites }: { signedIn?: boolean; nativeSites?: boolean } = {}
+): Section[] {
+	return scope === 'studio'
+		? getStudioSections( signedIn, nativeSites )
+		: getSiteSections( nativeSites );
 }
 
 /** Alternate names for existing commands that already own a settings destination. */
@@ -544,7 +572,7 @@ export type SearchResult = { scope: SettingsScope; section: Section; setting?: S
 export function searchSettings(
 	query: string,
 	scope: SettingsScope,
-	{ hasSite, signedIn }: { hasSite: boolean; signedIn: boolean }
+	{ hasSite, signedIn, nativeSites }: { hasSite: boolean; signedIn: boolean; nativeSites: boolean }
 ): SearchResult[] {
 	const words = query.trim().toLocaleLowerCase().split( /\s+/ ).filter( Boolean );
 	if ( ! words.length ) {
@@ -560,7 +588,7 @@ export function searchSettings(
 	};
 	return scopes
 		.flatMap( ( candidate, scopeIndex ) =>
-			getSections( candidate, { signedIn } ).flatMap( ( section ) =>
+			getSections( candidate, { signedIn, nativeSites } ).flatMap( ( section ) =>
 				[
 					{ ...setting( 'navigate', section.label ), aliases: section.aliases },
 					...section.settings,

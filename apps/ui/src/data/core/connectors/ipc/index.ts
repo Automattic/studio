@@ -130,6 +130,7 @@ export function createIpcConnector(): Connector {
 			nativeFolderPicker: true,
 			annotatePreview: true,
 			studioLogs: true,
+			nativeSites: true,
 		},
 
 		agenticRequiresAuth: true,

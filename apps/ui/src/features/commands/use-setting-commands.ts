@@ -131,6 +131,7 @@ export function useSettingCommands(
 		scope,
 		site,
 		signedIn: ! user.isSuccess || !! user.data,
+		nativeSites: connector.capabilities.nativeSites,
 		toggles,
 		actions: {
 			'reset-appearance': {

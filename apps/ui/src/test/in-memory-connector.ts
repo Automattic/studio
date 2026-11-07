@@ -45,6 +45,10 @@ export type FakeConnectorInitialState = Partial< Omit< FakeConnectorState, 'pref
 	preferences?: Partial< UserPreferences >;
 };
 
+export type ConnectorOverrides = Partial< Omit< Connector, 'capabilities' > > & {
+	capabilities?: Partial< Connector[ 'capabilities' ] >;
+};
+
 export function makeSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
 	const id = overrides.id ?? 'site-1';
 	return {
@@ -106,7 +110,7 @@ const installedApps = () =>
  */
 export function createInMemoryConnector(
 	initial: FakeConnectorInitialState = {},
-	overrides: Partial< Connector > = {}
+	overrides: ConnectorOverrides = {}
 ): InMemoryConnector {
 	const state: FakeConnectorState = {
 		sites: [],
@@ -262,6 +266,7 @@ export function createInMemoryConnector(
 		getPublishCheckoutUrl: () => undefined,
 		onSyncConnectSite: subscribe( 'onSyncConnectSite' ),
 		watchForPublishedSite: async () => {},
+		connectPreviewFrame: () => ( { run: () => {}, dispose: () => {} } ),
 		getSessions: async () => state.sessions.map( ( session ) => session.summary ),
 		getSession: async ( id ) => findSession( id ),
 		updateSessionMetadata: async ( id, patch ) => {
@@ -399,16 +404,18 @@ export function createInMemoryConnector(
 	};
 
 	return {
-		capabilities: {
-			nativeFolderPicker: true,
-			annotatePreview: true,
-			studioLogs: true,
-		},
 		agenticRequiresAuth: true,
 		showsAppMenuButton: false,
 		reservesTrafficLightSpace: false,
 		...methods,
 		...overrides,
+		capabilities: {
+			nativeFolderPicker: true,
+			annotatePreview: true,
+			studioLogs: true,
+			nativeSites: true,
+			...overrides.capabilities,
+		},
 		state,
 		emit,
 		listenerCount: ( event ) => listeners.get( event )?.size ?? 0,

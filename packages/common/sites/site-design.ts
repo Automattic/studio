@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
 	applyDesignToThemeJson,
@@ -131,7 +131,13 @@ export async function fixSiteDesign(
 				.map( ( [ , style ] ) => style )
 				.filter( ( style ) => families.includes( fontFamilyName( style.fontFamily ) ) )
 		);
-		const fontFaces = fontsUrl ? await downloadThemeFonts( fontsUrl, files.themeDir ) : {};
+		const fontFaces = fontsUrl
+			? await downloadThemeFonts( fontsUrl, async ( themePath, data ) => {
+					const file = path.join( files.themeDir, themePath );
+					await mkdir( path.dirname( file ), { recursive: true } );
+					await writeFile( file, data );
+			  } )
+			: {};
 		const themeJson = applyDesignToThemeJson( tokens, current.themeJson, toTheme, fontFaces );
 		await writeFile( files.themeJsonPath, JSON.stringify( themeJson, null, '\t' ) + '\n' );
 	}

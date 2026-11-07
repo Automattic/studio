@@ -625,7 +625,11 @@ export interface Connector {
 
 	// Fires when the user activates "File > Add Site…" (or its keyboard
 	// shortcut) in the application menu.
-	onAddSite( listener: () => void ): () => void;
+	onAddSite(
+		listener: (
+			payload?: { backup?: { path: string; name: string } } | void
+		) => void
+	): () => void;
 	onNewChat( listener: () => void ): () => void;
 	onOpenFolder( listener: () => void ): () => void;
 	// Desktop links and Spotlight select a site in the Studio workspace.

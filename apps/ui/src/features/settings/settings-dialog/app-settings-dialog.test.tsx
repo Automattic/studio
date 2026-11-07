@@ -338,18 +338,20 @@ describe( 'WordPress Studio settings', () => {
 		);
 	} );
 
-	it( 'shows account details above General preferences and supports logging out', async () => {
-		const { connector } = await setup();
+	it( 'starts General preferences with Application when logged in', async () => {
+		await setup();
 		await screen.findByRole( 'combobox', { name: 'Language' } );
-		expect( await screen.findByText( TEST_USER.email ) ).toBeVisible();
-		expect( screen.getByText( TEST_USER.displayName ) ).toBeVisible();
+		expect( screen.queryByText( TEST_USER.email ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( TEST_USER.displayName ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'tab', { name: 'Account' } ) ).not.toBeInTheDocument();
 		const general = screen.getByRole( 'tabpanel', { name: 'General' } );
-		expect( within( general ).getAllByRole( 'group' )[ 0 ] ).toHaveTextContent( TEST_USER.email );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Log out' } ) );
-		await waitFor( () => expect( connector.logout ).toHaveBeenCalledExactlyOnceWith() );
-		expect( await studioConnect() ).toBeVisible();
-		expect( screen.queryByText( TEST_USER.email ) ).not.toBeInTheDocument();
+		expect( within( general ).getAllByRole( 'group' )[ 0 ] ).toHaveAccessibleName( 'Application' );
+		expect(
+			within( general ).queryByRole( 'button', { name: 'Log out' } )
+		).not.toBeInTheDocument();
+		expect(
+			within( general ).queryByRole( 'button', { name: 'Connect' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it( 'shows account-wide preview usage in Sharing', async () => {
@@ -574,8 +576,8 @@ describe( 'WordPress Studio settings', () => {
 		).toEqual( [
 			'General',
 			'Appearance',
-			'Sharing',
 			'Providers',
+			'Sharing',
 			'MCP',
 			'Usage',
 			'Skills',

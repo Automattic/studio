@@ -18,6 +18,7 @@ import { refreshAgentPlugins } from '@studio/common/lib/connect-agent-app';
 import { runMigrations } from '@studio/common/lib/migration';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
+import { initializeWalkthrough } from '@studio/common/lib/user-settings/onboarding';
 import { updateSiteMetadata } from '@studio/common/sites/metadata';
 import { __, _n } from '@wordpress/i18n';
 import { installExtension, REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
@@ -510,6 +511,8 @@ async function appBoot() {
 
 		await startCliEventsSubscriber();
 		void refreshSpotlightIndex();
+
+		await initializeWalkthrough();
 
 		await createMainWindow();
 

@@ -16,7 +16,6 @@ function writeAppConfig( config: unknown ): void {
 	writeFileSync( path.join( configDir, 'app.json' ), JSON.stringify( config ), 'utf-8' );
 }
 
-// `{}` when absent: a rejected write leaves no app.json at all.
 function readAppConfigFile(): Record< string, unknown > {
 	const configPath = path.join( configDir, 'app.json' );
 	return existsSync( configPath ) ? JSON.parse( readFileSync( configPath, 'utf-8' ) ) : {};
@@ -145,10 +144,11 @@ describe( 'GET/PATCH /api/user-preferences', () => {
 		[ 'a value outside the supported set', { colorScheme: 'chartreuse' } ],
 		[ 'a locale with no translations', { locale: 'xx-fake' } ],
 	] )( 'rejects %s instead of storing it', async ( _label, body ) => {
+		const before = readAppConfigFile();
 		const response = await patchPreferences( body );
 
 		expect( response.status ).toBe( 400 );
-		expect( readAppConfigFile() ).toEqual( {} );
+		expect( readAppConfigFile() ).toEqual( before );
 	} );
 } );
 
@@ -181,10 +181,11 @@ describe( 'PATCH /api/sites/:id/frontend-admin-bar', () => {
 	} );
 
 	it( 'rejects malformed preferences and unknown sites', async () => {
+		const before = readAppConfigFile();
 		expect( ( await patchAdminBar( 'one', 'hide' ) ).status ).toBe( 400 );
 		expect( ( await patchAdminBar( 'one', undefined ) ).status ).toBe( 400 );
 		expect( ( await patchAdminBar( 'missing', true ) ).status ).toBe( 404 );
-		expect( readAppConfigFile() ).toEqual( {} );
+		expect( readAppConfigFile() ).toEqual( before );
 	} );
 } );
 
@@ -223,6 +224,29 @@ describe( 'POST /api/sites/sort-order', () => {
 } );
 
 describe( '/api/onboarding-hints', () => {
+	it( 'initializes fresh profiles and persists walkthrough progress alongside desktop hints', async () => {
+		const initial = await ( await fetch( `${ server.url }/api/onboarding-hints` ) ).json();
+		expect( initial ).toMatchObject( { walkthroughStep: 'create' } );
+		const response = await fetch( `${ server.url }/api/onboarding-hints`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify( { walkthroughStep: 'share', annotateHintDismissed: true } ),
+		} );
+		expect( response.status ).toBe( 204 );
+		expect( readAppConfigFile() ).toMatchObject( {
+			onboardingHints: { walkthroughStep: 'share', annotateHintDismissed: true },
+		} );
+		const invalid = await fetch( `${ server.url }/api/onboarding-hints`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify( { walkthroughStep: 'invalid' } ),
+		} );
+		expect( invalid.status ).toBe( 400 );
+		expect( readAppConfigFile() ).toMatchObject( {
+			onboardingHints: { walkthroughStep: 'share' },
+		} );
+	} );
+
 	it( 'merges a patch into the progress the desktop stored', async () => {
 		writeAppConfig( { onboardingHints: { tourCompletedVersion: 1, migratedFromClassic: true } } );
 

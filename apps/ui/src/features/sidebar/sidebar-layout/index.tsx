@@ -2,6 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
+import { useOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import { useSites } from '@/data/queries/use-sites';
 import {
 	PANEL_WIDTHS_RESET_EVENT,
@@ -62,6 +63,8 @@ export function SidebarLayout( {
 } ) {
 	const connector = useConnector();
 	const hasOpenDialog = useHasOpenDialog();
+	const { data: hints } = useOnboardingHints();
+	const touringSites = hints?.walkthroughStep === 'intro' && ! hasOpenDialog;
 	const sidebarResize = useResizablePanel( {
 		config: SIDEBAR_PANEL_CONFIG,
 		storageKey: SIDEBAR_PANEL_STORAGE_KEY,
@@ -74,7 +77,7 @@ export function SidebarLayout( {
 		'closed'
 	);
 	const peek = sidebarFlyoutState === 'hover';
-	const sidebarFlyoutOpen = sidebarFlyoutState === 'open';
+	const sidebarFlyoutOpen = sidebarFlyoutState === 'open' || touringSites;
 	const [ instantSidebarDock, setInstantSidebarDock ] = useState( false );
 	const dockedSidebarRef = useRef< HTMLElement >( null );
 	const setDockedFade = useScrollFade< HTMLDivElement >();
@@ -145,9 +148,9 @@ export function SidebarLayout( {
 		setWasOverlay( overlay );
 		setSidebarFlyoutState( ! overlay && sidebarFlyoutState !== 'closed' ? 'hover' : 'closed' );
 	}
-	const docked = ! overlay && ! collapsed;
+	const docked = ! overlay && ( ! collapsed || touringSites );
 	const open = docked || sidebarFlyoutOpen;
-	const sidebarFlyoutVisible = sidebarFlyoutState !== 'closed';
+	const sidebarFlyoutVisible = sidebarFlyoutState !== 'closed' || ( touringSites && overlay );
 	useEffect( () => {
 		if ( ! docked && ! sidebarFlyoutVisible ) closeNoticeHistory();
 	}, [ docked, sidebarFlyoutVisible ] );
@@ -222,7 +225,7 @@ export function SidebarLayout( {
 								/>
 								{ ! instantSidebarDock && (
 									<Popover.Root
-										open={ peek || sidebarFlyoutOpen }
+										open={ ! docked && ( peek || sidebarFlyoutOpen ) }
 										onOpenChange={ ( next, details ) => {
 											if (
 												details.reason === 'escape-key' &&
@@ -243,6 +246,7 @@ export function SidebarLayout( {
 										} }
 									>
 										<Popover.Popup
+											preserveWindowDrag={ touringSites }
 											// Sidebar items own dialogs that must survive the flyout closing.
 											keepMounted={ hasOpenDialog }
 											anchor={ sidebarFlyoutAnchor }

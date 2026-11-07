@@ -32,12 +32,7 @@ import {
 } from '@/features/annotations';
 import { SiteWorkspace, SessionHeader } from '@/features/chats';
 import { CommandPalette } from '@/features/commands';
-import {
-	useOrientationAutostart,
-	useOrientationReplay,
-	useWhatsNewAutostart,
-	useWhatsNewReplay,
-} from '@/features/onboarding';
+import { useWhatsNewAutostart, useWhatsNewReplay } from '@/features/onboarding';
 import { SidebarLayout, HeaderSidebarToggle, rememberVisit } from '@/features/sidebar';
 import { PanelSplitFrame, type PanelSplitFramePanelProps } from '@/features/sites';
 import {
@@ -101,11 +96,7 @@ function DashboardLayout() {
 	const { data: sessions } = useSessions();
 	const sessionSummary =
 		sessionData?.summary ?? sessions?.find( ( session ) => session.id === sessionId );
-	// Open the orientation guide on first workbench arrival, and let Help ▸
-	// Getting Started replay it.
-	useOrientationAutostart();
-	useOrientationReplay();
-	// Same, for the per-release announcements behind Help ▸ What's New.
+	// Per-release announcements behind Help ▸ What's New.
 	useWhatsNewAutostart();
 	useWhatsNewReplay();
 	const preview = useSessionPreviewUI();

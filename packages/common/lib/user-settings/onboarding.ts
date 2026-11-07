@@ -1,4 +1,25 @@
 import { readAppConfig, updateAppConfig } from '@studio/common/lib/app-config';
+import { readCliConfigFileRaw } from '@studio/common/lib/cli-config-file';
+import { onboardingHintsSchema } from './user-preferences';
+
+/** Capture first-use eligibility before launch stats or welcome completion are written. */
+export async function initializeWalkthrough(): Promise< void > {
+	const cliConfig = await readCliConfigFileRaw();
+	await updateAppConfig( ( config ) => {
+		const hints = onboardingHintsSchema.catch( {} ).parse( config.onboardingHints );
+		if ( hints.walkthroughStep !== undefined ) return;
+		const usedBefore =
+			config.onboardingCompleted === true ||
+			config.lastBumpStats !== undefined ||
+			hints.migratedFromClassic === true ||
+			hints.tourCompletedVersion !== undefined ||
+			hints.tourDismissedVersion !== undefined ||
+			hints.whatsNewSeenVersion !== undefined ||
+			( Array.isArray( cliConfig.sites ) && cliConfig.sites.length > 0 ) ||
+			( Array.isArray( cliConfig.snapshots ) && cliConfig.snapshots.length > 0 );
+		config.onboardingHints = { ...hints, walkthroughStep: usedBefore ? 'ineligible' : 'create' };
+	} );
+}
 
 export async function readOnboardingCompleted(): Promise< boolean > {
 	return ( await readAppConfig() ).onboardingCompleted === true;

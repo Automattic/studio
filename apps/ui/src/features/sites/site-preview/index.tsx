@@ -42,7 +42,6 @@ import {
 	getPreviewLocationFromUrl,
 	getPreviewRealm,
 	getRealmNavigationPath,
-	getRealmOpenEvent,
 	isWordPressAuthPath,
 } from './address-bar';
 import { EMPTY_BROWSER_STATE, type BrowserNavigationState } from './browser-state';
@@ -70,6 +69,7 @@ import { useLoadingStage } from './use-loading-stage';
 import { usePreviewAnnotations } from './use-preview-annotations';
 import { usePreviewBrowser } from './use-preview-browser';
 import { usePreviewCapture } from './use-preview-capture';
+import { usePreviewOpenTracks } from './use-preview-open-tracks';
 import { usePreviewSurfaces } from './use-preview-surfaces';
 import type { SiteDetails } from '@/data/core';
 import type { InspectorEvent } from '@studio/agent/protocol/inspector/page-script';
@@ -114,6 +114,7 @@ function SitePreviewContent( {
 	onTitleChange,
 }: SitePreviewProps ) {
 	const connector = useConnector();
+	const trackOpen = usePreviewOpenTracks();
 	const { annotationSpace } = useSiteHeader();
 	const startSite = useStartSite();
 	const operation = useSiteOperation( site );
@@ -394,12 +395,15 @@ function SitePreviewContent( {
 	// than always the front end. Admin screens go through /studio-auto-login so
 	// they don't land on the login form; the front end opens logged out.
 	const openExternal = live
-		? () => void connector.openExternalUrl( `${ siteUrl }${ safePath }` )
+		? () => {
+				trackOpen( safePath, 'external' );
+				void connector.openExternalUrl( `${ siteUrl }${ safePath }` );
+		  }
 		: rendered
 		? undefined
 		: activeRealm === 'frontend-app'
 		? () => {
-				void connector.trackEvent( getRealmOpenEvent( activeRealm ), { browser: 'external' } );
+				trackOpen( safePath, 'external' );
 				void connector
 					.openSiteUrl( site.id, getFrontendAppRelativePath( safePath ), {
 						autoLogin: false,
@@ -410,7 +414,7 @@ function SitePreviewContent( {
 					} );
 		  }
 		: () => {
-				void connector.trackEvent( getRealmOpenEvent( activeRealm ), { browser: 'external' } );
+				trackOpen( safePath, 'external' );
 				void connector
 					.openSiteUrl( site.id, safePath, { autoLogin: activeRealm !== 'frontend' } )
 					.catch( ( error ) => {

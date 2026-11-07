@@ -20,7 +20,10 @@ import { getSiteRestartId, isSiteRestarting, useSiteRestartStates } from '@/data
 import { useOpenSettings } from '@/data/use-open-settings';
 import { PanelCommandContext } from '@/data/use-panel-command';
 import { pathForSite, useSessionPreviewUI } from '@/data/use-session-ui';
-import { useWorkspaceLayoutTracks } from '@/data/use-workspace-layout-tracks';
+import {
+	useWorkspaceLayoutTracks,
+	WorkspaceLayoutTracksContext,
+} from '@/data/use-workspace-layout-tracks';
 import { AccountPromptDialog } from '@/features/account';
 import {
 	getSiteAnnotations,
@@ -529,7 +532,11 @@ function DashboardLayout() {
 				},
 			} }
 		>
-			{ content }
+			<WorkspaceLayoutTracksContext.Provider
+				value={ { siteId: routeSite?.id, run: runLayoutTransition } }
+			>
+				{ content }
+			</WorkspaceLayoutTracksContext.Provider>
 		</PanelCommandContext.Provider>
 	);
 }

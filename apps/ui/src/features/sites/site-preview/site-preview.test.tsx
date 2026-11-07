@@ -1,5 +1,6 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { READ_ADMIN_BAR_VISIBILITY_SCRIPT } from '@studio/common/lib/preview-shortcuts-script';
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { useSyncExternalStore, type ComponentProps } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -515,6 +516,32 @@ describe( 'site preview controls', () => {
 		await open();
 		expect( connector.openSiteUrl ).toHaveBeenLastCalledWith( 'one', '/wp-admin/', {
 			autoLogin: true,
+		} );
+		expect( connector.trackEvent.mock.calls ).toEqual( [
+			[ TRACKS_EVENTS.SITE_OPEN_IN_BROWSER, { browser: 'external' } ],
+			[ TRACKS_EVENTS.SITE_OPEN_WP_ADMIN, { browser: 'external' } ],
+		] );
+	} );
+
+	it.each( [
+		[ '/about/', TRACKS_EVENTS.SITE_OPEN_IN_BROWSER ],
+		[ '/wp-admin/', TRACKS_EVENTS.SITE_OPEN_WP_ADMIN ],
+	] as const )( 'records a live preview opened externally at %s', async ( path, event ) => {
+		const connector = createFakeConnector();
+		const { user } = await renderPreview(
+			'browser',
+			{
+				path,
+				liveUrl: 'https://example.wordpress.com',
+			},
+			connector
+		);
+		await user.click( screen.getByRole( 'button', { name: 'Open this page in your browser' } ) );
+		expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith(
+			`https://example.wordpress.com${ path }`
+		);
+		expect( connector.trackEvent ).toHaveBeenCalledExactlyOnceWith( event, {
+			browser: 'external',
 		} );
 	} );
 

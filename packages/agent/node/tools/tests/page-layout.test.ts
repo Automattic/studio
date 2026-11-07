@@ -326,6 +326,8 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 	// eval7 picky 1: a theme's `html { scroll-behavior: smooth }` left text
 	// below the first screen unread, as a scroll to it had not moved yet.
 	// eval23 redo port 2: outlined text (a transparent fill, a stroke) shows its stroke.
+	// eval25 picky port 1: a link's hover underline, a pseudo-element under its
+	// text, left the header's unreadable navigation unmeasured.
 	it.each( [ '', 'html{scroll-behavior:smooth}' ] )(
 		'names text a visitor cannot read against what is painted behind it (%s)',
 		async ( smooth ) => {
@@ -338,7 +340,9 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 			<div style="position:relative"><span style="position:absolute;inset:0;background:#0b1633"></span><p style="position:relative;color:#fff">Over an overlay</p></div>
 			<p style="color:rgba(11,22,51,.35)">Faded</p>
 			<div class="wp-block-group has-text-color has-background" style="background:#0b1633;color:#1a2540"><p>Dim</p></div>
-			<div style="background:#0b1633"><p style="color:transparent;-webkit-text-stroke:1px #c6e24b">Outlined</p><p style="color:transparent;-webkit-text-stroke:1px #1a2540">Outlined dim</p></div>`,
+			<div style="background:#0b1633"><p style="color:transparent;-webkit-text-stroke:1px #c6e24b">Outlined</p><p style="color:transparent;-webkit-text-stroke:1px #1a2540">Outlined dim</p></div>
+			<style>.u{position:relative;color:#1a2540}.u::after{content:"";position:absolute;left:0;top:100%;width:0;height:2px;background:#fff}.o{position:relative;color:#1a2540}.o::before{content:"";position:absolute;inset:0;background:#fff}</style>
+			<div style="background:#0b1633"><a class="u">Underlined</a><p class="o">Over a pseudo-element</p></div>`,
 				pageContrast
 			);
 			expect( lines ).toEqual( [
@@ -348,6 +352,7 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 				'  p "Faded", at y 2140, is #aaaeb8 text on #ffffff, a contrast ratio of 2.2:1.',
 				'  p "Dim", at y 2158, is #1a2540 text on #0b1633, a contrast ratio of 1.2:1.',
 				'  p "Outlined dim", at y 2194, is #1a2540 text on #0b1633, a contrast ratio of 1.2:1.',
+				'  a.u "Underlined", at y 2212, is #1a2540 text on #0b1633, a contrast ratio of 1.2:1.',
 			] );
 		}
 	);

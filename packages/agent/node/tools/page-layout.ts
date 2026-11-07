@@ -688,19 +688,57 @@ export async function pageContrast( page: Page ): Promise< string[] > {
 				.slice( 0, 3 )
 				.map( ( channel ) => Math.round( channel ).toString( 16 ).padStart( 2, '0' ) )
 				.join( '' );
-		const unmeasured = ( element: Element ) => {
+		// Where a pseudo-element absolutely positioned in its own element paints,
+		// or null where its box is not known.
+		const pseudoBox = ( element: Element, style: CSSStyleDeclaration ) => {
+			const sides = [ style.left, style.top, style.width, style.height ];
+			if (
+				style.position !== 'absolute' ||
+				style.transform !== 'none' ||
+				getComputedStyle( element ).position === 'static' ||
+				sides.some( ( side ) => ! side.endsWith( 'px' ) )
+			) {
+				return null;
+			}
+			const [ left, top, width, height ] = sides.map( parseFloat );
+			const edges = ( ...names: string[] ) =>
+				style.boxSizing === 'border-box'
+					? 0
+					: names.reduce( ( sum, name ) => sum + parseFloat( style.getPropertyValue( name ) ), 0 );
+			const owner = element.getBoundingClientRect();
+			const x = owner.left + element.clientLeft + left;
+			const y = owner.top + element.clientTop + top;
+			return {
+				left: x,
+				top: y,
+				right:
+					x +
+					width +
+					edges( 'padding-left', 'padding-right', 'border-left-width', 'border-right-width' ),
+				bottom:
+					y +
+					height +
+					edges( 'padding-top', 'padding-bottom', 'border-top-width', 'border-bottom-width' ),
+			};
+		};
+		// An image, a gradient or a pseudo-element's background painted at a point.
+		const unmeasured = ( element: Element, x: number, y: number ) => {
 			if ( element.matches( 'img, picture, video, canvas, svg, iframe, object, embed' ) ) {
 				return true;
 			}
 			return [ undefined, '::before', '::after' ].some( ( pseudo ) => {
 				const style = getComputedStyle( element, pseudo );
-				if ( pseudo && style.content === 'none' ) {
+				if ( ! pseudo ) {
+					return style.backgroundImage !== 'none';
+				}
+				if (
+					style.content === 'none' ||
+					( style.backgroundImage === 'none' && rgba( style.backgroundColor )[ 3 ] === 0 )
+				) {
 					return false;
 				}
-				return (
-					style.backgroundImage !== 'none' ||
-					( !! pseudo && rgba( style.backgroundColor )[ 3 ] > 0 )
-				);
+				const box = pseudoBox( element, style );
+				return ! box || ( x >= box.left && x < box.right && y >= box.top && y < box.bottom );
 			} );
 		};
 		const opacity = ( element: Element | null ) => {
@@ -748,7 +786,8 @@ export async function pageContrast( page: Page ): Promise< string[] > {
 				continue;
 			}
 			const x = Math.min( rect.left + Math.min( rect.width, 20 ) / 2, window.innerWidth - 1 );
-			const stack = document.elementsFromPoint( x, rect.top + rect.height / 2 );
+			const middle = rect.top + rect.height / 2;
+			const stack = document.elementsFromPoint( x, middle );
 			const index = stack.indexOf( element );
 			if ( index < 0 ) {
 				continue;
@@ -757,7 +796,7 @@ export async function pageContrast( page: Page ): Promise< string[] > {
 			let backdrop: Element | undefined;
 			let measured = true;
 			for ( const layer of stack.slice( index ) ) {
-				if ( unmeasured( layer ) ) {
+				if ( unmeasured( layer, x, middle ) ) {
 					measured = false;
 					break;
 				}

@@ -31,6 +31,7 @@
 }
 .header[data-panel-fullscreen] {
 	--panel-chat-header-width: calc( 100% - var( --layout-controls-space ) );
+	--site-menu-max-width: var( --band-tab-width );
 }
 .layoutControls {
 	position: absolute;

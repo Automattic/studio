@@ -15,6 +15,8 @@ export async function handleStudioActionDeeplink( url: URL ): Promise< void > {
 	window.focus();
 	if ( target.action === 'new-site' ) {
 		await sendIpcEventToRenderer( 'add-site' );
+	} else if ( target.action === 'pull-site' ) {
+		await sendIpcEventToRenderer( 'pull-site', { remoteSiteId: target.remoteSiteId } );
 	} else {
 		await sendIpcEventToRenderer( 'open-site', { siteId: target.siteId } );
 	}

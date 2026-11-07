@@ -1,18 +1,18 @@
 import { aiSessionBelongsToSite } from '@studio/agent/protocol/sessions/owner-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { useNavigate } from '@tanstack/react-router';
-import { __, sprintf } from '@wordpress/i18n';
+import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
-import { EllipsisVertical } from 'lucide-react';
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useSessionsBusy } from '@/data/agent-runs/use-agent-run';
 import { useConnector } from '@/data/core';
 import { useSessions } from '@/data/queries/use-sessions';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
-import { useIsSiteBusy, useSites, useStopSite } from '@/data/queries/use-sites';
+import { useIsSiteBusy, useSites, useStopSite, useRestartSite } from '@/data/queries/use-sites';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
+import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
 import { SiteShareMenuItem } from '@/features/sharing';
 import { DeleteSiteDialog } from '@/features/sites/delete-site-dialog';
 import {
@@ -30,14 +30,13 @@ import {
 } from '@/features/sites/use-site-management-actions';
 import { SitePublishMenu } from '@/features/sync';
 import {
-	ArrowRightIcon,
-	ChatIcon,
 	ChevronDownIcon,
 	ExportIcon,
 	ExternalLinkIcon,
 	GlobeIcon,
 	NewChatIcon,
 	PinIcon,
+	PlusIcon,
 	RenameIcon,
 	RotateCwIcon,
 	SiteSettingsIcon,
@@ -46,7 +45,7 @@ import {
 	StopSiteIcon,
 	UnpinIcon,
 } from '@/lib/icons';
-import { Tooltip, TooltipContent, TooltipTrigger, Menu, Button, IconButton } from '@/lib/ui';
+import { Tooltip, TooltipContent, TooltipTrigger, Menu, Button } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
@@ -78,6 +77,7 @@ export function useSiteActions(
 	const { data: sites } = useSites();
 	const startSite = useStartSiteWithChat();
 	const stopSite = useStopSite();
+	const restartSite = useRestartSite();
 	const busy = useIsSiteBusy( site );
 	const { isPinned, togglePin } = useSidebarPins();
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
@@ -108,6 +108,7 @@ export function useSiteActions(
 	} );
 
 	const toolActions = useSiteToolActions( site );
+	const runLayoutTransition = useUserWorkspaceLayoutTransition( site.id );
 
 	return {
 		site,
@@ -117,8 +118,10 @@ export function useSiteActions(
 		shortcuts,
 		newChat: () => {
 			onOpen?.();
-			preview.setChatHidden( false, site.id );
-			void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+			runLayoutTransition( () => {
+				preview.setChatHidden( false, site.id, { instant: true } );
+				return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+			} );
 		},
 		openSiteSettings: () => openSiteSettings(),
 		rename,
@@ -127,11 +130,7 @@ export function useSiteActions(
 		toggleRunning,
 		stop: ( stopping: SiteDetails[] ) =>
 			stopping.forEach( ( candidate ) => stopSite.mutate( candidate.id ) ),
-		restart: () =>
-			stopSite.mutateAsync( site.id ).then(
-				() => startSite.mutate( site.id ),
-				() => undefined
-			),
+		restart: () => restartSite.mutate( site.id ),
 		...toolActions,
 		openImport: () => importInputRef.current?.click(),
 		openDelete: () => setDeleteOpen( true ),
@@ -202,6 +201,35 @@ export function SiteMenuItems( {
 				<NewChatIcon />
 				{ __( 'New chat' ) }
 			</Menu.Item>
+			<Menu.SubmenuRoot>
+				<Menu.SubmenuTrigger disabled={ busy }>
+					<PlusIcon />
+					{ __( 'Tools' ) }
+				</Menu.SubmenuTrigger>
+				<Menu.SubmenuPopup>
+					<SiteToolMenuItems site={ site } actions={ actions } />
+				</Menu.SubmenuPopup>
+			</Menu.SubmenuRoot>
+			<Menu.SubmenuRoot>
+				<Menu.SubmenuTrigger>
+					<ExternalLinkIcon />
+					{ __( 'Open in' ) }
+				</Menu.SubmenuTrigger>
+				<Menu.SubmenuPopup>
+					{ destinations
+						.filter( ( destination ) => destination.id !== 'wp-admin' )
+						.map( ( destination ) => (
+							<Menu.Item
+								key={ destination.id }
+								disabled={ destination.disabled }
+								onClick={ destination.open }
+							>
+								{ destination.logo }
+								{ destination.label }
+							</Menu.Item>
+						) ) }
+				</Menu.SubmenuPopup>
+			</Menu.SubmenuRoot>
 			<Menu.Item onClick={ actions.openSiteSettings }>
 				<SiteSettingsIcon />
 				{ __( 'Settings' ) }
@@ -210,7 +238,7 @@ export function SiteMenuItems( {
 			{ site.running ? null : (
 				<Menu.Item disabled={ busy } onClick={ actions.toggleRunning }>
 					<StartSiteIcon />
-					{ __( 'Start site' ) }
+					{ __( 'Start' ) }
 					{ lifecycleShortcut }
 				</Menu.Item>
 			) }
@@ -246,38 +274,11 @@ export function SiteMenuItems( {
 			{ site.running ? (
 				<Menu.Item disabled={ busy } onClick={ () => void actions.restart() }>
 					<RotateCwIcon />
-					{ __( 'Restart site' ) }
+					{ __( 'Restart' ) }
 				</Menu.Item>
 			) : null }
 			<Menu.Separator />
-			<Menu.SubmenuRoot>
-				<Menu.SubmenuTrigger>
-					<ExternalLinkIcon />
-					{ __( 'Open in' ) }
-				</Menu.SubmenuTrigger>
-				<Menu.SubmenuPopup>
-					{ destinations.map( ( destination ) => (
-						<Menu.Item
-							key={ destination.id }
-							disabled={ destination.disabled }
-							onClick={ destination.open }
-						>
-							{ destination.logo }
-							{ destination.label }
-						</Menu.Item>
-					) ) }
-				</Menu.SubmenuPopup>
-			</Menu.SubmenuRoot>
-			<Menu.SubmenuRoot>
-				<Menu.SubmenuTrigger disabled={ busy }>
-					<ArrowRightIcon />
-					{ __( 'Tools' ) }
-				</Menu.SubmenuTrigger>
-				<Menu.SubmenuPopup>
-					<SiteToolMenuItems site={ site } actions={ actions } />
-				</Menu.SubmenuPopup>
-			</Menu.SubmenuRoot>
-			<Menu.Separator />
+
 			<Menu.Item onClick={ actions.togglePin }>
 				{ actions.pinned ? <UnpinIcon /> : <PinIcon /> }
 				{ actions.pinned ? __( 'Unpin' ) : __( 'Pin' ) }
@@ -310,101 +311,36 @@ export function SiteMenuItems( {
 }
 
 // The site's control in the top band.
-export function SiteMenu( {
-	site,
-	onOpenChat,
-	chatTabActive = false,
-}: {
-	site: SiteDetails;
-	onOpenChat?: () => void;
-	chatTabActive?: boolean;
-} ) {
+export function SiteMenu( { site }: { site: SiteDetails } ) {
 	const actions = useSiteActions( site );
 	const label = __( 'Site menu' );
-	const [ menuOpen, setMenuOpen ] = useState( false );
-	const isChatTab = !! onOpenChat;
-	useLayoutEffect( () => setMenuOpen( false ), [ isChatTab, chatTabActive, site.id ] );
 	return (
 		<>
-			<Menu.Root
-				key={ onOpenChat ? 'chat' : 'menu' }
-				modal={ false }
-				open={ menuOpen }
-				onOpenChange={ setMenuOpen }
-			>
-				{ onOpenChat ? (
-					<div
-						className={ styles.chatTab }
-						data-site-chat-tab
-						data-chat-active={ chatTabActive || undefined }
-					>
-						<Tooltip>
+			<Menu.Root key={ site.id } modal={ false }>
+				<Tooltip>
+					<Menu.Trigger
+						render={
 							<TooltipTrigger
 								render={
 									<Button
-										variant="unstyled"
+										variant="ghost"
 										size="sm"
-										className={ styles.chatTrigger }
-										aria-label={ sprintf(
-											/* translators: %s: project name. */
-											__( 'Show chat for %s' ),
-											site.name
-										) }
-										aria-pressed={ chatTabActive }
-										onClick={ () => {
-											setMenuOpen( false );
-											onOpenChat();
-										} }
+										aria-label={ label }
+										aria-busy={ actions.busy || undefined }
+										className={ styles.trigger }
+										{ ...actions.shortcuts }
+										data-item-shortcuts-active="site"
 									/>
 								}
-							>
-								<ChatIcon />
-								<span className={ styles.chatName }>{ site.name }</span>
-							</TooltipTrigger>
-							<TooltipContent side="bottom">{ __( 'Show chat' ) }</TooltipContent>
-						</Tooltip>
-						<Menu.Trigger
-							render={
-								<IconButton
-									variant="muted-ghost"
-									size="icon-2xs"
-									className={ styles.chatMenu }
-									icon={ <EllipsisVertical /> }
-									label={ label }
-									tooltipSide="bottom"
-									aria-busy={ actions.busy || undefined }
-									{ ...actions.shortcuts }
-									data-item-shortcuts-active="site"
-								/>
-							}
-						/>
-					</div>
-				) : (
-					<Tooltip>
-						<Menu.Trigger
-							render={
-								<TooltipTrigger
-									render={
-										<Button
-											variant="ghost"
-											size="sm"
-											aria-label={ label }
-											aria-busy={ actions.busy || undefined }
-											className={ styles.trigger }
-											{ ...actions.shortcuts }
-											data-item-shortcuts-active="site"
-										/>
-									}
-								/>
-							}
-						>
-							<GlobeIcon data-icon="inline-start" />
-							<span className={ styles.siteName }>{ site.name }</span>
-							<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
-						</Menu.Trigger>
-						<TooltipContent side="bottom">{ label }</TooltipContent>
-					</Tooltip>
-				) }
+							/>
+						}
+					>
+						<GlobeIcon data-icon="inline-start" />
+						<span className={ styles.siteName }>{ site.name }</span>
+						<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
+					</Menu.Trigger>
+					<TooltipContent side="bottom">{ label }</TooltipContent>
+				</Tooltip>
 				<Menu.Popup side="bottom" align="start" { ...actions.shortcuts }>
 					<SiteMenuItems actions={ actions } current />
 				</Menu.Popup>

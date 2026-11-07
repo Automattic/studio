@@ -348,7 +348,6 @@
 	.button[data-size='lg'] {
 		--button-padding-inline: 24px;
 
-		min-width: 208px;
 		height: 44px;
 		font-size: var( --text-sm );
 	}

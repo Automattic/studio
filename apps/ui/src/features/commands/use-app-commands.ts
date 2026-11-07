@@ -12,6 +12,7 @@ import { useOpenSettings } from '@/data/use-open-settings';
 import { useOpenSite } from '@/data/use-open-site';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { useSidebarOpen, useToggleSidebar } from '@/data/use-sidebar-collapsed';
+import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
 import { getAppCommands, getPaletteChats } from '@/features/commands/studio-commands';
 import { useSettingCommands } from '@/features/commands/use-setting-commands';
 import { openNoticeHistory } from '@/features/notifications';
@@ -30,6 +31,7 @@ export function useAppCommands(): PaletteCommand[] {
 	const { data: sessions = [] } = useSessions();
 	const openSite = useOpenSite();
 	const preview = useOptionalSessionPreviewUI();
+	const runLayoutTransition = useUserWorkspaceLayoutTransition();
 	const sidebarOpen = useSidebarOpen();
 	const toggleSidebar = useToggleSidebar();
 	const hasOpenDialog = useHasOpenDialog();
@@ -64,8 +66,13 @@ export function useAppCommands(): PaletteCommand[] {
 		openSite,
 		openChat: ( session ) => {
 			const owner = findAiSessionOwnerSite( sites, session );
-			if ( owner ) preview?.setChatHidden( false, owner.id );
-			void navigate( { to: '/sessions/$sessionId', params: { sessionId: session.id } } );
+			runLayoutTransition(
+				() => {
+					if ( owner ) preview?.setChatHidden( false, owner.id );
+					return navigate( { to: '/sessions/$sessionId', params: { sessionId: session.id } } );
+				},
+				owner?.id
+			);
 		},
 		savePreferences: ( preferences ) =>
 			savePreferences.mutate( preferences, {

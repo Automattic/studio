@@ -1,7 +1,7 @@
 .root {
 	display: flex;
 	align-items: center;
-	gap: var( --space-0_5 );
+	gap: var( --band-gap );
 	min-width: 0;
 	pointer-events: auto;
 	-webkit-app-region: no-drag;
@@ -30,14 +30,14 @@
 	--tabs-fade-right: var( --space-4 );
 }
 .list {
-	gap: var( --space-0_5 );
+	gap: var( --band-gap );
 	align-items: center;
 }
 .tab {
 	position: relative;
-	flex: 1 1 160px;
-	width: 160px;
-	max-width: 160px;
+	flex: 1 1 var( --band-tab-width );
+	width: var( --band-tab-width );
+	max-width: var( --band-tab-width );
 	min-width: 128px;
 	height: 32px;
 	border-radius: var( --radius-md );
@@ -89,7 +89,6 @@
 	border-radius: var( --radius-sm );
 	opacity: 0;
 	pointer-events: none;
-	transition: none;
 }
 .close svg {
 	width: 16px;

@@ -11,6 +11,10 @@
 	pointer-events: none;
 }
 
+.canvas[data-fade='false'] {
+	mask-image: none;
+}
+
 .logo {
 	position: absolute;
 	inset: 0;
@@ -25,8 +29,8 @@
 }
 
 .logo svg {
-	width: 48px;
-	height: 48px;
+	width: 56px;
+	height: 56px;
 }
 
 .logo[data-active] {

@@ -12,6 +12,7 @@ export * from './code-icon';
 export * from './collapse-all-icon';
 export * from './database-icon';
 export * from './duplicate-icon';
+export * from './draw-icon';
 export * from './export-icon';
 export * from './export-site-icon';
 export * from './external-link-icon';

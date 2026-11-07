@@ -1,15 +1,3 @@
-.actions {
-	display: flex;
-	align-items: center;
-	gap: var( --band-gap );
-}
-
 .icon {
 	display: flex;
-}
-
-.tab {
-	justify-content: center;
-	width: var( --space-8 );
-	padding: 0;
 }

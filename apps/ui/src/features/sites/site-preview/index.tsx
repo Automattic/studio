@@ -491,9 +491,6 @@ function SitePreviewContent( {
 							{ ...annotate }
 							annotationCount={ batchNotes.length }
 							pageTools={ activeSurfaceKey === 'site' && canAnnotate }
-							drawing={ annotationTools.drawing }
-							onToggleDrawing={ annotationTools.controls.onToggle }
-							onDiscard={ discard }
 						/>,
 						annotationSpace
 				  )

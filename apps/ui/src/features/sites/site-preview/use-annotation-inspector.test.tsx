@@ -80,9 +80,7 @@ async function setup( onStartAnnotating?: () => boolean ) {
 		act( () => {
 			fireEvent( preview, Object.assign( new Event( type ), details ) );
 		} );
-	const annotate = () =>
-		screen.queryByRole( 'button', { name: /^Annotate/ } ) ??
-		screen.getByRole( 'tab', { name: 'Annotate' } );
+	const annotate = () => screen.getByRole( 'button', { name: 'Annotate' } );
 	return { ...view, preview, emit, annotate, connector, onSendAnnotations };
 }
 
@@ -132,88 +130,86 @@ describe( 'annotation inspector navigation', () => {
 			id = pickAnnotation( site.id, { selector: 'h1', url: 'http://localhost:8881/' } )!;
 			changeAnnotation( site.id, id, { comment: 'Keep this note' } );
 		} );
-		fireEvent.keyDown( document, { key: '>', code: 'Period', ctrlKey: true, shiftKey: true } );
+		fireEvent.click( drawButton() );
+		fireEvent.click( annotate() );
 		expect( screen.queryByRole( 'group', { name: 'Annotation tools' } ) ).not.toBeInTheDocument();
 		expect( getSiteAnnotations( site.id ).notes ).toEqual( [
 			expect.objectContaining( { id, comment: 'Keep this note' } ),
 		] );
 		fireEvent.click( annotate() );
+		expect( getSiteAnnotations( site.id ).notes ).toEqual( [
+			expect.objectContaining( { id, comment: 'Keep this note' } ),
+		] );
 		expect( screen.queryByRole( 'button', { name: 'Send annotations' } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'shows one active header tab and shares its selection with the floating toolbar', async () => {
-		const { emit, annotate, preview, user } = await setup();
+	it( 'keeps drawing tools in the floating toolbar and one annotation toggle in the header', async () => {
+		const { emit, annotate, preview } = await setup();
 		emit( 'dom-ready' );
 		await waitFor( () => expect( annotate() ).toBeEnabled() );
-		const actions = within( screen.getByRole( 'group', { name: 'Annotation actions' } ) );
-		expect( actions.queryByRole( 'tab', { name: 'Draw' } ) ).not.toBeInTheDocument();
+		const actions = within( screen.getByRole( 'toolbar', { name: 'Preview browser controls' } ) );
+		expect( actions.getAllByRole( 'button', { name: 'Annotate' } ) ).toHaveLength( 1 );
+		expect( actions.queryByRole( 'button', { name: 'Draw' } ) ).not.toBeInTheDocument();
 		expect(
 			actions.queryByRole( 'button', { name: 'Discard annotations' } )
 		).not.toBeInTheDocument();
 		fireEvent.click( annotate() );
-		const tabs = screen.getByRole( 'tablist', { name: 'Annotation mode' } );
-		const selectTab = within( tabs ).getByRole( 'tab', { name: 'Annotate' } );
-		const draw = within( tabs ).getByRole( 'tab', { name: 'Draw' } );
-		expect( selectTab ).toHaveAttribute( 'aria-selected', 'true' );
-		expect( draw ).toHaveAttribute( 'aria-selected', 'false' );
+		expect( annotate() ).toHaveAttribute( 'aria-pressed', 'true' );
+		expect( actions.queryByRole( 'tablist', { name: 'Annotation mode' } ) ).not.toBeInTheDocument();
+		expect( actions.queryByRole( 'button', { name: 'Draw' } ) ).not.toBeInTheDocument();
+		expect(
+			actions.queryByRole( 'button', { name: 'Discard annotations' } )
+		).not.toBeInTheDocument();
+		const draw = drawButton();
+		expect( draw ).toHaveAttribute( 'aria-pressed', 'false' );
 		fireEvent.click( draw );
-		expect( draw ).toHaveAttribute( 'aria-selected', 'true' );
-		expect( drawButton() ).toHaveAttribute( 'aria-pressed', 'true' );
+		expect( draw ).toHaveAttribute( 'aria-pressed', 'true' );
 		expect( pageState( preview ).tool ).toBe( 'draw' );
-		expect( selectTab ).toHaveAttribute( 'aria-selected', 'false' );
-		expect( within( tabs ).getAllByRole( 'tab', { selected: true } ) ).toHaveLength( 1 );
+		expect( annotate() ).toHaveAttribute( 'aria-pressed', 'true' );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Select' } ) );
-		expect( draw ).toHaveAttribute( 'aria-selected', 'false' );
-		fireEvent.click( drawButton() );
-		expect( draw ).toHaveAttribute( 'aria-selected', 'true' );
-		fireEvent.click( selectTab );
-		expect( getSiteAnnotations( site.id ).active ).toBe( true );
-		await user.click( selectTab );
-		await user.keyboard( '{ArrowRight}' );
-		expect( draw ).toHaveAttribute( 'aria-selected', 'true' );
-		await user.keyboard( '{ArrowLeft}' );
-		expect( selectTab ).toHaveAttribute( 'aria-selected', 'true' );
-		fireEvent.keyDown( document, { key: '>', code: 'Period', ctrlKey: true, shiftKey: true } );
-		expect( actions.queryByRole( 'tab', { name: 'Draw' } ) ).not.toBeInTheDocument();
+		expect( draw ).toHaveAttribute( 'aria-pressed', 'false' );
+		expect( pageState( preview ).tool ).toBe( 'select' );
+		fireEvent.click( annotate() );
+		expect( annotate() ).toHaveAttribute( 'aria-pressed', 'false' );
+		expect( getSiteAnnotations( site.id ).active ).toBe( false );
 		expect( screen.queryByRole( 'group', { name: 'Annotation tools' } ) ).not.toBeInTheDocument();
 	} );
 
-	it.each( [ 'Annotation actions', 'Annotation tools' ] )(
-		'discards saved annotations and the current draft from %s and turns annotation mode off',
-		async ( group ) => {
-			const { emit, annotate, onSendAnnotations } = await setup();
-			emit( 'dom-ready' );
-			await waitFor( () => expect( annotate() ).toBeEnabled() );
-			fireEvent.click( annotate() );
-			act( () => {
-				const saved = pickAnnotation( site.id, { selector: 'h1', url: 'http://localhost:8881/' } )!;
-				changeAnnotation( site.id, saved, { comment: 'Saved note' } );
-				stageAnnotations( site.id, [ saved ], true );
-				const draft = pickAnnotation( site.id, { selector: 'p', url: 'http://localhost:8881/' } )!;
-				changeAnnotation( site.id, draft, { comment: 'Unfinished note' } );
-				setAnnotationsPreparing( site.id, true );
-			} );
-			const discard = within( screen.getByRole( 'group', { name: group } ) ).getByRole( 'button', {
+	it( 'discards saved annotations and the current draft from the toolbar and turns annotation mode off', async () => {
+		const { emit, annotate, onSendAnnotations } = await setup();
+		emit( 'dom-ready' );
+		await waitFor( () => expect( annotate() ).toBeEnabled() );
+		fireEvent.click( annotate() );
+		act( () => {
+			const saved = pickAnnotation( site.id, { selector: 'h1', url: 'http://localhost:8881/' } )!;
+			changeAnnotation( site.id, saved, { comment: 'Saved note' } );
+			stageAnnotations( site.id, [ saved ], true );
+			const draft = pickAnnotation( site.id, { selector: 'p', url: 'http://localhost:8881/' } )!;
+			changeAnnotation( site.id, draft, { comment: 'Unfinished note' } );
+			setAnnotationsPreparing( site.id, true );
+		} );
+		const discard = within( screen.getByRole( 'group', { name: 'Annotation tools' } ) ).getByRole(
+			'button',
+			{
 				name: 'Discard annotations',
-			} );
-			expect( discard ).toBeDisabled();
-			fireEvent.click( discard );
-			expect( getSiteAnnotations( site.id ).notes ).toHaveLength( 2 );
-			act( () => setAnnotationsPreparing( site.id, false ) );
-			fireEvent.click( discard );
-			expect( getSiteAnnotations( site.id ) ).toMatchObject( {
-				active: false,
-				notes: [],
-				editingId: null,
-			} );
-			expect( onSendAnnotations ).not.toHaveBeenCalled();
-			if ( group === 'Annotation actions' ) expect( annotate() ).toHaveFocus();
-			expect( screen.queryByRole( 'group', { name: 'Annotation tools' } ) ).not.toBeInTheDocument();
-			expect(
-				screen.queryByRole( 'button', { name: 'Discard annotations' } )
-			).not.toBeInTheDocument();
-		}
-	);
+			}
+		);
+		expect( discard ).toBeDisabled();
+		fireEvent.click( discard );
+		expect( getSiteAnnotations( site.id ).notes ).toHaveLength( 2 );
+		act( () => setAnnotationsPreparing( site.id, false ) );
+		fireEvent.click( discard );
+		expect( getSiteAnnotations( site.id ) ).toMatchObject( {
+			active: false,
+			notes: [],
+			editingId: null,
+		} );
+		expect( onSendAnnotations ).not.toHaveBeenCalled();
+		expect( screen.queryByRole( 'group', { name: 'Annotation tools' } ) ).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'button', { name: 'Discard annotations' } )
+		).not.toBeInTheDocument();
+	} );
 
 	it( 'discards an empty drawing draft on Escape', async () => {
 		const { connector, emit, annotate, preview } = await setup();
@@ -629,7 +625,7 @@ describe( 'annotation inspector navigation', () => {
 		onStartAnnotating.mockReturnValue( true );
 		fireEvent.click( annotate() );
 		expect( getSiteAnnotations( site.id ).active ).toBe( true );
-		fireEvent.keyDown( document, { key: '>', code: 'Period', ctrlKey: true, shiftKey: true } );
+		fireEvent.click( annotate() );
 		expect( getSiteAnnotations( site.id ).active ).toBe( false );
 		expect( onStartAnnotating ).toHaveBeenCalledTimes( 2 );
 	} );

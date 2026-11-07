@@ -12,7 +12,7 @@ The Studio CLI lets you:
 - Pull from and push to WordPress.com sites.
 - Publish ephemeral preview sites to share (requires WordPress.com login).
 - Build WordPress sites in Studio Code with an interactive AI agent specialized in WordPress, backed by the full power of the Studio CLI.
-- Integrate with other AI coding agents. Every site comes with an `AGENTS.md` file.
+- Integrate with other AI coding agents through `studio mcp`, which serves the Studio tools over MCP.
 
 <p align="center">
 	<br>

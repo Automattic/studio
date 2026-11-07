@@ -335,7 +335,13 @@ STUDIO_PREVIEW_SHORTCUTS;
 		} );
 
 		/**
-		 * Gets merged core, theme and user styles for block themes.
+		 * Gets the settings and styles WordPress resolves for the site,
+		 * as the Site Editor's Styles show them, or null when the active
+		 * theme is not a block theme.
+		 *
+		 * ## EXAMPLES
+		 *
+		 *     wp studio get-global-styles
 		 *
 		 * @when after_wp_load
 		 */
@@ -346,10 +352,9 @@ STUDIO_PREVIEW_SHORTCUTS;
 			}
 			echo wp_json_encode( [
 				'settings' => (object) wp_get_global_settings(),
-				'styles' => (object) wp_get_global_styles( [], [ 'transforms' => [ 'resolve-variables' ] ] ),
+				'styles' => (object) wp_get_global_styles(),
 			] );
 		} );
-
 		`,
 	} );
 

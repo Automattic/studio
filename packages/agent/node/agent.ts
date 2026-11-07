@@ -3,6 +3,7 @@ import {
 	type StudioAgentTurnConfig,
 	type StudioAgentTurnHandle,
 } from './runtime';
+import { prepareMcpServers } from './runtime/mcp-tools';
 import {
 	createStudioSession,
 	listStudioSessionFiles,
@@ -19,6 +20,9 @@ export interface StudioAgent {
 	runTurn( config: StudioAgentTurnConfig ): StudioAgentTurnHandle;
 	// The Studio tools, for hosts that run them themselves, such as an MCP server.
 	tools( options?: StudioToolsOptions ): AnyStudioAgentTool[];
+	// Gets ready for the first turn while the user writes it: connects to the
+	// MCP servers whose tools the turns are given.
+	prepare(): void;
 	// The conversation files turns are recorded in.
 	sessions: {
 		create( options?: CreateStudioSessionOptions ): Promise< SessionManager >;
@@ -31,6 +35,7 @@ export function createAgent( { host }: { host: StudioAgentHost } ): StudioAgent 
 	return {
 		runTurn: ( config ) => runStudioAgentTurn( host, config ),
 		tools: ( options ) => resolveStudioTools( host, options ),
+		prepare: () => prepareMcpServers( host.remoteHosts ),
 		sessions: {
 			create: ( options ) => createStudioSession( host.sitesRoot, options ),
 			open: ( filePath ) => openStudioSession( host.sitesRoot, filePath ),

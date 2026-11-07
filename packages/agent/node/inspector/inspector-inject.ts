@@ -276,11 +276,13 @@ async function inject( current: Session ): Promise< void > {
  * Opens the annotation browser on `siteUrl`, or brings back the open one, and
  * blocks until the user clicks Send. Resolves to null when the user cancels or
  * closes the browser. After a timeout the browser stays open with its notes,
- * so calling this again keeps waiting.
+ * so calling this again keeps waiting. A stopped turn (`signal`) closes it, as
+ * Cancel does.
  */
 export async function annotateInBrowser(
 	siteUrl: string,
-	timeoutMs = 30 * 60 * 1000
+	timeoutMs = 30 * 60 * 1000,
+	signal?: AbortSignal
 ): Promise< BrowserAnnotation[] | null > {
 	if ( session ) {
 		await session.page.bringToFront().catch( () => undefined );
@@ -289,6 +291,8 @@ export async function annotateInBrowser(
 		await launch( siteUrl );
 	}
 	const done = pending as Promise< BrowserAnnotation[] | null >;
+	const stop = () => session?.finish( null );
+	signal?.addEventListener( 'abort', stop, { once: true } );
 	let timer: NodeJS.Timeout | undefined;
 	const timeout = new Promise< never >( ( _, reject ) => {
 		timer = setTimeout(
@@ -307,6 +311,7 @@ export async function annotateInBrowser(
 		return notes;
 	} finally {
 		clearTimeout( timer );
+		signal?.removeEventListener( 'abort', stop );
 	}
 }
 

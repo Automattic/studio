@@ -89,14 +89,10 @@ it( 'ignores closed dialogs that stay mounted', async () => {
 	expect( actions.openAdmin ).toHaveBeenCalledOnce();
 } );
 
-it( 'hides an unreadable design system and its shortcut in the launcher', async () => {
+it( 'offers the design system and its shortcut once the site has global styles', async () => {
 	const queryClient = createTestQueryClient();
 	const site = makeSite( { id: 'one', running: false } );
 	const openDesignSystem = vi.fn();
-	queryClient.setQueryData( [ 'site-design', 'one' ], {
-		design: '---\ncolors:\n  primary: red\n---',
-		themeJson: {},
-	} );
 	renderWithProviders(
 		<SiteToolLauncher
 			site={ site }
@@ -115,11 +111,7 @@ it( 'hides an unreadable design system and its shortcut in the launcher', async 
 	fireEvent.keyDown( document.body, { key: 's' } );
 	expect( openDesignSystem ).not.toHaveBeenCalled();
 	await act( () =>
-		queryClient.setQueryData( [ 'site-design', 'one' ], {
-			design:
-				'---\ncolors:\n  primary: "#c2552b"\n  background: "#ffffff"\ntypography:\n  body:\n    fontFamily: "Inter"\n---',
-			themeJson: {},
-		} )
+		queryClient.setQueryData( [ 'global-styles', 'one' ], { settings: {}, styles: {} } )
 	);
 	await screen.findByRole( 'button', { name: 'Design system S' } );
 } );

@@ -6,6 +6,7 @@ import path from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { pathToFileURL } from 'node:url';
+import { extractZip } from '@studio/common/lib/extract-zip';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import * as tar from 'tar';
 
@@ -30,6 +31,8 @@ export type CaptureEngine = {
 	captureWebsite: ( options: {
 		url: string;
 		outputDir: string;
+		/** Origins the caller vouches for, such as a local site, which the capture may fetch from. */
+		trustedOrigins?: string[];
 		onProgress?: ( progress: {
 			phase: string;
 			current?: number;
@@ -48,9 +51,32 @@ export type CaptureEngine = {
 	} >;
 };
 
+/** The capture engine, with the comparison and publishing that the same release carries. */
+export type PublishingEngine = CaptureEngine & {
+	/** Compares the frozen capture in `directory` with the source it was captured from. */
+	checkFidelity: ( options: { directory: string } ) => Promise< { pass: boolean; failed: number } >;
+	publishSite: ( options: {
+		directory: string;
+		target: string;
+		token?: string;
+		/** The target's id for the space to publish into; a new one when omitted. */
+		space?: string;
+	} ) => Promise< PublishedSite >;
+};
+
+export type PublishedSite = {
+	liveUrl: string;
+	spaceId?: string;
+	private?: boolean;
+	claim?: { url: string; key?: string; expiresAt?: string };
+	notes: string[];
+};
+
 const DATA_LIBERATION_REPO = 'Automattic/data-liberation-agent';
 const STATIC_SITE_IMPORTER_REPO = 'Automattic/static-site-importer';
 const STATIC_SITE_IMPORTER_ASSET = 'static-site-importer-html-site-import.zip';
+const BLOCKS_ENGINE_REPO = 'Automattic/blocks-engine';
+const PHP_TRANSFORMER_ASSET = 'php-transformer.zip';
 const RELEASE_CACHE_MS = 5 * 60 * 1000;
 const MAX_ASSET_BYTES = 200 * 1024 * 1024;
 
@@ -139,7 +165,8 @@ export async function resolveLatestReleaseAsset(
 		draft?: boolean;
 		assets?: Array< { name?: string; browser_download_url?: string; digest?: string | null } >;
 	};
-	const version = ( release.tag_name ?? '' ).replace( /^v/, '' );
+	// A repository releasing several packages names the package in the tag: `php-transformer-v0.44.179`.
+	const version = ( release.tag_name ?? '' ).replace( /^(?:[a-z][a-z-]*-)?v/, '' );
 	if ( ! /^\d+\.\d+\.\d+$/.test( version ) || release.prerelease || release.draft ) {
 		throw new Error( `${ repo } has no stable release.` );
 	}
@@ -345,7 +372,7 @@ export function resolveCaptureEngineAsset(): Promise< ReleaseAsset > {
  * Install (once per version) and load the newest Data Liberation capture engine;
  * installing one removes the versions before the previous one.
  */
-export async function loadCaptureEngine(): Promise< CaptureEngine > {
+export async function loadCaptureEngine(): Promise< PublishingEngine > {
 	const asset = await resolveCaptureEngineAsset();
 	const engineRoot = path.join( runtimeDirectory(), 'data-liberation', asset.version );
 	const bundlePath = path.join( engineRoot, 'dist', 'capture-engine.bundle.mjs' );
@@ -377,11 +404,13 @@ export async function loadCaptureEngine(): Promise< CaptureEngine > {
 		removeOlderVersions( path.dirname( engineRoot ), asset.version );
 	}
 	linkPlaywright( engineRoot );
-	const engine = ( await import( pathToFileURL( bundlePath ).href ) ) as Partial< CaptureEngine >;
+	const engine = ( await import(
+		pathToFileURL( bundlePath ).href
+	) ) as Partial< PublishingEngine >;
 	if ( typeof engine.captureWebsite !== 'function' ) {
 		throw new Error( `Data Liberation ${ asset.version } does not export the capture engine API.` );
 	}
-	return { ...( engine as CaptureEngine ), version: asset.version, packageUrl: asset.url };
+	return { ...( engine as PublishingEngine ), version: asset.version, packageUrl: asset.url };
 }
 
 /**
@@ -409,6 +438,92 @@ export async function resolveStaticSiteImporterPlugin(): Promise< {
 	return { path: zipPath, version: asset.version };
 }
 
+const phpTransformerRoot = () => path.join( runtimeDirectory(), 'php-transformer' );
+const transformerBootstrap = ( directory: string ) =>
+	path.join( directory, 'php-transformer', 'php-transformer.php' );
+
+/** The newest complete PHP transformer this machine has installed, if any. */
+function newestInstalledPhpTransformer(): { bootstrap: string; version: string } | null {
+	let entries: string[];
+	try {
+		entries = fs.readdirSync( phpTransformerRoot() );
+	} catch {
+		return null;
+	}
+	const [ version ] = entries
+		.filter(
+			( entry ) =>
+				isVersion( entry ) &&
+				fs.existsSync( transformerBootstrap( path.join( phpTransformerRoot(), entry ) ) )
+		)
+		.sort( newestFirst );
+	return version
+		? { bootstrap: transformerBootstrap( path.join( phpTransformerRoot(), version ) ), version }
+		: null;
+}
+
+/**
+ * Install the newest Blocks Engine PHP transformer release, once per version;
+ * installing one removes the versions before the previous one.
+ */
+async function installLatestPhpTransformer(
+	fetchImpl: typeof fetch
+): Promise< { bootstrap: string; version: string } > {
+	const asset = await resolveLatestReleaseAsset(
+		BLOCKS_ENGINE_REPO,
+		( name ) => name === PHP_TRANSFORMER_ASSET,
+		fetchImpl
+	);
+	const root = path.join( phpTransformerRoot(), asset.version );
+	const isComplete = ( directory: string ) => fs.existsSync( transformerBootstrap( directory ) );
+	if ( ! isComplete( root ) ) {
+		const staging = `${ root }.staging-${ uniqueSuffix() }`;
+		const archive = `${ staging }.zip`;
+		try {
+			await downloadVerifiedAsset( asset, archive, fetchImpl );
+			await extractZip( archive, staging );
+			if ( ! isComplete( staging ) ) {
+				throw new Error( `Blocks Engine ${ asset.version } is missing its PHP transformer.` );
+			}
+			publishStagedInstall( staging, root, isComplete );
+		} finally {
+			fs.rmSync( staging, { recursive: true, force: true } );
+			fs.rmSync( archive, { force: true } );
+		}
+		removeOlderVersions( phpTransformerRoot(), asset.version );
+	}
+	return { bootstrap: transformerBootstrap( root ), version: asset.version };
+}
+
+let phpTransformerUpdate: Promise< unknown > | null = null;
+
+/**
+ * The Blocks Engine PHP transformer, as its bootstrap file, which a site's PHP
+ * requires to run the transformer with that site's WordPress loaded.
+ *
+ * A machine that has one installed converts with the newest it has at once,
+ * while the newest release installs in the background for the next call: a
+ * release download takes from seconds to over a minute, which would otherwise
+ * be spent inside the conversion that first needs it. A machine with none
+ * waits for the install.
+ */
+export async function resolvePhpTransformer(
+	fetchImpl: typeof fetch = fetch
+): Promise< { bootstrap: string; version: string } > {
+	const installed = newestInstalledPhpTransformer();
+	if ( ! installed ) {
+		return installLatestPhpTransformer( fetchImpl );
+	}
+	phpTransformerUpdate ??= installLatestPhpTransformer( fetchImpl )
+		// The installed transformer keeps working; the next call tries again.
+		.catch( () => undefined )
+		.finally( () => {
+			phpTransformerUpdate = null;
+		} );
+	return installed;
+}
+
 export function resetImportRuntimeCacheForTests(): void {
 	resolvedReleases.clear();
+	phpTransformerUpdate = null;
 }

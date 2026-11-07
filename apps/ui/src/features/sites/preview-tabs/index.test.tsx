@@ -592,28 +592,9 @@ it( 'only offers the design-system shortcut when a design system is available', 
 	await user.keyboard( 's' );
 	expect( screen.queryByRole( 'menuitem', { name: 'Design system' } ) ).not.toBeInTheDocument();
 	await user.keyboard( '{Escape}' );
-	connector.getSiteDesign.mockResolvedValue( { design: '# Invalid design', themeJson: {} } );
+	connector.getGlobalStyles.mockResolvedValue( { settings: {}, styles: {} } );
 	await act( async () => {
-		await queryClient.invalidateQueries( { queryKey: [ 'site-design', 'one' ] } );
-	} );
-	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
-	await screen.findByRole( 'menuitem', { name: 'Browser' } );
-	expect( screen.queryByRole( 'menuitem', { name: 'Design system' } ) ).not.toBeInTheDocument();
-	await user.keyboard( '{Escape}' );
-	connector.getSiteDesign.mockResolvedValue( {
-		design: `---
-colors:
-  primary: "#c2552b"
-  background: "#ffffff"
-typography:
-  body:
-    fontFamily: "Inter"
----
-# Design system`,
-		themeJson: {},
-	} );
-	await act( async () => {
-		await queryClient.invalidateQueries( { queryKey: [ 'site-design', 'one' ] } );
+		await queryClient.invalidateQueries( { queryKey: [ 'global-styles', 'one' ] } );
 	} );
 	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
 	const design = await screen.findByRole( 'menuitem', { name: 'Design system' } );
@@ -1043,20 +1024,22 @@ it( 'selects an existing project tab when reviewing a note on its page', async (
 
 it( 'reopens a batched design note in its existing tab without scrolling', async () => {
 	const { connector, queryClient, user } = await setup( true, true );
-	const design = {
-		design:
-			'---\nname: First\ncolors:\n  primary: "#3858e9"\n  background: "#ffffff"\ntypography:\n  body:\n    fontFamily: "Inter"\n---',
-		themeJson: {},
+	const styles = {
+		settings: {},
+		styles: {
+			color: { background: '#ffffff', text: '#111111' },
+			typography: { fontFamily: 'Inter' },
+		},
 	};
-	connector.getSiteDesign.mockResolvedValue( design );
-	await act( () => queryClient.setQueryData( [ 'site-design', 'one' ], design ) );
+	connector.getGlobalStyles.mockResolvedValue( styles );
+	await act( () => queryClient.setQueryData( [ 'global-styles', 'one' ], styles ) );
 	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
 	await user.click( await screen.findByRole( 'menuitem', { name: 'Design system' } ) );
 	await waitFor( () => expect( selectedTab() ).toHaveFocus() );
 	let id = '';
 	act( () => {
 		setAnnotating( 'one', true );
-		id = pickAnnotation( 'one', { targetKey: 'name', path: 'DESIGN.md' } )!;
+		id = pickAnnotation( 'one', { targetKey: 'link' } )!;
 		changeAnnotation( 'one', id, { comment: 'Give this title more space' } );
 		stageAnnotations( 'one', [ id ], true );
 		setAnnotating( 'one', false );
@@ -1075,34 +1058,29 @@ it( 'reopens a batched design note in its existing tab without scrolling', async
 	);
 } );
 
-it( 'opens a WordPress style board without DESIGN.md and reloads saved style changes', async () => {
+it( 'opens the Global Styles board and reloads saved style changes', async () => {
 	const { connector, queryClient, user } = await setup();
 	const board = ( color: string ) => ( {
-		design: null,
-		themeJson: {
-			settings: {
-				color: {
-					palette: {
-						theme: [
-							{ slug: 'ink', color: '#111111' },
-							{ slug: 'base', color: '#ffffff' },
-							{ slug: 'accent', color },
-						],
-					},
+		settings: {
+			color: {
+				palette: {
+					theme: [
+						{ slug: 'ink', color: '#111111' },
+						{ slug: 'base', color: '#ffffff' },
+						{ slug: 'accent', color },
+					],
 				},
 			},
-			styles: { typography: { fontFamily: 'Inter, sans-serif' } },
 		},
+		styles: { typography: { fontFamily: 'Inter, sans-serif' } },
 	} );
-	connector.getSiteDesign.mockResolvedValue( board( '#123456' ) );
-	await act( () => queryClient.invalidateQueries( { queryKey: [ 'site-design', 'one' ] } ) );
+	connector.getGlobalStyles.mockResolvedValue( board( '#123456' ) );
+	await act( () => queryClient.invalidateQueries( { queryKey: [ 'global-styles', 'one' ] } ) );
 	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
 	await user.click( await screen.findByRole( 'menuitem', { name: 'Design system' } ) );
 	expect( await screen.findByRole( 'heading', { name: 'Color' } ) ).toBeVisible();
 	expect( screen.getByText( '#123456' ) ).toBeVisible();
-	expect( screen.queryByText( /DESIGN.md/ ) ).not.toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeDisabled();
-	connector.getSiteDesign.mockResolvedValue( board( '#654321' ) );
+	connector.getGlobalStyles.mockResolvedValue( board( '#654321' ) );
 	await user.click( screen.getByRole( 'button', { name: 'Reload preview' } ) );
 	expect( await screen.findByText( '#654321' ) ).toBeVisible();
 	expect( screen.queryByText( '#123456' ) ).not.toBeInTheDocument();

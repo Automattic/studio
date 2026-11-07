@@ -1,6 +1,5 @@
 import { Type } from 'typebox';
-import { renderDesignCatalogIndex } from '@studio/agent/node/design-catalog';
-import { findSkill, loadSkills } from '@studio/agent/node/skills';
+import { findSkill, loadSkillCatalog, type Skill } from '@studio/agent/node/skills';
 import { defineTool, READ_ONLY, type StudioToolDefinition } from './define-tool';
 
 export function renderSkill( name: string ): string {
@@ -8,27 +7,52 @@ export function renderSkill( name: string ): string {
 	if ( ! skill ) {
 		throw new Error( `Unknown skill: ${ name }` );
 	}
-	return renderDesignCatalogIndex( skill.body );
+	return skill.folder ? `${ skill.body }\n\nThe skill's folder: ${ skill.folder }` : skill.body;
 }
 
 // Returns `null` when no skills are discovered so the caller skips
 // registering the tool entirely.
-export function createSkillTool(): StudioToolDefinition | null {
-	const skills = loadSkills();
+// `onLoad` receives each loaded skill, so the runtime can make its tools available.
+export function createSkillTool( onLoad?: ( skill: Skill ) => void ): StudioToolDefinition | null {
+	const { skills, shadowed } = loadSkillCatalog();
 	if ( skills.length === 0 ) return null;
 
-	const skillIndex = skills.map( ( s ) => `- ${ s.name }: ${ s.description }` ).join( '\n' );
+	const skillIndex = skills
+		.map(
+			( s ) =>
+				`- ${ s.name }: ${ s.description }${
+					s.tools.length > 0 ? ` (brings ${ s.tools.join( ', ' ) })` : ''
+				}`
+		)
+		.join( '\n' );
 	const names = skills.map( ( s ) => s.name );
 
 	return defineTool(
 		'Skill',
-		`Load the full runbook for a workflow skill. Each skill bundles step-by-step instructions you must follow at a specific point during a build; this tool returns that runbook as a tool result so you can read and apply it.\n\nAvailable skills:\n${ skillIndex }\n\nCall this BEFORE you start the workflow the skill covers — not after. Once loaded, treat the returned instructions as part of your system prompt for the duration of that workflow.`,
+		`Loads a skill: the runbook for one of Studio's workflows, and the tools it brings, which are available from then on.\n\nSkills:\n${ skillIndex }${
+			shadowed.length > 0
+				? `\n\nNot loaded, since a Studio skill has the same name: ${ shadowed.join( ', ' ) }`
+				: ''
+		}`,
 		{
 			name: Type.Enum( names, { description: 'The name of the skill to load.' } ),
 		},
-		async ( args ) => ( {
-			content: [ { type: 'text' as const, text: renderSkill( args.name ) } ],
-		} ),
+		async ( args ) => {
+			const text = renderSkill( args.name );
+			const skill = findSkill( args.name );
+			if ( skill ) onLoad?.( skill );
+			return {
+				content: [
+					{
+						type: 'text' as const,
+						text:
+							skill && skill.tools.length > 0
+								? `${ text }\n\nNow available: ${ skill.tools.join( ', ' ) }.`
+								: text,
+					},
+				],
+			};
+		},
 		{ annotations: READ_ONLY }
 	);
 }

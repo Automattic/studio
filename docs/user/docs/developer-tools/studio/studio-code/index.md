@@ -71,9 +71,9 @@ The agent can read and write files in your site directory, run WP-CLI commands, 
 
 ### [Designing a site](#designing-a-site)
 
-When you ask Studio Code to build a site, it first offers you four looks, and then four layouts previewed in the look you picked. It skips these questions when your request already describes a design. Your choice is saved as `DESIGN.md` in the site’s root folder, and later chats, as well as other coding agents, follow it. Fonts chosen in `DESIGN.md` are self-hosted on the site.
+When you ask Studio Code to build a site, it designs a block theme from your request: its colors, fonts and spacing go in the theme’s `theme.json`, and its layout in the theme’s templates and parts. Fonts from Google Fonts are downloaded into the theme, so the site serves its own. A theme Studio Code makes gets a thumbnail of its design in **Appearance → Themes**.
 
-To review the design system, open the site preview’s address menu and choose **Design system**. It shows the colors, type scale, spacing and corners, components, and guidelines from `DESIGN.md`. If the theme’s `theme.json` no longer matches `DESIGN.md`, Studio lists each difference: choose **Use DESIGN.md** or **Keep theme.json** for each one, or **Apply all from DESIGN.md**.
+To review the design system, open the site preview’s address menu and choose **Design system**. It shows the type, colors, type scale, components, and spacing and corners that the site’s block theme sets in its Styles. Annotate any part of it to ask Studio Code for a change.
 
 Studio Code can also generate images for your site. See [Image generation in Studio Code](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/image-generation/).
 

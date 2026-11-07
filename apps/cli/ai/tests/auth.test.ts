@@ -28,6 +28,8 @@ vi.mock( '@studio/agent/node/settings-store', () => ( {
 	readSelectedAiProvider: vi.fn(),
 	persistAnthropicApiKey: vi.fn(),
 	persistSelectedAiProvider: vi.fn(),
+	readCustomEndpoint: vi.fn(),
+	persistCustomEndpoint: vi.fn(),
 } ) );
 
 describe( 'AI auth helpers', () => {

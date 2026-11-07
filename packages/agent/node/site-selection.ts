@@ -1,20 +1,21 @@
-import { existsSync } from 'node:fs';
-import path from 'node:path';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
+import type { RemoteHost } from './remote-hosts';
 import type { SiteInfo } from './types';
 
-// The active site, as the system prompt states it: which site the session is
+// The active site, as the turn's context states it: which site the session is
 // attached to, rebuilt every turn from Studio's site data.
-export function formatActiveSite( site: SiteInfo ): string {
+export function formatActiveSite(
+	site: SiteInfo,
+	remoteHosts: Record< string, RemoteHost > = {}
+): string {
 	if ( site.remote && site.url ) {
-		return `"${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)`;
+		const hostName = remoteHosts[ site.remote.host ]?.name ?? site.remote.host;
+		return `"${ site.name }" (ID: ${ site.remote.id }) at ${ site.url } (${ hostName })`;
 	}
-	const designPath = path.join( site.path, 'DESIGN.md' );
-	const design = existsSync( designPath ) ? `, design system: ${ designPath }` : '';
 	const email = site.id
 		? `, email it sends: ${ getSiteEmailDirectory( site.id ) } (one .eml file per message)`
 		: '';
 	return `"${ site.name }" at ${ site.path }${
 		site.running ? ' (running)' : ' (stopped)'
-	}${ design }${ email }`;
+	}${ email }`;
 }

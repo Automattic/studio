@@ -10,7 +10,7 @@ import type {
 } from '@studio/agent/protocol/sessions/types';
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 import type { AgentApp, AgentAppId } from '@studio/common/lib/agent-apps';
-import type { SiteAgentFile, SiteAgentFileKind } from '@studio/common/lib/agent-skills';
+import type { SiteAgentFile } from '@studio/common/lib/agent-skills';
 import type { AuthAnalytics, OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
 import type { SiteEvent, SiteListItem, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { StudioFeedback } from '@studio/common/lib/feedback';
@@ -41,15 +41,14 @@ import type { SupportedTerminal } from '@studio/common/lib/user-settings/termina
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import type { BlueprintSource } from '@studio/common/sites/blueprint-source';
-import type { SiteDesign } from '@studio/common/sites/site-design';
 import type { SiteEmail, SiteEmailSummary } from '@studio/common/sites/site-email';
+import type { GlobalStyles } from '@studio/common/sites/site-identity';
 import type { PreviewStatus } from '@studio/common/sites/snapshots';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
-import type { DesignFix } from '@studio/design-md';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { ActiveAgentRun } from '@studio/agent/protocol/agent-events';
@@ -74,12 +73,12 @@ export type { SupportedTerminal } from '@studio/common/lib/user-settings/termina
 export type { SupportedLocale } from '@studio/common/lib/locale';
 export type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 export type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
-export type { SiteDesign } from '@studio/common/sites/site-design';
 export type {
 	SiteEmail,
 	SiteEmailAddress,
 	SiteEmailSummary,
 } from '@studio/common/sites/site-email';
+export type { GlobalStyles } from '@studio/common/sites/site-identity';
 export type { AgentApp, AgentAppId } from '@studio/common/lib/agent-apps';
 
 export type InstalledApps = Record<
@@ -225,11 +224,9 @@ export interface Connector {
 		siteId: string,
 		capture: { path: string; width: number; height: number; guestId?: number }
 	): Promise< string | null >;
-	// The site's DESIGN.md and its active theme's theme.json, or null when it
-	// lacks either.
-	getSiteDesign( siteId: string ): Promise< SiteDesign | null >;
-	// Settles drifts between DESIGN.md and theme.json and resolves the result.
-	fixSiteDesignDrift( siteId: string, fixes: DesignFix[] ): Promise< SiteDesign | null >;
+	// The settings and styles WordPress resolves for the site, or null when its
+	// theme is not a block theme.
+	getGlobalStyles( siteId: string ): Promise< GlobalStyles >;
 
 	// Exports a site as a full backup archive (files + database). Prompts the
 	// user for a destination via a save-as dialog; resolves with the chosen
@@ -546,22 +543,12 @@ export interface Connector {
 	installWordPressSkillToAllSites( skillId: string ): Promise< void >;
 	removeWordPressSkillFromAllSites( skillId: string ): Promise< void >;
 
-	// One site's skills and instruction files. Switching one off keeps its
-	// edits, out of the folders agents read.
-	getSiteAgentFiles( siteId: string, kind: SiteAgentFileKind ): Promise< SiteAgentFile[] >;
-	setSiteAgentFileEnabled(
-		siteId: string,
-		kind: SiteAgentFileKind,
-		id: string,
-		enabled: boolean
-	): Promise< void >;
-	removeSiteAgentFile( siteId: string, kind: SiteAgentFileKind, id: string ): Promise< void >;
-	openSiteAgentFile(
-		siteId: string,
-		kind: SiteAgentFileKind,
-		id: string,
-		target: SiteAgentFileOpenTarget
-	): Promise< void >;
+	// One site's skills. Switching one off keeps its edits, out of the
+	// folders agents read.
+	getSiteAgentFiles( siteId: string ): Promise< SiteAgentFile[] >;
+	setSiteAgentFileEnabled( siteId: string, id: string, enabled: boolean ): Promise< void >;
+	removeSiteAgentFile( siteId: string, id: string ): Promise< void >;
+	openSiteAgentFile( siteId: string, id: string, target: SiteAgentFileOpenTarget ): Promise< void >;
 
 	// Whether the UI should render a button that opens the app menu via
 	// `popupAppMenu`. True only in the Windows/Linux desktop app, which has no
@@ -703,7 +690,7 @@ export interface OnboardingHintsState {
 	annotateHintDismissed?: boolean;
 }
 
-export type { SiteAgentFile, SiteAgentFileKind };
+export type { SiteAgentFile };
 
 export interface SkillStatus {
 	id: string;

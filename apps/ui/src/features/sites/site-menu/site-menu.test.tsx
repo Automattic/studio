@@ -52,14 +52,7 @@ function setup( {
 		{ sites, user: connections ? TEST_USER : null },
 		{
 			getConnectedWpcomSites: async () => connections ?? [],
-			getSiteDesign: async () =>
-				designAvailable
-					? {
-							design:
-								'---\ncolors:\n  primary: "#c2552b"\n  background: "#ffffff"\ntypography:\n  body:\n    fontFamily: "Inter"\n---',
-							themeJson: {},
-					  }
-					: null,
+			getGlobalStyles: async () => ( designAvailable ? { settings: {}, styles: {} } : null ),
 		}
 	);
 	const site = busy

@@ -6,6 +6,7 @@ import {
 	type StudioAgentHost,
 	AskUserQuestion,
 } from '@studio/agent/node';
+import { remoteSiteFromStored, storedFromRemoteSite } from '@studio/agent/node';
 import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/agent/node/settings-store';
 import { buildChatAttachmentSummaries } from '@studio/agent/protocol/chat-attachments';
 import {
@@ -50,6 +51,7 @@ import {
 	AI_PROVIDERS,
 	DEFAULT_AI_PROVIDER,
 	getAiProviderDefinition,
+	getProviderDefaultModel,
 	type AiProviderId,
 } from 'cli/ai/providers';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
@@ -202,6 +204,7 @@ export async function runCommand( options: {
 				: undefined,
 	};
 	const agent = createAgent( { host } );
+	agent.prepare();
 	const resumeContext = resolveResumeSessionContext( options.resumeSession );
 	let currentProvider: AiProviderId =
 		resumeContext.provider ?? ( await resolveInitialAiProvider() );
@@ -221,7 +224,8 @@ export async function runCommand( options: {
 		resumeContext.model && initialDefinition.supportsModel( resumeContext.model )
 			? resumeContext.model
 			: undefined;
-	let currentModel: AiModelId = recordedModel ?? initialDefinition.defaultModel;
+	let currentModel: AiModelId =
+		recordedModel ?? ( await getProviderDefaultModel( initialDefinition ) );
 	ui.currentProvider = currentProvider;
 	ui.currentModel = currentModel;
 
@@ -247,9 +251,8 @@ export async function runCommand( options: {
 			path: options.activeSite.path,
 			// Placeholder — turn dispatch resolves the live state before each prompt.
 			running: false,
-			remote: options.activeSite.remote,
+			remote: remoteSiteFromStored( options.activeSite ),
 			url: options.activeSite.url,
-			wpcomSiteId: options.activeSite.wpcomSiteId,
 		};
 	}
 	ui.start();
@@ -347,9 +350,8 @@ export async function runCommand( options: {
 				siteName: site.name,
 				sitePath: site.path,
 				siteId: site.id,
-				remote: site.remote,
 				url: site.url,
-				wpcomSiteId: site.wpcomSiteId,
+				...storedFromRemoteSite( site.remote ),
 			} )
 		);
 	};
@@ -395,7 +397,9 @@ export async function runCommand( options: {
 		const definition = getAiProviderDefinition( currentProvider );
 		if ( ! definition.supportsModel( currentModel ) ) {
 			currentModel =
-				currentProvider === DEFAULT_AI_PROVIDER ? wpcomDefaultModel : definition.defaultModel;
+				currentProvider === DEFAULT_AI_PROVIDER
+					? wpcomDefaultModel
+					: await getProviderDefaultModel( definition );
 			ui.currentModel = currentModel;
 		}
 
@@ -851,9 +855,8 @@ export async function runCommand( options: {
 						siteName: site.name,
 						sitePath: site.path,
 						siteId: site.id,
-						remote: site.remote,
 						url: site.url,
-						wpcomSiteId: site.wpcomSiteId,
+						...storedFromRemoteSite( site.remote ),
 					} )
 				);
 			}

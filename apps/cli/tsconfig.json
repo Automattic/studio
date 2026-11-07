@@ -7,7 +7,6 @@
 			"cli/*": [ "./*" ],
 			"@studio/common/*": [ "../../packages/common/*" ],
 			"@studio/agent/*": [ "../../packages/agent/*" ],
-			"@studio/design-md": [ "../../packages/design-md/index.ts" ],
 			"@studio/local": [ "../local/src/index.ts" ]
 		}
 	},

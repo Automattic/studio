@@ -2,6 +2,8 @@ import { createHash } from 'crypto';
 import { readFileSync } from 'fs';
 import path from 'path';
 
+export const MCP_APP_MIME_TYPE = 'text/html;profile=mcp-app';
+
 // An MCP App page, as `studio mcp` serves it.
 export interface AppPage {
 	uri: string;

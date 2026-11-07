@@ -339,7 +339,7 @@ describe( 'site preview', () => {
 
 	it( 'retries the design system query from the panel error', async () => {
 		const connector = createFakeConnector();
-		connector.getSiteDesign.mockRejectedValueOnce( new Error( 'Offline' ) );
+		connector.getGlobalStyles.mockRejectedValueOnce( new Error( 'Offline' ) );
 		const { user } = await renderPreview(
 			'browser',
 			{ path: DESIGN_SYSTEM_PREVIEW_PATH },
@@ -349,10 +349,8 @@ describe( 'site preview', () => {
 			'Design system could not load.'
 		);
 		await user.click( screen.getByRole( 'button', { name: 'Try again' } ) );
-		expect(
-			await screen.findByText( 'No design system is available for this theme.' )
-		).toBeVisible();
-		expect( connector.getSiteDesign ).toHaveBeenCalledTimes( 2 );
+		expect( await screen.findByText( 'This site has no design system.' ) ).toBeVisible();
+		expect( connector.getGlobalStyles ).toHaveBeenCalledTimes( 2 );
 	} );
 
 	it( 'asks the site whether a framed page is there, and retries when it is not', async () => {

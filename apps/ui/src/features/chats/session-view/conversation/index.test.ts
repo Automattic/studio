@@ -1,4 +1,3 @@
-import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import {
@@ -285,56 +284,6 @@ describe( 'Conversation activity groups', () => {
 		fireEvent.click( header );
 		expect( screen.getByText( 'Checking the theme.' ) ).toBeVisible();
 		expect( screen.getByText( 'Everything looks good.' ) ).toBeVisible();
-	} );
-	it( 'shows the design system inside the final reply without a separate update announcement', () => {
-		const designWrite = ( id: string ) => [
-			assistantToolCallEntry( 'Write', { path: 'DESIGN.md' } ),
-			{
-				type: 'custom',
-				id,
-				timestamp: '2026-06-05T12:00:03.000Z',
-				customType: 'studio.chat_artifact',
-				data: {
-					version: 1,
-					id,
-					widgets: [ { type: 'site-preview', widgetProps: { path: DESIGN_SYSTEM_PREVIEW_PATH } } ],
-				},
-			} as unknown as SessionEntry,
-			toolResultEntry( 'Wrote DESIGN.md' ),
-		];
-		const entries = [
-			promptEntry( 'Make it greener' ),
-			...designWrite( 'first' ),
-			...designWrite( 'second' ),
-			assistantToolCallEntry( 'Read', { file_path: '/tmp/theme.css' }, 'Checking the theme.' ),
-			toolResultEntry( 'contents' ),
-		];
-		const { rerenderSession } = renderConversation( loadedSession( entries ), {
-			isRunning: true,
-			startedAt: Date.now(),
-		} );
-		expect(
-			screen.queryByRole( 'button', { name: 'Open design system' } )
-		).not.toBeInTheDocument();
-
-		rerenderSession(
-			loadedSession( [
-				...entries,
-				assistantTextEntry(
-					`Updated the [design system](${ DESIGN_SYSTEM_PREVIEW_PATH }) to make the site greener.`
-				),
-				turnClosedEntry( 'success' ),
-			] )
-		);
-		expect( screen.getByRole( 'button', { name: /^Worked/ } ) ).toHaveAttribute(
-			'aria-expanded',
-			'false'
-		);
-		expect( screen.getAllByRole( 'button', { name: 'Open design system' } ) ).toHaveLength( 1 );
-		expect(
-			screen.getByRole( 'button', { name: 'Open design system' } ).closest( 'p' )
-		).toHaveTextContent( 'Updated the Design System to make the site greener.' );
-		expect( screen.queryByText( /was updated/ ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'automatically collapses activity while keeping a pending question available', () => {

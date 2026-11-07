@@ -1,11 +1,12 @@
-import { findSkill } from '@studio/agent/node/skills';
 import {
 	isAiAccessRequiredError,
 	isAiBlockedError,
 	isOutOfCreditsError,
 	isUsageCapError,
 } from '@studio/agent/protocol/json-events';
-import { addAssistantMessageUsage, createTokenUsage } from './token-usage';
+import { findSkill } from './skills';
+import { addAssistantMessageUsage, addToolCallUsage, createTokenUsage } from './token-usage';
+import type { RemoteSite } from './remote-hosts';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { TurnStatus } from '@studio/agent/protocol/sessions/types';
 
@@ -27,7 +28,8 @@ export type TurnErrorKind =
 	| 'network'
 	| 'other';
 
-export type TurnSiteKind = 'local' | 'wpcom' | 'none';
+// 'local', the id of the remote host the site is on, or 'none'.
+export type TurnSiteKind = string;
 
 interface TurnStatsProps {
 	tool_calls: number;
@@ -49,16 +51,16 @@ export interface TurnStatsTracker {
 	getProps( context: {
 		outcome: TurnStatus;
 		failure?: unknown;
-		site?: { remote?: boolean } | null;
+		site?: { remote?: RemoteSite } | null;
 		hasTool: ( name: string ) => boolean;
 	} ): TurnStatsProps;
 }
 
-export function getTurnSiteKind( site: { remote?: boolean } | null | undefined ): TurnSiteKind {
+export function getTurnSiteKind( site: { remote?: RemoteSite } | null | undefined ): TurnSiteKind {
 	if ( ! site ) {
 		return 'none';
 	}
-	return site.remote ? 'wpcom' : 'local';
+	return site.remote?.host ?? 'local';
 }
 
 const NETWORK_ERROR_CODES = new Set( [
@@ -173,6 +175,7 @@ export function createTurnStatsTracker(): TurnStatsTracker {
 			if ( event.type !== 'tool_execution_end' ) {
 				return;
 			}
+			addToolCallUsage( usage, event );
 			toolCalls += 1;
 			if ( event.isError ) {
 				toolErrors += 1;

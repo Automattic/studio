@@ -136,7 +136,6 @@ artifacts
 .cursor/
 .claude/
 CLAUDE.md
-!skills/CLAUDE.md
 
 # Bundled Node binary (downloaded during build)
 apps/studio/bin/node

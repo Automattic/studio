@@ -1,10 +1,9 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
-import { designSheet, parseDesignMd, themeJsonDesign } from '@studio/design-md';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { previewTabsKey, usePreviewTabs } from '@/data/preview-tabs';
-import { useSiteDesign } from '@/data/queries/use-site-design';
+import { useGlobalStyles } from '@/data/queries/use-global-styles';
 import { useIsSiteBusy } from '@/data/queries/use-sites';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
@@ -87,18 +86,7 @@ export function useSiteToolActions(
 }
 
 function useAvailableSiteTools( site: SiteDetails, live: boolean ) {
-	const { data: design } = useSiteDesign( site );
-	const designAvailable = useMemo( () => {
-		if ( ! design ) return false;
-		try {
-			designSheet(
-				design.design ? parseDesignMd( design.design ) : themeJsonDesign( design.themeJson )
-			);
-			return true;
-		} catch {
-			return false;
-		}
-	}, [ design ] );
+	const designAvailable = !! useGlobalStyles( site ).data;
 	return ( [ 'frontend', 'admin', 'design', 'database', 'email' ] as const )
 		.filter(
 			( id ) =>

@@ -18,5 +18,5 @@ export const deletePreviewTool = defineTool(
 			return `Preview site "${ normalizedHost }" deleted.`;
 		}, 'Failed to delete preview site' );
 	},
-	{ promptSnippet: 'Delete a preview site by hostname', annotations: REMOTE_OVERWRITE }
+	{ annotations: REMOTE_OVERWRITE }
 );

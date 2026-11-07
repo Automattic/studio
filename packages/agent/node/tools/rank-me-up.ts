@@ -8,10 +8,7 @@ export const auditSeoTool = defineTool(
 	'Runs an on-page SEO audit on a WordPress site page. Returns title and meta description, ' +
 		'canonical/robots/viewport tags, Open Graph and Twitter cards, heading structure, image alt-text ' +
 		'coverage, internal/external link counts, JSON-LD structured data, and robots.txt/sitemap.xml ' +
-		'availability. The site must be running. ' +
-		'CALL ONLY ON EXPLICIT USER REQUEST — when the user asks for an SEO audit, mentions ' +
-		'meta tags / OpenGraph / sitemap / search visibility, or invokes /rank-me-up. Do NOT call this as ' +
-		'part of a normal "build a site" or "design a page" workflow.',
+		'availability. The site must be running.',
 	{
 		nameOrPath: Type.String( {
 			description: 'The site name or file system path — the site must be running',
@@ -48,7 +45,5 @@ export const auditSeoTool = defineTool(
 	},
 	{
 		annotations: READ_ONLY,
-		promptSnippet:
-			'Run an on-page SEO audit (title/meta tags, headings, image alt text, OpenGraph/Twitter cards, JSON-LD structured data, robots.txt and sitemap.xml availability) for a running site. Use this to identify on-page SEO issues and guide fixes.',
 	}
 );

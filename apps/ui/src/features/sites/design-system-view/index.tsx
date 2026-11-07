@@ -1,21 +1,17 @@
 import {
-	designDrift,
 	designSheet,
 	fontFamilyName,
 	googleFontsUrl,
-	parseDesignMd,
+	presetList,
 	themeJsonDesign,
 	type Style,
-} from '@studio/design-md';
+} from '@studio/common/sites/design-sheet';
 import { __, sprintf } from '@wordpress/i18n';
 import { useMemo, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { PanelLoadError } from '@/features/sites/panel-load-error';
 import { useDesignAnnotations, type DesignAnnotationProps } from './annotations';
-import { DriftPanel } from './drift-panel';
 import styles from './style.module.css';
-import type { SiteDesign } from '@/data/core';
+import type { GlobalStyles } from '@/data/core';
 import type { CSSProperties } from 'react';
 
 const dimension = ( value: unknown ) =>
@@ -25,8 +21,9 @@ const titleCase = ( key: string ) =>
 	key.replace( /[-_]+/g, ' ' ).replace( /\b\w/g, ( char ) => char.toUpperCase() );
 
 function fontStyle( style: Style ): CSSProperties {
+	const family = fontFamilyName( style.fontFamily );
 	return {
-		fontFamily: typeof style.fontFamily === 'string' ? style.fontFamily : undefined,
+		fontFamily: family ? `"${ family }", sans-serif` : undefined,
 		fontWeight: style.fontWeight as CSSProperties[ 'fontWeight' ],
 		letterSpacing: dimension( style.letterSpacing ),
 		textTransform: style.textTransform as CSSProperties[ 'textTransform' ],
@@ -45,20 +42,18 @@ function styleSpecs( style: Style ): string {
 		.join( ' · ' );
 }
 
-function proseSections( design: string ): Array< { title: string; body: string } > {
-	const body = design.trimStart().replace( /^---\r?\n[\s\S]*?\r?\n---\r?\n?/, '' );
-	return body
-		.split( /^#\s+/m )
-		.map( ( section ) => {
-			const [ title = '', ...rest ] = section.split( '\n' );
-			return { title: title.trim(), body: rest.join( '\n' ).trim() };
-		} )
-		.filter( ( section ) => section.title && section.body );
-}
+// Where WordPress keeps each role the sheet shows, named as theme.json names it:
+// a preset by its reference, a style by its path in `styles`.
+const STYLE_PATHS: Record< string, string > = {
+	display: 'styles.elements.h1',
+	headline: 'styles.elements.h2',
+	body: 'styles.typography',
+	label: 'styles.elements.button.typography',
+};
 
 export function DesignSystemView( {
 	siteId,
-	siteDesign,
+	globalStyles,
 	error,
 	onRetry,
 	retrying,
@@ -66,37 +61,27 @@ export function DesignSystemView( {
 	onAnnotationAnchor,
 }: {
 	siteId: string;
-	siteDesign: SiteDesign | null;
+	globalStyles: GlobalStyles;
 	error?: Error | null;
 	onRetry: () => void;
 	retrying?: boolean;
 } & DesignAnnotationProps ) {
 	const view = useMemo( () => {
-		if ( ! siteDesign ) {
+		if ( ! globalStyles ) {
 			return null;
 		}
 		try {
-			const tokens = siteDesign.design
-				? parseDesignMd( siteDesign.design )
-				: themeJsonDesign( siteDesign.themeJson );
-			return {
-				tokens,
-				sheet: designSheet( tokens ),
-				drift: siteDesign.design ? designDrift( tokens, siteDesign.themeJson ) : null,
-				prose: siteDesign.design ? proseSections( siteDesign.design ) : [],
-			};
+			const tokens = themeJsonDesign( globalStyles );
+			const palette = presetList(
+				( globalStyles.settings.color as { palette?: unknown } | undefined )?.palette
+			);
+			return { tokens, sheet: designSheet( tokens ), palette };
 		} catch ( error ) {
 			return { error: error instanceof Error ? error.message : String( error ) };
 		}
-	}, [ siteDesign ] );
+	}, [ globalStyles ] );
 	const [ root, attachRoot ] = useState< HTMLDivElement | null >( null );
-	const annotate = useDesignAnnotations( {
-		siteId,
-		root,
-		enabled: !! siteDesign?.design,
-		onAnnotationPick,
-		onAnnotationAnchor,
-	} );
+	const annotate = useDesignAnnotations( { siteId, root, onAnnotationPick, onAnnotationAnchor } );
 
 	if ( error || ( view && 'error' in view ) ) {
 		return (
@@ -111,17 +96,18 @@ export function DesignSystemView( {
 	if ( ! view ) {
 		return (
 			<div className={ styles.message }>
-				<p>{ __( 'No design system is available for this theme.' ) }</p>
+				<p>{ __( 'This site has no design system.' ) }</p>
 				<p className={ styles.messageDetail }>
-					{ __( 'Design systems are available for block themes.' ) }
+					{ __( 'The design system shows the Styles of a block theme.' ) }
 				</p>
 			</div>
 		);
 	}
 
-	const { tokens, sheet, drift, prose } = view;
+	const { tokens, sheet, palette } = view;
 	const fontsUrl = googleFontsUrl( sheet.styles.map( ( [ , style ] ) => style ) );
-	const rounded = Object.entries( tokens.rounded ?? {} );
+	// theme.json sets one corner radius the sheet shows: the button's.
+	const rounded = tokens.rounded?.sm === undefined ? [] : [ [ 'button', tokens.rounded.sm ] ];
 	const spacing = Object.entries( tokens.spacing ?? {} );
 	const small = dimension( tokens.rounded?.sm ?? tokens.rounded?.md ?? 0 );
 	const accents = sheet.palette.slice( 3 );
@@ -142,21 +128,23 @@ export function DesignSystemView( {
 		...fontStyle( sheet.body ),
 	} as CSSProperties;
 
-	const styleToken = ( style: Style ) =>
-		`typography.${ sheet.styles.find( ( [ , candidate ] ) => candidate === style )?.[ 0 ] }`;
+	const styleName = ( style: Style ) =>
+		sheet.styles.find( ( [ , candidate ] ) => candidate === style )?.[ 0 ] ?? 'body';
+	const styleToken = ( style: Style ) => STYLE_PATHS[ styleName( style ) ];
 	const tile = ( [ name, value ]: [ string, string ] ) => {
-		const color = sheet.colors.find( ( [ , candidate ] ) => candidate === value )?.[ 0 ] ?? name;
+		const slug = palette.find( ( preset ) => preset.color === value )?.slug;
+		const token = slug ? `var:preset|color|${ slug }` : `styles.color.${ name }`;
 		return (
 			<div
 				key={ name }
 				className={ styles.tile }
 				data-background={ value === sheet.background || undefined }
 				style={ { backgroundColor: value, color: sheet.ink( value ) } }
-				{ ...annotate.target( `colors.${ color }`, name, value, `colors.${ color }` ) }
+				{ ...annotate.target( token, slug ?? name, value, token ) }
 			>
 				<span className={ styles.tileHex }>{ value }</span>
-				<span className={ styles.tileName }>{ name }</span>
-				{ annotate.marker( `colors.${ color }` ) }
+				<span className={ styles.tileName }>{ slug ?? name }</span>
+				{ annotate.marker( token ) }
 			</div>
 		);
 	};
@@ -165,7 +153,7 @@ export function DesignSystemView( {
 			className={ styles.specimen }
 			{ ...annotate.target(
 				styleToken( style ),
-				titleCase( styleToken( style ).slice( 'typography.'.length ) ),
+				titleCase( styleName( style ) ),
 				styleSpecs( style ),
 				styleToken( style )
 			) }
@@ -189,32 +177,9 @@ export function DesignSystemView( {
 		>
 			{ fontsUrl ? <link rel="stylesheet" href={ fontsUrl } precedence="default" /> : null }
 			<header className={ styles.header }>
-				<p className={ styles.eyebrow }>{ __( 'Design system' ) }</p>
-				{ tokens.name ? (
-					<h1
-						className={ styles.title }
-						style={ fontStyle( sheet.display ) }
-						{ ...annotate.target( 'name', __( 'Site name' ), String( tokens.name ), 'name' ) }
-					>
-						{ String( tokens.name ) }
-						{ annotate.marker( 'name' ) }
-					</h1>
-				) : null }
-				{ tokens.description ? (
-					<p
-						className={ styles.description }
-						{ ...annotate.target(
-							'description',
-							__( 'Tagline' ),
-							String( tokens.description ),
-							'description'
-						) }
-					>
-						{ String( tokens.description ) }
-						{ annotate.marker( 'description' ) }
-					</p>
-				) : null }
-				{ drift ? <DriftPanel siteId={ siteId } drift={ drift } /> : null }
+				<p className={ styles.eyebrow } style={ fontStyle( sheet.label ) }>
+					{ __( 'Design system' ) }
+				</p>
 			</header>
 
 			<div className={ styles.sections }>
@@ -247,13 +212,13 @@ export function DesignSystemView( {
 								key={ name }
 								className={ styles.scaleRow }
 								{ ...annotate.target(
-									`typography.${ name }`,
+									STYLE_PATHS[ name ],
 									titleCase( name ),
 									styleSpecs( style ),
-									`typography.${ name }`
+									STYLE_PATHS[ name ]
 								) }
 							>
-								{ annotate.marker( `typography.${ name }` ) }
+								{ annotate.marker( STYLE_PATHS[ name ] ) }
 								<div className={ styles.scaleMeta }>
 									<span className={ styles.scaleName }>{ titleCase( name ) }</span>
 									<span className={ styles.scaleSpecs }>{ styleSpecs( style ) }</span>
@@ -294,14 +259,14 @@ export function DesignSystemView( {
 										padding: dimension( sheet.button.padding ),
 									} }
 									{ ...annotate.target(
-										'components.button-primary',
+										'styles.elements.button',
 										__( 'Primary button' ),
 										undefined,
-										'components.button-primary'
+										'styles.elements.button'
 									) }
 								>
 									{ __( 'Button' ) }
-									{ annotate.marker( 'components.button-primary' ) }
+									{ annotate.marker( 'styles.elements.button' ) }
 								</span>
 								<span
 									className={ styles.button }
@@ -367,17 +332,17 @@ export function DesignSystemView( {
 									key={ name }
 									className={ styles.spacingRow }
 									{ ...annotate.target(
-										`spacing.${ name }`,
+										`var:preset|spacing|${ name }`,
 										sprintf(
 											/* translators: %s: spacing step name, e.g. "md" */
 											__( 'Spacing %s' ),
 											name
 										),
 										dimension( value ),
-										`spacing.${ name }`
+										`var:preset|spacing|${ name }`
 									) }
 								>
-									{ annotate.marker( `spacing.${ name }` ) }
+									{ annotate.marker( `var:preset|spacing|${ name }` ) }
 									<span className={ styles.spacingName }>{ name }</span>
 									<span
 										className={ styles.spacingBar }
@@ -391,54 +356,22 @@ export function DesignSystemView( {
 							<div className={ styles.corners }>
 								{ rounded.map( ( [ name, value ] ) => (
 									<figure
-										key={ name }
+										key={ String( name ) }
 										className={ styles.corner }
 										{ ...annotate.target(
-											`rounded.${ name }`,
-											sprintf(
-												/* translators: %s: corner radius name, e.g. "sm" */
-												__( 'Corner %s' ),
-												name
-											),
+											'styles.elements.button.border.radius',
+											__( 'Button corners' ),
 											dimension( value ),
-											`rounded.${ name }`
+											'styles.elements.button.border.radius'
 										) }
 									>
-										{ annotate.marker( `rounded.${ name }` ) }
+										{ annotate.marker( 'styles.elements.button.border.radius' ) }
 										<div style={ { borderRadius: `min(${ dimension( value ) }, 32px)` } } />
-										<figcaption>
-											{ name } · { dimension( value ) }
-										</figcaption>
+										<figcaption>{ dimension( value ) }</figcaption>
 									</figure>
 								) ) }
 							</div>
 						) : null }
-					</section>
-				) : null }
-
-				{ prose.length ? (
-					<section className={ `${ styles.section } ${ styles.wide }` }>
-						<h2 className={ styles.sectionTitle }>{ __( 'Guidelines' ) }</h2>
-						<div className={ styles.guidelines }>
-							{ prose.map( ( section ) => (
-								<article
-									key={ section.title }
-									className={ styles.guideline }
-									{ ...annotate.target(
-										`guidelines.${ section.title }`,
-										sprintf(
-											/* translators: %s: DESIGN.md section title, e.g. "Voice" */
-											__( 'Guideline: %s' ),
-											section.title
-										)
-									) }
-								>
-									{ annotate.marker( `guidelines.${ section.title }` ) }
-									<h3 style={ fontStyle( sheet.headline ) }>{ section.title }</h3>
-									<ReactMarkdown remarkPlugins={ [ remarkGfm ] }>{ section.body }</ReactMarkdown>
-								</article>
-							) ) }
-						</div>
 					</section>
 				) : null }
 			</div>

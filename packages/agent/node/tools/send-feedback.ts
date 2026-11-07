@@ -44,8 +44,5 @@ export const sendFeedbackTool = defineTool(
 			);
 		}
 	},
-	{
-		promptSnippet: 'Send the user’s feedback about WordPress Studio to the WordPress Studio team.',
-		annotations: REMOTE_CHANGE,
-	}
+	{ annotations: REMOTE_CHANGE }
 );

@@ -48,8 +48,8 @@ vi.mock( 'cli/ai/providers', () => ( {
 	DEFAULT_AI_PROVIDER: 'wpcom',
 	getAiProviderDefinition: () => ( {
 		supportsModel: () => true,
-		defaultModel: 'claude-sonnet-5',
 	} ),
+	getProviderDefaultModel: async () => 'claude-sonnet-5',
 	getStudioUserAgent: () => 'WordPressStudio',
 } ) );
 vi.mock( '@studio/agent/node/settings-store', () => ( {
@@ -312,7 +312,7 @@ describe( 'AI runCommand — active site banner running state', () => {
 		expect( findSiteByFolder ).not.toHaveBeenCalled();
 		expect( isSiteRunning ).not.toHaveBeenCalled();
 		expect( dispatched().prompt ).toBe( 'hello' );
-		expect( dispatched().activeSite ).toMatchObject( { remote: true, wpcomSiteId: 123 } );
+		expect( dispatched().activeSite ).toMatchObject( { remote: { host: 'wpcom', id: 123 } } );
 	} );
 } );
 

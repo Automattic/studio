@@ -24,7 +24,7 @@ export function enrichPreviewListOutput( snapshots: Snapshot[] ): string {
 
 export const listPreviewsTool = defineTool(
 	'preview_list',
-	'Lists preview sites for a local Studio site. A preview site is a TEMPORARY, expiring hosted preview created from a local site — it is NOT a connected WordPress.com remote site and must never be described as one. Each entry is tagged with "type": "preview". Requires WordPress.com authentication.',
+	'Lists preview sites for a local Studio site. A preview site is a temporary, expiring hosted copy of a local site, separate from the sites it is published to (site_publish_targets). Each entry is tagged with "type": "preview". Requires WordPress.com authentication.',
 	{
 		nameOrPath: Type.String( { description: 'The local site name or file system path' } ),
 	},
@@ -42,7 +42,5 @@ export const listPreviewsTool = defineTool(
 	},
 	{
 		annotations: READ_ONLY,
-		promptSnippet:
-			'List preview sites (temporary, expiring hosted previews) for a local site. These are NOT connected WordPress.com remote sites.',
 	}
 );

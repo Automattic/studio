@@ -1,51 +1,57 @@
 import { Type } from 'typebox';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { textResult } from './utils';
+import type { StudioToolDefinition } from './define-tool';
 
-export const pushSiteTool = defineTool(
-	'site_push',
-	'Pushes a local WordPress site to a WordPress.com site. Requires WordPress.com authentication ' +
-		'(studio auth login). Exports the local site, uploads it, and imports it on the remote site. ' +
-		'This can take several minutes depending on site size. ' +
-		'Never call it without explicit user confirmation of the target remote site, even when only one site is attached. Resolve the target first with site_connected_remote_sites: ' +
-		'with exactly one attached site, confirm it with AskUserQuestion when available (options "Yes" and "No", the description naming the remote site and its URL); ' +
-		"with several, ask which one (one option per site: label = site name, description = URL) and pass the chosen site's ID or URL as remoteSite; " +
-		'with none, ask in plain text for the URL or ID of the WordPress.com site to push to, without AskUserQuestion, and wait for the reply.',
-	{
-		nameOrPath: Type.String( { description: 'The local site name or file system path' } ),
-		remoteSite: Type.String( {
-			description: 'The remote WordPress.com site URL or numeric site ID to push to',
-		} ),
-		options: Type.Optional(
-			Type.String( {
-				description:
-					'Comma-separated sync options: all, sqls, uploads, plugins, themes, contents. Defaults to "all".',
-			} )
-		),
-	},
-	async ( args, context ) => {
-		try {
-			const site = await context.host.sites.resolve( args.nameOrPath );
-			const remoteSite = await context.host.sync.push(
-				site,
-				args.options ?? 'all',
-				args.remoteSite,
-				context.onProgress
-			);
-			return textResult(
-				remoteSite
-					? `Pushed "${ site.name }" to ${ remoteSite.name } (${ remoteSite.url }).`
-					: 'Push cancelled.'
-			);
-		} catch ( error ) {
-			throw new Error(
-				`Failed to push site: ${ error instanceof Error ? error.message : String( error ) }`
-			);
+// The tool, with the hosts it can push to.
+function createPushSiteTool( hostIds: string[] ) {
+	return defineTool(
+		'site_push',
+		"Replaces a remote site's content on one of the hosts in site_publish_targets with the local site's; " +
+			"the host's `publishes` says what that makes there. " +
+			'This can take several minutes depending on site size. ' +
+			'remoteSite is one of the targets site_publish_targets lists, or a site the user names. ' +
+			'Studio asks the user to confirm the target before the push starts.',
+		{
+			nameOrPath: Type.String( { description: 'The local site name or file system path' } ),
+			host: Type.Optional(
+				Type.Union(
+					hostIds.map( ( id ) => Type.Literal( id ) ),
+					{
+						description:
+							'The host the remote site is on, from site_publish_targets. Defaults to "wpcom".',
+					}
+				)
+			),
+			remoteSite: Type.String( {
+				description: "The remote site URL or the host's id for it, to push to",
+			} ),
+			options: Type.Optional(
+				Type.String( {
+					description:
+						'For WordPress.com, comma-separated sync options: all, sqls, uploads, plugins, themes, contents. Defaults to "all".',
+				} )
+			),
+		},
+		async ( args, context ) => {
+			try {
+				const site = await context.host.sites.resolve( args.nameOrPath );
+				const remoteHost = context.host.remoteHosts[ args.host ?? 'wpcom' ];
+				return textResult(
+					await remoteHost.push( site, args.remoteSite, args.options ?? 'all', context.onProgress )
+				);
+			} catch ( error ) {
+				throw new Error(
+					`Failed to push site: ${ error instanceof Error ? error.message : String( error ) }`
+				);
+			}
+		},
+		{
+			annotations: REMOTE_OVERWRITE,
+			forHost: ( _options, host ): StudioToolDefinition | undefined =>
+				createPushSiteTool( Object.keys( host.remoteHosts ) ),
 		}
-	},
-	{
-		promptSnippet:
-			'Push a local site to a WordPress.com site. Requires authentication (studio auth login). Specify the remote site URL or ID and sync options (all, sqls, uploads, plugins, themes, contents).',
-		annotations: REMOTE_OVERWRITE,
-	}
-);
+	);
+}
+
+export const pushSiteTool = createPushSiteTool( [ 'wpcom' ] );

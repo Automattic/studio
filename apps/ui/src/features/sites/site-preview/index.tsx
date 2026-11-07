@@ -17,6 +17,7 @@ import { useResponsivePreview, updateResponsivePreview } from '@/data/responsive
 import { useIsSiteRestarting } from '@/data/site-restarts';
 import {
 	AnnotationOverlay,
+	discardAnnotations,
 	isBatchedAnnotation,
 	getSiteAnnotations,
 	subscribeAnnotationReview,
@@ -333,6 +334,7 @@ function SitePreviewContent( {
 		onPick: handleAnnotationPick,
 	} );
 	const handleAnnotationToolEvent = annotationTools.handleEvent;
+	const discard = useCallback( () => discardAnnotations( site.id ), [ site.id ] );
 	const capturePage = usePreviewCapture( site.id, siteUrl, viewportRef );
 	const handleSurfaceLoad = useCallback(
 		( key: PreviewSurfaceKey, url: string, guestId?: number ) => {
@@ -489,6 +491,9 @@ function SitePreviewContent( {
 							{ ...annotate }
 							annotationCount={ batchNotes.length }
 							pageTools={ activeSurfaceKey === 'site' && canAnnotate }
+							drawing={ annotationTools.drawing }
+							onToggleDrawing={ annotationTools.controls.onToggle }
+							onDiscard={ discard }
 						/>,
 						annotationSpace
 				  )
@@ -659,7 +664,7 @@ function SitePreviewContent( {
 							{ ...annotationTools.controls }
 							pageTools={ activeSurfaceKey === 'site' }
 							disabled={ isAnnotationsBusy( annotations ) }
-							onExit={ annotate.onClick }
+							onDiscard={ discard }
 						/>
 					) : null }
 					{ ! inactive && ! blank && canAnnotateSurface ? (

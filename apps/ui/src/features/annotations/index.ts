@@ -5,6 +5,7 @@ export {
 	closeAnnotationEditor,
 	setAnnotationsPreparing,
 	changeAnnotation,
+	discardAnnotations,
 	editAnnotation,
 	escapeAnnotations,
 	getSiteAnnotations,

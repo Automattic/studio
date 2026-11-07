@@ -99,6 +99,19 @@ export function setAnnotating( siteId: string, active: boolean ) {
 	);
 }
 
+export function discardAnnotations( siteId: string ) {
+	if ( isAnnotationsBusy( getSiteAnnotations( siteId ) ) ) return;
+	const review = pendingReview.getSnapshot();
+	if ( review?.siteId === siteId ) pendingReview.clear( review );
+	update( siteId, ( current ) => ( {
+		...current,
+		active: false,
+		notes: [],
+		editingId: null,
+		blockedNavigation: undefined,
+	} ) );
+}
+
 export function setAnnotationsPreparing( siteId: string, preparing: boolean ) {
 	update( siteId, ( current ) =>
 		Boolean( current.preparing ) === preparing ? current : { ...current, preparing }

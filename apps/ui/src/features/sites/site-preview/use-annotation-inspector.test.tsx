@@ -98,6 +98,11 @@ function pageState( preview: { executeJavaScript: ReturnType< typeof vi.fn > } )
 	return code ? JSON.parse( code.slice( code.indexOf( '{ detail: ' ) + 10, -4 ) ) : null;
 }
 
+const drawButton = () =>
+	within( screen.getByRole( 'group', { name: 'Annotation tools' } ) ).getByRole( 'button', {
+		name: 'Draw',
+	} );
+
 describe( 'annotation inspector navigation', () => {
 	it( 'keeps tools in the preview while annotating and provides an explicit Select tool', async () => {
 		const { emit, annotate, preview } = await setup();
@@ -125,7 +130,7 @@ describe( 'annotation inspector navigation', () => {
 			id = pickAnnotation( site.id, { selector: 'h1', url: 'http://localhost:8881/' } )!;
 			changeAnnotation( site.id, id, { comment: 'Keep this note' } );
 		} );
-		fireEvent.click( within( tools ).getByRole( 'button', { name: 'Exit annotation mode' } ) );
+		fireEvent.click( annotate() );
 		expect( screen.queryByRole( 'group', { name: 'Annotation tools' } ) ).not.toBeInTheDocument();
 		expect( getSiteAnnotations( site.id ).notes ).toEqual( [
 			expect.objectContaining( { id, comment: 'Keep this note' } ),
@@ -133,6 +138,68 @@ describe( 'annotation inspector navigation', () => {
 		fireEvent.click( annotate() );
 		expect( screen.queryByRole( 'button', { name: 'Send annotations' } ) ).not.toBeInTheDocument();
 	} );
+
+	it( 'reveals Draw beside Annotate and shares its selection with the floating toolbar', async () => {
+		const { emit, annotate, preview } = await setup();
+		emit( 'dom-ready' );
+		await waitFor( () => expect( annotate() ).toBeEnabled() );
+		const actions = within( screen.getByRole( 'group', { name: 'Annotation actions' } ) );
+		expect( actions.queryByRole( 'button', { name: 'Draw' } ) ).not.toBeInTheDocument();
+		expect(
+			actions.queryByRole( 'button', { name: 'Discard annotations' } )
+		).not.toBeInTheDocument();
+		fireEvent.click( annotate() );
+		const draw = actions.getByRole( 'button', { name: 'Draw' } );
+		expect( draw ).toHaveAttribute( 'aria-pressed', 'false' );
+		fireEvent.click( draw );
+		expect( draw ).toHaveAttribute( 'aria-pressed', 'true' );
+		expect( drawButton() ).toHaveAttribute( 'aria-pressed', 'true' );
+		expect( pageState( preview ).tool ).toBe( 'draw' );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Select' } ) );
+		expect( draw ).toHaveAttribute( 'aria-pressed', 'false' );
+		fireEvent.click( drawButton() );
+		expect( draw ).toHaveAttribute( 'aria-pressed', 'true' );
+		fireEvent.click( annotate() );
+		expect( actions.queryByRole( 'button', { name: 'Draw' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'group', { name: 'Annotation tools' } ) ).not.toBeInTheDocument();
+	} );
+
+	it.each( [ 'Annotation actions', 'Annotation tools' ] )(
+		'discards saved annotations and the current draft from %s and turns annotation mode off',
+		async ( group ) => {
+			const { emit, annotate, onSendAnnotations } = await setup();
+			emit( 'dom-ready' );
+			await waitFor( () => expect( annotate() ).toBeEnabled() );
+			fireEvent.click( annotate() );
+			act( () => {
+				const saved = pickAnnotation( site.id, { selector: 'h1', url: 'http://localhost:8881/' } )!;
+				changeAnnotation( site.id, saved, { comment: 'Saved note' } );
+				stageAnnotations( site.id, [ saved ], true );
+				const draft = pickAnnotation( site.id, { selector: 'p', url: 'http://localhost:8881/' } )!;
+				changeAnnotation( site.id, draft, { comment: 'Unfinished note' } );
+				setAnnotationsPreparing( site.id, true );
+			} );
+			const discard = within( screen.getByRole( 'group', { name: group } ) ).getByRole( 'button', {
+				name: 'Discard annotations',
+			} );
+			expect( discard ).toBeDisabled();
+			fireEvent.click( discard );
+			expect( getSiteAnnotations( site.id ).notes ).toHaveLength( 2 );
+			act( () => setAnnotationsPreparing( site.id, false ) );
+			fireEvent.click( discard );
+			expect( getSiteAnnotations( site.id ) ).toMatchObject( {
+				active: false,
+				notes: [],
+				editingId: null,
+			} );
+			expect( onSendAnnotations ).not.toHaveBeenCalled();
+			if ( group === 'Annotation actions' ) expect( annotate() ).toHaveFocus();
+			expect( screen.queryByRole( 'group', { name: 'Annotation tools' } ) ).not.toBeInTheDocument();
+			expect(
+				screen.queryByRole( 'button', { name: 'Discard annotations' } )
+			).not.toBeInTheDocument();
+		}
+	);
 
 	it( 'discards an empty drawing draft on Escape', async () => {
 		const { connector, emit, annotate, preview } = await setup();
@@ -146,10 +213,7 @@ describe( 'annotation inspector navigation', () => {
 		emit( 'dom-ready' );
 		await waitFor( () => expect( annotate() ).toBeEnabled() );
 		fireEvent.click( annotate() );
-		expect( screen.getByRole( 'button', { name: 'Draw' } ) ).toHaveAttribute(
-			'aria-pressed',
-			'false'
-		);
+		expect( drawButton() ).toHaveAttribute( 'aria-pressed', 'false' );
 		const selection = {
 			id: 'drawing-selection',
 			target: {
@@ -205,7 +269,7 @@ describe( 'annotation inspector navigation', () => {
 		emit( 'dom-ready' );
 		await waitFor( () => expect( annotate() ).toBeEnabled() );
 		fireEvent.click( annotate() );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Draw' } ) );
+		fireEvent.click( drawButton() );
 		const selection = {
 			id: 'circle',
 			target: {
@@ -243,10 +307,7 @@ describe( 'annotation inspector navigation', () => {
 				images: [ expect.objectContaining( { id: 'circle-image' } ) ],
 			} ),
 		] );
-		expect( screen.getByRole( 'button', { name: 'Draw' } ) ).toHaveAttribute(
-			'aria-pressed',
-			'true'
-		);
+		expect( drawButton() ).toHaveAttribute( 'aria-pressed', 'true' );
 		const input = screen.getByRole( 'textbox', { name: 'Describe the change' } );
 		fireEvent.change( input, { target: { value: 'Change the circled area' } } );
 		fireEvent.keyDown( input, { key: 'Escape' } );
@@ -280,7 +341,7 @@ describe( 'annotation inspector navigation', () => {
 		emit( 'dom-ready' );
 		await waitFor( () => expect( annotate() ).toBeEnabled() );
 		fireEvent.click( annotate() );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Draw' } ) );
+		fireEvent.click( drawButton() );
 		const originalStroke = [
 			{ x: 40, y: 50 },
 			{ x: 180, y: 100 },
@@ -376,7 +437,7 @@ describe( 'annotation inspector navigation', () => {
 		emit( 'dom-ready' );
 		await waitFor( () => expect( annotate() ).toBeEnabled() );
 		fireEvent.click( annotate() );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Draw' } ) );
+		fireEvent.click( drawButton() );
 		const first = {
 			id: 'first-stroke',
 			target: {
@@ -445,7 +506,7 @@ describe( 'annotation inspector navigation', () => {
 		emit( 'dom-ready' );
 		await waitFor( () => expect( annotate() ).toBeEnabled() );
 		fireEvent.click( annotate() );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Draw' } ) );
+		fireEvent.click( drawButton() );
 		const selection = {
 			id: 'drawing-selection',
 			target: {
@@ -481,10 +542,7 @@ describe( 'annotation inspector navigation', () => {
 				images: [ expect.objectContaining( { id: 'drawing-image' } ) ],
 			} ),
 		] );
-		expect( screen.getByRole( 'button', { name: 'Draw' } ) ).toHaveAttribute(
-			'aria-pressed',
-			'true'
-		);
+		expect( drawButton() ).toHaveAttribute( 'aria-pressed', 'true' );
 	} );
 
 	it( 'keeps image-only drafts open until saved and marks them pending', async () => {

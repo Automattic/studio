@@ -12,7 +12,7 @@ export function AnnotationTools( {
 	pageTools,
 	onToggle,
 	onRetry,
-	onExit,
+	onDiscard,
 }: {
 	drawing: boolean;
 	pending: boolean;
@@ -21,7 +21,7 @@ export function AnnotationTools( {
 	pageTools: boolean;
 	onToggle: () => void;
 	onRetry: () => void;
-	onExit: () => void;
+	onDiscard: () => void;
 } ) {
 	return (
 		<div className={ styles.overlay }>
@@ -71,9 +71,10 @@ export function AnnotationTools( {
 					size="icon"
 					shape="round"
 					icon={ <TrashIcon /> }
-					label={ __( 'Exit annotation mode' ) }
+					label={ __( 'Discard annotations' ) }
 					disabled={ disabled }
-					onClick={ onExit }
+					focusableWhenDisabled={ false }
+					onClick={ onDiscard }
 					tooltipSide="top"
 				/>
 			</div>

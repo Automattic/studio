@@ -9,6 +9,7 @@
 }
 
 .tools {
+	composes: floating padded from '@/lib/ui/surface/style.module.css';
 	--motion-duration-feedback: 0s;
 	display: flex;
 	align-items: center;
@@ -16,7 +17,6 @@
 	width: max-content;
 	max-width: 100%;
 	height: auto;
-	padding: var( --space-1_5 );
-	box-shadow: var( --shadow-xs );
+	border-radius: var( --radius-3xl );
 	pointer-events: auto;
 }

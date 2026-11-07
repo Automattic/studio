@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { MousePointer2Icon, PencilIcon, RotateCcwIcon } from 'lucide-react';
 import { SendIcon, TrashIcon } from '@/lib/icons';
-import { IconButton, InputGroup } from '@/lib/ui';
+import { IconButton } from '@/lib/ui';
 import styles from './annotation-tools.module.css';
 
 export function AnnotationTools( {
@@ -29,11 +29,7 @@ export function AnnotationTools( {
 } ) {
 	return (
 		<div className={ styles.overlay }>
-			<InputGroup
-				variant="composer"
-				className={ styles.tools }
-				aria-label={ __( 'Annotation tools' ) }
-			>
+			<div className={ styles.tools } role="group" aria-label={ __( 'Annotation tools' ) }>
 				{ pageTools ? (
 					<>
 						<IconButton
@@ -95,7 +91,7 @@ export function AnnotationTools( {
 					onClick={ onExit }
 					tooltipSide="top"
 				/>
-			</InputGroup>
+			</div>
 		</div>
 	);
 }

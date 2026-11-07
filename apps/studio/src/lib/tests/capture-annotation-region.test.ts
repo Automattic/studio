@@ -8,13 +8,14 @@ vi.mock( 'electron', () => ( { webContents: { fromId: vi.fn() } } ) );
 const selection: InspectorSelection = {
 	id: 'capture-1',
 	target: {
-		kind: 'region',
+		kind: 'drawing',
 		url: 'http://localhost:8881/',
 		viewport: { width: 800, height: 600 },
 		documentRect: { left: 20, top: 30, width: 200, height: 100 },
 	},
 	rect: { left: 20, top: 30, width: 200, height: 100 },
 	scroll: { left: 0, top: 0 },
+	drawing: { width: 3, color: '#3858e9', strokes: [ [ { x: 30, y: 40 } ] ] },
 };
 const sender = {};
 const event = { sender } as IpcMainInvokeEvent;
@@ -52,6 +53,7 @@ describe( 'annotation region capture', () => {
 			"removeAttribute('data-capturing')"
 		);
 		expect( result ).toMatchObject( {
+			name: 'Drawing.png',
 			mimeType: 'image/png',
 			width: 400,
 			height: 200,

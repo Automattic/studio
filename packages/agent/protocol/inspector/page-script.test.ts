@@ -74,103 +74,11 @@ describe( 'annotation inspector', () => {
 		document.body.replaceChildren();
 	} );
 
-	it( 'edits page text directly and restores markup on Escape', () => {
-		document.body.innerHTML = '<h1>Hello <em>world</em></h1>';
-		const heading = document.querySelector( 'h1' )!;
-		const events = mount();
-		publish( { active: true, areaSelection: true, tool: 'text' } );
-		pointer( heading, 'pointerdown', 20, 30 );
-		expect( heading ).toHaveAttribute( 'contenteditable', 'plaintext-only' );
-		expect( events().at( -1 ) ).toMatchObject( {
-			type: 'text-edit',
-			edit: {
-				originalText: 'Hello world',
-				text: 'Hello world',
-				target: { tag: 'h1', nearbyText: 'Hello world' },
-			},
-		} );
-		heading.textContent = 'A better title';
-		heading.dispatchEvent( new InputEvent( 'input', { bubbles: true } ) );
-		heading.dispatchEvent(
-			new KeyboardEvent( 'keydown', { key: 'Enter', bubbles: true, cancelable: true } )
-		);
-		expect( events().at( -1 ) ).toMatchObject( {
-			type: 'text-edit',
-			edit: { originalText: 'Hello world', text: 'A better title' },
-		} );
-		expect( events().some( ( event ) => event?.type === 'pick' ) ).toBe( false );
-		heading.dispatchEvent( new KeyboardEvent( 'keydown', { key: 'Escape', bubbles: true } ) );
-		expect( heading.innerHTML ).toBe( 'Hello <em>world</em>' );
-		expect( heading ).not.toHaveAttribute( 'contenteditable' );
-		expect( events().at( -1 ) ).toEqual( { type: 'text-edit', edit: null, anchor: null } );
-	} );
-
-	it( 'keeps a sent replacement visible through reloads and stops shimmering with the agent', () => {
-		document.body.innerHTML = '<h1>Original title</h1>';
-		mount();
-		publish( { active: true, areaSelection: true, tool: 'text' } );
-		let heading = document.querySelector( 'h1' )!;
-		pointer( heading, 'pointerdown', 20, 30 );
-		heading.textContent = 'New title';
-		window.dispatchEvent(
-			new CustomEvent( INSPECTOR_ACTION_EVENT, { detail: { type: 'commit-text' } } )
-		);
-		const edit = {
-			id: 'text-1',
-			target: { selector: 'h1', url: location.href },
-			originalText: 'Original title',
-			text: 'New title',
-			pending: true,
-		};
-		publish( { active: false, textEdits: [ edit ] } );
-		expect( heading ).not.toHaveAttribute( 'contenteditable' );
-		expect( heading ).toHaveTextContent( 'New title' );
-		expect( heading ).toHaveClass( '__studio-text-pending' );
-		( window as Window & { __studioInspectorDispose?: () => void } ).__studioInspectorDispose?.();
-		document.body.innerHTML = '<h1>Original title</h1>';
-		mount();
-		publish( { active: false, textEdits: [ edit ] } );
-		heading = document.querySelector( 'h1' )!;
-		expect( heading ).toHaveTextContent( 'New title' );
-		expect( heading ).toHaveClass( '__studio-text-pending' );
-		publish( { active: false, textEdits: [ { ...edit, pending: false } ] } );
-		expect( heading ).toHaveTextContent( 'New title' );
-		expect( heading ).not.toHaveClass( '__studio-text-pending' );
-		( window as Window & { __studioInspectorDispose?: () => void } ).__studioInspectorDispose?.();
-		document.body.innerHTML = '<h1>What the site actually saved</h1>';
-		mount();
-		publish( { active: false, textEdits: [ { ...edit, pending: false } ] } );
-		expect( document.querySelector( 'h1' ) ).toHaveTextContent( 'What the site actually saved' );
-	} );
-
-	it( 'leaves form controls and unexpected page changes alone in text mode', () => {
-		document.body.innerHTML = '<input value="Form value"><h1>A different title</h1>';
-		const events = mount();
-		publish( {
-			active: true,
-			areaSelection: true,
-			tool: 'text',
-			textEdits: [
-				{
-					id: 'text-1',
-					target: { selector: 'h1', url: location.href },
-					originalText: 'Old title',
-					text: 'Requested title',
-					pending: true,
-				},
-			],
-		} );
-		pointer( document.querySelector( 'input' )!, 'pointerdown', 20, 30 );
-		expect( document.querySelector( 'input' ) ).not.toHaveAttribute( 'contenteditable' );
-		expect( document.querySelector( 'h1' ) ).toHaveTextContent( 'A different title' );
-		expect( events() ).toEqual( [] );
-	} );
-
-	it( 'keeps short pointer gestures as one element pick and suppresses the following click', () => {
+	it( 'keeps click-to-annotate working in Select mode', () => {
 		document.body.innerHTML = '<h1>Welcome</h1>';
 		const heading = document.querySelector( 'h1' )!;
 		const events = mount();
-		publish( { active: true, areaSelection: true } );
+		publish( { active: true } );
 		pointer( heading, 'pointerdown', 100, 50 );
 		pointer( heading, 'pointermove', 102, 51 );
 		pointer( heading, 'pointerup', 102, 51 );
@@ -182,79 +90,41 @@ describe( 'annotation inspector', () => {
 		] );
 	} );
 
-	it( 'selects a rectangle in either direction without picking an element', () => {
-		document.body.innerHTML = '<section><h1>Welcome</h1><p>Intro</p></section>';
-		const section = document.querySelector( 'section' )!;
-		const events = mount();
-		publish( { active: true, areaSelection: true } );
-		pointer( section, 'pointerdown', 300, 200 );
-		pointer( section, 'pointermove', 30, 40 );
-		pointer( section, 'pointerup', 30, 40 );
-		section.dispatchEvent( new MouseEvent( 'click', { bubbles: true } ) );
-		expect( events() ).toEqual( [
-			{
-				type: 'selection',
-				selection: expect.objectContaining( {
-					rect: { left: 30, top: 40, width: 270, height: 160 },
-					target: expect.objectContaining( {
-						kind: 'region',
-						documentRect: { left: 30, top: 40, width: 270, height: 160 },
-					} ),
-				} ),
-			},
-		] );
+	it( 'hides the element highlight while a drawing note is open and restores hover afterward', () => {
+		document.body.innerHTML = '<h1>Welcome</h1>';
+		const heading = document.querySelector( 'h1' )!;
+		vi.spyOn( heading, 'getBoundingClientRect' ).mockReturnValue( new DOMRect( 10, 20, 200, 40 ) );
+		mount();
+		vi.stubGlobal( 'requestAnimationFrame', ( callback: FrameRequestCallback ) => {
+			callback( 0 );
+			return 0;
+		} );
+		const note = {
+			id: 'area-note',
+			number: 1,
+			kind: 'drawing',
+			url: location.href,
+			documentRect: { left: 100, top: 150, width: 300, height: 200 },
+		};
+		publish( { active: true, notes: [ note ], editingId: note.id } );
+		pointer( heading, 'pointermove', 20, 30 );
+		const highlight = document
+			.getElementById( '__studio-inspector-host' )!
+			.shadowRoot!.querySelector( '.highlight' );
+		expect( highlight ).not.toBeVisible();
+		publish( { active: true, notes: [ note ], editingId: null } );
+		expect( highlight ).toHaveStyle( {
+			left: '10px',
+			top: '20px',
+			width: '200px',
+			height: '40px',
+		} );
 	} );
-
-	it.each( [ 'region', 'drawing' ] )(
-		'shows the correct selection highlight while a %s note is open and restores hover afterward',
-		( kind ) => {
-			document.body.innerHTML = '<h1>Welcome</h1>';
-			const heading = document.querySelector( 'h1' )!;
-			vi.spyOn( heading, 'getBoundingClientRect' ).mockReturnValue(
-				new DOMRect( 10, 20, 200, 40 )
-			);
-			mount();
-			vi.stubGlobal( 'requestAnimationFrame', ( callback: FrameRequestCallback ) => {
-				callback( 0 );
-				return 0;
-			} );
-			const note = {
-				id: 'area-note',
-				number: 1,
-				kind,
-				url: location.href,
-				documentRect: { left: 100, top: 150, width: 300, height: 200 },
-			};
-			publish( { active: true, areaSelection: true, notes: [ note ], editingId: note.id } );
-			pointer( heading, 'pointermove', 20, 30 );
-			const highlight = document
-				.getElementById( '__studio-inspector-host' )!
-				.shadowRoot!.querySelector( '.highlight' );
-			if ( kind === 'drawing' ) {
-				expect( highlight ).not.toBeVisible();
-			} else {
-				expect( highlight ).toBeVisible();
-				expect( highlight ).toHaveStyle( {
-					left: '100px',
-					top: '150px',
-					width: '300px',
-					height: '200px',
-				} );
-			}
-			publish( { active: true, areaSelection: true, notes: [ note ], editingId: null } );
-			expect( highlight ).toHaveStyle( {
-				left: '10px',
-				top: '20px',
-				width: '200px',
-				height: '40px',
-			} );
-		}
-	);
 
 	it( 'keeps a quick oval freehand and hands it to the note immediately on release', () => {
 		vi.useFakeTimers();
 		const events = mount();
-		publish( { active: true, areaSelection: true, tool: 'draw' } );
+		publish( { active: true, tool: 'draw' } );
 		const end = drawOval();
 		vi.advanceTimersByTime( 200 );
 		pointer( document.body, 'pointerup', end.x, end.y );
@@ -269,7 +139,7 @@ describe( 'annotation inspector', () => {
 	it( 'recognizes a held oval before release and restores its original stroke when undoing the note', () => {
 		vi.useFakeTimers();
 		const events = mount();
-		publish( { active: true, areaSelection: true, tool: 'draw' } );
+		publish( { active: true, tool: 'draw' } );
 		const end = drawOval();
 		vi.advanceTimersByTime( 599 );
 		expect( events() ).toEqual( [] );
@@ -285,7 +155,6 @@ describe( 'annotation inspector', () => {
 		expect( drawing.originalStroke ).toHaveLength( 81 );
 		publish( {
 			active: true,
-			areaSelection: true,
 			tool: 'draw',
 			editingId: 'shape-note',
 			notes: [ { ...event.selection.target, drawing, id: 'shape-note', number: 1 } ],
@@ -309,7 +178,7 @@ describe( 'annotation inspector', () => {
 	it( 'returns to freehand when drawing continues after the hold', () => {
 		vi.useFakeTimers();
 		const events = mount();
-		publish( { active: true, areaSelection: true, tool: 'draw' } );
+		publish( { active: true, tool: 'draw' } );
 		const end = drawOval();
 		vi.advanceTimersByTime( 600 );
 		pointer( document.body, 'pointermove', end.x + 30, end.y + 30 );
@@ -321,9 +190,9 @@ describe( 'annotation inspector', () => {
 	} );
 	it( 'finishes a stroke when an earlier capture becomes busy after pointerdown', () => {
 		const events = mount();
-		publish( { active: true, areaSelection: true, tool: 'draw' } );
+		publish( { active: true, tool: 'draw' } );
 		pointer( document.body, 'pointerdown', 30, 40 );
-		publish( { active: true, areaSelection: true, tool: 'draw', busy: true } );
+		publish( { active: true, tool: 'draw', busy: true } );
 		pointer( document.body, 'pointermove', 60, 70 );
 		pointer( document.body, 'pointerup', 90, 100 );
 		expect( events().at( -1 ) ).toMatchObject( {
@@ -347,7 +216,7 @@ describe( 'annotation inspector', () => {
 		( reason ) => {
 			vi.useFakeTimers();
 			mount();
-			publish( { active: true, areaSelection: true, tool: 'draw' } );
+			publish( { active: true, tool: 'draw' } );
 			drawOval();
 			if ( reason === 'cancel' ) pointer( document.body, 'pointercancel', 0, 0 );
 			if ( reason === 'blur' ) window.dispatchEvent( new Event( 'blur' ) );
@@ -368,7 +237,7 @@ describe( 'annotation inspector', () => {
 			callback( 0 );
 			return 0;
 		} );
-		publish( { active: true, areaSelection: true, tool: 'draw' } );
+		publish( { active: true, tool: 'draw' } );
 		pointer( document.body, 'pointerdown', 10, 10 );
 		const event = new MouseEvent( 'pointermove', { bubbles: true, clientX: 70, clientY: 40 } );
 		Object.defineProperties( event, {
@@ -406,7 +275,7 @@ describe( 'annotation inspector', () => {
 
 	it( 'groups pen strokes, clamps their crop, and undoes one complete stroke', () => {
 		const events = mount();
-		publish( { active: true, areaSelection: true, tool: 'draw' } );
+		publish( { active: true, tool: 'draw' } );
 		pointer( document.body, 'pointerdown', 10, 10 );
 		pointer( document.body, 'pointermove', 90, 80 );
 		pointer( document.body, 'pointerup', 100, 80 );
@@ -433,7 +302,7 @@ describe( 'annotation inspector', () => {
 
 	it( 'does not let the previous capture clear a newer pen stroke', () => {
 		const events = mount();
-		publish( { active: true, areaSelection: true, tool: 'draw' } );
+		publish( { active: true, tool: 'draw' } );
 		pointer( document.body, 'pointerdown', 10, 10 );
 		pointer( document.body, 'pointerup', 50, 50 );
 		const first = events().at( -1 );
@@ -467,7 +336,7 @@ describe( 'annotation inspector', () => {
 
 	it( 'finishes the first stroke when preview focus releases pointer capture before pointerup', () => {
 		const events = mount();
-		publish( { active: true, areaSelection: true, tool: 'draw' } );
+		publish( { active: true, tool: 'draw' } );
 		pointer( document.body, 'pointerdown', 30, 40 );
 		pointer( document.body, 'pointermove', 60, 70 );
 		pointer( document.documentElement, 'lostpointercapture', 60, 70 );
@@ -490,7 +359,7 @@ describe( 'annotation inspector', () => {
 
 	it( 'holds scrolling for a drawing and clears the draft before exiting on Escape', () => {
 		const events = mount();
-		publish( { active: true, areaSelection: true, tool: 'draw' } );
+		publish( { active: true, tool: 'draw' } );
 		pointer( document.body, 'pointerdown', 30, 40 );
 		pointer( document.body, 'pointerup', 80, 100 );
 		const wheel = new WheelEvent( 'wheel', { bubbles: true, cancelable: true, deltaY: 100 } );
@@ -504,7 +373,7 @@ describe( 'annotation inspector', () => {
 
 	it( 'ignores another pointer cancelling and drops only the unfinished stroke on blur', () => {
 		const events = mount();
-		publish( { active: true, areaSelection: true, tool: 'draw' } );
+		publish( { active: true, tool: 'draw' } );
 		pointer( document.body, 'pointerdown', 30, 40 );
 		pointer( document.body, 'pointerup', 80, 100 );
 		pointer( document.body, 'pointerdown', 100, 120 );
@@ -525,17 +394,18 @@ describe( 'annotation inspector', () => {
 		} );
 	} );
 
-	it( 'leaves region gestures off for the standalone annotation browser', () => {
+	it( 'leaves drawing gestures off without the Draw tool', () => {
 		const events = mount();
 		publish( { active: true } );
 		pointer( document.body, 'pointerdown', 10, 10 );
+		pointer( document.body, 'pointermove', 200, 200 );
 		pointer( document.body, 'pointerup', 200, 200 );
 		expect( events() ).toEqual( [] );
 	} );
 
 	it( 'keeps the completed drawing visible with its normal marker after handing it to the note editor', () => {
 		const events = mount();
-		publish( { active: true, areaSelection: true, tool: 'draw' } );
+		publish( { active: true, tool: 'draw' } );
 		pointer( document.body, 'pointerdown', 30, 40 );
 		pointer( document.body, 'pointerup', 80, 100 );
 		const event = events().find( ( item ) => item?.type === 'drawing' && item.selection );
@@ -543,7 +413,6 @@ describe( 'annotation inspector', () => {
 			throw new Error( 'Missing completed drawing' );
 		publish( {
 			active: true,
-			areaSelection: true,
 			tool: 'draw',
 			editingId: 'drawing-note',
 			notes: [

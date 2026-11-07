@@ -18,14 +18,14 @@ export interface InspectorSelection {
 	id: string;
 	replaces?: string;
 	target: VisualAnnotationTarget & {
-		kind: 'region' | 'drawing';
+		kind: 'drawing';
 		url: string;
 		viewport: { width: number; height: number };
 		documentRect: AnnotationRect;
 	};
 	rect: AnnotationRect;
 	scroll: { left: number; top: number };
-	drawing?: AnnotationDrawing;
+	drawing: AnnotationDrawing;
 }
 
 export const MAX_DRAWING_POINTS = 2048;
@@ -66,7 +66,7 @@ export function parseInspectorSelection( value: unknown ): InspectorSelection | 
 		return null;
 	if (
 		! record( target ) ||
-		( target.kind !== 'region' && target.kind !== 'drawing' ) ||
+		target.kind !== 'drawing' ||
 		typeof target.url !== 'string' ||
 		target.url.length > 10_000 ||
 		! record( target.viewport ) ||
@@ -98,55 +98,51 @@ export function parseInspectorSelection( value: unknown ): InspectorSelection | 
 		documentRect.height !== area.height
 	)
 		return null;
-	let drawing: AnnotationDrawing | undefined;
-	if ( target.kind === 'drawing' ) {
-		const input = value.drawing;
-		if (
-			! record( input ) ||
-			! Array.isArray( input.strokes ) ||
-			! input.strokes.length ||
-			input.strokes.length > MAX_DRAWING_STROKES ||
-			typeof input.color !== 'string' ||
-			! input.color ||
-			input.color.length > 128 ||
-			input.width !== ANNOTATION_PEN_WIDTH
-		)
-			return null;
-		let count = 0;
-		const strokes: AnnotationDrawing[ 'strokes' ] = [];
-		if ( input.originalStroke !== undefined && ! Array.isArray( input.originalStroke ) )
-			return null;
-		for ( const stroke of [
-			...input.strokes,
-			...( input.originalStroke === undefined ? [] : [ input.originalStroke ] ),
-		] ) {
-			if ( ! Array.isArray( stroke ) || ! stroke.length ) return null;
-			count += stroke.length;
-			if ( count > MAX_DRAWING_POINTS ) return null;
-			const points: AnnotationDrawing[ 'strokes' ][ number ] = [];
-			for ( const point of stroke ) {
-				if (
-					! record( point ) ||
-					! coordinate( point.x ) ||
-					! coordinate( point.y ) ||
-					point.x < left ||
-					point.x > left + width ||
-					point.y < top ||
-					point.y > top + height
-				)
-					return null;
-				points.push( { x: point.x, y: point.y } );
-			}
-			strokes.push( points );
+	const input = value.drawing;
+	if (
+		! record( input ) ||
+		! Array.isArray( input.strokes ) ||
+		! input.strokes.length ||
+		input.strokes.length > MAX_DRAWING_STROKES ||
+		typeof input.color !== 'string' ||
+		! input.color ||
+		input.color.length > 128 ||
+		input.width !== ANNOTATION_PEN_WIDTH
+	)
+		return null;
+	let count = 0;
+	const strokes: AnnotationDrawing[ 'strokes' ] = [];
+	if ( input.originalStroke !== undefined && ! Array.isArray( input.originalStroke ) ) return null;
+	for ( const stroke of [
+		...input.strokes,
+		...( input.originalStroke === undefined ? [] : [ input.originalStroke ] ),
+	] ) {
+		if ( ! Array.isArray( stroke ) || ! stroke.length ) return null;
+		count += stroke.length;
+		if ( count > MAX_DRAWING_POINTS ) return null;
+		const points: AnnotationDrawing[ 'strokes' ][ number ] = [];
+		for ( const point of stroke ) {
+			if (
+				! record( point ) ||
+				! coordinate( point.x ) ||
+				! coordinate( point.y ) ||
+				point.x < left ||
+				point.x > left + width ||
+				point.y < top ||
+				point.y > top + height
+			)
+				return null;
+			points.push( { x: point.x, y: point.y } );
 		}
-		const originalStroke = input.originalStroke === undefined ? undefined : strokes.pop();
-		drawing = {
-			strokes,
-			color: input.color,
-			width: input.width,
-			...( originalStroke ? { originalStroke } : {} ),
-		};
+		strokes.push( points );
 	}
+	const originalStroke = input.originalStroke === undefined ? undefined : strokes.pop();
+	const drawing: AnnotationDrawing = {
+		strokes,
+		color: input.color,
+		width: input.width,
+		...( originalStroke ? { originalStroke } : {} ),
+	};
 	return {
 		id: value.id,
 		...( value.replaces ? { replaces: value.replaces } : {} ),
@@ -160,6 +156,6 @@ export function parseInspectorSelection( value: unknown ): InspectorSelection | 
 		},
 		rect: area,
 		scroll: { left, top },
-		...( drawing ? { drawing } : {} ),
+		drawing,
 	};
 }

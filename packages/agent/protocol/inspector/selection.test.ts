@@ -4,17 +4,18 @@ import { MAX_DRAWING_POINTS, parseInspectorSelection, type InspectorSelection } 
 const selection: InspectorSelection = {
 	id: 'selection',
 	target: {
-		kind: 'region',
+		kind: 'drawing',
 		url: 'http://localhost:8881/',
 		viewport: { width: 800, height: 600 },
 		documentRect: { left: 10, top: 120, width: 300, height: 200 },
 	},
 	rect: { left: 10, top: 20, width: 300, height: 200 },
 	scroll: { left: 0, top: 100 },
+	drawing: { width: 3, color: '#3858e9', strokes: [ [ { x: 20, y: 130 } ] ] },
 };
 
 describe( 'inspector selections', () => {
-	it( 'accepts an area without an element selector and preserves page geometry', () => {
+	it( 'accepts a drawing without an element selector and preserves page geometry', () => {
 		expect( parseInspectorSelection( selection ) ).toMatchObject( selection );
 	} );
 	it.each( [
@@ -22,6 +23,7 @@ describe( 'inspector selections', () => {
 		{ rect: { left: 10, top: 20, width: 1000, height: 200 } },
 		{ rect: { left: 10, top: 20, width: NaN, height: 200 } },
 		{ scroll: { left: 0, top: 400 } },
+		{ target: { ...selection.target, kind: 'region' } },
 	] )( 'rejects invalid or inconsistent capture geometry: %j', ( patch ) => {
 		expect( parseInspectorSelection( { ...selection, ...patch } ) ).toBeNull();
 	} );
@@ -85,6 +87,6 @@ describe( 'inspector selections', () => {
 			).toBeNull();
 		}
 		expect( parseInspectorSelection( { ...input, replaces: 123 } ) ).toBeNull();
-		expect( parseInspectorSelection( { ...selection, replaces: 'note' } ) ).toBeNull();
+		expect( parseInspectorSelection( { ...selection, drawing: undefined } ) ).toBeNull();
 	} );
 } );

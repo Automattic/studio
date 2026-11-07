@@ -1,19 +1,11 @@
 import { __ } from '@wordpress/i18n';
-import {
-	MousePointer2Icon,
-	PencilIcon,
-	RotateCcwIcon,
-	Undo2Icon,
-	TypeIcon,
-	XIcon,
-} from 'lucide-react';
+import { MousePointer2Icon, PencilIcon, RotateCcwIcon, Undo2Icon, XIcon } from 'lucide-react';
 import { SendIcon } from '@/lib/icons';
 import { IconButton } from '@/lib/ui';
 import styles from './annotation-tools.module.css';
 
 export function AnnotationTools( {
 	drawing,
-	editingText,
 	pending,
 	canUndo,
 	undoShape,
@@ -22,14 +14,12 @@ export function AnnotationTools( {
 	pageTools,
 	canSend,
 	onToggle,
-	onToggleText,
 	onUndo,
 	onRetry,
 	onSend,
 	onExit,
 }: {
 	drawing: boolean;
-	editingText: boolean;
 	pending: boolean;
 	canUndo: boolean;
 	undoShape: boolean;
@@ -38,7 +28,6 @@ export function AnnotationTools( {
 	pageTools: boolean;
 	canSend: boolean;
 	onToggle: () => void;
-	onToggleText: () => void;
 	onUndo: () => void;
 	onRetry: () => void;
 	onSend: () => void;
@@ -54,12 +43,11 @@ export function AnnotationTools( {
 							variant="accent-ghost"
 							icon={ <MousePointer2Icon /> }
 							label={ __( 'Select' ) }
-							aria-pressed={ ! drawing && ! editingText }
+							aria-pressed={ ! drawing }
 							disabled={ disabled }
 							focusableWhenDisabled={ false }
 							onClick={ () => {
 								if ( drawing ) onToggle();
-								else if ( editingText ) onToggleText();
 							} }
 						>
 							<span className={ styles.label }>{ __( 'Select' ) }</span>
@@ -75,18 +63,6 @@ export function AnnotationTools( {
 							onClick={ onToggle }
 						>
 							<span className={ styles.label }>{ __( 'Draw' ) }</span>
-						</IconButton>
-						<IconButton
-							size="sm"
-							variant="accent-ghost"
-							icon={ <TypeIcon /> }
-							label={ __( 'Edit text' ) }
-							aria-pressed={ editingText }
-							disabled={ disabled }
-							focusableWhenDisabled={ false }
-							onClick={ onToggleText }
-						>
-							<span className={ styles.label }>{ __( 'Edit text' ) }</span>
 						</IconButton>
 						{ canUndo ? (
 							<IconButton

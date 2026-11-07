@@ -54,7 +54,6 @@ export function useSendSiteDraft( siteId: string | undefined ) {
 					await router.navigate( { to: '/sessions/$sessionId', params: { sessionId } } );
 				}
 				update( { sessionId: undefined } );
-				return sessionId;
 			} finally {
 				update( { pendingPrompt: undefined } );
 			}

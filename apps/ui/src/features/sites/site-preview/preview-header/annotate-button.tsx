@@ -19,22 +19,22 @@ export function AnnotateButton( {
 	disabledReason,
 	onClick,
 	annotationCount = 0,
-	areaSelection = false,
+	pageTools = false,
 }: {
 	active: boolean;
 	disabled: boolean;
 	disabledReason?: string;
 	onClick: () => void;
 	annotationCount?: number;
-	areaSelection?: boolean;
+	pageTools?: boolean;
 } ) {
 	const modeButton = useRef< HTMLButtonElement >( null );
 	const tooltip =
 		disabledReason ??
 		( active
 			? __( 'Exit annotation mode' )
-			: areaSelection
-			? __( 'Click an element or drag an area' )
+			: pageTools
+			? __( 'Select an element or draw to describe a change' )
 			: __( 'Point to anything to describe a change' ) );
 	useEffect( () => {
 		if ( disabled ) return;

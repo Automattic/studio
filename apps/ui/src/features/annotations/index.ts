@@ -2,8 +2,6 @@ export { AnnotationMarker } from './marker';
 export { type AnnotationAnchor, AnnotationOverlay } from './overlay';
 export {
 	canPickAnnotation,
-	addTextEdit,
-	finishTextEdits,
 	closeAnnotationEditor,
 	setAnnotationsPreparing,
 	changeAnnotation,
@@ -29,4 +27,3 @@ export {
 } from './store';
 export { annotationSubmission, getAnnotationsAttachment } from './submission';
 export { AnnotationReviewChip } from './review-chip';
-export { trackTextEditRun } from './track-text-edit-run';

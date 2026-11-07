@@ -8,7 +8,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SessionUIProvider } from '@/data/use-session-ui';
 import {
 	changeAnnotation,
-	finishTextEdits,
 	editAnnotation,
 	escapeAnnotations,
 	getSiteAnnotations,
@@ -34,10 +33,6 @@ afterEach( () => {
 	vi.unstubAllGlobals();
 	act( () => {
 		setAnnotationsPreparing( site.id, false );
-		finishTextEdits(
-			site.id,
-			( getSiteAnnotations( site.id ).textEdits ?? [] ).map( ( edit ) => edit.id )
-		);
 		removeAnnotations(
 			site.id,
 			getSiteAnnotations( site.id ).notes.map( ( note ) => note.id )
@@ -112,16 +107,17 @@ describe( 'annotation inspector navigation', () => {
 		fireEvent.click( annotate() );
 		const tools = screen.getByRole( 'group', { name: 'Annotation tools' } );
 		expect( tools.closest( 'aside' ) ).toHaveAccessibleName( 'Panel' );
+		expect(
+			within( tools ).queryByRole( 'button', { name: 'Edit text' } )
+		).not.toBeInTheDocument();
 		const select = within( tools ).getByRole( 'button', { name: 'Select' } );
 		expect( select ).toHaveAttribute( 'aria-pressed', 'true' );
 		expect( within( tools ).getByRole( 'button', { name: 'Send annotations' } ) ).toBeDisabled();
-		for ( const tool of [ 'Draw', 'Edit text' ] ) {
-			fireEvent.click( within( tools ).getByRole( 'button', { name: tool } ) );
-			expect( select ).toHaveAttribute( 'aria-pressed', 'false' );
-			fireEvent.click( select );
-			expect( select ).toHaveAttribute( 'aria-pressed', 'true' );
-			expect( pageState( preview ).tool ).toBe( 'select' );
-		}
+		fireEvent.click( within( tools ).getByRole( 'button', { name: 'Draw' } ) );
+		expect( select ).toHaveAttribute( 'aria-pressed', 'false' );
+		fireEvent.click( select );
+		expect( select ).toHaveAttribute( 'aria-pressed', 'true' );
+		expect( pageState( preview ).tool ).toBe( 'select' );
 		let id = '';
 		act( () => {
 			id = pickAnnotation( site.id, { selector: 'h1', url: 'http://localhost:8881/' } )!;
@@ -161,137 +157,11 @@ describe( 'annotation inspector navigation', () => {
 		expect( getSiteAnnotations( site.id ).editingId ).toBeNull();
 	} );
 
-	it( 'includes the pending text edit when sending queued annotations from the bar', async () => {
-		const { emit, annotate, onSendAnnotations } = await setup();
-		emit( 'dom-ready' );
-		await waitFor( () => expect( annotate() ).toBeEnabled() );
-		fireEvent.click( annotate() );
-		let queued = '';
-		act( () => {
-			queued = pickAnnotation( site.id, { selector: 'p', url: 'http://localhost:8881/' } )!;
-			changeAnnotation( site.id, queued, { comment: 'Change the paragraph' } );
-			stageAnnotations( site.id, [ queued ], true );
-		} );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Edit text' } ) );
-		emit( 'console-message', {
-			message:
-				INSPECTOR_BRIDGE_PREFIX +
-				JSON.stringify( {
-					type: 'text-edit',
-					edit: {
-						id: 'inline-title',
-						originalText: 'Old title',
-						text: 'New title',
-						target: { selector: 'h1', tag: 'h1', url: 'http://localhost:8881/' },
-					},
-					anchor: { left: 200, top: 100 },
-				} ),
-		} );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Send annotations' } ) );
-		const note = getSiteAnnotations( site.id ).notes.at( -1 )!;
-		expect( onSendAnnotations ).toHaveBeenCalledExactlyOnceWith( site.id, [ queued, note.id ] );
-		expect( note.comment ).toBe( 'Change the text from “Old title” to “New title”.' );
-		expect( getSiteAnnotations( site.id ).textEdits ).toEqual( [
-			expect.objectContaining( { id: note.id, pending: true } ),
-		] );
-	} );
-
-	it( 'shows only Cancel and Send while editing text and lets Cancel discard it', async () => {
-		const { emit, annotate, preview, onSendAnnotations } = await setup();
-		emit( 'dom-ready' );
-		await waitFor( () => expect( annotate() ).toBeEnabled() );
-		fireEvent.click( annotate() );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Edit text' } ) );
-		expect( pageState( preview ).tool ).toBe( 'text' );
-		const edit = {
-			id: 'inline-title',
-			originalText: 'Old title',
-			text: 'Old title',
-			target: { selector: 'h1', tag: 'h1', url: 'http://localhost:8881/', nearbyText: 'Old title' },
-		};
-		emit( 'console-message', {
-			message:
-				INSPECTOR_BRIDGE_PREFIX +
-				JSON.stringify( { type: 'text-edit', edit, anchor: { left: 200, top: 100 } } ),
-		} );
-		expect( screen.getByRole( 'button', { name: 'Send text change' } ) ).toBeDisabled();
-		expect(
-			screen.queryByRole( 'textbox', { name: 'Describe the change' } )
-		).not.toBeInTheDocument();
-		emit( 'console-message', {
-			message:
-				INSPECTOR_BRIDGE_PREFIX +
-				JSON.stringify( {
-					type: 'text-edit',
-					edit: { ...edit, text: 'New title' },
-					anchor: { left: 200, top: 100 },
-				} ),
-		} );
-		expect( screen.getByRole( 'button', { name: 'Send text change' } ) ).toBeEnabled();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel text change' } ) );
-		expect( screen.queryByRole( 'group', { name: 'Text annotation' } ) ).not.toBeInTheDocument();
-		expect( preview.executeJavaScript.mock.calls.at( -1 )?.[ 0 ] ).toContain( 'cancel-text' );
-		expect( onSendAnnotations ).not.toHaveBeenCalled();
-		expect( getSiteAnnotations( site.id ).notes ).toEqual( [] );
-	} );
-
-	it( 'sends a typed replacement immediately through regular annotations and keeps its preview pending', async () => {
-		const { emit, annotate, preview, onSendAnnotations } = await setup();
-		emit( 'dom-ready' );
-		await waitFor( () => expect( annotate() ).toBeEnabled() );
-		fireEvent.click( annotate() );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Edit text' } ) );
-		const edit = {
-			id: 'inline-title',
-			originalText: 'Old title',
-			text: 'New title',
-			target: { selector: 'h1', tag: 'h1', url: 'http://localhost:8881/', nearbyText: 'Old title' },
-		};
-		emit( 'console-message', {
-			message:
-				INSPECTOR_BRIDGE_PREFIX +
-				JSON.stringify( { type: 'text-edit', edit, anchor: { left: 200, top: 100 } } ),
-		} );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Send text change' } ) );
-		const note = getSiteAnnotations( site.id ).notes.at( -1 )!;
-		expect( onSendAnnotations ).toHaveBeenCalledExactlyOnceWith( site.id, [ note.id ] );
-		expect( note ).toMatchObject( {
-			selector: 'h1',
-			nearbyText: 'Old title',
-			comment: 'Change the text from “Old title” to “New title”.',
-			images: [],
-		} );
-		expect( getSiteAnnotations( site.id ).editingId ).toBeNull();
-		expect(
-			screen.queryByRole( 'textbox', { name: 'Describe the change' } )
-		).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'group', { name: 'Text annotation' } ) ).not.toBeInTheDocument();
-		expect( pageState( preview ).textEdits ).toEqual( [
-			expect.objectContaining( {
-				id: note.id,
-				originalText: 'Old title',
-				text: 'New title',
-				pending: true,
-			} ),
-		] );
-		act( () => removeAnnotations( site.id, [ note.id ] ) );
-		expect( pageState( preview ).textEdits[ 0 ].pending ).toBe( true );
-		expect( pageState( preview ).notes ).toEqual( [] );
-		emit( 'did-start-navigation', { isMainFrame: true, isInPlace: false } );
-		emit( 'dom-ready' );
-		await waitFor( () => expect( annotate() ).toBeEnabled() );
-		expect( pageState( preview ).tool ).toBe( 'text' );
-		expect( pageState( preview ).textEdits[ 0 ].pending ).toBe( true );
-		expect( injections( preview ).at( -1 )?.[ 0 ] ).toContain( '"originalText":"Old title"' );
-		act( () => finishTextEdits( site.id, [ note.id ] ) );
-		expect( pageState( preview ).textEdits[ 0 ].pending ).toBe( false );
-	} );
-
-	it( 'captures an area into an empty draft that Escape discards', async () => {
+	it( 'discards an empty drawing draft on Escape', async () => {
 		const { connector, emit, annotate, preview } = await setup();
 		connector.captureAnnotationRegion.mockResolvedValue( {
-			id: 'area-image',
-			name: 'Selected area.png',
+			id: 'drawing-image',
+			name: 'Drawing.png',
 			mimeType: 'image/png',
 			size: 3,
 			dataBase64: 'cG5n',
@@ -304,31 +174,32 @@ describe( 'annotation inspector navigation', () => {
 			'false'
 		);
 		const selection = {
-			id: 'area-selection',
+			id: 'drawing-selection',
 			target: {
-				kind: 'region',
+				kind: 'drawing',
 				url: 'http://localhost:8881/',
 				viewport: { width: 800, height: 600 },
 				documentRect: { left: 20, top: 30, width: 200, height: 100 },
 			},
 			rect: { left: 20, top: 30, width: 200, height: 100 },
 			scroll: { left: 0, top: 0 },
+			drawing: { width: 3, color: '#3858e9', strokes: [ [ { x: 30, y: 40 } ] ] },
 		};
 		emit( 'console-message', {
-			message: INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'selection', selection } ),
+			message: INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'drawing', selection } ),
 		} );
 		await screen.findByRole( 'textbox', { name: 'Describe the change' } );
 		expect( connector.captureAnnotationRegion ).toHaveBeenCalledWith( {
 			guestId: 7,
-			selection: expect.objectContaining( { id: 'area-selection' } ),
+			selection: expect.objectContaining( { id: 'drawing-selection' } ),
 		} );
 		expect( getSiteAnnotations( site.id ).notes ).toEqual( [
 			expect.objectContaining( {
-				kind: 'region',
-				images: [ expect.objectContaining( { id: 'area-image' } ) ],
+				kind: 'drawing',
+				images: [ expect.objectContaining( { id: 'drawing-image' } ) ],
 			} ),
 		] );
-		expect( screen.queryByRole( 'img', { name: 'Selected area.png' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'img', { name: 'Drawing.png' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Add annotation to batch' } ) ).toBeDisabled();
 		expect( screen.getByRole( 'button', { name: 'Send annotations' } ) ).toBeDisabled();
 		fireEvent.keyDown( screen.getByRole( 'textbox', { name: 'Describe the change' } ), {

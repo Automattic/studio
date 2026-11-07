@@ -130,7 +130,7 @@ function NoteEditor( {
 		error: attachmentError,
 		setError: setAttachmentError,
 	} = useComposerAttachments( note.images );
-	// Area and drawing annotations keep their captured page image first.
+	// Drawing annotations keep their captured page image first.
 	const visibleAttachments = note.kind ? attachments.slice( 1 ) : attachments;
 	const addImages = useCallback(
 		( files: FileList | File[] ) => {

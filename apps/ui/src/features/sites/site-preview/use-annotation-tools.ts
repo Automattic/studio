@@ -33,7 +33,7 @@ export function useAnnotationTools( {
 } ) {
 	const connector = useConnector();
 	const annotations = useSiteAnnotations( siteId );
-	const [ tool, setTool ] = useState< 'select' | 'draw' | 'text' >( 'select' );
+	const [ tool, setTool ] = useState< 'select' | 'draw' >( 'select' );
 	const drawing = tool === 'draw';
 	const editingDrawing = annotations.notes.find( ( note ) => note.id === annotations.editingId )
 		?.drawing;
@@ -175,7 +175,7 @@ export function useAnnotationTools( {
 			void capture( draft );
 	}, [ enabled, annotations.active, draft, capturePending, failed, capture ] );
 	const handleEvent = useCallback(
-		( event: Extract< InspectorEvent, { type: 'selection' | 'drawing' } > ) => {
+		( event: Extract< InspectorEvent, { type: 'drawing' } > ) => {
 			if ( ! enabled ) return;
 			updateDraft( event.selection );
 		},
@@ -200,22 +200,15 @@ export function useAnnotationTools( {
 		drawing,
 		tool,
 		action,
-		command,
 		handleEvent,
 		escapeDraft,
 		controls: {
 			drawing,
-			editingText: tool === 'text',
 			pending: !! draft,
 			canUndo: !! draft?.drawing?.strokes.length || !! editingDrawing?.originalStroke,
 			undoShape: ! draft && !! editingDrawing?.originalStroke,
 			failed,
 			onToggle: toggleDrawing,
-			onToggleText: () => {
-				if ( capturing.current || draftRef.current || ! canPickAnnotation( siteId ) ) return;
-				closeAnnotationEditor( siteId );
-				setTool( tool === 'text' ? 'select' : 'text' );
-			},
 			onUndo: () => command( 'undo' ),
 			onRetry: () => {
 				if ( draftRef.current ) void capture( draftRef.current );

@@ -17,7 +17,6 @@ import {
 	useSyncExternalStore,
 	type ReactNode,
 } from 'react';
-import { useAgentRunStore } from '@/data/agent-runs/context';
 import { useAgentRun } from '@/data/agent-runs/use-agent-run';
 import { toast } from '@/data/app-messages';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
@@ -46,13 +45,11 @@ import { SessionUIProvider, useOptionalSessionPreviewUI } from '@/data/use-sessi
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import {
 	getSiteAnnotations,
-	finishTextEdits,
 	hasAnnotationContent,
 	removeAnnotations,
 	stageAnnotations,
 	subscribeAnnotationSend,
 	annotationSubmission,
-	trackTextEditRun,
 } from '@/features/annotations';
 import {
 	formatComposerTextQuote,
@@ -105,7 +102,6 @@ function SessionViewContent( {
 	const draftKey = sessionId ?? `site:${ siteId }`;
 	const { draft, update: updateDraft } = useSiteChatDraft( siteId );
 	const sendDraft = useSendSiteDraft( siteId );
-	const { stateStore: agentRunStore } = useAgentRunStore();
 	const navigate = useNavigate();
 	const { data, isLoading, error, refetch } = useSession( sessionId );
 	const { data: sites } = useSites();
@@ -165,13 +161,10 @@ function SessionViewContent( {
 	);
 	const currentModel = ( ! sessionId && draft.model ) || defaultModel;
 	const sendMessage = useCallback(
-		async ( prompt: string, options?: Parameters< typeof sendSessionMessage >[ 1 ] ) => {
-			if ( sessionId ) {
-				await sendSessionMessage( prompt, options );
-				return sessionId;
-			}
-			return sendDraft( prompt, options, sessionProvider, currentModel );
-		},
+		( prompt: string, options?: Parameters< typeof sendSessionMessage >[ 1 ] ) =>
+			sessionId
+				? sendSessionMessage( prompt, options )
+				: sendDraft( prompt, options, sessionProvider, currentModel ),
 		[ sessionId, sendSessionMessage, sendDraft, sessionProvider, currentModel ]
 	);
 	const pendingQuestionTexts = useMemo(
@@ -304,7 +297,7 @@ function SessionViewContent( {
 	const liveSite = pickLiveSite( connectedSites ?? [] );
 	const { mutate: setEnvironment } = useSetSessionEnvironment( sessionId ?? '' );
 	const sendWithAutoStart = useCallback(
-		async ( prompt: string, attachments?: Parameters< typeof sendMessage >[ 1 ] ) => {
+		( prompt: string, attachments?: Parameters< typeof sendMessage >[ 1 ] ) => {
 			if (
 				canAutoStart &&
 				preferences?.autoStartSiteOnChat &&
@@ -313,7 +306,7 @@ function SessionViewContent( {
 			) {
 				startSite( ownerSite.id );
 			}
-			await sendMessage( prompt, attachments );
+			return sendMessage( prompt, attachments );
 		},
 		[ canAutoStart, isSiteBusy, ownerSite, preferences, sendMessage, startSite ]
 	);
@@ -379,36 +372,14 @@ function SessionViewContent( {
 			);
 			try {
 				const { prompt, options } = annotationSubmission( '', [], notes );
-				const textIds = ( getSiteAnnotations( annotationSiteId ).textEdits ?? [] )
-					.filter( ( edit ) => edit.pending && noteIds.includes( edit.id ) )
-					.map( ( edit ) => edit.id );
-				const sent = sendMessage( prompt, options );
-				let stopTracking =
-					textIds.length && sessionId
-						? trackTextEditRun( annotationSiteId, textIds, sessionId, prompt, agentRunStore )
-						: undefined;
-				return sent
-					.then( ( sentSessionId ) => {
-						if ( textIds.length && ! sessionId && sentSessionId )
-							stopTracking = trackTextEditRun(
-								annotationSiteId,
-								textIds,
-								sentSessionId,
-								prompt,
-								agentRunStore
-							);
-						removeAnnotations( annotationSiteId, noteIds );
-					} )
-					.catch( () => {
-						stopTracking?.();
-						finishTextEdits( annotationSiteId, textIds );
-					} );
+				return sendMessage( prompt, options )
+					.then( () => removeAnnotations( annotationSiteId, noteIds ) )
+					.catch( () => undefined );
 			} catch ( error ) {
-				finishTextEdits( annotationSiteId, noteIds );
 				toast.error( ( error as Error ).message );
 			}
 		} );
-	}, [ annotationSiteId, composerBusy, isChatReady, sendMessage, sessionId, agentRunStore ] );
+	}, [ annotationSiteId, composerBusy, isChatReady, sendMessage ] );
 
 	// Fade the composer and prompts in only right after the entitlement check
 	// resolves; ordinary session loads and switches render instantly. The

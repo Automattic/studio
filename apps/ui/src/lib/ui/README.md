@@ -43,6 +43,7 @@ When none fits, add one here rather than styling a `div` in a feature.
 - Use `variant="accent"` for the primary action in a screen, form or dialog: Publish, Send, Create site, Save, Import and Continue.
 - Supporting actions use `outline`, the default for `Button`: Manage, Connect, Reload, Retry, Cancel, Discard and dismiss-only Done buttons. Choose by role in context: Buy credits is accent as the primary action in Add credits.
 - Use `ghost` for quiet toolbar utilities, link variants for navigation within copy, and `destructive` for destructive actions or error feedback.
+- Add the `destructive` prop to a quiet `Button` or `IconButton` to keep its resting style and use destructive colors on hover, press and keyboard focus. Use `variant="destructive"` for a filled destructive action.
 - The white-filled `default` variant is not used for product actions. Choose accent or outline according to the action's role.
 - Form controls use the standard 36px size. Dialog-header Save and Discard actions use `size="sm"` (32px).
 

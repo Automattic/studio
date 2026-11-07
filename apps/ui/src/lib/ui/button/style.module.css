@@ -295,6 +295,14 @@
 		font-weight: inherit;
 	}
 
+	.button[data-destructive]:is( :hover, :active, :focus-visible ):not(
+			:disabled,
+			[data-disabled]
+		) {
+		background-color: var( --destructive-hover );
+		color: var( --destructive );
+	}
+
 	/* Sizes. */
 	.button[data-size='sm'] {
 		height: var( --button-control-size, 32px );

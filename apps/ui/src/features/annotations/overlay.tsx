@@ -265,6 +265,7 @@ function NoteEditor( {
 				<IconButton
 					size="icon"
 					shape="round"
+					destructive
 					icon={ <TrashIcon /> }
 					label={ __( 'Delete annotation' ) }
 					disabled={ busy }

@@ -70,6 +70,7 @@ export function AnnotationTools( {
 				<IconButton
 					size="icon"
 					shape="round"
+					destructive
 					icon={ <TrashIcon /> }
 					label={ __( 'Discard annotations' ) }
 					disabled={ disabled }

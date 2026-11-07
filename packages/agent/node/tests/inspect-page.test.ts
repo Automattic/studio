@@ -31,7 +31,8 @@ const HEALTHY = `<!doctype html><meta name="viewport" content="width=device-widt
 
 // The same page with PHP's error output, an image that is not there, a row
 // wider than a phone, the page's background between its header and main
-// (eval19: 5 of 5 branch sites) and a header row that wraps, as a server with an error answers it.
+// (eval19: 5 of 5 branch sites), a header row that wraps and text against the
+// viewport's edge, as a server with an error answers it.
 const BROKEN = `<!doctype html><meta name="viewport" content="width=device-width">
 <body style="margin:0"><br />
 <b>Warning</b>:  Undefined variable $hours in <b>/srv/wp-content/themes/bakery/functions.php</b> on line <b>12</b><br />
@@ -102,6 +103,8 @@ describe.runIf( CHROMIUM )( 'inspecting a page', () => {
 				expect.stringMatching(
 					/^The header lays its 2 items out in a row.*"Order a cake" starts a line/
 				),
+				"Text against the viewport's edge:",
+				`  p "Bakery": its text starts at the viewport's left edge (x 0).`,
 			] )
 		);
 	}, 60000 );

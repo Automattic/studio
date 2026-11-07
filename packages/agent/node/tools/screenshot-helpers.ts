@@ -285,11 +285,13 @@ async function capturePage(
 		format?: ScreenshotFormat;
 		offset?: number;
 		forModel?: boolean;
+		// The page's text fit, when the caller has read it from the page as it is.
+		textFit?: TextFit;
 	}
 ): Promise< ScreenshotCapture > {
 	const format = options.format ?? 'png';
 	const layout = options.forModel === false ? await pageLayout( page ) : undefined;
-	const textFit = await pageTextFit( page );
+	const textFit = options.textFit ?? ( await pageTextFit( page ) );
 	const dpr = options.deviceScaleFactor ?? 1;
 	const maxCssHeight = Math.floor( MAX_IMAGE_DIMENSION_PX / dpr );
 	const formatOptions =
@@ -514,8 +516,8 @@ export async function renderedCapture(
 
 /**
  * Loads a page as a visitor's browser does, at one viewport, and states what is
- * broken on it: an error status, PHP's error output, images that do not load
- * and a page wider than the screen. It also captures the page as take_screenshot
+ * broken on it: an error status, PHP's error output, images that do not load,
+ * a page wider than the screen and text against its edge. It also captures the page as take_screenshot
  * does for a model that views images, to answer a screenshot of it.
  */
 export async function inspectPage(
@@ -532,6 +534,7 @@ export async function inspectPage(
 	try {
 		const response = await loadPage( page, url, { fullPage: true } );
 		const status = response?.status() ?? 0;
+		const textFit = await pageTextFit( page );
 		const problems = [
 			...( status >= 400 ? [ `The server answers ${ status }.` ] : [] ),
 			...( await pageBreakage( page ) ),
@@ -540,9 +543,12 @@ export async function inspectPage(
 			...( await pageHeaderWraps( page ) ),
 			...( await pageContrast( page ) ),
 			...( await pageSticky( page ) ),
+			...( textFit.edges.length
+				? [ "Text against the viewport's edge:", ...textFit.edges.map( ( line ) => `  ${ line }` ) ]
+				: [] ),
 		];
 		const html = await response?.text().catch( () => undefined );
-		const options = { format: 'jpeg' as const, forModel: true };
+		const options = { format: 'jpeg' as const, forModel: true, textFit };
 		if ( html !== undefined && status < 400 ) {
 			render = {
 				version: pageVersion( html ),

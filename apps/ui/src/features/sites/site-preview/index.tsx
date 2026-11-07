@@ -421,7 +421,12 @@ function SitePreviewContent( {
 		active: responsiveEnabled,
 		disabled:
 			blank || ! canPreview || isStarting || isStopping || ! isPageSurface( activeSurfaceKey ),
-		onClick: () => updateResponsivePreview( site.id, { enabled: ! responsiveSettings.enabled } ),
+		onClick: () => {
+			if ( ! responsiveSettings.enabled && adminBarActions.value === 'show' ) {
+				adminBarActions.onChange( 'hide' );
+			}
+			updateResponsivePreview( site.id, { enabled: ! responsiveSettings.enabled } );
+		},
 	};
 	const beginAnnotating = () => {
 		if ( onStartAnnotating?.() === false ) return false;
@@ -509,7 +514,7 @@ function SitePreviewContent( {
 						annotationSpace
 				  )
 				: null }
-			{ showBrowserBar ? header : null }
+			{ showBrowserBar && activeSurfaceKey !== 'email' ? header : null }
 			{ showBrowserBar && responsiveEnabled ? (
 				<ResponsiveToolbar
 					siteId={ site.id }

@@ -229,6 +229,7 @@ export {
 	deleteAllSnapshots,
 	deletePreviewSite,
 	fetchSnapshots,
+	getPreviewStatus,
 	publishPreviewSite,
 	renamePreviewSite,
 } from 'src/modules/preview-site/lib/ipc-handlers';

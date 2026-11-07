@@ -343,7 +343,7 @@ function AddressAction( {
 			<TooltipTrigger
 				render={
 					<Button
-						variant="ghost"
+						variant="muted-ghost"
 						size="icon-2xs"
 						className={ styles.action }
 						aria-label={ label }

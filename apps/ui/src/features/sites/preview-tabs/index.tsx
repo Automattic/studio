@@ -3,12 +3,14 @@ import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
 import { X } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { showToast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { previewTabsKey, usePreviewTabs, type PreviewTab } from '@/data/preview-tabs';
 import { useIsSiteBusy, useStopSite } from '@/data/queries/use-sites';
 import { useIsSiteRestarting } from '@/data/site-restarts';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
 import { getSiteFrontendUrl } from '@/features/sites/get-site-url';
+import { getFileManager } from '@/features/sites/open-in-menu/get-file-manager';
 import { useOpenInDestinations } from '@/features/sites/open-in-menu/use-open-in-destinations';
 import {
 	getFrontendOrigin,
@@ -41,6 +43,7 @@ export function PreviewTabs( {
 	path: string;
 } ) {
 	const connector = useConnector();
+	const fileManager = getFileManager();
 	const browser = useOpenInDestinations( site ).find( ( entry ) => entry.id === 'browser' )!;
 	const { id: siteId, name: siteName } = site;
 	// A headless site's frontend app, which its tabs address by absolute URL.
@@ -146,6 +149,14 @@ export function PreviewTabs( {
 		document.addEventListener( 'keydown', onKeyDown );
 		return () => document.removeEventListener( 'keydown', onKeyDown );
 	}, [ busy, setOpen, siteId ] );
+	const openEmailFolder = () => {
+		void connector.openSiteEmailFolder( siteId ).catch( () =>
+			showToast( {
+				title: __( 'Studio could not open the email folder.' ),
+				intent: 'error',
+			} )
+		);
+	};
 	const openInBrowser = ( tab: PreviewTab ) => {
 		if ( tab.path === null ) return;
 		const realm = getPreviewRealm( tab.path, frontendOrigin );
@@ -194,9 +205,10 @@ export function PreviewTabs( {
 						onDragStart={ ( event ) => event.preventDefault() }
 					>
 						{ workspace.tabs.map( ( tab, index ) => {
-							const { Icon } = getSiteTool(
-								tab.path === null ? 'frontend' : getPreviewRealm( tab.path, frontendOrigin )
-							);
+							const realm =
+								tab.path === null ? 'frontend' : getPreviewRealm( tab.path, frontendOrigin );
+							const { Icon } = getSiteTool( realm );
+							const destination = realm === 'email' ? fileManager : browser;
 							return (
 								<Menu.ContextMenuRoot key={ tab.id }>
 									<Menu.ContextMenuTrigger
@@ -247,18 +259,12 @@ export function PreviewTabs( {
 									</Menu.ContextMenuTrigger>
 									<Menu.ContextPopup>
 										<Menu.Item
-											disabled={
-												busy ||
-												tab.path === null ||
-												[ 'design', 'email' ].includes(
-													getPreviewRealm( tab.path, frontendOrigin )
-												)
-											}
-											onClick={ () => openInBrowser( tab ) }
+											disabled={ busy || tab.path === null || realm === 'design' }
+											onClick={ realm === 'email' ? openEmailFolder : () => openInBrowser( tab ) }
 										>
-											{ browser.logo }
-											{ /* translators: %s: the preferred or system default browser name. */ }
-											{ sprintf( __( 'Open in %s' ), browser.label ) }
+											{ destination.logo }
+											{ /* translators: %s: the browser or system file manager name. */ }
+											{ sprintf( __( 'Open in %s' ), destination.label ) }
 										</Menu.Item>
 										<Menu.Separator />
 										<Menu.Item onClick={ () => closeTabs( [ tab.id ] ) }>

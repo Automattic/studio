@@ -19,13 +19,6 @@
 	pointer-events: auto;
 }
 
-.separator {
-	width: 1px;
-	height: var( --space-4 );
-	margin-inline: var( --space-1 );
-	background-color: var( --border );
-}
-
 @container ( max-width: 360px ) {
 	.label {
 		display: none;

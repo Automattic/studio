@@ -288,8 +288,8 @@ describe( 'annotation inspector navigation', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'undoes a cleaned-up shape in the same note and refreshes only its automatic screenshot', async () => {
-		const { connector, emit, annotate, preview } = await setup();
+	it( 'refreshes only the automatic screenshot when the inspector replaces a drawing', async () => {
+		const { connector, emit, annotate } = await setup();
 		const image = {
 			id: 'shape-image',
 			name: 'Drawing.png',
@@ -343,8 +343,9 @@ describe( 'annotation inspector navigation', () => {
 				images: [ ...note.images, { ...image, id: 'manual-image', kind: 'image' } ],
 			} )
 		);
-		fireEvent.click( screen.getByRole( 'button', { name: 'Undo shape' } ) );
-		expect( preview.executeJavaScript.mock.calls.at( -1 )?.[ 0 ] ).toContain( 'undo' );
+		expect(
+			screen.queryByRole( 'button', { name: /Undo (shape|stroke)/ } )
+		).not.toBeInTheDocument();
 		emit( 'console-message', {
 			message:
 				INSPECTOR_BRIDGE_PREFIX +

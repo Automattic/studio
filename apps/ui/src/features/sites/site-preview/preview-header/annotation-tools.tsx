@@ -1,34 +1,28 @@
 import { __ } from '@wordpress/i18n';
-import { MousePointer2Icon, PencilIcon, RotateCcwIcon, Undo2Icon, XIcon } from 'lucide-react';
-import { SendIcon } from '@/lib/icons';
+import { MousePointer2Icon, PencilIcon, RotateCcwIcon } from 'lucide-react';
+import { SendIcon, TrashIcon } from '@/lib/icons';
 import { IconButton } from '@/lib/ui';
 import styles from './annotation-tools.module.css';
 
 export function AnnotationTools( {
 	drawing,
 	pending,
-	canUndo,
-	undoShape,
 	failed,
 	disabled,
 	pageTools,
 	canSend,
 	onToggle,
-	onUndo,
 	onRetry,
 	onSend,
 	onExit,
 }: {
 	drawing: boolean;
 	pending: boolean;
-	canUndo: boolean;
-	undoShape: boolean;
 	failed: boolean;
 	disabled: boolean;
 	pageTools: boolean;
 	canSend: boolean;
 	onToggle: () => void;
-	onUndo: () => void;
 	onRetry: () => void;
 	onSend: () => void;
 	onExit: () => void;
@@ -64,16 +58,6 @@ export function AnnotationTools( {
 						>
 							<span className={ styles.label }>{ __( 'Draw' ) }</span>
 						</IconButton>
-						{ canUndo ? (
-							<IconButton
-								size="icon-sm"
-								icon={ <Undo2Icon /> }
-								label={ undoShape ? __( 'Undo shape' ) : __( 'Undo stroke' ) }
-								disabled={ disabled }
-								onClick={ onUndo }
-								tooltipSide="top"
-							/>
-						) : null }
 						{ pending && failed ? (
 							<IconButton
 								size="icon-sm"
@@ -84,7 +68,6 @@ export function AnnotationTools( {
 								tooltipSide="top"
 							/>
 						) : null }
-						<span className={ styles.separator } aria-hidden="true" />
 					</>
 				) : null }
 				<IconButton
@@ -100,7 +83,7 @@ export function AnnotationTools( {
 				/>
 				<IconButton
 					size="icon-sm"
-					icon={ <XIcon /> }
+					icon={ <TrashIcon /> }
 					label={ __( 'Exit annotation mode' ) }
 					disabled={ disabled }
 					onClick={ onExit }

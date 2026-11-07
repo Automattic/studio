@@ -35,8 +35,6 @@ export function useAnnotationTools( {
 	const annotations = useSiteAnnotations( siteId );
 	const [ tool, setTool ] = useState< 'select' | 'draw' >( 'select' );
 	const drawing = tool === 'draw';
-	const editingDrawing = annotations.notes.find( ( note ) => note.id === annotations.editingId )
-		?.drawing;
 	const [ draft, setDraft ] = useState< InspectorSelection | null >( null );
 	const [ failed, setFailed ] = useState( false );
 	const [ capturePending, setCapturePending ] = useState( false );
@@ -205,11 +203,8 @@ export function useAnnotationTools( {
 		controls: {
 			drawing,
 			pending: !! draft,
-			canUndo: !! draft?.drawing?.strokes.length || !! editingDrawing?.originalStroke,
-			undoShape: ! draft && !! editingDrawing?.originalStroke,
 			failed,
 			onToggle: toggleDrawing,
-			onUndo: () => command( 'undo' ),
 			onRetry: () => {
 				if ( draftRef.current ) void capture( draftRef.current );
 			},

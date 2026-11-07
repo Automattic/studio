@@ -61,6 +61,7 @@ import {
 import { SITE_EVENTS, type SiteListItem } from '@studio/common/lib/cli-events';
 import { CliCommandError } from '@studio/common/lib/cli-process';
 import { stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
+import { sendStudioFeedback, type StudioFeedback } from '@studio/common/lib/feedback';
 import {
 	calculateDirectorySizeForArchive,
 	isWordPressDirectory,
@@ -91,6 +92,7 @@ import {
 	listLocalFileTree as listSiteFileTree,
 } from '@studio/common/lib/sync/local-file-tree';
 import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
+import { getStudioUserAgent } from '@studio/common/lib/user-agent';
 import { supportedEditorConfig, SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import {
 	readOnboardingCompleted,
@@ -113,7 +115,10 @@ import {
 	startSite,
 	stopSite,
 } from '@studio/common/sites/lifecycle';
-import { updateSiteMetadata } from '@studio/common/sites/metadata';
+import {
+	setSiteFrontendAdminBar as writeSiteFrontendAdminBar,
+	updateSiteMetadata,
+} from '@studio/common/sites/metadata';
 import {
 	designFixesSchema,
 	fixSiteDesign,
@@ -127,8 +132,9 @@ import {
 	type SiteEmail,
 	type SiteEmailSummary,
 } from '@studio/common/sites/site-email';
-import { readThemeDetails } from '@studio/common/sites/site-identity';
+import { readGlobalStyles, readThemeDetails } from '@studio/common/sites/site-identity';
 import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
+import { readSiteSource, type SiteSourceFile } from '@studio/common/sites/site-source';
 import { __ } from '@wordpress/i18n';
 import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
@@ -221,11 +227,14 @@ export {
 	deleteAllSnapshots,
 	deletePreviewSite,
 	fetchSnapshots,
+	getPreviewStatus,
 	publishPreviewSite,
 	renamePreviewSite,
 } from 'src/modules/preview-site/lib/ipc-handlers';
 
 export {
+	connectAgentApp,
+	getAgentApps,
 	getAiSettings,
 	getGlobalAgentInstructions,
 	getInstalledAppsAndTerminals,
@@ -501,6 +510,14 @@ export async function getSiteDetails( _event: IpcMainInvokeEvent ): Promise< Sit
 	return getSites();
 }
 
+export async function setSiteFrontendAdminBar(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	hidden: boolean | null
+): Promise< void > {
+	await writeSiteFrontendAdminBar( siteId, hidden );
+}
+
 export async function createSite(
 	event: IpcMainInvokeEvent,
 	path: string,
@@ -756,6 +773,7 @@ export async function stopServer(
 }
 
 export interface FolderDialogResponse {
+	file?: SiteSourceFile;
 	blueprint?: BlueprintSource;
 	path: string;
 	name: string;
@@ -792,7 +810,7 @@ export async function showOpenFolderDialog(
 	event: IpcMainInvokeEvent,
 	title: string,
 	defaultDialogPath: string,
-	options?: { allowBlueprints?: boolean }
+	options?: { allowBlueprints?: boolean; allowSiteFiles?: boolean; usePath?: boolean }
 ): Promise< FolderDialogResponse | null > {
 	const parentWindow = BrowserWindow.fromWebContents( event.sender );
 	if ( ! parentWindow ) {
@@ -800,19 +818,30 @@ export async function showOpenFolderDialog(
 			`No window found for sender of showOpenFolderDialog message: ${ event.frameId }`
 		);
 	}
-	let selectedPath = process.env.E2E ? process.env.E2E_OPEN_FOLDER_DIALOG : undefined;
+	if ( options?.usePath && ! nodePath.isAbsolute( defaultDialogPath ) ) {
+		throw new Error( __( 'Enter the folder’s full path.' ) );
+	}
+	let selectedPath = options?.usePath
+		? defaultDialogPath
+		: process.env.E2E
+		? process.env.E2E_OPEN_FOLDER_DIALOG
+		: undefined;
 	if ( ! selectedPath ) {
 		const defaultPath =
 			defaultDialogPath !== '' ? defaultDialogPath : await getDefaultSiteDirectory();
 		let properties: OpenDialogOptions[ 'properties' ] = [ 'openDirectory', 'createDirectory' ];
-		if ( options?.allowBlueprints ) {
+		if ( options?.allowBlueprints || options?.allowSiteFiles ) {
 			if ( process.platform === 'darwin' ) {
 				properties.push( 'openFile' );
 			} else {
 				const { response } = await dialog.showMessageBox( parentWindow, {
 					type: 'question',
 					message: __( 'What would you like to open?' ),
-					buttons: [ __( 'Folder…' ), __( 'Blueprint file…' ), __( 'Cancel' ) ],
+					buttons: [
+						__( 'Folder…' ),
+						options?.allowSiteFiles ? __( 'File…' ) : __( 'Blueprint file…' ),
+						__( 'Cancel' ),
+					],
 					defaultId: 0,
 					cancelId: 2,
 				} );
@@ -824,18 +853,34 @@ export async function showOpenFolderDialog(
 			title,
 			defaultPath,
 			properties,
-			filters: options?.allowBlueprints
+			filters: options?.allowSiteFiles
+				? [
+						{
+							name: __( 'Site sources' ),
+							extensions: [ 'json', 'zip', 'gz', 'gzip', 'tar', 'tgz', 'wpress', 'xml' ],
+						},
+				  ]
+				: options?.allowBlueprints
 				? [ { name: __( 'Blueprints' ), extensions: [ 'json', 'zip' ] } ]
 				: undefined,
 		} );
 		if ( canceled || ! filePaths[ 0 ] ) return null;
 		selectedPath = filePaths[ 0 ];
 	}
+	if ( options?.allowSiteFiles ) return readSiteSource( selectedPath );
 	const blueprint = options?.allowBlueprints ? await readBlueprintSource( selectedPath ) : null;
+	const isEmpty = blueprint
+		? false
+		: await isEmptyDir( selectedPath ).catch( ( error: unknown ) => {
+				if ( options?.usePath && isErrnoException( error ) && error.code === 'ENOENT' ) {
+					return true;
+				}
+				throw error;
+		  } );
 	return {
 		path: selectedPath,
 		name: nodePath.basename( selectedPath ),
-		isEmpty: blueprint ? false : await isEmptyDir( selectedPath ),
+		isEmpty,
 		isWordPress: blueprint ? false : isWordPressDirectory( selectedPath ),
 		...( blueprint ? { blueprint } : {} ),
 	};
@@ -989,7 +1034,11 @@ export async function getSiteDesign(
 	id: string
 ): Promise< SiteDesign | null > {
 	const sitePath = await readSitePath( id );
-	return sitePath ? readSiteDesign( sitePath, activeThemeSlug( sitePath ) ) : null;
+	return sitePath
+		? readSiteDesign( sitePath, activeThemeSlug( sitePath ), () =>
+				readGlobalStyles( executeCliCommand, sitePath )
+		  )
+		: null;
 }
 
 export async function fixSiteDesignDrift(
@@ -1518,3 +1567,14 @@ export {
 	setWebviewColorScheme,
 	clearWebviewBrowsingData,
 } from 'src/lib/preview-browser';
+
+export async function sendFeedback( _event: IpcMainInvokeEvent, feedback: StudioFeedback ) {
+	const token = await readAuthToken();
+	if ( ! token?.accessToken ) {
+		throw new Error( 'Log in to WordPress.com to send feedback.' );
+	}
+	return sendStudioFeedback( feedback, {
+		accessToken: token.accessToken,
+		userAgent: getStudioUserAgent( app.getVersion() ),
+	} );
+}

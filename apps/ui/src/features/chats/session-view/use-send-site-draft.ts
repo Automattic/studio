@@ -25,34 +25,39 @@ export function useSendSiteDraft( siteId: string | undefined ) {
 		) => {
 			if ( ! siteId ) return;
 			const pathname = router.state.location.pathname;
-			let session: LoadedAiSession;
+			update( { pendingPrompt: options?.displayMessage ?? prompt } );
 			try {
-				const sessionId = draft.sessionId ?? ( await connector.createSession( siteId ) ).id;
-				update( { sessionId } );
-				await connector.setSessionProvider( sessionId, provider, model );
-				await connector.setSessionEnvironment( sessionId, draft.activeEnvironment );
-				session = await connector.getSession( sessionId );
-				queryClient.setQueryData( [ ...SESSIONS_QUERY_KEY, sessionId ], session );
-			} catch ( error ) {
-				toast.error( error instanceof Error ? error.message : String( error ) );
-				throw error;
+				let session: LoadedAiSession;
+				try {
+					const sessionId = draft.sessionId ?? ( await connector.createSession( siteId ) ).id;
+					update( { sessionId } );
+					await connector.setSessionProvider( sessionId, provider, model );
+					await connector.setSessionEnvironment( sessionId, draft.activeEnvironment );
+					session = await connector.getSession( sessionId );
+					queryClient.setQueryData( [ ...SESSIONS_QUERY_KEY, sessionId ], session );
+				} catch ( error ) {
+					toast.error( error instanceof Error ? error.message : String( error ) );
+					throw error;
+				}
+				const { id: sessionId } = session.summary;
+				await startRun( sessionId, prompt, options );
+				const current = queryClient.getQueryData< LoadedAiSession >( [
+					...SESSIONS_QUERY_KEY,
+					sessionId,
+				] )?.summary;
+				primeSessionQueryData( queryClient, {
+					...( current ?? session.summary ),
+					firstPrompt: current?.firstPrompt || options?.displayMessage || prompt,
+					updatedAt: new Date().toISOString(),
+				} );
+				if ( router.state.location.pathname === pathname ) {
+					await router.navigate( { to: '/sessions/$sessionId', params: { sessionId } } );
+				}
+				update( { sessionId: undefined } );
+				return sessionId;
+			} finally {
+				update( { pendingPrompt: undefined } );
 			}
-			const { id: sessionId } = session.summary;
-			await startRun( sessionId, prompt, options );
-			const current = queryClient.getQueryData< LoadedAiSession >( [
-				...SESSIONS_QUERY_KEY,
-				sessionId,
-			] )?.summary;
-			primeSessionQueryData( queryClient, {
-				...( current ?? session.summary ),
-				firstPrompt: current?.firstPrompt || options?.displayMessage || prompt,
-				updatedAt: new Date().toISOString(),
-			} );
-			update( { sessionId: undefined } );
-			if ( router.state.location.pathname === pathname ) {
-				await router.navigate( { to: '/sessions/$sessionId', params: { sessionId } } );
-			}
-			return sessionId;
 		},
 		[
 			connector,

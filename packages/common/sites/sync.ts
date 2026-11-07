@@ -64,8 +64,6 @@ export function pushSite(
 			...( options?.specificSelectionPaths?.length
 				? [ '--include-only', ...options.specificSelectionPaths ]
 				: [] ),
-			// The UI records `studio_sync_push` itself.
-			'--suppress-tracks-event',
 		],
 		signal
 	);
@@ -93,8 +91,8 @@ export function pullSite(
 			...( options?.includePathList?.length
 				? [ '--include-path-list', ...options.includePathList ]
 				: [] ),
-			// The UI records `studio_sync_pull` itself.
-			'--suppress-tracks-event',
+			// The same picks as paths, for the Reprint pull.
+			...( options?.onlyPaths ?? [] ).flatMap( ( onlyPath ) => [ '--only', onlyPath ] ),
 		],
 		signal
 	);

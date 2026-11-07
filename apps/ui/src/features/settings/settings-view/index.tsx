@@ -25,10 +25,9 @@ import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { ExternalLinkIcon } from '@/lib/icons';
 import { isDefaultColorTint } from '@/lib/theme';
 import { Input, Button } from '@/lib/ui';
-import { AccountSection } from './account-section';
+import { ConnectionCard } from './account-section';
 import { ColorTintSettings } from './color-tint-settings';
 import { InstructionsEditor } from './instructions-editor';
-import { NewSiteBehaviorRow } from './new-site-behavior-row';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
 import {
 	SettingsGroup,
@@ -175,7 +174,7 @@ function PreferencesPanel( {
 	const locale = useUserLocale();
 	return (
 		<div className={ styles.preferencesPanel }>
-			<AccountSection />
+			<ConnectionCard />
 			{ saveError ? (
 				<div className={ styles.errorMessage }>
 					{ __( 'An error occurred while saving settings. Please try again.' ) }
@@ -255,7 +254,6 @@ function PreferencesPanel( {
 				</SettingsRow>
 			</SettingsGroup>
 			<SettingsGroup title={ __( 'Interface' ) }>
-				<NewSiteBehaviorRow />
 				<SettingsRow
 					title={ __( 'When WordPress Studio quits' ) }
 					description={ __(
@@ -302,6 +300,18 @@ function PreferencesPanel( {
 					/>
 				</SettingsRow>
 
+				<SettingsRow
+					title={ __( 'Hide admin bar' ) }
+					description={ __(
+						'Hide the WordPress admin bar by default on local sites. Change this for individual sites in Browser options.'
+					) }
+				>
+					<SettingsToggle
+						label={ __( 'Hide admin bar' ) }
+						checked={ data.hideFrontendAdminBar }
+						onChange={ ( hideFrontendAdminBar ) => onChange( { hideFrontendAdminBar } ) }
+					/>
+				</SettingsRow>
 				<SidebarSettings />
 				<SettingsRow
 					title={ __( 'Reset interface' ) }

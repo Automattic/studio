@@ -2,12 +2,17 @@ import { __ } from '@wordpress/i18n';
 import { useWindowControlsInset } from '@/data/host/use-window-controls-inset';
 import { useSiteHeader } from '@/features/sites/site-header-actions';
 import { PreviewAddressBar } from '@/features/sites/site-preview/address-bar';
-import { RotateCwIcon, ResponsiveIcon } from '@/lib/icons';
+import { RotateCwIcon } from '@/lib/icons';
 import { IconButton, VisuallyHidden } from '@/lib/ui';
 import { BrowserHistoryButton } from './browser-history-button';
-import { BrowserMenu, type PreviewBrowserActions } from './browser-menu';
+import {
+	BrowserMenu,
+	type PreviewBrowserActions,
+	type PreviewResponsiveActions,
+} from './browser-menu';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
+import type { useFrontendAdminBar } from '@/data/queries/use-frontend-admin-bar';
 import type { BrowserNavigationState } from '@/features/sites/site-preview/browser-state';
 import type { useBrowserShortcuts } from '@/features/sites/site-preview/use-browser-shortcuts';
 import type { BrowserShortcutCommand } from '@studio/agent/protocol/inspector/page-script';
@@ -20,6 +25,7 @@ interface PreviewHeaderProps {
 	live: boolean;
 	canPreview: boolean;
 	isStarting: boolean;
+	isRestarting?: boolean;
 	isStopping: boolean;
 	browserState: BrowserNavigationState;
 	shortcuts: ReturnType< typeof useBrowserShortcuts >;
@@ -28,8 +34,9 @@ interface PreviewHeaderProps {
 	onPathChange?: ( path: string ) => void;
 	onOpenExternal?: () => void;
 	browserActions?: PreviewBrowserActions;
+	adminBarActions?: ReturnType< typeof useFrontendAdminBar >;
 	onExternalNavigate?: ( url: string ) => void;
-	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
+	responsive?: PreviewResponsiveActions;
 }
 
 export function PreviewHeader( {
@@ -39,6 +46,7 @@ export function PreviewHeader( {
 	live,
 	canPreview,
 	isStarting,
+	isRestarting = false,
 	isStopping,
 	browserState,
 	shortcuts,
@@ -47,6 +55,7 @@ export function PreviewHeader( {
 	onPathChange,
 	onOpenExternal,
 	browserActions,
+	adminBarActions,
 	onExternalNavigate,
 	responsive,
 	inactive = false,
@@ -70,21 +79,6 @@ export function PreviewHeader( {
 		/>
 	);
 
-	const responsiveButton = responsive ? (
-		<IconButton
-			size="icon-sm"
-			data-preview-responsive
-			icon={ <ResponsiveIcon /> }
-			label={ responsive.active ? __( 'Exit responsive mode' ) : __( 'Responsive mode' ) }
-			aria-label={ __( 'Responsive mode' ) }
-			variant="accent-ghost"
-			aria-pressed={ responsive.active }
-			disabled={ responsive.disabled }
-			onClick={ responsive.onClick }
-			tooltipSide="bottom"
-		/>
-	) : null;
-
 	return (
 		<div
 			ref={ inactive ? undefined : attachBrowserHeader }
@@ -103,7 +97,11 @@ export function PreviewHeader( {
 		>
 			{ isStarting || isStopping ? (
 				<VisuallyHidden role="status">
-					{ isStopping ? __( 'Stopping site…' ) : __( 'Starting site…' ) }
+					{ isRestarting
+						? __( 'Restarting site…' )
+						: isStopping
+						? __( 'Stopping site…' )
+						: __( 'Starting site…' ) }
 				</VisuallyHidden>
 			) : null }
 			<div className={ styles.headerSide }>
@@ -143,9 +141,13 @@ export function PreviewHeader( {
 					ref={ inactive ? undefined : attachAnnotationSpace }
 					className={ styles.previewActions }
 				/>
-				{ responsiveButton }
-				{ canPreview && browserActions ? (
-					<BrowserMenu actions={ browserActions } disabled={ disabled } />
+				{ canPreview && ( browserActions || adminBarActions || responsive ) ? (
+					<BrowserMenu
+						actions={ browserActions }
+						adminBar={ adminBarActions }
+						responsive={ responsive }
+						disabled={ disabled }
+					/>
 				) : null }
 			</div>
 		</div>

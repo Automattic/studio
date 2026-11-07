@@ -10,6 +10,7 @@ import {
 	removeAnnotations,
 	requestAnnotationSend,
 } from '@/features/annotations';
+import { clearComposerDrafts } from '@/features/composer';
 import { createFakeConnector, makeSession, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { AgentRunEvent, SessionEntry } from '@/data/core';
@@ -124,7 +125,54 @@ const composerStartButton = () =>
 		{ name: 'Start site' }
 	);
 
-describe( 'Composer site start', () => {
+describe( 'Composer site controls', () => {
+	beforeEach( () => clearComposerDrafts() );
+
+	it.each( [ 'menu', 'slash' ] )(
+		'starts and stops the local site through %s without sending or losing the draft',
+		async ( source ) => {
+			const { connector, input, queryClient } = await setupChat( {
+				signedIn: false,
+				hasAnthropicApiKey: false,
+			} );
+			for ( const action of [ 'start', 'stop' ] as const ) {
+				const command = action === 'start' ? connector.startSite : connector.stopSite;
+				const run = command.getMockImplementation()!;
+				let finish!: () => void;
+				command.mockImplementationOnce(
+					( id ) =>
+						new Promise( ( resolve ) => {
+							finish = () => resolve( run( id ) );
+						} )
+				);
+				const label = action === 'start' ? /^Start site(?: |$)/ : 'Stop site';
+				fireEvent.change( input, {
+					target: {
+						value: source === 'slash' ? `Keep this draft /${ action }` : 'Keep this draft',
+					},
+				} );
+				if ( source === 'slash' ) {
+					await screen.findByRole( 'option', { name: label } );
+					fireEvent.keyDown( input, { key: 'Enter' } );
+				} else {
+					fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+					fireEvent.click( await screen.findByRole( 'option', { name: label } ) );
+				}
+				await waitFor( () => expect( command ).toHaveBeenCalledExactlyOnceWith( SITE_ID ) );
+				expect( input ).toHaveValue( source === 'slash' ? 'Keep this draft ' : 'Keep this draft' );
+				fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+				const pending = await screen.findByRole( 'option', { name: label } );
+				expect( pending ).toHaveAttribute( 'aria-disabled', 'true' );
+				fireEvent.click( pending );
+				expect( command ).toHaveBeenCalledOnce();
+				fireEvent.keyDown( input, { key: 'Escape' } );
+				await act( async () => finish() );
+				await waitFor( () => expect( queryClient.isMutating() ).toBe( 0 ) );
+			}
+			expect( connector.continueSession ).not.toHaveBeenCalled();
+		}
+	);
+
 	it( 'starts a stopped site from the empty composer without sending a message', async () => {
 		const { connector, input } = await setupChat( {
 			signedIn: false,
@@ -206,7 +254,7 @@ describe( 'Composer access notices', () => {
 		expect( within( alert ).getAllByRole( 'button' ) ).toHaveLength( 1 );
 		fireEvent.change( input, { target: { value: 'Preserve this draft' } } );
 		const calls = connector.getAiSettings.mock.calls.length;
-		fireEvent.click( within( alert ).getByRole( 'button', { name: 'Try again' } ) );
+		fireEvent.click( within( alert ).getByRole( 'button', { name: 'Refresh' } ) );
 		await waitFor( () =>
 			expect( connector.getAiSettings.mock.calls.length ).toBeGreaterThan( calls )
 		);
@@ -767,9 +815,20 @@ describe( 'Annotation drafts during an active run', () => {
 	it( 'sends a direct annotation immediately while the chat is idle', async () => {
 		const { connector, input } = await setupChat( { pinnedProvider: 'wpcom' } );
 		fireEvent.change( input, { target: { value: 'Keep my draft' } } );
+		let accept!: () => void;
+		const originalContinue = connector.continueSession.getMockImplementation()!;
+		connector.continueSession.mockImplementationOnce( async ( ...args ) => {
+			await new Promise< void >( ( resolve ) => {
+				accept = resolve;
+			} );
+			return originalContinue( ...args );
+		} );
 		const id = addNote();
 		act( () => requestAnnotationSend( { siteId: SITE_ID, noteIds: [ id ] } ) );
 		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledOnce() );
+		expect( getSiteAnnotations( SITE_ID ).notes[ 0 ].staged ).not.toBe( true );
+		expect( screen.queryByRole( 'listitem', { name: /^1 annotation,/ } ) ).not.toBeInTheDocument();
+		await act( async () => accept() );
 		expect( connector.continueSession.mock.calls[ 0 ][ 2 ] ).toEqual(
 			expect.objectContaining( {
 				visualAnnotations: expect.arrayContaining( [

@@ -1,8 +1,10 @@
 import { ACCEPTED_ADD_SITE_FILE_TYPES } from '@studio/common/constants';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { useRef } from 'react';
 import { Button, DropZone } from '@/lib/ui';
 import styles from './style.module.css';
+
+export const SITE_FILE_UPLOAD_TYPES = [ '.json', ...ACCEPTED_ADD_SITE_FILE_TYPES ];
 
 interface SiteFileUploadProps {
 	disabled?: boolean;
@@ -16,7 +18,7 @@ export function SiteFileUpload( { disabled = false, onFile }: SiteFileUploadProp
 			<input
 				ref={ fileInputRef }
 				type="file"
-				accept={ [ '.json', ...ACCEPTED_ADD_SITE_FILE_TYPES ].join( ',' ) }
+				accept={ SITE_FILE_UPLOAD_TYPES.join( ',' ) }
 				onChange={ ( event ) => {
 					const file = event.target.files?.[ 0 ];
 					if ( file ) void onFile( file );
@@ -28,9 +30,7 @@ export function SiteFileUpload( { disabled = false, onFile }: SiteFileUploadProp
 			<DropZone
 				className={ styles.zone }
 				title={ __( 'Drop your file here' ) }
-				description={ __(
-					'Supports Blueprint JSON and ZIP files, backups from WordPress.com, Jetpack, Local, Playground, and All-in-One WP Migration, plus WordPress XML exports.'
-				) }
+				description={ __( 'Blueprints, backups, and WordPress exports' ) }
 			>
 				<Button
 					className={ styles.choose }
@@ -41,6 +41,13 @@ export function SiteFileUpload( { disabled = false, onFile }: SiteFileUploadProp
 				>
 					{ __( 'Choose file' ) }
 				</Button>
+				<p className={ styles.fileTypes }>
+					{ sprintf(
+						// translators: %s is a comma-separated list of supported file extensions.
+						__( 'Supported files: %s.' ),
+						SITE_FILE_UPLOAD_TYPES.join( ', ' )
+					) }
+				</p>
 			</DropZone>
 		</div>
 	);

@@ -139,9 +139,6 @@ export function useConnectSite() {
 					await pullSite.mutateAsync( {
 						siteId: localSiteId,
 						remoteSiteId: remote.id,
-						// The local site is created by this flow, so the connected-sites
-						// cache the hook would otherwise read has nothing for it yet.
-						syncSite: remote,
 					} );
 				},
 				startLocalSite: async ( localSiteId ) => {

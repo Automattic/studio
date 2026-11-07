@@ -146,11 +146,9 @@ where the sender actually runs — see Testing below for what fires in which bui
   sharing only the connected-sites storage and the WordPress.com endpoints. Classic never invokes the
   CLI for either operation, so there is no funnel to emit from; each surface emits its own event and
   `channel`/`ui_version` identify it. The agentic UI runs the CLI commands for both operations
-  (`pushSite`/`pullSite` in `packages/common/sites/sync.ts`) and emits from its own mutation hooks
-  (`apps/ui/src/data/queries/use-sync-site.ts`, shared by desktop and `studio ui`), so it passes the
-  same hidden `--suppress-tracks-event` flag the add-site and sync-pull import paths use — a
-  `channel=studio-cli` `studio_sync_push`/`studio_sync_pull` row is therefore always a run no UI
-  started. **Cancels emit nothing**
+  (`pushSite`/`pullSite` in `packages/common/sites/sync.ts`) and lets the CLI emit, so the event
+  carries the CLI's precise `failure_reason`; the host's `STUDIO_TRACKS_ORIGIN` attributes it to
+  `studio-ui:v2` (desktop) or `studio-web:v2` (`studio ui`). **Cancels emit nothing**
   at all, so `success=false` always means a real failure.
 - **`studio_code_message_sent`/`studio_code_turn_completed`** are emitted **only** by the CLI, from
   `runAgentTurn` (`apps/cli/commands/ai/index.ts`). Every chat surface forks the CLI to run a turn —
@@ -279,7 +277,7 @@ not drift.
 | `turn_id`       | One dispatched AI turn, shared by its start and completion                                                             | Opaque UUID; distinct from the chat session ID                                                                                 |
 | `agent_name`    | Agent runtime                                                                                                          | `pi`; for `studio mcp`, the agent app's MCP client name (`codex-mcp-client`, …)                                                |
 | `client`        | AI product                                                                                                             | `studio-code`, or `studio-mcp` for an agent app using Studio through `studio mcp` — `channel` still records the surface        |
-| `ability_name`  | Predefined skill invoked                                                                                               | `annotate`/`taxonomist`/`need-for-speed`/`rank-me-up`/`liberate`; absent for an ordinary message                               |
+| `ability_name`  | Predefined skill invoked                                                                                               | `annotate`/`taxonomist`/`need-for-speed`/`rank-me-up`/`liberate`/`feedback`; absent for an ordinary message                    |
 | `outcome`       | How a turn ended                                                                                                       | `success`/`error`/`interrupted`/`max_turns` (mirrors the session log's `TurnStatus`)                                           |
 | `catalog`       | **Custom (Studio-only):** which design catalog a design event is about                                                 | `directions` (artistic direction, the look), `layouts` (signature concept, the page structure)                                 |
 | `draw_id`       | **Custom (Studio-only):** groups the `option_proposed` rows of one `pick_design` call back into the set shown together | A random UUID per call                                                                                                         |
@@ -309,7 +307,7 @@ start / creation is counted once whether it originated in a UI or the standalone
 | -------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `studio_app_launch`        | Desktop Main (`appBoot`); `studio ui` server start | `is_first_launch` (desktop only)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `studio_mcp_session_start` | CLI MCP server, once an agent app connects         | `mcp_apps` (boolean — whether the app renders MCP Apps, such as the design picker and the WordPress tab), plus the `studio-mcp` origin props `mcp_client`, `plugin`, `plugin_version`. One per connection: distinct install IDs on it, split by `plugin`, count the people using Studio from agent apps.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `studio_site_start`        | CLI site-start funnel                              | `command` (the command that started the site: `start`/`create`/`import`/`pull`/`pull_reprint`/`config`), `success` (boolean), `time_ms` (start duration). On success also `running_site_count` (running Studio sites after this one comes up). On failure instead `failure_reason` (coarse, low-cardinality: `timeout`/`port_unavailable`/`php_error`/`process_exited`/`unknown` — the raw error is never sent). Both also carry the milliseconds of each step that finished: `daemon_ms`, `wp_config_ms`, `wordpress_install_ms`, `blueprint_ms`, `symlink_scan_ms`, `php_workers_ms`, `proxy_ready_ms`, `admin_credentials_ms`; on a failure, the first missing step is the one that did not finish. `time_ms` is the whole start: for a `site start` an app requested, it counts from the request, so it includes the app spawning and loading the CLI and the CLI's checks before the steps above (in versions after 2.1.0; through 2.1.0 it counted from the server start, the first step). |
+| `studio_site_start`        | CLI site-start funnel                              | `command` (the command that started the site: `start`/`create`/`import`/`pull`/`config`), `success` (boolean), `time_ms` (start duration). On success also `running_site_count` (running Studio sites after this one comes up). On failure instead `failure_reason` (coarse, low-cardinality: `timeout`/`port_unavailable`/`php_error`/`process_exited`/`unknown` — the raw error is never sent). Both also carry the milliseconds of each step that finished: `daemon_ms`, `wp_config_ms`, `wordpress_install_ms`, `blueprint_ms`, `symlink_scan_ms`, `php_workers_ms`, `proxy_ready_ms`, `admin_credentials_ms`; on a failure, the first missing step is the one that did not finish. `time_ms` is the whole start: for a `site start` an app requested, it counts from the request, so it includes the app spawning and loading the CLI and the CLI's checks before the steps above (in versions after 2.1.0; through 2.1.0 it counted from the server start, the first step). |
 | `studio_site_created`      | CLI site-create funnel                             | `site_id` (opaque local site UUID when its record is resolved; reused by preview create/update), `flow_type` (`new`/`blueprint`/`import`/`sync`/`duplicate`/`ai`/`static_site_import`), `source` (`url`/`capture`/`directory` — the kind of `--from` source, only present when `flow_type` is `static_site_import`; the URL/path itself is **never** sent), `php_version`, `wp_version` (resolved from disk; `-` if unknown), `custom_domain` (boolean — the domain string is **never** sent), `ssl_enabled` (boolean), `time_ms` (creation duration). Emitted once per **successful** creation.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 
 #### Add-site Blueprint dialog events
@@ -354,24 +352,26 @@ that handler is shared with single-file opens (AI skills, "Open <file>"); it fir
 site in editor" affordances instead (Classic overview button + site-menu, and the agentic UI's
 `openSiteInEditor` connector method).
 
-The site-content open events (`open_in_browser`, `open_wp_admin`, `open_customize`,
-`open_phpmyadmin`) carry a **`browser`** prop recording where the content opened: `external` (the OS
-browser) or `internal` (the agentic UI's in-app preview panel). Studio Classic always opens the OS
-browser, so it always sends `external`. The agentic UI sends `internal` when it opens content in the
-preview panel — the overview Customize buttons, and switching the preview's realm tabs (front end →
-`open_in_browser`, WP Admin → `open_wp_admin`, database → `open_phpmyadmin`, design system →
-`open_design_system`; re-selecting the active tab is a no-op and emits nothing) — and `external` when the affordance leaves Studio: the site-list
-"Open phpMyAdmin"/"Open WP admin" menu items, the site header's "open in your browser" link, and the
-preview's "Open in… → Browser" button. That last button fires the event matching whatever realm the
-preview is currently showing, so opening a WP Admin preview externally is an `open_wp_admin`
-(`external`), not an `open_in_browser`. Free-form navigation _within_ the preview panel (typing in the
-address bar) is out of scope here and tracked separately. `studio_panel_opened` fires in **both**
-front-ends: Classic from its tab strip, and the agentic UI from its route navigations (the
-overview/settings/debugging tab switches, the site-list gear → overview, a site-name click → assistant
-or, when chat is unavailable, overview, and the context-menu "Site settings" → settings). The agentic
-UI's General settings tab reports `panel: settings` so it lines up with Classic's Settings panel; its
-Debugging tab reports `panel: debugging`. No site names, paths, or URLs are ever sent — only the
-enumerated prop values below.
+The site-content open events carry a **`browser`** prop recording where the content opened:
+`external` (the OS browser) or `internal` (the in-app preview panel). The current UI emits `internal`
+for explicit project-tool opens (including their shortcuts and new-tab menu), chat tool links, and
+selection of a different preview tab. Front end maps to `open_in_browser`, WP Admin to
+`open_wp_admin`, database to `open_phpmyadmin`, design system to `open_design_system`, and Email log
+to `open_email`. Opening another tab counts even when it shows the same realm; re-selecting the
+active tab emits nothing. Initial rendering, restored tabs, and programmatic navigation do not
+emit an open event. Free-form address-bar navigation is outside these events.
+
+External browser/Admin/phpMyAdmin destinations emit their matching event with `browser: external`.
+The preview's external-open button and tab context menu also emit the event matching the content
+being opened, for both local and live previews. Design system and Email log exist only in Studio's
+preview, so their events always carry `browser: internal`. Design system cannot open externally; the
+Email log's file-manager action opens its local folder and does not emit a content-open event.
+
+`studio_panel_opened` is separate from workspace layouts and preview content. In the current UI,
+site selection emits `panel: assistant`, and site-settings actions emit `panel: settings`. Older
+Classic releases emitted tab-strip values (`overview`, `sync`, `settings`, `assistant`,
+`import-export`, `previews`); earlier agentic releases also emitted overview/debugging route changes.
+These historical values remain valid for older releases. No site names, paths, or URLs are sent.
 
 | Event                            | Emitted from                                            | Event-specific props                                                                                                                                                                                                                                                                                                 |
 | -------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -386,8 +386,8 @@ enumerated prop values below.
 | `studio_site_open_design_system` | Renderer (agentic)                                      | `browser` (always `internal` — the design system view only exists in the preview panel)                                                                                                                                                                                                                              |
 | `studio_site_open_email`         | Renderer (agentic)                                      | `browser` (always `internal` — the email view only exists in the preview panel)                                                                                                                                                                                                                                      |
 | `studio_site_open_folder`        | Renderer (Classic + agentic)                            | (none — opens the OS file manager)                                                                                                                                                                                                                                                                                   |
-| `studio_panel_opened`            | Renderer (Classic tab strip + agentic route navigation) | `panel` — the panel opened. Classic: `overview`/`sync`/`settings`/`assistant`/`import-export`/`previews` (only on a genuine user tab switch, not programmatic changes or re-selecting the current tab). Agentic: `overview`/`settings`/`debugging`/`assistant` (`sync`/`import-export`/`previews` are Classic-only). |
-| `studio_workspace_layout_changed` | Renderer (shared workspace layout setters, Desktop + browser UI) | `layout` (`chat`/`split`/`panel`); opaque `site_id` when the local site resolves. Emitted once per user-driven change to the resulting visible layout from header controls, View menu, command palette, or shortcuts. Re-selecting the current layout, initial rendering, site lifecycle changes, viewport-forced changes, and annotation-forced changes emit nothing. Existing Tracks opt-out and build-disable gates apply; delivery is best-effort. |
+| `studio_panel_opened`            | Renderer (site selection/settings; historical Classic tabs) | `panel` — current UI: `assistant` for site selection, `settings` for site-settings actions. Historical releases also used `overview`/`debugging` and Classic-only `sync`/`import-export`/`previews`. |
+| `studio_workspace_layout_changed` | Renderer (shared workspace layout setters, Desktop + browser UI) | `layout` (`chat` = chat only, `split` = chat and panel, `panel` = panel only); opaque `site_id` when the local site resolves. Emitted once per user-driven change to the resulting visible layout from header controls, View menu, command palette, shortcuts, chat show/hide actions, explicit tool opens that reveal the panel, or closing the final preview tab. Navigation to a different site is not a layout choice. Re-selecting the current layout, initial rendering, site lifecycle changes, viewport-forced changes, and annotation-forced changes emit nothing. Existing Tracks opt-out and build-disable gates apply; delivery is best-effort. |
 
 #### Import/export events
 
@@ -461,8 +461,8 @@ No site names, URLs, paths, or raw error text are ever sent — `failure_reason`
 
 | Event                      | Emitted from                                                                                         | Event-specific props                                                                                                                                                     |
 | -------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `studio_sync_pull`         | Classic slice + agentic UI hook + CLI `pull` (standalone only)                                       | `success` (boolean), `sync_type`, `time_ms` (full pull duration, incl. the remote backup and the local import). On failure also `failure_reason`.                        |
-| `studio_sync_push`         | Classic slice + agentic UI hook + CLI `push` (standalone only)                                       | `site_id` (opaque local site UUID when resolved), `success` (boolean), `sync_type`, `time_ms` (full push duration, incl. the local export, upload, and the remote import). On failure also `failure_reason`.               |
+| `studio_sync_pull`         | Classic slice + CLI `pull` (standalone and agentic UI)                                               | `success` (boolean), `sync_type`, `time_ms` (full pull duration, incl. the remote backup and the local import). On failure also `failure_reason`. The CLI's Reprint pull also sends `site_kind` (`preview` when the source is one of the user's preview sites, `site` otherwise, `unknown` when previews could not be listed). |
+| `studio_sync_push`         | Classic slice + CLI `push` (standalone and agentic UI)                                               | `site_id` (opaque local site UUID when resolved), `success` (boolean), `sync_type`, `time_ms` (full push duration, incl. the local export, upload, and the remote import). On failure also `failure_reason`.               |
 | `studio_sync_connect`      | Classic site-selection handler + agentic UI (publish picker, deep-link listener, onboarding connect) | `site_id` (opaque local site UUID when resolved), `success` (boolean), `num_of_sites` (live sites connected to this local site **after** this connect, so a first connection reports 1). On failure also `failure_reason`. |
 | `studio_sync_disconnect`   | Classic sync tab + agentic UI disconnect dialog                                                      | (none)                                                                                                                                                                   |
 | `studio_sync_create_site`  | Classic Create-site button + agentic UI onboarding connect                                           | (none — opens WordPress.com checkout)                                                                                                                                    |
@@ -484,7 +484,9 @@ embeds site names and filesystem paths.
 
 In the CLI those certain buckets come from the `LoggerError` codes the `sync-api` wrappers attach
 (`apps/cli/lib/sync-api.ts`), so a remote-side failure is attributed to the step that actually broke
-rather than inheriting the caller's fallback.
+rather than inheriting the caller's fallback. `push` and `pull` also pass the step they were in
+(`local_export`, `upload`, `remote_backup`, `remote_import`, `local_import`) as the phase, so
+`unknown` is left only for failures before the sync starts.
 
 #### Settings-change events
 
@@ -563,17 +565,17 @@ wrappers. Register new events/properties for documentation and integrity checks;
 
 | Event                              | Emitted from                                                          | Event-specific props                                                                                                                                                             |
 | ---------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `studio_account_prompt_viewed`     | Renderer visibility observer                                          | `source`, `placement`, `intent`, `journey_id`. One per visible presentation; hidden panels and rerenders do not count.                                                           |
+| `studio_account_prompt_viewed`     | Renderer / MCP library visibility observer / CLI terminal sign-in offer | `source`, `placement`, `intent`, `journey_id`. One per visible presentation; hidden panels and rerenders do not count.                                                           |
 | `studio_onboarding_viewed`         | Renderer visibility observer                                          | `step` (`welcome`/`account`), `journey_id`. One per visible step presentation.                                                                                                   |
 | `studio_onboarding_complete`       | Desktop `saveOnboarding` / browser onboarding route                   | `authenticated`, optional `completion_path` (`authenticated_continue`/`continue_without_account`/`dismissed`), `journey_id`. Preserves the first false-to-true transition guard. |
-| `studio_wpcom_auth_started`        | Desktop authenticate / browser login-URL route / CLI login            | `source`, `auth_flow`, `auth_attempt_id`, optional `account_type`, `placement`, `intent`, `journey_id`.                                                                          |
-| `studio_wpcom_auth`                | Desktop callback / browser token-validation route / CLI token storage | `success`, optional `failure_reason` (`access_denied`/`token_error`/`profile_fetch_failed`/`unknown`), plus matched start context. Missing context reports `source=unknown`.     |
+| `studio_wpcom_auth_started`        | Desktop authenticate / browser login-URL route / CLI login / MCP library login | `source`, `auth_flow`, `auth_attempt_id`, optional `account_type`, `placement`, `intent`, `journey_id`.                                                                          |
+| `studio_wpcom_auth`                | Desktop callback / browser token-validation route / CLI and MCP token storage | `success`, optional `failure_reason` (`access_denied`/`token_error`/`profile_fetch_failed`/`unknown`), plus matched start context. Missing context reports `source=unknown`.     |
 | `studio_wpcom_auth_cancelled`      | Browser cancellation route / CLI input cancellation                   | Matched start context. Only an observed cancellation.                                                                                                                            |
-| `studio_wpcom_auth_launch_failed`  | Desktop / browser / CLI handoff failure                               | Matched start context. CLI may continue with its printed URL.                                                                                                                    |
+| `studio_wpcom_auth_launch_failed`  | Desktop / browser / CLI / MCP library handoff failure                 | Matched start context. CLI may continue with its printed URL.                                                                                                                    |
 | `studio_account_journey_completed` | Renderer owning-task success handlers                                 | `placement`, `intent`, `journey_id`. One conversion marker per captured journey; join to successful auth by journey ID.                                                          |
 
 `placement` values are `welcome`, `account_menu`, `share`, `publish`, `add_site_connect`,
-`settings_account`, `settings_ai`, `settings_usage`, `settings_sharing`, `annotation`, `cli`, `unknown`.
+`settings_account`, `settings_ai`, `settings_usage`, `settings_sharing`, `annotation`, `cli`, `mcp_library`, `unknown`.
 `intent` values are `onboarding`, `account`, `build`, `annotate`, `share`, `publish`, `connect_site`,
 `usage`. These are bounded enums. No email, tokens, site IDs, paths, URLs, prompts, or error text are
 sent in this context. A source such as `settings` is kept for compatibility; use placement to split
@@ -593,6 +595,29 @@ started there is `add_site`, matching Studio Classic's add-site prompt. Watch fo
 path) and can't produce `failure_reason=access_denied` (there is no in-app deny step — the user pastes a
 token). Account for this before aggregating across channels. The CLI's "already authenticated" early
 return emits nothing, since no authentication took place.
+
+The interactive CLI's "Log in now?" offer records `studio_account_prompt_viewed` with
+`placement=cli`, `intent=account` and a random `journey_id` shared with the accepted auth attempt.
+Declining the offer records no auth start or cancellation; no auth attempt has begun. A non-interactive
+auth-required error is not a prompt exposure. Direct `studio auth login` starts auth without a separate
+account-prompt presentation.
+
+**MCP library auth.** The existing copy-token card records visible exposure with `source=mcp`,
+`placement=mcp_library`, `intent=account` and an opaque `journey_id`. Its explicit Log in action
+records `studio_wpcom_auth_started` before returning the authorization URL; the page carries the
+server-generated `auth_attempt_id` in the app-only bridge, never in the browser URL. Token storage
+uses the same CLI auth helper. A matching attempt is consumed once; parallel cards match by ID.
+Expired, missing, replayed or restarted context remains unknown. An explicit token retry after an
+observed validation failure starts a fresh attempt, retaining the card's journey. These login-only
+events omit `account_type`; they do not establish signup or new-account creation.
+
+The card has no cancellation action. Closing it, an abandoned authorization page, a restart or an
+unobserved browser fallback produces no synthetic cancellation or auth outcome. A handoff failure
+is recorded only if URL preparation fails or both the host handoff and browser fallback throw.
+This generic account placement has no intended site/workflow task, so it emits no onboarding or
+account-journey completion. Other MCP tools that only require authentication emit no auth starts.
+`studio_mcp_session_start` remains reach only. Existing anonymous installation identity, opt-out and
+disable paths apply; auth context contains no token, account/site identifier, path, URL or raw error.
 
 Each `failure_reason` does mean the same thing in both channels, so the values themselves aggregate
 cleanly: `profile_fetch_failed` is always the `/me` lookup (the request or its schema), and `unknown` is

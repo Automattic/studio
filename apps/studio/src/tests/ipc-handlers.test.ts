@@ -4,10 +4,18 @@
 import { IpcMainInvokeEvent, dialog, shell } from 'electron';
 import { existsSync } from 'fs';
 import { normalize } from 'path';
+import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { readSitePath } from '@studio/common/sites/site-path';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
-import { getFileSize, openURL, readBlueprintFile, showOpenFolderDialog } from 'src/ipc-handlers';
+import {
+	fetchSyncableWpcomSites,
+	getFileSize,
+	openURL,
+	readBlueprintFile,
+	showOpenFolderDialog,
+} from 'src/ipc-handlers';
+import { getAuthenticationToken } from 'src/lib/oauth';
 
 vi.mock( 'fs' );
 vi.mock( 'fs/promises', async () => {
@@ -15,6 +23,8 @@ vi.mock( 'fs/promises', async () => {
 	return { default: fs.promises };
 } );
 vi.mock( '@studio/common/sites/site-path' );
+vi.mock( '@studio/common/lib/sync/sync-api' );
+vi.mock( 'src/lib/oauth' );
 
 beforeEach( () => {
 	vol.reset();
@@ -24,6 +34,28 @@ const mockIpcMainInvokeEvent = {
 	sender: { isDestroyed: vi.fn().mockReturnValue( false ) },
 	// Double assert the type with `unknown` to simplify mocking this value
 } as unknown as IpcMainInvokeEvent;
+
+describe( 'fetchSyncableWpcomSites', () => {
+	afterEach( () => vi.unstubAllEnvs() );
+
+	it.each( [
+		{ flag: undefined, planRequired: true },
+		{ flag: '1', planRequired: false },
+	] )(
+		'requires a plan: $planRequired with Reprint flag $flag',
+		async ( { flag, planRequired } ) => {
+			vi.stubEnv( 'STUDIO_ENABLE_PULL_REPRINT', flag );
+			vi.mocked( getAuthenticationToken ).mockResolvedValue( {
+				accessToken: 'test-token',
+			} as Awaited< ReturnType< typeof getAuthenticationToken > > );
+			vi.mocked( fetchSyncableSites ).mockResolvedValue( [] );
+
+			await fetchSyncableWpcomSites( mockIpcMainInvokeEvent );
+
+			expect( fetchSyncableSites ).toHaveBeenCalledWith( 'test-token', { planRequired } );
+		}
+	);
+} );
 
 describe( 'readBlueprintFile', () => {
 	it( 'deletes the temporary deep-link file after reading it', async () => {
@@ -142,6 +174,61 @@ describe( 'site source picker', () => {
 				showOpenFolderDialog( mockIpcMainInvokeEvent, 'Open', '/sites', { allowBlueprints: true } )
 			).resolves.toBeNull();
 			expect( dialog.showOpenDialog ).toHaveBeenCalledTimes( 2 );
+		}
+	);
+
+	it( 'accepts a destination that does not exist yet without presenting a picker', async () => {
+		await expect(
+			showOpenFolderDialog( mockIpcMainInvokeEvent, 'Choose folder', '/sites/new-destination', {
+				usePath: true,
+			} )
+		).resolves.toEqual( {
+			path: '/sites/new-destination',
+			name: 'new-destination',
+			isEmpty: true,
+			isWordPress: false,
+		} );
+		expect( dialog.showOpenDialog ).not.toHaveBeenCalled();
+	} );
+
+	it( 'reads a dropped Blueprint folder without presenting a picker', async () => {
+		vol.fromJSON( { '/sites/starter/blueprint.json': JSON.stringify( { steps: [] } ) } );
+		const result = await showOpenFolderDialog( mockIpcMainInvokeEvent, 'Open', '/sites/starter', {
+			allowBlueprints: true,
+			usePath: true,
+		} );
+		expect( result?.blueprint?.blueprintJson ).toEqual( { steps: [] } );
+		expect( result?.path ).toBe( '/sites/starter' );
+		expect( dialog.showOpenDialog ).not.toHaveBeenCalled();
+	} );
+
+	it.each( [ 'backup.wpress', 'export.xml', 'blueprint.json' ] )(
+		'opens the combined source picker for %s',
+		async ( name ) => {
+			Object.defineProperty( process, 'platform', { value: 'darwin' } );
+			vol.fromJSON( { [ '/sites/' + name ]: name.endsWith( '.json' ) ? '{}' : 'file' } );
+			vi.mocked( dialog.showOpenDialog ).mockResolvedValueOnce( {
+				canceled: false,
+				filePaths: [ '/sites/' + name ],
+			} );
+			const result = await showOpenFolderDialog( mockIpcMainInvokeEvent, 'Choose', '/sites', {
+				allowSiteFiles: true,
+			} );
+			expect( result?.path ).toBe( '/sites/' + name );
+			if ( name.endsWith( '.json' ) ) expect( result?.blueprint?.blueprintJson ).toEqual( {} );
+			else expect( result?.file ).toEqual( { path: '/sites/' + name, name } );
+			expect( dialog.showOpenDialog ).toHaveBeenLastCalledWith(
+				expect.anything(),
+				expect.objectContaining( {
+					properties: [ 'openDirectory', 'createDirectory', 'openFile' ],
+					filters: [
+						{
+							name: 'Site sources',
+							extensions: expect.arrayContaining( [ 'json', 'zip', 'xml', 'wpress' ] ),
+						},
+					],
+				} )
+			);
 		}
 	);
 

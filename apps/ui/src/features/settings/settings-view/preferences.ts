@@ -1,5 +1,8 @@
 import { isSupportedLocale } from '@studio/common/lib/locale';
-import { INTERFACE_PREFERENCE_DEFAULTS } from '@studio/common/lib/user-settings/preferences';
+import {
+	DEFAULT_HIDE_FRONTEND_ADMIN_BAR,
+	INTERFACE_PREFERENCE_DEFAULTS,
+} from '@studio/common/lib/user-settings/preferences';
 import type {
 	ColorScheme,
 	QuitSitesBehavior,
@@ -27,6 +30,7 @@ export interface PreferencesFormData {
 	defaultSiteDirectory: string;
 	autoStartSiteOnChat: boolean;
 	openChatOnSiteStart: boolean;
+	hideFrontendAdminBar: boolean;
 	batchAnnotations: boolean;
 }
 
@@ -54,6 +58,7 @@ export function toPreferencesFormData( prefs: UserPreferences ): PreferencesForm
 		openChatOnSiteStart:
 			prefs.openChatOnSiteStart ?? INTERFACE_PREFERENCE_DEFAULTS.openChatOnSiteStart,
 		batchAnnotations: prefs.batchAnnotations ?? INTERFACE_PREFERENCE_DEFAULTS.batchAnnotations,
+		hideFrontendAdminBar: prefs.hideFrontendAdminBar ?? DEFAULT_HIDE_FRONTEND_ADMIN_BAR,
 	};
 }
 

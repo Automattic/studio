@@ -38,6 +38,7 @@ import {
 	useIsSiteStopping,
 	useSites,
 	useStartSite,
+	useStopSite,
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSelectionTime } from '@/data/use-open-site';
@@ -61,6 +62,7 @@ import {
 	Composer,
 	ComposerSkeleton,
 	pendingPromptSlot,
+	useComposerNotice,
 	type ComposerHandle,
 } from '@/features/composer';
 import { PreviewParticles, StoppedSitePreview } from '@/features/sites';
@@ -73,7 +75,6 @@ import { SessionFrame } from './session-frame';
 import { SessionHeader } from './session-header';
 import styles from './style.module.css';
 import { useAnchoredScroll } from './use-anchored-scroll';
-import { useComposerNotice } from './use-composer-notice';
 import { useMarkChatRead } from './use-mark-chat-read';
 import { useSendSiteDraft } from './use-send-site-draft';
 import { useSessionCommands } from './use-session-commands';
@@ -288,6 +289,7 @@ function SessionViewContent( {
 	const { data: preferences } = useUserPreferences();
 	const { mutate: startSite } = useStartSite();
 	const { mutate: startSitePreview } = useStartSiteWithChat();
+	const { mutate: stopSite } = useStopSite();
 	const isSiteStarting = useIsSiteStarting( ownerSite?.id );
 	const isSiteStopping = useIsSiteStopping( ownerSite?.id );
 	const revealingSiteId = useOptionalSessionPreviewUI()?.revealingSiteId;
@@ -367,7 +369,7 @@ function SessionViewContent( {
 	useEffect( () => {
 		if ( ! isChatReady || ! annotationSiteId ) return;
 		return subscribeAnnotationSend( annotationSiteId, ( { noteIds } ) => {
-			stageAnnotations( annotationSiteId, noteIds );
+			if ( ! noteIds ) stageAnnotations( annotationSiteId );
 			if ( composerBusy && ! noteIds ) return;
 			if ( ! noteIds ) {
 				return composerRef.current?.send();
@@ -504,7 +506,7 @@ function SessionViewContent( {
 							className={ styles.scrollToLatestButton }
 							icon={ <ArrowDownIcon /> }
 							label={ __( 'Jump to latest' ) }
-							variant="default"
+							variant="outline"
 							shape="round"
 							data-visible={ isScrolledAway || undefined }
 							inert={ ! isScrolledAway }
@@ -537,7 +539,10 @@ function SessionViewContent( {
 								? () => startSitePreview( ownerSite.id )
 								: undefined
 						}
-						startSiteDisabled={ isSiteBusy }
+						onStopSite={
+							canAutoStart && ownerSite.running ? () => stopSite( ownerSite.id ) : undefined
+						}
+						siteActionDisabled={ isSiteBusy }
 						isSiteStarting={ isSiteStarting }
 						environment={ effectiveEnvironment }
 						onEnvironmentChange={

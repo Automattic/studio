@@ -105,6 +105,7 @@ export function syncOptions( nodes: SyncNode[], content: boolean ): TransferOpti
 				...( content ? [ 'sqls' as const ] : [] ),
 			],
 			includePathList: selected.map( ( node ) => node.id ),
+			...( paths.length ? { onlyPaths: paths } : {} ),
 		},
 	};
 }

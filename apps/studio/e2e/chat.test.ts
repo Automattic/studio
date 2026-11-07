@@ -75,8 +75,15 @@ test.describe( 'Chat', () => {
 		await fileInput.setInputFiles( imagePath );
 		const remove = session.mainWindow.getByRole( 'button', { name: 'Remove attachment' } );
 		await expect( remove ).toHaveCount( 2 );
+		await session.mainWindow.getByRole( 'button', { name: 'Preview reference.txt' } ).hover();
+		const filePreview = session.mainWindow.getByRole( 'dialog', { name: 'reference.txt' } );
+		await expect( filePreview ).toBeVisible();
+		await filePreview.hover();
+		await expect( filePreview.getByRole( 'heading', { name: 'reference.txt' } ) ).toBeVisible();
+		await session.mainWindow.getByRole( 'listitem', { name: /^reference\.txt,/ } ).hover();
 		await remove.first().click();
 		await expect( remove ).toHaveCount( 1 );
+		await session.mainWindow.getByRole( 'listitem', { name: /^reference\.png,/ } ).hover();
 		await remove.click();
 		await expect( remove ).toHaveCount( 0 );
 		await expect( composer() ).toHaveValue( 'Use these references' );
@@ -91,10 +98,6 @@ test.describe( 'Chat', () => {
 			timeout: 120_000,
 		} );
 		await sidebar.openSite( siteName );
-		const chatToggle = page.getByRole( 'button', { name: 'Show chat for active site' } );
-		if ( await chatToggle.isVisible() ) {
-			await chatToggle.click();
-		}
 
 		const chip = page.getByRole( 'button', { name: 'Remove Auto-start' } );
 		await recordSends();
@@ -206,7 +209,20 @@ test.describe( 'Chat', () => {
 		if ( await openChat.isVisible() ) {
 			await openChat.click();
 		}
-		await expect( page.getByRole( 'button', { name: '1 annotation', exact: true } ) ).toBeVisible();
+		const annotations = page.getByRole( 'button', { name: '1 annotation', exact: true } );
+		await expect( annotations ).toBeVisible();
+		const review = page.getByRole( 'dialog', { name: 'Annotations' } );
+		await annotations.hover();
+		await expect( review ).toBeHidden();
+		await annotations.click();
+		await expect( review ).toBeVisible();
+		await expect( review.getByRole( 'img', { name: 'reference.png' } ) ).toBeVisible();
+		await review.getByRole( 'button', { name: /Edit annotation:/ } ).hover();
+		await expect( review ).toBeVisible();
+		await composer().hover();
+		await expect( review ).toBeVisible();
+		await composer().click();
+		await expect( review ).toBeHidden();
 		await page.getByRole( 'button', { name: 'Send message', exact: true } ).click();
 
 		await expect.poll( async () => ( await sentPrompts() ).length ).toBe( 1 );

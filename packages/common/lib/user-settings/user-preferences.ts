@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import { z } from 'zod';
 import { readAppConfig, updateAppConfig, type AppConfig } from '@studio/common/lib/app-config';
 import { isSupportedLocale } from '@studio/common/lib/locale';
+import { updateMuPluginSettings } from '@studio/common/lib/mu-plugin-settings';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import {
 	isAnalyticsOptedOutInConfig,
@@ -11,13 +12,13 @@ import {
 import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
 import {
 	DEFAULT_COLOR_SCHEME,
+	DEFAULT_HIDE_FRONTEND_ADMIN_BAR,
 	getColorTint,
 	getDefaultSidebarChatSort,
 	SIDEBAR_PINNED_SORTS,
 	SIDEBAR_SITE_SORTS,
 	SIDEBAR_CHAT_SORTS,
 	INTERFACE_PREFERENCE_DEFAULTS,
-	NEW_SITE_BEHAVIORS,
 	QUIT_SITES_BEHAVIORS,
 	SUPPORTED_COLOR_SCHEMES,
 } from '@studio/common/lib/user-settings/preferences';
@@ -28,7 +29,6 @@ import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type {
 	ColorScheme,
 	ColorTint,
-	NewSiteBehavior,
 	QuitSitesBehavior,
 	SidebarPinnedSort,
 	SidebarSiteSort,
@@ -64,8 +64,8 @@ export interface UserPreferences extends ColorTint {
 	// Start a stopped local site when a chat message is sent to it.
 	autoStartSiteOnChat: boolean;
 	openChatOnSiteStart: boolean;
+	hideFrontendAdminBar: boolean;
 	batchAnnotations: boolean;
-	newSiteBehavior: NewSiteBehavior;
 }
 
 // Passed in, so this stays a pure reader over the config files.
@@ -110,8 +110,8 @@ export const userPreferencesPatchSchema = z.object( {
 	autoCollapseSites: z.boolean().nullish(),
 	autoStartSiteOnChat: z.boolean().nullish(),
 	openChatOnSiteStart: z.boolean().nullish(),
+	hideFrontendAdminBar: z.boolean().nullish(),
 	batchAnnotations: z.boolean().nullish(),
-	newSiteBehavior: z.enum( NEW_SITE_BEHAVIORS ).nullish(),
 	accentColor: z
 		.string()
 		.regex( /^#[0-9a-f]{6}$/i )
@@ -142,8 +142,8 @@ const APP_CONFIG_KEYS = [
 	[ 'autoCollapseSites', 'autoCollapseSites' ],
 	[ 'autoStartSiteOnChat', 'autoStartSiteOnChat' ],
 	[ 'openChatOnSiteStart', 'openChatOnSiteStart' ],
+	[ 'hideFrontendAdminBar', 'hideFrontendAdminBar' ],
 	[ 'batchAnnotations', 'batchAnnotations' ],
-	[ 'newSiteBehavior', 'newSiteBehavior' ],
 	[ 'accentColor', 'accentColor' ],
 	[ 'tintIntensity', 'tintIntensity' ],
 	[ 'contrast', 'contrast' ],
@@ -168,7 +168,6 @@ export async function readUserPreferences( {
 		batchAnnotations,
 		showRecentChats,
 		autoCollapseSites,
-		newSiteBehavior,
 	} = INTERFACE_PREFERENCE_DEFAULTS;
 
 	const sidebarChatOrder = sidebarChatOrderSchema.catch( {} ).parse( config.sidebarChatOrder );
@@ -207,10 +206,10 @@ export async function readUserPreferences( {
 			.catch( openChatOnSiteStart )
 			.parse( config.openChatOnSiteStart ),
 		batchAnnotations: z.boolean().catch( batchAnnotations ).parse( config.batchAnnotations ),
-		newSiteBehavior: z
-			.enum( NEW_SITE_BEHAVIORS )
-			.catch( newSiteBehavior )
-			.parse( config.newSiteBehavior ),
+		hideFrontendAdminBar: z
+			.boolean()
+			.catch( DEFAULT_HIDE_FRONTEND_ADMIN_BAR )
+			.parse( config.hideFrontendAdminBar ),
 		...getColorTint( config ),
 	};
 }
@@ -287,7 +286,8 @@ export async function writeUserPreferences(
 	const appEntries = APP_CONFIG_KEYS.filter( ( [ key ] ) => key in patch );
 
 	if ( appEntries.length > 0 ) {
-		await updateAppConfig( ( config ) => {
+		const update = 'hideFrontendAdminBar' in patch ? updateMuPluginSettings : updateAppConfig;
+		await update( ( config ) => {
 			for ( const [ patchKey, configKey ] of appEntries ) {
 				const value = patch[ patchKey ];
 				if ( value === null || value === undefined ) {

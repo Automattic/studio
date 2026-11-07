@@ -273,4 +273,9 @@
 	.content[data-layout='creation'] .scrollArea {
 		mask-image: none;
 	}
+
+	.content[data-layout='settings'] .scrollArea {
+		mask-image: linear-gradient( #000, #000 ), linear-gradient( #000, #000 ),
+			linear-gradient( to top, var( --surface-fade-stops ) );
+	}
 }

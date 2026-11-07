@@ -42,8 +42,11 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'publishPreviewSite', siteFolder, hostname, name ),
 	deletePreviewSite: ( hostname ) => ipcRendererInvoke( 'deletePreviewSite', hostname ),
 	renamePreviewSite: ( hostname, name ) => ipcRendererInvoke( 'renamePreviewSite', hostname, name ),
+	getPreviewStatus: ( hostname ) => ipcRendererInvoke( 'getPreviewStatus', hostname ),
 	deleteAllSnapshots: () => ipcRendererInvoke( 'deleteAllSnapshots' ),
 	getSiteDetails: () => ipcRendererInvoke( 'getSiteDetails' ),
+	setSiteFrontendAdminBar: ( siteId, hidden ) =>
+		ipcRendererInvoke( 'setSiteFrontendAdminBar', siteId, hidden ),
 	openSiteURL: ( id, relativeURL = '', { autoLogin = true } = {} ) =>
 		ipcRendererSend( 'openSiteURL', id, relativeURL, { autoLogin } ),
 	openURL: ( url ) => ipcRendererSend( 'openURL', url ),
@@ -79,6 +82,8 @@ const api: IpcApi = {
 	captureSitePreview: ( siteId, guestId, pagePath ) =>
 		ipcRendererInvoke( 'captureSitePreview', siteId, guestId, pagePath ),
 	getInstalledAppsAndTerminals: () => ipcRendererInvoke( 'getInstalledAppsAndTerminals' ),
+	getAgentApps: () => ipcRendererInvoke( 'getAgentApps' ),
+	connectAgentApp: ( id ) => ipcRendererInvoke( 'connectAgentApp', id ),
 	importSite: ( siteId, importArchivePath, options ) =>
 		ipcRendererInvoke( 'importSite', siteId, importArchivePath, options ),
 	getOnboardingData: () => ipcRendererInvoke( 'getOnboardingData' ),
@@ -180,6 +185,7 @@ const api: IpcApi = {
 	interruptAiAgentRun: ( runId ) => ipcRendererInvoke( 'interruptAiAgentRun', runId ),
 	answerAiAgentQuestion: ( runId, answers ) =>
 		ipcRendererInvoke( 'answerAiAgentQuestion', runId, answers ),
+	sendFeedback: ( feedback ) => ipcRendererInvoke( 'sendFeedback', feedback ),
 };
 
 contextBridge.exposeInMainWorld( 'ipcApi', api );

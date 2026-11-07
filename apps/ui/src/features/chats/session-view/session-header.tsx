@@ -12,15 +12,11 @@ export function SessionHeader( {
 	start,
 	siteName,
 	site,
-	onOpenChat,
-	chatTabActive,
 	reserveSiteActions = true,
 }: {
 	start?: ReactNode;
 	siteName?: string;
 	site?: SiteDetails;
-	onOpenChat?: () => void;
-	chatTabActive?: boolean;
 	reserveSiteActions?: boolean;
 } ) {
 	const sidebarCollapsed = useSidebarCollapsed();
@@ -41,9 +37,7 @@ export function SessionHeader( {
 		>
 			<div data-site-header-reserved className={ styles.headerLead }>
 				{ start }
-				{ site ? (
-					<SiteMenu site={ site } onOpenChat={ onOpenChat } chatTabActive={ chatTabActive } />
-				) : null }
+				{ site ? <SiteMenu site={ site } /> : null }
 				{ ! site && siteName ? (
 					<>
 						<GlobeIcon className={ styles.headerSiteIcon } />

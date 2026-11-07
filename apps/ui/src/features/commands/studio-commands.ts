@@ -7,10 +7,10 @@ import {
 	PlusIcon,
 	AppearanceIcon,
 	ArchiveIcon,
-	BellIcon,
 	ChatIcon,
 	CollapseAllIcon,
 	GlobeIcon,
+	FeedbackIcon,
 	PinIcon,
 	RenameIcon,
 	SidebarIcon,
@@ -104,8 +104,8 @@ export function getAppCommands( {
 	openChat,
 	savePreferences,
 	toggleSidebar,
-	openNotifications,
 	openWhatsNew,
+	openFeedback,
 	collapseAll,
 }: {
 	sites: SiteDetails[];
@@ -119,8 +119,8 @@ export function getAppCommands( {
 	openChat: ( session: AiSessionSummary ) => void;
 	savePreferences: ( preferences: Partial< WritableUserPreferences > ) => void;
 	toggleSidebar: () => void;
-	openNotifications: () => void;
 	openWhatsNew: () => void;
+	openFeedback: () => void;
 	// Set while the sidebar has more than one site unfolded.
 	collapseAll?: () => void;
 } ): PaletteCommand[] {
@@ -181,20 +181,21 @@ export function getAppCommands( {
 			run: toggleSidebar,
 		},
 		{
-			id: 'notifications',
-			group: 'commands',
-			label: __( 'Show notifications' ),
-			icon: BellIcon,
-			aliases: [ __( 'Notifications' ) ],
-			run: openNotifications,
-		},
-		{
 			id: 'whats-new',
 			group: 'commands',
 			label: __( 'What’s New' ),
 			icon: WhatsNewIcon,
 			keywords: [ __( 'New features' ) ],
 			run: openWhatsNew,
+		},
+		{
+			id: 'send-feedback',
+			group: 'commands',
+			label: __( 'Send feedback' ),
+			icon: FeedbackIcon,
+			aliases: [ __( 'Feedback' ) ],
+			keywords: [ __( 'Report a bug' ), __( 'Feature request' ), __( 'WordPress Studio team' ) ],
+			run: openFeedback,
 		},
 		...( collapseAll
 			? [

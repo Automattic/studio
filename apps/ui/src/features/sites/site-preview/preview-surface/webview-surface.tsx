@@ -6,6 +6,7 @@ import {
 	parseInspectorMessage,
 	type InspectorEvent,
 } from '@studio/agent/protocol/inspector/page-script';
+import { READ_ADMIN_BAR_VISIBILITY_SCRIPT } from '@studio/common/lib/preview-shortcuts-script';
 import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useColorScheme } from '@/data/host/use-color-scheme';
@@ -48,6 +49,7 @@ interface WebviewSurfaceProps {
 	browserCommand?: BrowserCommand | null;
 	onBrowserStateChange?: ( state: BrowserNavigationState ) => void;
 	onNavigate?: ( url: string ) => void;
+	onAdminBarVisibilityChange?: ( visible: boolean | null ) => void;
 	// A page finished loading, with the webview's guest id for capturing it.
 	onLoad?: ( url: string, guestId: number ) => void;
 	// Whether to inject the annotation inspector into the guest page. Off for
@@ -73,6 +75,7 @@ export function WebviewSurface( {
 	browserCommand,
 	onBrowserStateChange,
 	onNavigate,
+	onAdminBarVisibilityChange,
 	onLoad,
 	inspector = true,
 }: WebviewSurfaceProps ) {
@@ -84,6 +87,8 @@ export function WebviewSurface( {
 	const onInspectorEventRef = useRef( onInspectorEvent );
 	const onBrowserStateChangeRef = useRef( onBrowserStateChange );
 	const onNavigateRef = useRef( onNavigate );
+	const onAdminBarVisibilityRef = useRef( onAdminBarVisibilityChange );
+	const visibilityRequestRef = useRef( 0 );
 	const onLoadRef = useRef( onLoad );
 	const browserStateRef = useRef< BrowserNavigationState >( EMPTY_BROWSER_STATE );
 	const domReadyRef = useRef( false );
@@ -103,6 +108,9 @@ export function WebviewSurface( {
 	useEffect( () => {
 		onNavigateRef.current = onNavigate;
 	}, [ onNavigate ] );
+	useEffect( () => {
+		onAdminBarVisibilityRef.current = onAdminBarVisibilityChange;
+	}, [ onAdminBarVisibilityChange ] );
 	useEffect( () => {
 		onLoadRef.current = onLoad;
 	}, [ onLoad ] );
@@ -127,6 +135,20 @@ export function WebviewSurface( {
 	// Identifies the most recent load we started, so a rejection from a load
 	// that a newer one superseded can't roll the address bar backwards.
 	const loadGenerationRef = useRef( 0 );
+	const readAdminBarVisibility = useCallback( () => {
+		const webview = ref.current as WebviewTag | null;
+		if ( ! webview || ! domReadyRef.current || ! onAdminBarVisibilityRef.current ) return;
+		const request = ++visibilityRequestRef.current;
+		void webview
+			.executeJavaScript( READ_ADMIN_BAR_VISIBILITY_SCRIPT, false )
+			.then( ( visible ) => {
+				if ( request === visibilityRequestRef.current && typeof visible === 'boolean' )
+					onAdminBarVisibilityRef.current?.( visible );
+			} )
+			.catch( () => {
+				if ( request === visibilityRequestRef.current ) onAdminBarVisibilityRef.current?.( null );
+			} );
+	}, [] );
 
 	const publishBrowserState = useCallback( ( patch: Partial< BrowserNavigationState > = {} ) => {
 		const webview = ref.current as WebviewTag | null;
@@ -204,6 +226,7 @@ export function WebviewSurface( {
 			setReady( true );
 			setDocumentVersion( ( version ) => version + 1 );
 			publishDocumentTitle();
+			readAdminBarVisibility();
 			publishNavigationHistory();
 			if ( ! inspectorEnabledRef.current ) {
 				return;
@@ -288,6 +311,10 @@ export function WebviewSurface( {
 		// navigations keep it.
 		const handleStartNavigation = ( event: Event ) => {
 			const { isMainFrame, isInPlace } = event as WebviewStartNavigationEvent;
+			if ( isMainFrame && ! isInPlace ) {
+				visibilityRequestRef.current += 1;
+				onAdminBarVisibilityRef.current?.( null );
+			}
 			if ( isMainFrame && ! isInPlace && inspectorEnabledRef.current ) {
 				setInspectorReady( false );
 				onInspectorReadyRef.current?.( false );
@@ -304,6 +331,7 @@ export function WebviewSurface( {
 			if ( domReadyRef.current && ! didReadTitleAfterLoad ) {
 				didReadTitleAfterLoad = true;
 				publishDocumentTitle();
+				readAdminBarVisibility();
 			}
 		};
 
@@ -333,6 +361,7 @@ export function WebviewSurface( {
 		publishBrowserState();
 		return () => {
 			domReadyRef.current = false;
+			visibilityRequestRef.current += 1;
 			webview.removeEventListener( 'dom-ready', handleDomReady );
 			webview.removeEventListener( 'console-message', handleConsoleMessage );
 			webview.removeEventListener( 'page-title-updated', handlePageTitleUpdated );
@@ -345,7 +374,7 @@ export function WebviewSurface( {
 			webview.removeEventListener( 'did-fail-load', handleFailLoad );
 			webview.removeEventListener( 'did-finish-load', handleStopLoading );
 		};
-	}, [ publishBrowserState ] );
+	}, [ publishBrowserState, readAdminBarVisibility ] );
 
 	// Navigation effect — gated on `ready` so the first call happens after
 	// `dom-ready` (the initial url is loaded by the `src` attribute on the
@@ -493,11 +522,13 @@ export function WebviewSurface( {
 				);
 			} else if ( browserCommand.type === 'reload' ) {
 				void reloadPreview( webview, urlRef.current, currentUrlRef.current );
+			} else if ( browserCommand.type === 'read-admin-bar' ) {
+				readAdminBarVisibility();
 			}
 		} finally {
 			publishBrowserState();
 		}
-	}, [ browserCommand, publishBrowserState, ready ] );
+	}, [ browserCommand, publishBrowserState, readAdminBarVisibility, ready ] );
 
 	return (
 		<>

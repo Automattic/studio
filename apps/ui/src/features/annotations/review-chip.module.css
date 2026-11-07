@@ -1,33 +1,22 @@
-.chip {
-	padding: 0;
-}
-.remove {
-	opacity: 0;
-	pointer-events: none;
-}
-.chip:hover > .remove,
-.chip:has( :focus-visible ) > .remove {
-	opacity: 1;
-	pointer-events: auto;
-}
-@media ( hover: none ) {
-	.remove {
-		opacity: 1;
-		pointer-events: auto;
-	}
-}
 .trigger {
-	--button-hover-background: color-mix( in oklab, var( --muted ) 95%, var( --foreground ) );
-
-	min-width: 0;
-	height: 100%;
-	padding: 0 var( --space-2_5 ) 0 var( --space-2 );
-	border-radius: inherit;
+	--button-hover-background: light-dark(
+		var( --secondary ),
+		color-mix(
+			in oklab,
+			var( --attachment-chip-background, var( --muted ) ) 95%,
+			var( --foreground )
+		)
+	);
 }
 .popup {
+	--surface: var( --composer );
+	--popover-border: var( --input );
+
 	width: max-content;
 	max-width: min( 320px, var( --annotation-popup-max-width, 320px ), calc( 100vw - 16px ) );
 	padding: var( --space-1_5 );
+	background-color: var( --surface );
+	color: var( --foreground );
 }
 .notes {
 	max-height: min( 288px, calc( var( --available-height ) - 2 * var( --space-1_5 ) ) );
@@ -60,6 +49,9 @@
 	padding-inline-start: var( --space-2 );
 	padding-inline-end: var( --space-8 );
 	border-radius: inherit;
+}
+.note:has( .thumbnail ) {
+	padding-inline-start: var( --space-1_5 );
 }
 .delete {
 	position: absolute;
@@ -104,7 +96,7 @@
 	width: var( --space-5 );
 	height: var( --space-5 );
 	overflow: hidden;
-	border-radius: var( --radius-sm );
+	border-radius: max( 0px, calc( var( --radius-md ) - var( --space-1_5 ) ) );
 	background-color: var( --muted );
 }
 .thumbnail img {

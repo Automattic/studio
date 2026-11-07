@@ -1,23 +1,18 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { ChevronRightIcon, XIcon } from 'lucide-react';
+import { ChevronRightIcon } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import {
 	noticeToText,
 	runNoticeAction,
 	type NoticeIntent,
-	type NoticeRecord,
+	type Notice,
 	type ToastAction,
 } from '@/data/app-messages';
 import { useCopyText } from '@/data/host/use-copy-text';
 import { ErrorIcon, InfoIcon, SuccessIcon, WarningIcon } from '@/lib/icons';
-import { Button, IconButton, Spinner } from '@/lib/ui';
+import { Button, DismissButton, Spinner } from '@/lib/ui';
 import styles from './style.module.css';
-
-type Notice = Pick<
-	NoticeRecord,
-	'intent' | 'title' | 'description' | 'action' | 'actionPending' | 'source' | 'processing'
->;
 
 function StatusIcon( { intent, source }: { intent: NoticeIntent; source?: 'studio' } ) {
 	const iconIntent = source === 'studio' ? 'info' : intent;
@@ -35,15 +30,7 @@ function StatusIcon( { intent, source }: { intent: NoticeIntent; source?: 'studi
 	);
 }
 
-function NoticeActionButton( {
-	action,
-	pending,
-	onDone,
-}: {
-	action: ToastAction;
-	pending?: boolean;
-	onDone?: () => void;
-} ) {
+function NoticeActionButton( { action, pending }: { action: ToastAction; pending?: boolean } ) {
 	return (
 		<Button
 			size="2xs"
@@ -51,9 +38,7 @@ function NoticeActionButton( {
 			disabled={ pending }
 			aria-busy={ pending || undefined }
 			onClick={ async () => {
-				if ( await runNoticeAction( action ) ) {
-					onDone?.();
-				}
+				await runNoticeAction( action );
 			} }
 		>
 			{ action.label }
@@ -61,8 +46,7 @@ function NoticeActionButton( {
 	);
 }
 
-// Flips to "Copied" briefly; a toast would be the obvious feedback, but a
-// toast about copying a notice would itself land in the history.
+// Keep copy feedback on the button.
 function CopyNoticeButton( { notice }: { notice: Notice } ) {
 	const { copied, copy } = useCopyText( noticeToText( notice ) );
 	return (
@@ -127,6 +111,7 @@ function NoticeDescription( {
 					<button
 						type="button"
 						className={ styles.toggle }
+						data-notice-toggle=""
 						aria-expanded={ expanded }
 						aria-label={ sprintf(
 							/* translators: %s: notification title. */
@@ -149,17 +134,13 @@ export function NoticeCard( {
 	className,
 	notice,
 	action,
-	time,
 	onDismiss,
-	onActionDone,
 }: {
 	className?: string;
 	notice: Notice;
 	// In place of the notice's own action button.
 	action?: ReactNode;
-	time?: ReactNode;
 	onDismiss?: () => void;
-	onActionDone?: () => void;
 } ) {
 	const titleRef = useRef< HTMLParagraphElement >( null );
 	const [ titleClipped, setTitleClipped ] = useState( false );
@@ -176,17 +157,29 @@ export function NoticeCard( {
 	const actionButton =
 		action ??
 		( notice.action ? (
-			<NoticeActionButton
-				action={ notice.action }
-				pending={ notice.actionPending }
-				onDone={ onActionDone }
-			/>
+			<NoticeActionButton action={ notice.action } pending={ notice.actionPending } />
 		) : notice.intent === 'error' ? (
 			<CopyNoticeButton notice={ notice } />
 		) : null );
 	return (
-		<div className={ clsx( styles.card, className ) }>
-			<div className={ styles.row } data-expanded={ expanded || undefined }>
+		<div
+			className={ clsx( styles.card, className ) }
+			role="presentation"
+			onClick={ ( event ) => {
+				const target = event.target;
+				if (
+					event.defaultPrevented ||
+					! ( target instanceof Element ) ||
+					! event.currentTarget.contains( target ) ||
+					target.closest( 'button, a, input, select, textarea, [contenteditable]' ) ||
+					event.currentTarget.ownerDocument.getSelection()?.isCollapsed === false
+				) {
+					return;
+				}
+				event.currentTarget.querySelector< HTMLButtonElement >( '[data-notice-toggle]' )?.click();
+			} }
+		>
+			<div className={ styles.row }>
 				{ notice.processing ? (
 					<span className={ styles.processing } aria-hidden="true">
 						<Spinner />
@@ -206,6 +199,7 @@ export function NoticeCard( {
 						<button
 							type="button"
 							className={ styles.toggle }
+							data-notice-toggle=""
 							aria-expanded={ expanded }
 							aria-label={ sprintf(
 								/* translators: %s: notification title. */
@@ -220,13 +214,8 @@ export function NoticeCard( {
 						</button>
 					) : null }
 				</div>
-				{ actionButton || time ? (
-					<div
-						className={ styles.trailing }
-						data-swap={ Boolean( actionButton && time ) || undefined }
-						data-pending={ notice.actionPending || undefined }
-					>
-						{ time ? <span className={ styles.timestamp }>{ time }</span> : null }
+				{ actionButton ? (
+					<div className={ styles.trailing } data-pending={ notice.actionPending || undefined }>
 						{ actionButton ? <span className={ styles.action }>{ actionButton }</span> : null }
 					</div>
 				) : null }
@@ -241,18 +230,14 @@ export function NoticeCard( {
 			) : null }
 
 			{ onDismiss ? (
-				<IconButton
+				<DismissButton
 					className={ styles.close }
-					icon={ <XIcon /> }
 					label={ __( 'Dismiss' ) }
 					aria-label={ sprintf(
 						/* translators: %s: notification title. */
 						__( 'Dismiss %s' ),
 						notice.title
 					) }
-					variant="outline"
-					size="icon-2xs"
-					shape="round"
 					onClick={ onDismiss }
 				/>
 			) : null }

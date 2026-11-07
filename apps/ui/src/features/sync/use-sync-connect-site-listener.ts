@@ -80,7 +80,7 @@ export function useSyncConnectSiteListener(): void {
 					__( 'Your new website isn’t available yet. Refresh the website list to try again.' )
 				);
 			}
-			const issue = websiteIssue( remote );
+			const issue = websiteIssue( remote, 'push' );
 			if ( issue ) {
 				throw new Error( issue );
 			}

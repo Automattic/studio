@@ -5,11 +5,14 @@ import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { AnnotateIcon, TrashIcon } from '@/lib/icons';
 import {
 	AttachmentChip,
+	AttachmentChipTrigger,
 	AttachmentRemoveButton,
 	Button,
-	HoverCard,
 	IconButton,
 	Popover,
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
 } from '@/lib/ui';
 import styles from './review-chip.module.css';
 import {
@@ -63,7 +66,7 @@ export function AnnotationReviewChip( {
 		return () => observer.disconnect();
 	}, [ open ] );
 	return (
-		<AttachmentChip className={ styles.chip } render={ <li /> } aria-label={ description }>
+		<AttachmentChip render={ <li /> } aria-label={ description }>
 			<Popover.Root
 				open={ open }
 				onOpenChange={ ( next ) => {
@@ -73,10 +76,9 @@ export function AnnotationReviewChip( {
 			>
 				<Popover.Trigger
 					render={
-						<Button
+						<AttachmentChipTrigger
 							ref={ trigger }
 							className={ styles.trigger }
-							variant="ghost"
 							disabled={ busy }
 							aria-label={ label }
 						/>
@@ -147,21 +149,23 @@ export function AnnotationReviewChip( {
 								>
 									<span className={ styles.content }>
 										{ note.images.map( ( image ) => (
-											<HoverCard.Root key={ image.id }>
-												<HoverCard.Trigger render={ <span className={ styles.thumbnail } /> }>
+											<Tooltip key={ image.id }>
+												<TooltipTrigger render={ <span className={ styles.thumbnail } /> }>
 													<img
 														src={ getComposerAttachmentImageSrc( image ) ?? undefined }
 														alt={ image.name }
 													/>
-												</HoverCard.Trigger>
-												<HoverCard.Popup
+												</TooltipTrigger>
+												<TooltipContent
 													side="right"
 													align="start"
 													className={ styles.imagePreview }
+													role="tooltip"
+													aria-label={ image.name }
 												>
 													<img src={ getComposerAttachmentImageSrc( image ) ?? undefined } alt="" />
-												</HoverCard.Popup>
-											</HoverCard.Root>
+												</TooltipContent>
+											</Tooltip>
 										) ) }
 										<span className={ styles.label }>
 											{ note.comment || __( 'Image annotation' ) }
@@ -179,19 +183,20 @@ export function AnnotationReviewChip( {
 										note.comment || __( 'Image annotation' )
 									) }
 									disabled={ busy }
-									onClick={ () => {
+									onClick={ ( event ) => {
 										const input = trigger.current
 											?.closest( '[data-slot="input-group"]' )
 											?.querySelector< HTMLTextAreaElement >( 'textarea' );
-										removeAnnotations( siteId, [ note.id ] );
-										requestAnimationFrame(
-											() =>
-												(
-													list.current?.querySelector< HTMLButtonElement >(
-														'[data-annotation-edit]'
-													) ?? input
-												)?.focus()
+										const next = Array.from(
+											list.current?.querySelectorAll< HTMLButtonElement >(
+												'[data-annotation-edit]'
+											) ?? []
+										).find(
+											( button ) => button.parentElement !== event.currentTarget.parentElement
 										);
+										// Move focus before removal to avoid the popover's focus recovery.
+										( next ?? input )?.focus();
+										removeAnnotations( siteId, [ note.id ] );
 									} }
 								/>
 							</div>
@@ -200,8 +205,7 @@ export function AnnotationReviewChip( {
 				</Popover.Popup>
 			</Popover.Root>
 			<AttachmentRemoveButton
-				className={ styles.remove }
-				aria-label={ __( 'Remove attachment' ) }
+				label={ __( 'Remove attachment' ) }
 				disabled={ busy }
 				onClick={ onRemove }
 			/>

@@ -3,7 +3,7 @@ import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { INTERFACE_PREFERENCE_DEFAULTS } from '@studio/common/lib/user-settings/preferences';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
+import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import {
 	PANEL_WIDTHS_RESET_EVENT,
 	PANEL_CONTENT_WIDTH_STORAGE_KEY,
@@ -166,13 +166,13 @@ describe( 'WordPress Studio settings', () => {
 
 	it.each( [
 		{ colorScheme: 'dark' as const },
-		{ newSiteBehavior: 'blank' as const },
 		{ accentColor: '#069e08' },
 		{ tintIntensity: 20 },
 		{ contrast: 30 },
 		{ quitSitesBehavior: 'stop' as const },
 		{ showRecentChats: false },
 		{ autoStartSiteOnChat: true },
+		{ hideFrontendAdminBar: true },
 		{ autoCollapseSites: false },
 		{ sidebarPinnedSort: 'manual' as const },
 		{ sidebarSiteSort: 'status' as const },
@@ -214,7 +214,9 @@ describe( 'WordPress Studio settings', () => {
 		localStorage.setItem( 'unrelated-key', 'one' );
 		const reset = vi.fn();
 		window.addEventListener( PANEL_WIDTHS_RESET_EVENT, reset );
-		const { connector, settingsParam } = await setup();
+		const { connector, settingsParam } = await setup( {
+			preferences: { hideFrontendAdminBar: true },
+		} );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Reset interface' } ) );
 		await waitFor( () => expect( reset ).toHaveBeenCalledOnce() );
 		await waitFor( () =>
@@ -224,6 +226,7 @@ describe( 'WordPress Studio settings', () => {
 			{ ...INTERFACE_PREFERENCE_DEFAULTS },
 			undefined
 		);
+		expect( screen.getByRole( 'switch', { name: 'Hide admin bar' } ) ).not.toBeChecked();
 		expect( localStorage.getItem( SIDEBAR_PANEL_STORAGE_KEY ) ).toBeNull();
 		expect( localStorage.getItem( PANEL_CONTENT_WIDTH_STORAGE_KEY ) ).toBeNull();
 		expect( localStorage.getItem( SIDEBAR_COLLAPSED_STORAGE_KEY ) ).not.toBe( 'true' );
@@ -335,18 +338,20 @@ describe( 'WordPress Studio settings', () => {
 		);
 	} );
 
-	it( 'shows account details above General preferences and supports logging out', async () => {
-		const { connector } = await setup();
+	it( 'starts General preferences with Application when logged in', async () => {
+		await setup();
 		await screen.findByRole( 'combobox', { name: 'Language' } );
-		expect( await screen.findByText( TEST_USER.email ) ).toBeVisible();
-		expect( screen.getByText( TEST_USER.displayName ) ).toBeVisible();
+		expect( screen.queryByText( TEST_USER.email ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( TEST_USER.displayName ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'tab', { name: 'Account' } ) ).not.toBeInTheDocument();
 		const general = screen.getByRole( 'tabpanel', { name: 'General' } );
-		expect( within( general ).getAllByRole( 'group' )[ 0 ] ).toHaveTextContent( TEST_USER.email );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Log out' } ) );
-		await waitFor( () => expect( connector.logout ).toHaveBeenCalledExactlyOnceWith() );
-		expect( await studioConnect() ).toBeVisible();
-		expect( screen.queryByText( TEST_USER.email ) ).not.toBeInTheDocument();
+		expect( within( general ).getAllByRole( 'group' )[ 0 ] ).toHaveAccessibleName( 'Application' );
+		expect(
+			within( general ).queryByRole( 'button', { name: 'Log out' } )
+		).not.toBeInTheDocument();
+		expect(
+			within( general ).queryByRole( 'button', { name: 'Connect' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it( 'shows account-wide preview usage in Sharing', async () => {
@@ -571,8 +576,8 @@ describe( 'WordPress Studio settings', () => {
 		).toEqual( [
 			'General',
 			'Appearance',
-			'Sharing',
 			'Providers',
+			'Sharing',
 			'MCP',
 			'Usage',
 			'Skills',
@@ -930,7 +935,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		connector.copyText.mockRejectedValueOnce( new Error( 'Clipboard unavailable' ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Copy MCP configuration' } ) );
 		await waitFor( () =>
-			expect( getNoticeHistory()[ 0 ] ).toMatchObject( {
+			expect( getVisibleToasts()[ 0 ] ).toMatchObject( {
 				title: 'Could not copy',
 				description: 'Clipboard unavailable',
 			} )

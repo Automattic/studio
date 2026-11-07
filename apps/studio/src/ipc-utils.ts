@@ -12,6 +12,7 @@ export interface IpcEvents {
 	'new-chat': [ void ];
 	'open-folder': [ void ];
 	'open-site': [ { siteId: string } ];
+	'pull-site': [ { remoteSiteId: number } ];
 	'add-site-with-blueprint': [
 		{
 			blueprintPath: string;

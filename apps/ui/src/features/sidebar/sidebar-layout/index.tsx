@@ -18,12 +18,7 @@ import {
 	SidebarToggleContext,
 } from '@/data/use-sidebar-collapsed';
 import { UserMenu } from '@/features/account';
-import {
-	AppMessageCards,
-	AppMessageHistoryRecorder,
-	AppToasts,
-	closeNoticeHistory,
-} from '@/features/notifications';
+import { AppMessageCards, AppToasts } from '@/features/notifications';
 import { SidebarHeader } from '@/features/sidebar/sidebar-header';
 import { SiteList } from '@/features/sidebar/site-list';
 import { useScrollFade, useStoredFlag } from '@/lib/hooks';
@@ -47,7 +42,7 @@ function SidebarContents( { active, onSiteOpen }: { active: boolean; onSiteOpen?
 			<div className={ styles.sidebarFooter }>
 				<ScrollBlur edge="bottom" className={ styles.footerBlur } />
 				{ active ? <AppMessageCards className={ styles.sidebarCards } /> : null }
-				<UserMenu active={ active } />
+				<UserMenu />
 			</div>
 		</>
 	);
@@ -148,12 +143,6 @@ export function SidebarLayout( {
 	const docked = ! overlay && ! collapsed;
 	const open = docked || sidebarFlyoutOpen;
 	const sidebarFlyoutVisible = sidebarFlyoutState !== 'closed';
-	useEffect( () => {
-		if ( ! docked && ! sidebarFlyoutVisible ) closeNoticeHistory();
-	}, [ docked, sidebarFlyoutVisible ] );
-	useEffect( () => {
-		if ( hasOpenDialog ) closeNoticeHistory();
-	}, [ hasOpenDialog ] );
 	useLayoutEffect( () => {
 		if ( docked && dockedSidebarScrollRef.current ) dockedSidebarScrollRef.current.scrollTop = 0;
 		if ( sidebarFlyoutVisible && sidebarFlyoutRef.current ) sidebarFlyoutRef.current.scrollTop = 0;
@@ -329,7 +318,6 @@ export function SidebarLayout( {
 								<main className={ styles.main }>{ children }</main>
 								{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
 								<AppToasts />
-								<AppMessageHistoryRecorder />
 							</div>
 						</SidebarHoverContext.Provider>
 					</SidebarToggleContext.Provider>

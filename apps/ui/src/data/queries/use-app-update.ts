@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useRef } from 'react';
-import { dismissToast, toast } from '@/data/app-messages';
+import { clearToast, getVisibleToasts, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import type { AppUpdateStatus } from '@/data/core';
 
@@ -31,7 +31,10 @@ export function useRetryAppUpdate() {
 	const connector = useConnector();
 	return useMutation( {
 		mutationFn: () => connector.checkForAppUpdates(),
-		onMutate: () => dismissToast( APP_UPDATE_NOTICE_ID ),
+		onMutate: () => {
+			clearToast( APP_UPDATE_NOTICE_ID );
+			toast.processing( __( 'Checking for updates…' ), { id: APP_UPDATE_NOTICE_ID } );
+		},
 		onError: ( error ) =>
 			toast.error( __( 'Couldn’t update Studio' ), {
 				id: APP_UPDATE_NOTICE_ID,
@@ -59,7 +62,7 @@ export function useSyncAppUpdateStatus(): void {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	const { data: status } = useAppUpdateStatus();
-	const { mutate: retry } = useRetryAppUpdate();
+	const { mutateAsync: retry } = useRetryAppUpdate();
 	const processing = useRef( false );
 	useEffect( () => {
 		return connector.onAppUpdateStatusChanged( ( status: AppUpdateStatus ) => {
@@ -79,13 +82,20 @@ export function useSyncAppUpdateStatus(): void {
 			return;
 		}
 		if ( status.state === 'checking' ) {
-			if ( processing.current ) {
+			if (
+				processing.current ||
+				status.requested ||
+				getVisibleToasts().some(
+					( item ) => item.id === APP_UPDATE_NOTICE_ID && item.processing && ! item.leaving
+				)
+			) {
+				processing.current = true;
 				toast.processing( __( 'Checking for updates…' ), {
 					id: APP_UPDATE_NOTICE_ID,
 					dismissible: true,
 				} );
 			} else {
-				dismissToast( APP_UPDATE_NOTICE_ID );
+				clearToast( APP_UPDATE_NOTICE_ID );
 			}
 			return;
 		}
@@ -97,14 +107,14 @@ export function useSyncAppUpdateStatus(): void {
 					description: __( 'Restart Studio to finish updating.' ),
 				} );
 			} else {
-				dismissToast( APP_UPDATE_NOTICE_ID );
+				clearToast( APP_UPDATE_NOTICE_ID );
 			}
 			return;
 		}
 		if ( status.state === 'idle' ) {
 			if ( processing.current ) {
 				processing.current = false;
-				toast.info( __( 'Studio is up to date' ), { id: APP_UPDATE_NOTICE_ID } );
+				clearToast( APP_UPDATE_NOTICE_ID );
 			}
 			return;
 		}
@@ -113,7 +123,7 @@ export function useSyncAppUpdateStatus(): void {
 		toast.error( __( 'Couldn’t update Studio' ), {
 			id: APP_UPDATE_NOTICE_ID,
 			description: status.detail ?? __( 'Try downloading the update again.' ),
-			action: { label: __( 'Try again' ), onClick: () => retry() },
+			action: { label: __( 'Try again' ), onClick: () => retry(), dismissOnSuccess: false },
 		} );
 	}, [ status, retry ] );
 

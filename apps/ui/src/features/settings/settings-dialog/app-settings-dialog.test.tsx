@@ -3,7 +3,7 @@ import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { INTERFACE_PREFERENCE_DEFAULTS } from '@studio/common/lib/user-settings/preferences';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
+import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import {
 	PANEL_WIDTHS_RESET_EVENT,
 	PANEL_CONTENT_WIDTH_STORAGE_KEY,
@@ -935,7 +935,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		connector.copyText.mockRejectedValueOnce( new Error( 'Clipboard unavailable' ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Copy MCP configuration' } ) );
 		await waitFor( () =>
-			expect( getNoticeHistory()[ 0 ] ).toMatchObject( {
+			expect( getVisibleToasts()[ 0 ] ).toMatchObject( {
 				title: 'Could not copy',
 				description: 'Clipboard unavailable',
 			} )

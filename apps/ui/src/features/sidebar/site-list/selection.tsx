@@ -337,7 +337,6 @@ export function BulkMenu( {
 			patch.archived && updated.length
 				? {
 						label: __( 'Undo' ),
-						once: true,
 						onClick: () =>
 							Promise.all(
 								updated.map( ( sessionId ) =>
@@ -366,7 +365,7 @@ export function BulkMenu( {
 							updated.length
 					  )
 					: itemsUpdated( updated.length ),
-				{ action: undo }
+				{ action: undo, durationMs: undo ? 10_000 : undefined }
 			);
 		}
 		const viewing = sessions?.find( ( session ) => session.id === params.sessionId );

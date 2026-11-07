@@ -4,7 +4,7 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event';
 import { useSyncExternalStore } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
+import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import { requestHeaderPanel } from '@/data/use-open-header-panel';
 import { SessionUIProvider } from '@/data/use-session-ui';
 import { PublishButton, SiteDeliveryDialog } from '@/features/site-delivery';
@@ -524,7 +524,7 @@ describe( 'PublishPopover', () => {
 		await waitFor(
 			() =>
 				expect(
-					getNoticeHistory().find( ( notice ) => notice.id === `push-${ site.id }` )?.title
+					getVisibleToasts().find( ( notice ) => notice.id === `push-${ site.id }` )?.title
 				).toBe( 'Published Local site' ),
 			{
 				timeout: 3000,

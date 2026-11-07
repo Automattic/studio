@@ -1,6 +1,6 @@
 import { act, waitFor } from '@testing-library/react';
 import { beforeEach, expect, it } from 'vitest';
-import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
+import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import { useSettingCommands } from '@/features/commands/use-setting-commands';
 import { createFakeConnector } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
@@ -68,7 +68,7 @@ it( 'uses direct actions once while keeping CLI and instructions as settings lin
 			undefined
 		)
 	);
-	await waitFor( () => expect( getNoticeHistory().at( 0 )?.title ).toBe( 'Appearance reset.' ) );
+	await waitFor( () => expect( getVisibleToasts().at( 0 )?.title ).toBe( 'Appearance reset.' ) );
 	act( () => find( 'settings-general-documentation' ).run() );
 	expect( connector.openExternalUrl ).toHaveBeenCalled();
 } );
@@ -85,7 +85,7 @@ it( 'resets interface preferences through the existing persistence action', asyn
 			undefined
 		)
 	);
-	await waitFor( () => expect( getNoticeHistory().at( 0 )?.title ).toBe( 'Interface reset.' ) );
+	await waitFor( () => expect( getVisibleToasts().at( 0 )?.title ).toBe( 'Interface reset.' ) );
 } );
 
 it.each( [ false, true ] )(
@@ -102,10 +102,10 @@ it.each( [ false, true ] )(
 		);
 		act( () => command()!.run() );
 		await waitFor( () => expect( connector.setUserPreferences ).toHaveBeenCalledOnce() );
-		expect( getNoticeHistory() ).toHaveLength( 0 );
+		expect( getVisibleToasts() ).toHaveLength( 0 );
 		await act( async () => settle() );
-		await waitFor( () => expect( getNoticeHistory() ).toHaveLength( 1 ) );
-		expect( getNoticeHistory()[ 0 ] ).toMatchObject(
+		await waitFor( () => expect( getVisibleToasts() ).toHaveLength( 1 ) );
+		expect( getVisibleToasts()[ 0 ] ).toMatchObject(
 			fails
 				? {
 						intent: 'error',

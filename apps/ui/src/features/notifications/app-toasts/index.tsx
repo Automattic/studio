@@ -20,11 +20,12 @@ const resumeAll = () => getVisibleToasts().forEach( ( item ) => resumeToastExpir
 
 function ToastDeck() {
 	const { toasts } = Toast.useToastManager();
+	const overflow = toasts.length > 3;
 	const pointerGesture = useRef< { x: number; y: number; dragged: boolean } | null >( null );
 	return (
 		<Toast.Viewport
 			className={ styles.viewport }
-			data-overflow={ toasts.length > 3 || undefined }
+			data-overflow={ overflow || undefined }
 			aria-label={ __( 'Notifications' ) }
 			onMouseEnter={ pauseAll }
 			onMouseLeave={ resumeAll }
@@ -41,7 +42,7 @@ function ToastDeck() {
 					<Toast.Root
 						key={ item.id }
 						toast={ item }
-						swipeDirection={ notice.dismissible === false ? [] : undefined }
+						swipeDirection={ notice.dismissible === false || overflow ? [] : undefined }
 						onKeyDown={ ( event ) => {
 							if ( notice.dismissible === false && event.key === 'Escape' )
 								event.preventBaseUIHandler();

@@ -18,6 +18,18 @@ describe( 'AppToasts', () => {
 		vi.restoreAllMocks();
 	} );
 
+	it( 'allows native touch scrolling when persistent notices overflow', async () => {
+		await render( <AppToasts /> );
+		act( () => {
+			for ( let index = 1; index <= 4; index++ ) toast.error( `Failure ${ index }` );
+		} );
+		const notice = await screen.findByRole( 'dialog', { name: 'Failure 4' } );
+		fireEvent.pointerDown( notice, { button: 0, pointerId: 1, pointerType: 'touch' } );
+		const scroll = new Event( 'touchmove', { bubbles: true, cancelable: true } );
+		fireEvent( notice, scroll );
+		expect( scroll.defaultPrevented ).toBe( false );
+	} );
+
 	it( 'keeps progress until dismissed and announces its result afterwards', async () => {
 		await render( <AppToasts /> );
 		vi.useFakeTimers();

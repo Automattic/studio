@@ -137,7 +137,7 @@ export function ResponsiveToolbar( {
 			<span className={ styles.divider } aria-hidden="true" />
 			<Menu.Root>
 				<Menu.Trigger render={ <Button variant="ghost" size="sm" /> }>
-					{ settings.zoom === 'fit' ? __( 'Fit to window' ) : `${ settings.zoom * 100 }%` }
+					{ settings.zoom === 'fit' ? __( 'Fit' ) : `${ settings.zoom * 100 }%` }
 					<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
 				</Menu.Trigger>
 				<Menu.Popup side="bottom" align="start">
@@ -149,7 +149,7 @@ export function ResponsiveToolbar( {
 					>
 						<Menu.RadioItem value="fit" onClick={ () => update( { zoom: 'fit', fitScale } ) }>
 							<span>
-								{ __( 'Fit to window' ) }{ ' ' }
+								{ __( 'Fit' ) }{ ' ' }
 								<span className={ styles.optionDetail }>
 									{ sprintf( __( '· %d%%' ), Math.round( fitScale * 100 ) ) }
 								</span>

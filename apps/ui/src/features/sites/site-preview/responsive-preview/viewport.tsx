@@ -2,6 +2,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { updateResponsivePreview, type ResponsivePreviewSettings } from '@/data/responsive-preview';
+import { PreviewParticles } from '@/features/sites/preview-particles';
 import { clampDimension } from './settings';
 import styles from './style.module.css';
 
@@ -66,6 +67,7 @@ export function ResponsiveViewport( {
 						: undefined
 				}
 			>
+				{ enabled && <PreviewParticles fade={ false } /> }
 				<div
 					className={ styles.stage }
 					style={

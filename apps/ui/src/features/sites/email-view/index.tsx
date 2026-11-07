@@ -1,4 +1,4 @@
-import { __, _n, sprintf } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import {
 	useEffect,
 	useId,
@@ -12,16 +12,13 @@ import { showToast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useSiteEmail, useSiteEmails } from '@/data/queries/use-site-emails';
 import { useSiteAnnotations, type PreviewAnnotation } from '@/features/annotations';
+import { getFileManager } from '@/features/sites/open-in-menu/get-file-manager';
 import { PanelLoadError } from '@/features/sites/panel-load-error';
-import { ArrowLeftIcon, FolderIcon, MailIcon } from '@/lib/icons';
+import { ArrowLeftIcon, FolderOpenIcon } from '@/lib/icons';
 import {
 	CodeBlock,
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
 	IconButton,
+	SidebarGroupHeader,
 	Skeleton,
 	Spinner,
 	Tabs,
@@ -290,12 +287,9 @@ function EmailMessage( {
 function EmailListSkeleton() {
 	return (
 		<ul className={ styles.rows } aria-hidden="true">
-			{ [ '70%', '55%', '80%' ].map( ( width ) => (
-				<li key={ width } className={ styles.skeletonRow }>
-					<Skeleton className={ styles.skeletonLine } style={ { width } } />
-					<Skeleton className={ styles.skeletonLine } style={ { width: '40%' } } />
-				</li>
-			) ) }
+			<li>
+				<Skeleton className={ styles.skeletonRow } />
+			</li>
 		</ul>
 	);
 }
@@ -317,6 +311,7 @@ export function EmailView( {
 	onOpenLink: ( url: string ) => void;
 } ) {
 	const connector = useConnector();
+	const fileManager = getFileManager();
 	const annotations = useSiteAnnotations( siteId );
 	const editingNote = annotations.active
 		? annotations.notes.find( ( note ) => note.id === annotations.editingId && note.email )
@@ -341,7 +336,7 @@ export function EmailView( {
 	const selected = selectedId && ids.includes( selectedId ) ? selectedId : null;
 	const tabbableId = activeId && ids.includes( activeId ) ? activeId : selected ?? ids[ 0 ];
 	const email = useSiteEmail( siteId, selected );
-	const count = ids.length;
+	const isEmpty = emails.data?.length === 0;
 
 	// Back in the list, focus returns to the email that was open.
 	const refocusRef = useRef< string | null >( null );
@@ -393,42 +388,25 @@ export function EmailView( {
 					onRetry={ () => void emails.refetch() }
 					retrying={ emails.isFetching }
 				/>
-			) : emails.data && ! count ? (
-				<Empty className={ styles.empty }>
-					<EmptyHeader>
-						<EmptyMedia>
-							<MailIcon />
-						</EmptyMedia>
-						<EmptyTitle>{ __( 'No email yet' ) }</EmptyTitle>
-						<EmptyDescription>
-							{ __(
-								'Email that this site sends shows here, such as password resets and new user notices.'
-							) }
-						</EmptyDescription>
-					</EmptyHeader>
-				</Empty>
 			) : (
 				<div
 					className={ styles.root }
 					data-layout={ single ? 'single' : 'split' }
 					data-reading={ selected ? '' : undefined }
+					data-empty={ isEmpty || undefined }
 				>
-					<section className={ styles.list } aria-label={ __( 'Email log' ) }>
-						<header className={ styles.listHeader }>
-							<h2 className={ styles.listTitle }>{ __( 'Email log' ) }</h2>
-							{ emails.data ? (
-								<span className={ styles.count }>
-									{ sprintf(
-										/* translators: %d: how many emails a site has sent. */
-										_n( '%d email', '%d emails', count ),
-										count
-									) }
-								</span>
-							) : null }
+					<section className={ styles.list } aria-label={ __( 'Emails' ) }>
+						<SidebarGroupHeader className={ styles.listHeader }>
+							<h2 className={ styles.listTitle }>{ __( 'Emails' ) }</h2>
 							<IconButton
-								className={ styles.folder }
-								icon={ <FolderIcon /> }
-								label={ __( 'Open email folder' ) }
+								className={ styles.folderButton }
+								variant="muted-ghost"
+								icon={ <FolderOpenIcon /> }
+								label={ sprintf(
+									/* translators: %s: the system file manager, e.g. "Finder". */
+									__( 'Open in %s' ),
+									fileManager.label
+								) }
 								size="icon-sm"
 								onClick={ () =>
 									connector.openSiteEmailFolder( siteId ).catch( () =>
@@ -439,7 +417,7 @@ export function EmailView( {
 									)
 								}
 							/>
-						</header>
+						</SidebarGroupHeader>
 						{ emails.isError ? (
 							<PanelLoadError
 								message={ __( 'Email log could not load.' ) }
@@ -451,7 +429,7 @@ export function EmailView( {
 						) : (
 							<ul
 								role="listbox"
-								aria-label={ __( 'Email log' ) }
+								aria-label={ __( 'Emails' ) }
 								className={ styles.rows }
 								onKeyDown={ handleListKeyDown }
 							>
@@ -470,7 +448,11 @@ export function EmailView( {
 					</section>
 					<div className={ styles.reader }>
 						{ ! selected ? (
-							<p className={ styles.hint }>{ __( 'Select an email to read it.' ) }</p>
+							<p className={ styles.hint }>
+								{ isEmpty
+									? __( 'Emails sent by your site appear here.' )
+									: __( 'Select an email to read it.' ) }
+							</p>
 						) : email.data ? (
 							<EmailMessage
 								key={ email.data.id }

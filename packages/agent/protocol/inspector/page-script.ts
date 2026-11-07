@@ -344,6 +344,10 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		'${ INSPECTOR_COMMAND_EVENT }',
 		(e) => {
 			if (!e.detail) return;
+			if (typeof e.detail.clearSelection === 'string') {
+				if (pendingSelection?.id === e.detail.clearSelection) { clearSelection(); schedule(); }
+				return;
+			}
 			const wasActive = state.active;
 			const previousAttempt = state.blockedNavigation;
 			const previousEditingId = state.editingId;

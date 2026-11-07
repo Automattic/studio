@@ -141,6 +141,40 @@ describe( 'annotation inspector', () => {
 		expect( events()[ 0 ] ).toMatchObject( { type: 'pick', target: { tag: 'h1' } } );
 	} );
 
+	it( 'releases failed selections without clearing a newer capture or disabling annotation', () => {
+		const events = mount();
+		publish( { active: true, areaSelection: true } );
+		const selectArea = () => {
+			pointer( document.body, 'pointerdown', 20, 30 );
+			pointer( document.documentElement, 'pointerup', 220, 130 );
+		};
+		const canScroll = () =>
+			document.dispatchEvent( new WheelEvent( 'wheel', { cancelable: true } ) );
+		const clear = ( id: string ) =>
+			window.dispatchEvent(
+				new CustomEvent( INSPECTOR_COMMAND_EVENT, { detail: { clearSelection: id } } )
+			);
+		const host = document.getElementById( '__studio-inspector-host' )!;
+		selectArea();
+		const firstId = host.dataset.captureId!;
+		expect( firstId ).toBeTruthy();
+		expect( canScroll() ).toBe( false );
+
+		clear( firstId );
+		expect( host ).not.toHaveAttribute( 'data-capture-id' );
+		expect( canScroll() ).toBe( true );
+
+		selectArea();
+		const nextId = host.dataset.captureId!;
+		expect( nextId ).toBeTruthy();
+		expect( events().filter( ( event ) => event?.type === 'selection' ) ).toHaveLength( 2 );
+		clear( firstId );
+		expect( host ).toHaveAttribute( 'data-capture-id', nextId );
+		expect( canScroll() ).toBe( false );
+		clear( nextId );
+		expect( canScroll() ).toBe( true );
+	} );
+
 	it.each( [ 'pointercancel', 'blur', 'scroll', 'resize', 'escape' ] )(
 		'cancels a rectangle on %s',
 		( cause ) => {

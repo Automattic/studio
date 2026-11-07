@@ -2,6 +2,7 @@ import {
 	STUDIO_CHAT_MAX_IMAGES,
 	validateStudioChatImages,
 } from '@studio/agent/protocol/chat-images';
+import { INSPECTOR_COMMAND_EVENT } from '@studio/agent/protocol/inspector/page-script';
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, type RefObject } from 'react';
 import { toast } from '@/data/app-messages';
@@ -40,27 +41,29 @@ export function useRegionAnnotations( {
 
 	return useCallback(
 		async ( selection: InspectorSelection ) => {
-			if ( ! enabled || ! active || capturing.current || ! canPickAnnotation( siteId ) ) return;
-			const otherImages = getSiteAnnotations( siteId ).notes.flatMap( ( note ) => note.images );
-			if ( otherImages.length >= STUDIO_CHAT_MAX_IMAGES ) {
-				toast.error(
-					sprintf(
-						__(
-							'You can attach up to %d images. Send or delete an annotation before capturing another area.'
-						),
-						STUDIO_CHAT_MAX_IMAGES
-					)
-				);
-				return;
-			}
 			const webview = viewportRef.current?.querySelector< WebviewTag >(
 				'webview[data-annotation-surface]'
 			);
 			if ( ! webview ) return;
 			const attempt = generation.current;
-			capturing.current = true;
-			setAnnotationsPreparing( siteId, true );
+			let startedCapture = false;
 			try {
+				if ( ! enabled || ! active || capturing.current || ! canPickAnnotation( siteId ) ) return;
+				const otherImages = getSiteAnnotations( siteId ).notes.flatMap( ( note ) => note.images );
+				if ( otherImages.length >= STUDIO_CHAT_MAX_IMAGES ) {
+					toast.error(
+						sprintf(
+							__(
+								'You can attach up to %d images. Send or delete an annotation before capturing another area.'
+							),
+							STUDIO_CHAT_MAX_IMAGES
+						)
+					);
+					return;
+				}
+				capturing.current = true;
+				startedCapture = true;
+				setAnnotationsPreparing( siteId, true );
 				const image = await connector.captureAnnotationRegion( {
 					guestId: getWebviewContentsId( webview ),
 					selection,
@@ -84,8 +87,20 @@ export function useRegionAnnotations( {
 					toast.error( __( 'Could not capture the area. Drag to select it again.' ) );
 				}
 			} finally {
-				capturing.current = false;
-				setAnnotationsPreparing( siteId, false );
+				if ( startedCapture ) {
+					capturing.current = false;
+					setAnnotationsPreparing( siteId, false );
+				}
+				void Promise.resolve()
+					.then( () =>
+						webview.executeJavaScript(
+							`window.dispatchEvent(new CustomEvent(${ JSON.stringify(
+								INSPECTOR_COMMAND_EVENT
+							) }, { detail: { clearSelection: ${ JSON.stringify( selection.id ) } } }));`,
+							false
+						)
+					)
+					.catch( () => undefined );
 			}
 		},
 		[ active, connector, enabled, onPick, siteId, viewportRef ]

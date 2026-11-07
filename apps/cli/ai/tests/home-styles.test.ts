@@ -29,17 +29,20 @@ const FOOTERS: Record< string, string > = {
 	icon: `<div style="width:160px;margin:auto;text-align:center"><p style="display:flex;justify-content:center;gap:8px"><span style="font-size:30px">*</span> 128 Brightside Way, Suite 200</p></div>`,
 };
 
-// eval17 and eval18's home pages as a visitor sees them, in one: what each fault looks like, and what is not one, as a ticker running across the window.
+// eval17 and eval18's home pages as a visitor sees them, in one: what each fault looks like, and what is not one, as a ticker running across the window
+// or an eyebrow above a display heading set tighter than its type (eval24's redo runs), whose letters start below it.
 const PAGE = `<p class="skip" style="position:absolute;left:0;clip-path:inset(50%)">Skip to content</p>
 	<section style="padding:0 40px"><p>A welcome set in from the window's edge.</p></section>
 	<section><p>A welcome against the window's edge.</p></section>
+	<section style="position:relative;padding:0 40px"><p>A heading under an overlay</p><div style="position:absolute;inset:0;background:rgba(0,0,0,.5)"></div></section>
+	<section style="padding:0 40px"><p style="margin:0;font-size:13px">An eyebrow above a display heading</p><h2 style="margin:12px 0 0;font-size:152px;line-height:.86">Ink that</h2></section>
+	<section style="padding:0 40px"><p style="margin:0;font-size:13px">An eyebrow a heading is pulled over</p><h2 style="margin:-12px 0 0;font-size:60px;line-height:1;background:#fff">Pulled up</h2></section>
 	<section style="padding:40px;background:#3a3550"><p style="color:#423d5c">Invisible links on the footer</p><p style="color:#fff">Readable footer text</p></section>
 	<section style="padding:40px;background:url(data:image/gif;base64,R0lGODlhAQABAAAAACw=) #fff"><p style="color:#fff">White text on a photo</p></section>
 	<section style="position:relative;padding:40px;background:url(data:image/gif;base64,R0lGODlhAQABAAAAACw=)"><span style="position:absolute;inset:0;background:#12314f;opacity:.4"></span><p style="position:relative;color:#12314f">Dark text on a photo, dimmed</p></section>
 	<section style="padding:0 40px"><h2 style="font-size:48px">A heading as long as a sentence, set large</h2><ul><li style="font-size:48px">Call us, or book online in under a minute.</li><li>Short</li></ul>
 	<blockquote style="font-size:32px">A testimonial set large, as a design does</blockquote>
 	<p>Body text for the median size of the page, at sixteen pixels.</p></section>
-	<section style="position:relative;padding:0 40px"><p>A heading under an overlay</p><div style="position:absolute;inset:0;background:rgba(0,0,0,.5)"></div></section>
 	<style>@keyframes ticker{to{transform:translateX(-50%)}}</style>
 	<section style="overflow:hidden"><div style="display:flex;gap:40px;width:max-content;animation:ticker 20s linear infinite"><p style="white-space:nowrap">Fresh bread daily · Open seven days · Order ahead</p><p style="white-space:nowrap">Fresh bread daily · Open seven days · Order ahead</p><p style="white-space:nowrap">Fresh bread daily · Open seven days · Order ahead</p></div></section>`;
 
@@ -113,6 +116,7 @@ describe.runIf( CHROMIUM )( 'the eval home page styles', () => {
 		).toEqual( [
 			`"A welcome against the window's edge." touches the window's edge `,
 			'"A heading under an overlay" is under div',
+			'"An eyebrow a heading is pulled over" is under h2',
 			'"Invisible links on the footer" is rgb(66, 61, 92) on rgb(58, 53, 80)',
 			'"Call us, or book online in under a minut…" is , body text ',
 		] );

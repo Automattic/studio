@@ -835,6 +835,38 @@ export async function homeStyles( url: string, siteName: string ) {
 						Math.abs( after.right - before.right ) >= 1
 					);
 				};
+				// Whether an element the browser hit at a point paints there: its box, or
+				// past it only its letters. The browser hits a line of text across its
+				// font's full height, which a display heading set tighter than its type
+				// (eval24's redo runs: line-height 0.86 at 152px) carries above its box,
+				// where its letters do not reach.
+				const measure = document.createElement( 'canvas' ).getContext( '2d' );
+				const paintedAt = ( top: Element, x: number, y: number ) => {
+					const box = top.getBoundingClientRect();
+					if ( x >= box.left && x <= box.right && y >= box.top && y <= box.bottom ) return true;
+					const walker = document.createTreeWalker( top, NodeFilter.SHOW_TEXT );
+					for ( let node = walker.nextNode(); node; node = walker.nextNode() ) {
+						const style = getComputedStyle( node.parentElement! );
+						const text = node.textContent ?? '';
+						const range = document.createRange();
+						range.selectNodeContents( node );
+						for ( const rect of range.getClientRects() ) {
+							if ( x < rect.left || x > rect.right || y < rect.top || y > rect.bottom ) continue;
+							if ( ! measure ) return true;
+							measure.font = style.font;
+							const ink = measure.measureText(
+								style.textTransform === 'uppercase' ? text.toUpperCase() : text
+							);
+							const baseline = rect.top + ink.fontBoundingBoxAscent;
+							if (
+								y >= baseline - ink.actualBoundingBoxAscent &&
+								y <= baseline + ink.actualBoundingBoxDescent
+							)
+								return true;
+						}
+					}
+					return false;
+				};
 				for ( const el of texts ) {
 					const rects = lineRects( el );
 					if ( ! rects.length ) continue;
@@ -852,7 +884,7 @@ export async function homeStyles( url: string, siteName: string ) {
 					const y = first.top + first.height / 2;
 					if ( y > 0 && y < window.innerHeight ) {
 						const top = document.elementFromPoint( x, y );
-						if ( top && ! el.contains( top ) && ! top.contains( el ) )
+						if ( top && ! el.contains( top ) && ! top.contains( el ) && paintedAt( top, x, y ) )
 							faults.push(
 								`${ quote( el ) } is under ${ top.tagName.toLowerCase() }${ [ ...top.classList ]
 									.slice( 0, 2 )

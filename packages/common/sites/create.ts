@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { type TracksSiteCreateFlowType } from '@studio/common/lib/record-tracks-event';
 import { type SiteFileAccess } from '@studio/common/lib/site-file-access';
+import { type FrontendCreateChoice } from '@studio/common/lib/site-frontend';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
 import type { Blueprint } from '@wp-playground/blueprints';
 
@@ -28,6 +29,8 @@ export interface SiteCreateOptions {
 	// Telemetry hint for the `studio_site_created` Tracks event. Not a functional site option — the
 	// CLI infers `blueprint` on its own, so only import/sync/duplicate are threaded through here.
 	flowType?: TracksSiteCreateFlowType;
+	// Creates a headless site: passed as `--frontend <framework> [--frontend-api <api>]`.
+	frontend?: FrontendCreateChoice;
 }
 
 /**
@@ -78,6 +81,10 @@ export function buildSiteCreateArgs( options: SiteCreateOptions ): {
 	}
 	if ( options.flowType ) {
 		args.push( '--flow-type', options.flowType );
+	}
+	if ( options.frontend ) {
+		args.push( '--frontend', options.frontend.framework );
+		args.push( '--frontend-api', options.frontend.api ?? 'rest' );
 	}
 
 	let blueprintTempPath: string | undefined;

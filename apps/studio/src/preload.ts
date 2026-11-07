@@ -47,8 +47,8 @@ const api: IpcApi = {
 	getSiteDetails: () => ipcRendererInvoke( 'getSiteDetails' ),
 	setSiteFrontendAdminBar: ( siteId, hidden ) =>
 		ipcRendererInvoke( 'setSiteFrontendAdminBar', siteId, hidden ),
-	openSiteURL: ( id, relativeURL = '', { autoLogin = true } = {} ) =>
-		ipcRendererSend( 'openSiteURL', id, relativeURL, { autoLogin } ),
+	openSiteURL: ( id, relativeURL = '', { autoLogin = true, target } = {} ) =>
+		ipcRendererSend( 'openSiteURL', id, relativeURL, { autoLogin, target } ),
 	openURL: ( url ) => ipcRendererSend( 'openURL', url ),
 	showOpenFolderDialog: ( title, defaultDialogPath, options ) =>
 		ipcRendererInvoke( 'showOpenFolderDialog', title, defaultDialogPath, options ),

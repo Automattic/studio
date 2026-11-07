@@ -4,6 +4,10 @@ import {
 	SITE_FILE_ACCESS_ALL_FILES,
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 } from '@studio/common/lib/site-file-access';
+import {
+	frontendCreateFrameworkSchema,
+	siteFrontendApiSchema,
+} from '@studio/common/lib/site-frontend';
 import { RecommendedPHPVersion, SupportedPHPVersions } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
 import { isUrl } from 'cli/lib/static-site-import/source';
@@ -122,6 +126,20 @@ export const builder = ( yargs: StudioArgv ) => {
 				}
 				return pluginPath;
 			},
+		} )
+		.option( 'frontend', {
+			type: 'string',
+			describe: __(
+				'Create a headless site: WordPress plus a frontend project (static HTML, Astro or Next.js) that Studio runs next to it'
+			),
+			choices: frontendCreateFrameworkSchema.options,
+			conflicts: 'from',
+		} )
+		.option( 'frontend-api', {
+			type: 'string',
+			describe: __( 'The WordPress API the frontend template reads from (with --frontend)' ),
+			choices: siteFrontendApiSchema.options,
+			default: 'rest' as const,
 		} )
 		.option( 'original-blueprint-path', {
 			type: 'string',

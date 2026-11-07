@@ -10,9 +10,10 @@ import { useIsSiteBusy, useStopSite } from '@/data/queries/use-sites';
 import { useIsSiteRestarting } from '@/data/site-restarts';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
 import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
+import { getSiteFrontendUrl } from '@/features/sites/get-site-url';
 import { getFileManager } from '@/features/sites/open-in-menu/get-file-manager';
 import { useOpenInDestinations } from '@/features/sites/open-in-menu/use-open-in-destinations';
-import { getPreviewRealm } from '@/features/sites/site-preview/address-bar';
+import { getFrontendOrigin, getPreviewRealm } from '@/features/sites/site-preview/address-bar';
 import { usePreviewOpenTracks } from '@/features/sites/site-preview/use-preview-open-tracks';
 import { getSiteTool, SiteToolMenuItems, useSiteToolActions } from '@/features/sites/site-tools';
 import { PlusIcon } from '@/lib/icons';
@@ -22,10 +23,12 @@ import styles from './style.module.css';
 import { useTabReorder } from './use-tab-reorder';
 import type { SiteDetails } from '@/data/core';
 
-function getTabTitle( tab: PreviewTab, siteName: string ) {
+function getTabTitle( tab: PreviewTab, siteName: string, frontendOrigin?: string ) {
 	if ( tab.path === null ) return __( 'New tab' );
-	const realm = getPreviewRealm( tab.path );
-	return realm === 'frontend' ? tab.title || siteName : getSiteTool( realm ).label;
+	const realm = getPreviewRealm( tab.path, frontendOrigin );
+	return realm === 'frontend' || realm === 'frontend-app'
+		? tab.title || siteName
+		: getSiteTool( realm ).label;
 }
 
 export function PreviewTabs( {
@@ -41,6 +44,8 @@ export function PreviewTabs( {
 	const fileManager = getFileManager();
 	const browser = useOpenInDestinations( site ).find( ( entry ) => entry.id === 'browser' )!;
 	const { id: siteId, name: siteName } = site;
+	// A headless site's frontend app, which its tabs address by absolute URL.
+	const frontendOrigin = getFrontendOrigin( liveUrl ? undefined : getSiteFrontendUrl( site ) );
 	const restarting = useIsSiteRestarting( siteId );
 	const running = !! liveUrl || site.running || restarting;
 	const busy = useIsSiteBusy( site );
@@ -62,7 +67,8 @@ export function PreviewTabs( {
 	} );
 	const reorder = useTabReorder( {
 		ids: workspace.tabs.map( ( tab ) => tab.id ),
-		getLabel: ( id ) => getTabTitle( workspace.tabs.find( ( tab ) => tab.id === id )!, siteName ),
+		getLabel: ( id ) =>
+			getTabTitle( workspace.tabs.find( ( tab ) => tab.id === id )!, siteName, frontendOrigin ),
 		onReorder: ( ids ) =>
 			update( ( current ) => {
 				if (
@@ -78,7 +84,7 @@ export function PreviewTabs( {
 	} );
 	const draggedTab = workspace.tabs.find( ( tab ) => tab.id === reorder.drag?.id );
 	const DragIcon = getSiteTool(
-		draggedTab?.path ? getPreviewRealm( draggedTab.path ) : 'frontend'
+		draggedTab?.path ? getPreviewRealm( draggedTab.path, frontendOrigin ) : 'frontend'
 	).Icon;
 	const list = useRef< HTMLDivElement >( null );
 	const newTabButton = useRef< HTMLButtonElement >( null );
@@ -153,7 +159,7 @@ export function PreviewTabs( {
 	};
 	const openInBrowser = ( tab: PreviewTab ) => {
 		if ( tab.path === null ) return;
-		const realm = getPreviewRealm( tab.path );
+		const realm = getPreviewRealm( tab.path, frontendOrigin );
 		trackOpen( tab.path, 'external' );
 		const opening = liveUrl
 			? connector.openExternalUrl( `${ liveUrl.replace( /\/$/, '' ) }${ tab.path }` )
@@ -205,7 +211,8 @@ export function PreviewTabs( {
 						onDragStart={ ( event ) => event.preventDefault() }
 					>
 						{ workspace.tabs.map( ( tab, index ) => {
-							const realm = tab.path === null ? 'frontend' : getPreviewRealm( tab.path );
+							const realm =
+								tab.path === null ? 'frontend' : getPreviewRealm( tab.path, frontendOrigin );
 							const { Icon } = getSiteTool( realm );
 							const destination = realm === 'email' ? fileManager : browser;
 							return (
@@ -238,7 +245,9 @@ export function PreviewTabs( {
 											} }
 										>
 											<Icon className={ styles.icon } />
-											<span className={ styles.title }>{ getTabTitle( tab, siteName ) }</span>
+											<span className={ styles.title }>
+												{ getTabTitle( tab, siteName, frontendOrigin ) }
+											</span>
 										</TabsTrigger>
 										<IconButton
 											variant="muted-ghost"
@@ -246,7 +255,10 @@ export function PreviewTabs( {
 											className={ styles.close }
 											data-tab-close
 											icon={ <X /> }
-											label={ sprintf( __( 'Close %s' ), getTabTitle( tab, siteName ) ) }
+											label={ sprintf(
+												__( 'Close %s' ),
+												getTabTitle( tab, siteName, frontendOrigin )
+											) }
 											onClick={ () => closeTabs( [ tab.id ] ) }
 											tooltipSide="bottom"
 										/>
@@ -343,7 +355,9 @@ export function PreviewTabs( {
 							} }
 						>
 							<DragIcon className={ styles.icon } />
-							<span className={ styles.title }>{ getTabTitle( draggedTab, siteName ) }</span>
+							<span className={ styles.title }>
+								{ getTabTitle( draggedTab, siteName, frontendOrigin ) }
+							</span>
 						</div>,
 						document.body
 				  )

@@ -1,6 +1,10 @@
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import { validateAdminEmail, validateAdminUsername } from '@studio/common/lib/passwords';
+import {
+	frontendCreateFrameworkSchema,
+	getFrontendFrameworkLabel,
+} from '@studio/common/lib/site-frontend';
 import { getLatestVersionLabel } from '@studio/common/lib/wordpress-versions';
 import { __, sprintf } from '@wordpress/i18n';
 import { ChevronDownIcon } from 'lucide-react';
@@ -46,16 +50,36 @@ import {
 	type CreateSiteFormDraft,
 	type CreateSiteFormValues,
 	type FormData,
+	type FrontendChoice,
 } from './form-data';
 import { PathField } from './path-field';
 import styles from './style.module.css';
 import { usePathAutoGenerate } from './use-path-auto-generate';
 import type { SelectedSiteFolder } from '@/data/core';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
+import type { SiteFrontendApi } from '@studio/common/lib/site-frontend';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { FormEvent, ReactNode } from 'react';
 
 export type { CreateSiteFormDraft, CreateSiteFormValues } from './form-data';
+
+function getFrontendOptions(): Array< { value: FrontendChoice; label: string } > {
+	return [
+		{ value: 'theme', label: __( 'WordPress theme' ) },
+		...frontendCreateFrameworkSchema.options.map( ( framework ) => ( {
+			value: framework,
+			// translators: %s: a frontend framework name, e.g. "Astro".
+			label: sprintf( __( 'Headless: %s' ), getFrontendFrameworkLabel( framework ) ),
+		} ) ),
+	];
+}
+
+function getFrontendApiOptions(): Array< { value: SiteFrontendApi; label: string } > {
+	return [
+		{ value: 'rest', label: __( 'REST API' ) },
+		{ value: 'graphql', label: __( 'WPGraphQL' ) },
+	];
+}
 
 export interface CreateSiteFormError {
 	title: string;
@@ -87,6 +111,8 @@ interface CreateSiteFormProps {
 	// The fields edited in an earlier opening of the form, restored as edits.
 	draft?: CreateSiteFormDraft;
 	onDraftChange?: ( draft: CreateSiteFormDraft ) => void;
+	// Offers a headless frontend, for a new site whose files Studio creates.
+	showFrontendChoice?: boolean;
 }
 
 export function CreateSiteForm( {
@@ -110,6 +136,7 @@ export function CreateSiteForm( {
 	onFolderChange,
 	draft,
 	onDraftChange,
+	showFrontendChoice = false,
 }: CreateSiteFormProps ) {
 	const formId = useId();
 	const advancedId = useId();
@@ -209,7 +236,9 @@ export function CreateSiteForm( {
 		( update: Partial< FormData > ) => {
 			isSubmitQueuedRef.current = false;
 			for ( const key of Object.keys( update ) ) {
-				if ( INITIAL_VALUE_FIELDS.includes( key as keyof CreateSiteFormValues ) ) {
+				if ( key === 'frontendApi' ) {
+					dirtyFieldsRef.current.add( 'frontend' );
+				} else if ( INITIAL_VALUE_FIELDS.includes( key as keyof CreateSiteFormValues ) ) {
 					dirtyFieldsRef.current.add( key as keyof CreateSiteFormValues );
 				}
 			}
@@ -311,8 +340,10 @@ export function CreateSiteForm( {
 	const canSubmit =
 		! nameError && ! pathError && ! errorCount && ! isSubmitting && ! isSubmitDisabled;
 
+	const offersFrontend = showFrontendChoice && ! existing;
 	const submitForm = () => {
-		onSubmit( getSubmittedValues( data, suggestedName ) );
+		const values = getSubmittedValues( data, suggestedName );
+		onSubmit( offersFrontend ? values : { ...values, frontend: undefined } );
 	};
 
 	const handleSubmit = ( event: FormEvent ) => {
@@ -567,6 +598,34 @@ export function CreateSiteForm( {
 				/>
 
 				{ sourceControl }
+
+				{ offersFrontend ? (
+					<FieldGroup>
+						<SelectField
+							label={ __( 'Frontend' ) }
+							description={
+								data.frontend === 'theme'
+									? undefined
+									: __(
+											'WordPress runs as the content API; Studio also runs the frontend. Astro and Next.js need Node.js installed.'
+									  )
+							}
+							value={ data.frontend }
+							options={ getFrontendOptions() }
+							onChange={ ( frontend ) => handleChange( { frontend: frontend as FrontendChoice } ) }
+						/>
+						{ data.frontend === 'theme' ? null : (
+							<SelectField
+								label={ __( 'Content API' ) }
+								value={ data.frontendApi }
+								options={ getFrontendApiOptions() }
+								onChange={ ( frontendApi ) =>
+									handleChange( { frontendApi: frontendApi as SiteFrontendApi } )
+								}
+							/>
+						) }
+					</FieldGroup>
+				) : null }
 
 				{ advancedSettings }
 

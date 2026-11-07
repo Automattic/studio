@@ -156,6 +156,11 @@ export function SiteSection( {
 							>
 								{ site.name }
 							</SidebarMenuLabel>
+							{ site.frontend ? (
+								<Badge variant="muted" size="xs" className={ styles.headlessBadge }>
+									{ __( 'Headless' ) }
+								</Badge>
+							) : null }
 						</div>
 					</SidebarMenuButton>
 				}

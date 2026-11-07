@@ -23,7 +23,8 @@ function canBind( port: number, host: string ): Promise< boolean > {
 	} );
 }
 
-async function isPortFree( portToCheck: number ): Promise< boolean > {
+/** Whether nothing holds `portToCheck` on any local address. */
+export async function isPortFree( portToCheck: number ): Promise< boolean > {
 	for ( const host of LOCAL_ADDRESSES ) {
 		if ( ! ( await canBind( portToCheck, host ) ) ) {
 			return false;

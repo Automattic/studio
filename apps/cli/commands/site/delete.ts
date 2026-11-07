@@ -5,6 +5,11 @@ import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { removeAllConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { arePathsEqual, isWordPressDirectory } from '@studio/common/lib/fs-utils';
 import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
+import {
+	HEADLESS_FRONTEND_SUBDIR,
+	HEADLESS_WORDPRESS_SUBDIR,
+	isHeadlessSite,
+} from '@studio/common/lib/site-frontend';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
@@ -18,7 +23,9 @@ import {
 	unlockCliConfig,
 	type SiteData,
 } from 'cli/lib/cli-config/core';
+import { getHeadlessContainerPath } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
+import { isFrontendRunning, stopFrontendServer } from 'cli/lib/frontend/server';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { deleteSnapshotSite } from 'cli/lib/preview-sites';
 import { withSiteOperations } from 'cli/lib/site-operations';
@@ -112,12 +119,45 @@ async function deletePreviewSites(
 	}
 }
 
+// Files the OS puts in any folder a user opens, which don't make the folder theirs.
+const IGNORED_CONTAINER_ENTRIES = [ '.DS_Store' ];
+
+// The container folder of a headless site created with the default layout, when
+// it holds nothing but the site's `wordpress/` and `frontend/` folders and so can
+// go as a whole. Anything else in it is the user's, and only the halves are deleted.
+function getDeletableHeadlessContainer( site: SiteData ): string | undefined {
+	if ( ! isHeadlessSite( site ) ) {
+		return undefined;
+	}
+	const containerPath = getHeadlessContainerPath( site );
+	if (
+		containerPath === site.path ||
+		! arePathsEqual( site.frontend.path, path.join( containerPath, HEADLESS_FRONTEND_SUBDIR ) )
+	) {
+		return undefined;
+	}
+	let entries: string[];
+	try {
+		entries = fs.readdirSync( containerPath );
+	} catch {
+		return undefined;
+	}
+	const ownEntries = [ HEADLESS_WORDPRESS_SUBDIR, HEADLESS_FRONTEND_SUBDIR ];
+	const onlyHoldsTheSite = entries.every(
+		( entry ) => ownEntries.includes( entry ) || IGNORED_CONTAINER_ENTRIES.includes( entry )
+	);
+	return onlyHoldsTheSite ? containerPath : undefined;
+}
+
 function getSelectedFilePaths( site: SiteData, deleteFiles: boolean ): string[] {
 	if ( ! deleteFiles ) {
 		return [];
 	}
 
-	return [ site.path, site.technicalSiteDirectory ].filter(
+	const containerPath = getDeletableHeadlessContainer( site );
+	const sitePaths = containerPath ? [ containerPath ] : [ site.path, site.frontend?.path ];
+
+	return [ ...sitePaths, site.technicalSiteDirectory ].filter(
 		( value ): value is string => typeof value === 'string' && fs.existsSync( value )
 	);
 }
@@ -386,6 +426,13 @@ async function deleteSite(
 	logger: Logger< LoggerAction >
 ): Promise< string[] > {
 	const warnings: string[] = [];
+	// The frontend goes first: it talks to WordPress, which is stopped next.
+	if ( isHeadlessSite( site ) && ( await isFrontendRunning( site.id ) ) ) {
+		logger.reportStart( LoggerAction.STOP_FRONTEND, __( 'Stopping frontend…' ) );
+		await stopFrontendServer( site.id );
+		logger.reportSuccess( __( 'Frontend stopped' ) );
+	}
+
 	const runningProcess = await isServerRunning( site.id );
 	if ( runningProcess ) {
 		logger.reportStart( LoggerAction.STOP_SITE, __( 'Stopping WordPress server…' ) );

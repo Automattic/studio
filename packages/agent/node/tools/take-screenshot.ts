@@ -1,6 +1,7 @@
 import { copyFile } from 'node:fs/promises';
 import path from 'node:path';
 import { Type } from 'typebox';
+import { resolveSitePageUrl, SITE_PAGE_URL_PARAMETERS } from '@studio/agent/node/headless';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
 import {
 	captureScreenshotBuffer,
@@ -71,7 +72,7 @@ export function createTakeScreenshotTool( {
 } ) {
 	return defineTool(
 		'take_screenshot',
-		'Takes a full-page screenshot of a URL. ' +
+		'Takes a full-page screenshot of a URL, or of a page of a site given `nameOrPath` (its frontend for a headless site). ' +
 			( visionEnabled
 				? 'Returns the screenshot as an image that you can analyze visually; tall pages are scaled down to 2000 pixels on their longest side, and the saved file keeps full resolution. '
 				: `${ TEXT_ONLY_NOTE } ` ) +
@@ -84,7 +85,7 @@ export function createTakeScreenshotTool( {
 				: 'Captures are shown to the user in the chat by default; ' ) +
 			'pass `display: false` for internal verification captures while iterating so the user only sees deliberate milestones.',
 		{
-			url: Type.String( { description: 'The URL to screenshot' } ),
+			...SITE_PAGE_URL_PARAMETERS,
 			viewport: Type.Optional( screenshotViewportSchema ),
 			colorScheme: Type.Optional( screenshotColorSchemeSchema ),
 			display: Type.Optional(
@@ -124,10 +125,11 @@ export function createTakeScreenshotTool( {
 					colorSchemes.map( ( colorScheme ) => ( { viewportType, colorScheme } ) )
 				);
 				const captureLabel = getCaptureListLabel( captureTargets );
-				context.onProgress( `Taking ${ captureLabel } screenshot of ${ args.url }…` );
+				const url = await resolveSitePageUrl( context.host, args.url, args.nameOrPath );
+				context.onProgress( `Taking ${ captureLabel } screenshot of ${ url }…` );
 				const captures = await Promise.all(
 					captureTargets.map( async ( { viewportType, colorScheme } ) => {
-						const capture = await captureScreenshotBuffer( args.url, VIEWPORTS[ viewportType ], {
+						const capture = await captureScreenshotBuffer( url, VIEWPORTS[ viewportType ], {
 							fullPage: true,
 							format: 'jpeg',
 							offset: args.offset,
@@ -163,7 +165,7 @@ export function createTakeScreenshotTool( {
 								widgetProps: {
 									url: screenshotFile.fileUrl,
 									mediaKind: 'image',
-									alt: `Screenshot of ${ args.url } (${ getCaptureLabel( {
+									alt: `Screenshot of ${ url } (${ getCaptureLabel( {
 										viewportType,
 										colorScheme,
 									} ) })`,

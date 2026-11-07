@@ -7,6 +7,8 @@ description: Verify and polish a built or redesigned site by diagnosing rendered
 
 Use this skill to verify a built or redesigned site and fix the design issues that make generated sites feel unpolished. The generated block markup, the editor serialization fixes from `validate_blocks`, and WordPress's own injected layout classes mean the rendered page often differs from what you intended. This skill closes that gap.
 
+On a headless site, polish the frontend URL (pass `nameOrPath` to take_screenshot and inspect_design) and fix the frontend code; the block-markup and `theme.json` fixes below apply only to WordPress-rendered sites.
+
 The core method is **diagnose from evidence, not from memory**. Do not guess why something looks wrong from the screenshot alone — the rendered DOM usually differs from the markup you wrote. Read the real DOM with `inspect_design`, find the actual cause, then fix it.
 
 ## Scope: which pages to polish, and what to fix

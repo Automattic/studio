@@ -1,7 +1,6 @@
 import { ChildProcess, spawn, spawnSync } from 'child_process';
 import fs, { createWriteStream, WriteStream } from 'fs';
 import net from 'net';
-import path from 'path';
 import readline from 'readline';
 import { withoutOversizedEnvValues } from 'cli/lib/child-env';
 import {
@@ -9,6 +8,7 @@ import {
 	PROCESS_MANAGER_CONTROL_SOCKET_PATH,
 	PROCESS_MANAGER_EVENTS_SOCKET_PATH,
 } from 'cli/lib/paths';
+import { getProcessLogPaths } from 'cli/lib/process-logs';
 import { SocketServer } from 'cli/lib/socket';
 import {
 	ProcessDescription,
@@ -57,21 +57,6 @@ type ManagedProcessStopped = ManagedProcessBase & {
 	status: 'stopped';
 };
 type ManagedProcess = ManagedProcessRunning | ManagedProcessStopped;
-
-function formatLogDateTag( date: Date ): string {
-	const year = date.getFullYear();
-	const month = String( date.getMonth() + 1 ).padStart( 2, '0' );
-	const day = String( date.getDate() ).padStart( 2, '0' );
-	return `${ year }${ month }${ day }`;
-}
-
-function getProcessLogPaths( processName: string, date: Date = new Date() ) {
-	const dateTag = formatLogDateTag( date );
-	return {
-		stdoutLogPath: path.join( PROCESS_MANAGER_LOGS_DIR, `${ processName }-out-${ dateTag }.log` ),
-		stderrLogPath: path.join( PROCESS_MANAGER_LOGS_DIR, `${ processName }-error-${ dateTag }.log` ),
-	};
-}
 
 function timestampLogLine( line: string ): string {
 	return `${ new Date().toISOString() } ${ line }\n`;

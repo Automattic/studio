@@ -1,4 +1,5 @@
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
+import { getFrontendUrl } from '@studio/common/lib/site-frontend';
 import { QueryClientContext } from '@tanstack/react-query';
 import {
 	createContext,
@@ -57,12 +58,14 @@ export function PreviewTabsProvider( { children }: { children: ReactNode } ) {
 						const key = previewTabsKey( event.siteId );
 						const workspace = current[ key ];
 						if ( ! workspace ) return current;
+						// A headless site's preview reopens on its frontend app.
+						const home = event.site?.frontend ? `${ getFrontendUrl( event.site.frontend ) }/` : '/';
 						return {
 							...current,
 							[ key ]: {
 								...workspace,
 								tabs: workspace.tabs.map( ( tab ) =>
-									tab.id === workspace.selectedId ? { ...tab, path: '/', title: null } : tab
+									tab.id === workspace.selectedId ? { ...tab, path: home, title: null } : tab
 								),
 							},
 						};

@@ -116,7 +116,9 @@ describe( 'sidebar site list', () => {
 		await openIn( 'My site' );
 		expect( await screen.findByRole( 'menuitem', { name: 'Terminal' } ) ).toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Zed' } ) );
-		await waitFor( () => expect( connector.openSiteInEditor ).toHaveBeenCalledWith( 'one' ) );
+		await waitFor( () =>
+			expect( connector.openSiteInEditor ).toHaveBeenCalledWith( 'one', undefined )
+		);
 	} );
 
 	it( 'records the settings panel when site settings open from the row menu', async () => {

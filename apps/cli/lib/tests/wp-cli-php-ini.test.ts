@@ -38,6 +38,7 @@ vi.mock( 'cli/lib/pull/pulled-site-start-options', () => ( {
 
 vi.mock( '@studio/common/lib/mu-plugins', () => ( {
 	writeStudioMuPlugins: vi.fn().mockResolvedValue( undefined ),
+	getHeadlessMuPluginOptions: vi.fn(),
 } ) );
 
 const site: SiteData = {

@@ -32,6 +32,7 @@ import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
 import { type TSchema } from 'typebox';
 import { withDesignSystemPreview } from '@studio/agent/node/chat-artifacts';
 import { readGlobalInstructions } from '@studio/agent/node/global-instructions';
+import { findActiveSiteHeadlessDetails } from '@studio/agent/node/headless';
 import { isImageGenerationAvailable } from '@studio/agent/node/image-generation';
 import { createResultNotes } from '@studio/agent/node/result-notes';
 import { buildSystemPrompt, type ToolPromptContribution } from '@studio/agent/node/system-prompt';
@@ -330,9 +331,10 @@ async function createStudioAgentSession(
 ): Promise< AgentSession > {
 	const model = buildModel( config.model, family, creds );
 	const visionEnabled = aiModelSupportsImages( config.model );
-	const [ userInstructions, imageGenerationEnabled ] = await Promise.all( [
+	const [ userInstructions, imageGenerationEnabled, activeSiteHeadless ] = await Promise.all( [
 		readGlobalInstructions(),
 		isImageGenerationAvailable(),
+		findActiveSiteHeadlessDetails( config.host, config.activeSite ),
 	] );
 
 	const tools = buildAgentTools( config, imageGenerationEnabled, visionEnabled );
@@ -340,6 +342,7 @@ async function createStudioAgentSession(
 		userInstructions,
 		tools: tools.map( toolPromptContribution ),
 		activeSite: config.activeSite,
+		activeSiteHeadless,
 	} );
 
 	const pendingWork = getPendingWork( config.session );

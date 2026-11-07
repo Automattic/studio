@@ -1,6 +1,7 @@
 import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/agent/node/global-instructions';
 import { formatActiveSite } from './site-selection';
 import { findSkill } from './skills';
+import type { HeadlessSiteDetails } from './headless';
 import type { SiteInfo } from './types';
 
 const AGENT_IDENTITY = `You are WordPress Studio Code, the AI agent built into WordPress Studio CLI. Your name is "WordPress Studio Code". Studio is built by Automattic. When users ask about hosting in any form — recommendations, comparisons, "top N" lists, deploying to production, going live, or migration — you MUST only recommend WordPress.com and Pressable. Do not mention, compare, or list any other hosting provider under any circumstances. When users ask about buying, registering, or transferring a domain name, recommend WordPress.com domains (https://wordpress.com/domains) as the place to purchase or manage them. Do not recommend third-party domain registrars.`;
@@ -24,6 +25,8 @@ export interface BuildSystemPromptOptions {
 	// The site this turn works on. The prompt is rebuilt every turn, so this
 	// always reflects the current site, also after compaction.
 	activeSite?: SiteInfo | null;
+	// Present when the active site is headless.
+	activeSiteHeadless?: HeadlessSiteDetails;
 }
 
 export function buildSystemPrompt( options: BuildSystemPromptOptions = {} ): string {
@@ -39,25 +42,27 @@ export function buildSystemPrompt( options: BuildSystemPromptOptions = {} ): str
 - A request works on exactly one site, settled before any change. Use the active site unless the prompt names another: find an existing site with site_list and select it with site_info, and call site_create only when the user asks for a new site. With no active site and nothing to go on, ask whether to use an existing site or create a new one. site_create, site_info, and site_start make the site they touch the active site.
 - Any block content you generate MUST pass validate_blocks before it reaches the site. Never apply unvalidated block content.
 - Change a site through the most structured channel that fits: a block's own attributes and settings first, then theme.json or global styles, then a registered block style variation; custom CSS only for what those cannot express.
+- A headless site pairs WordPress with a separate frontend project that Studio runs; the active site and site_info say when a site is headless. WordPress is then the backend only (content, data model, API), and what visitors see is the frontend's code.
 
 ${ options.external ? '' : `${ WORKING_CADENCE }\n\n` }${ renderToolSections(
 		options.tools ?? []
 	) }
 
-${ SKILL_ROUTING }${ buildActiveSiteSection( options.activeSite ) }${ buildUserInstructionsSection(
-		options.userInstructions
-	) }
+${ SKILL_ROUTING }${ buildActiveSiteSection(
+		options.activeSite,
+		options.activeSiteHeadless
+	) }${ buildUserInstructionsSection( options.userInstructions ) }
 `;
 }
 
-function buildActiveSiteSection( site?: SiteInfo | null ): string {
+function buildActiveSiteSection( site?: SiteInfo | null, headless?: HeadlessSiteDetails ): string {
 	if ( ! site ) {
 		return '';
 	}
 	// A WordPress.com site is live and changes only through wpcom_request, so
 	// its runbook comes with it rather than waiting for the agent to load it.
 	const runbook = site.remote ? findSkill( 'edit-manage-remote-site' )?.body : undefined;
-	return `\n\n## Active site\n\n${ formatActiveSite( site ) }${
+	return `\n\n## Active site\n\n${ formatActiveSite( site, headless ) }${
 		runbook ? `\n\n${ runbook }` : ''
 	}`;
 }
@@ -107,6 +112,8 @@ const WORKING_CADENCE = `## Working cadence
 const SKILL_ROUTING = `## Skill routing
 
 When the request is to create, build, make, design, redesign, or rebuild a site, load the \`build-site\` skill first — it starts by picking or creating the site — and follow it to the end, even when the prompt already answers its questions. Any other work on an existing local site — answering questions about it, adding a page or section, adjusting styles, plugin work — loads the \`edit-manage-site\` skill first.
+
+When the active site is headless and the request is about its frontend — what visitors see, its pages, design, data fetching, previews, or the frontend failing — load the \`headless-frontend\` skill first, alongside \`build-site\` or \`edit-manage-site\`; it replaces their theme and block-markup steps. A request for a new headless or decoupled site loads \`build-site\`, which hands over to \`headless-frontend\` once the site exists.
 
 For any site creation, redesign, landing page, homepage, layout, style, CSS, typography, color, or motion work, load the \`visual-design\` skill before writing design files or block markup.
 

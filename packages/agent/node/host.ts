@@ -2,6 +2,7 @@ import type { SiteInfo } from './types';
 import type { StudioChatArtifactData } from '@studio/agent/protocol/chat-artifacts';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
+import type { FrontendCreateChoice, SiteFrontend } from '@studio/common/lib/site-frontend';
 import type { SiteStatus } from '@studio/common/types/site-status';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -16,6 +17,8 @@ export interface HostSite {
 	url: string;
 	phpVersion: string;
 	adminPassword?: string;
+	// Present for headless sites.
+	frontend?: SiteFrontend;
 }
 
 export interface WpCliOutput {
@@ -47,7 +50,13 @@ export interface StudioAgentHost {
 		all(): Promise< HostSite[] >;
 		list(): Promise< Omit< SiteListItem, 'adminPassword' >[] >;
 		status( site: HostSite ): Promise< SiteStatus >;
-		create( name: string, sitePath: string, onProgress: ProgressCallback ): Promise< void >;
+		// With `frontend`, creates a headless site: WordPress plus a frontend project.
+		create(
+			name: string,
+			sitePath: string,
+			onProgress: ProgressCallback,
+			options?: { frontend?: FrontendCreateChoice }
+		): Promise< void >;
 		start( site: HostSite, onProgress: ProgressCallback ): Promise< void >;
 		stop( site: HostSite, onProgress: ProgressCallback ): Promise< void >;
 		delete( site: HostSite, deleteFiles: boolean, onProgress: ProgressCallback ): Promise< void >;
@@ -60,6 +69,10 @@ export interface StudioAgentHost {
 			onProgress: ProgressCallback
 		): Promise< void >;
 		wpCli( site: HostSite, args: string[] ): Promise< WpCliOutput >;
+		// Headless sites only: restarts the frontend process Studio supervises.
+		frontendRestart( site: HostSite, onProgress: ProgressCallback ): Promise< void >;
+		// Headless sites only: the last `lines` lines of the frontend's output.
+		frontendLogs( site: HostSite, lines: number ): Promise< string >;
 	};
 	previews: {
 		list( site: HostSite ): Promise< Snapshot[] >;

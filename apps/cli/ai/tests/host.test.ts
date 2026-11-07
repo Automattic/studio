@@ -11,6 +11,11 @@ import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import {
+	readFrontendLogTail,
+	startFrontendServer,
+	stopFrontendServer,
+} from 'cli/lib/frontend/server';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
 import { Logger } from 'cli/logger';
@@ -43,6 +48,11 @@ vi.mock( 'cli/lib/daemon-client', () => ( {
 	disconnectFromDaemon: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/run-wp-cli-command', () => ( { runWpCliCommand: vi.fn() } ) );
+vi.mock( 'cli/lib/frontend/server', () => ( {
+	readFrontendLogTail: vi.fn(),
+	startFrontendServer: vi.fn(),
+	stopFrontendServer: vi.fn(),
+} ) );
 
 const site = {
 	id: 'site-123',
@@ -60,6 +70,13 @@ const hostSite = {
 	phpVersion: '8.4',
 	adminPassword: 'password',
 };
+const frontend = {
+	path: '/sites/my-site/frontend',
+	kind: 'command' as const,
+	framework: 'astro' as const,
+	port: 3000,
+};
+const headlessSite = { ...site, path: '/sites/my-site/wordpress', frontend };
 const preview = {
 	url: 'demo.wp.build',
 	atomicSiteId: 12345,
@@ -167,5 +184,67 @@ describe( 'cliAgentHost', () => {
 		expect( runWpCliCommand ).toHaveBeenCalledWith( site, [ 'option', 'get' ] );
 		expect( connectToDaemon ).toHaveBeenCalled();
 		expect( disconnectFromDaemon ).toHaveBeenCalled();
+	} );
+
+	it( "maps a headless site's frontend", async () => {
+		vi.mocked( readCliConfig ).mockResolvedValue( {
+			sites: [ headlessSite ],
+		} as Awaited< ReturnType< typeof readCliConfig > > );
+
+		await expect( cliAgentHost.sites.resolve( 'My Site' ) ).resolves.toEqual( {
+			...hostSite,
+			path: '/sites/my-site/wordpress',
+			frontend,
+		} );
+	} );
+
+	it( 'creates a headless site with the frontend the agent picked', async () => {
+		await cliAgentHost.sites.create( 'My Site', '/sites/my-site', vi.fn(), {
+			frontend: { framework: 'next', api: 'graphql' },
+		} );
+
+		expect( runCreateSiteCommand ).toHaveBeenCalledWith(
+			'/sites/my-site',
+			expect.objectContaining( { frontend: { framework: 'next', api: 'graphql' } } ),
+			expect.any( Logger )
+		);
+	} );
+
+	it( 'restarts the frontend by stopping and starting it through the daemon', async () => {
+		vi.mocked( getSiteByFolder ).mockResolvedValue( headlessSite );
+		const order: string[] = [];
+		vi.mocked( stopFrontendServer ).mockImplementation( async () => void order.push( 'stop' ) );
+		vi.mocked( startFrontendServer ).mockImplementation( async () => {
+			order.push( 'start' );
+			return {} as never;
+		} );
+
+		await cliAgentHost.sites.frontendRestart(
+			{ ...hostSite, path: headlessSite.path, frontend },
+			vi.fn()
+		);
+
+		expect( order ).toEqual( [ 'stop', 'start' ] );
+		expect( stopFrontendServer ).toHaveBeenCalledWith( 'site-123' );
+		expect( startFrontendServer ).toHaveBeenCalledWith( headlessSite, expect.any( Logger ) );
+		expect( connectToDaemon ).toHaveBeenCalled();
+		expect( disconnectFromDaemon ).toHaveBeenCalled();
+	} );
+
+	it( 'refuses to restart the frontend of a classic site', async () => {
+		await expect( cliAgentHost.sites.frontendRestart( hostSite, vi.fn() ) ).rejects.toThrow(
+			'not a headless site'
+		);
+		expect( startFrontendServer ).not.toHaveBeenCalled();
+	} );
+
+	it( "reads the tail of a headless site's frontend output", async () => {
+		vi.mocked( getSiteByFolder ).mockResolvedValue( headlessSite );
+		vi.mocked( readFrontendLogTail ).mockReturnValue( [ 'ready', 'fetch failed' ] );
+
+		await expect( cliAgentHost.sites.frontendLogs( { ...hostSite, frontend }, 2 ) ).resolves.toBe(
+			'ready\nfetch failed'
+		);
+		expect( readFrontendLogTail ).toHaveBeenCalledWith( 'site-123', 2 );
 	} );
 } );

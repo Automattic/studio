@@ -9,22 +9,38 @@ import { useIsSiteBusy } from '@/data/queries/use-sites';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
-import { getSiteUrl } from '@/features/sites/get-site-url';
+import { getPreviewHomePath, getSiteFrontendUrl, getSiteUrl } from '@/features/sites/get-site-url';
 import {
 	DATABASE_HOME_PATH,
 	EMAIL_PREVIEW_PATH,
 	getRealmNavigationPath,
 } from '@/features/sites/site-preview/address-bar';
 import { usePreviewOpenTracks } from '@/features/sites/site-preview/use-preview-open-tracks';
-import { AppearanceIcon, DatabaseIcon, GlobeIcon, MailIcon, WordPressIcon } from '@/lib/icons';
+import {
+	AppearanceIcon,
+	CodeIcon,
+	DatabaseIcon,
+	GlobeIcon,
+	MailIcon,
+	WordPressIcon,
+} from '@/lib/icons';
 import { isDialogOpen, isTextEntry } from '@/lib/keyboard';
 import { Button, Kbd, Menu } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
-export function getSiteTool( id: 'frontend' | 'admin' | 'database' | 'email' | 'design' ) {
+export function getSiteTool(
+	id: 'frontend-app' | 'frontend' | 'admin' | 'database' | 'email' | 'design'
+) {
 	return (
 		{
+			// A headless site's frontend project, beside WordPress.
+			'frontend-app': {
+				label: __( 'Frontend app' ),
+				Icon: CodeIcon,
+				shortcut: 'F',
+				action: 'openFrontendApp',
+			},
 			frontend: { label: __( 'Browser' ), Icon: GlobeIcon, shortcut: 'B', action: 'openBrowser' },
 			admin: { label: __( 'Admin' ), Icon: WordPressIcon, shortcut: 'A', action: 'openAdmin' },
 			database: {
@@ -78,6 +94,7 @@ export function useSiteToolActions(
 		} );
 	};
 	return {
+		openFrontendApp: () => void open( getPreviewHomePath( site ) ),
 		openBrowser: () => void open( '/' ),
 		openAdmin: () => void open( '/wp-admin/' ),
 		openDatabase: () => void open( DATABASE_HOME_PATH ),
@@ -99,12 +116,21 @@ function useAvailableSiteTools( site: SiteDetails, live: boolean ) {
 			return false;
 		}
 	}, [ design ] );
-	return ( [ 'frontend', 'admin', 'design', 'database', 'email' ] as const )
+	const headless = ! live && !! getSiteFrontendUrl( site );
+	return ( [ 'frontend-app', 'frontend', 'admin', 'design', 'database', 'email' ] as const )
 		.filter(
 			( id ) =>
-				( ! live || id === 'frontend' || id === 'admin' ) && ( id !== 'design' || designAvailable )
+				( id !== 'frontend-app' || headless ) &&
+				( ! live || id === 'frontend' || id === 'admin' ) &&
+				( id !== 'design' || designAvailable )
 		)
-		.map( ( id ) => ( { id, ...getSiteTool( id ) } ) );
+		.map( ( id ) => ( {
+			id,
+			...getSiteTool( id ),
+			// Beside a headless site's frontend app, the browser tool is WordPress's
+			// own front end.
+			...( id === 'frontend' && headless ? { label: __( 'WordPress' ) } : {} ),
+		} ) );
 }
 
 export function SiteToolLauncher( {

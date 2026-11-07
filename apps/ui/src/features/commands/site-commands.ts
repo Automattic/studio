@@ -38,6 +38,7 @@ import type {
 
 const OPEN_IN_ICONS: Record< OpenInDestination, PaletteCommand[ 'icon' ] > = {
 	browser: ExternalLinkIcon,
+	'browser-wordpress': ExternalLinkIcon,
 	'wp-admin': WordPressIcon,
 	files: FolderIcon,
 	editor: CodeIcon,
@@ -202,11 +203,14 @@ export function getSiteCommands( {
 				( destination ): PaletteCommand => ( {
 					id: `open-${ destination.id }`,
 					group: 'commands',
-					label: sprintf(
-						/* translators: %s is the name of the app. E.g. "Open in Cursor" */
-						__( 'Open in %s' ),
-						destination.label
-					),
+					label:
+						destination.id === 'browser-wordpress'
+							? __( 'Open WordPress in browser' )
+							: sprintf(
+									/* translators: %s is the name of the app. E.g. "Open in Cursor" */
+									__( 'Open in %s' ),
+									destination.label
+							  ),
 					icon: OPEN_IN_ICONS[ destination.id ],
 					description,
 					keywords: keywords[ destination.id ],

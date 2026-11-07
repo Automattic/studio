@@ -166,15 +166,41 @@ export async function isEmptyDir( directory: string ): Promise< boolean > {
 	return files.length === 0;
 }
 
-export function readLastLines( filePath: string, maxLines: number ): string[] | undefined {
+// The last `maxLines` non-blank lines of a file, or undefined when it can't be read.
+// `maxBytes` reads only the end of a large file, dropping the partial line it starts in.
+export function readLastLines(
+	filePath: string,
+	maxLines: number,
+	maxBytes?: number
+): string[] | undefined {
+	let fd: number | undefined;
 	try {
 		if ( ! fs.existsSync( filePath ) ) {
 			return undefined;
 		}
-		const content = fs.readFileSync( filePath, 'utf-8' );
-		const lines = content.split( '\n' ).filter( ( line ) => line.trim() );
-		return lines.slice( -maxLines );
+		let content: string;
+		let truncated = false;
+		if ( maxBytes === undefined ) {
+			content = fs.readFileSync( filePath, 'utf-8' );
+		} else {
+			fd = fs.openSync( filePath, 'r' );
+			const { size } = fs.fstatSync( fd );
+			const length = Math.min( size, maxBytes );
+			const buffer = Buffer.alloc( length );
+			fs.readSync( fd, buffer, 0, length, size - length );
+			content = buffer.toString( 'utf-8' );
+			truncated = length < size;
+		}
+		const lines = content.split( '\n' );
+		if ( truncated ) {
+			lines.shift();
+		}
+		return lines.filter( ( line ) => line.trim() ).slice( -maxLines );
 	} catch {
 		return undefined;
+	} finally {
+		if ( fd !== undefined ) {
+			fs.closeSync( fd );
+		}
 	}
 }

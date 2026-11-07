@@ -115,11 +115,11 @@ it( 'keeps icon-only annotation available in a narrow preview with sharing feedb
 		screen.queryByRole( 'button', { name: 'More preview actions' } )
 	).not.toBeInTheDocument();
 	const share = screen.getByRole( 'button', { name: 'Share' } );
-	const annotation = screen.getByRole( 'button', { name: 'Annotate' } );
+	const annotation = await screen.findByRole( 'tab', { name: 'Annotate' } );
 	await waitFor( () => expect( annotation ).toBeEnabled() );
 	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
-	expect( annotation ).toHaveAttribute( 'aria-pressed', 'true' );
+	expect( annotation ).toHaveAttribute( 'aria-selected', 'true' );
 	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toHaveAttribute(
 		'data-variant',
 		'accent'
@@ -127,7 +127,12 @@ it( 'keeps icon-only annotation available in a narrow preview with sharing feedb
 	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeEnabled();
 	expect( annotation ).toHaveTextContent( /^$/ );
 	await user.click( annotation );
-	expect( annotation ).toHaveAttribute( 'aria-pressed', 'false' );
+	expect( annotation ).toHaveAttribute( 'aria-selected', 'true' );
+	fireEvent.keyDown( document, { key: '>', code: 'Period', ctrlKey: true, shiftKey: true } );
+	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toHaveAttribute(
+		'aria-pressed',
+		'false'
+	);
 	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toHaveAttribute(
 		'data-variant',
 		'accent'
@@ -181,15 +186,18 @@ it( 'marks saved annotations with a dot while keeping Publish accented', async (
 	expect( screen.queryByRole( 'button', { name: 'Send 1 annotation' } ) ).not.toBeInTheDocument();
 	expect( screen.queryByRole( 'button', { name: 'Review annotations' } ) ).not.toBeInTheDocument();
 	await user.click( annotate );
-	expect( annotate ).toHaveAttribute( 'aria-pressed', 'true' );
-	expect( annotate.querySelector( '[data-slot="notification-dot"]' ) ).not.toBeInTheDocument();
-	await user.click( annotate );
-	expect( annotate.querySelector( '[data-slot="notification-dot"]' ) ).toBeInTheDocument();
+	const activeTab = screen.getByRole( 'tab', { name: 'Annotate' } );
+	expect( activeTab ).toHaveAttribute( 'aria-selected', 'true' );
+	expect( activeTab ).toHaveAccessibleDescription( '1 annotation ready to send' );
+	expect( activeTab.querySelector( '[data-slot="notification-dot"]' ) ).not.toBeInTheDocument();
+	fireEvent.keyDown( document, { key: '>', code: 'Period', ctrlKey: true, shiftKey: true } );
+	const idleButton = screen.getByRole( 'button', { name: 'Annotate' } );
+	expect( idleButton.querySelector( '[data-slot="notification-dot"]' ) ).toBeInTheDocument();
 	act( () => {
 		removeAnnotations( siteId, [ id ] );
 		setAnnotating( siteId, false );
 	} );
-	expect( annotate ).not.toHaveTextContent( '1' );
+	expect( idleButton ).not.toHaveTextContent( '1' );
 } );
 
 it( 'keeps browser actions directly available in a narrow preview', async () => {

@@ -80,7 +80,9 @@ async function setup( onStartAnnotating?: () => boolean ) {
 		act( () => {
 			fireEvent( preview, Object.assign( new Event( type ), details ) );
 		} );
-	const annotate = () => screen.getByRole( 'button', { name: /^Annotate/ } );
+	const annotate = () =>
+		screen.queryByRole( 'button', { name: /^Annotate/ } ) ??
+		screen.getByRole( 'tab', { name: 'Annotate' } );
 	return { ...view, preview, emit, annotate, connector, onSendAnnotations };
 }
 
@@ -130,7 +132,7 @@ describe( 'annotation inspector navigation', () => {
 			id = pickAnnotation( site.id, { selector: 'h1', url: 'http://localhost:8881/' } )!;
 			changeAnnotation( site.id, id, { comment: 'Keep this note' } );
 		} );
-		fireEvent.click( annotate() );
+		fireEvent.keyDown( document, { key: '>', code: 'Period', ctrlKey: true, shiftKey: true } );
 		expect( screen.queryByRole( 'group', { name: 'Annotation tools' } ) ).not.toBeInTheDocument();
 		expect( getSiteAnnotations( site.id ).notes ).toEqual( [
 			expect.objectContaining( { id, comment: 'Keep this note' } ),
@@ -139,28 +141,40 @@ describe( 'annotation inspector navigation', () => {
 		expect( screen.queryByRole( 'button', { name: 'Send annotations' } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'reveals Draw beside Annotate and shares its selection with the floating toolbar', async () => {
-		const { emit, annotate, preview } = await setup();
+	it( 'shows one active header tab and shares its selection with the floating toolbar', async () => {
+		const { emit, annotate, preview, user } = await setup();
 		emit( 'dom-ready' );
 		await waitFor( () => expect( annotate() ).toBeEnabled() );
 		const actions = within( screen.getByRole( 'group', { name: 'Annotation actions' } ) );
-		expect( actions.queryByRole( 'button', { name: 'Draw' } ) ).not.toBeInTheDocument();
+		expect( actions.queryByRole( 'tab', { name: 'Draw' } ) ).not.toBeInTheDocument();
 		expect(
 			actions.queryByRole( 'button', { name: 'Discard annotations' } )
 		).not.toBeInTheDocument();
 		fireEvent.click( annotate() );
-		const draw = actions.getByRole( 'button', { name: 'Draw' } );
-		expect( draw ).toHaveAttribute( 'aria-pressed', 'false' );
+		const tabs = screen.getByRole( 'tablist', { name: 'Annotation mode' } );
+		const selectTab = within( tabs ).getByRole( 'tab', { name: 'Annotate' } );
+		const draw = within( tabs ).getByRole( 'tab', { name: 'Draw' } );
+		expect( selectTab ).toHaveAttribute( 'aria-selected', 'true' );
+		expect( draw ).toHaveAttribute( 'aria-selected', 'false' );
 		fireEvent.click( draw );
-		expect( draw ).toHaveAttribute( 'aria-pressed', 'true' );
+		expect( draw ).toHaveAttribute( 'aria-selected', 'true' );
 		expect( drawButton() ).toHaveAttribute( 'aria-pressed', 'true' );
 		expect( pageState( preview ).tool ).toBe( 'draw' );
+		expect( selectTab ).toHaveAttribute( 'aria-selected', 'false' );
+		expect( within( tabs ).getAllByRole( 'tab', { selected: true } ) ).toHaveLength( 1 );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Select' } ) );
-		expect( draw ).toHaveAttribute( 'aria-pressed', 'false' );
+		expect( draw ).toHaveAttribute( 'aria-selected', 'false' );
 		fireEvent.click( drawButton() );
-		expect( draw ).toHaveAttribute( 'aria-pressed', 'true' );
-		fireEvent.click( annotate() );
-		expect( actions.queryByRole( 'button', { name: 'Draw' } ) ).not.toBeInTheDocument();
+		expect( draw ).toHaveAttribute( 'aria-selected', 'true' );
+		fireEvent.click( selectTab );
+		expect( getSiteAnnotations( site.id ).active ).toBe( true );
+		await user.click( selectTab );
+		await user.keyboard( '{ArrowRight}' );
+		expect( draw ).toHaveAttribute( 'aria-selected', 'true' );
+		await user.keyboard( '{ArrowLeft}' );
+		expect( selectTab ).toHaveAttribute( 'aria-selected', 'true' );
+		fireEvent.keyDown( document, { key: '>', code: 'Period', ctrlKey: true, shiftKey: true } );
+		expect( actions.queryByRole( 'tab', { name: 'Draw' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'group', { name: 'Annotation tools' } ) ).not.toBeInTheDocument();
 	} );
 
@@ -615,7 +629,7 @@ describe( 'annotation inspector navigation', () => {
 		onStartAnnotating.mockReturnValue( true );
 		fireEvent.click( annotate() );
 		expect( getSiteAnnotations( site.id ).active ).toBe( true );
-		fireEvent.click( annotate() );
+		fireEvent.keyDown( document, { key: '>', code: 'Period', ctrlKey: true, shiftKey: true } );
 		expect( getSiteAnnotations( site.id ).active ).toBe( false );
 		expect( onStartAnnotating ).toHaveBeenCalledTimes( 2 );
 	} );

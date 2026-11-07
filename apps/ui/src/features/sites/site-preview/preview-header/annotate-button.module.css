@@ -7,3 +7,9 @@
 .icon {
 	display: flex;
 }
+
+.tab {
+	justify-content: center;
+	width: var( --space-8 );
+	padding: 0;
+}

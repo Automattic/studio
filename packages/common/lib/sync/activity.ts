@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { PUSH_PHASES } from '@studio/common/types/sync';
 
-const syncDirectionSchema = z.enum( [ 'push', 'pull', 'preview', 'import' ] );
+// `spacefast` is publishing a static export of the site to a Spacefast Space.
+const syncDirectionSchema = z.enum( [ 'push', 'pull', 'preview', 'import', 'spacefast' ] );
 
 /**
  * What a sync is doing, as published by the CLI command running it. Every UI renders this, so a

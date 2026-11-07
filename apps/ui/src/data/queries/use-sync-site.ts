@@ -8,6 +8,10 @@ import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
+import {
+	SPACEFAST_SPACES_QUERY_KEY,
+	spacefastConnectionQueryKey,
+} from '@/data/queries/use-spacefast';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
 import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
 import { getSnapshotUrl } from '@/data/snapshot-url';
@@ -103,6 +107,18 @@ export function useSettleSync() {
 					toast.info( __( 'Preview creation cancelled' ), {
 						id: noticeId,
 						description: siteName(),
+					} );
+				}
+				return;
+			}
+			if ( settled.direction === 'spacefast' ) {
+				void queryClient.invalidateQueries( { queryKey: spacefastConnectionQueryKey( siteId ) } );
+				void queryClient.invalidateQueries( { queryKey: SPACEFAST_SPACES_QUERY_KEY } );
+				if ( settled.kind === 'success' ) {
+					toast.success( __( 'Published to Spacefast' ) );
+				} else if ( settled.kind === 'error' ) {
+					toast.error( __( "Publishing to Spacefast didn't complete" ), {
+						description: settled.message,
 					} );
 				}
 				return;

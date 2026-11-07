@@ -1,3 +1,4 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { setCommandPaletteOpen } from '@/data/use-command-palette';
@@ -89,7 +90,12 @@ it.each( [ true, false ] )(
 		const firstTab = screen.getByRole( 'tab', { name: 'First' } );
 		const firstPage = document.querySelector( 'iframe' );
 		if ( ! open ) await user.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
+		connector.trackEvent.mockClear();
 		await user.click( chip );
+		expect( connector.trackEvent.mock.calls ).toEqual( [
+			[ TRACKS_EVENTS.SITE_OPEN_DESIGN_SYSTEM, { browser: 'internal' } ],
+			...( open ? [] : [ [ TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED, { layout: 'split' }, 'one' ] ] ),
+		] );
 		expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 );
 		expect( screen.getByRole( 'tab', { name: 'Design system' } ) ).toHaveAttribute(
 			'aria-selected',

@@ -8,7 +8,7 @@ import { getSections } from '@/data/settings-sections';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { AccountPromptDialog } from '@/features/account/account-prompt';
 import { Gravatar } from '@/features/account/gravatar';
-import { AppUpdateButton, NoticeHistoryButton } from '@/features/notifications';
+import { AppUpdateButton } from '@/features/notifications';
 import { useOffline } from '@/lib/hooks';
 import { LoginIcon } from '@/lib/icons';
 import { Button, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
@@ -17,7 +17,7 @@ import { SupportMenu } from './support-menu';
 
 const MENU_SECTIONS: string[] = [ 'ai', 'usage' ];
 
-export function UserMenu( { active = true }: { active?: boolean } ) {
+export function UserMenu() {
 	const { data: user } = useAuthUser();
 	const isOffline = useOffline();
 	const logout = useLogout();
@@ -104,7 +104,6 @@ export function UserMenu( { active = true }: { active?: boolean } ) {
 					<AppUpdateButton />
 				</div>
 				{ isOffline && <OfflineIndicator /> }
-				<NoticeHistoryButton active={ active } />
 			</div>
 			<AccountPromptDialog
 				open={ promptOpen }

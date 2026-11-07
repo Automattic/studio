@@ -132,7 +132,9 @@ export function pickAnnotation( siteId: string, target: VisualAnnotationTarget )
 	}
 	if ( blockDraftNavigation( siteId ) ) return null;
 	if ( current.notes.filter( hasAnnotationContent ).length >= MAX_VISUAL_ANNOTATIONS ) {
-		toast.error( __( 'Send or delete some annotations before adding more' ) );
+		toast.info( __( 'Send or delete some annotations before adding more' ), {
+			id: `annotation-limit-${ siteId }`,
+		} );
 		return null;
 	}
 	const id = crypto.randomUUID();

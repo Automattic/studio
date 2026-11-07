@@ -147,9 +147,9 @@ export function useChatActions(
 			return;
 		}
 		toast.success( __( 'Chat archived' ), {
+			durationMs: 10_000,
 			action: {
 				label: __( 'Undo' ),
-				once: true,
 				onClick: () => mutateAsync( { sessionId: session.id, patch: { archived: false } } ),
 			},
 		} );

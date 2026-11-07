@@ -6,21 +6,17 @@
 	display: flex;
 	justify-content: center;
 	pointer-events: none;
-	container-type: inline-size;
 }
 
 .tools {
-	composes: floating padded from '@/lib/ui/surface/style.module.css';
+	--motion-duration-feedback: 0s;
 	display: flex;
 	align-items: center;
-	gap: var( --space-0_5 );
+	gap: var( --space-1 );
+	width: max-content;
 	max-width: 100%;
-	border-radius: var( --radius-popup );
+	height: auto;
+	padding: var( --space-1_5 );
+	box-shadow: var( --shadow-xs );
 	pointer-events: auto;
-}
-
-@container ( max-width: 360px ) {
-	.label {
-		display: none;
-	}
 }

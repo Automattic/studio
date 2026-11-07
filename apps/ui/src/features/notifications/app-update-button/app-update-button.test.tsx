@@ -150,3 +150,18 @@ describe( 'AppUpdateButton', () => {
 		await waitFor( () => expect( connector.installAppUpdate ).toHaveBeenCalledTimes( 2 ) );
 	} );
 } );
+
+it( 'keeps an explicitly requested check visible and reports its latest-version answer once', async () => {
+	const { user, connector } = setup( {
+		state: 'error',
+		currentVersion: '2.0.0',
+		reason: 'generic',
+	} );
+	connector.checkForAppUpdates.mockImplementation( async () => {
+		connector.emit( 'onAppUpdateStatusChanged', { state: 'checking', currentVersion: '2.0.0' } );
+	} );
+	await user.click( await screen.findByRole( 'button', { name: 'Try again' } ) );
+	expect( await screen.findByText( 'Checking for updates…' ) ).toBeVisible();
+	await act( () => connector.emit( 'onAppUpdateNotAvailable', { currentVersion: '2.0.0' } ) );
+	expect( await screen.findByText( "You're on the latest version (2.0.0)" ) ).toBeVisible();
+} );

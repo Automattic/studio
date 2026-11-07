@@ -15,7 +15,6 @@ import { useSidebarOpen, useToggleSidebar } from '@/data/use-sidebar-collapsed';
 import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
 import { getAppCommands, getPaletteChats } from '@/features/commands/studio-commands';
 import { useSettingCommands } from '@/features/commands/use-setting-commands';
-import { openNoticeHistory } from '@/features/notifications';
 import { useOpenWhatsNew } from '@/features/onboarding';
 import { useCollapseAll } from '@/features/sidebar';
 import { useOpenAddSite } from '@/features/sites';
@@ -35,19 +34,12 @@ export function useAppCommands(): PaletteCommand[] {
 	const sidebarOpen = useSidebarOpen();
 	const toggleSidebar = useToggleSidebar();
 	const hasOpenDialog = useHasOpenDialog();
-	const [ pendingAction, setPendingAction ] = useState< 'sidebar' | 'notifications' | null >(
-		null
-	);
+	const [ pendingSidebarToggle, setPendingSidebarToggle ] = useState( false );
 	useEffect( () => {
-		if ( ! pendingAction || hasOpenDialog ) return;
-		if ( pendingAction === 'notifications' && ! sidebarOpen ) {
-			toggleSidebar();
-			return;
-		}
-		setPendingAction( null );
-		if ( pendingAction === 'sidebar' ) toggleSidebar();
-		else openNoticeHistory();
-	}, [ pendingAction, hasOpenDialog, sidebarOpen, toggleSidebar ] );
+		if ( ! pendingSidebarToggle || hasOpenDialog ) return;
+		setPendingSidebarToggle( false );
+		toggleSidebar();
+	}, [ pendingSidebarToggle, hasOpenDialog, toggleSidebar ] );
 	const colorScheme = useColorScheme();
 	const savePreferences = useSaveUserPreferences();
 	const collapseAll = useCollapseAll();
@@ -78,8 +70,7 @@ export function useAppCommands(): PaletteCommand[] {
 			savePreferences.mutate( preferences, {
 				onError: () => toast.error( __( 'Could not update settings. Please try again.' ) ),
 			} ),
-		toggleSidebar: () => setPendingAction( 'sidebar' ),
-		openNotifications: () => setPendingAction( 'notifications' ),
+		toggleSidebar: () => setPendingSidebarToggle( true ),
 		openWhatsNew,
 		openFeedback,
 		collapseAll,

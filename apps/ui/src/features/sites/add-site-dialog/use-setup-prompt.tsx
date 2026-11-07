@@ -36,6 +36,7 @@ import {
 	DropOverlay,
 	Field,
 	FieldDescription,
+	FieldError,
 	FieldLabel,
 	IconButton,
 	InputGroup,
@@ -55,9 +56,13 @@ export function useSetupPrompt( { enabled = true, busy = false } = {} ) {
 	const brief = useRef< SetupBrief | null >( null );
 	const [ initialDraft ] = useState( () => getComposerDraft( briefDraftKey ) );
 	const [ text, setText ] = useState( initialDraft.text );
-	const { attachments, addFiles, removeAttachment, pasteHandlers } = useComposerAttachments(
-		initialDraft.attachments
-	);
+	const {
+		attachments,
+		addFiles,
+		removeAttachment,
+		pasteHandlers,
+		error: attachmentError,
+	} = useComposerAttachments( initialDraft.attachments );
 	useEffect( () => {
 		saveComposerDraft( briefDraftKey, { text, attachments } );
 	}, [ briefDraftKey, text, attachments ] );
@@ -191,6 +196,7 @@ export function useSetupPrompt( { enabled = true, busy = false } = {} ) {
 					/>
 				</div>
 			</InputGroup>
+			{ attachmentError ? <FieldError role="alert">{ attachmentError }</FieldError> : null }
 			{ notice && (
 				<FieldDescription>
 					{ notice.message }

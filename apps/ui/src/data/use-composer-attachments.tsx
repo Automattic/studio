@@ -10,7 +10,6 @@ import {
 } from '@studio/agent/protocol/composer-attachments';
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 
 export { toComposerSendAttachments };
@@ -18,6 +17,7 @@ export type { ComposerAttachment, ComposerSendAttachments };
 
 export function useComposerAttachments( initialAttachments: ComposerAttachment[] = [] ) {
 	const connector = useConnector();
+	const [ error, setError ] = useState< string | null >( null );
 	const [ attachments, setAttachments ] = useState< ComposerAttachment[] >( initialAttachments );
 	const attachmentsRef = useRef< ComposerAttachment[] >( initialAttachments );
 
@@ -27,6 +27,7 @@ export function useComposerAttachments( initialAttachments: ComposerAttachment[]
 	}, [] );
 
 	const removeAttachment = useCallback( ( id: string ) => {
+		setError( null );
 		setAttachments( ( current ) => {
 			const next = current.filter( ( item ) => item.id !== id );
 			attachmentsRef.current = next;
@@ -38,6 +39,7 @@ export function useComposerAttachments( initialAttachments: ComposerAttachment[]
 		(
 			items: ComposerAttachment[] | ( ( current: ComposerAttachment[] ) => ComposerAttachment[] )
 		) => {
+			setError( null );
 			setTrackedAttachments(
 				typeof items === 'function' ? items( attachmentsRef.current ) : items
 			);
@@ -76,7 +78,7 @@ export function useComposerAttachments( initialAttachments: ComposerAttachment[]
 				existingAttachments: [ ...reserved, ...attachmentsRef.current ],
 			} );
 			if ( prepared.error ) {
-				toast.error( prepared.error );
+				setError( prepared.error );
 			}
 			if ( prepared.attachments.length === 0 ) {
 				return;
@@ -87,9 +89,7 @@ export function useComposerAttachments( initialAttachments: ComposerAttachment[]
 				prepared.attachments,
 				messages
 			);
-			if ( merged.error ) {
-				toast.error( merged.error );
-			}
+			setError( merged.error ?? prepared.error ?? null );
 			setTrackedAttachments( merged.attachments.slice( reserved.length ) );
 		},
 		[ connector, setTrackedAttachments ]
@@ -108,6 +108,8 @@ export function useComposerAttachments( initialAttachments: ComposerAttachment[]
 	);
 
 	return {
+		error,
+		setError,
 		attachments,
 		addFiles,
 		removeAttachment,

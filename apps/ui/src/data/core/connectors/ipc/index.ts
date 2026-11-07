@@ -36,6 +36,7 @@ import type {
 	SiteDetails,
 	SiteAgentFile,
 	SkillStatus,
+	PreviewStatus,
 	Snapshot,
 	SnapshotUsage,
 	StudioAssistantQuota,
@@ -454,6 +455,10 @@ export function createIpcConnector(): Connector {
 
 		async renameSnapshot( hostname, name ): Promise< void > {
 			await ipcApi.renamePreviewSite( hostname, name );
+		},
+
+		async getPreviewStatus( hostname ): Promise< PreviewStatus > {
+			return ( await ipcApi.getPreviewStatus( hostname ) ) as PreviewStatus;
 		},
 
 		// Connected WPCom sites
@@ -932,6 +937,13 @@ export function createIpcConnector(): Connector {
 		onOpenSite( listener ) {
 			return ipcListener.subscribe( 'open-site', ( _event: unknown, payload: { siteId: string } ) =>
 				listener( payload )
+			);
+		},
+
+		onPullSite( listener ) {
+			return ipcListener.subscribe(
+				'pull-site',
+				( _event: unknown, payload: { remoteSiteId: number } ) => listener( payload )
 			);
 		},
 

@@ -106,7 +106,7 @@ function SiteCommands( {
 			connector.onNewChat( () => {
 				replaceOpenDialogs( () => {
 					runLayoutTransition( () => {
-						preview.setChatHidden( false, site.id );
+						preview.setChatHidden( false, site.id, { instant: true } );
 						return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 					} );
 				} );
@@ -127,7 +127,7 @@ function SiteCommands( {
 		openHeaderPanel,
 		newChat: () =>
 			runLayoutTransition( () => {
-				preview.setChatHidden( false, site.id );
+				preview.setChatHidden( false, site.id, { instant: true } );
 				return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 			} ),
 		reloadPreview: () => dispatch( { type: 'preview/reload' } ),

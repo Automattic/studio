@@ -52,8 +52,8 @@ export function useComposerNotice(
 		return () => window.removeEventListener( 'focus', recheck );
 	}, [ needsPaymentMethod, refetchQuota ] );
 
-	const retry = {
-		label: __( 'Try again' ),
+	const refresh = {
+		label: __( 'Refresh' ),
 		onClick: () => {
 			void settings.refetch();
 			void quota.refetch();
@@ -63,13 +63,13 @@ export function useComposerNotice(
 		return { message: __( 'You are offline. Reconnect to send a message.' ) };
 	}
 	if ( quotaError?.message === STUDIO_ASSISTANT_QUOTA_OFFLINE ) {
-		return { message: __( 'You are offline. Reconnect to send a message.' ), action: retry };
+		return { message: __( 'You are offline. Reconnect to send a message.' ), action: refresh };
 	}
 	if ( settings.isLoading || ( provider === 'wpcom' && isUserLoading ) ) {
 		return;
 	}
 	if ( settings.isError ) {
-		return { message: __( 'Couldn’t load your AI provider.' ), action: retry };
+		return { message: __( 'Couldn’t load your AI provider.' ), action: refresh };
 	}
 	if ( provider !== 'wpcom' ) {
 		return;
@@ -85,7 +85,7 @@ export function useComposerNotice(
 		};
 	}
 	if ( quotaError ) {
-		return { message: __( 'AI usage is currently unavailable.' ), action: retry };
+		return { message: __( 'AI usage is currently unavailable.' ), action: refresh };
 	}
 	if ( ! quota.data ) {
 		return;

@@ -211,8 +211,10 @@ it.each( [ 'Chat', 'Split view', 'Panel' ] )(
 		act( () => connector.emit( 'onSetWorkspaceLayout', layout ) );
 		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
 		expect( toggle() ).toHaveAttribute( 'data-workspace-layout', layout );
-		expect( layoutEvents( connector ) ).toEqual(
-			layout === 'panel' ? [] : [ [ event, { layout }, 'one' ] ]
+		await waitFor( () =>
+			expect( layoutEvents( connector ) ).toEqual(
+				layout === 'panel' ? [] : [ [ event, { layout }, 'one' ] ]
+			)
 		);
 	}
 );

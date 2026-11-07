@@ -42,6 +42,14 @@ export function applyColorTint(
 	const custom = accentColor !== DEFAULT_ACCENT_COLOR ? hexToOklch( accentColor ) : undefined;
 	root.style.setProperty( '--tint-hue', String( custom?.h ?? DEFAULT_TINT_HUE ) );
 	root.style.setProperty(
+		'--accent-palette-hue-shift',
+		String( custom ? custom.h - 268.048352 : 0 )
+	);
+	root.style.setProperty(
+		'--accent-palette-chroma-scale',
+		String( custom ? Math.min( 1, custom.c / 0.22 ) : 1 )
+	);
+	root.style.setProperty(
 		'--tint-saturation',
 		String( custom ? Math.min( 1, custom.c / 0.1 ) : 1 )
 	);

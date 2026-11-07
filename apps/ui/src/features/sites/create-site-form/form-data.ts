@@ -97,7 +97,8 @@ export function applyInitialValues(
 	values: CreateSiteFormDraft,
 	defaults: FormData,
 	previousSuggestedFields: Set< keyof CreateSiteFormValues > = new Set(),
-	dirtyFields: Set< keyof CreateSiteFormValues > = new Set()
+	dirtyFields: Set< keyof CreateSiteFormValues > = new Set(),
+	suggestedName = ''
 ): FormData {
 	const next: FormData = { ...prev };
 	const defaultValuesByField: Record< keyof CreateSiteFormValues, Partial< FormData > > = {
@@ -141,7 +142,7 @@ export function applyInitialValues(
 	if ( values.customDomain !== undefined && ! dirtyFields.has( 'customDomain' ) ) {
 		next.customDomain = values.customDomain;
 	}
-	updatePathForSiteName( prev, next );
+	updatePathForSiteName( prev, next, suggestedName );
 	return Object.keys( next ).some(
 		( key ) => next[ key as keyof FormData ] !== prev[ key as keyof FormData ]
 	)
@@ -150,37 +151,44 @@ export function applyInitialValues(
 }
 
 // A change the person made to the form.
-export function applyFormChange( prev: FormData, update: Partial< FormData > ): FormData {
+export function applyFormChange(
+	prev: FormData,
+	update: Partial< FormData >,
+	suggestedName = ''
+): FormData {
 	const next: FormData = { ...prev, ...update };
-	updatePathForSiteName( prev, next );
+	updatePathForSiteName( prev, next, suggestedName );
 	return next;
 }
 
-function updatePathForSiteName( prev: FormData, next: FormData ) {
+function updatePathForSiteName( prev: FormData, next: FormData, suggestedName = '' ) {
+	const siteName = next.name.trim() || suggestedName;
+	const previousName = prev.name.trim() || suggestedName;
 	if (
-		next.name === prev.name &&
+		siteName === previousName &&
 		next.path === prev.path &&
 		next.matchSiteName === prev.matchSiteName
 	)
 		return;
 	if ( ! next.hasCustomPath ) {
-		next.isPathPending = !! next.name.trim();
+		next.isPathPending = !! siteName;
 		next.pathError = '';
-		if ( ! next.name.trim() ) next.path = '';
+		if ( ! siteName ) next.path = '';
 	} else if ( next.matchSiteName ) {
-		const name = sanitizeFolderName( next.name );
+		const name = sanitizeFolderName( siteName );
 		next.path = splitFolderPath( next.path ).parent + name;
-		next.pathError = next.name.trim() ? getFolderNameError( name ) : '';
+		next.pathError = siteName ? getFolderNameError( name ) : '';
 		next.isWordPress = false;
 		next.isPathPending = ! next.pathError;
 	}
 }
 
-export function getSubmittedValues( data: FormData ): CreateSiteFormValues {
+export function getSubmittedValues( data: FormData, suggestedName = '' ): CreateSiteFormValues {
+	const name = data.name.trim() || suggestedName;
 	const domain = data.customDomain.trim();
 	const customDomain = domain && domain !== 'localhost' ? domain : undefined;
 	return {
-		name: data.name.trim(),
+		name,
 		path: data.path,
 		phpVersion: data.phpVersion,
 		fileAccess: data.fileAccess,

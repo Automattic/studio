@@ -210,11 +210,18 @@ it( 'focuses and keeps a narrow flyover open when the shortcut commits a hover p
 it.each( [
 	[ 'Add site', 'Add site' ],
 	[ 'Settings', 'Settings' ],
-	[ 'Log in', 'Do more with WordPress' ],
+	[ 'Log in or create account', 'Do more with WordPress' ],
 ] )( 'dismisses the flyout while keeping the %s dialog open', async ( button, title ) => {
 	const { open, user, trigger, connector } = await setup( 800 );
 	const sidebar = await open();
-	await user.click( within( sidebar ).getByRole( 'button', { name: button } ) );
+	if ( button === 'Add site' ) {
+		await user.click( within( sidebar ).getByRole( 'button', { name: button } ) );
+	} else {
+		await user.click( within( sidebar ).getByRole( 'button', { name: 'Account' } ) );
+		await user.click(
+			await screen.findByRole( 'menuitem', { name: new RegExp( `^${ button }` ) } )
+		);
+	}
 	const dialog = await screen.findByRole( 'dialog', { name: title } );
 	await switcherClosed();
 	await waitFor( () => expect( dialog ).toContainElement( document.activeElement as HTMLElement ) );

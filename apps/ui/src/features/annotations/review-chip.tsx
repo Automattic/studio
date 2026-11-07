@@ -1,8 +1,16 @@
+import { getComposerAttachmentImageSrc } from '@studio/agent/protocol/composer-attachment-preview';
 import { __, sprintf } from '@wordpress/i18n';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { AnnotateIcon, TrashIcon } from '@/lib/icons';
-import { AttachmentChip, AttachmentRemoveButton, Button, IconButton, Popover } from '@/lib/ui';
+import {
+	AttachmentChip,
+	AttachmentRemoveButton,
+	Button,
+	HoverCard,
+	IconButton,
+	Popover,
+} from '@/lib/ui';
 import styles from './review-chip.module.css';
 import {
 	isAnnotationsBusy,
@@ -127,8 +135,7 @@ export function AnnotationReviewChip( {
 									className={ styles.note }
 									disabled={ busy }
 									aria-label={ sprintf(
-										__( 'Edit annotation %d: %s' ),
-										note.number,
+										__( 'Edit annotation: %s' ),
 										note.comment || __( 'Image annotation' )
 									) }
 									onClick={ () => {
@@ -138,18 +145,39 @@ export function AnnotationReviewChip( {
 										requestAnnotationReview( siteId, note.id );
 									} }
 								>
-									<span className={ styles.number } aria-hidden="true">
-										{ note.number }
-									</span>
-									<span className={ styles.label }>
-										{ note.comment || __( 'Image annotation' ) }
+									<span className={ styles.content }>
+										{ note.images.map( ( image ) => (
+											<HoverCard.Root key={ image.id }>
+												<HoverCard.Trigger render={ <span className={ styles.thumbnail } /> }>
+													<img
+														src={ getComposerAttachmentImageSrc( image ) ?? undefined }
+														alt={ image.name }
+													/>
+												</HoverCard.Trigger>
+												<HoverCard.Popup
+													side="right"
+													align="start"
+													className={ styles.imagePreview }
+												>
+													<img src={ getComposerAttachmentImageSrc( image ) ?? undefined } alt="" />
+												</HoverCard.Popup>
+											</HoverCard.Root>
+										) ) }
+										<span className={ styles.label }>
+											{ note.comment || __( 'Image annotation' ) }
+										</span>
 									</span>
 								</Button>
 								<IconButton
 									variant="muted-ghost"
+									className={ styles.delete }
 									icon={ <TrashIcon /> }
 									size="icon-2xs"
-									label={ sprintf( __( 'Delete annotation %d' ), note.number ) }
+									tooltipSide="bottom"
+									label={ sprintf(
+										__( 'Delete annotation: %s' ),
+										note.comment || __( 'Image annotation' )
+									) }
 									disabled={ busy }
 									onClick={ () => {
 										const input = trigger.current

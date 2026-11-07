@@ -50,4 +50,41 @@ describe( 'inspector selections', () => {
 			} )
 		).toBeNull();
 	} );
+	it( 'preserves a shape undo and bounds the original points as part of the drawing', () => {
+		const input = {
+			...selection,
+			replaces: 'note',
+			target: { ...selection.target, kind: 'drawing' },
+			drawing: {
+				width: 3,
+				color: '#3858e9',
+				strokes: [
+					[
+						{ x: 30, y: 140 },
+						{ x: 60, y: 180 },
+					],
+				],
+				originalStroke: [
+					{ x: 25, y: 135 },
+					{ x: 65, y: 185 },
+				],
+			},
+		};
+		expect( parseInspectorSelection( input ) ).toMatchObject( {
+			replaces: 'note',
+			drawing: input.drawing,
+		} );
+		for ( const originalStroke of [
+			[],
+			[ { x: 900, y: 140 } ],
+			Array.from( { length: MAX_DRAWING_POINTS }, () => ( { x: 30, y: 140 } ) ),
+			'invalid',
+		] ) {
+			expect(
+				parseInspectorSelection( { ...input, drawing: { ...input.drawing, originalStroke } } )
+			).toBeNull();
+		}
+		expect( parseInspectorSelection( { ...input, replaces: 123 } ) ).toBeNull();
+		expect( parseInspectorSelection( { ...selection, replaces: 'note' } ) ).toBeNull();
+	} );
 } );

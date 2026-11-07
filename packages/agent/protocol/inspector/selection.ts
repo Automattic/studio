@@ -9,12 +9,14 @@ export interface AnnotationRect {
 
 export interface AnnotationDrawing {
 	strokes: { x: number; y: number }[][];
+	originalStroke?: { x: number; y: number }[];
 	color: string;
 	width: number;
 }
 
 export interface InspectorSelection {
 	id: string;
+	replaces?: string;
 	target: VisualAnnotationTarget & {
 		kind: 'region' | 'drawing';
 		url: string;
@@ -53,6 +55,15 @@ export function parseInspectorSelection( value: unknown ): InspectorSelection | 
 	if ( ! record( value ) || typeof value.id !== 'string' || ! value.id || value.id.length > 100 )
 		return null;
 	const target = value.target;
+	if (
+		value.replaces !== undefined &&
+		( typeof value.replaces !== 'string' ||
+			! value.replaces ||
+			value.replaces.length > 100 ||
+			! record( target ) ||
+			target.kind !== 'drawing' )
+	)
+		return null;
 	if (
 		! record( target ) ||
 		( target.kind !== 'region' && target.kind !== 'drawing' ) ||
@@ -103,7 +114,12 @@ export function parseInspectorSelection( value: unknown ): InspectorSelection | 
 			return null;
 		let count = 0;
 		const strokes: AnnotationDrawing[ 'strokes' ] = [];
-		for ( const stroke of input.strokes ) {
+		if ( input.originalStroke !== undefined && ! Array.isArray( input.originalStroke ) )
+			return null;
+		for ( const stroke of [
+			...input.strokes,
+			...( input.originalStroke === undefined ? [] : [ input.originalStroke ] ),
+		] ) {
 			if ( ! Array.isArray( stroke ) || ! stroke.length ) return null;
 			count += stroke.length;
 			if ( count > MAX_DRAWING_POINTS ) return null;
@@ -123,10 +139,17 @@ export function parseInspectorSelection( value: unknown ): InspectorSelection | 
 			}
 			strokes.push( points );
 		}
-		drawing = { strokes, color: input.color, width: input.width };
+		const originalStroke = input.originalStroke === undefined ? undefined : strokes.pop();
+		drawing = {
+			strokes,
+			color: input.color,
+			width: input.width,
+			...( originalStroke ? { originalStroke } : {} ),
+		};
 	}
 	return {
 		id: value.id,
+		...( value.replaces ? { replaces: value.replaces } : {} ),
 		target: {
 			kind: target.kind,
 			url: target.url,

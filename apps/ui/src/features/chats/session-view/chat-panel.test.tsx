@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createModelChangeEntry } from '@/data/queries/use-sessions';
 import {
 	changeAnnotation,
+	addTextEdit,
 	getSiteAnnotations,
 	pickAnnotation,
 	removeAnnotations,
@@ -727,6 +728,41 @@ describe( 'Annotation drafts during an active run', () => {
 		changeAnnotation( SITE_ID, id, { comment: 'Make the heading shorter' } );
 		return id;
 	}
+
+	it( 'keeps a sent text edit pending until the agent completes its turn', async () => {
+		const { connector, input } = await setupChat( { pinnedProvider: 'wpcom' } );
+		fireEvent.change( input, { target: { value: 'Keep my draft' } } );
+		const id = addNote();
+		act( () => {
+			changeAnnotation( SITE_ID, id, {
+				comment: 'Change the text from "Old title" to "New title".',
+			} );
+			addTextEdit( SITE_ID, {
+				id,
+				target: { selector: 'h1', url: 'http://localhost/' },
+				originalText: 'Old title',
+				text: 'New title',
+				pending: true,
+			} );
+			requestAnnotationSend( { siteId: SITE_ID, noteIds: [ id ] } );
+		} );
+		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledOnce() );
+		await waitFor( () => expect( getSiteAnnotations( SITE_ID ).notes ).toHaveLength( 0 ) );
+		expect( getSiteAnnotations( SITE_ID ).textEdits?.[ 0 ].pending ).toBe( true );
+		expect( input ).toHaveValue( 'Keep my draft' );
+		const { runId } = await connector.continueSession.mock.results[ 0 ].value;
+		act( () =>
+			connector.emit( 'onAgentEvent', {
+				sessionId: 'chat',
+				runId,
+				event: { type: 'turn.completed', status: 'success', timestamp: new Date().toISOString() },
+			} as AgentRunEvent )
+		);
+		expect( getSiteAnnotations( SITE_ID ).textEdits?.[ 0 ] ).toMatchObject( {
+			pending: false,
+			text: 'New title',
+		} );
+	} );
 
 	it( 'sends a direct annotation immediately while the chat is idle', async () => {
 		const { connector, input } = await setupChat( { pinnedProvider: 'wpcom' } );

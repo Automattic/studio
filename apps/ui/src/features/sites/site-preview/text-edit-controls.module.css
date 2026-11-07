@@ -1,0 +1,22 @@
+.overlay {
+	position: absolute;
+	inset: 0;
+	z-index: var( --z-overlay );
+	pointer-events: none;
+}
+
+.controls {
+	position: absolute;
+	display: flex;
+	gap: var( --space-1 );
+	pointer-events: auto;
+}
+
+.cancel {
+	--button-background: var( --popover );
+	box-shadow: var( --shadow-sm );
+}
+
+.send {
+	box-shadow: var( --shadow-sm );
+}

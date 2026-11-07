@@ -1,6 +1,6 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef } from 'react';
 import { AnnotateHint } from '@/features/onboarding';
 import { AnnotateIcon } from '@/lib/icons';
 import { isDialogOpen, isShortcut } from '@/lib/keyboard';
@@ -13,21 +13,21 @@ export function AnnotateButton( {
 	disabledReason,
 	onClick,
 	annotationCount = 0,
-	tools,
+	areaSelection = false,
 }: {
 	active: boolean;
 	disabled: boolean;
 	disabledReason?: string;
 	onClick: () => void;
 	annotationCount?: number;
-	tools?: ReactNode;
+	areaSelection?: boolean;
 } ) {
 	const modeButton = useRef< HTMLButtonElement >( null );
 	const tooltip =
 		disabledReason ??
 		( active
 			? __( 'Exit annotation mode' )
-			: tools
+			: areaSelection
 			? __( 'Click an element or drag an area' )
 			: __( 'Point to anything to describe a change' ) );
 	useEffect( () => {
@@ -97,7 +97,6 @@ export function AnnotateButton( {
 					onClick={ onClick }
 				/>
 			</AnnotateHint>
-			{ active ? tools : null }
 		</span>
 	);
 }

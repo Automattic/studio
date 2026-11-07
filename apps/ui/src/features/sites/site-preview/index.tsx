@@ -14,6 +14,8 @@ import {
 import { useResponsivePreview, updateResponsivePreview } from '@/data/responsive-preview';
 import {
 	AnnotationOverlay,
+	closeAnnotationEditor,
+	hasAnnotationContent,
 	isBatchedAnnotation,
 	getSiteAnnotations,
 	subscribeAnnotationReview,
@@ -52,6 +54,7 @@ import { getFitScale } from './responsive-preview/settings';
 import { ResponsiveToolbar } from './responsive-preview/toolbar';
 import styles from './style.module.css';
 import { getFrameKey, getSafePath, type PreviewSurfaceKey } from './surfaces';
+import { TextEditControls } from './text-edit-controls';
 import { useAnnotationTools } from './use-annotation-tools';
 import { useBrowserShortcuts } from './use-browser-shortcuts';
 import { useLoadingStage } from './use-loading-stage';
@@ -59,6 +62,7 @@ import { usePreviewAnnotations } from './use-preview-annotations';
 import { usePreviewBrowser } from './use-preview-browser';
 import { usePreviewCapture } from './use-preview-capture';
 import { usePreviewSurfaces } from './use-preview-surfaces';
+import { useTextAnnotations } from './use-text-annotations';
 import type { SiteDetails } from '@/data/core';
 import type { InspectorEvent } from '@studio/agent/protocol/inspector/page-script';
 
@@ -265,6 +269,15 @@ function SitePreviewContent( {
 		onPick: handleAnnotationPick,
 	} );
 	const handleAnnotationToolEvent = annotationTools.handleEvent;
+	const textAnnotations = useTextAnnotations( {
+		siteId: site.id,
+		enabled: annotations.active && annotationTools.tool === 'text' && ! inactive,
+		onPick: handleAnnotationPick,
+		onSend: sendAnnotations,
+		command: annotationTools.command,
+		toViewportAnchor,
+	} );
+	const handleTextEvent = textAnnotations.handleEvent;
 	const capturePage = usePreviewCapture( site.id, siteUrl, viewportRef );
 	const handleSurfaceLoad = useCallback(
 		( key: PreviewSurfaceKey, url: string, guestId?: number ) => {
@@ -295,11 +308,19 @@ function SitePreviewContent( {
 				sendBrowserCommand( event.command );
 			} else if ( event.type === 'selection' || event.type === 'drawing' ) {
 				handleAnnotationToolEvent( event );
+			} else if ( event.type === 'text-edit' ) {
+				handleTextEvent( event );
 			} else {
 				handleAnnotationEvent( event );
 			}
 		},
-		[ handleAnnotationEvent, handleAnnotationToolEvent, sendBrowserCommand, inactive ]
+		[
+			handleAnnotationEvent,
+			handleAnnotationToolEvent,
+			handleTextEvent,
+			sendBrowserCommand,
+			inactive,
+		]
 	);
 
 	const browserShortcuts = useBrowserShortcuts(
@@ -337,6 +358,20 @@ function SitePreviewContent( {
 		return true;
 	};
 	const batchNotes = annotations.notes.filter( isBatchedAnnotation );
+	const hasTextChange =
+		annotationTools.tool === 'text' &&
+		!! textAnnotations.draft &&
+		textAnnotations.draft.edit.text !== textAnnotations.draft.edit.originalText;
+	const sendFromToolbar = () => {
+		const current = getSiteAnnotations( site.id );
+		if ( isAnnotationsBusy( current ) ) return;
+		const noteIds = current.notes.filter( hasAnnotationContent ).map( ( note ) => note.id );
+		if ( hasTextChange ) textAnnotations.send( noteIds );
+		else if ( noteIds.length ) {
+			sendAnnotations( noteIds );
+			closeAnnotationEditor( site.id );
+		}
+	};
 	const showBrowserBar = canPreview && ! blank && ! loadingStage;
 
 	// A link in an email to the site opens in the preview, like a password reset
@@ -407,14 +442,7 @@ function SitePreviewContent( {
 						<AnnotateButton
 							{ ...annotate }
 							annotationCount={ batchNotes.length }
-							tools={
-								activeSurfaceKey === 'site' && canAnnotate ? (
-									<AnnotationTools
-										{ ...annotationTools.controls }
-										disabled={ isAnnotationsBusy( annotations ) }
-									/>
-								) : undefined
-							}
+							areaSelection={ activeSurfaceKey === 'site' && canAnnotate }
 						/>,
 						annotationSpace
 				  )
@@ -503,7 +531,7 @@ function SitePreviewContent( {
 												if ( ! inspectorReady ) setAnnotationAnchor( null );
 											} }
 											onInspectorEvent={ handleInspectorEvent }
-											annotationTool={ annotationTools.drawing ? 'draw' : 'select' }
+											annotationTool={ annotationTools.tool }
 											annotationAction={ annotationTools.action }
 											browserCommand={ surface.browserCommand }
 											onBrowserStateChange={ ( state ) => handleSurfaceBrowserState( key, state ) }
@@ -561,12 +589,35 @@ function SitePreviewContent( {
 							) : null }
 						</div>
 					</SiteContextMenu>
+					{ ! inactive && ! collapsed && annotations.active && canAnnotate && annotate ? (
+						<AnnotationTools
+							{ ...annotationTools.controls }
+							pageTools={ activeSurfaceKey === 'site' }
+							disabled={ isAnnotationsBusy( annotations ) }
+							canSend={ hasTextChange || annotations.notes.some( hasAnnotationContent ) }
+							onSend={ sendFromToolbar }
+							onExit={ annotate.onClick }
+						/>
+					) : null }
 					{ ! inactive && ! blank && canAnnotateSurface ? (
 						<AnnotationOverlay
 							siteId={ site.id }
 							anchor={ annotationAnchor }
 							onSend={ sendAnnotations }
-							onEscape={ annotationTools.escapeDraft }
+							onEscape={ () => textAnnotations.escapeDraft() || annotationTools.escapeDraft() }
+						/>
+					) : null }
+					{ ! inactive &&
+					annotations.active &&
+					annotationTools.tool === 'text' &&
+					textAnnotations.draft?.anchor ? (
+						<TextEditControls
+							anchor={ textAnnotations.draft.anchor }
+							changed={
+								textAnnotations.draft.edit.text !== textAnnotations.draft.edit.originalText
+							}
+							onCancel={ textAnnotations.cancel }
+							onSend={ () => textAnnotations.send() }
 						/>
 					) : null }
 				</div>

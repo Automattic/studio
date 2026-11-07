@@ -17,6 +17,7 @@
  */
 
 import { PLUS_ICON } from '@studio/common/lib/plus-icon';
+import { createDrawingGeometry } from './drawing';
 import {
 	ANNOTATION_PEN_WIDTH,
 	MAX_DRAWING_POINTS,
@@ -24,6 +25,11 @@ import {
 	parseInspectorSelection,
 	type InspectorSelection,
 } from './selection';
+import {
+	INSPECTOR_TEXT_EDIT_SCRIPT,
+	MAX_TEXT_EDIT_LENGTH,
+	type InspectorTextEdit,
+} from './text-edit';
 import type { VisualAnnotationTarget } from '@studio/agent/protocol/visual-annotations';
 
 export const INSPECTOR_BRIDGE_PREFIX = '__studio-inspector__:';
@@ -31,7 +37,8 @@ export const INSPECTOR_COMMAND_EVENT = '__studio-inspector-command';
 export const INSPECTOR_ACTION_EVENT = '__studio-inspector-action';
 export interface InspectorAction {
 	id: number;
-	type: 'undo' | 'clear';
+	type: 'undo' | 'clear' | 'cancel-text' | 'commit-text';
+	selectionId?: string;
 }
 
 export const INSPECTOR_PAGE_SCRIPT = String.raw`
@@ -109,6 +116,10 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 	let savedNotes = null;
 	let drawFrame = 0;
 	let pointCount = 0;
+	let holdTimer = 0;
+	let originalStroke = null;
+	let replacementId = null;
+	const { pathData, recognizeEllipse } = (${ createDrawingGeometry.toString() })();
 	function pathFor(points, color, width) {
 		const path = document.createElementNS(svg.namespaceURI, 'path');
 		path.setAttribute('fill', 'none');
@@ -119,14 +130,13 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		path.setAttribute('d', pathData(points));
 		return path;
 	}
-	function pathData(points) {
-		return points.map((p, i) => (i ? 'L' : 'M') + p.x + ' ' + p.y).join(' ') + (points.length === 1 ? 'l0.01 0' : '');
-	}
 	function repaintDrawing() {
 		drawFrame = 0;
 		if (gesture?.path) gesture.path.setAttribute('d', pathData(gesture.points));
 	}
 	function releaseGesture() {
+		clearTimeout(holdTimer);
+		holdTimer = 0;
 		const current = gesture;
 		gesture = null;
 		if (current) {
@@ -139,9 +149,13 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		strokes = [];
 		pointCount = 0;
 		pendingSelection = null;
+		originalStroke = null;
+		replacementId = null;
 		delete host.dataset.captureId;
 		draftDrawings.replaceChildren();
 		highlight.hidden = true;
+		savedNotes = null;
+		renderDrawings();
 		emit({ type: 'drawing', selection: null });
 	}
 	function areaBetween(a, b, padding = 0) {
@@ -165,7 +179,8 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 			},
 			rect, scroll: { left: scrollX, top: scrollY },
 		};
-		if (kind === 'drawing') result.drawing = { strokes, color: penColor, width: ${ ANNOTATION_PEN_WIDTH } };
+		if (kind === 'drawing') result.drawing = { strokes, color: penColor, width: ${ ANNOTATION_PEN_WIDTH }, ...(originalStroke ? { originalStroke } : {}) };
+		if (replacementId) result.replaces = replacementId;
 		pendingSelection = result;
 		host.dataset.captureId = result.id;
 		return result;
@@ -180,7 +195,28 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		emit({ type: 'drawing', selection: selection('drawing', areaBetween({ x: left, y: top }, { x: right, y: bottom }, 24)) });
 	}
 	function undoStroke() {
-		if (state.busy || gesture || !strokes.length) return;
+		if (state.busy || gesture) return;
+		if (!strokes.length) {
+			const note = state.notes.find((note) => note.id === state.editingId && onPage(note));
+			if (!note?.drawing?.originalStroke) return;
+			replacementId = note.id;
+			penColor = note.drawing.color;
+			strokes = [...note.drawing.strokes.slice(0, -1), note.drawing.originalStroke];
+			pointCount = strokes.reduce((sum, stroke) => sum + stroke.length, 0);
+			savedNotes = null;
+			draftDrawings.replaceChildren(...strokes.map((stroke) => pathFor(stroke, penColor, ${ ANNOTATION_PEN_WIDTH })));
+			render();
+			reportDrawing();
+			return;
+		}
+		if (originalStroke) {
+			pointCount -= strokes[strokes.length - 1].length;
+			strokes[strokes.length - 1] = originalStroke;
+			originalStroke = null;
+			draftDrawings.lastElementChild?.setAttribute('d', pathData(strokes[strokes.length - 1]));
+			reportDrawing();
+			return;
+		}
 		pointCount -= strokes.pop().length;
 		draftDrawings.lastElementChild?.remove();
 		reportDrawing();
@@ -193,7 +229,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		savedNotes = state.notes;
 		savedDrawings.replaceChildren();
 		for (const note of state.notes.filter(onPage)) {
-			if (!note.drawing) continue;
+			if (!note.drawing || note.id === replacementId) continue;
 			for (const stroke of note.drawing.strokes) savedDrawings.append(pathFor(stroke, note.drawing.color, note.drawing.width));
 		}
 	}
@@ -207,6 +243,11 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 	function art(accent, onAccent) {
 		const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><defs><filter id="s" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.14"/></filter></defs><circle cx="16" cy="16" r="12" fill="' + accent + '" filter="url(#s)"/><circle cx="16" cy="16" r="11.5" fill="none" stroke="' + onAccent + '" stroke-opacity="0.06" stroke-width="1"/></svg>';
 		return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
+	}
+	function drawingCursor(color, outline) {
+		const path = 'M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z M15 5l4 4';
+		const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" fill="' + outline + '"><path d="' + path + '" stroke="' + outline + '" stroke-width="4"/><path d="' + path + '" stroke="' + color + '" stroke-width="1.75"/></svg>';
+		return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '") 2 22, crosshair';
 	}
 	function selector(el) {
 		if (el.id) return '#' + CSS.escape(el.id);
@@ -296,6 +337,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 	}
 	function render() {
 		frame = 0;
+		textEditor.update();
 		host.hidden = !state.active && !exiting;
 		host.inert = !state.active;
 		host.setAttribute('aria-hidden', String(!state.active));
@@ -326,7 +368,13 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 				marker = document.createElement('button');
 				marker.type = 'button';
 				marker.className = 'enter';
-				marker.innerHTML = '<span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="${ PLUS_ICON.viewBox }" fill="none"><path d="${ PLUS_ICON.path }" stroke-width="${ PLUS_ICON.strokeWidth }" stroke-linecap="${ PLUS_ICON.strokeLinecap }" stroke="currentColor"/></svg></span><span class="number" aria-hidden="true"></span>';
+				marker.innerHTML = '<span class="plus" aria-hidden="true"><svg width="12" height="12" viewBox="${
+					PLUS_ICON.viewBox
+				}" fill="none"><path d="${ PLUS_ICON.path }" stroke-width="${
+					PLUS_ICON.strokeWidth
+				}" stroke-linecap="${
+					PLUS_ICON.strokeLinecap
+				}" stroke="currentColor"/></svg></span><span class="number" aria-hidden="true"></span>';
 				marker.addEventListener('animationend', (event) => {
 					if (event.target !== marker) return;
 					if (event.animationName === 'marker-out' || event.animationName === 'marker-fade-out') { finishExit(); return; }
@@ -369,9 +417,10 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		if (note) emit({ type: 'anchor', id: note.id, anchor: onPage(note) ? anchor(note) : null });
 		const el = hovered || selected;
 		const area = gesture?.rect || (pendingSelection?.target.kind === 'region' ? pendingSelection.rect : null);
-		const noteArea = note?.kind && onPage(note) ? { ...note.documentRect, left: note.documentRect.left - scrollX, top: note.documentRect.top - scrollY } : null;
-		const r = area || (state.tool !== 'draw' && el?.isConnected ? el.getBoundingClientRect() : noteArea);
-		if (r && !(state.tool === 'draw' && !area && !note)) {
+		const noteArea = note?.kind === 'region' && onPage(note) ? { ...note.documentRect, left: note.documentRect.left - scrollX, top: note.documentRect.top - scrollY } : null;
+		const r = area || noteArea || (state.tool !== 'draw' && el?.isConnected ? el.getBoundingClientRect() : null);
+		if (r && !textEditor.active && state.tool !== 'draw' && note?.kind !== 'drawing') {
+			highlight.style.borderStyle = area || noteArea ? 'dashed' : 'solid';
 			const left = Math.max(0, r.left);
 			const top = Math.max(0, r.top);
 			const right = Math.min(innerWidth, r.left + r.width);
@@ -403,6 +452,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		if (e.shiftKey) return null;
 		return key === '[' ? 'back' : key === ']' ? 'forward' : null;
 	}
+	${ INSPECTOR_TEXT_EDIT_SCRIPT }
 
 	window.addEventListener(
 		'${ INSPECTOR_COMMAND_EVENT }',
@@ -411,6 +461,8 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 			const wasActive = state.active;
 			const previousAttempt = state.blockedNavigation;
 			state = e.detail;
+			if (gesture?.drawing && state.tool !== 'draw') clearDrawing();
+			if (state.busy) { clearTimeout(holdTimer); holdTimer = 0; }
 			if (!state.active && (strokes.length || pendingSelection || gesture)) clearDrawing();
 			if (!state.active || errorId !== state.editingId) { errorId = null; clearTimeout(errorTimer); feedbackAnimation?.cancel(); }
 			if (state.active && typeof state.blockedNavigation === 'number' && previousAttempt !== undefined && state.blockedNavigation !== previousAttempt) {
@@ -442,7 +494,8 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 			host.style.setProperty('--on-error', state.onDestructive || state.onAccent);
 			host.style.setProperty('--motion-duration-surface', state.motionDuration || '180ms');
 			host.style.setProperty('--motion-ease-enter', state.motionEasing || 'cubic-bezier(.165,.84,.44,1)');
-			cursorStyle.textContent = state.active ? '*{cursor:crosshair!important}' : '';
+			const cursor = state.tool === 'draw' ? drawingCursor(state.penColor || state.accent, state.onAccent) : 'crosshair';
+			cursorStyle.textContent = state.active ? state.tool === 'text' ? 'h1,h2,h3,h4,h5,h6,p,a,button,span,label,li,figcaption{cursor:text!important}' : '*{cursor:' + cursor + '!important}' : '';
 			const note = state.notes.find((n) => n.id === state.editingId);
 			selected = note && onPage(note) ? resolve(note) : null;
 			render();
@@ -451,17 +504,30 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 	);
 	window.addEventListener('${ INSPECTOR_ACTION_EVENT }', (e) => {
 		if (e.detail?.type === 'undo') undoStroke();
-		if (e.detail?.type === 'clear') clearDrawing();
+		if (e.detail?.type === 'clear' && (!e.detail.selectionId || !gesture && pendingSelection?.id === e.detail.selectionId)) clearDrawing();
+		if (e.detail?.type === 'cancel-text') textEditor.cancel();
+		if (e.detail?.type === 'commit-text') textEditor.commit();
 	}, { signal: abort.signal });
 	document.addEventListener('pointerdown', (e) => {
 		if (!state.active || !state.areaSelection || state.busy || isOwnUi(e) || e.button !== 0 || e.isPrimary === false || gesture) return;
+		if (state.tool === 'text') {
+			if (!textEditor.contains(e.target) && !textEditor.begin(e.target, e)) e.preventDefault();
+			e.stopImmediatePropagation();
+			return;
+		}
 		e.preventDefault();
 		e.stopImmediatePropagation();
 		const start = viewportPoint(e);
 		gesture = { pointerId: e.pointerId, start, element: e.target, scrollX, scrollY, drawing: state.tool === 'draw', dragged: false };
 		if (gesture.drawing) {
 			if (strokes.length >= ${ MAX_DRAWING_STROKES } || pointCount >= ${ MAX_DRAWING_POINTS }) { gesture = null; suppressClick = true; return; }
+			if (pendingSelection) {
+				pendingSelection = null;
+				delete host.dataset.captureId;
+				emit({ type: 'drawing', selection: null });
+			}
 			if (!strokes.length) penColor = state.penColor || state.accent;
+			if (originalStroke) { pointCount -= originalStroke.length; originalStroke = null; }
 			gesture.points = [{ x: start.x + scrollX, y: start.y + scrollY }];
 			strokes.push(gesture.points);
 			pointCount++;
@@ -477,10 +543,36 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		if (!gesture || gesture.pointerId !== e.pointerId) return;
 		const p = viewportPoint(e);
 		if (gesture.drawing) {
-			const last = gesture.points[gesture.points.length - 1];
-			const next = { x: p.x + gesture.scrollX, y: p.y + gesture.scrollY };
-			if (pointCount < ${ MAX_DRAWING_POINTS } && Math.hypot(next.x - last.x, next.y - last.y) >= 1.5) {
+			const coalesced = e.type === 'pointermove' ? e.getCoalescedEvents?.() : null;
+			for (const sample of coalesced?.length ? [...coalesced, e] : [e]) {
+				const point = viewportPoint(sample);
+				const next = { x: point.x + gesture.scrollX, y: point.y + gesture.scrollY };
+				if (gesture.originalPoints) {
+					if (Math.hypot(next.x - gesture.holdPoint.x, next.y - gesture.holdPoint.y) <= 3) continue;
+					pointCount -= gesture.points.length;
+					gesture.points = gesture.originalPoints;
+					gesture.originalPoints = null;
+					originalStroke = null;
+					strokes[strokes.length - 1] = gesture.points;
+				}
+				const last = gesture.points[gesture.points.length - 1];
+				if (pointCount >= ${ MAX_DRAWING_POINTS } || Math.hypot(next.x - last.x, next.y - last.y) < 1.5) continue;
 				gesture.points.push(next); pointCount++;
+				if (!gesture.holdPoint || Math.hypot(next.x - gesture.holdPoint.x, next.y - gesture.holdPoint.y) > 3) {
+					clearTimeout(holdTimer);
+					gesture.holdPoint = next;
+					const current = gesture;
+					holdTimer = setTimeout(() => {
+						if (gesture !== current || !state.active || state.tool !== 'draw' || state.busy) return;
+						const shape = recognizeEllipse(current.points);
+						if (!shape || pointCount + shape.length > ${ MAX_DRAWING_POINTS } || shape.some((p) => p.x < scrollX || p.y < scrollY || p.x > scrollX + innerWidth || p.y > scrollY + innerHeight)) return;
+						current.originalPoints = originalStroke = current.points;
+						current.points = shape;
+						strokes[strokes.length - 1] = shape;
+						pointCount += shape.length;
+						repaintDrawing();
+					}, 600);
+				}
 				if (!drawFrame) drawFrame = requestAnimationFrame(repaintDrawing);
 			}
 		} else {
@@ -511,11 +603,17 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 	function cancelGesture(e) {
 		if (!gesture || (e.pointerId !== undefined && gesture.pointerId !== e.pointerId)) return;
 		const current = releaseGesture();
-		if (current?.drawing) { pointCount -= strokes.pop().length; current.path.remove(); reportDrawing(); }
+		if (current?.drawing) { pointCount -= strokes.pop().length + (originalStroke?.length || 0); originalStroke = null; current.path.remove(); reportDrawing(); }
 		schedule();
 	}
 	document.addEventListener('pointercancel', cancelGesture, { capture: true, signal: abort.signal });
-	document.addEventListener('lostpointercapture', cancelGesture, { capture: true, signal: abort.signal });
+	document.addEventListener('lostpointercapture', (e) => {
+		if (!gesture || gesture.pointerId !== e.pointerId || e.target !== document.documentElement) return;
+		// Focusing an Electron guest can release capture while the pointer is still down.
+		try {
+			if (!document.documentElement.hasPointerCapture(e.pointerId)) document.documentElement.setPointerCapture(e.pointerId);
+		} catch {}
+	}, { capture: true, signal: abort.signal });
 	window.addEventListener('blur', cancelGesture, { signal: abort.signal });
 	const stopScroll = (e) => {
 		if (state.active && (strokes.length || gesture || pendingSelection)) e.preventDefault();
@@ -527,7 +625,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		(e) => {
 			if (!state.active) return;
 			if (gesture) { moveGesture(e); return; }
-			hovered = state.tool === 'draw' || pendingSelection || isOwnUi(e) ? null : e.target;
+			hovered = state.tool === 'draw' || pendingSelection || isOwnUi(e) ? null : state.tool === 'text' ? textEditor.hover(e.target) : e.target;
 			schedule();
 		},
 		{ capture: true, signal: abort.signal }
@@ -547,6 +645,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 			if (!state.active || isOwnUi(e)) return;
 			e.preventDefault();
 			e.stopImmediatePropagation();
+			if (state.tool === 'text') return;
 			if (suppressClick) { suppressClick = false; return; }
 			if (state.busy || state.tool === 'draw') return;
 			if (!(e.target instanceof Element)) return;
@@ -559,6 +658,8 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 	document.addEventListener(
 		'keydown',
 		(e) => {
+			if (textEditor.keydown(e)) { e.preventDefault(); e.stopImmediatePropagation(); return; }
+			if (textEditor.active) { e.stopImmediatePropagation(); return; }
 			if (state.active && e.key === 'Escape') {
 				e.preventDefault();
 				e.stopPropagation();
@@ -593,6 +694,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 	mutation.observe(document.body || document.documentElement, { subtree: true, childList: true, attributes: true });
 	window[KEY] = () => {
 		abort.abort();
+		textEditor.dispose();
 		feedbackAnimation?.cancel();
 		clearTimeout(exitTimer);
 		clearTimeout(errorTimer);
@@ -616,6 +718,7 @@ interface Point {
 }
 
 export type InspectorEvent =
+	| { type: 'text-edit'; edit: InspectorTextEdit | null; anchor: Point | null }
 	| { type: 'selection'; selection: InspectorSelection }
 	| { type: 'drawing'; selection: InspectorSelection | null }
 	| { type: 'pick'; target: VisualAnnotationTarget; anchor: Point }
@@ -706,6 +809,29 @@ export function parseInspectorMessage(
 	if ( ! isData( data ) ) return null;
 	const anchor = point( data.anchor, offset );
 	switch ( data.type ) {
+		case 'text-edit': {
+			if ( data.edit === null ) return { type: 'text-edit', edit: null, anchor: null };
+			const edit = data.edit;
+			if (
+				! isData( edit ) ||
+				typeof edit.id !== 'string' ||
+				edit.id.length > 100 ||
+				typeof edit.originalText !== 'string' ||
+				edit.originalText.length > MAX_TEXT_EDIT_LENGTH ||
+				typeof edit.text !== 'string' ||
+				edit.text.length > MAX_TEXT_EDIT_LENGTH
+			)
+				return null;
+			const picked = target( edit.target );
+			if ( ! picked ) return null;
+			const parsed = {
+				id: edit.id,
+				target: picked,
+				originalText: edit.originalText,
+				text: edit.text,
+			};
+			return { type: 'text-edit', edit: parsed, anchor };
+		}
 		case 'selection':
 		case 'drawing': {
 			if ( data.type === 'drawing' && data.selection === null )

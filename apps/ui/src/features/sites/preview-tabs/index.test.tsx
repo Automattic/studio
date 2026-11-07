@@ -952,7 +952,7 @@ it( 'selects an existing project tab when reviewing a note on its page', async (
 	} );
 	fireEvent.click( await screen.findByRole( 'button', { name: '1 annotation' } ) );
 	fireEvent.click(
-		await screen.findByRole( 'button', { name: 'Edit annotation 1: Fix this title' } )
+		await screen.findByRole( 'button', { name: 'Edit annotation: Fix this title' } )
 	);
 	await waitFor( () =>
 		expect( screen.getAllByRole( 'tab' )[ 0 ] ).toHaveAttribute( 'aria-selected', 'true' )
@@ -968,7 +968,7 @@ it( 'selects an existing project tab when reviewing a note on its page', async (
 		setAnnotating( 'one', false );
 	} );
 	fireEvent.click( screen.getByRole( 'button', { name: '1 annotation' } ) );
-	fireEvent.click( screen.getByRole( 'button', { name: 'Edit annotation 1: Fix this title' } ) );
+	fireEvent.click( screen.getByRole( 'button', { name: 'Edit annotation: Fix this title' } ) );
 	expect( getSiteAnnotations( 'one' ).editingId ).toBe( draft );
 	expect( getSiteAnnotations( 'one' ).active ).toBe( true );
 	expect( getSiteAnnotations( 'one' ).notes ).toHaveLength( 2 );
@@ -997,7 +997,7 @@ it( 'reopens a batched design note in its existing tab without scrolling', async
 	await newBrowserTab();
 	await user.click( screen.getByRole( 'button', { name: '1 annotation' } ) );
 	await user.click(
-		screen.getByRole( 'button', { name: 'Edit annotation 1: Give this title more space' } )
+		screen.getByRole( 'button', { name: 'Edit annotation: Give this title more space' } )
 	);
 	expect( screen.getByRole( 'tab', { name: 'Design system' } ) ).toHaveAttribute(
 		'aria-selected',

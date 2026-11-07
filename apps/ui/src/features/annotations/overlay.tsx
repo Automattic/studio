@@ -125,6 +125,8 @@ function NoteEditor( {
 	const { attachments, addFiles, removeAttachment, pasteHandlers } = useComposerAttachments(
 		note.images
 	);
+	// Area and drawing annotations keep their captured page image first.
+	const visibleAttachments = note.kind ? attachments.slice( 1 ) : attachments;
 	const addImages = useCallback(
 		( files: FileList | File[] ) => {
 			const list = Array.from( files );
@@ -207,9 +209,9 @@ function NoteEditor( {
 				</VisuallyHidden>
 			) }
 			{ isDragging ? <DropOverlay>{ __( 'Drop to attach' ) }</DropOverlay> : null }
-			{ attachments.length ? (
+			{ visibleAttachments.length ? (
 				<ul className={ styles.images } aria-label={ __( 'Attachments' ) }>
-					{ attachments.map( ( attachment ) => (
+					{ visibleAttachments.map( ( attachment ) => (
 						<li key={ attachment.id } className={ styles.image }>
 							<img
 								src={ getComposerAttachmentImageSrc( attachment ) ?? undefined }

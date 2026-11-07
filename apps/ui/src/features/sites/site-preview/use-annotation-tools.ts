@@ -8,8 +8,10 @@ import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import {
 	canPickAnnotation,
+	changeAnnotation,
 	closeAnnotationEditor,
 	getSiteAnnotations,
+	hasAnnotationContent,
 	setAnnotationsPreparing,
 	useSiteAnnotations,
 } from '@/features/annotations';
@@ -31,9 +33,13 @@ export function useAnnotationTools( {
 } ) {
 	const connector = useConnector();
 	const annotations = useSiteAnnotations( siteId );
-	const [ drawing, setDrawing ] = useState( false );
+	const [ tool, setTool ] = useState< 'select' | 'draw' | 'text' >( 'select' );
+	const drawing = tool === 'draw';
+	const editingDrawing = annotations.notes.find( ( note ) => note.id === annotations.editingId )
+		?.drawing;
 	const [ draft, setDraft ] = useState< InspectorSelection | null >( null );
 	const [ failed, setFailed ] = useState( false );
+	const [ capturePending, setCapturePending ] = useState( false );
 	const [ action, setAction ] = useState< InspectorAction | undefined >();
 	const draftRef = useRef( draft );
 	const generation = useRef( 0 );
@@ -43,17 +49,20 @@ export function useAnnotationTools( {
 		setDraft( next );
 		setFailed( false );
 	}, [] );
-	const command = useCallback( ( type: InspectorAction[ 'type' ] ) => {
-		setAction( ( current ) => ( { id: ( current?.id ?? 0 ) + 1, type } ) );
+	const command = useCallback( ( type: InspectorAction[ 'type' ], selectionId?: string ) => {
+		setAction( ( current ) => ( { id: ( current?.id ?? 0 ) + 1, type, selectionId } ) );
 	}, [] );
-	const clear = useCallback( () => {
-		updateDraft( null );
-		command( 'clear' );
-	}, [ command, updateDraft ] );
+	const clear = useCallback(
+		( selectionId?: string ) => {
+			updateDraft( null );
+			command( 'clear', selectionId );
+		},
+		[ command, updateDraft ]
+	);
 	useEffect( () => {
 		const currentGeneration = ++generation.current;
 		if ( ! enabled || ! annotations.active ) {
-			setDrawing( false );
+			if ( ! annotations.active ) setTool( 'select' );
 			if ( draftRef.current ) clear();
 		}
 		return () => {
@@ -63,9 +72,34 @@ export function useAnnotationTools( {
 
 	const capture = useCallback(
 		async ( selection: InspectorSelection, turnOff = false ) => {
-			if ( ! enabled || capturing.current || ! canPickAnnotation( siteId ) ) return;
-			const otherImages = getSiteAnnotations( siteId ).notes.flatMap( ( note ) => note.images );
+			if ( ! enabled || capturing.current ) return;
+			const current = getSiteAnnotations( siteId );
+			const replacement = selection.replaces
+				? current.notes.find(
+						( note ) =>
+							note.id === selection.replaces &&
+							note.id === current.editingId &&
+							note.kind === 'drawing' &&
+							note.url === selection.target.url &&
+							note.drawing?.originalStroke
+				  )
+				: undefined;
+			if ( selection.replaces && ! replacement ) {
+				clear( selection.id );
+				return;
+			}
+			if ( ! replacement && ! canPickAnnotation( siteId ) ) {
+				setFailed( true );
+				return;
+			}
+			const otherImages = [
+				...current.notes
+					.filter( ( note ) => note.id !== replacement?.id && hasAnnotationContent( note ) )
+					.flatMap( ( note ) => note.images ),
+				...( replacement?.images.slice( 1 ) ?? [] ),
+			];
 			if ( otherImages.length >= STUDIO_CHAT_MAX_IMAGES ) {
+				setFailed( true );
 				toast.error(
 					sprintf(
 						__(
@@ -82,6 +116,8 @@ export function useAnnotationTools( {
 			if ( ! webview ) return;
 			const attempt = generation.current;
 			capturing.current = true;
+			setCapturePending( true );
+			setFailed( false );
 			setAnnotationsPreparing( siteId, true );
 			try {
 				const image = await connector.captureAnnotationRegion( {
@@ -94,20 +130,33 @@ export function useAnnotationTools( {
 				const scaleX = box.width / selection.target.viewport.width;
 				const scaleY = box.height / selection.target.viewport.height;
 				setAnnotationsPreparing( siteId, false );
-				const id = onPick(
-					selection.target,
-					{
-						left: box.left + ( selection.rect.left + selection.rect.width ) * scaleX,
-						top: box.top + selection.rect.top * scaleY,
-					},
-					{
-						images: [ { ...image, kind: 'image' } ],
-						...( selection.drawing ? { drawing: selection.drawing } : {} ),
-					}
-				);
+				let id: string | null;
+				if ( replacement ) {
+					const latest = getSiteAnnotations( siteId );
+					const note = latest.notes.find( ( note ) => note.id === replacement.id );
+					if ( ! note || latest.editingId !== note.id ) return;
+					changeAnnotation( siteId, note.id, {
+						drawing: selection.drawing,
+						documentRect: selection.target.documentRect,
+						viewport: selection.target.viewport,
+						images: [ { ...image, kind: 'image' }, ...note.images.slice( 1 ) ],
+					} );
+					id = note.id;
+				} else
+					id = onPick(
+						selection.target,
+						{
+							left: box.left + ( selection.rect.left + selection.rect.width ) * scaleX,
+							top: box.top + selection.rect.top * scaleY,
+						},
+						{
+							images: [ { ...image, kind: 'image' } ],
+							...( selection.drawing ? { drawing: selection.drawing } : {} ),
+						}
+					);
 				if ( id ) {
-					clear();
-					if ( turnOff ) setDrawing( false );
+					clear( selection.id );
+					if ( turnOff ) setTool( 'select' );
 				}
 			} catch {
 				if ( generation.current !== attempt || draftRef.current?.id !== selection.id ) return;
@@ -115,18 +164,22 @@ export function useAnnotationTools( {
 				toast.error( __( 'Could not capture the area. Your selection is kept. Try again.' ) );
 			} finally {
 				capturing.current = false;
+				setCapturePending( false );
 				setAnnotationsPreparing( siteId, false );
 			}
 		},
 		[ clear, connector, enabled, onPick, siteId, viewportRef ]
 	);
+	useEffect( () => {
+		if ( enabled && annotations.active && draft && ! capturePending && ! failed )
+			void capture( draft );
+	}, [ enabled, annotations.active, draft, capturePending, failed, capture ] );
 	const handleEvent = useCallback(
 		( event: Extract< InspectorEvent, { type: 'selection' | 'drawing' } > ) => {
 			if ( ! enabled ) return;
 			updateDraft( event.selection );
-			if ( event.type === 'selection' ) void capture( event.selection );
 		},
-		[ capture, enabled, updateDraft ]
+		[ enabled, updateDraft ]
 	);
 	const toggleDrawing = () => {
 		if ( capturing.current ) return;
@@ -136,7 +189,7 @@ export function useAnnotationTools( {
 		}
 		if ( ! canPickAnnotation( siteId ) ) return;
 		closeAnnotationEditor( siteId );
-		setDrawing( ! drawing );
+		setTool( drawing ? 'select' : 'draw' );
 	};
 	const escapeDraft = () => {
 		if ( ! draftRef.current ) return false;
@@ -145,17 +198,26 @@ export function useAnnotationTools( {
 	};
 	return {
 		drawing,
+		tool,
 		action,
+		command,
 		handleEvent,
 		escapeDraft,
 		controls: {
 			drawing,
+			editingText: tool === 'text',
 			pending: !! draft,
-			canUndo: !! draft?.drawing?.strokes.length,
+			canUndo: !! draft?.drawing?.strokes.length || !! editingDrawing?.originalStroke,
+			undoShape: ! draft && !! editingDrawing?.originalStroke,
 			failed,
 			onToggle: toggleDrawing,
+			onToggleText: () => {
+				if ( capturing.current || draftRef.current || ! canPickAnnotation( siteId ) ) return;
+				closeAnnotationEditor( siteId );
+				setTool( tool === 'text' ? 'select' : 'text' );
+			},
 			onUndo: () => command( 'undo' ),
-			onFinish: () => {
+			onRetry: () => {
 				if ( draftRef.current ) void capture( draftRef.current );
 			},
 		},

@@ -41,7 +41,7 @@ interface WebviewSurfaceProps {
 	reloadNonce: number;
 	// The site's annotations, mirrored into the page as markers.
 	annotations?: SiteAnnotations;
-	annotationTool?: 'select' | 'draw';
+	annotationTool?: 'select' | 'draw' | 'text';
 	annotationAction?: InspectorAction;
 	onInspectorReady?: ( ready: boolean ) => void;
 	onInspectorEvent?: ( event: InspectorEvent ) => void;
@@ -88,6 +88,7 @@ export function WebviewSurface( {
 	const browserStateRef = useRef< BrowserNavigationState >( EMPTY_BROWSER_STATE );
 	const domReadyRef = useRef( false );
 	const inspectorEnabledRef = useRef( inspector );
+	const textEditsRef = useRef( annotations?.textEdits );
 	const currentUrlRef = useRef( url );
 	const lastReloadNonceRef = useRef( reloadNonce );
 	useEffect( () => {
@@ -108,6 +109,9 @@ export function WebviewSurface( {
 	useEffect( () => {
 		inspectorEnabledRef.current = inspector;
 	}, [ inspector ] );
+	useEffect( () => {
+		textEditsRef.current = annotations?.textEdits;
+	}, [ annotations?.textEdits ] );
 	// The url we want shown; `currentUrlRef` is where the webview actually landed.
 	const urlRef = useRef( url );
 	useEffect( () => {
@@ -207,9 +211,22 @@ export function WebviewSurface( {
 			const fontData = getEmbeddedFontData(
 				getComputedStyle( webview ).getPropertyValue( '--font-sans' )
 			);
+			const pendingTextEdits = textEditsRef.current?.filter( ( edit ) => edit.pending );
 			webview
 				.executeJavaScript(
 					`${ INSPECTOR_PAGE_SCRIPT }
+					${
+						pendingTextEdits?.length
+							? `window.dispatchEvent(new CustomEvent(${ JSON.stringify(
+									INSPECTOR_COMMAND_EVENT
+							  ) }, { detail: ${ JSON.stringify( {
+									active: false,
+									notes: [],
+									editingId: null,
+									textEdits: pendingTextEdits,
+							  } ) } }));`
+							: ''
+					}
 					(async () => {
 						const bytes = Uint8Array.from(atob(${ JSON.stringify(
 							fontData
@@ -395,11 +412,13 @@ export function WebviewSurface( {
 		const theme = getComputedStyle( webview );
 		// Only notes picked on a page. Told about a note on the design system or
 		// in an email, the page would report it off screen and hide its editor.
-		const notes = annotations.notes.filter( ( note ) => note.url );
+		const textIds = new Set( annotations.textEdits?.map( ( edit ) => edit.id ) );
+		const notes = annotations.notes.filter( ( note ) => note.url && ! textIds.has( note.id ) );
 		const detail = {
 			active: annotations.active,
 			areaSelection: true,
 			tool: annotationTool,
+			textEdits: annotations.textEdits,
 			busy: !! ( annotations.preparing || annotations.sending ),
 			blockedNavigation: annotations.blockedNavigation ?? 0,
 			editingId: notes.some( ( note ) => note.id === annotations.editingId )

@@ -1,0 +1,33 @@
+.overlay {
+	position: absolute;
+	inset-inline: var( --space-3 );
+	bottom: var( --space-4 );
+	z-index: var( --z-overlay );
+	display: flex;
+	justify-content: center;
+	pointer-events: none;
+	container-type: inline-size;
+}
+
+.tools {
+	composes: floating padded from '@/lib/ui/surface/style.module.css';
+	display: flex;
+	align-items: center;
+	gap: var( --space-0_5 );
+	max-width: 100%;
+	border-radius: var( --radius-popup );
+	pointer-events: auto;
+}
+
+.separator {
+	width: 1px;
+	height: var( --space-4 );
+	margin-inline: var( --space-1 );
+	background-color: var( --border );
+}
+
+@container ( max-width: 360px ) {
+	.label {
+		display: none;
+	}
+}

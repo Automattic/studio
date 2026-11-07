@@ -52,6 +52,7 @@ export function useSendSiteDraft( siteId: string | undefined ) {
 			if ( router.state.location.pathname === pathname ) {
 				await router.navigate( { to: '/sessions/$sessionId', params: { sessionId } } );
 			}
+			return sessionId;
 		},
 		[
 			connector,

@@ -704,16 +704,19 @@ describe( 'Annotation attachments in the composer', () => {
 	} );
 
 	it( 'opens the annotation chip as an editable list and deletes individual notes', async () => {
-		const first = stageNote( 'Make the heading shorter' );
+		const first = stageNote( 'Make the heading shorter', [ image( 'capture' ) ] );
 		const second = stageNote( 'Make the background warmer' );
 		const review = vi.fn();
 		const unsubscribe = subscribeAnnotationReview( SITE, review );
 		try {
 			const { user } = await setup( { annotationSiteId: SITE } );
 			await user.click( screen.getByRole( 'button', { name: '2 annotations' } ) );
-			expect(
-				await screen.findByRole( 'button', { name: 'Edit annotation 1: Make the heading shorter' } )
-			).not.toHaveFocus();
+			const firstEdit = await screen.findByRole( 'button', {
+				name: 'Edit annotation: Make the heading shorter',
+			} );
+			expect( firstEdit ).not.toHaveFocus();
+			expect( firstEdit ).toHaveTextContent( /^Make the heading shorter$/ );
+			expect( screen.getByRole( 'img', { name: 'capture.png' } ) ).toBeVisible();
 			await user.keyboard( '{Escape}' );
 			await user.keyboard( '{Enter}' );
 			await waitFor( () =>
@@ -721,28 +724,31 @@ describe( 'Annotation attachments in the composer', () => {
 			);
 			await user.keyboard( '{ArrowDown}' );
 			expect(
-				screen.getByRole( 'button', { name: 'Edit annotation 2: Make the background warmer' } )
+				screen.getByRole( 'button', { name: 'Edit annotation: Make the background warmer' } )
 			).toHaveFocus();
 			await user.keyboard( '{ArrowUp}' );
 			expect(
-				screen.getByRole( 'button', { name: 'Edit annotation 1: Make the heading shorter' } )
+				screen.getByRole( 'button', { name: 'Edit annotation: Make the heading shorter' } )
 			).toBeVisible();
-			await user.click( screen.getByRole( 'button', { name: 'Delete annotation 1' } ) );
+			await user.click(
+				screen.getByRole( 'button', { name: 'Delete annotation: Make the heading shorter' } )
+			);
 			expect( getSiteAnnotations( SITE ).notes.map( ( note ) => note.id ) ).toEqual( [ second ] );
+			expect( screen.queryByRole( 'img', { name: 'capture.png' } ) ).not.toBeInTheDocument();
 			await waitFor( () =>
 				expect(
-					screen.getByRole( 'button', { name: 'Edit annotation 2: Make the background warmer' } )
+					screen.getByRole( 'button', { name: 'Edit annotation: Make the background warmer' } )
 				).toHaveFocus()
 			);
 			await user.keyboard( '{Escape}' );
 			expect( screen.getByRole( 'button', { name: '1 annotation' } ) ).toHaveFocus();
 			await user.click( screen.getByRole( 'button', { name: '1 annotation' } ) );
 			await user.click(
-				screen.getByRole( 'button', { name: 'Edit annotation 2: Make the background warmer' } )
+				screen.getByRole( 'button', { name: 'Edit annotation: Make the background warmer' } )
 			);
 			expect( review ).toHaveBeenCalledExactlyOnceWith( second );
 			expect(
-				screen.queryByRole( 'button', { name: 'Edit annotation 2: Make the background warmer' } )
+				screen.queryByRole( 'button', { name: 'Edit annotation: Make the background warmer' } )
 			).not.toBeInTheDocument();
 			expect( getSiteAnnotations( SITE ).notes.some( ( note ) => note.id === first ) ).toBe(
 				false

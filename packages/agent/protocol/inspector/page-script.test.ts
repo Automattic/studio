@@ -53,6 +53,18 @@ function pointer( element: Element, type: string, x: number, y: number, id = 1 )
 	return event;
 }
 
+function drawOval() {
+	const points = Array.from( { length: 81 }, ( _, i ) => {
+		const angle = ( i / 80 ) * Math.PI * 2;
+		const wobble = 1 + Math.sin( angle * 5 ) * 0.04;
+		return { x: 200 + Math.cos( angle ) * 80 * wobble, y: 200 + Math.sin( angle ) * 45 * wobble };
+	} );
+	pointer( document.body, 'pointerdown', points[ 0 ].x, points[ 0 ].y );
+	for ( const point of points.slice( 1 ) )
+		pointer( document.body, 'pointermove', point.x, point.y );
+	return points.at( -1 )!;
+}
+
 describe( 'annotation inspector', () => {
 	afterEach( () => {
 		( window as Window & { __studioInspectorDispose?: () => void } ).__studioInspectorDispose?.();
@@ -60,6 +72,98 @@ describe( 'annotation inspector', () => {
 		vi.restoreAllMocks();
 		vi.unstubAllGlobals();
 		document.body.replaceChildren();
+	} );
+
+	it( 'edits page text directly and restores markup on Escape', () => {
+		document.body.innerHTML = '<h1>Hello <em>world</em></h1>';
+		const heading = document.querySelector( 'h1' )!;
+		const events = mount();
+		publish( { active: true, areaSelection: true, tool: 'text' } );
+		pointer( heading, 'pointerdown', 20, 30 );
+		expect( heading ).toHaveAttribute( 'contenteditable', 'plaintext-only' );
+		expect( events().at( -1 ) ).toMatchObject( {
+			type: 'text-edit',
+			edit: {
+				originalText: 'Hello world',
+				text: 'Hello world',
+				target: { tag: 'h1', nearbyText: 'Hello world' },
+			},
+		} );
+		heading.textContent = 'A better title';
+		heading.dispatchEvent( new InputEvent( 'input', { bubbles: true } ) );
+		heading.dispatchEvent(
+			new KeyboardEvent( 'keydown', { key: 'Enter', bubbles: true, cancelable: true } )
+		);
+		expect( events().at( -1 ) ).toMatchObject( {
+			type: 'text-edit',
+			edit: { originalText: 'Hello world', text: 'A better title' },
+		} );
+		expect( events().some( ( event ) => event?.type === 'pick' ) ).toBe( false );
+		heading.dispatchEvent( new KeyboardEvent( 'keydown', { key: 'Escape', bubbles: true } ) );
+		expect( heading.innerHTML ).toBe( 'Hello <em>world</em>' );
+		expect( heading ).not.toHaveAttribute( 'contenteditable' );
+		expect( events().at( -1 ) ).toEqual( { type: 'text-edit', edit: null, anchor: null } );
+	} );
+
+	it( 'keeps a sent replacement visible through reloads and stops shimmering with the agent', () => {
+		document.body.innerHTML = '<h1>Original title</h1>';
+		mount();
+		publish( { active: true, areaSelection: true, tool: 'text' } );
+		let heading = document.querySelector( 'h1' )!;
+		pointer( heading, 'pointerdown', 20, 30 );
+		heading.textContent = 'New title';
+		window.dispatchEvent(
+			new CustomEvent( INSPECTOR_ACTION_EVENT, { detail: { type: 'commit-text' } } )
+		);
+		const edit = {
+			id: 'text-1',
+			target: { selector: 'h1', url: location.href },
+			originalText: 'Original title',
+			text: 'New title',
+			pending: true,
+		};
+		publish( { active: false, textEdits: [ edit ] } );
+		expect( heading ).not.toHaveAttribute( 'contenteditable' );
+		expect( heading ).toHaveTextContent( 'New title' );
+		expect( heading ).toHaveClass( '__studio-text-pending' );
+		( window as Window & { __studioInspectorDispose?: () => void } ).__studioInspectorDispose?.();
+		document.body.innerHTML = '<h1>Original title</h1>';
+		mount();
+		publish( { active: false, textEdits: [ edit ] } );
+		heading = document.querySelector( 'h1' )!;
+		expect( heading ).toHaveTextContent( 'New title' );
+		expect( heading ).toHaveClass( '__studio-text-pending' );
+		publish( { active: false, textEdits: [ { ...edit, pending: false } ] } );
+		expect( heading ).toHaveTextContent( 'New title' );
+		expect( heading ).not.toHaveClass( '__studio-text-pending' );
+		( window as Window & { __studioInspectorDispose?: () => void } ).__studioInspectorDispose?.();
+		document.body.innerHTML = '<h1>What the site actually saved</h1>';
+		mount();
+		publish( { active: false, textEdits: [ { ...edit, pending: false } ] } );
+		expect( document.querySelector( 'h1' ) ).toHaveTextContent( 'What the site actually saved' );
+	} );
+
+	it( 'leaves form controls and unexpected page changes alone in text mode', () => {
+		document.body.innerHTML = '<input value="Form value"><h1>A different title</h1>';
+		const events = mount();
+		publish( {
+			active: true,
+			areaSelection: true,
+			tool: 'text',
+			textEdits: [
+				{
+					id: 'text-1',
+					target: { selector: 'h1', url: location.href },
+					originalText: 'Old title',
+					text: 'Requested title',
+					pending: true,
+				},
+			],
+		} );
+		pointer( document.querySelector( 'input' )!, 'pointerdown', 20, 30 );
+		expect( document.querySelector( 'input' ) ).not.toHaveAttribute( 'contenteditable' );
+		expect( document.querySelector( 'h1' ) ).toHaveTextContent( 'A different title' );
+		expect( events() ).toEqual( [] );
 	} );
 
 	it( 'keeps short pointer gestures as one element pick and suppresses the following click', () => {
@@ -101,6 +205,205 @@ describe( 'annotation inspector', () => {
 		] );
 	} );
 
+	it.each( [ 'region', 'drawing' ] )(
+		'shows the correct selection highlight while a %s note is open and restores hover afterward',
+		( kind ) => {
+			document.body.innerHTML = '<h1>Welcome</h1>';
+			const heading = document.querySelector( 'h1' )!;
+			vi.spyOn( heading, 'getBoundingClientRect' ).mockReturnValue(
+				new DOMRect( 10, 20, 200, 40 )
+			);
+			mount();
+			vi.stubGlobal( 'requestAnimationFrame', ( callback: FrameRequestCallback ) => {
+				callback( 0 );
+				return 0;
+			} );
+			const note = {
+				id: 'area-note',
+				number: 1,
+				kind,
+				url: location.href,
+				documentRect: { left: 100, top: 150, width: 300, height: 200 },
+			};
+			publish( { active: true, areaSelection: true, notes: [ note ], editingId: note.id } );
+			pointer( heading, 'pointermove', 20, 30 );
+			const highlight = document
+				.getElementById( '__studio-inspector-host' )!
+				.shadowRoot!.querySelector( '.highlight' );
+			if ( kind === 'drawing' ) {
+				expect( highlight ).not.toBeVisible();
+			} else {
+				expect( highlight ).toBeVisible();
+				expect( highlight ).toHaveStyle( {
+					left: '100px',
+					top: '150px',
+					width: '300px',
+					height: '200px',
+				} );
+			}
+			publish( { active: true, areaSelection: true, notes: [ note ], editingId: null } );
+			expect( highlight ).toHaveStyle( {
+				left: '10px',
+				top: '20px',
+				width: '200px',
+				height: '40px',
+			} );
+		}
+	);
+
+	it( 'keeps a quick oval freehand and hands it to the note immediately on release', () => {
+		vi.useFakeTimers();
+		const events = mount();
+		publish( { active: true, areaSelection: true, tool: 'draw' } );
+		const end = drawOval();
+		vi.advanceTimersByTime( 200 );
+		pointer( document.body, 'pointerup', end.x, end.y );
+		const event = events().at( -1 );
+		if ( event?.type !== 'drawing' || ! event.selection ) throw new Error( 'Missing drawing' );
+		expect( event.selection.drawing?.strokes[ 0 ] ).toHaveLength( 81 );
+		expect( event.selection.drawing?.originalStroke ).toBeUndefined();
+		vi.advanceTimersByTime( 1000 );
+		expect( events() ).toHaveLength( 1 );
+	} );
+
+	it( 'recognizes a held oval before release and restores its original stroke when undoing the note', () => {
+		vi.useFakeTimers();
+		const events = mount();
+		publish( { active: true, areaSelection: true, tool: 'draw' } );
+		const end = drawOval();
+		vi.advanceTimersByTime( 599 );
+		expect( events() ).toEqual( [] );
+		vi.advanceTimersByTime( 1 );
+		const root = document.getElementById( '__studio-inspector-host' )!.shadowRoot!;
+		expect( root.querySelector( 'path[stroke]' )?.getAttribute( 'd' ) ).toMatch( /Z$/ );
+		expect( events() ).toEqual( [] );
+		pointer( document.body, 'pointerup', end.x + 1, end.y + 1 );
+		const event = events().at( -1 );
+		if ( event?.type !== 'drawing' || ! event.selection ) throw new Error( 'Missing shape' );
+		const drawing = event.selection.drawing!;
+		expect( drawing.strokes[ 0 ] ).toHaveLength( 65 );
+		expect( drawing.originalStroke ).toHaveLength( 81 );
+		publish( {
+			active: true,
+			areaSelection: true,
+			tool: 'draw',
+			editingId: 'shape-note',
+			notes: [ { ...event.selection.target, drawing, id: 'shape-note', number: 1 } ],
+		} );
+		window.dispatchEvent(
+			new CustomEvent( INSPECTOR_ACTION_EVENT, {
+				detail: { type: 'clear', selectionId: event.selection.id },
+			} )
+		);
+		window.dispatchEvent( new CustomEvent( INSPECTOR_ACTION_EVENT, { detail: { type: 'undo' } } ) );
+		expect( events().at( -1 ) ).toMatchObject( {
+			type: 'drawing',
+			selection: { replaces: 'shape-note', drawing: { strokes: [ drawing.originalStroke ] } },
+		} );
+		const restored = events().at( -1 );
+		if ( restored?.type === 'drawing' )
+			expect( restored.selection?.drawing?.originalStroke ).toBeUndefined();
+		expect( root.querySelectorAll( '.saved-drawings path' ) ).toHaveLength( 0 );
+	} );
+
+	it( 'returns to freehand when drawing continues after the hold', () => {
+		vi.useFakeTimers();
+		const events = mount();
+		publish( { active: true, areaSelection: true, tool: 'draw' } );
+		const end = drawOval();
+		vi.advanceTimersByTime( 600 );
+		pointer( document.body, 'pointermove', end.x + 30, end.y + 30 );
+		pointer( document.body, 'pointerup', end.x + 30, end.y + 30 );
+		const event = events().at( -1 );
+		if ( event?.type !== 'drawing' || ! event.selection ) throw new Error( 'Missing drawing' );
+		expect( event.selection.drawing?.strokes[ 0 ] ).toHaveLength( 82 );
+		expect( event.selection.drawing?.originalStroke ).toBeUndefined();
+	} );
+	it( 'finishes a stroke when an earlier capture becomes busy after pointerdown', () => {
+		const events = mount();
+		publish( { active: true, areaSelection: true, tool: 'draw' } );
+		pointer( document.body, 'pointerdown', 30, 40 );
+		publish( { active: true, areaSelection: true, tool: 'draw', busy: true } );
+		pointer( document.body, 'pointermove', 60, 70 );
+		pointer( document.body, 'pointerup', 90, 100 );
+		expect( events().at( -1 ) ).toMatchObject( {
+			type: 'drawing',
+			selection: {
+				drawing: {
+					strokes: [
+						[
+							{ x: 30, y: 40 },
+							{ x: 60, y: 70 },
+							{ x: 90, y: 100 },
+						],
+					],
+				},
+			},
+		} );
+	} );
+
+	it.each( [ 'cancel', 'blur', 'disable', 'dispose' ] )(
+		'cancels the shape hold on %s',
+		( reason ) => {
+			vi.useFakeTimers();
+			mount();
+			publish( { active: true, areaSelection: true, tool: 'draw' } );
+			drawOval();
+			if ( reason === 'cancel' ) pointer( document.body, 'pointercancel', 0, 0 );
+			if ( reason === 'blur' ) window.dispatchEvent( new Event( 'blur' ) );
+			if ( reason === 'disable' ) publish( { active: false } );
+			if ( reason === 'dispose' )
+				(
+					window as Window & { __studioInspectorDispose?: () => void }
+				 ).__studioInspectorDispose?.();
+			vi.advanceTimersByTime( 1000 );
+			const root = document.getElementById( '__studio-inspector-host' )?.shadowRoot;
+			expect( root?.querySelectorAll( 'path[stroke]' ).length ?? 0 ).toBe( 0 );
+		}
+	);
+
+	it( 'uses the coalesced movement samples and renders a smooth live curve', () => {
+		const events = mount();
+		vi.stubGlobal( 'requestAnimationFrame', ( callback: FrameRequestCallback ) => {
+			callback( 0 );
+			return 0;
+		} );
+		publish( { active: true, areaSelection: true, tool: 'draw' } );
+		pointer( document.body, 'pointerdown', 10, 10 );
+		const event = new MouseEvent( 'pointermove', { bubbles: true, clientX: 70, clientY: 40 } );
+		Object.defineProperties( event, {
+			pointerId: { value: 1 },
+			getCoalescedEvents: {
+				value: () => [
+					{ clientX: 25, clientY: 30 },
+					{ clientX: 45, clientY: 20 },
+				],
+			},
+		} );
+		document.body.dispatchEvent( event );
+		expect(
+			document
+				.getElementById( '__studio-inspector-host' )!
+				.shadowRoot!.querySelector( 'path[stroke]' )
+				?.getAttribute( 'd' )
+		).toContain( 'Q' );
+		pointer( document.body, 'pointerup', 70, 40 );
+		expect( events().at( -1 ) ).toMatchObject( {
+			selection: {
+				drawing: {
+					strokes: [
+						[
+							{ x: 10, y: 10 },
+							{ x: 25, y: 30 },
+							{ x: 45, y: 20 },
+							{ x: 70, y: 40 },
+						],
+					],
+				},
+			},
+		} );
+	} );
+
 	it( 'groups pen strokes, clamps their crop, and undoes one complete stroke', () => {
 		const events = mount();
 		publish( { active: true, areaSelection: true, tool: 'draw' } );
@@ -126,6 +429,63 @@ describe( 'annotation inspector', () => {
 		window.dispatchEvent( new CustomEvent( INSPECTOR_ACTION_EVENT, { detail: { type: 'undo' } } ) );
 		expect( events().at( -1 ) ).toEqual( { type: 'drawing', selection: null } );
 		expect( events().some( ( event ) => event?.type === 'pick' ) ).toBe( false );
+	} );
+
+	it( 'does not let the previous capture clear a newer pen stroke', () => {
+		const events = mount();
+		publish( { active: true, areaSelection: true, tool: 'draw' } );
+		pointer( document.body, 'pointerdown', 10, 10 );
+		pointer( document.body, 'pointerup', 50, 50 );
+		const first = events().at( -1 );
+		if ( first?.type !== 'drawing' || ! first.selection )
+			throw new Error( 'Missing first drawing' );
+		pointer( document.body, 'pointerdown', 70, 70 );
+		pointer( document.body, 'pointermove', 90, 90 );
+		window.dispatchEvent(
+			new CustomEvent( INSPECTOR_ACTION_EVENT, {
+				detail: { type: 'clear', selectionId: first.selection.id },
+			} )
+		);
+		pointer( document.body, 'pointerup', 110, 100 );
+		const latest = events().at( -1 );
+		expect( latest ).toMatchObject( {
+			type: 'drawing',
+			selection: { drawing: { strokes: [ expect.any( Array ), expect.any( Array ) ] } },
+		} );
+		if ( latest?.type !== 'drawing' || ! latest.selection )
+			throw new Error( 'Missing latest drawing' );
+		window.dispatchEvent(
+			new CustomEvent( INSPECTOR_ACTION_EVENT, {
+				detail: { type: 'clear', selectionId: first.selection.id },
+			} )
+		);
+		expect( document.getElementById( '__studio-inspector-host' ) ).toHaveAttribute(
+			'data-capture-id',
+			latest.selection.id
+		);
+	} );
+
+	it( 'finishes the first stroke when preview focus releases pointer capture before pointerup', () => {
+		const events = mount();
+		publish( { active: true, areaSelection: true, tool: 'draw' } );
+		pointer( document.body, 'pointerdown', 30, 40 );
+		pointer( document.body, 'pointermove', 60, 70 );
+		pointer( document.documentElement, 'lostpointercapture', 60, 70 );
+		pointer( document.body, 'pointerup', 90, 100 );
+		expect( events().at( -1 ) ).toMatchObject( {
+			type: 'drawing',
+			selection: {
+				drawing: {
+					strokes: [
+						[
+							{ x: 30, y: 40 },
+							{ x: 60, y: 70 },
+							{ x: 90, y: 100 },
+						],
+					],
+				},
+			},
+		} );
 	} );
 
 	it( 'holds scrolling for a drawing and clears the draft before exiting on Escape', () => {
@@ -171,6 +531,39 @@ describe( 'annotation inspector', () => {
 		pointer( document.body, 'pointerdown', 10, 10 );
 		pointer( document.body, 'pointerup', 200, 200 );
 		expect( events() ).toEqual( [] );
+	} );
+
+	it( 'keeps the completed drawing visible with its normal marker after handing it to the note editor', () => {
+		const events = mount();
+		publish( { active: true, areaSelection: true, tool: 'draw' } );
+		pointer( document.body, 'pointerdown', 30, 40 );
+		pointer( document.body, 'pointerup', 80, 100 );
+		const event = events().find( ( item ) => item?.type === 'drawing' && item.selection );
+		if ( event?.type !== 'drawing' || ! event.selection )
+			throw new Error( 'Missing completed drawing' );
+		publish( {
+			active: true,
+			areaSelection: true,
+			tool: 'draw',
+			editingId: 'drawing-note',
+			notes: [
+				{
+					...event.selection.target,
+					drawing: event.selection.drawing,
+					id: 'drawing-note',
+					number: 1,
+					pending: true,
+				},
+			],
+		} );
+		window.dispatchEvent(
+			new CustomEvent( INSPECTOR_ACTION_EVENT, { detail: { type: 'clear' } } )
+		);
+		const root = document.getElementById( '__studio-inspector-host' )!.shadowRoot!;
+		expect( root.querySelector( 'button' ) ).toBeVisible();
+		expect( root.querySelector( 'button' ) ).toHaveAttribute( 'aria-label', 'Pending annotation' );
+		expect( root.querySelector( '.saved-drawings path' ) ).toHaveAttribute( 'd', 'M30 40L80 100' );
+		expect( root.querySelector( '.highlight' ) ).not.toBeVisible();
 	} );
 
 	it( 'reports the picked element and draws a marker for each note on the page', () => {

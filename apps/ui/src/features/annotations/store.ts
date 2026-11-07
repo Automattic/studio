@@ -5,6 +5,7 @@ import { toast } from '@/data/app-messages';
 import { createPendingSlot } from '@/lib/pending-slot';
 import type { ComposerImageAttachment } from '@studio/agent/protocol/composer-attachments';
 import type { AnnotationDrawing } from '@studio/agent/protocol/inspector/selection';
+import type { PreviewTextEdit } from '@studio/agent/protocol/inspector/text-edit';
 import type {
 	VisualAnnotation,
 	VisualAnnotationTarget,
@@ -27,6 +28,7 @@ export interface SiteAnnotations {
 	sending?: boolean;
 	// Images dropped or pasted into a note are still being read.
 	preparing?: boolean;
+	textEdits?: PreviewTextEdit[];
 }
 
 const EMPTY: SiteAnnotations = { active: false, notes: [], editingId: null };
@@ -39,7 +41,7 @@ const listeners = new Set< () => void >();
 const pendingReview = createPendingSlot< { siteId: string; noteId: string } >();
 
 export function hasAnnotationContent( note: PreviewAnnotation ) {
-	return Boolean( note.comment.trim() || note.images.length );
+	return Boolean( note.comment.trim() || note.images.length > ( note.kind ? 1 : 0 ) );
 }
 
 export function getSiteAnnotations( siteId: string | undefined ): SiteAnnotations {
@@ -103,6 +105,33 @@ export function setAnnotationsPreparing( siteId: string, preparing: boolean ) {
 	update( siteId, ( current ) =>
 		Boolean( current.preparing ) === preparing ? current : { ...current, preparing }
 	);
+}
+
+export function addTextEdit( siteId: string, edit: PreviewTextEdit ) {
+	update( siteId, ( current ) => ( {
+		...current,
+		textEdits: [
+			...( current.textEdits ?? [] ).filter(
+				( previous ) =>
+					previous.target.url !== edit.target.url ||
+					previous.target.selector !== edit.target.selector
+			),
+			edit,
+		].slice( -MAX_VISUAL_ANNOTATIONS ),
+	} ) );
+}
+
+export function finishTextEdits( siteId: string, ids: string[] ) {
+	update( siteId, ( current ) => {
+		if ( ! current.textEdits?.some( ( edit ) => edit.pending && ids.includes( edit.id ) ) )
+			return current;
+		return {
+			...current,
+			textEdits: current.textEdits.map( ( edit ) =>
+				ids.includes( edit.id ) ? { ...edit, pending: false } : edit
+			),
+		};
+	} );
 }
 
 function blockDraftNavigation( siteId: string, nextId?: string ) {
@@ -173,7 +202,9 @@ export function editAnnotation( siteId: string, id: string ) {
 export function changeAnnotation(
 	siteId: string,
 	id: string,
-	patch: Partial< Pick< PreviewAnnotation, 'comment' | 'images' > >
+	patch: Partial<
+		Pick< PreviewAnnotation, 'comment' | 'images' | 'drawing' | 'documentRect' | 'viewport' >
+	>
 ) {
 	update( siteId, ( current ) => ( {
 		...current,
@@ -181,6 +212,7 @@ export function changeAnnotation(
 			if ( note.id !== id ) return note;
 			const changed =
 				( patch.comment !== undefined && patch.comment !== note.comment ) ||
+				( patch.drawing !== undefined && patch.drawing !== note.drawing ) ||
 				( patch.images !== undefined &&
 					( patch.images.length !== note.images.length ||
 						patch.images.some( ( image, index ) => image.id !== note.images[ index ]?.id ) ) );

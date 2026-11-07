@@ -4,6 +4,8 @@ import { useSetOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import { useSites } from '@/data/queries/use-sites';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 
+export const GETTING_STARTED_REPLAY_EVENT = 'studio:getting-started-replay';
+
 export function useOpenGettingStarted() {
 	const navigate = useNavigate();
 	const { data: sites } = useSites();
@@ -17,6 +19,7 @@ export function useOpenGettingStarted() {
 		await setHints( {
 			walkthroughStep: siteId ? 'intro' : 'create',
 		} );
+		window.dispatchEvent( new Event( GETTING_STARTED_REPLAY_EVENT ) );
 		if ( siteId ) {
 			setChatHidden?.( false, siteId );
 			await navigate( { to: '/sites/$siteId/new', params: { siteId }, search: {} } );

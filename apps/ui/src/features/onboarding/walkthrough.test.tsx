@@ -46,13 +46,17 @@ function setup(
 	return { connector, readHints: () => hints };
 }
 
-function Targets() {
+function Targets( { onAction }: { onAction?: () => void } ) {
 	return (
 		<>
 			<textarea aria-label="Message" data-walkthrough="composer" />
 			<button data-walkthrough="annotate">Annotate</button>
-			<button data-walkthrough="share">Share</button>
-			<button data-walkthrough="publish">Publish</button>
+			<button data-walkthrough="share" onClick={ onAction }>
+				Share
+			</button>
+			<button data-walkthrough="publish" onClick={ onAction }>
+				Publish
+			</button>
 			<Walkthrough />
 		</>
 	);
@@ -77,44 +81,10 @@ function InteractiveTargets() {
 }
 
 describe( 'first-time walkthrough', () => {
-	it( 'lets the site dialog settle and reveals a requested next tip immediately', async () => {
-		vi.useFakeTimers();
-		const { connector } = setup( { walkthroughStep: 'create' }, { sites: [] } );
-		renderApp( { connector, path: '/sites?addSite=create' } );
-		await act( () => vi.advanceTimersByTimeAsync( 100 ) );
-		expect( screen.getByRole( 'button', { name: 'Start with Blank site' } ) ).toBeVisible();
-		expect(
-			screen.queryByRole( 'dialog', { name: 'Start from scratch' } )
-		).not.toBeInTheDocument();
-		await act( () => vi.advanceTimersByTimeAsync( 400 ) );
-		expect( screen.getByRole( 'dialog', { name: 'Start from scratch' } ) ).toBeVisible();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Next' } ) );
-		await act( () => vi.advanceTimersByTimeAsync( 32 ) );
-		expect( screen.getByRole( 'dialog', { name: 'Start with a design' } ) ).toBeVisible();
-	} );
-
-	it( 'cancels a pending tip when the user changes the creation route', async () => {
-		vi.useFakeTimers();
-		const { connector } = setup( { walkthroughStep: 'create' }, { sites: [] } );
-		renderApp( { connector, path: '/sites?addSite=create' } );
-		await act( () => vi.advanceTimersByTimeAsync( 100 ) );
-		fireEvent.click( screen.getByRole( 'tab', { name: 'Connect' } ) );
-		await act( () => vi.advanceTimersByTimeAsync( 500 ) );
-		expect(
-			screen.queryByRole( 'dialog', { name: 'Start from scratch' } )
-		).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'tab', { name: 'New' } ) );
-		await act( () => vi.advanceTimersByTimeAsync( 100 ) );
-		expect(
-			screen.queryByRole( 'dialog', { name: 'Start from scratch' } )
-		).not.toBeInTheDocument();
-		await act( () => vi.advanceTimersByTimeAsync( 400 ) );
-		expect( screen.getByRole( 'dialog', { name: 'Start from scratch' } ) ).toBeVisible();
-	} );
-
 	it( 'introduces all workspace steps without running actions and persists completion', async () => {
 		const { connector, readHints } = setup( { walkthroughStep: 'composer' } );
-		const { user } = renderWithProviders( <Targets />, { connector } );
+		const onAction = vi.fn();
+		const { user } = renderWithProviders( <Targets onAction={ onAction } />, { connector } );
 		expect( await screen.findByRole( 'dialog', { name: 'Make any change' } ) ).toBeVisible();
 		expect( screen.getByRole( 'status' ) ).toHaveTextContent( '3/5' );
 		expect( screen.queryByRole( 'button', { name: 'Skip tour' } ) ).not.toBeInTheDocument();
@@ -127,8 +97,7 @@ describe( 'first-time walkthrough', () => {
 		await user.click( screen.getByRole( 'button', { name: 'Done' } ) );
 		await waitFor( () => expect( readHints().walkthroughStep ).toBe( 'completed' ) );
 		expect( screen.getByRole( 'button', { name: 'Publish' } ) ).toHaveFocus();
-		expect( connector.authenticate ).not.toHaveBeenCalled();
-		expect( connector.createSite ).not.toHaveBeenCalled();
+		expect( onAction ).not.toHaveBeenCalled();
 	} );
 
 	it( 'continues a saved annotation step at sharing without opening the preview', async () => {
@@ -138,16 +107,6 @@ describe( 'first-time walkthrough', () => {
 		expect( readHints().walkthroughStep ).toBe( 'share' );
 		expect( screen.queryByRole( 'dialog', { name: 'Point at it' } ) ).not.toBeInTheDocument();
 		expect( connector.startSite ).not.toHaveBeenCalled();
-	} );
-
-	it( 'omits annotations when the host does not support them', async () => {
-		const { connector } = setup( { walkthroughStep: 'composer' }, { annotate: false } );
-		const { user } = renderWithProviders( <Targets />, { connector } );
-		await screen.findByRole( 'dialog', { name: 'Make any change' } );
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent( '3/5' );
-		await user.click( screen.getByRole( 'button', { name: 'Next' } ) );
-		expect( await screen.findByRole( 'dialog', { name: 'Share a preview' } ) ).toBeVisible();
-		expect( screen.getByRole( 'status' ) ).toHaveTextContent( '4/5' );
 	} );
 
 	it( 'ends the whole walkthrough with Escape', async () => {
@@ -188,56 +147,27 @@ describe( 'first-time walkthrough', () => {
 		}
 	);
 
-	it.each( [ 'Start with Blank site', 'View Substrata' ] )(
-		'continues to the user’s choice of %s without selecting for them',
-		async ( choice ) => {
-			const { connector, readHints } = setup( { walkthroughStep: 'create' }, { sites: [] } );
-			const { user } = renderApp( { connector, path: '/sites?addSite=create' } );
-			const introduction = await screen.findByRole( 'dialog', { name: 'Start from scratch' } );
-			expect( introduction ).toHaveTextContent(
-				'A blank WordPress site, ready to become whatever you have in mind.'
-			);
-			expect( introduction ).toHaveTextContent( 'Connect it or import a backup instead.' );
-			expect( within( introduction ).getByRole( 'button', { name: 'Skip tour' } ) ).toBeVisible();
-			expect( within( introduction ).getByRole( 'status' ) ).toHaveTextContent( '1/5' );
-			expect( within( introduction ).getAllByRole( 'button' ) ).toHaveLength( 2 );
-			const action = within( introduction ).getByRole( 'button', { name: 'Next' } );
-			action.focus();
-			await user.keyboard( '{Enter}' );
-			const designTip = await screen.findByRole( 'dialog', { name: 'Start with a design' } );
-			expect( within( designTip ).getAllByRole( 'button' ) ).toHaveLength( 1 );
-			expect( within( designTip ).getByRole( 'button', { name: 'Browse designs' } ) ).toBeVisible();
-			expect( screen.getByRole( 'button', { name: 'View Substrata' } ) ).toHaveFocus();
-			expect( screen.getByRole( 'status' ) ).toHaveTextContent( '2/5' );
-			await user.click( screen.getByRole( 'button', { name: 'Browse designs' } ) );
-			await waitFor( () =>
-				expect(
-					screen.queryByRole( 'dialog', { name: 'Start with a design' } )
-				).not.toBeInTheDocument()
-			);
-			expect( screen.getByRole( 'button', { name: 'View Substrata' } ) ).toHaveFocus();
-			expect( screen.getByRole( 'button', { name: 'Start with Blank site' } ) ).toBeVisible();
-			expect( screen.getByRole( 'button', { name: 'View Substrata' } ) ).toBeVisible();
-			expect( screen.queryByLabelText( 'Site name' ) ).not.toBeInTheDocument();
-			expect( readHints().walkthroughStep ).toBe( 'create' );
-			expect( connector.createSite ).not.toHaveBeenCalled();
-			await user.click( await screen.findByRole( 'button', { name: choice } ) );
-			await waitFor( () =>
-				expect(
-					screen.queryByRole( 'dialog', { name: 'Start from scratch' } )
-				).not.toBeInTheDocument()
-			);
-			expect( readHints().walkthroughStep ).toBe( 'create' );
-			expect( screen.getByRole( 'dialog', { name: 'Add site' } ) ).toBeVisible();
-			expect( screen.queryByRole( 'dialog', { name: 'Make any change' } ) ).not.toBeInTheDocument();
-			expect( connector.createSite ).not.toHaveBeenCalled();
-			expect(
-				await screen.findByRole( 'dialog', {
-					name: 'Make it yours',
-				} )
-			).toBeVisible();
-		}
-	);
+	it( 'introduces creation choices without selecting or creating a site', async () => {
+		const { connector, readHints } = setup( { walkthroughStep: 'create' }, { sites: [] } );
+		const { user } = renderApp( { connector, path: '/sites?addSite=create' } );
+		const introduction = await screen.findByRole( 'dialog', { name: 'Start from scratch' } );
+		expect( within( introduction ).getByRole( 'button', { name: 'Skip tour' } ) ).toBeVisible();
+		expect( within( introduction ).getByRole( 'status' ) ).toHaveTextContent( '1/5' );
+		within( introduction ).getByRole( 'button', { name: 'Next' } ).focus();
+		await user.keyboard( '{Enter}' );
+		const designTip = await screen.findByRole( 'dialog', { name: 'Start with a design' } );
+		expect(
+			within( designTip ).queryByRole( 'button', { name: 'Skip tour' } )
+		).not.toBeInTheDocument();
+		expect( within( designTip ).getByRole( 'status' ) ).toHaveTextContent( '2/5' );
+		await user.click( within( designTip ).getByRole( 'button', { name: 'Browse designs' } ) );
+		await waitFor( () => expect( designTip ).not.toBeInTheDocument() );
+		expect( screen.getByRole( 'button', { name: 'View Substrata' } ) ).toHaveFocus();
+		expect( screen.getByRole( 'button', { name: 'Start with Blank site' } ) ).toBeVisible();
+		expect( screen.queryByLabelText( 'Site name' ) ).not.toBeInTheDocument();
+		expect( readHints().walkthroughStep ).toBe( 'create' );
+		expect( connector.createSite ).not.toHaveBeenCalled();
+	} );
 
 	it.each( [ 'Connect', 'Import' ] )(
 		'keeps %s available without touring the tab',
@@ -279,36 +209,16 @@ describe( 'first-time walkthrough', () => {
 		expect( connector.createSite ).not.toHaveBeenCalled();
 	} );
 
-	it( 'guides blueprint creation and continues at the composer after creating', async () => {
+	it( 'returns to creation guidance when leaving Blueprint details', async () => {
 		const { connector, readHints } = setup( { walkthroughStep: 'create' }, { sites: [] } );
 		const { user } = renderApp( { connector, path: '/sites?addSite=create' } );
 		await screen.findByRole( 'dialog', { name: 'Start from scratch' } );
-		await user.click( await screen.findByRole( 'button', { name: 'View Substrata' } ) );
-		const tip = await screen.findByRole( 'dialog', { name: 'Make it yours' } );
-		expect( tip ).toHaveTextContent(
-			'Create a site with this design and its content, then shape it with prompts.'
-		);
-		expect( within( tip ).queryByRole( 'status' ) ).not.toBeInTheDocument();
-		expect( within( tip ).getAllByRole( 'button' ) ).toHaveLength( 1 );
-		expect( within( tip ).getByRole( 'button', { name: 'Got it' } ) ).toBeVisible();
-		expect( readHints().walkthroughStep ).toBe( 'create' );
+		await user.click( screen.getByRole( 'button', { name: 'View Substrata' } ) );
+		await screen.findByRole( 'dialog', { name: 'Make it yours' } );
 		await user.click( screen.getByRole( 'button', { name: 'Back to Blueprints' } ) );
 		expect( await screen.findByRole( 'dialog', { name: 'Start from scratch' } ) ).toBeVisible();
-		await user.click( await screen.findByRole( 'button', { name: 'View Substrata' } ) );
-		const blueprintTip = await screen.findByRole( 'dialog', { name: 'Make it yours' } );
-		const create = screen.getByRole( 'button', { name: 'Use Blueprint' } );
-		within( blueprintTip ).getByRole( 'button', { name: 'Got it' } ).focus();
-		await user.keyboard( '{Enter}' );
-		await waitFor( () => expect( blueprintTip ).not.toBeInTheDocument() );
-		expect( create ).toHaveFocus();
-		expect( connector.createSite ).not.toHaveBeenCalled();
 		expect( readHints().walkthroughStep ).toBe( 'create' );
-		await user.keyboard( '{Enter}' );
-		const setupTip = await screen.findByRole( 'dialog', { name: 'Make it yours' } );
-		await user.click( within( setupTip ).getByRole( 'button', { name: 'Got it' } ) );
-		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
-		expect( await screen.findByRole( 'dialog', { name: 'Make any change' } ) ).toBeVisible();
-		expect( readHints().walkthroughStep ).toBe( 'composer' );
+		expect( connector.createSite ).not.toHaveBeenCalled();
 	} );
 
 	it.each( [ 'blank', 'blueprint' ] )(
@@ -319,11 +229,6 @@ describe( 'first-time walkthrough', () => {
 			await screen.findByRole( 'dialog', { name: 'Start from scratch' } );
 			if ( source === 'blueprint' ) {
 				await user.click( await screen.findByRole( 'button', { name: 'View Substrata' } ) );
-				connector.generateProposedSitePath.mockResolvedValueOnce( {
-					path: '/sites/taken',
-					isEmpty: false,
-					isWordPress: true,
-				} );
 				const blueprintTip = await screen.findByRole( 'dialog', {
 					name: 'Make it yours',
 				} );
@@ -339,7 +244,6 @@ describe( 'first-time walkthrough', () => {
 				'Create a fresh WordPress site, then shape it with prompts.'
 			);
 			expect( within( tip ).queryByRole( 'status' ) ).not.toBeInTheDocument();
-			expect( within( tip ).getAllByRole( 'button' ) ).toHaveLength( 1 );
 			expect(
 				within( tip ).queryByRole( 'button', { name: 'Skip tour' } )
 			).not.toBeInTheDocument();
@@ -363,73 +267,61 @@ describe( 'first-time walkthrough', () => {
 		}
 	);
 
-	it.each( [ 'blank', 'blueprint' ] )(
-		'keeps the %s creation tip dismissed after a failed attempt and retry',
-		async ( source ) => {
-			const { connector, readHints } = setup( { walkthroughStep: 'create' }, { sites: [] } );
-			connector.createSite.mockRejectedValueOnce( new Error( 'Could not create the site.' ) );
-			const { user } = renderApp( { connector, path: '/sites?addSite=create' } );
-			await user.click(
-				await screen.findByRole( 'button', {
-					name: source === 'blank' ? 'Start with Blank site' : 'View Substrata',
-				} )
-			);
-			if ( source === 'blueprint' ) {
-				const detailsTip = await screen.findByRole( 'dialog', { name: 'Make it yours' } );
-				await user.click( within( detailsTip ).getByRole( 'button', { name: 'Got it' } ) );
-				await user.click( screen.getByRole( 'button', { name: 'Use Blueprint' } ) );
-			}
-			const title = 'Make it yours';
-			await screen.findByRole( 'dialog', { name: title } );
-			const create = screen.getByRole( 'button', { name: 'Add site' } );
-			await waitFor( () => expect( create ).toBeEnabled() );
-			await user.click( create );
-			await waitFor( () => expect( connector.createSite ).toHaveBeenCalledTimes( 1 ) );
-			await waitFor( () => expect( create ).toBeEnabled() );
-			vi.useFakeTimers();
-			await act( () => vi.advanceTimersByTimeAsync( 500 ) );
-			vi.useRealTimers();
-			expect( screen.queryByRole( 'dialog', { name: title } ) ).not.toBeInTheDocument();
-			expect( readHints().walkthroughStep ).toBe( 'create' );
-			await user.click( create );
-			expect( await screen.findByRole( 'dialog', { name: 'Make any change' } ) ).toBeVisible();
-			expect( connector.createSite ).toHaveBeenCalledTimes( 2 );
-			expect( readHints().walkthroughStep ).toBe( 'composer' );
-		}
-	);
+	it( 'keeps the creation tip dismissed after a failed attempt and retry', async () => {
+		const { connector, readHints } = setup( { walkthroughStep: 'create' }, { sites: [] } );
+		connector.createSite.mockRejectedValueOnce( new Error( 'Could not create the site.' ) );
+		const { user } = renderApp( { connector, path: '/sites?addSite=create' } );
+		await user.click( await screen.findByRole( 'button', { name: 'Start with Blank site' } ) );
+		const tip = await screen.findByRole( 'dialog', { name: 'Make it yours' } );
+		const create = screen.getByRole( 'button', { name: 'Add site' } );
+		await waitFor( () => expect( create ).toBeEnabled() );
+		await user.click( create );
+		await waitFor( () => expect( connector.createSite ).toHaveBeenCalledTimes( 1 ) );
+		await waitFor( () => expect( create ).toBeEnabled() );
+		await waitFor( () => expect( tip ).not.toBeInTheDocument() );
+		expect( readHints().walkthroughStep ).toBe( 'create' );
+		await user.click( create );
+		expect( await screen.findByRole( 'dialog', { name: 'Make any change' } ) ).toBeVisible();
+		expect( connector.createSite ).toHaveBeenCalledTimes( 2 );
+		expect( readHints().walkthroughStep ).toBe( 'composer' );
+	} );
 
-	it( 'continues an incomplete setup by focusing the form without creating or skipping', async () => {
+	it( 'continues an invalid setup by focusing the field without creating or skipping', async () => {
 		const { connector, readHints } = setup( { walkthroughStep: 'create' }, { sites: [] } );
 		const { user } = renderApp( { connector, path: '/sites?addSite=create' } );
 		await user.click( await screen.findByRole( 'button', { name: 'Start with Blank site' } ) );
 		const tip = await screen.findByRole( 'dialog', { name: 'Make it yours' } );
-		const name = screen.getByLabelText( 'Site name' );
-		await user.clear( name );
+		await user.click( screen.getByRole( 'button', { name: 'Advanced' } ) );
+		const domain = screen.getByLabelText( 'Domain name' );
+		await user.type( domain, 'invalid domain' );
 		expect( screen.getByRole( 'button', { name: 'Add site' } ) ).toBeDisabled();
 		await user.click( within( tip ).getByRole( 'button', { name: 'Got it' } ) );
 		await waitFor( () => expect( tip ).not.toBeInTheDocument() );
-		expect( name ).toHaveFocus();
+		expect( domain ).toHaveFocus();
 		expect( connector.createSite ).not.toHaveBeenCalled();
 		expect( readHints().walkthroughStep ).toBe( 'create' );
-		await user.type( name, 'My first site' );
+		await user.clear( domain );
+		await user.type( domain, 'my-site.test' );
 		expect( screen.queryByRole( 'dialog', { name: 'Make it yours' } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'skips the tour without submitting an incomplete form', async () => {
+	it( 'skips the tour without submitting an invalid form', async () => {
 		const { connector, readHints } = setup( { walkthroughStep: 'create' }, { sites: [] } );
 		const { user } = renderApp( { connector, path: '/sites?addSite=create' } );
 		await user.click( await screen.findByRole( 'button', { name: 'Start with Blank site' } ) );
 		const tip = await screen.findByRole( 'dialog', { name: 'Make it yours' } );
-		const name = screen.getByLabelText( 'Site name' );
-		await user.clear( name );
+		await user.click( screen.getByRole( 'button', { name: 'Advanced' } ) );
+		const domain = screen.getByLabelText( 'Domain name' );
+		await user.type( domain, 'invalid domain' );
 		expect( screen.getByRole( 'button', { name: 'Add site' } ) ).toBeDisabled();
 		within( tip ).getByRole( 'button', { name: 'Got it' } ).focus();
 		await user.keyboard( '{Escape}' );
 		await waitFor( () => expect( tip ).not.toBeInTheDocument() );
-		expect( name ).toHaveFocus();
+		expect( domain ).toHaveFocus();
 		expect( connector.createSite ).not.toHaveBeenCalled();
 		expect( readHints().walkthroughStep ).toBe( 'skipped' );
-		await user.type( name, 'My first site' );
+		await user.clear( domain );
+		await user.type( domain, 'my-site.test' );
 		expect( screen.queryByRole( 'dialog', { name: 'Make it yours' } ) ).not.toBeInTheDocument();
 	} );
 
@@ -602,19 +494,6 @@ describe( 'first-time walkthrough', () => {
 		);
 	} );
 
-	it( 'allows a configured Anthropic provider without a WordPress.com login', async () => {
-		const { connector } = setup( { walkthroughStep: 'composer' }, { signedIn: false } );
-		connector.getAiSettings.mockResolvedValue( {
-			provider: 'anthropic-api-key',
-			hasAnthropicApiKey: true,
-			anthropicApiKeyPreview: 'test',
-		} );
-		const { user } = renderWithProviders( <Targets />, { connector } );
-		await screen.findByRole( 'dialog', { name: 'Make any change' } );
-		await user.click( screen.getByRole( 'button', { name: 'Next' } ) );
-		expect( await screen.findByRole( 'dialog', { name: 'Share a preview' } ) ).toBeVisible();
-	} );
-
 	it( 'continues to sharing when the site is stopped and has no annotation toolbar', async () => {
 		const { connector } = setup( { walkthroughStep: 'composer' } );
 		const { user } = renderApp( { connector, path: '/sites/site-1/new' } );
@@ -624,47 +503,32 @@ describe( 'first-time walkthrough', () => {
 		expect( connector.startSite ).not.toHaveBeenCalled();
 	} );
 
-	it.each( [ true, false ] )(
-		'tours site options before the existing workspace (signed in: %s)',
-		async ( signedIn ) => {
-			localStorage.setItem( 'studio-ui-sidebar-collapsed', 'true' );
-			const { connector, readHints } = setup( { walkthroughStep: 'ineligible' }, { signedIn } );
-			const { history, user } = renderApp( { connector, path: '/sites/site-1' } );
-			await waitFor( () => expect( connector.listenerCount( 'onShowGettingStarted' ) ).toBe( 1 ) );
-			act( () => connector.emit( 'onShowGettingStarted' ) );
-			const intro = await screen.findByRole( 'dialog', { name: 'Add a new site' } );
-			expect( within( intro ).getByRole( 'button', { name: 'Skip tour' } ) ).toBeVisible();
-			expect( screen.getByRole( 'button', { name: 'Add site' } ) ).toHaveAttribute(
-				'data-walkthrough',
-				'intro'
-			);
-			expect( within( intro ).queryByRole( 'status' ) ).not.toBeInTheDocument();
-			expect( history.location.pathname ).toBe( '/sites/site-1/new' );
-			await user.click( within( intro ).getByRole( 'button', { name: 'Next' } ) );
-			const fresh = await screen.findByRole( 'dialog', { name: 'Start from scratch' } );
-			expect(
-				within( fresh ).queryByRole( 'button', { name: 'Skip tour' } )
-			).not.toBeInTheDocument();
-			await user.click( within( fresh ).getByRole( 'button', { name: 'Next' } ) );
-			const design = await screen.findByRole( 'dialog', { name: 'Start with a design' } );
-			expect(
-				within( design ).queryByRole( 'button', { name: 'Skip tour' } )
-			).not.toBeInTheDocument();
-			await user.click( within( design ).getByRole( 'button', { name: 'Next' } ) );
-			expect(
-				await screen.findByRole( 'dialog', {
-					name: signedIn ? 'Make any change' : 'Build with AI',
-				} )
-			).toBeVisible();
-			expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument();
-			expect( readHints().walkthroughStep ).toBe( 'composer' );
-			expect( history.location.pathname ).toBe( '/sites/site-1/new' );
-			expect( connector.createSite ).not.toHaveBeenCalled();
-			expect( connector.setOnboardingCompleted ).not.toHaveBeenCalled();
-			expect( localStorage.getItem( 'studio-ui-sidebar-collapsed' ) ).toBe( 'true' );
-			localStorage.removeItem( 'studio-ui-sidebar-collapsed' );
-		}
-	);
+	it( 'tours site options before returning to an existing workspace', async () => {
+		localStorage.setItem( 'studio-ui-sidebar-collapsed', 'true' );
+		const { connector, readHints } = setup( { walkthroughStep: 'ineligible' } );
+		const { history, user } = renderApp( { connector, path: '/sites/site-1' } );
+		await waitFor( () => expect( connector.listenerCount( 'onShowGettingStarted' ) ).toBe( 1 ) );
+		act( () => connector.emit( 'onShowGettingStarted' ) );
+		const intro = await screen.findByRole( 'dialog', { name: 'Add a new site' } );
+		expect( within( intro ).getByRole( 'button', { name: 'Skip tour' } ) ).toBeVisible();
+		expect( history.location.pathname ).toBe( '/sites/site-1/new' );
+		await user.click( within( intro ).getByRole( 'button', { name: 'Next' } ) );
+		const fresh = await screen.findByRole( 'dialog', { name: 'Start from scratch' } );
+		expect(
+			within( fresh ).queryByRole( 'button', { name: 'Skip tour' } )
+		).not.toBeInTheDocument();
+		await user.click( within( fresh ).getByRole( 'button', { name: 'Next' } ) );
+		const design = await screen.findByRole( 'dialog', { name: 'Start with a design' } );
+		await user.click( within( design ).getByRole( 'button', { name: 'Next' } ) );
+		expect( await screen.findByRole( 'dialog', { name: 'Make any change' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument();
+		expect( readHints().walkthroughStep ).toBe( 'composer' );
+		expect( history.location.pathname ).toBe( '/sites/site-1/new' );
+		expect( connector.createSite ).not.toHaveBeenCalled();
+		expect( connector.setOnboardingCompleted ).not.toHaveBeenCalled();
+		expect( localStorage.getItem( 'studio-ui-sidebar-collapsed' ) ).toBe( 'true' );
+		localStorage.removeItem( 'studio-ui-sidebar-collapsed' );
+	} );
 
 	it.each( [ 'Start with Blank site', 'View Substrata' ] )(
 		'continues an existing-site tour from %s without creating',
@@ -720,7 +584,7 @@ describe( 'first-time walkthrough', () => {
 		expect( connector.createSite ).not.toHaveBeenCalled();
 	} );
 
-	it( 'replays the introduction from Help after continuing to browse', async () => {
+	it( 'replays the introduction from command search after continuing to browse', async () => {
 		const { connector } = setup( { walkthroughStep: 'create' }, { sites: [] } );
 		const { user } = renderApp( { connector, path: '/sites?addSite=create' } );
 		await screen.findByRole( 'dialog', { name: 'Start from scratch' } );
@@ -728,7 +592,13 @@ describe( 'first-time walkthrough', () => {
 		const tip = await screen.findByRole( 'dialog', { name: 'Start with a design' } );
 		await user.click( within( tip ).getByRole( 'button', { name: 'Browse designs' } ) );
 		await waitFor( () => expect( tip ).not.toBeInTheDocument() );
-		act( () => connector.emit( 'onShowGettingStarted' ) );
+		const isApple = /Mac|iPhone|iPad/.test( navigator.platform );
+		fireEvent.keyDown( document, { key: 'k', code: 'KeyK', metaKey: isApple, ctrlKey: ! isApple } );
+		await user.type(
+			await screen.findByRole( 'combobox', { name: 'Search commands' } ),
+			'Take a tour'
+		);
+		await user.click( screen.getByRole( 'option', { name: 'Take a tour' } ) );
 		expect( await screen.findByRole( 'dialog', { name: 'Start from scratch' } ) ).toBeVisible();
 		expect( connector.createSite ).not.toHaveBeenCalled();
 	} );

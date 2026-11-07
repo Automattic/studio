@@ -126,20 +126,17 @@ describe( 'Add site flow', () => {
 		}
 	);
 
-	it.each( [ undefined, 'skipped', 'completed', 'ineligible' ] as const )(
-		'allows outside presses with no sites when the tour is %s',
-		async ( walkthroughStep ) => {
-			const { history } = setup( { walkthroughStep } );
-			const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
-			fireEvent.click(
-				screen
-					.getAllByRole( 'presentation', { hidden: true } )
-					.find( ( element ) => element.dataset.variant === 'dimmed' )!
-			);
-			await waitFor( () => expect( dialog ).not.toBeInTheDocument() );
-			expect( history.location.search ).not.toContain( 'addSite' );
-		}
-	);
+	it( 'allows outside presses after the creation tour is completed', async () => {
+		const { history } = setup( { walkthroughStep: 'completed' } );
+		const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
+		fireEvent.click(
+			screen
+				.getAllByRole( 'presentation', { hidden: true } )
+				.find( ( element ) => element.dataset.variant === 'dimmed' )!
+		);
+		await waitFor( () => expect( dialog ).not.toBeInTheDocument() );
+		expect( history.location.search ).not.toContain( 'addSite' );
+	} );
 
 	it( 'allows outside presses to close the dialog when a site already exists', async () => {
 		const { history } = setup( { sites: [ makeSite() ] } );

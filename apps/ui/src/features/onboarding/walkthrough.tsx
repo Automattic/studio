@@ -9,7 +9,7 @@ import { useSites } from '@/data/queries/use-sites';
 import { FeaturePopover } from '@/lib/ui';
 import { useOnboardingGuide } from './onboarding-guide/use-onboarding-guide';
 import { WHATS_NEW_VERSION } from './onboarding-guide/whats-new';
-import { useOpenGettingStarted } from './use-open-getting-started';
+import { GETTING_STARTED_REPLAY_EVENT, useOpenGettingStarted } from './use-open-getting-started';
 import type { OnboardingHintsState } from '@/data/core';
 
 type Step = NonNullable< OnboardingHintsState[ 'walkthroughStep' ] >;
@@ -162,15 +162,22 @@ export function Walkthrough( {
 		guideOpen ||
 		( step === 'create' ? ! addSite : !! addSite || ! sites?.length );
 	useEffect( () => {
-		return connector.onShowGettingStarted( () => {
+		const reset = () => {
 			setDismissedCreateStages( [] );
 			setGalleryStep( 'fresh' );
 			showNextImmediately.current = false;
+		};
+		window.addEventListener( GETTING_STARTED_REPLAY_EVENT, reset );
+		const unsubscribe = connector.onShowGettingStarted( () => {
 			if ( inSiteDialog ) return;
 			void openGettingStarted().catch( () =>
 				toast.error( __( 'Could not start the tour. Please try again.' ) )
 			);
 		} );
+		return () => {
+			window.removeEventListener( GETTING_STARTED_REPLAY_EVENT, reset );
+			unsubscribe();
+		};
 	}, [ connector, openGettingStarted, inSiteDialog ] );
 
 	useEffect( () => {
@@ -321,19 +328,16 @@ export function Walkthrough( {
 		steps.length
 	);
 	const focusAnchor = () => {
+		const dialog = anchor?.closest( '[role="dialog"]' );
 		const focusTarget =
 			anchor instanceof HTMLButtonElement && anchor.disabled
-				? anchor
-						.closest( '[role="dialog"]' )
-						?.querySelector< HTMLElement >( '[aria-invalid="true"], input:not([disabled])' )
+				? dialog?.querySelector< HTMLElement >( '[aria-invalid="true"]' ) ??
+				  dialog?.querySelector< HTMLElement >( 'input:not([disabled])' )
 				: anchor?.matches( 'button, input, textarea, [tabindex]' )
 				? anchor
 				: anchor?.querySelector< HTMLElement >(
 						'textarea, input, [contenteditable="true"], button'
-				  ) ??
-				  anchor
-						?.closest( '[role="dialog"]' )
-						?.querySelector< HTMLElement >( '[data-start-blank]' );
+				  ) ?? dialog?.querySelector< HTMLElement >( '[data-start-blank]' );
 		focusTarget?.focus();
 	};
 	const finish = ( next: Step ) => {

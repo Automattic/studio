@@ -61,32 +61,32 @@ afterEach( () => vi.unstubAllGlobals() );
 
 describe( 'command palette', () => {
 	beforeEach( () => localStorage.clear() );
-	it.each( [ 'Take a tour', 'Getting started', 'Walkthrough' ] )(
-		'replays the tour from %s without repeating Welcome or resetting preferences',
-		async ( query ) => {
-			const connector = createFakeConnector(
-				{ sites: [ testSite ], preferences: { colorScheme: 'dark' } },
-				{
-					getOnboardingHints: async () => ( {
-						walkthroughStep: 'skipped',
-						annotateHintDismissed: true,
-						whatsNewSeenVersion: 10,
-					} ),
-				}
-			);
-			const { user, history } = await renderPalette( { connector } );
-			await openPalette();
+	it( 'finds the tour by its aliases and replays it without resetting preferences', async () => {
+		const connector = createFakeConnector(
+			{ sites: [ testSite ], preferences: { colorScheme: 'dark' } },
+			{
+				getOnboardingHints: async () => ( {
+					walkthroughStep: 'skipped',
+					annotateHintDismissed: true,
+					whatsNewSeenVersion: 10,
+				} ),
+			}
+		);
+		const { user, history } = await renderPalette( { connector } );
+		await openPalette();
+		for ( const query of [ 'Take a tour', 'Getting started', 'Walkthrough' ] ) {
 			search( query );
-			await user.click( option( 'Take a tour' ) );
-			await screen.findByRole( 'dialog', { name: 'Add a new site' } );
-			expect( history.location.pathname ).toBe( '/sites/one/new' );
-			expect( connector.setOnboardingHints ).toHaveBeenCalledWith( {
-				walkthroughStep: 'intro',
-			} );
-			expect( connector.setOnboardingCompleted ).not.toHaveBeenCalled();
-			expect( connector.setUserPreferences ).not.toHaveBeenCalled();
+			expect( option( 'Take a tour' ) ).toBeVisible();
 		}
-	);
+		await user.click( option( 'Take a tour' ) );
+		await screen.findByRole( 'dialog', { name: 'Add a new site' } );
+		expect( history.location.pathname ).toBe( '/sites/one/new' );
+		expect( connector.setOnboardingHints ).toHaveBeenCalledWith( {
+			walkthroughStep: 'intro',
+		} );
+		expect( connector.setOnboardingCompleted ).not.toHaveBeenCalled();
+		expect( connector.setUserPreferences ).not.toHaveBeenCalled();
+	} );
 
 	it( 'resets contextual tips without starting the tour or navigating', async () => {
 		const connector = createFakeConnector(

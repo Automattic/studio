@@ -166,13 +166,13 @@ describe( 'WordPress Studio settings', () => {
 
 	it.each( [
 		{ colorScheme: 'dark' as const },
-		{ newSiteBehavior: 'blank' as const },
 		{ accentColor: '#069e08' },
 		{ tintIntensity: 20 },
 		{ contrast: 30 },
 		{ quitSitesBehavior: 'stop' as const },
 		{ showRecentChats: false },
 		{ autoStartSiteOnChat: true },
+		{ hideFrontendAdminBar: true },
 		{ autoCollapseSites: false },
 		{ sidebarPinnedSort: 'manual' as const },
 		{ sidebarSiteSort: 'status' as const },
@@ -214,7 +214,9 @@ describe( 'WordPress Studio settings', () => {
 		localStorage.setItem( 'unrelated-key', 'one' );
 		const reset = vi.fn();
 		window.addEventListener( PANEL_WIDTHS_RESET_EVENT, reset );
-		const { connector, settingsParam } = await setup();
+		const { connector, settingsParam } = await setup( {
+			preferences: { hideFrontendAdminBar: true },
+		} );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Reset interface' } ) );
 		await waitFor( () => expect( reset ).toHaveBeenCalledOnce() );
 		await waitFor( () =>
@@ -224,6 +226,7 @@ describe( 'WordPress Studio settings', () => {
 			{ ...INTERFACE_PREFERENCE_DEFAULTS },
 			undefined
 		);
+		expect( screen.getByRole( 'switch', { name: 'Hide admin bar' } ) ).not.toBeChecked();
 		expect( localStorage.getItem( SIDEBAR_PANEL_STORAGE_KEY ) ).toBeNull();
 		expect( localStorage.getItem( PANEL_CONTENT_WIDTH_STORAGE_KEY ) ).toBeNull();
 		expect( localStorage.getItem( SIDEBAR_COLLAPSED_STORAGE_KEY ) ).not.toBe( 'true' );

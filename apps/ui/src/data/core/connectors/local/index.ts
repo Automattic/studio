@@ -8,6 +8,7 @@ import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
 import type {
+	AgentApp,
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
 	AiSessionSummary,
@@ -24,6 +25,7 @@ import type {
 	SiteDetails,
 	SiteAgentFile,
 	SkillStatus,
+	PreviewStatus,
 	Snapshot,
 	SnapshotUsage,
 	SpacefastConnection,
@@ -426,8 +428,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				`/site-defaults/path?name=${ encodeURIComponent( siteName ) }`
 			);
 		},
-		// No native folder picker in a browser: the create form has the path typed
-		// (see capabilities.nativeFolderPicker), and this checks what it holds.
+		// The browser has no native folder picker; this checks a known path.
 		async selectSiteFolder( folderPath, options ): Promise< SelectedSiteFolder | null > {
 			return api< SelectedSiteFolder >( '/site-defaults/folder', {
 				method: 'POST',
@@ -475,6 +476,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async updateSitesSortOrder( updates ) {
 			await api( '/sites/sort-order', { method: 'POST', body: JSON.stringify( { updates } ) } );
+		},
+
+		async setSiteFrontendAdminBar( siteId, hidden ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/frontend-admin-bar`, {
+				method: 'PATCH',
+				body: JSON.stringify( { hidden } ),
+			} );
 		},
 		// Export downloads the archive in the browser (no native Save-As dialog).
 		async exportFullSite( siteId, options ): Promise< string | null > {
@@ -584,6 +592,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'PATCH',
 				body: JSON.stringify( { name } ),
 			} );
+		},
+		async getPreviewStatus( hostname ): Promise< PreviewStatus > {
+			return api< PreviewStatus >( `/snapshots/${ encodeURIComponent( hostname ) }/status` );
 		},
 		async getConnectedWpcomSites( localSiteId ): Promise< SyncSite[] > {
 			return api< SyncSite[] >(
@@ -835,6 +846,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return api< InstalledApps >( '/installed-apps' );
 		},
 
+		async getAgentApps(): Promise< AgentApp[] > {
+			return api< AgentApp[] >( '/agent-apps' );
+		},
+		async connectAgentApp( id ): Promise< void > {
+			await api< void >( `/agent-apps/${ id }/connect`, { method: 'POST' } );
+		},
+
 		async getAppGlobals(): Promise< AppGlobals > {
 			return { platform: 'browser', isWindowsStore: false };
 		},
@@ -943,6 +961,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async openExternalUrl( url ) {
 			window.open( url, '_blank', 'noopener,noreferrer' );
 		},
+		async sendFeedback( feedback ) {
+			return api< { feedbackId: number } >( '/feedback', {
+				method: 'POST',
+				body: JSON.stringify( feedback ),
+			} );
+		},
 		async getWapuuScore() {
 			return readWapuuScore( WAPUU_SCORE_STORAGE_KEY );
 		},
@@ -1034,6 +1058,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		onOpenSite() {
 			// Spotlight opens the installed desktop app.
+			return () => {};
+		},
+		onPullSite() {
+			// `pull-site` links open the installed desktop app.
 			return () => {};
 		},
 		onOpenSettings( listener ) {

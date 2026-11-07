@@ -1,4 +1,5 @@
 export { AddSiteDialog } from './add-site-dialog';
+export { AppIcon } from './app-icon';
 export { createSelectedBlueprint } from './blueprint-selection';
 export { DeleteSiteDialog } from './delete-site-dialog';
 export { getSiteUrl } from './get-site-url';
@@ -7,6 +8,7 @@ export {
 	useOpenInDestinations,
 } from './open-in-menu/use-open-in-destinations';
 export { pendingBlueprintSlot } from './pending-blueprint';
+export { pendingRemoteSiteSlot } from './pending-remote-site';
 export { pendingSiteFolderSlot } from './pending-site-folder';
 export { PreviewParticles } from './preview-particles';
 export { PanelSplitFrame, type PanelSplitFramePanelProps } from './panel-split-frame';

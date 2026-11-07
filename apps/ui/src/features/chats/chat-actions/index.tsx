@@ -309,7 +309,7 @@ function RenameChatForm( {
 				<DialogClose render={ <Button variant="outline" /> } disabled={ saving }>
 					{ __( 'Cancel' ) }
 				</DialogClose>
-				<Button type="submit" disabled={ saving }>
+				<Button variant="accent" type="submit" disabled={ saving }>
 					{ saving ? <Spinner aria-hidden="true" /> : null }
 					{ __( 'Save' ) }
 				</Button>

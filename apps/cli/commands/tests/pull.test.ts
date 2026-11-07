@@ -473,6 +473,85 @@ describe( 'CLI: studio pull single pull phase', () => {
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 	} );
 
+	it.each( [
+		{
+			remoteWpVersion: '7.1.4',
+			commands: [ 'pull-files', 'pull-db', 'apply-runtime' ],
+			filesArgs: [ '--include=:wp-content:' ],
+		},
+		{
+			remoteWpVersion: undefined,
+			commands: [ 'pull-files', 'pull-db', 'flat-docroot', 'apply-runtime' ],
+			filesArgs: [],
+		},
+	] )(
+		'keeps its own core when the remote runs $remoteWpVersion',
+		async ( { remoteWpVersion, commands, filesArgs } ) => {
+			const technicalSiteDirectory = fs.realpathSync(
+				fs.mkdtempSync( path.join( os.tmpdir(), 'studio-import-pull-core-' ) )
+			);
+			// The site's path goes through a symlink to a deeper directory, as `/tmp` does on macOS.
+			fs.mkdirSync( path.join( technicalSiteDirectory, 'private', 'sites' ), { recursive: true } );
+			fs.symlinkSync(
+				path.join( technicalSiteDirectory, 'private', 'sites' ),
+				path.join( technicalSiteDirectory, 'sites' ),
+				'junction'
+			);
+			const sitePath = path.join( technicalSiteDirectory, 'sites', 'site' );
+			const rawDirectory = path.join( technicalSiteDirectory, 'raw' );
+			const pulledWpContent = path.join( rawDirectory, 'srv', 'htdocs', 'wp-content' );
+			fs.mkdirSync( path.join( sitePath, 'wp-includes' ), { recursive: true } );
+			fs.mkdirSync( path.join( sitePath, 'wp-content' ) );
+			fs.mkdirSync( pulledWpContent, { recursive: true } );
+			fs.writeFileSync(
+				path.join( sitePath, 'wp-includes', 'version.php' ),
+				"<?php\n$wp_version = '7.1.4';\n"
+			);
+			const reprint = vi
+				.spyOn( reprintClient, 'runReprintCommandUntilComplete' )
+				.mockResolvedValue( { stdout: '{"ok":true}', stderr: '', exitCode: 0 } );
+
+			await runFullPull(
+				{
+					sitePath,
+					technicalSiteDirectory,
+					rawDirectory,
+					stateDirectory: path.join( technicalSiteDirectory, 'state' ),
+					runtimeDirectory: path.join( technicalSiteDirectory, 'runtime' ),
+					localUrl: 'http://localhost:8881',
+				} as never,
+				'https://example.com/?reprint-api-jetpack',
+				false,
+				false,
+				{},
+				{
+					...emptyReprintMetadata,
+					sourceSite: {
+						...emptyReprintMetadata.sourceSite,
+						contentDirectory: '/srv/htdocs/wp-content',
+						wordpressRoots: [ '/wordpress/core/7.1.4' ],
+					},
+				},
+				undefined,
+				remoteWpVersion
+			);
+
+			const calls = reprint.mock.calls.map( ( call ) => call[ 0 ] as string[] );
+			expect( calls.map( ( args ) => args[ 0 ] ) ).toEqual( commands );
+			expect( calls[ 0 ].slice( 2, -4 ) ).toEqual( filesArgs );
+			if ( remoteWpVersion ) {
+				expect( fs.realpathSync( path.join( sitePath, 'wp-content' ) ) ).toBe(
+					fs.realpathSync( pulledWpContent )
+				);
+			} else {
+				// Flatten replaces the site's own core files with links to the pulled core.
+				expect( calls[ 2 ] ).toContain( '--force' );
+			}
+
+			fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
+		}
+	);
+
 	it( 'uses only the selected directories when uploads are omitted', async () => {
 		const technicalSiteDirectory = fs.mkdtempSync(
 			path.join( os.tmpdir(), 'studio-import-pull-skip-uploads-' )
@@ -1046,6 +1125,58 @@ describe( 'CLI: studio pull delta re-pull of a completed pull', () => {
 			'pull-files',
 		] );
 	} );
+
+	it.each( [
+		[ 'preflight', 'remote_backup' ],
+		[ 'pull-files', 'remote_backup' ],
+		[ 'flat-docroot', 'local_import' ],
+	] )(
+		'records an uncoded failure in %s as the step it happened in',
+		async ( failingCommand, failureReason ) => {
+			const { runCommand } = await loadRunCommandWithFakeHome();
+			mockWpComPullSource();
+			const sitePath = path.join( fakeHome, 'Studio', 'Failing-Site' );
+			seedCliConfigSite( fakeHome, [
+				makeSiteRecord( {
+					id: 'failing-id',
+					name: 'Failing Site',
+					path: sitePath,
+					importComplete: true,
+					status: 'ready',
+				} ),
+			] );
+			fs.mkdirSync( path.join( fakeHome, '.studio', 'pulls', 'failing-id', 'state' ), {
+				recursive: true,
+			} );
+
+			const tracks = await import( 'cli/lib/tracks' );
+			const recordTracksEvent = vi
+				.spyOn( tracks, 'recordTracksEvent' )
+				.mockResolvedValue( undefined );
+			const reprintClientMod = await import( 'cli/lib/pull/reprint-client' );
+			vi.spyOn( reprintClientMod, 'runReprintCommandUntilComplete' ).mockImplementation(
+				async ( args ) => {
+					if ( args[ 0 ] === failingCommand ) {
+						throw new Error( `${ failingCommand } crashed` );
+					}
+					const stdout =
+						args[ 0 ] === 'preflight'
+							? JSON.stringify( { data: { ok: true, php: { version: '8.3' } } } )
+							: JSON.stringify( emptyReprintMetadata );
+					return { stdout, stderr: '', exitCode: 0 };
+				}
+			);
+			vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+			vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
+
+			await expect( runCommand( sitePath, 'https://example.com', false ) ).rejects.toThrow();
+
+			expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith(
+				tracks.TRACKS_EVENTS.SYNC_PULL,
+				expect.objectContaining( { success: false, failure_reason: failureReason } )
+			);
+		}
+	);
 } );
 
 describe( 'CLI: studio pull first-pull selective sync', () => {

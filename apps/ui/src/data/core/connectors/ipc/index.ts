@@ -19,6 +19,7 @@ import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import type {
+	AgentApp,
 	ActiveAgentRun,
 	AiSessionSummary,
 	AiSessionPlacementUpdatedEvent,
@@ -35,6 +36,7 @@ import type {
 	SiteDetails,
 	SiteAgentFile,
 	SkillStatus,
+	PreviewStatus,
 	Snapshot,
 	SnapshotUsage,
 	SpacefastConnection,
@@ -265,7 +267,9 @@ export function createIpcConnector(): Connector {
 
 		async selectSiteFolder( defaultPath, options ): Promise< SelectedSiteFolder | null > {
 			const response = ( await ipcApi.showOpenFolderDialog(
-				options?.allowBlueprints
+				options?.allowSiteFiles
+					? __( 'Choose a site source' )
+					: options?.allowBlueprints
 					? __( 'Open a site or Blueprint' )
 					: __( 'Choose folder for site' ),
 				defaultPath,
@@ -337,6 +341,10 @@ export function createIpcConnector(): Connector {
 
 		async updateSitesSortOrder( updates ) {
 			await ipcApi.updateSitesSortOrder( updates );
+		},
+
+		async setSiteFrontendAdminBar( siteId, hidden ) {
+			await ipcApi.setSiteFrontendAdminBar( siteId, hidden );
 		},
 
 		async getSiteThumbnail( siteId ): Promise< string | null > {
@@ -451,6 +459,10 @@ export function createIpcConnector(): Connector {
 
 		async renameSnapshot( hostname, name ): Promise< void > {
 			await ipcApi.renamePreviewSite( hostname, name );
+		},
+
+		async getPreviewStatus( hostname ): Promise< PreviewStatus > {
+			return ( await ipcApi.getPreviewStatus( hostname ) ) as PreviewStatus;
 		},
 
 		// Connected WPCom sites
@@ -723,6 +735,13 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getInstalledAppsAndTerminals() ) as InstalledApps;
 		},
 
+		async getAgentApps(): Promise< AgentApp[] > {
+			return ( await ipcApi.getAgentApps() ) as AgentApp[];
+		},
+		async connectAgentApp( id ): Promise< void > {
+			await unwrapIpcError( ipcApi.connectAgentApp( id ) );
+		},
+
 		async getAppGlobals(): Promise< AppGlobals > {
 			return ( await ipcApi.getAppGlobals() ) as AppGlobals;
 		},
@@ -800,6 +819,12 @@ export function createIpcConnector(): Connector {
 		// External links
 		async openExternalUrl( url: string ): Promise< void > {
 			ipcApi.openURL( url );
+		},
+
+		async sendFeedback( feedback ) {
+			return ( await unwrapIpcError( ipcApi.sendFeedback( feedback ) ) ) as {
+				feedbackId: number;
+			};
 		},
 
 		async getWapuuScore(): Promise< number | undefined > {
@@ -952,6 +977,13 @@ export function createIpcConnector(): Connector {
 		onOpenSite( listener ) {
 			return ipcListener.subscribe( 'open-site', ( _event: unknown, payload: { siteId: string } ) =>
 				listener( payload )
+			);
+		},
+
+		onPullSite( listener ) {
+			return ipcListener.subscribe(
+				'pull-site',
+				( _event: unknown, payload: { remoteSiteId: number } ) => listener( payload )
 			);
 		},
 

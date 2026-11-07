@@ -52,7 +52,8 @@ export async function saveSnapshotToConfig(
 	previewUrl: string,
 	userId: number,
 	name: string,
-	shareUrl?: string
+	shareUrl?: string,
+	versionId?: string
 ): Promise< Snapshot > {
 	const site = await getSiteByFolder( siteFolder );
 	try {
@@ -71,6 +72,8 @@ export async function saveSnapshotToConfig(
 			sequence: nextSequenceNumber,
 			userId,
 			shareUrl,
+			versionId,
+			syncedAt: Date.now(),
 		};
 
 		// A sync while the preview was being created may already have listed it.
@@ -85,13 +88,15 @@ export async function saveSnapshotToConfig(
 
 /**
  * Attaches a pulled preview to the local site it was pulled into, so updating the preview pushes
- * this site to it. A preview already attached to another local site keeps that link.
+ * this site to it. A preview already attached to another local site keeps that link. Without
+ * `sync`, the pull was partial, so what the two have in common is unknown.
  */
 export async function linkPulledPreview(
 	localSiteId: string,
 	atomicSiteId: number,
 	userId: number,
-	preview: StandingPreview
+	preview: StandingPreview,
+	sync?: { versionId: string; syncedAt: number }
 ): Promise< void > {
 	try {
 		await lockCliConfig();
@@ -112,10 +117,12 @@ export async function linkPulledPreview(
 			};
 			config.snapshots.push( snapshot );
 		}
-		if ( snapshot.localSiteId ) {
+		if ( snapshot.localSiteId && snapshot.localSiteId !== localSiteId ) {
 			return;
 		}
 		snapshot.localSiteId = localSiteId;
+		snapshot.versionId = sync?.versionId;
+		snapshot.syncedAt = sync?.syncedAt;
 		await saveCliConfig( config );
 	} finally {
 		await unlockCliConfig();
@@ -125,7 +132,8 @@ export async function linkPulledPreview(
 export async function updateSnapshotInConfig(
 	atomicSiteId: number,
 	siteFolder: string,
-	shareUrl?: string
+	shareUrl?: string,
+	versionId?: string
 ): Promise< Snapshot > {
 	const site = await getSiteByFolder( siteFolder );
 	try {
@@ -138,6 +146,8 @@ export async function updateSnapshotInConfig(
 
 		snapshot.localSiteId = site.id;
 		snapshot.date = Date.now();
+		snapshot.versionId = versionId;
+		snapshot.syncedAt = snapshot.date;
 		// The update restarted the server's window; the next sync reports where it now ends.
 		delete snapshot.expiresAt;
 		if ( shareUrl ) {

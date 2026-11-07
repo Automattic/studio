@@ -13,7 +13,7 @@ import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { useOffline } from '@/lib/hooks';
-import type { ComposerNotice } from '@/features/composer';
+import type { ComposerNotice } from './notice-tab';
 import type { AiProviderId } from '@studio/agent/protocol/providers';
 
 /**
@@ -52,8 +52,8 @@ export function useComposerNotice(
 		return () => window.removeEventListener( 'focus', recheck );
 	}, [ needsPaymentMethod, refetchQuota ] );
 
-	const retry = {
-		label: __( 'Try again' ),
+	const refresh = {
+		label: __( 'Refresh' ),
 		onClick: () => {
 			void settings.refetch();
 			void quota.refetch();
@@ -63,13 +63,13 @@ export function useComposerNotice(
 		return { message: __( 'You are offline. Reconnect to send a message.' ) };
 	}
 	if ( quotaError?.message === STUDIO_ASSISTANT_QUOTA_OFFLINE ) {
-		return { message: __( 'You are offline. Reconnect to send a message.' ), action: retry };
+		return { message: __( 'You are offline. Reconnect to send a message.' ), action: refresh };
 	}
 	if ( settings.isLoading || ( provider === 'wpcom' && isUserLoading ) ) {
 		return;
 	}
 	if ( settings.isError ) {
-		return { message: __( 'Couldn’t load your AI provider.' ), action: retry };
+		return { message: __( 'Couldn’t load your AI provider.' ), action: refresh };
 	}
 	if ( provider !== 'wpcom' ) {
 		return;
@@ -79,10 +79,13 @@ export function useComposerNotice(
 		onClick: () => openSettings( 'ai', undefined, undefined, { intent: 'build', scope: siteId } ),
 	};
 	if ( ! user ) {
-		return { message: __( 'Connect a provider to build and edit your site.' ), action: connect };
+		return {
+			message: __( 'Connect a provider to build and edit your site.' ),
+			action: connect,
+		};
 	}
 	if ( quotaError ) {
-		return { message: __( 'AI usage is currently unavailable.' ), action: retry };
+		return { message: __( 'AI usage is currently unavailable.' ), action: refresh };
 	}
 	if ( ! quota.data ) {
 		return;

@@ -7,6 +7,7 @@ import { useColorScheme } from '@/data/host/use-color-scheme';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useSaveUserPreferences } from '@/data/queries/use-user-preferences';
+import { useOpenFeedback } from '@/data/use-open-feedback';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { useOpenSite } from '@/data/use-open-site';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
@@ -50,6 +51,7 @@ export function useAppCommands(): PaletteCommand[] {
 	const collapseAll = useCollapseAll();
 	const settingCommands = useSettingCommands( 'studio' );
 	const openWhatsNew = useOpenWhatsNew();
+	const openFeedback = useOpenFeedback();
 
 	return getAppCommands( {
 		sites,
@@ -72,6 +74,7 @@ export function useAppCommands(): PaletteCommand[] {
 		toggleSidebar: () => setPendingAction( 'sidebar' ),
 		openNotifications: () => setPendingAction( 'notifications' ),
 		openWhatsNew,
+		openFeedback,
 		collapseAll,
 	} );
 }

@@ -35,6 +35,7 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { liberateWebsite } from 'cli/lib/data-liberation-client';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
+import { resolveStaticSiteImporterPlugin } from 'cli/lib/import-runtime';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
@@ -60,7 +61,8 @@ vi.mock( '@studio/common/lib/port-finder', () => ( {
 		getOpenPort: vi.fn(),
 	},
 } ) );
-vi.mock( '@studio/common/lib/passwords', () => ( {
+vi.mock( '@studio/common/lib/passwords', async ( importActual ) => ( {
+	...( await importActual< typeof import('@studio/common/lib/passwords') >() ),
 	createPassword: vi.fn().mockReturnValue( 'generated-password-123' ),
 } ) );
 vi.mock( '@studio/common/lib/blueprint-validation' );
@@ -848,7 +850,7 @@ describe( 'CLI: studio create', () => {
 			}
 		} );
 
-		it( 'imports a capture that lost a few routes and keeps it for review', async () => {
+		it( 'imports a mostly-failed capture with a bounded warning and keeps it for review', async () => {
 			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-partial-capture-' ) );
 			const sitePath = path.join( siteRoot, 'site' );
 			const capturePath = `${ sitePath }-source`;
@@ -862,14 +864,12 @@ describe( 'CLI: studio create', () => {
 					websiteRoot: 'website',
 					entrypoint: 'website/index.html',
 					source: { url: 'https://example.com/' },
-					discoveryDiagnostics: [
-						{
-							code: 'route_capture_failed',
-							url: 'https://example.com/contact',
-							reason: 'HTTP 500',
-						},
-					],
-					summary: { routesDiscovered: 14, routesCaptured: 13, routesSkipped: 0, routesFailed: 2 },
+					discoveryDiagnostics: Array.from( { length: 13 }, ( _, index ) => ( {
+						code: 'route_capture_failed',
+						url: `https://example.com/page-${ index }`,
+						reason: 'HTTP 500',
+					} ) ),
+					summary: { routesDiscovered: 14, routesCaptured: 1, routesSkipped: 0, routesFailed: 13 },
 				} )
 			);
 			const reportWarning = vi.spyOn( Logger.prototype, 'reportWarning' );
@@ -889,9 +889,9 @@ describe( 'CLI: studio create', () => {
 									outputDir,
 									summary: {
 										routesDiscovered: 14,
-										routesCaptured: 12,
+										routesCaptured: 1,
 										routesSkipped: 0,
-										routesFailed: 2,
+										routesFailed: 13,
 									},
 								} ),
 							} ),
@@ -913,10 +913,20 @@ describe( 'CLI: studio create', () => {
 				expect( process.exitCode ).toBeUndefined();
 				expect( runBlueprint ).toHaveBeenCalled();
 				expect( reportWarning ).toHaveBeenCalledWith(
-					expect.stringContaining( 'could not capture 1 of 14 routes' )
+					expect.stringContaining( 'could not capture 13 of 14 routes' )
 				);
 				expect( reportWarning ).toHaveBeenCalledWith(
-					expect.stringContaining( 'https://example.com/contact: HTTP 500' )
+					expect.stringContaining( 'https://example.com/page-0: HTTP 500' )
+				);
+				expect( reportWarning ).toHaveBeenCalledWith(
+					expect.stringContaining( 'https://example.com/page-9: HTTP 500' )
+				);
+				expect( reportWarning ).not.toHaveBeenCalledWith(
+					expect.stringContaining( 'https://example.com/page-10' )
+				);
+				expect( reportWarning ).toHaveBeenCalledWith( expect.stringContaining( '…and 3 more.' ) );
+				expect( reportWarning ).toHaveBeenCalledWith(
+					expect.stringContaining( path.join( capturePath, 'example.com', 'diagnostics.json' ) )
 				);
 				expect( fs.existsSync( capturePath ) ).toBe( true );
 			} finally {
@@ -1041,6 +1051,188 @@ describe( 'CLI: studio create', () => {
 			expect( liberate ).not.toHaveBeenCalled();
 			expect( fsMkdirSyncSpy ).not.toHaveBeenCalledWith( mockSitePath, { recursive: true } );
 			expect( process.exitCode ).toBe( 1 );
+		} );
+
+		it.each( [
+			{
+				problem: 'the site directory is not empty',
+				args: [],
+				arrange: () => {
+					createPathExistsMock( true );
+					vi.mocked( isEmptyDir ).mockResolvedValue( false );
+				},
+				error: 'The selected directory is not empty nor an existing WordPress site.',
+			},
+			{
+				problem: 'another site uses the directory',
+				args: [],
+				arrange: () => {
+					vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+						version: 1,
+						sites: [ { ...mockExistingSite, path: mockSitePath } ],
+					} );
+				},
+				error: 'The selected directory is already in use.',
+			},
+			{
+				problem: 'the custom domain is taken',
+				args: [ '--domain', 'taken.local' ],
+				arrange: () => {
+					vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+						version: 1,
+						sites: [ { ...mockExistingSite, customDomain: 'taken.local' } ],
+					} );
+				},
+				error: 'The domain name is already in use',
+			},
+			{
+				problem: 'the admin email is invalid',
+				args: [ '--admin-email', 'not-an-email' ],
+				arrange: () => {},
+				error: 'Please enter a valid email address.',
+			},
+		] )(
+			'fails before capturing a URL source when $problem',
+			async ( { args, arrange, error } ) => {
+				arrange();
+				const liberate = vi.fn();
+				const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
+				const parser = registerCommand(
+					yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } ),
+					{ liberate }
+				).exitProcess( false );
+
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--name',
+					'Imported Site',
+					'--no-start',
+					'--skip-browser',
+					...args,
+				] );
+
+				expect( liberate ).not.toHaveBeenCalled();
+				expect( reportErrorSpy ).toHaveBeenCalledWith(
+					expect.objectContaining( { message: expect.stringContaining( error ) } )
+				);
+				expect( process.exitCode ).toBe( 1 );
+			}
+		);
+
+		it( 'resumes a staged URL import on its existing site and domain', async () => {
+			const sitePath = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-url-resume-' ) );
+			await fs.promises.mkdir( path.join( sitePath, '.studio-import', 'source' ), {
+				recursive: true,
+			} );
+			fs.writeFileSync(
+				path.join( sitePath, '.studio-import', 'request.json' ),
+				JSON.stringify( { source_metadata: { source_path: 'https://example.com' } } )
+			);
+			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+				version: 1,
+				sites: [ { ...mockExistingSite, path: sitePath, customDomain: 'imported.local' } ],
+			} );
+			const liberate = vi.fn();
+			const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+				{ liberate }
+			).exitProcess( false );
+
+			try {
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--domain',
+					'imported.local',
+					'--no-start',
+					'--skip-browser',
+				] );
+
+				expect( liberate ).not.toHaveBeenCalled();
+				expect( Logger.prototype.reportSuccess ).toHaveBeenCalledWith(
+					'Resuming the staged import; the source is not captured again'
+				);
+				const reportedErrors = reportErrorSpy.mock.calls.map( ( [ error ] ) => error.message );
+				expect( reportedErrors ).not.toContain( 'The selected directory is already in use.' );
+				expect( reportedErrors ).not.toContain( 'The domain name is already in use' );
+			} finally {
+				await fs.promises.rm( sitePath, { recursive: true, force: true } );
+			}
+		} );
+
+		describe( 'with a local source and a directory another site already uses', () => {
+			let root: string;
+			let sitePath: string;
+			let source: string;
+
+			beforeEach( async () => {
+				root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-local-in-use-' ) );
+				sitePath = path.join( root, 'site' );
+				source = path.join( root, 'source' );
+				await fs.promises.mkdir( source, { recursive: true } );
+				fs.writeFileSync( path.join( source, 'index.html' ), '<main>Local</main>' );
+				await fs.promises.mkdir( path.join( sitePath, '.studio-import', 'source' ), {
+					recursive: true,
+				} );
+				vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+					version: 1,
+					sites: [ { ...mockExistingSite, path: sitePath } ],
+				} );
+			} );
+
+			afterEach( async () => {
+				await fs.promises.rm( root, { recursive: true, force: true } );
+			} );
+
+			const createFromLocalSource = async () => {
+				const parser = registerCommand(
+					yargs( [] ).option( 'path', { type: 'string', default: sitePath } )
+				).exitProcess( false );
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					source,
+					'--name',
+					'Local Site',
+					'--no-start',
+					'--skip-browser',
+				] );
+			};
+
+			it( 'fails before preparing the source', async () => {
+				const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
+
+				await createFromLocalSource();
+
+				expect( resolveStaticSiteImporterPlugin ).not.toHaveBeenCalled();
+				expect( reportErrorSpy ).toHaveBeenCalledWith(
+					expect.objectContaining( { message: 'The selected directory is already in use.' } )
+				);
+				expect( process.exitCode ).toBe( 1 );
+			} );
+
+			it( 'resumes an import of the same source staged there', async () => {
+				const { request } = buildCreateFromSourceBlueprint(
+					source,
+					'Local Site',
+					{ path: staticSiteImporterFixture },
+					undefined,
+					true
+				).staticSiteImport;
+				fs.writeFileSync( path.join( sitePath, '.studio-import', 'request.json' ), request );
+				const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
+
+				await createFromLocalSource();
+
+				expect( resolveStaticSiteImporterPlugin ).toHaveBeenCalled();
+				expect( reportErrorSpy.mock.calls.map( ( [ error ] ) => error.message ) ).not.toContain(
+					'The selected directory is already in use.'
+				);
+			} );
 		} );
 
 		it( 'invokes the SSI host command once and consumes its terminal receipt', async () => {

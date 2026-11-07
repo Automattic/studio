@@ -10,7 +10,7 @@ import {
 	TagsIcon,
 	UnlockIcon,
 } from 'lucide-react';
-import { McpIcon, SplitViewIcon, StartSiteIcon, StopSiteIcon } from '@/lib/icons';
+import { FeedbackIcon, McpIcon, SplitViewIcon, StartSiteIcon, StopSiteIcon } from '@/lib/icons';
 import type { Command, CommandGroup } from '@/lib/ui';
 import type { SkillSlashCommand } from '@studio/agent/protocol/slash-commands';
 import type { ComponentType } from 'react';
@@ -24,6 +24,7 @@ const COMMAND_ICONS: Partial< Record< string, ComponentType< { className?: strin
 	'need-for-speed': GaugeIcon,
 	'rank-me-up': ChartNoAxesCombinedIcon,
 	liberate: UnlockIcon,
+	feedback: FeedbackIcon,
 	'auto-start': StartSiteIcon,
 	panel: SplitViewIcon,
 	'connect-provider': McpIcon,

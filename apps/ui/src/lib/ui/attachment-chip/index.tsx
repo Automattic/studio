@@ -1,5 +1,6 @@
 import { useRender } from '@base-ui/react/use-render';
 import { clsx } from 'clsx';
+import { Button, type ButtonProps } from '@/lib/ui/button';
 import styles from './style.module.css';
 
 export function AttachmentChip( {
@@ -15,4 +16,15 @@ export function AttachmentChip( {
 		ref,
 		props: { className: clsx( styles.chip, className ), 'data-font': font, ...props },
 	} );
+}
+
+export function AttachmentChipTrigger( { className, ...props }: Omit< ButtonProps, 'variant' > ) {
+	return (
+		<Button
+			{ ...props }
+			data-slot="attachment-trigger"
+			variant="ghost"
+			className={ clsx( styles.trigger, className ) }
+		/>
+	);
 }

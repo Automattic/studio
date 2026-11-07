@@ -10,7 +10,7 @@ import { getSnapshotOpenUrl, getSnapshotUrl } from '@/data/snapshot-url';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOpenHeaderPanel } from '@/data/use-open-header-panel';
 import { useOffline } from '@/lib/hooks';
-import { ExternalLinkIcon, GlobeIcon, LinkIcon, ShareIcon } from '@/lib/icons';
+import { DuplicateIcon, ExternalLinkIcon, GlobeIcon, ShareIcon } from '@/lib/icons';
 import { Menu } from '@/lib/ui';
 import type { SiteDetails, Snapshot } from '@/data/core';
 
@@ -37,7 +37,7 @@ function PreviewLink( {
 				);
 			} }
 		>
-			{ visit ? <GlobeIcon /> : <LinkIcon /> }
+			{ visit ? <GlobeIcon /> : <DuplicateIcon /> }
 			<Menu.ItemLabel>
 				{ snapshot.name || sprintf( __( 'Preview %d' ), snapshot.sequence ?? sequence ) }
 			</Menu.ItemLabel>
@@ -89,7 +89,7 @@ export function SiteShareMenuItem( { site, disabled }: { site: SiteDetails; disa
 						<Menu.Separator />
 						<Menu.SubmenuRoot>
 							<Menu.SubmenuTrigger>
-								<LinkIcon />
+								<DuplicateIcon />
 								{ __( 'Copy links' ) }
 							</Menu.SubmenuTrigger>
 							<Menu.SubmenuPopup>

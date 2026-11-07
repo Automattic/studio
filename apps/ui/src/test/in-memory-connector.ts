@@ -1,7 +1,9 @@
+import { AGENT_APP_IDS } from '@studio/common/lib/agent-apps';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
 import type {
+	AgentAppId,
 	AiSessionSummary,
 	AuthUser,
 	Connector,
@@ -114,6 +116,7 @@ export function createInMemoryConnector(
 		...initial,
 		preferences: { ...defaultPreferences(), ...initial.preferences },
 	};
+	const connectedAgentApps = new Set< AgentAppId >();
 	type AnyListener = ( ...args: never[] ) => void;
 	const listeners = new Map< string, Set< AnyListener > >();
 	const subscribe = ( event: string ) => ( listener: AnyListener ) => {
@@ -191,6 +194,8 @@ export function createInMemoryConnector(
 		startSite: async ( id ) => updateSite( id, { running: true } ),
 		stopSite: async ( id ) => updateSite( id, { running: false } ),
 		updateSite: async ( site ) => updateSite( site.id, site ),
+		setSiteFrontendAdminBar: async ( siteId, hidden ) =>
+			updateSite( siteId, { hideFrontendAdminBar: hidden ?? undefined } ),
 		updateSitesSortOrder: async ( updates ) => {
 			for ( const { siteId, sortOrder } of updates ) {
 				updateSite( siteId, { sortOrder } );
@@ -207,7 +212,7 @@ export function createInMemoryConnector(
 			isEmpty: true,
 			isWordPress: false,
 		} ),
-		generateProposedSiteName: async () => 'My WordPress Website',
+		generateProposedSiteName: async () => 'Blue Note',
 		generateNumberedSiteName: async ( name ) => name,
 		selectSiteFolder: async () => null,
 		comparePaths: async ( a, b ) => a === b,
@@ -234,6 +239,11 @@ export function createInMemoryConnector(
 		publishPreviewSite: async () => ( { url: 'preview.example.com' } ),
 		deleteSnapshot: async () => {},
 		renameSnapshot: async () => {},
+		getPreviewStatus: async () => ( {
+			localSiteId: null,
+			localChanged: null,
+			previewChanged: null,
+		} ),
 		getConnectedWpcomSites: async () => [],
 		fetchSyncableWpcomSites: async () => [],
 		connectWpcomSite: async () => {},
@@ -334,6 +344,15 @@ export function createInMemoryConnector(
 			anthropicApiKeyPreview: null,
 		} ),
 		getInstalledApps: async () => installedApps(),
+		getAgentApps: async () =>
+			AGENT_APP_IDS.map( ( id ) => ( {
+				id,
+				installed: true,
+				connected: connectedAgentApps.has( id ),
+			} ) ),
+		connectAgentApp: async ( id ) => {
+			connectedAgentApps.add( id );
+		},
 		getAppGlobals: async () => ( { platform: 'darwin', isWindowsStore: false } ),
 		openSiteFolder: async () => {},
 		openSiteInEditor: async () => {},
@@ -354,6 +373,7 @@ export function createInMemoryConnector(
 		openStudioLogs: async () => {},
 		trackEvent: async () => {},
 		openExternalUrl: async () => {},
+		sendFeedback: async () => ( { feedbackId: 1 } ),
 		getWapuuScore: async () => undefined,
 		saveWapuuScore: async () => {},
 		popupAppMenu: async () => {},
@@ -379,6 +399,7 @@ export function createInMemoryConnector(
 		onNewChat: subscribe( 'onNewChat' ),
 		onOpenFolder: subscribe( 'onOpenFolder' ),
 		onOpenSite: subscribe( 'onOpenSite' ),
+		onPullSite: subscribe( 'onPullSite' ),
 		onAddSiteWithBlueprint: subscribe( 'onAddSiteWithBlueprint' ),
 		readyForDeeplinks: () => {},
 		onOpenSettings: subscribe( 'onOpenSettings' ),

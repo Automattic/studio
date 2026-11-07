@@ -42,6 +42,7 @@ import { isAiProviderId, providerServesModel } from '@studio/agent/protocol/prov
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH, DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
+import { isAgentAppId } from '@studio/common/lib/agent-apps';
 import {
 	getSiteAgentFiles,
 	getSkillsStatusForAllSites,
@@ -69,11 +70,18 @@ import {
 } from '@studio/common/lib/cli-events';
 import { CliCommandError, createCliRunner, runCliCommand } from '@studio/common/lib/cli-process';
 import {
+	connectAgentApp,
+	detectAgentApps,
+	refreshAgentPlugins,
+} from '@studio/common/lib/connect-agent-app';
+import {
 	addConnectedWpcomSite,
 	getAllConnectedWpcomSitesForCurrentUser,
 	getConnectedWpcomSitesForLocalSite,
 	removeConnectedWpcomSite,
 } from '@studio/common/lib/connected-sites';
+import { getErrorMessage } from '@studio/common/lib/error-formatting';
+import { sendStudioFeedback, STUDIO_FEEDBACK_TYPES } from '@studio/common/lib/feedback';
 import {
 	arePathsEqual,
 	calculateDirectorySizeForArchive,
@@ -133,6 +141,7 @@ import { requestStudioAssistantQuota } from '@studio/common/lib/studio-assistant
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import { getLocalFileSize, listLocalFileTree } from '@studio/common/lib/sync/local-file-tree';
+import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
 import {
 	fetchHostingPhpVersion,
 	fetchLatestRewindId,
@@ -140,6 +149,7 @@ import {
 	fetchSyncableSites,
 } from '@studio/common/lib/sync/sync-api';
 import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
+import { getStudioUserAgent } from '@studio/common/lib/user-agent';
 import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor';
 import {
 	detectInstalledApps,
@@ -169,18 +179,26 @@ import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/site
 import { buildSiteSetArgs, getSiteEditOptions } from '@studio/common/sites/edit';
 import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
-import { listSitesWithMetadata, updateSiteMetadata } from '@studio/common/sites/metadata';
+import {
+	listSitesWithMetadata,
+	setSiteFrontendAdminBar,
+	updateSiteMetadata,
+	type SiteMetadata,
+} from '@studio/common/sites/metadata';
 import { designFixesSchema, fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
 import {
 	ensureSiteEmailDirectory,
 	listSiteEmails,
 	readSiteEmail,
 } from '@studio/common/sites/site-email';
+import { readGlobalStyles } from '@studio/common/sites/site-identity';
 import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
+import { readSiteSource } from '@studio/common/sites/site-source';
 import {
 	deleteAllPreviewSites,
 	deletePreviewSite,
 	fetchSnapshots,
+	getPreviewStatus,
 	publishPreviewSite,
 	renamePreviewSite,
 } from '@studio/common/sites/snapshots';
@@ -254,6 +272,8 @@ export interface LocalServerOptions {
 	recordTracksEvent?: ( event: TracksEventName, props?: TracksProps ) => Promise< void >;
 	// Screenshots a page of a running site; absent when no browser is available.
 	capturePreview?: ( url: string, size: { width: number; height: number } ) => Promise< Buffer >;
+	// `WordPressStudio/<version>`, sent with feedback reports. Injected by `studio ui`.
+	userAgent?: string;
 }
 
 export interface LocalServer {
@@ -294,7 +314,7 @@ const AUTH_CALLBACK_HTML = `<!DOCTYPE html>
 
 // The agentic UI's SiteDetails shape. The CLI's `site list` already reports
 // nearly all of it; `sortOrder` comes from `app.json`, merged in by callers.
-function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
+function toSiteDetails( site: SiteListItem & SiteMetadata, sortOrder?: number ) {
 	return {
 		id: site.id,
 		name: site.name,
@@ -318,6 +338,7 @@ function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
 		operation: site.operation,
 		emailPath: site.emailPath,
 		sortOrder,
+		hideFrontendAdminBar: site.hideFrontendAdminBar,
 	};
 }
 
@@ -382,6 +403,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	}
 
 	const cliRunner = createCliRunner( { cliBinary, nodeBinary } );
+	void refreshAgentPlugins( { nodeBinary: nodeBinary ?? process.execPath, cliBinary } ).catch(
+		() => undefined
+	);
 	const execute = cliRunner.executeCliCommand;
 	const uploads = new Map< string, { path: string; directory: string } >();
 
@@ -873,6 +897,23 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	api.patch(
+		'/sites/:id/frontend-admin-bar',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = z.object( { hidden: z.boolean().nullable() } ).safeParse( req.body );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'hidden must be a boolean or null' } );
+				return;
+			}
+			if ( ! ( await readSite( req.params.id ) ) ) {
+				res.status( 404 ).json( { error: 'Site not found.' } );
+				return;
+			}
+			await setSiteFrontendAdminBar( req.params.id, parsed.data.hidden );
+			res.sendStatus( 204 );
+		} )
+	);
+
 	api.get(
 		'/sites/:id/thumbnail',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -1045,7 +1086,11 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			res.json( await readSiteDesign( sitePath, activeThemeSlug( sitePath ) ) );
+			res.json(
+				await readSiteDesign( sitePath, activeThemeSlug( sitePath ), () =>
+					readGlobalStyles( execute, sitePath )
+				)
+			);
 		} )
 	);
 
@@ -1161,6 +1206,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				}
 			}
 			try {
+				if ( confined && req.body?.allowSiteFiles === true ) {
+					res.json( await readSiteSource( confined ) );
+					return;
+				}
 				const blueprint =
 					confined && req.body?.allowBlueprints === true
 						? await readBlueprintSource( confined )
@@ -1565,6 +1614,33 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	// Agent apps Settings installs the Studio plugin in.
+	api.get(
+		'/agent-apps',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json(
+				await detectAgentApps( { nodeBinary: nodeBinary ?? process.execPath, cliBinary } )
+			);
+		} )
+	);
+
+	api.post(
+		'/agent-apps/:id/connect',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { id } = req.params;
+			if ( ! isAgentAppId( id ) ) {
+				res.status( 400 ).json( { error: `Unknown agent app: ${ id }` } );
+				return;
+			}
+			await connectAgentApp( id, {
+				nodeBinary: nodeBinary ?? process.execPath,
+				cliBinary,
+				openUrl,
+			} );
+			res.status( 204 ).end();
+		} )
+	);
+
 	// Studio's root certificate, which signs every HTTPS site's certificate.
 	api.get(
 		'/certificate',
@@ -1609,6 +1685,35 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				},
 			} );
 			res.status( 204 ).end();
+		} )
+	);
+
+	// --- Feedback — one report to the WordPress Studio team, through the shared sender ---
+	api.post(
+		'/feedback',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = z
+				.object( { type: z.enum( STUDIO_FEEDBACK_TYPES ), message: z.string().trim().min( 1 ) } )
+				.safeParse( req.body ?? {} );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'type and message required' } );
+				return;
+			}
+			const token = await readAuthToken();
+			if ( ! token?.accessToken ) {
+				res.status( 401 ).json( { error: 'Log in to WordPress.com to send feedback.' } );
+				return;
+			}
+			try {
+				res.json(
+					await sendStudioFeedback( parsed.data, {
+						accessToken: token.accessToken,
+						userAgent: options.userAgent ?? getStudioUserAgent(),
+					} )
+				);
+			} catch ( error ) {
+				res.status( 502 ).json( { error: getErrorMessage( error ) ?? String( error ) } );
+			}
 		} )
 	);
 
@@ -1818,7 +1923,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.json( [] );
 				return;
 			}
-			res.json( await fetchSyncableSites( token.accessToken ) );
+			res.json(
+				await fetchSyncableSites( token.accessToken, { planRequired: ! isReprintPullEnabled() } )
+			);
 		} )
 	);
 
@@ -1911,6 +2018,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			await renamePreviewSite( execute, req.params.hostname, name );
 			res.sendStatus( 204 );
+		} )
+	);
+
+	api.get(
+		'/snapshots/:hostname/status',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			res.json( await getPreviewStatus( execute, req.params.hostname ) );
 		} )
 	);
 

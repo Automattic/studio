@@ -1,5 +1,5 @@
+import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
 import { __ } from '@wordpress/i18n';
-import { isReprintPullEnabled } from 'cli/lib/pull/pull-engine';
 import { parseSyncOptions } from 'cli/lib/sync-api';
 import { StudioArgv } from 'cli/types';
 
@@ -53,11 +53,6 @@ export const builder = ( builderYargs: StudioArgv ) => {
 			hidden: ! reprint,
 			describe: __( 'Show detailed error information and executed commands' ),
 			default: false,
-		} )
-		.option( 'suppress-tracks-event', {
-			type: 'boolean',
-			default: false,
-			hidden: true,
 		} );
 };
 

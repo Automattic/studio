@@ -1,5 +1,5 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
-import { designSheet, parseDesignMd } from '@studio/design-md';
+import { designSheet, parseDesignMd, themeJsonDesign } from '@studio/design-md';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useMemo, useRef } from 'react';
@@ -50,11 +50,10 @@ export function useSiteToolActions(
 	const preview = useSessionPreviewUI();
 	const startSite = useStartSiteWithChat();
 	const tabs = usePreviewTabs( previewTabsKey( site.id, liveUrl ) );
-	const open = async ( path: string, newTab = false ) => {
-		tabs.setChatSelected( false );
+	const open = async ( path: string ) => {
 		const location = liveUrl ? path : getRealmNavigationPath( path, getSiteUrl( site ) );
 		if ( onNavigate ) onNavigate( location );
-		else if ( newTab ) {
+		else {
 			if ( ! liveUrl && ! site.running && tabs.workspace.tabs.length === 1 ) {
 				tabs.patch( tabs.workspace.selectedId, { path: location, title: null } );
 			} else tabs.add( location );
@@ -66,14 +65,13 @@ export function useSiteToolActions(
 		)
 			return;
 		preview.setSite( site.id );
-		if ( ! onNavigate && ! newTab ) preview.updatePath( location );
 		preview.setOpen( true );
 		if ( preview.siteId !== site.id ) {
-			void navigate( { to: '/sites/$siteId', params: { siteId: site.id } } );
+			return navigate( { to: '/sites/$siteId', params: { siteId: site.id } } );
 		}
 	};
 	return {
-		openBrowser: () => void open( '/', true ),
+		openBrowser: () => void open( '/' ),
 		openAdmin: () => void open( '/wp-admin/' ),
 		openDatabase: () => void open( DATABASE_HOME_PATH ),
 		openEmail: () => void open( EMAIL_PREVIEW_PATH ),
@@ -86,13 +84,15 @@ function useAvailableSiteTools( site: SiteDetails, live: boolean ) {
 	const designAvailable = useMemo( () => {
 		if ( ! design ) return false;
 		try {
-			designSheet( parseDesignMd( design.design ) );
+			designSheet(
+				design.design ? parseDesignMd( design.design ) : themeJsonDesign( design.themeJson )
+			);
 			return true;
 		} catch {
 			return false;
 		}
 	}, [ design ] );
-	return ( [ 'frontend', 'admin', 'database', 'email', 'design' ] as const )
+	return ( [ 'frontend', 'admin', 'design', 'database', 'email' ] as const )
 		.filter(
 			( id ) =>
 				( ! live || id === 'frontend' || id === 'admin' ) && ( id !== 'design' || designAvailable )
@@ -147,7 +147,6 @@ export function SiteToolLauncher( {
 				<Button
 					key={ id }
 					variant="muted"
-					className={ styles.launcherButton }
 					layout="inline"
 					disabled={ busy }
 					onClick={ actions[ action ] }

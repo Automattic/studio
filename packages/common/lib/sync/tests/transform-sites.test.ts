@@ -81,15 +81,27 @@ describe( 'transformSitesResponse', () => {
 		expect( result.find( ( s ) => s.id === 1 )?.wpVersion ).toBeUndefined();
 	} );
 
-	it( 'flags sites on a paid plan that includes publishing from Studio', () => {
-		const expired = { ...atomicSite(), ID: 4, plan: { ...atomicSite().plan, expired: true } };
-		const result = transformSitesResponse( [ atomicSite(), freeSite(), expired ] );
+	it.each( [
+		{
+			name: 'unpaid Atomic',
+			site: { ...atomicSite(), plan: freeSite().plan },
+			pushNeedsUpgrade: true,
+		},
+		{ name: 'Atomic with the sync feature', site: atomicSite(), pushNeedsUpgrade: false },
+		{
+			name: 'Pressable without a plan',
+			site: {
+				...atomicSite(),
+				is_wpcom_atomic: false,
+				hosting_provider_guess: 'pressable',
+				plan: undefined,
+			},
+			pushNeedsUpgrade: false,
+		},
+	] )( 'allows pulling from $name and reports push eligibility', ( { site, pushNeedsUpgrade } ) => {
+		const [ result ] = transformSitesResponse( [ site ], { planRequired: false } );
 
-		expect( result.map( ( site ) => site.hasStudioPublishingPlan ) ).toEqual( [
-			true,
-			false,
-			false,
-		] );
+		expect( result ).toMatchObject( { syncSupport: 'syncable', pushNeedsUpgrade } );
 	} );
 } );
 

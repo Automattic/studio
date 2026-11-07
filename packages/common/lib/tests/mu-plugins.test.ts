@@ -137,6 +137,16 @@ describe( 'writeStudioMuPlugins', () => {
 		expect( generatedPlugins ).not.toContain( '0-disable-auto-updates.php' );
 	} );
 
+	it( 'identifies the site in its loader while keeping shared plugins reusable', async () => {
+		const plugins = await writeStudioMuPlugins( sitePath, true, "site'one" );
+		const loader = await readFile(
+			join( sitePath, 'wp-content', 'mu-plugins', STUDIO_LOADER_MU_PLUGIN_FILENAME ),
+			'utf8'
+		);
+		expect( loader ).toContain( "define( 'STUDIO_SITE_ID', 'site\\'one' )" );
+		expect( await writeStudioMuPlugins( sitePath, true, 'another-site' ) ).toBe( plugins );
+	} );
+
 	it.each( [
 		[ 'enables them when the flag is true', true, '0-enable-auto-updates.php' ],
 		[ 'disables them only on an explicit false', false, '0-disable-auto-updates.php' ],

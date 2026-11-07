@@ -10,8 +10,9 @@ import {
 	getSiteAnnotations,
 } from '@/features/annotations';
 import { clearComposerDrafts } from '@/features/composer';
-import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
+import { createFakeConnector, makeSession, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
+import type { SessionEntry } from '@/data/core';
 
 beforeEach( () => {
 	localStorage.clear();
@@ -52,6 +53,58 @@ async function newBrowserTab() {
 	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).not.toHaveFocus();
 }
 
+it.each( [ true, false ] )(
+	'opens a chat tool link in a new tab (panel open: %s)',
+	async ( open ) => {
+		const connector = createFakeConnector( {
+			sites: [ makeSite( { id: 'one', name: 'First', running: true } ) ],
+			sessions: [
+				{
+					summary: makeSession( { id: 'chat', ownerSiteId: 'one' } ),
+					entries: [
+						{
+							id: 'reply',
+							type: 'message',
+							message: {
+								role: 'assistant',
+								content: [
+									{
+										type: 'text',
+										text: 'Updated the [design system](studio:design-system) with warmer colors.',
+									},
+								],
+							},
+						} as SessionEntry,
+					],
+				},
+			],
+		} );
+		const { user } = renderApp( { connector, path: '/sessions/chat' } );
+		const chip = await screen.findByRole( 'button', { name: 'Open design system' } );
+		if ( screen.queryByRole( 'button', { name: 'Show panel' } ) )
+			await user.click( screen.getByRole( 'button', { name: 'Show panel' } ) );
+		const address = screen.getByRole( 'textbox', { name: 'Address' } );
+		await user.clear( address );
+		await user.type( address, '/about/{Enter}' );
+		const firstTab = screen.getByRole( 'tab', { name: 'First' } );
+		const firstPage = document.querySelector( 'iframe' );
+		if ( ! open ) await user.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
+		await user.click( chip );
+		expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 );
+		expect( screen.getByRole( 'tab', { name: 'Design system' } ) ).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
+		expect( screen.getByRole( 'button', { name: 'Hide panel' } ) ).toBeVisible();
+		expect( document.querySelector( 'iframe' ) ).toBe( firstPage );
+		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
+		await user.click( firstTab );
+		expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue(
+			'http://localhost:9010/about/'
+		);
+	}
+);
+
 it( 'opens DevTools for the selected browser tab while retaining the other guests', async () => {
 	const userAgent = window.navigator.userAgent;
 	Object.defineProperty( window.navigator, 'userAgent', {
@@ -87,14 +140,14 @@ it( 'opens DevTools for the selected browser tab while retaining the other guest
 } );
 
 it.each( [ 'header', 'shortcut', 'palette' ] )(
-	'returns from the Chat tab to the preview using the %s',
+	'returns from chat-only view to the preview using the %s',
 	async ( control ) => {
 		const { connector } = await setup( true, true );
 		const page = document.querySelector( 'iframe' );
 		const composer = await screen.findByRole( 'combobox', { name: 'Message WordPress Studio' } );
 		fireEvent.change( composer, { target: { value: 'Keep this draft' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Expand panel' } ) );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Show chat for First' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
 		expect( composer ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Show panel' } ) ).toBeVisible();
 		if ( control === 'header' ) {
@@ -108,9 +161,7 @@ it.each( [ 'header', 'shortcut', 'palette' ] )(
 			} );
 			fireEvent.click( await screen.findByRole( 'option', { name: 'Toggle panel' } ) );
 		}
-		await waitFor( () =>
-			expect( !! composer.closest( '[aria-hidden="true"]' ) ).toBe( control !== 'palette' )
-		);
+		await waitFor( () => expect( composer ).toBeVisible() );
 		expect( document.querySelector( 'iframe' ) ).toBe( page );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
 		await waitFor( () => expect( composer ).toBeVisible() );
@@ -516,7 +567,7 @@ it( 'uses the same letter shortcuts in Tools without intercepting modified keys 
 	const composer = screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } );
 	await user.type( composer, 'bwdse' );
 	expect( composer ).toHaveValue( 'bwdse' );
-	expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 1 );
+	expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 );
 	expect( connector.openSiteEmailFolder ).not.toHaveBeenCalled();
 } );
 
@@ -1009,3 +1060,51 @@ it( 'reopens a batched design note in its existing tab without scrolling', async
 		'Give this title more space'
 	);
 } );
+
+it( 'opens a WordPress style board without DESIGN.md and reloads saved style changes', async () => {
+	const { connector, queryClient, user } = await setup();
+	const board = ( color: string ) => ( {
+		design: null,
+		themeJson: {
+			settings: {
+				color: {
+					palette: {
+						theme: [
+							{ slug: 'ink', color: '#111111' },
+							{ slug: 'base', color: '#ffffff' },
+							{ slug: 'accent', color },
+						],
+					},
+				},
+			},
+			styles: { typography: { fontFamily: 'Inter, sans-serif' } },
+		},
+	} );
+	connector.getSiteDesign.mockResolvedValue( board( '#123456' ) );
+	await act( () => queryClient.invalidateQueries( { queryKey: [ 'site-design', 'one' ] } ) );
+	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+	await user.click( await screen.findByRole( 'menuitem', { name: 'Design system' } ) );
+	expect( await screen.findByRole( 'heading', { name: 'Color' } ) ).toBeVisible();
+	expect( screen.getByText( '#123456' ) ).toBeVisible();
+	expect( screen.queryByText( /DESIGN.md/ ) ).not.toBeInTheDocument();
+	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeDisabled();
+	connector.getSiteDesign.mockResolvedValue( board( '#654321' ) );
+	await user.click( screen.getByRole( 'button', { name: 'Reload preview' } ) );
+	expect( await screen.findByText( '#654321' ) ).toBeVisible();
+	expect( screen.queryByText( '#123456' ) ).not.toBeInTheDocument();
+} );
+
+it.each( [ 'Admin', 'Database', 'Email log' ] )(
+	'keeps the current tab when opening %s from the site menu',
+	async ( name ) => {
+		const { user } = await setup();
+		const originalTab = selectedTab();
+		await user.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
+		await user.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
+		await screen.findByRole( 'menuitem', { name } );
+		await user.keyboard( name[ 0 ].toLowerCase() );
+		await waitFor( () => expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 ) );
+		expect( originalTab ).toBeInTheDocument();
+		expect( screen.getByRole( 'tab', { name } ) ).toHaveAttribute( 'aria-selected', 'true' );
+	}
+);

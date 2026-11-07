@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
-import { MousePointer2Icon, PencilIcon, RotateCcwIcon } from 'lucide-react';
-import { TrashIcon } from '@/lib/icons';
+import { MousePointer2Icon, RotateCcwIcon } from 'lucide-react';
+import { RenameIcon, TrashIcon } from '@/lib/icons';
 import { IconButton } from '@/lib/ui';
 import styles from './annotation-tools.module.css';
 
@@ -46,7 +46,7 @@ export function AnnotationTools( {
 							size="icon"
 							shape="round"
 							variant="accent-ghost"
-							icon={ <PencilIcon /> }
+							icon={ <RenameIcon /> }
 							label={ __( 'Draw' ) }
 							aria-pressed={ drawing }
 							disabled={ disabled }

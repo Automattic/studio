@@ -17,6 +17,7 @@
  */
 
 import { PLUS_ICON } from '@studio/common/lib/plus-icon';
+import { RENAME_ICON } from '@studio/common/lib/rename-icon';
 import { createDrawingGeometry } from './drawing';
 import {
 	ANNOTATION_PEN_WIDTH,
@@ -240,9 +241,17 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
 	}
 	function drawingCursor(color, outline) {
-		const path = 'M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z M15 5l4 4';
-		const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" fill="' + outline + '"><path d="' + path + '" stroke="' + outline + '" stroke-width="4"/><path d="' + path + '" stroke="' + color + '" stroke-width="1.75"/></svg>';
-		return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '") 2 22, crosshair';
+		const path = '${ RENAME_ICON.path }';
+		const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="${
+			RENAME_ICON.viewBox
+		}" stroke-linecap="${ RENAME_ICON.strokeLinecap }" stroke-linejoin="${
+			RENAME_ICON.strokeLinejoin
+		}" fill="' + outline + '"><path d="' + path + '" stroke="' + outline + '" stroke-width="${
+			RENAME_ICON.strokeWidth + 2
+		}"/><path d="' + path + '" stroke="' + color + '" stroke-width="${
+			RENAME_ICON.strokeWidth
+		}"/></svg>';
+		return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '") 3 21, crosshair';
 	}
 	function selector(el) {
 		if (el.id) return '#' + CSS.escape(el.id);

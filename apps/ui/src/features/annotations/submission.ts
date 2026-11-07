@@ -23,6 +23,7 @@ function truncateText( text: string, maxLength: number ): string {
 /* Short CSS-ish handle for the chip in the transcript: the tag plus up to two
  * of the element's own classes, e.g. `h1.hero-title`. */
 function describeElement( note: PreviewAnnotation ): string | undefined {
+	if ( note.kind === 'region' ) return __( 'Selected area' );
 	if ( note.designToken ) return note.designToken;
 	if ( note.email && ! note.tag ) return `paragraph ${ ( note.email.paragraph ?? 0 ) + 1 }`;
 	if ( ! note.tag ) return undefined;

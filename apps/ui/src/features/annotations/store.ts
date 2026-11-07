@@ -119,7 +119,23 @@ function blockDraftNavigation( siteId: string, nextId?: string ) {
 	return true;
 }
 
-export function pickAnnotation( siteId: string, target: VisualAnnotationTarget ) {
+export function canPickAnnotation( siteId: string ) {
+	const current = getSiteAnnotations( siteId );
+	if ( isAnnotationsBusy( current ) || blockDraftNavigation( siteId ) ) return false;
+	if ( current.notes.filter( hasAnnotationContent ).length >= MAX_VISUAL_ANNOTATIONS ) {
+		toast.info( __( 'Send or delete some annotations before adding more' ), {
+			id: `annotation-limit-${ siteId }`,
+		} );
+		return false;
+	}
+	return true;
+}
+
+export function pickAnnotation(
+	siteId: string,
+	target: VisualAnnotationTarget,
+	initial?: Pick< PreviewAnnotation, 'images' >
+) {
 	const current = getSiteAnnotations( siteId );
 	if ( isAnnotationsBusy( current ) ) {
 		return null;
@@ -130,20 +146,14 @@ export function pickAnnotation( siteId: string, target: VisualAnnotationTarget )
 	if ( existing ) {
 		return editAnnotation( siteId, existing.id ) ? existing.id : null;
 	}
-	if ( blockDraftNavigation( siteId ) ) return null;
-	if ( current.notes.filter( hasAnnotationContent ).length >= MAX_VISUAL_ANNOTATIONS ) {
-		toast.info( __( 'Send or delete some annotations before adding more' ), {
-			id: `annotation-limit-${ siteId }`,
-		} );
-		return null;
-	}
+	if ( ! canPickAnnotation( siteId ) ) return null;
 	const id = crypto.randomUUID();
 	update( siteId, ( current ) => {
 		const notes = withoutEmpty( current.notes );
 		const number = Math.max( 0, ...notes.map( ( note ) => note.number ) ) + 1;
 		return {
 			...current,
-			notes: [ ...notes, { ...target, id, number, comment: '', images: [] } ],
+			notes: [ ...notes, { ...target, id, number, comment: '', images: [], ...initial } ],
 			editingId: id,
 		};
 	} );

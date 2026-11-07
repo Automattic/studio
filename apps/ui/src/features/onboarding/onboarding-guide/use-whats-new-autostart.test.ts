@@ -62,4 +62,22 @@ describe( 'deriveWhatsNewAutostart', () => {
 		expect( deriveWhatsNewAutostart( { ...base, guideOpen: true } ) ).toBeNull();
 		expect( deriveWhatsNewAutostart( { ...base, alreadyStarted: true } ) ).toBeNull();
 	} );
+
+	it( 'waits while Getting started is active', () => {
+		expect(
+			deriveWhatsNewAutostart( { ...base, hints: { walkthroughStep: 'composer' } } )
+		).toBeNull();
+	} );
+
+	it.each( [ 'completed', 'skipped' ] as const )(
+		'shows future releases after a %s walkthrough',
+		( walkthroughStep ) => {
+			expect(
+				deriveWhatsNewAutostart( {
+					...base,
+					hints: { walkthroughStep, whatsNewSeenVersion: WHATS_NEW_VERSION - 1 },
+				} )
+			).toBe( 'show' );
+		}
+	);
 } );

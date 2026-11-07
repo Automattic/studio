@@ -321,6 +321,19 @@ export async function writeUserPreferences(
 // field a newer desktop adds.
 export const onboardingHintsSchema = z
 	.object( {
+		walkthroughStep: z
+			.enum( [
+				'intro',
+				'create',
+				'composer',
+				'annotate',
+				'share',
+				'publish',
+				'completed',
+				'skipped',
+				'ineligible',
+			] )
+			.optional(),
 		tourCompletedVersion: z.number().optional(),
 		tourDismissedVersion: z.number().optional(),
 		migratedFromClassic: z.boolean().optional(),

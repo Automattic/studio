@@ -690,13 +690,21 @@ export type AppUpdateStatus = (
 // Persisted first-run onboarding state for the workbench. Separate from the
 // welcome flag (getOnboardingCompleted).
 export interface OnboardingHintsState {
+	walkthroughStep?:
+		| 'intro'
+		| 'create'
+		| 'composer'
+		| 'annotate'
+		| 'share'
+		| 'publish'
+		| 'completed'
+		| 'skipped'
+		| 'ineligible';
 	// Version of the orientation guide the user finished or explicitly skipped.
 	tourCompletedVersion?: number;
 	// Version of the orientation guide the user closed early (Esc / Skip).
 	tourDismissedVersion?: number;
-	// True when the user reached the agentic workbench by opting in from classic
-	// Studio (vs a fresh install that starts here). Drives the guide's first-page
-	// "Welcome to WordPress Studio 2.0" migrating copy.
+	// Retained to identify people upgrading from classic Studio.
 	migratedFromClassic?: boolean;
 	// WHATS_NEW_VERSION of the What's New guide the user last saw.
 	whatsNewSeenVersion?: number;

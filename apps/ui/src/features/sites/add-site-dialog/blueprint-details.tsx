@@ -55,6 +55,7 @@ export function BlueprintDetails( {
 							</Button>
 							<Button
 								ref={ createButton }
+								data-walkthrough="create-blueprint"
 								variant="accent"
 								size="sm"
 								onClick={ () => {

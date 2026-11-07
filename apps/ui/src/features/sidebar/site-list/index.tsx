@@ -289,6 +289,7 @@ export function SiteList( {
 								size="icon-sm"
 								icon={ <PlusIcon /> }
 								label={ __( 'Add site' ) }
+								data-walkthrough="intro"
 								onClick={ () => openAddSite() }
 							/>
 						</>

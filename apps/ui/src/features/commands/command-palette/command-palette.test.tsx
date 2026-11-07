@@ -61,6 +61,81 @@ afterEach( () => vi.unstubAllGlobals() );
 
 describe( 'command palette', () => {
 	beforeEach( () => localStorage.clear() );
+	it( 'finds the tour by its aliases and replays it without resetting preferences', async () => {
+		const connector = createFakeConnector(
+			{ sites: [ testSite ], preferences: { colorScheme: 'dark' } },
+			{
+				getOnboardingHints: async () => ( {
+					walkthroughStep: 'skipped',
+					annotateHintDismissed: true,
+					whatsNewSeenVersion: 10,
+				} ),
+			}
+		);
+		const { user, history } = await renderPalette( { connector } );
+		await openPalette();
+		for ( const query of [ 'Take a tour', 'Getting started', 'Walkthrough' ] ) {
+			search( query );
+			expect( option( 'Take a tour' ) ).toBeVisible();
+		}
+		await user.click( option( 'Take a tour' ) );
+		await screen.findByRole( 'dialog', { name: 'Add a new site' } );
+		expect( history.location.pathname ).toBe( '/sites/one/new' );
+		expect( connector.setOnboardingHints ).toHaveBeenCalledWith( {
+			walkthroughStep: 'intro',
+		} );
+		expect( connector.setOnboardingCompleted ).not.toHaveBeenCalled();
+		expect( connector.setUserPreferences ).not.toHaveBeenCalled();
+	} );
+
+	it( 'resets contextual tips without starting the tour or navigating', async () => {
+		const connector = createFakeConnector(
+			{ sites: [ testSite ] },
+			{
+				getOnboardingHints: async () => ( {
+					walkthroughStep: 'completed',
+					annotateHintDismissed: true,
+				} ),
+			}
+		);
+		const { user, history } = await renderPalette( { connector } );
+		await openPalette();
+		search( 'Reset tips' );
+		await user.click( option( 'Reset tips' ) );
+		await paletteClosed();
+		await waitFor( () =>
+			expect( connector.setOnboardingHints ).toHaveBeenCalledExactlyOnceWith( {
+				annotateHintDismissed: false,
+			} )
+		);
+		expect( history.location.pathname ).toBe( '/sites/one' );
+		expect( screen.queryByRole( 'dialog', { name: 'Make any change' } ) ).not.toBeInTheDocument();
+		expect( connector.setOnboardingCompleted ).not.toHaveBeenCalled();
+		expect( connector.setUserPreferences ).not.toHaveBeenCalled();
+	} );
+
+	it( 'starts the tour at site creation when there are no sites', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn( async () => Response.json( { blueprints: [] } ) )
+		);
+		const connector = createFakeConnector(
+			{ sites: [] },
+			{
+				getOnboardingHints: async () => ( { walkthroughStep: 'skipped' } ),
+			}
+		);
+		const { user } = renderApp( { connector, path: '/sites' } );
+		await user.click( await screen.findByRole( 'button', { name: 'Close Add site' } ) );
+		await waitFor( () =>
+			expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument()
+		);
+		await openPalette();
+		search( 'Take a tour' );
+		await user.click( option( 'Take a tour' ) );
+		expect( await screen.findByRole( 'dialog', { name: 'Start from scratch' } ) ).toBeVisible();
+		expect( connector.createSite ).not.toHaveBeenCalled();
+	} );
 
 	it( 'opens a new chat for the current site from the application menu', async () => {
 		const connector = createFakeConnector( { sites: [ testSite ] } );

@@ -10,6 +10,7 @@ import {
 	SITE_SERVER_ACTIVITY_CHECK_INTERVAL,
 	SITE_SERVER_INACTIVITY_TIMEOUT,
 	SITE_SERVER_MAX_TIMEOUT,
+	SITE_SERVER_START_INACTIVITY_TIMEOUT,
 } from '@studio/common/constants';
 import { SITE_START_REQUESTED_AT_ENV } from '@studio/common/lib/cli-events';
 import { readLastLines } from '@studio/common/lib/fs-utils';
@@ -509,6 +510,10 @@ async function sendMessage(
 	options: SendMessageOptions = {}
 ): Promise< unknown > {
 	const { maxTotalElapsedTime = SITE_SERVER_MAX_TIMEOUT, logger } = options;
+	const inactivityTimeout =
+		message.topic === 'start-server'
+			? SITE_SERVER_START_INACTIVITY_TIMEOUT
+			: SITE_SERVER_INACTIVITY_TIMEOUT;
 	const bus = await getDaemonBus();
 	const messageId = crypto.randomUUID();
 	let responseHandler: ( packet: DaemonBusEventMap[ 'process-message' ] ) => void;
@@ -525,17 +530,18 @@ async function sendMessage(
 			const timeSinceLastActivity = now - lastActivityTimestamp;
 			const totalElapsedTime = now - startTime;
 
-			if (
-				timeSinceLastActivity > SITE_SERVER_INACTIVITY_TIMEOUT ||
-				totalElapsedTime > maxTotalElapsedTime
-			) {
+			if ( timeSinceLastActivity > inactivityTimeout || totalElapsedTime > maxTotalElapsedTime ) {
 				const timeoutReason =
 					totalElapsedTime > maxTotalElapsedTime
 						? `Maximum timeout of ${ maxTotalElapsedTime / 1000 }s exceeded`
-						: `No activity for ${ SITE_SERVER_INACTIVITY_TIMEOUT / 1000 }s`;
+						: `No activity for ${ inactivityTimeout / 1000 }s`;
+				const hint =
+					message.topic === 'start-server'
+						? `. ${ __( 'Sites with many plugins may need more time to initialize.' ) }`
+						: '';
 				reject(
 					new Error(
-						`Timeout waiting for response to message ${ message.topic }: ${ timeoutReason }`
+						`Timeout waiting for response to message ${ message.topic }: ${ timeoutReason }${ hint }`
 					)
 				);
 			}

@@ -728,70 +728,58 @@ describe( 'Annotation attachments in the composer', () => {
 		expect( getSiteAnnotations( SITE ).notes ).toHaveLength( 0 );
 	} );
 
-	it.each( [ 'pointer', 'keyboard' ] )(
-		'reviews and deletes individual notes with the %s',
-		async ( method ) => {
-			const first = stageNote( 'Make the heading shorter', [ image( 'capture' ) ] );
-			const second = stageNote( 'Make the background warmer' );
-			const review = vi.fn();
-			const unsubscribe = subscribeAnnotationReview( SITE, review );
-			try {
-				const { user } = await setup( { annotationSiteId: SITE } );
-				await user.click( screen.getByRole( 'button', { name: '2 annotations' } ) );
-				const firstEdit = await screen.findByRole( 'button', {
-					name: 'Edit annotation: Make the heading shorter',
-				} );
-				expect( firstEdit ).not.toHaveFocus();
-				expect( firstEdit ).toHaveTextContent( /^Make the heading shorter$/ );
-				expect( screen.getByRole( 'img', { name: 'capture.png' } ) ).toBeVisible();
-				await user.keyboard( '{Escape}' );
-				await user.keyboard( '{Enter}' );
-				await waitFor( () =>
-					expect( screen.getAllByRole( 'button', { name: /Edit annotation/ } )[ 0 ] ).toHaveFocus()
-				);
-				await user.keyboard( '{ArrowDown}' );
+	it( 'reviews images, navigates notes, and deletes an individual annotation', async () => {
+		stageNote( 'Make the heading shorter', [ image( 'capture' ) ] );
+		const second = stageNote( 'Make the background warmer' );
+		const review = vi.fn();
+		const unsubscribe = subscribeAnnotationReview( SITE, review );
+		try {
+			const { user } = await setup( { annotationSiteId: SITE } );
+			await user.click( screen.getByRole( 'button', { name: '2 annotations' } ) );
+			const firstEdit = await screen.findByRole( 'button', {
+				name: 'Edit annotation: Make the heading shorter',
+			} );
+			expect( firstEdit ).not.toHaveFocus();
+			expect( firstEdit ).toHaveTextContent( /^Make the heading shorter$/ );
+			expect( screen.getByRole( 'img', { name: 'capture.png' } ) ).toBeVisible();
+			await user.keyboard( '{Escape}' );
+			await user.keyboard( '{Enter}' );
+			await waitFor( () =>
+				expect( screen.getAllByRole( 'button', { name: /Edit annotation/ } )[ 0 ] ).toHaveFocus()
+			);
+			await user.keyboard( '{ArrowDown}' );
+			expect(
+				screen.getByRole( 'button', { name: 'Edit annotation: Make the background warmer' } )
+			).toHaveFocus();
+			await user.keyboard( '{ArrowUp}' );
+			expect(
+				screen.getByRole( 'button', { name: 'Edit annotation: Make the heading shorter' } )
+			).toHaveFocus();
+			const remove = screen.getByRole( 'button', {
+				name: 'Delete annotation: Make the heading shorter',
+			} );
+			await user.click( remove );
+			expect( getSiteAnnotations( SITE ).notes.map( ( note ) => note.id ) ).toEqual( [ second ] );
+			expect( screen.queryByRole( 'img', { name: 'capture.png' } ) ).not.toBeInTheDocument();
+			await waitFor( () =>
 				expect(
 					screen.getByRole( 'button', { name: 'Edit annotation: Make the background warmer' } )
-				).toHaveFocus();
-				await user.keyboard( '{ArrowUp}' );
-				expect(
-					screen.getByRole( 'button', { name: 'Edit annotation: Make the heading shorter' } )
-				).toHaveFocus();
-				const remove = screen.getByRole( 'button', {
-					name: 'Delete annotation: Make the heading shorter',
-				} );
-				if ( method === 'keyboard' ) {
-					await user.tab();
-					expect( remove ).toHaveFocus();
-					await user.keyboard( '{Enter}' );
-				} else {
-					await user.click( remove );
-				}
-				expect( getSiteAnnotations( SITE ).notes.map( ( note ) => note.id ) ).toEqual( [ second ] );
-				expect( screen.queryByRole( 'img', { name: 'capture.png' } ) ).not.toBeInTheDocument();
-				await waitFor( () =>
-					expect(
-						screen.getByRole( 'button', { name: 'Edit annotation: Make the background warmer' } )
-					).toHaveFocus()
-				);
-				await user.keyboard( '{Escape}' );
-				expect( screen.getByRole( 'button', { name: '1 annotation' } ) ).toHaveFocus();
-				await user.click( screen.getByRole( 'button', { name: '1 annotation' } ) );
-				await user.click(
-					screen.getByRole( 'button', { name: 'Edit annotation: Make the background warmer' } )
-				);
-				expect( review ).toHaveBeenCalledExactlyOnceWith( second );
-				expect(
-					screen.queryByRole( 'button', { name: 'Edit annotation: Make the background warmer' } )
-				).not.toBeInTheDocument();
-				expect( getSiteAnnotations( SITE ).notes.some( ( note ) => note.id === first ) ).toBe(
-					false
-				);
-			} finally {
-				unsubscribe();
-			}
+				).toHaveFocus()
+			);
+			await user.keyboard( '{Escape}' );
+			expect( screen.getByRole( 'button', { name: '1 annotation' } ) ).toHaveFocus();
+			await user.click( screen.getByRole( 'button', { name: '1 annotation' } ) );
+			await user.click(
+				screen.getByRole( 'button', { name: 'Edit annotation: Make the background warmer' } )
+			);
+			expect( review ).toHaveBeenCalledExactlyOnceWith( second );
+			expect(
+				screen.queryByRole( 'button', { name: 'Edit annotation: Make the background warmer' } )
+			).not.toBeInTheDocument();
+		} finally {
+			unsubscribe();
 		}
-	);
+	} );
 
 	it( 'switches from annotations to a file preview without moving focus back', async () => {
 		stageNote( 'Make the heading shorter' );

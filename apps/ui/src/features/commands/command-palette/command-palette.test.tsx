@@ -2,7 +2,6 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetAppMessagesForTests } from '@/data/app-messages';
 import { setCommandPaletteOpen } from '@/data/use-command-palette';
-import { closeNoticeHistory } from '@/features/notifications';
 import {
 	createFakeConnector,
 	makeSession,
@@ -54,7 +53,6 @@ const searchParams = ( history: { location: { search: string } } ) =>
 afterEach( () =>
 	act( () => {
 		setCommandPaletteOpen( false );
-		closeNoticeHistory();
 	} )
 );
 afterEach( () => vi.unstubAllGlobals() );
@@ -89,22 +87,13 @@ describe( 'command palette', () => {
 		}
 	} );
 
-	it( 'opens one notification history from a collapsed sidebar after the palette closes', async () => {
+	it( 'does not offer notification history', async () => {
 		await renderPalette();
-		fireEvent.click( screen.getAllByRole( 'button', { name: 'Hide sidebar' } )[ 0 ] );
-		for ( let attempt = 0; attempt < 2; attempt++ ) {
-			await openPalette();
-			await waitFor( () =>
-				expect( screen.queryByText( 'No notifications.' ) ).not.toBeInTheDocument()
-			);
-			search( 'Show notifications' );
-			fireEvent.click( option( 'Show notifications' ) );
-			await paletteClosed();
-			await screen.findByText( 'No notifications.' );
-			expect( screen.getAllByRole( 'dialog', { name: 'Notification history' } ) ).toHaveLength( 1 );
-			const bell = screen.getByRole( 'button', { name: 'Notification history' } );
-			expect( bell.closest( '[inert]' ) ).toBeNull();
-		}
+		await openPalette();
+		search( 'notifications' );
+		expect(
+			screen.queryByRole( 'option', { name: 'Show notifications' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it.each( [ false, true ] )(

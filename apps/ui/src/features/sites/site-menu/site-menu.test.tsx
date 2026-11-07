@@ -481,3 +481,16 @@ it.each( [ false, true ] )(
 		}
 	}
 );
+
+it( 'keeps an unsupported backup explanation beside the picker until acknowledged', async () => {
+	const { open, connector } = setup();
+	await open();
+	fireEvent.change( screen.getByTestId( 'import-backup-file' ), {
+		target: { files: [ new File( [ 'invalid' ], 'backup.txt', { type: 'text/plain' } ) ] },
+	} );
+	const validation = await screen.findByRole( 'alertdialog', { name: 'Unsupported backup file' } );
+	expect( validation ).toHaveTextContent( 'This file type is not supported' );
+	fireEvent.click( within( validation ).getByRole( 'button', { name: 'Done' } ) );
+	await waitFor( () => expect( validation ).not.toBeInTheDocument() );
+	expect( connector.importSiteFromBackup ).not.toHaveBeenCalled();
+} );

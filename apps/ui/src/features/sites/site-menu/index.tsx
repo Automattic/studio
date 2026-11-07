@@ -150,6 +150,8 @@ export function useSiteActions(
 				/>
 				<ImportSiteDialog
 					site={ site }
+					validationError={ backupImport.validationError }
+					onClearValidationError={ backupImport.clearValidationError }
 					file={ backupImport.file }
 					open={ backupImport.isConfirming }
 					onCancel={ backupImport.cancel }

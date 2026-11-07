@@ -5,7 +5,7 @@ import { SKIPPED_QUESTION, STOPPED_WITHOUT_ANSWER } from '@studio/agent/protocol
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 import { getAccountJourney, completeAccountJourney } from '@/data/account-analytics';
-import { toast } from '@/data/app-messages';
+import { dismissToast, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { ASSISTANT_QUOTA_QUERY_KEY } from '@/data/queries/use-assistant-quota';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
@@ -209,6 +209,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 
 			switch ( event.type ) {
 				case 'run.started':
+					dismissToast( `chat-error-${ payload.sessionId }` );
 					subscribedRunIdsBySessionRef.current.set( payload.sessionId, payload.runId );
 					dispatchSession( payload.sessionId, {
 						type: 'hydrate_active_run',
@@ -218,7 +219,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 					} );
 					return;
 				case 'error':
-					toast.error( event.message );
+					toast.error( event.message, { id: `chat-error-${ payload.sessionId }` } );
 					return;
 				case 'turn.completed': {
 					const captured = accountJourneysRef.current.get( payload.sessionId );
@@ -439,6 +440,7 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			updateCache( sessionId, ( entries ) => [ ...entries, optimisticEntry ] );
 
 			try {
+				dismissToast( `chat-send-${ sessionId }` );
 				const { runId: newRunId } = await connector.continueSession( sessionId, prompt, {
 					turnId,
 					displayMessage,
@@ -479,7 +481,9 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 				} );
 				interruptPendingStartSessionIdsRef.current.delete( sessionId );
 				dispatchSession( sessionId, { type: 'run_ended' } );
-				toast.error( err instanceof Error ? err.message : String( err ) );
+				toast.error( err instanceof Error ? err.message : String( err ), {
+					id: `chat-send-${ sessionId }`,
+				} );
 				throw err;
 			}
 		},

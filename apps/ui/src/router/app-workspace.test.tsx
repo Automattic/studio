@@ -1,7 +1,7 @@
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
+import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import {
 	SITE_CHAT_HIDDEN_STORAGE_KEY,
 	LEGACY_PANEL_LAYOUT_STORAGE_KEY,
@@ -1558,7 +1558,7 @@ describe( 'Studio workspace', () => {
 			await waitFor( () => expect( composer() ).toHaveValue( '' ) );
 			await waitFor( () =>
 				expect(
-					getNoticeHistory().some( ( item ) => item.description?.includes( 'Startup failed' ) )
+					getVisibleToasts().some( ( item ) => item.description?.includes( 'Startup failed' ) )
 				).toBe( true )
 			);
 		} );

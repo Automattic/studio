@@ -123,7 +123,9 @@ export function canPickAnnotation( siteId: string ) {
 	const current = getSiteAnnotations( siteId );
 	if ( isAnnotationsBusy( current ) || blockDraftNavigation( siteId ) ) return false;
 	if ( current.notes.filter( hasAnnotationContent ).length >= MAX_VISUAL_ANNOTATIONS ) {
-		toast.error( __( 'Send or delete some annotations before adding more' ) );
+		toast.info( __( 'Send or delete some annotations before adding more' ), {
+			id: `annotation-limit-${ siteId }`,
+		} );
 		return false;
 	}
 	return true;

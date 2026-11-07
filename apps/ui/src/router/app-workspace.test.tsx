@@ -273,7 +273,7 @@ describe( 'Studio workspace', () => {
 		try {
 			fireEvent.click( await screen.findByRole( 'button', { name: '1 annotation' } ) );
 			fireEvent.click(
-				await screen.findByRole( 'button', { name: 'Edit annotation 1: Review this heading' } )
+				await screen.findByRole( 'button', { name: 'Edit annotation: Review this heading' } )
 			);
 			await waitFor( () => expect( getSiteAnnotations( 'one' ).active ).toBe( true ) );
 			await findLayoutControl( 'split' );

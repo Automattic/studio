@@ -1,4 +1,4 @@
-import { Button } from '@/lib/ui';
+import { Button, MarqueeLabel } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SubmitFeedback } from '@/lib/hooks';
 
@@ -29,8 +29,12 @@ export function NoticeTab( {
 			data-walkthrough-title={ notice.walkthroughTitle }
 			data-walkthrough-description={ notice.walkthroughDescription ?? notice.message }
 		>
-			<div className={ styles.noticeContent } data-feedback={ feedback ?? undefined }>
-				<span className={ styles.noticeMessage }>{ notice.message }</span>
+			<div
+				className={ styles.noticeContent }
+				data-marquee-row
+				data-feedback={ feedback ?? undefined }
+			>
+				<MarqueeLabel>{ notice.message }</MarqueeLabel>
 				{ notice.action ? (
 					<Button
 						data-walkthrough={ walkthrough ? 'composer' : undefined }
@@ -39,7 +43,7 @@ export function NoticeTab( {
 						data-walkthrough-description={ notice.walkthroughDescription ?? notice.message }
 						size="composer-notice"
 						shape="round"
-						variant={ feedback ? 'destructive' : 'default' }
+						variant={ feedback ? 'destructive' : 'outline' }
 						onClick={ notice.action.onClick }
 					>
 						{ notice.action.label }

@@ -66,6 +66,7 @@ export interface CreateSiteFormError {
 interface CreateSiteFormProps {
 	selectedFolder?: SelectedSiteFolder;
 	initialValues?: Partial< CreateSiteFormValues >;
+	suggestedName?: string;
 	existingDomainNames: string[];
 	onSubmit: ( values: CreateSiteFormValues ) => void;
 	isSubmitting?: boolean;
@@ -91,6 +92,7 @@ interface CreateSiteFormProps {
 export function CreateSiteForm( {
 	selectedFolder,
 	initialValues,
+	suggestedName,
 	existingDomainNames,
 	onSubmit,
 	isSubmitting,
@@ -126,6 +128,7 @@ export function CreateSiteForm( {
 	const [ isNameEdited, setIsNameEdited ] = useState( draft?.name !== undefined );
 	const [ isNameFocused, setIsNameFocused ] = useState( false );
 	const isSubmitQueuedRef = useRef( false );
+	const name = data.name.trim() || suggestedName || '';
 
 	useEffect( () => {
 		const values = initialValues ?? {};
@@ -138,12 +141,13 @@ export function CreateSiteForm( {
 					values,
 					defaults,
 					previousSuggestedFields,
-					dirtyFieldsRef.current
+					dirtyFieldsRef.current,
+					suggestedName
 				)
 			);
 		}
 		suggestedFieldsRef.current = suggestedFields;
-	}, [ defaults, initialValues ] );
+	}, [ defaults, initialValues, suggestedName ] );
 
 	const { data: wpVersions } = useWordPressVersions();
 	const isOffline = useOffline();
@@ -179,7 +183,7 @@ export function CreateSiteForm( {
 		setData( ( prev ) => ( { ...prev, ...update } ) );
 	}, [] );
 	usePathAutoGenerate(
-		data,
+		{ ...data, name },
 		handleChangePartial,
 		!! isSubmitting,
 		requiresEmptyPath,
@@ -201,16 +205,19 @@ export function CreateSiteForm( {
 		} );
 	}, [ resetPathKey, handleChangePartial ] );
 
-	const handleChange = useCallback( ( update: Partial< FormData > ) => {
-		isSubmitQueuedRef.current = false;
-		for ( const key of Object.keys( update ) ) {
-			if ( INITIAL_VALUE_FIELDS.includes( key as keyof CreateSiteFormValues ) ) {
-				dirtyFieldsRef.current.add( key as keyof CreateSiteFormValues );
+	const handleChange = useCallback(
+		( update: Partial< FormData > ) => {
+			isSubmitQueuedRef.current = false;
+			for ( const key of Object.keys( update ) ) {
+				if ( INITIAL_VALUE_FIELDS.includes( key as keyof CreateSiteFormValues ) ) {
+					dirtyFieldsRef.current.add( key as keyof CreateSiteFormValues );
+				}
 			}
-		}
-		if ( update.name !== undefined ) setIsNameEdited( true );
-		setData( ( prev ) => applyFormChange( prev, update ) );
-	}, [] );
+			if ( update.name !== undefined ) setIsNameEdited( true );
+			setData( ( prev ) => applyFormChange( prev, update, suggestedName ) );
+		},
+		[ suggestedName ]
+	);
 
 	useEffect( () => {
 		if ( ! selectedFolder ) return;
@@ -234,9 +241,7 @@ export function CreateSiteForm( {
 					'Choose an empty folder to use a source. The selected folder already contains a WordPress site.'
 			  )
 			: data.pathError ) ||
-		( ! data.isPathPending &&
-		( data.hasCustomPath || data.name.trim() ) &&
-		( ! data.matchSiteName || data.name.trim() )
+		( ! data.isPathPending && ( data.hasCustomPath || name ) && ( ! data.matchSiteName || name )
 			? getFolderNameError( splitFolderPath( data.path ).name )
 			: '' );
 	const { customDomain, enableHttps } = getSubmittedValues( data );
@@ -250,7 +255,7 @@ export function CreateSiteForm( {
 			existingDomainNames
 		),
 	};
-	const nameError = validateSiteName( data.name );
+	const nameError = validateSiteName( name );
 	const errorCount = Object.values( advancedErrors ).filter( Boolean ).length;
 	const advancedAttention = [
 		requiresCustomDomain ? 'domain-required' : '',
@@ -307,7 +312,7 @@ export function CreateSiteForm( {
 		! nameError && ! pathError && ! errorCount && ! isSubmitting && ! isSubmitDisabled;
 
 	const submitForm = () => {
-		onSubmit( getSubmittedValues( data ) );
+		onSubmit( getSubmittedValues( data, suggestedName ) );
 	};
 
 	const handleSubmit = ( event: FormEvent ) => {
@@ -541,18 +546,19 @@ export function CreateSiteForm( {
 				<TextField
 					label={ __( 'Site name' ) }
 					value={ data.name }
+					placeholder={ suggestedName }
 					onChange={ ( event ) => handleChange( { name: event.target.value } ) }
 					onFocus={ () => setIsNameFocused( true ) }
 					onBlur={ () => setIsNameFocused( false ) }
 					error={ isNameEdited && ! isNameFocused ? nameError : undefined }
-					required
+					required={ ! suggestedName }
 					autoFocus
 				/>
 
 				{ children }
 
 				<PathField
-					data={ data }
+					data={ { ...data, name } }
 					error={ pathError }
 					requiresEmptyPath={ requiresEmptyPath }
 					requiresExistingPath={ requiresExistingPath }

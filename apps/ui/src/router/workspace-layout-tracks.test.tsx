@@ -3,7 +3,8 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { setCommandPaletteOpen } from '@/data/use-command-palette';
 import { setAnnotating } from '@/features/annotations';
-import { createFakeConnector, makeSite } from '@/test/fake-connector';
+import { clearComposerDrafts } from '@/features/composer';
+import { createFakeConnector, makeSession, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { FakeConnector } from '@/test/fake-connector';
 
@@ -12,7 +13,10 @@ const layoutEvents = ( connector: FakeConnector ) =>
 	connector.trackEvent.mock.calls.filter( ( [ name ] ) => name === event );
 const toggle = () => screen.getByRole( 'button', { name: /^(Show|Hide) panel$/ } );
 
-beforeEach( () => localStorage.clear() );
+beforeEach( () => {
+	localStorage.clear();
+	clearComposerDrafts();
+} );
 afterEach( () => {
 	act( () => {
 		setAnnotating( 'one', false );
@@ -48,7 +52,7 @@ it( 'records each header transition once, with only layout and lookup context', 
 	);
 } );
 
-it( 'records menu/shortcut transitions, including the Chat tab, and suppresses no-ops', async () => {
+it( 'records menu/shortcut transitions and suppresses no-ops', async () => {
 	const { connector } = await setup();
 	for ( const layout of [ 'split', 'panel', 'panel', 'chat', 'chat', 'split' ] as const ) {
 		act( () => connector.emit( 'onSetWorkspaceLayout', layout ) );
@@ -110,7 +114,7 @@ it.each( [ 'menu', 'slash', 'palette' ] )(
 	}
 );
 
-it( 'uses the panel visibility on site home and restores it from the Chat tab', async () => {
+it( 'uses the panel visibility on site home and restores it from chat-only view', async () => {
 	const { connector, history } = await setup( true, '/sites/one' );
 	act( () => setCommandPaletteOpen( true ) );
 	fireEvent.change( await screen.findByRole( 'combobox', { name: 'Search commands' } ), {
@@ -207,8 +211,10 @@ it.each( [ 'Chat', 'Split view', 'Panel' ] )(
 		act( () => connector.emit( 'onSetWorkspaceLayout', layout ) );
 		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
 		expect( toggle() ).toHaveAttribute( 'data-workspace-layout', layout );
-		expect( layoutEvents( connector ) ).toEqual(
-			layout === 'panel' ? [] : [ [ event, { layout }, 'one' ] ]
+		await waitFor( () =>
+			expect( layoutEvents( connector ) ).toEqual(
+				layout === 'panel' ? [] : [ [ event, { layout }, 'one' ] ]
+			)
 		);
 	}
 );
@@ -245,3 +251,109 @@ it( 'does not attribute a site-start layout change during pending layout navigat
 		finish();
 	}
 } );
+
+it.each( [ 'shortcut', 'site-menu', 'sidebar', 'palette' ] )(
+	'records revealing chat from panel-only view through %s once',
+	async ( source ) => {
+		const { connector, user } = await setup();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Expand panel' } ) );
+		connector.trackEvent.mockClear();
+		if ( source === 'shortcut' ) act( () => connector.emit( 'onNewChat' ) );
+		else if ( source === 'sidebar' ) {
+			await user.click( screen.getByRole( 'button', { name: 'New chat for My site' } ) );
+		} else if ( source === 'site-menu' ) {
+			await user.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
+			await user.click( await screen.findByRole( 'menuitem', { name: 'New chat' } ) );
+		} else {
+			act( () => setCommandPaletteOpen( true ) );
+			fireEvent.change( await screen.findByRole( 'combobox', { name: 'Search commands' } ), {
+				target: { value: 'New chat' },
+			} );
+			await user.click( await screen.findByRole( 'option', { name: /^New chat/ } ) );
+		}
+		await waitFor( () => expect( toggle() ).toHaveAttribute( 'data-workspace-layout', 'split' ) );
+		await waitFor( () =>
+			expect( layoutEvents( connector ) ).toEqual( [ [ event, { layout: 'split' }, 'one' ] ] )
+		);
+	}
+);
+
+it( 'records the new-tab shortcut revealing the panel, without a synthetic content open', async () => {
+	const { connector } = await setup();
+	fireEvent.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
+	connector.trackEvent.mockClear();
+	const apple = /Mac|iPhone|iPad/.test( navigator.platform );
+	for ( let attempt = 0; attempt < 2; attempt++ ) {
+		fireEvent.keyDown( document, { key: 't', code: 'KeyT', metaKey: apple, ctrlKey: ! apple } );
+		await screen.findByRole( 'menuitem', { name: 'Browser' } );
+	}
+	expect( toggle() ).toHaveAttribute( 'data-workspace-layout', 'split' );
+	expect( connector.trackEvent.mock.calls ).toEqual( [ [ event, { layout: 'split' }, 'one' ] ] );
+} );
+
+it( 'records closing the final tab before the site finishes stopping', async () => {
+	const { connector } = await setup();
+	connector.stopSite.mockImplementation( () => new Promise( () => {} ) );
+	fireEvent.click( screen.getByRole( 'button', { name: 'Close My site' } ) );
+	expect( toggle() ).toHaveAttribute( 'data-workspace-layout', 'chat' );
+	expect( layoutEvents( connector ) ).toEqual( [ [ event, { layout: 'chat' }, 'one' ] ] );
+} );
+
+it( 'records a pending draft revealing chat from panel-only view', async () => {
+	const connector = createFakeConnector( {
+		sites: [ makeSite( { id: 'one', running: true } ) ],
+		user: TEST_USER,
+	} );
+	connector.createSession.mockImplementation( () => new Promise< never >( () => {} ) );
+	const { user } = renderApp( { connector, path: '/sites/one/new' } );
+	fireEvent.change( await screen.findByRole( 'combobox', { name: 'Message WordPress Studio' } ), {
+		target: { value: 'Build a gallery' },
+	} );
+	await user.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+	const draft = await screen.findByRole( 'button', { name: 'Build a gallery' } );
+	await user.click( screen.getByRole( 'button', { name: 'Expand panel' } ) );
+	connector.trackEvent.mockClear();
+	await user.click( draft );
+	await waitFor( () => expect( toggle() ).toHaveAttribute( 'data-workspace-layout', 'split' ) );
+	await waitFor( () =>
+		expect( layoutEvents( connector ) ).toEqual( [ [ event, { layout: 'split' }, 'one' ] ] )
+	);
+} );
+
+it.each( [ 'sidebar', 'palette' ] )(
+	'records an existing chat revealing split view through %s',
+	async ( source ) => {
+		const connector = createFakeConnector( {
+			sites: [ makeSite( { id: 'one', running: true } ) ],
+			sessions: [
+				{
+					summary: makeSession( {
+						id: 'existing',
+						ownerSiteId: 'one',
+						title: 'Existing conversation',
+					} ),
+					entries: [],
+				},
+			],
+		} );
+		const { user, history } = renderApp( { connector, path: '/sites/one/new' } );
+		await screen.findByRole( 'button', { name: 'Expand panel' } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Expand panel' } ) );
+		connector.trackEvent.mockClear();
+		if ( source === 'sidebar' ) {
+			await user.click( screen.getAllByRole( 'button', { name: 'Existing conversation' } )[ 0 ] );
+		} else {
+			act( () => setCommandPaletteOpen( true ) );
+			fireEvent.change( await screen.findByRole( 'combobox', { name: 'Search commands' } ), {
+				target: { value: 'Existing conversation' },
+			} );
+			await user.click( await screen.findByRole( 'option', { name: /^Existing conversation/ } ) );
+		}
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/existing' ) );
+		await waitFor( () =>
+			expect( layoutEvents( connector ) ).toEqual( [ [ event, { layout: 'split' }, 'one' ] ] )
+		);
+		act( () => connector.emit( 'onSetWorkspaceLayout', 'split' ) );
+		expect( layoutEvents( connector ) ).toHaveLength( 1 );
+	}
+);

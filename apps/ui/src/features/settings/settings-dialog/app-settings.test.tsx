@@ -29,7 +29,8 @@ function setup( sites: SiteDetails[] = [ site() ] ) {
 
 async function openSettings() {
 	await screen.findByRole( 'button', { name: 'Site menu' } );
-	fireEvent.click( screen.getByRole( 'button', { name: /^Settings$/ } ) );
+	fireEvent.click( screen.getByRole( 'button', { name: 'Account' } ) );
+	fireEvent.click( await screen.findByRole( 'menuitem', { name: /Settings/ } ) );
 	return screen.findByRole( 'dialog', { name: 'Settings' } );
 }
 
@@ -111,7 +112,8 @@ describe( 'Settings in the Studio workspace', () => {
 				name: 'Close Add site',
 			} )
 		);
-		fireEvent.click( await screen.findByRole( 'button', { name: /^Settings$/ } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Account' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: /Settings/ } ) );
 		await screen.findByRole( 'dialog', { name: 'Settings' } );
 		expect( scopeTab( 'Site' ) ).toHaveAttribute( 'aria-disabled', 'true' );
 		fireEvent.click( scopeTab( 'Site' ) );

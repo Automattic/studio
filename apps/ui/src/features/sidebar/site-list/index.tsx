@@ -10,15 +10,7 @@ import { useSites, useUpdateSitesSortOrder } from '@/data/queries/use-sites';
 import { getSessionTitle } from '@/features/chats';
 import { useOpenAddSite } from '@/features/sites';
 import { CollapseAllIcon, PlusIcon } from '@/lib/icons';
-import {
-	IconButton,
-	SidebarGroup,
-	SidebarGroupHeader,
-	SidebarGroupLabelSkeleton,
-	SidebarMenu,
-	SidebarMenuItem,
-	SidebarMenuSkeleton,
-} from '@/lib/ui';
+import { IconButton, SidebarMenu, SidebarMenuItem, SidebarMenuSkeleton } from '@/lib/ui';
 import { ChatRow, RetryLoadingChats } from './chat-row';
 import { useProvideCollapseAll } from './collapse-all';
 import { SidebarSelection } from './selection';
@@ -159,8 +151,8 @@ export function SiteList( {
 	let listContent: ReactNode;
 	if ( sitesLoading ) {
 		listContent = (
-			<SidebarMenu aria-hidden="true">
-				{ [ '65%', '48%', '72%', '56%' ].map( ( width ) => (
+			<SidebarMenu className={ styles.loadingMenu } aria-hidden="true">
+				{ [ '65%', '48%', '72%', '56%', '62%', '43%' ].map( ( width ) => (
 					<SidebarMenuItem key={ width }>
 						<SidebarMenuSkeleton width={ width } />
 					</SidebarMenuItem>
@@ -206,16 +198,7 @@ export function SiteList( {
 	}
 
 	if ( sitesLoading ) {
-		return (
-			<div className={ clsx( styles.root, className ) }>
-				<SidebarGroup>
-					<SidebarGroupHeader aria-hidden="true">
-						<SidebarGroupLabelSkeleton />
-					</SidebarGroupHeader>
-					{ listContent }
-				</SidebarGroup>
-			</div>
-		);
+		return <div className={ clsx( styles.root, className ) }>{ listContent }</div>;
 	}
 
 	const loaded = ! sitesLoading && ! sessionsLoading;

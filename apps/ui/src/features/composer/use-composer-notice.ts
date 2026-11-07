@@ -52,8 +52,8 @@ export function useComposerNotice(
 		return () => window.removeEventListener( 'focus', recheck );
 	}, [ needsPaymentMethod, refetchQuota ] );
 
-	const retry = {
-		label: __( 'Try again' ),
+	const refresh = {
+		label: __( 'Refresh' ),
 		onClick: () => {
 			void settings.refetch();
 			void quota.refetch();
@@ -70,7 +70,7 @@ export function useComposerNotice(
 		return {
 			...offlineGuidance,
 			message: __( 'You are offline. Reconnect to send a message.' ),
-			action: retry,
+			action: refresh,
 		};
 	}
 	if ( settings.isLoading || ( provider === 'wpcom' && isUserLoading ) ) {
@@ -81,7 +81,7 @@ export function useComposerNotice(
 			message: __( 'Couldn’t load your AI provider.' ),
 			walkthroughTitle: __( 'Couldn’t reach your provider' ),
 			walkthroughDescription: __( 'Try again. If it keeps failing, check your provider settings.' ),
-			action: retry,
+			action: refresh,
 		};
 	}
 	if ( provider !== 'wpcom' ) {
@@ -106,7 +106,7 @@ export function useComposerNotice(
 			message: __( 'AI usage is currently unavailable.' ),
 			walkthroughTitle: __( 'AI is unavailable right now' ),
 			walkthroughDescription: __( 'Give it a moment, then try again.' ),
-			action: retry,
+			action: refresh,
 		};
 	}
 	if ( ! quota.data ) {

@@ -1,19 +1,8 @@
-import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useConnector } from '@/data/core';
 import { siteDesignQueryKey } from '@/data/queries/use-site-design';
 import { siteEmailsQueryKey } from '@/data/queries/use-site-emails';
-import {
-	DATABASE_HOME_PATH,
-	EMAIL_PREVIEW_PATH,
-	getPathFromPreviewUrl,
-	getPreviewRealm,
-	getRealmNavigationPath,
-	getRealmOpenEvent,
-	isWordPressAuthPath,
-	type PreviewRealm,
-} from './address-bar';
+import { getPathFromPreviewUrl, getPreviewRealm } from './address-bar';
 import { EMPTY_BROWSER_STATE, type BrowserCommand } from './browser-state';
 import {
 	aimMountedSurface,
@@ -24,15 +13,6 @@ import {
 	type PreviewSurfaceKey,
 	type PreviewSurfaceState,
 } from './surfaces';
-
-// Where each realm segment lands before its per-realm memory has anything better.
-const DEFAULT_REALM_PATHS: Record< PreviewRealm, string > = {
-	frontend: '/',
-	admin: '/wp-admin/',
-	database: DATABASE_HOME_PATH,
-	email: EMAIL_PREVIEW_PATH,
-	design: DESIGN_SYSTEM_PREVIEW_PATH,
-};
 
 /**
  * The preview's surfaces, where each one is pointed, and the commands sent to
@@ -54,7 +34,6 @@ export function usePreviewSurfaces( {
 	onPathChange?: ( path: string ) => void;
 	active?: boolean;
 } ) {
-	const connector = useConnector();
 	const queryClient = useQueryClient();
 	// Which realm the host is pointing the preview at. Derived from the path
 	// rather than stored alongside it, so the parent stays the single source of
@@ -160,45 +139,6 @@ export function usePreviewSurfaces( {
 		}
 	}, [ active, activeRealm, activeSurfaceKey, patchSurface, reloadNonce, sendSurfaceCommand ] );
 
-	// Where each realm was last seen, so flipping to WP Admin and back returns
-	// to the exact front-end page rather than the site root.
-	const lastRealmPathsRef = useRef< Record< PreviewRealm, string > >( {
-		...DEFAULT_REALM_PATHS,
-	} );
-	useEffect( () => {
-		lastRealmPathsRef.current = { ...DEFAULT_REALM_PATHS };
-	}, [ siteId ] );
-	useEffect( () => {
-		// Auto-login is a transient hop, not a place to return to.
-		if ( path.startsWith( '/studio-auto-login' ) || isWordPressAuthPath( path ) ) {
-			return;
-		}
-		lastRealmPathsRef.current[ getPreviewRealm( path ) ] = path;
-	}, [ path ] );
-
-	// Realm segments (front end / WP Admin / database). Moving between the front
-	// end and WP Admin is a navigation inside the shared site surface, so they
-	// keep one history and one login; admin targets go through the site's
-	// /studio-auto-login endpoint so they never land on the login form. Moving to
-	// another surface reloads it, so it shows what changed while it was hidden.
-	const switchRealm = useCallback(
-		( realm: PreviewRealm ) => {
-			if ( activeRealm === realm ) {
-				return;
-			}
-			void connector.trackEvent( getRealmOpenEvent( realm ), { browser: 'internal' } );
-			const target = lastRealmPathsRef.current[ realm ];
-			const key = getSurfaceKey( realm );
-			if ( surfaces.byKey[ key ]?.path === target ) {
-				sendSurfaceCommand( key, 'reload' );
-				onPathChange?.( target );
-				return;
-			}
-			onPathChange?.( getRealmNavigationPath( target, siteUrl ) );
-		},
-		[ activeRealm, connector, onPathChange, sendSurfaceCommand, siteUrl, surfaces ]
-	);
-
 	return {
 		surfaces: surfaces.byKey,
 		activeRealm,
@@ -210,6 +150,5 @@ export function usePreviewSurfaces( {
 		sendSurfaceCommand,
 		sendBrowserCommand,
 		goToHistoryIndex,
-		switchRealm,
 	};
 }

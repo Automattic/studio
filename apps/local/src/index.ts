@@ -186,6 +186,7 @@ import {
 	deleteAllPreviewSites,
 	deletePreviewSite,
 	fetchSnapshots,
+	getPreviewStatus,
 	publishPreviewSite,
 	renamePreviewSite,
 } from '@studio/common/sites/snapshots';
@@ -2001,6 +2002,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			await renamePreviewSite( execute, req.params.hostname, name );
 			res.sendStatus( 204 );
+		} )
+	);
+
+	api.get(
+		'/snapshots/:hostname/status',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			res.json( await getPreviewStatus( execute, req.params.hostname ) );
 		} )
 	);
 

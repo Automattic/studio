@@ -73,7 +73,12 @@ export function RenamePreviewDialog( {
 						<DialogClose render={ <Button variant="outline" /> } disabled={ rename.isPending }>
 							{ __( 'Cancel' ) }
 						</DialogClose>
-						<Button type="submit" loading={ rename.isPending } disabled={ ! name.trim() }>
+						<Button
+							variant="accent"
+							type="submit"
+							loading={ rename.isPending }
+							disabled={ ! name.trim() }
+						>
 							{ __( 'Save' ) }
 						</Button>
 					</DialogFooter>

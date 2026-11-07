@@ -29,8 +29,8 @@ export function useExistingCustomDomains(): string[] {
 }
 
 /**
- * Asks the main process for a non-colliding site name so the create form can
- * pre-fill "Site name" on first render: a random one, or `baseName` numbered.
+ * Asks the backend for a non-colliding site name: a random suggestion for a
+ * blank site, or `baseName` numbered for a site with a known name.
  * Skips until the caller has loaded the current site list.
  */
 export function useProposedSiteName( sites: SiteDetails[] | undefined, baseName?: string ) {

@@ -240,7 +240,7 @@ export function SettingsSelect< TValue extends string >( {
 				}
 			} }
 		>
-			<SelectTrigger size="sm" aria-label={ label } { ...control }>
+			<SelectTrigger size="default" aria-label={ label } { ...control }>
 				<SelectValue />
 			</SelectTrigger>
 			<SelectContent>

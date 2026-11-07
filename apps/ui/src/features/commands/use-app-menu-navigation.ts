@@ -22,6 +22,12 @@ import {
 } from '@/features/sites';
 import { replaceOpenDialogs } from '@/lib/ui';
 
+function isPoetryOpen() {
+	return !! document.querySelector(
+		'[data-slot="dialog-content"][data-poetry]:not([data-closed])'
+	);
+}
+
 export function useAppMenuNavigation() {
 	const connector = useConnector();
 	const openSettings = useOpenSettings();
@@ -88,7 +94,13 @@ export function useAppMenuNavigation() {
 		[ connector, openAddSite, openSite, startSite ]
 	);
 
-	useEffect( () => connector.onAddSite( () => openAddSite() ), [ connector, openAddSite ] );
+	useEffect(
+		() =>
+			connector.onAddSite( () => {
+				if ( ! isPoetryOpen() ) openAddSite();
+			} ),
+		[ connector, openAddSite ]
+	);
 	useEffect(
 		() =>
 			connector.onOpenSite( ( { siteId } ) => {
@@ -226,11 +238,12 @@ export function useAppMenuNavigation() {
 	);
 	useEffect(
 		() =>
-			connector.onOpenSettings( ( { settingId } ) =>
-				settingId
+			connector.onOpenSettings( ( { settingId } ) => {
+				if ( isPoetryOpen() ) return;
+				return settingId
 					? openSettings( resolveSettingsLink( settingId ), undefined, settingId )
-					: openSettings()
-			),
+					: openSettings();
+			} ),
 		[ connector, openSettings ]
 	);
 }

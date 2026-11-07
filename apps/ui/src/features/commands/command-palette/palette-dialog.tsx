@@ -1,14 +1,18 @@
 import { __ } from '@wordpress/i18n';
 import { SearchIcon } from 'lucide-react';
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { groupCommands, matchCommands } from '@/features/commands/command-search';
+import { PreviewParticles } from '@/features/sites';
+import { isImeComposing } from '@/lib/keyboard';
 import {
 	InputGroup,
 	InputGroupAddon,
 	InputGroupInput,
 	Dialog,
 	DialogContent,
+	DialogDescription,
 	CommandList,
+	VisuallyHidden,
 	getActiveCommand,
 	handleCommandKey,
 } from '@/lib/ui';
@@ -24,6 +28,7 @@ export type PaletteProps = {
 export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) {
 	const [ query, setQuery ] = useState( '' );
 	const [ highlight, setHighlight ] = useState< string >();
+	const [ poetry, setPoetry ] = useState( false );
 	const listId = useId();
 	const matches = matchCommands( commands, query );
 	const groups = groupCommands( matches );
@@ -41,56 +46,114 @@ export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) 
 			onOpenChangeComplete={ ( isOpen ) => {
 				if ( ! isOpen ) {
 					setQuery( '' );
+					setPoetry( false );
+					setHighlight( undefined );
 				}
 			} }
 		>
 			<DialogContent
-				className={ styles.popup }
+				className={ poetry ? styles.poetryPopup : styles.popup }
 				motion="none"
-				aria-label={ __( 'Command palette' ) }
-			>
-				<InputGroup variant="commands" className={ styles.input }>
-					<InputGroupInput
-						role="combobox"
-						aria-autocomplete="list"
-						aria-expanded
-						aria-controls={ listId }
-						aria-activedescendant={ active ? `${ listId }-${ active.value }` : undefined }
-						placeholder={ __( 'Search commands' ) }
-						aria-label={ __( 'Search commands' ) }
-						value={ query }
-						onChange={ ( event ) => {
-							setQuery( event.target.value );
-							setHighlight( undefined );
-						} }
-						onKeyDown={ ( event ) =>
-							handleCommandKey( event, groups, active?.value, setHighlight, run )
-						}
-					/>
-					<InputGroupAddon>
-						<SearchIcon className={ styles.icon } />
-					</InputGroupAddon>
-				</InputGroup>
-				<CommandList
-					className={ styles.list }
-					id={ listId }
-					label={ __( 'Commands' ) }
-					size="default"
-					groups={ groups }
-					highlighted={ active?.value }
-					onHighlight={ setHighlight }
-					onSelect={ run }
-					empty={
-						<div className={ styles.empty }>
-							<p className={ styles.emptyLabel }>{ __( 'No commands found.' ) }</p>
-							<hr className={ styles.divider } aria-hidden="true" />
-							<p className={ styles.haiku }>
-								{ __( 'From many, one tool.\nFind strength in community\nfor a better web.' ) }
-							</p>
-						</div>
+				data-poetry={ poetry ? '' : undefined }
+				aria-label={ poetry ? __( 'Code is poetry' ) : __( 'Command palette' ) }
+				onKeyDownCapture={ ( event ) => {
+					if ( ! poetry || event.key === 'Tab' ) return;
+					event.stopPropagation();
+					if ( isImeComposing( event ) || event.repeat ) {
+						event.preventDefault();
+						return;
 					}
-				/>
+					if ( event.key === 'Escape' ) {
+						event.preventDefault();
+						onOpenChange( false );
+					} else if ( event.key !== 'Enter' && event.key !== ' ' ) {
+						event.preventDefault();
+					}
+				} }
+				onKeyUpCapture={ ( event ) => {
+					if ( poetry ) event.stopPropagation();
+				} }
+			>
+				{ poetry ? (
+					<PoetryView onClose={ () => onOpenChange( false ) } />
+				) : (
+					<>
+						<InputGroup variant="commands" className={ styles.input }>
+							<InputGroupInput
+								role="combobox"
+								aria-autocomplete="list"
+								aria-expanded
+								aria-controls={ listId }
+								aria-activedescendant={ active ? `${ listId }-${ active.value }` : undefined }
+								placeholder={ __( 'Search commands' ) }
+								aria-label={ __( 'Search commands' ) }
+								value={ query }
+								onChange={ ( event ) => {
+									setQuery( event.target.value );
+									setHighlight( undefined );
+								} }
+								onKeyDown={ ( event ) => {
+									if (
+										event.key === 'Enter' &&
+										query.trim().replace( /\s+/g, ' ' ).toLowerCase() === 'code is poetry'
+									) {
+										if ( isImeComposing( event ) || event.repeat ) return;
+										event.preventDefault();
+										event.stopPropagation();
+										setPoetry( true );
+										return;
+									}
+									handleCommandKey( event, groups, active?.value, setHighlight, run );
+								} }
+							/>
+							<InputGroupAddon>
+								<SearchIcon className={ styles.icon } />
+							</InputGroupAddon>
+						</InputGroup>
+						<CommandList
+							className={ styles.list }
+							id={ listId }
+							label={ __( 'Commands' ) }
+							size="default"
+							groups={ groups }
+							highlighted={ active?.value }
+							onHighlight={ setHighlight }
+							onSelect={ run }
+							empty={
+								<div className={ styles.empty }>
+									<p className={ styles.emptyLabel }>{ __( 'No commands found.' ) }</p>
+									<hr className={ styles.divider } aria-hidden="true" />
+									<p className={ styles.haiku }>
+										{ __( 'From many, one tool.\nFind strength in community\nfor a better web.' ) }
+									</p>
+								</div>
+							}
+						/>
+					</>
+				) }
 			</DialogContent>
 		</Dialog>
+	);
+}
+
+function PoetryView( { onClose }: { onClose: () => void } ) {
+	const dismissRef = useRef< HTMLButtonElement >( null );
+	useEffect( () => dismissRef.current?.focus(), [] );
+
+	return (
+		<>
+			<DialogDescription render={ <VisuallyHidden /> }>
+				{ __( 'Click anywhere or press Escape to return to Studio.' ) }
+			</DialogDescription>
+			<button
+				ref={ dismissRef }
+				type="button"
+				className={ styles.poetryScene }
+				aria-label={ __( 'Return to Studio' ) }
+				onClick={ onClose }
+			>
+				<PreviewParticles active showLogo />
+			</button>
+		</>
 	);
 }

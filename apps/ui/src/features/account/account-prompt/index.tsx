@@ -103,6 +103,7 @@ export function AccountPrompt( {
 			) : null }
 			<div className={ styles.actions }>
 				<Button
+					variant="accent"
 					loadingMode="replace"
 					size="lg"
 					disabled={ ( ! onContinue && offline ) || pending }

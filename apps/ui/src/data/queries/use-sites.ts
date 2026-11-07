@@ -10,6 +10,11 @@ import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
 import { updateResponsivePreview } from '@/data/responsive-preview';
+import {
+	isSiteRestarting,
+	RESTART_SITE_MUTATION_KEY,
+	useIsSiteRestarting,
+} from '@/data/site-restarts';
 import { useOpenSite } from '@/data/use-open-site';
 import type { CreateSiteParams, SiteDetails } from '@/data/core';
 import type { SiteEvent, SiteListItem } from '@studio/common/lib/cli-events';
@@ -38,12 +43,14 @@ export const EXPORT_DATABASE_MUTATION_KEY = [ 'exportDatabase' ] as const;
 
 export function useSites() {
 	const connector = useConnector();
+	const queryClient = useQueryClient();
 	return useQuery( {
 		queryKey: SITES_QUERY_KEY,
 		queryFn: async () => {
 			const sites = await connector.getSites();
 			for ( const site of sites ) {
-				if ( ! site.running ) updateResponsivePreview( site.id, { enabled: false } );
+				if ( ! site.running && ! isSiteRestarting( queryClient, site.id ) )
+					updateResponsivePreview( site.id, { enabled: false } );
 			}
 			return sites;
 		},
@@ -228,11 +235,24 @@ export function useStopSite() {
 		mutationFn: async ( id: string ) => {
 			await showSite( queryClient, await connector.stopSite( id ) );
 			dismissToast( `stop-${ id }` );
-			updateResponsivePreview( id, { enabled: false } );
+			if ( ! isSiteRestarting( queryClient, id ) )
+				updateResponsivePreview( id, { enabled: false } );
 		},
 		onError: ( _error, id ) => {
 			const { title, description } = getBusyNotice( queryClient, id, __( 'Failed to stop site' ) );
 			toast.error( title, { id: `stop-${ id }`, description } );
+		},
+	} );
+}
+
+export function useRestartSite() {
+	const stop = useStopSite();
+	const start = useStartSite();
+	return useMutation( {
+		mutationKey: RESTART_SITE_MUTATION_KEY,
+		mutationFn: async ( id: string ) => {
+			await stop.mutateAsync( id );
+			await start.mutateAsync( id );
 		},
 	} );
 }
@@ -403,7 +423,8 @@ export function useIsSiteBusy( site: SiteDetails | undefined ): boolean {
 	const isStarting = useIsSiteStarting( site?.id );
 	const isStopping = useIsSiteStopping( site?.id );
 	const operation = useSiteOperation( site );
-	return isStarting || isStopping || operation !== null;
+	const isRestarting = useIsSiteRestarting( site?.id );
+	return isStarting || isStopping || isRestarting || operation !== null;
 }
 
 /**
@@ -412,7 +433,11 @@ export function useIsSiteBusy( site: SiteDetails | undefined ): boolean {
  * have, or a create or delete, which change which sites there are.
  */
 function applySiteEvent( queryClient: QueryClient, event: SiteEvent ): boolean {
-	if ( event.event === SITE_EVENTS.UPDATED && ! event.running ) {
+	if (
+		event.event === SITE_EVENTS.UPDATED &&
+		! event.running &&
+		! isSiteRestarting( queryClient, event.siteId )
+	) {
 		updateResponsivePreview( event.siteId, { enabled: false } );
 	}
 	const { site } = event;

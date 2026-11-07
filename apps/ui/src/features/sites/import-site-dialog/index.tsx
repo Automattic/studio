@@ -166,7 +166,9 @@ export function ImportSiteDialog( {
 					</Button>
 					{ /* Not destructive: the importer moves the site's existing wp-content
 					     and database to the trash rather than deleting them. */ }
-					<Button onClick={ onConfirm }>{ confirmLabel }</Button>
+					<Button variant="accent" onClick={ onConfirm }>
+						{ confirmLabel }
+					</Button>
 				</DialogFooter>
 			</DialogContent>
 		</AlertDialog>

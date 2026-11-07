@@ -6,10 +6,6 @@
 	height: 100%;
 }
 
-.empty {
-	flex: 1;
-}
-
 .root {
 	display: grid;
 	flex: 1;
@@ -26,27 +22,49 @@
 }
 
 .listHeader {
-	display: flex;
-	align-items: center;
-	gap: var( --space-2 );
-	padding: var( --space-2 ) var( --space-2 ) var( --space-2 ) var( --space-4 );
+	flex-shrink: 0;
+	height: calc( var( --band-height ) + 1px );
+	padding-inline: var( --band-inset );
+	border-block-end: 1px solid var( --border );
 }
 
 .listTitle {
+	display: flex;
+	align-items: center;
+	height: 100%;
+	padding-inline: var( --space-2 );
+	color: var( --foreground );
 	font-size: var( --text-sm );
-	font-weight: var( --font-weight-semibold );
+	font-weight: var( --font-weight-medium );
 	line-height: var( --text-sm--line-height );
 }
 
-.count {
-	color: var( --muted-foreground );
-	font-size: var( --text-xs );
-	line-height: var( --text-xs--line-height );
-	font-variant-numeric: tabular-nums;
+.folderButton [data-folder-front] {
+	d: path(
+		'M5 19 C3.89543 19 3 18.1046 3 17 L3 12 C3 10.89543 3.89543 10 5 10 L19 10 C20.1046 10 21 10.89543 21 12 L21 17 C21 18.1046 20.1046 19 19 19 L5 19'
+	);
 }
 
-.folder {
-	margin-inline-start: auto;
+.folderButton {
+	--folder-open-path: path(
+		'M5 19 C5.43738 19 5.82402 18.7157 5.95448 18.2983 L8.0159 11.7017 C8.14636 11.2843 8.533 11 8.97038 11 L21.3199 11 C21.6572 11 21.8978 11.3272 21.7971 11.6491 L19.5 19 C19.5 19 19.5 19 19.5 19 L5 19'
+	);
+}
+
+.folderButton:focus-visible [data-folder-front] {
+	d: var( --folder-open-path );
+}
+
+@media ( hover: hover ) and ( pointer: fine ) {
+	.folderButton:hover [data-folder-front] {
+		d: var( --folder-open-path );
+	}
+}
+
+@media ( prefers-reduced-motion: no-preference ) {
+	.folderButton:not( :focus-visible ) [data-folder-front] {
+		transition: d var( --motion-duration-layout ) var( --motion-ease-layout );
+	}
 }
 
 .rows {
@@ -56,7 +74,7 @@
 	gap: var( --space-0_5 );
 	min-height: 0;
 	margin: 0;
-	padding: 0 var( --space-2 ) var( --space-2 );
+	padding: var( --space-2 );
 	overflow-y: auto;
 	list-style: none;
 }
@@ -64,9 +82,9 @@
 .row {
 	display: flex;
 	flex-direction: column;
-	gap: var( --space-0_5 );
-	padding: var( --space-2 ) var( --space-2_5 );
-	border-radius: var( --radius-md );
+	gap: var( --space-1 );
+	padding: var( --space-3 );
+	border-radius: var( --radius-lg );
 	cursor: default;
 }
 
@@ -89,32 +107,32 @@
 .rowSubject {
 	composes: truncate from '@/lib/theme/recipes.module.css';
 	flex: 1;
-	font-weight: var( --font-weight-medium );
+	font-size: var( --text-xs );
+	font-weight: var( --font-weight-normal );
+	line-height: var( --text-xs--line-height );
 }
 
 .rowDate {
 	flex: none;
 	color: var( --muted-foreground );
-	font-size: var( --text-xs );
+	font-size: var( --text-xxs );
+	line-height: var( --text-xxs--line-height );
 	font-variant-numeric: tabular-nums;
 }
 
 .rowRecipients {
 	composes: truncate from '@/lib/theme/recipes.module.css';
 	color: var( --muted-foreground );
-	font-size: var( --text-xs );
-	line-height: var( --text-xs--line-height );
+	font-size: var( --text-xxs );
+	line-height: var( --text-xxs--line-height );
 }
 
 .skeletonRow {
-	display: flex;
-	flex-direction: column;
-	gap: var( --space-1_5 );
-	padding: var( --space-2_5 );
-}
-
-.skeletonLine {
-	height: 12px;
+	height: calc(
+		var( --text-xs--line-height ) + var( --text-xxs--line-height ) + var( --space-1 ) +
+			var( --space-3 ) * 2
+	);
+	border-radius: var( --radius-lg );
 }
 
 .reader {
@@ -132,6 +150,10 @@
 	margin: 0;
 	padding: var( --space-6 );
 	color: var( --muted-foreground );
+	font-size: var( --text-sm );
+	line-height: var( --text-sm--line-height );
+	text-align: center;
+	text-wrap: balance;
 }
 
 .message {
@@ -279,6 +301,18 @@
 .root[data-layout='single'][data-reading] .list,
 .root[data-layout='single']:not( [data-reading] ) .reader {
 	display: none;
+}
+
+.root[data-layout='single'][data-empty] {
+	grid-template-rows: auto minmax( 0, 1fr );
+}
+
+.root[data-layout='single'][data-empty] .rows {
+	display: none;
+}
+
+.root[data-layout='single'][data-empty] .reader {
+	display: flex;
 }
 
 .root[data-layout='single'] .back {

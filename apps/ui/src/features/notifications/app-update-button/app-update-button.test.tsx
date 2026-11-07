@@ -1,6 +1,7 @@
 import { act, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { AppUpdateButton, AppToasts } from '@/features/notifications';
+import { Button, Menu } from '@/lib/ui';
 import { createFakeConnector } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import type { AppUpdateStatus } from '@/data/core';
@@ -11,11 +12,20 @@ const ready: AppUpdateStatus = {
 	newVersion: '2.1.0',
 };
 
-function setup( status: AppUpdateStatus ) {
+function setup( status: AppUpdateStatus, placement: 'sidebar' | 'menu' = 'sidebar' ) {
 	const connector = createFakeConnector( {}, { getAppUpdateStatus: async () => status } );
 	return renderWithProviders(
 		<>
-			<AppUpdateButton />
+			{ placement === 'menu' ? (
+				<Menu.Root>
+					<Menu.Trigger render={ <Button>Account</Button> } />
+					<Menu.Popup>
+						<AppUpdateButton placement="menu" />
+					</Menu.Popup>
+				</Menu.Root>
+			) : (
+				<AppUpdateButton />
+			) }
 			<AppToasts />
 		</>,
 		{ connector }
@@ -23,6 +33,15 @@ function setup( status: AppUpdateStatus ) {
 }
 
 describe( 'AppUpdateButton', () => {
+	it( 'offers an update in the account menu once downloaded and installs it on click', async () => {
+		const { user, connector } = setup( { ...ready, state: 'downloading' }, 'menu' );
+		await user.click( await screen.findByRole( 'button', { name: 'Account' } ) );
+		expect( screen.queryByText( 'Update available' ) ).not.toBeInTheDocument();
+		await act( () => connector.emit( 'onAppUpdateStatusChanged', ready ) );
+		await user.click( await screen.findByRole( 'menuitem', { name: /Update available/ } ) );
+		await waitFor( () => expect( connector.installAppUpdate ).toHaveBeenCalledOnce() );
+	} );
+
 	it.each< AppUpdateStatus >( [ { state: 'idle', currentVersion: '2.0.0' } ] )(
 		'stays hidden while the updater is $state',
 		async ( status ) => {
@@ -66,7 +85,7 @@ describe( 'AppUpdateButton', () => {
 		expect( connector.checkForAppUpdates ).toHaveBeenCalledOnce();
 		expect( connector.installAppUpdate ).not.toHaveBeenCalled();
 		await act( () => connector.emit( 'onAppUpdateStatusChanged', ready ) );
-		expect( await screen.findByRole( 'button', { name: 'Restart to update' } ) ).toBeEnabled();
+		expect( await screen.findByRole( 'button', { name: 'Update available' } ) ).toBeEnabled();
 	} );
 
 	it( 'offers another retry when a new download fails', async () => {
@@ -115,9 +134,7 @@ describe( 'AppUpdateButton', () => {
 		const { user, connector } = setup( { state: 'idle', currentVersion: '2.0.0' } );
 		await waitFor( () => expect( connector.getAppUpdateStatus ).toHaveBeenCalled() );
 		await act( () => connector.emit( 'onAppUpdateStatusChanged', ready ) );
-		const trigger = await screen.findByRole( 'button', { name: 'Restart to update' } );
-		await user.hover( trigger );
-		expect( await screen.findByText( 'Restart to update' ) ).toBeVisible();
+		const trigger = await screen.findByRole( 'button', { name: 'Update available' } );
 		expect( connector.installAppUpdate ).not.toHaveBeenCalled();
 		await user.click( trigger );
 		await waitFor( () => expect( connector.installAppUpdate ).toHaveBeenCalledOnce() );
@@ -127,9 +144,9 @@ describe( 'AppUpdateButton', () => {
 	it( 'offers a restart without version metadata and allows retry after failure', async () => {
 		const { user, connector } = setup( { ...ready, newVersion: null } );
 		connector.installAppUpdate.mockRejectedValueOnce( new Error( 'Restart failed' ) );
-		await user.click( await screen.findByRole( 'button', { name: 'Restart to update' } ) );
+		await user.click( await screen.findByRole( 'button', { name: 'Update available' } ) );
 		expect( await screen.findByText( 'Couldn’t update Studio' ) ).toBeVisible();
-		await user.click( screen.getByRole( 'button', { name: 'Restart to update' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Update available' } ) );
 		await waitFor( () => expect( connector.installAppUpdate ).toHaveBeenCalledTimes( 2 ) );
 	} );
 } );

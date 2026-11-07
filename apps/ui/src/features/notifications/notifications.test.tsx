@@ -259,7 +259,7 @@ describe( 'sidebar cards', () => {
 				newVersion: '1.1.0',
 			} );
 		} );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Restart to update' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Update available' } ) );
 		expect( screen.queryByText( 'Downloading update' ) ).not.toBeInTheDocument();
 		expect( await screen.findByText( 'Update ready' ) ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Dismiss Update ready' } ) ).toBeVisible();

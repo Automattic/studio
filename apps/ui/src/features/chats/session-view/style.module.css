@@ -56,8 +56,6 @@
 }
 
 .scroll {
-	composes: scrollFade from '@/lib/theme/recipes.module.css';
-
 	position: absolute;
 	inset: 0;
 	height: 100%;
@@ -100,6 +98,34 @@
 	bottom: var( --composer-bottom-gap );
 	padding: 0 var( --column-inline-gutter );
 	z-index: 2;
+}
+
+.headerLayer::before,
+.composerOuter::before {
+	position: absolute;
+	inset-inline: 0;
+	z-index: -1;
+	background: var( --chat );
+	content: '';
+	pointer-events: none;
+	display: none;
+}
+
+.headerLayer::before {
+	top: calc( -1 * var( --workspace-header-height, 0px ) );
+	bottom: calc( -1 * var( --space-8 ) );
+	mask-image: linear-gradient( to top, var( --surface-strong-overlay-fade-stops ) );
+}
+
+.composerOuter::before {
+	top: calc( -1 * var( --space-8 ) );
+	bottom: calc( -1 * var( --composer-bottom-gap ) );
+	mask-image: linear-gradient( to bottom, var( --surface-strong-overlay-fade-stops ) );
+}
+
+.root:has( > .scroll[data-scroll-top] ) > .headerLayer::before,
+.root:has( > .scroll[data-scroll-bottom] ) > .composerOuter::before {
+	display: block;
 }
 
 /* The conversation and the composer share one reading column. As the preview

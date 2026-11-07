@@ -7,13 +7,14 @@ import { useColorScheme } from '@/data/host/use-color-scheme';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
 import { useSaveUserPreferences } from '@/data/queries/use-user-preferences';
+import { useOpenFeedback } from '@/data/use-open-feedback';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { useOpenSite } from '@/data/use-open-site';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { useSidebarOpen, useToggleSidebar } from '@/data/use-sidebar-collapsed';
+import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
 import { getAppCommands, getPaletteChats } from '@/features/commands/studio-commands';
 import { useSettingCommands } from '@/features/commands/use-setting-commands';
-import { useOpenFeedback } from '@/features/feedback';
 import { useOpenWhatsNew } from '@/features/onboarding';
 import { useCollapseAll } from '@/features/sidebar';
 import { useOpenAddSite } from '@/features/sites';
@@ -29,6 +30,7 @@ export function useAppCommands(): PaletteCommand[] {
 	const { data: sessions = [] } = useSessions();
 	const openSite = useOpenSite();
 	const preview = useOptionalSessionPreviewUI();
+	const runLayoutTransition = useUserWorkspaceLayoutTransition();
 	const sidebarOpen = useSidebarOpen();
 	const toggleSidebar = useToggleSidebar();
 	const hasOpenDialog = useHasOpenDialog();
@@ -56,8 +58,13 @@ export function useAppCommands(): PaletteCommand[] {
 		openSite,
 		openChat: ( session ) => {
 			const owner = findAiSessionOwnerSite( sites, session );
-			if ( owner ) preview?.setChatHidden( false, owner.id );
-			void navigate( { to: '/sessions/$sessionId', params: { sessionId: session.id } } );
+			runLayoutTransition(
+				() => {
+					if ( owner ) preview?.setChatHidden( false, owner.id );
+					return navigate( { to: '/sessions/$sessionId', params: { sessionId: session.id } } );
+				},
+				owner?.id
+			);
 		},
 		savePreferences: ( preferences ) =>
 			savePreferences.mutate( preferences, {

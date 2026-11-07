@@ -362,7 +362,7 @@ function SessionViewContent( {
 	useEffect( () => {
 		if ( ! isChatReady || ! annotationSiteId ) return;
 		return subscribeAnnotationSend( annotationSiteId, ( { noteIds } ) => {
-			stageAnnotations( annotationSiteId, noteIds );
+			if ( ! noteIds ) stageAnnotations( annotationSiteId );
 			if ( composerBusy && ! noteIds ) return;
 			if ( ! noteIds ) {
 				return composerRef.current?.send();
@@ -477,7 +477,7 @@ function SessionViewContent( {
 							className={ styles.scrollToLatestButton }
 							icon={ <ArrowDownIcon /> }
 							label={ __( 'Jump to latest' ) }
-							variant="default"
+							variant="outline"
 							shape="round"
 							data-visible={ isScrolledAway || undefined }
 							inert={ ! isScrolledAway }

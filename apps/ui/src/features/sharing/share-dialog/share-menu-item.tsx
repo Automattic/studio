@@ -1,7 +1,7 @@
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
 import { PlusIcon } from 'lucide-react';
-import { toast } from '@/data/app-messages';
+import { dismissToast, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
@@ -32,7 +32,10 @@ function PreviewLink( {
 					return;
 				}
 				void connector.copyText( getSnapshotUrl( snapshot ) ).then(
-					() => toast.success( __( 'Link copied' ) ),
+					() => {
+						dismissToast( 'clipboard-error' );
+						toast.success( __( 'Link copied' ) );
+					},
 					() => toast.error( __( 'Could not copy' ), { id: 'clipboard-error' } )
 				);
 			} }

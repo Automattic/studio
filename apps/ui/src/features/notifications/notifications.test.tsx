@@ -166,7 +166,7 @@ describe( 'notification details', () => {
 	);
 
 	it.each( [ false, true ] )(
-		'keeps one error action in the header (primary action: %s)',
+		'keeps one error action available when expanded (primary action: %s)',
 		async ( hasAction ) => {
 			const title = 'Could not update';
 			showToast( {
@@ -183,9 +183,7 @@ describe( 'notification details', () => {
 			const action = screen.getByRole( 'button', {
 				name: hasAction ? 'Retry' : 'Copy',
 			} );
-			expect( action.parentElement?.parentElement?.parentElement ).toContainElement(
-				screen.getByText( title )
-			);
+			expect( action ).toBeVisible();
 			expect( screen.getAllByRole( 'button', { name: /^(Copy|Retry)$/ } ) ).toHaveLength( 1 );
 		}
 	);

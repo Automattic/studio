@@ -11,7 +11,12 @@ import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-bina
 import { replaceMysql8OnlyCollations } from 'cli/lib/sqlite-collations';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
-import { startWordPressServer, stopWordPressServer } from 'cli/lib/wordpress-server-manager';
+import { ManagerMessage } from 'cli/lib/types/wordpress-server-ipc';
+import {
+	runBlueprint,
+	startWordPressServer,
+	stopWordPressServer,
+} from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 
 vi.mock( 'cli/lib/daemon-client' );
@@ -110,6 +115,24 @@ describe( 'WordPress Server Manager', () => {
 		} );
 	}
 
+	function setupPendingIpcMessage(): Promise< ManagerMessage > {
+		vi.useFakeTimers();
+		vi.mocked( daemonClient.startProcess ).mockImplementation( async () => {
+			mockBus.emit( 'process-message', {
+				process: { name: mockProcessDescription.name, pm_id: mockProcessDescription.pmId },
+				raw: { topic: 'ready' },
+			} );
+			return mockProcessDescription;
+		} );
+		return new Promise( ( resolve ) => {
+			vi.mocked( daemonClient.sendMessageToProcess ).mockImplementation(
+				async ( pmId, message ) => {
+					resolve( message );
+				}
+			);
+		} );
+	}
+
 	// `startWordPressServer` subscribes to the daemon bus only after awaiting some filesystem
 	// setup (clearing and statting the PHP error log). A one-shot `exit` on a fixed timer can
 	// fire before that subscription completes on slower agents (notably Windows CI); the event
@@ -129,6 +152,65 @@ describe( 'WordPress Server Manager', () => {
 	}
 
 	describe( 'startWordPressServer', () => {
+		it( 'allows a pulled site to finish starting after four minutes without activity', async () => {
+			const messageSent = setupPendingIpcMessage();
+			const outcome = startWordPressServer( mockSiteData, mockLogger, 'pull' ).catch(
+				( error: Error ) => error
+			);
+			const message = await messageSent;
+
+			await vi.advanceTimersByTimeAsync( 4 * 60 * 1000 );
+			mockBus.emit( 'process-message', {
+				process: { name: mockProcessDescription.name, pm_id: mockProcessDescription.pmId },
+				raw: { topic: 'result', originalMessageId: message.messageId },
+			} );
+
+			expect( await outcome ).toEqual( mockProcessDescription );
+			expect( mockBus.listenerCount( 'process-message' ) ).toBe( 0 );
+			expect( mockBus.listenerCount( 'process-event' ) ).toBe( 0 );
+			expect( vi.getTimerCount() ).toBe( 0 );
+		} );
+
+		it( 'times out a silent start after five minutes with a plugin initialization hint', async () => {
+			const messageSent = setupPendingIpcMessage();
+			const outcome = startWordPressServer( mockSiteData, mockLogger, 'pull' ).catch(
+				( error: Error ) => error
+			);
+			await messageSent;
+
+			await vi.advanceTimersByTimeAsync( 305_000 );
+
+			expect( await outcome ).toMatchObject( {
+				message:
+					'Timeout waiting for response to message start-server: No activity for 300s. Sites with many plugins may need more time to initialize.',
+			} );
+			expect( mockBus.listenerCount( 'process-message' ) ).toBe( 0 );
+			expect( mockBus.listenerCount( 'process-event' ) ).toBe( 0 );
+			expect( vi.getTimerCount() ).toBe( 0 );
+		} );
+
+		it( 'caps an active start at ten minutes', async () => {
+			const messageSent = setupPendingIpcMessage();
+			const outcome = startWordPressServer( mockSiteData, mockLogger, 'pull' ).catch(
+				( error: Error ) => error
+			);
+			await messageSent;
+
+			for ( let i = 0; i < 6; i++ ) {
+				await vi.advanceTimersByTimeAsync( 100_000 );
+				mockBus.emit( 'process-message', {
+					process: { name: mockProcessDescription.name, pm_id: mockProcessDescription.pmId },
+					raw: { topic: 'activity' },
+				} );
+			}
+			await vi.advanceTimersByTimeAsync( 5000 );
+
+			expect( await outcome ).toMatchObject( {
+				message: expect.stringContaining( 'Maximum timeout of 600s exceeded' ),
+			} );
+			expect( vi.getTimerCount() ).toBe( 0 );
+		} );
+
 		it( 'should replace MySQL 8-only collations only before starting an installed site', async () => {
 			setupIpcMocks();
 			const existsSync = fs.existsSync;
@@ -458,6 +540,25 @@ describe( 'WordPress Server Manager', () => {
 			await startWordPressServer( { ...mockSiteData, path: sitePath }, mockLogger, 'start' );
 
 			expect( fs.existsSync( logPath ) ).toBe( false );
+		} );
+	} );
+
+	describe( 'runBlueprint', () => {
+		it( 'keeps the two-minute inactivity limit for messages other than server startup', async () => {
+			const messageSent = setupPendingIpcMessage();
+			const outcome = runBlueprint( mockSiteData, mockLogger, {
+				blueprint: { steps: [] },
+				blueprintUri: 'test-blueprint',
+			} ).catch( ( error: Error ) => error );
+			await messageSent;
+
+			await vi.advanceTimersByTimeAsync( 125_000 );
+
+			expect( await outcome ).toMatchObject( {
+				message: 'Timeout waiting for response to message run-blueprint: No activity for 120s',
+			} );
+			expect( daemonClient.stopProcess ).toHaveBeenCalledWith( mockProcessDescription.name );
+			expect( vi.getTimerCount() ).toBe( 0 );
 		} );
 	} );
 

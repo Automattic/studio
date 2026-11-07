@@ -68,6 +68,10 @@ async function withTerminal( isTTY: boolean, run: () => Promise< void > ) {
 }
 
 describe( 'Auth Login Command', () => {
+	const streams = [ process.stdin, process.stdout ];
+	const descriptors = streams.map( ( stream ) =>
+		Object.getOwnPropertyDescriptor( stream, 'isTTY' )
+	);
 	const mockAccessToken = 'mock-access-token-12345';
 	const mockAuthUrl = 'https://public-api.wordpress.com/oauth2/authorize?client_id=123';
 	const mockUserData = {
@@ -87,6 +91,9 @@ describe( 'Auth Login Command', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		for ( const stream of streams ) {
+			Object.defineProperty( stream, 'isTTY', { value: true, configurable: true } );
+		}
 
 		vi.mocked( getAuthenticationUrl ).mockReturnValue( mockAuthUrl );
 		vi.mocked( getAppLocale ).mockResolvedValue( 'en' );
@@ -98,17 +105,45 @@ describe( 'Auth Login Command', () => {
 	} );
 
 	afterEach( () => {
+		streams.forEach( ( stream, index ) => {
+			if ( descriptors[ index ] ) Object.defineProperty( stream, 'isTTY', descriptors[ index ]! );
+			else Reflect.deleteProperty( stream, 'isTTY' );
+		} );
 		vi.restoreAllMocks();
 	} );
 
-	it( 'should skip login if already authenticated', async () => {
-		vi.mocked( readAuthToken ).mockResolvedValue( mockExistingToken );
+	it.each( [ true, false ] )(
+		'skips login if already authenticated with terminal=%s',
+		async ( isTTY ) => {
+			vi.mocked( readAuthToken ).mockResolvedValue( mockExistingToken );
+			await withTerminal( isTTY, runCommand );
 
-		await runCommand();
+			expect( openBrowser ).not.toHaveBeenCalled();
+			expect( input ).not.toHaveBeenCalled();
+			expect( mockReportSuccess ).toHaveBeenCalled();
+			expect( mockReportError ).not.toHaveBeenCalled();
+		}
+	);
 
-		expect( openBrowser ).not.toHaveBeenCalled();
-		expect( input ).not.toHaveBeenCalled();
-	} );
+	it.each( [ 'stdin', 'stdout' ] as const )(
+		'asks the user to log in themselves when %s is not a terminal',
+		async ( stream ) => {
+			Object.defineProperty( process[ stream ], 'isTTY', { value: false, configurable: true } );
+
+			await runCommand();
+
+			expect( mockReportError ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					message: expect.stringContaining( 'in their own terminal' ),
+				} )
+			);
+			expect( mockReportStart ).not.toHaveBeenCalled();
+			expect( openBrowser ).not.toHaveBeenCalled();
+			expect( input ).not.toHaveBeenCalled();
+			expect( updateSharedConfig ).not.toHaveBeenCalled();
+			expect( recordTracksEvent ).not.toHaveBeenCalled();
+		}
+	);
 
 	it( 'should complete the login process successfully', async () => {
 		await runCommand();

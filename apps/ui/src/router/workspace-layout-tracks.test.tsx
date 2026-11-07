@@ -4,7 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { setCommandPaletteOpen } from '@/data/use-command-palette';
 import { setAnnotating } from '@/features/annotations';
 import { clearComposerDrafts } from '@/features/composer';
-import { createFakeConnector, makeSession, makeSite } from '@/test/fake-connector';
+import { createFakeConnector, makeSession, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { FakeConnector } from '@/test/fake-connector';
 
@@ -297,6 +297,27 @@ it( 'records closing the final tab before the site finishes stopping', async () 
 	fireEvent.click( screen.getByRole( 'button', { name: 'Close My site' } ) );
 	expect( toggle() ).toHaveAttribute( 'data-workspace-layout', 'chat' );
 	expect( layoutEvents( connector ) ).toEqual( [ [ event, { layout: 'chat' }, 'one' ] ] );
+} );
+
+it( 'records a pending draft revealing chat from panel-only view', async () => {
+	const connector = createFakeConnector( {
+		sites: [ makeSite( { id: 'one', running: true } ) ],
+		user: TEST_USER,
+	} );
+	connector.createSession.mockImplementation( () => new Promise< never >( () => {} ) );
+	const { user } = renderApp( { connector, path: '/sites/one/new' } );
+	fireEvent.change( await screen.findByRole( 'combobox', { name: 'Message WordPress Studio' } ), {
+		target: { value: 'Build a gallery' },
+	} );
+	await user.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+	const draft = await screen.findByRole( 'button', { name: 'Build a gallery' } );
+	await user.click( screen.getByRole( 'button', { name: 'Expand panel' } ) );
+	connector.trackEvent.mockClear();
+	await user.click( draft );
+	await waitFor( () => expect( toggle() ).toHaveAttribute( 'data-workspace-layout', 'split' ) );
+	await waitFor( () =>
+		expect( layoutEvents( connector ) ).toEqual( [ [ event, { layout: 'split' }, 'one' ] ] )
+	);
 } );
 
 it.each( [ 'sidebar', 'palette' ] )(

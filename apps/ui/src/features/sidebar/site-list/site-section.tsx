@@ -224,8 +224,10 @@ export function SiteSection( {
 				}
 				onOpenDraft={ () => {
 					onSiteOpen?.();
-					preview?.setChatHidden( false, site.id );
-					return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+					runLayoutTransition( () => {
+						preview?.setChatHidden( false, site.id );
+						return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+					} );
 				} }
 				onReorderChats={ onReorderChats }
 				onSiteOpen={ onSiteOpen }

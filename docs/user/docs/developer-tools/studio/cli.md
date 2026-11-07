@@ -43,6 +43,29 @@ studio --help
 
 npm install -g wp-studio
 
+### Updating the CLI
+
+The standalone CLI asks once whether to enable automatic updates the first time you run a command in a terminal. If you enable them, updates download in the background and take effect the next time you launch Studio CLI. Running sites and MCP sessions keep using their current version until restarted.
+
+To update manually:
+
+```sh
+studio update
+```
+
+You can change your automatic update preference at any time:
+
+```sh
+studio update --auto-updates
+studio update --no-auto-updates
+```
+
+Set `STUDIO_CLI_DISABLE_AUTO_UPDATES=1` to disable background updates for an environment. Manual updates still work.
+
+When used through `studio mcp`, the CLI tells the connected agent when a newer version is available. After updating, reconnect the MCP server to use the new version.
+
+CLI copies bundled with the Studio app update through the app. For npm installations, run `npm update -g wp-studio`.
+
 ## [Usage](#4-usage)
 
 The Studio CLI is invoked with the studio command. Commands that manage local sites, such as `studio create` or `studio start`, are top-level commands. Other commands are grouped by area and follow the pattern:

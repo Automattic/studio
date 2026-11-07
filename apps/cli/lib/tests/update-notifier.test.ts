@@ -1,11 +1,7 @@
 /* eslint-disable no-control-regex */
 import { type MockInstance, vi } from 'vitest';
 import { readCliConfig } from 'cli/lib/cli-config/core';
-import {
-	formatUpdateBanner,
-	setupUpdateNotifier,
-	standaloneUpdateCommand,
-} from 'cli/lib/update-notifier';
+import { formatUpdateBanner, setupUpdateNotifier } from 'cli/lib/update-notifier';
 
 // Stub the config writer so standalone checks don't touch disk / the lockfile.
 vi.mock( 'cli/lib/cli-config/core', async ( importOriginal ) => {
@@ -45,38 +41,6 @@ describe( 'formatUpdateBanner', () => {
 		);
 		expect( plain ).toContain( 'curl -fsSL https://wordpress.studio/install.sh | bash' );
 		expect( plain ).not.toContain( 'npm update -g wp-studio' );
-	} );
-} );
-
-describe( 'standaloneUpdateCommand', () => {
-	it( 'uses the bare installer for a production version (macOS/Linux)', () => {
-		expect( standaloneUpdateCommand( '1.11.0', 'darwin' ) ).toBe(
-			'curl -fsSL https://wordpress.studio/install.sh | bash'
-		);
-		expect( standaloneUpdateCommand( '1.11.0', 'linux' ) ).toBe(
-			'curl -fsSL https://wordpress.studio/install.sh | bash'
-		);
-	} );
-
-	it( 'pins the nightly channel for a dev version', () => {
-		expect( standaloneUpdateCommand( '1.12.0-dev81', 'linux' ) ).toBe(
-			'curl -fsSL https://wordpress.studio/install.sh | STUDIO_CLI_VERSION=nightly bash'
-		);
-	} );
-
-	it( 'pins the beta channel for a beta version', () => {
-		expect( standaloneUpdateCommand( '2.0.0-beta1', 'darwin' ) ).toBe(
-			'curl -fsSL https://wordpress.studio/install.sh | STUDIO_CLI_VERSION=beta bash'
-		);
-	} );
-
-	it( 'uses the PowerShell installer on Windows', () => {
-		expect( standaloneUpdateCommand( '1.11.0', 'win32' ) ).toBe(
-			'irm https://wordpress.studio/install.ps1 | iex'
-		);
-		expect( standaloneUpdateCommand( '1.12.0-dev81', 'win32' ) ).toBe(
-			"$env:STUDIO_CLI_VERSION='nightly'; irm https://wordpress.studio/install.ps1 | iex"
-		);
 	} );
 } );
 
@@ -141,7 +105,7 @@ describe( 'setupUpdateNotifier', () => {
 			} );
 		} );
 
-		it( 'shows a curl-install banner when the endpoint reports a newer version', async () => {
+		it( 'shows a studio update banner when the endpoint reports a newer version', async () => {
 			vi.stubGlobal(
 				'fetch',
 				vi.fn().mockResolvedValue( {
@@ -158,7 +122,7 @@ describe( 'setupUpdateNotifier', () => {
 				stderrWriteSpy.mock.calls.map( ( call ) => String( call[ 0 ] ) ).join( '' )
 			);
 			expect( output ).toContain( '2.0.0' );
-			expect( output ).toContain( 'curl -fsSL https://wordpress.studio/install.sh | bash' );
+			expect( output ).toContain( 'studio update' );
 			expect( output ).not.toContain( 'npm update -g wp-studio' );
 		} );
 

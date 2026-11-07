@@ -76,6 +76,7 @@ const cliConfigSchema = z.looseObject( {
 	updateCheck: updateCheckSchema.optional(),
 	// Same shape as `updateCheck`, but for standalone (curl) installs that check the CDN endpoint.
 	standaloneUpdateCheck: updateCheckSchema.optional(),
+	cliAutoUpdates: z.boolean().optional(),
 	// Unix ms timestamp of when the one-time ToS/Privacy notice was displayed.
 	tosNoticeShownAt: z.number().optional(),
 } );

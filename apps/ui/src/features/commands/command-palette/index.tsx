@@ -8,6 +8,7 @@ import { useOpenHeaderPanel } from '@/data/use-open-header-panel';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { usePanelCommand } from '@/data/use-panel-command';
 import { useSessionUIDispatch, useSessionPreviewUI } from '@/data/use-session-ui';
+import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
 import { setAnnotating, useSiteAnnotations } from '@/features/annotations';
 import { useChatActions } from '@/features/chats';
 import { getSiteCommands } from '@/features/commands/site-commands';
@@ -98,16 +99,19 @@ function SiteCommands( {
 	const annotations = useSiteAnnotations( site.id );
 	const settingCommands = useSettingCommands( 'site', site );
 	const panelCommand = usePanelCommand( site.id );
+	const runLayoutTransition = useUserWorkspaceLayoutTransition( site.id );
 
 	useEffect(
 		() =>
 			connector.onNewChat( () => {
 				replaceOpenDialogs( () => {
-					preview.setChatHidden( false, site.id, { instant: true } );
-					return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+					runLayoutTransition( () => {
+						preview.setChatHidden( false, site.id, { instant: true } );
+						return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+					} );
 				} );
 			} ),
-		[ connector, navigate, preview, site.id ]
+		[ connector, navigate, preview, site.id, runLayoutTransition ]
 	);
 
 	const siteCommands = getSiteCommands( {
@@ -121,10 +125,11 @@ function SiteCommands( {
 		settingCommands,
 		openSettings,
 		openHeaderPanel,
-		newChat: () => {
-			preview.setChatHidden( false, site.id, { instant: true } );
-			return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
-		},
+		newChat: () =>
+			runLayoutTransition( () => {
+				preview.setChatHidden( false, site.id, { instant: true } );
+				return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+			} ),
 		reloadPreview: () => dispatch( { type: 'preview/reload' } ),
 		annotate: ( active ) => setAnnotating( site.id, active ),
 		copyUrl: () =>

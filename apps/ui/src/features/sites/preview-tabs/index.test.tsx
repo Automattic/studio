@@ -1,3 +1,4 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { setCommandPaletteOpen } from '@/data/use-command-palette';
@@ -89,7 +90,12 @@ it.each( [ true, false ] )(
 		const firstTab = screen.getByRole( 'tab', { name: 'First' } );
 		const firstPage = document.querySelector( 'iframe' );
 		if ( ! open ) await user.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
+		connector.trackEvent.mockClear();
 		await user.click( chip );
+		expect( connector.trackEvent.mock.calls ).toEqual( [
+			[ TRACKS_EVENTS.SITE_OPEN_DESIGN_SYSTEM, { browser: 'internal' } ],
+			...( open ? [] : [ [ TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED, { layout: 'split' }, 'one' ] ] ),
+		] );
 		expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 );
 		expect( screen.getByRole( 'tab', { name: 'Design system' } ) ).toHaveAttribute(
 			'aria-selected',
@@ -126,7 +132,7 @@ it( 'opens DevTools for the selected browser tab while retaining the other guest
 			if ( id === 42 ) await user.click( first );
 			screen.getByRole( 'button', { name: 'Browser options' } ).focus();
 			await user.keyboard( '{ArrowDown}' );
-			await user.click( screen.getByRole( 'menuitem', { name: 'Open DevTools' } ) );
+			await user.click( screen.getByRole( 'menuitem', { name: 'Developer tools' } ) );
 			expect( openWebviewDevTools ).toHaveBeenLastCalledWith( id );
 		}
 		expect( document.querySelector( 'webview' ) ).toBe( firstGuest );
@@ -425,16 +431,21 @@ it.each( [
 	} );
 } );
 
-it( 'disables opening Studio-rendered tool tabs externally', async () => {
+it( 'opens the email folder from an unselected tab without changing tabs', async () => {
+	vi.spyOn( navigator, 'platform', 'get' ).mockReturnValue( 'Win32' );
 	const { connector } = await setup();
+	await act( () => connector.setUserPreferences( { browser: 'firefox' } ) );
 	fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
 	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Email log' } ) );
+	const active = screen.getByRole( 'tab', { name: 'First' } );
+	fireEvent.click( active );
 	fireEvent.contextMenu( await screen.findByRole( 'tab', { name: 'Email log' } ) );
-	const open = await screen.findByRole( 'menuitem', { name: 'Open in Browser' } );
-	expect( open ).toHaveAttribute( 'aria-disabled', 'true' );
+	const open = await screen.findByRole( 'menuitem', { name: 'Open in File Explorer' } );
 	fireEvent.click( open );
+	expect( connector.openSiteEmailFolder ).toHaveBeenCalledExactlyOnceWith( 'one' );
 	expect( connector.openSiteUrl ).not.toHaveBeenCalled();
 	expect( connector.openExternalUrl ).not.toHaveBeenCalled();
+	expect( active ).toHaveAttribute( 'aria-selected', 'true' );
 } );
 
 it( 'closes tabs from the context menu without selecting the right-clicked tab', async () => {
@@ -522,6 +533,9 @@ it( 'shares the same tool items with the site menu and opens each preview tool i
 		'true'
 	);
 	expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 4 );
+	expect(
+		screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } )
+	).not.toBeInTheDocument();
 } );
 
 it( 'starts a stopped project from Browser and uses its first preview tab', async () => {

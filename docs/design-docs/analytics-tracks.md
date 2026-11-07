@@ -352,24 +352,26 @@ that handler is shared with single-file opens (AI skills, "Open <file>"); it fir
 site in editor" affordances instead (Classic overview button + site-menu, and the agentic UI's
 `openSiteInEditor` connector method).
 
-The site-content open events (`open_in_browser`, `open_wp_admin`, `open_customize`,
-`open_phpmyadmin`) carry a **`browser`** prop recording where the content opened: `external` (the OS
-browser) or `internal` (the agentic UI's in-app preview panel). Studio Classic always opens the OS
-browser, so it always sends `external`. The agentic UI sends `internal` when it opens content in the
-preview panel — the overview Customize buttons, and switching the preview's realm tabs (front end →
-`open_in_browser`, WP Admin → `open_wp_admin`, database → `open_phpmyadmin`, design system →
-`open_design_system`; re-selecting the active tab is a no-op and emits nothing) — and `external` when the affordance leaves Studio: the site-list
-"Open phpMyAdmin"/"Open WP admin" menu items, the site header's "open in your browser" link, and the
-preview's "Open in… → Browser" button. That last button fires the event matching whatever realm the
-preview is currently showing, so opening a WP Admin preview externally is an `open_wp_admin`
-(`external`), not an `open_in_browser`. Free-form navigation _within_ the preview panel (typing in the
-address bar) is out of scope here and tracked separately. `studio_panel_opened` fires in **both**
-front-ends: Classic from its tab strip, and the agentic UI from its route navigations (the
-overview/settings/debugging tab switches, the site-list gear → overview, a site-name click → assistant
-or, when chat is unavailable, overview, and the context-menu "Site settings" → settings). The agentic
-UI's General settings tab reports `panel: settings` so it lines up with Classic's Settings panel; its
-Debugging tab reports `panel: debugging`. No site names, paths, or URLs are ever sent — only the
-enumerated prop values below.
+The site-content open events carry a **`browser`** prop recording where the content opened:
+`external` (the OS browser) or `internal` (the in-app preview panel). The current UI emits `internal`
+for explicit project-tool opens (including their shortcuts and new-tab menu), chat tool links, and
+selection of a different preview tab. Front end maps to `open_in_browser`, WP Admin to
+`open_wp_admin`, database to `open_phpmyadmin`, design system to `open_design_system`, and Email log
+to `open_email`. Opening another tab counts even when it shows the same realm; re-selecting the
+active tab emits nothing. Initial rendering, restored tabs, and programmatic navigation do not
+emit an open event. Free-form address-bar navigation is outside these events.
+
+External browser/Admin/phpMyAdmin destinations emit their matching event with `browser: external`.
+The preview's external-open button and tab context menu also emit the event matching the content
+being opened, for both local and live previews. Design system and Email log exist only in Studio's
+preview, so their events always carry `browser: internal`. Design system cannot open externally; the
+Email log's file-manager action opens its local folder and does not emit a content-open event.
+
+`studio_panel_opened` is separate from workspace layouts and preview content. In the current UI,
+site selection emits `panel: assistant`, and site-settings actions emit `panel: settings`. Older
+Classic releases emitted tab-strip values (`overview`, `sync`, `settings`, `assistant`,
+`import-export`, `previews`); earlier agentic releases also emitted overview/debugging route changes.
+These historical values remain valid for older releases. No site names, paths, or URLs are sent.
 
 | Event                            | Emitted from                                            | Event-specific props                                                                                                                                                                                                                                                                                                 |
 | -------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -384,8 +386,8 @@ enumerated prop values below.
 | `studio_site_open_design_system` | Renderer (agentic)                                      | `browser` (always `internal` — the design system view only exists in the preview panel)                                                                                                                                                                                                                              |
 | `studio_site_open_email`         | Renderer (agentic)                                      | `browser` (always `internal` — the email view only exists in the preview panel)                                                                                                                                                                                                                                      |
 | `studio_site_open_folder`        | Renderer (Classic + agentic)                            | (none — opens the OS file manager)                                                                                                                                                                                                                                                                                   |
-| `studio_panel_opened`            | Renderer (Classic tab strip + agentic route navigation) | `panel` — the panel opened. Classic: `overview`/`sync`/`settings`/`assistant`/`import-export`/`previews` (only on a genuine user tab switch, not programmatic changes or re-selecting the current tab). Agentic: `overview`/`settings`/`debugging`/`assistant` (`sync`/`import-export`/`previews` are Classic-only). |
-| `studio_workspace_layout_changed` | Renderer (shared workspace layout setters, Desktop + browser UI) | `layout` (`chat`/`split`/`panel`); opaque `site_id` when the local site resolves. Emitted once per user-driven change to the resulting visible layout from header controls, View menu, command palette, or shortcuts. Re-selecting the current layout, initial rendering, site lifecycle changes, viewport-forced changes, and annotation-forced changes emit nothing. Existing Tracks opt-out and build-disable gates apply; delivery is best-effort. |
+| `studio_panel_opened`            | Renderer (site selection/settings; historical Classic tabs) | `panel` — current UI: `assistant` for site selection, `settings` for site-settings actions. Historical releases also used `overview`/`debugging` and Classic-only `sync`/`import-export`/`previews`. |
+| `studio_workspace_layout_changed` | Renderer (shared workspace layout setters, Desktop + browser UI) | `layout` (`chat` = chat only, `split` = chat and panel, `panel` = panel only); opaque `site_id` when the local site resolves. Emitted once per user-driven change to the resulting visible layout from header controls, View menu, command palette, shortcuts, chat show/hide actions, explicit tool opens that reveal the panel, or closing the final preview tab. Navigation to a different site is not a layout choice. Re-selecting the current layout, initial rendering, site lifecycle changes, viewport-forced changes, and annotation-forced changes emit nothing. Existing Tracks opt-out and build-disable gates apply; delivery is best-effort. |
 
 #### Import/export events
 

@@ -2,6 +2,7 @@ import { __ } from '@wordpress/i18n';
 import {
 	ChartNoAxesCombinedIcon,
 	GaugeIcon,
+	LayoutDashboardIcon,
 	PaperclipIcon,
 	PencilRulerIcon,
 	PlayIcon,
@@ -24,6 +25,7 @@ const COMMAND_ICONS: Partial< Record< string, ComponentType< { className?: strin
 	'need-for-speed': GaugeIcon,
 	'rank-me-up': ChartNoAxesCombinedIcon,
 	liberate: UnlockIcon,
+	'curate-admin': LayoutDashboardIcon,
 	feedback: FeedbackIcon,
 	'auto-start': StartSiteIcon,
 	panel: SplitViewIcon,

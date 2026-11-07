@@ -982,7 +982,7 @@ export async function openSiteURL(
 	event: IpcMainInvokeEvent,
 	id: string,
 	relativeURL = '',
-	{ autoLogin = true }: { autoLogin?: boolean } = {}
+	{ autoLogin = true, user }: { autoLogin?: boolean; user?: string } = {}
 ) {
 	const site = await getSite( id );
 	if ( ! site ) {
@@ -995,7 +995,7 @@ export async function openSiteURL(
 	}
 
 	await openSiteInBrowser(
-		getSiteBrowserUrl( site, relativeURL, autoLogin ),
+		getSiteBrowserUrl( site, relativeURL, autoLogin, user ),
 		shellOpenExternalWrapper
 	);
 }

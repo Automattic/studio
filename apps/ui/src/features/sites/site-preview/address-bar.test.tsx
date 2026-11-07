@@ -121,6 +121,7 @@ describe( 'preview realms', () => {
 		expect( getPreviewRealm( '/wp-admin/' ) ).toBe( 'admin' );
 		expect( getPreviewRealm( DATABASE_HOME_PATH ) ).toBe( 'database' );
 		expect( getPreviewRealm( autoLoginPath( '/wp-admin/plugins.php' ) ) ).toBe( 'admin' );
+		expect( getPreviewRealm( `${ autoLoginPath( '/wp-admin/' ) }&user=maria` ) ).toBe( 'staff' );
 		expect( getPreviewRealm( DESIGN_SYSTEM_PREVIEW_PATH ) ).toBe( 'design' );
 		expect( getPreviewRealm( '/wp-admin-guide/' ) ).toBe( 'frontend' );
 		expect( getPreviewRealm( '/phpmyadmin-notes/' ) ).toBe( 'frontend' );

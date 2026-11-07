@@ -171,12 +171,13 @@ export const replyIncludes = check( ( d, vars ) =>
 		: fail( `reply lacks ${ vars.expectedText }: ${ reply( d ).slice( 0, 300 ) }` )
 );
 
-export const offersAudits = check( ( d ) => {
+export const offersNextSteps = check( ( d ) => {
 	const text = finalReply( d );
 	return /next steps/i.test( text ) &&
 		/performance|need-for-speed/i.test( text ) &&
-		/\bSEO\b|rank-me-up/i.test( text )
-		? pass( 'next steps offer the performance and SEO audits' )
+		/\bSEO\b|rank-me-up/i.test( text ) &&
+		/curate-admin|wp-admin/i.test( text )
+		? pass( 'next steps offer the performance and SEO audits and a curated wp-admin' )
 		: fail( `final reply lacks the next steps: ${ text.slice( -300 ) }` );
 } );
 
@@ -432,6 +433,102 @@ export const pluginBlockOnFrontPage = check( ( d, vars ) => {
 		: fail(
 				`no ${ vars.blockPrefix }* block on the front page: ${ JSON.stringify( front?.blocks ) }`
 		  );
+} );
+
+const verifiedCuratedAdmin = ( d ) =>
+	( d.toolCalls || [] ).some( ( { name } ) => name === 'verify_curated_admin' );
+
+// A curated admin is installed and verified: the role holds no dangerous
+// capability, content listed in `vars.expectedOnPreview` still reaches its page
+// but is no longer written into one, the account is staff, and the agent asked
+// its questions and wrote the plan first.
+export const curatedAdminHandedOver = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const curateAdmin = s.curateAdmin;
+	if ( ! curateAdmin ) return fail( 'no curated admin on the site' );
+	for ( const plugin of [ 'curate-admin', 'curate-admin-site' ] ) {
+		if ( ! s.plugins.includes( plugin ) ) return fail( `${ plugin } is not active` );
+	}
+
+	const dangerous = [ 'manage_options', 'install_plugins', 'edit_theme_options', 'edit_users' ];
+	const held = dangerous.filter( ( capability ) => curateAdmin.capabilities?.[ capability ] );
+	if ( ! curateAdmin.capabilities ) return fail( 'the Staff role does not exist' );
+	if ( held.length ) return fail( `the Staff role holds ${ held.join( ', ' ) }` );
+
+	const { postTypes = [], settings = [] } = curateAdmin.manifest;
+	if ( ! postTypes.length ) return fail( 'no post type in the manifest' );
+	if ( ! settings.length ) return fail( 'no settings page in the manifest' );
+
+	const expected = ( vars.expectedOnPreview ?? [] ).map( ( { text } ) => text );
+	const rendered = Object.values( curateAdmin.previews ).join( '\n' );
+	const missing = expected.filter( ( text ) => ! rendered.includes( text ) );
+	if ( missing.length ) return fail( `not on the previewed pages: ${ missing.join( ', ' ) }` );
+
+	const source = ( s.content || [] )
+		.filter( ( { type } ) => type === 'page' )
+		.map( ( { content } ) => content )
+		.join( '\n' );
+	const hardcoded = expected.filter( ( text ) => source.includes( text ) );
+	if ( hardcoded.length ) {
+		return fail( `still written into a page, out of staff's reach: ${ hardcoded.join( ', ' ) }` );
+	}
+
+	if ( ! verifiedCuratedAdmin( d ) ) return fail( 'it was never verified' );
+	if ( curateAdmin.manifest.staff.login !== 'staff' ) {
+		return fail( `the account is "${ curateAdmin.manifest.staff.login }", not staff` );
+	}
+	if ( ! curateAdmin.users.includes( 'staff' ) ) return fail( 'no staff account' );
+
+	if ( ! ( d.questions || [] ).length ) return fail( 'nothing was asked before building' );
+	if ( ! ( d.textSegments || [] ).some( ( text ) => /admin plan/i.test( text ) ) ) {
+		return fail( 'no Admin Plan summary' );
+	}
+
+	return pass(
+		`${ postTypes.length } post types, ${ settings.length } settings pages, ${ curateAdmin.manifest.menu.keep.length } menu items`
+	);
+} );
+
+// wp-admin is curated for everyone: no Staff role or account, so Studio has no
+// Staff admin to offer, and the content still moved.
+export const curatedAdminForEveryone = check( ( d, vars ) => {
+	const s = site( d, vars );
+	const curateAdmin = s.curateAdmin;
+	if ( ! curateAdmin ) return fail( 'no curated admin on the site' );
+	if ( curateAdmin.manifest.audience !== 'everyone' ) {
+		return fail( `the audience is ${ curateAdmin.manifest.audience }` );
+	}
+	if ( curateAdmin.manifest.staff || curateAdmin.manifest.role ) {
+		return fail( 'a Staff account or role was set up' );
+	}
+	if ( curateAdmin.users.includes( 'staff' ) ) return fail( 'a staff user exists' );
+	if ( ! verifiedCuratedAdmin( d ) ) return fail( 'it was never verified' );
+	return pass( `${ curateAdmin.manifest.menu.hide.length } menu items hidden for everyone` );
+} );
+
+// A blog's staff keep what running a blog takes: writing, categories, comments
+// and pages. Only technical screens leave the menu, and no post type appears.
+export const curatedAdminKeepsBlogging = check( ( d, vars ) => {
+	const curateAdmin = site( d, vars ).curateAdmin;
+	if ( ! curateAdmin ) return fail( 'no curated admin on the site' );
+	const { menu, postTypes = [], audience } = curateAdmin.manifest;
+	if ( audience !== 'staff' ) return fail( `the audience is ${ audience }` );
+
+	const kept = menu.keep.map( ( { screen } ) => screen );
+	const required = [ 'edit.php', 'edit-comments.php', 'upload.php', 'edit.php?post_type=page' ];
+	const lost = required.filter( ( screen ) => ! kept.includes( screen ) );
+	if ( lost.length ) return fail( `left the menu: ${ lost.join( ', ' ) }` );
+
+	const technical = [ 'plugins.php', 'themes.php', 'tools.php', 'options-general.php' ];
+	const left = technical.filter( ( screen ) => kept.includes( screen ) );
+	if ( left.length ) return fail( `still in the menu: ${ left.join( ', ' ) }` );
+
+	const needed = [ 'publish_posts', 'moderate_comments', 'manage_categories', 'edit_pages' ];
+	const missing = needed.filter( ( capability ) => ! curateAdmin.capabilities?.[ capability ] );
+	if ( missing.length ) return fail( `staff lost ${ missing.join( ', ' ) }` );
+	if ( postTypes.length ) return fail( `a blog needs no post type: ${ postTypes[ 0 ].slug }` );
+	if ( ! verifiedCuratedAdmin( d ) ) return fail( 'it was never verified' );
+	return pass( `${ kept.length } menu items kept` );
 } );
 
 export const storeHasProducts = check( ( d, vars ) => {

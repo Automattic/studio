@@ -131,6 +131,8 @@ export interface SiteDetails {
 	operation?: SiteOperation;
 	// The folder the email the site sends is saved in, from the CLI.
 	emailPath?: string;
+	// The login of the site's Staff account, when its wp-admin is curated for one.
+	staffAdmin?: string;
 }
 
 export interface LocalMediaFile {
@@ -586,7 +588,7 @@ export interface Connector {
 	openSiteUrl(
 		siteId: string,
 		relativeUrl?: string,
-		options?: { autoLogin?: boolean }
+		options?: { autoLogin?: boolean; user?: string }
 	): Promise< void >;
 
 	// Whether this host overlays macOS window controls ("traffic lights") on the

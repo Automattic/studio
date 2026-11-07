@@ -528,6 +528,7 @@ STUDIO_PREVIEW_SHORTCUTS;
 		 *
 		 * Provides /studio-auto-login endpoint for automatic authentication
 		 * Usage: /studio-auto-login?redirect_to=/wp-admin/
+		 * Add user=<login> to sign in as someone other than the admin.
 		 */
 
 		// Intercept requests to /studio-auto-login
@@ -537,16 +538,22 @@ STUDIO_PREVIEW_SHORTCUTS;
 				return;
 			}
 
-			if ( is_user_logged_in() ) {
+			// Without a user, a Staff session gives way to the admin, so that
+			// WP Admin never opens as Staff after Staff admin.
+			$requested_user = isset( $_GET['user'] ) ? sanitize_user( wp_unslash( $_GET['user'] ) ) : '';
+			$signed_in      = $requested_user
+				? wp_get_current_user()->user_login === $requested_user
+				: current_user_can( 'manage_options' );
+			if ( $signed_in ) {
 				$redirect_url = isset( $_GET['redirect_to'] ) ? $_GET['redirect_to'] : home_url();
 				wp_safe_redirect( $redirect_url );
 				exit;
 			}
 
-			$username = get_option( 'studio_admin_username', 'admin' );
+			$username = $requested_user ?: get_option( 'studio_admin_username', 'admin' );
 			$user = get_user_by( 'login', $username );
 			if ( ! $user ) {
-				wp_die( 'Auto-login failed: admin user not found' );
+				wp_die( 'Auto-login failed: user not found' );
 			}
 
 			wp_set_current_user( $user->ID, $user->user_login );

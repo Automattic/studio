@@ -1,5 +1,5 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { XIcon } from 'lucide-react';
+import { UserRoundIcon, XIcon } from 'lucide-react';
 import { getSettingsCommandAliases } from '@/data/settings-sections';
 import {
 	AnnotateIcon,
@@ -39,6 +39,7 @@ import type {
 const OPEN_IN_ICONS: Record< OpenInDestination, PaletteCommand[ 'icon' ] > = {
 	browser: ExternalLinkIcon,
 	'wp-admin': WordPressIcon,
+	'staff-admin': UserRoundIcon,
 	files: FolderIcon,
 	editor: CodeIcon,
 	terminal: TerminalIcon,
@@ -84,6 +85,7 @@ export function getSiteCommands( {
 		terminal: [ __( 'Shell' ), __( 'Command line' ) ],
 		phpmyadmin: [ __( 'Database' ), 'phpMyAdmin', 'SQL', 'MySQL' ],
 		'wp-admin': [ __( 'Dashboard' ), 'wp-admin' ],
+		'staff-admin': [ __( 'Staff admin' ), 'client', 'wp-admin' ],
 	};
 
 	return [
@@ -140,6 +142,20 @@ export function getSiteCommands( {
 						keywords: keywords[ 'wp-admin' ],
 						run: actions.openAdmin,
 					},
+					...( site.staffAdmin
+						? [
+								{
+									id: 'staff-admin',
+									group: 'commands' as const,
+									label: __( 'Open Staff admin in panel' ),
+									aliases: [ __( 'Open Staff admin' ) ],
+									icon: UserRoundIcon,
+									description,
+									keywords: keywords[ 'staff-admin' ],
+									run: actions.openStaffAdmin,
+								},
+						  ]
+						: [] ),
 					{
 						id: 'database',
 						group: 'commands' as const,

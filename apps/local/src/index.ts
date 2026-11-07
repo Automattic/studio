@@ -319,6 +319,7 @@ function toSiteDetails( site: SiteListItem & SiteMetadata, sortOrder?: number ) 
 		environmentType: site.environmentType,
 		operation: site.operation,
 		emailPath: site.emailPath,
+		staffAdmin: site.staffAdmin,
 		sortOrder,
 		hideFrontendAdminBar: site.hideFrontendAdminBar,
 	};
@@ -1813,7 +1814,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			const relativeUrl = typeof req.body?.relativeUrl === 'string' ? req.body.relativeUrl : '';
 			await openSiteInBrowser(
-				getSiteBrowserUrl( site, relativeUrl, req.body?.autoLogin !== false ),
+				getSiteBrowserUrl(
+					site,
+					relativeUrl,
+					req.body?.autoLogin !== false,
+					typeof req.body?.user === 'string' ? req.body.user : undefined
+				),
 				openUrl
 			);
 			res.status( 204 ).end();

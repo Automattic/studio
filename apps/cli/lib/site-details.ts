@@ -1,3 +1,4 @@
+import { getStaffAdminLogin } from '@studio/common/lib/curate-admin';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getLiveSiteOperation } from 'cli/lib/site-operations';
@@ -14,5 +15,6 @@ export function getSiteDetails( site: SiteData ) {
 		operation: getLiveSiteOperation( site ),
 		url: getSiteUrl( site ),
 		emailPath: getSiteEmailDirectory( site.id ),
+		staffAdmin: getStaffAdminLogin( site.path ),
 	};
 }

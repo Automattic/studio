@@ -2,6 +2,7 @@ import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifact
 import { designSheet, parseDesignMd, themeJsonDesign } from '@studio/design-md';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
+import { UserRoundIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef } from 'react';
 import { previewTabsKey, usePreviewTabs } from '@/data/preview-tabs';
 import { useSiteDesign } from '@/data/queries/use-site-design';
@@ -22,11 +23,19 @@ import { Button, Kbd, Menu } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
-export function getSiteTool( id: 'frontend' | 'admin' | 'database' | 'email' | 'design' ) {
+export function getSiteTool(
+	id: 'frontend' | 'admin' | 'staff' | 'database' | 'email' | 'design'
+) {
 	return (
 		{
 			frontend: { label: __( 'Browser' ), Icon: GlobeIcon, shortcut: 'B', action: 'openBrowser' },
 			admin: { label: __( 'Admin' ), Icon: WordPressIcon, shortcut: 'A', action: 'openAdmin' },
+			staff: {
+				label: __( 'Staff admin' ),
+				Icon: UserRoundIcon,
+				shortcut: 'T',
+				action: 'openStaffAdmin',
+			},
 			database: {
 				label: __( 'Database' ),
 				Icon: DatabaseIcon,
@@ -54,8 +63,8 @@ export function useSiteToolActions(
 	const tabs = usePreviewTabs( previewTabsKey( site.id, liveUrl ) );
 	const runLayoutTransition = useUserWorkspaceLayoutTransition( site.id );
 	const trackOpen = usePreviewOpenTracks();
-	const open = async ( path: string ) => {
-		const location = liveUrl ? path : getRealmNavigationPath( path, getSiteUrl( site ) );
+	const open = async ( path: string, user?: string ) => {
+		const location = liveUrl ? path : getRealmNavigationPath( path, getSiteUrl( site ), user );
 		if ( onNavigate ) onNavigate( location );
 		else {
 			if ( ! liveUrl && ! site.running && tabs.workspace.tabs.length === 1 ) {
@@ -80,6 +89,7 @@ export function useSiteToolActions(
 	return {
 		openBrowser: () => void open( '/' ),
 		openAdmin: () => void open( '/wp-admin/' ),
+		openStaffAdmin: () => void open( '/wp-admin/', site.staffAdmin ),
 		openDatabase: () => void open( DATABASE_HOME_PATH ),
 		openEmail: () => void open( EMAIL_PREVIEW_PATH ),
 		openDesignSystem: () => void open( DESIGN_SYSTEM_PREVIEW_PATH ),
@@ -99,10 +109,12 @@ function useAvailableSiteTools( site: SiteDetails, live: boolean ) {
 			return false;
 		}
 	}, [ design ] );
-	return ( [ 'frontend', 'admin', 'design', 'database', 'email' ] as const )
+	return ( [ 'frontend', 'admin', 'staff', 'design', 'database', 'email' ] as const )
 		.filter(
 			( id ) =>
-				( ! live || id === 'frontend' || id === 'admin' ) && ( id !== 'design' || designAvailable )
+				( ! live || id === 'frontend' || id === 'admin' ) &&
+				( id !== 'design' || designAvailable ) &&
+				( id !== 'staff' || !! site.staffAdmin )
 		)
 		.map( ( id ) => ( { id, ...getSiteTool( id ) } ) );
 }

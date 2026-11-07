@@ -157,6 +157,7 @@ If you've built a substantial new feature — especially one generated with AI a
 For in-depth information, see these docs:
 - **CLI Design**: `docs/design-docs/cli.md` - CLI architecture, installation, IPC communication, data flow
 - **CLI ↔ App Communication**: `docs/design-docs/cli-host-communication.md` - How operations publish their state and activity to every Studio app, and the principles behind it
+- **Curate Admin**: `docs/design-docs/curate-admin.md` - Curating wp-admin for the people who run a site: the menu, post types, settings and dashboard, the manifest, runtime plugin, Staff admin and security model
 - **Custom Domains/SSL**: `docs/design-docs/custom-domains-and-ssl.md` - Proxy server, certificates, hosts file
 - **Analytics (Tracks)**: `docs/design-docs/analytics-tracks.md` - Tracks vs MC Stats, anonymous identity, opt-out, event catalog
 - **Localization**: `docs/localization.md` - GlotPress workflow, translation process

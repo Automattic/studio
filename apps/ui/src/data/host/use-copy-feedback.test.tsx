@@ -8,8 +8,7 @@ import type { ReactNode } from 'react';
 beforeEach( () => vi.useFakeTimers() );
 afterEach( () => vi.useRealTimers() );
 
-function renderCopy() {
-	const connector = createFakeConnector();
+function renderCopy( connector = createFakeConnector() ) {
 	return renderHook( () => useCopyText( 'https://example.test' ), {
 		wrapper: ( { children }: { children: ReactNode } ) => (
 			<ConnectorProvider connector={ connector }>{ children }</ConnectorProvider>
@@ -39,10 +38,22 @@ describe( 'copy feedback', () => {
 		expect( result.current.copied ).toBe( false );
 	} );
 
-	it( 'clears its timer on unmount', async () => {
-		const { result, unmount } = renderCopy();
-		await copy( result );
+	it.each( [
+		[ 'before', false ],
+		[ 'after', true ],
+	] )( 'leaves no timer when unmounted %s the copy finishes', async ( _, finishedFirst ) => {
+		let finish = () => {};
+		const connector = createFakeConnector();
+		connector.copyText.mockImplementation(
+			() => new Promise< void >( ( resolve ) => ( finish = resolve ) )
+		);
+		const { result, unmount } = renderCopy( connector );
+		act( () => result.current.copy() );
+		if ( finishedFirst ) {
+			await act( async () => finish() );
+		}
 		unmount();
+		await act( async () => finish() );
 		expect( vi.getTimerCount() ).toBe( 0 );
 	} );
 } );

@@ -10,9 +10,12 @@ export function useCopyText( text: string ): { copied: boolean; copy: () => void
 	const connector = useConnector();
 	const [ copied, setCopied ] = useState( false );
 	const resetTimer = useRef< ReturnType< typeof setTimeout > | null >( null );
+	const mounted = useRef( true );
 
 	useEffect( () => {
+		mounted.current = true;
 		return () => {
+			mounted.current = false;
 			if ( resetTimer.current ) {
 				clearTimeout( resetTimer.current );
 			}
@@ -23,6 +26,10 @@ export function useCopyText( text: string ): { copied: boolean; copy: () => void
 		void connector
 			.copyText( text )
 			.then( () => {
+				// The copy can finish after the component is gone; its timer would then outlive it.
+				if ( ! mounted.current ) {
+					return;
+				}
 				setCopied( true );
 				// Re-arm the reset on every click so copying again mid-"Copied"
 				// doesn't let the earlier timer flip the state back too soon.

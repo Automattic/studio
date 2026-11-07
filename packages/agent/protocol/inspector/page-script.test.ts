@@ -39,6 +39,17 @@ function publish( state: Record< string, unknown > ) {
 	);
 }
 
+function pointer( element: Element, type: string, x: number, y: number, pointerId = 1 ) {
+	const event = new MouseEvent( type, {
+		bubbles: true,
+		cancelable: true,
+		clientX: x,
+		clientY: y,
+	} );
+	Object.defineProperty( event, 'pointerId', { value: pointerId } );
+	element.dispatchEvent( event );
+}
+
 describe( 'annotation inspector', () => {
 	afterEach( () => {
 		( window as Window & { __studioInspectorDispose?: () => void } ).__studioInspectorDispose?.();
@@ -87,6 +98,77 @@ describe( 'annotation inspector', () => {
 		expect( markers.map( ( marker ) => marker.textContent ) ).toEqual( [ '1' ] );
 		markers[ 0 ].click();
 		expect( events().at( -1 ) ).toMatchObject( { type: 'edit', id: 'n1' } );
+	} );
+
+	it.each( [
+		[ 20, 30, 220, 130 ],
+		[ 220, 130, 20, 30 ],
+	] )(
+		'selects a rectangle from (%s, %s) to (%s, %s) without picking an element',
+		( x, y, endX, endY ) => {
+			document.body.innerHTML = '<h1>Welcome</h1><p>Other content</p>';
+			const events = mount();
+			publish( { active: true, areaSelection: true } );
+			pointer( document.body, 'pointerdown', x, y );
+			pointer( document.documentElement, 'pointermove', endX, endY );
+			pointer( document.documentElement, 'pointerup', endX, endY );
+			document.body.click();
+			expect( events() ).toEqual( [
+				{
+					type: 'selection',
+					selection: expect.objectContaining( {
+						target: expect.objectContaining( {
+							kind: 'region',
+							url: location.href,
+							documentRect: { left: 20, top: 30, width: 200, height: 100 },
+						} ),
+						rect: { left: 20, top: 30, width: 200, height: 100 },
+					} ),
+				},
+			] );
+		}
+	);
+
+	it( 'keeps clicks as element picks despite small pointer movement', () => {
+		document.body.innerHTML = '<h1>Welcome</h1>';
+		const events = mount();
+		publish( { active: true, areaSelection: true } );
+		const heading = document.querySelector( 'h1' )!;
+		pointer( heading, 'pointerdown', 30, 40 );
+		pointer( document.documentElement, 'pointerup', 32, 42 );
+		heading.click();
+		expect( events() ).toHaveLength( 1 );
+		expect( events()[ 0 ] ).toMatchObject( { type: 'pick', target: { tag: 'h1' } } );
+	} );
+
+	it.each( [ 'pointercancel', 'blur', 'scroll', 'resize', 'escape' ] )(
+		'cancels a rectangle on %s',
+		( cause ) => {
+			const events = mount();
+			publish( { active: true, areaSelection: true } );
+			pointer( document.body, 'pointerdown', 20, 30 );
+			pointer( document.documentElement, 'pointermove', 220, 130 );
+			if ( cause === 'escape' ) {
+				document.dispatchEvent( new KeyboardEvent( 'keydown', { key: 'Escape', bubbles: true } ) );
+			} else if ( cause === 'pointercancel' ) {
+				pointer( document.documentElement, cause, 220, 130 );
+			} else {
+				( cause === 'scroll' ? document : window ).dispatchEvent( new Event( cause ) );
+			}
+			pointer( document.documentElement, 'pointerup', 220, 130 );
+			document.body.click();
+			expect( events() ).toEqual( [] );
+		}
+	);
+
+	it( 'does not start rectangle gestures without the host capability or while busy', () => {
+		const events = mount();
+		for ( const state of [ { active: true }, { active: true, areaSelection: true, busy: true } ] ) {
+			publish( state );
+			pointer( document.body, 'pointerdown', 20, 30 );
+			pointer( document.documentElement, 'pointerup', 220, 130 );
+		}
+		expect( events() ).toEqual( [] );
 	} );
 
 	it.each( [ 0, -20 ] )( 'keeps the highlight flush with the viewport at x=%s', ( left ) => {

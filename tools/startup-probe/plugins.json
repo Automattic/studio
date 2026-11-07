@@ -1,0 +1,65 @@
+[
+	{
+		"slug": "woocommerce",
+		"name": "WooCommerce",
+		"version": "11.2.2",
+		"requires": "7.0",
+		"requires_php": "7.4",
+		"download_link": "https://downloads.wordpress.org/plugin/woocommerce.11.2.2.zip",
+		"sha256": "a4746183efd951de5837396aad119f7cf508f06cb699ccb590a01cada4c44932"
+	},
+	{
+		"slug": "all-in-one-seo-pack",
+		"name": "All in One SEO \u2013 AI SEO Plugin to Boost SEO Rankings &amp; Traffic (Schema, Local SEO, Sitemap &amp; SEO Insights)",
+		"version": "5.0.5",
+		"requires": "5.7",
+		"requires_php": "7.4",
+		"download_link": "https://downloads.wordpress.org/plugin/all-in-one-seo-pack.5.0.5.zip",
+		"sha256": "26fcc2a53bce1b70dea519dd3c4f71d54960ae0e8ea5a65511c6bf8d33900149"
+	},
+	{
+		"slug": "wordfence",
+		"name": "Wordfence Security &#8211; Firewall, Malware Scan, and Login Security",
+		"version": "9.0.2",
+		"requires": "4.7",
+		"requires_php": "7.0",
+		"download_link": "https://downloads.wordpress.org/plugin/wordfence.9.0.2.zip",
+		"sha256": "4124ae2a5d7cff8faadf04c222583fa06f78e8e9c791e50447383e5e12ab5fb6"
+	},
+	{
+		"slug": "smart-slider-3",
+		"name": "Smart Slider 3",
+		"version": "3.5.1.40",
+		"requires": "5.0",
+		"requires_php": "7.0",
+		"download_link": "https://downloads.wordpress.org/plugin/smart-slider-3.3.5.1.40.zip",
+		"sha256": "6b34c6eee3ec994f88841516f92541484bf8e890eca8a18e250ff4fd771916b6"
+	},
+	{
+		"slug": "elementor",
+		"name": "Elementor Website Builder &#8211; more than just a page builder",
+		"version": "4.3.6",
+		"requires": "6.8",
+		"requires_php": "7.4",
+		"download_link": "https://downloads.wordpress.org/plugin/elementor.4.3.6.zip",
+		"sha256": "f9f04c40e559ecc1c737eec6519e7223ff9a1ab04abcc2e004b44c9f6d1247a3"
+	},
+	{
+		"slug": "ewww-image-optimizer",
+		"name": "EWWW Image Optimizer",
+		"version": "8.9.1",
+		"requires": "6.8",
+		"requires_php": "7.4",
+		"download_link": "https://downloads.wordpress.org/plugin/ewww-image-optimizer.8.9.1.zip",
+		"sha256": "a3121b923e0bd711bdcf02b107a0def6d178c62288870516fc45aae76f3eb569"
+	},
+	{
+		"slug": "google-analytics-for-wordpress",
+		"name": "MonsterInsights &#8211; Google Analytics Dashboard for WordPress (Website Stats Made Easy)",
+		"version": "11.3.0",
+		"requires": "5.6.0",
+		"requires_php": "7.2",
+		"download_link": "https://downloads.wordpress.org/plugin/google-analytics-for-wordpress.11.3.0.zip",
+		"sha256": "9155c41b94723c5bfddb937a6066bcb57392ca5a2b3fb260c7041da0e676f663"
+	}
+]

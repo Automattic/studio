@@ -324,6 +324,10 @@ export function createStaticConnector(): Connector {
 		},
 		deleteSnapshot: ( hostname ) => wpcom.deleteSnapshot( hostname ),
 		renameSnapshot: ( hostname, name ) => wpcom.renameSnapshot( hostname, name ),
+		// Studio on the web doesn't track what changed since a push or pull.
+		async getPreviewStatus() {
+			return { localSiteId: null, localChanged: null, previewChanged: null };
+		},
 		getConnectedWpcomSites: ( localSiteId ) => wpcom.getConnectedSites( localSiteId ),
 		fetchSyncableWpcomSites: () => wpcom.fetchSyncableSites(),
 		connectWpcomSite: ( localSiteId, site ) => wpcom.connectSite( localSiteId, site ),
@@ -518,6 +522,9 @@ export function createStaticConnector(): Connector {
 			return () => {};
 		},
 		onOpenSite() {
+			return () => {};
+		},
+		onPullSite() {
 			return () => {};
 		},
 		onOpenSettings( listener ) {

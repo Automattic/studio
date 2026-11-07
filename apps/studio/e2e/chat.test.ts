@@ -98,10 +98,6 @@ test.describe( 'Chat', () => {
 			timeout: 120_000,
 		} );
 		await sidebar.openSite( siteName );
-		const chatToggle = page.getByRole( 'button', { name: 'Show chat for active site' } );
-		if ( await chatToggle.isVisible() ) {
-			await chatToggle.click();
-		}
 
 		const chip = page.getByRole( 'button', { name: 'Remove Auto-start' } );
 		await recordSends();

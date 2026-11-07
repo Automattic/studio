@@ -3,10 +3,13 @@ import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
 import { X } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { showToast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { previewTabsKey, usePreviewTabs, type PreviewTab } from '@/data/preview-tabs';
 import { useIsSiteBusy, useStopSite } from '@/data/queries/use-sites';
+import { useIsSiteRestarting } from '@/data/site-restarts';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
+import { getFileManager } from '@/features/sites/open-in-menu/get-file-manager';
 import { useOpenInDestinations } from '@/features/sites/open-in-menu/use-open-in-destinations';
 import { getPreviewRealm, getRealmOpenEvent } from '@/features/sites/site-preview/address-bar';
 import { getSiteTool, SiteToolMenuItems, useSiteToolActions } from '@/features/sites/site-tools';
@@ -33,9 +36,11 @@ export function PreviewTabs( {
 	path: string;
 } ) {
 	const connector = useConnector();
+	const fileManager = getFileManager();
 	const browser = useOpenInDestinations( site ).find( ( entry ) => entry.id === 'browser' )!;
 	const { id: siteId, name: siteName } = site;
-	const running = !! liveUrl || site.running;
+	const restarting = useIsSiteRestarting( siteId );
+	const running = !! liveUrl || site.running || restarting;
 	const busy = useIsSiteBusy( site );
 	const stopSite = useStopSite();
 	const preview = useSessionPreviewUI();
@@ -110,7 +115,7 @@ export function PreviewTabs( {
 			observer.disconnect();
 			strip.removeEventListener( 'scroll', updateFades );
 		};
-	}, [ running, workspace.selectedId, workspace.chatSelected, workspace.tabs.length ] );
+	}, [ running, workspace.selectedId, workspace.tabs.length ] );
 	const { setOpen } = preview;
 	useEffect( () => {
 		const onKeyDown = ( event: KeyboardEvent ) => {
@@ -134,6 +139,14 @@ export function PreviewTabs( {
 		document.addEventListener( 'keydown', onKeyDown );
 		return () => document.removeEventListener( 'keydown', onKeyDown );
 	}, [ busy, setOpen, siteId ] );
+	const openEmailFolder = () => {
+		void connector.openSiteEmailFolder( siteId ).catch( () =>
+			showToast( {
+				title: __( 'Studio could not open the email folder.' ),
+				intent: 'error',
+			} )
+		);
+	};
 	const openInBrowser = ( tab: PreviewTab ) => {
 		if ( tab.path === null ) return;
 		const realm = getPreviewRealm( tab.path );
@@ -166,7 +179,7 @@ export function PreviewTabs( {
 		<div className={ styles.root } data-preview-tabs>
 			{ running ? (
 				<Tabs
-					value={ workspace.chatSelected ? null : workspace.selectedId }
+					value={ workspace.selectedId }
 					onValueChange={ ( value ) => select( String( value ) ) }
 					className={ styles.tabs }
 				>
@@ -182,9 +195,9 @@ export function PreviewTabs( {
 						onDragStart={ ( event ) => event.preventDefault() }
 					>
 						{ workspace.tabs.map( ( tab, index ) => {
-							const { Icon } = getSiteTool(
-								tab.path === null ? 'frontend' : getPreviewRealm( tab.path )
-							);
+							const realm = tab.path === null ? 'frontend' : getPreviewRealm( tab.path );
+							const { Icon } = getSiteTool( realm );
+							const destination = realm === 'email' ? fileManager : browser;
 							return (
 								<Menu.ContextMenuRoot key={ tab.id }>
 									<Menu.ContextMenuTrigger
@@ -193,11 +206,10 @@ export function PreviewTabs( {
 												className={ styles.tab }
 												data-tab-reorder-id={ tab.id }
 												data-drag-source={ reorder.drag?.id === tab.id || undefined }
-												style={ { transform: `translateX(${ reorder.getOffset( tab.id ) }px)` } }
-												data-preview-selected={
-													( ! workspace.chatSelected && tab.id === workspace.selectedId ) ||
-													undefined
-												}
+												style={ {
+													transform: `translateX(${ reorder.getOffset( tab.id ) }px)`,
+												} }
+												data-preview-selected={ tab.id === workspace.selectedId || undefined }
 											/>
 										}
 									>
@@ -231,16 +243,12 @@ export function PreviewTabs( {
 									</Menu.ContextMenuTrigger>
 									<Menu.ContextPopup>
 										<Menu.Item
-											disabled={
-												busy ||
-												tab.path === null ||
-												[ 'design', 'email' ].includes( getPreviewRealm( tab.path ) )
-											}
-											onClick={ () => openInBrowser( tab ) }
+											disabled={ busy || tab.path === null || realm === 'design' }
+											onClick={ realm === 'email' ? openEmailFolder : () => openInBrowser( tab ) }
 										>
-											{ browser.logo }
-											{ /* translators: %s: the preferred or system default browser name. */ }
-											{ sprintf( __( 'Open in %s' ), browser.label ) }
+											{ destination.logo }
+											{ /* translators: %s: the browser or system file manager name. */ }
+											{ sprintf( __( 'Open in %s' ), destination.label ) }
 										</Menu.Item>
 										<Menu.Separator />
 										<Menu.Item onClick={ () => closeTabs( [ tab.id ] ) }>

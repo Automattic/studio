@@ -432,7 +432,7 @@ describe( 'Studio workspace', () => {
 		const { connector, queryClient } = setup( { sites: [ site( { running: true } ) ] } );
 		expect( await screen.findByRole( 'button', { name: 'Share' } ) ).toBeVisible();
 		expect( await screen.findByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
-		await paletteCommand( 'Publish & Sync' );
+		await paletteCommand( 'Publish' );
 		expect( await screen.findByRole( 'dialog', { name: 'Publish your WordPress' } ) ).toBeVisible();
 		expect( connector.authenticate ).not.toHaveBeenCalled();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Close' } ) );
@@ -1034,6 +1034,115 @@ describe( 'Studio workspace', () => {
 		);
 		fireEvent.click( within( settings ).getByRole( 'button', { name: 'Close settings' } ) );
 		expect( await waitForFullscreen( false ) ).toBeVisible();
+	} );
+
+	it.each( [
+		{ entry: 'sidebar', path: '/sites/one/new' },
+		{ entry: 'site menu', path: '/sessions/existing-chat' },
+		{ entry: 'command palette', path: '/sessions/existing-chat' },
+		{ entry: 'application menu', path: '/sites/one/new' },
+	] )( 'reveals a new chat from full screen via $entry at $path', async ( { entry, path } ) => {
+		const { connector, history } = setup( {
+			signedIn: true,
+			path,
+			sites: [ site( { running: true } ) ],
+			sessions: [
+				chat( { id: 'existing-chat', title: 'Existing conversation' }, [ prompt( 'Hello' ) ] ),
+			],
+		} );
+		await findComposer();
+		await setChatFullscreen( true );
+		await waitForFullscreen( true );
+		if ( entry === 'site menu' ) {
+			fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'New chat' } ) );
+		} else if ( entry === 'command palette' ) {
+			fireEvent.keyDown( document, {
+				code: 'KeyK',
+				key: 'k',
+				metaKey: isApple,
+				ctrlKey: ! isApple,
+			} );
+			fireEvent.change( await screen.findByLabelText( 'Search commands' ), {
+				target: { value: 'New chat' },
+			} );
+			fireEvent.click( await screen.findByRole( 'option', { name: /^New chat/ } ) );
+		} else if ( entry === 'application menu' ) {
+			act( () => connector.emit( 'onNewChat' ) );
+		} else {
+			fireEvent.click( screen.getByRole( 'button', { name: 'New chat for My site' } ) );
+		}
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
+		await waitFor( () => expect( composer() ).toHaveFocus() );
+		expect( await findLayoutControl( 'split' ) ).toBeVisible();
+		expect( connector.createSession ).not.toHaveBeenCalled();
+	} );
+
+	it( 'toggles an empty site draft between split and full screen from the sidebar', async () => {
+		const { connector, history } = setup( {
+			signedIn: true,
+			sites: [ site( { running: true } ) ],
+		} );
+		await findComposer();
+		await findLayoutControl( 'split' );
+		const button = screen.getByRole( 'button', { name: 'New chat for My site' } );
+		fireEvent.click( button );
+		expect( await waitForFullscreen( true ) ).toBeVisible();
+		expect( history.location.pathname ).toBe( '/sites/one/new' );
+		fireEvent.click( button );
+		expect( await waitForFullscreen( false ) ).toBeVisible();
+		await waitFor( () => expect( composer() ).toHaveFocus() );
+		expect( connector.createSession ).not.toHaveBeenCalled();
+	} );
+
+	it( 'keeps an empty chat visible when the site preview is closed', async () => {
+		setup( { signedIn: true, sites: [ site( { running: true } ) ] } );
+		await findComposer();
+		await chooseWorkspaceLayout( 'Chat' );
+		fireEvent.click( screen.getByRole( 'button', { name: 'New chat for My site' } ) );
+		expect( await findLayoutControl( 'chat' ) ).toBeVisible();
+		await waitFor( () => expect( composer() ).toHaveFocus() );
+	} );
+
+	it( 'keeps an empty stopped-site chat visible from the sidebar', async () => {
+		setup( { signedIn: true } );
+		await findComposer();
+		fireEvent.click( screen.getByRole( 'button', { name: 'New chat for My site' } ) );
+		await waitFor( () => expect( composer() ).toHaveFocus() );
+		expect( composer().closest( '[aria-hidden="true"]' ) ).toBeNull();
+	} );
+
+	it( 'keeps a chat with staged annotation notes visible from the sidebar', async () => {
+		setup( { signedIn: true, sites: [ site( { running: true } ) ] } );
+		await findComposer();
+		let noteId!: string;
+		act( () => {
+			noteId = pickAnnotation( 'one', { selector: 'h1', tag: 'h1', path: '/' } )!;
+			changeAnnotation( 'one', noteId, { comment: 'Make this heading larger' } );
+			stageAnnotations( 'one', [ noteId ], true );
+			setAnnotating( 'one', false );
+		} );
+		try {
+			fireEvent.click( screen.getByRole( 'button', { name: 'New chat for My site' } ) );
+			expect( await findLayoutControl( 'split' ) ).toBeVisible();
+			expect( composer() ).toHaveValue( '' );
+			expect( getSiteAnnotations( 'one' ).notes ).toHaveLength( 1 );
+		} finally {
+			act( () => removeAnnotations( 'one', [ noteId ] ) );
+		}
+	} );
+
+	it( 'keeps a chat with only an attachment visible from the sidebar', async () => {
+		setup( { signedIn: true, sites: [ site( { running: true } ) ] } );
+		await findComposer();
+		fireEvent.change( document.querySelector( 'input[type="file"][multiple]' )!, {
+			target: { files: [ new File( [ 'notes' ], 'draft.txt', { type: 'text/plain' } ) ] },
+		} );
+		await screen.findByText( 'draft.txt' );
+		fireEvent.click( screen.getByRole( 'button', { name: 'New chat for My site' } ) );
+		expect( await findLayoutControl( 'split' ) ).toBeVisible();
+		expect( composer() ).toHaveValue( '' );
+		expect( screen.getByText( 'draft.txt' ) ).toBeVisible();
 	} );
 
 	it( 'reveals a hidden draft and keeps it visible when New chat is pressed again', async () => {

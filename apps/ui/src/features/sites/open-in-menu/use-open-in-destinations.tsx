@@ -16,13 +16,8 @@ import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { AppIcon } from '@/features/sites/app-icon';
 import { DATABASE_HOME_PATH } from '@/features/sites/site-preview/address-bar';
-import {
-	DatabaseIcon,
-	ExternalLinkIcon,
-	FolderIcon,
-	TerminalIcon,
-	WordPressIcon,
-} from '@/lib/icons';
+import { DatabaseIcon, ExternalLinkIcon, TerminalIcon, WordPressIcon } from '@/lib/icons';
+import { getFileManager } from './get-file-manager';
 import type { SiteDetails } from '@/data/core';
 import type { ReactElement } from 'react';
 
@@ -40,17 +35,6 @@ interface OpenInDestinationEntry {
 	logo: ReactElement;
 	disabled: boolean;
 	open: () => void;
-}
-
-function getFileManager(): { label: string; logo: ReactElement } {
-	const platform = navigator.platform.toLowerCase();
-	if ( platform.includes( 'win' ) ) {
-		return { label: __( 'File Explorer' ), logo: <FolderIcon /> };
-	}
-	if ( platform.includes( 'linux' ) ) {
-		return { label: __( 'File manager' ), logo: <FolderIcon /> };
-	}
-	return { label: __( 'Finder' ), logo: <AppIcon app="finder" fallback={ <FolderIcon /> } /> };
 }
 
 /**

@@ -17,8 +17,6 @@ import { useResponsivePreview, updateResponsivePreview } from '@/data/responsive
 import { useIsSiteRestarting } from '@/data/site-restarts';
 import {
 	AnnotationOverlay,
-	closeAnnotationEditor,
-	hasAnnotationContent,
 	isBatchedAnnotation,
 	getSiteAnnotations,
 	subscribeAnnotationReview,
@@ -415,15 +413,6 @@ function SitePreviewContent( {
 		return true;
 	};
 	const batchNotes = annotations.notes.filter( isBatchedAnnotation );
-	const sendFromToolbar = () => {
-		const current = getSiteAnnotations( site.id );
-		if ( isAnnotationsBusy( current ) ) return;
-		const noteIds = current.notes.filter( hasAnnotationContent ).map( ( note ) => note.id );
-		if ( noteIds.length ) {
-			sendAnnotations( noteIds );
-			closeAnnotationEditor( site.id );
-		}
-	};
 	const showBrowserBar =
 		canPreview && ! blank && ( ! loadingStage || isRestarting || restartReveal );
 
@@ -670,8 +659,6 @@ function SitePreviewContent( {
 							{ ...annotationTools.controls }
 							pageTools={ activeSurfaceKey === 'site' }
 							disabled={ isAnnotationsBusy( annotations ) }
-							canSend={ annotations.notes.some( hasAnnotationContent ) }
-							onSend={ sendFromToolbar }
 							onExit={ annotate.onClick }
 						/>
 					) : null }

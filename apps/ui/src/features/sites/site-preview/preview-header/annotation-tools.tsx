@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { MousePointer2Icon, PencilIcon, RotateCcwIcon } from 'lucide-react';
-import { SendIcon, TrashIcon } from '@/lib/icons';
+import { TrashIcon } from '@/lib/icons';
 import { IconButton } from '@/lib/ui';
 import styles from './annotation-tools.module.css';
 
@@ -10,10 +10,8 @@ export function AnnotationTools( {
 	failed,
 	disabled,
 	pageTools,
-	canSend,
 	onToggle,
 	onRetry,
-	onSend,
 	onExit,
 }: {
 	drawing: boolean;
@@ -21,10 +19,8 @@ export function AnnotationTools( {
 	failed: boolean;
 	disabled: boolean;
 	pageTools: boolean;
-	canSend: boolean;
 	onToggle: () => void;
 	onRetry: () => void;
-	onSend: () => void;
 	onExit: () => void;
 } ) {
 	return (
@@ -71,17 +67,6 @@ export function AnnotationTools( {
 						) : null }
 					</>
 				) : null }
-				<IconButton
-					size="icon"
-					variant="accent"
-					shape="round"
-					icon={ <SendIcon /> }
-					label={ __( 'Send annotations' ) }
-					disabled={ disabled || ! canSend }
-					focusableWhenDisabled={ false }
-					onClick={ onSend }
-					tooltipSide="top"
-				/>
 				<IconButton
 					size="icon"
 					shape="round"

@@ -112,7 +112,9 @@ describe( 'annotation inspector navigation', () => {
 		).not.toBeInTheDocument();
 		const select = within( tools ).getByRole( 'button', { name: 'Select' } );
 		expect( select ).toHaveAttribute( 'aria-pressed', 'true' );
-		expect( within( tools ).getByRole( 'button', { name: 'Send annotations' } ) ).toBeDisabled();
+		expect(
+			within( tools ).queryByRole( 'button', { name: 'Send annotations' } )
+		).not.toBeInTheDocument();
 		fireEvent.click( within( tools ).getByRole( 'button', { name: 'Draw' } ) );
 		expect( select ).toHaveAttribute( 'aria-pressed', 'false' );
 		fireEvent.click( select );
@@ -129,32 +131,7 @@ describe( 'annotation inspector navigation', () => {
 			expect.objectContaining( { id, comment: 'Keep this note' } ),
 		] );
 		fireEvent.click( annotate() );
-		expect( screen.getByRole( 'button', { name: 'Send annotations' } ) ).toBeEnabled();
-	} );
-
-	it( 'sends queued notes and the current note together from the floating bar, after capture finishes', async () => {
-		const { emit, annotate, onSendAnnotations } = await setup();
-		emit( 'dom-ready' );
-		await waitFor( () => expect( annotate() ).toBeEnabled() );
-		fireEvent.click( annotate() );
-		let queued = '';
-		let current = '';
-		act( () => {
-			queued = pickAnnotation( site.id, { selector: 'h1', url: 'http://localhost:8881/' } )!;
-			changeAnnotation( site.id, queued, { comment: 'Change the heading' } );
-			stageAnnotations( site.id, [ queued ], true );
-			current = pickAnnotation( site.id, { selector: 'p', url: 'http://localhost:8881/' } )!;
-			changeAnnotation( site.id, current, { comment: 'Change the paragraph' } );
-			setAnnotationsPreparing( site.id, true );
-		} );
-		const send = screen.getByRole( 'button', { name: 'Send annotations' } );
-		expect( send ).toBeDisabled();
-		fireEvent.click( send );
-		expect( onSendAnnotations ).not.toHaveBeenCalled();
-		act( () => setAnnotationsPreparing( site.id, false ) );
-		fireEvent.click( send );
-		expect( onSendAnnotations ).toHaveBeenCalledExactlyOnceWith( site.id, [ queued, current ] );
-		expect( getSiteAnnotations( site.id ).editingId ).toBeNull();
+		expect( screen.queryByRole( 'button', { name: 'Send annotations' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'discards an empty drawing draft on Escape', async () => {
@@ -201,7 +178,7 @@ describe( 'annotation inspector navigation', () => {
 		] );
 		expect( screen.queryByRole( 'img', { name: 'Drawing.png' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Add annotation to batch' } ) ).toBeDisabled();
-		expect( screen.getByRole( 'button', { name: 'Send annotations' } ) ).toBeDisabled();
+		expect( screen.queryByRole( 'button', { name: 'Send annotations' } ) ).not.toBeInTheDocument();
 		fireEvent.keyDown( screen.getByRole( 'textbox', { name: 'Describe the change' } ), {
 			key: 'Escape',
 		} );

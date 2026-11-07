@@ -162,9 +162,8 @@ export function getInstructionsLengthBucket( content: string ): TracksInstructio
 	return length <= 1000 ? 'medium' : 'long';
 }
 
-// The site panel/tab a `studio_panel_opened` event refers to. Studio Classic emits the tab-strip names
-// (`sync`/`import-export`/`previews` are Classic-only); the agentic UI reuses the shared names —
-// `settings` for its General tab and `debugging` for its Debugging tab.
+// Current UI: site selection (`assistant`) and site settings (`settings`). Other
+// values remain for historical agentic route navigation and Classic tabs.
 export type TracksPanel =
 	| 'overview'
 	| 'settings'

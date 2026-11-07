@@ -30,6 +30,7 @@ export {
 	useSiteHeader,
 } from './site-header-actions';
 export { SitePreview } from './site-preview';
+export { usePreviewOpenTracks } from './site-preview/use-preview-open-tracks';
 export { StoppedSitePreview } from './stopped-site-preview';
 export { type AddSiteSection, isAddSiteSection, useOpenAddSite } from './use-open-add-site';
 export { useItemShortcuts } from './use-item-shortcuts';

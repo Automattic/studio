@@ -4,13 +4,13 @@ import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
 import { PaperclipIcon } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { toast } from '@/data/app-messages';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useComposerAttachments, useFileDrop } from '@/data/use-composer-attachments';
 import { SendIcon, TrashIcon } from '@/lib/icons';
 import { isImeComposing, isShortcut } from '@/lib/keyboard';
 import {
 	DropOverlay,
+	FieldError,
 	AttachmentRemoveButton,
 	Button,
 	IconButton,
@@ -53,7 +53,7 @@ interface AnnotationOverlayProps {
 }
 
 const EDGE = 8;
-const MARKER_CLEARANCE = 18;
+const CORNER_OFFSET = 8;
 /** The note editor drawn over an annotated preview. */
 export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlayProps ) {
 	const annotations = useSiteAnnotations( siteId );
@@ -121,14 +121,19 @@ function NoteEditor( {
 		left: EDGE,
 		top: EDGE,
 	} );
-	const { attachments, addFiles, removeAttachment, pasteHandlers } = useComposerAttachments(
-		note.images
-	);
+	const {
+		attachments,
+		addFiles,
+		removeAttachment,
+		pasteHandlers,
+		error: attachmentError,
+		setError: setAttachmentError,
+	} = useComposerAttachments( note.images );
 	const addImages = useCallback(
 		( files: FileList | File[] ) => {
 			const list = Array.from( files );
 			if ( list.some( ( file ) => ! isStudioChatImageMimeType( file.type ) ) ) {
-				toast.error( __( 'Only PNG, JPEG, GIF, and WebP images can be attached' ) );
+				setAttachmentError( __( 'Only PNG, JPEG, GIF, and WebP images can be attached' ) );
 				return;
 			}
 			const otherImages = getSiteAnnotations( siteId )
@@ -137,7 +142,7 @@ function NoteEditor( {
 			setAnnotationsPreparing( siteId, true );
 			void addFiles( list, otherImages ).finally( () => setAnnotationsPreparing( siteId, false ) );
 		},
-		[ addFiles, note.id, siteId ]
+		[ addFiles, note.id, siteId, setAttachmentError ]
 	);
 	const isDragging = useFileDrop( editorNode, addImages );
 
@@ -150,19 +155,23 @@ function NoteEditor( {
 		const container = editor?.parentElement;
 		if ( ! editor || ! container ) return;
 		const measure = () => {
-			const cornerRadius = parseFloat( getComputedStyle( editor ).borderTopLeftRadius ) || 0;
+			const desiredLeft =
+				anchor.left + CORNER_OFFSET + editor.offsetWidth <= container.clientWidth - EDGE
+					? anchor.left + CORNER_OFFSET
+					: anchor.left - CORNER_OFFSET - editor.offsetWidth;
 			const left = Math.max(
 				EDGE,
-				Math.min( anchor.left - cornerRadius, container.clientWidth - editor.offsetWidth - EDGE )
+				Math.min( desiredLeft, container.clientWidth - editor.offsetWidth - EDGE )
 			);
+			const markerOffset = left === desiredLeft ? CORNER_OFFSET : 22;
 			const height = Math.max( editor.offsetHeight, editor.scrollHeight );
-			const below = Math.max( 0, container.clientHeight - EDGE - anchor.top - MARKER_CLEARANCE );
-			const above = Math.max( 0, anchor.top - MARKER_CLEARANCE - EDGE );
+			const below = Math.max( 0, container.clientHeight - EDGE - anchor.top - markerOffset );
+			const above = Math.max( 0, anchor.top - markerOffset - EDGE );
 			const placeBelow = height <= below || ( height > above && below >= above );
 			const maxHeight = placeBelow ? below : above;
 			const top = placeBelow
-				? anchor.top + MARKER_CLEARANCE
-				: anchor.top - MARKER_CLEARANCE - Math.min( height, maxHeight );
+				? anchor.top + markerOffset
+				: anchor.top - markerOffset - Math.min( height, maxHeight );
 			setPosition( ( old ) =>
 				old.left === left && old.top === top && old.maxHeight === maxHeight
 					? old
@@ -241,6 +250,7 @@ function NoteEditor( {
 					submit( isShortcut( event.nativeEvent, 'Enter' ) );
 				} }
 			/>
+			{ attachmentError ? <FieldError role="alert">{ attachmentError }</FieldError> : null }
 			<div className={ styles.toolbar }>
 				<IconButton
 					size="icon"
@@ -273,7 +283,7 @@ function NoteEditor( {
 					<TooltipTrigger
 						render={
 							<Button
-								variant={ hasContent ? 'accent' : 'default' }
+								variant="accent"
 								size="icon"
 								shape="round"
 								className={ styles.save }

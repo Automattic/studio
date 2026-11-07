@@ -9,6 +9,7 @@ interface SiteChatDraft {
 	activeEnvironment: 'local' | 'live';
 	lastSelectedWpcomSiteId?: number;
 	sessionId?: string;
+	pendingPrompt?: string;
 }
 
 const EMPTY_DRAFT: SiteChatDraft = { activeEnvironment: 'local' };

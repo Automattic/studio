@@ -153,7 +153,8 @@ describe( 'Preview Create Command', () => {
 		expect( createPreviewSite ).toHaveBeenCalledWith(
 			mockAttachmentId,
 			'Test Site Preview 1',
-			mockAuthToken.accessToken
+			mockAuthToken.accessToken,
+			undefined
 		);
 		expect( saveSnapshotToConfig ).toHaveBeenCalledWith(
 			mockFolder,

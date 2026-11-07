@@ -1,3 +1,4 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { setCommandPaletteOpen } from '@/data/use-command-palette';
@@ -89,7 +90,12 @@ it.each( [ true, false ] )(
 		const firstTab = screen.getByRole( 'tab', { name: 'First' } );
 		const firstPage = document.querySelector( 'iframe' );
 		if ( ! open ) await user.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
+		connector.trackEvent.mockClear();
 		await user.click( chip );
+		expect( connector.trackEvent.mock.calls ).toEqual( [
+			[ TRACKS_EVENTS.SITE_OPEN_DESIGN_SYSTEM, { browser: 'internal' } ],
+			...( open ? [] : [ [ TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED, { layout: 'split' }, 'one' ] ] ),
+		] );
 		expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 );
 		expect( screen.getByRole( 'tab', { name: 'Design system' } ) ).toHaveAttribute(
 			'aria-selected',
@@ -126,7 +132,7 @@ it( 'opens DevTools for the selected browser tab while retaining the other guest
 			if ( id === 42 ) await user.click( first );
 			screen.getByRole( 'button', { name: 'Browser options' } ).focus();
 			await user.keyboard( '{ArrowDown}' );
-			await user.click( screen.getByRole( 'menuitem', { name: 'Open DevTools' } ) );
+			await user.click( screen.getByRole( 'menuitem', { name: 'Developer tools' } ) );
 			expect( openWebviewDevTools ).toHaveBeenLastCalledWith( id );
 		}
 		expect( document.querySelector( 'webview' ) ).toBe( firstGuest );
@@ -140,14 +146,14 @@ it( 'opens DevTools for the selected browser tab while retaining the other guest
 } );
 
 it.each( [ 'header', 'shortcut', 'palette' ] )(
-	'returns from the Chat tab to the preview using the %s',
+	'returns from chat-only view to the preview using the %s',
 	async ( control ) => {
 		const { connector } = await setup( true, true );
 		const page = document.querySelector( 'iframe' );
 		const composer = await screen.findByRole( 'combobox', { name: 'Message WordPress Studio' } );
 		fireEvent.change( composer, { target: { value: 'Keep this draft' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Expand panel' } ) );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Show chat for First' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
 		expect( composer ).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Show panel' } ) ).toBeVisible();
 		if ( control === 'header' ) {
@@ -161,9 +167,7 @@ it.each( [ 'header', 'shortcut', 'palette' ] )(
 			} );
 			fireEvent.click( await screen.findByRole( 'option', { name: 'Toggle panel' } ) );
 		}
-		await waitFor( () =>
-			expect( !! composer.closest( '[aria-hidden="true"]' ) ).toBe( control !== 'palette' )
-		);
+		await waitFor( () => expect( composer ).toBeVisible() );
 		expect( document.querySelector( 'iframe' ) ).toBe( page );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
 		await waitFor( () => expect( composer ).toBeVisible() );
@@ -427,16 +431,21 @@ it.each( [
 	} );
 } );
 
-it( 'disables opening Studio-rendered tool tabs externally', async () => {
+it( 'opens the email folder from an unselected tab without changing tabs', async () => {
+	vi.spyOn( navigator, 'platform', 'get' ).mockReturnValue( 'Win32' );
 	const { connector } = await setup();
+	await act( () => connector.setUserPreferences( { browser: 'firefox' } ) );
 	fireEvent.click( screen.getByRole( 'button', { name: 'New tab' } ) );
 	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Email log' } ) );
+	const active = screen.getByRole( 'tab', { name: 'First' } );
+	fireEvent.click( active );
 	fireEvent.contextMenu( await screen.findByRole( 'tab', { name: 'Email log' } ) );
-	const open = await screen.findByRole( 'menuitem', { name: 'Open in Browser' } );
-	expect( open ).toHaveAttribute( 'aria-disabled', 'true' );
+	const open = await screen.findByRole( 'menuitem', { name: 'Open in File Explorer' } );
 	fireEvent.click( open );
+	expect( connector.openSiteEmailFolder ).toHaveBeenCalledExactlyOnceWith( 'one' );
 	expect( connector.openSiteUrl ).not.toHaveBeenCalled();
 	expect( connector.openExternalUrl ).not.toHaveBeenCalled();
+	expect( active ).toHaveAttribute( 'aria-selected', 'true' );
 } );
 
 it( 'closes tabs from the context menu without selecting the right-clicked tab', async () => {
@@ -524,6 +533,9 @@ it( 'shares the same tool items with the site menu and opens each preview tool i
 		'true'
 	);
 	expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 4 );
+	expect(
+		screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } )
+	).not.toBeInTheDocument();
 } );
 
 it( 'starts a stopped project from Browser and uses its first preview tab', async () => {
@@ -569,7 +581,7 @@ it( 'uses the same letter shortcuts in Tools without intercepting modified keys 
 	const composer = screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } );
 	await user.type( composer, 'bwdse' );
 	expect( composer ).toHaveValue( 'bwdse' );
-	expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 1 );
+	expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 );
 	expect( connector.openSiteEmailFolder ).not.toHaveBeenCalled();
 } );
 
@@ -988,7 +1000,7 @@ it( 'selects an existing project tab when reviewing a note on its page', async (
 	} );
 	fireEvent.click( await screen.findByRole( 'button', { name: '1 annotation' } ) );
 	fireEvent.click(
-		await screen.findByRole( 'button', { name: 'Edit annotation 1: Fix this title' } )
+		await screen.findByRole( 'button', { name: 'Edit annotation: Fix this title' } )
 	);
 	await waitFor( () =>
 		expect( screen.getAllByRole( 'tab' )[ 0 ] ).toHaveAttribute( 'aria-selected', 'true' )
@@ -1004,7 +1016,7 @@ it( 'selects an existing project tab when reviewing a note on its page', async (
 		setAnnotating( 'one', false );
 	} );
 	fireEvent.click( screen.getByRole( 'button', { name: '1 annotation' } ) );
-	fireEvent.click( screen.getByRole( 'button', { name: 'Edit annotation 1: Fix this title' } ) );
+	fireEvent.click( screen.getByRole( 'button', { name: 'Edit annotation: Fix this title' } ) );
 	expect( getSiteAnnotations( 'one' ).editingId ).toBe( draft );
 	expect( getSiteAnnotations( 'one' ).active ).toBe( true );
 	expect( getSiteAnnotations( 'one' ).notes ).toHaveLength( 2 );
@@ -1035,7 +1047,7 @@ it( 'reopens a batched design note in its existing tab without scrolling', async
 	await newBrowserTab();
 	await user.click( screen.getByRole( 'button', { name: '1 annotation' } ) );
 	await user.click(
-		screen.getByRole( 'button', { name: 'Edit annotation 1: Give this title more space' } )
+		screen.getByRole( 'button', { name: 'Edit annotation: Give this title more space' } )
 	);
 	expect( screen.getByRole( 'tab', { name: 'Design system' } ) ).toHaveAttribute(
 		'aria-selected',
@@ -1045,3 +1057,46 @@ it( 'reopens a batched design note in its existing tab without scrolling', async
 		'Give this title more space'
 	);
 } );
+
+it( 'opens the Global Styles board and reloads saved style changes', async () => {
+	const { connector, queryClient, user } = await setup();
+	const board = ( color: string ) => ( {
+		settings: {
+			color: {
+				palette: {
+					theme: [
+						{ slug: 'ink', color: '#111111' },
+						{ slug: 'base', color: '#ffffff' },
+						{ slug: 'accent', color },
+					],
+				},
+			},
+		},
+		styles: { typography: { fontFamily: 'Inter, sans-serif' } },
+	} );
+	connector.getGlobalStyles.mockResolvedValue( board( '#123456' ) );
+	await act( () => queryClient.invalidateQueries( { queryKey: [ 'global-styles', 'one' ] } ) );
+	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
+	await user.click( await screen.findByRole( 'menuitem', { name: 'Design system' } ) );
+	expect( await screen.findByRole( 'heading', { name: 'Color' } ) ).toBeVisible();
+	expect( screen.getByText( '#123456' ) ).toBeVisible();
+	connector.getGlobalStyles.mockResolvedValue( board( '#654321' ) );
+	await user.click( screen.getByRole( 'button', { name: 'Reload preview' } ) );
+	expect( await screen.findByText( '#654321' ) ).toBeVisible();
+	expect( screen.queryByText( '#123456' ) ).not.toBeInTheDocument();
+} );
+
+it.each( [ 'Admin', 'Database', 'Email log' ] )(
+	'keeps the current tab when opening %s from the site menu',
+	async ( name ) => {
+		const { user } = await setup();
+		const originalTab = selectedTab();
+		await user.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
+		await user.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
+		await screen.findByRole( 'menuitem', { name } );
+		await user.keyboard( name[ 0 ].toLowerCase() );
+		await waitFor( () => expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 ) );
+		expect( originalTab ).toBeInTheDocument();
+		expect( screen.getByRole( 'tab', { name } ) ).toHaveAttribute( 'aria-selected', 'true' );
+	}
+);

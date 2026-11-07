@@ -5,60 +5,65 @@ import { generateNumberedName, generateSiteName } from '../generate-site-name';
 vi.mock( '@studio/common/lib/fs-utils' );
 
 const SITES_DIR = '/tmp/test-sites';
+const SITE_NAMES = [
+	'Blue Note',
+	'Kind of Blue',
+	'Hello Dolly',
+	'Round Midnight',
+	'Blue in Green',
+	'Take Five',
+	'Giant Steps',
+	'Mood Indigo',
+	'Swing Time',
+	'Blue Train',
+	'Maiden Voyage',
+	'Birdland',
+	'Green Dolphin Street',
+	'Cotton Tail',
+];
+
+afterEach( () => vi.restoreAllMocks() );
 
 describe( 'generateSiteName', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		vi.mocked( pathExists ).mockResolvedValue( false );
 		vi.mocked( isEmptyDir ).mockResolvedValue( true );
+		vi.spyOn( Math, 'random' ).mockReturnValue( 0 );
 	} );
 
-	it( 'returns default name when no sites exist', async () => {
+	it( 'suggests a jazz name when no sites exist', async () => {
 		const name = await generateSiteName( [], SITES_DIR );
-		expect( name ).toBe( 'My WordPress Website' );
+		expect( name ).toBe( 'Blue Note' );
 	} );
 
-	it( 'returns a random alternative when default name is taken', async () => {
-		const name = await generateSiteName( [ 'My WordPress Website' ], SITES_DIR );
-		expect( name ).not.toBe( 'My WordPress Website' );
-		expect( name ).toMatch( /^My \w+ Website$/ );
+	it( 'randomizes the suggestion even when no sites exist', async () => {
+		vi.mocked( Math.random ).mockReturnValue( 0.99 );
+		expect( await generateSiteName( [], SITES_DIR ) ).toBe( 'Cotton Tail' );
+	} );
+
+	it( 'excludes names already used by a site', async () => {
+		const name = await generateSiteName( [ 'Blue Note' ], SITES_DIR );
+		expect( name ).toBe( 'Kind of Blue' );
 	} );
 
 	it( 'returns numbered name when all names are taken', async () => {
-		const allNames = [
-			'My WordPress Website',
-			'My Bold Website',
-			'My Bright Website',
-			'My Blissful Website',
-			'My Calm Website',
-			'My Cool Website',
-			'My Dreamy Website',
-			'My Elite Website',
-			'My Fresh Website',
-			'My Glowing Website',
-			'My Happy Website',
-			'My Joyful Website',
-			'My Noble Website',
-			'My Pure Website',
-			'My Peak Website',
-			'My Prime Website',
-			'My Serene Website',
-			'My Shiny Website',
-			'My Sparkly Website',
-			'My Swift Website',
-			'My True Website',
-		];
-		const name = await generateSiteName( allNames, SITES_DIR );
-		expect( name ).toBe( 'My WordPress Website 2' );
+		const name = await generateSiteName( [ ...SITE_NAMES, 'Blue Note 2' ], SITES_DIR );
+		expect( name ).toBe( 'Blue Note 3' );
 	} );
 
-	it( 'skips default name when its path already exists and is non-empty', async () => {
+	it( 'skips a name when its path already exists and is non-empty', async () => {
 		vi.mocked( pathExists ).mockImplementation( async ( p ) => {
-			return String( p ).includes( 'my-wordpress-website' );
+			return String( p ).includes( 'blue-note' );
 		} );
 		vi.mocked( isEmptyDir ).mockResolvedValue( false );
 		const name = await generateSiteName( [], SITES_DIR );
-		expect( name ).not.toBe( 'My WordPress Website' );
+		expect( name ).toBe( 'Kind of Blue' );
+	} );
+
+	it( 'allows an existing empty folder', async () => {
+		vi.mocked( pathExists ).mockResolvedValue( true );
+		expect( await generateSiteName( [], SITES_DIR ) ).toBe( 'Blue Note' );
 	} );
 } );
 

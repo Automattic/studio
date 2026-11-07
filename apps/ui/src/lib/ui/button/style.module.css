@@ -74,7 +74,7 @@
 	}
 
 	.button:has( > [data-icon='inline-start'] ) {
-		padding-inline-start: var( --space-1_5 );
+		padding-inline-start: calc( var( --space-2 ) - 1px );
 	}
 
 	.button:has(
@@ -174,9 +174,27 @@
 	}
 
 	.button[data-variant='muted'] {
-		--button-hover-background: var( --hover );
+		--surface: var( --muted );
+		--button-hover-background: var( --surface );
 
-		--button-background: var( --muted );
+		--button-background: var( --surface );
+		color: var( --foreground );
+	}
+
+	.button[data-variant='muted']:is(
+			:is( :hover, :active ):not( :disabled, [data-disabled] ),
+			[aria-expanded='true'],
+			[aria-pressed='true']
+		) {
+		--surface: var( --selected );
+	}
+
+	.button[data-variant='muted']:is(
+			:is( :hover, :active ):not( :disabled, [data-disabled] ),
+			[aria-expanded='true'],
+			[aria-pressed='true']
+		)
+		> [data-slot='kbd'][data-variant='default'] {
 		color: var( --foreground );
 	}
 
@@ -194,10 +212,7 @@
 	}
 
 	.button[data-variant='accent-ghost']:is( [aria-pressed='true'], [aria-expanded='true'] ) {
-		--button-hover-background: light-dark(
-			color-mix( in srgb, var( --accent ) 8%, transparent ),
-			color-mix( in srgb, var( --accent ) 15%, transparent )
-		);
+		--button-hover-background: var( --accent-subtle );
 		--button-hover-color: var( --accent-text );
 	}
 
@@ -205,10 +220,8 @@
 			[aria-pressed='true'],
 			[aria-expanded='true']
 		):hover:not( :disabled, [data-disabled] ) {
-		--button-hover-background: light-dark(
-			color-mix( in srgb, var( --accent ) 14%, transparent ),
-			color-mix( in srgb, var( --accent ) 22%, transparent )
-		);
+		--button-hover-background: var( --accent-subtle-hover );
+		--button-hover-color: var( --accent-text-hover );
 	}
 
 	.button[data-variant='muted-ghost'] {
@@ -335,7 +348,6 @@
 	.button[data-size='lg'] {
 		--button-padding-inline: 24px;
 
-		min-width: 208px;
 		height: 44px;
 		font-size: var( --text-sm );
 	}

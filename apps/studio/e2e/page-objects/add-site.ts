@@ -54,15 +54,19 @@ export default class AddSite {
 		if ( siteName ) {
 			await this.siteNameInput.fill( siteName );
 		}
-		await expect( this.siteNameInput ).toHaveValue( /\S+/ );
-		const name = await this.siteNameInput.inputValue();
-
 		if ( pickFolder ) {
 			const folder = this.dialog.getByRole( 'textbox', { name: 'Site folder' } );
 			const previousPath = await folder.getAttribute( 'title' );
 			await this.dialog.getByRole( 'button', { name: 'Change…', exact: true } ).click();
 			await expect( folder ).not.toHaveAttribute( 'title', previousPath ?? '' );
 		}
+
+		let name = await this.siteNameInput.inputValue();
+		if ( ! name ) {
+			await expect( this.siteNameInput ).toHaveAttribute( 'placeholder', /\S+/ );
+			name = ( await this.siteNameInput.getAttribute( 'placeholder' ) ) ?? '';
+		}
+		expect( name ).toMatch( /\S+/ );
 
 		await this.submitButton.click();
 		// The dialog closes on the navigation to the new site, which would also close

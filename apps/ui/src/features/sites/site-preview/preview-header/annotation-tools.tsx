@@ -69,7 +69,7 @@ export function AnnotationTools( {
 							tooltipSide="top"
 							onClick={ ( event ) => {
 								onToggle();
-								if ( event.detail > 0 ) drawIcon.current?.play();
+								if ( ! drawing && event.detail > 0 ) drawIcon.current?.play();
 							} }
 						/>
 						{ pending && failed ? (

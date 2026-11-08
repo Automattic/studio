@@ -7,9 +7,9 @@ const DRAW_PATH =
 const REVERSED_DRAW_CURVES =
 	'C20 19.25 18 21.25 16.5 20.5C13.5 19 22.25 12.5 20 10.5C17.25 8.25 9.5 19.25 7 17C4.5 14.75 20 7 17.5 4C15 1 8 3.5 3 8.5';
 const TRAVEL_PATH = `M21 18${ REVERSED_DRAW_CURVES }
-	C0 11.5 3.25 6.25 9 4C14.75 1.75 23.5 10.25 19.25 16
-	C15 21.75 5 19.75 3.5 13.5C2 7.25 8.25 2 14.5 3.75
-	C20.75 5.5 24 14.25 21 18${ REVERSED_DRAW_CURVES }`;
+	C0 11.5 3.25 6.25 9 4C15.9 1.3 26 6 25 13.5
+	C24 21 1 23 -1 13.5C-3 4 6.5 -1 14.5 1.25
+	C22.5 3.5 25 13 21 18${ REVERSED_DRAW_CURVES }`;
 
 export interface DrawIconHandle {
 	play: () => void;
@@ -42,7 +42,7 @@ export function DrawIcon( {
 				animations.current.some( ( animation ) => animation.playState === 'running' )
 			)
 				return;
-			const duration = getMotionDuration( 'reveal' ) * 1.5;
+			const duration = getMotionDuration( 'reveal' ) * 2;
 			if ( ! duration ) return;
 			animations.current.forEach( ( animation ) => animation.cancel() );
 			const length = rest.getTotalLength();
@@ -68,7 +68,15 @@ export function DrawIcon( {
 		},
 	} ) );
 	return (
-		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" { ...props }>
+		<svg
+			width="16"
+			height="16"
+			viewBox="0 0 24 24"
+			fill="none"
+			overflow="visible"
+			aria-hidden="true"
+			{ ...props }
+		>
 			<path
 				ref={ still }
 				d={ DRAW_PATH }

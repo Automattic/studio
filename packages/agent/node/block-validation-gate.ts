@@ -11,7 +11,6 @@
  * edit made meanwhile is never overwritten; the model hears only about what it
  * has to change itself.
  */
-import { createHash } from 'crypto';
 import { readFileSync } from 'fs';
 import { readFile, writeFile } from 'fs/promises';
 import path from 'path';
@@ -32,6 +31,7 @@ import {
 } from '@studio/agent/node/block-validator';
 import { boundedText } from '@studio/agent/node/bounded-list';
 import { rewriteNotes } from '@studio/agent/node/file-rewrites';
+import { hash } from '@studio/agent/node/post-copies';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { themePresets } from '@studio/agent/node/theme-presets';
 import type { StudioAgentHost } from '@studio/agent/node/host';
@@ -91,10 +91,6 @@ export function isBlockMarkupFile( filePath: string ): boolean {
 	} catch {
 		return false;
 	}
-}
-
-function hash( content: string ): string {
-	return createHash( 'sha1' ).update( content ).digest( 'hex' );
 }
 
 function oneLine( html: string, length: number ): string {

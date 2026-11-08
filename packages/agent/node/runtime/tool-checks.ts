@@ -27,7 +27,10 @@ import type { SitePin } from './site-pin';
 import type { Writers } from './writers';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { RenderCheck } from '@studio/agent/node/render-check';
-import type { StudioToolResultDetails } from '@studio/agent/node/tools/define-tool';
+import type {
+	CheckedToolOptions,
+	StudioToolResultDetails,
+} from '@studio/agent/node/tools/define-tool';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
@@ -95,7 +98,7 @@ export class AfterChecks {
 
 export function toToolDefinition(
 	host: StudioAgentHost,
-	tool: AgentToolAny,
+	tool: AgentToolAny & CheckedToolOptions,
 	payloadGuardState: StudioToolPayloadGuardState,
 	pendingWork: PendingWork,
 	blockValidationGate: BlockValidationGate,
@@ -179,9 +182,9 @@ export function toToolDefinition(
 				writers.claim( pendingWork, writtenFile );
 			}
 			await timeCheck( 'pendingWork', async () => {
-				if ( ( tool as { settlesPendingWork?: boolean } ).settlesPendingWork ) {
+				if ( tool.settlesPendingWork ) {
 					await pendingWork.settle();
-				} else if ( ! ( tool as { startsAtOnce?: boolean } ).startsAtOnce ) {
+				} else if ( ! tool.startsAtOnce ) {
 					// A file written or edited is all such a call touches: markup naming
 					// an image still being generated reads nothing of it.
 					await pendingWork.settleFilesIn( writtenFile ?? params );
@@ -212,8 +215,7 @@ export function toToolDefinition(
 					  )
 					: undefined;
 			const checksChanges = ! (
-				READ_ONLY_TOOLS.has( tool.name ) ||
-				( tool as { annotations?: { readOnlyHint?: boolean } } ).annotations?.readOnlyHint
+				READ_ONLY_TOOLS.has( tool.name ) || tool.annotations?.readOnlyHint
 			);
 			if ( checksChanges ) {
 				await timeCheck( 'siteChanges', () => siteChanges.begin().catch( () => undefined ) );
@@ -324,7 +326,7 @@ export function toToolDefinition(
 				const notes = await notesAfterCall(
 					siteNotes,
 					{
-						written: [ ...( writtenFile ? [ writtenFile ] : [] ), ...changed.written ],
+						changes: [ changed ],
 						writtenFile,
 						left,
 						site: resultSite,
@@ -336,11 +338,9 @@ export function toToolDefinition(
 					// The fixes above saved: the next call starts from the sites as they leave them.
 					siteChanges.afterChecks();
 				}
-				return [ ...changed.summaries, ...changed.problems, ...notes ]
-					.filter( Boolean )
-					.join( '\n' );
+				return notes.filter( Boolean ).join( '\n' );
 			} );
-			if ( ( tool as { reportsChecks?: boolean } ).reportsChecks ) {
+			if ( tool.reportsChecks ) {
 				await timeCheck( 'ownChecks', () => afterChecks.settle() );
 			}
 			// The checks of earlier calls, which go on those calls' results (see placeCallNotes).

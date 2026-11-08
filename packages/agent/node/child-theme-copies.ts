@@ -16,16 +16,17 @@
  */
 import { readdir, readFile, stat } from 'fs/promises';
 import path from 'path';
+import { fileStamp } from '@studio/agent/node/active-code';
 import { listed } from '@studio/agent/node/theme-file-changes';
-import { readThemeHeader, themesDir } from '@studio/agent/node/themes';
+import { parentTheme, themesDir } from '@studio/agent/node/themes';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
 const SCREENSHOT = /^screenshot\.(png|gif|jpe?g|webp|avif)$/;
 const SAME = ' same';
 
 const stampOf = async ( file: string ) => {
-	const { mtimeMs, size } = await stat( file );
-	return { stamp: `${ mtimeMs }:${ size }`, size };
+	const stats = await stat( file );
+	return { stamp: fileStamp( stats ), size: stats.size };
 };
 
 async function readCopies(
@@ -85,7 +86,7 @@ export const childThemeCopies: SiteChangeSource = {
 			.map( ( entry ) => entry.name );
 		const versions: Versions = {};
 		for ( const child of themes ) {
-			const parent = await readThemeHeader( sitePath, child, 'Template' ).catch( () => '' );
+			const parent = await parentTheme( sitePath, child );
 			if ( parent && parent !== child ) {
 				versions[ child ] = parent;
 				Object.assign( versions, await readCopies( themesFolder, child, parent, last ) );

@@ -148,16 +148,27 @@ export function describeStillOpen( problems: string[] ): string | undefined {
 		: undefined;
 }
 
+/** A check of a site's state at the end of the turn: its problems, if any. */
+export type TurnEndCheck = (
+	host: StudioAgentHost,
+	sitePath: string
+) => Promise< string | string[] | undefined >;
+
+/** Studio's checks of a site at the end of the turn, in the order their problems are raised. */
+export const TURN_END_CHECKS: TurnEndCheck[] = [
+	unrenderedPages,
+	( _host, sitePath ) => frontPageIsPostsPage( sitePath ),
+	( _host, sitePath ) => postsPageContent( sitePath ),
+	headerMenu,
+	( _host, sitePath ) => copiedPageChrome( sitePath ),
+	missingSourceText,
+];
+
 /** The open problems of a session, checked with each of Studio's checks of a site. */
 export function createOpenProblems( host: StudioAgentHost ): OpenProblems {
-	return new OpenProblems( [
-		( sitePath ) => unrenderedPages( host, sitePath ),
-		frontPageIsPostsPage,
-		postsPageContent,
-		( sitePath ) => headerMenu( host, sitePath ),
-		copiedPageChrome,
-		( sitePath ) => missingSourceText( host, sitePath ),
-	] );
+	return new OpenProblems(
+		TURN_END_CHECKS.map( ( check ) => ( sitePath: string ) => check( host, sitePath ) )
+	);
 }
 
 /**

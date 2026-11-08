@@ -13,7 +13,7 @@
 import { readFile, readdir } from 'fs/promises';
 import path from 'path';
 import { resolveSiteFile } from '@studio/agent/node/site-file';
-import { exists, isUpdatableTheme, readThemeHeader, themesDir } from '@studio/agent/node/themes';
+import { exists, isUpdatableTheme, parentTheme, themesDir } from '@studio/agent/node/themes';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
 const CREATED = 'created:';
@@ -28,7 +28,7 @@ const CREATED = 'created:';
  */
 async function themeKind( root: string, theme: string ): Promise< string > {
 	const dir = themesDir( root, theme );
-	if ( await readThemeHeader( root, theme, 'Template' ).catch( () => '' ) ) {
+	if ( await parentTheme( root, theme ) ) {
 		return 'child';
 	}
 	if ( await exists( path.join( dir, 'templates/index.html' ) ) ) {

@@ -48,6 +48,7 @@ import { writeThemeThumbnail } from '@studio/agent/node/theme-thumbnail';
 import type { BlockValidationGate } from '@studio/agent/node/block-validation-gate';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { OpenProblems } from '@studio/agent/node/open-problems';
+import type { SettledChanges } from '@studio/agent/node/site-changes';
 
 type Notes = string[] | Promise< string[] >;
 
@@ -311,21 +312,25 @@ export function createSiteNotes(
 }
 
 /**
- * The notes on a call that ran: on each file it wrote, one at a time as the
- * notes on each can save a fix to the same file, with `left` the text the file
- * tool left in `writtenFile` once Studio's fixes to it (fixWrite) were made,
- * then on its result about `site`.
+ * What a surface reports on a call that ran, the same on every surface: what
+ * `changes` settled (their summaries, then their problems), then the notes on
+ * each file the call wrote, one at a time as the notes on each can save a fix
+ * to the same file, then on its result about `site`.
+ *
+ * The files written are `writtenFile`, a file tool's, then those the changes
+ * found written. `left` is the text the file tool left in `writtenFile` once
+ * Studio's fixes to it (fixWrite) were made.
  */
 export async function notesAfterCall(
 	siteNotes: SiteNotes,
 	{
-		written,
+		changes,
 		writtenFile,
 		left,
 		site,
 		resultText,
 	}: {
-		written: Iterable< string >;
+		changes: SettledChanges[];
 		writtenFile?: string;
 		left?: string;
 		site?: string;
@@ -333,6 +338,10 @@ export async function notesAfterCall(
 	},
 	time: < T >( stage: string, run: () => Promise< T > ) => Promise< T > = ( _stage, run ) => run()
 ): Promise< string[] > {
+	const written = [
+		...( writtenFile ? [ writtenFile ] : [] ),
+		...changes.flatMap( ( changed ) => changed.written ),
+	];
 	const notes: string[] = [];
 	for ( const file of new Set( written ) ) {
 		notes.push(
@@ -348,5 +357,9 @@ export async function notesAfterCall(
 			...( await time( 'resultNotes', () => siteNotes.afterResult( site, resultText ) ) )
 		);
 	}
-	return notes;
+	return [
+		...changes.flatMap( ( changed ) => changed.summaries ),
+		...changes.flatMap( ( changed ) => changed.problems ),
+		...notes,
+	];
 }

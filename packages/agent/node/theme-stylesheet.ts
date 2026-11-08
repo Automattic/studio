@@ -13,6 +13,7 @@
  */
 import { readFile, stat, writeFile } from 'fs/promises';
 import path from 'path';
+import { fileStamp } from '@studio/agent/node/active-code';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { activeThemes, isUpdatableTheme, themesDir } from '@studio/agent/node/themes';
 import { wpEvalJson } from '@studio/agent/node/tools/utils';
@@ -104,11 +105,7 @@ export function withCode( functions: string | undefined, code: string ): string 
 	return inPhp ? `${ ends }\n${ code }` : `${ functions }\n<?php${ code }`;
 }
 
-const stampOf = ( file: string ) =>
-	stat( file ).then(
-		( { mtimeMs, size } ) => `${ mtimeMs }:${ size }`,
-		() => '-'
-	);
+const stampOf = ( file: string ) => stat( file ).then( fileStamp, () => '-' );
 
 const themesOf = ( sitePath: string ) => readWordPressSite( sitePath, activeThemes );
 

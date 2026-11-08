@@ -32,12 +32,7 @@ import { readWordPressSite } from '@studio/agent/node/site-database';
 import { isBlockMarkup, type SiteFile } from '@studio/agent/node/site-file';
 import { placeOf, saveMarkup, siteMarkup, type Markup } from '@studio/agent/node/site-markup';
 import { themePresets } from '@studio/agent/node/theme-presets';
-import {
-	activeThemes,
-	isUpdatableTheme,
-	readThemeHeader,
-	themesDir,
-} from '@studio/agent/node/themes';
+import { activeThemes, isUpdatableTheme, parentTheme, themesDir } from '@studio/agent/node/themes';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 
 // The blocks set to one raw value before it reads as a shared treatment.
@@ -286,7 +281,7 @@ async function addPresets(
 	const themeJson = JSON.parse( written );
 	const own = themeJson?.settings?.[ group ]?.[ list ];
 	// A child theme's list replaces its parent's, so one is added to only where it is.
-	const parent = await readThemeHeader( siteRoot, theme.slug, 'Template' ).catch( () => '' );
+	const parent = await parentTheme( siteRoot, theme.slug );
 	if ( ( parent && ! Array.isArray( own ) ) || ( await made.differs( theme.dir, themeJson ) ) ) {
 		return undefined;
 	}

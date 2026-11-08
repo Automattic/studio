@@ -13,7 +13,7 @@
 import fs from 'fs';
 import { boundedText } from '@studio/agent/node/bounded-list';
 import { jsonSyntaxError } from '@studio/agent/node/json-syntax';
-import { printedJson, runWpCli } from '@studio/agent/node/tools/utils';
+import { printedJson, wpEval } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { OpenProblems } from '@studio/agent/node/open-problems';
 import type { SiteFile } from '@studio/agent/node/site-file';
@@ -134,7 +134,7 @@ export async function themeJsonFileRead(
 	file: string,
 	relativePath: string
 ): Promise< { problem?: string; notes: string[] } > {
-	const output = await runWpCli( host, site, [ 'eval', READ( file ) ] );
+	const output = await wpEval( host, site, READ( file ) );
 	const read = printedJson< Read >( output, 'THEME_JSON_READ=' );
 	const problem = ! read.decoded
 		? `WordPress cannot decode ${ relativePath } as JSON (wp_json_file_decode in wp-includes/functions.php): ${

@@ -11,6 +11,7 @@
  */
 import { readdir, stat } from 'fs/promises';
 import path from 'path';
+import { fileStamp } from '@studio/agent/node/active-code';
 import { isUpdatableTheme, themesDir } from '@studio/agent/node/themes';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
@@ -39,8 +40,9 @@ async function walk( root: string, folder: string, versions: Versions ): Promise
 				}
 			} else if ( entry.isFile() ) {
 				const file = path.join( root, relative );
-				const { mtimeMs, size } = await stat( file ).catch( () => ( { mtimeMs: 0, size: -1 } ) );
-				versions[ file ] = `${ mtimeMs }:${ size }`;
+				versions[ file ] = fileStamp(
+					await stat( file ).catch( () => ( { mtimeMs: 0, size: -1 } ) )
+				);
 			}
 		} )
 	);

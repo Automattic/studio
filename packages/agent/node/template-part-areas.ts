@@ -15,6 +15,7 @@
 import { readFile, readdir, stat, writeFile } from 'fs/promises';
 import path from 'path';
 import { rewriteJson } from '@studio/common/lib/json-text';
+import { fileStamp } from '@studio/agent/node/active-code';
 import { exists, isUpdatableTheme, themesDir } from '@studio/agent/node/themes';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
@@ -87,7 +88,7 @@ export const templatePartAreas: SiteChangeSource = {
 					...( await markupFiles( path.join( root, theme ) ) ),
 				].map( ( file ) =>
 					stat( file ).then(
-						( { mtimeMs, size } ) => `${ path.basename( file ) }:${ mtimeMs }:${ size }`,
+						( stats ) => `${ path.basename( file ) }:${ fileStamp( stats ) }`,
 						() => ''
 					)
 				)

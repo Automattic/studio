@@ -3,6 +3,7 @@ import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { getSharedBrowser } from '@studio/agent/node/browser-utils';
+import { render } from '@studio/agent/node/page-render';
 import { resolveScreenshotDirectory } from '@studio/agent/node/screenshot-storage';
 import {
 	pageBandGaps,
@@ -487,17 +488,15 @@ export async function renderedCapture(
 	viewport: { width: number; height: number },
 	fullPage: boolean
 ): Promise< ScreenshotCapture | undefined > {
-	const render = await renders.get( renderKey( url, viewport ) );
-	if ( ! render ) {
+	const captured = await renders.get( renderKey( url, viewport ) );
+	if ( ! captured ) {
 		return undefined;
 	}
-	const html = await fetch( url, { signal: AbortSignal.timeout( 10000 ) } )
-		.then( ( response ) => response.text() )
-		.catch( () => undefined );
-	if ( html === undefined || pageVersion( html ) !== render.version ) {
+	const html = await render( url );
+	if ( html === undefined || pageVersion( html ) !== captured.version ) {
 		return undefined;
 	}
-	return fullPage ? render.fullPage : render.screen;
+	return fullPage ? captured.fullPage : captured.screen;
 }
 
 /**

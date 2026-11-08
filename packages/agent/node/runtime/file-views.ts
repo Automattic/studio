@@ -38,7 +38,7 @@ const CONTEXT = 2;
 const MAX_LCS_CELLS = 4_000_000;
 
 /** The lines that differ between `before` and `after`, each change with a little context. */
-export function lineDiff( before: string, after: string ): string {
+function lineDiff( before: string, after: string ): string {
 	const a = before.split( '\n' );
 	const b = after.split( '\n' );
 	let start = 0;

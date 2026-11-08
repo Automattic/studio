@@ -42,6 +42,13 @@ export async function readThemeHeader(
 }
 
 /**
+ * The parent a child theme's Template header names, or '' for a theme with
+ * none, as for one without a readable style.css.
+ */
+export const parentTheme = ( root: string, theme: string ) =>
+	readThemeHeader( root, theme, 'Template' ).catch( () => '' );
+
+/**
  * Whether WordPress treats a theme as a block theme: it, or the parent its
  * Template header names, has templates/index.html, or block-templates/index.html
  * from before WordPress 5.9 (WP_Theme::is_block_theme() and get_file_path()).

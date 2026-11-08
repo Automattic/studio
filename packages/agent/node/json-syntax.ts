@@ -4,7 +4,7 @@
  * the first character it cannot read. In the redo eval case a theme.json's
  * "css" lost its closing quote, and finding the character took eight calls.
  */
-export interface JsonSyntaxError {
+interface JsonSyntaxError {
 	line: number;
 	column: number;
 	reason: string;

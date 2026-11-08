@@ -128,6 +128,9 @@ export interface ToolOptions {
 	// The tool renders the site, so it runs only once the pending work of
 	// earlier tools, such as images still being generated, has settled.
 	settlesPendingWork?: boolean;
+	// The tool starts without waiting for the pending work of earlier tools on
+	// the files a call names: its own calls wait for the work they need.
+	startsAtOnce?: boolean;
 	// What the agent does next depends on what Studio knows of the site the
 	// call makes or starts, so its result waits for Studio's checks of the
 	// call, the site's facts among them, which otherwise come with the next.
@@ -176,10 +179,20 @@ export interface AnyStudioAgentTool {
 	prepareArguments?: ( args: unknown ) => unknown;
 	executionMode?: unknown;
 	settlesPendingWork?: boolean;
+	startsAtOnce?: boolean;
 	reportsChecks?: boolean;
 	annotations: ToolAnnotations;
 	siteParam?: string;
 }
+
+// What Studio's checks of a call read of the tool, which any tool Studio Code
+// runs may declare: Studio's own, Pi's, a subagent.
+export type CheckedToolOptions = Partial<
+	Pick<
+		AnyStudioAgentTool,
+		'annotations' | 'settlesPendingWork' | 'startsAtOnce' | 'reportsChecks'
+	>
+>;
 
 export function defineTool< TProps extends TProperties >(
 	name: string,
@@ -194,6 +207,7 @@ export function defineTool< TProps extends TProperties >(
 		parameters: Type.Object( properties ),
 		label: name,
 		...( options.settlesPendingWork ? { settlesPendingWork: true } : {} ),
+		...( options.startsAtOnce ? { startsAtOnce: true } : {} ),
 		...( options.reportsChecks ? { reportsChecks: true } : {} ),
 		...( options.forHost ? { forHost: options.forHost } : {} ),
 		...( options.siteParam ? { siteParam: options.siteParam } : {} ),

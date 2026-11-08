@@ -9,7 +9,7 @@ import { readFileSync } from 'fs';
 import { mkdir, readdir, rm, writeFile } from 'fs/promises';
 import path from 'path';
 import { readWordPressSite } from '@studio/agent/node/site-database';
-import { AS_ADMINISTRATOR, runWpCli, wpEvalJson } from '@studio/agent/node/tools/utils';
+import { AS_ADMINISTRATOR, wpEval, wpEvalJson } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 
 /** Same-second edits can have equal lengths; the content hash distinguishes them. */
@@ -94,7 +94,7 @@ $saved = wp_update_post( wp_slash( array( 'ID' => ${ id }, 'post_content' => fil
 		file
 	) } ) ) ), true );
 if ( is_wp_error( $saved ) ) { fwrite( STDERR, $saved->get_error_message() ); exit( 1 ); }`;
-	await runWpCli( host, site, [ 'eval', php ] );
+	await wpEval( host, site, php );
 }
 
 /**

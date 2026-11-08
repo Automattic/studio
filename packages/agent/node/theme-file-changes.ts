@@ -14,6 +14,7 @@ import { createHash } from 'crypto';
 import { existsSync, readdirSync, readFileSync } from 'fs';
 import { readdir, readFile, stat } from 'fs/promises';
 import path from 'path';
+import { fileStamp } from '@studio/agent/node/active-code';
 import {
 	isBlockTheme,
 	isUpdatableTheme,
@@ -37,8 +38,7 @@ async function readFiles( dir: string, slug: string, last: Versions ): Promise< 
 		entries.map( async ( entry ) => {
 			const file = path.join( entry.parentPath, entry.name );
 			const key = `${ slug }/${ path.relative( dir, file ).split( path.sep ).join( '/' ) }`;
-			const { mtimeMs, size } = await stat( file );
-			const stamp = `${ mtimeMs }:${ size }`;
+			const stamp = fileStamp( await stat( file ) );
 			const known = last[ key ]?.startsWith( `${ stamp } ` ) ? hashOf( last[ key ] ) : undefined;
 			const hash =
 				known ??

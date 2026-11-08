@@ -9,10 +9,14 @@ import { readdir, stat } from 'fs/promises';
 import path from 'path';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 
+/** A file's version as a check compares it: its modification time and size. */
+export const fileStamp = ( { mtimeMs, size }: { mtimeMs: number; size: number } ) =>
+	`${ mtimeMs }:${ size }`;
+
 // A file as its path, modification time and size.
 async function version( file: string, from: string ): Promise< string > {
-	const { mtimeMs, size } = await stat( file ).catch( () => ( { mtimeMs: 0, size: -1 } ) );
-	return `${ path.relative( from, file ) }:${ mtimeMs }:${ size }`;
+	const stamp = fileStamp( await stat( file ).catch( () => ( { mtimeMs: 0, size: -1 } ) ) );
+	return `${ path.relative( from, file ) }:${ stamp }`;
 }
 
 /**

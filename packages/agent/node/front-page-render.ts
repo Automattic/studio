@@ -7,6 +7,7 @@
  * renders as nothing.
  */
 import { stat } from 'fs/promises';
+import { fileStamp } from '@studio/agent/node/active-code';
 import { readVersions } from '@studio/agent/node/post-content-check';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { themeMarkupFiles } from '@studio/agent/node/site-markup';
@@ -28,8 +29,7 @@ export async function readRenderedVersions( sitePath: string ): Promise< Version
 	).flat();
 	const versions = await Promise.all(
 		files.map( async ( file ) => {
-			const { mtimeMs, size } = await stat( file );
-			return [ FILE + file, `${ mtimeMs }:${ size }` ];
+			return [ FILE + file, fileStamp( await stat( file ) ) ];
 		} )
 	);
 	return { ...( await readVersions( sitePath ) ), ...Object.fromEntries( versions ) };

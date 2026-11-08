@@ -33,7 +33,7 @@ interface HtmlBlockPolicyResult {
 	block?: string;
 }
 
-export interface HtmlBlockPolicyReport {
+interface HtmlBlockPolicyReport {
 	totalHtmlBlocks: number;
 	invalidHtmlBlocks: HtmlBlockPolicyResult[];
 }

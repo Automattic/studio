@@ -16,8 +16,8 @@
  */
 import { readdir } from 'fs/promises';
 import path from 'path';
-import { exists, readThemeHeader, themesDir } from '@studio/agent/node/themes';
-import { printedJson, runWpCli } from '@studio/agent/node/tools/utils';
+import { exists, parentTheme, themesDir } from '@studio/agent/node/themes';
+import { printedJson, wpEval } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { ChangeReport, SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
@@ -41,7 +41,7 @@ async function errorsOf(
 	site: HostSite,
 	themes: string[]
 ): Promise< Record< string, string > > {
-	const output = await runWpCli( host, site, [ 'eval', ERRORS( themes ) ] );
+	const output = await wpEval( host, site, ERRORS( themes ) );
 	return printedJson( output, 'THEME_ERRORS=' );
 }
 
@@ -50,13 +50,13 @@ async function errorsOf(
 async function filesVersion( root: string, theme: string ): Promise< string > {
 	const themes = themesDir( root );
 	const dir = path.join( themes, theme );
-	const parent = await readThemeHeader( root, theme, 'Template' ).catch( () => '' );
+	const parent = await parentTheme( root, theme );
 	const facts = await Promise.all( [
 		exists( path.join( dir, 'style.css' ) ),
 		exists( path.join( dir, 'index.php' ) ),
 		exists( path.join( dir, 'templates/index.html' ) ),
 		parent ? exists( path.join( themes, parent, 'style.css' ) ) : false,
-		parent ? readThemeHeader( root, parent, 'Template' ).catch( () => '' ) : '',
+		parent ? parentTheme( root, parent ) : '',
 	] );
 	return JSON.stringify( [ parent, ...facts ] );
 }

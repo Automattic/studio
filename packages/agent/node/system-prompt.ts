@@ -44,7 +44,7 @@ export interface TurnContextOptions {
 }
 
 // Enough to recognize a site by name; a longer list ends with how many more.
-export const LISTED_SITES_MAX = 20;
+const LISTED_SITES_MAX = 20;
 
 // The user's local sites by name and folder: under the folder Bash starts in
 // by its relative path, elsewhere by its absolute one.

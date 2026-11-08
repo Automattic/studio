@@ -15,6 +15,7 @@
  */
 import { readFile, readdir, stat } from 'fs/promises';
 import path from 'path';
+import { fileStamp } from '@studio/agent/node/active-code';
 import { savedPosts } from '@studio/agent/node/saved-copies';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { exists, isUpdatableTheme, themesDir } from '@studio/agent/node/themes';
@@ -60,7 +61,7 @@ async function partsFrom( sitePath: string, theme: string ): Promise< string > {
 	const stats = await Promise.all(
 		files.sort().map( async ( file ) => {
 			const info = await stat( path.join( dir, file ) ).catch( () => undefined );
-			return info && `${ file }:${ info.mtimeMs }:${ info.size }`;
+			return info && `${ file }:${ fileStamp( info ) }`;
 		} )
 	);
 	const saved = await readWordPressSite( sitePath, ( site ) => [

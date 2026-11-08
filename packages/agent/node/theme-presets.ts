@@ -16,9 +16,9 @@
 import { readFile, stat, writeFile } from 'fs/promises';
 import path from 'path';
 import { rewriteJson } from '@studio/common/lib/json-text';
-import { filesUnder } from '@studio/agent/node/active-code';
+import { fileStamp, filesUnder } from '@studio/agent/node/active-code';
 import { readWordPressSite, type WordPressSite } from '@studio/agent/node/site-database';
-import { activeThemes, readThemeHeader, themesDir } from '@studio/agent/node/themes';
+import { activeThemes, parentTheme, themesDir } from '@studio/agent/node/themes';
 import { wpEvalJson } from '@studio/agent/node/tools/utils';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { SiteFile } from '@studio/agent/node/site-file';
@@ -165,8 +165,7 @@ async function filesVersion( dir: string ): Promise< string > {
 	const files = await filesUnder( dir, ( name ) => name.endsWith( '.json' ) );
 	const versions = await Promise.all(
 		files.map( async ( file ) => {
-			const { mtimeMs, size } = await stat( file );
-			return `${ path.relative( dir, file ) }:${ mtimeMs }:${ size }`;
+			return `${ path.relative( dir, file ) }:${ fileStamp( await stat( file ) ) }`;
 		} )
 	);
 	return versions.sort().join( ',' );
@@ -245,8 +244,7 @@ export async function themePresets(
 	const active = activeThemes( site );
 	// An active child theme's parent renders with the child's presets merged in.
 	const previewed = theme && ! active.includes( theme ) ? theme : undefined;
-	const parent =
-		previewed && ( await readThemeHeader( site.root, previewed, 'Template' ).catch( () => '' ) );
+	const parent = previewed && ( await parentTheme( site.root, previewed ) );
 	const themes = previewed ? [ ...new Set( [ previewed, parent || previewed ] ) ] : active;
 	if ( ! themes.length ) {
 		return undefined;
@@ -301,7 +299,7 @@ export async function keepThemePresets(
 		if ( ! presets?.shadowed.length ) {
 			return [];
 		}
-		const parent = await readThemeHeader( site.root, slug, 'Template' ).catch( () => '' );
+		const parent = await parentTheme( site.root, slug );
 		const text = await siteText( site, [ ...new Set( [ slug, parent || slug ] ) ] );
 		const written = await readFile( themeJson, 'utf8' );
 		const json = JSON.parse( written );

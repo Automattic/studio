@@ -32,10 +32,9 @@ export async function runServedTool(
 	const since = await settled( siteChanges );
 	// A call that fails can still have changed content.
 	const changedContent = async ( result?: { site?: string; text: string } ) => {
-		const changed = await settled( siteChanges );
-		const written = [ ...since.written, ...changed.written ];
+		const changes = [ since, await settled( siteChanges ) ];
 		const notes = await notesAfterCall( siteNotes, {
-			written,
+			changes,
 			site: result?.site,
 			resultText: result?.text ?? '',
 		} );
@@ -43,17 +42,10 @@ export async function runServedTool(
 		// The fixes the checks of a written file saved are no change of the
 		// client's: the next call compares with the sites as they leave them,
 		// read before the client can change them again.
-		if ( written.length || validation?.saved.length ) {
+		if ( changes.some( ( changed ) => changed.written.length ) || validation?.saved.length ) {
 			await siteChanges?.snapshot().catch( () => undefined );
 		}
-		return [
-			...since.summaries,
-			...changed.summaries,
-			...since.problems,
-			...changed.problems,
-			...notes,
-			...( validation ? validationLines( validation ) : [] ),
-		];
+		return [ ...notes, ...( validation ? validationLines( validation ) : [] ) ];
 	};
 	try {
 		const result = await tool.rawHandler( args as never );

@@ -106,15 +106,8 @@ function describeInvalidBlocks(
 	report: ValidationReportBase,
 	lost = new Map< string, string >()
 ): string[] {
-	// A block inside one that stays as written stays as written too.
-	const inLost = ( place = '' ) =>
-		[ ...lost.keys() ].some( ( at ) => place === at || place.startsWith( `${ at }/` ) );
 	return report.results
-		.filter( ( result ) =>
-			lost.size
-				? lost.has( result.place ?? '' ) || ( ! result.isValid && inLost( result.place ) )
-				: ! result.isValid
-		)
+		.filter( ( result ) => ( lost.size ? lost.has( result.place ?? '' ) : ! result.isValid ) )
 		.slice( 0, 5 )
 		.flatMap( ( result ) => [
 			`  - ${ result.blockName }: ${
@@ -648,11 +641,10 @@ async function validateSavedMarkup(
 		};
 	}
 
-	// A block stays as written when the fix loses something from it or from a
-	// block it is inside; the editor's fix is saved for the rest.
+	// A block stays as written when the fix loses something from it; the
+	// editor's fix is saved for the rest, the blocks inside it too.
 	const lost = new Map( fix.losses.map( ( loss ) => [ loss.place, loss.lost ] ) );
-	const keptAsWritten = ( place = '' ) =>
-		[ ...lost.keys() ].some( ( at ) => place === at || place.startsWith( `${ at }/` ) );
+	const keptAsWritten = ( place = '' ) => lost.has( place );
 	const fixedBlocks = report.results.filter(
 		( result ) => ! result.isValid && ! keptAsWritten( result.place )
 	).length;

@@ -1245,3 +1245,60 @@ describe.runIf( siteUrl )(
 		}, 60000 );
 	}
 );
+
+describe.runIf( siteUrl )( "the fix for the blocks inside one it can't fix (live)", () => {
+	afterAll( cleanupValidatorPages );
+
+	it.each( [
+		{
+			// An eval's hero: a cover whose dim class names 80 for a dimRatio of
+			// 85, which its save rounds to 90, around blocks with the alignment
+			// their deprecations migrate.
+			name: 'blocks inside a cover kept as written',
+			written: [
+				'<!-- wp:cover {"url":"http://x/a.jpg","id":16,"dimRatio":85,"overlayColor":"base","align":"full","style":{"dimensions":{"minHeight":"88vh"}}} -->',
+				'<div class="wp-block-cover alignfull" style="min-height:88vh"><img class="wp-block-cover__image-background wp-image-16" alt="" src="http://x/a.jpg" data-object-fit="cover"/><span aria-hidden="true" class="wp-block-cover__background has-base-background-color has-background-dim-80 has-background-dim"></span><div class="wp-block-cover__inner-container"><!-- wp:paragraph {"align":"center","textColor":"accent-3"} -->',
+				'<p class="has-text-align-center has-accent-3-color has-text-color">Kicker</p>',
+				'<!-- /wp:paragraph -->',
+				'<!-- wp:heading {"textAlign":"center","level":1} -->',
+				'<h1 class="wp-block-heading has-text-align-center">Title</h1>',
+				'<!-- /wp:heading --></div></div>',
+				'<!-- /wp:cover -->',
+			].join( '\n' ),
+			lossy: [ '/0' ],
+		},
+		{
+			// An eval's separator: the color its has-accent-3-color class gives,
+			// which its save does not write inline, written inline too.
+			name: 'a style a preset class it saves gives',
+			written: [
+				'<!-- wp:separator {"backgroundColor":"accent-3"} -->',
+				'<hr class="wp-block-separator has-text-color has-accent-3-color has-alpha-channel-opacity has-accent-3-background-color has-background" style="background-color:var(--wp--preset--color--accent-3);color:var(--wp--preset--color--accent-3)"/>',
+				'<!-- /wp:separator -->',
+			].join( '\n' ),
+			lossy: [],
+		},
+		{
+			// The same on a cover's overlay, an inner element, from its overlayColor.
+			name: 'a style on an inner element a preset class it saves gives',
+			written: [
+				'<!-- wp:cover {"url":"http://x/a.jpg","id":16,"dimRatio":90,"overlayColor":"base"} -->',
+				'<div class="wp-block-cover"><img class="wp-block-cover__image-background wp-image-16" alt="" src="http://x/a.jpg" data-object-fit="cover"/><span aria-hidden="true" class="wp-block-cover__background has-base-background-color has-background-dim-90 has-background-dim" style="background-color:var(--wp--preset--color--base)"></span><div class="wp-block-cover__inner-container"></div></div>',
+				'<!-- /wp:cover -->',
+			].join( '\n' ),
+			lossy: [],
+		},
+	] )(
+		'saves the fix for $name',
+		async ( { written, lossy } ) => {
+			const report = await validateBlocks( written, siteUrl! );
+			expect( report.invalidBlocks ).toBeGreaterThan( lossy.length );
+			expect( report.proposedFix?.losses.map( ( loss ) => loss.place ) ).toEqual( lossy );
+			const stored = await validateBlocks( report.proposedFix!.fixedContent, siteUrl! );
+			expect(
+				stored.results.filter( ( result ) => ! result.isValid ).map( ( result ) => result.place )
+			).toEqual( lossy );
+		},
+		60_000
+	);
+} );

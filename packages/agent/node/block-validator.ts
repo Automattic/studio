@@ -1270,13 +1270,13 @@ async function validateAsWritten(
 					} );
 				}
 
-				// The presets a block's attribute names, with the style the editor saves
-				// for one in its class (getFontSizeClass and getColorClassName in
-				// @wordpress/block-editor), and the site's presets as the editor reads them.
+				// The style a preset's class gives, has-<slug>-<property>
+				// (getFontSizeClass and getColorClassName in @wordpress/block-editor),
+				// with its kind of preset and the site's presets as the editor reads them.
 				const PRESET_STYLES = [
-					[ 'fontSize', 'font-size', 'fontSizes', 'size' ],
-					[ 'textColor', 'color', 'colors', 'color' ],
-					[ 'backgroundColor', 'background-color', 'colors', 'color' ],
+					[ 'font-size', 'font-size', 'fontSizes', 'size' ],
+					[ 'color', 'color', 'colors', 'color' ],
+					[ 'background-color', 'color', 'colors', 'color' ],
 				] as const;
 				const editorSettings =
 					( window as any ).wp?.data?.select( 'core/block-editor' )?.getSettings?.() ?? {};
@@ -1286,20 +1286,22 @@ async function validateAsWritten(
 					scratch.style.setProperty( property, value );
 					return scratch.style.getPropertyValue( property );
 				};
-				// A style written on a block that the preset its fix keeps already
-				// gives it, as font-size:1.05rem on a button whose fontSize is a
-				// medium of 1.05rem, which its save shows as has-medium-font-size.
-				function presetShows( fix: any, style: string ): boolean {
-					return PRESET_STYLES.some( ( [ attribute, property, list, key ] ) => {
-						const slug = fix.attributes?.[ attribute ];
-						const preset = slug
-							? ( editorSettings[ list ] ?? [] ).find( ( one: any ) => one.slug === slug )
-							: undefined;
-						return (
-							typeof preset?.[ key ] === 'string' &&
-							style === `${ property }:${ asRead( property, preset[ key ] ) }`
-						);
-					} );
+				// A style written on a block that a preset class its fix saves already
+				// gives it, as font-size:1.05rem on a button saved with
+				// has-medium-font-size for a medium of 1.05rem, or
+				// color:var(--wp--preset--color--surface) saved as has-surface-color.
+				function presetShows( classes: Set< string >, style: string ): boolean {
+					return PRESET_STYLES.some( ( [ property, kind, list, key ] ) =>
+						( editorSettings[ list ] ?? [] ).some(
+							( preset: any ) =>
+								classes.has( `has-${ preset.slug }-${ property }` ) &&
+								[ preset[ key ], `var(--wp--preset--${ kind }--${ preset.slug })` ].some(
+									( value ) =>
+										typeof value === 'string' &&
+										style === `${ property }:${ asRead( property, value ) }`
+								)
+						)
+					);
 				}
 
 				// What the fix loses from each block as written, block by block: its
@@ -1325,7 +1327,7 @@ async function validateAsWritten(
 							[ ...names ].filter( ( name ) => ! kept.has( name ) );
 						const classes = missing( before.classes, after.classes );
 						const styles = missing( before.styles, after.styles ).filter(
-							( style ) => ! presetShows( fix, style )
+							( style ) => ! presetShows( after.classes, style )
 						);
 						const lost = {
 							text: before.text !== after.text ? [ 'change the text' ] : [],
@@ -1584,8 +1586,9 @@ async function validateAsWritten(
 				}
 
 				// The fix for every block that loses nothing. A block that would lose
-				// something stays as written, inner blocks and all: the serializer
-				// keeps a block that does not validate from its source.
+				// something stays as written, with each inner block in it as its own
+				// fix makes it: the serializer keeps a block that does not validate
+				// from its source, a raw block whose inner blocks are raw blocks too.
 				// Where a block keeps the layout and position styles a fix drops: its
 				// layout attribute and its spacing and position supports, which the
 				// block renders as a class (wp_render_layout_support_flag and
@@ -1736,9 +1739,19 @@ async function validateAsWritten(
 					return fixes.map( ( fix: any, i: number ) => {
 						const place = `${ at }/${ i }`;
 						const raw = lossy.has( place ) && initial.written.get( place );
-						return raw
-							? { ...fix, isValid: false, __unstableBlockSource: source( raw, place ) }
-							: { ...fix, innerBlocks: lossless( fix.innerBlocks ?? [], place, source ) };
+						const innerBlocks = lossless( fix.innerBlocks ?? [], place, source );
+						if ( ! raw ) {
+							return { ...fix, innerBlocks };
+						}
+						// Inner blocks the parser made other than those written stay as written.
+						const inner = sameInnerBlocks( blockAt( initial.blocks, place ), fix, place )
+							? innerBlocks.map( ( one: any ) => rawParse( wpBlocks.serialize( [ one ] ) )[ 0 ] )
+							: raw.innerBlocks;
+						return {
+							...fix,
+							isValid: false,
+							__unstableBlockSource: source( { ...raw, innerBlocks: inner }, place ),
+						};
 					} );
 				}
 				const losslessContent = lossList.length
@@ -1771,16 +1784,13 @@ async function validateAsWritten(
 						.map( ( word ) => word.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' ) )
 						.join( '\\s+' );
 				function lifted( raw: any, place: string ): any {
-					const innerBlocks = ( raw.innerBlocks ?? [] ).map( ( inner: any, i: number ) =>
-						lifted( inner, `${ place }/${ i }` )
-					);
-					const as = { ...raw, innerBlocks };
+					const innerBlocks = raw.innerBlocks ?? [];
 					const fix = losesText.has( place ) && blockAt( fixed.blocks, place );
 					const written = runs( raw );
 					const saved = fix ? runs( rawParse( wpBlocks.serialize( [ fix ] ) )[ 0 ] ) : [];
 					const last = written.length - 1;
 					if ( ! last || saved.length !== written.length ) {
-						return as;
+						return raw;
 					}
 					const innerContent: Array< string | null > = [];
 					const blocks: any[] = [];
@@ -1793,7 +1803,7 @@ async function validateAsWritten(
 								: ! saved[ i ].trim() && /^/;
 						const at = wrapper && wrapper.exec( run );
 						if ( ! at ) {
-							return as;
+							return raw;
 						}
 						const text = (
 							i === last ? run.slice( 0, at.index ) : run.slice( at[ 0 ].length )
@@ -1815,7 +1825,7 @@ async function validateAsWritten(
 						}
 					}
 					if ( blocks.length === innerBlocks.length ) {
-						return as;
+						return raw;
 					}
 					liftedFrom.push( fix.name );
 					return { ...raw, innerBlocks: blocks, innerContent };

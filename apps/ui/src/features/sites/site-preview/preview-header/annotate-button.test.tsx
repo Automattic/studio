@@ -35,7 +35,7 @@ describe( 'annotation control', () => {
 		await user.hover( button );
 		const hint = await screen.findByText( 'Point or draw to suggest a change.' );
 		const tooltip = hint.closest< HTMLElement >( '[data-slot="tooltip-content"]' )!;
-		expect( within( tooltip ).getByText( 'Annotate' ) ).toBeVisible();
+		expect( within( tooltip ).queryByText( 'Annotate' ) ).not.toBeInTheDocument();
 		expect( hint ).toBeVisible();
 		expect( button ).toHaveAccessibleDescription( 'Point or draw to suggest a change.' );
 		await user.click( button );

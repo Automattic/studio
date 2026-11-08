@@ -105,20 +105,15 @@ export function AnnotateButton( {
 					/>
 				}
 			/>
-			<TooltipContent side="bottom" className={ styles.tooltip }>
+			<TooltipContent side="bottom">
 				{ disabledReason ? (
 					disabledReason
 				) : (
 					<>
-						<div className={ styles.tooltipHeading }>
-							<span className={ styles.tooltipTitle }>{ label }</span>
-							{ ! disabled && (
-								<Kbd className={ styles.shortcut }>
-									{ active ? __( 'Esc' ) : displayShortcut.primaryShift( '.' ) }
-								</Kbd>
-							) }
-						</div>
-						{ ! active && <span className={ styles.tooltipDescription }>{ description }</span> }
+						{ active ? label : description }
+						{ ! disabled && (
+							<Kbd>{ active ? __( 'Esc' ) : displayShortcut.primaryShift( '.' ) }</Kbd>
+						) }
 					</>
 				) }
 			</TooltipContent>

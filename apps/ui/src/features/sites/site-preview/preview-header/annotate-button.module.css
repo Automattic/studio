@@ -1,32 +1,3 @@
 .icon {
 	display: flex;
 }
-
-.tooltip {
-	flex-direction: column;
-	align-items: stretch;
-	gap: var( --space-1 );
-	max-width: 240px;
-	padding: var( --space-2 ) var( --space-2_5 );
-}
-
-.tooltipHeading {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var( --space-3 );
-}
-
-.tooltipTitle {
-	font-weight: var( --font-weight-medium );
-}
-
-.tooltipDescription {
-	color: var( --muted-foreground );
-	text-wrap: pretty;
-}
-
-.shortcut {
-	flex: none;
-	white-space: nowrap;
-}

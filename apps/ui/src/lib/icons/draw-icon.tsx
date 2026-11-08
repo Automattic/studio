@@ -19,21 +19,35 @@ function createStringFrames( rest: SVGPathElement, travel: SVGPathElement ): Key
 		const index = Math.min( 256, ( position / distance ) * 256 );
 		const start = Math.min( 255, Math.floor( index ) );
 		const fraction = index - start;
-		return {
-			x: route[ start ].x + ( route[ start + 1 ].x - route[ start ].x ) * fraction,
-			y: route[ start ].y + ( route[ start + 1 ].y - route[ start ].y ) * fraction,
+		const interpolate = ( coordinate: 'x' | 'y' ) => {
+			const a = route[ Math.max( 0, start - 1 ) ][ coordinate ];
+			const b = route[ start ][ coordinate ];
+			const c = route[ start + 1 ][ coordinate ];
+			const d = route[ Math.min( 256, start + 2 ) ][ coordinate ];
+			return (
+				b +
+				0.5 *
+					fraction *
+					( c -
+						a +
+						fraction * ( 2 * a - 5 * b + 4 * c - d + fraction * ( 3 * ( b - c ) + d - a ) ) )
+			);
 		};
+		return {
+			x: interpolate( 'x' ),
+			y: interpolate( 'y' ),
+		};
+	};
+	const advance = ( progress: number ) => {
+		const phase = Math.max( 0, Math.min( 1, progress ) );
+		const ramp = ( value: number ) => value ** 3 - 0.5 * value ** 4;
+		if ( phase < 0.1 ) return ( 0.1 * ramp( phase / 0.1 ) ) / 0.9;
+		if ( phase > 0.9 ) return 1 - ( 0.1 * ramp( ( 1 - phase ) / 0.1 ) ) / 0.9;
+		return ( phase - 0.05 ) / 0.9;
 	};
 	const restingPoints = Array.from( { length: 129 }, ( _, i ) =>
 		rest.getPointAtLength( ( length * i ) / 128 )
 	);
-	const measure = ( points: { x: number; y: number }[] ) =>
-		points.reduce(
-			( total, point, i ) =>
-				total + ( i ? Math.hypot( point.x - points[ i - 1 ].x, point.y - points[ i - 1 ].y ) : 0 ),
-			0
-		);
-	const stringLength = measure( restingPoints );
 	return Array.from( { length: 121 }, ( _, frame ) => {
 		const progress = frame / 120;
 		const points =
@@ -42,11 +56,13 @@ function createStringFrames( rest: SVGPathElement, travel: SVGPathElement ): Key
 				: restingPoints.map( ( _, i ) => {
 						const position = i / 128;
 						const delay = ( 1 - position ) * 0.1;
-						const advance = Math.max( 0, Math.min( 1, ( progress - delay ) / 0.9 ) );
-						return sample( length * position + ( distance - length ) * advance );
+						return sample(
+							length * position + ( distance - length ) * advance( ( progress - delay ) / 0.9 )
+						);
 				  } );
 		const head = points[ points.length - 1 ];
-		const scale = stringLength / measure( points );
+		const lead = advance( progress / 0.9 ) - advance( ( progress - 0.1 ) / 0.9 );
+		const scale = length / ( length + ( distance - length ) * lead );
 		const path = points
 			.map(
 				( point, i ) =>

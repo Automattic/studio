@@ -363,7 +363,7 @@ function SitePreviewContent( {
 			if ( inactive ) return;
 			if ( event.type === 'browser-command' ) {
 				sendBrowserCommand( event.command );
-			} else if ( event.type === 'drawing' ) {
+			} else if ( event.type === 'drawing' || event.type === 'annotation-tool' ) {
 				handleAnnotationToolEvent( event );
 			} else {
 				handleAnnotationEvent( event );

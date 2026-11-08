@@ -10,7 +10,7 @@
  *   host -> page: `INSPECTOR_COMMAND_EVENT` on `window`, with the annotation
  *                 state as its detail (active, notes, editingId, colors).
  *   page -> host: `console.log( INSPECTOR_BRIDGE_PREFIX + JSON )`:
- *                 pick | drawing | edit | anchor | escape | browser-command.
+ *                 pick | drawing | annotation-tool | edit | anchor | escape | browser-command.
  *
  * Browser shortcuts (reload, back, forward) pressed inside the page are
  * forwarded too, so the host can handle them.
@@ -26,6 +26,7 @@ import {
 	parseInspectorSelection,
 	type InspectorSelection,
 } from './selection';
+import { getAnnotationToolShortcut, type AnnotationTool } from './shortcuts';
 import type { VisualAnnotationTarget } from '@studio/agent/protocol/visual-annotations';
 
 export const INSPECTOR_BRIDGE_PREFIX = '__studio-inspector__:';
@@ -116,6 +117,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 	let originalStroke = null;
 	let replacementId = null;
 	const { pathData, recognizeEllipse } = (${ createDrawingGeometry.toString() })();
+	const annotationToolShortcut = (${ getAnnotationToolShortcut.toString() });
 	function pathFor(points, color, width) {
 		const path = document.createElementNS(svg.namespaceURI, 'path');
 		path.setAttribute('fill', 'none');
@@ -434,7 +436,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		if (!frame) frame = requestAnimationFrame(render);
 	}
 	function isTextEntry(el) {
-		return !!el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName));
+		return el instanceof Element && !!el.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])');
 	}
 	function shortcut(e) {
 		if (e.defaultPrevented || e.repeat) return null;
@@ -629,6 +631,13 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 	document.addEventListener(
 		'keydown',
 		(e) => {
+			const tool = annotationToolShortcut(e);
+			const target = e.composedPath()[0];
+			if (tool && state.active && (state.tool === 'select' || state.tool === 'draw') && !state.busy && !gesture && !isTextEntry(target) && !(target instanceof Element && target.closest('[role="menu"], [role="listbox"], [role="dialog"], dialog[open]'))) {
+				e.preventDefault(); e.stopPropagation();
+				emit({ type: 'annotation-tool', tool });
+				return;
+			}
 			if (state.active && e.key === 'Escape') {
 				e.preventDefault();
 				e.stopPropagation();
@@ -687,6 +696,7 @@ interface Point {
 
 export type InspectorEvent =
 	| { type: 'drawing'; selection: InspectorSelection | null }
+	| { type: 'annotation-tool'; tool: AnnotationTool }
 	| { type: 'pick'; target: VisualAnnotationTarget; anchor: Point }
 	| { type: 'edit'; id: string; anchor: Point }
 	| { type: 'anchor'; id: string; anchor: Point | null }
@@ -775,6 +785,10 @@ export function parseInspectorMessage(
 	if ( ! isData( data ) ) return null;
 	const anchor = point( data.anchor, offset );
 	switch ( data.type ) {
+		case 'annotation-tool':
+			return data.tool === 'select' || data.tool === 'draw'
+				? { type: 'annotation-tool', tool: data.tool }
+				: null;
 		case 'drawing': {
 			if ( data.type === 'drawing' && data.selection === null )
 				return { type: 'drawing', selection: null };

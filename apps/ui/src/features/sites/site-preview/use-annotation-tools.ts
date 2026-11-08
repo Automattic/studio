@@ -2,6 +2,10 @@ import {
 	STUDIO_CHAT_MAX_IMAGES,
 	validateStudioChatImages,
 } from '@studio/agent/protocol/chat-images';
+import {
+	getAnnotationToolShortcut,
+	type AnnotationTool,
+} from '@studio/agent/protocol/inspector/shortcuts';
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import { toast } from '@/data/app-messages';
@@ -12,9 +16,11 @@ import {
 	closeAnnotationEditor,
 	getSiteAnnotations,
 	hasAnnotationContent,
+	isAnnotationsBusy,
 	setAnnotationsPreparing,
 	useSiteAnnotations,
 } from '@/features/annotations';
+import { isDialogOpen, isTextEntry } from '@/lib/keyboard';
 import { getWebviewContentsId, type WebviewTag } from './preview-surface/webview';
 import type { usePreviewAnnotations } from './use-preview-annotations';
 import type { InspectorAction, InspectorEvent } from '@studio/agent/protocol/inspector/page-script';
@@ -33,7 +39,7 @@ export function useAnnotationTools( {
 } ) {
 	const connector = useConnector();
 	const annotations = useSiteAnnotations( siteId );
-	const [ tool, setTool ] = useState< 'select' | 'draw' >( 'select' );
+	const [ tool, setTool ] = useState< AnnotationTool >( 'select' );
 	const drawing = tool === 'draw';
 	const [ draft, setDraft ] = useState< InspectorSelection | null >( null );
 	const [ failed, setFailed ] = useState( false );
@@ -172,23 +178,55 @@ export function useAnnotationTools( {
 		if ( enabled && annotations.active && draft && ! capturePending && ! failed )
 			void capture( draft );
 	}, [ enabled, annotations.active, draft, capturePending, failed, capture ] );
-	const handleEvent = useCallback(
-		( event: Extract< InspectorEvent, { type: 'drawing' } > ) => {
-			if ( ! enabled ) return;
-			updateDraft( event.selection );
+	const selectTool = useCallback(
+		( next: AnnotationTool ) => {
+			const current = getSiteAnnotations( siteId );
+			if (
+				! enabled ||
+				! current.active ||
+				capturing.current ||
+				isAnnotationsBusy( current ) ||
+				next === tool
+			)
+				return;
+			if ( draftRef.current ) {
+				void capture( draftRef.current, next === 'select' );
+				return;
+			}
+			if ( ! canPickAnnotation( siteId ) ) return;
+			closeAnnotationEditor( siteId );
+			setTool( next );
 		},
-		[ enabled, updateDraft ]
+		[ capture, enabled, siteId, tool ]
 	);
-	const toggleDrawing = () => {
-		if ( capturing.current ) return;
-		if ( draftRef.current ) {
-			void capture( draftRef.current, drawing );
-			return;
-		}
-		if ( ! canPickAnnotation( siteId ) ) return;
-		closeAnnotationEditor( siteId );
-		setTool( drawing ? 'select' : 'draw' );
-	};
+	useEffect( () => {
+		if ( ! enabled || ! annotations.active ) return;
+		const handleKeyDown = ( event: KeyboardEvent ) => {
+			const next = getAnnotationToolShortcut( event );
+			const target = event.composedPath()[ 0 ] ?? event.target;
+			if (
+				! next ||
+				isTextEntry( target ) ||
+				isDialogOpen() ||
+				( target instanceof Element &&
+					target.closest( '[role="menu"], [role="listbox"], [role="dialog"]' ) )
+			)
+				return;
+			event.preventDefault();
+			event.stopPropagation();
+			selectTool( next );
+		};
+		document.addEventListener( 'keydown', handleKeyDown );
+		return () => document.removeEventListener( 'keydown', handleKeyDown );
+	}, [ annotations.active, enabled, selectTool ] );
+	const handleEvent = useCallback(
+		( event: Extract< InspectorEvent, { type: 'drawing' | 'annotation-tool' } > ) => {
+			if ( ! enabled ) return;
+			if ( event.type === 'annotation-tool' ) selectTool( event.tool );
+			else updateDraft( event.selection );
+		},
+		[ enabled, selectTool, updateDraft ]
+	);
 	const escapeDraft = () => {
 		if ( ! draftRef.current ) return false;
 		if ( ! capturing.current ) clear();
@@ -204,7 +242,7 @@ export function useAnnotationTools( {
 			drawing,
 			pending: !! draft,
 			failed,
-			onToggle: toggleDrawing,
+			onToggle: () => selectTool( drawing ? 'select' : 'draw' ),
 			onRetry: () => {
 				if ( draftRef.current ) void capture( draftRef.current );
 			},

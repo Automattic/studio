@@ -642,6 +642,82 @@ describe( 'annotation inspector', () => {
 		expect( events() ).toEqual( [] );
 	} );
 
+	it.each( [
+		[ 'v', 'KeyV', 'select' ],
+		[ 'd', 'KeyD', 'draw' ],
+		[ 'D', 'KeyD', 'draw' ],
+		[ 'в', 'KeyD', 'draw' ],
+	] )( 'forwards the %s tool shortcut from the preview', ( key, code, tool ) => {
+		const events = mount();
+		publish( { active: true, tool: 'select' } );
+		const event = new KeyboardEvent( 'keydown', { key, code, bubbles: true, cancelable: true } );
+		document.dispatchEvent( event );
+		expect( event.defaultPrevented ).toBe( true );
+		expect( events() ).toEqual( [ { type: 'annotation-tool', tool } ] );
+	} );
+
+	it.each( [
+		{ ctrlKey: true },
+		{ metaKey: true },
+		{ altKey: true },
+		{ shiftKey: true },
+		{ repeat: true },
+		{ isComposing: true },
+		{ keyCode: 229 },
+	] )( 'leaves modified, repeated, and composing tool keys alone (%j)', ( modifiers ) => {
+		const events = mount();
+		publish( { active: true, tool: 'select' } );
+		const event = new KeyboardEvent( 'keydown', {
+			key: 'd',
+			code: 'KeyD',
+			bubbles: true,
+			cancelable: true,
+			...modifiers,
+		} );
+		document.dispatchEvent( event );
+		expect( event.defaultPrevented ).toBe( false );
+		expect( events() ).toEqual( [] );
+	} );
+
+	it.each( [
+		'<input>',
+		'<textarea></textarea>',
+		'<select></select>',
+		'<div contenteditable="true"><span>Editing</span></div>',
+		'<div role="menu"><button>Duplicate</button></div>',
+		'<div role="dialog"><button>Done</button></div>',
+	] )( 'leaves tool letters to editing and popup controls: %s', ( html ) => {
+		document.body.innerHTML = html;
+		const events = mount();
+		publish( { active: true, tool: 'select' } );
+		const event = new KeyboardEvent( 'keydown', {
+			key: 'd',
+			bubbles: true,
+			cancelable: true,
+		} );
+		const target = document.querySelector( 'span, button, input, textarea, select' )!;
+		target.dispatchEvent( event );
+		expect( event.defaultPrevented ).toBe( false );
+		expect( events() ).toEqual( [] );
+	} );
+
+	it.each( [
+		{ active: false, tool: 'select' },
+		{ active: true, tool: 'select', busy: true },
+		{ active: true },
+	] )( 'only handles tool keys for an available drawing toolbar (%j)', ( state ) => {
+		const events = mount();
+		publish( state );
+		const event = new KeyboardEvent( 'keydown', {
+			key: 'd',
+			bubbles: true,
+			cancelable: true,
+		} );
+		document.dispatchEvent( event );
+		expect( event.defaultPrevented ).toBe( false );
+		expect( events() ).toEqual( [] );
+	} );
+
 	it( 'leaves the page alone outside annotation mode but forwards browser shortcuts', () => {
 		document.body.innerHTML = '<a href="#next">Next</a>';
 		const events = mount();
@@ -687,6 +763,7 @@ describe( 'parseInspectorMessage', () => {
 		'plain page output',
 		message( { type: 'pick', anchor: { left: 0, top: 0 }, target: { tag: 'h1' } } ),
 		message( { type: 'browser-command', command: 'close' } ),
+		message( { type: 'annotation-tool', tool: 'erase' } ),
 		INSPECTOR_BRIDGE_PREFIX + '{',
 		message( { type: 'escape', padding: 'x'.repeat( 100_000 ) } ),
 	] )( 'ignores %s', ( value ) => {

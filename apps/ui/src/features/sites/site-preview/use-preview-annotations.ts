@@ -12,7 +12,10 @@ import type { PreviewSurfaceKey } from './surfaces';
 import type { InspectorEvent } from '@studio/agent/protocol/inspector/page-script';
 import type { VisualAnnotationTarget } from '@studio/agent/protocol/visual-annotations';
 
-type AnnotationEvent = Exclude< InspectorEvent, { type: 'browser-command' | 'drawing' } >;
+type AnnotationEvent = Exclude<
+	InspectorEvent,
+	{ type: 'browser-command' | 'drawing' | 'annotation-tool' }
+>;
 
 // Where the note being written sits over the preview, from the picks and
 // moves the annotated surface reports.

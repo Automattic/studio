@@ -184,6 +184,66 @@ describe( 'annotation inspector navigation', () => {
 		expect( toolbar ).not.toHaveAttribute( 'inert' );
 	} );
 
+	it( 'switches tools with V and D in the app and preview, and shows the shortcuts in tooltips', async () => {
+		const { emit, annotate, preview, user } = await setup();
+		emit( 'dom-ready' );
+		await waitFor( () => expect( annotate() ).toBeEnabled() );
+		fireEvent.keyDown( document, { key: 'd' } );
+		expect( getSiteAnnotations( site.id ).active ).toBe( false );
+		fireEvent.click( annotate() );
+		const draw = drawButton();
+		const select = screen.getByRole( 'button', { name: 'Select' } );
+		expect( draw ).toHaveAttribute( 'aria-keyshortcuts', 'd' );
+		expect( select ).toHaveAttribute( 'aria-keyshortcuts', 'v' );
+		await user.hover( draw );
+		expect( await screen.findByText( 'D', { selector: 'kbd' } ) ).toBeVisible();
+		fireEvent.keyDown( document, { key: 'd' } );
+		expect( pageState( preview ).tool ).toBe( 'draw' );
+		fireEvent.keyDown( document, { key: 'd' } );
+		expect( draw ).toHaveAttribute( 'aria-pressed', 'true' );
+		await user.hover( select );
+		expect( await screen.findByText( 'V', { selector: 'kbd' } ) ).toBeVisible();
+		fireEvent.keyDown( document, { key: 'v' } );
+		expect( pageState( preview ).tool ).toBe( 'select' );
+		const fromPreview = ( tool: string ) =>
+			emit( 'console-message', {
+				message: INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'annotation-tool', tool } ),
+			} );
+		fromPreview( 'draw' );
+		fromPreview( 'draw' );
+		expect( draw ).toHaveAttribute( 'aria-pressed', 'true' );
+		fromPreview( 'select' );
+		expect( select ).toHaveAttribute( 'aria-pressed', 'true' );
+		act( () => setAnnotationsPreparing( site.id, true ) );
+		fireEvent.keyDown( document, { key: 'd' } );
+		fromPreview( 'draw' );
+		expect( pageState( preview ).tool ).toBe( 'select' );
+	} );
+
+	it( 'lets note typing keep V and D and protects the unfinished note when switching tools', async () => {
+		const { emit, annotate, preview, user } = await setup();
+		emit( 'dom-ready' );
+		await waitFor( () => expect( annotate() ).toBeEnabled() );
+		fireEvent.click( annotate() );
+		emit( 'console-message', {
+			message:
+				INSPECTOR_BRIDGE_PREFIX +
+				JSON.stringify( {
+					type: 'pick',
+					target: { selector: 'h1', tag: 'h1', url: site.url },
+					anchor: { left: 100, top: 100 },
+				} ),
+		} );
+		const input = await screen.findByRole( 'textbox', { name: 'Describe the change' } );
+		await user.type( input, 'vivid drawing' );
+		expect( input ).toHaveValue( 'vivid drawing' );
+		expect( pageState( preview ).tool ).toBe( 'select' );
+		fireEvent.keyDown( document, { key: 'd' } );
+		expect( pageState( preview ).tool ).toBe( 'select' );
+		expect( getSiteAnnotations( site.id ).notes[ 0 ].comment ).toBe( 'vivid drawing' );
+		expect( getSiteAnnotations( site.id ).blockedNavigation ).toBeGreaterThan( 0 );
+	} );
+
 	it( 'discards saved annotations and the current draft from the toolbar and turns annotation mode off', async () => {
 		const { emit, annotate, onSendAnnotations } = await setup();
 		emit( 'dom-ready' );

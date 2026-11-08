@@ -43,6 +43,7 @@ export function AnnotationTools( {
 							variant="accent-ghost"
 							icon={ <SelectIcon /> }
 							label={ __( 'Select' ) }
+							shortcut={ { displayShortcut: 'V', ariaKeyShortcut: 'v' } }
 							aria-pressed={ ! drawing }
 							disabled={ disabled }
 							focusableWhenDisabled={ false }
@@ -58,6 +59,7 @@ export function AnnotationTools( {
 							variant="accent-ghost"
 							icon={ <DrawIcon /> }
 							label={ __( 'Draw' ) }
+							shortcut={ { displayShortcut: 'D', ariaKeyShortcut: 'd' } }
 							aria-pressed={ drawing }
 							disabled={ disabled }
 							focusableWhenDisabled={ false }

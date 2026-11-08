@@ -47,17 +47,14 @@ export function DrawIcon( {
 				animations.current.some( ( animation ) => animation.playState === 'running' )
 			)
 				return;
-			const duration = getMotionDuration( 'reveal' ) * 2;
+			const duration = getMotionDuration( 'reveal' ) * 1.5;
 			if ( ! duration ) return;
 			animations.current.forEach( ( animation ) => animation.cancel() );
 			const length = rest.getTotalLength();
 			const distance = line.getTotalLength();
 			// The full-route gap keeps a single fixed-length stroke visible.
 			line.setAttribute( 'stroke-dasharray', `${ length } ${ distance }` );
-			const easing = getComputedStyle( document.documentElement )
-				.getPropertyValue( '--motion-ease-layout' )
-				.trim();
-			const options = { duration, easing };
+			const options = { duration, easing: 'ease' };
 			animations.current = [
 				rest.animate( [ { opacity: 0 }, { opacity: 0 } ], options ),
 				line.animate(

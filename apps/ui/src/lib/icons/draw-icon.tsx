@@ -5,10 +5,9 @@ import { getMotionDuration } from '@/lib/theme';
 const DRAW_PATH =
 	'M3 8.5C8 3.5 15 1 17.5 4C20 7 4.5 14.75 7 17C9.5 19.25 17.25 8.25 20 10.5C22.25 12.5 13.5 19 16.5 20.5C18 21.25 20 19.25 21 18';
 const LOOP_PATH = `${ DRAW_PATH }
-	C23 15.5 21.5 10 17.25 8.75C11.5 7 6 12 6.75 16.5
-	C7.5 21 17 22 20 16.25C23 10.5 13 1 7 3.75
-	C1 6.5 3 17 9 16.5C15 16 19 6 14 4
-	C9 2 0 11.5 3 8.5Z`;
+	C24 14.25 20.75 5.5 14.5 3.75C8.25 2 2 7.25 3.5 13.5
+	C5 19.75 15 21.75 19.25 16C23.5 10.25 14.75 1.75 9 4
+	C3.25 6.25 0 11.5 3 8.5Z`;
 
 export interface DrawIconHandle {
 	play: () => void;
@@ -54,8 +53,12 @@ export function DrawIcon( {
 				rest.animate( [ { opacity: 0 }, { opacity: 0 } ], options ),
 				loop.animate(
 					[
-						{ opacity: 1, strokeDashoffset: '0px' },
-						{ opacity: 1, strokeDashoffset: `${ -loopLength }px` },
+						{ opacity: 1, strokeDashoffset: '0px', transform: 'rotate(0deg)' },
+						{
+							opacity: 1,
+							strokeDashoffset: `${ -loopLength }px`,
+							transform: 'rotate(-360deg)',
+						},
 					],
 					options
 				),
@@ -78,6 +81,7 @@ export function DrawIcon( {
 				ref={ moving }
 				d={ LOOP_PATH }
 				opacity="0"
+				style={ { transformOrigin: '12px 12px' } }
 				stroke="currentColor"
 				strokeWidth="2"
 				strokeLinecap="round"

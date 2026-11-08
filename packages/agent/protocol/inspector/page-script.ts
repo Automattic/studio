@@ -240,17 +240,15 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><defs><filter id="s" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.14"/></filter></defs><circle cx="16" cy="16" r="12" fill="' + accent + '" filter="url(#s)"/><circle cx="16" cy="16" r="11.5" fill="none" stroke="' + onAccent + '" stroke-opacity="0.06" stroke-width="1"/></svg>';
 		return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '")';
 	}
-	function drawingCursor(color, outline) {
+	function drawingCursor() {
 		const path = '${ RENAME_ICON.path }';
 		const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="${
 			RENAME_ICON.viewBox
 		}" stroke-linecap="${ RENAME_ICON.strokeLinecap }" stroke-linejoin="${
 			RENAME_ICON.strokeLinejoin
-		}" fill="' + outline + '"><path d="' + path + '" stroke="' + outline + '" stroke-width="${
+		}" fill="white"><path d="' + path + '" stroke="white" stroke-width="${
 			RENAME_ICON.strokeWidth + 2
-		}"/><path d="' + path + '" stroke="' + color + '" stroke-width="${
-			RENAME_ICON.strokeWidth
-		}"/></svg>';
+		}"/><path d="' + path + '" stroke="black" stroke-width="${ RENAME_ICON.strokeWidth }"/></svg>';
 		return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '") 3 21, crosshair';
 	}
 	function selector(el) {
@@ -493,7 +491,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 			host.style.setProperty('--on-error', state.onDestructive || state.onAccent);
 			host.style.setProperty('--motion-duration-surface', state.motionDuration || '180ms');
 			host.style.setProperty('--motion-ease-enter', state.motionEasing || 'cubic-bezier(.165,.84,.44,1)');
-			const cursor = state.tool === 'draw' ? drawingCursor(state.penColor || state.accent, state.onAccent) : 'crosshair';
+			const cursor = state.tool === 'draw' ? drawingCursor() : 'crosshair';
 			cursorStyle.textContent = state.active ? '*{cursor:' + cursor + '!important}' : '';
 			const note = state.notes.find((n) => n.id === state.editingId);
 			selected = note && onPage(note) ? resolve(note) : null;

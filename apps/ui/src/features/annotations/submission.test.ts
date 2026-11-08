@@ -27,6 +27,30 @@ const note = ( overrides: Partial< PreviewAnnotation > ): PreviewAnnotation => (
 } );
 
 describe( 'annotationSubmission', () => {
+	it( 'sends a selected area with its screenshot and geometry without inventing a selector', () => {
+		const area = { left: 10, top: 120, width: 300, height: 200 };
+		const { prompt, options } = annotationSubmission(
+			'',
+			[],
+			[
+				note( {
+					kind: 'region',
+					tag: undefined,
+					viewport: { width: 800, height: 600 },
+					documentRect: area,
+					images: [ image( 'region' ) ],
+				} ),
+			]
+		);
+		expect( prompt ).toContain( '### 1. selected area' );
+		expect( prompt ).toContain( '"kind": "region"' );
+		expect( prompt ).toContain( '"top": 120' );
+		expect( prompt ).not.toContain( '- Selector:' );
+		expect( options.visualAnnotations ).toMatchObject( [
+			{ elementLabel: 'Selected area', imageIds: [ 'region' ] },
+		] );
+	} );
+
 	it( 'puts the typed message first and numbers each note’s images in send order', () => {
 		const { prompt, options } = annotationSubmission(
 			'Also check spacing',

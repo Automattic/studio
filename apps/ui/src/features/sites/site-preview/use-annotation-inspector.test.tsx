@@ -21,6 +21,7 @@ import { SiteHeaderActions, SiteHeaderActionsProvider } from '@/features/sites/s
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SitePreview } from '.';
+import type { InspectorSelection } from '@studio/agent/protocol/inspector/selection';
 
 const REAL_USER_AGENT = window.navigator.userAgent;
 const site = makeSite( { id: 'site', running: true } );
@@ -41,13 +42,15 @@ afterEach( () => {
 	} );
 } );
 
-async function setup( onStartAnnotating?: () => boolean ) {
+async function setup(
+	onStartAnnotating?: () => boolean,
+	connector = createFakeConnector( { sites: [ site ] } )
+) {
 	Object.defineProperty( window.navigator, 'userAgent', {
 		value: `${ REAL_USER_AGENT } Electron/38.0.0`,
 		configurable: true,
 	} );
 	vi.stubGlobal( 'ipcApi', { clearWebviewCache: vi.fn().mockResolvedValue( undefined ) } );
-	const connector = createFakeConnector( { sites: [ site ] } );
 	const onSendAnnotations = vi.fn();
 	const view = renderWithProviders(
 		<SessionUIProvider>
@@ -98,49 +101,112 @@ function pageState( preview: { executeJavaScript: ReturnType< typeof vi.fn > } )
 	return code ? JSON.parse( code.slice( code.indexOf( '{ detail: ' ) + 10, -4 ) ) : null;
 }
 
+function makeSelection( overrides: Partial< InspectorSelection > = {} ): InspectorSelection {
+	return {
+		id: 'selection',
+		target: {
+			kind: 'drawing',
+			url: 'http://localhost:8881/',
+			viewport: { width: 800, height: 600 },
+			documentRect: { left: 20, top: 30, width: 200, height: 100 },
+		},
+		rect: { left: 20, top: 30, width: 200, height: 100 },
+		scroll: { left: 0, top: 0 },
+		drawing: { width: 3, color: '#3858e9', strokes: [ [ { x: 30, y: 40 } ] ] },
+		...overrides,
+	};
+}
+
 const drawButton = () =>
 	within( screen.getByRole( 'group', { name: 'Annotation tools' } ) ).getByRole( 'button', {
 		name: 'Draw',
 	} );
 
 describe( 'annotation inspector navigation', () => {
-	it( 'keeps tools in the preview while annotating and provides an explicit Select tool', async () => {
-		const { emit, annotate, preview } = await setup();
+	const selection = {
+		id: 'rectangle',
+		target: {
+			kind: 'region',
+			url: 'http://localhost:8881/',
+			viewport: { width: 800, height: 600 },
+			documentRect: { left: 20, top: 30, width: 200, height: 100 },
+		},
+		rect: { left: 20, top: 30, width: 200, height: 100 },
+		scroll: { left: 0, top: 0 },
+	};
+	const image = {
+		id: 'capture',
+		name: 'Selected area.png',
+		mimeType: 'image/png' as const,
+		size: 1,
+		dataBase64: 'eA==',
+	};
+
+	it( 'opens a rectangle note with the captured area attached', async () => {
+		const connector = createFakeConnector( { sites: [ site ] } );
+		const capture = vi.spyOn( connector, 'captureAnnotationRegion' ).mockResolvedValue( image );
+		const { emit, annotate } = await setup( undefined, connector );
 		emit( 'dom-ready' );
 		await waitFor( () => expect( annotate() ).toBeEnabled() );
-		expect( screen.queryByRole( 'group', { name: 'Annotation tools' } ) ).not.toBeInTheDocument();
-		fireEvent.click( annotate() );
-		const tools = screen.getByRole( 'group', { name: 'Annotation tools' } );
-		expect( tools.closest( 'aside' ) ).toHaveAccessibleName( 'Panel' );
-		expect(
-			within( tools ).queryByRole( 'button', { name: 'Edit text' } )
-		).not.toBeInTheDocument();
-		const select = within( tools ).getByRole( 'button', { name: 'Select' } );
-		expect( select ).toHaveAttribute( 'aria-pressed', 'true' );
-		expect(
-			within( tools ).queryByRole( 'button', { name: 'Send annotations' } )
-		).not.toBeInTheDocument();
-		fireEvent.click( within( tools ).getByRole( 'button', { name: 'Draw' } ) );
-		expect( select ).toHaveAttribute( 'aria-pressed', 'false' );
-		fireEvent.click( select );
-		expect( select ).toHaveAttribute( 'aria-pressed', 'true' );
-		expect( pageState( preview ).tool ).toBe( 'select' );
-		let id = '';
-		act( () => {
-			id = pickAnnotation( site.id, { selector: 'h1', url: 'http://localhost:8881/' } )!;
-			changeAnnotation( site.id, id, { comment: 'Keep this note' } );
+		act( () => setAnnotating( site.id, true ) );
+		emit( 'console-message', {
+			message: INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'selection', selection } ),
 		} );
-		fireEvent.click( drawButton() );
-		fireEvent.click( annotate() );
-		expect( screen.queryByRole( 'group', { name: 'Annotation tools' } ) ).not.toBeInTheDocument();
-		expect( getSiteAnnotations( site.id ).notes ).toEqual( [
-			expect.objectContaining( { id, comment: 'Keep this note' } ),
+		await waitFor( () => expect( getSiteAnnotations( site.id ).notes ).toHaveLength( 1 ) );
+		expect( capture ).toHaveBeenCalledWith( {
+			guestId: 7,
+			selection: expect.objectContaining( { id: selection.id } ),
+		} );
+		expect( getSiteAnnotations( site.id ) ).toMatchObject( {
+			active: true,
+			preparing: false,
+			notes: [
+				{ kind: 'region', documentRect: selection.rect, images: [ { ...image, kind: 'image' } ] },
+			],
+		} );
+	} );
+
+	it( 'preserves unfinished notes instead of capturing a different rectangle', async () => {
+		const connector = createFakeConnector( { sites: [ site ] } );
+		const capture = vi.spyOn( connector, 'captureAnnotationRegion' );
+		const { emit, annotate } = await setup( undefined, connector );
+		emit( 'dom-ready' );
+		await waitFor( () => expect( annotate() ).toBeEnabled() );
+		act( () => {
+			setAnnotating( site.id, true );
+			const id = pickAnnotation( site.id, { selector: 'h1', url: selection.target.url } )!;
+			changeAnnotation( site.id, id, { comment: 'Keep this draft' } );
+		} );
+		emit( 'console-message', {
+			message: INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'selection', selection } ),
+		} );
+		expect( capture ).not.toHaveBeenCalled();
+		expect( getSiteAnnotations( site.id ).notes ).toMatchObject( [
+			{ comment: 'Keep this draft' },
 		] );
-		fireEvent.click( annotate() );
-		expect( getSiteAnnotations( site.id ).notes ).toEqual( [
-			expect.objectContaining( { id, comment: 'Keep this note' } ),
-		] );
-		expect( screen.queryByRole( 'button', { name: 'Send annotations' } ) ).not.toBeInTheDocument();
+		expect( getSiteAnnotations( site.id ).blockedNavigation ).toBeGreaterThan( 0 );
+	} );
+
+	it( 'discards a capture completed after its page navigates', async () => {
+		const connector = createFakeConnector( { sites: [ site ] } );
+		let finish!: ( value: typeof image ) => void;
+		vi.spyOn( connector, 'captureAnnotationRegion' ).mockImplementation(
+			() =>
+				new Promise( ( resolve ) => {
+					finish = resolve;
+				} )
+		);
+		const { emit, annotate } = await setup( undefined, connector );
+		emit( 'dom-ready' );
+		await waitFor( () => expect( annotate() ).toBeEnabled() );
+		act( () => setAnnotating( site.id, true ) );
+		emit( 'console-message', {
+			message: INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'selection', selection } ),
+		} );
+		emit( 'did-start-navigation', { isMainFrame: true, isInPlace: false } );
+		await act( async () => finish( image ) );
+		expect( getSiteAnnotations( site.id ).notes ).toEqual( [] );
+		expect( getSiteAnnotations( site.id ).preparing ).toBe( false );
 	} );
 
 	it( 'keeps drawing tools in the floating toolbar and one annotation toggle in the header', async () => {
@@ -155,7 +221,6 @@ describe( 'annotation inspector navigation', () => {
 		).not.toBeInTheDocument();
 		fireEvent.click( annotate() );
 		expect( annotate() ).toHaveAttribute( 'aria-pressed', 'true' );
-		expect( actions.queryByRole( 'tablist', { name: 'Annotation mode' } ) ).not.toBeInTheDocument();
 		expect( actions.queryByRole( 'button', { name: 'Draw' } ) ).not.toBeInTheDocument();
 		expect(
 			actions.queryByRole( 'button', { name: 'Discard annotations' } )
@@ -280,62 +345,6 @@ describe( 'annotation inspector navigation', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'discards an empty drawing draft on Escape', async () => {
-		const { connector, emit, annotate, preview } = await setup();
-		connector.captureAnnotationRegion.mockResolvedValue( {
-			id: 'drawing-image',
-			name: 'Drawing.png',
-			mimeType: 'image/png',
-			size: 3,
-			dataBase64: 'cG5n',
-		} );
-		emit( 'dom-ready' );
-		await waitFor( () => expect( annotate() ).toBeEnabled() );
-		fireEvent.click( annotate() );
-		expect( drawButton() ).toHaveAttribute( 'aria-pressed', 'false' );
-		const selection = {
-			id: 'drawing-selection',
-			target: {
-				kind: 'drawing',
-				url: 'http://localhost:8881/',
-				viewport: { width: 800, height: 600 },
-				documentRect: { left: 20, top: 30, width: 200, height: 100 },
-			},
-			rect: { left: 20, top: 30, width: 200, height: 100 },
-			scroll: { left: 0, top: 0 },
-			drawing: { width: 3, color: '#3858e9', strokes: [ [ { x: 30, y: 40 } ] ] },
-		};
-		emit( 'console-message', {
-			message: INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'drawing', selection } ),
-		} );
-		await screen.findByRole( 'textbox', { name: 'Describe the change' } );
-		expect( connector.captureAnnotationRegion ).toHaveBeenCalledWith( {
-			guestId: 7,
-			selection: expect.objectContaining( { id: 'drawing-selection' } ),
-		} );
-		expect( getSiteAnnotations( site.id ).notes ).toEqual( [
-			expect.objectContaining( {
-				kind: 'drawing',
-				images: [ expect.objectContaining( { id: 'drawing-image' } ) ],
-			} ),
-		] );
-		expect( screen.queryByRole( 'img', { name: 'Drawing.png' } ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Add annotation to batch' } ) ).toBeDisabled();
-		expect( screen.queryByRole( 'button', { name: 'Send annotations' } ) ).not.toBeInTheDocument();
-		fireEvent.keyDown( screen.getByRole( 'textbox', { name: 'Describe the change' } ), {
-			key: 'Escape',
-		} );
-		expect( getSiteAnnotations( site.id ) ).toMatchObject( {
-			active: false,
-			editingId: null,
-			notes: [],
-		} );
-		expect( pageState( preview ) ).toMatchObject( { active: false, notes: [] } );
-		expect(
-			screen.queryByRole( 'textbox', { name: 'Describe the change' } )
-		).not.toBeInTheDocument();
-	} );
-
 	it( 'opens the normal note as soon as a pen stroke finishes, keeping its drawing and screenshot', async () => {
 		const { connector, emit, annotate } = await setup();
 		connector.captureAnnotationRegion.mockResolvedValue( {
@@ -349,16 +358,8 @@ describe( 'annotation inspector navigation', () => {
 		await waitFor( () => expect( annotate() ).toBeEnabled() );
 		fireEvent.click( annotate() );
 		fireEvent.click( drawButton() );
-		const selection = {
+		const selection = makeSelection( {
 			id: 'circle',
-			target: {
-				kind: 'drawing',
-				url: 'http://localhost:8881/',
-				viewport: { width: 800, height: 600 },
-				documentRect: { left: 20, top: 30, width: 200, height: 100 },
-			},
-			rect: { left: 20, top: 30, width: 200, height: 100 },
-			scroll: { left: 0, top: 0 },
 			drawing: {
 				color: '#3858e9',
 				width: 3,
@@ -370,13 +371,12 @@ describe( 'annotation inspector navigation', () => {
 					],
 				],
 			},
-		};
+		} );
 		emit( 'console-message', {
-			message: INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'drawing', selection } ),
+			message: INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'selection', selection } ),
 		} );
 		await screen.findByRole( 'textbox', { name: 'Describe the change' } );
 		expect( screen.queryByRole( 'img', { name: 'Drawing.png' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'Add note' } ) ).not.toBeInTheDocument();
 		expect( connector.captureAnnotationRegion ).toHaveBeenCalledTimes( 1 );
 		expect( getSiteAnnotations( site.id ).notes ).toEqual( [
 			expect.objectContaining( {
@@ -437,20 +437,9 @@ describe( 'annotation inspector navigation', () => {
 				],
 			],
 		};
-		const selection = {
-			id: 'shape',
-			target: {
-				kind: 'drawing',
-				url: 'http://localhost:8881/',
-				viewport: { width: 800, height: 600 },
-				documentRect: { left: 20, top: 30, width: 200, height: 100 },
-			},
-			rect: { left: 20, top: 30, width: 200, height: 100 },
-			scroll: { left: 0, top: 0 },
-			drawing: { ...drawing, originalStroke },
-		};
+		const selection = makeSelection( { id: 'shape', drawing: { ...drawing, originalStroke } } );
 		emit( 'console-message', {
-			message: INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'drawing', selection } ),
+			message: INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'selection', selection } ),
 		} );
 		const input = await screen.findByRole( 'textbox', { name: 'Describe the change' } );
 		fireEvent.change( input, { target: { value: 'Keep this note' } } );
@@ -460,14 +449,11 @@ describe( 'annotation inspector navigation', () => {
 				images: [ ...note.images, { ...image, id: 'manual-image', kind: 'image' } ],
 			} )
 		);
-		expect(
-			screen.queryByRole( 'button', { name: /Undo (shape|stroke)/ } )
-		).not.toBeInTheDocument();
 		emit( 'console-message', {
 			message:
 				INSPECTOR_BRIDGE_PREFIX +
 				JSON.stringify( {
-					type: 'drawing',
+					type: 'selection',
 					selection: {
 						...selection,
 						id: 'restored',
@@ -491,7 +477,6 @@ describe( 'annotation inspector navigation', () => {
 				],
 			} ),
 		] );
-		expect( screen.queryByRole( 'button', { name: 'Undo shape' } ) ).not.toBeInTheDocument();
 		expect( input ).toHaveValue( 'Keep this note' );
 	} );
 
@@ -517,16 +502,8 @@ describe( 'annotation inspector navigation', () => {
 		await waitFor( () => expect( annotate() ).toBeEnabled() );
 		fireEvent.click( annotate() );
 		fireEvent.click( drawButton() );
-		const first = {
+		const first = makeSelection( {
 			id: 'first-stroke',
-			target: {
-				kind: 'drawing',
-				url: 'http://localhost:8881/',
-				viewport: { width: 800, height: 600 },
-				documentRect: { left: 20, top: 30, width: 200, height: 100 },
-			},
-			rect: { left: 20, top: 30, width: 200, height: 100 },
-			scroll: { left: 0, top: 0 },
 			drawing: {
 				color: '#3858e9',
 				width: 3,
@@ -537,9 +514,9 @@ describe( 'annotation inspector navigation', () => {
 					],
 				],
 			},
-		};
+		} );
 		emit( 'console-message', {
-			message: INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'drawing', selection: first } ),
+			message: INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'selection', selection: first } ),
 		} );
 		await waitFor( () => expect( connector.captureAnnotationRegion ).toHaveBeenCalledOnce() );
 		const latest = {
@@ -548,7 +525,7 @@ describe( 'annotation inspector navigation', () => {
 			drawing: {
 				...first.drawing,
 				strokes: [
-					...first.drawing.strokes,
+					...first.drawing!.strokes,
 					[
 						{ x: 60, y: 70 },
 						{ x: 100, y: 90 },
@@ -557,7 +534,7 @@ describe( 'annotation inspector navigation', () => {
 			},
 		};
 		emit( 'console-message', {
-			message: INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'drawing', selection: latest } ),
+			message: INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'selection', selection: latest } ),
 		} );
 		await act( async () => finishCapture( { ...image, id: 'stale-image' } ) );
 		await screen.findByRole( 'textbox', { name: 'Describe the change' } );
@@ -571,7 +548,7 @@ describe( 'annotation inspector navigation', () => {
 		] );
 	} );
 
-	it( 'keeps a failed drawing available for retry and sends its screenshot with one note', async () => {
+	it( 'keeps a failed drawing available for retry without creating a second note', async () => {
 		const { connector, emit, annotate } = await setup();
 		connector.captureAnnotationRegion
 			.mockRejectedValueOnce( new Error( 'Capture failed' ) )
@@ -586,16 +563,8 @@ describe( 'annotation inspector navigation', () => {
 		await waitFor( () => expect( annotate() ).toBeEnabled() );
 		fireEvent.click( annotate() );
 		fireEvent.click( drawButton() );
-		const selection = {
+		const selection = makeSelection( {
 			id: 'drawing-selection',
-			target: {
-				kind: 'drawing',
-				url: 'http://localhost:8881/',
-				viewport: { width: 800, height: 600 },
-				documentRect: { left: 20, top: 30, width: 200, height: 100 },
-			},
-			rect: { left: 20, top: 30, width: 200, height: 100 },
-			scroll: { left: 0, top: 0 },
 			drawing: {
 				color: '#3858e9',
 				width: 3,
@@ -607,9 +576,9 @@ describe( 'annotation inspector navigation', () => {
 					[ { x: 60, y: 70 } ],
 				],
 			},
-		};
+		} );
 		emit( 'console-message', {
-			message: INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'drawing', selection } ),
+			message: INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'selection', selection } ),
 		} );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Retry capture' } ) );
 		await screen.findByRole( 'textbox', { name: 'Describe the change' } );

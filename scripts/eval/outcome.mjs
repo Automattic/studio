@@ -666,7 +666,7 @@ export const designSystemReplyLink = check( ( d ) => {
 		: fail( `design system link is in a standalone links row: ${ paragraph }` );
 } );
 
-export const drawingAnnotationApplied = check( ( d ) => {
+export const regionAnnotationApplied = check( ( d ) => {
 	return ( d.inspections || [] ).some(
 		( inspection ) =>
 			inspection.exitCode === 0 && inspection.stdout.trim() === 'ANNOTATION_COPY_UPDATED'

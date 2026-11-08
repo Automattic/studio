@@ -14,34 +14,26 @@
 .tools {
 	composes: floatingReveal from '@/lib/theme/recipes.module.css';
 	composes: floating padded from '@/lib/ui/surface/style.module.css';
-	--floating-reveal-easing: var( --motion-ease-spring-gentle );
+	--floating-reveal-opacity: opacity 0s linear var( --motion-duration-layout );
+	--floating-reveal-duration: var( --motion-duration-layout );
+	--floating-reveal-easing: var( --motion-ease-layout );
 	--surface: var( --chat );
 	display: flex;
 	align-items: center;
 	gap: var( --space-1 );
 	width: max-content;
 	max-width: 100%;
-	height: auto;
 	border-radius: var( --radius-3xl );
 	transform: translateY( calc( 50% + var( --space-4 ) + var( --space-2 ) ) ) scale( 0 );
-	transform-origin: center;
 	/* The mask handles the fade; opacity changes only after the toolbar leaves. */
-	transition:
-		opacity 0s linear var( --motion-duration-layout ),
-		transform var( --motion-duration-layout ) var( --motion-ease-layout ),
-		color var( --motion-duration-feedback ) ease,
-		background-color var( --motion-duration-feedback ) ease,
-		border-color var( --motion-duration-feedback ) ease;
+	transition: var( --floating-reveal-transition );
 }
 
 .tools[data-visible] {
+	--floating-reveal-opacity: opacity 0s;
+	--floating-reveal-duration: var( --motion-duration-reveal );
+	--floating-reveal-easing: var( --motion-ease-spring-gentle );
 	transform: translateY( 0 ) scale( 1 );
-	transition:
-		opacity 0s,
-		transform var( --motion-duration-reveal ) var( --floating-reveal-easing ),
-		color var( --motion-duration-feedback ) ease,
-		background-color var( --motion-duration-feedback ) ease,
-		border-color var( --motion-duration-feedback ) ease;
 }
 
 @media ( prefers-reduced-motion: reduce ) {

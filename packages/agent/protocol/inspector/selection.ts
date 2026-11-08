@@ -18,14 +18,14 @@ export interface InspectorSelection {
 	id: string;
 	replaces?: string;
 	target: VisualAnnotationTarget & {
-		kind: 'drawing';
+		kind: 'region' | 'drawing';
 		url: string;
 		viewport: { width: number; height: number };
 		documentRect: AnnotationRect;
 	};
 	rect: AnnotationRect;
 	scroll: { left: number; top: number };
-	drawing: AnnotationDrawing;
+	drawing?: AnnotationDrawing;
 }
 
 export const MAX_DRAWING_POINTS = 2048;
@@ -66,7 +66,7 @@ export function parseInspectorSelection( value: unknown ): InspectorSelection | 
 		return null;
 	if (
 		! record( target ) ||
-		target.kind !== 'drawing' ||
+		( target.kind !== 'region' && target.kind !== 'drawing' ) ||
 		typeof target.url !== 'string' ||
 		target.url.length > 10_000 ||
 		! record( target.viewport ) ||
@@ -98,6 +98,20 @@ export function parseInspectorSelection( value: unknown ): InspectorSelection | 
 		documentRect.height !== area.height
 	)
 		return null;
+	const selection: InspectorSelection = {
+		id: value.id,
+		target: {
+			kind: target.kind,
+			url: target.url,
+			path: typeof target.path === 'string' ? target.path.slice( 0, 10_000 ) : undefined,
+			viewport: { width, height },
+			documentRect,
+			point: { x: 1, y: 0 },
+		},
+		rect: area,
+		scroll: { left, top },
+	};
+	if ( target.kind === 'region' ) return value.drawing === undefined ? selection : null;
 	const input = value.drawing;
 	if (
 		! record( input ) ||
@@ -144,18 +158,8 @@ export function parseInspectorSelection( value: unknown ): InspectorSelection | 
 		...( originalStroke ? { originalStroke } : {} ),
 	};
 	return {
-		id: value.id,
+		...selection,
 		...( value.replaces ? { replaces: value.replaces } : {} ),
-		target: {
-			kind: target.kind,
-			url: target.url,
-			path: typeof target.path === 'string' ? target.path.slice( 0, 10_000 ) : undefined,
-			viewport: { width, height },
-			documentRect,
-			point: { x: 1, y: 0 },
-		},
-		rect: area,
-		scroll: { left, top },
 		drawing,
 	};
 }

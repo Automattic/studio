@@ -23,7 +23,7 @@ import {
 import { isDialogOpen, isTextEntry } from '@/lib/keyboard';
 import { getWebviewContentsId, type WebviewTag } from './preview-surface/webview';
 import type { usePreviewAnnotations } from './use-preview-annotations';
-import type { InspectorAction, InspectorEvent } from '@studio/agent/protocol/inspector/page-script';
+import type { InspectorEvent } from '@studio/agent/protocol/inspector/page-script';
 import type { InspectorSelection } from '@studio/agent/protocol/inspector/selection';
 
 export function useAnnotationTools( {
@@ -44,7 +44,7 @@ export function useAnnotationTools( {
 	const [ draft, setDraft ] = useState< InspectorSelection | null >( null );
 	const [ failed, setFailed ] = useState( false );
 	const [ capturePending, setCapturePending ] = useState( false );
-	const [ action, setAction ] = useState< InspectorAction | undefined >();
+	const [ clearSelection, setClearSelection ] = useState< string >();
 	const draftRef = useRef( draft );
 	const generation = useRef( 0 );
 	const capturing = useRef( false );
@@ -53,15 +53,12 @@ export function useAnnotationTools( {
 		setDraft( next );
 		setFailed( false );
 	}, [] );
-	const command = useCallback( ( type: InspectorAction[ 'type' ], selectionId?: string ) => {
-		setAction( ( current ) => ( { id: ( current?.id ?? 0 ) + 1, type, selectionId } ) );
-	}, [] );
 	const clear = useCallback(
-		( selectionId?: string ) => {
+		( selectionId = draftRef.current?.id ) => {
 			updateDraft( null );
-			command( 'clear', selectionId );
+			if ( selectionId ) setClearSelection( selectionId );
 		},
-		[ command, updateDraft ]
+		[ updateDraft ]
 	);
 	useEffect( () => {
 		const currentGeneration = ++generation.current;
@@ -75,9 +72,9 @@ export function useAnnotationTools( {
 	}, [ enabled, annotations.active, siteId, clear ] );
 
 	const capture = useCallback(
-		async ( selection: InspectorSelection, turnOff = false ) => {
-			if ( ! enabled || capturing.current ) return;
+		async ( selection: InspectorSelection, nextTool?: AnnotationTool ) => {
 			const current = getSiteAnnotations( siteId );
+			if ( ! enabled || ! current.active || capturing.current ) return;
 			const replacement = selection.replaces
 				? current.notes.find(
 						( note ) =>
@@ -160,7 +157,7 @@ export function useAnnotationTools( {
 					);
 				if ( id ) {
 					clear( selection.id );
-					if ( turnOff ) setTool( 'select' );
+					if ( nextTool ) setTool( nextTool );
 				}
 			} catch {
 				if ( generation.current !== attempt || draftRef.current?.id !== selection.id ) return;
@@ -190,7 +187,7 @@ export function useAnnotationTools( {
 			)
 				return;
 			if ( draftRef.current ) {
-				void capture( draftRef.current, next === 'select' );
+				void capture( draftRef.current, next );
 				return;
 			}
 			if ( ! canPickAnnotation( siteId ) ) return;
@@ -220,7 +217,7 @@ export function useAnnotationTools( {
 		return () => document.removeEventListener( 'keydown', handleKeyDown );
 	}, [ annotations.active, enabled, selectTool ] );
 	const handleEvent = useCallback(
-		( event: Extract< InspectorEvent, { type: 'drawing' | 'annotation-tool' } > ) => {
+		( event: Extract< InspectorEvent, { type: 'selection' | 'annotation-tool' } > ) => {
 			if ( ! enabled ) return;
 			if ( event.type === 'annotation-tool' ) selectTool( event.tool );
 			else updateDraft( event.selection );
@@ -233,9 +230,8 @@ export function useAnnotationTools( {
 		return true;
 	};
 	return {
-		drawing,
 		tool,
-		action,
+		clearSelection,
 		handleEvent,
 		escapeDraft,
 		controls: {

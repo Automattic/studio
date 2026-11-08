@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	INSPECTOR_BRIDGE_PREFIX,
 	INSPECTOR_COMMAND_EVENT,
-	INSPECTOR_ACTION_EVENT,
 	INSPECTOR_PAGE_SCRIPT,
 	parseInspectorMessage,
 } from '@studio/agent/protocol/inspector/page-script';
@@ -74,22 +73,6 @@ describe( 'annotation inspector', () => {
 		document.body.replaceChildren();
 	} );
 
-	it( 'keeps click-to-annotate working in Select mode', () => {
-		document.body.innerHTML = '<h1>Welcome</h1>';
-		const heading = document.querySelector( 'h1' )!;
-		const events = mount();
-		publish( { active: true } );
-		pointer( heading, 'pointerdown', 100, 50 );
-		pointer( heading, 'pointermove', 102, 51 );
-		pointer( heading, 'pointerup', 102, 51 );
-		heading.dispatchEvent(
-			new MouseEvent( 'click', { bubbles: true, clientX: 102, clientY: 51 } )
-		);
-		expect( events() ).toEqual( [
-			expect.objectContaining( { type: 'pick', target: expect.objectContaining( { tag: 'h1' } ) } ),
-		] );
-	} );
-
 	it( 'hides the element highlight while a drawing note is open and restores hover afterward', () => {
 		document.body.innerHTML = '<h1>Welcome</h1>';
 		const heading = document.querySelector( 'h1' )!;
@@ -129,7 +112,7 @@ describe( 'annotation inspector', () => {
 		vi.advanceTimersByTime( 200 );
 		pointer( document.body, 'pointerup', end.x, end.y );
 		const event = events().at( -1 );
-		if ( event?.type !== 'drawing' || ! event.selection ) throw new Error( 'Missing drawing' );
+		if ( event?.type !== 'selection' || ! event.selection ) throw new Error( 'Missing drawing' );
 		expect( event.selection.drawing?.strokes[ 0 ] ).toHaveLength( 81 );
 		expect( event.selection.drawing?.originalStroke ).toBeUndefined();
 		vi.advanceTimersByTime( 1000 );
@@ -149,7 +132,7 @@ describe( 'annotation inspector', () => {
 		expect( events() ).toEqual( [] );
 		pointer( document.body, 'pointerup', end.x + 1, end.y + 1 );
 		const event = events().at( -1 );
-		if ( event?.type !== 'drawing' || ! event.selection ) throw new Error( 'Missing shape' );
+		if ( event?.type !== 'selection' || ! event.selection ) throw new Error( 'Missing shape' );
 		const drawing = event.selection.drawing!;
 		expect( drawing.strokes[ 0 ] ).toHaveLength( 65 );
 		expect( drawing.originalStroke ).toHaveLength( 81 );
@@ -160,17 +143,19 @@ describe( 'annotation inspector', () => {
 			notes: [ { ...event.selection.target, drawing, id: 'shape-note', number: 1 } ],
 		} );
 		window.dispatchEvent(
-			new CustomEvent( INSPECTOR_ACTION_EVENT, {
-				detail: { type: 'clear', selectionId: event.selection.id },
+			new CustomEvent( INSPECTOR_COMMAND_EVENT, {
+				detail: { clearSelection: event.selection.id },
 			} )
 		);
-		window.dispatchEvent( new CustomEvent( INSPECTOR_ACTION_EVENT, { detail: { type: 'undo' } } ) );
+		document.dispatchEvent(
+			new KeyboardEvent( 'keydown', { key: 'z', metaKey: true, bubbles: true } )
+		);
 		expect( events().at( -1 ) ).toMatchObject( {
-			type: 'drawing',
+			type: 'selection',
 			selection: { replaces: 'shape-note', drawing: { strokes: [ drawing.originalStroke ] } },
 		} );
 		const restored = events().at( -1 );
-		if ( restored?.type === 'drawing' )
+		if ( restored?.type === 'selection' )
 			expect( restored.selection?.drawing?.originalStroke ).toBeUndefined();
 		expect( root.querySelectorAll( '.saved-drawings path' ) ).toHaveLength( 0 );
 	} );
@@ -184,7 +169,7 @@ describe( 'annotation inspector', () => {
 		pointer( document.body, 'pointermove', end.x + 30, end.y + 30 );
 		pointer( document.body, 'pointerup', end.x + 30, end.y + 30 );
 		const event = events().at( -1 );
-		if ( event?.type !== 'drawing' || ! event.selection ) throw new Error( 'Missing drawing' );
+		if ( event?.type !== 'selection' || ! event.selection ) throw new Error( 'Missing drawing' );
 		expect( event.selection.drawing?.strokes[ 0 ] ).toHaveLength( 82 );
 		expect( event.selection.drawing?.originalStroke ).toBeUndefined();
 	} );
@@ -196,7 +181,7 @@ describe( 'annotation inspector', () => {
 		pointer( document.body, 'pointermove', 60, 70 );
 		pointer( document.body, 'pointerup', 90, 100 );
 		expect( events().at( -1 ) ).toMatchObject( {
-			type: 'drawing',
+			type: 'selection',
 			selection: {
 				drawing: {
 					strokes: [
@@ -283,20 +268,24 @@ describe( 'annotation inspector', () => {
 		pointer( document.body, 'pointerup', 120, 100 );
 		const last = events().at( -1 );
 		expect( last ).toMatchObject( {
-			type: 'drawing',
+			type: 'selection',
 			selection: {
 				target: { kind: 'drawing' },
 				rect: { left: 0, top: 0, width: 144, height: 124 },
 				drawing: { width: 3, strokes: [ expect.any( Array ), expect.any( Array ) ] },
 			},
 		} );
-		window.dispatchEvent( new CustomEvent( INSPECTOR_ACTION_EVENT, { detail: { type: 'undo' } } ) );
+		document.dispatchEvent(
+			new KeyboardEvent( 'keydown', { key: 'z', metaKey: true, bubbles: true } )
+		);
 		expect( events().at( -1 ) ).toMatchObject( {
-			type: 'drawing',
+			type: 'selection',
 			selection: { drawing: { strokes: [ expect.any( Array ) ] } },
 		} );
-		window.dispatchEvent( new CustomEvent( INSPECTOR_ACTION_EVENT, { detail: { type: 'undo' } } ) );
-		expect( events().at( -1 ) ).toEqual( { type: 'drawing', selection: null } );
+		document.dispatchEvent(
+			new KeyboardEvent( 'keydown', { key: 'z', metaKey: true, bubbles: true } )
+		);
+		expect( events().at( -1 ) ).toEqual( { type: 'selection', selection: null } );
 		expect( events().some( ( event ) => event?.type === 'pick' ) ).toBe( false );
 	} );
 
@@ -306,26 +295,26 @@ describe( 'annotation inspector', () => {
 		pointer( document.body, 'pointerdown', 10, 10 );
 		pointer( document.body, 'pointerup', 50, 50 );
 		const first = events().at( -1 );
-		if ( first?.type !== 'drawing' || ! first.selection )
+		if ( first?.type !== 'selection' || ! first.selection )
 			throw new Error( 'Missing first drawing' );
 		pointer( document.body, 'pointerdown', 70, 70 );
 		pointer( document.body, 'pointermove', 90, 90 );
 		window.dispatchEvent(
-			new CustomEvent( INSPECTOR_ACTION_EVENT, {
-				detail: { type: 'clear', selectionId: first.selection.id },
+			new CustomEvent( INSPECTOR_COMMAND_EVENT, {
+				detail: { clearSelection: first.selection.id },
 			} )
 		);
 		pointer( document.body, 'pointerup', 110, 100 );
 		const latest = events().at( -1 );
 		expect( latest ).toMatchObject( {
-			type: 'drawing',
+			type: 'selection',
 			selection: { drawing: { strokes: [ expect.any( Array ), expect.any( Array ) ] } },
 		} );
-		if ( latest?.type !== 'drawing' || ! latest.selection )
+		if ( latest?.type !== 'selection' || ! latest.selection )
 			throw new Error( 'Missing latest drawing' );
 		window.dispatchEvent(
-			new CustomEvent( INSPECTOR_ACTION_EVENT, {
-				detail: { type: 'clear', selectionId: first.selection.id },
+			new CustomEvent( INSPECTOR_COMMAND_EVENT, {
+				detail: { clearSelection: first.selection.id },
 			} )
 		);
 		expect( document.getElementById( '__studio-inspector-host' ) ).toHaveAttribute(
@@ -342,7 +331,7 @@ describe( 'annotation inspector', () => {
 		pointer( document.documentElement, 'lostpointercapture', 60, 70 );
 		pointer( document.body, 'pointerup', 90, 100 );
 		expect( events().at( -1 ) ).toMatchObject( {
-			type: 'drawing',
+			type: 'selection',
 			selection: {
 				drawing: {
 					strokes: [
@@ -366,7 +355,7 @@ describe( 'annotation inspector', () => {
 		document.dispatchEvent( wheel );
 		expect( wheel.defaultPrevented ).toBe( true );
 		document.dispatchEvent( new KeyboardEvent( 'keydown', { key: 'Escape', bubbles: true } ) );
-		expect( events().at( -1 ) ).toEqual( { type: 'drawing', selection: null } );
+		expect( events().at( -1 ) ).toEqual( { type: 'selection', selection: null } );
 		document.dispatchEvent( new KeyboardEvent( 'keydown', { key: 'Escape', bubbles: true } ) );
 		expect( events().at( -1 ) ).toEqual( { type: 'escape' } );
 	} );
@@ -380,7 +369,7 @@ describe( 'annotation inspector', () => {
 		pointer( document.body, 'pointercancel', 100, 120, 2 );
 		window.dispatchEvent( new Event( 'blur' ) );
 		expect( events().at( -1 ) ).toMatchObject( {
-			type: 'drawing',
+			type: 'selection',
 			selection: {
 				drawing: {
 					strokes: [
@@ -394,22 +383,13 @@ describe( 'annotation inspector', () => {
 		} );
 	} );
 
-	it( 'leaves drawing gestures off without the Draw tool', () => {
-		const events = mount();
-		publish( { active: true } );
-		pointer( document.body, 'pointerdown', 10, 10 );
-		pointer( document.body, 'pointermove', 200, 200 );
-		pointer( document.body, 'pointerup', 200, 200 );
-		expect( events() ).toEqual( [] );
-	} );
-
 	it( 'keeps the completed drawing visible with its normal marker after handing it to the note editor', () => {
 		const events = mount();
 		publish( { active: true, tool: 'draw' } );
 		pointer( document.body, 'pointerdown', 30, 40 );
 		pointer( document.body, 'pointerup', 80, 100 );
-		const event = events().find( ( item ) => item?.type === 'drawing' && item.selection );
-		if ( event?.type !== 'drawing' || ! event.selection )
+		const event = events().find( ( item ) => item?.type === 'selection' && item.selection );
+		if ( event?.type !== 'selection' || ! event.selection )
 			throw new Error( 'Missing completed drawing' );
 		publish( {
 			active: true,
@@ -426,7 +406,7 @@ describe( 'annotation inspector', () => {
 			],
 		} );
 		window.dispatchEvent(
-			new CustomEvent( INSPECTOR_ACTION_EVENT, { detail: { type: 'clear' } } )
+			new CustomEvent( INSPECTOR_COMMAND_EVENT, { detail: { clearSelection: event.selection.id } } )
 		);
 		const root = document.getElementById( '__studio-inspector-host' )!.shadowRoot!;
 		expect( root.querySelector( 'button' ) ).toBeVisible();
@@ -474,6 +454,113 @@ describe( 'annotation inspector', () => {
 		expect( markers.map( ( marker ) => marker.textContent ) ).toEqual( [ '1' ] );
 		markers[ 0 ].click();
 		expect( events().at( -1 ) ).toMatchObject( { type: 'edit', id: 'n1' } );
+	} );
+
+	it.each( [
+		[ 20, 30, 220, 130 ],
+		[ 220, 130, 20, 30 ],
+	] )(
+		'selects a rectangle from (%s, %s) to (%s, %s) without picking an element',
+		( x, y, endX, endY ) => {
+			document.body.innerHTML = '<h1>Welcome</h1><p>Other content</p>';
+			const events = mount();
+			publish( { active: true, areaSelection: true } );
+			pointer( document.body, 'pointerdown', x, y );
+			pointer( document.documentElement, 'pointermove', endX, endY );
+			pointer( document.documentElement, 'pointerup', endX, endY );
+			document.body.click();
+			expect( events() ).toEqual( [
+				{
+					type: 'selection',
+					selection: expect.objectContaining( {
+						target: expect.objectContaining( {
+							kind: 'region',
+							url: location.href,
+							documentRect: { left: 20, top: 30, width: 200, height: 100 },
+						} ),
+						rect: { left: 20, top: 30, width: 200, height: 100 },
+					} ),
+				},
+			] );
+		}
+	);
+
+	it( 'keeps clicks as element picks despite small pointer movement', () => {
+		document.body.innerHTML = '<h1>Welcome</h1>';
+		const events = mount();
+		publish( { active: true, areaSelection: true } );
+		const heading = document.querySelector( 'h1' )!;
+		pointer( heading, 'pointerdown', 30, 40 );
+		pointer( document.documentElement, 'pointerup', 32, 42 );
+		heading.click();
+		expect( events() ).toHaveLength( 1 );
+		expect( events()[ 0 ] ).toMatchObject( { type: 'pick', target: { tag: 'h1' } } );
+	} );
+
+	it( 'releases failed selections without clearing a newer capture or disabling annotation', () => {
+		const events = mount();
+		publish( { active: true, areaSelection: true } );
+		const selectArea = () => {
+			pointer( document.body, 'pointerdown', 20, 30 );
+			pointer( document.documentElement, 'pointerup', 220, 130 );
+		};
+		const canScroll = () =>
+			document.dispatchEvent( new WheelEvent( 'wheel', { cancelable: true } ) );
+		const clear = ( id: string ) =>
+			window.dispatchEvent(
+				new CustomEvent( INSPECTOR_COMMAND_EVENT, { detail: { clearSelection: id } } )
+			);
+		const host = document.getElementById( '__studio-inspector-host' )!;
+		selectArea();
+		const firstId = host.dataset.captureId!;
+		expect( firstId ).toBeTruthy();
+		expect( canScroll() ).toBe( false );
+
+		clear( firstId );
+		expect( host ).not.toHaveAttribute( 'data-capture-id' );
+		expect( canScroll() ).toBe( true );
+
+		selectArea();
+		const nextId = host.dataset.captureId!;
+		expect( nextId ).toBeTruthy();
+		expect(
+			events().filter( ( event ) => event?.type === 'selection' && event.selection )
+		).toHaveLength( 2 );
+		clear( firstId );
+		expect( host ).toHaveAttribute( 'data-capture-id', nextId );
+		expect( canScroll() ).toBe( false );
+		clear( nextId );
+		expect( canScroll() ).toBe( true );
+	} );
+
+	it.each( [ 'pointercancel', 'blur', 'scroll', 'resize', 'escape' ] )(
+		'cancels a rectangle on %s',
+		( cause ) => {
+			const events = mount();
+			publish( { active: true, areaSelection: true } );
+			pointer( document.body, 'pointerdown', 20, 30 );
+			pointer( document.documentElement, 'pointermove', 220, 130 );
+			if ( cause === 'escape' ) {
+				document.dispatchEvent( new KeyboardEvent( 'keydown', { key: 'Escape', bubbles: true } ) );
+			} else if ( cause === 'pointercancel' ) {
+				pointer( document.documentElement, cause, 220, 130 );
+			} else {
+				( cause === 'scroll' ? document : window ).dispatchEvent( new Event( cause ) );
+			}
+			pointer( document.documentElement, 'pointerup', 220, 130 );
+			document.body.click();
+			expect( events() ).toEqual( [] );
+		}
+	);
+
+	it( 'does not start rectangle gestures without the host capability or while busy', () => {
+		const events = mount();
+		for ( const state of [ { active: true }, { active: true, areaSelection: true, busy: true } ] ) {
+			publish( state );
+			pointer( document.body, 'pointerdown', 20, 30 );
+			pointer( document.documentElement, 'pointerup', 220, 130 );
+		}
+		expect( events() ).toEqual( [] );
 	} );
 
 	it.each( [ 0, -20 ] )( 'keeps the highlight flush with the viewport at x=%s', ( left ) => {

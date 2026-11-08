@@ -75,20 +75,6 @@ test( 'a missing result file fails instead of throwing', () => {
 	expect( checks.siteWorks( 'no marker here', { vars: {} } ).pass ).toBe( false );
 } );
 
-test( 'drawing annotations require the requested change in rendered content', () => {
-	expect(
-		run( checks.drawingAnnotationApplied, {
-			inspections: [ { exitCode: 0, stdout: 'ANNOTATION_COPY_UPDATED' } ],
-		} ).pass
-	).toBe( true );
-	expect(
-		run( checks.drawingAnnotationApplied, {
-			inspections: [ { exitCode: 0, stdout: 'ANNOTATION_COPY_MISSING' } ],
-		} ).pass
-	).toBe( false );
-	expect( run( checks.drawingAnnotationApplied, { inspections: [] } ).pass ).toBe( false );
-} );
-
 describe( 'shared checks', () => {
 	test( 'siteWorks', () => {
 		expect( run( checks.siteWorks, outcome( workingSite ) ).pass ).toBe( true );

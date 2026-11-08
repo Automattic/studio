@@ -10,7 +10,7 @@
  *   host -> page: `INSPECTOR_COMMAND_EVENT` on `window`, with the annotation
  *                 state as its detail (active, notes, editingId, colors).
  *   page -> host: `console.log( INSPECTOR_BRIDGE_PREFIX + JSON )`:
- *                 pick | drawing | annotation-tool | edit | anchor | escape | browser-command.
+ *                 pick | selection | annotation-tool | edit | anchor | escape | browser-command.
  *
  * Browser shortcuts (reload, back, forward) pressed inside the page are
  * forwarded too, so the host can handle them.
@@ -31,12 +31,6 @@ import type { VisualAnnotationTarget } from '@studio/agent/protocol/visual-annot
 
 export const INSPECTOR_BRIDGE_PREFIX = '__studio-inspector__:';
 export const INSPECTOR_COMMAND_EVENT = '__studio-inspector-command';
-export const INSPECTOR_ACTION_EVENT = '__studio-inspector-action';
-export interface InspectorAction {
-	id: number;
-	type: 'undo' | 'clear';
-	selectionId?: string;
-}
 
 export const INSPECTOR_PAGE_SCRIPT = String.raw`
 (() => {
@@ -142,7 +136,9 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		}
 		return current;
 	}
-	function clearDrawing() {
+	function clearSelection() {
+		const hadSelection = pendingSelection || strokes.length;
+		if (gesture) suppressClick = true;
 		releaseGesture();
 		strokes = [];
 		pointCount = 0;
@@ -154,13 +150,13 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		highlight.hidden = true;
 		savedNotes = null;
 		renderDrawings();
-		emit({ type: 'drawing', selection: null });
+		if (hadSelection) emit({ type: 'selection', selection: null });
 	}
 	function areaBetween(a, b, padding = 0) {
 		const left = Math.max(0, Math.floor(Math.min(a.x, b.x) - padding));
 		const top = Math.max(0, Math.floor(Math.min(a.y, b.y) - padding));
-		const right = Math.min(innerWidth, Math.ceil(Math.max(a.x, b.x) + padding));
-		const bottom = Math.min(innerHeight, Math.ceil(Math.max(a.y, b.y) + padding));
+		const right = Math.min(Math.floor(innerWidth), Math.ceil(Math.max(a.x, b.x) + padding));
+		const bottom = Math.min(Math.floor(innerHeight), Math.ceil(Math.max(a.y, b.y) + padding));
 		return { left, top, width: right - left, height: bottom - top };
 	}
 	function viewportPoint(event) {
@@ -170,27 +166,27 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		const result = {
 			id: crypto.randomUUID(),
 			target: {
-				kind: 'drawing', url: location.href, path: location.pathname,
+				kind: strokes.length ? 'drawing' : 'region', url: location.href, path: location.pathname,
 				viewport: { width: innerWidth, height: innerHeight },
 				documentRect: { ...rect, left: rect.left + scrollX, top: rect.top + scrollY },
 				point: { x: 1, y: 0 },
 			},
 			rect, scroll: { left: scrollX, top: scrollY },
 		};
-		result.drawing = { strokes, color: penColor, width: ${ ANNOTATION_PEN_WIDTH }, ...(originalStroke ? { originalStroke } : {}) };
+		if (strokes.length) result.drawing = { strokes, color: penColor, width: ${ ANNOTATION_PEN_WIDTH }, ...(originalStroke ? { originalStroke } : {}) };
 		if (replacementId) result.replaces = replacementId;
 		pendingSelection = result;
 		host.dataset.captureId = result.id;
 		return result;
 	}
 	function reportDrawing() {
-		if (!strokes.length) { clearDrawing(); return; }
+		if (!strokes.length) { clearSelection(); return; }
 		let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
 		for (const stroke of strokes) for (const p of stroke) {
 			left = Math.min(left, p.x - scrollX); top = Math.min(top, p.y - scrollY);
 			right = Math.max(right, p.x - scrollX); bottom = Math.max(bottom, p.y - scrollY);
 		}
-		emit({ type: 'drawing', selection: selection(areaBetween({ x: left, y: top }, { x: right, y: bottom }, 24)) });
+		emit({ type: 'selection', selection: selection(areaBetween({ x: left, y: top }, { x: right, y: bottom }, 24)) });
 	}
 	function undoStroke() {
 		if (state.busy || gesture) return;
@@ -231,8 +227,6 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 			for (const stroke of note.drawing.strokes) savedDrawings.append(pathFor(stroke, note.drawing.color, note.drawing.width));
 		}
 	}
-
-
 	function emit(event) {
 		try {
 			console.log(PREFIX + JSON.stringify(event));
@@ -410,6 +404,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 			marker.onclick = (e) => {
 				e.preventDefault();
 				e.stopPropagation();
+				if (state.busy) return;
 				hovered = null;
 				selected = resolve(note);
 				emit({ type: 'edit', id: note.id, anchor: p });
@@ -419,8 +414,13 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		const note = state.notes.find((n) => n.id === state.editingId);
 		if (note) emit({ type: 'anchor', id: note.id, anchor: onPage(note) ? anchor(note) : null });
 		const el = hovered || selected;
-		const r = state.tool !== 'draw' && el?.isConnected ? el.getBoundingClientRect() : null;
-		if (r && note?.kind !== 'drawing') {
+		const region = note?.kind === 'region' && onPage(note) ? note.documentRect : null;
+		let r = gesture?.rect || (pendingSelection?.target.kind === 'region' ? pendingSelection.rect : null);
+		if (!r && state.tool !== 'draw') {
+			if (region) r = { ...region, left: region.left - scrollX, top: region.top - scrollY };
+			else if (note?.kind !== 'drawing' && el?.isConnected) r = el.getBoundingClientRect();
+		}
+		if (r) {
 			const left = Math.max(0, r.left);
 			const top = Math.max(0, r.top);
 			const right = Math.min(innerWidth, r.left + r.width);
@@ -457,12 +457,17 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		'${ INSPECTOR_COMMAND_EVENT }',
 		(e) => {
 			if (!e.detail) return;
+			if (typeof e.detail.clearSelection === 'string') {
+				if (!gesture && pendingSelection?.id === e.detail.clearSelection) { clearSelection(); schedule(); }
+				return;
+			}
 			const wasActive = state.active;
 			const previousAttempt = state.blockedNavigation;
+			const previousEditingId = state.editingId;
 			state = e.detail;
-			if (gesture && state.tool !== 'draw') clearDrawing();
+			if (previousEditingId !== state.editingId || gesture && gesture.kind !== (state.tool === 'draw' ? 'drawing' : 'region')) clearSelection();
 			if (state.busy) { clearTimeout(holdTimer); holdTimer = 0; }
-			if (!state.active && (strokes.length || pendingSelection || gesture)) clearDrawing();
+			if (!state.active && (strokes.length || pendingSelection || gesture)) clearSelection();
 			if (!state.active || errorId !== state.editingId) { errorId = null; clearTimeout(errorTimer); feedbackAnimation?.cancel(); }
 			if (state.active && typeof state.blockedNavigation === 'number' && previousAttempt !== undefined && state.blockedNavigation !== previousAttempt) {
 				errorId = state.editingId;
@@ -494,28 +499,28 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 			host.style.setProperty('--motion-duration-surface', state.motionDuration || '180ms');
 			host.style.setProperty('--motion-ease-enter', state.motionEasing || 'cubic-bezier(.165,.84,.44,1)');
 			const cursor = state.tool === 'draw' ? drawingCursor() : 'crosshair';
-			cursorStyle.textContent = state.active ? '*{cursor:' + cursor + '!important}' : '';
+			cursorStyle.textContent = state.active ? '*{cursor:' + cursor + '!important' + (state.areaSelection || state.tool === 'draw' ? ';touch-action:none!important' : '') + '}' : '';
 			const note = state.notes.find((n) => n.id === state.editingId);
 			selected = note && onPage(note) ? resolve(note) : null;
 			render();
 		},
 		{ signal: abort.signal }
 	);
-	window.addEventListener('${ INSPECTOR_ACTION_EVENT }', (e) => {
-		if (e.detail?.type === 'undo') undoStroke();
-		if (e.detail?.type === 'clear' && (!e.detail.selectionId || !gesture && pendingSelection?.id === e.detail.selectionId)) clearDrawing();
-	}, { signal: abort.signal });
 	document.addEventListener('pointerdown', (e) => {
-		if (!state.active || state.tool !== 'draw' || state.busy || isOwnUi(e) || e.button !== 0 || e.isPrimary === false || gesture) return;
+		if (!state.active || (state.tool !== 'draw' && !state.areaSelection) || state.busy || isOwnUi(e) || e.button !== 0 || e.isPrimary === false || gesture) return;
 		e.preventDefault();
 		e.stopImmediatePropagation();
 		const start = viewportPoint(e);
-		gesture = { pointerId: e.pointerId, scrollX, scrollY };
-		if (strokes.length >= ${ MAX_DRAWING_STROKES } || pointCount >= ${ MAX_DRAWING_POINTS }) { gesture = null; suppressClick = true; return; }
+		if (state.tool !== 'draw') clearSelection();
+		suppressClick = false;
+		gesture = { kind: state.tool === 'draw' ? 'drawing' : 'region', pointerId: e.pointerId, scrollX, scrollY, start, element: e.target, dragged: false };
+		try { document.documentElement.setPointerCapture(e.pointerId); } catch {}
+		if (gesture.kind === 'region') return;
+		if (strokes.length >= ${ MAX_DRAWING_STROKES } || pointCount >= ${ MAX_DRAWING_POINTS }) { releaseGesture(); suppressClick = true; return; }
 		if (pendingSelection) {
 			pendingSelection = null;
 			delete host.dataset.captureId;
-			emit({ type: 'drawing', selection: null });
+			emit({ type: 'selection', selection: null });
 		}
 		if (!strokes.length) penColor = state.penColor || state.accent;
 		if (originalStroke) { pointCount -= originalStroke.length; originalStroke = null; }
@@ -527,10 +532,19 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		draftDrawings.setAttribute('transform', 'translate(' + -scrollX + ' ' + -scrollY + ')');
 		hovered = selected = null;
 		highlight.hidden = true;
-		try { document.documentElement.setPointerCapture(e.pointerId); } catch {}
 	}, { capture: true, signal: abort.signal });
 	function moveGesture(e) {
 		if (!gesture || gesture.pointerId !== e.pointerId) return;
+		if (gesture.kind === 'region') {
+			const point = viewportPoint(e);
+			gesture.dragged ||= Math.hypot(point.x - gesture.start.x, point.y - gesture.start.y) >= 6;
+			if (gesture.dragged) {
+				gesture.rect = areaBetween(gesture.start, point);
+				hovered = selected = null;
+				schedule();
+			}
+			return;
+		}
 		const coalesced = e.type === 'pointermove' ? e.getCoalescedEvents?.() : null;
 		for (const sample of coalesced?.length ? [...coalesced, e] : [e]) {
 			const point = viewportPoint(sample);
@@ -569,15 +583,22 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		e.preventDefault(); e.stopImmediatePropagation();
 		moveGesture(e);
 		repaintDrawing();
-		releaseGesture();
+		const done = releaseGesture();
 		suppressClick = true;
-		reportDrawing();
+		if (done.kind === 'drawing') reportDrawing();
+		else if (done.dragged) {
+			if (done.rect.width >= 2 && done.rect.height >= 2) emit({ type: 'selection', selection: selection(done.rect) });
+		} else if (done.element instanceof Element && done.element.isConnected) {
+			selected = hovered = done.element;
+			emit({ type: 'pick', target: metadata(selected, e), anchor: markerAnchor({ left: e.clientX, top: e.clientY }) });
+		}
 		schedule();
 	}, { capture: true, signal: abort.signal });
 	function cancelGesture(e) {
 		if (!gesture || (e.pointerId !== undefined && gesture.pointerId !== e.pointerId)) return;
+		suppressClick = true;
 		const current = releaseGesture();
-		if (current) { pointCount -= strokes.pop().length + (originalStroke?.length || 0); originalStroke = null; current.path.remove(); reportDrawing(); }
+		if (current?.kind === 'drawing') { pointCount -= strokes.pop().length + (originalStroke?.length || 0); originalStroke = null; current.path.remove(); reportDrawing(); }
 		schedule();
 	}
 	document.addEventListener('pointercancel', cancelGesture, { capture: true, signal: abort.signal });
@@ -641,11 +662,11 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 			if (state.active && e.key === 'Escape') {
 				e.preventDefault();
 				e.stopPropagation();
-				if (strokes.length || pendingSelection || gesture) { clearDrawing(); schedule(); return; }
-			emit({ type: 'escape' });
+				if (strokes.length || pendingSelection || gesture) { if (!state.busy) { clearSelection(); schedule(); } return; }
+				emit({ type: 'escape' });
 				return;
 			}
-			if (state.active && strokes.length && (e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
+			if (state.active && !isTextEntry(target) && (strokes.length || state.notes.some((note) => note.id === state.editingId && note.drawing?.originalStroke && onPage(note))) && (e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'z') {
 				e.preventDefault(); e.stopPropagation(); undoStroke(); return;
 			}
 			if (state.active && (strokes.length || gesture || pendingSelection) && ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(e.key)) {
@@ -661,7 +682,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		{ capture: true, signal: abort.signal }
 	);
 	const geometryChanged = () => {
-		if (gesture || strokes.length || pendingSelection) clearDrawing();
+		if (gesture || strokes.length || pendingSelection) clearSelection();
 		schedule();
 	};
 	document.addEventListener('scroll', geometryChanged, { capture: true, passive: true, signal: abort.signal });
@@ -695,7 +716,7 @@ interface Point {
 }
 
 export type InspectorEvent =
-	| { type: 'drawing'; selection: InspectorSelection | null }
+	| { type: 'selection'; selection: InspectorSelection | null }
 	| { type: 'annotation-tool'; tool: AnnotationTool }
 	| { type: 'pick'; target: VisualAnnotationTarget; anchor: Point }
 	| { type: 'edit'; id: string; anchor: Point }
@@ -789,9 +810,8 @@ export function parseInspectorMessage(
 			return data.tool === 'select' || data.tool === 'draw'
 				? { type: 'annotation-tool', tool: data.tool }
 				: null;
-		case 'drawing': {
-			if ( data.type === 'drawing' && data.selection === null )
-				return { type: 'drawing', selection: null };
+		case 'selection': {
+			if ( data.selection === null ) return { type: 'selection', selection: null };
 			const selection = parseInspectorSelection( data.selection );
 			return selection ? { type: data.type, selection } : null;
 		}

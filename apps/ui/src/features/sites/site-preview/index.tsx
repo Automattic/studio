@@ -363,7 +363,7 @@ function SitePreviewContent( {
 			if ( inactive ) return;
 			if ( event.type === 'browser-command' ) {
 				sendBrowserCommand( event.command );
-			} else if ( event.type === 'drawing' || event.type === 'annotation-tool' ) {
+			} else if ( event.type === 'selection' || event.type === 'annotation-tool' ) {
 				handleAnnotationToolEvent( event );
 			} else {
 				handleAnnotationEvent( event );
@@ -584,7 +584,7 @@ function SitePreviewContent( {
 											} }
 											onInspectorEvent={ handleInspectorEvent }
 											annotationTool={ annotationTools.tool }
-											annotationAction={ annotationTools.action }
+											clearSelection={ annotationTools.clearSelection }
 											browserCommand={ surface.browserCommand }
 											onBrowserStateChange={ ( state ) => handleSurfaceBrowserState( key, state ) }
 											onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }

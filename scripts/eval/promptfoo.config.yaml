@@ -519,14 +519,14 @@ tests:
       - type: javascript
         value: file://outcome.mjs:designSystemReplyLink
 
-  - description: drawing annotation changes the selected heading without an element selector
+  - description: region annotation changes the selected heading without an element selector
     vars:
-      caseId: drawing-annotation
+      caseId: region-annotation
       ui: true
       timeoutMs: 240000
       seed:
         activeSite:
-          name: Eval Drawing Annotation
+          name: Eval Region Annotation
           files:
             wp-content/mu-plugins/eval-annotation.php: |
               <?php
@@ -534,7 +534,7 @@ tests:
                   return '<section><h2>Plans for every team</h2><p>Choose a plan.</p></section>' . $content;
               } );
           inspect:
-            - ["eval", "echo str_contains( apply_filters( 'the_content', '' ), 'Plans for every project' ) && ! str_contains( apply_filters( 'the_content', '' ), 'Plans for every team' ) ? 'ANNOTATION_COPY_UPDATED' : 'ANNOTATION_COPY_MISSING';"]
+            - ["eval", "echo str_contains( apply_filters( 'the_content', '' ), 'Plans for every project' ) && ! str_contains( apply_filters( 'the_content', '' ), 'Plans for every team' ) && str_contains( apply_filters( 'the_content', '' ), '<p>Choose a plan.</p>' ) ? 'ANNOTATION_COPY_UPDATED' : 'ANNOTATION_COPY_MISSING';"]
       prompt: |
         The user submitted 1 visual annotation from the site preview.
 
@@ -544,14 +544,14 @@ tests:
 
         ## Submitted Annotations
 
-        ### 1. drawing
+        ### 1. selected area
         - Page: /
         - Comment: Change the heading "Plans for every team" to "Plans for every project". Keep the paragraph below it as it is.
 
         ```json
         {
           "id": "a_1",
-          "kind": "drawing",
+          "kind": "region",
           "path": "/",
           "viewport": { "width": 1280, "height": 800 },
           "documentRect": { "left": 40, "top": 180, "width": 620, "height": 160 },
@@ -560,7 +560,7 @@ tests:
         ```
     assert:
       - type: javascript
-        value: file://outcome.mjs:drawingAnnotationApplied
+        value: file://outcome.mjs:regionAnnotationApplied
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
 

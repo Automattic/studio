@@ -15,9 +15,18 @@ const selection: InspectorSelection = {
 };
 
 describe( 'inspector selections', () => {
-	it( 'accepts a drawing without an element selector and preserves page geometry', () => {
-		expect( parseInspectorSelection( selection ) ).toMatchObject( selection );
-	} );
+	it.each( [ 'region', 'drawing' ] as const )(
+		'accepts a %s without an element selector and preserves page geometry',
+		( kind ) => {
+			const { drawing, ...area } = selection;
+			const input = {
+				...area,
+				target: { ...selection.target, kind },
+				...( kind === 'drawing' ? { drawing } : {} ),
+			};
+			expect( parseInspectorSelection( input ) ).toMatchObject( input );
+		}
+	);
 	it.each( [
 		{ rect: { left: -1, top: 20, width: 300, height: 200 } },
 		{ rect: { left: 10, top: 20, width: 1000, height: 200 } },

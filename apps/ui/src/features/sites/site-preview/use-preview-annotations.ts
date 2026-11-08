@@ -14,7 +14,7 @@ import type { VisualAnnotationTarget } from '@studio/agent/protocol/visual-annot
 
 type AnnotationEvent = Exclude<
 	InspectorEvent,
-	{ type: 'browser-command' | 'drawing' | 'annotation-tool' }
+	{ type: 'browser-command' | 'selection' | 'annotation-tool' }
 >;
 
 // Where the note being written sits over the preview, from the picks and

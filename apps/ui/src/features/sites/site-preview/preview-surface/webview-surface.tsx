@@ -1,7 +1,5 @@
 import {
 	INSPECTOR_COMMAND_EVENT,
-	INSPECTOR_ACTION_EVENT,
-	type InspectorAction,
 	INSPECTOR_PAGE_SCRIPT,
 	parseInspectorMessage,
 	type InspectorEvent,
@@ -43,7 +41,7 @@ interface WebviewSurfaceProps {
 	// The site's annotations, mirrored into the page as markers.
 	annotations?: SiteAnnotations;
 	annotationTool?: 'select' | 'draw';
-	annotationAction?: InspectorAction;
+	clearSelection?: string;
 	onInspectorReady?: ( ready: boolean ) => void;
 	onInspectorEvent?: ( event: InspectorEvent ) => void;
 	browserCommand?: BrowserCommand | null;
@@ -69,7 +67,7 @@ export function WebviewSurface( {
 	reloadNonce,
 	annotations,
 	annotationTool = 'select',
-	annotationAction,
+	clearSelection,
 	onInspectorReady,
 	onInspectorEvent,
 	browserCommand,
@@ -428,6 +426,7 @@ export function WebviewSurface( {
 		const detail = {
 			active: annotations.active,
 			tool: annotationTool,
+			areaSelection: true,
 			busy: !! ( annotations.preparing || annotations.sending ),
 			blockedNavigation: annotations.blockedNavigation ?? 0,
 			editingId: notes.some( ( note ) => note.id === annotations.editingId )
@@ -471,15 +470,15 @@ export function WebviewSurface( {
 
 	useEffect( () => {
 		const webview = ref.current as WebviewTag | null;
-		if ( ! inspectorReady || ! webview || ! annotationAction ) return;
+		if ( ! inspectorReady || ! webview || ! clearSelection ) return;
 		void webview
 			.executeJavaScript(
 				`window.dispatchEvent(new CustomEvent(${ JSON.stringify(
-					INSPECTOR_ACTION_EVENT
-				) }, { detail: ${ JSON.stringify( annotationAction ) } }));`
+					INSPECTOR_COMMAND_EVENT
+				) }, { detail: ${ JSON.stringify( { clearSelection } ) } }));`
 			)
 			.catch( () => undefined );
-	}, [ annotationAction, inspectorReady ] );
+	}, [ clearSelection, inspectorReady ] );
 
 	useEffect( () => {
 		if ( ! ready || ! browserCommand ) return;

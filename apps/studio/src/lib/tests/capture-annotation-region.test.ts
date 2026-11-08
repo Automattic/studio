@@ -43,24 +43,34 @@ beforeEach( () => {
 afterEach( () => vi.useRealTimers() );
 
 describe( 'annotation region capture', () => {
-	it( 'captures visible guest pixels and returns a standard image attachment', async () => {
-		const result = await captureAnnotationRegion( event, { guestId: 7, selection } );
-		expect( guest.capturePage ).toHaveBeenCalledWith( { x: 20, y: 30, width: 200, height: 100 } );
-		expect( guest.executeJavaScript.mock.calls[ 0 ][ 0 ] ).toContain(
-			"host.setAttribute('data-capturing',"
-		);
-		expect( guest.executeJavaScript.mock.calls.at( -1 )?.[ 0 ] ).toContain(
-			"removeAttribute('data-capturing')"
-		);
-		expect( result ).toMatchObject( {
-			name: 'Drawing.png',
-			mimeType: 'image/png',
-			width: 400,
-			height: 200,
-			size: 3,
-			dataBase64: Buffer.from( 'png' ).toString( 'base64' ),
-		} );
-	} );
+	it.each( [ 'region', 'drawing' ] as const )(
+		'captures %s pixels as an image attachment',
+		async ( kind ) => {
+			const result = await captureAnnotationRegion( event, {
+				guestId: 7,
+				selection: {
+					...selection,
+					target: { ...selection.target, kind },
+					drawing: kind === 'drawing' ? selection.drawing : undefined,
+				},
+			} );
+			expect( guest.capturePage ).toHaveBeenCalledWith( { x: 20, y: 30, width: 200, height: 100 } );
+			expect( guest.executeJavaScript.mock.calls[ 0 ][ 0 ] ).toContain(
+				"host.setAttribute('data-capturing',"
+			);
+			expect( guest.executeJavaScript.mock.calls.at( -1 )?.[ 0 ] ).toContain(
+				"removeAttribute('data-capturing')"
+			);
+			expect( result ).toMatchObject( {
+				name: kind === 'drawing' ? 'Drawing.png' : 'Selected area.png',
+				mimeType: 'image/png',
+				width: 400,
+				height: 200,
+				size: 3,
+				dataBase64: Buffer.from( 'png' ).toString( 'base64' ),
+			} );
+		}
+	);
 	it( 'rejects a guest owned by another window', async () => {
 		guest.hostWebContents = {};
 		await expect( captureAnnotationRegion( event, { guestId: 7, selection } ) ).rejects.toThrow(

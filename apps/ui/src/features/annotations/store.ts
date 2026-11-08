@@ -39,7 +39,7 @@ const listeners = new Set< () => void >();
 const pendingReview = createPendingSlot< { siteId: string; noteId: string } >();
 
 export function hasAnnotationContent( note: PreviewAnnotation ) {
-	return Boolean( note.comment.trim() || note.images.length > ( note.kind ? 1 : 0 ) );
+	return Boolean( note.comment.trim() || note.images.length > ( note.kind === 'drawing' ? 1 : 0 ) );
 }
 
 export function getSiteAnnotations( siteId: string | undefined ): SiteAnnotations {

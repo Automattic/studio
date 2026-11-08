@@ -40,7 +40,6 @@ export function AnnotationTools( {
 				{ pageTools ? (
 					<>
 						<IconButton
-							size="icon"
 							shape="round"
 							variant="accent-ghost"
 							icon={ <SelectIcon /> }
@@ -50,13 +49,11 @@ export function AnnotationTools( {
 							disabled={ disabled }
 							focusableWhenDisabled={ false }
 							tooltip={ visible }
-							tooltipSide="top"
 							onClick={ () => {
 								if ( drawing ) onToggle();
 							} }
 						/>
 						<IconButton
-							size="icon"
 							shape="round"
 							variant="accent-ghost"
 							icon={ <DrawIcon ref={ drawIcon } /> }
@@ -66,7 +63,6 @@ export function AnnotationTools( {
 							disabled={ disabled }
 							focusableWhenDisabled={ false }
 							tooltip={ visible }
-							tooltipSide="top"
 							onClick={ ( event ) => {
 								onToggle();
 								if ( ! drawing && event.detail > 0 ) drawIcon.current?.play();
@@ -74,20 +70,17 @@ export function AnnotationTools( {
 						/>
 						{ pending && failed ? (
 							<IconButton
-								size="icon"
 								shape="round"
 								icon={ <RotateCcwIcon /> }
 								label={ __( 'Retry capture' ) }
 								disabled={ disabled }
 								tooltip={ visible }
 								onClick={ onRetry }
-								tooltipSide="top"
 							/>
 						) : null }
 					</>
 				) : null }
 				<IconButton
-					size="icon"
 					shape="round"
 					destructive
 					icon={ <TrashIcon /> }
@@ -96,7 +89,6 @@ export function AnnotationTools( {
 					focusableWhenDisabled={ false }
 					tooltip={ visible }
 					onClick={ onDiscard }
-					tooltipSide="top"
 				/>
 			</div>
 		</div>

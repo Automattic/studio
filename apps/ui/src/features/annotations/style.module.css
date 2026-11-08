@@ -8,7 +8,6 @@
 .editor {
 	composes: errorShake from '@/lib/theme/recipes.module.css';
 	composes: floating padded from '@/lib/ui/surface/style.module.css';
-	--motion-duration-feedback: 0s;
 	--error-shake-distance: var( --space-0_5 );
 
 	position: absolute;

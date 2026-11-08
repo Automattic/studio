@@ -10,7 +10,6 @@
 
 .tools {
 	composes: floating padded from '@/lib/ui/surface/style.module.css';
-	--motion-duration-feedback: 0s;
 	--surface: var( --chat );
 	display: flex;
 	align-items: center;

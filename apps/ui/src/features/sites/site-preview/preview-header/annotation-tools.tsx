@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { RotateCcwIcon } from 'lucide-react';
-import { DrawIcon, SelectIcon, TrashIcon } from '@/lib/icons';
+import { useRef } from 'react';
+import { DrawIcon, SelectIcon, TrashIcon, type DrawIconHandle } from '@/lib/icons';
 import { IconButton } from '@/lib/ui';
 import styles from './annotation-tools.module.css';
 
@@ -25,6 +26,7 @@ export function AnnotationTools( {
 	onRetry: () => void;
 	onDiscard: () => void;
 } ) {
+	const drawIcon = useRef< DrawIconHandle >( null );
 	return (
 		<div className={ styles.overlay }>
 			<div
@@ -57,7 +59,7 @@ export function AnnotationTools( {
 							size="icon"
 							shape="round"
 							variant="accent-ghost"
-							icon={ <DrawIcon /> }
+							icon={ <DrawIcon ref={ drawIcon } /> }
 							label={ __( 'Draw' ) }
 							shortcut={ { displayShortcut: 'D', ariaKeyShortcut: 'd' } }
 							aria-pressed={ drawing }
@@ -65,7 +67,10 @@ export function AnnotationTools( {
 							focusableWhenDisabled={ false }
 							tooltip={ visible }
 							tooltipSide="top"
-							onClick={ onToggle }
+							onClick={ ( event ) => {
+								onToggle();
+								if ( event.detail > 0 ) drawIcon.current?.play();
+							} }
 						/>
 						{ pending && failed ? (
 							<IconButton

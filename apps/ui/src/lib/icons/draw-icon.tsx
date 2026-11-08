@@ -91,6 +91,7 @@ export function DrawIcon( {
 				reducedMotion ||
 				! rest ||
 				! line ||
+				! globalThis.CSS?.supports?.( 'd', `path("${ DRAW_PATH }")` ) ||
 				animations.current.some( ( animation ) => animation.playState === 'running' )
 			)
 				return;

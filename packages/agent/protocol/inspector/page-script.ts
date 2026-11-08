@@ -54,7 +54,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 	document.documentElement.append(cursorStyle);
 	const style = document.createElement('style');
 	style.textContent =
-		'.highlight{position:fixed;pointer-events:none;box-sizing:border-box;border:2px solid var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}' +
+		'.highlight{position:fixed;pointer-events:none;box-sizing:border-box;border:2px solid var(--accent);box-shadow:0 0 0 1px color-mix(in srgb,var(--on-accent) 60%,transparent);background:color-mix(in srgb,var(--accent) 8%,transparent)}' +
 		'button{position:fixed;transform:translate(-50%,-50%);border:0;border-radius:50%;width:36px;height:36px;padding:0;font:500 12px var(--marker-font-family,system-ui);font-variant-numeric:tabular-nums;background:var(--marker) center/contain no-repeat;color:var(--on-accent);cursor:pointer;pointer-events:auto}' +
 		'button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}' +
 		'.enter{animation:marker-in 600ms linear(0 0%,.0325 2.5%,.1163 5%,.2331 7.5%,.6385 15%,.7594 17.5%,.8639 20%,.9497 22.5%,1.0164 25%,1.0648 27.5%,1.0966 30%,1.1142 32.5%,1.1172 37.5%,1.0941 42.5%,1.0178 55%,.9887 65%,.9858 72.5%,1 100%) both,marker-fade-in var(--motion-duration-feedback,100ms) ease-out both}' +

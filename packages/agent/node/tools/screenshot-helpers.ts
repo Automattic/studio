@@ -88,23 +88,10 @@ async function waitForPageToSettle( page: Page, openRequests: () => number ): Pr
 	}
 }
 
-export type ScreenshotFormat = 'png' | 'jpeg';
+type ScreenshotFormat = 'png' | 'jpeg';
 
 export const SCREENSHOT_COLOR_SCHEME_VALUES = [ 'light', 'dark' ] as const;
 export type ScreenshotColorScheme = ( typeof SCREENSHOT_COLOR_SCHEME_VALUES )[ number ];
-
-/**
- * Apply the prefers-color-scheme emulation a capture asks for.
- */
-async function applyScreenshotMediaEmulation(
-	page: Page,
-	colorScheme?: ScreenshotColorScheme
-): Promise< void > {
-	await page.emulateMedia( {
-		reducedMotion: 'reduce',
-		...( colorScheme ? { colorScheme } : {} ),
-	} );
-}
 
 export interface ScreenshotCapture {
 	/** The address actually captured, after redirects. */
@@ -258,7 +245,11 @@ async function loadPage(
 	options: { fullPage: boolean; colorScheme?: ScreenshotColorScheme }
 ) {
 	const openRequests = trackRequests( page );
-	await applyScreenshotMediaEmulation( page, options.colorScheme );
+	// Apply the prefers-color-scheme emulation a capture asks for.
+	await page.emulateMedia( {
+		reducedMotion: 'reduce',
+		...( options.colorScheme ? { colorScheme: options.colorScheme } : {} ),
+	} );
 	const response = await page.goto( url, { waitUntil: 'domcontentloaded', timeout: 30000 } );
 	await waitForPageToSettle( page, openRequests );
 
@@ -299,8 +290,13 @@ async function capturePage(
 			? { type: 'jpeg' as const, quality: MODEL_JPEG_QUALITY }
 			: { type: 'png' as const };
 
+	let buffer: Buffer;
+	let documentHeight: number;
+	let contentHeight: number;
+	let capturedHeight: number;
+	let offset: number;
 	if ( ! options.fullPage ) {
-		const contentHeight = await page.evaluate( () =>
+		contentHeight = await page.evaluate( () =>
 			Math.ceil(
 				Array.from( document.body.querySelectorAll( '*' ) ).reduce( ( bottom, element ) => {
 					const rect = element.getBoundingClientRect();
@@ -310,75 +306,65 @@ async function capturePage(
 				}, 0 )
 			)
 		);
-		const buffer = await page.screenshot( { ...formatOptions } );
-		return {
-			url: page.url(),
-			buffer: Buffer.from( buffer ),
-			modelImage: options.forModel
-				? await scaleForModel( page, buffer, viewport.width * dpr, viewport.height * dpr )
-				: undefined,
-			documentHeight: viewport.height,
-			contentHeight,
-			capturedHeight: viewport.height,
-			offset: 0,
-			clipped: false,
-			layout,
-			textFit,
-		};
-	}
-
-	const documentHeight = await page.evaluate( () =>
-		Math.max( document.body.scrollHeight, document.documentElement.scrollHeight )
-	);
-	const offset = Math.max( 0, Math.floor( options.offset ?? 0 ) );
-	if ( offset >= documentHeight ) {
-		throw new Error(
-			`offset ${ offset } exceeds document height ${ documentHeight }; nothing to capture.`
+		buffer = await page.screenshot( { ...formatOptions } );
+		documentHeight = viewport.height;
+		capturedHeight = viewport.height;
+		offset = 0;
+	} else {
+		documentHeight = await page.evaluate( () =>
+			Math.max( document.body.scrollHeight, document.documentElement.scrollHeight )
 		);
-	}
-	const remaining = documentHeight - offset;
-	const capturedHeight = Math.min( remaining, maxCssHeight );
-	// A full-page capture keeps the viewport's size and paints a background
-	// fixed to the viewport (`background-attachment: fixed`, as a page's
-	// gradient or a parallax cover block uses) over the first screen only,
-	// leaving it white further down, where a visitor sees it behind every
-	// screen. Attached to its element for the capture, it paints wherever its
-	// element is.
-	const fixed = await page.evaluate(
-		() =>
-			Array.from( document.querySelectorAll< HTMLElement >( '*' ) ).filter( ( element ) => {
-				if ( ! getComputedStyle( element ).backgroundAttachment.includes( 'fixed' ) ) {
-					return false;
-				}
-				element.dataset.studioFixedBackground =
-					element.style.getPropertyValue( 'background-attachment' );
-				element.style.setProperty( 'background-attachment', 'scroll', 'important' );
-				return true;
-			} ).length
-	);
-	// `fullPage: true` is required alongside `clip` so Playwright renders
-	// the entire document and crops to the requested region. Without it,
-	// the "resulting image" is the viewport and any clip.y beyond the
-	// viewport height fails with "Clipped area is either empty or outside
-	// the resulting image".
-	const buffer = await page.screenshot( {
-		...formatOptions,
-		fullPage: true,
-		clip: { x: 0, y: offset, width: viewport.width, height: capturedHeight },
-	} );
-	if ( fixed ) {
-		await page.evaluate( () => {
-			for ( const element of document.querySelectorAll< HTMLElement >(
-				'[data-studio-fixed-background]'
-			) ) {
-				const before = element.dataset.studioFixedBackground ?? '';
-				element.style.removeProperty( 'background-attachment' );
-				if ( before ) {
-					element.style.setProperty( 'background-attachment', before );
-				}
-				delete element.dataset.studioFixedBackground;
-			}
+		offset = Math.max( 0, Math.floor( options.offset ?? 0 ) );
+		if ( offset >= documentHeight ) {
+			throw new Error(
+				`offset ${ offset } exceeds document height ${ documentHeight }; nothing to capture.`
+			);
+		}
+		const remaining = documentHeight - offset;
+		capturedHeight = Math.min( remaining, maxCssHeight );
+		// A full-page capture keeps the viewport's size and paints a background
+		// fixed to the viewport (`background-attachment: fixed`, as a page's
+		// gradient or a parallax cover block uses) over the first screen only,
+		// leaving it white further down, where a visitor sees it behind every
+		// screen. Attached to its element for the capture, it paints wherever its
+		// element is.
+		const fixed = await page.evaluate(
+			() =>
+				Array.from( document.querySelectorAll< HTMLElement >( '*' ) ).filter( ( element ) => {
+					if ( ! getComputedStyle( element ).backgroundAttachment.includes( 'fixed' ) ) {
+						return false;
+					}
+					element.dataset.studioFixedBackground =
+						element.style.getPropertyValue( 'background-attachment' );
+					element.style.setProperty( 'background-attachment', 'scroll', 'important' );
+					return true;
+				} ).length
+		);
+		// `fullPage: true` is required alongside `clip` so Playwright renders
+		// the entire document and crops to the requested region. Without it,
+		// the "resulting image" is the viewport and any clip.y beyond the
+		// viewport height fails with "Clipped area is either empty or outside
+		// the resulting image".
+		buffer = await page.screenshot( {
+			...formatOptions,
+			fullPage: true,
+			clip: { x: 0, y: offset, width: viewport.width, height: capturedHeight },
 		} );
+		if ( fixed ) {
+			await page.evaluate( () => {
+				for ( const element of document.querySelectorAll< HTMLElement >(
+					'[data-studio-fixed-background]'
+				) ) {
+					const before = element.dataset.studioFixedBackground ?? '';
+					element.style.removeProperty( 'background-attachment' );
+					if ( before ) {
+						element.style.setProperty( 'background-attachment', before );
+					}
+					delete element.dataset.studioFixedBackground;
+				}
+			} );
+		}
+		contentHeight = documentHeight;
 	}
 	return {
 		url: page.url(),
@@ -387,7 +373,7 @@ async function capturePage(
 			? await scaleForModel( page, buffer, viewport.width * dpr, capturedHeight * dpr )
 			: undefined,
 		documentHeight,
-		contentHeight: documentHeight,
+		contentHeight,
 		capturedHeight,
 		offset,
 		clipped: offset + capturedHeight < documentHeight,

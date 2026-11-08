@@ -138,6 +138,9 @@ export async function pageLayout( page: Page ): Promise< string[] > {
 			}`;
 		};
 		const lines: string[] = [];
+		// A region's blocks are a level down, past wrappers that hold one block.
+		const wraps = ( box: Element ): Element =>
+			box.children.length === 1 ? wraps( box.children[ 0 ] ) : box;
 		const visit = ( parent: Element, depth: number ) => {
 			for ( const element of parent.children ) {
 				const rect = element.getBoundingClientRect();
@@ -152,9 +155,6 @@ export async function pageLayout( page: Page ): Promise< string[] > {
 						rect.right
 					) }${ depth > 0 ? placement( element ) : '' }`
 				);
-				// A region's blocks are a level down, past wrappers that hold one block.
-				const wraps = ( box: Element ): Element =>
-					box.children.length === 1 ? wraps( box.children[ 0 ] ) : box;
 				if ( depth === 0 ) {
 					visit( wraps( element ), 1 );
 				}
@@ -354,101 +354,101 @@ export async function pageOverflow( page: Page ): Promise< string[] > {
 		};
 		const lines: string[] = [];
 		const width = document.documentElement.scrollWidth;
-		if ( width > window.innerWidth ) {
-			lines.push(
-				`The page is ${ width }px wide in a ${ window.innerWidth }px viewport, so it scrolls sideways.`
-			);
-			// What makes it wider: each element past the viewport whose parent is not.
-			// A box that clips its overflow, or a fixed one, adds nothing to the page's width.
-			// The page scrolls toward its end side only, so content past its start
-			// edge (the left, unless the page is right to left) widens nothing.
-			const viewport = document.documentElement.clientWidth;
-			const rtl = getComputedStyle( document.documentElement ).direction === 'rtl';
-			const past = ( element: Element ) => {
-				const rect = element.getBoundingClientRect();
-				return (
-					rect.width > 0 && rect.height > 0 && ( rtl ? rect.left < -1 : rect.right > viewport + 1 )
-				);
-			};
-			// Content that a box clips does not widen the page; a box's own clipping
-			// counts for its text, not for the box itself.
-			const widens = ( element: Element, clipsItself = false ) => {
-				for (
-					let box: Element | null = element;
-					box && box !== document.body;
-					box = box.parentElement
-				) {
-					const style = getComputedStyle( box );
-					if (
-						style.position === 'fixed' ||
-						( ( clipsItself || box !== element ) && style.overflowX !== 'visible' )
-					) {
-						return false;
-					}
-				}
-				return true;
-			};
-			const region = ( element: Element ) =>
-				element.closest( 'header, main, footer, .wp-block-template-part' );
-			const causes = [ ...document.body.querySelectorAll( '*' ) ].filter(
-				( element ) =>
-					past( element ) &&
-					! (
-						element.parentElement &&
-						element.parentElement !== document.body &&
-						past( element.parentElement )
-					) &&
-					widens( element )
-			);
-			const where = ( element: Element ) => {
-				const within = region( element );
-				return within && within !== element ? `, in ${ label( within, false ) }` : '';
-			};
-			const found = causes.map( ( element ) => {
-				const rect = element.getBoundingClientRect();
-				return `  ${ label( element ) } reaches past it, x ${ Math.round(
-					rect.left
-				) }–${ Math.round( rect.right ) }${ where( element ) }.`;
-			} );
-			// Text that does not wrap within its box spills past it, as a box's
-			// overflow is visible by default, while the box itself fits.
-			const walker = document.createTreeWalker( document.body, NodeFilter.SHOW_TEXT );
-			const range = document.createRange();
-			for ( let node = walker.nextNode(); node; node = walker.nextNode() ) {
-				const element = node.parentElement;
-				const text = ( node.textContent ?? '' ).replace( /\s+/g, ' ' ).trim();
-				if (
-					! element ||
-					! text ||
-					causes.some( ( cause ) => cause.contains( element ) ) ||
-					! widens( element, true )
-				) {
-					continue;
-				}
-				range.selectNodeContents( node );
-				const rects = [ ...range.getClientRects() ].filter( ( rect ) => rect.width > 0 );
-				const left = Math.min( ...rects.map( ( rect ) => rect.left ) );
-				const right = Math.max( ...rects.map( ( rect ) => rect.right ) );
-				if ( ! rects.length || ( rtl ? left >= -1 : right <= viewport + 1 ) ) {
-					continue;
-				}
-				// The box the text lays out in: an inline element, as a link, has none of its own.
-				let box = element;
-				while ( box.parentElement && getComputedStyle( box ).display === 'inline' ) {
-					box = box.parentElement;
-				}
-				const quoted = text.length > 40 ? `${ text.slice( 0, 40 ) }…` : text;
-				found.push(
-					`  The text "${ quoted }" of ${ label( box, false ) } reaches past it, x ${ Math.round(
-						left
-					) }–${ Math.round( right ) }, wider than its ${
-						box.clientWidth
-					}px box, as the browser does not wrap it there${ where( box ) }.`
-				);
-			}
-			return { lines, causes: found };
+		if ( width <= window.innerWidth ) {
+			return { lines, causes: [] };
 		}
-		return { lines, causes: [] };
+		lines.push(
+			`The page is ${ width }px wide in a ${ window.innerWidth }px viewport, so it scrolls sideways.`
+		);
+		// What makes it wider: each element past the viewport whose parent is not.
+		// A box that clips its overflow, or a fixed one, adds nothing to the page's width.
+		// The page scrolls toward its end side only, so content past its start
+		// edge (the left, unless the page is right to left) widens nothing.
+		const viewport = document.documentElement.clientWidth;
+		const rtl = getComputedStyle( document.documentElement ).direction === 'rtl';
+		const past = ( element: Element ) => {
+			const rect = element.getBoundingClientRect();
+			return (
+				rect.width > 0 && rect.height > 0 && ( rtl ? rect.left < -1 : rect.right > viewport + 1 )
+			);
+		};
+		// Content that a box clips does not widen the page; a box's own clipping
+		// counts for its text, not for the box itself.
+		const widens = ( element: Element, clipsItself = false ) => {
+			for (
+				let box: Element | null = element;
+				box && box !== document.body;
+				box = box.parentElement
+			) {
+				const style = getComputedStyle( box );
+				if (
+					style.position === 'fixed' ||
+					( ( clipsItself || box !== element ) && style.overflowX !== 'visible' )
+				) {
+					return false;
+				}
+			}
+			return true;
+		};
+		const region = ( element: Element ) =>
+			element.closest( 'header, main, footer, .wp-block-template-part' );
+		const causes = [ ...document.body.querySelectorAll( '*' ) ].filter(
+			( element ) =>
+				past( element ) &&
+				! (
+					element.parentElement &&
+					element.parentElement !== document.body &&
+					past( element.parentElement )
+				) &&
+				widens( element )
+		);
+		const where = ( element: Element ) => {
+			const within = region( element );
+			return within && within !== element ? `, in ${ label( within, false ) }` : '';
+		};
+		const found = causes.map( ( element ) => {
+			const rect = element.getBoundingClientRect();
+			return `  ${ label( element ) } reaches past it, x ${ Math.round( rect.left ) }–${ Math.round(
+				rect.right
+			) }${ where( element ) }.`;
+		} );
+		// Text that does not wrap within its box spills past it, as a box's
+		// overflow is visible by default, while the box itself fits.
+		const walker = document.createTreeWalker( document.body, NodeFilter.SHOW_TEXT );
+		const range = document.createRange();
+		for ( let node = walker.nextNode(); node; node = walker.nextNode() ) {
+			const element = node.parentElement;
+			const text = ( node.textContent ?? '' ).replace( /\s+/g, ' ' ).trim();
+			if (
+				! element ||
+				! text ||
+				causes.some( ( cause ) => cause.contains( element ) ) ||
+				! widens( element, true )
+			) {
+				continue;
+			}
+			range.selectNodeContents( node );
+			const rects = [ ...range.getClientRects() ].filter( ( rect ) => rect.width > 0 );
+			const left = Math.min( ...rects.map( ( rect ) => rect.left ) );
+			const right = Math.max( ...rects.map( ( rect ) => rect.right ) );
+			if ( ! rects.length || ( rtl ? left >= -1 : right <= viewport + 1 ) ) {
+				continue;
+			}
+			// The box the text lays out in: an inline element, as a link, has none of its own.
+			let box = element;
+			while ( box.parentElement && getComputedStyle( box ).display === 'inline' ) {
+				box = box.parentElement;
+			}
+			const quoted = text.length > 40 ? `${ text.slice( 0, 40 ) }…` : text;
+			found.push(
+				`  The text "${ quoted }" of ${ label( box, false ) } reaches past it, x ${ Math.round(
+					left
+				) }–${ Math.round( right ) }, wider than its ${
+					box.clientWidth
+				}px box, as the browser does not wrap it there${ where( box ) }.`
+			);
+		}
+		return { lines, causes: found };
 	} );
 	return [ ...lines, ...boundedLines( causes, MAX_CAUSES, '  ' ) ];
 }
@@ -609,7 +609,7 @@ export async function pageTextFit( page: Page ): Promise< TextFit > {
  * theme sets no settings.layout.wideSize, which it otherwise stops at
  * (wp_get_typography_font_size_value() in wp-includes/block-supports/typography.php).
  */
-export const FLUID_TYPE_MAX_WIDTH = 1600;
+const FLUID_TYPE_MAX_WIDTH = 1600;
 
 /**
  * The words the browser breaks across lines at FLUID_TYPE_MAX_WIDTH, where

@@ -495,13 +495,18 @@ export const builtFrontPage = check( ( d, vars ) => {
 	return pass( `front page "${ front.title }" built` );
 } );
 
+// The JSON a text holds, or null when it holds none.
+function parseJson( text ) {
+	try {
+		return JSON.parse( text );
+	} catch {
+		return null;
+	}
+}
+
 // The font families a theme.json declares, or undefined.
 function fontFamilies( themeJson ) {
-	try {
-		return JSON.parse( themeJson ).settings?.typography?.fontFamilies;
-	} catch {
-		return undefined;
-	}
+	return parseJson( themeJson )?.settings?.typography?.fontFamilies;
 }
 
 // The design is the site's own, kept where WordPress keeps a design: a theme
@@ -600,7 +605,6 @@ export const navAnchorsWorkEverywhere = check( ( d, vars ) => {
 	);
 } );
 
-// The listed plugins are active and the front page uses a block from one of them.
 // The home page holds a slideshow of at least `minSlides` images, by any
 // plugin or code: one frame holding them that shows fewer at once than it
 // holds, as a slideshow or carousel does. A gallery shows all of its images.
@@ -639,10 +643,6 @@ export const storeHasProducts = check( ( d, vars ) => {
 		  );
 } );
 
-// The design lives in a child theme of vars.parentTheme, the parent is still
-// its WordPress.org release, and headings use a serif face.
-// Both places WordPress keeps a customization through the theme's updates: a
-// child theme, or the Site Editor's Global Styles (the wp_global_styles post).
 // The site runs the theme the user asked for (vars.theme).
 export const runsTheTheme = check( ( d, vars ) => {
 	const { stylesheet } = site( d, vars ).theme;
@@ -651,6 +651,10 @@ export const runsTheTheme = check( ( d, vars ) => {
 		: fail( `the site runs ${ stylesheet }, not ${ vars.theme }, the theme the user asked for` );
 } );
 
+// The design lives in a child theme of vars.parentTheme, the parent is still
+// its WordPress.org release, and headings use a serif face.
+// Both places WordPress keeps a customization through the theme's updates: a
+// child theme, or the Site Editor's Global Styles (the wp_global_styles post).
 export const customizedThroughChildTheme = check( ( d, vars ) => {
 	const s = site( d, vars );
 	const child = s.theme.template === vars.parentTheme && s.theme.stylesheet !== vars.parentTheme;
@@ -1033,14 +1037,7 @@ export const pageInNativeBlocks = check( ( d, vars ) => {
 // dark mode of its own (`prefers-color-scheme`, `.dark`-style selectors).
 export const darkStyleVariation = check( ( d, vars ) => {
 	const s = site( d, vars );
-	const parse = ( text ) => {
-		try {
-			return JSON.parse( text );
-		} catch {
-			return null;
-		}
-	};
-	const base = parse( s.themeFiles?.[ 'theme.json' ] || '{}' ) || {};
+	const base = parseJson( s.themeFiles?.[ 'theme.json' ] || '{}' ) || {};
 	const look = ( json ) =>
 		JSON.stringify( [
 			json?.settings?.color?.palette ?? null,
@@ -1051,7 +1048,7 @@ export const darkStyleVariation = check( ( d, vars ) => {
 	);
 	if ( ! variations.length )
 		return fail( `${ s.theme?.stylesheet } has no styles/*.json variation` );
-	const invalid = variations.filter( ( [ , text ] ) => ! parse( text )?.version );
+	const invalid = variations.filter( ( [ , text ] ) => ! parseJson( text )?.version );
 	if ( invalid.length )
 		return fail( `invalid variation(s): ${ invalid.map( ( [ file ] ) => file ).join( ', ' ) }` );
 	const effective = ( json ) =>
@@ -1064,7 +1061,7 @@ export const darkStyleVariation = check( ( d, vars ) => {
 			},
 		} );
 	const differing = variations.filter(
-		( [ , text ] ) => effective( parse( text ) ) !== look( base )
+		( [ , text ] ) => effective( parseJson( text ) ) !== look( base )
 	);
 	if ( ! differing.length )
 		return fail(

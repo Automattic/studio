@@ -124,6 +124,21 @@ interface Refusal {
 	endsTurn?: boolean;
 }
 
+/**
+ * A declined call's result: one that ends the turn ends it with the refusal as
+ * the result; any other is thrown, as the call's error.
+ */
+export function declinedResult( declined: Refusal ) {
+	if ( declined.endsTurn ) {
+		return {
+			content: [ { type: 'text' as const, text: declined.text } ],
+			details: {},
+			terminate: true,
+		};
+	}
+	throw new Error( declined.text );
+}
+
 // Returns why the call did not run, or undefined once the user confirms (or
 // nothing needs confirming). Questions are asked one at a time.
 export type Confirmer = ( call: Confirmation | undefined ) => Promise< Refusal | undefined >;

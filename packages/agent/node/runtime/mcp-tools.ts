@@ -2,7 +2,7 @@ import { createHash } from 'crypto';
 import { mkdir, readFile, rename, writeFile } from 'fs/promises';
 import path from 'path';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
-import type { Confirmation, Confirmer } from './confirmation';
+import { declinedResult, type Confirmation, type Confirmer } from './confirmation';
 import type { AgentTool } from '@earendil-works/pi-agent-core';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import type { RemoteHost } from '@studio/agent/node/remote-hosts';
@@ -329,15 +329,8 @@ function createMcpTool(
 			const question = result.isError ? approval?.request( textOf( result.content ) ) : undefined;
 			if ( approval && question ) {
 				const declined = await confirm( question );
-				if ( declined?.endsTurn ) {
-					return {
-						content: [ { type: 'text', text: declined.text } ],
-						details: {},
-						terminate: true,
-					};
-				}
 				if ( declined ) {
-					throw new Error( declined.text );
+					return declinedResult( declined );
 				}
 				result = await call( { ...args, [ approval.argument ]: true }, signal );
 			}

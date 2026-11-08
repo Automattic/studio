@@ -16,7 +16,6 @@ import path from 'path';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { activeThemes, isUpdatableTheme, themesDir } from '@studio/agent/node/themes';
 import { wpEvalJson } from '@studio/agent/node/tools/utils';
-import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { SiteChangeSource } from '@studio/agent/node/site-changes';
 
 const LOADED = `
@@ -37,9 +36,9 @@ interface Loaded {
 	editor: boolean;
 }
 
-async function loaded( host: StudioAgentHost, site: HostSite ): Promise< Loaded > {
-	return wpEvalJson< Loaded >( host, site, LOADED );
-}
+// Where a stylesheet `loaded` says is not loaded, joined by `joiner`.
+const notLoaded = ( { front, editor }: Loaded, joiner: string ) =>
+	[ ! front && 'the front end', ! editor && 'the block editor' ].filter( Boolean ).join( joiner );
 
 /** Whether a stylesheet holds rules, past its header comment. */
 export function holdsRules( css: string ): boolean {
@@ -139,7 +138,7 @@ export const themeStylesheet: SiteChangeSource = {
 		if ( ! holdsRules( css ) || ( await isUpdatableTheme( site.path, theme ) ) ) {
 			return { reports: [] };
 		}
-		const was = await loaded( host, site );
+		const was = await wpEvalJson< Loaded >( host, site, LOADED );
 		if ( was.front && was.editor ) {
 			return { reports: [] };
 		}
@@ -147,10 +146,8 @@ export const themeStylesheet: SiteChangeSource = {
 		const file = path.join( dir, 'functions.php' );
 		const functions = await readFile( file, 'utf8' ).catch( () => undefined );
 		await writeFile( file, withCode( functions, loadingCode( theme, child, was ) ) );
-		const now = await loaded( host, site );
-		const where = [ ! was.front && 'the front end', ! was.editor && 'the block editor' ]
-			.filter( Boolean )
-			.join( ' and ' );
+		const now = await wpEvalJson< Loaded >( host, site, LOADED );
+		const where = notLoaded( was, ' and ' );
 		const key = `stylesheet of ${ theme }`;
 		const relative = `wp-content/themes/${ theme }/functions.php`;
 		const next = await themeStylesheet.read( site.path, undefined, host );
@@ -169,14 +166,10 @@ export const themeStylesheet: SiteChangeSource = {
 			reports: [
 				{
 					key,
-					problem: `WordPress loads no theme's style.css by itself, and ${ theme }'s rules still do not reach ${ [
-						! now.front && 'the front end',
-						! now.editor && 'the block editor',
-					]
-						.filter( Boolean )
-						.join(
-							' or '
-						) } after Studio added wp_enqueue_style() and add_editor_style() to ${ relative }, which may already declare the functions it added. Enqueue style.css there, as Twenty Twenty-Five's functions.php does.`,
+					problem: `WordPress loads no theme's style.css by itself, and ${ theme }'s rules still do not reach ${ notLoaded(
+						now,
+						' or '
+					) } after Studio added wp_enqueue_style() and add_editor_style() to ${ relative }, which may already declare the functions it added. Enqueue style.css there, as Twenty Twenty-Five's functions.php does.`,
 				},
 			],
 			next,

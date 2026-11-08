@@ -1,7 +1,10 @@
 import { existsSync, readFileSync } from 'fs';
-import { readFile } from 'fs/promises';
+import { readFile, stat } from 'fs/promises';
 import path from 'path';
 import { readWordPressSite, type WordPressSite } from '@studio/agent/node/site-database';
+
+/** Whether a file or folder exists. */
+export const exists = ( file: string ) => stat( file ).then( Boolean, () => false );
 
 /** The folder WordPress finds a site's themes in, or one theme's folder. */
 export const themesDir = ( sitePath: string, theme?: string ) =>

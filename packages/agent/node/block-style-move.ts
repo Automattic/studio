@@ -19,8 +19,9 @@
  * otherwise nothing is.
  */
 import { existsSync, readFileSync } from 'fs';
-import { mkdir, readdir, writeFile } from 'fs/promises';
+import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
+import { filesUnder } from '@studio/agent/node/active-code';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { placeOf, saveMarkup, type Markup } from '@studio/agent/node/site-markup';
 import { isUpdatableTheme } from '@studio/agent/node/themes';
@@ -346,14 +347,9 @@ async function namedElsewhere(
 	moved: string[]
 ): Promise< boolean > {
 	const word = new RegExp( `(^|[^A-Za-z0-9_-])${ name }(?![A-Za-z0-9_-])` );
-	const entries = await readdir( themeDir, { recursive: true, withFileTypes: true } );
-	const files = entries
-		.filter( ( entry ) => entry.isFile() && /\.(php|js|html|json)$/.test( entry.name ) )
-		.map( ( entry ) => path.join( entry.parentPath, entry.name ) )
-		.filter(
-			( file ) =>
-				! moved.includes( file ) && ! file.includes( `${ path.sep }node_modules${ path.sep }` )
-		);
+	const files = (
+		await filesUnder( themeDir, ( file ) => /\.(php|js|html|json)$/.test( file ) )
+	).filter( ( file ) => ! moved.includes( file ) );
 	if ( files.some( ( file ) => word.test( readFileSync( file, 'utf8' ) ) ) ) {
 		return true;
 	}

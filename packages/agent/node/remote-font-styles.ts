@@ -10,6 +10,7 @@
  */
 import { readdir, readFile } from 'fs/promises';
 import path from 'path';
+import { joinWithAnd as list } from '@studio/agent/node/bounded-list';
 import { themesDir } from '@studio/agent/node/themes';
 import type { HostSite } from '@studio/agent/node/host';
 
@@ -86,11 +87,6 @@ async function fileNaming( site: HostSite, themes: string[], handle: string ) {
 	}
 	return undefined;
 }
-
-const list = ( names: string[] ) =>
-	names.length < 2
-		? names.join( '' )
-		: `${ names.slice( 0, -1 ).join( ', ' ) } and ${ names.at( -1 ) }`;
 
 /**
  * What the front end newly loads from another host's fonts: when the site

@@ -7,7 +7,7 @@
 export type Style = Record< string, unknown >;
 type Tokens = Record< string, unknown >;
 
-export interface DesignTokens {
+interface DesignTokens {
 	colors?: Tokens;
 	typography?: Record< string, Style >;
 	rounded?: Tokens;
@@ -23,7 +23,7 @@ export function fontFamilyName( value: unknown ): string {
 		.replace( /^["']|["']$/g, '' );
 }
 
-export function typographyStyles( tokens: DesignTokens ): Array< [ string, Style ] > {
+function typographyStyles( tokens: DesignTokens ): Array< [ string, Style ] > {
 	return Object.entries( tokens.typography ?? {} ).filter(
 		( entry ): entry is [ string, Style ] => typeof entry[ 1 ] === 'object' && entry[ 1 ] !== null
 	);
@@ -75,7 +75,7 @@ function luminance( color: string ): number {
 	return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-export interface DesignSheet {
+interface DesignSheet {
 	colors: Array< [ string, string ] >;
 	/** primary, background and text first, then every other color once. */
 	palette: Array< [ string, string ] >;
@@ -143,11 +143,7 @@ export function designSheet( tokens: DesignTokens ): DesignSheet {
 
 	const resolve = ( value: unknown ): unknown => {
 		const reference = typeof value === 'string' ? value.match( /^\{([^}]+)\}$/ )?.[ 1 ] : undefined;
-		return reference
-			? reference
-					.split( '.' )
-					.reduce< unknown >( ( node, key ) => ( node as Style | undefined )?.[ key ], tokens )
-			: value;
+		return reference ? at( tokens, ...reference.split( '.' ) ) : value;
 	};
 	const button = tokens.components?.[ 'button-primary' ] ?? {};
 	const buttonBackground = String( resolve( button.backgroundColor ) ?? primary );

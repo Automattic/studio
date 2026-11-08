@@ -3,7 +3,6 @@
  * validation and pending work it waits for, the checks of what the call
  * changed on the sites, and the notes they leave on the result.
  */
-import fs from 'fs';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
 import { type ToolDefinition } from '@earendil-works/pi-coding-agent';
 import { classicThemeQuestion } from '@studio/agent/node/block-theme';
@@ -11,10 +10,10 @@ import { type BlockValidationGate } from '@studio/agent/node/block-validation-ga
 import { rewriteNotes } from '@studio/agent/node/file-rewrites';
 import { describeStillOpen, type OpenProblems } from '@studio/agent/node/open-problems';
 import { NO_CHANGES, type SiteChanges } from '@studio/agent/node/site-changes';
-import { notesAfterCall, type SiteNotes } from '@studio/agent/node/site-notes';
+import { notesAfterCall, readFileText, type SiteNotes } from '@studio/agent/node/site-notes';
 import { studioMessage, validationLines } from '@studio/agent/node/studio-message';
 import { siteOfCall } from '@studio/agent/node/tools/utils';
-import { describeDestructiveCall, type Confirmer } from './confirmation';
+import { declinedResult, describeDestructiveCall, type Confirmer } from './confirmation';
 import {
 	getIncompleteToolCallReason,
 	getWrittenFile,
@@ -76,12 +75,7 @@ export class AfterChecks {
 	// that saves a fix reads and rewrites a file, as theme.json, that another
 	// call's checks rewrite too, when the model makes calls in parallel.
 	add( toolCallId: string, checks: () => Promise< string | undefined > ): void {
-		const run = this.running.then( checks );
-		this.pendingWork.add( run, [], undefined, toolCallId );
-		this.running = run.then(
-			() => undefined,
-			() => undefined
-		);
+		this.pendingWork.add( this.now( checks ), [], undefined, toolCallId );
 	}
 
 	settle(): Promise< void > {
@@ -157,11 +151,8 @@ export function toToolDefinition(
 					crossSite?.confirmation ??
 					( writtenFile ? await classicThemeQuestion( writtenFile ) : undefined )
 			);
-			if ( declined?.endsTurn ) {
-				return { content: [ { type: 'text', text: declined.text } ], details: {}, terminate: true };
-			}
 			if ( declined ) {
-				throw new Error( declined.text );
+				return declinedResult( declined );
 			}
 			crossSite?.allow();
 			// Studio's own time on the call, from here: its checks before and after the tool runs.
@@ -384,14 +375,6 @@ export function toToolDefinition(
 				: timed;
 		},
 	};
-}
-
-function readFileText( file: string ): string | undefined {
-	try {
-		return fs.readFileSync( file, 'utf8' );
-	} catch {
-		return undefined;
-	}
 }
 
 // Every chunk of the CLI bundle sits next to `main.mjs`, so it is this

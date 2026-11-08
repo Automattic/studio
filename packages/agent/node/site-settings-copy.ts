@@ -12,18 +12,22 @@
  * is in its snapshot of the site, so a session starts with the copy rewritten
  * from the options.
  */
-import { createHash } from 'crypto';
 import { existsSync } from 'fs';
-import { readFile, rename, writeFile } from 'fs/promises';
+import { rename, writeFile } from 'fs/promises';
 import path from 'path';
-import { workspaceRoot } from '@studio/agent/node/post-copies';
+import {
+	hash,
+	readCopy,
+	unsavedOf,
+	workspaceOf,
+	workspaceOfSite,
+} from '@studio/agent/node/post-copies';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { AS_ADMINISTRATOR, wpEvalJson } from '@studio/agent/node/tools/utils';
-import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 import type { WordPressSite } from '@studio/agent/node/site-database';
 
-export const SETTINGS_COPY = 'settings.json';
+const SETTINGS_COPY = 'settings.json';
 const KEY = 'settings';
 
 // The options the copy holds, in the order Settings shows them.
@@ -35,8 +39,6 @@ const OPTIONS = [
 	'page_for_posts',
 ] as const;
 const PAGE_OPTIONS = [ 'page_on_front', 'page_for_posts' ];
-
-const hash = ( content: string ) => createHash( 'sha1' ).update( content ).digest( 'hex' );
 
 // The title and tagline as Settings > General shows them: sanitize_option()
 // saves them through esc_html(), and the field shows the characters it escaped.
@@ -62,13 +64,6 @@ function readSettings( site: WordPressSite ): string {
 	);
 	return `${ JSON.stringify( settings, null, '\t' ) }\n`;
 }
-
-async function workspaceOf( host: StudioAgentHost, sitePath: string ) {
-	const site = await host.sites.findByFolder( sitePath );
-	return site?.id ? path.join( workspaceRoot(), site.id ) : undefined;
-}
-
-const readText = ( file: string ) => readFile( file, 'utf8' ).catch( () => undefined );
 
 async function writeCopy( workspace: string, options: string ): Promise< Versions > {
 	await writeFile( path.join( workspace, SETTINGS_COPY ), options, 'utf8' );
@@ -111,7 +106,7 @@ export const siteSettingsCopy: SiteChangeSource = {
 			return {};
 		}
 		const options = await readWordPressSite( sitePath, readSettings );
-		const copy = await readText( path.join( workspace, SETTINGS_COPY ) );
+		const copy = await readCopy( path.join( workspace, SETTINGS_COPY ) );
 		const was = hashesOf( last );
 		if (
 			copy === undefined ||
@@ -123,7 +118,7 @@ export const siteSettingsCopy: SiteChangeSource = {
 		return { [ KEY ]: `${ hash( options ) } ${ hash( copy ) }` };
 	},
 	async check( site, before, after, host ) {
-		const workspace = path.join( workspaceRoot(), site.id );
+		const workspace = workspaceOfSite( site.id );
 		const was = hashesOf( before );
 		const now = hashesOf( after );
 		// Unchanged since Studio wrote or last saved it, new this call, or
@@ -137,7 +132,7 @@ export const siteSettingsCopy: SiteChangeSource = {
 			return writeCopy( workspace, options );
 		};
 		if ( now.options !== was.options ) {
-			const unsaved = path.join( workspace, 'settings.unsaved.json' );
+			const unsaved = unsavedOf( file );
 			await rename( file, unsaved );
 			return {
 				reports: [
@@ -150,27 +145,13 @@ export const siteSettingsCopy: SiteChangeSource = {
 			};
 		}
 		const options = JSON.parse( await readWordPressSite( site.path, readSettings ) );
-		let changed: Record< string, unknown >;
 		try {
-			const copy = JSON.parse( ( await readText( file ) ) ?? '' );
-			changed = Object.fromEntries(
+			const copy = JSON.parse( ( await readCopy( file ) ) ?? '' );
+			const changed = Object.fromEntries(
 				OPTIONS.filter(
 					( name ) => name in copy && String( copy[ name ] ) !== String( options[ name ] )
 				).map( ( name ) => [ name, copy[ name ] ] )
 			);
-		} catch ( error ) {
-			return {
-				reports: [
-					{
-						key: 'settings copy',
-						problem: `Studio could not save ${ file } to ${ site.name }'s settings: ${
-							error instanceof Error ? error.message : String( error )
-						}`,
-					},
-				],
-			};
-		}
-		try {
 			const { saved } = Object.keys( changed ).length
 				? await wpEvalJson< { saved: string[] } >( host, site, SAVE_SETTINGS, changed )
 				: { saved: [] };

@@ -1,10 +1,12 @@
 import { readdir } from 'fs/promises';
 import path from 'path';
 import { boundedText } from '@studio/agent/node/bounded-list';
+import { readWordPressSite } from '@studio/agent/node/site-database';
 import { activeIsBlockTheme, activeThemes, themesDir } from '@studio/agent/node/themes';
 import { wpEvalJson } from '@studio/agent/node/tools/utils';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { WordPressSite } from '@studio/agent/node/site-database';
+import type { SiteFile } from '@studio/agent/node/site-file';
 
 // A block theme's templates, template parts, and theme.json are only what
 // WordPress renders until someone saves a copy in the Site Editor: from then
@@ -15,7 +17,7 @@ import type { WordPressSite } from '@studio/agent/node/site-database';
 
 type SavedPostType = 'wp_template' | 'wp_template_part' | 'wp_global_styles';
 
-export interface SavedCopy {
+interface SavedCopy {
 	postType: SavedPostType;
 	id: number;
 	// The template or part's slug (the file name without .html).
@@ -197,7 +199,7 @@ function describeCopy( copy: SavedCopy, files?: Record< string, string | null > 
  * because a copy saved in the Site Editor replaces it. Every such write is
  * lost, so every one gets the note.
  */
-export function savedCopyWriteNote( site: WordPressSite, file: string ): string | undefined {
+function savedCopyWriteNote( site: WordPressSite, file: string ): string | undefined {
 	const relative = path.relative( site.root, file ).split( path.sep ).join( '/' );
 	const copy = readSavedCopies( site ).find( ( candidate ) =>
 		activeThemes( site ).some(
@@ -214,6 +216,14 @@ export function savedCopyWriteNote( site: WordPressSite, file: string ): string 
 		: `WordPress renders the ${ KIND[ copy.postType ] } ${
 				copy.slug
 		  } from its copy saved in the Site Editor (post ${ copy.id }), not from this file.`;
+}
+
+/** That WordPress renders a saved Site Editor copy instead of the file just written. */
+export async function savedCopyNotes( { siteRoot, relativePath }: SiteFile ): Promise< string[] > {
+	const note = await readWordPressSite( siteRoot, ( site ) =>
+		savedCopyWriteNote( site, path.join( siteRoot, relativePath ) )
+	);
+	return note ? [ note ] : [];
 }
 
 // Enough to name the copies of a site whose theme was reworked in the Site Editor.

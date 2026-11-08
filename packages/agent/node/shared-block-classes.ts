@@ -11,8 +11,8 @@
  * (block-style-move.ts), and says where one belongs when it cannot.
  */
 import { readFileSync } from 'fs';
-import { readdir } from 'fs/promises';
 import path from 'path';
+import { filesUnder } from '@studio/agent/node/active-code';
 import { moveToBlockStyle } from '@studio/agent/node/block-style-move';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { isBlockMarkup, type SiteFile } from '@studio/agent/node/site-file';
@@ -82,14 +82,6 @@ export function classProperties( css: string ): Map< string, Set< string > > {
 	return properties;
 }
 
-async function themeFiles( dir: string, extensions: RegExp ): Promise< string[] > {
-	const entries = await readdir( dir, { recursive: true, withFileTypes: true } ).catch( () => [] );
-	return entries
-		.filter( ( entry ) => entry.isFile() && extensions.test( entry.name ) )
-		.map( ( entry ) => path.join( entry.parentPath, entry.name ) )
-		.filter( ( file ) => ! file.includes( `${ path.sep }node_modules${ path.sep }` ) );
-}
-
 // theme.json's styles.css, which WordPress prints last of the global styles
 // (WP_Theme_JSON::get_stylesheet() with 'custom-css' in
 // wp-includes/class-wp-theme-json.php, wp_enqueue_global_styles() in
@@ -125,7 +117,7 @@ export function createSharedBlockClassNotes(
 		) {
 			return [];
 		}
-		const stylesheets = await themeFiles( theme.dir, /\.css$/ );
+		const stylesheets = await filesUnder( theme.dir, ( name ) => name.endsWith( '.css' ) );
 		const styled = classProperties(
 			[
 				...stylesheets.map( ( file ) => readFileSync( file, 'utf8' ) ),

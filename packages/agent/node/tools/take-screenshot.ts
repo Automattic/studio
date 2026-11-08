@@ -24,19 +24,13 @@ const screenshotColorSchemeSchema = Type.Enum( [ ...SCREENSHOT_COLOR_SCHEME_VALU
 type ScreenshotColorSchemeArgument = ScreenshotColorScheme | 'all';
 
 function resolveViewportTypes( viewport?: ScreenshotViewportArgument ): ScreenshotViewportType[] {
-	if ( viewport === 'all' ) {
-		return [ 'desktop', 'mobile' ];
-	}
-	return viewport ? [ viewport ] : [ 'desktop', 'mobile' ];
+	return viewport && viewport !== 'all' ? [ viewport ] : [ 'desktop', 'mobile' ];
 }
 
 function resolveColorSchemes(
 	colorScheme?: ScreenshotColorSchemeArgument
 ): Array< ScreenshotColorScheme | undefined > {
-	if ( colorScheme === 'all' ) {
-		return [ ...SCREENSHOT_COLOR_SCHEME_VALUES ];
-	}
-	return [ colorScheme ];
+	return colorScheme === 'all' ? [ ...SCREENSHOT_COLOR_SCHEME_VALUES ] : [ colorScheme ];
 }
 
 interface CaptureTarget {
@@ -159,15 +153,9 @@ export function createTakeScreenshotTool( {
 							requestedUrl: url,
 							resolvedUrl: capture.url,
 							path: screenshotFile.path,
-							buffer: capture.buffer,
-							modelImage: capture.modelImage,
-							documentHeight: capture.documentHeight,
-							contentHeight: capture.contentHeight,
-							capturedHeight: capture.capturedHeight,
-							offset: capture.offset,
-							clipped: capture.clipped,
-							layout: capture.layout,
-							textFit: capture.textFit,
+							...capture,
+							// The target's url, set only when the call captures several pages, labels the capture.
+							url: target.url,
 							mimeType: screenshotFile.mimeType,
 							mediaWidgetPayload: {
 								type: 'media',

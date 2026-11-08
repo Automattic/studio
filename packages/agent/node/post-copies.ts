@@ -65,9 +65,9 @@ export function workspaceRoot(): string {
 	return path.join( getConfigDirectory(), 'workspace' );
 }
 
-const workspaceOfSite = ( siteId: string ) => path.join( workspaceRoot(), siteId );
+export const workspaceOfSite = ( siteId: string ) => path.join( workspaceRoot(), siteId );
 
-async function workspaceOf(
+export async function workspaceOf(
 	host: StudioAgentHost,
 	sitePath: string
 ): Promise< string | undefined > {
@@ -100,9 +100,10 @@ const titleOf = ( slug: string ) =>
 		.map( ( word ) => word[ 0 ].toUpperCase() + word.slice( 1 ) )
 		.join( ' ' );
 
-const hash = ( content: string ) => createHash( 'sha1' ).update( content ).digest( 'hex' );
+export const hash = ( content: string ) => createHash( 'sha1' ).update( content ).digest( 'hex' );
 const EMPTY = hash( '' );
 const previousOf = ( file: string ) => file.replace( /(\.\w+)$/, '.previous$1' );
+export const unsavedOf = ( file: string ) => file.replace( /(\.\w+)$/, '.unsaved$1' );
 
 const copyOf = ( workspace: string, post: Pick< Post, 'id' | 'type' > ) =>
 	path.join(
@@ -181,7 +182,7 @@ async function writeCopy( file: string, content: string ): Promise< void > {
 	await writeFile( file, content, 'utf8' );
 }
 
-async function readCopy( file: string ): Promise< string | undefined > {
+export async function readCopy( file: string ): Promise< string | undefined > {
 	return readFile( file, 'utf8' ).catch( () => undefined );
 }
 
@@ -450,7 +451,7 @@ export const postCopies: SiteChangeSource = {
 				continue;
 			}
 			if ( last.post !== postVersion ) {
-				const unsaved = file.replace( /(\.\w+)$/, '.unsaved$1' );
+				const unsaved = unsavedOf( file );
 				await rename( file, unsaved );
 				const content = await readWordPressSite( site.path, ( wp ) =>
 					readContent(

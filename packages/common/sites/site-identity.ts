@@ -23,7 +23,7 @@ export type ThemeDetails = z.infer< typeof themeDetailsSchema >;
  * keyed by origin. Null when the active theme is not a block theme, which the
  * Site Editor's Styles are for.
  */
-export const globalStylesSchema = z
+const globalStylesSchema = z
 	.object( {
 		settings: z.record( z.string(), z.unknown() ),
 		styles: z.record( z.string(), z.unknown() ),

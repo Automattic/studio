@@ -14,6 +14,13 @@ export function boundedText( items: string[], max: number, separator = ', ' ): s
 	return `${ shown.join( separator ) }${ more ? `, and ${ more } more` : '' }`;
 }
 
+/** The items in a sentence, the last after "and": "a, b and c". */
+export function joinWithAnd( items: string[] ): string {
+	return items.length < 2
+		? items.join( '' )
+		: `${ items.slice( 0, -1 ).join( ', ' ) } and ${ items.at( -1 ) }`;
+}
+
 /** The items one per line, then "…and 4 more" on a line of its own. */
 export function boundedLines( lines: string[], max: number, indent = '' ): string[] {
 	const { shown, more } = bounded( lines, max );

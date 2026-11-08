@@ -14,9 +14,9 @@
  * WordPress has listed as whole since. A theme still being made is left to
  * blockTheme, which says what it needs.
  */
-import { readdir, stat } from 'fs/promises';
+import { readdir } from 'fs/promises';
 import path from 'path';
-import { readThemeHeader, themesDir } from '@studio/agent/node/themes';
+import { exists, readThemeHeader, themesDir } from '@studio/agent/node/themes';
 import { printedJson, runWpCli } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { ChangeReport, SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
@@ -44,8 +44,6 @@ async function errorsOf(
 	const output = await runWpCli( host, site, [ 'eval', ERRORS( themes ) ] );
 	return printedJson( output, 'THEME_ERRORS=' );
 }
-
-const exists = ( file: string ) => stat( file ).then( Boolean, () => false );
 
 // What WP_Theme lists a theme's errors from: its style.css and its Template
 // header, its index templates, and its parent.

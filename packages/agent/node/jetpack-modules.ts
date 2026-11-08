@@ -10,6 +10,7 @@
  * header says they need no connection, as Jetpack::activate_default_modules()
  * does, and says so. A site whose modules were set, even to none, keeps them.
  */
+import { joinWithAnd as list } from '@studio/agent/node/bounded-list';
 import { activePlugins } from '@studio/agent/node/plugins';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { printedJson, runWpCli } from '@studio/agent/node/tools/utils';
@@ -20,11 +21,6 @@ const NEVER_SET = 'never set';
 
 const ACTIVATE = `Jetpack::activate_default_modules( false, false, array(), false, false, false, false );
 echo 'JETPACK_MODULES=' . wp_json_encode( array_values( Jetpack::get_active_modules() ) ) . "\\n";`;
-
-const list = ( items: string[] ) =>
-	items.length < 2
-		? items.join( '' )
-		: `${ items.slice( 0, -1 ).join( ', ' ) } and ${ items.at( -1 ) }`;
 
 export const jetpackModules: SiteChangeSource = {
 	name: 'jetpack-modules',

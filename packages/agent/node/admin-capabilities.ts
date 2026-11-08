@@ -25,7 +25,7 @@
  * registries with the code loaded and skipped, and where WordPress lists each.
  */
 import { activeCode } from '@studio/agent/node/active-code';
-import { boundedText } from '@studio/agent/node/bounded-list';
+import { boundedText, joinWithAnd as list } from '@studio/agent/node/bounded-list';
 import {
 	describeRemoteFonts,
 	REMOTE_STYLES,
@@ -157,11 +157,6 @@ function skipping( keys: string[] ): string[] {
 	];
 }
 
-const list = ( items: string[] ) =>
-	items.length < 2
-		? items.join( '' )
-		: `${ items.slice( 0, -1 ).join( ', ' ) } and ${ items.at( -1 ) }`;
-
 const MAX_NAMES = 12;
 
 function describeRegistered(
@@ -262,6 +257,18 @@ function describeSiteCode( added: Registered ): string | undefined {
 	}`;
 }
 
+// What a registry holds with the code loaded that it does not without it.
+const registeredBeyond = (
+	withCode: { registered: Registered },
+	without: { registered: Registered }
+): Registered =>
+	Object.fromEntries(
+		Object.entries( withCode.registered ).map( ( [ registry, names ] ) => [
+			registry,
+			names.filter( ( name ) => ! without.registered[ registry ]?.includes( name ) ),
+		] )
+	);
+
 // By site, the site's code it was read for and the fact, read again only when that code changes.
 const siteCodeFacts = new Map< string, { code: string; fact: Promise< string | undefined > } >();
 
@@ -278,14 +285,7 @@ async function readSiteCodeFact(
 			askWordPress( host, site, [] ),
 			askWordPress( host, site, [ '--skip-plugins', '--skip-themes' ] ),
 		] );
-		return describeSiteCode(
-			Object.fromEntries(
-				Object.entries( withCode.registered ).map( ( [ registry, names ] ) => [
-					registry,
-					names.filter( ( name ) => ! core.registered[ registry ]?.includes( name ) ),
-				] )
-			)
-		);
+		return describeSiteCode( registeredBeyond( withCode, core ) );
 	} catch {
 		// Code that does not load is reported by what runs it.
 		return undefined;
@@ -315,28 +315,21 @@ export const adminCapabilities: SiteChangeSource = {
 		if ( ! changed.length && ! removed ) {
 			return { reports: [] };
 		}
-		let withCode: Awaited< ReturnType< typeof askWordPress > >;
-		let core: Awaited< ReturnType< typeof askWordPress > >;
-		let without: Awaited< ReturnType< typeof askWordPress > >;
-		try {
-			[ withCode, core, without ] = await Promise.all( [
-				askWordPress( host, site, [] ),
-				askWordPress( host, site, [ '--skip-plugins', '--skip-themes' ] ),
-				changed.length ? askWordPress( host, site, skipping( changed ) ) : undefined,
-			] ).then( ( [ code, coreOnly, skipped ] ) => [ code, coreOnly, skipped ?? code ] );
-		} catch {
+		const answers = await Promise.all( [
+			askWordPress( host, site, [] ),
+			askWordPress( host, site, [ '--skip-plugins', '--skip-themes' ] ),
+			changed.length ? askWordPress( host, site, skipping( changed ) ) : undefined,
+		] ).catch( () => undefined );
+		if ( ! answers ) {
 			// Code that does not load is reported by what runs it.
 			return { reports: [] };
 		}
+		const [ withCode, core, skipped ] = answers;
+		const without = skipped ?? withCode;
 		const denied = Object.fromEntries(
 			Object.entries( withCode.denied.caps ).filter( ( [ cap ] ) => ! ( cap in core.denied.caps ) )
 		);
-		const added = Object.fromEntries(
-			Object.entries( withCode.registered ).map( ( [ registry, names ] ) => [
-				registry,
-				names.filter( ( name ) => ! without.registered[ registry ]?.includes( name ) ),
-			] )
-		);
+		const added = registeredBeyond( withCode, without );
 		const remoteFonts = changed.length
 			? await describeRemoteFonts(
 					site,

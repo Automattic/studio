@@ -15,18 +15,31 @@ async function version( file: string, from: string ): Promise< string > {
 	return `${ path.relative( from, file ) }:${ mtimeMs }:${ size }`;
 }
 
-async function files( dir: string, wanted: ( name: string ) => boolean ): Promise< string[] > {
-	const entries = await readdir( dir, { withFileTypes: true } ).catch( () => [] );
-	const found = await Promise.all(
-		entries.map( ( entry ) => {
-			const at = path.join( dir, entry.name );
+/**
+ * The files under a folder whose names `wanted` keeps, in the order
+ * readdir( dir, { recursive: true } ) lists them, leaving out dependencies a
+ * build installs (node_modules). A folder it cannot read has no files.
+ */
+export async function filesUnder(
+	dir: string,
+	wanted: ( name: string ) => boolean
+): Promise< string[] > {
+	const found: string[] = [];
+	const folders = [ dir ];
+	for ( let folder = folders.pop(); folder !== undefined; folder = folders.pop() ) {
+		const entries = await readdir( folder, { withFileTypes: true } ).catch( () => [] );
+		for ( const entry of entries ) {
+			const at = path.join( folder, entry.name );
 			if ( entry.isDirectory() ) {
-				return entry.name === 'node_modules' ? [] : files( at, wanted );
+				if ( entry.name !== 'node_modules' ) {
+					folders.push( at );
+				}
+			} else if ( entry.isFile() && wanted( entry.name ) ) {
+				found.push( at );
 			}
-			return entry.isFile() && wanted( entry.name ) ? [ at ] : [];
-		} )
-	);
-	return found.flat();
+		}
+	}
+	return found;
 }
 
 /**
@@ -50,7 +63,11 @@ export async function activeCode(
 	} );
 	// A plugin in a folder is the folder; a single-file plugin is its file.
 	const dirVersion = async ( dir: string ) =>
-		( await Promise.all( ( await files( dir, wanted ) ).map( ( file ) => version( file, dir ) ) ) )
+		(
+			await Promise.all(
+				( await filesUnder( dir, wanted ) ).map( ( file ) => version( file, dir ) )
+			)
+		)
 			.sort()
 			.join( '|' );
 	const plugins = active.plugins.map( async ( plugin ) => [

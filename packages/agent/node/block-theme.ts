@@ -10,14 +10,13 @@
  * that starts it (classicThemeQuestion); one that WordPress lists as broken
  * for having neither index yet stays an open problem while it is.
  */
-import { readFile, readdir, stat } from 'fs/promises';
+import { readFile, readdir } from 'fs/promises';
 import path from 'path';
 import { resolveSiteFile } from '@studio/agent/node/site-file';
-import { isUpdatableTheme, readThemeHeader, themesDir } from '@studio/agent/node/themes';
+import { exists, isUpdatableTheme, readThemeHeader, themesDir } from '@studio/agent/node/themes';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
 const CREATED = 'created:';
-const exists = ( file: string ) => stat( file ).then( Boolean, () => false );
 
 /**
  * A standalone theme's kind: block, with a block template index

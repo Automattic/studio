@@ -39,7 +39,7 @@ import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { Logger } from 'cli/logger';
-import type { Locator } from 'playwright';
+import type { Locator, Page } from 'playwright';
 
 const execFileAsync = promisify( execFile );
 
@@ -354,18 +354,6 @@ async function renderHome( url: string ) {
 	}
 }
 
-/**
- * The home page's image frames: each element holding several images, with how
- * many it shows at once. Measured in a browser as tall as the page, so every
- * image is in view: an image is shown when its center is inside every
- * ancestor that clips it and nothing in its chain is transparent or hidden,
- * so slides faded out or slid out of a clipped frame, as slideshows and
- * carousels hold them, are not.
- */
-// Each published page's forms that take a message (a textarea), filled in and
-// sent the way a visitor would, then where WordPress stored the message: the
-// post types and meta keys whose rows now hold its marker. Comment forms are
-// left alone; they are core's, not the page's.
 // What a visitor types into each kind of field.
 const VISITOR: Record< string, string > = {
 	text: 'Eval Visitor',
@@ -420,6 +408,10 @@ function siteEmails( siteId: string ): string[] {
 	}
 }
 
+// Each published page's forms that take a message (a textarea), filled in and
+// sent the way a visitor would, then where WordPress stored the message: the
+// post types and meta keys whose rows now hold its marker. Comment forms are
+// left alone; they are core's, not the page's.
 async function sendPageForms( sitePath: string, siteId: string, links: string[] ) {
 	const sent: Array< { page: string; marker: string; afterText: string; error?: string } > = [];
 	const browser = await getSharedBrowser();
@@ -510,62 +502,17 @@ export async function saveHomeScreenshot( url: string, file: string ): Promise< 
 	}
 }
 
-async function homeImageFrames( url: string ) {
+// Runs `fn` on the home page loaded in a 1280x900 window, or returns the error.
+async function withHomePage< T >(
+	url: string,
+	fn: ( page: Page ) => Promise< T >
+): Promise< T | { error: string } > {
 	try {
 		const browser = await getSharedBrowser();
 		const page = await browser.newPage( { viewport: { width: 1280, height: 900 } } );
 		try {
 			await page.goto( url, { waitUntil: 'load', timeout: 30000 } );
-			const height = await page.evaluate( () => document.documentElement.scrollHeight );
-			await page.setViewportSize( {
-				width: 1280,
-				height: Math.min( Math.max( height, 900 ), 8000 ),
-			} );
-			await page.waitForTimeout( 1500 );
-			return await page.evaluate( () => {
-				const images = [ ...document.querySelectorAll( 'img' ) ];
-				// Shown: its center inside every ancestor that clips it, and
-				// nothing in its chain transparent or hidden.
-				const shown = ( img: HTMLImageElement ) => {
-					const box = img.getBoundingClientRect();
-					if ( ! box.width || ! box.height ) return false;
-					const x = box.x + box.width / 2;
-					const y = box.y + box.height / 2;
-					if ( getComputedStyle( img ).visibility === 'hidden' ) return false;
-					for ( let el: Element | null = img; el; el = el.parentElement ) {
-						const style = getComputedStyle( el );
-						if ( Number( style.opacity ) === 0 ) return false;
-						if (
-							el !== img &&
-							( style.overflowX !== 'visible' || style.overflowY !== 'visible' )
-						) {
-							const clip = el.getBoundingClientRect();
-							if ( x < clip.left || x > clip.right || y < clip.top || y > clip.bottom )
-								return false;
-						}
-					}
-					return true;
-				};
-				const frames = new Map< Element, { images: number; shown: number } >();
-				for ( const img of images ) {
-					let frame = img.parentElement;
-					while ( frame && frame.querySelectorAll( 'img' ).length < 3 ) frame = frame.parentElement;
-					if ( ! frame || frame === document.body ) continue;
-					const entry = frames.get( frame ) ?? { images: 0, shown: 0 };
-					entry.images++;
-					entry.shown += shown( img ) ? 1 : 0;
-					frames.set( frame, entry );
-				}
-				return [ ...frames ].map( ( [ el, entry ] ) => {
-					const box = el.getBoundingClientRect();
-					return {
-						element: `${ el.tagName.toLowerCase() }.${ [ ...el.classList ].join( '.' ) }`,
-						width: Math.round( box.width ),
-						height: Math.round( box.height ),
-						...entry,
-					};
-				} );
-			} );
+			return await fn( page );
 		} finally {
 			await page.close();
 		}
@@ -574,417 +521,463 @@ async function homeImageFrames( url: string ) {
 	}
 }
 
+/**
+ * The home page's image frames: each element holding several images, with how
+ * many it shows at once. Measured in a browser as tall as the page, so every
+ * image is in view: an image is shown when its center is inside every
+ * ancestor that clips it and nothing in its chain is transparent or hidden,
+ * so slides faded out or slid out of a clipped frame, as slideshows and
+ * carousels hold them, are not.
+ */
+async function homeImageFrames( url: string ) {
+	return withHomePage( url, async ( page ) => {
+		const height = await page.evaluate( () => document.documentElement.scrollHeight );
+		await page.setViewportSize( {
+			width: 1280,
+			height: Math.min( Math.max( height, 900 ), 8000 ),
+		} );
+		await page.waitForTimeout( 1500 );
+		return await page.evaluate( () => {
+			const images = [ ...document.querySelectorAll( 'img' ) ];
+			// Shown: its center inside every ancestor that clips it, and
+			// nothing in its chain transparent or hidden.
+			const shown = ( img: HTMLImageElement ) => {
+				const box = img.getBoundingClientRect();
+				if ( ! box.width || ! box.height ) return false;
+				const x = box.x + box.width / 2;
+				const y = box.y + box.height / 2;
+				if ( getComputedStyle( img ).visibility === 'hidden' ) return false;
+				for ( let el: Element | null = img; el; el = el.parentElement ) {
+					const style = getComputedStyle( el );
+					if ( Number( style.opacity ) === 0 ) return false;
+					if ( el !== img && ( style.overflowX !== 'visible' || style.overflowY !== 'visible' ) ) {
+						const clip = el.getBoundingClientRect();
+						if ( x < clip.left || x > clip.right || y < clip.top || y > clip.bottom ) return false;
+					}
+				}
+				return true;
+			};
+			const frames = new Map< Element, { images: number; shown: number } >();
+			for ( const img of images ) {
+				let frame = img.parentElement;
+				while ( frame && frame.querySelectorAll( 'img' ).length < 3 ) frame = frame.parentElement;
+				if ( ! frame || frame === document.body ) continue;
+				const entry = frames.get( frame ) ?? { images: 0, shown: 0 };
+				entry.images++;
+				entry.shown += shown( img ) ? 1 : 0;
+				frames.set( frame, entry );
+			}
+			return [ ...frames ].map( ( [ el, entry ] ) => {
+				const box = el.getBoundingClientRect();
+				return {
+					element: `${ el.tagName.toLowerCase() }.${ [ ...el.classList ].join( '.' ) }`,
+					width: Math.round( box.width ),
+					height: Math.round( box.height ),
+					...entry,
+				};
+			} );
+		} );
+	} );
+}
+
 // What a visitor sees of the home page's chrome at 1280px, as computed
 // styles: where the header sits after a scroll, the order of its menu and
 // title, the buttons' corners and colors, the headings' case, the footer's
 // text sizes and the palette's colors.
 export async function homeStyles( url: string, siteName: string ) {
-	try {
-		const browser = await getSharedBrowser();
-		const page = await browser.newPage( { viewport: { width: 1280, height: 900 } } );
-		try {
-			await page.goto( url, { waitUntil: 'load', timeout: 30000 } );
-			return await page.evaluate( async ( name ) => {
-				const visible = ( el: Element ) => {
-					const box = el.getBoundingClientRect();
+	return withHomePage( url, ( page ) =>
+		page.evaluate( async ( name ) => {
+			const visible = ( el: Element ) => {
+				const box = el.getBoundingClientRect();
+				const style = getComputedStyle( el );
+				return box.width > 0 && box.height > 0 && style.visibility !== 'hidden';
+			};
+			const header = document.querySelector( 'header.wp-block-template-part, header' );
+			const footer = [ ...document.querySelectorAll( 'footer.wp-block-template-part, footer' ) ].at(
+				-1
+			);
+			const nav = header?.querySelector( '.wp-block-navigation' );
+			// The site title or logo, else what in the header reads as the site's
+			// name, as a paragraph "SPOKE & CHAIN" does.
+			const asName = ( text: string ) => text.replace( /\s+/g, ' ' ).trim().toLowerCase();
+			const title =
+				header?.querySelector( '.wp-block-site-title, .wp-block-site-logo' ) ??
+				[ ...( header?.querySelectorAll( '*' ) ?? [] ) ]
+					.reverse()
+					.find( ( el ) => asName( el.textContent ?? '' ) === asName( name ) );
+			const left = ( el: Element | null | undefined ) =>
+				el ? Math.round( el.getBoundingClientRect().left ) : null;
+			const navLeft = left( nav );
+			const titleLeft = left( title );
+			// At once, as a theme's `scroll-behavior: smooth` would only start it.
+			window.scrollTo( { top: 1000, behavior: 'instant' } );
+			const scrolled = window.scrollY;
+			const navTopAfterScroll = nav ? Math.round( nav.getBoundingClientRect().top ) : null;
+			window.scrollTo( { top: 0, behavior: 'instant' } );
+			// The color a visitor sees behind a point: the first opaque
+			// background in the stack of elements painted there.
+			const opaque = ( color: string ) => ! /, 0\)$|^transparent$/.test( color );
+			const backgroundAt = ( x: number, y: number ) =>
+				document
+					.elementsFromPoint( x, y )
+					.map( ( el ) => getComputedStyle( el ).backgroundColor )
+					.find( opaque ) ?? null;
+			const headerBox = header?.getBoundingClientRect();
+			const headerBackground = headerBox
+				? backgroundAt( headerBox.left + 8, headerBox.top + headerBox.height / 2 )
+				: null;
+			const bodyColor = getComputedStyle( document.body ).backgroundColor;
+			const pageBackground = opaque( bodyColor ) ? bodyColor : null;
+			const buttons = [
+				...document.querySelectorAll( '.wp-block-button__link, .wp-element-button' ),
+			]
+				.filter( visible )
+				.map( ( el ) => {
 					const style = getComputedStyle( el );
-					return box.width > 0 && box.height > 0 && style.visibility !== 'hidden';
-				};
-				const header = document.querySelector( 'header.wp-block-template-part, header' );
-				const footer = [
-					...document.querySelectorAll( 'footer.wp-block-template-part, footer' ),
-				].at( -1 );
-				const nav = header?.querySelector( '.wp-block-navigation' );
-				// The site title or logo, else what in the header reads as the site's
-				// name, as a paragraph "SPOKE & CHAIN" does.
-				const asName = ( text: string ) => text.replace( /\s+/g, ' ' ).trim().toLowerCase();
-				const title =
-					header?.querySelector( '.wp-block-site-title, .wp-block-site-logo' ) ??
-					[ ...( header?.querySelectorAll( '*' ) ?? [] ) ]
-						.reverse()
-						.find( ( el ) => asName( el.textContent ?? '' ) === asName( name ) );
-				const left = ( el: Element | null | undefined ) =>
-					el ? Math.round( el.getBoundingClientRect().left ) : null;
-				const navLeft = left( nav );
-				const titleLeft = left( title );
-				// At once, as a theme's `scroll-behavior: smooth` would only start it.
-				window.scrollTo( { top: 1000, behavior: 'instant' } );
-				const scrolled = window.scrollY;
-				const navTopAfterScroll = nav ? Math.round( nav.getBoundingClientRect().top ) : null;
-				window.scrollTo( { top: 0, behavior: 'instant' } );
-				// The color a visitor sees behind a point: the first opaque
-				// background in the stack of elements painted there.
-				const opaque = ( color: string ) => ! /, 0\)$|^transparent$/.test( color );
-				const backgroundAt = ( x: number, y: number ) =>
-					document
-						.elementsFromPoint( x, y )
-						.map( ( el ) => getComputedStyle( el ).backgroundColor )
-						.find( opaque ) ?? null;
-				const headerBox = header?.getBoundingClientRect();
-				const headerBackground = headerBox
-					? backgroundAt( headerBox.left + 8, headerBox.top + headerBox.height / 2 )
-					: null;
-				const bodyColor = getComputedStyle( document.body ).backgroundColor;
-				const pageBackground = opaque( bodyColor ) ? bodyColor : null;
-				const buttons = [
-					...document.querySelectorAll( '.wp-block-button__link, .wp-element-button' ),
-				]
-					.filter( visible )
-					.map( ( el ) => {
-						const style = getComputedStyle( el );
-						return {
-							text: ( el.textContent ?? '' ).trim().slice( 0, 40 ),
-							radii: [
-								style.borderTopLeftRadius,
-								style.borderTopRightRadius,
-								style.borderBottomRightRadius,
-								style.borderBottomLeftRadius,
-							],
-							background: style.backgroundColor,
-							height: Math.round( el.getBoundingClientRect().height ),
-						};
-					} );
-				// "The big title at the top": the first screen's h1, else its largest
-				// heading, whichever its level (eval5's Athletic hero was an h2).
-				const shown = [ ...document.querySelectorAll( 'h1, h2, h3, h4, h5, h6' ) ].filter(
-					visible
-				);
-				const size = ( el: Element ) => parseFloat( getComputedStyle( el ).fontSize );
-				const onFirstScreen = shown.filter(
-					( el ) => el.getBoundingClientRect().top < window.innerHeight
-				);
-				const topTitle =
-					onFirstScreen.find( ( el ) => el.tagName === 'H1' ) ??
-					onFirstScreen.reduce< Element | undefined >(
-						( largest, el ) => ( ! largest || size( el ) > size( largest ) ? el : largest ),
-						undefined
-					);
-				const headings = shown.map( ( el ) => ( {
-					tag: el.tagName.toLowerCase(),
-					text: ( el.textContent ?? '' ).trim().slice( 0, 60 ),
-					textTransform: getComputedStyle( el ).textTransform,
-					fontFamily: getComputedStyle( el ).fontFamily,
-					first: el === topTitle,
-				} ) );
-				// How far an element's text sits from the middle of what holds it, in
-				// px: the farthest of its lines from the middle of its column or group.
-				// In a row (blocks laid side by side, as a row group, the navigation or
-				// social links), its lines are measured in the row's item that holds
-				// them, and the row's items together in what holds the outermost row.
-				const offCenter = ( el: Element ) => {
-					const middle = ( box: { left: number; right: number } ) => ( box.left + box.right ) / 2;
-					const isRow = ( box: Element ) => {
-						const style = getComputedStyle( box );
-						return (
-							style.display.endsWith( 'flex' ) &&
-							style.flexDirection.startsWith( 'row' ) &&
-							! box.classList.contains( 'wp-block-columns' )
-						);
+					return {
+						text: ( el.textContent ?? '' ).trim().slice( 0, 40 ),
+						radii: [
+							style.borderTopLeftRadius,
+							style.borderTopRightRadius,
+							style.borderBottomRightRadius,
+							style.borderBottomLeftRadius,
+						],
+						background: style.backgroundColor,
+						height: Math.round( el.getBoundingClientRect().height ),
 					};
-					let row: Element | undefined;
-					for (
-						let box = el.parentElement;
-						box && footer?.contains( box );
-						box = box.parentElement
-					) {
-						if ( isRow( box ) ) row = box;
-					}
-					// A text that is itself a row, as an icon beside its words, is its content together.
-					if ( ! row && isRow( el ) ) row = el;
-					const item =
-						row && row !== el && [ ...row.children ].find( ( child ) => child.contains( el ) );
-					const holder = item === el ? el : el.parentElement;
-					if ( ! holder ) return null;
-					const range = document.createRange();
-					range.selectNodeContents( el );
-					const lines = new Map< number, { left: number; right: number } >();
-					for ( const rect of range.getClientRects() ) {
-						if ( ! rect.width ) continue;
-						const top = Math.round( rect.top + rect.height / 2 );
-						const line = lines.get( top ) ?? { left: rect.left, right: rect.right };
-						lines.set( top, {
-							left: Math.min( line.left, rect.left ),
-							right: Math.max( line.right, rect.right ),
-						} );
-					}
-					const offsets =
-						row === el
-							? []
-							: [ ...lines.values() ].map( ( line ) =>
-									Math.abs( middle( line ) - middle( holder.getBoundingClientRect() ) )
-							  );
-					if ( row?.parentElement ) {
-						// Its items' boxes and loose text together.
-						const rowRange = document.createRange();
-						rowRange.selectNodeContents( row );
-						const content = rowRange.getBoundingClientRect();
-						offsets.push(
-							Math.abs( middle( content ) - middle( row.parentElement.getBoundingClientRect() ) )
-						);
-					}
-					return Math.round( Math.max( 0, ...offsets ) );
-				};
-				// A link in a paragraph is measured with the paragraph's lines.
-				const footerText = footer
-					? [ ...footer.querySelectorAll( 'p, a:not(p a)' ) ]
-							.filter( ( el ) => visible( el ) && ( el.textContent ?? '' ).trim() )
-							.map( ( el ) => ( {
-								text: ( el.textContent ?? '' ).trim().slice( 0, 40 ),
-								fontSize: getComputedStyle( el ).fontSize,
-								offCenter: offCenter( el ),
-							} ) )
-					: [];
-				const pageWidth = document.documentElement.clientWidth;
-				const headerAllText = header instanceof HTMLElement ? header.innerText : '';
-				const footerAllText = footer instanceof HTMLElement ? footer.innerText : '';
-				// The body text's size: the median of the paragraphs outside the header and footer.
-				const bodySizes = [ ...document.querySelectorAll( 'p' ) ]
-					.filter(
-						( el ) =>
-							visible( el ) &&
-							( el.textContent ?? '' ).trim().length > 20 &&
-							! el.closest( 'header, footer' )
-					)
-					.map( ( el ) => parseFloat( getComputedStyle( el ).fontSize ) )
-					.sort( ( a, b ) => a - b );
-				const bodyFontSize = bodySizes.length
-					? bodySizes[ Math.floor( bodySizes.length / 2 ) ]
-					: null;
-				// Faults a visitor sees at a glance, in text of the page's own: text
-				// against the window's edge, too faint to read on its background,
-				// painted over by another element on the first screen, or body text
-				// the size of a heading.
-				const faults: string[] = [];
-				// Any CSS color, as color(srgb …) and oklch() compute, read as sRGB by a canvas.
-				const pixel = document.createElement( 'canvas' ).getContext( '2d', {
-					willReadFrequently: true,
 				} );
-				const rgba = ( color: string ) => {
-					if ( ! pixel ) return [ 0, 0, 0, 0 ];
-					pixel.clearRect( 0, 0, 1, 1 );
-					pixel.fillStyle = color;
-					pixel.fillRect( 0, 0, 1, 1 );
-					const [ r, g, b, a ] = pixel.getImageData( 0, 0, 1, 1 ).data;
-					return [ r, g, b, a / 255 ];
+			// "The big title at the top": the first screen's h1, else its largest
+			// heading, whichever its level (eval5's Athletic hero was an h2).
+			const shown = [ ...document.querySelectorAll( 'h1, h2, h3, h4, h5, h6' ) ].filter( visible );
+			const size = ( el: Element ) => parseFloat( getComputedStyle( el ).fontSize );
+			const onFirstScreen = shown.filter(
+				( el ) => el.getBoundingClientRect().top < window.innerHeight
+			);
+			const topTitle =
+				onFirstScreen.find( ( el ) => el.tagName === 'H1' ) ??
+				onFirstScreen.reduce< Element | undefined >(
+					( largest, el ) => ( ! largest || size( el ) > size( largest ) ? el : largest ),
+					undefined
+				);
+			const headings = shown.map( ( el ) => ( {
+				tag: el.tagName.toLowerCase(),
+				text: ( el.textContent ?? '' ).trim().slice( 0, 60 ),
+				textTransform: getComputedStyle( el ).textTransform,
+				fontFamily: getComputedStyle( el ).fontFamily,
+				first: el === topTitle,
+			} ) );
+			// How far an element's text sits from the middle of what holds it, in
+			// px: the farthest of its lines from the middle of its column or group.
+			// In a row (blocks laid side by side, as a row group, the navigation or
+			// social links), its lines are measured in the row's item that holds
+			// them, and the row's items together in what holds the outermost row.
+			const offCenter = ( el: Element ) => {
+				const middle = ( box: { left: number; right: number } ) => ( box.left + box.right ) / 2;
+				const isRow = ( box: Element ) => {
+					const style = getComputedStyle( box );
+					return (
+						style.display.endsWith( 'flex' ) &&
+						style.flexDirection.startsWith( 'row' ) &&
+						! box.classList.contains( 'wp-block-columns' )
+					);
 				};
-				const luminance = ( color: string ) => {
-					const [ r, g, b ] = rgba( color );
-					const channel = ( value: number ) => {
-						const c = value / 255;
-						return c <= 0.03928 ? c / 12.92 : ( ( c + 0.055 ) / 1.055 ) ** 2.4;
-					};
-					return 0.2126 * channel( r ) + 0.7152 * channel( g ) + 0.0722 * channel( b );
-				};
-				const contrast = ( a: string, b: string ) => {
-					const [ hi, lo ] = [ luminance( a ), luminance( b ) ].sort( ( x, y ) => y - x );
-					return ( hi + 0.05 ) / ( lo + 0.05 );
-				};
-				const alpha = ( color: string ) => rgba( color )[ 3 ];
-				// The solid color painted behind a point, or none when an image, a
-				// a see-through color or a faded one, as a cover's dimming, shows there.
-				const paintedBehind = ( x: number, y: number ) => {
-					for ( const at of document.elementsFromPoint( x, y ) ) {
-						const style = getComputedStyle( at );
-						if (
-							style.backgroundImage !== 'none' ||
-							/^(IMG|VIDEO|CANVAS|SVG|PICTURE)$/i.test( at.tagName ) ||
-							parseFloat( style.opacity ) < 1
-						)
-							return null;
-						const color = style.backgroundColor;
-						if ( alpha( color ) === 1 ) return color;
-						if ( alpha( color ) > 0 ) return null;
-					}
-					return 'rgb(255, 255, 255)';
-				};
-				const quote = ( el: Element ) => {
-					const text = ( el.textContent ?? '' ).replace( /\s+/g, ' ' ).trim();
-					return `"${ text.length > 40 ? `${ text.slice( 0, 40 ) }…` : text }"`;
-				};
-				const viewport = document.documentElement.clientWidth;
-				const texts = [ ...document.querySelectorAll( 'p, h1, h2, h3, h4, h5, h6, li, a' ) ].filter(
+				let row: Element | undefined;
+				for (
+					let box = el.parentElement;
+					box && footer?.contains( box );
+					box = box.parentElement
+				) {
+					if ( isRow( box ) ) row = box;
+				}
+				// A text that is itself a row, as an icon beside its words, is its content together.
+				if ( ! row && isRow( el ) ) row = el;
+				const item =
+					row && row !== el && [ ...row.children ].find( ( child ) => child.contains( el ) );
+				const holder = item === el ? el : el.parentElement;
+				if ( ! holder ) return null;
+				const range = document.createRange();
+				range.selectNodeContents( el );
+				const lines = new Map< number, { left: number; right: number } >();
+				for ( const rect of range.getClientRects() ) {
+					if ( ! rect.width ) continue;
+					const top = Math.round( rect.top + rect.height / 2 );
+					const line = lines.get( top ) ?? { left: rect.left, right: rect.right };
+					lines.set( top, {
+						left: Math.min( line.left, rect.left ),
+						right: Math.max( line.right, rect.right ),
+					} );
+				}
+				const offsets =
+					row === el
+						? []
+						: [ ...lines.values() ].map( ( line ) =>
+								Math.abs( middle( line ) - middle( holder.getBoundingClientRect() ) )
+						  );
+				if ( row?.parentElement ) {
+					// Its items' boxes and loose text together.
+					const rowRange = document.createRange();
+					rowRange.selectNodeContents( row );
+					const content = rowRange.getBoundingClientRect();
+					offsets.push(
+						Math.abs( middle( content ) - middle( row.parentElement.getBoundingClientRect() ) )
+					);
+				}
+				return Math.round( Math.max( 0, ...offsets ) );
+			};
+			// A link in a paragraph is measured with the paragraph's lines.
+			const footerText = footer
+				? [ ...footer.querySelectorAll( 'p, a:not(p a)' ) ]
+						.filter( ( el ) => visible( el ) && ( el.textContent ?? '' ).trim() )
+						.map( ( el ) => ( {
+							text: ( el.textContent ?? '' ).trim().slice( 0, 40 ),
+							fontSize: getComputedStyle( el ).fontSize,
+							offCenter: offCenter( el ),
+						} ) )
+				: [];
+			const pageWidth = document.documentElement.clientWidth;
+			const headerAllText = header instanceof HTMLElement ? header.innerText : '';
+			const footerAllText = footer instanceof HTMLElement ? footer.innerText : '';
+			// The body text's size: the median of the paragraphs outside the header and footer.
+			const bodySizes = [ ...document.querySelectorAll( 'p' ) ]
+				.filter(
 					( el ) =>
 						visible( el ) &&
-						( el.textContent ?? '' ).trim() &&
-						! el.parentElement?.closest( 'p, h1, h2, h3, h4, h5, h6, li' ) &&
-						// Not text kept for screen readers, clipped out of sight.
-						getComputedStyle( el ).clipPath === 'none' &&
-						getComputedStyle( el ).clip === 'auto'
-				);
-				const lineRects = ( el: Element ) => {
-					const range = document.createRange();
-					range.selectNodeContents( el );
-					return [ ...range.getClientRects() ].filter( ( rect ) => rect.width );
+						( el.textContent ?? '' ).trim().length > 20 &&
+						! el.closest( 'header, footer' )
+				)
+				.map( ( el ) => parseFloat( getComputedStyle( el ).fontSize ) )
+				.sort( ( a, b ) => a - b );
+			const bodyFontSize = bodySizes.length
+				? bodySizes[ Math.floor( bodySizes.length / 2 ) ]
+				: null;
+			// Faults a visitor sees at a glance, in text of the page's own: text
+			// against the window's edge, too faint to read on its background,
+			// painted over by another element on the first screen, or body text
+			// the size of a heading.
+			const faults: string[] = [];
+			// Any CSS color, as color(srgb …) and oklch() compute, read as sRGB by a canvas.
+			const pixel = document.createElement( 'canvas' ).getContext( '2d', {
+				willReadFrequently: true,
+			} );
+			const rgba = ( color: string ) => {
+				if ( ! pixel ) return [ 0, 0, 0, 0 ];
+				pixel.clearRect( 0, 0, 1, 1 );
+				pixel.fillStyle = color;
+				pixel.fillRect( 0, 0, 1, 1 );
+				const [ r, g, b, a ] = pixel.getImageData( 0, 0, 1, 1 ).data;
+				return [ r, g, b, a / 255 ];
+			};
+			const luminance = ( color: string ) => {
+				const [ r, g, b ] = rgba( color );
+				const channel = ( value: number ) => {
+					const c = value / 255;
+					return c <= 0.03928 ? c / 12.92 : ( ( c + 0.055 ) / 1.055 ) ** 2.4;
 				};
-				const span = ( el: Element ) => {
-					const rects = lineRects( el );
-					return rects.length
-						? {
-								left: Math.min( ...rects.map( ( rect ) => rect.left ) ),
-								right: Math.max( ...rects.map( ( rect ) => rect.right ) ),
-						  }
-						: null;
-				};
-				const atEdge = ( box: { left: number; right: number } | null ) =>
-					!! box && ( box.left < 4 || box.right > viewport - 4 );
-				// Text in motion, as a ticker that runs across the window, is where it
-				// is for a moment: what touches the edge counts once it stays put.
-				const edgeSpans = new Map(
-					texts
-						.map( ( el ) => [ el, span( el ) ] as const )
-						.filter( ( [ , box ] ) => atEdge( box ) )
-				);
-				if ( edgeSpans.size ) await new Promise( ( resolve ) => setTimeout( resolve, 300 ) );
-				const moving = ( el: Element ) => {
-					const [ before, after ] = [ edgeSpans.get( el ), span( el ) ];
-					return (
-						! before ||
-						! after ||
-						Math.abs( after.left - before.left ) >= 1 ||
-						Math.abs( after.right - before.right ) >= 1
-					);
-				};
-				// Whether an element the browser hit at a point paints there: its box, or
-				// past it only its letters. The browser hits a line of text across its
-				// font's full height, which a display heading set tighter than its type
-				// (eval24's redo runs: line-height 0.86 at 152px) carries above its box,
-				// where its letters do not reach.
-				const measure = document.createElement( 'canvas' ).getContext( '2d' );
-				const paintedAt = ( top: Element, x: number, y: number ) => {
-					const box = top.getBoundingClientRect();
-					if ( x >= box.left && x <= box.right && y >= box.top && y <= box.bottom ) return true;
-					const walker = document.createTreeWalker( top, NodeFilter.SHOW_TEXT );
-					for ( let node = walker.nextNode(); node; node = walker.nextNode() ) {
-						const style = getComputedStyle( node.parentElement! );
-						const text = node.textContent ?? '';
-						const range = document.createRange();
-						range.selectNodeContents( node );
-						for ( const rect of range.getClientRects() ) {
-							if ( x < rect.left || x > rect.right || y < rect.top || y > rect.bottom ) continue;
-							if ( ! measure ) return true;
-							measure.font = style.font;
-							const ink = measure.measureText(
-								style.textTransform === 'uppercase' ? text.toUpperCase() : text
-							);
-							const baseline = rect.top + ink.fontBoundingBoxAscent;
-							if (
-								y >= baseline - ink.actualBoundingBoxAscent &&
-								y <= baseline + ink.actualBoundingBoxDescent
-							)
-								return true;
-						}
-					}
-					return false;
-				};
-				for ( const el of texts ) {
-					const rects = lineRects( el );
-					if ( ! rects.length ) continue;
-					const left = Math.min( ...rects.map( ( rect ) => rect.left ) );
-					const right = Math.max( ...rects.map( ( rect ) => rect.right ) );
-					if ( edgeSpans.has( el ) && ! moving( el ) )
-						faults.push(
-							`${ quote( el ) } touches the window's edge (x ${ Math.round( left ) }–${ Math.round(
-								right
-							) })`
-						);
-					// On the first screen, the element painted at its first line's middle.
-					const [ first ] = rects;
-					const x = first.left + first.width / 2;
-					const y = first.top + first.height / 2;
-					if ( y > 0 && y < window.innerHeight ) {
-						const top = document.elementFromPoint( x, y );
-						if ( top && ! el.contains( top ) && ! top.contains( el ) && paintedAt( top, x, y ) )
-							faults.push(
-								`${ quote( el ) } is under ${ top.tagName.toLowerCase() }${ [ ...top.classList ]
-									.slice( 0, 2 )
-									.map( ( name ) => `.${ name }` )
-									.join( '' ) }`
-							);
-					}
-				}
-				// Each text in the middle of the window, against what is painted behind it there.
-				for ( const el of texts ) {
-					const box = el.getBoundingClientRect();
-					window.scrollTo( {
-						top: box.top + window.scrollY - window.innerHeight / 2,
-						behavior: 'instant',
-					} );
-					const [ first ] = lineRects( el );
-					// The color of the text itself, as a link's label in a span of its own.
-					const walker = document.createTreeWalker( el, NodeFilter.SHOW_TEXT );
-					let node = walker.nextNode();
-					while ( node && ! node.textContent?.trim() ) node = walker.nextNode();
-					const color = getComputedStyle( node?.parentElement ?? el ).color;
-					const behind =
-						first && paintedBehind( first.left + first.width / 2, first.top + first.height / 2 );
-					if ( ! behind || ! alpha( color ) ) continue;
-					// See-through text shows blended with what is behind it.
-					const [ text, under ] = [ rgba( color ), rgba( behind ) ];
-					const shown = `rgb(${ text
-						.slice( 0, 3 )
-						.map( ( channel, i ) => channel * text[ 3 ] + under[ i ] * ( 1 - text[ 3 ] ) )
-						.join( ', ' ) })`;
-					if ( contrast( shown, behind ) < 2 )
-						faults.push(
-							`${ quote( el ) } is ${ color } on ${ behind }, ${ contrast( shown, behind ).toFixed(
-								2
-							) }:1`
-						);
-				}
-				window.scrollTo( { top: 0, behavior: 'instant' } );
-				const bodySize = bodyFontSize ?? 16;
-				for ( const el of texts ) {
-					const fontSize = parseFloat( getComputedStyle( el ).fontSize );
+				return 0.2126 * channel( r ) + 0.7152 * channel( g ) + 0.0722 * channel( b );
+			};
+			const contrast = ( a: string, b: string ) => {
+				const [ hi, lo ] = [ luminance( a ), luminance( b ) ].sort( ( x, y ) => y - x );
+				return ( hi + 0.05 ) / ( lo + 0.05 );
+			};
+			const alpha = ( color: string ) => rgba( color )[ 3 ];
+			// The solid color painted behind a point, or none when an image, a
+			// a see-through color or a faded one, as a cover's dimming, shows there.
+			const paintedBehind = ( x: number, y: number ) => {
+				for ( const at of document.elementsFromPoint( x, y ) ) {
+					const style = getComputedStyle( at );
 					if (
-						/^(P|LI)$/.test( el.tagName ) &&
-						( el.textContent ?? '' ).trim().length > 30 &&
-						fontSize > bodySize * 2.25
+						style.backgroundImage !== 'none' ||
+						/^(IMG|VIDEO|CANVAS|SVG|PICTURE)$/i.test( at.tagName ) ||
+						parseFloat( style.opacity ) < 1
 					)
-						faults.push( `${ quote( el ) } is ${ fontSize }px, body text ${ bodySize }px` );
+						return null;
+					const color = style.backgroundColor;
+					if ( alpha( color ) === 1 ) return color;
+					if ( alpha( color ) > 0 ) return null;
 				}
-				// Images on the first screen, as an img or a background, by their drawn width.
-				const firstScreenImages = [ ...document.querySelectorAll( 'body *' ) ]
-					.filter( ( el ) => {
-						if ( ! visible( el ) || el.closest( 'header' ) ) return false;
-						const box = el.getBoundingClientRect();
-						return (
-							box.top < window.innerHeight &&
-							box.bottom > 0 &&
-							( el.tagName === 'IMG' ||
-								el.tagName === 'VIDEO' ||
-								getComputedStyle( el ).backgroundImage.includes( 'url(' ) )
+				return 'rgb(255, 255, 255)';
+			};
+			const quote = ( el: Element ) => {
+				const text = ( el.textContent ?? '' ).replace( /\s+/g, ' ' ).trim();
+				return `"${ text.length > 40 ? `${ text.slice( 0, 40 ) }…` : text }"`;
+			};
+			const viewport = document.documentElement.clientWidth;
+			const texts = [ ...document.querySelectorAll( 'p, h1, h2, h3, h4, h5, h6, li, a' ) ].filter(
+				( el ) =>
+					visible( el ) &&
+					( el.textContent ?? '' ).trim() &&
+					! el.parentElement?.closest( 'p, h1, h2, h3, h4, h5, h6, li' ) &&
+					// Not text kept for screen readers, clipped out of sight.
+					getComputedStyle( el ).clipPath === 'none' &&
+					getComputedStyle( el ).clip === 'auto'
+			);
+			const lineRects = ( el: Element ) => {
+				const range = document.createRange();
+				range.selectNodeContents( el );
+				return [ ...range.getClientRects() ].filter( ( rect ) => rect.width );
+			};
+			const span = ( el: Element ) => {
+				const rects = lineRects( el );
+				return rects.length
+					? {
+							left: Math.min( ...rects.map( ( rect ) => rect.left ) ),
+							right: Math.max( ...rects.map( ( rect ) => rect.right ) ),
+					  }
+					: null;
+			};
+			const atEdge = ( box: { left: number; right: number } | null ) =>
+				!! box && ( box.left < 4 || box.right > viewport - 4 );
+			// Text in motion, as a ticker that runs across the window, is where it
+			// is for a moment: what touches the edge counts once it stays put.
+			const edgeSpans = new Map(
+				texts.map( ( el ) => [ el, span( el ) ] as const ).filter( ( [ , box ] ) => atEdge( box ) )
+			);
+			if ( edgeSpans.size ) await new Promise( ( resolve ) => setTimeout( resolve, 300 ) );
+			const moving = ( el: Element ) => {
+				const [ before, after ] = [ edgeSpans.get( el ), span( el ) ];
+				return (
+					! before ||
+					! after ||
+					Math.abs( after.left - before.left ) >= 1 ||
+					Math.abs( after.right - before.right ) >= 1
+				);
+			};
+			// Whether an element the browser hit at a point paints there: its box, or
+			// past it only its letters. The browser hits a line of text across its
+			// font's full height, which a display heading set tighter than its type
+			// (eval24's redo runs: line-height 0.86 at 152px) carries above its box,
+			// where its letters do not reach.
+			const measure = document.createElement( 'canvas' ).getContext( '2d' );
+			const paintedAt = ( top: Element, x: number, y: number ) => {
+				const box = top.getBoundingClientRect();
+				if ( x >= box.left && x <= box.right && y >= box.top && y <= box.bottom ) return true;
+				const walker = document.createTreeWalker( top, NodeFilter.SHOW_TEXT );
+				for ( let node = walker.nextNode(); node; node = walker.nextNode() ) {
+					const style = getComputedStyle( node.parentElement! );
+					const text = node.textContent ?? '';
+					const range = document.createRange();
+					range.selectNodeContents( node );
+					for ( const rect of range.getClientRects() ) {
+						if ( x < rect.left || x > rect.right || y < rect.top || y > rect.bottom ) continue;
+						if ( ! measure ) return true;
+						measure.font = style.font;
+						const ink = measure.measureText(
+							style.textTransform === 'uppercase' ? text.toUpperCase() : text
 						);
-					} )
-					.map( ( el ) => Math.round( el.getBoundingClientRect().width ) );
-				const body = getComputedStyle( document.body );
-				const palette = [ ...body ]
-					.filter( ( name ) => name.startsWith( '--wp--preset--color--' ) )
-					.map( ( name ) => body.getPropertyValue( name ).trim() );
-				return {
-					navLeft,
-					titleLeft,
-					scrolled,
-					navTopAfterScroll,
-					buttons,
-					headerBackground,
-					pageBackground,
-					headings,
-					footerText,
-					palette,
-					pageWidth,
-					headerAllText,
-					footerAllText,
-					bodyFontSize,
-					firstScreenImages,
-					faults,
-				};
-			}, siteName );
-		} finally {
-			await page.close();
-		}
-	} catch ( error ) {
-		return { error: error instanceof Error ? error.message : String( error ) };
-	}
+						const baseline = rect.top + ink.fontBoundingBoxAscent;
+						if (
+							y >= baseline - ink.actualBoundingBoxAscent &&
+							y <= baseline + ink.actualBoundingBoxDescent
+						)
+							return true;
+					}
+				}
+				return false;
+			};
+			for ( const el of texts ) {
+				const rects = lineRects( el );
+				if ( ! rects.length ) continue;
+				if ( edgeSpans.has( el ) && ! moving( el ) ) {
+					const { left, right } = span( el )!;
+					faults.push(
+						`${ quote( el ) } touches the window's edge (x ${ Math.round( left ) }–${ Math.round(
+							right
+						) })`
+					);
+				}
+				// On the first screen, the element painted at its first line's middle.
+				const [ first ] = rects;
+				const x = first.left + first.width / 2;
+				const y = first.top + first.height / 2;
+				if ( y > 0 && y < window.innerHeight ) {
+					const top = document.elementFromPoint( x, y );
+					if ( top && ! el.contains( top ) && ! top.contains( el ) && paintedAt( top, x, y ) )
+						faults.push(
+							`${ quote( el ) } is under ${ top.tagName.toLowerCase() }${ [ ...top.classList ]
+								.slice( 0, 2 )
+								.map( ( name ) => `.${ name }` )
+								.join( '' ) }`
+						);
+				}
+			}
+			// Each text in the middle of the window, against what is painted behind it there.
+			for ( const el of texts ) {
+				const box = el.getBoundingClientRect();
+				window.scrollTo( {
+					top: box.top + window.scrollY - window.innerHeight / 2,
+					behavior: 'instant',
+				} );
+				const [ first ] = lineRects( el );
+				// The color of the text itself, as a link's label in a span of its own.
+				const walker = document.createTreeWalker( el, NodeFilter.SHOW_TEXT );
+				let node = walker.nextNode();
+				while ( node && ! node.textContent?.trim() ) node = walker.nextNode();
+				const color = getComputedStyle( node?.parentElement ?? el ).color;
+				const behind =
+					first && paintedBehind( first.left + first.width / 2, first.top + first.height / 2 );
+				if ( ! behind || ! alpha( color ) ) continue;
+				// See-through text shows blended with what is behind it.
+				const [ text, under ] = [ rgba( color ), rgba( behind ) ];
+				const shown = `rgb(${ text
+					.slice( 0, 3 )
+					.map( ( channel, i ) => channel * text[ 3 ] + under[ i ] * ( 1 - text[ 3 ] ) )
+					.join( ', ' ) })`;
+				if ( contrast( shown, behind ) < 2 )
+					faults.push(
+						`${ quote( el ) } is ${ color } on ${ behind }, ${ contrast( shown, behind ).toFixed(
+							2
+						) }:1`
+					);
+			}
+			window.scrollTo( { top: 0, behavior: 'instant' } );
+			const bodySize = bodyFontSize ?? 16;
+			for ( const el of texts ) {
+				const fontSize = parseFloat( getComputedStyle( el ).fontSize );
+				if (
+					/^(P|LI)$/.test( el.tagName ) &&
+					( el.textContent ?? '' ).trim().length > 30 &&
+					fontSize > bodySize * 2.25
+				)
+					faults.push( `${ quote( el ) } is ${ fontSize }px, body text ${ bodySize }px` );
+			}
+			// Images on the first screen, as an img or a background, by their drawn width.
+			const firstScreenImages = [ ...document.querySelectorAll( 'body *' ) ]
+				.filter( ( el ) => {
+					if ( ! visible( el ) || el.closest( 'header' ) ) return false;
+					const box = el.getBoundingClientRect();
+					return (
+						box.top < window.innerHeight &&
+						box.bottom > 0 &&
+						( el.tagName === 'IMG' ||
+							el.tagName === 'VIDEO' ||
+							getComputedStyle( el ).backgroundImage.includes( 'url(' ) )
+					);
+				} )
+				.map( ( el ) => Math.round( el.getBoundingClientRect().width ) );
+			const body = getComputedStyle( document.body );
+			const palette = [ ...body ]
+				.filter( ( name ) => name.startsWith( '--wp--preset--color--' ) )
+				.map( ( name ) => body.getPropertyValue( name ).trim() );
+			return {
+				navLeft,
+				titleLeft,
+				scrolled,
+				navTopAfterScroll,
+				buttons,
+				headerBackground,
+				pageBackground,
+				headings,
+				footerText,
+				palette,
+				pageWidth,
+				headerAllText,
+				footerAllText,
+				bodyFontSize,
+				firstScreenImages,
+				faults,
+			};
+		}, siteName )
+	);
 }
 
 interface SiteOutcome {
@@ -1060,6 +1053,19 @@ async function captureSiteOutcome(
 
 		// Every published page, template and part, validated by the site's own editor.
 		const invalid: Array< { id: number; type: string; slug: string; blocks: string[] } > = [];
+		const validate = async (
+			text: string,
+			editor: Parameters< typeof validateBlocks >[ 2 ],
+			entry: { id: number; type: string; slug: string }
+		) => {
+			const report = await validateBlocks( text, url, editor );
+			if ( report.invalidBlocks > 0 ) {
+				invalid.push( {
+					...entry,
+					blocks: report.results.filter( ( r ) => ! r.isValid ).map( ( r ) => r.blockName ),
+				} );
+			}
+		};
 		for ( const item of state.content as Array< {
 			id: number;
 			type: string;
@@ -1067,15 +1073,11 @@ async function captureSiteOutcome(
 			content: string;
 		} > ) {
 			if ( ! item.content.includes( '<!-- wp:' ) ) continue;
-			const report = await validateBlocks( item.content, url, blockEditorOf( item ) );
-			if ( report.invalidBlocks > 0 ) {
-				invalid.push( {
-					id: item.id,
-					type: item.type,
-					slug: item.slug,
-					blocks: report.results.filter( ( r ) => ! r.isValid ).map( ( r ) => r.blockName ),
-				} );
-			}
+			await validate( item.content, blockEditorOf( item ), {
+				id: item.id,
+				type: item.type,
+				slug: item.slug,
+			} );
 		}
 		// A file as its WordPress.org release ships it is the theme author's, and
 		// may hold blocks of a plugin the site does not run.
@@ -1085,15 +1087,7 @@ async function captureSiteOutcome(
 			outcome.themeFiles as Record< string, string >
 		) ) {
 			if ( ! /^(templates|parts)\/.+\.html$/.test( file ) || released( file ) ) continue;
-			const report = await validateBlocks( text, url, 'site' );
-			if ( report.invalidBlocks > 0 ) {
-				invalid.push( {
-					id: 0,
-					type: 'theme-file',
-					slug: file,
-					blocks: report.results.filter( ( r ) => ! r.isValid ).map( ( r ) => r.blockName ),
-				} );
-			}
+			await validate( text, 'site', { id: 0, type: 'theme-file', slug: file } );
 		}
 		outcome.invalidBlocks = invalid;
 	} catch ( error ) {

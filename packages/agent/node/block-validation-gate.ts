@@ -164,9 +164,28 @@ export function describeEditorSave( result: MarkupValidation, fixes: string ): s
 		result.droppedComments
 			? `drops ${ result.droppedComments } HTML comment(s) between blocks, which the editor would turn into Classic blocks (normalizeRawBlock in @wordpress/blocks wraps text outside a block in paragraphs) and which render nothing`
 			: undefined,
-		result.paletteColors?.length ? describePaletteColors( result.paletteColors ) : undefined,
-		result.fontSizes?.length ? describeFontSizes( result.fontSizes ) : undefined,
-		result.spacingSizes?.length ? describeSpacingSizes( result.spacingSizes ) : undefined,
+		result.paletteColors?.length
+			? describeStored(
+					result.paletteColors.map(
+						( { color, slug } ) => `${ color } as the palette's ${ slug }`
+					),
+					'a palette color (encodeColorValueWithPalette in @wordpress/block-editor), so it follows the palette'
+			  )
+			: undefined,
+		result.fontSizes?.length
+			? describeStored(
+					result.fontSizes.map( ( { size, slug } ) => `${ size } as the font size ${ slug }` ),
+					'a font size preset (getFontSizeObjectByValue in @wordpress/block-editor), so it follows the preset'
+			  )
+			: undefined,
+		result.spacingSizes?.length
+			? describeStored(
+					result.spacingSizes.map(
+						( { size, slug } ) => `${ size } as the spacing size ${ slug }`
+					),
+					'a spacing size preset (getPresetValueFromCustomValue in @wordpress/block-editor), so it follows the preset'
+			  )
+			: undefined,
 		result.boundLinks?.length ? describeBoundLinks( result.boundLinks ) : undefined,
 	].filter( ( note ): note is string => Boolean( note ) );
 }
@@ -240,6 +259,13 @@ async function describeTemplates( names: string[], siteUrl: string ): Promise< s
 	);
 }
 
+/** What the editor's save changed besides the blocks it fixes, for a note. */
+type StoredNotes = Pick<
+	MarkupValidation,
+	'droppedComments' | 'paletteColors' | 'fontSizes' | 'spacingSizes' | 'boundLinks'
+>;
+type StoredMarkup = { content: string; changed: boolean } & StoredNotes;
+
 /**
  * What the editor stores for the markup: comments between blocks dropped, palette
  * colors as presets, entity links bound. `invalidBefore` counts the problems in
@@ -251,23 +277,21 @@ async function storeAsTheEditorDoes(
 	presetValues: PresetValues,
 	editor: BlockEditor,
 	invalidBefore: () => Promise< number >
-) {
+): Promise< StoredMarkup > {
 	const between = dropCommentsBetweenBlocks( content );
 	const presets = await storePresetValues( between.content, siteUrl, presetValues, editor );
 	const bound = await bindNavigationLinks( presets.content, siteUrl, editor );
-	const stored = {
-		content: bound.content,
-		changed:
-			between.comments > 0 ||
-			presets.colors.length > 0 ||
-			presets.fontSizes.length > 0 ||
-			presets.spacingSizes.length > 0 ||
-			bound.links.length > 0,
+	const notes: StoredNotes = {
 		...( between.comments && { droppedComments: between.comments } ),
 		...( presets.colors.length && { paletteColors: presets.colors } ),
 		...( presets.fontSizes.length && { fontSizes: presets.fontSizes } ),
 		...( presets.spacingSizes.length && { spacingSizes: presets.spacingSizes } ),
 		...( bound.links.length && { boundLinks: bound.links } ),
+	};
+	const stored = {
+		content: bound.content,
+		changed: Object.keys( notes ).length > 0,
+		...notes,
 	};
 	// A save stands only when the editor finds no more problems in it than in
 	// what it replaces, whatever the pass that changed it.
@@ -281,34 +305,9 @@ async function storeAsTheEditorDoes(
 	return stored;
 }
 
-/** How the editor stores colors written as palette values, for a note. */
-function describePaletteColors( colors: PresetValuesResult[ 'colors' ] ): string {
-	const each = [
-		...new Set( colors.map( ( { color, slug } ) => `${ color } as the palette's ${ slug }` ) ),
-	];
-	return `stores ${ each.join(
-		', '
-	) }, as the editor stores a palette color (encodeColorValueWithPalette in @wordpress/block-editor), so it follows the palette`;
-}
-
-/** How the editor stores font sizes written as preset sizes, for a note. */
-function describeFontSizes( sizes: PresetValuesResult[ 'fontSizes' ] ): string {
-	const each = [
-		...new Set( sizes.map( ( { size, slug } ) => `${ size } as the font size ${ slug }` ) ),
-	];
-	return `stores ${ each.join(
-		', '
-	) }, as the editor stores a font size preset (getFontSizeObjectByValue in @wordpress/block-editor), so it follows the preset`;
-}
-
-/** How the editor stores spacing written as preset sizes, for a note. */
-function describeSpacingSizes( sizes: PresetValuesResult[ 'spacingSizes' ] ): string {
-	const each = [
-		...new Set( sizes.map( ( { size, slug } ) => `${ size } as the spacing size ${ slug }` ) ),
-	];
-	return `stores ${ each.join(
-		', '
-	) }, as the editor stores a spacing size preset (getPresetValueFromCustomValue in @wordpress/block-editor), so it follows the preset`;
+/** How the editor stores values written as presets (`each`, how it stores them), for a note. */
+function describeStored( each: string[], how: string ): string {
+	return `stores ${ [ ...new Set( each ) ].join( ', ' ) }, as the editor stores ${ how }`;
 }
 
 /**
@@ -366,12 +365,6 @@ export async function validateBlockMarkupFile(
 		fixedContent: ( pattern?.header ?? '' ) + result.fixedContent,
 	};
 }
-
-/**
- * Validates block markup against what each block saves on the site, and
- * against the core/html policy. A lossless editor fix is returned for the
- * caller to save where the markup lives, whatever the policy finds.
- */
 
 /**
  * The blocks WordPress's block parser does not close with their own closer. It
@@ -454,6 +447,11 @@ function unclosedBlocks( content: string ): string[] {
 	];
 }
 
+/**
+ * Validates block markup against what each block saves on the site, and
+ * against the core/html policy. A lossless editor fix is returned for the
+ * caller to save where the markup lives, whatever the policy finds.
+ */
 export async function validateBlockMarkup(
 	content: string,
 	label: string,
@@ -542,7 +540,7 @@ function styleAt( style: unknown, at: string ): unknown {
  * wp-includes/class-wp-theme-json.php), so such a block shows the value it
  * inherits. A kind the site's presets were not read for is left out.
  */
-export function unknownPresetsProblem(
+function unknownPresetsProblem(
 	content: string,
 	label: string,
 	presets: PresetValues
@@ -652,8 +650,15 @@ async function validateSavedMarkup(
 				lost.size ? ( await validateBlocks( fix.fixedContent, siteUrl, editor ) ).invalidBlocks : 0
 		  )
 		: undefined;
+	// The comments between blocks were dropped before the fix, from the content written.
+	const {
+		content: fixedContent,
+		changed,
+		droppedComments,
+		...notes
+	}: Partial< StoredMarkup > = stored ?? {};
 	const saved = stored && {
-		fixedContent: stored.content,
+		fixedContent,
 		invalidBlocks: fixedBlocks,
 		corrections: [
 			...new Set(
@@ -662,10 +667,7 @@ async function validateSavedMarkup(
 					.flatMap( ( result ) => result.attributeIssues ?? [] )
 			),
 		],
-		...( stored.paletteColors && { paletteColors: stored.paletteColors } ),
-		...( stored.fontSizes && { fontSizes: stored.fontSizes } ),
-		...( stored.spacingSizes && { spacingSizes: stored.spacingSizes } ),
-		...( stored.boundLinks && { boundLinks: stored.boundLinks } ),
+		...notes,
 		...( between.comments && { droppedComments: between.comments } ),
 	};
 	if ( lost.size === 0 ) {

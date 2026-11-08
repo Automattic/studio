@@ -13,9 +13,10 @@
  * (wp-includes/theme-previews.php): with the stylesheet and template filtered
  * to it, so its files are read with the presets they render with once it is.
  */
-import { readdir, readFile, stat, writeFile } from 'fs/promises';
+import { readFile, stat, writeFile } from 'fs/promises';
 import path from 'path';
 import { rewriteJson } from '@studio/common/lib/json-text';
+import { filesUnder } from '@studio/agent/node/active-code';
 import { readWordPressSite, type WordPressSite } from '@studio/agent/node/site-database';
 import { activeThemes, readThemeHeader, themesDir } from '@studio/agent/node/themes';
 import { wpEvalJson } from '@studio/agent/node/tools/utils';
@@ -161,15 +162,12 @@ if ( $preview->exists() ) {
 const resolved = new Map< string, { inputs: string; presets: Promise< Presets > } >();
 
 async function filesVersion( dir: string ): Promise< string > {
-	const entries = await readdir( dir, { recursive: true, withFileTypes: true } ).catch( () => [] );
+	const files = await filesUnder( dir, ( name ) => name.endsWith( '.json' ) );
 	const versions = await Promise.all(
-		entries
-			.filter( ( entry ) => entry.isFile() && /\.json$/.test( entry.name ) )
-			.map( async ( entry ) => {
-				const file = path.join( entry.parentPath, entry.name );
-				const { mtimeMs, size } = await stat( file );
-				return `${ path.relative( dir, file ) }:${ mtimeMs }:${ size }`;
-			} )
+		files.map( async ( file ) => {
+			const { mtimeMs, size } = await stat( file );
+			return `${ path.relative( dir, file ) }:${ mtimeMs }:${ size }`;
+		} )
 	);
 	return versions.sort().join( ',' );
 }
@@ -269,15 +267,10 @@ export async function themePresets(
 async function siteText( site: WordPressSite, themes: string[] ): Promise< string > {
 	const files = await Promise.all(
 		themes.map( async ( theme ) => {
-			const dir = themesDir( site.root, theme );
-			const entries = await readdir( dir, { recursive: true, withFileTypes: true } ).catch(
-				() => []
+			const files = await filesUnder( themesDir( site.root, theme ), ( name ) =>
+				/\.(html|php|css|json)$/.test( name )
 			);
-			return Promise.all(
-				entries
-					.filter( ( entry ) => entry.isFile() && /\.(html|php|css|json)$/.test( entry.name ) )
-					.map( ( entry ) => readFile( path.join( entry.parentPath, entry.name ), 'utf8' ) )
-			);
+			return Promise.all( files.map( ( file ) => readFile( file, 'utf8' ) ) );
 		} )
 	);
 	const posts = site.query< { content: string } >(

@@ -61,7 +61,7 @@ const EDITOR_PATHS: Record< BlockEditor, string > = {
 // browser tab instead of navigating and loading the block editor each time.
 const editorPages = new Map< string, EditorPage >();
 
-function getEditorPage( siteUrl: string, editor: BlockEditor = 'post' ): EditorPage {
+function getEditorPage( siteUrl: string, editor: BlockEditor ): EditorPage {
 	const key = `${ editor } ${ siteUrl }`;
 	let ep = editorPages.get( key );
 	if ( ! ep ) {
@@ -301,6 +301,34 @@ export async function validateBlocks(
 						? { isValid: result[ 0 ], issues: result[ 1 ] ?? [] }
 						: { isValid: result.isValid, issues: result.validationIssues ?? [] };
 
+				// The kind of probe value an attribute's schema takes, if any.
+				const kindOf = ( schema: any ): 'string' | 'number' | undefined =>
+					schema.type === 'string'
+						? 'string'
+						: [ 'number', 'integer' ].includes( schema.type )
+						? 'number'
+						: undefined;
+
+				// A block's own saved markup, without its inner blocks.
+				const ownHtml = ( one: any ) =>
+					String( rawParse( wpBlocks.serialize( [ one ] ) )?.[ 0 ]?.innerHTML ?? '' );
+
+				// The own markup of a block made with an attribute holding the probe
+				// value of its kind; undefined when the block cannot be made so.
+				function probed( block: any, key: string, kind: 'string' | 'number' ) {
+					try {
+						return ownHtml(
+							wpBlocks.createBlock(
+								block.name,
+								{ ...block.attributes, [ key ]: PROBE[ kind ] },
+								block.innerBlocks
+							)
+						);
+					} catch {
+						return undefined;
+					}
+				}
+
 				// The parser accepts a block that matches an older version of it and
 				// migrates it, which can produce markup the block no longer parses
 				// (an old paragraph reads its whole <p> as its text, and saves a <p>
@@ -360,30 +388,22 @@ export async function validateBlocks(
 								.getBlockTypes()
 								.map( ( type: any ) => type.name )
 								.filter( ( registeredName: string ) => registeredName.startsWith( prefix ) );
-							if ( serverRendered.has( name ) ) {
-								results.push( {
-									blockName: name,
-									place,
-									isValid: false,
-									issues: [
-										`${ name } is registered on the site in PHP but not in the block editor, so the editor shows it as an unsupported block. A block with a render_callback whose supports include 'autoRegister' => true is registered in the editor by WordPress, which previews it with the server's render (_wp_enqueue_auto_register_blocks() in wp-includes/blocks.php).`,
-									],
-									originalContent: block.attributes?.originalContent ?? '',
-								} );
-								return;
-							}
 							results.push( {
 								blockName: name,
 								place,
 								isValid: false,
 								issues: [
-									`${ name } is not registered on the site, so the editor shows it as an unsupported block. ${
-										registered.length
-											? `The registered ${ prefix } blocks are ${ registered.join( ', ' ) }.`
-											: `No ${ prefix } blocks are registered in the site's block editor.`
-									}${
-										thrown.length ? ` The site's block editor threw: ${ thrown.join( '; ' ) }.` : ''
-									}`,
+									serverRendered.has( name )
+										? `${ name } is registered on the site in PHP but not in the block editor, so the editor shows it as an unsupported block. A block with a render_callback whose supports include 'autoRegister' => true is registered in the editor by WordPress, which previews it with the server's render (_wp_enqueue_auto_register_blocks() in wp-includes/blocks.php).`
+										: `${ name } is not registered on the site, so the editor shows it as an unsupported block. ${
+												registered.length
+													? `The registered ${ prefix } blocks are ${ registered.join( ', ' ) }.`
+													: `No ${ prefix } blocks are registered in the site's block editor.`
+										  }${
+												thrown.length
+													? ` The site's block editor threw: ${ thrown.join( '; ' ) }.`
+													: ''
+										  }`,
 								],
 								originalContent: block.attributes?.originalContent ?? '',
 							} );
@@ -434,18 +454,10 @@ export async function validateBlocks(
 							// Handle both return formats:
 							//   WP 6.3+: { isValid: boolean, validationIssues: Array }
 							//   Older:   [boolean, Array]
-							const validationResult = wpBlocks.validateBlock( block, blockType );
-
-							if ( Array.isArray( validationResult ) ) {
-								isValid = validationResult[ 0 ];
-								if ( ! isValid ) {
-									issues = extractIssues( validationResult[ 1 ] || [] );
-								}
-							} else {
-								isValid = validationResult.isValid;
-								if ( ! isValid ) {
-									issues = extractIssues( validationResult.validationIssues || [] );
-								}
+							const validation = verdict( wpBlocks.validateBlock( block, blockType ) );
+							isValid = validation.isValid;
+							if ( ! isValid ) {
+								issues = extractIssues( validation.issues );
 							}
 						}
 
@@ -519,6 +531,7 @@ export async function validateBlocks(
 					const validCount = results.filter( ( r: any ) => r.isValid ).length;
 					return {
 						blocks,
+						rawBlocks,
 						written,
 						report: {
 							totalBlocks: results.length,
@@ -698,9 +711,7 @@ export async function validateBlocks(
 				// markup: the styles written on it withWrittenStyles stores, and what
 				// a fix loses otherwise its losses tell.
 				function keepsWritten( made: any, raw: any ) {
-					const saved = ownMarkup(
-						String( rawParse( wpBlocks.serialize( [ made ] ) )?.[ 0 ]?.innerHTML ?? '' )
-					).classes;
+					const saved = ownMarkup( ownHtml( made ) ).classes;
 					return [ ...ownMarkup( String( raw.innerHTML ?? '' ) ).classes ].every( ( name ) =>
 						saved.has( name )
 					);
@@ -727,8 +738,6 @@ export async function validateBlocks(
 									value,
 								} ) )
 						);
-					const ownHtml = ( one: any ) =>
-						String( rawParse( wpBlocks.serialize( [ one ] ) )?.[ 0 ]?.innerHTML ?? '' );
 					const written = valuesOf( String( raw.innerHTML ?? '' ) );
 					const attributes = Object.entries( wpBlocks.getBlockType( made.name )?.attributes ?? {} );
 					let result = made;
@@ -741,33 +750,18 @@ export async function validateBlocks(
 						);
 						let stored = false;
 						for ( const [ key, schema ] of attributes as Array< [ string, any ] > ) {
-							const kind =
-								schema.type === 'string'
-									? 'string'
-									: [ 'number', 'integer' ].includes( schema.type )
-									? 'number'
-									: undefined;
+							const kind = kindOf( schema );
 							// The comment's own value stands, as the editor makes a block
 							// from its comment.
 							if ( ! kind || key === 'className' || raw.attrs?.[ key ] !== undefined ) {
 								continue;
 							}
 							const probe = String( PROBE[ kind ] );
-							let probed: Array< { place: string; value: string } >;
-							try {
-								probed = valuesOf(
-									ownHtml(
-										wpBlocks.createBlock(
-											result.name,
-											{ ...result.attributes, [ key ]: PROBE[ kind ] },
-											result.innerBlocks
-										)
-									)
-								);
-							} catch {
+							const html = probed( result, key, kind );
+							if ( html === undefined ) {
 								continue;
 							}
-							for ( const { place, value: template } of probed ) {
+							for ( const { place, value: template } of valuesOf( html ) ) {
 								const at = template.indexOf( probe );
 								if ( at < 0 ) {
 									continue;
@@ -815,12 +809,9 @@ export async function validateBlocks(
 					if ( typeof rawParse !== 'function' ) {
 						return made;
 					}
-					const ownClasses = ( one: any ) =>
-						new Set(
-							elementsOf(
-								String( rawParse( wpBlocks.serialize( [ one ] ) )?.[ 0 ]?.innerHTML ?? '' )
-							).flatMap( ( element ) => [ ...element.classList ] )
-						);
+					const classesOf = ( html: string ) =>
+						new Set( elementsOf( html ).flatMap( ( element ) => [ ...element.classList ] ) );
+					const ownClasses = ( one: any ) => classesOf( ownHtml( one ) );
 					const saved = ownClasses( made );
 					const dropped = [
 						...new Set(
@@ -835,28 +826,16 @@ export async function validateBlocks(
 					const templates = Object.entries( wpBlocks.getBlockType( made.name )?.attributes ?? {} )
 						.filter( ( [ key ] ) => key !== 'className' )
 						.flatMap( ( [ key, schema ]: [ string, any ] ) => {
-							const kind =
-								schema.type === 'string'
-									? 'string'
-									: [ 'number', 'integer' ].includes( schema.type )
-									? 'number'
-									: undefined;
+							const kind = kindOf( schema );
 							if ( ! kind ) {
 								return [];
 							}
 							const probe = String( PROBE[ kind ] );
-							let classes: Set< string >;
-							try {
-								classes = ownClasses(
-									wpBlocks.createBlock(
-										made.name,
-										{ ...made.attributes, [ key ]: PROBE[ kind ] },
-										made.innerBlocks
-									)
-								);
-							} catch {
+							const html = probed( made, key, kind );
+							if ( html === undefined ) {
 								return [];
 							}
+							const classes = classesOf( html );
 							// The classes it saves for any value, as has-text-color
 							// beside has-<slug>-color, which name no value.
 							const fixed = [ ...classes ].filter(
@@ -972,35 +951,16 @@ export async function validateBlocks(
 					const found = Object.entries(
 						wpBlocks.getBlockType( made.name )?.attributes ?? {}
 					).flatMap( ( [ key, schema ]: [ string, any ] ) => {
-						const kind =
-							schema.type === 'string'
-								? 'string'
-								: [ 'number', 'integer' ].includes( schema.type )
-								? 'number'
-								: undefined;
+						const kind = kindOf( schema );
 						if ( ! kind ) {
 							return [];
 						}
 						const probe = String( PROBE[ kind ] );
-						let saved: HTMLElement[];
-						try {
-							saved = elementsOf(
-								String(
-									rawParse(
-										wpBlocks.serialize( [
-											wpBlocks.createBlock(
-												made.name,
-												{ ...made.attributes, [ key ]: PROBE[ kind ] },
-												made.innerBlocks
-											),
-										] )
-									)?.[ 0 ]?.innerHTML ?? ''
-								)
-							);
-						} catch {
+						const html = probed( made, key, kind );
+						if ( html === undefined ) {
 							return [];
 						}
-						return saved.flatMap( ( element ) =>
+						return elementsOf( html ).flatMap( ( element ) =>
 							String( element.getAttribute( 'style' ) ?? '' )
 								.split( ';' )
 								.map( ( declaration ) => declaration.split( ':' ) )
@@ -1074,8 +1034,6 @@ export async function validateBlocks(
 					if ( typeof rawParse !== 'function' ) {
 						return made;
 					}
-					const ownHtml = ( one: any ) =>
-						String( rawParse( wpBlocks.serialize( [ one ] ) )?.[ 0 ]?.innerHTML ?? '' );
 					const written = elementsOf( String( raw.innerHTML ?? '' ) );
 					const holdsWritten = ( saved: HTMLElement[] ) =>
 						written.map( ( element, i ) => {
@@ -1148,16 +1106,25 @@ export async function validateBlocks(
 
 				const initial = validateContent( html );
 
+				// The block at a place, `/0/1` being the second inner block of the first.
+				const blockAt = ( blocks: any[], place: string ) =>
+					place
+						.split( '/' )
+						.slice( 1 )
+						.reduce< any >(
+							( at, index ) => ( at === null ? blocks : at?.innerBlocks ?? [] )[ Number( index ) ],
+							null
+						);
+
 				if ( initial.report.invalidBlocks === 0 ) {
 					return { report: initial.report };
 				}
 
-				const rawTop = ( typeof rawParse === 'function' ? rawParse( html ) : [] ).filter(
-					( raw: any ) => raw.blockName
-				);
 				let named = 0;
 				const fixedBlocks = initial.blocks.map( ( block: any ) =>
-					block.name === 'core/freeform' ? block : normalizeBlock( block, rawTop[ named++ ] )
+					block.name === 'core/freeform'
+						? block
+						: normalizeBlock( block, initial.rawBlocks[ named++ ] )
 				);
 				const fixedContent = wpBlocks.serialize( fixedBlocks );
 
@@ -1588,14 +1555,7 @@ export async function validateBlocks(
 				// save holds them inline. `[ attributes, the styles they hold ]`, for
 				// a block that supports them.
 				function storedAs( place: string, styles: string[] ) {
-					const block = place
-						.split( '/' )
-						.slice( 1 )
-						.reduce< any >(
-							( at, index ) =>
-								( at === null ? fixed.blocks : at.innerBlocks ?? [] )[ Number( index ) ],
-							null
-						);
+					const block = blockAt( fixed.blocks, place );
 					const name = block?.name;
 					if ( ! name ) {
 						return null;
@@ -1746,15 +1706,6 @@ export async function validateBlocks(
 				// A block the fix makes with other inner blocks than those written, as
 				// a deprecated version's migration makes them, saves those: what it
 				// saves is shown as the fix makes it.
-				const blockAt = ( blocks: any[], place: string ) =>
-					place
-						.split( '/' )
-						.slice( 1 )
-						.reduce(
-							( found: any, index ) =>
-								( found ? found.innerBlocks ?? [] : blocks )[ Number( index ) ],
-							undefined
-						);
 				for ( const result of initial.report.results ) {
 					const place = result.place ?? '';
 					const fix = lossy.has( place ) && blockAt( fixed.blocks, place );
@@ -1786,11 +1737,7 @@ export async function validateBlocks(
 			const report = validation.report as ValidationReport;
 
 			if ( validation.proposedFix ) {
-				report.proposedFix = {
-					fixedContent: validation.proposedFix.fixedContent,
-					report: validation.proposedFix.report as ValidationReportBase,
-					losses: validation.proposedFix.losses,
-				};
+				report.proposedFix = { ...validation.proposedFix };
 			}
 
 			return report;
@@ -1971,13 +1918,13 @@ export async function storePresetValues(
 	);
 }
 
-export interface NavigationLinksResult {
+interface NavigationLinksResult {
 	content: string;
 	/** The label of each link bound to the entity it names. */
 	links: string[];
 }
 
-export interface BetweenBlockCommentsResult {
+interface BetweenBlockCommentsResult {
 	content: string;
 	/** How many runs of HTML comments between blocks were dropped. */
 	comments: number;
@@ -2105,7 +2052,7 @@ export async function bindNavigationLinks(
 }
 
 /** A block and what the editor inserts for it. */
-export interface InsertedTemplate {
+interface InsertedTemplate {
 	name: string;
 	markup: string;
 }
@@ -2214,7 +2161,6 @@ export async function savedExamples( names: string[], siteUrl: string ): Promise
 	);
 }
 
-/** Clean up all cached editor pages. */
 /**
  * The site's blocks whose save makes each element of the HTML, its outermost
  * element: each block type, created with its defaults (createBlock in
@@ -2260,6 +2206,7 @@ export async function blocksSavingElements(
 	);
 }
 
+/** Clean up all cached editor pages. */
 export async function cleanupValidatorPages(): Promise< void > {
 	for ( const ep of editorPages.values() ) {
 		await ep.close();

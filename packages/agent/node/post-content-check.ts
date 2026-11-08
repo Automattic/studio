@@ -21,7 +21,7 @@ import { printedJson, runWpCli } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { ChangeReport, SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
-export interface Row {
+interface Row {
 	id: number;
 	type: string;
 	title: string;
@@ -63,18 +63,6 @@ export async function readPosts( sitePath: string, ids: string[] ): Promise< Row
 			FROM ${ site.prefix }posts WHERE ID IN (${ ids.map( () => '?' ).join( ', ' ) })`,
 			...ids
 		)
-	);
-}
-
-// Saved templates and template parts that name no theme. WordPress serves one
-// only for the theme its wp_theme term names (get_block_templates() in
-// wp-includes/block-template-utils.php), so a copy saved without one, as `wp
-// post create` saves it, replaces nothing.
-function unthemedTemplates( sitePath: string, posts: Row[] ): Promise< Row[] > {
-	return withoutTerm(
-		sitePath,
-		posts.filter( ( post ) => TEMPLATE_TYPES.includes( post.type ) ),
-		'wp_theme'
 	);
 }
 
@@ -124,7 +112,15 @@ async function themeReport(
 	site: HostSite,
 	posts: Row[]
 ): Promise< ChangeReport[] > {
-	const unthemed = await unthemedTemplates( site.path, posts );
+	// Saved templates and template parts that name no theme. WordPress serves one
+	// only for the theme its wp_theme term names (get_block_templates() in
+	// wp-includes/block-template-utils.php), so a copy saved without one, as `wp
+	// post create` saves it, replaces nothing.
+	const unthemed = await withoutTerm(
+		site.path,
+		posts.filter( ( post ) => TEMPLATE_TYPES.includes( post.type ) ),
+		'wp_theme'
+	);
 	if ( ! unthemed.length ) {
 		return [];
 	}

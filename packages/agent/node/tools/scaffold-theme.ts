@@ -1,18 +1,13 @@
-import { mkdir, readdir, readFile, stat, writeFile } from 'fs/promises';
+import { mkdir, readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import { Type } from 'typebox';
+import { filesUnder } from '@studio/agent/node/active-code';
 import { drawDesign } from '@studio/agent/node/design-catalog';
-import { readThemeHeader, themesDir } from '@studio/agent/node/themes';
+import { exists, readThemeHeader, themesDir } from '@studio/agent/node/themes';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
 import { runWpCli, textResult } from './utils';
 
 const SLUG = /^[a-z0-9][a-z0-9-]*$/;
-
-const exists = ( file: string ) =>
-	stat( file ).then(
-		() => true,
-		() => false
-	);
 
 const HEADER = '<!-- wp:template-part {"slug":"header"} /-->';
 const FOOTER = '<!-- wp:template-part {"slug":"footer"} /-->';
@@ -77,9 +72,8 @@ const blockThemeFiles = ( name: string, slug: string ): Record< string, string >
  * it is active (wp-includes/theme.php), so the parent's style.css stops loading.
  */
 async function loadsStylesheetOfActiveTheme( parentDir: string ): Promise< boolean > {
-	const files = await readdir( parentDir, { recursive: true } ).catch( () => [] as string[] );
-	for ( const file of files.filter( ( name ) => name.endsWith( '.php' ) ) ) {
-		const php = await readFile( path.join( parentDir, file ), 'utf8' ).catch( () => '' );
+	for ( const file of await filesUnder( parentDir, ( name ) => name.endsWith( '.php' ) ) ) {
+		const php = await readFile( file, 'utf8' ).catch( () => '' );
 		if (
 			/\bget_stylesheet_uri\s*\(|\bget_stylesheet_directory_uri\s*\(\s*\)\s*\.\s*['"]\/style\.css/.test(
 				php

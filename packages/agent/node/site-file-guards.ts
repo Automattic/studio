@@ -16,7 +16,6 @@ import {
 	frontPageTemplateProblem,
 	rendersPageContent,
 } from '@studio/agent/node/front-page-template';
-import { savedCopyWriteNote } from '@studio/agent/node/saved-copies';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { isBlockMarkup, readSiteFile, type SiteFile } from '@studio/agent/node/site-file';
 import {
@@ -218,14 +217,6 @@ export async function externalImageNotes( siteFile: SiteFile ): Promise< string[
 				) }, which this site does not hold: they break when that host moves or blocks them, and WordPress gives responsive sizes only to images in its media library, by their wp-image-<ID> class (wp_filter_content_tags in wp-includes/media.php). Generate them, or import them with \`wp media import\`, and use their URLs and attachment IDs.`,
 		  ]
 		: [];
-}
-
-/** That WordPress renders a saved Site Editor copy instead of the file just written. */
-export async function savedCopyNotes( { siteRoot, relativePath }: SiteFile ): Promise< string[] > {
-	const note = await readWordPressSite( siteRoot, ( site ) =>
-		savedCopyWriteNote( site, path.join( siteRoot, relativePath ) )
-	);
-	return note ? [ note ] : [];
 }
 
 // A font family list with each name quoted that CSS reads only quoted: one

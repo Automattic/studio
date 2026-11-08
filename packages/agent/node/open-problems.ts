@@ -23,28 +23,17 @@ import { isUpdatableTheme } from '@studio/agent/node/themes';
 import { wpEvalJson } from '@studio/agent/node/tools/utils';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 
-interface OpenProblemsState {
-	// The sites changed, whose state is checked at the end of the turn.
-	sites: string[];
-	// The latest problem of each file or post validated, while it has one.
-	open: Record< string, string >;
-	raised: string[];
-	// The files and posts changed since their problem was raised, and still open.
-	changedSinceRaised: string[];
-	// The problems open at the agent's last look at a site, and those it was told again.
-	looked: string[];
-	repeated: string[];
-}
-
 export class OpenProblems {
-	private readonly state: OpenProblemsState = {
-		sites: [],
-		open: {},
-		raised: [],
-		changedSinceRaised: [],
-		looked: [],
-		repeated: [],
-	};
+	// The sites changed, whose state is checked at the end of the turn.
+	private readonly sites: string[] = [];
+	// The latest problem of each file or post validated, while it has one.
+	private readonly open: Record< string, string > = {};
+	private readonly raised: string[] = [];
+	// The files and posts changed since their problem was raised, and still open.
+	private changedSinceRaised: string[] = [];
+	// The problems open at the agent's last look at a site, and those it was told again.
+	private looked: string[] = [];
+	private readonly repeated: string[] = [];
 	// Each site's problems as Studio first saw it, before the session changed
 	// it: the user's site as it was, not the session's to raise.
 	private readonly before = new Map< string, Promise< string[] > >();
@@ -60,16 +49,16 @@ export class OpenProblems {
 	 * a problem; `changed` when it validates content changed since the last.
 	 */
 	record( site: string, key: string, problem?: string, changed = false ): void {
-		if ( ! this.state.sites.includes( site ) ) {
-			this.state.sites.push( site );
+		if ( ! this.sites.includes( site ) ) {
+			this.sites.push( site );
 		}
 		if ( problem ) {
-			this.state.open[ key ] = problem;
-			if ( changed && ! this.state.changedSinceRaised.includes( key ) ) {
-				this.state.changedSinceRaised.push( key );
+			this.open[ key ] = problem;
+			if ( changed && ! this.changedSinceRaised.includes( key ) ) {
+				this.changedSinceRaised.push( key );
 			}
 		} else {
-			delete this.state.open[ key ];
+			delete this.open[ key ];
 		}
 	}
 
@@ -81,13 +70,12 @@ export class OpenProblems {
 	 * WordPress drops it was told about 38 calls before the end of its turn.
 	 */
 	look(): string[] {
-		const open = Object.values( this.state.open );
+		const open = Object.values( this.open );
 		const again = open.filter(
-			( problem ) =>
-				this.state.looked.includes( problem ) && ! this.state.repeated.includes( problem )
+			( problem ) => this.looked.includes( problem ) && ! this.repeated.includes( problem )
 		);
-		this.state.looked = open;
-		this.state.repeated.push( ...again );
+		this.looked = open;
+		this.repeated.push( ...again );
 		return again;
 	}
 
@@ -117,21 +105,21 @@ export class OpenProblems {
 	 */
 	async raise(): Promise< string[] > {
 		const siteProblems = await Promise.all(
-			this.state.sites.map( async ( site ) => {
+			this.sites.map( async ( site ) => {
 				const before = ( await this.before.get( site ) ) ?? [];
 				return ( await this.siteProblems( site ) ).filter(
 					( problem ) => ! before.includes( problem )
 				);
 			} )
 		);
-		const again = Object.entries( this.state.open )
-			.filter( ( [ key ] ) => this.state.changedSinceRaised.includes( key ) )
+		const again = Object.entries( this.open )
+			.filter( ( [ key ] ) => this.changedSinceRaised.includes( key ) )
 			.map( ( [ , problem ] ) => problem );
-		this.state.changedSinceRaised = [];
+		this.changedSinceRaised = [];
 		const problems = [
-			...new Set( [ ...Object.values( this.state.open ), ...siteProblems.flat() ] ),
-		].filter( ( problem ) => ! this.state.raised.includes( problem ) || again.includes( problem ) );
-		this.state.raised.push( ...problems );
+			...new Set( [ ...Object.values( this.open ), ...siteProblems.flat() ] ),
+		].filter( ( problem ) => ! this.raised.includes( problem ) || again.includes( problem ) );
+		this.raised.push( ...problems );
 		return problems;
 	}
 }

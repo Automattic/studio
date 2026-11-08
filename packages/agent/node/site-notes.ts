@@ -22,6 +22,7 @@ import { createBlockExampleNotes } from '@studio/agent/node/block-examples';
 import { createBlockSettingsNotes } from '@studio/agent/node/block-settings';
 import { rewriteNotes } from '@studio/agent/node/file-rewrites';
 import { repeatedStyleValueNotes } from '@studio/agent/node/repeated-style-values';
+import { savedCopyNotes } from '@studio/agent/node/saved-copies';
 import { createSharedBlockClassNotes } from '@studio/agent/node/shared-block-classes';
 import { readSiteFacts } from '@studio/agent/node/site-facts';
 import { resolveSiteFile, type SiteFile } from '@studio/agent/node/site-file';
@@ -35,7 +36,6 @@ import {
 	getSiteFileWriteRefusal,
 	partInTemplatesRefusal,
 	phpInBlockTemplateRefusal,
-	savedCopyNotes,
 	quoteFontFamilies,
 	selfHostFonts,
 	themeJsonNotes,
@@ -194,7 +194,7 @@ function realPath( filePath: string ): string {
 	}
 }
 
-function readText( filePath: string ): string | undefined {
+export function readFileText( filePath: string ): string | undefined {
 	try {
 		return fs.readFileSync( filePath, 'utf8' );
 	} catch {
@@ -251,7 +251,7 @@ export function createSiteNotes(
 			// Unlike a note, a refusal that fails stops the write.
 			const file = resolveSiteFile( filePath );
 			if ( file ) {
-				held.set( realPath( filePath ), readText( filePath ) ?? '' );
+				held.set( realPath( filePath ), readFileText( filePath ) ?? '' );
 			}
 			const refusals = file
 				? ( await Promise.all( beforeWrite.map( ( source ) => source( file, text ) ) ) ).flat()
@@ -266,7 +266,7 @@ export function createSiteNotes(
 			const file = resolveSiteFile( filePath );
 			return file ? fixes( file, realPath( filePath ) ) : [];
 		},
-		async afterWrite( filePath, written = readText( filePath ), fixed = false ) {
+		async afterWrite( filePath, written = readFileText( filePath ), fixed = false ) {
 			const file = resolveSiteFile( filePath );
 			if ( ! file ) {
 				return [];
@@ -288,7 +288,7 @@ export function createSiteNotes(
 					)
 				),
 			];
-			const now = readText( filePath );
+			const now = readFileText( filePath );
 			return written === undefined || now === undefined
 				? notes
 				: [ ...notes, ...rewriteNotes( filePath, written, now ) ];

@@ -17,7 +17,7 @@ import { readFile, readdir, stat } from 'fs/promises';
 import path from 'path';
 import { savedPosts } from '@studio/agent/node/saved-copies';
 import { readWordPressSite } from '@studio/agent/node/site-database';
-import { isUpdatableTheme, themesDir } from '@studio/agent/node/themes';
+import { exists, isUpdatableTheme, themesDir } from '@studio/agent/node/themes';
 import { wpEvalJson } from '@studio/agent/node/tools/utils';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
@@ -26,7 +26,16 @@ import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes
 const TEMPLATE_FOLDERS = [ 'templates', 'block-templates' ];
 const PART_FOLDERS = [ 'parts', 'block-template-parts' ];
 
-const exists = ( file: string ) => stat( file ).then( Boolean, () => false );
+// A theme's template and part files, as <folder>/<file>.
+async function templateFiles( dir: string ): Promise< string[] > {
+	const files: string[] = [];
+	for ( const folder of [ ...TEMPLATE_FOLDERS, ...PART_FOLDERS ] ) {
+		for ( const file of await readdir( path.join( dir, folder ) ).catch( () => [] as string[] ) ) {
+			files.push( `${ folder }/${ file }` );
+		}
+	}
+	return files;
+}
 
 /** A part a theme file includes that renders nothing: what includes it, and why. */
 interface MissingPart {
@@ -47,12 +56,7 @@ interface ThemeVersion {
 // style.css, the parts saved for it, and the active theme.
 async function partsFrom( sitePath: string, theme: string ): Promise< string > {
 	const dir = themesDir( sitePath, theme );
-	const files = [ 'style.css' ];
-	for ( const folder of [ ...TEMPLATE_FOLDERS, ...PART_FOLDERS ] ) {
-		for ( const file of await readdir( path.join( dir, folder ) ).catch( () => [] as string[] ) ) {
-			files.push( `${ folder }/${ file }` );
-		}
-	}
+	const files = [ 'style.css', ...( await templateFiles( dir ) ) ];
 	const stats = await Promise.all(
 		files.sort().map( async ( file ) => {
 			const info = await stat( path.join( dir, file ) ).catch( () => undefined );
@@ -72,12 +76,10 @@ async function partsFrom( sitePath: string, theme: string ): Promise< string > {
 // Whether any of a theme's template and part files includes a part.
 async function includesParts( sitePath: string, theme: string ): Promise< boolean > {
 	const dir = themesDir( sitePath, theme );
-	for ( const folder of [ ...TEMPLATE_FOLDERS, ...PART_FOLDERS ] ) {
-		for ( const file of await readdir( path.join( dir, folder ) ).catch( () => [] as string[] ) ) {
-			const markup = await readFile( path.join( dir, folder, file ), 'utf8' ).catch( () => '' );
-			if ( markup.includes( '<!-- wp:template-part' ) ) {
-				return true;
-			}
+	for ( const file of await templateFiles( dir ) ) {
+		const markup = await readFile( path.join( dir, file ), 'utf8' ).catch( () => '' );
+		if ( markup.includes( '<!-- wp:template-part' ) ) {
+			return true;
 		}
 	}
 	return false;

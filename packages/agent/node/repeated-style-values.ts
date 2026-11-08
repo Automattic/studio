@@ -17,9 +17,10 @@
  * variable holds its size as written (WP_Theme_JSON::PRESETS_METADATA gives
  * it no value_func). Other kinds of value are noted.
  */
-import { readdir, readFile, writeFile } from 'fs/promises';
+import { readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import { rewriteJson } from '@studio/common/lib/json-text';
+import { filesUnder } from '@studio/agent/node/active-code';
 import {
 	blockEditorOf,
 	isBlockMarkupFile,
@@ -31,7 +32,12 @@ import { readWordPressSite } from '@studio/agent/node/site-database';
 import { isBlockMarkup, type SiteFile } from '@studio/agent/node/site-file';
 import { placeOf, saveMarkup, siteMarkup, type Markup } from '@studio/agent/node/site-markup';
 import { themePresets } from '@studio/agent/node/theme-presets';
-import { isUpdatableTheme, readThemeHeader, themesDir } from '@studio/agent/node/themes';
+import {
+	activeThemes,
+	isUpdatableTheme,
+	readThemeHeader,
+	themesDir,
+} from '@studio/agent/node/themes';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 
 // The blocks set to one raw value before it reads as a shared treatment.
@@ -68,7 +74,7 @@ const STYLES: Array< { path: RegExp; kind: PresetKind; name: string; takes: stri
 	},
 ];
 
-const BLOCK_ATTRIBUTES = /<!--\s+wp:[a-z0-9-]+(?:\/[a-z0-9-]+)?\s+(\{.*?\})\s+\/?-->/g;
+const NAMED_BLOCK = /<!--\s+wp:([a-z0-9-]+(?:\/[a-z0-9-]+)?)\s+(\{.*?\})\s+\/?-->/g;
 
 function leaves( value: unknown, at: string, out: Array< [ string, string ] > ): void {
 	if ( value && typeof value === 'object' ) {
@@ -83,7 +89,7 @@ function leaves( value: unknown, at: string, out: Array< [ string, string ] > ):
 /** Each raw style value a block of the markup sets, by its path in `style`. */
 function rawStyleValues( markup: string ): Array< [ string, string ] > {
 	const raw: Array< [ string, string ] > = [];
-	for ( const [ , json ] of markup.matchAll( BLOCK_ATTRIBUTES ) ) {
+	for ( const [ , , json ] of markup.matchAll( NAMED_BLOCK ) ) {
 		let attributes: { style?: unknown };
 		try {
 			attributes = JSON.parse( json );
@@ -140,8 +146,6 @@ const PRESET_ATTRIBUTES: Record< string, [ string, string, string ] > = {
 
 // The styles presets give: colors, font sizes and families, and spacing.
 const PRESET_GIVES = /^(color\.|typography\.font(Size|Family)$|spacing\.)/;
-
-const NAMED_BLOCK = /<!--\s+wp:([a-z0-9-]+(?:\/[a-z0-9-]+)?)\s+(\{.*?\})\s+\/?-->/g;
 
 /**
  * Each look REPEATED or more blocks of one type in the markup share whole:
@@ -223,14 +227,10 @@ const slugFor = ( size: string ) =>
 // gave way.
 async function importantFontSize( themeDir: string, themeJson: unknown ): Promise< boolean > {
 	const css = ( themeJson as { styles?: { css?: unknown } } )?.styles?.css;
-	const files = ( await readdir( themeDir, { recursive: true } ) ).filter(
-		( file ) => file.endsWith( '.css' ) && ! file.split( path.sep ).includes( 'node_modules' )
-	);
+	const files = await filesUnder( themeDir, ( name ) => name.endsWith( '.css' ) );
 	const sheets = [
 		typeof css === 'string' ? css : '',
-		...( await Promise.all(
-			files.map( ( file ) => readFile( path.join( themeDir, file ), 'utf8' ) )
-		) ),
+		...( await Promise.all( files.map( ( file ) => readFile( file, 'utf8' ) ) ) ),
 	];
 	return sheets.some( ( sheet ) => /font-size\s*:[^;}]*!\s*important/i.test( sheet ) );
 }
@@ -346,10 +346,7 @@ async function otherMarkup(
 	if ( ! theme ) {
 		return [];
 	}
-	const active = await readWordPressSite( siteRoot, ( site ): unknown[] => [
-		site.option( 'stylesheet' ),
-		site.option( 'template' ),
-	] ).catch( (): unknown[] => [] );
+	const active = await readWordPressSite( siteRoot, activeThemes ).catch( (): string[] => [] );
 	const markup = await siteMarkup( siteRoot, theme.dir, {
 		posts: active.includes( theme.slug ),
 		holding: '%"style":%',

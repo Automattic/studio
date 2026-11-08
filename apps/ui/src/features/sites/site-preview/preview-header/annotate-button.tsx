@@ -1,6 +1,6 @@
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { ariaKeyShortcut, displayShortcut } from '@wordpress/keycodes';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AnnotateIcon } from '@/lib/icons';
 import { isDialogOpen, isShortcut } from '@/lib/keyboard';
 import {
@@ -29,13 +29,12 @@ export function AnnotateButton( {
 	pageTools?: boolean;
 } ) {
 	const modeButton = useRef< HTMLButtonElement >( null );
-	const tooltip =
-		disabledReason ??
-		( active
-			? __( 'Exit annotation mode' )
-			: pageTools
-			? __( 'Select an element or draw to describe a change' )
-			: __( 'Point to anything to describe a change' ) );
+	const [ tooltipOpen, setTooltipOpen ] = useState( false );
+	const toggleShortcut = ariaKeyShortcut.primaryShift( '.' );
+	const label = active ? __( 'Stop annotating' ) : __( 'Annotate' );
+	const description = pageTools
+		? __( 'Point or draw to suggest a change.' )
+		: __( 'Point to something you’d like to change.' );
 	useEffect( () => {
 		if ( disabled ) return;
 		const toggleFromKeyboard = ( event: KeyboardEvent ) => {
@@ -55,7 +54,17 @@ export function AnnotateButton( {
 	}, [ disabled ] );
 
 	return (
-		<Tooltip>
+		<Tooltip
+			open={ tooltipOpen }
+			onOpenChange={ ( open, details ) => {
+				if ( active && details.reason === 'escape-key' ) {
+					// Keep Escape available to the annotation overlay.
+					details.cancel();
+					details.allowPropagation();
+				}
+				setTooltipOpen( open );
+			} }
+		>
 			<TooltipTrigger
 				render={
 					<IconButton
@@ -69,9 +78,9 @@ export function AnnotateButton( {
 								{ annotationCount > 0 && ! active && <NotificationDot position="icon" /> }
 							</span>
 						}
-						label={ disabledReason ?? ( active ? __( 'Exit annotation mode' ) : __( 'Annotate' ) ) }
+						label={ disabledReason ?? label }
 						aria-label={ __( 'Annotate' ) }
-						aria-keyshortcuts={ ariaKeyShortcut.primaryShift( '.' ) }
+						aria-keyshortcuts={ active ? `Escape ${ toggleShortcut }` : toggleShortcut }
 						aria-pressed={ active }
 						aria-description={
 							disabled
@@ -86,8 +95,8 @@ export function AnnotateButton( {
 										annotationCount
 								  )
 								: active
-								? __( 'Exit annotation mode. Your notes will be kept.' )
-								: undefined
+								? __( 'Stop annotating. Your notes will be kept.' )
+								: description
 						}
 						disabled={ disabled }
 						focusableWhenDisabled={ false }
@@ -96,9 +105,22 @@ export function AnnotateButton( {
 					/>
 				}
 			/>
-			<TooltipContent side="bottom">
-				{ tooltip }
-				{ ! disabled && <Kbd>{ displayShortcut.primaryShift( '.' ) }</Kbd> }
+			<TooltipContent side="bottom" className={ styles.tooltip }>
+				{ disabledReason ? (
+					disabledReason
+				) : (
+					<>
+						<div className={ styles.tooltipHeading }>
+							<span className={ styles.tooltipTitle }>{ label }</span>
+							{ ! disabled && (
+								<Kbd className={ styles.shortcut }>
+									{ active ? __( 'Esc' ) : displayShortcut.primaryShift( '.' ) }
+								</Kbd>
+							) }
+						</div>
+						{ ! active && <span className={ styles.tooltipDescription }>{ description }</span> }
+					</>
+				) }
 			</TooltipContent>
 		</Tooltip>
 	);

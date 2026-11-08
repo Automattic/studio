@@ -144,7 +144,7 @@ describe( 'annotation inspector navigation', () => {
 	} );
 
 	it( 'keeps drawing tools in the floating toolbar and one annotation toggle in the header', async () => {
-		const { emit, annotate, preview } = await setup();
+		const { emit, annotate, preview, user } = await setup();
 		emit( 'dom-ready' );
 		await waitFor( () => expect( annotate() ).toBeEnabled() );
 		const actions = within( screen.getByRole( 'toolbar', { name: 'Preview browser controls' } ) );
@@ -169,7 +169,9 @@ describe( 'annotation inspector navigation', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Select' } ) );
 		expect( draw ).toHaveAttribute( 'aria-pressed', 'false' );
 		expect( pageState( preview ).tool ).toBe( 'select' );
-		fireEvent.click( annotate() );
+		await user.hover( annotate() );
+		expect( await screen.findByText( 'Stop annotating' ) ).toBeVisible();
+		await user.keyboard( '{Escape}' );
 		expect( annotate() ).toHaveAttribute( 'aria-pressed', 'false' );
 		expect( getSiteAnnotations( site.id ).active ).toBe( false );
 		expect( screen.queryByRole( 'group', { name: 'Annotation tools' } ) ).not.toBeInTheDocument();

@@ -29,6 +29,11 @@ interface BlockFixProposal {
 	report: ValidationReportBase;
 	/** The blocks the fix loses something from, and what. */
 	losses: BlockLoss[];
+	/**
+	 * The blocks the fix would lose text written beside their inner blocks
+	 * from, whose fix keeps it in core/html blocks; `content`, the markup so.
+	 */
+	lift?: { content: string; from: string[] };
 }
 
 export interface BlockLoss {
@@ -143,6 +148,39 @@ export async function validateBlocks(
 	content: string,
 	siteUrl: string,
 	editor: BlockEditor = 'post'
+): Promise< ValidationReport > {
+	const report = await validateAsWritten( content, siteUrl, editor );
+	// The fix with the text written beside inner blocks in core/html blocks
+	// stands when it fixes every block and loses nothing. core/html renders
+	// it as written (no render callback in wp-includes/blocks/html), and its
+	// shortcodes still run: the_content's do_shortcode
+	// (wp-includes/default-filters.php:209), a template's in
+	// get_the_block_template_html() (wp-includes/block-template.php:262).
+	const { lift, ...fix } = report.proposedFix ?? {};
+	if ( ! lift || ! report.proposedFix ) {
+		return report;
+	}
+	report.proposedFix = fix as BlockFixProposal;
+	const lifted = await validateAsWritten( lift.content, siteUrl, editor );
+	const liftedFix = lifted.proposedFix ?? {
+		fixedContent: lift.content,
+		report: lifted,
+		losses: [],
+	};
+	if (
+		! liftedFix.report.error &&
+		liftedFix.report.invalidBlocks === 0 &&
+		! liftedFix.losses.length
+	) {
+		report.proposedFix = { ...liftedFix, lift };
+	}
+	return report;
+}
+
+async function validateAsWritten(
+	content: string,
+	siteUrl: string,
+	editor: BlockEditor
 ): Promise< ValidationReport > {
 	try {
 		return await withEditor( siteUrl, blockNames( content ), editor, async ( page ) => {
@@ -1690,18 +1728,101 @@ export async function validateBlocks(
 					} )
 					.filter( ( loss ) => loss.lost );
 				const lossy = new Set( lossList.map( ( loss: any ) => loss.place ) );
-				function lossless( fixes: any[], at = '' ): any[] {
+				function lossless(
+					fixes: any[],
+					at = '',
+					source: ( raw: any, place: string ) => any = ( raw ) => raw
+				): any[] {
 					return fixes.map( ( fix: any, i: number ) => {
 						const place = `${ at }/${ i }`;
 						const raw = lossy.has( place ) && initial.written.get( place );
 						return raw
-							? { ...fix, isValid: false, __unstableBlockSource: raw }
-							: { ...fix, innerBlocks: lossless( fix.innerBlocks ?? [], place ) };
+							? { ...fix, isValid: false, __unstableBlockSource: source( raw, place ) }
+							: { ...fix, innerBlocks: lossless( fix.innerBlocks ?? [], place, source ) };
 					} );
 				}
 				const losslessContent = lossList.length
 					? wpBlocks.serialize( lossless( fixed.blocks ) )
 					: fixedContent;
+
+				// The text written beside the inner blocks of a block the fix loses
+				// text from, each run in a core/html block where it was written. A
+				// block's innerContent holds the strings around its inner blocks
+				// (null at each), and its save for the fix those it writes there: the
+				// text is what the written ones hold beyond them, after the first saved
+				// one, before the last, and between inner blocks. A block whose
+				// written strings do not hold the saved ones stays as written.
+				const losesText = new Set(
+					found.filter( ( loss ) => loss.lost.text.length ).map( ( loss ) => loss.place )
+				);
+				const liftedFrom: string[] = [];
+				const runs = ( raw: any ): string[] =>
+					( raw?.innerContent ?? [] ).reduce(
+						( all: string[], part: string | null ) =>
+							part === null
+								? [ ...all, '' ]
+								: [ ...all.slice( 0, -1 ), all[ all.length - 1 ] + part ],
+						[ '' ]
+					);
+				const loosely = ( text: string ) =>
+					text
+						.trim()
+						.split( /\s+/ )
+						.map( ( word ) => word.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' ) )
+						.join( '\\s+' );
+				function lifted( raw: any, place: string ): any {
+					const innerBlocks = ( raw.innerBlocks ?? [] ).map( ( inner: any, i: number ) =>
+						lifted( inner, `${ place }/${ i }` )
+					);
+					const as = { ...raw, innerBlocks };
+					const fix = losesText.has( place ) && blockAt( fixed.blocks, place );
+					const written = runs( raw );
+					const saved = fix ? runs( rawParse( wpBlocks.serialize( [ fix ] ) )[ 0 ] ) : [];
+					const last = written.length - 1;
+					if ( ! last || saved.length !== written.length ) {
+						return as;
+					}
+					const innerContent: Array< string | null > = [];
+					const blocks: any[] = [];
+					for ( const [ i, run ] of written.entries() ) {
+						const wrapper =
+							i === 0
+								? new RegExp( `^\\s*${ loosely( saved[ i ] ) }` )
+								: i === last
+								? new RegExp( `${ loosely( saved[ i ] ) }\\s*$` )
+								: ! saved[ i ].trim() && /^/;
+						const at = wrapper && wrapper.exec( run );
+						if ( ! at ) {
+							return as;
+						}
+						const text = (
+							i === last ? run.slice( 0, at.index ) : run.slice( at[ 0 ].length )
+						).trim();
+						if ( text ) {
+							innerContent.push( ...( i === last ? [ null, at[ 0 ] ] : [ at[ 0 ], null ] ) );
+							blocks.push( {
+								blockName: 'core/html',
+								attrs: {},
+								innerBlocks: [],
+								innerContent: [ text ],
+							} );
+						} else {
+							innerContent.push( run );
+						}
+						if ( i < last ) {
+							innerContent.push( null );
+							blocks.push( innerBlocks[ i ] );
+						}
+					}
+					if ( blocks.length === innerBlocks.length ) {
+						return as;
+					}
+					liftedFrom.push( fix.name );
+					return { ...raw, innerBlocks: blocks, innerContent };
+				}
+				const liftedContent = losesText.size
+					? wpBlocks.serialize( lossless( fixed.blocks, '', lifted ) )
+					: '';
 
 				// A block the fix makes with other inner blocks than those written, as
 				// a deprecated version's migration makes them, saves those: what it
@@ -1724,6 +1845,7 @@ export async function validateBlocks(
 						fixedContent: losslessContent,
 						report: fixed.report,
 						losses: lossList,
+						...( liftedFrom.length && { lift: { content: liftedContent, from: liftedFrom } } ),
 					},
 				};
 				/* eslint-enable @typescript-eslint/no-explicit-any */

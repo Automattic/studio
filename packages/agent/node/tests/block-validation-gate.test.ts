@@ -427,17 +427,22 @@ describe( 'validating a file', () => {
 		const report = invalidWithFix( `${ fixed }\n${ original }`, [
 			{ place: '/1', blockName: 'core/paragraph', lost: 'drop the classes eyebrow' },
 		] );
-		report.invalidBlocks = 2;
-		report.results.push( { ...report.results[ 0 ], place: '/1', issues: [ 'second' ] } );
+		report.invalidBlocks = 3;
+		report.results.push(
+			{ ...report.results[ 0 ], place: '/1', issues: [ 'second' ] },
+			// Inside the block kept as written, so kept as written too.
+			{ ...report.results[ 0 ], blockName: 'core/heading', place: '/1/0', issues: [ 'nested' ] }
+		);
 		vi.mocked( validateBlocks ).mockResolvedValue( report );
 		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
 		expect( result.fixedContent ).toBe( `${ fixed }\n${ original }` );
 		expect( result.summary ).toBe(
-			'tmp/home.html: 1 invalid block(s); saved through the block editor, which fixes 1 block(s)'
+			'tmp/home.html: 2 invalid block(s); saved through the block editor, which fixes 1 block(s)'
 		);
 		expect( result.problem ).toContain(
 			"core/paragraph: the editor's fix would drop the classes eyebrow; second"
 		);
+		expect( result.problem ).toContain( '  - core/heading: nested' );
 		expect( result.problem ).not.toContain( 'mismatch' );
 	} );
 

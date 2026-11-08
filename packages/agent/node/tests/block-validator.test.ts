@@ -1,7 +1,11 @@
-import { mkdirSync, rmSync, writeFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import os from 'os';
 import path from 'path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { validateBlockMarkup } from '@studio/agent/node/block-validation-gate';
+import {
+	validateBlockMarkup,
+	validateBlockMarkupFile,
+} from '@studio/agent/node/block-validation-gate';
 import {
 	bindNavigationLinks,
 	blocksSavingElements,
@@ -1163,6 +1167,58 @@ add_action( 'admin_init', function () {
 		}, 120_000 );
 	}
 );
+
+describe.runIf( siteUrl )( 'text written between the inner blocks of a container (live)', () => {
+	afterAll( cleanupValidatorPages );
+
+	// An eval's booking page: a Jetpack form shortcode loose in a group, beside
+	// a heading with a style its comment does not name.
+	const written = ( text: string ) =>
+		[
+			'<!-- wp:group {"style":{"spacing":{"padding":{"top":"2rem"}}},"backgroundColor":"surface","layout":{"type":"constrained"}} -->',
+			'<div class="wp-block-group has-surface-background-color has-background" style="padding-top:2rem">',
+			'<!-- wp:heading {"level":2} -->',
+			'<h2 class="wp-block-heading" style="margin-bottom:1.25rem">Your request</h2>',
+			'<!-- /wp:heading -->',
+			'',
+			`${ text }</div>`,
+			'<!-- /wp:group -->',
+		].join( '\n' );
+	const FORM =
+		'[contact-form subject="Booking"][contact-field label="Name" type="name" required="1"/][/contact-form]';
+
+	it.each( [
+		{ file: 'tmp/page-book.html', editor: 'post' as const, text: FORM },
+		{ file: 'wp-content/themes/t/templates/page-book.html', editor: 'site' as const, text: FORM },
+		{ file: 'tmp/page-book.html', editor: 'post' as const, text: 'Call <b>today</b>.' },
+	] )(
+		'saves it as a core/html block in $file, and fixes the blocks around it',
+		async ( { file, editor, text } ) => {
+			const dir = mkdtempSync( path.join( os.tmpdir(), 'studio-lift-' ) );
+			try {
+				const filePath = path.join( dir, file );
+				mkdirSync( path.dirname( filePath ), { recursive: true } );
+				writeFileSync( filePath, written( text ) );
+				const result = await validateBlockMarkupFile( filePath, siteUrl! );
+				expect( result.problem ).toBeUndefined();
+				expect( result.summary ).toBe(
+					`${ file
+						.split( '/' )
+						.slice( -2 )
+						.join(
+							'/'
+						) }: 2/2 blocks valid; saved through the block editor, which fixes 2 block(s) and keeps the text written beside the inner blocks of core/group as a core/html block`
+				);
+				expect( result.fixedContent ).toContain( `<!-- wp:html -->\n${ text }\n<!-- /wp:html -->` );
+				const stored = await validateBlocks( result.fixedContent!, siteUrl!, editor );
+				expect( stored.invalidBlocks ).toBe( 0 );
+			} finally {
+				rmSync( dir, { recursive: true, force: true } );
+			}
+		},
+		120_000
+	);
+} );
 
 describe.runIf( siteUrl )(
 	'a comment between blocks beside a block the editor fixes (live)',

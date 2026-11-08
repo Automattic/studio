@@ -106,8 +106,15 @@ function describeInvalidBlocks(
 	report: ValidationReportBase,
 	lost = new Map< string, string >()
 ): string[] {
+	// A block inside one that stays as written stays as written too.
+	const inLost = ( place = '' ) =>
+		[ ...lost.keys() ].some( ( at ) => place === at || place.startsWith( `${ at }/` ) );
 	return report.results
-		.filter( ( result ) => ( lost.size ? lost.has( result.place ?? '' ) : ! result.isValid ) )
+		.filter( ( result ) =>
+			lost.size
+				? lost.has( result.place ?? '' ) || ( ! result.isValid && inLost( result.place ) )
+				: ! result.isValid
+		)
 		.slice( 0, 5 )
 		.flatMap( ( result ) => [
 			`  - ${ result.blockName }: ${
@@ -151,6 +158,8 @@ interface MarkupValidation {
 	boundLinks?: string[];
 	/** How many runs of HTML comments between blocks the save drops. */
 	droppedComments?: number;
+	/** The blocks whose text written beside their inner blocks the save keeps in core/html blocks. */
+	lifted?: string[];
 }
 
 /** What saving through the editor changes, for a note. */
@@ -183,6 +192,12 @@ export function describeEditorSave( result: MarkupValidation, fixes: string ): s
 			  )
 			: undefined,
 		result.boundLinks?.length ? describeBoundLinks( result.boundLinks ) : undefined,
+		...new Set(
+			( result.lifted ?? [] ).map(
+				( blockName ) =>
+					`keeps the text written beside the inner blocks of ${ blockName } as a core/html block`
+			)
+		),
 	].filter( ( note ): note is string => Boolean( note ) );
 }
 
@@ -665,6 +680,7 @@ async function validateSavedMarkup(
 		],
 		...notes,
 		...( between.comments && { droppedComments: between.comments } ),
+		...( fix.lift && { lifted: fix.lift.from } ),
 	};
 	if ( lost.size === 0 ) {
 		return { summary: valid, ...saved };

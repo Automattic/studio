@@ -20,8 +20,8 @@
 	max-width: 100%;
 	height: auto;
 	border-radius: var( --radius-3xl );
-	transform: translateY( calc( 100% + var( --space-4 ) + var( --space-2 ) ) ) scale( 0.96 );
-	transform-origin: center bottom;
+	transform: translateY( calc( 50% + var( --space-4 ) + var( --space-2 ) ) ) scale( 0 );
+	transform-origin: center;
 	transition:
 		opacity var( --motion-duration-surface ) ease-out var( --motion-duration-surface ),
 		transform var( --motion-duration-layout ) var( --motion-ease-layout ),

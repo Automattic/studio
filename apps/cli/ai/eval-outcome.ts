@@ -755,8 +755,20 @@ export async function homeStyles( url: string, siteName: string ) {
 				// painted over by another element on the first screen, or body text
 				// the size of a heading.
 				const faults: string[] = [];
+				// Any CSS color, as color(srgb …) and oklch() compute, read as sRGB by a canvas.
+				const pixel = document.createElement( 'canvas' ).getContext( '2d', {
+					willReadFrequently: true,
+				} );
+				const rgba = ( color: string ) => {
+					if ( ! pixel ) return [ 0, 0, 0, 0 ];
+					pixel.clearRect( 0, 0, 1, 1 );
+					pixel.fillStyle = color;
+					pixel.fillRect( 0, 0, 1, 1 );
+					const [ r, g, b, a ] = pixel.getImageData( 0, 0, 1, 1 ).data;
+					return [ r, g, b, a / 255 ];
+				};
 				const luminance = ( color: string ) => {
-					const [ r, g, b ] = ( color.match( /[\d.]+/g ) ?? [] ).map( Number );
+					const [ r, g, b ] = rgba( color );
 					const channel = ( value: number ) => {
 						const c = value / 255;
 						return c <= 0.03928 ? c / 12.92 : ( ( c + 0.055 ) / 1.055 ) ** 2.4;
@@ -767,10 +779,7 @@ export async function homeStyles( url: string, siteName: string ) {
 					const [ hi, lo ] = [ luminance( a ), luminance( b ) ].sort( ( x, y ) => y - x );
 					return ( hi + 0.05 ) / ( lo + 0.05 );
 				};
-				const alpha = ( color: string ) => {
-					const parts = color.match( /[\d.]+/g ) ?? [];
-					return parts.length > 3 ? Number( parts[ 3 ] ) : 1;
-				};
+				const alpha = ( color: string ) => rgba( color )[ 3 ];
 				// The solid color painted behind a point, or none when an image, a
 				// a see-through color or a faded one, as a cover's dimming, shows there.
 				const paintedBehind = ( x: number, y: number ) => {
@@ -901,12 +910,23 @@ export async function homeStyles( url: string, siteName: string ) {
 						behavior: 'instant',
 					} );
 					const [ first ] = lineRects( el );
-					const color = getComputedStyle( el ).color;
+					// The color of the text itself, as a link's label in a span of its own.
+					const walker = document.createTreeWalker( el, NodeFilter.SHOW_TEXT );
+					let node = walker.nextNode();
+					while ( node && ! node.textContent?.trim() ) node = walker.nextNode();
+					const color = getComputedStyle( node?.parentElement ?? el ).color;
 					const behind =
 						first && paintedBehind( first.left + first.width / 2, first.top + first.height / 2 );
-					if ( behind && alpha( color ) > 0 && contrast( color, behind ) < 2 )
+					if ( ! behind || ! alpha( color ) ) continue;
+					// See-through text shows blended with what is behind it.
+					const [ text, under ] = [ rgba( color ), rgba( behind ) ];
+					const shown = `rgb(${ text
+						.slice( 0, 3 )
+						.map( ( channel, i ) => channel * text[ 3 ] + under[ i ] * ( 1 - text[ 3 ] ) )
+						.join( ', ' ) })`;
+					if ( contrast( shown, behind ) < 2 )
 						faults.push(
-							`${ quote( el ) } is ${ color } on ${ behind }, ${ contrast( color, behind ).toFixed(
+							`${ quote( el ) } is ${ color } on ${ behind }, ${ contrast( shown, behind ).toFixed(
 								2
 							) }:1`
 						);

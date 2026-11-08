@@ -37,7 +37,7 @@ const PAGE = `<p class="skip" style="position:absolute;left:0;clip-path:inset(50
 	<section style="position:relative;padding:0 40px"><p>A heading under an overlay</p><div style="position:absolute;inset:0;background:rgba(0,0,0,.5)"></div></section>
 	<section style="padding:0 40px"><p style="margin:0;font-size:13px">An eyebrow above a display heading</p><h2 style="margin:12px 0 0;font-size:152px;line-height:.86">Ink that</h2></section>
 	<section style="padding:0 40px"><p style="margin:0;font-size:13px">An eyebrow a heading is pulled over</p><h2 style="margin:-12px 0 0;font-size:60px;line-height:1;background:#fff">Pulled up</h2></section>
-	<section style="padding:40px;background:#3a3550"><p style="color:#423d5c">Invisible links on the footer</p><p style="color:#fff">Readable footer text</p></section>
+	<section style="padding:40px;background:#3a3550"><p style="color:#423d5c">Invisible links on the footer</p><p style="color:#fff">Readable footer text</p><p style="color:color(srgb 0.95 0.95 0.91 / 0.75)">Readable see-through text</p><a style="color:#2a3038"><span style="color:#fff">A button's own label</span></a></section>
 	<section style="padding:40px;background:url(data:image/gif;base64,R0lGODlhAQABAAAAACw=) #fff"><p style="color:#fff">White text on a photo</p></section>
 	<section style="position:relative;padding:40px;background:url(data:image/gif;base64,R0lGODlhAQABAAAAACw=)"><span style="position:absolute;inset:0;background:#12314f;opacity:.4"></span><p style="position:relative;color:#12314f">Dark text on a photo, dimmed</p></section>
 	<section style="padding:0 40px"><h2 style="font-size:48px">A heading as long as a sentence, set large</h2><ul><li style="font-size:48px">Call us, or book online in under a minute.</li><li>Short</li></ul>
@@ -107,6 +107,8 @@ describe.runIf( CHROMIUM )( 'the eval home page styles', () => {
 		] );
 	}, 60000 );
 
+	// eval25 picky port 1 and 4: a color in color(srgb …) read as near black, and a
+	// link's own color read for the label it sets in a span of its own color.
 	it( 'names the faults a visitor sees at a glance, and only those', async () => {
 		const { faults } = ( await homeStyles( url + 'page', 'Brightside Family Dental' ) ) as {
 			faults: string[];

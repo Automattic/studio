@@ -244,14 +244,14 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 	}
 	function drawingCursor() {
 		const path = '${ RENAME_ICON.path }';
-		const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="${
+		const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="${
 			RENAME_ICON.viewBox
 		}" stroke-linecap="${ RENAME_ICON.strokeLinecap }" stroke-linejoin="${
 			RENAME_ICON.strokeLinejoin
 		}" fill="white"><path d="' + path + '" stroke="white" stroke-width="${
 			RENAME_ICON.strokeWidth + 2
 		}"/><path d="' + path + '" stroke="black" stroke-width="${ RENAME_ICON.strokeWidth }"/></svg>';
-		return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '") 3 21, crosshair';
+		return 'url("data:image/svg+xml,' + encodeURIComponent(svg) + '") 2 16, crosshair';
 	}
 	function selector(el) {
 		if (el.id) return '#' + CSS.escape(el.id);

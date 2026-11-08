@@ -11,6 +11,7 @@
 .tools {
 	composes: floatingReveal from '@/lib/theme/recipes.module.css';
 	composes: floating padded from '@/lib/ui/surface/style.module.css';
+	--floating-reveal-easing: var( --motion-ease-spring-gentle );
 	--surface: var( --chat );
 	display: flex;
 	align-items: center;

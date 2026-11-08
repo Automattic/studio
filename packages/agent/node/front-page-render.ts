@@ -10,7 +10,7 @@ import { stat } from 'fs/promises';
 import { readVersions } from '@studio/agent/node/post-content-check';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { themeMarkupFiles } from '@studio/agent/node/site-markup';
-import { themesDir } from '@studio/agent/node/themes';
+import { activeThemes, themesDir } from '@studio/agent/node/themes';
 import { wpEvalJson } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { Versions } from '@studio/agent/node/site-changes';
@@ -21,15 +21,10 @@ export const FILE = 'file ';
 // The posts the front end renders, and the active theme's template, template
 // part and pattern files, by modification time and size.
 export async function readRenderedVersions( sitePath: string ): Promise< Versions > {
-	const themes = await readWordPressSite( sitePath, ( site ) => [
-		...new Set( [ site.option( 'template' ), site.option( 'stylesheet' ) ] ),
-	] );
+	// The parent theme first.
+	const themes = await readWordPressSite( sitePath, ( site ) => activeThemes( site ).reverse() );
 	const files = (
-		await Promise.all(
-			themes
-				.filter( ( theme ): theme is string => typeof theme === 'string' && theme !== '' )
-				.map( ( theme ) => themeMarkupFiles( themesDir( sitePath, theme ) ) )
-		)
+		await Promise.all( themes.map( ( theme ) => themeMarkupFiles( themesDir( sitePath, theme ) ) ) )
 	).flat();
 	const versions = await Promise.all(
 		files.map( async ( file ) => {

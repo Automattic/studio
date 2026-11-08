@@ -1,6 +1,6 @@
 import { Type } from 'typebox';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
-import { textResult } from './utils';
+import { failsAs, textResult } from './utils';
 import type { StudioToolDefinition } from './define-tool';
 
 // The tool, with the hosts it can push to.
@@ -33,19 +33,14 @@ function createPushSiteTool( hostIds: string[] ) {
 				} )
 			),
 		},
-		async ( args, context ) => {
-			try {
+		( args, context ) =>
+			failsAs( 'Failed to push site', async () => {
 				const site = await context.host.sites.resolve( args.nameOrPath );
 				const remoteHost = context.host.remoteHosts[ args.host ?? 'wpcom' ];
 				return textResult(
 					await remoteHost.push( site, args.remoteSite, args.options ?? 'all', context.onProgress )
 				);
-			} catch ( error ) {
-				throw new Error(
-					`Failed to push site: ${ error instanceof Error ? error.message : String( error ) }`
-				);
-			}
-		},
+			} ),
 		{
 			annotations: REMOTE_OVERWRITE,
 			forHost: ( _options, host ): StudioToolDefinition | undefined =>

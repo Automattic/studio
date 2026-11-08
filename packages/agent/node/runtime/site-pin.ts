@@ -101,10 +101,10 @@ export class SitePin {
 		params: unknown
 	): Promise< { confirmation: Confirmation; allow: () => void } | undefined > {
 		if ( toolName === 'site_create' ) {
-			const name = ( params as { name?: unknown } | undefined )?.name;
 			if ( ! this.requestSite || this.newSitesAllowed ) {
 				return undefined;
 			}
+			const name = ( params as { name?: unknown } | undefined )?.name;
 			return {
 				confirmation: {
 					question: `Create a new site "${ String( name ) }"? This request is about ${

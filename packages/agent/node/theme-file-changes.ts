@@ -117,7 +117,8 @@ function templatesUsingPattern( themeDir: string, file: string ): string[] {
 	);
 }
 
-const listed = ( files: string[] ) =>
+/** Files named in a sentence: the first five, then "…" for any more. */
+export const listed = ( files: string[] ) =>
 	files.length > 5 ? `${ files.slice( 0, 5 ).join( ', ' ) }, …` : files.join( ', ' );
 
 function problem( themeDir: string, slug: string, files: string[], removed: string[] ): string {

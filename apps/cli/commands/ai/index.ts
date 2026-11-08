@@ -3,10 +3,12 @@ import {
 	createAgent,
 	createTurnStatsTracker,
 	resolveResumeSessionContext,
+	remoteSiteFromStored,
+	storedFromRemoteSite,
+	type SiteInfo,
 	type StudioAgentHost,
 	AskUserQuestion,
 } from '@studio/agent/node';
-import { remoteSiteFromStored, storedFromRemoteSite } from '@studio/agent/node';
 import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/agent/node/settings-store';
 import { buildChatAttachmentSummaries } from '@studio/agent/protocol/chat-attachments';
 import {
@@ -344,8 +346,8 @@ export async function runCommand( options: {
 		);
 	}
 
-	ui.onSiteSelected = ( site ) => {
-		void append( ( sm ) =>
+	const appendSiteSelected = ( site: SiteInfo ) =>
+		append( ( sm ) =>
 			appendStudioEntry( sm, 'studio.site_selected', {
 				siteName: site.name,
 				sitePath: site.path,
@@ -354,6 +356,9 @@ export async function runCommand( options: {
 				...storedFromRemoteSite( site.remote ),
 			} )
 		);
+
+	ui.onSiteSelected = ( site ) => {
+		void appendSiteSelected( site );
 	};
 
 	if ( options.resumeSession ) {
@@ -850,15 +855,7 @@ export async function runCommand( options: {
 			await persistSessionContext();
 			const site = ui.activeSite;
 			if ( site ) {
-				await append( ( sm ) =>
-					appendStudioEntry( sm, 'studio.site_selected', {
-						siteName: site.name,
-						sitePath: site.path,
-						siteId: site.id,
-						url: site.url,
-						...storedFromRemoteSite( site.remote ),
-					} )
-				);
+				await appendSiteSelected( site );
 			}
 		},
 	};

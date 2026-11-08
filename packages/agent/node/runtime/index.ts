@@ -148,7 +148,7 @@ export interface StudioAgentTurnConfig {
  * its check of what calls change, so each agent hears what Studio finds in
  * what it wrote, and the parent turn's own checks cover the rest.
  */
-export interface SubagentParent {
+interface SubagentParent {
 	state: SessionState;
 	siteChanges: SiteChanges;
 }
@@ -338,7 +338,7 @@ async function runAgentSessionTurn(
 		? shareSessionState( config.session, config.subagentOf.state )
 		: getSessionState( config.host, config.session );
 	try {
-		session = await createStudioAgentSession( config, resolved, payloadGuardState );
+		session = await createStudioAgentSession( config, resolved, state, payloadGuardState );
 		setActiveSession( session );
 		const emit = ( event: AgentSessionEvent ) => {
 			config.onEvent( event );
@@ -398,7 +398,7 @@ async function runAgentSessionTurn(
 			if ( lastAssistant?.stopReason !== 'stop' ) {
 				return undefined;
 			}
-			await state.pendingWork.settle();
+			await pendingWork.settle();
 			// A block file the run wrote last is validated, and its lossless fix
 			// saved, before the sites are checked, as on any later tool result.
 			await state.blockValidation.settle( {
@@ -406,7 +406,7 @@ async function runAgentSessionTurn(
 			} );
 			// The sites as the turn leaves them are the parent turn's to check.
 			if ( config.subagentOf ) {
-				const notes = studioMessage( 'notes', [ state.pendingWork.takeReports() ] );
+				const notes = studioMessage( 'notes', [ pendingWork.takeReports() ] );
 				return notes ? { customType: OPEN_PROBLEMS_TYPE, content: notes } : undefined;
 			}
 			// The pages rendered after the last change: their problems are open
@@ -416,7 +416,7 @@ async function runAgentSessionTurn(
 			const problems = await state.openProblems.raise();
 			// The notes on the run's last calls, whose checks ran after their results.
 			const content = [
-				studioMessage( 'notes', [ state.pendingWork.takeReports() ] ),
+				studioMessage( 'notes', [ pendingWork.takeReports() ] ),
 				problems.length ? describeOpenProblems( problems ) : undefined,
 			]
 				.filter( Boolean )
@@ -452,7 +452,7 @@ async function runAgentSessionTurn(
 			}
 			await session.sendCustomMessage( { ...next, display: false }, { triggerTurn: true } );
 		}
-		await state.pendingWork.settle();
+		await pendingWork.settle();
 	} catch ( error ) {
 		heldReply.forEach( config.onEvent );
 		const aborted = controller.signal.aborted;
@@ -487,6 +487,7 @@ async function resolveTurnModel(
 async function createStudioAgentSession(
 	config: ResolvedStudioAgentTurnConfig,
 	{ model, modelRuntime }: TurnModel,
+	state: SessionState,
 	payloadGuardState: StudioToolPayloadGuardState
 ): Promise< AgentSession > {
 	const visionEnabled = model.input.includes( 'image' );
@@ -508,7 +509,6 @@ async function createStudioAgentSession(
 		config.activeSite ? undefined : config.host.sites.all(),
 	] );
 
-	const state = getSessionState( config.host, config.session );
 	const {
 		openProblems,
 		pendingWork,
@@ -597,7 +597,7 @@ async function createStudioAgentSession(
 			fileViews,
 		} )
 	);
-	const settingsManager = createSettingsManager( config.env );
+	const settingsManager = createSettingsManager();
 	const { sitesRoot } = config.host;
 	const resourceLoader = new DefaultResourceLoader( {
 		cwd: sitesRoot,
@@ -827,15 +827,14 @@ async function createModelRuntime(
 		modelsPath: null,
 	} );
 
-	if ( family !== 'anthropic' ) {
+	if ( family === 'anthropic' ) {
+		await modelRuntime.setRuntimeApiKey( family, creds.apiKey );
+	} else {
 		modelRuntime.registerProvider(
 			model.provider,
 			createRegisteredProviderConfig( model as StudioWpcomModel, creds, family === 'studio' )
 		);
-		return modelRuntime;
 	}
-
-	await modelRuntime.setRuntimeApiKey( family, creds.apiKey );
 	return modelRuntime;
 }
 
@@ -914,7 +913,7 @@ function createRegisteredProviderConfig(
 	};
 }
 
-function createSettingsManager( _env: Record< string, string > ): SettingsManager {
+function createSettingsManager(): SettingsManager {
 	return SettingsManager.inMemory(
 		{
 			defaultThinkingLevel: 'high',

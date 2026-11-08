@@ -1,6 +1,6 @@
 import { Type } from 'typebox';
 import { defineTool, LOCAL_OVERWRITE } from './define-tool';
-import { textResult } from './utils';
+import { failsAs, textResult } from './utils';
 
 export const importSiteTool = defineTool(
 	'site_import',
@@ -10,17 +10,12 @@ export const importSiteTool = defineTool(
 		nameOrPath: Type.String( { description: 'The local site name or file system path' } ),
 		importFile: Type.String( { description: 'Absolute path to the backup file to import' } ),
 	},
-	async ( args, context ) => {
-		try {
+	( args, context ) =>
+		failsAs( 'Failed to import site', async () => {
 			const site = await context.host.sites.resolve( args.nameOrPath );
 			await context.host.sites.import( site, args.importFile, context.onProgress );
 			return textResult( `Imported ${ args.importFile } into "${ site.name }".` );
-		} catch ( error ) {
-			throw new Error(
-				`Failed to import site: ${ error instanceof Error ? error.message : String( error ) }`
-			);
-		}
-	},
+		} ),
 	{
 		annotations: LOCAL_OVERWRITE,
 	}

@@ -27,10 +27,12 @@ export async function installSelectedSkillsToSite(
 
 	const tasks: Promise< void >[] = [];
 	for ( const entry of entries ) {
-		if ( entry.isDirectory() && userSelectedGlobalSkills.includes( entry.name ) ) {
-			if ( ! ( await isSiteAgentFileDisabled( site.path, entry.name ) ) ) {
-				tasks.push( installSkillToSite( site, bundledPath, entry.name, overwrite ) );
-			}
+		if (
+			entry.isDirectory() &&
+			userSelectedGlobalSkills.includes( entry.name ) &&
+			! ( await isSiteAgentFileDisabled( site.path, entry.name ) )
+		) {
+			tasks.push( installSkillToSite( site, bundledPath, entry.name, overwrite ) );
 		}
 	}
 

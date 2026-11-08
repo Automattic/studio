@@ -48,12 +48,11 @@ const label = ( name: string ) => ( name.includes( '/' ) ? name : `core/${ name 
 
 /** The headers and footers a site's published pages each hold a copy of. */
 export async function copiedPageChrome( sitePath: string ): Promise< string[] > {
-	const pages =
-		( await readWordPressSite( sitePath, ( site ) =>
-			site.query< { id: number; title: string; content: string } >(
-				`SELECT ID AS id, post_title AS title, post_content AS content FROM ${ site.prefix }posts WHERE post_type = 'page' AND post_status = 'publish' ORDER BY ID`
-			)
-		) ) ?? [];
+	const pages = await readWordPressSite( sitePath, ( site ) =>
+		site.query< { id: number; title: string; content: string } >(
+			`SELECT ID AS id, post_title AS title, post_content AS content FROM ${ site.prefix }posts WHERE post_type = 'page' AND post_status = 'publish' ORDER BY ID`
+		)
+	);
 	const blocks = pages.map( ( page ) => ( { page, blocks: topLevelBlocks( page.content ) } ) );
 	return ( [ 'header', 'footer' ] as const ).flatMap( ( part ) => {
 		const copies = new Map< string, { name: string; pages: string[] } >();

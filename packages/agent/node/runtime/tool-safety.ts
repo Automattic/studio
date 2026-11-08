@@ -49,21 +49,14 @@ export function getWrittenText( toolName: string, params: unknown ): string {
 // Only the last content block can be mid-generation when the model hits the
 // output cap — anything earlier was completed before the model moved on.
 function getInProgressToolCall( content: unknown ): { id: string; name: string } | undefined {
-	if ( ! Array.isArray( content ) || content.length === 0 ) {
-		return undefined;
-	}
-	const last = content[ content.length - 1 ];
+	const last: unknown = Array.isArray( content ) ? content.at( -1 ) : undefined;
 	if ( ! last || typeof last !== 'object' ) {
 		return undefined;
 	}
 	const item = last as Record< string, unknown >;
-	if ( item.type !== 'toolCall' ) {
-		return undefined;
-	}
-	if ( typeof item.id !== 'string' || typeof item.name !== 'string' ) {
-		return undefined;
-	}
-	return { id: item.id, name: item.name };
+	return item.type === 'toolCall' && typeof item.id === 'string' && typeof item.name === 'string'
+		? { id: item.id, name: item.name }
+		: undefined;
 }
 
 function createIncompleteToolCallMessage( toolName: string ): string {
@@ -83,15 +76,10 @@ export function updateStudioToolPayloadGuardState(
 	}
 
 	const inProgress = getInProgressToolCall( event.message.content );
-
-	if ( event.message.stopReason === 'length' && inProgress ) {
-		state.incompleteToolCallReasons = {
-			[ inProgress.id ]: createIncompleteToolCallMessage( inProgress.name ),
-		};
-		return;
-	}
-
-	state.incompleteToolCallReasons = undefined;
+	state.incompleteToolCallReasons =
+		event.message.stopReason === 'length' && inProgress
+			? { [ inProgress.id ]: createIncompleteToolCallMessage( inProgress.name ) }
+			: undefined;
 }
 
 export function getIncompleteToolCallReason(

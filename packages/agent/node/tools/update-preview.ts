@@ -2,7 +2,7 @@ import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { getSnapshotLink } from '@studio/common/lib/snapshots';
 import { Type } from 'typebox';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
-import { runPreviewCommand } from './preview-helpers';
+import { failsAs, textResult } from './utils';
 
 export const updatePreviewTool = defineTool(
 	'preview_update',
@@ -21,7 +21,7 @@ export const updatePreviewTool = defineTool(
 	},
 	async ( args, context ) => {
 		const normalizedHost = normalizeHostname( args.host );
-		return runPreviewCommand( async () => {
+		return failsAs( 'Failed to update preview site', async () => {
 			const site = await context.host.sites.resolve( args.nameOrPath );
 			const preview = await context.host.previews.update(
 				site,
@@ -34,8 +34,10 @@ export const updatePreviewTool = defineTool(
 				preview.url !== normalizedHost
 					? ' The preview moved to WordPress.com, so its link changed; use the new link from now on.'
 					: '';
-			return `Preview site "${ preview.name }" updated from "${ site.name }": ${ link }${ moved }`;
-		}, 'Failed to update preview site' );
+			return textResult(
+				`Preview site "${ preview.name }" updated from "${ site.name }": ${ link }${ moved }`
+			);
+		} );
 	},
 	{
 		annotations: REMOTE_OVERWRITE,

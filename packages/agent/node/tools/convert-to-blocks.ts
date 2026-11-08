@@ -12,7 +12,7 @@ import { resolveSiteFile } from '@studio/agent/node/site-file';
 import { getSiteFileWriteRefusal } from '@studio/agent/node/site-file-guards';
 import { saveMarkup } from '@studio/agent/node/site-markup';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
-import { textResult, wpEvalJson } from './utils';
+import { failsAs, textResult, wpEvalJson } from './utils';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 
 interface SupportStylesheet {
@@ -152,10 +152,6 @@ add_action( 'enqueue_block_assets', static fn() => is_admin() && blocks_engine_s
 
 const REQUIRE_LOADER = `require_once __DIR__ . '/${ SUPPORT_LOADER }';`;
 
-async function readOptional( file: string ): Promise< string | undefined > {
-	return readFile( file, 'utf8' ).catch( () => undefined );
-}
-
 /**
  * Writes the support stylesheets into the theme, one file per placement and
  * target in the engine's order, and has the theme's functions.php load them.
@@ -185,7 +181,7 @@ async function installSupportStylesheets(
 	await writeFile( path.join( themeDirectory, SUPPORT_LOADER ), SUPPORT_LOADER_PHP );
 	written.push( SUPPORT_LOADER );
 	const functionsPath = path.join( themeDirectory, 'functions.php' );
-	const functions = await readOptional( functionsPath );
+	const functions = await readFile( functionsPath, 'utf8' ).catch( () => undefined );
 	if ( ! functions?.includes( REQUIRE_LOADER ) ) {
 		const base = functions?.trimEnd() ?? '<?php';
 		const open = base.endsWith( '?>' ) ? '\n<?php ' : '\n\n';
@@ -296,14 +292,8 @@ export const convertToBlocksTool = defineTool(
 		if ( file ) {
 			await writeFile( file, content );
 		} else {
-			await saveMarkup( host, site.path, { post: args.postId, content }, content ).catch(
-				( error: unknown ) => {
-					throw new Error(
-						`Saving post ${ args.postId } failed: ${
-							error instanceof Error ? error.message : String( error )
-						}`
-					);
-				}
+			await failsAs( `Saving post ${ args.postId } failed`, () =>
+				saveMarkup( host, site.path, { post: args.postId, content }, content )
 			);
 		}
 		const stylesheets = await installSupportStylesheets(

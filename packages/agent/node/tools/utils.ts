@@ -33,6 +33,22 @@ export async function runWpCli(
 	return stdout;
 }
 
+/** Runs PHP with `wp eval`; `data`, when given, reaches the PHP as the array $data. */
+export async function wpEval(
+	host: StudioAgentHost,
+	site: HostSite,
+	php: string,
+	data?: unknown
+): Promise< string > {
+	const input =
+		data === undefined
+			? ''
+			: `$data = json_decode( base64_decode( '${ Buffer.from( JSON.stringify( data ) ).toString(
+					'base64'
+			  ) }' ), true );\n`;
+	return runWpCli( host, site, [ 'eval', input + php ] );
+}
+
 /**
  * Runs PHP with `wp eval` and returns the JSON object it echoes last, past any
  * output WordPress prints before it. `data`, when given, reaches the PHP as
@@ -44,13 +60,7 @@ export async function wpEvalJson< T >(
 	php: string,
 	data?: unknown
 ): Promise< T > {
-	const input =
-		data === undefined
-			? ''
-			: `$data = json_decode( base64_decode( '${ Buffer.from( JSON.stringify( data ) ).toString(
-					'base64'
-			  ) }' ), true );\n`;
-	const output = await runWpCli( host, site, [ 'eval', input + php ] );
+	const output = await wpEval( host, site, php, data );
 	return JSON.parse( output.slice( output.indexOf( '{' ) ) ) as T;
 }
 
@@ -61,6 +71,23 @@ export function printedJson< T >( output: string, marker: string ): T {
 		throw new Error( `WordPress printed no ${ marker } line: ${ output.slice( 0, 500 ) }` );
 	}
 	return JSON.parse( output.slice( at + marker.length ).split( '\n' )[ 0 ] ) as T;
+}
+
+/** What `run` returns; when it throws, an error of its message after `prefix`. */
+export async function failsAs< T >( prefix: string, run: () => Promise< T > ): Promise< T > {
+	try {
+		return await run();
+	} catch ( error ) {
+		throw new Error( `${ prefix }: ${ error instanceof Error ? error.message : String( error ) }` );
+	}
+}
+
+/** A name as a slug: lowercase ASCII letters and digits, dash-separated. */
+export function slugify( name: string ): string {
+	return name
+		.toLowerCase()
+		.replace( /[^a-z0-9]+/g, '-' )
+		.replace( /^-|-$/g, '' );
 }
 
 export function textResult( text: string ) {

@@ -1,7 +1,7 @@
 import { Type } from 'typebox';
 import { auditSeo } from '@studio/agent/node/seo-audit';
 import { defineTool, READ_ONLY } from './define-tool';
-import { textResult } from './utils';
+import { failsAs, textResult } from './utils';
 
 export const auditSeoTool = defineTool(
 	'rank_me_up',
@@ -19,8 +19,8 @@ export const auditSeoTool = defineTool(
 			} )
 		),
 	},
-	async ( args, context ) => {
-		try {
+	( args, context ) =>
+		failsAs( 'SEO audit failed', async () => {
 			const site = await context.host.sites.resolve( args.nameOrPath );
 			const siteUrl = site.url;
 			const urlPath = args.path ?? '/';
@@ -37,12 +37,7 @@ export const auditSeoTool = defineTool(
 			context.onProgress( `SEO audit complete for ${ urlPath }` );
 
 			return textResult( JSON.stringify( result, null, 2 ) );
-		} catch ( error ) {
-			throw new Error(
-				`SEO audit failed: ${ error instanceof Error ? error.message : String( error ) }`
-			);
-		}
-	},
+		} ),
 	{
 		annotations: READ_ONLY,
 	}

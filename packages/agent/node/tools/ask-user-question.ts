@@ -1,15 +1,16 @@
 import { Type } from 'typebox';
 import { defineTool, READ_ONLY, type StudioToolDefinition } from './define-tool';
+import { textResult } from './utils';
 import type { AskUserQuestion } from '@studio/agent/node/types';
 
-// Factory because the tool closes over `onAskUser` (the active AiChatUI
-// instance).
 /** What a call says when the user closes its questions without answering; the turn ends on it. */
 export const closedWithoutAnswering = ( questions: string[] ) =>
 	`The user closed without answering: ${ questions.join(
 		' '
 	) } The turn ends here, and the user replies when ready.`;
 
+// Factory because the tool closes over `onAskUser` (the active AiChatUI
+// instance).
 export function createAskUserQuestionTool(
 	onAskUser: ( questions: AskUserQuestion[] ) => Promise< Record< string, string > >
 ): StudioToolDefinition {
@@ -50,20 +51,15 @@ export function createAskUserQuestionTool(
 			// to them: what comes next is theirs to say.
 			if ( dismissed.length ) {
 				return {
-					content: [
-						{
-							type: 'text' as const,
-							text: `${ closedWithoutAnswering( dismissed.map( ( { question } ) => question ) ) }${
-								Object.keys( answers ).length ? ` Answered: ${ JSON.stringify( answers ) }` : ''
-							}`,
-						},
-					],
+					...textResult(
+						`${ closedWithoutAnswering( dismissed.map( ( { question } ) => question ) ) }${
+							Object.keys( answers ).length ? ` Answered: ${ JSON.stringify( answers ) }` : ''
+						}`
+					),
 					terminate: true,
 				};
 			}
-			return {
-				content: [ { type: 'text' as const, text: JSON.stringify( answers ) } ],
-			};
+			return textResult( JSON.stringify( answers ) );
 		},
 		{ annotations: READ_ONLY }
 	);

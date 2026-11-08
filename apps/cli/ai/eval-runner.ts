@@ -25,7 +25,6 @@ import {
 	addToolCallUsage,
 	createAgent,
 	createTokenUsage,
-	type AskUserHandler,
 	type SiteInfo,
 } from '@studio/agent/node';
 import { writeGlobalInstructions } from '@studio/agent/node/global-instructions';
@@ -552,7 +551,6 @@ async function runEval( input: EvalRunnerInput ) {
 	const requests: ModelRequestRecord[] = [];
 	const textSegments: string[] = [];
 	const scriptedUser = input.answers ? createScriptedUser( input.answers ) : undefined;
-	const onAskUser: AskUserHandler | undefined = scriptedUser?.onAskUser;
 	const toolNameById = new Map< string, string >();
 	const toolEventById = new Map< string, ToolEvent >();
 	let firstToolError: FirstToolError | null = null;
@@ -710,7 +708,7 @@ async function runEval( input: EvalRunnerInput ) {
 			session,
 			activeSite: seeded?.activeSite,
 			onEvent: handleEvent,
-			onAskUser,
+			onAskUser: scriptedUser?.onAskUser,
 			...( input.model ? { model: input.model } : {} ),
 		} );
 	const sitesBeforeTurn = await fingerprintSites();

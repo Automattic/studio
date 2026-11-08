@@ -4,7 +4,7 @@ import type { HostSite } from '@studio/agent/node/host';
 import type { ChangeReport } from '@studio/agent/node/site-changes';
 
 /** An agent writing to a chat session's sites: the session's own, or a subagent it runs. */
-export interface Writer {
+interface Writer {
 	/** A note the agent hears with its next tool result, or as its turn ends. */
 	tell( note: string ): void;
 }

@@ -44,8 +44,7 @@ function constrains( { layout }: BlockAttributes ): boolean {
 	);
 }
 
-function labelOf( name: string, attributes: BlockAttributes ): string {
-	const block = name.includes( '/' ) ? name : `core/${ name }`;
+function labelOf( block: string, attributes: BlockAttributes ): string {
 	return typeof attributes.className === 'string'
 		? `${ block } (${ attributes.className
 				.split( /\s+/ )
@@ -77,9 +76,10 @@ function traps( markup: string ): Trap[] {
 		}
 		const parent = open.at( -1 );
 		const full = attributes.align === 'full';
+		const blockName = name.includes( '/' ) ? name : `core/${ name }`;
 		const block: OpenBlock = {
-			label: labelOf( name, attributes ),
-			name: name.includes( '/' ) ? name : `core/${ name }`,
+			label: labelOf( blockName, attributes ),
+			name: blockName,
 			attributes,
 			constrains: constrains( attributes ),
 			reachesEdges: ! parent || ( parent.reachesEdges && ( full || ! parent.constrains ) ),

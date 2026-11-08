@@ -1,6 +1,7 @@
 import { Type } from 'typebox';
 import { splitCommandArgs } from '@studio/agent/node/wp-cli-args';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
+import { failsAs, textResult } from './utils';
 import { getUnsupportedWpCliPostContentMessage } from './wp-cli-post-content';
 import type { StudioToolDefinition } from './define-tool';
 
@@ -38,8 +39,8 @@ export const runWpCliTool = defineTool(
 				'The WP-CLI command to run (without the "wp" prefix). Example: "plugin list --status=active"',
 		} ),
 	},
-	async ( args, context ) => {
-		try {
+	( args, context ) =>
+		failsAs( 'Failed to run WP-CLI command', async () => {
 			const site = await context.host.sites.resolve( args.nameOrPath );
 
 			const wpCliArgs = splitCommandArgs( args.command );
@@ -60,33 +61,16 @@ export const runWpCliTool = defineTool(
 
 			const { exitCode, stdout, stderr } = await context.host.sites.wpCli( site, wpCliArgs );
 
-			let output = '';
-			if ( stdout ) {
-				output += stdout;
-			}
+			let output = stdout;
 			if ( stderr ) {
 				output += ( output ? '\n' : '' ) + `stderr: ${ stderr }`;
 			}
 			if ( exitCode !== 0 ) {
 				output += `\nExit code: ${ exitCode }`;
+				throw new Error( output + sqliteNote( output ) );
 			}
-
-			if ( exitCode !== 0 ) {
-				throw new Error(
-					( output || `WP-CLI exited with code ${ exitCode }` ) + sqliteNote( output )
-				);
-			}
-			return {
-				content: [ { type: 'text' as const, text: output || 'Command completed with no output.' } ],
-			};
-		} catch ( error ) {
-			throw new Error(
-				`Failed to run WP-CLI command: ${
-					error instanceof Error ? error.message : String( error )
-				}`
-			);
-		}
-	},
+			return textResult( output || 'Command completed with no output.' );
+		} ),
 	{
 		annotations: REMOTE_OVERWRITE,
 		// An agent with a shell runs `wp` there.

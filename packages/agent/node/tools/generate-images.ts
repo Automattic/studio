@@ -10,7 +10,7 @@ import {
 	isImageGenerationAvailable,
 } from '@studio/agent/node/image-generation';
 import { defineTool, REMOTE_CHANGE } from './define-tool';
-import { runWpCli, textResult } from './utils';
+import { textResult, wpEval } from './utils';
 import type { StudioToolDefinition } from './define-tool';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 
@@ -35,16 +35,20 @@ export function resolveImageFilePath(
 	return resolved;
 }
 
-async function findSiteContaining(
-	host: StudioAgentHost,
-	filePaths: string[]
-): Promise< HostSite > {
-	const sites = await host.sites.all();
-	const site = sites.find( ( candidate ) =>
+// The site whose folder holds every one of `filePaths`.
+function siteContaining( sites: HostSite[], filePaths: string[] ): HostSite | undefined {
+	return sites.find( ( candidate ) =>
 		filePaths.every( ( filePath ) =>
 			filePath.startsWith( path.resolve( candidate.path ) + path.sep )
 		)
 	);
+}
+
+async function findSiteContaining(
+	host: StudioAgentHost,
+	filePaths: string[]
+): Promise< HostSite > {
+	const site = siteContaining( await host.sites.all(), filePaths );
 	if ( ! site ) {
 		throw new Error( 'Images under wp-content/uploads must all be inside one Studio site.' );
 	}
@@ -57,19 +61,8 @@ interface Attachment {
 	url: string;
 }
 
-// Runs `php` through WP-CLI with `data` decoded into `$data`.
-async function evalWithData(
-	host: StudioAgentHost,
-	site: HostSite,
-	php: string,
-	data: unknown
-): Promise< string > {
-	const encoded = Buffer.from( JSON.stringify( data ) ).toString( 'base64' );
-	return runWpCli( host, site, [
-		'eval',
-		`$data = json_decode( base64_decode( '${ encoded }' ), true );\n${ php }`,
-	] );
-}
+// The JSON `wp eval` printed on its last line.
+const lastLineJson = < T >( output: string ): T => JSON.parse( output.trim().split( '\n' ).pop()! );
 
 // Media-library images get their attachment before they are generated, so the
 // result can give their IDs and URLs right away.
@@ -122,8 +115,7 @@ async function convertImages(
 			] )
 		);
 	}
-	const output = await evalWithData( host, site, CONVERT_IMAGES, conversions );
-	return JSON.parse( output.trim().split( '\n' ).pop() ?? '{}' );
+	return lastLineJson( await wpEval( host, site, CONVERT_IMAGES, conversions ) );
 }
 
 const isPng = ( file: string ) => path.extname( file ).toLowerCase() === '.png';
@@ -213,13 +205,14 @@ export const generateImagesTool = defineTool(
 			: undefined;
 		const attachments = new Map< string, Attachment >();
 		if ( site ) {
-			const output = await evalWithData(
-				host,
-				site,
-				RESERVE_ATTACHMENTS,
-				libraryTargets.map( ( target ) => path.basename( target.resolvedPath ) )
+			const reserved = lastLineJson< Attachment[] >(
+				await wpEval(
+					host,
+					site,
+					RESERVE_ATTACHMENTS,
+					libraryTargets.map( ( target ) => path.basename( target.resolvedPath ) )
+				)
 			);
-			const reserved: Attachment[] = JSON.parse( output.trim().split( '\n' ).pop() ?? '[]' );
 			libraryTargets.forEach( ( target, index ) =>
 				attachments.set( target.resolvedPath, {
 					...reserved[ index ],
@@ -231,10 +224,9 @@ export const generateImagesTool = defineTool(
 		// The site the images are for, wherever in it they are written.
 		const forSite =
 			site ??
-			( await host.sites.all() ).find( ( candidate ) =>
-				targets.every( ( target ) =>
-					target.resolvedPath.startsWith( path.resolve( candidate.path ) + path.sep )
-				)
+			siteContaining(
+				await host.sites.all(),
+				targets.map( ( target ) => target.resolvedPath )
 			);
 		const siteName = forSite?.name;
 		const requests = targets.map( ( image ) => ( {
@@ -246,6 +238,9 @@ export const generateImagesTool = defineTool(
 			aspectRatio: image.aspectRatio,
 		} ) );
 
+		// Where each image is written: its attachment's file, or its path.
+		const fileOf = ( target: ( typeof targets )[ number ] ) =>
+			attachments.get( target.resolvedPath )?.file ?? target.resolvedPath;
 		// Each image as the markup was told to use it: where its attachment
 		// went, which WordPress names apart from a file already there.
 		const named = ( target: ( typeof targets )[ number ] ) => {
@@ -272,7 +267,7 @@ export const generateImagesTool = defineTool(
 							failures.push( `FAILED ${ named( target ) }: ${ result.error }${ hint }` );
 							return;
 						}
-						const file = attachments.get( target.resolvedPath )?.file ?? target.resolvedPath;
+						const file = fileOf( target );
 						await fs.mkdir( path.dirname( file ), { recursive: true } );
 						if ( isPng( file ) ) {
 							await fs.writeFile( file, result.bytes );
@@ -289,10 +284,7 @@ export const generateImagesTool = defineTool(
 						if ( errors[ to ] === '' ) {
 							continue;
 						}
-						const index = targets.findIndex(
-							( target ) =>
-								( attachments.get( target.resolvedPath )?.file ?? target.resolvedPath ) === to
-						);
+						const index = targets.findIndex( ( target ) => fileOf( target ) === to );
 						const error = errors[ to ] ?? 'WordPress did not save it';
 						results[ index ] = { ok: false, error };
 						failures.push( `FAILED ${ named( targets[ index ] ) }: ${ error }` );
@@ -303,7 +295,7 @@ export const generateImagesTool = defineTool(
 						libraryTargets
 							.filter( ( target ) => results[ targets.indexOf( target ) ].ok === ok )
 							.map( ( target ) => attachments.get( target.resolvedPath )!.id );
-					await evalWithData( host, site, FINALIZE_ATTACHMENTS, {
+					await wpEval( host, site, FINALIZE_ATTACHMENTS, {
 						ready: ids( true ),
 						failed: ids( false ),
 					} );
@@ -326,10 +318,11 @@ export const generateImagesTool = defineTool(
 			),
 			pending: generation,
 			// As paths in the site, which its absolute paths contain too.
-			pendingFiles: targets.map( ( target ) => {
-				const file = attachments.get( target.resolvedPath )?.file ?? target.resolvedPath;
-				return forSite ? path.relative( path.resolve( forSite.path ), file ) : file;
-			} ),
+			pendingFiles: targets
+				.map( fileOf )
+				.map( ( file ) =>
+					forSite ? path.relative( path.resolve( forSite.path ), file ) : file
+				),
 			pendingFolder: forSite?.path,
 		};
 	},

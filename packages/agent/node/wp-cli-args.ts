@@ -1,5 +1,7 @@
 // Splits a wp_cli tool command into the arguments WP-CLI receives.
 
+const POST_CONTENT = '--post_content=';
+
 // Split a shell-ish command into args, respecting quotes. Quotes are only
 // recognized at arg start or right after `=` so values like `Ember & Oak`
 // in `--post_title="Ember & Oak"` come through whole.
@@ -78,9 +80,8 @@ function readQuoted( text: string ): { value: string; end: number } | null {
 // literal arg through end-of-command. A quote can also wrap the whole
 // argument (`'--post_content=...'`).
 function splitPostContentCommandArgs( command: string, postContentIndex: number ): string[] {
-	const postContentMarker = '--post_content=';
 	let prefix = command.slice( 0, postContentIndex ).trimEnd();
-	let postContentTail = command.slice( postContentIndex + postContentMarker.length ).trim();
+	let postContentTail = command.slice( postContentIndex + POST_CONTENT.length ).trim();
 	const wrappingQuote = prefix.slice( -1 );
 	if (
 		( wrappingQuote === '"' || wrappingQuote === "'" ) &&
@@ -92,7 +93,7 @@ function splitPostContentCommandArgs( command: string, postContentIndex: number 
 	const prefixArgs = splitBasicCommandArgs( prefix.trim() );
 
 	if ( ! postContentTail ) {
-		return [ ...prefixArgs, postContentMarker ];
+		return [ ...prefixArgs, POST_CONTENT ];
 	}
 
 	const quote = postContentTail[ 0 ];
@@ -102,7 +103,7 @@ function splitPostContentCommandArgs( command: string, postContentIndex: number 
 			const suffix = postContentTail.slice( quoted.end + 1 ).trim();
 			return [
 				...prefixArgs,
-				`${ postContentMarker }${ quoted.value }`,
+				`${ POST_CONTENT }${ quoted.value }`,
 				...splitBasicCommandArgs( suffix ),
 			];
 		}
@@ -110,15 +111,11 @@ function splitPostContentCommandArgs( command: string, postContentIndex: number 
 
 	// No closing quote — large block content is commonly emitted without shell
 	// quoting; treat everything after the marker as a single literal argument.
-	return [
-		...prefixArgs,
-		`${ postContentMarker }${ stripMatchingOuterQuotes( postContentTail ) }`,
-	];
+	return [ ...prefixArgs, `${ POST_CONTENT }${ stripMatchingOuterQuotes( postContentTail ) }` ];
 }
 
 export function splitCommandArgs( command: string ): string[] {
-	const postContentMarker = '--post_content=';
-	const postContentIndex = command.indexOf( postContentMarker );
+	const postContentIndex = command.indexOf( POST_CONTENT );
 
 	if ( postContentIndex !== -1 ) {
 		return splitPostContentCommandArgs( command, postContentIndex );

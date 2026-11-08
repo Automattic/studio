@@ -438,12 +438,20 @@ export async function resolveStaticSiteImporterPlugin(): Promise< {
 	return { path: zipPath, version: asset.version };
 }
 
+type PhpTransformer = { bootstrap: string; version: string };
+
 const phpTransformerRoot = () => path.join( runtimeDirectory(), 'php-transformer' );
 const transformerBootstrap = ( directory: string ) =>
 	path.join( directory, 'php-transformer', 'php-transformer.php' );
+const isCompleteTransformer = ( directory: string ) =>
+	fs.existsSync( transformerBootstrap( directory ) );
+const installedTransformer = ( version: string ): PhpTransformer => ( {
+	bootstrap: transformerBootstrap( path.join( phpTransformerRoot(), version ) ),
+	version,
+} );
 
 /** The newest complete PHP transformer this machine has installed, if any. */
-function newestInstalledPhpTransformer(): { bootstrap: string; version: string } | null {
+function newestInstalledPhpTransformer(): PhpTransformer | null {
 	let entries: string[];
 	try {
 		entries = fs.readdirSync( phpTransformerRoot() );
@@ -453,46 +461,40 @@ function newestInstalledPhpTransformer(): { bootstrap: string; version: string }
 	const [ version ] = entries
 		.filter(
 			( entry ) =>
-				isVersion( entry ) &&
-				fs.existsSync( transformerBootstrap( path.join( phpTransformerRoot(), entry ) ) )
+				isVersion( entry ) && isCompleteTransformer( path.join( phpTransformerRoot(), entry ) )
 		)
 		.sort( newestFirst );
-	return version
-		? { bootstrap: transformerBootstrap( path.join( phpTransformerRoot(), version ) ), version }
-		: null;
+	return version ? installedTransformer( version ) : null;
 }
 
 /**
  * Install the newest Blocks Engine PHP transformer release, once per version;
  * installing one removes the versions before the previous one.
  */
-async function installLatestPhpTransformer(
-	fetchImpl: typeof fetch
-): Promise< { bootstrap: string; version: string } > {
+async function installLatestPhpTransformer( fetchImpl: typeof fetch ): Promise< PhpTransformer > {
 	const asset = await resolveLatestReleaseAsset(
 		BLOCKS_ENGINE_REPO,
 		( name ) => name === PHP_TRANSFORMER_ASSET,
 		fetchImpl
 	);
 	const root = path.join( phpTransformerRoot(), asset.version );
-	const isComplete = ( directory: string ) => fs.existsSync( transformerBootstrap( directory ) );
-	if ( ! isComplete( root ) ) {
+	if ( ! isCompleteTransformer( root ) ) {
 		const staging = `${ root }.staging-${ uniqueSuffix() }`;
 		const archive = `${ staging }.zip`;
 		try {
 			await downloadVerifiedAsset( asset, archive, fetchImpl );
 			await extractZip( archive, staging );
-			if ( ! isComplete( staging ) ) {
+			if ( ! isCompleteTransformer( staging ) ) {
 				throw new Error( `Blocks Engine ${ asset.version } is missing its PHP transformer.` );
 			}
-			publishStagedInstall( staging, root, isComplete );
+			publishStagedInstall( staging, root, isCompleteTransformer );
 		} finally {
 			fs.rmSync( staging, { recursive: true, force: true } );
 			fs.rmSync( archive, { force: true } );
 		}
 		removeOlderVersions( phpTransformerRoot(), asset.version );
 	}
-	return { bootstrap: transformerBootstrap( root ), version: asset.version };
+	return installedTransformer( asset.version );
 }
 
 let phpTransformerUpdate: Promise< unknown > | null = null;
@@ -509,7 +511,7 @@ let phpTransformerUpdate: Promise< unknown > | null = null;
  */
 export async function resolvePhpTransformer(
 	fetchImpl: typeof fetch = fetch
-): Promise< { bootstrap: string; version: string } > {
+): Promise< PhpTransformer > {
 	const installed = newestInstalledPhpTransformer();
 	if ( ! installed ) {
 		return installLatestPhpTransformer( fetchImpl );

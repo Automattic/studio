@@ -9,7 +9,7 @@ type AssistantMessage = Extract<
 >;
 
 /** A Studio Code turn run for one task, from a fresh session: its events, and a way to stop it. */
-export type RunTurn = (
+type RunTurn = (
 	task: string,
 	onEvent: ( event: AgentSessionEvent ) => void
 ) => Promise< { result: Promise< void >; interrupt(): Promise< void > } >;

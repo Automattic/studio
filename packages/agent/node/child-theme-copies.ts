@@ -16,6 +16,7 @@
  */
 import { readdir, readFile, stat } from 'fs/promises';
 import path from 'path';
+import { listed } from '@studio/agent/node/theme-file-changes';
 import { readThemeHeader, themesDir } from '@studio/agent/node/themes';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
@@ -70,8 +71,9 @@ const copiesOf = ( versions: Versions, child: string ) =>
 		.sort();
 
 function problem( child: string, parent: string, files: string[] ): string {
-	const named = files.length > 5 ? `${ files.slice( 0, 5 ).join( ', ' ) }, …` : files.join( ', ' );
-	return `The child theme ${ child } holds files of its parent ${ parent } unchanged: ${ named }. WordPress reads a file the child lacks from the parent and merges the child's theme.json over the parent's, so a copy only stops following ${ parent }'s updates, and a copied functions.php loads beside the parent's. Delete the copies, so ${ child } holds only the files it changes (https://developer.wordpress.org/themes/advanced-topics/child-themes/).`;
+	return `The child theme ${ child } holds files of its parent ${ parent } unchanged: ${ listed(
+		files
+	) }. WordPress reads a file the child lacks from the parent and merges the child's theme.json over the parent's, so a copy only stops following ${ parent }'s updates, and a copied functions.php loads beside the parent's. Delete the copies, so ${ child } holds only the files it changes (https://developer.wordpress.org/themes/advanced-topics/child-themes/).`;
 }
 
 export const childThemeCopies: SiteChangeSource = {

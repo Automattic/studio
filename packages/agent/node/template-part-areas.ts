@@ -15,7 +15,7 @@
 import { readFile, readdir, stat, writeFile } from 'fs/promises';
 import path from 'path';
 import { rewriteJson } from '@studio/common/lib/json-text';
-import { isUpdatableTheme, themesDir } from '@studio/agent/node/themes';
+import { exists, isUpdatableTheme, themesDir } from '@studio/agent/node/themes';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
 // The areas core defines with a tag of their own (get_allowed_block_template_part_areas()).
@@ -59,7 +59,7 @@ async function undeclaredAreas(
 				AREAS.includes( area ) &&
 				of === theme &&
 				! declared.includes( slug ) &&
-				( await stat( path.join( dir, 'parts', `${ slug }.html` ) ).then( Boolean, () => false ) )
+				( await exists( path.join( dir, 'parts', `${ slug }.html` ) ) )
 			) {
 				areas.set( slug, area );
 			}

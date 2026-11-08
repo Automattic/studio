@@ -1,7 +1,7 @@
 import path from 'path';
 import { Type } from 'typebox';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
-import { textResult } from './utils';
+import { failsAs, slugify, textResult } from './utils';
 
 export const createSiteTool = defineTool(
 	'site_create',
@@ -9,12 +9,9 @@ export const createSiteTool = defineTool(
 	{
 		name: Type.String( { description: 'The name for the new site (e.g., "My Coffee Shop")' } ),
 	},
-	async ( args, context ) => {
-		try {
-			const slug = args.name
-				.toLowerCase()
-				.replace( /[^a-z0-9]+/g, '-' )
-				.replace( /^-|-$/g, '' );
+	( args, context ) =>
+		failsAs( 'Failed to create site', async () => {
+			const slug = slugify( args.name );
 			if ( ! slug ) {
 				throw new Error( 'Site name must contain at least one ASCII letter or digit (a-z, 0-9).' );
 			}
@@ -59,12 +56,7 @@ export const createSiteTool = defineTool(
 					},
 				],
 			};
-		} catch ( error ) {
-			throw new Error(
-				`Failed to create site: ${ error instanceof Error ? error.message : String( error ) }`
-			);
-		}
-	},
+		} ),
 	{
 		annotations: LOCAL_CHANGE,
 		siteParam: 'name',

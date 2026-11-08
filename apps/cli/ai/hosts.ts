@@ -13,6 +13,9 @@ import { getWpComSites } from 'cli/lib/api';
 import { parseSyncOptions } from 'cli/lib/sync-api';
 import { Logger } from 'cli/logger';
 
+const errorText = ( error: unknown ) =>
+	error instanceof Error ? error.message : String( error );
+
 /** The user's WordPress.com sites that `read` lists with their token. */
 async function wpcomListing(
 	read: ( token: string ) => Promise< HostSiteListing[ 'sites' ] >
@@ -27,7 +30,7 @@ async function wpcomListing(
 		return {
 			signedIn: true,
 			sites: [],
-			error: error instanceof Error ? error.message : String( error ),
+			error: errorText( error ),
 		};
 	}
 }
@@ -97,7 +100,7 @@ const wpcom: RemoteHost = {
 			return {
 				signedIn: true,
 				targets: [],
-				error: error instanceof Error ? error.message : String( error ),
+				error: errorText( error ),
 			};
 		}
 	},

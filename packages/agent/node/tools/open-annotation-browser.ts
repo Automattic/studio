@@ -2,7 +2,7 @@ import { Type } from 'typebox';
 import { annotateInBrowser } from '@studio/agent/node/inspector/inspector-inject';
 import { formatVisualAnnotationsPrompt } from '@studio/agent/protocol/visual-annotations';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
-import { textResult } from './utils';
+import { failsAs, textResult } from './utils';
 
 export const openAnnotationBrowserTool = defineTool(
 	'open_annotation_browser',
@@ -25,8 +25,8 @@ export const openAnnotationBrowserTool = defineTool(
 			} )
 		),
 	},
-	async ( args, context ) => {
-		try {
+	( args, context ) =>
+		failsAs( 'Annotation browser', async () => {
 			const site = await context.host.sites.resolve( args.nameOrPath );
 			const url = new URL( args.page ?? '/', site.url ).href;
 			context.onProgress( `Opening annotation browser at ${ url }…` );
@@ -50,11 +50,6 @@ export const openAnnotationBrowserTool = defineTool(
 					} ) ),
 				],
 			};
-		} catch ( error ) {
-			throw new Error(
-				`Annotation browser: ${ error instanceof Error ? error.message : String( error ) }`
-			);
-		}
-	},
+		} ),
 	{ annotations: LOCAL_CHANGE }
 );

@@ -3,13 +3,16 @@ import path from 'path';
 import { boundedText } from '@studio/agent/node/bounded-list';
 import type { WordPressSite } from '@studio/agent/node/site-database';
 
+// The strings of an option that stores a list.
+const strings = ( stored: unknown ): string[] =>
+	stored && typeof stored === 'object'
+		? Object.values( stored ).filter( ( item ): item is string => typeof item === 'string' )
+		: [];
+
 // The plugins WordPress loads (the active_plugins option), by plugin file:
 // `woocommerce/woocommerce.php`, or `hello.php` for a single-file plugin.
 export function activePlugins( site: WordPressSite ): string[] {
-	const plugins = site.option( 'active_plugins' );
-	return plugins && typeof plugins === 'object'
-		? Object.values( plugins ).filter( ( file ): file is string => typeof file === 'string' )
-		: [];
+	return strings( site.option( 'active_plugins' ) );
 }
 
 // Enough to name the plugins of a site that runs many.
@@ -56,11 +59,7 @@ export function jetpackFact( site: WordPressSite ): string | undefined {
 	if ( ! activePlugins( site ).includes( 'jetpack/jetpack.php' ) ) {
 		return undefined;
 	}
-	const stored = site.option( 'jetpack_active_modules' );
-	const modules =
-		stored && typeof stored === 'object'
-			? Object.values( stored ).filter( ( module ): module is string => typeof module === 'string' )
-			: [];
+	const modules = strings( site.option( 'jetpack_active_modules' ) );
 	const options = site.option( 'jetpack_options' ) as Record< string, unknown > | undefined;
 	const connection = options?.id
 		? `registered with WordPress.com as site ${ options.id }`

@@ -1,6 +1,6 @@
 import { Type } from 'typebox';
 import { defineTool, REMOTE_READ } from './define-tool';
-import { textResult } from './utils';
+import { failsAs, textResult } from './utils';
 
 export const publishTargetsTool = defineTool(
 	'site_publish_targets',
@@ -12,8 +12,8 @@ export const publishTargetsTool = defineTool(
 	{
 		nameOrPath: Type.String( { description: 'The local site name or file system path' } ),
 	},
-	async ( args, context ) => {
-		try {
+	( args, context ) =>
+		failsAs( 'Failed to list publish targets', async () => {
 			const site = await context.host.sites.resolve( args.nameOrPath );
 			const hosts = await Promise.all(
 				Object.entries( context.host.remoteHosts ).map( async ( [ id, host ] ) => {
@@ -30,14 +30,7 @@ export const publishTargetsTool = defineTool(
 				} )
 			);
 			return textResult( JSON.stringify( hosts, null, 2 ) );
-		} catch ( error ) {
-			throw new Error(
-				`Failed to list publish targets: ${
-					error instanceof Error ? error.message : String( error )
-				}`
-			);
-		}
-	},
+		} ),
 	{
 		annotations: REMOTE_READ,
 	}

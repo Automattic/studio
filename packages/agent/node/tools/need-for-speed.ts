@@ -1,7 +1,7 @@
 import { Type } from 'typebox';
 import { auditPerformance } from '@studio/agent/node/performance-audit';
 import { defineTool, READ_ONLY } from './define-tool';
-import { textResult } from './utils';
+import { failsAs, textResult } from './utils';
 
 export const auditPerformanceTool = defineTool(
 	'need_for_speed',
@@ -18,8 +18,8 @@ export const auditPerformanceTool = defineTool(
 			} )
 		),
 	},
-	async ( args, context ) => {
-		try {
+	( args, context ) =>
+		failsAs( 'Performance audit failed', async () => {
 			const site = await context.host.sites.resolve( args.nameOrPath );
 			const siteUrl = site.url;
 			const urlPath = args.path ?? '/';
@@ -36,12 +36,7 @@ export const auditPerformanceTool = defineTool(
 			context.onProgress( `Audit complete for ${ urlPath }` );
 
 			return textResult( JSON.stringify( result, null, 2 ) );
-		} catch ( error ) {
-			throw new Error(
-				`Performance audit failed: ${ error instanceof Error ? error.message : String( error ) }`
-			);
-		}
-	},
+		} ),
 	{
 		annotations: READ_ONLY,
 	}

@@ -63,8 +63,7 @@ async function push(
 		import( 'cli/commands/site/start' ),
 		import( 'cli/lib/data-liberation-client' ),
 	] );
-	const sitePath = site.path;
-	const known = spaceOf( sitePath );
+	const known = spaceOf( site.path );
 	if ( target !== NEW_SPACE && target !== known?.id && target !== known?.liveUrl ) {
 		throw new Error(
 			`This site was not published to ${ target }. Publish it to "${
@@ -74,17 +73,14 @@ async function push(
 	}
 	const space = target === NEW_SPACE ? undefined : known;
 
-	await startSite( sitePath, true, true, new Logger( { onProgress } ) );
-	const siteUrl = site.url;
+	await startSite( site.path, true, true, new Logger( { onProgress } ) );
 	const outputBase = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-spacefast-' ) );
 	try {
-		const copy = await captureLocalSite( siteUrl, outputBase, ( message ) =>
-			onProgress( message )
-		);
+		const copy = await captureLocalSite( site.url, outputBase, onProgress );
 		const token = process.env.SPACEFAST_TOKEN || space?.claim?.key;
 		const published = await copy.publish( { target: 'spacefast', token, space: space?.id } );
 		const claim = published.claim ?? space?.claim;
-		saveSpace( sitePath, {
+		saveSpace( site.path, {
 			// A target that does not name its space gets a new one each time.
 			id: published.spaceId ?? space?.id ?? NEW_SPACE,
 			liveUrl: published.liveUrl,
@@ -93,7 +89,7 @@ async function push(
 		} );
 		// The receipt is the push's output, for the agent and for /publish.
 		return [
-			`Published a static copy of ${ siteUrl } to ${ published.liveUrl }`,
+			`Published a static copy of ${ site.url } to ${ published.liveUrl }`,
 			...( published.private
 				? [
 						claim

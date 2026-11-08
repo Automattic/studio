@@ -5,7 +5,7 @@ import { filesUnder } from '@studio/agent/node/active-code';
 import { drawDesign } from '@studio/agent/node/design-catalog';
 import { exists, readThemeHeader, themesDir } from '@studio/agent/node/themes';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
-import { runWpCli, textResult } from './utils';
+import { runWpCli, slugify, textResult } from './utils';
 
 const SLUG = /^[a-z0-9][a-z0-9-]*$/;
 
@@ -140,13 +140,7 @@ export const scaffoldThemeTool = defineTool(
 		const site = await context.host.sites.resolve( args.nameOrPath );
 		const themes = themesDir( site.path );
 		const name = args.name.trim();
-		const slug = (
-			args.slug?.trim() ||
-			name
-				.toLowerCase()
-				.replace( /[^a-z0-9]+/g, '-' )
-				.replace( /^-+|-+$/g, '' )
-		).trim();
+		const slug = args.slug?.trim() || slugify( name );
 		if ( ! name || ! SLUG.test( slug ) ) {
 			throw new Error(
 				'The theme needs a name, and a slug of lowercase letters, digits and dashes.'

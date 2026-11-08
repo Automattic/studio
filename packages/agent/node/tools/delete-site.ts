@@ -1,6 +1,6 @@
 import { Type } from 'typebox';
 import { defineTool, LOCAL_OVERWRITE } from './define-tool';
-import { textResult } from './utils';
+import { failsAs, textResult } from './utils';
 
 export const deleteSiteTool = defineTool(
 	'site_delete',
@@ -13,17 +13,12 @@ export const deleteSiteTool = defineTool(
 			} )
 		),
 	},
-	async ( args, context ) => {
-		try {
+	( args, context ) =>
+		failsAs( 'Failed to delete site', async () => {
 			const site = await context.host.sites.resolve( args.nameOrPath );
 			await context.host.sites.delete( site, args.deleteFiles ?? true, context.onProgress );
 			return textResult( `Site "${ site.name }" deleted.` );
-		} catch ( error ) {
-			throw new Error(
-				`Failed to delete site: ${ error instanceof Error ? error.message : String( error ) }`
-			);
-		}
-	},
+		} ),
 	{
 		annotations: LOCAL_OVERWRITE,
 	}

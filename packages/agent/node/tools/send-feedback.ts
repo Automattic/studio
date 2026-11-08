@@ -3,7 +3,7 @@ import { sendStudioFeedback, STUDIO_FEEDBACK_TYPES } from '@studio/common/lib/fe
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { Type } from 'typebox';
 import { defineTool, REMOTE_CHANGE } from './define-tool';
-import { textResult } from './utils';
+import { failsAs, textResult } from './utils';
 
 export const sendFeedbackTool = defineTool(
 	'send_feedback',
@@ -32,17 +32,13 @@ export const sendFeedbackTool = defineTool(
 		if ( ! args.message.trim() ) {
 			throw new Error( 'Submitting feedback needs a message.' );
 		}
-		try {
-			const { feedbackId } = await sendStudioFeedback(
+		const { feedbackId } = await failsAs( 'Failed to send feedback', () =>
+			sendStudioFeedback(
 				{ type: args.type, message: args.message },
 				{ accessToken: token.accessToken, userAgent: context.host.userAgent }
-			);
-			return textResult( `Feedback sent. Feedback ID: ${ feedbackId }.` );
-		} catch ( error ) {
-			throw new Error(
-				`Failed to send feedback: ${ error instanceof Error ? error.message : String( error ) }`
-			);
-		}
+			)
+		);
+		return textResult( `Feedback sent. Feedback ID: ${ feedbackId }.` );
 	},
 	{ annotations: REMOTE_CHANGE }
 );

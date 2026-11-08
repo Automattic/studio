@@ -3,7 +3,7 @@ import path from 'path';
 import { Type } from 'typebox';
 import { getSkillPath } from '@studio/agent/node/skills';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
-import { textResult } from './utils';
+import { failsAs, textResult } from './utils';
 
 const TAXONOMIST_SCRIPTS_DIR = 'tmp/taxonomist';
 
@@ -14,8 +14,8 @@ export const installTaxonomyScriptsTool = defineTool(
 	{
 		nameOrPath: Type.String( { description: 'The site name or file system path to the site' } ),
 	},
-	async ( args, context ) => {
-		try {
+	( args, context ) =>
+		failsAs( 'Failed to install taxonomy scripts', async () => {
 			const site = await context.host.sites.resolve( args.nameOrPath );
 			const srcDir = getSkillPath( 'taxonomist', 'scripts' );
 			const destDir = path.join( site.path, TAXONOMIST_SCRIPTS_DIR );
@@ -25,13 +25,6 @@ export const installTaxonomyScriptsTool = defineTool(
 			return textResult(
 				`Taxonomist scripts installed to ${ TAXONOMIST_SCRIPTS_DIR }/ in the site directory.`
 			);
-		} catch ( error ) {
-			throw new Error(
-				`Failed to install taxonomy scripts: ${
-					error instanceof Error ? error.message : String( error )
-				}`
-			);
-		}
-	},
+		} ),
 	{ annotations: LOCAL_CHANGE }
 );

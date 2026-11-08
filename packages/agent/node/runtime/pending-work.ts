@@ -4,12 +4,18 @@ import path from 'path';
 /** Studio's notes on earlier calls, by their tool call ID. */
 export type CallNotes = Record< string, string >;
 
+// The files a work writes, and the folder they are paths in, when relative.
+interface Written {
+	files: string[];
+	folder?: string;
+}
+
 // Work tools leave running after they return (see ToolResult.pending), kept
 // per chat session so that what it reports reaches the agent with the next
 // tool result, in this turn or a later one.
 export class PendingWork {
-	// Each running work, with the files it writes and the folder they are paths in, when relative.
-	private readonly running = new Map< Promise< void >, { files: string[]; folder?: string } >();
+	// Each running work, with the files it writes.
+	private readonly running = new Map< Promise< void >, Written >();
 	// Each report, with the call it is on when it is a check of one.
 	private readonly reports: Array< { text: string; onCall?: string } > = [];
 
@@ -50,12 +56,8 @@ export class PendingWork {
 	async settleFilesIn( input: unknown ): Promise< void > {
 		const texts = strings( input );
 		await this.outer?.settleFilesIn( input );
-		await Promise.all(
-			[ ...this.running ]
-				.filter( ( [ , { files } ] ) =>
-					files.some( ( file ) => texts.some( ( text ) => namesFile( text, file ) ) )
-				)
-				.map( ( [ work ] ) => work )
+		await this.settleWhere( ( { files } ) =>
+			files.some( ( file ) => texts.some( ( text ) => namesFile( text, file ) ) )
 		);
 	}
 
@@ -63,17 +65,20 @@ export class PendingWork {
 	async settleFilesUnder( folder: string ): Promise< void > {
 		await this.outer?.settleFilesUnder( folder );
 		const within = realPath( folder ) + path.sep;
+		await this.settleWhere( ( { files, folder: filesFolder } ) =>
+			files
+				.map( ( file ) => path.resolve( filesFolder ?? '', file ) )
+				.some( ( file ) =>
+					path.join( realPath( path.dirname( file ) ), path.basename( file ) ).startsWith( within )
+				)
+		);
+	}
+
+	// Waits for the running work whose files `writes` picks.
+	private async settleWhere( writes: ( written: Written ) => boolean ): Promise< void > {
 		await Promise.all(
 			[ ...this.running ]
-				.filter( ( [ , { files, folder: filesFolder } ] ) =>
-					files
-						.map( ( file ) => path.resolve( filesFolder ?? '', file ) )
-						.some( ( file ) =>
-							path
-								.join( realPath( path.dirname( file ) ), path.basename( file ) )
-								.startsWith( within )
-						)
-				)
+				.filter( ( [ , written ] ) => writes( written ) )
 				.map( ( [ work ] ) => work )
 		);
 	}

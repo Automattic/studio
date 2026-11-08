@@ -87,6 +87,10 @@ const serverKey = ( server: McpServerSpec ) =>
 		server.env,
 	] );
 
+// Whether a server that did not answer is still left out.
+const leftOut = ( server: McpServerSpec ) =>
+	( failedUntil.get( serverKey( server ) ) ?? 0 ) > Date.now();
+
 // The lists are kept in a file so a new process (the Studio app starts one
 // per message) serves a server's tools without waiting for it to answer.
 // They are keyed by a hash, since a server's key holds its credentials.
@@ -182,7 +186,7 @@ async function toolsOf( server: McpServerSpec ): Promise< ListedTool[] > {
 export function prepareMcpServers( remoteHosts: Record< string, RemoteHost > ): void {
 	void readMcpServers( remoteHosts ).then( ( servers ) =>
 		servers
-			.filter( ( server ) => ( failedUntil.get( serverKey( server ) ) ?? 0 ) <= Date.now() )
+			.filter( ( server ) => ! leftOut( server ) )
 			.forEach( ( server ) => listTools( server ).catch( () => undefined ) )
 	);
 }
@@ -259,8 +263,7 @@ export async function createMcpTools(
 ): Promise< McpTool[] > {
 	const lists = await Promise.all(
 		servers.map( async ( server ) => {
-			const key = serverKey( server );
-			if ( ( failedUntil.get( key ) ?? 0 ) > Date.now() ) {
+			if ( leftOut( server ) ) {
 				return [];
 			}
 			try {

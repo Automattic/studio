@@ -104,8 +104,7 @@ function active(): Theme | undefined {
 export const theme = {
 	fg: ( color: Parameters< Theme[ 'fg' ] >[ 0 ], text: string ) =>
 		active()?.fg( color, text ) ?? text,
-	bg: ( color: Parameters< Theme[ 'bg' ] >[ 0 ], text: string ) =>
-		active()?.bg( color, text ) ?? text,
+	bg: ( color: Background, text: string ) => active()?.bg( color, text ) ?? text,
 	bold: ( text: string ) => active()?.bold( text ) ?? text,
 	italic: ( text: string ) => active()?.italic( text ) ?? text,
 	underline: ( text: string ) => active()?.underline( text ) ?? text,

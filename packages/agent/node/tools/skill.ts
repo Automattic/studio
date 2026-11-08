@@ -1,6 +1,7 @@
 import { Type } from 'typebox';
 import { findSkill, loadSkillCatalog, type Skill } from '@studio/agent/node/skills';
 import { defineTool, READ_ONLY, type StudioToolDefinition } from './define-tool';
+import { textResult } from './utils';
 
 export function renderSkill( name: string ): string {
 	const skill = findSkill( name );
@@ -41,17 +42,11 @@ export function createSkillTool( onLoad?: ( skill: Skill ) => void ): StudioTool
 			const text = renderSkill( args.name );
 			const skill = findSkill( args.name );
 			if ( skill ) onLoad?.( skill );
-			return {
-				content: [
-					{
-						type: 'text' as const,
-						text:
-							skill && skill.tools.length > 0
-								? `${ text }\n\nNow available: ${ skill.tools.join( ', ' ) }.`
-								: text,
-					},
-				],
-			};
+			return textResult(
+				skill && skill.tools.length > 0
+					? `${ text }\n\nNow available: ${ skill.tools.join( ', ' ) }.`
+					: text
+			);
 		},
 		{ annotations: READ_ONLY }
 	);

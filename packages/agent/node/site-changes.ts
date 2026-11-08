@@ -268,9 +268,15 @@ export class SiteChanges {
 				if ( elsewhere( site, report ) ) {
 					continue;
 				}
-				summaries.push( ...( report.summary ? [ report.summary ] : [] ) );
-				problems.push( ...( report.problem && ! report.atTurnEnd ? [ report.problem ] : [] ) );
-				written.push( ...( report.written ? [ report.written ] : [] ) );
+				if ( report.summary ) {
+					summaries.push( report.summary );
+				}
+				if ( report.problem && ! report.atTurnEnd ) {
+					problems.push( report.problem );
+				}
+				if ( report.written ) {
+					written.push( report.written );
+				}
 			}
 		} );
 		return { summaries, problems, written };

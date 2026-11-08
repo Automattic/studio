@@ -40,6 +40,9 @@ export async function rendersPageContent(
 	template: string,
 	themeDirs: string[]
 ): Promise< boolean | undefined > {
+	if ( POST_CONTENT.test( template ) ) {
+		return true;
+	}
 	const slugs = [ ...template.matchAll( PATTERN ) ].map( ( match ) => {
 		try {
 			return String( JSON.parse( match[ 1 ] ).slug ?? '' );
@@ -47,9 +50,6 @@ export async function rendersPageContent(
 			return '';
 		}
 	} );
-	if ( POST_CONTENT.test( template ) ) {
-		return true;
-	}
 	const patterns = new Map< string, string >();
 	for ( const dir of [ ...themeDirs ].reverse() ) {
 		for ( const [ slug, content ] of await themePatterns( dir ) ) {

@@ -17,7 +17,7 @@
 import path from 'path';
 import { readWordPressSite, type WordPressSite } from '@studio/agent/node/site-database';
 import { siteMarkup, type Markup } from '@studio/agent/node/site-markup';
-import { themesDir } from '@studio/agent/node/themes';
+import { activeThemes, themesDir } from '@studio/agent/node/themes';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
 const NAVIGATION = /<!--\s*wp:navigation\s+(\{.*?\})\s*(\/)?-->/g;
@@ -110,16 +110,16 @@ export const navigationRefs: SiteChangeSource = {
 	name: 'navigation refs',
 	async read( sitePath ) {
 		return readWordPressSite( sitePath, async ( site ) => {
-			const themes = [
-				...new Set( [ site.option( 'template' ), site.option( 'stylesheet' ) ] ),
-			].filter( ( theme ): theme is string => typeof theme === 'string' && theme !== '' );
 			const markup = [
+				// The parent theme first.
 				...( await Promise.all(
-					themes.map( ( theme ) =>
-						siteMarkup( sitePath, themesDir( sitePath, theme ), {
-							posts: false,
-						} )
-					)
+					activeThemes( site )
+						.reverse()
+						.map( ( theme ) =>
+							siteMarkup( sitePath, themesDir( sitePath, theme ), {
+								posts: false,
+							} )
+						)
 				) ),
 				await siteMarkup( sitePath, undefined, { holding: '%wp:navigation {%' } ),
 			].flat();

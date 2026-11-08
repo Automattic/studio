@@ -1,6 +1,6 @@
 import { Type } from 'typebox';
 import { defineTool, READ_ONLY } from './define-tool';
-import { textResult } from './utils';
+import { failsAs, textResult } from './utils';
 
 export const getSiteInfoTool = defineTool(
 	'site_info',
@@ -8,16 +8,11 @@ export const getSiteInfoTool = defineTool(
 	{
 		nameOrPath: Type.String( { description: 'The site name or file system path to the site' } ),
 	},
-	async ( args, context ) => {
-		try {
+	( args, context ) =>
+		failsAs( 'Failed to get site info', async () => {
 			const site = await context.host.sites.resolve( args.nameOrPath );
 			return textResult( JSON.stringify( await context.host.sites.status( site ), null, 2 ) );
-		} catch ( error ) {
-			throw new Error(
-				`Failed to get site info: ${ error instanceof Error ? error.message : String( error ) }`
-			);
-		}
-	},
+		} ),
 	{
 		annotations: READ_ONLY,
 		reportsChecks: true,

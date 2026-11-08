@@ -87,7 +87,7 @@ async function scriptsWithoutAsset( dir: string, files: string[] ): Promise< str
 export const blockScriptAssets: SiteChangeSource = {
 	name: KEY,
 	saves: true,
-	read: ( sitePath ) => read( sitePath ),
+	read,
 	async check( site, before, after ) {
 		const written: string[] = [];
 		for ( const [ key, version ] of Object.entries( after ) ) {

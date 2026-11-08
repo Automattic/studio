@@ -626,9 +626,7 @@ export interface Connector {
 	// Fires when the user activates "File > Add Site…" (or its keyboard
 	// shortcut) in the application menu.
 	onAddSite(
-		listener: (
-			payload?: { backup?: { path: string; name: string } } | void
-		) => void
+		listener: ( payload?: { backup?: { path: string; name: string } } | void ) => void
 	): () => void;
 	onNewChat( listener: () => void ): () => void;
 	onOpenFolder( listener: () => void ): () => void;

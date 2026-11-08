@@ -926,10 +926,8 @@ export function createIpcConnector(): Connector {
 			const ipcListener = ( window as any ).ipcListener;
 			return ipcListener.subscribe(
 				'add-site',
-				(
-					_event: unknown,
-					payload?: { backup?: { path: string; name: string } }
-				) => listener( payload )
+				( _event: unknown, payload?: { backup?: { path: string; name: string } } ) =>
+					listener( payload )
 			);
 		},
 

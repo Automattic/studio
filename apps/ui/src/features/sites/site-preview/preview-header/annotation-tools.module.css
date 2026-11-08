@@ -9,6 +9,7 @@
 }
 
 .tools {
+	composes: floatingReveal from '@/lib/theme/recipes.module.css';
 	composes: floating padded from '@/lib/ui/surface/style.module.css';
 	--surface: var( --chat );
 	display: flex;
@@ -18,5 +19,4 @@
 	max-width: 100%;
 	height: auto;
 	border-radius: var( --radius-3xl );
-	pointer-events: auto;
 }

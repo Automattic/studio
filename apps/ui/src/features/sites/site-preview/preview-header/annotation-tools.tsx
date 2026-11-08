@@ -5,6 +5,7 @@ import { IconButton } from '@/lib/ui';
 import styles from './annotation-tools.module.css';
 
 export function AnnotationTools( {
+	visible,
 	drawing,
 	pending,
 	failed,
@@ -14,6 +15,7 @@ export function AnnotationTools( {
 	onRetry,
 	onDiscard,
 }: {
+	visible: boolean;
 	drawing: boolean;
 	pending: boolean;
 	failed: boolean;
@@ -25,7 +27,14 @@ export function AnnotationTools( {
 } ) {
 	return (
 		<div className={ styles.overlay }>
-			<div className={ styles.tools } role="group" aria-label={ __( 'Annotation tools' ) }>
+			<div
+				className={ styles.tools }
+				role="group"
+				aria-label={ __( 'Annotation tools' ) }
+				aria-hidden={ ! visible }
+				data-visible={ visible || undefined }
+				inert={ ! visible }
+			>
 				{ pageTools ? (
 					<>
 						<IconButton
@@ -37,6 +46,7 @@ export function AnnotationTools( {
 							aria-pressed={ ! drawing }
 							disabled={ disabled }
 							focusableWhenDisabled={ false }
+							tooltip={ visible }
 							tooltipSide="top"
 							onClick={ () => {
 								if ( drawing ) onToggle();
@@ -51,6 +61,7 @@ export function AnnotationTools( {
 							aria-pressed={ drawing }
 							disabled={ disabled }
 							focusableWhenDisabled={ false }
+							tooltip={ visible }
 							tooltipSide="top"
 							onClick={ onToggle }
 						/>
@@ -61,6 +72,7 @@ export function AnnotationTools( {
 								icon={ <RotateCcwIcon /> }
 								label={ __( 'Retry capture' ) }
 								disabled={ disabled }
+								tooltip={ visible }
 								onClick={ onRetry }
 								tooltipSide="top"
 							/>
@@ -75,6 +87,7 @@ export function AnnotationTools( {
 					label={ __( 'Discard annotations' ) }
 					disabled={ disabled }
 					focusableWhenDisabled={ false }
+					tooltip={ visible }
 					onClick={ onDiscard }
 					tooltipSide="top"
 				/>

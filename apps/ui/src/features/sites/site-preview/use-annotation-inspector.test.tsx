@@ -161,6 +161,8 @@ describe( 'annotation inspector navigation', () => {
 			actions.queryByRole( 'button', { name: 'Discard annotations' } )
 		).not.toBeInTheDocument();
 		const draw = drawButton();
+		const toolbar = screen.getByRole( 'group', { name: 'Annotation tools' } );
+		expect( toolbar ).not.toHaveAttribute( 'inert' );
 		expect( draw ).toHaveAttribute( 'aria-pressed', 'false' );
 		fireEvent.click( draw );
 		expect( draw ).toHaveAttribute( 'aria-pressed', 'true' );
@@ -175,6 +177,11 @@ describe( 'annotation inspector navigation', () => {
 		expect( annotate() ).toHaveAttribute( 'aria-pressed', 'false' );
 		expect( getSiteAnnotations( site.id ).active ).toBe( false );
 		expect( screen.queryByRole( 'group', { name: 'Annotation tools' } ) ).not.toBeInTheDocument();
+		expect( toolbar ).toBeInTheDocument();
+		expect( toolbar ).toHaveAttribute( 'inert' );
+		fireEvent.click( annotate() );
+		expect( screen.getByRole( 'group', { name: 'Annotation tools' } ) ).toBe( toolbar );
+		expect( toolbar ).not.toHaveAttribute( 'inert' );
 	} );
 
 	it( 'discards saved annotations and the current draft from the toolbar and turns annotation mode off', async () => {

@@ -656,14 +656,15 @@ function SitePreviewContent( {
 							) : null }
 						</div>
 					</SiteContextMenu>
-					{ ! inactive && ! collapsed && annotations.active && canAnnotate && annotate ? (
-						<AnnotationTools
-							{ ...annotationTools.controls }
-							pageTools={ activeSurfaceKey === 'site' }
-							disabled={ isAnnotationsBusy( annotations ) }
-							onDiscard={ discard }
-						/>
-					) : null }
+					<AnnotationTools
+						{ ...annotationTools.controls }
+						visible={
+							! inactive && ! collapsed && annotations.active && canAnnotate && !! annotate
+						}
+						pageTools={ activeSurfaceKey === 'site' }
+						disabled={ isAnnotationsBusy( annotations ) }
+						onDiscard={ discard }
+					/>
 					{ ! inactive && ! blank && canAnnotateSurface ? (
 						<AnnotationOverlay
 							siteId={ site.id }

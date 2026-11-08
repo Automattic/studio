@@ -44,6 +44,7 @@ export * from './rotate-ccw-icon';
 export * from './reset-tips-icon';
 export * from './whats-new-icon';
 export * from './send-icon';
+export * from './select-icon';
 export * from './share-icon';
 export * from './shuffle-icon';
 export * from './sidebar-icon';

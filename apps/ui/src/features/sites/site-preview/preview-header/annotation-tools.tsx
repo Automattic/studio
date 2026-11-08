@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
-import { MousePointer2Icon, RotateCcwIcon } from 'lucide-react';
-import { DrawIcon, TrashIcon } from '@/lib/icons';
+import { RotateCcwIcon } from 'lucide-react';
+import { DrawIcon, SelectIcon, TrashIcon } from '@/lib/icons';
 import { IconButton } from '@/lib/ui';
 import styles from './annotation-tools.module.css';
 
@@ -41,7 +41,7 @@ export function AnnotationTools( {
 							size="icon"
 							shape="round"
 							variant="accent-ghost"
-							icon={ <MousePointer2Icon /> }
+							icon={ <SelectIcon /> }
 							label={ __( 'Select' ) }
 							aria-pressed={ ! drawing }
 							disabled={ disabled }

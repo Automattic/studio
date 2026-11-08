@@ -508,10 +508,17 @@ function readInput(): EvalRunnerInput {
 }
 
 async function runEval( input: EvalRunnerInput ) {
+	// A site the agent creates becomes the active site of the turns after it,
+	// as the app makes it (selectSite in commands/ai).
+	let selectedSite: SiteInfo | undefined;
 	const agent = createAgent( {
-		host: input.ui
-			? { ...cliAgentHost, ui: { showArtifact: () => {}, reloadPreview: () => {} } }
-			: cliAgentHost,
+		host: {
+			...cliAgentHost,
+			...( input.ui ? { ui: { showArtifact: () => {}, reloadPreview: () => {} } } : {} ),
+			selectSite: ( site ) => {
+				selectedSite = site;
+			},
+		},
 	} );
 	// Mirrors the fallback in the agent runtime (packages/agent/node/runtime) — keep in sync.
 	const resolvedModel = input.model ?? DEFAULT_MODEL;
@@ -706,7 +713,7 @@ async function runEval( input: EvalRunnerInput ) {
 			prompt: turnPrompt,
 			env,
 			session,
-			activeSite: seeded?.activeSite,
+			activeSite: selectedSite ?? seeded?.activeSite,
 			onEvent: handleEvent,
 			onAskUser: scriptedUser?.onAskUser,
 			...( input.model ? { model: input.model } : {} ),

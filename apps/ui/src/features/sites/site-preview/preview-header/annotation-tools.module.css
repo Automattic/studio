@@ -1,11 +1,14 @@
 .overlay {
 	position: absolute;
 	inset-inline: var( --space-3 );
-	bottom: var( --space-4 );
+	bottom: 0;
 	z-index: var( --z-overlay );
 	display: flex;
 	justify-content: center;
+	padding-block: var( --space-4 );
 	pointer-events: none;
+	mask-image: linear-gradient( to top, transparent, var( --foreground ) var( --space-3 ) );
+	mask-mode: alpha;
 }
 
 .tools {
@@ -22,8 +25,9 @@
 	border-radius: var( --radius-3xl );
 	transform: translateY( calc( 50% + var( --space-4 ) + var( --space-2 ) ) ) scale( 0 );
 	transform-origin: center;
+	/* The mask handles the fade; opacity changes only after the toolbar leaves. */
 	transition:
-		opacity var( --motion-duration-surface ) ease-out var( --motion-duration-surface ),
+		opacity 0s linear var( --motion-duration-layout ),
 		transform var( --motion-duration-layout ) var( --motion-ease-layout ),
 		color var( --motion-duration-feedback ) ease,
 		background-color var( --motion-duration-feedback ) ease,
@@ -32,7 +36,12 @@
 
 .tools[data-visible] {
 	transform: translateY( 0 ) scale( 1 );
-	transition: var( --floating-reveal-transition );
+	transition:
+		opacity 0s,
+		transform var( --motion-duration-reveal ) var( --floating-reveal-easing ),
+		color var( --motion-duration-feedback ) ease,
+		background-color var( --motion-duration-feedback ) ease,
+		border-color var( --motion-duration-feedback ) ease;
 }
 
 @media ( prefers-reduced-motion: reduce ) {

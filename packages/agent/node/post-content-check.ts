@@ -10,6 +10,7 @@ import {
 	blockEditorOf,
 	describeCorrections,
 	describeEditorSave,
+	rendersAlikeOn,
 	sitePresetValues,
 	validateBlockMarkup,
 } from '@studio/agent/node/block-validation-gate';
@@ -228,7 +229,8 @@ async function validatePost(
 		label,
 		site.url,
 		await sitePresetValues( host, site.path ),
-		blockEditorOf( post )
+		blockEditorOf( post ),
+		rendersAlikeOn( host, site )
 	);
 	// Sentences of their own, after the one they follow.
 	const sentences = ( notes: string[] ) => ( notes.length ? `. ${ notes.join( ' ' ) }` : '' );

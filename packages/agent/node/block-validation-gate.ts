@@ -27,6 +27,7 @@ import {
 	type BlockEditor,
 	type PresetValues,
 	type PresetValuesResult,
+	type RendersAlike,
 	type ValidationReportBase,
 } from '@studio/agent/node/block-validator';
 import { boundedText } from '@studio/agent/node/bounded-list';
@@ -34,7 +35,8 @@ import { rewriteNotes } from '@studio/agent/node/file-rewrites';
 import { hash } from '@studio/agent/node/post-copies';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { themePresets } from '@studio/agent/node/theme-presets';
-import type { StudioAgentHost } from '@studio/agent/node/host';
+import { printedJson, wpEval } from '@studio/agent/node/tools/utils';
+import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { OpenProblems } from '@studio/agent/node/open-problems';
 
 const THEME_MARKUP =
@@ -339,7 +341,8 @@ const NO_PRESETS: PresetValues = { colors: [], fontSizes: [], spacingSizes: [] }
 export async function validateBlockMarkupFile(
 	filePath: string,
 	siteUrl: string,
-	presetValues: PresetValues = NO_PRESETS
+	presetValues: PresetValues = NO_PRESETS,
+	rendersAlike?: RendersAlike
 ): Promise< FileValidation > {
 	const label = filePath.split( path.sep ).slice( -2 ).join( '/' );
 	const content = await readFile( filePath, 'utf8' );
@@ -354,7 +357,8 @@ export async function validateBlockMarkupFile(
 		label,
 		siteUrl,
 		presetValues,
-		blockEditorOf( { file: filePath } )
+		blockEditorOf( { file: filePath } ),
+		rendersAlike
 	);
 	if ( result.fixedContent === undefined ) {
 		return { contentHash: hash( content ), summary: result.summary, problem: result.problem };
@@ -461,7 +465,8 @@ export async function validateBlockMarkup(
 	label: string,
 	siteUrl: string,
 	presetValues: PresetValues = NO_PRESETS,
-	editor: BlockEditor = 'post'
+	editor: BlockEditor = 'post',
+	rendersAlike?: RendersAlike
 ): Promise< MarkupValidation > {
 	// The editor's save of blocks parsed this way repeats what follows them,
 	// so nothing is saved for it.
@@ -477,7 +482,14 @@ export async function validateBlockMarkup(
 	}
 	const policy = await htmlPolicyProblem( content, label, siteUrl );
 	const unknown = unknownPresetsProblem( content, label, presetValues );
-	const result = await validateSavedMarkup( content, label, siteUrl, presetValues, editor );
+	const result = await validateSavedMarkup(
+		content,
+		label,
+		siteUrl,
+		presetValues,
+		editor,
+		rendersAlike
+	);
 	const problems = [ policy, unknown, result.problem ].filter( Boolean );
 	return policy || unknown
 		? {
@@ -600,12 +612,13 @@ async function validateSavedMarkup(
 	label: string,
 	siteUrl: string,
 	presetValues: PresetValues,
-	editor: BlockEditor
+	editor: BlockEditor,
+	rendersAlike?: RendersAlike
 ): Promise< MarkupValidation > {
 	// The editor's fix is saved without the comments between blocks, which it
 	// would otherwise count as Classic blocks it cannot fix.
 	const between = dropCommentsBetweenBlocks( content );
-	const report = await validateBlocks( between.content, siteUrl, editor );
+	const report = await validateBlocks( between.content, siteUrl, editor, rendersAlike );
 	if ( report.error ) {
 		return {
 			summary: `${ label }: not validated (${ report.error })`,
@@ -862,13 +875,38 @@ const themeOf = ( siteRoot: string, filePath: string ) =>
 		.join( '/' )
 		.match( /^wp-content\/themes\/([^/]+)\// )?.[ 1 ];
 
-function validateWithSite( host: StudioAgentHost ) {
-	return async ( filePath: string, siteRoot: string ): Promise< FileValidation > =>
-		validateBlockMarkupFile(
-			filePath,
-			( await host.sites.resolve( siteRoot ) ).url,
-			await sitePresetValues( host, siteRoot, themeOf( siteRoot, filePath ) )
+// What a visitor who is not logged in gets, as WP-CLI runs: do_blocks()
+// renders each block with render_block() (wp-includes/blocks.php).
+const RENDER = `echo 'RENDERED=' . wp_json_encode( array_map( function ( $markup ) {
+	return trim( preg_replace( '/\\s+/', ' ', do_blocks( $markup ) ) );
+}, $data ) );`;
+
+/**
+ * Whether each pair of block markup renders the same on the site, each side
+ * in a request of its own, as wp_unique_id() numbers the ids of each from 1.
+ * Markup that renders nothing shows nothing to compare.
+ */
+export function rendersAlikeOn( host: StudioAgentHost, site: HostSite ): RendersAlike {
+	const render = async ( markup: string[] ) =>
+		printedJson< string[] >( await wpEval( host, site, RENDER, markup ), 'RENDERED=' );
+	return async ( pairs ) => {
+		const [ written, fixed ] = await Promise.all(
+			[ 0, 1 ].map( ( side ) => render( pairs.map( ( pair ) => pair[ side ] ) ) )
 		);
+		return written.map( ( html, i ) => html !== '' && html === fixed[ i ] );
+	};
+}
+
+function validateWithSite( host: StudioAgentHost ) {
+	return async ( filePath: string, siteRoot: string ): Promise< FileValidation > => {
+		const site = await host.sites.resolve( siteRoot );
+		return validateBlockMarkupFile(
+			filePath,
+			site.url,
+			await sitePresetValues( host, siteRoot, themeOf( siteRoot, filePath ) ),
+			rendersAlikeOn( host, site )
+		);
+	};
 }
 
 /** A session's block validation, on the site each file belongs to. */

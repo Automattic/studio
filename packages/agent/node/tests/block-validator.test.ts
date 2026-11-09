@@ -1,8 +1,11 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { execFile } from 'child_process';
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
-import { afterAll, describe, expect, it } from 'vitest';
+import { promisify } from 'util';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+	rendersAlikeOn,
 	validateBlockMarkup,
 	validateBlockMarkupFile,
 } from '@studio/agent/node/block-validation-gate';
@@ -16,12 +19,15 @@ import {
 	validateBlocks,
 } from '@studio/agent/node/block-validator';
 import { getSharedBrowser } from '@studio/agent/node/browser-utils';
+import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 
 // Runs the site's own block editor, so it needs a running WordPress site:
 // STUDIO_BLOCK_EDITOR_URL=http://localhost:8881 npx vitest run block-validator
 const siteUrl = process.env.STUDIO_BLOCK_EDITOR_URL;
 // The same site's folder, for cases that add a plugin to it.
 const sitePath = process.env.STUDIO_BLOCK_EDITOR_PATH;
+// A WordPress install to render blocks on with WP-CLI's `wp`, as a copy.
+const wordpress = process.env.STUDIO_TEST_WORDPRESS;
 
 const group = ( attrs: string, inner: string ) =>
 	`<!-- wp:group ${ attrs } -->\n${ inner }\n<!-- /wp:group -->`;
@@ -530,10 +536,12 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			losses: [],
 		},
 		{
+			// The class shows a dim of 60, which the fix stores as the dimRatio
+			// its save names has-background-dim-60 from.
 			name: 'a class that shows the block otherwise',
 			written:
 				'<!-- wp:cover {"dimRatio":70,"overlayColor":"contrast","isUserOverlayColor":true} -->\n<div class="wp-block-cover"><span aria-hidden="true" class="wp-block-cover__background has-contrast-background-color has-background-dim-60 has-background-dim"></span><div class="wp-block-cover__inner-container"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div></div>\n<!-- /wp:cover -->',
-			losses: [ { place: '/0', lost: 'drop the classes has-background-dim-60' } ],
+			losses: [],
 		},
 		{
 			// Its save names no dim for 50, which has-background-dim shows.
@@ -600,6 +608,39 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			expect( report.proposedFix?.losses ).toEqual(
 				losses.map( ( loss ) => ( { ...loss, blockName: expect.any( String ) } ) )
 			);
+		},
+		60_000
+	);
+
+	// A cover's save names its dim rounded to tens (dimRatioToClass in
+	// cover/shared.js), so a dimRatio of 78 saves has-background-dim-80.
+	it.each( [
+		{
+			name: 'a dimRatio its save rounds past the class written',
+			written:
+				'<!-- wp:cover {"url":"https://example.com/a.jpg","id":16,"dimRatio":78,"overlayColor":"base","isUserOverlayColor":true} -->\n<div class="wp-block-cover"><img class="wp-block-cover__image-background wp-image-16" alt="" src="https://example.com/a.jpg" data-object-fit="cover"/><span aria-hidden="true" class="wp-block-cover__background has-base-background-color has-background-dim-70 has-background-dim"></span><div class="wp-block-cover__inner-container"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div></div>\n<!-- /wp:cover -->',
+			stored: [ '"dimRatio":70', 'has-background-dim-70 ', 'wp-image-16' ],
+		},
+		{
+			name: 'a dimRatio of a cover inside a group',
+			written: group(
+				'',
+				'<div class="wp-block-group"><!-- wp:cover {"dimRatio":30} -->\n<div class="wp-block-cover"><span aria-hidden="true" class="wp-block-cover__background has-background-dim-20 has-background-dim"></span><div class="wp-block-cover__inner-container"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div></div>\n<!-- /wp:cover --></div>'
+			),
+			stored: [ '"dimRatio":20', 'has-background-dim-20 ' ],
+		},
+	] )(
+		'stores the number a class names that its save names with another: $name',
+		async ( { written, stored } ) => {
+			const report = await validateBlocks( written, siteUrl! );
+			expect( report.invalidBlocks ).toBeGreaterThan( 0 );
+			expect( report.proposedFix?.losses ).toEqual( [] );
+			for ( const part of stored ) {
+				expect( report.proposedFix?.fixedContent ).toContain( part );
+			}
+			expect(
+				( await validateBlocks( report.proposedFix!.fixedContent, siteUrl! ) ).invalidBlocks
+			).toBe( 0 );
 		},
 		60_000
 	);
@@ -1186,6 +1227,100 @@ add_action( 'admin_init', function () {
 		}, 120_000 );
 	}
 );
+
+describe.runIf( siteUrl && wordpress )( 'a block WordPress renders on the server (live)', () => {
+	let site: HostSite;
+	const host = {
+		sites: {
+			wpCli: async ( { path: at }: HostSite, args: string[] ) => ( {
+				exitCode: 0,
+				...( await promisify( execFile )( 'wp', [ `--path=${ at }`, ...args ], {
+					maxBuffer: 1e8,
+				} ) ),
+			} ),
+		},
+	} as unknown as StudioAgentHost;
+	beforeAll( () => {
+		const root = mkdtempSync( path.join( os.tmpdir(), 'renders-alike-' ) );
+		cpSync( wordpress!, root, { recursive: true } );
+		site = { path: root, url: siteUrl!, name: 'Render' } as HostSite;
+	} );
+	afterAll( async () => {
+		rmSync( site.path, { recursive: true, force: true } );
+		await cleanupValidatorPages();
+	} );
+	const cover = ( attrs: string, before: string, classes: string ) =>
+		`<!-- wp:cover ${ attrs } -->\n<div class="wp-block-cover">${ before }<span aria-hidden="true" class="wp-block-cover__background ${ classes }"></span><div class="wp-block-cover__inner-container"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div></div>\n<!-- /wp:cover -->`;
+	const LATEST =
+		'<!-- wp:latest-posts {"postsToShow":3} -->\n<ul class="wp-block-latest-posts__list wp-block-latest-posts"><li><a class="wp-block-latest-posts__post-title" href="http://localhost:8881/?p=1">Hello world!</a></li></ul>\n<!-- /wp:latest-posts -->';
+
+	it.each( [
+		{
+			// render_block_core_latest_posts() renders the posts, not what is written.
+			name: 'a list of posts written out',
+			written: LATEST,
+			render: true,
+			lost: undefined,
+		},
+		{
+			name: 'a list of posts written out, with nothing to render it',
+			written: LATEST,
+			render: false,
+			lost: 'change the text',
+		},
+		{
+			// render_block_core_archives() renders the months the site has posts in.
+			name: 'a dropdown of months written out',
+			written:
+				'<!-- wp:archives {"displayAsDropdown":true} -->\n<div class="wp-block-archives-dropdown wp-block-archives"><select name="archive-dropdown"><option value="">Select Month</option><option value="x">May 2026</option></select></div>\n<!-- /wp:archives -->',
+			render: true,
+			lost: undefined,
+		},
+		{
+			// render_block_core_cover() renders what is written.
+			name: 'a class the render shows',
+			written: cover(
+				'{"dimRatio":50,"overlayColor":"contrast","isUserOverlayColor":true}',
+				'',
+				'has-contrast-background-color has-background-dim-50 studio-test-shade has-background-dim'
+			),
+			render: true,
+			lost: 'drop the classes studio-test-shade',
+		},
+		{
+			name: 'the options of a select the render shows',
+			written: cover(
+				'{"dimRatio":50,"overlayColor":"contrast","isUserOverlayColor":true}',
+				'<select name="size"><option>Small</option><option>Large</option></select>',
+				'has-contrast-background-color has-background-dim'
+			),
+			render: true,
+			lost: 'change the text',
+		},
+	] )(
+		'saves its fix when it renders as written: $name',
+		async ( { written, render, lost } ) => {
+			const result = await validateBlockMarkup(
+				written,
+				'page',
+				siteUrl!,
+				undefined,
+				'post',
+				render ? rendersAlikeOn( host, site ) : undefined
+			);
+			if ( lost ) {
+				expect( result.problem ).toContain( lost );
+				return;
+			}
+			expect( result.problem ).toBeUndefined();
+			expect( result.summary ).toBe( 'page: 1/1 blocks valid' );
+			expect( result.invalidBlocks ).toBe( 1 );
+			expect( result.fixedContent ).toMatch( /^<!-- wp:[a-z-]+ \{.*\} \/-->$/ );
+			expect( ( await validateBlocks( result.fixedContent!, siteUrl! ) ).invalidBlocks ).toBe( 0 );
+		},
+		120_000
+	);
+} );
 
 describe.runIf( siteUrl )( 'text written between the inner blocks of a container (live)', () => {
 	afterAll( cleanupValidatorPages );

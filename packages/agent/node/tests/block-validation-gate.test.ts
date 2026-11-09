@@ -313,7 +313,12 @@ describe( 'validating a file', () => {
 		const file = write( 'wp-content/themes/t/patterns/hello.php', header + original );
 		vi.mocked( validateBlocks ).mockResolvedValue( invalidWithFix( fixed ) );
 		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
-		expect( validateBlocks ).toHaveBeenCalledWith( original, 'http://localhost:8881', 'post' );
+		expect( validateBlocks ).toHaveBeenCalledWith(
+			original,
+			'http://localhost:8881',
+			'post',
+			undefined
+		);
 		expect( result.fixedContent ).toBe( header + fixed );
 	} );
 

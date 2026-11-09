@@ -147,9 +147,10 @@ export async function unregisteredInEditor(
 export async function validateBlocks(
 	content: string,
 	siteUrl: string,
-	editor: BlockEditor = 'post'
+	editor: BlockEditor = 'post',
+	rendersAlike?: RendersAlike
 ): Promise< ValidationReport > {
-	const report = await validateAsWritten( content, siteUrl, editor );
+	const report = await validateAsWritten( content, siteUrl, editor, rendersAlike );
 	// The fix with the text written beside inner blocks in core/html blocks
 	// stands when it fixes every block and loses nothing. core/html renders
 	// it as written (no render callback in wp-includes/blocks/html), and its
@@ -177,17 +178,34 @@ export async function validateBlocks(
 	return report;
 }
 
+/**
+ * Whether each pair of block markup, `[ as stored, with the editor's fix ]`,
+ * renders the same on the site's server.
+ */
+export type RendersAlike = ( pairs: Array< [ string, string ] > ) => Promise< boolean[] >;
+
+// A block WordPress renders on the server is shown to visitors as its render
+// callback renders it (render_block() in wp-includes/class-wp-block.php), so
+// the fix of one that renders as it is stored loses nothing: `alike`, those
+// places, validated again without their losses.
 async function validateAsWritten(
 	content: string,
 	siteUrl: string,
-	editor: BlockEditor
+	editor: BlockEditor,
+	rendersAlike?: RendersAlike,
+	alike: string[] = []
 ): Promise< ValidationReport > {
 	try {
-		return await withEditor( siteUrl, blockNames( content ), editor, async ( page ) => {
+		const evaluated = await withEditor( siteUrl, blockNames( content ), editor, async ( page ) => {
 			// What the editor threw beside the content, for a block it did not register.
-			const input = [ content, getEditorPage( siteUrl, editor ).loadErrors ] as const;
+			const input = [
+				content,
+				getEditorPage( siteUrl, editor ).loadErrors,
+				!! rendersAlike,
+				alike,
+			] as const;
 
-			const evaluation = page.evaluate( async ( [ html, thrown ] ) => {
+			const evaluation = page.evaluate( async ( [ html, thrown, judgeRenders, renderAlike ] ) => {
 				/* eslint-disable @typescript-eslint/no-explicit-any */
 				const wpBlocks = ( window as any ).wp?.blocks;
 				if ( ! wpBlocks ) {
@@ -209,6 +227,12 @@ async function validateAsWritten(
 				const serverRendered = new Set< string >();
 				const branch = /\bbranch-(\d+)-(\d+)\b/.exec( document.body.className );
 				const apiFetch = ( window as any ).wp?.apiFetch;
+				const typeOf = ( name: string ): Promise< any > =>
+					typeof apiFetch === 'function'
+						? apiFetch( { path: `/wp/v2/block-types/${ name }?context=edit` } ).catch(
+								() => undefined
+						  )
+						: Promise.resolve( undefined );
 				if ( branch && Number( branch[ 1 ] ) >= 7 && typeof apiFetch === 'function' ) {
 					const missing = new Set< string >();
 					const collect = ( list: any[] ) =>
@@ -221,13 +245,11 @@ async function validateAsWritten(
 					collect( wpBlocks.parse( html ) );
 					await Promise.all(
 						[ ...missing ].map( ( name ) =>
-							apiFetch( { path: `/wp/v2/block-types/${ name }?context=edit` } )
-								.then( ( type: any ) => {
-									if ( type?.is_dynamic && ! type.supports?.autoRegister ) {
-										serverRendered.add( name );
-									}
-								} )
-								.catch( () => undefined )
+							typeOf( name ).then( ( type: any ) => {
+								if ( type?.is_dynamic && ! type.supports?.autoRegister ) {
+									serverRendered.add( name );
+								}
+							} )
 						)
 					);
 				}
@@ -1164,13 +1186,13 @@ async function validateAsWritten(
 						? block
 						: normalizeBlock( block, initial.rawBlocks[ named++ ] )
 				);
-				const fixedContent = wpBlocks.serialize( fixedBlocks );
+				let fixedContent = wpBlocks.serialize( fixedBlocks );
 
 				if ( fixedContent === html ) {
 					return { report: initial.report };
 				}
 
-				const fixed = validateContent( fixedContent );
+				let fixed = validateContent( fixedContent );
 
 				// A block's own markup, without its inner blocks: its classes, inline
 				// style declarations and text, as the browser reads them.
@@ -1397,6 +1419,7 @@ async function validateAsWritten(
 				// has-background-dim-50, are set on that element in place of the
 				// classes the fix gives it, and kept when nothing the block's elements
 				// compute changes.
+				const numbered = ( name: string ) => name.replace( /\d+/g, '#' );
 				async function renderedAlready( lossy: any[] ) {
 					const kept = new Map< string, Set< string > >();
 					const outermost = [
@@ -1585,7 +1608,6 @@ async function validateAsWritten(
 								// nothing here, but may on the site's pages or to a script, so it
 								// is kept only when the fix saves it with another number, as a
 								// cover's save names its dim rounded to tens (cover/shared.js).
-								const numbered = ( name: string ) => name.replace( /\d+/g, '#' );
 								const swap = added.filter( ( name: string ) =>
 									matches[ 0 ].classList.contains( name )
 								);
@@ -1726,7 +1748,72 @@ async function validateAsWritten(
 						: null;
 				}
 
-				const found = losses( initial.blocks, fixed.blocks );
+				// A class the fix drops for one it saves with another number, as a
+				// cover written with has-background-dim-70 and a dimRatio of 78, which
+				// its save names has-background-dim-80 (dimRatioToClass rounds to tens,
+				// cover/shared.js), holds the value the block shows: the block is made
+				// again with each number in it as each number its comment sets, and
+				// the first that loses nothing is the fix.
+				function renumber( loss: any ): boolean {
+					const dropped = loss.classesOn.flatMap( ( { gone, added }: any ) =>
+						gone.filter(
+							( name: string ) =>
+								/\d/.test( name ) &&
+								added.some( ( saved: string ) => numbered( saved ) === numbered( name ) )
+						)
+					);
+					if ( ! dropped.length ) {
+						return false;
+					}
+					const fix = blockAt( fixed.blocks, loss.place );
+					const attributes = wpBlocks.getBlockType( fix.name )?.attributes ?? {};
+					const keys = Object.keys( initial.written.get( loss.place )?.attrs ?? {} ).filter(
+						( key ) => attributes[ key ] && kindOf( attributes[ key ] ) === 'number'
+					);
+					const at = loss.place.lastIndexOf( '/' );
+					const siblings = at
+						? blockAt( fixed.blocks, loss.place.slice( 0, at ) ).innerBlocks
+						: fixed.blocks;
+					const index = Number( loss.place.slice( at + 1 ) );
+					for ( const value of new Set< string >( dropped.join( ' ' ).match( /\d+/g ) ) ) {
+						for ( const key of keys.filter(
+							( one ) => fix.attributes[ one ] !== Number( value )
+						) ) {
+							try {
+								siblings[ index ] = wpBlocks.parse(
+									wpBlocks.serialize( [
+										wpBlocks.createBlock(
+											fix.name,
+											{ ...fix.attributes, [ key ]: Number( value ) },
+											fix.innerBlocks
+										),
+									] )
+								)[ 0 ];
+								const parent = at
+									? blockAt( initial.blocks, loss.place.slice( 0, at ) ).innerBlocks
+									: initial.blocks;
+								if (
+									siblings[ index ]?.isValid &&
+									! losses( parent, siblings, loss.place.slice( 0, at ) ).some(
+										( one ) => one.place === loss.place
+									)
+								) {
+									return true;
+								}
+							} catch {
+								// The next value.
+							}
+						}
+					}
+					siblings[ index ] = fix;
+					return false;
+				}
+				let found = losses( initial.blocks, fixed.blocks );
+				if ( found.map( renumber ).includes( true ) ) {
+					fixedContent = wpBlocks.serialize( fixed.blocks );
+					fixed = validateContent( fixedContent );
+					found = losses( initial.blocks, fixed.blocks );
+				}
 				const rendering = await renderedAlready(
 					found.filter( ( loss ) => loss.onRoot.length || loss.classesOn.length )
 				);
@@ -1762,7 +1849,7 @@ async function validateAsWritten(
 								.join( ' and ' ),
 						};
 					} )
-					.filter( ( loss ) => loss.lost );
+					.filter( ( loss ) => loss.lost && ! renderAlike.includes( loss.place ) );
 				const lossy = new Set( lossList.map( ( loss: any ) => loss.place ) );
 				function lossless(
 					fixes: any[],
@@ -1787,6 +1874,20 @@ async function validateAsWritten(
 						};
 					} );
 				}
+				// Each lossy block WordPress renders on the server, as stored and with
+				// its fix, for the caller to render.
+				const dynamic = judgeRenders
+					? await Promise.all( lossList.map( ( loss ) => typeOf( loss.blockName ) ) )
+					: [];
+				const rendered = lossList
+					.filter( ( _loss, i ) => dynamic[ i ]?.is_dynamic )
+					.map( ( { place } ) => {
+						const written = wpBlocks.serialize( [ blockAt( lossless( fixed.blocks ), place ) ] );
+						lossy.delete( place );
+						const fix = wpBlocks.serialize( [ blockAt( lossless( fixed.blocks ), place ) ] );
+						lossy.add( place );
+						return { place, written, fixed: fix };
+					} );
 				const losslessContent = lossList.length
 					? wpBlocks.serialize( lossless( fixed.blocks ) )
 					: fixedContent;
@@ -1890,6 +1991,7 @@ async function validateAsWritten(
 						losses: lossList,
 						...( liftedFrom.length && { lift: { content: liftedContent, from: liftedFrom } } ),
 					},
+					rendered,
 				};
 				/* eslint-enable @typescript-eslint/no-explicit-any */
 			}, input );
@@ -1905,8 +2007,18 @@ async function validateAsWritten(
 				report.proposedFix = { ...validation.proposedFix };
 			}
 
-			return report;
+			return { report, rendered: validation.rendered ?? [] };
 		} );
+		const { report, rendered } = evaluated;
+		const same = rendered.length
+			? await rendersAlike!( rendered.map( ( one ) => [ one.written, one.fixed ] ) ).catch(
+					() => []
+			  )
+			: [];
+		const places = rendered.filter( ( _one, i ) => same[ i ] ).map( ( one ) => one.place );
+		return places.length
+			? validateAsWritten( content, siteUrl, editor, undefined, places )
+			: report;
 	} catch ( error ) {
 		// If navigation or evaluation failed, the next call loads the editor again.
 		await getEditorPage( siteUrl, editor ).replace();

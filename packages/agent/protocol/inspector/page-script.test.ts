@@ -104,12 +104,13 @@ describe( 'annotation inspector', () => {
 		[ 20, 30, 220, 130 ],
 		[ 220, 130, 20, 30 ],
 	] )(
-		'selects a rectangle from (%s, %s) to (%s, %s) without picking an element',
+		'keeps a rectangle from (%s, %s) to (%s, %s) when preview focus releases capture',
 		( x, y, endX, endY ) => {
 			document.body.innerHTML = '<h1>Welcome</h1><p>Other content</p>';
 			const events = mount();
 			publish( { active: true, areaSelection: true } );
 			pointer( document.body, 'pointerdown', x, y );
+			pointer( document.documentElement, 'lostpointercapture', x, y );
 			pointer( document.documentElement, 'pointermove', endX, endY );
 			pointer( document.documentElement, 'pointerup', endX, endY );
 			document.body.click();

@@ -59,6 +59,19 @@ describe( 'annotation region capture', () => {
 			dataBase64: Buffer.from( 'png' ).toString( 'base64' ),
 		} );
 	} );
+	it( 'escapes page data in every capture script without changing its value', async () => {
+		const id = '</script>"\\\u2028\u2029';
+		await captureAnnotationRegion( event, {
+			guestId: 7,
+			selection: { ...selection, id },
+		} );
+		for ( const [ script ] of guest.executeJavaScript.mock.calls ) {
+			const literal = /const expected = (.+);/.exec( script )?.[ 1 ];
+			expect( literal ).toBeDefined();
+			expect( literal ).not.toMatch( /[<>\u2028\u2029]/ );
+			expect( JSON.parse( literal! ) ).toMatchObject( { id, url: selection.target.url } );
+		}
+	} );
 	it( 'rejects a guest owned by another window', async () => {
 		guest.hostWebContents = {};
 		await expect( captureAnnotationRegion( event, { guestId: 7, selection } ) ).rejects.toThrow(

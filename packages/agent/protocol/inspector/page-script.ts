@@ -423,7 +423,11 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 	}
 	document.addEventListener('pointercancel', cancelGesture, { capture: true, signal: abort.signal });
 	document.addEventListener('lostpointercapture', (e) => {
-		if (e.target === document.documentElement) cancelGesture(e);
+		if (!gesture || gesture.pointerId !== e.pointerId || e.target !== document.documentElement) return;
+		// Focusing an Electron guest can release capture while the pointer is still down.
+		try {
+			if (!document.documentElement.hasPointerCapture(e.pointerId)) document.documentElement.setPointerCapture(e.pointerId);
+		} catch {}
 	}, { capture: true, signal: abort.signal });
 	window.addEventListener('blur', cancelGesture, { signal: abort.signal });
 	const stopScroll = (e) => {

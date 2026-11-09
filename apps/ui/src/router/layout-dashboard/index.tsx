@@ -216,14 +216,14 @@ function DashboardLayout() {
 		narrow,
 	} );
 	const panelExpanded = showPanel && ( ! narrow || chatHidden );
-	const showFullView =
-		showPanel && ( chatHidden || !! liveUrl || !! previewSite?.running || previewStarting );
+	const showFullView = showPanel;
 	const [ tabHeader, setTabHeader ] = useState< HTMLDivElement | null >( null );
 	useLayoutEffect( () => {
 		if ( ! tabHeader ) return;
 		const lead = tabHeader.querySelector< HTMLElement >( '[data-site-header-reserved]' );
-		const actions = tabHeader.querySelector< HTMLElement >( '[data-site-header-actions]' );
-		if ( ! lead || ! actions ) return;
+		const actions = tabHeader.querySelector< HTMLElement >( '[data-site-header-delivery]' );
+		const actionsContainer = tabHeader.querySelector< HTMLElement >( '[data-site-header-actions]' );
+		if ( ! lead || ! actions || ! actionsContainer ) return;
 		const measure = () => {
 			const box = tabHeader.getBoundingClientRect();
 			const title = lead.getBoundingClientRect();
@@ -234,7 +234,8 @@ function DashboardLayout() {
 				'--tabs-lead-width',
 				`${ ( isRTL() ? box.right - title.left : title.right - box.left ) + gap }px`
 			);
-			tabHeader.style.setProperty( '--tabs-actions-width', `${ buttons.width + gap }px` );
+			const inset = Number.parseFloat( getComputedStyle( actionsContainer ).paddingInlineEnd ) || 0;
+			tabHeader.style.setProperty( '--tabs-actions-width', `${ buttons.width + inset + gap }px` );
 		};
 		const observer = new ResizeObserver( measure );
 		observer.observe( lead );

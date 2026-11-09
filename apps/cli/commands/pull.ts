@@ -12,6 +12,7 @@ import {
 } from '@studio/common/lib/connected-sites';
 import { encodePassword } from '@studio/common/lib/passwords';
 import { buildSyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
+import { formatRemoteEnvironment } from '@studio/common/lib/sync/remote-environment';
 import { PullCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import chalk from 'chalk';
@@ -315,6 +316,9 @@ async function pullSite(
 	run.remoteSite = sourceSite.wpComSite;
 	run.failurePhase = 'remote_backup';
 	run.preview = await findPreview( sourceSite );
+	const environmentMessage = run.preview
+		? __( 'Source is a temporary preview site.' )
+		: formatRemoteEnvironment( sourceSite.wpComSite );
 	const exporter = await enableReprintExporter(
 		sourceSite.wpComSite.id,
 		sourceSite.wpComToken.accessToken,
@@ -350,6 +354,7 @@ async function pullSite(
 		console.log( `Pulling "${ site.name }" from ${ normalizedRemoteUrl }` );
 	}
 	console.log( `Technical directory: ${ studioMetadata.technicalSiteDirectory }` );
+	console.log( environmentMessage );
 	console.log( `Site directory: ${ studioMetadata.sitePath }` );
 	console.log( '' );
 
@@ -480,6 +485,7 @@ async function pullSite(
 			run.completed = true;
 			console.log( '' );
 			console.log( `Site "${ site.name }" pulled successfully.` );
+			console.log( environmentMessage );
 			console.log( '' );
 			if ( studioMetadata.localUrl ) {
 				printSiteUrls( studioMetadata.localUrl );

@@ -16,6 +16,7 @@ import {
 	SYNC_PUSH_SIZE_LIMIT_BYTES,
 	SYNC_PUSH_SIZE_LIMIT_GB,
 } from '@studio/common/lib/sync/constants';
+import { formatRemoteEnvironment } from '@studio/common/lib/sync/remote-environment';
 import { createTusUpload } from '@studio/common/lib/sync/tus-upload';
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { SyncOption } from '@studio/common/types/sync';
@@ -398,7 +399,11 @@ async function runPush(
 		}
 
 		logger.reportSuccess(
-			sprintf( __( 'Successfully pushed to %1$s (%2$s)' ), remoteSite.name, remoteSite.url )
+			`${ sprintf(
+				__( 'Successfully pushed to %1$s (%2$s)' ),
+				remoteSite.name,
+				remoteSite.url
+			) }\n${ formatRemoteEnvironment( remoteSite ) }`
 		);
 		pushed.completed = true;
 	} finally {

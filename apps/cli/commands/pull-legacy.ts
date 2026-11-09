@@ -17,6 +17,7 @@ import {
 	SYNC_PUSH_SIZE_LIMIT_BYTES,
 	SYNC_PUSH_SIZE_LIMIT_GB,
 } from '@studio/common/lib/sync/constants';
+import { formatRemoteEnvironment } from '@studio/common/lib/sync/remote-environment';
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { clearSiteLatestCliPid, getSiteByFolder } from 'cli/lib/cli-config/sites';
@@ -241,7 +242,11 @@ export async function runCommand(
 
 			pullCompleted = true;
 			logger.reportSuccess(
-				sprintf( __( 'Pulled from %1$s (%2$s)' ), remoteSite.name, remoteSite.url )
+				`${ sprintf(
+					__( 'Pulled from %1$s (%2$s)' ),
+					remoteSite.name,
+					remoteSite.url
+				) }\n${ formatRemoteEnvironment( remoteSite ) }`
 			);
 		} finally {
 			fs.rmSync( tempDir, { recursive: true, force: true } );

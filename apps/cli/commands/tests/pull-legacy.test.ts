@@ -100,6 +100,24 @@ describe( 'CLI: studio pull', () => {
 		}
 	);
 
+	it( 'reports the remote environment in a completed backup pull', async () => {
+		const destination = {
+			...remoteSite,
+			name: 'Live',
+			url: 'https://example.wpcomstaging.com',
+			isStaging: false,
+			environmentType: 'production',
+		};
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ destination ] );
+		const messages: string[] = [];
+		const logger = new Logger< never >( { onProgress: ( message ) => messages.push( message ) } );
+		await runCommand( site.path, [ 'all' ], String( destination.id ), undefined, logger );
+		expect( messages.at( -1 ) ).toContain( destination.url );
+		expect( messages.at( -1 ) ).toContain(
+			'Remote environment: {"isStaging":false,"environmentType":"production"}'
+		);
+	} );
+
 	it.each( [
 		[ 'warns and continues without asking when nobody can answer', undefined, true ],
 		[ 'stops when the user declines', async () => false, false ],

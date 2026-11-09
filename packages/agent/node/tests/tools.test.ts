@@ -25,7 +25,7 @@ import {
 import { enrichPreviewListOutput } from '@studio/agent/node/tools/list-previews';
 import { createTakeScreenshotTool } from '@studio/agent/node/tools/take-screenshot';
 import { splitCommandArgs } from '@studio/agent/node/tools/wp-cli';
-import { createFakeHost, fakeSite } from './fake-host';
+import { createFakeHost, fakeRemoteSite, fakeSite } from './fake-host';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 
 vi.mock( '@studio/agent/node/block-validator', () => ( {
@@ -656,6 +656,44 @@ describe( 'Studio AI MCP tools', () => {
 			},
 		] );
 	} );
+
+	it.each( [
+		{ isStaging: false, environmentType: 'production', isPressable: false },
+		{ isStaging: true, environmentType: 'production', isPressable: false },
+		{ isStaging: false, environmentType: 'development', isPressable: true },
+		{ isStaging: false, environmentType: null, isPressable: true },
+	] )( 'preserves remote environment metadata in sync results: %j', async ( environment ) => {
+		const remote = { ...fakeRemoteSite, ...environment, url: 'https://example.wpcomstaging.com' };
+		for ( const direction of [ 'push', 'pull' ] as const ) {
+			vi.mocked( host.sync[ direction ] ).mockResolvedValue( remote );
+			const result = await getTool( `site_${ direction }` ).rawHandler( {
+				nameOrPath: 'My Site',
+				remoteSite: remote.url,
+			} as never );
+			const text = getTextContent( result )!;
+			expect( text ).toContain( remote.url );
+			const metadata = text.match( /Remote environment: (\{.*\})/ );
+			expect( metadata, text ).not.toBeNull();
+			expect( JSON.parse( metadata![ 1 ] ) ).toEqual( {
+				isStaging: environment.isStaging,
+				environmentType: environment.environmentType,
+			} );
+		}
+	} );
+
+	it.each( [ 'push', 'pull' ] as const )(
+		'keeps a cancelled %s separate from remote completion',
+		async ( direction ) => {
+			vi.mocked( host.sync[ direction ] ).mockResolvedValue( undefined );
+			const result = await getTool( `site_${ direction }` ).rawHandler( {
+				nameOrPath: 'My Site',
+				remoteSite: 'https://example.wpcomstaging.com',
+			} as never );
+			expect( getTextContent( result ) ).toBe(
+				direction === 'push' ? 'Push cancelled.' : 'Pull cancelled.'
+			);
+		}
+	);
 
 	describe( 'site_list', () => {
 		beforeEach( () => {

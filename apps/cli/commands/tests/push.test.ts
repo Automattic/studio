@@ -8,6 +8,7 @@ import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { fetchSyncableSites, pollImportStatus } from 'cli/lib/sync-api';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
+import { Logger } from 'cli/logger';
 import { runCommand } from '../push';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { SiteData } from 'cli/lib/cli-config/core';
@@ -74,6 +75,27 @@ describe( 'CLI: studio push', () => {
 				export: async () => fs.writeFileSync( backupFile, 'archive' ),
 			} as never;
 		} );
+	} );
+
+	it( 'reports production metadata when the push destination has a wpcomstaging.com address', async () => {
+		const destination = {
+			...remoteSite,
+			url: 'https://example.wpcomstaging.com',
+			isStaging: false,
+			environmentType: 'production',
+		};
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ destination ] );
+		vi.mocked( pollImportStatus ).mockResolvedValue( {
+			success: true,
+			status: 'finished',
+		} as never );
+		const messages: string[] = [];
+		const logger = new Logger< never >( { onProgress: ( message ) => messages.push( message ) } );
+		await runCommand( site.path, [ 'all' ], String( destination.id ), logger );
+		expect( messages.at( -1 ) ).toContain( destination.url );
+		expect( messages.at( -1 ) ).toContain(
+			'Remote environment: {"isStaging":false,"environmentType":"production"}'
+		);
 	} );
 
 	// The phase gates cancelling a push, so every UI must see it move on.

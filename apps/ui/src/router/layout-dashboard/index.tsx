@@ -450,6 +450,7 @@ function DashboardLayout() {
 			<AccountPromptDialog
 				open={ providerPromptOpen }
 				onOpenChange={ setProviderPromptOpen }
+				illustration="annotations"
 				title={ __( 'Put your feedback to work' ) }
 				description={ __(
 					'Connect an AI provider to turn your notes and ideas into changes to your site.'

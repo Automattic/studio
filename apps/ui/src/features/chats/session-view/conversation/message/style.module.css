@@ -71,6 +71,10 @@
 	color: var( --primary-foreground );
 }
 
+.userText:has( .userImageAttachment ) {
+	padding-inline: var( --space-2_5 );
+}
+
 .userTextBody {
 	white-space: pre-wrap;
 }

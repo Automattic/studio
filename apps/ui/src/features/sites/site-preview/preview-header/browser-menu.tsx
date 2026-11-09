@@ -28,11 +28,6 @@ interface BrowserMenuItemsProps {
 function BrowserMenuItems( { actions, adminBar, responsive, disabled }: BrowserMenuItemsProps ) {
 	return (
 		<>
-			{ responsive ? (
-				<Menu.Item disabled={ disabled || responsive.disabled } onClick={ responsive.onClick }>
-					{ responsive.active ? __( 'Hide device toolbar' ) : __( 'Show device toolbar' ) }
-				</Menu.Item>
-			) : null }
 			{ adminBar ? (
 				<Menu.Item
 					disabled={ disabled || adminBar.disabled }
@@ -41,8 +36,17 @@ function BrowserMenuItems( { actions, adminBar, responsive, disabled }: BrowserM
 					{ adminBar.value === 'show' ? __( 'Hide admin bar' ) : __( 'Show admin bar' ) }
 				</Menu.Item>
 			) : null }
+			{ responsive ? (
+				<Menu.Item disabled={ disabled || responsive.disabled } onClick={ responsive.onClick }>
+					{ responsive.active ? __( 'Hide device toolbar' ) : __( 'Show device toolbar' ) }
+				</Menu.Item>
+			) : null }
 			{ actions ? (
 				<>
+					<Menu.Item disabled={ disabled } onClick={ actions.onOpenDevTools }>
+						{ __( 'Developer tools' ) }
+					</Menu.Item>
+					<Menu.Separator />
 					<Menu.SubmenuRoot>
 						<Menu.SubmenuTrigger disabled={ disabled }>{ __( 'Appearance' ) }</Menu.SubmenuTrigger>
 						<Menu.SubmenuPopup>
@@ -58,10 +62,6 @@ function BrowserMenuItems( { actions, adminBar, responsive, disabled }: BrowserM
 							</Menu.RadioGroup>
 						</Menu.SubmenuPopup>
 					</Menu.SubmenuRoot>
-					<Menu.Separator />
-					<Menu.Item disabled={ disabled } onClick={ actions.onOpenDevTools }>
-						{ __( 'Developer tools' ) }
-					</Menu.Item>
 					<Menu.Separator />
 					<Menu.Item
 						disabled={ disabled || actions.clearing }

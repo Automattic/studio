@@ -449,7 +449,7 @@ describe( 'site preview controls', () => {
 
 	it( 'keeps the reloaded frame when Back or Forward follows a reload', async () => {
 		const { user } = await renderPreview( 'browser' );
-		await user.click( screen.getByRole( 'button', { name: 'Reload preview' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Reload' } ) );
 		const reloaded = page();
 		fireEvent.keyDown( document.body, { key: '[', ctrlKey: true } );
 		fireEvent.keyDown( document.body, { key: ']', ctrlKey: true } );
@@ -830,10 +830,10 @@ describe( 'preview browser menu', () => {
 		screen.getByRole( 'button', { name: 'Browser options' } ).focus();
 		await user.keyboard( '{ArrowDown}' );
 		expect( screen.getAllByRole( 'menuitem' ).map( ( item ) => item.textContent ) ).toEqual( [
-			'Show device toolbar',
 			'Show admin bar',
-			'Appearance',
+			'Show device toolbar',
 			'Developer tools',
+			'Appearance',
 			'Clear browsing data',
 		] );
 		await user.click( screen.getByRole( 'menuitem', { name: 'Developer tools' } ) );
@@ -848,7 +848,7 @@ describe( 'preview browser menu', () => {
 		expect( address().closest( 'form' ) ).not.toContainElement(
 			screen.getByRole( 'button', { name: 'Browser options' } )
 		);
-		await user.click( screen.getByRole( 'button', { name: 'Reload preview' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Reload' } ) );
 		await waitFor( () => expect( clearWebviewCache() ).toHaveBeenCalledWith( 42 ) );
 		expect( preview.reload ).toHaveBeenCalledOnce();
 		await user.click( screen.getByRole( 'button', { name: 'Open this page in your browser' } ) );

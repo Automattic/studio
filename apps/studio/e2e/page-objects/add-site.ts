@@ -1,5 +1,4 @@
 import { type Page, expect } from '@playwright/test';
-import { ACCEPTED_ADD_SITE_FILE_TYPES } from '@studio/common/constants';
 import Sidebar from './sidebar';
 
 export type CreateSiteOptions = {
@@ -25,16 +24,8 @@ export default class AddSite {
 		return this.dialog.getByTestId( 'create-site-submit' );
 	}
 
-	get backupFileInput() {
-		return this.dialog.locator(
-			`input[type="file"][accept="${ ACCEPTED_ADD_SITE_FILE_TYPES.join( ',' ) }"]`
-		);
-	}
-
-	get blueprintFileInput() {
-		return this.dialog.locator(
-			'input[type="file"][accept="application/json,.json,application/zip,.zip"]'
-		);
+	get fileInput() {
+		return this.dialog.locator( 'input[type="file"][accept*=".json"]' );
 	}
 
 	// Opens Add site: it opens by itself with no sites, from the sidebar's "Add site" otherwise.
@@ -49,21 +40,13 @@ export default class AddSite {
 		await expect( this.dialog ).toBeVisible();
 	}
 
-	async openAdvancedSettings() {
-		const toggle = this.dialog.getByRole( 'button', { name: 'Advanced settings' } );
-		if ( ( await toggle.getAttribute( 'aria-expanded' ) ) !== 'true' ) {
-			await toggle.click();
-		}
-	}
-
 	// Creates a site and resolves with its name once the dialog has closed on it.
 	async createSite( { siteName, pickFolder, blueprintPath }: CreateSiteOptions = {} ) {
 		await this.open();
 		// A Blueprint renames the site, so upload it before setting the name.
 		if ( blueprintPath ) {
-			await this.dialog.getByRole( 'tab', { name: 'Upload', exact: true } ).click();
-			await this.blueprintFileInput.setInputFiles( blueprintPath );
-			await expect( this.submitButton ).toHaveText( 'Create site from Blueprint' );
+			await this.dialog.getByRole( 'tab', { name: 'Import', exact: true } ).click();
+			await this.fileInput.setInputFiles( blueprintPath );
 		} else {
 			await this.dialog.getByRole( 'button', { name: 'Start with Blank site' } ).click();
 		}
@@ -71,18 +54,19 @@ export default class AddSite {
 		if ( siteName ) {
 			await this.siteNameInput.fill( siteName );
 		}
-		await expect( this.siteNameInput ).toHaveValue( /\S+/ );
-		const name = await this.siteNameInput.inputValue();
-
 		if ( pickFolder ) {
-			await this.openAdvancedSettings();
-			await this.dialog
-				.getByRole( 'button', { name: /select a different folder|Select a folder/ } )
-				.click();
-			await expect(
-				this.dialog.getByRole( 'button', { name: /select a different folder$/ } )
-			).toBeVisible();
+			const folder = this.dialog.getByRole( 'textbox', { name: 'Site folder' } );
+			const previousPath = await folder.getAttribute( 'title' );
+			await this.dialog.getByRole( 'button', { name: 'Change…', exact: true } ).click();
+			await expect( folder ).not.toHaveAttribute( 'title', previousPath ?? '' );
 		}
+
+		let name = await this.siteNameInput.inputValue();
+		if ( ! name ) {
+			await expect( this.siteNameInput ).toHaveAttribute( 'placeholder', /\S+/ );
+			name = ( await this.siteNameInput.getAttribute( 'placeholder' ) ) ?? '';
+		}
+		expect( name ).toMatch( /\S+/ );
 
 		await this.submitButton.click();
 		// The dialog closes on the navigation to the new site, which would also close
@@ -95,7 +79,7 @@ export default class AddSite {
 	async importSite( backupPath: string, siteName?: string ) {
 		await this.open();
 		await this.dialog.getByRole( 'tab', { name: 'Import', exact: true } ).click();
-		await this.backupFileInput.setInputFiles( backupPath );
+		await this.fileInput.setInputFiles( backupPath );
 		await expect( this.siteNameInput ).toBeVisible();
 		if ( siteName ) {
 			await this.siteNameInput.fill( siteName );

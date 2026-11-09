@@ -23,17 +23,19 @@ export function useSiteSelectionTime( siteId: string | undefined ): number | und
 	return current && current.siteId === siteId ? current.time : undefined;
 }
 
-export function useOpenSite() {
+export function useOpenSite( { animateSelection = true } = {} ) {
 	const navigate = useNavigate();
 	const connector = useConnector();
 	const { data: sessions } = useSessions();
 	const preview = useOptionalSessionPreviewUI();
 
 	return ( site: SiteDetails ) => {
-		selection = { siteId: site.id, time: performance.now() };
-		selectionListeners.forEach( ( listener ) => listener() );
+		if ( animateSelection ) {
+			selection = { siteId: site.id, time: performance.now() };
+			selectionListeners.forEach( ( listener ) => listener() );
+		}
 		void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'assistant' } );
-		preview?.setOpen( true );
+		preview?.setSite( site.id, { running: !! site.running } );
 		const session = resumeChat(
 			site.id,
 			( sessions ?? [] ).filter(

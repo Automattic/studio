@@ -1,10 +1,16 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 
-export type AddSiteSection = 'create' | 'connect' | 'upload' | 'import';
+export type AddSiteSection = 'create' | 'blank' | 'connect' | 'upload' | 'import';
 
 export function isAddSiteSection( value: unknown ): value is AddSiteSection {
-	return value === 'create' || value === 'connect' || value === 'upload' || value === 'import';
+	return (
+		value === 'create' ||
+		value === 'blank' ||
+		value === 'connect' ||
+		value === 'upload' ||
+		value === 'import'
+	);
 }
 
 // Opens the Add site dialog over the current screen. `pin` pins the new site.

@@ -89,7 +89,7 @@ export const syncSiteSchema = z.object( {
 	lastPushTimestamp: z.string().nullable(),
 	wpVersion: z.string().optional(),
 	planName: z.string().optional(),
-	hasStudioPublishingPlan: z.boolean().optional(),
+	pushNeedsUpgrade: z.boolean().optional(),
 	createdAt: z.string().optional(),
 } );
 
@@ -172,7 +172,15 @@ export type PushSyncOptions = {
 	optionsToSync?: SyncOption[];
 	specificSelectionPaths?: string[];
 };
+/**
+ * What a pull includes. By default, all files and the database. A pick of files is sent both as
+ * Backup node ids for the Jetpack Backup pull and as paths for the Reprint pull
+ * (`STUDIO_ENABLE_PULL_REPRINT`).
+ */
 export type PullSyncOptions = {
 	optionsToSync?: SyncOption[];
+	/** Backup node ids, used with the `paths` option. */
 	includePathList?: string[];
+	/** The same picks as paths relative to wp-content, such as `plugins/akismet`. */
+	onlyPaths?: string[];
 };

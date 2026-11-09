@@ -9,6 +9,7 @@ import {
 } from '@studio/agent/protocol/providers';
 import { validateAnthropicApiKey } from '@studio/common/lib/anthropic-key';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import { getStudioUserAgent as buildStudioUserAgent } from '@studio/common/lib/user-agent';
 import { __ } from '@wordpress/i18n';
 import { password } from 'cli/lib/prompts';
 import { LoggerError } from 'cli/logger';
@@ -97,8 +98,9 @@ async function resolveAnthropicApiKey( options?: {
 }
 
 export function getStudioUserAgent(): string {
-	const version = typeof __STUDIO_CLI_VERSION__ === 'string' ? __STUDIO_CLI_VERSION__ : '';
-	return version ? `WordPressStudio/${ version }` : 'WordPressStudio';
+	return buildStudioUserAgent(
+		typeof __STUDIO_CLI_VERSION__ === 'string' ? __STUDIO_CLI_VERSION__ : undefined
+	);
 }
 
 async function hasValidWpcomAuth(): Promise< boolean > {

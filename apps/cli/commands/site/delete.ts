@@ -7,6 +7,7 @@ import { arePathsEqual, isWordPressDirectory } from '@studio/common/lib/fs-utils
 import { readAuthToken, type StoredAuthToken } from '@studio/common/lib/shared-config';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import trash from 'trash';
 import { deleteSiteCertificate } from 'cli/lib/certificate-manager';
@@ -20,9 +21,9 @@ import {
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { deleteSnapshotSite } from 'cli/lib/preview-sites';
-import { getSiteEmailDirectory } from 'cli/lib/site-email';
 import { withSiteOperations } from 'cli/lib/site-operations';
 import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
+import { deleteSiteVersionData } from 'cli/lib/site-versions';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { untildify } from 'cli/lib/utils';
@@ -450,9 +451,10 @@ async function deleteSite(
 		);
 	}
 
-	// The email the site sent lives in Studio's directory, not the site's.
+	// The email the site sent and its file hashes live in Studio's directory, not the site's.
 	try {
 		fs.rmSync( getSiteEmailDirectory( site.id ), { recursive: true, force: true } );
+		deleteSiteVersionData( site.id );
 	} catch ( error ) {
 		logger.reportError(
 			new LoggerError( __( 'Failed to delete the email files. Proceeding anyway…' ), error ),

@@ -198,7 +198,9 @@ export function AgentQuestion( {
 							<Button variant="outline" onClick={ onSkip }>
 								{ __( 'Skip' ) }
 							</Button>
-							<Button onClick={ onAnswer }>{ submitLabel }</Button>
+							<Button variant="accent" onClick={ onAnswer }>
+								{ submitLabel }
+							</Button>
 						</div>
 					</div>
 				) : null }
@@ -220,5 +222,9 @@ function QuestionOptionImage( { path }: { path: string } ) {
 	if ( ! localFileQuery.data ) {
 		return <span className={ styles.questionOptionImageLoading } aria-hidden="true" />;
 	}
-	return <img className={ styles.questionOptionImage } src={ localFileQuery.data } alt="" />;
+	return (
+		<span className={ styles.questionOptionImage }>
+			<img src={ localFileQuery.data } alt="" />
+		</span>
+	);
 }

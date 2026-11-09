@@ -1,6 +1,15 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useId, type ComponentProps, type ReactNode, type Ref, type RefObject } from 'react';
+import {
+	useId,
+	useState,
+	type ComponentProps,
+	type ReactNode,
+	type Ref,
+	type RefObject,
+} from 'react';
+import { useAnalyticsExposure } from '@/data/account-analytics';
 import { useLogin } from '@/data/queries/use-auth-user';
 import { useOffline } from '@/lib/hooks';
 import {
@@ -16,6 +25,7 @@ import site1 from './assets/site-1.png';
 import site2 from './assets/site-2.png';
 import site3 from './assets/site-3.png';
 import styles from './style.module.css';
+import type { AuthAnalytics } from '@studio/common/lib/auth-tracks';
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 
 export const previewSiteImage = site2;
@@ -27,6 +37,9 @@ export function AccountPrompt( {
 	description,
 	descriptionId,
 	source,
+	analytics,
+	scope,
+	active = true,
 	onCreateAccount,
 	onContinue,
 	onSkip,
@@ -41,6 +54,9 @@ export function AccountPrompt( {
 	description: string;
 	descriptionId?: string;
 	source: TracksAuthSource;
+	analytics?: AuthAnalytics;
+	scope?: string;
+	active?: boolean;
 	onCreateAccount?: () => void;
 	onContinue?: () => void;
 	onSkip?: () => void;
@@ -53,13 +69,21 @@ export function AccountPrompt( {
 	className?: string;
 } ) {
 	const offline = useOffline();
-	const login = useLogin( { source } );
-	const signup = useLogin( { signup: true, source } );
-	const authenticating = login.isPending || signup.isPending;
-	const pending = authenticating || busy || disabled;
+	const [ journeyId ] = useState( () => crypto.randomUUID() );
+	const context = analytics
+		? { ...analytics, journey_id: analytics.journey_id ?? journeyId }
+		: undefined;
+	const exposure = useAnalyticsExposure(
+		TRACKS_EVENTS.ACCOUNT_PROMPT_VIEWED,
+		{ source, ...context },
+		active && ! onContinue
+	);
+	const login = useLogin( { source, analytics: context, scope } );
+	const signup = useLogin( { signup: true, source, analytics: context, scope } );
+	const pending = busy || disabled;
 	const error = login.error ?? signup.error;
 	return (
-		<div className={ clsx( styles.body, flush && styles.flush, className ) }>
+		<div ref={ exposure } className={ clsx( styles.body, flush && styles.flush, className ) }>
 			<div aria-hidden="true" className={ styles.illustration }>
 				<span className={ styles.cardStart } style={ { backgroundImage: `url(${ site1 })` } } />
 				<span className={ styles.cardEnd } style={ { backgroundImage: `url(${ site3 })` } } />
@@ -79,10 +103,11 @@ export function AccountPrompt( {
 			) : null }
 			<div className={ styles.actions }>
 				<Button
+					variant="accent"
 					loadingMode="replace"
 					size="lg"
 					disabled={ ( ! onContinue && offline ) || pending }
-					loading={ signup.isPending || busy }
+					loading={ busy }
 					onClick={ () => {
 						if ( onContinue ) {
 							onContinue();
@@ -102,11 +127,9 @@ export function AccountPrompt( {
 					<p className={ styles.loginPrompt }>
 						{ ! onSkip && <>{ __( 'Already have an account?' ) } </> }
 						<Button
-							className={ styles.login }
-							variant="inline-text"
+							variant="inline-accent"
 							size="inline"
 							disabled={ onSkip ? busy || disabled : offline || pending }
-							focusableWhenDisabled={ ! onSkip && login.isPending }
 							onClick={ () => {
 								if ( onSkip ) {
 									onSkip();
@@ -155,7 +178,7 @@ export function AccountPromptDialog( {
 						<DialogTitle>{ prompt.title }</DialogTitle>
 					</VisuallyHidden>
 				</DialogHeader>
-				<AccountPrompt { ...prompt } descriptionId={ descriptionId } flush />
+				<AccountPrompt { ...prompt } active={ open } descriptionId={ descriptionId } flush />
 				{ footer && <div className={ styles.footer }>{ footer }</div> }
 			</DialogContent>
 		</Dialog>

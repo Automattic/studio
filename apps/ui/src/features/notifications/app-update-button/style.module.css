@@ -1,0 +1,67 @@
+.update {
+	justify-content: space-between;
+	min-height: 36px;
+	padding-block: var( --space-0_5 );
+	padding-inline-end: var( --space-0_5 );
+	background: var( --accent-subtle );
+	color: var( --accent-text );
+}
+
+.update[data-highlighted] {
+	background-color: var( --accent-subtle-hover );
+	color: var( --accent-text-hover );
+}
+
+.action {
+	width: auto;
+	padding-inline: var( --space-2 );
+	border-radius: var( --radius-sm );
+}
+.sidebarButton {
+	position: relative;
+	overflow: hidden;
+	justify-content: center;
+	gap: 0;
+	transition:
+		width var( --motion-duration-layout ) var( --motion-ease-layout ),
+		gap var( --motion-duration-layout ) var( --motion-ease-layout ),
+		background-color var( --motion-duration-feedback ) ease;
+}
+
+.label {
+	max-width: 0;
+	overflow: hidden;
+	opacity: 0;
+	transition:
+		max-width var( --motion-duration-layout ) var( --motion-ease-layout ),
+		opacity var( --motion-duration-surface ) ease;
+}
+
+.sidebarButton[data-expandable]:focus-visible {
+	width: 100%;
+	gap: var( --space-2_5 );
+}
+
+.sidebarButton[data-expandable]:focus-visible .label {
+	max-width: 100%;
+	opacity: 1;
+}
+
+@media ( hover: hover ) {
+	.sidebarButton[data-expandable]:hover {
+		width: 100%;
+		gap: var( --space-2_5 );
+	}
+
+	.sidebarButton[data-expandable]:hover .label {
+		max-width: 100%;
+		opacity: 1;
+	}
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.sidebarButton,
+	.label {
+		transition: none;
+	}
+}

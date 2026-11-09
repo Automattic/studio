@@ -1,8 +1,8 @@
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
+import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { vi } from 'vitest';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { getSiteEmailDirectory } from 'cli/lib/site-email';
 import { getPrettyPath } from 'cli/lib/utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { runCommand } from '../status';

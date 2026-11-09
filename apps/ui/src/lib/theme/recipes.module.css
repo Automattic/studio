@@ -14,9 +14,46 @@
 		white-space: nowrap;
 	}
 
-	/* The hairline under a header in the workspace's top band. */
 	.bandEdge {
 		box-shadow: inset 0 -1px 0 var( --border );
+	}
+
+	.headerFade {
+		mask-image: linear-gradient(
+			to bottom,
+			rgb( 0 0 0 / var( --header-fade-opacity, 0 ) )
+				calc( var( --header-fade-height, var( --band-height ) ) * 0.15 ),
+			#000 var( --header-fade-height, var( --band-height ) )
+		);
+	}
+
+	.scrollFade {
+		mask-image: linear-gradient( to bottom, var( --surface-header-fade-stops ) ),
+			linear-gradient( #000, #000 ), linear-gradient( to top, var( --surface-fade-stops ) );
+		mask-size:
+			100% max( 0px, calc( var( --scroll-fade-top, 0px ) - var( --scroll-fade-top-inset, 0px ) ) ),
+			100%
+				max( 0px, calc( 100% - var( --scroll-fade-top, 0px ) - var( --scroll-fade-bottom, 0px ) ) ),
+			100%
+				max(
+					0px,
+					calc( var( --scroll-fade-bottom, 0px ) - var( --scroll-fade-bottom-inset, 0px ) )
+				);
+		mask-position:
+			left 0 top var( --scroll-fade-top-inset, 0px ),
+			left 0 top var( --scroll-fade-top, 0px ),
+			left 0 bottom var( --scroll-fade-bottom-inset, 0px );
+		mask-repeat: no-repeat;
+	}
+
+	.surfaceFade::before {
+		position: absolute;
+		inset-inline: 0;
+		height: var( --surface-fade-size );
+		background: var( --fade-surface );
+		mask-image: linear-gradient( to bottom, var( --surface-overlay-fade-stops ) );
+		content: '';
+		pointer-events: none;
 	}
 
 	/* A hairline drawn inside an image's frame, so the image keeps its full size. */
@@ -24,9 +61,30 @@
 		position: absolute;
 		inset: 0;
 		border-radius: inherit;
-		box-shadow: inset 0 0 0 var( --image-outline-width, 1px ) var( --border );
+		box-shadow: inset 0 0 0 var( --image-outline-width, 1px )
+			var( --image-outline-color, color-mix( in oklab, var( --foreground ) 12%, transparent ) );
 		content: '';
 		pointer-events: none;
+	}
+
+	.attachmentThumbnail {
+		composes: imageOutline;
+		position: relative;
+		display: flex;
+		flex: none;
+		width: 96px;
+		height: 96px;
+		border-radius: var( --radius-xl );
+		background-color: var( --muted );
+		color: var( --foreground );
+	}
+
+	.attachmentThumbnailImage {
+		display: block;
+		width: 100%;
+		height: 100%;
+		border-radius: inherit;
+		object-fit: cover;
 	}
 
 	/* A dot on an icon's top-right corner, with the icon cut away around it. */
@@ -44,12 +102,13 @@
 }
 
 @layer ui {
+	.imagePreviewFrame {
+		composes: imageOutline;
+		box-shadow: var( --preview-frame-shadow, var( --shadow-preview ) );
+	}
+
 	.previewFrame {
-		box-shadow: var(
-			--preview-frame-shadow,
-			0 0 0 1px var( --border ),
-			0 1px 3px rgb( 0 0 0 / 10% )
-		);
+		box-shadow: var( --preview-frame-shadow, 0 0 0 1px var( --border ), var( --shadow-preview ) );
 	}
 	.previewFrame::after {
 		position: absolute;
@@ -57,5 +116,65 @@
 		border-radius: inherit;
 		content: '';
 		pointer-events: none;
+	}
+}
+
+@layer ui {
+	.floatingReveal {
+		--floating-reveal-transition: var(
+				--floating-reveal-opacity,
+				opacity var( --motion-duration-feedback ) ease-out
+			),
+			transform var( --floating-reveal-duration, var( --motion-duration-reveal ) )
+				var( --floating-reveal-easing, var( --motion-ease-spring ) ),
+			color var( --motion-duration-feedback ) ease,
+			background-color var( --motion-duration-feedback ) ease,
+			border-color var( --motion-duration-feedback ) ease;
+
+		pointer-events: none;
+		opacity: 0;
+		transform: scale( 0 );
+		transform-origin: center;
+		transition: var( --floating-reveal-transition );
+	}
+
+	.floatingReveal[data-visible] {
+		pointer-events: auto;
+		opacity: 1;
+		transform: scale( 1 );
+	}
+
+	@media ( prefers-reduced-motion: reduce ) {
+		.floatingReveal {
+			--floating-reveal-transition: opacity var( --motion-duration-feedback ) ease-out;
+
+			transform: none;
+		}
+	}
+}
+
+@layer ui {
+	.errorShake[data-feedback='shake'] {
+		animation: errorShake var( --error-shake-duration, var( --motion-duration-layout ) )
+			var( --motion-ease-layout );
+	}
+	@keyframes errorShake {
+		20% {
+			transform: translateX( calc( var( --error-shake-distance, 6px ) * -1 ) );
+		}
+		40% {
+			transform: translateX( calc( var( --error-shake-distance, 6px ) * 5 / 6 ) );
+		}
+		60% {
+			transform: translateX( calc( var( --error-shake-distance, 6px ) * -0.5 ) );
+		}
+		80% {
+			transform: translateX( calc( var( --error-shake-distance, 6px ) / 6 ) );
+		}
+	}
+	@media ( prefers-reduced-motion: reduce ) {
+		.errorShake[data-feedback='shake'] {
+			animation: none;
+		}
 	}
 }

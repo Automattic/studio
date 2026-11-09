@@ -1,0 +1,63 @@
+@layer ui {
+	.swatch {
+		width: 16px;
+		height: 16px;
+		border: 1px solid var( --border );
+		border-radius: var( --radius-xs );
+	}
+
+	.picker {
+		composes: padded from '@/lib/ui/surface/style.module.css';
+		display: flex;
+		flex-direction: column;
+		gap: var( --space-1_5 );
+		width: var( --anchor-width );
+		max-width: var( --available-width );
+	}
+
+	.area {
+		position: relative;
+		width: 100%;
+		height: 160px;
+		border-radius: var( --radius-md );
+		box-shadow: inset 0 0 0 1px var( --border );
+		touch-action: none;
+		forced-color-adjust: none;
+	}
+
+	.thumb {
+		width: 20px;
+		height: 20px;
+		border: 2px solid var( --accent-foreground );
+		border-radius: var( --radius-full );
+		box-shadow:
+			0 0 0 1px var( --border ),
+			var( --shadow-raised );
+		outline: none;
+	}
+
+	.thumb[data-focus-visible] {
+		outline: 2px solid var( --ring );
+		outline-offset: 3px;
+	}
+
+	.hueTrack {
+		position: relative;
+		height: 12px;
+		margin-block: var( --space-1_5 );
+		border-radius: var( --radius-full );
+		box-shadow: inset 0 0 0 1px var( --border );
+		touch-action: none;
+		forced-color-adjust: none;
+	}
+
+	.hueTrack::before {
+		position: absolute;
+		inset: -6px 0;
+		content: '';
+	}
+
+	.hueTrack .thumb {
+		top: 50%;
+	}
+}

@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
+import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import { createFakeConnector, makeSession, makeSite } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { Connector, SiteDetails } from '@/data/core';
@@ -78,7 +78,6 @@ describe( 'sidebar site menu', () => {
 describe( 'site title actions', () => {
 	it.each( [
 		[ 'Browser', '/', { autoLogin: false } ],
-		[ 'WordPress admin', '/wp-admin/', undefined ],
 		[ 'phpMyAdmin', '/phpmyadmin/index.php?route=/database/structure&db=wordpress', undefined ],
 	] )( 'starts a stopped site before opening %s', async ( label, path, options ) => {
 		let finishStart!: () => void;
@@ -103,16 +102,43 @@ describe( 'site title actions', () => {
 		);
 	} );
 
-	it.each( [ 'Browser', 'WordPress admin', 'phpMyAdmin' ] )(
+	it.each( [ 'Browser', 'Admin', 'phpMyAdmin' ] )(
 		'does not open %s when starting fails',
 		async ( label ) => {
 			const { connector } = setup();
 			connector.startSite.mockRejectedValueOnce( new Error( 'Start failed' ) );
 			fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
-			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
+			fireEvent.click(
+				await screen.findByRole( 'menuitem', { name: label === 'Admin' ? 'Tools' : 'Open in' } )
+			);
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
 			await screen.findAllByText( 'Start failed' );
 			expect( connector.openSiteUrl ).not.toHaveBeenCalled();
+		}
+	);
+
+	it.each( [
+		[ null, 'Safari' ],
+		[ 'chrome', 'Google Chrome' ],
+	] as const )(
+		'shows the system browser unless a Studio browser is selected (%s)',
+		async ( browser, label ) => {
+			const initial = createFakeConnector();
+			const installed = await initial.getInstalledApps();
+			const preferences = await initial.getUserPreferences();
+			const { connector } = setup( [ site( { running: true } ) ], {
+				getInstalledApps: async () => ( {
+					...installed,
+					defaultBrowser: { name: 'Safari', browser: 'safari' },
+				} ),
+				getUserPreferences: async () => ( { ...preferences, browser } ),
+			} );
+			fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open in' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
+			await waitFor( () =>
+				expect( connector.openSiteUrl ).toHaveBeenCalledWith( 'one', '/', { autoLogin: false } )
+			);
 		}
 	);
 
@@ -152,7 +178,7 @@ describe( 'site title actions', () => {
 	it( 'stops the selected running site from its title menu', async () => {
 		const { connector } = setup( [ site( { running: true } ) ] );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
-		expect( screen.queryByRole( 'menuitem', { name: /^Start site/ } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'menuitem', { name: /^Start(?:\s|$)/ } ) ).not.toBeInTheDocument();
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop site' } ) );
 		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( 'one' ) );
@@ -220,7 +246,7 @@ describe( 'site title actions', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'keeps duplication progress out of notifications and records its failure once', async () => {
+	it( 'replaces the duplication progress notification with its failure', async () => {
 		let rejectCopy!: ( error: Error ) => void;
 		setup( [ site() ], {
 			copySite: () =>
@@ -231,31 +257,45 @@ describe( 'site title actions', () => {
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: /^Duplicate$/ } ) );
 		await waitFor( () => expect( rejectCopy ).toBeDefined() );
-		expect( getNoticeHistory() ).toHaveLength( 0 );
+		expect( getVisibleToasts() ).toHaveLength( 1 );
+		const progress = getVisibleToasts()[ 0 ];
+		expect( progress ).toMatchObject( {
+			title: 'Duplicating site…',
+			processing: true,
+		} );
 		expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeEnabled();
 		act( () => rejectCopy( new Error( 'Copy failed' ) ) );
 		await screen.findByText( 'Failed to copy site' );
-		expect( getNoticeHistory() ).toHaveLength( 1 );
-		expect( getNoticeHistory()[ 0 ].intent ).toBe( 'error' );
-		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeEnabled()
-		);
+		expect( getVisibleToasts() ).toHaveLength( 1 );
+		expect( getVisibleToasts()[ 0 ] ).toMatchObject( {
+			id: progress.id,
+			intent: 'error',
+			description: 'Copy failed',
+		} );
 	} );
 
-	it( 'opens the duplicate only when its completion action is chosen', async () => {
-		const { connector } = setup();
-		connector.copySite.mockImplementation( async () => {
-			const copy = site( { id: 'copy', name: 'My site copy', path: '/sites/copy' } );
-			connector.state.sites = [ ...connector.state.sites, copy ];
-			return copy;
+	it( 'reports duplication after its menu unmounts and opens the copy on request', async () => {
+		let finishCopy!: ( copy: SiteDetails ) => void;
+		const { connector, history } = setup( [ site() ], {
+			copySite: () =>
+				new Promise( ( resolve ) => {
+					finishCopy = resolve;
+				} ),
 		} );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: /^Duplicate$/ } ) );
 		await waitFor( () => expect( connector.copySite ).toHaveBeenCalledWith( 'one' ) );
-		await screen.findByRole( 'button', { name: /^Open$/ } );
-		expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeVisible();
-		expect( getNoticeHistory() ).toHaveLength( 1 );
+		await waitFor( () => expect( screen.queryByText( /^Duplicate$/ ) ).not.toBeInTheDocument() );
+		expect( screen.getByText( 'Duplicating site…' ) ).toBeVisible();
+		const progress = getVisibleToasts()[ 0 ];
+		const copy = site( { id: 'copy', name: 'My site copy', path: '/sites/copy' } );
+		connector.state.sites = [ ...connector.state.sites, copy ];
+		await act( async () => finishCopy( copy ) );
+		await screen.findByText( 'Site duplicated: My site copy' );
+		expect( getVisibleToasts() ).toHaveLength( 1 );
+		expect( getVisibleToasts()[ 0 ] ).toMatchObject( { id: progress.id, intent: 'success' } );
+		expect( history.location.pathname ).toBe( '/sites/one' );
 		fireEvent.click( screen.getByRole( 'button', { name: /^Open$/ } ) );
-		expect( await screen.findByRole( 'button', { name: 'Site menu' } ) ).toBeVisible();
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/copy/new' ) );
 	} );
 } );

@@ -144,6 +144,7 @@ While chatting, you can use slash commands for quick actions. In the desktop app
 | /connect-provider | Open **Settings → AI Providers** to use WordPress.com AI credits or your own API key (shown as **Connect AI providers**) | Desktop |
 | /credits | Show your AI credit balance and buy more AI credits | Terminal |
 | /exit | Exit the chat | Terminal |
+| /feedback | Send feedback about WordPress Studio to the WordPress Studio team | Terminal and desktop |
 | /liberate | Migrate and rebuild a site from a closed platform to WordPress | Terminal and desktop |
 | /local | Switch a chat that works on the live site back to the local site (shown as **Work on local site**) | Desktop |
 | /login | Log in to WordPress.com | Terminal |

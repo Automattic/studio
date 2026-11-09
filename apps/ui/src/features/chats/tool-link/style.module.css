@@ -1,0 +1,25 @@
+.toolLink {
+	--button-background: transparent;
+	--button-hover-background: transparent;
+
+	display: inline;
+	color: var( --accent-text );
+	font: inherit;
+	font-weight: var( --font-weight-medium );
+	text-underline-offset: 2px;
+	vertical-align: baseline;
+}
+
+.toolLink:hover,
+.toolLink:focus-visible {
+	color: var( --accent-text-hover );
+	text-decoration: underline;
+}
+
+.toolLink svg {
+	display: inline-block;
+	width: 1em;
+	height: 1em;
+	margin-inline-end: var( --space-1 );
+	vertical-align: -0.125em;
+}

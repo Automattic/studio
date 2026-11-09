@@ -1,14 +1,9 @@
 import { __ } from '@wordpress/i18n';
-import {
-	BugIcon,
-	ChartNoAxesColumnIncreasingIcon,
-	CodeIcon,
-	FileTextIcon,
-	SettingsIcon,
-	TerminalIcon,
-} from 'lucide-react';
+import { BugIcon, FileTextIcon, SettingsIcon } from 'lucide-react';
 import {
 	AppearanceIcon,
+	CodeIcon,
+	ExternalLinkIcon,
 	IntelligenceIcon,
 	KeyboardIcon,
 	LanguageIcon,
@@ -17,14 +12,16 @@ import {
 	ShareIcon,
 	SiteSettingsIcon,
 	SkillsIcon,
+	TerminalIcon,
+	UsageIcon,
 } from '@/lib/icons';
 import type { ComponentType } from 'react';
 
 const STUDIO_SECTIONS = [
 	'general',
 	'appearance',
-	'sharing',
 	'ai',
+	'sharing',
 	'mcp',
 	'usage',
 	'skills',
@@ -133,12 +130,6 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				),
 				setting(
 					'navigate',
-					__( 'When adding a site' ),
-					__( 'Choose a starting point or go straight to creating a blank site.' ),
-					'new-site-behavior'
-				),
-				setting(
-					'navigate',
 					__( 'When WordPress Studio quits' ),
 					__( 'Choose what happens to running sites when you quit WordPress Studio.' ),
 					'quit-behavior'
@@ -151,9 +142,17 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				),
 				setting(
 					'action',
-					__( 'Open chat when starting a site' ),
-					__( 'Show the chat panel alongside the preview when starting a site.' ),
+					__( 'Start sites with chat' ),
+					__( 'Show chat beside the panel when starting a site.' ),
 					'open-chat-on-site-start'
+				),
+				setting(
+					'action',
+					__( 'Hide admin bar' ),
+					__(
+						'Hide the WordPress admin bar by default on local sites. Change this for individual sites in Browser options.'
+					),
+					'hide-frontend-admin-bar'
 				),
 				setting(
 					'action',
@@ -169,9 +168,9 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				),
 				setting(
 					'action',
-					__( 'Confirm before deleting annotations' ),
-					__( 'Ask before deleting pending notes and attached images.' ),
-					'confirm-delete-annotations'
+					__( 'Batch notes' ),
+					__( 'Collect annotations and send them together instead of one at a time.' ),
+					'batch-notes'
 				),
 				setting(
 					'action',
@@ -189,7 +188,8 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					'action',
 					__( 'Documentation' ),
 					__( 'Guides for building and managing sites with WordPress Studio.' ),
-					'documentation'
+					'documentation',
+					ExternalLinkIcon
 				),
 				setting(
 					'action',
@@ -214,7 +214,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					...setting(
 						'navigate',
 						__( 'Accent' ),
-						__( 'Studio adapts your chosen color to work with your theme.' ),
+						__( 'Color may be adapted for your theme.' ),
 						'color'
 					),
 					aliases: [ __( 'Colour' ), __( 'Change color' ) ],
@@ -240,25 +240,8 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			],
 		},
 		{
-			id: 'sharing',
-			label: __( 'Sharing' ),
-			icon: ShareIcon,
-			settings: [
-				{
-					...setting(
-						'section',
-						__( 'Sharing previews on WordPress.com' ),
-						__( 'Share a temporary copy of your local site with anyone.' ),
-						'preview-sites'
-					),
-					aliases: [ __( 'Snapshots' ) ],
-				},
-				setting( 'section', __( 'Live previews' ) ),
-			],
-		},
-		{
 			id: 'ai',
-			label: __( 'AI Providers' ),
+			label: __( 'Providers' ),
 			icon: IntelligenceIcon,
 			aliases: [ __( 'Connect provider' ) ],
 			settings: [
@@ -283,9 +266,27 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			],
 		},
 		{
+			id: 'sharing',
+			label: __( 'Sharing' ),
+			icon: ShareIcon,
+			settings: [
+				{
+					...setting(
+						'section',
+						__( 'Sharing previews on WordPress.com' ),
+						__( 'Share a temporary copy of your local site with anyone.' ),
+						'preview-sites'
+					),
+					aliases: [ __( 'Snapshots' ) ],
+				},
+				setting( 'section', __( 'Live previews' ) ),
+			],
+		},
+		{
 			id: 'mcp',
 			label: __( 'MCP' ),
 			icon: McpIcon,
+			aliases: [ __( 'Agent apps' ), 'Claude Code', 'ChatGPT', 'Codex', 'Cursor', 'Grok Build' ],
 			settings: [
 				setting(
 					'section',
@@ -298,7 +299,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 		{
 			id: 'usage',
 			label: __( 'Usage' ),
-			icon: ChartNoAxesColumnIncreasingIcon,
+			icon: UsageIcon,
 			settings: [
 				{
 					...setting(

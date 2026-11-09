@@ -1,8 +1,18 @@
 import { STUDIO_CHAT_MAX_IMAGES } from '@studio/agent/protocol/chat-images';
 
-// What a note points at: an element on a site page, or a DESIGN.md token on
-// the design system page.
+// The body of an email the site sent, as the Email view shows it: an element
+// of its HTML, or a paragraph of its text, counted from 0.
+interface VisualAnnotationEmail {
+	id: string;
+	subject: string;
+	part: 'html' | 'text';
+	paragraph?: number;
+}
+
+// What a note points at: an element or area on a site page, a DESIGN.md token on the
+// design system page, or a part of the body of an email the site sent.
 export interface VisualAnnotationTarget {
+	kind?: 'region' | 'drawing';
 	selector?: string;
 	tag?: string;
 	classes?: string[];
@@ -15,8 +25,9 @@ export interface VisualAnnotationTarget {
 	point?: { x: number; y: number };
 	computedStyles?: Record< string, string >;
 	designToken?: string;
-	// Design targets are unique, so picking one again edits its note.
-	designKey?: string;
+	email?: VisualAnnotationEmail;
+	// Targets Studio draws itself are unique, so picking one again edits its note.
+	targetKey?: string;
 }
 
 export interface VisualAnnotation extends VisualAnnotationTarget {
@@ -142,6 +153,12 @@ export function formatVisualAnnotationsPrompt(
 			''
 		);
 	}
+	if ( notes.some( ( note ) => note.email ) ) {
+		lines.push(
+			'Annotations from the Email view are about an email the site sent. Find the code that builds it (a plugin, the theme, or WordPress core) and change the email there. For an email from WordPress core, use its filters in a plugin or mu-plugin: never edit core files. A selector on an email annotation points into the HTML of the email, not a site page.',
+			''
+		);
+	}
 	lines.push( '## Submitted Annotations', '' );
 
 	notes.forEach( ( note, index ) => {
@@ -149,17 +166,25 @@ export function formatVisualAnnotationsPrompt(
 			? `design token \`${ note.designToken }\``
 			: note.tag
 			? `<${ note.tag }>`
+			: note.email
+			? `email text paragraph ${ ( note.email.paragraph ?? 0 ) + 1 }`
+			: note.kind === 'region'
+			? 'selected area'
+			: note.kind === 'drawing'
+			? 'drawing'
 			: 'element';
 		const nearbyText = note.nearbyText?.trim()
 			? ` - "${ truncateText( note.nearbyText.trim(), 120 ) }"`
 			: '';
 		const page = isDesignSystemAnnotation( note )
 			? 'Design system (DESIGN.md)'
+			: note.email
+			? `Email "${ note.email.subject }"`
 			: note.url || note.path || '/';
 		const imageNumbers = note.images.map(
 			( image ) => images.findIndex( ( item ) => item.id === image.id ) + 1
 		);
-		const { images: _images, number: _number, designKey: _key, ...data } = note;
+		const { images: _images, number: _number, targetKey: _key, ...data } = note;
 
 		lines.push(
 			`### ${ index + 1 }. ${ tag }${ nearbyText }`,

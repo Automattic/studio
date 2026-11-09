@@ -1,8 +1,7 @@
 import type { WebContents } from 'electron';
 
-// Keys pressed in the site preview go to its own page, so ⌘K (Ctrl+K
-// elsewhere) is handed to the window, where it opens the command palette.
-export function forwardPreviewCommandPalette(
+// Hand app shortcuts back to the window when the preview page has focus.
+export function forwardPreviewShortcut(
 	guest: WebContents,
 	input: Electron.Input,
 	platform: NodeJS.Platform = process.platform
@@ -10,24 +9,36 @@ export function forwardPreviewCommandPalette(
 	const primary =
 		platform === 'darwin' ? input.meta && ! input.control : input.control && ! input.meta;
 	const host = guest.hostWebContents;
+	const annotation = input.code === 'Period' && input.shift;
 	if (
 		input.type !== 'keyDown' ||
-		input.code !== 'KeyK' ||
+		( ! [ 'KeyK', 'KeyT' ].includes( input.code ) && ! annotation ) ||
 		input.isAutoRepeat ||
 		input.isComposing ||
 		input.alt ||
-		input.shift ||
+		( input.shift && ! annotation ) ||
 		! primary ||
 		! host ||
 		host.isDestroyed()
 	) {
 		return false;
 	}
+	if ( input.code === 'KeyK' ) {
+		const pathname = URL.parse( guest.getURL() )?.pathname ?? '';
+		if ( /(?:^|\/)wp-admin(?:\/|$)/.test( pathname ) ) {
+			return false;
+		}
+	}
+
 	host.focus();
 	host.sendInputEvent( {
 		type: 'keyDown',
-		keyCode: 'K',
-		modifiers: [ platform === 'darwin' ? 'meta' : 'control' ],
+		keyCode: annotation ? '.' : input.code.slice( 3 ),
+
+		modifiers: [
+			platform === 'darwin' ? 'meta' : 'control',
+			...( annotation ? [ 'shift' as const ] : [] ),
+		],
 	} );
 	return true;
 }

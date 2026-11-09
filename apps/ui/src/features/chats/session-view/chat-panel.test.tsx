@@ -9,6 +9,7 @@ import {
 	removeAnnotations,
 	requestAnnotationSend,
 } from '@/features/annotations';
+import { clearComposerDrafts } from '@/features/composer';
 import { createFakeConnector, makeSession, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { AgentRunEvent, SessionEntry } from '@/data/core';
@@ -123,7 +124,55 @@ const composerStartButton = () =>
 		{ name: 'Start site' }
 	);
 
-describe( 'Composer site start', () => {
+describe( 'Composer site controls', () => {
+	beforeEach( () => clearComposerDrafts() );
+
+	it.each( [ 'menu', 'slash' ] )(
+		'starts through %s and stops through slash without sending or losing the draft',
+		async ( source ) => {
+			const { connector, input, queryClient } = await setupChat( {
+				signedIn: false,
+				hasAnthropicApiKey: false,
+			} );
+			for ( const action of [ 'start', 'stop' ] as const ) {
+				const useSlash = source === 'slash' || action === 'stop';
+				const command = action === 'start' ? connector.startSite : connector.stopSite;
+				const run = command.getMockImplementation()!;
+				let finish!: () => void;
+				command.mockImplementationOnce(
+					( id ) =>
+						new Promise( ( resolve ) => {
+							finish = () => resolve( run( id ) );
+						} )
+				);
+				const label = action === 'start' ? /^Start site(?: |$)/ : 'Stop site';
+				fireEvent.change( input, {
+					target: {
+						value: useSlash ? `Keep this draft /${ action }` : 'Keep this draft',
+					},
+				} );
+				if ( useSlash ) {
+					await screen.findByRole( 'option', { name: label } );
+					fireEvent.keyDown( input, { key: 'Enter' } );
+				} else {
+					fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+					fireEvent.click( await screen.findByRole( 'option', { name: label } ) );
+				}
+				await waitFor( () => expect( command ).toHaveBeenCalledExactlyOnceWith( SITE_ID ) );
+				expect( input ).toHaveValue( useSlash ? 'Keep this draft ' : 'Keep this draft' );
+				fireEvent.change( input, { target: { value: `Keep this draft /${ action }` } } );
+				const pending = await screen.findByRole( 'option', { name: label } );
+				expect( pending ).toHaveAttribute( 'aria-disabled', 'true' );
+				fireEvent.click( pending );
+				expect( command ).toHaveBeenCalledOnce();
+				fireEvent.keyDown( input, { key: 'Escape' } );
+				await act( async () => finish() );
+				await waitFor( () => expect( queryClient.isMutating() ).toBe( 0 ) );
+			}
+			expect( connector.continueSession ).not.toHaveBeenCalled();
+		}
+	);
+
 	it( 'starts a stopped site from the empty composer without sending a message', async () => {
 		const { connector, input } = await setupChat( {
 			signedIn: false,
@@ -205,7 +254,7 @@ describe( 'Composer access notices', () => {
 		expect( within( alert ).getAllByRole( 'button' ) ).toHaveLength( 1 );
 		fireEvent.change( input, { target: { value: 'Preserve this draft' } } );
 		const calls = connector.getAiSettings.mock.calls.length;
-		fireEvent.click( within( alert ).getByRole( 'button', { name: 'Try again' } ) );
+		fireEvent.click( within( alert ).getByRole( 'button', { name: 'Refresh' } ) );
 		await waitFor( () =>
 			expect( connector.getAiSettings.mock.calls.length ).toBeGreaterThan( calls )
 		);
@@ -436,6 +485,24 @@ describe( 'Composer access notices', () => {
 } );
 
 describe( 'Chat target selection', () => {
+	it( 'hides the auto-start chip while the site runs and restores it when stopped', async () => {
+		const { connector } = await setupChat();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Auto-start / } ) );
+		await screen.findByRole( 'button', { name: 'Remove Auto-start' } );
+
+		await act( async () => connector.startSite( SITE_ID ) );
+		await waitFor( () =>
+			expect(
+				screen.queryByRole( 'button', { name: 'Remove Auto-start' } )
+			).not.toBeInTheDocument()
+		);
+		expect( connector.state.preferences.autoStartSiteOnChat ).toBe( true );
+
+		await act( async () => connector.stopSite( SITE_ID ) );
+		expect( await screen.findByRole( 'button', { name: 'Remove Auto-start' } ) ).toBeVisible();
+	} );
+
 	it.each( [
 		{ signedIn: false, hasAnthropicApiKey: false },
 		{ signedIn: true, hasAnthropicApiKey: false },
@@ -446,7 +513,7 @@ describe( 'Chat target selection', () => {
 		if ( ! connections.signedIn && ! connections.hasAnthropicApiKey ) {
 			expect( screen.queryByRole( 'button', { name: 'Model' } ) ).not.toBeInTheDocument();
 			fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-			await screen.findByRole( 'option', { name: /^Connect AI providers/ } );
+			await screen.findByRole( 'option', { name: /^Connect providers/ } );
 			expect( screen.queryByRole( 'option', { name: /^Choose model/ } ) ).not.toBeInTheDocument();
 			fireEvent.keyDown( document.activeElement!, { key: 'Escape' } );
 			fireEvent.change( input, { target: { value: '/model' } } );
@@ -713,9 +780,20 @@ describe( 'Annotation drafts during an active run', () => {
 	it( 'sends a direct annotation immediately while the chat is idle', async () => {
 		const { connector, input } = await setupChat( { pinnedProvider: 'wpcom' } );
 		fireEvent.change( input, { target: { value: 'Keep my draft' } } );
+		let accept!: () => void;
+		const originalContinue = connector.continueSession.getMockImplementation()!;
+		connector.continueSession.mockImplementationOnce( async ( ...args ) => {
+			await new Promise< void >( ( resolve ) => {
+				accept = resolve;
+			} );
+			return originalContinue( ...args );
+		} );
 		const id = addNote();
 		act( () => requestAnnotationSend( { siteId: SITE_ID, noteIds: [ id ] } ) );
 		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledOnce() );
+		expect( getSiteAnnotations( SITE_ID ).notes[ 0 ].staged ).not.toBe( true );
+		expect( screen.queryByRole( 'listitem', { name: /^1 annotation,/ } ) ).not.toBeInTheDocument();
+		await act( async () => accept() );
 		expect( connector.continueSession.mock.calls[ 0 ][ 2 ] ).toEqual(
 			expect.objectContaining( {
 				visualAnnotations: expect.arrayContaining( [

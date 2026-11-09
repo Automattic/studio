@@ -123,9 +123,11 @@ type ToggleKey =
 export function SiteSettingsForm( {
 	site,
 	section,
+	active = true,
 }: {
 	site: SiteDetails;
 	section: SiteSettingsSectionId;
+	active?: boolean;
 } ) {
 	const dialog = useSettingsDialog();
 	const allDomains = useExistingCustomDomains();
@@ -336,7 +338,7 @@ export function SiteSettingsForm( {
 			{ ( control ) => (
 				<SiteSelect
 					{ ...control }
-					size="sm"
+					size="default"
 					aria-label={ title }
 					value={
 						key === 'wpVersion' && data[ key ] === '' ? AUTO_UPDATE_SELECT_VALUE : data[ key ]
@@ -372,7 +374,7 @@ export function SiteSettingsForm( {
 	const sections: Record< SiteSettingsSectionId, ReactNode > = {
 		site: (
 			<>
-				<ConnectionCard />
+				<ConnectionCard active={ active } />
 				<SettingsGroup>
 					{ textRow( 'name', __( 'Site name' ), __( 'Name shown in WordPress Studio.' ) ) }
 					<SettingsRow
@@ -433,8 +435,13 @@ export function SiteSettingsForm( {
 									{ __(
 										'Test features that require HTTPS and catch issues before your site goes live.'
 									) }
-									{ learnMore( 'docsSslInStudio' ) } <CertificateTrustNotice />
+									{ learnMore( 'docsSslInStudio' ) }
 								</>
+							) }
+							{ data.enableHttps && (
+								<div className={ styles.certificateNotice }>
+									<CertificateTrustNotice />
+								</div>
 							) }
 						</>
 					) }
@@ -556,7 +563,7 @@ export function SiteSettingsForm( {
 							{ __( 'Write PHP errors to wp-content/debug.log.' ) }
 							{ logExists ? (
 								<span className={ styles.debugLogAction }>
-									<Button variant="outline" size="header" onClick={ handleOpenLog }>
+									<Button variant="outline" size="default" onClick={ handleOpenLog }>
 										{ __( 'Open log file' ) }
 									</Button>
 								</span>
@@ -602,7 +609,7 @@ export function SiteSettingsForm( {
 						<>
 							<Button
 								variant="outline"
-								size="header"
+								size="sm"
 								disabled={ updateSite.isPending }
 								onClick={ () => {
 									setData( initial );
@@ -615,7 +622,7 @@ export function SiteSettingsForm( {
 								type="submit"
 								form={ FORM_ID }
 								variant={ canSubmit ? 'accent' : 'outline' }
-								size="header"
+								size="sm"
 								disabled={ ! canSubmit }
 								loading={ updateSite.isPending }
 								loadingAnnouncement={ __( 'Saving settings' ) }

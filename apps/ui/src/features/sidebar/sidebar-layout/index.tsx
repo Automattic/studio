@@ -2,9 +2,10 @@ import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
+import { useSites } from '@/data/queries/use-sites';
 import {
 	PANEL_WIDTHS_RESET_EVENT,
-	PREVIEW_SPLIT_MIN_WIDTH,
+	PANEL_SPLIT_MIN_WIDTH,
 	SIDEBAR_COLLAPSED_STORAGE_KEY,
 	SIDEBAR_PANEL_CONFIG,
 	SIDEBAR_PANEL_STORAGE_KEY,
@@ -17,16 +18,11 @@ import {
 	SidebarToggleContext,
 } from '@/data/use-sidebar-collapsed';
 import { UserMenu } from '@/features/account';
-import {
-	AppMessageCards,
-	AppMessageHistoryRecorder,
-	AppToasts,
-	closeNoticeHistory,
-} from '@/features/notifications';
+import { AppMessageCards, AppToasts } from '@/features/notifications';
 import { SidebarHeader } from '@/features/sidebar/sidebar-header';
 import { SiteList } from '@/features/sidebar/site-list';
-import { useStoredFlag } from '@/lib/hooks';
-import { Popover, ResizeHandle, ResizeOverlay, useHasOpenDialog } from '@/lib/ui';
+import { useScrollFade, useStoredFlag } from '@/lib/hooks';
+import { Popover, ResizeHandle, ResizeOverlay, ScrollBlur, useHasOpenDialog } from '@/lib/ui';
 import styles from './style.module.css';
 import { useResizablePanel } from './use-resizable-panel';
 import type { CSSProperties, ReactNode } from 'react';
@@ -44,8 +40,9 @@ function SidebarContents( { active, onSiteOpen }: { active: boolean; onSiteOpen?
 		<>
 			<SiteList sections active={ active } onSiteOpen={ onSiteOpen } />
 			<div className={ styles.sidebarFooter }>
+				<ScrollBlur edge="bottom" className={ styles.footerBlur } />
 				{ active ? <AppMessageCards className={ styles.sidebarCards } /> : null }
-				<UserMenu active={ active } />
+				<UserMenu />
 			</div>
 		</>
 	);
@@ -64,6 +61,8 @@ export function SidebarLayout( {
 		config: SIDEBAR_PANEL_CONFIG,
 		storageKey: SIDEBAR_PANEL_STORAGE_KEY,
 	} );
+	const sites = useSites();
+	const emptyWorkspace = sites.isSuccess && sites.data.length === 0;
 	const [ collapsed, setCollapsed ] = useStoredFlag( SIDEBAR_COLLAPSED_STORAGE_KEY, false );
 
 	const [ sidebarFlyoutState, setSidebarFlyoutState ] = useState< 'closed' | 'hover' | 'open' >(
@@ -73,6 +72,8 @@ export function SidebarLayout( {
 	const sidebarFlyoutOpen = sidebarFlyoutState === 'open';
 	const [ instantSidebarDock, setInstantSidebarDock ] = useState( false );
 	const dockedSidebarRef = useRef< HTMLElement >( null );
+	const setDockedFade = useScrollFade< HTMLDivElement >();
+	const setFlyoutFade = useScrollFade< HTMLElement >();
 	const dockedSidebarScrollRef = useRef< HTMLDivElement >( null );
 	useLayoutEffect( () => {
 		if ( ! instantSidebarDock ) return;
@@ -121,7 +122,15 @@ export function SidebarLayout( {
 		return () => window.removeEventListener( PANEL_WIDTHS_RESET_EVENT, reopen );
 	}, [ closeSidebarFlyout, setCollapsed ] );
 	// A narrow window unpins the sidebar; widening it never pins it automatically.
-	const overlay = sidebarResize.viewportWidth - sidebarResize.width < PREVIEW_SPLIT_MIN_WIDTH;
+	const overlay = sidebarResize.viewportWidth - sidebarResize.width < PANEL_SPLIT_MIN_WIDTH;
+	const wasEmptyWorkspace = useRef( false );
+	useEffect( () => {
+		if ( ! sites.isSuccess ) return;
+		if ( emptyWorkspace || ( wasEmptyWorkspace.current && ! overlay ) ) {
+			setCollapsed( emptyWorkspace );
+		}
+		wasEmptyWorkspace.current = emptyWorkspace;
+	}, [ sites.isSuccess, emptyWorkspace, overlay, setCollapsed ] );
 	useEffect( () => {
 		if ( overlay ) setCollapsed( true );
 		return clearHoverTimer;
@@ -134,12 +143,6 @@ export function SidebarLayout( {
 	const docked = ! overlay && ! collapsed;
 	const open = docked || sidebarFlyoutOpen;
 	const sidebarFlyoutVisible = sidebarFlyoutState !== 'closed';
-	useEffect( () => {
-		if ( ! docked && ! sidebarFlyoutVisible ) closeNoticeHistory();
-	}, [ docked, sidebarFlyoutVisible ] );
-	useEffect( () => {
-		if ( hasOpenDialog ) closeNoticeHistory();
-	}, [ hasOpenDialog ] );
 	useLayoutEffect( () => {
 		if ( docked && dockedSidebarScrollRef.current ) dockedSidebarScrollRef.current.scrollTop = 0;
 		if ( sidebarFlyoutVisible && sidebarFlyoutRef.current ) sidebarFlyoutRef.current.scrollTop = 0;
@@ -234,7 +237,7 @@ export function SidebarLayout( {
 											anchor={ sidebarFlyoutAnchor }
 											side="bottom"
 											align="start"
-											sideOffset={ 6 }
+											sideOffset={ 0 }
 											alignOffset={ 6 }
 											initialFocus={ () =>
 												sidebarFlyoutOpen
@@ -254,7 +257,10 @@ export function SidebarLayout( {
 										>
 											<aside
 												className={ styles.sidebarFlyoutContents }
-												ref={ sidebarFlyoutRef }
+												ref={ ( node ) => {
+													sidebarFlyoutRef.current = node;
+													setFlyoutFade( node );
+												} }
 												onPointerEnter={ clearHoverTimer }
 												onPointerLeave={ hoverLeave }
 											>
@@ -277,7 +283,13 @@ export function SidebarLayout( {
 								>
 									<aside ref={ dockedSidebarRef } className={ styles.sidebar }>
 										<SidebarHeader action={ docked ? headerAction : undefined } />
-										<div ref={ dockedSidebarScrollRef } className={ styles.sidebarScroll }>
+										<div
+											ref={ ( node ) => {
+												dockedSidebarScrollRef.current = node;
+												setDockedFade( node );
+											} }
+											className={ styles.sidebarScroll }
+										>
 											<SidebarContents active={ docked } />
 										</div>
 									</aside>
@@ -306,7 +318,6 @@ export function SidebarLayout( {
 								<main className={ styles.main }>{ children }</main>
 								{ sidebarResize.isResizing ? <ResizeOverlay /> : null }
 								<AppToasts />
-								<AppMessageHistoryRecorder />
 							</div>
 						</SidebarHoverContext.Provider>
 					</SidebarToggleContext.Provider>

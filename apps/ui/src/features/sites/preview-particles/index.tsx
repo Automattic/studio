@@ -18,10 +18,14 @@ import styles from './style.module.css';
 export function PreviewParticles( {
 	active = false,
 	showLogo = false,
+	showDots = true,
+	fade = true,
 	selectionTime,
 }: {
 	active?: boolean;
 	showLogo?: boolean;
+	showDots?: boolean;
+	fade?: boolean;
 	selectionTime?: number;
 } ) {
 	const canvasRef = useRef< HTMLCanvasElement >( null );
@@ -162,11 +166,18 @@ export function PreviewParticles( {
 			motion.removeEventListener( 'change', sync );
 			document.removeEventListener( 'visibilitychange', sync );
 		};
-	}, [] );
+	}, [ showDots ] );
 
 	return (
 		<>
-			<canvas ref={ canvasRef } className={ styles.canvas } aria-hidden="true" />
+			{ showDots ? (
+				<canvas
+					ref={ canvasRef }
+					className={ styles.canvas }
+					data-fade={ fade }
+					aria-hidden="true"
+				/>
+			) : null }
 			{ showLogo ? (
 				<span className={ styles.logo } data-active={ active || undefined } aria-hidden="true">
 					<WordPressIcon />

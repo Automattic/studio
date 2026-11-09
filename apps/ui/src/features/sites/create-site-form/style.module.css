@@ -1,15 +1,21 @@
 .form {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	padding-block-start: var( --space-3 );
 	text-align: left;
 }
 
 .panel {
 	display: flex;
+	flex: 1;
 	flex-direction: column;
-	gap: var( --space-6 );
+	gap: var( --space-7 );
 }
 
 .actions {
 	display: flex;
+	align-items: center;
 	justify-content: flex-end;
 	gap: var( --space-2 );
 	margin-top: var( --space-7 );
@@ -17,46 +23,110 @@
 
 .pathRow {
 	display: flex;
-	gap: var( --space-2 );
+	align-items: center;
+	gap: var( --space-1 );
 }
 
-.advancedToggle {
-	align-self: flex-start;
+.pathRow > button {
+	flex: none;
 }
 
-.advancedCollapse {
-	display: grid;
+.pathParent {
+	flex: 0 1 auto;
+	gap: 0;
+	min-width: 0;
+	padding-inline-start: var( --space-2_5 );
+	font-weight: var( --font-weight-normal );
+	cursor: default;
+}
+
+.pathParent[data-compact] {
+	max-width: 40%;
+}
+
+.pathParentText {
+	min-width: 0;
 	overflow: hidden;
-	grid-template-rows: 0fr;
-	margin-top: calc( var( --space-6 ) * -1 );
-	transition:
-		grid-template-rows var( --motion-duration-layout ) var( --motion-ease-layout ),
-		margin-top var( --motion-duration-layout ) var( --motion-ease-layout );
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
-.advancedCollapseOpen {
-	grid-template-rows: 1fr;
-	overflow: visible;
-	margin-top: 0;
-}
-
-.advancedCollapseInner {
+.pathMeasure {
+	position: absolute;
+	width: 0;
+	height: 0;
+	overflow: hidden;
 	visibility: hidden;
-	overflow: hidden;
+	font-size: var( --text-sm );
+	font-weight: var( --font-weight-normal );
+	white-space: pre;
+	pointer-events: none;
+}
+
+.pathMeasure > span {
+	display: inline-block;
+}
+
+.pathName {
+	min-width: 0;
+	height: 100%;
+	padding-inline-start: 0;
+	text-overflow: ellipsis;
+}
+
+.pathDisplay {
+	min-width: 0;
+	text-overflow: ellipsis;
+}
+
+.credentialsPopup {
+	display: flex;
+	flex-direction: column;
+	width: 320px;
+	max-width: min( calc( 100vw - 2rem ), var( --available-width ) );
+	max-height: min( 560px, var( --available-height ) );
+	padding: var( --space-5 );
+}
+
+.advancedTrigger {
+	gap: var( --space-1 );
+	margin-inline-end: auto;
+}
+
+.advancedChevron {
+	transition: rotate var( --motion-duration-layout ) var( --motion-ease-layout );
+}
+
+.advancedTrigger[aria-expanded='true'] .advancedChevron {
+	rotate: 180deg;
+}
+
+.advancedFields {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-4 );
 	min-height: 0;
-	padding: var( --space-1 );
-	margin: calc( var( --space-1 ) * -1 );
+	overflow-y: auto;
 }
 
-.advancedCollapseOpen .advancedCollapseInner {
-	visibility: visible;
+.advancedControl {
+	flex: 0 1 152px;
+	width: 152px;
+	min-width: 0;
 }
 
-.advancedErrorCount {
-	margin-left: var( --space-2 );
-	font-size: var( --text-xxs );
-	font-weight: var( --font-weight-medium );
-	color: var( --destructive );
+.domainControls {
+	gap: var( --space-4 );
+	min-width: 0;
+}
+
+.httpsToggle {
+	flex: none;
+	white-space: nowrap;
+}
+
+.certificateNotice:empty {
+	display: none;
 }
 
 .submitErrorDetails {
@@ -77,31 +147,4 @@
 	font-size: var( --text-2xs );
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
-}
-
-.panelFooter {
-	padding-top: var( --space-6 );
-	border-top: 1px solid var( --border );
-}
-
-.source {
-	display: flex;
-	align-items: center;
-	gap: var( --space-3 );
-	padding: var( --space-3 );
-	border: 1px solid var( --border );
-	border-radius: var( --radius-lg );
-	background: var( --background );
-}
-
-.source svg {
-	flex: none;
-	color: var( --muted-foreground );
-}
-
-.source span {
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
 }

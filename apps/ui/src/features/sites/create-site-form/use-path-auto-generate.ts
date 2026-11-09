@@ -1,25 +1,24 @@
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useRef } from 'react';
-import { useConnector } from '@/data/core';
 import { usePathValidator } from '@/data/queries/use-create-site-helpers';
 import { useSites } from '@/data/queries/use-sites';
+import { getFolderNameError, splitFolderPath } from './folder-path';
 import type { FormData } from './form-data';
 
-const TYPED_PATH_CHECK_DELAY_MS = 300;
-
-// Called from the form (not `PathField`) so it runs even when Advanced is
-// collapsed — otherwise `data.path` would stay empty on first load and the
-// Advanced toggle would falsely show "1 error found".
 export function usePathAutoGenerate(
 	data: FormData,
 	onChange: ( update: Partial< FormData > ) => void,
 	isSubmitting: boolean,
-	requiresEmptyPath?: boolean
+	requiresEmptyPath?: boolean,
+	requiresExistingPath?: boolean
 ) {
-	const connector = useConnector();
 	const { data: sites } = useSites();
-	const { generateProposedPath, selectPath } = usePathValidator( sites, requiresEmptyPath );
+	const { generateProposedPath, selectPath } = usePathValidator(
+		sites,
+		requiresEmptyPath,
+		requiresExistingPath
+	);
 
 	const onChangeRef = useRef( onChange );
 	useEffect( () => {
@@ -31,7 +30,6 @@ export function usePathAutoGenerate(
 		if ( isSubmitting ) return;
 		if ( data.hasCustomPath ) {
 			pendingNameRef.current = null;
-			onChangeRef.current( { isPathPending: false } );
 			return;
 		}
 		const trimmed = data.name.trim();
@@ -67,30 +65,55 @@ export function usePathAutoGenerate(
 		};
 	}, [ data.name, data.hasCustomPath, generateProposedPath, isSubmitting ] );
 
-	// Without a native picker the folder is typed, so it's checked as it's typed.
-	const typedPath =
-		data.hasCustomPath && ! connector.capabilities.nativeFolderPicker ? data.path.trim() : '';
+	// Recheck chosen folders when the source's requirements change.
+	const customPath = data.hasCustomPath ? data.path : '';
+	const awaitingSiteName = data.matchSiteName && ! data.name.trim();
 	useEffect( () => {
-		if ( isSubmitting || ! typedPath ) return;
+		if ( isSubmitting ) return;
+		if ( awaitingSiteName ) {
+			onChangeRef.current( { pathError: '', isPathPending: false } );
+			return;
+		}
+		if ( ! customPath.trim() ) {
+			if ( data.hasCustomPath ) onChangeRef.current( { isPathPending: false } );
+			return;
+		}
+		const nameError = getFolderNameError( splitFolderPath( customPath ).name );
+		if ( nameError ) {
+			onChangeRef.current( { pathError: nameError, isPathPending: false } );
+			return;
+		}
 		onChangeRef.current( { isPathPending: true } );
 		let cancelled = false;
 		const timer = setTimeout( async () => {
 			try {
-				const result = await selectPath( typedPath );
+				const result = await selectPath( customPath, true );
 				if ( cancelled ) return;
+				if ( ! result ) {
+					onChangeRef.current( { isPathPending: false } );
+					return;
+				}
 				onChangeRef.current( {
 					pathError: result?.error ?? '',
 					isWordPress: !! result?.isWordPress,
 					isPathPending: false,
+					...( result.isWordPress && ! requiresEmptyPath ? { matchSiteName: false } : {} ),
 				} );
 			} catch ( error ) {
 				if ( cancelled ) return;
 				onChangeRef.current( { pathError: getErrorMessage( error ), isPathPending: false } );
 			}
-		}, TYPED_PATH_CHECK_DELAY_MS );
+		}, 300 );
 		return () => {
 			cancelled = true;
 			clearTimeout( timer );
 		};
-	}, [ typedPath, selectPath, isSubmitting ] );
+	}, [
+		customPath,
+		data.hasCustomPath,
+		selectPath,
+		isSubmitting,
+		requiresEmptyPath,
+		awaitingSiteName,
+	] );
 }

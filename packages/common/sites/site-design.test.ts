@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { fixSiteDesign } from './site-design';
+import { fixSiteDesign, readSiteDesign } from './site-design';
 
 const DESIGN_MD = `---
 colors:
@@ -83,4 +83,67 @@ it( 'settles each drift in the direction its fix names', async () => {
 	await expect(
 		readFile( path.join( themeDir(), 'assets/fonts/inter/inter-400-latin.woff2' ) )
 	).resolves.toEqual( Buffer.from( [ 1 ] ) );
+} );
+
+it( 'shows WordPress styles when DESIGN.md is missing without creating a document', async () => {
+	await rm( path.join( sitePath, 'DESIGN.md' ) );
+	const themeJson = { settings: { color: { palette: [] } }, styles: {} };
+	const resolveTheme = vi.fn();
+	const result = await readSiteDesign( sitePath, resolveTheme, async () => themeJson );
+	expect( result ).toEqual( { design: null, themeJson } );
+	expect( resolveTheme ).not.toHaveBeenCalled();
+	await expect( readFile( path.join( sitePath, 'DESIGN.md' ) ) ).rejects.toThrow();
+} );
+
+it( 'preserves an existing DESIGN.md board and its theme comparison', async () => {
+	const fallback = vi.fn();
+	const result = await readSiteDesign( sitePath, async () => 'bakery', fallback );
+	expect( result?.design ).toBe( DESIGN_MD );
+	expect( result?.themeJson ).toMatchObject( { version: 3 } );
+	expect( fallback ).not.toHaveBeenCalled();
+} );
+
+it.each( [
+	[
+		'missing typography tokens',
+		'---\ncolors:\n  background: "#333333"\n  text: "#F5F5F5"\n---\n\n## Typography\nUse Inter throughout.',
+	],
+	[ 'missing colors', '---\ntypography:\n  body:\n    fontFamily: Inter\n---' ],
+	[ 'missing front matter', '# Design system\nUse charcoal backgrounds and Inter.' ],
+	[ 'invalid YAML', '---\ncolors: [\n---' ],
+] )( 'falls back to WordPress styles for DESIGN.md with %s', async ( _, document ) => {
+	await writeFile( path.join( sitePath, 'DESIGN.md' ), document );
+	const themeJson = { settings: {}, styles: { color: { background: '#333333' } } };
+	const fallback = vi.fn( async () => themeJson );
+
+	const result = await readSiteDesign( sitePath, async () => 'bakery', fallback );
+
+	expect( result ).toEqual( { design: null, themeJson } );
+	expect( fallback ).toHaveBeenCalledOnce();
+	expect( await readFile( path.join( sitePath, 'DESIGN.md' ), 'utf8' ) ).toBe( document );
+} );
+
+it( 'uses resolved styles for child themes without their own theme.json', async () => {
+	await rm( path.join( themeDir(), 'theme.json' ) );
+	const themeJson = { settings: {}, styles: { color: { text: '#123456' } } };
+	const result = await readSiteDesign(
+		sitePath,
+		async () => 'bakery',
+		async () => themeJson
+	);
+	expect( result ).toEqual( { design: null, themeJson } );
+} );
+
+it( 'returns no board for a classic theme without DESIGN.md', async () => {
+	await rm( path.join( sitePath, 'DESIGN.md' ) );
+	expect( await readSiteDesign( sitePath, vi.fn(), async () => null ) ).toBeNull();
+} );
+
+it( 'propagates a WordPress read failure instead of reporting a missing design', async () => {
+	await rm( path.join( sitePath, 'DESIGN.md' ) );
+	await expect(
+		readSiteDesign( sitePath, vi.fn(), async () => {
+			throw new Error( 'WordPress unavailable' );
+		} )
+	).rejects.toThrow( 'WordPress unavailable' );
 } );

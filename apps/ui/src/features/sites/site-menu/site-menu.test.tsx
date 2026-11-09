@@ -2,6 +2,7 @@ import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifact
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { previewTabsKey, usePreviewTabs } from '@/data/preview-tabs';
 import { subscribeHeaderPanelRequest } from '@/data/use-open-header-panel';
 import { SessionUIProvider, useSessionPreviewUI } from '@/data/use-session-ui';
 import { SiteContextMenu } from '@/features/sites/stopped-site-preview';
@@ -19,9 +20,10 @@ afterEach( () => unsubscribers.splice( 0 ).forEach( ( unsubscribe ) => unsubscri
 
 function PreviewProbe() {
 	const preview = useSessionPreviewUI();
+	const { selected } = usePreviewTabs( previewTabsKey( 'selected' ) );
 	return (
 		<output aria-label="Preview">
-			{ preview.open && preview.siteId ? `${ preview.siteId } ${ preview.path }` : '' }
+			{ preview.open && preview.siteId ? `${ preview.siteId } ${ selected.path }` : '' }
 		</output>
 	);
 }
@@ -51,7 +53,13 @@ function setup( {
 		{
 			getConnectedWpcomSites: async () => connections ?? [],
 			getSiteDesign: async () =>
-				designAvailable ? { design: '# Example', themeJson: {} } : null,
+				designAvailable
+					? {
+							design:
+								'---\ncolors:\n  primary: "#c2552b"\n  background: "#ffffff"\ntypography:\n  body:\n    fontFamily: "Inter"\n---',
+							themeJson: {},
+					  }
+					: null,
 		}
 	);
 	const site = busy
@@ -140,6 +148,7 @@ describe( 'Stop other sites', () => {
 				expect( items[ items.indexOf( sync ) + 1 ] ).toHaveTextContent( 'Delete site' );
 				fireEvent.click( action === 'Share' ? share : sync );
 				if ( action === 'Share' ) {
+					fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Manage sharing' } ) );
 					expect( requests.share ).toHaveBeenCalledExactlyOnceWith( {
 						panel: 'share',
 						siteId: 'selected',
@@ -204,8 +213,9 @@ describe( 'Stop other sites', () => {
 	);
 
 	it.each( [
-		[ 'WordPress Admin', autoLogin( '/wp-admin/' ) ],
+		[ 'Admin', autoLogin( '/wp-admin/' ) ],
 		[ 'Database', DATABASE_PATH ],
+		[ 'Email log', 'studio:email' ],
 	] )( 'navigates to %s for the menu site', async ( label, path ) => {
 		const { open, history } = setup();
 		await open();
@@ -225,7 +235,7 @@ describe( 'Stop other sites', () => {
 			const { open, history } = setup( { contextMenu, designAvailable: true } );
 			await open();
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
-			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Design system' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Design System' } ) );
 			await waitFor( () =>
 				expect( screen.getByRole( 'status', { name: 'Preview' } ) ).toHaveTextContent(
 					`selected ${ DESIGN_SYSTEM_PREVIEW_PATH }`
@@ -240,7 +250,7 @@ describe( 'Stop other sites', () => {
 		await open();
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
 		expect( await screen.findByRole( 'menuitem', { name: 'Database' } ) ).toBeInTheDocument();
-		expect( screen.queryByRole( 'menuitem', { name: 'Design system' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'menuitem', { name: 'Design System' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'omits the design system while the site is stopped', async () => {
@@ -248,12 +258,13 @@ describe( 'Stop other sites', () => {
 		await open();
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
 		expect( await screen.findByRole( 'menuitem', { name: 'Database' } ) ).toBeInTheDocument();
-		expect( screen.queryByRole( 'menuitem', { name: 'Design system' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'menuitem', { name: 'Design System' } ) ).not.toBeInTheDocument();
 	} );
 
 	it.each( [
-		[ 'WordPress Admin', autoLogin( '/wp-admin/' ) ],
+		[ 'Admin', autoLogin( '/wp-admin/' ) ],
 		[ 'Database', DATABASE_PATH ],
+		[ 'Email log', 'studio:email' ],
 	] )( 'starts a stopped site before opening %s', async ( label, path ) => {
 		const { open, connector } = setup( { selectedRunning: false } );
 		await open();
@@ -271,7 +282,9 @@ describe( 'Stop other sites', () => {
 		await waitFor( () =>
 			expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( 'selected' )
 		);
-		expect( screen.getByRole( 'status', { name: 'Preview' } ) ).toBeEmptyDOMElement();
+		expect( screen.getByRole( 'status', { name: 'Preview' } ) ).toHaveTextContent(
+			`selected ${ path }`
+		);
 		finishStart();
 		await waitFor( () =>
 			expect( screen.getByRole( 'status', { name: 'Preview' } ) ).toHaveTextContent(
@@ -279,20 +292,6 @@ describe( 'Stop other sites', () => {
 			)
 		);
 	} );
-
-	it.each( [ true, false ] )(
-		'opens the email folder of the menu site, running or not (%s)',
-		async ( selectedRunning ) => {
-			const { open, connector } = setup( { selectedRunning } );
-			await open();
-			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
-			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Email' } ) );
-			await waitFor( () =>
-				expect( connector.openSiteEmailFolder ).toHaveBeenCalledExactlyOnceWith( 'selected' )
-			);
-			expect( connector.startSite ).not.toHaveBeenCalled();
-		}
-	);
 
 	it( 'stops only other running sites', async () => {
 		const { open, connector } = setup();
@@ -338,7 +337,7 @@ describe( 'Stop other sites', () => {
 		async ( contextMenu ) => {
 			const { open, connector } = setup( { selectedRunning: false, contextMenu } );
 			await open();
-			await screen.findByRole( 'menuitem', { name: /Start site/ } );
+			await screen.findByRole( 'menuitem', { name: /^Start(?:\s|$)/ } );
 			await waitFor( () => expect( connector.getSites ).toHaveBeenCalled() );
 			expect(
 				screen.queryByRole( 'menuitem', { name: 'Stop other sites' } )
@@ -389,7 +388,7 @@ describe( 'Restart site', () => {
 					} )
 			);
 			await open();
-			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Restart site' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Restart' } ) );
 			await waitFor( () =>
 				expect( connector.stopSite ).toHaveBeenCalledExactlyOnceWith( 'selected' )
 			);
@@ -405,7 +404,7 @@ describe( 'Restart site', () => {
 		const { open, connector } = setup();
 		connector.stopSite.mockRejectedValueOnce( new Error( 'Unable to stop' ) );
 		await open();
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Restart site' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Restart' } ) );
 		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalled() );
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).not.toHaveAttribute(
@@ -419,14 +418,14 @@ describe( 'Restart site', () => {
 	it.each( [ false, true ] )( 'hides restart for a stopped site (%s)', async ( contextMenu ) => {
 		const { open } = setup( { selectedRunning: false, contextMenu } );
 		await open();
-		await screen.findByRole( 'menuitem', { name: /Start site/ } );
-		expect( screen.queryByRole( 'menuitem', { name: 'Restart site' } ) ).not.toBeInTheDocument();
+		await screen.findByRole( 'menuitem', { name: /^Start(?:\s|$)/ } );
+		expect( screen.queryByRole( 'menuitem', { name: 'Restart' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'disables restart while the site is busy', async () => {
 		const { open } = setup( { busy: true } );
 		await open();
-		expect( await screen.findByRole( 'menuitem', { name: 'Restart site' } ) ).toHaveAttribute(
+		expect( await screen.findByRole( 'menuitem', { name: 'Restart' } ) ).toHaveAttribute(
 			'aria-disabled',
 			'true'
 		);
@@ -482,3 +481,16 @@ it.each( [ false, true ] )(
 		}
 	}
 );
+
+it( 'keeps an unsupported backup explanation beside the picker until acknowledged', async () => {
+	const { open, connector } = setup();
+	await open();
+	fireEvent.change( screen.getByTestId( 'import-backup-file' ), {
+		target: { files: [ new File( [ 'invalid' ], 'backup.txt', { type: 'text/plain' } ) ] },
+	} );
+	const validation = await screen.findByRole( 'alertdialog', { name: 'Unsupported backup file' } );
+	expect( validation ).toHaveTextContent( 'This file type is not supported' );
+	fireEvent.click( within( validation ).getByRole( 'button', { name: 'Done' } ) );
+	await waitFor( () => expect( validation ).not.toBeInTheDocument() );
+	expect( connector.importSiteFromBackup ).not.toHaveBeenCalled();
+} );

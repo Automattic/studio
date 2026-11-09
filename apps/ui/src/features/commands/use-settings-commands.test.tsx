@@ -1,6 +1,6 @@
 import { act, waitFor } from '@testing-library/react';
 import { beforeEach, expect, it } from 'vitest';
-import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
+import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import { useSettingCommands } from '@/features/commands/use-setting-commands';
 import { createFakeConnector } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
@@ -8,9 +8,19 @@ import type { PaletteCommand } from '@/features/commands/studio-commands';
 
 beforeEach( resetAppMessagesForTests );
 
-function setup( collapse: boolean ) {
+function setup(
+	collapse: boolean,
+	openChatOnSiteStart = true,
+	batchAnnotations = false,
+	analyticsEnabled = true
+) {
 	const connector = createFakeConnector( {
-		preferences: { autoCollapseSites: collapse },
+		preferences: {
+			autoCollapseSites: collapse,
+			openChatOnSiteStart,
+			batchAnnotations,
+			analyticsEnabled,
+		},
 	} );
 	const result: { current: PaletteCommand[] } = { current: [] };
 	function Probe() {
@@ -43,16 +53,15 @@ it( 'uses direct actions once while keeping CLI and instructions as settings lin
 	const { connector, result } = setup( false );
 	await waitFor( () =>
 		expect(
-			result.current.find( ( entry ) => entry.id === 'settings-general-open-chat-on-site-start' )
-				?.label
-		).toMatch( /^(Enable|Disable) chat opening/ )
+			result.current.find( ( entry ) => entry.id === 'settings-general-auto-start-site' )?.label
+		).toMatch( /^(Enable|Disable) automatic site start/ )
 	);
 	const find = ( id: string ) => result.current.find( ( entry ) => entry.id === id )!;
 	expect( result.current.filter( ( entry ) => entry.label === 'Reset appearance' ) ).toHaveLength(
 		1
 	);
 	for ( const id of [
-		'settings-general-open-chat-on-site-start',
+		'settings-general-auto-start-site',
 		'settings-appearance-reset-appearance',
 		'settings-general-documentation',
 	] ) {
@@ -69,7 +78,7 @@ it( 'uses direct actions once while keeping CLI and instructions as settings lin
 			undefined
 		)
 	);
-	await waitFor( () => expect( getNoticeHistory().at( 0 )?.title ).toBe( 'Appearance reset.' ) );
+	await waitFor( () => expect( getVisibleToasts().at( 0 )?.title ).toBe( 'Appearance reset.' ) );
 	act( () => find( 'settings-general-documentation' ).run() );
 	expect( connector.openExternalUrl ).toHaveBeenCalled();
 } );
@@ -86,7 +95,7 @@ it( 'resets interface preferences through the existing persistence action', asyn
 			undefined
 		)
 	);
-	await waitFor( () => expect( getNoticeHistory().at( 0 )?.title ).toBe( 'Interface reset.' ) );
+	await waitFor( () => expect( getVisibleToasts().at( 0 )?.title ).toBe( 'Interface reset.' ) );
 } );
 
 it.each( [ false, true ] )(
@@ -103,10 +112,10 @@ it.each( [ false, true ] )(
 		);
 		act( () => command()!.run() );
 		await waitFor( () => expect( connector.setUserPreferences ).toHaveBeenCalledOnce() );
-		expect( getNoticeHistory() ).toHaveLength( 0 );
+		expect( getVisibleToasts() ).toHaveLength( 0 );
 		await act( async () => settle() );
-		await waitFor( () => expect( getNoticeHistory() ).toHaveLength( 1 ) );
-		expect( getNoticeHistory()[ 0 ] ).toMatchObject(
+		await waitFor( () => expect( getVisibleToasts() ).toHaveLength( 1 ) );
+		expect( getVisibleToasts()[ 0 ] ).toMatchObject(
 			fails
 				? {
 						intent: 'error',
@@ -117,6 +126,47 @@ it.each( [ false, true ] )(
 	}
 );
 
+it.each( [ false, true ] )(
+	'changes the startup layout from the command palette (split: %s)',
+	async ( split ) => {
+		const { connector, result } = setup( false, split );
+		const command = () =>
+			result.current.find( ( entry ) => entry.id === 'settings-general-open-chat-on-site-start' );
+		await waitFor( () =>
+			expect( command()?.label ).toBe(
+				split ? 'Hide chat when starting sites' : 'Show chat when starting sites'
+			)
+		);
+		act( () => command()!.run() );
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+				{
+					openChatOnSiteStart: ! split,
+				},
+				undefined
+			)
+		);
+	}
+);
+
+it.each( [ false, true ] )(
+	'toggles app-wide Batch notes from the palette (%s)',
+	async ( checked ) => {
+		const { connector, result } = setup( false, true, checked );
+		const command = () =>
+			result.current.find( ( entry ) => entry.id === 'settings-general-batch-notes' );
+		await waitFor( () =>
+			expect( command()?.label ).toBe( checked ? 'Disable batch notes' : 'Enable batch notes' )
+		);
+		act( () => command()!.run() );
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+				{ batchAnnotations: ! checked },
+				undefined
+			)
+		);
+	}
+);
 it( 'resets tips without resetting guide progress or interface preferences', async () => {
 	const { connector, result } = setup( false );
 	const reset = () => result.current.find( ( entry ) => entry.id === 'reset-tips' );
@@ -129,4 +179,19 @@ it( 'resets tips without resetting guide progress or interface preferences', asy
 	);
 	expect( connector.setUserPreferences ).not.toHaveBeenCalled();
 	expect( connector.setOnboardingCompleted ).not.toHaveBeenCalled();
+} );
+
+it( 'offers enabling usage statistics until it is enabled', async () => {
+	const { connector, result } = setup( false, true, false, false );
+	const command = () =>
+		result.current.find( ( entry ) => entry.id === 'settings-general-usage-statistics' );
+	await waitFor( () => expect( command()?.label ).toBe( 'Enable anonymous usage statistics' ) );
+	act( () => command()!.run() );
+	await waitFor( () =>
+		expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+			{ analyticsEnabled: true },
+			{ surface: 'settings' }
+		)
+	);
+	await waitFor( () => expect( command() ).toBeUndefined() );
 } );

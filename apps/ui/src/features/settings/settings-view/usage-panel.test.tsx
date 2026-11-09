@@ -181,12 +181,12 @@ describe( 'Usage settings', () => {
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'offers Try again when the quota cannot be read', async () => {
+	it( 'offers Refresh when the quota cannot be read', async () => {
 		const { connector } = setup();
 		connector.getStudioAssistantQuota.mockRejectedValueOnce( new Error( 'Unavailable' ) );
 		expect( await screen.findByText( 'AI usage is currently unavailable.' ) ).toBeVisible();
 		expect( screen.queryByText( ALPHA ) ).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Try again' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Refresh' } ) );
 		expect( await screen.findByText( ALPHA ) ).toBeVisible();
 	} );
 

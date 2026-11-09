@@ -158,6 +158,14 @@ describe( 'themeJsonFromDesign', () => {
 } );
 
 describe( 'googleFontsUrl', () => {
+	it( 'loads web fonts without sending system font families to Google Fonts', () => {
+		const system = { fontFamily: 'system-ui, sans-serif' };
+		expect( googleFontsUrl( [ system ] ) ).toBeUndefined();
+		expect( googleFontsUrl( [ system, { fontFamily: 'Inter', fontWeight: 400 } ] ) ).toBe(
+			'https://fonts.googleapis.com/css2?family=Inter:wght@400&display=swap'
+		);
+	} );
+
 	it( 'honors the display strategy and returns undefined without families', () => {
 		const styles = typographyStyles( parseDesignMd( DESIGN_MD ) ).map( ( [ , style ] ) => style );
 		expect( googleFontsUrl( styles, 'block' ) ).toMatch( /&display=block$/ );

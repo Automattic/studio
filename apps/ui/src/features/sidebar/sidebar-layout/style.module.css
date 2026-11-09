@@ -1,4 +1,6 @@
 .root {
+	--motion-ease-layout: var( --motion-ease-drawer );
+
 	/* The sidebar and its sticky header/footer share one surface. */
 	--studio-sidebar-bg: var( --chrome );
 
@@ -49,8 +51,8 @@
 
 /* While dragging or arrow-keying the handle the width updates every step; the
    collapse transition above would animate toward each step and lag behind.
-   Drop it for the duration of the drag (mirrors `.rootPreviewResizing` in
-   preview-split-frame). */
+   Drop it for the duration of the drag (mirrors `.rootPanelResizing` in
+   panel-split-frame). */
 .sidebarResizing,
 .sidebarResizing .sidebar,
 .root:has( > .resizeHandle:focus-visible ) :is( .sidebarFrame, .sidebar ) {
@@ -61,17 +63,41 @@
    pushes the footer to the bottom in the flex column when content is
    shorter than the viewport. Rows scrolling under it fade out. */
 .sidebarFooter {
+	composes: surfaceFade from '@/lib/theme/recipes.module.css';
+	--fade-surface: var( --studio-sidebar-bg );
 	margin-top: auto;
 	position: sticky;
 	bottom: 0;
 	z-index: 1;
-	padding-top: var( --space-6 );
-	background: linear-gradient( to bottom, transparent, var( --studio-sidebar-bg ) 32px );
+	padding-top: var( --surface-fade-size );
+
 	pointer-events: none;
 	-webkit-app-region: no-drag;
 }
 
-.sidebarFooter > * {
+.sidebarFooter::before {
+	top: calc( -1 * var( --space-2 ) );
+	height: calc( 100% + var( --space-2 ) );
+	mask-image: linear-gradient( to bottom, var( --surface-strong-overlay-fade-stops ) );
+	z-index: -1;
+	display: none;
+}
+
+[data-scroll-bottom] > .sidebarFooter::before {
+	display: block;
+}
+
+.footerBlur {
+	height: 100%;
+	z-index: -1;
+	display: none;
+}
+
+[data-scroll-bottom] > .sidebarFooter > .footerBlur {
+	display: block;
+}
+
+.sidebarFooter > :not( .footerBlur ) {
 	pointer-events: auto;
 }
 
@@ -81,7 +107,7 @@
 	content: '';
 	position: absolute;
 	z-index: 2;
-	top: 0;
+	top: 1px;
 	bottom: 0;
 	inset-inline-end: 0;
 	width: 1px;
@@ -122,9 +148,12 @@
 	justify-content: flex-start;
 }
 
-.root:has( > .resizeHandle:hover ) .sidebarFrame::after,
-.sidebarResizing::after {
+.root:has( > .resizeHandle:hover ) .sidebarFrame:not( .sidebarResizing )::after {
 	background-color: var( --surface-4 );
+}
+
+.sidebarResizing::after {
+	background-color: var( --accent );
 }
 
 .sidebarCards {
@@ -140,6 +169,7 @@
 }
 
 .sidebarFlyout {
+	--motion-ease-layout: var( --motion-ease-drawer );
 	--surface: var( --chrome );
 	--studio-sidebar-bg: var( --chrome );
 	--sidebar-flyout-top-inset: calc( var( --space-3 ) - var( --space-0_5 ) );
@@ -153,7 +183,9 @@
 .sidebarFlyoutContents {
 	display: flex;
 	flex-direction: column;
-	height: calc( 100dvh - var( --band-height ) - 12px - var( --sidebar-flyout-top-inset ) );
+	height: calc(
+		100dvh - var( --band-height ) - var( --space-1_5 ) - var( --sidebar-flyout-top-inset )
+	);
 	overflow-y: auto;
 	scrollbar-width: none;
 	-webkit-app-region: no-drag;

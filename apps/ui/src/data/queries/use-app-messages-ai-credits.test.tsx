@@ -1,10 +1,9 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { AppProviders } from '@/app/app-providers';
-import { getNoticeHistory } from '@/data/app-messages';
 import { createFakeConnector, TEST_USER } from '@/test/fake-connector';
 import { createTestQueryClient } from '@/test/render';
-import { useActivePersistentMessages, useRecordPersistentMessages } from './use-app-messages';
+import { useActivePersistentMessages } from './use-app-messages';
 import { ASSISTANT_QUOTA_QUERY_KEY } from './use-assistant-quota';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { ReactNode } from 'react';
@@ -22,7 +21,6 @@ async function renderMessages( fraction: number ) {
 	const queryClient = createTestQueryClient();
 	const view = renderHook(
 		() => {
-			useRecordPersistentMessages();
 			return useActivePersistentMessages();
 		},
 		{
@@ -108,21 +106,5 @@ describe( 'AI credits sidebar notice', () => {
 		expect( creditsMessages() ).toEqual( [
 			expect.objectContaining( { id: 'ai-credits:warning' } ),
 		] );
-	} );
-
-	it( 'logs the card to the notification history and keeps it after dismissal', async () => {
-		const { creditsMessages, dismiss } = await renderMessages( 0.83 );
-		await waitFor( () =>
-			expect( getNoticeHistory() ).toEqual( [
-				expect.objectContaining( {
-					id: 'ai-credits:warning',
-					intent: 'warning',
-					title: 'At 83% usage',
-				} ),
-			] )
-		);
-		dismiss();
-		expect( creditsMessages() ).toEqual( [] );
-		expect( getNoticeHistory() ).toHaveLength( 1 );
 	} );
 } );

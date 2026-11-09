@@ -19,4 +19,4 @@ Each page shows light and dark side by side, or one scheme from the header. To a
 - `/sidebar-preview.html`: the real app shell with its sidebar held in loading. Use the links to switch to loaded rows or between light and dark mode.
   Add `&rows=30` for a scrolling sidebar or `&chat=long` for a sample conversation.
 
-- `/model-selector.html`: the real composer and model selector with sample favorites. Use `?scheme=dark` for dark mode, `?providers=all` to include direct Claude, or `?providers=all&state=conversation` to check family-switch confirmation. Preferences are in memory; no live agent or provider is used.
+- `/model-selector.html`: the real composer and model selector with sample favorites. Use `?scheme=dark` for dark mode, `?favorites=empty` to start without favorites, `?providers=all` to include direct Claude, or `?providers=all&state=conversation` to check family-switch confirmation. Preferences are in memory; no live agent or provider is used.

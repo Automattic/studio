@@ -1,5 +1,6 @@
 import { AI_MODELS } from '@studio/agent/protocol/models';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { Composer } from '@/features/composer';
 import { createFakeConnector, type FakeConnector } from '@/test/fake-connector';
@@ -83,7 +84,7 @@ describe( 'Chat model picker', () => {
 		);
 	} );
 
-	it( 'lists the tiers and closes after selection', async () => {
+	it( 'lists the tiers and stays open after selection', async () => {
 		const { trigger, onModelChange } = await renderPicker( 'balanced', connectorFor() );
 		fireEvent.click( trigger );
 		expect( await screen.findByRole( 'button', { name: /^Fast/ } ) ).toBeInTheDocument();
@@ -91,10 +92,44 @@ describe( 'Chat model picker', () => {
 		expect( screen.getByRole( 'button', { name: /^Strong/ } ) ).toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'button', { name: /^Fast/ } ) );
 		await waitFor( () => expect( onModelChange ).toHaveBeenCalledWith( 'fast', 'wpcom' ) );
-		await waitFor( () =>
-			expect( screen.queryByRole( 'dialog', { name: 'Choose a model' } ) ).not.toBeInTheDocument()
-		);
+		expect( screen.getByRole( 'dialog', { name: 'Choose a model' } ) ).toBeVisible();
 	} );
+
+	it.each( [ 'pointer', 'keyboard' ] )(
+		'lets a %s selection change the model and effort without reopening the picker',
+		async ( method ) => {
+			function ModelSelection() {
+				const [ model, setModel ] = useState< AiModelId >( 'fast' );
+				return (
+					<Composer
+						model={ model }
+						busy={ false }
+						onSend={ vi.fn() }
+						onInterrupt={ vi.fn() }
+						onModelChange={ setModel }
+					/>
+				);
+			}
+			const { user } = renderWithProviders( <ModelSelection />, { connector: connectorFor() } );
+			const trigger = await screen.findByRole( 'button', { name: 'Model' } );
+			await user.click( trigger );
+			expect( screen.getByRole( 'button', { name: 'Effort: Unavailable' } ) ).toBeDisabled();
+			const balanced = await screen.findByRole( 'button', { name: 'Balanced' } );
+			if ( method === 'keyboard' ) {
+				balanced.focus();
+				await user.keyboard( '{Enter}' );
+			} else await user.click( balanced );
+			expect( screen.getByRole( 'dialog', { name: 'Choose a model' } ) ).toBeVisible();
+			expect( screen.getByRole( 'button', { name: 'Balanced', pressed: true } ) ).toBeVisible();
+			await user.click( screen.getByRole( 'button', { name: 'Effort: Medium' } ) );
+			await user.click( await screen.findByRole( 'menuitemradio', { name: 'High' } ) );
+			expect( trigger ).toHaveTextContent( 'Balanced · High' );
+			expect( screen.getByRole( 'button', { name: 'Effort: High' } ) ).toBeVisible();
+			await user.keyboard( '{Escape}' );
+			expect( screen.queryByRole( 'dialog', { name: 'Choose a model' } ) ).not.toBeInTheDocument();
+			expect( trigger ).toHaveTextContent( 'Balanced · High' );
+		}
+	);
 
 	it( 'keeps paid models locked', async () => {
 		const connector = connectorFor( {

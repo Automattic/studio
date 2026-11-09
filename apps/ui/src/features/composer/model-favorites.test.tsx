@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogTitle } from '@/lib/ui';
 import { createFakeConnector } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import type { AiModelId } from '@studio/agent/protocol/models';
+import type { AiProviderId } from '@studio/agent/protocol/providers';
 import type { ModelFavorite } from '@studio/common/lib/user-settings/model-favorites';
 
 const favorites: ModelFavorite[] = [
@@ -36,10 +37,8 @@ function mockLanding() {
 	return { animate, animation };
 }
 
-function dragFixture() {
-	const list = within( screen.getByRole( 'group', { name: 'Favorite models' } ) ).getByRole(
-		'list'
-	);
+function dragFixture( group = 'Favorite models' ) {
+	const list = within( screen.getByRole( 'group', { name: group } ) ).getByRole( 'list' );
 	Array.from( list.children ).forEach( ( row ) => {
 		vi.spyOn( row, 'getBoundingClientRect' ).mockImplementation(
 			() => new DOMRect( 0, Array.from( list.children ).indexOf( row ) * 32, 224, 32 )
@@ -60,7 +59,7 @@ function dragFixture() {
 async function setup(
 	saved: ModelFavorite[] = favorites,
 	initialModel: AiModelId = 'balanced',
-	{ busy = false, purchasedRemaining = 500 } = {}
+	{ busy = false, purchasedRemaining = 500, provider = 'wpcom' as AiProviderId } = {}
 ) {
 	clearComposerDrafts();
 	const connector = createFakeConnector(
@@ -80,6 +79,7 @@ async function setup(
 	const view = renderWithProviders(
 		<Composer
 			model={ initialModel }
+			provider={ provider }
 			busy={ busy }
 			sessionId="test-favorites"
 			onSend={ onSend }
@@ -191,6 +191,8 @@ describe( 'Model favorites and effort', () => {
 			} )
 		);
 		expect( trigger ).toHaveTextContent( 'Balanced · High' );
+		expect( screen.getByRole( 'dialog', { name: 'Choose a model' } ) ).toBeVisible();
+		await user.keyboard( '{Escape}' );
 		const input = screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } );
 		await user.type( input, 'Keep my draft' );
 		await user.click( trigger );
@@ -292,6 +294,7 @@ describe( 'Model favorites and effort', () => {
 		expect(
 			within( list ).getAllByRole( 'button', { name: /^Reorder / } )[ 0 ]
 		).toHaveAccessibleName( 'Reorder Balanced · High' );
+		expect( screen.getByRole( 'textbox', { name: 'Search models' } ) ).toHaveFocus();
 		await user.click( screen.getByRole( 'button', { name: 'Balanced · High' } ) );
 		expect( onModelChange ).toHaveBeenCalledWith( 'balanced', 'wpcom' );
 	} );
@@ -432,14 +435,352 @@ describe( 'Model favorites and effort', () => {
 			'Opus 5'
 		);
 	} );
-	it( 'removes even the current and last starred model from the default list', async () => {
+	it( 'shows available models after removing the last favorite', async () => {
 		const { user, connector } = await setup( [ favorites[ 0 ] ] );
 		await user.click( screen.getByRole( 'button', { name: 'Unstar Balanced' } ) );
-		expect( screen.queryByRole( 'button', { name: 'Balanced' } ) ).not.toBeInTheDocument();
-		expect( screen.getByText( 'Star models to keep them here.' ) ).toBeVisible();
 		await waitFor( () => expect( connector.state.preferences.modelFavorites ).toEqual( [] ) );
+		const available = screen.getByRole( 'group', { name: 'Available models' } );
+		expect(
+			within( available ).getByRole( 'button', { name: 'Balanced', pressed: true } )
+		).toBeVisible();
+		expect( within( available ).getByRole( 'button', { name: 'Fast' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'group', { name: 'Favorite models' } ) ).not.toBeInTheDocument();
 		await user.type( screen.getByRole( 'textbox', { name: 'Search models' } ), 'balanced' );
 		expect( screen.getByRole( 'button', { name: 'Balanced' } ) ).toBeVisible();
+	} );
+
+	it( 'lets an empty picker select a model from the keyboard and stay open', async () => {
+		const { user, onModelChange } = await setup( [] );
+		expect( screen.getByRole( 'group', { name: 'Available models' } ) ).toBeVisible();
+		await user.keyboard( '{ArrowDown}{Enter}' );
+		expect( onModelChange ).toHaveBeenCalledWith( 'fast', 'wpcom' );
+		expect( screen.getByRole( 'dialog', { name: 'Choose a model' } ) ).toBeVisible();
+	} );
+
+	it( 'limits starter models to three and searches the full connected catalog', async () => {
+		const { user } = await setup( [] );
+		const available = screen.getByRole( 'group', { name: 'Available models' } );
+		expect( within( available ).getAllByRole( 'button', { name: /^Reorder / } ) ).toHaveLength( 3 );
+		expect( screen.queryByRole( 'button', { name: 'Sonnet 5' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Opus 5' } ) ).not.toBeInTheDocument();
+		const search = screen.getByRole( 'textbox', { name: 'Search models' } );
+		await user.type( search, 'claude' );
+		expect( screen.getByRole( 'button', { name: 'Sonnet 5' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Opus 5' } ) ).toBeVisible();
+		await user.clear( search );
+		expect(
+			within( screen.getByRole( 'group', { name: 'Available models' } ) ).getAllByRole( 'button', {
+				name: /^Reorder /,
+			} )
+		).toHaveLength( 3 );
+	} );
+
+	it( 'keeps the current model within the three starter models', async () => {
+		await setup( [], 'claude-opus-5', { provider: 'anthropic-api-key' } );
+		const available = screen.getByRole( 'group', { name: 'Available models' } );
+		expect( within( available ).getAllByRole( 'button', { name: /^Reorder / } ) ).toHaveLength( 3 );
+		expect(
+			within( available ).getByRole( 'button', { name: 'Opus 5', pressed: true } )
+		).toBeVisible();
+	} );
+
+	it( 'keeps starter choices when adding and removing favorites, including after reopening', async () => {
+		const { user, connector, trigger, onModelChange } = await setup( [] );
+		const strong = { provider: 'wpcom', model: 'strong', effort: 'default' };
+		await user.click( screen.getByRole( 'button', { name: 'Star Strong' } ) );
+		await waitFor( () =>
+			expect( connector.state.preferences.modelFavorites ).toEqual( [ strong ] )
+		);
+		for ( const label of [ 'Fast', 'Balanced', 'Strong' ] ) {
+			expect( screen.getByRole( 'button', { name: label } ) ).toBeVisible();
+		}
+		expect( screen.getAllByRole( 'button', { name: /^Reorder / } ) ).toHaveLength( 3 );
+		expect( screen.getByRole( 'button', { name: 'Fast' } ) ).not.toHaveAttribute(
+			'aria-keyshortcuts'
+		);
+		await user.click( trigger );
+		await user.click( trigger );
+		expect( screen.getByRole( 'button', { name: 'Fast' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Balanced', pressed: true } ) ).toBeVisible();
+		await user.click( screen.getByRole( 'button', { name: 'Star Balanced' } ) );
+		await waitFor( () =>
+			expect( connector.state.preferences.modelFavorites ).toEqual( [ favorites[ 0 ], strong ] )
+		);
+		expect( screen.getByRole( 'button', { name: 'Fast' } ) ).toBeVisible();
+		expect( screen.getAllByRole( 'button', { name: /^Reorder / } ) ).toHaveLength( 3 );
+		await user.click( screen.getByRole( 'button', { name: 'Unstar Balanced' } ) );
+		await waitFor( () =>
+			expect( connector.state.preferences.modelFavorites ).toEqual( [ strong ] )
+		);
+		expect( screen.getByRole( 'button', { name: 'Balanced', pressed: true } ) ).toBeVisible();
+		expect( screen.getAllByRole( 'button', { name: /^Reorder / } ) ).toHaveLength( 3 );
+		expect( screen.queryByRole( 'button', { name: 'Sonnet 5' } ) ).not.toBeInTheDocument();
+		expect( onModelChange ).not.toHaveBeenCalled();
+	} );
+
+	it( 'keeps the current model in the remaining starter slot beside two favorites', async () => {
+		await setup(
+			[ favorites[ 2 ], { provider: 'wpcom', model: 'strong', effort: 'default' } ],
+			'claude-opus-5',
+			{ provider: 'anthropic-api-key' }
+		);
+		expect( screen.getByRole( 'button', { name: 'Sonnet 5' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Strong' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Opus 5', pressed: true } ) ).toBeVisible();
+		expect( screen.getAllByRole( 'button', { name: /^Reorder / } ) ).toHaveLength( 3 );
+		expect( screen.queryByRole( 'button', { name: 'Fast' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'keeps an unsaved current model draggable without a shortcut or saving it when another row moves', async () => {
+		const { user, connector, onModelChange } = await setup( favorites, 'claude-opus-5', {
+			provider: 'anthropic-api-key',
+		} );
+		const current = screen.getByRole( 'button', { name: 'Opus 5', pressed: true } );
+		expect( current ).toBeVisible();
+		expect( current ).not.toHaveAttribute( 'aria-keyshortcuts' );
+		expect( screen.getByRole( 'button', { name: 'Reorder Opus 5' } ) ).toBeVisible();
+		const saved = screen.getByRole( 'group', { name: 'Available models' } );
+		expect( saved ).toContainElement( current );
+		[ 'Balanced', 'Balanced · High', 'Sonnet 5' ].forEach( ( label, index ) => {
+			expect(
+				within( within( saved ).getByRole( 'button', { name: label } ) ).getByText(
+					displayShortcut.primaryAlt( String( index + 1 ) )
+				)
+			).toBeVisible();
+		} );
+		const search = screen.getByRole( 'textbox', { name: 'Search models' } );
+		await user.type( search, 'opus' );
+		expect( screen.getAllByRole( 'button', { name: 'Opus 5' } ) ).toHaveLength( 1 );
+		await user.clear( search );
+		await user.type( search, 'balanced' );
+		expect( screen.queryByRole( 'button', { name: 'Opus 5' } ) ).not.toBeInTheDocument();
+		await user.clear( search );
+		fireEvent.keyDown( screen.getByRole( 'button', { name: 'Reorder Balanced · High' } ), {
+			key: 'ArrowUp',
+		} );
+		await waitFor( () =>
+			expect( connector.state.preferences.modelFavorites ).toEqual( [
+				favorites[ 1 ],
+				favorites[ 0 ],
+				favorites[ 2 ],
+			] )
+		);
+		expect( screen.getByRole( 'button', { name: 'Opus 5', pressed: true } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Opus 5' } ) ).not.toHaveAttribute(
+			'aria-keyshortcuts'
+		);
+		expect( onModelChange ).not.toHaveBeenCalled();
+	} );
+
+	it( 'saves the current preset at its pointer drop position and assigns its shortcut', async () => {
+		const { connector, onModelChange, trigger, user } = await setup( favorites, 'claude-opus-5', {
+			provider: 'anthropic-api-key',
+		} );
+		const firstShortcut = screen
+			.getByRole( 'button', { name: 'Balanced' } )
+			.getAttribute( 'aria-keyshortcuts' );
+		const { list, pointer } = dragFixture( 'Available models' );
+		const handle = screen.getByRole( 'button', { name: 'Reorder Opus 5' } );
+		fireEvent( handle, pointer( 'pointerdown', 112 ) );
+		fireEvent( list, pointer( 'pointermove', 6 ) );
+		fireEvent( list, pointer( 'pointerup', 6 ) );
+		await waitFor( () =>
+			expect( connector.state.preferences.modelFavorites ).toEqual( [
+				{ provider: 'anthropic-api-key', model: 'claude-opus-5', effort: 'default' },
+				...favorites,
+			] )
+		);
+		expect( screen.getAllByRole( 'button', { name: 'Opus 5' } ) ).toHaveLength( 1 );
+		expect( screen.getByRole( 'button', { name: 'Opus 5', pressed: true } ) ).toHaveAttribute(
+			'aria-keyshortcuts',
+			firstShortcut
+		);
+		expect( screen.getByRole( 'button', { name: 'Unstar Opus 5' } ) ).toBeVisible();
+		expect( onModelChange ).not.toHaveBeenCalled();
+		await user.click( trigger );
+		await user.click( trigger );
+		expect( screen.getByRole( 'button', { name: 'Opus 5' } ) ).toHaveAttribute(
+			'aria-keyshortcuts',
+			firstShortcut
+		);
+	} );
+
+	it( 'saves the current model and effort at its keyboard reorder position without selecting it', async () => {
+		const { user, connector, onModelChange } = await setup( favorites, 'claude-opus-5', {
+			provider: 'anthropic-api-key',
+		} );
+		const thirdShortcut = screen
+			.getByRole( 'button', { name: 'Sonnet 5' } )
+			.getAttribute( 'aria-keyshortcuts' );
+		await user.click( screen.getByRole( 'button', { name: 'Effort: Medium' } ) );
+		await user.click( await screen.findByRole( 'menuitemradio', { name: 'High' } ) );
+		const changes = onModelChange.mock.calls.length;
+		const handle = screen.getByRole( 'button', { name: 'Reorder Opus 5 · High' } );
+		handle.focus();
+		await user.keyboard( '{ArrowUp}' );
+		await waitFor( () =>
+			expect( connector.state.preferences.modelFavorites ).toEqual( [
+				favorites[ 0 ],
+				favorites[ 1 ],
+				{ provider: 'anthropic-api-key', model: 'claude-opus-5', effort: 'high' },
+				favorites[ 2 ],
+			] )
+		);
+		expect(
+			screen.getByRole( 'button', { name: 'Opus 5 · High', pressed: true } )
+		).toHaveAttribute( 'aria-keyshortcuts', thirdShortcut );
+		expect( handle ).toHaveFocus();
+		expect( onModelChange ).toHaveBeenCalledTimes( changes );
+	} );
+
+	it( 'leaves the current model unsaved when its drag is canceled', async () => {
+		const { connector } = await setup( favorites, 'claude-opus-5', {
+			provider: 'anthropic-api-key',
+		} );
+		const { list, pointer } = dragFixture( 'Available models' );
+		const handle = screen.getByRole( 'button', { name: 'Reorder Opus 5' } );
+		fireEvent( handle, pointer( 'pointerdown', 112 ) );
+		fireEvent( list, pointer( 'pointermove', 6 ) );
+		fireEvent( window, pointer( 'pointercancel', 6 ) );
+		expect( connector.setUserPreferences ).not.toHaveBeenCalled();
+		expect( connector.state.preferences.modelFavorites ).toEqual( favorites );
+		expect( screen.getByRole( 'button', { name: 'Opus 5', pressed: true } ) ).not.toHaveAttribute(
+			'aria-keyshortcuts'
+		);
+	} );
+
+	it( 'shows an unsaved current effort without changing favorite shortcuts and removes it on an exact match', async () => {
+		const saved: ModelFavorite[] = [
+			favorites[ 0 ],
+			favorites[ 2 ],
+			{ provider: 'wpcom', model: 'fast', effort: 'default' },
+		];
+		const { user, connector } = await setup( saved );
+		const labels = [ 'Balanced', 'Sonnet 5', 'Fast' ];
+		const shortcuts = labels.map( ( label ) =>
+			screen.getByRole( 'button', { name: label } ).getAttribute( 'aria-keyshortcuts' )
+		);
+		await user.click( screen.getByRole( 'button', { name: 'Effort: Medium' } ) );
+		await user.click( await screen.findByRole( 'menuitemradio', { name: 'High' } ) );
+		const current = screen.getByRole( 'button', { name: 'Balanced · High', pressed: true } );
+		expect( current ).toBeVisible();
+		expect( current ).not.toHaveAttribute( 'aria-keyshortcuts' );
+		expect( screen.getAllByRole( 'button', { name: 'Balanced · High' } ) ).toHaveLength( 1 );
+		expect( screen.getByRole( 'button', { name: 'Reorder Balanced · High' } ) ).toBeVisible();
+		labels.forEach( ( label, index ) => {
+			expect( screen.getByRole( 'button', { name: label } ) ).toHaveAttribute(
+				'aria-keyshortcuts',
+				shortcuts[ index ]
+			);
+		} );
+		expect( connector.setUserPreferences ).not.toHaveBeenCalled();
+		await user.click( screen.getByRole( 'button', { name: 'Effort: High' } ) );
+		await user.click( await screen.findByRole( 'menuitemradio', { name: 'Medium' } ) );
+		expect( screen.queryByRole( 'button', { name: 'Balanced · High' } ) ).not.toBeInTheDocument();
+		expect( screen.getAllByRole( 'button', { name: 'Balanced' } ) ).toHaveLength( 1 );
+		expect( screen.getByRole( 'button', { name: 'Balanced', pressed: true } ) ).toHaveAttribute(
+			'aria-keyshortcuts',
+			shortcuts[ 0 ]
+		);
+		expect( connector.state.preferences.modelFavorites ).toEqual( saved );
+	} );
+
+	it( 'stars and unstars the current selection as one favorite without duplicate rows', async () => {
+		const { user, connector, onModelChange } = await setup( favorites, 'claude-opus-5', {
+			provider: 'anthropic-api-key',
+		} );
+		const firstShortcut = screen
+			.getByRole( 'button', { name: 'Balanced' } )
+			.getAttribute( 'aria-keyshortcuts' );
+		await user.click( screen.getByRole( 'button', { name: 'Star Opus 5' } ) );
+		await waitFor( () =>
+			expect( connector.state.preferences.modelFavorites ).toEqual( [
+				{ provider: 'anthropic-api-key', model: 'claude-opus-5', effort: 'default' },
+				...favorites,
+			] )
+		);
+		expect( screen.getAllByRole( 'button', { name: 'Opus 5' } ) ).toHaveLength( 1 );
+		expect(
+			within( screen.getByRole( 'group', { name: 'Favorite models' } ) ).getByRole( 'button', {
+				name: 'Opus 5',
+				pressed: true,
+			} )
+		).toHaveAttribute( 'aria-keyshortcuts', firstShortcut );
+		await user.click( screen.getByRole( 'button', { name: 'Unstar Opus 5' } ) );
+		await waitFor( () =>
+			expect( connector.state.preferences.modelFavorites ).toEqual( favorites )
+		);
+		expect( screen.getAllByRole( 'button', { name: 'Opus 5' } ) ).toHaveLength( 1 );
+		expect( screen.getByRole( 'button', { name: 'Opus 5', pressed: true } ) ).not.toHaveAttribute(
+			'aria-keyshortcuts'
+		);
+		expect( screen.getByRole( 'button', { name: 'Balanced' } ) ).toHaveAttribute(
+			'aria-keyshortcuts',
+			firstShortcut
+		);
+		expect( onModelChange ).not.toHaveBeenCalled();
+	} );
+
+	it( 'keeps more than three saved favorites visible', async () => {
+		await setup( [ ...favorites, { provider: 'wpcom', model: 'strong', effort: 'default' } ] );
+		expect(
+			within( screen.getByRole( 'group', { name: 'Favorite models' } ) ).getAllByRole( 'button', {
+				name: /^Reorder /,
+			} )
+		).toHaveLength( 4 );
+	} );
+
+	it( 'saves the default list as ordered favorites when reordering from the keyboard', async () => {
+		const { user, connector, onModelChange } = await setup( [] );
+		const handle = screen.getByRole( 'button', { name: 'Reorder Balanced' } );
+		handle.focus();
+		await user.keyboard( '{ArrowUp}' );
+		await waitFor( () =>
+			expect( connector.state.preferences.modelFavorites?.map( ( item ) => item.model ) ).toEqual( [
+				'balanced',
+				'fast',
+				'strong',
+			] )
+		);
+		expect( screen.getByRole( 'group', { name: 'Favorite models' } ) ).toBeVisible();
+		expect( handle ).toHaveFocus();
+		expect( onModelChange ).not.toHaveBeenCalled();
+	} );
+
+	it( 'saves a pointer reorder of the default list without selecting a model', async () => {
+		const { connector, onModelChange } = await setup( [] );
+		const { list, pointer, handle } = dragFixture( 'Available models' );
+		fireEvent( handle, pointer( 'pointerdown', 48 ) );
+		fireEvent( list, pointer( 'pointermove', 6 ) );
+		fireEvent( list, pointer( 'pointerup', 6 ) );
+		await waitFor( () =>
+			expect( connector.state.preferences.modelFavorites?.map( ( item ) => item.model ) ).toEqual( [
+				'balanced',
+				'fast',
+				'strong',
+			] )
+		);
+		expect( onModelChange ).not.toHaveBeenCalled();
+	} );
+
+	it( 'fills the remaining starter slots after starring a searched model without selecting it', async () => {
+		const { user, connector, onModelChange } = await setup( [] );
+		const search = screen.getByRole( 'textbox', { name: 'Search models' } );
+		await user.type( search, 'sonnet' );
+		await user.click( screen.getByRole( 'button', { name: 'Star Sonnet 5' } ) );
+		await waitFor( () =>
+			expect( connector.state.preferences.modelFavorites ).toEqual( [ favorites[ 2 ] ] )
+		);
+		expect( screen.getByRole( 'group', { name: 'Favorite models' } ) ).toHaveTextContent(
+			'Sonnet 5'
+		);
+		await user.clear( search );
+		expect( screen.getByRole( 'button', { name: 'Sonnet 5' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Fast' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Balanced', pressed: true } ) ).toBeVisible();
+		expect( screen.getAllByRole( 'button', { name: /^Reorder / } ) ).toHaveLength( 3 );
+		expect( screen.queryByRole( 'button', { name: 'Strong' } ) ).not.toBeInTheDocument();
+		expect( onModelChange ).not.toHaveBeenCalled();
 	} );
 
 	it( 'filters favorites by effort and supports keyboard selection from search', async () => {
@@ -505,7 +846,7 @@ describe( 'Model favorites and effort', () => {
 	} );
 
 	it( 'marks the active preset in the list without a duplicate current section', async () => {
-		const { user, trigger } = await setup();
+		const { user } = await setup();
 		const current = screen.getByRole( 'button', { name: 'Balanced', pressed: true } );
 		expect( current ).toBeVisible();
 		expect( current ).toHaveAttribute( 'aria-keyshortcuts' );
@@ -518,7 +859,6 @@ describe( 'Model favorites and effort', () => {
 			)
 		).toBeVisible();
 		await user.click( screen.getByRole( 'button', { name: 'Balanced · High' } ) );
-		await user.click( trigger );
 		const next = screen.getByRole( 'button', { name: 'Balanced · High', pressed: true } );
 		expect( next ).toBeVisible();
 		expect( next ).toHaveAttribute( 'aria-keyshortcuts' );
@@ -545,10 +885,15 @@ describe( 'Model favorites and effort', () => {
 	it.each( [
 		[ 'fast', 'Fast' ],
 		[ 'strong', 'Strong' ],
-	] as const )( 'omits effort for %s, which cannot honor it', async ( model, label ) => {
+	] as const )( 'disables effort for %s, which cannot honor it', async ( model, label ) => {
 		const favorite = { provider: 'wpcom', model, effort: 'default' } as ModelFavorite;
-		await setup( [ favorite ], model );
+		const { user, onModelChange } = await setup( [ favorite ], model );
 		expect( screen.getByRole( 'button', { name: label, pressed: true } ) ).toBeVisible();
-		expect( screen.queryByRole( 'button', { name: /^Effort:/ } ) ).not.toBeInTheDocument();
+		const effort = screen.getByRole( 'button', { name: 'Effort: Unavailable' } );
+		expect( effort ).toBeVisible();
+		expect( effort ).toBeDisabled();
+		await user.click( effort );
+		expect( screen.queryByRole( 'menu', { name: 'Effort' } ) ).not.toBeInTheDocument();
+		expect( onModelChange ).not.toHaveBeenCalled();
 	} );
 } );

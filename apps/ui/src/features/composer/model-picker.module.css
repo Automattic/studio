@@ -5,8 +5,15 @@
 	max-width: calc( 100vw - 24px );
 }
 .searchRow {
-	--control-size: 32px;
-	margin-bottom: var( --space-1_5 );
+	--control-size: 40px;
+	display: block;
+	width: calc( 100% + 2 * var( --space-1_5 ) );
+	margin: calc( -1 * var( --space-1_5 ) ) calc( -1 * var( --space-1_5 ) ) var( --space-1_5 );
+	padding-inline: var( --space-3_5 );
+	border-block-end: 1px solid var( --border );
+	border-start-start-radius: var( --radius-popup );
+	border-start-end-radius: var( --radius-popup );
+	background: transparent;
 }
 .models {
 	max-height: min( 360px, 55dvh );
@@ -69,6 +76,8 @@
 	composes: separator from '@/lib/ui/surface/style.module.css';
 }
 .grip {
+	--button-hover-background: transparent;
+
 	position: absolute;
 	inset-block-start: var( --space-1 );
 	inset-inline-start: 0;
@@ -76,10 +85,13 @@
 	touch-action: none;
 	cursor: grab;
 }
-.grip svg {
-	margin-inline-start: var( --space-1_5 );
+.grip:focus-visible {
+	box-shadow: none;
 }
-.providerIcon {
+.row:has( > .grip:focus-visible ) .choice {
+	box-shadow: inset 0 0 0 2px var( --ring );
+}
+.row:has( > .grip ) .providerIcon {
 	margin-inline-start: var( --space-4 );
 }
 .grip:active {

@@ -53,7 +53,10 @@ const modelFavorites: ModelFavorite[] = [
 const connector = createInMemoryConnector(
 	{
 		sites,
-		preferences: { colorScheme: scheme, modelFavorites },
+		preferences: {
+			colorScheme: scheme,
+			modelFavorites: params.get( 'favorites' ) === 'empty' ? [] : modelFavorites,
+		},
 		sessions: conversation ? [ { summary, entries } ] : [],
 	},
 	{

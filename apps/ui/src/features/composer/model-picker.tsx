@@ -39,6 +39,8 @@ import styles from './model-picker.module.css';
 
 type AvailableFavorite = ModelFavorite & { model: AiModelId; provider: AiProviderId };
 type ModelRowKind = 'favorite' | 'catalog' | 'preview';
+const DEFAULT_MODEL_COUNT = 3;
+
 interface ModelPickerProps {
 	open: boolean;
 	onOpenChange: ( open: boolean ) => void;
@@ -91,17 +93,16 @@ export function ModelPicker( {
 		);
 		return index >= 0 && ! isModelLocked( item.model ) ? String( index + 1 ) : undefined;
 	};
-	const saveOrder = ( ids: string[] ) =>
+	const saveOrder = ( ids: string[], models: AvailableFavorite[] ) =>
 		update( [
-			...ids.flatMap( ( id ) =>
-				visibleFavorites.filter( ( item ) => getModelFavoriteKey( item ) === id )
-			),
+			...ids.flatMap( ( id ) => models.filter( ( item ) => getModelFavoriteKey( item ) === id ) ),
 			...favorites.filter( ( item ) => ! available( item ) ),
 		] );
 	const current: AvailableFavorite = { provider: sessionProvider, model, effort };
 	const key = getModelFavoriteKey( current );
 	const effortLevels = getModelEffortLevels( model );
 	const resolvedEffort = resolveModelEffort( model, effort );
+	const effortLabel = effortLevels.length ? getEffortLabel( resolvedEffort ) : __( 'Unavailable' );
 	const query = search.trim().toLocaleLowerCase();
 	const hasFavorite = ( favorite: ModelFavorite ) =>
 		favorites.some( ( item ) => getModelFavoriteKey( item ) === getModelFavoriteKey( favorite ) );
@@ -132,7 +133,6 @@ export function ModelPicker( {
 	const select = ( item: AvailableFavorite ) => {
 		if ( reordering ) return;
 		onChange( item.provider, item.model, item.effort );
-		onOpenChange( false );
 	};
 	const onModelShortcut = useEffectEvent( ( event: KeyboardEvent ) => {
 		const trigger = triggerRef.current;
@@ -167,7 +167,9 @@ export function ModelPicker( {
 		return () => document.removeEventListener( 'keydown', onModelShortcut );
 	}, [] );
 	const matches = ( item: AvailableFavorite ) => {
-		const text = `${ getAiModelLabel( item.model ) } ${ AI_PROVIDER_LABELS[ item.provider ] } ${
+		const text = `${ getAiModelLabel( item.model ) } ${ item.model } ${
+			AI_PROVIDER_LABELS[ item.provider ]
+		} ${
 			getModelEffortLevels( item.model ).length
 				? getEffortLabel( resolveModelEffort( item.model, item.effort ) )
 				: ''
@@ -175,18 +177,39 @@ export function ModelPicker( {
 		return query.split( /\s+/ ).every( ( word ) => text.includes( word ) );
 	};
 	const favoriteResults = visibleFavorites.filter( matches );
-	const otherResults = query
-		? providers
-				.flatMap( ( provider ) =>
-					getAiProviderModels( provider ).map( ( item ) => ( {
-						provider,
-						model: item.id,
-						effort: normalizeModelEffort( item.id, effort ),
-					} ) )
-				)
-				.filter( ( item ) => ! hasFavorite( item ) && matches( item ) )
-		: [];
-	const results = [ ...favoriteResults, ...otherResults ];
+	const catalogResults = providers
+		.flatMap( ( provider ) =>
+			getAiProviderModels( provider ).map( ( item ) => ( {
+				provider,
+				model: item.id,
+				effort: normalizeModelEffort( item.id, effort ),
+			} ) )
+		)
+		.filter( ( item ) => ! hasFavorite( item ) && matches( item ) );
+	const starterCount = Math.max( 0, DEFAULT_MODEL_COUNT - visibleFavorites.length );
+	const starterResults = catalogResults.slice( 0, starterCount );
+	const currentResult = catalogResults.find( ( item ) => getModelFavoriteKey( item ) === key );
+	if (
+		starterCount &&
+		currentResult &&
+		! starterResults.some( ( item ) => getModelFavoriteKey( item ) === key )
+	) {
+		starterResults.splice( starterCount - 1, 1, currentResult );
+	}
+	const otherResults = query ? catalogResults : starterResults;
+	const unsavedCurrent =
+		! query &&
+		currentResult &&
+		! otherResults.some( ( item ) => getModelFavoriteKey( item ) === key )
+			? currentResult
+			: null;
+	const results = [
+		...favoriteResults,
+		...otherResults,
+		...( unsavedCurrent ? [ unsavedCurrent ] : [] ),
+	];
+	const showingStarters = ! query && otherResults.length > 0;
+	const reorderableResults = query ? favoriteResults : results;
 	const selectable = results.filter( ( item ) => ! isModelLocked( item.model ) );
 	const focusResult = ( index: number ) => {
 		const item = selectable[ ( index + selectable.length ) % selectable.length ];
@@ -244,6 +267,7 @@ export function ModelPicker( {
 					/>
 				) : null }
 				<Menu.ItemButton
+					className={ styles.choice }
 					ref={ ( node ) => {
 						if ( kind === 'preview' ) return;
 						if ( node ) choices.current.set( itemKey, node );
@@ -332,6 +356,7 @@ export function ModelPicker( {
 			</Popover.Trigger>
 			<Popover.Popup
 				backdrop
+				instant
 				side="top"
 				align="end"
 				className={ styles.popup }
@@ -340,6 +365,7 @@ export function ModelPicker( {
 				finalFocus={ triggerRef }
 			>
 				<Input
+					variant="group"
 					className={ styles.searchRow }
 					ref={ searchRef }
 					placeholder={ __( 'Search models…' ) }
@@ -359,72 +385,90 @@ export function ModelPicker( {
 					} }
 				/>
 				<div id={ resultsId } className={ styles.models }>
-					{ favoriteResults.length ? (
-						<div role="group" aria-label={ __( 'Favorite models' ) }>
+					{ reorderableResults.length ? (
+						<div
+							role="group"
+							aria-label={
+								showingStarters || unsavedCurrent
+									? __( 'Available models' )
+									: __( 'Favorite models' )
+							}
+						>
 							<ReorderableList
-								items={ favoriteResults }
+								items={ reorderableResults }
 								getItemId={ getModelFavoriteKey }
 								getItemLabel={ favoriteLabel }
 								renderItem={ ( item, props ) =>
 									modelRow( item, props[ 'aria-hidden' ] ? 'preview' : 'favorite', props )
 								}
-								onReorder={ saveOrder }
+								onReorder={ ( ids, movedId ) =>
+									saveOrder(
+										unsavedCurrent && movedId !== key ? ids.filter( ( id ) => id !== key ) : ids,
+										reorderableResults
+									)
+								}
 								className={ styles.favorites }
 								previewClassName={ styles.dragPreview }
 								handleSelector="[data-model-reorder-handle]"
 								portalPreview
 								disabled={ ! open || !! query }
-								onReorderingChange={ setReordering }
+								onReorderingChange={ ( active ) => {
+									setReordering( active );
+									if ( ! active ) searchRef.current?.focus( { preventScroll: true } );
+								} }
 							/>
 						</div>
 					) : null }
-					{ otherResults.length ? (
-						<div role="group" aria-label={ __( 'Other models' ) }>
+					{ otherResults.length && query ? (
+						<div
+							role="group"
+							aria-label={
+								visibleFavorites.length ? __( 'Other models' ) : __( 'Available models' )
+							}
+						>
 							{ otherResults.map( ( item ) => modelRow( item, 'catalog' ) ) }
 						</div>
 					) : null }
 					{ ! results.length ? (
 						<p className={ styles.empty }>
-							{ query ? __( 'No matching models.' ) : __( 'Star models to keep them here.' ) }
+							{ query ? __( 'No matching models.' ) : __( 'No models available.' ) }
 						</p>
 					) : null }
 				</div>
-				{ effortLevels.length ? (
-					<>
-						<div className={ styles.separator } />
-						<Menu.Root>
-							<Menu.Trigger
-								aria-label={ sprintf( __( 'Effort: %s' ), getEffortLabel( resolvedEffort ) ) }
-								disabled={ isModelLocked( model ) }
-								render={ <Menu.ItemButton /> }
+				<div className={ styles.separator } />
+				<Menu.Root>
+					<Menu.Trigger
+						aria-label={ sprintf( __( 'Effort: %s' ), effortLabel ) }
+						disabled={ ! effortLevels.length || isModelLocked( model ) }
+						render={ <Menu.ItemButton /> }
+					>
+						<span>{ __( 'Effort' ) }</span>
+						<span className={ styles.effortValue } data-icon="inline-end">
+							<span>{ effortLabel }</span>
+							<Menu.SubmenuIndicator />
+						</span>
+					</Menu.Trigger>
+					{ effortLevels.length ? (
+						<Menu.SubmenuPopup aria-label={ __( 'Effort' ) } data-instant>
+							<Menu.RadioGroup
+								value={ resolvedEffort }
+								onValueChange={ ( value ) => {
+									const next = normalizeModelEffort(
+										model,
+										value === 'medium' ? 'default' : value
+									);
+									if ( value !== resolvedEffort ) onChange( sessionProvider, model, next );
+								} }
 							>
-								<span>{ __( 'Effort' ) }</span>
-								<span className={ styles.effortValue } data-icon="inline-end">
-									<span>{ getEffortLabel( resolvedEffort ) }</span>
-									<Menu.SubmenuIndicator />
-								</span>
-							</Menu.Trigger>
-							<Menu.SubmenuPopup aria-label={ __( 'Effort' ) }>
-								<Menu.RadioGroup
-									value={ resolvedEffort }
-									onValueChange={ ( value ) => {
-										const next = normalizeModelEffort(
-											model,
-											value === 'medium' ? 'default' : value
-										);
-										if ( value !== resolvedEffort ) onChange( sessionProvider, model, next );
-									} }
-								>
-									{ effortLevels.map( ( level ) => (
-										<Menu.RadioItem key={ level } value={ level }>
-											{ getEffortLabel( level ) }
-										</Menu.RadioItem>
-									) ) }
-								</Menu.RadioGroup>
-							</Menu.SubmenuPopup>
-						</Menu.Root>
-					</>
-				) : null }
+								{ effortLevels.map( ( level ) => (
+									<Menu.RadioItem key={ level } value={ level }>
+										{ getEffortLabel( level ) }
+									</Menu.RadioItem>
+								) ) }
+							</Menu.RadioGroup>
+						</Menu.SubmenuPopup>
+					) : null }
+				</Menu.Root>
 			</Popover.Popup>
 		</Popover.Root>
 	);

@@ -106,7 +106,7 @@ export type ReorderableListProps< T > = {
 	getItemId: ( item: T ) => string;
 	/** Renders a row as a `SidebarMenuItem` spread with `props`; also used for the floating drag preview. */
 	renderItem: ( item: T, props: ReorderableItemProps ) => ReactNode;
-	onReorder: ( nextIds: string[] ) => void;
+	onReorder: ( nextIds: string[], movedId: string ) => void;
 	className?: string;
 	itemClassName?: string;
 	previewClassName?: string;
@@ -400,7 +400,7 @@ export function ReorderableList< T >( {
 			const sourceOrder =
 				dragStartOrderRef.current.length > 0 ? dragStartOrderRef.current : itemIds;
 			const nextIds = insertIdAtIndex( sourceOrder, active.id, active.dropIndex );
-			onReorder( nextIds );
+			onReorder( nextIds, active.id );
 			setDropped( {
 				ids: insertIdAtIndex( itemIds, active.id, active.dropIndex ),
 				over: parentIds,
@@ -523,7 +523,7 @@ export function ReorderableList< T >( {
 		);
 		if ( target === index ) return;
 		const nextIds = insertIdAtIndex( itemIds, id, target );
-		onReorder( nextIds );
+		onReorder( nextIds, id );
 		setDropped( { ids: nextIds, over: parentIds } );
 		const item = items.find( ( value ) => getItemId( value ) === id );
 		if ( item !== undefined && getItemLabel ) {

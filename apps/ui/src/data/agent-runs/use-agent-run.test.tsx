@@ -325,8 +325,10 @@ describe( 'useAgentRun queued handoff', () => {
 				{
 					getAiSettings: async () => ( {
 						provider,
-						hasAnthropicApiKey: true,
-						anthropicApiKeyPreview: 'test',
+						connections: {
+							wpcom: { connected: true, apiKeyPreview: null },
+							'anthropic-api-key': { connected: true, apiKeyPreview: 'test' },
+						},
 					} ),
 				}
 			);

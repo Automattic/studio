@@ -3,7 +3,7 @@
  */
 import crypto from 'node:crypto';
 import EventEmitter from 'node:events';
-import { InvalidAnthropicApiKeyError } from '@studio/agent/node/settings-store';
+import { InvalidAiProviderCredentialsError } from '@studio/agent/node/settings-store';
 import { createCliRunner } from '@studio/common/lib/cli-process';
 import { listSites } from '@studio/common/sites/list';
 import nock from 'nock';
@@ -16,7 +16,7 @@ const mocks = vi.hoisted( () => ( {
 	killAll: vi.fn(),
 	readSitePath: vi.fn(),
 	readAiSettings: vi.fn(),
-	saveAnthropicApiKey: vi.fn(),
+	saveAiProviderApiKey: vi.fn(),
 	setAiProvider: vi.fn(),
 } ) );
 
@@ -33,7 +33,7 @@ vi.mock( '@studio/common/sites/site-path', () => ( { readSitePath: mocks.readSit
 vi.mock( '@studio/agent/node/settings-store', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/agent/node/settings-store') >() ),
 	readAiSettings: mocks.readAiSettings,
-	saveAnthropicApiKey: mocks.saveAnthropicApiKey,
+	saveAiProviderApiKey: mocks.saveAiProviderApiKey,
 	setAiProvider: mocks.setAiProvider,
 } ) );
 vi.mock( '@studio/agent/node/run-manager', () => ( {
@@ -80,18 +80,29 @@ describe( 'local web server Connect contracts', () => {
 		} );
 		mocks.readAiSettings.mockResolvedValue( {
 			provider: 'wpcom',
-			hasAnthropicApiKey: false,
-			anthropicApiKeyPreview: null,
+			connections: {
+				wpcom: { connected: false, apiKeyPreview: null },
+				'anthropic-api-key': { connected: false, apiKeyPreview: null },
+			},
 		} );
-		mocks.saveAnthropicApiKey.mockImplementation( async ( key: string | null ) => ( {
-			provider: 'wpcom',
-			hasAnthropicApiKey: key !== null,
-			anthropicApiKeyPreview: key === null ? null : key.trim().slice( -4 ),
-		} ) );
+		mocks.saveAiProviderApiKey.mockImplementation(
+			async ( _provider: string, key: string | null ) => ( {
+				provider: 'wpcom',
+				connections: {
+					wpcom: { connected: false, apiKeyPreview: null },
+					'anthropic-api-key': {
+						connected: key !== null,
+						apiKeyPreview: key === null ? null : key.trim().slice( -4 ),
+					},
+				},
+			} )
+		);
 		mocks.setAiProvider.mockImplementation( async ( provider: string ) => ( {
 			provider,
-			hasAnthropicApiKey: true,
-			anthropicApiKeyPreview: '1234',
+			connections: {
+				wpcom: { connected: false, apiKeyPreview: null },
+				'anthropic-api-key': { connected: true, apiKeyPreview: '1234' },
+			},
 		} ) );
 		server = await startLocalServer( {
 			cliBinary: '/mock/cli.mjs',
@@ -115,57 +126,63 @@ describe( 'local web server Connect contracts', () => {
 		expect( response.status ).toBe( 200 );
 		await expect( response.json() ).resolves.toEqual( {
 			provider: 'wpcom',
-			hasAnthropicApiKey: false,
-			anthropicApiKeyPreview: null,
+			connections: {
+				wpcom: { connected: false, apiKeyPreview: null },
+				'anthropic-api-key': { connected: false, apiKeyPreview: null },
+			},
 		} );
 	} );
 
 	it( 'passes the Anthropic API key to the settings store untouched', async () => {
 		const response = await fetch(
-			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings`,
+			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings/api-key`,
 			{
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify( { anthropicApiKey: '  sk-ant-test-1234  ' } ),
+				body: JSON.stringify( { provider: 'anthropic-api-key', apiKey: '  sk-ant-test-1234  ' } ),
 			}
 		);
 
 		expect( response.status ).toBe( 200 );
 		await expect( response.json() ).resolves.toMatchObject( {
-			hasAnthropicApiKey: true,
-			anthropicApiKeyPreview: '1234',
+			connections: { 'anthropic-api-key': { connected: true, apiKeyPreview: '1234' } },
 		} );
-		expect( mocks.saveAnthropicApiKey ).toHaveBeenCalledWith( '  sk-ant-test-1234  ' );
+		expect( mocks.saveAiProviderApiKey ).toHaveBeenCalledWith(
+			'anthropic-api-key',
+			'  sk-ant-test-1234  '
+		);
 	} );
 
 	it( 'clears the Anthropic API key', async () => {
 		const response = await fetch(
-			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings`,
+			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings/api-key`,
 			{
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify( { anthropicApiKey: null } ),
+				body: JSON.stringify( { provider: 'anthropic-api-key', apiKey: null } ),
 			}
 		);
 
 		expect( response.status ).toBe( 200 );
-		await expect( response.json() ).resolves.toMatchObject( { hasAnthropicApiKey: false } );
-		expect( mocks.saveAnthropicApiKey ).toHaveBeenCalledWith( null );
+		await expect( response.json() ).resolves.toMatchObject( {
+			connections: { 'anthropic-api-key': { connected: false } },
+		} );
+		expect( mocks.saveAiProviderApiKey ).toHaveBeenCalledWith( 'anthropic-api-key', null );
 	} );
 
 	it( 'returns 400 with the message when Anthropic rejects a key being saved', async () => {
-		mocks.saveAnthropicApiKey.mockRejectedValueOnce(
-			new InvalidAnthropicApiKeyError(
+		mocks.saveAiProviderApiKey.mockRejectedValueOnce(
+			new InvalidAiProviderCredentialsError(
 				'Anthropic rejected this API key. Check the key and try again.'
 			)
 		);
 
 		const response = await fetch(
-			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings`,
+			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings/api-key`,
 			{
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify( { anthropicApiKey: 'sk-ant-rejected' } ),
+				body: JSON.stringify( { provider: 'anthropic-api-key', apiKey: 'sk-ant-rejected' } ),
 			}
 		);
 
@@ -177,17 +194,38 @@ describe( 'local web server Connect contracts', () => {
 
 	it( 'rejects a non-string Anthropic API key', async () => {
 		const response = await fetch(
-			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings`,
+			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings/api-key`,
 			{
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify( { anthropicApiKey: 42 } ),
+				body: JSON.stringify( { provider: 'anthropic-api-key', apiKey: 42 } ),
 			}
 		);
 
 		expect( response.status ).toBe( 400 );
-		expect( mocks.saveAnthropicApiKey ).not.toHaveBeenCalled();
+		expect( mocks.saveAiProviderApiKey ).not.toHaveBeenCalled();
 	} );
+
+	it.each( [ 'unknown-provider', null, 42 ] )(
+		'rejects an invalid API key provider (%s) before calling the settings store',
+		async ( provider ) => {
+			const response = await fetch(
+				`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings/api-key`,
+				{
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify( { provider, apiKey: 'sk-ant-test-1234' } ),
+				}
+			);
+
+			expect( response.status ).toBe( 400 );
+			await expect( response.json() ).resolves.toEqual( {
+				error: 'provider must be a known AI provider id',
+			} );
+			expect( mocks.readAiSettings ).not.toHaveBeenCalled();
+			expect( mocks.saveAiProviderApiKey ).not.toHaveBeenCalled();
+		}
+	);
 
 	it( 'switches the AI provider', async () => {
 		const response = await fetch(
@@ -206,7 +244,7 @@ describe( 'local web server Connect contracts', () => {
 
 	it( 'returns 400 with the message when Anthropic rejects the saved key', async () => {
 		mocks.setAiProvider.mockRejectedValueOnce(
-			new InvalidAnthropicApiKeyError(
+			new InvalidAiProviderCredentialsError(
 				'Anthropic rejected this API key. Check the key and try again.'
 			)
 		);

@@ -29,8 +29,10 @@ const interrupt = vi.fn( async () => {} );
 
 const ANTHROPIC_KEY = {
 	provider: 'wpcom' as const,
-	hasAnthropicApiKey: true,
-	anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+	connections: {
+		wpcom: { connected: true, apiKeyPreview: null },
+		'anthropic-api-key': { connected: true, apiKeyPreview: 'sk-ant-api03-tes...1234' },
+	},
 };
 
 const OUT_OF_CREDITS = {

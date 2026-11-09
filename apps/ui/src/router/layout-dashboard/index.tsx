@@ -5,8 +5,7 @@ import { __, isRTL } from '@wordpress/i18n';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { WindowControlsCornerContext } from '@/data/host/use-window-controls-inset';
-import { useAiSettings } from '@/data/queries/use-ai-settings';
-import { useAuthUser } from '@/data/queries/use-auth-user';
+import { useAiProviderConnections } from '@/data/queries/use-ai-settings';
 import { useSession, useSessionLiveSite, useSessions } from '@/data/queries/use-sessions';
 import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
 import {
@@ -80,10 +79,8 @@ function DashboardLayout() {
 	const openSettings = useOpenSettings();
 	const narrow = useMediaQuery( '(max-width: 540px)' );
 	const windowControls = useWindowControlsOverlay();
-	const { data: authUser } = useAuthUser();
-	const { data: aiSettings } = useAiSettings();
 	const [ providerPromptOpen, setProviderPromptOpen ] = useState( false );
-	const hasProvider = !! authUser || !! aiSettings?.hasAnthropicApiKey;
+	const hasProvider = useAiProviderConnections().length > 0;
 	useEffect( () => {
 		if ( hasProvider ) setProviderPromptOpen( false );
 	}, [ hasProvider ] );

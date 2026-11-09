@@ -851,10 +851,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getAiSettings(): Promise< AiSettings > {
 			return api< AiSettings >( '/ai-settings' );
 		},
-		async saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
-			return api< AiSettings >( '/ai-settings', {
+		async saveAiProviderApiKey( provider, apiKey ): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings/api-key', {
 				method: 'PUT',
-				body: JSON.stringify( { anthropicApiKey: key } ),
+				body: JSON.stringify( { provider, apiKey } ),
 			} );
 		},
 		async setAiProvider( provider ): Promise< AiSettings > {

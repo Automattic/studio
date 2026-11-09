@@ -1,100 +1,33 @@
-import { getWpcomAiGatewayBaseUrl } from '@studio/agent/node';
-import { persistAnthropicApiKey, readAnthropicApiKey } from '@studio/agent/node/settings-store';
-import { DEFAULT_MODEL, type AiModelId } from '@studio/agent/protocol/models';
+import {
+	AI_BACKEND_PROVIDERS,
+	InvalidAiProviderCredentialsError,
+} from '@studio/agent/node/providers';
+import { persistAiProviderApiKey, readAiProviderApiKey } from '@studio/agent/node/settings-store';
 import {
 	AI_PROVIDER_IDS,
 	DEFAULT_AI_PROVIDER,
+	getAiProvider,
+	getAiProviderDefaultModel,
 	getAiProviderModels,
 	type AiProviderId,
 } from '@studio/agent/protocol/providers';
-import { validateAnthropicApiKey } from '@studio/common/lib/anthropic-key';
-import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getStudioUserAgent as buildStudioUserAgent } from '@studio/common/lib/user-agent';
 import { __ } from '@wordpress/i18n';
+import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { password } from 'cli/lib/prompts';
 import { LoggerError } from 'cli/logger';
+import type { AiModelId } from '@studio/agent/protocol/models';
 
-export const AI_PROVIDERS: Record< AiProviderId, string > = {
-	wpcom: 'WordPress.com',
-	'anthropic-api-key': 'Anthropic · API key',
-};
+export const AI_PROVIDERS = Object.fromEntries(
+	AI_PROVIDER_IDS.map( ( id ) => [ id, getAiProvider( id ).cliLabel ] )
+) as Record< AiProviderId, string >;
 
 export type { AiProviderId };
 export { DEFAULT_AI_PROVIDER };
-// Fallback order when the configured provider is unavailable; declaration
-// order of the canonical id list.
 export const AI_PROVIDER_PRIORITY: readonly AiProviderId[] = AI_PROVIDER_IDS;
-
-// The wpcom AI proxy maps feature slugs to upstream providers. The
-// `studio-agent` lane accepts the capability-tier aliases (fast / balanced /
-// strong) on the Chat Completions path and resolves each to an upstream
-// model server-side.
-const WPCOM_AI_FEATURE_HEADER = 'studio-agent';
 
 export interface ResolveAiEnvironmentOptions {
 	sessionId?: string;
-}
-
-export interface AiProviderDefinition {
-	id: AiProviderId;
-	autoFallbackWhenUnavailable: boolean;
-	// Derived from the provider's model families (see
-	// `@studio/agent/protocol/providers`), kept on the definition so callers don't
-	// have to filter AI_MODELS themselves.
-	readonly availableModels: readonly AiModelId[];
-	readonly defaultModel: AiModelId;
-	supportsModel( model: AiModelId ): boolean;
-	isVisible: () => Promise< boolean >;
-	isReady: () => Promise< boolean >;
-	prepare: ( options?: { force?: boolean } ) => Promise< void >;
-	resolveEnv: ( options?: ResolveAiEnvironmentOptions ) => Promise< Record< string, string > >;
-}
-
-// Fills in `availableModels`, `defaultModel`, and `supportsModel` from the
-// provider id's model families.
-function defineProvider(
-	partial: Omit< AiProviderDefinition, 'availableModels' | 'defaultModel' | 'supportsModel' >
-): AiProviderDefinition {
-	const availableModels = getAiProviderModels( partial.id ).map( ( model ) => model.id );
-	return {
-		...partial,
-		availableModels,
-		defaultModel: availableModels[ 0 ] ?? DEFAULT_MODEL,
-		supportsModel( model ) {
-			return availableModels.includes( model );
-		},
-	};
-}
-
-async function resolveAnthropicApiKey( options?: {
-	force?: boolean;
-} ): Promise< string | undefined > {
-	const savedKey = await readAnthropicApiKey();
-	if ( savedKey && ! options?.force ) {
-		// Re-prompt only when Anthropic definitively rejects the saved key;
-		// an unreachable API must not lock the user out of their provider.
-		const validation = await validateAnthropicApiKey( savedKey );
-		if ( validation.status !== 'invalid' ) {
-			return savedKey;
-		}
-	}
-
-	const apiKey = await password( {
-		message: __( 'Enter your Anthropic API key (will be saved for future use):' ),
-		mask: '*',
-		validate: async ( value ) => {
-			const trimmed = value.trim();
-			if ( ! trimmed ) {
-				return __( 'API key is required' );
-			}
-			const validation = await validateAnthropicApiKey( trimmed );
-			return validation.status === 'invalid' ? validation.message : true;
-		},
-	} );
-
-	const trimmedKey = apiKey.trim();
-	await persistAnthropicApiKey( trimmedKey );
-	return trimmedKey;
 }
 
 export function getStudioUserAgent(): string {
@@ -103,103 +36,82 @@ export function getStudioUserAgent(): string {
 	);
 }
 
-async function hasValidWpcomAuth(): Promise< boolean > {
-	const token = await readAuthToken();
-	return token !== null;
-}
-
-function readInlineWpcomToken(): string | null {
-	return process.env.STUDIO_WPCOM_TOKEN?.trim() || null;
-}
-
-export function hasInlineWpcomAuth(): boolean {
-	return readInlineWpcomToken() !== null;
-}
-
-function createBaseEnvironment(): Record< string, string > {
-	const env = { ...( process.env as Record< string, string > ) };
-
-	delete env.ANTHROPIC_API_KEY;
-	delete env.ANTHROPIC_AUTH_TOKEN;
-	delete env.ANTHROPIC_BASE_URL;
-	delete env.ANTHROPIC_CUSTOM_HEADERS;
-	delete env.OPENAI_API_KEY;
-	delete env.OPENAI_BASE_URL;
-	delete env.STUDIO_WPCOM_API_KEY;
-	delete env.STUDIO_WPCOM_BASE_URL;
-	delete env.STUDIO_WPCOM_DEFAULT_HEADERS;
-
-	return env;
-}
-
-const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
-	wpcom: defineProvider( {
-		id: 'wpcom',
-		autoFallbackWhenUnavailable: true,
-		isVisible: async () => true,
-		isReady: async () => hasInlineWpcomAuth() || ( await hasValidWpcomAuth() ),
-		prepare: async () => {
-			if ( hasInlineWpcomAuth() || ( await hasValidWpcomAuth() ) ) {
-				return;
-			}
-
-			throw new LoggerError( __( 'WordPress.com login required. Use /login to authenticate.' ) );
+async function resolveApiKey( provider: AiProviderId, options?: { force?: boolean } ) {
+	const { auth } = AI_BACKEND_PROVIDERS[ provider ];
+	if ( auth.type !== 'api-key' ) return;
+	const savedKey = await readAiProviderApiKey( provider );
+	if ( savedKey && ! options?.force ) {
+		const validation = await auth.validate( savedKey );
+		if ( validation.status !== 'invalid' ) return;
+	}
+	const key = await password( {
+		message: auth.getPrompt(),
+		mask: '*',
+		validate: async ( value ) => {
+			const trimmed = value.trim();
+			if ( ! trimmed ) return __( 'API key is required' );
+			const validation = await auth.validate( trimmed );
+			return validation.status === 'invalid' ? validation.message : true;
 		},
-		resolveEnv: async ( options ) => {
-			const inlineToken = readInlineWpcomToken();
-			const accessToken = inlineToken ?? ( await readAuthToken() )?.accessToken;
-			if ( ! accessToken ) {
-				throw new LoggerError( __( 'WordPress.com login required. Use /login to authenticate.' ) );
-			}
-			const env = createBaseEnvironment();
-			const gatewayBaseUrl = getWpcomAiGatewayBaseUrl();
+	} );
+	await persistAiProviderApiKey( provider, key.trim() );
+}
 
-			// The studio capability tiers speak the OpenAI Chat Completions
-			// dialect, so the base URL carries the /v1 prefix (the request path
-			// becomes /v1/chat/completions). The vars are Studio-namespaced
-			// because this family has no direct-API provider — nothing but this
-			// function should be able to satisfy it.
-			env.STUDIO_WPCOM_BASE_URL = `${ gatewayBaseUrl.replace( /\/+$/, '' ) }/v1`;
-			env.STUDIO_WPCOM_API_KEY = accessToken;
-			const headers: Record< string, string > = {
-				'User-Agent': getStudioUserAgent(),
-				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER,
+export function getAiProviderDefinition( id: AiProviderId ) {
+	const backend = AI_BACKEND_PROVIDERS[ id ];
+	const { auth } = backend;
+	const availableModels = getAiProviderModels( id ).map( ( model ) => model.id );
+	const isReady = async () =>
+		backend.isPreferred?.() ||
+		( auth.type === 'account'
+			? await auth.isConnected()
+			: Boolean( await readAiProviderApiKey( id ) ) );
+	const resolveEnv = async ( options?: ResolveAiEnvironmentOptions ) => {
+		const env = { ...( process.env as Record< string, string > ) };
+		for ( const provider of Object.values( AI_BACKEND_PROVIDERS ) ) {
+			for ( const key of provider.environmentKeys ) delete env[ key ];
+		}
+		delete env.OPENAI_API_KEY;
+		delete env.OPENAI_BASE_URL;
+		try {
+			return {
+				...env,
+				...( await backend.resolveEnv( {
+					...options,
+					apiKey: auth.type === 'api-key' ? await readAiProviderApiKey( id ) : undefined,
+					userAgent: getStudioUserAgent(),
+				} ) ),
+				STUDIO_AI_PROVIDER: id,
 			};
-			if ( options?.sessionId ) {
-				headers[ 'X-WPCOM-Session-ID' ] = options.sessionId;
+		} catch ( error ) {
+			if ( error instanceof InvalidAiProviderCredentialsError ) {
+				throw new LoggerError( error.message );
 			}
-			env.STUDIO_WPCOM_DEFAULT_HEADERS = JSON.stringify( headers );
-
-			return env;
-		},
-	} ),
-	'anthropic-api-key': defineProvider( {
-		id: 'anthropic-api-key',
-		autoFallbackWhenUnavailable: false,
+			throw error;
+		}
+	};
+	return {
+		id,
+		autoFallbackWhenUnavailable: backend.autoFallbackWhenUnavailable,
+		isPreferred: backend.isPreferred,
+		availableModels,
+		defaultModel: getAiProviderDefaultModel( id ),
+		supportsModel: ( model: AiModelId ) => availableModels.includes( model ),
 		isVisible: async () => true,
-		isReady: async () => {
-			return Boolean( await readAnthropicApiKey() );
-		},
-		prepare: async ( options ) => {
-			await resolveAnthropicApiKey( options );
-		},
-		resolveEnv: async () => {
-			const apiKey = await readAnthropicApiKey();
-			if ( ! apiKey ) {
-				throw new LoggerError(
-					__(
-						'Anthropic API key required. Switch to Anthropic · API key with /provider to save one.'
-					)
-				);
+		isReady,
+		connect: backend.connect ? () => backend.connect!( runLoginCommand ) : undefined,
+		getConnectionMessages: async () =>
+			backend.getConnectionMessages?.(
+				auth.type === 'api-key' ? await readAiProviderApiKey( id ) : undefined
+			),
+		getErrorHint: backend.getErrorHint,
+		prepare: async ( options?: { force?: boolean } ) => {
+			if ( auth.type === 'api-key' ) {
+				await resolveApiKey( id, options );
+			} else if ( ! ( await isReady() ) ) {
+				await resolveEnv();
 			}
-
-			const env = createBaseEnvironment();
-			env.ANTHROPIC_API_KEY = apiKey;
-			return env;
 		},
-	} ),
-};
-
-export function getAiProviderDefinition( provider: AiProviderId ): AiProviderDefinition {
-	return AI_PROVIDER_DEFINITIONS[ provider ];
+		resolveEnv,
+	};
 }

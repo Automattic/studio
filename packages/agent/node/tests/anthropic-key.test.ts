@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { validateAnthropicApiKey } from '@studio/common/lib/anthropic-key';
+import { validateAnthropicApiKey } from '../providers/anthropic-key';
 
 describe( 'validateAnthropicApiKey', () => {
 	afterEach( () => {

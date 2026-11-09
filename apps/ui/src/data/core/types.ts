@@ -487,7 +487,7 @@ export interface Connector {
 	// AI provider settings stored in the CLI config. Clearing the key (null)
 	// also falls back to WordPress.com.
 	getAiSettings(): Promise< AiSettings >;
-	saveAnthropicApiKey( key: string | null ): Promise< AiSettings >;
+	saveAiProviderApiKey( provider: AiProviderId, key: string | null ): Promise< AiSettings >;
 	// The provider new conversations use.
 	setAiProvider( provider: AiProviderId ): Promise< AiSettings >;
 

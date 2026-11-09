@@ -6,7 +6,7 @@ import {
 	type StudioAgentHost,
 	AskUserQuestion,
 } from '@studio/agent/node';
-import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/agent/node/settings-store';
+import { readSelectedAiProvider } from '@studio/agent/node/settings-store';
 import { buildChatAttachmentSummaries } from '@studio/agent/protocol/chat-attachments';
 import {
 	buildAttachedFilesPromptBlock,
@@ -55,7 +55,6 @@ import {
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
 import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
-import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { findSiteByFolder, findSiteById } from 'cli/lib/cli-config/sites';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
@@ -446,8 +445,9 @@ export async function runCommand( options: {
 			ui.showError( __( 'AI agent failed' ) );
 		}
 
-		if ( currentProvider === 'anthropic-api-key' ) {
-			ui.showInfo( __( 'Use /api-key to update the Anthropic API key.' ) );
+		const hint = getAiProviderDefinition( currentProvider ).getErrorHint?.();
+		if ( hint ) {
+			ui.showInfo( hint );
 		}
 	}
 
@@ -457,7 +457,7 @@ export async function runCommand( options: {
 	// session is pinned, which must survive the run untouched.
 	if ( isJsonMode && showCapabilitiesOnConnect ) {
 		if ( ! resumeContext.provider ) {
-			await switchProvider( 'wpcom', false );
+			await switchProvider( DEFAULT_AI_PROVIDER, false );
 		}
 		showCapabilitiesOnConnect = false;
 	}
@@ -469,7 +469,8 @@ export async function runCommand( options: {
 		const availableProviders = await getAvailableAiProviders();
 		const labelToProvider = new Map< string, AiProviderId >();
 		const providerOptions = availableProviders.map( ( id ) => {
-			const label = id === 'wpcom' ? __( 'WordPress.com (recommended)' ) : AI_PROVIDERS[ id ];
+			const label =
+				id === DEFAULT_AI_PROVIDER ? __( 'WordPress.com (recommended)' ) : AI_PROVIDERS[ id ];
 			labelToProvider.set( label, id );
 			return { label, description: id };
 		} );
@@ -483,39 +484,23 @@ export async function runCommand( options: {
 		const selectedProvider = labelToProvider.get( selectedLabel );
 		if ( selectedProvider ) {
 			try {
-				if ( selectedProvider === 'wpcom' ) {
-					// Run login flow directly instead of prepare(), which would
-					// just throw "login required" since there's no token yet.
+				const definition = getAiProviderDefinition( selectedProvider );
+				let connected = true;
+				if ( definition.connect ) {
 					ui.stop();
-					await runLoginCommand();
-					ui.start();
-
-					if ( await isAiProviderReady( 'wpcom' ) ) {
-						await switchProvider( 'wpcom', false );
-						const token = await readAuthToken();
-						if ( token ) {
-							ui.showSuccess(
-								sprintf(
-									/* translators: 1: display name, 2: email */
-									__( 'Logged in as %1$s (%2$s)' ),
-									token.displayName,
-									token.email
-								)
-							);
-							ui.setStatusMessage(
-								sprintf(
-									/* translators: %s: display name */
-									__( 'Logged in as %s' ),
-									token.displayName
-								)
-							);
-							showCapabilitiesOnConnect = false;
-							ui.showCapabilities();
-						}
+					try {
+						connected = await definition.connect();
+					} finally {
+						ui.start();
 					}
 				} else {
 					await prepareProviderSelection( selectedProvider );
+				}
+				if ( connected ) {
 					await switchProvider( selectedProvider, false );
+					const messages = await definition.getConnectionMessages?.();
+					if ( messages?.success ) ui.showSuccess( messages.success );
+					if ( messages?.status ) ui.setStatusMessage( messages.status );
 					showCapabilitiesOnConnect = false;
 					ui.showCapabilities();
 				}
@@ -529,21 +514,10 @@ export async function runCommand( options: {
 				}
 			}
 		}
-	} else if ( currentProvider === 'wpcom' ) {
-		const token = await readAuthToken();
-		if ( token ) {
-			ui.setStatusMessage(
-				sprintf(
-					/* translators: %s: user display name */
-					__( 'Logged in as %s' ),
-					token.displayName
-				)
-			);
-		} else {
-			ui.setStatusMessage( __( 'Use /login to authenticate to WordPress.com' ) );
-		}
-	} else if ( currentProvider === 'anthropic-api-key' && ! ( await readAnthropicApiKey() ) ) {
-		ui.showInfo( __( 'No Anthropic API key saved. Use /api-key to enter one.' ) );
+	} else {
+		const messages = await getAiProviderDefinition( currentProvider ).getConnectionMessages?.();
+		if ( messages?.status ) ui.setStatusMessage( messages.status );
+		if ( messages?.info ) ui.showInfo( messages.info );
 	}
 
 	async function askUserAndPersistAnswers(

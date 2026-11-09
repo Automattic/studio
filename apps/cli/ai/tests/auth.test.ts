@@ -1,7 +1,7 @@
 import { password } from '@inquirer/prompts';
 import {
-	persistAnthropicApiKey,
-	readAnthropicApiKey,
+	persistAiProviderApiKey,
+	readAiProviderApiKey,
 	readSelectedAiProvider,
 } from '@studio/agent/node/settings-store';
 import { readAuthToken } from '@studio/common/lib/shared-config';
@@ -24,9 +24,9 @@ vi.mock( '@studio/common/lib/shared-config', () => ( {
 } ) );
 
 vi.mock( '@studio/agent/node/settings-store', () => ( {
-	readAnthropicApiKey: vi.fn(),
+	readAiProviderApiKey: vi.fn(),
 	readSelectedAiProvider: vi.fn(),
-	persistAnthropicApiKey: vi.fn(),
+	persistAiProviderApiKey: vi.fn(),
 	persistSelectedAiProvider: vi.fn(),
 } ) );
 
@@ -42,18 +42,18 @@ describe( 'AI auth helpers', () => {
 	} );
 
 	it( 'uses the saved Anthropic API key when provider is Anthropic API key', async () => {
-		vi.mocked( readAnthropicApiKey ).mockResolvedValue( 'saved-key' );
+		vi.mocked( readAiProviderApiKey ).mockResolvedValue( 'saved-key' );
 
 		const env = await resolveAiEnvironment( 'anthropic-api-key' );
 
 		expect( env.ANTHROPIC_API_KEY ).toBe( 'saved-key' );
 		expect( env.ANTHROPIC_BASE_URL ).toBeUndefined();
 		expect( env.ANTHROPIC_AUTH_TOKEN ).toBeUndefined();
-		expect( persistAnthropicApiKey ).not.toHaveBeenCalled();
+		expect( persistAiProviderApiKey ).not.toHaveBeenCalled();
 	} );
 
 	it( 'requires a saved Anthropic API key in API key mode', async () => {
-		vi.mocked( readAnthropicApiKey ).mockResolvedValue( undefined );
+		vi.mocked( readAiProviderApiKey ).mockResolvedValue( undefined );
 
 		await expect( resolveAiEnvironment( 'anthropic-api-key' ) ).rejects.toBeInstanceOf(
 			LoggerError
@@ -62,23 +62,23 @@ describe( 'AI auth helpers', () => {
 	} );
 
 	it( 'prompts for the API key immediately when preparing the API key provider', async () => {
-		vi.mocked( readAnthropicApiKey ).mockResolvedValue( undefined );
+		vi.mocked( readAiProviderApiKey ).mockResolvedValue( undefined );
 		vi.mocked( password ).mockResolvedValue( 'prompted-key' );
 
 		await prepareAiProvider( 'anthropic-api-key' );
 
 		expect( password ).toHaveBeenCalledOnce();
-		expect( persistAnthropicApiKey ).toHaveBeenCalledWith( 'prompted-key' );
+		expect( persistAiProviderApiKey ).toHaveBeenCalledWith( 'anthropic-api-key', 'prompted-key' );
 	} );
 
 	it( 'can force re-entering the API key even when one is already saved', async () => {
-		vi.mocked( readAnthropicApiKey ).mockResolvedValue( 'saved-key' );
+		vi.mocked( readAiProviderApiKey ).mockResolvedValue( 'saved-key' );
 		vi.mocked( password ).mockResolvedValue( 'updated-key' );
 
 		await prepareAiProvider( 'anthropic-api-key', { force: true } );
 
 		expect( password ).toHaveBeenCalledOnce();
-		expect( persistAnthropicApiKey ).toHaveBeenCalledWith( 'updated-key' );
+		expect( persistAiProviderApiKey ).toHaveBeenCalledWith( 'anthropic-api-key', 'updated-key' );
 	} );
 
 	it( 'configures the WP.com gateway environment', async () => {
@@ -125,7 +125,7 @@ describe( 'AI auth helpers', () => {
 
 	it( 'prefers the saved provider', async () => {
 		vi.mocked( readSelectedAiProvider ).mockResolvedValue( 'anthropic-api-key' );
-		vi.mocked( readAnthropicApiKey ).mockResolvedValue( 'key' );
+		vi.mocked( readAiProviderApiKey ).mockResolvedValue( 'key' );
 
 		await expect( resolveInitialAiProvider() ).resolves.toBe( 'anthropic-api-key' );
 		expect( readAuthToken ).not.toHaveBeenCalled();
@@ -170,7 +170,7 @@ describe( 'AI auth helpers', () => {
 
 	it( 'resolves a fallback provider only for providers that auto-fallback', async () => {
 		vi.mocked( readAuthToken ).mockResolvedValue( null );
-		vi.mocked( readAnthropicApiKey ).mockResolvedValue( 'saved-key' );
+		vi.mocked( readAiProviderApiKey ).mockResolvedValue( 'saved-key' );
 
 		await expect( resolveUnavailableAiProvider( 'wpcom' ) ).resolves.toBe( 'anthropic-api-key' );
 		await expect( resolveUnavailableAiProvider( 'anthropic-api-key' ) ).resolves.toBeUndefined();

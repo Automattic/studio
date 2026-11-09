@@ -5,13 +5,13 @@ import { IpcMainInvokeEvent } from 'electron';
 import { writeGlobalInstructions } from '@studio/agent/node/global-instructions';
 import {
 	readAiSettings,
-	saveAnthropicApiKey as saveAnthropicApiKeyToConfig,
+	saveAiProviderApiKey as saveAiProviderApiKeyToConfig,
 } from '@studio/agent/node/settings-store';
 import { vi } from 'vitest';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import {
 	saveGlobalAgentInstructions,
-	saveAnthropicApiKey,
+	saveAiProviderApiKey,
 } from 'src/modules/user-settings/lib/ipc-handlers';
 
 vi.mock( 'electron', () => ( {
@@ -27,14 +27,15 @@ vi.mock( '@studio/agent/node/global-instructions', () => ( {
 	readGlobalInstructionsFile: vi.fn(),
 	writeGlobalInstructions: vi.fn(),
 } ) );
-vi.mock( '@studio/agent/node/settings-store', () => ( {
+vi.mock( '@studio/agent/node/settings-store', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/agent/node/settings-store') >() ),
 	readAiSettings: vi.fn(),
-	saveAnthropicApiKey: vi.fn(),
+	saveAiProviderApiKey: vi.fn(),
 } ) );
 
 const mockRecord = vi.mocked( recordTracksEvent );
 const mockReadAiSettings = vi.mocked( readAiSettings );
-const mockSaveAnthropicApiKey = vi.mocked( saveAnthropicApiKeyToConfig );
+const mockSaveAiProviderApiKey = vi.mocked( saveAiProviderApiKeyToConfig );
 const event = {} as IpcMainInvokeEvent;
 
 beforeEach( () => {
@@ -112,24 +113,32 @@ describe( 'AI provider settings', () => {
 	const keyPreview = 'sk-ant-api03-tes...1234';
 	const wpcomWithoutKey = {
 		provider: 'wpcom',
-		hasAnthropicApiKey: false,
-		anthropicApiKeyPreview: null,
+		connections: {
+			wpcom: { connected: false, apiKeyPreview: null },
+			'anthropic-api-key': { connected: false, apiKeyPreview: null },
+		},
 	} as const;
 	const anthropicWithKey = {
 		provider: 'anthropic-api-key',
-		hasAnthropicApiKey: true,
-		anthropicApiKeyPreview: keyPreview,
+		connections: {
+			wpcom: { connected: false, apiKeyPreview: null },
+			'anthropic-api-key': { connected: true, apiKeyPreview: keyPreview },
+		},
 	} as const;
 
 	it( 'emits studio_setting_ai_provider_change when a key is added', async () => {
 		mockReadAiSettings.mockResolvedValue( wpcomWithoutKey );
-		mockSaveAnthropicApiKey.mockResolvedValue( {
+		mockSaveAiProviderApiKey.mockResolvedValue( {
+			...anthropicWithKey,
 			provider: 'wpcom',
-			hasAnthropicApiKey: true,
-			anthropicApiKeyPreview: keyPreview,
 		} );
 
-		await saveAnthropicApiKey( event, 'sk-ant-api03-testkey-1234' );
+		await saveAiProviderApiKey( event, 'anthropic-api-key', 'sk-ant-api03-testkey-1234' );
+
+		expect( mockSaveAiProviderApiKey ).toHaveBeenCalledWith(
+			'anthropic-api-key',
+			'sk-ant-api03-testkey-1234'
+		);
 
 		expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
 			provider: 'wpcom',
@@ -140,9 +149,9 @@ describe( 'AI provider settings', () => {
 
 	it( 'never sends the key itself', async () => {
 		mockReadAiSettings.mockResolvedValue( wpcomWithoutKey );
-		mockSaveAnthropicApiKey.mockResolvedValue( anthropicWithKey );
+		mockSaveAiProviderApiKey.mockResolvedValue( anthropicWithKey );
 
-		await saveAnthropicApiKey( event, 'sk-ant-api03-testkey-1234' );
+		await saveAiProviderApiKey( event, 'anthropic-api-key', 'sk-ant-api03-testkey-1234' );
 
 		const props = JSON.stringify( mockRecord.mock.calls[ 0 ][ 1 ] );
 		expect( props ).not.toContain( 'testkey' );
@@ -151,9 +160,9 @@ describe( 'AI provider settings', () => {
 
 	it( 'reports a cleared key falling back to WordPress.com', async () => {
 		mockReadAiSettings.mockResolvedValue( anthropicWithKey );
-		mockSaveAnthropicApiKey.mockResolvedValue( wpcomWithoutKey );
+		mockSaveAiProviderApiKey.mockResolvedValue( wpcomWithoutKey );
 
-		await saveAnthropicApiKey( event, null );
+		await saveAiProviderApiKey( event, 'anthropic-api-key', null );
 
 		expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
 			provider: 'wpcom',
@@ -164,13 +173,15 @@ describe( 'AI provider settings', () => {
 
 	it( 'emits when a saved key is swapped for a different one', async () => {
 		mockReadAiSettings.mockResolvedValue( anthropicWithKey );
-		mockSaveAnthropicApiKey.mockResolvedValue( {
-			provider: 'anthropic-api-key',
-			hasAnthropicApiKey: true,
-			anthropicApiKeyPreview: 'sk-ant-api03-tes...9999',
+		mockSaveAiProviderApiKey.mockResolvedValue( {
+			...anthropicWithKey,
+			connections: {
+				...anthropicWithKey.connections,
+				'anthropic-api-key': { connected: true, apiKeyPreview: 'sk-ant-api03-tes...9999' },
+			},
 		} );
 
-		await saveAnthropicApiKey( event, 'sk-ant-api03-otherkey-9999' );
+		await saveAiProviderApiKey( event, 'anthropic-api-key', 'sk-ant-api03-otherkey-9999' );
 
 		expect( mockRecord ).toHaveBeenCalledWith( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
 			provider: 'anthropic-api-key',
@@ -181,9 +192,9 @@ describe( 'AI provider settings', () => {
 
 	it( 'does not emit when re-saving the same key', async () => {
 		mockReadAiSettings.mockResolvedValue( anthropicWithKey );
-		mockSaveAnthropicApiKey.mockResolvedValue( anthropicWithKey );
+		mockSaveAiProviderApiKey.mockResolvedValue( anthropicWithKey );
 
-		await saveAnthropicApiKey( event, 'sk-ant-api03-testkey-1234' );
+		await saveAiProviderApiKey( event, 'anthropic-api-key', 'sk-ant-api03-testkey-1234' );
 
 		expect( mockRecord ).not.toHaveBeenCalled();
 	} );

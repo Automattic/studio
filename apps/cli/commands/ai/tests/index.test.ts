@@ -5,7 +5,7 @@ import {
 	listStudioSessionFiles,
 	openStudioSession,
 } from '@studio/agent/node/sessions/pi-session';
-import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/agent/node/settings-store';
+import { readSelectedAiProvider } from '@studio/agent/node/settings-store';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { vi, type Mock } from 'vitest';
@@ -53,7 +53,6 @@ vi.mock( 'cli/ai/providers', () => ( {
 	getStudioUserAgent: () => 'WordPressStudio',
 } ) );
 vi.mock( '@studio/agent/node/settings-store', () => ( {
-	readAnthropicApiKey: vi.fn(),
 	readSelectedAiProvider: vi.fn().mockResolvedValue( 'wpcom' ),
 } ) );
 vi.mock( 'cli/lib/cli-config/sites', () => ( {
@@ -152,7 +151,6 @@ describe( 'AI runCommand — Desktop (JSON mode) provider default', () => {
 
 	it( 'does not override an already-configured provider', async () => {
 		( readSelectedAiProvider as Mock ).mockResolvedValue( 'anthropic-api-key' );
-		( readAnthropicApiKey as Mock ).mockResolvedValue( 'saved-key' );
 		( resolveInitialAiProvider as Mock ).mockResolvedValue( 'anthropic-api-key' );
 
 		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello' } );

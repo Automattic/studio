@@ -1,6 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { getCreditsLabel } from '@/features/composer/model-options';
+import { getCreditsLabel, getModelDescription } from '@/features/composer/model-options';
+import type { AiModelId } from '@/data/core';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
+
+describe( 'getModelDescription', () => {
+	it.each( [
+		[ 'fast', 'Quick fixes and questions' ],
+		[ 'balanced', 'Build features, style pages, and fix bugs' ],
+		[ 'claude-sonnet-5', 'Build features, style pages, and fix bugs' ],
+		[ 'strong', 'Plan complex builds and solve harder problems' ],
+		[ 'claude-opus-5', 'Plan complex builds and solve harder problems' ],
+	] satisfies [ AiModelId, string ][] )(
+		'preserves the description for %s',
+		( id, description ) => {
+			expect( getModelDescription( id ) ).toBe( description );
+		}
+	);
+} );
 
 describe( 'getCreditsLabel', () => {
 	it( 'says when no credits remain', () => {

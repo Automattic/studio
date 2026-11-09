@@ -30,7 +30,15 @@ describe( 'createLocalConnector server contracts', () => {
 
 	it( 'remembers the AI provider through the shared settings endpoint', async () => {
 		fetchMock.mockResolvedValue(
-			new Response( JSON.stringify( { provider: 'anthropic-api-key', hasAnthropicApiKey: true } ) )
+			new Response(
+				JSON.stringify( {
+					provider: 'anthropic-api-key',
+					connections: {
+						wpcom: { connected: true, apiKeyPreview: null },
+						'anthropic-api-key': { connected: true, apiKeyPreview: 'sk-…last' },
+					},
+				} )
+			)
 		);
 		await expect( connector().setAiProvider( 'anthropic-api-key' ) ).resolves.toMatchObject( {
 			provider: 'anthropic-api-key',
@@ -40,6 +48,27 @@ describe( 'createLocalConnector server contracts', () => {
 			expect.objectContaining( {
 				method: 'PUT',
 				body: JSON.stringify( { provider: 'anthropic-api-key' } ),
+			} )
+		);
+	} );
+
+	it.each( [ 'secret-key', null ] )( 'saves an AI provider key (%s)', async ( apiKey ) => {
+		const settings = {
+			provider: 'wpcom',
+			connections: {
+				wpcom: { connected: true, apiKeyPreview: null },
+				'anthropic-api-key': { connected: !! apiKey, apiKeyPreview: apiKey ? 'sk-…last' : null },
+			},
+		};
+		fetchMock.mockResolvedValueOnce( new Response( JSON.stringify( settings ) ) );
+		await expect(
+			connector().saveAiProviderApiKey( 'anthropic-api-key', apiKey )
+		).resolves.toEqual( settings );
+		expect( fetchMock ).toHaveBeenCalledWith(
+			'http://localhost:8081/api/ai-settings/api-key',
+			expect.objectContaining( {
+				method: 'PUT',
+				body: JSON.stringify( { provider: 'anthropic-api-key', apiKey } ),
 			} )
 		);
 	} );

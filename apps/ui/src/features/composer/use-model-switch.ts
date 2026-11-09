@@ -122,7 +122,7 @@ export function useModelSwitch( {
 
 	const changeModel = useCallback(
 		( provider: AiProviderId, picked: AiModelId ) => {
-			if ( picked === model || isModelLocked( picked ) ) {
+			if ( ( picked === model && provider === sessionProvider ) || isModelLocked( picked ) ) {
 				return;
 			}
 			if ( onModelChange ) {

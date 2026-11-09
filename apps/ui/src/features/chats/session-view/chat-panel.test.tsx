@@ -54,7 +54,13 @@ async function setupChat( {
 				} as SessionEntry,
 		  ]
 		: [];
-	const connected = { hasAnthropicApiKey, provider };
+	const connected: AiSettings = {
+		provider,
+		connections: {
+			wpcom: { connected: signedIn, apiKeyPreview: null },
+			'anthropic-api-key': { connected: hasAnthropicApiKey, apiKeyPreview: null },
+		},
+	};
 	const connector = createFakeConnector(
 		{
 			sites: [ site ],
@@ -71,7 +77,7 @@ async function setupChat( {
 				if ( settingsError ) {
 					throw new Error( 'Connections unavailable' );
 				}
-				return { ...connected, anthropicApiKeyPreview: null };
+				return connected;
 			},
 			getStudioAssistantQuota: async () => {
 				if ( quotaError ) {
@@ -367,8 +373,10 @@ describe( 'Composer access notices', () => {
 				{
 					getAiSettings: async () => ( {
 						provider,
-						hasAnthropicApiKey: true,
-						anthropicApiKeyPreview: 'test',
+						connections: {
+							wpcom: { connected: true, apiKeyPreview: null },
+							'anthropic-api-key': { connected: true, apiKeyPreview: 'test' },
+						},
 					} ),
 					getStudioAssistantQuota: async () => quota,
 				}
@@ -401,8 +409,10 @@ describe( 'Composer access notices', () => {
 		async ( saved ) => {
 			let connection: AiSettings = {
 				provider: 'wpcom',
-				hasAnthropicApiKey: saved,
-				anthropicApiKeyPreview: saved ? 'test' : null,
+				connections: {
+					wpcom: { connected: false, apiKeyPreview: null },
+					'anthropic-api-key': { connected: saved, apiKeyPreview: saved ? 'test' : null },
+				},
 			};
 			const site = makeSite( { id: 'one', path: '/sites/my-site' } );
 			const connector = createFakeConnector(
@@ -422,11 +432,13 @@ describe( 'Composer access notices', () => {
 				},
 				{
 					getAiSettings: async () => connection,
-					saveAnthropicApiKey: async () => {
+					saveAiProviderApiKey: async ( provider ) => {
 						connection = {
 							...connection,
-							hasAnthropicApiKey: true,
-							anthropicApiKeyPreview: 'test',
+							connections: {
+								...connection.connections,
+								[ provider ]: { connected: true, apiKeyPreview: 'test' },
+							},
 						};
 						return connection;
 					},

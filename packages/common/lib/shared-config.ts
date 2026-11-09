@@ -57,6 +57,9 @@ export const sharedConfigSchema = z
 		// parse; readers narrow with `isAiProviderId`.
 		aiProvider: z.string().optional(),
 		anthropicApiKey: z.string().optional(),
+		aiProviderCredentials: z
+			.record( z.string(), z.object( { apiKey: z.string().optional() } ).loose().nullable() )
+			.optional(),
 		// Anonymous install identifier for Tracks analytics, shared by Studio and the Studio CLI.
 		// See `docs/design-docs/analytics-tracks.md`.
 		analyticsInstallId: z.string().optional(),

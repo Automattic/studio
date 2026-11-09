@@ -10,8 +10,10 @@ const site = makeSite( { id: 'one', name: 'My site', path: '/sites/my-site' } );
 const withKey = ( provider: AiSettings[ 'provider' ] ): Partial< Connector > => ( {
 	getAiSettings: async () => ( {
 		provider,
-		hasAnthropicApiKey: true,
-		anthropicApiKeyPreview: 'test',
+		connections: {
+			wpcom: { connected: true, apiKeyPreview: null },
+			'anthropic-api-key': { connected: true, apiKeyPreview: 'test' },
+		},
 	} ),
 } );
 

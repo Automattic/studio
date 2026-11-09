@@ -1,85 +1,107 @@
-import { validateAnthropicApiKey } from '@studio/common/lib/anthropic-key';
 import { readCliConfigFileRaw } from '@studio/common/lib/cli-config-file';
-import { readSharedConfig, updateSharedConfig } from '@studio/common/lib/shared-config';
 import {
+	lockSharedConfig,
+	readSharedConfig,
+	saveSharedConfig,
+	unlockSharedConfig,
+	type SharedConfig,
+} from '@studio/common/lib/shared-config';
+import {
+	AI_PROVIDER_IDS,
 	DEFAULT_AI_PROVIDER,
 	isAiProviderId,
 	type AiProviderId,
 	type AiSettings,
 } from '@studio/agent/protocol/providers';
+import { AI_BACKEND_PROVIDERS, InvalidAiProviderCredentialsError } from './providers';
 
-/** A key Anthropic definitively rejected; carries a user-facing message. */
-export class InvalidAnthropicApiKeyError extends Error {
-	constructor( message: string ) {
-		super( message );
-		this.name = 'InvalidAnthropicApiKeyError';
+export { InvalidAiProviderCredentialsError } from './providers';
+
+type AiProviderConfig = Pick< SharedConfig, 'aiProvider' | 'anthropicApiKey' | 'aiProviderCredentials' >;
+
+async function readAiProviderConfig( shared?: SharedConfig ): Promise< AiProviderConfig > {
+	const config = shared ?? ( await readSharedConfig() );
+	const { aiProvider, anthropicApiKey, aiProviderCredentials } = config;
+	if (
+		aiProvider === undefined &&
+		anthropicApiKey === undefined &&
+		aiProviderCredentials === undefined
+	) {
+		try {
+			const legacy = await readCliConfigFileRaw();
+			return {
+				aiProvider: typeof legacy.aiProvider === 'string' ? legacy.aiProvider : undefined,
+				anthropicApiKey:
+					typeof legacy.anthropicApiKey === 'string' ? legacy.anthropicApiKey : undefined,
+			};
+		} catch {
+			// A new install has no legacy CLI config.
+		}
 	}
+	return { aiProvider, anthropicApiKey, aiProviderCredentials };
 }
 
-/**
- * Reads and writes the AI provider settings in `~/.studio/shared.json`, the
- * Desktop↔CLI shared state (where the WordPress.com auth token also lives).
- * Earlier builds stored both fields in the CLI-owned `cli.json`; reads fall
- * back to it so existing setups keep working, writes always target shared.json.
- */
-
-interface AiProviderConfig {
-	aiProvider?: string;
-	anthropicApiKey?: string;
+function getApiKey( config: AiProviderConfig, provider: AiProviderId ): string | undefined {
+	const { auth } = AI_BACKEND_PROVIDERS[ provider ];
+	if ( auth.type !== 'api-key' ) return undefined;
+	// Keep older Studio versions able to read the existing Anthropic credential.
+	return provider === 'anthropic-api-key'
+		? config.anthropicApiKey
+		: config.aiProviderCredentials?.[ provider ]?.apiKey;
 }
 
-async function readLegacyCliConfigFields(): Promise< AiProviderConfig > {
-	try {
-		const { aiProvider, anthropicApiKey } = await readCliConfigFileRaw();
-		return {
-			aiProvider: typeof aiProvider === 'string' ? aiProvider : undefined,
-			anthropicApiKey: typeof anthropicApiKey === 'string' ? anthropicApiKey : undefined,
+function storeApiKey( config: AiProviderConfig, provider: AiProviderId, key: string | null ) {
+	const { auth } = AI_BACKEND_PROVIDERS[ provider ];
+	if ( auth.type !== 'api-key' ) {
+		throw new InvalidAiProviderCredentialsError( 'This provider does not accept an API key.' );
+	}
+	if ( provider === 'anthropic-api-key' ) {
+		config.anthropicApiKey = key ?? undefined;
+	} else {
+		config.aiProviderCredentials = {
+			...config.aiProviderCredentials,
+			[ provider ]: key ? { apiKey: key } : null,
 		};
-	} catch {
-		return {};
 	}
 }
 
-async function readAiProviderConfig(): Promise< AiProviderConfig > {
-	const { aiProvider, anthropicApiKey } = await readSharedConfig();
-	if ( aiProvider !== undefined || anthropicApiKey !== undefined ) {
-		return { aiProvider, anthropicApiKey };
-	}
-	return readLegacyCliConfigFields();
+export async function readAiProviderApiKey(
+	provider: AiProviderId
+): Promise< string | undefined > {
+	return getApiKey( await readAiProviderConfig(), provider );
 }
 
-/** The saved Anthropic API key, for processes that need the raw value. */
-export async function readAnthropicApiKey(): Promise< string | undefined > {
-	return ( await readAiProviderConfig() ).anthropicApiKey;
-}
-
-/** The saved provider selection, or undefined when none was ever chosen. */
 export async function readSelectedAiProvider(): Promise< AiProviderId | undefined > {
 	const { aiProvider } = await readAiProviderConfig();
 	return aiProvider !== undefined && isAiProviderId( aiProvider ) ? aiProvider : undefined;
 }
 
-const KEY_PREFIX_LENGTH = 16;
-const KEY_SUFFIX_LENGTH = 4;
-
-// Enough to recognise the key, never enough to use it; a short key shows
-// only its tail so most of it is not echoed back.
 function previewKey( key: string ): string {
-	if ( key.length <= KEY_PREFIX_LENGTH + KEY_SUFFIX_LENGTH ) {
-		return `...${ key.slice( -KEY_SUFFIX_LENGTH ) }`;
-	}
-	return `${ key.slice( 0, KEY_PREFIX_LENGTH ) }...${ key.slice( -KEY_SUFFIX_LENGTH ) }`;
+	return key.length <= 20
+		? `...${ key.slice( -4 ) }`
+		: `${ key.slice( 0, 16 ) }...${ key.slice( -4 ) }`;
 }
 
-function toAiSettings( config: AiProviderConfig ): AiSettings {
-	const key = config.anthropicApiKey;
+async function toAiSettings( config: AiProviderConfig ): Promise< AiSettings > {
+	const connections = await Promise.all(
+		AI_PROVIDER_IDS.map( async ( provider ) => {
+			const { auth } = AI_BACKEND_PROVIDERS[ provider ];
+			const key = getApiKey( config, provider );
+			return [
+				provider,
+				{
+					connected: auth.type === 'account' ? await auth.isConnected() : Boolean( key ),
+					apiKeyPreview: key ? previewKey( key ) : null,
+				},
+			] as const;
+		} )
+	);
 	return {
 		provider:
 			config.aiProvider !== undefined && isAiProviderId( config.aiProvider )
 				? config.aiProvider
 				: DEFAULT_AI_PROVIDER,
-		hasAnthropicApiKey: Boolean( key ),
-		anthropicApiKeyPreview: key ? previewKey( key ) : null,
+		connections: Object.fromEntries( connections ) as AiSettings[ 'connections' ],
 	};
 }
 
@@ -87,62 +109,97 @@ export async function readAiSettings(): Promise< AiSettings > {
 	return toAiSettings( await readAiProviderConfig() );
 }
 
-async function updateAiProviderConfig( update: AiProviderConfig ): Promise< AiSettings > {
-	// Carry the legacy cli.json values over on first write so a partial update
-	// (e.g. only aiProvider) doesn't orphan the other field there.
-	const config = { ...( await readAiProviderConfig() ), ...update };
-	await updateSharedConfig( config );
+export function getAiSettingsChange( previous: AiSettings, next: AiSettings ) {
+	const unchanged =
+		previous.provider === next.provider &&
+		AI_PROVIDER_IDS.every(
+			( id ) =>
+				previous.connections[ id ].connected === next.connections[ id ].connected &&
+				previous.connections[ id ].apiKeyPreview === next.connections[ id ].apiKeyPreview
+		);
+	if ( unchanged ) {
+		return undefined;
+	}
+	return {
+		provider: next.provider,
+		// Preserve the historical analytics property without sending credential previews.
+		has_anthropic_api_key: next.connections[ 'anthropic-api-key' ].connected,
+		surface: 'settings',
+	};
+}
+
+async function updateAiProviderConfig(
+	update: ( config: AiProviderConfig ) => void
+): Promise< AiSettings > {
+	let config: AiProviderConfig;
+	try {
+		await lockSharedConfig();
+		const shared = await readSharedConfig();
+		config = await readAiProviderConfig( shared );
+		update( config );
+		await saveSharedConfig( { ...shared, ...config } );
+	} finally {
+		await unlockSharedConfig();
+	}
 	return toAiSettings( config );
 }
 
-/**
- * Stores or clears the Anthropic API key. A key Anthropic rejects is not
- * stored; an unverifiable one (offline, Anthropic outage) is. Clearing the key
- * falls back to WordPress.com, since the Anthropic provider needs one.
- */
-export async function saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
-	const trimmed = key === null ? null : key.trim();
+async function validateApiKey( provider: AiProviderId, key: string ): Promise< void > {
+	const { auth } = AI_BACKEND_PROVIDERS[ provider ];
+	if ( auth.type !== 'api-key' ) {
+		throw new InvalidAiProviderCredentialsError( 'This provider does not accept an API key.' );
+	}
+	const validation = await auth.validate( key );
+	if ( validation.status === 'invalid' ) {
+		throw new InvalidAiProviderCredentialsError( validation.message );
+	}
+}
 
+export async function saveAiProviderApiKey(
+	provider: AiProviderId,
+	key: string | null
+): Promise< AiSettings > {
+	if ( AI_BACKEND_PROVIDERS[ provider ].auth.type !== 'api-key' ) {
+		throw new InvalidAiProviderCredentialsError( 'This provider does not accept an API key.' );
+	}
+	const trimmed = key?.trim();
 	if ( trimmed ) {
-		const validation = await validateAnthropicApiKey( trimmed );
-		if ( validation.status === 'invalid' ) {
-			throw new InvalidAnthropicApiKeyError( validation.message );
-		}
+		await validateApiKey( provider, trimmed );
 	}
-
-	return updateAiProviderConfig(
-		trimmed
-			? { anthropicApiKey: trimmed }
-			: { anthropicApiKey: undefined, aiProvider: DEFAULT_AI_PROVIDER }
-	);
+	return updateAiProviderConfig( ( config ) => {
+		storeApiKey( config, provider, trimmed || null );
+		if ( ! trimmed && ( config.aiProvider === provider || config.aiProvider === undefined ) ) {
+			config.aiProvider = DEFAULT_AI_PROVIDER;
+		}
+	} );
 }
 
-/**
- * Selects the provider for new conversations. Switching to Anthropic refuses a
- * key Anthropic rejects, but accepts an unverifiable one. Existing sessions
- * keep the provider recorded in their session context.
- */
 export async function setAiProvider( provider: AiProviderId ): Promise< AiSettings > {
-	if ( provider === 'anthropic-api-key' ) {
-		const anthropicApiKey = await readAnthropicApiKey();
-		if ( ! anthropicApiKey ) {
-			throw new InvalidAnthropicApiKeyError( 'Add an Anthropic API key first.' );
+	const { auth } = AI_BACKEND_PROVIDERS[ provider ];
+	if ( auth.type === 'api-key' ) {
+		const key = await readAiProviderApiKey( provider );
+		if ( ! key ) {
+			throw new InvalidAiProviderCredentialsError( auth.getMissingKeyMessage() );
 		}
-		const validation = await validateAnthropicApiKey( anthropicApiKey );
-		if ( validation.status === 'invalid' ) {
-			throw new InvalidAnthropicApiKeyError( validation.message );
-		}
+		await validateApiKey( provider, key );
 	}
-
-	return updateAiProviderConfig( { aiProvider: provider } );
+	return updateAiProviderConfig( ( config ) => {
+		config.aiProvider = provider;
+	} );
 }
 
-/** Persists the provider without validation — for flows that already ran it. */
+/** For connection flows that already validated the selection or key. */
 export async function persistSelectedAiProvider( provider: AiProviderId ): Promise< void > {
-	await updateAiProviderConfig( { aiProvider: provider } );
+	await updateAiProviderConfig( ( config ) => {
+		config.aiProvider = provider;
+	} );
 }
 
-/** Persists the key without validation — for flows that already ran it. */
-export async function persistAnthropicApiKey( key: string ): Promise< void > {
-	await updateAiProviderConfig( { anthropicApiKey: key } );
+export async function persistAiProviderApiKey(
+	provider: AiProviderId,
+	key: string
+): Promise< void > {
+	await updateAiProviderConfig( ( config ) => {
+		storeApiKey( config, provider, key );
+	} );
 }

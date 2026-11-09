@@ -687,8 +687,8 @@ export function createIpcConnector(): Connector {
 		async getAiSettings(): Promise< AiSettings > {
 			return ( await ipcApi.getAiSettings() ) as AiSettings;
 		},
-		async saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
-			return unwrapIpcError( ipcApi.saveAnthropicApiKey( key ) );
+		async saveAiProviderApiKey( provider, key ): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.saveAiProviderApiKey( provider, key ) );
 		},
 		async setAiProvider( provider ): Promise< AiSettings > {
 			return unwrapIpcError( ipcApi.setAiProvider( provider ) );

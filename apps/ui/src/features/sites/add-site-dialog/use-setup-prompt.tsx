@@ -11,7 +11,7 @@ import { PaperclipIcon } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
-import { useAiSettings } from '@/data/queries/use-ai-settings';
+import { useAiProviderConnections, useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { openNewSession, SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
@@ -75,7 +75,7 @@ export function useSetupPrompt( { enabled = true, busy = false } = {} ) {
 	const { data: user } = useAuthUser();
 	const provider = getEffectiveSessionProvider( [], settings );
 	const notice = useComposerNotice( provider );
-	const providerConnected = provider === 'wpcom' ? !! user : !! settings?.hasAnthropicApiKey;
+	const providerConnected = useAiProviderConnections().includes( provider );
 	const model = resolveSessionModelForProvider( [], provider, {
 		canUsePaidModels: canUsePaidAiModels( quota, user?.email ),
 	} );

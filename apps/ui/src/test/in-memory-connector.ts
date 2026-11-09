@@ -13,6 +13,7 @@ import type {
 	SiteEmail,
 	UserPreferences,
 } from '@/data/core';
+import type { AiSettings } from '@studio/agent/protocol/providers';
 
 type Methods = {
 	[ K in keyof Connector as Required< Connector >[ K ] extends ( ...args: never[] ) => unknown
@@ -152,6 +153,13 @@ export function createInMemoryConnector(
 	};
 	let agentInstructions = '';
 	let agentInstructionsEnabled = true;
+	let aiSettings: AiSettings = {
+		provider: 'wpcom',
+		connections: {
+			wpcom: { connected: !! state.user, apiKeyPreview: null },
+			'anthropic-api-key': { connected: false, apiKeyPreview: null },
+		},
+	};
 
 	const methods: Methods = {
 		init: async () => {},
@@ -312,20 +320,27 @@ export function createInMemoryConnector(
 			agentInstructions = content;
 		},
 		getAiSettings: async () => ( {
-			provider: 'wpcom',
-			hasAnthropicApiKey: false,
-			anthropicApiKeyPreview: null,
+			...aiSettings,
+			connections: {
+				...aiSettings.connections,
+				wpcom: { connected: !! state.user, apiKeyPreview: null },
+			},
 		} ),
-		saveAnthropicApiKey: async ( key ) => ( {
-			provider: 'wpcom',
-			hasAnthropicApiKey: !! key,
-			anthropicApiKeyPreview: key ? 'sk-ant-…test' : null,
-		} ),
-		setAiProvider: async ( provider ) => ( {
-			provider,
-			hasAnthropicApiKey: false,
-			anthropicApiKeyPreview: null,
-		} ),
+		saveAiProviderApiKey: async ( provider, key ) => {
+			aiSettings = {
+				...aiSettings,
+				provider: ! key && aiSettings.provider === provider ? 'wpcom' : aiSettings.provider,
+				connections: {
+					...aiSettings.connections,
+					[ provider ]: { connected: !! key, apiKeyPreview: key ? 'sk-ant-…test' : null },
+				},
+			};
+			return aiSettings;
+		},
+		setAiProvider: async ( provider ) => {
+			aiSettings = { ...aiSettings, provider };
+			return aiSettings;
+		},
 		getInstalledApps: async () => installedApps(),
 		getAgentApps: async () =>
 			AGENT_APP_IDS.map( ( id ) => ( {

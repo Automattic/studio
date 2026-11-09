@@ -1,4 +1,5 @@
 import {
+	getAiProvider,
 	getEffectiveSessionProvider,
 	resolveSessionModelForProvider,
 } from '@studio/agent/protocol/providers';
@@ -148,7 +149,7 @@ function SessionViewContent( {
 	const sessionProvider =
 		( ! sessionId && draft.provider ) ||
 		getEffectiveSessionProvider( data?.entries ?? [], aiSettings );
-	const isWpcom = sessionProvider === 'wpcom';
+	const { usesStudioCredits } = getAiProvider( sessionProvider );
 	const notice = useComposerNotice( sessionProvider, ownerSite?.id );
 	// A fresh wpcom session defaults to balanced when the paid tiers are
 	// unlocked, fast otherwise.
@@ -275,7 +276,7 @@ function SessionViewContent( {
 		[ navigate ]
 	);
 
-	const isOutOfCredits = useIsOutOfAiCredits() && isWpcom;
+	const isOutOfCredits = useIsOutOfAiCredits() && usesStudioCredits;
 	useMarkChatRead( sessionId, data?.summary, hasActiveRun );
 
 	const [ frameNode, setFrameNode ] = useState< HTMLDivElement | null >( null );

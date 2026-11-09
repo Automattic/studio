@@ -1,55 +1,15 @@
-import { __ } from '@wordpress/i18n';
+import { AI_PROVIDERS, type AiModel } from '@studio/agent/protocol/provider-catalog';
 import { isStudioCustomEntryOfType } from '@studio/agent/protocol/sessions/entry-types';
 import type { SessionEntry } from '@earendil-works/pi-coding-agent';
 
-export type AiModelFamily = 'anthropic' | 'studio';
+export type { AiModel } from '@studio/agent/protocol/provider-catalog';
 
-export interface AiModel {
-	/** Stable model id, kept in settings and session history. */
-	id: string;
-	/** Model name sent to the upstream provider when it differs from `id`. */
-	apiModelId?: string;
-	/** Human-readable label shown in the model picker. */
-	label: string;
-	/** Which runtime serves this model. */
-	family: AiModelFamily;
-	/**
-	 * Whether the model accepts image input. Defaults to true. Set false for
-	 * text-only models so the runtime doesn't advertise vision they lack —
-	 * screenshot tool results are images.
-	 */
-	supportsImages?: boolean;
-	/**
-	 * Pickers disable the model unless purchased AI credits remain
-	 * (Automatticians exempt). UI gating only — the wpcom proxy enforces
-	 * access, and `isAiModelId` never consults this.
-	 */
-	requiresPaidAiCredits?: boolean;
-}
+type CatalogModel = ( typeof AI_PROVIDERS )[ number ][ 'models' ][ number ];
+export type AiModelFamily = CatalogModel[ 'family' ];
 
-// The `studio` family are capability tiers, not concrete models: the wpcom
-// proxy's `studio-agent` lane resolves each alias to an upstream model
-// server-side, so the mapping can be retuned without a client release. The
-// `anthropic` family exists for the direct Anthropic · API key provider only.
-export const AI_MODELS = [
-	{ id: 'fast', label: 'Fast', family: 'studio', supportsImages: false },
-	{
-		id: 'balanced',
-		apiModelId: 'balanced-2',
-		label: 'Balanced',
-		family: 'studio',
-		requiresPaidAiCredits: true,
-	},
-	{
-		id: 'strong',
-		apiModelId: 'strong-2',
-		label: 'Strong',
-		family: 'studio',
-		requiresPaidAiCredits: true,
-	},
-	{ id: 'claude-sonnet-5', label: 'Sonnet 5', family: 'anthropic' },
-	{ id: 'claude-opus-5', label: 'Opus 5', family: 'anthropic' },
-] as const satisfies readonly AiModel[];
+export const AI_MODELS: readonly CatalogModel[] = AI_PROVIDERS.flatMap< CatalogModel >(
+	( provider ) => provider.models
+);
 
 export type AiModelId = ( typeof AI_MODELS )[ number ][ 'id' ];
 
@@ -61,7 +21,7 @@ export const PAID_DEFAULT_MODEL: AiModelId = 'balanced';
 // Module-scoped lookup so `getAiModelFamily` / `getAiModelLabel` are O(1)
 // and don't re-scan the array per call. Keyed by id; values are the same
 // frozen objects as in `AI_MODELS`.
-const MODEL_BY_ID: ReadonlyMap< string, AiModel > = new Map(
+const MODEL_BY_ID: ReadonlyMap< string, AiModel & { family: AiModelFamily } > = new Map(
 	AI_MODELS.map( ( model ) => [ model.id, model ] )
 );
 
@@ -74,7 +34,7 @@ export function isAiModelId( value: string ): value is AiModelId {
  * so this never returns `undefined` for typed inputs — callers handling
  * arbitrary strings should narrow with `isAiModelId` first.
  */
-export function getAiModel( id: AiModelId ): AiModel {
+export function getAiModel( id: AiModelId ): AiModel & { family: AiModelFamily } {
 	// Non-null assertion is safe: AiModelId is the union of the array's ids.
 	return MODEL_BY_ID.get( id )!;
 }
@@ -83,16 +43,9 @@ export function getAiModelFamily( id: AiModelId ): AiModelFamily {
 	return getAiModel( id ).family;
 }
 
-// The tier labels are plain adjectives (unlike the Anthropic brand names), so
-// they go through i18n — as thunks, since module-level `__()` is banned.
-const TRANSLATED_MODEL_LABELS: Partial< Record< AiModelId, () => string > > = {
-	fast: () => __( 'Fast' ),
-	balanced: () => __( 'Balanced' ),
-	strong: () => __( 'Strong' ),
-};
-
 export function getAiModelLabel( id: AiModelId ): string {
-	return TRANSLATED_MODEL_LABELS[ id ]?.() ?? getAiModel( id ).label;
+	const model = getAiModel( id );
+	return model.getLabel?.() ?? model.label;
 }
 
 export function aiModelRequiresPaidCredits( id: AiModelId ): boolean {

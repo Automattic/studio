@@ -1,3 +1,4 @@
+import { getAiProvider } from '@studio/agent/protocol/providers';
 import {
 	ADD_PAYMENT_METHOD_URL,
 	formatAiAccessRequiredHeadline,
@@ -32,6 +33,7 @@ export function useComposerNotice(
 	const { data: user, isLoading: isUserLoading } = useAuthUser();
 	const settings = useAiSettings();
 	const quota = useStudioAssistantQuota();
+	const { usesStudioCredits, connection } = getAiProvider( provider );
 	// Refetching a failed check (opening the model picker does) clears its
 	// error through every retry; the failure stands until one succeeds.
 	const [ settledQuotaError, setSettledQuotaError ] = useState( quota.error );
@@ -41,7 +43,7 @@ export function useComposerNotice(
 	const quotaError = quota.error ?? settledQuotaError;
 	// A payment method added in the browser shows up once Studio is back in
 	// front, which a desktop window reports only as focus.
-	const needsPaymentMethod = provider === 'wpcom' && quota.data?.hasPaymentMethod === false;
+	const needsPaymentMethod = usesStudioCredits && quota.data?.hasPaymentMethod === false;
 	const { refetch: refetchQuota } = quota;
 	useEffect( () => {
 		if ( ! needsPaymentMethod ) {
@@ -65,13 +67,13 @@ export function useComposerNotice(
 	if ( quotaError?.message === STUDIO_ASSISTANT_QUOTA_OFFLINE ) {
 		return { message: __( 'You are offline. Reconnect to send a message.' ), action: refresh };
 	}
-	if ( settings.isLoading || ( provider === 'wpcom' && isUserLoading ) ) {
+	if ( settings.isLoading || ( connection.type === 'account' && isUserLoading ) ) {
 		return;
 	}
 	if ( settings.isError ) {
 		return { message: __( 'Couldn’t load your AI provider.' ), action: refresh };
 	}
-	if ( provider !== 'wpcom' ) {
+	if ( ! usesStudioCredits ) {
 		return;
 	}
 	const connect = {

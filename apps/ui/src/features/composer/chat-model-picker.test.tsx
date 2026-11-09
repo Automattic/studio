@@ -4,6 +4,7 @@ import { Composer } from '@/features/composer';
 import { createFakeConnector, type FakeConnector } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import type { AiModelId } from '@/data/core';
+import type { AiProviderId } from '@studio/agent/protocol/providers';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 
 const paidQuota: StudioAssistantQuota = {
@@ -30,15 +31,22 @@ const allowanceQuota: StudioAssistantQuota = {
 
 function connectorFor( {
 	anthropic = false,
+	provider = 'wpcom',
 	quota = async () => paidQuota,
-}: { anthropic?: boolean; quota?: () => Promise< StudioAssistantQuota | null > } = {} ) {
+}: {
+	anthropic?: boolean;
+	provider?: AiProviderId;
+	quota?: () => Promise< StudioAssistantQuota | null >;
+} = {} ) {
 	return createFakeConnector(
 		{},
 		{
 			getAiSettings: async () => ( {
-				provider: 'wpcom',
-				hasAnthropicApiKey: anthropic,
-				anthropicApiKeyPreview: null,
+				provider,
+				connections: {
+					wpcom: { connected: true, apiKeyPreview: null },
+					'anthropic-api-key': { connected: anthropic, apiKeyPreview: null },
+				},
 			} ),
 			getStudioAssistantQuota: quota,
 			getStudioAssistantTopUpPricing: async () =>
@@ -67,7 +75,10 @@ async function renderPicker( model: AiModelId, connector: FakeConnector, onModel
 
 describe( 'Chat model picker', () => {
 	it( 'opens with the current model selected for keyboard navigation', async () => {
-		const { trigger } = await renderPicker( 'claude-opus-5', connectorFor( { anthropic: true } ) );
+		const { trigger } = await renderPicker(
+			'claude-opus-5',
+			connectorFor( { anthropic: true, provider: 'anthropic-api-key' } )
+		);
 		fireEvent.click( trigger );
 		const current = await screen.findByRole( 'option', { name: /Opus 5/ } );
 		expect( current ).toHaveAttribute( 'aria-selected', 'true' );

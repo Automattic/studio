@@ -1,6 +1,6 @@
 import { getAiModelLabel } from '@studio/agent/protocol/models';
 import {
-	AI_PROVIDER_LABELS,
+	getAiProvider,
 	getAiProviderModels,
 	type AiProviderId,
 } from '@studio/agent/protocol/providers';
@@ -11,8 +11,9 @@ import { useRef, useState, type RefObject } from 'react';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
+import { getAiProviderUi } from '@/features/ai-providers';
 import { getCreditsLabel, getModelDescription } from '@/features/composer/model-options';
-import { PlusIcon, ChevronDownIcon, ClaudeIcon, WordPressIcon } from '@/lib/icons';
+import { PlusIcon, ChevronDownIcon } from '@/lib/icons';
 import { Button, CommandSheet, Popover, type Command, type CommandGroup } from '@/lib/ui';
 import type { AiModelId } from '@/data/core';
 
@@ -52,18 +53,18 @@ export function ModelPicker( {
 		refetch: refetchQuota,
 	} = useStudioAssistantQuota( { refetchOnWindowFocus: 'always' } );
 	const { data: preferences } = useUserPreferences();
-	const isWpcom = sessionProvider === 'wpcom';
+	const { usesStudioCredits } = getAiProvider( sessionProvider );
 
 	const modelLabel = getAiModelLabel( model );
 	const credits = getCreditsLabel( isQuotaError ? null : quota, preferences?.locale );
 	const canPurchaseCredits =
-		isWpcom &&
+		usesStudioCredits &&
 		!! quota &&
 		credits.hasCredits &&
 		getStudioCodeAiAccessState( quota ) === 'available' &&
 		quota.hasPaymentMethod;
-	const modelDetails = [ modelLabel, AI_PROVIDER_LABELS[ sessionProvider ] ];
-	if ( isWpcom ) {
+	const modelDetails = [ modelLabel, getAiProvider( sessionProvider ).label ];
+	if ( usesStudioCredits ) {
 		modelDetails.push( credits.label );
 	}
 	const pickCommand = ( value: string ) => {
@@ -73,11 +74,12 @@ export function ModelPicker( {
 		} else if ( value === 'connect-provider' ) {
 			openSettings( 'ai' );
 		} else {
-			const provider = providers.find( ( id ) =>
-				getAiProviderModels( id ).some( ( item ) => item.id === value )
-			);
-			if ( provider ) {
-				onChange( provider, value as AiModelId );
+			const provider = providers.find( ( id ) => value.startsWith( `${ id }/` ) );
+			const pickedModel =
+				provider &&
+				getAiProviderModels( provider ).find( ( item ) => `${ provider }/${ item.id }` === value );
+			if ( provider && pickedModel ) {
+				onChange( provider, pickedModel.id );
 			}
 		}
 	};
@@ -89,16 +91,16 @@ export function ModelPicker( {
 					const description = sprintf(
 						/* translators: 1: the model's provider, 2: what the model is good at. */
 						__( '%1$s · %2$s' ),
-						provider === 'wpcom' ? 'WordPress' : 'Claude',
+						getAiProvider( provider ).modelLabel,
 						getModelDescription( id )
 					);
 					return {
-						value: id,
+						value: `${ provider }/${ id }`,
 						label: getAiModelLabel( id ),
 						description: isModelLocked( id )
 							? `${ description } · ${ __( 'Purchased credits required' ) }`
 							: description,
-						icon: provider === 'wpcom' ? WordPressIcon : ClaudeIcon,
+						icon: getAiProviderUi( provider ).icon,
 						disabled: isModelLocked( id ),
 					};
 				} )
@@ -134,8 +136,8 @@ export function ModelPicker( {
 			onOpenChange={ ( next ) => {
 				onOpenChange( next );
 				if ( next ) {
-					setHighlight( model );
-					if ( isWpcom ) {
+					setHighlight( `${ sessionProvider }/${ model }` );
+					if ( usesStudioCredits ) {
 						void refetchQuota();
 					}
 				}

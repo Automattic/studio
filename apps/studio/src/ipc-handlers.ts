@@ -241,7 +241,7 @@ export {
 	getOnboardingHints,
 	getUserPreferences,
 	getWapuuScore,
-	saveAnthropicApiKey,
+	saveAiProviderApiKey,
 	saveGlobalAgentInstructions,
 	saveOnboardingHints,
 	saveWapuuScore,

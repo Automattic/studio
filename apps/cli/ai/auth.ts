@@ -6,7 +6,6 @@ import {
 	AI_PROVIDER_PRIORITY,
 	DEFAULT_AI_PROVIDER,
 	getAiProviderDefinition,
-	hasInlineWpcomAuth,
 	type AiProviderId,
 	type ResolveAiEnvironmentOptions,
 } from 'cli/ai/providers';
@@ -54,8 +53,11 @@ export async function resolveUnavailableAiProvider(
 }
 
 export async function resolveInitialAiProvider(): Promise< AiProviderId > {
-	if ( hasInlineWpcomAuth() ) {
-		return 'wpcom';
+	const preferred = AI_PROVIDER_PRIORITY.find(
+		( id ) => getAiProviderDefinition( id ).isPreferred?.()
+	);
+	if ( preferred ) {
+		return preferred;
 	}
 
 	const savedProvider = await readSelectedAiProvider();

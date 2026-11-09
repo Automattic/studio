@@ -3,9 +3,9 @@ import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-	InvalidAnthropicApiKeyError,
+	InvalidAiProviderCredentialsError,
 	readAiSettings,
-	saveAnthropicApiKey,
+	saveAiProviderApiKey,
 	setAiProvider,
 } from '@studio/agent/node/settings-store';
 
@@ -38,20 +38,28 @@ describe( 'ai settings store', () => {
 	it( 'defaults to WordPress.com when no config exists', async () => {
 		await expect( readAiSettings() ).resolves.toEqual( {
 			provider: 'wpcom',
-			hasAnthropicApiKey: false,
-			anthropicApiKeyPreview: null,
+			connections: {
+				wpcom: { connected: false, apiKeyPreview: null },
+				'anthropic-api-key': { connected: false, apiKeyPreview: null },
+			},
 		} );
 	} );
 
 	it( 'saves an accepted key to shared.json without changing the provider', async () => {
-		const settings = await saveAnthropicApiKey( 'sk-ant-api03-testkey-abcd1234' );
+		const settings = await saveAiProviderApiKey(
+			'anthropic-api-key',
+			'sk-ant-api03-testkey-abcd1234'
+		);
 
 		expect( settings ).toEqual( {
 			provider: 'wpcom',
-			hasAnthropicApiKey: true,
-			anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
+			connections: {
+				wpcom: { connected: false, apiKeyPreview: null },
+				'anthropic-api-key': { connected: true, apiKeyPreview: 'sk-ant-api03-tes...1234' },
+			},
 		} );
 		expect( readShared().anthropicApiKey ).toBe( 'sk-ant-api03-testkey-abcd1234' );
+		expect( readShared() ).not.toHaveProperty( 'aiProviderCredentials' );
 		expect( fs.existsSync( cliConfigPath() ) ).toBe( false );
 	} );
 
@@ -69,7 +77,7 @@ describe( 'ai settings store', () => {
 
 		await expect( readAiSettings() ).resolves.toMatchObject( {
 			provider: 'anthropic-api-key',
-			hasAnthropicApiKey: true,
+			connections: { 'anthropic-api-key': { connected: true } },
 		} );
 
 		await setAiProvider( 'wpcom' );
@@ -78,24 +86,90 @@ describe( 'ai settings store', () => {
 			aiProvider: 'wpcom',
 			anthropicApiKey: 'sk-ant-api03-legacykey-9999',
 		} );
+		expect( readShared() ).not.toHaveProperty( 'aiProviderCredentials' );
 	} );
+
+	it( 'keeps the existing key format and preserves other provider credentials', async () => {
+		fs.writeFileSync(
+			sharedConfigPath(),
+			JSON.stringify( {
+				version: 1,
+				anthropicApiKey: 'sk-ant-api03-legacykey-9999',
+				aiProviderCredentials: { 'future-provider': { apiKey: 'future-key' } },
+				locale: 'es',
+			} )
+		);
+
+		await expect( readAiSettings() ).resolves.toMatchObject( {
+			connections: {
+				'anthropic-api-key': { connected: true, apiKeyPreview: 'sk-ant-api03-leg...9999' },
+			},
+		} );
+		await setAiProvider( 'wpcom' );
+
+		expect( readShared() ).toMatchObject( {
+			locale: 'es',
+			anthropicApiKey: 'sk-ant-api03-legacykey-9999',
+			aiProviderCredentials: {
+				'future-provider': { apiKey: 'future-key' },
+			},
+		} );
+	} );
+
+	it( 'does not resurrect a legacy CLI key after disconnecting', async () => {
+		const legacy = {
+			version: 1,
+			aiProvider: 'anthropic-api-key',
+			anthropicApiKey: 'sk-ant-api03-legacykey-9999',
+		};
+		fs.writeFileSync( cliConfigPath(), JSON.stringify( legacy ) );
+
+		await saveAiProviderApiKey( 'anthropic-api-key', null );
+		expect( readShared() ).not.toHaveProperty( 'anthropicApiKey' );
+		await expect( readAiSettings() ).resolves.toMatchObject( {
+			provider: 'wpcom',
+			connections: { 'anthropic-api-key': { connected: false, apiKeyPreview: null } },
+		} );
+		await expect( setAiProvider( 'anthropic-api-key' ) ).rejects.toBeInstanceOf(
+			InvalidAiProviderCredentialsError
+		);
+		await setAiProvider( 'wpcom' );
+		await expect( readAiSettings() ).resolves.toMatchObject( {
+			connections: { 'anthropic-api-key': { connected: false, apiKeyPreview: null } },
+		} );
+		expect( JSON.parse( fs.readFileSync( cliConfigPath(), 'utf8' ) ) ).toEqual( legacy );
+	} );
+
+	it.each( [ 'sk-ant-api03-testkey-abcd1234', null ] )(
+		'rejects API key changes for an account provider (%s)',
+		async ( key ) => {
+			await expect( saveAiProviderApiKey( 'wpcom', key ) ).rejects.toBeInstanceOf(
+				InvalidAiProviderCredentialsError
+			);
+			expect( fs.existsSync( sharedConfigPath() ) ).toBe( false );
+		}
+	);
 
 	it( 'does not store a key Anthropic rejects, but stores an unverifiable one', async () => {
 		vi.stubGlobal( 'fetch', vi.fn().mockResolvedValue( { ok: false, status: 401 } ) );
-		await expect( saveAnthropicApiKey( 'sk-ant-api03-rejected' ) ).rejects.toBeInstanceOf(
-			InvalidAnthropicApiKeyError
-		);
-		await expect( readAiSettings() ).resolves.toMatchObject( { hasAnthropicApiKey: false } );
+		await expect(
+			saveAiProviderApiKey( 'anthropic-api-key', 'sk-ant-api03-rejected' )
+		).rejects.toBeInstanceOf( InvalidAiProviderCredentialsError );
+		await expect( readAiSettings() ).resolves.toMatchObject( {
+			connections: { 'anthropic-api-key': { connected: false } },
+		} );
 		expect( fs.existsSync( sharedConfigPath() ) ).toBe( false );
 
 		vi.stubGlobal( 'fetch', vi.fn().mockRejectedValue( new Error( 'offline' ) ) );
-		await expect( saveAnthropicApiKey( 'sk-ant-api03-testkey-abcd1234' ) ).resolves.toMatchObject( {
-			hasAnthropicApiKey: true,
+		await expect(
+			saveAiProviderApiKey( 'anthropic-api-key', 'sk-ant-api03-testkey-abcd1234' )
+		).resolves.toMatchObject( {
+			connections: { 'anthropic-api-key': { connected: true } },
 		} );
 	} );
 
 	it( 'selects the Anthropic provider once its key is accepted', async () => {
-		await saveAnthropicApiKey( 'sk-ant-api03-testkey-abcd1234' );
+		await saveAiProviderApiKey( 'anthropic-api-key', 'sk-ant-api03-testkey-abcd1234' );
 
 		await expect( setAiProvider( 'anthropic-api-key' ) ).resolves.toMatchObject( {
 			provider: 'anthropic-api-key',
@@ -105,7 +179,7 @@ describe( 'ai settings store', () => {
 
 	it( 'refuses the Anthropic provider without a saved key', async () => {
 		await expect( setAiProvider( 'anthropic-api-key' ) ).rejects.toBeInstanceOf(
-			InvalidAnthropicApiKeyError
+			InvalidAiProviderCredentialsError
 		);
 	} );
 
@@ -120,12 +194,14 @@ describe( 'ai settings store', () => {
 			} )
 		);
 
-		const settings = await saveAnthropicApiKey( null );
+		const settings = await saveAiProviderApiKey( 'anthropic-api-key', null );
 
 		expect( settings ).toEqual( {
 			provider: 'wpcom',
-			hasAnthropicApiKey: false,
-			anthropicApiKeyPreview: null,
+			connections: {
+				wpcom: { connected: false, apiKeyPreview: null },
+				'anthropic-api-key': { connected: false, apiKeyPreview: null },
+			},
 		} );
 		const written = readShared();
 		expect( written.anthropicApiKey ).toBeUndefined();
@@ -133,28 +209,35 @@ describe( 'ai settings store', () => {
 	} );
 
 	it( 'trims the key and treats a blank one as cleared', async () => {
-		const settings = await saveAnthropicApiKey( '  sk-ant-api03-testkey-abcd1234  ' );
-		expect( settings.anthropicApiKeyPreview ).toBe( 'sk-ant-api03-tes...1234' );
-		expect( readShared().anthropicApiKey ).toBe( 'sk-ant-api03-testkey-abcd1234' );
+		const settings = await saveAiProviderApiKey(
+			'anthropic-api-key',
+			'  sk-ant-api03-testkey-abcd1234  '
+		);
+		expect( settings.connections[ 'anthropic-api-key' ].apiKeyPreview ).toBe(
+			'sk-ant-api03-tes...1234'
+		);
+		expect( readShared().anthropicApiKey ).toBe(
+			'sk-ant-api03-testkey-abcd1234'
+		);
 
-		await expect( saveAnthropicApiKey( '   ' ) ).resolves.toMatchObject( {
-			hasAnthropicApiKey: false,
+		await expect( saveAiProviderApiKey( 'anthropic-api-key', '   ' ) ).resolves.toMatchObject( {
+			connections: { 'anthropic-api-key': { connected: false } },
 			provider: 'wpcom',
 		} );
 	} );
 
 	it( 'previews a short key by its tail only, never most of the key', async () => {
-		const settings = await saveAnthropicApiKey( 'sk-short-key-1234' );
+		const settings = await saveAiProviderApiKey( 'anthropic-api-key', 'sk-short-key-1234' );
 
-		expect( settings.anthropicApiKeyPreview ).toBe( '...1234' );
+		expect( settings.connections[ 'anthropic-api-key' ].apiKeyPreview ).toBe( '...1234' );
 	} );
 
 	it( 'refuses a rejected key on switch but accepts an unverifiable one', async () => {
-		await saveAnthropicApiKey( 'sk-ant-api03-testkey-abcd1234' );
+		await saveAiProviderApiKey( 'anthropic-api-key', 'sk-ant-api03-testkey-abcd1234' );
 
 		vi.stubGlobal( 'fetch', vi.fn().mockResolvedValue( { ok: false, status: 401 } ) );
 		await expect( setAiProvider( 'anthropic-api-key' ) ).rejects.toBeInstanceOf(
-			InvalidAnthropicApiKeyError
+			InvalidAiProviderCredentialsError
 		);
 		await expect( readAiSettings() ).resolves.toMatchObject( { provider: 'wpcom' } );
 

@@ -4,8 +4,9 @@ import {
 	writeGlobalInstructions,
 } from '@studio/agent/node/global-instructions';
 import {
+	getAiSettingsChange,
 	readAiSettings,
-	saveAnthropicApiKey as saveAnthropicApiKeyToConfig,
+	saveAiProviderApiKey as saveAiProviderApiKeyToConfig,
 	setAiProvider as setAiProviderInConfig,
 } from '@studio/agent/node/settings-store';
 import { isAiProviderId } from '@studio/agent/protocol/providers';
@@ -131,26 +132,26 @@ export async function getAiSettings() {
 	return readAiSettings();
 }
 
-// One event for both handlers: clearing the key also moves the provider back to WordPress.com.
-// The key is never sent; the preview comparison only detects a key being swapped.
 async function recordAiSettingsChange( previous: AiSettings, next: AiSettings ): Promise< void > {
-	const unchanged =
-		previous.provider === next.provider &&
-		previous.hasAnthropicApiKey === next.hasAnthropicApiKey &&
-		previous.anthropicApiKeyPreview === next.anthropicApiKeyPreview;
-	if ( unchanged ) {
-		return;
+	const change = getAiSettingsChange( previous, next );
+	if ( change ) {
+		await recordTracksEvent( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, change );
 	}
-	await recordTracksEvent( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
-		provider: next.provider,
-		has_anthropic_api_key: next.hasAnthropicApiKey,
-		surface: 'settings',
-	} );
 }
 
-export async function saveAnthropicApiKey( _event: IpcMainInvokeEvent, key: string | null ) {
+export async function saveAiProviderApiKey(
+	_event: IpcMainInvokeEvent,
+	provider: string,
+	key: string | null
+) {
+	if ( ! isAiProviderId( provider ) ) {
+		throw new Error( `Unknown AI provider: ${ provider }` );
+	}
+	if ( key !== null && typeof key !== 'string' ) {
+		throw new Error( 'API key must be a string or null' );
+	}
 	const previous = await readAiSettings();
-	const settings = await saveAnthropicApiKeyToConfig( key );
+	const settings = await saveAiProviderApiKeyToConfig( provider, key );
 	await recordAiSettingsChange( previous, settings );
 	return settings;
 }

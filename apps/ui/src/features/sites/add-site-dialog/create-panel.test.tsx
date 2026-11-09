@@ -300,15 +300,23 @@ describe( 'Add site › blank setup', () => {
 	it( 'keeps the site draft and attachments when reconnecting a provider in settings', async () => {
 		let aiSettings: AiSettings = {
 			provider: 'wpcom',
-			hasAnthropicApiKey: false,
-			anthropicApiKeyPreview: null,
+			connections: {
+				wpcom: { connected: false, apiKeyPreview: null },
+				'anthropic-api-key': { connected: false, apiKeyPreview: null },
+			},
 		};
 		const { connector, dialog, history } = await setup(
 			{},
 			{
 				getAiSettings: async () => aiSettings,
-				saveAnthropicApiKey: async () => {
-					aiSettings = { ...aiSettings, hasAnthropicApiKey: true };
+				saveAiProviderApiKey: async ( provider ) => {
+					aiSettings = {
+						...aiSettings,
+						connections: {
+							...aiSettings.connections,
+							[ provider ]: { connected: true, apiKeyPreview: null },
+						},
+					};
 					return aiSettings;
 				},
 				setAiProvider: async ( provider ) => {

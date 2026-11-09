@@ -1,4 +1,5 @@
 import { aiModelSupportsImages } from '@studio/agent/protocol/models';
+import { getAiProvider } from '@studio/agent/protocol/providers';
 import { resolveSkillFromPrompt } from '@studio/agent/protocol/slash-commands';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
@@ -200,8 +201,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		entries,
 		provider,
 	} );
-	const isWpcom = sessionProvider === 'wpcom';
-	const isOutOfCredits = useIsOutOfAiCredits() && isWpcom;
+	const { usesStudioCredits } = getAiProvider( sessionProvider );
+	const isOutOfCredits = useIsOutOfAiCredits() && usesStudioCredits;
 	const { openAddCredits, purchase, closePurchase } = useAddCredits();
 	const blockingComposerNotice =
 		blockingNotice ??

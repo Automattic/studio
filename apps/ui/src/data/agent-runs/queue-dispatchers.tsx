@@ -1,4 +1,4 @@
-import { getEffectiveSessionProvider } from '@studio/agent/protocol/providers';
+import { getAiProvider, getEffectiveSessionProvider } from '@studio/agent/protocol/providers';
 import { useEffect, useSyncExternalStore } from 'react';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useIsOutOfAiCredits } from '@/data/queries/use-is-out-of-ai-credits';
@@ -38,7 +38,9 @@ function QueueDispatcher( { sessionId }: { sessionId: string } ) {
 	const held =
 		! session ||
 		isAiSettingsPending ||
-		( isOutOfCredits && getEffectiveSessionProvider( session.entries, aiSettings ) === 'wpcom' );
+		( isOutOfCredits &&
+			getAiProvider( getEffectiveSessionProvider( session.entries, aiSettings ) )
+				.usesStudioCredits );
 	const next = state.phase === 'idle' && ! held ? state.queuedPrompts[ 0 ] : undefined;
 
 	useEffect( () => {

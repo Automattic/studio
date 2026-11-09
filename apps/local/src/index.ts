@@ -27,9 +27,10 @@ import {
 	deleteAiSession,
 } from '@studio/agent/node/sessions/store';
 import {
-	InvalidAnthropicApiKeyError,
+	getAiSettingsChange,
+	InvalidAiProviderCredentialsError,
 	readAiSettings,
-	saveAnthropicApiKey,
+	saveAiProviderApiKey,
 	setAiProvider,
 } from '@studio/agent/node/settings-store';
 import { validateStudioChatFiles } from '@studio/agent/protocol/chat-files';
@@ -789,7 +790,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// --- AI settings — provider + Anthropic API key in shared.json ------------
+	// --- AI settings --------------------------------------------------------
 	api.get(
 		'/ai-settings',
 		asyncHandler( async ( _req: Request, res: Response ) => {
@@ -797,42 +798,34 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// Clearing the key also falls the provider back to WordPress.com, so both writes
-	// report through one event, as on the desktop.
 	function trackAiSettingsChange( previous: AiSettings, next: AiSettings ): void {
-		const unchanged =
-			previous.provider === next.provider &&
-			previous.hasAnthropicApiKey === next.hasAnthropicApiKey &&
-			previous.anthropicApiKeyPreview === next.anthropicApiKeyPreview;
-		if ( unchanged ) {
-			return;
+		const change = getAiSettingsChange( previous, next );
+		if ( change ) {
+			trackEvent( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, change );
 		}
-		trackEvent( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
-			provider: next.provider,
-			has_anthropic_api_key: next.hasAnthropicApiKey,
-			surface: 'settings',
-		} );
 	}
 
-	// Write-only: responses carry a truncated preview, never the key. A key
-	// Anthropic rejects answers 400 and is not stored.
+	// Write-only: responses carry a truncated preview, never the key.
 	api.put(
-		'/ai-settings',
+		'/ai-settings/api-key',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const key = req.body?.anthropicApiKey;
+			const provider = req.body?.provider;
+			if ( typeof provider !== 'string' || ! isAiProviderId( provider ) ) {
+				res.status( 400 ).json( { error: 'provider must be a known AI provider id' } );
+				return;
+			}
+			const key = req.body?.apiKey;
 			if ( key !== null && typeof key !== 'string' ) {
-				res.status( 400 ).json( { error: 'anthropicApiKey must be a string or null' } );
+				res.status( 400 ).json( { error: 'apiKey must be a string or null' } );
 				return;
 			}
 			const previous = await readAiSettings();
-			const settings = await saveAnthropicApiKey( key );
+			const settings = await saveAiProviderApiKey( provider, key );
 			res.json( settings );
 			trackAiSettingsChange( previous, settings );
 		} )
 	);
 
-	// Answers 400 when Anthropic rejects the saved key, so the UI keeps its
-	// toggle off.
 	api.put(
 		'/ai-settings/provider',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -2461,7 +2454,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	}
 
 	app.use( ( err: unknown, _req: Request, res: Response, _next: ( e?: unknown ) => void ) => {
-		if ( err instanceof InvalidAnthropicApiKeyError ) {
+		if ( err instanceof InvalidAiProviderCredentialsError ) {
 			res.status( 400 ).json( { error: err.message } );
 			return;
 		}

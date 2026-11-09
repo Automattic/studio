@@ -113,10 +113,6 @@
 	}
 }
 
-.apiKeyInput {
-	max-inline-size: 420px;
-}
-
 /* A text field that opens the folder picker. */
 .pathPickerButton {
 	display: flex;
@@ -312,12 +308,6 @@
 
 .pathForm {
 	display: flex;
-	gap: var( --space-1 );
-}
-
-.keyForm {
-	display: flex;
-	align-items: center;
 	gap: var( --space-1 );
 }
 

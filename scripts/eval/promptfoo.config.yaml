@@ -217,8 +217,8 @@ tests:
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
 
-  # A push reaches a live site, so the agent asks first. The user declines
-  # whatever it asks, and nothing may reach WordPress.com.
+  # The seeded remote no longer exists. No push runs and the reply asks
+  # for a target; this does not exercise confirmation of an eligible live push.
   - description: push request asks before pushing
     vars:
       caseId: push-confirms-target

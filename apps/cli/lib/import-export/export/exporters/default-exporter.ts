@@ -1,5 +1,6 @@
 import fs from 'fs';
 import fsPromises from 'fs/promises';
+import { pipeline } from 'node:stream/promises';
 import os from 'os';
 import path from 'path';
 import { ARCHIVER_OPTIONS, DEFAULT_PHP_VERSION } from '@studio/common/constants';
@@ -33,6 +34,7 @@ import {
 	StudioJson,
 	StudioJsonPluginOrTheme,
 } from '../types';
+import { validateExportArchive } from '../validate-archive';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
 const prefixedLegacyMuPluginNames = LEGACY_MU_PLUGIN_FILENAMES.map(
@@ -123,9 +125,12 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		const output = fs.createWriteStream( this.options.backupFile );
 		this.archiveBuilder = this.createArchiveBuilder();
 
-		const archiveClosedPromise = this.setupArchiveListeners( output );
-
-		this.archiveBuilder.pipe( output );
+		this.setupArchiveListeners();
+		const archiveWritten = pipeline( this.archiveBuilder, output ).catch( ( error ) => {
+			throw new LoggerError( __( 'Failed to write export archive' ), error, 'archive' );
+		} );
+		// The stream can fail while the database or site metadata is still being exported.
+		void archiveWritten.catch( () => {} );
 
 		try {
 			this.addWpConfig();
@@ -133,12 +138,17 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			await this.addDatabase();
 			const studioJsonPath = await this.createStudioJsonFile();
 			this.archiveBuilder.file( studioJsonPath, { name: 'meta.json' } );
-			await this.archiveBuilder.finalize();
+			await Promise.all( [ this.archiveBuilder.finalize(), archiveWritten ] );
+			await validateExportArchive( this.options.backupFile );
 			this.emit( ExportEvents.BACKUP_CREATE_COMPLETE );
-			await archiveClosedPromise;
 			this.emit( ExportEvents.EXPORT_COMPLETE );
 		} catch ( error ) {
 			this.archiveBuilder.abort();
+			output.destroy();
+			await archiveWritten.catch( () => {} );
+			await fsPromises.rm( this.options.backupFile, { force: true } ).catch( ( cleanupError ) => {
+				console.error( 'Failed to remove incomplete export:', cleanupError );
+			} );
 			this.emit( ExportEvents.EXPORT_ERROR, createExportErrorPayload( error ) );
 			throw error;
 		} finally {
@@ -156,26 +166,14 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			: new TarArchive( ARCHIVER_OPTIONS.tar );
 	}
 
-	private setupArchiveListeners( output: fs.WriteStream ): Promise< void > {
-		return new Promise( ( resolve, reject ) => {
-			output.on( 'close', () => {
-				resolve();
+	private setupArchiveListeners(): void {
+		this.archiveBuilder.on( 'warning', ( error ) => {
+			this.archiveBuilder.destroy( error );
+		} );
+		this.archiveBuilder.on( 'progress', ( progress ) => {
+			this.emit( ExportEvents.BACKUP_CREATE_PROGRESS, {
+				progress,
 			} );
-
-			this.archiveBuilder.on( 'warning', ( err ) => {
-				if ( err.code === 'ENOENT' ) {
-					console.warn( __( 'Archiver warning:' ), err );
-				} else {
-					reject( err );
-				}
-			} );
-			this.archiveBuilder.on( 'progress', ( progress ) => {
-				this.emit( ExportEvents.BACKUP_CREATE_PROGRESS, {
-					progress,
-				} );
-			} );
-
-			this.archiveBuilder.on( 'error', reject );
 		} );
 	}
 

@@ -299,6 +299,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		onFileInputChange,
 	} = useDraftAttachments( {
 		initialAttachments: initialDraft.attachments,
+		siteId: isField ? undefined : ownerSiteId,
 		annotationSiteId,
 		dropTarget: fileDropTarget,
 		textareaRef,

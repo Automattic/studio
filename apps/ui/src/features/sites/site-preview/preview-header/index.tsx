@@ -9,6 +9,7 @@ import {
 	BrowserMenu,
 	type PreviewBrowserActions,
 	type PreviewResponsiveActions,
+	type PreviewScreenshotActions,
 } from './browser-menu';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
@@ -37,6 +38,7 @@ interface PreviewHeaderProps {
 	adminBarActions?: ReturnType< typeof useFrontendAdminBar >;
 	onExternalNavigate?: ( url: string ) => void;
 	responsive?: PreviewResponsiveActions;
+	screenshot?: PreviewScreenshotActions;
 }
 
 export function PreviewHeader( {
@@ -58,6 +60,7 @@ export function PreviewHeader( {
 	adminBarActions,
 	onExternalNavigate,
 	responsive,
+	screenshot,
 	inactive = false,
 }: PreviewHeaderProps ) {
 	const { layout: headerLayout, attachAnnotationSpace, attachBrowserHeader } = useSiteHeader();
@@ -141,11 +144,12 @@ export function PreviewHeader( {
 					ref={ inactive ? undefined : attachAnnotationSpace }
 					className={ styles.previewActions }
 				/>
-				{ canPreview && ( browserActions || adminBarActions || responsive ) ? (
+				{ canPreview && ( browserActions || adminBarActions || responsive || screenshot ) ? (
 					<BrowserMenu
 						actions={ browserActions }
 						adminBar={ adminBarActions }
 						responsive={ responsive }
+						screenshot={ screenshot }
 						disabled={ disabled }
 					/>
 				) : null }

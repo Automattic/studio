@@ -6,6 +6,8 @@ import { ChevronDownIcon, RefreshIcon } from '@/lib/icons';
 import { Button, IconButton, Input, Menu } from '@/lib/ui';
 import { devicePresets, parseDimension } from './settings';
 import styles from './style.module.css';
+import { useResponsivePreviewTracks } from './use-responsive-preview-tracks';
+import type { TracksResponsivePreviewAction } from '@studio/common/lib/record-tracks-event';
 
 function DimensionInput( {
 	label,
@@ -56,13 +58,23 @@ export function ResponsiveToolbar( {
 	siteId,
 	settings,
 	fitScale,
+	active = true,
 }: {
 	siteId: string;
 	settings: ResponsivePreviewSettings;
 	fitScale: number;
+	active?: boolean;
 } ) {
+	const track = useResponsivePreviewTracks( active && settings.enabled );
 	const update = ( patch: Partial< ResponsivePreviewSettings > ) =>
 		updateResponsivePreview( siteId, patch );
+	const commit = (
+		action: TracksResponsivePreviewAction,
+		patch: Partial< ResponsivePreviewSettings >
+	) => {
+		update( patch );
+		track( action, settings, { ...settings, ...patch } );
+	};
 	const isLandscape = settings.width > settings.height;
 	const isSquare = settings.width === settings.height;
 	return (
@@ -82,7 +94,8 @@ export function ResponsiveToolbar( {
 							value={ settings.preset }
 							onValueChange={ ( value ) => {
 								const preset = devicePresets.find( ( item ) => item.name === value );
-								update(
+								commit(
+									'preset_change',
 									preset
 										? { preset: preset.name, width: preset.width, height: preset.height }
 										: { preset: 'responsive' }
@@ -113,13 +126,13 @@ export function ResponsiveToolbar( {
 					<DimensionInput
 						label={ __( 'Width' ) }
 						value={ settings.width }
-						onCommit={ ( width ) => update( { width, preset: 'responsive' } ) }
+						onCommit={ ( width ) => commit( 'manual_resize', { width, preset: 'responsive' } ) }
 					/>
 					<span aria-hidden="true">×</span>
 					<DimensionInput
 						label={ __( 'Height' ) }
 						value={ settings.height }
-						onCommit={ ( height ) => update( { height, preset: 'responsive' } ) }
+						onCommit={ ( height ) => commit( 'manual_resize', { height, preset: 'responsive' } ) }
 					/>
 				</div>
 				<IconButton
@@ -134,7 +147,9 @@ export function ResponsiveToolbar( {
 							: __( 'Rotate to landscape' )
 					}
 					icon={ <RefreshIcon /> }
-					onClick={ () => update( { width: settings.height, height: settings.width } ) }
+					onClick={ () =>
+						commit( 'manual_resize', { width: settings.height, height: settings.width } )
+					}
 				/>
 				<span className={ styles.divider } aria-hidden="true" />
 				<Menu.Root>

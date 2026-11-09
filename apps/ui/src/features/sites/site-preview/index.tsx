@@ -244,6 +244,7 @@ function SitePreviewContent( {
 	} );
 	const responsiveSettings = useResponsivePreview( site.id );
 	const responsiveEnabled = responsiveSettings.enabled && canPreview && activeSurfaceKey === 'site';
+	const responsiveActive = ! inactive && ! collapsed && ! isStarting && ! isStopping;
 	const [ availableSize, setAvailableSize ] = useState( { width: 0, height: 0 } );
 	useLayoutEffect( () => {
 		const viewport = viewportRef.current;
@@ -501,6 +502,7 @@ function SitePreviewContent( {
 					siteId={ site.id }
 					settings={ responsiveSettings }
 					fitScale={ fitScale }
+					active={ responsiveActive }
 				/>
 			) : null }
 			<div className={ styles.body }>
@@ -562,7 +564,12 @@ function SitePreviewContent( {
 									active={ active }
 									responsive={
 										key === 'site'
-											? { siteId: site.id, settings: responsiveSettings, scale: responsiveScale }
+											? {
+													siteId: site.id,
+													settings: responsiveSettings,
+													scale: responsiveScale,
+													active: responsiveActive,
+											  }
 											: undefined
 									}
 									loading={ loadingStage }

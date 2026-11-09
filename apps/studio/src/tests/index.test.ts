@@ -177,6 +177,49 @@ afterAll( () => {
 } );
 
 describe( 'App initialization', () => {
+	it.each( [ true, false ] )(
+		'keeps failed legacy migration startup recoverable when app config exists: %s',
+		async ( completed ) => {
+			const { mockedEvents } = mockElectron();
+			vi.resetModules();
+			const { app, dialog } = await import( 'electron' );
+			const migration = await import( '@studio/common/lib/migration' );
+			const { getAppConfigPath } = await import( '@studio/common/lib/well-known-paths' );
+			const { getOldAppdataFilePath } = await import( 'src/storage/paths' );
+			const { default: appFs } = await import( 'fs' );
+			const exists = appFs.existsSync.bind( appFs );
+			const existsSpy = vi.spyOn( appFs, 'existsSync' ).mockImplementation( ( file ) => {
+				if ( file === getOldAppdataFilePath() ) return true;
+				if ( file === getAppConfigPath() ) return completed;
+				return exists( file );
+			} );
+			const error = new Error( 'Invalid CLI registry JSON' );
+			const migrationSpy = vi.spyOn( migration, 'runMigrations' ).mockRejectedValueOnce( error );
+			try {
+				await import( '../index' );
+				await mockedEvents.ready();
+				if ( completed ) {
+					expect( createMainWindow ).toHaveBeenCalledOnce();
+					expect( app.exit ).not.toHaveBeenCalled();
+					expect( dialog.showMessageBox ).not.toHaveBeenCalled();
+				} else {
+					expect( createMainWindow ).not.toHaveBeenCalled();
+					expect( app.exit ).toHaveBeenCalledWith( 1 );
+					expect( dialog.showMessageBox ).toHaveBeenCalledWith(
+						expect.objectContaining( {
+							type: 'error',
+							message: 'Could not migrate your sites',
+							detail: expect.stringContaining( error.message ),
+						} )
+					);
+				}
+			} finally {
+				migrationSpy.mockRestore();
+				existsSpy.mockRestore();
+			}
+		}
+	);
+
 	it( 'should identify YouTube embed requests with the Studio referrer', async () => {
 		const { mockedEvents } = mockElectron();
 		vi.resetModules();

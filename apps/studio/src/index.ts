@@ -11,6 +11,7 @@ import {
 	shell,
 	type WebContents,
 } from 'electron';
+import fs from 'fs';
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { PROTOCOL_PREFIX } from '@studio/common/constants';
@@ -18,6 +19,7 @@ import { refreshAgentPlugins } from '@studio/common/lib/connect-agent-app';
 import { runMigrations } from '@studio/common/lib/migration';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
+import { getAppConfigPath } from '@studio/common/lib/well-known-paths';
 import { updateSiteMetadata } from '@studio/common/sites/metadata';
 import { __, _n } from '@wordpress/i18n';
 import { installExtension, REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
@@ -66,7 +68,7 @@ import { stopCliCommands } from 'src/modules/cli/lib/execute-command';
 import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
-import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
+import { getBundledNodeBinaryPath, getCliPath, getOldAppdataFilePath } from 'src/storage/paths';
 import {
 	loadUserData,
 	lockAppdata,
@@ -506,7 +508,25 @@ async function appBoot() {
 
 		setupIpc();
 
-		await runMigrations( migrations ).catch( Sentry.captureException );
+		try {
+			await runMigrations( migrations );
+		} catch ( error ) {
+			Sentry.captureException( error );
+			if ( fs.existsSync( getOldAppdataFilePath() ) && ! fs.existsSync( getAppConfigPath() ) ) {
+				// Normal startup writes app.json, which would mark this failed migration complete.
+				await dialog.showMessageBox( {
+					type: 'error',
+					title: __( 'Could not migrate your sites' ),
+					message: __( 'Could not migrate your sites' ),
+					detail: `${ __(
+						'Your previous configuration is still available. Fix the error below and restart WordPress Studio.'
+					) }\n\n${ error instanceof Error ? error.message : String( error ) }`,
+					buttons: [ __( 'Quit' ) ],
+				} );
+				app.exit( 1 );
+				return;
+			}
+		}
 
 		await startCliEventsSubscriber();
 		void refreshSpotlightIndex();

@@ -1,16 +1,17 @@
 import { aiSessionBelongsToSite } from '@studio/agent/protocol/sessions/owner-site';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { createRoute, redirect } from '@tanstack/react-router';
+import { StartupScreen } from '@/app/startup-screen';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
-import { SidebarLayout, readLastVisited, resumeChat } from '@/features/sidebar';
+import { readLastVisited, resumeChat } from '@/features/sidebar';
 import { rootRoute } from '../layout-root';
 
 export const indexRoute = createRoute( {
 	getParentRoute: () => rootRoute,
 	path: '/',
-	// The workspace shell shows, its sidebar loading, until the redirect.
-	pendingComponent: () => <SidebarLayout>{ null }</SidebarLayout>,
+	// Keep the opening screen until the initial destination is known.
+	pendingComponent: StartupScreen,
 	pendingMs: 0,
 	pendingMinMs: 0,
 	// Redirects carry the root search along, so Settings or Add site opened from

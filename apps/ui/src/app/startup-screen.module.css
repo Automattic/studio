@@ -1,0 +1,16 @@
+.root {
+	position: fixed;
+	inset: 0;
+	display: grid;
+	place-items: center;
+	color: var( --foreground );
+	-webkit-app-region: drag;
+}
+
+:global( [data-native-sidebar] ) .root {
+	color: var( --accent-foreground );
+}
+
+.root svg {
+	opacity: 0.4;
+}

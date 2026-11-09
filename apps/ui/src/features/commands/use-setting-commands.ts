@@ -95,11 +95,11 @@ function useSettingToggles(): SettingToggles {
 			'openChatOnSiteStart',
 			preferences.openChatOnSiteStart,
 			preferences.openChatOnSiteStart
-				? __( 'Disable starting sites in split view' )
-				: __( 'Enable starting sites in split view' ),
+				? __( 'Hide chat when starting sites' )
+				: __( 'Show chat when starting sites' ),
 			preferences.openChatOnSiteStart
 				? __( 'Sites will start with the panel expanded.' )
-				: __( 'Sites will start in split view.' )
+				: __( 'Sites will start with chat.' )
 		),
 		'usage-statistics': toggle(
 			'analyticsEnabled',

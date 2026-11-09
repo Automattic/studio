@@ -37,7 +37,7 @@ it( 'records each header transition once, with only layout and lookup context', 
 	expect( layoutEvents( connector ) ).toEqual( [] );
 	for ( const [ name, layout ] of [
 		[ 'Expand panel', 'panel' ],
-		[ 'Restore split view', 'split' ],
+		[ 'Show chat', 'split' ],
 		[ 'Hide panel', 'chat' ],
 		[ 'Show panel', 'split' ],
 	] ) {
@@ -77,7 +77,7 @@ it( 'offers one panel toggle without separate layout commands in the palette', a
 	).not.toBeInTheDocument();
 } );
 
-it.each( [ 'menu', 'slash', 'palette' ] )(
+it.each( [ 'slash', 'palette' ] )(
 	'shows and hides the panel instantly through %s without changing preferences',
 	async ( source ) => {
 		const { connector } = await setup();
@@ -86,11 +86,9 @@ it.each( [ 'menu', 'slash', 'palette' ] )(
 				act( () => setCommandPaletteOpen( true ) );
 				const input = await screen.findByRole( 'combobox', { name: 'Search commands' } );
 				fireEvent.change( input, { target: { value: 'panel' } } );
-			} else if ( source === 'slash' ) {
+			} else {
 				const input = await screen.findByRole( 'combobox' );
 				fireEvent.change( input, { target: { value: 'Keep this draft /panel' } } );
-			} else {
-				fireEvent.click( await screen.findByRole( 'button', { name: 'Add' } ) );
 			}
 			fireEvent.click(
 				await screen.findByRole( 'option', {

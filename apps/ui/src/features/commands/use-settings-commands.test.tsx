@@ -124,7 +124,7 @@ it.each( [ false, true ] )(
 			result.current.find( ( entry ) => entry.id === 'settings-general-open-chat-on-site-start' );
 		await waitFor( () =>
 			expect( command()?.label ).toBe(
-				split ? 'Disable starting sites in split view' : 'Enable starting sites in split view'
+				split ? 'Hide chat when starting sites' : 'Show chat when starting sites'
 			)
 		);
 		act( () => command()!.run() );

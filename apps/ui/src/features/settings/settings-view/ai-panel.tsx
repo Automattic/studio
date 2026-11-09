@@ -39,6 +39,10 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 			) : null }
 			{ AI_PROVIDER_IDS.map( ( id ) => {
 				const { Connection } = getAiProviderUi( id );
+				const error =
+					( saveKey.variables?.provider === id && saveKey.error ) ||
+					( setProvider.variables === id && setProvider.error ) ||
+					( connection.variables?.provider === id && connection.error );
 				return (
 					<Connection
 						key={ id }
@@ -46,7 +50,7 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 						connectedBadge={ connectedBadge() }
 						connected={ !! settings.data?.connections[ id ].connected }
 						apiKeyPreview={ settings.data?.connections[ id ].apiKeyPreview }
-						error={ ( saveKey.error ?? setProvider.error ?? connection.error )?.message }
+						error={ error ? error.message : undefined }
 						onConnectionChange={ async ( connected ) => {
 							await connection.mutateAsync( { provider: id, connected } );
 						} }

@@ -44,7 +44,6 @@ import { isAiProviderId, providerServesModel } from '@studio/agent/protocol/prov
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH, DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
-import { connectAiProvider } from '@studio/common/lib/ai-provider-connection';
 import { isAgentAppId } from '@studio/common/lib/agent-apps';
 import {
 	getSiteAgentFiles,
@@ -55,6 +54,7 @@ import {
 	setSiteAgentFileEnabled,
 	type SiteAgentFileKind,
 } from '@studio/common/lib/agent-skills';
+import { connectAiProvider } from '@studio/common/lib/ai-provider-connection';
 import {
 	onboardingAnalyticsSchema,
 	authAnalyticsSchema,

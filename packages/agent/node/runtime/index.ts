@@ -369,7 +369,7 @@ async function createModelRuntime(
 		: await ModelRuntime.create( {
 				credentials: new InMemoryCredentialStore(),
 				modelsPath: null,
-			  } );
+		  } );
 
 	await provider.configureRuntime( modelRuntime, model, creds );
 	return modelRuntime;

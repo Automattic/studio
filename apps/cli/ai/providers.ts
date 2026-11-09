@@ -107,8 +107,8 @@ export function getAiProviderDefinition( id: AiProviderId ) {
 						return true;
 				  }
 				: backend.connect
-					? () => backend.connect!( runLoginCommand )
-					: undefined,
+				? () => backend.connect!( runLoginCommand )
+				: undefined,
 		getConnectionMessages: async () =>
 			backend.getConnectionMessages?.(
 				auth.type === 'api-key' ? await readAiProviderApiKey( id ) : undefined

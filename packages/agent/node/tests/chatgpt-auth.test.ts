@@ -57,7 +57,9 @@ it( 'saves a browser-approved account without exposing tokens in settings, then 
 	expect( settings.connections.chatgpt ).toEqual( { connected: true, apiKeyPreview: null } );
 	expect( JSON.stringify( settings ) ).not.toContain( 'chatgpt-secret' );
 	if ( process.platform !== 'win32' ) {
-		expect( fs.statSync( path.join( configDir, 'ai-credentials.json' ) ).mode & 0o777 ).toBe( 0o600 );
+		expect( fs.statSync( path.join( configDir, 'ai-credentials.json' ) ).mode & 0o777 ).toBe(
+			0o600
+		);
 	}
 	const provider = createChatGptProvider( store );
 	const runtime = await provider.createRuntime();
@@ -96,12 +98,16 @@ it( 'serializes credential refreshes without dropping other provider credentials
 		expires: 0,
 	} ) );
 	await store.modify( 'other', async () => ( { type: 'api_key', key: 'other-secret' } ) );
-	const bump = () => store.modify( 'openai', async ( current ) => {
-		if ( current?.type !== 'oauth' ) throw new Error( 'Missing credential' );
-		return { ...current, expires: current.expires + 1 };
-	} );
+	const bump = () =>
+		store.modify( 'openai', async ( current ) => {
+			if ( current?.type !== 'oauth' ) throw new Error( 'Missing credential' );
+			return { ...current, expires: current.expires + 1 };
+		} );
 	await Promise.all( [ bump(), bump(), bump() ] );
 	await expect( store.read( 'openai' ) ).resolves.toMatchObject( { expires: 3 } );
 	await store.delete( 'openai' );
-	await expect( store.read( 'other' ) ).resolves.toEqual( { type: 'api_key', key: 'other-secret' } );
+	await expect( store.read( 'other' ) ).resolves.toEqual( {
+		type: 'api_key',
+		key: 'other-secret',
+	} );
 } );

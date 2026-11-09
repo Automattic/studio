@@ -347,9 +347,12 @@ export function createInMemoryConnector(
 				provider: connected
 					? provider
 					: aiSettings.provider === provider
-						? 'wpcom'
-						: aiSettings.provider,
-				connections: { ...aiSettings.connections, [ provider ]: { connected, apiKeyPreview: null } },
+					? 'wpcom'
+					: aiSettings.provider,
+				connections: {
+					...aiSettings.connections,
+					[ provider ]: { connected, apiKeyPreview: null },
+				},
 			};
 			return aiSettings;
 		},

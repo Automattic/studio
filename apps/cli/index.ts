@@ -138,7 +138,9 @@ async function main() {
 	const studioCodeCommandBuilder = async ( aiYargs: StudioArgv ) => {
 		const { registerCommand: registerAiCommand } = await import( 'cli/commands/ai' );
 		registerAiCommand( aiYargs );
-		const { registerCommand: registerProviderCommands } = await import( 'cli/commands/ai/providers' );
+		const { registerCommand: registerProviderCommands } = await import(
+			'cli/commands/ai/providers'
+		);
 		registerProviderCommands( aiYargs );
 		aiYargs.command(
 			'sessions',

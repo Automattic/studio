@@ -11,8 +11,8 @@ import {
 	setAiProvider as setAiProviderInConfig,
 } from '@studio/agent/node/settings-store';
 import { isAiProviderId } from '@studio/agent/protocol/providers';
-import { connectAiProvider } from '@studio/common/lib/ai-provider-connection';
 import { isAgentAppId, type AgentApp } from '@studio/common/lib/agent-apps';
+import { connectAiProvider } from '@studio/common/lib/ai-provider-connection';
 import {
 	connectAgentApp as connectAgentAppToStudio,
 	detectAgentApps,

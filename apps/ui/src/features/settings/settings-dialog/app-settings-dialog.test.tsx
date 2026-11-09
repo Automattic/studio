@@ -42,6 +42,7 @@ async function setup( {
 			wpcom: { connected: signedIn, apiKeyPreview: null },
 			'anthropic-api-key': { connected: true, apiKeyPreview: 'sk-…last' },
 			chatgpt: { connected: false, apiKeyPreview: null },
+			'anthropic-subscription': { connected: false, apiKeyPreview: null },
 		},
 	};
 	let skills = [
@@ -717,6 +718,39 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 	};
 	const findProviderRow = ( id: string ) => waitFor( () => providerRow( id ) );
 
+	it( 'connects and removes a subscription token independently of the Anthropic API key', async () => {
+		const { connector } = await setup( { section: 'ai' } );
+		const subscriptionRow = await screen.findByRole( 'group', { name: 'Claude subscription' } );
+		fireEvent.click( within( subscriptionRow ).getByRole( 'button', { name: 'Connect' } ) );
+		fireEvent.change( await screen.findByLabelText( 'Subscription token', { selector: 'input' } ), {
+			target: { value: 'sk-ant-oat01-subscription-test-token' },
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
+		await waitFor( () =>
+			expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic-subscription' )
+		);
+		await waitFor( () =>
+			expect(
+				screen.queryByRole( 'form', { name: 'Claude subscription connection' } )
+			).not.toBeInTheDocument()
+		);
+		expect( connector.saveAiProviderApiKey ).toHaveBeenCalledWith(
+			'anthropic-subscription',
+			'sk-ant-oat01-subscription-test-token'
+		);
+		fireEvent.click( within( subscriptionRow ).getByRole( 'button', { name: 'Manage' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Remove token' } ) );
+		await waitFor( () =>
+			expect( connector.saveAiProviderApiKey ).toHaveBeenLastCalledWith(
+				'anthropic-subscription',
+				null
+			)
+		);
+		expect(
+			within( providerRow( 'anthropic-provider' ) ).getByRole( 'button', { name: 'Manage' } )
+		).toBeVisible();
+	} );
+
 	it( 'clears a saved key without switching providers', async () => {
 		const { connector } = await setup( { section: 'ai' } );
 		fireEvent.click(
@@ -895,6 +929,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 						wpcom: { connected: false, apiKeyPreview: null },
 						'anthropic-api-key': { connected: hasKey, apiKeyPreview: null },
 						chatgpt: { connected: false, apiKeyPreview: null },
+						'anthropic-subscription': { connected: false, apiKeyPreview: null },
 					},
 				} ),
 				saveAiProviderApiKey: async () => {
@@ -905,6 +940,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 							wpcom: { connected: false, apiKeyPreview: null },
 							'anthropic-api-key': { connected: true, apiKeyPreview: 'test' },
 							chatgpt: { connected: false, apiKeyPreview: null },
+							'anthropic-subscription': { connected: false, apiKeyPreview: null },
 						},
 					};
 				},

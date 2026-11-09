@@ -23,6 +23,21 @@ export interface AiProviderDescriptor {
 	paidDefaultModel?: string;
 }
 
+const CLAUDE_MODELS = [
+	{
+		id: 'claude-sonnet-5',
+		label: 'Sonnet 5',
+		getDescription: () => __( 'Build features, style pages, and fix bugs' ),
+		family: 'anthropic',
+	},
+	{
+		id: 'claude-opus-5',
+		label: 'Opus 5',
+		getDescription: () => __( 'Plan complex builds and solve harder problems' ),
+		family: 'anthropic',
+	},
+] as const satisfies readonly AiModel[];
+
 export const AI_PROVIDERS = [
 	{
 		id: 'wpcom',
@@ -70,20 +85,7 @@ export const AI_PROVIDERS = [
 		usesStudioCredits: false,
 		connection: { type: 'api-key' },
 		defaultModel: 'claude-sonnet-5',
-		models: [
-			{
-				id: 'claude-sonnet-5',
-				label: 'Sonnet 5',
-				getDescription: () => __( 'Build features, style pages, and fix bugs' ),
-				family: 'anthropic',
-			},
-			{
-				id: 'claude-opus-5',
-				label: 'Opus 5',
-				getDescription: () => __( 'Plan complex builds and solve harder problems' ),
-				family: 'anthropic',
-			},
-		],
+		models: CLAUDE_MODELS,
 	},
 	{
 		id: 'chatgpt',
@@ -97,5 +99,15 @@ export const AI_PROVIDERS = [
 			{ id: 'gpt-6.1-terra', label: 'GPT-6.1 Terra', family: 'openai' },
 			{ id: 'gpt-6.1-sol', label: 'GPT-6.1 Sol', family: 'openai' },
 		],
+	},
+	{
+		id: 'anthropic-subscription',
+		label: 'Claude subscription',
+		cliLabel: 'Anthropic · Subscription token',
+		modelLabel: 'Claude subscription',
+		usesStudioCredits: false,
+		connection: { type: 'api-key' },
+		defaultModel: 'claude-sonnet-5',
+		models: CLAUDE_MODELS,
 	},
 ] as const satisfies readonly AiProviderDescriptor[];

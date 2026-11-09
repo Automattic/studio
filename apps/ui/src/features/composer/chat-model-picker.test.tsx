@@ -31,10 +31,12 @@ const allowanceQuota: StudioAssistantQuota = {
 
 function connectorFor( {
 	anthropic = false,
+	subscription = false,
 	provider = 'wpcom',
 	quota = async () => paidQuota,
 }: {
 	anthropic?: boolean;
+	subscription?: boolean;
 	provider?: AiProviderId;
 	quota?: () => Promise< StudioAssistantQuota | null >;
 } = {} ) {
@@ -47,6 +49,7 @@ function connectorFor( {
 					wpcom: { connected: true, apiKeyPreview: null },
 					'anthropic-api-key': { connected: anthropic, apiKeyPreview: null },
 					chatgpt: { connected: false, apiKeyPreview: null },
+					'anthropic-subscription': { connected: subscription, apiKeyPreview: null },
 				},
 			} ),
 			getStudioAssistantQuota: quota,
@@ -75,6 +78,23 @@ async function renderPicker( model: AiModelId, connector: FakeConnector, onModel
 }
 
 describe( 'Chat model picker', () => {
+	it( 'selects the subscription provider when both connections offer the same Claude model', async () => {
+		const { trigger, onModelChange } = await renderPicker(
+			'claude-sonnet-5',
+			connectorFor( { anthropic: true, subscription: true, provider: 'anthropic-api-key' } )
+		);
+		fireEvent.click( trigger );
+		const choices = await screen.findAllByRole( 'option', { name: /Sonnet 5/ } );
+		expect( choices ).toHaveLength( 2 );
+		const subscription = choices.find( ( choice ) =>
+			choice.textContent?.includes( 'Claude subscription' )
+		)!;
+		fireEvent.click( subscription );
+		await waitFor( () =>
+			expect( onModelChange ).toHaveBeenCalledWith( 'claude-sonnet-5', 'anthropic-subscription' )
+		);
+	} );
+
 	it( 'opens with the current model selected for keyboard navigation', async () => {
 		const { trigger } = await renderPicker(
 			'claude-opus-5',

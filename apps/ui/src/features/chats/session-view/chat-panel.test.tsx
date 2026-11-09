@@ -60,6 +60,7 @@ async function setupChat( {
 			wpcom: { connected: signedIn, apiKeyPreview: null },
 			'anthropic-api-key': { connected: hasAnthropicApiKey, apiKeyPreview: null },
 			chatgpt: { connected: false, apiKeyPreview: null },
+			'anthropic-subscription': { connected: false, apiKeyPreview: null },
 		},
 	};
 	const connector = createFakeConnector(
@@ -378,6 +379,7 @@ describe( 'Composer access notices', () => {
 							wpcom: { connected: true, apiKeyPreview: null },
 							'anthropic-api-key': { connected: true, apiKeyPreview: 'test' },
 							chatgpt: { connected: false, apiKeyPreview: null },
+							'anthropic-subscription': { connected: false, apiKeyPreview: null },
 						},
 					} ),
 					getStudioAssistantQuota: async () => quota,
@@ -415,6 +417,7 @@ describe( 'Composer access notices', () => {
 					wpcom: { connected: false, apiKeyPreview: null },
 					'anthropic-api-key': { connected: saved, apiKeyPreview: saved ? 'test' : null },
 					chatgpt: { connected: false, apiKeyPreview: null },
+					'anthropic-subscription': { connected: false, apiKeyPreview: null },
 				},
 			};
 			const site = makeSite( { id: 'one', path: '/sites/my-site' } );

@@ -159,6 +159,7 @@ export function createInMemoryConnector(
 			wpcom: { connected: !! state.user, apiKeyPreview: null },
 			'anthropic-api-key': { connected: false, apiKeyPreview: null },
 			chatgpt: { connected: false, apiKeyPreview: null },
+			'anthropic-subscription': { connected: false, apiKeyPreview: null },
 		},
 	};
 

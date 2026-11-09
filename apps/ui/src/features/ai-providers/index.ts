@@ -1,4 +1,4 @@
-import { anthropicUiProvider } from './anthropic';
+import { anthropicSubscriptionUiProvider, anthropicUiProvider } from './anthropic';
 import { chatGptUiProvider } from './chatgpt';
 import { wpcomUiProvider } from './wpcom';
 import type { ProviderConnectionProps } from './types';
@@ -9,6 +9,7 @@ const PROVIDER_UI = {
 	wpcom: wpcomUiProvider,
 	'anthropic-api-key': anthropicUiProvider,
 	chatgpt: chatGptUiProvider,
+	'anthropic-subscription': anthropicSubscriptionUiProvider,
 } satisfies Record<
 	AiProviderId,
 	{

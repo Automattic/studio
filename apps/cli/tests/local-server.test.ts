@@ -84,6 +84,7 @@ describe( 'local web server Connect contracts', () => {
 				wpcom: { connected: false, apiKeyPreview: null },
 				'anthropic-api-key': { connected: false, apiKeyPreview: null },
 				chatgpt: { connected: false, apiKeyPreview: null },
+				'anthropic-subscription': { connected: false, apiKeyPreview: null },
 			},
 		} );
 		mocks.saveAiProviderApiKey.mockImplementation(
@@ -96,6 +97,7 @@ describe( 'local web server Connect contracts', () => {
 						apiKeyPreview: key === null ? null : key.trim().slice( -4 ),
 					},
 					chatgpt: { connected: false, apiKeyPreview: null },
+					'anthropic-subscription': { connected: false, apiKeyPreview: null },
 				},
 			} )
 		);
@@ -105,6 +107,7 @@ describe( 'local web server Connect contracts', () => {
 				wpcom: { connected: false, apiKeyPreview: null },
 				'anthropic-api-key': { connected: true, apiKeyPreview: '1234' },
 				chatgpt: { connected: false, apiKeyPreview: null },
+				'anthropic-subscription': { connected: false, apiKeyPreview: null },
 			},
 		} ) );
 		server = await startLocalServer( {
@@ -133,6 +136,7 @@ describe( 'local web server Connect contracts', () => {
 				wpcom: { connected: false, apiKeyPreview: null },
 				'anthropic-api-key': { connected: false, apiKeyPreview: null },
 				chatgpt: { connected: false, apiKeyPreview: null },
+				'anthropic-subscription': { connected: false, apiKeyPreview: null },
 			},
 		} );
 	} );

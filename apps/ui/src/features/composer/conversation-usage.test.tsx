@@ -14,6 +14,7 @@ const withKey = ( provider: AiSettings[ 'provider' ] ): Partial< Connector > => 
 			wpcom: { connected: true, apiKeyPreview: null },
 			'anthropic-api-key': { connected: true, apiKeyPreview: 'test' },
 			chatgpt: { connected: false, apiKeyPreview: null },
+			'anthropic-subscription': { connected: false, apiKeyPreview: null },
 		},
 	} ),
 } );

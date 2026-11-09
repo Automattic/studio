@@ -18,8 +18,10 @@ function AnthropicConnection( {
 	saving,
 	formOpen: keyFormOpen,
 	onFormOpenChange,
-}: ProviderConnectionProps ) {
+	subscription = false,
+}: ProviderConnectionProps & { subscription?: boolean } ) {
 	const [ key, setKey ] = useState( '' );
+	const credentialLabel = subscription ? __( 'Subscription token' ) : __( 'Anthropic API key' );
 	const closeKeyForm = () => {
 		setKey( '' );
 		onFormOpenChange( false );
@@ -35,13 +37,17 @@ function AnthropicConnection( {
 	return (
 		<>
 			<SettingsRow
-				title={ __( 'Anthropic' ) }
+				title={ subscription ? __( 'Claude subscription' ) : __( 'Anthropic' ) }
 				badge={ hasKey ? connectedBadge : null }
 				description={
-					<>
-						{ __( 'Use Claude with your own API key.' ) }{ ' ' }
-						<LearnMoreLink docsLinksKey="docsAnthropicApiKey" />
-					</>
+					subscription ? (
+						__( 'Use your Claude plan with a token from claude setup-token.' )
+					) : (
+						<>
+							{ __( 'Use Claude with your own API key.' ) }{ ' ' }
+							<LearnMoreLink docsLinksKey="docsAnthropicApiKey" />
+						</>
+					)
 				}
 			>
 				<Button
@@ -55,7 +61,9 @@ function AnthropicConnection( {
 			</SettingsRow>
 			{ keyFormOpen ? (
 				<form
-					aria-label={ __( 'Anthropic connection' ) }
+					aria-label={
+						subscription ? __( 'Claude subscription connection' ) : __( 'Anthropic connection' )
+					}
 					onSubmit={ ( event ) => {
 						event.preventDefault();
 						if ( ! pending && ( key.trim() || hasKey ) ) {
@@ -64,8 +72,14 @@ function AnthropicConnection( {
 					} }
 				>
 					<SettingsRow
-						title={ __( 'Anthropic API key' ) }
-						description={ __( 'Usage is billed through your Anthropic account.' ) }
+						title={ credentialLabel }
+						description={
+							subscription
+								? __(
+										'Tokens are not refreshed automatically. Generate a new one when it expires.'
+									)
+								: __( 'Usage is billed through your Anthropic account.' )
+						}
 						error={ error }
 						stacked
 					>
@@ -74,8 +88,8 @@ function AnthropicConnection( {
 								className={ styles.apiKeyInput }
 								type="password"
 								autoComplete="off"
-								aria-label={ __( 'Anthropic API key' ) }
-								placeholder={ apiKeyPreview ?? 'sk-…' }
+								aria-label={ credentialLabel }
+								placeholder={ apiKeyPreview ?? ( subscription ? 'sk-ant-oat01-…' : 'sk-…' ) }
 								value={ key }
 								disabled={ pending }
 								onChange={ ( event ) => setKey( event.target.value ) }
@@ -99,7 +113,7 @@ function AnthropicConnection( {
 											.catch( () => {} )
 									}
 								>
-									{ __( 'Remove key' ) }
+									{ subscription ? __( 'Remove token' ) : __( 'Remove key' ) }
 								</Button>
 							) : null }
 						</div>
@@ -111,3 +125,8 @@ function AnthropicConnection( {
 }
 
 export const anthropicUiProvider = { icon: ClaudeIcon, Connection: AnthropicConnection };
+
+export const anthropicSubscriptionUiProvider = {
+	icon: ClaudeIcon,
+	Connection: ( props: ProviderConnectionProps ) => <AnthropicConnection { ...props } subscription />,
+};

@@ -1,7 +1,10 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { ModelRuntime } from '@earendil-works/pi-coding-agent';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { FileCredentialStore } from '@studio/agent/node/credential-store';
+import { AI_BACKEND_PROVIDERS } from '@studio/agent/node/providers';
 import {
 	InvalidAiProviderCredentialsError,
 	readAiSettings,
@@ -42,6 +45,7 @@ describe( 'ai settings store', () => {
 				wpcom: { connected: false, apiKeyPreview: null },
 				'anthropic-api-key': { connected: false, apiKeyPreview: null },
 				chatgpt: { connected: false, apiKeyPreview: null },
+				'anthropic-subscription': { connected: false, apiKeyPreview: null },
 			},
 		} );
 	} );
@@ -58,6 +62,7 @@ describe( 'ai settings store', () => {
 				wpcom: { connected: false, apiKeyPreview: null },
 				'anthropic-api-key': { connected: true, apiKeyPreview: 'sk-ant-api03-tes...1234' },
 				chatgpt: { connected: false, apiKeyPreview: null },
+				'anthropic-subscription': { connected: false, apiKeyPreview: null },
 			},
 		} );
 		expect( readShared().anthropicApiKey ).toBe( 'sk-ant-api03-testkey-abcd1234' );
@@ -204,6 +209,7 @@ describe( 'ai settings store', () => {
 				wpcom: { connected: false, apiKeyPreview: null },
 				'anthropic-api-key': { connected: false, apiKeyPreview: null },
 				chatgpt: { connected: false, apiKeyPreview: null },
+				'anthropic-subscription': { connected: false, apiKeyPreview: null },
 			},
 		} );
 		const written = readShared();
@@ -255,5 +261,71 @@ describe( 'ai settings store', () => {
 		);
 
 		await expect( readAiSettings() ).resolves.toMatchObject( { provider: 'wpcom' } );
+	} );
+
+	it( 'keeps a setup token separate from API billing and preserves the API key on removal', async () => {
+		await saveAiProviderApiKey( 'anthropic-api-key', 'sk-ant-api03-existing-key' );
+		await expect(
+			saveAiProviderApiKey( 'anthropic-subscription', 'sk-ant-api03-wrong-credential' )
+		).rejects.toBeInstanceOf( InvalidAiProviderCredentialsError );
+		const token = 'sk-ant-oat01-subscription-token-1234';
+		await saveAiProviderApiKey( 'anthropic-subscription', `  ${ token }  ` );
+		const settings = await setAiProvider( 'anthropic-subscription' );
+		expect( settings.connections[ 'anthropic-subscription' ] ).toEqual( {
+			connected: true,
+			apiKeyPreview: 'sk-ant-oat01-sub...1234',
+		} );
+		expect( JSON.stringify( settings ) ).not.toContain( token );
+		expect( readShared().aiProviderCredentials[ 'anthropic-subscription' ].apiKey ).toBe( token );
+		await expect( saveAiProviderApiKey( 'anthropic-subscription', null ) ).resolves.toMatchObject( {
+			provider: 'wpcom',
+			connections: {
+				'anthropic-api-key': { connected: true },
+				'anthropic-subscription': { connected: false, apiKeyPreview: null },
+			},
+		} );
+		expect( readShared().anthropicApiKey ).toBe( 'sk-ant-api03-existing-key' );
+		await expect( setAiProvider( 'anthropic-subscription' ) ).rejects.toBeInstanceOf(
+			InvalidAiProviderCredentialsError
+		);
+	} );
+
+	it( 'sends a setup token through pi as OAuth bearer auth, not an API key', async () => {
+		const provider = AI_BACKEND_PROVIDERS[ 'anthropic-subscription' ];
+		const token = 'sk-ant-oat01-subscription-token-1234';
+		const env = await provider.resolveEnv( { apiKey: token, userAgent: 'test' } );
+		const resolved = await provider.resolveCredentials( env );
+		if ( ! resolved.ok ) throw new Error( resolved.reason );
+		const model = provider.buildModel( 'claude-sonnet-5', resolved.creds, { supportsImages: true } );
+		const runtime = await ModelRuntime.create( {
+			credentials: new FileCredentialStore(),
+			modelsPath: null,
+			refreshOnCreate: false,
+		} );
+		await provider.configureRuntime( runtime, model, resolved.creds );
+		let headers = new Headers();
+		const response = await runtime.completeSimple(
+			model,
+			{ messages: [ { role: 'user', content: 'Hello', timestamp: 0 } ] },
+			{
+				fetch: async ( _url, init ) => {
+					headers = new Headers( init?.headers );
+					return new Response(
+						JSON.stringify( {
+							type: 'error',
+							error: { type: 'authentication_error', message: 'Token expired' },
+						} ),
+						{ status: 401, headers: { 'content-type': 'application/json' } }
+					);
+				},
+			}
+		);
+		expect( headers.get( 'authorization' ) ).toBe( `Bearer ${ token }` );
+		expect( headers.has( 'x-api-key' ) ).toBe( false );
+		expect( headers.get( 'anthropic-beta' ) ).toContain( 'oauth-2025-04-20' );
+		expect( response.stopReason ).toBe( 'error' );
+		expect( response.errorMessage ).toContain( 'Token expired' );
+		const missing = await provider.resolveCredentials( { ANTHROPIC_API_KEY: 'must-not-fall-back' } );
+		expect( missing ).toMatchObject( { ok: false } );
 	} );
 } );

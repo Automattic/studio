@@ -47,7 +47,7 @@ See the [`studio-website` README](https://github.com/Automattic/studio-website#p
 
 **Links to other docs pages:** use the page's full URL, such as `https://wordpress.studio/docs/sync/#exclude-files-with-deployignore`. The site build turns these into links between pages.
 
-**Images:** keep the upload-style URL, `https://developer.wordpress.com/wp-content/uploads/YYYY/MM/<name>.webp`, or use a relative path into `screenshots/images/`. The site build only looks at the file name and uses the copy in `screenshots/images/`, so those upload URLs are expected and shouldn't be replaced.
+**Images:** use a relative path into `screenshots/images/`, such as `../../../screenshots/images/site-menu.webp` from a page in `docs/developer-tools/studio/`. They display on GitHub, and the site build imports the same file.
 
 **Headings:** new headings can be plain Markdown. Existing `## [Heading](#anchor)` lines also work; the site build generates the anchor from the heading text either way.
 

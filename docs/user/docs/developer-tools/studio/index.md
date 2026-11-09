@@ -70,7 +70,7 @@ The first time you open WordPress Studio, it walks you through a short setup:
 
 If you’re upgrading from an earlier version of WordPress Studio, your existing sites carry over, and the same guide opens with **Welcome to WordPress Studio 2.0**. If you’ve already seen the guide, a short **What’s New** guide introduces what changed instead. To see either one again, choose **Help → Getting Started** or **Help → What’s New** in the menu bar (on Windows and Linux, click **Menu** at the top of the sidebar to open it).
 
-[![The Welcome to WordPress Studio dialog with the Continue with WordPress.com and Not now buttons and the Share anonymous usage statistics checkbox](https://developer.wordpress.com/wp-content/uploads/2024/04/welcome.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2024/04/welcome.webp)
+![The Welcome to WordPress Studio dialog with the Continue with WordPress.com and Not now buttons and the Share anonymous usage statistics checkbox](../../../screenshots/images/welcome.webp)
 
 ### [Find your way around](#find-your-way-around)
 
@@ -80,7 +80,7 @@ The WordPress Studio window has three areas:
 -   **Chat** (middle): WordPress Studio Code for the selected site.
 -   **Site preview** (right): the selected site.
 
-[![The WordPress Studio window with the Sites sidebar on the left, the WordPress Studio Code chat in the middle, and the site preview on the right, under a header with the Site menu and Close chat buttons, the Back, Forward and Reload preview buttons, the address bar, Annotate, Publish, and Share](https://developer.wordpress.com/wp-content/uploads/2024/04/main-window-signed-in.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2024/04/main-window-signed-in.webp)
+![The WordPress Studio window with the Sites sidebar on the left, the WordPress Studio Code chat in the middle, and the site preview on the right, under a header with the Site menu and Close chat buttons, the Back, Forward and Reload preview buttons, the address bar, Annotate, Publish, and Share](../../../screenshots/images/main-window-signed-in.webp)
 
 The header above the chat and preview starts with the **Site menu** button (globe), which opens the site’s actions menu, and **Close chat** (**Open chat** when the chat is closed). Then come the preview’s **Back**, **Forward**, and **Reload preview** buttons, **Responsive mode**, and the address bar, followed by **Annotate**, **Publish**, and **Share**.
 
@@ -88,7 +88,7 @@ When a new version of WordPress Studio is ready to install, an **Update availabl
 
 Press ⌘K (Ctrl+K on Windows and Linux) to open the command palette, where you can jump to any site or chat, run a site action, or change a setting. Press ⌘, (Ctrl+, on Windows and Linux) to open **Settings**, and ⌘B (Ctrl+B) to show or hide the sidebar. The full list of shortcuts is in **Settings → Keyboard**.
 
-[![The WordPress Studio command palette with a Search commands field and lists of quick actions and site actions such as New site, New chat, Settings, and Open WordPress Admin](https://developer.wordpress.com/wp-content/uploads/2024/04/command-palette.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2024/04/command-palette.webp)
+![The WordPress Studio command palette with a Search commands field and lists of quick actions and site actions such as New site, New chat, Settings, and Open WordPress Admin](../../../screenshots/images/command-palette.webp)
 
 The shortcuts, as listed in **Settings → Keyboard**:
 
@@ -132,7 +132,7 @@ To connect WordPress Studio to WordPress.com:
 
 Once you’ve logged into WordPress.com, your account menu replaces the **Log in** button at the bottom of the sidebar, WordPress Studio Code can use your WordPress.com AI credits, and the **Publish** and **Share** buttons above the site preview let you publish your site and share preview links. If they still ask you to log in, you might need to *restart* the desktop application.
 
-[![The account menu open at the bottom of the WordPress Studio sidebar, showing the account name and email with Settings, Appearance, AI Providers, Usage, and Log out](https://developer.wordpress.com/wp-content/uploads/2024/04/account-menu.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2024/04/account-menu.webp)
+![The account menu open at the bottom of the WordPress Studio sidebar, showing the account name and email with Settings, Appearance, AI Providers, Usage, and Log out](../../../screenshots/images/account-menu.webp)
 
 ## [Next steps and feedback](#7-next-steps-and-feedback)
 

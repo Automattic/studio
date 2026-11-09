@@ -32,7 +32,7 @@ To enable HTTPS for a new or existing site:
 4.  If you have not already provided one, enter a domain name (must end with `.local`) or use the automatically generated one.
 5.  Turn on **Enable HTTPS**.
 
-[![The Create a blank site form in WordPress Studio with Advanced settings expanded, showing Use custom domain and Enable HTTPS turned on and a .wp.local domain name.](https://developer.wordpress.com/wp-content/uploads/2025/03/create-site-https.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/03/create-site-https.webp)
+![The Create a blank site form in WordPress Studio with Advanced settings expanded, showing Use custom domain and Enable HTTPS turned on and a .wp.local domain name.](../../../screenshots/images/create-site-https.webp)
 
 6.  Click **Create site** or **Save**, depending on whether you are creating a new site or editing an existing one. 
 7.  When prompted, give your permission for WordPress Studio to modify the system hosts file. WordPress Studio will configure everything else automatically. 
@@ -53,12 +53,12 @@ On macOS, you need to manually trust the CA. To do this, find the certificate fi
 2.  This will open the folder containing the certificate file (`studio-ca.crt`). Double-click the file to install the certificate and automatically open the **Keychain Access** tool on your machine.
 3.  Locate the **WordPress Studio CA** certificate. You can filter the items by the word `studio`.
 
-![A screenshot depicting the Keychain Access application on a Mac and the WordPress Studio CA certificate.](https://developer.wordpress.com/wp-content/uploads/2025/03/ssl-keychain.webp)
+![A screenshot depicting the Keychain Access application on a Mac and the WordPress Studio CA certificate.](../../../screenshots/images/ssl-keychain.webp)
 
 4.  Double-click the certificate and expand the **Trust** section.
 5.  Set “**Secure Sockets Layer(SSL)**” to *“***Always Trust**.” You can leave all other settings the same.
 
-![A screenshot depicting the Keychain Access application on a Mac and how to set the SSL setting to "Always Trust" on the WordPress Studio CA certificate.](https://developer.wordpress.com/wp-content/uploads/2025/03/ssl-certificate-always-trust.webp)
+![A screenshot depicting the Keychain Access application on a Mac and how to set the SSL setting to "Always Trust" on the WordPress Studio CA certificate.](../../../screenshots/images/ssl-certificate-always-trust.webp)
 
 6.  Close the dialog and enter your password to confirm.
 
@@ -78,7 +78,7 @@ Use this fallback only if auto-trust didn’t take effect.
 4.  Select `~/.studio/certificates/studio-ca.crt`.
 5.  Check **Trust this CA to identify websites** and click **OK**.
 
-[![Firefox's Downloading Certificate dialog asking whether to trust "WordPress Studio CA", with "Trust this CA to identify websites" checked.](https://developer.wordpress.com/wp-content/uploads/2025/03/firefox-trust-ca.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/03/firefox-trust-ca.webp)
+![Firefox's Downloading Certificate dialog asking whether to trust "WordPress Studio CA", with "Trust this CA to identify websites" checked.](../../../screenshots/images/firefox-trust-ca.webp)
 
 6.  Fully quit and relaunch Firefox.
 

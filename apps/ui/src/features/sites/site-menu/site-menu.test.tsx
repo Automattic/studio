@@ -338,17 +338,26 @@ describe( 'Stop other sites', () => {
 		}
 	);
 
-	it( 'hides the option when no other sites are running', async () => {
-		const { open, connector } = setup( { otherRunning: false } );
-		await open();
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
-		await screen.findByRole( 'menuitem', { name: 'Settings' } );
-		await waitFor( () => expect( connector.getSites ).toHaveBeenCalled() );
-		expect(
-			screen.queryByRole( 'menuitem', { name: 'Stop other sites' } )
-		).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'menuitem', { name: 'Stop all sites' } ) ).not.toBeInTheDocument();
-	} );
+	it.each( [ false, true ] )(
+		'stops the only running site directly from either menu (%s)',
+		async ( contextMenu ) => {
+			const { open, connector } = setup( { otherRunning: false, contextMenu } );
+			await open();
+			const stop = await screen.findByRole( 'menuitem', { name: /^Stop(?:\s|$)/ } );
+			expect( stop ).not.toHaveAttribute( 'aria-haspopup' );
+			expect( screen.queryByRole( 'menuitem', { name: 'Stop site' } ) ).not.toBeInTheDocument();
+			expect(
+				screen.queryByRole( 'menuitem', { name: 'Stop other sites' } )
+			).not.toBeInTheDocument();
+			expect(
+				screen.queryByRole( 'menuitem', { name: 'Stop all sites' } )
+			).not.toBeInTheDocument();
+			fireEvent.click( stop );
+			await waitFor( () =>
+				expect( connector.stopSite ).toHaveBeenCalledExactlyOnceWith( 'selected' )
+			);
+		}
+	);
 } );
 
 it.each( [ false, true ] )(

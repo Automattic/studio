@@ -48,7 +48,7 @@ To open phpMyAdmin for a running site, select the site and use either of these:
 -   Click the site preview’s address bar and choose **Database**, or choose **Tools → Database** from the site menu. phpMyAdmin opens inside the preview.
 -   Choose **Open in → phpMyAdmin** from the site menu to open it in your browser.
 
-[![The address bar menu in WordPress Studio's site preview, open to show the Front end, WordPress Admin, and Database options.](https://developer.wordpress.com/wp-content/uploads/2026/04/preview-destinations.webp)](https://developer.wordpress.com/wp-content/uploads/2026/04/preview-destinations.webp)
+![The address bar menu in WordPress Studio's site preview, open to show the Front end, WordPress Admin, and Database options.](../../../../screenshots/images/preview-destinations.webp)
 
 ## [Step-through debugging with Xdebug](#6-step-through-debugging-with-xdebug)
 
@@ -56,4 +56,4 @@ For deeper investigation, WordPress Studio includes [Xdebug](https://xdebug.org/
 
 Xdebug is available for all WordPress Studio sites and requires no system-level installation. When a request runs, Xdebug connects out to your editor or IDE on port `9003`, so your editor needs to be listening for debug connections on that port.
 
-For full setup instructions, including how to connect VS Code and PhpStorm, see [Xdebug in WordPress Studio](https://developer.wordpress.com/docs/developer-tools/studio/xdebug/).
+For full setup instructions, including how to connect VS Code and PhpStorm, see [Xdebug in WordPress Studio](https://wordpress.studio/docs/xdebug/).

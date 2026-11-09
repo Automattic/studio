@@ -2,17 +2,17 @@
 
 `wp-studio` is the standalone, CLI-only version of [WordPress Studio](https://wordpress.studio/) – a fast, free, open source tool for local WordPress development powered by WordPress.com.
 
-If you already have Studio installed, then the easiest way to use the CLI is to open Studio, go to the settings modal and ensure that the "Studio CLI" toggle is enabled.
+If you already have WordPress Studio installed, then the easiest way to use the CLI is to open WordPress Studio, go to Settings and ensure that the "WordPress Studio CLI for terminal" toggle is enabled.
 
-The Studio CLI lets you:
+The WordPress Studio CLI lets you:
 
 - Create, run, and manage local WordPress sites from the terminal.
 - Run WP-CLI commands.
 - Import and export site backups.
 - Pull from and push to WordPress.com sites.
 - Publish ephemeral preview sites to share (requires WordPress.com login).
-- Build WordPress sites in Studio Code with an interactive AI agent specialized in WordPress, backed by the full power of the Studio CLI.
-- Integrate with other AI coding agents through `studio mcp`, which serves the Studio tools over MCP.
+- Build WordPress sites in WordPress Studio Code with an interactive AI agent specialized in WordPress, backed by the full power of the WordPress Studio CLI.
+- Integrate with other AI coding agents through `studio mcp`, which serves the WordPress Studio tools over MCP.
 
 <p align="center">
 	<br>
@@ -26,7 +26,7 @@ The Studio CLI lets you:
 - [Installation](#installation)
 - [Quick start](#quick-start)
 - [Usage](#usage)
-- [Studio Code](#studio-code)
+- [WordPress Studio Code](#wordpress-studio-code)
 - [Import and export](#import-and-export)
 - [Sync with WordPress.com and Pressable](#sync-with-wordpresscom-and-pressable)
 - [Preview sites](#preview-sites)
@@ -60,7 +60,7 @@ studio create
 
 ## Usage
 
-The Studio CLI integrates with Studio and uses the same list of sites. Similarly to Studio, the Studio CLI also runs sites in the background. To see the list of sites under management by Studio and their current status, run the command:
+The WordPress Studio CLI integrates with WordPress Studio and uses the same list of sites. Similarly to WordPress Studio, the WordPress Studio CLI also runs sites in the background. To see the list of sites under management by WordPress Studio and their current status, run the command:
 
 ```bash
 studio list
@@ -85,17 +85,17 @@ studio wp plugin list --path ~/Studio/my-site
 studio wp option get home --path ~/Studio/my-site
 ```
 
-## Studio Code
+## WordPress Studio Code
 
-> 🧪 _Studio Code is currently in early access. Features, capabilities, and usage limits may change as it evolves._
+> 🧪 _WordPress Studio Code is currently in early access. Features, capabilities, and usage limits may change as it evolves._
 
-Studio Code is an interactive AI agent specialized in building and optimizing WordPress sites. It integrates seamlessly with your Studio sites and can create themes, install plugins, edit code and content, and run WP-CLI commands autonomously from your terminal. It validates its own work through a built-in feedback loop that takes screenshots and confirms block syntax. You can use frontier models through the WordPress.com provider or bring your own API keys. 
+WordPress Studio Code is an interactive AI agent specialized in building and optimizing WordPress sites. It integrates seamlessly with your WordPress Studio sites and can create themes, install plugins, edit code and content, and run WP-CLI commands autonomously from your terminal. It validates its own work through a built-in feedback loop that takes screenshots and confirms block syntax. You can use frontier models through the WordPress.com provider or bring your own API keys.
 
 ```bash
 studio code
 ```
 
-Delete, lis,t or resume a previous session:
+Delete, list or resume a previous session:
 
 ```bash
 studio code sessions delete
@@ -105,11 +105,11 @@ studio code sessions resume
 
 ## Import and export
 
-The Studio CLI allows you to import and export local backups.
+The WordPress Studio CLI allows you to import and export local backups.
 
 When exporting, choose either a full-site backup as a `.zip` or `.tar.gz` file, or a database-only backup as a `.sql` file.
 
-For imports, backup files from your WordPress.com site or from Jetpack’s Activity Log page are supported. So are `.wpress` files and `.zip` files from WordPress Playground or Local, and WordPress export (WXR) `.xml` files produced by **Tools → Export**. For more details, see the [documentation](https://developer.wordpress.com/docs/developer-tools/studio/import-export/).
+For imports, backup files from your WordPress.com site or from Jetpack’s Activity Log page are supported. So are `.wpress` files and `.zip` files from WordPress Playground or Local, and WordPress export (WXR) `.xml` files produced by **Tools → Export**. For more details, see the [documentation](https://wordpress.studio/docs/import-export/).
 
 ```bash
 studio export --path ~/Studio/my-site
@@ -128,7 +128,7 @@ studio push --path ~/Studio/my-site
 
 ## Preview sites
 
-The Studio CLI lets you share your work through preview sites. These are powered by WordPress.com on a temporary domain (wp.build), and they allow you to share snapshots of your local sites with clients or team members.
+The WordPress Studio CLI lets you share your work through preview sites. These are powered by WordPress.com on a temporary domain (wp.build), and they allow you to share snapshots of your local sites with clients or team members.
 
 To publish preview sites, you need to first authenticate with WordPress.com:
 

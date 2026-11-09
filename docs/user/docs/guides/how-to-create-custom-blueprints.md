@@ -1,6 +1,6 @@
 # How to create custom WordPress Blueprints
 
-WordPress Studio supports [WordPress Playground](https://wordpress.org/playground/) Blueprints. WordPress Studio runs them with its own Blueprint runner on native PHP. [Blueprints in WordPress Studio](https://developer.wordpress.com/docs/developer-tools/studio/blueprints/) help you:
+WordPress Studio supports [WordPress Playground](https://wordpress.org/playground/) Blueprints. WordPress Studio runs them with its own Blueprint runner on native PHP. [Blueprints in WordPress Studio](https://wordpress.studio/docs/blueprints/) help you:
 
 -   **Streamline repeatable setups:** Create Blueprints for common site types (like blog, portfolio, or store) to start new WordPress Studio projects more efficiently. 
 -   **Keep teams aligned:** Add a blueprint.json file to your project’s GitHub repository, whether you’re building a plugin, theme, or full site. It scaffolds the same environment every time, so teammates can start building a plugin, theme, or full site in minutes, while version control keeps changes reviewable and consistent.
@@ -66,7 +66,7 @@ WordPress Playground offers an [interactive Blueprint builder](https://playgroun
 
 [Preview Blueprint](https://playground.wordpress.net/builder/builder.html#{%22$schema%22:%22https://playground.wordpress.net/blueprint-schema.json%22,%22landingPage%22:%22/wp-admin/%22,%22login%22:true,%22preferredVersions%22:{%22php%22:%228.3%22,%22wp%22:%22latest%22},%22steps%22:[{%22step%22:%22installPlugin%22,%22pluginData%22:{%22resource%22:%22wordpress.org/plugins%22,%22slug%22:%22woocommerce%22},%22options%22:{%22activate%22:true}},{%22step%22:%22installTheme%22,%22themeData%22:{%22resource%22:%22wordpress.org/themes%22,%22slug%22:%22pendant%22},%22options%22:{%22activate%22:true}},{%22step%22:%22updateUserMeta%22,%22meta%22:{%22admin_color%22:%22modern%22},%22userId%22:1}]})
 
-Preview and download this Blueprint using the button above. Once downloaded, you can use it to create a new site in WordPress Studio. For detailed instructions, refer to the [site creation flow in WordPress Studio](https://developer.wordpress.com/docs/developer-tools/studio/blueprints/).
+Preview and download this Blueprint using the button above. Once downloaded, you can use it to create a new site in WordPress Studio. For detailed instructions, refer to the [site creation flow in WordPress Studio](https://wordpress.studio/docs/blueprints/).
 
 ## [Blueprint changes in WordPress Studio](#1-blueprint-changes-in-studio)
 
@@ -87,7 +87,7 @@ Blueprints can be simple like the example above or as sophisticated as your work
 -   [Steps reference and visual Step Library](https://wordpress.github.io/wordpress-playground/blueprints/steps/)
 -   [Example Blueprints and the community gallery](https://github.com/WordPress/blueprints/blob/trunk/GALLERY.md)
 
-Leveraging AI tools like the [WordPress Studio Code](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/) is a great way to get help building custom Blueprints. Simply ask it to write a Blueprint for you:
+Leveraging AI tools like the [WordPress Studio Code](https://wordpress.studio/docs/studio-code/) is a great way to get help building custom Blueprints. Simply ask it to write a Blueprint for you:
 
 Can you write a Playground blueprint for me in a JSON file that installs the latest default theme and the WooCommerce plugin?
 

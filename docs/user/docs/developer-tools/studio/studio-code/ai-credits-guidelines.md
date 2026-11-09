@@ -8,7 +8,7 @@ AI Credits are how you pay for AI usage in WordPress Studio Code — things like
 
 ## [Your allowance](#1-your-allowance)
 
-We will give you a limited, one-time free allowance of AI Credits that you can use to try WordPress Studio Code. Your free allowance can only be used with the Fast tier; Balanced and Strong require purchased AI Credits. See [Choosing an AI model tier in WordPress Studio Code](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/choosing-an-ai-model-tier-in-studio-code/) for details. We may change the size of this allowance or discontinue it, particularly as WordPress Studio moves out of beta.  
+We will give you a limited, one-time free allowance of AI Credits that you can use to try WordPress Studio Code. Your free allowance can only be used with the Fast tier; Balanced and Strong require purchased AI Credits. See [Choosing an AI model tier in WordPress Studio Code](https://wordpress.studio/docs/studio-code/choosing-an-ai-model-tier-in-studio-code/) for details. We may change the size of this allowance or discontinue it, particularly as WordPress Studio moves out of beta.  
   
 Your free allowance is consumed at the same variable rate as purchased credits (see below).
 
@@ -18,7 +18,7 @@ You can buy AI Credits at any time. Purchased AI Credits don’t expire and stay
 
 The purchase amounts currently available are $10, $20, $50, and $100, but the amounts and availability may change.
 
-[![The Add AI credits dialog in WordPress Studio, offering one-time amounts of $10 (100,000 credits), $20 (200,000 credits), $50 (500,000 credits), and $100 (1,000,000 credits), with Cancel and Continue for $10 buttons.](https://developer.wordpress.com/wp-content/uploads/2026/08/add-ai-credits.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/08/add-ai-credits.webp)
+![The Add AI credits dialog in WordPress Studio, offering one-time amounts of $10 (100,000 credits), $20 (200,000 credits), $50 (500,000 credits), and $100 (1,000,000 credits), with Cancel and Continue for $10 buttons.](../../../../screenshots/images/add-ai-credits.webp)
 
 ## [Why similar tasks can cost more or less](#3-why-similar-tasks-can-cost-more-or-less)
 

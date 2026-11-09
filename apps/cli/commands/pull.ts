@@ -771,12 +771,14 @@ export async function runFullPull(
 			path.join( metadata.rawDirectory, ...contentDir.split( '/' ).filter( Boolean ) )
 		);
 	} else {
-		// `--force` replaces the blank install on a first pull, and the site's own core when it
-		// can't be kept. Without it, a delta pull can never overwrite a live site.
+		// Copying core leaves `wp-content` as the site's only link into the pulled tree, and a later
+		// pull can keep that core. `--force` replaces the blank install on a first pull, and the
+		// site's own files next to core when its core can't be kept.
 		await runStep( __( 'Flattening layout' ), [
 			'flat-docroot',
 			apiUrl,
 			`--flatten-to=${ metadata.sitePath }`,
+			'--core-files=copy',
 			...( isFirstPull || hasOwnCore( metadata.sitePath ) ? [ '--force' ] : [] ),
 			`--state-dir=${ metadata.stateDirectory }`,
 			`--fs-root=${ metadata.rawDirectory }`,

@@ -1,9 +1,10 @@
 .attachments {
+	container-type: inline-size;
 	display: flex;
 	flex-wrap: wrap;
 	align-items: flex-end;
 	gap: var( --space-2 );
-	padding: var( --space-2 ) var( --space-2 ) var( --space-1_5 );
+	padding: var( --space-2 ) var( --space-2 ) var( --space-0_5 );
 }
 
 .attachment {
@@ -11,6 +12,13 @@
 
 	font-size: var( --text-sm );
 	user-select: none;
+}
+
+@container ( max-width: 400px ) {
+	.attachment {
+		width: 48px;
+		height: 48px;
+	}
 }
 
 .imageTrigger {

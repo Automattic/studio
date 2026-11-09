@@ -15,6 +15,7 @@ import {
 	useAgentInstructionsEnabled,
 	useSetAgentInstructionsEnabled,
 } from '@/data/queries/use-agent-instructions';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useResetAppearance, useResetInterface } from '@/data/queries/use-reset-interface';
 import { useSites } from '@/data/queries/use-sites';
@@ -171,6 +172,7 @@ function PreferencesPanel( {
 } ) {
 	const connector = useConnector();
 	const locale = useUserLocale();
+	const { data: user, isSuccess: authLoaded } = useAuthUser();
 	return (
 		<div className={ styles.preferencesPanel }>
 			<ConnectionCard />
@@ -179,7 +181,7 @@ function PreferencesPanel( {
 					{ __( 'An error occurred while saving settings. Please try again.' ) }
 				</div>
 			) : null }
-			<SettingsGroup title={ __( 'Application' ) }>
+			<SettingsGroup title={ authLoaded && ! user ? __( 'Application' ) : undefined }>
 				<SettingsRow
 					title={ __( 'Language' ) }
 					description={ __( 'Default language for WordPress Studio.' ) }

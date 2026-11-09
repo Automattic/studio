@@ -8,11 +8,11 @@ Image generation is available in WordPress Studio 1.20.0 and later.
 
 -   **WordPress Studio 1.20.0 or later**, whether using the desktop or terminal version.
 -   **A connected WordPress.com account.** Image generation runs through your WordPress.com connection.
--   **AI credits.** Generating images is AI work and draws on the same credit balance as the rest of WordPress Studio Code. See [How AI Credits Work](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/ai-credits-guidelines/).
+-   **AI credits.** Generating images is AI work and draws on the same credit balance as the rest of WordPress Studio Code. See [How AI Credits Work](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/).
 
 If a session has no WordPress.com login — for example, a session using only your own Anthropic API key — image generation is disabled.
 
-When you use WordPress Studio through another agent over [MCP](https://developer.wordpress.com/docs/developer-tools/studio/mcp-on-studio/), the agent gets the same image generation when you’re logged in to WordPress.com. Codex is the exception: it makes site images with its own `image_gen` tool, on your plan with Codex.
+When you use WordPress Studio through another agent over [MCP](https://wordpress.studio/docs/mcp-on-studio/), the agent gets the same image generation when you’re logged in to WordPress.com. Codex is the exception: it makes site images with its own `image_gen` tool, on your plan with Codex.
 
 ## [Using it](#1-using-it)
 
@@ -76,6 +76,6 @@ Files are only ever written inside your WordPress Studio sites directory.
 
 ## [Related](#5-related)
 
--   [Agent Skills in WordPress Studio](https://developer.wordpress.com/docs/developer-tools/studio/agent-skills-wordpress-studio/) — the imagery workflow ships as a built-in skill you can also invoke directly.
--   [MCP on WordPress Studio](https://developer.wordpress.com/docs/developer-tools/studio/mcp-on-studio/) — how other agents use WordPress Studio, including image generation.
--   [How AI Credits Work](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/ai-credits-guidelines/)
+-   [Agent Skills in WordPress Studio](https://wordpress.studio/docs/agent-skills-wordpress-studio/) — the imagery workflow ships as a built-in skill you can also invoke directly.
+-   [MCP on WordPress Studio](https://wordpress.studio/docs/mcp-on-studio/) — how other agents use WordPress Studio, including image generation.
+-   [How AI Credits Work](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/)

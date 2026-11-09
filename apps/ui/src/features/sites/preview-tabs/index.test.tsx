@@ -256,9 +256,9 @@ it( 'reloads only the selected tab from the command palette', async () => {
 	const second = document.querySelectorAll( 'iframe' )[ 1 ];
 	act( () => setCommandPaletteOpen( true ) );
 	fireEvent.change( await screen.findByRole( 'combobox', { name: 'Search commands' } ), {
-		target: { value: 'Reload preview' },
+		target: { value: 'Reload' },
 	} );
-	fireEvent.click( screen.getByRole( 'option', { name: 'Reload preview' } ) );
+	fireEvent.click( screen.getByRole( 'option', { name: 'Reload' } ) );
 	await waitFor( () => expect( second ).not.toBeInTheDocument() );
 	expect( document.querySelector( 'iframe' ) ).toBe( first );
 	fireEvent.click( screen.getAllByRole( 'tab' )[ 0 ] );
@@ -670,6 +670,7 @@ it( 'closes the panel immediately while the final tab’s site is still stopping
 	fireEvent.click( screen.getByRole( 'button', { name: 'Close First' } ) );
 	await screen.findByRole( 'button', { name: 'Show panel' } );
 	await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
+	expect( document.querySelector( '[data-layout-moving]' ) ).not.toBeInTheDocument();
 	expect( document.querySelector( 'iframe' ) ).not.toBeInTheDocument();
 	await act( async () => {
 		finish();
@@ -1080,8 +1081,9 @@ it( 'opens the Global Styles board and reloads saved style changes', async () =>
 	await user.click( await screen.findByRole( 'menuitem', { name: 'Design System' } ) );
 	expect( await screen.findByRole( 'heading', { name: 'Color' } ) ).toBeVisible();
 	expect( screen.getByText( '#123456' ) ).toBeVisible();
+	expect( screen.queryByText( /DESIGN.md/ ) ).not.toBeInTheDocument();
 	connector.getGlobalStyles.mockResolvedValue( board( '#654321' ) );
-	await user.click( screen.getByRole( 'button', { name: 'Reload preview' } ) );
+	await user.click( screen.getByRole( 'button', { name: 'Reload' } ) );
 	expect( await screen.findByText( '#654321' ) ).toBeVisible();
 	expect( screen.queryByText( '#123456' ) ).not.toBeInTheDocument();
 } );

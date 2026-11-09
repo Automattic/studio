@@ -4,7 +4,7 @@ With WordPress Studio, you can share your work with preview sites. These preview
 
 You can create up to ten preview sites at a time per WordPress.com account, and you can see how many you’re using in **Settings → Sharing** and **Settings → Usage** within the WordPress Studio app.
 
-While preview sites are intended for sharing with clients and gathering early feedback for up to seven days, a hosting plan is required to make your site permanently accessible. Use [Publish](https://developer.wordpress.com/docs/developer-tools/studio/sync/) or [Import/Export](https://developer.wordpress.com/docs/developer-tools/studio/import-export/) to move your WordPress Studio site to a hosting plan.
+While preview sites are intended for sharing with clients and gathering early feedback for up to seven days, a hosting plan is required to make your site permanently accessible. Use [Publish](https://wordpress.studio/docs/sync/) or [Import/Export](https://wordpress.studio/docs/import-export/) to move your WordPress Studio site to a hosting plan.
 
 ## [Create a preview site](#0-create-a-preview-site)
 
@@ -12,7 +12,7 @@ To create a preview site:
 
 1.  Select the local site within WordPress Studio.
 2.  Click **Share** at the top right of the site preview. You can also choose **Share** from the site menu.
-3.  [Log in to WordPress.com](https://developer.wordpress.com/docs/developer-tools/studio#connect-wordpress-com) if you haven’t already.
+3.  [Log in to WordPress.com](https://wordpress.studio/docs/#connect-to-wordpresscom) if you haven’t already.
 4.  Under **Share a preview**, click **Create preview**. The button shows **Creating preview…** while WordPress Studio builds the preview.
 
 Your preview site should be ready to view in a few seconds, and it will be available to access publicly for seven days. You can close the panel while you wait. The **Share** button shows a spinner while a preview is being created or updated, and a dot when the preview is ready. WordPress Studio also shows a notification when the preview is ready, with a **Copy link** button.
@@ -35,7 +35,7 @@ WordPress Studio can’t create or update a preview when:
 -   The files WordPress Studio would upload are larger than 2 GB. Remove media files, plugins, or themes you don’t need, or [exclude them with .deployignore](#4-exclude-files-with-deployignore).
 -   Another operation is running on the site. Wait for it to finish before creating or updating a preview.
 
-[![The Share tab of the Share and publish panel in WordPress Studio, listing two previews with their names and expiry dates, each with a Preview actions menu, and the Create another preview button below.](https://developer.wordpress.com/wp-content/uploads/2025/01/share-previews.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/share-previews.webp)
+![The Share tab of the Share and publish panel in WordPress Studio, listing two previews with their names and expiry dates, each with a Preview actions menu, and the Create another preview button below.](../../../screenshots/images/share-previews.webp)
 
 ## [Rename a preview site](#1-rename-a-preview-site)
 
@@ -46,7 +46,7 @@ You can create multiple preview sites per WordPress Studio site. To differentiat
 3.  In the **Rename preview** dialog, enter a new name.
 4.  Click **Save**.
 
-[![The Preview actions menu open next to a preview in WordPress Studio's Share panel, with Update, Copy link, Visit preview, Rename, and Delete preview.](https://developer.wordpress.com/wp-content/uploads/2025/01/share-preview-actions.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/share-preview-actions.webp)
+![The Preview actions menu open next to a preview in WordPress Studio's Share panel, with Update, Copy link, Visit preview, Rename, and Delete preview.](../../../screenshots/images/share-preview-actions.webp)
 
 Your preview site will display that name in WordPress Studio, while your remote preview site name will remain unchanged.
 
@@ -107,7 +107,7 @@ Expired previews no longer appear in the **Share** panel. To see them, open **Se
 
 **Settings → Sharing** lists the live previews of all your sites under **Live previews**, and how many of your preview sites you’ve used. For each preview, you can click its address to open it, see when it expires, and **Copy link**, **Rename preview**, or **Delete preview**. If you don’t have any live previews, the page shows **Share a preview of your site** instead.
 
-[![The Sharing page of WordPress Studio's Settings, showing Sharing previews on WordPress.com and the Share a preview of your site prompt.](https://developer.wordpress.com/wp-content/uploads/2025/01/settings-sharing.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/settings-sharing.webp)
+![The Sharing page of WordPress Studio's Settings, showing Sharing previews on WordPress.com and the Share a preview of your site prompt.](../../../screenshots/images/settings-sharing.webp)
 
 ## [Delete all preview sites](#7-delete-all-preview-sites)
 

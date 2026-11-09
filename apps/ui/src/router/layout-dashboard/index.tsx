@@ -32,6 +32,7 @@ import {
 } from '@/features/annotations';
 import { SiteWorkspace, SessionHeader } from '@/features/chats';
 import { CommandPalette } from '@/features/commands';
+import { pendingComposerFilesSlot } from '@/features/composer';
 import {
 	useOrientationAutostart,
 	useOrientationReplay,
@@ -402,6 +403,18 @@ function DashboardLayout() {
 		[ hasProvider, navigate, sessionId, sessionSite?.id, setChatHidden ]
 	);
 
+	const attachScreenshot = ( siteId: string, file: File ) => {
+		const pending = pendingComposerFilesSlot.getSnapshot();
+		pendingComposerFilesSlot.set( {
+			siteId,
+			files: [ ...( pending?.siteId === siteId ? pending.files : [] ), file ],
+		} );
+		setChatHidden( false, siteId );
+		if ( ! sessionId || sessionSite?.id !== siteId ) {
+			void navigate( { to: '/sites/$siteId/new', params: { siteId } } );
+		}
+	};
+
 	const renderPanel = ( { collapsed }: PanelSplitFramePanelProps ) =>
 		previewSite ? (
 			<SitePreview
@@ -412,6 +425,7 @@ function DashboardLayout() {
 				reloadNonce={ preview.reloadNonce }
 				onSendAnnotations={ sendAnnotations }
 				onStartAnnotating={ startAnnotating }
+				onAttachScreenshot={ attachScreenshot }
 				onPathChange={ liveUrl ? updateLivePath : preview.updatePath }
 				collapsed={ collapsed || ! panelExpanded }
 			/>
@@ -459,7 +473,7 @@ function DashboardLayout() {
 					}
 					panelOpen={ showPanel }
 					chatHidden={ chatHidden }
-					instant={ ! previewStopping && preview.instant }
+					instant={ ( ! previewStopping || ! preview.open ) && preview.instant }
 					panel={ renderPanel }
 					header={
 						supportsPreview && routeSite ? (

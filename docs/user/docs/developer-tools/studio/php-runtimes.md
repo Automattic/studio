@@ -13,7 +13,7 @@ Sites that used the Sandbox runtime move to native PHP automatically the first t
 A few things to be aware of after the move:
 
 -   Sites that are already running when you update aren’t restarted. They switch to native PHP the next time they start.
--   If you use Xdebug, you no longer need the `/wordpress` path mapping. Native PHP uses the real paths on disk, so remove any Sandbox path mappings from your editor. See [Xdebug in WordPress Studio](https://developer.wordpress.com/docs/developer-tools/studio/xdebug/).
+-   If you use Xdebug, you no longer need the `/wordpress` path mapping. Native PHP uses the real paths on disk, so remove any Sandbox path mappings from your editor. See [Xdebug in WordPress Studio](https://wordpress.studio/docs/xdebug/).
 -   If you created a site with the experimental `pull-reprint` command while it was on the Sandbox runtime, you may need to pull it again.
 -   Native PHP installs a site’s language pack if it’s missing, and WP-CLI can run as the root user, for example inside a Docker container.
 -   On Windows, `wp-cli` steps in Blueprints don’t run yet on native PHP. This is a known issue.
@@ -33,7 +33,7 @@ Symlinked files and directories inside the site, such as a plugin or theme you�
 
 Typically, access to the site directory and related directories is enough for most sites. If you want PHP to have access to all files on your system, open the site’s settings (choose **Settings** from the site menu) and select the **PHP** page. Change the **File access** setting to **All files**, then click **Save** at the top of the dialog. You can also choose the file access when creating a site, under **Advanced settings**.
 
-To change the setting with the [WordPress Studio CLI](https://developer.wordpress.com/docs/developer-tools/studio/cli/), run the following from the site’s directory:
+To change the setting with the [WordPress Studio CLI](https://wordpress.studio/docs/cli/), run the following from the site’s directory:
 
 ```
 studio config set --file-access all-files

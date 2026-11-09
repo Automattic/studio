@@ -533,7 +533,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 ## [1.7.0](#28-1-7-0)
 
--   Expanded the [WordPress Studio CLI](https://developer.wordpress.com/docs/developer-tools/studio/cli/)
+-   Expanded the [WordPress Studio CLI](https://wordpress.studio/docs/cli/)
     -   Added site management commands
     -   Added authentication commands
     -   Added WP CLI support
@@ -586,7 +586,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 -   Enabled Blueprint outputs from the built-in WordPress Studio Assistant to open directly in WordPress Studio.
 -   Added a toggle in Settings for installing or uninstalling the WordPress Studio CLI.
 -   Added a warning when pushing a site that’s running an outdated WordPress version.
--   Add the ability to [launch WordPress Studio sites from a Blueprint](https://developer.wordpress.com/docs/developer-tools/studio/blueprints/open-in-wordpress-studio-button/) using deep links.
+-   Add the ability to [launch WordPress Studio sites from a Blueprint](https://wordpress.studio/docs/blueprints/open-in-wordpress-studio-button/) using deep links.
 -   Improved the push dialog to show the size of the selected sync.
 -   Improved the onboarding flow for WordPress.com authentication.
 -   Ensured the bundled SQLite plugin stays up to date when launching sites via the CLI.
@@ -664,10 +664,10 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 ## [1.6.0](#37-1-6-0)
 
--   Added support for [Blueprints](https://developer.wordpress.com/docs/developer-tools/studio/blueprints/), allowing you to define plugins, themes, and settings for new sites to create consistent environments faster. This work introduces a new “**Add site**” flow featuring a dedicated screen where you can choose between adding an empty site, selecting a Blueprint, or importing a backup.
+-   Added support for [Blueprints](https://wordpress.studio/docs/blueprints/), allowing you to define plugins, themes, and settings for new sites to create consistent environments faster. This work introduces a new “**Add site**” flow featuring a dedicated screen where you can choose between adding an empty site, selecting a Blueprint, or importing a backup.
     -   [Learn more in our blog post](https://wordpress.com/blog/2025/10/08/introducing-blueprints-in-wordpress-studio-1-6-0/)
-    -   [Learn how to create Blueprints](https://developer.wordpress.com/docs/guides/how-to-create-custom-blueprints/)
-    -   [Explore the docs](https://developer.wordpress.com/docs/developer-tools/studio/blueprints/)
+    -   [Learn how to create Blueprints](https://wordpress.studio/docs/blueprints/how-to-create-custom-blueprints/)
+    -   [Explore the docs](https://wordpress.studio/docs/blueprints/)
 -   Introduced Selective Syncing in the pull dialog, giving you more control over what content and code changes to sync.
 -   Migrated from wp-now to the [Playground CLI](https://wordpress.github.io/wordpress-playground/developers/local-development/wp-playground-cli/) for improved performance, reliability, and better parity with WordPress Playground.
 -   Added support for Sublime Text as an external code editor.
@@ -697,7 +697,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 -   Introducing Selective Sync. No more all-or-nothing deployments. Push or pull only what you need. Ideal for shipping themes or plugins safely.
     -   [Learn more in our blog post](https://wordpress.com/blog/2025/07/14/selective-push-pull-wordpress-studio/)
-    -   [Explore the docs](https://developer.wordpress.com/docs/developer-tools/studio/sync/)
+    -   [Explore the docs](https://wordpress.studio/docs/sync/)
 -   WordPress Studio by WordPress.com is now WordPress Studio, signaling a broader mission and cross-host compatibility.
 -   WordPress Studio now fully revokes your token on logout, helping protect your account across shared or multiple devices.
 
@@ -739,7 +739,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 -   Choose your preferred code editor (Visual Studio Code, Cursor, Windsurf, PhpStorm, or WebStorm) and terminal app (Terminal, Command Prompt, Warp, Ghostty, or iTerm2) for easy access to your WordPress Studio files.
     -   [Learn more in our blog post](https://wordpress.com/blog/2025/05/12/preferences-studio/)
-    -   [Explore the docs](https://developer.wordpress.com/docs/developer-tools/studio/sites/#8--open-in-menu)
+    -   [Explore the docs](https://wordpress.studio/docs/sites/#open-in-menu)
 -   We’ve updated the default PHP version to 8.3 and made multiple Windows-specific improvements to HTTPS and certificate handling.
 
 [View release notes](https://github.com/Automattic/studio/releases/tag/v1.5.1)
@@ -749,7 +749,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 ## [1.5.0](#44-1-5-0)
 
 -   WordPress Studio now includes a CLI for managing Preview Sites so you can create, list, and delete Preview Sites right from your terminal. Perfect for developers who want to script common tasks or streamline their local workflow.
-    -   [Explore the docs](https://developer.wordpress.com/docs/developer-tools/studio/cli/)
+    -   [Explore the docs](https://wordpress.studio/docs/cli/)
 
 [View release notes](https://github.com/Automattic/studio/releases/tag/v1.5.0)
 
@@ -768,7 +768,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 -   WordPress Studio now supports SSL for custom domains, allowing you to develop with SSL/HTTPS enabled and to create a more production-like environment locally.
     -   [Learn more in our blog post](https://wordpress.com/blog/2025/03/31/studio-custom-domains-https/)
-    -   [Explore the docs](https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/#2-enabling-https-for-a-site)
+    -   [Explore the docs](https://wordpress.studio/docs/ssl-in-studio/#enabling-https-for-a-site)
 -   Support was added for nightly WordPress versions.
 -   You can now import/export a site while another local site is syncing.
 
@@ -780,10 +780,10 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 -   Choose the PHP and WordPress version you need when creating a site to test compatibility, reproduce bugs locally, or build for specific client requirements.
     -   [Learn more in our blog post](https://wordpress.com/blog/2025/03/17/studio-wordpress-php-versions/)
-    -   [Explore the docs](https://developer.wordpress.com/docs/developer-tools/studio/sites/#Using-a-custom-domain-and-SSL)
+    -   [Explore the docs](https://wordpress.studio/docs/sites/#using-a-custom-domain-and-ssl)
 -   Added support for custom domains to test features that require proper domain names.
     -   [Learn more in our blog post](https://wordpress.com/blog/2025/03/31/studio-custom-domains-https/)
-    -   [Explore the docs](https://developer.wordpress.com/docs/developer-tools/studio/sites/#Using-a-custom-domain-and-SSL)
+    -   [Explore the docs](https://wordpress.studio/docs/sites/#using-a-custom-domain-and-ssl)
 
 [View release notes](https://github.com/Automattic/studio/releases/tag/v1.3.8)
 
@@ -818,9 +818,9 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 -   Demo Sites are now called Preview Sites. With 2 GB of space each, you can work with larger themes, more media assets, and richer content during your development process.
     -   [Learn more in our blog post](https://wordpress.com/blog/2025/02/24/studio-preview-sites/)
-    -   [Explore the docs](https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/)
+    -   [Explore the docs](https://wordpress.studio/docs/preview-sites/)
 -   Tunneling is now supported, allowing you to define `WP_SITEURL` and `WP_HOME` in `wp-config.php` for external access via tools like ngrok. That means you can test WordPress Studio sites on real devices or share them temporarily for client previews and responsive testing.
-    -   [Explore the docs](https://developer.wordpress.com/docs/developer-tools/studio/frequently-asked-questions/#11-how-can-i-use-a-tunneling-tool-ngrok-with-studio-)
+    -   [Explore the docs](https://wordpress.studio/docs/frequently-asked-questions/#how-can-i-use-a-tunneling-tool-ngrok-with-wordpress-studio)
 -   WordPress Studio docs are now [localized in Spanish](https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/).
 
 [View release notes](https://github.com/Automattic/studio/releases/tag/v1.3.4)
@@ -857,7 +857,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 -   Introducing WordPress Studio Sync, making it easy to push and pull changes between your local WordPress Studio environment and live or staging sites on WordPress.com (Business or Commerce plans). You can push local changes to production, pull down the latest version to work locally, or collaborate across teams by linking multiple WordPress Studio installs to the same hosted site.
     -   [Learn more in our blog post](https://wordpress.com/blog/2025/01/06/studio-sync/)
-    -   [Explore the docs](https://developer.wordpress.com/docs/developer-tools/studio/sync/)
+    -   [Explore the docs](https://wordpress.studio/docs/sync/)
 -   We bumped the default PHP version to 8.2 and improved RTL layout handling.
 
 [View release notes](https://github.com/Automattic/studio/releases/tag/v1.3.0)
@@ -887,7 +887,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 -   Meet WordPress Studio Assistant, your new built-in AI for getting the most out of WordPress Studio. With the WordPress Studio Assistant, you can quickly configure new sites, manage existing sites, and run complex WP-CLI commands, all through a simple and intuitive chat interface.
     -   [Learn more in our blog post](https://wordpress.com/blog/2024/10/29/studio-assistant/)
-    -   [Explore the docs](https://developer.wordpress.com/docs/developer-tools/studio/sync/)
+    -   [Explore the docs](https://wordpress.studio/docs/sync/)
 -   We also refreshed the interface with cleaner styling and improved window handling on macOS, making WordPress Studio feel more native, modern, and responsive.
 
 [View release notes](https://github.com/Automattic/studio/releases/tag/v1.2.0)
@@ -934,7 +934,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 ## [1.1.0](#63-1-1-0)
 
 -   You can now export and import full WordPress sites with a single click, making it easier to move projects between machines, collaborate with teammates, or work on a production or staging site on any WordPress host.
-    -   [Explore the docs](https://developer.wordpress.com/docs/developer-tools/studio/import-export/)
+    -   [Explore the docs](https://wordpress.studio/docs/import-export/)
 -   We also added support for Ukrainian and rolled out general UI improvements.
 
 [View release notes](https://github.com/Automattic/studio/releases/tag/v1.1.0)

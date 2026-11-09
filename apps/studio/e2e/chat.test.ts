@@ -121,20 +121,15 @@ test.describe( 'Chat', () => {
 		await expect(
 			session.mainWindow.getByRole( 'button', { name: 'Remove Auto-start' } )
 		).toBeVisible();
+		await new Sidebar( session.mainWindow ).expectRunning( siteName );
+		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );
 	} );
 
 	test( 'sends an annotation picked on the preview with its image', async () => {
 		const page = session.mainWindow;
 		const sidebar = new Sidebar( page );
 		await sidebar.openSite( siteName );
-		const status = sidebar.getStatusButton( siteName );
-		await expect( status ).toHaveAttribute( 'data-state', /^(running|stopped)$/, {
-			timeout: 120_000,
-		} );
-		if ( ( await status.getAttribute( 'data-state' ) ) === 'stopped' ) {
-			await sidebar.toggleSite( siteName );
-			await sidebar.expectRunning( siteName );
-		}
+		await sidebar.expectRunning( siteName );
 		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );
 		await recordSends();
 

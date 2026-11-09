@@ -130,7 +130,9 @@ export function getCommandGroups( {
 		{
 			label: __( 'Commands' ),
 			items: ( addOpen ? commands : matches.filter( ( command ) => ! isSkill( command ) ) )
-				.filter( ( command ) => searching || ! [ 'stop', 'panel' ].includes( command.name ) )
+				.filter(
+					( command ) => searching || ! [ 'stop', 'panel', 'model' ].includes( command.name )
+				)
 				.map( toCommand ),
 		},
 		{

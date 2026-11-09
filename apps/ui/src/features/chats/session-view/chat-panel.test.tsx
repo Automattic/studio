@@ -520,9 +520,8 @@ describe( 'Chat target selection', () => {
 			expect( screen.queryByRole( 'option', { name: /^Choose model/ } ) ).not.toBeInTheDocument();
 			return;
 		}
-		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Choose model/ } ) );
-		const connect = await screen.findByRole( 'option', { name: /^Connect provider…/ } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
+		const connect = await screen.findByRole( 'option', { name: /^Connect providers/ } );
 		for ( const name of [ 'Fast', 'Balanced', 'Strong' ] ) {
 			expect( !! screen.queryByRole( 'option', { name: new RegExp( `^${ name }` ) } ) ).toBe(
 				connections.signedIn

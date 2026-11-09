@@ -35,9 +35,11 @@ To start working locally on a WordPress.com or Pressable site you don’t have i
 1.  Click the **Add site** (**+**) button next to **Sites** at the top of the sidebar, and choose **Connect**.
 2.  [Log in to WordPress.com](https://developer.wordpress.com/docs/developer-tools/studio#connect-wordpress-com) if you haven’t already.
 3.  Select the site you want to work on. Use **Search sites** to filter the list, or **Refresh list** to load it again. Each site is labeled as a WordPress.com or Pressable site, and as production, staging, or development. Sites you can connect are listed under **Available to connect**. Sites that can’t be connected are listed under **Unavailable**, with the reason. Where it helps, a link takes you to WordPress.com to fix it: **View plans** for a site that needs a supported plan, or **Enable hosting features** for a site that needs hosting features turned on. **Supported sites** explains which sites you can connect.
-4.  Review the site name and local folder, and click **Create site**.
+4.  Review the site name and local folder, and click **Create site**. The local folder must be empty, because WordPress Studio pulls the live site into it. If the folder contains files, including an existing WordPress site, WordPress Studio shows an error and you can’t create the site until you choose an empty folder.
 
 WordPress Studio creates the local site, saves the connection, and opens the site. The live site is pulled into it in the background, and the **Publish** panel shows the pull’s progress.
+
+To add a WordPress site that’s already on your computer instead, see [Add a new site using an existing WordPress directory](https://developer.wordpress.com/docs/developer-tools/studio/sites/#2-add-a-new-site-using-an-existing-wordpress-directory).
 
 [![The Connect tab of the Add site dialog in WordPress Studio, signed in, with a Search sites field, Refresh list and Supported sites links, WordPress.com and Pressable sites listed under Available to connect, and a site listed under Unavailable.](https://developer.wordpress.com/wp-content/uploads/2025/01/add-site-connect-signed-in.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/add-site-connect-signed-in.webp)
 

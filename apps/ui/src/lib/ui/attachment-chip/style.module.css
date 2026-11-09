@@ -20,10 +20,40 @@
 		user-select: none;
 	}
 
-	.chip:has( > [data-slot='attachment-remove'] ) {
-		--attachment-remove-inset: var( --space-2 );
+	.chip > [data-slot='attachment-remove'] {
+		inset-block-start: calc( 50% - var( --space-2_5 ) );
+		inset-inline-end: var( --space-2 );
+	}
 
-		padding-inline-end: calc( var( --space-5 ) + var( --space-4 ) );
+	.chip:has( > [data-slot='attachment-remove'] )::before {
+		position: absolute;
+		z-index: 1;
+		inset-block: 0;
+		inset-inline-end: 0;
+		width: var( --space-12 );
+		border-radius: inherit;
+		background: linear-gradient( to right, transparent, var( --attachment-chip-background ) 50% );
+		content: '';
+		pointer-events: none;
+	}
+
+	.chip:dir( rtl )::before {
+		background: linear-gradient( to left, transparent, var( --attachment-chip-background ) 50% );
+	}
+
+	@media ( hover: hover ) and ( pointer: fine ) and ( not ( any-pointer: coarse ) ) {
+		.chip:has( > [data-slot='attachment-remove'] )::before {
+			opacity: 0;
+			transition: opacity var( --motion-duration-feedback ) ease-out;
+		}
+
+		.chip:has( > [data-slot='attachment-remove'] ):is( :hover, :focus-within )::before {
+			opacity: 1;
+		}
+
+		.chip:has( > [data-slot='attachment-remove'] ):focus-within::before {
+			transition: none;
+		}
 	}
 
 	.chip:has( > .trigger ) {
@@ -48,8 +78,13 @@
 		text-align: start;
 	}
 
-	.chip:has( > [data-slot='attachment-remove'] ) > .trigger {
-		padding-inline-end: calc( var( --space-5 ) + var( --space-4 ) );
+	.trigger[data-slot]:focus-visible {
+		box-shadow: none;
+	}
+
+	.chip:has( > .trigger:focus-visible ) {
+		outline: 2px solid var( --ring );
+		outline-offset: 2px;
 	}
 
 	.chip[data-font='mono'] {

@@ -337,6 +337,47 @@ describe( 'sidebar cards', () => {
 		expect( screen.getByRole( 'button', { name: 'Download update' } ) ).toBeVisible();
 	} );
 
+	it.each( [ 'downloading', 'ready' ] as const )(
+		'shows the dismissed %s notice when the user explicitly checks again',
+		async ( state ) => {
+			const connector = createFakeConnector();
+			const downloading = {
+				state: 'downloading' as const,
+				currentVersion: '2.0.0',
+				newVersion: '2.1.0',
+			};
+			connector.getAppUpdateStatus.mockResolvedValue( downloading );
+			renderWithProviders(
+				<>
+					<AppToasts />
+					<AppUpdateButton />
+				</>,
+				{ connector }
+			);
+			await screen.findByText( 'Downloading update' );
+			if ( state === 'ready' ) {
+				act( () => connector.emit( 'onAppUpdateStatusChanged', { ...downloading, state } ) );
+			}
+			const title = state === 'ready' ? 'Update ready' : 'Downloading update';
+			for ( let attempt = 0; attempt < 2; attempt++ ) {
+				fireEvent.click( await screen.findByRole( 'button', { name: `Dismiss ${ title }` } ) );
+				await waitFor( () => expect( screen.queryByText( title ) ).not.toBeInTheDocument() );
+
+				act( () =>
+					connector.emit( 'onAppUpdateStatusChanged', {
+						...downloading,
+						state,
+						requested: true,
+					} )
+				);
+
+				expect( await screen.findByText( title ) ).toBeVisible();
+			}
+			expect( connector.checkForAppUpdates ).not.toHaveBeenCalled();
+			expect( connector.installAppUpdate ).not.toHaveBeenCalled();
+		}
+	);
+
 	it( 'updates the processing notice when the target version becomes known', async () => {
 		const connector = createFakeConnector(
 			{},

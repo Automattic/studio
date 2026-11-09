@@ -144,6 +144,7 @@ export function ColorPicker( {
 			<Popover.Popup
 				anchor={ anchorRef }
 				align="end"
+				instant
 				initialFocus={ false }
 				finalFocus={ () => ( restoreFocus.current ? inputRef.current : false ) }
 				aria-label={ __( 'Color picker' ) }

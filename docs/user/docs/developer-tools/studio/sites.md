@@ -9,7 +9,7 @@ WordPress Studio allows you to create, maintain, and work on **unlimited local W
 To add a new site to WordPress Studio:
 
 1.  Click the **Add site** (**+**) button next to **Sites** at the top of the sidebar, or press ⌘N (Ctrl+N on Windows and Linux), to open the **Add site** dialog.
-2.  The dialog lists the ways to add a site on the left: **Create**, **Connect** (see [WordPress Studio Sync](https://developer.wordpress.com/docs/developer-tools/studio/sync/)), **Upload** (see [Blueprints](https://developer.wordpress.com/docs/developer-tools/studio/blueprints/)), and **Import** (see [Import & export](https://developer.wordpress.com/docs/developer-tools/studio/import-export/)), followed by Blueprint categories under **By use case**.
+2.  The dialog lists the ways to add a site on the left: **Create**, **Connect** (see [WordPress Studio Sync](https://wordpress.studio/docs/sync/)), **Upload** (see [Blueprints](https://wordpress.studio/docs/blueprints/)), and **Import** (see [Import & export](https://wordpress.studio/docs/import-export/)), followed by Blueprint categories under **By use case**.
 
 [![The Add site dialog in WordPress Studio, open on Create, showing Create a new WordPress with a Blank site card and Blueprint cards such as Wedding RSVP, Stylish Press, and University Website, and categories under By use case on the left.](https://developer.wordpress.com/wp-content/uploads/2025/10/add-site.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/10/add-site.webp)
 
@@ -19,7 +19,7 @@ To add a new site to WordPress Studio:
     -   **WordPress version**: keep **Auto-update** to let WordPress update itself, or pick a specific version
     -   **PHP version**
 5.  (Optional) Expand **Advanced settings** to change the following settings:
-    -   **File access**: see [PHP runtimes](https://developer.wordpress.com/docs/developer-tools/studio/php-runtimes/)
+    -   **File access**: see [PHP runtimes](https://wordpress.studio/docs/php-runtimes/)
     -   **Use custom domain**: see [Using a custom domain and SSL](#Using-a-custom-domain-and-SSL)
     -   **Admin username**, **Admin password**, and **Admin email**
 6.  Click **Create site**.
@@ -38,7 +38,7 @@ By default, new WordPress Studio sites use `localhost`. If you prefer to use a c
 
 After clicking **Create site**, you will be prompted to enter your system password. Once confirmed, the custom domain will then point to your WordPress Studio site.
 
-You can optionally enable HTTPS (SSL) for your custom domain. Refer to the [“SSL in WordPress Studio” doc page](https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/) to learn more about this functionality.
+You can optionally enable HTTPS (SSL) for your custom domain. Refer to the [“SSL in WordPress Studio” doc page](https://wordpress.studio/docs/ssl-in-studio/) to learn more about this functionality.
 
 ### [Add a new site using an existing WordPress directory](#2-add-a-new-site-using-an-existing-wordpress-directory)
 
@@ -49,7 +49,7 @@ You can also add a site to WordPress Studio using an existing WordPress director
 3.  Name your site, and choose the directory with the existing WordPress site as the **Local path**. WordPress Studio shows “The existing WordPress site at this path will be added.”
 4.  Click **Create site**.
 
-If you’d prefer to use an existing `wp-config.php` file, [you can follow these instructions](https://developer.wordpress.com/docs/developer-tools/studio/frequently-asked-questions/#use-studio-with-mysql-server).
+If you’d prefer to use an existing `wp-config.php` file, [you can follow these instructions](https://wordpress.studio/docs/frequently-asked-questions/#how-can-i-use-wordpress-studio-with-the-mysql-server-of-my-choice).
 
 ## [Starting and stopping sites](#start-stop)
 
@@ -118,17 +118,17 @@ Each site has a menu with quick access to everything you can do with it. To open
 
 The site menu includes:
 
--   **New chat**: starts a new [WordPress Studio Code](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/) chat for the site
+-   **New chat**: starts a new [WordPress Studio Code](https://wordpress.studio/docs/studio-code/) chat for the site
 -   **Settings**: opens the site’s [settings](#site-settings)
 -   **Start site**, or **Stop** (**Stop site**, **Stop other sites**, or **Stop all sites**) and **Restart site**
 -   **Tools**: shows **WordPress Admin**, the **Database**, or the site’s **Design system** (when it has one) in the site preview. **Email** opens the folder of emails the site has sent (see [Site email](#site-email)).
 -   **Open in**: opens the site in other apps (see below)
 -   **Pin** or **Unpin**: keeps the site in the **Pinned** section at the top of the sidebar
 -   **Rename**
--   **Import** and **Export** (**Export site** or **Export database**): see [Import & export](https://developer.wordpress.com/docs/developer-tools/studio/import-export/)
+-   **Import** and **Export** (**Export site** or **Export database**): see [Import & export](https://wordpress.studio/docs/import-export/)
 -   **Duplicate**
--   **Share**: see [Preview sites](https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/)
--   **Publish**: see [WordPress Studio Sync](https://developer.wordpress.com/docs/developer-tools/studio/sync/)
+-   **Share**: see [Preview sites](https://wordpress.studio/docs/preview-sites/)
+-   **Publish**: see [WordPress Studio Sync](https://wordpress.studio/docs/sync/)
 -   **Delete site**
 
 Site actions are also available in the command palette: press ⌘K (Ctrl+K on Windows and Linux) and start typing.
@@ -192,11 +192,11 @@ A site’s settings are grouped into these pages:
 -   **Local domain**: **Use custom domain**, **Domain**, and **Enable HTTPS**. See [Using a custom domain and SSL](#Using-a-custom-domain-and-SSL).
 -   **WordPress credentials**: The **Username**, **Password**, and **Email** for the admin account, each with a copy button. You can use them to log into WP Admin on your local site and on your preview sites.
 
-**Debug:** **Environment**, **Xdebug**, **Debug log**, **Script debugging**, and **Show errors in browser**. See [Debugging in WordPress Studio](https://developer.wordpress.com/docs/developer-tools/studio/debugging/).
+**Debug:** **Environment**, **Xdebug**, **Debug log**, **Script debugging**, and **Show errors in browser**. See [Debugging in WordPress Studio](https://wordpress.studio/docs/debugging/).
 
-**PHP:** **PHP version** and **File access**. See [PHP runtimes](https://developer.wordpress.com/docs/developer-tools/studio/php-runtimes/).
+**PHP:** **PHP version** and **File access**. See [PHP runtimes](https://wordpress.studio/docs/php-runtimes/).
 
-**Skills** and **Instructions:** the agent skills and instruction files installed on this site. See [Agent Skills in WordPress Studio](https://developer.wordpress.com/docs/developer-tools/studio/agent-skills-wordpress-studio/).
+**Skills** and **Instructions:** the agent skills and instruction files installed on this site. See [Agent Skills in WordPress Studio](https://wordpress.studio/docs/agent-skills-wordpress-studio/).
 
 ### [Edit a site](#10-edit-a-site)
 

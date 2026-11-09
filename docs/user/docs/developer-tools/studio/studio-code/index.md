@@ -1,6 +1,6 @@
 # WordPress Studio Code
 
-WordPress Studio Code is an agentic coding tool built into the WordPress Studio desktop app and [WordPress Studio CLI](https://developer.wordpress.com/docs/developer-tools/studio/cli/).
+WordPress Studio Code is an agentic coding tool built into the WordPress Studio desktop app and [WordPress Studio CLI](https://wordpress.studio/docs/cli/).
 
 It gives you an interactive chat where you can build, customize, and manage WordPress sites conversationally, creating themes and plugins, editing files, running WP-CLI commands, deploying previews and publishing your site.
 
@@ -20,7 +20,7 @@ Open your WordPress Studio desktop app and select a site in the sidebar (or add 
 
 ### [WordPress Studio Code in WordPress Studio CLI](#2-studio-code-in-studio-cli)
 
-If you have the WordPress Studio desktop app installed with the [CLI enabled](https://developer.wordpress.com/docs/developer-tools/studio/cli/#0-installation), you can directly use `studio code` from the terminal.
+If you have the WordPress Studio desktop app installed with the [CLI enabled](https://wordpress.studio/docs/cli/#installation), you can directly use `studio code` from the terminal.
 
 Otherwise, you can run it directly with `npx`:
 
@@ -35,7 +35,7 @@ Press the ↓ arrow to work in your local WordPress Studio sites, or ↓ and →
 
 ## [Connect to WordPress.com](#3-connect-to-wordpress-com)
 
-By default, WordPress Studio Code uses WordPress.com infrastructure to generate AI responses. Log in to WordPress.com to get started — [in the desktop app](https://developer.wordpress.com/docs/developer-tools/studio/#connect-wordpress-com) or in your terminal by following the instructions below:
+By default, WordPress Studio Code uses WordPress.com infrastructure to generate AI responses. Log in to WordPress.com to get started — [in the desktop app](https://wordpress.studio/docs/#connect-to-wordpresscom) or in your terminal by following the instructions below:
 
 1.  Run `studio code` in your terminal.
 2.  Type /login in the chat.
@@ -88,7 +88,7 @@ To review the design system, click the site preview’s address bar and choose *
 
 [![The Design system view in the site preview of the Moire journal: its name and tagline, Poppins type styles, and a dark brown, golden yellow, and pale yellow color palette, with a note that theme.json matches DESIGN.md.](https://developer.wordpress.com/wp-content/uploads/2026/04/design-system.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/design-system.webp)
 
-WordPress Studio Code can also generate images for your site. See [Image generation in WordPress Studio Code](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/image-generation/).
+WordPress Studio Code can also generate images for your site. See [Image generation in WordPress Studio Code](https://wordpress.studio/docs/studio-code/image-generation/).
 
 To give WordPress Studio Code instructions that apply to every new chat, across all your sites, add them under **Custom instructions** in **Settings → Instructions** in the desktop app. For example: “Always answer in French. My sites are for restaurants.” The instruction files installed in a particular site, such as `AGENTS.md`, are listed on the **Instructions** page of that site’s settings.
 
@@ -124,7 +124,7 @@ If you haven’t connected an AI provider, clicking **Annotate** opens **Put you
 
 One WordPress Studio Code agent handles both your local sites and your WordPress.com sites, so a single chat can, for example, copy a live post into a local site. When the active site is a WordPress.com site, the agent works on the live site and only makes a local copy if you ask.
 
-In the desktop app, when a chat for a local site that’s [connected to a WordPress.com site](https://developer.wordpress.com/docs/developer-tools/studio/sync/) works on the live site, a **Live** chip appears in the chat box. To switch back, click **+** and choose **Work on local site**, or remove the chip. The agent never pulls a live site over a local one without your confirmation. See [WordPress Studio Sync](https://developer.wordpress.com/docs/developer-tools/studio/sync/) for how pulling and publishing work.
+In the desktop app, when a chat for a local site that’s [connected to a WordPress.com site](https://wordpress.studio/docs/sync/) works on the live site, a **Live** chip appears in the chat box. To switch back, click **+** and choose **Work on local site**, or remove the chip. The agent never pulls a live site over a local one without your confirmation. See [WordPress Studio Sync](https://wordpress.studio/docs/sync/) for how pulling and publishing work.
 
 When the agent edits a block theme’s template or template part that you’ve customized in the Site Editor, it makes the change in your customized copy too, keeps your other edits, and tells you.
 
@@ -168,7 +168,7 @@ WordPress Studio Code doesn’t ask you to pick a model by name. Instead, you ch
 
 New chats start on Fast. Once your account has purchased AI Credits, new chats start on Balanced instead.
 
-Balanced and Strong require purchased AI Credits. Until your account has bought some, the desktop model menu shows them as **Purchased credits required**, and the terminal’s `/model` command hides them. For how tiers differ and how they use credits, see [Choosing an AI model tier in WordPress Studio Code.](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/choosing-an-ai-model-tier-in-studio-code/)
+Balanced and Strong require purchased AI Credits. Until your account has bought some, the desktop model menu shows them as **Purchased credits required**, and the terminal’s `/model` command hides them. For how tiers differ and how they use credits, see [Choosing an AI model tier in WordPress Studio Code.](https://wordpress.studio/docs/studio-code/choosing-an-ai-model-tier-in-studio-code/)
 
 Switch tiers at any time, including mid-conversation:
 
@@ -262,7 +262,7 @@ studio code --help
 
 ### [AI Credits](#18-ai-credits)
 
-When you use the default WordPress.com provider, WordPress Studio Code’s AI usage is paid for with AI Credits. Every account starts with a one-time free allowance, which can be used with the Fast tier. To keep going once it runs out, or to use Balanced and Strong, buy AI Credits from inside WordPress Studio Code. See [How AI Credits Work](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/ai-credits-guidelines/) for details on purchases and account rules.
+When you use the default WordPress.com provider, WordPress Studio Code’s AI usage is paid for with AI Credits. Every account starts with a one-time free allowance, which can be used with the Fast tier. To keep going once it runs out, or to use Balanced and Strong, buy AI Credits from inside WordPress Studio Code. See [How AI Credits Work](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/) for details on purchases and account rules.
 
 ### [Check your usage](#19-check-your-usage)
 

@@ -22,7 +22,7 @@ The models behind each tier are updated as newer models become available. For ex
 
 Every message in WordPress Studio Code spends AI credits, whichever tier you choose. Balanced and Strong use credits at a higher rate than Fast.
 
-Every account starts with a one-time allowance of free [AI credits](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/ai-credits-guidelines/). The free allowance can only be spent on the Fast tier. When they run out, you’ll need to purchase AI credits to keep using WordPress Studio Code, including Fast.
+Every account starts with a one-time allowance of free [AI credits](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/). The free allowance can only be spent on the Fast tier. When they run out, you’ll need to purchase AI credits to keep using WordPress Studio Code, including Fast.
 
 ## [Balanced and Strong require purchased credits](#2-balanced-and-strong-require-purchased-credits)
 
@@ -44,7 +44,7 @@ WordPress Studio Code doesn’t show you exactly how many credits any given repl
 
 WordPress Studio Code shows a running AI credits meter as you work, combining whatever’s left of your free allowance with anything you’ve purchased. When you’re getting close to empty, WordPress Studio Code will tell you before you run out entirely.
 
-When your purchased balance runs out, Balanced and Strong stay unlocked in the model picker, but because the free allowance only funds Fast, you need to add more AI credits to keep using them. Fast keeps working as long as the free allowance remains. When both are empty, WordPress Studio Code stops until you add more AI credits. Add credits from inside WordPress Studio Code, or see [How AI Credits Work](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/ai-credits-guidelines/) for how purchases, refunds, and account rules work.
+When your purchased balance runs out, Balanced and Strong stay unlocked in the model picker, but because the free allowance only funds Fast, you need to add more AI credits to keep using them. Fast keeps working as long as the free allowance remains. When both are empty, WordPress Studio Code stops until you add more AI credits. Add credits from inside WordPress Studio Code, or see [How AI Credits Work](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/) for how purchases, refunds, and account rules work.
 
 ## [FAQ](#5-faq)
 

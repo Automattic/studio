@@ -459,7 +459,7 @@ function DashboardLayout() {
 					}
 					panelOpen={ showPanel }
 					chatHidden={ chatHidden }
-					instant={ ! previewStopping && preview.instant }
+					instant={ ( ! previewStopping || ! preview.open ) && preview.instant }
 					panel={ renderPanel }
 					header={
 						supportsPreview && routeSite ? (

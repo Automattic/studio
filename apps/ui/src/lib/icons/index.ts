@@ -11,6 +11,7 @@ export * from './claude-icon';
 export * from './code-icon';
 export * from './collapse-all-icon';
 export * from './database-icon';
+export * from './design-system-icon';
 export * from './duplicate-icon';
 export * from './export-icon';
 export * from './export-site-icon';

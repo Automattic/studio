@@ -37,6 +37,7 @@ import {
 } from 'cli/ai/runtimes/mcp/design-picker';
 import { type AppPage, createLibraryTools, libraryPage } from 'cli/ai/runtimes/mcp/library';
 import { runServedTool } from 'cli/ai/runtimes/mcp/served-tool';
+import { createMcpUpdateNotice } from 'cli/ai/runtimes/mcp/update-notice';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 
 interface ClientSupport {
@@ -154,12 +155,17 @@ export async function startMcpStdioServer(): Promise< void > {
 	const sessionId = randomUUID();
 	const resultNotes = createResultNotes();
 	const imageGeneration = await isImageGenerationAvailable();
+	const updateNotice = createMcpUpdateNotice( __STUDIO_CLI_VERSION__ );
 	const server = new Server(
-		{ name: 'studio', version: '1.0.0' },
+		{ name: 'studio', version: __STUDIO_CLI_VERSION__ },
 		{
 			capabilities: { tools: {}, resources: {} },
-			instructions:
+			instructions: [
 				'WordPress Studio builds and manages local WordPress sites. Before any WordPress site task, call studio_instructions and follow what it returns.',
+				await updateNotice.instructions(),
+			]
+				.filter( Boolean )
+				.join( '\n\n' ),
 		}
 	);
 	// The tools depend on what the client supports, known once it has connected.
@@ -210,7 +216,11 @@ export async function startMcpStdioServer(): Promise< void > {
 				isError: true,
 			};
 		}
-		return runServedTool( host, tool, args, resultNotes );
+		const result = await runServedTool( host, tool, args, resultNotes );
+		const notice = await updateNotice.forToolResult();
+		return notice
+			? { ...result, content: [ ...result.content, { type: 'text' as const, text: notice } ] }
+			: result;
 	} );
 
 	// Only clients that render MCP Apps get the pages listed.

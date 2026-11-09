@@ -8,7 +8,7 @@ import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
 
 export interface IpcEvents {
-	'add-site': [ void ];
+	'add-site': [ { backup?: { path: string; name: string } } | void ];
 	'new-chat': [ void ];
 	'open-folder': [ void ];
 	'open-site': [ { siteId: string } ];

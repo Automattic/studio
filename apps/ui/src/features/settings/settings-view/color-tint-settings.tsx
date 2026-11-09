@@ -43,7 +43,7 @@ export function ColorTintSettings( {
 		<>
 			<SettingsRow
 				title={ __( 'Accent' ) }
-				description={ __( 'Studio adapts your chosen color to work with your theme.' ) }
+				description={ __( 'Color may be adapted for your theme.' ) }
 			>
 				<div role="group" aria-label={ __( 'Accent' ) } className={ styles.colorControl }>
 					<ColorPicker

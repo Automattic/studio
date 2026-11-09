@@ -50,12 +50,13 @@ interface AnnotationOverlayProps {
 	anchor: AnnotationAnchor | null;
 	// Sends the notes (all of them with the chat draft, or just `noteIds`).
 	onSend: ( noteIds?: string[] ) => void;
+	onEscape?: () => boolean;
 }
 
 const EDGE = 8;
 const CORNER_OFFSET = 8;
 /** The note editor drawn over an annotated preview. */
-export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlayProps ) {
+export function AnnotationOverlay( { siteId, anchor, onSend, onEscape }: AnnotationOverlayProps ) {
 	const annotations = useSiteAnnotations( siteId );
 	const { active, notes, editingId, blockedNavigation } = annotations;
 	const busy = isAnnotationsBusy( annotations );
@@ -72,11 +73,11 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 				return;
 			}
 			event.preventDefault();
-			escapeAnnotations( siteId );
+			if ( ! onEscape?.() ) escapeAnnotations( siteId );
 		};
 		document.addEventListener( 'keydown', onKeyDown );
 		return () => document.removeEventListener( 'keydown', onKeyDown );
-	}, [ active, siteId ] );
+	}, [ active, siteId, onEscape ] );
 
 	return (
 		<div className={ styles.overlay } data-annotation-overlay>
@@ -129,6 +130,8 @@ function NoteEditor( {
 		error: attachmentError,
 		setError: setAttachmentError,
 	} = useComposerAttachments( note.images );
+	// Drawing annotations keep their captured page image first.
+	const visibleAttachments = note.kind === 'drawing' ? attachments.slice( 1 ) : attachments;
 	const addImages = useCallback(
 		( files: FileList | File[] ) => {
 			const list = Array.from( files );
@@ -215,9 +218,9 @@ function NoteEditor( {
 				</VisuallyHidden>
 			) }
 			{ isDragging ? <DropOverlay>{ __( 'Drop to attach' ) }</DropOverlay> : null }
-			{ attachments.length ? (
+			{ visibleAttachments.length ? (
 				<ul className={ styles.images } aria-label={ __( 'Attachments' ) }>
-					{ attachments.map( ( attachment ) => (
+					{ visibleAttachments.map( ( attachment ) => (
 						<li key={ attachment.id } className={ styles.image }>
 							<img
 								src={ getComposerAttachmentImageSrc( attachment ) ?? undefined }
@@ -262,6 +265,7 @@ function NoteEditor( {
 				<IconButton
 					size="icon"
 					shape="round"
+					destructive
 					icon={ <TrashIcon /> }
 					label={ __( 'Delete annotation' ) }
 					disabled={ busy }

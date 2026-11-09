@@ -689,6 +689,7 @@ it( 'closes the panel immediately while the final tab’s site is still stopping
 	fireEvent.click( screen.getByRole( 'button', { name: 'Close First' } ) );
 	await screen.findByRole( 'button', { name: 'Show panel' } );
 	await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
+	expect( document.querySelector( '[data-layout-moving]' ) ).not.toBeInTheDocument();
 	expect( document.querySelector( 'iframe' ) ).not.toBeInTheDocument();
 	await act( async () => {
 		finish();

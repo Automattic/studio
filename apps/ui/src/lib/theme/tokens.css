@@ -202,6 +202,40 @@
 		0.9858 72.5%,
 		1 100%
 	);
+	/* Sampled from a spring with stiffness 320, damping 26 and mass 1. */
+	--motion-ease-spring-gentle: linear(
+		0 0%,
+		0.0316 2.5%,
+		0.1103 5%,
+		0.2164 7.5%,
+		0.3346 10%,
+		0.4541 12.5%,
+		0.5674 15%,
+		0.6697 17.5%,
+		0.7585 20%,
+		0.833 22.5%,
+		0.8933 25%,
+		0.9405 27.5%,
+		0.9759 30%,
+		1.0014 32.5%,
+		1.0185 35%,
+		1.029 37.5%,
+		1.0344 40%,
+		1.036 42.5%,
+		1.035 45%,
+		1.0322 47.5%,
+		1.0284 50%,
+		1.0199 55%,
+		1.0121 60%,
+		1.0061 65%,
+		1.0022 70%,
+		1 75%,
+		0.999 80%,
+		0.9987 85%,
+		0.9988 90%,
+		0.9991 95%,
+		1 100%
+	);
 
 	/* Layers inside the workspace: a sticky row over its scroller, overlays and
 	   handles over a pane, the band's separator over the panels, and the sidebar

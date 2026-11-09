@@ -142,7 +142,6 @@ export function useAppMenuNavigation() {
 								description: __( 'Pulling the preview replaces the changes made here.' ),
 								action: {
 									label: __( 'Pull preview' ),
-									once: true,
 									onClick: () => pullSite( { siteId: previewSite.id, remoteSiteId } ),
 								},
 							} );
@@ -150,7 +149,6 @@ export function useAppMenuNavigation() {
 							toast.info( __( "This site has changes its preview doesn't" ), {
 								action: {
 									label: __( 'Update preview' ),
-									once: true,
 									onClick: () =>
 										publishPreview( {
 											siteId: previewSite.id,

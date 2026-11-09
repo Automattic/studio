@@ -1,8 +1,7 @@
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { toast, getVisibleToasts, showToast, resetAppMessagesForTests } from '@/data/app-messages';
-import { closeNoticeHistory, NoticeHistoryButton } from '@/features/notifications/notice-history';
 import { renderWithProviders } from '@/test/render';
 import { AppToasts } from './index';
 import type { ReactNode } from 'react';
@@ -14,10 +13,21 @@ async function render( ui: ReactNode ) {
 
 describe( 'AppToasts', () => {
 	afterEach( () => {
-		closeNoticeHistory();
 		resetAppMessagesForTests();
 		vi.useRealTimers();
 		vi.restoreAllMocks();
+	} );
+
+	it( 'allows native touch scrolling when persistent notices overflow', async () => {
+		await render( <AppToasts /> );
+		act( () => {
+			for ( let index = 1; index <= 4; index++ ) toast.error( `Failure ${ index }` );
+		} );
+		const notice = await screen.findByRole( 'dialog', { name: 'Failure 4' } );
+		fireEvent.pointerDown( notice, { button: 0, pointerId: 1, pointerType: 'touch' } );
+		const scroll = new Event( 'touchmove', { bubbles: true, cancelable: true } );
+		fireEvent( notice, scroll );
+		expect( scroll.defaultPrevented ).toBe( false );
 	} );
 
 	it( 'keeps progress until dismissed and announces its result afterwards', async () => {
@@ -37,29 +47,6 @@ describe( 'AppToasts', () => {
 			toast.success( 'Preview ready', { id: 'progress' } );
 		} );
 		expect( screen.getByRole( 'button', { name: 'Dismiss Preview ready' } ) ).toBeVisible();
-	} );
-
-	it( 'clears processing from history without hiding its eventual result', async () => {
-		await render(
-			<>
-				<AppToasts />
-				<NoticeHistoryButton />
-			</>
-		);
-		act( () => {
-			toast.processing( 'Creating preview…', { id: 'progress' } );
-		} );
-		fireEvent.click(
-			screen.getByRole( 'button', { name: 'Notification history, notifications available' } )
-		);
-		expect( await screen.findByText( 'Creating preview…' ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Dismiss Creating preview…' } ) ).toBeVisible();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Clear all' } ) );
-		await waitFor( () => expect( getVisibleToasts() ).toHaveLength( 0 ) );
-		act( () => {
-			toast.success( 'Preview ready', { id: 'progress' } );
-		} );
-		expect( await screen.findByText( 'Preview ready' ) ).toBeVisible();
 	} );
 
 	it( 'replaces a toast in place, even when the replacement drops the description', async () => {
@@ -98,25 +85,6 @@ describe( 'AppToasts', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'View notification: Failed' } ) );
 
 		expect( screen.getByRole( 'button', { name: 'Copy' } ) ).toBeVisible();
-	} );
-
-	it( 'hides the toasts while the history lists them', async () => {
-		await render(
-			<>
-				<AppToasts />
-				<NoticeHistoryButton />
-			</>
-		);
-		act( () => {
-			showToast( { title: 'Site started' } );
-		} );
-
-		fireEvent.click(
-			screen.getByRole( 'button', { name: 'Notification history, notifications available' } )
-		);
-
-		expect( screen.getAllByText( 'Site started' ) ).toHaveLength( 1 );
-		expect( screen.getByRole( 'dialog' ) ).toHaveTextContent( 'Site started' );
 	} );
 
 	it( 'runs a toast’s action once, pending until it settles, then closes the toast', async () => {

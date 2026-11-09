@@ -7,7 +7,6 @@ import {
 	PlusIcon,
 	AppearanceIcon,
 	ArchiveIcon,
-	BellIcon,
 	ChatIcon,
 	CollapseAllIcon,
 	GlobeIcon,
@@ -105,7 +104,6 @@ export function getAppCommands( {
 	openChat,
 	savePreferences,
 	toggleSidebar,
-	openNotifications,
 	openWhatsNew,
 	openFeedback,
 	collapseAll,
@@ -121,7 +119,6 @@ export function getAppCommands( {
 	openChat: ( session: AiSessionSummary ) => void;
 	savePreferences: ( preferences: Partial< WritableUserPreferences > ) => void;
 	toggleSidebar: () => void;
-	openNotifications: () => void;
 	openWhatsNew: () => void;
 	openFeedback: () => void;
 	// Set while the sidebar has more than one site unfolded.
@@ -182,14 +179,6 @@ export function getAppCommands( {
 			icon: SidebarIcon,
 			keywords: [ __( 'Toggle sidebar' ) ],
 			run: toggleSidebar,
-		},
-		{
-			id: 'notifications',
-			group: 'commands',
-			label: __( 'Show notifications' ),
-			icon: BellIcon,
-			aliases: [ __( 'Notifications' ) ],
-			run: openNotifications,
 		},
 		{
 			id: 'whats-new',

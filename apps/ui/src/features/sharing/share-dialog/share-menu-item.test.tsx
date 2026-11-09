@@ -1,5 +1,6 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
+import { getVisibleToasts } from '@/data/app-messages';
 import { subscribeHeaderPanelRequest } from '@/data/use-open-header-panel';
 import { SessionUIProvider } from '@/data/use-session-ui';
 import { Menu } from '@/lib/ui';
@@ -7,9 +8,11 @@ import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector'
 import { renderWithProviders } from '@/test/render';
 import { SiteShareMenuItem } from './share-menu-item';
 
-it( 'copies an active preview and keeps the sharing dialog accessible', async () => {
+it( 'recovers from a failed preview copy and keeps the sharing dialog accessible', async () => {
 	const site = makeSite( { id: 'share-menu' } );
-	const copyText = vi.fn( async () => {} );
+	const copyText = vi
+		.fn( async () => {} )
+		.mockRejectedValueOnce( new Error( 'Clipboard unavailable' ) );
 	const openExternalUrl = vi.fn( async () => {} );
 	const publishPreviewSite = vi.fn( async () => ( { url: 'https://new.example.com' } ) );
 	const preview = {
@@ -67,6 +70,22 @@ it( 'copies an active preview and keeps the sharing dialog accessible', async ()
 		expect( screen.queryByRole( 'menuitem', { name: 'Other site' } ) ).not.toBeInTheDocument();
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Design review' } ) );
 		await waitFor( () => expect( copyText ).toHaveBeenCalledWith( preview.shareUrl ) );
+		await waitFor( () =>
+			expect( getVisibleToasts().some( ( notice ) => notice.title === 'Could not copy' ) ).toBe(
+				true
+			)
+		);
+		await open();
+		fireEvent.keyDown( await screen.findByRole( 'menuitem', { name: 'Copy links' } ), {
+			key: 'ArrowRight',
+		} );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Design review' } ) );
+		await waitFor( () =>
+			expect( getVisibleToasts().some( ( notice ) => notice.title === 'Link copied' ) ).toBe( true )
+		);
+		expect(
+			getVisibleToasts().some( ( notice ) => notice.title === 'Could not copy' && ! notice.leaving )
+		).toBe( false );
 		await open();
 		fireEvent.keyDown( await screen.findByRole( 'menuitem', { name: 'Visit previews' } ), {
 			key: 'ArrowRight',

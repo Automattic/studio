@@ -189,7 +189,7 @@ export function DesignSystemView( {
 		>
 			{ fontsUrl ? <link rel="stylesheet" href={ fontsUrl } precedence="default" /> : null }
 			<header className={ styles.header }>
-				<p className={ styles.eyebrow }>{ __( 'Design system' ) }</p>
+				<p className={ styles.eyebrow }>{ __( 'Design System' ) }</p>
 				{ tokens.name ? (
 					<h1
 						className={ styles.title }

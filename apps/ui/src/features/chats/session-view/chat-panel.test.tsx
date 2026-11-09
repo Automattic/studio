@@ -128,13 +128,14 @@ describe( 'Composer site controls', () => {
 	beforeEach( () => clearComposerDrafts() );
 
 	it.each( [ 'menu', 'slash' ] )(
-		'starts and stops the local site through %s without sending or losing the draft',
+		'starts through %s and stops through slash without sending or losing the draft',
 		async ( source ) => {
 			const { connector, input, queryClient } = await setupChat( {
 				signedIn: false,
 				hasAnthropicApiKey: false,
 			} );
 			for ( const action of [ 'start', 'stop' ] as const ) {
+				const useSlash = source === 'slash' || action === 'stop';
 				const command = action === 'start' ? connector.startSite : connector.stopSite;
 				const run = command.getMockImplementation()!;
 				let finish!: () => void;
@@ -147,10 +148,10 @@ describe( 'Composer site controls', () => {
 				const label = action === 'start' ? /^Start site(?: |$)/ : 'Stop site';
 				fireEvent.change( input, {
 					target: {
-						value: source === 'slash' ? `Keep this draft /${ action }` : 'Keep this draft',
+						value: useSlash ? `Keep this draft /${ action }` : 'Keep this draft',
 					},
 				} );
-				if ( source === 'slash' ) {
+				if ( useSlash ) {
 					await screen.findByRole( 'option', { name: label } );
 					fireEvent.keyDown( input, { key: 'Enter' } );
 				} else {
@@ -158,8 +159,8 @@ describe( 'Composer site controls', () => {
 					fireEvent.click( await screen.findByRole( 'option', { name: label } ) );
 				}
 				await waitFor( () => expect( command ).toHaveBeenCalledExactlyOnceWith( SITE_ID ) );
-				expect( input ).toHaveValue( source === 'slash' ? 'Keep this draft ' : 'Keep this draft' );
-				fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+				expect( input ).toHaveValue( useSlash ? 'Keep this draft ' : 'Keep this draft' );
+				fireEvent.change( input, { target: { value: `Keep this draft /${ action }` } } );
 				const pending = await screen.findByRole( 'option', { name: label } );
 				expect( pending ).toHaveAttribute( 'aria-disabled', 'true' );
 				fireEvent.click( pending );

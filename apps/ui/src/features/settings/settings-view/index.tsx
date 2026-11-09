@@ -25,7 +25,7 @@ import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { ExternalLinkIcon } from '@/lib/icons';
 import { isDefaultColorTint } from '@/lib/theme';
 import { Input, Button } from '@/lib/ui';
-import { AccountSection } from './account-section';
+import { ConnectionCard } from './account-section';
 import { ColorTintSettings } from './color-tint-settings';
 import { InstructionsEditor } from './instructions-editor';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
@@ -50,7 +50,7 @@ import type {
 	UserPreferences,
 } from '@/data/core';
 
-// "System default" first, then the installed apps and the saved one, even if it's gone.
+// "System" first, then the installed apps and the saved one, even if it's gone.
 function appElements< TApp extends keyof InstalledApps >(
 	apps: readonly TApp[],
 	installedApps: InstalledApps | undefined,
@@ -58,7 +58,7 @@ function appElements< TApp extends keyof InstalledApps >(
 	label: ( app: TApp ) => string
 ) {
 	return [
-		{ value: UNSET, label: __( 'System default' ) },
+		{ value: UNSET, label: __( 'System' ) },
 		...apps
 			.filter( ( app ) => ! installedApps || installedApps[ app ] || app === saved )
 			.map( ( app ) => ( { value: app, label: label( app ) } ) ),
@@ -174,7 +174,7 @@ function PreferencesPanel( {
 	const locale = useUserLocale();
 	return (
 		<div className={ styles.preferencesPanel }>
-			<AccountSection />
+			<ConnectionCard />
 			{ saveError ? (
 				<div className={ styles.errorMessage }>
 					{ __( 'An error occurred while saving settings. Please try again.' ) }
@@ -213,7 +213,7 @@ function PreferencesPanel( {
 						label={ __( 'Default browser' ) }
 						value={ data.browser }
 						options={ [
-							{ value: UNSET, label: __( 'System default' ) },
+							{ value: UNSET, label: __( 'System' ) },
 							...SUPPORTED_BROWSERS.filter(
 								( browser ) => installedApps?.[ browser ] || browser === data.browser
 							).map( ( browser ) => ( { value: browser, label: browserConfig[ browser ].name } ) ),
@@ -278,11 +278,11 @@ function PreferencesPanel( {
 					/>
 				</SettingsRow>
 				<SettingsRow
-					title={ __( 'Start sites in split view' ) }
+					title={ __( 'Start sites with chat' ) }
 					description={ __( 'Show chat beside the panel when starting a site.' ) }
 				>
 					<SettingsToggle
-						label={ __( 'Start sites in split view' ) }
+						label={ __( 'Start sites with chat' ) }
 						checked={ data.openChatOnSiteStart }
 						onChange={ ( openChatOnSiteStart ) => onChange( { openChatOnSiteStart } ) }
 					/>

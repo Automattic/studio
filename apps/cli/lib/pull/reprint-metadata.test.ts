@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as reprintClient from 'cli/lib/pull/reprint-client';
-import { getCoreRoots, getReprintMetadata } from './reprint-metadata';
+import { getReprintMetadata } from './reprint-metadata';
 
 describe( 'reprint metadata', () => {
 	it( 'reads the one-line metadata response from Reprint', async () => {
@@ -37,7 +37,7 @@ describe( 'reprint metadata', () => {
 			verbose: false,
 		} );
 
-		expect( getCoreRoots( metadata ) ).toEqual( [ '/wordpress/core/7.0' ] );
+		expect( metadata.sourceSite.contentDirectory ).toBe( '/srv/htdocs/wp-content' );
 		expect( metadata.key?.publicKey ).toBe( 'MIIBojANBg' );
 		expect( reprintClient.runReprintCommandUntilComplete ).toHaveBeenCalledWith(
 			[ 'pull-metadata', 'https://example.com/?reprint-api-jetpack', '--state-dir=/state' ],

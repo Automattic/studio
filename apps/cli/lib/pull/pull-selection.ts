@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { __ } from '@wordpress/i18n';
 import { type PullSession } from 'cli/lib/pull/pull-session';
-import { getCoreRoots, type ReprintMetadata } from 'cli/lib/pull/reprint-metadata';
+import { type ReprintMetadata } from 'cli/lib/pull/reprint-metadata';
 import {
 	fetchJetpackPullTree,
 	mapCliOnlyToReprint,
@@ -25,6 +25,9 @@ export interface CliSelectionOptions {
 	skipDatabase?: boolean;
 	skipFiles?: boolean;
 }
+
+/** Reprint's selector for the WordPress core the remote runs, and only that version. */
+const WP_CORE = ':wp-core:';
 
 const FILE_SYNC_OPTIONS = [ 'plugins', 'themes', 'uploads' ] as const;
 
@@ -94,30 +97,22 @@ export async function applySelection( params: {
 	const { session, isFirstPull, reprintMetadata, cli, wpComAccessToken, wpComSiteId } = params;
 
 	// `--only` replaces Reprint's default paths, so a partial first pull must
-	// add WordPress core itself. Without known core paths, pull everything.
-	const withCoreRootsOnFirstPull = ( fileOnlyPaths: string[], databaseOnly = false ): string[] => {
-		if ( ! isFirstPull || ( fileOnlyPaths.length === 0 && ! databaseOnly ) ) {
+	// add the WordPress core the remote runs itself.
+	const withCoreOnFirstPull = ( fileOnlyPaths: string[], databaseOnly = false ): string[] => {
+		if (
+			! isFirstPull ||
+			( fileOnlyPaths.length === 0 && ! databaseOnly ) ||
+			fileOnlyPaths.includes( WP_CORE )
+		) {
 			return fileOnlyPaths;
 		}
-		const coreRoots = getCoreRoots( reprintMetadata );
-		if ( coreRoots.length === 0 ) {
-			console.log(
-				__(
-					'Could not determine where WordPress core lives on the remote site; pulling all files instead of the selection.'
-				)
-			);
-			return [];
-		}
-		return [
-			...coreRoots,
-			...fileOnlyPaths.filter( ( onlyPath ) => ! coreRoots.includes( onlyPath ) ),
-		];
+		return [ WP_CORE, ...fileOnlyPaths ];
 	};
 
 	// Core is added again in case Reprint started over with a fresh download.
 	const persisted = readPullSelection( session );
 	if ( persisted ) {
-		const healed = withCoreRootsOnFirstPull( persisted.fileOnlyPaths ?? [] );
+		const healed = withCoreOnFirstPull( persisted.fileOnlyPaths ?? [] );
 		if ( healed.length !== ( persisted.fileOnlyPaths?.length ?? 0 ) ) {
 			persisted.fileOnlyPaths = healed.length > 0 ? healed : undefined;
 			savePullSelection( session, persisted );
@@ -177,7 +172,7 @@ export async function applySelection( params: {
 					)
 				);
 			}
-			const withCore = withCoreRootsOnFirstPull( mapCliOnlyToReprint( cliOnly ) );
+			const withCore = withCoreOnFirstPull( mapCliOnlyToReprint( cliOnly ) );
 			if ( withCore.length > 0 ) {
 				selection.fileOnlyPaths = withCore;
 			}
@@ -214,7 +209,7 @@ export async function applySelection( params: {
 	if ( ! picked ) {
 		return null;
 	}
-	const fileOnlyPaths = withCoreRootsOnFirstPull( picked.fileOnlyPaths, ! picked.hasAnyFile );
+	const fileOnlyPaths = withCoreOnFirstPull( picked.fileOnlyPaths, ! picked.hasAnyFile );
 	const selection: PullSelection = {
 		skipDatabase: picked.skipDatabase,
 	};

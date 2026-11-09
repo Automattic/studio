@@ -180,6 +180,82 @@ const submit = ( value: string ) => {
 };
 
 describe( 'site preview', () => {
+	it( 'attaches a screenshot of the current desktop preview without navigating it', async () => {
+		const onAttachScreenshot = vi.fn();
+		const { user } = await renderPreview( 'desktop', {
+			path: '/about',
+			onAttachScreenshot,
+		} );
+		const capturePage = vi.fn().mockResolvedValue( {
+			isEmpty: () => false,
+			toDataURL: () => 'data:image/png;base64,c2NyZWVuc2hvdA==',
+		} );
+		const webview = guest( { capturePage } );
+		fireEvent( webview, new Event( 'dom-ready' ) );
+		finishLoading( 'desktop' );
+		expect( screen.queryByRole( 'button', { name: 'Take screenshot' } ) ).not.toBeInTheDocument();
+		await openBrowserOptions( user );
+		const button = screen.getByRole( 'menuitem', { name: 'Take screenshot' } );
+		await waitFor( () => expect( button ).toBeEnabled() );
+
+		await user.click( button );
+
+		expect( capturePage ).toHaveBeenCalledOnce();
+		expect( onAttachScreenshot ).toHaveBeenCalledExactlyOnceWith( 'one', expect.any( File ) );
+		expect( onAttachScreenshot.mock.calls[ 0 ][ 1 ] ).toMatchObject( {
+			name: expect.stringMatching( /^screenshot-.*\.png$/ ),
+			type: 'image/png',
+			size: 10,
+		} );
+		expect( webview.loadURL ).not.toHaveBeenCalled();
+		expect( webview.reload ).not.toHaveBeenCalled();
+	} );
+
+	it( 'prevents duplicate screenshots and recovers from capture failures', async () => {
+		const onAttachScreenshot = vi.fn();
+		const { user } = await renderPreview( 'desktop', { onAttachScreenshot } );
+		let reject!: ( error: Error ) => void;
+		const capturePage = vi.fn( () => new Promise( ( _, fail ) => ( reject = fail ) ) );
+		const webview = guest( { capturePage } );
+		fireEvent( webview, new Event( 'dom-ready' ) );
+		finishLoading( 'desktop' );
+		await openBrowserOptions( user );
+		const button = screen.getByRole( 'menuitem', { name: 'Take screenshot' } );
+		await waitFor( () => expect( button ).toBeEnabled() );
+		await user.click( button );
+		await openBrowserOptions( user );
+		const pending = screen.getByRole( 'menuitem', { name: 'Taking screenshot…' } );
+		await user.click( pending );
+		expect( capturePage ).toHaveBeenCalledOnce();
+		expect( pending ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( pending ).toHaveAttribute( 'aria-busy', 'true' );
+
+		await act( async () => reject( new Error( 'Capture failed' ) ) );
+
+		expect( onAttachScreenshot ).not.toHaveBeenCalled();
+		expect( screen.getByRole( 'menuitem', { name: 'Take screenshot' } ) ).not.toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+		expect( getVisibleToasts() ).toEqual(
+			expect.arrayContaining( [
+				expect.objectContaining( { title: 'Could not take screenshot' } ),
+			] )
+		);
+	} );
+
+	it( 'explains that screenshots need the desktop app in a regular browser', async () => {
+		const { user } = await renderPreview( 'browser', { onAttachScreenshot: vi.fn() } );
+		finishLoading( 'browser' );
+		await openBrowserOptions( user );
+		const button = await screen.findByRole( 'menuitem', { name: 'Take screenshot' } );
+		expect( button ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( button ).toHaveAttribute(
+			'aria-description',
+			'Screenshots are available in the desktop app.'
+		);
+	} );
+
 	it.each( [ 'browser', 'desktop' ] as const )(
 		'captures the %s thumbnail after the preview panel opens',
 		async ( runtime ) => {

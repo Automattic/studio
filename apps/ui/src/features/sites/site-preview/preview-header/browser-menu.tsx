@@ -19,10 +19,18 @@ export interface PreviewResponsiveActions {
 	onClick: () => void;
 }
 
+export interface PreviewScreenshotActions {
+	disabled: boolean;
+	disabledReason?: string;
+	capturing: boolean;
+	onClick: () => void;
+}
+
 interface BrowserMenuItemsProps {
 	actions?: PreviewBrowserActions;
 	adminBar?: ReturnType< typeof useFrontendAdminBar >;
 	responsive?: PreviewResponsiveActions;
+	screenshot?: PreviewScreenshotActions;
 	disabled?: boolean;
 	annotation?: { active: boolean; disabled: boolean; disabledReason?: string; onClick: () => void };
 }
@@ -31,6 +39,7 @@ function BrowserMenuItems( {
 	actions,
 	adminBar,
 	responsive,
+	screenshot,
 	disabled,
 	annotation,
 }: BrowserMenuItemsProps ) {
@@ -59,7 +68,19 @@ function BrowserMenuItems( {
 					{ responsive.active ? __( 'Hide device toolbar' ) : __( 'Show device toolbar' ) }
 				</Menu.Item>
 			) : null }
-			{ actions && ( annotation || adminBar || responsive ) ? <Menu.Separator /> : null }
+			{ ( screenshot || actions ) && ( annotation || adminBar || responsive ) ? (
+				<Menu.Separator />
+			) : null }
+			{ screenshot ? (
+				<Menu.Item
+					disabled={ disabled || screenshot.disabled || screenshot.capturing }
+					aria-description={ screenshot.disabledReason }
+					aria-busy={ screenshot.capturing || undefined }
+					onClick={ screenshot.onClick }
+				>
+					{ screenshot.capturing ? __( 'Taking screenshot…' ) : __( 'Take screenshot' ) }
+				</Menu.Item>
+			) : null }
 			{ actions ? (
 				<>
 					<Menu.SubmenuRoot>

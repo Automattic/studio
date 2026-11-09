@@ -244,7 +244,13 @@ export function SiteMenuItems( {
 					{ lifecycleShortcut }
 				</Menu.Item>
 			) }
-			{ site.running || running.length > 1 ? (
+			{ site.running && running.length <= 1 ? (
+				<Menu.Item disabled={ busy } onClick={ actions.toggleRunning }>
+					<StopSiteIcon />
+					{ __( 'Stop' ) }
+					{ lifecycleShortcut }
+				</Menu.Item>
+			) : running.length > 1 ? (
 				<Menu.SubmenuRoot>
 					<Menu.SubmenuTrigger disabled={ busy }>
 						<StopSiteIcon />

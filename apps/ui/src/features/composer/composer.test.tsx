@@ -18,6 +18,7 @@ import { Button } from '@/lib/ui';
 import { createFakeConnector, makeSession, TEST_USER } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { clearComposerDrafts, getComposerDraft, saveComposerDraft } from './draft-store';
+import { pendingComposerFilesSlot } from './pending-files';
 import type { LoadedAiSession, SessionEntry } from '@/data/core';
 import type { ComposerImageAttachment } from '@studio/agent/protocol/composer-attachments';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
@@ -127,6 +128,8 @@ const errorToasts = () =>
 
 beforeEach( () => {
 	clearComposerDrafts();
+	const pendingFiles = pendingComposerFilesSlot.getSnapshot();
+	if ( pendingFiles ) pendingComposerFilesSlot.clear( pendingFiles );
 	removeAnnotations(
 		SITE,
 		getSiteAnnotations( SITE ).notes.map( ( note ) => note.id )
@@ -1158,6 +1161,54 @@ describe( 'Composer sending', () => {
 } );
 
 describe( 'Composer drafts and attachments', () => {
+	it( 'adds a preview screenshot to the draft and sends it as an ordinary image', async () => {
+		saveComposerDraft( 'test', {
+			text: 'Please update this page',
+			attachments: [ image( 'reference' ) ],
+		} );
+		const { user, input, onSend } = await setup( { ownerSiteId: SITE, model: 'balanced' } );
+		act( () =>
+			pendingComposerFilesSlot.set( {
+				siteId: SITE,
+				files: [ new File( [ 'screenshot' ], 'screenshot.png', { type: 'image/png' } ) ],
+			} )
+		);
+
+		expect( await screen.findByRole( 'button', { name: 'Preview screenshot.png' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Preview reference.png' } ) ).toBeVisible();
+		expect( input ).toHaveValue( 'Please update this page' );
+		await waitFor( () => expect( input ).toHaveFocus() );
+		expect( onSend ).not.toHaveBeenCalled();
+		await user.keyboard( '{Enter}' );
+
+		await waitFor( () => expect( onSend ).toHaveBeenCalledOnce() );
+		expect( onSend.mock.calls[ 0 ][ 1 ]?.images ).toEqual( [
+			expect.objectContaining( { name: 'reference.png' } ),
+			expect.objectContaining( { name: 'screenshot.png', dataBase64: 'c2NyZWVuc2hvdA==' } ),
+		] );
+	} );
+
+	it( 'keeps screenshots for the matching site and lets the user remove them', async () => {
+		const pending = {
+			siteId: SITE,
+			files: [ new File( [ 'screenshot' ], 'screenshot.png', { type: 'image/png' } ) ],
+		};
+		pendingComposerFilesSlot.set( pending );
+		const other = await setup( { ownerSiteId: 'another-site' } );
+		expect( pendingComposerFilesSlot.getSnapshot() ).toBe( pending );
+		other.unmount();
+		const { user, onSend } = await setup( { ownerSiteId: SITE } );
+		await screen.findByRole( 'button', { name: 'Preview screenshot.png' } );
+
+		await user.click( screen.getByRole( 'button', { name: 'Remove attachment' } ) );
+
+		expect(
+			screen.queryByRole( 'button', { name: 'Preview screenshot.png' } )
+		).not.toBeInTheDocument();
+		expect( pendingComposerFilesSlot.getSnapshot() ).toBeNull();
+		expect( onSend ).not.toHaveBeenCalled();
+	} );
+
 	it.each( [ 'file', 'image' ] )(
 		'opens a %s preview on hover without moving typing focus',
 		async ( kind ) => {

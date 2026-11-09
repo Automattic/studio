@@ -357,6 +357,10 @@
 		padding-inline-end: var( --space-1_5 );
 	}
 
+	.button[data-size='2xs']:has( > [data-dropdown-indicator] ) {
+		padding-inline-end: var( --space-1 );
+	}
+
 	.button[data-size='lg'] {
 		--button-padding-inline: 24px;
 

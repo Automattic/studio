@@ -64,6 +64,7 @@ import { usePreviewAnnotations } from './use-preview-annotations';
 import { usePreviewBrowser } from './use-preview-browser';
 import { usePreviewCapture } from './use-preview-capture';
 import { usePreviewOpenTracks } from './use-preview-open-tracks';
+import { usePreviewScreenshot } from './use-preview-screenshot';
 import { usePreviewSurfaces } from './use-preview-surfaces';
 import type { SiteDetails } from '@/data/core';
 import type { InspectorEvent } from '@studio/agent/protocol/inspector/page-script';
@@ -82,6 +83,7 @@ interface SitePreviewProps {
 	// or only `noteIds`, straight away.
 	onSendAnnotations?: ( siteId: string, noteIds?: string[] ) => void;
 	onStartAnnotating?: () => boolean;
+	onAttachScreenshot?: ( siteId: string, file: File ) => void;
 	// Called when the user navigates within the preview (link clicks,
 	// back/forward) so the parent can keep its `path` in sync without
 	// forcing a reload.
@@ -101,6 +103,7 @@ function SitePreviewContent( {
 	reloadNonce,
 	onSendAnnotations,
 	onStartAnnotating,
+	onAttachScreenshot,
 	onPathChange,
 	collapsed = false,
 	inactive = false,
@@ -193,6 +196,10 @@ function SitePreviewContent( {
 			: activeSurfaceKey === 'email' || !! activeSurface?.inspectorReady );
 	const viewportRef = useRef< HTMLDivElement | null >( null );
 	const previewBrowser = usePreviewBrowser( viewportRef );
+	const screenshot = usePreviewScreenshot(
+		viewportRef,
+		onAttachScreenshot ? ( file ) => onAttachScreenshot( site.id, file ) : undefined
+	);
 	const browserActions = canUseWebview && ! rendered && ! blank ? previewBrowser : undefined;
 	const reloadFrontend = useCallback(
 		() => sendSurfaceCommand( 'site', 'reload' ),
@@ -478,6 +485,18 @@ function SitePreviewContent( {
 			onExternalNavigate={ ( url ) => void connector.openExternalUrl( url ) }
 			responsive={ responsive }
 			annotation={ inactive ? undefined : annotate }
+			screenshot={
+				! rendered && ! blank && onAttachScreenshot
+					? {
+							disabled: ! canUseWebview || navigating || browserState.failed,
+							disabledReason: ! canUseWebview
+								? __( 'Screenshots are available in the desktop app.' )
+								: undefined,
+							capturing: screenshot.capturing,
+							onClick: () => void screenshot.capture(),
+					  }
+					: undefined
+			}
 		/>
 	);
 

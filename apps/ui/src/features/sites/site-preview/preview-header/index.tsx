@@ -9,6 +9,7 @@ import {
 	BrowserMenu,
 	type PreviewBrowserActions,
 	type PreviewResponsiveActions,
+	type PreviewScreenshotActions,
 } from './browser-menu';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
@@ -37,6 +38,7 @@ interface PreviewHeaderProps {
 	adminBarActions?: ReturnType< typeof useFrontendAdminBar >;
 	onExternalNavigate?: ( url: string ) => void;
 	responsive?: PreviewResponsiveActions;
+	screenshot?: PreviewScreenshotActions;
 	annotation?: { active: boolean; disabled: boolean; disabledReason?: string; onClick: () => void };
 }
 
@@ -59,6 +61,7 @@ export function PreviewHeader( {
 	adminBarActions,
 	onExternalNavigate,
 	responsive,
+	screenshot,
 	annotation,
 	inactive = false,
 }: PreviewHeaderProps ) {
@@ -148,11 +151,12 @@ export function PreviewHeader( {
 					data-site-header-annotation
 					hidden={ headerLayout === 'mobile-overflow' }
 				/>
-				{ canPreview && ( browserActions || adminBarActions || responsive ) ? (
+				{ canPreview && ( browserActions || adminBarActions || responsive || screenshot ) ? (
 					<BrowserMenu
 						actions={ browserActions }
 						adminBar={ adminBarActions }
 						responsive={ responsive }
+						screenshot={ screenshot }
 						annotation={ headerLayout === 'mobile-overflow' ? annotation : undefined }
 						disabled={ disabled }
 					/>

@@ -85,7 +85,9 @@ export function ResponsiveToolbar( {
 		>
 			<div className={ styles.responsiveControls }>
 				<Menu.Root>
-					<Menu.Trigger render={ <Button variant="ghost" size="sm" className={ styles.device } /> }>
+					<Menu.Trigger
+						render={ <Button variant="ghost" size="2xs" className={ styles.device } /> }
+					>
 						<span>{ settings.preset === 'responsive' ? __( 'Responsive' ) : settings.preset }</span>
 						<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
 					</Menu.Trigger>
@@ -138,7 +140,7 @@ export function ResponsiveToolbar( {
 				<IconButton
 					className={ styles.rotate }
 					variant="ghost"
-					size="icon-sm"
+					size="icon-xs"
 					label={
 						isSquare
 							? __( 'Rotate viewport' )
@@ -184,6 +186,7 @@ export function ResponsiveToolbar( {
 			</div>
 			<IconButton
 				className={ styles.close }
+				variant="ghost"
 				size="icon-xs"
 				icon={ <XIcon /> }
 				label={ __( 'Hide device toolbar' ) }

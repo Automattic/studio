@@ -538,35 +538,44 @@ describe( 'first-time walkthrough', () => {
 		}
 	);
 
-	it( 'tours site options before returning to an existing workspace', async () => {
-		localStorage.setItem( 'studio-ui-sidebar-collapsed', 'true' );
-		const { connector, readHints } = setup( { walkthroughStep: 'ineligible' } );
-		const { history, user } = renderApp( { connector, path: '/sites/site-1' } );
-		await waitFor( () => expect( connector.listenerCount( 'onShowGettingStarted' ) ).toBe( 1 ) );
-		act( () => connector.emit( 'onShowGettingStarted' ) );
-		const sidebarTip = await screen.findByRole( 'dialog', { name: 'Open the sidebar' } );
-		within( sidebarTip ).getByRole( 'button', { name: 'Show sidebar' } ).focus();
-		await user.keyboard( '{Enter}' );
-		const intro = await screen.findByRole( 'dialog', { name: 'Add a new site' } );
-		expect( screen.getByRole( 'button', { name: 'Add site' } ) ).toHaveFocus();
-		expect( within( intro ).getByRole( 'button', { name: 'Skip tour' } ) ).toBeVisible();
-		expect( history.location.pathname ).toBe( '/sites/site-1/new' );
-		await user.click( within( intro ).getByRole( 'button', { name: 'Next' } ) );
-		const fresh = await screen.findByRole( 'dialog', { name: 'Start from scratch' } );
-		expect(
-			within( fresh ).queryByRole( 'button', { name: 'Skip tour' } )
-		).not.toBeInTheDocument();
-		await user.click( within( fresh ).getByRole( 'button', { name: 'Next' } ) );
-		const design = await screen.findByRole( 'dialog', { name: 'Start with a design' } );
-		await user.click( within( design ).getByRole( 'button', { name: 'Next' } ) );
-		expect( await screen.findByRole( 'dialog', { name: 'Make any change' } ) ).toBeVisible();
-		expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument();
-		expect( readHints().walkthroughStep ).toBe( 'composer' );
-		expect( history.location.pathname ).toBe( '/sites/site-1/new' );
-		expect( connector.createSite ).not.toHaveBeenCalled();
-		expect( connector.setOnboardingCompleted ).not.toHaveBeenCalled();
-		expect( localStorage.getItem( 'studio-ui-sidebar-collapsed' ) ).toBe( 'false' );
-	} );
+	it.each( [ 1280, 800 ] )(
+		'tours site options before returning to an existing workspace at %ipx',
+		async ( width ) => {
+			vi.stubGlobal( 'innerWidth', width );
+			localStorage.setItem( 'studio-ui-sidebar-collapsed', 'true' );
+			const { connector, readHints } = setup( { walkthroughStep: 'ineligible' } );
+			const { history, user } = renderApp( { connector, path: '/sites/site-1' } );
+			await waitFor( () => expect( connector.listenerCount( 'onShowGettingStarted' ) ).toBe( 1 ) );
+			act( () => connector.emit( 'onShowGettingStarted' ) );
+			const sidebarTip = await screen.findByRole( 'dialog', { name: 'Open the sidebar' } );
+			within( sidebarTip ).getByRole( 'button', { name: 'Show sidebar' } ).focus();
+			await user.keyboard( '{Enter}' );
+			const intro = await screen.findByRole( 'dialog', { name: 'Add a new site' } );
+			const addSite = screen
+				.getAllByRole( 'button', { name: 'Add site' } )
+				.find( ( button ) => ! button.closest( '[inert]' ) );
+			await waitFor( () => expect( addSite ).toHaveFocus() );
+			expect( within( intro ).getByRole( 'button', { name: 'Skip tour' } ) ).toBeVisible();
+			expect( history.location.pathname ).toBe( '/sites/site-1/new' );
+			await user.keyboard( '{Enter}' );
+			const fresh = await screen.findByRole( 'dialog', { name: 'Start from scratch' } );
+			expect(
+				within( fresh ).queryByRole( 'button', { name: 'Skip tour' } )
+			).not.toBeInTheDocument();
+			await user.click( within( fresh ).getByRole( 'button', { name: 'Next' } ) );
+			const design = await screen.findByRole( 'dialog', { name: 'Start with a design' } );
+			await user.click( within( design ).getByRole( 'button', { name: 'Next' } ) );
+			expect( await screen.findByRole( 'dialog', { name: 'Make any change' } ) ).toBeVisible();
+			expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument();
+			expect( readHints().walkthroughStep ).toBe( 'composer' );
+			expect( history.location.pathname ).toBe( '/sites/site-1/new' );
+			expect( connector.createSite ).not.toHaveBeenCalled();
+			expect( connector.setOnboardingCompleted ).not.toHaveBeenCalled();
+			expect( localStorage.getItem( 'studio-ui-sidebar-collapsed' ) ).toBe(
+				width === 800 ? 'true' : 'false'
+			);
+		}
+	);
 
 	it.each( [ 'Start with Blank site', 'View Substrata' ] )(
 		'continues an existing-site tour from %s without creating',

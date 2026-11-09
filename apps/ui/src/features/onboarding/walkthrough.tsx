@@ -135,6 +135,7 @@ export function Walkthrough( {
 	const [ galleryStep, setGalleryStep ] = useState< GalleryStep >( 'fresh' );
 	const [ revealedAnchor, setRevealedAnchor ] = useState< HTMLElement | null >( null );
 	const showNextImmediately = useRef( false );
+	const focusNextAnchor = useRef( false );
 	const [ dismissedCreateStages, setDismissedCreateStages ] = useState< CreateStage[] >( [] );
 	const [ suspended, setSuspended ] = useState( false );
 	const [ composerBlocked, setComposerBlocked ] = useState( false );
@@ -172,6 +173,7 @@ export function Walkthrough( {
 			setDismissedCreateStages( [] );
 			setGalleryStep( 'fresh' );
 			showNextImmediately.current = false;
+			focusNextAnchor.current = false;
 		};
 		window.addEventListener( GETTING_STARTED_REPLAY_EVENT, reset );
 		const unsubscribe = connector.onShowGettingStarted( () => {
@@ -296,12 +298,11 @@ export function Walkthrough( {
 		if ( showNextImmediately.current ) {
 			showNextImmediately.current = false;
 			setRevealedAnchor( anchor );
-			if ( step === 'intro' ) anchor?.focus();
 			return;
 		}
 		const timer = window.setTimeout( () => setRevealedAnchor( anchor ), 400 );
 		return () => window.clearTimeout( timer );
-	}, [ eligible, anchor, step ] );
+	}, [ eligible, anchor ] );
 	const open = eligible && revealedAnchor === anchor;
 	const nextStep = content?.next;
 
@@ -372,7 +373,7 @@ export function Walkthrough( {
 	};
 	return (
 		<FeaturePopover.Root
-			key={ targetStep }
+			key={ sidebarClosed ? 'intro-sidebar' : targetStep }
 			open={ open }
 			modal={ false }
 			onOpenChange={ ( nextOpen, details ) => {
@@ -394,7 +395,11 @@ export function Walkthrough( {
 				}
 				sideOffset={ 20 }
 				backdrop={ false }
-				initialFocus={ false }
+				initialFocus={ () => {
+					if ( ! focusNextAnchor.current ) return false;
+					focusNextAnchor.current = false;
+					return anchor ?? false;
+				} }
 				finalFocus={ false }
 				title={
 					step === 'composer' && target.description
@@ -435,7 +440,10 @@ export function Walkthrough( {
 						onNext={
 							step === 'intro'
 								? () => {
-										if ( sidebarClosed ) showNextImmediately.current = true;
+										if ( sidebarClosed ) {
+											showNextImmediately.current = true;
+											focusNextAnchor.current = true;
+										}
 										anchor?.click();
 								  }
 								: step === 'create'

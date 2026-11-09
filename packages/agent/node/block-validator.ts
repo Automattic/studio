@@ -1499,22 +1499,56 @@ async function validateAsWritten(
 									element.classList.remove( name );
 								}
 							}
-							const computed = element.ownerDocument.defaultView!.getComputedStyle( element );
-							const shown = new Map(
-								loss.onRoot.map( ( [ property ]: string[] ) => [
-									property,
-									computed.getPropertyValue( property ),
-								] )
+							const view = element.ownerDocument.defaultView!;
+							const read = ( inner: Element, property: string ) =>
+								view.getComputedStyle( inner ).getPropertyValue( property );
+							// A style the block's elements inherit shows on those with text
+							// of their own: it changes nothing when none of them reads it
+							// differently and nothing in the block moves.
+							const inside = [ element, ...element.querySelectorAll< HTMLElement >( '*' ) ];
+							const textual = inside.filter( ( inner ) =>
+								[ ...inner.childNodes ].some(
+									( node ) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim()
+								)
+							);
+							const inherits = ( property: string, value: string ) => {
+								const parent = element.ownerDocument.body.appendChild(
+									element.ownerDocument.createElement( 'div' )
+								);
+								const child = parent.appendChild( element.ownerDocument.createElement( 'span' ) );
+								const before = read( child, property );
+								parent.style.setProperty( property, value );
+								const after = read( child, property );
+								parent.remove();
+								return before !== after;
+							};
+							const shownAs = ( property: string ) =>
+								[ element, ...textual ].map( ( inner ) => read( inner, property ) );
+							const where = () =>
+								inside.map( ( inner ) => JSON.stringify( inner.getBoundingClientRect() ) ).join();
+							const placed = where();
+							const shown = new Map< string, string[] >(
+								loss.onRoot.map(
+									( [ property ]: string[] ) => [ property, shownAs( property ) ] as const
+								)
 							);
 							element.style.cssText += `;${ loss.rootStyle }`;
+							const stays = where() === placed;
 							kept.set(
 								loss.place,
 								new Set(
 									loss.onRoot
-										.filter(
-											( [ property ]: string[] ) =>
-												computed.getPropertyValue( property ) === shown.get( property )
-										)
+										.filter( ( [ property, value ]: string[] ) => {
+											const [ onBlock, ...onText ] = shownAs( property );
+											const [ wasOnBlock, ...wasOnText ] = shown.get( property )!;
+											return (
+												onBlock === wasOnBlock ||
+												( stays &&
+													onText.length > 0 &&
+													onText.join() === wasOnText.join() &&
+													inherits( property, value ) )
+											);
+										} )
 										.map( ( [ property, value ]: string[] ) => `${ property }:${ value }` )
 								)
 							);
@@ -1523,7 +1557,6 @@ async function validateAsWritten(
 							const own = [ element, ...element.querySelectorAll< HTMLElement >( '*' ) ].filter(
 								( inner ) => inner === element || inner.closest( '[data-block]' ) === element
 							);
-							const view = element.ownerDocument.defaultView!;
 							const looks = () =>
 								own
 									.flatMap( ( inner ) =>

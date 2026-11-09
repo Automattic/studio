@@ -560,6 +560,32 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			losses: [ { place: '/0', lost: 'drop the classes has-secondary-color' } ],
 		},
 		{
+			// Group has no textAlign support (eval28): its text centers itself.
+			name: 'a style the text inside it already shows',
+			written:
+				'<!-- wp:group -->\n<div class="wp-block-group" style="text-align:center"><!-- wp:heading {"style":{"typography":{"textAlign":"center"}}} -->\n<h2 class="wp-block-heading has-text-align-center">A</h2>\n<!-- /wp:heading --></div>\n<!-- /wp:group -->',
+			losses: [],
+		},
+		{
+			// The size its link saves with the small preset is the text's.
+			name: 'a style its attributes set otherwise on the text inside it',
+			written:
+				'<!-- wp:button {"fontSize":"small"} -->\n<div class="wp-block-button has-custom-font-size" style="font-size:0.9rem"><a class="wp-block-button__link wp-element-button">Book</a></div>\n<!-- /wp:button -->',
+			losses: [],
+		},
+		{
+			name: 'a style the text inside it shows otherwise',
+			written:
+				'<!-- wp:group -->\n<div class="wp-block-group" style="text-align:center"><!-- wp:heading -->\n<h2 class="wp-block-heading">A</h2>\n<!-- /wp:heading --></div>\n<!-- /wp:group -->',
+			losses: [ { place: '/0', lost: 'drop the styles text-align:center' } ],
+		},
+		{
+			name: 'a style the text inside it does not inherit',
+			written:
+				'<!-- wp:group -->\n<div class="wp-block-group" style="filter:blur(2px)"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->',
+			losses: [ { place: '/0', lost: 'drop the styles filter:blur(2px)' } ],
+		},
+		{
 			// The editor's own styles for its blocks set it there.
 			name: 'a style only the editor gives its blocks',
 			written:
@@ -603,13 +629,6 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			written:
 				'<!-- wp:paragraph -->\n<p style="font-size:1.1rem;opacity:0.92">Hi</p>\n<!-- /wp:paragraph -->',
 			lost: 'drop the styles opacity:0.92',
-		},
-		{
-			// The comment's font size preset and the written size both name one.
-			name: 'a style its attributes already set otherwise',
-			written:
-				'<!-- wp:button {"fontSize":"small"} -->\n<div class="wp-block-button has-custom-font-size" style="font-size:0.9rem"><a class="wp-block-button__link wp-element-button">Book</a></div>\n<!-- /wp:button -->',
-			lost: 'drop the styles font-size:0.9rem',
 		},
 		{
 			// core/image saves its border on the img.

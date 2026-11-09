@@ -88,8 +88,8 @@ describe( 'RenderCheck', () => {
 			return { url, problems: [] };
 		} );
 		const report = await after();
-		expect( report ).toContain( '- /?page_id=5 (mobile):' );
-		expect( report ).not.toContain( '- / (mobile):' );
+		expect( report ).toContain( '  Seen on:\n  /?page_id=5 — desktop; mobile' );
+		expect( report ).not.toContain( '  / —' );
 	} );
 
 	it( 'groups identical contrast observations while keeping every location and distinct finding', async () => {
@@ -116,6 +116,26 @@ describe( 'RenderCheck', () => {
 			expect( report ).toContain( `- /about/ (desktop): ${ problem }` );
 		}
 		expect( await open.raise() ).toEqual( [ report ] );
+	} );
+
+	// eval28 redo port 1: a footer's email broke on every page, each line repeated per page.
+	it( 'lists a problem identical across pages once, with each page and viewport it is on', async () => {
+		const { site, check, problems, after } = setup();
+		await check.seen( site.root, { created: true } );
+		const email =
+			'p: the browser breaks "ink@blacklanterntattoo.com" across lines, as the word (214px) is wider than its box (180px).';
+		const large =
+			'p "Every tattoo starts with a conversation,…" is 48px, 3 times the 16px body text; text this large reads as a heading.';
+		problems[ '/ desktop' ] = [ email ];
+		problems[ '/ mobile' ] = [ email ];
+		problems[ '/about/ mobile' ] = [ email ];
+		problems[ '/about/ desktop' ] = [ large ];
+		const report = await after();
+		expect( report ).toContain(
+			`- ${ email }\n  Seen on:\n  / — desktop; mobile\n  /about/ — mobile`
+		);
+		expect( report.match( /Seen on:/g ) ).toHaveLength( 1 );
+		expect( report ).toContain( `- /about/ (desktop): ${ large }` );
 	} );
 
 	// As run h2h5's dog groomer changed an option while its images were being generated.

@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
 	pageContrast,
 	pageHeaderWraps,
+	pageLargeText,
 	pageLayout,
 	pageSticky,
 	pageTextFit,
@@ -242,6 +243,14 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 				'p: the browser breaks "hello@pawswhiskers.shop" across lines, as the word (166px) is wider than its box (156px).',
 			],
 		],
+		// eval28 redo port 1: a link's email measured by the link, inline, as 0px wide.
+		[
+			'an email address in a link, by the paragraph the link is in',
+			'<p style="width:180px;margin-left:100px;overflow-wrap:break-word;font:12px/1 monospace">Write to <a href="mailto:ink@blacklanterntattoo.com">ink@blacklanterntattoo.com</a></p>',
+			[
+				'p: the browser breaks "ink@blacklanterntattoo.com" across lines, as the word (187px) is wider than its box (180px).',
+			],
+		],
 		[
 			'a word the page hyphenates',
 			'<div lang="en" style="width:200px;margin-left:100px;word-break:break-word;hyphens:auto"><h1 style="font:40px/1 monospace">Everything</h1></div>',
@@ -313,6 +322,38 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 			'  h3: the browser breaks "Services" across lines, as the word (Npx) is wider than its box (Npx).',
 			'1000',
 		] );
+	} );
+
+	// eval-outcome.ts fails a P or LI of more than 30 characters past 2.25 times the body text.
+	it.each< [ string, string, string[] ] >( [
+		[
+			'a paragraph 3 times the body text',
+			'<p style="font-size:48px">Every tattoo starts with a conversation, then a sketch</p>',
+			[
+				'p "Every tattoo starts with a conversation,…" is 48px, 3 times the 16px body text; text this large reads as a heading.',
+			],
+		],
+		[
+			'a list item 2.5 times the body text',
+			'<ul><li style="font-size:40px">Walk-ins welcome every Saturday at noon</li></ul>',
+			[
+				'li "Walk-ins welcome every Saturday at noon" is 40px, 2.5 times the 16px body text; text this large reads as a heading.',
+			],
+		],
+		[ 'a heading', '<h2 style="font-size:48px">Every tattoo starts with a conversation</h2>', [] ],
+		[ 'short text', '<p style="font-size:48px">Book a session today</p>', [] ],
+		[
+			'2.25 times the body text, no more',
+			'<p style="font-size:36px">Every tattoo starts with a conversation</p>',
+			[],
+		],
+		[
+			'text a visitor does not see',
+			'<p style="font-size:48px;visibility:hidden">Every tattoo starts with a conversation</p>',
+			[],
+		],
+	] )( 'states text the size of a heading: %s', async ( _name, body, lines ) => {
+		expect( await open( body, ( page ) => pageLargeText( page, 16 ) ) ).toEqual( lines );
 	} );
 
 	it( 'counts the lines past its limit', async () => {

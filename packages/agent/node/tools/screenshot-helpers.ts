@@ -10,6 +10,7 @@ import {
 	pageBreakage,
 	pageContrast,
 	pageHeaderWraps,
+	pageLargeText,
 	pageSticky,
 	pageLayout,
 	pageOverflow,
@@ -520,6 +521,7 @@ export async function inspectPage(
 		const response = await loadPage( page, url, { fullPage: true } );
 		const status = response?.status() ?? 0;
 		const textFit = await pageTextFit( page );
+		const body = await bodyFontSize( page );
 		const problems = [
 			...( status >= 400 ? [ `The server answers ${ status }.` ] : [] ),
 			...( await pageBreakage( page ) ),
@@ -527,6 +529,7 @@ export async function inspectPage(
 			...( await pageBandGaps( page ) ),
 			...( await pageHeaderWraps( page ) ),
 			...( await pageContrast( page ) ),
+			...( await pageLargeText( page, body ) ),
 			...( await pageSticky( page ) ),
 			...( textFit.edges.length
 				? [ "Text against the viewport's edge:", ...textFit.edges.map( ( line ) => `  ${ line }` ) ]
@@ -545,7 +548,7 @@ export async function inspectPage(
 		if ( viewport.width === VIEWPORTS.desktop.width ) {
 			problems.push( ...( await pageWideTextBreaks( page ) ) );
 		}
-		return { url: page.url(), problems, bodyFontSize: await bodyFontSize( page ) };
+		return { url: page.url(), problems, bodyFontSize: body };
 	} finally {
 		await page.close();
 		const current = started === generation ? render : undefined;

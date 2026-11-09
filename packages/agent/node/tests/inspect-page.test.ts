@@ -58,6 +58,14 @@ describe.runIf( CHROMIUM )( 'inspecting a page', () => {
 				response.end(
 					`${ HEALTHY }<form><input type='hidden' name='_wpnonce' value='${ Math.random() }'><p>${ formText }</p></form>`
 				);
+			} else if ( request.url === '/large/' ) {
+				response.writeHead( 200, { 'content-type': 'text/html' } );
+				response.end(
+					HEALTHY.replace(
+						'</footer>',
+						'<p style="font-size:57.6px">Every loaf is shaped by hand before dawn</p></footer>'
+					)
+				);
 			} else if ( request.url === '/broken/' ) {
 				response.writeHead( 500, { 'content-type': 'text/html' } );
 				response.end( BROKEN );
@@ -107,6 +115,17 @@ describe.runIf( CHROMIUM )( 'inspecting a page', () => {
 				`  p "Bakery": its text starts at the viewport's left edge (x 0).`,
 			] )
 		);
+	}, 60000 );
+
+	it( "names paragraph text the size of a heading, against the page's body text", async () => {
+		const { problems, bodyFontSize } = await inspectPage(
+			`${ siteUrl }/large/`,
+			VIEWPORTS.desktop
+		);
+		expect( bodyFontSize ).toBe( 19.2 );
+		expect( problems ).toEqual( [
+			'p "Every loaf is shaped by hand before dawn" is 57.6px, 3 times the 19.2px body text; text this large reads as a heading.',
+		] );
 	}, 60000 );
 
 	it( 'answers a screenshot from the render while the page serves the same HTML', async () => {

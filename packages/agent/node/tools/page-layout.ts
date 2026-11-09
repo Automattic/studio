@@ -565,13 +565,17 @@ export async function pageTextFit( page: Page ): Promise< TextFit > {
 				if ( broken ) {
 					const parts = partsOf( match.index, match.index + match[ 0 ].length );
 					const width = Math.round( parts.reduce( ( sum, rect ) => sum + rect.width, 0 ) );
-					const box = element.closest( 'p, h1, h2, h3, h4, h5, h6, li, a, div' ) ?? element;
+					// The box the word wraps in: an inline element, as a link, has no width of its own.
+					let box = element;
+					while ( box.parentElement && getComputedStyle( box ).display === 'inline' ) {
+						box = box.parentElement;
+					}
 					const padding =
 						parseFloat( getComputedStyle( box ).paddingLeft ) +
 						parseFloat( getComputedStyle( box ).paddingRight );
 					add(
 						breaks,
-						`${ label( element, false ) }: the browser breaks "${
+						`${ label( box, false ) }: the browser breaks "${
 							match[ 0 ]
 						}" across lines, as the word (${ width }px) is wider than its box (${ Math.round(
 							box.clientWidth - padding
@@ -919,6 +923,47 @@ export function pageSticky( page: Page ): Promise< string[] > {
 		}
 		return lines;
 	} );
+}
+
+/**
+ * Each paragraph or list item of more than 30 characters whose text renders
+ * more than 2.25 times the page's body text size (16px when it has none), as
+ * a visitor reads text that large as a heading: the visible P and LI not
+ * inside other text, as the eval's grader picks them (apps/cli/ai/eval-outcome.ts).
+ */
+export async function pageLargeText( page: Page, bodyFontSize = 16 ): Promise< string[] > {
+	const lines = await page.evaluate( ( bodySize ) => {
+		const lines: string[] = [];
+		for ( const element of document.querySelectorAll( 'p, li' ) ) {
+			const box = element.getBoundingClientRect();
+			const style = getComputedStyle( element );
+			const text = ( element.textContent ?? '' ).trim();
+			const fontSize = parseFloat( style.fontSize );
+			if (
+				! box.width ||
+				! box.height ||
+				style.visibility === 'hidden' ||
+				element.parentElement?.closest( 'p, h1, h2, h3, h4, h5, h6, li' ) ||
+				style.clipPath !== 'none' ||
+				style.clip !== 'auto' ||
+				text.length <= 30 ||
+				fontSize <= bodySize * 2.25
+			) {
+				continue;
+			}
+			const shown = text.replace( /\s+/g, ' ' );
+			const px = ( size: number ) => `${ Math.round( size * 10 ) / 10 }px`;
+			lines.push(
+				`${ element.tagName.toLowerCase() } "${
+					shown.length > 40 ? `${ shown.slice( 0, 40 ) }…` : shown
+				}" is ${ px( fontSize ) }, ${
+					Math.round( ( fontSize / bodySize ) * 10 ) / 10
+				} times the ${ px( bodySize ) } body text; text this large reads as a heading.`
+			);
+		}
+		return [ ...new Set( lines ) ];
+	}, bodyFontSize );
+	return boundedLines( lines, MAX_TEXT_LINES );
 }
 
 /**

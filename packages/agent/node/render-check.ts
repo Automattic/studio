@@ -201,14 +201,15 @@ export class RenderCheck {
 				.filter( ( problem ) => ! firstSeen.has( problemKey( page, problem ) ) )
 				.map( ( problem ) => ( { page, problem } ) )
 		);
-		// Groups keep first-appearance order; observations outside a contrast group stand alone.
+		// Groups keep first-appearance order: a contrast observation by all but its
+		// y position, any other by its text, as a footer's on every page.
 		type Observation = ( typeof observations )[ number ] & { match: RegExpExecArray | null };
-		const groups = new Map< string | number, Observation[] >();
-		observations.forEach( ( { page, problem }, index ) => {
+		const groups = new Map< string, Observation[] >();
+		observations.forEach( ( { page, problem } ) => {
 			const match = contrastObservation.exec( problem );
-			const key = match
-				? JSON.stringify( [ match[ 1 ], match[ 3 ], match[ 4 ], match[ 5 ] ] )
-				: index;
+			const key = JSON.stringify(
+				match ? [ match[ 1 ], match[ 3 ], match[ 4 ], match[ 5 ] ] : [ problem ]
+			);
 			const group = groups.get( key ) ?? [];
 			group.push( { page, problem, match } );
 			groups.set( key, group );
@@ -216,7 +217,7 @@ export class RenderCheck {
 		const found: string[] = [];
 		for ( const group of groups.values() ) {
 			const [ first ] = group;
-			if ( group.length < 2 || ! first.match ) {
+			if ( group.length < 2 ) {
 				found.push(
 					`- ${ pageAddress( first.page.url ) } (${ first.page.viewport }): ${ first.problem }`
 				);
@@ -226,13 +227,19 @@ export class RenderCheck {
 			for ( const item of group ) {
 				const pathname = pageAddress( item.page.url );
 				const at = locations.get( pathname ) ?? [];
-				at.push( `${ item.page.viewport } y${ item.match![ 2 ] }` );
+				at.push(
+					item.match ? `${ item.page.viewport } y${ item.match[ 2 ] }` : item.page.viewport
+				);
 				locations.set( pathname, at );
 			}
 			const match = first.match;
 			found.push(
-				`- ${ match[ 1 ].trimStart() }: ${ match[ 3 ] }, a contrast ratio of ${ match[ 4 ] }${
-					match[ 5 ]
+				`- ${
+					match
+						? `${ match[ 1 ].trimStart() }: ${ match[ 3 ] }, a contrast ratio of ${ match[ 4 ] }${
+								match[ 5 ]
+						  }`
+						: first.problem.trimStart()
 				}\n  Seen on:\n${ [ ...locations ]
 					.map( ( [ pathname, at ] ) => `  ${ pathname } — ${ at.join( '; ' ) }` )
 					.join( '\n' ) }`

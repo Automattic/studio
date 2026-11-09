@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { clearToast, getVisibleToasts, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import type { AppUpdateStatus } from '@/data/core';
@@ -64,14 +64,18 @@ export function useSyncAppUpdateStatus(): void {
 	const { data: status } = useAppUpdateStatus();
 	const { mutateAsync: retry } = useRetryAppUpdate();
 	const processing = useRef( false );
+	// Repeated manual checks can have identical cached status.
+	const [ manualCheckCount, setManualCheckCount ] = useState( 0 );
 	useEffect( () => {
 		return connector.onAppUpdateStatusChanged( ( status: AppUpdateStatus ) => {
 			queryClient.setQueryData( APP_UPDATE_STATUS_QUERY_KEY, status );
+			if ( status.requested ) setManualCheckCount( ( count ) => count + 1 );
 		} );
 	}, [ connector, queryClient ] );
 
 	useEffect( () => {
 		if ( ! status ) return;
+		if ( status.requested ) clearToast( APP_UPDATE_NOTICE_ID );
 		if ( status.state === 'downloading' ) {
 			processing.current = true;
 			toast.processing( __( 'Downloading update' ), {
@@ -100,7 +104,7 @@ export function useSyncAppUpdateStatus(): void {
 			return;
 		}
 		if ( status.state === 'ready' ) {
-			if ( processing.current ) {
+			if ( processing.current || status.requested ) {
 				processing.current = false;
 				toast.success( __( 'Update ready' ), {
 					id: APP_UPDATE_NOTICE_ID,
@@ -125,7 +129,7 @@ export function useSyncAppUpdateStatus(): void {
 			description: status.detail ?? __( 'Try downloading the update again.' ),
 			action: { label: __( 'Try again' ), onClick: () => retry(), dismissOnSuccess: false },
 		} );
-	}, [ status, retry ] );
+	}, [ status, retry, manualCheckCount ] );
 
 	// A toast rather than a card: there's nothing to act on, so it shouldn't linger.
 	useEffect( () => {

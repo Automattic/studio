@@ -228,7 +228,7 @@ describe( 'Stop other sites', () => {
 			const { open, history } = setup( { contextMenu, designAvailable: true } );
 			await open();
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
-			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Design system' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Design System' } ) );
 			await waitFor( () =>
 				expect( screen.getByRole( 'status', { name: 'Preview' } ) ).toHaveTextContent(
 					`selected ${ DESIGN_SYSTEM_PREVIEW_PATH }`
@@ -243,7 +243,7 @@ describe( 'Stop other sites', () => {
 		await open();
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
 		expect( await screen.findByRole( 'menuitem', { name: 'Database' } ) ).toBeInTheDocument();
-		expect( screen.queryByRole( 'menuitem', { name: 'Design system' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'menuitem', { name: 'Design System' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'omits the design system while the site is stopped', async () => {
@@ -251,7 +251,7 @@ describe( 'Stop other sites', () => {
 		await open();
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
 		expect( await screen.findByRole( 'menuitem', { name: 'Database' } ) ).toBeInTheDocument();
-		expect( screen.queryByRole( 'menuitem', { name: 'Design system' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'menuitem', { name: 'Design System' } ) ).not.toBeInTheDocument();
 	} );
 
 	it.each( [

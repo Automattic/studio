@@ -374,6 +374,36 @@ These historical values remain valid for older releases. No site names, paths, o
 | `studio_panel_opened`            | Renderer (site selection/settings; historical Classic tabs) | `panel` — current UI: `assistant` for site selection, `settings` for site-settings actions. Historical releases also used `overview`/`debugging` and Classic-only `sync`/`import-export`/`previews`. |
 | `studio_workspace_layout_changed` | Renderer (shared workspace layout setters, Desktop + browser UI) | `layout` (`chat` = chat only, `split` = chat and panel, `panel` = panel only); opaque `site_id` when the local site resolves. Emitted once per user-driven change to the resulting visible layout from header controls, View menu, command palette, shortcuts, chat show/hide actions, explicit tool opens that reveal the panel, or closing the final preview tab. Navigation to a different site is not a layout choice. Re-selecting the current layout, initial rendering, site lifecycle changes, viewport-forced changes, and annotation-forced changes emit nothing. Existing Tracks opt-out and build-disable gates apply; delivery is best-effort. |
 
+#### Responsive preview controls
+
+| Event | Emitted from | Event-specific props |
+| ----- | ------------ | -------------------- |
+| `studio_responsive_preview_changed` | Renderer responsive controls (Desktop + browser UI) | `action` (`preset_change`/`manual_resize`), `preset_category` (`phone`/`tablet`/`desktop`/`custom`), `width_bucket` and `height_bucket` (each `under_600`/`600_to_1023`/`1024_to_1439`/`1440_plus`). |
+
+Emits once per explicit preset change or completed manual resize on a site preview (front end or
+WP Admin, local or live). Named device presets carry a fixed category: phones, including the open
+foldable preset, are `phone`; iPads are `tablet`; Desktop is `desktop`. The Responsive option and
+manual dimension edits/handles are `custom`. Rotation retains the named preset's category.
+
+Pointer resizing emits on pointer release, never on drag movement. Valid dimension inputs commit on
+Enter/blur; keyboard handle repeats commit once on key release or blur. Rotation is a manual resize.
+Reselecting the current preset, unchanged dimensions (including square rotation), net-zero/clamped
+gestures, and duplicate completion notifications emit nothing. Cancelled/interrupted gestures are
+discarded, including capture loss, site changes, hiding/disabling the preview, and unmounting.
+Distinct completed interactions remain separate events even when their size buckets match.
+
+Initial rendering, restored settings, programmatic updates, automatic viewport resizing, Fit/zoom,
+and showing/hiding the device toolbar do not emit this event. Existing content-open events also
+exclude initial/restored/programmatic displays, so they describe explicit opens rather than every
+preview display. Responsive interactions can occur on a restored preview without an open event.
+Multiple size buckets intentionally cannot distinguish actual sizes within the same bucket pair.
+
+The existing anonymous installation identity, opt-out, and build/environment gates apply. Only the
+four bounded properties above and existing wrapper-provided common properties are sent: no device
+names, raw dimensions, content, URLs, paths, site identifiers, or person identity. Recording is
+best-effort; failures must not block the controls. An interaction does not establish that a
+responsive issue was found or fixed. Local tests/logs do not verify production receipt.
+
 #### Import/export events
 
 Backup import/export, emitted by the **CLI** `import`/`export` commands (the sole funnel — the desktop

@@ -7,19 +7,10 @@
 }
 
 .attachment {
-	composes: imageOutline from '@/lib/theme/recipes.module.css';
-	position: relative;
-	display: flex;
-	background-color: var( --muted );
-	color: var( --foreground );
+	composes: attachmentThumbnail from '@/lib/theme/recipes.module.css';
+
 	font-size: var( --text-sm );
 	user-select: none;
-}
-
-.attachmentImage {
-	width: 96px;
-	height: 96px;
-	border-radius: var( --radius-xl );
 }
 
 .imageTrigger {
@@ -33,10 +24,7 @@
 }
 
 .attachmentThumb {
-	width: 100%;
-	height: 100%;
-	border-radius: inherit;
-	object-fit: cover;
+	composes: attachmentThumbnailImage from '@/lib/theme/recipes.module.css';
 }
 
 .attachmentName {

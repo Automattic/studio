@@ -178,7 +178,7 @@ export function DesignSystemView( {
 			{ fontsUrl ? <link rel="stylesheet" href={ fontsUrl } precedence="default" /> : null }
 			<header className={ styles.header }>
 				<p className={ styles.eyebrow } style={ fontStyle( sheet.label ) }>
-					{ __( 'Design system' ) }
+					{ __( 'Design System' ) }
 				</p>
 			</header>
 

@@ -9,11 +9,12 @@ interface VisualAnnotationEmail {
 	paragraph?: number;
 }
 
-// What a note points at: an element on a site page, a value of the site's
+// What a note points at: an element or area on a site page, a value of the site's
 // Styles on the design system page, named as theme.json names it (a preset by
 // its `var:preset|…` reference, a style by its path in `styles`), or a part of
 // the body of an email the site sent.
 export interface VisualAnnotationTarget {
+	kind?: 'region' | 'drawing';
 	selector?: string;
 	tag?: string;
 	classes?: string[];
@@ -159,6 +160,10 @@ export function formatVisualAnnotationsPrompt(
 			? `<${ note.tag }>`
 			: note.email
 			? `email text paragraph ${ ( note.email.paragraph ?? 0 ) + 1 }`
+			: note.kind === 'region'
+			? 'selected area'
+			: note.kind === 'drawing'
+			? 'drawing'
 			: 'element';
 		const nearbyText = note.nearbyText?.trim()
 			? ` - "${ truncateText( note.nearbyText.trim(), 120 ) }"`

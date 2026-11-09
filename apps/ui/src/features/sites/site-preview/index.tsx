@@ -17,6 +17,7 @@ import { useResponsivePreview, updateResponsivePreview } from '@/data/responsive
 import { useIsSiteRestarting } from '@/data/site-restarts';
 import {
 	AnnotationOverlay,
+	discardAnnotations,
 	isBatchedAnnotation,
 	getSiteAnnotations,
 	subscribeAnnotationReview,
@@ -44,6 +45,7 @@ import {
 import { EMPTY_BROWSER_STATE, type BrowserNavigationState } from './browser-state';
 import { PreviewHeader } from './preview-header';
 import { AnnotateButton } from './preview-header/annotate-button';
+import { AnnotationTools } from './preview-header/annotation-tools';
 import {
 	FrameSurface,
 	isElectron,
@@ -55,6 +57,7 @@ import { getFitScale } from './responsive-preview/settings';
 import { ResponsiveToolbar } from './responsive-preview/toolbar';
 import styles from './style.module.css';
 import { getFrameKey, getSafePath, type PreviewSurfaceKey } from './surfaces';
+import { useAnnotationTools } from './use-annotation-tools';
 import { useBrowserShortcuts } from './use-browser-shortcuts';
 import { useLoadingStage } from './use-loading-stage';
 import { usePreviewAnnotations } from './use-preview-annotations';
@@ -241,6 +244,7 @@ function SitePreviewContent( {
 	} );
 	const responsiveSettings = useResponsivePreview( site.id );
 	const responsiveEnabled = responsiveSettings.enabled && canPreview && activeSurfaceKey === 'site';
+	const responsiveActive = ! inactive && ! collapsed && ! isStarting && ! isStopping;
 	const [ availableSize, setAvailableSize ] = useState( { width: 0, height: 0 } );
 	useLayoutEffect( () => {
 		const viewport = viewportRef.current;
@@ -324,6 +328,14 @@ function SitePreviewContent( {
 		},
 		[ setAnnotationAnchor, toViewportAnchor ]
 	);
+	const annotationTools = useAnnotationTools( {
+		siteId: site.id,
+		enabled: canAnnotate && activeSurfaceKey === 'site' && ! inactive && ! collapsed,
+		viewportRef,
+		onPick: handleAnnotationPick,
+	} );
+	const handleAnnotationToolEvent = annotationTools.handleEvent;
+	const discard = useCallback( () => discardAnnotations( site.id ), [ site.id ] );
 	const capturePage = usePreviewCapture( site.id, siteUrl, viewportRef );
 	const handleSurfaceLoad = useCallback(
 		( key: PreviewSurfaceKey, url: string, guestId?: number ) => {
@@ -352,11 +364,13 @@ function SitePreviewContent( {
 			if ( inactive ) return;
 			if ( event.type === 'browser-command' ) {
 				sendBrowserCommand( event.command );
+			} else if ( event.type === 'selection' || event.type === 'annotation-tool' ) {
+				handleAnnotationToolEvent( event );
 			} else {
 				handleAnnotationEvent( event );
 			}
 		},
-		[ handleAnnotationEvent, sendBrowserCommand, inactive ]
+		[ handleAnnotationEvent, handleAnnotationToolEvent, sendBrowserCommand, inactive ]
 	);
 
 	const browserShortcuts = useBrowserShortcuts(
@@ -472,7 +486,11 @@ function SitePreviewContent( {
 		>
 			{ ! inactive && annotate && annotationSpace
 				? createPortal(
-						<AnnotateButton { ...annotate } annotationCount={ batchNotes.length } />,
+						<AnnotateButton
+							{ ...annotate }
+							annotationCount={ batchNotes.length }
+							pageTools={ activeSurfaceKey === 'site' && canAnnotate }
+						/>,
 						annotationSpace
 				  )
 				: null }
@@ -482,6 +500,7 @@ function SitePreviewContent( {
 					siteId={ site.id }
 					settings={ responsiveSettings }
 					fitScale={ fitScale }
+					active={ responsiveActive }
 				/>
 			) : null }
 			<div className={ styles.body }>
@@ -543,7 +562,12 @@ function SitePreviewContent( {
 									active={ active }
 									responsive={
 										key === 'site'
-											? { siteId: site.id, settings: responsiveSettings, scale: responsiveScale }
+											? {
+													siteId: site.id,
+													settings: responsiveSettings,
+													scale: responsiveScale,
+													active: responsiveActive,
+											  }
 											: undefined
 									}
 									loading={ loadingStage }
@@ -564,6 +588,8 @@ function SitePreviewContent( {
 												if ( ! inspectorReady ) setAnnotationAnchor( null );
 											} }
 											onInspectorEvent={ handleInspectorEvent }
+											annotationTool={ annotationTools.tool }
+											clearSelection={ annotationTools.clearSelection }
 											browserCommand={ surface.browserCommand }
 											onBrowserStateChange={ ( state ) => handleSurfaceBrowserState( key, state ) }
 											onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
@@ -635,11 +661,21 @@ function SitePreviewContent( {
 							) : null }
 						</div>
 					</SiteContextMenu>
+					<AnnotationTools
+						{ ...annotationTools.controls }
+						visible={
+							! inactive && ! collapsed && annotations.active && canAnnotate && !! annotate
+						}
+						pageTools={ activeSurfaceKey === 'site' }
+						disabled={ isAnnotationsBusy( annotations ) }
+						onDiscard={ discard }
+					/>
 					{ ! inactive && ! blank && canAnnotateSurface ? (
 						<AnnotationOverlay
 							siteId={ site.id }
 							anchor={ annotationAnchor }
 							onSend={ sendAnnotations }
+							onEscape={ annotationTools.escapeDraft }
 						/>
 					) : null }
 				</div>

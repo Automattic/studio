@@ -142,7 +142,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				),
 				setting(
 					'action',
-					__( 'Start sites in split view' ),
+					__( 'Start sites with chat' ),
 					__( 'Show chat beside the panel when starting a site.' ),
 					'open-chat-on-site-start'
 				),
@@ -214,7 +214,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					...setting(
 						'navigate',
 						__( 'Accent' ),
-						__( 'Studio adapts your chosen color to work with your theme.' ),
+						__( 'Color may be adapted for your theme.' ),
 						'color'
 					),
 					aliases: [ __( 'Colour' ), __( 'Change color' ) ],

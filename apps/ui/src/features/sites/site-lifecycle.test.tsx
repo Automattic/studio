@@ -266,9 +266,7 @@ describe( 'site lifecycle and preview', () => {
 			await waitFor( () => expect( panelShown() ).toBe( false ) );
 			expect( layoutMotion() ).toBeNull();
 			expect( composer ).toBeVisible();
-			expect(
-				screen.queryByRole( 'button', { name: 'Restore split view' } )
-			).not.toBeInTheDocument();
+			expect( screen.queryByRole( 'button', { name: 'Show chat' } ) ).not.toBeInTheDocument();
 			expect( composer ).toHaveValue( 'Keep this site draft' );
 			expect( screen.getByRole( 'combobox', { ...COMPOSER, hidden: true } ) ).toBe( composer );
 			expect( connector.createSession ).not.toHaveBeenCalled();

@@ -15,9 +15,26 @@
 
 .responsiveToolbar {
 	composes: toolbar;
-	justify-content: safe center;
+	display: grid;
+	grid-template-columns: var( --control-size ) minmax( 0, 1fr ) var( --control-size );
 	padding-block: var( --space-0_5 );
 	border-block-start: 1px solid var( --border );
+	overflow: visible;
+}
+
+.responsiveControls {
+	grid-column: 2;
+	display: flex;
+	align-items: center;
+	justify-content: safe center;
+	gap: var( --band-gap );
+	min-width: 0;
+	overflow-x: auto;
+}
+
+.close {
+	grid-column: 3;
+	justify-self: end;
 }
 
 .device {

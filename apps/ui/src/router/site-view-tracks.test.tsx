@@ -34,7 +34,7 @@ it.each( [
 	[ 'Browser', 'First', TRACKS_EVENTS.SITE_OPEN_IN_BROWSER ],
 	[ 'Admin', 'Admin', TRACKS_EVENTS.SITE_OPEN_WP_ADMIN ],
 	[ 'Database', 'Database', TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN ],
-	[ 'Design system', 'Design system', TRACKS_EVENTS.SITE_OPEN_DESIGN_SYSTEM ],
+	[ 'Design System', 'Design System', TRACKS_EVENTS.SITE_OPEN_DESIGN_SYSTEM ],
 	[ 'Email log', 'Email log', TRACKS_EVENTS.SITE_OPEN_EMAIL ],
 ] as const )(
 	'records %s opens and tab switches once, with only the internal browser prop',

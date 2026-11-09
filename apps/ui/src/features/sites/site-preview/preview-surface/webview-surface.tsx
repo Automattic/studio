@@ -40,6 +40,8 @@ interface WebviewSurfaceProps {
 	reloadNonce: number;
 	// The site's annotations, mirrored into the page as markers.
 	annotations?: SiteAnnotations;
+	annotationTool?: 'select' | 'draw';
+	clearSelection?: string;
 	onInspectorReady?: ( ready: boolean ) => void;
 	onInspectorEvent?: ( event: InspectorEvent ) => void;
 	browserCommand?: BrowserCommand | null;
@@ -64,6 +66,8 @@ export function WebviewSurface( {
 	colorScheme = 'system',
 	reloadNonce,
 	annotations,
+	annotationTool = 'select',
+	clearSelection,
 	onInspectorReady,
 	onInspectorEvent,
 	browserCommand,
@@ -421,23 +425,33 @@ export function WebviewSurface( {
 		const notes = annotations.notes.filter( ( note ) => note.url );
 		const detail = {
 			active: annotations.active,
+			tool: annotationTool,
+			areaSelection: true,
+			busy: !! ( annotations.preparing || annotations.sending ),
 			blockedNavigation: annotations.blockedNavigation ?? 0,
 			editingId: notes.some( ( note ) => note.id === annotations.editingId )
 				? annotations.editingId
 				: null,
-			notes: notes.map( ( { id, number, selector, url, documentRect, point, staged } ) => ( {
-				id,
-				number,
-				selector,
-				url,
-				documentRect,
-				point,
-				pending: ! staged,
-			} ) ),
+			notes: notes.map(
+				( { id, number, selector, url, documentRect, point, staged, kind, drawing } ) => ( {
+					id,
+					kind,
+					drawing,
+					number,
+					selector,
+					url,
+					documentRect,
+					point,
+					pending: ! staged,
+				} )
+			),
 			annotationLabel: __( 'Annotation' ),
 			pendingAnnotationLabel: __( 'Pending annotation' ),
 			fontFamily: '"Studio Annotation", system-ui',
 			accent: theme.getPropertyValue( '--accent' ).trim(),
+			penColor:
+				theme.getPropertyValue( '--accent-solid' ).trim() ||
+				theme.getPropertyValue( '--accent' ).trim(),
 			onAccent: theme.getPropertyValue( '--accent-foreground' ).trim(),
 			destructive: theme.getPropertyValue( '--destructive' ).trim(),
 			onDestructive: theme.getPropertyValue( '--destructive-foreground' ).trim(),
@@ -452,7 +466,19 @@ export function WebviewSurface( {
 				false
 			)
 			.catch( () => undefined );
-	}, [ annotations, appColorScheme, inspectorReady ] );
+	}, [ annotations, annotationTool, appColorScheme, inspectorReady ] );
+
+	useEffect( () => {
+		const webview = ref.current as WebviewTag | null;
+		if ( ! inspectorReady || ! webview || ! clearSelection ) return;
+		void webview
+			.executeJavaScript(
+				`window.dispatchEvent(new CustomEvent(${ JSON.stringify(
+					INSPECTOR_COMMAND_EVENT
+				) }, { detail: ${ JSON.stringify( { clearSelection } ) } }));`
+			)
+			.catch( () => undefined );
+	}, [ clearSelection, inspectorReady ] );
 
 	useEffect( () => {
 		if ( ! ready || ! browserCommand ) return;
@@ -487,6 +513,7 @@ export function WebviewSurface( {
 		<>
 			<webview
 				ref={ ref }
+				data-annotation-surface={ inspector || undefined }
 				src={ initialSrc }
 				className={ styles.iframe }
 				// @types/react types this as boolean, but React 19 drops `true` on

@@ -3,8 +3,8 @@ import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-t
 import { __ } from '@wordpress/i18n';
 import { useEffect, useId, useRef, useState } from 'react';
 import {
-	AppearanceIcon,
 	DatabaseIcon,
+	DesignSystemIcon,
 	ExternalLinkIcon,
 	GlobeIcon,
 	MailIcon,
@@ -214,7 +214,7 @@ function storeRecentLocation(
 function getDisplayUrl( siteUrl: string, path: string ): string {
 	if ( path === EMAIL_PREVIEW_PATH ) return __( 'Email log' );
 	if ( path === DESIGN_SYSTEM_PREVIEW_PATH ) {
-		return __( 'Design system' );
+		return __( 'Design System' );
 	}
 	try {
 		return new URL( path, siteUrl ).toString().replace( /^(https?:\/\/[^/?#]+)\/$/i, '$1' );
@@ -366,7 +366,7 @@ export function PreviewAddressBar( {
 		admin: WordPressIcon,
 		database: DatabaseIcon,
 		email: MailIcon,
-		design: AppearanceIcon,
+		design: DesignSystemIcon,
 	};
 	const recentGroups: CommandGroup[] = [
 		{

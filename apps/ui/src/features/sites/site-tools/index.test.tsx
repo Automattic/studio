@@ -107,11 +107,11 @@ it( 'offers the design system and its shortcut once the site has global styles',
 		{ queryClient }
 	);
 	await screen.findByRole( 'group', { name: 'Project tools' } );
-	expect( screen.queryByRole( 'button', { name: 'Design system S' } ) ).not.toBeInTheDocument();
+	expect( screen.queryByRole( 'button', { name: 'Design System S' } ) ).not.toBeInTheDocument();
 	fireEvent.keyDown( document.body, { key: 's' } );
 	expect( openDesignSystem ).not.toHaveBeenCalled();
 	await act( () =>
 		queryClient.setQueryData( [ 'global-styles', 'one' ], { settings: {}, styles: {} } )
 	);
-	await screen.findByRole( 'button', { name: 'Design system S' } );
+	await screen.findByRole( 'button', { name: 'Design System S' } );
 } );

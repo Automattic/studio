@@ -1370,3 +1370,12 @@ export const followUpsApplied = check( ( d, vars ) => {
 				`follow-ups applied: phone in the footer, body text ${ before }→${ bigger }→${ now }px, a ${ widest }px photo, ${ styles.footerText.length } footer lines centered`
 		  );
 } );
+
+export const regionAnnotationApplied = check( ( d ) => {
+	return ( d.inspections || [] ).some(
+		( inspection ) =>
+			inspection.exitCode === 0 && inspection.stdout.trim() === 'ANNOTATION_COPY_UPDATED'
+	)
+		? pass( 'The annotated heading changed in the rendered content.' )
+		: fail( 'The annotated heading did not reach the rendered content.' );
+} );

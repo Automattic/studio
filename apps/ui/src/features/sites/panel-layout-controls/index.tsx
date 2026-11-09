@@ -22,7 +22,7 @@ export function PanelLayoutControls( {
 				<IconButton
 					size="icon-sm"
 					icon={ <FullscreenIcon inward={ fullscreen } /> }
-					label={ fullscreen ? __( 'Restore split view' ) : __( 'Expand panel' ) }
+					label={ fullscreen ? __( 'Show chat' ) : __( 'Expand panel' ) }
 					onClick={ () => onFullscreenChange( ! fullscreen ) }
 					tooltipSide="bottom"
 				/>

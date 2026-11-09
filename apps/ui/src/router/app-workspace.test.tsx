@@ -126,8 +126,8 @@ async function chooseWorkspaceLayout( name: 'Chat' | 'Split view' | 'Panel' ) {
 	}
 	if ( layout === 'chat' ) fireEvent.click( toggle );
 	const full = name === 'Panel';
-	const button = screen.getByRole( 'button', { name: /^(Expand panel|Restore split view)$/ } );
-	if ( button.getAttribute( 'aria-label' ) === ( full ? 'Expand panel' : 'Restore split view' ) )
+	const button = screen.getByRole( 'button', { name: /^(Expand panel|Show chat)$/ } );
+	if ( button.getAttribute( 'aria-label' ) === ( full ? 'Expand panel' : 'Show chat' ) )
 		fireEvent.click( button );
 }
 

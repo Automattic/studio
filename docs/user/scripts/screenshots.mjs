@@ -5,14 +5,14 @@
  * `screenshots/images/`. The first run on a machine bakes the scene's site
  * from the Blueprint (`studio-capture bake --scene moire`). After a
  * full run it rewrites `screenshots/images/index.md`, the list of shots and
- * the uploads they replace.
+ * the uploads they replace, keeping its hand-maintained Kept by hand section.
  *
  *   npm run screenshots -- [--suite <name,…>] [--only <name,…>] [--check] [--keep-profile]
  *
  * Other options are passed to `studio-capture capture`; see its README.
  */
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { ROOT } from './lib/common.mjs';
@@ -20,6 +20,8 @@ import { ROOT } from './lib/common.mjs';
 const UPLOADS_URL = 'https://developer.wordpress.com/wp-content/uploads/';
 const HARNESS = path.resolve( ROOT, '../../tools/capture-harness/cli.ts' );
 const IMAGES_DIR = path.join( ROOT, 'screenshots', 'images' );
+const INDEX_FILE = path.join( IMAGES_DIR, 'index.md' );
+const DOCS_DIR = path.join( ROOT, 'docs', 'developer-tools', 'studio' );
 const SCENE = 'moire';
 
 // Build the scene's site from its Blueprint once per machine; captures then import the backup.
@@ -32,6 +34,29 @@ if ( ! existsSync( path.resolve( HARNESS, '..', 'scenes', SCENE, '.baked', 'scen
 	if ( bake.status !== 0 ) {
 		process.exit( bake.status ?? 1 );
 	}
+}
+
+// A shot's `pages` can outlive its use: a page may have dropped the image while the shot stays.
+function pagesShowing( shot ) {
+	const files = [ `/${ shot.name }.webp`, `/${ shot.name }-annotated.webp` ];
+	return ( shot.meta?.pages ?? [] ).filter( ( page ) => {
+		const file = path.join( DOCS_DIR, page );
+		if ( ! existsSync( file ) ) {
+			return false;
+		}
+		const content = readFileSync( file, 'utf8' );
+		return files.some( ( name ) => content.includes( name ) );
+	} );
+}
+
+// No suite captures these images, so the run can't rebuild their section.
+function readKeptByHand() {
+	if ( ! existsSync( INDEX_FILE ) ) {
+		return '';
+	}
+	const index = readFileSync( INDEX_FILE, 'utf8' );
+	const start = index.indexOf( '## Kept by hand' );
+	return start === -1 ? '' : index.slice( start ).trimEnd();
 }
 
 function formatIndex( { shots, manual, studioVersion } ) {
@@ -49,7 +74,7 @@ function formatIndex( { shots, manual, studioVersion } ) {
 		...shots.map(
 			( shot ) =>
 				`| \`${ shot.name }.webp\` | ${ shot.script } | ${ shot.description } | ${ cell(
-					shot.meta?.pages
+					pagesShowing( shot )
 				) } | ${ cell( shot.meta?.replaces ) } |`
 		),
 	];
@@ -77,6 +102,10 @@ function formatIndex( { shots, manual, studioVersion } ) {
 					) } |`
 			)
 		);
+	}
+	const keptByHand = readKeptByHand();
+	if ( keptByHand ) {
+		lines.push( '', keptByHand );
 	}
 	return lines.join( '\n' ) + '\n';
 }
@@ -112,6 +141,6 @@ if ( result.error ) {
 // The index describes a whole run; a partial one would misreport the rest.
 const partial = args.some( ( arg ) => /^--(suite|only|check)\b/.test( arg ) );
 if ( ! partial && result.shots ) {
-	await writeFile( path.join( IMAGES_DIR, 'index.md' ), formatIndex( result ) );
+	await writeFile( INDEX_FILE, formatIndex( result ) );
 }
 process.exit( code ?? 1 );

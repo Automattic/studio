@@ -14,3 +14,9 @@
 .root svg {
 	opacity: 0.4;
 }
+
+@media ( prefers-reduced-transparency: reduce ) {
+	:global( [data-native-sidebar] ) .root {
+		color: var( --foreground );
+	}
+}

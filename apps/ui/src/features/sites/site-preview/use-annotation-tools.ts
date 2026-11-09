@@ -138,6 +138,7 @@ export function useAnnotationTools( {
 					if ( ! note || latest.editingId !== note.id ) return;
 					changeAnnotation( siteId, note.id, {
 						drawing: selection.drawing,
+						capturedImageId: image.id,
 						documentRect: selection.target.documentRect,
 						viewport: selection.target.viewport,
 						images: [ { ...image, kind: 'image' }, ...note.images.slice( 1 ) ],

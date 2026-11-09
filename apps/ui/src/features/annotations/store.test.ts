@@ -6,6 +6,7 @@ import {
 	discardAnnotations,
 	escapeAnnotations,
 	getSiteAnnotations,
+	hasAnnotationContent,
 	isBatchedAnnotation,
 	stageAnnotations,
 	pickAnnotation,
@@ -15,6 +16,27 @@ import {
 } from './store';
 
 describe( 'annotation store', () => {
+	it( 'protects a reference image after the automatic capture has been removed', () => {
+		const siteId = 'capture-content-site';
+		const capture = {
+			id: 'capture',
+			kind: 'image' as const,
+			name: 'Selected area.png',
+			mimeType: 'image/png' as const,
+			size: 1,
+			dataBase64: 'eA==',
+		};
+		setAnnotating( siteId, true );
+		const id = pickAnnotation( siteId, { kind: 'region' }, { images: [ capture ] } )!;
+		expect( hasAnnotationContent( getSiteAnnotations( siteId ).notes[ 0 ] ) ).toBe( false );
+		changeAnnotation( siteId, id, {
+			images: [ { ...capture, id: 'reference', name: 'Reference.png' } ],
+		} );
+		expect( pickAnnotation( siteId, { selector: 'h1' } ) ).toBeNull();
+		expect( getSiteAnnotations( siteId ).editingId ).toBe( id );
+		expect( getSiteAnnotations( siteId ).notes[ 0 ].images[ 0 ].id ).toBe( 'reference' );
+	} );
+
 	it( 'discards saved notes and the current draft for one site and exits annotation mode', () => {
 		const siteId = 'discard-store-site';
 		const otherSiteId = 'kept-discard-store-site';

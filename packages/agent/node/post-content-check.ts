@@ -214,7 +214,8 @@ const SIDE_BY_SIDE = 3;
 // SIDE_BY_SIDE of them at a time. A post's notes on the presets its repeated
 // values became are made first, one post after another, as each can add to
 // the theme's theme.json and save posts, and the posts are validated with
-// the presets they leave.
+// the presets they leave. A post this validation saves is not saved for the
+// presets before it.
 async function validatePosts< R >(
 	host: StudioAgentHost,
 	site: HostSite,
@@ -223,8 +224,9 @@ async function validatePosts< R >(
 	validate: ( post: Row, run: () => Promise< Validated > ) => Promise< R >
 ): Promise< R[] > {
 	const notes: string[][] = [];
+	const savedAfter = save ? posts.map( ( post ) => Number( post.id ) ) : [];
 	for ( const post of posts ) {
-		notes.push( await presetNotesOf( host, site, post ) );
+		notes.push( await presetNotesOf( host, site, post, savedAfter ) );
 	}
 	const presets = posts.some( ( post ) => ! isEmpty( post ) )
 		? await sitePresetValues( host, site.path )
@@ -250,12 +252,22 @@ const labelOf = ( site: HostSite, post: Row ) =>
 const isEmpty = ( post: Row ) => ! post.content.trim();
 
 // Before the presets the save stores its blocks with are read.
-function presetNotesOf( host: StudioAgentHost, site: HostSite, post: Row ): Promise< string[] > {
+function presetNotesOf(
+	host: StudioAgentHost,
+	site: HostSite,
+	post: Row,
+	savedAfter: number[]
+): Promise< string[] > {
 	return isEmpty( post )
 		? Promise.resolve( [] )
-		: repeatedPostStyleNotes( host, site.path, post.id, post.content, labelOf( site, post ) ).catch(
-				() => []
-		  );
+		: repeatedPostStyleNotes(
+				host,
+				site.path,
+				post.id,
+				post.content,
+				labelOf( site, post ),
+				savedAfter
+		  ).catch( () => [] );
 }
 
 // A lossless fix is saved to the post, as Studio saves one to a file

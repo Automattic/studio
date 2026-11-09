@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'fs';
 import { DatabaseSync } from 'node:sqlite';
 import path from 'path';
 import { describe, expect, it, vi } from 'vitest';
-import { validateBlocks } from '@studio/agent/node/block-validator';
+import { storePresetValues, validateBlocks } from '@studio/agent/node/block-validator';
 import { OpenProblems } from '@studio/agent/node/open-problems';
 import { postContentChanges } from '@studio/agent/node/post-content-check';
 import { SiteChanges } from '@studio/agent/node/site-changes';
@@ -216,5 +216,111 @@ describe( 'postContentChanges', () => {
 		expect( JSON.parse( readFileSync( themeJson, 'utf8' ) ).settings.typography.fontSizes ).toEqual(
 			[ { name: '2.2rem', slug: expect.any( String ), size: '2.2rem' } ]
 		);
+	} );
+
+	// The posts a check saves, and its notes, when the call that changed them
+	// activated code or not.
+	async function settleRepeatedSizes( activates: boolean ) {
+		const { site, host, changes } = setup();
+		const themeJson = path.join( site.root, 'wp-content/themes/bakery/theme.json' );
+		writeFileSync(
+			themeJson,
+			'{ "version": 3, "settings": { "typography": { "fontSizes": [] } } }'
+		);
+		const sizes = () =>
+			(
+				JSON.parse( readFileSync( themeJson, 'utf8' ) ).settings.typography.fontSizes as Array< {
+					slug: string;
+					size: string;
+				} >
+			 ).map( ( { slug, size } ): [ string, string ] => [ slug, size ] );
+		// WordPress resolves the font sizes theme.json holds, and saves a post's content.
+		const saves: number[] = [];
+		vi.mocked( host.sites.wpCli ).mockImplementation( async ( _site, args ) => {
+			const saved = /'ID' => (\d+), 'post_content' => file_get_contents\( "([^"]+)" \)/.exec(
+				args.join( ' ' )
+			);
+			if ( saved ) {
+				saves.push( Number( saved[ 1 ] ) );
+				site.edit(
+					Number( saved[ 1 ] ),
+					readFileSync( saved[ 2 ], 'utf8' ),
+					'2026-10-24 00:00:00'
+				);
+			}
+			return {
+				exitCode: 0,
+				stdout: JSON.stringify( { colors: [], fontSizes: sizes(), spacingSizes: [] } ),
+				stderr: '',
+			};
+		} );
+		// The editor stores a value a preset has as the preset, taking longest on the first posts.
+		const raw = '{"style":{"typography":{"fontSize":"2.2rem"}}}';
+		let storing = 0;
+		let most = 0;
+		vi.mocked( storePresetValues ).mockImplementation( async ( content, _url, presets ) => {
+			storing++;
+			most = Math.max( most, storing );
+			const id = Number( /Page (\d+)/.exec( content )?.[ 1 ] );
+			await new Promise( ( resolve ) => setTimeout( resolve, ( 60 - id ) * 10 ) );
+			storing--;
+			const preset = presets.fontSizes.find( ( [ , size ] ) => size === '2.2rem' );
+			return preset && content.includes( raw )
+				? {
+						content: content.split( raw ).join( `{"fontSize":"${ preset[ 0 ] }"}` ),
+						colors: [],
+						fontSizes: [ { size: '2.2rem', slug: preset[ 0 ] } ],
+						spacingSizes: [],
+				  }
+				: { content, colors: [], fontSizes: [], spacingSizes: [] };
+		} );
+		const large = ( id: number ) =>
+			`<!-- wp:paragraph ${ raw } -->\n<p style="font-size:2.2rem">Page ${ id }</p>\n<!-- /wp:paragraph -->`;
+		// Posts the call does not change, which set the value too.
+		const rest = [ 44, 45, 46, 47, 48 ];
+		for ( const id of rest ) {
+			site.save( id, 'page', `page-${ id }`, large( id ), 1, 'publish', `Page ${ id }` );
+		}
+		const ids = [ 41, 42 ];
+		for ( const id of ids ) {
+			site.save( id, 'page', `page-${ id }`, '', 1, 'publish', `Page ${ id }` );
+		}
+		await changes.snapshot();
+		ids.forEach( ( id ) => site.edit( id, large( id ) ) );
+		if ( activates ) {
+			site.setOptions( { active_plugins: 'a:1:{i:0;s:15:"shop/shop.php";}' } );
+		}
+		try {
+			const { summaries } = await changes.settle();
+			return { saves: [ ...saves ].sort(), summaries, most, content: site.content };
+		} finally {
+			vi.mocked( storePresetValues ).mockReset();
+			vi.mocked( storePresetValues ).mockImplementation( async ( content: string ) => ( {
+				content,
+				colors: [],
+				fontSizes: [],
+				spacingSizes: [],
+			} ) );
+		}
+	}
+
+	// eval26 picky4: the first page's presets saved the other three pages, which
+	// the check then validated and saved again, and saved the rest one by one.
+	it( 'saves the posts a check saves anyway once, and the others that take the new presets side by side', async () => {
+		const { saves, summaries, most, content } = await settleRepeatedSizes( false );
+		expect( saves ).toEqual( [ 41, 42, 44, 45, 46, 47, 48 ] );
+		for ( const id of saves ) {
+			expect( content( id ) ).toContain( '{"fontSize":"size-2-2-rem"}' );
+		}
+		expect( summaries[ 0 ] ).toContain(
+			'Studio saved post 42, post 44, post 45, post 46, post 47, post 48, which set the same values, through the block editor with those presets'
+		);
+		expect( most ).toBe( 3 );
+	} );
+
+	it( 'saves the posts a check does not save, after code activated, for the new presets', async () => {
+		const { saves, content } = await settleRepeatedSizes( true );
+		expect( saves ).toEqual( [ 42, 44, 45, 46, 47, 48 ] );
+		expect( content( 42 ) ).toContain( '{"fontSize":"size-2-2-rem"}' );
 	} );
 } );

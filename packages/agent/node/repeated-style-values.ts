@@ -326,6 +326,8 @@ interface Holder {
 	label: string;
 	/** The rest of the markup the site renders with the holder's. */
 	others: Markup[];
+	/** The posts its caller saves through the block editor next, with the presets made. */
+	savedAfter?: number[];
 }
 
 /**
@@ -353,40 +355,55 @@ async function otherMarkup(
 	);
 }
 
+// The markup saved side by side, at most this many at a time: each save
+// waits mostly on the block editor and WP-CLI.
+const SIDE_BY_SIDE = 3;
+
 /**
  * Saves each of `others` that sets one of `values` through the block editor
  * with the theme's presets, which stores those values as the presets, as it
- * stores a picked preset: the gate's lossless save. Returns where it saved.
+ * stores a picked preset: the gate's lossless save. A post the holder's
+ * caller saves next through the editor with them, `savedAfter`, is left to
+ * that save. Returns where it saved, or leaves to that save, in their order.
  */
 async function saveWithPresets(
-	{ host, siteRoot, theme, others }: Holder,
+	{ host, siteRoot, theme, others, savedAfter = [] }: Holder,
 	values: string[]
 ): Promise< string[] > {
 	const holding = others.filter( ( item ) =>
 		values.some( ( value ) => item.content.includes( `"${ value }"` ) )
 	);
-	if ( ! holding.length ) {
-		return [];
+	const leftToCaller = ( item: Markup ) =>
+		item.post !== undefined && savedAfter.includes( Number( item.post ) );
+	const saving = holding.filter( ( item ) => ! leftToCaller( item ) );
+	const saved = new Set< Markup >( holding.filter( leftToCaller ) );
+	if ( saving.length ) {
+		const siteUrl = ( await host.sites.resolve( siteRoot ) ).url;
+		const presetValues = await sitePresetValues( host, siteRoot, theme?.slug );
+		let next = 0;
+		const worker = async () => {
+			for ( let i = next++; i < saving.length; i = next++ ) {
+				const item = saving[ i ];
+				const { fixedContent } = item.file
+					? await validateBlockMarkupFile( item.file, siteUrl, presetValues )
+					: await validateBlockMarkup(
+							item.content,
+							placeOf( item ),
+							siteUrl,
+							presetValues,
+							blockEditorOf( item )
+					  );
+				if ( fixedContent !== undefined ) {
+					await saveMarkup( host, siteRoot, item, fixedContent );
+					saved.add( item );
+				}
+			}
+		};
+		await Promise.all( Array.from( { length: Math.min( SIDE_BY_SIDE, saving.length ) }, worker ) );
 	}
-	const siteUrl = ( await host.sites.resolve( siteRoot ) ).url;
-	const presetValues = await sitePresetValues( host, siteRoot, theme?.slug );
-	const saved: string[] = [];
-	for ( const item of holding ) {
-		const { fixedContent } = item.file
-			? await validateBlockMarkupFile( item.file, siteUrl, presetValues )
-			: await validateBlockMarkup(
-					item.content,
-					placeOf( item ),
-					siteUrl,
-					presetValues,
-					blockEditorOf( item )
-			  );
-		if ( fixedContent !== undefined ) {
-			await saveMarkup( host, siteRoot, item, fixedContent );
-			saved.push( placeOf( item, theme?.dir ) );
-		}
-	}
-	return saved;
+	return holding
+		.filter( ( item ) => saved.has( item ) )
+		.map( ( item ) => placeOf( item, theme?.dir ) );
 }
 
 /**
@@ -452,14 +469,16 @@ async function presetsForRepeatedValues(
 /**
  * Makes the raw font sizes and spacing values content in the database repeats
  * presets of the active theme, for the save of it through the block editor
- * (post-content-check.ts) to store its blocks with. Returns the notes.
+ * (post-content-check.ts) to store its blocks with, and the saves of
+ * `savedAfter`, the other posts that check saves next. Returns the notes.
  */
 export async function repeatedPostStyleNotes(
 	host: StudioAgentHost,
 	siteRoot: string,
 	post: number,
 	content: string,
-	label: string
+	label: string,
+	savedAfter: number[] = []
 ): Promise< string[] > {
 	const looks = repeatedLookNotes( content, label );
 	if ( ! rawStyleValues( content ).length ) {
@@ -475,7 +494,7 @@ export async function repeatedPostStyleNotes(
 	const theme = { slug: found.slug, dir: themesDir( siteRoot, found.slug ) };
 	const others = await otherMarkup( siteRoot, theme, { post } );
 	const { notes } = await presetsForRepeatedValues(
-		{ host, siteRoot, theme, label, others },
+		{ host, siteRoot, theme, label, others, savedAfter },
 		content,
 		found.presets
 	);

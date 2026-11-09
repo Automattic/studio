@@ -47,16 +47,21 @@
 	--accent-lightness: 0.530598;
 	--accent-chroma: 0.220974;
 	--accent-hue: calc( var( --tint-hue, 260 ) + 8.048352 );
+	--accent-fill: initial;
+	--accent-hover-fill: initial;
+	--accent-text-fill: initial;
+	--accent-text-hover-fill: initial;
 	--accent: var( --accent-fill, oklch( var( --accent-lightness ) var( --accent-chroma ) var( --accent-hue ) ) );
 	--accent-foreground: #fff;
-	--accent-hover-lightness-offset: 0.03;
-	--accent-hover: oklch( from var( --accent ) calc( l + var( --accent-hover-lightness-offset ) ) c h );
+	--accent-hover: var( --accent-hover-fill, oklch( from #2b46c7 l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) ) );
 	--accent-surface-primary-hover: color-mix( in srgb, var( --accent-foreground ) 82%, var( --accent ) );
 	--accent-surface-muted: color-mix( in srgb, var( --accent-foreground ) 12%, var( --accent ) );
 	--accent-surface-muted-hover: color-mix( in srgb, var( --accent-foreground ) 18%, var( --accent ) );
 	--accent-surface-muted-foreground: color-mix( in srgb, var( --accent-foreground ) 80%, var( --accent ) );
-	--accent-text: var( --accent );
-	--accent-text-hover: var( --accent );
+	--accent-text: var( --accent-text-fill, oklch( from #304ed6 l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) ) );
+	--accent-text-hover: var( --accent-text-hover-fill, oklch( from #2138ac l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) ) );
+	--accent-subtle: oklch( from #dfe7ff l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) );
+	--accent-subtle-hover: oklch( from #d3deff l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) );
 
 	--success: #008a20;
 	--warning: #996800;
@@ -69,7 +74,7 @@
 	--border: color-mix( in oklab, oklch( from var( --foreground ) l calc( var( --tint-intensity, 0 ) * 0.0006 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) ) calc( 10% + var( --contrast, 0 ) * 0.2% ), transparent );
 	--popover-border: rgb( 0 0 0 / 7% );
 	--input: var( --border );
-	--backdrop: color-mix( in oklab, var( --foreground ) 15%, transparent );
+	--backdrop: rgb( 0 0 0 / 25% );
 
 	/* Vivid status dots, a step brighter than the text colors above. */
 	--status-running: #16a34a;
@@ -84,6 +89,7 @@
 	--radius-xl: calc( var( --radius ) * 1.4 );
 	--radius-2xl: 1rem;
 	--radius-3xl: 1.5rem;
+	--radius-popup: calc( var( --radius-md ) + var( --space-1_5 ) );
 	--radius-full: 9999px;
 
 	--font-sans: 'Inter Variable', -apple-system, system-ui, 'Segoe UI', 'Roboto', 'Oxygen-Sans', 'Ubuntu',
@@ -94,7 +100,7 @@
 	--text-xxs: 0.75rem;
 	--text-xxs--line-height: 1.1rem;
 	--text-xs: 0.8125rem;
-	--text-xs--line-height: 1.0625rem;
+	--text-xs--line-height: 1.1875rem;
 	--text-sm: 0.875rem;
 	--text-sm--line-height: 1.25rem;
 	--text-md: 0.9375rem;
@@ -113,6 +119,7 @@
 	--shadow-xs: 0 1px 2px 0 rgb( 0 0 0 / 5% );
 	--shadow-sm: 0 0 3px 0 rgb( 0 0 0 / 8% );
 	--shadow-md: 0 4px 6px -1px rgb( 0 0 0 / 10% ), 0 2px 4px -2px rgb( 0 0 0 / 10% );
+	--shadow-preview: 0 1px 3px rgb( 0 0 0 / 10% );
 	--shadow-raised: 0 1px 3px rgb( 0 0 0 / 20% );
 
 	/* A 4px grid, numbered like Tailwind's spacing scale: `--space-1_5` is 1.5 × 4px. */
@@ -137,19 +144,98 @@
 
 	/* The workspace's top band, its controls, and the short column separators
 	   drawn inside it. */
-	--band-height: 54px;
+	--band-height: 48px;
+	--band-tab-width: 160px;
 	--control-size: 36px;
-	--band-inset: calc( ( var( --band-height ) - var( --control-size ) ) / 2 );
+	--band-inset: var( --space-2 );
 	--band-separator-height: 16px;
+	--band-gap: var( --space-1 );
+	--band-group-gap: var( --space-2 );
+	/* Shared scroll-edge fade: length and soft opacity stops. */
+	--surface-fade-size: 24px;
+	--surface-blur-soft: 0px;
+	--surface-blur-medium: 0px;
+	--surface-blur-strong: 0px;
+	--surface-fade-low: 0.1;
+	--surface-fade-mid: 0.35;
+	--surface-fade-high: 0.75;
+	--surface-fade-stops: transparent, rgb( 0 0 0 / var( --surface-fade-low ) ) 25%,
+		rgb( 0 0 0 / var( --surface-fade-mid ) ) 50%,
+		rgb( 0 0 0 / var( --surface-fade-high ) ) 75%, #000;
+	--surface-overlay-fade-stops: transparent,
+		rgb( 0 0 0 / calc( 1 - var( --surface-fade-high ) ) ) 25%,
+		rgb( 0 0 0 / calc( 1 - var( --surface-fade-mid ) ) ) 50%,
+		rgb( 0 0 0 / calc( 1 - var( --surface-fade-low ) ) ) 75%, #000;
+	--surface-strong-overlay-fade-stops: transparent, rgb( 0 0 0 / 0.35 ) 25%,
+		rgb( 0 0 0 / 0.8 ) 50%, rgb( 0 0 0 / 0.97 ) 75%, #000;
+	--surface-header-fade-stops: transparent 45%,
+		rgb( 0 0 0 / var( --surface-fade-low ) ) 65%,
+		rgb( 0 0 0 / var( --surface-fade-mid ) ) 85%, #000;
 	/* Where the band's first control starts on macOS, past the traffic lights. */
 	--traffic-light-space: 92px;
 
-	--motion-duration-feedback: 100ms;
-	--motion-duration-surface: 180ms;
+	--motion-duration-feedback: 50ms;
+	--motion-duration-surface: 100ms;
 	--motion-duration-layout: 240ms;
 	--motion-duration-reveal: 600ms;
 	--motion-ease-layout: cubic-bezier( 0.645, 0.045, 0.355, 1 );
+	--motion-ease-drawer: cubic-bezier( 0.32, 0.72, 0, 1 );
 	--motion-ease-enter: cubic-bezier( 0.165, 0.84, 0.44, 1 );
+	/* Sampled from a spring with stiffness 320, damping 20 and mass 1. */
+	--motion-ease-spring: linear(
+		0 0%,
+		0.0325 2.5%,
+		0.1163 5%,
+		0.2331 7.5%,
+		0.6385 15%,
+		0.7594 17.5%,
+		0.8639 20%,
+		0.9497 22.5%,
+		1.0164 25%,
+		1.0648 27.5%,
+		1.0966 30%,
+		1.1142 32.5%,
+		1.1172 37.5%,
+		1.0941 42.5%,
+		1.0178 55%,
+		0.9887 65%,
+		0.9858 72.5%,
+		1 100%
+	);
+	/* Sampled from a spring with stiffness 320, damping 26 and mass 1. */
+	--motion-ease-spring-gentle: linear(
+		0 0%,
+		0.0316 2.5%,
+		0.1103 5%,
+		0.2164 7.5%,
+		0.3346 10%,
+		0.4541 12.5%,
+		0.5674 15%,
+		0.6697 17.5%,
+		0.7585 20%,
+		0.833 22.5%,
+		0.8933 25%,
+		0.9405 27.5%,
+		0.9759 30%,
+		1.0014 32.5%,
+		1.0185 35%,
+		1.029 37.5%,
+		1.0344 40%,
+		1.036 42.5%,
+		1.035 45%,
+		1.0322 47.5%,
+		1.0284 50%,
+		1.0199 55%,
+		1.0121 60%,
+		1.0061 65%,
+		1.0022 70%,
+		1 75%,
+		0.999 80%,
+		0.9987 85%,
+		0.9988 90%,
+		0.9991 95%,
+		1 100%
+	);
 
 	/* Layers inside the workspace: a sticky row over its scroller, overlays and
 	   handles over a pane, the band's separator over the panels, and the sidebar
@@ -172,26 +258,32 @@
 [data-color-scheme='dark'] {
 	color-scheme: dark;
 	--surface-offset: 3%;
-	--surface-step: calc( 10% + var( --contrast, 0 ) * 0.033333% );
-	--surface-0: oklch( from #181818 calc( l - var( --contrast, 0 ) * 0.0006 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
+	--surface-step: calc( 8% + var( --contrast, 0 ) * 0.033333% );
+	--surface-0: oklch( from #161616 calc( l - var( --contrast, 0 ) * 0.0006 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
 
-	--foreground: oklch( calc( 0.85 + var( --contrast, 0 ) * 0.001 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
+	--foreground: oklch( calc( 0.83 + var( --contrast, 0 ) * 0.001 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
 	--muted-foreground: oklch( from var( --foreground ) calc( l - 0.255 + var( --contrast, 0 ) * 0.0011 ) calc( var( --tint-intensity, 0 ) * 0.0004 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
 
 	--chrome: var( --surface-1 );
 	--chat: var( --surface-0 );
 	--composer: var( --surface-3 );
 	--popover: var( --surface-2 );
-	--popover-border: color-mix( in oklab, oklch( from var( --foreground ) l calc( var( --tint-intensity, 0 ) * 0.0006 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) ) calc( 7% + var( --contrast, 0 ) * 0.2% ), var( --popover ) );
+	--border: color-mix( in oklab, oklch( from var( --foreground ) l calc( var( --tint-intensity, 0 ) * 0.0006 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) ) calc( 8% + var( --contrast, 0 ) * 0.2% ), transparent );
+	--popover-border: color-mix( in oklab, oklch( from var( --foreground ) l calc( var( --tint-intensity, 0 ) * 0.0006 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) ) calc( 6% + var( --contrast, 0 ) * 0.2% ), var( --popover ) );
 	--primary: oklch( 0.97 0 0 );
-	--accent-lightness: 0.72;
-	--accent-chroma: 0.2;
-	--accent-foreground: #141414;
+	--accent-lightness: 0.556431;
+	--accent-chroma: 0.204788;
+	--accent-hue: calc( var( --tint-hue, 260 ) + 9.067086 );
+	--accent-hover: var( --accent-hover-fill, oklch( from #3858e9 l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) ) );
+	--accent-text: var( --accent-text-fill, oklch( from #a1b1ff l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) ) );
+	--accent-text-hover: var( --accent-text-hover-fill, oklch( from #c5cfff l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) ) );
+	--accent-subtle: oklch( from #222d4d l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) );
+	--accent-subtle-hover: oklch( from #2a3964 l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) );
 	--success: #68de7c;
 	--warning: #f0c33c;
 	--destructive: #ff8085;
 	--destructive-foreground: var( --background );
-	--backdrop: color-mix( in oklab, var( --background ) 40%, transparent );
+	--backdrop: rgb( 0 0 0 / 35% );
 }
 
 /* Re-resolved per element so a surface that steps `--muted` up also steps its
@@ -251,7 +343,6 @@
 @media ( prefers-reduced-motion: reduce ) {
 	:root,
 	[data-color-scheme] {
-		--motion-duration-surface: 120ms;
 		--motion-duration-layout: 0ms;
 		--motion-duration-reveal: 150ms;
 	}

@@ -1,6 +1,11 @@
 Unreleased
 ==========
 
+2.1.1
+=====
+* CLI: Fix site start crash from the unread readiness check response #5647
+* Keep the SQLite database at its fixed path on sites with a db-path.php, so imports and exports use the right database #5651
+
 2.1.0
 =====
 <!-- Release notes generated using configuration in .github/release.yml at HEAD -->

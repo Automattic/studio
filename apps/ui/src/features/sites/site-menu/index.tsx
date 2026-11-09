@@ -1,4 +1,3 @@
-import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { aiSessionBelongsToSite } from '@studio/agent/protocol/sessions/owner-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { useNavigate } from '@tanstack/react-router';
@@ -9,24 +8,20 @@ import { useSessionsBusy } from '@/data/agent-runs/use-agent-run';
 import { useConnector } from '@/data/core';
 import { useSessions } from '@/data/queries/use-sessions';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
-import { useSiteDesign } from '@/data/queries/use-site-design';
-import { useIsSiteBusy, useSites, useStopSite } from '@/data/queries/use-sites';
+import { useIsSiteBusy, useSites, useStopSite, useRestartSite } from '@/data/queries/use-sites';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
+import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
 import { SiteShareMenuItem } from '@/features/sharing';
 import { DeleteSiteDialog } from '@/features/sites/delete-site-dialog';
-import { getSiteUrl } from '@/features/sites/get-site-url';
 import {
 	ImportSiteDialog,
 	IMPORT_FILE_ACCEPT,
 	useSiteBackupImport,
 } from '@/features/sites/import-site-dialog';
 import { useOpenInDestinations } from '@/features/sites/open-in-menu/use-open-in-destinations';
-import {
-	DATABASE_HOME_PATH,
-	getRealmNavigationPath,
-} from '@/features/sites/site-preview/address-bar';
+import { SiteToolMenuItems, useSiteToolActions } from '@/features/sites/site-tools';
 import { useItemShortcuts } from '@/features/sites/use-item-shortcuts';
 import {
 	useSiteManagementActions,
@@ -35,16 +30,13 @@ import {
 } from '@/features/sites/use-site-management-actions';
 import { SitePublishMenu } from '@/features/sync';
 import {
-	AppearanceIcon,
-	ArrowRightIcon,
 	ChevronDownIcon,
-	DatabaseIcon,
 	ExportIcon,
 	ExternalLinkIcon,
 	GlobeIcon,
-	MailIcon,
 	NewChatIcon,
 	PinIcon,
+	PlusIcon,
 	RenameIcon,
 	RotateCwIcon,
 	SiteSettingsIcon,
@@ -52,7 +44,6 @@ import {
 	StopOtherSitesIcon,
 	StopSiteIcon,
 	UnpinIcon,
-	WordPressIcon,
 } from '@/lib/icons';
 import { Tooltip, TooltipContent, TooltipTrigger, Menu, Button } from '@/lib/ui';
 import styles from './style.module.css';
@@ -86,6 +77,7 @@ export function useSiteActions(
 	const { data: sites } = useSites();
 	const startSite = useStartSiteWithChat();
 	const stopSite = useStopSite();
+	const restartSite = useRestartSite();
 	const busy = useIsSiteBusy( site );
 	const { isPinned, togglePin } = useSidebarPins();
 	const [ deleteOpen, setDeleteOpen ] = useState( false );
@@ -115,18 +107,8 @@ export function useSiteActions(
 		lifecycle: busy ? undefined : toggleRunning,
 	} );
 
-	// Shows the page in this site's preview, starting the site first.
-	const goTo = async ( path: string ) => {
-		if ( ! site.running && ! ( await startSite.mutateAsync( site.id ).catch( () => false ) ) ) {
-			return;
-		}
-		preview.setSite( site.id );
-		preview.updatePath( getRealmNavigationPath( path, getSiteUrl( site ) ) );
-		preview.setOpen( true );
-		if ( preview.siteId !== site.id ) {
-			void navigate( { to: '/sites/$siteId', params: { siteId: site.id } } );
-		}
-	};
+	const toolActions = useSiteToolActions( site );
+	const runLayoutTransition = useUserWorkspaceLayoutTransition( site.id );
 
 	return {
 		site,
@@ -136,8 +118,10 @@ export function useSiteActions(
 		shortcuts,
 		newChat: () => {
 			onOpen?.();
-			preview.setChatHidden( false, site.id );
-			void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+			runLayoutTransition( () => {
+				preview.setChatHidden( false, site.id, { instant: true } );
+				return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+			} );
 		},
 		openSiteSettings: () => openSiteSettings(),
 		rename,
@@ -146,15 +130,8 @@ export function useSiteActions(
 		toggleRunning,
 		stop: ( stopping: SiteDetails[] ) =>
 			stopping.forEach( ( candidate ) => stopSite.mutate( candidate.id ) ),
-		restart: () =>
-			stopSite.mutateAsync( site.id ).then(
-				() => startSite.mutate( site.id ),
-				() => undefined
-			),
-		openAdmin: () => void goTo( '/wp-admin/' ),
-		openDatabase: () => void goTo( DATABASE_HOME_PATH ),
-		openEmail: () => void connector.openSiteEmailFolder( site.id ),
-		openDesignSystem: () => void goTo( DESIGN_SYSTEM_PREVIEW_PATH ),
+		restart: () => restartSite.mutate( site.id ),
+		...toolActions,
 		openImport: () => importInputRef.current?.click(),
 		openDelete: () => setDeleteOpen( true ),
 		dialogs: (
@@ -173,6 +150,8 @@ export function useSiteActions(
 				/>
 				<ImportSiteDialog
 					site={ site }
+					validationError={ backupImport.validationError }
+					onClearValidationError={ backupImport.clearValidationError }
 					file={ backupImport.file }
 					open={ backupImport.isConfirming }
 					onCancel={ backupImport.cancel }
@@ -195,7 +174,6 @@ export function SiteMenuItems( {
 	current?: boolean;
 } ) {
 	const { site, busy, running, othersRunning } = actions;
-	const siteDesign = useSiteDesign( site );
 	const destinations = useOpenInDestinations( site );
 	const manage = Object.fromEntries(
 		useSiteManagementActions( site, {
@@ -225,6 +203,35 @@ export function SiteMenuItems( {
 				<NewChatIcon />
 				{ __( 'New chat' ) }
 			</Menu.Item>
+			<Menu.SubmenuRoot>
+				<Menu.SubmenuTrigger disabled={ busy }>
+					<PlusIcon />
+					{ __( 'Tools' ) }
+				</Menu.SubmenuTrigger>
+				<Menu.SubmenuPopup>
+					<SiteToolMenuItems site={ site } actions={ actions } />
+				</Menu.SubmenuPopup>
+			</Menu.SubmenuRoot>
+			<Menu.SubmenuRoot>
+				<Menu.SubmenuTrigger>
+					<ExternalLinkIcon />
+					{ __( 'Open in' ) }
+				</Menu.SubmenuTrigger>
+				<Menu.SubmenuPopup>
+					{ destinations
+						.filter( ( destination ) => destination.id !== 'wp-admin' )
+						.map( ( destination ) => (
+							<Menu.Item
+								key={ destination.id }
+								disabled={ destination.disabled }
+								onClick={ destination.open }
+							>
+								{ destination.logo }
+								{ destination.label }
+							</Menu.Item>
+						) ) }
+				</Menu.SubmenuPopup>
+			</Menu.SubmenuRoot>
 			<Menu.Item onClick={ actions.openSiteSettings }>
 				<SiteSettingsIcon />
 				{ __( 'Settings' ) }
@@ -233,7 +240,7 @@ export function SiteMenuItems( {
 			{ site.running ? null : (
 				<Menu.Item disabled={ busy } onClick={ actions.toggleRunning }>
 					<StartSiteIcon />
-					{ __( 'Start site' ) }
+					{ __( 'Start' ) }
 					{ lifecycleShortcut }
 				</Menu.Item>
 			) }
@@ -269,55 +276,11 @@ export function SiteMenuItems( {
 			{ site.running ? (
 				<Menu.Item disabled={ busy } onClick={ () => void actions.restart() }>
 					<RotateCwIcon />
-					{ __( 'Restart site' ) }
+					{ __( 'Restart' ) }
 				</Menu.Item>
 			) : null }
 			<Menu.Separator />
-			<Menu.SubmenuRoot>
-				<Menu.SubmenuTrigger disabled={ busy }>
-					<ArrowRightIcon />
-					{ __( 'Tools' ) }
-				</Menu.SubmenuTrigger>
-				<Menu.SubmenuPopup>
-					<Menu.Item onClick={ actions.openAdmin }>
-						<WordPressIcon />
-						{ __( 'WordPress Admin' ) }
-					</Menu.Item>
-					<Menu.Item onClick={ actions.openDatabase }>
-						<DatabaseIcon />
-						{ __( 'Database' ) }
-					</Menu.Item>
-					<Menu.Item onClick={ actions.openEmail }>
-						<MailIcon />
-						{ __( 'Email' ) }
-					</Menu.Item>
-					{ siteDesign.data ? (
-						<Menu.Item onClick={ actions.openDesignSystem }>
-							<AppearanceIcon />
-							{ __( 'Design system' ) }
-						</Menu.Item>
-					) : null }
-				</Menu.SubmenuPopup>
-			</Menu.SubmenuRoot>
-			<Menu.SubmenuRoot>
-				<Menu.SubmenuTrigger>
-					<ExternalLinkIcon />
-					{ __( 'Open in' ) }
-				</Menu.SubmenuTrigger>
-				<Menu.SubmenuPopup>
-					{ destinations.map( ( destination ) => (
-						<Menu.Item
-							key={ destination.id }
-							disabled={ destination.disabled }
-							onClick={ destination.open }
-						>
-							{ destination.logo }
-							{ destination.label }
-						</Menu.Item>
-					) ) }
-				</Menu.SubmenuPopup>
-			</Menu.SubmenuRoot>
-			<Menu.Separator />
+
 			<Menu.Item onClick={ actions.togglePin }>
 				{ actions.pinned ? <UnpinIcon /> : <PinIcon /> }
 				{ actions.pinned ? __( 'Unpin' ) : __( 'Pin' ) }
@@ -349,13 +312,13 @@ export function SiteMenuItems( {
 	);
 }
 
-// The site's control in the top band: a globe and a chevron.
+// The site's control in the top band.
 export function SiteMenu( { site }: { site: SiteDetails } ) {
 	const actions = useSiteActions( site );
 	const label = __( 'Site menu' );
 	return (
 		<>
-			<Menu.Root modal={ false }>
+			<Menu.Root key={ site.id } modal={ false }>
 				<Tooltip>
 					<Menu.Trigger
 						render={
@@ -363,6 +326,7 @@ export function SiteMenu( { site }: { site: SiteDetails } ) {
 								render={
 									<Button
 										variant="ghost"
+										size="sm"
 										aria-label={ label }
 										aria-busy={ actions.busy || undefined }
 										className={ styles.trigger }
@@ -374,6 +338,7 @@ export function SiteMenu( { site }: { site: SiteDetails } ) {
 						}
 					>
 						<GlobeIcon data-icon="inline-start" />
+						<span className={ styles.siteName }>{ site.name }</span>
 						<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
 					</Menu.Trigger>
 					<TooltipContent side="bottom">{ label }</TooltipContent>

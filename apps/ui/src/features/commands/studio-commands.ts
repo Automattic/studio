@@ -1,19 +1,21 @@
 import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
 import { __, sprintf } from '@wordpress/i18n';
-import { PencilIcon, SettingsIcon, SparklesIcon } from 'lucide-react';
+import { SettingsIcon } from 'lucide-react';
 import { getSections, getSettingsCommandAliases } from '@/data/settings-sections';
 import { getSessionTitle } from '@/features/chats';
 import {
 	PlusIcon,
 	AppearanceIcon,
 	ArchiveIcon,
-	BellIcon,
 	ChatIcon,
 	CollapseAllIcon,
 	GlobeIcon,
+	FeedbackIcon,
 	PinIcon,
+	RenameIcon,
 	SidebarIcon,
 	UnpinIcon,
+	WhatsNewIcon,
 } from '@/lib/icons';
 import type { AiSessionSummary, SiteDetails, WritableUserPreferences } from '@/data/core';
 import type { useOpenSettings } from '@/data/use-open-settings';
@@ -102,8 +104,8 @@ export function getAppCommands( {
 	openChat,
 	savePreferences,
 	toggleSidebar,
-	openNotifications,
 	openWhatsNew,
+	openFeedback,
 	collapseAll,
 }: {
 	sites: SiteDetails[];
@@ -117,8 +119,8 @@ export function getAppCommands( {
 	openChat: ( session: AiSessionSummary ) => void;
 	savePreferences: ( preferences: Partial< WritableUserPreferences > ) => void;
 	toggleSidebar: () => void;
-	openNotifications: () => void;
 	openWhatsNew: () => void;
+	openFeedback: () => void;
 	// Set while the sidebar has more than one site unfolded.
 	collapseAll?: () => void;
 } ): PaletteCommand[] {
@@ -179,20 +181,21 @@ export function getAppCommands( {
 			run: toggleSidebar,
 		},
 		{
-			id: 'notifications',
-			group: 'commands',
-			label: __( 'Show notifications' ),
-			icon: BellIcon,
-			aliases: [ __( 'Notifications' ) ],
-			run: openNotifications,
-		},
-		{
 			id: 'whats-new',
 			group: 'commands',
 			label: __( 'What’s New' ),
-			icon: SparklesIcon,
+			icon: WhatsNewIcon,
 			keywords: [ __( 'New features' ) ],
 			run: openWhatsNew,
+		},
+		{
+			id: 'send-feedback',
+			group: 'commands',
+			label: __( 'Send feedback' ),
+			icon: FeedbackIcon,
+			aliases: [ __( 'Feedback' ) ],
+			keywords: [ __( 'Report a bug' ), __( 'Feature request' ), __( 'WordPress Studio team' ) ],
+			run: openFeedback,
 		},
 		...( collapseAll
 			? [
@@ -345,7 +348,7 @@ export function getChatCommands(
 			id: 'rename-chat',
 			group: 'commands',
 			label: __( 'Rename chat…' ),
-			icon: PencilIcon,
+			icon: RenameIcon,
 			description,
 			run: actions.rename,
 		},

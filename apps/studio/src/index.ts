@@ -14,6 +14,7 @@ import {
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { PROTOCOL_PREFIX } from '@studio/common/constants';
+import { refreshAgentPlugins } from '@studio/common/lib/connect-agent-app';
 import { runMigrations } from '@studio/common/lib/migration';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
@@ -43,10 +44,11 @@ import {
 } from 'src/lib/locale-node';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
-import { forwardPreviewCommandPalette } from 'src/lib/preview-shortcuts';
+import { forwardPreviewShortcut } from 'src/lib/preview-shortcuts';
 import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { parseWebUrl } from 'src/lib/shell-open-external-wrapper';
 import { getSites, stopAllServers } from 'src/lib/sites';
+import { refreshSpotlightIndex, setupSpotlight } from 'src/lib/spotlight';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { setupLogging } from 'src/logging';
 import {
@@ -64,6 +66,7 @@ import { stopCliCommands } from 'src/modules/cli/lib/execute-command';
 import { autoInstallLinuxCliIfNeeded } from 'src/modules/cli/lib/linux-installation-manager';
 import { autoInstallMacOSCliIfNeeded } from 'src/modules/cli/lib/macos-installation-manager';
 import { autoInstallWindowsCliIfNeeded } from 'src/modules/cli/lib/windows-installation-manager';
+import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 import {
 	loadUserData,
 	lockAppdata,
@@ -258,7 +261,7 @@ async function appBoot() {
 		const isSitePreviewWebview = contents.getType() === 'webview';
 		if ( isSitePreviewWebview ) {
 			contents.on( 'before-input-event', ( event, input ) => {
-				if ( forwardPreviewCommandPalette( contents, input ) ) {
+				if ( forwardPreviewShortcut( contents, input ) ) {
 					event.preventDefault();
 					return;
 				}
@@ -378,6 +381,7 @@ async function appBoot() {
 
 	function setupCustomProtocolHandler() {
 		if ( process.platform === 'darwin' ) {
+			setupSpotlight();
 			app.on( 'open-url', ( _event, url ) => {
 				openDeeplink( url );
 			} );
@@ -437,6 +441,11 @@ async function appBoot() {
 		console.log( `System locale: ${ app.getSystemLocale() }` );
 		console.log( `Used language: ${ locale }` );
 
+		void refreshAgentPlugins( {
+			nodeBinary: getBundledNodeBinaryPath(),
+			cliBinary: getCliPath(),
+		} ).catch( ( error ) => console.error( 'Failed to refresh the agent app plugins', error ) );
+
 		// By default Electron automatically approves all permissions requests (e.g. notifications, webcam)
 		// We'll opt-in to permissions we specifically need instead.
 		session.defaultSession.setPermissionRequestHandler( ( webContents, permission, callback ) => {
@@ -463,7 +472,9 @@ async function appBoot() {
 			const basePolicies = [
 				"default-src 'self'",
 				"script-src-attr 'none'",
-				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com https://blueprintslibraryv2.wpcomstaging.com data:",
+				// The email view's frame inherits this policy, and the email a site
+				// sends loads images from the site: a localhost port or a custom domain.
+				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com https://blueprintslibraryv2.wpcomstaging.com http://localhost:* http://*.local https://*.local data:",
 				"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", // unsafe-inline: components inject their styles at runtime
 				// The agentic UI's design system view loads DESIGN.md fonts.
 				"font-src 'self' https://fonts.gstatic.com",
@@ -501,6 +512,7 @@ async function appBoot() {
 		await runMigrations( migrations ).catch( Sentry.captureException );
 
 		await startCliEventsSubscriber();
+		void refreshSpotlightIndex();
 
 		await createMainWindow();
 

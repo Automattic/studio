@@ -1,32 +1,27 @@
 import { __, sprintf } from '@wordpress/i18n';
-import {
-	ArrowRightLeftIcon,
-	CodeIcon,
-	DatabaseIcon,
-	DownloadIcon,
-	EyeIcon,
-	EyeOffIcon,
-	FolderIcon,
-	PencilIcon,
-	RefreshCwIcon,
-	TerminalIcon,
-	UploadIcon,
-	XIcon,
-} from 'lucide-react';
+import { XIcon } from 'lucide-react';
 import { getSettingsCommandAliases } from '@/data/settings-sections';
 import {
 	AnnotateIcon,
-	ChatIcon,
+	CodeIcon,
+	DatabaseIcon,
 	DuplicateIcon,
+	ExportSiteIcon,
 	ExternalLinkIcon,
+	FolderIcon,
+	ImportIcon,
+	MailIcon,
 	NewChatIcon,
 	PinIcon,
+	RenameIcon,
 	RotateCwIcon,
 	ShareIcon,
 	SiteSettingsIcon,
 	StartSiteIcon,
 	StopOtherSitesIcon,
 	StopSiteIcon,
+	SyncIcon,
+	TerminalIcon,
 	UnpinIcon,
 	WordPressIcon,
 } from '@/lib/icons';
@@ -52,8 +47,7 @@ const OPEN_IN_ICONS: Record< OpenInDestination, PaletteCommand[ 'icon' ] > = {
 
 export function getSiteCommands( {
 	site,
-	chatHidden,
-	previewShown,
+	panelShown,
 	canAnnotate,
 	annotating,
 	actions,
@@ -65,13 +59,10 @@ export function getSiteCommands( {
 	newChat,
 	reloadPreview,
 	annotate,
-	showPreview,
-	setChatHidden,
 	copyUrl,
 }: {
 	site: SiteDetails;
-	chatHidden?: boolean;
-	previewShown: boolean;
+	panelShown: boolean;
 	canAnnotate: boolean;
 	annotating: boolean;
 	actions: ReturnType< typeof useSiteActions >;
@@ -83,8 +74,6 @@ export function getSiteCommands( {
 	newChat: () => void;
 	reloadPreview: () => void;
 	annotate: ( active: boolean ) => void;
-	showPreview: ( open: boolean ) => void;
-	setChatHidden: ( hidden: boolean ) => void;
 	copyUrl: () => void;
 } ): PaletteCommand[] {
 	const { busy, running, othersRunning } = actions;
@@ -93,7 +82,7 @@ export function getSiteCommands( {
 		files: [ __( 'Folder' ), __( 'Directory' ), __( 'Finder' ) ],
 		editor: [ __( 'Code editor' ), __( 'IDE' ) ],
 		terminal: [ __( 'Shell' ), __( 'Command line' ) ],
-		phpmyadmin: [ __( 'Database' ), 'SQL', 'MySQL' ],
+		phpmyadmin: [ __( 'Database' ), 'phpMyAdmin', 'SQL', 'MySQL' ],
 		'wp-admin': [ __( 'Dashboard' ), 'wp-admin' ],
 	};
 
@@ -135,7 +124,7 @@ export function getSiteCommands( {
 			group: 'commands',
 			label: __( 'Rename site…' ),
 			aliases: getSettingsCommandAliases( 'site', 'rename-site' ),
-			icon: PencilIcon,
+			icon: RenameIcon,
 			description,
 			run: actions.rename,
 		},
@@ -145,8 +134,7 @@ export function getSiteCommands( {
 					{
 						id: 'admin',
 						group: 'commands' as const,
-						label: __( 'Open WordPress Admin in preview' ),
-						aliases: [ __( 'Open WordPress Admin' ) ],
+						label: __( 'Open WordPress Admin' ),
 						icon: WordPressIcon,
 						description,
 						keywords: keywords[ 'wp-admin' ],
@@ -155,12 +143,20 @@ export function getSiteCommands( {
 					{
 						id: 'database',
 						group: 'commands' as const,
-						label: __( 'Open database in preview' ),
-						aliases: [ __( 'Open database' ) ],
+						label: __( 'Open database' ),
 						icon: DatabaseIcon,
 						description,
 						keywords: keywords.phpmyadmin,
 						run: actions.openDatabase,
+					},
+					{
+						id: 'email',
+						group: 'commands' as const,
+						label: __( 'Open email log' ),
+						icon: MailIcon,
+						description,
+						keywords: [ __( 'Inbox' ), __( 'Mail' ), 'wp_mail' ],
+						run: actions.openEmail,
 					},
 					...( site.running
 						? [
@@ -198,47 +194,38 @@ export function getSiteCommands( {
 			  ]
 			: [] ),
 		...destinations
-			.filter( ( destination ) => ! destination.disabled )
+			.filter(
+				( destination ) =>
+					! destination.disabled && destination.id !== 'wp-admin' && destination.id !== 'phpmyadmin'
+			)
 			.map(
 				( destination ): PaletteCommand => ( {
 					id: `open-${ destination.id }`,
 					group: 'commands',
-					label:
-						destination.id === 'wp-admin'
-							? __( 'Open WordPress Admin in browser' )
-							: destination.id === 'phpmyadmin'
-							? __( 'Open database in browser' )
-							: sprintf(
-									/* translators: %s is the name of the app. E.g. "Open in Cursor" */
-									__( 'Open in %s' ),
-									destination.label
-							  ),
-					aliases: [
-						sprintf(
-							/* translators: %s: the name of an app. */
-							__( 'Open in %s' ),
-							destination.label
-						),
-					],
+					label: sprintf(
+						/* translators: %s is the name of the app. E.g. "Open in Cursor" */
+						__( 'Open in %s' ),
+						destination.label
+					),
 					icon: OPEN_IN_ICONS[ destination.id ],
 					description,
 					keywords: keywords[ destination.id ],
 					run: destination.open,
 				} )
 			),
-		...( previewShown && site.running
+		...( panelShown && site.running
 			? [
 					{
 						id: 'reload',
 						group: 'commands' as const,
 						label: __( 'Reload preview' ),
-						icon: RefreshCwIcon,
+						icon: RotateCwIcon,
 						keywords: [ __( 'Refresh' ) ],
 						run: reloadPreview,
 					},
 			  ]
 			: [] ),
-		...( previewShown && site.running && ( canAnnotate || annotating )
+		...( panelShown && site.running && ( canAnnotate || annotating )
 			? [
 					{
 						id: 'annotate',
@@ -251,25 +238,6 @@ export function getSiteCommands( {
 			  ]
 			: [] ),
 		{
-			id: 'preview-visibility',
-			group: 'commands',
-			label: previewShown ? __( 'Hide preview' ) : __( 'Show preview' ),
-			icon: previewShown ? EyeOffIcon : EyeIcon,
-			description,
-			run: () => showPreview( ! previewShown ),
-		},
-		...( chatHidden === undefined
-			? []
-			: [
-					{
-						id: 'chat-visibility',
-						group: 'commands' as const,
-						label: chatHidden ? __( 'Show chat' ) : __( 'Hide chat' ),
-						icon: ChatIcon,
-						run: () => setChatHidden( ! chatHidden ),
-					},
-			  ] ),
-		{
 			id: 'share',
 			group: 'commands',
 			label: __( 'Share site…' ),
@@ -281,8 +249,8 @@ export function getSiteCommands( {
 		{
 			id: 'publish',
 			group: 'commands',
-			label: __( 'Publish & Sync…' ),
-			icon: ArrowRightLeftIcon,
+			label: __( 'Publish' ),
+			icon: SyncIcon,
 			description,
 			keywords: [ __( 'publish site sync push pull upload download' ) ],
 			run: () => openHeaderPanel( { panel: 'publish', siteId: site.id, view: 'publish' } ),
@@ -299,7 +267,7 @@ export function getSiteCommands( {
 		{
 			id: 'pin-site',
 			group: 'commands',
-			label: actions.pinned ? __( 'Unpin site' ) : __( 'Pin site' ),
+			label: actions.pinned ? __( 'Unpin' ) : __( 'Pin' ),
 			icon: actions.pinned ? UnpinIcon : PinIcon,
 			description,
 			run: actions.togglePin,
@@ -318,8 +286,8 @@ export function getSiteCommands( {
 							: action.label,
 					icon: {
 						duplicate: DuplicateIcon,
-						import: UploadIcon,
-						export: DownloadIcon,
+						import: ImportIcon,
+						export: ExportSiteIcon,
 						'export-db': DatabaseIcon,
 						delete: action.icon,
 					}[ action.id ],

@@ -4,7 +4,7 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event';
 import { useSyncExternalStore } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { getNoticeHistory, resetAppMessagesForTests, runNoticeAction } from '@/data/app-messages';
+import { getVisibleToasts, resetAppMessagesForTests, runNoticeAction } from '@/data/app-messages';
 import { useSites } from '@/data/queries/use-sites';
 import { applySyncActivity } from '@/data/sync-activity';
 import { ShareButton, SiteDeliveryDialog } from '@/features/site-delivery';
@@ -157,7 +157,7 @@ const isDisabled = ( element: HTMLElement ) =>
 const failure = ( description: string ) =>
 	waitFor(
 		() =>
-			expect( getNoticeHistory() ).toContainEqual(
+			expect( getVisibleToasts() ).toContainEqual(
 				expect.objectContaining( { intent: 'error', description } )
 			),
 		SETTLE
@@ -338,7 +338,7 @@ describe( 'ShareDialog', () => {
 		expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 	} );
 
-	it( 'keeps publishing on the Share button after dismissal and clears ready on opening without copying', async () => {
+	it( 'keeps publishing status after dismissal without adding a ready badge', async () => {
 		const { connector, ready } = setup();
 		const original = connector.publishPreviewSite.getMockImplementation()!;
 		let finish!: () => void;
@@ -364,10 +364,14 @@ describe( 'ShareDialog', () => {
 		fireEvent.keyDown( screen.getByRole( 'dialog' ), { key: 'Escape' } );
 		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
 		await act( async () => finish() );
-		await waitFor( () => expect( isUnread( trigger ) ).toBe( true ), SETTLE );
+		await waitFor(
+			() => expect( getVisibleToasts()[ 0 ]?.title ).toBe( 'My site preview is ready' ),
+			SETTLE
+		);
+		expect( isUnread( trigger ) ).toBe( false );
 		expect( isPublishing( trigger ) ).toBe( false );
-		expect( trigger ).toHaveAccessibleDescription( 'Preview ready' );
-		expect( getNoticeHistory()[ 0 ].title ).toBe( 'My site preview is ready' );
+		expect( trigger ).not.toHaveAttribute( 'aria-description' );
+		expect( getVisibleToasts()[ 0 ].title ).toBe( 'My site preview is ready' );
 		fireEvent.click( trigger );
 		await screen.findByRole( 'list', { name: 'Previews' } );
 		await waitFor( () => expect( isUnread( trigger ) ).toBe( false ) );
@@ -391,10 +395,13 @@ describe( 'ShareDialog', () => {
 		fireEvent.keyDown( screen.getByRole( 'dialog' ), { key: 'Escape' } );
 		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
 		await act( async () => finish() );
-		await waitFor( () => expect( getNoticeHistory() ).toHaveLength( 1 ), SETTLE );
-		expect( getNoticeHistory()[ 0 ].title ).toBe( 'My site preview is ready' );
+		await waitFor(
+			() => expect( getVisibleToasts()[ 0 ]?.title ).toBe( 'My site preview is ready' ),
+			SETTLE
+		);
+		expect( getVisibleToasts() ).toHaveLength( 1 );
 		await act( async () => {
-			await runNoticeAction( getNoticeHistory()[ 0 ].action! );
+			await runNoticeAction( getVisibleToasts()[ 0 ].action! );
 		} );
 		await waitFor( () =>
 			expect( connector.copyText ).toHaveBeenCalledWith( 'https://preview.example.com' )
@@ -428,23 +435,35 @@ describe( 'ShareDialog', () => {
 		}
 	);
 
-	it( 'disables both account actions during login and keeps the prompt after cancellation', async () => {
+	it( 'keeps both account actions available during login and keeps the prompt after cancellation', async () => {
 		const { connector, ready } = setup( null );
 		let finish!: () => void;
-		connector.authenticate.mockImplementationOnce(
-			() =>
-				new Promise< void >( ( resolve ) => {
-					finish = resolve;
-				} )
+		connector.authenticate.mockReturnValue(
+			new Promise< void >( ( resolve ) => {
+				finish = resolve;
+			} )
 		);
 		await ready;
 		const login = await screen.findByRole( 'button', { name: 'Log in' } );
 		const signup = screen.getByRole( 'button', { name: 'Create account' } );
 		fireEvent.click( login );
-		await waitFor( () => expect( isDisabled( login ) ).toBe( true ) );
-		expect( isDisabled( signup ) ).toBe( true );
+		await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledOnce() );
+		expect( login ).toBeEnabled();
+		expect( signup ).toBeEnabled();
 		fireEvent.click( signup );
-		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith( false, 'previews_tab' );
+		await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledTimes( 2 ) );
+		expect( connector.authenticate ).toHaveBeenNthCalledWith(
+			1,
+			false,
+			'previews_tab',
+			expect.any( Object )
+		);
+		expect( connector.authenticate ).toHaveBeenNthCalledWith(
+			2,
+			true,
+			'previews_tab',
+			expect.any( Object )
+		);
 		await act( async () => finish() );
 		await waitFor( () => expect( isDisabled( login ) ).toBe( false ) );
 		expect( isDisabled( signup ) ).toBe( false );
@@ -483,7 +502,7 @@ describe( 'ShareDialog', () => {
 		await waitFor( () =>
 			expect( connector.copyText ).toHaveBeenCalledWith( 'https://new.example.com' )
 		);
-		expect( getNoticeHistory() ).toHaveLength( 0 );
+		expect( getVisibleToasts() ).toHaveLength( 0 );
 		expect( screen.queryByText( 'new.example.com' ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Open preview' } ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'View QR code' } ) ).not.toBeInTheDocument();
@@ -768,7 +787,7 @@ describe( 'ShareDialog', () => {
 		await actions.click( await screen.findByRole( 'menuitem', { name: 'Delete preview' } ) );
 		await actions.click( screen.getByRole( 'button', { name: 'Delete preview' } ) );
 		await waitFor( () =>
-			expect( getNoticeHistory() ).toContainEqual(
+			expect( getVisibleToasts() ).toContainEqual(
 				expect.objectContaining( { title: "Couldn't delete the preview site" } )
 			)
 		);

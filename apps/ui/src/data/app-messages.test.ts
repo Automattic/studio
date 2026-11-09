@@ -1,26 +1,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-	clearNoticeHistory,
-	dismissNotice,
 	dismissToast,
-	getNoticeHistory,
 	getQueuedToastCount,
 	getVisibleToasts,
 	notifyRendererMounted,
+	notifyRendererUnmounted,
 	pauseToastExpiry,
 	resetAppMessagesForTests,
 	resumeToastExpiry,
 	runNoticeAction,
 	showToast,
-	syncCardNotices,
 	toast,
 	TOAST_EXIT_MS,
 } from './app-messages';
 
 const titles = () => getVisibleToasts().map( ( item ) => item.title );
-// Expiry/dismissal is two-phase: the toast lingers with `leaving: true` for
-// TOAST_EXIT_MS (the exit animation window) before it is removed and the
-// queue promotes.
 const settleExit = () => vi.advanceTimersByTime( TOAST_EXIT_MS );
 
 describe( 'app-messages', () => {
@@ -29,335 +23,218 @@ describe( 'app-messages', () => {
 		resetAppMessagesForTests();
 		notifyRendererMounted();
 	} );
-
 	afterEach( () => {
+		resetAppMessagesForTests();
 		vi.useRealTimers();
 	} );
 
-	it( 'shows a toast and expires it after the default duration', () => {
+	it( 'expires confirmations after their full visible duration', () => {
 		toast.success( 'Saved' );
-		expect( titles() ).toEqual( [ 'Saved' ] );
-
-		vi.advanceTimersByTime( 4_499 );
-		expect( titles() ).toEqual( [ 'Saved' ] );
-
-		// Expiry flips it to leaving (still rendered for the exit animation)…
+		vi.advanceTimersByTime( 4499 );
+		expect( getVisibleToasts()[ 0 ].leaving ).toBeUndefined();
 		vi.advanceTimersByTime( 1 );
-		expect( titles() ).toEqual( [ 'Saved' ] );
 		expect( getVisibleToasts()[ 0 ].leaving ).toBe( true );
-
-		// …and the exit window removes it for real.
 		settleExit();
 		expect( titles() ).toEqual( [] );
 	} );
 
-	it( 'lets error toasts linger longer than success toasts', () => {
-		toast.success( 'Saved' );
-		toast.error( 'Failed' );
-
-		vi.advanceTimersByTime( 4_500 );
-		settleExit();
-		expect( titles() ).toEqual( [ 'Failed' ] );
-
-		vi.advanceTimersByTime( 5_300 );
-		settleExit();
-		expect( titles() ).toEqual( [] );
-	} );
-
-	it( 'honors a custom duration', () => {
-		showToast( { title: 'Quick', durationMs: 1_000 } );
-
-		vi.advanceTimersByTime( 999 );
-		expect( titles() ).toEqual( [ 'Quick' ] );
-
-		vi.advanceTimersByTime( 1 );
+	it.each( [ 'error', 'warning' ] as const )( 'keeps %s until manually dismissed', ( intent ) => {
+		const id = toast[ intent ]( 'Needs attention' );
+		vi.advanceTimersByTime( 120_000 );
+		pauseToastExpiry( id );
+		resumeToastExpiry( id );
+		vi.advanceTimersByTime( 120_000 );
+		expect( getVisibleToasts()[ 0 ].leaving ).toBeUndefined();
+		dismissToast( id );
 		settleExit();
 		expect( titles() ).toEqual( [] );
 	} );
 
-	it( 'caps visible toasts at three and promotes the queue after the exit window', () => {
-		for ( const title of [ 'a', 'b', 'c', 'd', 'e' ] ) {
-			toast.info( title );
-		}
-		expect( titles() ).toEqual( [ 'a', 'b', 'c' ] );
-
-		// All three visible toasts share a start time, so they begin leaving
-		// together; promotion waits for their exits to finish.
-		vi.advanceTimersByTime( 4_500 );
-		expect( titles() ).toEqual( [ 'a', 'b', 'c' ] );
-		expect( getVisibleToasts().every( ( item ) => item.leaving ) ).toBe( true );
-
-		settleExit();
-		expect( titles() ).toEqual( [ 'd', 'e' ] );
+	it( 'never evicts persistent notices and admits new failures immediately', () => {
+		for ( let i = 0; i < 3; i++ ) toast.processing( `Export ${ i }` );
+		toast.error( 'Disk full' );
+		toast.warning( 'Only some changes applied' );
+		vi.advanceTimersByTime( 60_000 );
+		expect( titles() ).toEqual( [
+			'Export 0',
+			'Export 1',
+			'Export 2',
+			'Disk full',
+			'Only some changes applied',
+		] );
+		expect( getVisibleToasts().some( ( item ) => item.leaving ) ).toBe( false );
 	} );
 
-	it( 'promotes the queue when a visible toast is dismissed', () => {
-		for ( const title of [ 'a', 'b', 'c', 'd' ] ) {
-			toast.info( title );
-		}
-
-		dismissToast( getVisibleToasts()[ 0 ].id );
-		// The dismissed toast plays its exit before the queue promotes.
-		expect( titles() ).toEqual( [ 'a', 'b', 'c' ] );
+	it( 'suppresses dismissed progress updates but shows the result and the next attempt', () => {
+		toast.processing( 'Importing', { id: 'import' } );
+		dismissToast( 'import' );
+		toast.processing( 'Importing 50%', { id: 'import' } );
 		settleExit();
-		expect( titles() ).toEqual( [ 'b', 'c', 'd' ] );
+		expect( titles() ).toEqual( [] );
+		toast.error( 'Import failed', { id: 'import' } );
+		expect( titles() ).toEqual( [ 'Import failed' ] );
+		toast.processing( 'Importing again', { id: 'import' } );
+		expect( titles() ).toEqual( [ 'Importing again' ] );
+		toast.success( 'Import complete', { id: 'import' } );
+		vi.advanceTimersByTime( 4500 );
+		settleExit();
+		expect( titles() ).toEqual( [] );
 	} );
 
-	it( 'starts a queued toast’s clock at promotion, not enqueue', () => {
-		toast.info( 'a' );
-		toast.info( 'b' );
-		toast.info( 'c' );
-		vi.advanceTimersByTime( 4_000 );
-		toast.info( 'd' );
-
-		// a/b/c expire 500ms later; d is promoted after their exit window and
-		// gets its full TTL from that moment.
+	it( 'queues confirmations and starts their timer only after promotion', () => {
+		for ( let i = 0; i < 3; i++ ) toast.info( `Notice ${ i }` );
+		vi.advanceTimersByTime( 4000 );
+		toast.info( 'Last' );
+		expect( getQueuedToastCount() ).toBe( 1 );
 		vi.advanceTimersByTime( 500 );
 		settleExit();
-		expect( titles() ).toEqual( [ 'd' ] );
-
-		vi.advanceTimersByTime( 4_499 );
-		expect( titles() ).toEqual( [ 'd' ] );
-
-		vi.advanceTimersByTime( 1 );
-		settleExit();
-		expect( titles() ).toEqual( [] );
-	} );
-
-	it( 'replaces a visible toast with the same stable id and restarts its timer', () => {
-		showToast( { id: 'copy-feedback', title: 'Copied' } );
-		vi.advanceTimersByTime( 4_000 );
-
-		showToast( { id: 'copy-feedback', title: 'Copied again' } );
-		expect( titles() ).toEqual( [ 'Copied again' ] );
-
-		vi.advanceTimersByTime( 4_499 );
-		expect( titles() ).toEqual( [ 'Copied again' ] );
-
-		vi.advanceTimersByTime( 1 );
-		settleExit();
-		expect( titles() ).toEqual( [] );
-	} );
-
-	it( 'rescues a toast that is re-shown mid-exit', () => {
-		const id = showToast( { id: 'rescue', title: 'first' } );
-		dismissToast( id );
-		expect( getVisibleToasts()[ 0 ].leaving ).toBe( true );
-
-		showToast( { id: 'rescue', title: 'second' } );
+		expect( titles() ).toEqual( [ 'Last' ] );
+		vi.advanceTimersByTime( 4499 );
 		expect( getVisibleToasts()[ 0 ].leaving ).toBeUndefined();
-
-		// Past the original exit window: the rescued toast survives.
-		vi.advanceTimersByTime( TOAST_EXIT_MS + 100 );
-		expect( titles() ).toEqual( [ 'second' ] );
-	} );
-
-	it( 'replaces a queued toast with the same stable id without starting its timer', () => {
-		for ( const title of [ 'a', 'b', 'c' ] ) {
-			toast.info( title );
-		}
-		showToast( { id: 'queued', title: 'first' } );
-		showToast( { id: 'queued', title: 'second' } );
-
-		vi.advanceTimersByTime( 4_500 );
+		vi.advanceTimersByTime( 1 );
 		settleExit();
-		expect( titles() ).toEqual( [ 'second' ] );
+		expect( titles() ).toEqual( [] );
 	} );
 
-	it( 'pauses and resumes expiry, restarting the full duration', () => {
-		const id = toast.info( 'hovered' );
+	it( 'promotes a queued confirmation immediately if replaced by a failure', () => {
+		for ( let i = 0; i < 3; i++ ) toast.info( `Notice ${ i }` );
+		toast.info( 'Checking', { id: 'check' } );
+		toast.error( 'Check failed', { id: 'check' } );
+		expect( titles() ).toContain( 'Check failed' );
+		expect( getQueuedToastCount() ).toBe( 0 );
+	} );
 
-		vi.advanceTimersByTime( 4_000 );
+	it( 'replaces repeated failures instead of adding duplicates and rescues mid-exit replacements', () => {
+		toast.error( 'Failed', { id: 'operation' } );
+		dismissToast( 'operation' );
+		toast.error( 'Failed again', { id: 'operation' } );
+		settleExit();
+		expect( titles() ).toEqual( [ 'Failed again' ] );
+	} );
+
+	it( 'pauses confirmations for hover/focus and never resurrects an exiting notice', () => {
+		const id = toast.success( 'Saved' );
 		pauseToastExpiry( id );
 		vi.advanceTimersByTime( 60_000 );
-		expect( titles() ).toEqual( [ 'hovered' ] );
-
+		expect( titles() ).toEqual( [ 'Saved' ] );
 		resumeToastExpiry( id );
-		vi.advanceTimersByTime( 4_499 );
-		expect( titles() ).toEqual( [ 'hovered' ] );
-
-		vi.advanceTimersByTime( 1 );
-		settleExit();
-		expect( titles() ).toEqual( [] );
-	} );
-
-	it( 'cannot pause or resume a toast that is already exiting', () => {
-		const id = toast.info( 'going' );
-		dismissToast( id );
-
-		// Hovering mid-exit must not cancel the removal timer…
+		vi.advanceTimersByTime( 4500 );
 		pauseToastExpiry( id );
-		// …and un-hovering must not resurrect it with a fresh TTL.
 		resumeToastExpiry( id );
-
 		settleExit();
 		expect( titles() ).toEqual( [] );
 	} );
 
-	it( 'removes a dismissed queued toast immediately, without promoting it', () => {
-		for ( const title of [ 'a', 'b', 'c' ] ) {
-			toast.info( title );
-		}
-		const queuedId = toast.info( 'queued' );
-
-		dismissToast( queuedId );
-		expect( titles() ).toEqual( [ 'a', 'b', 'c' ] );
-		expect( getQueuedToastCount() ).toBe( 0 );
-
-		vi.advanceTimersByTime( 4_500 );
+	it( 'starts confirmation timers only while the renderer is mounted', () => {
+		notifyRendererUnmounted();
+		toast.info( 'Saved' );
+		vi.advanceTimersByTime( 60_000 );
+		expect( titles() ).toEqual( [ 'Saved' ] );
+		notifyRendererMounted();
+		vi.advanceTimersByTime( 4500 );
 		settleExit();
 		expect( titles() ).toEqual( [] );
 	} );
 
-	it( 'no longer runs an action that left with its toast', async () => {
-		const onClick = vi.fn();
-		const undo = { label: 'Undo', once: true, onClick };
-		toast.success( 'Chat archived', { action: undo } );
-		expect( await runNoticeAction( undo ) ).toBe( true );
-		expect( await runNoticeAction( undo ) ).toBe( false );
-
-		const retry = { label: 'Retry', onClick };
-		toast.error( 'Push failed', { action: retry } );
-		clearNoticeHistory();
-		expect( await runNoticeAction( retry ) ).toBe( false );
-		expect( onClick ).toHaveBeenCalledTimes( 1 );
+	it( 'leaves errors visible when an inspection action succeeds', async () => {
+		const action = { label: 'Open logs', onClick: vi.fn(), dismissOnSuccess: false };
+		toast.error( 'Import failed', { action } );
+		expect( await runNoticeAction( action ) ).toBe( true );
+		expect( getVisibleToasts()[ 0 ].leaving ).toBeUndefined();
 	} );
 
-	describe( 'notice history', () => {
-		const historyTitles = () => getNoticeHistory().map( ( item ) => item.title );
-
-		it( 'records every toast newest first, with the full description', () => {
-			toast.success( 'Saved' );
-			toast.error( 'Failed', { description: 'Long error text' } );
-			expect( historyTitles() ).toEqual( [ 'Failed', 'Saved' ] );
-			expect( getNoticeHistory()[ 0 ].description ).toBe( 'Long error text' );
-		} );
-
-		it( 'folds an in-place replacement into the original record', () => {
-			showToast( { id: 'sync', intent: 'info', title: 'Pushing to live' } );
-			showToast( { id: 'sync', intent: 'success', title: 'Push complete' } );
-			expect( historyTitles() ).toEqual( [ 'Push complete' ] );
-		} );
-
-		it( 'keeps a notice after its toast expires', () => {
-			toast.success( 'Saved' );
-			vi.advanceTimersByTime( 4_500 );
-			settleExit();
-			expect( titles() ).toEqual( [] );
-			expect( historyTitles() ).toEqual( [ 'Saved' ] );
-		} );
-
-		it( 'bounds history at 50', () => {
-			for ( let i = 0; i < 55; i++ ) {
-				showToast( { title: String( i ) } );
-			}
-			expect( getNoticeHistory() ).toHaveLength( 50 );
-			expect( historyTitles()[ 0 ] ).toBe( '54' );
-			expect( getVisibleToasts() ).toHaveLength( 3 );
-		} );
-
-		it( 'keeps a reusable action in history after running it', async () => {
-			const onClick = vi.fn();
-			const action = { label: 'Open site', onClick };
-			showToast( { title: 'Site ready', action } );
-			expect( await runNoticeAction( action ) ).toBe( true );
-			expect( await runNoticeAction( action ) ).toBe( true );
-			expect( onClick ).toHaveBeenCalledTimes( 2 );
-			expect( getNoticeHistory()[ 0 ].action ).toBe( action );
-		} );
-
-		it( 'runs an expired toast’s one-time action from history', async () => {
-			const onClick = vi.fn();
-			const action = { label: 'Undo', onClick, once: true };
-			showToast( { title: 'Chat archived', action } );
-			vi.advanceTimersByTime( 4_500 );
-			settleExit();
-			expect( titles() ).toEqual( [] );
-			expect( await runNoticeAction( action ) ).toBe( true );
-			expect( onClick ).toHaveBeenCalledOnce();
-			expect( getNoticeHistory()[ 0 ].action ).toBeUndefined();
-		} );
-
-		it( 'does not resurface a cleared notice when its pending action finishes', async () => {
-			let finish!: () => void;
-			const action = {
-				label: 'Undo',
-				once: true,
-				onClick: () => new Promise< void >( ( resolve ) => ( finish = resolve ) ),
-			};
-			showToast( { title: 'Chat archived', action } );
-			const pending = runNoticeAction( action );
-			clearNoticeHistory();
-			finish();
-			await pending;
-			vi.runAllTimers();
-			expect( titles() ).toEqual( [] );
-			expect( getNoticeHistory() ).toHaveLength( 0 );
-		} );
-
-		it( 'dismisses visible and queued notices, while dismissing only the toast keeps the notice', () => {
-			for ( const title of [ 'First', 'Second', 'Third', 'Queued' ] ) {
-				showToast( { title } );
-			}
-			const record = ( title: string ) =>
-				getNoticeHistory().find( ( item ) => item.title === title )!;
-			dismissNotice( record( 'Queued' ) );
-			dismissNotice( record( 'First' ) );
-			settleExit();
-			expect( titles() ).toEqual( [ 'Second', 'Third' ] );
-			expect( historyTitles() ).toEqual( [ 'Third', 'Second' ] );
-			dismissToast( getVisibleToasts()[ 0 ].id );
-			settleExit();
-			expect( historyTitles() ).toEqual( [ 'Third', 'Second' ] );
-		} );
-
-		it( 'logs a sidebar card once while it stays up, updating it when its content changes', () => {
-			const downloading = { id: 'app-update-downloading', intent: 'info' as const };
-			syncCardNotices( [ { ...downloading, title: 'Downloading update' } ] );
-			syncCardNotices( [ { ...downloading, title: 'Downloading update' } ] );
-			expect( historyTitles() ).toEqual( [ 'Downloading update' ] );
-
-			syncCardNotices( [
-				{ ...downloading, title: 'Downloading update', description: 'Updating to 1.23.0.' },
-			] );
-			expect( getNoticeHistory() ).toEqual( [
-				expect.objectContaining( { description: 'Updating to 1.23.0.', source: 'studio' } ),
-			] );
-		} );
-
-		it( 'logs each card that replaces another as its own entry', () => {
-			syncCardNotices( [ { id: 'app-update-downloading', intent: 'info', title: 'Downloading' } ] );
-			syncCardNotices( [ { id: 'app-update:1.23.0', intent: 'info', title: 'Ready to install' } ] );
-			expect( historyTitles() ).toEqual( [ 'Ready to install', 'Downloading' ] );
-		} );
-
-		it( 'logs a card again when it comes back after going away', () => {
-			const card = { id: 'app-update-error', intent: 'error' as const, title: 'Update failed' };
-			syncCardNotices( [ card ] );
-			syncCardNotices( [] );
-			syncCardNotices( [ card ] );
-			expect( historyTitles() ).toEqual( [ 'Update failed', 'Update failed' ] );
-		} );
-
-		it( 'keeps a card still showing out of the list after "Clear all"', () => {
-			const card = { id: 'ai-credits:warning', intent: 'warning' as const, title: 'At 83% usage' };
-			syncCardNotices( [ card ] );
-			clearNoticeHistory();
-			syncCardNotices( [ card ] );
-			expect( historyTitles() ).toEqual( [] );
-		} );
-
-		it( 'clears the list and dismisses the toasts still showing or queued', () => {
-			for ( let i = 0; i < 5; i++ ) {
-				toast.success( `Saved ${ i }` );
-			}
-			expect( getQueuedToastCount() ).toBe( 2 );
-
-			clearNoticeHistory();
-			expect( historyTitles() ).toEqual( [] );
-			expect( getQueuedToastCount() ).toBe( 0 );
-			settleExit();
-			expect( titles() ).toEqual( [] );
-		} );
+	it( 'runs recovery once while pending and dismisses only after success', async () => {
+		let finish!: () => void;
+		const action = {
+			label: 'Undo',
+			onClick: vi.fn(
+				() =>
+					new Promise< void >( ( resolve ) => {
+						finish = resolve;
+					} )
+			),
+		};
+		showToast( { title: 'Archived', action, durationMs: 10_000 } );
+		const pending = runNoticeAction( action );
+		expect( await runNoticeAction( action ) ).toBe( false );
+		vi.advanceTimersByTime( 60_000 );
+		expect( getVisibleToasts()[ 0 ].leaving ).toBeUndefined();
+		finish();
+		await pending;
+		expect( getVisibleToasts()[ 0 ].leaving ).toBe( true );
+		expect( await runNoticeAction( action ) ).toBe( false );
 	} );
+
+	it( 'does not dismiss a replacement created by a retry action', async () => {
+		const action = {
+			label: 'Retry',
+			onClick: () => {
+				toast.processing( 'Retrying', { id: 'operation' } );
+			},
+		};
+		toast.error( 'Failed', { id: 'operation', action } );
+		await runNoticeAction( action );
+		expect( titles() ).toEqual( [ 'Retrying' ] );
+		expect( getVisibleToasts()[ 0 ].leaving ).toBeUndefined();
+	} );
+
+	it( 'keeps a failed action retryable without stacking a second failure', async () => {
+		const action = {
+			label: 'Retry',
+			onClick: vi
+				.fn()
+				.mockRejectedValueOnce( new Error( 'Offline' ) )
+				.mockResolvedValue( undefined ),
+		};
+		toast.error( 'Failed', { action } );
+		expect( await runNoticeAction( action ) ).toBe( false );
+		expect( getVisibleToasts() ).toHaveLength( 1 );
+		expect( getVisibleToasts()[ 0 ] ).toMatchObject( {
+			description: 'Offline',
+			actionPending: false,
+			durationMs: 0,
+		} );
+		expect( await runNoticeAction( action ) ).toBe( true );
+	} );
+
+	it( 'keeps an action pending across progress updates', async () => {
+		let finish!: () => void;
+		const onClick = vi.fn( () => new Promise< void >( ( resolve ) => ( finish = resolve ) ) );
+		const action = { label: 'Cancel', onClick, dismissOnSuccess: false };
+		toast.processing( 'Pulling changes…', { id: 'pull', action } );
+		const pending = runNoticeAction( action );
+		toast.processing( 'Pulling changes…', { id: 'pull', action, description: 'Downloading…' } );
+		expect( getVisibleToasts()[ 0 ].actionPending ).toBe( true );
+		expect( await runNoticeAction( action ) ).toBe( false );
+		expect( onClick ).toHaveBeenCalledOnce();
+		finish();
+		await pending;
+	} );
+
+	it( 'cannot run an action after its toast expires', async () => {
+		const action = { label: 'Undo', onClick: vi.fn() };
+		toast.success( 'Archived', { action, durationMs: 10_000 } );
+		vi.advanceTimersByTime( 10_000 );
+		settleExit();
+		expect( await runNoticeAction( action ) ).toBe( false );
+		expect( action.onClick ).not.toHaveBeenCalled();
+	} );
+} );
+
+it( 'preserves the original failure when opening its logs fails', async () => {
+	resetAppMessagesForTests();
+	const action = {
+		label: 'Open logs',
+		dismissOnSuccess: false,
+		onClick: vi.fn().mockRejectedValue( new Error( 'Logs unavailable' ) ),
+	};
+	toast.error( 'Import failed', { description: 'The backup is incomplete.', action } );
+	await runNoticeAction( action );
+	expect( getVisibleToasts() ).toHaveLength( 1 );
+	expect( getVisibleToasts()[ 0 ] ).toMatchObject( {
+		title: 'Import failed',
+		description: 'The backup is incomplete.\nLogs unavailable',
+		durationMs: 0,
+	} );
+	resetAppMessagesForTests();
 } );

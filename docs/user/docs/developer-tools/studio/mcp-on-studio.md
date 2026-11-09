@@ -2,7 +2,35 @@
 
 Agent instruction files tell agents how to work with a WordPress Studio site, but they do not give agents direct access to it. For that, WordPress Studio also exposes an MCP (Model Context Protocol) server that agents connect to in order to create, start, stop, and interact with your local WordPress sites.
 
-To connect an agent, open **Settings** in WordPress Studio (at the bottom of the sidebar, or ⌘, / Ctrl+,) and select the **MCP** page. Under **Install instructions**, WordPress Studio shows the command to install the WordPress Studio CLI and the JSON configuration to add; use **Copy MCP configuration** to copy it. Add it to your agent’s MCP settings:
+## [Install the WordPress Studio plugin](#install-the-wordpress-studio-plugin)
+
+If you use Claude Code or Codex, install the WordPress Studio plugin to connect your agent to WordPress Studio. The plugin includes the WordPress Studio CLI, so there’s nothing else to install.
+
+### [Claude Code](#claude-code)
+
+Run these commands in your terminal:
+
+```bash
+claude plugin marketplace add Automattic/studio-plugins
+claude plugin install wp-studio@studio
+```
+
+Claude Code runs the plugin with the Node.js on your `PATH`, version 22 or later. Start a new session afterwards, or run `/reload-plugins`.
+
+### [Codex](#codex)
+
+Run these commands in your terminal:
+
+```bash
+codex plugin marketplace add Automattic/studio-plugins
+codex plugin add wp-studio@studio
+```
+
+If you use Codex in the ChatGPT app, restart the app afterwards.
+
+## [Connect with manual MCP configuration](#connect-with-manual-mcp-configuration)
+
+As an alternative to the plugin, connect your agent with an MCP configuration. To connect an agent, open **Settings** in WordPress Studio (at the bottom of the sidebar, or ⌘, / Ctrl+,) and select the **MCP** page. Under **Install instructions**, WordPress Studio shows the command to install the WordPress Studio CLI and the JSON configuration to add; use **Copy MCP configuration** to copy it. Add it to your agent’s MCP settings:
 
 ```json
 {
@@ -19,8 +47,6 @@ For Claude Code or Codex you can also run the connection command directly from t
 claude mcp add wordpress-studio -- studio mcp
 codex mcp add wordpress-studio -- studio mcp
 ```
-
-[![The MCP page of WordPress Studio's Settings, with the command to install the WordPress Studio CLI and the MCP configuration to add to your assistant.](https://developer.wordpress.com/wp-content/uploads/2026/04/settings-mcp.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2026/04/settings-mcp.webp)
 
 Common configuration file locations are:
 

@@ -1,14 +1,14 @@
 import os from 'os';
 import path from 'path';
 import { confirm, input } from '@inquirer/prompts';
-import { isAutomatticianAccount } from '@studio/common/lib/automattician';
 import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
-import { getUserInfo, uploadArchive, waitForSiteReady } from 'cli/lib/api';
+import { getUserInfo } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { createPreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
+import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { getSnapshotsFromConfig, saveSnapshotToConfig } from 'cli/lib/snapshots';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { LoggerError } from 'cli/logger';
@@ -35,13 +35,8 @@ vi.mock( 'cli/lib/cli-config/sites', async () => ( {
 vi.mock( 'cli/lib/validation', () => ( {
 	validateSiteSize: vi.fn(),
 } ) );
-vi.mock( '@studio/common/lib/automattician', () => ( {
-	isAutomatticianAccount: vi.fn(),
-} ) );
-vi.mock( '@studio/common/lib/get-wordpress-version', () => ( {
-	getWordPressVersion: vi.fn().mockReturnValue( '6.8.1' ),
-} ) );
 vi.mock( 'cli/lib/archive' );
+vi.mock( 'cli/lib/site-tracks' );
 vi.mock( 'cli/lib/api' );
 vi.mock( 'cli/lib/preview-sites' );
 vi.mock( 'cli/lib/snapshots', async () => ( {
@@ -51,7 +46,7 @@ vi.mock( 'cli/lib/snapshots', async () => ( {
 } ) );
 vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('cli/lib/tracks') >();
-	return { ...actual, recordTracksEvent: vi.fn() };
+	return { ...actual, recordTracksEvent: vi.fn( async () => undefined ) };
 } );
 vi.mock( 'cli/logger', () => ( {
 	Logger: class {
@@ -67,6 +62,9 @@ vi.mock( 'cli/logger', () => ( {
 	LoggerError: class LoggerError extends Error {},
 } ) );
 
+vi.mock( 'cli/lib/site-versions', () => ( {
+	getSiteVersion: vi.fn().mockResolvedValue( 'version-1' ),
+} ) );
 vi.mock( 'cli/lib/site-operations', () => ( {
 	withSiteOperation: vi.fn( ( _folder: string, _kind: string, fn: () => unknown ) => fn() ),
 } ) );
@@ -98,11 +96,14 @@ describe( 'Preview Create Command', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		vi.mocked( getSiteTracksProps ).mockImplementation( async ( _folder, preview ) => ( {
+			site_id: 'b4bfb381-cbf4-4003-b3db-233bcda55f51',
+			...( preview ? { preview_id: '603537e6-95ed-4583-84c2-d2725af37d8a' } : {} ),
+		} ) );
 		vi.spyOn( Date, 'now' ).mockReturnValue( mockDate );
 		vi.spyOn( path, 'basename' ).mockReturnValue( mockBasename );
 
 		vi.mocked( readAuthToken ).mockResolvedValue( mockAuthToken );
-		vi.mocked( isAutomatticianAccount ).mockResolvedValue( true );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( {
 			id: 'site-123',
 			path: mockFolder,
@@ -134,7 +135,7 @@ describe( 'Preview Create Command', () => {
 		vi.restoreAllMocks();
 	} );
 
-	it( 'should complete the preview creation process successfully', async () => {
+	it( 'creates the preview on WordPress.com for any account', async () => {
 		await runCommand( mockFolder );
 
 		expect( withSiteOperation ).toHaveBeenCalledWith(
@@ -152,7 +153,8 @@ describe( 'Preview Create Command', () => {
 		expect( createPreviewSite ).toHaveBeenCalledWith(
 			mockAttachmentId,
 			'Test Site Preview 1',
-			mockAuthToken.accessToken
+			mockAuthToken.accessToken,
+			undefined
 		);
 		expect( saveSnapshotToConfig ).toHaveBeenCalledWith(
 			mockFolder,
@@ -160,44 +162,14 @@ describe( 'Preview Create Command', () => {
 			mockSiteUrl,
 			mockAuthToken.id,
 			'Test Site Preview 1',
-			mockShareUrl
+			mockShareUrl,
+			'version-1'
 		);
 		expect( mockReportSuccess ).toHaveBeenCalledWith(
 			`Preview site available at: ${ mockShareUrl }`
 		);
 		expect( mockReportError ).not.toHaveBeenCalled();
 		expect( cleanup ).toHaveBeenCalledWith( mockArchivePath );
-	} );
-
-	it( 'creates the preview on Jurassic Ninja for accounts outside the Automattic team', async () => {
-		vi.mocked( isAutomatticianAccount ).mockResolvedValue( false );
-		vi.mocked( uploadArchive ).mockResolvedValue( {
-			site_id: mockAtomicSiteId,
-			site_url: 'test-preview.wp.build',
-		} );
-		vi.mocked( waitForSiteReady ).mockResolvedValue( true );
-
-		await runCommand( mockFolder );
-
-		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath, {
-			onWpcom: false,
-		} );
-		expect( uploadPreviewArchive ).not.toHaveBeenCalled();
-		expect( createPreviewSite ).not.toHaveBeenCalled();
-		expect( uploadArchive ).toHaveBeenCalledWith(
-			mockArchivePath,
-			mockAuthToken.accessToken,
-			'6.8.1'
-		);
-		expect( waitForSiteReady ).toHaveBeenCalledWith( mockAtomicSiteId, mockAuthToken.accessToken );
-		expect( saveSnapshotToConfig ).toHaveBeenCalledWith(
-			mockFolder,
-			mockAtomicSiteId,
-			'test-preview.wp.build',
-			mockAuthToken.id,
-			'Test Site Preview 1',
-			undefined
-		);
 	} );
 
 	it( "records a successful preview_site_create Tracks event with the site's preview count", async () => {
@@ -224,10 +196,53 @@ describe( 'Preview Create Command', () => {
 			TRACKS_EVENTS.PREVIEW_SITE_CREATE,
 			expect.objectContaining( {
 				success: true,
+				site_id: 'b4bfb381-cbf4-4003-b3db-233bcda55f51',
+				preview_id: '603537e6-95ed-4583-84c2-d2725af37d8a',
 				time_ms: expect.any( Number ),
 				site_preview_count: 2,
 				channel: 'studio-cli',
 			} )
+		);
+	} );
+
+	it( 'omits preview_id when creation fails before a preview record exists', async () => {
+		vi.mocked( uploadPreviewArchive ).mockRejectedValueOnce( new Error( 'Upload failed' ) );
+		await expect( runCommand( mockFolder ) ).rejects.toThrow();
+		expect( getSiteTracksProps ).toHaveBeenCalledWith( mockFolder, undefined );
+		const props = vi
+			.mocked( recordTracksEvent )
+			.mock.calls.find( ( [ event ] ) => event === TRACKS_EVENTS.PREVIEW_SITE_CREATE )?.[ 1 ];
+		expect( props ).toMatchObject( {
+			success: false,
+			site_id: 'b4bfb381-cbf4-4003-b3db-233bcda55f51',
+		} );
+		expect( props ).not.toHaveProperty( 'preview_id' );
+	} );
+
+	it( 'keeps preview context when a failure follows saving the preview', async () => {
+		vi.mocked( getSnapshotsFromConfig ).mockRejectedValueOnce( new Error( 'Read failed' ) );
+		await expect( runCommand( mockFolder, 'Preview' ) ).rejects.toThrow();
+		expect( getSiteTracksProps ).toHaveBeenCalledWith(
+			mockFolder,
+			expect.objectContaining( {
+				atomicSiteId: mockAtomicSiteId,
+			} )
+		);
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.PREVIEW_SITE_CREATE,
+			expect.objectContaining( {
+				success: false,
+				preview_id: '603537e6-95ed-4583-84c2-d2725af37d8a',
+			} )
+		);
+	} );
+
+	it( 'preserves a successful operation and its event when ID storage is unavailable', async () => {
+		vi.mocked( getSiteTracksProps ).mockResolvedValueOnce( {} );
+		await runCommand( mockFolder );
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.PREVIEW_SITE_CREATE,
+			expect.objectContaining( { success: true, channel: 'studio-cli' } )
 		);
 	} );
 
@@ -279,6 +294,16 @@ describe( 'Preview Create Command', () => {
 			authToken: expect.objectContaining( { accessToken: 'pasted-token', id: 123 } ),
 		} );
 		expect( createPreviewSite ).toHaveBeenCalled();
+		const started = vi
+			.mocked( recordTracksEvent )
+			.mock.calls.find( ( [ name ] ) => name === TRACKS_EVENTS.WPCOM_AUTH_STARTED );
+		expect( started?.[ 1 ] ).toEqual(
+			expect.objectContaining( { auth_attempt_id: expect.any( String ), source: 'cli' } )
+		);
+		expect( recordTracksEvent ).toHaveBeenCalledWith( TRACKS_EVENTS.WPCOM_AUTH, {
+			...started?.[ 1 ],
+			success: true,
+		} );
 	} );
 
 	it( 'should always clean up archive file even on error', async () => {

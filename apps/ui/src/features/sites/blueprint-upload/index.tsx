@@ -1,125 +1,54 @@
-import { __ } from '@wordpress/i18n';
-import { UploadIcon } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useConnector } from '@/data/core';
-import { useFileDrop } from '@/data/use-composer-attachments';
-import { BlueprintErrorDialog } from '@/features/sites/blueprint-error-dialog';
-import { Button } from '@/lib/ui';
-import { BLUEPRINT_FILE_ACCEPT, loadBlueprintFile } from './load-blueprint-file';
+import { ACCEPTED_ADD_SITE_FILE_TYPES } from '@studio/common/constants';
+import { __, sprintf } from '@wordpress/i18n';
+import { useRef } from 'react';
+import { Button, DropZone } from '@/lib/ui';
 import styles from './style.module.css';
-import type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
-import type { ChangeEvent } from 'react';
 
-export type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
+export const SITE_FILE_UPLOAD_TYPES = [ '.json', ...ACCEPTED_ADD_SITE_FILE_TYPES ];
 
-interface BlueprintUploadProps {
+interface SiteFileUploadProps {
 	disabled?: boolean;
-	onSelect: ( blueprint: SelectedBlueprint ) => void;
-	onRemove: () => void;
-	onValidityChange: ( isValid: boolean ) => void;
+	onFile: ( file: File ) => void;
 }
 
-export function BlueprintUpload( {
-	disabled = false,
-	onSelect,
-	onRemove,
-	onValidityChange,
-}: BlueprintUploadProps ) {
-	const connector = useConnector();
-	const [ error, setError ] = useState< string | null >( null );
-	const [ dropTarget, setDropTarget ] = useState< HTMLDivElement | null >( null );
+export function SiteFileUpload( { disabled = false, onFile }: SiteFileUploadProps ) {
 	const fileInputRef = useRef< HTMLInputElement | null >( null );
-	const requestRef = useRef( 0 );
-
-	const handleFile = useCallback(
-		async ( file: File ) => {
-			if ( disabled ) return;
-			const request = ++requestRef.current;
-			setError( null );
-			onValidityChange( false );
-			try {
-				const blueprint = await loadBlueprintFile( file, connector );
-				if ( request !== requestRef.current ) {
-					if ( blueprint.tempDir ) {
-						await connector.cleanupBlueprintTempDir( blueprint.tempDir ).catch( () => undefined );
-					}
-					return;
-				}
-				onSelect( blueprint );
-				onValidityChange( true );
-			} catch ( loadError ) {
-				if ( request === requestRef.current ) {
-					setError(
-						loadError instanceof Error
-							? loadError.message
-							: __( 'Failed to load Blueprint file. Please try again.' )
-					);
-				}
-			}
-		},
-		[ connector, disabled, onSelect, onValidityChange ]
-	);
-
-	const handleInputChange = ( event: ChangeEvent< HTMLInputElement > ) => {
-		const file = event.target.files?.[ 0 ];
-		if ( file ) void handleFile( file );
-		event.target.value = '';
-	};
-	const handleRemove = () => {
-		requestRef.current += 1;
-		setError( null );
-		if ( fileInputRef.current ) fileInputRef.current.value = '';
-		onValidityChange( true );
-		onRemove();
-	};
-
-	const onFiles = useCallback(
-		( files: FileList ) => {
-			const file = files[ 0 ];
-			if ( file ) void handleFile( file );
-		},
-		[ handleFile ]
-	);
-	const isDragging = useFileDrop( disabled ? null : dropTarget, onFiles );
-	useEffect(
-		() => () => {
-			requestRef.current += 1;
-		},
-		[]
-	);
-
 	return (
 		<div className={ styles.panel }>
 			<input
 				ref={ fileInputRef }
 				type="file"
-				accept={ BLUEPRINT_FILE_ACCEPT }
-				onChange={ handleInputChange }
+				accept={ SITE_FILE_UPLOAD_TYPES.join( ',' ) }
+				onChange={ ( event ) => {
+					const file = event.target.files?.[ 0 ];
+					if ( file ) void onFile( file );
+					event.target.value = '';
+				} }
 				className={ styles.fileInput }
 				disabled={ disabled }
 			/>
-			<div
-				ref={ setDropTarget }
-				className={ styles.dropZone }
-				data-dragging={ isDragging || undefined }
+			<DropZone
+				className={ styles.zone }
+				title={ __( 'Drop your file here' ) }
+				description={ __( 'Blueprints, backups, and WordPress exports' ) }
 			>
-				<UploadIcon className={ styles.dropIcon } size={ 24 } />
-				<div className={ styles.dropText }>
-					<p className={ styles.dropLabel }>{ __( 'Drop a Blueprint here.' ) }</p>
-					<p className={ styles.dropHelp }>
-						{ __( 'Supports Blueprint JSON files and ZIP bundles.' ) }
-					</p>
-				</div>
 				<Button
-					variant="default"
+					className={ styles.choose }
+					variant="outline"
 					disabled={ disabled }
-					data-blueprint-upload
+					data-site-file-upload
 					onClick={ () => fileInputRef.current?.click() }
 				>
 					{ __( 'Choose file' ) }
 				</Button>
-			</div>
-			<BlueprintErrorDialog error={ error ?? '' } onDismiss={ handleRemove } />
+				<p className={ styles.fileTypes }>
+					{ sprintf(
+						// translators: %s is a comma-separated list of supported file extensions.
+						__( 'Supported files: %s.' ),
+						SITE_FILE_UPLOAD_TYPES.join( ', ' )
+					) }
+				</p>
+			</DropZone>
 		</div>
 	);
 }

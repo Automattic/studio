@@ -35,11 +35,12 @@ To start working locally on a WordPress.com or Pressable site you don’t have i
 1.  Click the **Add site** (**+**) button next to **Sites** at the top of the sidebar, and choose **Connect**.
 2.  [Log in to WordPress.com](https://developer.wordpress.com/docs/developer-tools/studio#connect-wordpress-com) if you haven’t already.
 3.  Select the site you want to work on. Use **Search sites** to filter the list, or **Refresh list** to load it again. Each site is labeled as a WordPress.com or Pressable site, and as production, staging, or development. Sites you can connect are listed under **Available to connect**. Sites that can’t be connected are listed under **Unavailable**, with the reason. Where it helps, a link takes you to WordPress.com to fix it: **View plans** for a site that needs a supported plan, or **Enable hosting features** for a site that needs hosting features turned on. **Supported sites** explains which sites you can connect.
-4.  Review the site name and local folder, and click **Create site**.
+4.  Review the site name and local folder, and click **Create site**. The local folder must be empty, because WordPress Studio pulls the live site into it. If the folder contains files, including an existing WordPress site, WordPress Studio shows an error and you can’t create the site until you choose an empty folder.
 
 WordPress Studio creates the local site, saves the connection, and opens the site. The live site is pulled into it in the background, and the **Publish** panel shows the pull’s progress.
 
-[![The Connect tab of the Add site dialog in WordPress Studio, signed out, titled Connect to an existing WordPress, with Create account and Log in options to connect WordPress.com or Pressable sites.](https://developer.wordpress.com/wp-content/uploads/2025/01/add-site-connect.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/add-site-connect.webp)
+To add a WordPress site that’s already on your computer instead, see [Add a new site using an existing WordPress directory](https://developer.wordpress.com/docs/developer-tools/studio/sites/#2-add-a-new-site-using-an-existing-wordpress-directory).
+
 [![The Connect tab of the Add site dialog in WordPress Studio, signed in, with a Search sites field, Refresh list and Supported sites links, WordPress.com and Pressable sites listed under Available to connect, and a site listed under Unavailable.](https://developer.wordpress.com/wp-content/uploads/2025/01/add-site-connect-signed-in.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/add-site-connect-signed-in.webp)
 
 ## [Connect WordPress Studio to an existing WordPress.com site](#connect-existing)
@@ -53,8 +54,6 @@ To connect a local WordPress Studio site to an existing production or staging si
 3.  [Log in to WordPress.com](https://developer.wordpress.com/docs/developer-tools/studio#connect-wordpress-com) if you haven’t already.
 4.  Click **Existing site…** to open the **Choose an existing site** list. Each row shows the site’s name, its address, and whether it’s a **Production**, **Staging**, or **Development** site. Sites you can’t publish to, such as sites that need a plan upgrade, deleted sites, or sites you don’t have permission to manage, are left out. To load the list again, open **Site actions** (**⋯**) and choose **Refresh**.
 5.  Click the site you want to connect to. To go back without connecting, click **Back to Publish**.
-
-[![The Publish tab of the Share and publish panel in WordPress Studio for a site that isn't connected yet, titled Publish your WordPress, with Existing site… and New site… buttons.](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-panel.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-panel.webp)
 
 [![The Choose an existing site list in the WordPress Studio Publish panel, showing each site's name, address, and Production or Staging environment, with a back button and a Site actions menu.](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-choose-site.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-choose-site.webp)
 
@@ -95,10 +94,7 @@ To bring the latest changes from your production or [staging site](https://wordp
 
 1.  Select the site you wish to synchronize from the WordPress Studio sidebar.
 2.  Click **Publish** at the top right of the site preview, and connect a website if you haven’t already. If the local site is connected to more than one website, [choose one](#switch-websites).
-3.  Click **Pull changes**.
-
-[![The Pull changes step of the Publish panel in WordPress Studio with Choose files… selected, showing a file tree with index.php and expandable mu-plugins, plugins, themes, and uploads folders, themes and Content and settings checked, and Cancel and Pull changes buttons.](https://developer.wordpress.com/wp-content/uploads/2025/01/pull-choose-files.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/pull-choose-files.webp)
-
+3.  Click **Pull changes**. The **What to pull** step offers the same choices as **What to publish** when you [publish a site](#push).
 4.  Choose what to pull:
     -   **Entire site**
     -   **Files only**

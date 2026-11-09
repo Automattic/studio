@@ -49,14 +49,15 @@ it( 'reopens a queued message for editing and queues only the revision', async (
 	fireEvent.click( await screen.findByRole( 'button', { name: 'Queue message' } ) );
 	await screen.findByRole( 'button', { name: 'Edit queued message' } );
 	fireEvent.click( screen.getByRole( 'button', { name: 'Start My site' } ) );
-	await screen.findByRole( 'complementary', { name: 'Site preview' } );
+	await waitFor( () => expect( document.querySelector( 'iframe' ) ).toBeInTheDocument() );
+	fireEvent.load( document.querySelector( 'iframe' )! );
+	await screen.findByRole( 'complementary', { name: 'Panel' } );
 	expect( screen.getByRole( 'combobox', COMPOSER ) ).toBe( input );
 	expect( screen.getByText( 'Original follow-up' ) ).toBeVisible();
 	fireEvent.click( await screen.findByRole( 'button', { name: 'Stop My site' } ) );
+	await screen.findByRole( 'button', { name: 'Start My site' } );
 	await waitFor( () =>
-		expect(
-			screen.queryByRole( 'complementary', { name: 'Site preview' } )
-		).not.toBeInTheDocument()
+		expect( screen.queryByRole( 'complementary', { name: 'Panel' } ) ).not.toBeInTheDocument()
 	);
 	expect( screen.getByRole( 'combobox', COMPOSER ) ).toBe( input );
 	expect( screen.getByRole( 'button', { name: 'Stop response' } ) ).toBeVisible();

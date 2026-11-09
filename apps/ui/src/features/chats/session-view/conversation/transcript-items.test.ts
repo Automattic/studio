@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+	entriesToRenderItems,
+	entriesToTranscriptItems,
+	getProgressMessage,
+	getSender,
+} from '@/features/chats/session-view/conversation/transcript-items';
+import {
 	agentQuestionEntry,
 	askUserAnswerEntry,
 	assistantTextEntry,
@@ -8,13 +14,7 @@ import {
 	toolResultEntry,
 	turnClosedEntry,
 	visualAnnotationsEntry,
-} from '@/features/chats/session-view/conversation/test-entries';
-import {
-	entriesToRenderItems,
-	entriesToTranscriptItems,
-	getProgressMessage,
-	getSender,
-} from '@/features/chats/session-view/conversation/transcript-items';
+} from '@/test/session-entries';
 import type { SessionEntry } from '@/data/core';
 
 describe( 'entriesToRenderItems', () => {

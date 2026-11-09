@@ -22,9 +22,11 @@
 	margin-bottom: var( --space-10 );
 }
 
-.eyebrow {
+.eyebrow,
+.sectionTitle {
 	font-size: var( --text-xxs );
-	opacity: 0.65;
+	font-weight: var( --font-weight-semibold );
+	opacity: 0.55;
 	text-transform: uppercase;
 	letter-spacing: 0.12em;
 }
@@ -119,11 +121,6 @@
 	margin: 0 0 var( --space-4 );
 	padding-top: var( --space-2 );
 	border-top: 1px solid var( --ds-hairline );
-	font-size: var( --text-xxs );
-	font-weight: var( --font-weight-semibold );
-	letter-spacing: 0.12em;
-	text-transform: uppercase;
-	opacity: 0.55;
 }
 
 .specimens {
@@ -438,7 +435,6 @@
 	gap: var( --space-2 );
 	height: 100%;
 	padding: var( --space-8 );
-	color: var( --foreground );
 	text-align: center;
 }
 
@@ -465,30 +461,11 @@
 	outline-offset: 2px;
 }
 
-/* Matches the markers drawn on preview pages: the accent inside a white ring. */
 .annotationMarker {
 	position: absolute;
 	z-index: 1;
 	top: calc( var( --space-3 ) * -1 );
 	inset-inline-end: calc( var( --space-3 ) * -1 );
-	display: inline-flex;
-	box-sizing: content-box;
-	align-items: center;
-	justify-content: center;
-	width: 20px;
-	height: 20px;
-	border: 2px solid #fff;
-	border-radius: var( --radius-full );
-	background: var( --accent );
-	box-shadow:
-		0 0 0 1px var( --accent ),
-		0 1px 3px rgb( 0 0 0 / 10% );
-	color: var( --accent-foreground );
-	font:
-		600 12px/1 system-ui,
-		sans-serif;
-	letter-spacing: normal;
-	text-transform: none;
 }
 
 /* The palette clips its tiles' corners, so their markers sit inside. */

@@ -162,7 +162,8 @@ function resolveStaticSiteImporterSource( sourcePath: string ): StaticSiteImport
 function buildStaticSiteImporterRequest(
 	source: StaticSiteImporterSource,
 	siteName: string,
-	originalSourceUrl?: string
+	originalSourceUrl: string | undefined,
+	siteNameIsExplicit: boolean
 ): Record< string, unknown > {
 	const payload = source.payload;
 	let requestSource: Record< string, unknown >;
@@ -197,7 +198,7 @@ function buildStaticSiteImporterRequest(
 	const request: Record< string, unknown > = {
 		operation: 'apply',
 		name: siteName,
-		site_title: siteName,
+		...( siteNameIsExplicit ? { site_title: siteName } : {} ),
 		activate: true,
 		overwrite: true,
 		client_script_policy: 'isolated_preview',
@@ -264,10 +265,16 @@ export function buildCreateFromSourceBlueprint(
 	sourcePath: string,
 	siteName: string,
 	staticSiteImporterPlugin: StaticSiteImporterPlugin,
-	originalSourceUrl?: string
+	originalSourceUrl?: string,
+	siteNameIsExplicit = false
 ): StaticSiteImportBlueprint {
 	const source = resolveStaticSiteImporterSource( sourcePath );
-	const request = buildStaticSiteImporterRequest( source, siteName, originalSourceUrl );
+	const request = buildStaticSiteImporterRequest(
+		source,
+		siteName,
+		originalSourceUrl,
+		siteNameIsExplicit
+	);
 	return importerBlueprint( staticSiteImporterPlugin, {
 		request: `${ JSON.stringify( request, null, 2 ) }\n`,
 		sourcePath: source.stagedSourcePath,

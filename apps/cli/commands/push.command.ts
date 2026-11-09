@@ -20,11 +20,6 @@ export const builder = ( yargs: StudioArgv ) => {
 			type: 'string',
 			array: true,
 			description: __( 'Only push these paths from the selection made with --options' ),
-		} )
-		.option( 'suppress-tracks-event', {
-			type: 'boolean',
-			default: false,
-			hidden: true,
 		} );
 };
 

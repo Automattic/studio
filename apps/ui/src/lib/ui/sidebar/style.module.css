@@ -22,16 +22,19 @@
 		display: inline-flex;
 		flex: 1;
 		align-items: center;
-		gap: var( --space-1 );
+		gap: var( --space-1_5 );
 		height: 100%;
 		padding: 0 var( --space-2 );
 		border-radius: var( --radius-md );
 		color: var( --muted-foreground );
 		font-weight: var( --font-weight-medium );
+	}
+
+	.groupLabel[aria-expanded] {
 		cursor: pointer;
 	}
 
-	.groupLabel:hover {
+	.groupLabel[aria-expanded]:hover {
 		color: var( --foreground );
 	}
 
@@ -54,13 +57,6 @@
 	.groupLabel:is( :hover, :focus-visible ) > svg,
 	.groupLabel[aria-expanded='false'] > svg {
 		opacity: 1;
-	}
-
-	.groupLabelSkeleton {
-		flex: none;
-		width: 36px;
-		height: 16px;
-		margin-inline: var( --space-2 );
 	}
 
 	.menu {
@@ -196,20 +192,13 @@
 	.skeleton {
 		display: flex;
 		align-items: center;
-		gap: var( --space-1_5 );
-		height: 36px;
-		padding-inline: var( --space-2 );
-	}
-
-	.skeletonIcon {
-		flex: none;
-		width: 16px;
-		height: 16px;
+		height: 32px;
 	}
 
 	.skeletonLabel {
 		flex: 1;
 		max-width: var( --skeleton-width );
-		height: 16px;
+		height: 100%;
+		border-radius: var( --radius-lg );
 	}
 }

@@ -12,13 +12,21 @@
 	overflow: hidden;
 }
 
+.root[data-browser-bar] {
+	padding-block-start: var( --workspace-header-height, 0px );
+}
+
 .body {
 	flex: 1;
 	min-height: 0;
 	display: flex;
 	position: relative;
-	background-color: var( --chrome );
+	background-color: var( --chat );
 	overflow: hidden;
+}
+
+.root[data-browser-bar] .body {
+	border-block-start: 1px solid var( --border );
 }
 
 .previewViewport {
@@ -36,7 +44,8 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	padding: var( --space-5 );
+	padding: calc( var( --space-5 ) + var( --workspace-header-height, 0px ) ) var( --space-5 )
+		var( --space-5 );
 	background-color: var( --chat );
 	color: var( --muted-foreground );
 	font-size: var( --text-xxs );
@@ -52,4 +61,21 @@
 	gap: var( --space-3 );
 	align-items: center;
 	width: min( 100%, 420px );
+}
+
+.tabWorkspace {
+	position: relative;
+	flex: 1;
+	width: 100%;
+	height: 100%;
+	min-width: 0;
+	min-height: 0;
+}
+.tabPane {
+	position: absolute;
+	inset: 0;
+}
+.tabPane:not( [data-active-tab] ) {
+	visibility: hidden;
+	pointer-events: none;
 }

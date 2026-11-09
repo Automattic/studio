@@ -1,9 +1,81 @@
-.header {
-	position: relative;
-	z-index: 4;
+@property --panel-chat-header-width {
+	syntax: '<length-percentage>';
+	inherits: true;
+	initial-value: 100%;
 }
 
-.chatToggle {
-	color: var( --foreground );
-	margin-inline-end: var( --band-inset );
+.header {
+	--layout-controls-space: calc( 32px + var( --band-gap ) );
+	--panel-chat-header-width: calc( 100% - var( --layout-controls-space ) );
+	transition: --panel-chat-header-width var( --panel-layout-duration ) var( --motion-ease-layout );
+	position: relative;
+	z-index: 4;
+	pointer-events: none;
+	-webkit-app-region: drag;
+}
+
+.chatHeader {
+	position: relative;
+	width: var( --panel-chat-header-width );
+	background: transparent;
+	pointer-events: auto;
+}
+.header > [data-site-header-actions] {
+	inset-inline-end: var( --layout-controls-space );
+}
+.header[data-full-view-control] {
+	--layout-controls-space: calc( 64px + 2 * var( --band-gap ) );
+}
+.header[data-panel-open] {
+	--panel-chat-header-width: var( --panel-frame-content-width );
+}
+.header[data-panel-fullscreen] {
+	--panel-chat-header-width: calc( 100% - var( --layout-controls-space ) );
+	--site-menu-max-width: var( --band-tab-width );
+}
+.layoutControls {
+	position: absolute;
+	inset-block-start: 0;
+	inset-inline-end: var( --band-inset );
+	height: var( --band-height );
+	display: flex;
+	align-items: center;
+	pointer-events: auto;
+}
+
+.previewTabs {
+	position: absolute;
+	inset-inline-start: calc(
+		max( var( --panel-frame-boundary ), var( --panel-chat-header-width ) ) + var( --band-inset )
+	);
+	inset-inline-end: calc( var( --layout-controls-space ) + var( --tabs-actions-width, 160px ) );
+	height: var( --band-height );
+	top: 0;
+	display: flex;
+	align-items: center;
+	min-width: 0;
+	pointer-events: none;
+	overflow: clip;
+	opacity: 0;
+	visibility: hidden;
+	transition:
+		opacity var( --panel-layout-duration ) var( --motion-ease-layout ),
+		visibility 0s var( --panel-layout-duration );
+}
+.header[data-panel-open] .previewTabs {
+	opacity: 1;
+	visibility: visible;
+	transition-delay: 0s;
+}
+.previewTabs > div {
+	max-width: 100%;
+}
+.header[data-panel-fullscreen] .previewTabs {
+	inset-inline-start: max(
+		var( --tabs-lead-width, 240px ),
+		calc( var( --panel-frame-boundary ) + var( --band-inset ) )
+	);
+	inset-inline-end: calc(
+		100% - var( --panel-chat-header-width ) + var( --tabs-actions-width, 160px )
+	);
 }

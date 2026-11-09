@@ -24,8 +24,8 @@ const appCommands = ( overrides: Partial< Parameters< typeof getAppCommands >[ 0
 		openChat: vi.fn(),
 		savePreferences: vi.fn(),
 		toggleSidebar: vi.fn(),
-		openNotifications: vi.fn(),
 		openWhatsNew: vi.fn(),
+		openFeedback: vi.fn(),
 		...overrides,
 	} );
 
@@ -41,7 +41,7 @@ const siteCommands = (
 ) =>
 	getSiteCommands( {
 		site,
-		previewShown: false,
+		panelShown: false,
 		canAnnotate: false,
 		annotating: false,
 		actions: {
@@ -59,8 +59,6 @@ const siteCommands = (
 		newChat: vi.fn(),
 		reloadPreview: vi.fn(),
 		annotate: vi.fn(),
-		showPreview: vi.fn(),
-		setChatHidden: vi.fn(),
 		copyUrl: vi.fn(),
 		...overrides,
 	} );
@@ -107,7 +105,7 @@ it( 'derives labels and availability from active context', () => {
 	const current = makeSite( { id: 'one', name: 'Test', running: true } );
 	const sites = [ current, makeSite( { id: 'two', running: true } ) ];
 	const app = appCommands( { sidebarOpen: false } );
-	const forSite = siteCommands( current, sites, { chatHidden: false }, { pinned: true } );
+	const forSite = siteCommands( current, sites, {}, { pinned: true } );
 	const chatCommands = getChatCommands( makeSession( { id: 'chat', title: 'Current chat' } ), {
 		pinned: true,
 		working: true,
@@ -118,8 +116,10 @@ it( 'derives labels and availability from active context', () => {
 	for ( const id of [ 'sidebar', 'pin-site', 'pin-chat', 'color-scheme' ] ) {
 		expect( byId( id )?.group ).toBe( 'commands' );
 	}
-	expect( byId( 'chat-visibility' )?.label ).toBe( 'Hide chat' );
-	expect( byId( 'pin-site' )?.label ).toBe( 'Unpin site' );
+	expect( byId( 'layout-panel' ) ).toBeUndefined();
+	expect( byId( 'preview-fullscreen' ) ).toBeUndefined();
+	expect( byId( 'preview-visibility' ) ).toBeUndefined();
+	expect( byId( 'pin-site' )?.label ).toBe( 'Unpin' );
 	expect( byId( 'pin-chat' )?.label ).toBe( 'Unpin chat' );
 	expect( byId( 'archive-chat' ) ).toBeUndefined();
 	expect( byId( 'stop-others' ) ).toBeDefined();

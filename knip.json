@@ -11,6 +11,7 @@
 				"src/preload.ts",
 				"src/migrations/index.ts",
 				"forge.config.ts",
+				"native/build.ts",
 				"e2e/global-setup.ts",
 				"e2e/**/*.test.ts"
 			],
@@ -31,7 +32,7 @@
 			"project": "**/*.ts"
 		},
 		"apps/ui": {
-			"entry": ["src/main.local.tsx", "src/dev/{chat,animation,annotate-tip}.tsx"],
+			"entry": ["src/main.local.tsx", "src/dev/{chat,animation,annotate-tip,update-preview,email-preview,sidebar-preview}.tsx"],
 			"project": "src/**/*.{ts,tsx}"
 		},
 		"apps/local": {

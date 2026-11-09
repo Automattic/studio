@@ -32,6 +32,10 @@
 		}
 	}
 
+	.button:is( :active, [aria-pressed='true'], [aria-expanded='true'] ) {
+		transition-duration: 0s;
+	}
+
 	.button:focus-visible {
 		box-shadow: inset 0 0 0 2px var( --ring );
 	}

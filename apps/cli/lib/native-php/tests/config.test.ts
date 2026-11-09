@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getDefaultPhpArgs, getNativePhpIniContents } from 'cli/lib/native-php/config';
 
 const originalPlatform = process.platform;
@@ -10,6 +10,7 @@ function setPlatform( platform: NodeJS.Platform ) {
 }
 
 afterEach( () => {
+	vi.restoreAllMocks();
 	setPlatform( originalPlatform );
 } );
 
@@ -63,9 +64,19 @@ describe( 'getDefaultPhpArgs', () => {
 
 	it( 'partitions the opcache file cache by PHP version on Windows', () => {
 		setPlatform( 'win32' );
-		const cacheDirectory = getFileCacheDirectory( getDefaultPhpArgs( '8.4' ) );
+		const cacheDirectory = getFileCacheDirectory( getDefaultPhpArgs( '8.4', { workerIndex: 0 } ) );
 
-		expect( path.basename( cacheDirectory ) ).toBe( 'php8.4' );
+		expect( path.basename( path.dirname( cacheDirectory ) ) ).toBe( 'php8.4' );
+	} );
+
+	it( 'does not configure an inactive opcache file cache for one-shot Windows commands', () => {
+		setPlatform( 'win32' );
+		const mkdir = vi.spyOn( fs, 'mkdirSync' );
+		const mkdtemp = vi.spyOn( fs, 'mkdtempSync' );
+
+		expect( getFileCacheDirectory( getDefaultPhpArgs( '8.4' ) ) ).toBe( '' );
+		expect( mkdir ).not.toHaveBeenCalled();
+		expect( mkdtemp ).not.toHaveBeenCalled();
 	} );
 
 	it( 'omits Xdebug directives by default', () => {

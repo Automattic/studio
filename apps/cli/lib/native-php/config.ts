@@ -228,7 +228,7 @@ function getOpcacheRootDir(): string {
 	return opcacheRootDir;
 }
 
-// Only Windows gets an opcache file cache. There, a process that can't attach to
+// Only Windows server workers get an opcache file cache. There, a process that can't attach to
 // the shared memory segment falls back to the file cache (#3343). Elsewhere each
 // process keeps its own in-memory cache, and the file cache would start empty on
 // every start, so writing it only slows the workers down.
@@ -236,7 +236,7 @@ function getOpcacheFileCacheArgs(
 	phpVersion: SupportedPHPVersion,
 	workerIndex: number | undefined
 ): string[] {
-	if ( process.platform !== 'win32' ) {
+	if ( process.platform !== 'win32' || workerIndex === undefined ) {
 		return [];
 	}
 
@@ -247,10 +247,7 @@ function getOpcacheFileCacheArgs(
 	// Server workers also get a directory each: a worker reading an entry another
 	// worker is still writing segfaults under CPU load (STU-2484).
 	const versionCacheDirectory = path.join( getOpcacheRootDir(), `php${ phpVersion }` );
-	const cacheDirectory =
-		workerIndex === undefined
-			? versionCacheDirectory
-			: path.join( versionCacheDirectory, `worker-${ workerIndex }` );
+	const cacheDirectory = path.join( versionCacheDirectory, `worker-${ workerIndex }` );
 	fs.mkdirSync( cacheDirectory, { recursive: true } );
 
 	return [ '-d', `opcache.file_cache="${ cacheDirectory }"` ];

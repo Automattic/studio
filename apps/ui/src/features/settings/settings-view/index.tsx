@@ -490,7 +490,7 @@ export function AppearanceSettings() {
 						onChange={ ( colorScheme ) => handleChange( { colorScheme } ) }
 					/>
 				</SettingsRow>
-				<ColorTintSettings tint={ tint } onCommit={ ( next ) => savePreferences.mutate( next ) } />
+				<ColorTintSettings tint={ tint } onCommit={ savePreferences.mutateAsync } />
 			</SettingsGroup>
 			<SettingsGroup title={ __( 'Reset' ) }>
 				<SettingsRow

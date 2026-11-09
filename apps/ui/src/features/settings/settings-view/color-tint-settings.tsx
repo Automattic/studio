@@ -1,8 +1,8 @@
 import { getColorTint, type ColorTint } from '@studio/common/lib/user-settings/preferences';
 import { __ } from '@wordpress/i18n';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { applyColorTint } from '@/lib/theme';
-import { InputGroup, InputGroupAddon, InputGroupInput, Slider } from '@/lib/ui';
+import { ColorPicker, Slider } from '@/lib/ui';
 import { SettingsRow } from './rows';
 import styles from './style.module.css';
 
@@ -13,14 +13,15 @@ export function ColorTintSettings( {
 	onCommit,
 }: {
 	tint: Partial< ColorTint >;
-	onCommit: ( tint: ColorTint ) => void;
+	onCommit: ( tint: ColorTint ) => void | Promise< unknown >;
 } ) {
 	const { accentColor, tintIntensity, contrast } = getColorTint( tint );
 	const [ draft, setDraft ] = useState( { accentColor, tintIntensity, contrast } );
-	const [ hex, setHex ] = useState( accentColor );
+	const savedTint = useRef( { accentColor, tintIntensity, contrast } );
+	const commitVersion = useRef( 0 );
 	useEffect( () => {
-		setDraft( { accentColor, tintIntensity, contrast } );
-		setHex( accentColor );
+		savedTint.current = { accentColor, tintIntensity, contrast };
+		setDraft( savedTint.current );
 	}, [ accentColor, tintIntensity, contrast ] );
 
 	const preview = ( patch: Partial< ColorTint > ) => {
@@ -29,7 +30,14 @@ export function ColorTintSettings( {
 		applyColorTint( next );
 		return next;
 	};
-	const commit = ( patch: Partial< ColorTint > ) => onCommit( preview( patch ) );
+	const commit = ( patch: Partial< ColorTint > ) => {
+		const version = ++commitVersion.current;
+		void Promise.resolve( onCommit( preview( patch ) ) ).catch( () => {
+			if ( version !== commitVersion.current ) return;
+			setDraft( savedTint.current );
+			applyColorTint( savedTint.current );
+		} );
+	};
 
 	return (
 		<>
@@ -38,31 +46,11 @@ export function ColorTintSettings( {
 				description={ __( 'Studio adapts your chosen color to work with your theme.' ) }
 			>
 				<div role="group" aria-label={ __( 'Accent' ) } className={ styles.colorControl }>
-					<InputGroup className={ styles.hexInput }>
-						<InputGroupInput
-							aria-label={ __( 'Hex color' ) }
-							placeholder="#hex"
-							value={ hex }
-							autoComplete="off"
-							spellCheck={ false }
-							onChange={ ( event ) => {
-								const value = event.target.value;
-								setHex( value );
-								const normalized = value.startsWith( '#' ) ? value : '#' + value;
-								if ( /^#[0-9a-f]{6}$/i.test( normalized ) ) {
-									commit( { accentColor: normalized.toLowerCase() } );
-								}
-							} }
-							onBlur={ () => setHex( draft.accentColor ) }
-						/>
-						<InputGroupAddon align="inline-end">
-							<span
-								aria-hidden="true"
-								className={ styles.hexPreview }
-								style={ { backgroundColor: draft.accentColor } }
-							/>
-						</InputGroupAddon>
-					</InputGroup>
+					<ColorPicker
+						value={ draft.accentColor }
+						onValueChange={ ( value ) => preview( { accentColor: value } ) }
+						onValueCommitted={ ( value ) => commit( { accentColor: value } ) }
+					/>
 				</div>
 			</SettingsRow>
 			<SettingsRow

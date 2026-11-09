@@ -168,7 +168,7 @@ export function PreviewTabs( {
 		const isLastTab = workspace.tabs.every( ( tab ) => ids.includes( tab.id ) );
 		closeMany( ids );
 		if ( isLastTab ) {
-			runLayoutTransition( () => preview.setOpen( false, { siteId } ) );
+			runLayoutTransition( () => preview.setOpen( false, { siteId, instant: true } ) );
 			if ( ! liveUrl && site.running && ! busy ) stopSite.mutate( siteId );
 		}
 		requestAnimationFrame( () => {

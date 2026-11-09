@@ -77,7 +77,7 @@ function AnthropicConnection( {
 							subscription
 								? __(
 										'Tokens are not refreshed automatically. Generate a new one when it expires.'
-									)
+								  )
 								: __( 'Usage is billed through your Anthropic account.' )
 						}
 						error={ error }
@@ -128,5 +128,7 @@ export const anthropicUiProvider = { icon: ClaudeIcon, Connection: AnthropicConn
 
 export const anthropicSubscriptionUiProvider = {
 	icon: ClaudeIcon,
-	Connection: ( props: ProviderConnectionProps ) => <AnthropicConnection { ...props } subscription />,
+	Connection: ( props: ProviderConnectionProps ) => (
+		<AnthropicConnection { ...props } subscription />
+	),
 };

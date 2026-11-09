@@ -86,8 +86,8 @@ describe( 'Chat model picker', () => {
 		fireEvent.click( trigger );
 		const choices = await screen.findAllByRole( 'option', { name: /Sonnet 5/ } );
 		expect( choices ).toHaveLength( 2 );
-		const subscription = choices.find( ( choice ) =>
-			choice.textContent?.includes( 'Claude subscription' )
+		const subscription = choices.find(
+			( choice ) => choice.textContent?.includes( 'Claude subscription' )
 		)!;
 		fireEvent.click( subscription );
 		await waitFor( () =>

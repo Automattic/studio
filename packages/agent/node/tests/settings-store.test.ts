@@ -296,7 +296,9 @@ describe( 'ai settings store', () => {
 		const env = await provider.resolveEnv( { apiKey: token, userAgent: 'test' } );
 		const resolved = await provider.resolveCredentials( env );
 		if ( ! resolved.ok ) throw new Error( resolved.reason );
-		const model = provider.buildModel( 'claude-sonnet-5', resolved.creds, { supportsImages: true } );
+		const model = provider.buildModel( 'claude-sonnet-5', resolved.creds, {
+			supportsImages: true,
+		} );
 		const runtime = await ModelRuntime.create( {
 			credentials: new FileCredentialStore(),
 			modelsPath: null,
@@ -325,7 +327,9 @@ describe( 'ai settings store', () => {
 		expect( headers.get( 'anthropic-beta' ) ).toContain( 'oauth-2025-04-20' );
 		expect( response.stopReason ).toBe( 'error' );
 		expect( response.errorMessage ).toContain( 'Token expired' );
-		const missing = await provider.resolveCredentials( { ANTHROPIC_API_KEY: 'must-not-fall-back' } );
+		const missing = await provider.resolveCredentials( {
+			ANTHROPIC_API_KEY: 'must-not-fall-back',
+		} );
 		expect( missing ).toMatchObject( { ok: false } );
 	} );
 } );

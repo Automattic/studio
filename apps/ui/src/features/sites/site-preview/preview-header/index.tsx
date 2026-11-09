@@ -128,7 +128,7 @@ export function PreviewHeader( {
 					<IconButton
 						size="icon-sm"
 						icon={ <RotateCwIcon /> }
-						label={ __( 'Reload preview' ) }
+						label={ __( 'Reload' ) }
 						shortcut={ shortcuts.reload }
 						tooltipSide="bottom"
 						disabled={ disabled }

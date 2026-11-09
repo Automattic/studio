@@ -212,7 +212,7 @@ it( 'keeps browser actions directly available in a narrow preview', async () => 
 	);
 	const effects = [
 		[ 'Forward', () => expect( webview.goForward ).toHaveBeenCalledOnce() ],
-		[ 'Reload preview', () => expect( webview.reload ).toHaveBeenCalledOnce() ],
+		[ 'Reload', () => expect( webview.reload ).toHaveBeenCalledOnce() ],
 	] as const;
 	for ( const [ name, effect ] of effects ) {
 		expect(
@@ -288,7 +288,7 @@ it( 'keeps site actions in the main header without mobile browser overflow', asy
 		screen.queryByRole( 'button', { name: 'More preview actions' } )
 	).not.toBeInTheDocument();
 	expect( screen.queryByRole( 'button', { name: 'Stop site' } ) ).not.toBeInTheDocument();
-	for ( const name of [ 'Back', 'Forward', 'Reload preview', 'Browser options' ] )
+	for ( const name of [ 'Back', 'Forward', 'Reload', 'Browser options' ] )
 		expect( within( browser ).getByRole( 'button', { name } ) ).toBeVisible();
 	expect( screen.queryByRole( 'button', { name: 'Responsive mode' } ) ).not.toBeInTheDocument();
 	await resize( 1000 );
@@ -348,12 +348,12 @@ it( 'moves focus to browser options when a narrow window hides the address', asy
 
 it( 'keeps browser navigation focused when the preview narrows', async () => {
 	const { resize } = await renderHeader( 'navigation-focus', createFakeConnector(), 1000 );
-	screen.getByRole( 'button', { name: 'Reload preview' } ).focus();
+	screen.getByRole( 'button', { name: 'Reload' } ).focus();
 	await resize( 360, 1000 );
-	expect( screen.getByRole( 'button', { name: 'Reload preview' } ) ).toHaveFocus();
+	expect( screen.getByRole( 'button', { name: 'Reload' } ) ).toHaveFocus();
 	await resize( 1000 );
 	expect(
 		screen.queryByRole( 'button', { name: 'More preview actions' } )
 	).not.toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: 'Reload preview' } ) ).toHaveFocus();
+	expect( screen.getByRole( 'button', { name: 'Reload' } ) ).toHaveFocus();
 } );

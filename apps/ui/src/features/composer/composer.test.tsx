@@ -235,7 +235,7 @@ describe( 'Chat composer', () => {
 		expect( input ).toHaveValue( 'Keep this prompt' );
 	} );
 
-	it.each( [ 'menu', 'slash' ] )(
+	it.each( [ 'button', 'slash' ] )(
 		'opens the model picker through %s without sending or losing the draft',
 		async ( source ) => {
 			const { input, onSend } = await setup();
@@ -249,7 +249,10 @@ describe( 'Chat composer', () => {
 				fireEvent.keyDown( input, { key: 'Enter' } );
 			} else {
 				fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-				fireEvent.click( await screen.findByRole( 'option', { name: /^Choose model/ } ) );
+				await screen.findByRole( 'option', { name: /^Connect providers/ } );
+				expect( screen.queryByRole( 'option', { name: /^Choose model/ } ) ).not.toBeInTheDocument();
+				fireEvent.keyDown( document.activeElement!, { key: 'Escape' } );
+				fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
 			}
 			await waitFor( () =>
 				expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveAttribute(

@@ -256,9 +256,9 @@ it( 'reloads only the selected tab from the command palette', async () => {
 	const second = document.querySelectorAll( 'iframe' )[ 1 ];
 	act( () => setCommandPaletteOpen( true ) );
 	fireEvent.change( await screen.findByRole( 'combobox', { name: 'Search commands' } ), {
-		target: { value: 'Reload preview' },
+		target: { value: 'Reload' },
 	} );
-	fireEvent.click( screen.getByRole( 'option', { name: 'Reload preview' } ) );
+	fireEvent.click( screen.getByRole( 'option', { name: 'Reload' } ) );
 	await waitFor( () => expect( second ).not.toBeInTheDocument() );
 	expect( document.querySelector( 'iframe' ) ).toBe( first );
 	fireEvent.click( screen.getAllByRole( 'tab' )[ 0 ] );
@@ -1104,7 +1104,7 @@ it( 'opens a WordPress style board without DESIGN.md and reloads saved style cha
 	expect( screen.queryByText( /DESIGN.md/ ) ).not.toBeInTheDocument();
 	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeDisabled();
 	connector.getSiteDesign.mockResolvedValue( board( '#654321' ) );
-	await user.click( screen.getByRole( 'button', { name: 'Reload preview' } ) );
+	await user.click( screen.getByRole( 'button', { name: 'Reload' } ) );
 	expect( await screen.findByText( '#654321' ) ).toBeVisible();
 	expect( screen.queryByText( '#123456' ) ).not.toBeInTheDocument();
 } );

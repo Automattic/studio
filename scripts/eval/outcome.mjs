@@ -252,13 +252,16 @@ export const classifiesPreviewAndRemote = check( ( d ) => {
 	};
 	const preview = about( sites[ 0 ], sites[ 1 ] );
 	const remote = about( sites[ 1 ], sites[ 0 ] );
+	const remoteKind = remote
+		.replace( /\*/g, '' )
+		.replace( /\bnot\s+(?:a\s+)?(?:temporary\s+)?preview(?:\s+site)?\b/gi, '' );
 	if ( ! preview || ! /preview|temporary/i.test( preview ) )
 		return fail(
 			`the preview site is not described as a preview: ${ preview || '(not mentioned)' }`
 		);
 	if (
 		! remote ||
-		/preview|temporary/i.test( remote ) ||
+		/preview|temporary/i.test( remoteKind ) ||
 		! /connected|remote|wordpress\.com|production/i.test( remote )
 	) {
 		return fail(

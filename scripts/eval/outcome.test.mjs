@@ -244,6 +244,9 @@ describe( 'reply checks', () => {
 		],
 		[ '- abc123-studio.wp.build and myprod.wordpress.com are previews', false ],
 		[ sections, true ],
+		[ sections + '\n| Type | Durable remote (not a **preview**) |', true ],
+		[ sections + '\n| Type | Durable remote (not a temporary preview site) |', true ],
+		[ sections + '\n| Type | Temporary preview |', false ],
 		[
 			sections.replace( 'Temporary PREVIEW', 'Durable' ).replace( 'Preview (temporary)', 'Site' ),
 			false,

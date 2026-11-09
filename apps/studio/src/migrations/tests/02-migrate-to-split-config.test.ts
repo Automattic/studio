@@ -17,6 +17,7 @@ async function runMigration() {
 }
 
 vi.mock( 'fs' );
+vi.mock( '@studio/common/lib/lockfile' );
 
 vi.mock( 'atomically', () => ( {
 	readFile: vi.fn(),
@@ -453,6 +454,89 @@ describe( 'migrateAppConfig', () => {
 	} );
 
 	describe( 'partial migration recovery', () => {
+		it( 'imports legacy sites into an empty CLI scaffold without losing newer settings', async () => {
+			const scaffold = {
+				version: 1,
+				sites: [],
+				snapshots: [],
+				lastUpdateCheck: 1793500000000,
+				aiProvider: 'wpcom',
+			};
+			vi.mocked( existsSync ).mockImplementation(
+				( p ) =>
+					typeof p === 'string' && ( p.endsWith( 'cli.json' ) || p.endsWith( 'appdata-v1.json' ) )
+			);
+			vi.mocked( readFile ).mockImplementation( async ( p ) =>
+				Buffer.from(
+					JSON.stringify( String( p ).endsWith( 'cli.json' ) ? scaffold : createOldAppdata() )
+				)
+			);
+
+			await runMigration();
+
+			const cli = getWrittenJson( 'cli.json' );
+			expect( cli?.sites ).toEqual(
+				expect.arrayContaining( [
+					expect.objectContaining( {
+						id: 'site-1',
+						name: 'My Site',
+						path: '/home/user/Studio/my-site',
+						autoStart: true,
+					} ),
+				] )
+			);
+			expect( cli?.sites ).toHaveLength( 2 );
+			expect( cli?.snapshots ).toEqual( createOldAppdata().snapshots );
+			expect( cli ).toMatchObject( {
+				lastUpdateCheck: scaffold.lastUpdateCheck,
+				aiProvider: 'wpcom',
+			} );
+			expect( getWrittenJson( 'shared.json' ) ).toMatchObject( {
+				locale: 'pt-br',
+				authToken: createOldAppdata().authToken,
+			} );
+			expect( getWrittenJson( 'app.json' ) ).toMatchObject( {
+				stopSitesOnQuit: false,
+				connectedWpcomSites: createOldAppdata().connectedWpcomSites,
+			} );
+		} );
+
+		it( 'preserves a CLI registry containing snapshots even when it has no sites', async () => {
+			vi.mocked( existsSync ).mockImplementation(
+				( p ) =>
+					typeof p === 'string' && ( p.endsWith( 'cli.json' ) || p.endsWith( 'appdata-v1.json' ) )
+			);
+			vi.mocked( readFile ).mockImplementation( async ( p ) =>
+				Buffer.from(
+					JSON.stringify(
+						String( p ).endsWith( 'cli.json' )
+							? { version: 1, sites: [], snapshots: createOldAppdata().snapshots }
+							: createOldAppdata()
+					)
+				)
+			);
+
+			await runMigration();
+
+			expect( getWrittenJson( 'cli.json' ) ).toBeUndefined();
+		} );
+
+		it( 'does not mark migration complete when the existing CLI config is invalid', async () => {
+			vi.mocked( existsSync ).mockImplementation(
+				( p ) =>
+					typeof p === 'string' && ( p.endsWith( 'cli.json' ) || p.endsWith( 'appdata-v1.json' ) )
+			);
+			vi.mocked( readFile ).mockImplementation( async ( p ) =>
+				Buffer.from(
+					String( p ).endsWith( 'cli.json' ) ? '{broken' : JSON.stringify( createOldAppdata() )
+				)
+			);
+
+			await expect( runMigration() ).rejects.toThrow();
+
+			expect( getWrittenJson( 'app.json' ) ).toBeUndefined();
+		} );
+
 		it( 'does not overwrite shared.json if it already exists', async () => {
 			vi.mocked( existsSync ).mockImplementation( ( p ) => {
 				if ( typeof p === 'string' && p.includes( 'appdata-v1.json' ) ) {

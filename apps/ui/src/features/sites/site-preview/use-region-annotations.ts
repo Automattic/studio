@@ -10,6 +10,7 @@ import { useConnector } from '@/data/core';
 import {
 	canPickAnnotation,
 	getSiteAnnotations,
+	hasAnnotationContent,
 	setAnnotationsPreparing,
 	useSiteAnnotations,
 } from '@/features/annotations';
@@ -49,7 +50,9 @@ export function useRegionAnnotations( {
 			let startedCapture = false;
 			try {
 				if ( ! enabled || ! active || capturing.current || ! canPickAnnotation( siteId ) ) return;
-				const otherImages = getSiteAnnotations( siteId ).notes.flatMap( ( note ) => note.images );
+				const otherImages = getSiteAnnotations( siteId )
+					.notes.filter( hasAnnotationContent )
+					.flatMap( ( note ) => note.images );
 				if ( otherImages.length >= STUDIO_CHAT_MAX_IMAGES ) {
 					toast.error(
 						sprintf(

@@ -1,9 +1,9 @@
 import { streamSimple as streamAnthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages';
 import { streamSimple as streamOpenAiCompletions } from '@earendil-works/pi-ai/api/openai-completions';
 import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
-import { getAiModel } from '@studio/agent/protocol/models';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __, sprintf } from '@wordpress/i18n';
+import { getAiModel } from '@studio/agent/protocol/models';
 import { getWpcomAiGatewayBaseUrl } from '../ai-gateway';
 import { withLeakedToolCallMarkupRemoved } from '../runtime/leaked-tool-call-markup';
 import { stripStaleImagesFromContext } from '../runtime/strip-stale-images';
@@ -99,9 +99,7 @@ export const wpcomProvider: StudioAiProvider = {
 			id: modelId,
 			name: modelId,
 			baseUrl,
-			input: supportsImages
-				? [ 'text' as const, 'image' as const ]
-				: [ 'text' as const ],
+			input: supportsImages ? [ 'text' as const, 'image' as const ] : [ 'text' as const ],
 			cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
 			...( creds.extraHeaders ? { headers: creds.extraHeaders } : {} ),
 		};

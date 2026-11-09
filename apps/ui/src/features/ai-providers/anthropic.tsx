@@ -94,7 +94,9 @@ function AnthropicConnection( {
 									variant="outline"
 									disabled={ pending }
 									onClick={ () =>
-										void onSaveKey( null ).then( closeKeyForm ).catch( () => {} )
+										void onSaveKey( null )
+											.then( closeKeyForm )
+											.catch( () => {} )
 									}
 								>
 									{ __( 'Remove key' ) }

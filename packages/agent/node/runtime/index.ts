@@ -176,7 +176,9 @@ async function runAgentSessionTurn(
 		selectedProvider && isAiProviderId( selectedProvider )
 			? selectedProvider
 			: AI_PROVIDER_IDS.find( ( id ) =>
-					getAiProviderModels( id ).some( ( model ) => model.family === getAiModelFamily( config.model ) )
+					getAiProviderModels( id ).some(
+						( model ) => model.family === getAiModelFamily( config.model )
+					)
 			  )!;
 	const provider = AI_BACKEND_PROVIDERS[ providerId ];
 	const resolved = provider.resolveCredentials( config.env );

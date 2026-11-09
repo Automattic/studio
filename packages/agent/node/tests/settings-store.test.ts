@@ -216,9 +216,7 @@ describe( 'ai settings store', () => {
 		expect( settings.connections[ 'anthropic-api-key' ].apiKeyPreview ).toBe(
 			'sk-ant-api03-tes...1234'
 		);
-		expect( readShared().anthropicApiKey ).toBe(
-			'sk-ant-api03-testkey-abcd1234'
-		);
+		expect( readShared().anthropicApiKey ).toBe( 'sk-ant-api03-testkey-abcd1234' );
 
 		await expect( saveAiProviderApiKey( 'anthropic-api-key', '   ' ) ).resolves.toMatchObject( {
 			connections: { 'anthropic-api-key': { connected: false } },

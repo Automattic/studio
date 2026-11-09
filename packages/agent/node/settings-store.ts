@@ -17,7 +17,10 @@ import { AI_BACKEND_PROVIDERS, InvalidAiProviderCredentialsError } from './provi
 
 export { InvalidAiProviderCredentialsError } from './providers';
 
-type AiProviderConfig = Pick< SharedConfig, 'aiProvider' | 'anthropicApiKey' | 'aiProviderCredentials' >;
+type AiProviderConfig = Pick<
+	SharedConfig,
+	'aiProvider' | 'anthropicApiKey' | 'aiProviderCredentials'
+>;
 
 async function readAiProviderConfig( shared?: SharedConfig ): Promise< AiProviderConfig > {
 	const config = shared ?? ( await readSharedConfig() );

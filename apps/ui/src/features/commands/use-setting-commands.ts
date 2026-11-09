@@ -101,16 +101,14 @@ function useSettingToggles(): SettingToggles {
 				? __( 'Sites will start with the panel expanded.' )
 				: __( 'Sites will start with chat.' )
 		),
-		'usage-statistics': toggle(
-			'analyticsEnabled',
-			preferences.analyticsEnabled,
-			preferences.analyticsEnabled
-				? __( 'Disable anonymous usage statistics' )
-				: __( 'Enable anonymous usage statistics' ),
-			preferences.analyticsEnabled
-				? __( 'Anonymous usage statistics disabled.' )
-				: __( 'Anonymous usage statistics enabled.' )
-		),
+		...( ! preferences.analyticsEnabled && {
+			'usage-statistics': toggle(
+				'analyticsEnabled',
+				false,
+				__( 'Enable anonymous usage statistics' ),
+				__( 'Anonymous usage statistics enabled.' )
+			),
+		} ),
 	};
 }
 

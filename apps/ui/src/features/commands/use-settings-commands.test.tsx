@@ -8,9 +8,19 @@ import type { PaletteCommand } from '@/features/commands/studio-commands';
 
 beforeEach( resetAppMessagesForTests );
 
-function setup( collapse: boolean, openChatOnSiteStart = true, batchAnnotations = false ) {
+function setup(
+	collapse: boolean,
+	openChatOnSiteStart = true,
+	batchAnnotations = false,
+	analyticsEnabled = true
+) {
 	const connector = createFakeConnector( {
-		preferences: { autoCollapseSites: collapse, openChatOnSiteStart, batchAnnotations },
+		preferences: {
+			autoCollapseSites: collapse,
+			openChatOnSiteStart,
+			batchAnnotations,
+			analyticsEnabled,
+		},
 	} );
 	const result: { current: PaletteCommand[] } = { current: [] };
 	function Probe() {
@@ -169,4 +179,19 @@ it( 'resets tips without resetting guide progress or interface preferences', asy
 	);
 	expect( connector.setUserPreferences ).not.toHaveBeenCalled();
 	expect( connector.setOnboardingCompleted ).not.toHaveBeenCalled();
+} );
+
+it( 'offers enabling usage statistics until it is enabled', async () => {
+	const { connector, result } = setup( false, true, false, false );
+	const command = () =>
+		result.current.find( ( entry ) => entry.id === 'settings-general-usage-statistics' );
+	await waitFor( () => expect( command()?.label ).toBe( 'Enable anonymous usage statistics' ) );
+	act( () => command()!.run() );
+	await waitFor( () =>
+		expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+			{ analyticsEnabled: true },
+			{ surface: 'settings' }
+		)
+	);
+	await waitFor( () => expect( command() ).toBeUndefined() );
 } );

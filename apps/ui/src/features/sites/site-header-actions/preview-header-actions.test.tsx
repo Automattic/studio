@@ -385,3 +385,14 @@ it( 'keeps browser navigation focused when the preview narrows', async () => {
 	).not.toBeInTheDocument();
 	expect( screen.getByRole( 'button', { name: 'Reload' } ) ).toHaveFocus();
 } );
+
+it( 'waits for a measurable container before compacting browser controls', async () => {
+	const { resize } = await renderHeader( 'unmeasured-header', createFakeConnector(), 0 );
+	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeVisible();
+	await resize( 390 );
+	expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
+	await resize( 0 );
+	expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
+	await resize( 600 );
+	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeVisible();
+} );

@@ -16,7 +16,6 @@ import { renderApp } from '@/test/render';
 import type { SessionEntry } from '@/data/core';
 
 beforeEach( () => {
-	vi.spyOn( HTMLElement.prototype, 'clientWidth', 'get' ).mockReturnValue( 1000 );
 	localStorage.clear();
 	clearComposerDrafts();
 } );

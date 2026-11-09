@@ -830,7 +830,6 @@ describe( 'preview browser menu', () => {
 		screen.getByRole( 'button', { name: 'Browser options' } ).focus();
 		await user.keyboard( '{ArrowDown}' );
 		expect( screen.getAllByRole( 'menuitem' ).map( ( item ) => item.textContent ) ).toEqual( [
-			'Annotate',
 			'Show admin bar',
 			'Show device toolbar',
 			'Appearance',

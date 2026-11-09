@@ -29,6 +29,7 @@ export function useSiteHeaderLayout(
 		if ( ! header ) return;
 		let current: SiteHeaderLayout = 'inline';
 		const measure = () => {
+			if ( ! header.clientWidth ) return;
 			const annotation = header.querySelector( '[data-site-header-annotation]' );
 			const next: SiteHeaderLayout = header.clientWidth <= 540 ? 'mobile-overflow' : 'inline';
 			if ( next !== current ) {

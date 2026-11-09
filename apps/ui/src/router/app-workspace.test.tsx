@@ -181,7 +181,6 @@ async function readyPreviewPage() {
 }
 
 beforeEach( () => {
-	vi.spyOn( HTMLElement.prototype, 'clientWidth', 'get' ).mockReturnValue( 1000 );
 	clearComposerDrafts();
 	localStorage.clear();
 	resetAppMessagesForTests();

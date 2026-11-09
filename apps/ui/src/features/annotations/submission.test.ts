@@ -81,12 +81,21 @@ describe( 'annotationSubmission', () => {
 		const { prompt } = annotationSubmission(
 			'',
 			[],
-			[ note( { comment: '', images: [ image( 'reference' ) ], staged: true, batched: true } ) ]
+			[
+				note( {
+					comment: '',
+					images: [ image( 'reference' ) ],
+					capturedImageId: 'reference',
+					staged: true,
+					batched: true,
+				} ),
+			]
 		);
 		expect( prompt ).not.toContain( 'attached images 1' );
 		expect( prompt ).not.toContain( 'eA==' );
 		expect( prompt ).not.toContain( '"staged":' );
 		expect( prompt ).not.toContain( '"batched":' );
+		expect( prompt ).not.toContain( '"capturedImageId":' );
 	} );
 
 	it( 'rejects empty or repeated image references', () => {

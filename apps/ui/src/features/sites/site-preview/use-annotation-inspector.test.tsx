@@ -116,7 +116,7 @@ describe( 'annotation inspector navigation', () => {
 		dataBase64: 'eA==',
 	};
 
-	it( 'opens a rectangle note with the captured area attached', async () => {
+	it( 'opens a rectangle note and lets an untouched capture be dismissed without an error', async () => {
 		const connector = createFakeConnector( { sites: [ site ] } );
 		const capture = vi.spyOn( connector, 'captureAnnotationRegion' ).mockResolvedValue( image );
 		const { emit, annotate } = await setup( undefined, connector );
@@ -138,6 +138,10 @@ describe( 'annotation inspector navigation', () => {
 				{ kind: 'region', documentRect: selection.rect, images: [ { ...image, kind: 'image' } ] },
 			],
 		} );
+		expect( screen.getByRole( 'button', { name: 'Add annotation to batch' } ) ).toBeDisabled();
+		act( () => escapeAnnotations( site.id ) );
+		expect( getSiteAnnotations( site.id ) ).toMatchObject( { active: false, notes: [] } );
+		expect( screen.queryByRole( 'alert' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'preserves unfinished notes instead of capturing a different rectangle', async () => {

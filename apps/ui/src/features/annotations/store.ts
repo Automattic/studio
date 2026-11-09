@@ -11,6 +11,7 @@ import type {
 
 export interface PreviewAnnotation extends VisualAnnotation {
 	images: ComposerImageAttachment[];
+	capturedImageId?: string;
 	// Saved to the chat draft, so the composer sends it with the next message.
 	staged?: boolean;
 	batched?: boolean;
@@ -37,7 +38,9 @@ const listeners = new Set< () => void >();
 const pendingReview = createPendingSlot< { siteId: string; noteId: string } >();
 
 export function hasAnnotationContent( note: PreviewAnnotation ) {
-	return Boolean( note.comment.trim() || note.images.length );
+	return Boolean(
+		note.comment.trim() || note.images.some( ( image ) => image.id !== note.capturedImageId )
+	);
 }
 
 export function getSiteAnnotations( siteId: string | undefined ): SiteAnnotations {
@@ -148,12 +151,24 @@ export function pickAnnotation(
 	}
 	if ( ! canPickAnnotation( siteId ) ) return null;
 	const id = crypto.randomUUID();
+	const capturedImageId = target.kind === 'region' ? initial?.images?.[ 0 ]?.id : undefined;
 	update( siteId, ( current ) => {
 		const notes = withoutEmpty( current.notes );
 		const number = Math.max( 0, ...notes.map( ( note ) => note.number ) ) + 1;
 		return {
 			...current,
-			notes: [ ...notes, { ...target, id, number, comment: '', images: [], ...initial } ],
+			notes: [
+				...notes,
+				{
+					...target,
+					id,
+					number,
+					comment: '',
+					images: [],
+					...initial,
+					...( capturedImageId ? { capturedImageId } : {} ),
+				},
+			],
 			editingId: id,
 		};
 	} );

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts } from '@/data/app-messages';
 import {
 	changeAnnotation,
+	discardAnnotations,
 	escapeAnnotations,
 	getSiteAnnotations,
 	hasAnnotationContent,
@@ -34,6 +35,33 @@ describe( 'annotation store', () => {
 		expect( pickAnnotation( siteId, { selector: 'h1' } ) ).toBeNull();
 		expect( getSiteAnnotations( siteId ).editingId ).toBe( id );
 		expect( getSiteAnnotations( siteId ).notes[ 0 ].images[ 0 ].id ).toBe( 'reference' );
+	} );
+
+	it( 'discards saved notes and the current draft for one site and exits annotation mode', () => {
+		const siteId = 'discard-store-site';
+		const otherSiteId = 'kept-discard-store-site';
+		setAnnotating( siteId, true );
+		const saved = pickAnnotation( siteId, { selector: 'h1' } )!;
+		changeAnnotation( siteId, saved, { comment: 'Saved note' } );
+		stageAnnotations( siteId, [ saved ], true );
+		const draft = pickAnnotation( siteId, { selector: 'p' } )!;
+		changeAnnotation( siteId, draft, { comment: 'Unfinished note' } );
+		setAnnotating( otherSiteId, true );
+		const other = pickAnnotation( otherSiteId, { selector: 'footer' } )!;
+		changeAnnotation( otherSiteId, other, { comment: 'Keep this note' } );
+
+		discardAnnotations( siteId );
+
+		expect( getSiteAnnotations( siteId ) ).toMatchObject( {
+			active: false,
+			notes: [],
+			editingId: null,
+		} );
+		expect( getSiteAnnotations( otherSiteId ) ).toMatchObject( {
+			active: true,
+			editingId: other,
+			notes: [ expect.objectContaining( { id: other, comment: 'Keep this note' } ) ],
+		} );
 	} );
 
 	it( 'drops a note left empty and numbers the next one after those kept', () => {
@@ -122,6 +150,7 @@ describe( 'annotation store', () => {
 		expect( getSiteAnnotations( 'busy-site' ).sending ).toBe( true );
 		expect( pickAnnotation( 'busy-site', { selector: 'h1' } ) ).toBeNull();
 		escapeAnnotations( 'busy-site' );
+		discardAnnotations( 'busy-site' );
 		expect( getSiteAnnotations( 'busy-site' ).active ).toBe( true );
 
 		finishSend();

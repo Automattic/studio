@@ -328,6 +328,7 @@ describe( 'useAgentRun queued handoff', () => {
 						connections: {
 							wpcom: { connected: true, apiKeyPreview: null },
 							'anthropic-api-key': { connected: true, apiKeyPreview: 'test' },
+							chatgpt: { connected: false, apiKeyPreview: null },
 						},
 					} ),
 				}

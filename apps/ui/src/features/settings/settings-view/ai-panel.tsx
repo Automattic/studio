@@ -5,6 +5,7 @@ import {
 	useAiSettings,
 	useSaveAiProviderApiKey,
 	useSetAiProvider,
+	useSetAiProviderConnection,
 } from '@/data/queries/use-ai-settings';
 import { getAiProviderUi } from '@/features/ai-providers';
 import { LearnMoreLink } from '@/features/onboarding';
@@ -17,11 +18,13 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 	const settings = useAiSettings();
 	const setProvider = useSetAiProvider();
 	const saveKey = useSaveAiProviderApiKey();
+	const connection = useSetAiProviderConnection();
 	const [ openForm, setOpenForm ] = useState< AiProviderId | null >( null );
-	const pending = settings.isLoading || saveKey.isPending || setProvider.isPending;
+	const pending =
+		settings.isLoading || saveKey.isPending || setProvider.isPending || connection.isPending;
 	const hasOptionalConnection = AI_PROVIDER_IDS.some(
 		( id ) =>
-			getAiProvider( id ).connection.type === 'api-key' &&
+			! getAiProvider( id ).connection.usesStudioAccount &&
 			settings.data?.connections[ id ].connected
 	);
 
@@ -43,7 +46,10 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 						connectedBadge={ connectedBadge() }
 						connected={ !! settings.data?.connections[ id ].connected }
 						apiKeyPreview={ settings.data?.connections[ id ].apiKeyPreview }
-						error={ ( saveKey.error ?? setProvider.error )?.message }
+						error={ ( saveKey.error ?? setProvider.error ?? connection.error )?.message }
+						onConnectionChange={ async ( connected ) => {
+							await connection.mutateAsync( { provider: id, connected } );
+						} }
 						onSelect={ async () => {
 							await setProvider.mutateAsync( id );
 						} }

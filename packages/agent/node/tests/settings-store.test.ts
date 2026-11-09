@@ -41,6 +41,7 @@ describe( 'ai settings store', () => {
 			connections: {
 				wpcom: { connected: false, apiKeyPreview: null },
 				'anthropic-api-key': { connected: false, apiKeyPreview: null },
+				chatgpt: { connected: false, apiKeyPreview: null },
 			},
 		} );
 	} );
@@ -56,6 +57,7 @@ describe( 'ai settings store', () => {
 			connections: {
 				wpcom: { connected: false, apiKeyPreview: null },
 				'anthropic-api-key': { connected: true, apiKeyPreview: 'sk-ant-api03-tes...1234' },
+				chatgpt: { connected: false, apiKeyPreview: null },
 			},
 		} );
 		expect( readShared().anthropicApiKey ).toBe( 'sk-ant-api03-testkey-abcd1234' );
@@ -201,6 +203,7 @@ describe( 'ai settings store', () => {
 			connections: {
 				wpcom: { connected: false, apiKeyPreview: null },
 				'anthropic-api-key': { connected: false, apiKeyPreview: null },
+				chatgpt: { connected: false, apiKeyPreview: null },
 			},
 		} );
 		const written = readShared();

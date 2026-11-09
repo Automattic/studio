@@ -47,3 +47,15 @@ export function useSaveAiProviderApiKey() {
 		},
 	} );
 }
+
+export function useSetAiProviderConnection() {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation( {
+		mutationFn: ( { provider, connected }: { provider: AiProviderId; connected: boolean } ) =>
+			connector.setAiProviderConnection( provider, connected ),
+		onSuccess: ( settings ) => {
+			queryClient.setQueryData< AiSettings >( AI_SETTINGS_QUERY_KEY, settings );
+		},
+	} );
+}

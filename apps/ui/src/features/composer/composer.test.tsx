@@ -32,6 +32,7 @@ const ANTHROPIC_KEY = {
 	connections: {
 		wpcom: { connected: true, apiKeyPreview: null },
 		'anthropic-api-key': { connected: true, apiKeyPreview: 'sk-ant-api03-tes...1234' },
+		chatgpt: { connected: false, apiKeyPreview: null },
 	},
 };
 

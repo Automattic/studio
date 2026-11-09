@@ -17,7 +17,7 @@ export interface AiProviderDescriptor {
 	cliLabel: string;
 	modelLabel: string;
 	usesStudioCredits: boolean;
-	connection: { type: 'account' | 'api-key'; usesStudioAccount?: boolean };
+	connection: { type: 'account' | 'api-key' | 'oauth'; usesStudioAccount?: boolean };
 	models: readonly AiModel[];
 	defaultModel: string;
 	paidDefaultModel?: string;
@@ -83,6 +83,19 @@ export const AI_PROVIDERS = [
 				getDescription: () => __( 'Plan complex builds and solve harder problems' ),
 				family: 'anthropic',
 			},
+		],
+	},
+	{
+		id: 'chatgpt',
+		label: 'ChatGPT',
+		cliLabel: 'ChatGPT plan',
+		modelLabel: 'ChatGPT',
+		usesStudioCredits: false,
+		connection: { type: 'oauth' },
+		defaultModel: 'gpt-6.1-terra',
+		models: [
+			{ id: 'gpt-6.1-terra', label: 'GPT-6.1 Terra', family: 'openai' },
+			{ id: 'gpt-6.1-sol', label: 'GPT-6.1 Sol', family: 'openai' },
 		],
 	},
 ] as const satisfies readonly AiProviderDescriptor[];

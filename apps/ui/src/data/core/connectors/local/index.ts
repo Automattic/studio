@@ -864,6 +864,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			} );
 		},
 
+		async setAiProviderConnection( provider, connected ): Promise< AiSettings > {
+			return api< AiSettings >( '/ai-settings/connection', {
+				method: 'POST',
+				body: JSON.stringify( { provider, connected } ),
+			} );
+		},
+
 		// The server runs on the user's machine, so it opens paths in OS apps on
 		// the browser's behalf (the editor/terminal choice comes from prefs above).
 		async openSiteFolder( siteId ) {

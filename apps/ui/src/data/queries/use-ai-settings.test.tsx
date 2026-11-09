@@ -21,6 +21,7 @@ describe( 'AI provider connections', () => {
 						connections: {
 							wpcom: { connected, apiKeyPreview: null },
 							'anthropic-api-key': { connected: true, apiKeyPreview: 'sk-…last' },
+							chatgpt: { connected: false, apiKeyPreview: null },
 						},
 					} ),
 				}

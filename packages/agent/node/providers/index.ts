@@ -1,5 +1,7 @@
 import { __ } from '@wordpress/i18n';
+import { FileCredentialStore, getOrCreateDeviceId } from '../credential-store';
 import { anthropicProvider } from './anthropic';
+import { CHATGPT_PI_PROVIDER, createChatGptProvider, signInWithChatGpt } from './chatgpt';
 import { InvalidAiProviderCredentialsError } from './types';
 import { wpcomProvider } from './wpcom';
 import type { AiProvider, ApiKeyValidation, ProviderCredentials } from './types';
@@ -16,7 +18,16 @@ export interface StudioAiProvider extends Omit< AiProvider, 'auth' > {
 				getPrompt: () => string;
 				getMissingKeyMessage: () => string;
 		  }
-		| { type: 'account'; isConnected: () => Promise< boolean > };
+		| { type: 'account'; isConnected: () => Promise< boolean > }
+		| {
+				type: 'oauth';
+				isConnected: () => Promise< boolean >;
+				login: ( options: {
+					openUrl: ( url: string ) => Promise< void >;
+					signal?: AbortSignal;
+				} ) => Promise< void >;
+				disconnect: () => Promise< void >;
+		  };
 	environmentKeys: readonly string[];
 	autoFallbackWhenUnavailable: boolean;
 	isPreferred?: () => boolean;
@@ -32,11 +43,39 @@ export interface StudioAiProvider extends Omit< AiProvider, 'auth' > {
 	} ): Promise< Record< string, string > >;
 	resolveCredentials(
 		env: Record< string, string >
-	): { ok: true; creds: ProviderCredentials } | { ok: false; reason: string };
+	):
+		| { ok: true; creds: ProviderCredentials }
+		| { ok: false; reason: string }
+		| Promise< { ok: true; creds: ProviderCredentials } | { ok: false; reason: string } >;
 }
+
+const credentials = new FileCredentialStore();
 
 export const AI_BACKEND_PROVIDERS: Readonly< Record< AiProviderId, StudioAiProvider > > = {
 	wpcom: wpcomProvider,
+	chatgpt: {
+		...createChatGptProvider( credentials ),
+		auth: {
+			type: 'oauth',
+			isConnected: async () => ( await credentials.read( CHATGPT_PI_PROVIDER ) )?.type === 'oauth',
+			login: async ( options ) =>
+				signInWithChatGpt( {
+					...options,
+					credentials,
+					deviceId: await getOrCreateDeviceId(),
+				} ),
+			disconnect: () => credentials.delete( CHATGPT_PI_PROVIDER ),
+		},
+		environmentKeys: [],
+		autoFallbackWhenUnavailable: false,
+		resolveEnv: async () => ( {} ),
+		async resolveCredentials() {
+			const credential = await credentials.read( CHATGPT_PI_PROVIDER );
+			return credential?.type === 'oauth'
+				? { ok: true, creds: { apiKey: credential.access, baseURL: 'https://api.openai.com/v1' } }
+				: { ok: false, reason: __( 'Sign in with ChatGPT first.' ) };
+		},
+	},
 	'anthropic-api-key': {
 		...anthropicProvider,
 		auth: {

@@ -41,6 +41,7 @@ async function setup( {
 		connections: {
 			wpcom: { connected: signedIn, apiKeyPreview: null },
 			'anthropic-api-key': { connected: true, apiKeyPreview: 'sk-…last' },
+			chatgpt: { connected: false, apiKeyPreview: null },
 		},
 	};
 	let skills = [
@@ -78,6 +79,16 @@ async function setup( {
 			},
 			setAiProvider: async ( provider ) => {
 				connection = { ...connection, provider };
+				return connection;
+			},
+			setAiProviderConnection: async ( provider, connected ) => {
+				connection = {
+					provider: connected ? provider : 'wpcom',
+					connections: {
+						...connection.connections,
+						[ provider ]: { connected, apiKeyPreview: null },
+					},
+				};
 				return connection;
 			},
 			getWordPressSkillsStatusAllSites: async () => skills,
@@ -127,6 +138,20 @@ const studioConnect = async () => {
 const searchBox = () => screen.getByRole( 'textbox', { name: 'Search settings' } );
 
 describe( 'WordPress Studio settings', () => {
+	it( 'connects and disconnects a ChatGPT plan without changing the Studio account', async () => {
+		await setup( { section: 'ai' } );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Sign in with ChatGPT' } ) );
+		const signOut = await screen.findByRole( 'button', { name: 'Sign out' } );
+		expect( await screen.findByRole( 'combobox', { name: 'Default provider' } ) ).toHaveTextContent(
+			'ChatGPT'
+		);
+		fireEvent.click( signOut );
+		await screen.findByRole( 'button', { name: 'Sign in with ChatGPT' } );
+		expect( screen.getByRole( 'combobox', { name: 'Default provider' } ) ).toHaveTextContent(
+			'WordPress.com'
+		);
+	} );
+
 	it.each( [ undefined, true, false ] )(
 		'saves the startup chat setting from %s',
 		async ( value ) => {
@@ -869,6 +894,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 					connections: {
 						wpcom: { connected: false, apiKeyPreview: null },
 						'anthropic-api-key': { connected: hasKey, apiKeyPreview: null },
+						chatgpt: { connected: false, apiKeyPreview: null },
 					},
 				} ),
 				saveAiProviderApiKey: async () => {
@@ -878,6 +904,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 						connections: {
 							wpcom: { connected: false, apiKeyPreview: null },
 							'anthropic-api-key': { connected: true, apiKeyPreview: 'test' },
+							chatgpt: { connected: false, apiKeyPreview: null },
 						},
 					};
 				},

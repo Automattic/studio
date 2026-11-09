@@ -4,12 +4,14 @@ import {
 	writeGlobalInstructions,
 } from '@studio/agent/node/global-instructions';
 import {
+	disconnectAiProvider,
 	getAiSettingsChange,
 	readAiSettings,
 	saveAiProviderApiKey as saveAiProviderApiKeyToConfig,
 	setAiProvider as setAiProviderInConfig,
 } from '@studio/agent/node/settings-store';
 import { isAiProviderId } from '@studio/agent/protocol/providers';
+import { connectAiProvider } from '@studio/common/lib/ai-provider-connection';
 import { isAgentAppId, type AgentApp } from '@studio/common/lib/agent-apps';
 import {
 	connectAgentApp as connectAgentAppToStudio,
@@ -34,6 +36,7 @@ import {
 import { getUserLocaleWithFallback, loadLocaleData, setMacAppLanguage } from 'src/lib/locale-node';
 import { refreshSpotlightIndex } from 'src/lib/spotlight';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
+import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import { defaultSitePath, getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 import { OnboardingHintsState } from 'src/storage/storage-types';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
@@ -130,6 +133,21 @@ export async function getGlobalAgentInstructions(): Promise< string > {
 
 export async function getAiSettings() {
 	return readAiSettings();
+}
+
+export async function setAiProviderConnection(
+	_event: IpcMainInvokeEvent,
+	provider: string,
+	connected: boolean
+) {
+	if ( ! isAiProviderId( provider ) || typeof connected !== 'boolean' ) {
+		throw new Error( 'A known provider and boolean connected are required' );
+	}
+	const previous = await readAiSettings();
+	if ( connected ) await connectAiProvider( executeCliCommand, provider );
+	const settings = connected ? await readAiSettings() : await disconnectAiProvider( provider );
+	await recordAiSettingsChange( previous, settings );
+	return settings;
 }
 
 async function recordAiSettingsChange( previous: AiSettings, next: AiSettings ): Promise< void > {

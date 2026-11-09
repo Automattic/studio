@@ -158,6 +158,7 @@ export function createInMemoryConnector(
 		connections: {
 			wpcom: { connected: !! state.user, apiKeyPreview: null },
 			'anthropic-api-key': { connected: false, apiKeyPreview: null },
+			chatgpt: { connected: false, apiKeyPreview: null },
 		},
 	};
 
@@ -339,6 +340,17 @@ export function createInMemoryConnector(
 		},
 		setAiProvider: async ( provider ) => {
 			aiSettings = { ...aiSettings, provider };
+			return aiSettings;
+		},
+		setAiProviderConnection: async ( provider, connected ) => {
+			aiSettings = {
+				provider: connected
+					? provider
+					: aiSettings.provider === provider
+						? 'wpcom'
+						: aiSettings.provider,
+				connections: { ...aiSettings.connections, [ provider ]: { connected, apiKeyPreview: null } },
+			};
 			return aiSettings;
 		},
 		getInstalledApps: async () => installedApps(),

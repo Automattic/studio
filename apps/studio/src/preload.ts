@@ -134,6 +134,8 @@ const api: IpcApi = {
 	saveAiProviderApiKey: ( provider, key ) =>
 		ipcRendererInvoke( 'saveAiProviderApiKey', provider, key ),
 	setAiProvider: ( provider ) => ipcRendererInvoke( 'setAiProvider', provider ),
+	setAiProviderConnection: ( provider, connected ) =>
+		ipcRendererInvoke( 'setAiProviderConnection', provider, connected ),
 	saveWapuuScore: ( score ) => ipcRendererInvoke( 'saveWapuuScore', score ),
 	getWapuuScore: () => ipcRendererInvoke( 'getWapuuScore' ),
 	getUserPreferences: () => ipcRendererInvoke( 'getUserPreferences' ),

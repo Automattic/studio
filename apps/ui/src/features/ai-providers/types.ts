@@ -15,6 +15,7 @@ export interface ProviderConnectionProps {
 	error?: string;
 	onSelect: () => Promise< void >;
 	onSaveKey: ( key: string | null ) => Promise< void >;
+	onConnectionChange: ( connected: boolean ) => Promise< void >;
 	pending: boolean;
 	saving: boolean;
 	formOpen: boolean;

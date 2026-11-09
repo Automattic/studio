@@ -27,6 +27,7 @@ import {
 	deleteAiSession,
 } from '@studio/agent/node/sessions/store';
 import {
+	disconnectAiProvider,
 	getAiSettingsChange,
 	InvalidAiProviderCredentialsError,
 	readAiSettings,
@@ -43,6 +44,7 @@ import { isAiProviderId, providerServesModel } from '@studio/agent/protocol/prov
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH, DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
+import { connectAiProvider } from '@studio/common/lib/ai-provider-connection';
 import { isAgentAppId } from '@studio/common/lib/agent-apps';
 import {
 	getSiteAgentFiles,
@@ -791,6 +793,25 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	);
 
 	// --- AI settings --------------------------------------------------------
+	api.post(
+		'/ai-settings/connection',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { provider, connected } = req.body ?? {};
+			if (
+				typeof provider !== 'string' ||
+				! isAiProviderId( provider ) ||
+				typeof connected !== 'boolean'
+			) {
+				res.status( 400 ).json( { error: 'A known provider and boolean connected are required' } );
+				return;
+			}
+			const previous = await readAiSettings();
+			if ( connected ) await connectAiProvider( execute, provider );
+			const settings = connected ? await readAiSettings() : await disconnectAiProvider( provider );
+			res.json( settings );
+			trackAiSettingsChange( previous, settings );
+		} )
+	);
 	api.get(
 		'/ai-settings',
 		asyncHandler( async ( _req: Request, res: Response ) => {

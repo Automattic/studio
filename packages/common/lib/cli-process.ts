@@ -348,15 +348,23 @@ export function runCliCommand< T >(
 		logPrefix?: string;
 		env?: NodeJS.ProcessEnv;
 		onProgress?: ( message: string ) => void;
+		signal?: AbortSignal;
 	} = {}
 ): Promise< T > {
 	return new Promise( ( resolve, reject ) => {
 		let result: z.ZodSafeParseResult< T > | undefined;
-		const [ emitter ] = execute( args, {
+		const [ emitter, child ] = execute( args, {
 			output: 'capture',
 			logPrefix: options.logPrefix,
 			env: options.env,
 		} );
+		const { signal } = options;
+		if ( signal ) {
+			const stop = () => killChild( child );
+			if ( signal.aborted ) stop();
+			else signal.addEventListener( 'abort', stop, { once: true } );
+			child.once( 'close', () => signal.removeEventListener( 'abort', stop ) );
+		}
 		const settle = () => {
 			if ( result?.success ) {
 				resolve( result.data );

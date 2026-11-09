@@ -19,7 +19,8 @@ export interface AiProvider {
 				type: 'api-key';
 				validate: ( key: string ) => Promise< ApiKeyValidation >;
 		  }
-		| { type: 'account' };
+		| { type: 'account' | 'oauth' };
+	createRuntime?(): Promise< ModelRuntime >;
 	buildModel(
 		modelId: string,
 		credentials: ProviderCredentials,

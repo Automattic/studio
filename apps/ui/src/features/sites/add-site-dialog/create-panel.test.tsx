@@ -303,6 +303,7 @@ describe( 'Add site › blank setup', () => {
 			connections: {
 				wpcom: { connected: false, apiKeyPreview: null },
 				'anthropic-api-key': { connected: false, apiKeyPreview: null },
+				chatgpt: { connected: false, apiKeyPreview: null },
 			},
 		};
 		const { connector, dialog, history } = await setup(

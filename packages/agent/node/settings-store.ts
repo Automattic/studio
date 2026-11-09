@@ -93,7 +93,7 @@ async function toAiSettings( config: AiProviderConfig ): Promise< AiSettings > {
 			return [
 				provider,
 				{
-					connected: auth.type === 'account' ? await auth.isConnected() : Boolean( key ),
+					connected: auth.type === 'api-key' ? Boolean( key ) : await auth.isConnected(),
 					apiKeyPreview: key ? previewKey( key ) : null,
 				},
 			] as const;
@@ -179,6 +179,9 @@ export async function saveAiProviderApiKey(
 
 export async function setAiProvider( provider: AiProviderId ): Promise< AiSettings > {
 	const { auth } = AI_BACKEND_PROVIDERS[ provider ];
+	if ( auth.type === 'oauth' && ! ( await auth.isConnected() ) ) {
+		throw new InvalidAiProviderCredentialsError( 'Connect this provider first.' );
+	}
 	if ( auth.type === 'api-key' ) {
 		const key = await readAiProviderApiKey( provider );
 		if ( ! key ) {
@@ -195,6 +198,20 @@ export async function setAiProvider( provider: AiProviderId ): Promise< AiSettin
 export async function persistSelectedAiProvider( provider: AiProviderId ): Promise< void > {
 	await updateAiProviderConfig( ( config ) => {
 		config.aiProvider = provider;
+	} );
+}
+
+export async function disconnectAiProvider( provider: AiProviderId ): Promise< AiSettings > {
+	const { auth } = AI_BACKEND_PROVIDERS[ provider ];
+	if ( auth.type === 'api-key' ) return saveAiProviderApiKey( provider, null );
+	if ( auth.type !== 'oauth' ) {
+		throw new InvalidAiProviderCredentialsError(
+			'Manage this connection through your Studio account.'
+		);
+	}
+	await auth.disconnect();
+	return updateAiProviderConfig( ( config ) => {
+		if ( config.aiProvider === provider ) config.aiProvider = DEFAULT_AI_PROVIDER;
 	} );
 }
 

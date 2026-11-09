@@ -46,6 +46,7 @@ function connectorFor( {
 				connections: {
 					wpcom: { connected: true, apiKeyPreview: null },
 					'anthropic-api-key': { connected: anthropic, apiKeyPreview: null },
+					chatgpt: { connected: false, apiKeyPreview: null },
 				},
 			} ),
 			getStudioAssistantQuota: quota,

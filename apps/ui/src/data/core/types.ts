@@ -490,6 +490,7 @@ export interface Connector {
 	saveAiProviderApiKey( provider: AiProviderId, key: string | null ): Promise< AiSettings >;
 	// The provider new conversations use.
 	setAiProvider( provider: AiProviderId ): Promise< AiSettings >;
+	setAiProviderConnection( provider: AiProviderId, connected: boolean ): Promise< AiSettings >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't

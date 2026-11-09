@@ -116,6 +116,7 @@ describe( 'AI provider settings', () => {
 		connections: {
 			wpcom: { connected: false, apiKeyPreview: null },
 			'anthropic-api-key': { connected: false, apiKeyPreview: null },
+			chatgpt: { connected: false, apiKeyPreview: null },
 		},
 	} as const;
 	const anthropicWithKey = {
@@ -123,6 +124,7 @@ describe( 'AI provider settings', () => {
 		connections: {
 			wpcom: { connected: false, apiKeyPreview: null },
 			'anthropic-api-key': { connected: true, apiKeyPreview: keyPreview },
+			chatgpt: { connected: false, apiKeyPreview: null },
 		},
 	} as const;
 

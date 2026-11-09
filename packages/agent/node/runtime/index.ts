@@ -181,16 +181,16 @@ async function runAgentSessionTurn(
 					)
 			  )!;
 	const provider = AI_BACKEND_PROVIDERS[ providerId ];
-	const resolved = provider.resolveCredentials( config.env );
-	if ( ! resolved.ok ) {
-		config.onEvent( syntheticErrorAgentEnd( 'error', resolved.reason ) );
-		return;
-	}
 
 	let session: AgentSession | undefined;
 	let unsubscribe: ( () => void ) | undefined;
 	const payloadGuardState: StudioToolPayloadGuardState = {};
 	try {
+		const resolved = await provider.resolveCredentials( config.env );
+		if ( ! resolved.ok ) {
+			config.onEvent( syntheticErrorAgentEnd( 'error', resolved.reason ) );
+			return;
+		}
 		session = await createStudioAgentSession( config, provider, resolved.creds, payloadGuardState );
 		setActiveSession( session );
 		let emptyStopContinues = 0;
@@ -364,10 +364,12 @@ async function createModelRuntime(
 	provider: AiProvider,
 	creds: ProviderCredentials
 ): Promise< ModelRuntime > {
-	const modelRuntime = await ModelRuntime.create( {
-		credentials: new InMemoryCredentialStore(),
-		modelsPath: null,
-	} );
+	const modelRuntime = provider.createRuntime
+		? await provider.createRuntime()
+		: await ModelRuntime.create( {
+				credentials: new InMemoryCredentialStore(),
+				modelsPath: null,
+			  } );
 
 	await provider.configureRuntime( modelRuntime, model, creds );
 	return modelRuntime;

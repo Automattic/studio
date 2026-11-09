@@ -14,6 +14,7 @@ import {
 import { getStudioUserAgent as buildStudioUserAgent } from '@studio/common/lib/user-agent';
 import { __ } from '@wordpress/i18n';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
+import { openBrowser } from 'cli/lib/browser';
 import { password } from 'cli/lib/prompts';
 import { LoggerError } from 'cli/logger';
 import type { AiModelId } from '@studio/agent/protocol/models';
@@ -63,9 +64,9 @@ export function getAiProviderDefinition( id: AiProviderId ) {
 	const availableModels = getAiProviderModels( id ).map( ( model ) => model.id );
 	const isReady = async () =>
 		backend.isPreferred?.() ||
-		( auth.type === 'account'
-			? await auth.isConnected()
-			: Boolean( await readAiProviderApiKey( id ) ) );
+		( auth.type === 'api-key'
+			? Boolean( await readAiProviderApiKey( id ) )
+			: await auth.isConnected() );
 	const resolveEnv = async ( options?: ResolveAiEnvironmentOptions ) => {
 		const env = { ...( process.env as Record< string, string > ) };
 		for ( const provider of Object.values( AI_BACKEND_PROVIDERS ) ) {
@@ -99,7 +100,15 @@ export function getAiProviderDefinition( id: AiProviderId ) {
 		supportsModel: ( model: AiModelId ) => availableModels.includes( model ),
 		isVisible: async () => true,
 		isReady,
-		connect: backend.connect ? () => backend.connect!( runLoginCommand ) : undefined,
+		connect:
+			auth.type === 'oauth'
+				? async () => {
+						await auth.login( { openUrl: openBrowser } );
+						return true;
+				  }
+				: backend.connect
+					? () => backend.connect!( runLoginCommand )
+					: undefined,
 		getConnectionMessages: async () =>
 			backend.getConnectionMessages?.(
 				auth.type === 'api-key' ? await readAiProviderApiKey( id ) : undefined
@@ -108,6 +117,10 @@ export function getAiProviderDefinition( id: AiProviderId ) {
 		prepare: async ( options?: { force?: boolean } ) => {
 			if ( auth.type === 'api-key' ) {
 				await resolveApiKey( id, options );
+			} else if ( auth.type === 'oauth' ) {
+				if ( ! ( await isReady() ) ) {
+					throw new LoggerError( __( 'Connect this provider with /provider first.' ) );
+				}
 			} else if ( ! ( await isReady() ) ) {
 				await resolveEnv();
 			}

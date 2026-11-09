@@ -3,6 +3,7 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import { updateResponsivePreview } from '@/data/responsive-preview';
+import { clearComposerDrafts } from '@/features/composer';
 import splitStyles from '@/features/sites/panel-split-frame/style.module.css';
 import { createFakeConnector, makeSession, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
@@ -69,6 +70,7 @@ function useElectron() {
 
 beforeEach( () => {
 	localStorage.clear();
+	clearComposerDrafts();
 	resetAppMessagesForTests();
 } );
 
@@ -77,6 +79,42 @@ afterEach( () => {
 } );
 
 describe( 'site lifecycle and preview', () => {
+	it.each( [ '/sites/one', '/sessions/one-chat' ] )(
+		'attaches a screenshot to the site composer from %s',
+		async ( path ) => {
+			useElectron();
+			const { history, user, connector } = setup( [ site( { running: true } ) ], path );
+			await waitFor( () => expect( frame() ).not.toBeNull() );
+			loadWebview();
+			Object.assign( frame()!, {
+				capturePage: async () => ( {
+					isEmpty: () => false,
+					toDataURL: () => 'data:image/png;base64,c2NyZWVuc2hvdA==',
+				} ),
+			} );
+			fireEvent( frame()!, new Event( 'did-stop-loading' ) );
+			if ( path.startsWith( '/sessions/' ) ) {
+				fireEvent.change( await screen.findByRole( 'combobox', COMPOSER ), {
+					target: { value: 'Keep this draft' },
+				} );
+				await user.click( screen.getByRole( 'button', { name: 'Expand panel' } ) );
+			}
+
+			await user.click( await screen.findByRole( 'button', { name: 'Browser options' } ) );
+			await user.click( await screen.findByRole( 'menuitem', { name: 'Take screenshot' } ) );
+
+			const input = await screen.findByRole( 'combobox', COMPOSER );
+			expect( input ).toBeVisible();
+			await screen.findByRole( 'button', { name: /^Preview screenshot-.*\.png$/ } );
+			await waitFor( () => expect( input ).toHaveFocus() );
+			expect( input ).toHaveValue( path.startsWith( '/sessions/' ) ? 'Keep this draft' : '' );
+			expect( history.location.pathname ).toBe(
+				path.startsWith( '/sessions/' ) ? path : '/sites/one/new'
+			);
+			expect( connector.continueSession ).not.toHaveBeenCalled();
+		}
+	);
+
 	it.each( [ undefined, true, false ] )(
 		'uses the startup layout preference: %s',
 		async ( openChatOnSiteStart ) => {

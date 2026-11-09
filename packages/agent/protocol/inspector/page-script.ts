@@ -17,6 +17,7 @@
  */
 
 import { PLUS_ICON } from '@studio/common/lib/plus-icon';
+import { parseInspectorSelection, type InspectorSelection } from './selection';
 import type { VisualAnnotationTarget } from '@studio/agent/protocol/visual-annotations';
 
 export const INSPECTOR_BRIDGE_PREFIX = '__studio-inspector__:';
@@ -57,6 +58,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		'@keyframes marker-out{from{transform:translate(-50%,-50%) scale(1);opacity:1}to{transform:translate(-50%,-50%) scale(0);opacity:0}}' +
 		'@keyframes marker-fade-out{from{opacity:1}to{opacity:0}}' +
 		'@media(prefers-reduced-motion:reduce){.enter{animation:marker-fade-in var(--motion-duration-feedback,100ms) ease-out both}.leave{animation:marker-fade-out 100ms ease-out both}.confirm{animation-name:marker-fade-in;animation-duration:1ms}.plus,.number,button[data-pending="true"] .plus,button[data-pending="true"] .number{transform:none;transition-property:opacity}}';
+	style.textContent += ':host([data-capturing]) .highlight,:host([data-capturing]) button{visibility:hidden!important}';
 	root.append(style);
 	const highlight = document.createElement('div');
 	highlight.className = 'highlight';
@@ -81,6 +83,56 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 	let hovered = null;
 	let selected = null;
 	let frame = 0;
+	let gesture = null;
+	let pendingSelection = null;
+	let suppressClick = false;
+
+	function releaseGesture() {
+		const current = gesture;
+		gesture = null;
+		if (current) {
+			try { document.documentElement.releasePointerCapture(current.pointerId); } catch {}
+		}
+		return current;
+	}
+	function clearSelection() {
+		if (gesture) suppressClick = true;
+		releaseGesture();
+		pendingSelection = null;
+		delete host.dataset.captureId;
+		highlight.hidden = true;
+	}
+	function viewportPoint(event) {
+		return { x: Math.max(0, Math.min(innerWidth, event.clientX)), y: Math.max(0, Math.min(innerHeight, event.clientY)) };
+	}
+	function moveGesture(event) {
+		if (!gesture || gesture.pointerId !== event.pointerId) return;
+		const point = viewportPoint(event);
+		gesture.dragged ||= Math.hypot(point.x - gesture.start.x, point.y - gesture.start.y) >= 6;
+		if (!gesture.dragged) return;
+		const left = Math.max(0, Math.floor(Math.min(gesture.start.x, point.x)));
+		const top = Math.max(0, Math.floor(Math.min(gesture.start.y, point.y)));
+		const right = Math.min(Math.floor(innerWidth), Math.ceil(Math.max(gesture.start.x, point.x)));
+		const bottom = Math.min(Math.floor(innerHeight), Math.ceil(Math.max(gesture.start.y, point.y)));
+		gesture.rect = { left, top, width: right - left, height: bottom - top };
+		hovered = selected = null;
+		schedule();
+	}
+	function selectRegion(rect) {
+		const result = {
+			id: crypto.randomUUID(),
+			target: {
+				kind: 'region', url: location.href, path: location.pathname,
+				viewport: { width: innerWidth, height: innerHeight },
+				documentRect: { ...rect, left: rect.left + scrollX, top: rect.top + scrollY },
+				point: { x: 1, y: 0 },
+			},
+			rect, scroll: { left: scrollX, top: scrollY },
+		};
+		pendingSelection = result;
+		host.dataset.captureId = result.id;
+		emit({ type: 'selection', selection: result });
+	}
 
 	function emit(event) {
 		try {
@@ -136,6 +188,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		};
 	}
 	function resolve(note) {
+		if (note.kind === 'region') return null;
 		try {
 			return document.querySelector(note.selector);
 		} catch {
@@ -240,6 +293,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 			marker.onclick = (e) => {
 				e.preventDefault();
 				e.stopPropagation();
+				if (state.busy) return;
 				hovered = null;
 				selected = resolve(note);
 				emit({ type: 'edit', id: note.id, anchor: p });
@@ -249,12 +303,15 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		const note = state.notes.find((n) => n.id === state.editingId);
 		if (note) emit({ type: 'anchor', id: note.id, anchor: onPage(note) ? anchor(note) : null });
 		const el = hovered || selected;
-		if (el && el.isConnected) {
-			const r = el.getBoundingClientRect();
+		const region = note?.kind === 'region' && onPage(note) ? note.documentRect : null;
+		const r = gesture?.rect || pendingSelection?.rect || (region
+			? { ...region, left: region.left - scrollX, top: region.top - scrollY }
+			: el?.isConnected ? el.getBoundingClientRect() : null);
+		if (r) {
 			const left = Math.max(0, r.left);
 			const top = Math.max(0, r.top);
-			const right = Math.min(innerWidth, r.right);
-			const bottom = Math.min(innerHeight, r.bottom);
+			const right = Math.min(innerWidth, r.left + r.width);
+			const bottom = Math.min(innerHeight, r.top + r.height);
 			Object.assign(highlight.style, { left: left + 'px', top: top + 'px', width: Math.max(0, right - left) + 'px', height: Math.max(0, bottom - top) + 'px' });
 			highlight.hidden = right <= left || bottom <= top;
 		} else highlight.hidden = true;
@@ -287,9 +344,15 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		'${ INSPECTOR_COMMAND_EVENT }',
 		(e) => {
 			if (!e.detail) return;
+			if (typeof e.detail.clearSelection === 'string') {
+				if (pendingSelection?.id === e.detail.clearSelection) { clearSelection(); schedule(); }
+				return;
+			}
 			const wasActive = state.active;
 			const previousAttempt = state.blockedNavigation;
+			const previousEditingId = state.editingId;
 			state = e.detail;
+			if (!state.active || previousEditingId !== state.editingId || previousAttempt !== state.blockedNavigation) clearSelection();
 			if (!state.active || errorId !== state.editingId) { errorId = null; clearTimeout(errorTimer); feedbackAnimation?.cancel(); }
 			if (state.active && typeof state.blockedNavigation === 'number' && previousAttempt !== undefined && state.blockedNavigation !== previousAttempt) {
 				errorId = state.editingId;
@@ -320,18 +383,64 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 			host.style.setProperty('--on-error', state.onDestructive || state.onAccent);
 			host.style.setProperty('--motion-duration-surface', state.motionDuration || '180ms');
 			host.style.setProperty('--motion-ease-enter', state.motionEasing || 'cubic-bezier(.165,.84,.44,1)');
-			cursorStyle.textContent = state.active ? '*{cursor:crosshair!important}' : '';
+			cursorStyle.textContent = state.active
+				? '*{cursor:crosshair!important' + (state.areaSelection ? ';touch-action:none!important' : '') + '}'
+				: '';
 			const note = state.notes.find((n) => n.id === state.editingId);
 			selected = note && onPage(note) ? resolve(note) : null;
 			render();
 		},
 		{ signal: abort.signal }
 	);
+	document.addEventListener('pointerdown', (e) => {
+		if (!state.active || !state.areaSelection || state.busy || isOwnUi(e) || e.button !== 0 || e.isPrimary === false || gesture) return;
+		e.preventDefault();
+		e.stopImmediatePropagation();
+		clearSelection();
+		suppressClick = false;
+		gesture = { pointerId: e.pointerId, start: viewportPoint(e), element: e.target, dragged: false };
+		try { document.documentElement.setPointerCapture(e.pointerId); } catch {}
+	}, { capture: true, signal: abort.signal });
+	document.addEventListener('pointerup', (e) => {
+		if (!gesture || gesture.pointerId !== e.pointerId) return;
+		e.preventDefault();
+		e.stopImmediatePropagation();
+		moveGesture(e);
+		const done = releaseGesture();
+		suppressClick = true;
+		if (done.dragged) {
+			if (done.rect.width >= 2 && done.rect.height >= 2) selectRegion(done.rect);
+		} else if (done.element instanceof Element && done.element.isConnected) {
+			selected = hovered = done.element;
+			emit({ type: 'pick', target: metadata(selected, e), anchor: markerAnchor({ left: e.clientX, top: e.clientY }) });
+		}
+		schedule();
+	}, { capture: true, signal: abort.signal });
+	function cancelGesture(e) {
+		if (!gesture || (e.pointerId !== undefined && gesture.pointerId !== e.pointerId)) return;
+		clearSelection();
+		schedule();
+	}
+	document.addEventListener('pointercancel', cancelGesture, { capture: true, signal: abort.signal });
+	document.addEventListener('lostpointercapture', (e) => {
+		if (!gesture || gesture.pointerId !== e.pointerId || e.target !== document.documentElement) return;
+		// Focusing an Electron guest can release capture while the pointer is still down.
+		try {
+			if (!document.documentElement.hasPointerCapture(e.pointerId)) document.documentElement.setPointerCapture(e.pointerId);
+		} catch {}
+	}, { capture: true, signal: abort.signal });
+	window.addEventListener('blur', cancelGesture, { signal: abort.signal });
+	const stopScroll = (e) => {
+		if (state.active && (gesture || pendingSelection)) e.preventDefault();
+	};
+	document.addEventListener('wheel', stopScroll, { capture: true, passive: false, signal: abort.signal });
+	document.addEventListener('touchmove', stopScroll, { capture: true, passive: false, signal: abort.signal });
 	document.addEventListener(
 		'pointermove',
 		(e) => {
 			if (!state.active) return;
-			hovered = isOwnUi(e) ? null : e.target;
+			if (gesture) { moveGesture(e); return; }
+			hovered = pendingSelection || isOwnUi(e) ? null : e.target;
 			schedule();
 		},
 		{ capture: true, signal: abort.signal }
@@ -351,6 +460,8 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 			if (!state.active || isOwnUi(e)) return;
 			e.preventDefault();
 			e.stopImmediatePropagation();
+			if (suppressClick) { suppressClick = false; return; }
+			if (state.busy) return;
 			if (!(e.target instanceof Element)) return;
 			selected = e.target;
 			hovered = selected;
@@ -364,7 +475,15 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 			if (state.active && e.key === 'Escape') {
 				e.preventDefault();
 				e.stopPropagation();
+				if (gesture || pendingSelection) {
+					if (!state.busy) { clearSelection(); schedule(); }
+					return;
+				}
 				emit({ type: 'escape' });
+				return;
+			}
+			if (state.active && (gesture || pendingSelection) && ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(e.key)) {
+				e.preventDefault();
 				return;
 			}
 			const command = shortcut(e);
@@ -376,8 +495,12 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		},
 		{ capture: true, signal: abort.signal }
 	);
-	document.addEventListener('scroll', schedule, { capture: true, passive: true, signal: abort.signal });
-	window.addEventListener('resize', schedule, { signal: abort.signal });
+	const geometryChanged = () => {
+		if (gesture || pendingSelection) clearSelection();
+		schedule();
+	};
+	document.addEventListener('scroll', geometryChanged, { capture: true, passive: true, signal: abort.signal });
+	window.addEventListener('resize', geometryChanged, { signal: abort.signal });
 	const resize = new ResizeObserver(schedule);
 	resize.observe(document.documentElement);
 	const mutation = new MutationObserver(schedule);
@@ -390,6 +513,7 @@ export const INSPECTOR_PAGE_SCRIPT = String.raw`
 		resize.disconnect();
 		mutation.disconnect();
 		cancelAnimationFrame(frame);
+		releaseGesture();
 		host.remove();
 		cursorStyle.remove();
 		delete window[KEY];
@@ -405,6 +529,7 @@ interface Point {
 }
 
 export type InspectorEvent =
+	| { type: 'selection'; selection: InspectorSelection }
 	| { type: 'pick'; target: VisualAnnotationTarget; anchor: Point }
 	| { type: 'edit'; id: string; anchor: Point }
 	| { type: 'anchor'; id: string; anchor: Point | null }
@@ -493,6 +618,10 @@ export function parseInspectorMessage(
 	if ( ! isData( data ) ) return null;
 	const anchor = point( data.anchor, offset );
 	switch ( data.type ) {
+		case 'selection': {
+			const selection = parseInspectorSelection( data.selection );
+			return selection ? { type: 'selection', selection } : null;
+		}
 		case 'pick': {
 			const picked = target( data.target );
 			return picked && anchor ? { type: 'pick', target: picked, anchor } : null;

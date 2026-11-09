@@ -2,6 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { CheckIcon } from 'lucide-react';
 import { useId, useEffect, useRef, useState, type RefObject } from 'react';
 import { useAuthUser } from '@/data/queries/use-auth-user';
+import { useOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { requestHeaderPanel, subscribeHeaderPanelRequest } from '@/data/use-open-header-panel';
 import { AccountPromptDialog } from '@/features/account';
@@ -199,14 +200,18 @@ export function SiteDeliveryDialog( {
 
 export function ShareButton( props: { site: SiteDetails; className?: string } ) {
 	const status = useShareStatus( props.site.id );
+	const { data: hints } = useOnboardingHints();
+	const walkthroughOpen =
+		hints?.walkthroughStep === 'share' || hints?.walkthroughStep === 'publish';
 	return (
 		<span className={ props.className }>
-			<Tooltip>
+			<Tooltip disabled={ walkthroughOpen }>
 				<TooltipTrigger
 					render={
 						<Button
 							variant="ghost"
 							size="icon-sm"
+							data-walkthrough="share"
 							aria-label={ __( 'Share' ) }
 							aria-description={ status.label }
 							onClick={ ( event ) =>
@@ -244,6 +249,7 @@ export function PublishButton( props: { site: SiteDetails; variant?: 'accent' | 
 		<Button
 			variant={ props.variant ?? 'accent' }
 			size="sm"
+			data-walkthrough="publish"
 			aria-label={ __( 'Publish…' ) }
 			aria-description={
 				setupError ??

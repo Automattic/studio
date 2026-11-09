@@ -17,11 +17,13 @@ import {
 } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { useOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useFileDrop } from '@/data/use-composer-attachments';
 import { saveComposerDraft } from '@/features/composer';
+import { Walkthrough } from '@/features/onboarding';
 import { BlueprintErrorDialog } from '@/features/sites/blueprint-error-dialog';
 import { createSelectedBlueprint } from '@/features/sites/blueprint-selection';
 import { SiteFileUpload } from '@/features/sites/blueprint-upload';
@@ -94,12 +96,14 @@ export function AddSiteDialog() {
 		pin?: true;
 		settings?: string;
 	};
+	const { data: onboardingHints } = useOnboardingHints();
 	const [ openedWith, setOpenedWith ] = useState( addSite );
 	const [ chosenView, replaceView ] = useState< View | null >( null );
 	const initialView = useMemo( () => getInitialView( addSite ?? 'create' ), [ addSite ] );
 	const view = chosenView ?? initialView;
 	const scrollArea = useRef< HTMLDivElement >( null );
 	const scrollPositions = useRef( new Map< View, number >() );
+
 	const [ viewHistory, setViewHistory ] = useState< View[] >( [] );
 	const setView = useCallback(
 		( next: View ) => {
@@ -565,6 +569,7 @@ export function AddSiteDialog() {
 		<Dialog
 			replaceable
 			open={ !! addSite && ! settings }
+			disablePointerDismissal={ onboardingHints?.walkthroughStep === 'create' }
 			onOpenChange={ ( open ) => ! open && close() }
 		>
 			<DialogContent
@@ -586,6 +591,13 @@ export function AddSiteDialog() {
 				{ upload.isLoading ? (
 					<VisuallyHidden role="status">{ __( 'Loading file…' ) }</VisuallyHidden>
 				) : null }
+				<Walkthrough
+					inSiteDialog
+					onContinue={ sites?.length ? close : undefined }
+					createStage={
+						view.name === 'details' ? 'details' : view.name === 'setup' ? 'setup' : 'gallery'
+					}
+				/>
 				{ hasSidebar ? (
 					<Tabs
 						orientation="vertical"

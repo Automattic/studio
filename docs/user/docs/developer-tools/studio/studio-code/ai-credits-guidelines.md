@@ -1,6 +1,6 @@
 # How AI Credits Work
 
-This page explains how AI Credits work in WordPress Studio. It applies alongside our [Terms of Service](https://wordpress.com/tos/), which governs your use of WordPress Studio. If anything here conflicts with the Terms of Service, the Terms of Service controls.
+This page explains how AI Credits work in WordPress Studio. It applies alongside our [Terms of Service](https://automattic.com/tos/), which governs your use of WordPress Studio. If anything here conflicts with the Terms of Service, the Terms of Service controls.
 
 ## [What AI Credits are](#0-what-ai-credits-are)
 

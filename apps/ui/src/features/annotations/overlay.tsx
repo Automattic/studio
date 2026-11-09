@@ -4,13 +4,13 @@ import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
 import { PaperclipIcon } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { toast } from '@/data/app-messages';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useComposerAttachments, useFileDrop } from '@/data/use-composer-attachments';
 import { SendIcon, TrashIcon } from '@/lib/icons';
 import { isImeComposing, isShortcut } from '@/lib/keyboard';
 import {
 	DropOverlay,
+	FieldError,
 	AttachmentRemoveButton,
 	Button,
 	IconButton,
@@ -50,12 +50,13 @@ interface AnnotationOverlayProps {
 	anchor: AnnotationAnchor | null;
 	// Sends the notes (all of them with the chat draft, or just `noteIds`).
 	onSend: ( noteIds?: string[] ) => void;
+	onEscape?: () => boolean;
 }
 
 const EDGE = 8;
 const CORNER_OFFSET = 8;
 /** The note editor drawn over an annotated preview. */
-export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlayProps ) {
+export function AnnotationOverlay( { siteId, anchor, onSend, onEscape }: AnnotationOverlayProps ) {
 	const annotations = useSiteAnnotations( siteId );
 	const { active, notes, editingId, blockedNavigation } = annotations;
 	const busy = isAnnotationsBusy( annotations );
@@ -72,11 +73,11 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 				return;
 			}
 			event.preventDefault();
-			escapeAnnotations( siteId );
+			if ( ! onEscape?.() ) escapeAnnotations( siteId );
 		};
 		document.addEventListener( 'keydown', onKeyDown );
 		return () => document.removeEventListener( 'keydown', onKeyDown );
-	}, [ active, siteId ] );
+	}, [ active, siteId, onEscape ] );
 
 	return (
 		<div className={ styles.overlay } data-annotation-overlay>
@@ -121,14 +122,21 @@ function NoteEditor( {
 		left: EDGE,
 		top: EDGE,
 	} );
-	const { attachments, addFiles, removeAttachment, pasteHandlers } = useComposerAttachments(
-		note.images
-	);
+	const {
+		attachments,
+		addFiles,
+		removeAttachment,
+		pasteHandlers,
+		error: attachmentError,
+		setError: setAttachmentError,
+	} = useComposerAttachments( note.images );
+	// Drawing annotations keep their captured page image first.
+	const visibleAttachments = note.kind === 'drawing' ? attachments.slice( 1 ) : attachments;
 	const addImages = useCallback(
 		( files: FileList | File[] ) => {
 			const list = Array.from( files );
 			if ( list.some( ( file ) => ! isStudioChatImageMimeType( file.type ) ) ) {
-				toast.error( __( 'Only PNG, JPEG, GIF, and WebP images can be attached' ) );
+				setAttachmentError( __( 'Only PNG, JPEG, GIF, and WebP images can be attached' ) );
 				return;
 			}
 			const otherImages = getSiteAnnotations( siteId )
@@ -137,7 +145,7 @@ function NoteEditor( {
 			setAnnotationsPreparing( siteId, true );
 			void addFiles( list, otherImages ).finally( () => setAnnotationsPreparing( siteId, false ) );
 		},
-		[ addFiles, note.id, siteId ]
+		[ addFiles, note.id, siteId, setAttachmentError ]
 	);
 	const isDragging = useFileDrop( editorNode, addImages );
 
@@ -210,9 +218,9 @@ function NoteEditor( {
 				</VisuallyHidden>
 			) }
 			{ isDragging ? <DropOverlay>{ __( 'Drop to attach' ) }</DropOverlay> : null }
-			{ attachments.length ? (
+			{ visibleAttachments.length ? (
 				<ul className={ styles.images } aria-label={ __( 'Attachments' ) }>
-					{ attachments.map( ( attachment ) => (
+					{ visibleAttachments.map( ( attachment ) => (
 						<li key={ attachment.id } className={ styles.image }>
 							<img
 								src={ getComposerAttachmentImageSrc( attachment ) ?? undefined }
@@ -245,6 +253,7 @@ function NoteEditor( {
 					submit( isShortcut( event.nativeEvent, 'Enter' ) );
 				} }
 			/>
+			{ attachmentError ? <FieldError role="alert">{ attachmentError }</FieldError> : null }
 			<div className={ styles.toolbar }>
 				<IconButton
 					size="icon"
@@ -256,6 +265,7 @@ function NoteEditor( {
 				<IconButton
 					size="icon"
 					shape="round"
+					destructive
 					icon={ <TrashIcon /> }
 					label={ __( 'Delete annotation' ) }
 					disabled={ busy }

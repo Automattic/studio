@@ -20,8 +20,8 @@ import type { ComponentType } from 'react';
 const STUDIO_SECTIONS = [
 	'general',
 	'appearance',
-	'sharing',
 	'ai',
+	'sharing',
 	'mcp',
 	'usage',
 	'skills',
@@ -146,7 +146,7 @@ function getStudioSections( signedIn: boolean, nativeSites = true ): Section[] {
 				),
 				setting(
 					'action',
-					__( 'Start sites in split view' ),
+					__( 'Start sites with chat' ),
 					__( 'Show chat beside the panel when starting a site.' ),
 					'open-chat-on-site-start'
 				),
@@ -218,7 +218,7 @@ function getStudioSections( signedIn: boolean, nativeSites = true ): Section[] {
 					...setting(
 						'navigate',
 						__( 'Accent' ),
-						__( 'Studio adapts your chosen color to work with your theme.' ),
+						__( 'Color may be adapted for your theme.' ),
 						'color'
 					),
 					aliases: [ __( 'Colour' ), __( 'Change color' ) ],
@@ -241,23 +241,6 @@ function getStudioSections( signedIn: boolean, nativeSites = true ): Section[] {
 					__( 'Restore the default interface theme, accent color, intensity, and contrast.' ),
 					'reset-appearance'
 				),
-			],
-		},
-		{
-			id: 'sharing',
-			label: __( 'Sharing' ),
-			icon: ShareIcon,
-			settings: [
-				{
-					...setting(
-						'section',
-						__( 'Sharing previews on WordPress.com' ),
-						__( 'Share a temporary copy of your local site with anyone.' ),
-						'preview-sites'
-					),
-					aliases: [ __( 'Snapshots' ) ],
-				},
-				setting( 'section', __( 'Live previews' ) ),
 			],
 		},
 		{
@@ -284,6 +267,23 @@ function getStudioSections( signedIn: boolean, nativeSites = true ): Section[] {
 					__( 'The provider new chats use.' ),
 					'default-provider'
 				),
+			],
+		},
+		{
+			id: 'sharing',
+			label: __( 'Sharing' ),
+			icon: ShareIcon,
+			settings: [
+				{
+					...setting(
+						'section',
+						__( 'Sharing previews on WordPress.com' ),
+						__( 'Share a temporary copy of your local site with anyone.' ),
+						'preview-sites'
+					),
+					aliases: [ __( 'Snapshots' ) ],
+				},
+				setting( 'section', __( 'Live previews' ) ),
 			],
 		},
 		{

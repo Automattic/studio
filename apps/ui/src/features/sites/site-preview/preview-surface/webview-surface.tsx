@@ -14,7 +14,7 @@ import {
 	type BrowserNavigationState,
 } from '@/features/sites/site-preview/browser-state';
 import { getEmbeddedFontData } from '@/lib/theme';
-import { buildInspectorCommandScript } from './inspector-command';
+import { buildClearSelectionScript, buildInspectorCommandScript } from './inspector-command';
 import styles from './style.module.css';
 import {
 	ERR_ABORTED,
@@ -39,6 +39,8 @@ interface WebviewSurfaceProps {
 	reloadNonce: number;
 	// The site's annotations, mirrored into the page as markers.
 	annotations?: SiteAnnotations;
+	annotationTool?: 'select' | 'draw';
+	clearSelection?: string;
 	onInspectorReady?: ( ready: boolean ) => void;
 	onInspectorEvent?: ( event: InspectorEvent ) => void;
 	browserCommand?: BrowserCommand | null;
@@ -63,6 +65,8 @@ export function WebviewSurface( {
 	colorScheme = 'system',
 	reloadNonce,
 	annotations,
+	annotationTool = 'select',
+	clearSelection,
 	onInspectorReady,
 	onInspectorEvent,
 	browserCommand,
@@ -415,9 +419,20 @@ export function WebviewSurface( {
 		const webview = ref.current as WebviewTag | null;
 		if ( ! inspectorReady || ! webview || ! annotations ) return;
 		webview
-			.executeJavaScript( buildInspectorCommandScript( annotations, webview ), false )
+			.executeJavaScript(
+				buildInspectorCommandScript( annotations, webview, annotationTool ),
+				false
+			)
 			.catch( () => undefined );
-	}, [ annotations, appColorScheme, inspectorReady ] );
+	}, [ annotations, annotationTool, appColorScheme, inspectorReady ] );
+
+	useEffect( () => {
+		const webview = ref.current as WebviewTag | null;
+		if ( ! inspectorReady || ! webview || ! clearSelection ) return;
+		void webview
+			.executeJavaScript( buildClearSelectionScript( clearSelection ) )
+			.catch( () => undefined );
+	}, [ clearSelection, inspectorReady ] );
 
 	useEffect( () => {
 		if ( ! ready || ! browserCommand ) return;
@@ -452,6 +467,7 @@ export function WebviewSurface( {
 		<>
 			<webview
 				ref={ ref }
+				data-annotation-surface={ inspector || undefined }
 				src={ initialSrc }
 				className={ styles.iframe }
 				// @types/react types this as boolean, but React 19 drops `true` on

@@ -17,6 +17,7 @@ import {
 	useOpenAddSite,
 	createSelectedBlueprint,
 	pendingBlueprintSlot,
+	pendingBackupSlot,
 	pendingRemoteSiteSlot,
 	pendingSiteFolderSlot,
 } from '@/features/sites';
@@ -88,7 +89,14 @@ export function useAppMenuNavigation() {
 		[ connector, openAddSite, openSite, startSite ]
 	);
 
-	useEffect( () => connector.onAddSite( () => openAddSite() ), [ connector, openAddSite ] );
+	useEffect(
+		() =>
+			connector.onAddSite( ( payload ) => {
+				if ( payload?.backup ) pendingBackupSlot.set( payload.backup );
+				openAddSite();
+			} ),
+		[ connector, openAddSite ]
+	);
 	useEffect(
 		() =>
 			connector.onOpenSite( ( { siteId } ) => {
@@ -142,7 +150,6 @@ export function useAppMenuNavigation() {
 								description: __( 'Pulling the preview replaces the changes made here.' ),
 								action: {
 									label: __( 'Pull preview' ),
-									once: true,
 									onClick: () => pullSite( { siteId: previewSite.id, remoteSiteId } ),
 								},
 							} );
@@ -150,7 +157,6 @@ export function useAppMenuNavigation() {
 							toast.info( __( "This site has changes its preview doesn't" ), {
 								action: {
 									label: __( 'Update preview' ),
-									once: true,
 									onClick: () =>
 										publishPreview( {
 											siteId: previewSite.id,

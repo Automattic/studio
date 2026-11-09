@@ -5,6 +5,9 @@ identical in the desktop and local browser renderers. These are static brand
 assets, not icons discovered from the user's installed applications. Missing
 assets and image load errors fall back to the original symbol.
 
+GitHub uses the GitHub Desktop macOS application icon, exported with `sips` at
+64 pixels on November 6, 2026.
+
 Visual Studio Code, Ghostty, Warp, Finder, and Terminal were exported
 from their macOS application bundle icons on October 6, 2026, using `sips` at
 64 pixels. Brand artwork belongs to its respective owner.

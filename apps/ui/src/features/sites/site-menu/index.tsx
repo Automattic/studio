@@ -12,6 +12,7 @@ import { useIsSiteBusy, useSites, useStopSite, useRestartSite } from '@/data/que
 import { useOpenSettings } from '@/data/use-open-settings';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
+import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
 import { SiteShareMenuItem } from '@/features/sharing';
 import { DeleteSiteDialog } from '@/features/sites/delete-site-dialog';
 import {
@@ -107,6 +108,7 @@ export function useSiteActions(
 	} );
 
 	const toolActions = useSiteToolActions( site );
+	const runLayoutTransition = useUserWorkspaceLayoutTransition( site.id );
 
 	return {
 		site,
@@ -116,8 +118,10 @@ export function useSiteActions(
 		shortcuts,
 		newChat: () => {
 			onOpen?.();
-			preview.setChatHidden( false, site.id, { instant: true } );
-			return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+			runLayoutTransition( () => {
+				preview.setChatHidden( false, site.id, { instant: true } );
+				return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+			} );
 		},
 		openSiteSettings: () => openSiteSettings(),
 		rename,
@@ -146,6 +150,8 @@ export function useSiteActions(
 				/>
 				<ImportSiteDialog
 					site={ site }
+					validationError={ backupImport.validationError }
+					onClearValidationError={ backupImport.clearValidationError }
 					file={ backupImport.file }
 					open={ backupImport.isConfirming }
 					onCancel={ backupImport.cancel }

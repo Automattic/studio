@@ -15,8 +15,8 @@ async function chooseLayout( name: 'Chat' | 'Split view' | 'Panel' ) {
 	if ( layout === 'chat' ) fireEvent.click( toggle );
 	if ( name === 'Split view' && toggle.getAttribute( 'data-workspace-layout' ) === 'split' ) return;
 	const full = name === 'Panel';
-	const button = screen.getByRole( 'button', { name: /^(Expand panel|Restore split view)$/ } );
-	if ( button.getAttribute( 'aria-label' ) === ( full ? 'Expand panel' : 'Restore split view' ) )
+	const button = screen.getByRole( 'button', { name: /^(Expand panel|Show chat)$/ } );
+	if ( button.getAttribute( 'aria-label' ) === ( full ? 'Expand panel' : 'Show chat' ) )
 		fireEvent.click( button );
 }
 
@@ -147,13 +147,13 @@ it( 'returns to chat using the panel and full-view controls while preserving the
 		'data-workspace-layout',
 		'chat'
 	);
-	expect( screen.queryByRole( 'button', { name: 'Restore split view' } ) ).not.toBeInTheDocument();
+	expect( screen.queryByRole( 'button', { name: 'Show chat' } ) ).not.toBeInTheDocument();
 	expect( screen.queryByRole( 'tab', { name: 'First' } ) ).not.toBeInTheDocument();
 	await user.click( screen.getByRole( 'button', { name: 'Show panel' } ) );
 	await user.click( screen.getByRole( 'button', { name: 'Expand panel' } ) );
-	expect( screen.getByRole( 'button', { name: 'Restore split view' } ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'Show chat' } ) ).toBeVisible();
 	expect( screen.getByRole( 'tab', { name: 'First' } ) ).toHaveAttribute( 'aria-selected', 'true' );
-	await user.click( screen.getByRole( 'button', { name: 'Restore split view' } ) );
+	await user.click( screen.getByRole( 'button', { name: 'Show chat' } ) );
 	expect( screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } ) ).toHaveValue(
 		'Keep this draft'
 	);
@@ -171,9 +171,9 @@ it( 'switches full view immediately in both directions', async () => {
 	renderApp( { connector, path: '/sites/one/new' } );
 	const enter = await screen.findByRole( 'button', { name: 'Expand panel' } );
 	fireEvent.click( enter );
-	expect( screen.getByRole( 'button', { name: 'Restore split view' } ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'Show chat' } ) ).toBeVisible();
 	expect( document.querySelector( '[data-layout-moving]' ) ).not.toBeInTheDocument();
-	fireEvent.click( screen.getByRole( 'button', { name: 'Restore split view' } ) );
+	fireEvent.click( screen.getByRole( 'button', { name: 'Show chat' } ) );
 	expect( screen.getByRole( 'button', { name: 'Expand panel' } ) ).toBeVisible();
 	expect( document.querySelector( '[data-layout-moving]' ) ).not.toBeInTheDocument();
 	expect( screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } ) ).toBeVisible();
@@ -189,7 +189,7 @@ it( 'opens chat from a standalone Browser page by hiding the panel', async () =>
 		await screen.findByRole( 'combobox', { name: 'Message WordPress Studio' } )
 	).toBeVisible();
 	expect( history.location.pathname ).toBe( '/sites/one/new' );
-	expect( screen.queryByRole( 'button', { name: 'Restore split view' } ) ).not.toBeInTheDocument();
+	expect( screen.queryByRole( 'button', { name: 'Show chat' } ) ).not.toBeInTheDocument();
 	expect( screen.getByRole( 'button', { name: 'Show panel' } ) ).toBeVisible();
 	expect( screen.queryByRole( 'tab', { name: 'Chat' } ) ).not.toBeInTheDocument();
 	expect( connector.startSite ).not.toHaveBeenCalled();

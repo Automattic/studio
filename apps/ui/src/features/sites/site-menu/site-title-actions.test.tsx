@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
+import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import { createFakeConnector, makeSession, makeSite } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { Connector, SiteDetails } from '@/data/core';
@@ -257,8 +257,8 @@ describe( 'site title actions', () => {
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: /^Duplicate$/ } ) );
 		await waitFor( () => expect( rejectCopy ).toBeDefined() );
-		expect( getNoticeHistory() ).toHaveLength( 1 );
-		const progress = getNoticeHistory()[ 0 ];
+		expect( getVisibleToasts() ).toHaveLength( 1 );
+		const progress = getVisibleToasts()[ 0 ];
 		expect( progress ).toMatchObject( {
 			title: 'Duplicating site…',
 			processing: true,
@@ -266,8 +266,8 @@ describe( 'site title actions', () => {
 		expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeEnabled();
 		act( () => rejectCopy( new Error( 'Copy failed' ) ) );
 		await screen.findByText( 'Failed to copy site' );
-		expect( getNoticeHistory() ).toHaveLength( 1 );
-		expect( getNoticeHistory()[ 0 ] ).toMatchObject( {
+		expect( getVisibleToasts() ).toHaveLength( 1 );
+		expect( getVisibleToasts()[ 0 ] ).toMatchObject( {
 			id: progress.id,
 			intent: 'error',
 			description: 'Copy failed',
@@ -287,13 +287,13 @@ describe( 'site title actions', () => {
 		await waitFor( () => expect( connector.copySite ).toHaveBeenCalledWith( 'one' ) );
 		await waitFor( () => expect( screen.queryByText( /^Duplicate$/ ) ).not.toBeInTheDocument() );
 		expect( screen.getByText( 'Duplicating site…' ) ).toBeVisible();
-		const progress = getNoticeHistory()[ 0 ];
+		const progress = getVisibleToasts()[ 0 ];
 		const copy = site( { id: 'copy', name: 'My site copy', path: '/sites/copy' } );
 		connector.state.sites = [ ...connector.state.sites, copy ];
 		await act( async () => finishCopy( copy ) );
 		await screen.findByText( 'Site duplicated: My site copy' );
-		expect( getNoticeHistory() ).toHaveLength( 1 );
-		expect( getNoticeHistory()[ 0 ] ).toMatchObject( { id: progress.id, intent: 'success' } );
+		expect( getVisibleToasts() ).toHaveLength( 1 );
+		expect( getVisibleToasts()[ 0 ] ).toMatchObject( { id: progress.id, intent: 'success' } );
 		expect( history.location.pathname ).toBe( '/sites/one' );
 		fireEvent.click( screen.getByRole( 'button', { name: /^Open$/ } ) );
 		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/copy/new' ) );

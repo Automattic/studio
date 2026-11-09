@@ -157,6 +157,10 @@ export function createStaticConnector(): Connector {
 		updateSite: ( site ) => sites.update( site ),
 		updateSitesSortOrder: ( updates ) => sites.updateSortOrder( updates ),
 		getSiteThumbnail: ( siteId ) => sites.getThumbnail( siteId ),
+		// The preview frame only picks elements, so it never asks for a region.
+		async captureAnnotationRegion() {
+			throw new UnsupportedError( 'captureAnnotationRegion' );
+		},
 		async captureSitePreview( siteId, { path } ) {
 			if ( /^\/?wp-(admin|login)/.test( path ) ) {
 				return null;

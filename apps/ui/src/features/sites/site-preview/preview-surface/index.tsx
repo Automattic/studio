@@ -37,7 +37,12 @@ export function SurfaceLayer( {
 	loading?: boolean;
 	failed?: boolean;
 	design?: boolean;
-	responsive?: { siteId: string; settings: ResponsivePreviewSettings; scale: number };
+	responsive?: {
+		siteId: string;
+		settings: ResponsivePreviewSettings;
+		scale: number;
+		active: boolean;
+	};
 	children: ReactNode;
 } ) {
 	return (
@@ -46,7 +51,7 @@ export function SurfaceLayer( {
 			data-loading={ loading || undefined }
 			inert={ active ? undefined : true }
 		>
-			<ResponsiveViewport { ...responsive }>
+			<ResponsiveViewport { ...responsive } active={ active && ( responsive?.active ?? true ) }>
 				<div
 					className={ clsx( styles.surfaceFrame, design && styles.designSurface ) }
 					data-failed={ failed || undefined }

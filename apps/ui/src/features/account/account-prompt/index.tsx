@@ -127,8 +127,7 @@ export function AccountPrompt( {
 					<p className={ styles.loginPrompt }>
 						{ ! onSkip && <>{ __( 'Already have an account?' ) } </> }
 						<Button
-							className={ styles.login }
-							variant="inline-text"
+							variant="inline-accent"
 							size="inline"
 							disabled={ onSkip ? busy || disabled : offline || pending }
 							onClick={ () => {

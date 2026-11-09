@@ -81,14 +81,20 @@ describe( 'POST /api/analytics/event', () => {
 			{ blueprint_slug: 'substrata', placement: 'add_site_blueprint_details' },
 		],
 		[ TRACKS_EVENTS.BLANK_SITE_SELECTED, { placement: 'add_site_blueprint_gallery' } ],
-	] )(
-		'forwards Blueprint dialog event %s through the browser recorder',
-		async ( eventName, props ) => {
-			const response = await postEvent( { eventName, props } );
-			expect( response.status ).toBe( 204 );
-			expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith( eventName, props );
-		}
-	);
+		[
+			TRACKS_EVENTS.RESPONSIVE_PREVIEW_CHANGED,
+			{
+				action: 'manual_resize',
+				preset_category: 'custom',
+				width_bucket: 'under_600',
+				height_bucket: '600_to_1023',
+			},
+		],
+	] )( 'forwards UI event %s through the browser recorder', async ( eventName, props ) => {
+		const response = await postEvent( { eventName, props } );
+		expect( response.status ).toBe( 204 );
+		expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith( eventName, props );
+	} );
 
 	it( 'accepts an event with no props', async () => {
 		const response = await postEvent( { eventName: TRACKS_EVENTS.APP_LAUNCH } );

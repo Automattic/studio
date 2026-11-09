@@ -38,3 +38,28 @@ describe( 'createIpcConnector chat startup preference', () => {
 		] );
 	} );
 } );
+
+it( 'passes model and effort through the Desktop bridge for selection and sending', async () => {
+	const setAiSessionModel = vi.fn().mockResolvedValue( undefined );
+	const setAiSessionProvider = vi.fn().mockResolvedValue( undefined );
+	const continueAiSession = vi.fn().mockResolvedValue( { runId: 'test-run' } );
+	vi.stubGlobal( 'ipcApi', { setAiSessionModel, setAiSessionProvider, continueAiSession } );
+	vi.stubGlobal( 'ipcListener', { subscribe: vi.fn() } );
+	try {
+		const connector = createIpcConnector();
+		await connector.setSessionModel( 'chat', 'balanced', 'high' );
+		await connector.setSessionProvider( 'chat', 'wpcom', 'balanced', 'low' );
+		await connector.continueSession( 'chat', 'Queued message', {
+			model: 'balanced',
+			effort: 'high',
+		} );
+		expect( setAiSessionModel ).toHaveBeenCalledWith( 'chat', 'balanced', 'high' );
+		expect( setAiSessionProvider ).toHaveBeenCalledWith( 'chat', 'wpcom', 'balanced', 'low' );
+		expect( continueAiSession ).toHaveBeenCalledWith( 'chat', 'Queued message', {
+			model: 'balanced',
+			effort: 'high',
+		} );
+	} finally {
+		vi.unstubAllGlobals();
+	}
+} );

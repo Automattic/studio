@@ -114,6 +114,24 @@ describe( 'AI runCommand — Desktop (JSON mode) provider default', () => {
 		stdoutSpy.mockRestore();
 	} );
 
+	it( 'uses the model and effort captured with the input instead of a later session choice', async () => {
+		( resolveResumeSessionContext as Mock ).mockReturnValueOnce( {
+			model: 'strong',
+			effort: 'default',
+		} );
+		( resolveInitialAiProvider as Mock ).mockResolvedValue( 'wpcom' );
+		await runCommand( {
+			adapter: new JsonAdapter(),
+			initialMessage: 'Queued message',
+			initialModel: 'balanced',
+			initialEffort: 'high',
+		} );
+		expect( runStudioAgentTurn ).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining( { model: 'balanced', effort: 'high' } )
+		);
+	} );
+
 	it( 'defaults to the wpcom provider on first run when none is configured', async () => {
 		( readSelectedAiProvider as Mock ).mockResolvedValue( undefined );
 		( resolveInitialAiProvider as Mock ).mockResolvedValue( 'wpcom' );

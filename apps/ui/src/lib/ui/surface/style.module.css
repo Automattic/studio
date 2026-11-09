@@ -81,7 +81,13 @@
 		pointer-events: none;
 	}
 
-	.item:is( [data-highlighted], [data-popup-open] ) {
+	.item:is(
+			[data-highlighted],
+			[data-popup-open],
+			[data-slot='menu-item-button']:is( :hover, :focus-visible, [aria-expanded='true'] ):not(
+					[data-disabled]
+				)
+		) {
 		background-color: var( --item-hover-background, var( --hover ) );
 		color: var( --item-hover-foreground, var( --foreground ) );
 	}

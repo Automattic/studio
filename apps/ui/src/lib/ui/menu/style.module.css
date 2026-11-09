@@ -3,6 +3,11 @@
 		padding-inline-end: var( --space-3 );
 	}
 
+	.itemButton {
+		width: 100%;
+		text-align: start;
+	}
+
 	.itemLabel {
 		min-width: 0;
 		max-width: min( 320px, 60vw );

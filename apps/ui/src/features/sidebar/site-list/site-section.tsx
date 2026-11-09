@@ -32,7 +32,7 @@ import { SiteStatusButton } from './site-status-button';
 import styles from './style.module.css';
 import type { SiteRow } from './sidebar-collections';
 import type { AiSessionSummary } from '@/data/core';
-import type { ReorderableItemProps } from '@/features/sidebar/reorderable-list';
+import type { ReorderableItemProps } from '@/lib/ui';
 
 export function SiteSection( {
 	row,

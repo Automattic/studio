@@ -40,6 +40,7 @@ import { createAskUserQuestionTool } from '@studio/agent/node/tools/ask-user-que
 import { bindTool } from '@studio/agent/node/tools/define-tool';
 import { createPresentDesignOptionsTool } from '@studio/agent/node/tools/present-design-options';
 import { createSkillTool } from '@studio/agent/node/tools/skill';
+import { resolveModelEffort, type AiEffort } from '@studio/agent/protocol/model-effort';
 import {
 	aiModelSupportsImages,
 	DEFAULT_MODEL,
@@ -90,6 +91,7 @@ const STUDIO_COMPACTION_SETTINGS = {
 };
 
 export interface StudioAgentTurnConfig {
+	effort?: AiEffort;
 	prompt: string;
 	images?: StudioChatImage[];
 	session: SessionManager;
@@ -367,12 +369,13 @@ async function createStudioAgentSession(
 	} );
 	await resourceLoader.reload();
 
+	const effort = resolveModelEffort( config.model, config.effort );
 	const result = await createAgentSession( {
 		cwd: sitesRoot,
 		agentDir: sitesRoot,
 		modelRuntime,
 		model,
-		thinkingLevel: 'medium',
+		thinkingLevel: effort,
 		sessionManager: config.session,
 		settingsManager,
 		resourceLoader,

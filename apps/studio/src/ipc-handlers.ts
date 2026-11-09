@@ -29,10 +29,11 @@ import {
 	setSessionEnvironment,
 	updateHydratedAiSessionMetadata,
 } from '@studio/agent/node/sessions/manage';
-import { appendModelChangeEntry, appendStudioEntry } from '@studio/agent/node/sessions/store';
+import { setSessionModelSettings } from '@studio/agent/node/sessions/model-settings';
 import { validateStudioChatFiles } from '@studio/agent/protocol/chat-files';
 import { validateStudioChatImages } from '@studio/agent/protocol/chat-images';
-import { isAiModelId } from '@studio/agent/protocol/models';
+import { validateTurnModelSettings, type AiEffort } from '@studio/agent/protocol/model-effort';
+import { isAiModelId, type AiModelId } from '@studio/agent/protocol/models';
 import { isAiProviderId, providerServesModel } from '@studio/agent/protocol/providers';
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
@@ -320,6 +321,8 @@ export async function continueAiSession(
 	sessionId: string,
 	prompt: string,
 	options: {
+		model?: AiModelId;
+		effort?: AiEffort;
 		turnId?: string;
 		displayMessage?: string;
 		images?: StudioChatImage[];
@@ -335,6 +338,7 @@ export async function continueAiSession(
 		sessionId,
 		prompt: expandSkillCommandPrompt( prompt ),
 		turnId: options.turnId,
+		...validateTurnModelSettings( options ),
 		displayMessage: options.displayMessage,
 		images,
 		files,
@@ -359,19 +363,21 @@ export async function listActiveAiAgentRuns(
 export async function setAiSessionModel(
 	_event: IpcMainInvokeEvent,
 	sessionId: string,
-	model: string
+	model: string,
+	effort?: AiEffort
 ): Promise< void > {
 	if ( ! isAiModelId( model ) ) {
 		throw new Error( `Unknown AI model: ${ model }` );
 	}
-	await appendModelChangeEntry( getSessionsDirectory(), sessionId, '', model );
+	await setSessionModelSettings( getSessionsDirectory(), sessionId, model, effort );
 }
 
 export async function setAiSessionProvider(
 	_event: IpcMainInvokeEvent,
 	sessionId: string,
 	provider: string,
-	model: string
+	model: string,
+	effort?: AiEffort
 ): Promise< void > {
 	if ( ! isAiProviderId( provider ) ) {
 		throw new Error( `Unknown AI provider: ${ provider }` );
@@ -379,10 +385,7 @@ export async function setAiSessionProvider(
 	if ( ! isAiModelId( model ) || ! providerServesModel( provider, model ) ) {
 		throw new Error( `Model ${ model } is not served by provider ${ provider }` );
 	}
-	await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.session_context', {
-		provider,
-		model,
-	} );
+	await setSessionModelSettings( getSessionsDirectory(), sessionId, model, effort, provider );
 }
 
 export async function setAiSessionEnvironment(

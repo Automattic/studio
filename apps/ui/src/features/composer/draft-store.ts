@@ -1,6 +1,7 @@
 import type { ComposerAttachment } from '@studio/agent/protocol/composer-attachments';
 
 interface ComposerDraft {
+	effort?: import('@studio/agent/protocol/model-effort').AiEffort;
 	text: string;
 	attachments: ComposerAttachment[];
 }
@@ -22,7 +23,11 @@ export function saveComposerDraft( sessionId: string | undefined, draft: Compose
 	}
 
 	draftsBySessionId.delete( sessionId );
-	if ( ! draft.text && draft.attachments.length === 0 ) {
+	if (
+		! draft.text &&
+		draft.attachments.length === 0 &&
+		( ! draft.effort || draft.effort === 'default' )
+	) {
 		return;
 	}
 

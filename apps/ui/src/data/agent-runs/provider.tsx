@@ -442,6 +442,8 @@ export function AgentRunProvider( { children }: PropsWithChildren ) {
 			try {
 				dismissToast( `chat-send-${ sessionId }` );
 				const { runId: newRunId } = await connector.continueSession( sessionId, prompt, {
+					model: options.model,
+					effort: options.effort,
 					turnId,
 					displayMessage,
 					images,

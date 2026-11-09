@@ -60,6 +60,8 @@ describe( 'sessions resume — active site hydration (JSON mode)', () => {
 			inputPayloadPath,
 			JSON.stringify( {
 				prompt: 'Update the selected heading',
+				model: 'balanced',
+				effort: 'high',
 				turnId: '102fe369-58e2-4e3f-aa19-07151756f6d8',
 				displayMessage: '1 annotation submitted',
 				visualAnnotations: [
@@ -77,6 +79,8 @@ describe( 'sessions resume — active site hydration (JSON mode)', () => {
 		expect( runAiCommand ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				initialMessage: 'Update the selected heading',
+				initialModel: 'balanced',
+				initialEffort: 'high',
 				initialTurnId: '102fe369-58e2-4e3f-aa19-07151756f6d8',
 				initialDisplayMessage: '1 annotation submitted',
 				initialVisualAnnotations: [

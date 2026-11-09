@@ -9,6 +9,9 @@ describe( 'isShortcut', () => {
 		expect( isShortcut( keydown( { key: 'π', code: 'KeyP', altKey: true } ), 'p', 'alt' ) ).toBe(
 			true
 		);
+		expect( isShortcut( keydown( { key: '¡', code: 'Digit1', altKey: true } ), '1', 'alt' ) ).toBe(
+			true
+		);
 		expect( isShortcut( keydown( { key: 'л', code: 'KeyK' } ), 'k' ) ).toBe( true );
 		expect(
 			isShortcut( keydown( { key: '>', code: 'Period', shiftKey: true } ), '.', 'shift' )

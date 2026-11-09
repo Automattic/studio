@@ -594,6 +594,21 @@ describe( 'pi runtime', () => {
 		} );
 	} );
 
+	it.each( [
+		[ 'default', 'medium' ],
+		[ 'low', 'low' ],
+		[ 'high', 'high' ],
+	] as const )( 'passes %s effort to the runtime as %s', async ( effort, expected ) => {
+		await runRuntime( {
+			prompt: 'hello',
+			env: WPCOM_ENV,
+			model: 'balanced',
+			effort,
+			session: newSession(),
+		} );
+		expect( mocks.createdSessions[ 0 ].options.thinkingLevel ).toBe( expected );
+	} );
+
 	it( 'creates each AgentSession with the requested model', async () => {
 		const session = newSession();
 		const otherStudioModel = 'tier-test-other' as AiModelId;

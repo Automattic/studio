@@ -418,6 +418,8 @@ export interface Connector {
 			displayMessage?: string;
 			images?: StudioChatImage[];
 			files?: StudioChatFileAttachment[];
+			model?: import('@studio/agent/protocol/models').AiModelId;
+			effort?: import('@studio/agent/protocol/model-effort').AiEffort;
 			visualAnnotations?: StudioVisualAnnotationSummary[];
 		}
 	): Promise< { runId: string } >;
@@ -425,14 +427,19 @@ export interface Connector {
 	// Persist a UI-driven model override for the session. The CLI picks this up
 	// on the next turn; the change survives reloads because it's written to the
 	// session JSONL.
-	setSessionModel( sessionId: string, model: AiModelId ): Promise< void >;
+	setSessionModel(
+		sessionId: string,
+		model: AiModelId,
+		effort?: import('@studio/agent/protocol/model-effort').AiEffort
+	): Promise< void >;
 	// Pin the session to an AI provider, with the model it should use there.
 	// Same mechanism as setSessionModel: an entry in the session JSONL the CLI
 	// honors on resume.
 	setSessionProvider(
 		sessionId: string,
 		provider: AiProviderId,
-		model: AiModelId
+		model: AiModelId,
+		effort?: import('@studio/agent/protocol/model-effort').AiEffort
 	): Promise< void >;
 	// Point the session's next turn at its local site or its connected live site.
 	setSessionEnvironment( sessionId: string, environment: 'local' | 'live' ): Promise< void >;
@@ -737,6 +744,7 @@ export interface UserPreferences {
 	studioCliExternallyManaged: boolean;
 	// The sidebar's Pinned group, in order, as `site:<id>` and `chat:<id>` keys.
 	sidebarPins?: string[];
+	modelFavorites?: import('@studio/common/lib/user-settings/model-favorites').ModelFavorite[];
 	sidebarPinnedSort?: SidebarPinnedSort;
 	sidebarSiteSort?: SidebarSiteSort;
 	sidebarChatSort?: SidebarChatSort;

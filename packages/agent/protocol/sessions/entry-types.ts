@@ -52,6 +52,7 @@ export interface StudioTurnClosedData {
 // `provider` marks an explicit user pin; the CLI's per-turn records carry
 // only the model so a fallback run never rewrites the pin.
 export interface StudioSessionContextData {
+	effort?: import('@studio/agent/protocol/model-effort').AiEffort;
 	provider?: string;
 	model: string;
 }

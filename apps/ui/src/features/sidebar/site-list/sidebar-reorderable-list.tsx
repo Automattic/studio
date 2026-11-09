@@ -1,4 +1,4 @@
-import { ReorderableList, type ReorderableListProps } from '@/features/sidebar/reorderable-list';
+import { ReorderableList, type ReorderableListProps } from '@/lib/ui';
 import { useIsSelecting } from './selection';
 import styles from './style.module.css';
 
@@ -13,7 +13,6 @@ export function SidebarReorderableList< T >(
 		<ReorderableList
 			{ ...props }
 			itemClassName={ styles.dragWrapper }
-			previewClassName={ styles.dragPreview }
 			excludeSelector="[data-reorder-exclude]"
 			disabled={ useIsSelecting() }
 		/>

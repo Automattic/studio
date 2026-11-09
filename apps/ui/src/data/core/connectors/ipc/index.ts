@@ -579,12 +579,12 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.listActiveAiAgentRuns() ) as ActiveAgentRun[];
 		},
 
-		async setSessionModel( sessionId, model ) {
-			await ipcApi.setAiSessionModel( sessionId, model );
+		async setSessionModel( sessionId, model, effort ) {
+			await ipcApi.setAiSessionModel( sessionId, model, effort );
 		},
 
-		async setSessionProvider( sessionId, provider, model ) {
-			await ipcApi.setAiSessionProvider( sessionId, provider, model );
+		async setSessionProvider( sessionId, provider, model, effort ) {
+			await ipcApi.setAiSessionProvider( sessionId, provider, model, effort );
 		},
 
 		async setSessionEnvironment( sessionId, environment ) {

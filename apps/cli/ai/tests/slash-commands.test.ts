@@ -38,6 +38,7 @@ function buildModelCtx(
 			showInfo: vi.fn(),
 			showError: vi.fn(),
 		} as never,
+		currentEffort: overrides.currentEffort ?? 'default',
 		currentModel: overrides.currentModel ?? 'fast',
 		currentProvider: 'wpcom',
 		showCapabilitiesOnConnect: false,
@@ -194,6 +195,7 @@ describe( '/credits slash command', () => {
 	function makeCtx( ui: ReturnType< typeof makeUi > ): SlashCommandContext {
 		return {
 			ui: ui as unknown as SlashCommandContext[ 'ui' ],
+			currentEffort: 'default',
 			currentModel: 'claude-sonnet-4-5' as SlashCommandContext[ 'currentModel' ],
 			currentProvider: 'wpcom' as SlashCommandContext[ 'currentProvider' ],
 			showCapabilitiesOnConnect: false,
@@ -344,4 +346,31 @@ describe( '/credits slash command', () => {
 		expect( ui.showInfo ).toHaveBeenCalledWith( 'Canceled.' );
 		expect( result ).toBe( 'continue' );
 	} );
+} );
+
+describe( '/effort slash command', () => {
+	const handler = AI_CHAT_SLASH_COMMANDS.find( ( command ) => command.name === 'effort' )!.handler!;
+	it( 'offers the resolved current effort and persists a supported selection', async () => {
+		const { ctx, persistMock } = buildModelCtx( {
+			currentModel: 'balanced',
+			askUserResponse: 'High',
+		} );
+		await handler( '/effort', ctx );
+		expect( ctx.currentEffort ).toBe( 'high' );
+		expect( persistMock ).toHaveBeenCalledOnce();
+		expect( vi.mocked( ctx.ui.askUser ).mock.calls[ 0 ][ 0 ][ 0 ].options ).toEqual( [
+			{ label: 'Low', description: '' },
+			{ label: 'Medium', description: 'Current' },
+			{ label: 'High', description: '' },
+		] );
+	} );
+	it.each( [ 'fast', 'strong' ] as const )(
+		'does not offer effort for %s',
+		async ( currentModel ) => {
+			const { ctx, persistMock } = buildModelCtx( { currentModel, askUserResponse: 'High' } );
+			await handler( '/effort', ctx );
+			expect( ctx.ui.askUser ).not.toHaveBeenCalled();
+			expect( persistMock ).not.toHaveBeenCalled();
+		}
+	);
 } );

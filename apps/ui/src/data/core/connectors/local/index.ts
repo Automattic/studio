@@ -736,6 +736,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( {
 					prompt,
 					turnId: options?.turnId,
+					model: options?.model,
+					effort: options?.effort,
 					displayMessage: options?.displayMessage,
 					images: options?.images,
 					files: options?.files,
@@ -746,16 +748,16 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getActiveAgentRuns(): Promise< ActiveAgentRun[] > {
 			return api< ActiveAgentRun[] >( '/runs/active' );
 		},
-		async setSessionModel( sessionId, model ) {
+		async setSessionModel( sessionId, model, effort ) {
 			await api( `/sessions/${ encodeURIComponent( sessionId ) }/model`, {
 				method: 'POST',
-				body: JSON.stringify( { model } ),
+				body: JSON.stringify( { model, effort } ),
 			} );
 		},
-		async setSessionProvider( sessionId, provider, model ) {
+		async setSessionProvider( sessionId, provider, model, effort ) {
 			await api( `/sessions/${ encodeURIComponent( sessionId ) }/provider`, {
 				method: 'POST',
-				body: JSON.stringify( { provider, model } ),
+				body: JSON.stringify( { provider, model, effort } ),
 			} );
 		},
 		async setSessionEnvironment( sessionId, environment ) {

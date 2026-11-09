@@ -45,6 +45,8 @@ const runManager = createAgentRunManager( {
 } );
 
 export interface StartAgentRunOptions {
+	model?: import('@studio/agent/protocol/models').AiModelId;
+	effort?: import('@studio/agent/protocol/model-effort').AiEffort;
 	turnId?: string;
 	sessionId: string;
 	prompt: string;
@@ -65,6 +67,8 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 		visualAnnotations,
 		webContents,
 		turnId,
+		model,
+		effort,
 	} = options;
 	// `startAgentRun` forks the child and returns its id synchronously; the
 	// child's first event arrives async (next tick), so registering the route
@@ -79,6 +83,8 @@ export function startAgentRun( options: StartAgentRunOptions ): { runId: string 
 		files,
 		visualAnnotations,
 		turnId,
+		model,
+		effort,
 	} );
 	runWebContents.set( result.runId, webContents );
 	// Abort the run if the window that started it goes away.

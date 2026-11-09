@@ -9,7 +9,9 @@ import { errorMessage } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSession } from '@/data/queries/use-sessions';
+import { AccountPromptDialog } from '@/features/account';
 import { entriesToTranscriptItems } from '@/features/chats';
+import { ExternalLinkIcon } from '@/lib/icons';
 import {
 	Button,
 	Checkbox,
@@ -59,6 +61,8 @@ const getAreaOptions = () => [
  */
 export function FeedbackDialog() {
 	const navigate = useNavigate();
+	const connector = useConnector();
+	const user = useAuthUser();
 	const { feedback } = useSearch( { strict: false } ) as { feedback?: true };
 	const close = () =>
 		void navigate( {
@@ -67,6 +71,30 @@ export function FeedbackDialog() {
 			search: ( { feedback: _feedback, ...rest }: Record< string, unknown > ) => rest,
 			replace: true,
 		} );
+
+	if ( user.isSuccess && ! user.data ) {
+		return (
+			<AccountPromptDialog
+				open={ !! feedback }
+				onOpenChange={ ( open ) => ! open && close() }
+				title={ __( 'Send feedback' ) }
+				description={ __(
+					'Create a free WordPress.com account to share ideas and report problems to the Studio team.'
+				) }
+				source="settings"
+				footer={
+					<Button
+						variant="muted-ghost"
+						size="sm"
+						onClick={ () => void connector.openExternalUrl( REPORT_ISSUE_URL ) }
+					>
+						{ __( 'Report an issue on GitHub' ) }
+						<ExternalLinkIcon data-icon="inline-end" />
+					</Button>
+				}
+			/>
+		);
+	}
 
 	return (
 		<Dialog open={ !! feedback } onOpenChange={ ( open ) => ! open && close() }>
@@ -79,7 +107,6 @@ export function FeedbackDialog() {
 
 function FeedbackForm() {
 	const connector = useConnector();
-	const navigate = useNavigate();
 	const user = useAuthUser();
 	const { sessionId } = useParams( { strict: false } ) as { sessionId?: string };
 	const session = useSession( sessionId );
@@ -99,44 +126,6 @@ function FeedbackForm() {
 			connector.sendFeedback( feedback ),
 	} );
 	const options = getTypeOptions();
-
-	if ( user.isSuccess && ! user.data ) {
-		return (
-			<>
-				<DialogHeader>
-					<DialogTitle>{ __( 'Send feedback' ) }</DialogTitle>
-					<DialogDescription>
-						{ __(
-							'Log in to WordPress.com to send feedback to the WordPress Studio team, or report it on GitHub.'
-						) }
-					</DialogDescription>
-				</DialogHeader>
-				<DialogFooter>
-					<Button
-						variant="outline"
-						onClick={ () => void connector.openExternalUrl( REPORT_ISSUE_URL ) }
-					>
-						{ __( 'Open GitHub' ) }
-					</Button>
-					<Button
-						onClick={ () =>
-							void navigate( {
-								to: '.',
-								state: true,
-								search: ( { feedback: _feedback, ...rest }: Record< string, unknown > ) => ( {
-									...rest,
-									settings: 'ai',
-								} ),
-								replace: true,
-							} )
-						}
-					>
-						{ __( 'Log in' ) }
-					</Button>
-				</DialogFooter>
-			</>
-		);
-	}
 
 	if ( send.isSuccess ) {
 		return (

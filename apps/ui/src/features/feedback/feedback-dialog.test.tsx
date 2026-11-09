@@ -98,11 +98,39 @@ describe( 'FeedbackDialog', () => {
 	it( 'offers the GitHub form and login when signed out', async () => {
 		const { connector, dialog } = await openFeedback( { user: null } );
 		expect( within( dialog ).queryByRole( 'button', { name: 'Send' } ) ).not.toBeInTheDocument();
-		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Open GitHub' } ) );
+		fireEvent.click(
+			within( dialog ).getByRole( 'button', { name: 'Report an issue on GitHub' } )
+		);
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
 			expect.stringContaining( 'github.com/Automattic/studio/issues' )
 		);
 		expect( connector.sendFeedback ).not.toHaveBeenCalled();
+		expect( connector.authenticate ).not.toHaveBeenCalled();
+	} );
+
+	it.each( [
+		[ 'Create account', true ],
+		[ 'Log in', false ],
+	] )( 'opens the feedback form in place after choosing %s', async ( action, signup ) => {
+		const { connector, dialog, history, user } = await openFeedback( { user: null } );
+		await user.click( within( dialog ).getByRole( 'button', { name: action } ) );
+		await screen.findByRole( 'textbox', { name: 'Message' } );
+		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith( signup, 'settings' );
+		expect( history.location.search ).toContain( 'feedback=true' );
+		expect( history.location.search ).not.toContain( 'settings=' );
+	} );
+
+	it( 'allows retrying account creation after a failure', async () => {
+		const { connector, dialog, user } = await openFeedback( { user: null } );
+		connector.authenticate.mockRejectedValueOnce( new Error( 'Could not connect.' ) );
+		const signup = within( dialog ).getByRole( 'button', { name: 'Create account' } );
+		await user.click( signup );
+		expect( await within( dialog ).findByRole( 'alert' ) ).toHaveTextContent(
+			'Could not connect.'
+		);
+		await user.click( signup );
+		await screen.findByRole( 'textbox', { name: 'Message' } );
+		expect( connector.authenticate ).toHaveBeenCalledTimes( 2 );
 	} );
 
 	it( 'can append the open chat’s transcript', async () => {

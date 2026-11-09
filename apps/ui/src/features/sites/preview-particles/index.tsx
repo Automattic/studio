@@ -111,7 +111,11 @@ export function PreviewParticles( {
 			);
 			draw( now );
 			lastDraw = now;
-			if ( activeRef.current || strength > 0 || logoStrength > 0 || waving( now ) ) {
+			if (
+				! motion.matches &&
+				! document.hidden &&
+				( activeRef.current || strength > 0 || logoStrength > 0 || waving( now ) )
+			) {
 				frame = requestAnimationFrame( animate );
 			}
 		};

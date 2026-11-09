@@ -399,7 +399,6 @@ describe( 'site lifecycle and preview', () => {
 		connector.stopSite.mockImplementation( () => stop.promise );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop site' } ) );
 		const action = lifecycle( 'My site' );
 		await waitFor( () => expect( panelShown() ).toBe( true ) );
 		expect( action ).not.toHaveAttribute( 'aria-busy' );
@@ -662,10 +661,7 @@ describe( 'site lifecycle and preview', () => {
 			);
 			const trigger = await screen.findByRole( 'button', { name: 'Site menu' } );
 			fireEvent.click( trigger );
-			if ( running ) {
-				fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
-			}
-			const label = running ? 'Stop site' : 'Start';
+			const label = running ? 'Stop' : 'Start';
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
 			await waitFor( () =>
 				expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeEnabled()
@@ -678,9 +674,10 @@ describe( 'site lifecycle and preview', () => {
 				expect( currentTrigger.querySelector( '[data-slot=spinner]' ) ).not.toBeInTheDocument();
 			} );
 			fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
-			expect(
-				await screen.findByRole( 'menuitem', { name: running ? 'Stop' : label } )
-			).toHaveAttribute( 'aria-disabled', 'true' );
+			expect( await screen.findByRole( 'menuitem', { name: label } ) ).toHaveAttribute(
+				'aria-disabled',
+				'true'
+			);
 			expect(
 				screen.queryByRole( 'menuitem', { name: 'WordPress credentials' } )
 			).not.toBeInTheDocument();

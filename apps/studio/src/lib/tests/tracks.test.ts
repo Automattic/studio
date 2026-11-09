@@ -136,7 +136,16 @@ describe.each( [
 		{ blueprint_slug: 'substrata', placement: 'add_site_blueprint_details' },
 	],
 	[ TRACKS_EVENTS.BLANK_SITE_SELECTED, { placement: 'add_site_blueprint_gallery' } ],
-] satisfies [ TracksEventName, TracksProps ][] )( 'Blueprint dialog event %s', ( event, props ) => {
+	[
+		TRACKS_EVENTS.RESPONSIVE_PREVIEW_CHANGED,
+		{
+			action: 'manual_resize',
+			preset_category: 'custom',
+			width_bucket: 'under_600',
+			height_bucket: '600_to_1023',
+		},
+	],
+] satisfies [ TracksEventName, TracksProps ][] )( 'UI event %s', ( event, props ) => {
 	it( 'does not send or create an install identity when opted out', async () => {
 		mockOptedOut.mockResolvedValue( true );
 		await recordTracksEvent( event, props );

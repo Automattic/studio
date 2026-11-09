@@ -477,6 +477,7 @@ function SitePreviewContent( {
 			onOpenExternal={ blank ? undefined : openExternal }
 			onExternalNavigate={ ( url ) => void connector.openExternalUrl( url ) }
 			responsive={ responsive }
+			annotation={ inactive ? undefined : annotate }
 		/>
 	);
 

@@ -34,7 +34,6 @@ it.each( [ true, false ] )(
 			[ 'Split view', 'split' ],
 			[ 'Panel', 'panel' ],
 		] as const ) {
-			if ( ! running && label === 'Panel' ) continue;
 			await chooseLayout( label );
 			await waitFor( () =>
 				expect( document.querySelector( '[data-layout-moving]' ) ).not.toBeInTheDocument()
@@ -52,9 +51,13 @@ it.each( [ true, false ] )(
 			expect( !! screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } ) ).toBe(
 				value !== 'chat' && running
 			);
-			if ( ! running )
-				expect( screen.getAllByRole( 'button', { name: 'Start from preview' } ) ).toHaveLength( 1 );
+			if ( ! running && value !== 'panel' )
+				expect(
+					await screen.findAllByRole( 'button', { name: 'Start from preview' } )
+				).toHaveLength( 1 );
 		}
+		await chooseLayout( 'Split view' );
+		expect( trigger ).toHaveAttribute( 'data-workspace-layout', 'split' );
 		expect( connector.startSite ).not.toHaveBeenCalled();
 		expect( connector.stopSite ).not.toHaveBeenCalled();
 	}
@@ -228,11 +231,11 @@ it.each( [ true, false ] )(
 );
 
 it.each( [
-	{ running: false, thumbnail: false, expected: false },
-	{ running: false, thumbnail: true, expected: false },
+	{ running: false, thumbnail: false, expected: true },
+	{ running: false, thumbnail: true, expected: true },
 	{ running: true, thumbnail: false, expected: true },
 ] )(
-	'shows full view for a browser preview rather than a saved thumbnail ($running, $thumbnail)',
+	'shows full view whenever the panel is open ($running, $thumbnail)',
 	async ( { running, thumbnail, expected } ) => {
 		const connector = createFakeConnector(
 			{ sites: [ makeSite( { id: 'one', running } ) ] },

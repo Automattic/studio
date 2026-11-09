@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { EllipsisVerticalIcon } from 'lucide-react';
+import { AnnotateIcon } from '@/lib/icons';
 import { Button, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import type { PreviewColorScheme } from '../preview-surface/webview';
 import type { useFrontendAdminBar } from '@/data/queries/use-frontend-admin-bar';
@@ -23,11 +24,28 @@ interface BrowserMenuItemsProps {
 	adminBar?: ReturnType< typeof useFrontendAdminBar >;
 	responsive?: PreviewResponsiveActions;
 	disabled?: boolean;
+	annotation?: { active: boolean; disabled: boolean; disabledReason?: string; onClick: () => void };
 }
 
-function BrowserMenuItems( { actions, adminBar, responsive, disabled }: BrowserMenuItemsProps ) {
+function BrowserMenuItems( {
+	actions,
+	adminBar,
+	responsive,
+	disabled,
+	annotation,
+}: BrowserMenuItemsProps ) {
 	return (
 		<>
+			{ annotation ? (
+				<Menu.Item
+					disabled={ disabled || annotation.disabled }
+					onClick={ annotation.onClick }
+					aria-description={ annotation.disabledReason }
+				>
+					<AnnotateIcon />
+					{ annotation.active ? __( 'Stop annotating' ) : __( 'Annotate' ) }
+				</Menu.Item>
+			) : null }
 			{ adminBar ? (
 				<Menu.Item
 					disabled={ disabled || adminBar.disabled }
@@ -41,12 +59,9 @@ function BrowserMenuItems( { actions, adminBar, responsive, disabled }: BrowserM
 					{ responsive.active ? __( 'Hide device toolbar' ) : __( 'Show device toolbar' ) }
 				</Menu.Item>
 			) : null }
+			{ actions && ( annotation || adminBar || responsive ) ? <Menu.Separator /> : null }
 			{ actions ? (
 				<>
-					<Menu.Item disabled={ disabled } onClick={ actions.onOpenDevTools }>
-						{ __( 'Developer tools' ) }
-					</Menu.Item>
-					<Menu.Separator />
 					<Menu.SubmenuRoot>
 						<Menu.SubmenuTrigger disabled={ disabled }>{ __( 'Appearance' ) }</Menu.SubmenuTrigger>
 						<Menu.SubmenuPopup>
@@ -62,6 +77,9 @@ function BrowserMenuItems( { actions, adminBar, responsive, disabled }: BrowserM
 							</Menu.RadioGroup>
 						</Menu.SubmenuPopup>
 					</Menu.SubmenuRoot>
+					<Menu.Item disabled={ disabled } onClick={ actions.onOpenDevTools }>
+						{ __( 'Developer tools' ) }
+					</Menu.Item>
 					<Menu.Separator />
 					<Menu.Item
 						disabled={ disabled || actions.clearing }

@@ -316,7 +316,7 @@ describe( 'site preview', () => {
 		);
 		expect( onPathChange ).toHaveBeenLastCalledWith( '/about/' );
 		expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Forward' } ) ).toHaveAttribute(
+		expect( screen.getByRole( 'button', { name: 'Forward', hidden: true } ) ).toHaveAttribute(
 			'aria-disabled',
 			'true'
 		);
@@ -830,10 +830,11 @@ describe( 'preview browser menu', () => {
 		screen.getByRole( 'button', { name: 'Browser options' } ).focus();
 		await user.keyboard( '{ArrowDown}' );
 		expect( screen.getAllByRole( 'menuitem' ).map( ( item ) => item.textContent ) ).toEqual( [
+			'Annotate',
 			'Show admin bar',
 			'Show device toolbar',
-			'Developer tools',
 			'Appearance',
+			'Developer tools',
 			'Clear browsing data',
 		] );
 		await user.click( screen.getByRole( 'menuitem', { name: 'Developer tools' } ) );

@@ -4,7 +4,6 @@
 	gap: var( --band-gap );
 	min-width: 0;
 	pointer-events: auto;
-	-webkit-app-region: no-drag;
 }
 .tabs {
 	--tabs-fade-left: 0px;
@@ -23,6 +22,11 @@
 		transparent
 	);
 }
+@container preview-tabs ( max-width: 200px ) {
+	.newTab {
+		display: none;
+	}
+}
 .tabs[data-overflow-left] {
 	--tabs-fade-left: var( --space-4 );
 }
@@ -38,7 +42,7 @@
 	flex: 1 1 var( --band-tab-width );
 	width: var( --band-tab-width );
 	max-width: var( --band-tab-width );
-	min-width: 128px;
+	min-width: 0;
 	height: 32px;
 	border-radius: var( --radius-md );
 	background: var( --chat );

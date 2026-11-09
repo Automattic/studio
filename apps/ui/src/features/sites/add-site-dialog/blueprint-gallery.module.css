@@ -74,7 +74,7 @@
 
 .card:is( :hover, :focus-visible ) .blank::after {
 	border-style: solid;
-	border-color: var( --accent );
+	border-color: var( --ring );
 }
 
 .blankIcon {

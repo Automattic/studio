@@ -54,10 +54,11 @@ describe( 'responsive mode', () => {
 		await view.user.click( screen.getByRole( 'button', { name: 'Rotate to portrait' } ) );
 		await view.user.click( screen.getByRole( 'button', { name: 'Fit' } ) );
 		await view.user.click( await screen.findByRole( 'menuitemradio', { name: '75%' } ) );
-		await toggle( view.user );
+		await view.user.click( screen.getByRole( 'button', { name: 'Hide device toolbar' } ) );
 		expect(
 			screen.queryByRole( 'toolbar', { name: 'Responsive preview' } )
 		).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Browser options' } ) ).toHaveFocus();
 		expect( document.querySelector( 'iframe' ) ).toBe( page );
 		await toggle( view.user );
 		expect( width() ).toHaveValue( '440' );

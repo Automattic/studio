@@ -171,6 +171,46 @@ describe( 'annotation inspector navigation', () => {
 		expect( screen.queryByRole( 'alert' ) ).not.toBeInTheDocument();
 	} );
 
+	it.each( [
+		{ limit: 'image count', saved: 3, size: 1 },
+		{ limit: 'combined size', saved: 2, size: 4 * 1024 * 1024 },
+	] )( 'replaces an untouched capture at the $limit limit', async ( { saved, size } ) => {
+		const connector = createFakeConnector( { sites: [ site ] } );
+		const replacement = { ...image, id: 'replacement', size };
+		const capture = vi
+			.spyOn( connector, 'captureAnnotationRegion' )
+			.mockResolvedValue( replacement );
+		const { emit, annotate } = await setup( undefined, connector );
+		emit( 'dom-ready' );
+		await waitFor( () => expect( annotate() ).toBeEnabled() );
+		const target = { ...selection.target, kind: 'region' as const };
+		const savedIds: string[] = [];
+		act( () => {
+			setAnnotating( site.id, true );
+			for ( let index = 0; index < saved; index++ ) {
+				const id = pickAnnotation( site.id, target, {
+					images: [ { ...image, id: `saved-${ index }`, size, kind: 'image' } ],
+				} )!;
+				changeAnnotation( site.id, id, { comment: 'Keep this note' } );
+				stageAnnotations( site.id, [ id ], true );
+				savedIds.push( id );
+			}
+			pickAnnotation( site.id, target, {
+				images: [ { ...image, id: 'untouched', size, kind: 'image' } ],
+			} );
+		} );
+		emit( 'console-message', {
+			message: INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'selection', selection } ),
+		} );
+		await waitFor( () =>
+			expect( getSiteAnnotations( site.id ).notes.at( -1 )?.images[ 0 ].id ).toBe( replacement.id )
+		);
+		expect( capture ).toHaveBeenCalledOnce();
+		const notes = getSiteAnnotations( site.id ).notes;
+		expect( notes ).toHaveLength( saved + 1 );
+		expect( notes.slice( 0, saved ).map( ( note ) => note.id ) ).toEqual( savedIds );
+	} );
+
 	it( 'preserves unfinished notes instead of capturing a different rectangle', async () => {
 		const connector = createFakeConnector( { sites: [ site ] } );
 		const capture = vi.spyOn( connector, 'captureAnnotationRegion' );

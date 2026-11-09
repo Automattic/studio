@@ -351,7 +351,7 @@ describe( 'Conversation activity groups', () => {
 			startedAt: Date.now(),
 		} );
 		expect(
-			screen.queryByRole( 'button', { name: 'Open design system' } )
+			screen.queryByRole( 'button', { name: 'Open Design System' } )
 		).not.toBeInTheDocument();
 
 		rerenderSession(
@@ -367,9 +367,9 @@ describe( 'Conversation activity groups', () => {
 			'aria-expanded',
 			'false'
 		);
-		expect( screen.getAllByRole( 'button', { name: 'Open design system' } ) ).toHaveLength( 1 );
+		expect( screen.getAllByRole( 'button', { name: 'Open Design System' } ) ).toHaveLength( 1 );
 		expect(
-			screen.getByRole( 'button', { name: 'Open design system' } ).closest( 'p' )
+			screen.getByRole( 'button', { name: 'Open Design System' } ).closest( 'p' )
 		).toHaveTextContent( 'Updated the Design System to make the site greener.' );
 		expect( screen.queryByText( /was updated/ ) ).not.toBeInTheDocument();
 	} );

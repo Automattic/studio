@@ -221,6 +221,7 @@ export function ConnectedView( {
 										error={ finished?.kind === 'error' ? finished.message : undefined }
 									/>
 									<Button
+										variant="accent"
 										disabled={ startSite.isPending }
 										onClick={ () => startSite.mutate( site.id ) }
 									>
@@ -304,7 +305,7 @@ export function ConnectedView( {
 											{ __( 'Cancel' ) }
 										</Button>
 										<Button
-											variant={ direction === 'push' ? 'accent' : 'default' }
+											variant="accent"
 											size="lg"
 											disabled={
 												disabled ||

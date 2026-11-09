@@ -25,8 +25,9 @@ import { Button, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui'
 - A toolbar toggle: `Button` or `IconButton` with `variant="accent-ghost"` and `aria-pressed`. Pressed and expanded toggles use an accent fill and text, with a stronger accent fill on hover. Other variants use their hover fill and text for pressed and expanded states.
 - A form row: `Field` with `FieldLabel`, `FieldDescription` and `FieldError`, grouped in a `FieldGroup`. Text: `Input` and `Textarea`, or `InputGroup` for buttons and icons inside the border.
 - Dismiss controls: `DismissButton` for the small floating close button on notifications and attachments; its `label` supplies the tooltip. `AttachmentRemoveButton` is its attachment alias.
-- File drops: `DropOverlay` for drag feedback, with a translated action label as its children; `DropZone` for a file picker's resting placeholder, with an icon, title, description, and file-selection controls. Feature code owns file handling.
+- File drops: `DropOverlay` for drag feedback, with a translated action label as its children; `DropZone` for a file picker's resting placeholder, with an icon, title, description, and file-selection controls. `DropZone size="sm"` uses text-xs and tighter caption spacing for compact areas. Feature code owns file handling.
 - A choice: `Select`, `Switch` for on/off, `Checkbox` in forms, `Tabs` for sections or a scope switch, `Slider`. A question with options: `Questionnaire`.
+- A color: `ColorPicker`, with a controlled six-digit hex `value`, `onValueChange` for live previews and `onValueCommitted` for saves. Its editable hex field opens a saturation/brightness and hue popover.
 - A modal: `Dialog` with `DialogContent`. All dialogs share the settings dialog’s popover surface, popover-border outline, small shadow, and rounding. Dialog sidebars use the same background as their content. Settings field groups share the same muted fill in both color schemes. Small info dialogs and forms: `layout="compact"` (16px leading inset, standard 12px padding elsewhere, and extra space above actions). Confirmations: `AlertDialog` with `layout="confirmation"` (the same spacing at a wider width). Two panes: `DialogPanel`. Its optional `footer` accepts a `DialogFooter` outside the scrolling body, using the standard dialog inset.
 - Menu text: Use `Menu.ItemLabel` for item text that should truncate instead of widening the menu.
 - Floating: `Menu` (right click: `Menu.ContextMenuRoot`), `Popover`, `Tooltip`. Use `Popover.Title` and `Popover.Description` for the shared informational text styles: 14px title at medium weight, 13px muted description, and a 4px gap, matching the empty notification popover.
@@ -37,6 +38,14 @@ import { Button, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui'
 - Also `CodeBlock`, `ResizeHandle`, `MarqueeLabel` (a long label that scrolls on hover), `CommandSheet` (slash commands), `Kbd` and `VisuallyHidden`.
 
 When none fits, add one here rather than styling a `div` in a feature.
+
+## Button hierarchy
+
+- Use `variant="accent"` for the primary action in a screen, form or dialog: Publish, Send, Create site, Save, Import and Continue.
+- Supporting actions use `outline`, the default for `Button`: Manage, Connect, Reload, Retry, Cancel, Discard and dismiss-only Done buttons. Choose by role in context: Buy credits is accent as the primary action in Add credits.
+- Use `ghost` for quiet toolbar utilities, link variants for navigation within copy, and `destructive` for destructive actions or error feedback.
+- The white-filled `default` variant is not used for product actions. Choose accent or outline according to the action's role.
+- Form controls use the standard 36px size. Dialog-header Save and Discard actions use `size="sm"` (32px).
 
 ## Restyling
 

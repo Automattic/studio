@@ -98,10 +98,6 @@ test.describe( 'Chat', () => {
 			timeout: 120_000,
 		} );
 		await sidebar.openSite( siteName );
-		const chatToggle = page.getByRole( 'button', { name: 'Show chat for active site' } );
-		if ( await chatToggle.isVisible() ) {
-			await chatToggle.click();
-		}
 
 		const chip = page.getByRole( 'button', { name: 'Remove Auto-start' } );
 		await recordSends();
@@ -215,12 +211,17 @@ test.describe( 'Chat', () => {
 		}
 		const annotations = page.getByRole( 'button', { name: '1 annotation', exact: true } );
 		await expect( annotations ).toBeVisible();
-		await annotations.hover();
 		const review = page.getByRole( 'dialog', { name: 'Annotations' } );
+		await annotations.hover();
+		await expect( review ).toBeHidden();
+		await annotations.click();
 		await expect( review ).toBeVisible();
-		await review.getByRole( 'button', { name: /Edit annotation 1:/ } ).hover();
+		await expect( review.getByRole( 'img', { name: 'reference.png' } ) ).toBeVisible();
+		await review.getByRole( 'button', { name: /Edit annotation:/ } ).hover();
 		await expect( review ).toBeVisible();
 		await composer().hover();
+		await expect( review ).toBeVisible();
+		await composer().click();
 		await expect( review ).toBeHidden();
 		await page.getByRole( 'button', { name: 'Send message', exact: true } ).click();
 

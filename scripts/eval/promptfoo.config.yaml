@@ -519,6 +519,51 @@ tests:
       - type: javascript
         value: file://outcome.mjs:designSystemReplyLink
 
+  - description: region annotation changes the selected heading without an element selector
+    vars:
+      caseId: region-annotation
+      ui: true
+      timeoutMs: 240000
+      seed:
+        activeSite:
+          name: Eval Region Annotation
+          files:
+            wp-content/mu-plugins/eval-annotation.php: |
+              <?php
+              add_filter( 'the_content', function ( $content ) {
+                  return '<section><h2>Plans for every team</h2><p>Choose a plan.</p></section>' . $content;
+              } );
+          inspect:
+            - ["eval", "echo str_contains( apply_filters( 'the_content', '' ), 'Plans for every project' ) && ! str_contains( apply_filters( 'the_content', '' ), 'Plans for every team' ) && str_contains( apply_filters( 'the_content', '' ), '<p>Choose a plan.</p>' ) ? 'ANNOTATION_COPY_UPDATED' : 'ANNOTATION_COPY_MISSING';"]
+      prompt: |
+        The user submitted 1 visual annotation from the site preview.
+
+        Make the requested changes. When there are several annotations, address them in the order they were submitted.
+
+        When you reference an annotation for the user, identify the element by what is visible on the page rather than by selector. Use selectors and raw annotation data only for implementation.
+
+        ## Submitted Annotations
+
+        ### 1. selected area
+        - Page: /
+        - Comment: Change the heading "Plans for every team" to "Plans for every project". Keep the paragraph below it as it is.
+
+        ```json
+        {
+          "id": "a_1",
+          "kind": "region",
+          "path": "/",
+          "viewport": { "width": 1280, "height": 800 },
+          "documentRect": { "left": 40, "top": 180, "width": 620, "height": 160 },
+          "comment": "Change the heading Plans for every team to Plans for every project. Keep the paragraph below it as it is."
+        }
+        ```
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:regionAnnotationApplied
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+
   # STU-2155: once a template part is customized in the Site Editor, WordPress
   # renders the database copy (a wp_template_part post) instead of the theme
   # file. The seed customizes the header the way a user would (the theme's own

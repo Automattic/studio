@@ -8,7 +8,7 @@ import {
 	scopeAccountJourney,
 	clearAccountJourneys,
 } from '@/data/account-analytics';
-import { dismissToast, getVisibleToasts, getNoticeHistory } from '@/data/app-messages';
+import { dismissToast, getVisibleToasts } from '@/data/app-messages';
 import { ConnectorProvider } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
@@ -59,7 +59,7 @@ function setup(
 	return { connector, publish };
 }
 
-const latestNotice = () => getNoticeHistory()[ 0 ];
+const latestNotice = () => getVisibleToasts().at( -1 )!;
 
 function SyncActivityEvents() {
 	useSyncActivityEvents();
@@ -111,7 +111,7 @@ it.each( [ 'push', 'pull', 'import', 'preview' ] as const )(
 		expect( getVisibleToasts().find( ( item ) => item.id === id ) ).toBeUndefined();
 		act( () => publish( { siteId: 'notice-site', activity: { kind: 'success', direction } } ) );
 		act( () => publish( { siteId: 'notice-site', activity: { kind: 'success', direction } } ) );
-		expect( getNoticeHistory().filter( ( item ) => item.id === id ) ).toHaveLength( 1 );
+		expect( getVisibleToasts().filter( ( item ) => item.id === id ) ).toHaveLength( 1 );
 		expect( getVisibleToasts().find( ( item ) => item.id === id ) ).toMatchObject( {
 			intent: 'success',
 			processing: undefined,
@@ -281,7 +281,7 @@ describe( 'usePullSiteFromLive', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
 		await passReportGrace();
 
-		expect( getNoticeHistory().filter( ( notice ) => notice.intent === 'error' ) ).toHaveLength(
+		expect( getVisibleToasts().filter( ( notice ) => notice.intent === 'error' ) ).toHaveLength(
 			1
 		);
 	} );
@@ -404,7 +404,7 @@ describe( 'sync Tracks events', () => {
 		await passReportGrace();
 
 		await waitFor( () => expect( getSyncActivity( 'site-1' )?.kind ).toBe( 'cancelled' ) );
-		expect( getNoticeHistory().some( ( notice ) => notice.intent === 'success' ) ).toBe( false );
+		expect( getVisibleToasts().some( ( notice ) => notice.intent === 'success' ) ).toBe( false );
 		expect( connector.trackEvent ).not.toHaveBeenCalled();
 	} );
 
@@ -461,3 +461,52 @@ it.each( [
 		);
 	}
 );
+
+it( 'keeps a successful transfer with a warning until dismissed, including after View', async () => {
+	const queryClient = createTestQueryClient();
+	queryClient.setQueryData( SITES_QUERY_KEY, [
+		makeSite( { id: 'warning-site', name: 'Ocean' } ),
+	] );
+	const { publish } = setup( <SyncActivityEvents />, { queryClient } );
+	act( () =>
+		publish( { siteId: 'warning-site', activity: { kind: 'pending', direction: 'pull' } } )
+	);
+	act( () =>
+		publish( {
+			siteId: 'warning-site',
+			activity: { kind: 'success', direction: 'pull', warning: 'Some files were skipped.' },
+		} )
+	);
+	const warning = getVisibleToasts().find( ( item ) => item.id === 'pull-warning-site' )!;
+	expect( warning ).toMatchObject( {
+		intent: 'warning',
+		durationMs: 0,
+		description: 'Some files were skipped.',
+		action: { dismissOnSuccess: false },
+	} );
+	await warning.action!.onClick();
+	await act( () => vi.advanceTimersByTimeAsync( 60_000 ) );
+	expect( getVisibleToasts().find( ( item ) => item.id === warning.id )?.leaving ).not.toBe( true );
+} );
+
+it( 'offers restarting after changes were pulled but the site could not restart', async () => {
+	const { publish, connector } = setup( <SyncActivityEvents /> );
+	act( () =>
+		publish( { siteId: 'restart-site', activity: { kind: 'pending', direction: 'pull' } } )
+	);
+	act( () =>
+		publish( {
+			siteId: 'restart-site',
+			activity: {
+				kind: 'error',
+				direction: 'pull',
+				message: 'Restart failed',
+				localChangesApplied: true,
+			},
+		} )
+	);
+	const failure = getVisibleToasts().find( ( item ) => item.id === 'pull-restart-site' )!;
+	expect( failure ).toMatchObject( { durationMs: 0, action: { label: 'Start site' } } );
+	await failure.action!.onClick();
+	expect( connector.startSite ).toHaveBeenCalledWith( 'restart-site' );
+} );

@@ -13,10 +13,6 @@ export const DEFAULT_HIDE_FRONTEND_ADMIN_BAR = false;
 export const QUIT_SITES_BEHAVIORS = [ 'stop', 'stop-and-auto-start', 'leave-running' ] as const;
 export type QuitSitesBehavior = ( typeof QUIT_SITES_BEHAVIORS )[ number ];
 
-// What Add site opens on: the starting points, or straight on a blank site's setup.
-export const NEW_SITE_BEHAVIORS = [ 'choose', 'blank' ] as const;
-export type NewSiteBehavior = ( typeof NEW_SITE_BEHAVIORS )[ number ];
-
 export const DEFAULT_ACCENT_COLOR = '#3858e9';
 export const DEFAULT_TINT_INTENSITY = 0;
 export const DEFAULT_CONTRAST = 0;
@@ -62,7 +58,6 @@ export const INTERFACE_PREFERENCE_DEFAULTS = {
 	sidebarPinnedSort: 'type',
 	sidebarSiteSort: 'manual',
 	sidebarChatSort: 'updated',
-	newSiteBehavior: 'choose',
 	accentColor: DEFAULT_ACCENT_COLOR,
 	tintIntensity: DEFAULT_TINT_INTENSITY,
 	contrast: DEFAULT_CONTRAST,

@@ -262,7 +262,9 @@ export function createIpcConnector(): Connector {
 
 		async selectSiteFolder( defaultPath, options ): Promise< SelectedSiteFolder | null > {
 			const response = ( await ipcApi.showOpenFolderDialog(
-				options?.allowBlueprints
+				options?.allowSiteFiles
+					? __( 'Choose a site source' )
+					: options?.allowBlueprints
 					? __( 'Open a site or Blueprint' )
 					: __( 'Choose folder for site' ),
 				defaultPath,
@@ -342,6 +344,9 @@ export function createIpcConnector(): Connector {
 
 		async getSiteThumbnail( siteId ): Promise< string | null > {
 			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
+		},
+		async captureAnnotationRegion( request ) {
+			return ipcApi.captureAnnotationRegion( request );
 		},
 		async captureSitePreview( siteId, { path, guestId } ) {
 			return guestId === undefined ? null : ipcApi.captureSitePreview( siteId, guestId, path );

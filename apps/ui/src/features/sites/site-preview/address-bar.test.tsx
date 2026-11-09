@@ -281,7 +281,7 @@ describe( 'PreviewAddressBar', () => {
 		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
 		const recent = await screen.findByRole( 'option', { name: /About the team/ } );
 		expect( within( recent ).getByText( '— localhost:8881/about/' ) ).toBeVisible();
-		for ( const label of [ 'Front end', 'WordPress Admin', 'Database', 'Design system' ] ) {
+		for ( const label of [ 'Front end', 'WordPress Admin', 'Database', 'Design System' ] ) {
 			expect( screen.queryByRole( 'option', { name: label } ) ).not.toBeInTheDocument();
 		}
 		fireEvent.click( recent );

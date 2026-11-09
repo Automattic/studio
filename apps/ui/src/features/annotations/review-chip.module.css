@@ -1,21 +1,38 @@
+.trigger {
+	--button-hover-background: light-dark(
+		var( --secondary ),
+		color-mix(
+			in oklab,
+			var( --attachment-chip-background, var( --muted ) ) 95%,
+			var( --foreground )
+		)
+	);
+}
 .popup {
+	--surface: var( --composer );
+	--popover-border: var( --input );
+
 	width: max-content;
 	max-width: min( 320px, var( --annotation-popup-max-width, 320px ), calc( 100vw - 16px ) );
 	padding: var( --space-1_5 );
+	background-color: var( --surface );
+	color: var( --foreground );
 }
 .notes {
 	max-height: min( 288px, calc( var( --available-height ) - 2 * var( --space-1_5 ) ) );
 	overflow-y: auto;
 }
 .row {
+	position: relative;
 	display: flex;
-	align-items: flex-start;
-	gap: var( --space-2 );
-	padding: var( --space-1 );
+	align-items: center;
+	padding-block: var( --space-1 );
 	border-radius: var( --radius-md );
 }
 .row:hover,
 .row:has( :focus-visible ) {
+	--surface: var( --hover );
+
 	background-color: var( --hover );
 }
 .note {
@@ -25,33 +42,83 @@
 	min-width: 0;
 	min-height: 24px;
 	height: auto;
-	align-items: flex-start;
+	align-items: center;
 	justify-content: flex-start;
 	text-align: start;
 	padding-block: 0;
-	padding-inline: 0;
+	padding-inline-start: var( --space-2 );
+	padding-inline-end: var( --space-8 );
 	border-radius: inherit;
 }
-.number {
-	display: inline-grid;
-	place-items: center;
-	flex-shrink: 0;
+.note:has( .thumbnail ) {
+	padding-inline-start: var( --space-1_5 );
+}
+.delete {
+	position: absolute;
+	inset-inline-end: var( --space-1 );
+	top: var( --space-1 );
+	border-radius: var( --radius-sm );
+	opacity: 0;
+	pointer-events: none;
+	transition: none;
+}
+.delete svg {
 	width: var( --space-4 );
 	height: var( --space-4 );
-	margin-block-start: var( --space-1 );
-	color: var( --foreground );
-	font-size: var( --text-2xs );
-	line-height: 1;
-	font-variant-numeric: tabular-nums;
+}
+.row:hover .delete,
+.row:has( :focus-visible ) .delete {
+	opacity: 1;
+	pointer-events: auto;
+}
+@media ( hover: none ), ( any-pointer: coarse ) {
+	.delete {
+		opacity: 1;
+		pointer-events: auto;
+	}
 }
 .label {
 	composes: truncate from '@/lib/theme/recipes.module.css';
 }
+.content {
+	display: flex;
+	flex: 1;
+	min-width: 0;
+	align-items: center;
+	gap: var( --space-1_5 );
+}
+.thumbnail {
+	composes: imageOutline from '@/lib/theme/recipes.module.css';
+
+	position: relative;
+	display: inline-flex;
+	flex: none;
+	width: var( --space-5 );
+	height: var( --space-5 );
+	overflow: hidden;
+	border-radius: max( 0px, calc( var( --radius-md ) - var( --space-1_5 ) ) );
+	background-color: var( --muted );
+}
+.thumbnail img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+.imagePreview {
+	width: min( 320px, calc( 100vw - var( --space-4 ) ) );
+	padding: var( --space-1 );
+	border: 1px solid var( --border );
+	border-radius: var( --radius-md );
+	background-color: var( --popover );
+	box-shadow: var( --shadow-md );
+}
+.imagePreview img {
+	display: block;
+	width: 100%;
+	max-height: 240px;
+	object-fit: contain;
+}
 .note .label {
-	display: -webkit-box;
-	margin-block-start: var( --space-0_5 );
-	-webkit-box-orient: vertical;
-	-webkit-line-clamp: 3;
-	white-space: normal;
-	overflow-wrap: anywhere;
+	min-width: 0;
 }

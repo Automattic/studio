@@ -2,7 +2,7 @@ import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { act, render, renderHook, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { dismissToast, getNoticeHistory, getVisibleToasts } from '@/data/app-messages';
+import { dismissToast, getVisibleToasts } from '@/data/app-messages';
 import { ConnectorProvider } from '@/data/core';
 import { updateResponsivePreview, useResponsivePreview } from '@/data/responsive-preview';
 import { createFakeConnector, makeSite, type FakeConnector } from '@/test/fake-connector';
@@ -359,18 +359,18 @@ describe( 'export notices', () => {
 			const view = renderHook( useExport, { wrapper: providers( connector ) } );
 			act( () => view.result.current.mutate( 'site-1' ) );
 			await waitFor( () => expect( start ).toBeDefined() );
-			expect( getNoticeHistory() ).toHaveLength( 0 );
+			expect( getVisibleToasts() ).toHaveLength( 0 );
 			act( start );
-			expect( getNoticeHistory()[ 0 ] ).toMatchObject( {
+			expect( getVisibleToasts()[ 0 ] ).toMatchObject( {
 				title: progress,
 				processing: true,
 				dismissible: true,
 			} );
-			const id = getNoticeHistory()[ 0 ].id;
+			const id = getVisibleToasts()[ 0 ].id;
 			act( () => dismissToast( id ) );
 			view.unmount();
 			await act( async () => finish( '/tmp/ocean.zip' ) );
-			expect( getNoticeHistory() ).toHaveLength( 1 );
+			expect( getVisibleToasts() ).toHaveLength( 1 );
 			expect( getVisibleToasts()[ 0 ] ).toMatchObject( { id, title: success, intent: 'success' } );
 			expect( getVisibleToasts()[ 0 ].leaving ).not.toBe( true );
 		}
@@ -381,7 +381,7 @@ describe( 'export notices', () => {
 		connector.exportFullSite.mockResolvedValue( null );
 		const view = renderHook( useExportFullSite, { wrapper: providers( connector ) } );
 		await act( () => view.result.current.mutateAsync( 'site-1' ) );
-		expect( getNoticeHistory() ).toHaveLength( 0 );
+		expect( getVisibleToasts() ).toHaveLength( 0 );
 	} );
 
 	it( 'replaces progress with a failure', async () => {
@@ -394,7 +394,7 @@ describe( 'export notices', () => {
 		await act( async () => {
 			await expect( view.result.current.mutateAsync( 'site-1' ) ).rejects.toThrow( 'Disk full' );
 		} );
-		expect( getNoticeHistory() ).toHaveLength( 1 );
+		expect( getVisibleToasts() ).toHaveLength( 1 );
 		expect( getVisibleToasts()[ 0 ] ).toMatchObject( {
 			title: 'Failed to export site',
 			intent: 'error',

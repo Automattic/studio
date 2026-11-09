@@ -59,6 +59,7 @@ import {
 	Composer,
 	ComposerSkeleton,
 	pendingPromptSlot,
+	useComposerNotice,
 	type ComposerHandle,
 } from '@/features/composer';
 import { PreviewParticles, StoppedSitePreview } from '@/features/sites';
@@ -71,7 +72,6 @@ import { SessionFrame } from './session-frame';
 import { SessionHeader } from './session-header';
 import styles from './style.module.css';
 import { useAnchoredScroll } from './use-anchored-scroll';
-import { useComposerNotice } from './use-composer-notice';
 import { useMarkChatRead } from './use-mark-chat-read';
 import { useSendSiteDraft } from './use-send-site-draft';
 import { useSessionCommands } from './use-session-commands';
@@ -362,7 +362,7 @@ function SessionViewContent( {
 	useEffect( () => {
 		if ( ! isChatReady || ! annotationSiteId ) return;
 		return subscribeAnnotationSend( annotationSiteId, ( { noteIds } ) => {
-			stageAnnotations( annotationSiteId, noteIds );
+			if ( ! noteIds ) stageAnnotations( annotationSiteId );
 			if ( composerBusy && ! noteIds ) return;
 			if ( ! noteIds ) {
 				return composerRef.current?.send();
@@ -477,7 +477,7 @@ function SessionViewContent( {
 							className={ styles.scrollToLatestButton }
 							icon={ <ArrowDownIcon /> }
 							label={ __( 'Jump to latest' ) }
-							variant="default"
+							variant="outline"
 							shape="round"
 							data-visible={ isScrolledAway || undefined }
 							inert={ ! isScrolledAway }

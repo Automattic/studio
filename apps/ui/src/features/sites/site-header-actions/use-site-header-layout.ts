@@ -52,7 +52,7 @@ export function useSiteHeaderLayout(
 		if ( ! refocus.current ) return;
 		refocus.current = false;
 		(
-			browserHeader?.querySelector< HTMLElement >( '[data-preview-responsive]' ) ??
+			browserHeader?.querySelector< HTMLElement >( '[data-preview-browser-options]' ) ??
 			actions?.querySelector< HTMLElement >( 'button' )
 		)?.focus();
 	}, [ actions, browserHeader, layout ] );

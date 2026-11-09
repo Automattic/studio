@@ -1,6 +1,8 @@
 export { AnnotationMarker } from './marker';
 export { type AnnotationAnchor, AnnotationOverlay } from './overlay';
 export {
+	canPickAnnotation,
+	setAnnotationsPreparing,
 	changeAnnotation,
 	editAnnotation,
 	escapeAnnotations,

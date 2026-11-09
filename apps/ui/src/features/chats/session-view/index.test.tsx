@@ -205,7 +205,7 @@ describe( 'SessionView entitlement', () => {
 		await sleep( 50 );
 		expect( connector.getStudioAssistantQuota ).toHaveBeenCalledOnce();
 
-		fireEvent.click( within( alert ).getByRole( 'button', { name: 'Try again' } ) );
+		fireEvent.click( within( alert ).getByRole( 'button', { name: 'Refresh' } ) );
 		await waitFor( () => expect( connector.getStudioAssistantQuota ).toHaveBeenCalledTimes( 2 ) );
 	} );
 

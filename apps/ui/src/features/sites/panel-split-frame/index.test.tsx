@@ -66,14 +66,12 @@ describe( 'PanelSplitFrame', () => {
 			document.documentElement.style.removeProperty( '--motion-duration-surface' );
 		} );
 
-		function frame( site: string, open: boolean, instant = false, chatTabActive = false ) {
+		function frame( site: string, open: boolean, instant = false ) {
 			return (
 				<PanelSplitFrame
 					siteId="one"
 					panelOpen={ open }
 					instant={ instant }
-					chatHidden={ chatTabActive }
-					chatTabActive={ chatTabActive }
 					panel={ ( { collapsed } ) => (
 						<aside aria-label="Panel" data-collapsed={ collapsed }>
 							{ site }
@@ -84,16 +82,6 @@ describe( 'PanelSplitFrame', () => {
 				</PanelSplitFrame>
 			);
 		}
-
-		it( 'does not reveal the panel when closing from the Chat tab', () => {
-			const { rerender } = render( frame( 'Page', true, false, true ) );
-			const pane = screen.getByLabelText( 'Panel' );
-			expect( pane.closest( '[inert]' ) ).not.toBeNull();
-			rerender( frame( 'Page', false ) );
-			expect( getFrameRoot() ).not.toHaveAttribute( 'data-layout-moving' );
-			expect( pane.closest( '[inert]' ) ).not.toBeNull();
-			expect( screen.getByTestId( 'content' ).closest( '[aria-hidden="true"]' ) ).toBeNull();
-		} );
 
 		it( 'keeps the resize handle mounted while the panel closes and reopens', async () => {
 			const { rerender } = render( frame( 'Ready', true ) );

@@ -35,7 +35,7 @@ WordPress Studio can’t create or update a preview when:
 -   The files WordPress Studio would upload are larger than 2 GB. Remove media files, plugins, or themes you don’t need, or [exclude them with .deployignore](#4-exclude-files-with-deployignore).
 -   Another operation is running on the site. Wait for it to finish before creating or updating a preview.
 
-[![The Share tab of the Share and publish panel in WordPress Studio, listing two previews with their names and expiry dates, each with a Preview actions menu, and the Create another preview button below.](https://developer.wordpress.com/wp-content/uploads/2025/01/share-previews.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/share-previews.webp)
+![The Share tab of the Share and publish panel in WordPress Studio, listing two previews with their names and expiry dates, each with a Preview actions menu, and the Create another preview button below.](../../../screenshots/images/share-previews.webp)
 
 ## [Rename a preview site](#1-rename-a-preview-site)
 
@@ -46,7 +46,7 @@ You can create multiple preview sites per WordPress Studio site. To differentiat
 3.  In the **Rename preview** dialog, enter a new name.
 4.  Click **Save**.
 
-[![The Preview actions menu open next to a preview in WordPress Studio's Share panel, with Update, Copy link, Visit preview, Rename, and Delete preview.](https://developer.wordpress.com/wp-content/uploads/2025/01/share-preview-actions.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/share-preview-actions.webp)
+![The Preview actions menu open next to a preview in WordPress Studio's Share panel, with Update, Copy link, Visit preview, Rename, and Delete preview.](../../../screenshots/images/share-preview-actions.webp)
 
 Your preview site will display that name in WordPress Studio, while your remote preview site name will remain unchanged.
 
@@ -107,7 +107,7 @@ Expired previews no longer appear in the **Share** panel. To see them, open **Se
 
 **Settings → Sharing** lists the live previews of all your sites under **Live previews**, and how many of your preview sites you’ve used. For each preview, you can click its address to open it, see when it expires, and **Copy link**, **Rename preview**, or **Delete preview**. If you don’t have any live previews, the page shows **Share a preview of your site** instead.
 
-[![The Sharing page of WordPress Studio's Settings, showing Sharing previews on WordPress.com and the Share a preview of your site prompt.](https://developer.wordpress.com/wp-content/uploads/2025/01/settings-sharing.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/settings-sharing.webp)
+![The Sharing page of WordPress Studio's Settings, showing Sharing previews on WordPress.com and the Share a preview of your site prompt.](../../../screenshots/images/settings-sharing.webp)
 
 ## [Delete all preview sites](#7-delete-all-preview-sites)
 

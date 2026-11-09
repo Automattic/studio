@@ -4,7 +4,7 @@ WordPress Studio CLI comes bundled with WordPress Studio. You can also install i
 
 If you already have WordPress Studio installed, the easiest way to try the CLI is to enable it in the app’s settings. Otherwise, install it on its own with the standalone installer.
 
-WordPress Studio CLI is a globally available command-line utility that lets you interact with [WordPress Studio](https://developer.wordpress.com/docs/developer-tools/studio/) features from your terminal, regardless of whether WordPress Studio is open or not.
+WordPress Studio CLI is a globally available command-line utility that lets you interact with [WordPress Studio](https://wordpress.studio/docs/) features from your terminal, regardless of whether WordPress Studio is open or not.
 
 It’s especially useful for:
 
@@ -116,7 +116,7 @@ studio auth login --help
 
 ## [Preview site commands](#6-preview-site-commands)
 
-[Preview sites](https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/) are temporary, shareable environments hosted on WordPress.com that mirror your local WordPress Studio site. Use them to share work with teammates or stakeholders without requiring a local environment.
+[Preview sites](https://wordpress.studio/docs/preview-sites/) are temporary, shareable environments hosted on WordPress.com that mirror your local WordPress Studio site. Use them to share work with teammates or stakeholders without requiring a local environment.
 
 studio preview create          # Create a preview site
 studio preview list            # List preview sites
@@ -222,7 +222,7 @@ studio create --from https://example.com
 
 ### [Creating a local site using Blueprints Gallery](#12-creating-a-local-site-using-blueprints-gallery)
 
-WordPress Studio offers access to the [Blueprints Gallery](https://developer.wordpress.com/docs/developer-tools/studio/blueprints/) where you can choose and activate blueprints to create a site. The Blueprints Gallery is also available through CLI. The commands for working with blueprints are:
+WordPress Studio offers access to the [Blueprints Gallery](https://wordpress.studio/docs/blueprints/) where you can choose and activate blueprints to create a site. The Blueprints Gallery is also available through CLI. The commands for working with blueprints are:
 
 \# Show all available blueprints for creating a local WordPress Studio site
 studio blueprint list
@@ -301,7 +301,7 @@ studio config set --help
 
 ## [Syncing with WordPress.com and Pressable](#cli-sync)
 
-Use `studio push` and `studio pull` to [sync](https://developer.wordpress.com/docs/developer-tools/studio/sync/) a local site with a connected WordPress.com or Pressable site. Both commands require you to be logged in with `studio auth login`.
+Use `studio push` and `studio pull` to [sync](https://wordpress.studio/docs/sync/) a local site with a connected WordPress.com or Pressable site. Both commands require you to be logged in with `studio auth login`.
 
 \# Push the local site to its connected live site
 studio push
@@ -319,7 +319,7 @@ studio pull --help
 
 ## [Importing and exporting](#cli-import-export)
 
-Use `studio import` and `studio export` to work with [backup files](https://developer.wordpress.com/docs/developer-tools/studio/import-export/) from the command line.
+Use `studio import` and `studio export` to work with [backup files](https://wordpress.studio/docs/import-export/) from the command line.
 
 \# Import a backup file into the local site
 studio import /path/to/backup.zip
@@ -347,11 +347,11 @@ Press Ctrl+C in the terminal to stop it.
 
 ## [MCP server](#cli-mcp)
 
-`studio mcp` runs WordPress Studio’s MCP server, which lets AI agents create, configure, and inspect your local sites and work with your WordPress.com sites. It also serves WordPress Studio’s instructions and skills to the agent on demand. You don’t usually run it yourself: add it to your agent’s MCP configuration instead. See [MCP on WordPress Studio](https://developer.wordpress.com/docs/developer-tools/studio/mcp-on-studio/).
+`studio mcp` runs WordPress Studio’s MCP server, which lets AI agents create, configure, and inspect your local sites and work with your WordPress.com sites. It also serves WordPress Studio’s instructions and skills to the agent on demand. You don’t usually run it yourself: add it to your agent’s MCP configuration instead. See [MCP on WordPress Studio](https://wordpress.studio/docs/mcp-on-studio/).
 
 ## [WordPress Studio Code](#cli-code)
 
-`studio code` starts [WordPress Studio Code](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/), WordPress Studio’s AI agent, as a chat in your terminal. `studio ai` works too.
+`studio code` starts [WordPress Studio Code](https://wordpress.studio/docs/studio-code/), WordPress Studio’s AI agent, as a chat in your terminal. `studio ai` works too.
 
 studio code                            # Start a new chat
 studio code "Create a portfolio site"  # Start with a first message

@@ -1,6 +1,6 @@
 # WordPress Studio: Frequently asked questions
 
-On this page you’ll find answers to common questions about the [WordPress Studio](https://developer.wordpress.com/studio/) app and certain features like the [WordPress Studio Code](#studio-code) and [WordPress Studio Sync.](#sync)
+On this page you’ll find answers to common questions about the [WordPress Studio](https://wordpress.studio/) app and certain features like the [WordPress Studio Code](#studio-code) and [WordPress Studio Sync.](#sync)
 
 As a reminder, WordPress Studio is an [open source project](https://github.com/Automattic/studio) that welcomes all contributions. If you spot a bug or the WordPress Studio feature you need is missing, we have some options:
 
@@ -27,17 +27,17 @@ You can then upload your theme to any live or staging WordPress site [by follow
 
 ### [How can I publish my WordPress Studio site so that it’s publicly available?](#12-how-can-i-publish-my-studio-site-so-that-it-s-publicly-available-)
 
-While [preview sites](https://developer.wordpress.com/docs/developer-tools/studio/preview-sites) are intended for sharing with clients and gathering early feedback for up to seven days, a hosting plan is required to make your site permanently accessible.
+While [preview sites](https://wordpress.studio/docs/preview-sites/) are intended for sharing with clients and gathering early feedback for up to seven days, a hosting plan is required to make your site permanently accessible.
 
-**To publish your local site on WordPress.com**, follow the steps outlined in the [WordPress Studio Sync](https://developer.wordpress.com/docs/developer-tools/studio/sync/) doc.
+**To publish your local site on WordPress.com**, follow the steps outlined in the [WordPress Studio Sync](https://wordpress.studio/docs/sync/) doc.
 
-**To publish your local site on another WordPress host**, follow the [Import and Export](https://developer.wordpress.com/docs/developer-tools/studio/import-export) guide to create an export of your source site. When the export is ready, you can import that content to the destination site, for example, following the [Manually Restore Your Site from a Jetpack Backup File on WordPress.com](https://developer.wordpress.com/docs/guides/manually-restore-backup/) guide.
+**To publish your local site on another WordPress host**, follow the [Import and Export](https://wordpress.studio/docs/import-export/) guide to create an export of your source site. When the export is ready, you can import that content to the destination site, for example, following the [Manually Restore Your Site from a Jetpack Backup File on WordPress.com](https://developer.wordpress.com/docs/guides/manually-restore-backup/) guide.
 
 ### [How can I manage the WordPress Studio site’s SQLite database?](#13-how-can-i-manage-the-studio-site-s-sqlite-database-)
 
 WordPress Studio uses SQLite instead of a MySQL server. Each site’s database is a single file, `wp-content/database/.ht.sqlite`. Avoid editing that file with other tools, such as a terminal client or a SQLite app: it’s easy to corrupt it, break the schema WordPress expects, or end up with a database that won’t move to MySQL later.
 
-Use WordPress Studio’s built-in phpMyAdmin instead, adapted to work safely with SQLite. In the [site menu](https://developer.wordpress.com/docs/developer-tools/studio/sites/#site-menu), choose **Open in → phpMyAdmin** to open it in your browser, or **Tools → Database** to open it in the site preview. There you can browse tables, run queries and edit data.
+Use WordPress Studio’s built-in phpMyAdmin instead, adapted to work safely with SQLite. In the [site menu](https://wordpress.studio/docs/sites/#site-menu), choose **Open in → phpMyAdmin** to open it in your browser, or **Tools → Database** to open it in the site preview. There you can browse tables, run queries and edit data.
 
 ### [How can I use WordPress Studio with the MySQL server of my choice?](#use-studio-with-mysql-server)
 
@@ -58,11 +58,11 @@ If you have already created a site in WordPress Studio, and want to switch SQLit
 
 ### [How do I select the PHP and WordPress versions for my site?](#15-how-do-i-change-the-php-version-used-for-my-site-) 
 
-Choose them when you create the site, on the form where you name it. To change them later, choose **Settings** from the site menu: the **WordPress version** is on the **Settings** page, and the **PHP version** on the **PHP** page. Click **Save** at the top of the dialog to apply the change. See [Edit a site](https://developer.wordpress.com/docs/developer-tools/studio/sites/#10-edit-a-site).
+Choose them when you create the site, on the form where you name it. To change them later, choose **Settings** from the site menu: the **WordPress version** is on the **Settings** page, and the **PHP version** on the **PHP** page. Click **Save** at the top of the dialog to apply the change. See [Edit a site](https://wordpress.studio/docs/sites/#edit-a-site).
 
 ### [Why isn’t the “Open In” button available for my preferred app?](#16-why-isn-t-the-open-in-button-available-for-my-preferred-app-)
 
-The **Open in** menu only lists apps WordPress Studio supports and finds on your computer. [“Open in” menu](https://developer.wordpress.com/docs/developer-tools/studio/sites/#8--open-in-menu) lists the supported code editors and terminal applications.
+The **Open in** menu only lists apps WordPress Studio supports and finds on your computer. [“Open in” menu](https://wordpress.studio/docs/sites/#open-in-menu) lists the supported code editors and terminal applications.
 
 -   On macOS, an editor or terminal must be in your Applications folder (`/Applications` or `~/Applications`).
 -   On Windows, WordPress Studio looks in each app’s usual install folder.
@@ -80,7 +80,7 @@ You can add this exclusion policy manually by choosing **Help → How can I make
 
 ### [How can I regenerate my thumbnails?](#18-how-can-i-regenerate-my-thumbnails-)
 
-If some thumbnails are missing after importing your site, you can regenerate them by first [installing the WordPress Studio CLI](https://developer.wordpress.com/docs/developer-tools/studio/cli/#0-installation), and then running the following CLI command:
+If some thumbnails are missing after importing your site, you can regenerate them by first [installing the WordPress Studio CLI](https://wordpress.studio/docs/cli/#installation), and then running the following CLI command:
 
 ```shell
 studio wp media regenerate --yes --only-missing
@@ -96,11 +96,11 @@ When publishing, pulling, importing or exporting fails, WordPress Studio offers 
 
 ### [Where do emails sent by my site go?](#site-email)
 
-WordPress Studio saves them instead of sending them. To see them, choose **Tools → Email** from the site menu, which opens the site’s email folder. See [Site email](https://developer.wordpress.com/docs/developer-tools/studio/sites/#site-email).
+WordPress Studio saves them instead of sending them. To see them, choose **Tools → Email** from the site menu, which opens the site’s email folder. See [Site email](https://wordpress.studio/docs/sites/#site-email).
 
 ### [Is it possible to change the port or URL of my WordPress Studio site?](#10-is-it-possible-to-change-the-port-or-url-of-my-studio-site-)
 
-By default, WordPress Studio sites are assigned a unique port starting from 8881. For example, your first WordPress Studio site uses the URL `http://localhost:8881`, and your second site uses `http://localhost:8882`. While the port of `localhost` URLs cannot be modified from WordPress Studio, you can always [use a custom domain instead of `localhost`](https://developer.wordpress.com/docs/developer-tools/studio/sites/#Using-a-custom-domain-and-SSL).
+By default, WordPress Studio sites are assigned a unique port starting from 8881. For example, your first WordPress Studio site uses the URL `http://localhost:8881`, and your second site uses `http://localhost:8882`. While the port of `localhost` URLs cannot be modified from WordPress Studio, you can always [use a custom domain instead of `localhost`](https://wordpress.studio/docs/sites/#using-a-custom-domain-and-ssl).
 
 ### [How can I use a tunneling tool (ngrok) with WordPress Studio?](#11-how-can-i-use-a-tunneling-tool-ngrok-with-studio-)
 
@@ -145,7 +145,7 @@ To import your local site to [playground.wordpress.net](https://playground.wordp
 
 ## [WordPress Studio Code FAQs](#studio-code)
 
-Here are some answers to common questions about WordPress Studio Code. Please review [the WordPress Studio Code doc](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/) for step-by step instructions and helpful tips for using this feature.
+Here are some answers to common questions about WordPress Studio Code. Please review [the WordPress Studio Code doc](https://wordpress.studio/docs/studio-code/) for step-by step instructions and helpful tips for using this feature.
 
 ### [What languages does WordPress Studio Code support?](#3-where-do-the-assistant-s-answers-come-from-)
 
@@ -153,13 +153,13 @@ You can talk with WordPress Studio Code in any language you prefer.
 
 ### [Can I use WordPress Studio Code without a WordPress.com account?](#5-can-i-use-the-studio-assistant-without-a-wordpress-com-account-)
 
-Yes, with your own Anthropic API key. Connect **Anthropic** in **Settings → AI Providers** in the desktop app, or use the `/api-key` command in the terminal. Usage is billed through your Anthropic account. See [Use your own Anthropic API key](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/#use-your-own-anthropic-api-key).
+Yes, with your own Anthropic API key. Connect **Anthropic** in **Settings → AI Providers** in the desktop app, or use the `/api-key` command in the terminal. Usage is billed through your Anthropic account. See [Use your own Anthropic API key](https://wordpress.studio/docs/studio-code/#use-your-own-anthropic-api-key).
 
-To use WordPress.com AI credits instead, [log into WordPress Studio with your WordPress.com account](https://developer.wordpress.com/docs/developer-tools/studio#connect-wordpress-com). Some features, such as [image generation](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/image-generation/), preview sites, and publishing to WordPress.com, also need a WordPress.com login.
+To use WordPress.com AI credits instead, [log into WordPress Studio with your WordPress.com account](https://wordpress.studio/docs/#connect-to-wordpresscom). Some features, such as [image generation](https://wordpress.studio/docs/studio-code/image-generation/), preview sites, and publishing to WordPress.com, also need a WordPress.com login.
 
 ### [Is there any cost to use WordPress Studio Code?](#6-is-there-any-cost-to-use-the-studio-assistant-)
 
-WordPress Studio Code runs on AI Credits. Every account starts with a free allowance for the Fast tier; after that, or to use Balanced and Strong, you buy more. With your own Anthropic API key, Anthropic bills you instead. See [How AI Credits Work](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/ai-credits-guidelines/).
+WordPress Studio Code runs on AI Credits. Every account starts with a free allowance for the Fast tier; after that, or to use Balanced and Strong, you buy more. With your own Anthropic API key, Anthropic bills you instead. See [How AI Credits Work](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/).
 
 ### [How many prompts can I use per month?](#7-how-many-prompts-can-i-use-per-month-)
 
@@ -171,7 +171,7 @@ You can [write into support](https://developer.wordpress.com/contact/) to shar
 
 ## [WordPress Studio Sync FAQs](#sync)
 
-Here are some answers to common questions about the WordPress Studio Sync feature. Please review [the WordPress Studio Sync doc](https://developer.wordpress.com/docs/developer-tools/studio/sync/) for step-by step instructions and helpful tips for using this feature.
+Here are some answers to common questions about the WordPress Studio Sync feature. Please review [the WordPress Studio Sync doc](https://wordpress.studio/docs/sync/) for step-by step instructions and helpful tips for using this feature.
 
 ### [Why don’t my local users appear on the WordPress.com site after publishing?](#local-users)
 

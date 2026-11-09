@@ -4,7 +4,7 @@ With WordPress Studio, you can share your work with preview sites. These preview
 
 You can create up to ten preview sites at a time per WordPress.com account, and you can see how many you’re using in **Settings → Sharing** and **Settings → Usage** within the WordPress Studio app.
 
-While preview sites are intended for sharing with clients and gathering early feedback for up to seven days, a hosting plan is required to make your site permanently accessible. Use [Publish](https://developer.wordpress.com/docs/developer-tools/studio/sync/) or [Import/Export](https://developer.wordpress.com/docs/developer-tools/studio/import-export/) to move your WordPress Studio site to a hosting plan.
+While preview sites are intended for sharing with clients and gathering early feedback for up to seven days, a hosting plan is required to make your site permanently accessible. Use [Publish](https://wordpress.studio/docs/sync/) or [Import/Export](https://wordpress.studio/docs/import-export/) to move your WordPress Studio site to a hosting plan.
 
 ## [Create a preview site](#0-create-a-preview-site)
 
@@ -12,7 +12,7 @@ To create a preview site:
 
 1.  Select the local site within WordPress Studio.
 2.  Click **Share** at the top right of the site preview. You can also choose **Share** from the site menu.
-3.  [Log in to WordPress.com](https://developer.wordpress.com/docs/developer-tools/studio#connect-wordpress-com) if you haven’t already.
+3.  [Log in to WordPress.com](https://wordpress.studio/docs/#connect-to-wordpresscom) if you haven’t already.
 4.  Under **Share a preview**, click **Create preview**. The button shows **Creating preview…** while WordPress Studio builds the preview.
 
 Your preview site should be ready to view in a few seconds, and it will be available to access publicly for seven days. You can close the panel while you wait. The **Share** button shows a spinner while a preview is being created or updated, and a dot when the preview is ready. WordPress Studio also shows a notification when the preview is ready, with a **Copy link** button.

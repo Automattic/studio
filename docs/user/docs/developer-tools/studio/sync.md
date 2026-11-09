@@ -33,13 +33,13 @@ For detailed instructions on how to use WordPress Studio with Pressable sites, p
 To start working locally on a WordPress.com or Pressable site you don’t have in WordPress Studio yet:
 
 1.  Click the **Add site** (**+**) button next to **Sites** at the top of the sidebar, and choose **Connect**.
-2.  [Log in to WordPress.com](https://developer.wordpress.com/docs/developer-tools/studio#connect-wordpress-com) if you haven’t already.
+2.  [Log in to WordPress.com](https://wordpress.studio/docs/#connect-to-wordpresscom) if you haven’t already.
 3.  Select the site you want to work on. Use **Search sites** to filter the list, or **Refresh list** to load it again. Each site is labeled as a WordPress.com or Pressable site, and as production, staging, or development. Sites you can connect are listed under **Available to connect**. Sites that can’t be connected are listed under **Unavailable**, with the reason. Where it helps, a link takes you to WordPress.com to fix it: **View plans** for a site that needs a supported plan, or **Enable hosting features** for a site that needs hosting features turned on. **Supported sites** explains which sites you can connect.
 4.  Review the site name and local folder, and click **Create site**. The local folder must be empty, because WordPress Studio pulls the live site into it. If the folder contains files, including an existing WordPress site, WordPress Studio shows an error and you can’t create the site until you choose an empty folder.
 
 WordPress Studio creates the local site, saves the connection, and opens the site. The live site is pulled into it in the background, and the **Publish** panel shows the pull’s progress.
 
-To add a WordPress site that’s already on your computer instead, see [Add a new site using an existing WordPress directory](https://developer.wordpress.com/docs/developer-tools/studio/sites/#2-add-a-new-site-using-an-existing-wordpress-directory).
+To add a WordPress site that’s already on your computer instead, see [Add a new site using an existing WordPress directory](https://wordpress.studio/docs/sites/#add-a-new-site-using-an-existing-wordpress-directory).
 
 [![The Connect tab of the Add site dialog in WordPress Studio, signed in, with a Search sites field, Refresh list and Supported sites links, WordPress.com and Pressable sites listed under Available to connect, and a site listed under Unavailable.](https://developer.wordpress.com/wp-content/uploads/2025/01/add-site-connect-signed-in.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/add-site-connect-signed-in.webp)
 
@@ -51,7 +51,7 @@ To connect a local WordPress Studio site to an existing production or staging si
 
 1.  Select the site you wish to connect from the WordPress Studio sidebar.
 2.  Click **Publish** at the top right of the site preview. You can also choose **Publish** from the site menu.
-3.  [Log in to WordPress.com](https://developer.wordpress.com/docs/developer-tools/studio#connect-wordpress-com) if you haven’t already.
+3.  [Log in to WordPress.com](https://wordpress.studio/docs/#connect-to-wordpresscom) if you haven’t already.
 4.  Click **Existing site…** to open the **Choose an existing site** list. Each row shows the site’s name, its address, and whether it’s a **Production**, **Staging**, or **Development** site. Sites you can’t publish to, such as sites that need a plan upgrade, deleted sites, or sites you don’t have permission to manage, are left out. To load the list again, open **Site actions** (**⋯**) and choose **Refresh**.
 5.  Click the site you want to connect to. To go back without connecting, click **Back to Publish**.
 
@@ -146,9 +146,9 @@ WordPress Studio disables **Pull changes** and **Publish changes**, and tells yo
 
 ### [Exclude files with .deployignore](#11-exclude-files-with-deployignore)
 
-When publishing a WordPress Studio site to WordPress.com or Pressable, WordPress Studio honors the same `.deployignore` file [used by Preview Sites](https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/#4-exclude-files-with-deployignore). Place a `.deployignore` file at the root of your site directory to exclude files from the publish — for example, build artifacts, vendor dependencies, or large media folders.
+When publishing a WordPress Studio site to WordPress.com or Pressable, WordPress Studio honors the same `.deployignore` file [used by Preview Sites](https://wordpress.studio/docs/preview-sites/#exclude-files-with-deployignore). Place a `.deployignore` file at the root of your site directory to exclude files from the publish — for example, build artifacts, vendor dependencies, or large media folders.
 
-The file uses the same .gitignore-style syntax. See the [Preview Sites documentation](https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/#4-exclude-files-with-deployignore) for the full syntax reference and examples.
+The file uses the same .gitignore-style syntax. See the [Preview Sites documentation](https://wordpress.studio/docs/preview-sites/#exclude-files-with-deployignore) for the full syntax reference and examples.
 
 In addition to the defaults applied by Preview Sites (`.git`, `node_modules`, `.DS_Store`, `Thumbs.db`), Sync also excludes WordPress Studio-internal files that  
 shouldn’t be uploaded to the remote site:

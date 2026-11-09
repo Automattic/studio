@@ -917,7 +917,11 @@ export function createIpcConnector(): Connector {
 		onAddSite( listener ) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
-			return ipcListener.subscribe( 'add-site', () => listener() );
+			return ipcListener.subscribe(
+				'add-site',
+				( _event: unknown, payload?: { backup?: { path: string; name: string } } ) =>
+					listener( payload )
+			);
 		},
 
 		onAddSiteWithBlueprint( listener ) {

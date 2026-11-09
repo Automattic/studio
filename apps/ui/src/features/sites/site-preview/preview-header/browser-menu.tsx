@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { EllipsisVerticalIcon } from 'lucide-react';
+import { AnnotateIcon } from '@/lib/icons';
 import { Button, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import type { PreviewColorScheme } from '../preview-surface/webview';
 import type { useFrontendAdminBar } from '@/data/queries/use-frontend-admin-bar';
@@ -18,19 +19,40 @@ export interface PreviewResponsiveActions {
 	onClick: () => void;
 }
 
+export interface PreviewScreenshotActions {
+	disabled: boolean;
+	disabledReason?: string;
+	capturing: boolean;
+	onClick: () => void;
+}
+
 interface BrowserMenuItemsProps {
 	actions?: PreviewBrowserActions;
 	adminBar?: ReturnType< typeof useFrontendAdminBar >;
 	responsive?: PreviewResponsiveActions;
+	screenshot?: PreviewScreenshotActions;
 	disabled?: boolean;
+	annotation?: { active: boolean; disabled: boolean; disabledReason?: string; onClick: () => void };
 }
 
-function BrowserMenuItems( { actions, adminBar, responsive, disabled }: BrowserMenuItemsProps ) {
+function BrowserMenuItems( {
+	actions,
+	adminBar,
+	responsive,
+	screenshot,
+	disabled,
+	annotation,
+}: BrowserMenuItemsProps ) {
 	return (
 		<>
-			{ responsive ? (
-				<Menu.Item disabled={ disabled || responsive.disabled } onClick={ responsive.onClick }>
-					{ responsive.active ? __( 'Hide device toolbar' ) : __( 'Show device toolbar' ) }
+			{ annotation ? (
+				<Menu.Item
+					disabled={ disabled || annotation.disabled }
+					onClick={ annotation.onClick }
+					aria-description={ annotation.disabledReason }
+				>
+					<AnnotateIcon />
+					{ annotation.active ? __( 'Stop annotating' ) : __( 'Annotate' ) }
 				</Menu.Item>
 			) : null }
 			{ adminBar ? (
@@ -39,6 +61,24 @@ function BrowserMenuItems( { actions, adminBar, responsive, disabled }: BrowserM
 					onClick={ () => adminBar.onChange( adminBar.value === 'show' ? 'hide' : 'show' ) }
 				>
 					{ adminBar.value === 'show' ? __( 'Hide admin bar' ) : __( 'Show admin bar' ) }
+				</Menu.Item>
+			) : null }
+			{ responsive ? (
+				<Menu.Item disabled={ disabled || responsive.disabled } onClick={ responsive.onClick }>
+					{ responsive.active ? __( 'Hide device toolbar' ) : __( 'Show device toolbar' ) }
+				</Menu.Item>
+			) : null }
+			{ ( screenshot || actions ) && ( annotation || adminBar || responsive ) ? (
+				<Menu.Separator />
+			) : null }
+			{ screenshot ? (
+				<Menu.Item
+					disabled={ disabled || screenshot.disabled || screenshot.capturing }
+					aria-description={ screenshot.disabledReason }
+					aria-busy={ screenshot.capturing || undefined }
+					onClick={ screenshot.onClick }
+				>
+					{ screenshot.capturing ? __( 'Taking screenshot…' ) : __( 'Take screenshot' ) }
 				</Menu.Item>
 			) : null }
 			{ actions ? (
@@ -58,7 +98,6 @@ function BrowserMenuItems( { actions, adminBar, responsive, disabled }: BrowserM
 							</Menu.RadioGroup>
 						</Menu.SubmenuPopup>
 					</Menu.SubmenuRoot>
-					<Menu.Separator />
 					<Menu.Item disabled={ disabled } onClick={ actions.onOpenDevTools }>
 						{ __( 'Developer tools' ) }
 					</Menu.Item>

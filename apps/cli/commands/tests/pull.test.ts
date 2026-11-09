@@ -317,12 +317,13 @@ describe( 'CLI: studio pull single pull phase', () => {
 			`--state-dir=${ stateDirectory }`,
 			`--fs-root=${ rawDirectory }`,
 		] );
-		// The remote URL selects Reprint's pull state; --force only on a first
-		// pull, so the blank install is replaced but a live site never is.
+		// The remote URL selects Reprint's pull state; core is copied, not
+		// linked; --force on a first pull replaces the blank install.
 		expect( flattenArgs ).toEqual( [
 			'flat-docroot',
 			'https://example.com/?reprint-api-jetpack',
 			`--flatten-to=${ sitePath }`,
+			'--core-files=copy',
 			'--force',
 			`--state-dir=${ stateDirectory }`,
 			`--fs-root=${ rawDirectory }`,

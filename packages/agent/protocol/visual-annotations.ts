@@ -12,7 +12,7 @@ interface VisualAnnotationEmail {
 // What a note points at: an element or area on a site page, a DESIGN.md token on the
 // design system page, or a part of the body of an email the site sent.
 export interface VisualAnnotationTarget {
-	kind?: 'region';
+	kind?: 'region' | 'drawing';
 	selector?: string;
 	tag?: string;
 	classes?: string[];
@@ -170,6 +170,8 @@ export function formatVisualAnnotationsPrompt(
 			? `email text paragraph ${ ( note.email.paragraph ?? 0 ) + 1 }`
 			: note.kind === 'region'
 			? 'selected area'
+			: note.kind === 'drawing'
+			? 'drawing'
 			: 'element';
 		const nearbyText = note.nearbyText?.trim()
 			? ` - "${ truncateText( note.nearbyText.trim(), 120 ) }"`

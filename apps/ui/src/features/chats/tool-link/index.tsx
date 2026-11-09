@@ -1,4 +1,5 @@
 import { previewTabsKey, usePreviewTabs } from '@/data/preview-tabs';
+import { useIsSiteBusy, useSites, useStartSite } from '@/data/queries/use-sites';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
 import { usePreviewOpenTracks } from '@/features/sites';
@@ -18,11 +19,17 @@ export function ToolLink( {
 	'aria-label'?: string;
 } ) {
 	const preview = useOptionalSessionPreviewUI();
+	const { data: sites } = useSites();
+	const site = sites?.find( ( site ) => site.id === preview?.siteId );
+	const startSite = useStartSite();
+	const busy = useIsSiteBusy( site );
 	const runLayoutTransition = useUserWorkspaceLayoutTransition( preview?.siteId ?? undefined );
 	const trackOpen = usePreviewOpenTracks();
 	const { add } = usePreviewTabs( previewTabsKey( preview?.siteId ?? '' ), preview?.path );
-	const open = () => {
-		if ( ! preview?.siteId ) return;
+	const open = async () => {
+		if ( ! preview?.siteId || ! site || busy ) return;
+		if ( ! site.running && ! ( await startSite.mutateAsync( site.id ).catch( () => false ) ) )
+			return;
 		trackOpen( path );
 		runLayoutTransition( () => {
 			add( path );
@@ -35,6 +42,7 @@ export function ToolLink( {
 			variant="unstyled"
 			size="inline"
 			className={ styles.toolLink }
+			disabled={ busy }
 			onClick={ open }
 			{ ...props }
 		>

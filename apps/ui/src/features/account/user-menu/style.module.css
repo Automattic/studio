@@ -9,11 +9,6 @@
 	gap: var( --space-1 );
 }
 
-.offline {
-	display: flex;
-	color: var( --muted-foreground );
-}
-
 .avatar {
 	width: 24px;
 	height: 24px;

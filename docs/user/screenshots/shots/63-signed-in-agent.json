@@ -1,0 +1,63 @@
+{
+	"name": "signed-in-agent",
+	"description": "Signed in on an empty profile, with Studio Code stood in for (stubAgentRuns): a new blank site's first chat and the design picker, played from agent-turns/",
+	"firstRun": true,
+	"signedIn": true,
+	"shots": [
+		{
+			"name": "design-looks",
+			"description": "A new blank site's first chat asking for a bakery called Wren & Barley, and Studio Code's pick of four looks (design-looks/), Wren & Barley's among them",
+			"pages": [ "studio-code/index.md" ],
+			"steps": [
+				{ "waitFor": { "role": "dialog", "name": "Welcome to WordPress Studio" } },
+				{ "click": { "role": "button", "name": "Not now" } },
+				{ "waitFor": { "role": "dialog", "name": "Welcome to WordPress Studio" }, "hidden": true },
+				{ "helper": "openAddSite" },
+				{
+					"click": {
+						"within": { "role": "tablist", "name": "Ways to add a site" },
+						"role": "tab",
+						"name": "Create",
+						"exact": true
+					}
+				},
+				{ "click": { "role": "button", "name": "Start with Blank site" } },
+				{
+					"fill": { "role": "textbox", "name": "Site name" },
+					"value": "My WordPress Website",
+					"blur": true
+				},
+				{ "click": { "role": "button", "name": "Create site", "exact": true } },
+				{
+					"waitFor": { "role": "dialog", "name": "Welcome to WordPress Studio" },
+					"timeout": 180000
+				},
+				{ "press": "Escape" },
+				{ "waitFor": { "role": "dialog", "name": "Welcome to WordPress Studio" }, "hidden": true },
+				{
+					"waitFor": { "css": "button[aria-label=\"Stop My WordPress Website\"]", "first": true },
+					"timeout": 120000
+				},
+				{
+					"waitFor": { "text": "Loading site preview" },
+					"hidden": true,
+					"timeout": 60000,
+					"optional": true
+				},
+				{ "helper": "stubAgentRuns" },
+				{ "helper": "dragSeparator", "args": [ "Resize site preview", 260 ] },
+				{ "click": { "role": "combobox", "name": "Message WordPress Studio" } },
+				{
+					"helper": "typeText",
+					"args": [ "Build a site for my neighborhood bakery called Wren & Barley" ]
+				},
+				{ "click": { "role": "button", "name": "Send message" } },
+				{ "wait": 1500 },
+				{ "helper": "playAgentTurn", "args": [ "design-looks" ] },
+				{ "waitFor": { "text": "Which look should I build?", "exact": true } },
+				{ "wait": 2000 }
+			],
+			"capture": { "settle": 2500 }
+		}
+	]
+}

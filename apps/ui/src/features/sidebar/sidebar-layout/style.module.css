@@ -2,13 +2,13 @@
 	--motion-ease-layout: var( --motion-ease-drawer );
 
 	/* The sidebar and its sticky header/footer share one surface. */
-	--studio-sidebar-bg: var( --chrome );
+	--studio-sidebar-bg: var( --sidebar-background, var( --chrome ) );
 
 	position: relative;
 	display: flex;
 	height: 100vh;
 	overflow: hidden;
-	background-color: var( --chat );
+	background-color: var( --window-background, var( --chat ) );
 }
 
 .sidebar {

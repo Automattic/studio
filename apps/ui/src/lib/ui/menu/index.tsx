@@ -5,7 +5,6 @@ import { clsx } from 'clsx';
 import { CheckIcon } from 'lucide-react';
 import { forwardRef } from 'react';
 import { ChevronDownIcon } from '@/lib/icons';
-import { FloatingSurface } from '@/lib/ui/surface';
 import surface from '@/lib/ui/surface/style.module.css';
 import styles from './style.module.css';
 import type { ComponentPropsWithoutRef, ElementRef, ReactNode } from 'react';
@@ -92,7 +91,15 @@ export function Popup( {
 			>
 				<BaseMenu.Popup
 					render={
-						<FloatingSurface className={ clsx( surface.padded, styles.popup, className ) } />
+						<div
+							className={ clsx(
+								surface.floating,
+								surface.popup,
+								surface.padded,
+								styles.popup,
+								className
+							) }
+						/>
 					}
 					{ ...props }
 				>
@@ -122,7 +129,15 @@ export function ContextPopup( { children, className, ...props }: ContextPopupPro
 			>
 				<BaseMenu.Popup
 					render={
-						<FloatingSurface className={ clsx( surface.padded, styles.popup, className ) } />
+						<div
+							className={ clsx(
+								surface.floating,
+								surface.popup,
+								surface.padded,
+								styles.popup,
+								className
+							) }
+						/>
 					}
 					{ ...props }
 				>

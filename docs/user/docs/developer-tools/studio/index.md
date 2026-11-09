@@ -46,6 +46,20 @@ To install and start using WordPress Studio on Windows from WordPress.com:
 3.  Wait for WordPress Studio to install, it will launch automatically once the installation is complete. 
 4.  Follow the [first-run steps](#first-run) to add your first site.
 
+### [Install WordPress Studio for Linux](#install-wordpress-studio-for-linux)
+
+To install and start using WordPress Studio on a 64-bit Debian-based Linux system:
+
+1.  Download the Debian package for your computer: [x64](https://appscdn.wordpress.com/downloads/wordpress-com-studio/linux-x64/latest/update) or [ARM64](https://appscdn.wordpress.com/downloads/wordpress-com-studio/linux-arm64/latest/update).
+2.  Open your terminal and install the package with APT, replacing the path with the full path to the file you downloaded:
+
+    ```bash
+    sudo apt install /full/path/to/downloaded-package.deb
+    ```
+
+3.  Launch WordPress Studio from your application menu.
+4.  Follow the [first-run steps](#first-run) to add your first site.
+
 ### [First run](#first-run)
 
 The first time you open WordPress Studio, it walks you through a short setup:

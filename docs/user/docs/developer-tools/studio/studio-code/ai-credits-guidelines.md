@@ -8,7 +8,7 @@ AI Credits are how you pay for AI usage in WordPress Studio Code — things like
 
 ## [Your allowance](#1-your-allowance)
 
-We will give you a limited, one-time free allowance of AI Credits that you can use to try WordPress Studio Code. Your free allowance can only be used with the Fast tier; Balanced and Strong require purchased AI Credits. See [Choosing an AI model tier in WordPress Studio Code](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/choosing-an-ai-model-tier-in-studio-code/) for details. We may change the size of this allowance or discontinue it, particularly as WordPress Studio moves out of beta.  
+We will give you a limited, one-time free allowance of AI Credits that you can use to try WordPress Studio Code. Your free allowance can only be used with the Fast tier; Balanced and Strong require purchased AI Credits. See [Choosing an AI model tier in WordPress Studio Code](https://wordpress.studio/docs/studio-code/choosing-an-ai-model-tier-in-studio-code/) for details. We may change the size of this allowance or discontinue it, particularly as WordPress Studio moves out of beta.  
   
 Your free allowance is consumed at the same variable rate as purchased credits (see below).
 

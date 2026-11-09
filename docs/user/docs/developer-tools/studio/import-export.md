@@ -22,7 +22,7 @@ Other supported formats are:
 -   `.tar` and `.tar.gz` archives
 -   WordPress export files (`.xml`), created with **Tools → Export** in WP Admin
 
-If your site is hosted on a paid WordPress.com plan or on [Pressable](https://pressable.com/), you can use [WordPress Studio Sync](https://developer.wordpress.com/docs/developer-tools/studio/sync/) as an alternative. It lets you pull down your production or staging site into WordPress Studio, and publish local changes back to the live site when you’re ready.
+If your site is hosted on a paid WordPress.com plan or on [Pressable](https://pressable.com/), you can use [WordPress Studio Sync](https://wordpress.studio/docs/sync/) as an alternative. It lets you pull down your production or staging site into WordPress Studio, and publish local changes back to the live site when you’re ready.
 
 ## [How to add a new site to WordPress Studio from a backup](#0-how-to-add-a-new-site-to-wordpress-studio-from-a-backup)
 
@@ -65,7 +65,7 @@ Note that `node_modules` and `.git` paths are excluded from the exported file.
 
 Once you have the backup file, you can deploy it to **any** WordPress site. For example, if your site is on a paid WordPress.com plan, you can follow the [Manually Restore Your Site from a Jetpack Backup File on WordPress.com](https://developer.wordpress.com/docs/guides/manually-restore-backup/) guide.
 
-Alternatively, if your site is hosted on a paid WordPress.com plan or Pressable, you also have the option to use [WordPress Studio Sync](https://developer.wordpress.com/docs/developer-tools/studio/sync/). Its **Publish** button lets you connect WordPress Studio to your live production or staging sites and publish local changes with a single click—no manual file upload required.
+Alternatively, if your site is hosted on a paid WordPress.com plan or Pressable, you also have the option to use [WordPress Studio Sync](https://wordpress.studio/docs/sync/). Its **Publish** button lets you connect WordPress Studio to your live production or staging sites and publish local changes with a single click—no manual file upload required.
 
 ## [How to import a site without a Jetpack backup](#4-how-to-import-a-site-without-a-jetpack-backup)
 

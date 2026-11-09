@@ -2,7 +2,7 @@
 
 A Blueprint is a JSON file that describes how to build a site in WordPress Studio. This “recipe” tells WordPress Studio which WordPress and PHP versions to use, which plugins and themes to install, what content or settings to apply, and more.
 
-Unlike full-site Blueprints in other local development environments, WordPress Studio Blueprints are lightweight, declarative, and easy to share. Choose from one of our free starter Blueprints or upload a [Blueprint of your own](https://developer.wordpress.com/docs/guides/how-to-create-custom-blueprints/).
+Unlike full-site Blueprints in other local development environments, WordPress Studio Blueprints are lightweight, declarative, and easy to share. Choose from one of our free starter Blueprints or upload a [Blueprint of your own](https://wordpress.studio/docs/blueprints/how-to-create-custom-blueprints/).
 
 ## [How Blueprints work in WordPress Studio](#0-how-blueprints-work-in-studio)
 
@@ -59,8 +59,8 @@ The rest of the Blueprints library, built into the **Add site** dialog, offers a
 
 ## [Building your own Blueprints](#3-building-your-own-blueprints)
 
-Beyond the featured Blueprints, you can also create a custom JSON file to define your specific site requirements. For details on supported steps, JSON structure, and examples, refer to [How to create custom Blueprints](https://developer.wordpress.com/docs/guides/how-to-create-custom-blueprints/).
+Beyond the featured Blueprints, you can also create a custom JSON file to define your specific site requirements. For details on supported steps, JSON structure, and examples, refer to [How to create custom Blueprints](https://wordpress.studio/docs/blueprints/how-to-create-custom-blueprints/).
 
 ## [Opening Blueprints in WordPress Studio](#4-opening-blueprints-in-studio)
 
-You can use a custom Blueprint when creating a new site in WordPress Studio, but you can also generate shareable links that open your Blueprint directly in the app (as long as the user has WordPress Studio installed). This makes it easy to share demos and examples that others can explore locally. Learn how to create your own links in the [Open in WordPress Studio button](https://developer.wordpress.com/docs/developer-tools/studio/blueprints/open-in-wordpress-studio-button/).
+You can use a custom Blueprint when creating a new site in WordPress Studio, but you can also generate shareable links that open your Blueprint directly in the app (as long as the user has WordPress Studio installed). This makes it easy to share demos and examples that others can explore locally. Learn how to create your own links in the [Open in WordPress Studio button](https://wordpress.studio/docs/blueprints/open-in-wordpress-studio-button/).

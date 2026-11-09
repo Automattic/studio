@@ -45,6 +45,7 @@ export function useComposerHandle(
 		restoreAttachments,
 		textareaRef,
 		send,
+		canSubmitAttachments,
 	}: {
 		value: string;
 		setValue: Dispatch< SetStateAction< string > >;
@@ -52,6 +53,7 @@ export function useComposerHandle(
 		restoreAttachments: ( attachments: ComposerAttachment[] ) => void;
 		textareaRef: { current: HTMLTextAreaElement | null };
 		send: () => Promise< void >;
+		canSubmitAttachments: boolean;
 	}
 ) {
 	useImperativeHandle(
@@ -72,6 +74,7 @@ export function useComposerHandle(
 				queueMicrotask( () => focusAtEnd( textareaRef.current ) );
 			},
 			getSubmission() {
+				if ( ! canSubmitAttachments ) return null;
 				const prompt = value.trim();
 				if ( ! prompt && attachments.length === 0 ) return null;
 				return { prompt, attachments: toComposerSendAttachments( attachments ) };
@@ -81,6 +84,6 @@ export function useComposerHandle(
 			},
 			send,
 		} ),
-		[ restoreAttachments, value, attachments, send, setValue, textareaRef ]
+		[ restoreAttachments, value, attachments, send, setValue, textareaRef, canSubmitAttachments ]
 	);
 }

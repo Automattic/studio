@@ -1,3 +1,4 @@
+import { aiModelSupportsImages, getAiModelLabel } from '@studio/agent/protocol/models';
 import {
 	clampQuotaFraction,
 	formatQuotaPercentage,
@@ -10,7 +11,7 @@ import type { AiModelId } from '@/data/core';
 export function getModelDescription( id: AiModelId ): string {
 	switch ( id ) {
 		case 'fast':
-			return __( 'Quick fixes and questions' );
+			return __( 'Quick fixes and questions (text only)' );
 		case 'balanced':
 		case 'claude-sonnet-5':
 			return __( 'Build features, style pages, and fix bugs' );
@@ -20,6 +21,16 @@ export function getModelDescription( id: AiModelId ): string {
 		default:
 			return '';
 	}
+}
+
+export function getModelImageSupportError( model: AiModelId ): string | null {
+	return aiModelSupportsImages( model )
+		? null
+		: sprintf(
+				/* translators: %s: selected AI model name (e.g. Fast). */
+				__( '%s does not support images. Choose a different model to attach an image.' ),
+				getAiModelLabel( model )
+		  );
 }
 
 // Accounts on the older monthly cap have no credit counts, only usage against the cap.

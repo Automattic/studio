@@ -135,6 +135,134 @@ beforeEach( () => {
 } );
 
 describe( 'Chat composer', () => {
+	it.each( [ 'upload', 'paste', 'drop' ] )(
+		'rejects image %s while Fast is selected',
+		async ( source ) => {
+			const { input } = await setup( { model: 'fast' } );
+			const file = new File( [ 'image-bytes' ], 'reference.png', { type: 'image/png' } );
+			if ( source === 'upload' ) {
+				fireEvent.change( screen.getByLabelText( 'Upload attachments' ), {
+					target: { files: [ file ] },
+				} );
+			} else if ( source === 'paste' ) {
+				expect( paste( input ).defaultPrevented ).toBe( true );
+			} else {
+				fireEvent.drop( input, { dataTransfer: { types: [ 'Files' ], files: [ file ] } } );
+			}
+
+			expect( await screen.findByRole( 'alert' ) ).toHaveTextContent(
+				'Fast does not support images. Choose a different model to attach an image.'
+			);
+			expect( screen.queryByRole( 'listitem' ) ).not.toBeInTheDocument();
+			expect( getComposerDraft( 'test' ).attachments ).toEqual( [] );
+		}
+	);
+
+	it( 'keeps non-image files from a mixed drop while Fast rejects photos', async () => {
+		const { input, onSend } = await setup( { model: 'fast' } );
+		fireEvent.drop( input, {
+			dataTransfer: {
+				types: [ 'Files' ],
+				files: [
+					new File( [ 'image-bytes' ], 'reference.png', { type: 'image/png' } ),
+					new File( [ 'Site requirements' ], 'notes.txt', { type: 'text/plain' } ),
+				],
+			},
+		} );
+
+		expect( await screen.findByRole( 'listitem', { name: /^notes.txt/ } ) ).toBeVisible();
+		expect( screen.queryByRole( 'listitem', { name: /^reference.png/ } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+		await waitFor( () =>
+			expect( onSend ).toHaveBeenCalledWith(
+				expect.any( String ),
+				expect.objectContaining( {
+					images: [],
+					files: [ expect.objectContaining( { name: 'notes.txt' } ) ],
+				} )
+			)
+		);
+	} );
+
+	it( 'rejects an image with no MIME type while Fast is selected', async () => {
+		await setup( { model: 'fast' } );
+		fireEvent.change( screen.getByLabelText( 'Upload attachments' ), {
+			target: { files: [ new File( [ 'image-bytes' ], 'reference.PNG' ) ] },
+		} );
+		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent(
+			'Fast does not support images.'
+		);
+		expect( screen.queryByRole( 'listitem' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'rejects images pasted outside the textarea while Fast is selected', async () => {
+		await setup( { model: 'fast' } );
+		expect( paste( document.body ).defaultPrevented ).toBe( true );
+		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent(
+			'Fast does not support images.'
+		);
+		expect( screen.queryByRole( 'listitem' ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'preserves image drafts across model changes and clears the limitation when images are supported', async () => {
+		saveComposerDraft( 'test', {
+			text: 'Use this reference',
+			attachments: [ image( 'reference' ) ],
+		} );
+		const onSend = vi.fn( async () => {} );
+		function ChangingModel() {
+			const [ model, setModel ] = useState< 'fast' | 'balanced' >( 'balanced' );
+			return (
+				<Composer
+					busy={ false }
+					model={ model }
+					sessionId="test"
+					onSend={ onSend }
+					onInterrupt={ interrupt }
+					onModelChange={ ( next ) => setModel( next as 'fast' | 'balanced' ) }
+				/>
+			);
+		}
+		renderWithProviders( <ChangingModel />, {
+			connector: createFakeConnector( {
+				user: { ...TEST_USER, email: 'test@automattic.com' },
+			} ),
+		} );
+		await screen.findByRole( 'combobox' );
+		fireEvent.click( await modelButton() );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Fast/ } ) );
+		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent(
+			'Fast does not support images.'
+		);
+		expect( screen.getByRole( 'listitem', { name: /^reference.png/ } ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+		expect( onSend ).not.toHaveBeenCalled();
+		fireEvent.click( await modelButton() );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Balanced/ } ) );
+		expect( screen.queryByRole( 'alert' ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
+		await waitFor( () =>
+			expect( onSend ).toHaveBeenCalledWith(
+				expect.any( String ),
+				expect.objectContaining( {
+					images: [ expect.objectContaining( { name: 'reference.png' } ) ],
+				} )
+			)
+		);
+	} );
+
+	it( 'keeps a form-field image draft without handing it to the Fast model', async () => {
+		saveComposerDraft( 'test', {
+			text: 'Use this reference',
+			attachments: [ image( 'reference' ) ],
+		} );
+		const { ref } = await setup( { model: 'fast', variant: 'field' } );
+
+		expect( ref.current?.getSubmission() ).toBeNull();
+		expect( screen.getByRole( 'listitem', { name: /^reference.png/ } ) ).toBeVisible();
+		expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'Fast does not support images.' );
+	} );
+
 	it( 'preserves edits and new attachments while a send is accepted', async () => {
 		let resolve!: () => void;
 		const onSend = vi.fn(
@@ -630,7 +758,7 @@ describe( 'Annotation attachments in the composer', () => {
 			attachments: [ image( 'ordinary' ) ],
 		} );
 		stageNote( 'Full', [ image( 'a' ), image( 'b' ), image( 'c' ), image( 'd' ) ] );
-		const { onSend, input } = await setup( { annotationSiteId: SITE } );
+		const { onSend, input } = await setup( { model: 'balanced', annotationSiteId: SITE } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
 		expect( onSend ).not.toHaveBeenCalled();
 		expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'You can attach up to 4 images' );
@@ -1274,7 +1402,7 @@ describe( 'Composer drafts and attachments', () => {
 	} );
 
 	it( 'attaches images pasted outside the textarea and focuses the composer', async () => {
-		const { input } = await setup();
+		const { input } = await setup( { model: 'balanced' } );
 
 		expect( paste( document.body ).defaultPrevented ).toBe( true );
 		expect(

@@ -46,7 +46,7 @@ describe( 'Conversation usage and model picker', () => {
 			await user.click( await screen.findByRole( 'button', { name: 'Model' } ) );
 			if ( provider === 'wpcom' ) {
 				expect( await screen.findByRole( 'option', { name: /Fast/ } ) ).toHaveTextContent(
-					'Quick fixes and questions'
+					'Quick fixes and questions (text only)'
 				);
 				expect( screen.getByRole( 'option', { name: /Balanced/ } ) ).toHaveAttribute(
 					'aria-disabled',

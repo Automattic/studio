@@ -20,11 +20,13 @@ export function useDraftAttachments( {
 	annotationSiteId,
 	dropTarget,
 	textareaRef,
+	imagesDisabledMessage,
 }: {
 	initialAttachments: ComposerAttachment[];
 	annotationSiteId?: string;
 	dropTarget: HTMLElement | null;
 	textareaRef: RefObject< HTMLTextAreaElement | null >;
+	imagesDisabledMessage: string | null;
 } ) {
 	const {
 		error: attachmentError,
@@ -33,7 +35,7 @@ export function useDraftAttachments( {
 		removeAttachment,
 		restore: restoreAttachments,
 		pasteHandlers,
-	} = useComposerAttachments( initialAttachments );
+	} = useComposerAttachments( initialAttachments, { imagesDisabledMessage } );
 	const { notes } = useSiteAnnotations( annotationSiteId );
 	const stagedNotes = useMemo( () => notes.filter( isStagedAnnotation ), [ notes ] );
 	const annotationsAttachment = stagedNotes.length ? getAnnotationsAttachment( stagedNotes ) : null;

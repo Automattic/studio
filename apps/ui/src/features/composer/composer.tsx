@@ -1,4 +1,3 @@
-import { aiModelSupportsImages } from '@studio/agent/protocol/models';
 import { resolveSkillFromPrompt } from '@studio/agent/protocol/slash-commands';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
@@ -29,6 +28,7 @@ import { composerSubmission } from '@/features/composer/composer-submission';
 import { getComposerDraft, saveComposerDraft } from '@/features/composer/draft-store';
 import { FamilySwitchConfirmDialog } from '@/features/composer/family-switch-confirm-dialog';
 import { ModeChip } from '@/features/composer/mode-chip';
+import { getModelImageSupportError } from '@/features/composer/model-options';
 import { ModelPicker } from '@/features/composer/model-picker';
 import { NoticeTab, type ComposerNotice } from '@/features/composer/notice-tab';
 import { SendButton, StartButton, StopButton } from '@/features/composer/submit-button';
@@ -163,6 +163,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	ref
 ) {
 	const isField = variant === 'field';
+	const imagesDisabledMessage = getModelImageSupportError( model );
 	const panelCommand = usePanelCommand( isField ? undefined : ownerSiteId );
 	const siteCommand =
 		isField || environment === 'live'
@@ -294,8 +295,15 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		annotationSiteId,
 		dropTarget: fileDropTarget,
 		textareaRef,
+		imagesDisabledMessage,
 	} );
 	const hasAttachments = attachments.length > 0;
+	const imageSupportError =
+		imagesDisabledMessage &&
+		( attachments.some( ( item ) => item.kind === 'image' ) ||
+			stagedNotes.some( ( note ) => note.images.length > 0 ) )
+			? imagesDisabledMessage
+			: null;
 	const currentValidationError =
 		validationError?.value === value &&
 		validationError.model === model &&
@@ -305,8 +313,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			: null;
 	const notice =
 		blockingComposerNotice ??
-		( attachmentError || currentValidationError
-			? { message: attachmentError || currentValidationError! }
+		( attachmentError || imageSupportError || currentValidationError
+			? { message: attachmentError || imageSupportError || currentValidationError! }
 			: undefined );
 
 	useEffect( () => {
@@ -377,9 +385,9 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			} );
 			return;
 		}
-		if ( submission.options.images?.length && ! aiModelSupportsImages( model ) ) {
+		if ( submission.options.images?.length && imagesDisabledMessage ) {
 			setValidationError( {
-				message: __( 'Choose a model that supports images before sending these attachments' ),
+				message: imagesDisabledMessage,
 				value,
 				model,
 				attachments,
@@ -429,6 +437,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		restoreAttachments,
 		annotationSiteId,
 		model,
+		imagesDisabledMessage,
 		stagedNotes,
 	] );
 
@@ -439,6 +448,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		restoreAttachments,
 		textareaRef,
 		send,
+		canSubmitAttachments: ! imageSupportError,
 	} );
 
 	const focusTextareaFromShell = useCallback( ( event: MouseEvent< HTMLDivElement > ) => {

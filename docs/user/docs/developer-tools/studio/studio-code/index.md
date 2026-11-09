@@ -114,7 +114,7 @@ While chatting, you can use slash commands for quick actions:
 
 Studio Code doesn’t ask you to pick a model by name. Instead, you choose a tier based on how much depth the task needs:
 
--   **Fast**: everyday changes, small edits, and quick fixes
+-   **Fast**: everyday changes, small edits, and quick fixes using text
 -   **Balanced**: work that benefits from more careful reasoning
 -   **Strong**: complex, multi-step, or architecture-level work
 
@@ -133,8 +133,10 @@ If you use your own Anthropic API key, the model menu lists **Sonnet 5** and **O
 
 Upload images and files into Studio Code to use across your project:
 
--   **Desktop**: drag files into the chat, paste them, or click the **+** (**Add skill or attachment**) button in the chat box and choose **Upload attachment**
+-   **Desktop**: drag files into the chat, paste them, or click the **+** (**Add**) button in the chat box and choose **Add files**
 -   **Terminal**: drag into the chat or point to a specific local file or folder
+
+Fast is text only: it cannot view photos, screenshots, or its own screen captures. Choose Balanced, Strong, or an Anthropic model to attach images or have the model review them. Non-image file attachments work with Fast.
 
 ### [New conversations](#9-new-conversations)
 

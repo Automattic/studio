@@ -74,7 +74,7 @@ export function ImportPanel( { backup: selectedFile }: { backup: SiteBackup } ) 
 	useEffect( () => () => setProgress( null ), [ setProgress ] );
 
 	const handleSubmit = async ( values: CreateSiteFormValues ) => {
-		if ( isWorkingRef.current || prompt.hasCreatedSite() ) return;
+		if ( isWorkingRef.current || prompt.hasCreatedSite() || ! prompt.canSubmit ) return;
 		prompt.capture();
 		isWorkingRef.current = true;
 		setIsWorking( true );
@@ -173,7 +173,7 @@ export function ImportPanel( { backup: selectedFile }: { backup: SiteBackup } ) 
 				onSubmit={ handleSubmit }
 				isSubmitting={ isWorking }
 				submitError={ submitError ?? undefined }
-				isSubmitDisabled={ ! isBlueprintValid }
+				isSubmitDisabled={ ! isBlueprintValid || ! prompt.canSubmit }
 				folderDescription={
 					selectedFile.name.toLowerCase().endsWith( '.xml' )
 						? __( 'Studio will create a site in an empty folder and import this WordPress export.' )

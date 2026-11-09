@@ -98,7 +98,7 @@ export function CreatePanel( { remote }: { remote?: SyncSite } ) {
 	);
 
 	const handleSubmit = async ( values: CreateSiteFormValues ) => {
-		if ( working.current || prompt.hasCreatedSite() ) return;
+		if ( working.current || prompt.hasCreatedSite() || ! prompt.canSubmit ) return;
 		working.current = true;
 		const blueprint = existing ? undefined : selectedBlueprint;
 		const hasPrompt = prompt.capture();
@@ -161,6 +161,7 @@ export function CreatePanel( { remote }: { remote?: SyncSite } ) {
 			onSubmit={ handleSubmit }
 			isSubmitting={ submittedInitialValues !== null }
 			isSubmitDisabled={
+				! prompt.canSubmit ||
 				! isBlueprintValid ||
 				( ! remote &&
 					! existing &&

@@ -15,9 +15,23 @@ import { useConnector } from '@/data/core';
 export { toComposerSendAttachments };
 export type { ComposerAttachment, ComposerSendAttachments };
 
-export function useComposerAttachments( initialAttachments: ComposerAttachment[] = [] ) {
+const IMAGE_FILENAME = /\.(avif|bmp|gif|heic|heif|ico|jpe?g|png|svg|tiff?|webp)$/i;
+
+function isImageFile( file: File ) {
+	return (
+		file.type.toLowerCase().startsWith( 'image/' ) ||
+		( ( ! file.type || file.type === 'application/octet-stream' ) &&
+			IMAGE_FILENAME.test( file.name ) )
+	);
+}
+
+export function useComposerAttachments(
+	initialAttachments: ComposerAttachment[] = [],
+	{ imagesDisabledMessage }: { imagesDisabledMessage?: string | null } = {}
+) {
 	const connector = useConnector();
 	const [ error, setError ] = useState< string | null >( null );
+	const [ imagesRejected, setImagesRejected ] = useState( false );
 	const [ attachments, setAttachments ] = useState< ComposerAttachment[] >( initialAttachments );
 	const attachmentsRef = useRef< ComposerAttachment[] >( initialAttachments );
 
@@ -28,6 +42,7 @@ export function useComposerAttachments( initialAttachments: ComposerAttachment[]
 
 	const removeAttachment = useCallback( ( id: string ) => {
 		setError( null );
+		setImagesRejected( false );
 		setAttachments( ( current ) => {
 			const next = current.filter( ( item ) => item.id !== id );
 			attachmentsRef.current = next;
@@ -40,6 +55,7 @@ export function useComposerAttachments( initialAttachments: ComposerAttachment[]
 			items: ComposerAttachment[] | ( ( current: ComposerAttachment[] ) => ComposerAttachment[] )
 		) => {
 			setError( null );
+			setImagesRejected( false );
 			setTrackedAttachments(
 				typeof items === 'function' ? items( attachmentsRef.current ) : items
 			);
@@ -51,10 +67,16 @@ export function useComposerAttachments( initialAttachments: ComposerAttachment[]
 	// count against the limits without joining this list.
 	const addFiles = useCallback(
 		async ( incoming: FileList | File[], reserved: ComposerAttachment[] = [] ) => {
-			const list = Array.from( incoming );
-			if ( list.length === 0 ) {
+			const files = Array.from( incoming );
+			if ( files.length === 0 ) {
 				return;
 			}
+			const list = imagesDisabledMessage
+				? files.filter( ( file ) => ! isImageFile( file ) )
+				: files;
+			setImagesRejected( list.length !== files.length );
+			setError( null );
+			if ( list.length === 0 ) return;
 			const messages = {
 				imageTooLarge: __( 'Images must be 5 MB or smaller' ),
 				imageReadFailed: __( 'Failed to read the attached image' ),
@@ -92,7 +114,7 @@ export function useComposerAttachments( initialAttachments: ComposerAttachment[]
 			setError( merged.error ?? prepared.error ?? null );
 			setTrackedAttachments( merged.attachments.slice( reserved.length ) );
 		},
-		[ connector, setTrackedAttachments ]
+		[ connector, imagesDisabledMessage, setTrackedAttachments ]
 	);
 
 	const onPaste = useCallback(
@@ -108,7 +130,10 @@ export function useComposerAttachments( initialAttachments: ComposerAttachment[]
 	);
 
 	return {
-		error,
+		error:
+			imagesRejected && imagesDisabledMessage
+				? [ imagesDisabledMessage, error ].filter( Boolean ).join( ' ' )
+				: error,
 		setError,
 		attachments,
 		addFiles,

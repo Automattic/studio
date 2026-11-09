@@ -71,6 +71,73 @@ async function createSite( dialog: HTMLElement, name = 'Add site' ) {
 }
 
 describe( 'Add site › blank setup', () => {
+	it( 'rejects photos while Fast still accepts instruction files', async () => {
+		const { connector, dialog } = await setup();
+		fireEvent.change( within( dialog ).getByLabelText( 'Site name' ), {
+			target: { value: 'Bakery' },
+		} );
+		fireEvent.change( within( dialog ).getByLabelText( 'Upload attachments' ), {
+			target: {
+				files: [
+					new File( [ 'image' ], 'reference.png', { type: 'image/png' } ),
+					new File( [ 'Build a bakery' ], 'instructions.txt', { type: 'text/plain' } ),
+				],
+			},
+		} );
+		expect( await within( dialog ).findByRole( 'alert' ) ).toHaveTextContent(
+			'Fast does not support images.'
+		);
+		expect(
+			await within( dialog ).findByRole( 'listitem', { name: 'instructions.txt' } )
+		).toBeVisible();
+		expect(
+			within( dialog ).queryByRole( 'listitem', { name: 'reference.png' } )
+		).not.toBeInTheDocument();
+		await createSite( dialog );
+		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledOnce() );
+		expect( connector.continueSession ).toHaveBeenCalledWith(
+			expect.any( String ),
+			expect.any( String ),
+			expect.objectContaining( {
+				images: [],
+				files: [ expect.objectContaining( { name: 'instructions.txt' } ) ],
+			} )
+		);
+	} );
+
+	it( 'keeps a setup image draft when switching to Fast and waits for its removal', async () => {
+		const settings: AiSettings = {
+			provider: 'anthropic-api-key',
+			hasAnthropicApiKey: true,
+			anthropicApiKeyPreview: 'sk-ant-test',
+		};
+		const { connector, dialog, queryClient } = await setup(
+			{},
+			{ getAiSettings: async () => settings }
+		);
+		fireEvent.change( within( dialog ).getByLabelText( 'Site name' ), {
+			target: { value: 'Bakery' },
+		} );
+		fireEvent.change( within( dialog ).getByLabelText( 'Upload attachments' ), {
+			target: { files: [ new File( [ 'image' ], 'reference.png', { type: 'image/png' } ) ] },
+		} );
+		expect(
+			await within( dialog ).findByRole( 'listitem', { name: 'reference.png' } )
+		).toBeVisible();
+		act( () => {
+			queryClient.setQueryData( [ 'ai-settings' ], { ...settings, provider: 'wpcom' } );
+		} );
+		expect( await within( dialog ).findByRole( 'alert' ) ).toHaveTextContent(
+			'Fast does not support images.'
+		);
+		expect( within( dialog ).getByRole( 'button', { name: 'Add site' } ) ).toBeDisabled();
+		expect( within( dialog ).getByRole( 'listitem', { name: 'reference.png' } ) ).toBeVisible();
+		expect( connector.createSite ).not.toHaveBeenCalled();
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Remove attachment' } ) );
+		expect( within( dialog ).queryByRole( 'alert' ) ).not.toBeInTheDocument();
+		expect( within( dialog ).getByRole( 'button', { name: 'Add site' } ) ).toBeEnabled();
+	} );
+
 	it( 'shows only the selected source after choosing a Blueprint', async () => {
 		const { connector, dialog } = await setup();
 		fireEvent.change( screen.getByLabelText( 'Site name' ), { target: { value: 'My bakery' } } );

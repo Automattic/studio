@@ -22,6 +22,7 @@ import {
 } from '@/data/use-composer-attachments';
 import {
 	getComposerDraft,
+	getModelImageSupportError,
 	pendingPromptSlot,
 	saveComposerDraft,
 	useComposerNotice,
@@ -56,13 +57,26 @@ export function useSetupPrompt( { enabled = true, busy = false } = {} ) {
 	const brief = useRef< SetupBrief | null >( null );
 	const [ initialDraft ] = useState( () => getComposerDraft( briefDraftKey ) );
 	const [ text, setText ] = useState( initialDraft.text );
+	const { data: settings } = useAiSettings();
+	const { data: quota } = useStudioAssistantQuota();
+	const { data: user } = useAuthUser();
+	const provider = getEffectiveSessionProvider( [], settings );
+	const model = resolveSessionModelForProvider( [], provider, {
+		canUsePaidModels: canUsePaidAiModels( quota, user?.email ),
+	} );
+	const imagesDisabledMessage = getModelImageSupportError( model );
 	const {
 		attachments,
 		addFiles,
 		removeAttachment,
 		pasteHandlers,
 		error: attachmentError,
-	} = useComposerAttachments( initialDraft.attachments );
+	} = useComposerAttachments( initialDraft.attachments, { imagesDisabledMessage } );
+	const imageSupportError =
+		imagesDisabledMessage && attachments.some( ( item ) => item.kind === 'image' )
+			? imagesDisabledMessage
+			: null;
+	const canSubmit = ! enabled || ! imageSupportError;
 	useEffect( () => {
 		saveComposerDraft( briefDraftKey, { text, attachments } );
 	}, [ briefDraftKey, text, attachments ] );
@@ -70,15 +84,8 @@ export function useSetupPrompt( { enabled = true, busy = false } = {} ) {
 	const attachFiles = useCallback( ( files: FileList ) => void addFiles( files ), [ addFiles ] );
 	const dragging = useFileDrop( busy ? null : dropTarget, attachFiles );
 	const [ retrying, setRetrying ] = useState( false );
-	const { data: settings } = useAiSettings();
-	const { data: quota } = useStudioAssistantQuota();
-	const { data: user } = useAuthUser();
-	const provider = getEffectiveSessionProvider( [], settings );
 	const notice = useComposerNotice( provider );
 	const providerConnected = provider === 'wpcom' ? !! user : !! settings?.hasAnthropicApiKey;
-	const model = resolveSessionModelForProvider( [], provider, {
-		canUsePaidModels: canUsePaidAiModels( quota, user?.email ),
-	} );
 	const openSite = ( siteId: string ) =>
 		navigate( { to: '/sites/$siteId/new', params: { siteId } } );
 	const startChat = async ( created = createdSite ) => {
@@ -196,7 +203,9 @@ export function useSetupPrompt( { enabled = true, busy = false } = {} ) {
 					/>
 				</div>
 			</InputGroup>
-			{ attachmentError ? <FieldError role="alert">{ attachmentError }</FieldError> : null }
+			{ attachmentError || imageSupportError ? (
+				<FieldError role="alert">{ attachmentError || imageSupportError }</FieldError>
+			) : null }
 			{ notice && (
 				<FieldDescription>
 					{ notice.message }
@@ -215,6 +224,7 @@ export function useSetupPrompt( { enabled = true, busy = false } = {} ) {
 	return {
 		field,
 		recovery,
+		canSubmit,
 		hasCreatedSite: () => !! createdSite,
 		capture: () => {
 			const prompt = text.trim();

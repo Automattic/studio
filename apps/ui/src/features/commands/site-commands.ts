@@ -140,15 +140,19 @@ export function getSiteCommands( {
 						keywords: keywords[ 'wp-admin' ],
 						run: actions.openAdmin,
 					},
-					{
-						id: 'database',
-						group: 'commands' as const,
-						label: __( 'Open database' ),
-						icon: DatabaseIcon,
-						description,
-						keywords: keywords.phpmyadmin,
-						run: actions.openDatabase,
-					},
+					...( site.phpMyAdminSupported === false
+						? []
+						: [
+								{
+									id: 'database',
+									group: 'commands' as const,
+									label: __( 'Open database' ),
+									icon: DatabaseIcon,
+									description,
+									keywords: keywords.phpmyadmin,
+									run: actions.openDatabase,
+								},
+						  ] ),
 					{
 						id: 'email',
 						group: 'commands' as const,

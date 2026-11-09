@@ -622,6 +622,7 @@ async function doStartServer(
 				siteFolder: config.sitePath,
 				env: {
 					STUDIO_PHPMYADMIN_PATH: getPhpMyAdminPath(),
+					STUDIO_PHPMYADMIN_SUPPORTED: config.phpMyAdminSupported === false ? '0' : '1',
 					STUDIO_NATIVE_PHPMYADMIN_WP_ENV_PATH: phpMyAdminWpEnvPath,
 					STUDIO_PHPMYADMIN_SESSION_PATH: getPhpMyAdminSessionPath( config ),
 				},

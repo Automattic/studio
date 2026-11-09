@@ -31,6 +31,7 @@ export const serverConfigSchema = z.object( {
 		.optional(),
 	autoPrependFile: z.string().optional(),
 	openBasedirAllowList: z.array( z.string() ).optional(),
+	phpMyAdminSupported: z.boolean().optional(),
 } );
 
 export type ServerConfig = z.infer< typeof serverConfigSchema >;

@@ -34,6 +34,10 @@ interface Row {
 // its own, as WooCommerce writes its Shop and Cart pages (WC_Install::create_pages()),
 // in the same call as the agent writes its own: their fixes are stated, not saved.
 const CODE = 'code';
+// The posts last validated with a problem, after the presets they were
+// validated with: a problem can name presets a later change to the theme adds.
+const OPEN = 'open';
+const isPost = ( id: string ) => id !== CODE && id !== OPEN;
 
 // Each rendered post's content-sensitive version, by post ID.
 export async function readVersions( sitePath: string ): Promise< Versions > {
@@ -280,12 +284,27 @@ async function validatePost(
 export const postContentChanges: SiteChangeSource = {
 	name: 'posts',
 	saves: true,
-	read: readPostsAndCode,
+	async read( sitePath, last ) {
+		return {
+			...( await readPostsAndCode( sitePath ) ),
+			...( last?.[ OPEN ] && { [ OPEN ]: last[ OPEN ] } ),
+		};
+	},
 	async check( site, before, after, host ) {
 		const changed = Object.keys( after ).filter(
-			( id ) => id !== CODE && before[ id ] !== after[ id ]
+			( id ) => isPost( id ) && before[ id ] !== after[ id ]
 		);
-		const reports: ChangeReport[] = [];
+		const presetsNow = async () => JSON.stringify( await sitePresetValues( host, site.path ) );
+		// The posts left with a problem that did not change, validated again
+		// when the presets changed.
+		const [ validatedWith, ...open ] = JSON.parse( before[ OPEN ] ?? '[""]' ) as string[];
+		const unchanged = open.filter( ( id ) => id in after && ! changed.includes( id ) );
+		const recheck = unchanged.length && ( await presetsNow() ) !== validatedWith ? unchanged : [];
+		// A post deleted or trashed has no problem left on the site.
+		const reports: ChangeReport[] = Object.keys( before )
+			.filter( ( id ) => isPost( id ) && ! ( id in after ) )
+			.map( ( id ) => ( { key: id } ) );
+		const stillOpen = unchanged.filter( ( id ) => ! recheck.includes( id ) );
 		let saved = false;
 		const posts = changed.length ? await readPosts( site.path, changed ) : [];
 		// What code activated in this call wrote is its own, and stays as it wrote it.
@@ -301,6 +320,9 @@ export const postContentChanges: SiteChangeSource = {
 				} )
 			);
 			saved = saved || !! savedPost;
+			if ( result.problem ) {
+				stillOpen.push( String( post.id ) );
+			}
 			reports.push( {
 				key: String( post.id ),
 				post: post.id,
@@ -311,7 +333,23 @@ export const postContentChanges: SiteChangeSource = {
 		reports.push( ...( await themeReport( host, site, posts ) ) );
 		// Once each names its theme, whose part it replaces.
 		reports.push( ...( await areaReport( host, site, posts ) ) );
+		// A post validated again for the presets: its problem is updated, and not told again.
+		for ( const post of recheck.length ? await readPosts( site.path, recheck ) : [] ) {
+			const result = await validatePost( host, site, post, false ).catch( () => undefined );
+			if ( ! result || result.problem ) {
+				stillOpen.push( String( post.id ) );
+			}
+			if ( result ) {
+				reports.push( { key: String( post.id ), problem: result.problem, atTurnEnd: true } );
+			}
+		}
 		// The posts Studio saved are compared from what it saved.
-		return { reports, next: saved ? await readPostsAndCode( site.path ) : undefined };
+		return {
+			reports,
+			next: {
+				...( saved ? await readPostsAndCode( site.path ) : after ),
+				[ OPEN ]: JSON.stringify( [ stillOpen.length ? await presetsNow() : '', ...stillOpen ] ),
+			},
+		};
 	},
 };

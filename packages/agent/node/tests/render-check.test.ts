@@ -183,6 +183,33 @@ describe( 'RenderCheck', () => {
 		expect( await check.takeReports() ).toContain( '- / (desktop): current' );
 	} );
 
+	// eval26 redo4: a screenshot was told again of a page 392px wide, which an
+	// older render found, while the render of the change that fixed it ran.
+	it( 'keeps what a render found out of the open problems while a later change is rendered', async () => {
+		const { site, check, open, problems, inspect } = setup();
+		await check.seen( site.root, { created: true } );
+		problems[ '/ mobile' ] = [ 'The page is 392px wide in a 390px viewport.' ];
+		appendFileSync( path.join( site.root, 'wp-content/themes/bakery/style.css' ), '\n' );
+		await check.changed( site.root );
+		await check.settle();
+		expect( check.hasReports() ).toBe( true );
+		expect( open.look() ).toEqual( [] );
+
+		let release: () => void = () => {};
+		const held = new Promise< void >( ( resolve ) => ( release = resolve ) );
+		const inspectNow = inspect.getMockImplementation()!;
+		inspect.mockImplementation( async ( ...args ) => {
+			await held;
+			return inspectNow( ...args );
+		} );
+		problems[ '/ mobile' ] = [];
+		appendFileSync( path.join( site.root, 'wp-content/themes/bakery/style.css' ), '\n' );
+		await check.changed( site.root );
+		expect( open.look() ).toEqual( [] );
+		release();
+		await check.settle();
+	} );
+
 	// eval9 picky 2: the render of one Edit came with the result of the next,
 	// which had fixed what it found, and read as that fix's.
 	it( 'drops a verdict a later change has made stale, for the render of that change', async () => {

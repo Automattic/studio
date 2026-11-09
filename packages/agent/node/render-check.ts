@@ -80,6 +80,9 @@ const pageAddress = ( url: string ) => {
 const problemKey = ( page: { url: string; viewport: Viewport }, problem: string ) =>
 	`${ pageAddress( page.url ) } ${ page.viewport } ${ problem.replace( /\d+/g, '#' ) }`;
 
+// The key of a site's render problems in OpenProblems.
+const renderedPages = ( sitePath: string ) => `${ sitePath }#rendered pages`;
+
 export class RenderCheck {
 	private readonly sites = new Map< string, SiteState >();
 
@@ -140,6 +143,8 @@ export class RenderCheck {
 		state.fingerprint = now;
 		state.writing = writing;
 		forgetRenders();
+		// What the last render found is not known of the site now.
+		this.open?.record( sitePath, renderedPages( sitePath ), undefined );
 		if ( state.running ) {
 			state.again = true;
 			return;
@@ -171,6 +176,11 @@ export class RenderCheck {
 			} )
 		);
 		return verdicts.flat().join( '\n' );
+	}
+
+	/** Whether a verdict has come since the last call. */
+	hasReports(): boolean {
+		return [ ...this.sites.values() ].some( ( state ) => state.verdict );
 	}
 
 	/** Waits for every render under way, as the turn ends. */
@@ -237,7 +247,7 @@ export class RenderCheck {
 					'\n'
 			  )
 			: undefined;
-		this.open?.record( sitePath, `${ sitePath }#rendered pages`, problem );
+		this.open?.record( sitePath, renderedPages( sitePath ), problem );
 		state.verdictFrom = renderedFrom;
 		state.verdict = [
 			problem ??

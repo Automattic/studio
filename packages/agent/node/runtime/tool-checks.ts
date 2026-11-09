@@ -340,7 +340,9 @@ export function toToolDefinition(
 				}
 				return notes.filter( Boolean ).join( '\n' );
 			} );
-			if ( tool.reportsChecks ) {
+			// A verdict on the pages waits for what the call changed on the sites to
+			// be saved, as copies of posts are, so it is of the sites the call left.
+			if ( tool.reportsChecks || ( checksChanges && renderCheck?.hasReports() ) ) {
 				await timeCheck( 'ownChecks', () => afterChecks.settle() );
 			}
 			// The checks of earlier calls, which go on those calls' results (see placeCallNotes).

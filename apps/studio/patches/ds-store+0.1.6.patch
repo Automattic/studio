@@ -1,0 +1,13 @@
+diff --git a/node_modules/ds-store/lib/entry.js b/node_modules/ds-store/lib/entry.js
+index 482025f..f03af6c 100644
+--- a/node_modules/ds-store/lib/entry.js
++++ b/node_modules/ds-store/lib/entry.js
+@@ -133,7 +133,7 @@ Entry.construct = function (filename, structureId, opts) {
+         backgroundColorBlue: new bplist.Real(1),
+         showIconPreview: true,
+         showItemInfo: false,
+-        textSize: new bplist.Real(12),
++        textSize: new bplist.Real(14),
+         iconSize: new bplist.Real(opt('iconSize')),
+         viewOptionsVersion: 1,
+         gridSpacing: new bplist.Real(100),

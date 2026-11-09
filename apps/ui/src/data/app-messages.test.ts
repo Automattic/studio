@@ -197,6 +197,20 @@ describe( 'app-messages', () => {
 		expect( await runNoticeAction( action ) ).toBe( true );
 	} );
 
+	it( 'keeps an action pending across progress updates', async () => {
+		let finish!: () => void;
+		const onClick = vi.fn( () => new Promise< void >( ( resolve ) => ( finish = resolve ) ) );
+		const action = { label: 'Cancel', onClick, dismissOnSuccess: false };
+		toast.processing( 'Pulling changes…', { id: 'pull', action } );
+		const pending = runNoticeAction( action );
+		toast.processing( 'Pulling changes…', { id: 'pull', action, description: 'Downloading…' } );
+		expect( getVisibleToasts()[ 0 ].actionPending ).toBe( true );
+		expect( await runNoticeAction( action ) ).toBe( false );
+		expect( onClick ).toHaveBeenCalledOnce();
+		finish();
+		await pending;
+	} );
+
 	it( 'cannot run an action after its toast expires', async () => {
 		const action = { label: 'Undo', onClick: vi.fn() };
 		toast.success( 'Archived', { action, durationMs: 10_000 } );

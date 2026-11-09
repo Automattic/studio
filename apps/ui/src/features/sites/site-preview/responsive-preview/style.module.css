@@ -19,7 +19,6 @@
 	grid-template-columns: var( --control-size ) minmax( 0, 1fr ) var( --control-size );
 	padding-block: var( --space-0_5 );
 	border-block-start: 1px solid var( --border );
-	background: var( --chrome );
 	overflow: visible;
 }
 

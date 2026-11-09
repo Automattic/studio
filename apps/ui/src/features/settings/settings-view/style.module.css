@@ -334,18 +334,6 @@
 	width: 100%;
 }
 
-.hexInput {
-	width: 100%;
-}
-
-.hexPreview {
-	flex-shrink: 0;
-	width: 16px;
-	height: 16px;
-	border: 1px solid var( --border );
-	border-radius: var( --radius-xs );
-}
-
 .sliderControl {
 	display: flex;
 	align-items: center;

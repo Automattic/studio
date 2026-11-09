@@ -214,7 +214,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					...setting(
 						'navigate',
 						__( 'Accent' ),
-						__( 'Studio adapts your chosen color to work with your theme.' ),
+						__( 'Color may be adapted for your theme.' ),
 						'color'
 					),
 					aliases: [ __( 'Colour' ), __( 'Change color' ) ],

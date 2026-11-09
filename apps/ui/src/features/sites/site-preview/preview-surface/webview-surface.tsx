@@ -421,13 +421,16 @@ export function WebviewSurface( {
 		const notes = annotations.notes.filter( ( note ) => note.url );
 		const detail = {
 			active: annotations.active,
+			areaSelection: true,
+			busy: !! ( annotations.preparing || annotations.sending ),
 			blockedNavigation: annotations.blockedNavigation ?? 0,
 			editingId: notes.some( ( note ) => note.id === annotations.editingId )
 				? annotations.editingId
 				: null,
-			notes: notes.map( ( { id, number, selector, url, documentRect, point, staged } ) => ( {
+			notes: notes.map( ( { id, number, kind, selector, url, documentRect, point, staged } ) => ( {
 				id,
 				number,
+				kind,
 				selector,
 				url,
 				documentRect,
@@ -487,6 +490,7 @@ export function WebviewSurface( {
 		<>
 			<webview
 				ref={ ref }
+				data-annotation-surface={ ( inspector && annotations?.active ) || undefined }
 				src={ initialSrc }
 				className={ styles.iframe }
 				// @types/react types this as boolean, but React 19 drops `true` on

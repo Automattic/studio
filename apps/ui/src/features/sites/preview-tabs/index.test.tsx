@@ -81,7 +81,7 @@ it.each( [ true, false ] )(
 			],
 		} );
 		const { user } = renderApp( { connector, path: '/sessions/chat' } );
-		const chip = await screen.findByRole( 'button', { name: 'Open design system' } );
+		const chip = await screen.findByRole( 'button', { name: 'Open Design System' } );
 		if ( screen.queryByRole( 'button', { name: 'Show panel' } ) )
 			await user.click( screen.getByRole( 'button', { name: 'Show panel' } ) );
 		const address = screen.getByRole( 'textbox', { name: 'Address' } );
@@ -97,7 +97,7 @@ it.each( [ true, false ] )(
 			...( open ? [] : [ [ TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED, { layout: 'split' }, 'one' ] ] ),
 		] );
 		expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 );
-		expect( screen.getByRole( 'tab', { name: 'Design system' } ) ).toHaveAttribute(
+		expect( screen.getByRole( 'tab', { name: 'Design System' } ) ).toHaveAttribute(
 			'aria-selected',
 			'true'
 		);
@@ -590,7 +590,7 @@ it( 'only offers the design-system shortcut when a design system is available', 
 	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
 	await screen.findByRole( 'menuitem', { name: 'Browser' } );
 	await user.keyboard( 's' );
-	expect( screen.queryByRole( 'menuitem', { name: 'Design system' } ) ).not.toBeInTheDocument();
+	expect( screen.queryByRole( 'menuitem', { name: 'Design System' } ) ).not.toBeInTheDocument();
 	await user.keyboard( '{Escape}' );
 	connector.getSiteDesign.mockResolvedValue( { design: '# Invalid design', themeJson: {} } );
 	await act( async () => {
@@ -598,7 +598,7 @@ it( 'only offers the design-system shortcut when a design system is available', 
 	} );
 	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
 	await screen.findByRole( 'menuitem', { name: 'Browser' } );
-	expect( screen.queryByRole( 'menuitem', { name: 'Design system' } ) ).not.toBeInTheDocument();
+	expect( screen.queryByRole( 'menuitem', { name: 'Design System' } ) ).not.toBeInTheDocument();
 	await user.keyboard( '{Escape}' );
 	connector.getSiteDesign.mockResolvedValue( {
 		design: `---
@@ -616,16 +616,16 @@ typography:
 		await queryClient.invalidateQueries( { queryKey: [ 'site-design', 'one' ] } );
 	} );
 	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
-	const design = await screen.findByRole( 'menuitem', { name: 'Design system' } );
+	const design = await screen.findByRole( 'menuitem', { name: 'Design System' } );
 	expect( design ).toHaveAttribute( 'aria-keyshortcuts', 'S' );
 	const designIcon = design.querySelector( 'svg' )!.innerHTML;
 	await user.keyboard( 's' );
 	await waitFor( () => expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 ) );
-	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue( 'Design system' );
+	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveValue( 'Design System' );
 	expect(
-		screen.getByRole( 'tab', { name: 'Design system' } ).querySelector( 'svg' )!.innerHTML
+		screen.getByRole( 'tab', { name: 'Design System' } ).querySelector( 'svg' )!.innerHTML
 	).toBe( designIcon );
-	expect( screen.getByRole( 'tab', { name: 'Design system' } ) ).toHaveAttribute(
+	expect( screen.getByRole( 'tab', { name: 'Design System' } ) ).toHaveAttribute(
 		'aria-selected',
 		'true'
 	);
@@ -1051,7 +1051,7 @@ it( 'reopens a batched design note in its existing tab without scrolling', async
 	connector.getSiteDesign.mockResolvedValue( design );
 	await act( () => queryClient.setQueryData( [ 'site-design', 'one' ], design ) );
 	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
-	await user.click( await screen.findByRole( 'menuitem', { name: 'Design system' } ) );
+	await user.click( await screen.findByRole( 'menuitem', { name: 'Design System' } ) );
 	await waitFor( () => expect( selectedTab() ).toHaveFocus() );
 	let id = '';
 	act( () => {
@@ -1066,7 +1066,7 @@ it( 'reopens a batched design note in its existing tab without scrolling', async
 	await user.click(
 		screen.getByRole( 'button', { name: 'Edit annotation: Give this title more space' } )
 	);
-	expect( screen.getByRole( 'tab', { name: 'Design system' } ) ).toHaveAttribute(
+	expect( screen.getByRole( 'tab', { name: 'Design System' } ) ).toHaveAttribute(
 		'aria-selected',
 		'true'
 	);
@@ -1097,7 +1097,7 @@ it( 'opens a WordPress style board without DESIGN.md and reloads saved style cha
 	connector.getSiteDesign.mockResolvedValue( board( '#123456' ) );
 	await act( () => queryClient.invalidateQueries( { queryKey: [ 'site-design', 'one' ] } ) );
 	await user.click( screen.getByRole( 'button', { name: 'New tab' } ) );
-	await user.click( await screen.findByRole( 'menuitem', { name: 'Design system' } ) );
+	await user.click( await screen.findByRole( 'menuitem', { name: 'Design System' } ) );
 	expect( await screen.findByRole( 'heading', { name: 'Color' } ) ).toBeVisible();
 	expect( screen.getByText( '#123456' ) ).toBeVisible();
 	expect( screen.queryByText( /DESIGN.md/ ) ).not.toBeInTheDocument();

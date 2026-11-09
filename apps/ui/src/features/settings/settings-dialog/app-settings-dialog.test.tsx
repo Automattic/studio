@@ -123,10 +123,10 @@ const searchBox = () => screen.getByRole( 'textbox', { name: 'Search settings' }
 
 describe( 'WordPress Studio settings', () => {
 	it.each( [ undefined, true, false ] )(
-		'saves the split-view startup setting from %s',
+		'saves the startup chat setting from %s',
 		async ( value ) => {
 			const { connector } = await setup( { preferences: { openChatOnSiteStart: value } } );
-			const toggle = await screen.findByRole( 'switch', { name: 'Start sites in split view' } );
+			const toggle = await screen.findByRole( 'switch', { name: 'Start sites with chat' } );
 			if ( value ?? true ) expect( toggle ).toBeChecked();
 			else expect( toggle ).not.toBeChecked();
 			fireEvent.click( toggle );
@@ -419,7 +419,7 @@ describe( 'WordPress Studio settings', () => {
 		fireEvent.click( await screen.findByRole( 'combobox', { name: 'Default code editor' } ) );
 		const options = await screen.findAllByRole( 'option' );
 		expect( options.map( ( option ) => option.textContent ) ).toEqual( [
-			'System default',
+			'System',
 			supportedEditorConfig.cursor.label(),
 			supportedEditorConfig.vscode.label(),
 		] );
@@ -523,6 +523,42 @@ describe( 'WordPress Studio settings', () => {
 		await waitFor( () => expect( theme ).toHaveTextContent( 'System' ) );
 		expect( await screen.findByText( ERROR ) ).toBeVisible();
 		expect( theme ).toBeEnabled();
+	} );
+
+	it( 'saves picked accent colors without changing intensity or contrast', async () => {
+		const { connector, user } = await setup( {
+			section: 'appearance',
+			preferences: { accentColor: '#ff0000', tintIntensity: 40, contrast: 30 },
+		} );
+		await user.click( await screen.findByRole( 'textbox', { name: 'Hex color' } ) );
+		await user.tab();
+		await user.tab();
+		await user.keyboard( '{ArrowRight}' );
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenCalledExactlyOnceWith(
+				{ accentColor: '#ff0400', tintIntensity: 40, contrast: 30 },
+				undefined
+			)
+		);
+		expect( document.documentElement.dataset.accentColor ).toBe( '#ff0400' );
+		await user.keyboard( '{Escape}' );
+		expect( screen.getByRole( 'dialog', { name: 'Settings' } ) ).toBeVisible();
+	} );
+
+	it( 'restores the saved accent color when saving a picked color fails', async () => {
+		const { connector, user } = await setup( {
+			section: 'appearance',
+			preferences: { accentColor: '#ff0000' },
+		} );
+		connector.setUserPreferences.mockRejectedValueOnce( new Error( 'Disk full' ) );
+		const input = await screen.findByRole( 'textbox', { name: 'Hex color' } );
+		await user.click( input );
+		await user.tab();
+		await user.tab();
+		await user.keyboard( '{ArrowRight}' );
+		expect( await screen.findByText( ERROR ) ).toBeVisible();
+		await waitFor( () => expect( input ).toHaveValue( '#ff0000' ) );
+		expect( document.documentElement.dataset.accentColor ).toBe( '#ff0000' );
 	} );
 
 	it( 'keeps the current panel while searching and opens the selected field', async () => {

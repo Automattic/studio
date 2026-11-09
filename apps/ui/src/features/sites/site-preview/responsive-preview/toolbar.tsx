@@ -1,4 +1,5 @@
 import { __, sprintf } from '@wordpress/i18n';
+import { XIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { updateResponsivePreview, type ResponsivePreviewSettings } from '@/data/responsive-preview';
 import { ChevronDownIcon, RefreshIcon } from '@/lib/icons';
@@ -70,100 +71,116 @@ export function ResponsiveToolbar( {
 			role="toolbar"
 			aria-label={ __( 'Responsive preview' ) }
 		>
-			<Menu.Root>
-				<Menu.Trigger render={ <Button variant="ghost" size="sm" className={ styles.device } /> }>
-					<span>{ settings.preset === 'responsive' ? __( 'Responsive' ) : settings.preset }</span>
-					<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
-				</Menu.Trigger>
-				<Menu.Popup side="bottom">
-					<Menu.RadioGroup
-						value={ settings.preset }
-						onValueChange={ ( value ) => {
-							const preset = devicePresets.find( ( item ) => item.name === value );
-							update(
-								preset
-									? { preset: preset.name, width: preset.width, height: preset.height }
-									: { preset: 'responsive' }
-							);
-						} }
-					>
-						<Menu.RadioItem value="responsive">{ __( 'Responsive' ) }</Menu.RadioItem>
-						{ devicePresets.map( ( preset ) => (
-							<Menu.RadioItem
-								key={ preset.name }
-								value={ preset.name }
-								className={ styles.presetItem }
-							>
-								<span>{ preset.name }</span>
-								<span className={ styles.presetDimensions }>
-									{ preset.width } × { preset.height }
+			<div className={ styles.responsiveControls }>
+				<Menu.Root>
+					<Menu.Trigger render={ <Button variant="ghost" size="sm" className={ styles.device } /> }>
+						<span>{ settings.preset === 'responsive' ? __( 'Responsive' ) : settings.preset }</span>
+						<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
+					</Menu.Trigger>
+					<Menu.Popup side="bottom">
+						<Menu.RadioGroup
+							value={ settings.preset }
+							onValueChange={ ( value ) => {
+								const preset = devicePresets.find( ( item ) => item.name === value );
+								update(
+									preset
+										? { preset: preset.name, width: preset.width, height: preset.height }
+										: { preset: 'responsive' }
+								);
+							} }
+						>
+							<Menu.RadioItem value="responsive">{ __( 'Responsive' ) }</Menu.RadioItem>
+							{ devicePresets.map( ( preset ) => (
+								<Menu.RadioItem
+									key={ preset.name }
+									value={ preset.name }
+									className={ styles.presetItem }
+								>
+									<span>{ preset.name }</span>
+									<span className={ styles.presetDimensions }>
+										{ preset.width } × { preset.height }
+									</span>
+									{ settings.preset !== preset.name && (
+										<span className={ styles.indicatorSpace } aria-hidden="true" />
+									) }
+								</Menu.RadioItem>
+							) ) }
+						</Menu.RadioGroup>
+					</Menu.Popup>
+				</Menu.Root>
+				<span className={ styles.divider } aria-hidden="true" />
+				<div className={ styles.dimensions }>
+					<DimensionInput
+						label={ __( 'Width' ) }
+						value={ settings.width }
+						onCommit={ ( width ) => update( { width, preset: 'responsive' } ) }
+					/>
+					<span aria-hidden="true">×</span>
+					<DimensionInput
+						label={ __( 'Height' ) }
+						value={ settings.height }
+						onCommit={ ( height ) => update( { height, preset: 'responsive' } ) }
+					/>
+				</div>
+				<IconButton
+					className={ styles.rotate }
+					variant="ghost"
+					size="icon-sm"
+					label={
+						isSquare
+							? __( 'Rotate viewport' )
+							: isLandscape
+							? __( 'Rotate to portrait' )
+							: __( 'Rotate to landscape' )
+					}
+					icon={ <RefreshIcon /> }
+					onClick={ () => update( { width: settings.height, height: settings.width } ) }
+				/>
+				<span className={ styles.divider } aria-hidden="true" />
+				<Menu.Root>
+					<Menu.Trigger render={ <Button variant="ghost" size="sm" /> }>
+						{ settings.zoom === 'fit' ? __( 'Fit' ) : `${ settings.zoom * 100 }%` }
+						<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
+					</Menu.Trigger>
+					<Menu.Popup side="bottom" align="start">
+						<Menu.RadioGroup
+							value={ String( settings.zoom ) }
+							onValueChange={ ( value ) => {
+								if ( value !== 'fit' ) update( { zoom: Number( value ) } );
+							} }
+						>
+							<Menu.RadioItem value="fit" onClick={ () => update( { zoom: 'fit', fitScale } ) }>
+								<span>
+									{ __( 'Fit' ) }{ ' ' }
+									<span className={ styles.optionDetail }>
+										{ sprintf( __( '· %d%%' ), Math.round( fitScale * 100 ) ) }
+									</span>
 								</span>
-								{ settings.preset !== preset.name && (
-									<span className={ styles.indicatorSpace } aria-hidden="true" />
-								) }
 							</Menu.RadioItem>
-						) ) }
-					</Menu.RadioGroup>
-				</Menu.Popup>
-			</Menu.Root>
-			<span className={ styles.divider } aria-hidden="true" />
-			<div className={ styles.dimensions }>
-				<DimensionInput
-					label={ __( 'Width' ) }
-					value={ settings.width }
-					onCommit={ ( width ) => update( { width, preset: 'responsive' } ) }
-				/>
-				<span aria-hidden="true">×</span>
-				<DimensionInput
-					label={ __( 'Height' ) }
-					value={ settings.height }
-					onCommit={ ( height ) => update( { height, preset: 'responsive' } ) }
-				/>
+							<Menu.Separator />
+							{ [ 0.5, 0.75, 1, 1.25, 1.5, 2 ].map( ( zoom ) => (
+								<Menu.RadioItem key={ zoom } value={ String( zoom ) }>
+									{ zoom * 100 }%
+								</Menu.RadioItem>
+							) ) }
+						</Menu.RadioGroup>
+					</Menu.Popup>
+				</Menu.Root>
 			</div>
 			<IconButton
-				className={ styles.rotate }
-				variant="ghost"
-				size="icon-sm"
-				label={
-					isSquare
-						? __( 'Rotate viewport' )
-						: isLandscape
-						? __( 'Rotate to portrait' )
-						: __( 'Rotate to landscape' )
-				}
-				icon={ <RefreshIcon /> }
-				onClick={ () => update( { width: settings.height, height: settings.width } ) }
+				className={ styles.close }
+				size="icon-xs"
+				icon={ <XIcon /> }
+				label={ __( 'Hide device toolbar' ) }
+				tooltipSide="bottom"
+				onClick={ ( event ) => {
+					event.currentTarget
+						.closest( 'aside' )
+						?.querySelector< HTMLButtonElement >( '[data-preview-browser-options]' )
+						?.focus();
+					update( { enabled: false } );
+				} }
 			/>
-			<span className={ styles.divider } aria-hidden="true" />
-			<Menu.Root>
-				<Menu.Trigger render={ <Button variant="ghost" size="sm" /> }>
-					{ settings.zoom === 'fit' ? __( 'Fit' ) : `${ settings.zoom * 100 }%` }
-					<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
-				</Menu.Trigger>
-				<Menu.Popup side="bottom" align="start">
-					<Menu.RadioGroup
-						value={ String( settings.zoom ) }
-						onValueChange={ ( value ) => {
-							if ( value !== 'fit' ) update( { zoom: Number( value ) } );
-						} }
-					>
-						<Menu.RadioItem value="fit" onClick={ () => update( { zoom: 'fit', fitScale } ) }>
-							<span>
-								{ __( 'Fit' ) }{ ' ' }
-								<span className={ styles.optionDetail }>
-									{ sprintf( __( '· %d%%' ), Math.round( fitScale * 100 ) ) }
-								</span>
-							</span>
-						</Menu.RadioItem>
-						<Menu.Separator />
-						{ [ 0.5, 0.75, 1, 1.25, 1.5, 2 ].map( ( zoom ) => (
-							<Menu.RadioItem key={ zoom } value={ String( zoom ) }>
-								{ zoom * 100 }%
-							</Menu.RadioItem>
-						) ) }
-					</Menu.RadioGroup>
-				</Menu.Popup>
-			</Menu.Root>
 		</div>
 	);
 }

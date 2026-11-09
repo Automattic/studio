@@ -320,7 +320,9 @@ describe( 'command palette', () => {
 		await paletteClosed();
 		await openPalette();
 		search( 'Start site' );
-		expect( screen.queryByRole( 'option', { name: /^Start site/ } ) ).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'option', { name: 'Start site Test site' } )
+		).not.toBeInTheDocument();
 		search( 'Open WordPress Admin' );
 		expect(
 			screen.queryByRole( 'option', { name: /^Open WordPress Admin/ } )

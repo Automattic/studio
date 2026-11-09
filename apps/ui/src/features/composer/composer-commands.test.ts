@@ -47,7 +47,7 @@ describe( 'getCommandGroups', () => {
 	const values = ( group: { items: { value: string }[] } ) =>
 		group.items.map( ( item ) => item.value );
 
-	it( 'lists every command and skill in the add menu, after adding files', () => {
+	it( 'lists suggested commands and skills in the add menu', () => {
 		const [ actions, skillGroup ] = getCommandGroups( {
 			addOpen: true,
 			commands,
@@ -73,6 +73,27 @@ describe( 'getCommandGroups', () => {
 		] );
 		expect( values( skillGroup ) ).toEqual( [ 'liberate' ] );
 		expect( skillGroup.heading ).toBeUndefined();
+	} );
+
+	it( 'keeps stop and panel out of default suggestions but includes their search matches', () => {
+		const utilities = [ command( 'stop' ), command( 'panel' ) ];
+		const options = {
+			commands: [ ...commands, ...utilities ],
+			skills,
+			matches: [ ...commands, ...utilities ],
+			isDisabled: () => false,
+		};
+		for ( const addOpen of [ true, false ] ) {
+			const [ actions ] = getCommandGroups( { ...options, addOpen } );
+			expect( values( actions ) ).toEqual( [ 'add-files', 'model', 'connect-provider' ] );
+		}
+		const [ actions ] = getCommandGroups( {
+			...options,
+			addOpen: false,
+			searching: true,
+			matches: utilities,
+		} );
+		expect( values( actions ) ).toEqual( [ 'stop', 'panel' ] );
 	} );
 } );
 

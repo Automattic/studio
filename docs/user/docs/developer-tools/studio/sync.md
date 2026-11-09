@@ -41,7 +41,7 @@ WordPress Studio creates the local site, saves the connection, and opens the sit
 
 To add a WordPress site that’s already on your computer instead, see [Add a new site using an existing WordPress directory](https://wordpress.studio/docs/sites/#add-a-new-site-using-an-existing-wordpress-directory).
 
-[![The Connect tab of the Add site dialog in WordPress Studio, signed in, with a Search sites field, Refresh list and Supported sites links, WordPress.com and Pressable sites listed under Available to connect, and a site listed under Unavailable.](https://developer.wordpress.com/wp-content/uploads/2025/01/add-site-connect-signed-in.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/add-site-connect-signed-in.webp)
+![The Connect tab of the Add site dialog in WordPress Studio, signed in, with a Search sites field, Refresh list and Supported sites links, WordPress.com and Pressable sites listed under Available to connect, and a site listed under Unavailable.](../../../screenshots/images/add-site-connect-signed-in.webp)
 
 ## [Connect WordPress Studio to an existing WordPress.com site](#connect-existing)
 
@@ -55,7 +55,7 @@ To connect a local WordPress Studio site to an existing production or staging si
 4.  Click **Existing site…** to open the **Choose an existing site** list. Each row shows the site’s name, its address, and whether it’s a **Production**, **Staging**, or **Development** site. Sites you can’t publish to, such as sites that need a plan upgrade, deleted sites, or sites you don’t have permission to manage, are left out. To load the list again, open **Site actions** (**⋯**) and choose **Refresh**.
 5.  Click the site you want to connect to. To go back without connecting, click **Back to Publish**.
 
-[![The Choose an existing site list in the WordPress Studio Publish panel, showing each site's name, address, and Production or Staging environment, with a back button and a Site actions menu.](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-choose-site.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-choose-site.webp)
+![The Choose an existing site list in the WordPress Studio Publish panel, showing each site's name, address, and Production or Staging environment, with a back button and a Site actions menu.](../../../screenshots/images/publish-choose-site.webp)
 
 Once connected, the **Publish** panel shows **Publish details**: a card for the website you’ll publish to, with its address and when you last published (or **Not published yet**). Below the card, you’ll see the website’s **Environment** and, once you’ve pulled from it, when it was **Last pulled**. For WordPress.com sites, there are also links to the site’s **Domains**, **Backups**, and **Manage on WordPress.com**.
 
@@ -74,7 +74,7 @@ A local site can be connected to more than one website, for example a production
 
 The details, links, and the **Pull changes** and **Publish changes** buttons follow the website you choose. To connect one more website, click the card and choose **Connect another site…**. You can’t switch websites while a pull or publish is running.
 
-[![The Publish tab of the Share and publish panel in WordPress Studio with the website switcher open, listing two connected websites, a production site with a checkmark and its staging site, each with a thumbnail and when it was updated, and Connect another site… below them.](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-switcher.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-switcher.webp)
+![The Publish tab of the Share and publish panel in WordPress Studio with the website switcher open, listing two connected websites, a production site with a checkmark and its staging site, each with a thumbnail and when it was updated, and Connect another site… below them.](../../../screenshots/images/publish-switcher.webp)
 
 ## [Connect WordPress Studio to a new WordPress.com site](#connect-new)
 
@@ -120,7 +120,7 @@ When you are happy with the changes made to your WordPress Studio site, you can 
 2.  Click **Publish** at the top right of the site preview, and connect a website if you haven’t already.
 3.  If the local site is connected to more than one website, [choose one](#switch-websites). Then click **Publish changes**.
 
-[![The Publish changes step of the Publish panel in WordPress Studio with Choose files… selected, showing a file tree with expandable mu-plugins, plugins, themes, and uploads folders and index.php, themes and Content and settings checked, and Cancel and Publish changes buttons.](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-choose-files.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/01/publish-choose-files.webp)
+![The Publish changes step of the Publish panel in WordPress Studio with Choose files… selected, showing a file tree with expandable mu-plugins, plugins, themes, and uploads folders and index.php, themes and Content and settings checked, and Cancel and Publish changes buttons.](../../../screenshots/images/publish-choose-files.webp)
 
 4.  Choose what to publish:
     -   **Entire site**

@@ -24,16 +24,16 @@ Creating local sites from Blueprints is incorporated into the site creation flow
 
 1.  Click the **Add site** (**+**) button next to **Sites** at the top of the WordPress Studio sidebar. The **Add site** dialog opens on **Create**, which shows **Blank site** and the Blueprints library under **Create a new WordPress**.
 
-[![The Add site dialog in WordPress Studio, open on Create, showing Create a new WordPress with a Blank site card and Blueprint cards such as Wedding RSVP, Stylish Press, and University Website, and categories under By use case on the left.](https://developer.wordpress.com/wp-content/uploads/2025/10/add-site.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/10/add-site.webp)
+![The Add site dialog in WordPress Studio, open on Create, showing Create a new WordPress with a Blank site card and Blueprint cards such as Wedding RSVP, Stylish Press, and University Website, and categories under By use case on the left.](../../../../screenshots/images/add-site.webp)
 
 2.  Browse the Blueprints library, or pick a category under **By use case** on the left: **Business**, **Blog**, **Portfolio**, **Store**, **Events**, or **Development**.
 
-[![The Business category of the Blueprints library in WordPress Studio's Add site dialog, showing the University Website, Non-profit Organization, and Quick Start Blueprints.](https://developer.wordpress.com/wp-content/uploads/2025/10/blueprints-library.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/10/blueprints-library.webp)
+![The Business category of the Blueprints library in WordPress Studio's Add site dialog, showing the University Website, Non-profit Organization, and Quick Start Blueprints.](../../../../screenshots/images/blueprints-library.webp)
 
 3.  Click a Blueprint to see a larger preview. Click **Preview in browser** to try it out first. To go back to the library, click **Blueprints** at the top of the dialog.
 4.  Click **Create site**. WordPress Studio creates the site with the Blueprint’s name, in your default site folder. If the Blueprint needs more information, such as a custom domain, or the folder isn’t empty, WordPress Studio shows the **Create your site** form first: review the Blueprint, including the plugins and themes it installs, give your site a name, and click **Create site from Blueprint**.
 
-[![A larger preview of the University Website Blueprint in WordPress Studio's Add site dialog, with Preview in browser and Create site buttons at the top.](https://developer.wordpress.com/wp-content/uploads/2025/10/blueprint-details.webp?w=1024)](https://developer.wordpress.com/wp-content/uploads/2025/10/blueprint-details.webp)
+![A larger preview of the University Website Blueprint in WordPress Studio's Add site dialog, with Preview in browser and Create site buttons at the top.](../../../../screenshots/images/blueprint-details.webp)
 
 To use your own Blueprint:
 

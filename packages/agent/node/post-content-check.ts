@@ -19,6 +19,7 @@ import { readWordPressSite } from '@studio/agent/node/site-database';
 import { POST_VERSION, RENDERED, RENDERED_TYPES, savePost } from '@studio/agent/node/site-markup';
 import { validationSummary } from '@studio/agent/node/studio-message';
 import { printedJson, wpEval } from '@studio/agent/node/tools/utils';
+import type { PresetValues } from '@studio/agent/node/block-validator';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { ChangeReport, SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
@@ -202,6 +203,61 @@ async function areaReport(
 	} ) );
 }
 
+type Validated = Omit< ChangeReport, 'key' > & { saved?: boolean };
+
+// The posts validated side by side, at most this many at a time: each waits
+// mostly on WP-CLI and the block editor, whose page takes calls side by side
+// (EditorPage.use() in browser-utils.ts).
+const SIDE_BY_SIDE = 3;
+
+// Each post's validation, in the posts' order, `validate` running on at most
+// SIDE_BY_SIDE of them at a time. A post's notes on the presets its repeated
+// values became are made first, one post after another, as each can add to
+// the theme's theme.json and save posts, and the posts are validated with
+// the presets they leave.
+async function validatePosts< R >(
+	host: StudioAgentHost,
+	site: HostSite,
+	posts: Row[],
+	save: boolean,
+	validate: ( post: Row, run: () => Promise< Validated > ) => Promise< R >
+): Promise< R[] > {
+	const notes: string[][] = [];
+	for ( const post of posts ) {
+		notes.push( await presetNotesOf( host, site, post ) );
+	}
+	const presets = posts.some( ( post ) => ! isEmpty( post ) )
+		? await sitePresetValues( host, site.path )
+		: undefined;
+	const results: R[] = [];
+	let next = 0;
+	const worker = async () => {
+		for ( let i = next++; i < posts.length; i = next++ ) {
+			results[ i ] = await validate( posts[ i ], () =>
+				validatePost( host, site, posts[ i ], save, notes[ i ], presets )
+			);
+		}
+	};
+	await Promise.all( Array.from( { length: Math.min( SIDE_BY_SIDE, posts.length ) }, worker ) );
+	return results;
+}
+
+const labelOf = ( site: HostSite, post: Row ) =>
+	`${ site.name } ${ post.type } ${ post.id } "${ post.title }"`;
+
+// A post with no content yet, as `wp post create` makes one, has no blocks
+// to validate, and the editor is not loaded to find none.
+const isEmpty = ( post: Row ) => ! post.content.trim();
+
+// Before the presets the save stores its blocks with are read.
+function presetNotesOf( host: StudioAgentHost, site: HostSite, post: Row ): Promise< string[] > {
+	return isEmpty( post )
+		? Promise.resolve( [] )
+		: repeatedPostStyleNotes( host, site.path, post.id, post.content, labelOf( site, post ) ).catch(
+				() => []
+		  );
+}
+
 // A lossless fix is saved to the post, as Studio saves one to a file
 // (block-validation-gate.ts), unless code activated in the call may have
 // written the post. One Studio does not save stays in the site's tmp/
@@ -212,27 +268,19 @@ async function validatePost(
 	host: StudioAgentHost,
 	site: HostSite,
 	post: Row,
-	save: boolean
-): Promise< Omit< ChangeReport, 'key' > & { saved?: boolean } > {
-	// A post with no content yet, as `wp post create` makes one, has no blocks
-	// to validate, and the editor is not loaded to find none.
-	if ( ! post.content.trim() ) {
+	save: boolean,
+	presetNotes: string[],
+	presets: PresetValues | undefined
+): Promise< Validated > {
+	if ( isEmpty( post ) || ! presets ) {
 		return {};
 	}
-	const label = `${ site.name } ${ post.type } ${ post.id } "${ post.title }"`;
-	// Before the presets the save stores its blocks with are read.
-	const presetNotes = await repeatedPostStyleNotes(
-		host,
-		site.path,
-		post.id,
-		post.content,
-		label
-	).catch( () => [] );
+	const label = labelOf( site, post );
 	const result = await validateBlockMarkup(
 		post.content,
 		label,
 		site.url,
-		await sitePresetValues( host, site.path ),
+		presets,
 		blockEditorOf( post ),
 		rendersAlikeOn( host, site )
 	);
@@ -309,16 +357,17 @@ export const postContentChanges: SiteChangeSource = {
 		const posts = changed.length ? await readPosts( site.path, changed ) : [];
 		// What code activated in this call wrote is its own, and stays as it wrote it.
 		const save = before[ CODE ] === after[ CODE ];
-		for ( const post of posts ) {
-			const { saved: savedPost, ...result } = await validatePost( host, site, post, save ).catch(
-				( error: unknown ) => ( {
-					summary: `${ site.name } ${ post.type } ${ post.id }: not validated (${
-						error instanceof Error ? error.message : String( error )
-					})`,
-					problem: undefined,
-					saved: false,
-				} )
-			);
+		const validated = await validatePosts( host, site, posts, save, ( post, run ) =>
+			run().catch( ( error: unknown ) => ( {
+				summary: `${ site.name } ${ post.type } ${ post.id }: not validated (${
+					error instanceof Error ? error.message : String( error )
+				})`,
+				problem: undefined,
+				saved: false,
+			} ) )
+		);
+		for ( const [ i, post ] of posts.entries() ) {
+			const { saved: savedPost, ...result } = validated[ i ];
 			saved = saved || !! savedPost;
 			if ( result.problem ) {
 				stillOpen.push( String( post.id ) );
@@ -334,8 +383,12 @@ export const postContentChanges: SiteChangeSource = {
 		// Once each names its theme, whose part it replaces.
 		reports.push( ...( await areaReport( host, site, posts ) ) );
 		// A post validated again for the presets: its problem is updated, and not told again.
-		for ( const post of recheck.length ? await readPosts( site.path, recheck ) : [] ) {
-			const result = await validatePost( host, site, post, false ).catch( () => undefined );
+		const rechecked = recheck.length ? await readPosts( site.path, recheck ) : [];
+		const revalidated = await validatePosts( host, site, rechecked, false, ( _post, run ) =>
+			run().catch( () => undefined )
+		);
+		for ( const [ i, post ] of rechecked.entries() ) {
+			const result = revalidated[ i ];
 			if ( ! result || result.problem ) {
 				stillOpen.push( String( post.id ) );
 			}

@@ -123,10 +123,10 @@ const searchBox = () => screen.getByRole( 'textbox', { name: 'Search settings' }
 
 describe( 'WordPress Studio settings', () => {
 	it.each( [ undefined, true, false ] )(
-		'saves the split-view startup setting from %s',
+		'saves the startup chat setting from %s',
 		async ( value ) => {
 			const { connector } = await setup( { preferences: { openChatOnSiteStart: value } } );
-			const toggle = await screen.findByRole( 'switch', { name: 'Start sites in split view' } );
+			const toggle = await screen.findByRole( 'switch', { name: 'Start sites with chat' } );
 			if ( value ?? true ) expect( toggle ).toBeChecked();
 			else expect( toggle ).not.toBeChecked();
 			fireEvent.click( toggle );

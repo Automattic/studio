@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { getCommandGroups } from '@/features/composer/composer-commands';
 import { getActiveCommand } from '@/lib/ui';
 
-// The sheet of commands and skills: the add button opens all of them, a
+// The sheet of commands and skills: the add button opens suggestions, a
 // `/fragment` in the draft its matches, until Escape dismisses that text.
 export function useCommandSheet( {
 	value,
@@ -29,6 +29,7 @@ export function useCommandSheet( {
 		commands,
 		skills,
 		matches: slash.matches,
+		searching: ! addOpen && slash.open && ! value.endsWith( '/' ),
 		isDisabled,
 	} );
 

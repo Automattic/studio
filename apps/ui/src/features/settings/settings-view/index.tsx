@@ -278,11 +278,11 @@ function PreferencesPanel( {
 					/>
 				</SettingsRow>
 				<SettingsRow
-					title={ __( 'Start sites in split view' ) }
+					title={ __( 'Start sites with chat' ) }
 					description={ __( 'Show chat beside the panel when starting a site.' ) }
 				>
 					<SettingsToggle
-						label={ __( 'Start sites in split view' ) }
+						label={ __( 'Start sites with chat' ) }
 						checked={ data.openChatOnSiteStart }
 						onChange={ ( openChatOnSiteStart ) => onChange( { openChatOnSiteStart } ) }
 					/>

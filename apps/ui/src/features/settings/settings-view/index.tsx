@@ -50,7 +50,7 @@ import type {
 	UserPreferences,
 } from '@/data/core';
 
-// "System default" first, then the installed apps and the saved one, even if it's gone.
+// "System" first, then the installed apps and the saved one, even if it's gone.
 function appElements< TApp extends keyof InstalledApps >(
 	apps: readonly TApp[],
 	installedApps: InstalledApps | undefined,
@@ -58,7 +58,7 @@ function appElements< TApp extends keyof InstalledApps >(
 	label: ( app: TApp ) => string
 ) {
 	return [
-		{ value: UNSET, label: __( 'System default' ) },
+		{ value: UNSET, label: __( 'System' ) },
 		...apps
 			.filter( ( app ) => ! installedApps || installedApps[ app ] || app === saved )
 			.map( ( app ) => ( { value: app, label: label( app ) } ) ),
@@ -213,7 +213,7 @@ function PreferencesPanel( {
 						label={ __( 'Default browser' ) }
 						value={ data.browser }
 						options={ [
-							{ value: UNSET, label: __( 'System default' ) },
+							{ value: UNSET, label: __( 'System' ) },
 							...SUPPORTED_BROWSERS.filter(
 								( browser ) => installedApps?.[ browser ] || browser === data.browser
 							).map( ( browser ) => ( { value: browser, label: browserConfig[ browser ].name } ) ),

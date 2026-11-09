@@ -155,8 +155,8 @@ test.describe( 'Chat', () => {
 			await annotate.click();
 			await expect( annotate ).toHaveAttribute( 'aria-pressed', 'true' );
 		} else {
-			await page.getByRole( 'button', { name: 'More preview actions' } ).click();
-			await page.getByRole( 'menuitemcheckbox', { name: 'Annotate' } ).click();
+			await page.getByRole( 'button', { name: 'Browser options' } ).click();
+			await page.getByRole( 'menuitem', { name: 'Annotate', exact: true } ).click();
 		}
 
 		const note = page.getByRole( 'textbox', { name: 'Describe the change' } );

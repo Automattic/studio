@@ -9,6 +9,7 @@ import type { OnboardingHintsState } from '@/data/core';
 afterEach( () => {
 	vi.unstubAllGlobals();
 	vi.useRealTimers();
+	localStorage.removeItem( 'studio-ui-sidebar-collapsed' );
 } );
 
 function setup(
@@ -503,13 +504,51 @@ describe( 'first-time walkthrough', () => {
 		expect( connector.startSite ).not.toHaveBeenCalled();
 	} );
 
+	it.each( [ 1280, 800 ] )(
+		'leaves the sidebar under user control during the introduction at %ipx',
+		async ( width ) => {
+			vi.stubGlobal( 'innerWidth', width );
+			localStorage.setItem( 'studio-ui-sidebar-collapsed', 'true' );
+			const { connector, readHints } = setup( { walkthroughStep: 'intro' } );
+			const { user } = renderApp( { connector, path: '/sites/site-1' } );
+			expect( await screen.findByRole( 'dialog', { name: 'Open the sidebar' } ) ).toBeVisible();
+			expect( screen.queryByRole( 'dialog', { name: 'Sidebar' } ) ).not.toBeInTheDocument();
+			expect(
+				screen.queryByRole( 'separator', { name: 'Resize sidebar' } )
+			).not.toBeInTheDocument();
+			expect( localStorage.getItem( 'studio-ui-sidebar-collapsed' ) ).toBe( 'true' );
+			await user.click(
+				within( screen.getByRole( 'main' ) ).getByRole( 'button', { name: 'Show sidebar' } )
+			);
+			expect( await screen.findByRole( 'dialog', { name: 'Add a new site' } ) ).toBeVisible();
+			const hideSidebar = screen
+				.getAllByRole( 'button', { name: 'Hide sidebar' } )
+				.find( ( button ) => ! button.closest( '[inert]' ) );
+			await user.click( hideSidebar! );
+			const intro = await screen.findByRole( 'dialog', { name: 'Open the sidebar' } );
+			expect( readHints().walkthroughStep ).toBe( 'intro' );
+			expect( screen.queryByRole( 'dialog', { name: 'Sidebar' } ) ).not.toBeInTheDocument();
+			expect(
+				screen.queryByRole( 'separator', { name: 'Resize sidebar' } )
+			).not.toBeInTheDocument();
+			await user.click( within( intro ).getByRole( 'button', { name: 'Skip tour' } ) );
+			await waitFor( () => expect( readHints().walkthroughStep ).toBe( 'skipped' ) );
+			expect( localStorage.getItem( 'studio-ui-sidebar-collapsed' ) ).toBe( 'true' );
+			expect( connector.createSite ).not.toHaveBeenCalled();
+		}
+	);
+
 	it( 'tours site options before returning to an existing workspace', async () => {
 		localStorage.setItem( 'studio-ui-sidebar-collapsed', 'true' );
 		const { connector, readHints } = setup( { walkthroughStep: 'ineligible' } );
 		const { history, user } = renderApp( { connector, path: '/sites/site-1' } );
 		await waitFor( () => expect( connector.listenerCount( 'onShowGettingStarted' ) ).toBe( 1 ) );
 		act( () => connector.emit( 'onShowGettingStarted' ) );
+		const sidebarTip = await screen.findByRole( 'dialog', { name: 'Open the sidebar' } );
+		within( sidebarTip ).getByRole( 'button', { name: 'Show sidebar' } ).focus();
+		await user.keyboard( '{Enter}' );
 		const intro = await screen.findByRole( 'dialog', { name: 'Add a new site' } );
+		expect( screen.getByRole( 'button', { name: 'Add site' } ) ).toHaveFocus();
 		expect( within( intro ).getByRole( 'button', { name: 'Skip tour' } ) ).toBeVisible();
 		expect( history.location.pathname ).toBe( '/sites/site-1/new' );
 		await user.click( within( intro ).getByRole( 'button', { name: 'Next' } ) );
@@ -526,8 +565,7 @@ describe( 'first-time walkthrough', () => {
 		expect( history.location.pathname ).toBe( '/sites/site-1/new' );
 		expect( connector.createSite ).not.toHaveBeenCalled();
 		expect( connector.setOnboardingCompleted ).not.toHaveBeenCalled();
-		expect( localStorage.getItem( 'studio-ui-sidebar-collapsed' ) ).toBe( 'true' );
-		localStorage.removeItem( 'studio-ui-sidebar-collapsed' );
+		expect( localStorage.getItem( 'studio-ui-sidebar-collapsed' ) ).toBe( 'false' );
 	} );
 
 	it.each( [ 'Start with Blank site', 'View Substrata' ] )(

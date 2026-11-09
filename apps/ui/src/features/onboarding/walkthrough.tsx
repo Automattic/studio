@@ -20,16 +20,19 @@ function getStep(
 	step: Step,
 	createStage: CreateStage,
 	signedIn: boolean,
-	galleryStep: GalleryStep
+	galleryStep: GalleryStep,
+	sidebarClosed: boolean
 ) {
 	switch ( step ) {
 		case 'intro':
 			return {
-				title: __( 'Add a new site' ),
-				description: __(
-					'Start from scratch, try a design, or bring an existing site into Studio. You can explore without creating another site.'
-				),
-				action: __( 'Next' ),
+				title: sidebarClosed ? __( 'Open the sidebar' ) : __( 'Add a new site' ),
+				description: sidebarClosed
+					? __( 'Your sites live here. Open the sidebar to explore ways to add a new site.' )
+					: __(
+							'Start from scratch, try a design, or bring an existing site into Studio. You can explore without creating another site.'
+					  ),
+				action: sidebarClosed ? __( 'Show sidebar' ) : __( 'Next' ),
 				next: 'create' as const,
 			};
 		case 'create':
@@ -96,7 +99,7 @@ function isAvailable( element: HTMLElement ): boolean {
 	for ( let node: HTMLElement | null = element; node; node = node.parentElement ) {
 		if (
 			node.hidden ||
-			node.inert ||
+			node.hasAttribute( 'inert' ) ||
 			node.getAttribute( 'aria-hidden' ) === 'true' ||
 			getComputedStyle( node ).display === 'none' ||
 			getComputedStyle( node ).visibility === 'hidden'
@@ -142,9 +145,12 @@ export function Walkthrough( {
 	};
 	const { isOpen: guideOpen } = useOnboardingGuide();
 	const step = hints?.walkthroughStep;
+	const sidebarClosed = step === 'intro' && !! anchor?.hasAttribute( 'data-sidebar-toggle' );
 	const matchesPlacement = inSiteDialog ? step === 'create' : step !== 'create';
 	const content =
-		step && matchesPlacement ? getStep( step, createStage, !! user, galleryStep ) : null;
+		step && matchesPlacement
+			? getStep( step, createStage, !! user, galleryStep, sidebarClosed )
+			: null;
 	const hasContent = content !== null;
 	const targetStep =
 		step === 'create'
@@ -199,9 +205,15 @@ export function Walkthrough( {
 			return;
 		}
 		const findTarget = () => {
-			const target = Array.from(
-				document.querySelectorAll< HTMLElement >( `[data-walkthrough~="${ targetStep }"]` )
-			).find( isAvailable );
+			const target =
+				Array.from(
+					document.querySelectorAll< HTMLElement >( `[data-walkthrough~="${ targetStep }"]` )
+				).find( isAvailable ) ??
+				( step === 'intro'
+					? Array.from( document.querySelectorAll< HTMLElement >( '[data-sidebar-toggle]' ) ).find(
+							isAvailable
+					  )
+					: undefined );
 			const nextElement =
 				targetStep === 'create'
 					? Array.from(
@@ -268,7 +280,10 @@ export function Walkthrough( {
 	const eligible =
 		!! anchor &&
 		anchor.isConnected &&
-		!! anchor.dataset.walkthrough?.split( ' ' ).includes( targetStep ?? '' ) &&
+		!! (
+			anchor.dataset.walkthrough?.split( ' ' ).includes( targetStep ?? '' ) ||
+			( step === 'intro' && anchor.hasAttribute( 'data-sidebar-toggle' ) )
+		) &&
 		! blocked &&
 		! suspended &&
 		!! content &&
@@ -281,11 +296,12 @@ export function Walkthrough( {
 		if ( showNextImmediately.current ) {
 			showNextImmediately.current = false;
 			setRevealedAnchor( anchor );
+			if ( step === 'intro' ) anchor?.focus();
 			return;
 		}
 		const timer = window.setTimeout( () => setRevealedAnchor( anchor ), 400 );
 		return () => window.clearTimeout( timer );
-	}, [ eligible, anchor ] );
+	}, [ eligible, anchor, step ] );
 	const open = eligible && revealedAnchor === anchor;
 	const nextStep = content?.next;
 
@@ -418,7 +434,10 @@ export function Walkthrough( {
 						}
 						onNext={
 							step === 'intro'
-								? () => anchor?.click()
+								? () => {
+										if ( sidebarClosed ) showNextImmediately.current = true;
+										anchor?.click();
+								  }
 								: step === 'create'
 								? () => {
 										if ( firstStep && target.nextElement ) {

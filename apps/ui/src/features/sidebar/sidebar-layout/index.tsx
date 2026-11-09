@@ -72,7 +72,7 @@ export function SidebarLayout( {
 		'closed'
 	);
 	const peek = sidebarFlyoutState === 'hover';
-	const sidebarFlyoutOpen = sidebarFlyoutState === 'open' || touringSites;
+	const sidebarFlyoutOpen = sidebarFlyoutState === 'open';
 	const [ instantSidebarDock, setInstantSidebarDock ] = useState( false );
 	const dockedSidebarRef = useRef< HTMLElement >( null );
 	const setDockedFade = useScrollFade< HTMLDivElement >();
@@ -143,9 +143,9 @@ export function SidebarLayout( {
 		setWasOverlay( overlay );
 		setSidebarFlyoutState( ! overlay && sidebarFlyoutState !== 'closed' ? 'hover' : 'closed' );
 	}
-	const docked = ! overlay && ( ! collapsed || touringSites );
+	const docked = ! overlay && ! collapsed;
 	const open = docked || sidebarFlyoutOpen;
-	const sidebarFlyoutVisible = sidebarFlyoutState !== 'closed' || ( touringSites && overlay );
+	const sidebarFlyoutVisible = sidebarFlyoutState !== 'closed';
 	useLayoutEffect( () => {
 		if ( docked && dockedSidebarScrollRef.current ) dockedSidebarScrollRef.current.scrollTop = 0;
 		if ( sidebarFlyoutVisible && sidebarFlyoutRef.current ) sidebarFlyoutRef.current.scrollTop = 0;
@@ -214,7 +214,7 @@ export function SidebarLayout( {
 								/>
 								{ ! instantSidebarDock && (
 									<Popover.Root
-										open={ ! docked && ( peek || sidebarFlyoutOpen ) }
+										open={ peek || sidebarFlyoutOpen }
 										onOpenChange={ ( next, details ) => {
 											if (
 												details.reason === 'escape-key' &&

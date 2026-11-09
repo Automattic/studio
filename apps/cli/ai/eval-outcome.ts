@@ -647,12 +647,18 @@ export async function homeStyles( url: string, siteName: string ) {
 					};
 				} );
 			// "The big title at the top": the first screen's h1, else its largest
-			// heading, whichever its level (eval5's Athletic hero was an h2).
+			// heading, whichever its level (eval5's Athletic hero was an h2). Not
+			// the site's title, which a theme sets as a small h1 in its header
+			// (eval26 and eval28's picky runs), when the first screen has another.
 			const shown = [ ...document.querySelectorAll( 'h1, h2, h3, h4, h5, h6' ) ].filter( visible );
 			const size = ( el: Element ) => parseFloat( getComputedStyle( el ).fontSize );
-			const onFirstScreen = shown.filter(
+			const firstScreen = shown.filter(
 				( el ) => el.getBoundingClientRect().top < window.innerHeight
 			);
+			const pastHeader = firstScreen.filter(
+				( el ) => ! header?.contains( el ) && ! el.closest( '.wp-block-site-title' )
+			);
+			const onFirstScreen = pastHeader.length ? pastHeader : firstScreen;
 			const topTitle =
 				onFirstScreen.find( ( el ) => el.tagName === 'H1' ) ??
 				onFirstScreen.reduce< Element | undefined >(
@@ -782,8 +788,11 @@ export async function homeStyles( url: string, siteName: string ) {
 			const alpha = ( color: string ) => rgba( color )[ 3 ];
 			// The solid color painted behind a point, or none when an image, a
 			// a see-through color or a faded one, as a cover's dimming, shows there.
+			// Nothing, out of the window, where the browser hits no element.
 			const paintedBehind = ( x: number, y: number ) => {
-				for ( const at of document.elementsFromPoint( x, y ) ) {
+				const stack = document.elementsFromPoint( x, y );
+				if ( ! stack.length ) return null;
+				for ( const at of stack ) {
 					const style = getComputedStyle( at );
 					if (
 						style.backgroundImage !== 'none' ||
@@ -824,6 +833,13 @@ export async function homeStyles( url: string, siteName: string ) {
 							right: Math.max( ...rects.map( ( rect ) => rect.right ) ),
 					  }
 					: null;
+			};
+			// The middle of the part of a line inside the window, as a ticker wider
+			// than the window runs past its edge (eval28's redo port 1); none when
+			// all of the line is out of it.
+			const shownMiddle = ( rect: DOMRect ) => {
+				const [ left, right ] = [ Math.max( rect.left, 0 ), Math.min( rect.right, viewport ) ];
+				return right > left ? ( left + right ) / 2 : null;
 			};
 			const atEdge = ( box: { left: number; right: number } | null ) =>
 				!! box && ( box.left < 4 || box.right > viewport - 4 );
@@ -887,9 +903,9 @@ export async function homeStyles( url: string, siteName: string ) {
 				}
 				// On the first screen, the element painted at its first line's middle.
 				const [ first ] = rects;
-				const x = first.left + first.width / 2;
+				const x = shownMiddle( first );
 				const y = first.top + first.height / 2;
-				if ( y > 0 && y < window.innerHeight ) {
+				if ( x !== null && y > 0 && y < window.innerHeight ) {
 					const top = document.elementFromPoint( x, y );
 					if ( top && ! el.contains( top ) && ! top.contains( el ) && paintedAt( top, x, y ) )
 						faults.push(
@@ -913,8 +929,8 @@ export async function homeStyles( url: string, siteName: string ) {
 				let node = walker.nextNode();
 				while ( node && ! node.textContent?.trim() ) node = walker.nextNode();
 				const color = getComputedStyle( node?.parentElement ?? el ).color;
-				const behind =
-					first && paintedBehind( first.left + first.width / 2, first.top + first.height / 2 );
+				const x = first && shownMiddle( first );
+				const behind = first && x !== null && paintedBehind( x, first.top + first.height / 2 );
 				if ( ! behind || ! alpha( color ) ) continue;
 				// See-through text shows blended with what is behind it.
 				const [ text, under ] = [ rgba( color ), rgba( behind ) ];

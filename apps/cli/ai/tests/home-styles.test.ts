@@ -44,12 +44,27 @@ const PAGE = `<p class="skip" style="position:absolute;left:0;clip-path:inset(50
 	<blockquote style="font-size:32px">A testimonial set large, as a design does</blockquote>
 	<p>Body text for the median size of the page, at sixteen pixels.</p></section>
 	<style>@keyframes ticker{to{transform:translateX(-50%)}}</style>
-	<section style="overflow:hidden"><div style="display:flex;gap:40px;width:max-content;animation:ticker 20s linear infinite"><p style="white-space:nowrap">Fresh bread daily · Open seven days · Order ahead</p><p style="white-space:nowrap">Fresh bread daily · Open seven days · Order ahead</p><p style="white-space:nowrap">Fresh bread daily · Open seven days · Order ahead</p></div></section>`;
+	<section style="overflow:hidden"><div style="display:flex;gap:40px;width:max-content;animation:ticker 20s linear infinite"><p style="white-space:nowrap">Fresh bread daily · Open seven days · Order ahead</p><p style="white-space:nowrap">Fresh bread daily · Open seven days · Order ahead</p><p style="white-space:nowrap">Fresh bread daily · Open seven days · Order ahead</p></div></section>
+	<section style="overflow:hidden;background:#0a0806"><p style="white-space:nowrap;width:max-content;color:#f3ede2;font-size:32px;animation:ticker 20s linear infinite">${ 'Book a session · See the work · Meet the artists · '.repeat(
+		6
+	) }</p></section>`;
 
 const HEADER = `<header style="display:flex;justify-content:space-between;padding:20px 40px">
 	<nav class="wp-block-navigation"><a href="/">Home</a> <a href="/services/">Services</a></nav>
 	<div style="display:flex;gap:20px"><p style="font-size:24px">SPOKE <span>&amp;</span> CHAIN</p><a href="/contact/">book a repair</a></div></header>
 	<main><h1 style="font-size:40px">Your bike on the road, fast.</h1><h2 style="font-size:56px">what we fix</h2></main>`;
+
+// eval28 picky port 2: the site's title a small h1 in the header, the hero a large h2.
+const SITE_TITLE = `<header class="wp-block-template-part" style="display:flex;justify-content:space-between;padding:20px 40px">
+	<h1 class="wp-block-site-title" style="font-size:20px;margin:0"><a href="/">spoke &amp; chain</a></h1>
+	<nav class="wp-block-navigation"><a href="/">Home</a> <a href="/services/">Services</a></nav></header>
+	<main><h2 style="font-size:72px">Fast fixes. Smooth rides.</h2><h2 style="font-size:40px">built on trust</h2></main>`;
+
+const PAGES: Record< string, string > = {
+	page: `<body style="margin:0;font-size:16px">${ PAGE }</body>`,
+	header: `<body style="margin:0">${ HEADER }</body>`,
+	'site-title': `<body style="margin:0">${ SITE_TITLE }</body>`,
+};
 
 describe.runIf( CHROMIUM )( 'the eval home page styles', () => {
 	let server: http.Server;
@@ -57,14 +72,12 @@ describe.runIf( CHROMIUM )( 'the eval home page styles', () => {
 	beforeAll( async () => {
 		server = http.createServer( ( request, response ) => {
 			response.writeHead( 200, { 'content-type': 'text/html' } );
+			const name = request.url?.slice( 1 ) ?? '';
 			response.end(
-				request.url === '/page'
-					? `<!doctype html><body style="margin:0;font-size:16px">${ PAGE }</body>`
-					: request.url === '/header'
-					? `<!doctype html><body style="margin:0">${ HEADER }</body>`
-					: `<!doctype html><body style="margin:0"><main>Home</main><footer style="width:1000px;margin:auto">${
-							FOOTERS[ request.url?.slice( 1 ) ?? '' ]
-					  }</footer></body>`
+				`<!doctype html>${
+					PAGES[ name ] ??
+					`<body style="margin:0"><main>Home</main><footer style="width:1000px;margin:auto">${ FOOTERS[ name ] }</footer></body>`
+				}`
 			);
 		} );
 		await new Promise< void >( ( resolve ) => server.listen( 0, '127.0.0.1', resolve ) );
@@ -95,17 +108,31 @@ describe.runIf( CHROMIUM )( 'the eval home page styles', () => {
 	);
 
 	// eval23 picky port 1: the name a paragraph, and the hero h1 smaller than a section's h2.
-	it( "finds the site's name in the header by its text, and the first screen's h1 as its top title", async () => {
+	it( "finds the site's name in the header by its text", async () => {
 		const styles = ( await homeStyles( url + 'header', 'Spoke & Chain' ) ) as {
 			navLeft: number;
 			titleLeft: number;
-			headings: { text: string; first: boolean }[];
 		};
 		expect( styles.titleLeft ).toBeGreaterThan( styles.navLeft );
-		expect( styles.headings.filter( ( heading ) => heading.first ) ).toEqual( [
-			expect.objectContaining( { text: 'Your bike on the road, fast.' } ),
-		] );
 	}, 60000 );
+
+	it.each( [
+		// eval23 picky port 1: the hero h1 smaller than a section's h2.
+		[ 'header', 'Your bike on the road, fast.' ],
+		// eval28 picky port 2: the site's title a small h1 in the header, the hero a large h2.
+		[ 'site-title', 'Fast fixes. Smooth rides.' ],
+	] )(
+		'takes the %s page\'s top title as "%s"',
+		async ( page, title ) => {
+			const styles = ( await homeStyles( url + page, 'Spoke & Chain' ) ) as {
+				headings: { text: string; first: boolean }[];
+			};
+			expect(
+				styles.headings.filter( ( heading ) => heading.first ).map( ( heading ) => heading.text )
+			).toEqual( [ title ] );
+		},
+		60000
+	);
 
 	// eval25 picky port 1 and 4: a color in color(srgb …) read as near black, and a
 	// link's own color read for the label it sets in a span of its own color.

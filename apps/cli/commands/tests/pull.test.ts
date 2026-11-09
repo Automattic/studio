@@ -504,12 +504,80 @@ describe( 'CLI: studio pull single pull phase', () => {
 			);
 		} );
 
-		it( 'pulls no files for a database-only first pull that keeps core', async () => {
+		it( 'still copies core in a database-only first pull, so the site gets the pulled layout', async () => {
 			writeOwnCore( remoteVersion );
 
 			const calls = await pull( true, { fileOnlyPaths: [ ':wp-core:' ] } );
 
-			expect( calls.map( ( args ) => args[ 0 ] ) ).toEqual( [ 'pull-db', 'apply-runtime' ] );
+			expect( calls.map( ( args ) => args[ 0 ] ) ).toEqual( [
+				'pull-files',
+				'pull-db',
+				'merge-wp-content',
+				'flat-docroot',
+				'apply-runtime',
+			] );
+			expect( calls[ 0 ].filter( ( arg ) => arg.startsWith( '--only=' ) ) ).toEqual( [
+				'--only=:wp-core:',
+			] );
+			expect( calls[ 3 ] ).toContain( '--core-files=copy' );
+			expect( calls[ 3 ] ).toContain( '--force' );
+		} );
+
+		it( 'copies core again after an interrupted copy, even when the versions match', async () => {
+			writeOwnCore( remoteVersion );
+			const marker = path.join( technicalSiteDirectory, 'state', 'core-copy-pending' );
+			fs.mkdirSync( path.dirname( marker ), { recursive: true } );
+			fs.writeFileSync( marker, '' );
+
+			const calls = await pull( false );
+
+			expect( calls[ 0 ] ).toContain( '--include=:wp-core:' );
+			expect( calls.find( ( args ) => args[ 0 ] === 'flat-docroot' ) ).toContain(
+				'--core-files=copy'
+			);
+			expect( fs.existsSync( marker ) ).toBe( false );
+		} );
+
+		it( 'keeps the copy marker when the copy fails', async () => {
+			writeOwnCore( '7.1.3' );
+			fs.mkdirSync( path.join( technicalSiteDirectory, 'state' ), { recursive: true } );
+			vi.spyOn( reprintClient, 'runReprintCommandUntilComplete' ).mockImplementation(
+				async ( args ) => {
+					if ( args[ 0 ] === 'flat-docroot' ) {
+						throw new Error( 'interrupted' );
+					}
+					return { stdout: '{"ok":true}', stderr: '', exitCode: 0 };
+				}
+			);
+
+			await expect(
+				runFullPull(
+					{
+						sitePath,
+						technicalSiteDirectory,
+						rawDirectory: path.join( technicalSiteDirectory, 'raw' ),
+						stateDirectory: path.join( technicalSiteDirectory, 'state' ),
+						runtimeDirectory: path.join( technicalSiteDirectory, 'runtime' ),
+						localUrl: 'http://localhost:8881',
+					} as never,
+					'https://example.com/?reprint-api-jetpack',
+					false,
+					false,
+					{},
+					{
+						...emptyReprintMetadata,
+						sourceSite: {
+							...emptyReprintMetadata.sourceSite,
+							contentDirectory: '/srv/htdocs/wp-content',
+							wordpressVersion: remoteVersion,
+						},
+					}
+				)
+			).rejects.toThrow( 'interrupted' );
+
+			expect(
+				fs.existsSync( path.join( technicalSiteDirectory, 'state', 'core-copy-pending' ) )
+			).toBe( true );
 		} );
 
 		it( 'leaves the layout alone on a database-only pull', async () => {

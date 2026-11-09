@@ -625,32 +625,31 @@ export async function runFullPull(
 	}
 
 	// A site whose own core is the version the remote runs keeps it, so the pull leaves core out.
-	// Otherwise the pull takes the WordPress core the remote runs: not the other core versions a
-	// host keeps next to it. A full pull takes wp-content too, but never the remote's
-	// wp-config.php: the site keeps its own.
-	const keepsOwnCore = canKeepOwnCore(
-		metadata.sitePath,
-		reprintMetadata.sourceSite.wordpressVersion
-	);
-	const coreSelection = keepsOwnCore ? [] : [ WP_CORE ];
+	// Otherwise the pull takes the WordPress core the remote runs, not the other core versions a
+	// host keeps next to it, and copies it in. The marker stays from the start of a copy until it
+	// finishes: an interrupted copy can leave mixed core whose version.php already matches.
+	const coreCopyPendingPath = path.join( metadata.stateDirectory, 'core-copy-pending' );
+	const keepsOwnCore =
+		! fs.existsSync( coreCopyPendingPath ) &&
+		canKeepOwnCore( metadata.sitePath, reprintMetadata.sourceSite.wordpressVersion );
 	const isScoped = ( selection.fileOnlyPaths ?? [] ).length > 0;
-	const fileOnlyPaths = isScoped
-		? [
-				...coreSelection,
-				...( selection.fileOnlyPaths ?? [] ).filter( ( onlyPath ) => onlyPath !== WP_CORE ),
-		  ]
-		: [];
+	const scopedPaths = ( selection.fileOnlyPaths ?? [] ).filter(
+		( onlyPath ) => onlyPath !== WP_CORE
+	);
+	// A database-only first pull still takes core, so the site gets the same layout as after any
+	// other first pull.
+	const pullsCore = ! keepsOwnCore || ( isScoped && scopedPaths.length === 0 );
+	// Without a known content directory the pull takes everything, the remote's wp-config.php
+	// included. Otherwise it never takes wp-config.php: the site keeps its own.
 	let filesArgs: string[] = [];
 	if ( isScoped ) {
-		filesArgs = fileOnlyPaths.map( ( onlyPath ) => `--only=${ onlyPath }` );
+		filesArgs = [ ...( pullsCore ? [ WP_CORE ] : [] ), ...scopedPaths ].map(
+			( onlyPath ) => `--only=${ onlyPath }`
+		);
 	} else if ( contentDir ) {
-		filesArgs = [
-			'--include=:wp-content:',
-			...coreSelection.map( ( selector ) => `--include=${ selector }` ),
-		];
+		filesArgs = [ '--include=:wp-content:', ...( pullsCore ? [ `--include=${ WP_CORE }` ] : [] ) ];
 	}
-	// A database-only first pull of a site that keeps its core has no files to pull.
-	const pullsFiles = ! selection.skipFiles && ( ! isScoped || fileOnlyPaths.length > 0 );
+	const coreFiles = pullsCore ? 'copy' : 'keep';
 
 	const runStep = ( progressLabel: string, args: string[] ) =>
 		withKeyRecovery(
@@ -664,7 +663,7 @@ export async function runFullPull(
 
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Pulling site…' ) );
 
-	if ( pullsFiles ) {
+	if ( ! selection.skipFiles ) {
 		const pullFiles = () =>
 			runStep( __( 'Pulling files' ), [
 				'pull-files',
@@ -697,8 +696,8 @@ export async function runFullPull(
 	onPhase?.( 'local_import' );
 
 	// A pull without files leaves the layout as it is: the pulled tree has nothing new to link, and
-	// it may hold no core, or older core than the site's.
-	if ( pullsFiles ) {
+	// it may hold no core, or older core than the site's. A first pull always has files.
+	if ( ! selection.skipFiles ) {
 		// Keeps the plugins, themes and uploads only the blank install has, which
 		// flat-docroot would otherwise replace. Later pulls have nothing to merge.
 		if ( isFirstPull ) {
@@ -713,16 +712,21 @@ export async function runFullPull(
 
 		// The site keeps its own core, or gets a copy of the core this pull took. wp-content stays a
 		// link to the pulled one. `--force` replaces the blank install's wp-content on a first pull.
-		// Without it, a delta pull can never overwrite a live site.
+		// Without it, a delta pull never replaces the site's own files next to core.
+		if ( coreFiles === 'copy' ) {
+			fs.mkdirSync( metadata.stateDirectory, { recursive: true } );
+			fs.writeFileSync( coreCopyPendingPath, '' );
+		}
 		await runStep( __( 'Flattening layout' ), [
 			'flat-docroot',
 			apiUrl,
 			`--flatten-to=${ metadata.sitePath }`,
-			`--core-files=${ keepsOwnCore ? 'keep' : 'copy' }`,
+			`--core-files=${ coreFiles }`,
 			...( isFirstPull ? [ '--force' ] : [] ),
 			`--state-dir=${ metadata.stateDirectory }`,
 			`--fs-root=${ metadata.rawDirectory }`,
 		] );
+		fs.rmSync( coreCopyPendingPath, { force: true } );
 	}
 
 	// Last, so it picks up the database credentials pull-db stored. The SQLite

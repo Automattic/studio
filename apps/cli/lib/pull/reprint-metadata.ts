@@ -4,14 +4,11 @@ import { runReprintCommandUntilComplete } from 'cli/lib/pull/reprint-client';
 const sourceSiteSchema = z.object( {
 	homeUrl: z.string().nullable(),
 	siteUrl: z.string().nullable(),
-	tablePrefix: z.string().nullable(),
 	wordpressDatabaseCharset: z.string().nullable(),
 	serverDatabaseCharset: z.string().nullable(),
 	contentDirectory: z.string().nullable(),
-	wordpressAbsolutePath: z.string().nullable(),
 	// Reprint releases before WordPress/reprint#982 don't report it.
 	wordpressVersion: z.string().nullable().default( null ),
-	wordpressRoots: z.array( z.string() ),
 	extraDirectories: z.array( z.string() ),
 } );
 
@@ -44,13 +41,10 @@ export const emptyReprintMetadata: ReprintMetadata = {
 	sourceSite: {
 		homeUrl: null,
 		siteUrl: null,
-		tablePrefix: null,
 		wordpressDatabaseCharset: null,
 		serverDatabaseCharset: null,
 		contentDirectory: null,
-		wordpressAbsolutePath: null,
 		wordpressVersion: null,
-		wordpressRoots: [],
 		extraDirectories: [],
 	},
 };

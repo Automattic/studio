@@ -7,13 +7,12 @@
 
 .editor {
 	composes: errorShake from '@/lib/theme/recipes.module.css';
-	composes: floating padded from '@/lib/ui/surface/style.module.css';
+	composes: floating from '@/lib/ui/surface/style.module.css';
 	--error-shake-distance: var( --space-0_5 );
 
 	position: absolute;
 	display: flex;
 	flex-direction: column;
-	gap: var( --space-1 );
 	width: 320px;
 	max-width: calc( 100% - 16px );
 	max-height: calc( 100% - 16px );
@@ -25,8 +24,17 @@
 .images {
 	display: flex;
 	flex-wrap: wrap;
-	gap: var( --space-3 );
-	padding-block-end: var( --space-1 );
+	align-items: flex-end;
+	gap: var( --space-2 );
+	padding: var( --space-2 ) var( --space-2 ) var( --space-0_5 );
+}
+
+.input {
+	min-height: 0;
+	max-height: calc( 6lh + 24px );
+	padding: var( --space-3_5 );
+	padding-block-end: var( --space-2_5 );
+	overflow-y: auto;
 }
 
 .image {
@@ -49,6 +57,7 @@
 	display: flex;
 	align-items: center;
 	gap: var( --space-1 );
+	padding: var( --space-1_5 );
 }
 
 .save {

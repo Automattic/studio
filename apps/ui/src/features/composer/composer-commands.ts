@@ -41,6 +41,7 @@ export function getComposerCommands( {
 	canChangeEnvironment,
 	panelCommand,
 	siteCommand,
+	canAnnotate,
 }: {
 	canAutoStart: boolean;
 	autoStartOn: boolean;
@@ -49,6 +50,7 @@ export function getComposerCommands( {
 	canChangeEnvironment: boolean;
 	panelCommand?: SkillSlashCommand;
 	siteCommand?: 'start' | 'stop';
+	canAnnotate?: boolean;
 } ): SkillSlashCommand[] {
 	return [
 		{
@@ -56,6 +58,15 @@ export function getComposerCommands( {
 			displayName: __( 'Add files' ),
 			description: '',
 		},
+		...( canAnnotate
+			? [
+					{
+						name: 'annotate',
+						displayName: __( 'Annotate' ),
+						description: __( 'Point or draw to suggest a change.' ),
+					},
+			  ]
+			: [] ),
 		...( siteCommand
 			? [
 					{

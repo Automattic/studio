@@ -106,6 +106,8 @@ interface ComposerProps {
 	canAutoStart?: boolean;
 	onStartSite?: () => void;
 	onStopSite?: () => void;
+	onAnnotate?: () => void;
+	annotationDisabled?: boolean;
 	siteActionDisabled?: boolean;
 	isSiteStarting?: boolean;
 	// The site the chat works on; a chat on the live site can switch back to local.
@@ -151,6 +153,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		canAutoStart = false,
 		onStartSite,
 		onStopSite,
+		onAnnotate,
+		annotationDisabled = false,
 		siteActionDisabled = false,
 		isSiteStarting = false,
 		environment = 'local',
@@ -224,6 +228,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			canAutoStart,
 			panelCommand,
 			siteCommand,
+			canAnnotate: ! isField && !! onAnnotate,
 			autoStartOn,
 			canChooseModel: ! busy && providers.length > 0,
 			environment,
@@ -231,6 +236,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		} ),
 		isDisabled: ( name ) =>
 			( name === siteCommand && siteActionDisabled ) ||
+			( name === 'annotate' && !! onAnnotate && ( annotationDisabled || siteActionDisabled ) ) ||
 			( name === 'auto-start' && ( ! preferences || savePreferences.isPending ) ) ||
 			( ( name === 'live' || name === 'local' ) && busy ),
 	} );
@@ -250,6 +256,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				onStartSite?.();
 			} else if ( name === 'stop' ) {
 				onStopSite?.();
+			} else if ( name === 'annotate' ) {
+				onAnnotate?.();
 			} else if ( name === 'model' ) {
 				pendingCommandRef.current = () => setModelOpen( true );
 			} else if ( name === 'connect-provider' ) {

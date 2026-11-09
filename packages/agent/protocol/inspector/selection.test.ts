@@ -31,6 +31,7 @@ describe( 'inspector selections', () => {
 		{ rect: { left: -1, top: 20, width: 300, height: 200 } },
 		{ rect: { left: 10, top: 20, width: 1000, height: 200 } },
 		{ rect: { left: 10, top: 20, width: NaN, height: 200 } },
+		{ rect: { left: 10.5, top: 20, width: 300, height: 200 } },
 		{ scroll: { left: 0, top: 400 } },
 		{ target: { ...selection.target, kind: 'region' } },
 	] )( 'rejects invalid or inconsistent capture geometry: %j', ( patch ) => {

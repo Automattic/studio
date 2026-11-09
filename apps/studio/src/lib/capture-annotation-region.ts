@@ -36,7 +36,12 @@ export async function captureAnnotationRegion(
 		url: selection.target.url,
 		viewport: selection.target.viewport,
 		scroll: selection.scroll,
-	} );
+		token,
+	} )
+		.replace( /</g, '\\u003c' )
+		.replace( />/g, '\\u003e' )
+		.replace( /\u2028/g, '\\u2028' )
+		.replace( /\u2029/g, '\\u2029' );
 	const check = `const expected = ${ input };
 		const host = document.getElementById('__studio-inspector-host');
 		if (!host || host.dataset.captureId !== expected.id || location.href !== expected.url ||
@@ -48,10 +53,9 @@ export async function captureAnnotationRegion(
 		await guest
 			.executeJavaScript(
 				`(() => {
+			const expected = ${ input };
 			const host = document.getElementById('__studio-inspector-host');
-			if (host?.getAttribute('data-capturing') === ${ JSON.stringify(
-				token
-			) }) host.removeAttribute('data-capturing');
+			if (host?.getAttribute('data-capturing') === expected.token) host.removeAttribute('data-capturing');
 		})()`
 			)
 			.catch( () => undefined );
@@ -61,7 +65,7 @@ export async function captureAnnotationRegion(
 			( async () => {
 				try {
 					await guest.executeJavaScript( `(async () => { ${ check }
-					host.setAttribute('data-capturing', ${ JSON.stringify( token ) });
+					host.setAttribute('data-capturing', expected.token);
 					await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 				})()` );
 					if ( timedOut ) throw new Error( 'Annotation capture cancelled.' );

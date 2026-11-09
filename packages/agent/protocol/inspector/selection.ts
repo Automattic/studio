@@ -88,10 +88,11 @@ export function parseInspectorSelection( value: unknown ): InspectorSelection | 
 		height > 32768 ||
 		! coordinate( left ) ||
 		! coordinate( top ) ||
+		! [ area.left, area.top, area.width, area.height ].every( Number.isInteger ) ||
 		area.left < 0 ||
 		area.top < 0 ||
-		area.left + area.width > width + 1 ||
-		area.top + area.height > height + 1 ||
+		area.left + area.width > width ||
+		area.top + area.height > height ||
 		Math.abs( documentRect.left - area.left - left ) > 1 ||
 		Math.abs( documentRect.top - area.top - top ) > 1 ||
 		documentRect.width !== area.width ||

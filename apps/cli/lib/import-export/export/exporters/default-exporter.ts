@@ -123,6 +123,10 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 	async export(): Promise< void > {
 		this.emit( ExportEvents.EXPORT_START );
 		const output = fs.createWriteStream( this.options.backupFile );
+		let outputOpened = false;
+		output.once( 'open', () => {
+			outputOpened = true;
+		} );
 		this.archiveBuilder = this.createArchiveBuilder();
 
 		this.setupArchiveListeners();
@@ -146,9 +150,11 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			this.archiveBuilder.abort();
 			output.destroy();
 			await archiveWritten.catch( () => {} );
-			await fsPromises.rm( this.options.backupFile, { force: true } ).catch( ( cleanupError ) => {
-				console.error( 'Failed to remove incomplete export:', cleanupError );
-			} );
+			if ( outputOpened ) {
+				await fsPromises.rm( this.options.backupFile, { force: true } ).catch( ( cleanupError ) => {
+					console.error( 'Failed to remove incomplete export:', cleanupError );
+				} );
+			}
 			this.emit( ExportEvents.EXPORT_ERROR, createExportErrorPayload( error ) );
 			throw error;
 		} finally {

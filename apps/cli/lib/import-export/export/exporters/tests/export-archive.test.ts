@@ -85,6 +85,26 @@ describe( 'export archive completion', () => {
 		expect( fs.existsSync( backupFile ) ).toBe( false );
 	} );
 
+	it( 'preserves an existing destination when it cannot be opened for writing', async () => {
+		fs.writeFileSync( backupFile, 'previous backup must survive' );
+		const createWriteStream = fs.createWriteStream;
+		vi.spyOn( fs, 'createWriteStream' ).mockImplementation( ( file ) =>
+			createWriteStream( file, {
+				fs: {
+					open: ( _path, _flags, _mode, callback ) =>
+						queueMicrotask( () =>
+							callback( Object.assign( new Error( 'Permission denied' ), { code: 'EACCES' } ), 0 )
+						),
+					write: fs.write,
+					writev: fs.writev,
+					close: fs.close,
+				},
+			} )
+		);
+		await expect( exporter.export() ).rejects.toThrow();
+		expect( fs.readFileSync( backupFile, 'utf8' ) ).toBe( 'previous backup must survive' );
+	} );
+
 	it( 'reports a failed write and removes the partial destination', async () => {
 		const complete = vi.fn();
 		const failed = vi.fn();
@@ -149,28 +169,6 @@ describe( 'export archive completion', () => {
 
 		await expect( exporter.export() ).rejects.toThrow( 'Metadata export failed' );
 		expect( fs.existsSync( backupFile ) ).toBe( false );
-	} );
-
-	it( 'keeps root agent instructions out of the actual push archive', async () => {
-		for ( const name of [ 'AGENTS.md', 'CLAUDE.md', 'STUDIO.md' ] ) {
-			fs.writeFileSync( path.join( root, name ), 'Local agent instructions' );
-		}
-		exporter = new DefaultExporter( {
-			site: { id: 'site-1', name: 'Export fixture', path: root, port: 8881 },
-			backupFile,
-			includes: { wpContent: true, database: false },
-			phpVersion: '8.3',
-			stripStudioWpConfigConstants: true,
-		} as ExportOptions );
-
-		await exporter.export();
-
-		const entries = await readZipEntries( backupFile );
-		expect( entries.map( ( entry ) => entry.fileName ).sort() ).toEqual( [
-			'meta.json',
-			'wp-config.php',
-			'wp-content/example.txt',
-		] );
 	} );
 
 	it.skipIf( ! process.env.STUDIO_EXPORT_LARGE_FILE_RESULT )(

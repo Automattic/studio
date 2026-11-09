@@ -33,7 +33,13 @@ interface BrowserMenuItemsProps {
 	disabled?: boolean;
 }
 
-function BrowserMenuItems( { actions, adminBar, responsive, disabled }: BrowserMenuItemsProps ) {
+function BrowserMenuItems( {
+	actions,
+	adminBar,
+	responsive,
+	screenshot,
+	disabled,
+}: BrowserMenuItemsProps ) {
 	return (
 		<>
 			{ adminBar ? (

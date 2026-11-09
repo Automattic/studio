@@ -62,6 +62,7 @@ import { usePreviewBrowser } from './use-preview-browser';
 import { usePreviewCapture } from './use-preview-capture';
 import { usePreviewOpenTracks } from './use-preview-open-tracks';
 import { usePreviewSurfaces } from './use-preview-surfaces';
+import { useRegionAnnotations } from './use-region-annotations';
 import type { SiteDetails } from '@/data/core';
 import type { InspectorEvent } from '@studio/agent/protocol/inspector/page-script';
 
@@ -324,6 +325,12 @@ function SitePreviewContent( {
 		},
 		[ setAnnotationAnchor, toViewportAnchor ]
 	);
+	const selectRegion = useRegionAnnotations( {
+		siteId: site.id,
+		enabled: ! inactive && canAnnotate && canUseWebview && ! rendered,
+		viewportRef,
+		onPick: handleAnnotationPick,
+	} );
 	const capturePage = usePreviewCapture( site.id, siteUrl, viewportRef );
 	const handleSurfaceLoad = useCallback(
 		( key: PreviewSurfaceKey, url: string, guestId?: number ) => {
@@ -352,11 +359,13 @@ function SitePreviewContent( {
 			if ( inactive ) return;
 			if ( event.type === 'browser-command' ) {
 				sendBrowserCommand( event.command );
+			} else if ( event.type === 'selection' ) {
+				void selectRegion( event.selection );
 			} else {
 				handleAnnotationEvent( event );
 			}
 		},
-		[ handleAnnotationEvent, sendBrowserCommand, inactive ]
+		[ handleAnnotationEvent, selectRegion, sendBrowserCommand, inactive ]
 	);
 
 	const browserShortcuts = useBrowserShortcuts(

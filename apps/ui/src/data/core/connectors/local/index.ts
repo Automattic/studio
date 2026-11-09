@@ -367,6 +367,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			);
 			return thumbnail;
 		},
+		async captureAnnotationRegion() {
+			throw new Error( 'Annotation screenshots are not available in the browser yet.' );
+		},
 		async captureSitePreview( siteId, { path, width, height } ) {
 			const { thumbnail } = await api< { thumbnail: string | null } >(
 				`/sites/${ encodeURIComponent( siteId ) }/capture-preview`,

@@ -1,4 +1,7 @@
-import { INSPECTOR_PAGE_SCRIPT } from '@studio/agent/protocol/inspector/page-script';
+import {
+	INSPECTOR_BRIDGE_PREFIX,
+	INSPECTOR_PAGE_SCRIPT,
+} from '@studio/agent/protocol/inspector/page-script';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SessionUIProvider } from '@/data/use-session-ui';
@@ -35,7 +38,10 @@ afterEach( () => {
 	} );
 } );
 
-async function setup( onStartAnnotating?: () => boolean ) {
+async function setup(
+	onStartAnnotating?: () => boolean,
+	connector = createFakeConnector( { sites: [ site ] } )
+) {
 	Object.defineProperty( window.navigator, 'userAgent', {
 		value: `${ REAL_USER_AGENT } Electron/38.0.0`,
 		configurable: true,
@@ -55,7 +61,7 @@ async function setup( onStartAnnotating?: () => boolean ) {
 			</SiteHeaderActionsProvider>
 		</SessionUIProvider>,
 		{
-			connector: createFakeConnector( { sites: [ site ] } ),
+			connector,
 		}
 	);
 	await waitFor( () => expect( view.container.querySelector( 'webview' ) ).not.toBeNull() );
@@ -91,6 +97,136 @@ function pageState( preview: { executeJavaScript: ReturnType< typeof vi.fn > } )
 }
 
 describe( 'annotation inspector navigation', () => {
+	const selection = {
+		id: 'rectangle',
+		target: {
+			kind: 'region',
+			url: 'http://localhost:8881/',
+			viewport: { width: 800, height: 600 },
+			documentRect: { left: 20, top: 30, width: 200, height: 100 },
+		},
+		rect: { left: 20, top: 30, width: 200, height: 100 },
+		scroll: { left: 0, top: 0 },
+	};
+	const image = {
+		id: 'capture',
+		name: 'Selected area.png',
+		mimeType: 'image/png' as const,
+		size: 1,
+		dataBase64: 'eA==',
+	};
+
+	it( 'opens a rectangle note and lets an untouched capture be dismissed without an error', async () => {
+		const connector = createFakeConnector( { sites: [ site ] } );
+		const capture = vi.spyOn( connector, 'captureAnnotationRegion' ).mockResolvedValue( image );
+		const { emit, annotate } = await setup( undefined, connector );
+		emit( 'dom-ready' );
+		await waitFor( () => expect( annotate() ).toBeEnabled() );
+		act( () => setAnnotating( site.id, true ) );
+		emit( 'console-message', {
+			message: INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'selection', selection } ),
+		} );
+		await waitFor( () => expect( getSiteAnnotations( site.id ).notes ).toHaveLength( 1 ) );
+		expect( capture ).toHaveBeenCalledWith( {
+			guestId: 7,
+			selection: expect.objectContaining( { id: selection.id } ),
+		} );
+		expect( getSiteAnnotations( site.id ) ).toMatchObject( {
+			active: true,
+			preparing: false,
+			notes: [
+				{ kind: 'region', documentRect: selection.rect, images: [ { ...image, kind: 'image' } ] },
+			],
+		} );
+		expect( screen.getByRole( 'button', { name: 'Add annotation to batch' } ) ).toBeDisabled();
+		act( () => escapeAnnotations( site.id ) );
+		expect( getSiteAnnotations( site.id ) ).toMatchObject( { active: false, notes: [] } );
+		expect( screen.queryByRole( 'alert' ) ).not.toBeInTheDocument();
+	} );
+
+	it.each( [
+		{ limit: 'image count', saved: 3, size: 1 },
+		{ limit: 'combined size', saved: 2, size: 4 * 1024 * 1024 },
+	] )( 'replaces an untouched capture at the $limit limit', async ( { saved, size } ) => {
+		const connector = createFakeConnector( { sites: [ site ] } );
+		const replacement = { ...image, id: 'replacement', size };
+		const capture = vi
+			.spyOn( connector, 'captureAnnotationRegion' )
+			.mockResolvedValue( replacement );
+		const { emit, annotate } = await setup( undefined, connector );
+		emit( 'dom-ready' );
+		await waitFor( () => expect( annotate() ).toBeEnabled() );
+		const target = { ...selection.target, kind: 'region' as const };
+		const savedIds: string[] = [];
+		act( () => {
+			setAnnotating( site.id, true );
+			for ( let index = 0; index < saved; index++ ) {
+				const id = pickAnnotation( site.id, target, {
+					images: [ { ...image, id: `saved-${ index }`, size, kind: 'image' } ],
+				} )!;
+				changeAnnotation( site.id, id, { comment: 'Keep this note' } );
+				stageAnnotations( site.id, [ id ], true );
+				savedIds.push( id );
+			}
+			pickAnnotation( site.id, target, {
+				images: [ { ...image, id: 'untouched', size, kind: 'image' } ],
+			} );
+		} );
+		emit( 'console-message', {
+			message: INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'selection', selection } ),
+		} );
+		await waitFor( () =>
+			expect( getSiteAnnotations( site.id ).notes.at( -1 )?.images[ 0 ].id ).toBe( replacement.id )
+		);
+		expect( capture ).toHaveBeenCalledOnce();
+		const notes = getSiteAnnotations( site.id ).notes;
+		expect( notes ).toHaveLength( saved + 1 );
+		expect( notes.slice( 0, saved ).map( ( note ) => note.id ) ).toEqual( savedIds );
+	} );
+
+	it( 'preserves unfinished notes instead of capturing a different rectangle', async () => {
+		const connector = createFakeConnector( { sites: [ site ] } );
+		const capture = vi.spyOn( connector, 'captureAnnotationRegion' );
+		const { emit, annotate } = await setup( undefined, connector );
+		emit( 'dom-ready' );
+		await waitFor( () => expect( annotate() ).toBeEnabled() );
+		act( () => {
+			setAnnotating( site.id, true );
+			const id = pickAnnotation( site.id, { selector: 'h1', url: selection.target.url } )!;
+			changeAnnotation( site.id, id, { comment: 'Keep this draft' } );
+		} );
+		emit( 'console-message', {
+			message: INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'selection', selection } ),
+		} );
+		expect( capture ).not.toHaveBeenCalled();
+		expect( getSiteAnnotations( site.id ).notes ).toMatchObject( [
+			{ comment: 'Keep this draft' },
+		] );
+		expect( getSiteAnnotations( site.id ).blockedNavigation ).toBeGreaterThan( 0 );
+	} );
+
+	it( 'discards a capture completed after its page navigates', async () => {
+		const connector = createFakeConnector( { sites: [ site ] } );
+		let finish!: ( value: typeof image ) => void;
+		vi.spyOn( connector, 'captureAnnotationRegion' ).mockImplementation(
+			() =>
+				new Promise( ( resolve ) => {
+					finish = resolve;
+				} )
+		);
+		const { emit, annotate } = await setup( undefined, connector );
+		emit( 'dom-ready' );
+		await waitFor( () => expect( annotate() ).toBeEnabled() );
+		act( () => setAnnotating( site.id, true ) );
+		emit( 'console-message', {
+			message: INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'selection', selection } ),
+		} );
+		emit( 'did-start-navigation', { isMainFrame: true, isInPlace: false } );
+		await act( async () => finish( image ) );
+		expect( getSiteAnnotations( site.id ).notes ).toEqual( [] );
+		expect( getSiteAnnotations( site.id ).preparing ).toBe( false );
+	} );
+
 	it( 'keeps image-only drafts open until saved and marks them pending', async () => {
 		const { preview, emit, annotate } = await setup();
 		emit( 'dom-ready' );

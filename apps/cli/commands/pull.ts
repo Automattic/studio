@@ -20,12 +20,14 @@ import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { linkPulledPreview } from 'cli/lib/cli-config/snapshots';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getStandingPreviews, type StandingPreview } from 'cli/lib/preview-sites';
+import { canKeepOwnCore } from 'cli/lib/pull/local-core';
 import {
 	applySelection,
 	type CliSelectionOptions,
 	pullSelectionFromSyncOptions,
 	clearPullSelection,
 	type PullSelection,
+	WP_CORE,
 } from 'cli/lib/pull/pull-selection';
 import { getPullSession, type PullSession, updateSiteRecord } from 'cli/lib/pull/pull-session';
 import {
@@ -622,15 +624,33 @@ export async function runFullPull(
 		}
 	}
 
-	// A full pull takes wp-content and only the WordPress core the remote runs: not the other core
-	// versions a host keeps next to it, nor the remote's wp-config.php. The site keeps its own.
-	const fileOnlyPaths = selection.fileOnlyPaths ?? [];
+	// A site whose own core is the version the remote runs keeps it, so the pull leaves core out.
+	// Otherwise the pull takes the WordPress core the remote runs: not the other core versions a
+	// host keeps next to it. A full pull takes wp-content too, but never the remote's
+	// wp-config.php: the site keeps its own.
+	const keepsOwnCore = canKeepOwnCore(
+		metadata.sitePath,
+		reprintMetadata.sourceSite.wordpressVersion
+	);
+	const coreSelection = keepsOwnCore ? [] : [ WP_CORE ];
+	const isScoped = ( selection.fileOnlyPaths ?? [] ).length > 0;
+	const fileOnlyPaths = isScoped
+		? [
+				...coreSelection,
+				...( selection.fileOnlyPaths ?? [] ).filter( ( onlyPath ) => onlyPath !== WP_CORE ),
+		  ]
+		: [];
 	let filesArgs: string[] = [];
-	if ( fileOnlyPaths.length > 0 ) {
+	if ( isScoped ) {
 		filesArgs = fileOnlyPaths.map( ( onlyPath ) => `--only=${ onlyPath }` );
 	} else if ( contentDir ) {
-		filesArgs = [ '--include=:wp-content:', '--include=:wp-core:' ];
+		filesArgs = [
+			'--include=:wp-content:',
+			...coreSelection.map( ( selector ) => `--include=${ selector }` ),
+		];
 	}
+	// A database-only first pull of a site that keeps its core has no files to pull.
+	const pullsFiles = ! selection.skipFiles && ( ! isScoped || fileOnlyPaths.length > 0 );
 
 	const runStep = ( progressLabel: string, args: string[] ) =>
 		withKeyRecovery(
@@ -644,7 +664,7 @@ export async function runFullPull(
 
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Pulling site…' ) );
 
-	if ( ! selection.skipFiles ) {
+	if ( pullsFiles ) {
 		const pullFiles = () =>
 			runStep( __( 'Pulling files' ), [
 				'pull-files',
@@ -676,30 +696,34 @@ export async function runFullPull(
 
 	onPhase?.( 'local_import' );
 
-	// Keeps the plugins, themes and uploads only the blank install has, which
-	// flat-docroot would otherwise replace. Later pulls have nothing to merge.
-	if ( isFirstPull ) {
-		await runStep( __( 'Merging local content' ), [
-			'merge-wp-content',
+	// A pull without files leaves the layout as it is: the pulled tree has nothing new to link, and
+	// it may hold no core, or older core than the site's.
+	if ( pullsFiles ) {
+		// Keeps the plugins, themes and uploads only the blank install has, which
+		// flat-docroot would otherwise replace. Later pulls have nothing to merge.
+		if ( isFirstPull ) {
+			await runStep( __( 'Merging local content' ), [
+				'merge-wp-content',
+				apiUrl,
+				`--from=${ path.join( metadata.sitePath, 'wp-content' ) }`,
+				`--state-dir=${ metadata.stateDirectory }`,
+				`--fs-root=${ metadata.rawDirectory }`,
+			] );
+		}
+
+		// The site keeps its own core, or gets a copy of the core this pull took. wp-content stays a
+		// link to the pulled one. `--force` replaces the blank install's wp-content on a first pull.
+		// Without it, a delta pull can never overwrite a live site.
+		await runStep( __( 'Flattening layout' ), [
+			'flat-docroot',
 			apiUrl,
-			`--from=${ path.join( metadata.sitePath, 'wp-content' ) }`,
+			`--flatten-to=${ metadata.sitePath }`,
+			`--core-files=${ keepsOwnCore ? 'keep' : 'copy' }`,
+			...( isFirstPull ? [ '--force' ] : [] ),
 			`--state-dir=${ metadata.stateDirectory }`,
 			`--fs-root=${ metadata.rawDirectory }`,
 		] );
 	}
-
-	// The site gets its own copy of the pulled core, which every pull brings back in line with the
-	// remote's; wp-content stays a link to the pulled one. `--force` replaces the blank install's
-	// wp-content on a first pull. Without it, a delta pull can never overwrite a live site.
-	await runStep( __( 'Flattening layout' ), [
-		'flat-docroot',
-		apiUrl,
-		`--flatten-to=${ metadata.sitePath }`,
-		'--core-files=copy',
-		...( isFirstPull ? [ '--force' ] : [] ),
-		`--state-dir=${ metadata.stateDirectory }`,
-		`--fs-root=${ metadata.rawDirectory }`,
-	] );
 
 	// Last, so it picks up the database credentials pull-db stored. The SQLite
 	// target is passed explicitly for pulls that skipped the database.

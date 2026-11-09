@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { readAuthToken } from '@studio/common/lib/shared-config';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { enableReprintExporter } from 'cli/lib/api';
 import * as reprintClient from 'cli/lib/pull/reprint-client';
 import { emptyReprintMetadata } from 'cli/lib/pull/reprint-metadata';
@@ -358,7 +358,7 @@ describe( 'CLI: studio pull single pull phase', () => {
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
 	} );
 
-	it( 'copies the pulled core over the own core of a site pulled before, without forcing', async () => {
+	it( 'copies the pulled core on a repeat pull without forcing', async () => {
 		const technicalSiteDirectory = fs.mkdtempSync(
 			path.join( os.tmpdir(), 'studio-import-pull-core-' )
 		);
@@ -402,6 +402,123 @@ describe( 'CLI: studio pull single pull phase', () => {
 		expect( calls[ 2 ] ).not.toContain( '--force' );
 
 		fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
+	} );
+
+	describe( 'core selection', () => {
+		const remoteVersion = '7.1.4';
+		let technicalSiteDirectory: string;
+		let sitePath: string;
+
+		const writeOwnCore = ( version: string ) => {
+			fs.mkdirSync( path.join( sitePath, 'wp-includes' ), { recursive: true } );
+			fs.writeFileSync(
+				path.join( sitePath, 'wp-includes', 'version.php' ),
+				`<?php\n$wp_version = '${ version }';\n`
+			);
+		};
+
+		const pull = async ( isFirstPull: boolean, selection = {} ) => {
+			const reprint = vi
+				.spyOn( reprintClient, 'runReprintCommandUntilComplete' )
+				.mockResolvedValue( { stdout: '{"ok":true}', stderr: '', exitCode: 0 } );
+			await runFullPull(
+				{
+					sitePath,
+					technicalSiteDirectory,
+					rawDirectory: path.join( technicalSiteDirectory, 'raw' ),
+					stateDirectory: path.join( technicalSiteDirectory, 'state' ),
+					runtimeDirectory: path.join( technicalSiteDirectory, 'runtime' ),
+					localUrl: 'http://localhost:8881',
+				} as never,
+				'https://example.com/?reprint-api-jetpack',
+				false,
+				isFirstPull,
+				selection,
+				{
+					...emptyReprintMetadata,
+					sourceSite: {
+						...emptyReprintMetadata.sourceSite,
+						contentDirectory: '/srv/htdocs/wp-content',
+						wordpressVersion: remoteVersion,
+					},
+				}
+			);
+			return reprint.mock.calls.map( ( call ) => call[ 0 ] as string[] );
+		};
+
+		beforeEach( () => {
+			technicalSiteDirectory = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-pull-core-' ) );
+			sitePath = path.join( technicalSiteDirectory, 'site' );
+		} );
+
+		afterEach( () => {
+			fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
+		} );
+
+		it( "keeps the site's own core when it runs the remote's version", async () => {
+			writeOwnCore( remoteVersion );
+
+			const calls = await pull( true );
+
+			expect( calls[ 0 ] ).toContain( '--include=:wp-content:' );
+			expect( calls[ 0 ] ).not.toContain( '--include=:wp-core:' );
+			const flatten = calls.find( ( args ) => args[ 0 ] === 'flat-docroot' );
+			expect( flatten ).toContain( '--core-files=keep' );
+			expect( flatten ).toContain( '--force' );
+		} );
+
+		it( 'pulls and copies core when the site runs another version', async () => {
+			writeOwnCore( '7.1.3' );
+
+			const calls = await pull( false );
+
+			expect( calls[ 0 ] ).toContain( '--include=:wp-core:' );
+			expect( calls.find( ( args ) => args[ 0 ] === 'flat-docroot' ) ).toContain(
+				'--core-files=copy'
+			);
+		} );
+
+		it( 'leaves core out of a selective pull that keeps it', async () => {
+			writeOwnCore( remoteVersion );
+
+			const calls = await pull( true, {
+				fileOnlyPaths: [ ':wp-core:', ':wp-content:/plugins' ],
+			} );
+
+			expect( calls[ 0 ].filter( ( arg ) => arg.startsWith( '--only=' ) ) ).toEqual( [
+				'--only=:wp-content:/plugins',
+			] );
+		} );
+
+		it( 'adds core to a selective pull when the versions differ', async () => {
+			writeOwnCore( '7.1.3' );
+
+			const calls = await pull( false, { fileOnlyPaths: [ ':wp-content:/plugins' ] } );
+
+			expect( calls[ 0 ].filter( ( arg ) => arg.startsWith( '--only=' ) ) ).toEqual( [
+				'--only=:wp-core:',
+				'--only=:wp-content:/plugins',
+			] );
+			expect( calls.find( ( args ) => args[ 0 ] === 'flat-docroot' ) ).toContain(
+				'--core-files=copy'
+			);
+		} );
+
+		it( 'pulls no files for a database-only first pull that keeps core', async () => {
+			writeOwnCore( remoteVersion );
+
+			const calls = await pull( true, { fileOnlyPaths: [ ':wp-core:' ] } );
+
+			expect( calls.map( ( args ) => args[ 0 ] ) ).toEqual( [ 'pull-db', 'apply-runtime' ] );
+		} );
+
+		it( 'leaves the layout alone on a database-only pull', async () => {
+			writeOwnCore( '7.1.3' );
+
+			const calls = await pull( false, { skipFiles: true } );
+
+			expect( calls.map( ( args ) => args[ 0 ] ) ).toEqual( [ 'pull-db', 'apply-runtime' ] );
+		} );
 	} );
 
 	it( 'uses only the selected directories when uploads are omitted', async () => {

@@ -27,7 +27,7 @@ export interface CliSelectionOptions {
 }
 
 /** Reprint's selector for the WordPress core the remote runs, and only that version. */
-const WP_CORE = ':wp-core:';
+export const WP_CORE = ':wp-core:';
 
 const FILE_SYNC_OPTIONS = [ 'plugins', 'themes', 'uploads' ] as const;
 

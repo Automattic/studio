@@ -9,6 +9,8 @@ const sourceSiteSchema = z.object( {
 	serverDatabaseCharset: z.string().nullable(),
 	contentDirectory: z.string().nullable(),
 	wordpressAbsolutePath: z.string().nullable(),
+	// Reprint releases before WordPress/reprint#982 don't report it.
+	wordpressVersion: z.string().nullable().default( null ),
 	wordpressRoots: z.array( z.string() ),
 	extraDirectories: z.array( z.string() ),
 } );
@@ -47,6 +49,7 @@ export const emptyReprintMetadata: ReprintMetadata = {
 		serverDatabaseCharset: null,
 		contentDirectory: null,
 		wordpressAbsolutePath: null,
+		wordpressVersion: null,
 		wordpressRoots: [],
 		extraDirectories: [],
 	},

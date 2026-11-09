@@ -553,7 +553,7 @@ describe( 'annotation inspector navigation', () => {
 		] );
 	} );
 
-	it( 'keeps a failed drawing available for retry without creating a second note', async () => {
+	it( 'keeps a failed drawing when switching tools without creating a second note', async () => {
 		const { connector, emit, annotate } = await setup();
 		connector.captureAnnotationRegion
 			.mockRejectedValueOnce( new Error( 'Capture failed' ) )
@@ -585,7 +585,13 @@ describe( 'annotation inspector navigation', () => {
 		emit( 'console-message', {
 			message: INSPECTOR_BRIDGE_PREFIX + JSON.stringify( { type: 'selection', selection } ),
 		} );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Retry capture' } ) );
+		const select = screen.getByRole( 'button', { name: 'Select' } );
+		await waitFor( () => {
+			expect( connector.captureAnnotationRegion ).toHaveBeenCalledOnce();
+			expect( select ).toBeEnabled();
+		} );
+		expect( screen.queryByRole( 'button', { name: 'Retry capture' } ) ).not.toBeInTheDocument();
+		fireEvent.click( select );
 		await screen.findByRole( 'textbox', { name: 'Describe the change' } );
 		expect( connector.captureAnnotationRegion ).toHaveBeenCalledTimes( 2 );
 		expect( getSiteAnnotations( site.id ).notes ).toEqual( [
@@ -595,7 +601,7 @@ describe( 'annotation inspector navigation', () => {
 				images: [ expect.objectContaining( { id: 'drawing-image' } ) ],
 			} ),
 		] );
-		expect( drawButton() ).toHaveAttribute( 'aria-pressed', 'true' );
+		expect( select ).toHaveAttribute( 'aria-pressed', 'true' );
 	} );
 
 	it( 'keeps image-only drafts open until saved and marks them pending', async () => {

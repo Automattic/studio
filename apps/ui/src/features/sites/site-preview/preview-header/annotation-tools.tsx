@@ -1,5 +1,4 @@
 import { __ } from '@wordpress/i18n';
-import { RotateCcwIcon } from 'lucide-react';
 import { useRef } from 'react';
 import { DrawIcon, SelectIcon, TrashIcon, type DrawIconHandle } from '@/lib/icons';
 import { IconButton } from '@/lib/ui';
@@ -8,22 +7,16 @@ import styles from './annotation-tools.module.css';
 export function AnnotationTools( {
 	visible,
 	drawing,
-	pending,
-	failed,
 	disabled,
 	pageTools,
 	onToggle,
-	onRetry,
 	onDiscard,
 }: {
 	visible: boolean;
 	drawing: boolean;
-	pending: boolean;
-	failed: boolean;
 	disabled: boolean;
 	pageTools: boolean;
 	onToggle: () => void;
-	onRetry: () => void;
 	onDiscard: () => void;
 } ) {
 	const drawIcon = useRef< DrawIconHandle >( null );
@@ -68,16 +61,6 @@ export function AnnotationTools( {
 								if ( ! drawing && event.detail > 0 ) drawIcon.current?.play();
 							} }
 						/>
-						{ pending && failed ? (
-							<IconButton
-								shape="round"
-								icon={ <RotateCcwIcon /> }
-								label={ __( 'Retry capture' ) }
-								disabled={ disabled }
-								tooltip={ visible }
-								onClick={ onRetry }
-							/>
-						) : null }
 					</>
 				) : null }
 				<IconButton

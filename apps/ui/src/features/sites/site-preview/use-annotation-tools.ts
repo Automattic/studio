@@ -237,12 +237,7 @@ export function useAnnotationTools( {
 		escapeDraft,
 		controls: {
 			drawing,
-			pending: !! draft,
-			failed,
 			onToggle: () => selectTool( drawing ? 'select' : 'draw' ),
-			onRetry: () => {
-				if ( draftRef.current ) void capture( draftRef.current );
-			},
 		},
 	};
 }

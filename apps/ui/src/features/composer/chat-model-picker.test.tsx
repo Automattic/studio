@@ -6,6 +6,7 @@ import { Composer } from '@/features/composer';
 import { createFakeConnector, type FakeConnector } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import type { AiModelId } from '@/data/core';
+import type { AiProviderId } from '@studio/agent/protocol/providers';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 
 const allFavorites = AI_MODELS.map( ( model ) => ( {
@@ -100,17 +101,24 @@ describe( 'Chat model picker', () => {
 		async ( method ) => {
 			function ModelSelection() {
 				const [ model, setModel ] = useState< AiModelId >( 'fast' );
+				const [ provider, setProvider ] = useState< AiProviderId >( 'wpcom' );
 				return (
 					<Composer
 						model={ model }
+						provider={ provider }
 						busy={ false }
 						onSend={ vi.fn() }
 						onInterrupt={ vi.fn() }
-						onModelChange={ setModel }
+						onModelChange={ ( nextModel, nextProvider ) => {
+							setModel( nextModel );
+							setProvider( nextProvider );
+						} }
 					/>
 				);
 			}
-			const { user } = renderWithProviders( <ModelSelection />, { connector: connectorFor() } );
+			const { user } = renderWithProviders( <ModelSelection />, {
+				connector: connectorFor( { anthropic: true } ),
+			} );
 			const trigger = await screen.findByRole( 'button', { name: 'Model' } );
 			await user.click( trigger );
 			expect( screen.getByRole( 'button', { name: 'Effort: Unavailable' } ) ).toBeDisabled();
@@ -128,6 +136,22 @@ describe( 'Chat model picker', () => {
 			await user.keyboard( '{Escape}' );
 			expect( screen.queryByRole( 'dialog', { name: 'Choose a model' } ) ).not.toBeInTheDocument();
 			expect( trigger ).toHaveTextContent( 'Balanced · High' );
+			await user.click( trigger );
+			const search = screen.getByRole( 'textbox', { name: 'Search models' } );
+			await user.type( search, 'claude' );
+			const sonnet = screen.getByRole( 'button', { name: 'Sonnet 5' } );
+			if ( method === 'keyboard' ) {
+				sonnet.focus();
+				await user.keyboard( '{Enter}' );
+			} else await user.click( sonnet );
+			expect( search ).toHaveValue( 'claude' );
+			expect( screen.getByRole( 'button', { name: 'Sonnet 5', pressed: true } ) ).toBeVisible();
+			await user.click( screen.getByRole( 'button', { name: 'Opus 5' } ) );
+			expect( search ).toHaveValue( 'claude' );
+			expect( screen.getByRole( 'button', { name: 'Opus 5', pressed: true } ) ).toBeVisible();
+			await user.keyboard( '{Escape}' );
+			await user.click( trigger );
+			expect( screen.getByRole( 'textbox', { name: 'Search models' } ) ).toHaveValue( '' );
 		}
 	);
 

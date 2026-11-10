@@ -220,10 +220,10 @@ export function ModelPicker( {
 		if ( item ) choices.current.get( getModelFavoriteKey( item ) )?.focus();
 	};
 	useEffect( () => {
-		if ( open ) {
-			setSearch( '' );
-			if ( isWpcom ) void refetchQuota();
-		}
+		if ( open ) setSearch( '' );
+	}, [ open ] );
+	useEffect( () => {
+		if ( open && isWpcom ) void refetchQuota();
 	}, [ open, isWpcom, refetchQuota ] );
 	const modelRow = (
 		item: AvailableFavorite,

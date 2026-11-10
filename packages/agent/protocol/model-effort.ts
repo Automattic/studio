@@ -67,7 +67,7 @@ export function readSessionEffort( entries: SessionEntry[] = [], model: AiModelI
 		const entry = entries[ index ];
 		// Legacy picker entries use an empty provider; pi also records runtime model metadata.
 		if ( entry.type === 'model_change' && entry.provider === '' ) return 'default';
-		if ( isStudioCustomEntryOfType( entry, 'studio.session_context' ) && entry.data )
+		if ( isStudioCustomEntryOfType( entry, 'studio.session_context' ) && entry.data?.model )
 			return entry.data.model === model
 				? normalizeModelEffort( model, entry.data.effort )
 				: 'default';

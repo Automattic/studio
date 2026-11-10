@@ -38,7 +38,7 @@ import {
 import styles from './model-picker.module.css';
 
 type AvailableFavorite = ModelFavorite & { model: AiModelId; provider: AiProviderId };
-type ModelRowKind = 'favorite' | 'catalog' | 'preview';
+type ModelRowKind = 'reorderable' | 'catalog' | 'preview';
 const DEFAULT_MODEL_COUNT = 3;
 
 interface ModelPickerProps {
@@ -65,8 +65,6 @@ export function ModelPicker( {
 	onChange,
 }: ModelPickerProps ) {
 	const [ search, setSearch ] = useState( '' );
-	const [ hoveredRow, setHoveredRow ] = useState< string | null >( null );
-	const [ focusedRow, setFocusedRow ] = useState< string | null >( null );
 	const [ reordering, setReordering ] = useState( false );
 	const triggerRef = useRef< HTMLButtonElement | null >( null );
 	const choices = useRef( new Map< string, HTMLElement >() );
@@ -123,7 +121,7 @@ export function ModelPicker( {
 		...( effortLevels.length ? [ getEffortLabel( resolvedEffort ) ] : [] ),
 		...( isWpcom ? [ credits.label ] : [] ),
 	];
-	const favoriteLabel = ( item: AvailableFavorite ) =>
+	const presetLabel = ( item: AvailableFavorite ) =>
 		[
 			getAiModelLabel( item.model ),
 			item.effort !== 'default' ? getEffortLabel( item.effort ) : '',
@@ -210,6 +208,12 @@ export function ModelPicker( {
 	];
 	const showingStarters = ! query && otherResults.length > 0;
 	const reorderableResults = query ? favoriteResults : results;
+	const reorder = ( ids: string[], movedId: string ) => {
+		const keepCurrentUnsaved = !! unsavedCurrent && movedId !== key;
+		const savedIds = keepCurrentUnsaved ? ids.filter( ( id ) => id !== key ) : ids;
+		saveOrder( savedIds, reorderableResults );
+		return keepCurrentUnsaved ? [ ...savedIds, key ] : ids;
+	};
 	const selectable = results.filter( ( item ) => ! isModelLocked( item.model ) );
 	const focusResult = ( index: number ) => {
 		const item = selectable[ ( index + selectable.length ) % selectable.length ];
@@ -218,8 +222,6 @@ export function ModelPicker( {
 	useEffect( () => {
 		if ( open ) {
 			setSearch( '' );
-			setHoveredRow( null );
-			setFocusedRow( null );
 			if ( isWpcom ) void refetchQuota();
 		}
 	}, [ open, isWpcom, refetchQuota ] );
@@ -231,7 +233,7 @@ export function ModelPicker( {
 		const favorite = hasFavorite( item );
 		const itemKey = getModelFavoriteKey( item );
 		const selected = itemKey === key;
-		const label = favoriteLabel( item );
+		const label = presetLabel( item );
 		const shortcut = shortcutFor( item );
 		const Icon = item.provider === 'wpcom' ? WordPressIcon : ClaudeIcon;
 		const Row = kind === 'catalog' ? 'div' : 'li';
@@ -240,21 +242,9 @@ export function ModelPicker( {
 				key={ itemKey }
 				{ ...itemProps }
 				className={ clsx( styles.row, itemProps?.className ) }
-				data-favorite={ kind === 'favorite' || undefined }
-				data-favorite-key={ kind === 'favorite' ? itemKey : undefined }
 				data-current={ selected || undefined }
-				onPointerEnter={ () => setHoveredRow( itemKey ) }
-				onPointerLeave={ () => setHoveredRow( null ) }
-				onFocusCapture={ () => setFocusedRow( itemKey ) }
-				onBlurCapture={ ( event ) => {
-					if (
-						! ( event.relatedTarget instanceof Node ) ||
-						! event.currentTarget.contains( event.relatedTarget )
-					)
-						setFocusedRow( null );
-				} }
 			>
-				{ ( kind === 'favorite' && ! query ) || kind === 'preview' ? (
+				{ ( kind === 'reorderable' && ! query ) || kind === 'preview' ? (
 					<IconButton
 						variant="muted-ghost"
 						size="icon-2xs"
@@ -273,13 +263,6 @@ export function ModelPicker( {
 						if ( node ) choices.current.set( itemKey, node );
 						else choices.current.delete( itemKey );
 					} }
-					data-highlighted={
-						kind === 'preview' ||
-						( ! reordering &&
-							! isModelLocked( item.model ) &&
-							( hoveredRow === itemKey || focusedRow === itemKey ) ) ||
-						undefined
-					}
 					aria-pressed={ selected }
 					aria-label={ label }
 					aria-keyshortcuts={ shortcut ? ariaKeyShortcut.primaryAlt( shortcut ) : undefined }
@@ -397,16 +380,11 @@ export function ModelPicker( {
 							<ReorderableList
 								items={ reorderableResults }
 								getItemId={ getModelFavoriteKey }
-								getItemLabel={ favoriteLabel }
+								getItemLabel={ presetLabel }
 								renderItem={ ( item, props ) =>
-									modelRow( item, props[ 'aria-hidden' ] ? 'preview' : 'favorite', props )
+									modelRow( item, props[ 'aria-hidden' ] ? 'preview' : 'reorderable', props )
 								}
-								onReorder={ ( ids, movedId ) =>
-									saveOrder(
-										unsavedCurrent && movedId !== key ? ids.filter( ( id ) => id !== key ) : ids,
-										reorderableResults
-									)
-								}
+								onReorder={ reorder }
 								className={ styles.favorites }
 								previewClassName={ styles.dragPreview }
 								handleSelector="[data-model-reorder-handle]"

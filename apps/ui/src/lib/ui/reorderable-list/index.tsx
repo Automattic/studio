@@ -106,7 +106,8 @@ export type ReorderableListProps< T > = {
 	getItemId: ( item: T ) => string;
 	/** Renders a row as a `SidebarMenuItem` spread with `props`; also used for the floating drag preview. */
 	renderItem: ( item: T, props: ReorderableItemProps ) => ReactNode;
-	onReorder: ( nextIds: string[], movedId: string ) => void;
+	/** May return a normalized visible order for the dropped rows. */
+	onReorder: ( nextIds: string[], movedId: string ) => string[] | void;
 	className?: string;
 	itemClassName?: string;
 	previewClassName?: string;
@@ -400,9 +401,10 @@ export function ReorderableList< T >( {
 			const sourceOrder =
 				dragStartOrderRef.current.length > 0 ? dragStartOrderRef.current : itemIds;
 			const nextIds = insertIdAtIndex( sourceOrder, active.id, active.dropIndex );
-			onReorder( nextIds, active.id );
+			const normalizedIds = onReorder( nextIds, active.id );
+			const appliedIds = normalizedIds ?? nextIds;
 			setDropped( {
-				ids: insertIdAtIndex( itemIds, active.id, active.dropIndex ),
+				ids: normalizedIds ?? insertIdAtIndex( itemIds, active.id, active.dropIndex ),
 				over: parentIds,
 			} );
 			const item = items.find( ( value ) => getItemId( value ) === active.id );
@@ -412,8 +414,8 @@ export function ReorderableList< T >( {
 						/* translators: 1: name of the moved item, 2: its new position, 3: number of items. */
 						__( '%1$s moved to position %2$d of %3$d' ),
 						getItemLabel( item ),
-						nextIds.indexOf( active.id ) + 1,
-						nextIds.length
+						appliedIds.indexOf( active.id ) + 1,
+						appliedIds.length
 					)
 				);
 			}
@@ -523,16 +525,16 @@ export function ReorderableList< T >( {
 		);
 		if ( target === index ) return;
 		const nextIds = insertIdAtIndex( itemIds, id, target );
-		onReorder( nextIds, id );
-		setDropped( { ids: nextIds, over: parentIds } );
+		const appliedIds = onReorder( nextIds, id ) ?? nextIds;
+		setDropped( { ids: appliedIds, over: parentIds } );
 		const item = items.find( ( value ) => getItemId( value ) === id );
 		if ( item !== undefined && getItemLabel ) {
 			setAnnouncement(
 				sprintf(
 					__( '%1$s moved to position %2$d of %3$d' ),
 					getItemLabel( item ),
-					target + 1,
-					nextIds.length
+					appliedIds.indexOf( id ) + 1,
+					appliedIds.length
 				)
 			);
 		}

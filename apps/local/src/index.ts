@@ -2294,11 +2294,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			let images: StudioChatImage[];
 			let files: StudioChatFileAttachment[];
 			let validatedVisualAnnotations: StudioVisualAnnotationSummary[] | undefined;
+			let modelSettings: ReturnType< typeof validateTurnModelSettings >;
 			try {
 				images = validateStudioChatImages( req.body.images );
 				files = validateStudioChatFiles( req.body.files );
 				validatedVisualAnnotations = validateStudioVisualAnnotations( visualAnnotations, images );
-				validateTurnModelSettings( req.body );
+				modelSettings = validateTurnModelSettings( req.body );
 			} catch ( error ) {
 				res.status( 400 ).json( { error: ( error as Error ).message } );
 				return;
@@ -2308,7 +2309,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				sessionId: req.params.id,
 				prompt: expandSkillCommandPrompt( prompt ),
 				turnId: typeof req.body.turnId === 'string' ? req.body.turnId : undefined,
-				...validateTurnModelSettings( req.body ),
+				...modelSettings,
 				displayMessage,
 				images,
 				files,

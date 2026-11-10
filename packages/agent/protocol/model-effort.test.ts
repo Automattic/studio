@@ -28,6 +28,19 @@ describe( 'conversation effort', () => {
 			)
 		).toBe( 'high' );
 		expect(
+			readSessionEffort(
+				[
+					context( 'balanced', 'high' ),
+					{
+						type: 'custom',
+						customType: 'studio.session_context',
+						data: { provider: 'wpcom' },
+					} as SessionEntry,
+				],
+				'balanced'
+			)
+		).toBe( 'high' );
+		expect(
 			readSessionEffort( [ context( 'balanced', 'high' ), context( 'fast' ) ], 'fast' )
 		).toBe( 'default' );
 		expect(

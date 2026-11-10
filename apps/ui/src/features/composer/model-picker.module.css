@@ -11,8 +11,6 @@
 	margin: calc( -1 * var( --space-1_5 ) ) calc( -1 * var( --space-1_5 ) ) var( --space-1_5 );
 	padding-inline: var( --space-3_5 );
 	border-block-end: 1px solid var( --border );
-	border-start-start-radius: var( --radius-popup );
-	border-start-end-radius: var( --radius-popup );
 	background: transparent;
 }
 .models {
@@ -24,6 +22,10 @@
 }
 .row:not( [data-reorder-preview] ) {
 	position: relative;
+	border-radius: var( --radius-md );
+}
+.row:not( :has( > .choice:disabled ) ):is( :hover, :focus-within ) {
+	background-color: var( --hover );
 }
 .favorites {
 	gap: 0;
@@ -52,7 +54,7 @@
 	min-width: 16px;
 	margin-inline-start: auto;
 }
-.row:is( :hover, :focus-within, :has( > [aria-expanded='true'] ) ) .trailing {
+.row:is( :hover, :focus-within ) .trailing {
 	opacity: 0;
 }
 .effortValue {
@@ -103,7 +105,7 @@
 	inset-inline-end: var( --space-1 );
 	opacity: 0;
 }
-.row:is( :hover, :focus-within, :has( > [aria-expanded='true'] ) ) .star {
+.row:is( :hover, :focus-within ) .star {
 	opacity: 1;
 }
 @media ( hover: none ) {

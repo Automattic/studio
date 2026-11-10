@@ -1,7 +1,8 @@
 import type { ComposerAttachment } from '@studio/agent/protocol/composer-attachments';
+import type { AiEffort } from '@studio/agent/protocol/model-effort';
 
 interface ComposerDraft {
-	effort?: import('@studio/agent/protocol/model-effort').AiEffort;
+	effort?: AiEffort;
 	text: string;
 	attachments: ComposerAttachment[];
 }

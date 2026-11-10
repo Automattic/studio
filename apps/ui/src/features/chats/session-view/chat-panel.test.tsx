@@ -580,8 +580,7 @@ describe( 'Chat target selection', () => {
 			expect( screen.queryByRole( 'option', { name: /^Choose model/ } ) ).not.toBeInTheDocument();
 			return;
 		}
-		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Choose model/ } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
 		await screen.findByRole( 'dialog', { name: 'Choose a model' } );
 		expect(
 			screen.queryByRole( 'button', { name: /^Manage providers…/ } )

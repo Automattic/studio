@@ -67,7 +67,7 @@ describe( 'sidebar site menu', () => {
 		fireEvent.contextMenu( row );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Delete site' } ) );
 		const dialog = await screen.findByRole( 'alertdialog', {
-			name: 'Remove “Other site” from WordPress Studio?',
+			name: 'Remove Other site',
 		} );
 		expect( connector.deleteSite ).not.toHaveBeenCalled();
 		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Remove site' } ) );

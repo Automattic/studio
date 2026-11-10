@@ -1110,6 +1110,23 @@ describe( 'native feature checks', () => {
 				)
 			).pass
 		).toBe( false );
+		// On a site the turn created, the theme's own code.
+		const createdSite = ( functionsPhp ) =>
+			site( {
+				content: [ savedHeader ],
+				codeChanges: null,
+				created: true,
+				theme: { stylesheet: 'shop', template: 'shop' },
+				themeFiles: { ...site().themeFiles, 'functions.php': functionsPhp },
+				themeChanges: null,
+			} );
+		expect( run( checks.miniCartInHeader, outcome( createdSite( '<?php' ) ) ).pass ).toBe( true );
+		expect(
+			run(
+				checks.miniCartInHeader,
+				outcome( createdSite( "<?php add_filter( 'woocommerce_add_to_cart_fragments', 'n' );" ) )
+			).reason
+		).toBe( 'custom cart-count code added: themes/shop/functions.php' );
 		expect(
 			run( checks.miniCartInHeader, outcome( site( { content: [ savedHeader ], plugins: [] } ) ) )
 				.pass
@@ -1164,6 +1181,49 @@ describe( 'native feature checks', () => {
 				)
 			).pass
 		).toBe( false );
+		// A site the turn created has no record of changes: all its theme code is the turn's.
+		const created = ( extra ) => ( {
+			...site( details.repeat( 3 ), null ),
+			created: true,
+			theme: { stylesheet: 'sudsy', template: 'sudsy' },
+			themeFiles: { 'style.css': '' },
+			themeFileList: [ 'style.css' ],
+			themeChanges: null,
+			...extra,
+		} );
+		expect( run( checks.faqUsesDetailsBlocks, outcome( created() ) ) ).toMatchObject( {
+			pass: true,
+		} );
+		expect(
+			run(
+				checks.faqUsesDetailsBlocks,
+				outcome( created( { themeFileList: [ 'style.css', 'assets/faq.js' ] } ) )
+			)
+		).toMatchObject( { pass: false, reason: 'JavaScript added: themes/sudsy/assets/faq.js' } );
+		// A theme from WordPress.org: only the files changed from its release are the turn's.
+		expect(
+			run(
+				checks.faqUsesDetailsBlocks,
+				outcome( created( { themeFileList: [ 'style.css', 'assets/nav.js' ], themeChanges: [] } ) )
+			).pass
+		).toBe( true );
+		// A child theme's parent is the turn's too.
+		expect(
+			run(
+				checks.faqUsesDetailsBlocks,
+				outcome(
+					created( {
+						theme: { stylesheet: 'sudsy', template: 'base' },
+						parentThemeFileList: [ 'faq.js' ],
+						parentThemeChanges: null,
+					} )
+				)
+			).reason
+		).toBe( 'JavaScript added: themes/base/faq.js' );
+		// A site the turn did not create, with no record, cannot be judged.
+		expect(
+			run( checks.faqUsesDetailsBlocks, outcome( created( { created: false } ) ) ).reason
+		).toMatch( /no record of the code the turn changed/ );
 	} );
 
 	test( 'pageInNativeBlocks', () => {

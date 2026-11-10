@@ -116,11 +116,38 @@ function stylesheets( s ) {
 	} ) );
 }
 
-// The code files the turn added or changed on the active site.
+// The code files (relative to wp-content) the turn added or changed on the
+// site. A site the turn created has no record of changes, as all of its code
+// is the turn's: its theme and parent theme files, those changed from the
+// WordPress.org release for a theme from there. Its plugins are not captured,
+// so for a created site only its themes are judged.
 function codeChanges( s ) {
-	if ( ! Array.isArray( s.codeChanges ) )
+	if ( Array.isArray( s.codeChanges ) )
+		return s.codeChanges.filter( ( c ) => c.status !== 'removed' );
+	if ( ! s.created || ! s.theme )
 		throw new Error( `no record of the code the turn changed on "${ s.name }"` );
-	return s.codeChanges.filter( ( c ) => c.status !== 'removed' );
+	const themeCode = ( slug, files, changed, texts ) =>
+		files
+			.filter( ( file ) => ! Array.isArray( changed ) || changed.includes( file ) )
+			.map( ( file ) => ( {
+				file: `themes/${ slug }/${ file }`,
+				status: 'added',
+				text: texts[ file ],
+			} ) );
+	const { stylesheet, template } = s.theme;
+	return [
+		...themeCode(
+			stylesheet,
+			s.themeFileList ?? Object.keys( s.themeFiles || {} ),
+			s.themeChanges,
+			s.themeFiles || {}
+		),
+		...( template && template !== stylesheet
+			? themeCode( template, s.parentThemeFileList ?? [], s.parentThemeChanges, {
+					'theme.json': s.parentThemeJson,
+			  } )
+			: [] ),
+	];
 }
 
 // Block markup with each `wp:pattern` and synced pattern (`wp:block`) it

@@ -6,7 +6,12 @@ import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';
 import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
 import { chromium } from 'playwright';
 import { expect, it, vi } from 'vitest';
-import { captureTurnOutcome, fingerprintSites, seenFields } from 'cli/ai/eval-outcome';
+import {
+	captureTurnOutcome,
+	fingerprintSites,
+	seenFields,
+	visitorValue,
+} from 'cli/ai/eval-outcome';
 import { cliAgentHost } from 'cli/ai/host';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 
@@ -101,6 +106,47 @@ it( "fingerprints a site whose Studio loader Studio rewrote as unchanged, and a 
 		[]
 	);
 } );
+
+// eval30 pivot: the scorer typed "Eval Visitor" into Jetpack's date field and 1
+// into a guest count of at least 2, so the form's script (and the browser, for a
+// date input) refused the inquiry before sending it: "Please enter a valid date."
+it.runIf( existsSync( chromium.executablePath() ) )(
+	'types what each field asks for: a date in its format, a number within its range',
+	async () => {
+		const browser = await chromium.launch();
+		try {
+			const page = await browser.newPage();
+			await page.setContent( `<form>
+				<input type="text" name="name" required>
+				<input type="date" name="date" required>
+				<input type="text" name="jp-iso" class="date jp-contact-form-date" data-format="yy-mm-dd">
+				<input type="text" name="jp-us" class="date jp-contact-form-date" data-format="mm/dd/yy">
+				<input type="number" name="guests" min="2" required>
+				<input type="number" name="tiny" max="0">
+				<input type="search" name="s">
+			</form>` );
+			const values: Record< string, string | undefined > = {};
+			for ( const field of await page.locator( 'input' ).all() ) {
+				const value = await visitorValue( field );
+				values[ ( await field.getAttribute( 'name' ) ) as string ] = value;
+				if ( value !== undefined ) await field.fill( value );
+			}
+			expect( values.name ).toBe( 'Eval Visitor' );
+			expect( values.date ).toMatch( /^\d{4}-\d{2}-\d{2}$/ );
+			expect( values[ 'jp-iso' ] ).toBe( values.date );
+			const [ y, m, d ] = ( values.date as string ).split( '-' );
+			expect( values[ 'jp-us' ] ).toBe( `${ m }/${ d }/${ y }` );
+			expect( values.guests ).toBe( '2' );
+			expect( values.tiny ).toBe( '0' );
+			expect( values.s ).toBeUndefined();
+			expect(
+				await page.locator( 'form' ).evaluate( ( f: HTMLFormElement ) => f.checkValidity() )
+			).toBe( true );
+		} finally {
+			await browser.close();
+		}
+	}
+);
 
 // eval21 redo port 2: the scorer filled the booking form's spam trap, a field
 // moved off the page in a box clipped to nothing, and the form dropped the message.

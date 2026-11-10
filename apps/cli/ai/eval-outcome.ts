@@ -363,6 +363,45 @@ const VISITOR: Record< string, string > = {
 	number: '1',
 };
 
+// What a visitor types into a field, as the field asks for it: a date a month
+// from now in a date field (a Jetpack date field is a text input whose
+// data-format, as yy-mm-dd, its script checks), and a number within the
+// field's min and max. A form whose script or browser checks the field
+// otherwise refuses the visit before anything is sent (eval30 pivot: "Please
+// enter a valid date.", "no less than 2").
+export async function visitorValue( field: Locator ): Promise< string | undefined > {
+	return field.evaluate( ( element: HTMLInputElement, visitor: Record< string, string > ) => {
+		const type = ( element.getAttribute( 'type' ) || 'text' ).toLowerCase();
+		const day = new Date( Date.now() + 30 * 24 * 60 * 60 * 1000 );
+		const parts: Record< string, string > = {
+			yy: String( day.getFullYear() ),
+			mm: String( day.getMonth() + 1 ).padStart( 2, '0' ),
+			dd: String( day.getDate() ).padStart( 2, '0' ),
+		};
+		const iso = `${ parts.yy }-${ parts.mm }-${ parts.dd }`;
+		const within = ( value: string ) => {
+			if ( element.min && value < element.min ) return element.min;
+			if ( element.max && value > element.max ) return element.max;
+			return value;
+		};
+		if ( type === 'date' ) return within( iso );
+		if ( type === 'datetime-local' ) return within( `${ iso }T19:00` );
+		if ( type === 'month' ) return within( iso.slice( 0, 7 ) );
+		if ( type === 'time' ) return within( '19:00' );
+		const format = element.getAttribute( 'data-format' );
+		if ( type === 'text' && format && element.classList.contains( 'jp-contact-form-date' ) ) {
+			return format.replace( /yy|mm|dd/g, ( part ) => parts[ part ] );
+		}
+		if ( type === 'number' ) {
+			let value = 1;
+			if ( element.min !== '' && Number( element.min ) > value ) value = Number( element.min );
+			if ( element.max !== '' && Number( element.max ) < value ) value = Number( element.max );
+			return String( value );
+		}
+		return visitor[ type ];
+	}, VISITOR );
+}
+
 // The fields a visitor sees and fills, leaving out a spam trap a form hides
 // from them: off the page, clipped to nothing, or hidden from assistive tech.
 export async function seenFields( form: Locator, selector: string ) {
@@ -427,8 +466,11 @@ async function sendPageForms( sitePath: string, siteId: string, links: string[] 
 				const type = ( await field.getAttribute( 'type' ) ) ?? 'text';
 				if ( type === 'checkbox' || type === 'radio' ) {
 					await field.check().catch( () => undefined );
-				} else if ( type in VISITOR ) {
-					await field.fill( VISITOR[ type ] );
+				} else {
+					const value = await visitorValue( field );
+					if ( value !== undefined ) {
+						await field.fill( value );
+					}
 				}
 			}
 			// A visitor picks an option of each list, the first that is not a placeholder.

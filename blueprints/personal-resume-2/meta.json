@@ -1,0 +1,9 @@
+{
+	"title": "Personal Resume",
+	"description": "A resume site created with the Readymade theme.",
+	"useCases": [
+		"portfolio"
+	],
+	"demoUrl": "https://readymadedemo.wordpress.com/",
+	"bundleUrl": "https://blueprintlibrary.wordpress.com/?blueprint=834"
+}

@@ -1,0 +1,9 @@
+{
+	"title": "Gaming News",
+	"description": "A gaming news site created with the Spiel theme.",
+	"useCases": [
+		"blog"
+	],
+	"demoUrl": "https://spieldemo.wordpress.com/",
+	"bundleUrl": "https://blueprintlibrary.wordpress.com/?blueprint=825"
+}

@@ -1,0 +1,9 @@
+{
+	"title": "Non-profit Organization",
+	"description": "A non-profit organization site created with the Koinonia theme.",
+	"useCases": [
+		"business"
+	],
+	"demoUrl": "https://koinoniathemedemo.wordpress.com/",
+	"bundleUrl": "https://blueprintlibrary.wordpress.com/?blueprint=829"
+}

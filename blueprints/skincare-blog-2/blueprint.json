@@ -1,0 +1,37 @@
+{
+	"$schema": "https://playground.wordpress.net/blueprint-schema.json",
+	"meta": {
+		"title": "Skincare Blog",
+		"description": "A skincare blog created with the Piel theme.",
+		"categories": [
+			"Studio"
+		],
+		"author": "Automattic"
+	},
+	"login": true,
+	"siteOptions": {
+		"blogname": "Goodskin"
+	},
+	"steps": [
+		{
+			"step": "resetData"
+		},
+		{
+			"step": "installTheme",
+			"themeData": {
+				"resource": "bundled",
+				"path": "./piel.zip"
+			},
+			"options": {
+				"activate": true
+			}
+		},
+		{
+			"step": "importWxr",
+			"file": {
+				"resource": "bundled",
+				"path": "./content.xml"
+			}
+		}
+	]
+}

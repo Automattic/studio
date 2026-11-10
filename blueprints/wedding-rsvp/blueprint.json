@@ -1,0 +1,69 @@
+{
+	"$schema": "https://playground.wordpress.net/blueprint-schema.json",
+	"meta": {
+		"title": "Wedding RSVP",
+		"author": "Automattic",
+		"description": "An elegant wedding RSVP site using the Impressionist theme with a Jetpack Forms RSVP page."
+	},
+	"landingPage": "/",
+	"preferredVersions": {
+		"php": "8.3",
+		"wp": "latest"
+	},
+	"features": {
+		"networking": true
+	},
+	"steps": [
+		{
+			"step": "defineWpConfigConsts",
+			"consts": {
+				"WP_DEBUG": false,
+				"WP_DEBUG_DISPLAY": false,
+				"JETPACK_DEV_DEBUG": true
+			}
+		},
+		{
+			"step": "login",
+			"username": "admin",
+			"password": "password"
+		},
+		{
+			"step": "installTheme",
+			"themeData": {
+				"resource": "url",
+				"url": "https://public-api.wordpress.com/rest/v1/themes/download/impressionist.zip"
+			},
+			"options": {
+				"activate": true
+			}
+		},
+		{
+			"step": "installPlugin",
+			"pluginData": {
+				"resource": "wordpress.org/plugins",
+				"slug": "jetpack"
+			},
+			"options": {
+				"activate": true,
+				"targetFolderName": "jetpack"
+			},
+			"ifAlreadyInstalled": "overwrite"
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/setup-wedding-rsvp.php",
+			"data": {
+				"resource": "bundled",
+				"path": "/setup-wedding-rsvp.php"
+			}
+		},
+		{
+			"step": "runPHP",
+			"code": "<?php require '/wordpress/wp-load.php'; require '/wordpress/wp-content/setup-wedding-rsvp.php';"
+		},
+		{
+			"step": "rm",
+			"path": "/wordpress/wp-content/setup-wedding-rsvp.php"
+		}
+	]
+}

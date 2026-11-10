@@ -1,0 +1,327 @@
+{
+	"$schema": "https://playground.wordpress.net/blueprint-schema.json",
+	"meta": {
+		"title": "Apparel",
+		"description": "",
+		"categories": [
+			"Store",
+			"Studio",
+			"WooCommerce"
+		],
+		"author": "Automattic"
+	},
+	"landingPage": "/",
+	"preferredVersions": {
+		"php": "8.3",
+		"wp": "latest"
+	},
+	"login": true,
+	"steps": [
+		{
+			"step": "resetData"
+		},
+		{
+			"step": "setSiteOptions",
+			"options": {
+				"blogname": "Apparel",
+				"blogdescription": "Everyday knitwear and accessories in easy color.",
+				"permalink_structure": "/%postname%/",
+				"woocommerce_currency": "USD",
+				"woocommerce_allow_tracking": "no"
+			}
+		},
+		{
+			"step": "importWxr",
+			"file": {
+				"resource": "bundled",
+				"path": "/content/site-content.wxr"
+			}
+		},
+		{
+			"step": "installPlugin",
+			"pluginData": {
+				"resource": "wordpress.org/plugins",
+				"slug": "woocommerce"
+			},
+			"options": {
+				"activate": true
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/woo-demo-store-setup.json",
+			"data": {
+				"resource": "bundled",
+				"path": "/content/store-setup.json"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/woo-demo-prepare-store.php",
+			"data": {
+				"resource": "bundled",
+				"path": "/content/prepare-store.php"
+			}
+		},
+		{
+			"step": "runPHP",
+			"code": "<?php require_once '/wordpress/wp-load.php'; require '/wordpress/wp-content/woo-demo-prepare-store.php';"
+		},
+		{
+			"step": "installTheme",
+			"themeData": {
+				"resource": "wordpress.org/themes",
+				"slug": "purple"
+			},
+			"options": {
+				"activate": true
+			}
+		},
+		{
+			"step": "importWxr",
+			"file": {
+				"resource": "bundled",
+				"path": "/content/products.wxr"
+			}
+		},
+		{
+			"step": "mkdir",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import"
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000946-Product_beanie_navy_purple_theme_1.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000946-Product_beanie_navy_purple_theme_1.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000947-Product_socks_green_purple_theme_1.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000947-Product_socks_green_purple_theme_1.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000948-Model_green_sweater_blue-1-scaled.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000948-Model_green_sweater_blue-1-scaled.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000949-Product_sweater2_navy_purple_theme_1.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000949-Product_sweater2_navy_purple_theme_1.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000950-Product_sweater3_navy_purple_theme_1.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000950-Product_sweater3_navy_purple_theme_1.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000951-Model_yellow_sweater-1-scaled.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000951-Model_yellow_sweater-1-scaled.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000952-Product_scarf_pile_purple_theme_1-1.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000952-Product_scarf_pile_purple_theme_1-1.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000962-Product_beanie_pink_purple_theme_1.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000962-Product_beanie_pink_purple_theme_1.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000963-Product_beanie_orange_purple_theme_1.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000963-Product_beanie_orange_purple_theme_1.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000964-Product_beanie_yellow_purple_theme_1.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000964-Product_beanie_yellow_purple_theme_1.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000965-Product_socks_blue_purple_theme_1.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000965-Product_socks_blue_purple_theme_1.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000966-Product_socks_yellow_purple_theme_1.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000966-Product_socks_yellow_purple_theme_1.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000967-Product_sweater_green_purple_theme-4.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000967-Product_sweater_green_purple_theme-4.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000968-Product_sweater_grey_purple_theme-1.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000968-Product_sweater_grey_purple_theme-1.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000969-Product_sweater_yellow_purple_theme-9.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000969-Product_sweater_yellow_purple_theme-9.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000973-Product_sweater2_grey_purple_theme_1.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000973-Product_sweater2_grey_purple_theme_1.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000974-Product_sweater2_orange_purple_theme_1.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000974-Product_sweater2_orange_purple_theme_1.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000975-Product_sweater3_pink_purple_theme_1.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000975-Product_sweater3_pink_purple_theme_1.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000976-Product_sweater3_orange_purple_theme_1.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000976-Product_sweater3_orange_purple_theme_1.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000977-Product_sweater4_green_purple_theme_1.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000977-Product_sweater4_green_purple_theme_1.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000978-Product_sweater4_grey_purple_theme_1.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000978-Product_sweater4_grey_purple_theme_1.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000979-Product_sweater4_orange_purple_theme_1.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000979-Product_sweater4_orange_purple_theme_1.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000980-Product_scarf_black_purple_theme_1.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000980-Product_scarf_black_purple_theme_1.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000981-Product_scarf_pink_purple_theme_1.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000981-Product_scarf_pink_purple_theme_1.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000982-Product_scarf_orange_purple_theme_1.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000982-Product_scarf_orange_purple_theme_1.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/uploads/woo-demo-import/000983-Product_scarf_yellow_purple_theme_1.jpg",
+			"data": {
+				"resource": "bundled",
+				"path": "/product-images/000983-Product_scarf_yellow_purple_theme_1.jpg"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/woo-demo-media-map.json",
+			"data": {
+				"resource": "bundled",
+				"path": "/content/media-map.json"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/woo-demo-link-media.php",
+			"data": {
+				"resource": "bundled",
+				"path": "/content/link-media.php"
+			}
+		},
+		{
+			"step": "runPHP",
+			"code": "<?php require_once '/wordpress/wp-load.php'; require '/wordpress/wp-content/woo-demo-link-media.php';"
+		},
+		{
+			"step": "setSiteOptions",
+			"options": {
+				"woocommerce_coming_soon": "no",
+				"woocommerce_store_pages_only": "no"
+			}
+		}
+	]
+}

@@ -1,0 +1,38 @@
+{
+	"$schema": "https://playground.wordpress.net/blueprint-schema.json",
+	"meta": {
+		"title": "Non-profit Organization",
+		"description": "A non-profit organization site created with the Koinonia theme.",
+		"categories": [
+			"Gallery",
+			"Studio"
+		],
+		"author": "Automattic"
+	},
+	"login": true,
+	"siteOptions": {
+		"blogname": "Koinonia"
+	},
+	"steps": [
+		{
+			"step": "resetData"
+		},
+		{
+			"step": "installTheme",
+			"themeData": {
+				"resource": "bundled",
+				"path": "./koinonia.zip"
+			},
+			"options": {
+				"activate": true
+			}
+		},
+		{
+			"step": "importWxr",
+			"file": {
+				"resource": "bundled",
+				"path": "./content.xml"
+			}
+		}
+	]
+}

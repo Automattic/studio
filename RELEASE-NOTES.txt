@@ -87,7 +87,6 @@ Unreleased
 * Clean up avatar fallback states #5605
 * Unify welcome and account prompt dialog spacing #5593
 * Keep browser sign-in buttons available for retries #5711
-* Previews: Create new previews on WordPress.com, first for Automatticians #5525
 * Previews: Create every new preview on WordPress.com #5756
 * Previews: Move a Jurassic Ninja preview to WordPress.com when it's updated #5754
 * Previews: Open your own WordPress.com preview signed in #5630
@@ -96,7 +95,6 @@ Unreleased
 * Previews: Leave inactive themes out of the archive #5607
 * Previews: Leave plugins WordPress.com provides out of the archive #5631
 * Previews: Leave a pulled site's host-provided files out of the archive #5617
-* Previews: Keep WordPress.com's plugins in Jurassic Ninja preview archives #5638
 * Previews: Check the size limit against what the archive holds #5635
 * Previews: Record a site version on every preview push and pull #5730
 * Upload preview and push archives in 10 MB chunks, for faster uploads #5632

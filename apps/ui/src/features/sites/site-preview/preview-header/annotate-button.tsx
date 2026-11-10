@@ -43,7 +43,7 @@ export function AnnotateButton( {
 				event.repeat ||
 				! isShortcut( event, '.', 'shift' ) ||
 				isDialogOpen() ||
-				modeButton.current?.closest( '[inert], [hidden], [aria-hidden="true"]' )
+				modeButton.current?.closest( '[inert], [aria-hidden="true"]' )
 			)
 				return;
 			event.preventDefault();

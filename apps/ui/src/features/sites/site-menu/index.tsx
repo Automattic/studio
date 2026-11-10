@@ -6,6 +6,8 @@ import { displayShortcut } from '@wordpress/keycodes';
 import { useRef, useState } from 'react';
 import { useSessionsBusy } from '@/data/agent-runs/use-agent-run';
 import { useConnector } from '@/data/core';
+import { useAiSettings } from '@/data/queries/use-ai-settings';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSessions } from '@/data/queries/use-sessions';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useIsSiteBusy, useSites, useStopSite, useRestartSite } from '@/data/queries/use-sites';
@@ -38,7 +40,6 @@ import {
 	PinIcon,
 	PlusIcon,
 	RenameIcon,
-	RotateCwIcon,
 	SiteSettingsIcon,
 	StartSiteIcon,
 	StopOtherSitesIcon,
@@ -174,6 +175,9 @@ export function SiteMenuItems( {
 	current?: boolean;
 } ) {
 	const { site, busy, running, othersRunning } = actions;
+	const { data: user } = useAuthUser();
+	const { data: aiSettings } = useAiSettings();
+	const providerConnected = !! user || !! aiSettings?.hasAnthropicApiKey;
 	const destinations = useOpenInDestinations( site );
 	const manage = Object.fromEntries(
 		useSiteManagementActions( site, {
@@ -199,10 +203,54 @@ export function SiteMenuItems( {
 
 	return (
 		<div className={ styles.items }>
-			<Menu.Item onClick={ actions.newChat }>
-				<NewChatIcon />
-				{ __( 'New chat' ) }
-			</Menu.Item>
+			{ providerConnected ? (
+				<Menu.Item onClick={ actions.newChat }>
+					<NewChatIcon />
+					{ __( 'New chat' ) }
+				</Menu.Item>
+			) : null }
+			{ site.running ? null : (
+				<Menu.Item disabled={ busy } onClick={ actions.toggleRunning }>
+					<StartSiteIcon />
+					{ __( 'Start' ) }
+					{ lifecycleShortcut }
+				</Menu.Item>
+			) }
+			{ site.running && running.length <= 1 ? (
+				<Menu.Item disabled={ busy } onClick={ actions.toggleRunning }>
+					<StopSiteIcon />
+					{ __( 'Stop' ) }
+					{ lifecycleShortcut }
+				</Menu.Item>
+			) : running.length > 1 ? (
+				<Menu.SubmenuRoot>
+					<Menu.SubmenuTrigger disabled={ busy }>
+						<StopSiteIcon />
+						{ __( 'Stop' ) }
+					</Menu.SubmenuTrigger>
+					<Menu.SubmenuPopup { ...actions.shortcuts }>
+						{ site.running ? (
+							<Menu.Item onClick={ actions.toggleRunning }>
+								<StopSiteIcon />
+								{ __( 'Stop site' ) }
+								{ lifecycleShortcut }
+							</Menu.Item>
+						) : null }
+						{ site.running && othersRunning.length ? (
+							<Menu.Item onClick={ () => actions.stop( othersRunning ) }>
+								<StopOtherSitesIcon />
+								{ __( 'Stop other sites' ) }
+							</Menu.Item>
+						) : null }
+						{ running.length > 1 ? (
+							<Menu.Item onClick={ () => actions.stop( running ) }>
+								<StopOtherSitesIcon />
+								{ __( 'Stop all sites' ) }
+							</Menu.Item>
+						) : null }
+					</Menu.SubmenuPopup>
+				</Menu.SubmenuRoot>
+			) : null }
 			<Menu.SubmenuRoot>
 				<Menu.SubmenuTrigger disabled={ busy }>
 					<PlusIcon />
@@ -232,55 +280,7 @@ export function SiteMenuItems( {
 						) ) }
 				</Menu.SubmenuPopup>
 			</Menu.SubmenuRoot>
-			<Menu.Item onClick={ actions.openSiteSettings }>
-				<SiteSettingsIcon />
-				{ __( 'Settings' ) }
-			</Menu.Item>
 			<Menu.Separator />
-			{ site.running ? null : (
-				<Menu.Item disabled={ busy } onClick={ actions.toggleRunning }>
-					<StartSiteIcon />
-					{ __( 'Start' ) }
-					{ lifecycleShortcut }
-				</Menu.Item>
-			) }
-			{ site.running || running.length > 1 ? (
-				<Menu.SubmenuRoot>
-					<Menu.SubmenuTrigger disabled={ busy }>
-						<StopSiteIcon />
-						{ __( 'Stop' ) }
-					</Menu.SubmenuTrigger>
-					<Menu.SubmenuPopup { ...actions.shortcuts }>
-						{ site.running ? (
-							<Menu.Item onClick={ actions.toggleRunning }>
-								<StopSiteIcon />
-								{ __( 'Stop site' ) }
-								{ lifecycleShortcut }
-							</Menu.Item>
-						) : null }
-						{ site.running && othersRunning.length ? (
-							<Menu.Item onClick={ () => actions.stop( othersRunning ) }>
-								<StopOtherSitesIcon />
-								{ __( 'Stop other sites' ) }
-							</Menu.Item>
-						) : null }
-						{ running.length > 1 ? (
-							<Menu.Item onClick={ () => actions.stop( running ) }>
-								<StopOtherSitesIcon />
-								{ __( 'Stop all sites' ) }
-							</Menu.Item>
-						) : null }
-					</Menu.SubmenuPopup>
-				</Menu.SubmenuRoot>
-			) : null }
-			{ site.running ? (
-				<Menu.Item disabled={ busy } onClick={ () => void actions.restart() }>
-					<RotateCwIcon />
-					{ __( 'Restart' ) }
-				</Menu.Item>
-			) : null }
-			<Menu.Separator />
-
 			<Menu.Item onClick={ actions.togglePin }>
 				{ actions.pinned ? <UnpinIcon /> : <PinIcon /> }
 				{ actions.pinned ? __( 'Unpin' ) : __( 'Pin' ) }
@@ -291,7 +291,14 @@ export function SiteMenuItems( {
 				{ __( 'Rename' ) }
 				<Menu.Shortcut>{ displayShortcut.primaryAlt( 'r' ) }</Menu.Shortcut>
 			</Menu.Item>
-			{ manageItem( manage.import ) }
+			{ manageItem( manage.duplicate ) }
+			<Menu.Item onClick={ actions.openSiteSettings }>
+				<SiteSettingsIcon />
+				{ __( 'Settings' ) }
+			</Menu.Item>
+			<Menu.Separator />
+			<SiteShareMenuItem site={ site } disabled={ busy } />
+			<SitePublishMenu site={ site } disabled={ busy } />
 			<Menu.SubmenuRoot>
 				<Menu.SubmenuTrigger disabled={ manage.export.disabled && manage[ 'export-db' ].disabled }>
 					<ExportIcon />
@@ -302,12 +309,8 @@ export function SiteMenuItems( {
 					{ manageItem( manage[ 'export-db' ] ) }
 				</Menu.SubmenuPopup>
 			</Menu.SubmenuRoot>
-			{ manageItem( manage.duplicate ) }
 			<Menu.Separator />
-			<SiteShareMenuItem site={ site } disabled={ busy } />
-			<SitePublishMenu site={ site } disabled={ busy } />
-			<Menu.Separator />
-			{ manageItem( manage.delete, __( 'Delete site' ), !! deleteBlocked ) }
+			{ manageItem( manage.delete, __( 'Delete' ), !! deleteBlocked ) }
 		</div>
 	);
 }

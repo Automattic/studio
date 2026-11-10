@@ -51,8 +51,7 @@
 	gap: var( --band-gap );
 }
 
-.header[data-site-header-layout='mobile-overflow'] .browserLocation {
-	-webkit-app-region: no-drag;
+.previewActions[hidden] {
 	display: none;
 }
 

@@ -6,12 +6,15 @@
 	z-index: 1;
 	display: flex;
 	align-items: center;
-	height: var( --band-height );
+	/* Keep the width container from excluding the whole title bar from dragging. */
+	height: 0;
 	-webkit-app-region: no-drag;
 	pointer-events: none;
 }
 
 .actions {
+	position: relative;
+	top: calc( var( --band-height ) / 2 );
 	display: flex;
 	align-items: center;
 	gap: var( --band-gap );

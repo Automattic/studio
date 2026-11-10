@@ -45,10 +45,6 @@
 	transition: visibility 0s var( --motion-duration-layout );
 }
 
-.root > * {
-	-webkit-app-region: no-drag;
-}
-
 .action {
 	display: flex;
 	margin-inline-start: auto;

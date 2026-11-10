@@ -108,9 +108,12 @@ describe( 'Settings in the Studio workspace', () => {
 	it( 'disables the Site settings scope when no site is available', async () => {
 		setup( [] );
 		fireEvent.click(
-			within( await screen.findByRole( 'dialog', { name: 'Add site' } ) ).getByRole( 'button', {
-				name: 'Close Add site',
-			} )
+			within( await screen.findByRole( 'dialog', { name: 'Add a WordPress' } ) ).getByRole(
+				'button',
+				{
+					name: 'Close Add site',
+				}
+			)
 		);
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Account' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: /Settings/ } ) );

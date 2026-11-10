@@ -26,6 +26,8 @@ export type SetupSource =
 	| { type: 'folder'; folder: SelectedSiteFolder }
 	| { type: 'connect'; remote: SyncSite };
 
+export type SetupType = 'blank' | 'blueprint' | 'import';
+
 interface AddSiteContextValue {
 	// Announces long work and locks the dialog until it's cleared.
 	setProgress: Dispatch< SetStateAction< string | null > >;
@@ -43,10 +45,12 @@ interface AddSiteContextValue {
 	setSetupDraft: ( draft: CreateSiteFormDraft ) => void;
 	source: SetupSource;
 	setSource: ( source: SetupSource ) => void;
+	changeSourceType: ( type: SetupType ) => void;
 	folderResetKey: number;
-	removeFolder: () => void;
 	browseBlueprints: () => void;
+	browseSites: () => void;
 	onFile: ( file: File ) => void;
+	onFiles: ( files: FileList, transfer: DataTransfer ) => void;
 	onFolder: ( path?: string, usePath?: boolean ) => Promise< void >;
 	setBlueprintTransferred: ( transferred: boolean ) => void;
 	createdSite?: CreatedSetupSite;

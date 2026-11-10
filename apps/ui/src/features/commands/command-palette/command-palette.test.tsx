@@ -286,7 +286,7 @@ describe( 'command palette', () => {
 		} );
 		await openPalette();
 		fireEvent.click( option( 'New site' ) );
-		const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
+		const dialog = await screen.findByRole( 'dialog', { name: 'Add a WordPress' } );
 		expect(
 			await within( dialog ).findByRole( 'button', { name: 'Start with Blank site' } )
 		).toBeVisible();
@@ -294,7 +294,7 @@ describe( 'command palette', () => {
 
 	it( 'omits site commands without a site', async () => {
 		const { history, user } = renderApp( { connector: createFakeConnector(), path: '/sites' } );
-		fireEvent.keyDown( await screen.findByRole( 'dialog', { name: 'Add site' } ), {
+		fireEvent.keyDown( await screen.findByRole( 'dialog', { name: 'Add a WordPress' } ), {
 			key: 'Escape',
 		} );
 		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
@@ -594,19 +594,21 @@ describe( 'Command palette in the Studio workspace', () => {
 				await screen.findByRole( 'button', { name: 'Site menu' } );
 				fireEvent.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 			}
-			const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
+			const dialog = await screen.findByRole( 'dialog', { name: 'Add a WordPress' } );
 			const blank = await within( dialog ).findByRole( 'button', {
 				name: 'Start with Blank site',
 			} );
 			await waitFor( () => expect( blank ).toHaveFocus() );
 			pressK( blank );
 			await waitFor( () =>
-				expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument()
+				expect(
+					screen.queryByRole( 'dialog', { name: 'Add a WordPress' } )
+				).not.toBeInTheDocument()
 			);
 			await waitFor( () => expect( input() ).toHaveFocus() );
 			fireEvent.change( input(), { target: { value: 'add' } } );
 			fireEvent.click( await screen.findByRole( 'option', { name: 'New site' } ) );
-			expect( await screen.findByRole( 'dialog', { name: 'Add site' } ) ).toBeVisible();
+			expect( await screen.findByRole( 'dialog', { name: 'Add a WordPress' } ) ).toBeVisible();
 			await waitFor( () =>
 				expect( screen.getByRole( 'button', { name: 'Start with Blank site' } ) ).toHaveFocus()
 			);

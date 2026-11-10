@@ -11,6 +11,7 @@ import { usePendingSiteFolder } from '@/features/sites/pending-site-folder';
 import { useAddSite, type SiteBackup } from './context';
 import styles from './import-panel.module.css';
 import { SetupSourceField } from './setup-source-field';
+import { SetupTypeField } from './setup-type-field';
 import { useSetupPrompt } from './use-setup-prompt';
 import type { CreateSiteFormError, CreateSiteFormValues } from '@/features/sites/create-site-form';
 
@@ -47,7 +48,13 @@ function createFailure(
 	};
 }
 
-export function ImportPanel( { backup: selectedFile }: { backup: SiteBackup } ) {
+export function ImportPanel( {
+	backup: selectedFile,
+	showType = false,
+}: {
+	backup: SiteBackup;
+	showType?: boolean;
+} ) {
 	const connector = useConnector();
 	const {
 		setProgress,
@@ -182,6 +189,7 @@ export function ImportPanel( { backup: selectedFile }: { backup: SiteBackup } ) 
 				requiresEmptyPath
 				draft={ restoredDraft }
 				onDraftChange={ setSetupDraft }
+				typeControl={ showType ? <SetupTypeField disabled={ isWorking } /> : undefined }
 				sourceControl={ <SetupSourceField disabled={ isWorking } /> }
 			>
 				{ prompt.field }

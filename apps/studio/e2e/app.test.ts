@@ -23,13 +23,21 @@ test.describe( 'Electron app', () => {
 		} );
 		await expect( welcome ).toBeVisible();
 		await welcome.getByRole( 'button', { name: 'Close', exact: true } ).click();
-		await expect( session.mainWindow.getByRole( 'dialog', { name: 'Add site' } ) ).toBeVisible();
+		await expect(
+			session.mainWindow.getByRole( 'dialog', { name: 'Add a WordPress' } )
+		).toBeVisible();
 		await session.mainWindow.keyboard.press( 'Escape' );
-		await expect( session.mainWindow.getByRole( 'dialog', { name: 'Add site' } ) ).toBeHidden();
+		await expect(
+			session.mainWindow.getByRole( 'dialog', { name: 'Add a WordPress' } )
+		).toBeHidden();
 		await session.restart();
-		await expect( session.mainWindow.getByRole( 'dialog', { name: 'Add site' } ) ).toBeVisible();
+		await expect(
+			session.mainWindow.getByRole( 'dialog', { name: 'Add a WordPress' } )
+		).toBeVisible();
 		await session.mainWindow.keyboard.press( 'Escape' );
-		await expect( session.mainWindow.getByRole( 'dialog', { name: 'Add site' } ) ).toBeHidden();
+		await expect(
+			session.mainWindow.getByRole( 'dialog', { name: 'Add a WordPress' } )
+		).toBeHidden();
 		expect( await session.mainWindow.evaluate( () => window.ipcApi.getOnboardingData() ) ).toBe(
 			true
 		);

@@ -12,7 +12,7 @@ async function openBlankSetup( dialog: HTMLElement ) {
 	fireEvent.click(
 		await within( dialog ).findByRole( 'button', { name: 'Start with Blank site' } )
 	);
-	await within( dialog ).findByLabelText( 'Site name' );
+	await within( dialog ).findByLabelText( 'Name' );
 }
 
 // The index route offers Add site once per app session until a site exists:
@@ -49,8 +49,9 @@ describe( 'site creation', () => {
 				backup: { path: '/tmp/backup/example.com.zip', name: 'example.com.zip' },
 			} )
 		);
-		const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
+		const dialog = await screen.findByRole( 'dialog', { name: 'Add a WordPress' } );
 		expect( await within( dialog ).findByText( 'example.com.zip' ) ).toBeVisible();
+		expect( within( dialog ).queryByRole( 'combobox', { name: 'Type' } ) ).not.toBeInTheDocument();
 		expect( within( dialog ).getByRole( 'button', { name: 'Add site' } ) ).toBeVisible();
 		expect( connector.createSite ).not.toHaveBeenCalled();
 	} );
@@ -76,7 +77,9 @@ describe( 'site creation', () => {
 				await screen.findByRole( 'button', { name: 'Site menu' } );
 				expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
 			} else {
-				expect( await screen.findByRole( 'dialog', { name: 'Add site' } ) ).toBeInTheDocument();
+				expect(
+					await screen.findByRole( 'dialog', { name: 'Add a WordPress' } )
+				).toBeInTheDocument();
 			}
 		}
 	);
@@ -86,32 +89,32 @@ describe( 'site creation', () => {
 		const connector = createFakeConnector();
 		connector.createSite.mockRejectedValueOnce( new Error( 'Creation failed' ) );
 		renderApp( { connector } );
-		const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
+		const dialog = await screen.findByRole( 'dialog', { name: 'Add a WordPress' } );
 		await openBlankSetup( dialog );
-		fireEvent.change( within( dialog ).getByLabelText( 'Site name' ), {
+		fireEvent.change( within( dialog ).getByLabelText( 'Name' ), {
 			target: { value: 'New site' },
 		} );
 		const submit = within( dialog ).getByRole( 'button', { name: 'Add site' } );
 		await waitFor( () => expect( submit ).toBeEnabled() );
 		fireEvent.click( submit );
 		expect( await screen.findByText( 'Creation failed' ) ).toBeInTheDocument();
-		expect( within( dialog ).getByLabelText( 'Site name' ) ).toHaveValue( 'New site' );
+		expect( within( dialog ).getByLabelText( 'Name' ) ).toHaveValue( 'New site' );
 	} );
 
 	it( 'creates a real connector site and selects it after the registry refresh', async () => {
 		await resetAddSiteOffer();
 		const { connector } = renderApp( { connector: createFakeConnector() } );
-		const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
+		const dialog = await screen.findByRole( 'dialog', { name: 'Add a WordPress' } );
 		await openBlankSetup( dialog );
-		fireEvent.change( within( dialog ).getByLabelText( 'Site name' ), {
+		fireEvent.change( within( dialog ).getByLabelText( 'Name' ), {
 			target: { value: 'New site' },
 		} );
 		await waitFor( () =>
-			expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute( 'title', '/sites/New site' )
+			expect( screen.getByLabelText( 'Folder' ) ).toHaveAttribute( 'title', '/sites/New site' )
 		);
 		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Add site' } ) );
 		await waitFor( () =>
-			expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument()
+			expect( screen.queryByRole( 'dialog', { name: 'Add a WordPress' } ) ).not.toBeInTheDocument()
 		);
 		expect( connector.createSite ).toHaveBeenCalledWith(
 			expect.objectContaining( { name: 'New site', path: '/sites/New site' } )
@@ -135,20 +138,19 @@ describe( 'site creation', () => {
 			fireEvent.click(
 				screen.getByRole( 'button', { name: pinned ? 'Add pinned site' : 'Add site' } )
 			);
-			const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
+			const dialog = await screen.findByRole( 'dialog', { name: 'Add a WordPress' } );
 			await openBlankSetup( dialog );
-			fireEvent.change( within( dialog ).getByLabelText( 'Site name' ), {
+			fireEvent.change( within( dialog ).getByLabelText( 'Name' ), {
 				target: { value: 'New site' },
 			} );
 			await waitFor( () =>
-				expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute(
-					'title',
-					'/sites/New site'
-				)
+				expect( screen.getByLabelText( 'Folder' ) ).toHaveAttribute( 'title', '/sites/New site' )
 			);
 			fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Add site' } ) );
 			await waitFor( () =>
-				expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument()
+				expect(
+					screen.queryByRole( 'dialog', { name: 'Add a WordPress' } )
+				).not.toBeInTheDocument()
 			);
 			expect( connector.createSite ).toHaveBeenCalledWith(
 				expect.objectContaining( { name: 'New site', path: '/sites/New site' } )
@@ -188,7 +190,7 @@ describe( 'site creation', () => {
 		).not.toBeInTheDocument();
 		act( () => connector.emit( 'onToggleSidebar' ) );
 		act( () => connector.emit( 'onAddSite' ) );
-		const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
+		const dialog = await screen.findByRole( 'dialog', { name: 'Add a WordPress' } );
 		expect(
 			await within( dialog ).findByRole( 'button', { name: 'Start with Blank site' } )
 		).toBeVisible();
@@ -235,18 +237,18 @@ describe( 'site creation', () => {
 		act( () => connector.emit( 'onAddSite' ) );
 		const dialog = await screen.findByRole( 'dialog' );
 		await openBlankSetup( dialog );
-		fireEvent.change( within( dialog ).getByLabelText( 'Site name' ), {
+		fireEvent.change( within( dialog ).getByLabelText( 'Name' ), {
 			target: { value: 'New site' },
 		} );
 		await waitFor( () =>
-			expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute( 'title', '/sites/New site' )
+			expect( screen.getByLabelText( 'Folder' ) ).toHaveAttribute( 'title', '/sites/New site' )
 		);
 		fireEvent.click( screen.getByRole( 'button', { name: 'Change…' } ) );
 		await waitFor( () => expect( connector.selectSiteFolder ).toHaveBeenCalled() );
 		await waitFor( () =>
 			expect( within( dialog ).getByRole( 'button', { name: 'Add site' } ) ).toBeEnabled()
 		);
-		expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute( 'title', '/sites/New site' );
+		expect( screen.getByLabelText( 'Folder' ) ).toHaveAttribute( 'title', '/sites/New site' );
 	} );
 
 	it( 'does not re-register an existing Studio site', async () => {
@@ -262,12 +264,12 @@ describe( 'site creation', () => {
 		act( () => connector.emit( 'onAddSite' ) );
 		const dialog = await screen.findByRole( 'dialog' );
 		await openBlankSetup( dialog );
-		fireEvent.change( within( dialog ).getByLabelText( 'Site name' ), {
+		fireEvent.change( within( dialog ).getByLabelText( 'Name' ), {
 			target: { value: 'New site' },
 		} );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Change…' } ) );
 		await waitFor( () =>
-			expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute( 'title', '/sites/my-site' )
+			expect( screen.getByLabelText( 'Folder' ) ).toHaveAttribute( 'title', '/sites/my-site' )
 		);
 		const addButton = within( dialog ).getByRole( 'button', { name: 'Add site' } );
 		expect( addButton ).toBeDisabled();

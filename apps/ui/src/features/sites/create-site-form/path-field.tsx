@@ -64,7 +64,9 @@ export function PathField( {
 	const parent = preferences?.defaultSiteDirectory ?? '';
 	const defaultLocation =
 		parent && /[\\/]$/.test( parent ) ? parent : parent + ( parent.includes( '\\' ) ? '\\' : '/' );
-	const path = item.hasCustomPath ? item.path : item.path || ( parent ? defaultLocation : '' );
+	const path = item.hasCustomPath
+		? item.path
+		: ( item.name.trim() ? item.path : '' ) || ( parent ? defaultLocation : '' );
 	const { parent: parentPath, name: folderName } = splitFolderPath( path );
 	const suggestedName = sanitizeFolderName( item.name );
 	const existing = requiresExistingPath || ( item.isWordPress && ! requiresEmptyPath );
@@ -145,7 +147,7 @@ export function PathField( {
 	};
 	return (
 		<Field>
-			<FieldLabel htmlFor={ id }>{ __( 'Site folder' ) }</FieldLabel>
+			<FieldLabel htmlFor={ id }>{ __( 'Folder' ) }</FieldLabel>
 			<div className={ styles.pathRow }>
 				{ existing ? (
 					<Input

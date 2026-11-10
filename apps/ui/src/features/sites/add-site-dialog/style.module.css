@@ -19,7 +19,14 @@
 }
 
 .sourceArea {
+	position: relative;
 	min-width: 0;
+	border-radius: var( --radius-lg );
+}
+
+.sourceArea[data-dragging] {
+	outline: 2px solid var( --accent-text );
+	outline-offset: 2px;
 }
 
 .sourceDropZone,
@@ -30,12 +37,18 @@
 .sourceDropZone {
 	gap: var( --space-3 );
 	padding-block: var( --space-6 );
-	border: 0;
-	background-color: var( --muted );
 }
 
 .sourceDropZone p:empty {
 	display: none;
+}
+
+.sourcePickerActions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: var( --space-2 );
+	width: 100%;
 }
 
 .selectedSource {
@@ -125,12 +138,9 @@
 }
 
 .briefTitle {
+	display: flex;
+	align-items: center;
 	gap: var( --space-1 );
-}
-
-.briefOptional {
-	color: var( --muted-foreground );
-	font-weight: var( --font-weight-normal );
 }
 
 .briefTextarea {

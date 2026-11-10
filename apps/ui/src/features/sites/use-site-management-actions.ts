@@ -34,7 +34,7 @@ export interface SiteManagementAction {
 
 /**
  * The canonical "manage this site" actions — Duplicate, Import, Export site,
- * Export database, Export as Blueprint, Delete — shared by every surface that offers them, so labels, icons,
+ * Export database, Export blueprint, Delete — shared by every surface that offers them, so labels, icons,
  * order, and disabled logic don't drift apart between surfaces.
  *
  * Import and Delete open UI the caller owns (a file picker with an overwrite
@@ -106,7 +106,7 @@ export function useSiteManagementActions(
 		{
 			id: 'export-blueprint',
 			icon: ExportSiteIcon,
-			label: __( 'Export as Blueprint' ),
+			label: __( 'Export blueprint' ),
 			disabled: isWriting || isExporting,
 			destructive: false,
 			run: () => exportBlueprint.mutate( site.id ),

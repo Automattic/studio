@@ -481,7 +481,7 @@ it( 'exports the selected site as a Blueprint from the Export submenu', async ()
 	const { open, connector } = setup();
 	await open();
 	fireEvent.click( screen.getByRole( 'menuitem', { name: 'Export' } ) );
-	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Export as Blueprint' } ) );
+	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Export blueprint' } ) );
 	await waitFor( () =>
 		expect( connector.exportBlueprint ).toHaveBeenCalledWith(
 			'selected',

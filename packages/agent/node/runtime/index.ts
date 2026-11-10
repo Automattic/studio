@@ -413,6 +413,9 @@ async function runAgentSessionTurn(
 			// until fixed, and a verdict of none ends nothing.
 			await state.renderCheck.settle();
 			await state.renderCheck.takeReports();
+			// The forms a visitor sends on what the turn changed, sent once: those
+			// that store nowhere, or that will not send, are open until fixed.
+			await state.formCheck.check().catch( () => undefined );
 			const raised = await state.openProblems.raise();
 			// The notes on the run's last calls, whose checks ran after their results.
 			const notes = pendingWork.takeReports();
@@ -595,6 +598,7 @@ async function createStudioAgentSession(
 			siteChanges,
 			afterChecks,
 			renderCheck: renders ? renderCheck : undefined,
+			formCheck: state.formCheck,
 			openProblems,
 			writers,
 			fileViews,

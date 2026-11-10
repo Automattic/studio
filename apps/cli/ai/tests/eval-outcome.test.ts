@@ -1,17 +1,13 @@
 import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'fs';
 import { DatabaseSync } from 'node:sqlite';
 import path from 'path';
+import { seenFields, visitorValue } from '@studio/agent/node/form-submission';
 import { readSiteFacts } from '@studio/agent/node/site-facts';
 import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';
 import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
 import { chromium } from 'playwright';
 import { expect, it, vi } from 'vitest';
-import {
-	captureTurnOutcome,
-	fingerprintSites,
-	seenFields,
-	visitorValue,
-} from 'cli/ai/eval-outcome';
+import { captureTurnOutcome, fingerprintSites } from 'cli/ai/eval-outcome';
 import { cliAgentHost } from 'cli/ai/host';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 
@@ -131,7 +127,7 @@ it.runIf( existsSync( chromium.executablePath() ) )(
 				values[ ( await field.getAttribute( 'name' ) ) as string ] = value;
 				if ( value !== undefined ) await field.fill( value );
 			}
-			expect( values.name ).toBe( 'Eval Visitor' );
+			expect( values.name ).toBe( 'Test Visitor' );
 			expect( values.date ).toMatch( /^\d{4}-\d{2}-\d{2}$/ );
 			expect( values[ 'jp-iso' ] ).toBe( values.date );
 			const [ y, m, d ] = ( values.date as string ).split( '-' );

@@ -1,4 +1,5 @@
 import { createBlockValidationGate } from '@studio/agent/node/block-validation-gate';
+import { FormCheck } from '@studio/agent/node/form-check';
 import { createOpenProblems } from '@studio/agent/node/open-problems';
 import { RenderCheck } from '@studio/agent/node/render-check';
 import { PendingWork } from './pending-work';
@@ -10,7 +11,7 @@ import type { OpenProblems } from '@studio/agent/node/open-problems';
 /**
  * What Studio keeps of a chat session across its turns: the problems open on
  * its sites, the work its tools left running, its block files' validation,
- * and the render of the pages it changed. Each turn's checks report into it,
+ * the render of the pages it changed, and the forms on them. Each turn's checks report into it,
  * so what one finds reaches the agent on a later call, in that turn or the next.
  */
 export interface SessionState {
@@ -18,6 +19,8 @@ export interface SessionState {
 	pendingWork: PendingWork;
 	blockValidation: BlockValidationGate;
 	renderCheck: RenderCheck;
+	// The forms a visitor sends on what the turn changed, sent once as it ends.
+	formCheck: FormCheck;
 	// Which of the agents writing to the sites at once wrote what.
 	writers: Writers;
 }
@@ -36,6 +39,7 @@ export function getSessionState( host: StudioAgentHost, session: object ): Sessi
 			writers: new Writers( pendingWork ),
 			blockValidation: createBlockValidationGate( host, openProblems ),
 			renderCheck: new RenderCheck( host, openProblems ),
+			formCheck: new FormCheck( host, openProblems ),
 		};
 		states.set( session, state );
 	}

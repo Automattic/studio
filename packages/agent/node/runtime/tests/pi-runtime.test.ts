@@ -64,7 +64,7 @@ vi.mock( '@studio/agent/node/image-generation', async ( importOriginal ) => ( {
 		} ),
 } ) );
 
-// The session's checks of its sites, stubbed; the work its tools leave running,
+// The session's checks of its sites and of their forms, stubbed; the work its tools leave running,
 // and the render of the pages they change, are real.
 vi.mock( '../session-state', async () => {
 	const { PendingWork } = await import( '../pending-work' );
@@ -103,6 +103,7 @@ vi.mock( '../session-state', async () => {
 						},
 					},
 					renderCheck: new RenderCheck( host, openProblems as never ),
+					formCheck: { changed: () => undefined, check: async () => undefined },
 				} );
 			}
 			return states.get( session );

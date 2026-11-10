@@ -30,6 +30,12 @@ import { captureScreenshotBuffer } from '@studio/agent/node';
 import { blockEditorOf } from '@studio/agent/node/block-validation-gate';
 import { validateBlocks } from '@studio/agent/node/block-validator';
 import { getSharedBrowser } from '@studio/agent/node/browser-utils';
+import {
+	markedEmails,
+	markedRows,
+	sendForm,
+	storedPlaces,
+} from '@studio/agent/node/form-submission';
 import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
@@ -39,7 +45,7 @@ import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon } from 'cli/lib/daemon-client';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { Logger } from 'cli/logger';
-import type { Locator, Page } from 'playwright';
+import type { Page } from 'playwright';
 
 const execFileAsync = promisify( execFile );
 
@@ -354,103 +360,20 @@ async function renderHome( url: string ) {
 	}
 }
 
-// What a visitor types into each kind of field.
-const VISITOR: Record< string, string > = {
-	text: 'Eval Visitor',
-	email: 'visitor@example.com',
-	url: 'https://example.com',
-	tel: '5555550100',
-	number: '1',
-};
-
-// What a visitor types into a field, as the field asks for it: a date a month
-// from now in a date field (a Jetpack date field is a text input whose
-// data-format, as yy-mm-dd, its script checks), and a number within the
-// field's min and max. A form whose script or browser checks the field
-// otherwise refuses the visit before anything is sent (eval30 pivot: "Please
-// enter a valid date.", "no less than 2").
-export async function visitorValue( field: Locator ): Promise< string | undefined > {
-	return field.evaluate( ( element: HTMLInputElement, visitor: Record< string, string > ) => {
-		const type = ( element.getAttribute( 'type' ) || 'text' ).toLowerCase();
-		const day = new Date( Date.now() + 30 * 24 * 60 * 60 * 1000 );
-		const parts: Record< string, string > = {
-			yy: String( day.getFullYear() ),
-			mm: String( day.getMonth() + 1 ).padStart( 2, '0' ),
-			dd: String( day.getDate() ).padStart( 2, '0' ),
-		};
-		const iso = `${ parts.yy }-${ parts.mm }-${ parts.dd }`;
-		const within = ( value: string ) => {
-			if ( element.min && value < element.min ) return element.min;
-			if ( element.max && value > element.max ) return element.max;
-			return value;
-		};
-		if ( type === 'date' ) return within( iso );
-		if ( type === 'datetime-local' ) return within( `${ iso }T19:00` );
-		if ( type === 'month' ) return within( iso.slice( 0, 7 ) );
-		if ( type === 'time' ) return within( '19:00' );
-		const format = element.getAttribute( 'data-format' );
-		if ( type === 'text' && format && element.classList.contains( 'jp-contact-form-date' ) ) {
-			return format.replace( /yy|mm|dd/g, ( part ) => parts[ part ] );
-		}
-		if ( type === 'number' ) {
-			let value = 1;
-			if ( element.min !== '' && Number( element.min ) > value ) value = Number( element.min );
-			if ( element.max !== '' && Number( element.max ) < value ) value = Number( element.max );
-			return String( value );
-		}
-		return visitor[ type ];
-	}, VISITOR );
-}
-
-// The fields a visitor sees and fills, leaving out a spam trap a form hides
-// from them: off the page, clipped to nothing, or hidden from assistive tech.
-export async function seenFields( form: Locator, selector: string ) {
-	const fields = await form.locator( selector ).all();
-	const seen = await Promise.all(
-		fields.map( ( field ) =>
-			field.evaluate( ( element ) => {
-				const box = element.getBoundingClientRect();
-				if (
-					element.closest( '[aria-hidden="true"]' ) ||
-					box.right <= 0 ||
-					box.left >= document.documentElement.scrollWidth
-				) {
-					return false;
-				}
-				for ( let parent = element.parentElement; parent; parent = parent.parentElement ) {
-					const style = getComputedStyle( parent );
-					const clips = style.overflow !== 'visible' || style.clip !== 'auto';
-					const rect = parent.getBoundingClientRect();
-					if ( clips && ( rect.width < 2 || rect.height < 2 ) ) {
-						return false;
-					}
-				}
-				return true;
-			} )
-		)
-	);
-	return fields.filter( ( _, i ) => seen[ i ] );
-}
-
-// The emails the site sent that Studio saved for its Email view (sendmail.php),
-// with the soft line breaks of quoted-printable text joined.
-function siteEmails( siteId: string ): string[] {
+// The emails the site sent that Studio saved for its Email view (sendmail.php).
+function siteEmailDirectory( siteId: string ): string | undefined {
 	try {
-		const directory = getSiteEmailDirectory( siteId );
-		return readdirSync( directory )
-			.filter( ( name ) => name.endsWith( '.eml' ) )
-			.map( ( name ) =>
-				readFileSync( path.join( directory, name ), 'utf8' ).replace( /=\r?\n/g, '' )
-			);
+		return getSiteEmailDirectory( siteId );
 	} catch {
-		return [];
+		return undefined;
 	}
 }
 
 // Each published page's forms that take a message (a textarea), filled in and
-// sent the way a visitor would, then where WordPress stored the message: the
-// post types and meta keys whose rows now hold its marker. Comment forms are
-// left alone; they are core's, not the page's.
+// sent the way a visitor would (sendForm), then where WordPress stored the
+// message: the post types, meta keys and options whose rows now hold its
+// marker, and the emails holding it. Comment forms are left alone; they are
+// core's, not the page's.
 async function sendPageForms( sitePath: string, siteId: string, links: string[] ) {
 	const sent: Array< { page: string; marker: string; afterText: string; error?: string } > = [];
 	const browser = await getSharedBrowser();
@@ -461,39 +384,8 @@ async function sendPageForms( sitePath: string, siteId: string, links: string[] 
 			await page.goto( link, { waitUntil: 'load', timeout: 30000 } );
 			const form = page.locator( 'form:has(textarea):not([action*="wp-comments-post"])' ).first();
 			if ( ! ( await form.count() ) ) continue;
-			await form.locator( 'textarea:visible' ).first().fill( marker );
-			for ( const field of await seenFields( form, 'input:visible' ) ) {
-				const type = ( await field.getAttribute( 'type' ) ) ?? 'text';
-				if ( type === 'checkbox' || type === 'radio' ) {
-					await field.check().catch( () => undefined );
-				} else {
-					const value = await visitorValue( field );
-					if ( value !== undefined ) {
-						await field.fill( value );
-					}
-				}
-			}
-			// A visitor picks an option of each list, the first that is not a placeholder.
-			for ( const field of await seenFields( form, 'select:visible' ) ) {
-				const value = await field.evaluate(
-					( select: HTMLSelectElement ) =>
-						[ ...select.options ].find( ( option ) => option.value && ! option.disabled )?.value
-				);
-				if ( value ) {
-					await field.selectOption( value ).catch( () => undefined );
-				}
-			}
-			await form
-				.locator( 'button[type="submit"], input[type="submit"], button:not([type])' )
-				.first()
-				.click();
-			await page.waitForLoadState( 'load' ).catch( () => undefined );
-			await page.waitForTimeout( 3000 );
-			sent.push( {
-				page: link,
-				marker,
-				afterText: ( await page.innerText( 'body' ) ).slice( 0, 2000 ),
-			} );
+			const { afterText } = await sendForm( page, form, marker, { minWaitMs: 3000 } );
+			sent.push( { page: link, marker, afterText } );
 		} catch ( error ) {
 			sent.push( {
 				page: link,
@@ -505,22 +397,16 @@ async function sendPageForms( sitePath: string, siteId: string, links: string[] 
 			await page.close();
 		}
 	}
+	const emailDirectory = siteEmailDirectory( siteId );
 	return Promise.all(
 		sent.map( async ( entry ) => {
-			const found = await wp( sitePath, [
-				'eval',
-				`global $wpdb; $like = '%' . $wpdb->esc_like( ${ JSON.stringify( entry.marker ) } ) . '%';
-echo 'STORED_JSON=' . wp_json_encode( array(
-	'postTypes' => $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT post_type FROM {$wpdb->posts} WHERE post_content LIKE %s OR post_title LIKE %s OR post_excerpt LIKE %s", $like, $like, $like ) ),
-	'metaKeys' => $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT meta_key FROM {$wpdb->postmeta} WHERE meta_value LIKE %s", $like ) ),
-	'optionNames' => $wpdb->get_col( $wpdb->prepare( "SELECT option_name FROM {$wpdb->options} WHERE option_value LIKE %s", $like ) ),
-) ) . "\\n";`,
-			] ).catch( ( error ) => `STORED_JSON=${ JSON.stringify( { error: String( error ) } ) }` );
-			const stored = found.match( /STORED_JSON=(.*)/ );
-			const emails = siteEmails( siteId ).filter( ( text ) =>
-				text.includes( entry.marker )
-			).length;
-			return { ...entry, stored: stored ? { ...JSON.parse( stored[ 1 ] ), emails } : null };
+			try {
+				const rows = await markedRows( sitePath, entry.marker );
+				const emails = emailDirectory ? await markedEmails( emailDirectory, entry.marker ) : [];
+				return { ...entry, stored: storedPlaces( rows, emails.length ) };
+			} catch ( error ) {
+				return { ...entry, stored: { error: String( error ) } };
+			}
 		} )
 	);
 }

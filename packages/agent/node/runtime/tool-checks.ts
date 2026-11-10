@@ -25,6 +25,7 @@ import type { FileViews } from './file-views';
 import type { PendingWork } from './pending-work';
 import type { SitePin } from './site-pin';
 import type { Writers } from './writers';
+import type { FormCheck } from '@studio/agent/node/form-check';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { RenderCheck } from '@studio/agent/node/render-check';
 import type {
@@ -109,6 +110,7 @@ export function toToolDefinition(
 		siteChanges,
 		afterChecks,
 		renderCheck,
+		formCheck,
 		openProblems,
 		writers,
 		fileViews,
@@ -120,6 +122,8 @@ export function toToolDefinition(
 		afterChecks: AfterChecks;
 		// What renders the pages a call changed, unless another turn's calls do.
 		renderCheck: RenderCheck | undefined;
+		// What sends the forms on what the calls changed, as the turn ends.
+		formCheck?: FormCheck;
 		// The problems open on the sites, which a look at them repeats.
 		openProblems?: OpenProblems;
 		writers: Writers;
@@ -323,6 +327,7 @@ export function toToolDefinition(
 								.map( ( sitePath ) => renderCheck?.changed( sitePath, pendingWork ) )
 						)
 					);
+					sitePin.localSitePaths().forEach( ( sitePath ) => formCheck?.changed( sitePath ) );
 				}
 				// The files the call wrote, by its file tool or otherwise, as a shell command does.
 				const notes = await notesAfterCall(

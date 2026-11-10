@@ -13,7 +13,7 @@ import {
 import { encodePassword } from '@studio/common/lib/passwords';
 import { buildSyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
 import { PullCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import chalk from 'chalk';
 import { enableReprintExporter } from 'cli/lib/api';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
@@ -55,6 +55,7 @@ import { exitOnCancel, reportSyncActivity } from 'cli/lib/sync-activity';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { findFailureCode } from 'cli/lib/utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
+import { setSiteTablePrefix } from 'cli/lib/wp-config-table-prefix';
 import { Logger, LoggerError } from 'cli/logger';
 import type { SyncFailurePhase } from '@studio/common/lib/sync/classify-sync-failure';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -681,6 +682,38 @@ export async function runFullPull(
 			`--state-dir=${ metadata.stateDirectory }`,
 			`--fs-root=${ metadata.rawDirectory }`,
 		] );
+	}
+
+	// The site keeps its own wp-config.php, which has the table prefix of the install Studio created.
+	// A pull that imported the database must point it at the remote's tables.
+	const tablePrefix = reprintMetadata.sourceSite.tablePrefix;
+	if ( ! selection.skipDatabase && tablePrefix ) {
+		const result = setSiteTablePrefix( metadata.sitePath, tablePrefix );
+		if ( result === 'missing' ) {
+			logger.reportWarning(
+				sprintf(
+					/* translators: %s: the remote site's database table prefix */
+					__(
+						'The site has no wp-config.php. Set $table_prefix to "%s" in the one you add, so WordPress reads the pulled database.'
+					),
+					tablePrefix
+				)
+			);
+		} else if (
+			result === 'no-assignment' ||
+			result === 'invalid-prefix' ||
+			result === 'write-failed'
+		) {
+			logger.reportWarning(
+				sprintf(
+					/* translators: %s: the remote site's database table prefix */
+					__(
+						'Could not set the table prefix in wp-config.php to "%s". Set $table_prefix to it so WordPress reads the pulled database.'
+					),
+					tablePrefix
+				)
+			);
+		}
 	}
 
 	// Last, so it picks up the database credentials pull-db stored. The SQLite

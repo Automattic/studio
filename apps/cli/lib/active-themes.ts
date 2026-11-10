@@ -1,5 +1,5 @@
-import fs from 'fs';
 import path from 'path';
+import { readSiteTablePrefix } from 'cli/lib/wp-config-table-prefix';
 
 /**
  * The folder names of a site's active theme and its parent, read from the site's SQLite database
@@ -8,8 +8,7 @@ import path from 'path';
 export async function readActiveThemes( siteFolder: string ): Promise< Set< string > | null > {
 	const dbPath = path.join( siteFolder, 'wp-content', 'database', '.ht.sqlite' );
 	try {
-		const wpConfig = fs.readFileSync( path.join( siteFolder, 'wp-config.php' ), 'utf8' );
-		const prefix = /\$table_prefix\s*=\s*['"](\w+)['"]/.exec( wpConfig )?.[ 1 ] ?? 'wp_';
+		const prefix = readSiteTablePrefix( siteFolder );
 		const { DatabaseSync } = await import( 'node:sqlite' );
 		// Waits for a running site's write to finish rather than failing, which would keep every theme.
 		const database = new DatabaseSync( dbPath, { readOnly: true, timeout: 5000 } );

@@ -7,6 +7,7 @@ import { move } from 'fs-extra';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { replaceMysql8OnlyCollations } from 'cli/lib/sqlite-collations';
 import { summarizeWpCliStderr } from 'cli/lib/wp-cli-stderr';
+import { readSiteTablePrefix } from 'cli/lib/wp-config-table-prefix';
 import { LoggerError } from 'cli/logger';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
@@ -101,9 +102,12 @@ export async function exportDatabaseToMultipleFiles(
 
 	const tmpFiles: string[] = [];
 
+	// A pulled site keeps the remote's table prefix.
+	const tablePrefix = readSiteTablePrefix( site.path );
+	const skippedTables = [ `${ tablePrefix }users`, `${ tablePrefix }usermeta` ];
 	for ( const table of tables ) {
-		if ( table === 'wp_users' || table === 'wp_usermeta' ) {
-			// Skip the wp_users and wp_usermeta tables as they are not needed
+		if ( skippedTables.includes( table ) ) {
+			// Skip the users and usermeta tables as they are not needed
 			continue;
 		}
 

@@ -46,6 +46,22 @@ export function getWrittenText( toolName: string, params: unknown ): string {
 		: '';
 }
 
+/** The texts an Edit call looks for, however it gives its edits. */
+export function getEditedTexts( params: unknown ): string[] {
+	let edits = ( params as { edits?: unknown } | undefined )?.edits;
+	if ( typeof edits === 'string' ) {
+		try {
+			edits = JSON.parse( edits );
+		} catch {
+			edits = [];
+		}
+	}
+	return [ ...( Array.isArray( edits ) ? edits : [ edits ] ), params ].flatMap( ( edit ) => {
+		const text = getStringParam( edit, 'oldText' );
+		return text ? [ text ] : [];
+	} );
+}
+
 // Only the last content block can be mid-generation when the model hits the
 // output cap — anything earlier was completed before the model moved on.
 function getInProgressToolCall( content: unknown ): { id: string; name: string } | undefined {

@@ -1,5 +1,11 @@
 import fs from 'fs';
-import { rewriteNotes } from '@studio/agent/node/file-rewrites';
+import {
+	changeNote,
+	closestLines,
+	quoteLines,
+	rewriteReport,
+	type LineSpan,
+} from '@studio/agent/node/file-rewrites';
 
 /** Each file the agent holds, as it read when taken (FileViews.read()). */
 export type HeldTexts = Map< string, string | undefined >;
@@ -45,21 +51,77 @@ export class FileViews {
 				now === was ||
 				excepted.has( realPath( file ) )
 				? []
-				: rewriteNotes( file, held.text, now );
+				: this.report( file, held, now );
 		} );
 	}
 
-	/** How `file`, now `now`, changed since the agent last held it, when it did. */
-	changeSince( file: string, now: string | undefined ): string | undefined {
+	// The note on what changed in `file` from the text the agent holds; one
+	// quoting every change leaves the agent holding the file as it reads now.
+	private report( file: string, held: { text: string; by: string }, now: string ): string[] {
+		const { notes, whole } = rewriteReport( file, held.text, now );
+		if ( whole ) {
+			this.held.set( file, { text: now, by: held.by } );
+		}
+		return notes;
+	}
+
+	/**
+	 * Studio's notes quoted each line that changed in `file` from `from`, the
+	 * text the agent holds, to `now`, so the agent holds `now`.
+	 */
+	told( file: string, from: string | undefined, now: string | undefined ): void {
 		const held = this.held.get( file );
-		if ( ! held || now === undefined || now === held.text ) {
+		if (
+			held &&
+			from === held.text &&
+			now !== undefined &&
+			rewriteReport( file, from, now ).whole
+		) {
+			this.held.set( file, { text: now, by: held.by } );
+		}
+	}
+
+	/**
+	 * Where `file`, now `now`, reads closest to each of `wanted`, the texts an
+	 * Edit looked for, it does not hold, and how the file changed since the
+	 * agent last held it, when it did: an edit made from the file as the agent
+	 * holds it, or recalls it, applies there.
+	 */
+	missedEdit( file: string, now: string | undefined, wanted: string[] ): string | undefined {
+		if ( now === undefined ) {
 			return undefined;
 		}
-		return `${ file } changed after your ${
-			held.by
-		} of it. Its changes since, line by line (- as your ${
-			held.by
-		} left it, + as it is now):\n${ lineDiff( held.text, now ) }`;
+		const held = this.held.get( file );
+		const changed = held && now !== held.text ? held : undefined;
+		const lines = now.split( '\n' );
+		const spans = wanted
+			.filter( ( text ) => text && ! now.includes( text ) )
+			.flatMap( ( text ) => closestLines( lines, text ) ?? [] )
+			.sort( ( a, b ) => a.from - b.from )
+			.reduce< LineSpan[] >( ( joined, span ) => {
+				const last = joined.at( -1 );
+				if ( last && span.from <= last.to ) {
+					last.to = Math.max( last.to, span.to );
+				} else {
+					joined.push( { ...span } );
+				}
+				return joined;
+			}, [] );
+		if ( spans.length ) {
+			return [
+				changed
+					? `${ file } changed after your ${ changed.by } of it. Where it now reads closest to the text the Edit looked for:`
+					: `Where ${ file } reads closest to the text the Edit looked for:`,
+				...quoteLines( lines, spans ),
+			].join( '\n' );
+		}
+		return changed
+			? changeNote(
+					`${ file } changed after your ${ changed.by } of it; every other line reads as your ${ changed.by } left it.`,
+					changed.text,
+					now
+			  )
+			: undefined;
 	}
 }
 
@@ -78,97 +140,4 @@ function readText( file: string ): string | undefined {
 	} catch {
 		return undefined;
 	}
-}
-
-// The longest a diff runs before its middle is summed up.
-const MAX_DIFF_LINES = 80;
-// Lines kept on each side of a change.
-const CONTEXT = 2;
-// Past this many lines on both sides, a file's changes are taken as one span.
-const MAX_LCS_CELLS = 4_000_000;
-
-/** The lines that differ between `before` and `after`, each change with a little context. */
-function lineDiff( before: string, after: string ): string {
-	const a = before.split( '\n' );
-	const b = after.split( '\n' );
-	let start = 0;
-	while ( start < a.length && start < b.length && a[ start ] === b[ start ] ) {
-		start++;
-	}
-	let endA = a.length;
-	let endB = b.length;
-	while ( endA > start && endB > start && a[ endA - 1 ] === b[ endB - 1 ] ) {
-		endA--;
-		endB--;
-	}
-	// Each line of the middle: kept (' '), removed ('-') or added ('+').
-	const ops = middleOps( a.slice( start, endA ), b.slice( start, endB ) );
-	const lines = [
-		...a.slice( Math.max( 0, start - CONTEXT ), start ).map( ( line ) => `  ${ line }` ),
-		...collapseKept( ops ),
-		...a.slice( endA, endA + CONTEXT ).map( ( line ) => `  ${ line }` ),
-	];
-	if ( lines.length <= MAX_DIFF_LINES ) {
-		return lines.join( '\n' );
-	}
-	const half = MAX_DIFF_LINES / 2;
-	return [
-		...lines.slice( 0, half ),
-		`  … ${ lines.length - MAX_DIFF_LINES } more lines …`,
-		...lines.slice( -half ),
-	].join( '\n' );
-}
-
-function middleOps( a: string[], b: string[] ): string[] {
-	if ( a.length * b.length > MAX_LCS_CELLS ) {
-		return [ ...a.map( ( line ) => `- ${ line }` ), ...b.map( ( line ) => `+ ${ line }` ) ];
-	}
-	// lcs[ i ][ j ]: the longest common run of lines of a from i and b from j.
-	const lcs = Array.from( { length: a.length + 1 }, () => new Uint32Array( b.length + 1 ) );
-	for ( let i = a.length - 1; i >= 0; i-- ) {
-		for ( let j = b.length - 1; j >= 0; j-- ) {
-			lcs[ i ][ j ] =
-				a[ i ] === b[ j ]
-					? lcs[ i + 1 ][ j + 1 ] + 1
-					: Math.max( lcs[ i + 1 ][ j ], lcs[ i ][ j + 1 ] );
-		}
-	}
-	const ops: string[] = [];
-	let i = 0;
-	let j = 0;
-	while ( i < a.length || j < b.length ) {
-		if ( i < a.length && j < b.length && a[ i ] === b[ j ] ) {
-			ops.push( `  ${ a[ i++ ] }` );
-			j++;
-		} else if ( i < a.length && ( j === b.length || lcs[ i + 1 ][ j ] >= lcs[ i ][ j + 1 ] ) ) {
-			ops.push( `- ${ a[ i++ ] }` );
-		} else {
-			ops.push( `+ ${ b[ j++ ] }` );
-		}
-	}
-	return ops;
-}
-
-// A long run of kept lines between two changes, down to its context.
-function collapseKept( ops: string[] ): string[] {
-	const out: string[] = [];
-	let run: string[] = [];
-	const flush = () => {
-		out.push(
-			...( run.length > CONTEXT * 2 + 1
-				? [ ...run.slice( 0, CONTEXT ), '  …', ...run.slice( -CONTEXT ) ]
-				: run )
-		);
-		run = [];
-	};
-	for ( const op of ops ) {
-		if ( op.startsWith( '  ' ) ) {
-			run.push( op );
-		} else {
-			flush();
-			out.push( op );
-		}
-	}
-	flush();
-	return out;
 }

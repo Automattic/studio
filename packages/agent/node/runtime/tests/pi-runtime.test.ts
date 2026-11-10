@@ -1292,17 +1292,50 @@ describe( 'pi runtime', () => {
 		] );
 	} );
 
+	// An Edit of `file` that misses a text like no line of it, as its error reads.
+	const missedEdit = async ( file: string ) => {
+		mocks.failNext = true;
+		return getCreatedTool( 'Edit' )
+			.execute( 'e', { path: file, edits: [ { oldText: 'x', newText: 'y' } ] } )
+			.then(
+				() => '',
+				( error: Error ) => error.message
+			);
+	};
+
 	// eval5-9: 7 branch Edits missed their text in a file Studio had rewritten
-	// since the agent wrote it (its fonts, its blocks), and the agent re-read it.
-	it( 'shows an Edit missing its text how the file changed since the agent held it', async () => {
+	// since the agent wrote it (its fonts, its blocks), and the agent re-read it;
+	// eval30: 3 of 5 still re-read it after a diff of the changes with gaps.
+	it.each< { case: string; oldText: string; notes: string[] } >( [
+		{
+			case: 'where the file now reads closest to the text it looked for',
+			oldText: 'line 2\nline 3',
+			notes: [
+				'changed after your Write of it. Where it now reads closest to the text the Edit looked for:',
+				'Lines 1-6 now read:',
+				'~~~',
+				...[ 'line 0', 'line 1', 'line 2!', 'line 3', 'line 4', 'line 5' ],
+				'~~~',
+			],
+		},
+		{
+			case: 'how the file changed since the agent held it, for a text like no line',
+			oldText: 'x',
+			notes: [
+				'changed after your Write of it; every other line reads as your Write left it.',
+				...[ 'Lines 3-3 now read:', '~~~', 'line 2!', '~~~' ],
+				...[ 'Lines 10-10 now read:', '~~~', 'line 9!', '~~~' ],
+			],
+		},
+	] )( 'shows an Edit missing its text $case', async ( { oldText, notes } ) => {
 		await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession() } );
 		const file = path.resolve( mocks.studioRoot, 'a/theme.json' );
 		const lines = Array.from( { length: 12 }, ( _, index ) => `line ${ index }` );
 		fs.mkdirSync( path.dirname( file ), { recursive: true } );
-		const failedEdit = async () => {
+		const failedEdit = async ( text: string ) => {
 			mocks.failNext = true;
 			return getCreatedTool( 'Edit' )
-				.execute( 'e', { path: 'a/theme.json', edits: [ { oldText: 'x', newText: 'y' } ] } )
+				.execute( 'e', { path: 'a/theme.json', edits: [ { oldText: text, newText: 'y' } ] } )
 				.then(
 					() => '',
 					( error: Error ) => error.message
@@ -1319,19 +1352,49 @@ describe( 'pi runtime', () => {
 					.map( ( line, index ) => ( [ 2, 9 ].includes( index ) ? `${ line }!` : line ) )
 					.join( '\n' )
 			);
-			expect( await failedEdit() ).toBe(
-				[
-					'exit 1',
-					'<studio-notes>',
-					`${ file } changed after your Write of it. Its changes since, line by line (- as your Write left it, + as it is now):`,
-					...[ '  line 0', '  line 1', '- line 2', '+ line 2!', '  line 3', '  line 4' ],
-					...[ '  …', '  line 7', '  line 8', '- line 9', '+ line 9!', '  line 10', '  line 11' ],
-					'</studio-notes>',
-				].join( '\n' )
+			// Read in part, the file is still told from the text the agent wrote.
+			await getCreatedTool( 'Read' ).execute( 'r', { path: 'a/theme.json', offset: 1, limit: 2 } );
+			expect( await failedEdit( oldText ) ).toBe(
+				[ 'exit 1', '<studio-notes>', `${ file } ${ notes[ 0 ] }`, ...notes.slice( 1 ) ]
+					.join( '\n' )
+					.concat( '\n</studio-notes>' )
 			);
 			// Read whole, the file is as the agent holds it.
 			await getCreatedTool( 'Read' ).execute( 'r', { path: 'a/theme.json' } );
-			expect( await failedEdit() ).toBe( 'exit 1' );
+			expect( await failedEdit( 'x' ) ).toBe( 'exit 1' );
+			// An Edit missing its text in a file as the agent holds it hears where it reads closest.
+			expect( await failedEdit( '  line 7 ' ) ).toBe(
+				[
+					'exit 1',
+					'<studio-notes>',
+					`Where ${ file } reads closest to the text the Edit looked for:`,
+					'Lines 6-10 now read:',
+					'~~~',
+					...[ 'line 5', 'line 6', 'line 7', 'line 8', 'line 9!' ],
+					'~~~',
+					'</studio-notes>',
+				].join( '\n' )
+			);
+		} finally {
+			fs.rmSync( file, { force: true } );
+		}
+	} );
+
+	// A Read of part of a file the agent wrote leaves the whole it holds,
+	// which what Studio changes in it since is told from.
+	it( 'tells what changed in a file it wrote after a Read of part of it', async () => {
+		await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession() } );
+		const file = path.resolve( mocks.studioRoot, 'a/theme.json' );
+		fs.mkdirSync( path.dirname( file ), { recursive: true } );
+		try {
+			fs.writeFileSync( file, 'one\ntwo\nthree' );
+			await getCreatedTool( 'Write' ).execute( 'w', { path: 'a/theme.json', content: '' } );
+			await getCreatedTool( 'Read' ).execute( 'r', { path: 'a/theme.json', offset: 2 } );
+			await takeNotes();
+			fs.writeFileSync( file, 'one\nTWO\nthree' );
+			expect( await missedEdit( 'a/theme.json' ) ).toContain(
+				`${ file } changed after your Write of it;`
+			);
 		} finally {
 			fs.rmSync( file, { force: true } );
 		}
@@ -1362,12 +1425,21 @@ describe( 'pi runtime', () => {
 				].join( '\n' )
 			);
 			await takeNotes();
+			// Quoted whole, the fix is in the text the agent holds.
+			expect( await missedEdit( 'a/theme.json' ) ).toBe( 'exit 1' );
+			// So is what the notes after the call quote whole of the file it wrote.
+			mocks.fixWrite = undefined;
+			mocks.onSettle = () => fs.writeFileSync( file, 'one\nTWO\nTHREE' );
+			await getCreatedTool( 'Write' ).execute( 'w', { path: 'a/theme.json', content: '' } );
+			await takeNotes();
+			expect( await missedEdit( 'a/theme.json' ) ).toBe( 'exit 1' );
 		} finally {
 			mocks.fixWrite = undefined;
+			mocks.onSettle = undefined;
 			fs.rmSync( file, { force: true } );
 		}
 		// The notes after the call start from the file as Studio left it.
-		expect( mocks.leftTexts.at( -1 ) ).toEqual( [ file, 'one\nTWO\nthree' ] );
+		expect( mocks.leftTexts.at( -2 ) ).toEqual( [ file, 'one\nTWO\nthree' ] );
 	} );
 
 	// eval30 pivot and pileon ports: the Write of a new page's file returned
@@ -1438,6 +1510,9 @@ describe( 'pi runtime', () => {
 					'~~~',
 				].join( '\n' )
 			);
+			// Quoted whole, the change is the agent's to edit from: an Edit missing
+			// its text hears of no change since.
+			expect( await missedEdit( 'a/parts/footer.html' ) ).toBe( 'exit 1' );
 		} finally {
 			mocks.onSettle = undefined;
 			fs.rmSync( footer, { force: true } );

@@ -15,6 +15,7 @@ import { studioMessage, validationLines } from '@studio/agent/node/studio-messag
 import { siteOfCall } from '@studio/agent/node/tools/utils';
 import { declinedResult, describeDestructiveCall, type Confirmer } from './confirmation';
 import {
+	getEditedTexts,
 	getIncompleteToolCallReason,
 	getWrittenFile,
 	getWrittenText,
@@ -248,9 +249,13 @@ export function toToolDefinition(
 					const changed = await settled( timeCheck );
 					const report = studioMessage( 'notes', [
 						...validationReport,
-						// An Edit missing its text in a file changed after the agent held it.
+						// An Edit missing its text: where the file reads closest to it.
 						tool.name === 'Edit' && writtenFile
-							? fileViews.changeSince( writtenFile, readFileText( writtenFile ) )
+							? fileViews.missedEdit(
+									writtenFile,
+									readFileText( writtenFile ),
+									getEditedTexts( params )
+							  )
 							: undefined,
 						...changed.summaries,
 						...changed.problems,
@@ -280,12 +285,18 @@ export function toToolDefinition(
 				writtenFile && written !== undefined && left !== undefined
 					? [ ...fixes, ...rewriteNotes( writtenFile, written, left ) ]
 					: fixes;
+			if ( writtenFile ) {
+				fileViews.told( writtenFile, written, left );
+			}
 			const readPath = tool.name === 'Read' && ( params as { path?: unknown } ).path;
 			if ( typeof readPath === 'string' ) {
 				const { offset, limit } = params as { offset?: unknown; limit?: unknown };
 				const file = resolveToolPath( readPath, host.sitesRoot );
-				// Part of a file is all the agent holds of it.
-				fileViews.saw( file, 'Read', offset || limit ? undefined : readFileText( file ) );
+				// Part of a file leaves the whole the agent holds as it was, which
+				// what changed since is told from.
+				if ( ! offset && ! limit ) {
+					fileViews.saw( file, 'Read', readFileText( file ) );
+				}
 			}
 			if ( tool.name === 'site_create' ) {
 				const name = String( ( params as { name?: unknown } ).name );
@@ -341,6 +352,9 @@ export function toToolDefinition(
 					},
 					afterTime
 				);
+				if ( writtenFile ) {
+					fileViews.told( writtenFile, left, readFileText( writtenFile ) );
+				}
 				// What the checks changed in the other files the agent holds, as a
 				// template part saved with a preset the page it wrote repeats; the
 				// notes on the files the call wrote say what Studio changed in those.

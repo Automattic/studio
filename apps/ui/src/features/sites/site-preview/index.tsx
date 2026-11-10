@@ -445,7 +445,7 @@ function SitePreviewContent( {
 					! canAnnotateSurface ||
 					isStarting ||
 					isStopping ||
-					( site.running && ( blank || ! canAnnotate ) ) ||
+					( site.running && ( blank || ( activeSurfaceKey !== 'site' && ! canAnnotate ) ) ) ||
 					isAnnotationsBusy( annotations ),
 				disabledReason: blank
 					? __( 'Open a project page to annotate.' )

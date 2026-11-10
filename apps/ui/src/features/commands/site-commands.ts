@@ -289,6 +289,7 @@ export function getSiteCommands( {
 						import: ImportIcon,
 						export: ExportSiteIcon,
 						'export-db': DatabaseIcon,
+						'export-blueprint': ExportSiteIcon,
 						delete: action.icon,
 					}[ action.id ],
 					description,

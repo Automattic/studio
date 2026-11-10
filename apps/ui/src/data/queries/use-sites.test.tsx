@@ -12,6 +12,7 @@ import {
 	useCreateSite,
 	useExportFullSite,
 	useExportDatabase,
+	useExportBlueprint,
 	useSites,
 	useStartSite,
 	useStopSite,
@@ -344,6 +345,7 @@ describe( 'export notices', () => {
 	it.each( [
 		[ useExportFullSite, 'exportFullSite', 'Exporting site…', 'Site exported' ],
 		[ useExportDatabase, 'exportDatabase', 'Exporting database…', 'Database exported' ],
+		[ useExportBlueprint, 'exportBlueprint', 'Exporting Blueprint…', 'Blueprint exported' ],
 	] as const )(
 		'keeps %s progress through dismissal and unmount, then records one result',
 		async ( useExport, method, progress, success ) => {

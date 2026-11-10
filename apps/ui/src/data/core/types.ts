@@ -244,6 +244,7 @@ export interface Connector {
 	exportFullSite( siteId: string, options?: { onStarted?: () => void } ): Promise< string | null >;
 	// Exports only the site database as a .sql dump. Same dialog/cancel
 	// semantics as `exportFullSite`.
+	exportBlueprint( siteId: string, options?: { onStarted?: () => void } ): Promise< string | null >;
 	exportDatabase( siteId: string, options?: { onStarted?: () => void } ): Promise< string | null >;
 
 	// Site-creation helpers: folder pickers and path validation.

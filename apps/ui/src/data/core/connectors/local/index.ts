@@ -488,6 +488,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			options?.onStarted?.();
 			return downloadFromServer( `/sites/${ encodeURIComponent( siteId ) }/export?mode=full` );
 		},
+		async exportBlueprint( siteId, options ): Promise< string | null > {
+			options?.onStarted?.();
+			return downloadFromServer( `/sites/${ encodeURIComponent( siteId ) }/export?mode=blueprint` );
+		},
 		async exportDatabase( siteId, options ): Promise< string | null > {
 			options?.onStarted?.();
 			return downloadFromServer( `/sites/${ encodeURIComponent( siteId ) }/export?mode=database` );

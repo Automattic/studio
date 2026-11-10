@@ -389,6 +389,26 @@ export function createIpcConnector(): Connector {
 			return backupFile;
 		},
 
+		async exportBlueprint( siteId, options ): Promise< string | null > {
+			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
+			const site = sites.find( ( candidate ) => candidate.id === siteId );
+			if ( ! site ) throw new Error( `Site ${ siteId } not found` );
+			const destination = await ipcApi.showSaveAsDialog( {
+				title: __( 'Save Blueprint' ),
+				defaultPath: `${ generateBackupFilename( site.name ) }-blueprint.zip`,
+				filters: [ { name: __( 'Blueprint ZIP bundle' ), extensions: [ 'zip' ] } ],
+			} );
+			if ( ! destination ) return null;
+			options?.onStarted?.();
+			await ipcApi.exportSite( site.id, destination, {
+				mode: 'blueprint',
+				showErrorModal: false,
+				showItemInFolder: true,
+				showNotification: true,
+			} );
+			return destination;
+		},
+
 		async exportDatabase( siteId, options ): Promise< string | null > {
 			const sites = ( await ipcApi.getSiteDetails() ) as SiteDetails[];
 			const site = sites.find( ( candidate ) => candidate.id === siteId );

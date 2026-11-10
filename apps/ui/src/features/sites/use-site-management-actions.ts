@@ -1,8 +1,10 @@
 import { __ } from '@wordpress/i18n';
 import {
+	EXPORT_BLUEPRINT_MUTATION_KEY,
 	EXPORT_DATABASE_MUTATION_KEY,
 	EXPORT_FULL_SITE_MUTATION_KEY,
 	useCopySite,
+	useExportBlueprint,
 	useExportDatabase,
 	useExportFullSite,
 	useIsSiteBusy,
@@ -13,7 +15,13 @@ import { DatabaseIcon, DuplicateIcon, ExportSiteIcon, ImportIcon, TrashIcon } fr
 import type { SiteDetails } from '@/data/core';
 import type { ComponentType } from 'react';
 
-export type SiteManagementActionId = 'duplicate' | 'import' | 'export' | 'export-db' | 'delete';
+export type SiteManagementActionId =
+	| 'duplicate'
+	| 'import'
+	| 'export'
+	| 'export-db'
+	| 'export-blueprint'
+	| 'delete';
 
 export interface SiteManagementAction {
 	id: SiteManagementActionId;
@@ -26,7 +34,7 @@ export interface SiteManagementAction {
 
 /**
  * The canonical "manage this site" actions — Duplicate, Import, Export site,
- * Export database, Delete — shared by every surface that offers them, so labels, icons,
+ * Export database, Export as Blueprint, Delete — shared by every surface that offers them, so labels, icons,
  * order, and disabled logic don't drift apart between surfaces.
  *
  * Import and Delete open UI the caller owns (a file picker with an overwrite
@@ -39,6 +47,7 @@ export function useSiteManagementActions(
 	const copySite = useCopySite();
 	const exportFullSite = useExportFullSite();
 	const exportDatabase = useExportDatabase();
+	const exportBlueprint = useExportBlueprint();
 
 	// Read from the mutation cache rather than each mutation's own `isPending`,
 	// so progress survives navigating away and back — the observers these hooks
@@ -46,9 +55,9 @@ export function useSiteManagementActions(
 	const isExportingFullSite = useIsSiteMutating( site.id, EXPORT_FULL_SITE_MUTATION_KEY );
 	const isExportingDatabase = useIsSiteMutating( site.id, EXPORT_DATABASE_MUTATION_KEY );
 
-	// Full-site and database exports share one backend queue, so either
-	// running disables both.
-	const isExporting = isExportingFullSite || isExportingDatabase;
+	// Exports share one backend queue, so any running export disables the others.
+	const isExportingBlueprint = useIsSiteMutating( site.id, EXPORT_BLUEPRINT_MUTATION_KEY );
+	const isExporting = isExportingFullSite || isExportingDatabase || isExportingBlueprint;
 
 	// Every one of these reads or rewrites the site tree, so none should run
 	// while an operation holds the site — including work started by the agent or
@@ -93,6 +102,14 @@ export function useSiteManagementActions(
 			disabled: isWriting || isExporting,
 			destructive: false,
 			run: () => exportDatabase.mutate( site.id ),
+		},
+		{
+			id: 'export-blueprint',
+			icon: ExportSiteIcon,
+			label: __( 'Export as Blueprint' ),
+			disabled: isWriting || isExporting,
+			destructive: false,
+			run: () => exportBlueprint.mutate( site.id ),
 		},
 		{
 			id: 'delete',

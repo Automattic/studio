@@ -10,6 +10,7 @@ import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { ImportExportEventEmitter } from 'cli/lib/import-export/events';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
+import { BlueprintExporter } from 'cli/lib/import-export/export/exporters/blueprint-exporter';
 import { ExportOptions } from 'cli/lib/import-export/export/types';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
@@ -126,7 +127,7 @@ export function handleExportEvents(
 export async function runCommand(
 	siteFolder: string,
 	exportPath: string,
-	mode: 'full' | 'content' | 'db' = 'full',
+	mode: 'full' | 'content' | 'db' | 'blueprint' = 'full',
 	splitDbDumpByTable = false,
 	includeOnlyPaths?: string[],
 	applyDeployIgnore = false,
@@ -150,7 +151,7 @@ export async function runCommand(
 async function exportSite(
 	siteFolder: string,
 	exportPath: string,
-	mode: 'full' | 'content' | 'db',
+	mode: 'full' | 'content' | 'db' | 'blueprint',
 	splitDbDumpByTable: boolean,
 	includeOnlyPaths: string[] | undefined,
 	applyDeployIgnore: boolean,
@@ -186,7 +187,7 @@ async function exportSite(
 			? await createDeployIgnoreFilter( site.path, SYNC_IGNORE_DEFAULTS )
 			: undefined;
 
-		const exporter = await getExporter( {
+		const exportOptions: ExportOptions = {
 			site,
 			backupFile: exportPath,
 			phpVersion: DEFAULT_PHP_VERSION,
@@ -194,9 +195,16 @@ async function exportSite(
 			splitDatabaseDumpByTable: splitDbDumpByTable,
 			specificSelectionPaths: includeOnlyPaths,
 			ignoreFilter,
-		} );
+		};
+		const exporter =
+			mode === 'blueprint'
+				? new BlueprintExporter( {
+						...exportOptions,
+						phpVersion: site.phpVersion ?? DEFAULT_PHP_VERSION,
+				  } )
+				: await getExporter( exportOptions );
 
-		if ( ! exporter ) {
+		if ( ! exporter || ( mode === 'blueprint' && ! ( await exporter.canHandle() ) ) ) {
 			throw new LoggerError(
 				__( 'No suitable exporter found for the provided backup file' ),
 				undefined,
@@ -239,7 +247,7 @@ async function recordSiteExportEvent(
 	siteFolder: string,
 	props: {
 		success: boolean;
-		export_type: 'full' | 'content' | 'db';
+		export_type: 'full' | 'content' | 'db' | 'blueprint';
 		failure_reason?: string;
 		time_ms: number;
 	}

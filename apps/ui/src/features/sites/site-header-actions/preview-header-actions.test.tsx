@@ -30,7 +30,7 @@ afterEach( () => {
 async function renderHeader(
 	siteId: string,
 	connector = createFakeConnector(),
-	width = 60,
+	width = 1000,
 	running = true,
 	onSendAnnotations = vi.fn()
 ) {
@@ -107,9 +107,9 @@ function readyGuest( extra: Record< string, unknown > = {} ) {
 	return webview as HTMLElement & Record< string, ReturnType< typeof vi.fn > >;
 }
 
-it( 'keeps icon-only annotation available in a narrow preview with sharing feedback', async () => {
+it( 'keeps icon-only annotation available with sharing feedback', async () => {
 	setAnnotating( 'annotate-site', true );
-	const { user } = await renderHeader( 'annotate-site', createFakeConnector(), 340 );
+	const { user } = await renderHeader( 'annotate-site', createFakeConnector(), 600 );
 	const webview = readyGuest();
 	expect(
 		screen.queryByRole( 'button', { name: 'More preview actions' } )
@@ -152,7 +152,7 @@ it( 'keeps icon-only annotation available in a narrow preview with sharing feedb
 		webview,
 		Object.assign( new Event( 'did-start-navigation' ), { isMainFrame: true, isInPlace: false } )
 	);
-	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeDisabled();
+	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeEnabled();
 	expect( screen.queryByRole( 'menuitemcheckbox', { name: 'Annotate' } ) ).not.toBeInTheDocument();
 	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeInTheDocument();
 	expect( headerButtons( 'Send 1 annotation' ) ).toHaveLength( 0 );
@@ -212,7 +212,7 @@ it( 'keeps browser actions directly available in a narrow preview', async () => 
 	);
 	const effects = [
 		[ 'Forward', () => expect( webview.goForward ).toHaveBeenCalledOnce() ],
-		[ 'Reload preview', () => expect( webview.reload ).toHaveBeenCalledOnce() ],
+		[ 'Reload', () => expect( webview.reload ).toHaveBeenCalledOnce() ],
 	] as const;
 	for ( const [ name, effect ] of effects ) {
 		expect(
@@ -247,6 +247,10 @@ it( 'keeps the device toolbar available in browser options as the row compacts',
 	expect( screen.getByRole( 'button', { name: 'Browser options' } ) ).toHaveFocus();
 	await user.keyboard( '{ArrowDown}' );
 	await waitFor( () =>
+		expect( screen.getByRole( 'menuitem', { name: 'Annotate' } ) ).toHaveFocus()
+	);
+	await user.keyboard( '{ArrowDown}{ArrowDown}' );
+	await waitFor( () =>
 		expect( screen.getByRole( 'menuitem', { name: 'Hide device toolbar' } ) ).toHaveFocus()
 	);
 	await user.keyboard( '{Escape}' );
@@ -261,13 +265,41 @@ it( 'keeps the device toolbar available in browser options as the row compacts',
 	expect( screen.getByRole( 'button', { name: 'Browser options' } ) ).toBeVisible();
 } );
 
-it( 'keeps Annotate in the browser header at mobile widths', async () => {
-	const { resize } = await renderHeader( 'mobile-annotate', createFakeConnector(), 600 );
+it( 'moves Annotate into browser options when its container narrows', async () => {
+	const { resize, user } = await renderHeader( 'mobile-annotate', createFakeConnector(), 600 );
 	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeVisible();
-	await resize( 390 );
-	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeVisible();
+	await resize( 390, 1000 );
+	expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
+	await user.click( screen.getByRole( 'button', { name: 'Browser options' } ) );
+	expect( await screen.findByRole( 'menuitem', { name: 'Annotate' } ) ).toBeInTheDocument();
+	await user.keyboard( '{Escape}' );
 	await resize( 600 );
 	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeVisible();
+} );
+
+it( 'keeps the annotation shortcut and menu action working in a narrow container', async () => {
+	const { resize, user } = await renderHeader(
+		'compact-annotation-shortcut',
+		createFakeConnector(),
+		600
+	);
+	readyGuest();
+	await waitFor( () => expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeEnabled() );
+	await resize( 390, 1000 );
+	const isApple = /Mac|iPhone|iPad/.test( navigator.platform );
+	fireEvent.keyDown( document, {
+		key: '.',
+		code: 'Period',
+		shiftKey: true,
+		metaKey: isApple,
+		ctrlKey: ! isApple,
+	} );
+	await user.click( screen.getByRole( 'button', { name: 'Browser options' } ) );
+	await user.click( await screen.findByRole( 'menuitem', { name: 'Stop annotating' } ) );
+	expect( screen.getByRole( 'button', { name: 'Annotate', hidden: true } ) ).toHaveAttribute(
+		'aria-pressed',
+		'false'
+	);
 } );
 
 it( 'keeps site actions in the main header without mobile browser overflow', async () => {
@@ -288,7 +320,7 @@ it( 'keeps site actions in the main header without mobile browser overflow', asy
 		screen.queryByRole( 'button', { name: 'More preview actions' } )
 	).not.toBeInTheDocument();
 	expect( screen.queryByRole( 'button', { name: 'Stop site' } ) ).not.toBeInTheDocument();
-	for ( const name of [ 'Back', 'Forward', 'Reload preview', 'Browser options' ] )
+	for ( const name of [ 'Back', 'Reload', 'Browser options' ] )
 		expect( within( browser ).getByRole( 'button', { name } ) ).toBeVisible();
 	expect( screen.queryByRole( 'button', { name: 'Responsive mode' } ) ).not.toBeInTheDocument();
 	await resize( 1000 );
@@ -298,11 +330,11 @@ it( 'keeps site actions in the main header without mobile browser overflow', asy
 	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBe( publish );
 } );
 
-it( 'hides URL navigation entirely on mobile', async () => {
+it( 'keeps URL navigation visible in a narrow container', async () => {
 	const { resize } = await renderHeader( 'mobile-address', createFakeConnector(), 600 );
 	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
 	await resize( 540 );
-	expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
+	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
 	await resize( 600 );
 	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
 } );
@@ -337,23 +369,34 @@ it.each( [ true, false ] )(
 	}
 );
 
-it( 'moves focus to browser options when a narrow window hides the address', async () => {
+it( 'keeps the address focused when its container narrows', async () => {
 	const { resize } = await renderHeader( 'address-focus', createFakeConnector(), 1000 );
 	const input = screen.getByRole( 'textbox', { name: 'Address' } );
 	act( () => input.focus() );
 	await resize( 390 );
-	expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: 'Browser options' } ) ).toHaveFocus();
+	expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toBeVisible();
+	expect( input ).toHaveFocus();
 } );
 
 it( 'keeps browser navigation focused when the preview narrows', async () => {
 	const { resize } = await renderHeader( 'navigation-focus', createFakeConnector(), 1000 );
-	screen.getByRole( 'button', { name: 'Reload preview' } ).focus();
+	screen.getByRole( 'button', { name: 'Reload' } ).focus();
 	await resize( 360, 1000 );
-	expect( screen.getByRole( 'button', { name: 'Reload preview' } ) ).toHaveFocus();
+	expect( screen.getByRole( 'button', { name: 'Reload' } ) ).toHaveFocus();
 	await resize( 1000 );
 	expect(
 		screen.queryByRole( 'button', { name: 'More preview actions' } )
 	).not.toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: 'Reload preview' } ) ).toHaveFocus();
+	expect( screen.getByRole( 'button', { name: 'Reload' } ) ).toHaveFocus();
+} );
+
+it( 'waits for a measurable container before compacting browser controls', async () => {
+	const { resize } = await renderHeader( 'unmeasured-header', createFakeConnector(), 0 );
+	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeVisible();
+	await resize( 390 );
+	expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
+	await resize( 0 );
+	expect( screen.queryByRole( 'button', { name: 'Annotate' } ) ).not.toBeInTheDocument();
+	await resize( 600 );
+	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeVisible();
 } );

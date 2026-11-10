@@ -1,7 +1,21 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getDefaultPhpArgs, getNativePhpIniContents } from 'cli/lib/native-php/config';
+
+const ASCII_PHP_BINARY_PATH = '/Users/studio/.studio/php-bin/8.4/php';
+const spawnSyncMock = vi.hoisted( () => vi.fn() );
+const phpBinary = vi.hoisted( () => ( { path: '' } ) );
+
+vi.mock( 'node:child_process', () => {
+	const mockedModule = { spawnSync: spawnSyncMock };
+	return { ...mockedModule, default: mockedModule };
+} );
+
+vi.mock( 'cli/lib/dependency-management/paths', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/lib/dependency-management/paths') >() ),
+	getPhpBinaryPath: () => phpBinary.path,
+} ) );
 
 const originalPlatform = process.platform;
 
@@ -9,8 +23,13 @@ function setPlatform( platform: NodeJS.Platform ) {
 	Object.defineProperty( process, 'platform', { value: platform } );
 }
 
+beforeEach( () => {
+	phpBinary.path = ASCII_PHP_BINARY_PATH;
+} );
+
 afterEach( () => {
 	setPlatform( originalPlatform );
+	vi.resetAllMocks();
 } );
 
 describe( 'getNativePhpIniContents', () => {
@@ -34,6 +53,29 @@ describe( 'getNativePhpIniContents', () => {
 		const contents = getNativePhpIniContents( '8.4' );
 
 		expect( contents.split( /\r?\n/ ) ).toContain( 'extension=soap' );
+	} );
+
+	it( 'points php.ini and extension_dir at the short name of a non-ASCII Windows path', () => {
+		setPlatform( 'win32' );
+		phpBinary.path = '/Users/José/.studio/php-bin/8.4/php';
+		spawnSyncMock.mockReturnValue( { stdout: '/Users/JOS~1/.studio/php-bin/8.4\r\n' } );
+
+		const contents = getNativePhpIniContents( '8.4' );
+		const args = getDefaultPhpArgs( '8.4' );
+
+		expect( contents.split( /\r?\n/ ) ).toContain(
+			'extension_dir="/Users/JOS~1/.studio/php-bin/8.4/ext"'
+		);
+		expect( args.slice( 0, 2 ) ).toEqual( [ '-c', '/Users/JOS~1/.studio/php-bin/8.4/php.ini' ] );
+	} );
+
+	it( 'keeps an ASCII Windows extension_dir as is', () => {
+		setPlatform( 'win32' );
+
+		const contents = getNativePhpIniContents( '8.4' );
+
+		expect( contents ).toContain( 'extension_dir="/Users/studio/.studio/php-bin/8.4/ext"' );
+		expect( spawnSyncMock ).not.toHaveBeenCalled();
 	} );
 } );
 

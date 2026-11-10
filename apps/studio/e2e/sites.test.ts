@@ -16,7 +16,7 @@ const skipTestOnWindows = process.platform === 'win32' ? test.skip : test;
 const session = new E2ESession();
 
 async function deleteSite( siteName: string, { keepFiles }: { keepFiles: boolean } ) {
-	await new Sidebar( session.mainWindow ).openContextMenuItem( siteName, 'Delete site' );
+	await new Sidebar( session.mainWindow ).openContextMenuItem( siteName, 'Delete' );
 	const dialog = session.mainWindow.getByRole( 'alertdialog' );
 	const deleteFiles = dialog.getByRole( 'checkbox', {
 		name: 'Also move files and database to Trash',

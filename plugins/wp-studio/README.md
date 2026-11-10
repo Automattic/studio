@@ -29,8 +29,7 @@ claude plugin install wp-studio@studio
 Claude Code runs the plugin with the Node.js on your `PATH`, version 22 or later. In the Claude app,
 it works in the Code tab and in Cowork tasks on your computer, not in regular chats.
 
-In Cursor, skip this if the plugin is in Claude Code: Cursor loads it from there, and a second copy
-would run WordPress Studio twice.
+In Cursor:
 
 ```bash
 git clone --depth 1 https://github.com/Automattic/studio-plugins

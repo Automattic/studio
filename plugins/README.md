@@ -31,9 +31,6 @@ afterwards, or run `/reload-plugins`. To update, run `claude plugin update wp-st
 
 ## Install in Cursor
 
-Skip this if the plugin is in Claude Code: Cursor loads Claude Code's plugins, and a second copy
-would run WordPress Studio twice.
-
 ```bash
 git clone --depth 1 https://github.com/Automattic/studio-plugins
 mkdir -p ~/.cursor/plugins/local

@@ -352,29 +352,16 @@ describe( 'connectAgentApp for Cursor', () => {
 		).toBe( true );
 	} );
 
-	it( 'uses the plugin Cursor loads from Claude Code, dropping a copy of its own', async () => {
-		await connectAgentApp( 'cursor', studio );
+	it( 'installs Cursor’s own copy even when Claude Code has the plugin', async () => {
 		recordPlugins( [ 'claude-code' ] );
-
-		await connectAgentApp( 'cursor', studio );
-		expect( fs.existsSync( cursorPlugin() ) ).toBe( false );
-		expect( openUrl ).toHaveBeenLastCalledWith(
-			'cursor://anysphere.cursor-deeplink/plugin/add?id=wp-studio%40studio'
-		);
 		expect(
 			( await detectAgentApps( studio ) ).find( ( app ) => app.id === 'cursor' )?.connected
-		).toBe( true );
-	} );
+		).toBe( false );
 
-	it.skipIf( process.platform === 'win32' )(
-		'drops Cursor’s own copy when connecting Claude Code, whose plugin Cursor loads',
-		async () => {
-			installCli( `${ SHELL_BIN }/claude` );
-			await connectAgentApp( 'cursor', studio );
-			await connectAgentApp( 'claude-code', studio );
-			expect( fs.existsSync( cursorPlugin() ) ).toBe( false );
-		}
-	);
+		await connectAgentApp( 'cursor', studio );
+		expect( fs.existsSync( cursorPlugin() ) ).toBe( true );
+		expect( openUrl ).toHaveBeenLastCalledWith( pluginPage );
+	} );
 
 	it( 'only opens a plugin Cursor already has, and replaces one for another Studio', async () => {
 		await connectAgentApp( 'cursor', studio );
@@ -439,7 +426,7 @@ describe.skipIf( process.platform === 'win32' )( 'refreshAgentPlugins', () => {
 		expect( fs.readFileSync( skill, 'utf8' ) ).toBe( '# Build a site, updated' );
 	} );
 
-	it( 'updates Claude Code and drops Cursor’s copy, which Claude Code’s plugin replaces', async () => {
+	it( 'updates the plugin in Claude Code and in Cursor’s copy', async () => {
 		installCli( `${ SHELL_BIN }/claude` );
 		await connectAgentApp( 'cursor', studio );
 		recordPlugins( [ 'claude-code' ] );
@@ -453,7 +440,14 @@ describe.skipIf( process.platform === 'win32' )( 'refreshAgentPlugins', () => {
 		] );
 		expect(
 			fs.existsSync( path.join( home, '.cursor', 'plugins', 'local', 'WordPress-Studio' ) )
-		).toBe( false );
+		).toBe( true );
+		expect(
+			readJson(
+				path.join( home, '.cursor', 'plugins', 'local', 'WordPress-Studio' ),
+				'.cursor-plugin',
+				'plugin.json'
+			).version
+		).toBe( '2.2.0' );
 	} );
 
 	it( 'retries only failed apps after an update, then stops once they succeed', async () => {

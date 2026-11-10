@@ -366,17 +366,6 @@ function readCursorPlugin(
 	return readJson( path.join( plugin, '.cursor-plugin', 'plugin.json' ) );
 }
 
-// Cursor loads Claude Code's plugins, unless its third-party import is off, so
-// with Claude Code connected it uses that plugin: a copy of its own would run
-// Studio's server twice there.
-function claudeCodeHasPlugin(): Promise< boolean > {
-	return getCliPlans( getMarketplacePath() )[ 'claude-code' ].hasPlugin();
-}
-
-function removeCursorPlugin(): Promise< void > {
-	return fs.promises.rm( getCursorPluginPath(), { recursive: true, force: true } );
-}
-
 function getCursorPluginPage( id: string ): string {
 	return `cursor://anysphere.cursor-deeplink/plugin/add?id=${ encodeURIComponent( id ) }`;
 }
@@ -403,11 +392,6 @@ async function installCursorPlugin( marketplace: string ) {
 
 // Installs the plugin unless Cursor has this one, then opens its page.
 async function connectCursor( options: ConnectAgentAppOptions ) {
-	if ( await claudeCodeHasPlugin() ) {
-		await removeCursorPlugin();
-		await options.openUrl( getCursorPluginPage( PLUGIN ) );
-		return;
-	}
 	const marketplace = await writeMarketplace( options );
 	const plugin = await readCursorPlugin( path.join( marketplace, 'wp-studio' ) );
 	if ( JSON.stringify( await readCursorPlugin() ) !== JSON.stringify( plugin ) ) {
@@ -419,12 +403,10 @@ async function connectCursor( options: ConnectAgentAppOptions ) {
 }
 
 async function getInstalledPluginVersion( id: AgentAppId ): Promise< string | undefined > {
-	const plans = getCliPlans( getMarketplacePath() );
 	if ( id === 'cursor' ) {
-		const local = await readCursorPlugin();
-		return local ? local.version : plans[ 'claude-code' ].pluginVersion();
+		return ( await readCursorPlugin() )?.version;
 	}
-	return plans[ id ].pluginVersion();
+	return getCliPlans( getMarketplacePath() )[ id ].pluginVersion();
 }
 
 function isOlderVersion( installed: string | undefined, bundled: string | undefined ): boolean {
@@ -468,7 +450,7 @@ export async function detectAgentApps( studio: StudioCli ): Promise< AgentApp[] 
 				id === 'cursor' ? isInstalled( 'cursor' ) : !! ( await findCli( plans[ id ] ) );
 			const connected =
 				id === 'cursor'
-					? ( await readCursorPlugin() ) !== null || ( await claudeCodeHasPlugin() )
+					? ( await readCursorPlugin() ) !== null
 					: installed && ( await plans[ id ].hasPlugin() );
 			return {
 				id,
@@ -497,7 +479,7 @@ async function connectAgentAppUnlocked(
 	const bundled = await readPluginVersion( getBundledMarketplacePath( options ) );
 	const hasPlugin =
 		id === 'cursor'
-			? !! ( await readCursorPlugin() ) || ( await claudeCodeHasPlugin() )
+			? !! ( await readCursorPlugin() )
 			: await getCliPlans( getMarketplacePath() )[ id ].hasPlugin();
 	if ( await getUpdateStatus( id, hasPlugin, bundled, state ) ) {
 		const marketplace = await writeMarketplace( options );
@@ -529,16 +511,10 @@ async function connectAgentAppUnlocked(
 	if ( ! hasPlugin ) {
 		await installWithCli( id, plan, cli, options );
 	}
-	if ( id === 'claude-code' ) {
-		await removeCursorPlugin();
-	}
 }
 
 async function updateAgentPlugin( id: AgentAppId, marketplace: string ): Promise< void > {
 	if ( id === 'cursor' ) {
-		if ( await claudeCodeHasPlugin() ) {
-			return updateAgentPlugin( 'claude-code', marketplace );
-		}
 		await installCursorPlugin( marketplace );
 		return;
 	}
@@ -563,9 +539,6 @@ async function updateAgentPlugin( id: AgentAppId, marketplace: string ): Promise
 				)
 			);
 		}
-	}
-	if ( id === 'claude-code' ) {
-		await removeCursorPlugin();
 	}
 }
 
@@ -639,7 +612,7 @@ async function refreshAgentPluginsUnlocked( cli: StudioCli ): Promise< void > {
 			}
 			const installed =
 				id === 'cursor'
-					? !! ( await readCursorPlugin() ) && ! ( await claudeCodeHasPlugin() )
+					? !! ( await readCursorPlugin() )
 					: ( await plans[ id ].hasPlugin() ) && !! ( await findCli( plans[ id ] ) );
 			if ( installed || previous.pending.includes( id ) ) {
 				state.pending.push( id );

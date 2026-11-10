@@ -46,7 +46,7 @@ describe( 'AccountMenu', () => {
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
 			if ( label === 'Help Center' ) {
 				expect( connector.openExternalUrl ).toHaveBeenCalledWith(
-					'https://developer.wordpress.com/docs/developer-tools/studio/'
+					'https://wordpress.studio/docs/'
 				);
 			} else {
 				await waitFor( () =>

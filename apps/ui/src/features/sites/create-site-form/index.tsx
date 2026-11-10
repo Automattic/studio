@@ -66,6 +66,7 @@ export interface CreateSiteFormError {
 interface CreateSiteFormProps {
 	selectedFolder?: SelectedSiteFolder;
 	initialValues?: Partial< CreateSiteFormValues >;
+	preserveWpVersion?: boolean;
 	suggestedName?: string;
 	existingDomainNames: string[];
 	onSubmit: ( values: CreateSiteFormValues ) => void;
@@ -92,6 +93,7 @@ interface CreateSiteFormProps {
 export function CreateSiteForm( {
 	selectedFolder,
 	initialValues,
+	preserveWpVersion = false,
 	suggestedName,
 	existingDomainNames,
 	onSubmit,
@@ -151,20 +153,22 @@ export function CreateSiteForm( {
 
 	const { data: wpVersions } = useWordPressVersions();
 	const isOffline = useOffline();
-	// While offline, "latest" is the only version installable without a
-	// download, so it's forced.
+	const preservedWpVersion = preserveWpVersion ? initialValues?.wpVersion : undefined;
+	// Recipes follow the offered releases; snapshots retain their recorded version.
 	useEffect( () => {
 		if ( ! isOffline && ! wpVersions?.length ) return;
 		setData( ( prev ) => {
 			if ( prev.wpVersion === DEFAULT_WORDPRESS_VERSION ) return prev;
+			if ( prev.wpVersion === preservedWpVersion ) return prev;
 			const wpVersion =
 				( ! isOffline && findOfferedWpVersion( prev.wpVersion, wpVersions ) ) ||
 				DEFAULT_WORDPRESS_VERSION;
 			return wpVersion === prev.wpVersion ? prev : { ...prev, wpVersion };
 		} );
-	}, [ wpVersions, isOffline, data.wpVersion ] );
+	}, [ wpVersions, isOffline, data.wpVersion, preservedWpVersion ] );
 	const blueprintWpVersion = initialValues?.wpVersion;
 	const unavailableWpVersion =
+		! preserveWpVersion &&
 		! isOffline &&
 		wpVersions?.length &&
 		blueprintWpVersion &&
@@ -173,6 +177,7 @@ export function CreateSiteForm( {
 			? blueprintWpVersion
 			: undefined;
 	const wpVersionOptions = getWpVersionOptions( wpVersions, {
+		currentVersion: preservedWpVersion,
 		autoUpdateVersion: getLatestVersionLabel( wpVersions ),
 		offline: isOffline,
 	} );

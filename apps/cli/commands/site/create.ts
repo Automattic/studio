@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
+import { DEFAULT_WORDPRESS_VERSION, MINIMUM_WORDPRESS_VERSION } from '@studio/common/constants';
 import { installAiInstructionsToSite } from '@studio/common/lib/agent-skills';
 import {
 	__isStepDefinition,
@@ -40,6 +40,10 @@ import { readSharedConfig } from '@studio/common/lib/shared-config';
 import { type SiteFileAccess } from '@studio/common/lib/site-file-access';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
+import {
+	isValidWordPressVersion,
+	isWordPressVersionAtLeast,
+} from '@studio/common/lib/wordpress-version-utils';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import {
@@ -602,9 +606,30 @@ export async function commandHandler(
 	let adminPassword = argv.adminPassword;
 	let adminEmail = argv.adminEmail;
 	const fileAccess = argv.fileAccess;
+	const explicitBlueprint =
+		wpVersion && argv.blueprint && ! isUrl( argv.blueprint )
+			? readBlueprint( path.resolve( untildify( argv.blueprint ) ) )
+			: undefined;
+	const preserveSnapshotVersion =
+		!! wpVersion &&
+		isValidWordPressVersion( wpVersion ) &&
+		isWordPressVersionAtLeast( wpVersion, MINIMUM_WORDPRESS_VERSION ) &&
+		Array.isArray( explicitBlueprint?.steps ) &&
+		explicitBlueprint.steps.some(
+			( step: unknown ) =>
+				!! step &&
+				typeof step === 'object' &&
+				'step' in step &&
+				step.step === 'importWordPressFiles'
+		);
 
 	// Validate and resolve the WordPress version against available versions before prompting
-	if ( wpVersion && wpVersion !== 'latest' && wpVersion !== 'nightly' ) {
+	if (
+		wpVersion &&
+		wpVersion !== 'latest' &&
+		wpVersion !== 'nightly' &&
+		! preserveSnapshotVersion
+	) {
 		try {
 			defaultLogger.reportStart( LoggerAction.VALIDATE, __( 'Checking WordPress version…' ) );
 			const availableVersions = await fetchWordPressVersions();

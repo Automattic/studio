@@ -1,11 +1,13 @@
 /** @vitest-environment node */
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import {
 	extractBlueprintBundle,
 	cleanupBlueprintTempDir,
 } from '@studio/common/sites/blueprint-extract';
+import { buildSiteCreateArgs } from '@studio/common/sites/create';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
 	autoLoginCookie,
@@ -34,6 +36,14 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'Blueprint snapshot export', () =
 		{ tags: [ 'e2e' ], timeout: 180_000 },
 		async ( running ) => {
 			env = setupCliEnv();
+			const serverFiles = path.join( env.configDir, 'server-files' );
+			fs.unlinkSync( serverFiles );
+			fs.mkdirSync( path.join( serverFiles, 'wordpress-versions' ), { recursive: true } );
+			fs.symlinkSync(
+				path.join( os.homedir(), '.studio/server-files/wordpress-versions/latest' ),
+				path.join( serverFiles, 'wordpress-versions/latest' ),
+				'junction'
+			);
 			const source = path.join( env.sitesDir, 'source' );
 			const destination = path.join( env.sitesDir, 'destination' );
 			const cli = async ( ...args: string[] ) => {
@@ -134,20 +144,19 @@ describe.skipIf( ! cliE2ePrerequisitesMet() )( 'Blueprint snapshot export', () =
 					{ step: 'setSiteOptions', options: { blogdescription: 'After snapshot' } },
 				];
 				fs.writeFileSync( bundle.blueprintJsonPath, JSON.stringify( bundle.blueprintJson ) );
-				await cli(
-					'site',
-					'create',
-					'--name',
-					'From Blueprint',
-					'--path',
-					destination,
-					'--wp',
-					'latest',
-					'--blueprint',
-					bundle.blueprintJsonPath,
-					'--skip-browser',
-					'--no-start'
-				);
+				const request = buildSiteCreateArgs( {
+					name: 'From Blueprint',
+					path: destination,
+					wpVersion: bundle.blueprintJson.preferredVersions?.wp || undefined,
+					blueprint: bundle.blueprintJson,
+					originalBlueprintPath: bundle.blueprintJsonPath,
+					noStart: true,
+				} );
+				try {
+					await cli( ...request.args );
+				} finally {
+					request.cleanup();
+				}
 			} finally {
 				await cleanupBlueprintTempDir( bundle.tempDir );
 			}

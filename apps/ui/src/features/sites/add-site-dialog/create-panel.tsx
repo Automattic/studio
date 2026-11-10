@@ -1,4 +1,5 @@
 import {
+	__isStepDefinition,
 	extractFormValuesFromBlueprint,
 	updateBlueprintWithFormValues,
 } from '@studio/common/lib/blueprint-settings';
@@ -156,6 +157,9 @@ export function CreatePanel( { remote }: { remote?: SyncSite } ) {
 			actionsContainer={ formActions }
 			selectedFolder={ selectedFolder ?? undefined }
 			initialValues={ submittedInitialValues ?? initialValues }
+			preserveWpVersion={ selectedBlueprint?.blueprint.steps?.some(
+				( step ) => __isStepDefinition( step ) && step.step === 'importWordPressFiles'
+			) }
 			suggestedName={ proposedName }
 			existingDomainNames={ existingDomainNames }
 			onSubmit={ handleSubmit }

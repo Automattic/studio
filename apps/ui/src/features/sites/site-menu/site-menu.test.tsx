@@ -170,7 +170,7 @@ describe( 'Stop other sites', () => {
 				const sync = screen.getByRole( 'menuitem', { name: 'Publish' } );
 				const items = screen.getAllByRole( 'menuitem' );
 				expect( items[ items.indexOf( share ) + 1 ] ).toBe( sync );
-				expect( items[ items.indexOf( share ) - 1 ] ).toHaveTextContent( 'Open in' );
+				expect( items[ items.indexOf( share ) - 1 ] ).toHaveTextContent( 'Settings' );
 				expect( items[ items.indexOf( sync ) + 1 ] ).toHaveTextContent( 'Export' );
 				fireEvent.click( action === 'Share' ? share : sync );
 				if ( action === 'Share' ) {
@@ -418,7 +418,7 @@ describe( 'Remove site confirmation', () => {
 	it( 'includes a generic preview warning without loading preview data, and passes the file choice', async () => {
 		const { open, connector } = setup();
 		await open();
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Delete site' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Delete' } ) );
 		expect(
 			await screen.findByText( /delete its chats and any shared preview sites/ )
 		).toBeVisible();

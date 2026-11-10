@@ -281,19 +281,6 @@ export function SiteMenuItems( {
 				</Menu.SubmenuPopup>
 			</Menu.SubmenuRoot>
 			<Menu.Separator />
-			<SiteShareMenuItem site={ site } disabled={ busy } />
-			<SitePublishMenu site={ site } disabled={ busy } />
-			<Menu.SubmenuRoot>
-				<Menu.SubmenuTrigger disabled={ manage.export.disabled && manage[ 'export-db' ].disabled }>
-					<ExportIcon />
-					{ __( 'Export' ) }
-				</Menu.SubmenuTrigger>
-				<Menu.SubmenuPopup>
-					{ manageItem( manage.export, __( 'Export site' ) ) }
-					{ manageItem( manage[ 'export-db' ] ) }
-				</Menu.SubmenuPopup>
-			</Menu.SubmenuRoot>
-			<Menu.Separator />
 			<Menu.Item onClick={ actions.togglePin }>
 				{ actions.pinned ? <UnpinIcon /> : <PinIcon /> }
 				{ actions.pinned ? __( 'Unpin' ) : __( 'Pin' ) }
@@ -310,7 +297,20 @@ export function SiteMenuItems( {
 				{ __( 'Settings' ) }
 			</Menu.Item>
 			<Menu.Separator />
-			{ manageItem( manage.delete, __( 'Delete site' ), !! deleteBlocked ) }
+			<SiteShareMenuItem site={ site } disabled={ busy } />
+			<SitePublishMenu site={ site } disabled={ busy } />
+			<Menu.SubmenuRoot>
+				<Menu.SubmenuTrigger disabled={ manage.export.disabled && manage[ 'export-db' ].disabled }>
+					<ExportIcon />
+					{ __( 'Export' ) }
+				</Menu.SubmenuTrigger>
+				<Menu.SubmenuPopup>
+					{ manageItem( manage.export, __( 'Export site' ) ) }
+					{ manageItem( manage[ 'export-db' ] ) }
+				</Menu.SubmenuPopup>
+			</Menu.SubmenuRoot>
+			<Menu.Separator />
+			{ manageItem( manage.delete, __( 'Delete' ), !! deleteBlocked ) }
 		</div>
 	);
 }

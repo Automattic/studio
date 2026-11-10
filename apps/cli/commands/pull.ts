@@ -11,7 +11,10 @@ import {
 	markConnectedWpcomSiteSynced,
 } from '@studio/common/lib/connected-sites';
 import { encodePassword } from '@studio/common/lib/passwords';
-import { buildSyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
+import {
+	buildSyncEventProps,
+	classifySyncSelection,
+} from '@studio/common/lib/sync/build-sync-event-props';
 import { PullCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
 import chalk from 'chalk';
@@ -56,6 +59,7 @@ import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/track
 import { findFailureCode } from 'cli/lib/utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
+import type { SyncSelectionProps } from '@studio/common/lib/sync/build-sync-event-props';
 import type { SyncFailurePhase } from '@studio/common/lib/sync/classify-sync-failure';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { builder } from 'cli/commands/pull.command';
@@ -185,6 +189,7 @@ class PullError extends LoggerError {
 
 /** What a pull got to, for the activity and Tracks reports. */
 interface PullRun {
+	selection?: SyncSelectionProps;
 	siteId?: string;
 	remoteSite?: SyncSite;
 	preview?: StandingPreview | null;
@@ -251,6 +256,7 @@ export async function runCommand(
 				...buildSyncEventProps( {
 					startedAt,
 					site: run.remoteSite,
+					selection: run.selection,
 					error: pullError,
 					hint: { code: findFailureCode( pullError ), phase: run.failurePhase },
 				} ),
@@ -388,6 +394,8 @@ async function pullSite(
 			console.log( __( 'Cancelled.' ) );
 			return;
 		}
+
+		run.selection = classifySyncSelection( selection );
 
 		await withSiteOperation( site.path, 'import', async () => {
 			site.status = 'pulling';

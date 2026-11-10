@@ -1870,10 +1870,13 @@ async function validateAsWritten(
 								// those it drops. A class no loaded stylesheet names changes
 								// nothing here, but may on the site's pages or to a script, so it
 								// is kept only when the fix saves it with another number, as a
-								// cover's save names its dim rounded to tens (cover/shared.js).
+								// cover's save names its dim rounded to tens (cover/shared.js),
+								// in its place or kept from beside it, as has-background-dim-42
+								// written beside the has-background-dim-40 the save names.
 								const swap = added.filter( ( name: string ) =>
 									matches[ 0 ].classList.contains( name )
 								);
+								const saved = [ ...swap, ...keeps ];
 								const back = gone.filter(
 									( name: string ) => ! matches[ 0 ].classList.contains( name )
 								);
@@ -1888,7 +1891,7 @@ async function validateAsWritten(
 										same &&
 										( named.has( name ) ||
 											( /\d/.test( name ) &&
-												swap.some( ( saved: string ) => numbered( saved ) === numbered( name ) ) ) )
+												saved.some( ( one: string ) => numbered( one ) === numbered( name ) ) ) )
 									) {
 										kept.get( loss.place )!.add( name );
 									}

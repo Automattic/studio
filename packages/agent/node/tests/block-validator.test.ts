@@ -569,6 +569,27 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			losses: [],
 		},
 		{
+			// Written beside the class its save names, which the fix keeps.
+			name: 'a class its save names with another number, written beside that one',
+			written:
+				'<!-- wp:cover {"dimRatio":42,"overlayColor":"contrast","isUserOverlayColor":true} -->\n<div class="wp-block-cover"><span aria-hidden="true" class="wp-block-cover__background has-contrast-background-color has-background-dim-40 has-background-dim has-background-dim-42 has-background-dim"></span><div class="wp-block-cover__inner-container"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div></div>\n<!-- /wp:cover -->',
+			losses: [],
+		},
+		{
+			// has-background-dim-80 shows the overlay at 0.8 (the cover's style.scss),
+			// not the 0.4 of the has-background-dim-40 the fix keeps.
+			name: 'a class its save names with another number that shows the block otherwise',
+			written:
+				'<!-- wp:cover {"dimRatio":42,"overlayColor":"contrast","isUserOverlayColor":true} -->\n<div class="wp-block-cover"><span aria-hidden="true" class="wp-block-cover__background has-contrast-background-color has-background-dim-40 has-background-dim has-background-dim-80"></span><div class="wp-block-cover__inner-container"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div></div>\n<!-- /wp:cover -->',
+			losses: [
+				{
+					place: '/0',
+					lost: 'drop the classes has-background-dim-80',
+					note: 'drop the class has-background-dim-80 from span.wp-block-cover__background',
+				},
+			],
+		},
+		{
 			// The class shows a dim of 60, which the fix stores as the dimRatio
 			// its save names has-background-dim-60 from.
 			name: 'a class that shows the block otherwise',

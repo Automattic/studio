@@ -235,7 +235,12 @@ describe( 'post content changes', () => {
 			proposedFix: {
 				...losslessFix.proposedFix!,
 				losses: [
-					{ place: '/1', blockName: 'core/group', lost: 'drop the styles position:sticky' },
+					{
+						place: '/1',
+						blockName: 'core/group',
+						lost: 'drop the styles position:sticky',
+						note: 'drop position:sticky from div.wp-block-group',
+					},
 				],
 			},
 		} );
@@ -246,7 +251,7 @@ describe( 'post content changes', () => {
 		expect( summaries[ 0 ] ).toContain( "Studio saved the block editor's save of it" );
 		expect( fixture.content( 9 ) ).toBe( WRAPPED_GROUP );
 		expect( problems[ 0 ] ).toContain(
-			"core/group: the editor's fix would drop the styles position:sticky; sticky"
+			'core/group: saving it as the block saves it would drop position:sticky from div.wp-block-group, as nothing in its comment attributes saves that.'
 		);
 	} );
 

@@ -54,6 +54,11 @@ export interface BlockLoss {
 	blockName: string;
 	/** What the fix loses, as `drop the styles position:sticky`. */
 	lost: string;
+	/**
+	 * What the fix loses, with the element it loses each style and class
+	 * from, as `drop opacity:0.68 from span.wp-block-cover__background`.
+	 */
+	note: string;
 }
 
 export interface ValidationReport extends ValidationReportBase {
@@ -1377,6 +1382,15 @@ async function validateAsWritten(
 							moves: reshaped ? [] : moves( place, block ),
 						};
 						const root = reshaped ? undefined : elementsOf( block.originalContent ?? '' )[ 0 ];
+						// An element known by its tag and its first wp-block class, or
+						// its first class, of those the fix keeps.
+						const nameOf = ( element: HTMLElement ) => {
+							const names = [ ...element.classList ].filter(
+								( name ) => ! classes.includes( name )
+							);
+							const name = names.find( ( one ) => one.startsWith( 'wp-block' ) ) ?? names[ 0 ];
+							return element.tagName.toLowerCase() + ( name ? `.${ name }` : '' );
+						};
 						return [
 							...( Object.values( lost ).some( ( one ) => one.length )
 								? [
@@ -1406,6 +1420,8 @@ async function validateAsWritten(
 															? [
 																	{
 																		root: index === 0,
+																		index,
+																		name: nameOf( element ),
 																		tag: element.tagName,
 																		classes: [ ...element.classList ],
 																		styles: dropped,
@@ -1422,6 +1438,8 @@ async function validateAsWritten(
 															? [
 																	{
 																		root: index === 0,
+																		index,
+																		name: nameOf( element ),
 																		kept: names.filter( ( name ) => ! gone.includes( name ) ),
 																		gone,
 																		added: [ ...after.classes ].filter(
@@ -2107,7 +2125,7 @@ async function validateAsWritten(
 					return true;
 				}
 				const lossList = found
-					.map( ( { place, blockName, lost, stylesOn } ) => {
+					.map( ( { place, blockName, lost, stylesOn, classesOn } ) => {
 						const kept = rendering.get( place ) ?? new Set();
 						const styles = lost.styles.filter( ( style: string ) => ! kept.has( style ) );
 						const hint = ( dropped: string[] ) => {
@@ -2141,8 +2159,53 @@ async function validateAsWritten(
 							! storedAs( place, styles ) &&
 							withBlockStyle( place, blockStyle )
 						) {
-							return { place, blockName, lost: '' };
+							return { place, blockName, lost: '', note: '' };
 						}
+						// What is dropped from each element, in the order written; what
+						// no element is known for, as in a block whose inner blocks the
+						// fix makes again, is named without one.
+						const elements = new Map<
+							number,
+							{ name: string; styles: string[]; classes: string[] }
+						>();
+						const on = ( index: number, name: string ) =>
+							elements.get( index ) ??
+							elements.set( index, { name, styles: [], classes: [] } ).get( index )!;
+						for ( const one of stylesOn ) {
+							on( one.index, one.name ).styles.push(
+								...one.styles.filter( ( style: string ) => styles.includes( style ) )
+							);
+						}
+						for ( const one of classesOn ) {
+							on( one.index, one.name ).classes.push(
+								...one.gone.filter( ( name: string ) => classes.includes( name ) )
+							);
+						}
+						const placed = [ ...elements.values() ];
+						const listed = ( some: string[], names: string[] ) =>
+							[
+								some.join( '; ' ),
+								names.length
+									? `the ${ names.length > 1 ? 'classes' : 'class' } ${ names.join( ' ' ) }`
+									: '',
+							]
+								.filter( Boolean )
+								.join( ' and ' );
+						const dropped = [
+							...[ ...elements.entries() ]
+								.sort( ( [ a ], [ b ] ) => a - b )
+								.map( ( [ , one ] ) => one )
+								.filter( ( one ) => one.styles.length || one.classes.length )
+								.map( ( one ) => `${ listed( one.styles, one.classes ) } from ${ one.name }` ),
+							listed(
+								styles.filter( ( style: string ) =>
+									placed.every( ( one ) => ! one.styles.includes( style ) )
+								),
+								classes.filter( ( name: string ) =>
+									placed.every( ( one ) => ! one.classes.includes( name ) )
+								)
+							),
+						].filter( Boolean );
 						return {
 							place,
 							blockName,
@@ -2150,6 +2213,15 @@ async function validateAsWritten(
 								...lost.text,
 								classes.length ? `drop the classes ${ classes.join( ' ' ) }` : '',
 								styles.length ? `drop the styles ${ styles.join( '; ' ) }${ hint( styles ) }` : '',
+								...lost.moves,
+							]
+								.filter( Boolean )
+								.join( ' and ' ),
+							note: [
+								lost.text.length ? 'change its text' : '',
+								dropped.length
+									? `drop ${ dropped.join( '; ' ) }${ styles.length ? hint( styles ) : '' }`
+									: '',
 								...lost.moves,
 							]
 								.filter( Boolean )

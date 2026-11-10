@@ -127,6 +127,7 @@ describe( 'postContentChanges', () => {
 									place: '/0',
 									blockName: 'core/paragraph',
 									lost: 'drop the styles max-width:640px',
+									note: 'drop max-width:640px from p',
 								},
 						  ],
 					...( args[ 3 ] && {
@@ -153,7 +154,7 @@ describe( 'postContentChanges', () => {
 				expect( existsSync( styleFile ) ).toBe( false );
 				expect( site.content( 51 ) ).toBe( lede( '' ) );
 				expect( problems.join( '\n' ) ).toContain(
-					"the editor's fix would drop the styles max-width:640px"
+					'saving it as the block saves it would drop max-width:640px from p, as nothing in its comment attributes saves that.'
 				);
 				return;
 			}

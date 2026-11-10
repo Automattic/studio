@@ -183,7 +183,12 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			),
 			issue: coverIssue,
 			losses: [
-				{ place: '/0', blockName: 'core/cover', lost: 'drop the styles min-height:100dvh' },
+				{
+					place: '/0',
+					blockName: 'core/cover',
+					lost: 'drop the styles min-height:100dvh',
+					note: 'drop min-height:100dvh from div.wp-block-cover',
+				},
 			],
 		},
 		{
@@ -439,6 +444,7 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			lost: 'drop the styles justify-content:right; row-gap:2rem; column-gap:2rem — store them as "style":{"spacing":{"blockGap":"2rem"}},"layout":{"justifyContent":"right"}',
 			stored:
 				'<!-- wp:group {"layout":{"type":"flex","justifyContent":"right"},"style":{"spacing":{"blockGap":"2rem"}}} -->\n<div class="wp-block-group"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->',
+			note: 'drop justify-content:right; row-gap:2rem; column-gap:2rem from div.wp-block-group — store them as "style":{"spacing":{"blockGap":"2rem"}},"layout":{"justifyContent":"right"}',
 			still: [],
 		},
 		{
@@ -448,6 +454,7 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			lost: 'drop the styles display:flex; align-items:center; row-gap:1rem; column-gap:1rem — store them as "layout":{"type":"flex","verticalAlignment":"center"},"style":{"spacing":{"blockGap":"1rem"}}',
 			stored:
 				'<!-- wp:group {"layout":{"type":"flex","verticalAlignment":"center"},"style":{"spacing":{"blockGap":"1rem"}}} -->\n<div class="wp-block-group"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->',
+			note: 'drop display:flex; align-items:center; row-gap:1rem; column-gap:1rem from div.wp-block-group — store them as "layout":{"type":"flex","verticalAlignment":"center"},"style":{"spacing":{"blockGap":"1rem"}}',
 			still: [],
 		},
 		{
@@ -457,13 +464,15 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			lost: 'drop the styles top:0px; z-index:100 — store top:0px as "style":{"position":{"type":"sticky","top":"0px"}}',
 			stored:
 				'<!-- wp:group {"style":{"position":{"type":"sticky","top":"0px"}}} -->\n<div class="wp-block-group" style="z-index:100"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->',
+			note: 'drop top:0px; z-index:100 from div.wp-block-group — store top:0px as "style":{"position":{"type":"sticky","top":"0px"}}',
 			still: [ 'drop the styles z-index:100' ],
 		},
 	] )(
 		'names the attributes a style it drops renders from: $name',
-		async ( { written, lost, stored, still } ) => {
+		async ( { written, lost, note, stored, still } ) => {
 			const report = await validateBlocks( written, siteUrl! );
 			expect( report.proposedFix?.losses.map( ( loss ) => loss.lost ) ).toEqual( [ lost ] );
+			expect( report.proposedFix?.losses.map( ( loss ) => loss.note ) ).toEqual( [ note ] );
 			const after = await validateBlocks( stored, siteUrl! );
 			expect( after.proposedFix?.losses.map( ( loss ) => loss.lost ) ?? [] ).toEqual( still );
 		},
@@ -493,7 +502,11 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 		}
 	}, 120_000 );
 
-	it.each< { name: string; written: string; losses: { place: string; lost: string }[] } >( [
+	it.each< {
+		name: string;
+		written: string;
+		losses: { place: string; lost: string; note: string }[];
+	} >( [
 		{
 			name: 'a flex layout its layout attribute already shows',
 			written:
@@ -512,20 +525,38 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			name: 'a style other than the preset its attribute names',
 			written:
 				'<!-- wp:buttons -->\n<div class="wp-block-buttons"><!-- wp:button {"fontSize":"medium"} -->\n<div class="wp-block-button has-custom-font-size" style="font-size:3rem"><a class="wp-block-button__link wp-element-button">Shop</a></div>\n<!-- /wp:button --></div>\n<!-- /wp:buttons -->',
-			losses: [ { place: '/0/0', lost: 'drop the styles font-size:3rem' } ],
+			losses: [
+				{
+					place: '/0/0',
+					lost: 'drop the styles font-size:3rem',
+					note: 'drop font-size:3rem from div.wp-block-button',
+				},
+			],
 		},
 		{
 			name: 'a display its layout attribute shows otherwise',
 			written:
 				'<!-- wp:group {"layout":{"type":"flex","flexWrap":"nowrap"}} -->\n<div class="wp-block-group" style="display:inline-flex;flex-wrap:nowrap"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->',
-			losses: [ { place: '/0', lost: 'drop the styles display:inline-flex' } ],
+			losses: [
+				{
+					place: '/0',
+					lost: 'drop the styles display:inline-flex',
+					note: 'drop display:inline-flex from div.wp-block-group',
+				},
+			],
 		},
 		{
 			// In its row of buttons, which is flex, the width is the button's own.
 			name: 'a width that sizes the block where it sits',
 			written:
 				'<!-- wp:buttons -->\n<div class="wp-block-buttons"><!-- wp:button -->\n<div class="wp-block-button" style="width:100%"><a class="wp-block-button__link wp-element-button">Book</a></div>\n<!-- /wp:button --></div>\n<!-- /wp:buttons -->',
-			losses: [ { place: '/0/0', lost: 'drop the styles width:100%' } ],
+			losses: [
+				{
+					place: '/0/0',
+					lost: 'drop the styles width:100%',
+					note: 'drop width:100% from div.wp-block-button',
+				},
+			],
 		},
 		{
 			// Its save names the dim rounded to tens (dimRatioToClass in
@@ -548,14 +579,26 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			name: 'a class the stylesheets give what the fix shows',
 			written:
 				'<!-- wp:cover {"dimRatio":50,"overlayColor":"contrast","isUserOverlayColor":true} -->\n<div class="wp-block-cover"><span aria-hidden="true" class="wp-block-cover__background has-contrast-background-color has-background-dim-50 studio-test-shade has-background-dim"></span><div class="wp-block-cover__inner-container"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div></div>\n<!-- /wp:cover -->',
-			losses: [ { place: '/0', lost: 'drop the classes studio-test-shade' } ],
+			losses: [
+				{
+					place: '/0',
+					lost: 'drop the classes studio-test-shade',
+					note: 'drop the class studio-test-shade from span.wp-block-cover__background',
+				},
+			],
 		},
 		{
 			// has-border-color gives the image a solid border (common.css).
 			name: 'a class that shows the block a border its fix leaves out',
 			written:
 				'<!-- wp:image {"id":9} -->\n<figure class="wp-block-image"><img src="https://example.com/a.png" alt="" class="has-border-color wp-image-9"/></figure>\n<!-- /wp:image -->',
-			losses: [ { place: '/0', lost: 'drop the classes has-border-color' } ],
+			losses: [
+				{
+					place: '/0',
+					lost: 'drop the classes has-border-color',
+					note: 'drop the class has-border-color from img.wp-image-9',
+				},
+			],
 		},
 		{
 			// The editor makes the block from its comment's textColor (eval13:
@@ -565,7 +608,13 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 				'{"style":{"typography":{"fontWeight":"600"}},"textColor":"tertiary"}',
 				'<p class="has-secondary-color has-text-color" style="font-weight:600">20</p>'
 			),
-			losses: [ { place: '/0', lost: 'drop the classes has-secondary-color' } ],
+			losses: [
+				{
+					place: '/0',
+					lost: 'drop the classes has-secondary-color',
+					note: 'drop the class has-secondary-color from p.has-text-color',
+				},
+			],
 		},
 		{
 			// Group has no textAlign support (eval28): its text centers itself.
@@ -585,20 +634,38 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			name: 'a style the text inside it shows otherwise',
 			written:
 				'<!-- wp:group -->\n<div class="wp-block-group" style="text-align:center"><!-- wp:heading -->\n<h2 class="wp-block-heading">A</h2>\n<!-- /wp:heading --></div>\n<!-- /wp:group -->',
-			losses: [ { place: '/0', lost: 'drop the styles text-align:center' } ],
+			losses: [
+				{
+					place: '/0',
+					lost: 'drop the styles text-align:center',
+					note: 'drop text-align:center from div.wp-block-group',
+				},
+			],
 		},
 		{
 			name: 'a style the text inside it does not inherit',
 			written:
 				'<!-- wp:group -->\n<div class="wp-block-group" style="filter:blur(2px)"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->',
-			losses: [ { place: '/0', lost: 'drop the styles filter:blur(2px)' } ],
+			losses: [
+				{
+					place: '/0',
+					lost: 'drop the styles filter:blur(2px)',
+					note: 'drop filter:blur(2px) from div.wp-block-group',
+				},
+			],
 		},
 		{
 			// The editor's own styles for its blocks set it there.
 			name: 'a style only the editor gives its blocks',
 			written:
 				'<!-- wp:group -->\n<div class="wp-block-group" style="position:relative"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->',
-			losses: [ { place: '/0', lost: 'drop the styles position:relative' } ],
+			losses: [
+				{
+					place: '/0',
+					lost: 'drop the styles position:relative',
+					note: 'drop position:relative from div.wp-block-group',
+				},
+			],
 		},
 	] )(
 		'reads what is written on a block that its fix already shows as kept: $name',
@@ -651,7 +718,12 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			siteUrl!
 		);
 		expect( report.proposedFix?.losses ).toEqual( [
-			{ place: '/0', blockName: 'core/separator', lost: 'drop the styles opacity:0.4' },
+			{
+				place: '/0',
+				blockName: 'core/separator',
+				lost: 'drop the styles opacity:0.4',
+				note: 'drop opacity:0.4 from hr.wp-block-separator',
+			},
 		] );
 		expect( report.proposedFix?.fixedContent ).toContain(
 			'<!-- wp:list-item -->\n<li><span>Monday</span><strong>7 am</strong></li>'
@@ -664,12 +736,14 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			written:
 				'<!-- wp:separator -->\n<hr class="wp-block-separator has-alpha-channel-opacity" style="opacity:0.4"/>\n<!-- /wp:separator -->',
 			lost: 'drop the styles opacity:0.4',
+			note: 'drop opacity:0.4 from hr.wp-block-separator',
 		},
 		{
 			name: 'a style no block attribute saves, beside one it does',
 			written:
 				'<!-- wp:paragraph -->\n<p style="font-size:1.1rem;opacity:0.92">Hi</p>\n<!-- /wp:paragraph -->',
 			lost: 'drop the styles opacity:0.92',
+			note: 'drop opacity:0.92 from p',
 		},
 		{
 			// core/image saves its border on the img.
@@ -677,13 +751,14 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			written:
 				'<!-- wp:image -->\n<figure class="wp-block-image" style="border-top-left-radius:12px"><img src="https://example.com/a.jpg" alt=""/></figure>\n<!-- /wp:image -->',
 			lost: 'drop the styles border-top-left-radius:12px',
+			note: 'drop border-top-left-radius:12px from figure.wp-block-image',
 		},
 	] )(
 		'keeps the block as written for $name',
-		async ( { written, lost } ) => {
+		async ( { written, lost, note } ) => {
 			const report = await validateBlocks( written, siteUrl! );
 			expect( report.proposedFix?.losses ).toEqual( [
-				{ place: '/0', blockName: expect.any( String ), lost },
+				{ place: '/0', blockName: expect.any( String ), lost, note },
 			] );
 		},
 		60_000
@@ -698,13 +773,32 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 		{
 			name: 'one can see',
 			written: overlay( 70, 0.5 ),
-			losses: [ { place: '/0', blockName: 'core/cover', lost: 'drop the styles opacity:0.5' } ],
+			losses: [
+				{
+					place: '/0',
+					blockName: 'core/cover',
+					lost: 'drop the styles opacity:0.5',
+					note: 'drop opacity:0.5 from span.wp-block-cover__background',
+				},
+			],
 		},
 	] )(
 		'reads a style whose fix paints a difference $name',
 		async ( { written, losses } ) => {
 			const report = await validateBlocks( written, siteUrl! );
 			expect( report.proposedFix?.losses ).toEqual( losses );
+			if ( losses.length ) {
+				// The note names the element the style is dropped from, in place of
+				// the editor's own log of the mismatch.
+				const { problem } = await validateBlockMarkup( written, 'page', siteUrl! );
+				expect( problem ).toContain(
+					'  - core/cover: saving it as the block saves it would drop opacity:0.5 from span.wp-block-cover__background, as nothing in its comment attributes saves that.\n    written: '
+				);
+				expect( report.results[ 0 ].issues.length ).toBeGreaterThan( 0 );
+				for ( const issue of report.results[ 0 ].issues ) {
+					expect( problem ).not.toContain( issue );
+				}
+			}
 			if ( ! losses.length ) {
 				expect( report.proposedFix?.fixedContent ).toContain( 'has-background-dim-70' );
 				expect(
@@ -750,7 +844,12 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			const fix = report.proposedFix!;
 			if ( ! styled.length ) {
 				expect( fix.losses ).toEqual( [
-					{ place: '/0', blockName: 'core/paragraph', lost: 'drop the styles max-width:640px' },
+					{
+						place: '/0',
+						blockName: 'core/paragraph',
+						lost: 'drop the styles max-width:640px',
+						note: 'drop max-width:640px from p.has-muted-color',
+					},
 				] );
 				expect( fix.blockStyles ).toBeUndefined();
 				return;
@@ -800,6 +899,7 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 				place: '/1',
 				blockName: 'core/cover',
 				lost: 'move core/image into div.wp-block-cover__inner-container',
+				note: 'move core/image into div.wp-block-cover__inner-container',
 			},
 		] );
 		expect( report.proposedFix?.fixedContent ).toContain( 'has-text-align-center' );
@@ -828,7 +928,12 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			siteUrl!
 		);
 		expect( report.proposedFix?.losses ).toEqual( [
-			{ place: '/0', blockName: 'core/cover', lost: 'move core/paragraph out of div' },
+			{
+				place: '/0',
+				blockName: 'core/cover',
+				lost: 'move core/paragraph out of div',
+				note: 'move core/paragraph out of div',
+			},
 		] );
 	}, 60_000 );
 
@@ -847,28 +952,31 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 				'<!-- wp:image -->\n<figure class="wp-block-image"><img class="photo" src="https://example.com/a.png" alt=""/></figure>\n<!-- /wp:image -->',
 			blockName: 'core/image',
 			lost: 'drop the classes photo',
+			note: 'drop the class photo from img',
 		},
 		{
 			name: 'its styles',
 			written: paragraph( '{}', '<p style="position:sticky;top:0">Eyebrow</p>' ),
 			blockName: 'core/paragraph',
 			lost: 'drop the styles position:sticky; top:0px',
+			note: 'drop position:sticky; top:0px from p',
 		},
 		{
 			name: 'its text',
 			written: paragraph( '{}', '<div>Lost words</div>' ),
 			blockName: 'core/paragraph',
 			lost: 'change the text',
+			note: 'change its text',
 		},
 	] )(
 		'names the block whose fix would lose $name, keeps it as written and saves the fix for the rest',
-		async ( { written, blockName, lost } ) => {
+		async ( { written, blockName, lost, note } ) => {
 			const markup = group(
 				'{}',
 				`${ paragraph( '{"textAlign":"center"}', '<p>Centered</p>' ) }\n${ written }`
 			);
 			const report = await validateBlocks( markup, siteUrl! );
-			expect( report.proposedFix?.losses ).toEqual( [ { place: '/0/1', blockName, lost } ] );
+			expect( report.proposedFix?.losses ).toEqual( [ { place: '/0/1', blockName, lost, note } ] );
 			expect( report.proposedFix?.fixedContent ).toContain( 'has-text-align-center' );
 			expect( report.proposedFix?.fixedContent ).toContain(
 				`-->\n${ written.split( '\n' )[ 1 ] }\n<!--`
@@ -1349,7 +1457,7 @@ describe.runIf( siteUrl && wordpress )( 'a block WordPress renders on the server
 			name: 'a list of posts written out, with nothing to render it',
 			written: LATEST,
 			render: false,
-			lost: 'change the text',
+			lost: 'saving it as the block saves it would change its text and drop the class wp-block-latest-posts__post-title from a, as nothing in its comment attributes saves that.',
 		},
 		{
 			// render_block_core_archives() renders the months the site has posts in.
@@ -1368,7 +1476,7 @@ describe.runIf( siteUrl && wordpress )( 'a block WordPress renders on the server
 				'has-contrast-background-color has-background-dim-50 studio-test-shade has-background-dim'
 			),
 			render: true,
-			lost: 'drop the classes studio-test-shade',
+			lost: 'saving it as the block saves it would drop the class studio-test-shade from span.wp-block-cover__background, as nothing in its comment attributes saves that.',
 		},
 		{
 			name: 'the options of a select the render shows',
@@ -1378,7 +1486,7 @@ describe.runIf( siteUrl && wordpress )( 'a block WordPress renders on the server
 				'has-contrast-background-color has-background-dim'
 			),
 			render: true,
-			lost: 'change the text',
+			lost: 'saving it as the block saves it would change its text, as nothing in its comment attributes saves that.',
 		},
 	] )(
 		'saves its fix when it renders as written: $name',

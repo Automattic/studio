@@ -104,8 +104,9 @@ function oneLine( html: string, length: number ): string {
 }
 
 /**
- * Each invalid block with every mismatch the editor found, and the HTML the
- * block saves from its comment attributes — the markup that validates.
+ * Each invalid block with every mismatch the editor found, or what saving it
+ * as the block saves it would lose when that is known, and the HTML the block
+ * saves from its comment attributes — the markup that validates.
  */
 function describeInvalidBlocks(
 	report: ValidationReportBase,
@@ -117,9 +118,11 @@ function describeInvalidBlocks(
 		.flatMap( ( result ) => [
 			`  - ${ result.blockName }: ${
 				lost.has( result.place ?? '' )
-					? `the editor's fix would ${ lost.get( result.place ?? '' ) }; `
-					: ''
-			}${ result.issues.slice( 0, 3 ).join( '; ' ) || 'does not match what the block saves' }`,
+					? `saving it as the block saves it would ${ lost.get(
+							result.place ?? ''
+					  ) }, as nothing in its comment attributes saves that.`
+					: result.issues.slice( 0, 3 ).join( '; ' ) || 'does not match what the block saves'
+			}`,
 			...( result.originalContent
 				? [ `    written: ${ oneLine( result.originalContent, 700 ) }` ]
 				: [] ),
@@ -725,7 +728,7 @@ async function validateSavedMarkup(
 	}
 	// A block stays as written when the fix loses something from it; the
 	// editor's fix is saved for the rest, the blocks inside it too.
-	const lost = new Map( fix.losses.map( ( loss ) => [ loss.place, loss.lost ] ) );
+	const lost = new Map( fix.losses.map( ( loss ) => [ loss.place, loss.note ] ) );
 	const keptAsWritten = ( place = '' ) => lost.has( place );
 	const fixedBlocks = report.results.filter(
 		( result ) => ! result.isValid && ! keptAsWritten( result.place )
@@ -763,7 +766,7 @@ async function validateSavedMarkup(
 	return {
 		summary: `${ label }: ${ report.invalidBlocks - fixedBlocks } invalid block(s)`,
 		problem: [
-			`${ label }: ${ lost.size } block(s) do not match what the block saves, and the editor's fix would lose something from them. Change them to what the block saves, or change the comment attributes the block saves them from (className and style carry extra classes and styles):`,
+			`${ label }: ${ lost.size } block(s) the editor shows as invalid: each differs from what the block saves, and saving it would lose what is listed. Make the written HTML what the block saves, or set the comment attributes it saves from (className and style hold extra classes and styles):`,
 			...describeInvalidBlocks( report, lost ),
 		].join( '\n' ),
 		...saved,

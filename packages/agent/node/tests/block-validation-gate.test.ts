@@ -432,7 +432,12 @@ describe( 'validating a file', () => {
 	it( 'saves the fix for the blocks that lose nothing, and names the blocks that would', async () => {
 		const file = write( 'tmp/home.html', `${ original }\n${ original }` );
 		const report = invalidWithFix( `${ fixed }\n${ original }`, [
-			{ place: '/1', blockName: 'core/paragraph', lost: 'drop the classes eyebrow' },
+			{
+				place: '/1',
+				blockName: 'core/paragraph',
+				lost: 'drop the classes eyebrow',
+				note: 'drop the class eyebrow from p',
+			},
 		] );
 		report.invalidBlocks = 3;
 		report.results.push(
@@ -447,8 +452,9 @@ describe( 'validating a file', () => {
 			'tmp/home.html: 1 invalid block(s); saved through the block editor, which fixes 2 block(s)'
 		);
 		expect( result.problem ).toContain(
-			"core/paragraph: the editor's fix would drop the classes eyebrow; second"
+			'core/paragraph: saving it as the block saves it would drop the class eyebrow from p, as nothing in its comment attributes saves that.'
 		);
+		expect( result.problem ).not.toContain( 'second' );
 		expect( result.problem ).not.toContain( 'nested' );
 		expect( result.problem ).not.toContain( 'mismatch' );
 	} );
@@ -486,6 +492,7 @@ describe( 'validating a file', () => {
 							place,
 							blockName,
 							lost: 'drop the styles max-width:640px',
+							note: 'drop max-width:640px from p',
 					  } ) )
 			);
 			report.invalidBlocks = 2;
@@ -555,7 +562,7 @@ describe( 'validating a file', () => {
 			const result = await validate( themeFiles );
 			expect( result.fixedContent ).toBeUndefined();
 			expect( result.problem ).toContain(
-				"core/paragraph: the editor's fix would drop the styles max-width:640px"
+				'core/paragraph: saving it as the block saves it would drop max-width:640px from p, as nothing in its comment attributes saves that.'
 			);
 			const file = path.join( site, styleFile );
 			expect( existsSync( file ) ? readFileSync( file, 'utf8' ) : undefined ).toBe( written );

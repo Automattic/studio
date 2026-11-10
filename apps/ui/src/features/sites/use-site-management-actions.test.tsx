@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConnectorProvider } from '@/data/core';
-import { useExportFullSite } from '@/data/queries/use-sites';
+import { useExportBlueprint, useExportDatabase, useExportFullSite } from '@/data/queries/use-sites';
 import { applySyncActivity } from '@/data/sync-activity';
 import { createFakeConnector, type FakeConnector } from '@/test/fake-connector';
 import { useSiteManagementActions } from './use-site-management-actions';
@@ -31,8 +31,17 @@ function renderActions( target = site ) {
 
 const exportsDisabled = ( actions: ReturnType< typeof useSiteManagementActions > ) =>
 	actions
-		.filter( ( action ) => action.id === 'export' || action.id === 'export-db' )
+		.filter(
+			( action ) =>
+				action.id === 'export' || action.id === 'export-db' || action.id === 'export-blueprint'
+		)
 		.map( ( action ) => action.disabled );
+
+const exportCases = [
+	[ useExportFullSite, 'exportFullSite' ],
+	[ useExportDatabase, 'exportDatabase' ],
+	[ useExportBlueprint, 'exportBlueprint' ],
+] as const;
 
 beforeEach( () => {
 	queryClient = new QueryClient( {
@@ -41,6 +50,8 @@ beforeEach( () => {
 	connector = createFakeConnector();
 	// Never settles, so the export stays in flight for the whole test.
 	connector.exportFullSite.mockReturnValue( new Promise( () => {} ) );
+	connector.exportDatabase.mockReturnValue( new Promise( () => {} ) );
+	connector.exportBlueprint.mockReturnValue( new Promise( () => {} ) );
 } );
 
 describe( 'useSiteManagementActions', () => {
@@ -48,6 +59,7 @@ describe( 'useSiteManagementActions', () => {
 		const { result } = renderActions();
 
 		expect( result.current.map( ( action ) => action.disabled ) ).toEqual( [
+			false,
 			false,
 			false,
 			false,
@@ -73,6 +85,7 @@ describe( 'useSiteManagementActions', () => {
 			true,
 			true,
 			true,
+			true,
 		] );
 	} );
 
@@ -87,6 +100,7 @@ describe( 'useSiteManagementActions', () => {
 			true,
 			true,
 			true,
+			true,
 		] );
 
 		applySyncActivity( site.id, { kind: 'success', direction: 'import' } );
@@ -95,37 +109,43 @@ describe( 'useSiteManagementActions', () => {
 	// The screen that starts an export can be navigated away from while it runs.
 	// Its `useMutation` observer dies with it, so progress has to come from the
 	// mutation cache or the export actions come back enabled mid-export.
-	it( 'still reports an export that was started by a screen since unmounted', async () => {
-		const exporter = renderHook( () => useExportFullSite(), { wrapper } );
-		act( () => {
-			exporter.result.current.mutate( site.id );
-		} );
-		await waitFor( () =>
-			expect( connector.exportFullSite ).toHaveBeenCalledWith(
-				site.id,
-				expect.objectContaining( { onStarted: expect.any( Function ) } )
-			)
-		);
+	it.each( exportCases )(
+		'still reports %s after its screen unmounts',
+		async ( useExport, method ) => {
+			const exporter = renderHook( useExport, { wrapper } );
+			act( () => {
+				exporter.result.current.mutate( site.id );
+			} );
+			await waitFor( () =>
+				expect( connector[ method ] ).toHaveBeenCalledWith(
+					site.id,
+					expect.objectContaining( { onStarted: expect.any( Function ) } )
+				)
+			);
 
-		exporter.unmount();
+			exporter.unmount();
 
-		const { result } = renderActions();
-		expect( exportsDisabled( result.current ) ).toEqual( [ true, true ] );
-	} );
+			const { result } = renderActions();
+			expect( exportsDisabled( result.current ) ).toEqual( [ true, true, true ] );
+		}
+	);
 
-	it( 'does not report an export belonging to a different site', async () => {
-		const exporter = renderHook( () => useExportFullSite(), { wrapper } );
-		act( () => {
-			exporter.result.current.mutate( 'other-site' );
-		} );
-		await waitFor( () =>
-			expect( connector.exportFullSite ).toHaveBeenCalledWith(
-				'other-site',
-				expect.objectContaining( { onStarted: expect.any( Function ) } )
-			)
-		);
+	it.each( exportCases )(
+		'does not report %s from a different site',
+		async ( useExport, method ) => {
+			const exporter = renderHook( useExport, { wrapper } );
+			act( () => {
+				exporter.result.current.mutate( 'other-site' );
+			} );
+			await waitFor( () =>
+				expect( connector[ method ] ).toHaveBeenCalledWith(
+					'other-site',
+					expect.objectContaining( { onStarted: expect.any( Function ) } )
+				)
+			);
 
-		const { result } = renderActions();
-		expect( exportsDisabled( result.current ) ).toEqual( [ false, false ] );
-	} );
+			const { result } = renderActions();
+			expect( exportsDisabled( result.current ) ).toEqual( [ false, false, false ] );
+		}
+	);
 } );

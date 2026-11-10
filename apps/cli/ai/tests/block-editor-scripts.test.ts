@@ -49,7 +49,8 @@ describe.runIf( WORDPRESS )(
 			cpSync( WORDPRESS!, root, { recursive: true } );
 			site = liveSite( root, 'Corner Bakehouse' );
 			host = liveHost( site );
-			dir = path.join( root, 'wp-content/plugins/opening-hours' );
+			// A folder WordPress.org has no plugin of, as WordPress would update one it has.
+			dir = path.join( root, 'wp-content/plugins/corner-bakehouse-hours' );
 		} );
 		afterEach( () => {
 			rmSync( site.path, { recursive: true, force: true } );
@@ -68,7 +69,7 @@ describe.runIf( WORDPRESS )(
 			const db = new DatabaseSync( path.join( site.path, 'wp-content/database/.ht.sqlite' ) );
 			db.prepare(
 				"UPDATE wp_options SET option_value = ? WHERE option_name = 'active_plugins'"
-			).run( 'a:1:{i:0;s:31:"opening-hours/opening-hours.php";}' );
+			).run( 'a:1:{i:0;s:40:"corner-bakehouse-hours/opening-hours.php";}' );
 			db.close();
 		};
 
@@ -151,6 +152,35 @@ describe.runIf( WORDPRESS )(
 			},
 			120000
 		);
+
+		// As eval 30's pet store installed Jetpack from WordPress.org, whose vendored
+		// blocks have no editor script: installing a plugin deletes the update_plugins
+		// transient (wp_clean_plugins_cache() in Plugin_Upgrader::install()).
+		it( 'leaves out the blocks of a plugin just installed from WordPress.org', async () => {
+			const mu = path.join( site.path, 'wp-content/mu-plugins' );
+			mkdirSync( mu, { recursive: true } );
+			writeFileSync(
+				path.join( mu, 'register-notice.php' ),
+				"<?php add_action( 'init', function () { register_block_type( WP_PLUGIN_DIR . '/classic-editor/blocks/notice' ); } );"
+			);
+			const before = await blockEditorScripts.read( site.path, undefined, host );
+			const installed = await host.sites.wpCli( site, [
+				'plugin',
+				'install',
+				'classic-editor',
+				'--activate',
+			] );
+			expect( installed.stdout ).toContain( 'Plugin installed successfully.' );
+			const block = path.join( site.path, 'wp-content/plugins/classic-editor/blocks/notice' );
+			mkdirSync( block, { recursive: true } );
+			writeFileSync(
+				path.join( block, 'block.json' ),
+				blockJson( { name: 'classic-editor/notice' } )
+			);
+			const after = await blockEditorScripts.read( site.path, undefined, host );
+			const { reports } = await blockEditorScripts.check( site, before, after, host );
+			expect( reports ).toEqual( [ { key: 'block editor scripts', problem: undefined } ] );
+		}, 120000 );
 
 		it( 'asks WordPress only when the active code changed', async () => {
 			await activate( { 'build/block.json': blockJson( {} ) } );

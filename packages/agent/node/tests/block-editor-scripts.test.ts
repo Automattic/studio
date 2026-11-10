@@ -12,16 +12,12 @@ vi.mock( '@studio/agent/node/block-validator', () => ( {
 // As run h2h5's pet store installed Jetpack from WordPress.org beside a plugin of its own.
 it( 'leaves out the blocks of a plugin WordPress updates', async () => {
 	const site = createSite();
-	site.setOptions( {
-		_site_transient_update_plugins:
-			'O:8:"stdClass":1:{s:9:"no_update";a:1:{s:19:"jetpack/jetpack.php";s:0:"";}}',
-	} );
 	const plugins = `${ site.root }/wp-content/plugins`;
 	const host = createFakeHost();
 	vi.mocked( host.sites.wpCli ).mockResolvedValue( {
 		exitCode: 0,
 		stderr: '',
-		stdout: `WITHOUT_EDITOR_SCRIPT=${ JSON.stringify( {
+		stdout: `UPDATED_PLUGIN_FOLDERS=["jetpack"]\nWITHOUT_EDITOR_SCRIPT=${ JSON.stringify( {
 			'jetpack/podcast-episode': [ `${ plugins }/jetpack/blocks/podcast-episode/block.json` ],
 			'acme/notice': [ `${ plugins }/acme/blocks/notice/block.json` ],
 		} ) }`,

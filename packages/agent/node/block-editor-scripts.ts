@@ -19,11 +19,16 @@
  * update replaces its folder (Plugin_Upgrader::upgrade() in
  * wp-admin/includes/class-plugin-upgrader.php), and WordPress's last update
  * check (wp_update_plugins() in wp-includes/update.php) lists it in the
- * update_plugins transient. Its blocks are not the site's to fix.
+ * update_plugins transient. Its blocks are not the site's to fix. Installing a
+ * plugin deletes that transient (wp_clean_plugins_cache() in
+ * Plugin_Upgrader::install()), and WordPress checks again only later, on cron
+ * or an admin page; so when a block is in a plugin folder the transient does
+ * not list, Studio has WordPress check then, which asks WordPress.org only when
+ * the installed plugins changed since its last check. Offline, the plugin's
+ * blocks are reported.
  */
 import { activeCodeVersion } from '@studio/agent/node/active-code';
 import { unregisteredInEditor } from '@studio/agent/node/block-validator';
-import { readWordPressSite } from '@studio/agent/node/site-database';
 import { printedJson, wpEval } from '@studio/agent/node/tools/utils';
 import type { SiteChangeSource } from '@studio/agent/node/site-changes';
 
@@ -53,6 +58,21 @@ foreach ( $dirs as $dir ) {
 		$without[ $type->name ][] = $file->getPathname();
 	}
 }
+$updated = function () {
+	$updates = get_site_transient( 'update_plugins' );
+	$plugins = array_keys( array_merge( (array) ( $updates->response ?? array() ), (array) ( $updates->no_update ?? array() ) ) );
+	return array_values( array_unique( array_map( 'dirname', array_filter( $plugins, fn ( $plugin ) => str_contains( $plugin, '/' ) ) ) ) );
+};
+$folders = array();
+foreach ( array_merge( array(), ...array_values( $without ) ) as $file ) {
+	if ( str_starts_with( $file, WP_PLUGIN_DIR . '/' ) ) {
+		$folders[] = explode( '/', substr( $file, strlen( WP_PLUGIN_DIR ) + 1 ) )[0];
+	}
+}
+if ( array_diff( $folders, $updated() ) ) {
+	wp_update_plugins();
+}
+echo "\nUPDATED_PLUGIN_FOLDERS=" . wp_json_encode( $updated() ) . "\n";
 echo 'WITHOUT_EDITOR_SCRIPT=' . wp_json_encode( (object) $without );`;
 
 export const blockEditorScripts: SiteChangeSource = {
@@ -67,14 +87,16 @@ export const blockEditorScripts: SiteChangeSource = {
 			return { reports: [] };
 		}
 		let without: Record< string, string[] >;
+		// The folders of the plugins WordPress's last update check found an update source for.
+		let updated: string[];
 		try {
 			const output = await wpEval( host, site, WITHOUT );
 			without = printedJson( output, 'WITHOUT_EDITOR_SCRIPT=' );
+			updated = printedJson( output, 'UPDATED_PLUGIN_FOLDERS=' );
 		} catch {
 			// Code that does not load is reported by what runs it.
 			return { reports: [] };
 		}
-		const updated = await updatedPluginFolders( site.path );
 		for ( const [ name, files ] of Object.entries( without ) ) {
 			const own = files.filter(
 				( file ) =>
@@ -107,18 +129,3 @@ export const blockEditorScripts: SiteChangeSource = {
 		};
 	},
 };
-
-type UpdateCheck =
-	| Partial< Record< 'response' | 'no_update', Record< string, unknown > > >
-	| undefined;
-
-// The folders of the plugins WordPress's last update check found an update source for.
-async function updatedPluginFolders( sitePath: string ): Promise< string[] > {
-	const updates = await readWordPressSite(
-		sitePath,
-		( site ) => site.option( '_site_transient_update_plugins' ) as UpdateCheck
-	).catch( () => undefined );
-	return [ ...Object.keys( updates?.response ?? {} ), ...Object.keys( updates?.no_update ?? {} ) ]
-		.filter( ( plugin ) => plugin.includes( '/' ) )
-		.map( ( plugin ) => plugin.split( '/' )[ 0 ] );
-}

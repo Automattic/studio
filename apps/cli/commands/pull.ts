@@ -26,8 +26,8 @@ import {
 	type CliSelectionOptions,
 	pullSelectionFromSyncOptions,
 	clearPullSelection,
+	isFullPull,
 	type PullSelection,
-	WP_CORE,
 } from 'cli/lib/pull/pull-selection';
 import { getPullSession, type PullSession, updateSiteRecord } from 'cli/lib/pull/pull-session';
 import {
@@ -404,9 +404,7 @@ async function pullSite(
 			} );
 
 			run.localChangesApplied = true;
-			const isFullPull =
-				! selection.skipFiles && ! selection.skipDatabase && ! selection.fileOnlyPaths?.length;
-			const pulledAt = isFullPull ? Date.now() : undefined;
+			const pulledAt = isFullPull( selection ) ? Date.now() : undefined;
 			await runFullPull(
 				studioMetadata,
 				apiUrl,
@@ -624,32 +622,13 @@ export async function runFullPull(
 		}
 	}
 
-	// A site whose own core is the version the remote runs keeps it, so the pull leaves core out.
-	// Otherwise the pull takes the WordPress core the remote runs, not the other core versions a
-	// host keeps next to it, and copies it in. The marker stays from the start of a copy until it
-	// finishes: an interrupted copy can leave mixed core whose version.php already matches.
-	const coreCopyPendingPath = path.join( metadata.stateDirectory, 'core-copy-pending' );
-	const keepsOwnCore =
-		! fs.existsSync( coreCopyPendingPath ) &&
-		canKeepOwnCore( metadata.sitePath, reprintMetadata.sourceSite.wordpressVersion );
-	const isScoped = ( selection.fileOnlyPaths ?? [] ).length > 0;
-	const scopedPaths = ( selection.fileOnlyPaths ?? [] ).filter(
-		( onlyPath ) => onlyPath !== WP_CORE
-	);
-	// A database-only first pull still takes core, so the site gets the same layout as after any
-	// other first pull.
-	const pullsCore = ! keepsOwnCore || ( isScoped && scopedPaths.length === 0 );
-	// Without a known content directory the pull takes everything, the remote's wp-config.php
-	// included. Otherwise it never takes wp-config.php: the site keeps its own.
-	let filesArgs: string[] = [];
-	if ( isScoped ) {
-		filesArgs = [ ...( pullsCore ? [ WP_CORE ] : [] ), ...scopedPaths ].map(
-			( onlyPath ) => `--only=${ onlyPath }`
-		);
-	} else if ( contentDir ) {
-		filesArgs = [ '--include=:wp-content:', ...( pullsCore ? [ `--include=${ WP_CORE }` ] : [] ) ];
-	}
-	const coreFiles = pullsCore ? 'copy' : 'keep';
+	// A database-only first pull still pulls core even when the site could keep its own. Without
+	// any pulled files, flat-docroot couldn't set the site up the way it does after other first
+	// pulls, with wp-content linked to the pulled copy.
+	const pullsCore =
+		!! selection.databaseOnly ||
+		! canKeepOwnCore( metadata.sitePath, reprintMetadata.sourceSite.wordpressVersion );
+	const filesArgs = filesSelectionArgs( selection, contentDir, pullsCore );
 
 	const runStep = ( progressLabel: string, args: string[] ) =>
 		withKeyRecovery(
@@ -710,23 +689,17 @@ export async function runFullPull(
 			] );
 		}
 
-		// The site keeps its own core, or gets a copy of the core this pull took. wp-content stays a
-		// link to the pulled one. `--force` replaces the blank install's wp-content on a first pull.
-		// Without it, a delta pull never replaces the site's own files next to core.
-		if ( coreFiles === 'copy' ) {
-			fs.mkdirSync( metadata.stateDirectory, { recursive: true } );
-			fs.writeFileSync( coreCopyPendingPath, '' );
-		}
+		// `--force` replaces the blank install's wp-content on a first pull. Without it, a later pull
+		// never replaces the site's own files next to core.
 		await runStep( __( 'Flattening layout' ), [
 			'flat-docroot',
 			apiUrl,
 			`--flatten-to=${ metadata.sitePath }`,
-			`--core-files=${ coreFiles }`,
+			`--core-files=${ pullsCore ? 'copy' : 'keep' }`,
 			...( isFirstPull ? [ '--force' ] : [] ),
 			`--state-dir=${ metadata.stateDirectory }`,
 			`--fs-root=${ metadata.rawDirectory }`,
 		] );
-		fs.rmSync( coreCopyPendingPath, { force: true } );
 	}
 
 	// Last, so it picks up the database credentials pull-db stored. The SQLite
@@ -743,6 +716,31 @@ export async function runFullPull(
 	] );
 
 	logger.reportSuccess( __( 'Site pulled' ) );
+}
+
+/** Reprint's selector for the WordPress core the remote runs, and only that version. */
+const WP_CORE = ':wp-core:';
+
+/**
+ * The `pull-files` arguments that select what to pull. A full pull never takes the remote's
+ * wp-config.php, so the site keeps its own, unless the remote's wp-content location is unknown:
+ * then it takes everything.
+ */
+function filesSelectionArgs(
+	selection: PullSelection,
+	contentDir: string | null,
+	pullsCore: boolean
+): string[] {
+	const core = pullsCore ? [ WP_CORE ] : [];
+	if ( selection.databaseOnly || selection.fileOnlyPaths?.length ) {
+		return [ ...core, ...( selection.fileOnlyPaths ?? [] ) ].map(
+			( onlyPath ) => `--only=${ onlyPath }`
+		);
+	}
+	if ( ! contentDir ) {
+		return [];
+	}
+	return [ ':wp-content:', ...core ].map( ( selector ) => `--include=${ selector }` );
 }
 
 /**

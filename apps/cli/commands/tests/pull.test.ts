@@ -481,9 +481,7 @@ describe( 'CLI: studio pull single pull phase', () => {
 		it( 'leaves core out of a selective pull that keeps it', async () => {
 			writeOwnCore( remoteVersion );
 
-			const calls = await pull( true, {
-				fileOnlyPaths: [ ':wp-core:', ':wp-content:/plugins' ],
-			} );
+			const calls = await pull( true, { fileOnlyPaths: [ ':wp-content:/plugins' ] } );
 
 			expect( calls[ 0 ].filter( ( arg ) => arg.startsWith( '--only=' ) ) ).toEqual( [
 				'--only=:wp-content:/plugins',
@@ -507,7 +505,7 @@ describe( 'CLI: studio pull single pull phase', () => {
 		it( 'still copies core in a database-only first pull, so the site gets the pulled layout', async () => {
 			writeOwnCore( remoteVersion );
 
-			const calls = await pull( true, { fileOnlyPaths: [ ':wp-core:' ] } );
+			const calls = await pull( true, { databaseOnly: true } );
 
 			expect( calls.map( ( args ) => args[ 0 ] ) ).toEqual( [
 				'pull-files',
@@ -521,63 +519,6 @@ describe( 'CLI: studio pull single pull phase', () => {
 			] );
 			expect( calls[ 3 ] ).toContain( '--core-files=copy' );
 			expect( calls[ 3 ] ).toContain( '--force' );
-		} );
-
-		it( 'copies core again after an interrupted copy, even when the versions match', async () => {
-			writeOwnCore( remoteVersion );
-			const marker = path.join( technicalSiteDirectory, 'state', 'core-copy-pending' );
-			fs.mkdirSync( path.dirname( marker ), { recursive: true } );
-			fs.writeFileSync( marker, '' );
-
-			const calls = await pull( false );
-
-			expect( calls[ 0 ] ).toContain( '--include=:wp-core:' );
-			expect( calls.find( ( args ) => args[ 0 ] === 'flat-docroot' ) ).toContain(
-				'--core-files=copy'
-			);
-			expect( fs.existsSync( marker ) ).toBe( false );
-		} );
-
-		it( 'keeps the copy marker when the copy fails', async () => {
-			writeOwnCore( '7.1.3' );
-			fs.mkdirSync( path.join( technicalSiteDirectory, 'state' ), { recursive: true } );
-			vi.spyOn( reprintClient, 'runReprintCommandUntilComplete' ).mockImplementation(
-				async ( args ) => {
-					if ( args[ 0 ] === 'flat-docroot' ) {
-						throw new Error( 'interrupted' );
-					}
-					return { stdout: '{"ok":true}', stderr: '', exitCode: 0 };
-				}
-			);
-
-			await expect(
-				runFullPull(
-					{
-						sitePath,
-						technicalSiteDirectory,
-						rawDirectory: path.join( technicalSiteDirectory, 'raw' ),
-						stateDirectory: path.join( technicalSiteDirectory, 'state' ),
-						runtimeDirectory: path.join( technicalSiteDirectory, 'runtime' ),
-						localUrl: 'http://localhost:8881',
-					} as never,
-					'https://example.com/?reprint-api-jetpack',
-					false,
-					false,
-					{},
-					{
-						...emptyReprintMetadata,
-						sourceSite: {
-							...emptyReprintMetadata.sourceSite,
-							contentDirectory: '/srv/htdocs/wp-content',
-							wordpressVersion: remoteVersion,
-						},
-					}
-				)
-			).rejects.toThrow( 'interrupted' );
-
-			expect(
-				fs.existsSync( path.join( technicalSiteDirectory, 'state', 'core-copy-pending' ) )
-			).toBe( true );
 		} );
 
 		it( 'leaves the layout alone on a database-only pull', async () => {
@@ -1354,12 +1295,12 @@ describe( 'CLI: studio pull first-pull selective sync', () => {
 		expect( filesArgs ).toContain( '--only=:wp-content:/themes' );
 		expect( filesArgs ).toContain( '--only=:wp-content:/plugins/jetpack' );
 
-		// The persisted sidecar records the healed selection a resume reuses.
+		// The persisted sidecar records the selection a resume reuses. Whether to pull core is
+		// decided on each run.
 		const sidecar = JSON.parse(
 			fs.readFileSync( path.join( stateDirectory, 'selection.json' ), 'utf-8' )
 		);
 		expect( sidecar.fileOnlyPaths ).toEqual( [
-			':wp-core:',
 			':wp-content:/themes',
 			':wp-content:/plugins/jetpack',
 		] );

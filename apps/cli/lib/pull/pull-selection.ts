@@ -16,7 +16,19 @@ export interface PullSelection {
 	skipDatabase?: boolean;
 	/** Pulls only the database and keeps the local files. Only for sites pulled before. */
 	skipFiles?: boolean;
+	/** The first pull of a site, with only the database picked. Later pulls use `skipFiles`. */
+	databaseOnly?: boolean;
 	fileOnlyPaths?: string[];
+}
+
+/** Whether the selection pulls the whole site: every file and the database. */
+export function isFullPull( selection: PullSelection ): boolean {
+	return (
+		! selection.skipFiles &&
+		! selection.skipDatabase &&
+		! selection.databaseOnly &&
+		! selection.fileOnlyPaths?.length
+	);
 }
 
 /** The `--only` and `--skip-database` flags. */
@@ -25,9 +37,6 @@ export interface CliSelectionOptions {
 	skipDatabase?: boolean;
 	skipFiles?: boolean;
 }
-
-/** Reprint's selector for the WordPress core the remote runs, and only that version. */
-export const WP_CORE = ':wp-core:';
 
 const FILE_SYNC_OPTIONS = [ 'plugins', 'themes', 'uploads' ] as const;
 
@@ -96,27 +105,8 @@ export async function applySelection( params: {
 } ): Promise< PullSelection | null > {
 	const { session, isFirstPull, reprintMetadata, cli, wpComAccessToken, wpComSiteId } = params;
 
-	// `--only` replaces Reprint's default paths, so a partial first pull must
-	// add the WordPress core the remote runs itself.
-	const withCoreOnFirstPull = ( fileOnlyPaths: string[], databaseOnly = false ): string[] => {
-		if (
-			! isFirstPull ||
-			( fileOnlyPaths.length === 0 && ! databaseOnly ) ||
-			fileOnlyPaths.includes( WP_CORE )
-		) {
-			return fileOnlyPaths;
-		}
-		return [ WP_CORE, ...fileOnlyPaths ];
-	};
-
-	// Core is added again in case Reprint started over with a fresh download.
 	const persisted = readPullSelection( session );
 	if ( persisted ) {
-		const healed = withCoreOnFirstPull( persisted.fileOnlyPaths ?? [] );
-		if ( healed.length !== ( persisted.fileOnlyPaths?.length ?? 0 ) ) {
-			persisted.fileOnlyPaths = healed.length > 0 ? healed : undefined;
-			savePullSelection( session, persisted );
-		}
 		return persisted;
 	}
 
@@ -172,9 +162,9 @@ export async function applySelection( params: {
 					)
 				);
 			}
-			const withCore = withCoreOnFirstPull( mapCliOnlyToReprint( cliOnly ) );
-			if ( withCore.length > 0 ) {
-				selection.fileOnlyPaths = withCore;
+			const onlyPaths = mapCliOnlyToReprint( cliOnly );
+			if ( onlyPaths.length > 0 ) {
+				selection.fileOnlyPaths = onlyPaths;
 			}
 		}
 		assertLocalDatabaseAvailable( selection );
@@ -209,12 +199,14 @@ export async function applySelection( params: {
 	if ( ! picked ) {
 		return null;
 	}
-	const fileOnlyPaths = withCoreOnFirstPull( picked.fileOnlyPaths, ! picked.hasAnyFile );
 	const selection: PullSelection = {
 		skipDatabase: picked.skipDatabase,
 	};
-	if ( fileOnlyPaths.length > 0 ) {
-		selection.fileOnlyPaths = fileOnlyPaths;
+	// The picker offers a database-only pull only on a first pull.
+	if ( ! picked.hasAnyFile ) {
+		selection.databaseOnly = true;
+	} else if ( picked.fileOnlyPaths.length > 0 ) {
+		selection.fileOnlyPaths = picked.fileOnlyPaths;
 	}
 	assertLocalDatabaseAvailable( selection );
 	savePullSelection( session, selection );

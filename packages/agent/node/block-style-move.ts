@@ -19,12 +19,12 @@
  * otherwise nothing is.
  */
 import { existsSync, readFileSync } from 'fs';
-import { mkdir, writeFile } from 'fs/promises';
+import { mkdir, readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import { filesUnder } from '@studio/agent/node/active-code';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { placeOf, saveMarkup, type Markup } from '@studio/agent/node/site-markup';
-import { isUpdatableTheme } from '@studio/agent/node/themes';
+import { isBlockTheme, isUpdatableTheme } from '@studio/agent/node/themes';
 import type { StudioAgentHost } from '@studio/agent/node/host';
 
 interface Rule {
@@ -368,6 +368,83 @@ const title = ( name: string ) =>
 		.map( ( word ) => word[ 0 ].toUpperCase() + word.slice( 1 ) )
 		.join( ' ' );
 
+// A block style's theme.json, as Twenty Twenty-Five's styles/blocks/*.json.
+const blockStyleJson = ( name: string, blockTypes: string[], css: string ) =>
+	JSON.stringify(
+		{
+			$schema: 'https://schemas.wp.org/trunk/theme.json',
+			version: 3,
+			title: title( name ),
+			slug: name,
+			blockTypes,
+			styles: { css },
+		},
+		null,
+		'\t'
+	) + '\n';
+
+/** A theme's file for the block style `name`. */
+export const blockStyleFile = ( themeDir: string, name: string ) =>
+	path.join( themeDir, 'styles', 'blocks', `${ name }.json` );
+
+/**
+ * Whether a theme can take block styles Studio writes: a block theme, whose
+ * styles/*.json WordPress reads (WP_Theme_JSON_Resolver::get_style_variations()),
+ * that no update overwrites.
+ */
+export async function takesBlockStyles( siteRoot: string, themeDir: string ): Promise< boolean > {
+	return (
+		isBlockTheme( themeDir ) && ! ( await isUpdatableTheme( siteRoot, path.basename( themeDir ) ) )
+	);
+}
+
+/**
+ * Writes block styles to a theme, each `css` for the block types named with
+ * it; a style of the same name and css gains the block types it lacks, the
+ * rest of its file kept. Undefined, writing nothing, when a style of the
+ * name holds other css. Returns each style's file.
+ */
+export async function saveBlockStyles(
+	themeDir: string,
+	styles: Array< { slug: string; css: string; blockName: string } >
+): Promise< string[] | undefined > {
+	const files = new Map< string, { json: Record< string, unknown >; changed: boolean } >();
+	for ( const { slug, css, blockName } of styles ) {
+		const file = blockStyleFile( themeDir, slug );
+		if ( ! files.has( file ) ) {
+			const text = await readFile( file, 'utf8' ).catch( () => undefined );
+			let json;
+			try {
+				json = text === undefined ? undefined : JSON.parse( text );
+			} catch {
+				return undefined;
+			}
+			if ( json && ( json.styles?.css !== css || ! Array.isArray( json.blockTypes ) ) ) {
+				return undefined;
+			}
+			files.set(
+				file,
+				json
+					? { json, changed: false }
+					: { json: JSON.parse( blockStyleJson( slug, [], css ) ), changed: true }
+			);
+		}
+		const style = files.get( file )!;
+		const blockTypes = style.json.blockTypes as string[];
+		if ( ! blockTypes.includes( blockName ) ) {
+			blockTypes.push( blockName );
+			style.changed = true;
+		}
+	}
+	for ( const [ file, { json, changed } ] of files ) {
+		if ( changed ) {
+			await mkdir( path.dirname( file ), { recursive: true } );
+			await writeFile( file, JSON.stringify( json, null, '\t' ) + '\n', 'utf8' );
+		}
+	}
+	return styles.map( ( { slug } ) => blockStyleFile( themeDir, slug ) );
+}
+
 /**
  * Moves a class's look into a block style of the theme for the block types
  * that carry it, and says what Studio did; undefined, changing nothing, if it
@@ -382,7 +459,7 @@ export async function moveToBlockStyle(
 	stylesheets: string[],
 	markup: Markup[]
 ): Promise< string | undefined > {
-	const styleFile = path.join( themeDir, 'styles', 'blocks', `${ name }.json` );
+	const styleFile = blockStyleFile( themeDir, name );
 	if (
 		existsSync( styleFile ) ||
 		( await isUpdatableTheme( siteRoot, path.basename( themeDir ) ) )
@@ -424,22 +501,7 @@ export async function moveToBlockStyle(
 		await writeFile( item.file!, item.styled!, 'utf8' );
 	}
 	await mkdir( path.dirname( styleFile ), { recursive: true } );
-	await writeFile(
-		styleFile,
-		JSON.stringify(
-			{
-				$schema: 'https://schemas.wp.org/trunk/theme.json',
-				version: 3,
-				title: title( name ),
-				slug: name,
-				blockTypes,
-				styles: { css: plan.css },
-			},
-			null,
-			'\t'
-		) + '\n',
-		'utf8'
-	);
+	await writeFile( styleFile, blockStyleJson( name, blockTypes, plan.css ), 'utf8' );
 	const moved = [];
 	for ( const [ i, sheet ] of sheets.entries() ) {
 		const rest = plan.stylesheets[ i ];

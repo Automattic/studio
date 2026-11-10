@@ -34,6 +34,19 @@ interface BlockFixProposal {
 	 * from, whose fix keeps it in core/html blocks; `content`, the markup so.
 	 */
 	lift?: { content: string; from: string[] };
+	/**
+	 * The blocks the fix gives a block style, `is-style-<slug>` in className,
+	 * for the styles written on their own element that no attribute saves:
+	 * `css`, those styles, for the theme's block style to hold.
+	 */
+	blockStyles?: BlockStyle[];
+}
+
+export interface BlockStyle {
+	place: string;
+	blockName: string;
+	slug: string;
+	css: string;
 }
 
 export interface BlockLoss {
@@ -148,9 +161,10 @@ export async function validateBlocks(
 	content: string,
 	siteUrl: string,
 	editor: BlockEditor = 'post',
-	rendersAlike?: RendersAlike
+	rendersAlike?: RendersAlike,
+	blockStyles = false
 ): Promise< ValidationReport > {
-	const report = await validateAsWritten( content, siteUrl, editor, rendersAlike );
+	const report = await validateAsWritten( content, siteUrl, editor, rendersAlike, blockStyles );
 	// The fix with the text written beside inner blocks in core/html blocks
 	// stands when it fixes every block and loses nothing. core/html renders
 	// it as written (no render callback in wp-includes/blocks/html), and its
@@ -162,7 +176,7 @@ export async function validateBlocks(
 		return report;
 	}
 	report.proposedFix = fix as BlockFixProposal;
-	const lifted = await validateAsWritten( lift.content, siteUrl, editor );
+	const lifted = await validateAsWritten( lift.content, siteUrl, editor, undefined, blockStyles );
 	const liftedFix = lifted.proposedFix ?? {
 		fixedContent: lift.content,
 		report: lifted,
@@ -193,6 +207,7 @@ async function validateAsWritten(
 	siteUrl: string,
 	editor: BlockEditor,
 	rendersAlike?: RendersAlike,
+	blockStyles = false,
 	alike: string[] = []
 ): Promise< ValidationReport > {
 	try {
@@ -203,9 +218,10 @@ async function validateAsWritten(
 				getEditorPage( siteUrl, editor ).loadErrors,
 				!! rendersAlike,
 				alike,
+				blockStyles,
 			] as const;
 
-			const evaluation = page.evaluate( async ( [ html, thrown, judgeRenders, renderAlike ] ) => {
+			const evaluation = page.evaluate( async ( [ html, thrown, judge, renderAlike, styling ] ) => {
 				/* eslint-disable @typescript-eslint/no-explicit-any */
 				const wpBlocks = ( window as any ).wp?.blocks;
 				if ( ! wpBlocks ) {
@@ -839,7 +855,10 @@ async function validateAsWritten(
 								if ( value && String( result.attributes[ key ] ?? '' ) !== value ) {
 									result = wpBlocks.createBlock(
 										result.name,
-										{ ...result.attributes, [ key ]: kind === 'number' ? Number( value ) : value },
+										{
+											...result.attributes,
+											[ key ]: kind === 'number' ? Number( value ) : value,
+										},
 										result.innerBlocks
 									);
 									stored = true;
@@ -1375,6 +1394,25 @@ async function validateAsWritten(
 												  )
 												: [],
 											rootStyle: root?.getAttribute( 'style' ) ?? '',
+											// The styles the fix drops from each element, known by its
+											// tag and the classes written on it.
+											stylesOn: reshaped
+												? []
+												: elementsOf( block.originalContent ?? '' ).flatMap( ( element, index ) => {
+														const dropped = [ ...declarations( element ) ]
+															.map( ( [ property, value ] ) => `${ property }:${ value }` )
+															.filter( ( style ) => styles.includes( style ) );
+														return dropped.length
+															? [
+																	{
+																		root: index === 0,
+																		tag: element.tagName,
+																		classes: [ ...element.classList ],
+																		styles: dropped,
+																	},
+															  ]
+															: [];
+												  } ),
 											classesOn: reshaped
 												? []
 												: elementsOf( block.originalContent ?? '' ).flatMap( ( element, index ) => {
@@ -1420,6 +1458,123 @@ async function validateAsWritten(
 				// classes the fix gives it, and kept when nothing the block's elements
 				// compute changes.
 				const numbered = ( name: string ) => name.replace( /\d+/g, '#' );
+
+				// What an element and the elements in it paint: each color they
+				// show, its alpha times the opacity of the element and of those
+				// between it and the target, as CSS composites a layer over what is
+				// behind it (CSS Compositing 1, simple alpha compositing). A color
+				// shows where its box, text, border or outline does. Each is read by
+				// painting it, whatever syntax the browser computes it in.
+				const SIDES = [ 'top', 'right', 'bottom', 'left' ];
+				const ownText = ( inner: Element ) =>
+					[ ...inner.childNodes ].some(
+						( node ) => node.nodeType === Node.TEXT_NODE && node.textContent?.trim()
+					);
+				const drawn = ( style: CSSStyleDeclaration, line: string ) =>
+					! [ 'none', 'hidden' ].includes( style.getPropertyValue( `${ line }-style` ) ) &&
+					parseFloat( style.getPropertyValue( `${ line }-width` ) ) > 0;
+				const svg = ( inner: Element ) => inner.namespaceURI === 'http://www.w3.org/2000/svg';
+				const PAINTED: Record< string, ( style: CSSStyleDeclaration, inner: Element ) => boolean > =
+					{
+						'background-color': () => true,
+						color: ( _style, inner ) => ownText( inner ),
+						'text-decoration-color': ( style, inner ) =>
+							style.textDecorationLine !== 'none' && ownText( inner ),
+						'outline-color': ( style ) => drawn( style, 'outline' ),
+						fill: ( _style, inner ) => svg( inner ),
+						stroke: ( _style, inner ) => svg( inner ),
+						...Object.fromEntries(
+							SIDES.map( ( side ) => [
+								`border-${ side }-color`,
+								( style: CSSStyleDeclaration ) => drawn( style, `border-${ side }` ),
+							] )
+						),
+					};
+				const paints = ( property: string ) => property === 'opacity' || property in PAINTED;
+				const pixel = document
+					.createElement( 'canvas' )
+					.getContext( '2d', { willReadFrequently: true } )!;
+				function painted( target: HTMLElement ): number[][] {
+					const view = target.ownerDocument.defaultView!;
+					return [ target, ...target.querySelectorAll( '*' ) ].flatMap( ( inner ) => {
+						let opacity = 1;
+						for ( let at: Element | null = inner; at; at = at.parentElement ) {
+							opacity *= Number( view.getComputedStyle( at ).opacity );
+							if ( at === target ) {
+								break;
+							}
+						}
+						return [ null, '::before', '::after' ].flatMap( ( pseudo ) => {
+							const style = view.getComputedStyle( inner, pseudo );
+							if ( pseudo && [ 'none', 'normal' ].includes( style.content ) ) {
+								return [];
+							}
+							return Object.entries( PAINTED ).map( ( [ property, shows ] ) => {
+								pixel.clearRect( 0, 0, 1, 1 );
+								pixel.fillStyle = 'transparent';
+								if ( shows( style, inner ) ) {
+									pixel.fillStyle = style.getPropertyValue( property );
+								}
+								pixel.fillRect( 0, 0, 1, 1 );
+								const [ r, g, b, a ] = pixel.getImageData( 0, 0, 1, 1 ).data;
+								return [ r, g, b, ( a / 255 ) * opacity ];
+							} );
+						} );
+					} );
+				}
+				// CIELAB of an sRGB color (IEC 61966-2-1; CIE 15, D65).
+				function lab( rgb: number[] ): number[] {
+					const [ r, g, b ] = rgb.map( ( channel ) => {
+						const c = channel / 255;
+						return c <= 0.04045 ? c / 12.92 : ( ( c + 0.055 ) / 1.055 ) ** 2.4;
+					} );
+					const f = ( t: number ) =>
+						t > 216 / 24389 ? Math.cbrt( t ) : ( ( 24389 / 27 ) * t + 16 ) / 116;
+					const x = f( ( 0.4124 * r + 0.3576 * g + 0.1805 * b ) / 0.95047 );
+					const y = f( 0.2126 * r + 0.7152 * g + 0.0722 * b );
+					const z = f( ( 0.0193 * r + 0.1192 * g + 0.9505 * b ) / 1.08883 );
+					return [ 116 * y - 16, 500 * ( x - y ), 200 * ( y - z ) ];
+				}
+				// The most two paints differ by, over black and over white, the
+				// backdrops between which what is behind them lies: CIE76 ΔE*ab, of
+				// which 2.3 is a just noticeable difference (Sharma, Digital Color
+				// Imaging Handbook, 2003).
+				const NOTICEABLE = 2.3;
+				const paintDifference = ( one: number[][], other: number[][] ) =>
+					one.length !== other.length
+						? Infinity
+						: Math.max(
+								0,
+								...one.flatMap( ( color, i ) =>
+									[ 0, 255 ].map( ( backdrop ) => {
+										const over = ( [ r, g, b, a ]: number[] ) =>
+											lab( [ r, g, b ].map( ( c ) => c * a + backdrop * ( 1 - a ) ) );
+										const [ l1, a1, b1 ] = over( color );
+										const [ l2, a2, b2 ] = over( other[ i ] );
+										return Math.hypot( l1 - l2, a1 - a2, b1 - b2 );
+									} )
+								)
+						  );
+
+				// The block style, by place, that shows the styles written on a
+				// block's own element as they show inline: `css`, the styles.
+				const styledByBlockStyle = new Map< string, { slug: string; css: string } >();
+				// A block style's slug from its css, as max-width-640px, in the kebab
+				// case WordPress gives a style's name (_wp_to_kebab_case()), one per css.
+				const blockStyleSlug = ( css: string ) => {
+					const slug = css
+						.toLowerCase()
+						.replace( /[^a-z0-9]+/g, '-' )
+						.replace( /^-|-$/g, '' );
+					let hashed = 0;
+					for ( const char of css ) {
+						hashed = ( Math.imul( hashed, 31 ) + char.charCodeAt( 0 ) ) >>> 0;
+					}
+					return slug.length > 48
+						? `${ slug.slice( 0, 40 ).replace( /-$/, '' ) }-${ hashed.toString( 36 ) }`
+						: slug;
+				};
+
 				async function renderedAlready( lossy: any[] ) {
 					const kept = new Map< string, Set< string > >();
 					const outermost = [
@@ -1631,6 +1786,93 @@ async function validateAsWritten(
 									}
 								}
 							}
+							// The styles the fix drops from an element that set only what it
+							// paints, as a cover's overlay written at an opacity
+							// of 0.68 that its save shows at 0.7, from has-background-dim-70
+							// (dimRatioToClass rounds to tens, cover/shared.js): kept when
+							// nothing moves, nothing else computes otherwise, and no color it
+							// and what is in it paint differs noticeably.
+							const unpainted = () =>
+								own
+									.flatMap( ( inner ) =>
+										[ null, '::before', '::after' ].map( ( pseudo ) => {
+											const style = view.getComputedStyle( inner, pseudo );
+											return [ ...style ]
+												.filter( ( property ) => ! paints( property ) )
+												.map( ( property ) => style.getPropertyValue( property ) )
+												.join( ';' );
+										} )
+									)
+									.join( '|' ) + where();
+							const keeps = kept.get( loss.place )!;
+							for ( const { root, tag, classes, styles } of loss.stylesOn ) {
+								const dropped = styles.filter( ( style: string ) => ! keeps.has( style ) );
+								const matches = root
+									? [ element ]
+									: own.filter(
+											( inner ) =>
+												inner !== element &&
+												inner.tagName === tag &&
+												classes.length > 0 &&
+												classes.every( ( name: string ) => inner.classList.contains( name ) )
+									  );
+								if (
+									! dropped.length ||
+									matches.length !== 1 ||
+									! dropped.every( ( style: string ) => paints( style.split( ':' )[ 0 ] ) )
+								) {
+									continue;
+								}
+								const [ target ] = matches;
+								const before = { rest: unpainted(), paint: painted( target ) };
+								const style = target.style.cssText;
+								target.style.cssText += `;${ dropped.join( ';' ) }`;
+								const unseen =
+									unpainted() === before.rest &&
+									paintDifference( before.paint, painted( target ) ) < NOTICEABLE;
+								target.style.cssText = style;
+								if ( unseen ) {
+									dropped.forEach( ( one: string ) => keeps.add( one ) );
+								}
+							}
+							// The styles left on the block's own element, as a block style:
+							// WordPress prints its css as `:root :where(<selector>)`
+							// (WP_Theme_JSON::process_blocks_custom_css() in
+							// wp-includes/class-wp-theme-json.php) after the global styles
+							// (wp_render_block_style_variation_support_styles() in
+							// wp-includes/block-supports/block-style-variations.php): its
+							// stylesheet depends on global-styles, so prints after it, and
+							// before core-block-supports-inline-css, a block's own layout
+							// (`.wp-container-… > :where(…) { max-width }`), whose weight
+							// it shares, as the layout's global rule's. The preview prints
+							// the global styles in its body, then a rule of its own,
+							// `body{height:auto;…}`, then the blocks' supports
+							// (ScaledBlockPreview and EditorStyles in
+							// @wordpress/block-editor), so it is set after that rule. It
+							// stands when the block's elements compute and sit as with the
+							// styles inline. Its css is split at `&` and braces, so a style
+							// holding them is none.
+							const left = ( loss.stylesOn.find( ( one: any ) => one.root )?.styles ?? [] ).filter(
+								( style: string ) => ! keeps.has( style )
+							);
+							const globalStylesEnd = [
+								...element.ownerDocument.querySelectorAll( 'body > style' ),
+							].find( ( one ) => one.textContent?.startsWith( 'body{height:auto;' ) );
+							if ( styling && left.length && ! /[&{}]/.test( left.join() ) && globalStylesEnd ) {
+								const css = left.join( ';' );
+								const slug = blockStyleSlug( css );
+								element.style.cssText += `;${ css }`;
+								const inline = looks() + where();
+								element.style.cssText = asRendered.style;
+								const sheet = element.ownerDocument.createElement( 'style' );
+								globalStylesEnd.after( sheet );
+								sheet.textContent = `:root :where(.is-style-${ slug }){${ css }}`;
+								element.classList.add( `is-style-${ slug }` );
+								if ( looks() + where() === inline ) {
+									styledByBlockStyle.set( loss.place, { slug, css } );
+								}
+								sheet.remove();
+							}
 							element.className = asRendered.className;
 						}
 						return kept;
@@ -1815,10 +2057,57 @@ async function validateAsWritten(
 					found = losses( initial.blocks, fixed.blocks );
 				}
 				const rendering = await renderedAlready(
-					found.filter( ( loss ) => loss.onRoot.length || loss.classesOn.length )
+					found.filter(
+						( loss ) => loss.onRoot.length || loss.classesOn.length || loss.stylesOn.length
+					)
 				);
+				// The block made again with the block style in its className, which
+				// its save keeps on its element (the customClassName support,
+				// @wordpress/block-editor's hooks/custom-class-name.js), when it
+				// supports one and has no block style yet: WordPress renders the
+				// first of a block's styles only
+				// (wp_render_block_style_variation_support_styles()).
+				const blockStyles: Array< {
+					place: string;
+					blockName: string;
+					slug: string;
+					css: string;
+				} > = [];
+				function withBlockStyle( place: string, { slug, css }: { slug: string; css: string } ) {
+					const fix = blockAt( fixed.blocks, place );
+					const className = fix?.attributes?.className;
+					if (
+						! fix ||
+						! wpBlocks.hasBlockSupport( fix.name, 'customClassName', true ) ||
+						/\bis-style-/.test( className ?? '' )
+					) {
+						return false;
+					}
+					const at = place.lastIndexOf( '/' );
+					const siblings = at
+						? blockAt( fixed.blocks, place.slice( 0, at ) ).innerBlocks
+						: fixed.blocks;
+					const styled = wpBlocks.parse(
+						wpBlocks.serialize( [
+							wpBlocks.createBlock(
+								fix.name,
+								{
+									...fix.attributes,
+									className: [ className, `is-style-${ slug }` ].filter( Boolean ).join( ' ' ),
+								},
+								fix.innerBlocks
+							),
+						] )
+					)[ 0 ];
+					if ( ! styled?.isValid ) {
+						return false;
+					}
+					siblings[ Number( place.slice( at + 1 ) ) ] = styled;
+					blockStyles.push( { place, blockName: fix.name, slug, css } );
+					return true;
+				}
 				const lossList = found
-					.map( ( { place, blockName, lost } ) => {
+					.map( ( { place, blockName, lost, stylesOn } ) => {
 						const kept = rendering.get( place ) ?? new Set();
 						const styles = lost.styles.filter( ( style: string ) => ! kept.has( style ) );
 						const hint = ( dropped: string[] ) => {
@@ -1836,6 +2125,24 @@ async function validateAsWritten(
 							return ` — store ${ which } as ${ stored[ 0 ] }`;
 						};
 						const classes = lost.classes.filter( ( name: string ) => ! kept.has( name ) );
+						// Styles on the block's own element only, none of which an
+						// attribute holds, are its block style's.
+						const blockStyle = styledByBlockStyle.get( place );
+						if (
+							blockStyle &&
+							! lost.text.length &&
+							! classes.length &&
+							! lost.moves.length &&
+							styles.join( ';' ) === blockStyle.css &&
+							stylesOn.every(
+								( one: any ) =>
+									one.root || one.styles.every( ( style: string ) => kept.has( style ) )
+							) &&
+							! storedAs( place, styles ) &&
+							withBlockStyle( place, blockStyle )
+						) {
+							return { place, blockName, lost: '' };
+						}
 						return {
 							place,
 							blockName,
@@ -1850,6 +2157,10 @@ async function validateAsWritten(
 						};
 					} )
 					.filter( ( loss ) => loss.lost && ! renderAlike.includes( loss.place ) );
+				if ( blockStyles.length ) {
+					fixedContent = wpBlocks.serialize( fixed.blocks );
+					fixed = validateContent( fixedContent );
+				}
 				const lossy = new Set( lossList.map( ( loss: any ) => loss.place ) );
 				function lossless(
 					fixes: any[],
@@ -1876,7 +2187,7 @@ async function validateAsWritten(
 				}
 				// Each lossy block WordPress renders on the server, as stored and with
 				// its fix, for the caller to render.
-				const dynamic = judgeRenders
+				const dynamic = judge
 					? await Promise.all( lossList.map( ( loss ) => typeOf( loss.blockName ) ) )
 					: [];
 				const rendered = lossList
@@ -1989,6 +2300,7 @@ async function validateAsWritten(
 						fixedContent: losslessContent,
 						report: fixed.report,
 						losses: lossList,
+						...( blockStyles.length && { blockStyles } ),
 						...( liftedFrom.length && { lift: { content: liftedContent, from: liftedFrom } } ),
 					},
 					rendered,
@@ -2017,7 +2329,7 @@ async function validateAsWritten(
 			: [];
 		const places = rendered.filter( ( _one, i ) => same[ i ] ).map( ( one ) => one.place );
 		return places.length
-			? validateAsWritten( content, siteUrl, editor, undefined, places )
+			? validateAsWritten( content, siteUrl, editor, undefined, blockStyles, places )
 			: report;
 	} catch ( error ) {
 		// If navigation or evaluation failed, the next call loads the editor again.

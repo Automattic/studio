@@ -15,6 +15,7 @@ import { readFileSync } from 'fs';
 import { readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import { validateHtmlBlockPolicy } from '@studio/agent/node/block-content-policy';
+import { saveBlockStyles, takesBlockStyles } from '@studio/agent/node/block-style-move';
 import {
 	bindNavigationLinks,
 	blocksSavingElements,
@@ -25,6 +26,7 @@ import {
 	dropCommentsBetweenBlocks,
 	validateBlocks,
 	type BlockEditor,
+	type BlockStyle,
 	type PresetValues,
 	type PresetValuesResult,
 	type RendersAlike,
@@ -35,6 +37,7 @@ import { rewriteNotes } from '@studio/agent/node/file-rewrites';
 import { hash } from '@studio/agent/node/post-copies';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { themePresets } from '@studio/agent/node/theme-presets';
+import { themesDir } from '@studio/agent/node/themes';
 import { printedJson, wpEval } from '@studio/agent/node/tools/utils';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { OpenProblems } from '@studio/agent/node/open-problems';
@@ -155,6 +158,42 @@ interface MarkupValidation {
 	droppedComments?: number;
 	/** The blocks whose text written beside their inner blocks the save keeps in core/html blocks. */
 	lifted?: string[];
+	/** The block styles the fix gives blocks, and the theme files that hold them. */
+	blockStyles?: Array< BlockStyle & { file: string } >;
+}
+
+/**
+ * Writes the block styles a fix gives blocks to the theme they render with,
+ * returning each one's file, or undefined, writing nothing, when it cannot.
+ */
+export type SaveBlockStyles = (
+	styles: BlockStyle[]
+) => Promise< Array< BlockStyle & { file: string } > | undefined >;
+
+/**
+ * The writer of block styles to a site's theme (`theme`, or the active one),
+ * when the theme can take them.
+ */
+export async function blockStylesOn(
+	siteRoot: string,
+	theme?: string
+): Promise< SaveBlockStyles | undefined > {
+	const slug =
+		theme ??
+		( await readWordPressSite( siteRoot, ( site ) => site.option( 'stylesheet' ) ).catch(
+			() => undefined
+		) );
+	if ( typeof slug !== 'string' || ! slug ) {
+		return undefined;
+	}
+	const themeDir = themesDir( siteRoot, slug );
+	if ( ! ( await takesBlockStyles( siteRoot, themeDir ) ) ) {
+		return undefined;
+	}
+	return async ( styles ) => {
+		const files = await saveBlockStyles( themeDir, styles );
+		return files && styles.map( ( style, i ) => ( { ...style, file: files[ i ] } ) );
+	};
 }
 
 /** What saving through the editor changes, for a note. */
@@ -187,6 +226,18 @@ export function describeEditorSave( result: MarkupValidation, fixes: string ): s
 			  )
 			: undefined,
 		result.boundLinks?.length ? describeBoundLinks( result.boundLinks ) : undefined,
+		...[ ...new Set( ( result.blockStyles ?? [] ).map( ( style ) => style.file ) ) ].map(
+			( file ) => {
+				const styles = result.blockStyles!.filter( ( style ) => style.file === file );
+				const [ { css, slug } ] = styles;
+				// As block-style-move.ts says of the block styles it writes.
+				return `moves ${ css } on ${ [
+					...new Set( styles.map( ( style ) => style.blockName ) ),
+				].join(
+					', '
+				) } into the block style ${ file }, which WordPress registers for its "blockTypes" (WP_Theme_JSON_Resolver::get_style_variations() in wp-includes/class-wp-theme-json-resolver.php); a block takes the look as "className":"is-style-${ slug }"`;
+			}
+		),
 		...new Set(
 			( result.lifted ?? [] ).map(
 				( blockName ) =>
@@ -342,7 +393,8 @@ export async function validateBlockMarkupFile(
 	filePath: string,
 	siteUrl: string,
 	presetValues: PresetValues = NO_PRESETS,
-	rendersAlike?: RendersAlike
+	rendersAlike?: RendersAlike,
+	blockStyles?: SaveBlockStyles
 ): Promise< FileValidation > {
 	const label = filePath.split( path.sep ).slice( -2 ).join( '/' );
 	const content = await readFile( filePath, 'utf8' );
@@ -358,7 +410,8 @@ export async function validateBlockMarkupFile(
 		siteUrl,
 		presetValues,
 		blockEditorOf( { file: filePath } ),
-		rendersAlike
+		rendersAlike,
+		blockStyles
 	);
 	if ( result.fixedContent === undefined ) {
 		return { contentHash: hash( content ), summary: result.summary, problem: result.problem };
@@ -466,7 +519,8 @@ export async function validateBlockMarkup(
 	siteUrl: string,
 	presetValues: PresetValues = NO_PRESETS,
 	editor: BlockEditor = 'post',
-	rendersAlike?: RendersAlike
+	rendersAlike?: RendersAlike,
+	blockStyles?: SaveBlockStyles
 ): Promise< MarkupValidation > {
 	// The editor's save of blocks parsed this way repeats what follows them,
 	// so nothing is saved for it.
@@ -488,7 +542,8 @@ export async function validateBlockMarkup(
 		siteUrl,
 		presetValues,
 		editor,
-		rendersAlike
+		rendersAlike,
+		blockStyles
 	);
 	const problems = [ policy, unknown, result.problem ].filter( Boolean );
 	return policy || unknown
@@ -613,12 +668,19 @@ async function validateSavedMarkup(
 	siteUrl: string,
 	presetValues: PresetValues,
 	editor: BlockEditor,
-	rendersAlike?: RendersAlike
+	rendersAlike?: RendersAlike,
+	blockStyles?: SaveBlockStyles
 ): Promise< MarkupValidation > {
 	// The editor's fix is saved without the comments between blocks, which it
 	// would otherwise count as Classic blocks it cannot fix.
 	const between = dropCommentsBetweenBlocks( content );
-	const report = await validateBlocks( between.content, siteUrl, editor, rendersAlike );
+	const report = await validateBlocks(
+		between.content,
+		siteUrl,
+		editor,
+		rendersAlike,
+		!! blockStyles
+	);
 	if ( report.error ) {
 		return {
 			summary: `${ label }: not validated (${ report.error })`,
@@ -654,6 +716,13 @@ async function validateSavedMarkup(
 		};
 	}
 
+	// The block styles the fix gives blocks are written to the theme before
+	// the fix is saved; one the theme cannot take leaves the blocks to the fix
+	// without them.
+	const styled = fix.blockStyles && ( await blockStyles?.( fix.blockStyles ) );
+	if ( fix.blockStyles && ! styled ) {
+		return validateSavedMarkup( content, label, siteUrl, presetValues, editor, rendersAlike );
+	}
 	// A block stays as written when the fix loses something from it; the
 	// editor's fix is saved for the rest, the blocks inside it too.
 	const lost = new Map( fix.losses.map( ( loss ) => [ loss.place, loss.lost ] ) );
@@ -686,6 +755,7 @@ async function validateSavedMarkup(
 		...notes,
 		...( between.comments && { droppedComments: between.comments } ),
 		...( fix.lift && { lifted: fix.lift.from } ),
+		...( styled && { blockStyles: styled } ),
 	};
 	if ( lost.size === 0 ) {
 		return { summary: valid, ...saved };
@@ -900,11 +970,13 @@ export function rendersAlikeOn( host: StudioAgentHost, site: HostSite ): Renders
 function validateWithSite( host: StudioAgentHost ) {
 	return async ( filePath: string, siteRoot: string ): Promise< FileValidation > => {
 		const site = await host.sites.resolve( siteRoot );
+		const theme = themeOf( siteRoot, filePath );
 		return validateBlockMarkupFile(
 			filePath,
 			site.url,
-			await sitePresetValues( host, siteRoot, themeOf( siteRoot, filePath ) ),
-			rendersAlikeOn( host, site )
+			await sitePresetValues( host, siteRoot, theme ),
+			rendersAlikeOn( host, site ),
+			await blockStylesOn( siteRoot, theme )
 		);
 	};
 }

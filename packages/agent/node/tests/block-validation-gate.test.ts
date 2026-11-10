@@ -1,10 +1,11 @@
 import { createHash } from 'crypto';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	BlockValidationGate,
+	blockStylesOn,
 	isBlockMarkupFile,
 	validateBlockMarkupFile,
 } from '@studio/agent/node/block-validation-gate';
@@ -317,7 +318,8 @@ describe( 'validating a file', () => {
 			original,
 			'http://localhost:8881',
 			'post',
-			undefined
+			undefined,
+			false
 		);
 		expect( result.fixedContent ).toBe( header + fixed );
 	} );
@@ -449,6 +451,115 @@ describe( 'validating a file', () => {
 		);
 		expect( result.problem ).not.toContain( 'nested' );
 		expect( result.problem ).not.toContain( 'mismatch' );
+	} );
+
+	// eval29's ledes: a width no attribute of the paragraph saves.
+	describe( 'with a style written on blocks that no attribute saves', () => {
+		const lede = ( className = '' ) =>
+			`<!-- wp:paragraph${
+				className && ` {"className":"${ className }"}`
+			} -->\n<p class="${ className }" style="${
+				className ? '' : 'max-width:640px'
+			}">Three voices</p>\n<!-- /wp:paragraph -->`;
+		const styleFile = 'wp-content/themes/t/styles/blocks/max-width-640px.json';
+		const styleJson = ( blockTypes: string[], css = 'max-width:640px' ) =>
+			JSON.stringify(
+				{
+					$schema: 'https://schemas.wp.org/trunk/theme.json',
+					version: 3,
+					title: 'Max Width 640px',
+					slug: 'max-width-640px',
+					blockTypes,
+					styles: { css },
+				},
+				null,
+				'\t'
+			) + '\n';
+		// The validator's fix gives each block the style when asked to.
+		function styledReport( blockStyles: boolean, blockName = 'core/paragraph' ) {
+			const styled = lede( 'is-style-max-width-640px' );
+			const report = invalidWithFix(
+				blockStyles ? `${ styled }\n\n${ styled }` : `${ lede() }\n\n${ lede() }`,
+				blockStyles
+					? []
+					: [ '/0', '/1' ].map( ( place ) => ( {
+							place,
+							blockName,
+							lost: 'drop the styles max-width:640px',
+					  } ) )
+			);
+			report.invalidBlocks = 2;
+			report.results.push( { ...report.results[ 0 ], place: '/1' } );
+			if ( blockStyles ) {
+				report.proposedFix!.blockStyles = [ '/0', '/1' ].map( ( place ) => ( {
+					place,
+					blockName,
+					slug: 'max-width-640px',
+					css: 'max-width:640px',
+				} ) );
+			}
+			return report;
+		}
+		const validate = async ( themeFiles: string[], blockName?: string ) => {
+			themeFiles.forEach( ( file ) => write( `wp-content/themes/t/${ file }`, '' ) );
+			const file = write( 'wp-content/themes/t/templates/page.html', `${ lede() }\n\n${ lede() }` );
+			vi.mocked( validateBlocks ).mockImplementation( async ( ...args ) =>
+				styledReport( Boolean( args[ 4 ] ), blockName )
+			);
+			return validateBlockMarkupFile(
+				file,
+				'http://localhost:8881',
+				undefined,
+				undefined,
+				await blockStylesOn( site, 't' )
+			);
+		};
+		const note = ( file: string, blockTypes = 'core/paragraph' ) =>
+			`moves max-width:640px on ${ blockTypes } into the block style ${ file }, which WordPress registers for its "blockTypes" (WP_Theme_JSON_Resolver::get_style_variations() in wp-includes/class-wp-theme-json-resolver.php); a block takes the look as "className":"is-style-max-width-640px"`;
+
+		it( 'gives the blocks a block style in one file, which the block theme holds', async () => {
+			const result = await validate( [ 'templates/index.html' ] );
+			const file = path.join( site, styleFile );
+			expect( result.problem ).toBeUndefined();
+			expect( result.fixedContent ).toContain(
+				'<!-- wp:paragraph {"className":"is-style-max-width-640px"} -->'
+			);
+			expect( readFileSync( file, 'utf8' ) ).toBe( styleJson( [ 'core/paragraph' ] ) );
+			expect( result.summary ).toBe(
+				`templates/page.html: 1/1 blocks valid; saved through the block editor, which fixes 2 block(s) and ${ note(
+					file
+				) }`
+			);
+		} );
+
+		it( 'adds a block type to the block style of the same css', async () => {
+			write( styleFile, styleJson( [ 'core/heading' ] ) );
+			const result = await validate( [ 'templates/index.html' ] );
+			expect( result.problem ).toBeUndefined();
+			expect( readFileSync( path.join( site, styleFile ), 'utf8' ) ).toBe(
+				styleJson( [ 'core/heading', 'core/paragraph' ] )
+			);
+		} );
+
+		it.each( [
+			{ name: 'a theme that is no block theme', themeFiles: [ 'index.php' ], written: undefined },
+			{
+				name: 'a block style of the name that holds other css',
+				themeFiles: [ 'templates/index.html' ],
+				written: styleJson( [ 'core/paragraph' ], 'max-width:720px' ),
+			},
+		] )( 'keeps the blocks as written for $name', async ( { themeFiles, written } ) => {
+			if ( written ) {
+				write( styleFile, written );
+			}
+			const result = await validate( themeFiles );
+			expect( result.fixedContent ).toBeUndefined();
+			expect( result.problem ).toContain(
+				"core/paragraph: the editor's fix would drop the styles max-width:640px"
+			);
+			const file = path.join( site, styleFile );
+			expect( existsSync( file ) ? readFileSync( file, 'utf8' ) : undefined ).toBe( written );
+		} );
 	} );
 
 	it( 'saves nothing when the fix itself does not validate', async () => {

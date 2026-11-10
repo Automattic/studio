@@ -8,6 +8,7 @@ import { mkdir, rm, writeFile } from 'fs/promises';
 import path from 'path';
 import {
 	blockEditorOf,
+	blockStylesOn,
 	describeCorrections,
 	describeEditorSave,
 	rendersAlikeOn,
@@ -294,7 +295,9 @@ async function validatePost(
 		site.url,
 		presets,
 		blockEditorOf( post ),
-		rendersAlikeOn( host, site )
+		rendersAlikeOn( host, site ),
+		// A block style is written to the theme only for a fix Studio saves.
+		save ? await blockStylesOn( site.path ) : undefined
 	);
 	// Sentences of their own, after the one they follow.
 	const sentences = ( notes: string[] ) => ( notes.length ? `. ${ notes.join( ' ' ) }` : '' );

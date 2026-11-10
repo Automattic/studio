@@ -689,6 +689,89 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 		60_000
 	);
 
+	// eval29's spoke-and-chain hero: an overlay written at an opacity its
+	// save shows from has-background-dim-70 (dimRatioToClass, cover/shared.js).
+	const overlay = ( dimRatio: number, opacity: number ) =>
+		`<!-- wp:cover {"url":"https://example.com/hero.jpg","id":6,"dimRatio":${ dimRatio },"overlayColor":"base","isUserOverlayColor":true} -->\n<div class="wp-block-cover"><span aria-hidden="true" class="wp-block-cover__background has-base-background-color" style="opacity:${ opacity }"></span><img class="wp-block-cover__image-background wp-image-6" alt="" src="https://example.com/hero.jpg" data-object-fit="cover"/><div class="wp-block-cover__inner-container"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div></div>\n<!-- /wp:cover -->`;
+	it.each( [
+		{ name: 'no one can see', written: overlay( 68, 0.68 ), losses: [] },
+		{
+			name: 'one can see',
+			written: overlay( 70, 0.5 ),
+			losses: [ { place: '/0', blockName: 'core/cover', lost: 'drop the styles opacity:0.5' } ],
+		},
+	] )(
+		'reads a style whose fix paints a difference $name',
+		async ( { written, losses } ) => {
+			const report = await validateBlocks( written, siteUrl! );
+			expect( report.proposedFix?.losses ).toEqual( losses );
+			if ( ! losses.length ) {
+				expect( report.proposedFix?.fixedContent ).toContain( 'has-background-dim-70' );
+				expect(
+					( await validateBlocks( report.proposedFix!.fixedContent, siteUrl! ) ).invalidBlocks
+				).toBe( 0 );
+			}
+		},
+		60_000
+	);
+
+	// eval29's pages: a lede whose width no attribute of the paragraph saves.
+	const lede = ( width: string ) =>
+		paragraph(
+			'{"textColor":"muted","style":{"typography":{"fontSize":"1.35rem"}}}',
+			`<p class="has-muted-color has-text-color" style="font-size:1.35rem;max-width:${ width }">Three voices</p>`
+		);
+	it.each( [
+		{
+			name: 'gives the blocks a block style of it',
+			written: `${ lede( '640px' ) }\n\n${ lede( '640px' ) }`,
+			blockStyles: true,
+			styled: [ '/0', '/1' ],
+		},
+		{
+			name: 'gives a block in a constrained group a block style of it',
+			written: group(
+				'{"layout":{"type":"constrained"}}',
+				`<div class="wp-block-group">${ lede( '640px' ) }</div>`
+			),
+			blockStyles: true,
+			styled: [ '/0/0' ],
+		},
+		{
+			name: 'keeps the block as written without a theme to hold a block style',
+			written: lede( '640px' ),
+			blockStyles: false,
+			styled: [],
+		},
+	] )(
+		'for a style no attribute saves on the block, $name',
+		async ( { written, blockStyles, styled } ) => {
+			const report = await validateBlocks( written, siteUrl!, 'post', undefined, blockStyles );
+			const fix = report.proposedFix!;
+			if ( ! styled.length ) {
+				expect( fix.losses ).toEqual( [
+					{ place: '/0', blockName: 'core/paragraph', lost: 'drop the styles max-width:640px' },
+				] );
+				expect( fix.blockStyles ).toBeUndefined();
+				return;
+			}
+			expect( fix.losses ).toEqual( [] );
+			expect( fix.blockStyles ).toEqual(
+				styled.map( ( place ) => ( {
+					place,
+					blockName: 'core/paragraph',
+					slug: 'max-width-640px',
+					css: 'max-width:640px',
+				} ) )
+			);
+			expect( fix.fixedContent ).toContain(
+				'<!-- wp:paragraph {"className":"is-style-max-width-640px","style":{"typography":{"fontSize":"1.35rem"}},"textColor":"muted"} -->\n<p class="is-style-max-width-640px has-muted-color has-text-color" style="font-size:1.35rem">Three voices</p>'
+			);
+			expect( ( await validateBlocks( fix.fixedContent, siteUrl! ) ).invalidBlocks ).toBe( 0 );
+		},
+		60_000
+	);
+
 	it( 'reports HTML outside any block', async () => {
 		const report = await validateBlocks(
 			`<section class="hero"><h1>Hi</h1></section>\n${ paragraph( '{}', '<p>Ok</p>' ) }`,

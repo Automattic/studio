@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { DatabaseSync } from 'node:sqlite';
 import path from 'path';
 import { describe, expect, it, vi } from 'vitest';
@@ -65,6 +65,119 @@ const deepGroup = ( text: string ) =>
 	`<!-- wp:group {"backgroundColor":"deep"} -->\n<div class="wp-block-group has-deep-background-color has-background"><p>${ text }</p></div>\n<!-- /wp:group -->`;
 
 describe( 'postContentChanges', () => {
+	// eval29's ledes: a width no attribute of the paragraph saves, which the
+	// fix gives as a block style of the active theme when it is a block theme.
+	it.each( [
+		{ name: 'gives the block a block style of a block theme', blockTheme: true },
+		{ name: 'keeps the block as written for a classic theme', blockTheme: false },
+	] )( 'for a style no attribute saves on a block, $name', async ( { blockTheme } ) => {
+		const { site, host, changes } = setup();
+		const theme = path.join( site.root, 'wp-content/themes/bakery' );
+		if ( blockTheme ) {
+			mkdirSync( path.join( theme, 'templates' ) );
+			writeFileSync( path.join( theme, 'templates/index.html' ), '' );
+		}
+		vi.mocked( host.sites.wpCli ).mockImplementation( async ( _site, args ) => {
+			const saved = /'ID' => (\d+), 'post_content' => file_get_contents\( "([^"]+)" \)/.exec(
+				args.join( ' ' )
+			);
+			if ( saved ) {
+				site.edit(
+					Number( saved[ 1 ] ),
+					readFileSync( saved[ 2 ], 'utf8' ),
+					'2026-10-24 00:00:00'
+				);
+			}
+			return {
+				exitCode: 0,
+				stdout: JSON.stringify( { colors: [], fontSizes: [], spacingSizes: [] } ),
+				stderr: '',
+			};
+		} );
+		const lede = ( className: string ) =>
+			`<!-- wp:paragraph${
+				className && ` {"className":"${ className }"}`
+			} -->\n<p class="${ className }"${
+				className ? '' : ' style="max-width:640px"'
+			}>Three voices</p>\n<!-- /wp:paragraph -->`;
+		const styled = lede( 'is-style-max-width-640px' );
+		vi.mocked( validateBlocks ).mockImplementation( async ( content, ...args ) => {
+			if ( content === styled ) {
+				return { totalBlocks: 1, validBlocks: 1, invalidBlocks: 0, results: [] };
+			}
+			return {
+				totalBlocks: 1,
+				validBlocks: 0,
+				invalidBlocks: 1,
+				results: [
+					{
+						blockName: 'core/paragraph',
+						place: '/0',
+						isValid: false,
+						issues: [ 'mismatch' ],
+						originalContent: '',
+					},
+				],
+				proposedFix: {
+					fixedContent: args[ 3 ] ? styled : lede( '' ),
+					losses: args[ 3 ]
+						? []
+						: [
+								{
+									place: '/0',
+									blockName: 'core/paragraph',
+									lost: 'drop the styles max-width:640px',
+								},
+						  ],
+					...( args[ 3 ] && {
+						blockStyles: [
+							{
+								place: '/0',
+								blockName: 'core/paragraph',
+								slug: 'max-width-640px',
+								css: 'max-width:640px',
+							},
+						],
+					} ),
+					report: { totalBlocks: 1, validBlocks: 1, invalidBlocks: 0, results: [] },
+				},
+			};
+		} );
+		site.save( 51, 'page', 'about', '', 1, 'publish', 'About' );
+		await changes.snapshot();
+		site.edit( 51, lede( '' ) );
+		try {
+			const { summaries, problems } = await changes.settle();
+			const styleFile = path.join( theme, 'styles/blocks/max-width-640px.json' );
+			if ( ! blockTheme ) {
+				expect( existsSync( styleFile ) ).toBe( false );
+				expect( site.content( 51 ) ).toBe( lede( '' ) );
+				expect( problems.join( '\n' ) ).toContain(
+					"the editor's fix would drop the styles max-width:640px"
+				);
+				return;
+			}
+			expect( site.content( 51 ) ).toBe( styled );
+			expect( JSON.parse( readFileSync( styleFile, 'utf8' ) ) ).toMatchObject( {
+				slug: 'max-width-640px',
+				blockTypes: [ 'core/paragraph' ],
+				styles: { css: 'max-width:640px' },
+			} );
+			expect( problems ).toEqual( [] );
+			expect( summaries.join( '\n' ) ).toContain(
+				`Studio saved the block editor's save of it, which fixes 1 block(s) that do not match what the block saves and moves max-width:640px on core/paragraph into the block style ${ styleFile }, which WordPress registers for its "blockTypes"`
+			);
+		} finally {
+			vi.mocked( validateBlocks ).mockReset();
+			vi.mocked( validateBlocks ).mockResolvedValue( {
+				totalBlocks: 1,
+				validBlocks: 1,
+				invalidBlocks: 0,
+				results: [],
+			} );
+		}
+	} );
+
 	// eval28 redo1: page 35, deleted, kept its unclosed block open in later checks.
 	it( 'leaves no problem open for a post deleted or trashed', async () => {
 		const { site, open, changes } = setup();

@@ -46,7 +46,7 @@ import {
 	type ReprintProcessResult,
 	runReprintCommandUntilComplete,
 } from 'cli/lib/pull/reprint-client';
-import { ensureReprintKey, reinstallReprintKey, withKeyRecovery } from 'cli/lib/pull/reprint-key';
+import { ensureReprintKey } from 'cli/lib/pull/reprint-key';
 import {
 	getCoreRoots,
 	getReprintMetadata,
@@ -315,7 +315,8 @@ async function pullSite(
 	run.remoteSite = sourceSite.wpComSite;
 	run.failurePhase = 'remote_backup';
 	run.preview = await findPreview( sourceSite );
-	const exporter = await enableReprintExporter(
+	// Fails early with an "update Jetpack" message on a site that can't export.
+	await enableReprintExporter(
 		sourceSite.wpComSite.id,
 		sourceSite.wpComToken.accessToken,
 		verbose
@@ -369,20 +370,11 @@ async function pullSite(
 		await ensureReprintKey( {
 			wpComSiteId: sourceSite.wpComSite.id,
 			wpComAccessToken: sourceSite.wpComToken.accessToken,
-			exporter,
 			apiUrl,
 			stateDirectory: studioMetadata.stateDirectory,
 			verbose,
 		} );
-		const reinstallKey = () =>
-			reinstallReprintKey( {
-				wpComSiteId: sourceSite.wpComSite.id,
-				wpComAccessToken: sourceSite.wpComToken.accessToken,
-				apiUrl,
-				stateDirectory: studioMetadata.stateDirectory,
-				verbose,
-			} );
-		await runPreflight( studioMetadata, apiUrl, verbose, reinstallKey );
+		await runPreflight( studioMetadata, apiUrl, verbose );
 		const reprintMetadata = await getReprintMetadata( {
 			apiUrl,
 			stateDirectory: studioMetadata.stateDirectory,
@@ -419,7 +411,6 @@ async function pullSite(
 				! isRepull,
 				selection,
 				reprintMetadata,
-				reinstallKey,
 				sourceSite.wpComSite.wpVersion,
 				( phase ) => {
 					run.failurePhase = phase;
@@ -513,8 +504,7 @@ async function pullSite(
 async function runPreflight(
 	sessionMetadata: PullSession,
 	sourceSiteApiUrl: string,
-	verbose = false,
-	reinstallKey?: () => Promise< void >
+	verbose = false
 ): Promise< void > {
 	const preflightCachePath = path.join( sessionMetadata.stateDirectory, 'preflight.json' );
 
@@ -526,20 +516,16 @@ async function runPreflight(
 
 	let preflightResult: ReprintProcessResult;
 	try {
-		preflightResult = await withKeyRecovery(
-			() =>
-				runReprintCommandUntilComplete(
-					[
-						'preflight',
-						sourceSiteApiUrl,
-						'--no-adaptive',
-						`--state-dir=${ sessionMetadata.stateDirectory }`,
-						`--fs-root=${ sessionMetadata.rawDirectory }`,
-					],
-					undefined,
-					{ verboseCommands: verbose }
-				),
-			reinstallKey
+		preflightResult = await runReprintCommandUntilComplete(
+			[
+				'preflight',
+				sourceSiteApiUrl,
+				'--no-adaptive',
+				`--state-dir=${ sessionMetadata.stateDirectory }`,
+				`--fs-root=${ sessionMetadata.rawDirectory }`,
+			],
+			undefined,
+			{ verboseCommands: verbose }
 		);
 	} catch ( preflightError ) {
 		const details =
@@ -655,7 +641,6 @@ export async function runFullPull(
 	isFirstPull: boolean,
 	selection: PullSelection = {},
 	reprintMetadata: ReprintMetadata = emptyReprintMetadata,
-	reinstallKey?: () => Promise< void >,
 	remoteWpVersion?: string,
 	onPhase?: ( phase: SyncFailurePhase ) => void
 ): Promise< void > {
@@ -704,14 +689,10 @@ export async function runFullPull(
 			: [ '--include=:wp-content:' ];
 
 	const runStep = ( progressLabel: string, args: string[] ) =>
-		withKeyRecovery(
-			() =>
-				runReprintCommandUntilComplete( args, ( progress ) => logger.reportProgress( progress ), {
-					progressLabel,
-					verboseCommands: verbose,
-				} ),
-			reinstallKey
-		);
+		runReprintCommandUntilComplete( args, ( progress ) => logger.reportProgress( progress ), {
+			progressLabel,
+			verboseCommands: verbose,
+		} );
 
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Pulling site…' ) );
 

@@ -165,9 +165,7 @@ export function SharingPanel() {
 								variant="inline-accent"
 								size="inline"
 								onClick={ () =>
-									void connector.openExternalUrl(
-										'https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/'
-									)
+									void connector.openExternalUrl( 'https://wordpress.studio/docs/preview-sites/' )
 								}
 							>
 								{ __( 'Learn more…' ) }

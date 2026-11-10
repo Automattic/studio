@@ -32,7 +32,7 @@ export function AiCreditsDetailsDialog( {
 	const handleLearnMoreClick = ( event: MouseEvent< HTMLAnchorElement > ) => {
 		event.preventDefault();
 		void connector.openExternalUrl(
-			'https://developer.wordpress.com/docs/developer-tools/studio/studio-code/ai-credits-guidelines/'
+			'https://wordpress.studio/docs/studio-code/ai-credits-guidelines/'
 		);
 	};
 	const handleBuyCreditsClick = ( event: MouseEvent< HTMLAnchorElement > ) => {
@@ -82,7 +82,7 @@ export function AiCreditsDetailsDialog( {
 				<DialogFooter>
 					<a
 						className={ styles.learnMoreButton }
-						href="https://developer.wordpress.com/docs/developer-tools/studio/studio-code/ai-credits-guidelines/"
+						href="https://wordpress.studio/docs/studio-code/ai-credits-guidelines/"
 						onClick={ handleLearnMoreClick }
 						target="_blank"
 						rel="noreferrer noopener"

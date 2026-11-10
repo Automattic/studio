@@ -591,6 +591,13 @@ async function runEval( input: EvalRunnerInput ) {
 		seeded = await seedFixtures( input.seed );
 	}
 
+	// The outcome's artifacts (each site's home page screenshot and HTML) go
+	// under STUDIO_EVAL_ARTIFACT_DIR, else the system's temp directory.
+	const artifactRoot = () => {
+		const dir = process.env.STUDIO_EVAL_ARTIFACT_DIR?.trim() || os.tmpdir();
+		mkdirSync( dir, { recursive: true } );
+		return dir;
+	};
 	phaseStartedAt = Date.now();
 	// Every run keeps its session JSONL (the full transcript) and reports its
 	// path as `sessionFile`; STUDIO_EVAL_SESSION_DIR picks the directory.
@@ -765,7 +772,7 @@ async function runEval( input: EvalRunnerInput ) {
 		outcome = await captureTurnOutcome(
 			sitesBeforeTurn,
 			seeded?.activeSitePath,
-			mkdtempSync( path.join( os.tmpdir(), 'studio-eval-outcome-' ) )
+			mkdtempSync( path.join( artifactRoot(), 'studio-eval-outcome-' ) )
 		).catch( ( caught ) => ( {
 			error: caught instanceof Error ? caught.message : String( caught ),
 		} ) );

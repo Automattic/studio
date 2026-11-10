@@ -179,19 +179,15 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			losses: [],
 		},
 		{
-			name: 'keeps the block as written when it renders the value too',
+			// As the editor stores it: a minHeight of 100 with the minHeightUnit
+			// dvh, which its save holds min-height from (cover/save.js).
+			name: 'stores the value it renders too as the attributes its save holds it from',
 			markup: cover(
 				'<div class="wp-block-cover" style="min-height:100dvh"><span aria-hidden="true" class="wp-block-cover__background has-background-dim"></span><div class="wp-block-cover__inner-container"></div></div>'
 			),
 			issue: coverIssue,
-			losses: [
-				{
-					place: '/0',
-					blockName: 'core/cover',
-					lost: 'drop the styles min-height:100dvh',
-					note: 'drop min-height:100dvh from div.wp-block-cover',
-				},
-			],
+			losses: [],
+			stored: '"minHeight":100,"minHeightUnit":"dvh"',
 		},
 		{
 			name: 'leaves a value the block markup does not hold out of the fix',
@@ -202,11 +198,12 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 		},
 	] )(
 		'reports an attribute of the wrong type, and $name',
-		async ( { markup, issue, losses } ) => {
+		async ( { markup, issue, losses, stored } ) => {
 			const report = await validateBlocks( markup, siteUrl! );
 			expect( report.results[ 0 ].issues ).toContain( issue );
 			expect( report.proposedFix?.losses ).toEqual( losses );
 			expect( report.proposedFix?.report.invalidBlocks ).toBe( 0 );
+			expect( report.proposedFix?.fixedContent ).toContain( stored ?? '' );
 		},
 		60_000
 	);
@@ -590,6 +587,32 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			],
 		},
 		{
+			// No stylesheet names it either, but it names no number its comment sets.
+			name: 'a class its save names with another number than its comment sets',
+			written:
+				'<!-- wp:cover {"dimRatio":78,"overlayColor":"contrast","isUserOverlayColor":true} -->\n<div class="wp-block-cover"><span aria-hidden="true" class="wp-block-cover__background has-contrast-background-color has-background-dim-75 has-background-dim"></span><div class="wp-block-cover__inner-container"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div></div>\n<!-- /wp:cover -->',
+			losses: [
+				{
+					place: '/0',
+					lost: 'drop the classes has-background-dim-75',
+					note: 'drop the class has-background-dim-75 from span.wp-block-cover__background',
+				},
+			],
+		},
+		{
+			// The unit its comment sets stands, as the editor makes the block from it.
+			name: 'a style its attributes save with another unit than its comment sets',
+			written:
+				'<!-- wp:cover {"dimRatio":50,"minHeight":50,"minHeightUnit":"px","overlayColor":"contrast","isUserOverlayColor":true} -->\n<div class="wp-block-cover" style="min-height:88vh"><span aria-hidden="true" class="wp-block-cover__background has-contrast-background-color has-background-dim"></span><div class="wp-block-cover__inner-container"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div></div>\n<!-- /wp:cover -->',
+			losses: [
+				{
+					place: '/0',
+					lost: 'drop the styles min-height:88vh',
+					note: 'drop min-height:88vh from div.wp-block-cover',
+				},
+			],
+		},
+		{
 			// The class shows a dim of 60, which the fix stores as the dimRatio
 			// its save names has-background-dim-60 from.
 			name: 'a class that shows the block otherwise',
@@ -731,6 +754,57 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			expect(
 				( await validateBlocks( report.proposedFix!.fixedContent, siteUrl! ) ).invalidBlocks
 			).toBe( 0 );
+		},
+		60_000
+	);
+
+	// Covers written in eval31 (pivot, port 1), as written: each names its
+	// comment's own dimRatio in a class that no stylesheet names, as the
+	// cover's style.scss names the tens only, so it shows has-background-dim's
+	// 0.5, and saves the dim rounded to tens; the first sets its minHeight as
+	// "88vh", which is no number, so the editor reads it as unset and its save
+	// holds min-height from a minHeight of 88 with the minHeightUnit vh.
+	it.each( [
+		{
+			name: 'a dimRatio of 78 written as has-background-dim-78',
+			written:
+				'<!-- wp:cover {"url":"http://localhost:20034/wp-content/uploads/2026/11/cantina-hero.jpg","id":32,"alt":"A candlelit upscale Mexican restaurant interior at night","dimRatio":78,"overlayColor":"base","isUserOverlayColor":true,"align":"full","layout":{"type":"constrained"}} -->\n<div class="wp-block-cover alignfull"><span aria-hidden="true" class="wp-block-cover__background has-base-background-color has-background-dim-78 has-background-dim"></span><img class="wp-block-cover__image-background wp-image-32" alt="A candlelit upscale Mexican restaurant interior at night" src="http://localhost:20034/wp-content/uploads/2026/11/cantina-hero.jpg"/><div class="wp-block-cover__inner-container"><!-- wp:group {"layout":{"type":"constrained"},"style":{"spacing":{"padding":{"top":"20vh","bottom":"14vh"}}}} -->\n<div class="wp-block-group" style="padding-top:20vh;padding-bottom:14vh"><!-- wp:paragraph {"style":{"typography":{"fontSize":"0.85rem","textTransform":"uppercase","letterSpacing":"0.24em"}},"textColor":"brass"} -->\n<p class="has-brass-color has-text-color" style="font-size:0.85rem;text-transform:uppercase;letter-spacing:0.24em">Modern Mexican \u00b7 Open late</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:heading {"level":1,"textColor":"ink"} -->\n<h1 class="wp-block-heading has-ink-color has-text-color">Mexico, after dark.</h1>\n<!-- /wp:heading -->\n\n<!-- wp:paragraph {"textColor":"muted","style":{"typography":{"fontSize":"1.2rem"}}} -->\n<p class="has-muted-color has-text-color" style="font-size:1.2rem">Candlelit rooms, slow-braised moles, and mezcal poured by hand. Loco Cantina is a restaurant you settle into and lose track of time in.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:buttons -->\n<div class="wp-block-buttons"><!-- wp:button {"backgroundColor":"brass","textColor":"base"} -->\n<div class="wp-block-button"><a class="wp-block-button__link has-base-color has-brass-background-color has-text-color has-background wp-element-button" href="/contact/">Reserve a Table</a></div>\n<!-- /wp:button -->\n\n<!-- wp:button {"backgroundColor":"transparent","textColor":"ink","className":"is-style-outline","borderColor":"smoke"} -->\n<div class="wp-block-button is-style-outline"><a class="wp-block-button__link has-ink-color has-text-color has-border-color has-smoke-border-color wp-element-button" href="/menu/">View the Menu</a></div>\n<!-- /wp:button --></div>\n<!-- /wp:buttons --></div>\n<!-- /wp:group --></div></div>\n<!-- /wp:cover -->',
+			losses: [],
+			stored: [ '"dimRatio":78', 'has-background-dim-80 has-background-dim"' ],
+		},
+		{
+			name: 'a dimRatio of 55 and a minHeight of "88vh"',
+			written:
+				'<!-- wp:cover {"url":"http://localhost:20034/wp-content/uploads/2026/11/taco-loco-hero.jpg","id":6,"alt":"Street tacos on a food truck counter","dimRatio":55,"overlayColor":"ink","isUserOverlayColor":true,"minHeight":"88vh","align":"full","style":{"spacing":{"padding":{"top":"0","bottom":"0"}}},"layout":{"type":"constrained"}} -->\n<div class="wp-block-cover alignfull" style="min-height:88vh"><span aria-hidden="true" class="wp-block-cover__background has-ink-background-color has-background-dim-55 has-background-dim"></span><img class="wp-block-cover__image-background wp-image-6" alt="Street tacos on a food truck counter" src="http://localhost:20034/wp-content/uploads/2026/11/taco-loco-hero.jpg"/><div class="wp-block-cover__inner-container"><!-- wp:group {"layout":{"type":"constrained"},"style":{"spacing":{"padding":{"top":"18vh","bottom":"14vh"}}}} -->\n<div class="wp-block-group" style="padding-top:18vh;padding-bottom:14vh"><!-- wp:heading {"level":1,"textColor":"sun","align":"wide"} -->\n<h1 class="wp-block-heading alignwide has-sun-color has-text-color">Tacos so good,<br>they\'ll drive you loco.</h1>\n<!-- /wp:heading -->\n\n<!-- wp:paragraph {"align":"wide","textColor":"white","style":{"typography":{"fontSize":"1.3rem","lineHeight":"1.5"}}} -->\n<p class="has-text-align-wide has-white-color has-text-color" style="font-size:1.3rem;line-height:1.5">Hand-pressed corn tortillas, grilled-to-order fillings, and salsa that bites back \u2014 served from our truck wherever the crowd gathers.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:buttons {"layout":{"type":"flex","flexWrap":"wrap"},"style":{"spacing":{"margin":{"top":"var:preset|spacing|40"}}}} -->\n<div class="wp-block-buttons" style="margin-top:var(--wp--preset--spacing--40)"><!-- wp:button {"backgroundColor":"salsa","textColor":"white"} -->\n<div class="wp-block-button"><a class="wp-block-button__link has-white-color has-salsa-background-color has-text-color has-background wp-element-button" href="/menu/">See the Menu</a></div>\n<!-- /wp:button -->\n\n<!-- wp:button {"backgroundColor":"sun","textColor":"ink"} -->\n<div class="wp-block-button"><a class="wp-block-button__link has-ink-color has-sun-background-color has-text-color has-background wp-element-button" href="/find-us/">Find Us Today</a></div>\n<!-- /wp:button --></div>\n<!-- /wp:buttons --></div>\n<!-- /wp:group --></div></div>\n<!-- /wp:cover -->',
+			// The paragraph's own, which the cover's fix leaves to it.
+			losses: [
+				{
+					place: '/0/0/1',
+					blockName: 'core/paragraph',
+					lost: 'drop the classes has-text-align-wide',
+					note: 'drop the class has-text-align-wide from p.has-white-color',
+				},
+			],
+			stored: [
+				'"dimRatio":55',
+				'"minHeight":88,"minHeightUnit":"vh"',
+				'min-height:88vh',
+				'has-background-dim-60 has-background-dim"',
+			],
+		},
+	] )(
+		'stores a cover that names its own dimRatio in a class its save rounds: $name',
+		async ( { written, losses, stored } ) => {
+			const report = await validateBlocks( written, siteUrl! );
+			expect( report.invalidBlocks ).toBeGreaterThan( 0 );
+			expect( report.proposedFix?.losses ).toEqual( losses );
+			for ( const part of stored ) {
+				expect( report.proposedFix?.fixedContent ).toContain( part );
+			}
+			const again = await validateBlocks( report.proposedFix!.fixedContent, siteUrl! );
+			expect(
+				again.results.filter( ( result ) => result.blockName === 'core/cover' && ! result.isValid )
+			).toEqual( [] );
 		},
 		60_000
 	);
@@ -1735,11 +1809,30 @@ describe.runIf( siteUrl )( "the fix for the blocks inside one it can't fix (live
 		{
 			// An eval's hero: a cover whose dim class names 80 for a dimRatio of
 			// 85, which its save rounds to 90, around blocks with the alignment
-			// their deprecations migrate.
-			name: 'blocks inside a cover kept as written',
+			// their deprecations migrate. Its min-height the fix stores as a
+			// minHeight of 88 with the minHeightUnit vh, which its save holds it
+			// from (cover/save.js).
+			name: 'blocks inside a cover it stores the min-height of',
 			written: [
 				'<!-- wp:cover {"url":"http://x/a.jpg","id":16,"dimRatio":85,"overlayColor":"base","align":"full","style":{"dimensions":{"minHeight":"88vh"}}} -->',
 				'<div class="wp-block-cover alignfull" style="min-height:88vh"><img class="wp-block-cover__image-background wp-image-16" alt="" src="http://x/a.jpg" data-object-fit="cover"/><span aria-hidden="true" class="wp-block-cover__background has-base-background-color has-background-dim-80 has-background-dim"></span><div class="wp-block-cover__inner-container"><!-- wp:paragraph {"align":"center","textColor":"accent-3"} -->',
+				'<p class="has-text-align-center has-accent-3-color has-text-color">Kicker</p>',
+				'<!-- /wp:paragraph -->',
+				'<!-- wp:heading {"textAlign":"center","level":1} -->',
+				'<h1 class="wp-block-heading has-text-align-center">Title</h1>',
+				'<!-- /wp:heading --></div></div>',
+				'<!-- /wp:cover -->',
+			].join( '\n' ),
+			lossy: [],
+		},
+		{
+			// An eval's hero: a cover whose dim class names 80 for a dimRatio of
+			// 85, which its save rounds to 90, around blocks with the alignment
+			// their deprecations migrate. Its filter no attribute saves.
+			name: 'blocks inside a cover kept as written',
+			written: [
+				'<!-- wp:cover {"url":"http://x/a.jpg","id":16,"dimRatio":85,"overlayColor":"base","align":"full","style":{"dimensions":{"minHeight":"88vh"}}} -->',
+				'<div class="wp-block-cover alignfull" style="min-height:88vh;filter:blur(2px)"><img class="wp-block-cover__image-background wp-image-16" alt="" src="http://x/a.jpg" data-object-fit="cover"/><span aria-hidden="true" class="wp-block-cover__background has-base-background-color has-background-dim-80 has-background-dim"></span><div class="wp-block-cover__inner-container"><!-- wp:paragraph {"align":"center","textColor":"accent-3"} -->',
 				'<p class="has-text-align-center has-accent-3-color has-text-color">Kicker</p>',
 				'<!-- /wp:paragraph -->',
 				'<!-- wp:heading {"textAlign":"center","level":1} -->',

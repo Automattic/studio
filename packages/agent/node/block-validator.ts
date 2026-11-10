@@ -1107,31 +1107,55 @@ async function validateAsWritten(
 					if ( known ) {
 						return known;
 					}
-					const found = Object.entries(
-						wpBlocks.getBlockType( made.name )?.attributes ?? {}
-					).flatMap( ( [ key, schema ]: [ string, any ] ) => {
+					const entries = Object.entries( wpBlocks.getBlockType( made.name )?.attributes ?? {} );
+					const strings = entries
+						.filter( ( [ , schema ]: [ string, any ] ) => kindOf( schema ) === 'string' )
+						.map( ( [ key ] ) => key );
+					const found = entries.flatMap( ( [ key, schema ]: [ string, any ] ) => {
 						const kind = kindOf( schema );
 						if ( ! kind ) {
 							return [];
 						}
-						const probe = String( PROBE[ kind ] );
-						const html = probed( made, key, kind );
-						if ( html === undefined ) {
-							return [];
-						}
-						return elementsOf( html ).flatMap( ( element ) =>
-							String( element.getAttribute( 'style' ) ?? '' )
-								.split( ';' )
-								.map( ( declaration ) => declaration.split( ':' ) )
-								.filter( ( parts ) => parts.length === 2 && parts[ 1 ].includes( probe ) )
-								.map( ( [ property, value ] ) => ( {
-									key,
-									kind,
-									property: property.trim().toLowerCase(),
-									before: value.trim().slice( 0, value.trim().indexOf( probe ) ),
-									after: value.trim().slice( value.trim().indexOf( probe ) + probe.length ),
-								} ) )
-						);
+						// Each number also with each string attribute beside it, as
+						// core/cover saves min-height from minHeight with the unit
+						// minHeightUnit names, `${ minHeight }${ minHeightUnit }`
+						// (cover/save.js), and px without one.
+						return [
+							undefined,
+							...( kind === 'number' ? strings.filter( ( one ) => one !== key ) : [] ),
+						].flatMap( ( unit ) => {
+							const probe = String( PROBE[ kind ] ) + ( unit ? PROBE.string : '' );
+							let html: string;
+							try {
+								html = ownHtml(
+									wpBlocks.createBlock(
+										made.name,
+										{
+											...made.attributes,
+											[ key ]: PROBE[ kind ],
+											...( unit ? { [ unit ]: PROBE.string } : {} ),
+										},
+										made.innerBlocks
+									)
+								);
+							} catch {
+								return [];
+							}
+							return elementsOf( html ).flatMap( ( element ) =>
+								String( element.getAttribute( 'style' ) ?? '' )
+									.split( ';' )
+									.map( ( declaration ) => declaration.split( ':' ) )
+									.filter( ( parts ) => parts.length === 2 && parts[ 1 ].includes( probe ) )
+									.map( ( [ property, value ] ) => ( {
+										key,
+										kind,
+										unit,
+										property: property.trim().toLowerCase(),
+										before: value.trim().slice( 0, value.trim().indexOf( probe ) ),
+										after: value.trim().slice( value.trim().indexOf( probe ) + probe.length ),
+									} ) )
+							);
+						} );
 					} );
 					attributeStyles.set( made.name, found );
 					return found;
@@ -1227,10 +1251,38 @@ async function validateAsWritten(
 							// The attribute the block's own save holds that style from first,
 							// as core/image saves object-fit on its img from scale, where the
 							// style engine's dimensions.objectFit would save it on the figure.
-							const saving = attributeStylesOf( made ).find( ( one ) => one.property === property );
-							if ( saving ) {
-								const held = text.slice( saving.before.length, text.length - saving.after.length );
-								attributes[ saving.key ] = saving.kind === 'number' ? Number( held ) : held;
+							// A number with its unit, as min-height:88vh, which a cover saves
+							// from a minHeight of 88 with the minHeightUnit vh.
+							const savings = attributeStylesOf( made ).filter(
+								( one ) => one.property === property
+							);
+							if ( savings.length ) {
+								for ( const saving of savings ) {
+									const held =
+										text.startsWith( saving.before ) && text.endsWith( saving.after )
+											? text.slice( saving.before.length, text.length - saving.after.length )
+											: '';
+									const number = /^-?(?:\d+\.?\d*|\.\d+)/.exec( held )?.[ 0 ] ?? '';
+									const rest = held.slice( number.length );
+									// A unit its comment sets stands, as the editor makes a block
+									// from its comment; a minHeight written as "88vh", which is no
+									// number, the editor reads as unset (getBlockAttribute in
+									// @wordpress/blocks).
+									const unitWritten = saving.unit ? raw.attrs?.[ saving.unit ] : undefined;
+									if (
+										! held ||
+										( saving.kind === 'number' &&
+											( ! number || ( saving.unit ? ! /^[a-z%]+$/i.test( rest ) : rest ) ) ) ||
+										( typeof unitWritten === 'string' && unitWritten !== rest )
+									) {
+										continue;
+									}
+									attributes[ saving.key ] = saving.kind === 'number' ? Number( number ) : held;
+									if ( saving.unit ) {
+										attributes[ saving.unit ] = rest;
+									}
+									break;
+								}
 								continue;
 							}
 							const path = stylePathOf( property ) ?? shorthandPathOf( property, value );
@@ -1855,6 +1907,28 @@ async function validateAsWritten(
 									)
 									.join( '|' );
 							for ( const { root, kept: keeps, gone, added } of loss.classesOn ) {
+								// A class that names the comment's own number, which the fix
+								// saves with another, as has-background-dim-78 written for a
+								// dimRatio of 78 that the cover saves as has-background-dim-80
+								// (dimRatioToClass rounds to tens, cover/shared.js; eval31): no
+								// loaded stylesheet names it, as the cover's style.scss names
+								// the tens only, so the block shows has-background-dim's 0.5,
+								// and its save shows the value its comment sets.
+								const commented = new Set(
+									Object.values( initial.written.get( loss.place )?.attrs ?? {} )
+										.filter( ( value ) => typeof value === 'number' )
+										.map( String )
+								);
+								for ( const name of gone ) {
+									if (
+										! named.has( name ) &&
+										/\d/.test( name ) &&
+										name.match( /\d+/g )!.every( ( number: string ) => commented.has( number ) ) &&
+										added.some( ( one: string ) => numbered( one ) === numbered( name ) )
+									) {
+										kept.get( loss.place )!.add( name );
+									}
+								}
 								// Known by the classes it keeps.
 								const matches = root
 									? [ element ]

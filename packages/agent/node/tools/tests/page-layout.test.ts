@@ -145,7 +145,7 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 				220
 			) }</div>`,
 			lines: [
-				'The header\'s div.wp-block-group lays its 3 items out in a row, 1000px wide, and they take 2 lines: "Book Appointment" starts a line of its own, as the row wraps the items that do not fit.',
+				'The header\'s div.wp-block-group lays its 3 items out in a row, 1000px wide, and they take 2 lines: "Book Appointment" starts a line of its own, as the row wraps the items that do not fit; on one line they need Npx, Npx more than the row has.',
 			],
 		},
 		{
@@ -155,7 +155,7 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 				220
 			) }</div></div>`,
 			lines: [
-				'The header\'s ul.wp-block-navigation__container lays its 4 items out in a row, 260px wide, and they take 2 lines: "Contact" starts a line of its own, as the row wraps the items that do not fit.',
+				'The header\'s ul.wp-block-navigation__container lays its 4 items out in a row, 260px wide, and they take 2 lines: "Contact" starts a line of its own, as the row wraps the items that do not fit; on one line they need Npx, with their 28px gaps, Npx more than the row has in nav.wp-block-navigation in div.wp-block-group.',
 			],
 		},
 		{
@@ -164,12 +164,53 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 			lines: [],
 		},
 	] )( 'names the rows of the header that wrap: $name', async ( { row, lines } ) => {
+		const wraps = await open(
+			`<div class="wp-site-blocks"><header class="wp-block-template-part">${ row }</header><main style="display:flex;flex-wrap:wrap"><p style="width:600px">a</p><p style="width:600px">b</p></main></div>`,
+			pageHeaderWraps
+		);
+		// The width its links' text needs on one line is its font's, so any.
 		expect(
-			await open(
-				`<div class="wp-site-blocks"><header class="wp-block-template-part">${ row }</header><main style="display:flex;flex-wrap:wrap"><p style="width:600px">a</p><p style="width:600px">b</p></main></div>`,
-				pageHeaderWraps
+			wraps.map( ( line ) =>
+				line.replace( /; on one line.*/, ( tail ) => tail.replace( /\d+px(?! gaps)/g, 'Npx' ) )
 			)
 		).toEqual( lines );
+	} );
+
+	// Eval30 pivot port 1's header: a site title beside the navigation, whose
+	// links and button share a wrapping row, the button on a line of its own.
+	it( 'says how much wider than it a wrapping row its items need on one line', async () => {
+		const links = [ 'Menu', 'Our Story', 'Private Events', 'Visit' ]
+			.map( ( link ) => `<li style="width:80px"><a>${ link }</a></li>` )
+			.join( '' );
+		expect(
+			await open(
+				`<div class="wp-site-blocks"><header class="wp-block-template-part"><div class="wp-block-group" style="display:flex;gap:40px;width:1000px"><p class="wp-block-site-title" style="flex-shrink:0;width:500px">Loco Cantina</p><nav class="wp-block-navigation" style="flex:1;min-width:0"><div class="wp-block-navigation__responsive-container"><div class="wp-block-navigation__responsive-container-content" style="display:flex;flex-wrap:wrap;gap:24px"><ul class="wp-block-navigation__container" style="display:flex;flex-wrap:wrap;gap:24px;margin:0;padding:0;list-style:none">${ links }</ul><div class="wp-block-buttons"><a class="wp-block-button__link" style="display:block;width:120px">Enquire</a></div></div></div></nav></div></header></div>`,
+				pageHeaderWraps
+			)
+		).toEqual( [
+			// 4 links of 80px and their 3 gaps of 24px, a gap and the 120px button,
+			// in the 460px the nav has beside the title and its 40px gap.
+			'The header\'s div.wp-block-navigation__responsive-container-content lays its 2 items out in a row, 460px wide, and they take 2 lines: "Enquire" starts a line of its own, as the row wraps the items that do not fit; on one line they need 536px, with their 24px gaps, 76px more than the row has in nav.wp-block-navigation in div.wp-block-group.',
+		] );
+	} );
+
+	// An item wider than the row shrinks to it, its text wrapping, so the
+	// width it needs is its text's on one line, not its box's.
+	it( 'counts a shrunk item of a wrapping row at its width on one line', async () => {
+		const words = [ 'Menu', 'Story', 'Visit' ]
+			.map(
+				( word ) => `<span style="display:inline-block;width:100px;font-size:16px">${ word }</span>`
+			)
+			.join( ' ' );
+		expect(
+			await open(
+				`<div class="wp-site-blocks"><header class="wp-block-template-part"><div class="wp-block-group" style="display:flex;width:1000px"><p class="wp-block-site-title" style="flex-shrink:0;width:750px">Loco Cantina</p><nav class="wp-block-navigation" style="display:flex;flex-wrap:wrap;gap:20px;font-size:0"><div class="links">${ words }</div><a class="wp-block-button__link" style="display:block;width:100px;font-size:16px">Enquire</a></nav></div></header></div>`,
+				pageHeaderWraps
+			)
+		).toEqual( [
+			// The 3 words of 100px, the 20px gap and the 100px button, in the 250px beside the title.
+			'The header\'s nav.wp-block-navigation lays its 2 items out in a row, 250px wide, and they take 2 lines: "Enquire" starts a line of its own, as the row wraps the items that do not fit; on one line they need 420px, with their 20px gaps, 170px more than the row has.',
+		] );
 	} );
 
 	it( 'says when the page is wider than its viewport, and what reaches past it', async () => {

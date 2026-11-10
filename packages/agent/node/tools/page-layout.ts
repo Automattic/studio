@@ -270,7 +270,8 @@ export function pageBandGaps( page: Page ): Promise< string[] > {
 /**
  * Each row of the header whose items take more than one line: a flex row
  * wraps an item that does not fit onto a line of its own, as WordPress's flex
- * layout and the navigation block let theirs.
+ * layout and the navigation block let theirs: with the width its items need
+ * on one line, each at its natural width with the row's gaps between them.
  */
 export function pageHeaderWraps( page: Page ): Promise< string[] > {
 	return page.evaluate( () => {
@@ -282,6 +283,66 @@ export function pageHeaderWraps( page: Page ): Promise< string[] > {
 				.slice( 0, 3 )
 				.map( ( name ) => `.${ name }` )
 				.join( '' );
+		// What narrows the row, as pageTextFit() names what narrows a word's box:
+		// the outermost ancestor too narrow to hold it, in the one that has room;
+		// none when no ancestor has room, as the page's width is what limits it.
+		const settingsLabel = ( element: Element ) =>
+			element.tagName.toLowerCase() +
+			[ ...element.classList ]
+				.filter(
+					( name ) =>
+						! /^(has-|is-layout-|wp-container-|wp-elements-|wp-block-[a-z-]+-is-layout-)/.test(
+							name
+						)
+				)
+				.slice( 0, 3 )
+				.map( ( name ) => `.${ name }` )
+				.join( '' );
+		const narrowedBy = ( box: Element, needed: number ) => {
+			let narrow: Element | undefined;
+			for (
+				let at = box.parentElement;
+				at && at !== document.body && at !== document.documentElement;
+				at = at.parentElement
+			) {
+				const style = getComputedStyle( at );
+				if ( style.display === 'inline' || style.display === 'contents' ) {
+					continue;
+				}
+				const room =
+					at.clientWidth - parseFloat( style.paddingLeft ) - parseFloat( style.paddingRight );
+				if ( room >= needed ) {
+					return narrow ? ` in ${ settingsLabel( narrow ) } in ${ settingsLabel( at ) }` : '';
+				}
+				narrow = at;
+			}
+			return '';
+		};
+		// The width a row's items take on one line, each at its natural width: the
+		// row laid out at its max-content width, as wide as its items on one line
+		// with its gaps between them, and put back at once, before the browser
+		// paints. Not the items' boxes as laid out, as a wrapping row shrinks an
+		// item whose text wraps to the row's width.
+		const oneLine = ( row: HTMLElement ) => {
+			const saved = row.getAttribute( 'style' );
+			for ( const [ name, value ] of [
+				[ 'width', 'max-content' ],
+				[ 'min-width', '0' ],
+				[ 'max-width', 'none' ],
+				[ 'flex', 'none' ],
+				[ 'box-sizing', 'content-box' ],
+			] ) {
+				row.style.setProperty( name, value, 'important' );
+			}
+			const style = getComputedStyle( row );
+			const width = parseFloat( style.width );
+			if ( saved === null ) {
+				row.removeAttribute( 'style' );
+			} else {
+				row.setAttribute( 'style', saved );
+			}
+			return width;
+		};
 		const header = document.querySelector( '.wp-site-blocks > header' );
 		const lines: string[] = [];
 		for ( const row of header ? [ header, ...header.querySelectorAll( '*' ) ] : [] ) {
@@ -315,6 +376,19 @@ export function pageHeaderWraps( page: Page ): Promise< string[] > {
 					? `"${ words.length > 40 ? `${ words.slice( 0, 40 ) }…` : words }"`
 					: label( item );
 			};
+			const padding = parseFloat( style.paddingLeft ) + parseFloat( style.paddingRight );
+			const room = row.clientWidth - padding;
+			const needed = Math.round( oneLine( row as HTMLElement ) );
+			const gap = parseFloat( style.columnGap ) || 0;
+			const shortfall =
+				needed > room
+					? `; on one line they need ${ needed }px${
+							gap ? `, with their ${ Math.round( gap ) }px gaps` : ''
+					  }, ${ Math.round( needed - room ) }px more than the row has${ narrowedBy(
+							row,
+							needed + row.getBoundingClientRect().width - row.clientWidth + padding
+					  ) }`
+					: '';
 			lines.push(
 				`${ row === header ? 'The header' : `The header's ${ label( row ) }` } lays its ${
 					items.length
@@ -324,7 +398,7 @@ export function pageHeaderWraps( page: Page ): Promise< string[] > {
 					starts.length > 2 ? 'start lines' : 'starts a line'
 				} of ${
 					starts.length > 2 ? 'their' : 'its'
-				} own, as the row wraps the items that do not fit.`
+				} own, as the row wraps the items that do not fit${ shortfall }.`
 			);
 		}
 		return lines;

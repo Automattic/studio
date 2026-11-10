@@ -113,6 +113,7 @@ export function ModelPicker( {
 				: [ favorite, ...favorites ]
 		);
 	const isWpcom = sessionProvider === 'wpcom';
+	const ProviderIcon = isWpcom ? WordPressIcon : ClaudeIcon;
 	const modelLabel = getAiModelLabel( model );
 	const credits = getCreditsLabel( isQuotaError ? null : quota, preferences?.locale );
 	const modelDetails = [
@@ -331,6 +332,7 @@ export function ModelPicker( {
 					/>
 				}
 			>
+				<ProviderIcon data-icon="inline-start" />
 				<span>
 					{ modelLabel }
 					{ effort !== 'default' ? ` · ${ getEffortLabel( effort ) }` : '' }

@@ -107,6 +107,9 @@ it( 'remembers each site’s layout and preserves the draft across layout change
 	fireEvent.change( input, { target: { value: 'Keep my draft' } } );
 	await chooseLayout( 'Panel' );
 	fireEvent.click( screen.getByRole( 'button', { name: 'Second' } ) );
+	await waitFor( () =>
+		expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toHaveTextContent( 'Second' )
+	);
 	await chooseLayout( 'Chat' );
 	fireEvent.click( screen.getByRole( 'button', { name: 'First' } ) );
 	await waitFor( () =>

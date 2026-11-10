@@ -471,7 +471,10 @@ describe( 'site lifecycle and preview', () => {
 			);
 			expect( lifecycle( 'Second' ) ).not.toHaveAttribute( 'aria-disabled', 'true' );
 			fireEvent.click( screen.getByRole( 'button', { name: 'Second' } ) );
-			fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
+			await waitFor( () =>
+				expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toHaveTextContent( 'Second' )
+			);
+			fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
 			if ( running ) {
 				fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
 			}

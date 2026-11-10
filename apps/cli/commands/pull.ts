@@ -46,7 +46,7 @@ import {
 	type ReprintProcessResult,
 	runReprintCommandUntilComplete,
 } from 'cli/lib/pull/reprint-client';
-import { ensureReprintKey, reinstallReprintKey, withKeyRecovery } from 'cli/lib/pull/reprint-key';
+import { ensureReprintKey } from 'cli/lib/pull/reprint-key';
 import {
 	getCoreRoots,
 	getReprintMetadata,
@@ -61,6 +61,7 @@ import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/track
 import { findFailureCode } from 'cli/lib/utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
+import type { SyncFailurePhase } from '@studio/common/lib/sync/classify-sync-failure';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { builder } from 'cli/commands/pull.command';
 import type { CommandArgs } from 'cli/types';
@@ -82,8 +83,7 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 						only: argv.only as string[] | undefined,
 						skipDatabase: argv[ 'skip-database' ] as boolean,
 						skipFiles: argv[ 'skip-files' ] as boolean,
-				  },
-			argv.suppressTracksEvent
+				  }
 		);
 		// The pulled site's server keeps handles open.
 		process.exit( 0 );
@@ -197,6 +197,8 @@ interface PullRun {
 	warning?: string;
 	localChangesApplied: boolean;
 	completed: boolean;
+	// The step a failure is attributed to when its error names no cause of its own.
+	failurePhase?: SyncFailurePhase;
 }
 
 /**
@@ -212,7 +214,6 @@ export async function runCommand(
 	remoteSite?: string,
 	verbose = false,
 	cliSelection: CliSelectionOptions = {},
-	suppressTracksEvent = false,
 	onProgress?: ( message: string ) => void
 ): Promise< SyncSite | undefined > {
 	const startedAt = Date.now();
@@ -249,14 +250,14 @@ export async function runCommand(
 	}
 
 	// A user who cancels the site picker or the selection emits nothing: cancels aren't failures.
-	if ( ! suppressTracksEvent && ( run.completed || pullError !== undefined ) ) {
+	if ( run.completed || pullError !== undefined ) {
 		try {
 			await recordTracksEvent( TRACKS_EVENTS.SYNC_PULL, {
 				...buildSyncEventProps( {
 					startedAt,
 					site: run.remoteSite,
 					error: pullError,
-					hint: { code: findFailureCode( pullError ) },
+					hint: { code: findFailureCode( pullError ), phase: run.failurePhase },
 				} ),
 				site_kind: getSiteKind( run ),
 				...getTracksOrigin(),
@@ -312,8 +313,10 @@ async function pullSite(
 		return;
 	}
 	run.remoteSite = sourceSite.wpComSite;
+	run.failurePhase = 'remote_backup';
 	run.preview = await findPreview( sourceSite );
-	const exporter = await enableReprintExporter(
+	// Fails early with an "update Jetpack" message on a site that can't export.
+	await enableReprintExporter(
 		sourceSite.wpComSite.id,
 		sourceSite.wpComToken.accessToken,
 		verbose
@@ -367,20 +370,11 @@ async function pullSite(
 		await ensureReprintKey( {
 			wpComSiteId: sourceSite.wpComSite.id,
 			wpComAccessToken: sourceSite.wpComToken.accessToken,
-			exporter,
 			apiUrl,
 			stateDirectory: studioMetadata.stateDirectory,
 			verbose,
 		} );
-		const reinstallKey = () =>
-			reinstallReprintKey( {
-				wpComSiteId: sourceSite.wpComSite.id,
-				wpComAccessToken: sourceSite.wpComToken.accessToken,
-				apiUrl,
-				stateDirectory: studioMetadata.stateDirectory,
-				verbose,
-			} );
-		await runPreflight( studioMetadata, apiUrl, verbose, reinstallKey );
+		await runPreflight( studioMetadata, apiUrl, verbose );
 		const reprintMetadata = await getReprintMetadata( {
 			apiUrl,
 			stateDirectory: studioMetadata.stateDirectory,
@@ -417,8 +411,10 @@ async function pullSite(
 				! isRepull,
 				selection,
 				reprintMetadata,
-				reinstallKey,
-				sourceSite.wpComSite.wpVersion
+				sourceSite.wpComSite.wpVersion,
+				( phase ) => {
+					run.failurePhase = phase;
+				}
 			);
 
 			// Makes `studio site start` serve the pulled runtime instead of the blank install.
@@ -508,8 +504,7 @@ async function pullSite(
 async function runPreflight(
 	sessionMetadata: PullSession,
 	sourceSiteApiUrl: string,
-	verbose = false,
-	reinstallKey?: () => Promise< void >
+	verbose = false
 ): Promise< void > {
 	const preflightCachePath = path.join( sessionMetadata.stateDirectory, 'preflight.json' );
 
@@ -521,20 +516,16 @@ async function runPreflight(
 
 	let preflightResult: ReprintProcessResult;
 	try {
-		preflightResult = await withKeyRecovery(
-			() =>
-				runReprintCommandUntilComplete(
-					[
-						'preflight',
-						sourceSiteApiUrl,
-						'--no-adaptive',
-						`--state-dir=${ sessionMetadata.stateDirectory }`,
-						`--fs-root=${ sessionMetadata.rawDirectory }`,
-					],
-					undefined,
-					{ verboseCommands: verbose }
-				),
-			reinstallKey
+		preflightResult = await runReprintCommandUntilComplete(
+			[
+				'preflight',
+				sourceSiteApiUrl,
+				'--no-adaptive',
+				`--state-dir=${ sessionMetadata.stateDirectory }`,
+				`--fs-root=${ sessionMetadata.rawDirectory }`,
+			],
+			undefined,
+			{ verboseCommands: verbose }
 		);
 	} catch ( preflightError ) {
 		const details =
@@ -650,8 +641,8 @@ export async function runFullPull(
 	isFirstPull: boolean,
 	selection: PullSelection = {},
 	reprintMetadata: ReprintMetadata = emptyReprintMetadata,
-	reinstallKey?: () => Promise< void >,
-	remoteWpVersion?: string
+	remoteWpVersion?: string,
+	onPhase?: ( phase: SyncFailurePhase ) => void
 ): Promise< void > {
 	// The database lives in the pulled wp-content, or in the local one when
 	// the remote's location is unknown and the database isn't pulled.
@@ -698,14 +689,10 @@ export async function runFullPull(
 			: [ '--include=:wp-content:' ];
 
 	const runStep = ( progressLabel: string, args: string[] ) =>
-		withKeyRecovery(
-			() =>
-				runReprintCommandUntilComplete( args, ( progress ) => logger.reportProgress( progress ), {
-					progressLabel,
-					verboseCommands: verbose,
-				} ),
-			reinstallKey
-		);
+		runReprintCommandUntilComplete( args, ( progress ) => logger.reportProgress( progress ), {
+			progressLabel,
+			verboseCommands: verbose,
+		} );
 
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Pulling site…' ) );
 
@@ -740,6 +727,8 @@ export async function runFullPull(
 		] );
 	}
 
+	onPhase?.( 'local_import' );
+
 	if ( isScoped && ! keptCoreVersion ) {
 		ensureScopedPullWpConfig( metadata, reprintMetadata );
 	}
@@ -763,12 +752,14 @@ export async function runFullPull(
 			path.join( metadata.rawDirectory, ...contentDir.split( '/' ).filter( Boolean ) )
 		);
 	} else {
-		// `--force` replaces the blank install on a first pull, and the site's own core when it
-		// can't be kept. Without it, a delta pull can never overwrite a live site.
+		// Copying core leaves `wp-content` as the site's only link into the pulled tree, and a later
+		// pull can keep that core. `--force` replaces the blank install on a first pull, and the
+		// site's own files next to core when its core can't be kept.
 		await runStep( __( 'Flattening layout' ), [
 			'flat-docroot',
 			apiUrl,
 			`--flatten-to=${ metadata.sitePath }`,
+			'--core-files=copy',
 			...( isFirstPull || hasOwnCore( metadata.sitePath ) ? [ '--force' ] : [] ),
 			`--state-dir=${ metadata.stateDirectory }`,
 			`--fs-root=${ metadata.rawDirectory }`,

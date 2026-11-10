@@ -25,8 +25,6 @@ vi.mock( 'cli/lib/api', async ( importOriginal ) => ( {
 } ) );
 vi.mock( 'cli/lib/pull/reprint-key', () => ( {
 	ensureReprintKey: vi.fn(),
-	reinstallReprintKey: vi.fn(),
-	withKeyRecovery: ( run: () => Promise< unknown > ) => run(),
 } ) );
 vi.mock( 'cli/lib/sync-api', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/sync-api') >() ),
@@ -317,12 +315,13 @@ describe( 'CLI: studio pull single pull phase', () => {
 			`--state-dir=${ stateDirectory }`,
 			`--fs-root=${ rawDirectory }`,
 		] );
-		// The remote URL selects Reprint's pull state; --force only on a first
-		// pull, so the blank install is replaced but a live site never is.
+		// The remote URL selects Reprint's pull state; core is copied, not
+		// linked; --force on a first pull replaces the blank install.
 		expect( flattenArgs ).toEqual( [
 			'flat-docroot',
 			'https://example.com/?reprint-api-jetpack',
 			`--flatten-to=${ sitePath }`,
+			'--core-files=copy',
 			'--force',
 			`--state-dir=${ stateDirectory }`,
 			`--fs-root=${ rawDirectory }`,
@@ -532,7 +531,6 @@ describe( 'CLI: studio pull single pull phase', () => {
 						wordpressRoots: [ '/wordpress/core/7.1.4' ],
 					},
 				},
-				undefined,
 				remoteWpVersion
 			);
 
@@ -920,7 +918,6 @@ describe( 'CLI: studio pull requires an existing site', () => {
 		expect( ensureReprintKey ).toHaveBeenCalledWith( {
 			wpComSiteId: 22,
 			wpComAccessToken: 'access-token',
-			exporter: { hasPublicKey: true },
 			apiUrl: 'https://example.com/?reprint-api-jetpack',
 			stateDirectory: path.join( pullsRoot(), 'existing-id', 'state' ),
 			verbose: false,
@@ -1125,6 +1122,58 @@ describe( 'CLI: studio pull delta re-pull of a completed pull', () => {
 			'pull-files',
 		] );
 	} );
+
+	it.each( [
+		[ 'preflight', 'remote_backup' ],
+		[ 'pull-files', 'remote_backup' ],
+		[ 'flat-docroot', 'local_import' ],
+	] )(
+		'records an uncoded failure in %s as the step it happened in',
+		async ( failingCommand, failureReason ) => {
+			const { runCommand } = await loadRunCommandWithFakeHome();
+			mockWpComPullSource();
+			const sitePath = path.join( fakeHome, 'Studio', 'Failing-Site' );
+			seedCliConfigSite( fakeHome, [
+				makeSiteRecord( {
+					id: 'failing-id',
+					name: 'Failing Site',
+					path: sitePath,
+					importComplete: true,
+					status: 'ready',
+				} ),
+			] );
+			fs.mkdirSync( path.join( fakeHome, '.studio', 'pulls', 'failing-id', 'state' ), {
+				recursive: true,
+			} );
+
+			const tracks = await import( 'cli/lib/tracks' );
+			const recordTracksEvent = vi
+				.spyOn( tracks, 'recordTracksEvent' )
+				.mockResolvedValue( undefined );
+			const reprintClientMod = await import( 'cli/lib/pull/reprint-client' );
+			vi.spyOn( reprintClientMod, 'runReprintCommandUntilComplete' ).mockImplementation(
+				async ( args ) => {
+					if ( args[ 0 ] === failingCommand ) {
+						throw new Error( `${ failingCommand } crashed` );
+					}
+					const stdout =
+						args[ 0 ] === 'preflight'
+							? JSON.stringify( { data: { ok: true, php: { version: '8.3' } } } )
+							: JSON.stringify( emptyReprintMetadata );
+					return { stdout, stderr: '', exitCode: 0 };
+				}
+			);
+			vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+			vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
+
+			await expect( runCommand( sitePath, 'https://example.com', false ) ).rejects.toThrow();
+
+			expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith(
+				tracks.TRACKS_EVENTS.SYNC_PULL,
+				expect.objectContaining( { success: false, failure_reason: failureReason } )
+			);
+		}
+	);
 } );
 
 describe( 'CLI: studio pull first-pull selective sync', () => {

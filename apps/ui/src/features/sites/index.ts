@@ -7,7 +7,9 @@ export {
 	type OpenInDestination,
 	useOpenInDestinations,
 } from './open-in-menu/use-open-in-destinations';
+export { pendingBackupSlot } from './pending-backup';
 export { pendingBlueprintSlot } from './pending-blueprint';
+export { pendingRemoteSiteSlot } from './pending-remote-site';
 export { pendingSiteFolderSlot } from './pending-site-folder';
 export { PreviewParticles } from './preview-particles';
 export { PanelSplitFrame, type PanelSplitFramePanelProps } from './panel-split-frame';

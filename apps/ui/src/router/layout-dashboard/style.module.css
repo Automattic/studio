@@ -4,13 +4,28 @@
 	initial-value: 100%;
 }
 
+@property --panel-tabs-start {
+	syntax: '<length-percentage>';
+	inherits: true;
+	initial-value: 100%;
+}
+
+@property --layout-controls-space {
+	syntax: '<length>';
+	inherits: true;
+	initial-value: 36px;
+}
+
 .header {
 	--layout-controls-space: calc( 32px + var( --band-gap ) );
 	--panel-chat-header-width: calc( 100% - var( --layout-controls-space ) );
-	transition: --panel-chat-header-width var( --panel-layout-duration ) var( --motion-ease-layout );
+	--panel-tabs-start: calc( 100% + var( --band-inset ) );
+	transition:
+		--layout-controls-space var( --panel-layout-duration ) var( --motion-ease-layout ),
+		--panel-chat-header-width var( --panel-layout-duration ) var( --motion-ease-layout ),
+		--panel-tabs-start var( --panel-layout-duration ) var( --motion-ease-layout );
 	position: relative;
 	z-index: 4;
-	pointer-events: none;
 	-webkit-app-region: drag;
 }
 
@@ -21,17 +36,25 @@
 	pointer-events: auto;
 }
 .header > [data-site-header-actions] {
+	container: site-actions / inline-size;
+	inset-inline-start: 0;
 	inset-inline-end: var( --layout-controls-space );
+}
+.header[data-panel-open] > [data-site-header-actions] {
+	/* The sliding boundary briefly leaves no room for the actions. Size them to the destination. */
+	inset-inline-start: var( --panel-frame-visible-content-width );
 }
 .header[data-full-view-control] {
 	--layout-controls-space: calc( 64px + 2 * var( --band-gap ) );
 }
 .header[data-panel-open] {
 	--panel-chat-header-width: var( --panel-frame-content-width );
+	--panel-tabs-start: calc( var( --panel-frame-content-width ) + var( --band-inset ) );
 }
 .header[data-panel-fullscreen] {
 	--panel-chat-header-width: calc( 100% - var( --layout-controls-space ) );
 	--site-menu-max-width: var( --band-tab-width );
+	--panel-tabs-start: var( --tabs-lead-width, 240px );
 }
 .layoutControls {
 	position: absolute;
@@ -44,16 +67,16 @@
 }
 
 .previewTabs {
+	container: preview-tabs / inline-size;
 	position: absolute;
-	inset-inline-start: calc(
-		max( var( --panel-frame-boundary ), var( --panel-chat-header-width ) ) + var( --band-inset )
-	);
+	inset-inline-start: var( --panel-tabs-start );
 	inset-inline-end: calc( var( --layout-controls-space ) + var( --tabs-actions-width, 160px ) );
 	height: var( --band-height );
 	top: 0;
 	display: flex;
 	align-items: center;
 	min-width: 0;
+	-webkit-app-region: drag;
 	pointer-events: none;
 	overflow: clip;
 	opacity: 0;
@@ -71,10 +94,6 @@
 	max-width: 100%;
 }
 .header[data-panel-fullscreen] .previewTabs {
-	inset-inline-start: max(
-		var( --tabs-lead-width, 240px ),
-		calc( var( --panel-frame-boundary ) + var( --band-inset ) )
-	);
 	inset-inline-end: calc(
 		100% - var( --panel-chat-header-width ) + var( --tabs-actions-width, 160px )
 	);

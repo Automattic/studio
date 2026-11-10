@@ -185,6 +185,10 @@
 	--workspace-header-height: var( --band-height );
 }
 
+.rootWithHeader .panelResizeHandle {
+	inset-block-start: var( --band-height );
+}
+
 .panelResizeHandle[inert] {
 	pointer-events: none;
 }

@@ -85,6 +85,7 @@ function PreviewRow( {
 				<IconButton
 					variant="muted-ghost"
 					size="icon-sm"
+					destructive
 					icon={ <TrashIcon /> }
 					label={ expired ? __( 'Remove expired preview' ) : __( 'Delete preview' ) }
 					onClick={ () => onDelete( snapshot ) }
@@ -240,7 +241,7 @@ export function SharingPanel() {
 				>
 					<DialogHeader>
 						<DialogTitle>{ __( 'Delete preview' ) }</DialogTitle>
-						<DialogDescription tone="default" render={ <div /> }>
+						<DialogDescription render={ <div /> }>
 							<p>
 								{ sprintf(
 									/* translators: %s: preview name */

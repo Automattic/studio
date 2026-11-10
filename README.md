@@ -1,10 +1,10 @@
 # WordPress Studio
 
-[WordPress Studio](https://developer.wordpress.com/studio/) is a free, open source development environment for WordPress. Create and manage local sites, build plugins and themes, and use AI to work on real WordPress projects. No Docker, external web server, or database setup required.
+[WordPress Studio](https://wordpress.studio/) is a free, open source development environment for WordPress. Create and manage local sites, build plugins and themes, and use AI to work on real WordPress projects. No Docker, external web server, or database setup required.
 
 Start with a blank site, a Blueprint, or an existing WordPress site. Work through the desktop app, the command line, or an AI agent connected through MCP. Share previews for feedback, publish to [WordPress.com](https://wordpress.com/) or [Pressable](https://pressable.com/), or export your site to host elsewhere.
 
-[Get started ↗](https://developer.wordpress.com/docs/developer-tools/studio/) · [Local development ↗](https://developer.wordpress.com/docs/developer-tools/studio/sites/) · [AI ↗](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/) · [Previews ↗](https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/) · [Publishing & syncing ↗](https://developer.wordpress.com/docs/developer-tools/studio/sync/) · [Agents ↗](https://developer.wordpress.com/docs/developer-tools/studio/mcp-on-studio/) · [CLI ↗](https://developer.wordpress.com/docs/developer-tools/studio/cli/)
+[Get started ↗](https://wordpress.studio/docs/) · [Local development ↗](https://wordpress.studio/docs/sites/) · [AI ↗](https://wordpress.studio/docs/studio-code/) · [Previews ↗](https://wordpress.studio/docs/preview-sites/) · [Publishing & syncing ↗](https://wordpress.studio/docs/sync/) · [Agents ↗](https://wordpress.studio/docs/mcp-on-studio/) · [CLI ↗](https://wordpress.studio/docs/cli/)
 
 ## Get started
 
@@ -16,11 +16,11 @@ Download WordPress Studio for your platform:
 | Windows                | [Intel/AMD — x64](https://appscdn.wordpress.com/downloads/wordpress-com-studio/windows-x64/latest) · [ARM64](https://appscdn.wordpress.com/downloads/wordpress-com-studio/windows-arm64/latest)           |
 | Linux — Debian package | [Intel/AMD — x64](https://appscdn.wordpress.com/downloads/wordpress-com-studio/linux-x64/latest/update) · [ARM64](https://appscdn.wordpress.com/downloads/wordpress-com-studio/linux-arm64/latest/update) |
 
-[Create your first site](https://developer.wordpress.com/docs/developer-tools/studio/) from scratch or a Blueprint, or import an existing WordPress backup. Open wp-admin, edit files in your preferred editor, or connect an AI provider and describe your first change.
+[Create your first site](https://wordpress.studio/docs/) from scratch or a Blueprint, or import an existing WordPress backup. Open wp-admin, edit files in your preferred editor, or connect an AI provider and describe your first change.
 
 ## Develop locally
 
-Run WordPress on your machine with a bundled native PHP runtime and a SQLite database. [Manage multiple sites](https://developer.wordpress.com/docs/developer-tools/studio/sites/), test plugins and themes, and develop against local copies of production sites.
+Run WordPress on your machine with a bundled native PHP runtime and a SQLite database. [Manage multiple sites](https://wordpress.studio/docs/sites/), test plugins and themes, and develop against local copies of production sites.
 
 - Choose PHP and WordPress versions for each project.
 - Configure custom domains and HTTPS.
@@ -30,7 +30,7 @@ Run WordPress on your machine with a bundled native PHP runtime and a SQLite dat
 
 ## Build and edit with AI
 
-Use the [built-in agent](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/) to create pages, develop plugins and themes, investigate issues, and run WP-CLI commands. It works with your site’s files and WordPress installation, with a live preview alongside the conversation.
+Use the [built-in agent](https://wordpress.studio/docs/studio-code/) to create pages, develop plugins and themes, investigate issues, and run WP-CLI commands. It works with your site’s files and WordPress installation, with a live preview alongside the conversation.
 
 Attach screenshots or reference files to your requests, or select an element in the preview and describe what you want to change. Continue working on the result in your editor or WordPress.
 
@@ -38,7 +38,7 @@ Connect through WordPress.com or use your own Anthropic API key. AI usage is sub
 
 ## Share previews
 
-Create a [cloud-hosted preview](https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/) of a local site to share with clients and teammates. Preview links remain accessible when your computer is offline, so you can gather feedback without running a tunnel or deploying to production.
+Create a [cloud-hosted preview](https://wordpress.studio/docs/preview-sites/) of a local site to share with clients and teammates. Preview links remain accessible when your computer is offline, so you can gather feedback without running a tunnel or deploying to production.
 
 Preview sites are free, require a WordPress.com account, and expire after seven days without updates.
 
@@ -46,13 +46,13 @@ Preview sites are free, require a WordPress.com account, and expire after seven 
 
 Publish a local site to [WordPress.com](https://wordpress.com/) or [Pressable](https://pressable.com/), or pull an existing production or staging site into your local environment.
 
-[Choose what to transfer](https://developer.wordpress.com/docs/developer-tools/studio/sync/): the full site, database, individual plugins or themes, or other files in `wp-content`. Develop and test locally, then publish when you’re ready.
+[Choose what to transfer](https://wordpress.studio/docs/sync/): the full site, database, individual plugins or themes, or other files in `wp-content`. Develop and test locally, then publish when you’re ready.
 
 For other hosts, export your site and move it through your preferred deployment workflow.
 
 ## Use the CLI and your own agents
 
-The [WordPress Studio CLI](https://developer.wordpress.com/docs/developer-tools/studio/cli/) brings site management to your terminal. Create and manage sites, run WP-CLI commands, import and export backups, create previews, and push or pull changes.
+The [WordPress Studio CLI](https://wordpress.studio/docs/cli/) brings site management to your terminal. Create and manage sites, run WP-CLI commands, import and export backups, create previews, and push or pull changes.
 
 With the CLI installed:
 
@@ -70,11 +70,11 @@ studio wp plugin list --path ~/Studio/my-site
 studio code
 ```
 
-The built-in [MCP (Model Context Protocol) server](https://developer.wordpress.com/docs/developer-tools/studio/mcp-on-studio/) exposes WordPress tools to compatible AI clients, including Claude Code, Codex, and Cursor. Connect your agent to create sites, run WP-CLI commands, and work with your WordPress projects.
+The built-in [MCP (Model Context Protocol) server](https://wordpress.studio/docs/mcp-on-studio/) exposes WordPress tools to compatible AI clients, including Claude Code, Codex, and Cursor. Connect your agent to create sites, run WP-CLI commands, and work with your WordPress projects.
 
 ## Documentation
 
-Visit the [WordPress Studio documentation](https://developer.wordpress.com/docs/developer-tools/studio/) for installation instructions, feature guides, troubleshooting, and FAQs.
+Visit the [WordPress Studio documentation](https://wordpress.studio/docs/) for installation instructions, feature guides, troubleshooting, and FAQs.
 
 For a walkthrough of chat, live previews, and annotations, read the [desktop experience beta announcement](https://wordpress.com/blog/2026/08/24/studio-agentic-beta/).
 

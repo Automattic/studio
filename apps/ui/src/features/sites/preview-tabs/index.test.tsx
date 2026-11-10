@@ -204,7 +204,7 @@ it.each( [ false, true ] )(
 		expect( document.querySelector( 'iframe' ) ).not.toBeInTheDocument();
 		fireEvent.click( show );
 		await waitFor( () =>
-			expect( screen.queryByRole( 'button', { name: 'Expand panel' } ) ).not.toBeInTheDocument()
+			expect( screen.getByRole( 'button', { name: 'Expand panel' } ) ).toBeVisible()
 		);
 		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
 		await waitFor( () => expect( screen.queryByRole( 'tab' ) ).not.toBeInTheDocument() );
@@ -256,9 +256,9 @@ it( 'reloads only the selected tab from the command palette', async () => {
 	const second = document.querySelectorAll( 'iframe' )[ 1 ];
 	act( () => setCommandPaletteOpen( true ) );
 	fireEvent.change( await screen.findByRole( 'combobox', { name: 'Search commands' } ), {
-		target: { value: 'Reload preview' },
+		target: { value: 'Reload' },
 	} );
-	fireEvent.click( screen.getByRole( 'option', { name: 'Reload preview' } ) );
+	fireEvent.click( screen.getByRole( 'option', { name: 'Reload' } ) );
 	await waitFor( () => expect( second ).not.toBeInTheDocument() );
 	expect( document.querySelector( 'iframe' ) ).toBe( first );
 	fireEvent.click( screen.getAllByRole( 'tab' )[ 0 ] );
@@ -404,7 +404,7 @@ it( 'opens the right-clicked tab in the preferred browser without selecting it',
 	const tabs = screen.getAllByRole( 'tab' );
 	fireEvent.contextMenu( tabs[ 0 ] );
 	const open = await screen.findByRole( 'menuitem', { name: 'Open in Firefox' } );
-	expect( screen.getAllByRole( 'menuitem' )[ 0 ] ).toBe( open );
+	expect( open ).toBeEnabled();
 	expect( screen.getByRole( 'separator' ) ).toBeInTheDocument();
 	fireEvent.click( open );
 	expect( connector.openSiteUrl ).toHaveBeenCalledWith( 'one', '/about/?source=preview#team', {
@@ -463,6 +463,7 @@ it( 'closes tabs from the context menu without selecting the right-clicked tab',
 	fireEvent.contextMenu( tabs[ 0 ] );
 	await screen.findByRole( 'menuitem', { name: 'Close other tabs' } );
 	expect( screen.getAllByRole( 'menuitem' ).map( ( item ) => item.textContent ) ).toEqual( [
+		'New tab',
 		'Open in Browser',
 		'Close tab',
 		'Close other tabs',
@@ -475,6 +476,7 @@ it( 'closes tabs from the context menu without selecting the right-clicked tab',
 	await waitFor( () => expect( remaining ).toHaveFocus() );
 	fireEvent.contextMenu( remaining );
 	expect( screen.getAllByRole( 'menuitem' ).map( ( item ) => item.textContent ) ).toEqual( [
+		'New tab',
 		'Open in Browser',
 		'Close tab',
 	] );
@@ -689,6 +691,7 @@ it( 'closes the panel immediately while the final tab’s site is still stopping
 	fireEvent.click( screen.getByRole( 'button', { name: 'Close First' } ) );
 	await screen.findByRole( 'button', { name: 'Show panel' } );
 	await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledExactlyOnceWith( 'one' ) );
+	expect( document.querySelector( '[data-layout-moving]' ) ).not.toBeInTheDocument();
 	expect( document.querySelector( 'iframe' ) ).not.toBeInTheDocument();
 	await act( async () => {
 		finish();
@@ -749,6 +752,25 @@ it( 'opens the new-tab menu with the primary T shortcut, including from closed p
 		shiftKey: true,
 	} );
 	expect( screen.queryByRole( 'menuitem', { name: 'Browser' } ) ).not.toBeInTheDocument();
+} );
+
+it( 'opens a new tab with the primary T shortcut when the plus button is hidden', async () => {
+	await setup();
+	screen.getByRole( 'button', { name: 'New tab' } ).style.display = 'none';
+	const isApple = /Mac|iPhone|iPad/.test( navigator.platform );
+	fireEvent.keyDown( document, { key: 't', code: 'KeyT', metaKey: isApple, ctrlKey: ! isApple } );
+	await waitFor( () => expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 ) );
+	const tab = screen.getAllByRole( 'tab' )[ 1 ];
+	expect( tab ).toHaveAttribute( 'aria-selected', 'true' );
+	await waitFor( () => expect( tab ).toHaveFocus() );
+} );
+
+it( 'opens a new tab from the tab context menu', async () => {
+	await setup();
+	fireEvent.contextMenu( selectedTab() );
+	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'New tab' } ) );
+	await waitFor( () => expect( screen.getAllByRole( 'tab' ) ).toHaveLength( 2 ) );
+	expect( screen.getAllByRole( 'tab' )[ 1 ] ).toHaveAttribute( 'aria-selected', 'true' );
 } );
 
 it.each( [ 'composer', 'sidebar', 'palette' ] )(
@@ -1103,7 +1125,7 @@ it( 'opens a WordPress style board without DESIGN.md and reloads saved style cha
 	expect( screen.queryByText( /DESIGN.md/ ) ).not.toBeInTheDocument();
 	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeDisabled();
 	connector.getSiteDesign.mockResolvedValue( board( '#654321' ) );
-	await user.click( screen.getByRole( 'button', { name: 'Reload preview' } ) );
+	await user.click( screen.getByRole( 'button', { name: 'Reload' } ) );
 	expect( await screen.findByText( '#654321' ) ).toBeVisible();
 	expect( screen.queryByText( '#123456' ) ).not.toBeInTheDocument();
 } );

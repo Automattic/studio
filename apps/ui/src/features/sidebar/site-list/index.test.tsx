@@ -169,10 +169,10 @@ describe( 'sidebar site list', () => {
 		await waitFor( () => expect( view.history.location.pathname ).toBe( '/sessions/older' ) );
 	} );
 
-	it( 'lists sites while chats are still loading', async () => {
+	it( 'lists sites while chats load within an open workspace', async () => {
 		const connector = createFakeConnector( { sites: [ mySite ] } );
 		connector.getSessions.mockReturnValue( new Promise( () => {} ) );
-		renderApp( { connector } );
+		renderApp( { connector, path: '/sites/one' } );
 		expect( await siteButton( 'My site' ) ).toBeVisible();
 	} );
 

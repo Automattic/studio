@@ -43,7 +43,7 @@ export function DisconnectSiteDialog( {
 			>
 				<DialogHeader>
 					<DialogTitle>{ __( 'Disconnect website?' ) }</DialogTitle>
-					<DialogDescription tone="default">
+					<DialogDescription>
 						{ __(
 							'You’ll need to connect a website again to publish or pull changes. Your local site and live website will stay unchanged.'
 						) }

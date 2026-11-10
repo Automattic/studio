@@ -31,6 +31,7 @@ interface BrowserMenuItemsProps {
 	responsive?: PreviewResponsiveActions;
 	screenshot?: PreviewScreenshotActions;
 	disabled?: boolean;
+	annotation?: { active: boolean; disabled: boolean; disabledReason?: string; onClick: () => void };
 }
 
 function BrowserMenuItems( {
@@ -39,6 +40,7 @@ function BrowserMenuItems( {
 	responsive,
 	screenshot,
 	disabled,
+	annotation,
 }: BrowserMenuItemsProps ) {
 	return (
 		<>
@@ -55,7 +57,18 @@ function BrowserMenuItems( {
 					{ responsive.active ? __( 'Hide device toolbar' ) : __( 'Show device toolbar' ) }
 				</Menu.Item>
 			) : null }
-			{ screenshot && ( adminBar || responsive ) ? <Menu.Separator /> : null }
+			{ ( annotation || screenshot || actions ) && ( adminBar || responsive ) ? (
+				<Menu.Separator />
+			) : null }
+			{ annotation ? (
+				<Menu.Item
+					disabled={ disabled || annotation.disabled }
+					onClick={ annotation.onClick }
+					aria-description={ annotation.disabledReason }
+				>
+					{ annotation.active ? __( 'Stop annotating' ) : __( 'Annotate' ) }
+				</Menu.Item>
+			) : null }
 			{ screenshot ? (
 				<Menu.Item
 					disabled={ disabled || screenshot.disabled || screenshot.capturing }
@@ -68,10 +81,6 @@ function BrowserMenuItems( {
 			) : null }
 			{ actions ? (
 				<>
-					<Menu.Item disabled={ disabled } onClick={ actions.onOpenDevTools }>
-						{ __( 'Developer tools' ) }
-					</Menu.Item>
-					<Menu.Separator />
 					<Menu.SubmenuRoot>
 						<Menu.SubmenuTrigger disabled={ disabled }>{ __( 'Appearance' ) }</Menu.SubmenuTrigger>
 						<Menu.SubmenuPopup>
@@ -87,6 +96,9 @@ function BrowserMenuItems( {
 							</Menu.RadioGroup>
 						</Menu.SubmenuPopup>
 					</Menu.SubmenuRoot>
+					<Menu.Item disabled={ disabled } onClick={ actions.onOpenDevTools }>
+						{ __( 'Developer tools' ) }
+					</Menu.Item>
 					<Menu.Separator />
 					<Menu.Item
 						disabled={ disabled || actions.clearing }

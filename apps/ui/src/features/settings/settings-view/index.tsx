@@ -208,7 +208,7 @@ function PreferencesPanel( {
 				</SettingsRow>
 				<SettingsRow
 					title={ __( 'Default browser' ) }
-					description={ __( 'The browser used to open your sites, WP Admin, and phpMyAdmin.' ) }
+					description={ __( 'The default browser for your sites.' ) }
 				>
 					<SettingsSelect
 						label={ __( 'Default browser' ) }

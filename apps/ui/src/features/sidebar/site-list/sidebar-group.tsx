@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from 'react';
 import { useStoredFlag } from '@/lib/hooks';
 import { CollapsiblePanel, SidebarGroup, SidebarGroupHeader, SidebarGroupLabel } from '@/lib/ui';
 import styles from './style.module.css';
@@ -41,6 +41,7 @@ export function SiteListGroup( {
 } ) {
 	const [ storedExpanded, setExpanded ] = useStoredFlag( `studio-ui-sidebar-group-${ id }`, true );
 	const headerRef = useRef< HTMLDivElement >( null );
+	const panelRef = useRef< HTMLDivElement >( null );
 	useEffect( () => {
 		const header = headerRef.current;
 		if ( ! header || typeof IntersectionObserver === 'undefined' ) return;
@@ -58,6 +59,42 @@ export function SiteListGroup( {
 		return () => observer.disconnect();
 	}, [ hidden ] );
 	const expanded = storedExpanded || ! foldable;
+	useLayoutEffect( () => {
+		const header = headerRef.current;
+		const panel = panelRef.current;
+		if ( ! header || ! panel ) return;
+		let scrollport = header.parentElement;
+		while ( scrollport && ! /auto|scroll/.test( getComputedStyle( scrollport ).overflowY ) ) {
+			scrollport = scrollport.parentElement;
+		}
+		if ( ! scrollport ) return;
+		const measure = () => {
+			const overlap = Math.max(
+				0,
+				header.getBoundingClientRect().bottom - panel.getBoundingClientRect().top
+			);
+			const size =
+				parseFloat( getComputedStyle( panel ).getPropertyValue( '--surface-fade-size' ) ) || 14;
+			panel.style.setProperty( '--group-clip-top', `${ overlap }px` );
+			panel.style.setProperty( '--group-fade-size', `${ Math.min( overlap, size ) }px` );
+		};
+		let frame = 0;
+		const schedule = () => {
+			cancelAnimationFrame( frame );
+			frame = requestAnimationFrame( measure );
+		};
+		const resize = new ResizeObserver( schedule );
+		resize.observe( scrollport );
+		resize.observe( header );
+		resize.observe( panel );
+		scrollport.addEventListener( 'scroll', schedule, { passive: true } );
+		measure();
+		return () => {
+			cancelAnimationFrame( frame );
+			resize.disconnect();
+			scrollport.removeEventListener( 'scroll', schedule );
+		};
+	}, [ expanded, hidden ] );
 	useOpenOnAddedItems( itemKeys, expanded, () => setExpanded( true ) );
 	if ( hidden ) {
 		return null;
@@ -83,7 +120,7 @@ export function SiteListGroup( {
 				</SidebarGroupLabel>
 				{ action }
 			</SidebarGroupHeader>
-			<CollapsiblePanel open={ expanded } className={ styles.groupPanel }>
+			<CollapsiblePanel ref={ panelRef } open={ expanded } className={ styles.groupPanel }>
 				{ children }
 			</CollapsiblePanel>
 		</SidebarGroup>

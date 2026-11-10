@@ -445,7 +445,7 @@ function SitePreviewContent( {
 					! canAnnotateSurface ||
 					isStarting ||
 					isStopping ||
-					( site.running && ( blank || ! canAnnotate ) ) ||
+					( site.running && ( blank || ( activeSurfaceKey !== 'site' && ! canAnnotate ) ) ) ||
 					isAnnotationsBusy( annotations ),
 				disabledReason: blank
 					? __( 'Open a project page to annotate.' )
@@ -482,6 +482,7 @@ function SitePreviewContent( {
 			onOpenExternal={ blank ? undefined : openExternal }
 			onExternalNavigate={ ( url ) => void connector.openExternalUrl( url ) }
 			responsive={ responsive }
+			annotation={ inactive ? undefined : annotate }
 			screenshot={
 				! rendered && ! blank && onAttachScreenshot
 					? {

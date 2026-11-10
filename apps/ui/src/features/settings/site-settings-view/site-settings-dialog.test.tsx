@@ -329,7 +329,7 @@ describe( 'site settings', () => {
 		}
 		for ( const url of [
 			'https://developer.wordpress.org/reference/functions/wp_get_environment_type/',
-			'https://developer.wordpress.com/docs/developer-tools/studio/xdebug/',
+			'https://wordpress.studio/docs/xdebug/',
 			'https://developer.wordpress.org/advanced-administration/debug/debug-wordpress/#wp_debug_display',
 			'https://developer.wordpress.org/advanced-administration/debug/debug-wordpress/#script_debug',
 		] ) {

@@ -1,7 +1,12 @@
+.root,
+.sidebarFlyout {
+	--surface-fade-size: 14px;
+}
+
 .root {
 	--motion-ease-layout: var( --motion-ease-drawer );
 
-	/* The sidebar and its sticky header/footer share one surface. */
+	/* The sidebar and its header/footer share one surface. */
 	--studio-sidebar-bg: var( --sidebar-background, var( --chrome ) );
 
 	position: relative;
@@ -9,6 +14,20 @@
 	height: 100vh;
 	overflow: hidden;
 	background-color: var( --window-background, var( --chat ) );
+}
+
+.windowDragStrip {
+	position: absolute;
+	top: 0;
+	inset-inline: 0;
+	height: var( --band-inset );
+	z-index: var( --z-overlay );
+	pointer-events: none;
+	-webkit-app-region: drag;
+}
+
+.windowDragStripBottom {
+	top: calc( var( --band-height ) - var( --band-inset ) );
 }
 
 .sidebar {
@@ -34,6 +53,12 @@
 	min-height: 0;
 	overflow-y: auto;
 	scrollbar-width: none;
+	mask-image: linear-gradient(
+		to top,
+		transparent,
+		rgb( 0 0 0 / 0.65 ) calc( var( --scroll-fade-bottom, 0px ) * 0.35 ),
+		#000 var( --scroll-fade-bottom, 0px )
+	);
 }
 
 /* Collapsing animates this frame's width while the sidebar inside keeps its
@@ -55,50 +80,15 @@
    panel-split-frame). */
 .sidebarResizing,
 .sidebarResizing .sidebar,
-.root:has( > .resizeHandle:focus-visible ) :is( .sidebarFrame, .sidebar ) {
+.root:has( > .main > .resizeHandle:focus-visible ) :is( .sidebarFrame, .sidebar ) {
 	transition: none;
 }
 
-/* Stay pinned at the bottom as the sidebar scrolls; `margin-top: auto`
-   pushes the footer to the bottom in the flex column when content is
-   shorter than the viewport. Rows scrolling under it fade out. */
+/* Controls stay outside the masked scrollport. */
 .sidebarFooter {
-	composes: surfaceFade from '@/lib/theme/recipes.module.css';
-	--fade-surface: var( --studio-sidebar-bg );
-	margin-top: auto;
-	position: sticky;
-	bottom: 0;
-	z-index: 1;
-	padding-top: var( --surface-fade-size );
-
-	pointer-events: none;
+	flex-shrink: 0;
+	padding-block-start: var( --space-1 );
 	-webkit-app-region: no-drag;
-}
-
-.sidebarFooter::before {
-	top: calc( -1 * var( --space-2 ) );
-	height: calc( 100% + var( --space-2 ) );
-	mask-image: linear-gradient( to bottom, var( --surface-strong-overlay-fade-stops ) );
-	z-index: -1;
-	display: none;
-}
-
-[data-scroll-bottom] > .sidebarFooter::before {
-	display: block;
-}
-
-.footerBlur {
-	height: 100%;
-	z-index: -1;
-	display: none;
-}
-
-[data-scroll-bottom] > .sidebarFooter > .footerBlur {
-	display: block;
-}
-
-.sidebarFooter > :not( .footerBlur ) {
-	pointer-events: auto;
 }
 
 /* The sidebar's full-height edge, in its own last column. It slides out
@@ -136,24 +126,24 @@
 	isolation: isolate;
 }
 
-/* The negative margin cancels the handle's width so it adds no space to the
-   flex row — the main content butts straight against the sidebar's border and
-   the hit area overlays main's sidebar-side edge. position/z-index lift it
-   above main (a later flex sibling) so its focus line sits on the border. */
+/* Overlay the main edge so the hit area never consumes workspace width,
+   including while the sidebar is opening, closing or resizing. */
 .resizeHandle {
-	position: relative;
+	position: absolute;
+	inset-block: var( --band-height ) 0;
+	inset-inline-start: 0;
 	z-index: var( --z-overlay );
-	flex-shrink: 0;
-	margin-inline-end: calc( var( --space-2 ) * -1 );
 	justify-content: flex-start;
 }
 
-.root:has( > .resizeHandle:hover ) .sidebarFrame:not( .sidebarResizing )::after {
+.root:has( > .main > .resizeHandle:hover ) .sidebarFrame:not( .sidebarResizing )::after {
 	background-color: var( --surface-4 );
 }
 
-.sidebarResizing::after {
-	background-color: var( --accent );
+.sidebarResizing::after,
+.root:has( > .main > .resizeHandle:focus-visible ) .sidebarFrame::after {
+	width: var( --focus-width );
+	background-color: var( --ring );
 }
 
 .sidebarCards {
@@ -170,7 +160,6 @@
 
 .sidebarFlyout {
 	--motion-ease-layout: var( --motion-ease-drawer );
-	--surface: var( --chrome );
 	--studio-sidebar-bg: var( --chrome );
 	--sidebar-flyout-top-inset: calc( var( --space-3 ) - var( --space-0_5 ) );
 
@@ -186,8 +175,7 @@
 	height: calc(
 		100dvh - var( --band-height ) - var( --space-1_5 ) - var( --sidebar-flyout-top-inset )
 	);
-	overflow-y: auto;
-	scrollbar-width: none;
+	min-height: 0;
 	-webkit-app-region: no-drag;
 }
 

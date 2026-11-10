@@ -39,7 +39,7 @@
     "websiteURL": "https://wordpress.studio/",
     "supportURL": "https://developer.wordpress.com/contact/",
     "privacyPolicyURL": "https://automattic.com/privacy/",
-    "termsOfServiceURL": "https://wordpress.com/tos/",
+    "termsOfServiceURL": "https://automattic.com/tos/",
     "defaultPrompt": [
       "Build a WordPress site for my bakery",
       "Redesign my Studio site",

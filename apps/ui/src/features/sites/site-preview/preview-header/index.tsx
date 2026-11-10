@@ -39,6 +39,7 @@ interface PreviewHeaderProps {
 	onExternalNavigate?: ( url: string ) => void;
 	responsive?: PreviewResponsiveActions;
 	screenshot?: PreviewScreenshotActions;
+	annotation?: { active: boolean; disabled: boolean; disabledReason?: string; onClick: () => void };
 }
 
 export function PreviewHeader( {
@@ -61,6 +62,7 @@ export function PreviewHeader( {
 	onExternalNavigate,
 	responsive,
 	screenshot,
+	annotation,
 	inactive = false,
 }: PreviewHeaderProps ) {
 	const { layout: headerLayout, attachAnnotationSpace, attachBrowserHeader } = useSiteHeader();
@@ -76,6 +78,7 @@ export function PreviewHeader( {
 			onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
 			pageTitle={ browserState.title }
 			loading={ browserState.loading }
+			compact={ headerLayout === 'mobile-overflow' }
 			onOpenExternal={ onOpenExternal }
 			onExternalNavigate={ onExternalNavigate }
 			disabled={ ! canPreview || isStarting || isStopping }
@@ -117,14 +120,16 @@ export function PreviewHeader( {
 						onStep={ () => onBrowserCommand( 'back' ) }
 						onJump={ onJump }
 					/>
-					<BrowserHistoryButton
-						direction="forward"
-						browserState={ browserState }
-						shortcut={ shortcuts.forward }
-						disabled={ disabled }
-						onStep={ () => onBrowserCommand( 'forward' ) }
-						onJump={ onJump }
-					/>
+					<span hidden={ headerLayout === 'mobile-overflow' && ! browserState.canGoForward }>
+						<BrowserHistoryButton
+							direction="forward"
+							browserState={ browserState }
+							shortcut={ shortcuts.forward }
+							disabled={ disabled }
+							onStep={ () => onBrowserCommand( 'forward' ) }
+							onJump={ onJump }
+						/>
+					</span>
 					<IconButton
 						size="icon-sm"
 						icon={ <RotateCwIcon /> }
@@ -137,12 +142,14 @@ export function PreviewHeader( {
 				</div>
 			</div>
 			<div className={ styles.browserLocation } data-site-header-address>
-				{ headerLayout !== 'mobile-overflow' ? addressBar : null }
+				{ addressBar }
 			</div>
 			<div className={ styles.headerSide }>
 				<span
 					ref={ inactive ? undefined : attachAnnotationSpace }
 					className={ styles.previewActions }
+					data-site-header-annotation
+					hidden={ headerLayout === 'mobile-overflow' }
 				/>
 				{ canPreview && ( browserActions || adminBarActions || responsive || screenshot ) ? (
 					<BrowserMenu
@@ -150,6 +157,7 @@ export function PreviewHeader( {
 						adminBar={ adminBarActions }
 						responsive={ responsive }
 						screenshot={ screenshot }
+						annotation={ headerLayout === 'mobile-overflow' ? annotation : undefined }
 						disabled={ disabled }
 					/>
 				) : null }

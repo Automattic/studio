@@ -557,7 +557,7 @@ describe( 'ShareDialog', () => {
 		await screen.findByRole( 'button', { name: 'Create preview' } );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Learn more…' } ) );
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
-			'https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/'
+			'https://wordpress.studio/docs/preview-sites/'
 		);
 		expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 	} );

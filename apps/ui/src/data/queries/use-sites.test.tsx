@@ -345,7 +345,7 @@ describe( 'export notices', () => {
 	it.each( [
 		[ useExportFullSite, 'exportFullSite', 'Exporting site…', 'Site exported' ],
 		[ useExportDatabase, 'exportDatabase', 'Exporting database…', 'Database exported' ],
-		[ useExportBlueprint, 'exportBlueprint', 'Exporting Blueprint…', 'Blueprint exported' ],
+		[ useExportBlueprint, 'exportBlueprint', 'Exporting blueprint…', 'Blueprint exported' ],
 	] as const )(
 		'keeps %s progress through dismissal and unmount, then records one result',
 		async ( useExport, method, progress, success ) => {

@@ -165,9 +165,9 @@ function useExportSite( mode: 'site' | 'database' | 'blueprint' ) {
 		blueprint: {
 			method: 'exportBlueprint',
 			key: EXPORT_BLUEPRINT_MUTATION_KEY,
-			progress: __( 'Exporting Blueprint…' ),
+			progress: __( 'Exporting blueprint…' ),
 			success: __( 'Blueprint exported' ),
-			failure: __( 'Failed to export Blueprint' ),
+			failure: __( 'Failed to export blueprint' ),
 		},
 	} as const;
 	const messages = exports[ mode ];

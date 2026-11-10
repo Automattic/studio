@@ -16,6 +16,7 @@ import {
 	dropCommentsBetweenBlocks,
 	insertedTemplates,
 	storePresetValues,
+	unregisteredInEditor,
 	validateBlocks,
 } from '@studio/agent/node/block-validator';
 import { getSharedBrowser } from '@studio/agent/node/browser-utils';
@@ -1508,6 +1509,92 @@ describe.runIf( siteUrl && wordpress )( 'a block WordPress renders on the server
 			expect( result.invalidBlocks ).toBe( 1 );
 			expect( result.fixedContent ).toMatch( /^<!-- wp:[a-z-]+ \{.*\} \/-->$/ );
 			expect( ( await validateBlocks( result.fixedContent!, siteUrl! ) ).invalidBlocks ).toBe( 0 );
+		},
+		120_000
+	);
+} );
+
+describe.runIf( siteUrl )( 'text in the comment of a block the server renders (live)', () => {
+	afterAll( cleanupValidatorPages );
+
+	// An eval's private events page (Jetpack 16.4): form fields written with
+	// a label and placeholder, attributes only an older version of each field
+	// reads, around an empty <div>, the current version's save. The editor
+	// reads them as the current version, without that text, and the server
+	// renders each field with its default label from what it saves.
+	const field = ( name: string, attrs: string ) =>
+		`<!-- wp:jetpack/${ name } ${ attrs } -->\n<div></div>\n<!-- /wp:jetpack/${ name } -->`;
+	const FORM = [
+		'<!-- wp:jetpack/contact-form {"subject":"New private event enquiry"} -->',
+		`<div class="wp-block-jetpack-contact-form">${ field(
+			'field-name',
+			'{"label":"Your name","required":true,"placeholder":"Full name"}'
+		) }`,
+		'',
+		`${ field( 'field-date', '{"label":"Event date","required":true}' ) }</div>`,
+		'<!-- /wp:jetpack/contact-form -->',
+	].join( '\n' );
+	const HOURS = paragraph(
+		'{"style":{"color":{"text":"#aa3333"}}}',
+		'<p style="color:#aa3333">Hours</p>'
+	);
+	const onSite = {
+		sites: {
+			wpCli: async ( { path: at }: HostSite, args: string[] ) => ( {
+				exitCode: 0,
+				...( await promisify( execFile )( 'wp', [ `--path=${ at }`, ...args ], {
+					maxBuffer: 1e8,
+				} ) ),
+			} ),
+		},
+	} as unknown as StudioAgentHost;
+
+	it.each( [
+		{ name: 'the form alone', content: FORM, render: false },
+		{
+			// The page's other blocks are fixed; the fix is not parsed again to
+			// store a palette color, which would drop the text again.
+			name: 'the form beside a block the editor fixes',
+			content: `${ HOURS }\n\n${ FORM }`,
+			render: false,
+		},
+		// Each field renders on the site with the label it is written with.
+		{ name: 'the form, rendered on the site', content: FORM, render: true },
+	] )(
+		'keeps the fields as written and names the text the editor drops: $name',
+		async ( { content, render } ) => {
+			if (
+				( render && ! sitePath ) ||
+				( await unregisteredInEditor( [ 'jetpack/field-name' ], siteUrl! ) ).length
+			) {
+				// Without Jetpack's blocks there is nothing to check, and without
+				// the site's folder nothing to render them on.
+				return;
+			}
+			const result = await validateBlockMarkup(
+				content,
+				'page',
+				siteUrl!,
+				{ colors: [ [ 'accent', '#aa3333' ] ], fontSizes: [], spacingSizes: [] },
+				'post',
+				render
+					? rendersAlikeOn( onSite, { path: sitePath!, url: siteUrl!, name: 'Site' } as HostSite )
+					: undefined
+			);
+			expect( result.summary ).toBe( 'page: 2 invalid block(s)' );
+			expect( result.problem ).toContain(
+				'  - jetpack/field-name: The editor reads it without "Your name" (label), "Full name" (placeholder) written in its comment, and WordPress renders it on the server from its attributes, so saving it drops that text from the page.\n    written: <div></div>\n    the block saves: <div><!-- wp:jetpack/label {"label":"Your name"} /--> <!-- wp:jetpack/input {"placeholder":"Full name"'
+			);
+			expect( result.problem ).toContain(
+				'  - jetpack/field-date: The editor reads it without "Event date" (label) written in its comment'
+			);
+			if ( content === FORM ) {
+				expect( result.fixedContent ).toBeUndefined();
+				return;
+			}
+			expect( result.fixedContent ).toContain( '<p class="has-text-color" style="color:#aa3333">' );
+			expect( result.fixedContent ).toContain( FORM );
+			expect( result.paletteColors ).toBeUndefined();
 		},
 		120_000
 	);

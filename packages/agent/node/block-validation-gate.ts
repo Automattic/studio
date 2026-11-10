@@ -26,6 +26,7 @@ import {
 	dropCommentsBetweenBlocks,
 	validateBlocks,
 	type BlockEditor,
+	type BlockLoss,
 	type BlockStyle,
 	type PresetValues,
 	type PresetValuesResult,
@@ -108,9 +109,22 @@ function oneLine( html: string, length: number ): string {
  * as the block saves it would lose when that is known, and the HTML the block
  * saves from its comment attributes — the markup that validates.
  */
+function describeLoss( { note, droppedText }: BlockLoss ): string {
+	return [
+		note
+			? `saving it as the block saves it would ${ note }, as nothing in its comment attributes saves that.`
+			: '',
+		droppedText
+			? `The editor reads it without ${ droppedText } written in its comment, and WordPress renders it on the server from its attributes, so saving it drops that text from the page.`
+			: '',
+	]
+		.filter( Boolean )
+		.join( ' ' );
+}
+
 function describeInvalidBlocks(
 	report: ValidationReportBase,
-	lost = new Map< string, string >()
+	lost = new Map< string, BlockLoss >()
 ): string[] {
 	return report.results
 		.filter( ( result ) => ( lost.size ? lost.has( result.place ?? '' ) : ! result.isValid ) )
@@ -118,9 +132,7 @@ function describeInvalidBlocks(
 		.flatMap( ( result ) => [
 			`  - ${ result.blockName }: ${
 				lost.has( result.place ?? '' )
-					? `saving it as the block saves it would ${ lost.get(
-							result.place ?? ''
-					  ) }, as nothing in its comment attributes saves that.`
+					? describeLoss( lost.get( result.place ?? '' )! )
 					: result.issues.slice( 0, 3 ).join( '; ' ) || 'does not match what the block saves'
 			}`,
 			...( result.originalContent
@@ -728,16 +740,20 @@ async function validateSavedMarkup(
 	}
 	// A block stays as written when the fix loses something from it; the
 	// editor's fix is saved for the rest, the blocks inside it too.
-	const lost = new Map( fix.losses.map( ( loss ) => [ loss.place, loss.note ] ) );
+	const lost = new Map( fix.losses.map( ( loss ) => [ loss.place, loss ] ) );
 	const keptAsWritten = ( place = '' ) => lost.has( place );
 	const fixedBlocks = report.results.filter(
 		( result ) => ! result.isValid && ! keptAsWritten( result.place )
 	).length;
-	const stored = fixedBlocks
-		? await storeAsTheEditorDoes( fix.fixedContent, siteUrl, presetValues, editor, async () =>
+	// Storing presets and links parses the fix again, as the editor does, which
+	// drops the text a block kept as written for it holds in its comment.
+	const stored = ! fixedBlocks
+		? undefined
+		: fix.losses.some( ( loss ) => loss.droppedText )
+		? { content: fix.fixedContent, changed: true }
+		: await storeAsTheEditorDoes( fix.fixedContent, siteUrl, presetValues, editor, async () =>
 				lost.size ? ( await validateBlocks( fix.fixedContent, siteUrl, editor ) ).invalidBlocks : 0
-		  )
-		: undefined;
+		  );
 	// The comments between blocks were dropped before the fix, from the content written.
 	const {
 		content: fixedContent,

@@ -59,6 +59,12 @@ export interface BlockLoss {
 	 * from, as `drop opacity:0.68 from span.wp-block-cover__background`.
 	 */
 	note: string;
+	/**
+	 * The text written in the comment attributes of a block the server renders
+	 * that the fix drops, as `"Your name" (label)`, where the editor reads the
+	 * block without them.
+	 */
+	droppedText?: string;
 }
 
 export interface ValidationReport extends ValidationReportBase {
@@ -373,6 +379,72 @@ async function validateAsWritten(
 					return issues;
 				}
 
+				// The strings a value holds, at any depth.
+				const stringsIn = ( value: any ): string[] =>
+					typeof value === 'string'
+						? [ value ]
+						: value && typeof value === 'object'
+						? Object.values( value ).flatMap( stringsIn )
+						: [];
+				// The strings a block and its inner blocks hold in their attributes.
+				const heldStrings = ( block: any ): Set< string > =>
+					new Set( [
+						...stringsIn( block?.attributes ?? {} ),
+						...( block?.innerBlocks ?? [] ).flatMap( ( one: any ) => [ ...heldStrings( one ) ] ),
+					] );
+				// The text in the comment attributes written on a block, of those its
+				// current or an older version reads, that `held` lacks: `[ key, text ]`
+				// each. The editor reads a block as the version its markup matches, so
+				// an attribute only an older version declares is dropped from a block
+				// that matches the current one (jetpack/field-name's "label" beside an
+				// empty <div>), and a migration can drop one. className is classes,
+				// which are compared as such.
+				function droppedText( blockType: any, attrs: any, held: Set< string > ) {
+					const known = Object.assign(
+						{},
+						...[ ...( blockType.deprecated ?? [] ) ].reverse().map( ( v: any ) => v.attributes ),
+						blockType.attributes
+					);
+					return Object.entries( attrs ?? {} ).flatMap( ( [ key, value ] ) => {
+						const schema = known[ key ];
+						if (
+							key === 'className' ||
+							! schema ||
+							schema.source ||
+							! hasType( value, schema.type ) ||
+							( Array.isArray( schema.enum ) && ! schema.enum.includes( value ) ) ||
+							JSON.stringify( value ) === JSON.stringify( schema.default )
+						) {
+							return [];
+						}
+						return stringsIn( value )
+							.filter( ( text ) => /\p{L}/u.test( text ) && ! held.has( text ) )
+							.map( ( text ): [ string, string ] => [ key, text ] );
+					} );
+				}
+				// Whether WordPress renders each block type on the server, by name, as
+				// the REST API lists it; a name not yet asked about is in `unasked`. A
+				// block it renders shows visitors its render, from its attributes. Of
+				// a block the editor reads as valid, which it saves without a word, the
+				// text its comment holds that `held` lacks; the fix of an invalid one
+				// is compared as it saves.
+				const rendersOnServer = new Map< string, boolean >();
+				const unasked = new Set< string >();
+				function droppedRenderedText( block: any, attrs: any, held: Set< string > ) {
+					const { name } = block;
+					const blockType = wpBlocks.getBlockType( name );
+					if ( ! blockType || block.isValid === false ) {
+						return [];
+					}
+					const dropped = droppedText( blockType, attrs, held );
+					if ( dropped.length && ! rendersOnServer.has( name ) ) {
+						unasked.add( name );
+					}
+					return rendersOnServer.get( name ) ? dropped : [];
+				}
+				const listDropped = ( dropped: Array< [ string, string ] > ) =>
+					dropped.map( ( [ key, text ] ) => `${ JSON.stringify( text ) } (${ key })` ).join( ', ' );
+
 				const rawParse = ( window as any ).wp?.blockSerializationDefaultParser?.parse;
 				const rawName = ( raw: any ) =>
 					raw?.blockName?.includes( '/' ) ? raw.blockName : `core/${ raw?.blockName }`;
@@ -561,6 +633,39 @@ async function validateAsWritten(
 						if ( attributeProblems.length ) {
 							isValid = false;
 							issues = [ ...issues, ...attributeProblems ];
+						}
+						// Text written in the comment of a block the server renders, which
+						// the editor reads the block without and saves it without.
+						const dropped =
+							blockType && sameBlock
+								? droppedRenderedText( block, raw.attrs, heldStrings( block ) )
+								: [];
+						if ( dropped.length ) {
+							isValid = false;
+							issues = [
+								...issues,
+								`The editor reads ${ block.name } without ${ listDropped(
+									dropped
+								) } written in its comment, and WordPress renders the block on the server from its attributes, so saving it in the editor drops that text from the page.`,
+							];
+							// What the older version that reads them migrates the block to,
+							// as the editor migrates a block that matches it.
+							const keys = dropped.map( ( [ key ] ) => key );
+							const older = ( blockType.deprecated ?? [] ).find(
+								( version: any ) =>
+									version.migrate && keys.every( ( key ) => version.attributes?.[ key ] )
+							);
+							try {
+								const [ attributes, innerBlocks = block.innerBlocks ] = [
+									older?.migrate( { ...block.attributes, ...raw.attrs }, block.innerBlocks ),
+								].flat();
+								const held = heldStrings( { attributes, innerBlocks } );
+								if ( older && dropped.every( ( [ , text ] ) => held.has( text ) ) ) {
+									expectedContent = wpBlocks.getSaveContent( blockType, attributes, innerBlocks );
+								}
+							} catch {
+								// Nothing to show.
+							}
 						}
 
 						written.set( place, raw );
@@ -1188,7 +1293,15 @@ async function validateAsWritten(
 						: made;
 				}
 
-				const initial = validateContent( html );
+				let initial = validateContent( html );
+				if ( unasked.size ) {
+					const names = [ ...unasked ];
+					unasked.clear();
+					( await Promise.all( names.map( typeOf ) ) ).forEach( ( type, i ) =>
+						rendersOnServer.set( names[ i ], !! type?.is_dynamic )
+					);
+					initial = validateContent( html );
+				}
 
 				// The block at a place, `/0/1` being the second inner block of the first.
 				const blockAt = ( blocks: any[], place: string ) =>
@@ -1352,7 +1465,9 @@ async function validateAsWritten(
 
 				// What the fix loses from each block as written, block by block: its
 				// text, classes, styles and where its inner blocks sit. Its attributes
-				// it keeps, being made from them, apart from the editor's own migrations.
+				// it keeps, being made from them, apart from the editor's own migrations
+				// and those only an older version reads: the text of those of a block
+				// the server renders, which renders from them, the fix loses as well.
 				function losses( written: any[], fixes: any[], at = '' ): any[] {
 					return written.flatMap( ( block: any, i: number ) => {
 						const place = `${ at }/${ i }`;
@@ -1380,6 +1495,11 @@ async function validateAsWritten(
 							classes,
 							styles,
 							moves: reshaped ? [] : moves( place, block ),
+							attributes: droppedRenderedText(
+								block,
+								initial.written.get( place )?.attrs,
+								heldStrings( fix )
+							),
 						};
 						const root = reshaped ? undefined : elementsOf( block.originalContent ?? '' )[ 0 ];
 						// An element known by its tag and its first wp-block class, or
@@ -2125,7 +2245,7 @@ async function validateAsWritten(
 					return true;
 				}
 				const lossList = found
-					.map( ( { place, blockName, lost, stylesOn, classesOn } ) => {
+					.map( ( { place, blockName, lost, stylesOn, classesOn } ): BlockLoss => {
 						const kept = rendering.get( place ) ?? new Set();
 						const styles = lost.styles.filter( ( style: string ) => ! kept.has( style ) );
 						const hint = ( dropped: string[] ) => {
@@ -2149,6 +2269,7 @@ async function validateAsWritten(
 						if (
 							blockStyle &&
 							! lost.text.length &&
+							! lost.attributes.length &&
 							! classes.length &&
 							! lost.moves.length &&
 							styles.join( ';' ) === blockStyle.css &&
@@ -2206,10 +2327,13 @@ async function validateAsWritten(
 								)
 							),
 						].filter( Boolean );
+						const dropsText = listDropped( lost.attributes );
 						return {
 							place,
 							blockName,
+							...( dropsText && { droppedText: dropsText } ),
 							lost: [
+								dropsText ? `drop ${ dropsText } from its comment attributes` : '',
 								...lost.text,
 								classes.length ? `drop the classes ${ classes.join( ' ' ) }` : '',
 								styles.length ? `drop the styles ${ styles.join( '; ' ) }${ hint( styles ) }` : '',

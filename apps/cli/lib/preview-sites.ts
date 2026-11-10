@@ -19,8 +19,6 @@ import type { SyncSite } from '@studio/common/types/sync';
 const PREVIEW_FUNNEL = 'preview';
 const IMPORT_POLL_INTERVAL_MS = 1000;
 const IMPORT_TIMEOUT_MS = 30 * 60 * 1000;
-// WordPress.com gives up connecting a new preview's owner after about 8 minutes.
-const PREVIEW_LINK_TIMEOUT_MS = 10 * 60 * 1000;
 
 export type PreviewSite = {
 	siteId: number;
@@ -116,46 +114,38 @@ async function getLatestImport(
 }
 
 /**
- * Waits for the site's archive import to finish. `previousImportId` is the import an update
- * replaces, which reads as finished until the new one starts.
+ * Waits for the site's archive import to finish and for its preview link, which WordPress.com lists
+ * once the build is done and the owner can be signed in to it: on a new preview, a little after the
+ * import reports success. `previousImportId` is the import an update replaces, which reads as
+ * finished until the new one starts.
  */
-async function waitForPreviewImport(
+async function waitForPreview(
 	siteId: number,
 	token: string,
 	previousImportId?: string
-): Promise< void > {
+): Promise< PreviewSite > {
 	const deadline = Date.now() + IMPORT_TIMEOUT_MS;
+	let imported = false;
 	while ( Date.now() < deadline ) {
-		// Errors mean the site is still being set up; keep waiting.
-		const latest = await getLatestImport( siteId, token ).catch( () => null );
-		if ( latest?.importId && latest.importId !== previousImportId ) {
-			if ( latest.importStatus === 'importSuccess' ) {
-				return;
+		if ( ! imported ) {
+			// Errors mean the site is still being set up; keep waiting.
+			const latest = await getLatestImport( siteId, token ).catch( () => null );
+			if ( latest?.importId && latest.importId !== previousImportId ) {
+				if ( latest.importStatus === 'importFailure' ) {
+					throw new LoggerError( __( 'The preview site could not be built from the archive.' ) );
+				}
+				imported = latest.importStatus === 'importSuccess';
 			}
-			if ( latest.importStatus === 'importFailure' ) {
-				throw new LoggerError( __( 'The preview site could not be built from the archive.' ) );
+		}
+		if ( imported ) {
+			const { shareUrl, liveSiteId } = ( await getStandingPreviews( token ) ).get( siteId ) ?? {};
+			if ( shareUrl ) {
+				return { siteId, hostname: new URL( shareUrl ).hostname, shareUrl, liveSiteId };
 			}
 		}
 		await new Promise( ( resolve ) => setTimeout( resolve, IMPORT_POLL_INTERVAL_MS ) );
 	}
 	throw new LoggerError( __( 'The preview site did not become ready within the timeout.' ) );
-}
-
-/**
- * The preview link WordPress.com lists once the site's build is done and its owner can be signed in
- * to it, and the preview it opens. On a new preview the owner's sign-in can come a little after the
- * import reports success, so the link is waited for.
- */
-async function getPreviewLink( siteId: number, token: string ): Promise< PreviewSite > {
-	const deadline = Date.now() + PREVIEW_LINK_TIMEOUT_MS;
-	while ( Date.now() < deadline ) {
-		const { shareUrl, liveSiteId } = ( await getStandingPreviews( token ) ).get( siteId ) ?? {};
-		if ( shareUrl ) {
-			return { siteId, hostname: new URL( shareUrl ).hostname, shareUrl, liveSiteId };
-		}
-		await new Promise( ( resolve ) => setTimeout( resolve, IMPORT_POLL_INTERVAL_MS ) );
-	}
-	throw new LoggerError( __( 'The preview site has no preview link.' ) );
 }
 
 /**
@@ -206,8 +196,7 @@ export async function createPreviewSite(
 		throw new LoggerError( __( 'Failed to create preview site' ), error );
 	}
 
-	await waitForPreviewImport( siteId, token );
-	return getPreviewLink( siteId, token );
+	return waitForPreview( siteId, token );
 }
 
 /** Rebuilds a preview site from an archive uploaded with its site ID. */
@@ -234,8 +223,7 @@ export async function updatePreviewSite(
 		throw new LoggerError( __( 'Failed to update preview site' ), error );
 	}
 
-	await waitForPreviewImport( siteId, token, previousImportId );
-	return getPreviewLink( siteId, token );
+	return waitForPreview( siteId, token, previousImportId );
 }
 
 /**

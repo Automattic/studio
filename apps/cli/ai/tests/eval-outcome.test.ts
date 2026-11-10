@@ -1,13 +1,16 @@
-import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'fs';
+import { createServer } from 'node:http';
 import { DatabaseSync } from 'node:sqlite';
+import os from 'os';
 import path from 'path';
+import { closeSharedBrowser } from '@studio/agent/node/browser-utils';
 import { seenFields, visitorValue } from '@studio/agent/node/form-submission';
 import { readSiteFacts } from '@studio/agent/node/site-facts';
 import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';
 import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
 import { chromium } from 'playwright';
 import { expect, it, vi } from 'vitest';
-import { captureTurnOutcome, fingerprintSites } from 'cli/ai/eval-outcome';
+import { captureTurnOutcome, fingerprintSites, sendPageForms } from 'cli/ai/eval-outcome';
 import { cliAgentHost } from 'cli/ai/host';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 
@@ -20,6 +23,11 @@ vi.mock( 'cli/lib/run-wp-cli-command', () => ( {
 	runWpCliCommand: vi.fn( async () => {
 		throw new Error( 'WordPress is not run in this test' );
 	} ),
+} ) );
+// The emails a site sent are read from a folder of the test's, not the user's Studio config.
+const emailRoot = mkdtempSync( path.join( os.tmpdir(), 'eval-outcome-email-' ) );
+vi.mock( '@studio/common/sites/site-email', () => ( {
+	getSiteEmailDirectory: ( siteId: string ) => path.join( emailRoot, siteId ),
 } ) );
 vi.mock( 'cli/lib/cli-config/core', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/cli-config/core') >() ),
@@ -171,6 +179,55 @@ it.runIf( existsSync( chromium.executablePath() ) )(
 			] ).toEqual( [ 'name', 'artist' ] );
 		} finally {
 			await browser.close();
+		}
+	}
+);
+
+// A booking form takes a name, an email and a date as text, and no message:
+// the eval sent only a form with a textarea, so it never sent this one.
+it.runIf( existsSync( chromium.executablePath() ) )(
+	'sends a visitor form with name, email and text fields and no textarea, not the search form, and finds what the site stored',
+	async () => {
+		const { root } = createSite();
+		const database = path.join( root, 'wp-content/database/.ht.sqlite' );
+		const server = createServer( ( request, response ) => {
+			let body = '';
+			request.on( 'data', ( chunk ) => ( body += chunk ) );
+			request.on( 'end', () => {
+				if ( request.method === 'POST' ) {
+					// The site stores the booking as a post, as a form plugin does.
+					const db = new DatabaseSync( database );
+					db.prepare(
+						"INSERT INTO wp_posts ( post_type, post_status, post_name, post_content, post_date ) VALUES ( 'booking', 'private', 'booking', ?, '2026-10-22 00:00:00' )"
+					).run( decodeURIComponent( body.replace( /\+/g, ' ' ) ) );
+					db.close();
+					response.end( '<p>Thanks, we will be in touch.</p>' );
+					return;
+				}
+				response.setHeader( 'Content-Type', 'text/html' );
+				response.end( `<form role="search" method="get"><input type="search" name="s"><button>Search</button></form>
+					<form method="post" action="/book">
+						<input type="text" name="name">
+						<input type="email" name="email">
+						<input type="text" name="date">
+						<button type="submit">Book</button>
+					</form>` );
+			} );
+		} );
+		await new Promise< void >( ( resolve ) => server.listen( 0, '127.0.0.1', resolve ) );
+		const { port } = server.address() as { port: number };
+		try {
+			const link = `http://127.0.0.1:${ port }/book/`;
+			const [ sent ] = await sendPageForms( root, 'site', [ link ] );
+			expect( sent ).toMatchObject( {
+				page: link,
+				afterText: expect.stringContaining( 'Thanks' ),
+			} );
+			expect( sent.error ).toBeUndefined();
+			expect( sent.stored ).toMatchObject( { postTypes: [ 'booking' ], emails: 0 } );
+		} finally {
+			server.close();
+			await closeSharedBrowser();
 		}
 	}
 );

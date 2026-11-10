@@ -1116,16 +1116,17 @@ const htmlBlockForm = ( text ) =>
 		/<form\b/i.test( m[ 0 ] )
 	);
 
-// A visitor's message, sent through a published page's form, is stored on the
-// site (formsSent: the post types, meta keys or options now holding it) or
-// emailed, as Studio saves each email a site sends for its Email view, and
-// the page's form is not a Custom HTML block.
+// What a visitor typed into a published page's form, any form that collects
+// input (a textarea, or a text or email field; not a search, comment, login or
+// account form), is stored on the site (formsSent: the post types, meta keys or
+// options now holding it) or emailed, as Studio saves each email a site sends
+// for its Email view, and the page's form is not a Custom HTML block.
 export const contactFormWorks = check( ( d, vars ) => {
 	const s = site( d, vars );
 	const sent = ( s.formsSent || [] ).filter( ( f ) => f.page );
 	if ( ! sent.length )
 		return fail(
-			`no published page has a form that takes a message: ${ JSON.stringify( s.formsSent ) }`
+			`no published page has a visitor form that collects input: ${ JSON.stringify( s.formsSent ) }`
 		);
 	const where = ( f ) => [
 		...( f.stored?.postTypes || [] ).map( ( t ) => `a ${ t } post` ),
@@ -1136,7 +1137,7 @@ export const contactFormWorks = check( ( d, vars ) => {
 	const stored = sent.find( ( f ) => where( f ).length );
 	if ( ! stored )
 		return fail(
-			`the message sent from ${ sent
+			`what was typed into the form sent from ${ sent
 				.map( ( f ) => f.page )
 				.join( ', ' ) } is stored nowhere on the site; the page then read: ${ sent
 				.map( ( f ) => f.error || f.afterText.slice( 0, 300 ) )
@@ -1146,7 +1147,9 @@ export const contactFormWorks = check( ( d, vars ) => {
 	if ( page && htmlBlockForm( page.content ) )
 		return fail( `${ stored.page } builds its form in a Custom HTML block` );
 	return pass(
-		`the message sent from ${ stored.page } is stored as ${ where( stored ).join( ', ' ) }`
+		`what was typed into the form sent from ${ stored.page } is stored as ${ where( stored ).join(
+			', '
+		) }`
 	);
 } );
 

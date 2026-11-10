@@ -35,6 +35,7 @@ import {
 	markedRows,
 	sendForm,
 	storedPlaces,
+	visitorForms,
 } from '@studio/agent/node/form-submission';
 import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
@@ -369,12 +370,13 @@ function siteEmailDirectory( siteId: string ): string | undefined {
 	}
 }
 
-// Each published page's forms that take a message (a textarea), filled in and
-// sent the way a visitor would (sendForm), then where WordPress stored the
-// message: the post types, meta keys and options whose rows now hold its
-// marker, and the emails holding it. Comment forms are left alone; they are
-// core's, not the page's.
-async function sendPageForms( sitePath: string, siteId: string, links: string[] ) {
+// Each published page's first visitor form, any form that takes what a visitor
+// types (visitorForms: a textarea, or a text or email field), filled in and
+// sent the way a visitor would (sendForm), then where WordPress stored what
+// was typed: the post types, meta keys and options whose rows now hold its
+// marker, and the emails holding it. Search, comment, login and account forms
+// are left alone; they are core's, not the page's.
+export async function sendPageForms( sitePath: string, siteId: string, links: string[] ) {
 	const sent: Array< { page: string; marker: string; afterText: string; error?: string } > = [];
 	const browser = await getSharedBrowser();
 	for ( const link of links ) {
@@ -382,8 +384,9 @@ async function sendPageForms( sitePath: string, siteId: string, links: string[] 
 		const marker = `studio-eval-message-${ sent.length + 1 }-${ Date.now() }`;
 		try {
 			await page.goto( link, { waitUntil: 'load', timeout: 30000 } );
-			const form = page.locator( 'form:has(textarea):not([action*="wp-comments-post"])' ).first();
-			if ( ! ( await form.count() ) ) continue;
+			const visitor = ( await visitorForms( page ) ).find( ( form ) => form.visitor );
+			if ( ! visitor ) continue;
+			const form = page.locator( 'form' ).nth( visitor.index );
 			const { afterText } = await sendForm( page, form, marker, { minWaitMs: 3000 } );
 			sent.push( { page: link, marker, afterText } );
 		} catch ( error ) {

@@ -1004,6 +1004,12 @@ describe( 'native feature checks', () => {
 			false,
 		],
 		[
+			'typed into a form with name, email and text fields and no textarea, and stored',
+			{ postTypes: [ 'booking' ] },
+			'<!-- wp:jetpack/contact-form --><!-- wp:jetpack/field-name /--><!-- wp:jetpack/field-email /--><!-- wp:jetpack/field-text /--><!-- /wp:jetpack/contact-form -->',
+			true,
+		],
+		[
 			'from a Custom HTML form',
 			{ postTypes: [ 'feedback' ] },
 			'<!-- wp:html --><form><textarea></textarea></form><!-- /wp:html -->',

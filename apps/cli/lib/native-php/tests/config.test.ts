@@ -66,7 +66,10 @@ describe( 'getNativePhpIniContents', () => {
 		expect( contents.split( /\r?\n/ ) ).toContain(
 			'extension_dir="/Users/JOS~1/.studio/php-bin/8.4/ext"'
 		);
-		expect( args.slice( 0, 2 ) ).toEqual( [ '-c', '/Users/JOS~1/.studio/php-bin/8.4/php.ini' ] );
+		expect( args.slice( 0, 2 ) ).toEqual( [
+			'-c',
+			path.join( '/Users/JOS~1/.studio/php-bin/8.4', 'php.ini' ),
+		] );
 	} );
 
 	it( 'keeps an ASCII Windows extension_dir as is', () => {

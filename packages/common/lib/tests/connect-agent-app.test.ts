@@ -396,7 +396,7 @@ describe.skipIf( process.platform === 'win32' )( 'refreshAgentPlugins', () => {
 		installCli( `${ SHELL_BIN }/codex` );
 		recordPlugins( [ 'codex' ] );
 		await refreshAgentPlugins( studio );
-		expect( fs.existsSync( marketplace() ) ).toBe( false );
+		expect( fs.existsSync( path.join( home, '.studio' ) ) ).toBe( false );
 
 		await connectAgentApp( 'cursor', studio );
 		await refreshAgentPlugins( { ...studio, nodeBinary: '/another/node' } );

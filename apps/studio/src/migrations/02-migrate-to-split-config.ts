@@ -167,6 +167,26 @@ async function writeJsonFile( filePath: string, data: Record< string, unknown > 
 	await writeFile( filePath, content, { encoding: 'utf8' } );
 }
 
+async function readJsonFile( filePath: string ): Promise< unknown > {
+	try {
+		return JSON.parse( await readFile( filePath, { encoding: 'utf8' } ) );
+	} catch ( error ) {
+		if ( error instanceof SyntaxError ) {
+			return undefined;
+		}
+		throw error;
+	}
+}
+
+// Keeps an unreadable config for support instead of blocking the migration on it.
+async function moveAsideInvalidFile( filePath: string ): Promise< void > {
+	const backupPath = `${ filePath }.invalid-${ Date.now() }`;
+	await fs.promises.rename( filePath, backupPath );
+	console.warn(
+		`Moved unreadable ${ sanitizeUserpath( filePath ) } to ${ sanitizeUserpath( backupPath ) }`
+	);
+}
+
 export const migrateAppConfig: Migration = {
 	async needsToRun() {
 		const newAppdataPath = getAppConfigPath();
@@ -178,8 +198,12 @@ export const migrateAppConfig: Migration = {
 	},
 	async run() {
 		const oldPath = getOldAppdataFilePath();
-		const rawContent = await readFile( oldPath, { encoding: 'utf8' } );
-		const oldData: Record< string, unknown > = JSON.parse( rawContent );
+		const old = z.record( z.string(), z.unknown() ).safeParse( await readJsonFile( oldPath ) );
+		if ( ! old.success ) {
+			await moveAsideInvalidFile( oldPath );
+			return;
+		}
+		const oldData = old.data;
 		await lockAppConfig();
 		try {
 			if ( fs.existsSync( getAppConfigPath() ) ) {
@@ -203,11 +227,15 @@ export const migrateAppConfig: Migration = {
 			const cliConfigPath = getCliConfigPath();
 			await lockCliConfigFile();
 			try {
-				const existing = fs.existsSync( cliConfigPath )
-					? existingCliConfigSchema.parse(
-							JSON.parse( await readFile( cliConfigPath, { encoding: 'utf8' } ) )
-					  )
-					: undefined;
+				let existing;
+				if ( fs.existsSync( cliConfigPath ) ) {
+					const parsed = existingCliConfigSchema.safeParse( await readJsonFile( cliConfigPath ) );
+					if ( parsed.success ) {
+						existing = parsed.data;
+					} else {
+						await moveAsideInvalidFile( cliConfigPath );
+					}
+				}
 				if ( ! existing || ( existing.sites.length === 0 && existing.snapshots.length === 0 ) ) {
 					const migrated = buildCliConfig( oldData );
 					await writeJsonFile( cliConfigPath, {

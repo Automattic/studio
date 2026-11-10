@@ -178,7 +178,7 @@ afterAll( () => {
 
 describe( 'App initialization', () => {
 	it.each( [ true, false ] )(
-		'keeps failed legacy migration startup recoverable when app config exists: %s',
+		'quits after a failed legacy migration only while app config is missing (app config exists: %s)',
 		async ( completed ) => {
 			const { mockedEvents } = mockElectron();
 			vi.resetModules();
@@ -193,7 +193,7 @@ describe( 'App initialization', () => {
 					( file ) =>
 						file === getOldAppdataFilePath() || ( completed && file === getAppConfigPath() )
 				);
-			const error = new Error( 'Invalid CLI registry JSON' );
+			const error = new Error( 'EACCES: permission denied' );
 			const migrationSpy = vi.spyOn( migration, 'runMigrations' ).mockRejectedValueOnce( error );
 			try {
 				await import( '../index' );

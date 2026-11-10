@@ -21,7 +21,7 @@ import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
 import { getAppConfigPath } from '@studio/common/lib/well-known-paths';
 import { updateSiteMetadata } from '@studio/common/sites/metadata';
-import { __, _n } from '@wordpress/i18n';
+import { __, _n, sprintf } from '@wordpress/i18n';
 import { installExtension, REACT_DEVELOPER_TOOLS } from 'electron-devtools-installer';
 import { IPC_VOID_HANDLERS } from 'src/constants';
 import * as ipcHandlers from 'src/ipc-handlers';
@@ -518,8 +518,12 @@ async function appBoot() {
 					type: 'error',
 					title: __( 'Could not migrate your sites' ),
 					message: __( 'Could not migrate your sites' ),
-					detail: `${ __(
-						'Your previous configuration is still available. Fix the error below and restart WordPress Studio.'
+					detail: `${ sprintf(
+						// translators: %s is the path of the previous configuration file.
+						__(
+							'Your sites are still listed in %s. Restart WordPress Studio to try again. If this keeps happening, contact support with the details below.'
+						),
+						getOldAppdataFilePath()
 					) }\n\n${ error instanceof Error ? error.message : String( error ) }`,
 					buttons: [ __( 'Quit' ) ],
 				} );

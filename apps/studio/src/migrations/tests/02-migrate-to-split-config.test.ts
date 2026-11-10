@@ -1,7 +1,7 @@
 /**
  * @vitest-environment node
  */
-import { existsSync } from 'fs';
+import fs, { existsSync } from 'fs';
 import { siteDetailsSchema } from '@studio/common/lib/cli-events';
 import { authTokenSchema, sharedConfigSchema } from '@studio/common/lib/shared-config';
 import { snapshotSchema } from '@studio/common/types/snapshot';
@@ -235,12 +235,16 @@ describe( 'migrateAppConfig', () => {
 		expect( await migrateAppConfig.needsToRun() ).toBe( false );
 	} );
 
-	it( 'throws when old appdata is not valid JSON', async () => {
+	it( 'moves an unreadable old appdata aside without migrating it', async () => {
 		vi.mocked( readFile ).mockResolvedValue( Buffer.from( 'not valid json {{{' ) );
 
 		expect( await migrateAppConfig.needsToRun() ).toBe( true );
-		await expect( migrateAppConfig.run() ).rejects.toThrow( SyntaxError );
+		await migrateAppConfig.run();
 
+		expect( fs.promises.rename ).toHaveBeenCalledWith(
+			expect.stringMatching( /appdata-v1\.json$/ ),
+			expect.stringMatching( /appdata-v1\.json\.invalid-\d+$/ )
+		);
 		expect( writeFile ).not.toHaveBeenCalled();
 	} );
 
@@ -542,21 +546,29 @@ describe( 'migrateAppConfig', () => {
 			expect( getWrittenJson( 'app.json' ) ).toBeDefined();
 		} );
 
-		it( 'does not mark migration complete when the existing CLI config is invalid', async () => {
-			vi.mocked( existsSync ).mockImplementation(
-				( p ) =>
-					typeof p === 'string' && ( p.endsWith( 'cli.json' ) || p.endsWith( 'appdata-v1.json' ) )
-			);
-			vi.mocked( readFile ).mockImplementation( async ( p ) =>
-				Buffer.from(
-					String( p ).endsWith( 'cli.json' ) ? '{broken' : JSON.stringify( createOldAppdata() )
-				)
-			);
+		it.each( [ '{broken', '[]', '{"version":1,"sites":null}' ] )(
+			'moves an unreadable CLI config aside and migrates legacy sites: %s',
+			async ( content ) => {
+				vi.mocked( existsSync ).mockImplementation(
+					( p ) =>
+						typeof p === 'string' && ( p.endsWith( 'cli.json' ) || p.endsWith( 'appdata-v1.json' ) )
+				);
+				vi.mocked( readFile ).mockImplementation( async ( p ) =>
+					Buffer.from(
+						String( p ).endsWith( 'cli.json' ) ? content : JSON.stringify( createOldAppdata() )
+					)
+				);
 
-			await expect( runMigration() ).rejects.toThrow();
+				await runMigration();
 
-			expect( getWrittenJson( 'app.json' ) ).toBeUndefined();
-		} );
+				expect( fs.promises.rename ).toHaveBeenCalledWith(
+					expect.stringMatching( /cli\.json$/ ),
+					expect.stringMatching( /cli\.json\.invalid-\d+$/ )
+				);
+				expect( getWrittenJson( 'cli.json' )?.sites ).toHaveLength( 2 );
+				expect( getWrittenJson( 'app.json' ) ).toBeDefined();
+			}
+		);
 
 		it( 'does not overwrite shared.json if it already exists', async () => {
 			vi.mocked( existsSync ).mockImplementation( ( p ) => {

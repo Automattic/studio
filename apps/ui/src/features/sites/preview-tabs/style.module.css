@@ -46,12 +46,15 @@
 	height: 32px;
 	border-radius: var( --radius-md );
 	background: var( --chat );
-	transition: transform var( --motion-duration-layout ) ease-in-out;
+	transition:
+		transform var( --motion-duration-layout ) ease-in-out,
+		background-color var( --motion-duration-feedback ) ease;
 }
 .tab[data-preview-selected] {
 	--surface: var( --muted );
 
 	background: var( --muted );
+	transition: transform var( --motion-duration-layout ) ease-in-out;
 }
 .trigger {
 	width: 100%;
@@ -91,12 +94,17 @@
 	inset-inline-end: 4px;
 	top: 4px;
 	border-radius: var( --radius-sm );
+	transition:
+		opacity var( --motion-duration-feedback ) ease,
+		color var( --motion-duration-feedback ) ease,
+		background-color var( --motion-duration-feedback ) ease,
+		border-color var( --motion-duration-feedback ) ease;
 	opacity: 0;
 	pointer-events: none;
 }
 .close svg {
-	width: 16px;
-	height: 16px;
+	width: 12px;
+	height: 12px;
 }
 .list:not( [data-tab-dragging] ) .tab:hover .close,
 .list:not( [data-tab-dragging] ) .close:focus-visible {
@@ -114,7 +122,7 @@
 	pointer-events: none;
 }
 .list[data-tab-drop-committed] .tab {
-	transition: none;
+	transition: background-color var( --motion-duration-feedback ) ease;
 }
 .list[data-tab-dragging] .trigger {
 	cursor: pointer;

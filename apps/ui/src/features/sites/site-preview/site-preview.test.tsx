@@ -898,8 +898,10 @@ describe( 'preview browser menu', () => {
 		localStorage.removeItem( 'studio-test-keep' );
 	} );
 
-	it( 'offers the agreed actions and opens DevTools for the active preview', async () => {
-		const { user } = await renderPreview( 'desktop' );
+	it( 'offers the compact menu actions and opens DevTools for the active preview', async () => {
+		const width = vi.spyOn( HTMLElement.prototype, 'clientWidth', 'get' ).mockReturnValue( 400 );
+		const { user } = await renderPreview( 'desktop', { onAttachScreenshot: vi.fn() } );
+		width.mockRestore();
 		const openWebviewDevTools = vi.fn().mockResolvedValue( undefined );
 		vi.stubGlobal( 'ipcApi', { openWebviewDevTools } );
 		guest();
@@ -908,10 +910,15 @@ describe( 'preview browser menu', () => {
 		expect( screen.getAllByRole( 'menuitem' ).map( ( item ) => item.textContent ) ).toEqual( [
 			'Show admin bar',
 			'Show device toolbar',
+			'Annotate',
+			'Take screenshot',
 			'Appearance',
 			'Developer tools',
 			'Clear browsing data',
 		] );
+		expect(
+			screen.getByRole( 'menuitem', { name: 'Annotate' } ).querySelector( 'svg' )
+		).toBeNull();
 		await user.click( screen.getByRole( 'menuitem', { name: 'Developer tools' } ) );
 		expect( openWebviewDevTools ).toHaveBeenCalledExactlyOnceWith( 42 );
 	} );

@@ -239,7 +239,7 @@ export function SharingPanel() {
 				>
 					<DialogHeader>
 						<DialogTitle>{ __( 'Delete preview' ) }</DialogTitle>
-						<DialogDescription tone="default" render={ <div /> }>
+						<DialogDescription render={ <div /> }>
 							<p>
 								{ sprintf(
 									/* translators: %s: preview name */

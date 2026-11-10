@@ -1,7 +1,7 @@
 import {
 	formatAiAccessRequiredNotice,
 	formatAiBlockedNotice,
-	STUDIO_CODE_AI_BETA_APPLY_URL,
+	STUDIO_CODE_DOCS_URL,
 	WPCOM_SUPPORT_CONTACT_URL,
 	type StudioAssistantQuota,
 } from '@studio/common/lib/studio-assistant-quota';
@@ -34,7 +34,7 @@ export function AiAccessRequiredNotice( {
 	quota?: Pick< StudioAssistantQuota, 'costUsage' > | null;
 } ) {
 	return createInterpolateElement( formatAiAccessRequiredNotice( quota ), {
-		applyLink: <NoticeLink url={ STUDIO_CODE_AI_BETA_APPLY_URL } />,
+		learnMoreLink: <NoticeLink url={ STUDIO_CODE_DOCS_URL } />,
 	} );
 }
 

@@ -226,15 +226,18 @@ function NoteEditor( {
 								src={ getComposerAttachmentImageSrc( attachment ) ?? undefined }
 								alt={ attachment.name }
 							/>
-							<AttachmentRemoveButton
-								label={ __( 'Remove attachment' ) }
-								onClick={ () => removeAttachment( attachment.id ) }
-							/>
+							{ note.kind !== 'region' || attachment.id !== note.images[ 0 ]?.id ? (
+								<AttachmentRemoveButton
+									label={ __( 'Remove attachment' ) }
+									onClick={ () => removeAttachment( attachment.id ) }
+								/>
+							) : null }
 						</li>
 					) ) }
 				</ul>
 			) : null }
 			<Textarea
+				className={ styles.input }
 				autoFocus
 				rows={ 1 }
 				maxLength={ 10000 }

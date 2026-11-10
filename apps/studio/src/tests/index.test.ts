@@ -187,12 +187,12 @@ describe( 'App initialization', () => {
 			const { getAppConfigPath } = await import( '@studio/common/lib/well-known-paths' );
 			const { getOldAppdataFilePath } = await import( 'src/storage/paths' );
 			const { default: appFs } = await import( 'fs' );
-			const exists = appFs.existsSync.bind( appFs );
-			const existsSpy = vi.spyOn( appFs, 'existsSync' ).mockImplementation( ( file ) => {
-				if ( file === getOldAppdataFilePath() ) return true;
-				if ( file === getAppConfigPath() ) return completed;
-				return exists( file );
-			} );
+			const existsMock = vi
+				.mocked( appFs.existsSync )
+				.mockImplementation(
+					( file ) =>
+						file === getOldAppdataFilePath() || ( completed && file === getAppConfigPath() )
+				);
 			const error = new Error( 'Invalid CLI registry JSON' );
 			const migrationSpy = vi.spyOn( migration, 'runMigrations' ).mockRejectedValueOnce( error );
 			try {
@@ -215,7 +215,7 @@ describe( 'App initialization', () => {
 				}
 			} finally {
 				migrationSpy.mockRestore();
-				existsSpy.mockRestore();
+				existsMock.mockReset();
 			}
 		}
 	);

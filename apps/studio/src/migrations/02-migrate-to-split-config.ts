@@ -41,8 +41,8 @@ const sharedConfigExtractSchema = z.object( {
 const existingCliConfigSchema = z
 	.object( {
 		version: z.literal( 1 ),
-		sites: z.array( z.unknown() ),
-		snapshots: z.array( z.unknown() ),
+		sites: z.array( z.unknown() ).default( () => [] ),
+		snapshots: z.array( z.unknown() ).default( () => [] ),
 	} )
 	.loose();
 

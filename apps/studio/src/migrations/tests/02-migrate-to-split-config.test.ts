@@ -521,6 +521,27 @@ describe( 'migrateAppConfig', () => {
 			expect( getWrittenJson( 'cli.json' ) ).toBeUndefined();
 		} );
 
+		it( 'preserves a CLI registry that omits the snapshots list', async () => {
+			vi.mocked( existsSync ).mockImplementation(
+				( p ) =>
+					typeof p === 'string' && ( p.endsWith( 'cli.json' ) || p.endsWith( 'appdata-v1.json' ) )
+			);
+			vi.mocked( readFile ).mockImplementation( async ( p ) =>
+				Buffer.from(
+					JSON.stringify(
+						String( p ).endsWith( 'cli.json' )
+							? { version: 1, sites: [ { id: 'cli-site' } ] }
+							: createOldAppdata()
+					)
+				)
+			);
+
+			await runMigration();
+
+			expect( getWrittenJson( 'cli.json' ) ).toBeUndefined();
+			expect( getWrittenJson( 'app.json' ) ).toBeDefined();
+		} );
+
 		it( 'does not mark migration complete when the existing CLI config is invalid', async () => {
 			vi.mocked( existsSync ).mockImplementation(
 				( p ) =>

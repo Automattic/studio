@@ -121,6 +121,15 @@ async function handOverOptions(
 					type: 'text',
 					text: `The ${ options.length } options (the grid above) are shown to the user under this tool call as a clickable picker with their previews. Do not show or list them again, and ask nothing else: end your turn now. The user's pick arrives as their next message.\n\n${ nextStep }`,
 				},
+				// The picker reads the options here, with the grid as their preview, in hosts
+				// that drop `_meta` from what they pass it, as Cursor does.
+				{
+					type: 'text',
+					text: JSON.stringify( {
+						question,
+						options: options.map( ( { label, description } ) => ( { label, description } ) ),
+					} ),
+				},
 			],
 			_meta: {
 				question,

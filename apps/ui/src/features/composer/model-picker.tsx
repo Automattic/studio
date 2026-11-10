@@ -339,7 +339,7 @@ export function ModelPicker( {
 			</Popover.Trigger>
 			<Popover.Popup
 				backdrop
-				instant
+				instant={ ! open }
 				side="top"
 				align="end"
 				className={ styles.popup }

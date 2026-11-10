@@ -25,8 +25,6 @@ vi.mock( 'cli/lib/api', async ( importOriginal ) => ( {
 } ) );
 vi.mock( 'cli/lib/pull/reprint-key', () => ( {
 	ensureReprintKey: vi.fn(),
-	reinstallReprintKey: vi.fn(),
-	withKeyRecovery: ( run: () => Promise< unknown > ) => run(),
 } ) );
 vi.mock( 'cli/lib/sync-api', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/sync-api') >() ),
@@ -317,12 +315,13 @@ describe( 'CLI: studio pull single pull phase', () => {
 			`--state-dir=${ stateDirectory }`,
 			`--fs-root=${ rawDirectory }`,
 		] );
-		// The remote URL selects Reprint's pull state; --force only on a first
-		// pull, so the blank install is replaced but a live site never is.
+		// The remote URL selects Reprint's pull state; core is copied, not
+		// linked; --force on a first pull replaces the blank install.
 		expect( flattenArgs ).toEqual( [
 			'flat-docroot',
 			'https://example.com/?reprint-api-jetpack',
 			`--flatten-to=${ sitePath }`,
+			'--core-files=copy',
 			'--force',
 			`--state-dir=${ stateDirectory }`,
 			`--fs-root=${ rawDirectory }`,
@@ -532,7 +531,6 @@ describe( 'CLI: studio pull single pull phase', () => {
 						wordpressRoots: [ '/wordpress/core/7.1.4' ],
 					},
 				},
-				undefined,
 				remoteWpVersion
 			);
 
@@ -920,7 +918,6 @@ describe( 'CLI: studio pull requires an existing site', () => {
 		expect( ensureReprintKey ).toHaveBeenCalledWith( {
 			wpComSiteId: 22,
 			wpComAccessToken: 'access-token',
-			exporter: { hasPublicKey: true },
 			apiUrl: 'https://example.com/?reprint-api-jetpack',
 			stateDirectory: path.join( pullsRoot(), 'existing-id', 'state' ),
 			verbose: false,

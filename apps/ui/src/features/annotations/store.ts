@@ -4,12 +4,14 @@ import { useSyncExternalStore } from 'react';
 import { toast } from '@/data/app-messages';
 import { createPendingSlot } from '@/lib/pending-slot';
 import type { ComposerImageAttachment } from '@studio/agent/protocol/composer-attachments';
+import type { AnnotationDrawing } from '@studio/agent/protocol/inspector/selection';
 import type {
 	VisualAnnotation,
 	VisualAnnotationTarget,
 } from '@studio/agent/protocol/visual-annotations';
 
 export interface PreviewAnnotation extends VisualAnnotation {
+	drawing?: AnnotationDrawing;
 	images: ComposerImageAttachment[];
 	capturedImageId?: string;
 	// Saved to the chat draft, so the composer sends it with the next message.
@@ -100,6 +102,19 @@ export function setAnnotating( siteId: string, active: boolean ) {
 	);
 }
 
+export function discardAnnotations( siteId: string ) {
+	if ( isAnnotationsBusy( getSiteAnnotations( siteId ) ) ) return;
+	const review = pendingReview.getSnapshot();
+	if ( review?.siteId === siteId ) pendingReview.clear( review );
+	update( siteId, ( current ) => ( {
+		...current,
+		active: false,
+		notes: [],
+		editingId: null,
+		blockedNavigation: undefined,
+	} ) );
+}
+
 export function setAnnotationsPreparing( siteId: string, preparing: boolean ) {
 	update( siteId, ( current ) =>
 		Boolean( current.preparing ) === preparing ? current : { ...current, preparing }
@@ -137,7 +152,7 @@ export function canPickAnnotation( siteId: string ) {
 export function pickAnnotation(
 	siteId: string,
 	target: VisualAnnotationTarget,
-	initial?: Pick< PreviewAnnotation, 'images' >
+	initial?: Pick< PreviewAnnotation, 'images' | 'drawing' >
 ) {
 	const current = getSiteAnnotations( siteId );
 	if ( isAnnotationsBusy( current ) ) {
@@ -151,7 +166,8 @@ export function pickAnnotation(
 	}
 	if ( ! canPickAnnotation( siteId ) ) return null;
 	const id = crypto.randomUUID();
-	const capturedImageId = target.kind === 'region' ? initial?.images?.[ 0 ]?.id : undefined;
+	const capturedImageId =
+		target.kind === 'region' || target.kind === 'drawing' ? initial?.images?.[ 0 ]?.id : undefined;
 	update( siteId, ( current ) => {
 		const notes = withoutEmpty( current.notes );
 		const number = Math.max( 0, ...notes.map( ( note ) => note.number ) ) + 1;
@@ -188,7 +204,12 @@ export function editAnnotation( siteId: string, id: string ) {
 export function changeAnnotation(
 	siteId: string,
 	id: string,
-	patch: Partial< Pick< PreviewAnnotation, 'comment' | 'images' > >
+	patch: Partial<
+		Pick<
+			PreviewAnnotation,
+			'comment' | 'images' | 'capturedImageId' | 'drawing' | 'documentRect' | 'viewport'
+		>
+	>
 ) {
 	update( siteId, ( current ) => ( {
 		...current,
@@ -196,6 +217,8 @@ export function changeAnnotation(
 			if ( note.id !== id ) return note;
 			const changed =
 				( patch.comment !== undefined && patch.comment !== note.comment ) ||
+				( patch.capturedImageId !== undefined && patch.capturedImageId !== note.capturedImageId ) ||
+				( patch.drawing !== undefined && patch.drawing !== note.drawing ) ||
 				( patch.images !== undefined &&
 					( patch.images.length !== note.images.length ||
 						patch.images.some( ( image, index ) => image.id !== note.images[ index ]?.id ) ) );

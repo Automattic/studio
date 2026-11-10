@@ -17,6 +17,7 @@ import {
 	useOpenAddSite,
 	createSelectedBlueprint,
 	pendingBlueprintSlot,
+	pendingBackupSlot,
 	pendingRemoteSiteSlot,
 	pendingSiteFolderSlot,
 } from '@/features/sites';
@@ -88,7 +89,14 @@ export function useAppMenuNavigation() {
 		[ connector, openAddSite, openSite, startSite ]
 	);
 
-	useEffect( () => connector.onAddSite( () => openAddSite() ), [ connector, openAddSite ] );
+	useEffect(
+		() =>
+			connector.onAddSite( ( payload ) => {
+				if ( payload?.backup ) pendingBackupSlot.set( payload.backup );
+				openAddSite();
+			} ),
+		[ connector, openAddSite ]
+	);
 	useEffect(
 		() =>
 			connector.onOpenSite( ( { siteId } ) => {

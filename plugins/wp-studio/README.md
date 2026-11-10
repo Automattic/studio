@@ -77,4 +77,4 @@ The plugin itself sends no telemetry. The Studio CLI sends anonymous usage event
 anonymous usage counters. To turn the usage events off, set `"analyticsOptOut": true`
 in `~/.studio/shared.json`, or switch off analytics in the Studio desktop app's settings. See the
 [privacy policy](https://automattic.com/privacy/) and the
-[terms of service](https://wordpress.com/tos/).
+[terms of service](https://automattic.com/tos/).

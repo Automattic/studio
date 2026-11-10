@@ -321,6 +321,22 @@ describe( 'Studio AI MCP tools', () => {
 		} );
 	} );
 
+	it( 'creates the site when deleting its placeholder content fails', async () => {
+		vi.mocked( host.sites.wpCli ).mockResolvedValue( {
+			stdout: '',
+			stderr: 'Error: no database',
+			exitCode: 1,
+		} );
+
+		const result = await getTool( 'site_create' ).rawHandler( { name: 'My Site' } as never );
+
+		expect( host.sites.wpCli ).toHaveBeenCalledWith(
+			expect.objectContaining( { id: 'site-123' } ),
+			[ 'eval', expect.stringContaining( 'wp_delete_post( $id, true )' ) ]
+		);
+		expect( getTextContent( result ) ).toContain( '"id": "site-123"' );
+	} );
+
 	it( 'makes the created site the conversation site', async () => {
 		const selectSite = vi.fn();
 		host.selectSite = selectSite;

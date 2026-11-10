@@ -1,7 +1,38 @@
 import path from 'path';
 import { Type } from 'typebox';
 import { defineTool, LOCAL_CHANGE } from './define-tool';
-import { failsAs, slugify, textResult } from './utils';
+import { failsAs, slugify, textResult, wpEval } from './utils';
+import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
+
+/**
+ * PHP that deletes the placeholder content wp_install_defaults()
+ * (wp-admin/includes/upgrade.php) gives a new site: the "Hello world!" post,
+ * with its comment, and the "Sample Page". Each is identified as WordPress
+ * made it, by its ID, type, slug and the guid home_url()/?p=1 or
+ * home_url()/?page_id=2, and only while it is unedited, its modified time
+ * still its publish time. The Privacy Policy draft stays: it is not public and
+ * wp_page_for_privacy_policy names it.
+ */
+export const DELETE_INSTALL_DEFAULTS_PHP = `foreach ( array(
+	array( 1, 'post', '/?p=1', array( 'hello-world', sanitize_title( _x( 'hello-world', 'Default post slug' ) ) ) ),
+	array( 2, 'page', '/?page_id=2', array( 'sample-page', __( 'sample-page' ) ) ),
+) as list( $id, $type, $guid, $slugs ) ) {
+	$post = get_post( $id );
+	if ( $post && $type === $post->post_type && 'publish' === $post->post_status
+		&& in_array( $post->post_name, $slugs, true )
+		&& substr( $post->guid, -strlen( $guid ) ) === $guid
+		&& $post->post_modified_gmt === $post->post_date_gmt ) {
+		wp_delete_post( $id, true );
+	}
+}`;
+
+/** Deletes a new site's "Hello world!" post and "Sample Page", while unedited. */
+export async function deleteInstallDefaults(
+	host: StudioAgentHost,
+	site: HostSite
+): Promise< void > {
+	await wpEval( host, site, DELETE_INSTALL_DEFAULTS_PHP );
+}
 
 export const createSiteTool = defineTool(
 	'site_create',
@@ -19,6 +50,9 @@ export const createSiteTool = defineTool(
 			await host.sites.create( args.name, path.join( host.sitesRoot, slug ), context.onProgress );
 
 			const site = await context.host.sites.resolve( args.name );
+			// A site the agent makes starts without WordPress's placeholder content;
+			// the site works the same if it stays.
+			await deleteInstallDefaults( host, site ).catch( () => undefined );
 			const url = site.url;
 			await context.host.selectSite?.( {
 				id: site.id,

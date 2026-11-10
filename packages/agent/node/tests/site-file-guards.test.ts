@@ -201,9 +201,11 @@ describe( 'self-hosted theme fonts', () => {
 				settings: {
 					typography: {
 						fontFamilies: [
-							{ name: 'Body', slug: 'body', fontFamily: 'Manrope, sans-serif' },
+							// A key the schema has no place for (eval29 redo port 3).
+							{ name: 'Body', slug: 'body', fontFamily: 'Manrope, sans-serif', google: 'Manrope' },
 							{ name: 'System Sans', slug: 'system', fontFamily: '-apple-system, sans-serif' },
-							{ name: 'Held', slug: 'held', fontFamily: 'Held', fontFace: [ {} ] },
+							// Studio declares no fontFace for it, so leaves it as written.
+							{ name: 'Held', slug: 'held', fontFamily: 'Held', fontFace: [ {} ], google: 'Held' },
 						],
 					},
 				},
@@ -213,6 +215,7 @@ describe( 'self-hosted theme fonts', () => {
 
 		expect( await selfHostFonts( resolveSiteFile( themeJson )! ) ).toEqual( [
 			'Studio downloaded the font files of Body from Google Fonts into wp-content/themes/mine/assets/fonts and declared them as their fontFace in theme.json.',
+			'Studio removed settings.typography.fontFamilies.0.google from wp-content/themes/mine/theme.json with the fontFace it declared, as the theme.json schema has no such key for a font family (WP_Theme_JSON::FONT_FAMILY_SCHEMA in wp-includes/class-wp-theme-json.php) and WordPress removes it as it reads the file.',
 			"System Sans in wp-content/themes/mine/theme.json asks first for -apple-system, which Google Fonts does not serve (https://fonts.googleapis.com/css2?family=-apple-system:wght@400;700&display=swap responded with HTTP 400), so the font each visitor sees is whichever their device has. Twenty Twenty-Five ships each family's files in the theme and declares them as its fontFace: put -apple-system's files in wp-content/themes/mine/assets/fonts and declare them, or choose a Google Fonts family, which Studio downloads.",
 		] );
 		expect( requested ).toEqual( [
@@ -222,6 +225,8 @@ describe( 'self-hosted theme fonts', () => {
 		] );
 		const families = JSON.parse( readFileSync( themeJson, 'utf8' ) ).settings.typography
 			.fontFamilies;
+		expect( Object.keys( families[ 0 ] ) ).toEqual( [ 'name', 'slug', 'fontFamily', 'fontFace' ] );
+		expect( families[ 2 ].google ).toBe( 'Held' );
 		expect( families[ 0 ].fontFace ).toEqual( [
 			{
 				fontFamily: 'Manrope',
@@ -258,6 +263,7 @@ describe( 'self-hosted theme fonts', () => {
 								name: 'Nunito',
 								slug: 'nunito',
 								fontFamily: 'Nunito, sans-serif',
+								google: 'Nunito',
 								fontFace: [
 									{
 										fontFamily: 'Nunito',
@@ -271,10 +277,15 @@ describe( 'self-hosted theme fonts', () => {
 			} )
 		);
 
-		expect( await selfHostFonts( resolveSiteFile( themeJson )! ) ).toHaveLength( 1 );
+		expect( await selfHostFonts( resolveSiteFile( themeJson )! ) ).toHaveLength( 2 );
 		expect(
-			JSON.parse( readFileSync( themeJson, 'utf8' ) ).settings.typography.fontFamilies[ 0 ].fontFace
-		).toEqual( [ { fontFamily: 'Nunito', src: 'file:./assets/fonts/nunito/XRXV.woff2' } ] );
+			JSON.parse( readFileSync( themeJson, 'utf8' ) ).settings.typography.fontFamilies[ 0 ]
+		).toEqual( {
+			name: 'Nunito',
+			slug: 'nunito',
+			fontFamily: 'Nunito, sans-serif',
+			fontFace: [ { fontFamily: 'Nunito', src: 'file:./assets/fonts/nunito/XRXV.woff2' } ],
+		} );
 	} );
 
 	it( 'downloads a family whose fontFace names files the browser cannot load', async () => {

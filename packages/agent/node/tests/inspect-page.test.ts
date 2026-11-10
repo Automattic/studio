@@ -2,7 +2,8 @@ import { existsSync } from 'fs';
 import http from 'http';
 import { chromium } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { closeSharedBrowser } from '@studio/agent/node/browser-utils';
+import { closeSharedBrowser, getSharedBrowser } from '@studio/agent/node/browser-utils';
+import { pageTextFit } from '@studio/agent/node/tools/page-layout';
 import {
 	forgetRenders,
 	inspectPage,
@@ -41,6 +42,31 @@ const BROKEN = `<!doctype html><meta name="viewport" content="width=device-width
 <main style="background:#eee;margin-top:24px"><img src="/missing.jpg" alt="Loaves"><div class="price-row" style="width:900px">Prices</div></main>
 </div></body>`;
 
+// Text that does and does not fit a phone, as eval29's runs had it: a button
+// in a column of a row of columns that does not stack on a phone (picky port
+// 1), a form's honeypot label placed off the screen and a marquee whose track
+// runs past the band that clips it (redo ports 1, 3 and 4), and a paragraph
+// that does start at the viewport's left edge.
+const FIT = `<!doctype html><meta name="viewport" content="width=device-width">
+<style>
+.wp-block-columns { display: flex; gap: 24px; }
+.wp-block-column { flex: 1 1 0; min-width: 0; word-break: break-word; overflow-wrap: break-word; }
+.wp-block-button__link { display: inline-block; padding: 8px 12px; word-break: break-word; }
+.track { margin: 0; white-space: nowrap; width: max-content; transform: translateX(-200px); }
+</style>
+<body style="margin:0"><main style="padding:0 20px">
+<div class="wp-block-columns is-layout-flex wp-container-core-columns-is-layout-1 wp-block-columns-is-layout-flex is-not-stacked-on-mobile">
+<div class="wp-block-column is-layout-flow wp-block-column-is-layout-flow"><div class="wp-block-buttons is-layout-flex"><div class="wp-block-button"><a class="wp-block-button__link wp-element-button" href="/book/">Book now</a></div></div></div>
+<div class="wp-block-column"><p>Ink</p></div><div class="wp-block-column"><p>Art</p></div><div class="wp-block-column"><p>Fun</p></div><div class="wp-block-column"><p>Pen</p></div>
+</div>
+<p><a class="wp-block-button__link wp-element-button" href="/book/">Book a table</a></p>
+<form><p style="position:absolute;left:-9999px">Leave this field empty</p></form>
+<div style="overflow:hidden"><p class="track">FINE LINE · TRADITIONAL · BLACK & GREY · FINE LINE · TRADITIONAL</p></div>
+</main>
+<div style="overflow:hidden"><p class="track">BOOKED BY APPOINTMENT · CUSTOM FINE LINE · BOOKED BY APPOINTMENT</p></div>
+<p style="margin:0">Walk-ins welcome every Saturday</p>
+</body>`;
+
 describe.runIf( CHROMIUM )( 'inspecting a page', () => {
 	let formText = 'Book a table';
 	let server: http.Server;
@@ -66,6 +92,9 @@ describe.runIf( CHROMIUM )( 'inspecting a page', () => {
 						'<p style="font-size:57.6px">Every loaf is shaped by hand before dawn</p></footer>'
 					)
 				);
+			} else if ( request.url === '/fit/' ) {
+				response.writeHead( 200, { 'content-type': 'text/html' } );
+				response.end( FIT );
 			} else if ( request.url === '/broken/' ) {
 				response.writeHead( 500, { 'content-type': 'text/html' } );
 				response.end( BROKEN );
@@ -111,10 +140,43 @@ describe.runIf( CHROMIUM )( 'inspecting a page', () => {
 				expect.stringMatching(
 					/^The header lays its 2 items out in a row.*"Order a cake" starts a line/
 				),
-				"Text against the viewport's edge:",
-				`  p "Bakery": its text starts at the viewport's left edge (x 0).`,
+				// The heading with its lines, as one problem a report lists once across pages.
+				expect.stringMatching(
+					/^Text against the viewport's edge:\n(.*\n)* {2}p "Bakery": its text starts at the viewport's left edge \(x 0\)\./
+				),
 			] )
 		);
+		expect( problems ).not.toContain( "Text against the viewport's edge:" );
+	}, 60000 );
+
+	it( "states text against the viewport's edge that a visitor sees, and what narrows a box a word breaks in", async () => {
+		const { problems } = await inspectPage( `${ siteUrl }/fit/`, VIEWPORTS.mobile );
+		const edges = problems.filter( ( problem ) =>
+			problem.startsWith( "Text against the viewport's edge:" )
+		);
+
+		// Not the honeypot label off the screen, nor a marquee's track past the
+		// band that clips it, whether the band is inside the viewport or across it.
+		expect( edges ).toEqual( [
+			[
+				"Text against the viewport's edge:",
+				`  p "Walk-ins welcome every Saturday": its text starts at the viewport's left edge (x 0).`,
+			].join( '\n' ),
+		] );
+		const page = await ( await getSharedBrowser() ).newPage( { viewport: VIEWPORTS.mobile } );
+		try {
+			await page.goto( `${ siteUrl }/fit/` );
+			const { breaks } = await pageTextFit( page );
+			// The button by its text, as every button shares its classes, in the
+			// column of the row of columns that does not stack that narrows it.
+			expect( breaks ).toContainEqual(
+				expect.stringMatching(
+					/^a\.wp-block-button__link\.wp-element-button "Book now": the browser breaks "Book" across lines, as the word \(\d+px\) is wider than its box \(\d+px\) in div\.wp-block-column in div\.wp-block-columns\.is-not-stacked-on-mobile\.$/
+				)
+			);
+		} finally {
+			await page.close();
+		}
 	}, 60000 );
 
 	it( "names paragraph text the size of a heading, against the page's body text", async () => {

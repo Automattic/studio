@@ -50,15 +50,22 @@ echo wp_json_encode( array( 'used' => array_keys( $used ) ) );`;
 
 export const inlineBlockClasses: SiteChangeSource = {
 	name: KEY,
-	async read( sitePath ) {
+	async read( sitePath, last ) {
 		return {
 			code: await activeCodeVersion( sitePath, ( name ) => /\.(php|json|html|css)$/.test( name ) ),
 			content: JSON.stringify( await readVersions( sitePath ) ),
+			// The notes raised, which a read before a call keeps for its check.
+			...( last?.raised ? { raised: last.raised } : {} ),
 		};
 	},
 	async check( site, before, after, host ) {
+		// The notes raised as problems, by key, each its own, so one fixed
+		// leaves the others as they were raised: in eval29 redo port 2 the
+		// note of the one class left, joined with another's, came again.
+		const raised: string[] = JSON.parse( before.raised ?? '[]' );
+		const keep = { ...after, raised: JSON.stringify( raised ) };
 		if ( before.code === after.code && before.content === after.content ) {
-			return { reports: [] };
+			return { reports: [], next: keep };
 		}
 		const themes = await readWordPressSite( site.path, ( wp ) =>
 			activeThemes( wp ).map( ( name ) => themesDir( site.path, name ) )
@@ -72,20 +79,25 @@ export const inlineBlockClasses: SiteChangeSource = {
 				);
 			} catch {
 				// Code that does not load is reported by what runs it.
-				return { reports: [] };
+				return { reports: [], next: keep };
 			}
 		}
-		const notes = inline.filter( ( { className } ) => used.has( className ) );
+		const notes = inline
+			.filter( ( { className } ) => used.has( className ) )
+			.map( ( { note } ) => ( { key: `${ KEY } ${ note }`, note } ) );
+		const keys = notes.map( ( { key } ) => key );
 		return {
 			reports: [
-				{
-					key: KEY,
+				...notes.map( ( { key, note } ) => ( {
+					key,
 					atTurnEnd: true,
-					problem: notes.length
-						? `${ site.name }: ${ notes.map( ( { note } ) => note ).join( ' ' ) }`
-						: undefined,
-				},
+					problem: `${ site.name }: ${ note }`,
+				} ) ),
+				...[ KEY, ...raised ]
+					.filter( ( key ) => ! keys.includes( key ) )
+					.map( ( key ) => ( { key, atTurnEnd: true, problem: undefined } ) ),
 			],
+			next: { ...after, raised: JSON.stringify( keys ) },
 		};
 	},
 };

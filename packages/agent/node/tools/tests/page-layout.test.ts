@@ -233,7 +233,7 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 			'a word wider than its column, which core lets the browser break',
 			'<div class="wp-block-column" style="width:200px;margin-left:100px;word-break:break-word;overflow-wrap:break-word"><h1 class="wp-block-heading" style="font:40px/1 monospace;padding:0 10px">Everything fits</h1></div>',
 			[
-				'h1.wp-block-heading: the browser breaks "Everything" across lines, as the word (240px) is wider than its box (180px).',
+				'h1.wp-block-heading "Everything fits": the browser breaks "Everything" across lines, as the word (240px) is wider than its box (180px) in div.wp-block-column.',
 			],
 		],
 		[
@@ -248,7 +248,7 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 			'an email address in a link, by the paragraph the link is in',
 			'<p style="width:180px;margin-left:100px;overflow-wrap:break-word;font:12px/1 monospace">Write to <a href="mailto:ink@blacklanterntattoo.com">ink@blacklanterntattoo.com</a></p>',
 			[
-				'p: the browser breaks "ink@blacklanterntattoo.com" across lines, as the word (187px) is wider than its box (180px).',
+				'p "Write to ink@blacklanterntattoo.com": the browser breaks "ink@blacklanterntattoo.com" across lines, as the word (187px) is wider than its box (180px).',
 			],
 		],
 		[

@@ -4,6 +4,7 @@ import {
 	frontPageIsPostsPage,
 	OpenProblems,
 	postsPageContent,
+	withoutNoted,
 } from '@studio/agent/node/open-problems';
 import { SiteChanges } from '@studio/agent/node/site-changes';
 import { createFakeHost } from '@studio/agent/node/tests/fake-host';
@@ -104,6 +105,56 @@ describe( 'OpenProblems', () => {
 		content = 'fields as converted';
 		await changes.settle();
 		expect( await open.raise() ).toEqual( [ problem ] );
+	} );
+
+	// eval29 redo ports 2 and 3: a marquee's x moving, and one class of a joined
+	// note fixed, reopened the turn with what it had raised.
+	it.each( [
+		{
+			name: 'the same item with its numbers changed',
+			first: [ 'span "Black Lantern": its text starts at the viewport\'s left edge (x -16).' ],
+			then: [ 'span "Black Lantern": its text starts at the viewport\'s left edge (x -24).' ],
+			raised: false,
+		},
+		{
+			name: 'one item of the problem fixed',
+			first: [ '`.bl-brand` is inline-level.', '`.bl-marquee__track` is inline-level.' ],
+			then: [ '`.bl-marquee__track` is inline-level.' ],
+			raised: false,
+		},
+		{
+			name: 'an item not raised before',
+			first: [ '`.bl-brand` is inline-level.' ],
+			then: [ '`.bl-brand` is inline-level.', '`.bl-marquee__track` is inline-level.' ],
+			raised: true,
+		},
+	] )( 'raises a problem again for $name: $raised', async ( { first, then, raised } ) => {
+		const open = new OpenProblems( [] );
+		open.record( '/a', '/a#rendered pages', first.join( '\n' ), false, first );
+		expect( await open.raise() ).toEqual( [ first.join( '\n' ) ] );
+		open.record( '/a', '/a#rendered pages', then.join( '\n' ), false, then );
+		expect( await open.raise() ).toEqual( raised ? [ then.join( '\n' ) ] : [] );
+	} );
+
+	it( 'keeps the problems of different files distinct, whatever their numbers', async () => {
+		const open = new OpenProblems( [] );
+		open.record( '/a', '/a#8', 'page 8: 8 block(s) do not match what the block saves' );
+		expect( await open.raise() ).toHaveLength( 1 );
+		open.record( '/a', '/a#9', 'page 9: 3 block(s) do not match what the block saves' );
+		expect( await open.raise() ).toEqual( [
+			'page 9: 3 block(s) do not match what the block saves',
+		] );
+	} );
+
+	it( 'leaves out a problem the notes of the same message say', () => {
+		const note = '`.bl-marquee__track` is a block className and gets an inline-level display.';
+		expect(
+			withoutNoted(
+				[ `Black Lantern: /theme/style.css: ${ note }`, 'page 8 is invalid', note ],
+				`Wrote style.css.\n${ note }`
+			)
+		).toEqual( [ 'page 8 is invalid' ] );
+		expect( withoutNoted( [ 'page 8 is invalid' ], undefined ) ).toEqual( [ 'page 8 is invalid' ] );
 	} );
 
 	it( "tags the problems as Studio's checks", () => {

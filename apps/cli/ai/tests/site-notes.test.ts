@@ -82,6 +82,31 @@ describe.runIf( WORDPRESS )( 'the notes on a write', () => {
 			defaultSpacingSizes: false,
 		} );
 	}, 60000 );
+
+	// port eval29 picky: the read on the site said it with the next call's result, after the model read this one.
+	it( "says a theme.json is not JSON on its call's result, and not again once the site has read it", async () => {
+		const dir = path.join( root, 'wp-content/themes/studio-test-syntax' );
+		mkdirSync( path.join( dir, 'templates' ), { recursive: true } );
+		writeFileSync( path.join( dir, 'templates/index.html' ), '' );
+		writeFileSync( path.join( dir, 'style.css' ), '/*\nTheme Name: Syntax\n*/' );
+		const themeJson = path.join( dir, 'theme.json' );
+		const text = '{ "version": 3, "styles": { "typography": { "lineHeight": 1.2" } } }';
+		writeFileSync( themeJson, text );
+		const siteNotes = createSiteNotes( host );
+		const decode = ( notes: string[] ) =>
+			notes.filter( ( note ) => note.startsWith( 'WordPress cannot decode' ) );
+		expect( decode( await siteNotes.fixWrite( themeJson ) ) ).toHaveLength( 1 );
+		expect( decode( await siteNotes.afterWrite( themeJson, text, true ) ) ).toEqual( [] );
+		// Fixed, the read on the site says what it keeps of it again.
+		writeFileSync(
+			themeJson,
+			'{ "version": 3, "styles": { "typography": { "lineHeigh": 1.2 } } }'
+		);
+		expect( decode( await siteNotes.fixWrite( themeJson ) ) ).toEqual( [] );
+		expect( ( await siteNotes.afterWrite( themeJson, undefined, true ) ).join( '\n' ) ).toContain(
+			'so these change nothing on the site: styles.'
+		);
+	}, 60000 );
 } );
 
 describe( 'a note on a write', () => {
@@ -166,4 +191,117 @@ describe( 'a note on a write', () => {
 		write( 'templates/index.html', HELD );
 		expect( await siteNotes.afterWrite( at ) ).toHaveLength( 1 );
 	} );
+} );
+
+describe( 'the notes on a theme.json write', () => {
+	let root: string;
+	let host: StudioAgentHost;
+	const themes = () => path.join( root, 'wp-content/themes' );
+	const write = ( file: string, text: string ) => {
+		const at = path.join( themes(), file );
+		mkdirSync( path.dirname( at ), { recursive: true } );
+		writeFileSync( at, text );
+		return at;
+	};
+	beforeEach( () => {
+		root = mkdtempSync( path.join( os.tmpdir(), 'notes-theme-json-' ) );
+		host = outsideStudio( root );
+		mkdirSync( path.join( root, 'wp-includes' ), { recursive: true } );
+		write( 'mine/style.css', '/*\nTheme Name: Mine\n*/' );
+		write( 'mine/screenshot.png', 'png' );
+		write( 'child/style.css', '/*\nTheme Name: Child\nTemplate: mine\n*/' );
+		write( 'child/screenshot.png', 'png' );
+	} );
+	afterEach( () => rmSync( root, { recursive: true, force: true } ) );
+
+	// port eval29 picky: the decode note came with the next call's result, and the model went on for nine calls.
+	it.each( [
+		{
+			file: 'mine/theme.json',
+			text: '{\n\t"version": 3,\n\t"styles": { "typography": { "lineHeight": 1.2" } }\n}',
+			note: `WordPress cannot decode wp-content/themes/mine/theme.json as JSON (wp_json_file_decode in wp-includes/functions.php): Syntax error. It reads nothing from it until the file is valid JSON. JSON parsing stops at line 3, column 47 (Expected ',' or '}' after property value): \`…es": { "typography": { "lineHeight": 1.2" } }\\n}\`.`,
+		},
+		{
+			file: 'mine/styles/dusk.json',
+			text: '{ "version": 3, "styles": { "css": "a {\n}" } }',
+			note: 'WordPress cannot decode wp-content/themes/mine/styles/dusk.json as JSON (wp_json_file_decode in wp-includes/functions.php): Control character error, possibly incorrectly encoded. It reads nothing from it until the file is valid JSON. JSON parsing stops at line 1, column 40 (Bad control character in string literal): `{ "version": 3, "styles": { "css": "a {\\n}" } }`.',
+		},
+		{ file: 'mine/theme.json', text: '{ "version": 3 }', note: undefined },
+	] )(
+		'says $file is not JSON on the result of the call that wrote it',
+		async ( { file, text, note } ) => {
+			const siteNotes = createSiteNotes( host );
+			const at = write( file, text );
+			const fixes = await siteNotes.fixWrite( at );
+			expect( fixes.filter( ( line ) => line.startsWith( 'WordPress cannot decode' ) ) ).toEqual(
+				note ? [ note ] : []
+			);
+			// Not again with the checks that finish after the result.
+			expect(
+				( await siteNotes.afterWrite( at, text, true ) ).filter( ( line ) =>
+					line.startsWith( 'WordPress cannot decode' )
+				)
+			).toEqual( [] );
+		},
+		60000
+	);
+
+	// port eval29 picky: a rewrite of theme.json dropped the setting, and the header stood 24px from each side of the window.
+	const PADDED = { styles: { spacing: { padding: { left: '1.5rem', right: '1.5rem' } } } };
+	const ROOT_PADDING = { settings: { useRootPaddingAwareAlignments: true } };
+	it.each< { name: string; files: Record< string, object >; written: string; note?: string } >( [
+		{
+			name: 'side padding without the setting',
+			files: { 'mine/theme.json': { version: 3, ...PADDED } },
+			written: 'mine/theme.json',
+			note: "wp-content/themes/mine/theme.json pads the page by styles.spacing.padding (left 1.5rem, right 1.5rem) without settings.useRootPaddingAwareAlignments true, so WordPress puts that padding on the body and full-width blocks stop that far from the window's edges; with the setting true it goes inside each .has-global-padding container, whose full-width children reach the edges (get_styles_for_block() and get_root_layout_rules() in wp-includes/class-wp-theme-json.php).",
+		},
+		{
+			name: 'side padding with the setting',
+			files: { 'mine/theme.json': { version: 3, ...ROOT_PADDING, ...PADDED } },
+			written: 'mine/theme.json',
+		},
+		{
+			name: 'zero side padding',
+			files: {
+				'mine/theme.json': {
+					version: 3,
+					styles: { spacing: { padding: { top: '2rem', left: '0', right: '0px' } } },
+				},
+			},
+			written: 'mine/theme.json',
+		},
+		{
+			name: "a child's side padding with its parent's setting",
+			files: {
+				'mine/theme.json': { version: 3, ...ROOT_PADDING },
+				'child/theme.json': { version: 3, ...PADDED },
+			},
+			written: 'child/theme.json',
+		},
+		{
+			name: "a child's theme.json over its parent's side padding",
+			files: {
+				'mine/theme.json': { version: 3, ...PADDED },
+				'child/theme.json': {
+					version: 3,
+					styles: { spacing: { padding: { right: '2rem' } } },
+				},
+			},
+			written: 'child/theme.json',
+			note: "wp-content/themes/child/theme.json, merged over its parent mine's theme.json, pads the page by styles.spacing.padding (left 1.5rem, right 2rem) without settings.useRootPaddingAwareAlignments true, so WordPress puts that padding on the body and full-width blocks stop that far from the window's edges; with the setting true it goes inside each .has-global-padding container, whose full-width children reach the edges (get_styles_for_block() and get_root_layout_rules() in wp-includes/class-wp-theme-json.php).",
+		},
+	] )(
+		'notes $name only when full-width blocks stop short of the edges',
+		async ( { files, written, note } ) => {
+			for ( const [ file, json ] of Object.entries( files ) ) {
+				write( file, JSON.stringify( json ) );
+			}
+			const notes = await createSiteNotes( host ).afterWrite( path.join( themes(), written ) );
+			expect(
+				notes.filter( ( line ) => line.includes( 'useRootPaddingAwareAlignments' ) )
+			).toEqual( note ? [ note ] : [] );
+		},
+		60000
+	);
 } );

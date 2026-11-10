@@ -13,6 +13,7 @@ import {
 } from '@studio/agent/node';
 import { validateBlocks } from '@studio/agent/node/block-validator';
 import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';
+import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { Type } from 'typebox';
 import { expect, it, vi } from 'vitest';
 import { cliAgentHost } from 'cli/ai/host';
@@ -104,7 +105,9 @@ it( 'adds the declared settings of the core blocks a result shows, from the site
 			sitePath,
 			'wp-content',
 			'debug.log'
-		) }; Studio defines WP_DEBUG and WP_DEBUG_LOG in wp-config.php from that setting each time the site starts.\nWordPress is not installed yet (is_blog_installed()): Studio installs it, with its database, when the site first starts (site_start).\n</studio-notes>`,
+		) }; Studio defines WP_DEBUG and WP_DEBUG_LOG in wp-config.php from that setting each time the site starts.\nEmail it sends: ${ getSiteEmailDirectory(
+			'1'
+		) } (one .eml file per message).\nWordPress is not installed yet (is_blog_installed()): Studio installs it, with its database, when the site first starts (site_start).\n</studio-notes>`,
 	] );
 	// Once per MCP session, as once per Studio Code turn.
 	expect( await notes( { nameOrPath: 'My Site' } ) ).toEqual( [] );

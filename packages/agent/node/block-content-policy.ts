@@ -3,7 +3,9 @@ import { PREFERRED_PLUGINS, type PreferredPlugin } from '@studio/agent/node/pref
 const BLOCK_COMMENT_PATTERN = /<!--\s*\/?wp:[^>]*-->/g;
 const SINGLE_SCRIPT_PATTERN = /^<script(?:\s[^>]*)?>[\s\S]*<\/script>\s*$/i;
 const SINGLE_SVG_PATTERN = /^<svg(?:\s[^>]*)?>[\s\S]*<\/svg>\s*$/i;
-const INTERACTION_MARKUP_PATTERN = /<(marquee)\b/i;
+// A <marquee> element, which no block saves; markup that only styles other
+// elements as one, such as a div with a marquee class, has blocks that save it.
+const MARQUEE_ELEMENT_PATTERN = /<marquee\b/i;
 const HTML_BLOCK_PATTERN = /<!--\s*wp:html(?:\s+[\s\S]*?)?\s*-->([\s\S]*?)<!--\s*\/wp:html\s*-->/g;
 
 // A form whose action is "#", empty or missing submits to the page it is on
@@ -47,7 +49,7 @@ export function getHtmlBlockPolicyIssues( content: string ): string[] {
 	if (
 		SINGLE_SCRIPT_PATTERN.test( html ) ||
 		SINGLE_SVG_PATTERN.test( html ) ||
-		INTERACTION_MARKUP_PATTERN.test( html )
+		MARQUEE_ELEMENT_PATTERN.test( html )
 	) {
 		return [];
 	}
@@ -65,7 +67,7 @@ export function getHtmlBlockPolicyIssues( content: string ): string[] {
 	}
 
 	return [
-		'core/html contains markup that should use editable blocks. Keep core/html only for inline SVG, interaction markup with no block equivalent (marquee, cursor), or a single script block.',
+		'core/html contains markup that should use editable blocks. core/html is kept only for a single inline `<svg>` element, a single `<script>` element, or markup holding a `<marquee>` element, which no block saves; other elements, whatever their class names, are written as the blocks that save them.',
 	];
 }
 

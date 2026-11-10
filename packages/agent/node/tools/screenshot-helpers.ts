@@ -531,8 +531,15 @@ export async function inspectPage(
 			...( await pageContrast( page ) ),
 			...( await pageLargeText( page, body ) ),
 			...( await pageSticky( page ) ),
+			// A heading and the lines under it are one problem, so a report that
+			// lists a problem the same on several pages once keeps them together.
 			...( textFit.edges.length
-				? [ "Text against the viewport's edge:", ...textFit.edges.map( ( line ) => `  ${ line }` ) ]
+				? [
+						[
+							"Text against the viewport's edge:",
+							...textFit.edges.map( ( line ) => `  ${ line }` ),
+						].join( '\n' ),
+				  ]
 				: [] ),
 		];
 		const html = await response?.text().catch( () => undefined );
@@ -546,7 +553,10 @@ export async function inspectPage(
 		}
 		// After the captures, as it lays the page out wider and back.
 		if ( viewport.width === VIEWPORTS.desktop.width ) {
-			problems.push( ...( await pageWideTextBreaks( page ) ) );
+			const wideBreaks = await pageWideTextBreaks( page );
+			if ( wideBreaks.length ) {
+				problems.push( wideBreaks.join( '\n' ) );
+			}
 		}
 		return { url: page.url(), problems, bodyFontSize: body };
 	} finally {

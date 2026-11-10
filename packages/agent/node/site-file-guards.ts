@@ -278,9 +278,56 @@ export async function quoteFontFamilies( siteFile: SiteFile ): Promise< string[]
 	return [];
 }
 
+// The keys a font family preset has in the theme.json schema
+// (WP_Theme_JSON::FONT_FAMILY_SCHEMA in wp-includes/class-wp-theme-json.php);
+// WP_Theme_JSON::sanitize() removes any other as it reads the file.
+const FONT_FAMILY_KEYS = new Set( [ 'fontFamily', 'name', 'slug', 'fontFace' ] );
+
+// Removes the keys the schema has no place for from the font family presets
+// Studio just declared or downloaded the fontFace of, named as
+// selfHostThemeJsonFonts() names them, and returns their paths.
+async function dropFontFamilyKeys(
+	themeJsonPath: string,
+	families: string[]
+): Promise< string[] > {
+	const written = await readFile( themeJsonPath, 'utf8' );
+	const json = JSON.parse( written );
+	const presets: unknown = json?.settings?.typography?.fontFamilies;
+	if ( ! Array.isArray( presets ) ) {
+		return [];
+	}
+	const dropped: string[] = [];
+	presets.forEach( ( preset, index ) => {
+		if ( ! preset || typeof preset !== 'object' ) {
+			return;
+		}
+		const font =
+			typeof preset.fontFamily === 'string'
+				? preset.fontFamily
+						.split( ',' )[ 0 ]
+						.trim()
+						.replace( /^['"]|['"]$/g, '' )
+				: undefined;
+		if ( ! families.includes( preset.name ?? font ?? preset.slug ?? '' ) ) {
+			return;
+		}
+		for ( const key of Object.keys( preset ) ) {
+			if ( ! FONT_FAMILY_KEYS.has( key ) ) {
+				delete preset[ key ];
+				dropped.push( `settings.typography.fontFamilies.${ index }.${ key }` );
+			}
+		}
+	} );
+	if ( dropped.length ) {
+		await writeFile( themeJsonPath, rewriteJson( written, json ) );
+	}
+	return dropped;
+}
+
 /**
  * Self-hosts the fonts a theme.json just written declares without font files,
- * and says what it downloaded.
+ * and says what it downloaded. The presets it declares font files for keep
+ * only the keys the schema has for a font family.
  */
 export async function selfHostFonts( siteFile: SiteFile ): Promise< string[] > {
 	const { theme } = siteFile;
@@ -289,6 +336,13 @@ export async function selfHostFonts( siteFile: SiteFile ): Promise< string[] > {
 	}
 	const { hosted, missing, downloaded, failed } = await selfHostThemeJsonFonts( theme.dir );
 	const themePath = `wp-content/themes/${ theme.slug }`;
+	const dropped =
+		hosted.length || downloaded.length
+			? await dropFontFamilyKeys( path.join( theme.dir, 'theme.json' ), [
+					...hosted,
+					...downloaded,
+			  ] )
+			: [];
 	return [
 		...( downloaded.length
 			? [
@@ -308,6 +362,13 @@ export async function selfHostFonts( siteFile: SiteFile ): Promise< string[] > {
 							  ) } named, which the browser cannot load: WordPress serves a "file:./" source from the theme or its parent (get_theme_file_uri() in wp-includes/link-template.php) and gives the browser any other source as written (WP_Font_Face_Resolver::to_theme_file_uri() in wp-includes/fonts/class-wp-font-face-resolver.php), so the browser was given font files that do not exist`
 							: ''
 					}.`,
+			  ]
+			: [] ),
+		...( dropped.length
+			? [
+					`Studio removed ${ dropped.join(
+						', '
+					) } from ${ themePath }/theme.json with the fontFace it declared, as the theme.json schema has no such key for a font family (WP_Theme_JSON::FONT_FAMILY_SCHEMA in wp-includes/class-wp-theme-json.php) and WordPress removes it as it reads the file.`,
 			  ]
 			: [] ),
 		...failed.map(

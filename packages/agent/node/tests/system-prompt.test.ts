@@ -1,4 +1,3 @@
-import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { describe, expect, it } from 'vitest';
 import { getSkillScopedToolNames, loadSkills } from '../skills';
 import { buildSystemPrompt, buildTurnContext, PROXY_IDENTITY } from '../system-prompt';
@@ -123,16 +122,18 @@ describe( 'buildTurnContext', () => {
 		);
 	} );
 
-	it( "names the folder where Studio saves the active site's email", () => {
+	// What Studio knows of the site, such as where it saves the email the site
+	// sends, is one of its facts (site-facts.ts), stated once, after this line.
+	it( 'states the active site, then its facts', () => {
 		const prompt = buildTurnContext( {
 			activeSite: { id: 'site-1', name: 'Mailer', path: '/sites/mailer', running: true },
+			activeSiteFacts: [ 'Email it sends: /email/site-1 (one .eml file per message).' ],
 		} );
 
 		expect( prompt ).toContain(
-			`"Mailer" at /sites/mailer (running), email it sends: ${ getSiteEmailDirectory(
-				'site-1'
-			) } (one .eml file per message)`
+			'## Active site\n\n"Mailer" at /sites/mailer (running)\nEmail it sends: /email/site-1 (one .eml file per message).'
 		);
+		expect( prompt.match( /email it sends/gi ) ).toHaveLength( 1 );
 	} );
 } );
 

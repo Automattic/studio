@@ -34,7 +34,7 @@ import { type TSchema } from 'typebox';
 import { environmentFacts } from '@studio/agent/node/environment-facts';
 import { readGlobalInstructions } from '@studio/agent/node/global-instructions';
 import { isImageGenerationAvailable } from '@studio/agent/node/image-generation';
-import { describeOpenProblems } from '@studio/agent/node/open-problems';
+import { describeOpenProblems, withoutNoted } from '@studio/agent/node/open-problems';
 import { SiteChanges } from '@studio/agent/node/site-changes';
 import { readActiveSiteFacts } from '@studio/agent/node/site-facts';
 import { createSiteNotes } from '@studio/agent/node/site-notes';
@@ -413,10 +413,13 @@ async function runAgentSessionTurn(
 			// until fixed, and a verdict of none ends nothing.
 			await state.renderCheck.settle();
 			await state.renderCheck.takeReports();
-			const problems = await state.openProblems.raise();
+			const raised = await state.openProblems.raise();
 			// The notes on the run's last calls, whose checks ran after their results.
+			const notes = pendingWork.takeReports();
+			// A problem a note here already says is not said again.
+			const problems = withoutNoted( raised, notes );
 			const content = [
-				studioMessage( 'notes', [ pendingWork.takeReports() ] ),
+				studioMessage( 'notes', [ notes ] ),
 				problems.length ? describeOpenProblems( problems ) : undefined,
 			]
 				.filter( Boolean )

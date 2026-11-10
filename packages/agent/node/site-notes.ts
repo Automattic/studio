@@ -41,8 +41,9 @@ import {
 	themeJsonNotes,
 } from '@studio/agent/node/site-file-guards';
 import { themeCssNotes } from '@studio/agent/node/theme-css-notes';
-import { themeJsonFileNotes } from '@studio/agent/node/theme-json-files';
+import { themeJsonFileNotes, themeJsonSyntaxNotes } from '@studio/agent/node/theme-json-files';
 import { keepThemePresets } from '@studio/agent/node/theme-presets';
+import { themeRootPaddingNotes } from '@studio/agent/node/theme-root-padding';
 import { themeStyleOverrideNotes } from '@studio/agent/node/theme-style-overrides';
 import { writeThemeThumbnail } from '@studio/agent/node/theme-thumbnail';
 import type { BlockValidationGate } from '@studio/agent/node/block-validation-gate';
@@ -60,7 +61,9 @@ interface Sources {
 	write: Record< string, ( file: SiteFile, before?: string ) => Notes >;
 	// The sources that rewrite the file just written, before the others: a
 	// file tool's call waits for them, so the agent goes on from the file as
-	// Studio leaves it, not the text its own call left there.
+	// Studio leaves it, not the text its own call left there. A cheap check
+	// whose note must reach that call's own result, not the next one's, is
+	// one of these too.
 	fix: Record< string, ( file: SiteFile ) => Notes >;
 	result: Record< string, ( sitePath: string, text: string ) => Notes >;
 }
@@ -136,6 +139,7 @@ function sources(
 			'font family names': quoteFontFamilies,
 			'theme fonts': selfHostFonts,
 			'theme presets': ( file ) => keepThemePresets( host, file ),
+			'theme json syntax': ( file ) => themeJsonSyntaxNotes( file, open ),
 		},
 		write: {
 			// Before the gate reads the file and the theme's presets for its save.
@@ -150,6 +154,7 @@ function sources(
 			'block markup': blockMarkupNotes,
 			'theme.json': themeJsonNotes,
 			'theme.json file': ( file ) => themeJsonFileNotes( host, file, open ),
+			'theme root padding': themeRootPaddingNotes,
 			'theme style overrides': themeStyleOverrideNotes,
 			'theme css': themeCssNotes,
 			'shared block classes': createSharedBlockClassNotes( host ),

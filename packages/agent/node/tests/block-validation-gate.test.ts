@@ -278,7 +278,7 @@ describe( 'validating a file', () => {
 		expect( result.problem ).toBe(
 			[
 				`tmp/home.html: 1 core/html block(s) hold markup the editor shows as raw HTML, which convert_to_blocks saves as editable blocks:`,
-				'  - line 3: core/html contains markup that should use editable blocks. Keep core/html only for inline SVG, interaction markup with no block equivalent (marquee, cursor), or a single script block.',
+				'  - line 3: core/html contains markup that should use editable blocks. core/html is kept only for a single inline `<svg>` element, a single `<script>` element, or markup holding a `<marquee>` element, which no block saves; other elements, whatever their class names, are written as the blocks that save them.',
 				"The site's blocks whose save makes its elements, created with their defaults (createBlock() and getSaveContent() in @wordpress/blocks): <div> core/b10, core/b11, core/b12, core/b13, core/b14, core/b15, core/b16, core/b17, core/b18, core/b19, core/b20, core/b21, and 2 more; <details> core/details.",
 			].join( '\n' )
 		);

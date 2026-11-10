@@ -26,9 +26,11 @@ import type { StudioAgentHost } from '@studio/agent/node/host';
 export class OpenProblems {
 	// The sites changed, whose state is checked at the end of the turn.
 	private readonly sites: string[] = [];
-	// The latest problem of each file or post validated, while it has one.
+	// The latest problem of each file or post validated, while it has one, and its items.
 	private readonly open: Record< string, string > = {};
-	private readonly raised: string[] = [];
+	private readonly items: Record< string, string[] > = {};
+	// The identities of the items raised (problemIdentity).
+	private readonly raised = new Set< string >();
 	// The files and posts changed since their problem was raised, and still open.
 	private changedSinceRaised: string[] = [];
 	// The problems open at the agent's last look at a site, and those it was told again.
@@ -47,18 +49,29 @@ export class OpenProblems {
 	/**
 	 * Records the latest validation of a site's file or post, open while it has
 	 * a problem; `changed` when it validates content changed since the last.
+	 * `items` are what the problem is made of, when it states more than one
+	 * thing, as a render's findings: it is raised again only for an item not
+	 * raised before, not for one fixed or one whose measures moved.
 	 */
-	record( site: string, key: string, problem?: string, changed = false ): void {
+	record(
+		site: string,
+		key: string,
+		problem?: string,
+		changed = false,
+		items: string[] = []
+	): void {
 		if ( ! this.sites.includes( site ) ) {
 			this.sites.push( site );
 		}
 		if ( problem ) {
 			this.open[ key ] = problem;
+			this.items[ key ] = items.length ? items : [ problem ];
 			if ( changed && ! this.changedSinceRaised.includes( key ) ) {
 				this.changedSinceRaised.push( key );
 			}
 		} else {
 			delete this.open[ key ];
+			delete this.items[ key ];
 		}
 	}
 
@@ -116,12 +129,52 @@ export class OpenProblems {
 			.filter( ( [ key ] ) => this.changedSinceRaised.includes( key ) )
 			.map( ( [ , problem ] ) => problem );
 		this.changedSinceRaised = [];
-		const problems = [
-			...new Set( [ ...Object.values( this.open ), ...siteProblems.flat() ] ),
-		].filter( ( problem ) => ! this.raised.includes( problem ) || again.includes( problem ) );
-		this.raised.push( ...problems );
+		// Each problem open, by its items' identities.
+		const open = new Map< string, string[] >();
+		for ( const [ key, problem ] of Object.entries( this.open ) ) {
+			open.set( problem, [
+				...( open.get( problem ) ?? [] ),
+				...this.items[ key ].map( ( item ) => problemIdentity( item, key ) ),
+			] );
+		}
+		for ( const problem of siteProblems.flat() ) {
+			open.set( problem, [ ...( open.get( problem ) ?? [] ), problemIdentity( problem ) ] );
+		}
+		const problems = [ ...open ]
+			.filter(
+				( [ problem, items ] ) =>
+					again.includes( problem ) || items.some( ( item ) => ! this.raised.has( item ) )
+			)
+			.map( ( [ problem ] ) => problem );
+		open.forEach( ( items ) => items.forEach( ( item ) => this.raised.add( item ) ) );
 		return problems;
 	}
+}
+
+/**
+ * What a problem's item is, for whether it was raised before: its text, of
+ * the file or post it is recorded for, with its numbers left out, as the
+ * pixels and positions a page's findings measure move as the page changes. In
+ * eval29 redo port 3 a marquee's text at x -16 then x -18 reopened the turn.
+ */
+function problemIdentity( item: string, key = '' ): string {
+	return `${ key }\n${ item.replace( /\d+/g, '#' ) }`;
+}
+
+/**
+ * The problems `notes`, said in the same message, do not already carry: a
+ * problem that is a line of the notes, or such a line said of a place
+ * ("<where>: <note>"). In eval29 redo port 2 a stylesheet's note and the
+ * open problem naming the same class came in one message.
+ */
+export function withoutNoted( problems: string[], notes = '' ): string[] {
+	const lines = notes
+		.split( '\n' )
+		.map( ( line ) => line.trim() )
+		.filter( Boolean );
+	return problems.filter(
+		( problem ) => ! lines.some( ( line ) => problem === line || problem.endsWith( `: ${ line }` ) )
+	);
 }
 
 /**

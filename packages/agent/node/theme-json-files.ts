@@ -137,9 +137,7 @@ export async function themeJsonFileRead(
 	const output = await wpEval( host, site, READ( file ) );
 	const read = printedJson< Read >( output, 'THEME_JSON_READ=' );
 	const problem = ! read.decoded
-		? `WordPress cannot decode ${ relativePath } as JSON (wp_json_file_decode in wp-includes/functions.php): ${
-				read.error
-		  }. It reads nothing from it until the file is valid JSON.${ syntaxAt( file ) }`
+		? decodeProblem( relativePath, read.error, syntaxAt( file ) )
 		: read.fails
 		? `WordPress fails reading ${ relativePath } as new WP_Theme_JSON( $decoded ) (WP_Theme_JSON_Resolver in wp-includes/class-wp-theme-json-resolver.php): ${ read.fails }. Each page the theme renders fails the same way while it is active. A value of the wrong form does this: the schema gives each setting and style its form (https://schemas.wp.org/trunk/theme.json), as Twenty Twenty-Five's theme.json writes them.`
 		: dropNote( read, relativePath );
@@ -150,18 +148,69 @@ export async function themeJsonFileRead(
 	};
 }
 
+function decodeProblem( relativePath: string, error: string, at: string ): string {
+	return `WordPress cannot decode ${ relativePath } as JSON (wp_json_file_decode in wp-includes/functions.php): ${ error }. It reads nothing from it until the file is valid JSON.${ at }`;
+}
+
+function readText( file: string ): string | undefined {
+	try {
+		return fs.readFileSync( file, 'utf8' );
+	} catch {
+		return undefined;
+	}
+}
+
 // Where the file stops parsing, which json_decode's error does not say.
 function syntaxAt( file: string ): string {
-	let text: string;
-	try {
-		text = fs.readFileSync( file, 'utf8' );
-	} catch {
-		return '';
-	}
+	const text = readText( file );
+	return text === undefined ? '' : syntaxAtText( text );
+}
+
+function syntaxAtText( text: string ): string {
 	const error = jsonSyntaxError( text );
 	return error
 		? ` JSON parsing stops at line ${ error.line }, column ${ error.column } (${ error.reason }): \`${ error.excerpt }\`.`
 		: '';
+}
+
+const THEME_JSON_FILE = /^(theme\.json|styles\/.+\.json)$/;
+
+// json_decode's error for text JSON.parse cannot read either: an unescaped
+// control character in a string, or else a syntax error (json_last_error_msg()).
+function phpDecodeError( text: string ): string | undefined {
+	try {
+		JSON.parse( text );
+		return undefined;
+	} catch ( error ) {
+		return /control character/i.test( error instanceof Error ? error.message : String( error ) )
+			? 'Control character error, possibly incorrectly encoded'
+			: 'Syntax error';
+	}
+}
+
+/**
+ * A fix-time source: a theme JSON file just written that is not JSON, said on
+ * the result of the call that wrote it. Read on the site, as
+ * themeJsonFileNotes does, the note came with the next call's result: in the
+ * eval29 picky case, after the model had read the result of the Write that
+ * broke theme.json, and it spent nine calls on a theme WordPress read nothing
+ * of. JSON.parse rejects what json_decode rejects, short of malformed UTF-8,
+ * which the read on the site still finds.
+ */
+export function themeJsonSyntaxNotes( siteFile: SiteFile, open?: OpenProblems ): string[] {
+	const { theme, siteRoot, relativePath } = siteFile;
+	if ( ! theme || ! THEME_JSON_FILE.test( theme.file ) ) {
+		return [];
+	}
+	const file = `${ siteRoot }/${ relativePath }`;
+	const text = readText( file );
+	if ( text === undefined ) {
+		return [];
+	}
+	const error = phpDecodeError( text );
+	const problem = error && decodeProblem( relativePath, error, syntaxAtText( text ) );
+	open?.record( siteRoot, file, problem );
+	return problem ? [ problem ] : [];
 }
 
 function listedNote( { listed }: Read ): string | undefined {
@@ -202,11 +251,17 @@ export async function themeJsonFileNotes(
 	open?: OpenProblems
 ): Promise< string[] > {
 	const { theme, siteRoot, relativePath } = siteFile;
-	if ( ! theme || ! /^(theme\.json|styles\/.+\.json)$/.test( theme.file ) ) {
+	if ( ! theme || ! THEME_JSON_FILE.test( theme.file ) ) {
+		return [];
+	}
+	const file = `${ siteRoot }/${ relativePath }`;
+	// Text that is not JSON was said, and recorded open, on the call's own
+	// result (themeJsonSyntaxNotes).
+	const text = readText( file );
+	if ( text === undefined || phpDecodeError( text ) ) {
 		return [];
 	}
 	const site = await host.sites.resolve( siteRoot );
-	const file = `${ siteRoot }/${ relativePath }`;
 	const { problem, notes } = await themeJsonFileRead( host, site, file, relativePath );
 	open?.record( siteRoot, file, problem );
 	return notes;

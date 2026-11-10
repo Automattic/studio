@@ -58,20 +58,29 @@ describe.runIf( WORDPRESS )( "block classes the theme's stylesheets make inline-
 				) } ) );`,
 			] )
 		).trim();
-		const [ inline ] = ( await check() ).reports;
-		expect( inline.key ).toBe( 'inline block classes' );
-		expect( inline.atTurnEnd ).toBe( true );
-		expect( inline.problem ).toMatch( /^Ember Roasters: / );
-		expect( inline.problem ).toContain(
+		const { reports, next } = await check();
+		// Each note its own problem, so one fixed leaves the other as it was raised.
+		const inline = reports.filter( ( report ) => report.problem );
+		expect( inline ).toHaveLength( 2 );
+		for ( const report of inline ) {
+			expect( report.key ).toMatch( /^inline block classes / );
+			expect( report.atTurnEnd ).toBe( true );
+			expect( report.problem ).toMatch( /^Ember Roasters: / );
+		}
+		expect( inline.map( ( report ) => report.problem ).join( '\n' ) ).toContain(
 			`${ css }: \`.er-pill\` is a block className and gets an inline-level display.`
 		);
-		expect( inline.problem ).toContain(
+		expect( inline.map( ( report ) => report.problem ).join( '\n' ) ).toContain(
 			`${ path.join( child, 'chip.css' ) }: \`.er-chip\` is a block className`
 		);
-		expect( inline.problem ).not.toContain( 'er-wide' );
-		// The class leaves the blocks, and the note goes with it.
+		expect( JSON.stringify( reports ) ).not.toContain( 'er-wide' );
+		// The class leaves the blocks, and the notes go with it.
 		await runWpCli( host, site, [ 'post', 'delete', id, '--force' ] );
-		expect( ( await check() ).reports[ 0 ].problem ).toBeUndefined();
+		const cleared = await inlineBlockClasses.check( site, next!, { ...next!, code: 'c' }, host );
+		expect( cleared.reports.map( ( report ) => report.key ).sort() ).toEqual(
+			[ 'inline block classes', ...inline.map( ( report ) => report.key ) ].sort()
+		);
+		expect( cleared.reports.every( ( report ) => ! report.problem ) ).toBe( true );
 		rmSync( css );
 		await runWpCli( host, site, [ 'theme', 'activate', parent ] );
 		rmSync( child, { recursive: true } );
@@ -81,6 +90,7 @@ describe.runIf( WORDPRESS )( "block classes the theme's stylesheets make inline-
 		const versions = { code: 'a', content: 'b' };
 		expect( await inlineBlockClasses.check( site, versions, { ...versions }, host ) ).toEqual( {
 			reports: [],
+			next: { ...versions, raised: '[]' },
 		} );
 	} );
 } );

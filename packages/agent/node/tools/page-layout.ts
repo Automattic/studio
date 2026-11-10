@@ -496,6 +496,42 @@ export async function pageTextFit( page: Page ): Promise< TextFit > {
 				? named
 				: `${ named } "${ text.length > 40 ? `${ text.slice( 0, 40 ) }…` : text }"`;
 		};
+		// What makes a box too narrow for a word: the outermost of its ancestors
+		// too narrow to hold the box at the word's width, named in the ancestor
+		// that has room, as a column of a row of columns that does not stack on a
+		// phone. Its classes include the ones naming a block's settings.
+		const settingsLabel = ( element: Element ) =>
+			element.tagName.toLowerCase() +
+			[ ...element.classList ]
+				.filter(
+					( name ) =>
+						! /^(has-|is-layout-|wp-container-|wp-elements-|wp-block-[a-z-]+-is-layout-)/.test(
+							name
+						)
+				)
+				.slice( 0, 3 )
+				.map( ( name ) => `.${ name }` )
+				.join( '' );
+		const narrowedBy = ( box: HTMLElement, needed: number ) => {
+			let narrow: Element | undefined;
+			for (
+				let at = box.parentElement;
+				at && at !== document.body && at !== document.documentElement;
+				at = at.parentElement
+			) {
+				const style = getComputedStyle( at );
+				if ( style.display === 'inline' || style.display === 'contents' ) {
+					continue;
+				}
+				const room =
+					at.clientWidth - parseFloat( style.paddingLeft ) - parseFloat( style.paddingRight );
+				if ( room >= needed ) {
+					return narrow ? ` in ${ settingsLabel( narrow ) } in ${ settingsLabel( at ) }` : '';
+				}
+				narrow = at;
+			}
+			return narrow ? ` in ${ settingsLabel( narrow ) }` : '';
+		};
 		const edges: string[] = [];
 		const breaks: string[] = [];
 		const add = ( lines: string[], line: string ) => {
@@ -527,16 +563,60 @@ export async function pageTextFit( page: Page ): Promise< TextFit > {
 			if ( ! rects.length ) {
 				continue;
 			}
-			const left = Math.min( ...rects.map( ( rect ) => rect.left ) );
-			const right = Math.max( ...rects.map( ( rect ) => rect.right ) );
-			if ( left < 1 ) {
+			const textLeft = Math.min( ...rects.map( ( rect ) => rect.left ) );
+			const textRight = Math.max( ...rects.map( ( rect ) => rect.right ) );
+			// What a visitor sees of the text: its box within each box that clips
+			// it, its own and its ancestors', as an overflow: hidden band clips a
+			// marquee's track, at the inside of its border. The page's root and
+			// body clip at the viewport, the edge the text is judged by. A box
+			// positioned absolutely escapes the clip of each ancestor up to the
+			// positioned one it is placed in; a fixed one, every clip.
+			let left = textLeft;
+			let right = textRight;
+			let clippedLeft = false;
+			let clippedRight = false;
+			let escapes = false;
+			for (
+				let at: Element | null = element;
+				at && at !== document.body && at !== document.documentElement;
+				at = at.parentElement
+			) {
+				const atStyle = getComputedStyle( at );
+				const positioned = atStyle.position !== 'static' || atStyle.transform !== 'none';
+				// Overflow does not apply to an inline box, as a link.
+				if (
+					( positioned || ! escapes ) &&
+					atStyle.overflowX !== 'visible' &&
+					atStyle.display !== 'inline'
+				) {
+					const clipLeft = at.getBoundingClientRect().left + at.clientLeft;
+					const clipRight = clipLeft + at.clientWidth;
+					if ( clipLeft > left ) {
+						left = clipLeft;
+						clippedLeft = true;
+					}
+					if ( clipRight < right ) {
+						right = clipRight;
+						clippedRight = true;
+					}
+				}
+				if ( atStyle.position === 'fixed' ) {
+					break;
+				}
+				escapes = atStyle.position === 'absolute' || ( escapes && ! positioned );
+			}
+			// Text a visitor cannot see on this screen: clipped away, or wholly
+			// outside the viewport, as a form's honeypot field placed at x -9999.
+			const visible = right > left && right > 0 && left < viewport;
+			// A side its clip cuts runs the text under that clip's edge, not against the viewport's.
+			if ( visible && left < 1 && ! clippedLeft ) {
 				add(
 					edges,
 					`${ quoted( element ) }: its text starts at the viewport's left edge (x ${ Math.round(
 						left
 					) }).`
 				);
-			} else if ( right > viewport - 1 && right <= viewport + 1 ) {
+			} else if ( visible && right > viewport - 1 && right <= viewport + 1 && ! clippedRight ) {
 				add(
 					edges,
 					`${ quoted( element ) }: its text ends at the viewport's right edge (x ${ Math.round(
@@ -575,11 +655,15 @@ export async function pageTextFit( page: Page ): Promise< TextFit > {
 						parseFloat( getComputedStyle( box ).paddingRight );
 					add(
 						breaks,
-						`${ label( box, false ) }: the browser breaks "${
+						`${
+							( box as HTMLElement ).innerText?.trim() === match[ 0 ]
+								? label( box, false )
+								: quoted( box )
+						}: the browser breaks "${
 							match[ 0 ]
 						}" across lines, as the word (${ width }px) is wider than its box (${ Math.round(
 							box.clientWidth - padding
-						) }px).`
+						) }px)${ narrowedBy( box, width + box.offsetWidth - box.clientWidth + padding ) }.`
 					);
 				}
 			}

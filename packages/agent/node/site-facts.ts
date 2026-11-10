@@ -1,6 +1,7 @@
 import path from 'path';
 import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
+import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { siteCodeFact } from '@studio/agent/node/admin-capabilities';
 import { homepageFact } from '@studio/agent/node/front-page-template';
 import {
@@ -85,6 +86,19 @@ async function errorLogFact(
 		: `PHP errors: WordPress logs none, as WP_DEBUG_LOG is off (wp_debug_mode() in wp-includes/load.php). \`studio config set --debug-log\` run in ${ site.root } turns it on and restarts the site, and WordPress then logs them to ${ log }; Studio defines WP_DEBUG and WP_DEBUG_LOG in wp-config.php from that setting each time the site starts.`;
 }
 
+// Studio saves each message the site's wp_mail() sends as a .eml file in the
+// site's email folder, under Studio's own directory rather than the site's
+// (cli/php-server-child.ts), so it is found by its path, not by searching the disk.
+async function emailFact(
+	site: WordPressSite,
+	host: StudioAgentHost
+): Promise< string | undefined > {
+	const studioSite = await host.sites.findByFolder( site.root );
+	return studioSite
+		? `Email it sends: ${ getSiteEmailDirectory( studioSite.id ) } (one .eml file per message).`
+		: undefined;
+}
+
 // WordPress is installed once its options hold siteurl (is_blog_installed());
 // Studio installs it the first time the site starts (installWordPress() in
 // lib/native-php/site-setup.ts), so a site never started has no database yet.
@@ -98,6 +112,7 @@ const SITE_FACTS: SiteFact[] = [
 	siteAddressFact,
 	wpCliFact,
 	errorLogFact,
+	emailFact,
 	wordPressVersionFact,
 	installedFact,
 	activeThemeFact,

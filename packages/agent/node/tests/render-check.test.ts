@@ -118,6 +118,26 @@ describe( 'RenderCheck', () => {
 		expect( await open.raise() ).toEqual( [ report ] );
 	} );
 
+	// eval29 redo port 3: a marquee's text at x -16, then x -18, reopened the turn.
+	it( 'raises a render problem again only for a finding not raised before', async () => {
+		const { site, check, open, problems, after } = setup();
+		await check.seen( site.root, { created: true } );
+		const edge = ( x: number ) =>
+			`span "Bakery": its text starts at the viewport's left edge (x ${ x }).`;
+		problems[ '/ desktop' ] = [
+			edge( -16 ),
+			'The image http://localhost:8881/a.jpg did not load.',
+		];
+		await after();
+		expect( await open.raise() ).toHaveLength( 1 );
+		problems[ '/ desktop' ] = [ edge( -18 ) ];
+		await after();
+		expect( await open.raise() ).toEqual( [] );
+		problems[ '/ desktop' ] = [ edge( -24 ), 'The page did not load: timeout.' ];
+		const report = await after();
+		expect( await open.raise() ).toEqual( [ report ] );
+	} );
+
 	// eval28 redo port 1: a footer's email broke on every page, each line repeated per page.
 	it( 'lists a problem identical across pages once, with each page and viewport it is on', async () => {
 		const { site, check, problems, after } = setup();
@@ -136,6 +156,26 @@ describe( 'RenderCheck', () => {
 		);
 		expect( report.match( /Seen on:/g ) ).toHaveLength( 1 );
 		expect( report ).toContain( `- /about/ (desktop): ${ large }` );
+	} );
+
+	// eval29 redo port 4: the heading of text against the viewport's edge was
+	// listed once with every page and no lines, each of its lines on its own.
+	it( 'lists a heading with its lines, identical across pages, once with each page it is on', async () => {
+		const { site, check, problems, after } = setup();
+		await check.seen( site.root, { created: true } );
+		// As inspectPage states it: the heading and its lines, one problem.
+		const edges = [
+			"Text against the viewport's edge:",
+			`  a "Black Lantern Tattoo": its text starts at the viewport's left edge (x 0).`,
+		].join( '\n' );
+		problems[ '/ desktop' ] = [ edges ];
+		problems[ '/ mobile' ] = [ edges ];
+		problems[ '/about/ desktop' ] = [ edges ];
+		const report = await after();
+		expect( report ).toContain(
+			`- ${ edges }\n  Seen on:\n  / — desktop; mobile\n  /about/ — desktop`
+		);
+		expect( report.match( /Seen on:/g ) ).toHaveLength( 1 );
 	} );
 
 	// As run h2h5's dog groomer changed an option while its images were being generated.

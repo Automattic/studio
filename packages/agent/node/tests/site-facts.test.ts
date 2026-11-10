@@ -1,6 +1,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
+import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { expect, it, vi } from 'vitest';
 import { createFakeHost, fakeSite } from '@studio/agent/node/tests/fake-host';
 import { readActiveSiteFacts } from '../site-facts';
@@ -329,21 +330,23 @@ it( 'adds to a tool result the facts the agent does not have yet, as they now re
 it.each( [
 	{
 		studioSite: { url: 'http://localhost:9098' },
+		email: getSiteEmailDirectory( fakeSite.id ),
 		address: 'http://localhost:9098',
 		logged: false,
 		running: true,
 		state: 'Studio is serving the site there now.',
 	},
 	{
-		studioSite: { url: 'https://bakery.local', enableDebugLog: true },
+		studioSite: { id: 'bakery-id', url: 'https://bakery.local', enableDebugLog: true },
+		email: getSiteEmailDirectory( 'bakery-id' ),
 		address: 'https://bakery.local',
 		logged: true,
 		running: false,
 		state: 'The site is stopped: site_start serves it.',
 	},
 ] )(
-	'states the address Studio serves the site at, and whether it serves it now: $address',
-	async ( { studioSite, address, logged, running, state } ) => {
+	'states the address Studio serves the site at, whether it serves it now, and where it saves the email the site sends: $address',
+	async ( { studioSite, email, address, logged, running, state } ) => {
 		const site = createSite( 'wp_' );
 		vi.mocked( host.sites.isRunning ).mockResolvedValueOnce( running );
 		vi.mocked( host.sites.findByFolder ).mockImplementation( async ( folder ) =>
@@ -357,6 +360,7 @@ it.each( [
 			logged
 				? `PHP errors: WordPress logs them to ${ site.root }/wp-content/debug.log (WP_DEBUG_LOG, wp_debug_mode() in wp-includes/load.php).`
 				: `PHP errors: WordPress logs none, as WP_DEBUG_LOG is off (wp_debug_mode() in wp-includes/load.php). \`studio config set --debug-log\` run in ${ site.root } turns it on and restarts the site, and WordPress then logs them to ${ site.root }/wp-content/debug.log; Studio defines WP_DEBUG and WP_DEBUG_LOG in wp-config.php from that setting each time the site starts.`,
+			`Email it sends: ${ email } (one .eml file per message).`,
 			...BASE,
 		] );
 		vi.mocked( host.sites.findByFolder ).mockReset();

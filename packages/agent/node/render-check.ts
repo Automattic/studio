@@ -254,7 +254,8 @@ export class RenderCheck {
 					'\n'
 			  )
 			: undefined;
-		this.open?.record( sitePath, renderedPages( sitePath ), problem );
+		// Each finding is an item of the problem, by what groups it, not where it is seen.
+		this.open?.record( sitePath, renderedPages( sitePath ), problem, false, [ ...groups.keys() ] );
 		state.verdictFrom = renderedFrom;
 		state.verdict = [
 			problem ??

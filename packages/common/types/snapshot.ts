@@ -20,6 +20,9 @@ export const snapshotSchema = z.object( {
 	// When Studio last pushed to the preview or pulled from it (ms), so an edit made on the preview
 	// after it is a change Studio doesn't have.
 	syncedAt: z.number().optional(),
+	// The paid WordPress.com site this preview shows changes to, as WordPress.com last reported it.
+	// WordPress.com checks the link when it reads it, so a lapsed plan or lost access drops it.
+	liveSiteId: z.number().optional(),
 } );
 
 export type Snapshot = z.infer< typeof snapshotSchema >;

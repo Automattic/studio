@@ -7,9 +7,8 @@ import { CheckIcon, PlusIcon } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { errorMessage } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { useAuthUser } from '@/data/queries/use-auth-user';
+import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { useSession } from '@/data/queries/use-sessions';
-import { AccountPromptDialog } from '@/features/account';
 import { entriesToTranscriptItems } from '@/features/chats';
 import { ExternalLinkIcon } from '@/lib/icons';
 import {
@@ -61,7 +60,6 @@ const getAreaOptions = () => [
  */
 export function FeedbackDialog() {
 	const navigate = useNavigate();
-	const connector = useConnector();
 	const user = useAuthUser();
 	const { feedback } = useSearch( { strict: false } ) as { feedback?: true };
 	const close = () =>
@@ -72,33 +70,12 @@ export function FeedbackDialog() {
 			replace: true,
 		} );
 
-	if ( user.isSuccess && ! user.data ) {
-		return (
-			<AccountPromptDialog
-				open={ !! feedback }
-				onOpenChange={ ( open ) => ! open && close() }
-				title={ __( 'Send feedback' ) }
-				description={ __(
-					'Create a free WordPress.com account to share ideas and report problems to the Studio team.'
-				) }
-				source="settings"
-				footer={
-					<Button
-						variant="muted-ghost"
-						size="sm"
-						onClick={ () => void connector.openExternalUrl( REPORT_ISSUE_URL ) }
-					>
-						{ __( 'Report an issue on GitHub' ) }
-						<ExternalLinkIcon data-icon="inline-end" />
-					</Button>
-				}
-			/>
-		);
-	}
-
 	return (
 		<Dialog open={ !! feedback } onOpenChange={ ( open ) => ! open && close() }>
-			<DialogContent layout="confirmation">
+			<DialogContent
+				layout="confirmation"
+				className={ user.isSuccess && ! user.data ? styles.signedOutDialog : undefined }
+			>
 				<FeedbackForm />
 			</DialogContent>
 		</Dialog>
@@ -108,6 +85,7 @@ export function FeedbackDialog() {
 function FeedbackForm() {
 	const connector = useConnector();
 	const user = useAuthUser();
+	const login = useLogin( { signup: true, source: 'settings' } );
 	const { sessionId } = useParams( { strict: false } ) as { sessionId?: string };
 	const session = useSession( sessionId );
 	const transcript = useMemo(
@@ -126,6 +104,38 @@ function FeedbackForm() {
 			connector.sendFeedback( feedback ),
 	} );
 	const options = getTypeOptions();
+
+	if ( user.isSuccess && ! user.data ) {
+		return (
+			<>
+				<DialogHeader>
+					<DialogTitle>{ __( 'Send feedback' ) }</DialogTitle>
+					<DialogDescription>
+						{ __( 'Share ideas and report problems directly to the Studio team.' ) }
+					</DialogDescription>
+				</DialogHeader>
+				<div className={ styles.signInActions }>
+					<FieldError>{ login.error ? errorMessage( login.error ) : null }</FieldError>
+					<Button
+						variant="accent"
+						loading={ login.isPending }
+						loadingAnnouncement={ __( 'Connecting to WordPress.com' ) }
+						onClick={ () => login.mutate() }
+					>
+						{ __( 'Continue with WordPress.com' ) }
+					</Button>
+					<Button
+						variant="muted-ghost"
+						size="sm"
+						onClick={ () => void connector.openExternalUrl( REPORT_ISSUE_URL ) }
+					>
+						{ __( 'Report an issue on GitHub' ) }
+						<ExternalLinkIcon data-icon="inline-end" />
+					</Button>
+				</div>
+			</>
+		);
+	}
 
 	if ( send.isSuccess ) {
 		return (

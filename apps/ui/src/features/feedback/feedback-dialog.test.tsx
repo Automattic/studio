@@ -108,22 +108,21 @@ describe( 'FeedbackDialog', () => {
 		expect( connector.authenticate ).not.toHaveBeenCalled();
 	} );
 
-	it.each( [
-		[ 'Create account', true ],
-		[ 'Log in', false ],
-	] )( 'opens the feedback form in place after choosing %s', async ( action, signup ) => {
+	it( 'opens the feedback form in place after continuing with WordPress.com', async () => {
 		const { connector, dialog, history, user } = await openFeedback( { user: null } );
-		await user.click( within( dialog ).getByRole( 'button', { name: action } ) );
+		await user.click(
+			within( dialog ).getByRole( 'button', { name: 'Continue with WordPress.com' } )
+		);
 		await screen.findByRole( 'textbox', { name: 'Message' } );
-		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith( signup, 'settings' );
+		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith( true, 'settings' );
 		expect( history.location.search ).toContain( 'feedback=true' );
 		expect( history.location.search ).not.toContain( 'settings=' );
 	} );
 
-	it( 'allows retrying account creation after a failure', async () => {
+	it( 'allows retrying the WordPress.com connection after a failure', async () => {
 		const { connector, dialog, user } = await openFeedback( { user: null } );
 		connector.authenticate.mockRejectedValueOnce( new Error( 'Could not connect.' ) );
-		const signup = within( dialog ).getByRole( 'button', { name: 'Create account' } );
+		const signup = within( dialog ).getByRole( 'button', { name: 'Continue with WordPress.com' } );
 		await user.click( signup );
 		expect( await within( dialog ).findByRole( 'alert' ) ).toHaveTextContent(
 			'Could not connect.'

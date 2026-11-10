@@ -34,6 +34,15 @@ function setup( sites: SiteDetails[] = [ site() ], path = '/sites/one' ) {
 	return renderApp( { connector, path } );
 }
 
+async function restartFromPalette() {
+	const isApple = /Mac|iPhone|iPad/.test( navigator.platform );
+	fireEvent.keyDown( document, { code: 'KeyK', key: 'k', metaKey: isApple, ctrlKey: ! isApple } );
+	fireEvent.change( await screen.findByLabelText( 'Search commands' ), {
+		target: { value: 'Restart site' },
+	} );
+	fireEvent.click( await screen.findByRole( 'option', { name: /^Restart site/ } ) );
+}
+
 function deferred() {
 	let resolve!: () => void;
 	const promise = new Promise< void >( ( done ) => {
@@ -374,8 +383,7 @@ describe( 'site lifecycle and preview', () => {
 				}
 			};
 			try {
-				fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
-				fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Restart' } ) );
+				await restartFromPalette();
 				await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( 'one' ) );
 				expectPreserved();
 				await act( async () => stop.resolve() );
@@ -413,8 +421,7 @@ describe( 'site lifecycle and preview', () => {
 			if ( stage === 'stop' )
 				connector.stopSite.mockRejectedValueOnce( new Error( 'Restart failed' ) );
 			else connector.startSite.mockRejectedValueOnce( new Error( 'Restart failed' ) );
-			fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
-			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Restart' } ) );
+			await restartFromPalette();
 			await waitFor( () =>
 				expect( getVisibleToasts().some( ( notice ) => notice.intent === 'error' ) ).toBe( true )
 			);

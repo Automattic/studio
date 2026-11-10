@@ -6,6 +6,8 @@ import { displayShortcut } from '@wordpress/keycodes';
 import { useRef, useState } from 'react';
 import { useSessionsBusy } from '@/data/agent-runs/use-agent-run';
 import { useConnector } from '@/data/core';
+import { useAiSettings } from '@/data/queries/use-ai-settings';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSessions } from '@/data/queries/use-sessions';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useIsSiteBusy, useSites, useStopSite, useRestartSite } from '@/data/queries/use-sites';
@@ -38,7 +40,6 @@ import {
 	PinIcon,
 	PlusIcon,
 	RenameIcon,
-	RotateCwIcon,
 	SiteSettingsIcon,
 	StartSiteIcon,
 	StopOtherSitesIcon,
@@ -174,6 +175,9 @@ export function SiteMenuItems( {
 	current?: boolean;
 } ) {
 	const { site, busy, running, othersRunning } = actions;
+	const { data: user } = useAuthUser();
+	const { data: aiSettings } = useAiSettings();
+	const providerConnected = !! user || !! aiSettings?.hasAnthropicApiKey;
 	const destinations = useOpenInDestinations( site );
 	const manage = Object.fromEntries(
 		useSiteManagementActions( site, {
@@ -199,44 +203,12 @@ export function SiteMenuItems( {
 
 	return (
 		<div className={ styles.items }>
-			<Menu.Item onClick={ actions.newChat }>
-				<NewChatIcon />
-				{ __( 'New chat' ) }
-			</Menu.Item>
-			<Menu.SubmenuRoot>
-				<Menu.SubmenuTrigger disabled={ busy }>
-					<PlusIcon />
-					{ __( 'Tools' ) }
-				</Menu.SubmenuTrigger>
-				<Menu.SubmenuPopup>
-					<SiteToolMenuItems site={ site } actions={ actions } />
-				</Menu.SubmenuPopup>
-			</Menu.SubmenuRoot>
-			<Menu.SubmenuRoot>
-				<Menu.SubmenuTrigger>
-					<ExternalLinkIcon />
-					{ __( 'Open in' ) }
-				</Menu.SubmenuTrigger>
-				<Menu.SubmenuPopup>
-					{ destinations
-						.filter( ( destination ) => destination.id !== 'wp-admin' )
-						.map( ( destination ) => (
-							<Menu.Item
-								key={ destination.id }
-								disabled={ destination.disabled }
-								onClick={ destination.open }
-							>
-								{ destination.logo }
-								{ destination.label }
-							</Menu.Item>
-						) ) }
-				</Menu.SubmenuPopup>
-			</Menu.SubmenuRoot>
-			<Menu.Item onClick={ actions.openSiteSettings }>
-				<SiteSettingsIcon />
-				{ __( 'Settings' ) }
-			</Menu.Item>
-			<Menu.Separator />
+			{ providerConnected ? (
+				<Menu.Item onClick={ actions.newChat }>
+					<NewChatIcon />
+					{ __( 'New chat' ) }
+				</Menu.Item>
+			) : null }
 			{ site.running ? null : (
 				<Menu.Item disabled={ busy } onClick={ actions.toggleRunning }>
 					<StartSiteIcon />
@@ -279,25 +251,38 @@ export function SiteMenuItems( {
 					</Menu.SubmenuPopup>
 				</Menu.SubmenuRoot>
 			) : null }
-			{ site.running ? (
-				<Menu.Item disabled={ busy } onClick={ () => void actions.restart() }>
-					<RotateCwIcon />
-					{ __( 'Restart' ) }
-				</Menu.Item>
-			) : null }
+			<Menu.SubmenuRoot>
+				<Menu.SubmenuTrigger disabled={ busy }>
+					<PlusIcon />
+					{ __( 'Tools' ) }
+				</Menu.SubmenuTrigger>
+				<Menu.SubmenuPopup>
+					<SiteToolMenuItems site={ site } actions={ actions } />
+				</Menu.SubmenuPopup>
+			</Menu.SubmenuRoot>
+			<Menu.SubmenuRoot>
+				<Menu.SubmenuTrigger>
+					<ExternalLinkIcon />
+					{ __( 'Open in' ) }
+				</Menu.SubmenuTrigger>
+				<Menu.SubmenuPopup>
+					{ destinations
+						.filter( ( destination ) => destination.id !== 'wp-admin' )
+						.map( ( destination ) => (
+							<Menu.Item
+								key={ destination.id }
+								disabled={ destination.disabled }
+								onClick={ destination.open }
+							>
+								{ destination.logo }
+								{ destination.label }
+							</Menu.Item>
+						) ) }
+				</Menu.SubmenuPopup>
+			</Menu.SubmenuRoot>
 			<Menu.Separator />
-
-			<Menu.Item onClick={ actions.togglePin }>
-				{ actions.pinned ? <UnpinIcon /> : <PinIcon /> }
-				{ actions.pinned ? __( 'Unpin' ) : __( 'Pin' ) }
-				<Menu.Shortcut>{ displayShortcut.primaryAlt( 'p' ) }</Menu.Shortcut>
-			</Menu.Item>
-			<Menu.Item onClick={ actions.rename }>
-				<RenameIcon />
-				{ __( 'Rename' ) }
-				<Menu.Shortcut>{ displayShortcut.primaryAlt( 'r' ) }</Menu.Shortcut>
-			</Menu.Item>
-			{ manageItem( manage.import ) }
+			<SiteShareMenuItem site={ site } disabled={ busy } />
+			<SitePublishMenu site={ site } disabled={ busy } />
 			<Menu.SubmenuRoot>
 				<Menu.SubmenuTrigger disabled={ manage.export.disabled && manage[ 'export-db' ].disabled }>
 					<ExportIcon />
@@ -308,10 +293,22 @@ export function SiteMenuItems( {
 					{ manageItem( manage[ 'export-db' ] ) }
 				</Menu.SubmenuPopup>
 			</Menu.SubmenuRoot>
-			{ manageItem( manage.duplicate ) }
 			<Menu.Separator />
-			<SiteShareMenuItem site={ site } disabled={ busy } />
-			<SitePublishMenu site={ site } disabled={ busy } />
+			<Menu.Item onClick={ actions.togglePin }>
+				{ actions.pinned ? <UnpinIcon /> : <PinIcon /> }
+				{ actions.pinned ? __( 'Unpin' ) : __( 'Pin' ) }
+				<Menu.Shortcut>{ displayShortcut.primaryAlt( 'p' ) }</Menu.Shortcut>
+			</Menu.Item>
+			<Menu.Item onClick={ actions.rename }>
+				<RenameIcon />
+				{ __( 'Rename' ) }
+				<Menu.Shortcut>{ displayShortcut.primaryAlt( 'r' ) }</Menu.Shortcut>
+			</Menu.Item>
+			{ manageItem( manage.duplicate ) }
+			<Menu.Item onClick={ actions.openSiteSettings }>
+				<SiteSettingsIcon />
+				{ __( 'Settings' ) }
+			</Menu.Item>
 			<Menu.Separator />
 			{ manageItem( manage.delete, __( 'Delete site' ), !! deleteBlocked ) }
 		</div>

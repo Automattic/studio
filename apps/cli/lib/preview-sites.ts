@@ -19,6 +19,8 @@ import type { SyncSite } from '@studio/common/types/sync';
 const PREVIEW_FUNNEL = 'preview';
 const IMPORT_POLL_INTERVAL_MS = 1000;
 const IMPORT_TIMEOUT_MS = 30 * 60 * 1000;
+// WordPress.com gives up connecting a new preview's owner after about 8 minutes.
+const PREVIEW_LINK_TIMEOUT_MS = 10 * 60 * 1000;
 
 export type PreviewSite = {
 	siteId: number;
@@ -42,7 +44,7 @@ const importResponseSchema = z
 	.catch( null );
 
 // `preview_sites` is left out when the user has none. `expires_at` is in seconds. `share_url` is the
-// preview link WordPress.com creates when the site's first build is done, and '' until then.
+// preview link, '' until the site's first build is done and its owner can be signed in to it.
 const standingPreviewsSchema = z.object( {
 	preview_sites: z
 		.array(
@@ -140,15 +142,20 @@ async function waitForPreviewImport(
 }
 
 /**
- * The preview link WordPress.com creates once the site's build is done (before the import reports
- * success), and the preview it opens.
+ * The preview link WordPress.com lists once the site's build is done and its owner can be signed in
+ * to it, and the preview it opens. On a new preview the owner's sign-in can come a little after the
+ * import reports success, so the link is waited for.
  */
 async function getPreviewLink( siteId: number, token: string ): Promise< PreviewSite > {
-	const { shareUrl, liveSiteId } = ( await getStandingPreviews( token ) ).get( siteId ) ?? {};
-	if ( ! shareUrl ) {
-		throw new LoggerError( __( 'The preview site has no preview link.' ) );
+	const deadline = Date.now() + PREVIEW_LINK_TIMEOUT_MS;
+	while ( Date.now() < deadline ) {
+		const { shareUrl, liveSiteId } = ( await getStandingPreviews( token ) ).get( siteId ) ?? {};
+		if ( shareUrl ) {
+			return { siteId, hostname: new URL( shareUrl ).hostname, shareUrl, liveSiteId };
+		}
+		await new Promise( ( resolve ) => setTimeout( resolve, IMPORT_POLL_INTERVAL_MS ) );
 	}
-	return { siteId, hostname: new URL( shareUrl ).hostname, shareUrl, liveSiteId };
+	throw new LoggerError( __( 'The preview site has no preview link.' ) );
 }
 
 /**

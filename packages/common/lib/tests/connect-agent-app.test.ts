@@ -352,7 +352,8 @@ describe( 'connectAgentApp for Cursor', () => {
 		).toBe( true );
 	} );
 
-	it( 'uses the plugin Cursor loads from Claude Code, with no copy of its own', async () => {
+	it( 'uses the plugin Cursor loads from Claude Code, dropping a copy of its own', async () => {
+		await connectAgentApp( 'cursor', studio );
 		recordPlugins( [ 'claude-code' ] );
 
 		await connectAgentApp( 'cursor', studio );
@@ -366,14 +367,12 @@ describe( 'connectAgentApp for Cursor', () => {
 	} );
 
 	it.skipIf( process.platform === 'win32' )(
-		'preserves Cursor’s local copy when connecting Claude Code',
+		'drops Cursor’s own copy when connecting Claude Code, whose plugin Cursor loads',
 		async () => {
 			installCli( `${ SHELL_BIN }/claude` );
 			await connectAgentApp( 'cursor', studio );
 			await connectAgentApp( 'claude-code', studio );
-			expect( fs.existsSync( cursorPlugin() ) ).toBe( true );
-			await connectAgentApp( 'cursor', studio );
-			expect( openUrl ).toHaveBeenLastCalledWith( pluginPage );
+			expect( fs.existsSync( cursorPlugin() ) ).toBe( false );
 		}
 	);
 
@@ -440,7 +439,7 @@ describe.skipIf( process.platform === 'win32' )( 'refreshAgentPlugins', () => {
 		expect( fs.readFileSync( skill, 'utf8' ) ).toBe( '# Build a site, updated' );
 	} );
 
-	it( 'updates Claude Code and preserves Cursor’s local copy', async () => {
+	it( 'updates Claude Code and drops Cursor’s copy, which Claude Code’s plugin replaces', async () => {
 		installCli( `${ SHELL_BIN }/claude` );
 		await connectAgentApp( 'cursor', studio );
 		recordPlugins( [ 'claude-code' ] );
@@ -454,14 +453,7 @@ describe.skipIf( process.platform === 'win32' )( 'refreshAgentPlugins', () => {
 		] );
 		expect(
 			fs.existsSync( path.join( home, '.cursor', 'plugins', 'local', 'WordPress-Studio' ) )
-		).toBe( true );
-		expect(
-			readJson(
-				path.join( home, '.cursor', 'plugins', 'local', 'WordPress-Studio' ),
-				'.cursor-plugin',
-				'plugin.json'
-			).version
-		).toBe( '2.2.0' );
+		).toBe( false );
 	} );
 
 	it( 'retries only failed apps after an update, then stops once they succeed', async () => {

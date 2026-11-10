@@ -366,10 +366,15 @@ function readCursorPlugin(
 	return readJson( path.join( plugin, '.cursor-plugin', 'plugin.json' ) );
 }
 
-// Cursor can import Claude Code's plugins. Preserve an existing local copy:
-// Cursor's third-party imports may be disabled.
+// Cursor loads Claude Code's plugins, unless its third-party import is off, so
+// with Claude Code connected it uses that plugin: a copy of its own would run
+// Studio's server twice there.
 function claudeCodeHasPlugin(): Promise< boolean > {
 	return getCliPlans( getMarketplacePath() )[ 'claude-code' ].hasPlugin();
+}
+
+function removeCursorPlugin(): Promise< void > {
+	return fs.promises.rm( getCursorPluginPath(), { recursive: true, force: true } );
 }
 
 function getCursorPluginPage( id: string ): string {
@@ -398,7 +403,8 @@ async function installCursorPlugin( marketplace: string ) {
 
 // Installs the plugin unless Cursor has this one, then opens its page.
 async function connectCursor( options: ConnectAgentAppOptions ) {
-	if ( ! ( await readCursorPlugin() ) && ( await claudeCodeHasPlugin() ) ) {
+	if ( await claudeCodeHasPlugin() ) {
+		await removeCursorPlugin();
 		await options.openUrl( getCursorPluginPage( PLUGIN ) );
 		return;
 	}
@@ -523,10 +529,16 @@ async function connectAgentAppUnlocked(
 	if ( ! hasPlugin ) {
 		await installWithCli( id, plan, cli, options );
 	}
+	if ( id === 'claude-code' ) {
+		await removeCursorPlugin();
+	}
 }
 
 async function updateAgentPlugin( id: AgentAppId, marketplace: string ): Promise< void > {
 	if ( id === 'cursor' ) {
+		if ( await claudeCodeHasPlugin() ) {
+			return updateAgentPlugin( 'claude-code', marketplace );
+		}
 		await installCursorPlugin( marketplace );
 		return;
 	}
@@ -551,6 +563,9 @@ async function updateAgentPlugin( id: AgentAppId, marketplace: string ): Promise
 				)
 			);
 		}
+	}
+	if ( id === 'claude-code' ) {
+		await removeCursorPlugin();
 	}
 }
 
@@ -624,7 +639,7 @@ async function refreshAgentPluginsUnlocked( cli: StudioCli ): Promise< void > {
 			}
 			const installed =
 				id === 'cursor'
-					? !! ( await readCursorPlugin() )
+					? !! ( await readCursorPlugin() ) && ! ( await claudeCodeHasPlugin() )
 					: ( await plans[ id ].hasPlugin() ) && !! ( await findCli( plans[ id ] ) );
 			if ( installed || previous.pending.includes( id ) ) {
 				state.pending.push( id );

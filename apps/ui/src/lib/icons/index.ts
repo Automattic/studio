@@ -4,6 +4,7 @@ export * from './appearance-icon';
 export * from './archive-icon';
 export * from './arrow-left-icon';
 export * from './arrow-right-icon';
+export * from './blueprint-icon';
 export * from './chat-icon';
 export * from './chevron-down-icon';
 export * from './circle-check-icon';

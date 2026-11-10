@@ -11,7 +11,14 @@ import {
 	useIsSiteMutating,
 } from '@/data/queries/use-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
-import { DatabaseIcon, DuplicateIcon, ExportSiteIcon, ImportIcon, TrashIcon } from '@/lib/icons';
+import {
+	BlueprintIcon,
+	DatabaseIcon,
+	DuplicateIcon,
+	ExportSiteIcon,
+	ImportIcon,
+	TrashIcon,
+} from '@/lib/icons';
 import type { SiteDetails } from '@/data/core';
 import type { ComponentType } from 'react';
 
@@ -105,7 +112,7 @@ export function useSiteManagementActions(
 		},
 		{
 			id: 'export-blueprint',
-			icon: ExportSiteIcon,
+			icon: BlueprintIcon,
 			label: __( 'Export blueprint' ),
 			disabled: isWriting || isExporting,
 			destructive: false,

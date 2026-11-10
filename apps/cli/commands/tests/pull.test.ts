@@ -463,7 +463,7 @@ describe( 'CLI: studio pull single pull phase', () => {
 			expect( calls[ 0 ] ).toContain( '--include=:wp-content:' );
 			expect( calls[ 0 ] ).not.toContain( '--include=:wp-core:' );
 			const flatten = calls.find( ( args ) => args[ 0 ] === 'flat-docroot' );
-			expect( flatten ).toContain( '--core-files=keep' );
+			expect( flatten ).toContain( '--core-files=use-existing' );
 			expect( flatten ).toContain( '--force' );
 		} );
 

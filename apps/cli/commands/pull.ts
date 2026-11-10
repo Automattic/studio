@@ -20,7 +20,7 @@ import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { linkPulledPreview } from 'cli/lib/cli-config/snapshots';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getStandingPreviews, type StandingPreview } from 'cli/lib/preview-sites';
-import { canKeepOwnCore } from 'cli/lib/pull/local-core';
+import { canUseExistingCore } from 'cli/lib/pull/local-core';
 import {
 	applySelection,
 	type CliSelectionOptions,
@@ -622,12 +622,12 @@ export async function runFullPull(
 		}
 	}
 
-	// A database-only first pull still pulls core even when the site could keep its own. Without
+	// A database-only first pull still pulls core even when the site could use its own. Without
 	// any pulled files, flat-docroot couldn't set the site up the way it does after other first
 	// pulls, with wp-content linked to the pulled copy.
 	const pullsCore =
 		!! selection.databaseOnly ||
-		! canKeepOwnCore( metadata.sitePath, reprintMetadata.sourceSite.wordpressVersion );
+		! canUseExistingCore( metadata.sitePath, reprintMetadata.sourceSite.wordpressVersion );
 	const filesArgs = filesSelectionArgs( selection, contentDir, pullsCore );
 
 	const runStep = ( progressLabel: string, args: string[] ) =>
@@ -695,7 +695,7 @@ export async function runFullPull(
 			'flat-docroot',
 			apiUrl,
 			`--flatten-to=${ metadata.sitePath }`,
-			`--core-files=${ pullsCore ? 'copy' : 'keep' }`,
+			`--core-files=${ pullsCore ? 'copy' : 'use-existing' }`,
 			...( isFirstPull ? [ '--force' ] : [] ),
 			`--state-dir=${ metadata.stateDirectory }`,
 			`--fs-root=${ metadata.rawDirectory }`,

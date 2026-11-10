@@ -7,7 +7,7 @@ import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
  * The site's core must be real files, not symlinks into the pull folder. A core copy that stopped
  * partway still reports the previous version, because Reprint copies version.php last.
  */
-export function canKeepOwnCore( sitePath: string, remoteWpVersion: string | null ): boolean {
+export function canUseExistingCore( sitePath: string, remoteWpVersion: string | null ): boolean {
 	if ( ! remoteWpVersion ) {
 		return false;
 	}

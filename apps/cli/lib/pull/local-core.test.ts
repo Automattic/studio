@@ -2,9 +2,9 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { canKeepOwnCore } from 'cli/lib/pull/local-core';
+import { canUseExistingCore } from 'cli/lib/pull/local-core';
 
-describe( 'canKeepOwnCore', () => {
+describe( 'canUseExistingCore', () => {
 	let root: string;
 	let sitePath: string;
 
@@ -28,27 +28,27 @@ describe( 'canKeepOwnCore', () => {
 
 	it( 'keeps core at the remote version', () => {
 		writeCore( sitePath, '7.1.4' );
-		expect( canKeepOwnCore( sitePath, '7.1.4' ) ).toBe( true );
+		expect( canUseExistingCore( sitePath, '7.1.4' ) ).toBe( true );
 	} );
 
 	it( 'pulls core when the versions differ', () => {
 		writeCore( sitePath, '7.1.3' );
-		expect( canKeepOwnCore( sitePath, '7.1.4' ) ).toBe( false );
+		expect( canUseExistingCore( sitePath, '7.1.4' ) ).toBe( false );
 	} );
 
 	it( 'pulls core when the remote version is unknown', () => {
 		writeCore( sitePath, '7.1.4' );
-		expect( canKeepOwnCore( sitePath, null ) ).toBe( false );
+		expect( canUseExistingCore( sitePath, null ) ).toBe( false );
 	} );
 
 	it( 'pulls core when the site has none', () => {
-		expect( canKeepOwnCore( sitePath, '7.1.4' ) ).toBe( false );
+		expect( canUseExistingCore( sitePath, '7.1.4' ) ).toBe( false );
 	} );
 
 	it( 'pulls core when the site links it into a pulled tree', () => {
 		const pulledCore = path.join( root, 'raw' );
 		writeCore( pulledCore, '7.1.4' );
 		fs.symlinkSync( path.join( pulledCore, 'wp-includes' ), path.join( sitePath, 'wp-includes' ) );
-		expect( canKeepOwnCore( sitePath, '7.1.4' ) ).toBe( false );
+		expect( canUseExistingCore( sitePath, '7.1.4' ) ).toBe( false );
 	} );
 } );

@@ -25,8 +25,6 @@ vi.mock( 'cli/lib/api', async ( importOriginal ) => ( {
 } ) );
 vi.mock( 'cli/lib/pull/reprint-key', () => ( {
 	ensureReprintKey: vi.fn(),
-	reinstallReprintKey: vi.fn(),
-	withKeyRecovery: ( run: () => Promise< unknown > ) => run(),
 } ) );
 vi.mock( 'cli/lib/sync-api', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/sync-api') >() ),
@@ -898,7 +896,6 @@ describe( 'CLI: studio pull requires an existing site', () => {
 		expect( ensureReprintKey ).toHaveBeenCalledWith( {
 			wpComSiteId: 22,
 			wpComAccessToken: 'access-token',
-			exporter: { hasPublicKey: true },
 			apiUrl: 'https://example.com/?reprint-api-jetpack',
 			stateDirectory: path.join( pullsRoot(), 'existing-id', 'state' ),
 			verbose: false,

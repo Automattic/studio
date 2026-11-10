@@ -119,7 +119,7 @@
 
 	.content[data-layout='settings'] {
 		inset: 70px var( --space-4 );
-		max-width: 752px;
+		max-width: 704px;
 		max-height: 640px;
 	}
 
@@ -181,10 +181,6 @@
 
 	.description p + p {
 		margin-top: var( --space-2 );
-	}
-
-	.description[data-tone='default'] {
-		color: var( --foreground );
 	}
 
 	.description a {
@@ -255,6 +251,10 @@
 		width: 100%;
 		min-height: 100%;
 		padding: 2px var( --dialog-inset, var( --space-3 ) ) var( --dialog-inset, var( --space-3 ) );
+	}
+
+	.content[data-layout='settings'] .panelBody {
+		padding-inline: var( --space-4 );
 	}
 
 	.panelBody:has( > [data-slot='empty'] ),

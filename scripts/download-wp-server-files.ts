@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { extractZip } from '../packages/common/lib/extract-zip.ts';
 import { fetch, sharedDispatcher, throwForHttpStatus, withRetry } from './lib/with-retry.ts';
 
-const SQLITE_DATABASE_INTEGRATION_VERSION = 'v3.1.2';
+const SQLITE_DATABASE_INTEGRATION_VERSION = 'v3.1.3';
 const SQLITE_DATABASE_INTEGRATION_RELEASE_URL = `https://github.com/WordPress/sqlite-database-integration/releases/download/${ SQLITE_DATABASE_INTEGRATION_VERSION }/plugin-sqlite-database-integration.zip`;
 
 async function fetchWithRetry( name: string, url: string ): Promise< Buffer > {
@@ -131,8 +131,12 @@ const FILES_TO_DOWNLOAD: FileToDownload[] = [
 			`https://downloads.wordpress.org/plugin/wordpress-importer.${ WORDPRESS_IMPORTER_VERSION }.zip`,
 		destinationPath: WP_SERVER_FILES_PATH,
 	},
-	// TEMPORARY: wp-files/reprint/reprint.phar is committed, built from WordPress/reprint#981 for
-	// `--include=:wp-core:`. Restore the release download once a release has it.
+	{
+		name: 'reprint',
+		description: `reprint.phar`,
+		getUrl: () => 'https://github.com/WordPress/reprint/releases/download/v0.11.8/reprint.phar',
+		destinationPath: path.join( WP_SERVER_FILES_PATH, 'reprint' ),
+	},
 ];
 
 async function downloadFile( file: FileToDownload ): Promise< void > {

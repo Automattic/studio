@@ -100,8 +100,6 @@ out/
 # The latest WordPress files downloaded from the web
 wp-files/*
 !wp-files/blueprints/
-# TEMPORARY: reprint.phar built from WordPress/reprint#981, committed until a release has it.
-!wp-files/reprint/
 
 # Release Tooling
 vendor/*

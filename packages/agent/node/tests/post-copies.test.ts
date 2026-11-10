@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import { expect, it, vi } from 'vitest';
@@ -145,6 +145,37 @@ it( 'publishes a new file named for a slug as a page, and makes it its copy', as
 		// Its copy now saves to it as any other's does, and makes no second page.
 		await call( () => writeFileSync( copy, '<p>About us</p>' ) );
 		expect( inserted ).toHaveLength( 1 );
+	} finally {
+		vi.unstubAllEnvs();
+	}
+} );
+
+// eval30 pivot port: the Write of page/private-events.html returned before the
+// check moved it to page/44.html, and the agent's next Read of it failed.
+it( 'says which written files its check moves: a new page or post named for a slug', () => {
+	const config = mkdtempSync( path.join( os.tmpdir(), 'config-' ) );
+	vi.stubEnv( 'DEV_CONFIG_DIR', config );
+	const workspace = path.join( config, 'workspace/site-id' );
+	mkdirSync( path.join( workspace, 'page' ), { recursive: true } );
+	try {
+		const moves = ( file: string ) => postCopies.rewritesWrite!( path.join( workspace, file ) );
+		expect( moves( 'page/private-events.html' ) ).toBe( true );
+		expect( moves( 'post/hello.html' ) ).toBe( true );
+		// However the path names the folder, as /private/var for /var on macOS.
+		expect(
+			postCopies.rewritesWrite!(
+				path.join( realpathSync( workspace ), 'page/private-events.html' )
+			)
+		).toBe( true );
+		// A post's copy, or what Studio keeps beside it, is saved where it is.
+		expect( moves( 'page/44.html' ) ).toBe( false );
+		expect( moves( 'page/44.unsaved.html' ) ).toBe( false );
+		expect( moves( 'wp_global_styles/theme.json' ) ).toBe( false );
+		expect( moves( 'page/drafts/about.html' ) ).toBe( false );
+		expect( moves( 'pages.tsv' ) ).toBe( false );
+		expect( postCopies.rewritesWrite!( path.join( config, 'elsewhere/page/about.html' ) ) ).toBe(
+			false
+		);
 	} finally {
 		vi.unstubAllEnvs();
 	}

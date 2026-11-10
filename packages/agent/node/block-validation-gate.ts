@@ -171,8 +171,6 @@ interface MarkupValidation {
 	boundLinks?: string[];
 	/** How many runs of HTML comments between blocks the save drops. */
 	droppedComments?: number;
-	/** The blocks whose text written beside their inner blocks the save keeps in core/html blocks. */
-	lifted?: string[];
 	/** The block styles the fix gives blocks, and the theme files that hold them. */
 	blockStyles?: Array< BlockStyle & { file: string } >;
 }
@@ -252,12 +250,6 @@ export function describeEditorSave( result: MarkupValidation, fixes: string ): s
 					', '
 				) } into the block style ${ file }, which WordPress registers for its "blockTypes" (WP_Theme_JSON_Resolver::get_style_variations() in wp-includes/class-wp-theme-json-resolver.php); a block takes the look as "className":"is-style-${ slug }"`;
 			}
-		),
-		...new Set(
-			( result.lifted ?? [] ).map(
-				( blockName ) =>
-					`keeps the text written beside the inner blocks of ${ blockName } as a core/html block`
-			)
 		),
 	].filter( ( note ): note is string => Boolean( note ) );
 }
@@ -773,7 +765,6 @@ async function validateSavedMarkup(
 		],
 		...notes,
 		...( between.comments && { droppedComments: between.comments } ),
-		...( fix.lift && { lifted: fix.lift.from } ),
 		...( styled && { blockStyles: styled } ),
 	};
 	if ( lost.size === 0 ) {

@@ -3,7 +3,6 @@
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import path from 'path';
-import { readWordPressSite } from '@studio/agent/node/site-database';
 import { readSiteFile, type SiteFile } from '@studio/agent/node/site-file';
 
 const INLINE_DISPLAY = /(^|;|\s)display\s*:\s*inline(-block|-flex|-grid)?\s*(;|$|!)/i;
@@ -23,40 +22,6 @@ function listFiles( dir: string, extensions: string[], depth = 3 ): string[] {
 	} );
 }
 
-async function getBlockClassNames( siteRoot: string, themeDir: string ): Promise< Set< string > > {
-	const sources = [
-		...listFiles( themeDir, [ '.html', '.php' ] ),
-		...listFiles( path.join( siteRoot, 'tmp' ), [ '.html' ], 0 ),
-	].map( ( file ) => readFileSync( file, 'utf8' ) );
-	const saved = await readWordPressSite( siteRoot, ( site ) =>
-		site.query< { content: string } >(
-			`SELECT post_content AS content FROM ${ site.prefix }posts WHERE post_content LIKE '%"className":%' AND post_status = 'publish'`
-		)
-	);
-	for ( const row of saved ) {
-		sources.push( row.content );
-	}
-	const classNames = new Set< string >();
-	for ( const source of sources ) {
-		for ( const match of source.matchAll( /"className"\s*:\s*"([^"]+)"/g ) ) {
-			match[ 1 ].split( /\s+/ ).forEach( ( name ) => classNames.add( name ) );
-		}
-	}
-	return classNames;
-}
-
-// A rule on one class a block carries in its "className" that makes the block inline-level.
-function inlineBlockClass(
-	selector: string,
-	declarations: string,
-	blockClassNames: Set< string >
-) {
-	const single = selector.match( /^\.([A-Za-z0-9_-]+)$/ );
-	return Boolean(
-		single && blockClassNames.has( single[ 1 ] ) && INLINE_DISPLAY.test( declarations )
-	);
-}
-
 // Each selector of each rule in a stylesheet, with the rule's declarations.
 function selectorRules( css: string ): Array< [ selector: string, declarations: string ] > {
 	return [ ...css.replace( /\/\*[\s\S]*?\*\//g, '' ).matchAll( /([^{}]+)\{([^{}]*)\}/g ) ].flatMap(
@@ -66,13 +31,14 @@ function selectorRules( css: string ): Array< [ selector: string, declarations: 
 }
 
 function inlineDisplayNote( selector: string ): string {
-	return `\`${ selector }\` is a block className and gets an inline-level display. Blocks in a constrained layout are placed with auto inline margins (wp-includes/block-supports/layout.php), which inline-level boxes ignore, so this block leaves the content column. To shrink-wrap it, wrap it in a group with a flex layout and drop the display rule.`;
+	return `\`${ selector }\` is a block className and gets an inline-level display, and a block with it sits directly in a constrained layout. Blocks in a constrained layout are placed with auto inline margins (wp-includes/block-supports/layout.php), which inline-level boxes ignore, so this block leaves the content column. To shrink-wrap it, wrap it in a group with a flex layout and drop the display rule.`;
 }
 
 /**
  * The classes that the stylesheets in these theme folders make inline-level,
- * each with its note, to check against the classNames of blocks that arrive
- * after the stylesheet does.
+ * each with its note, to check against the blocks WordPress places in a
+ * constrained layout (inline-block-classes.ts), which alone raises the note:
+ * a stylesheet's text cannot tell where its class's blocks sit.
  */
 export function inlineDisplayClasses( themeDirs: string[] ): { className: string; note: string }[] {
 	const found = new Map< string, { className: string; note: string } >();
@@ -89,12 +55,9 @@ export function inlineDisplayClasses( themeDirs: string[] ): { className: string
 }
 
 /** CSS in a theme stylesheet that fights WordPress's block layout. */
-export function lintThemeCss( css: string, blockClassNames: Set< string > ): string[] {
+export function lintThemeCss( css: string ): string[] {
 	const notes: string[] = [];
 	for ( const [ selector, declarations ] of selectorRules( css ) ) {
-		if ( inlineBlockClass( selector, declarations, blockClassNames ) ) {
-			notes.push( inlineDisplayNote( selector ) );
-		}
 		if ( VIEWPORT_BREAKOUT.test( declarations ) ) {
 			notes.push(
 				`\`${ selector }\` stretches to the viewport width with CSS. WordPress spans a block across the page with align full (wp-includes/block-supports/layout.php): give the block align full instead, and when it still stops short, a block around it is not full width.`
@@ -116,8 +79,5 @@ export function lintThemeCss( css: string, blockClassNames: Set< string > ): str
 
 /** CSS in a theme stylesheet just written that fights WordPress's block layout. */
 export async function themeCssNotes( siteFile: SiteFile ): Promise< string[] > {
-	const { siteRoot, theme } = siteFile;
-	return theme?.file.endsWith( '.css' )
-		? lintThemeCss( readSiteFile( siteFile ), await getBlockClassNames( siteRoot, theme.dir ) )
-		: [];
+	return siteFile.theme?.file.endsWith( '.css' ) ? lintThemeCss( readSiteFile( siteFile ) ) : [];
 }

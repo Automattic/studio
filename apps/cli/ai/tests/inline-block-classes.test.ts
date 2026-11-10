@@ -68,7 +68,7 @@ describe.runIf( WORDPRESS )( "block classes the theme's stylesheets make inline-
 			expect( report.problem ).toMatch( /^Ember Roasters: / );
 		}
 		expect( inline.map( ( report ) => report.problem ).join( '\n' ) ).toContain(
-			`${ css }: \`.er-pill\` is a block className and gets an inline-level display.`
+			`${ css }: \`.er-pill\` is a block className and gets an inline-level display, and a block with it sits directly in a constrained layout.`
 		);
 		expect( inline.map( ( report ) => report.problem ).join( '\n' ) ).toContain(
 			`${ path.join( child, 'chip.css' ) }: \`.er-chip\` is a block className`
@@ -84,6 +84,51 @@ describe.runIf( WORDPRESS )( "block classes the theme's stylesheets make inline-
 		rmSync( css );
 		await runWpCli( host, site, [ 'theme', 'activate', parent ] );
 		rmSync( child, { recursive: true } );
+	}, 120000 );
+
+	// eval30 pileon: the session's hero kicker, a paragraph in a column, whose
+	// flow layout places it with no auto margins, was noted as leaving the
+	// content column.
+	it( 'names a class only on a block that sits directly in a constrained layout', async () => {
+		const theme = ( await runWpCli( host, site, [ 'eval', 'echo get_stylesheet();' ] ) ).trim();
+		const css = path.join( site.path, 'wp-content/themes', theme, 'studio-test-hero.css' );
+		writeFileSync(
+			css,
+			'.hero-kicker {\n\tdisplay: inline-flex;\n\talign-items: center;\n\tgap: 0.5rem;\n\tborder-radius: 999px;\n\tpadding: 0.5rem 1rem;\n}'
+		);
+		const kicker =
+			'<!-- wp:paragraph {"className":"hero-kicker"} -->\n<p class="hero-kicker">🐾 Portland&rsquo;s friendliest grooming</p>\n<!-- /wp:paragraph -->';
+		const hero = ( column: string ) =>
+			`<!-- wp:group {"align":"full","className":"hero","layout":{"type":"constrained","contentSize":"1180px"}} -->\n<div class="wp-block-group alignfull hero"><!-- wp:columns {"verticalAlignment":"center","className":"hero-inner"} -->\n<div class="wp-block-columns are-vertically-aligned-center hero-inner"><!-- wp:column {"verticalAlignment":"center"} -->\n<div class="wp-block-column is-vertically-aligned-center">${ column }\n\n<!-- wp:heading {"level":1} -->\n<h1 class="wp-block-heading">A good day starts with a great bath.</h1>\n<!-- /wp:heading --></div>\n<!-- /wp:column --></div>\n<!-- /wp:columns --></div>\n<!-- /wp:group -->`;
+		const page = async ( content: string ) =>
+			(
+				await runWpCli( host, site, [
+					'eval',
+					`echo wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Home', 'post_content' => ${ JSON.stringify(
+						content
+					) } ) );`,
+				] )
+			).trim();
+		const notes = async () =>
+			( await check() ).reports
+				.filter( ( report ) => report.problem )
+				.map( ( report ) => report.problem )
+				.join( '\n' );
+
+		const inColumn = await page( hero( kicker ) );
+		expect( await notes() ).not.toContain( '`.hero-kicker`' );
+		await runWpCli( host, site, [ 'post', 'delete', inColumn, '--force' ] );
+
+		const inGroup = await page(
+			hero(
+				`<!-- wp:group {"layout":{"type":"constrained"}} -->\n<div class="wp-block-group">${ kicker }</div>\n<!-- /wp:group -->`
+			)
+		);
+		expect( await notes() ).toContain(
+			`${ css }: \`.hero-kicker\` is a block className and gets an inline-level display, and a block with it sits directly in a constrained layout.`
+		);
+		await runWpCli( host, site, [ 'post', 'delete', inGroup, '--force' ] );
+		rmSync( css );
 	}, 120000 );
 
 	it( 'asks WordPress only when the code or content changed', async () => {

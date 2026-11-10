@@ -66,4 +66,40 @@ describe.runIf( WORDPRESS )( 'what WordPress makes of a theme.json just written'
 			await read( { version: 3, settings: { spacing: { spacingScale: { steps: 0 } } } } )
 		).toBeUndefined();
 	}, 60000 );
+
+	// port eval30 onepage: the note named the elements, which the schema has, for the keys
+	// under them it has no place for, and the model left them as harmless no-ops.
+	it( 'names the keys WordPress removes, not the elements they are under', async () => {
+		const problem = await read( {
+			$schema: 'https://schemas.wp.org/trunk/theme.json',
+			version: 3,
+			settings: { appearanceTools: true, layout: { contentSize: '720px', wideSize: '1200px' } },
+			styles: {
+				color: { background: '#ffffff', text: '#1f2b38' },
+				typography: { fontSize: '1.05rem', lineHeight: '1.65' },
+				elements: {
+					heading: {
+						color: '#12314f',
+						fontWeight: '600',
+						lineHeight: '1.12',
+						letterSpacing: '-0.02em',
+					},
+					h1: { fontSize: 'var:preset|font-size|xx-large' },
+					h2: { fontSize: 'var:preset|font-size|x-large' },
+					h3: { fontSize: 'var:preset|font-size|large' },
+					link: { color: '#2a7fb8', textDecoration: 'underline' },
+					button: {
+						color: { background: '#2a7fb8', text: '#ffffff' },
+						border: { radius: '999px' },
+						typography: { fontWeight: '600' },
+					},
+					image: { border: { radius: '12px' } },
+				},
+			},
+			templateParts: [ { name: 'header', title: 'Header', area: 'header' } ],
+		} );
+		expect( problem ).toContain(
+			'so these change nothing on the site: styles.elements.heading.color, styles.elements.heading.fontWeight, styles.elements.heading.lineHeight, styles.elements.heading.letterSpacing, styles.elements.h1.fontSize, styles.elements.h2.fontSize, styles.elements.h3.fontSize, styles.elements.link.color, styles.elements.link.textDecoration, styles.elements.image. The schema'
+		);
+	}, 60000 );
 } );

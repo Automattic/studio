@@ -24,7 +24,7 @@
  * copy held in <ID>.previous.html, and Studio says so.
  */
 import { createHash } from 'crypto';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, realpathSync } from 'fs';
 import { readFile, readdir, rename, rm, writeFile } from 'fs/promises';
 import path from 'path';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
@@ -90,6 +90,20 @@ const NEW_TYPES = [ 'page', 'post' ];
 const slugOf = ( name: string ) => {
 	const slug = name.match( /^([^.]+)\.html$/ )?.[ 1 ];
 	return slug && ! /^\d+$/.test( slug ) ? slug : undefined;
+};
+
+// A path through the deepest folder of it that exists, as /var and
+// /private/var on macOS are one folder, whether or not the file exists yet.
+const realPathOf = ( file: string ): string => {
+	const resolved = path.resolve( file );
+	try {
+		return realpathSync( resolved );
+	} catch {
+		const folder = path.dirname( resolved );
+		return folder === resolved
+			? resolved
+			: path.join( realPathOf( folder ), path.basename( resolved ) );
+	}
 };
 
 // A title from a slug: its words, each capitalized.
@@ -318,6 +332,19 @@ export async function pagesFact(
 export const postCopies: SiteChangeSource = {
 	name: 'post copies',
 	saves: true,
+	// A new file named for a slug in a workspace's page or post folder, which
+	// the check publishes and moves to the new post's copy.
+	rewritesWrite( file ) {
+		const relative = path.relative( realPathOf( workspaceRoot() ), realPathOf( file ) );
+		const [ siteId, type, name, ...deeper ] = relative.split( path.sep );
+		return (
+			! path.isAbsolute( relative ) &&
+			siteId !== '..' &&
+			! deeper.length &&
+			NEW_TYPES.includes( type ) &&
+			Boolean( name && slugOf( name ) )
+		);
+	},
 	// Writes the copy of each post that has none, or whose post changed while
 	// the copy did not, and returns each post's version and its copy's hash.
 	async read( sitePath, _last, host ) {

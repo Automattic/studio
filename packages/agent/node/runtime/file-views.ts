@@ -1,3 +1,9 @@
+import fs from 'fs';
+import { rewriteNotes } from '@studio/agent/node/file-rewrites';
+
+/** Each file the agent holds, as it read when taken (FileViews.read()). */
+export type HeldTexts = Map< string, string | undefined >;
+
 /**
  * The text of each file as the agent last held it: as its Write or Edit left
  * the file, or as its Read gave it whole. A file can change after that, as
@@ -16,6 +22,33 @@ export class FileViews {
 		}
 	}
 
+	/** Each file the agent holds, as it reads now, for rewritesSince(). */
+	read(): HeldTexts {
+		return new Map( [ ...this.held.keys() ].map( ( file ) => [ file, readText( file ) ] ) );
+	}
+
+	/**
+	 * What Studio changed since `before` in the files the agent holds, but
+	 * `except`, from the text the agent holds of each: a check that saves a
+	 * fix to another file than the call's own, as a save through the block
+	 * editor of a template part that repeats a value, says so as a fix to
+	 * the written file does (rewriteNotes()).
+	 */
+	rewritesSince( before: HeldTexts, except: Array< string | undefined > ): string[] {
+		const excepted = new Set( except.flatMap( ( file ) => ( file ? [ realPath( file ) ] : [] ) ) );
+		return [ ...before ].flatMap( ( [ file, was ] ) => {
+			const held = this.held.get( file );
+			const now = readText( file );
+			return ! held ||
+				was === undefined ||
+				now === undefined ||
+				now === was ||
+				excepted.has( realPath( file ) )
+				? []
+				: rewriteNotes( file, held.text, now );
+		} );
+	}
+
 	/** How `file`, now `now`, changed since the agent last held it, when it did. */
 	changeSince( file: string, now: string | undefined ): string | undefined {
 		const held = this.held.get( file );
@@ -27,6 +60,23 @@ export class FileViews {
 		} of it. Its changes since, line by line (- as your ${
 			held.by
 		} left it, + as it is now):\n${ lineDiff( held.text, now ) }`;
+	}
+}
+
+// One file, however it is named, as /var and /private/var on macOS.
+function realPath( file: string ): string {
+	try {
+		return fs.realpathSync( file );
+	} catch {
+		return file;
+	}
+}
+
+function readText( file: string ): string | undefined {
+	try {
+		return fs.readFileSync( file, 'utf8' );
+	} catch {
+		return undefined;
 	}
 }
 

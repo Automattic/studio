@@ -35,19 +35,13 @@ beforeEach( () => {
 afterEach( () => rmSync( site, { recursive: true, force: true } ) );
 
 describe( 'theme CSS lint', () => {
-	it( 'flags an inline-level display on a block className', () => {
-		const notes = lintThemeCss(
-			'.eyebrow { display: inline-block; padding: 4px 12px; }',
-			new Set( [ 'eyebrow' ] )
-		);
-		expect( notes[ 0 ] ).toContain( 'wp-includes/block-supports/layout.php' );
-	} );
-
-	it( 'leaves non-block selectors and descendants alone', () => {
+	// eval30 pileon: a paragraph in a column, which no auto margins place, was
+	// noted from the stylesheet's text on every write. Where a class's blocks
+	// sit is checked against WordPress's blocks (inline-block-classes.ts).
+	it( 'leaves an inline-level display on a class to the check of where its blocks sit', () => {
 		expect(
 			lintThemeCss(
-				'.badge { display: inline-flex } .eyebrow span { display: inline }',
-				new Set( [ 'eyebrow' ] )
+				'.eyebrow { display: inline-block; padding: 4px 12px; } .badge span { display: inline }'
 			)
 		).toEqual( [] );
 	} );
@@ -58,14 +52,12 @@ describe( 'theme CSS lint', () => {
 		[ '.hero { max-width: 100vw }', 0 ],
 		[ '.hero { width: 100% }', 0 ],
 	] )( 'flags a viewport-width breakout in %s: %d', ( css, count ) => {
-		expect( lintThemeCss( css, new Set() ) ).toHaveLength( count );
+		expect( lintThemeCss( css ) ).toHaveLength( count );
 	} );
 
 	it( 'flags box styles on the button wrapper, not the link', () => {
-		expect( lintThemeCss( '.wp-block-button { padding: 1rem }', new Set() ) ).toHaveLength( 1 );
-		expect(
-			lintThemeCss( '.wp-block-button .wp-element-button { padding: 1rem }', new Set() )
-		).toEqual( [] );
+		expect( lintThemeCss( '.wp-block-button { padding: 1rem }' ) ).toHaveLength( 1 );
+		expect( lintThemeCss( '.wp-block-button .wp-element-button { padding: 1rem }' ) ).toEqual( [] );
 	} );
 } );
 

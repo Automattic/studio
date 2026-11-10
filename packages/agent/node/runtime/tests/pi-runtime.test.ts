@@ -38,6 +38,8 @@ const mocks = vi.hoisted( () => ( {
 	afterWritesAtOnce: [] as number[],
 	afterWritesRunning: 0,
 	failNext: false,
+	// What the checks of what a call changed do as they run, as a save of a template part.
+	onSettle: undefined as undefined | ( () => void ),
 	// What Studio fixes in a file just written, as its fonts in theme.json.
 	fixWrite: undefined as undefined | ( ( file: string ) => string[] ),
 	// What each end of a run finds still open on the sites.
@@ -185,25 +187,33 @@ vi.mock( '@studio/agent/node/site-notes', async ( importOriginal ) => ( {
 	} ),
 } ) );
 
-vi.mock( '@studio/agent/node/site-changes', () => ( {
-	NO_CHANGES: { summaries: [], problems: [], written: [] },
-	SiteChanges: class {
-		async begin() {
-			mocks.steps.push( 'snapshot' );
-		}
-		end() {}
-		afterChecks() {}
-		stale() {}
-		takeSourceMs() {
-			return {};
-		}
-		async settle() {
-			mocks.steps.push( 'settle' );
-			await new Promise( ( resolve ) => setTimeout( resolve, mocks.settleMs ) );
-			return mocks.postChanges;
-		}
-	},
-} ) );
+vi.mock( '@studio/agent/node/site-changes', async () => {
+	const { postCopies } = await import( '@studio/agent/node/post-copies' );
+	return {
+		NO_CHANGES: { summaries: [], problems: [], written: [] },
+		SiteChanges: class {
+			// As the sources say: a new page's file is published and moved to its copy.
+			rewritesWrite( file: string ) {
+				return postCopies.rewritesWrite!( file );
+			}
+			async begin() {
+				mocks.steps.push( 'snapshot' );
+			}
+			end() {}
+			afterChecks() {}
+			stale() {}
+			takeSourceMs() {
+				return {};
+			}
+			async settle() {
+				mocks.steps.push( 'settle' );
+				await new Promise( ( resolve ) => setTimeout( resolve, mocks.settleMs ) );
+				mocks.onSettle?.();
+				return mocks.postChanges;
+			}
+		},
+	};
+} );
 
 const host = createFakeHost( mocks.studioRoot );
 const agent = createAgent( { host } );
@@ -1357,6 +1367,81 @@ describe( 'pi runtime', () => {
 		}
 		// The notes after the call start from the file as Studio left it.
 		expect( mocks.leftTexts.at( -1 ) ).toEqual( [ file, 'one\nTWO\nthree' ] );
+	} );
+
+	// eval30 pivot and pileon ports: the Write of a new page's file returned
+	// before Studio published it and moved it to the page's copy, so the
+	// agent's next Read or Edit of the file it wrote found nothing there.
+	it( "says on a write's own result that a check moved the file it wrote", async () => {
+		await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession() } );
+		const workspace = path.join( mocks.configRoot, 'workspace/site-id' );
+		const file = path.join( workspace, 'page/private-events.html' );
+		const copy = path.join( workspace, 'page/44.html' );
+		const created = `Studio created page 44 "Private Events" (/private-events/) from ${ file }; its content is now in ${ copy }.`;
+		mocks.settleMs = 20;
+		mocks.postChanges = { summaries: [ created ], problems: [], written: [] };
+		const write = async ( written: string ) =>
+			(
+				( await getCreatedTool( 'Write' ).execute( 'w', {
+					path: written,
+					content: '',
+				} ) ) as { content: Array< { text: string } > }
+			 ).content
+				.map( ( part ) => part.text )
+				.join( '\n' );
+		try {
+			expect( await write( file ) ).toBe(
+				[ '', '<studio-notes>', created, `wrote ${ file }`, '</studio-notes>' ].join( '\n' )
+			);
+			expect( await takeNotes() ).toBeUndefined();
+			// A post's copy is saved to its post where it is: its checks follow its result.
+			expect( await write( copy ) ).toBe( '' );
+			expect( await takeNotes() ).toBe( `${ created }\nwrote ${ copy }` );
+		} finally {
+			mocks.settleMs = 0;
+			mocks.postChanges = { summaries: [], problems: [], written: [] };
+		}
+	} );
+
+	// eval30 pileon port: Studio saved parts/footer.html with a spacing preset
+	// while checking a page the agent wrote, and said only "Studio saved
+	// parts/footer.html", so the agent's next Edit of the footer missed its text.
+	it( 'says how a check changed another file the agent holds, as it says of a file written', async () => {
+		await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession() } );
+		const footer = path.resolve( mocks.studioRoot, 'a/parts/footer.html' );
+		const page = path.resolve( mocks.studioRoot, 'a/page.html' );
+		fs.mkdirSync( path.dirname( footer ), { recursive: true } );
+		fs.writeFileSync( footer, 'one\npadding:4rem\nthree' );
+		fs.writeFileSync( page, 'page' );
+		try {
+			await getCreatedTool( 'Read' ).execute( 'r', { path: 'a/parts/footer.html' } );
+			await getCreatedTool( 'Read' ).execute( 'r', { path: 'a/page.html' } );
+			await takeNotes();
+			// The call's own change to a file is the agent's, not Studio's.
+			fs.writeFileSync( footer, 'one\npadding:4rem\nthree\n' );
+			await getCreatedTool( 'Bash' ).execute( 'b', { command: 'true' } );
+			expect( await takeNotes() ).toBeUndefined();
+			mocks.onSettle = () => {
+				fs.writeFileSync( footer, 'one\npadding:var(--wp--preset--spacing--size-4-rem)\nthree' );
+				// The file the call writes says what changed in it with its own notes.
+				fs.writeFileSync( page, 'page, fixed' );
+			};
+			await getCreatedTool( 'Write' ).execute( 'w', { path: 'a/page.html', content: '' } );
+			expect( await takeNotes() ).toBe(
+				[
+					`wrote ${ page }`,
+					`Studio changed ${ footer } after the write; every other line reads as written.`,
+					'Lines 2-2 now read:',
+					'~~~',
+					'padding:var(--wp--preset--spacing--size-4-rem)',
+					'~~~',
+				].join( '\n' )
+			);
+		} finally {
+			mocks.onSettle = undefined;
+			fs.rmSync( footer, { force: true } );
+			fs.rmSync( page, { force: true } );
+		}
 	} );
 
 	// port c-2 climbing-gym: three files' notes each added a preset to theme.json

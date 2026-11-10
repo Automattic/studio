@@ -4,6 +4,7 @@ import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { validateHtmlBlockPolicy } from '@studio/agent/node/block-content-policy';
 import {
 	rendersAlikeOn,
 	validateBlockMarkup,
@@ -1619,31 +1620,59 @@ describe.runIf( siteUrl )( 'text written between the inner blocks of a container
 	const FORM =
 		'[contact-form subject="Booking"][contact-field label="Name" type="name" required="1"/][/contact-form]';
 
+	// An eval's header part: links written straight into groups beside their
+	// inner blocks.
+	const HEADER = [
+		'<!-- wp:group {"tagName":"header","className":"site-header","layout":{"type":"constrained","contentSize":"1180px"}} -->',
+		'<header class="wp-block-group site-header"><!-- wp:group {"className":"header-inner","layout":{"type":"flex","flexWrap":"nowrap","justifyContent":"space-between"},"style":{"spacing":{"blockGap":"2rem"}}} -->',
+		'<div class="wp-block-group header-inner"><!-- wp:group {"layout":{"type":"flex","flexWrap":"nowrap"}} -->',
+		'<div class="wp-block-group"><a class="header-mark" href="/" aria-label="Sudsy Paws home">🐾</a>',
+		'',
+		'<!-- wp:site-title {"level":0} /--></div>',
+		'<!-- /wp:group -->',
+		'',
+		'<!-- wp:group {"className":"nav-links","layout":{"type":"flex","flexWrap":"nowrap"},"style":{"spacing":{"blockGap":"1.5rem"}}} -->',
+		'<div class="wp-block-group nav-links"><a href="/">Home</a><a href="/services/">Services</a><a href="/about/">About</a><a href="/contact/">Contact</a>',
+		'',
+		'<!-- wp:buttons -->',
+		'<div class="wp-block-buttons"><!-- wp:button {"className":"is-style-fill"} -->',
+		'<div class="wp-block-button is-style-fill"><a class="wp-block-button__link wp-element-button" href="/contact/">Book Now</a></div>',
+		'<!-- /wp:button --></div>',
+		'<!-- /wp:buttons --></div>',
+		'<!-- /wp:group --></div>',
+		'<!-- /wp:group --></header>',
+		'<!-- /wp:group -->',
+		'',
+	].join( '\n' );
+
 	it.each( [
-		{ file: 'tmp/page-book.html', editor: 'post' as const, text: FORM },
-		{ file: 'wp-content/themes/t/templates/page-book.html', editor: 'site' as const, text: FORM },
-		{ file: 'tmp/page-book.html', editor: 'post' as const, text: 'Call <b>today</b>.' },
+		{ file: 'tmp/page-book.html', content: written( FORM ), text: FORM },
+		{ file: 'wp-content/themes/t/templates/page-book.html', content: written( FORM ), text: FORM },
+		{
+			file: 'tmp/page-book.html',
+			content: written( 'Call <b>today</b>.' ),
+			text: 'Call <b>today</b>.',
+		},
+		{
+			file: 'wp-content/themes/t/parts/header.html',
+			content: HEADER,
+			text: '<a href="/">Home</a><a href="/services/">Services</a><a href="/about/">About</a><a href="/contact/">Contact</a>',
+		},
 	] )(
-		'saves it as a core/html block in $file, and fixes the blocks around it',
-		async ( { file, editor, text } ) => {
+		'keeps the container as written in $file and reports it, saving no core/html block the policy fails',
+		async ( { file, content, text } ) => {
 			const dir = mkdtempSync( path.join( os.tmpdir(), 'studio-lift-' ) );
 			try {
 				const filePath = path.join( dir, file );
 				mkdirSync( path.dirname( filePath ), { recursive: true } );
-				writeFileSync( filePath, written( text ) );
+				writeFileSync( filePath, content );
 				const result = await validateBlockMarkupFile( filePath, siteUrl! );
-				expect( result.problem ).toBeUndefined();
-				expect( result.summary ).toBe(
-					`${ file
-						.split( '/' )
-						.slice( -2 )
-						.join(
-							'/'
-						) }: 2/2 blocks valid; saved through the block editor, which fixes 2 block(s) and keeps the text written beside the inner blocks of core/group as a core/html block`
+				const saved = result.fixedContent ?? content;
+				expect( validateHtmlBlockPolicy( saved ).invalidHtmlBlocks ).toEqual( [] );
+				expect( saved ).toContain( text );
+				expect( result.problem ).toContain(
+					'core/group: saving it as the block saves it would change its text'
 				);
-				expect( result.fixedContent ).toContain( `<!-- wp:html -->\n${ text }\n<!-- /wp:html -->` );
-				const stored = await validateBlocks( result.fixedContent!, siteUrl!, editor );
-				expect( stored.invalidBlocks ).toBe( 0 );
 			} finally {
 				rmSync( dir, { recursive: true, force: true } );
 			}

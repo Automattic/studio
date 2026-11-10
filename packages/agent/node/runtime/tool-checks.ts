@@ -312,6 +312,8 @@ export function toToolDefinition(
 				.join( '\n' );
 			const afterTime: typeof timeCheck = ( stage, check ) => afterChecks.timed( stage, check );
 			afterChecks.add( toolCallId, async () => {
+				// The files the agent holds as the call left them, for what the checks change in them.
+				const held = fileViews.read();
 				const changed = await settled( afterTime );
 				if ( checksChanges ) {
 					await afterTime( 'render', () =>
@@ -334,6 +336,10 @@ export function toToolDefinition(
 					},
 					afterTime
 				);
+				// What the checks changed in the other files the agent holds, as a
+				// template part saved with a preset the page it wrote repeats; the
+				// notes on the files the call wrote say what Studio changed in those.
+				notes.push( ...fileViews.rewritesSince( held, [ writtenFile, ...changed.written ] ) );
 				if ( checksChanges ) {
 					// The fixes above saved: the next call starts from the sites as they leave them.
 					siteChanges.afterChecks();
@@ -342,7 +348,13 @@ export function toToolDefinition(
 			} );
 			// A verdict on the pages waits for what the call changed on the sites to
 			// be saved, as copies of posts are, so it is of the sites the call left.
-			if ( tool.reportsChecks || ( checksChanges && renderCheck?.hasReports() ) ) {
+			// So does a write a check moves or rewrites, as a new page's file it
+			// publishes: the agent's next call would reach for the file it wrote.
+			if (
+				tool.reportsChecks ||
+				( checksChanges && renderCheck?.hasReports() ) ||
+				( writtenFile && siteChanges.rewritesWrite( writtenFile ) )
+			) {
 				await timeCheck( 'ownChecks', () => afterChecks.settle() );
 			}
 			// The checks of earlier calls, which go on those calls' results (see placeCallNotes).

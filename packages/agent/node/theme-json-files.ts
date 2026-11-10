@@ -21,6 +21,10 @@ import type { SiteFile } from '@studio/agent/node/site-file';
 // WP_Theme_JSON::__construct's own steps up to sanitize, which removes what
 // the schema has no place for. What goes into sanitize, against what comes
 // out, is what it removed; the steps after it only expand and key by origin.
+// Sanitize also removes a key the schema has once all under it is removed, as
+// an element whose "color" is a string rather than { "text": … }; the schema
+// sanitize builds, which it hands to remove_keys_not_in_schema for "styles"
+// and "settings", says which key under it is the one with no place.
 const READ = ( file: string ) => `
 $decoded = wp_json_file_decode( ${ JSON.stringify( file ) }, array( 'associative' => true ) );
 $dropped = array();
@@ -37,33 +41,59 @@ if ( is_array( $decoded ) ) {
 if ( is_array( $decoded ) && null === $fails ) {
 	// Resolving the theme's data registers its block styles, as before WordPress reads its files.
 	WP_Theme_JSON_Resolver::get_theme_data();
+	// WP_Theme_JSON as it is, but for keeping the schema sanitize builds.
+	$probe = new class() extends WP_Theme_JSON {
+		public static $schemas = array();
+		public function __construct() {}
+		protected static function remove_keys_not_in_schema( $tree, $schema ) {
+			static::$schemas[] = array( $tree, $schema );
+			return parent::remove_keys_not_in_schema( $tree, $schema );
+		}
+	};
 	$steps = Closure::bind(
-		static function ( $theme_json ) {
+		static function ( $theme_json, $probe ) {
 			$migrated   = WP_Theme_JSON_Schema::migrate( $theme_json, 'theme' );
 			$metadata   = static::get_blocks_metadata();
 			$variations = static::get_valid_block_style_variations( $metadata );
 			$unwrapped  = static::unwrap_shared_block_style_variations( $migrated, $variations );
-			return array( $unwrapped, static::sanitize( $unwrapped, array_keys( $metadata ), array_keys( static::ELEMENTS ), $variations ) );
+			return array( $unwrapped, $probe::sanitize( $unwrapped, array_keys( $metadata ), array_keys( static::ELEMENTS ), $variations ) );
 		},
 		null,
 		WP_Theme_JSON::class
 	);
-	list( $before, $kept ) = $steps( $decoded );
+	list( $before, $kept ) = $steps( $decoded, get_class( $probe ) );
+	$schema = array();
+	foreach ( $probe::$schemas as list( $tree, $subtree_schema ) ) {
+		foreach ( array( 'styles', 'settings' ) as $subtree ) {
+			if ( isset( $before[ $subtree ] ) && $tree === $before[ $subtree ] ) {
+				$schema[ $subtree ] = $subtree_schema;
+			}
+		}
+	}
 	if ( ! isset( $decoded['version'] ) ) {
+		// Migrate removes it all, whatever the schema has a place for.
 		$before = $decoded;
+		$schema = null;
 	}
 	// "$schema" is for the editor that writes the file, as in Twenty Twenty-Five's.
 	unset( $before['$schema'] );
-	$walk = function ( $written, $kept, $prefix ) use ( &$walk, &$dropped ) {
+	// The deepest key written that WordPress removes: under a key the schema
+	// has, removed only for having nothing kept under it, the keys under it.
+	$walk = function ( $written, $kept, $schema, $prefix ) use ( &$walk, &$dropped ) {
 		foreach ( $written as $key => $value ) {
 			$at = '' === $prefix ? (string) $key : $prefix . '.' . $key;
 			if ( array() === $value ) {
 				continue;
 			}
-			if ( ! is_array( $kept ) || ! array_key_exists( $key, $kept ) ) {
+			$in_schema = is_array( $schema ) && array_key_exists( $key, $schema ) ? $schema[ $key ] : null;
+			if ( is_array( $kept ) && array_key_exists( $key, $kept ) ) {
+				if ( is_array( $value ) ) {
+					$walk( $value, $kept[ $key ], $in_schema, $at );
+				}
+			} elseif ( is_array( $in_schema ) && is_array( $value ) && ! wp_is_numeric_array( $value ) ) {
+				$walk( $value, array(), $in_schema, $at );
+			} else {
 				$dropped[] = $at;
-			} elseif ( is_array( $value ) ) {
-				$walk( $value, $kept[ $key ], $at );
 			}
 		}
 	};
@@ -77,7 +107,7 @@ if ( is_array( $decoded ) && null === $fails ) {
 			$dropped[] = 'styles.variations.' . $name;
 		}
 	}
-	$walk( $before, $kept, '' );
+	$walk( $before, $kept, $schema, '' );
 }
 // The active theme's style variation, as the Site Editor's Styles lists it:
 // the entry WP_Theme_JSON_Resolver::get_style_variations() builds from this file.

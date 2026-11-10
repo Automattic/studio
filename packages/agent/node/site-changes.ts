@@ -70,6 +70,12 @@ export interface SiteChangeSource {
 	 */
 	saves?: boolean;
 	/**
+	 * The check of a call that wrote `file` moves, deletes or rewrites it, so
+	 * that call's result waits for its checks: the agent's next call would
+	 * otherwise reach for the file where the call left it.
+	 */
+	rewritesWrite?( file: string ): boolean;
+	/**
 	 * The versions on a site now; the last ones read let a source reuse work.
 	 * `host` is the app the agent runs in, for what Studio knows of the site.
 	 */
@@ -199,6 +205,11 @@ export class SiteChanges {
 		} finally {
 			this.sourceMs[ stage ] = Math.max( this.sourceMs[ stage ] ?? 0, Date.now() - from );
 		}
+	}
+
+	/** Whether a check of the call that wrote `file` moves, deletes or rewrites it (see SiteChangeSource). */
+	rewritesWrite( file: string ): boolean {
+		return this.sources.some( ( source ) => source.rewritesWrite?.( file ) );
 	}
 
 	/** Studio changed a site outside a call, as a fix or a background write: the next call snapshots. */

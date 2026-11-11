@@ -15,11 +15,9 @@ export const wpcomDescriptor: ProviderDescriptor< WpcomConfig > = {
 	id: 'wpcom',
 	label: 'WordPress.com',
 	configSchema: wpcomConfigSchema,
-	account: { methods: [ 'studio' ] },
 	ai: {
 		models: WPCOM_AI_MODELS,
 		defaultModel: 'fast',
 		paidDefaultModel: 'balanced',
-		images: true,
 	},
 };

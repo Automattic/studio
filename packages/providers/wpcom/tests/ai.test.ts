@@ -27,7 +27,6 @@ describe( 'wpcom ai', () => {
 			{}
 		);
 		await expect( connection ).rejects.toBeInstanceOf( ProviderNotReadyError );
-		await expect( connection ).rejects.toMatchObject( { methods: [ 'studio' ] } );
 	} );
 
 	it( 'routes the fast tier to Chat Completions with the proxy headers', async () => {

@@ -12,9 +12,6 @@ export interface ProviderConfigs {
 	anthropic: AnthropicConfig;
 }
 
-// studio: connected by Studio sign-in (wpcom only)
-export type AccountMethod = 'studio' | 'api-key';
-
 export interface AiModel< Id extends string = string > {
 	// Stable, stored in sessions; the same id in two providers is the same model.
 	id: Id;
@@ -33,27 +30,17 @@ export interface ProviderDescriptor< Config = unknown > {
 	label: string;
 	// What Studio stores for this provider.
 	configSchema: z.ZodType< Config >;
-	account: { methods: readonly AccountMethod[] };
 	ai?: {
 		models: readonly AiModel< AiModelId >[];
 		defaultModel: AiModelId;
 		// The default when the account has paid AI credits left.
 		paidDefaultModel?: AiModelId;
-		images?: boolean;
 	};
 }
 
 export interface ProviderContext< Config > {
 	config: Config | undefined;
 	userAgent: string;
-}
-
-export interface AccountStatus {
-	connected: boolean;
-	// How it is connected.
-	method: AccountMethod | null;
-	// `sk-ant-…abcd`; never the credential itself.
-	credentialPreview: string | null;
 }
 
 // Everything the runtime needs to register one model with pi.
@@ -90,11 +77,8 @@ export type GenerateImages< Config > = (
 
 export interface Provider< Config = unknown > {
 	descriptor: ProviderDescriptor< Config >;
-	account: {
-		status( config: Config | undefined ): AccountStatus;
-		// The api-key method; validates the key first.
-		connectApiKey?( key: string ): Promise< Config >;
-	};
+	// Validates the key, and returns the config to store.
+	connectApiKey?( key: string ): Promise< Config >;
 	ai?: {
 		// Whether a selection that isn't ready falls back to another ready
 		// provider instead of asking for credentials.

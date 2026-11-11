@@ -14,7 +14,7 @@ describe( 'anthropic ai', () => {
 	it( 'asks for an API key without a config', async () => {
 		await expect(
 			anthropicAi.connect( { config: undefined, userAgent: 'Studio/test' }, 'claude-sonnet-5', {} )
-		).rejects.toMatchObject( { constructor: ProviderNotReadyError, methods: [ 'api-key' ] } );
+		).rejects.toBeInstanceOf( ProviderNotReadyError );
 	} );
 
 	// A model missing pi's adaptive-thinking compat gets the legacy thinking

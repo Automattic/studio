@@ -10,7 +10,6 @@ export const anthropicDescriptor: ProviderDescriptor< AnthropicConfig > = {
 	id: 'anthropic',
 	label: 'Anthropic API',
 	configSchema: anthropicConfigSchema,
-	account: { methods: [ 'api-key' ] },
 	ai: {
 		models: ANTHROPIC_AI_MODELS,
 		defaultModel: 'claude-sonnet-5',

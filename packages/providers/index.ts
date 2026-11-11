@@ -14,7 +14,6 @@ export {
 	isAiModelId,
 	type AiModelId,
 } from './models';
-export { anthropicConfigSchema, previewApiKey, type AnthropicConfig } from './anthropic/config';
-export { wpcomConfigSchema, type WpcomConfig } from './wpcom/config';
+export type { AnthropicConfig } from './anthropic/config';
 export type * from './types';
 export { InvalidCredentialError, ProviderNotReadyError } from './errors';

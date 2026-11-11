@@ -1,6 +1,5 @@
 import { ProviderNotReadyError } from '../errors';
 import { getAiModel } from '../models';
-import { wpcomDescriptor } from './descriptor';
 import type { WpcomConfig } from './config';
 import type { AiConnection, Provider } from '../types';
 import type { Api, Model } from '@earendil-works/pi-ai';
@@ -67,8 +66,6 @@ export const wpcomAi: NonNullable< Provider< WpcomConfig >[ 'ai' ] > = {
 	async connect( { config, userAgent }, modelId, { sessionId } ): Promise< AiConnection > {
 		if ( ! config ) {
 			throw new ProviderNotReadyError(
-				'wpcom',
-				wpcomDescriptor.account.methods,
 				'WordPress.com login required. Use /login to authenticate.'
 			);
 		}

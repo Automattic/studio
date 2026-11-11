@@ -2,7 +2,6 @@ import {
 	DEFAULT_PROVIDER_ID,
 	InvalidCredentialError,
 	normalizeProviderId,
-	previewApiKey,
 	toStoredProviderId,
 	type AnthropicConfig,
 	type Provider,
@@ -24,6 +23,18 @@ export interface AiSettings {
 	hasAnthropicApiKey: boolean;
 	/** Truncated key for display (`sk-ant-…abcd`), or null when none is saved. */
 	anthropicApiKeyPreview: string | null;
+}
+
+const KEY_PREFIX_LENGTH = 16;
+const KEY_SUFFIX_LENGTH = 4;
+
+// Enough to recognise the key, never enough to use it; a short key shows
+// only its tail so most of it is not echoed back.
+function previewApiKey( key: string ): string {
+	if ( key.length <= KEY_PREFIX_LENGTH + KEY_SUFFIX_LENGTH ) {
+		return `...${ key.slice( -KEY_SUFFIX_LENGTH ) }`;
+	}
+	return `${ key.slice( 0, KEY_PREFIX_LENGTH ) }...${ key.slice( -KEY_SUFFIX_LENGTH ) }`;
 }
 
 /** The saved chat provider, or undefined when none was ever chosen. */
@@ -59,7 +70,7 @@ export async function saveAnthropicApiKey(
 	anthropic: Provider< AnthropicConfig >
 ): Promise< AiSettings > {
 	if ( key?.trim() ) {
-		await writeProviderConfig( 'anthropic', await anthropic.account.connectApiKey!( key ) );
+		await writeProviderConfig( 'anthropic', await anthropic.connectApiKey!( key ) );
 	} else {
 		await writeProviderConfig( 'anthropic', undefined );
 		await persistSelectedAiProvider( DEFAULT_PROVIDER_ID );
@@ -81,7 +92,7 @@ export async function setAiProvider(
 		if ( ! config ) {
 			throw new InvalidCredentialError( 'Add an Anthropic API key first.' );
 		}
-		await anthropic.account.connectApiKey!( config.apiKey );
+		await anthropic.connectApiKey!( config.apiKey );
 	}
 	await persistSelectedAiProvider( provider );
 	return readAiSettings();

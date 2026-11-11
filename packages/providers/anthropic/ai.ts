@@ -1,7 +1,6 @@
 import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import { ProviderNotReadyError } from '../errors';
 import { getAiModel } from '../models';
-import { anthropicDescriptor } from './descriptor';
 import type { AnthropicConfig } from './config';
 import type { AiConnection, Provider } from '../types';
 import type { Model } from '@earendil-works/pi-ai';
@@ -11,8 +10,6 @@ export const anthropicAi: NonNullable< Provider< AnthropicConfig >[ 'ai' ] > = {
 	async connect( { config }, modelId ): Promise< AiConnection > {
 		if ( ! config ) {
 			throw new ProviderNotReadyError(
-				'anthropic',
-				anthropicDescriptor.account.methods,
 				'Anthropic API key required. Switch to Anthropic API with /provider to save one.'
 			);
 		}

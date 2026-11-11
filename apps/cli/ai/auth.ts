@@ -88,11 +88,11 @@ export async function resolveInitialAiProvider(): Promise< ProviderId > {
 // Re-prompts only when Anthropic definitively rejects the saved key: an
 // unreachable API must not lock the user out of their provider.
 async function promptForAnthropicApiKey( options?: { force?: boolean } ): Promise< void > {
-	const { account } = getProvider( 'anthropic' );
+	const { connectApiKey } = getProvider( 'anthropic' );
 	const saved = await readProviderConfig( 'anthropic' );
 	if ( saved && ! options?.force ) {
 		try {
-			await account.connectApiKey!( saved.apiKey );
+			await connectApiKey!( saved.apiKey );
 			return;
 		} catch ( error ) {
 			if ( ! ( error instanceof InvalidCredentialError ) ) {
@@ -107,7 +107,7 @@ async function promptForAnthropicApiKey( options?: { force?: boolean } ): Promis
 		mask: '*',
 		validate: async ( value ) => {
 			try {
-				config = await account.connectApiKey!( value );
+				config = await connectApiKey!( value );
 				return true;
 			} catch ( error ) {
 				if ( error instanceof InvalidCredentialError ) {
@@ -117,7 +117,7 @@ async function promptForAnthropicApiKey( options?: { force?: boolean } ): Promis
 			}
 		},
 	} );
-	await writeProviderConfig( 'anthropic', config ?? ( await account.connectApiKey!( key ) ) );
+	await writeProviderConfig( 'anthropic', config ?? ( await connectApiKey!( key ) ) );
 }
 
 // Asks for what the provider needs before it is selected.

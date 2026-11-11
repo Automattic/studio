@@ -1,7 +1,7 @@
 import {
 	getEffectiveSessionProvider,
 	resolveSessionModelForProvider,
-} from '@studio/agent/protocol/providers';
+} from '@studio/agent/protocol/sessions/model';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { canUsePaidAiModels } from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
@@ -75,7 +75,7 @@ export function useSetupPrompt( { enabled = true, busy = false } = {} ) {
 	const { data: user } = useAuthUser();
 	const provider = getEffectiveSessionProvider( [], settings );
 	const notice = useComposerNotice( provider );
-	const providerConnected = provider === 'wpcom' ? !! user : !! settings?.hasAnthropicApiKey;
+	const providerConnected = !! settings?.accounts[ provider ].connected;
 	const model = resolveSessionModelForProvider( [], provider, {
 		canUsePaidModels: canUsePaidAiModels( quota, user?.email ),
 	} );

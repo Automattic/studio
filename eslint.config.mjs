@@ -24,6 +24,26 @@ const AGENT_NODE = {
 	message: 'Apps that show the agent import its contract, @studio/agent/protocol, not the agent.',
 };
 
+const PROVIDERS_SERVICES = {
+	group: [ '@studio/providers/*' ],
+	message: 'Surfaces read @studio/providers; its services run in the backends and the agent.',
+};
+
+// The entry surfaces read, and the files it is made of.
+const PROVIDERS_DESCRIPTORS = [
+	'index.ts',
+	'types.ts',
+	'models.ts',
+	'descriptors.ts',
+	'errors.ts',
+	'connection.ts',
+	'*/descriptor.ts',
+	'*/config.ts',
+	'wpcom/oauth.ts',
+];
+
+const NODE_APIS = [ 'node:*', 'fs', 'fs/*', 'path', 'os', 'child_process', 'crypto' ];
+
 // Studio on the web's backend (`apps/static`) is reached through its connector.
 const STATIC_BACKEND = {
 	group: [ '@studio/static', '@studio/static/*' ],
@@ -159,6 +179,7 @@ export default defineConfig(
 						path.join( import.meta.dirname, 'packages/agent/tsconfig.json' ),
 						path.join( import.meta.dirname, 'packages/common/tsconfig.json' ),
 						path.join( import.meta.dirname, 'packages/design-md/tsconfig.json' ),
+						path.join( import.meta.dirname, 'packages/providers/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/compare-perf/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/metrics/tsconfig.json' ),
 					],
@@ -319,7 +340,7 @@ export default defineConfig(
 			'no-restricted-imports': [
 				'error',
 				{
-					patterns: [ WP_UI_PACKAGES, AGENT_NODE, STATIC_BACKEND, BASE_UI ],
+					patterns: [ WP_UI_PACKAGES, AGENT_NODE, PROVIDERS_SERVICES, STATIC_BACKEND, BASE_UI ],
 				},
 			],
 			'import-x/no-restricted-paths': [ 'error', UI_LAYERS ],
@@ -341,6 +362,7 @@ export default defineConfig(
 					patterns: [
 						WP_UI_PACKAGES,
 						AGENT_NODE,
+						PROVIDERS_SERVICES,
 						{ group: [ '@tanstack/*' ], message: 'lib/ packages stay independent of app code.' },
 					],
 				},
@@ -357,6 +379,70 @@ export default defineConfig(
 						{
 							group: [ '@studio/agent/*' ],
 							message: '@studio/agent builds on common, not the reverse.',
+						},
+					],
+				},
+			],
+		},
+	},
+	{
+		// Common stores provider config; the apps pass in the implementations it needs.
+		files: [ 'packages/common/**/*.ts' ],
+		ignores: [ 'packages/common/**/tests/**' ],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							group: [ '@studio/agent/*' ],
+							message: '@studio/agent builds on common, not the reverse.',
+						},
+						PROVIDERS_SERVICES,
+					],
+				},
+			],
+		},
+	},
+	{
+		// Studio passes providers their config, so they never depend on Studio's
+		// packages, and the agent runs them in Node and in the page.
+		files: [ 'packages/providers/**/*.ts' ],
+		ignores: [ 'packages/providers/**/tests/**' ],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							group: NODE_APIS,
+							message: '@studio/providers runs in the browser too; keep Node APIs out.',
+						},
+						{
+							group: [ '@studio/*', 'cli/*', 'src/*' ],
+							message: '@studio/providers imports no other workspace package.',
+						},
+					],
+				},
+			],
+		},
+	},
+	{
+		files: PROVIDERS_DESCRIPTORS.map( ( file ) => `packages/providers/${ file }` ),
+		rules: {
+			'import-x/no-restricted-paths': [
+				'error',
+				{
+					zones: [
+						{
+							target: PROVIDERS_DESCRIPTORS.map( ( file ) => `packages/providers/${ file }` ),
+							from: 'packages/providers',
+							except: PROVIDERS_DESCRIPTORS.flatMap( ( file ) =>
+								file.startsWith( '*/' )
+									? [ 'wpcom', 'anthropic' ].map( ( dir ) => `./${ file.replaceAll( '*', dir ) }` )
+									: [ `./${ file }` ]
+							),
+							message: 'The @studio/providers entry imports only the files it is made of.',
 						},
 					],
 				},
@@ -428,13 +514,14 @@ export default defineConfig(
 				{
 					patterns: [
 						{
-							group: [ 'node:*', 'fs', 'fs/*', 'path', 'os', 'child_process', 'crypto' ],
+							group: NODE_APIS,
 							message: 'protocol/ runs in the browser too; keep Node APIs in node/.',
 						},
 						{
 							group: [ '@studio/agent/node/*', 'cli/*', 'src/*' ],
-							message: 'protocol/ depends on nothing but common.',
+							message: 'protocol/ depends on nothing but common and @studio/providers.',
 						},
+						PROVIDERS_SERVICES,
 					],
 				},
 			],

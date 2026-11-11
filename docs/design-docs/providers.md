@@ -17,7 +17,7 @@ It describes the architecture and the rules, not the exact APIs, which are expec
 ## Principles
 
 1. **Capabilities are optional and independent.** A user can chat through Anthropic while generating images and pushing through WordPress.com.
-2. **Surfaces read descriptors and never branch on a provider id.** `apps/ui` renders providers, models, connection state and site statuses from data. A provider-specific flow, such as a plan upgrade, reaches the UI as a status with an action link, not as a component or a state the UI must know. The one exception is [Studio sign-in](#studio-sign-in), which is WordPress.com by definition.
+2. **Surfaces read descriptors and never branch on a provider id.** `apps/ui` renders providers, models, connection forms, connection state and site statuses from data. A provider-specific flow, such as a plan upgrade, reaches the UI as a status with an action link, not as a state the UI must know. A provider that needs more than data can describe brings its own component for each surface, with the provider rather than in the surface _(planned)_. The one exception is [Studio sign-in](#studio-sign-in), which is WordPress.com by definition.
 3. **Operations go through CLI commands.** Commands are generic and hand the work to the provider; see [How the CLI and Studio apps communicate](./cli-host-communication.md). Provider code never prompts or exits. The command asks the user for what is missing.
 4. **The agent receives resolved inputs, not provider knowledge.** The runtime is handed a ready-to-use model connection. Tools are available according to the capabilities of the connected providers.
 5. **Providers own no storage.** A provider never reads or writes a file. It defines its config, Studio passes that config into every call, and Studio stores any new config the provider hands back. Studio also owns everything that isn't a provider's: the selected chat provider, and which remote site each local site is connected to.
@@ -37,13 +37,13 @@ The WordPress.com tiers are capability aliases. The proxy's `studio-agent` lane 
 
 Signing in to Studio means signing in to WordPress.com. That account is who the user is in Studio, so it is not one provider account among others.
 
-The WordPress.com provider owns how sign-in works: turning a token from the OAuth flow into its config, the signed-in user, token revocation, and the WordPress.com REST client. Studio's apps and the CLI can always rely on a WordPress.com provider being there, and use its sign-in by name:
+The WordPress.com provider owns how sign-in works: the authorization URL, turning what WordPress.com sends back into its config (checking the token and reading the signed-in user), and token revocation. Its REST client moves there too _(planned)_. Studio's apps and the CLI can always rely on a WordPress.com provider being there, and use its sign-in by name:
 
 - `studio auth` signs in to Studio. It takes no provider.
 - The user menu in the apps shows the signed-in WordPress.com user, and signing in and out from it is Studio sign-in.
 - Anything else that needs the signed-in user, such as Tracks identity, gets it the same way.
 
-OAuth redirects stay with the shells, because they differ per runtime ([Auth across surfaces](./studio-apps-and-surfaces.md#auth-across-surfaces)).
+Receiving the OAuth redirect stays with the shells, because it differs per runtime ([Auth across surfaces](./studio-apps-and-surfaces.md#auth-across-surfaces)): a deep link in the Desktop app, a callback page in `studio ui` and Studio on the web, and a token the user pastes in the CLI. Each hands what came back to the provider.
 
 As a provider, WordPress.com's account is connected exactly when the user is signed in to Studio. No other provider connects that way.
 
@@ -53,25 +53,29 @@ As a provider, WordPress.com's account is connected exactly when the user is sig
 
 The package is split in two parts, and lint keeps them apart:
 
-- **A browser-safe part**, with the registry and each provider's descriptor and config schema. `apps/ui` imports only this part.
-- **A Node part**, with the implementations, for the CLI, the apps' backends and the agent.
+- **What surfaces read**: the registry, and each provider's descriptor, config schema and connection form. `apps/ui` imports only this part.
+- **The services**: the implementations, for the CLI, the apps' backends and the agent.
 
-WordPress.com sign-in is also exposed on its own, for the code that relies on it by name.
+Neither part uses Node APIs. Studio on the web runs the agent in the page, so the services connect accounts, connect to models and generate images there too.
 
 Dependencies point one way:
 
-- `@studio/providers` imports no other workspace package. Studio passes in what a provider needs, such as its config and the Studio user agent.
-- `@studio/common` holds Studio's side, next to the rest of `shared.json`: storing provider configs, the selected chat provider and remote-site connections. It may import the browser-safe part for schemas and types, never the Node part.
+- `@studio/providers` imports no other workspace package. Studio passes in what a provider needs, such as its config.
+- `@studio/common` holds Studio's side, next to the rest of `shared.json`: storing provider configs, the selected chat provider and remote-site connections. It may import what surfaces read, for schemas and types, never the services; the apps pass in the provider a stored operation needs.
 
 It is a package of its own because sites and previews are not agent concerns, so the push command must not depend on `@studio/agent`. It isn't part of `@studio/common` because providers must stay free of Studio's storage, and the browser-safe boundary needs lint enforcement.
 
 ## Accounts
 
-- Each provider lists the ways its account can connect: Studio sign-in for WordPress.com, an API key for Anthropic, and later a subscription _(planned)_. When a provider offers several, the user picks one.
-- Connecting returns the provider's config, and Studio stores it. Disconnecting is Studio removing it, except signing out of Studio, which revokes the WordPress.com token first.
+- Each provider says how its account connects, in its descriptor:
+  - **A form**, described by a schema whose fields carry their labels, help and whether they are secret. Anthropic asks for an API key this way.
+  - **A redirect** to the provider's site, where the user approves access and is sent back to the app. WordPress.com connects this way, and connecting it is signing in to Studio.
+  - A subscription sign-in for Anthropic comes later _(planned)_. When a provider offers several ways, the user picks one.
+- Surfaces render the form from its schema, so neither the settings nor `studio code` know what a provider asks for.
+- Connecting hands what the user gave, a form's values or the redirect's result, to the provider, which checks it and returns its config. Studio stores the config without looking inside it. Disconnecting lets the provider clean up on its side, as WordPress.com revokes its token, then Studio removes the config.
 - When a provider has no usable config, it says so, along with how it can connect. The CLI asks the user; without a terminal, it reports the error.
 - Studio stores configs in `shared.json` and validates them against each provider's schema. Configs move to a per-provider section _(planned)_. Until then, and for a few releases after so older builds keep working, Studio uses the existing fields (`authToken` and `anthropicApiKey`). This mapping is Studio's storage code; providers never see it. When `STUDIO_WPCOM_TOKEN` is set, the CLI uses it for the WordPress.com config.
-- The app's settings list every provider with its connection state. WordPress.com shows the Studio sign-in; other providers offer a way to connect for each method they support. In `studio code`, `/provider` asks for what is missing. No provider connects through `studio auth`.
+- The app's settings list every provider with its connection state and a summary the provider gives, such as a key's first and last characters, never the credential itself. WordPress.com shows the Studio sign-in; other providers show their form. In `studio code`, `/provider` asks for what is missing, and one command connects any provider the way it says _(planned)_. No provider connects through `studio auth`.
 
 ## AI
 
@@ -95,7 +99,7 @@ The provider owns how its models are reached. For example, WordPress.com sends e
 
 ### Images
 
-Image generation is available when a connected provider offers it, whichever provider serves chat. Today only WordPress.com does.
+Image generation is available when a connected provider offers it, whichever provider serves chat. Today only WordPress.com does. The agent gets it from its host, which finds that provider, so the agent never names one.
 
 ### Persisted ids
 
@@ -118,8 +122,8 @@ Previews are a capability, and WordPress.com is the only provider that offers it
 
 ## Surfaces
 
-- **`apps/ui`** reads descriptors and account states through its connectors, and never names a provider, apart from Studio sign-in. The `ipc` and `local` connectors stay thin wrappers over Studio's storage in `@studio/common` and the providers' Node part.
-- **The agent** receives a model connection per turn. Tools that depend on a capability are available only when a connected provider offers it. `wpcom_request` also requires Studio sign-in _(planned)_; the MCP runtime can still turn it off per client (Codex).
+- **`apps/ui`** reads descriptors and account states through its connectors, and never names a provider, apart from Studio sign-in. The `ipc`, `local` and static connectors stay thin wrappers over Studio's storage in `@studio/common` and the providers' services.
+- **The agent**, in Node or in the page, receives a model connection per turn. Tools that depend on a capability are available only when a connected provider offers it. `wpcom_request` also requires Studio sign-in _(planned)_; the MCP runtime can still turn it off per client (Codex).
 - **The CLI** lists providers and models from descriptors in `studio code`. `studio auth` is Studio sign-in. `studio push`, `pull` and `preview` hand the work to providers _(planned)_.
 - **Analytics**: existing Tracks properties keep their names, so reporting stays continuous.
 
@@ -130,5 +134,4 @@ Previews are a capability, and WordPress.com is the only provider that offers it
 
 ## Open questions
 
-1. **Running the agent without the CLI.** The in-page agent for Studio on the web has no CLI. Getting a model connection should then avoid Node-only APIs, or have a browser variant, so it can run there.
-2. **Designing sites against a second host.** The remote-sites direction above is drawn from WordPress.com. It should be checked against a second real host (an SSH host or Spacefast) before it is built, so it doesn't copy WordPress.com's backup, import-polling and transfer steps.
+1. **Designing sites against a second host.** The remote-sites direction above is drawn from WordPress.com. It should be checked against a second real host (an SSH host or Spacefast) before it is built, so it doesn't copy WordPress.com's backup, import-polling and transfer steps.

@@ -1,5 +1,6 @@
 import { DEFAULT_LOCALE, isSupportedLocale } from '@studio/common/lib/locale';
-import { getAuthenticationUrl, getSignUpUrl, revokeAuthToken } from '@studio/common/lib/oauth';
+import { getRedirectUrl } from '@studio/providers';
+import { getProvider } from '@studio/providers/services';
 import { __ } from '@wordpress/i18n';
 import { kvDelete, kvGet, kvSet } from './store';
 import type { AuthUser } from './types';
@@ -67,15 +68,13 @@ export class WpcomAuth {
 		this.listeners.forEach( ( listener ) => listener() );
 	}
 
-	async signIn( accessToken: string ): Promise< void > {
-		const response = await wpcomFetch( `${ API_BASE }/rest/v1.1/me?fields=ID,email,display_name`, {
-			headers: { Authorization: `Bearer ${ accessToken }` },
-		} );
-		if ( ! response.ok ) {
+	// Signs in with the parameters of WordPress.com's redirect.
+	async signIn( params: Record< string, string > ): Promise< void > {
+		const { token, user } = await getProvider( 'wpcom' ).connect( params );
+		if ( ! user ) {
 			throw new Error( __( 'WordPress.com did not accept the sign-in.' ) );
 		}
-		const me = ( await response.json() ) as { ID: number; email: string; display_name: string };
-		this.cached = { accessToken, id: me.ID, email: me.email, displayName: me.display_name };
+		this.cached = { accessToken: token, ...user };
 		await kvSet( TOKEN_KEY, this.cached );
 		this.notify();
 	}
@@ -86,7 +85,9 @@ export class WpcomAuth {
 		await kvDelete( TOKEN_KEY );
 		this.notify();
 		if ( token ) {
-			await revokeAuthToken( token.accessToken ).catch( () => undefined );
+			await getProvider( 'wpcom' )
+				.disconnect?.( { token: token.accessToken } )
+				.catch( () => undefined );
 		}
 	}
 
@@ -104,11 +105,12 @@ export class WpcomAuth {
 		// origins the app allows. A deployment registers `<origin>/auth/callback`.
 		const redirectUri = `${ window.location.origin }${ CALLBACK_PATH }`;
 		window.location.assign(
-			( signup ? getSignUpUrl : getAuthenticationUrl )(
-				isSupportedLocale( locale ) ? locale : DEFAULT_LOCALE,
+			getRedirectUrl( 'wpcom', {
 				redirectUri,
-				state
-			)
+				locale: isSupportedLocale( locale ) ? locale : DEFAULT_LOCALE,
+				state,
+				signup,
+			} )
 		);
 		// The page is navigating away.
 		await new Promise( () => {} );
@@ -161,16 +163,8 @@ export async function completeRedirectSignIn(): Promise< {
 	if ( ! state || params.get( 'state' ) !== state ) {
 		return { returnTo, error: __( 'This sign-in was not started here. Try signing in again.' ) };
 	}
-	const token = params.get( 'access_token' );
-	if ( ! token ) {
-		return {
-			returnTo,
-			error:
-				params.get( 'error_description' ) ?? params.get( 'error' ) ?? __( 'No token returned.' ),
-		};
-	}
 	try {
-		await new WpcomAuth().signIn( token );
+		await new WpcomAuth().signIn( Object.fromEntries( params ) );
 		return { returnTo };
 	} catch ( error ) {
 		return { returnTo, error: error instanceof Error ? error.message : String( error ) };

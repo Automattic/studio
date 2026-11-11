@@ -2,14 +2,13 @@ import { Type } from 'typebox';
 import { toBase64 } from '@studio/agent/shared/base64';
 import {
 	composeImagePrompt,
-	generateImages,
-	type GenerateImageResult,
 	IMAGE_ASPECT_RATIOS,
 	IMAGE_STYLES,
 } from '@studio/agent/shared/image-generation';
 import { defineTool, REMOTE_CHANGE } from './define-tool';
 import { runWpCli, textResult } from './utils';
 import type { HostPath, HostSite, StudioAgentHost } from '@studio/agent/shared/host';
+import type { GenerateImageResult } from '@studio/providers';
 
 const MAX_IMAGES_PER_CALL = 20;
 
@@ -144,8 +143,8 @@ export const generateImagesTool = defineTool(
 		),
 	},
 	async ( args, { host } ) => {
-		const imageToken = await host.wpcom.imageToken();
-		if ( ! imageToken ) {
+		const generateImages = await host.imageGenerator?.();
+		if ( ! generateImages ) {
 			throw new Error(
 				'Image generation is not available in this session. Build the site without generated imagery.'
 			);
@@ -191,7 +190,7 @@ export const generateImagesTool = defineTool(
 			aspectRatio: image.aspectRatio,
 		} ) );
 
-		const generation = generateImages( imageToken, requests )
+		const generation = generateImages( requests )
 			.catch( ( error ): GenerateImageResult[] =>
 				requests.map( () => ( { ok: false, error: String( error ) } ) )
 			)

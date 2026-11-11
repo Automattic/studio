@@ -54,7 +54,7 @@ export const sharedConfigSchema = z
 		// AI provider selection and the Anthropic API key, shared by Studio and
 		// the Studio CLI. Typed as plain strings so an unknown provider value
 		// written by a newer build degrades gracefully instead of failing the
-		// parse; readers narrow with `isAiProviderId`.
+		// parse; readers go through `normalizeProviderId`.
 		aiProvider: z.string().optional(),
 		anthropicApiKey: z.string().optional(),
 		// Anonymous install identifier for Tracks analytics, shared by Studio and the Studio CLI.

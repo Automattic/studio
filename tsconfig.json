@@ -10,7 +10,9 @@
 			"vendor/*": [ "./vendor/*" ],
 			"@studio/common/*": [ "./packages/common/*" ],
 			"@studio/agent/*": [ "./packages/agent/*" ],
-			"@studio/design-md": [ "./packages/design-md/index.ts" ]
+			"@studio/design-md": [ "./packages/design-md/index.ts" ],
+			"@studio/providers": [ "./packages/providers/index.ts" ],
+			"@studio/providers/*": [ "./packages/providers/*" ]
 		}
 	},
 	"include": [
@@ -20,6 +22,7 @@
 		"./packages/common/**/*",
 		"./packages/agent/**/*",
 		"./packages/design-md/**/*",
+		"./packages/providers/**/*",
 		"./vitest.global-setup.ts",
 		"./scripts/**/*"
 	],

@@ -246,7 +246,7 @@ describe( 'local web server Connect contracts', () => {
 			{
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify( { provider: 'claude-code', model: 'claude-sonnet-5' } ),
+				body: JSON.stringify( { provider: 'claude-code', model: 'claude-sonnet-5-5' } ),
 			}
 		);
 

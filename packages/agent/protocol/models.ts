@@ -47,8 +47,8 @@ export const AI_MODELS = [
 		family: 'studio',
 		requiresPaidAiCredits: true,
 	},
-	{ id: 'claude-sonnet-5', label: 'Sonnet 5', family: 'anthropic' },
-	{ id: 'claude-opus-5', label: 'Opus 5', family: 'anthropic' },
+	{ id: 'claude-sonnet-5-5', label: 'Sonnet 5.5', family: 'anthropic' },
+	{ id: 'claude-opus-5-5', label: 'Opus 5.5', family: 'anthropic' },
 ] as const satisfies readonly AiModel[];
 
 export type AiModelId = ( typeof AI_MODELS )[ number ][ 'id' ];

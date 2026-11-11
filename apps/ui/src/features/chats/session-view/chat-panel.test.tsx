@@ -587,7 +587,7 @@ describe( 'Chat target selection', () => {
 				connections.signedIn
 			);
 		}
-		for ( const name of [ 'Sonnet 5', 'Opus 5' ] ) {
+		for ( const name of [ 'Sonnet 5.5', 'Opus 5.5' ] ) {
 			expect( !! screen.queryByRole( 'option', { name: new RegExp( `^${ name }` ) } ) ).toBe(
 				connections.hasAnthropicApiKey
 			);
@@ -630,16 +630,16 @@ describe( 'Chat target selection', () => {
 		} );
 		fireEvent.change( input, { target: { value: 'Preserve this draft' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Opus 5/ } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Opus 5.5/ } ) );
 		await waitFor( () =>
-			expect( connector.setSessionModel ).toHaveBeenCalledWith( 'chat', 'claude-opus-5' )
+			expect( connector.setSessionModel ).toHaveBeenCalledWith( 'chat', 'claude-opus-5-5' )
 		);
 		expect( screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } ) ).toHaveValue(
 			'Preserve this draft'
 		);
 		expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveAttribute(
 			'aria-description',
-			'Opus 5 · Anthropic API'
+			'Opus 5.5 · Anthropic API'
 		);
 	} );
 } );

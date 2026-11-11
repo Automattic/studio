@@ -98,7 +98,7 @@ describe( 'Conversation usage and model picker', () => {
 			expect( connector.setSessionProvider ).toHaveBeenCalledWith(
 				expect.any( String ),
 				'anthropic-api-key',
-				'claude-sonnet-5'
+				'claude-sonnet-5-5'
 			)
 		);
 		expect( connector.createSession ).toHaveBeenCalledTimes( 1 );

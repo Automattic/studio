@@ -131,8 +131,8 @@ export function buildStudioModel(
 		};
 	}
 	// Without `compat.forceAdaptiveThinking` pi-ai sends the legacy
-	// `thinking: { type: 'enabled', budget_tokens }` shape, which Sonnet 5 /
-	// Opus 5 reject with a 400 — copy the thinking fields from pi's catalog.
+	// `thinking: { type: 'enabled', budget_tokens }` shape, which Sonnet 5.5 /
+	// Opus 5.5 reject with a 400 — copy the thinking fields from pi's catalog.
 	const catalogModel = (
 		ANTHROPIC_MODELS as Partial< Record< string, Model< 'anthropic-messages' > > >
 	 )[ modelId ];

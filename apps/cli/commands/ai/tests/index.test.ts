@@ -48,7 +48,7 @@ vi.mock( 'cli/ai/providers', () => ( {
 	DEFAULT_AI_PROVIDER: 'wpcom',
 	getAiProviderDefinition: () => ( {
 		supportsModel: () => true,
-		defaultModel: 'claude-sonnet-5',
+		defaultModel: 'claude-sonnet-5-5',
 	} ),
 } ) );
 vi.mock( '@studio/agent/node/settings-store', () => ( {
@@ -185,7 +185,7 @@ describe( 'AI runCommand — resume by id restores session model', () => {
 				id: 'e1',
 				parentId: null,
 				timestamp: '2024-01-01T00:00:00Z',
-				modelId: 'claude-opus-5',
+				modelId: 'claude-opus-5-5',
 			},
 		];
 		const mockSm = {
@@ -205,7 +205,7 @@ describe( 'AI runCommand — resume by id restores session model', () => {
 
 		expect( runStudioAgentTurn ).toHaveBeenCalledTimes( 1 );
 		const callArgs = ( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 1 ] as { model: string };
-		expect( callArgs.model ).toBe( 'claude-opus-5' );
+		expect( callArgs.model ).toBe( 'claude-opus-5-5' );
 	} );
 } );
 
@@ -538,7 +538,7 @@ describe( 'AI runCommand — pinned provider falls back when unusable', () => {
 	it( 'runs on WordPress.com when the pinned provider has no key', async () => {
 		( resolveResumeSessionContext as Mock ).mockReturnValue( {
 			provider: 'anthropic-api-key',
-			model: 'claude-sonnet-5',
+			model: 'claude-sonnet-5-5',
 		} );
 		( isAiProviderReady as Mock ).mockResolvedValue( false );
 
@@ -558,7 +558,7 @@ describe( 'AI runCommand — pinned provider falls back when unusable', () => {
 		} );
 		( resolveResumeSessionContext as Mock ).mockReturnValue( {
 			provider: 'anthropic-api-key',
-			model: 'claude-sonnet-5',
+			model: 'claude-sonnet-5-5',
 		} );
 		( isAiProviderReady as Mock ).mockResolvedValue( false );
 
@@ -576,7 +576,7 @@ describe( 'AI runCommand — pinned provider falls back when unusable', () => {
 		( readSelectedAiProvider as Mock ).mockResolvedValue( undefined );
 		( resolveResumeSessionContext as Mock ).mockReturnValue( {
 			provider: 'anthropic-api-key',
-			model: 'claude-sonnet-5',
+			model: 'claude-sonnet-5-5',
 		} );
 		( isAiProviderReady as Mock ).mockResolvedValue( true );
 

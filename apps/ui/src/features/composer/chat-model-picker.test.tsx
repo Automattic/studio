@@ -67,7 +67,10 @@ async function renderPicker( model: AiModelId, connector: FakeConnector, onModel
 
 describe( 'Chat model picker', () => {
 	it( 'opens with the current model selected for keyboard navigation', async () => {
-		const { trigger } = await renderPicker( 'claude-opus-5', connectorFor( { anthropic: true } ) );
+		const { trigger } = await renderPicker(
+			'claude-opus-5-5',
+			connectorFor( { anthropic: true } )
+		);
 		fireEvent.click( trigger );
 		const current = await screen.findByRole( 'option', { name: /Opus 5/ } );
 		expect( current ).toHaveAttribute( 'aria-selected', 'true' );

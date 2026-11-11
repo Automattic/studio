@@ -18,7 +18,7 @@ function errorMessageWith( errorMessage: string ): AssistantMessage {
 		content: [],
 		api: 'anthropic-messages',
 		provider: 'studio-wpcom-anthropic',
-		model: 'claude-sonnet-5',
+		model: 'claude-sonnet-5-5',
 		usage: {
 			input: 0,
 			output: 0,

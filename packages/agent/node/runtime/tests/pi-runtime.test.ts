@@ -579,14 +579,14 @@ describe( 'pi runtime', () => {
 		await runRuntime( {
 			prompt: 'hello',
 			env: { ANTHROPIC_API_KEY: 'sk-ant-test' },
-			model: 'claude-sonnet-5',
+			model: 'claude-sonnet-5-5',
 			session: newSession(),
 		} );
 
 		const model = mocks.createdSessions[ 0 ].options.model!;
 		expect( model.provider ).toBe( 'anthropic' );
 		expect( model.compat ).toMatchObject( { forceAdaptiveThinking: true } );
-		expect( model.thinkingLevelMap ).toEqual( { xhigh: 'xhigh', max: 'max' } );
+		expect( model.thinkingLevelMap ).toMatchObject( { off: null, xhigh: 'xhigh', max: 'max' } );
 		// Studio's conservative limits are intentionally not taken from pi's catalog.
 		expect( model.maxTokens ).toBe( 32_000 );
 		expect( model.contextWindow ).toBe( 200_000 );
@@ -596,7 +596,7 @@ describe( 'pi runtime', () => {
 		await runRuntime( {
 			prompt: 'hello',
 			env: { ANTHROPIC_API_KEY: 'sk-ant-test' },
-			model: 'claude-opus-5',
+			model: 'claude-opus-5-5',
 			session: newSession(),
 		} );
 

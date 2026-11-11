@@ -136,23 +136,6 @@ describe( 'Preview sites', () => {
 		} );
 	} );
 
-	it( 'waits for the preview link WordPress.com lists once the owner can sign in', async () => {
-		const links = [ '', '', shareUrl ];
-		get.mockImplementation( ( { path }: { path: string } ) =>
-			Promise.resolve(
-				path === '/wow-funnel/pending'
-					? { preview_sites: [ { blog_id: siteId, share_url: links.shift() ?? shareUrl } ] }
-					: { importId: 'new', importStatus: 'importSuccess' }
-			)
-		);
-
-		const created = createPreviewSite( 678, 'My Preview', token );
-		await vi.runAllTimersAsync();
-
-		await expect( created ).resolves.toEqual( expect.objectContaining( { shareUrl } ) );
-		expect( links ).toHaveLength( 0 );
-	} );
-
 	it( 'fails when the archive import fails', async () => {
 		get.mockResolvedValue( { importId: 'new', importStatus: 'importFailure' } );
 

@@ -117,6 +117,7 @@ export async function linkPulledPreview(
 				shareUrl: preview.shareUrl,
 				expiresAt: preview.expiresAt,
 				liveSiteId: preview.liveSiteId,
+				ownerCanSignIn: preview.ownerCanSignIn,
 			};
 			config.snapshots.push( snapshot );
 		}
@@ -279,6 +280,7 @@ export async function reconcilePreviews(
 			}
 			snapshot.expiresAt = preview.expiresAt;
 			snapshot.liveSiteId = preview.liveSiteId;
+			snapshot.ownerCanSignIn = preview.ownerCanSignIn;
 			if ( preview.shareUrl ) {
 				snapshot.shareUrl = preview.shareUrl;
 			}
@@ -299,6 +301,7 @@ export async function reconcilePreviews(
 				shareUrl: preview.shareUrl,
 				expiresAt: preview.expiresAt,
 				liveSiteId: preview.liveSiteId,
+				ownerCanSignIn: preview.ownerCanSignIn,
 			} );
 		}
 		if ( JSON.stringify( config.snapshots ) !== before ) {

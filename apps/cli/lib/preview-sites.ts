@@ -42,7 +42,8 @@ const importResponseSchema = z
 	.catch( null );
 
 // `preview_sites` is left out when the user has none. `expires_at` is in seconds. `share_url` is the
-// preview link, '' until the site's first build is done and its owner can be signed in to it.
+// preview link WordPress.com creates when the site's first build is done, and '' until then.
+// `owner_can_sign_in` is true once WordPress.com signs the owner straight in to the site.
 const standingPreviewsSchema = z.object( {
 	preview_sites: z
 		.array(
@@ -52,6 +53,7 @@ const standingPreviewsSchema = z.object( {
 				expires_at: z.number().optional(),
 				share_url: z.string().optional(),
 				live_site_id: z.number().optional(),
+				owner_can_sign_in: z.boolean().optional(),
 			} )
 		)
 		.optional(),
@@ -64,6 +66,7 @@ export type StandingPreview = {
 	expiresAt?: number;
 	shareUrl?: string;
 	liveSiteId?: number;
+	ownerCanSignIn?: boolean;
 };
 
 function wpcom( token: string ) {
@@ -114,38 +117,41 @@ async function getLatestImport(
 }
 
 /**
- * Waits for the site's archive import to finish and for its preview link, which WordPress.com lists
- * once the build is done and the owner can be signed in to it: on a new preview, a little after the
- * import reports success. `previousImportId` is the import an update replaces, which reads as
- * finished until the new one starts.
+ * Waits for the site's archive import to finish. `previousImportId` is the import an update
+ * replaces, which reads as finished until the new one starts.
  */
-async function waitForPreview(
+async function waitForPreviewImport(
 	siteId: number,
 	token: string,
 	previousImportId?: string
-): Promise< PreviewSite > {
+): Promise< void > {
 	const deadline = Date.now() + IMPORT_TIMEOUT_MS;
-	let imported = false;
 	while ( Date.now() < deadline ) {
-		if ( ! imported ) {
-			// Errors mean the site is still being set up; keep waiting.
-			const latest = await getLatestImport( siteId, token ).catch( () => null );
-			if ( latest?.importId && latest.importId !== previousImportId ) {
-				if ( latest.importStatus === 'importFailure' ) {
-					throw new LoggerError( __( 'The preview site could not be built from the archive.' ) );
-				}
-				imported = latest.importStatus === 'importSuccess';
+		// Errors mean the site is still being set up; keep waiting.
+		const latest = await getLatestImport( siteId, token ).catch( () => null );
+		if ( latest?.importId && latest.importId !== previousImportId ) {
+			if ( latest.importStatus === 'importSuccess' ) {
+				return;
 			}
-		}
-		if ( imported ) {
-			const { shareUrl, liveSiteId } = ( await getStandingPreviews( token ) ).get( siteId ) ?? {};
-			if ( shareUrl ) {
-				return { siteId, hostname: new URL( shareUrl ).hostname, shareUrl, liveSiteId };
+			if ( latest.importStatus === 'importFailure' ) {
+				throw new LoggerError( __( 'The preview site could not be built from the archive.' ) );
 			}
 		}
 		await new Promise( ( resolve ) => setTimeout( resolve, IMPORT_POLL_INTERVAL_MS ) );
 	}
 	throw new LoggerError( __( 'The preview site did not become ready within the timeout.' ) );
+}
+
+/**
+ * The preview link WordPress.com creates once the site's build is done (before the import reports
+ * success), and the preview it opens.
+ */
+async function getPreviewLink( siteId: number, token: string ): Promise< PreviewSite > {
+	const { shareUrl, liveSiteId } = ( await getStandingPreviews( token ) ).get( siteId ) ?? {};
+	if ( ! shareUrl ) {
+		throw new LoggerError( __( 'The preview site has no preview link.' ) );
+	}
+	return { siteId, hostname: new URL( shareUrl ).hostname, shareUrl, liveSiteId };
 }
 
 /**
@@ -196,7 +202,8 @@ export async function createPreviewSite(
 		throw new LoggerError( __( 'Failed to create preview site' ), error );
 	}
 
-	return waitForPreview( siteId, token );
+	await waitForPreviewImport( siteId, token );
+	return getPreviewLink( siteId, token );
 }
 
 /** Rebuilds a preview site from an archive uploaded with its site ID. */
@@ -223,7 +230,8 @@ export async function updatePreviewSite(
 		throw new LoggerError( __( 'Failed to update preview site' ), error );
 	}
 
-	return waitForPreview( siteId, token, previousImportId );
+	await waitForPreviewImport( siteId, token, previousImportId );
+	return getPreviewLink( siteId, token );
 }
 
 /**
@@ -244,6 +252,7 @@ export async function getStandingPreviews(
 				expiresAt: site.expires_at === undefined ? undefined : site.expires_at * 1000,
 				shareUrl: site.share_url || undefined,
 				liveSiteId: site.live_site_id,
+				ownerCanSignIn: site.owner_can_sign_in,
 			},
 		] )
 	);

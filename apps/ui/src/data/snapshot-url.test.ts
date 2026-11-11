@@ -8,12 +8,20 @@ const preview: Snapshot = {
 	localSiteId: 'local',
 	date: 0,
 	shareUrl: 'https://humble-duck-engineer.wpcomstaging.com/?share=abc',
+	ownerCanSignIn: true,
 };
 
 describe( 'getSnapshotOpenUrl', () => {
 	it( 'signs the owner in to a WordPress.com preview on the way to its homepage', () => {
 		expect( getSnapshotOpenUrl( preview ) ).toBe(
 			'https://humble-duck-engineer.wpcomstaging.com/wp-login.php?redirect_to=https%3A%2F%2Fhumble-duck-engineer.wpcomstaging.com%2F'
+		);
+	} );
+
+	it( 'opens the preview link until WordPress.com can sign the owner straight in', () => {
+		expect( getSnapshotOpenUrl( { ...preview, ownerCanSignIn: false } ) ).toBe( preview.shareUrl );
+		expect( getSnapshotOpenUrl( { ...preview, ownerCanSignIn: undefined } ) ).toBe(
+			preview.shareUrl
 		);
 	} );
 

@@ -56,15 +56,16 @@ function parseFontFaces( css: string ): StylesheetFace[] {
 			continue;
 		}
 		const style = read( 'font-style' ) ?? 'normal';
-		const weight = Number( read( 'font-weight' ) ?? 400 );
+		// One weight, or the range "400 700" a variable font is served with.
+		const weights = ( read( 'font-weight' ) ?? '400' ).split( /\s+/ ).map( Number );
 		const face = faces.get( `${ url } ${ style }` );
 		if ( face ) {
-			face.weights.push( weight );
+			face.weights.push( ...weights );
 		} else {
 			faces.set( `${ url } ${ style }`, {
 				family,
 				style,
-				weights: [ weight ],
+				weights,
 				url,
 				unicodeRange: read( 'unicode-range' ),
 				subset,
@@ -210,10 +211,17 @@ async function namesMissingFiles( family: FontFamilyPreset, dirs: string[] ): Pr
 // assets/fonts and names them as "file:./" sources, as the Font Library keeps
 // each font it installs as a file on the site (wp_font_dir() in
 // wp-includes/fonts.php). Returns whether it downloaded any; a file its host
-// does not serve now is left as written.
-async function downloadSources( family: FontFamilyPreset, themeDir: string ): Promise< boolean > {
+// does not serve now is left as written. A source that is a stylesheet, as a
+// Google Fonts css2 URL is, names the font files: its faces take the place of
+// the face that named it.
+async function downloadSources(
+	family: FontFamilyPreset,
+	font: string | undefined,
+	themeDir: string
+): Promise< boolean > {
 	let downloaded = false;
 	const familySlug = slugify( family.slug ?? family.name ?? 'font' );
+	const stylesheets = new Map< unknown, string >();
 	for ( const face of family.fontFace ?? [] ) {
 		const holder = face as { src?: unknown };
 		const sources = Array.isArray( holder.src ) ? holder.src : [ holder.src ];
@@ -236,7 +244,12 @@ async function downloadSources( family: FontFamilyPreset, themeDir: string ): Pr
 					path.posix.basename( new URL( source ).pathname )
 				);
 				try {
-					const data = Buffer.from( await ( await fetchOk( source ) ).arrayBuffer() );
+					const response = await fetchOk( source );
+					if ( response.headers.get( 'content-type' )?.includes( 'text/css' ) ) {
+						stylesheets.set( face, source );
+						return written;
+					}
+					const data = Buffer.from( await response.arrayBuffer() );
 					await mkdir( path.join( themeDir, path.dirname( file ) ), { recursive: true } );
 					await writeFile( path.join( themeDir, file ), data );
 				} catch {
@@ -247,6 +260,24 @@ async function downloadSources( family: FontFamilyPreset, themeDir: string ): Pr
 			} )
 		);
 		holder.src = Array.isArray( holder.src ) ? local : local[ 0 ];
+	}
+	if ( stylesheets.size ) {
+		const faces = new Map< string, ThemeFontFace >();
+		for ( const url of new Set( stylesheets.values() ) ) {
+			const byFamily = await downloadThemeFonts( url, themeDir ).catch( () => null );
+			if ( ! byFamily ) continue;
+			// The faces of this family, when the stylesheet declares several.
+			for ( const face of ( font && byFamily[ font ] ) || Object.values( byFamily ).flat() ) {
+				faces.set( face.src[ 0 ], face );
+			}
+		}
+		if ( faces.size ) {
+			family.fontFace = [
+				...( family.fontFace ?? [] ).filter( ( face ) => ! stylesheets.has( face ) ),
+				...faces.values(),
+			];
+			downloaded = true;
+		}
 	}
 	return downloaded;
 }
@@ -279,7 +310,7 @@ export async function selfHostThemeJsonFonts( themeDir: string ): Promise< SelfH
 			.trim()
 			.replace( /^['"]|['"]$/g, '' );
 		const name = family.name ?? font;
-		if ( await downloadSources( family, themeDir ) ) {
+		if ( await downloadSources( family, font, themeDir ) ) {
 			result.downloaded.push( name ?? family.slug ?? '' );
 		}
 		const missing = !! family.fontFace?.length && ( await namesMissingFiles( family, dirs ) );

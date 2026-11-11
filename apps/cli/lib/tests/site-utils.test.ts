@@ -3,12 +3,7 @@ import { vi, type Mock } from 'vitest';
 import { openBrowser } from 'cli/lib/browser';
 import { SiteData, readCliConfig } from 'cli/lib/cli-config/core';
 import { isProxyProcessRunning, startProxyProcess, stopProxyProcess } from 'cli/lib/daemon-client';
-import {
-	openSiteInBrowser,
-	restartProxyIfOutOfDate,
-	setupCustomDomain,
-	stopProxyIfNoSitesNeedIt,
-} from 'cli/lib/site-utils';
+import { openSiteInBrowser, setupCustomDomain, stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { isServerRunning, subscribeForReadyOrExit } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 
@@ -152,7 +147,6 @@ describe( 'setupCustomDomain', () => {
 			customDomain: 'site.local',
 			...site,
 		};
-		( readCliConfig as Mock ).mockResolvedValue( { version: 1, sites: [ siteData ] } );
 		if ( proxyServesHttps === undefined ) {
 			mockFetch.mockRejectedValue( new Error( 'fetch failed' ) );
 		} else {
@@ -176,24 +170,24 @@ describe( 'setupCustomDomain', () => {
 		vi.unstubAllGlobals();
 	} );
 
-	it( 'should restart a proxy without port 443 when a site uses HTTPS', async () => {
+	it( 'should restart a proxy without port 443 for a site that uses HTTPS', async () => {
 		await startSiteWithProxyRunning( { enableHttps: true }, false );
 
 		expect( stopProxyProcess ).toHaveBeenCalled();
 		expect( startProxyProcess ).toHaveBeenCalled();
 	} );
 
-	it( 'should restart a proxy holding port 443 when no site uses HTTPS', async () => {
-		await startSiteWithProxyRunning( { enableHttps: false }, true );
+	it( 'should keep a proxy that already holds port 443', async () => {
+		await startSiteWithProxyRunning( { enableHttps: true }, true );
 
-		expect( stopProxyProcess ).toHaveBeenCalled();
-		expect( startProxyProcess ).toHaveBeenCalled();
+		expect( stopProxyProcess ).not.toHaveBeenCalled();
+		expect( startProxyProcess ).not.toHaveBeenCalled();
 	} );
 
 	it.each( [ true, false ] )(
-		'should keep the proxy running when its ports match the sites (HTTPS: %s)',
-		async ( enableHttps ) => {
-			await startSiteWithProxyRunning( { enableHttps }, enableHttps );
+		'should keep the proxy for a site that does not use HTTPS (port 443 held: %s)',
+		async ( proxyServesHttps ) => {
+			await startSiteWithProxyRunning( { enableHttps: false }, proxyServesHttps );
 
 			expect( stopProxyProcess ).not.toHaveBeenCalled();
 			expect( startProxyProcess ).not.toHaveBeenCalled();
@@ -204,32 +198,6 @@ describe( 'setupCustomDomain', () => {
 		await startSiteWithProxyRunning( { enableHttps: true }, undefined );
 
 		expect( stopProxyProcess ).not.toHaveBeenCalled();
-	} );
-
-	describe( 'restartProxyIfOutOfDate', () => {
-		beforeEach( () => {
-			( readCliConfig as Mock ).mockResolvedValue( { version: 1, sites: [] } );
-			mockFetch.mockImplementation( async () => Response.json( { https: true } ) );
-		} );
-
-		it( 'should restart a proxy holding port 443 once no site uses HTTPS', async () => {
-			( stopProxyProcess as Mock ).mockImplementation( async () => {
-				( isProxyProcessRunning as Mock ).mockResolvedValue( undefined );
-			} );
-
-			await restartProxyIfOutOfDate( logger );
-
-			expect( stopProxyProcess ).toHaveBeenCalled();
-			expect( startProxyProcess ).toHaveBeenCalled();
-		} );
-
-		it( 'should not start a proxy that is not running', async () => {
-			( isProxyProcessRunning as Mock ).mockResolvedValue( undefined );
-
-			await restartProxyIfOutOfDate( logger );
-
-			expect( startProxyProcess ).not.toHaveBeenCalled();
-		} );
 	} );
 } );
 

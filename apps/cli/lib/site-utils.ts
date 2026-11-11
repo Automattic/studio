@@ -6,7 +6,7 @@ import { __ } from '@wordpress/i18n';
 import { openBrowser } from 'cli/lib/browser';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
 import { readCliConfig, SiteData } from 'cli/lib/cli-config/core';
-import { getSiteUrl, isHttpsUsedByAnySite } from 'cli/lib/cli-config/sites';
+import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import {
 	isProxyProcessRunning,
 	listProcesses,
@@ -37,20 +37,15 @@ async function isProxyServingHttps(): Promise< boolean | undefined > {
 }
 
 /**
- * The proxy decides whether to take port 443 when it starts, so it is out of date once that no
- * longer matches the sites' HTTPS settings.
+ * Starts the HTTP proxy server if it's not already running. The proxy takes port 443 only if a
+ * site used HTTPS when it started, so it starts again for the first site that needs HTTPS.
  */
-async function isProxyOutOfDate(): Promise< boolean > {
-	const servesHttps = await isProxyServingHttps();
-	return servesHttps !== undefined && servesHttps !== ( await isHttpsUsedByAnySite() );
-}
-
-/**
- * Starts the HTTP proxy server if it's not already running, or again if it is out of date
- */
-async function startProxyIfNeeded( logger: Logger< LoggerAction > ): Promise< void > {
+async function startProxyIfNeeded(
+	logger: Logger< LoggerAction >,
+	needsHttps: boolean
+): Promise< void > {
 	let proxyProcess = await isProxyProcessRunning();
-	if ( proxyProcess && ( await isProxyOutOfDate() ) ) {
+	if ( proxyProcess && needsHttps && ( await isProxyServingHttps() ) === false ) {
 		await stopProxyProcess();
 		proxyProcess = undefined;
 	}
@@ -71,17 +66,6 @@ async function startProxyIfNeeded( logger: Logger< LoggerAction > ): Promise< vo
 		logger.reportSuccess( __( 'HTTP proxy server started' ) );
 	} else {
 		logger.reportSuccess( __( 'HTTP proxy already running' ) );
-	}
-}
-
-/**
- * Restarts the running proxy if a change to the sites left it out of date, so that it releases
- * port 443 once the last site with HTTPS is gone.
- */
-export async function restartProxyIfOutOfDate( logger: Logger< LoggerAction > ): Promise< void > {
-	if ( ( await isProxyProcessRunning() ) && ( await isProxyOutOfDate() ) ) {
-		await stopProxyProcess();
-		await startProxyIfNeeded( logger );
 	}
 }
 
@@ -142,7 +126,7 @@ export async function setupCustomDomain(
 		return;
 	}
 
-	await startProxyIfNeeded( logger );
+	await startProxyIfNeeded( logger, !! site.enableHttps );
 
 	if ( site.enableHttps && ! site.tlsKey && ! site.tlsCert ) {
 		logger.reportStart( LoggerAction.GENERATE_CERT, __( 'Generating SSL certificates…' ) );

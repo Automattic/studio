@@ -18,7 +18,7 @@ import {
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/daemon-client';
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
-import { restartProxyIfOutOfDate, stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
+import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
@@ -277,29 +277,6 @@ describe( 'CLI: studio site delete', () => {
 			expect( removeDomainFromHosts ).toHaveBeenCalledWith( 'example.local' );
 			expect( deleteSiteCertificate ).toHaveBeenCalledWith( 'example.local' );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should let the proxy release port 443 after deleting a site with HTTPS', async () => {
-			testSite = createTestSite( { customDomain: 'example.local', enableHttps: true } );
-			vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
-			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
-				version: 1,
-				sites: [ testSite ],
-			} );
-			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
-			vi.mocked( restartProxyIfOutOfDate ).mockImplementation( async () => {
-				expect( saveCliConfig ).toHaveBeenCalledWith( expect.objectContaining( { sites: [] } ) );
-			} );
-
-			await runCommand( testSiteFolder, false );
-
-			expect( restartProxyIfOutOfDate ).toHaveBeenCalled();
-		} );
-
-		it( 'should leave the proxy alone after deleting a site without HTTPS', async () => {
-			await runCommand( testSiteFolder, false );
-
-			expect( restartProxyIfOutOfDate ).not.toHaveBeenCalled();
 		} );
 
 		it( 'should skip file deletion when site directory no longer exists', async () => {

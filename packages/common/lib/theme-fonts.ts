@@ -1,6 +1,3 @@
-import { mkdir, writeFile } from 'node:fs/promises';
-import path from 'node:path';
-
 /** A theme.json `fontFace` entry. */
 export interface ThemeFontFace {
 	fontFamily: string;
@@ -74,13 +71,13 @@ function parseFontFaces( css: string ): StylesheetFace[] {
 }
 
 /**
- * Downloads the font files behind a Google Fonts stylesheet URL into the theme's
- * assets/fonts directory and returns the theme.json `fontFace` entries, keyed by
- * family name, pointing at them.
+ * Downloads the font files behind a Google Fonts stylesheet URL, hands each to
+ * `writeFontFile` at its path in the theme (under assets/fonts), and returns the
+ * theme.json `fontFace` entries, keyed by family name, pointing at them.
  */
 export async function downloadThemeFonts(
 	stylesheetUrl: string,
-	themeDir: string
+	writeFontFile: ( themePath: string, data: Uint8Array ) => Promise< void >
 ): Promise< Record< string, ThemeFontFace[] > > {
 	const response = await fetchOk( stylesheetUrl, {
 		headers: { 'User-Agent': BROWSER_USER_AGENT },
@@ -100,7 +97,7 @@ export async function downloadThemeFonts(
 		return {
 			...face,
 			fontWeight: min === max ? String( min ) : `${ min } ${ max }`,
-			file: path.posix.join( 'assets', 'fonts', familySlug, `${ fileName }.woff2` ),
+			file: `assets/fonts/${ familySlug }/${ fileName }.woff2`,
 		};
 	} );
 	if ( ! faces.length ) {
@@ -109,9 +106,8 @@ export async function downloadThemeFonts(
 
 	await Promise.all(
 		faces.map( async ( face ) => {
-			const data = Buffer.from( await ( await fetchOk( face.url ) ).arrayBuffer() );
-			await mkdir( path.join( themeDir, path.dirname( face.file ) ), { recursive: true } );
-			await writeFile( path.join( themeDir, face.file ), data );
+			const data = new Uint8Array( await ( await fetchOk( face.url ) ).arrayBuffer() );
+			await writeFontFile( face.file, data );
 		} )
 	);
 

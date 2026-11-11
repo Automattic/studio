@@ -50,6 +50,7 @@ export function getSiteCommands( {
 	site,
 	panelShown,
 	canAnnotate,
+	nativeSites,
 	annotating,
 	actions,
 	destinations,
@@ -65,6 +66,7 @@ export function getSiteCommands( {
 	site: SiteDetails;
 	panelShown: boolean;
 	canAnnotate: boolean;
+	nativeSites: boolean;
 	annotating: boolean;
 	actions: ReturnType< typeof useSiteActions >;
 	destinations: ReturnType< typeof useOpenInDestinations >;
@@ -141,24 +143,28 @@ export function getSiteCommands( {
 						keywords: keywords[ 'wp-admin' ],
 						run: actions.openAdmin,
 					},
-					{
-						id: 'database',
-						group: 'commands' as const,
-						label: __( 'Open database' ),
-						icon: DatabaseIcon,
-						description,
-						keywords: keywords.phpmyadmin,
-						run: actions.openDatabase,
-					},
-					{
-						id: 'email',
-						group: 'commands' as const,
-						label: __( 'Open email log' ),
-						icon: MailIcon,
-						description,
-						keywords: [ __( 'Inbox' ), __( 'Mail' ), 'wp_mail' ],
-						run: actions.openEmail,
-					},
+					...( nativeSites
+						? [
+								{
+									id: 'database',
+									group: 'commands' as const,
+									label: __( 'Open database' ),
+									icon: DatabaseIcon,
+									description,
+									keywords: keywords.phpmyadmin,
+									run: actions.openDatabase,
+								},
+								{
+									id: 'email',
+									group: 'commands' as const,
+									label: __( 'Open email log' ),
+									icon: MailIcon,
+									description,
+									keywords: [ __( 'Inbox' ), __( 'Mail' ), 'wp_mail' ],
+									run: actions.openEmail,
+								},
+						  ]
+						: [] ),
 					...( site.running
 						? [
 								{

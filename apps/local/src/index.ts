@@ -177,6 +177,7 @@ import {
 	updateSiteMetadata,
 	type SiteMetadata,
 } from '@studio/common/sites/metadata';
+import { nodeSiteFiles } from '@studio/common/sites/node-site-files';
 import { getSiteFolderForTarget, type SiteOpenTarget } from '@studio/common/sites/open-target';
 import { designFixesSchema, fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
 import {
@@ -1076,7 +1077,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			res.json(
-				await readSiteDesign( sitePath, activeThemeSlug( sitePath ), () =>
+				await readSiteDesign( nodeSiteFiles( sitePath ), activeThemeSlug( sitePath ), () =>
 					readGlobalStyles( execute, sitePath )
 				)
 			);
@@ -1096,7 +1097,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'Invalid design fixes' } );
 				return;
 			}
-			res.json( await fixSiteDesign( sitePath, activeThemeSlug( sitePath ), fixes.data ) );
+			res.json(
+				await fixSiteDesign( nodeSiteFiles( sitePath ), activeThemeSlug( sitePath ), fixes.data )
+			);
 		} )
 	);
 

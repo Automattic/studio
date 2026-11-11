@@ -53,6 +53,8 @@ vi.mock( 'cli/lib/frontend/server', () => ( {
 	startFrontendServer: vi.fn(),
 	stopFrontendServer: vi.fn(),
 } ) );
+const wpcomReq = vi.hoisted( () => ( { get: vi.fn() } ) );
+vi.mock( '@studio/common/lib/wpcom-factory', () => ( { default: () => ( { req: wpcomReq } ) } ) );
 
 const site = {
 	id: 'site-123',
@@ -246,5 +248,27 @@ describe( 'cliAgentHost', () => {
 			'ready\nfetch failed'
 		);
 		expect( readFrontendLogTail ).toHaveBeenCalledWith( 'site-123', 2 );
+	} );
+	it( 'asks the user to log in before sending feedback while signed out', async () => {
+		vi.mocked( readAuthToken ).mockResolvedValue( null );
+
+		await expect(
+			cliAgentHost.sendFeedback!( { type: 'bug', message: 'Something broke.' } )
+		).rejects.toThrow( /studio auth login.*github\.com\/Automattic\/studio\/issues/ );
+	} );
+
+	it( 'sends WordPress.com DELETE requests as HTTP DELETE with their query', async () => {
+		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
+		wpcomReq.get.mockResolvedValue( { deleted: true } );
+
+		await cliAgentHost.wpcom.request( 'DELETE', '/sites/123/pages/67', {
+			force: true,
+			apiNamespace: 'wp/v2',
+		} );
+
+		expect( wpcomReq.get ).toHaveBeenCalledWith(
+			{ path: '/sites/123/pages/67', method: 'DELETE' },
+			{ force: true, apiNamespace: 'wp/v2' }
+		);
 	} );
 } );

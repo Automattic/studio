@@ -1,24 +1,22 @@
 import os from 'os';
 import path from 'path';
 import { vi } from 'vitest';
-import { getSharedBrowser } from '@studio/agent/node/browser-utils';
-import { findActiveSiteHeadlessDetails } from '@studio/agent/node/headless';
-import { auditPerformance } from '@studio/agent/node/performance-audit';
-import { auditSeo } from '@studio/agent/node/seo-audit';
-import { resolveStudioTools, studioToolDefinitions } from '@studio/agent/node/tools';
-import { bindTool, type AnyStudioAgentTool } from '@studio/agent/node/tools/define-tool';
+import { findActiveSiteHeadlessDetails } from '@studio/agent/shared/headless';
+import { auditPerformance } from '@studio/agent/shared/performance-audit';
+import { auditSeo } from '@studio/agent/shared/seo-audit';
+import { resolveStudioTools, studioToolDefinitions } from '@studio/agent/shared/tools';
+import { bindTool, type AnyStudioAgentTool } from '@studio/agent/shared/tools/define-tool';
 import { createFakeHost, fakeHeadlessSite, fakeSite } from './fake-host';
-import type { StudioAgentHost } from '@studio/agent/node/host';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
 
-vi.mock( '@studio/agent/node/browser-utils', () => ( { getSharedBrowser: vi.fn() } ) );
-vi.mock( '@studio/agent/node/performance-audit', () => ( { auditPerformance: vi.fn() } ) );
-vi.mock( '@studio/agent/node/seo-audit', () => ( { auditSeo: vi.fn() } ) );
+vi.mock( '@studio/agent/shared/performance-audit', () => ( { auditPerformance: vi.fn() } ) );
+vi.mock( '@studio/agent/shared/seo-audit', () => ( { auditSeo: vi.fn() } ) );
 
 describe( 'headless site tools', () => {
 	let host: StudioAgentHost;
 
 	const getTool = ( name: string ) => {
-		const tool = studioToolDefinitions.find( ( definition ) => definition.name === name );
+		const tool = studioToolDefinitions( host ).find( ( definition ) => definition.name === name );
 		expect( tool ).toBeDefined();
 		return bindTool( tool!, host );
 	};
@@ -197,15 +195,11 @@ describe( 'headless site tools', () => {
 	describe( 'tools that render the site', () => {
 		const mockPage = () => {
 			const page = {
-				emulateMedia: vi.fn(),
-				goto: vi.fn(),
-				waitForLoadState: vi.fn().mockResolvedValue( undefined ),
 				evaluate: vi.fn().mockResolvedValueOnce( undefined ).mockResolvedValueOnce( [] ),
+				hover: vi.fn(),
 				close: vi.fn(),
 			};
-			vi.mocked( getSharedBrowser ).mockResolvedValue( {
-				newPage: vi.fn().mockResolvedValue( page ),
-			} as never );
+			vi.mocked( host.pages.open ).mockResolvedValue( page as never );
 			return page;
 		};
 
@@ -217,8 +211,12 @@ describe( 'headless site tools', () => {
 			await call( 'need_for_speed', { nameOrPath: 'My Site', path: '/blog' } );
 			await call( 'rank_me_up', { nameOrPath: 'My Site' } );
 
-			expect( auditPerformance ).toHaveBeenCalledWith( 'http://localhost:3000', '/blog' );
-			expect( auditSeo ).toHaveBeenCalledWith( 'http://localhost:3000', '/' );
+			expect( auditPerformance ).toHaveBeenCalledWith(
+				host.pages,
+				'http://localhost:3000',
+				'/blog'
+			);
+			expect( auditSeo ).toHaveBeenCalledWith( host.pages, 'http://localhost:3000', '/' );
 		} );
 
 		it( 'audit WordPress itself on a classic site', async () => {
@@ -226,12 +224,12 @@ describe( 'headless site tools', () => {
 
 			await call( 'need_for_speed', { nameOrPath: 'My Site' } );
 
-			expect( auditPerformance ).toHaveBeenCalledWith( 'http://localhost:8888', '/' );
+			expect( auditPerformance ).toHaveBeenCalledWith( host.pages, 'http://localhost:8888', '/' );
 		} );
 
 		it( 'inspect_design loads a page of the frontend given the site', async () => {
 			useHeadlessSite();
-			const page = mockPage();
+			mockPage();
 
 			const text = await textOf( 'inspect_design', {
 				nameOrPath: 'My Site',
@@ -239,15 +237,21 @@ describe( 'headless site tools', () => {
 				selectors: [ 'h1' ],
 			} );
 
-			expect( page.goto ).toHaveBeenCalledWith( 'http://localhost:3000/about', expect.anything() );
+			expect( host.pages.open ).toHaveBeenCalledWith(
+				{ url: 'http://localhost:3000/about' },
+				expect.anything()
+			);
 			expect( JSON.parse( text ).url ).toBe( 'http://localhost:3000/about' );
 		} );
 
 		it( 'inspect_design keeps a full URL and needs one without a site', async () => {
-			const page = mockPage();
+			mockPage();
 
 			await call( 'inspect_design', { url: 'http://localhost:8888/', selectors: [ 'h1' ] } );
-			expect( page.goto ).toHaveBeenCalledWith( 'http://localhost:8888/', expect.anything() );
+			expect( host.pages.open ).toHaveBeenCalledWith(
+				{ url: 'http://localhost:8888/' },
+				expect.anything()
+			);
 			expect( host.sites.resolve ).not.toHaveBeenCalled();
 
 			await expect( call( 'inspect_design', { selectors: [ 'h1' ] } ) ).rejects.toThrow(

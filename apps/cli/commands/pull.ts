@@ -384,6 +384,7 @@ async function pullSite(
 			cli: cliSelection,
 			wpComAccessToken: sourceSite.wpComToken.accessToken,
 			wpComSiteId: sourceSite.wpComSite.id,
+			filesUnavailable: sourceSite.wpComSite.pushNeedsUpgrade,
 		} );
 		if ( ! selection ) {
 			console.log( __( 'Cancelled.' ) );

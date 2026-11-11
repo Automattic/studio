@@ -10,6 +10,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { ChevronDownIcon } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useConnector } from '@/data/core';
 import { useWordPressVersions } from '@/data/queries/use-wordpress-versions';
 import {
 	CertificateTrustNotice,
@@ -138,6 +139,7 @@ export function CreateSiteForm( {
 	onDraftChange,
 	showFrontendChoice = false,
 }: CreateSiteFormProps ) {
+	const { nativeSites } = useConnector().capabilities;
 	const formId = useId();
 	const advancedId = useId();
 	const advancedPanelRef = useRef< HTMLDivElement >( null );
@@ -410,42 +412,46 @@ export function CreateSiteForm( {
 			aria-labelledby={ `${ advancedId }-trigger` }
 		>
 			<FieldGroup className={ styles.advancedFields } inert={ isSubmitting || undefined }>
-				{ existing ? null : wpVersionOptions ? (
-					<SelectField
-						label={ __( 'WordPress version' ) }
-						description={ wpVersionDescription }
-						value={ data.wpVersion }
-						options={ wpVersionOptions }
-						disabled={ isOffline }
-						disabledReason={ offlineMessage }
-						onChange={ ( wpVersion ) => handleChange( { wpVersion } ) }
-					/>
-				) : (
-					<TextField
-						label={ __( 'WordPress version' ) }
-						orientation="horizontal"
-						controlClassName={ styles.advancedControl }
-						placeholder={ DEFAULT_WORDPRESS_VERSION }
-						value={ data.wpVersion }
-						onChange={ ( event ) => handleChange( { wpVersion: event.target.value } ) }
-					/>
+				{ nativeSites && (
+					<>
+						{ existing ? null : wpVersionOptions ? (
+							<SelectField
+								label={ __( 'WordPress version' ) }
+								description={ wpVersionDescription }
+								value={ data.wpVersion }
+								options={ wpVersionOptions }
+								disabled={ isOffline }
+								disabledReason={ offlineMessage }
+								onChange={ ( wpVersion ) => handleChange( { wpVersion } ) }
+							/>
+						) : (
+							<TextField
+								label={ __( 'WordPress version' ) }
+								orientation="horizontal"
+								controlClassName={ styles.advancedControl }
+								placeholder={ DEFAULT_WORDPRESS_VERSION }
+								value={ data.wpVersion }
+								onChange={ ( event ) => handleChange( { wpVersion: event.target.value } ) }
+							/>
+						) }
+						<SelectField
+							label={ __( 'PHP version' ) }
+							value={ data.phpVersion }
+							options={ getPhpVersionOptions() }
+							onChange={ ( phpVersion ) =>
+								handleChange( { phpVersion: phpVersion as SupportedPHPVersion } )
+							}
+						/>
+						<SelectField
+							label={ __( 'File access' ) }
+							value={ data.fileAccess }
+							options={ getFileAccessOptions() }
+							onChange={ ( fileAccess ) =>
+								handleChange( { fileAccess: fileAccess as SiteFileAccess } )
+							}
+						/>
+					</>
 				) }
-				<SelectField
-					label={ __( 'PHP version' ) }
-					value={ data.phpVersion }
-					options={ getPhpVersionOptions() }
-					onChange={ ( phpVersion ) =>
-						handleChange( { phpVersion: phpVersion as SupportedPHPVersion } )
-					}
-				/>
-				<SelectField
-					label={ __( 'File access' ) }
-					value={ data.fileAccess }
-					options={ getFileAccessOptions() }
-					onChange={ ( fileAccess ) =>
-						handleChange( { fileAccess: fileAccess as SiteFileAccess } )
-					}
-				/>
 				{ ! existing && (
 					<>
 						<Field orientation="horizontal" aria-labelledby={ credentialsId }>
@@ -520,30 +526,34 @@ export function CreateSiteForm( {
 								</Popover.Popup>
 							</Popover.Root>
 						</Field>
-						<TextField
-							label={ __( 'Domain name' ) }
-							controlClassName={ styles.domainControls }
-							value={ data.customDomain }
-							placeholder="localhost"
-							error={ advancedErrors.customDomain }
-							description={
-								requiresCustomDomain ? __( 'This Blueprint requires a custom domain.' ) : undefined
-							}
-							onChange={ ( event ) => handleChange( { customDomain: event.target.value } ) }
-							action={
-								<FieldLabel htmlFor={ `${ formId }-https` } className={ styles.httpsToggle }>
-									{ __( 'HTTPS' ) }
-									<Switch
-										id={ `${ formId }-https` }
-										aria-label={ __( 'Enable HTTPS' ) }
-										checked={ enableHttps }
-										disabled={ ! customDomain || !! advancedErrors.customDomain }
-										onCheckedChange={ ( checked ) => handleChange( { enableHttps: checked } ) }
-									/>
-								</FieldLabel>
-							}
-						/>
-						{ enableHttps && (
+						{ nativeSites && (
+							<TextField
+								label={ __( 'Domain name' ) }
+								controlClassName={ styles.domainControls }
+								value={ data.customDomain }
+								placeholder="localhost"
+								error={ advancedErrors.customDomain }
+								description={
+									requiresCustomDomain
+										? __( 'This Blueprint requires a custom domain.' )
+										: undefined
+								}
+								onChange={ ( event ) => handleChange( { customDomain: event.target.value } ) }
+								action={
+									<FieldLabel htmlFor={ `${ formId }-https` } className={ styles.httpsToggle }>
+										{ __( 'HTTPS' ) }
+										<Switch
+											id={ `${ formId }-https` }
+											aria-label={ __( 'Enable HTTPS' ) }
+											checked={ enableHttps }
+											disabled={ ! customDomain || !! advancedErrors.customDomain }
+											onCheckedChange={ ( checked ) => handleChange( { enableHttps: checked } ) }
+										/>
+									</FieldLabel>
+								}
+							/>
+						) }
+						{ nativeSites && enableHttps && (
 							<FieldDescription className={ styles.certificateNotice }>
 								<CertificateTrustNotice />
 							</FieldDescription>
@@ -587,15 +597,17 @@ export function CreateSiteForm( {
 
 				{ children }
 
-				<PathField
-					data={ { ...data, name } }
-					error={ pathError }
-					requiresEmptyPath={ requiresEmptyPath }
-					requiresExistingPath={ requiresExistingPath }
-					description={ folderDescription }
-					disabled={ isSubmitting }
-					onChange={ handleChange }
-				/>
+				{ nativeSites && (
+					<PathField
+						data={ { ...data, name } }
+						error={ pathError }
+						requiresEmptyPath={ requiresEmptyPath }
+						requiresExistingPath={ requiresExistingPath }
+						description={ folderDescription }
+						disabled={ isSubmitting }
+						onChange={ handleChange }
+					/>
+				) }
 
 				{ sourceControl }
 

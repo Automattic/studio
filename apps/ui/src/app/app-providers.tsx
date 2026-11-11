@@ -6,6 +6,7 @@ import { useLayoutEffect } from 'react';
 import { AgentRunProvider } from '@/data/agent-runs/provider';
 import { ConnectorProvider, queryClient as defaultQueryClient } from '@/data/core';
 import { useColorScheme } from '@/data/host/use-color-scheme';
+import { PreviewTabsProvider } from '@/data/preview-tabs';
 import { useSyncAppUpdateStatus } from '@/data/queries/use-app-update';
 import { useAuthChangeToasts, useSyncAuthUserWithEvents } from '@/data/queries/use-auth-user';
 import { useSyncSessionsWithEvents } from '@/data/queries/use-sessions';
@@ -73,7 +74,9 @@ export function AppProviders( {
 				<AgentRunProvider>
 					<SiteEventsBridge />
 					<I18nProvider i18n={ defaultI18n }>
-						<ThemedApp>{ children }</ThemedApp>
+						<PreviewTabsProvider>
+							<ThemedApp>{ children }</ThemedApp>
+						</PreviewTabsProvider>
 					</I18nProvider>
 				</AgentRunProvider>
 			</QueryClientProvider>

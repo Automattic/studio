@@ -90,11 +90,7 @@ export function ErrorMessage( { error, retry }: { error: unknown; retry?: () => 
 	return (
 		<div className={ styles.errorMessage } role="alert">
 			<p className={ styles.error }>{ error instanceof Error ? error.message : String( error ) }</p>
-			{ retry ? (
-				<Button variant="outline" size="2xs" onClick={ retry }>
-					{ __( 'Try again' ) }
-				</Button>
-			) : null }
+			{ retry ? <Button onClick={ retry }>{ __( 'Try again' ) }</Button> : null }
 		</div>
 	);
 }

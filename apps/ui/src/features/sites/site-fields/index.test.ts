@@ -35,7 +35,6 @@ describe( 'getWpVersionOptions', () => {
 		expect( options?.[ 0 ] ).toEqual( {
 			value: '',
 			label: 'Auto-update (6.9.7)',
-			description: 'WordPress installs updates on its own schedule. Currently using version 6.9.7.',
 		} );
 	} );
 

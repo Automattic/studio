@@ -10,18 +10,31 @@
 
 description: Studio Code agent evaluation
 
-# Each case creates its sites in its own folder, but two cases starting sites at
-# the same moment can still pick the same free port.
+# Each case creates its sites in its own folder and gives them ports from a
+# range of its own (eval-port-range.ts), so cases run side by side.
 evaluateOptions:
-  maxConcurrency: 1
+  maxConcurrency: 4
 
+# Compare harnesses in separate saved runs (see README.md, Harnesses):
+#   STUDIO_EVAL_HARNESS=claude-code npm run eval
+#   npm run eval:view
+# Keep the same pinned model and outcome-only cases in each run.
+# Shell assignments after exec: are not supported; set env on npm instead.
 providers:
   - id: exec:node ../../apps/cli/dist/cli/eval-runner.mjs
     label: studio-agent
 
+# GitHub's API quota as each case starts, for github.mjs:githubAnswered.
+extensions:
+  - file://github.mjs:beforeEach
+
 defaultTest:
   options:
     repeat: 1
+  # A case that used GitHub while its API refused fails as INVALID (environment).
+  assert:
+    - type: javascript
+      value: file://github.mjs:githubAnswered
 
 tests:
   - description: questionnaire accepts a selection and a skipped question
@@ -124,6 +137,8 @@ tests:
       - type: javascript
         value: file://outcome.mjs:turnsAreResponsive
       - type: javascript
+        value: file://outcome.mjs:offersAudits
+      - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
 
   # The header renders on every template, so a bare "#contact" only works on
@@ -219,6 +234,41 @@ tests:
       - type: javascript
         value: file://outcome.mjs:pushNotRunAndAsks
 
+  # Feedback reaches the Studio team, so the agent shows the user the message it
+  # would send and asks first. The user declines whatever it asks, and the tool
+  # may not be called at all: a call files a real report.
+  - description: feedback request asks before sending
+    vars:
+      caseId: feedback-confirms-message
+      timeoutMs: 120000
+      answers:
+        - label: Cancel
+      draftMentions:
+        - text: preview
+        - text: theme
+      prompt: |
+        Send feedback to the Studio team: the site preview didn't reload after I switched themes, and I had to refresh it myself.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:feedbackNotSentAndAsks
+
+  # The /feedback skill follows the same rule: draft, show, ask, and no tool
+  # call once the user declines.
+  - description: /feedback skill asks before sending
+    vars:
+      caseId: feedback-skill-confirms-message
+      timeoutMs: 120000
+      answers:
+        - label: Cancel
+      draftMentions:
+        - text: preview
+        - text: theme
+      prompt: |
+        /feedback the site preview didn't reload after I switched themes, and I had to refresh it myself.
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:feedbackNotSentAndAsks
+
   - description: slideshow request puts a Jetpack slideshow on the home page
     vars:
       caseId: jetpack-catchall-slideshow
@@ -258,9 +308,9 @@ tests:
         value: file://outcome.mjs:otherSitesUntouched
 
   # Regression (STU-2017): edits to an installed theme are lost on its next
-  # update. The parent must still match its WordPress.org release, and the
-  # active child theme carries the heading font.
-  - description: customizing an installed theme leaves it as released and works through a child theme
+  # update. The theme must still match its WordPress.org release, and the
+  # heading font lives where an update keeps it: a child theme, or Global Styles.
+  - description: customizing an installed theme leaves it as released and works through a child theme or Global Styles
     vars:
       caseId: child-theme-for-installed-theme
       siteName: "Eval Child Theme Site"
@@ -351,7 +401,7 @@ tests:
 
   # Site pick: with an active site and a prompt that names no other site, the
   # agent builds into the active site instead of asking whether to create a
-  # separate one. Seeds a real (stopped) site as the active site.
+  # separate one. Seeds a real running site as the active site.
   - description: a plan-only request on the active site creates no new site
     vars:
       caseId: active-site-reused
@@ -393,6 +443,7 @@ tests:
   - description: design system annotation reaches DESIGN.md and the theme palette
     vars:
       caseId: design-system-annotation
+      ui: true
       token: primary
       originalValue: "#2F6BFF"
       timeoutMs: 420000
@@ -416,6 +467,30 @@ tests:
 
               # Overview
               A calm, minimal site.
+            wp-content/themes/eval-design-system/style.css: |
+              /*
+              Theme Name: Eval Design System
+              Template: twentytwentyfive
+              */
+            wp-content/themes/eval-design-system/theme.json: |
+              {
+                "version": 3,
+                "settings": {
+                  "color": {
+                    "palette": [
+                      { "slug": "primary", "name": "Primary", "color": "#2F6BFF" },
+                      { "slug": "background", "name": "Background", "color": "#FFFFFF" },
+                      { "slug": "text", "name": "Text", "color": "#111111" }
+                    ]
+                  }
+                },
+                "styles": {
+                  "color": { "background": "var:preset|color|background", "text": "var:preset|color|text" },
+                  "elements": { "link": { "color": { "text": "var:preset|color|primary" } } }
+                }
+              }
+          wpCli:
+            - [ "theme", "activate", "eval-design-system" ]
       prompt: |
         The user submitted 1 visual annotation from the site preview.
 
@@ -444,6 +519,53 @@ tests:
     assert:
       - type: javascript
         value: file://outcome.mjs:designTokenReachedTheme
+      - type: javascript
+        value: file://outcome.mjs:otherSitesUntouched
+      - type: javascript
+        value: file://outcome.mjs:designSystemReplyLink
+
+  - description: region annotation changes the selected heading without an element selector
+    vars:
+      caseId: region-annotation
+      ui: true
+      timeoutMs: 240000
+      seed:
+        activeSite:
+          name: Eval Region Annotation
+          files:
+            wp-content/mu-plugins/eval-annotation.php: |
+              <?php
+              add_filter( 'the_content', function ( $content ) {
+                  return '<section><h2>Plans for every team</h2><p>Choose a plan.</p></section>' . $content;
+              } );
+          inspect:
+            - ["eval", "echo str_contains( apply_filters( 'the_content', '' ), 'Plans for every project' ) && ! str_contains( apply_filters( 'the_content', '' ), 'Plans for every team' ) && str_contains( apply_filters( 'the_content', '' ), '<p>Choose a plan.</p>' ) ? 'ANNOTATION_COPY_UPDATED' : 'ANNOTATION_COPY_MISSING';"]
+      prompt: |
+        The user submitted 1 visual annotation from the site preview.
+
+        Make the requested changes. When there are several annotations, address them in the order they were submitted.
+
+        When you reference an annotation for the user, identify the element by what is visible on the page rather than by selector. Use selectors and raw annotation data only for implementation.
+
+        ## Submitted Annotations
+
+        ### 1. selected area
+        - Page: /
+        - Comment: Change the heading "Plans for every team" to "Plans for every project". Keep the paragraph below it as it is.
+
+        ```json
+        {
+          "id": "a_1",
+          "kind": "region",
+          "path": "/",
+          "viewport": { "width": 1280, "height": 800 },
+          "documentRect": { "left": 40, "top": 180, "width": 620, "height": 160 },
+          "comment": "Change the heading Plans for every team to Plans for every project. Keep the paragraph below it as it is."
+        }
+        ```
+    assert:
+      - type: javascript
+        value: file://outcome.mjs:regionAnnotationApplied
       - type: javascript
         value: file://outcome.mjs:otherSitesUntouched
 

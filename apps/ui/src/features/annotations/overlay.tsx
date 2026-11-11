@@ -1,47 +1,43 @@
 import { isStudioChatImageMimeType } from '@studio/agent/protocol/chat-images';
 import { getComposerAttachmentImageSrc } from '@studio/agent/protocol/composer-attachment-preview';
-import { __, _n, sprintf } from '@wordpress/i18n';
-import { isAppleOS } from '@wordpress/keycodes';
-import { clsx } from 'clsx';
-import { PaperclipIcon, Trash2Icon, XIcon } from 'lucide-react';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { toast } from '@/data/app-messages';
+import { __ } from '@wordpress/i18n';
+import { displayShortcut } from '@wordpress/keycodes';
+import { PaperclipIcon } from 'lucide-react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useComposerAttachments, useFileDrop } from '@/data/use-composer-attachments';
-import { SendIcon } from '@/lib/icons';
-import { isImeComposing } from '@/lib/keyboard';
+import { SendIcon, TrashIcon } from '@/lib/icons';
+import { isImeComposing, isShortcut } from '@/lib/keyboard';
 import {
-	Badge,
+	DropOverlay,
+	FieldError,
+	AttachmentRemoveButton,
 	Button,
 	IconButton,
-	AlertDialog,
-	DialogContent,
-	DialogDescription,
-	DialogFooter,
-	DialogHeader,
-	DialogTitle,
-	Spinner,
+	Kbd,
 	Textarea,
 	Tooltip,
 	TooltipContent,
 	TooltipTrigger,
+	VisuallyHidden,
 } from '@/lib/ui';
 import {
 	changeAnnotation,
-	clearAnnotations,
 	closeAnnotationEditor,
 	escapeAnnotations,
 	getSiteAnnotations,
 	hasAnnotationContent,
 	isAnnotationsBusy,
-	isStagedAnnotation,
-	removeAnnotations,
 	setAnnotationsPreparing,
+	removeAnnotations,
 	stageAnnotations,
 	useSiteAnnotations,
 	type PreviewAnnotation,
 } from './store';
 import styles from './style.module.css';
+import { ANNOTATION_SHAKE_MS, useAnnotationFeedback } from './use-annotation-feedback';
 import type { ComposerImageAttachment } from '@studio/agent/protocol/composer-attachments';
+import type { CSSProperties } from 'react';
 
 export interface AnnotationAnchor {
 	left: number;
@@ -54,22 +50,17 @@ interface AnnotationOverlayProps {
 	anchor: AnnotationAnchor | null;
 	// Sends the notes (all of them with the chat draft, or just `noteIds`).
 	onSend: ( noteIds?: string[] ) => void;
+	onEscape?: () => boolean;
 }
 
 const EDGE = 8;
-// Keeps the editor clear of the Send bar.
-const BAR_CLEARANCE = 72;
-
-/** The note editor and the Cancel / Send bar drawn over an annotated preview. */
-export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlayProps ) {
+const CORNER_OFFSET = 8;
+/** The note editor drawn over an annotated preview. */
+export function AnnotationOverlay( { siteId, anchor, onSend, onEscape }: AnnotationOverlayProps ) {
 	const annotations = useSiteAnnotations( siteId );
-	const { active, notes, editingId, sending } = annotations;
+	const { active, notes, editingId, blockedNavigation } = annotations;
 	const busy = isAnnotationsBusy( annotations );
 	const note = notes.find( ( item ) => item.id === editingId );
-	const count = notes.filter( hasAnnotationContent ).length;
-	const stagedCount = notes.filter( isStagedAnnotation ).length;
-	const [ confirming, setConfirming ] = useState( false );
-	const cancelRef = useRef< HTMLButtonElement >( null );
 
 	useEffect( () => {
 		if ( ! active ) return;
@@ -82,19 +73,11 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 				return;
 			}
 			event.preventDefault();
-			escapeAnnotations( siteId );
+			if ( ! onEscape?.() ) escapeAnnotations( siteId );
 		};
 		document.addEventListener( 'keydown', onKeyDown );
 		return () => document.removeEventListener( 'keydown', onKeyDown );
-	}, [ active, siteId ] );
-
-	const cancel = () => {
-		if ( count ) {
-			setConfirming( true );
-		} else {
-			clearAnnotations( siteId );
-		}
-	};
+	}, [ active, siteId, onEscape ] );
 
 	return (
 		<div className={ styles.overlay } data-annotation-overlay>
@@ -104,62 +87,11 @@ export function AnnotationOverlay( { siteId, anchor, onSend }: AnnotationOverlay
 					siteId={ siteId }
 					note={ note }
 					anchor={ anchor }
+					busy={ busy }
+					blockedNavigation={ blockedNavigation }
 					onSend={ onSend }
 				/>
 			) : null }
-			<div
-				role="toolbar"
-				aria-label={ __( 'Annotations' ) }
-				aria-hidden={ ! active }
-				inert={ ! active }
-				data-open={ active }
-				className={ styles.bar }
-			>
-				<Button variant="ghost" disabled={ busy } onClick={ cancel }>
-					{ __( 'Cancel' ) }
-				</Button>
-				<Button
-					variant="accent"
-					aria-label={ sprintf(
-						/* translators: %d: number of annotations. */
-						_n( 'Send %d annotation', 'Send %d annotations', count ),
-						count
-					) }
-					disabled={ ! count || busy }
-					onClick={ () => onSend() }
-				>
-					{ __( 'Send' ) }
-					{ stagedCount > 0 ? (
-						<Badge variant="on-accent" size="count" aria-hidden="true">
-							{ sending ? <Spinner /> : stagedCount }
-						</Badge>
-					) : null }
-				</Button>
-			</div>
-			<AlertDialog open={ active && confirming } onOpenChange={ setConfirming }>
-				<DialogContent layout="confirmation" initialFocus={ cancelRef }>
-					<DialogHeader>
-						<DialogTitle>{ __( 'Discard all pending annotations?' ) }</DialogTitle>
-						<DialogDescription tone="default">
-							{ __( 'All edits will be removed from this page.' ) }
-						</DialogDescription>
-					</DialogHeader>
-					<DialogFooter>
-						<Button ref={ cancelRef } variant="outline" onClick={ () => setConfirming( false ) }>
-							{ __( 'Cancel' ) }
-						</Button>
-						<Button
-							variant="destructive"
-							onClick={ () => {
-								setConfirming( false );
-								clearAnnotations( siteId );
-							} }
-						>
-							{ __( 'Discard' ) }
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</AlertDialog>
 		</div>
 	);
 }
@@ -168,32 +100,53 @@ function NoteEditor( {
 	siteId,
 	note,
 	anchor,
+	busy,
+	blockedNavigation,
 	onSend,
 }: {
 	siteId: string;
 	note: PreviewAnnotation;
 	anchor: AnnotationAnchor;
+	busy: boolean;
+	blockedNavigation?: number;
 	onSend: ( noteIds?: string[] ) => void;
 } ) {
 	const editorRef = useRef< HTMLDivElement | null >( null );
 	const [ editorNode, setEditorNode ] = useState< HTMLDivElement | null >( null );
 	const fileInputRef = useRef< HTMLInputElement | null >( null );
-	const [ position, setPosition ] = useState( { left: EDGE, top: EDGE } );
-	const { attachments, addFiles, removeAttachment, pasteHandlers } = useComposerAttachments(
-		note.images
+	const feedback = useAnnotationFeedback( blockedNavigation, true );
+	useEffect( () => {
+		if ( feedback === 'shake' ) editorRef.current?.querySelector( 'textarea' )?.focus();
+	}, [ feedback, blockedNavigation ] );
+	const [ position, setPosition ] = useState< { left: number; top: number; maxHeight?: number } >( {
+		left: EDGE,
+		top: EDGE,
+	} );
+	const {
+		attachments,
+		addFiles,
+		removeAttachment,
+		pasteHandlers,
+		error: attachmentError,
+		setError: setAttachmentError,
+	} = useComposerAttachments( note.images );
+	// Drawing annotations keep their captured page image first.
+	const visibleAttachments = note.kind === 'drawing' ? attachments.slice( 1 ) : attachments;
+	const addImages = useCallback(
+		( files: FileList | File[] ) => {
+			const list = Array.from( files );
+			if ( list.some( ( file ) => ! isStudioChatImageMimeType( file.type ) ) ) {
+				setAttachmentError( __( 'Only PNG, JPEG, GIF, and WebP images can be attached' ) );
+				return;
+			}
+			const otherImages = getSiteAnnotations( siteId )
+				.notes.filter( ( item ) => item.id !== note.id )
+				.flatMap( ( item ) => item.images );
+			setAnnotationsPreparing( siteId, true );
+			void addFiles( list, otherImages ).finally( () => setAnnotationsPreparing( siteId, false ) );
+		},
+		[ addFiles, note.id, siteId, setAttachmentError ]
 	);
-	const addImages = ( files: FileList | File[] ) => {
-		const list = Array.from( files );
-		if ( list.some( ( file ) => ! isStudioChatImageMimeType( file.type ) ) ) {
-			toast.error( __( 'Only PNG, JPEG, GIF, and WebP images can be attached' ) );
-			return;
-		}
-		const otherImages = getSiteAnnotations( siteId )
-			.notes.filter( ( item ) => item.id !== note.id )
-			.flatMap( ( item ) => item.images );
-		setAnnotationsPreparing( siteId, true );
-		void addFiles( list, otherImages ).finally( () => setAnnotationsPreparing( siteId, false ) );
-	};
 	const isDragging = useFileDrop( editorNode, addImages );
 
 	useEffect( () => {
@@ -205,15 +158,28 @@ function NoteEditor( {
 		const container = editor?.parentElement;
 		if ( ! editor || ! container ) return;
 		const measure = () => {
+			const desiredLeft =
+				anchor.left + CORNER_OFFSET + editor.offsetWidth <= container.clientWidth - EDGE
+					? anchor.left + CORNER_OFFSET
+					: anchor.left - CORNER_OFFSET - editor.offsetWidth;
 			const left = Math.max(
 				EDGE,
-				Math.min( anchor.left + EDGE, container.clientWidth - editor.offsetWidth - EDGE )
+				Math.min( desiredLeft, container.clientWidth - editor.offsetWidth - EDGE )
 			);
-			const top = Math.max(
-				EDGE,
-				Math.min( anchor.top + EDGE, container.clientHeight - editor.offsetHeight - BAR_CLEARANCE )
+			const markerOffset = left === desiredLeft ? CORNER_OFFSET : 22;
+			const height = Math.max( editor.offsetHeight, editor.scrollHeight );
+			const below = Math.max( 0, container.clientHeight - EDGE - anchor.top - markerOffset );
+			const above = Math.max( 0, anchor.top - markerOffset - EDGE );
+			const placeBelow = height <= below || ( height > above && below >= above );
+			const maxHeight = placeBelow ? below : above;
+			const top = placeBelow
+				? anchor.top + markerOffset
+				: anchor.top - markerOffset - Math.min( height, maxHeight );
+			setPosition( ( old ) =>
+				old.left === left && old.top === top && old.maxHeight === maxHeight
+					? old
+					: { left, top, maxHeight }
 			);
-			setPosition( ( old ) => ( old.left === left && old.top === top ? old : { left, top } ) );
 		};
 		measure();
 		const observer = new ResizeObserver( measure );
@@ -223,18 +189,14 @@ function NoteEditor( {
 	}, [ anchor ] );
 
 	const hasContent = hasAnnotationContent( note );
-	const submit = ( direct: boolean ) => {
-		if ( ! hasContent ) return;
-		if ( direct ) {
-			onSend( [ note.id ] );
-		} else {
-			stageAnnotations( siteId, [ note.id ] );
-		}
+	const { data: preferences } = useUserPreferences();
+	const batchNotes = preferences?.batchAnnotations ?? true;
+	const submit = ( sendImmediately = false ) => {
+		if ( ! hasContent || busy ) return;
+		if ( batchNotes && ! sendImmediately ) stageAnnotations( siteId, [ note.id ], true );
+		else onSend( [ note.id ] );
 		closeAnnotationEditor( siteId );
 	};
-	const submitLabel = isAppleOS()
-		? __( 'Send annotation (⌘Enter). Save to composer (Enter).' )
-		: __( 'Send annotation (Ctrl+Enter). Save to composer (Enter).' );
 
 	return (
 		<div
@@ -244,37 +206,45 @@ function NoteEditor( {
 			} }
 			role="group"
 			aria-label={ __( 'Annotation' ) }
-			className={ clsx( styles.editor, isDragging && styles.editorDragging ) }
-			style={ position }
+			className={ styles.editor }
+			data-feedback={ feedback ?? undefined }
+			style={
+				{ ...position, '--error-shake-duration': `${ ANNOTATION_SHAKE_MS }ms` } as CSSProperties
+			}
 		>
-			{ attachments.length ? (
+			{ feedback && (
+				<VisuallyHidden role="alert">
+					{ __( 'Add or delete this annotation before starting another.' ) }
+				</VisuallyHidden>
+			) }
+			{ isDragging ? <DropOverlay>{ __( 'Drop to attach' ) }</DropOverlay> : null }
+			{ visibleAttachments.length ? (
 				<ul className={ styles.images } aria-label={ __( 'Attachments' ) }>
-					{ attachments.map( ( attachment ) => (
+					{ visibleAttachments.map( ( attachment ) => (
 						<li key={ attachment.id } className={ styles.image }>
 							<img
 								src={ getComposerAttachmentImageSrc( attachment ) ?? undefined }
 								alt={ attachment.name }
 							/>
-							<button
-								type="button"
-								className={ styles.imageRemove }
-								aria-label={ __( 'Remove attachment' ) }
-								onClick={ () => removeAttachment( attachment.id ) }
-							>
-								<XIcon />
-							</button>
+							{ note.kind !== 'region' || attachment.id !== note.images[ 0 ]?.id ? (
+								<AttachmentRemoveButton
+									label={ __( 'Remove attachment' ) }
+									onClick={ () => removeAttachment( attachment.id ) }
+								/>
+							) : null }
 						</li>
 					) ) }
 				</ul>
 			) : null }
 			<Textarea
+				className={ styles.input }
 				autoFocus
 				rows={ 1 }
 				maxLength={ 10000 }
 				variant="group"
 				size="sm"
-				aria-label={ __( 'Leave a note' ) }
-				placeholder={ __( 'Leave a note…' ) }
+				aria-label={ __( 'Describe the change' ) }
+				placeholder={ __( 'Describe the change' ) }
 				value={ note.comment }
 				onChange={ ( event ) =>
 					changeAnnotation( siteId, note.id, { comment: event.target.value } )
@@ -283,24 +253,28 @@ function NoteEditor( {
 				onKeyDown={ ( event ) => {
 					if ( isImeComposing( event ) || event.key !== 'Enter' || event.shiftKey ) return;
 					event.preventDefault();
-					submit( event.metaKey || event.ctrlKey );
+					submit( isShortcut( event.nativeEvent, 'Enter' ) );
 				} }
 			/>
+			{ attachmentError ? <FieldError role="alert">{ attachmentError }</FieldError> : null }
 			<div className={ styles.toolbar }>
 				<IconButton
-					size="icon-sm"
+					size="icon"
 					shape="round"
 					icon={ <PaperclipIcon /> }
 					label={ __( 'Attach image' ) }
 					onClick={ () => fileInputRef.current?.click() }
 				/>
 				<IconButton
-					size="icon-sm"
+					size="icon"
 					shape="round"
-					icon={ <Trash2Icon /> }
+					destructive
+					icon={ <TrashIcon /> }
 					label={ __( 'Delete annotation' ) }
+					disabled={ busy }
 					onClick={ () => removeAnnotations( siteId, [ note.id ] ) }
 				/>
+
 				<input
 					ref={ fileInputRef }
 					type="file"
@@ -316,19 +290,35 @@ function NoteEditor( {
 					<TooltipTrigger
 						render={
 							<Button
-								variant={ hasContent ? 'accent' : 'default' }
+								variant="accent"
 								size="icon"
 								shape="round"
 								className={ styles.save }
-								aria-label={ __( 'Send annotation' ) }
-								disabled={ ! hasContent }
-								onClick={ () => submit( true ) }
+								aria-label={
+									batchNotes ? __( 'Add annotation to batch' ) : __( 'Send annotation' )
+								}
+								disabled={ ! hasContent || busy }
+								onClick={ () => submit() }
 							/>
 						}
 					>
 						<SendIcon />
 					</TooltipTrigger>
-					<TooltipContent>{ submitLabel }</TooltipContent>
+					<TooltipContent className={ styles.submitTooltip }>
+						<span className={ styles.shortcutRow }>
+							{ batchNotes ? __( 'Add' ) : __( 'Send' ) }
+							<Kbd>{ '↵' }</Kbd>
+						</span>
+						{ batchNotes && (
+							<>
+								<span className={ styles.submitSeparator } aria-hidden="true" />
+								<span className={ styles.shortcutRow }>
+									{ __( 'Send' ) }
+									<Kbd>{ displayShortcut.primary( '↵' ) }</Kbd>
+								</span>
+							</>
+						) }
+					</TooltipContent>
 				</Tooltip>
 			</div>
 		</div>

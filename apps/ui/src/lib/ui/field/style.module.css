@@ -49,10 +49,7 @@
 		gap: 0;
 		padding: var( --space-5 );
 		border-radius: var( --radius-xl );
-		background-color: light-dark(
-			var( --surface ),
-			color-mix( in oklab, var( --surface ) 70%, transparent )
-		);
+		background-color: var( --surface );
 	}
 
 	.group[data-variant='settings'] > .field {
@@ -144,6 +141,8 @@
 	.description[data-error] {
 		display: grid;
 		color: var( --destructive );
+		font-size: var( --text-xs );
+		line-height: var( --text-xs--line-height );
 	}
 
 	.description
@@ -180,5 +179,23 @@
 	.error {
 		color: var( --destructive );
 		font-size: var( --text-sm );
+	}
+
+	.errorMessage {
+		display: flex;
+		align-items: flex-start;
+		gap: var( --space-1 );
+	}
+
+	.errorIcon {
+		flex: none;
+		width: var( --space-4 );
+		height: var( --space-4 );
+		margin-block-start: calc( ( 1lh - var( --space-4 ) ) / 2 );
+	}
+
+	.errorText {
+		min-width: 0;
+		overflow-wrap: anywhere;
 	}
 }

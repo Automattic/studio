@@ -13,7 +13,7 @@ import {
 	type PreviewManagementAction,
 } from '@/features/sharing';
 import { PublishPanel, usePublishSetupError } from '@/features/sync';
-import { PublishTransferIcon, ShareIcon } from '@/lib/icons';
+import { PublishTransferIcon, ShareIcon, SyncIcon } from '@/lib/icons';
 import {
 	Button,
 	Dialog,
@@ -51,7 +51,6 @@ export function SiteDeliveryDialog( {
 	const previewReturnFocus = useRef< HTMLButtonElement | null >( null );
 	const [ publishSubstep, setPublishSubstep ] = useState( false );
 	const [ publishHeader, setPublishHeader ] = useState< HTMLDivElement | null >( null );
-	const [ shareActions, setShareActions ] = useState< HTMLDivElement | null >( null );
 	const [ request, setRequest ] = useState< PublishRequest >();
 	const finalFocus = useRef< HTMLElement | null >( null );
 	useEffect( () => {
@@ -130,11 +129,6 @@ export function SiteDeliveryDialog( {
 								ref={ setPublishHeader }
 								hidden={ tab !== 'publish' || ! publishSubstep }
 							/>
-							<div
-								className={ styles.headerActions }
-								ref={ setShareActions }
-								hidden={ tab !== 'share' }
-							/>
 						</DialogHeader>
 						<div
 							role="tabpanel"
@@ -145,8 +139,6 @@ export function SiteDeliveryDialog( {
 						>
 							<SharePanel
 								site={ site }
-								open={ open && tab === 'share' }
-								actionsContainer={ shareActions }
 								onManagePreview={ ( action ) => {
 									previewReturnFocus.current = action.trigger;
 									setPreviewAction( action );
@@ -184,6 +176,7 @@ export function SiteDeliveryDialog( {
 			) : null }
 			<AccountPromptDialog
 				open={ open && signedOut }
+				showStudioIcon={ false }
 				onOpenChange={ setOpen }
 				finalFocus={ finalFocus }
 				title={ tab === 'share' ? __( 'Share your WordPress' ) : __( 'Publish your WordPress' ) }
@@ -193,6 +186,11 @@ export function SiteDeliveryDialog( {
 						: __( 'Create an account or log in to publish a website and keep your sites in sync.' )
 				}
 				source={ tab === 'share' ? 'previews_tab' : 'sync_tab' }
+				analytics={ {
+					placement: tab === 'share' ? 'share' : 'publish',
+					intent: tab === 'share' ? 'share' : 'publish',
+				} }
+				scope={ site.id }
 				onCreateAccount={ tab === 'publish' ? () => setSetupAfterSignup( true ) : undefined }
 			/>
 		</>
@@ -208,7 +206,7 @@ export function ShareButton( props: { site: SiteDetails; className?: string } ) 
 					render={
 						<Button
 							variant="ghost"
-							size="icon"
+							size="icon-sm"
 							aria-label={ __( 'Share' ) }
 							aria-description={ status.label }
 							onClick={ ( event ) =>
@@ -229,7 +227,11 @@ export function ShareButton( props: { site: SiteDetails; className?: string } ) 
 	);
 }
 
-export function PublishButton( props: { site: SiteDetails } ) {
+export function PublishButton( props: {
+	site: SiteDetails;
+	variant?: 'accent' | 'outline';
+	compactWhenNarrow?: boolean;
+} ) {
 	const activity = useSiteSyncActivity( props.site.id );
 	const setupError = usePublishSetupError( props.site.id );
 	const transfer =
@@ -244,6 +246,10 @@ export function PublishButton( props: { site: SiteDetails } ) {
 	}, [ transfer?.kind ] );
 	return (
 		<Button
+			variant={ props.variant ?? 'accent' }
+			className={ props.compactWhenNarrow ? styles.responsivePublish : undefined }
+			size="sm"
+			title={ __( 'Publish' ) }
 			aria-label={ __( 'Publish…' ) }
 			aria-description={
 				setupError ??
@@ -268,6 +274,8 @@ export function PublishButton( props: { site: SiteDetails } ) {
 				<PublishTransferIcon direction={ transfer.direction === 'pull' ? 'pull' : 'push' } />
 			) : success ? (
 				<CheckIcon />
+			) : props.compactWhenNarrow ? (
+				<SyncIcon className={ styles.publishIcon } />
 			) : null }
 			<span className={ styles.triggerLabel }>
 				{ __( 'Publish' ) }

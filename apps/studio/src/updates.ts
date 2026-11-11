@@ -92,7 +92,7 @@ export function setupUpdates() {
 	autoUpdater.on( 'checking-for-update', () => {
 		updaterState = 'checking-for-update';
 		lastError = null;
-		emitAppUpdateStatus();
+		emitAppUpdateStatus( { requested: showManualCheckDialogs } );
 	} );
 
 	autoUpdater.on( 'update-available', async () => {
@@ -143,6 +143,11 @@ export function setupUpdates() {
 			// Corresponds to errors: "The Internet connection appears to be offline." and "The network connection was lost."
 			// We don't need to stop polling, the internet might come back.
 			queueUpdateCheck();
+			lastError = {
+				reason: 'generic',
+				detail: __( 'Check your internet connection and try again.' ),
+			};
+			emitAppUpdateStatus();
 			return;
 		}
 
@@ -244,7 +249,8 @@ export async function manualCheckForUpdates() {
 	}
 
 	if ( updaterState === 'checking-for-update' ) {
-		console.log( 'Manually checking for update, but discovered an check is already in progress' );
+		console.log( 'Manually checking for update, but discovered a check is already in progress' );
+		emitAppUpdateStatus( { requested: true } );
 	} else {
 		console.log( `Manually checking for update: ${ autoUpdater.getFeedURL() }` );
 		autoUpdater.checkForUpdates();
@@ -494,6 +500,10 @@ function versionFromUpdateUrl( url: string | undefined ): string | null {
 
 export async function getAppUpdateStatus( _event: IpcMainInvokeEvent ): Promise< AppUpdateStatus > {
 	return buildAppUpdateStatus();
+}
+
+export async function checkForAppUpdates( _event: IpcMainInvokeEvent ): Promise< void > {
+	await manualCheckForUpdates();
 }
 
 export async function installAppUpdate( _event: IpcMainInvokeEvent ): Promise< void > {

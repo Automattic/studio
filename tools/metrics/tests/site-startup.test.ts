@@ -45,18 +45,30 @@ test.describe( 'Startup Metrics', () => {
 			results.siteCreation = [ ( await getRunningSince( statusButton ) ) - startTime ];
 		} );
 
+		await sidebar.ensureOpen();
+		const runButton = sidebar
+			.getSiteRow( siteName )
+			.and( session.mainWindow.locator( ':not([inert] *)' ) )
+			.locator( 'button[data-state]' );
+		await expect( runButton ).toBeInViewport();
+
 		results.siteStartup = [];
 		// Measure server stop/start 5 times
 		for ( let i = 0; i < 5; i++ ) {
 			await test.step( `Run ${ i + 1 }/5: Stopping and starting site`, async () => {
-				await statusButton.click();
+				await runButton.click();
 				await expect( statusButton ).toHaveAttribute( 'data-state', 'stopped', {
 					timeout: 120_000,
 				} );
+				// The button can read `stopped` while the stop is still finishing and
+				// the button is disabled; don't count that wait as startup time.
+				await expect( runButton ).toBeEnabled( { timeout: 120_000 } );
 
 				const startTime = Date.now();
-				await statusButton.click();
-				await sidebar.expectRunning( siteName );
+				await runButton.click();
+				await expect( statusButton ).toHaveAttribute( 'data-state', 'running', {
+					timeout: 120_000,
+				} );
 				const duration = ( await getRunningSince( statusButton ) ) - startTime;
 
 				console.log( `Run ${ i + 1 }/5: Restart took ${ duration }ms` );

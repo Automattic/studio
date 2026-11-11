@@ -18,11 +18,11 @@ describe( 'auth tracks context', () => {
 	} );
 
 	it( 'returns the context recorded at initiation', () => {
-		setPendingAuthContext( 'top_bar', 'existing' );
+		const attempt = setPendingAuthContext( 'top_bar', 'existing' );
 
-		expect( takePendingAuthContext() ).toMatchObject( {
+		expect( takePendingAuthContext( attempt.auth_attempt_id ) ).toMatchObject( {
 			source: 'top_bar',
-			accountType: 'existing',
+			account_type: 'existing',
 		} );
 	} );
 
@@ -32,37 +32,42 @@ describe( 'auth tracks context', () => {
 
 	// Otherwise a second deep link would silently inherit the first one's attribution.
 	it( 'consumes the context so only the first caller gets it', () => {
-		setPendingAuthContext( 'onboarding', 'new' );
+		const attempt = setPendingAuthContext( 'onboarding', 'new' );
 
-		expect( takePendingAuthContext() ).toBeDefined();
+		expect( takePendingAuthContext( attempt.auth_attempt_id ) ).toBeDefined();
 		expect( takePendingAuthContext() ).toBeUndefined();
 	} );
 
-	it( 'keeps only the most recent initiation', () => {
-		setPendingAuthContext( 'onboarding', 'new' );
-		setPendingAuthContext( 'settings', 'existing' );
+	it( 'keeps parallel initiations separate', () => {
+		const first = setPendingAuthContext( 'onboarding', 'new' );
+		const second = setPendingAuthContext( 'settings', 'existing' );
 
-		expect( takePendingAuthContext() ).toMatchObject( {
+		expect( takePendingAuthContext( second.auth_attempt_id ) ).toMatchObject( {
 			source: 'settings',
-			accountType: 'existing',
+			account_type: 'existing',
+		} );
+		expect( takePendingAuthContext( first.auth_attempt_id ) ).toMatchObject( {
+			source: 'onboarding',
 		} );
 	} );
 
 	it( 'discards a context that outlived its TTL', () => {
 		vi.useFakeTimers();
-		setPendingAuthContext( 'sync_tab', 'existing' );
+		const attempt = setPendingAuthContext( 'sync_tab', 'existing' );
 
 		vi.advanceTimersByTime( 15 * 60 * 1000 + 1 );
 
-		expect( takePendingAuthContext() ).toBeUndefined();
+		expect( takePendingAuthContext( attempt.auth_attempt_id ) ).toBeUndefined();
 	} );
 
 	it( 'still returns a context that is within the TTL', () => {
 		vi.useFakeTimers();
-		setPendingAuthContext( 'sync_tab', 'existing' );
+		const attempt = setPendingAuthContext( 'sync_tab', 'existing' );
 
 		vi.advanceTimersByTime( 14 * 60 * 1000 );
 
-		expect( takePendingAuthContext() ).toMatchObject( { source: 'sync_tab' } );
+		expect( takePendingAuthContext( attempt.auth_attempt_id ) ).toMatchObject( {
+			source: 'sync_tab',
+		} );
 	} );
 } );

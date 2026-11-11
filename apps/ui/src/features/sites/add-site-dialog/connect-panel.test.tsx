@@ -36,15 +36,23 @@ describe( 'ConnectPanel', () => {
 		const { connector, onConnect } = setup( [], { signedIn: false } );
 		connector.authenticate.mockResolvedValue();
 		expect(
-			await screen.findByText( 'Log in with your WordPress.com account to see your sites.' )
+			await screen.findByRole( 'heading', { name: 'Connect your WordPress' } )
 		).toBeVisible();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Sign up' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Create account' } ) );
 		await waitFor( () =>
-			expect( connector.authenticate ).toHaveBeenCalledWith( true, expect.anything() )
+			expect( connector.authenticate ).toHaveBeenCalledWith(
+				true,
+				'add_site',
+				expect.objectContaining( { placement: 'add_site_connect', intent: 'connect_site' } )
+			)
 		);
-		fireEvent.click( screen.getByRole( 'button', { name: /Log in with WordPress.com/ } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Log in' } ) );
 		await waitFor( () =>
-			expect( connector.authenticate ).toHaveBeenCalledWith( false, expect.anything() )
+			expect( connector.authenticate ).toHaveBeenCalledWith(
+				false,
+				'add_site',
+				expect.objectContaining( { placement: 'add_site_connect', intent: 'connect_site' } )
+			)
 		);
 		expect( onConnect ).not.toHaveBeenCalled();
 	} );
@@ -95,7 +103,7 @@ describe( 'ConnectPanel', () => {
 		connector.fetchSyncableWpcomSites.mockReturnValue(
 			new Promise( ( done ) => ( resolve = done ) )
 		);
-		expect( await screen.findByRole( 'status' ) ).toHaveTextContent( 'Loading your sites…' );
+		expect( await screen.findByRole( 'status', { name: 'Loading your sites…' } ) ).toBeVisible();
 		await act( async () => resolve( [] ) );
 		expect( await screen.findByRole( 'heading', { name: 'No sites found' } ) ).toBeVisible();
 	} );
@@ -132,7 +140,7 @@ describe( 'ConnectPanel', () => {
 		await waitFor( () => expect( connector.fetchSyncableWpcomSites ).toHaveBeenCalledTimes( 2 ) );
 		fireEvent.click( screen.getByRole( 'button', { name: /Supported sites/ } ) );
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
-			'https://developer.wordpress.com/docs/developer-tools/studio/sync/#supported-sites'
+			'https://wordpress.studio/docs/sync/#compatible-sites'
 		);
 	} );
 } );

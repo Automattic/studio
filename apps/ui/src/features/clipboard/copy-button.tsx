@@ -16,7 +16,7 @@ export function CopyButton( {
 	text: string;
 	label: string;
 	className?: string;
-	size?: 'icon-2xs' | 'icon-xs' | 'icon-sm';
+	size?: 'icon-2xs' | 'icon-xs' | 'icon-sm' | 'icon';
 	disabled?: boolean;
 } ) {
 	const { copied, copy } = useCopyText( text );

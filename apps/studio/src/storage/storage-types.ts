@@ -1,6 +1,7 @@
 import { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import { StatsMetric } from 'src/lib/bump-stats';
 import type { AiSessionSitePlacement } from '@studio/agent/node/sessions/placement';
+import type { SupportedBrowser } from '@studio/common/lib/user-settings/browser';
 import type { QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 
@@ -17,6 +18,7 @@ export type { QuitSitesBehavior };
 interface AppdataSiteData {
 	sortOrder?: number;
 	autoStart?: boolean;
+	hideFrontendAdminBar?: boolean;
 }
 
 interface NightlyPromptResult {
@@ -35,7 +37,9 @@ export interface UserData {
 	sentryUserId?: string;
 	preferredTerminal?: SupportedTerminal;
 	preferredEditor?: SupportedEditor;
+	preferredBrowser?: SupportedBrowser;
 	colorScheme?: 'system' | 'light' | 'dark';
+	hideFrontendAdminBar?: boolean;
 	/** Beta features the user opted into, by key. Migration 09 removes the classic-era `enableAgenticUi`. */
 	betaFeatures?: Record< string, boolean >;
 	quitSitesBehavior?: QuitSitesBehavior;

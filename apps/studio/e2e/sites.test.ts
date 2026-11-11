@@ -16,7 +16,7 @@ const skipTestOnWindows = process.platform === 'win32' ? test.skip : test;
 const session = new E2ESession();
 
 async function deleteSite( siteName: string, { keepFiles }: { keepFiles: boolean } ) {
-	await new Sidebar( session.mainWindow ).openContextMenuItem( siteName, 'Delete site' );
+	await new Sidebar( session.mainWindow ).openContextMenuItem( siteName, 'Delete' );
 	const dialog = session.mainWindow.getByRole( 'alertdialog' );
 	const deleteFiles = dialog.getByRole( 'checkbox', {
 		name: 'Also move files and database to Trash',
@@ -36,21 +36,23 @@ async function expectStopped( siteName: string ) {
 	);
 }
 
-// The preview header folds its actions into a More menu when it runs out of room.
-async function previewAction( menuItem: string, button = menuItem ) {
+async function openPreviewInBrowser() {
 	const page = session.mainWindow;
-	const inline = page.getByRole( 'button', { name: button, exact: true } );
+	const inline = page.getByRole( 'button', { name: 'Open this page in your browser' } );
 	await expect( async () => {
 		try {
 			if ( await inline.isVisible() ) {
-				// The address bar reveals its own actions on hover.
-				await page.getByRole( 'textbox', { name: 'Address' } ).hover( { timeout: 2000 } );
+				await page
+					.locator( 'form' )
+					.filter( { has: page.getByRole( 'textbox', { name: 'Address' } ) } )
+					.hover( { timeout: 2000 } );
 				await inline.click( { timeout: 2000 } );
 			} else {
 				await page
-					.getByRole( 'button', { name: 'More preview actions' } )
-					.click( { timeout: 2000 } );
-				await page.getByRole( 'menuitem', { name: menuItem, exact: true } ).click( {
+					.getByRole( 'tablist', { name: 'Preview tabs' } )
+					.getByRole( 'tab', { selected: true } )
+					.click( { button: 'right', timeout: 2000 } );
+				await page.getByRole( 'menuitem', { name: /^Open in / } ).click( {
 					timeout: 2000,
 				} );
 			}
@@ -99,7 +101,7 @@ test.describe( 'Sites', () => {
 				captured.openedUrls.push( url );
 			};
 		} );
-		await previewAction( 'Open in browser', 'Open this page in your browser' );
+		await openPreviewInBrowser();
 		const openedUrls = () =>
 			session.electronApp.evaluate(
 				() => ( globalThis as typeof globalThis & { openedUrls: string[] } ).openedUrls
@@ -123,17 +125,17 @@ test.describe( 'Sites', () => {
 				{ id: guestId, url }
 			);
 		await loadInPreview( 'http://127.0.0.1:1/' );
-		await expect( session.mainWindow.getByText( 'Preview could not load' ) ).toBeVisible();
+		await expect( session.mainWindow.getByText( 'Browser could not load.' ) ).toBeVisible();
 		await loadInPreview( siteUrl );
 		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );
 
-		await new Sidebar( session.mainWindow ).getStatusButton( siteName ).click();
+		await new Sidebar( session.mainWindow ).toggleSite( siteName );
 		await expectStopped( siteName );
 		await expect( session.mainWindow.locator( 'webview' ) ).toHaveCount( 0 );
 
 		await session.restart();
 		await expectStopped( siteName );
-		await new Sidebar( session.mainWindow ).getStatusButton( siteName ).click();
+		await new Sidebar( session.mainWindow ).toggleSite( siteName );
 		await new Sidebar( session.mainWindow ).expectRunning( siteName );
 		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );
 
@@ -245,7 +247,7 @@ test.describe( 'Site settings', () => {
 		await page.getByRole( 'button', { name: 'Save', exact: true } ).click();
 		await page.getByRole( 'switch', { name: 'Debug log', exact: true } ).click();
 		await page.getByRole( 'button', { name: 'Save', exact: true } ).click();
-		await expect( page.getByRole( 'button', { name: 'Save', exact: true } ) ).toHaveCount( 0, {
+		await expect( page.getByRole( 'button', { name: 'Discard', exact: true } ) ).toHaveCount( 0, {
 			timeout: 120_000,
 		} );
 		await settings.close();

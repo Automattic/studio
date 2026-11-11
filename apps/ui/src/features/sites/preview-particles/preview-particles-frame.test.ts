@@ -7,6 +7,24 @@ import {
 } from './frame';
 
 describe( 'preview particle frames', () => {
+	it( 'keeps resting dots in place as the viewport grows and shrinks', () => {
+		const positions = ( width: number, height: number ) =>
+			createPreviewDots( width, height ).map( ( { x, y } ) => ( { x, y } ) );
+		const original = positions( 800, 600 );
+		for ( const [ width, height ] of [
+			[ 813, 611 ],
+			[ 960, 720 ],
+			[ 1920, 1080 ],
+		] ) {
+			expect( positions( width, height ).filter( ( { x, y } ) => x <= 776 && y <= 576 ) ).toEqual(
+				original
+			);
+		}
+		expect( positions( 600, 400 ) ).toEqual(
+			original.filter( ( { x, y } ) => x <= 576 && y <= 376 )
+		);
+	} );
+
 	it( 'opens the space for the logo gradually without moving a resting dot', () => {
 		const dot = createPreviewDots( 1, 1 )[ 0 ];
 		const frame = { time: 0, amount: 0, centerX: 0.5, centerY: 0.5 };
@@ -20,14 +38,9 @@ describe( 'preview particle frames', () => {
 	} );
 
 	it( 'lights the selected-site grid downward in an upward arch with the sides leading', () => {
-		const dots = createPreviewDots( 800, 600 );
-		const top = dots.reduce( ( closest, dot ) =>
-			Math.hypot( dot.x - 400, dot.y - 100 ) < Math.hypot( closest.x - 400, closest.y - 100 )
-				? dot
-				: closest
-		);
+		const top = { ...createPreviewDots( 800, 600 )[ 0 ], x: 400, y: 100 };
 		const bottom = { ...top, y: 500 };
-		const side = { ...bottom, x: 18 };
+		const side = { ...bottom, x: 24 };
 		const wave = ( dot: typeof top, elapsed: number ) =>
 			getSelectionWave( dot, {
 				elapsed: ( elapsed * SELECTION_WAVE_DURATION ) / 1000,
@@ -81,7 +94,7 @@ describe( 'preview particle frames', () => {
 					logoAmount: 0,
 				} );
 				expect( Number.isFinite( point.x + point.y + point.opacity ) ).toBe( true );
-				expect( point.opacity ).toBeCloseTo( 0.2 );
+				expect( point.opacity ).toBe( 1 );
 				if ( Math.hypot( point.x - size / 2, point.y - size / 2 ) <= 36 ) {
 					expect(
 						getPreviewDotFrame( dot, {

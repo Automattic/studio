@@ -5,12 +5,17 @@
 
 const TRACKS_PIXEL_URL = 'https://pixel.wp.com/t.gif';
 
-// Event names. Product-prefixed, snake_case (Tracks convention). Must be registered server-side in
-// the Tracks event schema before data is queryable — see the design doc.
+// Event names follow Tracks naming rules. Register them for documentation and integrity checks;
+// validly named events can be collected and queried before registration. See the design doc.
 export const TRACKS_EVENTS = {
 	APP_LAUNCH: 'studio_app_launch',
 	SITE_START: 'studio_site_start',
 	SITE_CREATE: 'studio_site_created',
+	BLUEPRINT_VIEWED: 'studio_blueprint_viewed',
+	BLUEPRINT_USE_CASE_FILTER_CHANGED: 'studio_blueprint_use_case_filter_changed',
+	BLUEPRINT_PREVIEW_IN_BROWSER: 'studio_blueprint_preview_in_browser',
+	BLUEPRINT_CREATE_SITE_INTENT: 'studio_blueprint_create_site_intent',
+	BLANK_SITE_SELECTED: 'studio_blank_site_selected',
 	SITE_STOP: 'studio_site_stop',
 	SITE_DELETE: 'studio_site_delete',
 	SITE_OPEN_IN_BROWSER: 'studio_site_open_in_browser',
@@ -20,6 +25,7 @@ export const TRACKS_EVENTS = {
 	SITE_OPEN_CUSTOMIZE: 'studio_site_open_customize',
 	SITE_OPEN_PHPMYADMIN: 'studio_site_open_phpmyadmin',
 	SITE_OPEN_DESIGN_SYSTEM: 'studio_site_open_design_system',
+	SITE_OPEN_EMAIL: 'studio_site_open_email',
 	SITE_OPEN_FOLDER: 'studio_site_open_folder',
 	SITE_IMPORT: 'studio_site_imported',
 	SITE_EXPORT: 'studio_site_exported',
@@ -28,6 +34,8 @@ export const TRACKS_EVENTS = {
 	PREVIEW_SITE_DELETE: 'studio_preview_site_delete',
 	PREVIEW_SITE_DELETE_ALL: 'studio_preview_site_delete_all',
 	PANEL_OPENED: 'studio_panel_opened',
+	WORKSPACE_LAYOUT_CHANGED: 'studio_workspace_layout_changed',
+	RESPONSIVE_PREVIEW_CHANGED: 'studio_responsive_preview_changed',
 	SETTING_TELEMETRY_CHANGE: 'studio_setting_telemetry_change',
 	SETTING_APPEARANCE_CHANGE: 'studio_setting_appearance_change',
 	SETTING_LANGUAGE_CHANGE: 'studio_setting_language_change',
@@ -41,11 +49,18 @@ export const TRACKS_EVENTS = {
 	CODE_MESSAGE_SENT: 'studio_code_message_sent',
 	CODE_TURN_COMPLETED: 'studio_code_turn_completed',
 	CODE_SESSION_CREATED: 'studio_code_session_created',
+	ANNOTATION_SUBMITTED: 'studio_annotation_submitted',
 	CODE_DESIGN_OPTION_PROPOSED: 'studio_code_design_option_proposed',
 	CODE_DESIGN_OPTION_PICKED: 'studio_code_design_option_picked',
 	MCP_SESSION_START: 'studio_mcp_session_start',
 	ONBOARDING_COMPLETE: 'studio_onboarding_complete',
 	WPCOM_AUTH: 'studio_wpcom_auth',
+	ACCOUNT_PROMPT_VIEWED: 'studio_account_prompt_viewed',
+	WPCOM_AUTH_STARTED: 'studio_wpcom_auth_started',
+	WPCOM_AUTH_CANCELLED: 'studio_wpcom_auth_cancelled',
+	WPCOM_AUTH_LAUNCH_FAILED: 'studio_wpcom_auth_launch_failed',
+	ONBOARDING_VIEWED: 'studio_onboarding_viewed',
+	ACCOUNT_JOURNEY_COMPLETED: 'studio_account_journey_completed',
 	SYNC_PULL: 'studio_sync_pull',
 	SYNC_PUSH: 'studio_sync_push',
 	SYNC_CONNECT: 'studio_sync_connect',
@@ -83,16 +98,41 @@ export function isTracksChannel( value: unknown ): value is TracksChannel {
 	return TRACKS_CHANNELS.includes( value as TracksChannel );
 }
 
-// The path a site came into existence through, for `studio_site_created`. `blueprint` is inferred by
-// the CLI from the presence of a blueprint; the other non-`new` values are threaded down from the
-// caller (import/sync from a renderer, duplicate from the desktop Main `copySite` handler, ai from
-// the create-site form when the user describes the site).
-export type TracksSiteCreateFlowType = 'new' | 'blueprint' | 'import' | 'sync' | 'duplicate' | 'ai';
+// The path a site came into existence through, for `studio_site_created`. `blueprint` and
+// `static_site_import` are inferred by the CLI from a blueprint arg and a `--from` source
+// respectively (a `--from` create becomes a blueprint internally, so the inference must win over any
+// `--flow-type` hint); the other non-`new` values are threaded down from the caller (import/sync from
+// a renderer, duplicate from the desktop Main `copySite` handler, ai from the create-site form when
+// the user describes the site).
+export type TracksSiteCreateFlowType =
+	| 'new'
+	| 'blueprint'
+	| 'import'
+	| 'sync'
+	| 'duplicate'
+	| 'ai'
+	| 'static_site_import';
+
+// Sent as `source` on `studio_site_created`, only when `flow_type` is `static_site_import`: which
+// kind of `--from` source the create imported. A fixed list by design — the URL or path itself is
+// never sent.
+export type TracksSiteCreateSource = 'url' | 'capture' | 'directory';
 
 // Where a site "open" action rendered the site content, sent as `browser` on the site-content open
 // events (open_in_browser/wp_admin/customize/phpmyadmin). Studio Classic (v1) always opens the OS
 // browser (`external`); the agentic UI (v2) can open its in-app preview panel (`internal`).
 export type TracksBrowserTarget = 'external' | 'internal';
+
+export type TracksResponsivePreviewAction = 'preset_change' | 'manual_resize';
+export type TracksResponsivePreviewCategory = 'phone' | 'tablet' | 'desktop' | 'custom';
+export type TracksPreviewSizeBucket = 'under_600' | '600_to_1023' | '1024_to_1439' | '1440_plus';
+
+export type TracksResponsivePreviewProps = {
+	action: TracksResponsivePreviewAction;
+	preset_category: TracksResponsivePreviewCategory;
+	width_bucket: TracksPreviewSizeBucket;
+	height_bucket: TracksPreviewSizeBucket;
+};
 
 // The affordance a `studio_site_open_customize` event was launched from, sent as `entry_point`. Block
 // themes expose the site editor and its sub-views plus the media library; classic themes expose the
@@ -134,9 +174,8 @@ export function getInstructionsLengthBucket( content: string ): TracksInstructio
 	return length <= 1000 ? 'medium' : 'long';
 }
 
-// The site panel/tab a `studio_panel_opened` event refers to. Studio Classic emits the tab-strip names
-// (`sync`/`import-export`/`previews` are Classic-only); the agentic UI reuses the shared names —
-// `settings` for its General tab and `debugging` for its Debugging tab.
+// Current UI: site selection (`assistant`) and site settings (`settings`). Other
+// values remain for historical agentic route navigation and Classic tabs.
 export type TracksPanel =
 	| 'overview'
 	| 'settings'
@@ -161,10 +200,11 @@ export type TracksAuthSource =
 	| 'site_header'
 	| 'add_site'
 	| 'cli'
+	| 'mcp'
 	| 'unknown';
 
-// Whether the user signed up or logged in with an existing account. Known only at initiation (the
-// desktop opens a different URL for each); absent on CLI events, which have no signup path.
+// Which route the user chose: signup or login. This does not prove account creation.
+// Absent on CLI events, which have no signup path.
 export type TracksAuthAccountType = 'new' | 'existing';
 
 // Coarse, low-cardinality auth failure classification. The raw error is never sent — it can embed the
@@ -239,8 +279,9 @@ function omitUndefined( props: TracksProps ): TracksProps {
 }
 
 // Returns true if we attempted to record the event. Fire-and-forget, no-ops in E2E/dev like
-// `__bumpStat`. The timeout prevents an unreachable endpoint from keeping short-lived CLI processes
-// alive after their command has completed.
+// `__bumpStat`, and in tests, whose mocked boots would otherwise count as real launches. The timeout
+// prevents an unreachable endpoint from keeping short-lived CLI processes alive after their command
+// has completed.
 export function __recordTracksEvent(
 	eventName: TracksEventName,
 	identity: TracksIdentity,
@@ -252,7 +293,11 @@ export function __recordTracksEvent(
 		console.info( `Tracks event URL: ${ url }` );
 	}
 
-	if ( process.env.E2E || process.env.NODE_ENV === 'development' ) {
+	if (
+		process.env.E2E ||
+		process.env.NODE_ENV === 'development' ||
+		process.env.NODE_ENV === 'test'
+	) {
 		// Log what would actually be sent: the builder drops `undefined` props, so printing the raw
 		// object would show optional props as `undefined` and imply they were part of the request.
 		console.info( `Would have recorded Tracks event: ${ eventName }`, omitUndefined( props ) );

@@ -1,0 +1,27 @@
+.controls {
+	display: flex;
+	align-items: center;
+}
+
+.fullView {
+	display: flex;
+	align-items: center;
+	flex-shrink: 0;
+	width: calc( var( --layout-controls-space ) - 32px - var( --band-gap ) );
+	overflow: clip;
+	opacity: 0;
+	visibility: hidden;
+	transition:
+		opacity var( --panel-layout-duration ) var( --motion-ease-layout ),
+		visibility 0s var( --panel-layout-duration );
+}
+
+.fullView[data-visible] {
+	opacity: 1;
+	visibility: visible;
+	transition-delay: 0s;
+}
+
+.fullView > button {
+	flex-shrink: 0;
+}

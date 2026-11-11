@@ -322,6 +322,7 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		rank_me_up: __( 'Audit SEO' ),
 		install_taxonomy_scripts: __( 'Install taxonomy scripts' ),
 		wpcom_request: __( 'WordPress.com API' ),
+		send_feedback: __( 'Send feedback' ),
 		AskUserQuestion: __( 'Ask user' ),
 		Read: __( 'Read' ),
 		Write: __( 'Write' ),

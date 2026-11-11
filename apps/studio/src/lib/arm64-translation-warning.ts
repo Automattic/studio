@@ -33,6 +33,6 @@ export async function warnIfRunningUnderArm64Translation() {
 		await updateAppdata( { dontShowArm64Warning: true } );
 	}
 	if ( response === 0 ) {
-		void shellOpenExternalWrapper( 'https://developer.wordpress.com/studio/' );
+		void shellOpenExternalWrapper( 'https://wordpress.studio/' );
 	}
 }

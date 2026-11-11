@@ -1,5 +1,8 @@
 import { isSupportedLocale } from '@studio/common/lib/locale';
-import { INTERFACE_PREFERENCE_DEFAULTS } from '@studio/common/lib/user-settings/preferences';
+import {
+	DEFAULT_HIDE_FRONTEND_ADMIN_BAR,
+	INTERFACE_PREFERENCE_DEFAULTS,
+} from '@studio/common/lib/user-settings/preferences';
 import type {
 	ColorScheme,
 	QuitSitesBehavior,
@@ -9,6 +12,7 @@ import type {
 	UserPreferences,
 	WritableUserPreferences,
 } from '@/data/core';
+import type { SupportedBrowser } from '@studio/common/lib/user-settings/browser';
 
 // Non-empty on purpose: @base-ui's Select treats an item whose value
 // stringifies to '' as "no selection" and renders the placeholder instead of
@@ -17,6 +21,7 @@ export const UNSET = 'unset' as const;
 
 export interface PreferencesFormData {
 	editor: SupportedEditor | typeof UNSET;
+	browser: SupportedBrowser | typeof UNSET;
 	terminal: SupportedTerminal | typeof UNSET;
 	colorScheme: ColorScheme;
 	quitSitesBehavior: QuitSitesBehavior | typeof UNSET;
@@ -24,7 +29,9 @@ export interface PreferencesFormData {
 	analyticsEnabled: boolean;
 	defaultSiteDirectory: string;
 	autoStartSiteOnChat: boolean;
-	confirmDeleteAnnotations: boolean;
+	openChatOnSiteStart: boolean;
+	hideFrontendAdminBar: boolean;
+	batchAnnotations: boolean;
 }
 
 // The saved locale can be any string the main process resolved (including ones
@@ -37,6 +44,7 @@ function resolveFormLocale( locale: string | undefined ): SupportedLocale {
 export function toPreferencesFormData( prefs: UserPreferences ): PreferencesFormData {
 	return {
 		editor: prefs.editor ?? UNSET,
+		browser: prefs.browser ?? UNSET,
 		terminal: prefs.terminal ?? UNSET,
 		colorScheme: prefs.colorScheme,
 		quitSitesBehavior: prefs.quitSitesBehavior ?? UNSET,
@@ -47,8 +55,10 @@ export function toPreferencesFormData( prefs: UserPreferences ): PreferencesForm
 		defaultSiteDirectory: prefs.defaultSiteDirectory,
 		autoStartSiteOnChat:
 			prefs.autoStartSiteOnChat ?? INTERFACE_PREFERENCE_DEFAULTS.autoStartSiteOnChat,
-		confirmDeleteAnnotations:
-			prefs.confirmDeleteAnnotations ?? INTERFACE_PREFERENCE_DEFAULTS.confirmDeleteAnnotations,
+		openChatOnSiteStart:
+			prefs.openChatOnSiteStart ?? INTERFACE_PREFERENCE_DEFAULTS.openChatOnSiteStart,
+		batchAnnotations: prefs.batchAnnotations ?? INTERFACE_PREFERENCE_DEFAULTS.batchAnnotations,
+		hideFrontendAdminBar: prefs.hideFrontendAdminBar ?? DEFAULT_HIDE_FRONTEND_ADMIN_BAR,
 	};
 }
 

@@ -9,6 +9,9 @@ const backup = new File( [ 'backup' ], 'studio-backup-My Store-2026-07-17.zip' )
 
 async function setup() {
 	const connector = createFakeConnector();
+	connector.extractBlueprintBundle.mockRejectedValue(
+		new Error( 'No blueprint.json found in the ZIP.' )
+	);
 	connector.getFilePath.mockResolvedValue( '/tmp/backup.zip' );
 	const view = renderApp( { connector, path: '/?addSite=import' } );
 	const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
@@ -18,7 +21,7 @@ async function setup() {
 	await waitFor( () =>
 		expect( within( dialog ).getByLabelText( 'Site name' ) ).toHaveValue( 'My Store' )
 	);
-	const submit = async ( name = 'Import site' ) => {
+	const submit = async ( name = 'Add site' ) => {
 		const button = within( dialog ).getByRole( 'button', { name } );
 		await waitFor( () => expect( button ).toBeEnabled() );
 		fireEvent.click( button );
@@ -27,6 +30,149 @@ async function setup() {
 }
 
 describe( 'Add site › Import', () => {
+	it.each( [ true, false ] )(
+		'recognizes a dropped existing site and refuses empty source folders: empty=%s',
+		async ( isEmpty ) => {
+			const { connector, dialog } = await setup();
+			fireEvent.change( screen.getByLabelText( 'Site name' ), { target: { value: 'My bakery' } } );
+			await waitFor( () =>
+				expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute(
+					'title',
+					'/sites/My bakery'
+				)
+			);
+			const previousPath = ( screen.getByLabelText( 'Site folder' ) as HTMLInputElement ).value;
+			connector.getFilePath.mockResolvedValueOnce( '/projects/destination' );
+			connector.selectSiteFolder.mockResolvedValue( {
+				name: 'Destination',
+				path: '/projects/destination',
+				isEmpty,
+				isWordPress: ! isEmpty,
+			} );
+			fireEvent.drop( dialog, {
+				dataTransfer: {
+					files: [ new File( [], 'destination' ) ],
+					types: [ 'Files' ],
+					items: [ { webkitGetAsEntry: () => ( { isDirectory: true } ) } ],
+				},
+			} );
+			if ( isEmpty ) {
+				await screen.findByText( 'Choose a folder containing an existing WordPress site.' );
+				expect( screen.getByLabelText( 'Site folder' ) ).toHaveValue( previousPath );
+				expect( within( dialog ).getByText( backup.name ) ).toBeVisible();
+			} else {
+				await screen.findByText( 'Existing WordPress site' );
+				expect( screen.getByLabelText( 'Site folder' ) ).toHaveValue( '/projects/destination' );
+				expect( within( dialog ).queryByText( backup.name ) ).not.toBeInTheDocument();
+			}
+			expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'My bakery' );
+			expect( connector.createSite ).not.toHaveBeenCalled();
+			expect( connector.importSiteFromBackup ).not.toHaveBeenCalled();
+		}
+	);
+
+	it( 'keeps the backup selected and refuses an occupied destination folder', async () => {
+		const { connector, dialog } = await setup();
+		connector.selectSiteFolder.mockResolvedValueOnce( {
+			name: 'Existing site',
+			path: '/sites/existing',
+			isEmpty: false,
+			isWordPress: true,
+		} );
+		fireEvent.click(
+			screen.getByRole( 'button', {
+				name: 'Change…',
+			} )
+		);
+		await waitFor( () =>
+			expect( screen.getByLabelText( 'Site folder' ) ).toHaveAccessibleDescription(
+				/Choose an empty folder to use a source/
+			)
+		);
+		expect( within( dialog ).getByText( backup.name ) ).toBeVisible();
+		expect( within( dialog ).getByRole( 'button', { name: 'Add site' } ) ).toBeDisabled();
+		expect( within( dialog ).getByRole( 'button', { name: 'Advanced' } ) ).toHaveAttribute(
+			'aria-expanded',
+			'false'
+		);
+		expect( connector.createSite ).not.toHaveBeenCalled();
+		expect( connector.importSiteFromBackup ).not.toHaveBeenCalled();
+	} );
+
+	it( 'starts its AI prompt only after the backup finishes importing', async () => {
+		const { connector, dialog, submit } = await setup();
+		let finishImport!: () => void;
+		connector.importSiteFromBackup.mockReturnValueOnce(
+			new Promise< void >( ( resolve ) => {
+				finishImport = resolve;
+			} )
+		);
+		fireEvent.change( within( dialog ).getByRole( 'textbox', { name: 'Instructions' } ), {
+			target: { value: 'Refresh this restored bakery site' },
+		} );
+		await submit();
+		await waitFor( () => expect( connector.importSiteFromBackup ).toHaveBeenCalledOnce() );
+		expect( connector.createSession ).not.toHaveBeenCalled();
+		await act( async () => finishImport() );
+		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledOnce() );
+		expect( connector.continueSession.mock.calls[ 0 ][ 1 ] ).toBe(
+			'Refresh this restored bakery site'
+		);
+	} );
+
+	it( 'keeps AI recovery through Settings without importing again or deleting the restored site', async () => {
+		const { connector, dialog, submit } = await setup();
+		connector.createSession.mockRejectedValueOnce( new Error( 'Chat storage unavailable' ) );
+		fireEvent.change( within( dialog ).getByRole( 'textbox', { name: 'Instructions' } ), {
+			target: { value: 'Refresh this restored bakery site' },
+		} );
+		await submit();
+		await screen.findByText( 'Your site was created, but the AI chat could not start.' );
+		act( () => connector.emit( 'onOpenSettings', { settingId: 'ai' } ) );
+		const settings = await screen.findByRole( 'dialog', { name: 'Settings' } );
+		fireEvent.click( within( settings ).getByRole( 'button', { name: /Close .*ettings/ } ) );
+		await screen.findByText( 'Your site was created, but the AI chat could not start.' );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Try again' } ) );
+		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledOnce() );
+		expect( connector.importSiteFromBackup ).toHaveBeenCalledOnce();
+		expect( connector.createSite ).toHaveBeenCalledOnce();
+		expect( connector.deleteSite ).not.toHaveBeenCalled();
+	} );
+
+	it( 'clears the selected backup and preserves edited settings when choosing another', async () => {
+		const { dialog } = await setup();
+		fireEvent.change( within( dialog ).getByLabelText( 'Site name' ), {
+			target: { value: 'Edited Store' },
+		} );
+		expect( within( dialog ).getByRole( 'button', { name: 'Back' } ) ).toBeVisible();
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Change' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Start blank' } ) );
+		await within( dialog ).findByRole( 'button', { name: /^Choose(?: file|…)$/ } );
+		fireEvent.change( dialog.querySelector( 'input[type="file"]' )!, {
+			target: { files: [ new File( [ 'backup' ], 'other.wpress' ) ] },
+		} );
+		await waitFor( () =>
+			expect( within( dialog ).getByLabelText( 'Site name' ) ).toHaveValue( 'Edited Store' )
+		);
+	} );
+	it( 'changes the backup from its source area while retaining edited settings', async () => {
+		const { dialog } = await setup();
+		fireEvent.change( within( dialog ).getByLabelText( 'Site name' ), {
+			target: { value: 'My Edited Store' },
+		} );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Change' } ) );
+		expect( within( dialog ).getByLabelText( 'Site name' ) ).toHaveValue( 'My Edited Store' );
+		fireEvent.change( dialog.querySelector( 'input[type="file"]' )!, {
+			target: { files: [ new File( [ 'backup' ], 'another-backup.zip' ) ] },
+		} );
+		await waitFor( () =>
+			expect( within( dialog ).getByLabelText( 'Site name' ) ).toHaveValue( 'My Edited Store' )
+		);
+		expect( within( dialog ).getByText( 'another-backup.zip' ) ).toBeVisible();
+		expect( within( dialog ).getByRole( 'button', { name: 'Add site' } ) ).toBeVisible();
+		expect( within( dialog ).queryByRole( 'button', { name: 'Cancel' } ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'adopts the chosen backup, resolving its path only on submit', async () => {
 		const { connector, history, submit } = await setup();
 		expect( connector.getFilePath ).not.toHaveBeenCalled();
@@ -59,11 +205,9 @@ describe( 'Add site › Import', () => {
 		expect( connector.deleteSite ).toHaveBeenCalledWith( firstSite, true );
 		expect( within( dialog ).getByText( /removed the incomplete site/i ) ).toBeVisible();
 		expect( within( dialog ).getByText( 'Import exploded' ) ).toBeInTheDocument();
-		expect(
-			within( dialog ).getByRole( 'button', { name: 'Choose another backup' } )
-		).toBeVisible();
+		expect( within( dialog ).getByRole( 'button', { name: 'Change' } ) ).toBeVisible();
 
-		await submit( 'Retry import' );
+		await submit( 'Add site' );
 		await waitFor( () => expect( history.location.pathname ).not.toBe( '/' ) );
 		expect( connector.getFilePath ).toHaveBeenNthCalledWith( 2, backup );
 		expect( connector.importSiteFromBackup ).toHaveBeenLastCalledWith(
@@ -100,30 +244,33 @@ describe( 'Add site › Import', () => {
 		expect( connector.createSite ).not.toHaveBeenCalled();
 
 		connector.getFilePath.mockReturnValueOnce( new Promise( () => {} ) );
-		await submit( 'Retry import' );
-		expect( within( dialog ).getByRole( 'button', { name: /Retry import/ } ) ).toBeVisible();
+		await submit( 'Add site' );
 		expect(
-			within( dialog ).getByRole( 'button', { name: 'Choose another backup' } )
+			within( dialog ).getByRole( 'button', { name: 'Adding site Add site' } )
 		).toBeVisible();
+		expect( within( dialog ).getByRole( 'button', { name: 'Change' } ) ).toBeVisible();
 	} );
 
 	it( 'ignores a second submit while the import is under way', async () => {
 		const { connector, dialog } = await setup();
 		connector.getFilePath.mockReturnValue( new Promise( () => {} ) );
-		const button = within( dialog ).getByRole( 'button', { name: 'Import site' } );
+		const button = within( dialog ).getByRole( 'button', { name: 'Add site' } );
 		await waitFor( () => expect( button ).toBeEnabled() );
 		fireEvent.click( button );
 		fireEvent.click( button );
 		await waitFor( () => expect( connector.getFilePath ).toHaveBeenCalledOnce() );
 	} );
 
+	it( 'uses the bottom notice if the backup destination cannot be created', async () => {
+		const { connector, dialog, submit } = await setup();
+		connector.createSite.mockRejectedValue( new Error( 'EACCES: cannot create directory' ) );
+		await submit();
+		expect( await screen.findByText( 'Couldn’t create site: My Store' ) ).toBeVisible();
+		expect( within( dialog ).queryByRole( 'alert' ) ).not.toBeInTheDocument();
+		expect( within( dialog ).getByLabelText( 'Site name' ) ).toBeEnabled();
+	} );
+
 	it.each( [
-		[
-			'creating the site',
-			{ createSite: new Error( 'EACCES: cannot create directory' ) },
-			'WordPress Studio could not create the site.',
-			/Review the site name and local folder/,
-		],
 		[
 			'an unsafe backup path',
 			{ import: new Error( 'Failed to import site: absolute path: /wp-content/index.php' ) },

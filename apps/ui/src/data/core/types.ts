@@ -1,6 +1,7 @@
 import type { ActiveAgentRun, AgentRunEvent } from '@studio/agent/protocol/agent-events';
 import type { StudioChatFileAttachment } from '@studio/agent/protocol/chat-files';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
+import type { InspectorSelection } from '@studio/agent/protocol/inspector/selection';
 import type { AiModelId } from '@studio/agent/protocol/models';
 import type { AiProviderId, AiSettings } from '@studio/agent/protocol/providers';
 import type {
@@ -9,8 +10,11 @@ import type {
 	LoadedAiSession,
 } from '@studio/agent/protocol/sessions/types';
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
+import type { AgentApp, AgentAppId } from '@studio/common/lib/agent-apps';
 import type { SiteAgentFile, SiteAgentFileKind } from '@studio/common/lib/agent-skills';
+import type { AuthAnalytics, OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
 import type { SiteEvent, SiteListItem, SnapshotEvent } from '@studio/common/lib/cli-events';
+import type { StudioFeedback } from '@studio/common/lib/feedback';
 import type { SupportedLocale } from '@studio/common/lib/locale';
 import type {
 	TracksAuthSource,
@@ -25,23 +29,27 @@ import type { SnapshotUsage } from '@studio/common/lib/snapshots';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
+import type { SupportedBrowser, SystemBrowser } from '@studio/common/lib/user-settings/browser';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type {
 	SidebarPinnedSort,
 	SidebarSiteSort,
 	SidebarChatSort,
 	ColorScheme,
-	NewSiteBehavior,
 	QuitSitesBehavior,
 } from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
+import type { BlueprintSource } from '@studio/common/sites/blueprint-source';
 import type { SiteDesign } from '@studio/common/sites/site-design';
+import type { SiteEmail, SiteEmailSummary } from '@studio/common/sites/site-email';
+import type { PreviewStatus } from '@studio/common/sites/snapshots';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
+import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
 import type { DesignFix } from '@studio/design-md';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
@@ -59,6 +67,7 @@ export type { StudioCustomEntry } from '@studio/agent/protocol/sessions/entry-ty
 export type { AiModelId } from '@studio/agent/protocol/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SnapshotUsage } from '@studio/common/lib/snapshots';
+export type { PreviewStatus } from '@studio/common/sites/snapshots';
 export type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
@@ -67,8 +76,17 @@ export type { SupportedLocale } from '@studio/common/lib/locale';
 export type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 export type { StudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 export type { SiteDesign } from '@studio/common/sites/site-design';
+export type {
+	SiteEmail,
+	SiteEmailAddress,
+	SiteEmailSummary,
+} from '@studio/common/sites/site-email';
+export type { AgentApp, AgentAppId } from '@studio/common/lib/agent-apps';
 
-export type InstalledApps = Record< SupportedEditor | SupportedTerminal, boolean >;
+export type InstalledApps = Record<
+	SupportedEditor | SupportedTerminal | SupportedBrowser,
+	boolean
+> & { defaultBrowser?: SystemBrowser | null };
 
 interface AiSessionSitePlacement {
 	kind: 'site';
@@ -108,6 +126,7 @@ export interface SiteDetails {
 	// True for sites that were running when the app quit with the
 	// "Stop, restart on next launch" behavior; the renderer starts them on boot.
 	autoStart?: boolean;
+	hideFrontendAdminBar?: boolean;
 	// The Studio operation currently holding the site, from the CLI. Present
 	// regardless of who started it — the user, the desktop app, or the agent.
 	operation?: SiteOperation;
@@ -161,16 +180,19 @@ export interface Connector {
 	// Auth
 	agenticRequiresAuth: boolean;
 	getAuthUser(): Promise< AuthUser | null >;
-	// `source` records the affordance the login started from, for `studio_wpcom_auth`. Only the IPC
-	// connector can report it — the browser connectors have no Main process to record through.
-	authenticate( signup?: boolean, source?: TracksAuthSource ): Promise< void >;
+	// Authentication context is shared by the Desktop and browser outcome emitters.
+	authenticate(
+		signup?: boolean,
+		source?: TracksAuthSource,
+		analytics?: AuthAnalytics
+	): Promise< void >;
 	logout(): Promise< void >;
 	onAuthStateChanged?( listener: () => void ): () => void;
 
 	// Onboarding — whether the user has been through (or skipped) the
 	// first-run welcome screen.
 	getOnboardingCompleted(): Promise< boolean >;
-	setOnboardingCompleted( completed: boolean ): Promise< void >;
+	setOnboardingCompleted( completed: boolean, analytics?: OnboardingAnalytics ): Promise< void >;
 
 	// Sites
 	getSites(): Promise< SiteDetails[] >;
@@ -193,9 +215,15 @@ export interface Connector {
 	updateSite( site: SiteDetails, wpVersion?: string ): Promise< void >;
 	// Persists the sidebar's manual site order (each site's `sortOrder`).
 	updateSitesSortOrder( updates: { siteId: string; sortOrder: number }[] ): Promise< void >;
+	setSiteFrontendAdminBar( siteId: string, hidden: boolean | null ): Promise< void >;
 	// The last page of the site captured in a preview, shown while it's stopped.
 	// Null when the site has not been captured yet.
 	getSiteThumbnail( siteId: string ): Promise< string | null >;
+	// Captures the selected area of the visible Desktop preview.
+	captureAnnotationRegion( request: {
+		guestId: number;
+		selection: InspectorSelection;
+	} ): Promise< StudioChatImage >;
 	// Captures the preview's page as the site's thumbnail and returns it, or null
 	// when that page isn't kept (sign-in and admin screens). The Desktop app
 	// captures the preview webview, named by `guestId`.
@@ -211,17 +239,21 @@ export interface Connector {
 
 	// Exports a site as a full backup archive (files + database). Prompts the
 	// user for a destination via a save-as dialog; resolves with the chosen
-	// path on success, or `null` if the user cancelled the dialog.
-	exportFullSite( siteId: string ): Promise< string | null >;
+	// path on success, or `null` if the user cancelled the dialog. `onStarted`
+	// runs after destination selection, before the export begins.
+	exportFullSite( siteId: string, options?: { onStarted?: () => void } ): Promise< string | null >;
 	// Exports only the site database as a .sql dump. Same dialog/cancel
 	// semantics as `exportFullSite`.
-	exportDatabase( siteId: string ): Promise< string | null >;
+	exportDatabase( siteId: string, options?: { onStarted?: () => void } ): Promise< string | null >;
 
 	// Site-creation helpers: folder pickers and path validation.
 	generateProposedSitePath( siteName: string ): Promise< ProposedSitePath >;
 	generateProposedSiteName( usedSites: SiteDetails[] ): Promise< string >;
 	generateNumberedSiteName( baseName: string, usedSites: SiteDetails[] ): Promise< string >;
-	selectSiteFolder( defaultPath: string ): Promise< SelectedSiteFolder | null >;
+	selectSiteFolder(
+		defaultPath: string,
+		options?: { allowBlueprints?: boolean; allowSiteFiles?: boolean; usePath?: boolean }
+	): Promise< SelectedSiteFolder | null >;
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
 
 	getWordPressVersions(): Promise< WordPressVersion[] >;
@@ -284,6 +316,8 @@ export interface Connector {
 	// Deletes one preview site, both on WordPress.com and from the local list.
 	deleteSnapshot( hostname: string ): Promise< void >;
 	renameSnapshot( hostname: string, name: string ): Promise< void >;
+	// What changed on each side since the site was last pushed to the preview or pulled from it.
+	getPreviewStatus( hostname: string ): Promise< PreviewStatus >;
 
 	// Connected WordPress.com live sites for a local site, or every persisted
 	// connection for the current user when no local site is supplied.
@@ -380,6 +414,7 @@ export interface Connector {
 		sessionId: string,
 		prompt: string,
 		options?: {
+			turnId?: string;
 			displayMessage?: string;
 			images?: StudioChatImage[];
 			files?: StudioChatFileAttachment[];
@@ -461,6 +496,12 @@ export interface Connector {
 	// installed.
 	getInstalledApps(): Promise< InstalledApps >;
 
+	// Agent apps Settings connects to Studio, with whether each is installed.
+	getAgentApps(): Promise< AgentApp[] >;
+	// Installs the Studio plugin with the app's own CLI, or for Cursor opens
+	// its prompt to add Studio's MCP server. Rejects with the app's error.
+	connectAgentApp( id: AgentAppId ): Promise< void >;
+
 	// Host environment facts used to gate native-only UI (e.g. the Studio CLI
 	// toggle is hidden in Windows Store builds). Browser connectors report
 	// platform 'browser'.
@@ -474,6 +515,10 @@ export interface Connector {
 	openSiteInTerminal( siteId: string ): Promise< void >;
 	// Open the folder the site's email is saved in, in the system file manager.
 	openSiteEmailFolder( siteId: string ): Promise< void >;
+	// The email the site sent, newest first, and one of them in full, or null
+	// when it's gone.
+	getSiteEmails( siteId: string ): Promise< SiteEmailSummary[] >;
+	getSiteEmail( siteId: string, emailId: string ): Promise< SiteEmail | null >;
 
 	// The site's WordPress debug log, resolved host-side from the site id. Its
 	// existence is a query, not a `SiteDetails` field: the file comes and goes
@@ -486,10 +531,14 @@ export interface Connector {
 
 	// Analytics — record a Tracks event. The desktop wrapper attaches the surface
 	// params (channel/ui_version); see `docs/design-docs/analytics-tracks.md`.
-	trackEvent( eventName: TracksEventName, props?: TracksProps ): Promise< void >;
+	trackEvent( eventName: TracksEventName, props?: TracksProps, siteId?: string ): Promise< void >;
 
 	// External links
 	openExternalUrl( url: string ): Promise< void >;
+
+	// Sends feedback about WordPress Studio to the WordPress Studio team and returns the ID the
+	// service assigned it. Needs the WordPress.com login.
+	sendFeedback( feedback: StudioFeedback ): Promise< { feedbackId: number } >;
 
 	// Wapuu World easter-egg high score. Returns undefined when no score has
 	// been recorded yet; saving keeps only the highest score seen.
@@ -570,16 +619,27 @@ export interface Connector {
 	// Fires whenever a preview site is created, updated or deleted, by anyone.
 	onSnapshotEvent( listener: ( event: SnapshotEvent ) => void ): () => void;
 
-	// Fires when the user activates "View > Toggle Site Preview" (⌘⇧B) in the
+	// Fires when the user activates "View > Toggle Panel" (⌘⇧B) in the
 	// application menu.
-	onToggleSitePreview( listener: () => void ): () => void;
+	onTogglePanel( listener: () => void ): () => void;
+
+	// Desktop-only layout accelerators; browser hosts reserve these keys for tabs.
+	onSetWorkspaceLayout?( listener: ( layout: WorkspaceLayout ) => void ): () => void;
 
 	// Fires when the user activates the sidebar toggle shortcut or menu command.
 	onToggleSidebar( listener: () => void ): () => void;
 
 	// Fires when the user activates "File > Add Site…" (or its keyboard
 	// shortcut) in the application menu.
-	onAddSite( listener: () => void ): () => void;
+	onAddSite(
+		listener: ( payload?: { backup?: { path: string; name: string } } | void ) => void
+	): () => void;
+	onNewChat( listener: () => void ): () => void;
+	onOpenFolder( listener: () => void ): () => void;
+	// Desktop links and Spotlight select a site in the Studio workspace.
+	onOpenSite( listener: ( payload: { siteId: string } ) => void ): () => void;
+	// `pull-site` links from WordPress.com pull a remote site into Studio.
+	onPullSite( listener: ( payload: { remoteSiteId: number } ) => void ): () => void;
 	onAddSiteWithBlueprint( listener: ( payload: { blueprintPath: string } ) => void ): () => void;
 	// Tells the host the app now listens for the events links send (Settings, Add
 	// site, sync and checkout returns), so a link that arrived earlier opens.
@@ -610,6 +670,7 @@ export interface Connector {
 
 	// Auto-updater status.
 	getAppUpdateStatus(): Promise< AppUpdateStatus >;
+	checkForAppUpdates(): Promise< void >;
 	installAppUpdate(): Promise< void >;
 	onAppUpdateStatusChanged( listener: ( status: AppUpdateStatus ) => void ): () => void;
 
@@ -647,6 +708,7 @@ export interface OnboardingHintsState {
 	migratedFromClassic?: boolean;
 	// WHATS_NEW_VERSION of the What's New guide the user last saw.
 	whatsNewSeenVersion?: number;
+	annotateHintDismissed?: boolean;
 }
 
 export type { SiteAgentFile, SiteAgentFileKind };
@@ -660,6 +722,7 @@ export interface SkillStatus {
 
 export interface UserPreferences {
 	editor: SupportedEditor | null;
+	browser: SupportedBrowser | null;
 	terminal: SupportedTerminal | null;
 	colorScheme: ColorScheme;
 	// `null` clears it back to "ask every time".
@@ -686,9 +749,10 @@ export interface UserPreferences {
 	autoCollapseSites?: boolean;
 	// Start a stopped local site when a chat message is sent to it.
 	autoStartSiteOnChat?: boolean;
-	// Ask before discarding preview annotations.
-	confirmDeleteAnnotations?: boolean;
-	newSiteBehavior?: NewSiteBehavior;
+	openChatOnSiteStart?: boolean;
+	hideFrontendAdminBar?: boolean;
+	// Save annotation notes for a combined send.
+	batchAnnotations?: boolean;
 	// The appearance tint: a `#rrggbb` accent color, and percentages.
 	accentColor?: string;
 	tintIntensity?: number;
@@ -761,6 +825,8 @@ export interface ProposedSitePath {
 }
 
 export interface SelectedSiteFolder {
+	file?: { path: string; name: string };
+	blueprint?: BlueprintSource;
 	path: string;
 	name: string;
 	isEmpty: boolean;

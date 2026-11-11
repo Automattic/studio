@@ -1,21 +1,17 @@
-import { ACCEPTED_ADD_SITE_FILE_TYPES } from '@studio/common/constants';
-import {
-	getSuggestedSiteNameFromBackupFilename,
-	isSupportedBackupFilename,
-} from '@studio/common/lib/backup-files';
+import { getSuggestedSiteNameFromBackupFilename } from '@studio/common/lib/backup-files';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
-import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
-import { ArchiveIcon, UploadIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useImportSite } from '@/data/queries/use-import-site';
 import { useCreateSite, useDeleteSite } from '@/data/queries/use-sites';
 import { CreateSiteForm } from '@/features/sites/create-site-form';
-import { Button, Alert, AlertDescription } from '@/lib/ui';
-import { useAddSite } from './context';
+import { usePendingSiteFolder } from '@/features/sites/pending-site-folder';
+import { useAddSite, type SiteBackup } from './context';
 import styles from './import-panel.module.css';
+import { SetupSourceField } from './setup-source-field';
+import { useSetupPrompt } from './use-setup-prompt';
 import type { CreateSiteFormError, CreateSiteFormValues } from '@/features/sites/create-site-form';
 
 type ImportPhase = 'preparing' | 'creating' | 'importing';
@@ -31,20 +27,16 @@ function getImportRecoveryMessage( details: string ): string {
 	);
 }
 
-function createFailure( phase: ImportPhase, details: string ): CreateSiteFormError {
+function createFailure(
+	phase: Exclude< ImportPhase, 'creating' >,
+	details: string
+): CreateSiteFormError {
 	if ( phase === 'preparing' ) {
 		return {
 			title: __( 'WordPress Studio could not access this backup.' ),
 			message: __(
 				'Check that the file is still available and readable, then try again or choose another backup.'
 			),
-			details,
-		};
-	}
-	if ( phase === 'creating' ) {
-		return {
-			title: __( 'WordPress Studio could not create the site.' ),
-			message: __( 'Review the site name and local folder, then try again.' ),
 			details,
 		};
 	}
@@ -55,88 +47,19 @@ function createFailure( phase: ImportPhase, details: string ): CreateSiteFormErr
 	};
 }
 
-export function BackupDropZone( { onFile }: { onFile: ( file: File ) => void } ) {
-	const inputRef = useRef< HTMLInputElement >( null );
-	const [ isDragging, setIsDragging ] = useState( false );
-	const [ error, setError ] = useState( '' );
-
-	const handleFile = ( file?: File ) => {
-		if ( ! file ) return;
-		// A .sql dump is a database without the files that go with it, so it can
-		// only be imported over an existing site — not used to create one.
-		if ( ! isSupportedBackupFilename( file.name, ACCEPTED_ADD_SITE_FILE_TYPES ) ) {
-			setError(
-				__(
-					'This file type is not supported. Please use a .zip, .gz, .gzip, .tar, .tar.gz, .wpress, or .xml file'
-				)
-			);
-			return;
-		}
-		setError( '' );
-		onFile( file );
-	};
-
-	return (
-		<>
-			<div
-				className={ styles.dropZone }
-				data-dragging={ isDragging || undefined }
-				onDragOver={ ( event ) => {
-					event.preventDefault();
-					setIsDragging( true );
-				} }
-				onDragLeave={ ( event ) => {
-					if ( event.currentTarget.contains( event.relatedTarget as Node | null ) ) return;
-					setIsDragging( false );
-				} }
-				onDrop={ ( event ) => {
-					event.preventDefault();
-					setIsDragging( false );
-					handleFile( event.dataTransfer.files[ 0 ] );
-				} }
-			>
-				<UploadIcon className={ styles.dropIcon } size={ 24 } />
-				<p className={ styles.dropLabel }>{ __( 'Drop a WordPress backup here.' ) }</p>
-				<input
-					ref={ inputRef }
-					type="file"
-					accept={ ACCEPTED_ADD_SITE_FILE_TYPES.join( ',' ) }
-					hidden
-					onChange={ ( event ) => {
-						handleFile( event.target.files?.[ 0 ] );
-						event.target.value = '';
-					} }
-				/>
-				<Button type="button" variant="outline" onClick={ () => inputRef.current?.click() }>
-					{ __( 'Choose file' ) }
-				</Button>
-			</div>
-			{ error ? (
-				<Alert variant="destructive" className={ styles.dropError }>
-					<AlertDescription>{ error }</AlertDescription>
-				</Alert>
-			) : null }
-			<p className={ styles.dropHelp }>
-				{ __(
-					'Supports backups from WordPress.com, Jetpack, Local, Playground and All-in-One WP Migration, and WordPress export files (.xml).'
-				) }
-			</p>
-		</>
-	);
-}
-
-export function ImportPanel( {
-	backup: selectedFile,
-	onCancel,
-	onChooseAnother,
-}: {
-	backup: File;
-	onCancel: () => void;
-	onChooseAnother: () => void;
-} ) {
-	const navigate = useNavigate();
+export function ImportPanel( { backup: selectedFile }: { backup: SiteBackup } ) {
 	const connector = useConnector();
-	const { setProgress, followSite, pinNewSite } = useAddSite();
+	const {
+		setProgress,
+		followSite,
+		pinNewSite,
+		formActions,
+		isBlueprintValid,
+		setupDraft,
+		setSetupDraft,
+	} = useAddSite();
+	const [ restoredDraft ] = useState( setupDraft );
+	const selectedFolder = usePendingSiteFolder();
 
 	const existingDomainNames = useExistingCustomDomains();
 	const createSite = useCreateSite();
@@ -144,14 +67,15 @@ export function ImportPanel( {
 	const deleteSite = useDeleteSite();
 
 	const [ submitError, setSubmitError ] = useState< CreateSiteFormError | null >( null );
-	const [ hasFailed, setHasFailed ] = useState( false );
 	const [ isWorking, setIsWorking ] = useState( false );
 	const isWorkingRef = useRef( false );
+	const prompt = useSetupPrompt( { busy: isWorking } );
 
 	useEffect( () => () => setProgress( null ), [ setProgress ] );
 
 	const handleSubmit = async ( values: CreateSiteFormValues ) => {
-		if ( isWorkingRef.current ) return;
+		if ( isWorkingRef.current || prompt.hasCreatedSite() ) return;
+		prompt.capture();
 		isWorkingRef.current = true;
 		setIsWorking( true );
 		setSubmitError( null );
@@ -160,7 +84,8 @@ export function ImportPanel( {
 		let createdSiteId: string | null = null;
 		let importCompleted = false;
 		try {
-			const backupPath = await connector.getFilePath( selectedFile );
+			const backupPath =
+				'path' in selectedFile ? selectedFile.path : await connector.getFilePath( selectedFile );
 			if ( ! backupPath ) {
 				throw new Error( __( 'Unable to access the selected backup. Please try again.' ) );
 			}
@@ -195,9 +120,8 @@ export function ImportPanel( {
 				suppressTracksEvent: true,
 			} );
 			importCompleted = true;
-			await navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+			await prompt.finish( site.id );
 		} catch ( error ) {
-			setHasFailed( true );
 			const failureDetails =
 				getErrorMessage( error ) ?? __( 'Failed to import site. Please try again.' );
 			if ( createdSiteId && ! importCompleted ) {
@@ -222,7 +146,7 @@ export function ImportPanel( {
 					return;
 				}
 			}
-			setSubmitError( createFailure( phase, failureDetails ) );
+			if ( phase !== 'creating' ) setSubmitError( createFailure( phase, failureDetails ) );
 		} finally {
 			isWorkingRef.current = false;
 			setIsWorking( false );
@@ -238,21 +162,30 @@ export function ImportPanel( {
 		[ selectedFile ]
 	);
 
+	if ( prompt.recovery ) return prompt.recovery;
 	return (
 		<div className={ styles.page }>
 			<CreateSiteForm
+				selectedFolder={ selectedFolder }
+				actionsContainer={ formActions }
 				initialValues={ initialValues }
 				existingDomainNames={ existingDomainNames }
 				onSubmit={ handleSubmit }
-				onCancel={ hasFailed ? onChooseAnother : onCancel }
 				isSubmitting={ isWorking }
 				submitError={ submitError ?? undefined }
-				submitLabel={ hasFailed ? __( 'Retry import' ) : __( 'Import site' ) }
-				cancelLabel={ hasFailed ? __( 'Choose another backup' ) : undefined }
-				loadingAnnouncement={ __( 'Importing site' ) }
-				source={ selectedFile.name }
-				sourceIcon={ <ArchiveIcon /> }
-			/>
+				isSubmitDisabled={ ! isBlueprintValid }
+				folderDescription={
+					selectedFile.name.toLowerCase().endsWith( '.xml' )
+						? __( 'Studio will create a site in an empty folder and import this WordPress export.' )
+						: __( 'Studio will restore this backup into an empty folder.' )
+				}
+				requiresEmptyPath
+				draft={ restoredDraft }
+				onDraftChange={ setSetupDraft }
+				sourceControl={ <SetupSourceField disabled={ isWorking } /> }
+			>
+				{ prompt.field }
+			</CreateSiteForm>
 		</div>
 	);
 }

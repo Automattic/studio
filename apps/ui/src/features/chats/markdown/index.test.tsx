@@ -23,6 +23,23 @@ function renderMarkdown( markdown: string ) {
 }
 
 describe( 'Markdown', () => {
+	it( 'renders the design system tool link within the reply', async () => {
+		renderMarkdown( 'Updated the [design system](studio:design-system) with warmer colors.' );
+		const chip = await screen.findByRole( 'button', { name: 'Open Design System' } );
+		expect( chip.closest( 'p' ) ).toHaveTextContent(
+			'Updated the Design System with warmer colors.'
+		);
+	} );
+
+	it( 'does not allow arbitrary custom URL schemes', async () => {
+		renderMarkdown( '[unsafe](javascript:alert%281%29) [other](studio:other)' );
+		expect( await screen.findByText( 'unsafe' ) ).toHaveAttribute( 'href', '' );
+		expect( screen.getByText( 'other' ) ).toHaveAttribute( 'href', '' );
+		expect(
+			screen.queryByRole( 'button', { name: 'Open Design System' } )
+		).not.toBeInTheDocument();
+	} );
+
 	it( 'renders nested lists, task lists, tables, and every heading level', async () => {
 		renderMarkdown( [ samples.lists, samples.headings, samples.table ].join( '\n\n' ) );
 		await screen.findByRole( 'heading', { level: 1 } );

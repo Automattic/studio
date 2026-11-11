@@ -1,17 +1,31 @@
 @layer ui {
+	.commands[data-slot] {
+		--surface: var( --composer );
+		overflow: hidden;
+		padding: var( --space-1_5 );
+		border: 1px solid var( --input );
+		border-radius: var( --radius-3xl );
+		background-color: var( --surface );
+		box-shadow: var( --shadow-sm );
+		color: var( --foreground );
+		font-size: var( --text-sm );
+		line-height: var( --text-sm--line-height );
+		outline: none;
+	}
+
 	/* Menus, popovers, selects and dialogs float on this surface. */
 	.floating {
 		--surface: var( --popover );
 		background-color: var( --surface );
+		color: var( --popover-foreground );
+		outline: none;
 		box-shadow:
 			0 0 0 1px var( --popover-border ),
 			var( --shadow-sm );
-		color: var( --popover-foreground );
-		outline: none;
 	}
 
 	.popup {
-		border-radius: calc( var( --radius-md ) + 6px );
+		border-radius: var( --radius-popup );
 	}
 
 	.padded {
@@ -68,8 +82,8 @@
 	}
 
 	.item:is( [data-highlighted], [data-popup-open] ) {
-		background-color: var( --hover );
-		color: var( --foreground );
+		background-color: var( --item-hover-background, var( --hover ) );
+		color: var( --item-hover-foreground, var( --foreground ) );
 	}
 
 	.item[data-disabled] {

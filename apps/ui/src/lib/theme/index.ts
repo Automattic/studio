@@ -42,6 +42,14 @@ export function applyColorTint(
 	const custom = accentColor !== DEFAULT_ACCENT_COLOR ? hexToOklch( accentColor ) : undefined;
 	root.style.setProperty( '--tint-hue', String( custom?.h ?? DEFAULT_TINT_HUE ) );
 	root.style.setProperty(
+		'--accent-palette-hue-shift',
+		String( custom ? custom.h - 268.048352 : 0 )
+	);
+	root.style.setProperty(
+		'--accent-palette-chroma-scale',
+		String( custom ? Math.min( 1, custom.c / 0.22 ) : 1 )
+	);
+	root.style.setProperty(
 		'--tint-saturation',
 		String( custom ? Math.min( 1, custom.c / 0.1 ) : 1 )
 	);
@@ -68,18 +76,5 @@ export function applyTheme( colorScheme: 'light' | 'dark', tint: Partial< ColorT
 	applyColorTint( tint, root );
 }
 
-/** The accent fill a tint would get in the current color scheme. */
-export function previewAccentColor( tint: Partial< ColorTint > ): string {
-	const preview = document.createElement( 'span' );
-	preview.dataset.colorScheme = document.documentElement.dataset.colorScheme ?? 'light';
-	preview.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none';
-	document.documentElement.append( preview );
-	try {
-		applyColorTint( tint, preview );
-		return preview.style.getPropertyValue( '--accent-fill' ) || getColorTint( tint ).accentColor;
-	} finally {
-		preview.remove();
-	}
-}
-
 export { getMotionDuration } from './motion';
+export { getEmbeddedFontData } from './embedded-font';

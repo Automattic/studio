@@ -30,7 +30,7 @@ export abstract class SqliteIntegrationProvider {
 	 *
 	 * A user can run Studio against their own database server (e.g. MySQL) by removing
 	 * the SQLite drop-in, database, and mu-plugin, then pointing wp-config.php at it
-	 * (https://developer.wordpress.com/docs/developer-tools/studio/frequently-asked-questions/#use-studio-with-mysql-server).
+	 * (https://wordpress.studio/docs/frequently-asked-questions/#how-can-i-use-wordpress-studio-with-the-mysql-server-of-my-choice).
 	 * We must not reinstall SQLite over that. But a SQLite site whose db.php drop-in went
 	 * missing still has its database/mu-plugin, and needs the drop-in restored.
 	 *
@@ -115,6 +115,9 @@ export abstract class SqliteIntegrationProvider {
 				)
 				.replace( /^<\?php\s*\n/, ( openingTag ) => `${ openingTag }${ DB_PATH_DEFINITION }` );
 			await fs.promises.writeFile( path.join( wpContentPath, 'db.php' ), updatedContent );
+			// `wp sqlite import` and `export` run before db.php and would follow this file instead
+			// of the pin. Playground exports include it.
+			await fs.promises.rm( path.join( databasePath, 'db-path.php' ), { force: true } );
 		}
 
 		const sqliteDestPath = path.join( wpContentPath, 'mu-plugins', sqliteDirname );

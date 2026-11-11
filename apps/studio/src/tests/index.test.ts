@@ -214,7 +214,7 @@ describe( 'App initialization', () => {
 		expect( callback ).toHaveBeenCalledWith( {
 			requestHeaders: {
 				Accept: 'text/html',
-				Referer: 'https://developer.wordpress.com/studio/',
+				Referer: 'https://wordpress.studio/',
 			},
 		} );
 	} );

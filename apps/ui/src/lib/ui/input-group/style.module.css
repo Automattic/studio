@@ -15,7 +15,6 @@
 			:has( [aria-invalid='true'] )
 		) {
 		border-color: var( --ring );
-		box-shadow: inset 0 0 0 1px var( --ring );
 	}
 
 	.group:has( [aria-invalid='true'] ) {
@@ -31,8 +30,13 @@
 		height: auto;
 	}
 
+	.group[data-variant='commands'] {
+		border-radius: calc( var( --radius-3xl ) - var( --space-1_5 ) );
+	}
+
 	.group[data-variant='composer'] {
 		--surface: var( --composer );
+		box-shadow: var( --shadow-sm );
 		border-color: var( --input );
 		border-radius: var( --radius-3xl );
 		background-color: var( --surface );

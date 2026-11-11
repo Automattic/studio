@@ -1,44 +1,45 @@
 import { __ } from '@wordpress/i18n';
-import { clsx } from 'clsx';
-import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
 import { useWindowControlsInset } from '@/data/host/use-window-controls-inset';
-import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
-import { SiteHeaderSpace, useSiteHeader } from '@/features/sites/site-header-actions';
-import { PreviewAddressBar, type PreviewRealm } from '@/features/sites/site-preview/address-bar';
+import { useSiteHeader } from '@/features/sites/site-header-actions';
+import { PreviewAddressBar } from '@/features/sites/site-preview/address-bar';
 import { RotateCwIcon } from '@/lib/icons';
-import { IconButton } from '@/lib/ui';
-import { AnnotateButton } from './annotate-button';
+import { IconButton, VisuallyHidden } from '@/lib/ui';
 import { BrowserHistoryButton } from './browser-history-button';
+import {
+	BrowserMenu,
+	type PreviewBrowserActions,
+	type PreviewResponsiveActions,
+	type PreviewScreenshotActions,
+} from './browser-menu';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
+import type { useFrontendAdminBar } from '@/data/queries/use-frontend-admin-bar';
 import type { BrowserNavigationState } from '@/features/sites/site-preview/browser-state';
 import type { useBrowserShortcuts } from '@/features/sites/site-preview/use-browser-shortcuts';
 import type { BrowserShortcutCommand } from '@studio/agent/protocol/inspector/page-script';
-import type { ComponentProps, ReactNode } from 'react';
 
 interface PreviewHeaderProps {
 	site: SiteDetails;
+	inactive?: boolean;
 	siteUrl: string;
 	path: string;
 	live: boolean;
 	canPreview: boolean;
 	isStarting: boolean;
+	isRestarting?: boolean;
 	isStopping: boolean;
-	collapsed: boolean;
-	toolbarStart?: ReactNode;
-	atWindowStart: boolean;
 	browserState: BrowserNavigationState;
 	shortcuts: ReturnType< typeof useBrowserShortcuts >;
 	onBrowserCommand: ( command: BrowserShortcutCommand ) => void;
 	onJump: ( historyIndex: number ) => void;
 	onPathChange?: ( path: string ) => void;
-	onSwitchRealm: ( realm: PreviewRealm ) => void;
-	hasDesignSystem: boolean;
 	onOpenExternal?: () => void;
-	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
-	annotate?: Omit< ComponentProps< typeof AnnotateButton >, 'iconOnly' >;
-	// Page-load progress, while a page is loading or just loaded.
-	progress?: number;
+	browserActions?: PreviewBrowserActions;
+	adminBarActions?: ReturnType< typeof useFrontendAdminBar >;
+	onExternalNavigate?: ( url: string ) => void;
+	responsive?: PreviewResponsiveActions;
+	screenshot?: PreviewScreenshotActions;
+	annotation?: { active: boolean; disabled: boolean; disabledReason?: string; onClick: () => void };
 }
 
 export function PreviewHeader( {
@@ -48,126 +49,119 @@ export function PreviewHeader( {
 	live,
 	canPreview,
 	isStarting,
+	isRestarting = false,
 	isStopping,
-	collapsed,
-	toolbarStart,
-	atWindowStart,
 	browserState,
 	shortcuts,
 	onBrowserCommand,
 	onJump,
 	onPathChange,
-	onSwitchRealm,
-	hasDesignSystem,
 	onOpenExternal,
+	browserActions,
+	adminBarActions,
+	onExternalNavigate,
 	responsive,
-	annotate,
-	progress,
+	screenshot,
+	annotation,
+	inactive = false,
 }: PreviewHeaderProps ) {
-	const trafficLightSpace = useTrafficLightSpace();
-	const sidebarCollapsed = useSidebarCollapsed();
+	const { layout: headerLayout, attachAnnotationSpace, attachBrowserHeader } = useSiteHeader();
 	const windowControlsInset = useWindowControlsInset( 'toolbar' );
-	const { host: headerHost, layout: headerLayout } = useSiteHeader();
+	const disabled = ! canPreview || isStarting || isStopping;
+
+	const addressBar = (
+		<PreviewAddressBar
+			site={ site }
+			siteUrl={ siteUrl }
+			path={ path }
+			remote={ live }
+			onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
+			pageTitle={ browserState.title }
+			loading={ browserState.loading }
+			compact={ headerLayout === 'mobile-overflow' }
+			onOpenExternal={ onOpenExternal }
+			onExternalNavigate={ onExternalNavigate }
+			disabled={ ! canPreview || isStarting || isStopping }
+		/>
+	);
 
 	return (
 		<div
-			data-site-header
-			className={ clsx(
-				styles.header,
-				atWindowStart && sidebarCollapsed && trafficLightSpace.start && styles.headerTrafficLights
-			) }
-			style={ {
-				// In RTL the preview pane sits at the physical left, so the
-				// header's end-side controls land under the macOS traffic
-				// lights — pad past them.
-				...( trafficLightSpace.end && { paddingInlineEnd: 96 } ),
-				...( windowControlsInset > 0 && {
-					paddingRight: windowControlsInset + 8,
-				} ),
-			} }
+			ref={ inactive ? undefined : attachBrowserHeader }
+			data-preview-browser-controls
+			data-site-header-layout={ headerLayout }
+			className={ styles.header }
+			style={
+				windowControlsInset
+					? {
+							paddingRight: `calc(var(--band-inset) + ${ windowControlsInset }px)`,
+					  }
+					: undefined
+			}
+			role="toolbar"
+			aria-label={ __( 'Preview browser controls' ) }
 		>
-			{ toolbarStart ? (
-				<div data-site-header-reserved className={ styles.toolbarStart }>
-					{ toolbarStart }
-				</div>
+			{ isStarting || isStopping ? (
+				<VisuallyHidden role="status">
+					{ isRestarting
+						? __( 'Restarting site…' )
+						: isStopping
+						? __( 'Stopping site…' )
+						: __( 'Starting site…' ) }
+				</VisuallyHidden>
 			) : null }
 			<div className={ styles.headerSide }>
-				{ canPreview ? (
-					<div
-						data-site-header-navigation
-						className={ clsx(
-							styles.navigation,
-							headerLayout === 'navigation-overflow' && styles.navigationHidden
-						) }
-						aria-hidden={ headerLayout === 'navigation-overflow' || undefined }
-						inert={ headerLayout === 'navigation-overflow' }
-					>
-						<BrowserHistoryButton
-							direction="back"
-							browserState={ browserState }
-							shortcut={ shortcuts.back }
-							disabled={ isStopping }
-							onStep={ () => onBrowserCommand( 'back' ) }
-							onJump={ onJump }
-						/>
+				<div data-site-header-navigation className={ styles.navigation }>
+					<BrowserHistoryButton
+						direction="back"
+						browserState={ browserState }
+						shortcut={ shortcuts.back }
+						disabled={ disabled }
+						onStep={ () => onBrowserCommand( 'back' ) }
+						onJump={ onJump }
+					/>
+					<span hidden={ headerLayout === 'mobile-overflow' && ! browserState.canGoForward }>
 						<BrowserHistoryButton
 							direction="forward"
 							browserState={ browserState }
 							shortcut={ shortcuts.forward }
-							disabled={ isStopping }
+							disabled={ disabled }
 							onStep={ () => onBrowserCommand( 'forward' ) }
 							onJump={ onJump }
 						/>
-						<IconButton
-							icon={ <RotateCwIcon /> }
-							label={ __( 'Reload preview' ) }
-							shortcut={ shortcuts.reload }
-							tooltipSide="bottom"
-							disabled={ isStopping }
-							onClick={ () => onBrowserCommand( 'reload' ) }
-						/>
-					</div>
-				) : null }
-			</div>
-			<div
-				className={ clsx(
-					styles.browserLocation,
-					headerLayout === 'inline' && styles.browserLocationInline
-				) }
-				data-site-header-address={ ( canPreview && ! isStarting && ! isStopping ) || undefined }
-			>
-				{ isStarting || isStopping ? (
-					<span role="status" className={ styles.addressStatus }>
-						{ isStopping ? __( 'Stopping site…' ) : __( 'Starting site…' ) }
 					</span>
-				) : canPreview ? (
-					<PreviewAddressBar
-						site={ site }
-						siteUrl={ siteUrl }
-						path={ path }
-						remote={ live }
-						onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
-						onSwitchRealm={ onSwitchRealm }
-						hasDesignSystem={ hasDesignSystem }
-						onOpenExternal={ onOpenExternal }
+					<IconButton
+						size="icon-sm"
+						icon={ <RotateCwIcon /> }
+						label={ __( 'Reload' ) }
+						shortcut={ shortcuts.reload }
+						tooltipSide="bottom"
+						disabled={ disabled }
+						onClick={ () => onBrowserCommand( 'reload' ) }
+					/>
+				</div>
+			</div>
+			<div className={ styles.browserLocation } data-site-header-address>
+				{ addressBar }
+			</div>
+			<div className={ styles.headerSide }>
+				<span
+					ref={ inactive ? undefined : attachAnnotationSpace }
+					className={ styles.previewActions }
+					data-site-header-annotation
+					hidden={ headerLayout === 'mobile-overflow' }
+				/>
+				{ canPreview && ( browserActions || adminBarActions || responsive || screenshot ) ? (
+					<BrowserMenu
+						actions={ browserActions }
+						adminBar={ adminBarActions }
 						responsive={ responsive }
-						hideActions={ headerLayout !== 'inline' }
+						screenshot={ screenshot }
+						annotation={ headerLayout === 'mobile-overflow' ? annotation : undefined }
+						disabled={ disabled }
 					/>
 				) : null }
 			</div>
-			<div className={ styles.headerSide }>
-				{ annotate ? (
-					<span data-site-header-annotate className={ styles.headerItem }>
-						<AnnotateButton { ...annotate } iconOnly={ headerLayout !== 'inline' } />
-					</span>
-				) : null }
-				{ headerHost === 'preview' && ! collapsed ? <SiteHeaderSpace /> : null }
-			</div>
-			{ progress !== undefined ? (
-				<div className={ styles.loadingProgress } aria-hidden="true">
-					<span style={ { transform: `scaleX(${ Math.min( progress, 1 ) })` } } />
-				</div>
-			) : null }
 		</div>
 	);
 }

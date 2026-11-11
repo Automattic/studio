@@ -1,8 +1,7 @@
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { useConnector } from '@/data/core';
-import { markPreviewSeen, usePreviewReady } from '@/data/preview-ready';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import { useIsSiteBusy } from '@/data/queries/use-sites';
@@ -10,14 +9,7 @@ import { useSnapshotUsage, useSnapshots } from '@/data/queries/use-snapshots';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOffline } from '@/lib/hooks';
 import { ShareIcon } from '@/lib/icons';
-import {
-	Spinner,
-	Button,
-	NotificationDot,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyDescription,
-} from '@/lib/ui';
+import { Spinner, Button, EmptyHeader, EmptyMedia, EmptyDescription } from '@/lib/ui';
 import { PreviewSharePanel } from './preview-share-panel';
 import styles from './style.module.css';
 import type { PreviewManagementAction } from './preview-management-dialog';
@@ -25,15 +17,12 @@ import type { SiteDetails } from '@/data/core';
 
 export function useShareStatus( siteId: string ) {
 	const activity = useSiteSyncActivity( siteId );
-	const ready = usePreviewReady( siteId );
 	const publishing = activity?.kind === 'pending' && activity.direction === 'preview';
 	let label: string | undefined;
 	if ( publishing ) {
 		label = activity.hostname ? __( 'Updating preview…' ) : __( 'Creating preview…' );
-	} else if ( ready ) {
-		label = __( 'Preview ready' );
 	}
-	return { publishing, ready, label };
+	return { publishing, label };
 }
 
 export function ShareStatusIcon( {
@@ -43,23 +32,14 @@ export function ShareStatusIcon( {
 	icon: ReactNode;
 	status: ReturnType< typeof useShareStatus >;
 } ) {
-	return (
-		<span className={ styles.statusIcon }>
-			{ status.publishing ? <Spinner /> : icon }
-			{ status.ready && ! status.publishing ? <NotificationDot position="icon" /> : null }
-		</span>
-	);
+	return <span className={ styles.statusIcon }>{ status.publishing ? <Spinner /> : icon }</span>;
 }
 
 export function SharePanel( {
 	site,
-	open,
-	actionsContainer,
 	onManagePreview,
 }: {
 	site: SiteDetails;
-	open: boolean;
-	actionsContainer: HTMLDivElement | null;
 	onManagePreview: ( action: PreviewManagementAction ) => void;
 } ) {
 	const connector = useConnector();
@@ -75,7 +55,6 @@ export function SharePanel( {
 		name?: string;
 	} >();
 	const [ createdUrl, setCreatedUrl ] = useState< string >();
-	const status = useShareStatus( site.id );
 	const activity = useSiteSyncActivity( site.id );
 	const siteBusy = useIsSiteBusy( site );
 	const offline = useOffline();
@@ -136,9 +115,6 @@ export function SharePanel( {
 		} );
 	};
 
-	useEffect( () => {
-		if ( open && status.ready ) markPreviewSeen( site.id );
-	}, [ open, status.ready, site.id ] );
 	const loadError = user.error || ( ! snapshots.data && snapshots.error );
 	if ( signedOut ) return null;
 
@@ -151,9 +127,7 @@ export function SharePanel( {
 				variant="inline-accent"
 				size="inline"
 				onClick={ () =>
-					void connector.openExternalUrl(
-						'https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/'
-					)
+					void connector.openExternalUrl( 'https://wordpress.studio/docs/preview-sites/' )
 				}
 			>
 				{ __( 'Learn more…' ) }
@@ -161,7 +135,7 @@ export function SharePanel( {
 		</>
 	);
 	return (
-		<div className={ styles.content }>
+		<div className={ styles.content } data-share-previews={ previews.length > 0 || undefined }>
 			<EmptyHeader className={ styles.emptyIntro }>
 				<EmptyMedia className={ styles.emptyIcon }>
 					<ShareIcon width="40" height="40" />
@@ -173,14 +147,12 @@ export function SharePanel( {
 			{ usage.error ? (
 				<div className={ styles.error } role="alert">
 					<p>{ __( 'Unable to check preview availability.' ) }</p>
-					<Button variant="outline" onClick={ () => void usage.refetch() }>
-						{ __( 'Reload availability' ) }
-					</Button>
+					<Button onClick={ () => void usage.refetch() }>{ __( 'Reload availability' ) }</Button>
 				</div>
 			) : null }
 
 			{ loadError ? (
-				<div className={ styles.reload }>
+				<div className={ styles.error } role="alert">
 					<Button
 						onClick={ () => {
 							void user.refetch();
@@ -191,27 +163,17 @@ export function SharePanel( {
 					</Button>
 				</div>
 			) : user.isPending || snapshots.isPending ? (
-				<div className={ styles.loading } role="status">
+				<div className={ styles.loading }>
 					<Spinner />
-					{ __( 'Loading…' ) }
 				</div>
 			) : (
 				<PreviewSharePanel
 					key={ `${ site.id }:${ user.data?.id }` }
-					site={ site }
-					actionsContainer={ actionsContainer }
 					primaryAction={ primaryAction }
 					previews={ previews }
 					busy={ busy }
 					offline={ offline }
 					creating={ creating }
-					updatingHostname={
-						publishing
-							? activity.hostname
-							: publish.isPending
-							? ownAttempt?.existingHostname
-							: undefined
-					}
 					canCreate={ canCreate }
 					notice={ notice }
 					restriction={ restriction }

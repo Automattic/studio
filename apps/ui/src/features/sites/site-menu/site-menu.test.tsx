@@ -2,6 +2,7 @@ import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifact
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { previewTabsKey, usePreviewTabs } from '@/data/preview-tabs';
 import { subscribeHeaderPanelRequest } from '@/data/use-open-header-panel';
 import { SessionUIProvider, useSessionPreviewUI } from '@/data/use-session-ui';
 import { SiteContextMenu } from '@/features/sites/stopped-site-preview';
@@ -9,6 +10,7 @@ import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector'
 import { renderWithProviders } from '@/test/render';
 import { SiteMenu } from './index';
 import type { SyncSite } from '@/data/core';
+import type { AiProviderId } from '@studio/agent/protocol/providers';
 
 const DATABASE_PATH = '/phpmyadmin/index.php?route=/database/structure&db=wordpress';
 const autoLogin = ( path: string ) =>
@@ -19,9 +21,10 @@ afterEach( () => unsubscribers.splice( 0 ).forEach( ( unsubscribe ) => unsubscri
 
 function PreviewProbe() {
 	const preview = useSessionPreviewUI();
+	const { selected } = usePreviewTabs( previewTabsKey( 'selected' ) );
 	return (
 		<output aria-label="Preview">
-			{ preview.open && preview.siteId ? `${ preview.siteId } ${ preview.path }` : '' }
+			{ preview.open && preview.siteId ? `${ preview.siteId } ${ selected.path }` : '' }
 		</output>
 	);
 }
@@ -33,6 +36,7 @@ function setup( {
 	busy = false,
 	designAvailable = false,
 	connections,
+	providerConnection = null,
 }: {
 	otherRunning?: boolean;
 	selectedRunning?: boolean;
@@ -40,6 +44,7 @@ function setup( {
 	busy?: boolean;
 	designAvailable?: boolean;
 	connections?: SyncSite[];
+	providerConnection?: AiProviderId | null;
 } = {} ) {
 	const sites = [
 		makeSite( { id: 'selected', name: 'Selected', running: selectedRunning, port: 9010 } ),
@@ -47,11 +52,22 @@ function setup( {
 		makeSite( { id: 'stopped', name: 'Stopped', running: false } ),
 	];
 	const connector = createFakeConnector(
-		{ sites, user: connections ? TEST_USER : null },
+		{ sites, user: connections || providerConnection === 'wpcom' ? TEST_USER : null },
 		{
+			getAiSettings: async () => ( {
+				provider: providerConnection ?? 'wpcom',
+				hasAnthropicApiKey: providerConnection === 'anthropic-api-key',
+				anthropicApiKeyPreview: null,
+			} ),
 			getConnectedWpcomSites: async () => connections ?? [],
 			getSiteDesign: async () =>
-				designAvailable ? { design: '# Example', themeJson: {} } : null,
+				designAvailable
+					? {
+							design:
+								'---\ncolors:\n  primary: "#c2552b"\n  background: "#ffffff"\ntypography:\n  body:\n    fontFamily: "Inter"\n---',
+							themeJson: {},
+					  }
+					: null,
 		}
 	);
 	const site = busy
@@ -86,12 +102,49 @@ function setup( {
 }
 
 describe( 'Stop other sites', () => {
+	it.each( [
+		[ false, false, 'wpcom' ],
+		[ false, true, 'anthropic-api-key' ],
+		[ true, false, 'anthropic-api-key' ],
+		[ true, true, 'wpcom' ],
+	] as const )(
+		'opens a new chat from the first item (context menu: %s, running: %s, provider: %s)',
+		async ( contextMenu, selectedRunning, providerConnection ) => {
+			const { open, history, connector } = setup( {
+				contextMenu,
+				selectedRunning,
+				providerConnection,
+			} );
+			await open();
+			const newChat = await screen.findByRole( 'menuitem', { name: 'New chat' } );
+			expect( screen.getAllByRole( 'menuitem' )[ 0 ] ).toBe( newChat );
+			fireEvent.click( newChat );
+			await waitFor( () => expect( history.location.pathname ).toBe( '/sites/selected/new' ) );
+			expect( connector.createSession ).not.toHaveBeenCalled();
+			expect( connector.startSite ).not.toHaveBeenCalled();
+		}
+	);
+
+	it.each( [ false, true ] )(
+		'hides new chat without a connected provider (%s)',
+		async ( contextMenu ) => {
+			const { open, queryClient } = setup( { contextMenu } );
+			await open();
+			await waitFor( () => {
+				expect( queryClient.getQueryState( [ 'auth-user' ] )?.status ).toBe( 'success' );
+				expect( queryClient.getQueryState( [ 'ai-settings' ] )?.status ).toBe( 'success' );
+			} );
+			expect( screen.queryByRole( 'menuitem', { name: 'New chat' } ) ).not.toBeInTheDocument();
+			expect( screen.getAllByRole( 'menuitem' )[ 0 ] ).toHaveTextContent( 'Stop' );
+		}
+	);
+
 	it.each( [ false, true ] )(
 		'disables submenus with no available actions in either menu (%s)',
 		async ( contextMenu ) => {
 			const { open } = setup( { contextMenu, busy: true } );
 			await open();
-			for ( const name of [ 'Go to' ] ) {
+			for ( const name of [ 'Tools' ] ) {
 				const trigger = await screen.findByRole( 'menuitem', { name } );
 				expect( trigger ).toHaveAttribute( 'aria-disabled', 'true' );
 				fireEvent.click( trigger );
@@ -117,10 +170,11 @@ describe( 'Stop other sites', () => {
 				const sync = screen.getByRole( 'menuitem', { name: 'Publish' } );
 				const items = screen.getAllByRole( 'menuitem' );
 				expect( items[ items.indexOf( share ) + 1 ] ).toBe( sync );
-				expect( items[ items.indexOf( share ) - 1 ] ).toHaveTextContent( 'Duplicate' );
-				expect( items[ items.indexOf( sync ) + 1 ] ).toHaveTextContent( 'Delete site' );
+				expect( items[ items.indexOf( share ) - 1 ] ).toHaveTextContent( 'Settings' );
+				expect( items[ items.indexOf( sync ) + 1 ] ).toHaveTextContent( 'Export' );
 				fireEvent.click( action === 'Share' ? share : sync );
 				if ( action === 'Share' ) {
+					fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Manage sharing' } ) );
 					expect( requests.share ).toHaveBeenCalledExactlyOnceWith( {
 						panel: 'share',
 						siteId: 'selected',
@@ -130,7 +184,6 @@ describe( 'Stop other sites', () => {
 						panel: 'publish',
 						siteId: 'selected',
 						view: 'publish',
-						remoteSiteId: undefined,
 					} );
 				}
 				cleanup();
@@ -158,12 +211,18 @@ describe( 'Stop other sites', () => {
 	} );
 
 	it.each( [ false, true ] )(
-		'omits new chat from either site menu (%s)',
+		'keeps new chat available while the site is busy (%s)',
 		async ( contextMenu ) => {
-			const { open } = setup( { contextMenu } );
+			const { open } = setup( {
+				contextMenu,
+				busy: true,
+				providerConnection: 'anthropic-api-key',
+			} );
 			await open();
-			await screen.findByRole( 'menuitem', { name: 'Stop' } );
-			expect( screen.queryByRole( 'menuitem', { name: 'New chat' } ) ).not.toBeInTheDocument();
+			expect( await screen.findByRole( 'menuitem', { name: 'New chat' } ) ).not.toHaveAttribute(
+				'aria-disabled',
+				'true'
+			);
 		}
 	);
 
@@ -177,19 +236,20 @@ describe( 'Stop other sites', () => {
 				expect( Object.fromEntries( new URLSearchParams( history.location.search ) ) ).toEqual( {
 					settings: 'site',
 					settingsSite: 'selected',
-					settingsFocus: 'Site name',
+					settingsFocus: 'site-name',
 				} )
 			);
 		}
 	);
 
 	it.each( [
-		[ 'WordPress Admin', autoLogin( '/wp-admin/' ) ],
+		[ 'Admin', autoLogin( '/wp-admin/' ) ],
 		[ 'Database', DATABASE_PATH ],
+		[ 'Email log', 'studio:email' ],
 	] )( 'navigates to %s for the menu site', async ( label, path ) => {
 		const { open, history } = setup();
 		await open();
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Go to' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
 		await waitFor( () =>
 			expect( screen.getByRole( 'status', { name: 'Preview' } ) ).toHaveTextContent(
@@ -204,8 +264,8 @@ describe( 'Stop other sites', () => {
 		async ( contextMenu ) => {
 			const { open, history } = setup( { contextMenu, designAvailable: true } );
 			await open();
-			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Go to' } ) );
-			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Design system' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Design System' } ) );
 			await waitFor( () =>
 				expect( screen.getByRole( 'status', { name: 'Preview' } ) ).toHaveTextContent(
 					`selected ${ DESIGN_SYSTEM_PREVIEW_PATH }`
@@ -218,22 +278,23 @@ describe( 'Stop other sites', () => {
 	it( 'omits the design system when the site has none', async () => {
 		const { open } = setup();
 		await open();
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Go to' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
 		expect( await screen.findByRole( 'menuitem', { name: 'Database' } ) ).toBeInTheDocument();
-		expect( screen.queryByRole( 'menuitem', { name: 'Design system' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'menuitem', { name: 'Design System' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'omits the design system while the site is stopped', async () => {
 		const { open } = setup( { selectedRunning: false, designAvailable: true } );
 		await open();
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Go to' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
 		expect( await screen.findByRole( 'menuitem', { name: 'Database' } ) ).toBeInTheDocument();
-		expect( screen.queryByRole( 'menuitem', { name: 'Design system' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'menuitem', { name: 'Design System' } ) ).not.toBeInTheDocument();
 	} );
 
 	it.each( [
-		[ 'WordPress Admin', autoLogin( '/wp-admin/' ) ],
+		[ 'Admin', autoLogin( '/wp-admin/' ) ],
 		[ 'Database', DATABASE_PATH ],
+		[ 'Email log', 'studio:email' ],
 	] )( 'starts a stopped site before opening %s', async ( label, path ) => {
 		const { open, connector } = setup( { selectedRunning: false } );
 		await open();
@@ -244,14 +305,16 @@ describe( 'Stop other sites', () => {
 					finishStart = () => resolve();
 				} )
 		);
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Go to' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
 		const item = await screen.findByRole( 'menuitem', { name: label } );
 		expect( item ).not.toHaveAttribute( 'aria-disabled', 'true' );
 		fireEvent.click( item );
 		await waitFor( () =>
 			expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( 'selected' )
 		);
-		expect( screen.getByRole( 'status', { name: 'Preview' } ) ).toBeEmptyDOMElement();
+		expect( screen.getByRole( 'status', { name: 'Preview' } ) ).toHaveTextContent(
+			`selected ${ path }`
+		);
 		finishStart();
 		await waitFor( () =>
 			expect( screen.getByRole( 'status', { name: 'Preview' } ) ).toHaveTextContent(
@@ -259,20 +322,6 @@ describe( 'Stop other sites', () => {
 			)
 		);
 	} );
-
-	it.each( [ true, false ] )(
-		'opens the email folder of the menu site, running or not (%s)',
-		async ( selectedRunning ) => {
-			const { open, connector } = setup( { selectedRunning } );
-			await open();
-			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Go to' } ) );
-			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Email' } ) );
-			await waitFor( () =>
-				expect( connector.openSiteEmailFolder ).toHaveBeenCalledExactlyOnceWith( 'selected' )
-			);
-			expect( connector.startSite ).not.toHaveBeenCalled();
-		}
-	);
 
 	it( 'stops only other running sites', async () => {
 		const { open, connector } = setup();
@@ -318,7 +367,7 @@ describe( 'Stop other sites', () => {
 		async ( contextMenu ) => {
 			const { open, connector } = setup( { selectedRunning: false, contextMenu } );
 			await open();
-			await screen.findByRole( 'menuitem', { name: /Start site/ } );
+			await screen.findByRole( 'menuitem', { name: /^Start(?:\s|$)/ } );
 			await waitFor( () => expect( connector.getSites ).toHaveBeenCalled() );
 			expect(
 				screen.queryByRole( 'menuitem', { name: 'Stop other sites' } )
@@ -326,17 +375,26 @@ describe( 'Stop other sites', () => {
 		}
 	);
 
-	it( 'hides the option when no other sites are running', async () => {
-		const { open, connector } = setup( { otherRunning: false } );
-		await open();
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
-		await screen.findByRole( 'menuitem', { name: 'Settings' } );
-		await waitFor( () => expect( connector.getSites ).toHaveBeenCalled() );
-		expect(
-			screen.queryByRole( 'menuitem', { name: 'Stop other sites' } )
-		).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'menuitem', { name: 'Stop all sites' } ) ).not.toBeInTheDocument();
-	} );
+	it.each( [ false, true ] )(
+		'stops the only running site directly from either menu (%s)',
+		async ( contextMenu ) => {
+			const { open, connector } = setup( { otherRunning: false, contextMenu } );
+			await open();
+			const stop = await screen.findByRole( 'menuitem', { name: /^Stop(?:\s|$)/ } );
+			expect( stop ).not.toHaveAttribute( 'aria-haspopup' );
+			expect( screen.queryByRole( 'menuitem', { name: 'Stop site' } ) ).not.toBeInTheDocument();
+			expect(
+				screen.queryByRole( 'menuitem', { name: 'Stop other sites' } )
+			).not.toBeInTheDocument();
+			expect(
+				screen.queryByRole( 'menuitem', { name: 'Stop all sites' } )
+			).not.toBeInTheDocument();
+			fireEvent.click( stop );
+			await waitFor( () =>
+				expect( connector.stopSite ).toHaveBeenCalledExactlyOnceWith( 'selected' )
+			);
+		}
+	);
 } );
 
 it.each( [ false, true ] )(
@@ -356,68 +414,11 @@ it.each( [ false, true ] )(
 	}
 );
 
-describe( 'Restart site', () => {
-	it.each( [ false, true ] )(
-		'waits for stop before starting from either menu (%s)',
-		async ( contextMenu ) => {
-			const { open, connector } = setup( { contextMenu } );
-			let finishStop!: () => void;
-			connector.stopSite.mockImplementation(
-				() =>
-					new Promise( ( resolve ) => {
-						finishStop = resolve;
-					} )
-			);
-			await open();
-			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Restart site' } ) );
-			await waitFor( () =>
-				expect( connector.stopSite ).toHaveBeenCalledExactlyOnceWith( 'selected' )
-			);
-			expect( connector.startSite ).not.toHaveBeenCalled();
-			finishStop();
-			await waitFor( () =>
-				expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( 'selected' )
-			);
-		}
-	);
-
-	it( 'does not start when stopping fails', async () => {
-		const { open, connector } = setup();
-		connector.stopSite.mockRejectedValueOnce( new Error( 'Unable to stop' ) );
-		await open();
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Restart site' } ) );
-		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalled() );
-		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).not.toHaveAttribute(
-				'aria-busy',
-				'true'
-			)
-		);
-		expect( connector.startSite ).not.toHaveBeenCalled();
-	} );
-
-	it.each( [ false, true ] )( 'hides restart for a stopped site (%s)', async ( contextMenu ) => {
-		const { open } = setup( { selectedRunning: false, contextMenu } );
-		await open();
-		await screen.findByRole( 'menuitem', { name: /Start site/ } );
-		expect( screen.queryByRole( 'menuitem', { name: 'Restart site' } ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'disables restart while the site is busy', async () => {
-		const { open } = setup( { busy: true } );
-		await open();
-		expect( await screen.findByRole( 'menuitem', { name: 'Restart site' } ) ).toHaveAttribute(
-			'aria-disabled',
-			'true'
-		);
-	} );
-} );
-
 describe( 'Remove site confirmation', () => {
 	it( 'includes a generic preview warning without loading preview data, and passes the file choice', async () => {
 		const { open, connector } = setup();
 		await open();
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Delete site' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Delete' } ) );
 		expect(
 			await screen.findByText( /delete its chats and any shared preview sites/ )
 		).toBeVisible();
@@ -440,56 +441,38 @@ const publishedWebsite = {
 } as SyncSite;
 
 it.each( [ false, true ] )(
-	'opens publishing screens from either connected site menu (%s)',
+	'opens the publish dialog directly from either connected site menu (%s)',
 	async ( contextMenu ) => {
-		for ( const [ label, view ] of [
-			[ 'Publish changes…', 'publish' ],
-			[ 'Pull changes…', 'pull' ],
-			[ 'Connected site…', 'websites' ],
+		for ( const connections of [
+			[ publishedWebsite ],
+			[ publishedWebsite, { ...publishedWebsite, id: 43, url: 'https://second.com' } ],
 		] ) {
-			const { open, requests } = setup( { contextMenu, connections: [ publishedWebsite ] } );
+			const { open, requests } = setup( { contextMenu, connections } );
 			await open();
-			await waitFor( () =>
-				expect( screen.getByRole( 'menuitem', { name: 'Publish' } ) ).toHaveAttribute(
-					'aria-haspopup',
-					'menu'
-				)
-			);
-			fireEvent.click( screen.getByRole( 'menuitem', { name: 'Publish' } ) );
-			fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
+			const publish = await screen.findByRole( 'menuitem', { name: 'Publish' } );
+			expect( publish ).not.toHaveAttribute( 'aria-haspopup' );
+			fireEvent.click( publish );
 			expect( requests.publish ).toHaveBeenCalledExactlyOnceWith( {
 				panel: 'publish',
 				siteId: 'selected',
-				view,
-				remoteSiteId: 42,
+				view: 'publish',
 			} );
+			expect( screen.queryByRole( 'menuitem', { name: 'Pull changes…' } ) ).not.toBeInTheDocument();
 			cleanup();
 			unsubscribers.splice( 0 ).forEach( ( unsubscribe ) => unsubscribe() );
 		}
 	}
 );
 
-it( 'opens backups for the chosen destination and omits them for Pressable', async () => {
-	const { open, connector } = setup( {
-		connections: [
-			publishedWebsite,
-			{ ...publishedWebsite, id: 43, url: 'https://second.com', isPressable: true },
-		],
-	} );
+it( 'keeps an unsupported backup explanation beside the picker until acknowledged', async () => {
+	const { open, connector } = setup();
 	await open();
-	await waitFor( () =>
-		expect( screen.getByRole( 'menuitem', { name: 'Publish' } ) ).toHaveAttribute(
-			'aria-haspopup',
-			'menu'
-		)
-	);
-	fireEvent.click( screen.getByRole( 'menuitem', { name: 'Publish' } ) );
-	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'second.com' } ) );
-	await screen.findByRole( 'menuitem', { name: 'Publish changes…' } );
-	expect( screen.queryByRole( 'menuitem', { name: 'View backups' } ) ).not.toBeInTheDocument();
-	fireEvent.click( screen.getByRole( 'menuitem', { name: 'example.com' } ) );
-	fireEvent.click( await screen.findByRole( 'menuitem', { name: 'View backups' } ) );
-	expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith(
-		'https://wordpress.com/backup/example.com'
-	);
+	fireEvent.change( screen.getByTestId( 'import-backup-file' ), {
+		target: { files: [ new File( [ 'invalid' ], 'backup.txt', { type: 'text/plain' } ) ] },
+	} );
+	const validation = await screen.findByRole( 'alertdialog', { name: 'Unsupported backup file' } );
+	expect( validation ).toHaveTextContent( 'This file type is not supported' );
+	fireEvent.click( within( validation ).getByRole( 'button', { name: 'Done' } ) );
+	await waitFor( () => expect( validation ).not.toBeInTheDocument() );
+	expect( connector.importSiteFromBackup ).not.toHaveBeenCalled();
 } );

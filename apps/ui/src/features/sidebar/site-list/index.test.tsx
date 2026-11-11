@@ -84,7 +84,7 @@ function drag( row: HTMLElement, toY: number ) {
 beforeEach( () => localStorage.clear() );
 
 describe( 'sidebar site list', () => {
-	it( 'records Tracks for the Open in destinations, opening admin pages through the host', async () => {
+	it( 'records external Open in destinations and internal project tools separately', async () => {
 		const { connector } = await setup();
 		await openIn( 'My site' );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Finder' } ) );
@@ -93,11 +93,9 @@ describe( 'sidebar site list', () => {
 
 		await openIn( 'Running site' );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'phpMyAdmin' } ) );
-		await openIn( 'Running site' );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Browser (WP Admin)' } ) );
-		await waitFor( () =>
-			expect( connector.openSiteUrl ).toHaveBeenCalledWith( 'two', '/wp-admin/' )
-		);
+		fireEvent.contextMenu( await siteButton( 'Running site' ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Admin' } ) );
 		expect( connector.openSiteUrl ).toHaveBeenCalledWith(
 			'two',
 			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
@@ -106,9 +104,11 @@ describe( 'sidebar site list', () => {
 		expect( connector.trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
 			browser: 'external',
 		} );
-		expect( connector.trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
-			browser: 'external',
-		} );
+		expect( connector.openSiteUrl ).not.toHaveBeenCalledWith( 'two', '/wp-admin/' );
+		expect( await screen.findByRole( 'tab', { name: 'Admin' } ) ).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
 	} );
 
 	it( 'names the configured editor and terminal in Open in', async () => {
@@ -145,26 +145,34 @@ describe( 'sidebar site list', () => {
 		}
 	);
 
-	it( 'opens the site draft even when it has recent or previously visited chats', async () => {
+	it( 'resumes the most recent chat or the previously visited chat when selecting a site', async () => {
 		const sessions = [
-			chat( 'older', '2026-06-01T12:00:00.000Z' ),
 			chat( 'latest', '2026-06-20T12:00:00.000Z' ),
+			chat( 'older', '2026-06-01T12:00:00.000Z' ),
 		];
-		const { history, unmount } = await setup( { sessions, path: '/sites/two' } );
+		const { history, unmount } = await setup( {
+			sessions,
+			sites: [ { ...mySite, running: true }, runningSite ],
+			path: '/sites/two',
+		} );
 		fireEvent.click( await siteButton( 'My site' ) );
-		await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/latest' ) );
 		unmount();
 
 		rememberVisit( 'one', 'older' );
-		const view = await setup( { sessions, path: '/sites/two' } );
+		const view = await setup( {
+			sessions,
+			sites: [ { ...mySite, running: true }, runningSite ],
+			path: '/sites/two',
+		} );
 		fireEvent.click( await siteButton( 'My site' ) );
-		await waitFor( () => expect( view.history.location.pathname ).toBe( '/sites/one/new' ) );
+		await waitFor( () => expect( view.history.location.pathname ).toBe( '/sessions/older' ) );
 	} );
 
-	it( 'lists sites while chats are still loading', async () => {
+	it( 'lists sites while chats load within an open workspace', async () => {
 		const connector = createFakeConnector( { sites: [ mySite ] } );
 		connector.getSessions.mockReturnValue( new Promise( () => {} ) );
-		renderApp( { connector } );
+		renderApp( { connector, path: '/sites/one' } );
 		expect( await siteButton( 'My site' ) ).toBeVisible();
 	} );
 

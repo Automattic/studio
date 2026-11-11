@@ -1,9 +1,8 @@
 import { sortSites } from '@studio/common/lib/sort-sites';
-import { useParams, useRouterState } from '@tanstack/react-router';
+import { useParams, useRouter, useRouterState } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useMemo, type ReactNode } from 'react';
-import { useSessionsNeedingInput } from '@/data/agent-runs/use-agent-run';
+import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { errorMessage, toast } from '@/data/app-messages';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSidebarPreferences } from '@/data/queries/use-sidebar-pins';
@@ -11,15 +10,7 @@ import { useSites, useUpdateSitesSortOrder } from '@/data/queries/use-sites';
 import { getSessionTitle } from '@/features/chats';
 import { useOpenAddSite } from '@/features/sites';
 import { CollapseAllIcon, PlusIcon } from '@/lib/icons';
-import {
-	IconButton,
-	SidebarGroup,
-	SidebarGroupHeader,
-	SidebarGroupLabelSkeleton,
-	SidebarMenu,
-	SidebarMenuItem,
-	SidebarMenuSkeleton,
-} from '@/lib/ui';
+import { IconButton, SidebarMenu, SidebarMenuItem, SidebarMenuSkeleton } from '@/lib/ui';
 import { ChatRow, RetryLoadingChats } from './chat-row';
 import { useProvideCollapseAll } from './collapse-all';
 import { SidebarSelection } from './selection';
@@ -41,6 +32,40 @@ import { useRevealedSites } from './use-revealed-sites';
 import type { AiSessionSummary } from '@/data/core';
 import type { ReorderableItemProps } from '@/features/sidebar/reorderable-list';
 
+function useSidebarNavigation() {
+	const router = useRouter();
+	const pending = useRef< { frame: number; timer: number } | null >( null );
+	const cancel = useCallback( () => {
+		if ( ! pending.current ) return;
+		cancelAnimationFrame( pending.current.frame );
+		window.clearTimeout( pending.current.timer );
+		pending.current = null;
+	}, [] );
+	useEffect( () => {
+		const unsubscribe = router.history.subscribe( cancel );
+		return () => {
+			cancel();
+			unsubscribe();
+		};
+	}, [ cancel, router ] );
+
+	return ( openSite?: () => void ) => {
+		cancel();
+		if ( ! openSite ) return;
+		const work = { frame: 0, timer: 0 };
+		pending.current = work;
+		// Let the chat-list animation paint before mounting the workspace.
+		work.frame = requestAnimationFrame( () => {
+			work.frame = requestAnimationFrame( () => {
+				work.timer = window.setTimeout( () => {
+					pending.current = null;
+					openSite();
+				}, 0 );
+			} );
+		} );
+	};
+}
+
 export function SiteList( {
 	active = true,
 	className,
@@ -59,9 +84,9 @@ export function SiteList( {
 	const openAddSite = useOpenAddSite();
 	const { data: sites, isLoading: sitesLoading } = useSites();
 	const { data: allSessions, isLoading: sessionsLoading, isError: sessionsError } = useSessions();
-	const needingInput = useSessionsNeedingInput();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
+	const scheduleNavigation = useSidebarNavigation();
 	const activeSessionId = params.sessionId;
 	const sessions = useMemo( () => getListedSessions( allSessions ), [ allSessions ] );
 	const activeSiteId = params.siteId;
@@ -94,15 +119,17 @@ export function SiteList( {
 			} ),
 		[ activeSessionId, activeSiteId, pathname, orderedSites, allSessions ]
 	);
-	const { pinnedItems, siteRows, chatsBySite, needsInputChats, recentChats } =
-		getSidebarCollections( rows, sessions, {
+	const { pinnedItems, siteRows, chatsBySite, recentChats } = getSidebarCollections(
+		rows,
+		sessions,
+		{
 			pins: sections ? pins : [],
 			chatOrder,
 			pinnedSort,
 			siteSort,
 			chatSort,
-			needingInput,
-		} );
+		}
+	);
 	const activeChatIsPinned = pinnedItems.some(
 		( item ) => item.session && item.session.id === activeSessionId
 	);
@@ -131,7 +158,14 @@ export function SiteList( {
 			expanded={ sections && revealed.has( row.site.id ) }
 			loadError={ sessionsError }
 			reorderable={ reorderable }
-			onOpen={ sections ? () => toggle( row.site.id ) : undefined }
+			onOpen={
+				sections
+					? ( openSite ) => {
+							toggle( row.site.id );
+							scheduleNavigation( openSite );
+					  }
+					: undefined
+			}
 			onReorderChats={ ( ids ) =>
 				save(
 					{
@@ -159,8 +193,8 @@ export function SiteList( {
 	let listContent: ReactNode;
 	if ( sitesLoading ) {
 		listContent = (
-			<SidebarMenu aria-hidden="true">
-				{ [ '65%', '48%', '72%', '56%' ].map( ( width ) => (
+			<SidebarMenu className={ styles.loadingMenu } aria-hidden="true">
+				{ [ '65%', '48%', '72%', '56%', '62%', '43%' ].map( ( width ) => (
 					<SidebarMenuItem key={ width }>
 						<SidebarMenuSkeleton width={ width } />
 					</SidebarMenuItem>
@@ -206,16 +240,7 @@ export function SiteList( {
 	}
 
 	if ( sitesLoading ) {
-		return (
-			<div className={ clsx( styles.root, className ) }>
-				<SidebarGroup>
-					<SidebarGroupHeader aria-hidden="true">
-						<SidebarGroupLabelSkeleton />
-					</SidebarGroupHeader>
-					{ listContent }
-				</SidebarGroup>
-			</div>
-		);
+		return <div className={ clsx( styles.root, className ) }>{ listContent }</div>;
 	}
 
 	const loaded = ! sitesLoading && ! sessionsLoading;
@@ -244,13 +269,6 @@ export function SiteList( {
 	return (
 		<div className={ clsx( styles.root, className ) }>
 			<SidebarSelection>
-				{ needsInputChats.length > 0 ? (
-					<SiteListGroup id="needs-input" title={ __( 'Needs input' ) } foldable={ false }>
-						<SidebarMenu>
-							{ needsInputChats.map( ( session ) => renderChat( session ) ) }
-						</SidebarMenu>
-					</SiteListGroup>
-				) : null }
 				<SiteListGroup
 					id="pinned"
 					title={ __( 'Pinned' ) }

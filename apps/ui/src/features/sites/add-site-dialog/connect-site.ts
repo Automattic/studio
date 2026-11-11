@@ -2,6 +2,7 @@ import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
+import { getAccountJourney, scopeAccountJourney } from '@/data/account-analytics';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useCreateSite, useDeleteSite, useStartSite } from '@/data/queries/use-sites';
@@ -89,6 +90,7 @@ export function useConnectSite() {
 	const { setProgress, pinNewSite } = useAddSite();
 
 	return async ( remote: SyncSite, params: CreateSiteParams ) => {
+		const journey = getAccountJourney( connector, 'connect_site' );
 		try {
 			await runConnectSiteLifecycle( {
 				createLocalSite: async () => {
@@ -108,28 +110,37 @@ export function useConnectSite() {
 							syncSupport: 'already-connected',
 						} );
 					} catch ( error ) {
-						void connector.trackEvent( TRACKS_EVENTS.SYNC_CONNECT, {
-							success: false,
-							failure_reason: classifySyncFailure( error, { phase: 'storage_write' } ),
-							num_of_sites: 0,
-						} );
+						await connector
+							.trackEvent(
+								TRACKS_EVENTS.SYNC_CONNECT,
+								{
+									success: false,
+									failure_reason: classifySyncFailure( error, { phase: 'storage_write' } ),
+									num_of_sites: 0,
+								},
+								localSiteId
+							)
+							.catch( () => undefined );
 						throw error;
 					}
+					scopeAccountJourney( connector, journey, `${ localSiteId }:${ remote.id }` );
 					// The local site is created by this same flow, so it always ends up
 					// with exactly this one connection.
-					void connector.trackEvent( TRACKS_EVENTS.SYNC_CONNECT, {
-						success: true,
-						num_of_sites: 1,
-					} );
+					void connector.trackEvent(
+						TRACKS_EVENTS.SYNC_CONNECT,
+						{
+							success: true,
+							num_of_sites: 1,
+						},
+						localSiteId
+					);
 				},
-				pullRemoteSite: ( localSiteId ) =>
-					pullSite.mutateAsync( {
+				pullRemoteSite: async ( localSiteId ) => {
+					await pullSite.mutateAsync( {
 						siteId: localSiteId,
 						remoteSiteId: remote.id,
-						// The local site is created by this flow, so the connected-sites
-						// cache the hook would otherwise read has nothing for it yet.
-						syncSite: remote,
-					} ),
+					} );
+				},
 				startLocalSite: async ( localSiteId ) => {
 					await startSite.mutateAsync( localSiteId );
 				},

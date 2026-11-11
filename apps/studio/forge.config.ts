@@ -10,6 +10,8 @@ import { exec as pkgExec } from '@yao-pkg/pkg';
 import { globSync } from 'glob';
 import { PROTOCOL_PREFIX } from '../../packages/common/constants';
 import { RecommendedPHPVersion } from '../../packages/common/types/php-versions';
+import { dmgLayout } from '../../scripts/dmg-layout';
+import { buildSpotlightNative } from './native/build';
 import { squirrelWindowsSign, windowsSign } from './windowsSign';
 import type { ForgeConfig } from '@electron-forge/shared-types';
 
@@ -21,15 +23,23 @@ const displayName = 'WordPress Studio';
 
 const config: ForgeConfig = {
 	packagerConfig: {
-		asar: true,
+		asar: { unpack: 'native/*.node' },
 		// macOS only lets an app handle URL schemes its Info.plist declares.
 		protocols: [ { name: 'Studio', schemes: [ PROTOCOL_PREFIX ] } ],
 		extendInfo: {
+			NSUserActivityTypes: [ 'com.apple.corespotlightitem' ],
 			MDItemKeywords: 'WordPress, WordPress Studio, WP, local WordPress development',
 			// Finder, the Dock and the menu bar then take the name from the
 			// InfoPlist.strings written below.
 			LSHasLocalizedDisplayName: true,
 		},
+		afterCopy: [
+			async ( { buildPath, platform, arch } ) => {
+				if ( platform === 'darwin' ) {
+					buildSpotlightNative( arch, path.join( buildPath, 'native', 'spotlight.node' ) );
+				}
+			},
+		],
 		afterCopyExtraResources: [
 			async ( { buildPath, platform } ) => {
 				if ( platform !== 'darwin' ) {
@@ -80,6 +90,7 @@ const config: ForgeConfig = {
 			/^\/__mocks__/,
 			/^\/patches/,
 			/^\/entitlements/,
+			/^\/native/,
 			/^\/installers/,
 			// Build-time helpers
 			/^\/windowsSign\.ts$/,
@@ -160,17 +171,17 @@ const config: ForgeConfig = {
 						{
 							title: displayName,
 							icon: path.join( __dirname, 'assets', 'studio-app-icon.icns' ),
+							iconSize: dmgLayout.iconSize,
 							background: path.join( __dirname, 'assets', 'dmg-background.png' ),
 							contents: [
 								{
-									x: 533,
-									y: 122,
+									...dmgLayout.app,
 									type: 'file',
 									path: `${ process.cwd() }/out/Studio-darwin-${
 										process.env.FILE_ARCHITECTURE || 'arm64'
 									}/Studio.app`,
 								},
-								{ x: 533, y: 354, type: 'link', path: '/Applications' },
+								{ ...dmgLayout.applications, type: 'link', path: '/Applications' },
 								{ x: 900, y: 900, type: 'position', path: '.background' },
 								{ x: 900, y: 900, type: 'position', path: '.DS_Store' },
 								{ x: 900, y: 900, type: 'position', path: '.Trashes' },
@@ -179,8 +190,8 @@ const config: ForgeConfig = {
 							additionalDMGOptions: {
 								window: {
 									size: {
-										width: 710,
-										height: 502,
+										width: dmgLayout.width,
+										height: dmgLayout.height,
 									},
 								},
 							},

@@ -1,19 +1,16 @@
 import { __ } from '@wordpress/i18n';
-import { DownloadIcon, HistoryIcon } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
-import { useStartSite } from '@/data/queries/use-sites';
 import {
 	useCancelSync,
 	usePullSiteFromLive,
 	usePushSiteToLive,
 } from '@/data/queries/use-sync-site';
-import { ExternalLinkIcon, SyncIcon } from '@/lib/icons';
-import { Button, FieldSet, Menu } from '@/lib/ui';
+import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
+import { Button, FieldSet } from '@/lib/ui';
 import { FilePicker } from './file-picker';
 import {
-	backupsUrl,
 	overwriteDescription,
 	scopeLabel,
 	websiteAddress,
@@ -25,47 +22,6 @@ import styles from './style.module.css';
 import { useTransferSelection } from './use-transfer-selection';
 import type { SiteDetails, SyncSite } from '@/data/core';
 import type { SyncActivity } from '@/data/sync-activity';
-
-// Pull, backups and website management for one connected website.
-export function WebsiteMenuItems( {
-	remote,
-	disabled,
-	includePublish = false,
-	onOpen,
-}: {
-	remote: SyncSite;
-	disabled: boolean;
-	includePublish?: boolean;
-	onOpen: ( view: 'publish' | 'pull' | 'websites' ) => void;
-} ) {
-	const connector = useConnector();
-	const backups = backupsUrl( remote );
-	return (
-		<>
-			{ includePublish ? (
-				<Menu.Item disabled={ disabled } onClick={ () => onOpen( 'publish' ) }>
-					<SyncIcon />
-					{ __( 'Publish changes…' ) }
-				</Menu.Item>
-			) : null }
-			<Menu.Item disabled={ disabled } onClick={ () => onOpen( 'pull' ) }>
-				<DownloadIcon />
-				{ __( 'Pull changes…' ) }
-			</Menu.Item>
-			{ backups ? (
-				<Menu.Item onClick={ () => void connector.openExternalUrl( backups ) }>
-					<HistoryIcon />
-					{ __( 'View backups' ) }
-					<ExternalLinkIcon />
-				</Menu.Item>
-			) : null }
-			<Menu.Separator />
-			<Menu.Item disabled={ disabled } onClick={ () => onOpen( 'websites' ) }>
-				{ __( 'Connected site…' ) }
-			</Menu.Item>
-		</>
-	);
-}
 
 export function ConnectedView( {
 	site,
@@ -117,7 +73,7 @@ export function ConnectedView( {
 	const pushSite = usePushSiteToLive();
 	const pullSite = usePullSiteFromLive();
 	const cancel = useCancelSync();
-	const startSite = useStartSite();
+	const startSite = useStartSiteWithChat();
 	const pending = activity?.kind === 'pending';
 	useEffect( () => {
 		onReviewingChange( reviewing && ! pending );
@@ -138,7 +94,9 @@ export function ConnectedView( {
 		open && direction === 'pull' && ! pending && ! offline
 	);
 	const selection = direction === 'push' ? push : pull;
-	const issue = accessIssue ?? websiteIssue( remote );
+	const pullIssue = accessIssue ?? websiteIssue( remote, 'pull' );
+	const pushIssue = accessIssue ?? websiteIssue( remote, 'push' );
+	const issue = direction === 'pull' ? pullIssue : pushIssue;
 	const finished =
 		activity !== dismissedActivity &&
 		activity?.kind !== 'pending' &&
@@ -159,7 +117,7 @@ export function ConnectedView( {
 		);
 	};
 	const start = () => {
-		const variables = { siteId: site.id, remoteSiteId: remote.id, syncSite: remote };
+		const variables = { siteId: site.id, remoteSiteId: remote.id };
 		if ( direction === 'push' )
 			pushSite.mutate( { ...variables, options: selection.options.push } );
 		else pullSite.mutate( { ...variables, options: selection.options.pull } );
@@ -198,9 +156,7 @@ export function ConnectedView( {
 								variant="inline-accent"
 								size="inline"
 								onClick={ () =>
-									void connector.openExternalUrl(
-										'https://developer.wordpress.com/docs/developer-tools/studio/sync/'
-									)
+									void connector.openExternalUrl( 'https://wordpress.studio/docs/sync/' )
 								}
 							>
 								{ __( 'Learn more…' ) }
@@ -214,7 +170,7 @@ export function ConnectedView( {
 							ref={ pullButton }
 							variant="outline"
 							size="lg"
-							disabled={ disabled || Boolean( issue ) }
+							disabled={ disabled || Boolean( pullIssue ) }
 							onClick={ () => {
 								setView( 'pull' );
 								setReviewing( true );
@@ -224,9 +180,9 @@ export function ConnectedView( {
 						</Button>
 						<Button
 							ref={ publishButton }
-							variant="default"
+							variant="accent"
 							size="lg"
-							disabled={ disabled || Boolean( issue ) }
+							disabled={ disabled || Boolean( pushIssue ) }
 							onClick={ () => {
 								setView( 'publish' );
 								setReviewing( true );
@@ -263,6 +219,7 @@ export function ConnectedView( {
 										error={ finished?.kind === 'error' ? finished.message : undefined }
 									/>
 									<Button
+										variant="accent"
 										disabled={ startSite.isPending }
 										onClick={ () => startSite.mutate( site.id ) }
 									>
@@ -346,7 +303,7 @@ export function ConnectedView( {
 											{ __( 'Cancel' ) }
 										</Button>
 										<Button
-											variant="default"
+											variant="accent"
 											size="lg"
 											disabled={
 												disabled ||

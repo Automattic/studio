@@ -20,25 +20,28 @@ export function getSelectionWave(
 		return 0;
 	}
 	const arrival =
-		( dot.y / Math.max( 1, height ) ) * 0.64 +
+		( dot.y / Math.max( 1, height ) ) * 0.52 +
 		( 1 - Math.min( 1, Math.abs( dot.x - centerX ) / Math.max( 1, centerX ) ) ** 2 ) * 0.12;
-	const phase = ( elapsed / SELECTION_WAVE_DURATION - arrival ) / 0.24;
+	const phase = ( elapsed / SELECTION_WAVE_DURATION - arrival ) / 0.36;
 	return phase > 0 && phase < 1 ? Math.sin( phase * Math.PI ) ** 2 : 0;
 }
 
-export function createPreviewDots( width: number, height: number ): PreviewDot[] {
+export function createPreviewDots(
+	width: number,
+	height: number,
+	centerY = height / 2
+): PreviewDot[] {
 	const centerX = width / 2;
-	const centerY = height / 2;
-	const spacing = Math.max( 26, Math.sqrt( ( width * height ) / 1600 ) );
-	const inset = Math.min( 18, width / 2, height / 2 );
-	const columns = Math.max( 1, Math.round( ( width - inset * 2 ) / spacing ) + 1 );
-	const rows = Math.max( 1, Math.round( ( height - inset * 2 ) / spacing ) + 1 );
+	const spacing = 26;
+	const insetX = Math.min( 24, width / 2 );
+	const insetY = Math.min( 24, height / 2 );
+	const columns = Math.max( 1, Math.floor( ( width - insetX * 2 ) / spacing ) + 1 );
+	const rows = Math.max( 1, Math.floor( ( height - insetY * 2 ) / spacing ) + 1 );
 	const dots: PreviewDot[] = [];
 	for ( let row = 0; row < rows; row++ ) {
 		for ( let column = 0; column < columns; column++ ) {
-			const x =
-				columns === 1 ? centerX : inset + ( column * ( width - inset * 2 ) ) / ( columns - 1 );
-			const y = rows === 1 ? centerY : inset + ( row * ( height - inset * 2 ) ) / ( rows - 1 );
+			const x = insetX + column * spacing;
+			const y = insetY + row * spacing;
 			const distance = Math.hypot( x - centerX, y - centerY );
 			dots.push( {
 				x,
@@ -50,7 +53,7 @@ export function createPreviewDots( width: number, height: number ): PreviewDot[]
 					1,
 					Math.max(
 						0,
-						Math.min( x - inset, width - inset - x, y - inset, height - inset - y ) / 80
+						Math.min( x - insetX, width - insetX - x, y - insetY, height - insetY - y ) / 80
 					)
 				),
 			} );
@@ -84,7 +87,6 @@ export function getPreviewDotFrame(
 		1 -
 		logoAmount *
 			( 1 - Math.max( 0, Math.min( 1, ( Math.hypot( x - centerX, y - centerY ) - 36 ) / 24 ) ) );
-	const opacity =
-		( 0.2 + ( wave + 1 ) * 0.08 * amount ) * clearance * clearance * ( 3 - 2 * clearance );
+	const opacity = clearance * clearance * ( 3 - 2 * clearance );
 	return { x, y, opacity };
 }

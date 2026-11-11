@@ -1,4 +1,5 @@
 .root {
+	--motion-duration-feedback: 0s;
 	display: flex;
 	flex-direction: column;
 }
@@ -7,45 +8,11 @@
 	flex-direction: column;
 	align-items: stretch;
 	height: auto;
+	box-shadow: var( --shadow-xs );
 }
 
-/* Text-input chrome, like the form inputs beside it, instead of the chat composer. */
-.shellField {
-	border-radius: var( --radius-lg );
-	background-color: color-mix( in srgb, var( --chrome ) 60%, transparent );
-}
-
-.shellField:has( .input:focus-visible ) {
-	border-color: var( --input );
-	box-shadow: none;
-	outline: var( --focus-width ) solid var( --ring );
-	outline-offset: var( --focus-width );
-}
-
-.shellField .input {
-	min-height: calc( 3lh + 28px );
-}
-
-.dropOverlay {
-	position: absolute;
-	inset: 0;
-	z-index: var( --z-sidebar );
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	border: 2px solid var( --ring );
-	border-radius: inherit;
-	background-color: color-mix( in srgb, var( --accent-text ) 10%, transparent );
-	pointer-events: none;
-}
-
-.dropOverlay span {
-	padding: var( --space-2 ) var( --space-4 );
-	border-radius: var( --radius-xl );
-	background-color: var( --accent );
-	color: var( --accent-foreground );
-	font-size: var( --text-sm );
-	font-weight: var( --font-weight-medium );
+.shell:has( .input:focus-visible ):not( :has( [aria-invalid='true'] ) ) {
+	border-color: var( --ring );
 }
 
 .fileInput {
@@ -60,8 +27,9 @@
 /* Grows with its text up to six lines, then scrolls. */
 .input {
 	min-height: 0;
-	max-height: calc( 6lh + 28px );
+	max-height: calc( 6lh + 24px );
 	padding: var( --space-3_5 );
+	padding-block-end: var( --space-2_5 );
 	overflow-y: auto;
 }
 
@@ -87,16 +55,13 @@
 	justify-content: space-between;
 	gap: var( --space-2 );
 	min-width: 0;
-	padding: var( --space-1_5 ) var( --space-2 ) var( --space-2 );
+	padding: var( --space-1_5 );
 }
 
 .leftActions,
 .rightActions {
 	display: flex;
 	align-items: center;
-}
-
-.rightActions {
 	gap: var( --space-1 );
 }
 

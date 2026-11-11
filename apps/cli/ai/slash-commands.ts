@@ -28,7 +28,7 @@ import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/upda
 import { runCommand as runPushCommand } from 'cli/commands/push';
 import { openBrowser } from 'cli/lib/browser';
 import { getAppLocale } from 'cli/lib/i18n';
-import { getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
+import { getSnapshotLink, getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { Logger, LoggerError } from 'cli/logger';
 import type { AiChatUI } from 'cli/ai/ui';
@@ -467,7 +467,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 					: await runCreatePreviewCommand( site.path, undefined, logger );
 
 				ctx.ui.setBusy( false );
-				ctx.ui.showSuccess( __( 'Preview site ready!' ) + '\n\n   ' + `https://${ preview.url }` );
+				ctx.ui.showSuccess( __( 'Preview site ready!' ) + '\n\n   ' + getSnapshotLink( preview ) );
 			} catch ( error ) {
 				ctx.ui.setBusy( false );
 				if ( error instanceof LoggerError ) {

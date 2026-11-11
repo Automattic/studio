@@ -57,6 +57,19 @@ describe( 'startSite', () => {
 		rmSync( sitePath, { recursive: true, force: true } );
 	} );
 
+	it( 'tells the CLI when the start was requested, so it can time the whole start', async () => {
+		vi.useFakeTimers( { toFake: [ 'Date' ] } );
+		vi.setSystemTime( 1234 );
+		const execute = vi.fn( failingWith( 'Port in use' ) );
+
+		await expect( startSite( execute, '/site' ) ).rejects.toThrow();
+		vi.useRealTimers();
+
+		expect( execute.mock.calls[ 0 ][ 1 ] ).toMatchObject( {
+			env: { STUDIO_SITE_START_REQUESTED_AT: '1234' },
+		} );
+	} );
+
 	it( "reports the command's own error otherwise", async () => {
 		await expect( startSite( failingWith( 'Port in use' ), '/site' ) ).rejects.toThrow(
 			/^Port in use$/

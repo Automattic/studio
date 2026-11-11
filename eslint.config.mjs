@@ -122,6 +122,7 @@ export default defineConfig(
 				projectService: {
 					allowDefaultProject: [
 						'apps/mcp-ui/vite.config.ts',
+						'apps/mcp-ui/vitest.config.ts',
 						'plugins/wp-studio/scripts/*.mjs',
 						'apps/ui/vite.config.ts',
 						'apps/ui/vitest.setup.ts',
@@ -184,6 +185,7 @@ export default defineConfig(
 						'@modelcontextprotocol/sdk/server/stdio\\.js$',
 						'@modelcontextprotocol/sdk/client/index\\.js$',
 						'@modelcontextprotocol/sdk/client/stdio\\.js$',
+						'@modelcontextprotocol/sdk/client/streamableHttp\\.js$',
 					],
 				},
 			],

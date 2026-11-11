@@ -22,7 +22,14 @@ import {
 import { useSites } from '@/data/queries/use-sites';
 import { getSessionTitle } from '@/features/chats/session-view/session-chat-actions';
 import { useItemShortcuts } from '@/features/sites';
-import { ArchiveIcon, PinIcon, ReadStatusIcon, RenameIcon, UnpinIcon } from '@/lib/icons';
+import {
+	ArchiveIcon,
+	PinIcon,
+	ReadStatusIcon,
+	RenameIcon,
+	UnpinIcon,
+	UnreadStatusIcon,
+} from '@/lib/icons';
 import {
 	Spinner,
 	Menu,
@@ -140,9 +147,9 @@ export function useChatActions(
 			return;
 		}
 		toast.success( __( 'Chat archived' ), {
+			durationMs: 10_000,
 			action: {
 				label: __( 'Undo' ),
-				once: true,
 				onClick: () => mutateAsync( { sessionId: session.id, patch: { archived: false } } ),
 			},
 		} );
@@ -201,7 +208,7 @@ export function ChatActionsMenuItems( {
 				<Menu.Shortcut>{ displayShortcut.primaryAlt( 'r' ) }</Menu.Shortcut>
 			</Menu.Item>
 			<Menu.Item onClick={ actions.toggleRead }>
-				<ReadStatusIcon />
+				{ actions.session.unread ? <ReadStatusIcon /> : <UnreadStatusIcon /> }
 				{ actions.session.unread ? __( 'Mark as read' ) : __( 'Mark as unread' ) }
 			</Menu.Item>
 			{ children ? (
@@ -211,7 +218,11 @@ export function ChatActionsMenuItems( {
 				</>
 			) : null }
 			<Menu.Separator />
-			<Menu.Item disabled={ actions.archiveBlocked } onClick={ () => void actions.archive() }>
+			<Menu.Item
+				destructive
+				disabled={ actions.archiveBlocked }
+				onClick={ () => void actions.archive() }
+			>
 				<ArchiveIcon />
 				{ __( 'Archive' ) }
 				<Menu.Shortcut>{ displayShortcut.primaryShift( 'a' ) }</Menu.Shortcut>
@@ -298,7 +309,7 @@ function RenameChatForm( {
 				<DialogClose render={ <Button variant="outline" /> } disabled={ saving }>
 					{ __( 'Cancel' ) }
 				</DialogClose>
-				<Button type="submit" disabled={ saving }>
+				<Button variant="accent" type="submit" disabled={ saving }>
 					{ saving ? <Spinner aria-hidden="true" /> : null }
 					{ __( 'Save' ) }
 				</Button>

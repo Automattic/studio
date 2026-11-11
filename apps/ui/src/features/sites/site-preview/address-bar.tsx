@@ -1,19 +1,19 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 import { __ } from '@wordpress/i18n';
-import { clsx } from 'clsx';
 import { useEffect, useId, useRef, useState } from 'react';
 import {
-	AppearanceIcon,
 	DatabaseIcon,
+	DesignSystemIcon,
 	ExternalLinkIcon,
 	GlobeIcon,
-	ResponsiveIcon,
+	MailIcon,
 	WordPressIcon,
 } from '@/lib/icons';
-import { Tooltip, TooltipContent, TooltipTrigger, Popover, Button } from '@/lib/ui';
+import { Tooltip, TooltipContent, TooltipTrigger, Popover, Button, Input } from '@/lib/ui';
 import { CommandList, handleCommandKey, type CommandGroup } from '@/lib/ui';
 import styles from './address-bar.module.css';
+import { PREVIEW_HISTORY_CLEARED_EVENT } from './preview-browser-settings';
 import type { SiteDetails } from '@/data/core';
 import type { ComponentType, FormEvent, ReactNode } from 'react';
 
@@ -30,15 +30,30 @@ export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
 	}
 }
 
-export type PreviewRealm = 'frontend' | 'admin' | 'database' | 'design';
+export type PreviewRealm = 'frontend' | 'admin' | 'database' | 'email' | 'design';
+
+export function isWordPressAuthPath( path: string ): boolean {
+	if ( path.startsWith( '/studio-auto-login' ) ) {
+		const redirect = new URLSearchParams( path.split( '?' )[ 1 ] ?? '' ).get( 'redirect_to' );
+		if ( redirect ) path = redirect.replace( /^https?:\/\/[^/?#]*/i, '' );
+	}
+	return /(?:^|\/)wp-(?:login|signup|activate)\.php\/?$/.test( path.split( /[?#]/ )[ 0 ] );
+}
 
 export const DATABASE_HOME_PATH = '/phpmyadmin/index.php?route=/database/structure&db=wordpress';
+
+// Studio renders the site's email itself, like the design system, so a path
+// that is no page on the site stands for it.
+export const EMAIL_PREVIEW_PATH = 'studio:email';
 
 const isAdminPath = ( path: string ) => /^\/wp-admin(?:[/?#]|$)/.test( path );
 
 export function getPreviewRealm( path: string ): PreviewRealm {
 	if ( path === DESIGN_SYSTEM_PREVIEW_PATH ) {
 		return 'design';
+	}
+	if ( path === EMAIL_PREVIEW_PATH ) {
+		return 'email';
 	}
 	let target = path;
 	if ( path.startsWith( '/studio-auto-login' ) ) {
@@ -59,6 +74,7 @@ const REALM_OPEN_EVENTS: Record< PreviewRealm, TracksEventName > = {
 	frontend: TRACKS_EVENTS.SITE_OPEN_IN_BROWSER,
 	admin: TRACKS_EVENTS.SITE_OPEN_WP_ADMIN,
 	database: TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN,
+	email: TRACKS_EVENTS.SITE_OPEN_EMAIL,
 	design: TRACKS_EVENTS.SITE_OPEN_DESIGN_SYSTEM,
 };
 
@@ -109,17 +125,18 @@ interface PreviewAddressBarProps {
 	// A remote site: no local realms, auto-login or recent locations.
 	remote?: boolean;
 	onNavigate: ( path: string ) => void;
-	onSwitchRealm: ( realm: PreviewRealm ) => void;
-	hasDesignSystem?: boolean;
+	pageTitle?: string | null;
+	loading?: boolean;
 	onOpenExternal?: () => void;
-	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
-	// In compact headers, keep only the address and an active responsive toggle.
-	hideActions?: boolean;
+	onExternalNavigate?: ( url: string ) => void;
+	disabled?: boolean;
+	compact?: boolean;
 }
 
 interface RecentPreviewLocation {
 	path: string;
 	label: string;
+	title?: string;
 }
 
 const RECENT_LOCATIONS_VERSION = 1;
@@ -127,6 +144,29 @@ const RECENT_LOCATIONS_LIMIT = 8;
 
 function getRecentLocationsStorageKey( siteId: string ): string {
 	return `studio-preview-recent-locations:${ siteId }`;
+}
+
+function getRecentLocationKey( path: string ): string {
+	const suffixStart = path.search( /[?#]/ );
+	const pathname = suffixStart === -1 ? path : path.slice( 0, suffixStart );
+	const suffix = suffixStart === -1 ? '' : path.slice( suffixStart );
+	return `${ pathname.replace( /\/+$/, '' ) || '/' }${ suffix }`;
+}
+
+function deduplicateRecentLocations( locations: RecentPreviewLocation[] ): RecentPreviewLocation[] {
+	const unique = new Map< string, RecentPreviewLocation >();
+	for ( const location of locations ) {
+		if ( isWordPressAuthPath( location.path ) ) continue;
+		const key = getRecentLocationKey( location.path );
+		const existing = unique.get( key );
+		const title = location.title?.trim() || undefined;
+		if ( ! existing ) {
+			unique.set( key, { ...location, title } );
+		} else if ( ! existing.title && title ) {
+			existing.title = title;
+		}
+	}
+	return Array.from( unique.values() ).slice( 0, RECENT_LOCATIONS_LIMIT );
 }
 
 function loadRecentLocations( siteId: string ): RecentPreviewLocation[] {
@@ -137,13 +177,20 @@ function loadRecentLocations( siteId: string ): RecentPreviewLocation[] {
 		if ( stored.version !== RECENT_LOCATIONS_VERSION || ! Array.isArray( stored.locations ) ) {
 			return [];
 		}
-		return stored.locations.slice( 0, RECENT_LOCATIONS_LIMIT ).flatMap( ( value ) => {
+		const locations = stored.locations.flatMap( ( value ) => {
 			if ( ! value || typeof value !== 'object' ) return [];
-			const location = value as { path?: unknown; label?: unknown };
+			const location = value as { path?: unknown; label?: unknown; title?: unknown };
 			return typeof location.path === 'string' && typeof location.label === 'string'
-				? [ { path: location.path, label: location.label } ]
+				? [
+						{
+							path: location.path,
+							label: location.label,
+							title: typeof location.title === 'string' ? location.title : undefined,
+						},
+				  ]
 				: [];
 		} );
+		return deduplicateRecentLocations( locations );
 	} catch {
 		return [];
 	}
@@ -153,10 +200,7 @@ function storeRecentLocation(
 	siteId: string,
 	location: RecentPreviewLocation
 ): RecentPreviewLocation[] {
-	const locations = [
-		location,
-		...loadRecentLocations( siteId ).filter( ( recent ) => recent.path !== location.path ),
-	].slice( 0, RECENT_LOCATIONS_LIMIT );
+	const locations = deduplicateRecentLocations( [ location, ...loadRecentLocations( siteId ) ] );
 	try {
 		window.localStorage.setItem(
 			getRecentLocationsStorageKey( siteId ),
@@ -169,8 +213,9 @@ function storeRecentLocation(
 }
 
 function getDisplayUrl( siteUrl: string, path: string ): string {
+	if ( path === EMAIL_PREVIEW_PATH ) return __( 'Email log' );
 	if ( path === DESIGN_SYSTEM_PREVIEW_PATH ) {
-		return __( 'Design system' );
+		return __( 'Design System' );
 	}
 	try {
 		return new URL( path, siteUrl ).toString().replace( /^(https?:\/\/[^/?#]+)\/$/i, '$1' );
@@ -185,14 +230,12 @@ function AddressAction( {
 	label,
 	tooltip = label,
 	onClick,
-	active,
 	disabled,
 }: {
 	icon: ReactNode;
 	label: string;
 	tooltip?: string;
 	onClick: () => void;
-	active?: boolean;
 	disabled?: boolean;
 } ) {
 	return (
@@ -200,11 +243,10 @@ function AddressAction( {
 			<TooltipTrigger
 				render={
 					<Button
-						variant={ active === undefined ? 'ghost' : 'accent-ghost' }
-						size="icon-sm"
-						shape="round"
+						variant="muted-ghost"
+						size="icon-2xs"
+						className={ styles.action }
 						aria-label={ label }
-						aria-pressed={ active }
 						disabled={ disabled }
 						onClick={ onClick }
 					/>
@@ -223,44 +265,25 @@ export function PreviewAddressBar( {
 	path,
 	remote = false,
 	onNavigate,
-	onSwitchRealm,
-	hasDesignSystem = false,
+	pageTitle,
+	loading = false,
 	onOpenExternal,
-	responsive,
-	hideActions = false,
+	onExternalNavigate,
+	disabled = false,
+	compact = false,
 }: PreviewAddressBarProps ) {
 	const displayUrl = getDisplayUrl( siteUrl, path );
 	const [ value, setValue ] = useState( displayUrl );
 	const [ invalid, setInvalid ] = useState( false );
-	const [ shortcutsOpen, setShortcutsOpen ] = useState( false );
+	const [ recentOpen, setRecentOpen ] = useState( false );
 	const [ highlighted, setHighlighted ] = useState< string >();
-	const shortcutsId = useId();
+	const recentId = useId();
 	const addressInputId = useId();
 	const [ recentLocations, setRecentLocations ] = useState< RecentPreviewLocation[] >( () =>
 		loadRecentLocations( site.id )
 	);
 	const addressBarRef = useRef< HTMLFormElement | null >( null );
-	const addressTextRef = useRef< HTMLSpanElement | null >( null );
 	const selectOnMouseUp = useRef( false );
-
-	const animateAddressAlignment = ( input: HTMLInputElement, focused: boolean ) => {
-		const style = getComputedStyle( input );
-		const currentOffset =
-			style.transform && style.transform !== 'none'
-				? new DOMMatrixReadOnly( style.transform ).m41
-				: 0;
-		input.getAnimations?.().forEach( ( animation ) => animation.cancel() );
-		const textWidth = addressTextRef.current?.getBoundingClientRect().width ?? 0;
-		const offset = Math.max( 0, ( input.clientWidth - textWidth ) / 2 );
-		if ( ! offset || window.matchMedia( '(prefers-reduced-motion: reduce)' ).matches ) return;
-		const direction = style.direction === 'rtl' ? -1 : 1;
-		const start = currentOffset + offset * direction * ( focused ? 1 : -1 );
-		const duration = style.getPropertyValue( '--motion-duration-surface' ).trim();
-		input.animate( [ { transform: `translateX(${ start }px)` }, { transform: 'translateX(0)' } ], {
-			duration: parseFloat( duration ) * ( duration.endsWith( 'ms' ) ? 1 : 1000 ),
-			easing: style.getPropertyValue( '--motion-ease-enter' ).trim(),
-		} );
-	};
 
 	const restore = () => {
 		setValue( displayUrl );
@@ -271,11 +294,54 @@ export function PreviewAddressBar( {
 		setInvalid( false );
 	}, [ displayUrl ] );
 	useEffect( () => setRecentLocations( loadRecentLocations( site.id ) ), [ site.id ] );
+	useEffect( () => {
+		const refresh = () => setRecentLocations( loadRecentLocations( site.id ) );
+		window.addEventListener( PREVIEW_HISTORY_CLEARED_EVENT, refresh );
+		window.addEventListener( 'storage', refresh );
+		return () => {
+			window.removeEventListener( PREVIEW_HISTORY_CLEARED_EVENT, refresh );
+			window.removeEventListener( 'storage', refresh );
+		};
+	}, [ site.id ] );
+
+	useEffect( () => {
+		if ( disabled ) {
+			setRecentOpen( false );
+			setHighlighted( undefined );
+		}
+	}, [ disabled ] );
+
+	useEffect( () => {
+		if ( remote || disabled || loading || ! pageTitle?.trim() ) return;
+		const redirect = path.startsWith( '/studio-auto-login' )
+			? new URLSearchParams( path.split( '?' )[ 1 ] ).get( 'redirect_to' )
+			: null;
+		const location = redirect ? getPathFromPreviewUrl( redirect, siteUrl ) ?? path : path;
+		setRecentLocations(
+			storeRecentLocation( site.id, {
+				path: getRealmNavigationPath( location, siteUrl ),
+				label: getDisplayUrl( siteUrl, location ),
+				title: pageTitle.trim(),
+			} )
+		);
+	}, [ site.id, siteUrl, path, pageTitle, loading, disabled, remote ] );
 
 	const handleSubmit = ( event: FormEvent< HTMLFormElement > ) => {
 		event.preventDefault();
+		if ( disabled ) return;
 		const intent = parseOmniboxInput( value, siteUrl );
 		if ( ! intent ) {
+			try {
+				const url = new URL( value );
+				if ( onExternalNavigate && [ 'http:', 'https:' ].includes( url.protocol ) ) {
+					onExternalNavigate( url.href );
+					setValue( displayUrl );
+					setRecentOpen( false );
+					return;
+				}
+			} catch {
+				// Non-URL text follows the project search and validation behavior below.
+			}
 			setInvalid( value.trim() !== '' );
 			return;
 		}
@@ -289,72 +355,52 @@ export function PreviewAddressBar( {
 			const recentLabel = getDisplayUrl( siteUrl, intent.type === 'path' ? intent.path : nextPath );
 			setRecentLocations( storeRecentLocation( site.id, { path: nextPath, label: recentLabel } ) );
 		}
-		setShortcutsOpen( false );
+		setRecentOpen( false );
 		onNavigate( nextPath );
-	};
-	const chooseRealm = ( realm: PreviewRealm ) => {
-		setShortcutsOpen( false );
-		onSwitchRealm( realm );
 	};
 	const chooseRecentLocation = ( recent: RecentPreviewLocation ) => {
 		setRecentLocations( storeRecentLocation( site.id, recent ) );
-		setShortcutsOpen( false );
+		setRecentOpen( false );
 		onNavigate( recent.path );
 	};
 	const realmIcons: Record< PreviewRealm, ComponentType< { className?: string } > > = {
 		frontend: GlobeIcon,
 		admin: WordPressIcon,
 		database: DatabaseIcon,
-		design: AppearanceIcon,
+		email: MailIcon,
+		design: DesignSystemIcon,
 	};
-	const realmLabels: Record< PreviewRealm, string > = {
-		frontend: __( 'Front end' ),
-		admin: __( 'WordPress Admin' ),
-		database: __( 'Database' ),
-		design: __( 'Design system' ),
-	};
-	const realms: PreviewRealm[] = [
-		'frontend',
-		'admin',
-		'database',
-		...( hasDesignSystem ? [ 'design' as const ] : [] ),
-	];
-	const shortcutGroups: CommandGroup[] = [
+	const recentGroups: CommandGroup[] = [
 		{
-			label: __( 'Preview shortcuts' ),
-			items: realms.map( ( realm ) => ( {
-				value: realm,
-				label: realmLabels[ realm ],
-				icon: realmIcons[ realm ],
-			} ) ),
-		},
-		{
-			label: __( 'Recent' ),
-			heading: __( 'Recent' ),
+			label: __( 'Recent pages' ),
 			items: recentLocations.map( ( recent ) => ( {
 				value: `recent:${ recent.path }`,
-				label: recent.label,
+				label: recent.title || recent.label,
 				icon: realmIcons[ getPreviewRealm( recent.path ) ],
+				trailing: recent.title ? (
+					<span className={ styles.recentUrl }>
+						— { recent.label.replace( /^https?:\/\//, '' ) }
+					</span>
+				) : undefined,
 			} ) ),
 		},
 	];
-	const chooseShortcut = ( value: string ) => {
+	const isRecentOpen = recentOpen && ! disabled && ! remote && recentLocations.length > 0;
+	const chooseRecent = ( value: string ) => {
 		const recent = recentLocations.find( ( location ) => `recent:${ location.path }` === value );
-		if ( recent ) {
-			chooseRecentLocation( recent );
-		} else {
-			chooseRealm( value as PreviewRealm );
-		}
+		if ( recent ) chooseRecentLocation( recent );
 	};
+
 	return (
 		<Popover.Root
 			triggerId={ addressInputId }
-			open={ shortcutsOpen }
+			open={ isRecentOpen }
 			// The webview swallows outside clicks; the modal backdrop catches them.
 			modal
 			onOpenChange={ ( open, details ) => {
-				if ( details.reason === 'trigger-press' && ( shortcutsOpen || remote ) ) return;
-				setShortcutsOpen( open );
+				if ( disabled ) return;
+				if ( details.reason === 'trigger-press' && ( recentOpen || remote ) ) return;
+				setRecentOpen( open );
 				setHighlighted( undefined );
 				if ( ! open ) {
 					restore();
@@ -363,36 +409,23 @@ export function PreviewAddressBar( {
 		>
 			<form
 				ref={ addressBarRef }
-				className={ clsx( styles.addressBar, responsive?.active && styles.responsiveActive ) }
+				className={ styles.addressBar }
+				data-recent-open={ isRecentOpen || undefined }
+				data-compact={ compact || undefined }
 				onSubmit={ handleSubmit }
 			>
-				{ ! responsive || ( hideActions && ! responsive.active ) ? null : (
-					<span
-						className={ `${ styles.actions } ${ styles.responsiveAction }` }
-						data-address-action
-					>
-						<AddressAction
-							icon={ <ResponsiveIcon /> }
-							label={ __( 'Responsive mode' ) }
-							active={ responsive.active }
-							disabled={ responsive.disabled }
-							onClick={ responsive.onClick }
-						/>
-					</span>
-				) }
-				<span ref={ addressTextRef } className={ styles.addressText } aria-hidden="true">
-					{ value }
-				</span>
 				<Popover.Trigger
 					id={ addressInputId }
 					nativeButton={ false }
 					render={
-						<input
+						<Input
+							variant="group"
+							disabled={ disabled }
 							role="textbox"
 							value={ value }
 							onMouseDown={ ( event ) => {
 								selectOnMouseUp.current = document.activeElement !== event.currentTarget;
-								if ( event.button === 0 && ! remote ) setShortcutsOpen( true );
+								if ( event.button === 0 && ! remote ) setRecentOpen( true );
 							} }
 							onMouseUp={ ( event ) => {
 								if ( selectOnMouseUp.current ) {
@@ -403,43 +436,38 @@ export function PreviewAddressBar( {
 							} }
 							onFocus={ ( event ) => {
 								event.currentTarget.select();
-								if ( ! remote ) setShortcutsOpen( true );
-								animateAddressAlignment( event.currentTarget, true );
+								setRecentLocations( loadRecentLocations( site.id ) );
+								setHighlighted( undefined );
+								if ( ! remote ) setRecentOpen( true );
 							} }
-							onBlur={ ( event ) => {
+							onBlur={ () => {
 								selectOnMouseUp.current = false;
-								animateAddressAlignment( event.currentTarget, false );
 							} }
 							onChange={ ( event ) => {
 								setValue( event.target.value );
+								setHighlighted( undefined );
 								setInvalid( false );
 							} }
 						/>
 					}
 					className={ styles.input }
-					aria-controls={ shortcutsOpen ? shortcutsId : undefined }
+					aria-controls={ isRecentOpen ? recentId : undefined }
 					onKeyUp={ ( event ) => event.preventBaseUIHandler() }
 					onKeyDown={ ( event ) => {
 						event.preventBaseUIHandler();
-						// Enter goes to the typed address until a shortcut is highlighted.
+						// Enter submits the address until a recent page is highlighted.
 						if (
-							shortcutsOpen &&
+							isRecentOpen &&
 							( event.key === 'ArrowDown' ||
 								event.key === 'ArrowUp' ||
 								( highlighted && event.key === 'Enter' ) )
 						) {
-							handleCommandKey(
-								event,
-								shortcutGroups,
-								highlighted,
-								setHighlighted,
-								chooseShortcut
-							);
+							handleCommandKey( event, recentGroups, highlighted, setHighlighted, chooseRecent );
 							return;
 						}
 						if ( event.key === 'Escape' ) {
 							restore();
-							setShortcutsOpen( false );
+							setRecentOpen( false );
 							event.currentTarget.blur();
 						}
 					} }
@@ -448,37 +476,40 @@ export function PreviewAddressBar( {
 					title={ invalid ? __( 'Enter a path or an address on this site.' ) : undefined }
 					spellCheck={ false }
 				/>
-				{ hideActions ? null : (
+				<span className={ styles.displayUrl } aria-hidden="true">
+					{ displayUrl.replace( /^https?:\/\//i, '' ) }
+				</span>
+				{ onOpenExternal ? (
 					<span className={ styles.actions } data-address-action>
-						{ onOpenExternal ? (
-							<AddressAction
-								icon={ <ExternalLinkIcon /> }
-								label={ __( 'Open this page in your browser' ) }
-								tooltip={ __( 'Open in browser' ) }
-								onClick={ onOpenExternal }
-							/>
-						) : null }
+						<AddressAction
+							icon={ <ExternalLinkIcon /> }
+							label={ __( 'Open this page in your browser' ) }
+							tooltip={ __( 'Open in browser' ) }
+							onClick={ onOpenExternal }
+							disabled={ disabled }
+						/>
 					</span>
-				) }
+				) : null }
 			</form>
 			<Popover.Popup
 				anchor={ addressBarRef }
 				side="bottom"
 				align="start"
-				sideOffset={ 4 }
+				alignOffset={ -4 }
+				sideOffset={ 0 }
 				initialFocus={ false }
 				finalFocus={ false }
-				aria-label={ __( 'Preview shortcuts' ) }
-				className={ styles.shortcutsPopup }
+				aria-label={ __( 'Recent pages' ) }
+				className={ styles.recentPopup }
 			>
 				<CommandList
-					id={ shortcutsId }
-					label={ __( 'Preview shortcuts' ) }
-					groups={ shortcutGroups }
+					id={ recentId }
+					label={ __( 'Recent pages' ) }
+					radius="menu"
+					groups={ recentGroups }
 					highlighted={ highlighted }
 					onHighlight={ setHighlighted }
-					onSelect={ chooseShortcut }
-					className={ styles.shortcuts }
+					onSelect={ chooseRecent }
 				/>
 			</Popover.Popup>
 		</Popover.Root>

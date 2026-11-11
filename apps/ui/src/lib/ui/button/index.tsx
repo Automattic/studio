@@ -26,7 +26,6 @@ export type ButtonVariant =
 
 export type ButtonSize =
 	| 'default'
-	| 'header'
 	| 'composer-notice'
 	| '2xs'
 	| 'xs'
@@ -45,6 +44,8 @@ export type ButtonProps = ComponentProps< typeof BaseButton > & {
 	shape?: 'default' | 'round';
 	layout?: 'default' | 'row' | 'inline';
 	disabledAppearance?: 'default' | 'icon' | 'outline';
+	/** Uses destructive hover and focus colors while preserving the resting style. */
+	destructive?: boolean;
 	/** Disables the button and leads its label with a spinner. */
 	loading?: boolean;
 	/** Replaces the visible label with a centered spinner while preserving its width. */
@@ -54,11 +55,12 @@ export type ButtonProps = ComponentProps< typeof BaseButton > & {
 };
 
 export function Button( {
-	variant = 'default',
+	variant = 'outline',
 	size = 'default',
 	shape = 'default',
 	layout = 'default',
 	disabledAppearance = 'default',
+	destructive = false,
 	loading = false,
 	loadingMode = 'leading',
 	loadingAnnouncement,
@@ -76,6 +78,7 @@ export function Button( {
 			data-shape={ shape === 'default' ? undefined : shape }
 			data-layout={ layout === 'default' ? undefined : layout }
 			data-disabled-appearance={ disabledAppearance === 'default' ? undefined : disabledAppearance }
+			data-destructive={ destructive || undefined }
 			data-loading-mode={ loadingMode === 'replace' ? loadingMode : undefined }
 			aria-busy={ loading || undefined }
 			disabled={ disabled || loading }

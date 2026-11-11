@@ -1,4 +1,5 @@
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
+import { getSnapshotLink } from '@studio/common/lib/snapshots';
 import { Type } from 'typebox';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { runPreviewCommand } from './preview-helpers';
@@ -28,7 +29,12 @@ export const updatePreviewTool = defineTool(
 				args.overwrite ?? false,
 				context.onProgress
 			);
-			return `Preview site "${ preview.name }" updated from "${ site.name }": https://${ preview.url }`;
+			const link = getSnapshotLink( preview );
+			const moved =
+				preview.url !== normalizedHost
+					? ' The preview moved to WordPress.com, so its link changed; use the new link from now on.'
+					: '';
+			return `Preview site "${ preview.name }" updated from "${ site.name }": ${ link }${ moved }`;
 		}, 'Failed to update preview site' );
 	},
 	{

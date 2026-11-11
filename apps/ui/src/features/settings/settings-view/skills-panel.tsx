@@ -6,6 +6,7 @@ import {
 	useWordPressSkills,
 } from '@/data/queries/use-wordpress-skills';
 import { LearnMoreLink } from '@/features/onboarding';
+import { SkillActions } from '../skill-actions';
 import {
 	SettingsGroup,
 	SettingsLoadState,
@@ -78,7 +79,7 @@ export function SkillsPanel( { onManageSite }: { onManageSite?: () => void } ) {
 					description={
 						<>
 							{ __(
-								'Skills give AI agents guidance for WordPress development. Changes here apply to all existing sites and set the defaults for new sites. Use Site settings to manage skills for an individual site.'
+								'Skills give AI agents guidance for WordPress development. Changes here apply to all existing sites and set the defaults for new sites.'
 							) }{ ' ' }
 							<LearnMoreLink docsLinksKey="docsSkills" />
 						</>
@@ -90,6 +91,7 @@ export function SkillsPanel( { onManageSite }: { onManageSite?: () => void } ) {
 							title={ skill.displayName }
 							description={ skill.description }
 						>
+							<SkillActions id={ skill.id } name={ skill.displayName } />
 							<SettingsToggle
 								label={ skill.displayName }
 								checked={ skill.installed }

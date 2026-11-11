@@ -9,6 +9,7 @@ import {
 } from '@studio/common/lib/passwords';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { getWpCliPharPath } from 'cli/lib/dependency-management/paths';
+import { isSqliteIntegrationInstalled } from 'cli/lib/sqlite-integration';
 import { ensurePhpBinaryAvailable } from '../dependency-management/php-binary';
 import { runPhpCommand } from './php-process';
 import { getFullyResolvedTmpDirPath } from './tmp-dir';
@@ -25,14 +26,18 @@ const DEFAULT_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
 
 type Logger = ( ...args: Parameters< typeof console.log > ) => void;
 
+type EnsureWpConfigOptions = Pick<
+	ServerConfig,
+	'enableDebugLog' | 'enableDebugDisplay' | 'enableScriptDebug' | 'environmentType'
+> & {
+	forceDefaultDatabaseName?: boolean;
+};
+
 export async function ensureWpConfig(
 	siteFolder: string,
 	phpVersion: SupportedPHPVersion,
 	signal?: AbortSignal,
-	config?: Pick<
-		ServerConfig,
-		'enableDebugLog' | 'enableDebugDisplay' | 'enableScriptDebug' | 'environmentType'
-	>
+	config?: EnsureWpConfigOptions
 ): Promise< void > {
 	const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
 	const wpConfigSamplePath = path.join( siteFolder, 'wp-config-sample.php' );
@@ -54,8 +59,10 @@ $transformer->to_file( $wp_config_path );
 
 	const enableDebugLog = config?.enableDebugLog ?? false;
 	const enableDebugDisplay = config?.enableDebugDisplay ?? false;
+	const shouldSetDefaultDatabaseName =
+		config?.forceDefaultDatabaseName ?? ( await isSqliteIntegrationInstalled( siteFolder ) );
 	const constants = {
-		...DEFAULT_WP_CONFIG_CONSTANTS,
+		...( shouldSetDefaultDatabaseName ? DEFAULT_WP_CONFIG_CONSTANTS : {} ),
 		WP_DEBUG: enableDebugLog || enableDebugDisplay,
 		WP_DEBUG_LOG: enableDebugLog,
 		WP_DEBUG_DISPLAY: enableDebugDisplay,
@@ -128,9 +135,13 @@ async function isWordPressInstalled(
 	phpVersion: SupportedPHPVersion,
 	signal: AbortSignal
 ): Promise< boolean > {
+	// SHORTINIT stops wp-settings.php once the database drop-in is loaded, before the
+	// site's plugins and theme, whose fatal error would otherwise fail the check
+	// and keep the site from starting.
 	const installationCheckScript = `
 error_reporting( E_ERROR );
 ini_set( 'display_errors', '0' );
+define( 'SHORTINIT', true );
 
 $wp_load = getcwd() . '/wp-load.php';
 if ( ! file_exists( $wp_load ) ) {

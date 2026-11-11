@@ -47,7 +47,7 @@ export function FamilySwitchConfirmDialog( {
 		>
 			<DialogContent
 				layout="compact"
-				showCloseButton={ ! inFlight }
+				closeButtonDisabled={ inFlight }
 				initialFocus={ cancelRef }
 				onKeyDown={ handleKeyDown }
 			>
@@ -78,6 +78,7 @@ export function FamilySwitchConfirmDialog( {
 						{ __( 'Cancel' ) }
 					</DialogClose>
 					<Button
+						variant="accent"
 						loading={ inFlight }
 						loadingAnnouncement={ __( 'Starting new chat' ) }
 						onClick={ onConfirm }

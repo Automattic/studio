@@ -311,10 +311,8 @@ export interface AiCreditsThresholdNoticeState {
  * this intent.
  *
  * `ownedIntents` is the escalation steps the calling surface announces, so one
- * step is never stated twice on one screen. The agentic UI splits the ladder:
- * the sidebar notice takes `warning`, the composer strip takes `critical`, and
- * the composer lockout takes exhaustion. Classic has only the one slot above
- * its composer, so that slot passes both warning steps.
+ * step is never stated twice on one screen. The sidebar notice takes `warning`
+ * and `critical`, and the composer notice takes exhaustion.
  *
  * A dismissal is recorded against the intent it was made at, so moving between
  * steps re-arms the notice without a separate expiry rule.
@@ -329,10 +327,7 @@ export function resolveAiCreditsThresholdNotice(
 	return { visible: owned && surviving === null, dismissedIntent: surviving };
 }
 
-/**
- * Title shared by every AI credit usage warning — the sidebar notice and the
- * composer strip — so the two can never word the same fact differently.
- */
+/** Title of the AI credit usage notice, at both warning steps. */
 export function formatAiCreditsUsageTitle( fraction: number, locale?: string ): string {
 	return sprintf(
 		/* translators: %s: share of the AI credit balance used, formatted as a percentage (e.g. 90%). */
@@ -393,12 +388,11 @@ export function formatAiBlockedNotice(): string {
 	);
 }
 
-export const STUDIO_CODE_AI_BETA_APPLY_URL =
-	'https://developer.wordpress.com/studio/studio-code-beta/';
+export const STUDIO_CODE_DOCS_URL = 'https://wordpress.studio/docs/studio-code/';
 
 /**
  * Headline sentence for an account that hasn't been granted Studio Code AI
- * beta access yet (STU-2146), without an apply CTA — for surfaces that render
+ * beta access yet (STU-2146), without a learn-more link — for surfaces that render
  * their own action button (e.g. the AccessRequirements gate). Spend on the
  * quota means the account has demonstrably used Studio Code AI this billing
  * cycle (the backend keeps reporting the real month total after access flips
@@ -416,26 +410,20 @@ export function formatAiAccessRequiredHeadline(
 
 /**
  * Full inline notice for an account without Studio Code AI beta access:
- * the headline above followed by an apply sentence. Deliberately distinct
+ * the headline above followed by a learn-more sentence. Deliberately distinct
  * from the blocked notice — nothing is wrong with the account; access just
- * hasn't been enabled. The apply sentence wraps the application URL in an
- * `<applyLink>` token: render it with `createInterpolateElement`, pointing
- * the token at `STUDIO_CODE_AI_BETA_APPLY_URL`.
+ * hasn't been enabled. The sentence wraps the docs URL in a
+ * `<learnMoreLink>` token: render it with `createInterpolateElement`, pointing
+ * the token at `STUDIO_CODE_DOCS_URL`.
  */
 export function formatAiAccessRequiredNotice(
 	quota?: Pick< StudioAssistantQuota, 'costUsage' > | null
 ): string {
-	const applySentence =
-		quota && quota.costUsage > 0
-			? __(
-					/* translators: <applyLink> and </applyLink> wrap the beta application URL and must be kept as-is. */
-					'Apply to continue at <applyLink>developer.wordpress.com/studio/studio-code-beta</applyLink>.'
-			  )
-			: __(
-					/* translators: <applyLink> and </applyLink> wrap the beta application URL and must be kept as-is. */
-					'Apply at <applyLink>developer.wordpress.com/studio/studio-code-beta</applyLink>.'
-			  );
-	return `${ formatAiAccessRequiredHeadline( quota ) } ${ applySentence }`;
+	const learnMoreSentence = __(
+		/* translators: <learnMoreLink> and </learnMoreLink> wrap the documentation URL and must be kept as-is. */
+		'Learn more at <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>.'
+	);
+	return `${ formatAiAccessRequiredHeadline( quota ) } ${ learnMoreSentence }`;
 }
 
 /**

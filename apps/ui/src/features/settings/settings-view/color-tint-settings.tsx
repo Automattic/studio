@@ -1,58 +1,10 @@
-import {
-	DEFAULT_ACCENT_COLOR,
-	getColorTint,
-	type ColorTint,
-} from '@studio/common/lib/user-settings/preferences';
+import { getColorTint, type ColorTint } from '@studio/common/lib/user-settings/preferences';
 import { __ } from '@wordpress/i18n';
-import { useEffect, useLayoutEffect, useState } from 'react';
-import { applyColorTint, previewAccentColor } from '@/lib/theme';
-import {
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-	Slider,
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from '@/lib/ui';
+import { useEffect, useRef, useState } from 'react';
+import { applyColorTint } from '@/lib/theme';
+import { ColorPicker, Slider } from '@/lib/ui';
 import { SettingsRow } from './rows';
 import styles from './style.module.css';
-
-const getColorPresets = () => [
-	{ label: __( 'Default' ), color: DEFAULT_ACCENT_COLOR },
-	{ label: __( 'Green' ), color: '#069e08', tintIntensity: 20 },
-	{ label: __( 'Purple' ), color: '#8c52d9' },
-];
-
-function ColorSwatch( {
-	label,
-	color,
-	selected,
-	onClick,
-}: {
-	label: string;
-	color: string;
-	selected: boolean;
-	onClick: () => void;
-} ) {
-	return (
-		<Tooltip>
-			<TooltipTrigger
-				render={
-					<button
-						type="button"
-						className={ styles.swatch }
-						aria-label={ label }
-						aria-pressed={ selected }
-						style={ { backgroundColor: color } }
-						onClick={ onClick }
-					/>
-				}
-			/>
-			<TooltipContent>{ label }</TooltipContent>
-		</Tooltip>
-	);
-}
 
 // The accent color, tint intensity and contrast rows. Sliders preview while
 // dragging and save on release.
@@ -61,40 +13,16 @@ export function ColorTintSettings( {
 	onCommit,
 }: {
 	tint: Partial< ColorTint >;
-	onCommit: ( tint: ColorTint ) => void;
+	onCommit: ( tint: ColorTint ) => void | Promise< unknown >;
 } ) {
 	const { accentColor, tintIntensity, contrast } = getColorTint( tint );
 	const [ draft, setDraft ] = useState( { accentColor, tintIntensity, contrast } );
-	const [ hex, setHex ] = useState( accentColor );
+	const savedTint = useRef( { accentColor, tintIntensity, contrast } );
+	const commitVersion = useRef( 0 );
 	useEffect( () => {
-		setDraft( { accentColor, tintIntensity, contrast } );
-		setHex( accentColor );
+		savedTint.current = { accentColor, tintIntensity, contrast };
+		setDraft( savedTint.current );
 	}, [ accentColor, tintIntensity, contrast ] );
-
-	// Each preset in the accent the active theme gives it.
-	const [ previewColors, setPreviewColors ] = useState< Record< string, string > >( {} );
-	useLayoutEffect( () => {
-		const update = () =>
-			setPreviewColors(
-				Object.fromEntries(
-					getColorPresets().map( ( preset ) => [
-						preset.color,
-						previewAccentColor( {
-							...draft,
-							accentColor: preset.color,
-							tintIntensity: preset.tintIntensity ?? draft.tintIntensity,
-						} ),
-					] )
-				)
-			);
-		update();
-		const observer = new MutationObserver( update );
-		observer.observe( document.documentElement, {
-			attributes: true,
-			attributeFilter: [ 'data-color-scheme' ],
-		} );
-		return () => observer.disconnect();
-	}, [ draft ] );
 
 	const preview = ( patch: Partial< ColorTint > ) => {
 		const next = { ...draft, ...patch };
@@ -102,52 +30,27 @@ export function ColorTintSettings( {
 		applyColorTint( next );
 		return next;
 	};
-	const commit = ( patch: Partial< ColorTint > ) => onCommit( preview( patch ) );
+	const commit = ( patch: Partial< ColorTint > ) => {
+		const version = ++commitVersion.current;
+		void Promise.resolve( onCommit( preview( patch ) ) ).catch( () => {
+			if ( version !== commitVersion.current ) return;
+			setDraft( savedTint.current );
+			applyColorTint( savedTint.current );
+		} );
+	};
 
 	return (
 		<>
-			<SettingsRow title={ __( 'Color' ) } description={ __( 'Choose an accent color.' ) }>
-				<div role="group" aria-label={ __( 'Color' ) } className={ styles.colorControl }>
-					{ getColorPresets().map( ( preset ) => (
-						<ColorSwatch
-							key={ preset.color }
-							label={ preset.label }
-							color={ previewColors[ preset.color ] ?? preset.color }
-							selected={ draft.accentColor === preset.color }
-							onClick={ () => {
-								setHex( preset.color );
-								commit( {
-									accentColor: preset.color,
-									tintIntensity: preset.tintIntensity ?? draft.tintIntensity,
-								} );
-							} }
-						/>
-					) ) }
-					<InputGroup className={ styles.hexInput }>
-						<InputGroupInput
-							aria-label={ __( 'Hex color' ) }
-							placeholder="#hex"
-							value={ hex }
-							autoComplete="off"
-							spellCheck={ false }
-							onChange={ ( event ) => {
-								const value = event.target.value;
-								setHex( value );
-								const normalized = value.startsWith( '#' ) ? value : '#' + value;
-								if ( /^#[0-9a-f]{6}$/i.test( normalized ) ) {
-									commit( { accentColor: normalized.toLowerCase() } );
-								}
-							} }
-							onBlur={ () => setHex( draft.accentColor ) }
-						/>
-						<InputGroupAddon align="inline-end">
-							<span
-								aria-hidden="true"
-								className={ styles.hexPreview }
-								style={ { backgroundColor: draft.accentColor } }
-							/>
-						</InputGroupAddon>
-					</InputGroup>
+			<SettingsRow
+				title={ __( 'Accent' ) }
+				description={ __( 'Color may be adapted for your theme.' ) }
+			>
+				<div role="group" aria-label={ __( 'Accent' ) } className={ styles.colorControl }>
+					<ColorPicker
+						value={ draft.accentColor }
+						onValueChange={ ( value ) => preview( { accentColor: value } ) }
+						onValueCommitted={ ( value ) => commit( { accentColor: value } ) }
+					/>
 				</div>
 			</SettingsRow>
 			<SettingsRow

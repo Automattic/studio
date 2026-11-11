@@ -55,7 +55,7 @@ async function startSite(
 				sprintf(
 					// translators: %s: explanation of why the site is not ready to start.
 					__(
-						'This site is not ready to start. %s Re-run `studio pull-reprint` to finish the pull, or `studio delete` to remove the site.'
+						'This site is not ready to start. %s Re-run `studio pull` to finish the pull, or `studio delete` to remove the site.'
 					),
 					detail
 				)
@@ -106,7 +106,7 @@ async function startSite(
 
 		logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 		try {
-			await startWordPressServer( site, logger );
+			await startWordPressServer( site, logger, 'start' );
 
 			logger.reportSuccess( __( 'WordPress server started' ) );
 

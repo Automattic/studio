@@ -138,7 +138,7 @@ describe( 'WordPress Server Manager', () => {
 					existsSync( filePath )
 			);
 
-			await startWordPressServer( mockSiteData, mockLogger );
+			await startWordPressServer( mockSiteData, mockLogger, 'start' );
 
 			expect( vi.mocked( replaceMysql8OnlyCollations ) ).toHaveBeenCalledTimes( 1 );
 			expect( vi.mocked( replaceMysql8OnlyCollations ).mock.invocationCallOrder[ 0 ] ).toBeLessThan(
@@ -149,7 +149,7 @@ describe( 'WordPress Server Manager', () => {
 		it( 'should replace MySQL 8-only collations again after WordPress is installed on first start', async () => {
 			setupIpcMocks();
 
-			await startWordPressServer( mockSiteData, mockLogger );
+			await startWordPressServer( mockSiteData, mockLogger, 'start' );
 
 			expect( vi.mocked( replaceMysql8OnlyCollations ) ).toHaveBeenCalledTimes( 2 );
 			expect(
@@ -162,7 +162,7 @@ describe( 'WordPress Server Manager', () => {
 		it( 'should resolve older stored PHP versions to the closest native PHP version', async () => {
 			setupIpcMocks();
 
-			await startWordPressServer( { ...mockSiteData, phpVersion: '7.4' }, mockLogger );
+			await startWordPressServer( { ...mockSiteData, phpVersion: '7.4' }, mockLogger, 'start' );
 
 			expect( vi.mocked( ensurePhpBinaryAvailable ) ).toHaveBeenCalledWith(
 				'8.2',
@@ -182,7 +182,11 @@ describe( 'WordPress Server Manager', () => {
 		it( 'should include the file access setting in the server config', async () => {
 			setupIpcMocks();
 
-			await startWordPressServer( { ...mockSiteData, fileAccess: 'all-files' }, mockLogger );
+			await startWordPressServer(
+				{ ...mockSiteData, fileAccess: 'all-files' },
+				mockLogger,
+				'start'
+			);
 
 			expect( vi.mocked( daemonClient.sendMessageToProcess ) ).toHaveBeenCalledWith(
 				mockProcessDescription.pmId,
@@ -202,11 +206,12 @@ describe( 'WordPress Server Manager', () => {
 				{ ...mockProcessDescription, name: 'studio-site-other', pmId: 6 },
 			] );
 
-			await startWordPressServer( mockSiteData, mockLogger );
+			await startWordPressServer( mockSiteData, mockLogger, 'config' );
 
 			expect( recordTracksEvent ).toHaveBeenCalledWith(
 				TRACKS_EVENTS.SITE_START,
 				expect.objectContaining( {
+					command: 'config',
 					success: true,
 					running_site_count: 2,
 					time_ms: expect.any( Number ),
@@ -217,7 +222,7 @@ describe( 'WordPress Server Manager', () => {
 		it( 'records a failed site-start Tracks event with a classified reason', async () => {
 			vi.mocked( daemonClient.startProcess ).mockRejectedValue( new Error( 'start timed out' ) );
 
-			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow();
+			await expect( startWordPressServer( mockSiteData, mockLogger, 'start' ) ).rejects.toThrow();
 
 			expect( recordTracksEvent ).toHaveBeenCalledWith(
 				TRACKS_EVENTS.SITE_START,
@@ -263,11 +268,12 @@ describe( 'WordPress Server Manager', () => {
 				return Promise.resolve();
 			} );
 
-			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow();
+			await expect( startWordPressServer( mockSiteData, mockLogger, 'start' ) ).rejects.toThrow();
 
 			const [ , props ] = vi.mocked( recordTracksEvent ).mock.calls[ 0 ];
 			expect( props ).toEqual( {
 				channel: 'studio-cli',
+				command: 'start',
 				success: false,
 				failure_reason: 'php_error',
 				time_ms: expect.any( Number ),
@@ -277,12 +283,30 @@ describe( 'WordPress Server Manager', () => {
 			} );
 		} );
 
+		it.each( [
+			[ 'the app request for a site start', 'start', '7000', 3000 ],
+			[ 'its own start for a site start without an app request', 'start', undefined, 0 ],
+			[ 'its own start when the request time is unreadable', 'start', 'soon', 0 ],
+			[ 'its own start when the request time is in the future', 'start', '12000', 0 ],
+			[ 'its own start for another command', 'import', '7000', 0 ],
+		] as const )( 'times the start from %s', async ( _case, command, requestedAt, timeMs ) => {
+			vi.useFakeTimers( { toFake: [ 'Date' ] } );
+			vi.setSystemTime( 10_000 );
+			vi.stubEnv( 'STUDIO_SITE_START_REQUESTED_AT', requestedAt );
+			vi.mocked( daemonClient.startProcess ).mockRejectedValue( new Error( 'Failed' ) );
+
+			await expect( startWordPressServer( mockSiteData, mockLogger, command ) ).rejects.toThrow();
+
+			const [ , props ] = vi.mocked( recordTracksEvent ).mock.calls[ 0 ];
+			expect( props ).toMatchObject( { command, time_ms: timeMs } );
+		} );
+
 		it( 'should handle start process failure', async () => {
 			vi.mocked( daemonClient.startProcess ).mockRejectedValue(
 				new Error( 'Failed to start process' )
 			);
 
-			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow(
+			await expect( startWordPressServer( mockSiteData, mockLogger, 'start' ) ).rejects.toThrow(
 				'Failed to start process'
 			);
 		} );
@@ -299,7 +323,7 @@ describe( 'WordPress Server Manager', () => {
 				} );
 			} );
 
-			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow(
+			await expect( startWordPressServer( mockSiteData, mockLogger, 'start' ) ).rejects.toThrow(
 				/exited before becoming ready/
 			);
 		} );
@@ -318,7 +342,7 @@ describe( 'WordPress Server Manager', () => {
 				} );
 			} );
 
-			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow(
+			await expect( startWordPressServer( mockSiteData, mockLogger, 'start' ) ).rejects.toThrow(
 				new RegExp( stderrTail.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' ) )
 			);
 		} );
@@ -342,7 +366,7 @@ describe( 'WordPress Server Manager', () => {
 				return mockProcessDescription;
 			} );
 
-			await expect( startWordPressServer( mockSiteData, mockLogger ) ).rejects.toThrow(
+			await expect( startWordPressServer( mockSiteData, mockLogger, 'start' ) ).rejects.toThrow(
 				/early crash/
 			);
 		} );
@@ -364,7 +388,7 @@ describe( 'WordPress Server Manager', () => {
 			} );
 
 			await expect(
-				startWordPressServer( { ...mockSiteData, path: sitePath }, mockLogger )
+				startWordPressServer( { ...mockSiteData, path: sitePath }, mockLogger, 'start' )
 			).rejects.toThrow( /Recent PHP errors[\s\S]*PHP Fatal error/ );
 		} );
 
@@ -387,7 +411,8 @@ describe( 'WordPress Server Manager', () => {
 
 			const error: Error = await startWordPressServer(
 				{ ...mockSiteData, path: sitePath, enableDebugLog: true },
-				mockLogger
+				mockLogger,
+				'start'
 			).then(
 				() => {
 					throw new Error( 'expected startWordPressServer to reject' );
@@ -417,7 +442,8 @@ describe( 'WordPress Server Manager', () => {
 			await expect(
 				startWordPressServer(
 					{ ...mockSiteData, path: sitePath, enableDebugLog: true },
-					mockLogger
+					mockLogger,
+					'start'
 				)
 			).rejects.toThrow( /Recent PHP errors[\s\S]*debug\.log[\s\S]*PHP Fatal error/ );
 		} );
@@ -429,7 +455,7 @@ describe( 'WordPress Server Manager', () => {
 			const logPath = path.join( sitePath, 'wp-content', STUDIO_ERROR_LOG_FILENAME );
 			fs.writeFileSync( logPath, 'PHP Fatal error: from a previous run' );
 
-			await startWordPressServer( { ...mockSiteData, path: sitePath }, mockLogger );
+			await startWordPressServer( { ...mockSiteData, path: sitePath }, mockLogger, 'start' );
 
 			expect( fs.existsSync( logPath ) ).toBe( false );
 		} );

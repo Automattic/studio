@@ -1,47 +1,42 @@
-import { readAuthToken } from '@studio/common/lib/shared-config';
-import { getWpComSites } from 'cli/lib/api';
-import { HOSTS } from '../hosts';
+import { HOSTS, loadHosts } from '../hosts';
+import wpcom from '../hosts/wpcom.json';
 
-vi.mock( '@studio/common/lib/shared-config', () => ( { readAuthToken: vi.fn() } ) );
-vi.mock( 'cli/lib/api', () => ( { getWpComSites: vi.fn() } ) );
 vi.mock( 'cli/commands/push', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/pull', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/pull-legacy', () => ( { runCommand: vi.fn() } ) );
 
-const sites = [ { id: 111, name: 'Live', url: 'https://live.wordpress.com' } ];
-
-describe( 'WordPress.com remote host', () => {
+describe( 'remote host manifests', () => {
 	it.each( [
-		[ 'signed in', 'token', undefined, { signedIn: true, sites } ],
-		[ 'signed out', undefined, undefined, { signedIn: false, sites: [] } ],
-		[
-			'request failure',
-			'token',
-			new Error( 'Failed to fetch' ),
-			{ signedIn: true, sites: [], error: 'Failed to fetch' },
-		],
-		[
-			'non-Error failure',
-			'token',
-			'Unavailable',
-			{ signedIn: true, sites: [], error: 'Unavailable' },
-		],
-	] )( 'lists sites when %s', async ( _label, token, error, expected ) => {
-		vi.mocked( readAuthToken ).mockResolvedValue(
-			token ? ( { accessToken: token } as never ) : null
+		{
+			id: 'wpcom',
+			name: 'WordPress.com',
+			listKey: 'wordpressCom',
+			description: '"Live" (ID: 111) at https://live.wordpress.com (WordPress.com)',
+		},
+	] )( 'loads the built-in $id host', ( { id, name, listKey, description } ) => {
+		const host = HOSTS[ id ];
+		expect( host.name ).toBe( name );
+		expect( host.sites?.listKey ).toBe( listKey );
+		expect(
+			host.describeSite( {
+				name: 'Live',
+				path: '',
+				running: false,
+				remote: true,
+				wpcomSiteId: 111,
+				url: 'https://live.wordpress.com',
+			} )
+		).toBe( description );
+	} );
+
+	it.each( [
+		[ { ...wpcom, name: undefined }, /name/ ],
+		[ { ...wpcom, driver: { type: 'unknown' } }, /Unknown remote host driver: unknown/ ],
+		[ { ...wpcom, driver: { type: 'wpcom-sync', unsupported: true } }, /unsupported/ ],
+	] )( 'rejects an invalid manifest %j', ( manifest, message ) => {
+		expect( () => loadHosts( { 'invalid.json': manifest } ) ).toThrow(
+			/Invalid remote host manifest invalid.json/
 		);
-		if ( error ) {
-			vi.mocked( getWpComSites ).mockRejectedValue( error );
-		} else {
-			vi.mocked( getWpComSites ).mockResolvedValue( sites as never );
-		}
-		expect( Object.keys( HOSTS ) ).toEqual( [ 'wpcom' ] );
-		expect( HOSTS.wpcom.sites!.listKey ).toBe( 'wordpressCom' );
-		expect( await HOSTS.wpcom.sites!.list() ).toEqual( expected );
-		if ( token ) {
-			expect( getWpComSites ).toHaveBeenCalledWith( token );
-		} else {
-			expect( getWpComSites ).not.toHaveBeenCalled();
-		}
+		expect( () => loadHosts( { 'invalid.json': manifest } ) ).toThrow( message );
 	} );
 } );

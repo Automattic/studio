@@ -1,0 +1,7 @@
+{
+	"id": "wpcom",
+	"name": "WordPress.com",
+	"sites": { "listKey": "wordpressCom" },
+	"describeSite": "\"{name}\" (ID: {wpcomSiteId}) at {url} (WordPress.com)",
+	"driver": { "type": "wpcom-sync" }
+}

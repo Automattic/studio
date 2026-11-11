@@ -7,6 +7,7 @@ import {
 	PROXY_DISABLE_HTTPS_PATH,
 	PROXY_ENABLE_HTTPS_PATH,
 } from '@studio/common/constants';
+import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import httpProxy from 'http-proxy';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
 import { readCliConfig } from 'cli/lib/cli-config/core';
@@ -80,8 +81,12 @@ async function handleHttpsControl(
 		await setHttpsProxyEnabled( enable );
 		respondWithProxyStatus( res );
 	} catch ( error ) {
+		// The CLI turns this into its port conflict message. The full error is in the proxy's log.
+		const isPortTaken = isErrnoException( error ) && error.code === 'EADDRINUSE';
 		res.writeHead( 500, { 'Content-Type': 'text/plain' } );
-		res.end( String( error ) );
+		res.end(
+			isPortTaken ? 'EADDRINUSE: address already in use :443' : 'Failed to listen on port 443'
+		);
 	}
 }
 

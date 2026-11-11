@@ -10,7 +10,10 @@ import {
 	markConnectedWpcomSiteSynced,
 } from '@studio/common/lib/connected-sites';
 import { formatProgressLabel } from '@studio/common/lib/progress-label';
-import { buildSyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
+import {
+	buildSyncEventProps,
+	classifySyncSelection,
+} from '@studio/common/lib/sync/build-sync-event-props';
 import {
 	SYNC_MAX_STALLED_ATTEMPTS,
 	SYNC_POLL_INTERVAL_MS,
@@ -44,7 +47,10 @@ import {
 import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { handleImportEvents } from './import';
-import type { SyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
+import type {
+	SyncEventProps,
+	SyncSelectionProps,
+} from '@studio/common/lib/sync/build-sync-event-props';
 import type { SyncFailurePhase } from '@studio/common/lib/sync/classify-sync-failure';
 import type { SyncOption, SyncSite } from '@studio/common/types/sync';
 import type { builder } from 'cli/commands/pull.command';
@@ -58,9 +64,13 @@ export async function runCommand(
 	siteIdentifier?: string,
 	syncIncludePathList?: string[],
 	logger: Logger< LoggerAction > = defaultLogger,
-	confirmLargeBackup?: () => Promise< boolean >
+	confirmLargeBackup?: () => Promise< boolean >,
+	specificSelectionPaths?: string[]
 ): Promise< SyncSite | undefined > {
 	let pullError: unknown;
+	let selectionProps: SyncSelectionProps | undefined = syncOptions
+		? classifySyncSelection( { optionsToSync: syncOptions, specificSelectionPaths } )
+		: undefined;
 	let restartSiteError: unknown;
 	let remoteSite: SyncSite | undefined;
 	let pullCompleted = false;
@@ -112,7 +122,10 @@ export async function runCommand(
 			}
 			optionsToSync = selection.optionsToSync;
 			includePathList = selection.includePathList;
+			specificSelectionPaths = selection.specificSelectionPaths;
 		}
+
+		selectionProps ??= classifySyncSelection( { optionsToSync, specificSelectionPaths } );
 
 		// Pull progress: Backup (0-50%) → Download (50-80%) → Import (80-100%)
 		failurePhase = 'remote_backup';
@@ -277,6 +290,7 @@ export async function runCommand(
 			buildSyncEventProps( {
 				startedAt,
 				site: remoteSite,
+				selection: selectionProps,
 				error: pullError,
 				hint: { code: findFailureCode( pullError ), phase: failurePhase },
 			} )
@@ -356,7 +370,8 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 							),
 							default: true,
 						} )
-				: undefined
+				: undefined,
+			argv.only
 		);
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {

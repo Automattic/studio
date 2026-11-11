@@ -47,7 +47,7 @@ describe( 'ai settings', () => {
 	it( 'defaults to WordPress.com with nothing connected', async () => {
 		await expect( readAiSettings() ).resolves.toEqual( {
 			provider: 'wpcom',
-			accounts: { wpcom: disconnected, anthropic: disconnected },
+			accounts: { wpcom: disconnected, anthropic: disconnected, custom: disconnected },
 		} );
 	} );
 
@@ -61,6 +61,7 @@ describe( 'ai settings', () => {
 			accounts: {
 				wpcom: disconnected,
 				anthropic: { connected: true, summary: 'sk-ant-api03-tes...1234' },
+				custom: disconnected,
 			},
 		} );
 		expect( readShared().anthropicApiKey ).toBe( 'sk-ant-api03-testkey-abcd1234' );
@@ -118,11 +119,39 @@ describe( 'ai settings', () => {
 
 		await expect( disconnectProvider( anthropic ) ).resolves.toEqual( {
 			provider: 'wpcom',
-			accounts: { wpcom: disconnected, anthropic: disconnected },
+			accounts: { wpcom: disconnected, anthropic: disconnected, custom: disconnected },
 		} );
 		const written = readShared();
 		expect( written.anthropicApiKey ).toBeUndefined();
 		expect( written ).toMatchObject( { aiProvider: 'wpcom', locale: 'es' } );
+	} );
+
+	it( 'keeps the custom endpoint in customEndpoint, and drops one this build cannot read', async () => {
+		const endpoint = {
+			baseUrl: 'https://gateway.example/v1',
+			api: 'openai-completions',
+			apiKey: 'the-key',
+			model: 'vendor/model',
+			images: false,
+		};
+		writeShared( { customEndpoint: endpoint, aiProvider: 'custom' } );
+		await expect( readAiSettings() ).resolves.toMatchObject( {
+			provider: 'custom',
+			accounts: { custom: { connected: true, summary: 'vendor/model at gateway.example' } },
+		} );
+
+		// The rest of the config stays readable.
+		writeShared( {
+			customEndpoint: { ...endpoint, api: 'some-future-api' },
+			anthropicApiKey: 'sk-ant-api03-testkey-abcd1234',
+		} );
+		await expect( readAiSettings() ).resolves.toMatchObject( {
+			accounts: { anthropic: { connected: true }, custom: disconnected },
+		} );
+
+		writeShared( { customEndpoint: endpoint, locale: 'es' } );
+		await disconnectProvider( getProvider( 'custom' ) );
+		expect( readShared() ).toEqual( { version: 1, locale: 'es' } );
 	} );
 
 	it( 'keeps the WordPress.com config in the Studio sign-in, and revokes it on disconnect', async () => {

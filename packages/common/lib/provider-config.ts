@@ -6,7 +6,8 @@ import { readAuthToken, readSharedConfig, updateSharedConfig } from './shared-co
  * Each provider's config, validated against its descriptor's schema. Until
  * configs get a section of their own, each maps onto the shared.json field
  * builds of every version read: the WordPress.com config is the Studio
- * sign-in (`authToken`), the Anthropic one the saved key (`anthropicApiKey`).
+ * sign-in (`authToken`), the Anthropic one the saved key (`anthropicApiKey`), and
+ * the custom endpoint's the connection (`customEndpoint`).
  */
 
 interface AiFields {
@@ -85,6 +86,12 @@ const STORES: { [ Id in ProviderId ]: ConfigStore< ProviderConfigs[ Id ] > } = {
 		},
 		write: async ( config ) => {
 			await updateAiFields( { anthropicApiKey: config?.apiKey } );
+		},
+	},
+	custom: {
+		read: async () => ( await readSharedConfig() ).customEndpoint,
+		write: async ( customEndpoint ) => {
+			await updateSharedConfig( { customEndpoint } );
 		},
 	},
 };

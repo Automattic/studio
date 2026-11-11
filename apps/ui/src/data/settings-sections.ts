@@ -507,7 +507,6 @@ const NATIVE_ONLY_IDS = new Set( [
 	'xdebug',
 	'php',
 	'site-skills',
-	'site-instructions',
 ] );
 
 export function getSections(

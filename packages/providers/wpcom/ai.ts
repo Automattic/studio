@@ -1,5 +1,6 @@
 import { ProviderNotReadyError } from '../errors';
 import { getAiModel } from '../models';
+import { PORTABLE_COMPLETIONS_COMPAT } from '../openai-compat';
 import type { WpcomConfig } from './config';
 import type { AiConnection, Provider } from '../types';
 import type { Api, Model } from '@earendil-works/pi-ai';
@@ -25,21 +26,8 @@ type Tier = Pick< Model< Api >, 'api' | 'reasoning' | 'compat' > & {
 };
 
 const TIERS: Record< string, Tier > = {
-	// Chat Completions. pi infers `compat` from the base URL, which for us reads
-	// as plain OpenAI, so spell out the shape or requests carry OpenAI-only
-	// fields other upstreams reject. With `supportsReasoningEffort` false no
-	// thinking switch is sent at all and each upstream uses its own default.
-	fast: {
-		api: 'openai-completions',
-		reasoning: true,
-		compat: {
-			supportsStore: false,
-			supportsDeveloperRole: false,
-			supportsReasoningEffort: false,
-			supportsStrictMode: false,
-			maxTokensField: 'max_tokens',
-		},
-	},
+	// Chat Completions, to whichever upstream the tier resolves to.
+	fast: { api: 'openai-completions', reasoning: true, compat: PORTABLE_COMPLETIONS_COMPAT },
 	// Responses: its upstream is a reasoning model that rejects
 	// tools-plus-reasoning on Chat Completions.
 	balanced: { api: 'openai-responses', reasoning: true, requestModelId: 'balanced-2' },

@@ -16,6 +16,7 @@ export {
 } from './models';
 export { getConnectFields, getRedirectUrl, type ConnectField } from './connection';
 export type { AnthropicConfig } from './anthropic/config';
+export { customConfigSchema, type CustomConfig } from './custom/config';
 export type { WpcomConfig } from './wpcom/config';
 export type * from './types';
 export {

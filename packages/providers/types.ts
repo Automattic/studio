@@ -1,16 +1,18 @@
 import type { AnthropicConfig } from './anthropic/config';
+import type { CustomConfig } from './custom/config';
 import type { AiModelId } from './models';
 import type { WpcomConfig } from './wpcom/config';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from './wpcom/site';
 import type { Api, Model } from '@earendil-works/pi-ai';
 import type { z } from 'zod';
 
-export type ProviderId = 'wpcom' | 'anthropic';
+export type ProviderId = 'wpcom' | 'anthropic' | 'custom';
 
 // What Studio stores for each provider.
 export interface ProviderConfigs {
 	wpcom: WpcomConfig;
 	anthropic: AnthropicConfig;
+	custom: CustomConfig;
 }
 
 // The remote sites of each provider that offers them.

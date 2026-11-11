@@ -1,7 +1,7 @@
 import { password } from '@inquirer/prompts';
 import { connectProvider, readSelectedAiProvider } from '@studio/common/lib/ai-settings';
 import { readProviderConfig } from '@studio/common/lib/provider-config';
-import { InvalidCredentialError } from '@studio/providers';
+import { InvalidCredentialError, type ProviderId } from '@studio/providers';
 import { vi } from 'vitest';
 import {
 	isAiProviderReady,
@@ -30,7 +30,7 @@ const anthropicProvider = expect.objectContaining( {
 	descriptor: expect.objectContaining( { id: 'anthropic' } ),
 } );
 
-type Configs = { wpcom?: { token: string }; anthropic?: { method: 'api-key'; apiKey: string } };
+type Configs = Partial< Record< ProviderId, unknown > >;
 
 function storeConfigs( configs: Configs ) {
 	vi.mocked( readProviderConfig ).mockImplementation(

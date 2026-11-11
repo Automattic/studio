@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { customConfigSchema } from '@studio/providers';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME, SHARED_CONFIG_LOCKFILE_NAME } from '../constants';
@@ -38,18 +39,6 @@ export const sharedSessionMetadataSchema = z
 
 export type SharedSessionMetadata = z.infer< typeof sharedSessionMetadataSchema >;
 
-// An AI endpoint the user connected: where it is, the API it answered in when
-// connected, its key, the models it serves and whether they take images.
-const customEndpointSchema = z.object( {
-	baseUrl: z.string(),
-	api: z.enum( [ 'openai-completions', 'anthropic-messages' ] ),
-	apiKey: z.string(),
-	models: z.array( z.string() ).min( 1 ),
-	images: z.boolean(),
-} );
-
-export type CustomEndpoint = z.infer< typeof customEndpointSchema >;
-
 export const sharedConfigSchema = z
 	.object( {
 		version: z.literal( SHARED_CONFIG_VERSION ),
@@ -69,8 +58,9 @@ export const sharedConfigSchema = z
 		// parse; readers go through `normalizeProviderId`.
 		aiProvider: z.string().optional(),
 		anthropicApiKey: z.string().optional(),
-		// A connection a newer or older build cannot read is dropped, not fatal.
-		customEndpoint: customEndpointSchema.optional().catch( undefined ),
+		// The custom endpoint provider's connection. One a newer or older build
+		// cannot read is dropped, not fatal.
+		customEndpoint: customConfigSchema.optional().catch( undefined ),
 		// Anonymous install identifier for Tracks analytics, shared by Studio and the Studio CLI.
 		// See `docs/design-docs/analytics-tracks.md`.
 		analyticsInstallId: z.string().optional(),

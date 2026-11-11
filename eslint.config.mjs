@@ -7,9 +7,9 @@ import pluginImport from 'eslint-plugin-import-x';
 import pluginJestDom from 'eslint-plugin-jest-dom';
 import pluginPrettier from 'eslint-plugin-prettier/recommended';
 import pluginReactHooks from 'eslint-plugin-react-hooks';
-import pluginStudio from 'eslint-plugin-studio';
 import globals from 'globals';
 import tsEslint from 'typescript-eslint';
+import pluginStudio from 'eslint-plugin-studio';
 
 const WP_UI_PACKAGES = {
 	group: [ 'components', 'dataviews', 'theme', 'ui' ].flatMap( ( name ) => [
@@ -439,7 +439,9 @@ export default defineConfig(
 							from: 'packages/providers',
 							except: PROVIDERS_DESCRIPTORS.flatMap( ( file ) =>
 								file.startsWith( '*/' )
-									? [ 'wpcom', 'anthropic' ].map( ( dir ) => `./${ file.replaceAll( '*', dir ) }` )
+									? [ 'wpcom', 'anthropic', 'custom' ].map(
+											( dir ) => `./${ file.replaceAll( '*', dir ) }`
+									  )
 									: [ `./${ file }` ]
 							),
 							message: 'The @studio/providers entry imports only the files it is made of.',

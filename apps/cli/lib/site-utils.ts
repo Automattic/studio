@@ -1,9 +1,4 @@
-import {
-	PROXY_CONTROL_HEADER,
-	PROXY_DISABLE_HTTPS_PATH,
-	PROXY_ENABLE_HTTPS_PATH,
-	PROXY_PROCESS_NAME,
-} from '@studio/common/constants';
+import { PROXY_PROCESS_NAME } from '@studio/common/constants';
 import { getProxyPortConflictMessage } from '@studio/common/lib/domains';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
@@ -11,7 +6,7 @@ import { __ } from '@wordpress/i18n';
 import { openBrowser } from 'cli/lib/browser';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
 import { readCliConfig, SiteData } from 'cli/lib/cli-config/core';
-import { getSiteUrl } from 'cli/lib/cli-config/sites';
+import { getSiteUrl, isHttpsUsedByAnySite } from 'cli/lib/cli-config/sites';
 import {
 	isProxyProcessRunning,
 	listProcesses,
@@ -27,10 +22,38 @@ import {
 import { Logger, LoggerError } from 'cli/logger';
 
 /**
- * Starts the HTTP proxy server if it's not already running
+ * Whether the running proxy holds port 443, or undefined when it doesn't answer.
+ */
+async function isProxyServingHttps(): Promise< boolean | undefined > {
+	try {
+		const response = await fetch( 'http://127.0.0.1/__studio_health', {
+			signal: AbortSignal.timeout( 5000 ),
+		} );
+		const { https } = ( await response.json() ) as { https?: unknown };
+		return typeof https === 'boolean' ? https : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+/**
+ * The proxy decides whether to take port 443 when it starts, so it is out of date once that no
+ * longer matches the sites' HTTPS settings.
+ */
+async function isProxyOutOfDate(): Promise< boolean > {
+	const servesHttps = await isProxyServingHttps();
+	return servesHttps !== undefined && servesHttps !== ( await isHttpsUsedByAnySite() );
+}
+
+/**
+ * Starts the HTTP proxy server if it's not already running, or again if it is out of date
  */
 async function startProxyIfNeeded( logger: Logger< LoggerAction > ): Promise< void > {
-	const proxyProcess = await isProxyProcessRunning();
+	let proxyProcess = await isProxyProcessRunning();
+	if ( proxyProcess && ( await isProxyOutOfDate() ) ) {
+		await stopProxyProcess();
+		proxyProcess = undefined;
+	}
 	if ( ! proxyProcess ) {
 		logger.reportStart( LoggerAction.START_PROXY, __( 'Starting HTTP proxy server…' ) );
 		const readyOrExit = await subscribeForReadyOrExit( PROXY_PROCESS_NAME );
@@ -52,45 +75,14 @@ async function startProxyIfNeeded( logger: Logger< LoggerAction > ): Promise< vo
 }
 
 /**
- * Tells the proxy whether a running site uses HTTPS, so it holds port 443 only while one does.
+ * Restarts the running proxy if a change to the sites left it out of date, so that it releases
+ * port 443 once the last site with HTTPS is gone.
  */
-async function setProxyHttpsEnabled( enable: boolean ): Promise< void > {
-	const path = enable ? PROXY_ENABLE_HTTPS_PATH : PROXY_DISABLE_HTTPS_PATH;
-	let failure: unknown;
-	try {
-		const response = await fetch( `http://127.0.0.1${ path }`, {
-			method: 'POST',
-			headers: { [ PROXY_CONTROL_HEADER ]: '1' },
-			signal: AbortSignal.timeout( 10_000 ),
-		} );
-		// A proxy left running by an older Studio version doesn't know this path and answers 404.
-		// It binds port 443 for as long as it runs.
-		if ( response.ok || response.status === 404 ) {
-			return;
-		}
-		failure = await response.text();
-	} catch ( error ) {
-		failure = error;
+export async function restartProxyIfOutOfDate( logger: Logger< LoggerAction > ): Promise< void > {
+	if ( ( await isProxyProcessRunning() ) && ( await isProxyOutOfDate() ) ) {
+		await stopProxyProcess();
+		await startProxyIfNeeded( logger );
 	}
-
-	// Failing to release the port leaves every site working.
-	if ( enable ) {
-		throw new LoggerError(
-			getProxyPortConflictMessage( String( failure ) ) ?? __( 'Failed to start HTTP proxy server' ),
-			failure
-		);
-	}
-}
-
-async function isHttpsUsedByOtherRunningSites( excludedSiteIds: string[] ): Promise< boolean > {
-	const cliConfig = await readCliConfig();
-	const otherHttpsSites = cliConfig.sites.filter(
-		( site ) => ! excludedSiteIds.includes( site.id ) && site.customDomain && site.enableHttps
-	);
-	const running = await Promise.all(
-		otherHttpsSites.map( ( site ) => isServerRunning( site.id ) )
-	);
-	return running.some( Boolean );
 }
 
 /**
@@ -151,9 +143,6 @@ export async function setupCustomDomain(
 	}
 
 	await startProxyIfNeeded( logger );
-	await setProxyHttpsEnabled(
-		!! site.enableHttps || ( await isHttpsUsedByOtherRunningSites( [ site.id ] ) )
-	);
 
 	if ( site.enableHttps && ! site.tlsKey && ! site.tlsCert ) {
 		logger.reportStart( LoggerAction.GENERATE_CERT, __( 'Generating SSL certificates…' ) );
@@ -173,8 +162,7 @@ export async function setupCustomDomain(
 }
 
 /**
- * Stops the HTTP proxy server if no remaining running sites need it, and releases port 443 if
- * none of them uses HTTPS.
+ * Stops the HTTP proxy server if no remaining running sites need it.
  * A site needs the proxy if it has a custom domain configured.
  *
  * @param stoppedSiteIds - The ID of the site that was just stopped (to exclude from the check)
@@ -201,12 +189,6 @@ export async function stopProxyIfNoSitesNeedIt(
 	);
 
 	if ( sitesStillRunning.some( ( isRunning ) => isRunning ) ) {
-		const isHttpsStillUsed = remainingSitesWithCustomDomains.some(
-			( site, index ) => site.enableHttps && sitesStillRunning[ index ]
-		);
-		if ( ! isHttpsStillUsed ) {
-			await setProxyHttpsEnabled( false );
-		}
 		return;
 	}
 

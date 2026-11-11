@@ -36,9 +36,6 @@ export const CERT_UNTRUSTED_ROOT = 'CERT_TRUST_IS_UNTRUSTED_ROOT'; // Windows AP
 export const DEFAULT_CUSTOM_DOMAIN_SUFFIX = '.wp.local';
 export const LOCAL_DOMAIN_SUFFIX = '.local';
 export const PROXY_PROCESS_NAME = 'studio-proxy';
-export const PROXY_ENABLE_HTTPS_PATH = '/__studio_https/enable';
-export const PROXY_DISABLE_HTTPS_PATH = '/__studio_https/disable';
-export const PROXY_CONTROL_HEADER = 'x-studio-proxy-control';
 
 // WordPress constants
 export const MINIMUM_WORDPRESS_VERSION = '6.2.1' as const; // https://wordpress.github.io/wordpress-playground/blueprints/examples/#load-an-older-wordpress-version

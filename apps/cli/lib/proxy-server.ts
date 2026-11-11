@@ -2,15 +2,10 @@ import http from 'http';
 import https from 'https';
 import { createSecureContext } from 'node:tls';
 import { domainToASCII } from 'node:url';
-import {
-	PROXY_CONTROL_HEADER,
-	PROXY_DISABLE_HTTPS_PATH,
-	PROXY_ENABLE_HTTPS_PATH,
-} from '@studio/common/constants';
-import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import httpProxy from 'http-proxy';
 import { generateSiteCertificate } from 'cli/lib/certificate-manager';
 import { readCliConfig } from 'cli/lib/cli-config/core';
+import { isHttpsUsedByAnySite } from 'cli/lib/cli-config/sites';
 
 let httpProxyServer: http.Server | null = null;
 let httpsProxyServer: https.Server | null = null;
@@ -52,45 +47,6 @@ async function getSiteByHost( domain: string ) {
 }
 
 function handleHealthCheck( res: http.ServerResponse ) {
-	respondWithProxyStatus( res );
-}
-
-const LOOPBACK_ADDRESSES = [ '127.0.0.1', '::1', '::ffff:127.0.0.1' ];
-
-/**
- * Lets the CLI bind or release port 443 as sites that use HTTPS start and stop. The custom header
- * keeps web pages from reaching it: a cross-origin request carrying it needs a preflight, which
- * the proxy never grants.
- */
-async function handleHttpsControl(
-	req: http.IncomingMessage,
-	res: http.ServerResponse,
-	enable: boolean
-) {
-	const isFromCli =
-		req.method === 'POST' &&
-		LOOPBACK_ADDRESSES.includes( req.socket.remoteAddress ?? '' ) &&
-		req.headers[ PROXY_CONTROL_HEADER ] !== undefined;
-	if ( ! isFromCli ) {
-		res.writeHead( 403, { 'Content-Type': 'text/plain' } );
-		res.end( 'Forbidden' );
-		return;
-	}
-
-	try {
-		await setHttpsProxyEnabled( enable );
-		respondWithProxyStatus( res );
-	} catch ( error ) {
-		// The CLI turns this into its port conflict message. The full error is in the proxy's log.
-		const isPortTaken = isErrnoException( error ) && error.code === 'EADDRINUSE';
-		res.writeHead( 500, { 'Content-Type': 'text/plain' } );
-		res.end(
-			isPortTaken ? 'EADDRINUSE: address already in use :443' : 'Failed to listen on port 443'
-		);
-	}
-}
-
-function respondWithProxyStatus( res: http.ServerResponse ) {
 	res.writeHead( 200, { 'Content-Type': 'application/json' } );
 	res.end(
 		JSON.stringify( {
@@ -112,14 +68,6 @@ async function handleProxyRequest(
 ) {
 	if ( req.url === '/__studio_health' ) {
 		return handleHealthCheck( res );
-	}
-
-	if ( ! isHttps && req.url === PROXY_ENABLE_HTTPS_PATH ) {
-		return handleHttpsControl( req, res, true );
-	}
-
-	if ( ! isHttps && req.url === PROXY_DISABLE_HTTPS_PATH ) {
-		return handleHttpsControl( req, res, false );
 	}
 
 	const host = req.headers.host?.split( ':' )[ 0 ]; // Remove port if present
@@ -193,6 +141,7 @@ async function startHttpProxy(): Promise< void > {
  */
 async function startHttpsProxy(): Promise< void > {
 	if ( isHttpsProxyRunning ) {
+		console.log( '[Proxy] HTTPS proxy already running' );
 		return;
 	}
 
@@ -235,45 +184,15 @@ async function startHttpsProxy(): Promise< void > {
 			} )
 			.on( 'error', ( err ) => {
 				logProxyBindError( err, 443 );
-				httpsProxyServer = null;
 				reject( err );
 			} );
 	} );
 }
 
-async function stopHttpsProxy(): Promise< void > {
-	const server = httpsProxyServer;
-	if ( ! server ) {
-		return;
-	}
-
-	httpsProxyServer = null;
-	isHttpsProxyRunning = false;
-	await new Promise< void >( ( resolve ) => {
-		server.close( () => {
-			console.log( '[Proxy] HTTPS server stopped' );
-			resolve();
-		} );
-		server.closeAllConnections();
-	} );
-}
-
-let httpsProxyChange: Promise< void > = Promise.resolve();
-
-/**
- * Binds port 443 while a running site uses HTTPS and releases it otherwise. Changes run one at a
- * time, so concurrent site starts and stops leave the port in the last requested state.
- */
-function setHttpsProxyEnabled( enable: boolean ): Promise< void > {
-	const change = httpsProxyChange.then( () => ( enable ? startHttpsProxy() : stopHttpsProxy() ) );
-	httpsProxyChange = change.catch( () => undefined );
-	return change;
-}
-
 /**
  * Stop the proxy servers gracefully
  */
-export async function stopProxyServers(): Promise< void > {
+async function stopProxyServers(): Promise< void > {
 	console.log( '[Proxy] Stopping proxy servers…' );
 
 	const promises: Promise< void >[] = [];
@@ -291,7 +210,18 @@ export async function stopProxyServers(): Promise< void > {
 		);
 	}
 
-	promises.push( setHttpsProxyEnabled( false ) );
+	if ( httpsProxyServer ) {
+		promises.push(
+			new Promise< void >( ( resolve ) => {
+				httpsProxyServer!.close( () => {
+					httpsProxyServer = null;
+					isHttpsProxyRunning = false;
+					console.log( '[Proxy] HTTPS server stopped' );
+					resolve();
+				} );
+			} )
+		);
+	}
 
 	await Promise.all( promises );
 	console.log( '[Proxy] All servers stopped' );
@@ -314,8 +244,10 @@ export async function startProxyServers(): Promise< void > {
 	process.on( 'SIGINT', () => shutdown( 'SIGINT' ) );
 
 	try {
-		// Port 443 is bound later, when the CLI starts a site that uses HTTPS
 		await startHttpProxy();
+		if ( await isHttpsUsedByAnySite() ) {
+			await startHttpsProxy();
+		}
 
 		console.log( '[Proxy] Proxy servers started successfully' );
 		console.log( '[Proxy] Ready to handle custom domain requests' );

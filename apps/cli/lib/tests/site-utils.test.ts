@@ -2,9 +2,14 @@ import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-a
 import { vi, type Mock } from 'vitest';
 import { openBrowser } from 'cli/lib/browser';
 import { SiteData, readCliConfig } from 'cli/lib/cli-config/core';
-import { isProxyProcessRunning, stopProxyProcess } from 'cli/lib/daemon-client';
-import { openSiteInBrowser, setupCustomDomain, stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
-import { isServerRunning } from 'cli/lib/wordpress-server-manager';
+import { isProxyProcessRunning, startProxyProcess, stopProxyProcess } from 'cli/lib/daemon-client';
+import {
+	openSiteInBrowser,
+	restartProxyIfOutOfDate,
+	setupCustomDomain,
+	stopProxyIfNoSitesNeedIt,
+} from 'cli/lib/site-utils';
+import { isServerRunning, subscribeForReadyOrExit } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 
 vi.mock( 'cli/lib/cli-config/core', async () => {
@@ -19,37 +24,27 @@ vi.mock( 'cli/lib/certificate-manager' );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/wordpress-server-manager' );
 
-const mockProcessDescription = {
-	name: 'studio-proxy',
-	pmId: 0,
-	status: 'online',
-	pid: 12345,
-};
-
-const createSiteData = ( overrides: Partial< SiteData > = {} ): SiteData => ( {
-	id: 'site-1',
-	name: 'Test Site',
-	path: '/test/site',
-	port: 8881,
-	phpVersion: '8.0',
-	...overrides,
-} );
-
-const mockFetch = vi.fn();
-
-function mockRunningSites( ...siteIds: string[] ) {
-	( isServerRunning as Mock ).mockImplementation( async ( siteId: string ) =>
-		siteIds.includes( siteId ) ? mockProcessDescription : undefined
-	);
-}
-
 describe( 'stopProxyIfNoSitesNeedIt', () => {
+	const mockProcessDescription = {
+		name: 'studio-proxy',
+		pmId: 0,
+		status: 'online',
+		pid: 12345,
+	};
+
 	let mockLogger: Logger< LoggerAction >;
+
+	const createSiteData = ( overrides: Partial< SiteData > = {} ): SiteData => ( {
+		id: 'site-1',
+		name: 'Test Site',
+		path: '/test/site',
+		port: 8881,
+		phpVersion: '8.0',
+		...overrides,
+	} );
 
 	beforeEach( () => {
 		vi.clearAllMocks();
-		mockFetch.mockResolvedValue( new Response( '{}' ) );
-		vi.stubGlobal( 'fetch', mockFetch );
 
 		mockLogger = {
 			reportStart: vi.fn(),
@@ -65,7 +60,6 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 
 	afterEach( () => {
 		vi.restoreAllMocks();
-		vi.unstubAllGlobals();
 	} );
 
 	it( 'should stop proxy if no other sites exist', async () => {
@@ -134,129 +128,108 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 		expect( isServerRunning ).toHaveBeenCalledWith( 'running-site' );
 		expect( stopProxyProcess ).not.toHaveBeenCalled();
 	} );
-
-	it( 'should release port 443 when no running site uses HTTPS anymore', async () => {
-		( isProxyProcessRunning as Mock ).mockResolvedValue( mockProcessDescription );
-		( readCliConfig as Mock ).mockResolvedValue( {
-			sites: [
-				createSiteData( { id: 'stopped-site', customDomain: 'stopped.local', enableHttps: true } ),
-				createSiteData( { id: 'http-site', customDomain: 'http.local' } ),
-				createSiteData( { id: 'idle-site', customDomain: 'idle.local', enableHttps: true } ),
-			],
-			version: 1,
-		} );
-		mockRunningSites( 'http-site' );
-
-		await stopProxyIfNoSitesNeedIt( 'stopped-site', mockLogger );
-
-		expect( stopProxyProcess ).not.toHaveBeenCalled();
-		expect( mockFetch ).toHaveBeenCalledWith(
-			'http://127.0.0.1/__studio_https/disable',
-			expect.objectContaining( { method: 'POST' } )
-		);
-	} );
-
-	it( 'should keep port 443 while another running site uses HTTPS', async () => {
-		( isProxyProcessRunning as Mock ).mockResolvedValue( mockProcessDescription );
-		( readCliConfig as Mock ).mockResolvedValue( {
-			sites: [
-				createSiteData( { id: 'stopped-site', customDomain: 'stopped.local', enableHttps: true } ),
-				createSiteData( { id: 'https-site', customDomain: 'https.local', enableHttps: true } ),
-			],
-			version: 1,
-		} );
-		mockRunningSites( 'https-site' );
-
-		await stopProxyIfNoSitesNeedIt( 'stopped-site', mockLogger );
-
-		expect( mockFetch ).not.toHaveBeenCalled();
-	} );
 } );
 
 describe( 'setupCustomDomain', () => {
-	const mockLogger = {
+	const logger = {
 		reportStart: vi.fn(),
 		reportSuccess: vi.fn(),
-		reportError: vi.fn(),
 	} as unknown as Logger< LoggerAction >;
-	const options = { skipHostsUpdate: true };
+	const mockFetch = vi.fn();
+
+	// Starts a site while the proxy is already running, with or without port 443. The proxy doesn't
+	// answer when `proxyServesHttps` is undefined.
+	async function startSiteWithProxyRunning(
+		site: Partial< SiteData >,
+		proxyServesHttps: boolean | undefined
+	) {
+		const siteData: SiteData = {
+			id: 'site-1',
+			name: 'Site',
+			path: '/sites/site',
+			port: 8881,
+			phpVersion: '8.4',
+			customDomain: 'site.local',
+			...site,
+		};
+		( readCliConfig as Mock ).mockResolvedValue( { version: 1, sites: [ siteData ] } );
+		if ( proxyServesHttps === undefined ) {
+			mockFetch.mockRejectedValue( new Error( 'fetch failed' ) );
+		} else {
+			mockFetch.mockImplementation( async () => Response.json( { https: proxyServesHttps } ) );
+		}
+		await setupCustomDomain( siteData, logger, { skipHostsUpdate: true } );
+	}
 
 	beforeEach( () => {
 		vi.clearAllMocks();
-		mockFetch.mockResolvedValue( new Response( '{}' ) );
 		vi.stubGlobal( 'fetch', mockFetch );
-		( isProxyProcessRunning as Mock ).mockResolvedValue( mockProcessDescription );
-		( isServerRunning as Mock ).mockResolvedValue( undefined );
-		( readCliConfig as Mock ).mockResolvedValue( { version: 1, sites: [] } );
+		( isProxyProcessRunning as Mock ).mockResolvedValue( { name: 'studio-proxy', pmId: 0 } );
+		( startProxyProcess as Mock ).mockResolvedValue( { name: 'studio-proxy', pmId: 1 } );
+		( subscribeForReadyOrExit as Mock ).mockResolvedValue( {
+			waitFor: vi.fn(),
+			dispose: vi.fn(),
+		} );
 	} );
 
 	afterEach( () => {
 		vi.unstubAllGlobals();
 	} );
 
-	it( 'should leave port 443 free for a site without HTTPS', async () => {
-		const site = createSiteData( { customDomain: 'site.local', enableHttps: false } );
-		( readCliConfig as Mock ).mockResolvedValue( { version: 1, sites: [ site ] } );
+	it( 'should restart a proxy without port 443 when a site uses HTTPS', async () => {
+		await startSiteWithProxyRunning( { enableHttps: true }, false );
 
-		await setupCustomDomain( site, mockLogger, options );
-
-		expect( mockFetch ).toHaveBeenCalledTimes( 1 );
-		expect( mockFetch ).toHaveBeenCalledWith(
-			'http://127.0.0.1/__studio_https/disable',
-			expect.objectContaining( { method: 'POST' } )
-		);
+		expect( stopProxyProcess ).toHaveBeenCalled();
+		expect( startProxyProcess ).toHaveBeenCalled();
 	} );
 
-	it( 'should bind port 443 for a site with HTTPS', async () => {
-		const site = createSiteData( { customDomain: 'site.local', enableHttps: true } );
+	it( 'should restart a proxy holding port 443 when no site uses HTTPS', async () => {
+		await startSiteWithProxyRunning( { enableHttps: false }, true );
 
-		await setupCustomDomain( site, mockLogger, options );
-
-		expect( mockFetch ).toHaveBeenCalledWith(
-			'http://127.0.0.1/__studio_https/enable',
-			expect.objectContaining( { method: 'POST' } )
-		);
+		expect( stopProxyProcess ).toHaveBeenCalled();
+		expect( startProxyProcess ).toHaveBeenCalled();
 	} );
 
-	it( 'should keep port 443 for a site without HTTPS while another running site uses it', async () => {
-		const site = createSiteData( { customDomain: 'site.local' } );
-		const httpsSite = createSiteData( {
-			id: 'https-site',
-			customDomain: 'https.local',
-			enableHttps: true,
+	it.each( [ true, false ] )(
+		'should keep the proxy running when its ports match the sites (HTTPS: %s)',
+		async ( enableHttps ) => {
+			await startSiteWithProxyRunning( { enableHttps }, enableHttps );
+
+			expect( stopProxyProcess ).not.toHaveBeenCalled();
+			expect( startProxyProcess ).not.toHaveBeenCalled();
+		}
+	);
+
+	it( 'should keep the proxy running when it does not answer', async () => {
+		await startSiteWithProxyRunning( { enableHttps: true }, undefined );
+
+		expect( stopProxyProcess ).not.toHaveBeenCalled();
+	} );
+
+	describe( 'restartProxyIfOutOfDate', () => {
+		beforeEach( () => {
+			( readCliConfig as Mock ).mockResolvedValue( { version: 1, sites: [] } );
+			mockFetch.mockImplementation( async () => Response.json( { https: true } ) );
 		} );
-		( readCliConfig as Mock ).mockResolvedValue( { version: 1, sites: [ site, httpsSite ] } );
-		mockRunningSites( 'https-site' );
 
-		await setupCustomDomain( site, mockLogger, options );
+		it( 'should restart a proxy holding port 443 once no site uses HTTPS', async () => {
+			( stopProxyProcess as Mock ).mockImplementation( async () => {
+				( isProxyProcessRunning as Mock ).mockResolvedValue( undefined );
+			} );
 
-		expect( mockFetch ).toHaveBeenCalledWith(
-			'http://127.0.0.1/__studio_https/enable',
-			expect.anything()
-		);
-	} );
+			await restartProxyIfOutOfDate( logger );
 
-	it( 'should report the port conflict when port 443 is taken', async () => {
-		mockFetch.mockResolvedValue(
-			new Response( 'Error: listen EADDRINUSE: address already in use :::443', { status: 500 } )
-		);
-		const site = createSiteData( { customDomain: 'site.local', enableHttps: true } );
+			expect( stopProxyProcess ).toHaveBeenCalled();
+			expect( startProxyProcess ).toHaveBeenCalled();
+		} );
 
-		await expect( setupCustomDomain( site, mockLogger, options ) ).rejects.toThrow( '443' );
-	} );
+		it( 'should not start a proxy that is not running', async () => {
+			( isProxyProcessRunning as Mock ).mockResolvedValue( undefined );
 
-	it( 'should not fail for a site without HTTPS when the proxy cannot be reached', async () => {
-		mockFetch.mockRejectedValue( new Error( 'fetch failed' ) );
-		const site = createSiteData( { customDomain: 'site.local' } );
+			await restartProxyIfOutOfDate( logger );
 
-		await expect( setupCustomDomain( site, mockLogger, options ) ).resolves.toBeUndefined();
-	} );
-
-	it( 'should accept a proxy from an older Studio version, which always binds port 443', async () => {
-		mockFetch.mockResolvedValue( new Response( 'Domain not found', { status: 404 } ) );
-		const site = createSiteData( { customDomain: 'site.local', enableHttps: true } );
-
-		await expect( setupCustomDomain( site, mockLogger, options ) ).resolves.toBeUndefined();
+			expect( startProxyProcess ).not.toHaveBeenCalled();
+		} );
 	} );
 } );
 

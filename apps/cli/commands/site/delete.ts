@@ -22,7 +22,7 @@ import { connectToDaemon, disconnectFromDaemon, emitCliEvent } from 'cli/lib/dae
 import { removeDomainFromHosts } from 'cli/lib/hosts-file';
 import { deleteSnapshotSite } from 'cli/lib/preview-sites';
 import { withSiteOperations } from 'cli/lib/site-operations';
-import { stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
+import { restartProxyIfOutOfDate, stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
 import { deleteSiteVersionData } from 'cli/lib/site-versions';
 import { getSnapshotsFromConfig, deleteSnapshotFromConfig } from 'cli/lib/snapshots';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
@@ -425,6 +425,17 @@ async function deleteSite(
 		await saveCliConfig( cliConfig );
 	} finally {
 		await unlockCliConfig();
+	}
+
+	if ( site.customDomain && site.enableHttps ) {
+		try {
+			await restartProxyIfOutOfDate( logger );
+		} catch ( error ) {
+			logger.reportError(
+				new LoggerError( __( 'Failed to start HTTP proxy server' ), error ),
+				false
+			);
+		}
 	}
 
 	try {

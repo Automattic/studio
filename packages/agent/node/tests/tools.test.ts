@@ -5,7 +5,6 @@ import { vi } from 'vitest';
 import { getSharedBrowser } from '@studio/agent/node/browser-utils';
 import { nodeHostServices } from '@studio/agent/node/node-host';
 import { validateBlocks } from '@studio/agent/shared/block-validator';
-import { generateImages } from '@studio/agent/shared/image-generation';
 import {
 	resolveConversationTools,
 	resolveStudioTools,
@@ -33,11 +32,6 @@ vi.mock( '@studio/agent/shared/block-validator', () => ( {
 
 vi.mock( '@studio/agent/node/browser-utils', () => ( {
 	getSharedBrowser: vi.fn(),
-} ) );
-
-vi.mock( '@studio/agent/shared/image-generation', async () => ( {
-	...( await vi.importActual( '@studio/agent/shared/image-generation' ) ),
-	generateImages: vi.fn(),
 } ) );
 
 describe( 'Studio AI MCP tools', () => {
@@ -824,8 +818,7 @@ describe( 'Studio AI MCP tools', () => {
 		const themeImage = path.join( sitePath, 'wp-content/themes/acme/assets/images/band.png' );
 		const urlOf = ( name: string ) => `http://localhost:8888/wp-content/uploads/2026/09/${ name }`;
 		vi.mocked( host.sites.all ).mockResolvedValue( [ mockSite, site ] );
-		vi.mocked( host.wpcom.imageToken ).mockResolvedValue( 'token' );
-		vi.mocked( generateImages ).mockResolvedValue( [
+		const generateImages = vi.fn().mockResolvedValue( [
 			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
 			{ ok: false, error: 'Timed out' },
 			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
@@ -842,6 +835,7 @@ describe( 'Studio AI MCP tools', () => {
 			.mockResolvedValueOnce( { exitCode: 0, stdout: '', stderr: '' } );
 
 		try {
+			host.imageGenerator = async () => generateImages;
 			const result = await getTool( 'generate_images' ).rawHandler( {
 				images: [
 					{ path: path.join( uploads, 'hero.png' ), subject: 'A café counter at dawn' },

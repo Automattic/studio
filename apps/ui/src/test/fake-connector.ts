@@ -8,6 +8,7 @@ import {
 } from './in-memory-connector';
 
 export {
+	aiSettings,
 	makeSession,
 	makeSite,
 	TEST_USER,

@@ -25,6 +25,7 @@ export { textResult } from '@studio/agent/shared/tools/utils';
 export { loadSkills } from '@studio/agent/shared/skills';
 export { buildSystemPrompt } from '@studio/agent/shared/system-prompt';
 export { createResultNotes } from '@studio/agent/shared/result-notes';
+export type { ImageGenerator } from '@studio/agent/shared/image-generation';
 export type { DesignTracksContext } from '@studio/agent/shared/design-tracks';
 
 // Turns as the host records them.
@@ -40,5 +41,4 @@ export {
 } from './browser-utils';
 export { captureScreenshotBuffer } from '@studio/agent/shared/tools/screenshot-helpers';
 export { validateBlocks } from '@studio/agent/shared/block-validator';
-export { getWpcomAiGatewayEndpoint } from '@studio/agent/shared/ai-gateway';
 export { nodeHostServices } from './node-host';

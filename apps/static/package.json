@@ -21,6 +21,7 @@
 	"dependencies": {
 		"@studio/agent": "file:../../packages/agent",
 		"@studio/common": "file:../../packages/common",
+		"@studio/providers": "file:../../packages/providers",
 		"@wordpress/i18n": "^6.30.0",
 		"pathe": "^2.0.3"
 	},

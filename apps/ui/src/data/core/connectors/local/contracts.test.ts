@@ -30,16 +30,16 @@ describe( 'createLocalConnector server contracts', () => {
 
 	it( 'remembers the AI provider through the shared settings endpoint', async () => {
 		fetchMock.mockResolvedValue(
-			new Response( JSON.stringify( { provider: 'anthropic-api-key', hasAnthropicApiKey: true } ) )
+			new Response( JSON.stringify( { provider: 'anthropic', hasAnthropicApiKey: true } ) )
 		);
-		await expect( connector().setAiProvider( 'anthropic-api-key' ) ).resolves.toMatchObject( {
-			provider: 'anthropic-api-key',
+		await expect( connector().setAiProvider( 'anthropic' ) ).resolves.toMatchObject( {
+			provider: 'anthropic',
 		} );
 		expect( fetchMock ).toHaveBeenCalledWith(
 			'http://localhost:8081/api/ai-settings/provider',
 			expect.objectContaining( {
 				method: 'PUT',
-				body: JSON.stringify( { provider: 'anthropic-api-key' } ),
+				body: JSON.stringify( { provider: 'anthropic' } ),
 			} )
 		);
 	} );

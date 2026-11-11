@@ -9,6 +9,7 @@ export default defineConfig( {
 				src: resolve( __dirname, 'src' ),
 				'@studio/common': resolve( __dirname, '../../packages/common' ),
 				'@studio/agent': resolve( __dirname, '../../packages/agent' ),
+				'@studio/providers': resolve( __dirname, '../../packages/providers' ),
 				'@wp-playground/blueprints/blueprint-schema-validator': resolve(
 					__dirname,
 					'../../node_modules/@wp-playground/blueprints/blueprint-schema-validator.js'

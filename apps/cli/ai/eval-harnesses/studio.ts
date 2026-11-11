@@ -8,10 +8,17 @@ import {
 	createTokenUsage,
 	type AskUserHandler,
 } from '@studio/agent/node';
-import { DEFAULT_MODEL, isAiModelId, type AiModelId } from '@studio/agent/protocol/models';
 import { findLastAssistant } from '@studio/agent/protocol/session-events';
 import {
-	resolveAiEnvironment,
+	getAiModel,
+	DEFAULT_PROVIDER_ID,
+	getAiModelProviders,
+	getDefaultAiModel,
+	isAiModelId,
+	type ProviderId,
+} from '@studio/providers';
+import {
+	resolveAiConnection,
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
@@ -20,7 +27,6 @@ import { type ModelRequestRecord } from 'cli/ai/eval-timing';
 import { cliAgentHost } from 'cli/ai/host';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import type { HarnessInput, HarnessContext, HarnessTranscript } from './types';
-import type { AiProviderId } from 'cli/ai/providers';
 
 function extractToolCalls( event: AgentSessionEvent ) {
 	if ( event.type !== 'message_end' || event.message.role !== 'assistant' ) {
@@ -125,31 +131,29 @@ export async function runStudioConversation(
 			? { ...cliAgentHost, ui: { showArtifact: () => {}, reloadPreview: () => {} } }
 			: cliAgentHost,
 	} );
-	// Mirrors the fallback in the agent runtime (packages/agent/node/runtime) — keep in sync.
 	const resolvedModel =
-		( isAiModelId( input.model ?? '' ) ? input.model : undefined ) ?? DEFAULT_MODEL;
+		input.model && isAiModelId( input.model )
+			? input.model
+			: getDefaultAiModel( DEFAULT_PROVIDER_ID );
 	const evalStartedAt = ctx.startedAt;
 	const elapsed = () => Date.now() - evalStartedAt;
 	const phaseTimingsMs: Record< string, number > = {};
 	let phaseStartedAt = Date.now();
 
-	let aiProvider: AiProviderId = await resolveInitialAiProvider();
+	let aiProvider: ProviderId = await resolveInitialAiProvider();
 	phaseTimingsMs.resolve_initial_provider_ms = Date.now() - phaseStartedAt;
 
 	phaseStartedAt = Date.now();
 	aiProvider = ( await resolveUnavailableAiProvider( aiProvider ) ) ?? aiProvider;
+	// The model runs on a provider that serves it.
+	if ( ! getAiModel( aiProvider, resolvedModel ) ) {
+		[ aiProvider ] = getAiModelProviders( resolvedModel );
+	}
 	phaseTimingsMs.resolve_unavailable_provider_ms = Date.now() - phaseStartedAt;
 
 	phaseStartedAt = Date.now();
-	const aiEnvironment = await resolveAiEnvironment( aiProvider );
+	const ai = await resolveAiConnection( aiProvider, resolvedModel );
 	phaseTimingsMs.resolve_ai_environment_ms = Date.now() - phaseStartedAt;
-
-	const env = {
-		...( process.env as Record< string, string > ),
-		...aiEnvironment,
-	};
-	// Allow running inside a Claude Code session
-	delete env.CLAUDECODE;
 
 	const toolCalls: ToolCallRecord[] = [];
 	const toolResults: {
@@ -305,12 +309,11 @@ export async function runStudioConversation(
 	const runTurn = ( turnPrompt: string ) =>
 		agent.runTurn( {
 			prompt: turnPrompt,
-			env,
+			ai,
 			session,
 			activeSite: ctx.activeSite,
 			onEvent: handleEvent,
 			onAskUser,
-			...( isAiModelId( input.model ?? '' ) ? { model: input.model as AiModelId } : {} ),
 		} );
 	let query = runTurn( input.prompt );
 	phaseTimingsMs.start_ai_agent_ms = Date.now() - phaseStartedAt;

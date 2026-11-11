@@ -1,5 +1,6 @@
+import { InvalidCredentialError } from '@studio/providers';
 import { z } from 'zod';
-import type { TracksAuthSource, TracksProps } from './record-tracks-event';
+import type { TracksAuthFailureReason, TracksAuthSource, TracksProps } from './record-tracks-event';
 
 export const authSourceSchema = z.enum( [
 	'onboarding',
@@ -115,3 +116,13 @@ export type OnboardingAnalytics = z.infer< typeof onboardingAnalyticsSchema >;
 export type AccountJourneyCompletion =
 	| { completion_kind: 'ai_response' | 'ai_edit'; turn_id: string }
 	| { completion_kind: 'preview_create' | 'preview_update' | 'sync_push' | 'sync_pull' };
+
+// The Tracks reason for a failed WordPress.com sign-in.
+export function getAuthFailureReason( error: unknown ): TracksAuthFailureReason {
+	if ( ! ( error instanceof InvalidCredentialError ) ) {
+		return 'unknown';
+	}
+	return { denied: 'access_denied', invalid: 'token_error', unverified: 'profile_fetch_failed' }[
+		error.reason
+	] as TracksAuthFailureReason;
+}

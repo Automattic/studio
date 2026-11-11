@@ -38,59 +38,27 @@ export interface CliSelectionOptions {
 	skipFiles?: boolean;
 }
 
-type NonEmptyArray< T > = [ T, ...T[] ];
-
-/** The app's presets. Picked files aren't a preset: they're the paths themselves. */
-export type PullSyncPreset = Exclude< SyncOption, 'paths' >;
-
-export interface PullSyncOptions {
-	presets: PullSyncPreset[];
-	pickedPaths?: NonEmptyArray< string >;
-}
+const FILE_SYNC_OPTIONS = [ 'plugins', 'themes', 'uploads' ] as const;
 
 /**
- * Parses the sync options the app and the agent send, such as `themes,sqls`. The `paths` option
- * stands for the files picked with `--only`, so it can't come without them.
+ * The selection for the sync options the app and the agent send, such as `themes,sqls`. `contents`
+ * stands for the rest of wp-content, so it pulls every file. With the `paths` option, `only` holds
+ * the picked files.
  */
-export function parsePullSyncOptions(
+export function pullSelectionFromSyncOptions(
 	options: SyncOption[],
 	only: string[] = []
-): PullSyncOptions {
-	const presets = options.filter( ( option ): option is PullSyncPreset => option !== 'paths' );
-	const [ firstPath, ...otherPaths ] = only;
-	if ( firstPath !== undefined ) {
-		return { presets, pickedPaths: [ firstPath, ...otherPaths ] };
-	}
-	if ( options.includes( 'paths' ) ) {
-		throw new LoggerError( __( 'The "paths" option needs the paths to pull, given with --only.' ) );
-	}
-	return { presets };
-}
-
-const FILE_PRESET_SELECTORS: [ PullSyncPreset, string ][] = [
-	[ 'plugins', 'plugins' ],
-	[ 'themes', 'themes' ],
-	// The uploads directory WordPress uses, even where it isn't in wp-content.
-	[ 'uploads', ':wp-uploads:' ],
-];
-
-/** The selection for the parsed sync options. `contents` stands for the rest of wp-content, so it pulls every file. */
-export function pullSelectionFromSyncOptions( {
-	presets,
-	pickedPaths,
-}: PullSyncOptions ): CliSelectionOptions {
-	if ( presets.includes( 'all' ) || ( presets.length === 0 && ! pickedPaths ) ) {
+): CliSelectionOptions {
+	if ( options.length === 0 || options.includes( 'all' ) ) {
 		return {};
 	}
-	const skipDatabase = ! presets.includes( 'sqls' );
-	if ( presets.includes( 'contents' ) ) {
+	const skipDatabase = ! options.includes( 'sqls' );
+	if ( options.includes( 'contents' ) ) {
 		return { skipDatabase };
 	}
-	const files =
-		pickedPaths ??
-		FILE_PRESET_SELECTORS.filter( ( [ preset ] ) => presets.includes( preset ) ).map(
-			( [ , selector ] ) => selector
-		);
+	const files = only.length
+		? only
+		: FILE_SYNC_OPTIONS.filter( ( option ) => options.includes( option ) );
 	return files.length > 0 ? { only: files, skipDatabase } : { skipFiles: true };
 }
 

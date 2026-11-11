@@ -634,7 +634,7 @@ describe( 'Add site › blank setup', () => {
 		} );
 		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Change…' } ) );
 		await within( dialog ).findByText(
-			'Studio will use this WordPress site in place. No files will be moved.'
+			'WordPress Studio will use this WordPress site in place. No files will be moved.'
 		);
 		expect( within( dialog ).getByRole( 'heading', { name: 'Add site' } ) ).toBeVisible();
 		expect( within( dialog ).getByRole( 'textbox', { name: 'Instructions' } ) ).toBeVisible();
@@ -655,7 +655,7 @@ describe( 'Add site › blank setup', () => {
 			} );
 			fireEvent.click( screen.getByRole( 'button', { name: 'Change…' } ) );
 			await screen.findByText(
-				'Studio will use this WordPress site in place. No files will be moved.'
+				'WordPress Studio will use this WordPress site in place. No files will be moved.'
 			);
 			if ( source === 'blueprint' ) await uploadBlueprint( { steps: [] } );
 			else

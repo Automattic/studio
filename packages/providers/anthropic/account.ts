@@ -1,10 +1,14 @@
 import { __ } from '@wordpress/i18n';
+import { InvalidCredentialError } from '../errors';
+import { anthropicConnectInput } from './descriptor';
+import type { AnthropicConfig } from './config';
+import type { Provider } from '../types';
 
 const ANTHROPIC_MODELS_URL = 'https://api.anthropic.com/v1/models?limit=1';
 const ANTHROPIC_API_VERSION = '2023-06-01';
 const VALIDATION_TIMEOUT_MS = 10_000;
 
-export type AnthropicKeyValidation =
+type AnthropicKeyValidation =
 	| { status: 'valid' }
 	| { status: 'invalid'; message: string }
 	| { status: 'unverifiable'; message: string };
@@ -49,3 +53,18 @@ export async function validateAnthropicApiKey( apiKey: string ): Promise< Anthro
 		message: __( 'Could not verify the API key with Anthropic.' ),
 	};
 }
+
+// A key Anthropic rejects is refused; an unverifiable one (offline, an
+// Anthropic outage) is accepted.
+export const connectAnthropic: Provider< AnthropicConfig >[ 'connect' ] = async ( input ) => {
+	const parsed = anthropicConnectInput().safeParse( input );
+	if ( ! parsed.success ) {
+		throw new InvalidCredentialError( parsed.error.issues[ 0 ].message );
+	}
+	const { apiKey } = parsed.data;
+	const validation = await validateAnthropicApiKey( apiKey );
+	if ( validation.status === 'invalid' ) {
+		throw new InvalidCredentialError( validation.message );
+	}
+	return { method: 'api-key', apiKey };
+};

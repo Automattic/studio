@@ -1,0 +1,10 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"module": "es2022",
+		"moduleResolution": "bundler",
+		"noEmit": true
+	},
+	"include": [ "**/*" ],
+	"exclude": [ "**/node_modules/**/*", "**/dist/**/*", "vitest.config.ts" ]
+}

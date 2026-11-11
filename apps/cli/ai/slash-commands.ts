@@ -1,9 +1,3 @@
-import {
-	aiModelRequiresPaidCredits,
-	getAiModelFamily,
-	getAiModelLabel,
-	type AiModelId,
-} from '@studio/agent/protocol/models';
 import { getAiSkillCommands } from '@studio/agent/protocol/slash-commands';
 import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/shared-config';
 import {
@@ -18,9 +12,17 @@ import {
 	fetchStudioAssistantTopUpPricing,
 	formatTopUpOptionCreditsLabel,
 } from '@studio/common/lib/studio-assistant-top-up-pricing';
+import {
+	getAiModel,
+	getAiModelLabel,
+	getAiModels,
+	getProviderDescriptor,
+	PROVIDER_IDS,
+	type AiModelId,
+	type ProviderId,
+} from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
-import { getAvailableAiProviders, isAiProviderReady } from 'cli/ai/auth';
-import { AI_PROVIDERS, getAiProviderDefinition, type AiProviderId } from 'cli/ai/providers';
+import { isAiProviderReady } from 'cli/ai/auth';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
@@ -36,13 +38,10 @@ import type { AiChatUI } from 'cli/ai/ui';
 export interface SlashCommandContext {
 	ui: AiChatUI;
 	currentModel: AiModelId;
-	currentProvider: AiProviderId;
+	currentProvider: ProviderId;
 	showCapabilitiesOnConnect: boolean;
-	switchProvider( provider: AiProviderId, announce?: boolean ): Promise< void >;
-	prepareProviderSelection(
-		provider: AiProviderId,
-		options?: { force?: boolean }
-	): Promise< void >;
+	switchProvider( provider: ProviderId, announce?: boolean ): Promise< void >;
+	prepareProviderSelection( provider: ProviderId, options?: { force?: boolean } ): Promise< void >;
 	maybeAutoSwitchProvider(): Promise< void >;
 	persistSessionContext(): Promise< void >;
 	clearSession(): Promise< void >;
@@ -222,11 +221,11 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		description: __( 'Set or update the Anthropic API key' ),
 		handler: async ( _prompt, ctx ) => {
 			try {
-				await ctx.prepareProviderSelection( 'anthropic-api-key', { force: true } );
+				await ctx.prepareProviderSelection( 'anthropic', { force: true } );
 				ctx.ui.showInfo( __( 'Anthropic API key updated.' ) );
 				if ( ctx.showCapabilitiesOnConnect ) {
 					ctx.showCapabilitiesOnConnect = false;
-					await ctx.switchProvider( 'anthropic-api-key' );
+					await ctx.switchProvider( 'anthropic' );
 					ctx.ui.showCapabilities();
 				}
 			} catch ( error ) {
@@ -296,20 +295,19 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		name: 'model',
 		description: __( 'Switch the AI model' ),
 		handler: async ( _prompt, ctx ) => {
-			const { availableModels } = getAiProviderDefinition( ctx.currentProvider );
+			const availableModels = getAiModels( ctx.currentProvider ).map( ( model ) => model.id );
+			const requiresPaidCredits = ( id: AiModelId ) =>
+				getAiModel( ctx.currentProvider, id )?.requiresPaidAiCredits ?? false;
 			// The paid tiers are only offered once the account has bought credits;
 			// Automatticians are exempt. The current model always stays listed,
 			// so a session already on a paid tier keeps showing what it runs on.
 			let offeredModels = availableModels;
-			if (
-				availableModels.some( aiModelRequiresPaidCredits ) &&
-				! ( await isAutomatticianFromToken() )
-			) {
+			if ( availableModels.some( requiresPaidCredits ) && ! ( await isAutomatticianFromToken() ) ) {
 				const token = await readAuthToken();
 				const quota = token ? await fetchStudioAssistantQuota( token.accessToken ) : null;
 				if ( ! hasPurchasedAiCredits( quota ) ) {
 					offeredModels = availableModels.filter(
-						( id ) => id === ctx.currentModel || ! aiModelRequiresPaidCredits( id )
+						( id ) => id === ctx.currentModel || ! requiresPaidCredits( id )
 					);
 				}
 			}
@@ -343,21 +341,6 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 			const selectedLabel = Object.values( answer )[ 0 ] as string;
 			const newModel = labelToId.get( selectedLabel );
 			if ( newModel && newModel !== ctx.currentModel ) {
-				// Switching to a model in a different family (Anthropic ↔ OpenAI)
-				// hands the next turn off to a different runtime. Each runtime keeps
-				// its own session store, so the existing session id from the previous
-				// runtime won't resolve there ("No conversation found"). Clear the
-				// session before the model swap so the new runtime starts fresh.
-				const familyChanged = getAiModelFamily( ctx.currentModel ) !== getAiModelFamily( newModel );
-				if ( familyChanged ) {
-					await ctx.clearSession();
-					ctx.ui.showInfo(
-						__(
-							"Switching across model families starts a fresh conversation — the prior turns aren't carried over."
-						)
-					);
-				}
-
 				ctx.currentModel = newModel;
 				ctx.ui.currentModel = ctx.currentModel;
 				ctx.ui.showInfo(
@@ -376,33 +359,31 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		name: 'provider',
 		description: __( 'Switch the AI provider' ),
 		handler: async ( _prompt, ctx ) => {
-			const availableProviders = await getAvailableAiProviders();
-			const providerOptions = availableProviders.map( ( id ) => ( {
+			const providerOptions = PROVIDER_IDS.map( ( id ) => ( {
 				label:
 					id === ctx.currentProvider
 						? sprintf(
 								/* translators: %s: provider name */
 								__( '%s (current)' ),
-								AI_PROVIDERS[ id ]
+								getProviderDescriptor( id ).label
 						  )
-						: AI_PROVIDERS[ id ],
+						: getProviderDescriptor( id ).label,
 				description: id,
 			} ) );
 			const answer = await ctx.ui.askUser( [
 				{ question: __( 'Select an AI provider' ), options: providerOptions },
 			] );
 			const selectedLabel = Object.values( answer )[ 0 ] as string;
-			const newProvider = availableProviders.find( ( id ) =>
-				selectedLabel.startsWith( AI_PROVIDERS[ id ] )
+			const newProvider = PROVIDER_IDS.find( ( id ) =>
+				selectedLabel.startsWith( getProviderDescriptor( id ).label )
 			);
 			if ( newProvider && newProvider !== ctx.currentProvider ) {
-				const previousFamily = getAiModelFamily( ctx.currentModel );
+				const previousModel = ctx.currentModel;
 				try {
 					await ctx.prepareProviderSelection( newProvider );
 					await ctx.switchProvider( newProvider );
-					// Providers don't share a model family, so a switch is the
-					// same runtime handoff as a cross-family /model switch.
-					if ( getAiModelFamily( ctx.currentModel ) !== previousFamily ) {
+					// The prior turns ran on a model the new provider doesn't serve.
+					if ( ctx.currentModel !== previousModel ) {
 						await ctx.clearSession();
 						ctx.ui.showInfo(
 							__(
@@ -416,7 +397,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 							sprintf(
 								/* translators: %s: provider name */
 								__( 'Provider setup canceled. Kept %s.' ),
-								AI_PROVIDERS[ ctx.currentProvider ]
+								getProviderDescriptor( ctx.currentProvider ).label
 							)
 						);
 						return 'continue';

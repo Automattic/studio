@@ -4,6 +4,7 @@ import { escapeRegex } from '@studio/common/lib/escape-regex';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { syncOptionSchema, type SyncOption, SyncSite } from '@studio/common/types/sync';
+import { getProvider } from '@studio/providers/services';
 import { posix } from 'pathe';
 import { phpQuote } from '../php';
 import { getSiteUrl, loadPlaygroundClient } from '../playground';
@@ -507,9 +508,15 @@ echo implode( "\\n", $found );`,
 				return remote;
 			},
 		},
+		imageGenerator: async () => {
+			const token = ( await auth.token() )?.accessToken;
+			const generateImages = getProvider( 'wpcom' ).ai!.generateImages!;
+			return token
+				? ( requests, onResult ) => generateImages( { token }, requests, onResult )
+				: undefined;
+		},
 		wpcom: {
 			token: async () => ( await auth.token() )?.accessToken,
-			imageToken: async () => ( await auth.token() )?.accessToken,
 			sites: () => wpcom.fetchSyncableSites(),
 			connectedSites: async ( site ) =>
 				( await auth.token() ) ? wpcom.getConnectedSites( site.id ) : [],

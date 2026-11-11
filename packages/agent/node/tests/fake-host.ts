@@ -90,7 +90,6 @@ export function createFakeHost( sitesRoot = '/sites' ): StudioAgentHost {
 		},
 		wpcom: {
 			token: vi.fn( async () => 'token' ),
-			imageToken: vi.fn( async () => 'token' ),
 			sites: vi.fn( async () => [] ),
 			connectedSites: vi.fn( async () => [] ),
 			request: vi.fn( async () => ( {} ) ),

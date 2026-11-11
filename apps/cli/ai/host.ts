@@ -13,7 +13,7 @@ import { getAiPayloadsPath } from '@studio/common/lib/well-known-paths';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { __ } from '@wordpress/i18n';
-import { getStudioUserAgent } from 'cli/ai/providers';
+import { getStudioUserAgent, resolveImageGenerator } from 'cli/ai/auth';
 import { runCommand as runExportCommand } from 'cli/commands/export';
 import { runCommand as runImportCommand } from 'cli/commands/import';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
@@ -112,6 +112,7 @@ async function withDaemon< T >( fn: () => Promise< T > ): Promise< T > {
 
 export const cliAgentHost: StudioAgentHost = {
 	sitesRoot: STUDIO_SITES_ROOT,
+	imageGenerator: resolveImageGenerator,
 	sites: {
 		resolve: async ( nameOrPath ) => toHostSite( await resolveSite( nameOrPath ) ),
 		findByFolder: async ( folder ) => {
@@ -225,8 +226,6 @@ export const cliAgentHost: StudioAgentHost = {
 	},
 	wpcom: {
 		token: async () => ( await readAuthToken() )?.accessToken,
-		imageToken: async () =>
-			process.env.STUDIO_IMAGE_API_TOKEN?.trim() || ( await readAuthToken() )?.accessToken,
 		sites: async () => {
 			const token = await readAuthToken();
 			return token ? getWpComSites( token.accessToken ) : [];

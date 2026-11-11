@@ -10,7 +10,6 @@ import {
 	type StudioChatFileAttachment,
 } from '@studio/agent/protocol/chat-files';
 import { getAgentEndFailure } from '@studio/agent/protocol/json-events';
-import { aiModelSupportsImages, type AiModelId } from '@studio/agent/protocol/models';
 import {
 	findLastAssistant,
 	getEmptyStopContinuation,
@@ -25,12 +24,13 @@ import { assertToolCallAllowed } from '@studio/agent/shared/tool-safety';
 import { resolveConversationTools } from '@studio/agent/shared/tools';
 import { createCompactor, type Compaction } from './compaction';
 import { createFileTools } from './file-tools';
-import { buildModel, createStreamFn } from './models';
+import { createStreamFn } from './models';
 import type { Message } from '@earendil-works/pi-ai';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
 import type { StudioAgentHost } from '@studio/agent/shared/host';
 import type { AnyStudioAgentTool } from '@studio/agent/shared/tools/define-tool';
 import type { AskUserHandler, SiteInfo } from '@studio/agent/shared/types';
+import type { AiConnection } from '@studio/providers';
 
 export { compactionSummaryMessage, type Compaction } from './compaction';
 
@@ -42,8 +42,8 @@ interface BrowserAgentTurnConfig {
 	files?: StudioChatFileAttachment[];
 	// The conversation so far, oldest first; the app stores it.
 	history: Message[];
-	model: AiModelId;
-	credentials: { wpcomToken?: string; anthropicApiKey?: string };
+	// The model to run on, as the provider serving it connects to it.
+	ai: AiConnection;
 	activeSite?: SiteInfo | null;
 	userInstructions?: string;
 	onAskUser?: AskUserHandler;
@@ -92,8 +92,9 @@ async function runTurn(
 	onAgent: ( agent: Agent ) => void,
 	isInterrupted: () => boolean
 ): Promise< { failure?: string } > {
-	const visionEnabled = aiModelSupportsImages( config.model );
-	const imageGeneration = Boolean( await host.wpcom.imageToken() );
+	const { model } = config.ai;
+	const visionEnabled = model.input.includes( 'image' );
+	const imageGeneration = Boolean( await host.imageGenerator?.() );
 	const tools = [
 		...resolveConversationTools( host, {
 			imageGeneration,
@@ -115,9 +116,7 @@ async function runTurn(
 	const notes = createResultNotes( host );
 	const resultNotes =
 		site && ! site.remote ? ( text: string ) => notes( site.path, text ) : undefined;
-	const credentials = { ...config.credentials, sessionId: config.sessionId };
-	const model = buildModel( config.model, credentials );
-	const streamFn = createStreamFn( config.model, credentials );
+	const streamFn = createStreamFn( config.ai );
 	const compactor = createCompactor( model, streamFn, config.onCompaction );
 	const agent = new Agent( {
 		initialState: {

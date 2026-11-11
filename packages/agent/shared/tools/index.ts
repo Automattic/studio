@@ -81,7 +81,7 @@ export function studioToolDefinitions( host: StudioAgentHost ): StudioToolDefini
 }
 
 export interface StudioToolsOptions {
-	// Enable generate_images, when the host has an image token.
+	// Enable generate_images, when the host has an image generator.
 	imageGeneration?: boolean;
 	// False for models that cannot view images. Defaults to true.
 	visionEnabled?: boolean;

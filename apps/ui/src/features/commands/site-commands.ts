@@ -49,6 +49,7 @@ export function getSiteCommands( {
 	site,
 	panelShown,
 	canAnnotate,
+	nativeSites,
 	annotating,
 	actions,
 	destinations,
@@ -64,6 +65,7 @@ export function getSiteCommands( {
 	site: SiteDetails;
 	panelShown: boolean;
 	canAnnotate: boolean;
+	nativeSites: boolean;
 	annotating: boolean;
 	actions: ReturnType< typeof useSiteActions >;
 	destinations: ReturnType< typeof useOpenInDestinations >;
@@ -78,8 +80,6 @@ export function getSiteCommands( {
 } ): PaletteCommand[] {
 	const { busy, running, othersRunning } = actions;
 	const description = site.name;
-	// phpMyAdmin and the email log run beside a native site, as Open in's database entry does.
-	const nativeTools = destinations.some( ( destination ) => destination.id === 'phpmyadmin' );
 	const keywords: Record< string, string[] > = {
 		files: [ __( 'Folder' ), __( 'Directory' ), __( 'Finder' ) ],
 		editor: [ __( 'Code editor' ), __( 'IDE' ) ],
@@ -142,7 +142,7 @@ export function getSiteCommands( {
 						keywords: keywords[ 'wp-admin' ],
 						run: actions.openAdmin,
 					},
-					...( nativeTools
+					...( nativeSites
 						? [
 								{
 									id: 'database',

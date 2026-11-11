@@ -43,6 +43,7 @@ const siteCommands = (
 		site,
 		panelShown: false,
 		canAnnotate: false,
+		nativeSites: false,
 		annotating: false,
 		actions: {
 			busy: false,

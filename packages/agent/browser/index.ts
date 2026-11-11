@@ -21,6 +21,7 @@ import { PendingWork, runWithPendingWork } from '@studio/agent/shared/pending-wo
 import { createResultNotes } from '@studio/agent/shared/result-notes';
 import { findActiveSiteDesign } from '@studio/agent/shared/site-selection';
 import { buildSystemPrompt } from '@studio/agent/shared/system-prompt';
+import { assertToolCallAllowed } from '@studio/agent/shared/tool-safety';
 import { resolveConversationTools } from '@studio/agent/shared/tools';
 import { createCompactor, type Compaction } from './compaction';
 import { createFileTools } from './file-tools';
@@ -62,20 +63,25 @@ interface BrowserAgentTurnHandle {
 
 // Runs a Studio tool as the Node runtime does (see runWithPendingWork).
 function withPendingWork(
+	host: StudioAgentHost,
 	tool: AnyStudioAgentTool,
 	pendingWork: PendingWork,
 	resultNotes?: ( text: string ) => Promise< string >
 ): AgentTool {
 	return {
 		...( tool as unknown as AgentTool ),
-		execute: ( toolCallId, params, signal, onUpdate ) =>
-			runWithPendingWork(
+		execute: async ( toolCallId, params, signal, onUpdate ) => {
+			await assertToolCallAllowed( tool.name, params, host, ( file ) =>
+				host.path.resolve( host.sitesRoot, file )
+			);
+			return runWithPendingWork(
 				{ settles: tool.settlesPendingWork, pendingWork, resultNotes },
 				async () => ( {
 					details: undefined,
 					...( await tool.execute( toolCallId, params as never, signal, onUpdate ) ),
 				} )
-			),
+			);
+		},
 	};
 }
 
@@ -118,7 +124,7 @@ async function runTurn(
 			systemPrompt,
 			model,
 			thinkingLevel: 'medium',
-			tools: tools.map( ( tool ) => withPendingWork( tool, pendingWork, resultNotes ) ),
+			tools: tools.map( ( tool ) => withPendingWork( host, tool, pendingWork, resultNotes ) ),
 			messages: config.history,
 		},
 		streamFn,
@@ -189,11 +195,8 @@ const pendingWorkBySession = new Map< string, PendingWork >();
 export function createBrowserAgent( { host }: { host: StudioAgentHost } ) {
 	return {
 		runTurn: ( config: BrowserAgentTurnConfig ): BrowserAgentTurnHandle => {
-			let pendingWork = pendingWorkBySession.get( config.sessionId );
-			if ( ! pendingWork ) {
-				pendingWork = new PendingWork();
-				pendingWorkBySession.set( config.sessionId, pendingWork );
-			}
+			const pendingWork = pendingWorkBySession.get( config.sessionId ) ?? new PendingWork();
+			pendingWorkBySession.set( config.sessionId, pendingWork );
 			let agent: Agent | undefined;
 			let interrupted = false;
 			return {
@@ -203,7 +206,11 @@ export function createBrowserAgent( { host }: { host: StudioAgentHost } ) {
 					config,
 					( created ) => ( agent = created ),
 					() => interrupted
-				),
+				).finally( () => {
+					if ( pendingWork.isIdle() ) {
+						pendingWorkBySession.delete( config.sessionId );
+					}
+				} ),
 				interrupt: () => {
 					interrupted = true;
 					agent?.abort();

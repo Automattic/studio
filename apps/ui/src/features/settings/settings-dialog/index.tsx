@@ -471,7 +471,11 @@ export function SettingsDialog() {
 						<SettingsDialogContext.Provider value={ { actions, setDirty, settle } }>
 							{ scope === 'studio' ? (
 								<SettingsLinkContext.Provider value>
-									<StudioSection id={ section } onNavigate={ go } hasSite={ !! site } />
+									<StudioSection
+										id={ section }
+										onNavigate={ go }
+										hasSite={ !! site && nativeSites }
+									/>
 								</SettingsLinkContext.Provider>
 							) : null }
 							{ site ? (

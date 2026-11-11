@@ -30,7 +30,7 @@ Spacefast's proxy rules aren't an alternative: they refuse responses over 1 MiB.
 
 ## The backend
 
-`createStaticBackend( { readAttachment, download } )` returns the services the connector maps the UI's calls onto:
+`createStaticBackend( { readAttachment, download, hidesAdminBarByDefault } )` returns the services the connector maps the UI's calls onto:
 
 - `sites` (`StaticSites`): sites and their Playground runtimes: create, start, stop, copy, delete, import, and site settings.
 - `auth` (`WpcomAuth`): the WordPress.com account, signed in through WordPress.com's OAuth redirect.

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	getPayloadLimitViolation,
 	STUDIO_FILE_TOOL_MAX_BYTES,
-} from '@studio/agent/node/runtime/tool-safety';
+} from '@studio/agent/shared/tool-safety';
 
 const big = 'x'.repeat( STUDIO_FILE_TOOL_MAX_BYTES + 1 );
 const half = 'x'.repeat( Math.ceil( STUDIO_FILE_TOOL_MAX_BYTES / 2 ) );
@@ -13,6 +13,13 @@ describe( 'getPayloadLimitViolation', () => {
 			'Write content'
 		);
 		expect( getPayloadLimitViolation( 'Write', { path: 'a.css', content: half } ) ).toBeUndefined();
+	} );
+
+	it( 'counts bytes, not characters', () => {
+		const accented = 'é'.repeat( Math.ceil( STUDIO_FILE_TOOL_MAX_BYTES / 2 ) + 1 );
+		expect( getPayloadLimitViolation( 'Write', { path: 'a.css', content: accented } ) ).toContain(
+			'Write content'
+		);
 	} );
 
 	it( 'sums every entry of an Edit call', () => {

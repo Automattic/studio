@@ -2,6 +2,7 @@ import path from 'path';
 import { nodeHostServices, type HostSite, type StudioAgentHost } from '@studio/agent/node';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
+import { REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
 import { sendStudioFeedback } from '@studio/common/lib/feedback';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
@@ -241,7 +242,17 @@ export const cliAgentHost: StudioAgentHost = {
 	tracks: {
 		record: ( event, props ) => recordTracksEvent( event, { ...getTracksOrigin(), ...props } ),
 	},
-	sendFeedback: ( feedback, accessToken ) =>
-		sendStudioFeedback( feedback, { accessToken, userAgent: getStudioUserAgent() } ),
+	sendFeedback: async ( feedback ) => {
+		const token = await readAuthToken();
+		if ( ! token?.accessToken ) {
+			throw new Error(
+				`Not logged in to WordPress.com. Ask the user to log in with \`studio auth login\`, or to share feedback at ${ REPORT_ISSUE_URL }.`
+			);
+		}
+		return sendStudioFeedback( feedback, {
+			accessToken: token.accessToken,
+			userAgent: getStudioUserAgent(),
+		} );
+	},
 	...nodeHostServices(),
 };

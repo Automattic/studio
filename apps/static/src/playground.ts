@@ -152,6 +152,9 @@ function pageBridge( appOrigin: string, screenshotLibrary: string, consolePrefix
 		}
 		document.documentElement.style.colorScheme = scheme;
 	};
+	// A page resource that never answers would otherwise hold a capture for the
+	// library's default 30 seconds.
+	const FETCH_TIMEOUT_MS = 3000;
 	// Built with Function so bundlers leave this runtime import alone.
 	const loadScreenshotLibrary = () =>
 		(
@@ -172,6 +175,7 @@ function pageBridge( appOrigin: string, screenshotLibrary: string, consolePrefix
 			);
 			return lib.domToJpeg( root, {
 				quality: 0.85,
+				timeout: FETCH_TIMEOUT_MS,
 				width: window.innerWidth,
 				height,
 				backgroundColor: '#ffffff',
@@ -211,6 +215,7 @@ function pageBridge( appOrigin: string, screenshotLibrary: string, consolePrefix
 				width,
 				height,
 				scale: expected.scale,
+				timeout: FETCH_TIMEOUT_MS,
 				backgroundColor: '#ffffff',
 				filter: ( node: Node ) => node !== host,
 				style: { transform: `translate(${ root.left - left }px, ${ root.top - top }px)` },

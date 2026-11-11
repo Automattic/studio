@@ -249,33 +249,35 @@ function PreferencesPanel( {
 							onSelect={ onDefaultSiteDirectorySelect }
 							onSave={ ( defaultSiteDirectory ) => onChange( { defaultSiteDirectory } ) }
 						/>
+						<SettingsRow
+							title={ __( 'Improve WordPress Studio for everyone' ) }
+							description={ __( 'Share anonymous usage statistics to improve WordPress Studio.' ) }
+						>
+							<SettingsToggle
+								label={ __( 'Improve WordPress Studio for everyone' ) }
+								checked={ data.analyticsEnabled }
+								onChange={ ( analyticsEnabled ) => onChange( { analyticsEnabled } ) }
+							/>
+						</SettingsRow>
 					</>
 				) }
-				<SettingsRow
-					title={ __( 'Improve WordPress Studio for everyone' ) }
-					description={ __( 'Share anonymous usage statistics to improve WordPress Studio.' ) }
-				>
-					<SettingsToggle
-						label={ __( 'Improve WordPress Studio for everyone' ) }
-						checked={ data.analyticsEnabled }
-						onChange={ ( analyticsEnabled ) => onChange( { analyticsEnabled } ) }
-					/>
-				</SettingsRow>
 			</SettingsGroup>
 			<SettingsGroup title={ __( 'Interface' ) }>
-				<SettingsRow
-					title={ __( 'When WordPress Studio quits' ) }
-					description={ __(
-						'Choose what happens to running sites when you quit WordPress Studio.'
-					) }
-				>
-					<SettingsSelect< QuitSitesBehavior | typeof UNSET >
-						label={ __( 'When WordPress Studio quits' ) }
-						value={ data.quitSitesBehavior }
-						options={ getQuitSitesBehaviorElements() }
-						onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
-					/>
-				</SettingsRow>
+				{ connector.capabilities.nativeSites && (
+					<SettingsRow
+						title={ __( 'When WordPress Studio quits' ) }
+						description={ __(
+							'Choose what happens to running sites when you quit WordPress Studio.'
+						) }
+					>
+						<SettingsSelect< QuitSitesBehavior | typeof UNSET >
+							label={ __( 'When WordPress Studio quits' ) }
+							value={ data.quitSitesBehavior }
+							options={ getQuitSitesBehaviorElements() }
+							onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
+						/>
+					</SettingsRow>
+				) }
 				<SettingsRow
 					title={ __( 'Start site when sending a prompt' ) }
 					description={ __( 'Automatically start stopped sites when you send a chat message.' ) }

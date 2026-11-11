@@ -1,6 +1,7 @@
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS, type SiteEvent } from '@studio/common/lib/cli-events';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
+import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import {
 	PlaygroundRuntimes,
 	getSiteUrl,
@@ -44,23 +45,15 @@ export interface StaticSiteRecord {
 	installed: boolean;
 }
 
-function slugify( name: string ): string {
-	return (
-		name
-			.toLowerCase()
-			.normalize( 'NFKD' )
-			.replace( /[̀-ͯ]/g, '' )
-			.replace( /[^a-z0-9]+/g, '-' )
-			.replace( /^-+|-+$/g, '' ) || 'site'
-	);
-}
-
 export class StaticSites {
 	readonly runtimes = new PlaygroundRuntimes();
 	private readonly operations = new Map< string, SiteOperationKind >();
 	private readonly listeners = new Set< ( event: SiteEvent ) => void >();
 	// A fresh site's Blueprint runs on its first start.
-	private readonly pendingInstalls = new Map< string, FreshSiteOptions >();
+	private readonly pendingInstalls = new Map<
+		string,
+		Pick< FreshSiteOptions, 'blueprint' | 'bundle' >
+	>();
 
 	constructor( private readonly hidesAdminBarByDefault: () => Promise< boolean > ) {}
 
@@ -124,7 +117,7 @@ export class StaticSites {
 			event,
 			siteId: id,
 			running: details?.running ?? false,
-			...( details ? { site: { ...details, url: details.url ?? '' } } : {} ),
+			...( details ? { site: details } : {} ),
 		};
 		this.listeners.forEach( ( listener ) => listener( payload ) );
 	}
@@ -155,7 +148,7 @@ export class StaticSites {
 
 	async uniquePath( name: string ): Promise< string > {
 		const used = new Set( ( await this.list() ).map( ( site ) => site.path ) );
-		const base = `/sites/${ slugify( name ) }`;
+		const base = `/sites/${ sanitizeFolderName( name ) || 'site' }`;
 		let candidate = base;
 		for ( let suffix = 2; used.has( candidate ); suffix++ ) {
 			candidate = `${ base }-${ suffix }`;
@@ -182,14 +175,7 @@ export class StaticSites {
 			installed: false,
 		};
 		await this.save( record );
-		this.pendingInstalls.set( id, {
-			siteName: params.name,
-			adminUsername: params.adminUsername,
-			adminPassword: params.adminPassword,
-			adminEmail: params.adminEmail,
-			blueprint: params.blueprint?.blueprint,
-			bundle,
-		} );
+		this.pendingInstalls.set( id, { blueprint: params.blueprint?.blueprint, bundle } );
 		await this.emit( SITE_EVENTS.CREATED, id );
 		if ( ! params.skipStart ) {
 			await this.start( id );
@@ -214,20 +200,21 @@ export class StaticSites {
 			phpVersion: record.phpVersion,
 			wpVersion: record.wpVersion,
 		};
-		if ( record.installed ) {
-			const client = await this.runtimes.start( config );
-			await applySettingsToWpConfig( client, record );
-			await this.applyRuntimeSettings( client, record );
-			return client;
-		}
-		const client = await this.runtimes.create(
-			config,
-			this.pendingInstalls.get( id ) ?? { siteName: record.name }
-		);
-		this.pendingInstalls.delete( id );
+		const client = record.installed
+			? await this.runtimes.start( config )
+			: await this.runtimes.create( config, {
+					siteName: record.name,
+					adminUsername: record.adminUsername,
+					adminPassword: record.adminPassword,
+					adminEmail: record.adminEmail,
+					...this.pendingInstalls.get( id ),
+			  } );
 		await applySettingsToWpConfig( client, record );
 		await this.applyRuntimeSettings( client, record );
-		await this.save( { ...( await this.get( id ) ), installed: true } );
+		if ( ! record.installed ) {
+			this.pendingInstalls.delete( id );
+			await this.save( { ...( await this.get( id ) ), installed: true } );
+		}
 		return client;
 	}
 
@@ -251,8 +238,11 @@ export class StaticSites {
 	async delete( id: string ): Promise< void > {
 		await this.withOperation( id, 'delete', async () => {
 			// Starts a stopped site to reach its files: the browser keeps them
-			// otherwise, since Studio asks it to persist its storage.
-			await removeSiteFiles( await this.client( id ) );
+			// otherwise, since Studio asks it to persist its storage. A site that
+			// cannot boot is still removed.
+			await this.client( id )
+				.then( removeSiteFiles )
+				.catch( () => undefined );
 			await this.runtimes.stop( id );
 			await kvUpdate< StaticSiteRecord[] >( SITES_KEY, [], ( sites ) =>
 				sites.filter( ( site ) => site.id !== id )

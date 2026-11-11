@@ -1,19 +1,14 @@
-import { existsSync } from 'fs';
-import os from 'os';
-import path from 'path';
-import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
+import type { StudioAgentHost } from './host';
 
 // Keep individual model-generated tool payloads below the range where long
 // strings have been observed to arrive incomplete.
 export const STUDIO_FILE_TOOL_MAX_BYTES = 14 * 1024;
 const STUDIO_BASH_COMMAND_MAX_BYTES = 8 * 1024;
 
-export interface StudioToolPayloadGuardState {
-	incompleteToolCallReasons?: Record< string, string >;
-}
+const encoder = new TextEncoder();
 
 function getByteLength( value: string ): number {
-	return Buffer.byteLength( value, 'utf8' );
+	return encoder.encode( value ).length;
 }
 
 function formatBytes( bytes: number ): string {
@@ -80,7 +75,7 @@ export function getPayloadLimitViolation( toolName: string, params: unknown ): s
 	}
 
 	if ( toolName === 'Edit' ) {
-		// pi's edit tool takes `{ path, edits: [ { oldText, newText } ] }`; the
+		// The edit tool takes `{ path, edits: [ { oldText, newText } ] }`; the
 		// limit applies to the whole call, so sum every entry.
 		const edits = getEditEntries( params );
 		const bytes = edits.reduce(
@@ -105,25 +100,19 @@ export function getPayloadLimitViolation( toolName: string, params: unknown ): s
 
 const CORE_ROOT_FILE = /^(index|xmlrpc|wp-(?!config\b)[a-z-]+)\.php$/;
 
-function resolveToolPath( filePath: string, cwd: string ): string {
-	const withoutAt = filePath.replace( /^@/, '' );
-	const expanded =
-		withoutAt === '~' || withoutAt.startsWith( '~/' )
-			? path.join( os.homedir(), withoutAt.slice( 1 ) )
-			: withoutAt;
-	return path.resolve( cwd, expanded );
-}
-
 /** The WordPress install a file is in, if any: the nearest folder with wp-includes/ and wp-content/. */
-function findWordPressRoot( filePath: string ): string | undefined {
+async function findWordPressRoot(
+	{ files, path }: StudioAgentHost,
+	filePath: string
+): Promise< string | undefined > {
 	for (
 		let dir = path.dirname( filePath );
 		dir !== path.dirname( dir );
 		dir = path.dirname( dir )
 	) {
 		if (
-			existsSync( path.join( dir, 'wp-includes' ) ) &&
-			existsSync( path.join( dir, 'wp-content' ) )
+			( await files.exists( path.join( dir, 'wp-includes' ) ) ) &&
+			( await files.exists( path.join( dir, 'wp-content' ) ) )
 		) {
 			return dir;
 		}
@@ -135,85 +124,47 @@ function findWordPressRoot( filePath: string ): string | undefined {
  * A Studio site's WordPress core is replaced when Studio updates WordPress, so
  * a change there is lost. Refuses Write and Edit on it and names where the
  * change belongs. WordPress trees that Studio doesn't manage stay writable.
+ * `resolvePath` resolves the tool's `path` the way the runtime's file tools do.
  */
 export async function getFileWriteRefusal(
 	toolName: string,
 	params: unknown,
-	cwd: string,
-	isStudioSite: ( folder: string ) => Promise< boolean >
+	host: StudioAgentHost,
+	resolvePath: ( file: string ) => string
 ): Promise< string | undefined > {
 	const filePath = getStringParam( params, 'path' );
 	if ( ( toolName !== 'Write' && toolName !== 'Edit' ) || ! filePath ) {
 		return undefined;
 	}
-	const absolutePath = resolveToolPath( filePath, cwd );
-	const root = findWordPressRoot( absolutePath );
+	const absolutePath = resolvePath( filePath );
+	const root = await findWordPressRoot( host, absolutePath );
 	if ( ! root ) {
 		return undefined;
 	}
-	const relativePath = path.relative( root, absolutePath ).split( path.sep ).join( '/' );
+	const relativePath = host.path.relative( root, absolutePath ).split( host.path.sep ).join( '/' );
 	const isCore =
 		relativePath.startsWith( 'wp-includes/' ) ||
 		relativePath.startsWith( 'wp-admin/' ) ||
 		CORE_ROOT_FILE.test( relativePath );
-	if ( ! isCore || ! ( await isStudioSite( root ) ) ) {
+	if ( ! isCore || ! ( await host.sites.findByFolder( root ) ) ) {
 		return undefined;
 	}
 	return `Not run: ${ relativePath } is this Studio site's copy of WordPress core, which a WordPress update replaces. Read it as reference. Make the change in wp-content/ (a theme, child theme, or plugin).`;
 }
 
-// Only the last content block can be mid-generation when the model hits the
-// output cap — anything earlier was completed before the model moved on.
-function getInProgressToolCall( content: unknown ): { id: string; name: string } | undefined {
-	if ( ! Array.isArray( content ) || content.length === 0 ) {
-		return undefined;
+// Every runtime runs this before a tool call: a refused call fails without
+// running. Calls cut off at the model's output limit never get here; pi's loop
+// fails them itself.
+export async function assertToolCallAllowed(
+	toolName: string,
+	params: unknown,
+	host: StudioAgentHost,
+	resolvePath: ( file: string ) => string
+): Promise< void > {
+	const refusal =
+		getPayloadLimitViolation( toolName, params ) ??
+		( await getFileWriteRefusal( toolName, params, host, resolvePath ) );
+	if ( refusal ) {
+		throw new Error( refusal );
 	}
-	const last = content[ content.length - 1 ];
-	if ( ! last || typeof last !== 'object' ) {
-		return undefined;
-	}
-	const item = last as Record< string, unknown >;
-	if ( item.type !== 'toolCall' ) {
-		return undefined;
-	}
-	if ( typeof item.id !== 'string' || typeof item.name !== 'string' ) {
-		return undefined;
-	}
-	return { id: item.id, name: item.name };
-}
-
-function createIncompleteToolCallMessage( toolName: string ): string {
-	return (
-		`Refusing to run ${ toolName } because the assistant response hit the model output ` +
-		`limit while generating tool arguments; the arguments may be incomplete. ${ getPayloadRecoveryAdvice(
-			toolName
-		) }`
-	);
-}
-
-export function updateStudioToolPayloadGuardState(
-	event: AgentSessionEvent,
-	state: StudioToolPayloadGuardState
-): void {
-	if ( event.type !== 'message_end' || event.message.role !== 'assistant' ) {
-		return;
-	}
-
-	const inProgress = getInProgressToolCall( event.message.content );
-
-	if ( event.message.stopReason === 'length' && inProgress ) {
-		state.incompleteToolCallReasons = {
-			[ inProgress.id ]: createIncompleteToolCallMessage( inProgress.name ),
-		};
-		return;
-	}
-
-	state.incompleteToolCallReasons = undefined;
-}
-
-export function getIncompleteToolCallReason(
-	state: StudioToolPayloadGuardState,
-	toolCallId: string
-): string | undefined {
-	return state.incompleteToolCallReasons?.[ toolCallId ];
 }

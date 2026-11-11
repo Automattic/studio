@@ -1,5 +1,5 @@
-import { CLIENT_ID } from '@studio/common/constants';
-import { revokeAuthToken } from '@studio/common/lib/oauth';
+import { DEFAULT_LOCALE, isSupportedLocale } from '@studio/common/lib/locale';
+import { getAuthenticationUrl, getSignUpUrl, revokeAuthToken } from '@studio/common/lib/oauth';
 import { __ } from '@wordpress/i18n';
 import { kvDelete, kvGet, kvSet } from './store';
 import type { AuthUser } from './types';
@@ -10,25 +10,6 @@ const CALLBACK_PATH = '/auth/callback';
 const RETURN_TO_KEY = 'studio-auth-return-to';
 // The sign-in this page started: a callback with any other `state` is not ours.
 const STATE_KEY = 'studio-auth-state';
-
-// WordPress.com sends the token only to a redirect URL registered on the OAuth
-// app, and answers browser requests made with its tokens only from origins
-// the app allows. A deployment registers `<origin>/auth/callback`.
-function getAuthorizeUrl( state: string, signup: boolean ): string {
-	const authorize = new URL( `${ API_BASE }/oauth2/authorize` );
-	authorize.searchParams.set( 'response_type', 'token' );
-	authorize.searchParams.set( 'client_id', CLIENT_ID );
-	authorize.searchParams.set( 'redirect_uri', `${ window.location.origin }${ CALLBACK_PATH }` );
-	authorize.searchParams.set( 'scope', 'global' );
-	authorize.searchParams.set( 'state', state );
-	if ( ! signup ) {
-		return authorize.toString();
-	}
-	const start = new URL( 'https://wordpress.com/start/wpcc/oauth2-user' );
-	start.searchParams.set( 'oauth2_client_id', CLIENT_ID );
-	start.searchParams.set( 'oauth2_redirect', authorize.toString() );
-	return start.toString();
-}
 
 // A request the browser blocks surfaces as a bare "Load failed" or "Failed to
 // fetch"; say what that means here.
@@ -111,14 +92,24 @@ export class WpcomAuth {
 
 	// Leaves for WordPress.com, which sends the browser back to /auth/callback
 	// (see completeRedirectSignIn), and from there to the current page.
-	async authenticate( signup: boolean ): Promise< void > {
+	async authenticate( signup: boolean, locale?: string ): Promise< void > {
 		window.sessionStorage.setItem(
 			RETURN_TO_KEY,
 			`${ window.location.pathname }${ window.location.search }`
 		);
 		const state = crypto.randomUUID();
 		window.sessionStorage.setItem( STATE_KEY, state );
-		window.location.assign( getAuthorizeUrl( state, signup ) );
+		// WordPress.com sends the token only to a redirect URL registered on the
+		// OAuth app, and answers browser requests made with its tokens only from
+		// origins the app allows. A deployment registers `<origin>/auth/callback`.
+		const redirectUri = `${ window.location.origin }${ CALLBACK_PATH }`;
+		window.location.assign(
+			( signup ? getSignUpUrl : getAuthenticationUrl )(
+				isSupportedLocale( locale ) ? locale : DEFAULT_LOCALE,
+				redirectUri,
+				state
+			)
+		);
 		// The page is navigating away.
 		await new Promise( () => {} );
 	}

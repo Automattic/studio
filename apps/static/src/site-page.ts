@@ -2,6 +2,7 @@ import {
 	STUDIO_CHAT_MAX_IMAGE_BYTES,
 	type StudioChatImage,
 } from '@studio/agent/protocol/chat-images';
+import { toBase64 } from '@studio/agent/shared/base64';
 import { buildBridgeScript, getSiteOrigin, getSiteUrl } from './playground';
 import type { InspectorSelection } from '@studio/agent/protocol/inspector/selection';
 
@@ -170,11 +171,6 @@ export async function capturePreviewRegion(
 	if ( png.size > STUDIO_CHAT_MAX_IMAGE_BYTES ) {
 		throw new Error( 'The annotation screenshot is too large.' );
 	}
-	const bytes = new Uint8Array( await png.arrayBuffer() );
-	let binary = '';
-	for ( let index = 0; index < bytes.length; index += 0x8000 ) {
-		binary += String.fromCharCode( ...bytes.subarray( index, index + 0x8000 ) );
-	}
 	return {
 		id: crypto.randomUUID(),
 		name: drawing ? 'Drawing.png' : 'Selected area.png',
@@ -182,7 +178,7 @@ export async function capturePreviewRegion(
 		size: png.size,
 		width: canvas.width,
 		height: canvas.height,
-		dataBase64: btoa( binary ),
+		dataBase64: toBase64( new Uint8Array( await png.arrayBuffer() ) ),
 	};
 }
 

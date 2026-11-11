@@ -1,4 +1,4 @@
-import { getWpcomAiGatewayBaseUrl } from '@studio/agent/node';
+import { getWpcomAiGatewayEndpoint } from '@studio/agent/node';
 import { persistAnthropicApiKey, readAnthropicApiKey } from '@studio/agent/node/settings-store';
 import { DEFAULT_MODEL, type AiModelId } from '@studio/agent/protocol/models';
 import {
@@ -29,7 +29,6 @@ export const AI_PROVIDER_PRIORITY: readonly AiProviderId[] = AI_PROVIDER_IDS;
 // `studio-agent` lane accepts the capability-tier aliases (fast / balanced /
 // strong) on the Chat Completions path and resolves each to an upstream
 // model server-side.
-const WPCOM_AI_FEATURE_HEADER = 'studio-agent';
 
 export interface ResolveAiEnvironmentOptions {
 	sessionId?: string;
@@ -152,21 +151,13 @@ const AI_PROVIDER_DEFINITIONS: Record< AiProviderId, AiProviderDefinition > = {
 				throw new LoggerError( __( 'WordPress.com login required. Use /login to authenticate.' ) );
 			}
 			const env = createBaseEnvironment();
-			const gatewayBaseUrl = getWpcomAiGatewayBaseUrl();
+			const { baseUrl, headers } = getWpcomAiGatewayEndpoint( options?.sessionId );
 
-			// The studio capability tiers speak the OpenAI Chat Completions
-			// dialect, so the base URL carries the /v1 prefix (the request path
-			// becomes /v1/chat/completions). The vars are Studio-namespaced
-			// because this family has no direct-API provider — nothing but this
-			// function should be able to satisfy it.
-			env.STUDIO_WPCOM_BASE_URL = `${ gatewayBaseUrl.replace( /\/+$/, '' ) }/v1`;
+			// The vars are Studio-namespaced because this family has no
+			// direct-API provider — nothing but this function should be able to
+			// satisfy it.
+			env.STUDIO_WPCOM_BASE_URL = baseUrl;
 			env.STUDIO_WPCOM_API_KEY = accessToken;
-			const headers: Record< string, string > = {
-				'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE_HEADER,
-			};
-			if ( options?.sessionId ) {
-				headers[ 'X-WPCOM-Session-ID' ] = options.sessionId;
-			}
 			env.STUDIO_WPCOM_DEFAULT_HEADERS = JSON.stringify( headers );
 
 			return env;

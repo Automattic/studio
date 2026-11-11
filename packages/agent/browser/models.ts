@@ -1,12 +1,13 @@
 import { getAiModelFamily, type AiModelId } from '@studio/agent/protocol/models';
-import { getWpcomAiGatewayBaseUrl } from '@studio/agent/shared/ai-gateway';
+import {
+	getWpcomAiGatewayBaseUrl,
+	getWpcomAiGatewayEndpoint,
+} from '@studio/agent/shared/ai-gateway';
 import { buildStudioModel, streamStudioModel } from '@studio/agent/shared/models';
 import type { StreamFn } from '@earendil-works/pi-agent-core';
 import type { Api, Model } from '@earendil-works/pi-ai';
 
-const WPCOM_AI_FEATURE = 'studio-agent';
-
-export interface ModelCredentials {
+interface ModelCredentials {
 	wpcomToken?: string;
 	anthropicApiKey?: string;
 	sessionId: string;
@@ -22,11 +23,7 @@ export function buildModel( modelId: AiModelId, credentials: ModelCredentials ):
 		  } )
 		: buildStudioModel( modelId, family, {
 				apiKey: credentials.wpcomToken ?? '',
-				baseUrl: `${ getWpcomAiGatewayBaseUrl().replace( /\/+$/, '' ) }/v1`,
-				headers: {
-					'X-WPCOM-AI-Feature': WPCOM_AI_FEATURE,
-					'X-WPCOM-Session-ID': credentials.sessionId,
-				},
+				...getWpcomAiGatewayEndpoint( credentials.sessionId ),
 		  } );
 }
 

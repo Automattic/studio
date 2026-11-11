@@ -1,4 +1,5 @@
 import fs from 'fs';
+import os from 'os';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
 import { type Credential, type CredentialInfo, type CredentialStore } from '@earendil-works/pi-ai';
 import {
@@ -42,15 +43,9 @@ import { runWithPendingWork, type PendingWork } from '@studio/agent/shared/pendi
 import { createResultNotes } from '@studio/agent/shared/result-notes';
 import { findActiveSiteDesign } from '@studio/agent/shared/site-selection';
 import { buildSystemPrompt, type ToolPromptContribution } from '@studio/agent/shared/system-prompt';
+import { assertToolCallAllowed } from '@studio/agent/shared/tool-safety';
 import { resolveConversationTools } from '@studio/agent/shared/tools';
 import { getPendingWork } from './pending-work';
-import {
-	getIncompleteToolCallReason,
-	getFileWriteRefusal,
-	getPayloadLimitViolation,
-	type StudioToolPayloadGuardState,
-	updateStudioToolPayloadGuardState,
-} from './tool-safety';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
 import type { StudioAgentHost } from '@studio/agent/shared/host';
 import type { AskUserHandler, SiteInfo } from '@studio/agent/shared/types';
@@ -225,15 +220,13 @@ async function runAgentSessionTurn(
 
 	let session: AgentSession | undefined;
 	let unsubscribe: ( () => void ) | undefined;
-	const payloadGuardState: StudioToolPayloadGuardState = {};
 	try {
-		session = await createStudioAgentSession( config, family, resolved.creds, payloadGuardState );
+		session = await createStudioAgentSession( config, family, resolved.creds );
 		setActiveSession( session );
 		let emptyStopContinues = 0;
 		let continueAfterEmptyStop = false;
 		let continuation = '';
 		unsubscribe = session.subscribe( ( event ) => {
-			updateStudioToolPayloadGuardState( event, payloadGuardState );
 			if (
 				event.type === 'agent_end' &&
 				! event.willRetry &&
@@ -297,8 +290,7 @@ async function runAgentSessionTurn(
 async function createStudioAgentSession(
 	config: ResolvedStudioAgentTurnConfig,
 	family: AiModelFamily,
-	creds: ResolvedCredentials,
-	payloadGuardState: StudioToolPayloadGuardState
+	creds: ResolvedCredentials
 ): Promise< AgentSession > {
 	const model = buildStudioModel( config.model, family, {
 		apiKey: creds.apiKey,
@@ -329,7 +321,7 @@ async function createStudioAgentSession(
 	const resultNotes =
 		site && ! site.remote ? ( text: string ) => notes( site.path, text ) : undefined;
 	const toolDefinitions = tools.map( ( tool ) =>
-		toToolDefinition( config.host, tool, payloadGuardState, pendingWork, resultNotes )
+		toToolDefinition( config.host, tool, pendingWork, resultNotes )
 	);
 	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
@@ -478,10 +470,19 @@ function toolPromptContribution( tool: AgentToolAny ): ToolPromptContribution {
 	return { name: tool.name, promptSnippet: ( tool as ToolPromptFields ).promptSnippet };
 }
 
+// Where pi's file tools put a path: without a leading `@`, with `~` expanded.
+function resolveToolPath( { path, sitesRoot }: StudioAgentHost, file: string ): string {
+	const withoutAt = file.replace( /^@/, '' );
+	const expanded =
+		withoutAt === '~' || withoutAt.startsWith( '~/' )
+			? path.join( os.homedir(), withoutAt.slice( 1 ) )
+			: withoutAt;
+	return path.resolve( sitesRoot, expanded );
+}
+
 function toToolDefinition(
 	host: StudioAgentHost,
 	tool: AgentToolAny,
-	payloadGuardState: StudioToolPayloadGuardState,
 	pendingWork: PendingWork,
 	resultNotes?: ( text: string ) => Promise< string >
 ): ToolDefinition {
@@ -494,23 +495,9 @@ function toToolDefinition(
 		executionMode: tool.executionMode,
 		promptSnippet: ( tool as ToolPromptFields ).promptSnippet,
 		execute: async ( toolCallId, params, signal, onUpdate ) => {
-			const incompleteToolCallReason = getIncompleteToolCallReason( payloadGuardState, toolCallId );
-			if ( incompleteToolCallReason ) {
-				throw new Error( incompleteToolCallReason );
-			}
-			const payloadLimitViolation = getPayloadLimitViolation( tool.name, params );
-			if ( payloadLimitViolation ) {
-				throw new Error( payloadLimitViolation );
-			}
-			const fileWriteRefusal = await getFileWriteRefusal(
-				tool.name,
-				params,
-				host.sitesRoot,
-				async ( folder ) => Boolean( await host.sites.findByFolder( folder ) )
+			await assertToolCallAllowed( tool.name, params, host, ( file ) =>
+				resolveToolPath( host, file )
 			);
-			if ( fileWriteRefusal ) {
-				throw new Error( fileWriteRefusal );
-			}
 			return runWithPendingWork(
 				{
 					settles: ( tool as { settlesPendingWork?: boolean } ).settlesPendingWork,

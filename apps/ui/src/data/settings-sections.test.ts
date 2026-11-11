@@ -15,8 +15,14 @@ describe( 'getSections', () => {
 		expect( ids( false ) ).not.toContain( id );
 	} );
 
-	it( 'leaves out the local app settings where sites are not native', () => {
-		const localApps = [ 'code-editor', 'browser', 'terminal', 'default-directory' ];
+	it( 'leaves out the local app and analytics settings where sites are not native', () => {
+		const localApps = [
+			'code-editor',
+			'browser',
+			'terminal',
+			'default-directory',
+			'usage-statistics',
+		];
 		const settingIds = ( nativeSites: boolean ) =>
 			getSections( 'studio', { nativeSites } )
 				.flatMap( ( section ) => section.settings )

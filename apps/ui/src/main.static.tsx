@@ -6,15 +6,19 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '@/app';
 import { applyUserPreferences } from '@/app/apply-user-preferences';
+import { loadStartupRouter } from '@/app/load-startup-router';
+import { StartupScreen } from '@/app/startup-screen';
 import { toast } from '@/data/app-messages';
-import { persistPromise } from '@/data/core';
+import { persistPromise, queryClient } from '@/data/core';
 import { completeRedirectSignIn, createStaticConnector } from '@/data/core/connectors/static';
 
-// Static entry point, for a deployment with no Studio server: identical to
-// `main.local.tsx` except that it wires the `static` connector, which runs sites
-// in WordPress Playground.
+// Static entry point, for a deployment with no Studio server: wires the `static`
+// connector, which runs sites in WordPress Playground.
 
 async function bootstrap() {
+	const root = createRoot( document.getElementById( 'root' )! );
+	root.render( <StartupScreen /> );
+
 	// WordPress.com sign-in comes back to /auth/callback, then to the page it
 	// started from.
 	const signIn = await completeRedirectSignIn();
@@ -25,10 +29,11 @@ async function bootstrap() {
 	const connector = createStaticConnector();
 
 	await Promise.all( [ connector.init?.(), applyUserPreferences( connector ), persistPromise ] );
+	const router = await loadStartupRouter( connector, queryClient );
 
-	createRoot( document.getElementById( 'root' )! ).render(
+	root.render(
 		<StrictMode>
-			<App connector={ connector } />
+			<App connector={ connector } router={ router } />
 		</StrictMode>
 	);
 

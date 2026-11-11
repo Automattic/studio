@@ -6,8 +6,8 @@ import { createFakeHost } from './fake-host';
 
 const host = {
 	...createFakeHost(),
-	sendFeedback: ( feedback: Parameters< typeof sendStudioFeedback >[ 0 ], accessToken: string ) =>
-		sendStudioFeedback( feedback, { accessToken, userAgent: 'WordPressStudio/test' } ),
+	sendFeedback: ( feedback: Parameters< typeof sendStudioFeedback >[ 0 ] ) =>
+		sendStudioFeedback( feedback, { accessToken: 'token', userAgent: 'WordPressStudio/test' } ),
 };
 const sendFeedback = bindTool( sendFeedbackTool, host );
 
@@ -36,7 +36,6 @@ vi.mock( '@modelcontextprotocol/sdk/client/streamableHttp.js', () => ( {
 describe( 'send_feedback', () => {
 	beforeEach( () => {
 		vi.resetAllMocks();
-		vi.mocked( host.wpcom.token ).mockResolvedValue( 'token' );
 		mocks.connect.mockResolvedValue( undefined );
 		mocks.close.mockResolvedValue( undefined );
 	} );
@@ -113,14 +112,5 @@ describe( 'send_feedback', () => {
 		).rejects.toThrow(
 			'Failed to send feedback: the feedback service did not confirm a feedback ID, so the report may or may not have been received: Queued for review.'
 		);
-	} );
-
-	it( 'asks the user to log in when there is no WordPress.com token', async () => {
-		vi.mocked( host.wpcom.token ).mockResolvedValue( undefined );
-
-		await expect(
-			sendFeedback.rawHandler( { type: 'bug', message: 'Something broke.' } )
-		).rejects.toThrow( /studio auth login.*github\.com\/Automattic\/studio\/issues/ );
-		expect( mocks.connect ).not.toHaveBeenCalled();
 	} );
 } );

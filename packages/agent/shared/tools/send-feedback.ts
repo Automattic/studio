@@ -9,7 +9,7 @@ export const sendFeedbackTool = defineTool(
 		'Send only what the user asked to send: show them the exact message first and wait for their OK. ' +
 		'Leave out passwords, API keys, tokens and private site content unless the user asks to include them. ' +
 		'A line naming the WordPress Studio version and operating system is added for you. ' +
-		'Requires the user to be logged in with `studio auth login`. ' +
+		'Requires the user to be signed in to WordPress.com. ' +
 		'Do not retry a failed send: the report may already have been received, so report the error instead.',
 	{
 		// STUDIO_FEEDBACK_TYPES, which comes with the Node feedback client.
@@ -22,12 +22,6 @@ export const sendFeedbackTool = defineTool(
 		} ),
 	},
 	async ( args, { host } ) => {
-		const accessToken = await host.wpcom.token();
-		if ( ! accessToken ) {
-			throw new Error(
-				`Not logged in to WordPress.com. Ask the user to log in with \`studio auth login\`, or to share feedback at ${ REPORT_ISSUE_URL }.`
-			);
-		}
 		if ( ! args.message.trim() ) {
 			throw new Error( 'Submitting feedback needs a message.' );
 		}
@@ -35,10 +29,7 @@ export const sendFeedbackTool = defineTool(
 			throw new Error( `Feedback can't be sent from here. Share it at ${ REPORT_ISSUE_URL }.` );
 		}
 		try {
-			const { feedbackId } = await host.sendFeedback(
-				{ type: args.type, message: args.message },
-				accessToken
-			);
+			const { feedbackId } = await host.sendFeedback( { type: args.type, message: args.message } );
 			return textResult( `Feedback sent. Feedback ID: ${ feedbackId }.` );
 		} catch ( error ) {
 			throw new Error(

@@ -29,6 +29,10 @@ const STATIC_BACKEND = {
 	group: [ '@studio/static', '@studio/static/*' ],
 	message: 'Only the static connector imports @studio/static; features use useConnector().',
 };
+const BASE_UI = {
+	group: [ '@base-ui/react', '@base-ui/react/*' ],
+	message: 'Use the primitives in @/lib/ui, and add one there when none fits.',
+};
 
 // `apps/ui/src` is layered as internal packages (`lib/*`), product areas (`features/*`),
 // then `data/`, `router/` and `app/`. See apps/ui/README.md.
@@ -315,15 +319,7 @@ export default defineConfig(
 			'no-restricted-imports': [
 				'error',
 				{
-					patterns: [
-						WP_UI_PACKAGES,
-						AGENT_NODE,
-						STATIC_BACKEND,
-						{
-							group: [ '@base-ui/react', '@base-ui/react/*' ],
-							message: 'Use the primitives in @/lib/ui, and add one there when none fits.',
-						},
-					],
+					patterns: [ WP_UI_PACKAGES, AGENT_NODE, STATIC_BACKEND, BASE_UI ],
 				},
 			],
 			'import-x/no-restricted-paths': [ 'error', UI_LAYERS ],
@@ -333,7 +329,7 @@ export default defineConfig(
 	{
 		files: [ 'apps/ui/src/data/core/connectors/static/**/*.{ts,tsx}' ],
 		rules: {
-			'no-restricted-imports': [ 'error', { patterns: [ WP_UI_PACKAGES, AGENT_NODE ] } ],
+			'no-restricted-imports': [ 'error', { patterns: [ WP_UI_PACKAGES, AGENT_NODE, BASE_UI ] } ],
 		},
 	},
 	{

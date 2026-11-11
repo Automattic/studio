@@ -171,6 +171,14 @@ describe( 'cliAgentHost', () => {
 		expect( disconnectFromDaemon ).toHaveBeenCalled();
 	} );
 
+	it( 'asks the user to log in before sending feedback while signed out', async () => {
+		vi.mocked( readAuthToken ).mockResolvedValue( null );
+
+		await expect(
+			cliAgentHost.sendFeedback!( { type: 'bug', message: 'Something broke.' } )
+		).rejects.toThrow( /studio auth login.*github\.com\/Automattic\/studio\/issues/ );
+	} );
+
 	it( 'sends WordPress.com DELETE requests as HTTP DELETE with their query', async () => {
 		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
 		wpcomReq.get.mockResolvedValue( { deleted: true } );

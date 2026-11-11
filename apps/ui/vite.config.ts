@@ -4,7 +4,7 @@ import { resolve } from 'path';
 import { Readable } from 'stream';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
 import react from '@vitejs/plugin-react';
-import { defineConfig, type Connect, type Plugin } from 'vite';
+import { defineConfig, type Connect, type Plugin, type ServerOptions } from 'vite';
 import { GET as wpcomBackup } from '../static/functions/wpcom-backup/[site]/[download]/data';
 import { getSentryReleaseInfo } from '../studio/src/lib/sentry-release';
 import type { ReadableStream as NodeReadableStream } from 'stream/web';
@@ -22,32 +22,6 @@ const pkg = createRequire( import.meta.url )( './package.json' ) as {
 const directDeps = Object.entries( pkg.dependencies ?? {} )
 	.filter( ( [ , version ] ) => ! version.startsWith( 'file:' ) )
 	.map( ( [ name ] ) => name );
-
-// The browser target (`STUDIO_TARGET=local`, served by `studio ui`) builds a
-// standalone browser app wired to the HTTP/SSE `local` connector instead of the
-// Electron IPC bridge. It uses its own entry/output/port so the default
-// Electron-renderer build (`dist/`, port 5200) stays byte-for-byte unchanged.
-// `STUDIO_TARGET=static` builds Studio on the web: a static site wired to the
-// `static` connector, which needs no Studio server at all.
-const isStatic = process.env.STUDIO_TARGET === 'static';
-const isBrowser = process.env.STUDIO_TARGET === 'local' || isStatic;
-const active = isStatic
-	? { entry: 'index.static.html', outDir: 'dist-static', port: 3456 }
-	: isBrowser
-	? { entry: 'index.local.html', outDir: 'dist-local', port: 5400 }
-	: undefined;
-
-// The Electron renderer reports errors through the desktop app's Sentry
-// client, so release builds upload its source maps under the app's release.
-const { sentryRelease, isDevEnvironment } = getSentryReleaseInfo(
-	createRequire( import.meta.url )( '../studio/package.json' ).version
-);
-const uploadSourceMaps = ! isBrowser && ! isDevEnvironment && !! process.env.SENTRY_AUTH_TOKEN;
-
-// The page the dev server serves for document navigations: the browser app, or
-// the playground homepage (`STUDIO_TARGET=playground`, see src/dev/README.md).
-const devEntry =
-	active?.entry ?? ( process.env.STUDIO_TARGET === 'playground' ? 'playground.html' : undefined );
 
 // In dev, Vite serves the root `index.html` (which loads the Electron entry,
 // `main.tsx`) for every SPA navigation, regardless of `build` input options.
@@ -102,7 +76,7 @@ const staticHostPagesPlugin: Plugin = {
 	name: 'studio-static-host-pages',
 	apply: 'build',
 	closeBundle() {
-		const outDir = resolve( __dirname, 'dist-static' );
+		const outDir = resolve( __dirname, target!.outDir );
 		copyFileSync( resolve( outDir, 'index.static.html' ), resolve( outDir, 'index.html' ) );
 		copyFileSync( resolve( outDir, 'index.static.html' ), resolve( outDir, '404.html' ) );
 		cpSync( resolve( __dirname, '../static/functions' ), resolve( outDir, 'functions' ), {
@@ -115,11 +89,60 @@ const staticHostPagesPlugin: Plugin = {
 // same-origin, as it does when that server serves the built app.
 const studioUiServer = process.env.STUDIO_UI_SERVER ?? 'http://localhost:8081';
 
+// The browser targets build the app on their own entry, output and port, so the
+// default Electron-renderer build (`dist/`, port 5200) stays byte-for-byte
+// unchanged. `local`, served by `studio ui`, is wired to the HTTP/SSE `local`
+// connector; `static` builds Studio on the web, a static site wired to the
+// `static` connector, which needs no Studio server at all.
+const TARGETS: Partial<
+	Record<
+		string,
+		{
+			entry: string;
+			outDir: string;
+			port: number;
+			pages?: string[];
+			plugins?: Plugin[];
+			proxy?: ServerOptions[ 'proxy' ];
+		}
+	>
+> = {
+	local: {
+		entry: 'index.local.html',
+		outDir: 'dist-local',
+		port: 5400,
+		proxy: {
+			'/api': { target: studioUiServer, changeOrigin: true },
+			'/auth/callback': { target: studioUiServer, changeOrigin: true },
+		},
+	},
+	static: {
+		entry: 'index.static.html',
+		outDir: 'dist-static',
+		port: 3456,
+		pages: [ 'site-viewer.html' ],
+		plugins: [ staticHostPagesPlugin, wpcomBackupPlugin ],
+	},
+};
+const target = TARGETS[ process.env.STUDIO_TARGET ?? '' ];
+
+// The Electron renderer reports errors through the desktop app's Sentry
+// client, so release builds upload its source maps under the app's release.
+const { sentryRelease, isDevEnvironment } = getSentryReleaseInfo(
+	createRequire( import.meta.url )( '../studio/package.json' ).version
+);
+const uploadSourceMaps = ! target && ! isDevEnvironment && !! process.env.SENTRY_AUTH_TOKEN;
+
+// The page the dev server serves for document navigations: the browser app, or
+// the playground homepage (`STUDIO_TARGET=playground`, see src/dev/README.md).
+const devEntry =
+	target?.entry ?? ( process.env.STUDIO_TARGET === 'playground' ? 'playground.html' : undefined );
+
 export default defineConfig( {
 	plugins: [
 		react(),
 		...( devEntry ? [ browserDevEntryPlugin ] : [] ),
-		...( isStatic ? [ staticHostPagesPlugin, wpcomBackupPlugin ] : [] ),
+		...( target?.plugins ?? [] ),
 		// Sentry must be the last plugin
 		uploadSourceMaps &&
 			sentryVitePlugin( {
@@ -148,21 +171,15 @@ export default defineConfig( {
 		include: directDeps,
 	},
 	server: {
-		port: active?.port ?? 5200,
-		proxy:
-			isBrowser && ! isStatic
-				? {
-						'/api': { target: studioUiServer, changeOrigin: true },
-						'/auth/callback': { target: studioUiServer, changeOrigin: true },
-				  }
-				: undefined,
+		port: target?.port ?? 5200,
+		proxy: target?.proxy,
 	},
 	build: {
-		outDir: active?.outDir ?? 'dist',
-		sourcemap: ! isBrowser,
+		outDir: target?.outDir ?? 'dist',
+		sourcemap: ! target,
 		rolldownOptions: {
-			input: [ active?.entry ?? 'index.html', ...( isStatic ? [ 'site-viewer.html' ] : [] ) ].map(
-				( page ) => resolve( __dirname, page )
+			input: [ target?.entry ?? 'index.html', ...( target?.pages ?? [] ) ].map( ( page ) =>
+				resolve( __dirname, page )
 			),
 		},
 	},

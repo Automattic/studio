@@ -1,5 +1,6 @@
 import { readBlobAsDataUrl } from '@studio/agent/protocol/composer-attachments';
 import { fromBase64 } from '@studio/agent/shared/base64';
+import { escapeRegex } from '@studio/common/lib/escape-regex';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { syncOptionSchema, type SyncOption, SyncSite } from '@studio/common/types/sync';
@@ -170,8 +171,8 @@ export function createStaticAgentHost( deps: StaticAgentHostDeps ): StudioAgentH
 		const records = await sites.list();
 		const needle = nameOrPath.trim().replace( /\/+$/, '' );
 		const site =
-			records.find( ( record ) => record.path === needle || record.id === needle ) ??
-			records.find( ( record ) => needle.startsWith( `${ record.path }/` ) ) ??
+			( await sites.findByPath( needle ) ) ??
+			records.find( ( record ) => record.id === needle ) ??
 			records.find( ( record ) => record.name.toLowerCase() === needle.toLowerCase() ) ??
 			records.find( ( record ) => needle.startsWith( getSiteUrl( record.scope ) ) );
 		if ( ! site ) {
@@ -188,9 +189,7 @@ export function createStaticAgentHost( deps: StaticAgentHostDeps ): StudioAgentH
 	// outside every site.
 	async function locate( file: string ) {
 		const normalized = path.resolve( file );
-		const site = ( await sites.list() ).find(
-			( record ) => normalized === record.path || normalized.startsWith( `${ record.path }/` )
-		);
+		const site = await sites.findByPath( normalized );
 		if ( ! site ) {
 			return undefined;
 		}
@@ -446,8 +445,9 @@ echo implode( "\\n", $found );`,
 				const client = await sites.client( site.id );
 				await ensureWpCli( client );
 				// Site paths map into the runtime; anything but a plain word is quoted.
+				const sitePath = new RegExp( `${ escapeRegex( site.path ) }(?=/|$)`, 'g' );
 				const command = args
-					.map( ( arg ) => arg.split( site.path ).join( DOCROOT ) )
+					.map( ( arg ) => arg.replace( sitePath, DOCROOT ) )
 					.map( ( arg ) =>
 						/^[\w@%+=:,./-]+$/.test( arg ) ? arg : `'${ arg.replace( /'/g, `'\\''` ) }'`
 					)

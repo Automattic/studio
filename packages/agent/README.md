@@ -6,7 +6,7 @@ The Studio Code agent: the model loop, its tools and skills, its system prompt, 
 protocol/   the contract between the agent and the apps that show it
 shared/     what every agent runs, in Node or a browser: tools, skills, the system prompt, the host interface
 node/       the agent in Node: pi's coding-agent runtime and file tools, sessions, run-manager
-browser/    the agent in a browser: pi-agent-core's loop and file tools, over the host
+browser/    the agent in a browser: pi-agent-core's loop and Studio's file tools, over the host
 ```
 
 The apps that show the agent import its **protocol**; the apps that run it import **node** or **browser**.
@@ -93,7 +93,7 @@ Where guidance goes: the system prompt (`shared/system-prompt.ts`) holds only wh
 
 ### In a browser
 
-`createBrowserAgent( { host } )`, from `@studio/agent/browser`, runs a turn with the same tools, skills and prompt. The model is called from the page. Read, Write and Edit are pi-agent-core's over `host.files`, and Grep, Glob and Ls are rebuilt over it with pi's names, schemas and descriptions (there is no Bash). The app stores the conversation and passes its messages in with each turn:
+`createBrowserAgent( { host } )`, from `@studio/agent/browser`, runs a turn with the same tools, skills and prompt. The model is called from the page. The file tools, Read, Write, Edit, Grep, Glob and Ls, are Studio's own over `host.files` (`browser/file-tools.ts`), with pi's names, schemas and descriptions (there is no Bash). Both runtimes refuse the same tool calls before running them (`shared/tool-safety.ts`). The app stores the conversation and passes its messages in with each turn:
 
 ```ts
 const turn = createBrowserAgent( { host } ).runTurn( {
@@ -110,7 +110,7 @@ shared/
   host.ts         StudioAgentHost
   tools/          the tools
   skills/         the skills' runbooks, bundled as text
-  system-prompt.ts, page scripts (block-validator, *-audit), image-generation, runtime-guards/
+  system-prompt.ts, tool-safety.ts, pending-work.ts, page scripts (block-validator, *-audit), image-generation, runtime-guards/
 node/
   index.ts        the entry: createAgent, nodeHostServices, the host types, tool authoring, helpers apps share
   agent.ts        createAgent
@@ -120,7 +120,9 @@ node/
   settings-store.ts, global-instructions.ts, run-manager.ts, local-media.ts
 browser/
   index.ts        createBrowserAgent
-  file-tools.ts, models.ts, compaction.ts
+  file-tools.ts   Read, Write, Edit, Grep, Glob and Ls over host.files
+  edit-text.ts    Edit's matching and diff, as pi's
+  models.ts, compaction.ts
 ```
 
 The last line, and the sessions store, are for the apps that show the agent: the Desktop main process and `apps/local` read and write settings and sessions, and fork the CLI to run turns. They import these modules by path (`@studio/agent/node/sessions/store`) rather than from the entry, so they never load the runtime.

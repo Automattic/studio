@@ -86,7 +86,7 @@ export function FrameSurface( {
 	onCommandHandled,
 	onAdminBarVisibilityChange,
 	annotations,
-	annotationTool,
+	annotationTool = 'select',
 	clearSelection,
 	onInspectorReady,
 	onInspectorEvent,
@@ -102,7 +102,6 @@ export function FrameSurface( {
 	onCommandHandled?: () => void;
 	onAdminBarVisibilityChange?: ( visible: boolean | null ) => void;
 	annotations?: SiteAnnotations;
-	// Without a tool, the inspector only picks elements.
 	annotationTool?: AnnotationTool;
 	clearSelection?: string;
 	onInspectorReady?: ( ready: boolean ) => void;
@@ -111,7 +110,14 @@ export function FrameSurface( {
 	const connector = useConnector();
 	const ref = useRef< HTMLIFrameElement | null >( null );
 	const [ page, setPage ] = useState< { run( script: string ): void } | null >( null );
-	const callbacks = useRef( { onAdminBarVisibilityChange, onNavigate, onLoadingChange, onSettle } );
+	const callbacks = useRef( {
+		onAdminBarVisibilityChange,
+		onNavigate,
+		onLoadingChange,
+		onSettle,
+		onInspectorReady,
+		onInspectorEvent,
+	} );
 	const navigationId = useRef( 0 );
 	const pendingProbe = useRef( 0 );
 	const reportedPage = useRef< {
@@ -120,8 +126,22 @@ export function FrameSurface( {
 		title: string | null;
 	} | null >( null );
 	useEffect( () => {
-		callbacks.current = { onAdminBarVisibilityChange, onNavigate, onLoadingChange, onSettle };
-	}, [ onAdminBarVisibilityChange, onNavigate, onLoadingChange, onSettle ] );
+		callbacks.current = {
+			onAdminBarVisibilityChange,
+			onNavigate,
+			onLoadingChange,
+			onSettle,
+			onInspectorReady,
+			onInspectorEvent,
+		};
+	}, [
+		onAdminBarVisibilityChange,
+		onNavigate,
+		onLoadingChange,
+		onSettle,
+		onInspectorReady,
+		onInspectorEvent,
+	] );
 	useEffect( () => {
 		if ( browserCommand?.type !== 'login' && browserCommand?.type !== 'read-admin-bar' ) return;
 		ref.current?.contentWindow?.postMessage(
@@ -136,12 +156,7 @@ export function FrameSurface( {
 		onCommandHandled?.();
 	}, [ browserCommand, onCommandHandled, src ] );
 
-	const inspector = !! annotations;
-	const listenersRef = useRef( { onInspectorReady, onInspectorEvent } );
-	useEffect( () => {
-		listenersRef.current = { onInspectorReady, onInspectorEvent };
-	}, [ onInspectorReady, onInspectorEvent ] );
-
+	const inspector = !! annotations && !! connector.connectPreviewFrame;
 	useEffect( () => {
 		const iframe = ref.current;
 		if ( ! inspector || ! iframe || ! connector.connectPreviewFrame ) return;
@@ -150,17 +165,17 @@ export function FrameSurface( {
 				connection.run( INSPECTOR_PAGE_SCRIPT );
 				// A new object for each page: its inspector starts with no notes.
 				setPage( { ...connection } );
-				listenersRef.current.onInspectorReady?.( true );
+				callbacks.current.onInspectorReady?.( true );
 			},
 			onLog( message ) {
 				const event = parseInspectorMessage( message, iframe.getBoundingClientRect() );
-				if ( event ) listenersRef.current.onInspectorEvent?.( event );
+				if ( event ) callbacks.current.onInspectorEvent?.( event );
 			},
 		} );
 		return () => {
 			connection.dispose();
 			setPage( null );
-			listenersRef.current.onInspectorReady?.( false );
+			callbacks.current.onInspectorReady?.( false );
 		};
 	}, [ connector, inspector ] );
 

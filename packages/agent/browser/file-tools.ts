@@ -206,7 +206,7 @@ export function createFileTools(
 
 	const glob = defineTool(
 		'Glob',
-		'Search for files by glob pattern. Returns matching file paths relative to the search directory. Respects .gitignore. Output is truncated to 1000 results or 50KB (whichever is hit first).',
+		'Search for files by glob pattern. Returns matching file paths relative to the search directory. Output is truncated to 1000 results or 50KB (whichever is hit first).',
 		{
 			pattern: Type.String( {
 				description: "Glob pattern to match files, e.g. '*.ts', '**/*.json', or 'src/**/*.spec.ts'",
@@ -243,7 +243,7 @@ export function createFileTools(
 
 	const grep = defineTool(
 		'Grep',
-		'Search file contents for a pattern. Returns matching lines with file paths and line numbers. Respects .gitignore. Output is truncated to 100 matches or 50KB (whichever is hit first). Long lines are truncated to 500 chars.',
+		'Search file contents for a pattern. Returns matching lines with file paths and line numbers. Output is truncated to 100 matches or 50KB (whichever is hit first). Long lines are truncated to 500 chars.',
 		{
 			pattern: Type.String( { description: 'Search pattern (regex or literal string)' } ),
 			path: Type.Optional(
@@ -338,9 +338,15 @@ export function createFileTools(
 
 	return [
 		bindTool( read, host ),
-		withDesignSystemPreview( bindTool( write, host ), host ),
+		// pi's loop runs a message's tool calls in parallel; two writes to one file
+		// would race and lose one, so file changes run one at a time.
+		withDesignSystemPreview( { ...bindTool( write, host ), executionMode: 'sequential' }, host ),
 		withDesignSystemPreview(
-			{ ...bindTool( edit, host ), prepareArguments: prepareEditArguments },
+			{
+				...bindTool( edit, host ),
+				prepareArguments: prepareEditArguments,
+				executionMode: 'sequential',
+			},
 			host
 		),
 		bindTool( grep, host ),

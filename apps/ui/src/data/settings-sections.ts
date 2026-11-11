@@ -81,7 +81,7 @@ const setting = (
 	icon,
 } );
 
-function getStudioSections( signedIn: boolean, nativeSites = true ): Section[] {
+function getStudioSections( signedIn: boolean ): Section[] {
 	const sections: Section[] = [
 		{
 			command: 'settings',
@@ -96,36 +96,32 @@ function getStudioSections( signedIn: boolean, nativeSites = true ): Section[] {
 					'language',
 					LanguageIcon
 				),
-				...( nativeSites
-					? [
-							setting(
-								'navigate',
-								__( 'Default code editor' ),
-								__( 'The default code editor for your sites.' ),
-								'code-editor',
-								CodeIcon
-							),
-							setting(
-								'navigate',
-								__( 'Default browser' ),
-								__( 'The default browser for your sites.' ),
-								'browser'
-							),
-							setting(
-								'navigate',
-								__( 'Default terminal app' ),
-								__( 'The default terminal for your sites.' ),
-								'terminal',
-								TerminalIcon
-							),
-							setting(
-								'navigate',
-								__( 'Default directory' ),
-								__( 'The folder where WordPress Studio creates new sites.' ),
-								'default-directory'
-							),
-					  ]
-					: [] ),
+				setting(
+					'navigate',
+					__( 'Default code editor' ),
+					__( 'The default code editor for your sites.' ),
+					'code-editor',
+					CodeIcon
+				),
+				setting(
+					'navigate',
+					__( 'Default browser' ),
+					__( 'The default browser for your sites.' ),
+					'browser'
+				),
+				setting(
+					'navigate',
+					__( 'Default terminal app' ),
+					__( 'The default terminal for your sites.' ),
+					'terminal',
+					TerminalIcon
+				),
+				setting(
+					'navigate',
+					__( 'Default directory' ),
+					__( 'The folder where WordPress Studio creates new sites.' ),
+					'default-directory'
+				),
 				setting(
 					'action',
 					__( 'Improve WordPress Studio for everyone' ),
@@ -366,16 +362,11 @@ function getStudioSections( signedIn: boolean, nativeSites = true ): Section[] {
 			aliases: [ __( 'Keyboard shortcuts' ) ],
 		},
 	];
-	// MCP sets up the local CLI, and skills are installed into site folders.
-	return sections.filter(
-		( section ) =>
-			( signedIn || section.id !== 'usage' ) &&
-			( nativeSites || ( section.id !== 'mcp' && section.id !== 'skills' ) )
-	);
+	return sections.filter( ( section ) => signedIn || section.id !== 'usage' );
 }
 
-function getSiteSections( nativeSites = true ): Section[] {
-	const sections: Section[] = [
+function getSiteSections(): Section[] {
+	return [
 		{
 			command: 'site-settings',
 			id: 'site',
@@ -388,36 +379,30 @@ function getSiteSections( nativeSites = true ): Section[] {
 					__( 'Name shown in WordPress Studio.' ),
 					'site-name'
 				),
-				...( nativeSites
-					? [
-							setting(
-								'navigate',
-								__( 'WordPress version' ),
-								__( 'Choose the WordPress release for this site.' ),
-								'wordpress-version'
-							),
-							setting(
-								'navigate',
-								__( 'Automatic updates' ),
-								__( 'Keep WordPress updated to the latest released version.' ),
-								'automatic-updates'
-							),
-							setting(
-								'navigate',
-								__( 'Use custom domain' ),
-								__( 'Use a local address like my-site.local.' ),
-								'custom-domain'
-							),
-							setting(
-								'navigate',
-								__( 'Enable HTTPS' ),
-								__(
-									'Test features that require HTTPS and catch issues before your site goes live.'
-								),
-								'https'
-							),
-					  ]
-					: [] ),
+				setting(
+					'navigate',
+					__( 'WordPress version' ),
+					__( 'Choose the WordPress release for this site.' ),
+					'wordpress-version'
+				),
+				setting(
+					'navigate',
+					__( 'Automatic updates' ),
+					__( 'Keep WordPress updated to the latest released version.' ),
+					'automatic-updates'
+				),
+				setting(
+					'navigate',
+					__( 'Use custom domain' ),
+					__( 'Use a local address like my-site.local.' ),
+					'custom-domain'
+				),
+				setting(
+					'navigate',
+					__( 'Enable HTTPS' ),
+					__( 'Test features that require HTTPS and catch issues before your site goes live.' ),
+					'https'
+				),
 				setting(
 					'navigate',
 					__( 'Username' ),
@@ -449,16 +434,12 @@ function getSiteSections( nativeSites = true ): Section[] {
 					__( 'Sets the value returned by wp_get_environment_type().' ),
 					'environment'
 				),
-				...( nativeSites
-					? [
-							setting(
-								'navigate',
-								__( 'Xdebug' ),
-								__( 'Connect a debugger to inspect PHP execution.' ),
-								'xdebug'
-							),
-					  ]
-					: [] ),
+				setting(
+					'navigate',
+					__( 'Xdebug' ),
+					__( 'Connect a debugger to inspect PHP execution.' ),
+					'xdebug'
+				),
 				setting(
 					'navigate',
 					__( 'Debug log' ),
@@ -515,19 +496,43 @@ function getSiteSections( nativeSites = true ): Section[] {
 			],
 		},
 	];
-	return sections.filter(
-		( section ) =>
-			nativeSites || ! [ 'php', 'site-skills', 'site-instructions' ].includes( section.id )
-	);
 }
+
+// Sections and settings for local apps, folders, the CLI, PHP and analytics,
+// which only exist where sites run natively.
+const NATIVE_ONLY_IDS = new Set( [
+	'code-editor',
+	'browser',
+	'terminal',
+	'default-directory',
+	'usage-statistics',
+	'quit-behavior',
+	'mcp',
+	'skills',
+	'wordpress-version',
+	'automatic-updates',
+	'custom-domain',
+	'https',
+	'xdebug',
+	'php',
+	'site-skills',
+	'site-instructions',
+] );
 
 export function getSections(
 	scope: SettingsScope,
-	{ signedIn = true, nativeSites }: { signedIn?: boolean; nativeSites?: boolean } = {}
+	{ signedIn = true, nativeSites = true }: { signedIn?: boolean; nativeSites?: boolean } = {}
 ): Section[] {
-	return scope === 'studio'
-		? getStudioSections( signedIn, nativeSites )
-		: getSiteSections( nativeSites );
+	const sections = scope === 'studio' ? getStudioSections( signedIn ) : getSiteSections();
+	if ( nativeSites ) {
+		return sections;
+	}
+	return sections
+		.filter( ( section ) => ! NATIVE_ONLY_IDS.has( section.id ) )
+		.map( ( section ) => ( {
+			...section,
+			settings: section.settings.filter( ( entry ) => ! NATIVE_ONLY_IDS.has( entry.id ?? '' ) ),
+		} ) );
 }
 
 /** Alternate names for existing commands that already own a settings destination. */

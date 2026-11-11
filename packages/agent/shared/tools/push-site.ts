@@ -4,8 +4,8 @@ import { textResult } from './utils';
 
 export const pushSiteTool = defineTool(
 	'site_push',
-	'Pushes a local WordPress site to a WordPress.com site. Requires WordPress.com authentication ' +
-		'(studio auth login). Exports the local site, uploads it, and imports it on the remote site. ' +
+	'Pushes a local WordPress site to a WordPress.com site. Requires the user to be signed in to WordPress.com. ' +
+		'Exports the local site, uploads it, and imports it on the remote site. ' +
 		'This can take several minutes depending on site size. ' +
 		'Never call it without explicit user confirmation of the target remote site, even when only one site is attached. Resolve the target first with site_connected_remote_sites: ' +
 		'with exactly one attached site, confirm it with AskUserQuestion when available (options "Yes" and "No", the description naming the remote site and its URL); ' +
@@ -45,7 +45,7 @@ export const pushSiteTool = defineTool(
 	},
 	{
 		promptSnippet:
-			'Push a local site to a WordPress.com site. Requires authentication (studio auth login). Specify the remote site URL or ID and sync options (all, sqls, uploads, plugins, themes, contents).',
+			'Push a local site to a WordPress.com site. Requires signing in to WordPress.com. Specify the remote site URL or ID and sync options (all, sqls, uploads, plugins, themes, contents).',
 		annotations: REMOTE_OVERWRITE,
 	}
 );

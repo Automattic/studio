@@ -31,7 +31,7 @@ import {
 	type BlueprintBundle,
 } from '@studio/static';
 import { __ } from '@wordpress/i18n';
-import { isShortcut } from '@/lib/keyboard';
+import { download, menuShortcuts } from '../browser-tab';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
@@ -63,29 +63,7 @@ const DEFAULT_PREFERENCES: UserPreferences = {
 	studioCliExternallyManaged: false,
 };
 
-// A browser tab has no application menu, so the page binds its accelerators.
-function onMenuShortcut( listener: () => void, key: string, modifier?: 'shift' ) {
-	const onKeyDown = ( event: KeyboardEvent ) => {
-		if ( ! event.defaultPrevented && ! event.repeat && isShortcut( event, key, modifier ) ) {
-			event.preventDefault();
-			listener();
-		}
-	};
-	document.addEventListener( 'keydown', onKeyDown );
-	return () => document.removeEventListener( 'keydown', onKeyDown );
-}
-
-function download( data: BlobPart, filename: string, type: string ): string {
-	const url = URL.createObjectURL( new Blob( [ data ], { type } ) );
-	const anchor = document.createElement( 'a' );
-	anchor.href = url;
-	anchor.download = filename;
-	document.body.appendChild( anchor );
-	anchor.click();
-	anchor.remove();
-	setTimeout( () => URL.revokeObjectURL( url ), 10_000 );
-	return filename;
-}
+const noSubscription = () => () => {};
 
 /**
  * Studio on the web: the data source for a static deployment with no Studio
@@ -103,6 +81,10 @@ export function createStaticConnector(): Connector {
 		hidesAdminBarByDefault: async () =>
 			( await readPreferences() ).hideFrontendAdminBar ?? DEFAULT_HIDE_FRONTEND_ADMIN_BAR,
 	} );
+
+	async function pathSize( siteId: string, path: string[] ) {
+		return getPathSize( await sites.client( siteId ), path.join( '/' ) );
+	}
 
 	async function readPreferences(): Promise< UserPreferences > {
 		return {
@@ -127,7 +109,8 @@ export function createStaticConnector(): Connector {
 
 		agenticRequiresAuth: false,
 		getAuthUser: () => auth.user(),
-		authenticate: ( signup = false ) => auth.authenticate( signup ),
+		authenticate: async ( signup = false ) =>
+			auth.authenticate( signup, ( await readPreferences() ).locale ),
 		logout: () => auth.signOut(),
 		onAuthStateChanged: ( listener ) => auth.onChange( listener ),
 		async getOnboardingCompleted() {
@@ -363,12 +346,8 @@ export function createStaticConnector(): Connector {
 		async listLocalFileTree( siteId, path, depth ) {
 			return listFileTree( await sites.client( siteId ), path, depth );
 		},
-		async getDirectorySize( siteId, path ) {
-			return getPathSize( await sites.client( siteId ), path.join( '/' ) );
-		},
-		async getFileSize( siteId, path ) {
-			return getPathSize( await sites.client( siteId ), path.join( '/' ) );
-		},
+		getDirectorySize: pathSize,
+		getFileSize: pathSize,
 		async getIsMultisite() {
 			return false;
 		},
@@ -462,10 +441,22 @@ export function createStaticConnector(): Connector {
 			);
 		},
 		async openSiteDebugLog( siteId ) {
-			const log = await ( await sites.client( siteId ) ).readFileAsText( DEBUG_LOG_PATH );
-			const url = URL.createObjectURL( new Blob( [ log ], { type: 'text/plain;charset=utf-8' } ) );
-			window.open( url, '_blank', 'noopener' );
-			setTimeout( () => URL.revokeObjectURL( url ), 60_000 );
+			const tab = window.open( 'about:blank', '_blank' );
+			if ( ! tab ) {
+				return;
+			}
+			tab.opener = null;
+			try {
+				const log = await ( await sites.client( siteId ) ).readFileAsText( DEBUG_LOG_PATH );
+				const url = URL.createObjectURL(
+					new Blob( [ log ], { type: 'text/plain;charset=utf-8' } )
+				);
+				tab.location.href = url;
+				setTimeout( () => URL.revokeObjectURL( url ), 60_000 );
+			} catch ( error ) {
+				tab.close();
+				throw error;
+			}
 		},
 		async openStudioLogs() {
 			throw new UnsupportedError( 'openStudioLogs' );
@@ -503,56 +494,40 @@ export function createStaticConnector(): Connector {
 			await navigator.clipboard.writeText( text );
 		},
 		// The site only exists while this tab runs it, so it opens in a viewer
-		// page of this app rather than at the Playground URL.
+		// page of this app rather than at the Playground URL. The tab opens
+		// before the site starts, while the click still allows a popup.
 		async openSiteUrl( siteId, relativeUrl = '' ) {
-			const record = await sites.get( siteId );
-			await sites.start( siteId );
-			const viewer = new URL( '/site-viewer.html', window.location.origin );
-			viewer.searchParams.set( 'origin', getSiteOrigin() );
-			viewer.searchParams.set( 'scope', record.scope );
-			viewer.searchParams.set( 'path', relativeUrl || '/' );
-			window.open( viewer.toString(), '_blank', 'noopener' );
+			const tab = window.open( 'about:blank', '_blank' );
+			if ( ! tab ) {
+				return;
+			}
+			tab.opener = null;
+			try {
+				const [ record ] = await Promise.all( [ sites.get( siteId ), sites.start( siteId ) ] );
+				const viewer = new URL( '/site-viewer.html', window.location.origin );
+				viewer.searchParams.set( 'origin', getSiteOrigin() );
+				viewer.searchParams.set( 'scope', record.scope );
+				viewer.searchParams.set( 'path', relativeUrl || '/' );
+				tab.location.href = viewer.toString();
+			} catch ( error ) {
+				tab.close();
+				throw error;
+			}
 		},
 
 		reservesTrafficLightSpace: false,
 		async isFullscreen() {
 			return false;
 		},
-		onFullscreenChange() {
-			return () => {};
-		},
+		onFullscreenChange: noSubscription,
 		onSiteEvent: ( listener ) => sites.onEvent( listener ),
 		onSnapshotEvent: ( listener ) => wpcom.onSnapshotEvent( listener ),
-		onTogglePanel( listener ) {
-			return onMenuShortcut( listener, 'b', 'shift' );
-		},
-		onToggleSidebar( listener ) {
-			return onMenuShortcut( listener, 'b' );
-		},
-		onAddSite( listener ) {
-			return onMenuShortcut( listener, 'n' );
-		},
-		onAddSiteWithBlueprint() {
-			return () => {};
-		},
-		onNewChat( listener ) {
-			return onMenuShortcut( listener, 'n', 'shift' );
-		},
-		onOpenFolder() {
-			return () => {};
-		},
-		onOpenSite() {
-			return () => {};
-		},
-		onPullSite() {
-			return () => {};
-		},
-		onOpenSettings( listener ) {
-			return onMenuShortcut( () => listener( {} ), ',' );
-		},
-		onAiCreditsPurchased() {
-			return () => {};
-		},
+		...menuShortcuts,
+		onAddSiteWithBlueprint: noSubscription,
+		onOpenFolder: noSubscription,
+		onOpenSite: noSubscription,
+		onPullSite: noSubscription,
+		onAiCreditsPurchased: noSubscription,
 		async getOnboardingHints() {
 			return ( await kvGet< OnboardingHintsState >( ONBOARDING_HINTS_KEY ) ) ?? {};
 		},
@@ -562,22 +537,14 @@ export function createStaticConnector(): Connector {
 				...partial,
 			} ) );
 		},
-		onShowGettingStarted() {
-			return () => {};
-		},
-		onShowWhatsNew() {
-			return () => {};
-		},
+		onShowGettingStarted: noSubscription,
+		onShowWhatsNew: noSubscription,
 		async getAppUpdateStatus() {
 			return { state: 'idle', currentVersion: null };
 		},
 		async checkForAppUpdates() {},
 		async installAppUpdate() {},
-		onAppUpdateStatusChanged() {
-			return () => {};
-		},
-		onAppUpdateNotAvailable() {
-			return () => {};
-		},
+		onAppUpdateStatusChanged: noSubscription,
+		onAppUpdateNotAvailable: noSubscription,
 	};
 }

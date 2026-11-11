@@ -29,6 +29,11 @@ export class PendingWork {
 		}
 	}
 
+	// Nothing running and nothing left to report.
+	isIdle(): boolean {
+		return this.running.size === 0 && this.reports.length === 0;
+	}
+
 	takeReports(): string | undefined {
 		return this.reports.splice( 0 ).join( '\n' ) || undefined;
 	}

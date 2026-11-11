@@ -10,12 +10,11 @@ function dispatchCommand( detail: unknown ): string {
 }
 
 // The page script that mirrors the notes into the page, in the theme's accent
-// as `element` resolves it. Without a tool, the page only picks elements: area
-// selection and drawing need a surface whose region Studio can capture.
+// as `element` resolves it.
 export function buildInspectorCommandScript(
 	annotations: SiteAnnotations,
 	element: Element,
-	tool?: AnnotationTool
+	tool: AnnotationTool
 ): string {
 	const theme = getComputedStyle( element );
 	// Only notes picked on a page. Told about a note on the design system or
@@ -23,8 +22,8 @@ export function buildInspectorCommandScript(
 	const notes = annotations.notes.filter( ( note ) => note.url );
 	return dispatchCommand( {
 		active: annotations.active,
-		tool: tool ?? 'select',
-		areaSelection: !! tool,
+		tool,
+		areaSelection: true,
 		busy: !! ( annotations.preparing || annotations.sending ),
 		blockedNavigation: annotations.blockedNavigation ?? 0,
 		editingId: notes.some( ( note ) => note.id === annotations.editingId )

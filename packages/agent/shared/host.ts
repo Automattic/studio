@@ -226,7 +226,7 @@ export interface StudioAgentHost {
 	annotate?( url: string, timeoutMs: number ): Promise< BrowserAnnotation[] | null >;
 	// The conversation follows a site the agent creates.
 	selectSite?( site: SiteInfo ): Promise< void > | void;
-	// Sends a feedback report to the WordPress Studio team, returning the ID the
-	// service assigned it: send_feedback and the feedback skill.
-	sendFeedback?( feedback: StudioFeedback, accessToken: string ): Promise< { feedbackId: number } >;
+	// Sends a feedback report to the WordPress Studio team as the signed-in user,
+	// returning the ID the service assigned it: send_feedback and the feedback skill.
+	sendFeedback?( feedback: StudioFeedback ): Promise< { feedbackId: number } >;
 }

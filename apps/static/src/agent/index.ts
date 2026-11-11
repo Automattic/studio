@@ -87,35 +87,6 @@ function historyFromEntries( entries: SessionEntry[] ): Message[] {
 	];
 }
 
-// A run cut short (the tab closed mid-tool) leaves tool calls without results,
-// which model APIs reject; answer them as interrupted.
-function closeOpenToolCalls( messages: Message[] ): Message[] {
-	const answered = new Set(
-		messages.flatMap( ( message ) =>
-			message.role === 'toolResult' ? [ message.toolCallId ] : []
-		)
-	);
-	return messages.flatMap( ( message ): Message[] => {
-		if ( message.role !== 'assistant' ) {
-			return [ message ];
-		}
-		const open = message.content.filter(
-			( block ) => block.type === 'toolCall' && ! answered.has( block.id )
-		);
-		return [
-			message,
-			...open.map( ( block ) => ( {
-				role: 'toolResult' as const,
-				toolCallId: block.type === 'toolCall' ? block.id : '',
-				toolName: block.type === 'toolCall' ? block.name : '',
-				content: [ { type: 'text' as const, text: 'Interrupted before the tool finished.' } ],
-				isError: true,
-				timestamp: message.timestamp,
-			} ) ),
-		];
-	} );
-}
-
 /**
  * Studio Code in the page. The agent (`createBrowserAgent`) runs each turn; this
  * keeps what the CLI and the apps around it keep elsewhere: the conversations,
@@ -393,7 +364,7 @@ export class StaticAgentRuns {
 				prompt,
 				images: options.images,
 				files: options.files,
-				history: closeOpenToolCalls( historyFromEntries( session.entries ) ),
+				history: historyFromEntries( session.entries ),
 				model,
 				credentials: {
 					wpcomToken: token?.accessToken,

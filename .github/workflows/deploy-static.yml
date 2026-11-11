@@ -19,6 +19,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: deploy-static
+  cancel-in-progress: false
+
 jobs:
   deploy:
     # Plugin-only releases are marked as prereleases, and carry no new app.
@@ -63,7 +67,7 @@ jobs:
           if [ "$TARGET" = 'preview' ]; then target_args=(--target preview); fi
           sf publish . "${target_args[@]}" --yes --json \
             --message "Studio $GITHUB_REF_NAME ($GITHUB_SHA)" > "$RUNNER_TEMP/receipt.json"
-          jq '{ version: ( .versionId // .version.id ), activation, liveUrl: .space.liveUrl }' "$RUNNER_TEMP/receipt.json"
+          jq '{ version: ( .versionId // .version.id ), activation, siteUrl }' "$RUNNER_TEMP/receipt.json"
 
       - name: Check the live site
         if: env.TARGET == 'live'

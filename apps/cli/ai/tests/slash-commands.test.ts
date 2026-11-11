@@ -345,3 +345,78 @@ describe( '/credits slash command', () => {
 		expect( result ).toBe( 'continue' );
 	} );
 } );
+
+describe( '/api-key slash command', () => {
+	const apiKeyHandler = AI_CHAT_SLASH_COMMANDS.find( ( c ) => c.name === 'api-key' )?.handler;
+
+	function buildApiKeyCtx(
+		overrides: Partial< SlashCommandContext > & { askUserResponse?: string } = {}
+	) {
+		const ui = {
+			askUser: vi.fn().mockResolvedValue( { 0: overrides.askUserResponse ?? '' } ),
+			showInfo: vi.fn(),
+			showError: vi.fn(),
+			showCapabilities: vi.fn(),
+		};
+		const ctx: SlashCommandContext = {
+			ui: ui as unknown as SlashCommandContext[ 'ui' ],
+			currentModel: 'fast',
+			currentProvider: 'wpcom',
+			showCapabilitiesOnConnect: false,
+			switchProvider: vi.fn().mockResolvedValue( undefined ),
+			prepareProviderSelection: vi.fn().mockResolvedValue( undefined ),
+			maybeAutoSwitchProvider: vi.fn().mockResolvedValue( undefined ),
+			persistSessionContext: vi.fn().mockResolvedValue( undefined ),
+			clearSession: vi.fn().mockResolvedValue( undefined ),
+			...overrides,
+		};
+		return { ctx, ui };
+	}
+
+	it( 'updates the Gemini key directly without prompting for provider when currentProvider is gemini-api-key', async () => {
+		expect( apiKeyHandler ).toBeDefined();
+		const { ctx, ui } = buildApiKeyCtx( { currentProvider: 'gemini-api-key' } );
+
+		await apiKeyHandler!( '/api-key', ctx );
+
+		expect( ui.askUser ).not.toHaveBeenCalled();
+		expect( ctx.prepareProviderSelection ).toHaveBeenCalledWith( 'gemini-api-key', {
+			force: true,
+		} );
+		expect( ui.showInfo ).toHaveBeenCalledWith( 'Google Gemini API key updated.' );
+	} );
+
+	it( 'updates the Anthropic key directly without prompting for provider when currentProvider is anthropic-api-key', async () => {
+		const { ctx, ui } = buildApiKeyCtx( { currentProvider: 'anthropic-api-key' } );
+
+		await apiKeyHandler!( '/api-key', ctx );
+
+		expect( ui.askUser ).not.toHaveBeenCalled();
+		expect( ctx.prepareProviderSelection ).toHaveBeenCalledWith( 'anthropic-api-key', {
+			force: true,
+		} );
+		expect( ui.showInfo ).toHaveBeenCalledWith( 'Anthropic API key updated.' );
+	} );
+
+	it( 'asks which API-key provider to configure when currentProvider is wpcom and switches on initial connect', async () => {
+		const { ctx, ui } = buildApiKeyCtx( {
+			currentProvider: 'wpcom',
+			showCapabilitiesOnConnect: true,
+			askUserResponse: 'Google Gemini API',
+		} );
+
+		await apiKeyHandler!( '/api-key', ctx );
+
+		expect( ui.askUser ).toHaveBeenCalledOnce();
+		const [ questions ] = ui.askUser.mock.calls[ 0 ];
+		expect( questions[ 0 ].options.map( ( option: { label: string } ) => option.label ) ).toEqual( [
+			'Anthropic API',
+			'Google Gemini API',
+		] );
+		expect( ctx.prepareProviderSelection ).toHaveBeenCalledWith( 'gemini-api-key', {
+			force: true,
+		} );
+		expect( ctx.switchProvider ).toHaveBeenCalledWith( 'gemini-api-key' );
+		expect( ui.showCapabilities ).toHaveBeenCalledOnce();
+	} );
+} );

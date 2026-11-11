@@ -10,6 +10,9 @@ describe( 'getModelDescription', () => {
 		[ 'claude-sonnet-5', 'Build features, style pages, and fix bugs' ],
 		[ 'strong', 'Plan complex builds and solve harder problems' ],
 		[ 'claude-opus-5', 'Plan complex builds and solve harder problems' ],
+		[ 'gemini-3.8-flash', 'Quick fixes and questions' ],
+		[ 'gemini-4-argon', 'Build features, style pages, and fix bugs' ],
+		[ 'gemini-4-carbon', 'Plan complex builds and solve harder problems' ],
 	] satisfies [ AiModelId, string ][] )(
 		'preserves the description for %s',
 		( id, description ) => {

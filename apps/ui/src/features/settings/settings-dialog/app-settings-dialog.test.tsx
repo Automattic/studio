@@ -369,20 +369,25 @@ describe( 'WordPress Studio settings', () => {
 		);
 	} );
 
-	it( 'starts General preferences with Application when logged in', async () => {
+	it( 'hides the Application heading when logged in', async () => {
 		await setup();
 		await screen.findByRole( 'combobox', { name: 'Language' } );
 		expect( screen.queryByText( TEST_USER.email ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( TEST_USER.displayName ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'tab', { name: 'Account' } ) ).not.toBeInTheDocument();
 		const general = screen.getByRole( 'tabpanel', { name: 'General' } );
-		expect( within( general ).getAllByRole( 'group' )[ 0 ] ).toHaveAccessibleName( 'Application' );
+		expect( within( general ).queryByText( 'Application' ) ).not.toBeInTheDocument();
 		expect(
 			within( general ).queryByRole( 'button', { name: 'Log out' } )
 		).not.toBeInTheDocument();
 		expect(
 			within( general ).queryByRole( 'button', { name: 'Connect' } )
 		).not.toBeInTheDocument();
+	} );
+
+	it( 'shows the Application heading when logged out', async () => {
+		await setup( { signedIn: false } );
+		expect( await screen.findByRole( 'group', { name: 'Application' } ) ).toBeVisible();
 	} );
 
 	it( 'shows account-wide preview usage in Sharing', async () => {
@@ -799,7 +804,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( links ).toHaveLength( 1 );
 		fireEvent.click( links[ 0 ] );
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
-			'https://developer.wordpress.com/docs/developer-tools/studio/studio-code/'
+			'https://wordpress.studio/docs/studio-code/'
 		);
 		expect(
 			screen.getByText(

@@ -1,0 +1,19 @@
+[
+	{
+		"id": "6c6f6361-6b62-4616-8b65-727900000001",
+		"name": "Wren & Barley",
+		"slug": "wren-and-barley",
+		"import": "wren-and-barley.zip",
+		"design": "wren-and-barley/DESIGN.md"
+	},
+	{
+		"id": "6c6f6361-6b62-4616-8b65-727900000002",
+		"name": "Bistro Lune",
+		"slug": "bistro-lune"
+	},
+	{
+		"id": "6c6f6361-6b62-4616-8b65-727900000003",
+		"name": "Ada Portfolio",
+		"slug": "ada-portfolio"
+	}
+]

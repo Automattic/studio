@@ -8,8 +8,8 @@ const sourceSiteSchema = z.object( {
 	wordpressDatabaseCharset: z.string().nullable(),
 	serverDatabaseCharset: z.string().nullable(),
 	contentDirectory: z.string().nullable(),
-	wordpressAbsolutePath: z.string().nullable(),
-	wordpressRoots: z.array( z.string() ),
+	// Reprint releases before WordPress/reprint#982 don't report it.
+	wordpressVersion: z.string().nullable().default( null ),
 	extraDirectories: z.array( z.string() ),
 } );
 
@@ -46,8 +46,7 @@ export const emptyReprintMetadata: ReprintMetadata = {
 		wordpressDatabaseCharset: null,
 		serverDatabaseCharset: null,
 		contentDirectory: null,
-		wordpressAbsolutePath: null,
-		wordpressRoots: [],
+		wordpressVersion: null,
 		extraDirectories: [],
 	},
 };
@@ -68,19 +67,4 @@ export async function getReprintMetadata( options: {
 	} catch ( error ) {
 		throw new Error( `Invalid metadata returned by reprint: ${ String( error ) }` );
 	}
-}
-
-function decodeReprintPath( value: string ): string {
-	const prefix = 'base64:';
-	return value.startsWith( prefix )
-		? Buffer.from( value.slice( prefix.length ), 'base64' ).toString( 'utf-8' )
-		: value;
-}
-
-export function getCoreRoots( metadata: ReprintMetadata ): string[] {
-	const roots = metadata.sourceSite.wordpressRoots.map( decodeReprintPath );
-	return roots.filter(
-		( rootPath ) =>
-			! roots.some( ( other ) => other !== rootPath && other.startsWith( `${ rootPath }/` ) )
-	);
 }

@@ -53,7 +53,8 @@ export async function saveSnapshotToConfig(
 	userId: number,
 	name: string,
 	shareUrl?: string,
-	versionId?: string
+	versionId?: string,
+	liveSiteId?: number
 ): Promise< Snapshot > {
 	const site = await getSiteByFolder( siteFolder );
 	try {
@@ -74,6 +75,7 @@ export async function saveSnapshotToConfig(
 			shareUrl,
 			versionId,
 			syncedAt: Date.now(),
+			liveSiteId,
 		};
 
 		// A sync while the preview was being created may already have listed it.
@@ -114,6 +116,7 @@ export async function linkPulledPreview(
 				userId,
 				shareUrl: preview.shareUrl,
 				expiresAt: preview.expiresAt,
+				liveSiteId: preview.liveSiteId,
 			};
 			config.snapshots.push( snapshot );
 		}
@@ -133,7 +136,8 @@ export async function updateSnapshotInConfig(
 	atomicSiteId: number,
 	siteFolder: string,
 	shareUrl?: string,
-	versionId?: string
+	versionId?: string,
+	liveSiteId?: number
 ): Promise< Snapshot > {
 	const site = await getSiteByFolder( siteFolder );
 	try {
@@ -148,6 +152,7 @@ export async function updateSnapshotInConfig(
 		snapshot.date = Date.now();
 		snapshot.versionId = versionId;
 		snapshot.syncedAt = snapshot.date;
+		snapshot.liveSiteId = liveSiteId;
 		// The update restarted the server's window; the next sync reports where it now ends.
 		delete snapshot.expiresAt;
 		if ( shareUrl ) {
@@ -244,10 +249,10 @@ export async function setSnapshotInConfig(
 
 /**
  * Brings the user's WordPress.com previews in line with the server: forgets those it no longer has
- * standing (bought, expired or deleted elsewhere), records when the rest expire and the preview link
- * it hands out for each, and lists the ones made elsewhere (another computer or tool), since they
- * count toward the account's limit too. A preview saved after `checkedAt` is left alone, since the
- * server's answer may predate it.
+ * standing (bought, expired or deleted elsewhere), records when the rest expire, the preview link
+ * it hands out for each and the paid site each shows changes to, and lists the ones made elsewhere
+ * (another computer or tool), since they count toward the account's limit too. A preview saved
+ * after `checkedAt` is left alone, since the server's answer may predate it.
  *
  * @param standing The server's standing previews, by site ID.
  */
@@ -273,6 +278,7 @@ export async function reconcilePreviews(
 				return false;
 			}
 			snapshot.expiresAt = preview.expiresAt;
+			snapshot.liveSiteId = preview.liveSiteId;
 			if ( preview.shareUrl ) {
 				snapshot.shareUrl = preview.shareUrl;
 			}
@@ -292,6 +298,7 @@ export async function reconcilePreviews(
 				userId,
 				shareUrl: preview.shareUrl,
 				expiresAt: preview.expiresAt,
+				liveSiteId: preview.liveSiteId,
 			} );
 		}
 		if ( JSON.stringify( config.snapshots ) !== before ) {

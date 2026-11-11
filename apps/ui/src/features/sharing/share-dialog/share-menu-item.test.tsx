@@ -91,11 +91,7 @@ it( 'recovers from a failed preview copy and keeps the sharing dialog accessible
 			key: 'ArrowRight',
 		} );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Design review' } ) );
-		await waitFor( () =>
-			expect( openExternalUrl ).toHaveBeenCalledWith(
-				'https://review.example.com/wp-login.php?redirect_to=https%3A%2F%2Freview.example.com%2F'
-			)
-		);
+		await waitFor( () => expect( openExternalUrl ).toHaveBeenCalledWith( preview.shareUrl ) );
 		await open();
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Create preview' } ) );
 		await waitFor( () =>

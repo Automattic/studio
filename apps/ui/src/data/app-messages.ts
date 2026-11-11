@@ -64,6 +64,7 @@ let nextId = 1;
 let rendererMounted = false;
 
 const dismissedProcessingNotices = new Set< string >();
+const pendingActions = new Set< ToastAction >();
 
 const timers = new Map< string, ReturnType< typeof setTimeout > >();
 const listeners = new Set< () => void >();
@@ -161,6 +162,7 @@ export function showToast( input: ToastInput ): string {
 		title: input.title,
 		description: input.description,
 		action: input.action,
+		actionPending: input.action && pendingActions.has( input.action ) ? true : undefined,
 		dismissible: input.dismissible,
 		processing: input.processing,
 		durationMs:
@@ -212,9 +214,12 @@ export function errorMessage( error: unknown ): string {
 }
 
 function setActionPending( action: ToastAction, actionPending: boolean ) {
+	if ( actionPending ) pendingActions.add( action );
+	else pendingActions.delete( action );
 	const update = < T extends { action?: ToastAction } >( item: T ): T =>
 		item.action === action ? { ...item, actionPending } : item;
 	visible = visible.map( update );
+	queued = queued.map( update );
 	emit();
 }
 
@@ -229,7 +234,9 @@ export async function runNoticeAction( action: ToastAction ): Promise< boolean >
 		await action.onClick();
 		if ( action.dismissOnSuccess !== false ) {
 			for ( const id of toastIds ) {
-				if ( visible.some( ( item ) => item.id === id && item.action === action ) ) {
+				if (
+					visible.some( ( item ) => item.id === id && item.action === action && ! item.processing )
+				) {
 					beginToastExit( id );
 				}
 			}
@@ -240,6 +247,10 @@ export async function runNoticeAction( action: ToastAction ): Promise< boolean >
 			if ( visible.some( ( item ) => item.id === id && item.action === action ) ) {
 				const original = offering.find( ( item ) => item.id === id )!;
 				const detail = errorMessage( error );
+				if ( original.processing ) {
+					toast.error( __( 'Action failed' ), { description: detail } );
+					continue;
+				}
 				let description = detail;
 				if ( action.dismissOnSuccess === false && original.description ) {
 					description = original.description.includes( detail )
@@ -364,4 +375,5 @@ export function resetAppMessagesForTests(): void {
 	rendererMounted = false;
 	snapshot = visible;
 	dismissedProcessingNotices.clear();
+	pendingActions.clear();
 }

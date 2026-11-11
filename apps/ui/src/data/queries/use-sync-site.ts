@@ -1,9 +1,14 @@
-import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
+import { canCancelSyncActivity, isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect } from 'react';
 import { getAccountJourney, completeAccountJourney } from '@/data/account-analytics';
-import { openStudioLogsAction, toast } from '@/data/app-messages';
+import {
+	getVisibleToasts,
+	openStudioLogsAction,
+	toast,
+	type ToastAction,
+} from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
@@ -64,8 +69,49 @@ export function useSettleSync() {
 						? __( 'Publishing changes…' )
 						: __( 'Pulling changes…' );
 				const current = getSyncActivity( siteId );
+				let action: ToastAction | undefined;
+				if (
+					settled.direction === 'pull' &&
+					settled.remoteSiteId !== undefined &&
+					canCancelSyncActivity( settled )
+				) {
+					const { remoteSiteId } = settled;
+					const ownsPull = () =>
+						queryClient.isMutating( {
+							mutationKey: PULL_FROM_LIVE_MUTATION_KEY,
+							predicate: ( mutation ) => {
+								const variables = mutation.state.variables as CancelSyncVariables | undefined;
+								return variables?.siteId === siteId && variables.remoteSiteId === remoteSiteId;
+							},
+						} ) > 0;
+					if ( ownsPull() ) {
+						const runId = getSyncActivityRunId( siteId );
+						action = ( previous?.kind === 'pending' &&
+						previous.direction === 'pull' &&
+						previous.remoteSiteId === remoteSiteId
+							? getVisibleToasts().find( ( notice ) => notice.id === noticeId && notice.processing )
+									?.action
+							: undefined ) ?? {
+							label: __( 'Cancel' ),
+							dismissOnSuccess: false,
+							onClick: () => {
+								const latest = getSyncActivity( siteId );
+								if (
+									getSyncActivityRunId( siteId ) === runId &&
+									latest?.kind === 'pending' &&
+									latest.remoteSiteId === remoteSiteId &&
+									canCancelSyncActivity( latest ) &&
+									ownsPull()
+								) {
+									return connector.cancelSync( siteId, remoteSiteId );
+								}
+							},
+						};
+					}
+				}
 				toast.processing( title, {
 					id: noticeId,
+					action,
 					description:
 						[ siteName(), current?.kind === 'pending' ? current.message : undefined ]
 							.filter( Boolean )

@@ -388,12 +388,11 @@ export function formatAiBlockedNotice(): string {
 	);
 }
 
-export const STUDIO_CODE_AI_BETA_APPLY_URL =
-	'https://developer.wordpress.com/studio/studio-code-beta/';
+export const STUDIO_CODE_DOCS_URL = 'https://wordpress.studio/docs/studio-code/';
 
 /**
  * Headline sentence for an account that hasn't been granted Studio Code AI
- * beta access yet (STU-2146), without an apply CTA — for surfaces that render
+ * beta access yet (STU-2146), without a learn-more link — for surfaces that render
  * their own action button (e.g. the AccessRequirements gate). Spend on the
  * quota means the account has demonstrably used Studio Code AI this billing
  * cycle (the backend keeps reporting the real month total after access flips
@@ -411,26 +410,20 @@ export function formatAiAccessRequiredHeadline(
 
 /**
  * Full inline notice for an account without Studio Code AI beta access:
- * the headline above followed by an apply sentence. Deliberately distinct
+ * the headline above followed by a learn-more sentence. Deliberately distinct
  * from the blocked notice — nothing is wrong with the account; access just
- * hasn't been enabled. The apply sentence wraps the application URL in an
- * `<applyLink>` token: render it with `createInterpolateElement`, pointing
- * the token at `STUDIO_CODE_AI_BETA_APPLY_URL`.
+ * hasn't been enabled. The sentence wraps the docs URL in a
+ * `<learnMoreLink>` token: render it with `createInterpolateElement`, pointing
+ * the token at `STUDIO_CODE_DOCS_URL`.
  */
 export function formatAiAccessRequiredNotice(
 	quota?: Pick< StudioAssistantQuota, 'costUsage' > | null
 ): string {
-	const applySentence =
-		quota && quota.costUsage > 0
-			? __(
-					/* translators: <applyLink> and </applyLink> wrap the beta application URL and must be kept as-is. */
-					'Apply to continue at <applyLink>developer.wordpress.com/studio/studio-code-beta</applyLink>.'
-			  )
-			: __(
-					/* translators: <applyLink> and </applyLink> wrap the beta application URL and must be kept as-is. */
-					'Apply at <applyLink>developer.wordpress.com/studio/studio-code-beta</applyLink>.'
-			  );
-	return `${ formatAiAccessRequiredHeadline( quota ) } ${ applySentence }`;
+	const learnMoreSentence = __(
+		/* translators: <learnMoreLink> and </learnMoreLink> wrap the documentation URL and must be kept as-is. */
+		'Learn more at <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>.'
+	);
+	return `${ formatAiAccessRequiredHeadline( quota ) } ${ learnMoreSentence }`;
 }
 
 /**

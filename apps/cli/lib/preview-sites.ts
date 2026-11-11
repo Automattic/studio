@@ -43,7 +43,6 @@ const importResponseSchema = z
 
 // `preview_sites` is left out when the user has none. `expires_at` is in seconds. `share_url` is the
 // preview link WordPress.com creates when the site's first build is done, and '' until then.
-// `owner_can_sign_in` is true once WordPress.com signs the owner straight in to the site.
 const standingPreviewsSchema = z.object( {
 	preview_sites: z
 		.array(
@@ -53,7 +52,6 @@ const standingPreviewsSchema = z.object( {
 				expires_at: z.number().optional(),
 				share_url: z.string().optional(),
 				live_site_id: z.number().optional(),
-				owner_can_sign_in: z.boolean().optional(),
 			} )
 		)
 		.optional(),
@@ -66,7 +64,6 @@ export type StandingPreview = {
 	expiresAt?: number;
 	shareUrl?: string;
 	liveSiteId?: number;
-	ownerCanSignIn?: boolean;
 };
 
 function wpcom( token: string ) {
@@ -252,7 +249,6 @@ export async function getStandingPreviews(
 				expiresAt: site.expires_at === undefined ? undefined : site.expires_at * 1000,
 				shareUrl: site.share_url || undefined,
 				liveSiteId: site.live_site_id,
-				ownerCanSignIn: site.owner_can_sign_in,
 			},
 		] )
 	);

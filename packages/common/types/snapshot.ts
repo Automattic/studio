@@ -23,10 +23,6 @@ export const snapshotSchema = z.object( {
 	// The paid WordPress.com site this preview shows changes to, as WordPress.com last reported it.
 	// WordPress.com checks the link when it reads it, so a lapsed plan or lost access drops it.
 	liveSiteId: z.number().optional(),
-	// Whether WordPress.com signs the owner straight in to the preview, as it last reported. A new
-	// preview's owner can be signed in a little after its frontend is up; until then it opens as a
-	// visitor would see it.
-	ownerCanSignIn: z.boolean().optional(),
 } );
 
 export type Snapshot = z.infer< typeof snapshotSchema >;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getSnapshotOpenUrl, getSnapshotUrl } from './snapshot-url';
+import { getSnapshotAdminUrl, getSnapshotUrl } from './snapshot-url';
 import type { Snapshot } from '@/data/core';
 
 const preview: Snapshot = {
@@ -8,29 +8,22 @@ const preview: Snapshot = {
 	localSiteId: 'local',
 	date: 0,
 	shareUrl: 'https://humble-duck-engineer.wpcomstaging.com/?share=abc',
-	ownerCanSignIn: true,
 };
 
-describe( 'getSnapshotOpenUrl', () => {
-	it( 'signs the owner in to a WordPress.com preview on the way to its homepage', () => {
-		expect( getSnapshotOpenUrl( preview ) ).toBe(
-			'https://humble-duck-engineer.wpcomstaging.com/wp-login.php?redirect_to=https%3A%2F%2Fhumble-duck-engineer.wpcomstaging.com%2F'
+describe( 'getSnapshotAdminUrl', () => {
+	it( 'signs the owner in to a WordPress.com preview on the way to its WP Admin', () => {
+		expect( getSnapshotAdminUrl( preview ) ).toBe(
+			'https://humble-duck-engineer.wpcomstaging.com/wp-login.php?redirect_to=https%3A%2F%2Fhumble-duck-engineer.wpcomstaging.com%2Fwp-admin%2F'
 		);
 	} );
 
-	it( 'opens the preview link until WordPress.com can sign the owner straight in', () => {
-		expect( getSnapshotOpenUrl( { ...preview, ownerCanSignIn: false } ) ).toBe( preview.shareUrl );
-		expect( getSnapshotOpenUrl( { ...preview, ownerCanSignIn: undefined } ) ).toBe(
-			preview.shareUrl
-		);
-	} );
-
-	it( 'leaves the preview link for sharing', () => {
+	it( 'opens the preview itself through its preview link', () => {
 		expect( getSnapshotUrl( preview ) ).toBe( preview.shareUrl );
 	} );
 
-	it( 'opens a public Jurassic Ninja preview as it is', () => {
+	it( 'opens a public Jurassic Ninja preview as it is, with no WP Admin to sign in to', () => {
 		const jn = { ...preview, url: 'chubes4-guaic-studio.wp.build', shareUrl: undefined };
-		expect( getSnapshotOpenUrl( jn ) ).toBe( 'https://chubes4-guaic-studio.wp.build' );
+		expect( getSnapshotUrl( jn ) ).toBe( 'https://chubes4-guaic-studio.wp.build' );
+		expect( getSnapshotAdminUrl( jn ) ).toBeUndefined();
 	} );
 } );

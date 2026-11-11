@@ -550,8 +550,7 @@ describe( 'Snapshots Module', () => {
 		} );
 
 		it( "forgets the user's ended WordPress.com previews, updates the rest and lists ones made elsewhere", async () => {
-			// The live site a preview shows changes to, and whether its owner can sign in, follow the
-			// server: set, cleared and listed.
+			// The live site a preview shows changes to follows the server: set, cleared and listed.
 			mocks.readFile.mockResolvedValue(
 				JSON.stringify( {
 					version: 1,
@@ -579,7 +578,6 @@ describe( 'Snapshots Module', () => {
 							expiresAt: 9000,
 							shareUrl,
 							liveSiteId: 10,
-							ownerCanSignIn: true,
 						},
 					],
 					[
@@ -589,7 +587,6 @@ describe( 'Snapshots Module', () => {
 							expiresAt: 8000,
 							shareUrl: elsewhereUrl,
 							liveSiteId: 60,
-							ownerCanSignIn: false,
 						},
 					],
 					[ 7, { hostname: 'unlinked.wpcomstaging.com', expiresAt: 7000 } ],
@@ -604,15 +601,14 @@ describe( 'Snapshots Module', () => {
 					s.expiresAt,
 					s.shareUrl,
 					s.liveSiteId,
-					s.ownerCanSignIn,
 				] )
 			).toEqual( [
-				[ 'standing.wpcomstaging.com', 9000, shareUrl, 10, true ],
-				[ 'saved-after-check.wpcomstaging.com', undefined, undefined, undefined, undefined ],
-				[ 'legacy.wp.build', undefined, undefined, undefined, undefined ],
-				[ 'other-user.wpcomstaging.com', undefined, undefined, undefined, undefined ],
-				[ 'unlinked.wpcomstaging.com', 7000, undefined, undefined, undefined ],
-				[ 'elsewhere.wpcomstaging.com', 8000, elsewhereUrl, 60, false ],
+				[ 'standing.wpcomstaging.com', 9000, shareUrl, 10 ],
+				[ 'saved-after-check.wpcomstaging.com', undefined, undefined, undefined ],
+				[ 'legacy.wp.build', undefined, undefined, undefined ],
+				[ 'other-user.wpcomstaging.com', undefined, undefined, undefined ],
+				[ 'unlinked.wpcomstaging.com', 7000, undefined, undefined ],
+				[ 'elsewhere.wpcomstaging.com', 8000, elsewhereUrl, 60 ],
 			] );
 		} );
 	} );

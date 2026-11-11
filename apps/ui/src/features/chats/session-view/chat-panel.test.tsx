@@ -1,3 +1,4 @@
+import { createEmptyAiConnections, type AiSettings } from '@studio/agent/protocol/providers';
 import { ADD_PAYMENT_METHOD_URL } from '@studio/common/lib/studio-assistant-quota';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -14,7 +15,6 @@ import { clearComposerDrafts } from '@/features/composer';
 import { createFakeConnector, makeSession, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { AgentRunEvent, SessionEntry } from '@/data/core';
-import type { AiSettings } from '@studio/agent/protocol/providers';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 
 vi.setConfig( { testTimeout: 30_000 } );
@@ -59,10 +59,10 @@ async function setupChat( {
 		: [];
 	const connected: AiSettings = {
 		provider,
-		connections: {
+		connections: createEmptyAiConnections( {
 			wpcom: { connected: signedIn, apiKeyPreview: null },
 			'anthropic-api-key': { connected: hasAnthropicApiKey, apiKeyPreview: null },
-		},
+		} ),
 	};
 	const connector = createFakeConnector(
 		{
@@ -433,10 +433,10 @@ describe( 'Composer access notices', () => {
 				{
 					getAiSettings: async () => ( {
 						provider,
-						connections: {
+						connections: createEmptyAiConnections( {
 							wpcom: { connected: true, apiKeyPreview: null },
 							'anthropic-api-key': { connected: true, apiKeyPreview: 'test' },
-						},
+						} ),
 					} ),
 					getStudioAssistantQuota: async () => quota,
 				}
@@ -469,10 +469,9 @@ describe( 'Composer access notices', () => {
 		async ( saved ) => {
 			let connection: AiSettings = {
 				provider: 'wpcom',
-				connections: {
-					wpcom: { connected: false, apiKeyPreview: null },
+				connections: createEmptyAiConnections( {
 					'anthropic-api-key': { connected: saved, apiKeyPreview: saved ? 'test' : null },
-				},
+				} ),
 			};
 			const site = makeSite( { id: 'one', path: '/sites/my-site' } );
 			const connector = createFakeConnector(

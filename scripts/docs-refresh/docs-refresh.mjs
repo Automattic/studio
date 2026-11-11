@@ -266,10 +266,10 @@ function collectChanges( { version, since } ) {
 	}
 	// Without a version, review what merged since the docs last changed: a refresh that
 	// changes nothing looks at the same commits again next time, and one that merges moves on.
-	const from = since ?? git( [ 'log', '-1', '--format=%H', '--', PAGES_DIR ] );
+	const from = since ?? git( [ 'log', '-1', '--no-merges', '--format=%H', '--', PAGES_DIR ] );
 	const subjects = git( [
 		'log',
-		'--first-parent',
+		'--no-merges',
 		'--reverse',
 		'--format=%s',
 		`${ from }..HEAD`,

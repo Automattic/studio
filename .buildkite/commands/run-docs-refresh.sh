@@ -10,6 +10,7 @@ set -euo pipefail
 #
 #   DOCS_REFRESH_VERSION   the release to document; defaults to the version of a release/<version> branch
 #   DOCS_REFRESH_PROMPT    an extra instruction for the agent; also makes the agent run when nothing changed
+#   DOCS_REFRESH_CHECK_ONLY   true: stop after the screenshot check and the brief, without the agent
 #   DOCS_REFRESH_MODEL     the agent's model; defaults to the CLI's own default
 #   DOCS_REFRESH_MAX_BUDGET_USD   the most one agent run may spend (default 25)
 
@@ -59,6 +60,11 @@ cat "$OUT/brief.md"
 
 if [[ "$decision" != "run" ]]; then
   annotate "Docs refresh for $TARGET: nothing changed since the docs were last updated, and every screenshot matches." success
+  exit 0
+fi
+
+if [[ "${DOCS_REFRESH_CHECK_ONLY:-false}" == "true" ]]; then
+  annotate "Docs refresh for $TARGET (check only): the docs need a refresh; see the brief and the screenshot results in the artifacts."
   exit 0
 fi
 

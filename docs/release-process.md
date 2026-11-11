@@ -161,10 +161,13 @@ To start a run, create a [new build](https://buildkite.com/automattic/studio) on
 | `PIPELINE=docs-refresh.yml` | Required: selects this pipeline |
 | `DOCS_REFRESH_VERSION` | The release to document. Defaults to the version of a `release/<version>` branch |
 | `DOCS_REFRESH_PROMPT` | An extra instruction for the agent, such as a page to recheck. The agent then runs even when nothing changed |
+| `DOCS_REFRESH_CHECK_ONLY=true` | Stop after the screenshot check and the list of changes, without running the agent |
 | `DOCS_REFRESH_DRY_RUN=true` | Push nothing: the change is uploaded as the `docs-refresh.patch` artifact |
 
 - **For a release**: run it on `release/<version>` after code freeze, once the draft release notes are in, so the docs merge before the release is finalized.
 - **On a cadence**: a Buildkite schedule on `trunk` with `PIPELINE=docs-refresh.yml`.
+
+**On your machine**: `scripts/docs-refresh/run-local.sh [<commit or branch>]` runs the first step in the same container with Docker, on a clone of the commit, so your checkout is untouched and the screenshots come out as they do in CI. Without `ANTHROPIC_API_KEY` it stops after the check; with it, apply the result with `git apply --index docs-refresh-output/docs-refresh.patch`. Nothing is pushed.
 
 The first step needs `ANTHROPIC_API_KEY`, the second `GITHUB_TOKEN`. The brief, the screenshot results with pictures of the differences, and the agent's summary are uploaded as artifacts of every run.
 

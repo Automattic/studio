@@ -5,12 +5,7 @@ import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getImporter } from 'cli/lib/import-export/import/import-manager';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
-import {
-	checkBackupSize,
-	fetchSyncableSites,
-	initiateBackup,
-	pollBackupStatus,
-} from 'cli/lib/sync-api';
+import { backupRemoteSite, fetchSyncableSites } from 'cli/lib/sync-api';
 import { fetchPullTree, selectSyncItemsForPull } from 'cli/lib/sync-selector';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import {
@@ -27,7 +22,7 @@ vi.mock( '@studio/common/lib/shared-config', async ( importActual ) => ( {
 	...( await importActual< typeof import('@studio/common/lib/shared-config') >() ),
 	readAuthToken: vi.fn(),
 } ) );
-vi.mock( '@studio/common/lib/connected-sites' );
+vi.mock( '@studio/common/lib/remote-sites' );
 vi.mock( 'cli/lib/cli-config/sites', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/cli-config/sites') >() ),
 	getSiteByFolder: vi.fn(),
@@ -45,9 +40,7 @@ vi.mock( 'cli/lib/sync-selector' );
 vi.mock( 'cli/lib/sync-api', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/sync-api') >() ),
 	fetchSyncableSites: vi.fn(),
-	initiateBackup: vi.fn(),
-	pollBackupStatus: vi.fn(),
-	checkBackupSize: vi.fn(),
+	backupRemoteSite: vi.fn(),
 	downloadBackup: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/wordpress-server-manager' );
@@ -65,11 +58,10 @@ describe( 'CLI: studio pull', () => {
 		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( site );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ remoteSite ] );
-		vi.mocked( pollBackupStatus ).mockResolvedValue( {
-			status: 'finished',
-			downloadUrl: 'https://example.com/backup.tar.gz',
-		} as never );
-		vi.mocked( checkBackupSize ).mockResolvedValue( 1 );
+		vi.mocked( backupRemoteSite ).mockResolvedValue( {
+			url: 'https://example.com/backup.tar.gz',
+			size: 1,
+		} );
 		vi.mocked( isServerRunning ).mockResolvedValue( {} as never );
 		vi.mocked( stopWordPressServer ).mockImplementation( async () => void steps.push( 'stop' ) );
 		vi.mocked( startWordPressServer ).mockImplementation( async () => {
@@ -126,10 +118,12 @@ describe( 'CLI: studio pull', () => {
 			interactive ? undefined : [ 'plugins' ]
 		);
 
-		expect( initiateBackup ).toHaveBeenCalledWith( 'token', remoteSite.id, {
-			optionsToSync: [ 'paths' ],
-			includePathList: [ 'opaque-id' ],
-		} );
+		expect( backupRemoteSite ).toHaveBeenCalledWith(
+			'token',
+			remoteSite.id,
+			{ optionsToSync: [ 'paths' ], includePathList: [ 'opaque-id' ] },
+			expect.any( Function )
+		);
 		expect( recordTracksEvent ).toHaveBeenCalledWith(
 			TRACKS_EVENTS.SYNC_PULL,
 			expect.objectContaining( { selection: 'categories', includes_database: false } )
@@ -140,7 +134,10 @@ describe( 'CLI: studio pull', () => {
 		[ 'warns and continues without asking when nobody can answer', undefined, true ],
 		[ 'stops when the user declines', async () => false, false ],
 	] )( 'pulling a backup over the size limit %s', async ( _case, confirm, imported ) => {
-		vi.mocked( checkBackupSize ).mockResolvedValue( SYNC_PUSH_SIZE_LIMIT_BYTES + 1 );
+		vi.mocked( backupRemoteSite ).mockResolvedValue( {
+			url: 'https://example.com/backup.tar.gz',
+			size: SYNC_PUSH_SIZE_LIMIT_BYTES + 1,
+		} );
 		const messages: string[] = [];
 		const logger = new Logger< never >( { onProgress: ( message ) => messages.push( message ) } );
 

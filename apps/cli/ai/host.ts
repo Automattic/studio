@@ -1,17 +1,16 @@
 import path from 'path';
 import { nodeHostServices, type HostSite, type StudioAgentHost } from '@studio/agent/node';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
 import { sendStudioFeedback } from '@studio/common/lib/feedback';
+import { getRemoteSites } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
 import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
-import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
-import { withWpcomDetails } from '@studio/common/lib/sync/transform-sites';
 import { getAiPayloadsPath } from '@studio/common/lib/well-known-paths';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
+import { withWpcomDetails } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
 import { getStudioUserAgent, resolveImageGenerator } from 'cli/ai/auth';
 import { runCommand as runExportCommand } from 'cli/commands/export';
@@ -39,7 +38,7 @@ import { pullSelectionFromSyncOptions } from 'cli/lib/pull/pull-selection';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
-import { parseSyncOptions } from 'cli/lib/sync-api';
+import { parseSyncOptions, wpcomSites } from 'cli/lib/sync-api';
 import { getTracksOrigin, recordTracksEvent } from 'cli/lib/tracks';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
@@ -207,10 +206,10 @@ export const cliAgentHost: StudioAgentHost = {
 			return token ? getWpComSites( token.accessToken ) : [];
 		},
 		connectedSites: async ( site ) => {
-			const stored = await getConnectedWpcomSitesForLocalSite( site.id );
+			const stored = await getRemoteSites( 'wpcom', site.id );
 			const token = await readAuthToken();
 			return stored.length && token
-				? withWpcomDetails( stored, await fetchSyncableSites( token.accessToken ) )
+				? withWpcomDetails( stored, await wpcomSites.list( { token: token.accessToken } ) )
 				: [];
 		},
 		request: async ( method, path, query, body ) => {

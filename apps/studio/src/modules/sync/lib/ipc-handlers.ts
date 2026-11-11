@@ -7,17 +7,14 @@ import {
 } from '@studio/common/lib/connected-sites';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
-import {
-	fetchHostingPhpVersion,
-	fetchLatestRewindId,
-	fetchRemoteFileTreeContents,
-	fetchSyncableSites,
-} from '@studio/common/lib/sync/sync-api';
 import { readSitePath } from '@studio/common/sites/site-path';
 import { createSyncRunner, type SyncResult } from '@studio/common/sites/sync';
 import { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
+import { getProvider } from '@studio/providers/services';
 import { getAuthenticationToken } from 'src/lib/oauth';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
+
+const wpcomSites = getProvider( 'wpcom' ).sites!;
 
 const syncRunner = createSyncRunner( executeCliCommand );
 
@@ -99,7 +96,10 @@ export async function fetchSyncableWpcomSites( _event: IpcMainInvokeEvent ): Pro
 	if ( ! token?.accessToken ) {
 		throw new Error( 'Authentication required to fetch WordPress.com sites.' );
 	}
-	return fetchSyncableSites( token.accessToken, { planRequired: ! isReprintPullEnabled() } );
+	return wpcomSites.list(
+		{ token: token.accessToken },
+		{ planRequired: ! isReprintPullEnabled() }
+	);
 }
 
 export async function getConnectedWpcomSites(
@@ -126,7 +126,7 @@ export async function getLatestRewindId(
 	if ( ! token?.accessToken ) {
 		throw new Error( 'No token found' );
 	}
-	return fetchLatestRewindId( token.accessToken, remoteSiteId );
+	return wpcomSites.pull!.latestBackupId( { token: token.accessToken }, { id: remoteSiteId } );
 }
 
 /**
@@ -144,7 +144,12 @@ export async function listRemoteFileTree(
 	if ( ! token?.accessToken ) {
 		throw new Error( 'No token found' );
 	}
-	return fetchRemoteFileTreeContents( token.accessToken, remoteSiteId, rewindId, treePath );
+	return wpcomSites.pull!.listBackupFiles(
+		{ token: token.accessToken },
+		{ id: remoteSiteId },
+		rewindId,
+		treePath
+	);
 }
 
 /**
@@ -159,5 +164,5 @@ export async function getHostingPhpVersion(
 	if ( ! token?.accessToken ) {
 		throw new Error( 'No token found' );
 	}
-	return fetchHostingPhpVersion( token.accessToken, remoteSiteId );
+	return wpcomSites.pull!.phpVersion( { token: token.accessToken }, { id: remoteSiteId } );
 }

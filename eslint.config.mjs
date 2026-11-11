@@ -38,6 +38,7 @@ const PROVIDERS_DESCRIPTORS = [
 	'errors.ts',
 	'connection.ts',
 	'*/descriptor.ts',
+	'*/site.ts',
 	'*/config.ts',
 	'wpcom/oauth.ts',
 ];

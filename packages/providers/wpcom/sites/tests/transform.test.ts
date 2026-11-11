@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { transformSitesResponse, withWpcomDetails } from '../transform-sites';
+import { withWpcomDetails } from '../../site';
+import { transformSitesResponse } from '../transform';
 
 // WordPress.com only returns options.software_version for Atomic/Jetpack
 // sites. Simple sites — which includes Business plans that have not yet been

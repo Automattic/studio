@@ -1,8 +1,8 @@
-import { sitesEndpointSiteSchema } from '@studio/common/types/sync';
-import { getSyncSupport, pushNeedsUpgrade, isPressableSite } from './sync-support';
-import type { SitesEndpointSite, SyncSite, SyncSupport } from '@studio/common/types/sync';
+import { sitesEndpointSiteSchema, type SitesEndpointSite } from './schemas';
+import { getSyncSupport, pushNeedsUpgrade, isPressableSite } from './support';
+import type { SyncSite, SyncSupport } from '../site';
 
-export function transformSingleSiteResponse(
+function transformSingleSiteResponse(
 	site: SitesEndpointSite,
 	syncSupport: SyncSupport,
 	isStaging: boolean
@@ -74,29 +74,4 @@ export function transformSitesResponse(
 
 			return transformSingleSiteResponse( site, syncSupport, isStaging );
 		} );
-}
-
-/**
- * Fills stored connections in from the account's current site list: only the link and the sync
- * times are read from storage. A connection missing from the list was deleted, or the user lost
- * access to it.
- */
-export function withWpcomDetails( connections: SyncSite[], wpcomSites: SyncSite[] ): SyncSite[] {
-	return connections.map( ( connection ) => {
-		const { id, localSiteId, lastPullTimestamp, lastPushTimestamp } = connection;
-		const site = wpcomSites.find( ( candidate ) => candidate.id === id );
-		const syncSupport = ! site
-			? 'deleted'
-			: site.syncSupport === 'syncable'
-			? 'already-connected'
-			: site.syncSupport;
-		return {
-			// A site gone from WordPress.com keeps the name and URL it was connected under.
-			...( site ?? connection ),
-			localSiteId,
-			syncSupport,
-			lastPullTimestamp,
-			lastPushTimestamp,
-		};
-	} );
 }

@@ -6,6 +6,7 @@ import { postCopies, postCopiesFact } from '@studio/agent/node/post-copies';
 import { resolvedStyles } from '@studio/agent/node/resolved-styles';
 import { SiteChanges } from '@studio/agent/node/site-changes';
 import { readWordPressSite } from '@studio/agent/node/site-database';
+import { studioChange } from '@studio/agent/node/studio-file-changes';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { liveHost, liveSite } from 'cli/ai/tests/live-host';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node';
@@ -78,6 +79,23 @@ describe.runIf( WORDPRESS )( 'the styles WordPress resolves after a call changed
 		expect( summaries[ 0 ] ).toContain( 'headings Fira Code ("Fira Code", monospace), weight 400' );
 		expect( summaries[ 0 ] ).not.toContain( 'This save changed' );
 		expect( problems ).toEqual( [] );
+	}, 120000 );
+
+	it( "states them after an edit to theme.json that Studio then fixes, as the edit's change", async () => {
+		await wp( 'eval', 'echo 1;' );
+		await check.snapshot();
+		const file = path.join( root, 'wp-content/themes/twentytwentyfive/theme.json' );
+		const theme = JSON.parse( readFileSync( file, 'utf8' ) );
+		theme.styles.elements.heading.typography.fontFamily = 'var:preset|font-family|fira-code';
+		writeFileSync( file, JSON.stringify( theme, null, '\t' ) );
+		// Studio's fix of the file the edit left, as it downloads the fonts a theme.json names.
+		await studioChange( file, async () =>
+			writeFileSync( file, JSON.stringify( theme, null, '\t' ) + '\n' )
+		);
+		const { summaries } = await check.settle();
+		expect( summaries ).toEqual( [
+			expect.stringContaining( `This call changed twentytwentyfive/theme.json. ${ RESOLVES }` ),
+		] );
 	}, 120000 );
 
 	it( 'states them, and what resolves to nothing, after WP-CLI updates the Global Styles post', async () => {

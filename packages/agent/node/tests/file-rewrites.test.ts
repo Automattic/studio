@@ -1,3 +1,4 @@
+import { rewriteJson } from '@studio/common/lib/json-text';
 import { describe, expect, it } from 'vitest';
 import { closestLines, rewriteNotes, rewriteReport } from '@studio/agent/node/file-rewrites';
 
@@ -10,6 +11,28 @@ const quote = ( from: number, quoted: string[] ) =>
 // Every `step`th line of `written` changed.
 const changedEvery = ( written: string[], step: number ) =>
 	written.map( ( line, i ) => ( i % step === step - 1 ? `${ line }!` : line ) );
+// A font family as the agent wrote it, and as Studio's font download left it:
+// its Google Fonts key dropped and its fontFace declared (site-file-guards.ts).
+const family = { fontFamily: 'Fraunces, serif', name: 'Display', slug: 'display' };
+const fontsWritten =
+	JSON.stringify(
+		{ settings: { typography: { fontFamilies: [ { ...family, google: 'family=Fraunces' } ] } } },
+		null,
+		'\t'
+	) + '\n';
+const fontFace = [ 'latin-ext', 'latin' ].map( ( subset ) => ( {
+	fontFamily: 'Fraunces',
+	src: [ `file:./assets/fonts/fraunces/fraunces-${ subset }.woff2` ],
+	unicodeRange: 'U+0100-02BA',
+} ) );
+// With its family name quoted, as Studio quotes one (quoteFontFamilies()).
+const fontsNow = rewriteJson( fontsWritten, {
+	settings: {
+		typography: {
+			fontFamilies: [ { ...family, fontFamily: '"Fraunces", serif', fontFace } ],
+		},
+	},
+} );
 
 describe( 'rewriteNotes', () => {
 	it.each< { case: string; written: string; now: string; notes: string[]; whole?: boolean } >( [
@@ -110,6 +133,23 @@ describe( 'rewriteNotes', () => {
 					AS_WRITTEN,
 					quote( 2, [ 'x'.repeat( 4000 ) ] ),
 					'Lines 7-7 are not quoted here: Read them before editing them.',
+				].join( '\n' ),
+			],
+			whole: false,
+		},
+		{
+			case: 'a JSON member Studio added by its lines, beside a value it changed, quoted',
+			written: fontsWritten,
+			now: fontsNow,
+			notes: [
+				[
+					AS_WRITTEN,
+					quote( 6, [
+						'\t\t\t\t\t"fontFamily": "\\"Fraunces\\", serif",',
+						'\t\t\t\t\t"name": "Display",',
+						'\t\t\t\t\t"slug": "display",',
+					] ),
+					'Lines 9-24 are not quoted here: Read them before editing them.',
 				].join( '\n' ),
 			],
 			whole: false,

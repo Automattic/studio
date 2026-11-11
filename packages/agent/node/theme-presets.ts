@@ -18,6 +18,7 @@ import path from 'path';
 import { rewriteJson } from '@studio/common/lib/json-text';
 import { fileStamp, filesUnder } from '@studio/agent/node/active-code';
 import { readWordPressSite, type WordPressSite } from '@studio/agent/node/site-database';
+import { studioChange } from '@studio/agent/node/studio-file-changes';
 import { activeThemes, parentTheme, themesDir } from '@studio/agent/node/themes';
 import { wpEvalJson } from '@studio/agent/node/tools/utils';
 import type { StudioAgentHost } from '@studio/agent/node/host';
@@ -330,7 +331,9 @@ export async function keepThemePresets(
 			);
 		}
 		if ( changed ) {
-			await writeFile( themeJson, rewriteJson( written, json ), 'utf8' );
+			await studioChange( themeJson, () =>
+				writeFile( themeJson, rewriteJson( written, json ), 'utf8' )
+			);
 		}
 		return notes;
 	} );

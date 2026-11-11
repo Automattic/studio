@@ -12,7 +12,7 @@ type Node =
 			kind: 'object';
 			start: number;
 			end: number;
-			members: { key: string; value: Node }[];
+			members: { key: string; keyStart: number; value: Node }[];
 	  };
 
 // The span of each value in JSON text, by a parse that follows JSON.parse.
@@ -36,14 +36,15 @@ function parse( text: string ): Node {
 		const start = at;
 		if ( text[ at ] === '{' ) {
 			at++;
-			const members: { key: string; value: Node }[] = [];
+			const members: { key: string; keyStart: number; value: Node }[] = [];
 			space();
 			while ( text[ at ] !== '}' ) {
 				space();
+				const keyStart = at;
 				const key = string();
 				space();
 				at++; // :
-				members.push( { key, value: value() } );
+				members.push( { key, keyStart, value: value() } );
 				space();
 				if ( text[ at ] === ',' ) {
 					at++;
@@ -76,6 +77,40 @@ function parse( text: string ): Node {
 		return { kind: 'value', start, end: at };
 	};
 	return value();
+}
+
+/**
+ * Where `after` holds a member, key and value, that the object at its place in
+ * `before` lacks, as offsets in `after`; none where either is not JSON.
+ */
+export function addedMembers( before: string, after: string ): { start: number; end: number }[] {
+	let was: Node;
+	let now: Node;
+	try {
+		JSON.parse( before );
+		JSON.parse( after );
+		was = parse( before );
+		now = parse( after );
+	} catch {
+		return [];
+	}
+	const added: { start: number; end: number }[] = [];
+	const walk = ( a: Node, b: Node ) => {
+		if ( a.kind === 'object' && b.kind === 'object' ) {
+			for ( const member of b.members ) {
+				const old = a.members.find( ( { key } ) => key === member.key );
+				if ( old ) {
+					walk( old.value, member.value );
+				} else {
+					added.push( { start: member.keyStart, end: member.value.end } );
+				}
+			}
+		} else if ( a.kind === 'array' && b.kind === 'array' ) {
+			a.items.forEach( ( item, index ) => b.items[ index ] && walk( item, b.items[ index ] ) );
+		}
+	};
+	walk( was, now );
+	return added;
 }
 
 const same = ( a: unknown, b: unknown ) => JSON.stringify( a ) === JSON.stringify( b );

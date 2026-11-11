@@ -12,6 +12,7 @@ import {
 	repeatedStyleValueNotes,
 	repeatedStyleValues,
 } from '@studio/agent/node/repeated-style-values';
+import { resolvedStyles } from '@studio/agent/node/resolved-styles';
 import { SiteChanges } from '@studio/agent/node/site-changes';
 import { resolveSiteFile } from '@studio/agent/node/site-file';
 import { runWpCli } from '@studio/agent/node/tools/utils';
@@ -459,6 +460,7 @@ describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', (
 		await runWpCli( host, site(), [ 'theme', 'activate', slug ] );
 		const check = new SiteChanges( host, undefined, async () => [ site() ], [
 			postContentChanges,
+			resolvedStyles,
 		] );
 		await check.snapshot();
 		const id = (
@@ -477,6 +479,8 @@ describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', (
 		expect( summaries.join( '\n' ) ).toContain(
 			`Studio made the font sizes Ember Roasters page ${ id } "Home" repeats font size presets of ${ slug }: it added size-1-4-rem (1.4rem) to ${ themeJson }`
 		);
+		// The change to theme.json is Studio's, which its note states, not the call's.
+		expect( summaries.join( '\n' ) ).not.toContain( 'This call changed' );
 		const saved = await runWpCli( host, site(), [ 'post', 'get', id, '--field=post_content' ] );
 		expect( saved ).not.toContain( '1.4rem' );
 		expect( saved.match( /"fontSize":"size-1-4-rem"/g ) ).toHaveLength( 3 );

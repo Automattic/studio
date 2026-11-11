@@ -7,6 +7,7 @@
  * find it. This quotes each run of lines that changed, as they read now, and
  * states that every other line reads as written.
  */
+import { addedMembers } from '@studio/common/lib/json-text';
 // The most a note quotes, in lines and characters. In eval30's 66 quoted
 // rewrites the median changed 11 lines; 61 changed at most 55, the rest were
 // theme.json font faces of 79-109 short lines, and none quoted 5.7k characters.
@@ -88,15 +89,19 @@ function runs( before: string[], after: string[] ): Run[] {
 const range = ( { from, to }: LineSpan ) => `${ from + 1 }-${ to }`;
 
 // Each span of `lines` as it reads, numbered, or undefined past the most a
-// note quotes, and the note naming the spans past it.
-function quoteSpans( lines: string[], spans: LineSpan[] ) {
+// note quotes or where `quote` is false, and the note naming the spans left.
+function quoteSpans(
+	lines: string[],
+	spans: LineSpan[],
+	quote: ( span: LineSpan ) => boolean = () => true
+) {
 	let linesLeft = MAX_LINES;
 	let charsLeft = MAX_CHARS;
 	const unquoted: LineSpan[] = [];
 	const quotes = spans.map( ( span ) => {
 		const quoted = lines.slice( span.from, span.to );
 		const chars = quoted.reduce( ( sum, line ) => sum + line.length + 1, 0 );
-		if ( quoted.length > linesLeft || chars > charsLeft ) {
+		if ( ! quote( span ) || quoted.length > linesLeft || chars > charsLeft ) {
 			unquoted.push( span );
 			return undefined;
 		}
@@ -123,23 +128,62 @@ export function quoteLines( lines: string[], spans: LineSpan[] ): string[] {
 	return [ ...quotes.filter( ( quote ) => quote !== undefined ), ...left ];
 }
 
+// The lines of `now` that hold only a JSON member `written` lacks: a value
+// Studio added, which its note states and no text the agent holds has.
+function addedMemberLines( written: string, now: string ): LineSpan[] {
+	const lineAt = ( offset: number ) => now.slice( 0, offset ).split( '\n' ).length - 1;
+	return addedMembers( written, now )
+		.filter(
+			( { start, end } ) =>
+				! now.slice( now.lastIndexOf( '\n', start - 1 ) + 1, start ).trim() &&
+				/^,?[ \t]*(\n|$)/.test( now.slice( end ) )
+		)
+		.map( ( { start, end } ) => ( { from: lineAt( start ), to: lineAt( end ) + 1 } ) );
+}
+
+// `spans` with the lines of `cut` taken out, as spans of their own.
+function cutSpans( spans: LineSpan[], cut: LineSpan[] ): LineSpan[] {
+	return spans.flatMap( ( span ) => {
+		const pieces: LineSpan[] = [];
+		let from = span.from;
+		for ( const own of cut.filter( ( c ) => c.from < span.to && c.to > span.from ) ) {
+			if ( own.from > from ) {
+				pieces.push( { from, to: own.from } );
+			}
+			pieces.push( { from: Math.max( from, own.from ), to: Math.min( span.to, own.to ) } );
+			from = Math.min( span.to, own.to );
+		}
+		if ( from < span.to ) {
+			pieces.push( { from, to: span.to } );
+		}
+		return pieces;
+	} );
+}
+
 /**
  * What changed from `written` to `now`, quoted as it reads now, in its order:
  * the spans of changed lines, those `JOIN_GAP` apart as one, and the lines gone.
+ * The lines of a JSON member Studio added are named, not quoted.
  */
 function changedLines( written: string, now: string ): { parts: string[]; whole: boolean } {
 	const nowLines = now.split( '\n' );
 	const found = runs( written.split( '\n' ), nowLines );
-	const spans: LineSpan[] = [];
+	const joined: LineSpan[] = [];
 	for ( const { atNow, lines } of found.filter( ( run ) => run.lines.length ) ) {
-		const last = spans.at( -1 );
+		const last = joined.at( -1 );
 		if ( last && atNow - last.to <= JOIN_GAP ) {
 			last.to = atNow + lines.length;
 		} else {
-			spans.push( { from: atNow, to: atNow + lines.length } );
+			joined.push( { from: atNow, to: atNow + lines.length } );
 		}
 	}
-	const { quotes, left } = quoteSpans( nowLines, spans );
+	const added = joined.length ? addedMemberLines( written, now ) : [];
+	const spans = cutSpans( joined, added );
+	const { quotes, left } = quoteSpans(
+		nowLines,
+		spans,
+		( span ) => ! added.some( ( own ) => own.from <= span.from && span.to <= own.to )
+	);
 	const parts: string[] = [];
 	let next = 0;
 	for ( const { at, atNow, removed, lines } of found ) {

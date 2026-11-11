@@ -16,6 +16,7 @@ import { readFile, readdir, stat, writeFile } from 'fs/promises';
 import path from 'path';
 import { rewriteJson } from '@studio/common/lib/json-text';
 import { fileStamp } from '@studio/agent/node/active-code';
+import { studioChange } from '@studio/agent/node/studio-file-changes';
 import { exists, isUpdatableTheme, themesDir } from '@studio/agent/node/themes';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
@@ -131,7 +132,7 @@ export const templatePartAreas: SiteChangeSource = {
 				...parts,
 				...[ ...areas ].map( ( [ name, area ] ) => ( { area, name, title: titleOf( name ) } ) ),
 			];
-			await writeFile( file, rewriteJson( written, json ) );
+			await studioChange( file, () => writeFile( file, rewriteJson( written, json ) ) );
 			const list = [ ...areas ].map( ( [ name, area ] ) => `${ name } (${ area })` ).join( ', ' );
 			reports.push( {
 				key: `template part areas of ${ theme }`,

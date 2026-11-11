@@ -7,9 +7,9 @@
  * after it saves the workspace copy of Global Styles (describeSavedGlobalStyles()
  * in global-styles.ts), without what the call changed of them, which only the
  * styles before it would tell; a call whose copy save stated them is not
- * stated again.
+ * stated again, nor one whose only change is a fix Studio saved, which its
+ * note states (studio-file-changes.ts).
  */
-import { stat } from 'fs/promises';
 import path from 'path';
 import {
 	describeSavedGlobalStyles,
@@ -19,6 +19,7 @@ import {
 } from '@studio/agent/node/global-styles';
 import { hash } from '@studio/agent/node/post-copies';
 import { readWordPressSite } from '@studio/agent/node/site-database';
+import { changedByStudio, fileVersion } from '@studio/agent/node/studio-file-changes';
 import { activeThemes, themesDir } from '@studio/agent/node/themes';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
@@ -58,10 +59,9 @@ export const resolvedStyles: SiteChangeSource = {
 		}
 		await Promise.all(
 			themes.map( async ( theme ) => {
-				const file = path.join( themesDir( sitePath, theme ), THEME_JSON );
-				const stats = await stat( file ).catch( () => undefined );
-				if ( stats ) {
-					versions[ `${ FILE }${ theme }/${ THEME_JSON }` ] = `${ stats.mtimeMs }:${ stats.size }`;
+				const version = await fileVersion( path.join( themesDir( sitePath, theme ), THEME_JSON ) );
+				if ( version ) {
+					versions[ `${ FILE }${ theme }/${ THEME_JSON }` ] = version;
 				}
 			} )
 		);
@@ -70,6 +70,19 @@ export const resolvedStyles: SiteChangeSource = {
 	async check( site, before, after, host ) {
 		const changed = [ ...new Set( [ ...Object.keys( before ), ...Object.keys( after ) ] ) ]
 			.filter( ( key ) => before[ key ] !== after[ key ] )
+			// A fix Studio saved states its own change.
+			.filter(
+				( key ) =>
+					! key.startsWith( FILE ) ||
+					! changedByStudio(
+						path.join(
+							themesDir( site.path, key.slice( FILE.length ).split( '/' )[ 0 ] ),
+							THEME_JSON
+						),
+						before[ key ] ?? '',
+						after[ key ] ?? ''
+					)
+			)
 			.sort();
 		// Another theme activated is not a change to what this one merges.
 		if ( ! changed.length || changed.includes( THEMES ) ) {

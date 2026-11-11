@@ -31,6 +31,7 @@ import {
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { isBlockMarkup, type SiteFile } from '@studio/agent/node/site-file';
 import { placeOf, saveMarkup, siteMarkup, type Markup } from '@studio/agent/node/site-markup';
+import { studioChange } from '@studio/agent/node/studio-file-changes';
 import { themePresets } from '@studio/agent/node/theme-presets';
 import { activeThemes, isUpdatableTheme, parentTheme, themesDir } from '@studio/agent/node/themes';
 import type { StudioAgentHost } from '@studio/agent/node/host';
@@ -302,7 +303,9 @@ async function addPresets(
 			],
 		},
 	};
-	await writeFile( themeJsonFile, rewriteJson( written, themeJson ), 'utf8' );
+	await studioChange( themeJsonFile, () =>
+		writeFile( themeJsonFile, rewriteJson( written, themeJson ), 'utf8' )
+	);
 	return {
 		added: added.map( ( [ , value ] ) => value ),
 		note: `Studio made the ${ made.name }s ${ label } repeats ${ made.name } presets of ${

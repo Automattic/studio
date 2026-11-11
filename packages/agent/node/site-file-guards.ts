@@ -18,6 +18,7 @@ import {
 } from '@studio/agent/node/front-page-template';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { isBlockMarkup, readSiteFile, type SiteFile } from '@studio/agent/node/site-file';
+import { studioChange } from '@studio/agent/node/studio-file-changes';
 import {
 	otherHome,
 	ownThemeHome,
@@ -273,7 +274,7 @@ export async function quoteFontFamilies( siteFile: SiteFile ): Promise< string[]
 	};
 	walk( json?.styles );
 	if ( changed ) {
-		await writeFile( file, rewriteJson( written, json ) );
+		await studioChange( file, () => writeFile( file, rewriteJson( written, json ) ) );
 	}
 	return [];
 }
@@ -334,15 +335,19 @@ export async function selfHostFonts( siteFile: SiteFile ): Promise< string[] > {
 	if ( theme?.file !== 'theme.json' ) {
 		return [];
 	}
-	const { hosted, missing, downloaded, failed } = await selfHostThemeJsonFonts( theme.dir );
+	const themeJson = path.join( theme.dir, 'theme.json' );
+	const { hosted, missing, downloaded, failed, dropped } = await studioChange(
+		themeJson,
+		async () => {
+			const fonts = await selfHostThemeJsonFonts( theme.dir );
+			const named = [ ...fonts.hosted, ...fonts.downloaded ];
+			return {
+				...fonts,
+				dropped: named.length ? await dropFontFamilyKeys( themeJson, named ) : [],
+			};
+		}
+	);
 	const themePath = `wp-content/themes/${ theme.slug }`;
-	const dropped =
-		hosted.length || downloaded.length
-			? await dropFontFamilyKeys( path.join( theme.dir, 'theme.json' ), [
-					...hosted,
-					...downloaded,
-			  ] )
-			: [];
 	return [
 		...( downloaded.length
 			? [

@@ -1,3 +1,4 @@
+import { createEmptyAiConnections } from '@studio/agent/protocol/providers';
 import { act, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { createFakeConnector, TEST_USER } from '@/test/fake-connector';
@@ -18,10 +19,10 @@ describe( 'AI provider connections', () => {
 				{
 					getAiSettings: async () => ( {
 						provider: 'wpcom',
-						connections: {
+						connections: createEmptyAiConnections( {
 							wpcom: { connected, apiKeyPreview: null },
 							'anthropic-api-key': { connected: true, apiKeyPreview: 'sk-…last' },
-						},
+						} ),
 					} ),
 				}
 			);

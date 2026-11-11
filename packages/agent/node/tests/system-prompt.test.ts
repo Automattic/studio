@@ -48,6 +48,7 @@ describe( 'buildSystemPrompt', () => {
 
 	it( 'carries the remote-site runbook only when a WordPress.com site is active', () => {
 		const remote = buildSystemPrompt( {
+			remoteHosts: createFakeHost().remoteHosts,
 			activeSite: {
 				name: 'Live',
 				path: '',
@@ -146,6 +147,7 @@ describe( 'buildSystemPrompt', () => {
 
 	it( 'states a WordPress.com active site with its ID and URL', () => {
 		const prompt = buildSystemPrompt( {
+			remoteHosts: createFakeHost().remoteHosts,
 			activeSite: {
 				name: 'Live',
 				path: '',

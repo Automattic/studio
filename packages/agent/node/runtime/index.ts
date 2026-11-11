@@ -337,6 +337,7 @@ async function createStudioAgentSession(
 
 	const tools = buildAgentTools( config, imageGenerationEnabled, visionEnabled );
 	const systemPrompt = buildSystemPrompt( {
+		remoteHosts: config.host.remoteHosts,
 		userInstructions,
 		tools: tools.map( toolPromptContribution ),
 		activeSite: config.activeSite,

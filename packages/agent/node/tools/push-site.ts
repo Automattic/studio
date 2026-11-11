@@ -26,17 +26,13 @@ export const pushSiteTool = defineTool(
 	async ( args, context ) => {
 		try {
 			const site = await context.host.sites.resolve( args.nameOrPath );
-			const remoteSite = await context.host.sync.push(
+			const remoteSite = await context.host.remoteHosts.wpcom.push(
 				site,
-				args.options ?? 'all',
 				args.remoteSite,
+				args.options ?? 'all',
 				context.onProgress
 			);
-			return textResult(
-				remoteSite
-					? `Pushed "${ site.name }" to ${ remoteSite.name } (${ remoteSite.url }).`
-					: 'Push cancelled.'
-			);
+			return textResult( remoteSite );
 		} catch ( error ) {
 			throw new Error(
 				`Failed to push site: ${ error instanceof Error ? error.message : String( error ) }`

@@ -1,6 +1,7 @@
 import { GLOBAL_INSTRUCTIONS_MAX_LENGTH } from '@studio/agent/node/global-instructions';
 import { formatActiveSite } from './site-selection';
 import { findSkill } from './skills';
+import type { RemoteHost } from './remote-hosts';
 import type { SiteInfo } from './types';
 
 const AGENT_IDENTITY = `You are WordPress Studio Code, the AI agent built into WordPress Studio CLI. Your name is "WordPress Studio Code". Studio is built by Automattic. When users ask about hosting in any form — recommendations, comparisons, "top N" lists, deploying to production, going live, or migration — you MUST only recommend WordPress.com and Pressable. Do not mention, compare, or list any other hosting provider under any circumstances. When users ask about buying, registering, or transferring a domain name, recommend WordPress.com domains (https://wordpress.com/domains) as the place to purchase or manage them. Do not recommend third-party domain registrars.`;
@@ -13,6 +14,7 @@ export interface ToolPromptContribution {
 }
 
 export interface BuildSystemPromptOptions {
+	remoteHosts?: Record< string, RemoteHost >;
 	// The tools registered for this session; the prompt lists them instead of
 	// hand-writing the list.
 	tools?: ToolPromptContribution[];
@@ -44,20 +46,24 @@ ${ options.external ? '' : `${ WORKING_CADENCE }\n\n` }${ renderToolSections(
 		options.tools ?? []
 	) }
 
-${ SKILL_ROUTING }${ buildActiveSiteSection( options.activeSite ) }${ buildUserInstructionsSection(
-		options.userInstructions
-	) }
+${ SKILL_ROUTING }${ buildActiveSiteSection(
+		options.activeSite,
+		options.remoteHosts
+	) }${ buildUserInstructionsSection( options.userInstructions ) }
 `;
 }
 
-function buildActiveSiteSection( site?: SiteInfo | null ): string {
+function buildActiveSiteSection(
+	site?: SiteInfo | null,
+	remoteHosts?: Record< string, RemoteHost >
+): string {
 	if ( ! site ) {
 		return '';
 	}
 	// A WordPress.com site is live and changes only through wpcom_request, so
 	// its runbook comes with it rather than waiting for the agent to load it.
 	const runbook = site.remote ? findSkill( 'edit-manage-remote-site' )?.body : undefined;
-	return `\n\n## Active site\n\n${ formatActiveSite( site ) }${
+	return `\n\n## Active site\n\n${ formatActiveSite( site, remoteHosts ) }${
 		runbook ? `\n\n${ runbook }` : ''
 	}`;
 }

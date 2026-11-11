@@ -1,25 +1,5 @@
-import { readAuthToken } from '@studio/common/lib/shared-config';
 import { defineTool, REMOTE_READ } from './define-tool';
 import { textResult } from './utils';
-import type { StudioAgentHost } from '@studio/agent/node/host';
-
-// The WordPress.com sites the stored login can reach. A failure here leaves the
-// local listing intact.
-async function listWpcomSites( host: StudioAgentHost ) {
-	const token = await readAuthToken();
-	if ( ! token?.accessToken ) {
-		return { signedIn: false, sites: [] };
-	}
-	try {
-		return { signedIn: true, sites: await host.wpcom.sites( token.accessToken ) };
-	} catch ( error ) {
-		return {
-			signedIn: true,
-			sites: [],
-			error: error instanceof Error ? error.message : String( error ),
-		};
-	}
-}
 
 export const listSitesTool = defineTool(
 	'site_list',
@@ -27,11 +7,15 @@ export const listSitesTool = defineTool(
 	{},
 	async ( _args, { host } ) => {
 		try {
-			const [ local, wordpressCom ] = await Promise.all( [
+			const [ local, listings ] = await Promise.all( [
 				host.sites.list(),
-				listWpcomSites( host ),
+				Promise.all(
+					Object.values( host.remoteHosts )
+						.filter( ( remote ) => remote.sites )
+						.map( async ( remote ) => [ remote.sites!.listKey, await remote.sites!.list() ] )
+				),
 			] );
-			return textResult( JSON.stringify( { local, wordpressCom } ) );
+			return textResult( JSON.stringify( { local, ...Object.fromEntries( listings ) } ) );
 		} catch ( error ) {
 			throw new Error(
 				`Failed to list sites: ${ error instanceof Error ? error.message : String( error ) }`

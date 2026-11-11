@@ -1,9 +1,6 @@
 import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
-import { readAuthToken } from '@studio/common/lib/shared-config';
-import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { vi } from 'vitest';
 import { validateBlocks } from '@studio/agent/node/block-validator';
 import { getSharedBrowser } from '@studio/agent/node/browser-utils';
@@ -41,12 +38,6 @@ vi.mock( '@studio/agent/node/image-generation', async () => ( {
 	generateImages: vi.fn(),
 	isImageGenerationAvailable: vi.fn(),
 } ) );
-
-vi.mock( '@studio/common/lib/connected-sites', () => ( {
-	getConnectedWpcomSitesForLocalSite: vi.fn(),
-} ) );
-
-vi.mock( '@studio/common/lib/sync/sync-api', () => ( { fetchSyncableSites: vi.fn() } ) );
 
 vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/lib/shared-config') >() ),
@@ -616,99 +607,74 @@ describe( 'Studio AI MCP tools', () => {
 		] );
 	} );
 
-	it( 'tags connected remote sites with type "wpcom-remote"', async () => {
-		const site = {
-			id: 111,
-			localSiteId: '',
-			name: 'My Production Site',
-			url: 'https://myprod.wordpress.com',
-			isStaging: false,
-			isPressable: false,
-			environmentType: 'production',
-			syncSupport: 'syncable' as const,
-			lastPullTimestamp: null,
-			lastPushTimestamp: null,
-		};
-		vi.mocked( getConnectedWpcomSitesForLocalSite ).mockResolvedValue( [
-			{ ...site, localSiteId: 'site-123', name: 'Name at connect time' },
-		] );
-		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
-		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ site ] );
-
-		const result = await getTool( 'site_connected_remote_sites' ).rawHandler( {
-			nameOrPath: 'My Site',
-		} as never );
-
-		expect( getConnectedWpcomSitesForLocalSite ).toHaveBeenCalledWith( 'site-123' );
-		const parsed = JSON.parse( getTextContent( result ) ?? '[]' );
-		expect( parsed ).toEqual( [
+	it.each( [
+		[
+			'signed in',
 			{
-				type: 'wpcom-remote',
-				id: 111,
-				name: 'My Production Site',
-				url: 'https://myprod.wordpress.com',
-				isStaging: false,
-				isPressable: false,
-				environmentType: 'production',
-				syncSupport: 'already-connected',
-				lastPushTimestamp: null,
-				lastPullTimestamp: null,
+				signedIn: true,
+				sites: [ { id: 111, name: 'My Production Site', url: 'https://myprod.wordpress.com' } ],
 			},
-		] );
+		],
+		[ 'signed out', { signedIn: false, sites: [] } ],
+		[ 'listing error', { signedIn: true, sites: [], error: 'Failed to fetch' } ],
+	] )( 'site_list preserves its JSON when %s', async ( _label, listing ) => {
+		vi.mocked( host.sites.list ).mockResolvedValue( [
+			{ id: 'site-123', name: 'My Site', running: false },
+		] as never );
+		vi.mocked( host.remoteHosts.wpcom.sites!.list ).mockResolvedValue( listing );
+		expect( getTextContent( await getTool( 'site_list' ).rawHandler( {} as never ) ) ).toBe(
+			JSON.stringify( {
+				local: [ { id: 'site-123', name: 'My Site', running: false } ],
+				wordpressCom: listing,
+			} )
+		);
 	} );
 
-	describe( 'site_list', () => {
-		beforeEach( () => {
-			vi.mocked( host.sites.list ).mockResolvedValue( [
-				{ id: 'site-123', name: 'My Site', running: false },
-			] as never );
-		} );
-
-		it( 'lists local and WordPress.com sites together', async () => {
-			vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
-			vi.mocked( host.wpcom.sites ).mockResolvedValue( [
-				{ id: 111, name: 'My Production Site', url: 'https://myprod.wordpress.com' },
-			] );
-
-			const result = await getTool( 'site_list' ).rawHandler( {} as never );
-
-			expect( host.wpcom.sites ).toHaveBeenCalledWith( 'token' );
-			expect( JSON.parse( getTextContent( result )! ) ).toEqual( {
-				local: [ { id: 'site-123', name: 'My Site', running: false } ],
-				wordpressCom: {
-					signedIn: true,
-					sites: [ { id: 111, name: 'My Production Site', url: 'https://myprod.wordpress.com' } ],
+	it.each( [
+		[
+			'site_connected_remote_sites',
+			'targets',
+			[
+				{
+					type: 'wpcom-remote',
+					id: 111,
+					name: 'My Production Site',
+					url: 'https://myprod.wordpress.com',
+					isStaging: false,
+					isPressable: false,
+					environmentType: 'production',
+					syncSupport: 'already-connected',
+					lastPushTimestamp: null,
+					lastPullTimestamp: null,
 				},
-			} );
-		} );
-
-		it( 'says when the user is not logged in to WordPress.com', async () => {
-			vi.mocked( readAuthToken ).mockResolvedValue( null );
-
-			const result = await getTool( 'site_list' ).rawHandler( {} as never );
-
-			expect( host.wpcom.sites ).not.toHaveBeenCalled();
-			expect( JSON.parse( getTextContent( result )! ).wordpressCom ).toEqual( {
-				signedIn: false,
-				sites: [],
-			} );
-		} );
-
-		it( 'keeps the local sites when WordPress.com cannot be reached', async () => {
-			vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
-			vi.mocked( host.wpcom.sites ).mockRejectedValue( new Error( 'Failed to fetch' ) );
-
-			const parsed = JSON.parse(
-				getTextContent( await getTool( 'site_list' ).rawHandler( {} as never ) )!
-			);
-
-			expect( parsed.local ).toHaveLength( 1 );
-			expect( parsed.wordpressCom ).toEqual( {
-				signedIn: true,
-				sites: [],
-				error: 'Failed to fetch',
-			} );
-		} );
+			],
+		],
+		[ 'site_connected_remote_sites', 'targets', [] ],
+		[
+			'site_push',
+			'push',
+			'Pushed "My Site" to My Production Site (https://myprod.wordpress.com).',
+		],
+		[ 'site_push', 'push', 'Push cancelled.' ],
+		[
+			'site_pull',
+			'pull',
+			'Pulled My Production Site (https://myprod.wordpress.com) into "My Site".',
+		],
+		[ 'site_pull', 'pull', 'Pull cancelled.' ],
+	] as const )( '%s preserves the host result (%s)', async ( name, operation, output ) => {
+		vi.mocked( host.remoteHosts.wpcom[ operation ]! ).mockResolvedValue( output as never );
+		const result = await getTool( name ).rawHandler( {
+			nameOrPath: 'My Site',
+			remoteSite: '111',
+		} as never );
+		expect( getTextContent( result ) ).toBe(
+			typeof output === 'string' ? output : JSON.stringify( output, null, 2 )
+		);
+		expect( host.remoteHosts.wpcom[ operation ] ).toHaveBeenCalledWith(
+			mockSite,
+			...( operation === 'targets' ? [] : [ '111', 'all', expect.any( Function ) ] )
+		);
 	} );
 
 	it( 'updates previews with a normalized hostname', async () => {

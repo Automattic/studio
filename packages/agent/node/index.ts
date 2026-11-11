@@ -10,6 +10,7 @@ export type {
 	StudioAgentUi,
 	WpCliOutput,
 } from './host';
+export type { RemoteHost, RemoteSite, HostSiteListing } from './remote-hosts';
 export type { StudioAgentTurnConfig, StudioAgentTurnHandle } from './runtime';
 export type { AskUserHandler, AskUserQuestion, SiteInfo } from './types';
 

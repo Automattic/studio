@@ -24,17 +24,13 @@ export const pullSiteTool = defineTool(
 	async ( args, context ) => {
 		try {
 			const site = await context.host.sites.resolve( args.nameOrPath );
-			const remoteSite = await context.host.sync.pull(
+			const remoteSite = await context.host.remoteHosts.wpcom.pull!(
 				site,
-				args.options ?? 'all',
 				args.remoteSite,
+				args.options ?? 'all',
 				context.onProgress
 			);
-			return textResult(
-				remoteSite
-					? `Pulled ${ remoteSite.name } (${ remoteSite.url }) into "${ site.name }".`
-					: 'Pull cancelled.'
-			);
+			return textResult( remoteSite );
 		} catch ( error ) {
 			throw new Error(
 				`Failed to pull site: ${ error instanceof Error ? error.message : String( error ) }`

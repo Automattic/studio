@@ -1,10 +1,10 @@
+import type { RemoteHost } from './remote-hosts';
 import type { SiteInfo } from './types';
 import type { StudioChatArtifactData } from '@studio/agent/protocol/chat-artifacts';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { SiteStatus } from '@studio/common/types/site-status';
 import type { Snapshot } from '@studio/common/types/snapshot';
-import type { SyncSite } from '@studio/common/types/sync';
 
 export type ProgressCallback = ( message: string, update?: boolean ) => void;
 
@@ -72,25 +72,7 @@ export interface StudioAgentHost {
 		): Promise< Snapshot >;
 		delete( hostname: string, onProgress: ProgressCallback ): Promise< void >;
 	};
-	// Push and pull return the WordPress.com site they synced with, or nothing when
-	// the user backed out.
-	sync: {
-		push(
-			site: HostSite,
-			options: string,
-			remoteSite: string | undefined,
-			onProgress: ProgressCallback
-		): Promise< SyncSite | undefined >;
-		pull(
-			site: HostSite,
-			options: string,
-			remoteSite: string | undefined,
-			onProgress: ProgressCallback
-		): Promise< SyncSite | undefined >;
-	};
-	wpcom: {
-		sites( accessToken: string ): Promise< unknown[] >;
-	};
+	remoteHosts: Record< string, RemoteHost >;
 	tracks: {
 		record( event: TracksEventName, props: TracksProps ): Promise< void >;
 	};

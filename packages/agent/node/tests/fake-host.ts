@@ -68,12 +68,23 @@ export function createFakeHost( sitesRoot = '/sites' ): StudioAgentHost {
 			update: vi.fn( async () => fakePreview ),
 			delete: vi.fn( async () => {} ),
 		},
-		sync: {
-			push: vi.fn( async () => fakeRemoteSite ),
-			pull: vi.fn( async () => fakeRemoteSite ),
-		},
-		wpcom: {
-			sites: vi.fn( async () => [] ),
+		remoteHosts: {
+			wpcom: {
+				name: 'WordPress.com',
+				sites: {
+					listKey: 'wordpressCom',
+					list: vi.fn( async () => ( { signedIn: false, sites: [] } ) ),
+				},
+				targets: vi.fn( async () => [] ),
+				push: vi.fn(
+					async () => 'Pushed "My Site" to My Production Site (https://myprod.wordpress.com).'
+				),
+				pull: vi.fn(
+					async () => 'Pulled My Production Site (https://myprod.wordpress.com) into "My Site".'
+				),
+				describeSite: ( site ) =>
+					`"${ site.name }" (ID: ${ site.wpcomSiteId }) at ${ site.url } (WordPress.com)`,
+			},
 		},
 		tracks: {
 			record: vi.fn( async () => {} ),

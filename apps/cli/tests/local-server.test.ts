@@ -83,6 +83,7 @@ describe( 'local web server Connect contracts', () => {
 			connections: {
 				wpcom: { connected: false, apiKeyPreview: null },
 				'anthropic-api-key': { connected: false, apiKeyPreview: null },
+				'gemini-api-key': { connected: false, apiKeyPreview: null },
 			},
 		} );
 		mocks.saveAiProviderApiKey.mockImplementation(
@@ -94,6 +95,7 @@ describe( 'local web server Connect contracts', () => {
 						connected: key !== null,
 						apiKeyPreview: key === null ? null : key.trim().slice( -4 ),
 					},
+					'gemini-api-key': { connected: false, apiKeyPreview: null },
 				},
 			} )
 		);
@@ -102,6 +104,7 @@ describe( 'local web server Connect contracts', () => {
 			connections: {
 				wpcom: { connected: false, apiKeyPreview: null },
 				'anthropic-api-key': { connected: true, apiKeyPreview: '1234' },
+				'gemini-api-key': { connected: false, apiKeyPreview: null },
 			},
 		} ) );
 		server = await startLocalServer( {
@@ -129,6 +132,7 @@ describe( 'local web server Connect contracts', () => {
 			connections: {
 				wpcom: { connected: false, apiKeyPreview: null },
 				'anthropic-api-key': { connected: false, apiKeyPreview: null },
+				'gemini-api-key': { connected: false, apiKeyPreview: null },
 			},
 		} );
 	} );

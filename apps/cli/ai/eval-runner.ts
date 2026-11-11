@@ -42,6 +42,7 @@ import {
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { killDaemonAndChildren } from 'cli/lib/daemon-client';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { Logger } from 'cli/logger';
@@ -507,6 +508,9 @@ async function main() {
 		emit( { success: false, error: error instanceof Error ? error.message : String( error ) } );
 		exitCode = 1;
 	}
+	// The case's own process manager (eval-runner-entry), with whatever of its
+	// sites a failed case left running.
+	await killDaemonAndChildren().catch( () => undefined );
 	// The Agent SDK keeps internal handles open past conversation end; bail out
 	// rather than leaving promptfoo waiting on its exec child.
 	process.exit( exitCode );

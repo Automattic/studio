@@ -44,30 +44,65 @@ export async function updateAiFields( update: AiFields ): Promise< AiFields > {
 	return fields;
 }
 
-async function readStoredConfig( provider: ProviderId ): Promise< unknown > {
-	if ( provider === 'wpcom' ) {
-		const token = await readAuthToken();
-		return token ? { token: token.accessToken } : undefined;
-	}
-	const { anthropicApiKey } = await readAiFields();
-	return anthropicApiKey ? { method: 'api-key', apiKey: anthropicApiKey } : undefined;
-}
+type ConfigStore< Config > = {
+	read(): Promise< unknown >;
+	write( config: Config | undefined ): Promise< void >;
+};
+
+// The WordPress.com config is the Studio sign-in, so builds of every version
+// share it.
+const STORES: { [ Id in ProviderId ]: ConfigStore< ProviderConfigs[ Id ] > } = {
+	wpcom: {
+		read: async () => {
+			const token = await readAuthToken();
+			return (
+				token && {
+					token: token.accessToken,
+					expiresAt: token.expirationTime,
+					user: { id: token.id, email: token.email, displayName: token.displayName },
+				}
+			);
+		},
+		write: async ( config ) => {
+			if ( config && ! config.user ) {
+				throw new Error( 'Signing in to Studio needs the WordPress.com account.' );
+			}
+			const expirationTime = config?.expiresAt ?? Date.now();
+			await updateSharedConfig( {
+				authToken: config?.user && {
+					accessToken: config.token,
+					expirationTime,
+					expiresIn: Math.round( ( expirationTime - Date.now() ) / 1000 ),
+					...config.user,
+				},
+			} );
+		},
+	},
+	anthropic: {
+		read: async () => {
+			const { anthropicApiKey } = await readAiFields();
+			return anthropicApiKey && { method: 'api-key', apiKey: anthropicApiKey };
+		},
+		write: async ( config ) => {
+			await updateAiFields( { anthropicApiKey: config?.apiKey } );
+		},
+	},
+};
 
 export async function readProviderConfig< Id extends ProviderId >(
 	provider: Id
 ): Promise< ProviderConfigs[ Id ] | undefined > {
 	const parsed = getProviderDescriptor( provider ).configSchema.safeParse(
-		await readStoredConfig( provider )
+		await STORES[ provider ].read()
 	);
 	return parsed.success ? parsed.data : undefined;
 }
 
-// Removes the config when `config` is undefined. Signing in to Studio stores
-// the WordPress.com one.
-export async function writeProviderConfig(
-	provider: 'anthropic',
-	config: ProviderConfigs[ 'anthropic' ] | undefined
+// Removes the config when `config` is undefined.
+export async function writeProviderConfig< Id extends ProviderId >(
+	provider: Id,
+	config: ProviderConfigs[ Id ] | undefined
 ): Promise< void > {
 	const valid = config && getProviderDescriptor( provider ).configSchema.parse( config );
-	await updateAiFields( { anthropicApiKey: valid ? valid.apiKey : undefined } );
+	await ( STORES[ provider ] as ConfigStore< ProviderConfigs[ Id ] > ).write( valid );
 }

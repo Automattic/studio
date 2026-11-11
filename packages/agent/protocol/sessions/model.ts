@@ -89,15 +89,13 @@ export function resolveSessionProvider( entries: SessionEntry[] ): ProviderId | 
 
 /**
  * The provider a conversation effectively runs on: its pinned choice first,
- * then the saved global selection. Without a saved Anthropic key the pin is
- * unusable (as are missing/unloaded settings), so WordPress.com wins.
+ * then the saved global selection. A provider that isn't connected can't run
+ * it (nor can anything while settings are loading), so WordPress.com wins.
  */
 export function getEffectiveSessionProvider(
 	entries: SessionEntry[],
-	settings?: Pick< AiSettings, 'provider' | 'hasAnthropicApiKey' > | null
+	settings?: AiSettings | null
 ): ProviderId {
-	if ( ! settings?.hasAnthropicApiKey ) {
-		return DEFAULT_PROVIDER_ID;
-	}
-	return resolveSessionProvider( entries ) ?? settings.provider;
+	const provider = settings && ( resolveSessionProvider( entries ) ?? settings.provider );
+	return provider && settings.accounts[ provider ].connected ? provider : DEFAULT_PROVIDER_ID;
 }

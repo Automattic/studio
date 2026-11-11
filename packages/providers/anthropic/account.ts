@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { InvalidCredentialError } from '../errors';
+import { anthropicConnectInput } from './descriptor';
 import type { AnthropicConfig } from './config';
 import type { Provider } from '../types';
 
@@ -55,13 +56,12 @@ export async function validateAnthropicApiKey( apiKey: string ): Promise< Anthro
 
 // A key Anthropic rejects is refused; an unverifiable one (offline, an
 // Anthropic outage) is accepted.
-export const connectAnthropicApiKey: NonNullable<
-	Provider< AnthropicConfig >[ 'connectApiKey' ]
-> = async ( key ) => {
-	const apiKey = key.trim();
-	if ( ! apiKey ) {
-		throw new InvalidCredentialError( __( 'API key is required' ) );
+export const connectAnthropic: Provider< AnthropicConfig >[ 'connect' ] = async ( input ) => {
+	const parsed = anthropicConnectInput().safeParse( input );
+	if ( ! parsed.success ) {
+		throw new InvalidCredentialError( parsed.error.issues[ 0 ].message );
 	}
+	const { apiKey } = parsed.data;
 	const validation = await validateAnthropicApiKey( apiKey );
 	if ( validation.status === 'invalid' ) {
 		throw new InvalidCredentialError( validation.message );

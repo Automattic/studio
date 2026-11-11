@@ -15,7 +15,7 @@ import {
 } from '@/features/annotations';
 import { Composer, type ComposerHandle } from '@/features/composer';
 import { Button } from '@/lib/ui';
-import { createFakeConnector, makeSession, TEST_USER } from '@/test/fake-connector';
+import { aiSettings, createFakeConnector, makeSession, TEST_USER } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { clearComposerDrafts, getComposerDraft, saveComposerDraft } from './draft-store';
 import { pendingComposerFilesSlot } from './pending-files';
@@ -30,11 +30,7 @@ type Props = Partial< ComponentProps< typeof Composer > > & { ref?: React.Ref< C
 const SITE = 'composer-site';
 const interrupt = vi.fn( async () => {} );
 
-const ANTHROPIC_KEY = {
-	provider: 'wpcom' as const,
-	hasAnthropicApiKey: true,
-	anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
-};
+const ANTHROPIC_KEY = aiSettings( 'wpcom', [ 'wpcom', 'anthropic' ] );
 
 const OUT_OF_CREDITS = {
 	costCap: 100,

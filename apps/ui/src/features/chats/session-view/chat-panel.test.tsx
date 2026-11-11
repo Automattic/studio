@@ -11,11 +11,18 @@ import {
 	setAnnotating,
 } from '@/features/annotations';
 import { clearComposerDrafts } from '@/features/composer';
-import { createFakeConnector, makeSession, makeSite, TEST_USER } from '@/test/fake-connector';
+import {
+	aiSettings,
+	createFakeConnector,
+	makeSession,
+	makeSite,
+	TEST_USER,
+} from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { AgentRunEvent, SessionEntry } from '@/data/core';
 import type { AiSettings } from '@studio/common/lib/ai-settings';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
+import type { ProviderId } from '@studio/providers';
 
 vi.setConfig( { testTimeout: 30_000 } );
 
@@ -57,7 +64,12 @@ async function setupChat( {
 				} as SessionEntry,
 		  ]
 		: [];
-	const connected = { hasAnthropicApiKey, provider };
+	const connected = aiSettings(
+		provider,
+		[ signedIn && 'wpcom', hasAnthropicApiKey && 'anthropic' ].filter(
+			( id ): id is ProviderId => !! id
+		)
+	);
 	const connector = createFakeConnector(
 		{
 			sites: [ site ],
@@ -75,7 +87,7 @@ async function setupChat( {
 				if ( settingsError ) {
 					throw new Error( 'Connections unavailable' );
 				}
-				return { ...connected, anthropicApiKeyPreview: null };
+				return connected;
 			},
 			getStudioAssistantQuota: async () => {
 				if ( quotaError ) {
@@ -284,7 +296,7 @@ describe( 'Composer site controls', () => {
 
 function anthropicRow( dialog: HTMLElement ) {
 	return within(
-		within( dialog ).getByText( 'Anthropic', { exact: true } ).closest( '[data-settings-row]' )!
+		within( dialog ).getByText( 'Anthropic API', { exact: true } ).closest( '[data-settings-row]' )!
 	);
 }
 
@@ -425,11 +437,7 @@ describe( 'Composer access notices', () => {
 			const connector = createFakeConnector(
 				{ sites: [ makeSite( { id: 'one', path: '/sites/my-site' } ) ] },
 				{
-					getAiSettings: async () => ( {
-						provider,
-						hasAnthropicApiKey: true,
-						anthropicApiKeyPreview: 'test',
-					} ),
+					getAiSettings: async () => aiSettings( provider, [ 'wpcom', 'anthropic' ] ),
 					getStudioAssistantQuota: async () => quota,
 				}
 			);
@@ -459,11 +467,7 @@ describe( 'Composer access notices', () => {
 	it.each( [ false, true ] )(
 		'connects a personal key without WordPress.com login (saved=%s)',
 		async ( saved ) => {
-			let connection: AiSettings = {
-				provider: 'wpcom',
-				hasAnthropicApiKey: saved,
-				anthropicApiKeyPreview: saved ? 'test' : null,
-			};
+			let connection: AiSettings = aiSettings( 'wpcom', saved ? [ 'anthropic' ] : [] );
 			const site = makeSite( { id: 'one', path: '/sites/my-site' } );
 			const connector = createFakeConnector(
 				{
@@ -482,12 +486,8 @@ describe( 'Composer access notices', () => {
 				},
 				{
 					getAiSettings: async () => connection,
-					saveAnthropicApiKey: async () => {
-						connection = {
-							...connection,
-							hasAnthropicApiKey: true,
-							anthropicApiKeyPreview: 'test',
-						};
+					connectProvider: async () => {
+						connection = aiSettings( connection.provider, [ 'anthropic' ] );
 						return connection;
 					},
 					setAiProvider: async ( provider ) => {

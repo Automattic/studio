@@ -75,7 +75,7 @@ export function useSetupPrompt( { enabled = true, busy = false } = {} ) {
 	const { data: user } = useAuthUser();
 	const provider = getEffectiveSessionProvider( [], settings );
 	const notice = useComposerNotice( provider );
-	const providerConnected = provider === 'wpcom' ? !! user : !! settings?.hasAnthropicApiKey;
+	const providerConnected = !! settings?.accounts[ provider ].connected;
 	const model = resolveSessionModelForProvider( [], provider, {
 		canUsePaidModels: canUsePaidAiModels( quota, user?.email ),
 	} );

@@ -488,10 +488,12 @@ export interface Connector {
 		options?: { editSession?: { previousContent: string } }
 	): Promise< void >;
 
-	// AI provider settings stored in the CLI config. Clearing the key (null)
-	// also falls back to WordPress.com.
+	// The chat provider and each provider's account. Disconnecting the selected
+	// provider falls back to WordPress.com.
 	getAiSettings(): Promise< AiSettings >;
-	saveAnthropicApiKey( key: string | null ): Promise< AiSettings >;
+	// Connects the provider with its form's values; throws when it rejects them.
+	connectProvider( provider: ProviderId, input: Record< string, string > ): Promise< AiSettings >;
+	disconnectProvider( provider: ProviderId ): Promise< AiSettings >;
 	// The provider new conversations use.
 	setAiProvider( provider: ProviderId ): Promise< AiSettings >;
 

@@ -14,6 +14,8 @@ export {
 	isAiModelId,
 	type AiModelId,
 } from './models';
+export { getConnectFields, getRedirectUrl, type ConnectField } from './connection';
 export type { AnthropicConfig } from './anthropic/config';
+export type { WpcomConfig } from './wpcom/config';
 export type * from './types';
-export { InvalidCredentialError, ProviderNotReadyError } from './errors';
+export { InvalidCredentialError, ProviderNotReadyError, type ConnectFailure } from './errors';

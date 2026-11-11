@@ -11,7 +11,7 @@ import {
 	SIDEBAR_PANEL_STORAGE_KEY,
 } from '@/data/resizable-panels';
 import { applyColorTint, DEFAULT_COLOR_TINT } from '@/lib/theme';
-import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
+import { aiSettings, createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { Connector, UserPreferences } from '@/data/core';
 
@@ -35,11 +35,7 @@ async function setup( {
 	overrides?: Partial< Connector >;
 	nativeFolderPicker?: boolean;
 } = {} ) {
-	let connection = {
-		provider: 'wpcom' as const,
-		hasAnthropicApiKey: true,
-		anthropicApiKeyPreview: 'sk-…last',
-	};
+	let connection = aiSettings( 'wpcom', signedIn ? [ 'wpcom', 'anthropic' ] : [ 'anthropic' ] );
 	let skills = [
 		{
 			id: 'studio-cli',
@@ -63,16 +59,19 @@ async function setup( {
 		{
 			getAgentInstructions: async () => 'Original instructions',
 			getAiSettings: async () => connection,
-			saveAnthropicApiKey: async ( key ) => {
-				connection = {
-					...connection,
-					hasAnthropicApiKey: !! key,
-					anthropicApiKeyPreview: key ? 'sk-…last' : ( null as never ),
-				};
+			connectProvider: async ( provider ) => {
+				connection = aiSettings( connection.provider, [
+					...( signedIn ? [ 'wpcom' as const ] : [] ),
+					provider,
+				] );
+				return connection;
+			},
+			disconnectProvider: async () => {
+				connection = aiSettings( 'wpcom', signedIn ? [ 'wpcom' ] : [] );
 				return connection;
 			},
 			setAiProvider: async ( provider ) => {
-				connection = { ...connection, provider: provider as 'wpcom' };
+				connection = { ...connection, provider };
 				return connection;
 			},
 			getWordPressSkillsStatusAllSites: async () => skills,
@@ -699,8 +698,10 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 				name: 'Manage',
 			} )
 		);
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Remove key' } ) );
-		await waitFor( () => expect( connector.saveAnthropicApiKey ).toHaveBeenCalledWith( null ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Disconnect' } ) );
+		await waitFor( () =>
+			expect( connector.disconnectProvider ).toHaveBeenCalledWith( 'anthropic' )
+		);
 		expect( connector.setAiProvider ).not.toHaveBeenCalled();
 	} );
 
@@ -862,14 +863,10 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 			section: 'ai',
 			signedIn: false,
 			overrides: {
-				getAiSettings: async () => ( {
-					provider: 'wpcom',
-					hasAnthropicApiKey: hasKey,
-					anthropicApiKeyPreview: null,
-				} ),
-				saveAnthropicApiKey: async () => {
+				getAiSettings: async () => aiSettings( 'wpcom', hasKey ? [ 'anthropic' ] : [] ),
+				connectProvider: async () => {
 					hasKey = true;
-					return { provider: 'wpcom', hasAnthropicApiKey: true, anthropicApiKeyPreview: 'test' };
+					return aiSettings( 'wpcom', [ 'anthropic' ] );
 				},
 			},
 		} );
@@ -882,12 +879,17 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( input ).toHaveAttribute( 'type', 'password' );
 		fireEvent.change( input, { target: { value: '  personal-key  ' } } );
 		fireEvent.click(
-			within( screen.getByRole( 'form', { name: 'Anthropic connection' } ) ).getByRole( 'button', {
-				name: 'Save',
-			} )
+			within( screen.getByRole( 'form', { name: 'Anthropic API connection' } ) ).getByRole(
+				'button',
+				{
+					name: 'Save',
+				}
+			)
 		);
 		await waitFor( () =>
-			expect( connector.saveAnthropicApiKey ).toHaveBeenCalledWith( 'personal-key' )
+			expect( connector.connectProvider ).toHaveBeenCalledWith( 'anthropic', {
+				apiKey: '  personal-key  ',
+			} )
 		);
 		await waitFor( () =>
 			expect( screen.queryByLabelText( 'Anthropic API key' ) ).not.toBeInTheDocument()
@@ -902,7 +904,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 
 	it( 'preserves a rejected key for retry and only switches providers after it is saved', async () => {
 		const { connector } = await setup( { section: 'ai', signedIn: false } );
-		connector.saveAnthropicApiKey.mockRejectedValueOnce( new Error( 'Invalid API key' ) );
+		connector.connectProvider.mockRejectedValueOnce( new Error( 'Invalid API key' ) );
 		const manage = await within( await findProviderRow( 'anthropic-provider' ) ).findByRole(
 			'button',
 			{
@@ -915,9 +917,12 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( input ).toHaveAttribute( 'type', 'password' );
 		fireEvent.change( input, { target: { value: '  test-key  ' } } );
 		const save = () =>
-			within( screen.getByRole( 'form', { name: 'Anthropic connection' } ) ).getByRole( 'button', {
-				name: 'Save',
-			} );
+			within( screen.getByRole( 'form', { name: 'Anthropic API connection' } ) ).getByRole(
+				'button',
+				{
+					name: 'Save',
+				}
+			);
 		fireEvent.click( save() );
 		await screen.findByText( 'Invalid API key' );
 		expect( input ).toHaveValue( '  test-key  ' );
@@ -925,7 +930,9 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		await waitFor( () => expect( save() ).toBeEnabled() );
 		fireEvent.click( save() );
 		await waitFor( () => expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic' ) );
-		expect( connector.saveAnthropicApiKey ).toHaveBeenCalledWith( 'test-key' );
+		expect( connector.connectProvider ).toHaveBeenCalledWith( 'anthropic', {
+			apiKey: '  test-key  ',
+		} );
 		await waitFor( () =>
 			expect( screen.queryByLabelText( 'Anthropic API key' ) ).not.toBeInTheDocument()
 		);

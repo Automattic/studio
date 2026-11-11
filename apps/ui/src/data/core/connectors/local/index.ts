@@ -1,7 +1,7 @@
 import { stripCliErrorEnvelope } from '@studio/common/lib/error-formatting';
-import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
+import { getRedirectUrl } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
 import { download, menuShortcuts } from '../browser-tab';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
@@ -256,7 +256,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				popup?.close();
 				const redirectUri = 'https://developer.wordpress.com/copy-oauth-token';
 				window.open(
-					signup ? getSignUpUrl( 'en', redirectUri ) : getAuthenticationUrl( 'en', redirectUri ),
+					getRedirectUrl( 'wpcom', { redirectUri, locale: 'en', signup } ),
 					'_blank',
 					'noopener,noreferrer'
 				);
@@ -832,11 +832,14 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getAiSettings(): Promise< AiSettings > {
 			return api< AiSettings >( '/ai-settings' );
 		},
-		async saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
-			return api< AiSettings >( '/ai-settings', {
+		async connectProvider( provider, input ): Promise< AiSettings > {
+			return api< AiSettings >( `/ai-settings/providers/${ provider }`, {
 				method: 'PUT',
-				body: JSON.stringify( { anthropicApiKey: key } ),
+				body: JSON.stringify( { input } ),
 			} );
+		},
+		async disconnectProvider( provider ): Promise< AiSettings > {
+			return api< AiSettings >( `/ai-settings/providers/${ provider }`, { method: 'DELETE' } );
 		},
 		async setAiProvider( provider ): Promise< AiSettings > {
 			return api< AiSettings >( '/ai-settings/provider', {

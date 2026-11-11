@@ -20,7 +20,7 @@ import {
 import { useAgentRun } from '@/data/agent-runs/use-agent-run';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { useAiSettings } from '@/data/queries/use-ai-settings';
+import { hasConnectedProvider, useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
@@ -294,7 +294,7 @@ function SessionViewContent( {
 	const openSettings = useOpenSettings();
 	const beginAnnotating = () => {
 		if ( ! ownerSite || ! preview ) return;
-		if ( ! authUser && ! aiSettings?.hasAnthropicApiKey ) {
+		if ( ! hasConnectedProvider( aiSettings ) ) {
 			openSettings( 'ai', undefined, undefined, { intent: 'build', scope: ownerSite.id } );
 			return;
 		}

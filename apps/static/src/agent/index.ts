@@ -12,10 +12,12 @@ import {
 } from '@studio/common/lib/studio-assistant-quota';
 import {
 	DEFAULT_PROVIDER_ID,
+	getProviderDescriptor,
 	normalizeProviderId,
+	PROVIDER_IDS,
 	toStoredProviderId,
-	type AiConnection,
 	type AiModelId,
+	type Provider,
 	type ProviderId,
 } from '@studio/providers';
 import { getProvider } from '@studio/providers/services';
@@ -42,30 +44,15 @@ import type { StudioChatArtifactData } from '@studio/agent/protocol/chat-artifac
 import type { TurnStatus } from '@studio/agent/protocol/sessions/types';
 import type { AiSettings } from '@studio/common/lib/ai-settings';
 
-// The provider's connection to `model`, from the credentials this app keeps.
-function connect(
-	provider: ProviderId,
-	model: AiModelId,
-	sessionId: string,
-	{ token, anthropicApiKey }: { token?: string; anthropicApiKey?: string }
-): Promise< AiConnection > {
-	return provider === 'anthropic'
-		? getProvider( 'anthropic' ).ai!.connect(
-				anthropicApiKey ? { method: 'api-key', apiKey: anthropicApiKey } : undefined,
-				model,
-				{ sessionId }
-		  )
-		: getProvider( 'wpcom' ).ai!.connect( token ? { token } : undefined, model, { sessionId } );
-}
-
 const AI_SETTINGS_KEY = 'ai-settings';
 export const AGENT_INSTRUCTIONS_KEY = 'agent-instructions';
 export const AGENT_INSTRUCTIONS_ENABLED_KEY = 'agent-instructions-enabled';
 
-// `provider` keeps the stored id (`toStoredProviderId`).
 interface StoredAiSettings {
+	// The stored id (`toStoredProviderId`).
 	provider: string;
-	anthropicApiKey?: string;
+	// The config of each provider connected here; WordPress.com's is the sign-in.
+	configs?: Partial< Record< ProviderId, unknown > >;
 }
 
 interface Run {
@@ -236,26 +223,81 @@ export class StaticAgentRuns {
 		);
 	}
 
+	private async readConfig( id: ProviderId ): Promise< unknown > {
+		if ( id === 'wpcom' ) {
+			const token = await this.deps.auth.token();
+			return (
+				token && {
+					token: token.accessToken,
+					user: { id: token.id, email: token.email, displayName: token.displayName },
+				}
+			);
+		}
+		const parsed = getProviderDescriptor( id ).configSchema.safeParse(
+			( await this.readAiSettings() ).configs?.[ id ]
+		);
+		return parsed.success ? parsed.data : undefined;
+	}
+
+	private async writeConfig( id: ProviderId, config: unknown ) {
+		const settings = await this.readAiSettings();
+		const { [ id ]: _, ...configs } = settings.configs ?? {};
+		await kvSet< StoredAiSettings >( AI_SETTINGS_KEY, {
+			...settings,
+			configs: config === undefined ? configs : { ...configs, [ id ]: config },
+		} );
+	}
+
 	async getAiSettings(): Promise< AiSettings > {
 		const settings = await this.readAiSettings();
-		const key = settings.anthropicApiKey;
+		const accounts = await Promise.all(
+			PROVIDER_IDS.map( async ( id ) => {
+				const config = await this.readConfig( id );
+				const { summarize } = getProviderDescriptor( id ) as {
+					summarize?: ( config: unknown ) => string;
+				};
+				return [
+					id,
+					{ connected: !! config, summary: config && summarize ? summarize( config ) : null },
+				] as const;
+			} )
+		);
 		return {
 			provider: normalizeProviderId( settings.provider ) ?? DEFAULT_PROVIDER_ID,
-			hasAnthropicApiKey: !! key,
-			anthropicApiKeyPreview: key ? `${ key.slice( 0, 7 ) }…${ key.slice( -4 ) }` : null,
+			accounts: Object.fromEntries( accounts ) as AiSettings[ 'accounts' ],
 		};
 	}
 
-	async saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
+	// WordPress.com connects by signing in (`WpcomAuth`).
+	async connectProvider( id: ProviderId, input: Record< string, string > ): Promise< AiSettings > {
+		await this.writeConfig( id, await ( getProvider( id ) as Provider ).connect( input ) );
+		return this.getAiSettings();
+	}
+
+	async disconnectProvider( id: ProviderId ): Promise< AiSettings > {
+		if ( id === 'wpcom' ) {
+			await this.deps.auth.signOut();
+		} else {
+			const config = await this.readConfig( id );
+			if ( config ) {
+				await ( getProvider( id ) as Provider ).disconnect?.( config ).catch( () => undefined );
+			}
+			await this.writeConfig( id, undefined );
+		}
 		const settings = await this.readAiSettings();
-		await kvSet< StoredAiSettings >( AI_SETTINGS_KEY, {
-			provider: key ? settings.provider : toStoredProviderId( DEFAULT_PROVIDER_ID ),
-			...( key ? { anthropicApiKey: key } : {} ),
-		} );
+		if ( normalizeProviderId( settings.provider ) === id ) {
+			await kvSet< StoredAiSettings >( AI_SETTINGS_KEY, {
+				...settings,
+				provider: toStoredProviderId( DEFAULT_PROVIDER_ID ),
+			} );
+		}
 		return this.getAiSettings();
 	}
 
 	async setAiProvider( provider: ProviderId ): Promise< AiSettings > {
+		if ( ! ( await this.readConfig( provider ) ) ) {
+			throw new Error( `Connect ${ getProviderDescriptor( provider ).label } first.` );
+		}
 		await kvSet( AI_SETTINGS_KEY, {
 			...( await this.readAiSettings() ),
 			provider: toStoredProviderId( provider ),
@@ -347,10 +389,12 @@ export class StaticAgentRuns {
 				resolveSessionProvider( session.entries ) ??
 				normalizeProviderId( settings.provider ) ??
 				DEFAULT_PROVIDER_ID;
-			if ( provider === 'anthropic' && ! settings.anthropicApiKey ) {
+			let config = await this.readConfig( provider );
+			if ( ! config ) {
 				provider = DEFAULT_PROVIDER_ID;
+				config = await this.readConfig( provider );
 			}
-			if ( provider === 'wpcom' && ! token ) {
+			if ( ! config ) {
 				throw new Error(
 					__(
 						'Sign in to WordPress.com, or add an Anthropic API key in Settings, to use Studio Code.'
@@ -399,9 +443,8 @@ export class StaticAgentRuns {
 				images: options.images,
 				files: options.files,
 				history: historyFromEntries( session.entries ),
-				ai: await connect( provider, model, sessionId, {
-					token: token?.accessToken,
-					anthropicApiKey: settings.anthropicApiKey,
+				ai: await ( getProvider( provider ) as Provider ).ai!.connect( config, model, {
+					sessionId,
 				} ),
 				activeSite,
 				userInstructions: instructionsEnabled

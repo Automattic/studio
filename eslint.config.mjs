@@ -36,8 +36,10 @@ const PROVIDERS_DESCRIPTORS = [
 	'models.ts',
 	'descriptors.ts',
 	'errors.ts',
+	'connection.ts',
 	'*/descriptor.ts',
 	'*/config.ts',
+	'wpcom/oauth.ts',
 ];
 
 const NODE_APIS = [ 'node:*', 'fs', 'fs/*', 'path', 'os', 'child_process', 'crypto' ];

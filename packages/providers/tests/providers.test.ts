@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
 	getAiModelProviders,
+	getConnectFields,
+	getRedirectUrl,
 	getDefaultAiModel,
 	isAiModelId,
 	normalizeProviderId,
@@ -31,5 +33,29 @@ describe( 'models', () => {
 		expect( getDefaultAiModel( 'anthropic', { canUsePaidModels: true } ) ).toBe(
 			'claude-sonnet-5'
 		);
+	} );
+} );
+
+describe( 'connections', () => {
+	it( 'describes a form provider’s fields for any surface to render', () => {
+		const [ apiKey, ...others ] = getConnectFields( 'anthropic' );
+
+		expect( others ).toEqual( [] );
+		expect( apiKey ).toMatchObject( {
+			name: 'apiKey',
+			title: 'Anthropic API key',
+			placeholder: 'sk-…',
+			secret: true,
+		} );
+		expect( apiKey.validate( ' ' ) ).toBe( 'API key is required' );
+		expect( apiKey.validate( 'sk-ant-key' ) ).toBeUndefined();
+		expect( getConnectFields( 'wpcom' ) ).toEqual( [] );
+	} );
+
+	it( 'builds the redirect only for a provider that connects with one', () => {
+		expect( getRedirectUrl( 'wpcom', { redirectUri: 'wp-studio://auth', locale: 'en' } ) ).toMatch(
+			/^https:\/\/public-api\.wordpress\.com\/oauth2\/authorize\?/
+		);
+		expect( () => getRedirectUrl( 'anthropic', { redirectUri: 'x', locale: 'en' } ) ).toThrow();
 	} );
 } );

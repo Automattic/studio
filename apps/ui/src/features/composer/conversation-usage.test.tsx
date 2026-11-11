@@ -1,6 +1,6 @@
 import { screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createFakeConnector, makeSite } from '@/test/fake-connector';
+import { aiSettings, createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { Connector } from '@/data/core';
 import type { AiSettings } from '@studio/common/lib/ai-settings';
@@ -8,11 +8,7 @@ import type { AiSettings } from '@studio/common/lib/ai-settings';
 const site = makeSite( { id: 'one', name: 'My site', path: '/sites/my-site' } );
 
 const withKey = ( provider: AiSettings[ 'provider' ] ): Partial< Connector > => ( {
-	getAiSettings: async () => ( {
-		provider,
-		hasAnthropicApiKey: true,
-		anthropicApiKeyPreview: 'test',
-	} ),
+	getAiSettings: async () => aiSettings( provider, [ 'wpcom', 'anthropic' ] ),
 } );
 
 beforeEach( () => {

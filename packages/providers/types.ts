@@ -24,12 +24,41 @@ export interface AiModel< Id extends string = string > {
 	requiresPaidAiCredits?: boolean;
 }
 
+// The values a connection form asks for: a flat object of strings. Each field's
+// metadata (`.meta()`) gives its `title`, `description` and `examples`, and
+// `writeOnly: true` marks a secret, which is never shown back.
+export type ConnectInputSchema = z.ZodObject< Record< string, z.ZodType< string > > >;
+
+export interface RedirectOptions {
+	// Where the provider sends the user back, with the result in the URL.
+	redirectUri: string;
+	locale: string;
+	// Echoed back with the result, to tell the redirect is the one this started.
+	state?: string;
+	// Create an account before approving access.
+	signup?: boolean;
+}
+
+// How the user connects an account. Studio passes what it collected to the
+// provider's `connect`, which turns it into the config to store.
+export type ProviderConnection =
+	// A form rendered from `input`.
+	| { kind: 'form'; input: () => ConnectInputSchema }
+	// Approving access on the provider's site, which redirects back to the app
+	// with the result in the URL's parameters.
+	| { kind: 'redirect'; redirectUrl( options: RedirectOptions ): string };
+
 export interface ProviderDescriptor< Config = unknown > {
 	id: ProviderId;
 	// Brand name, not translated.
 	label: string;
+	description?: () => string;
+	learnMoreUrl?: string;
 	// What Studio stores for this provider.
 	configSchema: z.ZodType< Config >;
+	connection: ProviderConnection;
+	// What to show for a connected account; never the credential itself.
+	summarize?( config: Config ): string;
 	ai?: {
 		models: readonly AiModel< AiModelId >[];
 		defaultModel: AiModelId;
@@ -72,8 +101,11 @@ export type GenerateImages< Config > = (
 
 export interface Provider< Config = unknown > {
 	descriptor: ProviderDescriptor< Config >;
-	// Validates the key, and returns the config to store.
-	connectApiKey?( key: string ): Promise< Config >;
+	// Checks what the user gave, a form's values or a redirect's parameters, and
+	// returns the config to store. Throws InvalidCredentialError when it fails.
+	connect( input: Record< string, string > ): Promise< Config >;
+	// Cleans up on the provider's side before Studio removes the config.
+	disconnect?( config: Config ): Promise< void >;
 	ai?: {
 		// Whether a selection that isn't ready falls back to another ready
 		// provider instead of asking for credentials.

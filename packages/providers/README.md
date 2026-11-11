@@ -6,11 +6,12 @@ The services Studio holds an account with: WordPress.com (`wpcom`) and Anthropic
 index.ts         the entry surfaces read: descriptors, models, ids, errors and types
 descriptors.ts   PROVIDER_IDS, getProviderDescriptor, the stored ids
 models.ts        getAiModel( provider, id ), getAiModelProviders( id ), defaults
+connection.ts    getConnectFields( provider ), getRedirectUrl( provider, options )
 types.ts         ProviderDescriptor, Provider, AiConnection, AiModel
 errors.ts        ProviderNotReadyError, InvalidCredentialError
 services.ts      the implementations: getProvider( id )
-wpcom/           descriptor, config, AI connection, image generation
-anthropic/       descriptor, config, AI connection, API key validation
+wpcom/           descriptor, config, OAuth URL, sign-in, AI connection, image generation
+anthropic/       descriptor, config, API key form and validation, AI connection
 ```
 
 ## Two entries
@@ -27,6 +28,15 @@ const ai = await getProvider( 'wpcom' ).ai!.connect( config, model, { sessionId 
 // The runtime registers `ai` with pi and runs the turn on it.
 ```
 
+## Connecting an account
+
+A descriptor says how its account connects (`connection`), and the provider's `connect( input )` turns what the user gave into the config Studio stores. Studio never looks inside the input or the config.
+
+- **A form** (`kind: 'form'`): `input()` returns a zod object of string fields, whose metadata (`.meta()`) gives each field's `title`, `description` and `examples`; `writeOnly: true` marks a secret. `getConnectFields( provider )` reads it for any surface: the settings panel renders it as a form, `studio code` as prompts. Anthropic asks for an API key this way.
+- **A redirect** (`kind: 'redirect'`): `redirectUrl( options )` is where the user approves access. The app receives the redirect its own way (Desktop's `wp-studio://auth` deep link, `studio ui`'s callback page, Studio on the web's page, or the token the CLI user pastes) and passes its parameters to `connect`. WordPress.com connects this way, and connecting it is signing in to Studio.
+
+`disconnect( config )` lets a provider clean up before Studio removes the config, as WordPress.com revokes its token. `summarize( config )` is what the settings show for a connected account, never the credential.
+
 ## Providers own no storage
 
 A provider never reads or writes a file. It defines its config (`config.ts`, a zod schema), and every call takes that config, or `undefined` when there is none. Studio stores the configs in `shared.json` through `@studio/common/lib/provider-config.ts`, and the selected chat provider through `@studio/common/lib/ai-settings.ts`. A call without a usable config throws `ProviderNotReadyError`; the CLI turns it into a message that says how to connect.
@@ -37,7 +47,7 @@ Provider ids and model ids are stored, so they never change. Builds before the `
 
 ## Adding a provider
 
-Add a folder with its `descriptor.ts`, `config.ts` and implementations, add its id to `ProviderId` and `ProviderConfigs` in `types.ts`, and register it in `descriptors.ts` and `services.ts`. Studio then needs to store its config (`provider-config.ts`) and, in the CLI, ask the user for what it needs (`apps/cli/ai/auth.ts`).
+Add a folder with its `descriptor.ts` (with its `connection`), `config.ts` and implementations, add its id to `ProviderId` and `ProviderConfigs` in `types.ts`, and register it in `descriptors.ts` and `services.ts`. Studio then needs to know where to store its config (`provider-config.ts`); a form provider then shows up in the settings and in `studio code`'s `/provider` on its own.
 
 ## Boundaries
 

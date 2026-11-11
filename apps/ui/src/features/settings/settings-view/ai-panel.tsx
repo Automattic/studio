@@ -1,11 +1,17 @@
-import { getProviderDescriptor, PROVIDER_IDS, type ProviderId } from '@studio/providers';
-import { __ } from '@wordpress/i18n';
+import {
+	getConnectFields,
+	getProviderDescriptor,
+	PROVIDER_IDS,
+	type ProviderId,
+} from '@studio/providers';
+import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useState } from 'react';
 import { getProviderIntent } from '@/data/account-analytics';
 import { useConnector } from '@/data/core';
 import {
 	useAiSettings,
-	useSaveAnthropicApiKey,
+	useConnectProvider,
+	useDisconnectProvider,
 	useSetAiProvider,
 } from '@/data/queries/use-ai-settings';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
@@ -14,6 +20,126 @@ import { useOffline } from '@/lib/hooks';
 import { Button, Input } from '@/lib/ui';
 import { connectedBadge, SettingsGroup, SettingsRow, SettingsSelect } from './rows';
 import styles from './style.module.css';
+
+// A provider that connects with a form: the form comes from its descriptor.
+function ProviderFormRow( { provider }: { provider: ProviderId } ) {
+	const settings = useAiSettings();
+	const connect = useConnectProvider( provider );
+	const disconnect = useDisconnectProvider( provider );
+	const setProvider = useSetAiProvider();
+	const descriptor = getProviderDescriptor( provider );
+	const fields = getConnectFields( provider );
+	const account = settings.data?.accounts[ provider ];
+	const [ formOpen, setFormOpen ] = useState( false );
+	const [ values, setValues ] = useState< Record< string, string > >( {} );
+	const pending =
+		settings.isLoading || connect.isPending || disconnect.isPending || setProvider.isPending;
+	const filled = fields.every( ( field ) => values[ field.name ]?.trim() );
+
+	const closeForm = () => {
+		setValues( {} );
+		setFormOpen( false );
+	};
+	// Saving the values the account already has just selects the provider.
+	const save = async () => {
+		if ( filled ) {
+			await connect.mutateAsync( values );
+		}
+		await setProvider.mutateAsync( provider );
+		closeForm();
+	};
+
+	return (
+		<>
+			<SettingsRow
+				title={ descriptor.label }
+				settingId={ `${ provider }-provider` }
+				badge={ account?.connected ? connectedBadge() : null }
+				description={
+					<>
+						{ descriptor.description?.() }{ ' ' }
+						{ descriptor.learnMoreUrl ? <LearnMoreLink url={ descriptor.learnMoreUrl } /> : null }
+					</>
+				}
+			>
+				<Button
+					variant="outline"
+					aria-expanded={ formOpen }
+					disabled={ pending }
+					onClick={ () => ( formOpen ? closeForm() : setFormOpen( true ) ) }
+				>
+					{ account?.connected ? __( 'Manage' ) : __( 'Connect' ) }
+				</Button>
+			</SettingsRow>
+			{ formOpen ? (
+				<form
+					aria-label={ sprintf(
+						/* translators: %s: provider name */
+						__( '%s connection' ),
+						descriptor.label
+					) }
+					onSubmit={ ( event ) => {
+						event.preventDefault();
+						if ( ! pending && ( filled || account?.connected ) ) {
+							void save().catch( () => {} );
+						}
+					} }
+				>
+					{ fields.map( ( field, index ) => (
+						<SettingsRow
+							key={ field.name }
+							title={ field.title }
+							description={ field.description }
+							error={
+								index === fields.length - 1
+									? ( connect.error ?? setProvider.error ?? disconnect.error )?.message
+									: undefined
+							}
+							stacked
+						>
+							<div className={ styles.keyForm }>
+								<Input
+									className={ styles.apiKeyInput }
+									type={ field.secret ? 'password' : 'text' }
+									autoComplete="off"
+									aria-label={ field.title }
+									placeholder={ ( field.secret && account?.summary ) || field.placeholder }
+									value={ values[ field.name ] ?? '' }
+									disabled={ pending }
+									onChange={ ( event ) =>
+										setValues( { ...values, [ field.name ]: event.target.value } )
+									}
+								/>
+								{ index === fields.length - 1 ? (
+									<>
+										<Button
+											variant="accent"
+											type="submit"
+											disabled={ pending || ( ! filled && ! account?.connected ) }
+											loading={ connect.isPending || setProvider.isPending }
+											loadingAnnouncement={ __( 'Saving' ) }
+										>
+											{ __( 'Save' ) }
+										</Button>
+										{ account?.connected ? (
+											<Button
+												variant="outline"
+												disabled={ pending }
+												onClick={ () => disconnect.mutate( undefined, { onSuccess: closeForm } ) }
+											>
+												{ __( 'Disconnect' ) }
+											</Button>
+										) : null }
+									</>
+								) : null }
+							</div>
+						</SettingsRow>
+					) ) }
+				</form>
+			) : null }
+		</>
+	);
+}
 
 function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } ) {
 	const settings = useAiSettings();
@@ -31,13 +157,9 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 		trackExposure: ! user && ! userLoading,
 	} );
 	const setProvider = useSetAiProvider();
-	const saveKey = useSaveAnthropicApiKey();
 	const isOffline = useOffline();
 	const [ wpcomRequested, setWpcomRequested ] = useState( false );
-	const [ keyFormOpen, setKeyFormOpen ] = useState( false );
-	const [ key, setKey ] = useState( '' );
-	const hasKey = !! settings.data?.hasAnthropicApiKey;
-	const pending = settings.isLoading || saveKey.isPending || setProvider.isPending;
+	const connected = PROVIDER_IDS.filter( ( id ) => settings.data?.accounts[ id ].connected );
 
 	// Connecting WordPress.com finishes once the sign-up lands.
 	const { mutate: selectProvider } = setProvider;
@@ -47,18 +169,6 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 			selectProvider( 'wpcom' );
 		}
 	}, [ wpcomRequested, user, selectProvider ] );
-
-	const closeKeyForm = () => {
-		setKey( '' );
-		setKeyFormOpen( false );
-	};
-	const connectKey = async () => {
-		if ( key.trim() ) {
-			await saveKey.mutateAsync( key.trim() );
-		}
-		await setProvider.mutateAsync( 'anthropic' );
-		closeKeyForm();
-	};
 
 	return (
 		<SettingsGroup title={ __( 'Providers' ) }>
@@ -97,85 +207,20 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 					{ user ? __( 'Manage' ) : __( 'Connect' ) }
 				</Button>
 			</SettingsRow>
-			<SettingsRow
-				title={ __( 'Anthropic' ) }
-				badge={ hasKey ? connectedBadge() : null }
-				description={
-					<>
-						{ __( 'Use Claude with your own API key.' ) }{ ' ' }
-						<LearnMoreLink docsLinksKey="docsAnthropicApiKey" />
-					</>
-				}
-			>
-				<Button
-					variant="outline"
-					aria-expanded={ keyFormOpen }
-					disabled={ pending }
-					onClick={ () => ( keyFormOpen ? closeKeyForm() : setKeyFormOpen( true ) ) }
-				>
-					{ hasKey ? __( 'Manage' ) : __( 'Connect' ) }
-				</Button>
-			</SettingsRow>
-			{ keyFormOpen ? (
-				<form
-					aria-label={ __( 'Anthropic connection' ) }
-					onSubmit={ ( event ) => {
-						event.preventDefault();
-						if ( ! pending && ( key.trim() || hasKey ) ) {
-							void connectKey().catch( () => {} );
-						}
-					} }
-				>
-					<SettingsRow
-						title={ __( 'Anthropic API key' ) }
-						description={ __( 'Usage is billed through your Anthropic account.' ) }
-						error={ ( saveKey.error ?? setProvider.error )?.message }
-						stacked
-					>
-						<div className={ styles.keyForm }>
-							<Input
-								className={ styles.apiKeyInput }
-								type="password"
-								autoComplete="off"
-								aria-label={ __( 'Anthropic API key' ) }
-								placeholder={ settings.data?.anthropicApiKeyPreview ?? 'sk-…' }
-								value={ key }
-								disabled={ pending }
-								onChange={ ( event ) => setKey( event.target.value ) }
-							/>
-							<Button
-								variant="accent"
-								type="submit"
-								disabled={ pending || ( ! key.trim() && ! hasKey ) }
-								loading={ saveKey.isPending || setProvider.isPending }
-								loadingAnnouncement={ __( 'Saving' ) }
-							>
-								{ __( 'Save' ) }
-							</Button>
-							{ hasKey ? (
-								<Button
-									variant="outline"
-									disabled={ pending }
-									onClick={ () => saveKey.mutate( null, { onSuccess: closeKeyForm } ) }
-								>
-									{ __( 'Remove key' ) }
-								</Button>
-							) : null }
-						</div>
-					</SettingsRow>
-				</form>
-			) : null }
-			{ hasKey && settings.data ? (
+			{ PROVIDER_IDS.filter( ( id ) => getConnectFields( id ).length ).map( ( id ) => (
+				<ProviderFormRow key={ id } provider={ id } />
+			) ) }
+			{ connected.length > 1 && settings.data ? (
 				<SettingsRow
 					title={ __( 'Default provider' ) }
 					description={ __( 'The provider new chats use.' ) }
-					error={ keyFormOpen ? undefined : setProvider.error?.message }
+					error={ setProvider.error?.message }
 				>
 					<SettingsSelect< ProviderId >
 						label={ __( 'Default provider' ) }
 						value={ settings.data.provider }
-						disabled={ pending }
-						options={ PROVIDER_IDS.map( ( provider ) => ( {
+						disabled={ settings.isLoading || setProvider.isPending }
+						options={ connected.map( ( provider ) => ( {
 							value: provider,
 							label: getProviderDescriptor( provider ).label,
 						} ) ) }

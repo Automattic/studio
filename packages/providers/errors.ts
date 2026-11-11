@@ -7,9 +7,16 @@ export class ProviderNotReadyError extends Error {
 	}
 }
 
-// The provider definitively rejected a credential; the message is for the user.
+// Why connecting failed: the user declined, what came back is missing or
+// rejected, or the provider couldn't confirm it.
+export type ConnectFailure = 'denied' | 'invalid' | 'unverified';
+
+// Connecting failed; the message is for the user.
 export class InvalidCredentialError extends Error {
-	constructor( message: string ) {
+	constructor(
+		message: string,
+		readonly reason: ConnectFailure = 'invalid'
+	) {
 		super( message );
 		this.name = 'InvalidCredentialError';
 	}

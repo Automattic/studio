@@ -32,7 +32,7 @@ export function useModelAccess( {
 	// Connected providers are available in saved chats and site drafts.
 	const providers = PROVIDER_IDS.filter(
 		( id ) =>
-			( id === 'wpcom' ? !! authUser : aiSettings?.hasAnthropicApiKey ) &&
+			aiSettings?.accounts[ id ].connected &&
 			( !! sessionId || !! provider || id === sessionProvider )
 	);
 	const canUsePaidTiers = canUsePaidAiModels( quota, authUser?.email );

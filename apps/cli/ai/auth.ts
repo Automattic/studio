@@ -1,8 +1,9 @@
-import { readSelectedAiProvider } from '@studio/common/lib/ai-settings';
-import { readProviderConfig, writeProviderConfig } from '@studio/common/lib/provider-config';
+import { connectProvider, readSelectedAiProvider } from '@studio/common/lib/ai-settings';
+import { readProviderConfig } from '@studio/common/lib/provider-config';
 import { getStudioUserAgent as buildStudioUserAgent } from '@studio/common/lib/user-agent';
 import {
 	DEFAULT_PROVIDER_ID,
+	getConnectFields,
 	getProviderDescriptor,
 	InvalidCredentialError,
 	PROVIDER_IDS,
@@ -13,8 +14,8 @@ import {
 	type ProviderId,
 } from '@studio/providers';
 import { getProvider } from '@studio/providers/services';
-import { __ } from '@wordpress/i18n';
-import { password } from 'cli/lib/prompts';
+import { __, sprintf } from '@wordpress/i18n';
+import { input, password } from 'cli/lib/prompts';
 import { LoggerError } from 'cli/logger';
 import type { ImageGenerator } from '@studio/agent/node';
 
@@ -85,39 +86,37 @@ export async function resolveInitialAiProvider(): Promise< ProviderId > {
 	return ( await getPreferredReadyProvider() ) ?? DEFAULT_PROVIDER_ID;
 }
 
-// Re-prompts only when Anthropic definitively rejects the saved key: an
-// unreachable API must not lock the user out of their provider.
-async function promptForAnthropicApiKey( options?: { force?: boolean } ): Promise< void > {
-	const { connectApiKey } = getProvider( 'anthropic' );
-	const saved = await readProviderConfig( 'anthropic' );
-	if ( saved && ! options?.force ) {
-		try {
-			await connectApiKey!( saved.apiKey );
-			return;
-		} catch ( error ) {
-			if ( ! ( error instanceof InvalidCredentialError ) ) {
-				throw error;
-			}
-		}
-	}
-
-	let config: ProviderConfigs[ 'anthropic' ] | undefined;
-	const key = await password( {
-		message: __( 'Enter your Anthropic API key (will be saved for future use):' ),
-		mask: '*',
-		validate: async ( value ) => {
-			try {
-				config = await connectApiKey!( value );
-				return true;
-			} catch ( error ) {
-				if ( error instanceof InvalidCredentialError ) {
-					return error.message;
+// Asks for the fields of a provider that connects with a form. The provider
+// checks the values once the last one is entered, and a rejection asks again.
+async function promptForConnection( provider: ProviderId ): Promise< void > {
+	const fields = getConnectFields( provider );
+	const values: Record< string, string > = {};
+	for ( const [ index, field ] of fields.entries() ) {
+		const prompt = field.secret ? password : input;
+		values[ field.name ] = await prompt( {
+			message: sprintf(
+				/* translators: %s: what the provider asks for, such as an API key */
+				__( '%s (saved for future use):' ),
+				field.title
+			),
+			...( field.secret ? { mask: '*' } : {} ),
+			validate: async ( value: string ) => {
+				const error = field.validate( value );
+				if ( error || index < fields.length - 1 ) {
+					return error ?? true;
 				}
-				throw error;
-			}
-		},
-	} );
-	await writeProviderConfig( 'anthropic', config ?? ( await connectApiKey!( key ) ) );
+				try {
+					await connectProvider( getProvider( provider ), { ...values, [ field.name ]: value } );
+					return true;
+				} catch ( rejection ) {
+					if ( rejection instanceof InvalidCredentialError ) {
+						return rejection.message;
+					}
+					throw rejection;
+				}
+			},
+		} );
+	}
 }
 
 // Asks for what the provider needs before it is selected.
@@ -125,11 +124,14 @@ export async function prepareAiProvider(
 	provider: ProviderId,
 	options?: { force?: boolean }
 ): Promise< void > {
-	if ( provider === 'anthropic' ) {
-		await promptForAnthropicApiKey( options );
+	const ready = await isAiProviderReady( provider );
+	if ( getConnectFields( provider ).length ) {
+		if ( options?.force || ! ready ) {
+			await promptForConnection( provider );
+		}
 		return;
 	}
-	if ( ! ( await isAiProviderReady( provider ) ) ) {
+	if ( ! ready ) {
 		throw new LoggerError( __( 'WordPress.com login required. Use /login to authenticate.' ) );
 	}
 }

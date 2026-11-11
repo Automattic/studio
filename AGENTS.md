@@ -168,7 +168,7 @@ For in-depth information, see these docs:
 ## Quick Reference
 
 **Sites**: CLI runs WordPress with native PHP (`apps/cli/php-server-child.ts`), Blueprints applied via `blueprints.phar`, `validateBlueprintData()` for schema validation
-**Sync**: OAuth via `packages/common/lib/oauth.ts`, pull/push WordPress.com sites through the CLI `push`/`pull` commands
+**Sync**: Studio sign-in through the WordPress.com provider (`packages/providers/wpcom/`), pull/push WordPress.com sites through the CLI `push`/`pull` commands
 **Security**: Renderer sandboxed, IPC validation, strict CSP, no Node integration, self-signed HTTPS certs
 
 ---

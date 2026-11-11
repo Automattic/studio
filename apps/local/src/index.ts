@@ -33,7 +33,7 @@ import {
 } from '@studio/agent/protocol/chat-images';
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
-import { DEBUG_LOG_RELATIVE_PATH, DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
+import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
 import { isAgentAppId } from '@studio/common/lib/agent-apps';
 import {
 	getSiteAgentFiles,
@@ -44,13 +44,19 @@ import {
 	setSiteAgentFileEnabled,
 	type SiteAgentFileKind,
 } from '@studio/common/lib/agent-skills';
-import { readAiSettings, saveAnthropicApiKey, setAiProvider } from '@studio/common/lib/ai-settings';
+import {
+	connectProvider,
+	disconnectProvider,
+	readAiSettings,
+	setAiProvider,
+} from '@studio/common/lib/ai-settings';
 import {
 	onboardingAnalyticsSchema,
 	authAnalyticsSchema,
 	authSourceSchema,
 	createAuthAttempt,
 	createAuthAttemptStore,
+	getAuthFailureReason,
 	getAuthTracksProps,
 } from '@studio/common/lib/auth-tracks';
 import { downloadAndExtractBlueprintBundle } from '@studio/common/lib/blueprint-bundle';
@@ -88,7 +94,6 @@ import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
 import { isSupportedLocale } from '@studio/common/lib/locale';
-import { getAuthenticationUrl, getSignUpUrl, revokeAuthToken } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
 import {
 	getInstructionsLengthBucket,
@@ -101,11 +106,7 @@ import {
 	trustRootCA,
 } from '@studio/common/lib/root-ca-trust';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
-import {
-	deleteSharedSession,
-	readAuthToken,
-	updateSharedConfig,
-} from '@studio/common/lib/shared-config';
+import { deleteSharedSession, readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	getSiteAgentFileFolder,
 	getSiteAgentFilePaths,
@@ -186,6 +187,7 @@ import {
 import { createSyncRunner } from '@studio/common/sites/sync';
 import {
 	getAiModel,
+	getRedirectUrl,
 	InvalidCredentialError,
 	isAiModelId,
 	normalizeProviderId,
@@ -646,9 +648,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		trackEvent( TRACKS_EVENTS.WPCOM_AUTH_STARTED, getAuthTracksProps( attempt ) );
 		res.json( {
 			url: redirectUri
-				? attempt.auth_flow === 'signup'
-					? getSignUpUrl( 'en', redirectUri, attempt.auth_attempt_id )
-					: getAuthenticationUrl( 'en', redirectUri, attempt.auth_attempt_id )
+				? getRedirectUrl( 'wpcom', {
+						redirectUri,
+						locale: 'en',
+						state: attempt.auth_attempt_id,
+						signup: attempt.auth_flow === 'signup',
+				  } )
 				: null,
 			authAttemptId: attempt.auth_attempt_id,
 		} );
@@ -673,57 +678,24 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				typeof req.body?.auth_attempt_id === 'string' ? req.body.auth_attempt_id : undefined
 			);
 			const props = getAuthTracksProps( attempt );
-			const fail = ( status: number, message: string, reason: string ) => {
+			const token = typeof req.body?.token === 'string' ? req.body.token : '';
+			const error = typeof req.body?.error === 'string' ? req.body.error : '';
+			try {
+				await connectProvider( getProvider( 'wpcom' ), { access_token: token, error } );
+			} catch ( failure ) {
 				trackEvent( TRACKS_EVENTS.WPCOM_AUTH, {
 					...props,
 					success: false,
-					failure_reason: reason,
+					failure_reason: getAuthFailureReason( failure ),
 				} );
-				res.status( status ).json( { error: message } );
-			};
-			const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
-			if ( req.body?.error || ! token ) {
-				fail(
-					400,
-					'Authentication failed',
-					req.body?.error === 'access_denied' ? 'access_denied' : 'token_error'
-				);
-				return;
-			}
-			let me: { ID: number; email: string; display_name: string };
-			try {
-				const response = await fetch(
-					'https://public-api.wordpress.com/rest/v1.1/me?fields=ID,email,display_name',
-					{ headers: { Authorization: `Bearer ${ token }` } }
-				);
-				if ( ! response.ok ) {
-					fail( 401, 'Invalid authentication token', 'profile_fetch_failed' );
-					return;
-				}
-				me = z
-					.object( { ID: z.number(), email: z.string(), display_name: z.string() } )
-					.parse( await response.json() );
-			} catch {
-				fail( 502, 'Could not reach WordPress.com to validate the token.', 'profile_fetch_failed' );
-				return;
-			}
-			try {
-				await updateSharedConfig( {
-					authToken: {
-						accessToken: token,
-						id: me.ID,
-						email: me.email,
-						displayName: me.display_name,
-						expiresIn: DEFAULT_TOKEN_LIFETIME_MS / 1000,
-						expirationTime: Date.now() + DEFAULT_TOKEN_LIFETIME_MS,
-					},
-				} );
-			} catch {
-				fail( 500, 'Could not save authentication.', 'unknown' );
+				res
+					.status( failure instanceof InvalidCredentialError ? 400 : 500 )
+					.json( { error: 'Authentication failed' } );
 				return;
 			}
 			trackEvent( TRACKS_EVENTS.WPCOM_AUTH, { ...props, success: true } );
-			res.json( { id: me.ID, email: me.email, displayName: me.display_name } );
+			const user = await readAuthToken();
+			res.json( user && { id: user.id, email: user.email, displayName: user.displayName } );
 		} )
 	);
 
@@ -732,11 +704,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/auth/logout',
 		asyncHandler( async ( _req: Request, res: Response ) => {
-			const token = await readAuthToken();
-			if ( token ) {
-				await revokeAuthToken( token.accessToken ).catch( () => undefined );
-			}
-			await updateSharedConfig( { authToken: undefined } );
+			await disconnectProvider( getProvider( 'wpcom' ) );
 			res.status( 204 ).end();
 		} )
 	);
@@ -799,42 +767,62 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// Clearing the key also falls the provider back to WordPress.com, so both writes
-	// report through one event, as on the desktop.
-	function trackAiSettingsChange( previous: AiSettings, next: AiSettings ): void {
-		const unchanged =
-			previous.provider === next.provider &&
-			previous.hasAnthropicApiKey === next.hasAnthropicApiKey &&
-			previous.anthropicApiKeyPreview === next.anthropicApiKeyPreview;
-		if ( unchanged ) {
-			return;
+	// Disconnecting the selected provider also moves the selection back to
+	// WordPress.com, so every change reports through one event, as on the desktop.
+	async function changeAiSettings( res: Response, change: () => Promise< AiSettings > ) {
+		const previous = await readAiSettings();
+		const next = await change();
+		res.json( next );
+		if ( JSON.stringify( previous ) !== JSON.stringify( next ) ) {
+			trackEvent( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
+				provider: toStoredProviderId( next.provider ),
+				has_anthropic_api_key: next.accounts.anthropic.connected,
+				surface: 'settings',
+			} );
 		}
-		trackEvent( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
-			provider: toStoredProviderId( next.provider ),
-			has_anthropic_api_key: next.hasAnthropicApiKey,
-			surface: 'settings',
-		} );
 	}
 
-	// Write-only: responses carry a truncated preview, never the key. A key
-	// Anthropic rejects answers 400 and is not stored.
+	function readProviderParam( req: Request, res: Response ) {
+		const provider = normalizeProviderId( String( req.params.provider ) );
+		if ( ! provider ) {
+			res.status( 400 ).json( { error: 'provider must be a known AI provider id' } );
+		}
+		return provider;
+	}
+
+	// Write-only: responses carry a summary, never the credential. Input the
+	// provider rejects answers 400 and is not stored.
 	api.put(
-		'/ai-settings',
+		'/ai-settings/providers/:provider',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const key = req.body?.anthropicApiKey;
-			if ( key !== null && typeof key !== 'string' ) {
-				res.status( 400 ).json( { error: 'anthropicApiKey must be a string or null' } );
+			const provider = readProviderParam( req, res );
+			const input = req.body?.input;
+			if ( ! provider ) {
 				return;
 			}
-			const previous = await readAiSettings();
-			const settings = await saveAnthropicApiKey( key, getProvider( 'anthropic' ) );
-			res.json( settings );
-			trackAiSettingsChange( previous, settings );
+			if (
+				! input ||
+				typeof input !== 'object' ||
+				! Object.values( input ).every( ( value ) => typeof value === 'string' )
+			) {
+				res.status( 400 ).json( { error: 'input must be an object of strings' } );
+				return;
+			}
+			await changeAiSettings( res, () => connectProvider( getProvider( provider ), input ) );
 		} )
 	);
 
-	// Answers 400 when Anthropic rejects the saved key, so the UI keeps its
-	// toggle off.
+	api.delete(
+		'/ai-settings/providers/:provider',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readProviderParam( req, res );
+			if ( provider ) {
+				await changeAiSettings( res, () => disconnectProvider( getProvider( provider ) ) );
+			}
+		} )
+	);
+
+	// Answers 400 when the provider isn't connected, so the UI keeps its selection.
 	api.put(
 		'/ai-settings/provider',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -846,10 +834,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'provider must be a known AI provider id' } );
 				return;
 			}
-			const previous = await readAiSettings();
-			const settings = await setAiProvider( provider, getProvider( 'anthropic' ) );
-			res.json( settings );
-			trackAiSettingsChange( previous, settings );
+			await changeAiSettings( res, () => setAiProvider( provider ) );
 		} )
 	);
 

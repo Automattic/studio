@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { wpcomConfigSchema, type WpcomConfig } from './config';
+import { getAuthorizeUrl } from './oauth';
 import type { AiModel, ProviderDescriptor } from '../types';
 
 // Capability tiers, not concrete models: the proxy's `studio-agent` lane
@@ -15,6 +16,9 @@ export const wpcomDescriptor: ProviderDescriptor< WpcomConfig > = {
 	id: 'wpcom',
 	label: 'WordPress.com',
 	configSchema: wpcomConfigSchema,
+	// Connecting is signing in to Studio.
+	connection: { kind: 'redirect', redirectUrl: getAuthorizeUrl },
+	summarize: ( config ) => config.user?.email ?? '',
 	ai: {
 		models: WPCOM_AI_MODELS,
 		defaultModel: 'fast',

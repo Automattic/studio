@@ -6,7 +6,7 @@ import { previewTabsKey, usePreviewTabs } from '@/data/preview-tabs';
 import { subscribeHeaderPanelRequest } from '@/data/use-open-header-panel';
 import { SessionUIProvider, useSessionPreviewUI } from '@/data/use-session-ui';
 import { SiteContextMenu } from '@/features/sites/stopped-site-preview';
-import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
+import { aiSettings, createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SiteMenu } from './index';
 import type { SyncSite } from '@/data/core';
@@ -54,11 +54,11 @@ function setup( {
 	const connector = createFakeConnector(
 		{ sites, user: connections || providerConnection === 'wpcom' ? TEST_USER : null },
 		{
-			getAiSettings: async () => ( {
-				provider: providerConnection ?? 'wpcom',
-				hasAnthropicApiKey: providerConnection === 'anthropic',
-				anthropicApiKeyPreview: null,
-			} ),
+			getAiSettings: async () =>
+				aiSettings( providerConnection ?? 'wpcom', [
+					...( connections || providerConnection === 'wpcom' ? [ 'wpcom' as const ] : [] ),
+					...( providerConnection === 'anthropic' ? [ 'anthropic' as const ] : [] ),
+				] ),
 			getConnectedWpcomSites: async () => connections ?? [],
 			getSiteDesign: async () =>
 				designAvailable

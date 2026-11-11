@@ -3,7 +3,8 @@ import { useConnector } from '@/data/core';
 import type { AiSettings } from '@studio/common/lib/ai-settings';
 import type { ProviderId } from '@studio/providers';
 
-const AI_SETTINGS_QUERY_KEY = [ 'ai-settings' ] as const;
+// The WordPress.com account is the sign-in, so auth changes refresh it too.
+export const AI_SETTINGS_QUERY_KEY = [ 'ai-settings' ] as const;
 
 export function useAiSettings() {
 	const connector = useConnector();
@@ -12,6 +13,10 @@ export function useAiSettings() {
 		queryFn: () => connector.getAiSettings(),
 		staleTime: Infinity,
 	} );
+}
+
+export function hasConnectedProvider( settings: AiSettings | undefined ): boolean {
+	return Object.values( settings?.accounts ?? {} ).some( ( account ) => account.connected );
 }
 
 export function useSetAiProvider() {
@@ -25,11 +30,22 @@ export function useSetAiProvider() {
 	} );
 }
 
-export function useSaveAnthropicApiKey() {
+export function useConnectProvider( provider: ProviderId ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
-		mutationFn: ( key: string | null ) => connector.saveAnthropicApiKey( key ),
+		mutationFn: ( input: Record< string, string > ) => connector.connectProvider( provider, input ),
+		onSuccess: ( settings ) => {
+			queryClient.setQueryData< AiSettings >( AI_SETTINGS_QUERY_KEY, settings );
+		},
+	} );
+}
+
+export function useDisconnectProvider( provider: ProviderId ) {
+	const connector = useConnector();
+	const queryClient = useQueryClient();
+	return useMutation( {
+		mutationFn: () => connector.disconnectProvider( provider ),
 		onSuccess: ( settings ) => {
 			queryClient.setQueryData< AiSettings >( AI_SETTINGS_QUERY_KEY, settings );
 		},

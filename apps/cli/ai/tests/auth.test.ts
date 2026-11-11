@@ -1,6 +1,7 @@
 import { password } from '@inquirer/prompts';
-import { readSelectedAiProvider } from '@studio/common/lib/ai-settings';
-import { readProviderConfig, writeProviderConfig } from '@studio/common/lib/provider-config';
+import { connectProvider, readSelectedAiProvider } from '@studio/common/lib/ai-settings';
+import { readProviderConfig } from '@studio/common/lib/provider-config';
+import { InvalidCredentialError } from '@studio/providers';
 import { vi } from 'vitest';
 import {
 	isAiProviderReady,
@@ -17,13 +18,17 @@ vi.mock( '@inquirer/prompts', () => ( {
 } ) );
 
 vi.mock( '@studio/common/lib/ai-settings', () => ( {
+	connectProvider: vi.fn(),
 	readSelectedAiProvider: vi.fn(),
 } ) );
 
 vi.mock( '@studio/common/lib/provider-config', () => ( {
 	readProviderConfig: vi.fn(),
-	writeProviderConfig: vi.fn(),
 } ) );
+
+const anthropicProvider = expect.objectContaining( {
+	descriptor: expect.objectContaining( { id: 'anthropic' } ),
+} );
 
 type Configs = { wpcom?: { token: string }; anthropic?: { method: 'api-key'; apiKey: string } };
 
@@ -33,10 +38,11 @@ function storeConfigs( configs: Configs ) {
 	);
 }
 
-// The key check Anthropic answers; the prompt runs its validation like inquirer.
+// The prompt runs its validation like inquirer, and reports what it returned.
+const validations: unknown[] = [];
 function answerPrompt( key: string ) {
 	vi.mocked( password ).mockImplementation( async ( { validate } ) => {
-		await validate?.( key );
+		validations.push( await validate?.( key ) );
 		return key;
 	} );
 }
@@ -77,13 +83,19 @@ describe( 'AI auth helpers', () => {
 		await prepareAiProvider( 'anthropic' );
 
 		expect( password ).toHaveBeenCalledOnce();
-		expect( writeProviderConfig ).toHaveBeenCalledWith( 'anthropic', {
-			method: 'api-key',
-			apiKey: 'prompted-key',
-		} );
+		expect( connectProvider ).toHaveBeenCalledWith( anthropicProvider, { apiKey: 'prompted-key' } );
 	} );
 
-	it( 'keeps a saved key Anthropic does not reject, and can force re-entering it', async () => {
+	it( 'shows the provider’s rejection as the prompt’s error', async () => {
+		vi.mocked( connectProvider ).mockRejectedValue( new InvalidCredentialError( 'Rejected key' ) );
+		answerPrompt( 'bad-key' );
+
+		await prepareAiProvider( 'anthropic' );
+
+		expect( validations.at( -1 ) ).toBe( 'Rejected key' );
+	} );
+
+	it( 'keeps a saved key, and can force re-entering it', async () => {
 		storeConfigs( { anthropic: { method: 'api-key', apiKey: 'saved-key' } } );
 		answerPrompt( 'updated-key' );
 
@@ -91,10 +103,7 @@ describe( 'AI auth helpers', () => {
 		expect( password ).not.toHaveBeenCalled();
 
 		await prepareAiProvider( 'anthropic', { force: true } );
-		expect( writeProviderConfig ).toHaveBeenCalledWith( 'anthropic', {
-			method: 'api-key',
-			apiKey: 'updated-key',
-		} );
+		expect( connectProvider ).toHaveBeenCalledWith( anthropicProvider, { apiKey: 'updated-key' } );
 	} );
 
 	it( 'connects to the WordPress.com gateway with the Studio session headers', async () => {

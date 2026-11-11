@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { validateAnthropicApiKey } from '../account';
+import { InvalidCredentialError } from '../../errors';
+import { connectAnthropic, validateAnthropicApiKey } from '../account';
 
 describe( 'validateAnthropicApiKey', () => {
 	afterEach( () => {
@@ -57,5 +58,23 @@ describe( 'validateAnthropicApiKey', () => {
 		await expect( validateAnthropicApiKey( 'sk-ant-test-1234' ) ).resolves.toMatchObject( {
 			status: 'unverifiable',
 		} );
+	} );
+} );
+
+describe( 'connectAnthropic', () => {
+	afterEach( () => vi.unstubAllGlobals() );
+
+	it( 'stores a trimmed key Anthropic accepts or cannot check, and refuses one it rejects', async () => {
+		vi.stubGlobal( 'fetch', vi.fn().mockRejectedValue( new Error( 'offline' ) ) );
+		await expect( connectAnthropic( { apiKey: '  sk-ant-key  ' } ) ).resolves.toEqual( {
+			method: 'api-key',
+			apiKey: 'sk-ant-key',
+		} );
+
+		vi.stubGlobal( 'fetch', vi.fn().mockResolvedValue( { ok: false, status: 401 } ) );
+		await expect( connectAnthropic( { apiKey: 'sk-ant-bad' } ) ).rejects.toBeInstanceOf(
+			InvalidCredentialError
+		);
+		await expect( connectAnthropic( { apiKey: '   ' } ) ).rejects.toThrow( 'API key is required' );
 	} );
 } );

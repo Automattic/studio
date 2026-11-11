@@ -5,8 +5,9 @@ import {
 } from '@studio/agent/node/global-instructions';
 import { isAgentAppId, type AgentApp } from '@studio/common/lib/agent-apps';
 import {
+	connectProvider,
+	disconnectProvider,
 	readAiSettings,
-	saveAnthropicApiKey as saveAnthropicApiKeyToConfig,
 	setAiProvider as setAiProviderInConfig,
 	type AiSettings,
 } from '@studio/common/lib/ai-settings';
@@ -132,39 +133,52 @@ export async function getAiSettings() {
 	return readAiSettings();
 }
 
-// One event for both handlers: clearing the key also moves the provider back to WordPress.com.
-// The key is never sent; the preview comparison only detects a key being swapped.
+// One event for every change: disconnecting the selected provider also moves the selection back
+// to WordPress.com. The credential is never sent; the summary comparison only detects one being
+// swapped.
 async function recordAiSettingsChange( previous: AiSettings, next: AiSettings ): Promise< void > {
-	const unchanged =
-		previous.provider === next.provider &&
-		previous.hasAnthropicApiKey === next.hasAnthropicApiKey &&
-		previous.anthropicApiKeyPreview === next.anthropicApiKeyPreview;
-	if ( unchanged ) {
+	if ( JSON.stringify( previous ) === JSON.stringify( next ) ) {
 		return;
 	}
 	await recordTracksEvent( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
 		provider: toStoredProviderId( next.provider ),
-		has_anthropic_api_key: next.hasAnthropicApiKey,
+		has_anthropic_api_key: next.accounts.anthropic.connected,
 		surface: 'settings',
 	} );
 }
 
-export async function saveAnthropicApiKey( _event: IpcMainInvokeEvent, key: string | null ) {
-	const previous = await readAiSettings();
-	const settings = await saveAnthropicApiKeyToConfig( key, getProvider( 'anthropic' ) );
-	await recordAiSettingsChange( previous, settings );
-	return settings;
-}
-
-export async function setAiProvider( _event: IpcMainInvokeEvent, requested: string ) {
+function parseProviderId( requested: string ) {
 	const provider = normalizeProviderId( requested );
 	if ( ! provider ) {
 		throw new Error( `Unknown AI provider: ${ requested }` );
 	}
+	return provider;
+}
+
+async function changeAiSettings( change: () => Promise< AiSettings > ) {
 	const previous = await readAiSettings();
-	const settings = await setAiProviderInConfig( provider, getProvider( 'anthropic' ) );
+	const settings = await change();
 	await recordAiSettingsChange( previous, settings );
 	return settings;
+}
+
+export async function connectAiProvider(
+	_event: IpcMainInvokeEvent,
+	requested: string,
+	input: Record< string, string >
+) {
+	const provider = parseProviderId( requested );
+	return changeAiSettings( () => connectProvider( getProvider( provider ), input ) );
+}
+
+export async function disconnectAiProvider( _event: IpcMainInvokeEvent, requested: string ) {
+	const provider = parseProviderId( requested );
+	return changeAiSettings( () => disconnectProvider( getProvider( provider ) ) );
+}
+
+export async function setAiProvider( _event: IpcMainInvokeEvent, requested: string ) {
+	const provider = parseProviderId( requested );
+	return changeAiSettings( () => setAiProviderInConfig( provider ) );
 }
 
 export async function saveGlobalAgentInstructions(

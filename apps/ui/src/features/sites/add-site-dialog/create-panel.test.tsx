@@ -1,11 +1,15 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { pendingPromptSlot } from '@/features/composer';
-import { createFakeConnector, type FakeConnectorInitialState } from '@/test/fake-connector';
+import {
+	aiSettings,
+	createFakeConnector,
+	type FakeConnectorInitialState,
+} from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { Connector, SelectedSiteFolder } from '@/data/core';
-import type { AiSettings } from '@studio/common/lib/ai-settings';
 import type { Blueprint as CatalogBlueprint } from '@studio/common/lib/studio-blueprints-api';
+import type { ProviderId } from '@studio/providers';
 import type { Blueprint } from '@wp-playground/blueprints';
 
 afterEach( () => {
@@ -298,22 +302,25 @@ describe( 'Add site › blank setup', () => {
 	} );
 
 	it( 'keeps the site draft and attachments when reconnecting a provider in settings', async () => {
-		let aiSettings: AiSettings = {
-			provider: 'wpcom',
-			hasAnthropicApiKey: false,
-			anthropicApiKeyPreview: null,
-		};
+		let signedIn = true;
+		let anthropicConnected = false;
+		let selected: ProviderId = 'wpcom';
+		const currentSettings = () =>
+			aiSettings( selected, [
+				...( signedIn ? [ 'wpcom' as const ] : [] ),
+				...( anthropicConnected ? [ 'anthropic' as const ] : [] ),
+			] );
 		const { connector, dialog, history } = await setup(
 			{},
 			{
-				getAiSettings: async () => aiSettings,
-				saveAnthropicApiKey: async () => {
-					aiSettings = { ...aiSettings, hasAnthropicApiKey: true };
-					return aiSettings;
+				getAiSettings: async () => currentSettings(),
+				connectProvider: async () => {
+					anthropicConnected = true;
+					return currentSettings();
 				},
 				setAiProvider: async ( provider ) => {
-					aiSettings = { ...aiSettings, provider };
-					return aiSettings;
+					selected = provider;
+					return currentSettings();
 				},
 			}
 		);
@@ -332,6 +339,7 @@ describe( 'Add site › blank setup', () => {
 		fireEvent.keyDown( input, { key: 'Enter' } );
 		expect( connector.createSite ).not.toHaveBeenCalled();
 		act( () => {
+			signedIn = false;
 			connector.state.user = null;
 			connector.emit( 'onAuthStateChanged' );
 		} );
@@ -343,7 +351,7 @@ describe( 'Add site › blank setup', () => {
 		act( () => history.push( '/?addSite=blank&settings=ai' ) );
 		const settings = await screen.findByRole( 'dialog', { name: 'Settings' } );
 		fireEvent.click(
-			within( within( settings ).getByRole( 'group', { name: 'Anthropic' } ) ).getByRole(
+			within( within( settings ).getByRole( 'group', { name: 'Anthropic API' } ) ).getByRole(
 				'button',
 				{ name: 'Connect' }
 			)
@@ -354,7 +362,9 @@ describe( 'Add site › blank setup', () => {
 				target: { value: 'sk-test-local' },
 			}
 		);
-		fireEvent.submit( within( settings ).getByRole( 'form', { name: 'Anthropic connection' } ) );
+		fireEvent.submit(
+			within( settings ).getByRole( 'form', { name: 'Anthropic API connection' } )
+		);
 		await waitFor( () => expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic' ) );
 		fireEvent.click( within( settings ).getByRole( 'button', { name: /Close .*ettings/ } ) );
 		const restored = await screen.findByRole( 'dialog', { name: 'Add site' } );

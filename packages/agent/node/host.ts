@@ -1,4 +1,5 @@
 import type { SiteInfo } from './types';
+import type { ImageGenerator } from '@studio/agent/node/image-generation';
 import type { StudioChatArtifactData } from '@studio/agent/protocol/chat-artifacts';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
@@ -96,6 +97,9 @@ export interface StudioAgentHost {
 	};
 	// Makes a site the agent created the conversation's site.
 	selectSite?( site: SiteInfo ): Promise< void > | void;
+	// Image generation through a connected provider that offers it, or
+	// undefined when none does.
+	imageGenerator?(): Promise< ImageGenerator | undefined >;
 	// Where screenshots are saved; a temporary folder when absent or null.
 	screenshotsDirectory?(): Promise< string | null > | string | null;
 	// Present when an app shows the conversation. Tools that only make sense

@@ -25,11 +25,9 @@ import {
 	type StudioAgent,
 	type StudioAgentHost,
 	type StudioAgentTool,
-	ImageGenerator,
 } from '@studio/agent/node';
 import { Type, type TSchema } from 'typebox';
 import { Value } from 'typebox/value';
-import { resolveImageGenerator } from 'cli/ai/auth';
 import { cliAgentHost } from 'cli/ai/host';
 import {
 	DESIGN_PICKER_HTML,
@@ -78,13 +76,13 @@ function createTools(
 	agent: StudioAgent,
 	host: StudioAgentHost,
 	client: ClientSupport,
-	generateImages: ImageGenerator | undefined,
+	imageGeneration: boolean,
 	tracks?: DesignTracksContext
 ): ServedTool[] {
 	const imageLink = ( file: string ) =>
 		client.fileImageLinks ? pathToFileURL( file ).href : file;
 	const definitions = agent.tools( {
-		generateImages: client.ownImageTool ? undefined : generateImages,
+		imageGeneration: imageGeneration && ! client.ownImageTool,
 		canAskUser: true,
 		imageLink,
 		tracks,
@@ -154,7 +152,7 @@ export async function startMcpStdioServer(): Promise< void > {
 	const agent = createAgent( { host } );
 	const sessionId = randomUUID();
 	const resultNotes = createResultNotes();
-	const generateImages = await resolveImageGenerator();
+	const imageGeneration = Boolean( await host.imageGenerator?.() );
 	const server = new Server(
 		{ name: 'studio', version: '1.0.0' },
 		{
@@ -165,11 +163,11 @@ export async function startMcpStdioServer(): Promise< void > {
 	);
 	// The tools depend on what the client supports, known once it has connected.
 	let client = describeClient( server );
-	let tools = createTools( agent, host, client, generateImages );
+	let tools = createTools( agent, host, client, imageGeneration );
 	server.oninitialized = () => {
 		client = describeClient( server );
 		process.env.STUDIO_MCP_CLIENT = server.getClientVersion()?.name ?? '';
-		tools = createTools( agent, host, client, generateImages, {
+		tools = createTools( agent, host, client, imageGeneration, {
 			ai_session_id: sessionId,
 			agent_name: process.env.STUDIO_MCP_CLIENT || 'unknown',
 			client: 'studio-mcp',

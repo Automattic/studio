@@ -41,7 +41,8 @@ vi.mock( '@earendil-works/pi-coding-agent', async ( importOriginal ) => {
 	};
 } );
 
-const agent = createAgent( { host: createFakeHost( mocks.studioRoot ) } );
+const host = createFakeHost( mocks.studioRoot );
+const agent = createAgent( { host } );
 
 vi.mock( '@studio/common/lib/well-known-paths', async ( importOriginal ) => {
 	const actual = await importOriginal< typeof import('@studio/common/lib/well-known-paths') >();
@@ -262,66 +263,52 @@ describe( 'pi runtime', () => {
 		} );
 	} );
 
-	it.each( [
-		[ 'balanced', 'https://proxy.example.com/v1/responses', 'balanced-2' ],
-		[ 'strong', 'https://proxy.example.com/v1/messages?beta=true', 'strong-2' ],
-	] as const )(
-		'sends the %s tier to the proxy under its API model name',
-		async ( model, expectedUrl, expectedModel ) => {
-			await runRuntime( { prompt: 'hello', model, session: newSession() } );
-			const options = mocks.createdSessions[ 0 ].options;
-			const fetchSpy = vi
-				.spyOn( globalThis, 'fetch' )
-				.mockResolvedValue( new Response( '{}', { status: 400 } ) );
+	// The tier table is the provider's (wpcom/tests/ai.test.ts); this checks the
+	// registration applies the connection's upstream alias and error rewrite.
+	it( 'streams with the connection’s upstream model and error rewrite', async () => {
+		await runRuntime( { prompt: 'hello', model: 'strong', session: newSession() } );
+		const options = mocks.createdSessions[ 0 ].options;
+		const body = JSON.stringify( {
+			error: { code: 'cost_cap_exceeded', message: 'Monthly cost cap exceeded.' },
+		} );
+		const fetchSpy = vi
+			.spyOn( globalThis, 'fetch' )
+			.mockImplementation( async () => new Response( body, { status: 429 } ) );
 
-			let request: Parameters< typeof fetch > | undefined;
-			try {
-				await options
-					.modelRuntime!.streamSimple(
-						options.model!,
-						{ messages: [ { role: 'user', content: 'hi', timestamp: 0 } ] },
-						{ maxRetries: 0 }
-					)
-					.result();
-				request = fetchSpy.mock.calls[ 0 ];
-			} finally {
-				fetchSpy.mockRestore();
-			}
-
-			const [ url, init ] = request!;
-			expect( String( url ) ).toBe( expectedUrl );
-			expect( JSON.parse( String( init?.body ) ).model ).toBe( expectedModel );
+		try {
+			const result = await options
+				.modelRuntime!.streamSimple(
+					options.model!,
+					{ messages: [ { role: 'user', content: 'hi', timestamp: 0 } ] },
+					{ maxRetries: 0 }
+				)
+				.result();
+			const [ url, init ] = fetchSpy.mock.calls[ 0 ];
+			expect( String( url ) ).toBe( 'https://proxy.example.com/v1/messages?beta=true' );
+			expect( JSON.parse( String( init?.body ) ).model ).toBe( 'strong-2' );
 			expect( new Headers( init?.headers ).get( 'authorization' ) ).toBe( 'Bearer wpcom-token' );
-			expect( options.model!.id ).toBe( model );
+			expect( result.errorMessage ).toMatch( /^Monthly usage limit reached: / );
+		} finally {
+			fetchSpy.mockRestore();
 		}
-	);
+	} );
 
-	it.each( [ 'fast', 'balanced', 'strong' ] as const )(
-		'surfaces the proxy cost cap on the %s tier as a usage-cap error',
-		async ( model ) => {
-			await runRuntime( { prompt: 'hello', model, session: newSession() } );
-			const options = mocks.createdSessions[ 0 ].options;
-			const body = JSON.stringify( {
-				error: { code: 'cost_cap_exceeded', message: 'Monthly cost cap exceeded.' },
-			} );
-			const fetchSpy = vi
-				.spyOn( globalThis, 'fetch' )
-				.mockImplementation( async () => new Response( body, { status: 429 } ) );
-
-			try {
-				const result = await options
-					.modelRuntime!.streamSimple(
-						options.model!,
-						{ messages: [ { role: 'user', content: 'hi', timestamp: 0 } ] },
-						{ maxRetries: 0 }
-					)
-					.result();
-				expect( result.errorMessage ).toMatch( /^Monthly usage limit reached: / );
-			} finally {
-				fetchSpy.mockRestore();
-			}
+	it( 'offers generate_images only when the host has an image generator', async () => {
+		const toolNames = ( index: number ) =>
+			( ( mocks.createdSessions[ index ].options.customTools ?? [] ) as { name: string }[] ).map(
+				( tool ) => tool.name
+			);
+		await runRuntime( { prompt: 'hello', model: 'fast', session: newSession() } );
+		host.imageGenerator = async () => async () => [];
+		try {
+			await runRuntime( { prompt: 'hello', model: 'fast', session: newSession() } );
+		} finally {
+			delete host.imageGenerator;
 		}
-	);
+
+		expect( toolNames( 0 ) ).not.toContain( 'generate_images' );
+		expect( toolNames( 1 ) ).toContain( 'generate_images' );
+	} );
 
 	it( 'advertises image input per model rather than per family', async () => {
 		await runRuntime( {
@@ -539,8 +526,7 @@ describe( 'pi runtime', () => {
 		] );
 	} );
 
-	// The registered key wins over pi's own environment lookup, so the CLI
-	// no longer scrubs ANTHROPIC_API_KEY before a turn.
+	// The registered key wins over pi's own environment lookup.
 	it( 'runs Anthropic models on the connection key, not the environment', async () => {
 		vi.stubEnv( 'ANTHROPIC_API_KEY', 'sk-ant-from-env' );
 		await runRuntime( { prompt: 'hello', model: 'claude-sonnet-5', session: newSession() } );

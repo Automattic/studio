@@ -51,7 +51,6 @@ import {
 	updateStudioToolPayloadGuardState,
 } from './tool-safety';
 import type { StudioAgentHost } from '@studio/agent/node/host';
-import type { ImageGenerator } from '@studio/agent/node/image-generation';
 import type { StudioToolResultDetails } from '@studio/agent/node/tools/define-tool';
 import type { AskUserHandler, SiteInfo } from '@studio/agent/node/types';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
@@ -80,8 +79,6 @@ export interface StudioAgentTurnConfig {
 	session: SessionManager;
 	// The model to run on, as the provider serving it connects to it.
 	ai: AiConnection;
-	// A connected provider's image generation; enables generate_images.
-	generateImages?: ImageGenerator;
 	activeSite?: SiteInfo | null;
 	onAskUser?: AskUserHandler;
 	onEvent: ( event: AgentSessionEvent ) => void;
@@ -246,8 +243,15 @@ async function createStudioAgentSession(
 	payloadGuardState: StudioToolPayloadGuardState
 ): Promise< AgentSession > {
 	const { model } = config.ai;
-	const userInstructions = await readGlobalInstructions();
-	const tools = buildAgentTools( config, model.input.includes( 'image' ) );
+	const [ userInstructions, imageGenerator ] = await Promise.all( [
+		readGlobalInstructions(),
+		config.host.imageGenerator?.(),
+	] );
+	const tools = buildAgentTools(
+		config,
+		Boolean( imageGenerator ),
+		model.input.includes( 'image' )
+	);
 	const systemPrompt = buildSystemPrompt( {
 		userInstructions,
 		tools: tools.map( toolPromptContribution ),
@@ -487,6 +491,7 @@ function toToolDefinition(
 
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
+	imageGenerationEnabled: boolean,
 	visionEnabled: boolean
 ): AgentToolAny[] {
 	const { host } = config;
@@ -525,7 +530,7 @@ function buildAgentTools(
 		renameTool( createLsTool( sitesRoot ), 'Ls' ),
 	];
 	const studioTools = resolveStudioTools( host, {
-		generateImages: config.generateImages,
+		imageGeneration: imageGenerationEnabled,
 		visionEnabled,
 		canAskUser: Boolean( config.onAskUser ),
 		tracks,

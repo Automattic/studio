@@ -5,7 +5,7 @@ import { bindTool } from './define-tool';
 import { deletePreviewTool } from './delete-preview';
 import { deleteSiteTool } from './delete-site';
 import { exportSiteTool } from './export-site';
-import { createGenerateImagesTool, generateImagesTool } from './generate-images';
+import { generateImagesTool } from './generate-images';
 import { importSiteTool } from './import-site';
 import { createInspectDesignTool, inspectDesignTool } from './inspect-design';
 import { installTaxonomyScriptsTool } from './install-taxonomy-scripts';
@@ -36,7 +36,6 @@ import type {
 } from './define-tool';
 import type { DesignTracksContext } from '@studio/agent/node/design-tracks';
 import type { StudioAgentHost, StudioAgentUi } from '@studio/agent/node/host';
-import type { ImageGenerator } from '@studio/agent/node/image-generation';
 
 export const studioToolDefinitions: StudioToolDefinition[] = [
 	createSiteTool,
@@ -71,9 +70,10 @@ export const studioToolDefinitions: StudioToolDefinition[] = [
 ];
 
 export interface StudioToolsOptions {
-	// Enables generate_images: a connected provider's image generation. Without
-	// it, sessions get no tool and no imagery prompt sections.
-	generateImages?: ImageGenerator;
+	// Enable generate_images. Callers pass whether host.imageGenerator() found
+	// one; when off, sessions behave exactly as before the tool existed (no
+	// tool, no imagery prompt sections).
+	imageGeneration?: boolean;
 	// False for models that cannot view images. Defaults to true.
 	visionEnabled?: boolean;
 	// False leaves out wpcom_request, for hosts that don't accept a tool reaching any
@@ -95,7 +95,7 @@ export function resolveStudioTools(
 	options: StudioToolsOptions = {}
 ): AnyStudioAgentTool[] {
 	return studioToolDefinitions.flatMap( ( candidate ) => {
-		if ( candidate.name === generateImagesTool.name && ! options.generateImages ) {
+		if ( candidate.name === generateImagesTool.name && ! options.imageGeneration ) {
 			return [];
 		}
 		if ( candidate.name === wpcomRequestTool.name && options.wpcomRequest === false ) {
@@ -106,9 +106,6 @@ export function resolveStudioTools(
 			return [];
 		}
 		let tool = candidate;
-		if ( candidate.name === generateImagesTool.name ) {
-			tool = createGenerateImagesTool( options.generateImages );
-		}
 		if ( candidate.name === takeScreenshotTool.name ) {
 			tool = createTakeScreenshotTool( {
 				visionEnabled: options.visionEnabled !== false,

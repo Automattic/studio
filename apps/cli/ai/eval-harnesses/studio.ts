@@ -19,7 +19,6 @@ import {
 } from '@studio/providers';
 import {
 	resolveAiConnection,
-	resolveImageGenerator,
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
@@ -153,10 +152,7 @@ export async function runStudioConversation(
 	phaseTimingsMs.resolve_unavailable_provider_ms = Date.now() - phaseStartedAt;
 
 	phaseStartedAt = Date.now();
-	const [ ai, generateImages ] = await Promise.all( [
-		resolveAiConnection( aiProvider, resolvedModel ),
-		resolveImageGenerator(),
-	] );
+	const ai = await resolveAiConnection( aiProvider, resolvedModel );
 	phaseTimingsMs.resolve_ai_environment_ms = Date.now() - phaseStartedAt;
 
 	const toolCalls: ToolCallRecord[] = [];
@@ -314,7 +310,6 @@ export async function runStudioConversation(
 		agent.runTurn( {
 			prompt: turnPrompt,
 			ai,
-			generateImages,
 			session,
 			activeSite: ctx.activeSite,
 			onEvent: handleEvent,

@@ -4,7 +4,7 @@ import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
 import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
 import { __ } from '@wordpress/i18n';
-import { getStudioUserAgent } from 'cli/ai/auth';
+import { getStudioUserAgent, resolveImageGenerator } from 'cli/ai/auth';
 import { runCommand as runExportCommand } from 'cli/commands/export';
 import { runCommand as runImportCommand } from 'cli/commands/import';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
@@ -92,6 +92,7 @@ export const cliAgentHost: StudioAgentHost = {
 	get userAgent() {
 		return getStudioUserAgent();
 	},
+	imageGenerator: resolveImageGenerator,
 	sites: {
 		resolve: async ( nameOrPath ) => toHostSite( await resolveSite( nameOrPath ) ),
 		findByFolder: async ( folder ) => {

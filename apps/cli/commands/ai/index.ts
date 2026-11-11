@@ -44,7 +44,6 @@ import {
 	isAiProviderReady,
 	prepareAiProvider,
 	resolveAiConnection,
-	resolveImageGenerator,
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
@@ -589,10 +588,7 @@ export async function runCommand( options: {
 		await maybeAutoSwitchProvider();
 		const sm = await ensureSession();
 		const sessionId = sm.getSessionId();
-		const [ ai, generateImages ] = await Promise.all( [
-			resolveAiConnection( currentProvider, currentModel, { sessionId } ),
-			resolveImageGenerator(),
-		] );
+		const ai = await resolveAiConnection( currentProvider, currentModel, { sessionId } );
 
 		ui.beginAgentTurn( sessionId );
 
@@ -674,7 +670,6 @@ export async function runCommand( options: {
 			prompt: enrichedPrompt,
 			images,
 			ai,
-			generateImages,
 			session: sm,
 			activeSite: site,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),

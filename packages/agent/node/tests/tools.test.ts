@@ -21,7 +21,6 @@ import {
 	REMOTE_READ,
 	type AnyStudioAgentTool,
 } from '@studio/agent/node/tools/define-tool';
-import { createGenerateImagesTool } from '@studio/agent/node/tools/generate-images';
 import { enrichPreviewListOutput } from '@studio/agent/node/tools/list-previews';
 import { createTakeScreenshotTool } from '@studio/agent/node/tools/take-screenshot';
 import { splitCommandArgs } from '@studio/agent/node/tools/wp-cli';
@@ -167,13 +166,6 @@ describe( 'Studio AI MCP tools', () => {
 			resolveStudioTools( host, options ).map( ( tool ) => tool.name );
 		expect( names( {} ) ).toContain( 'wpcom_request' );
 		expect( names( { wpcomRequest: false } ) ).not.toContain( 'wpcom_request' );
-	} );
-
-	it( 'offers generate_images only with a provider’s image generation', () => {
-		const names = ( options: StudioToolsOptions ) =>
-			resolveStudioTools( host, options ).map( ( tool ) => tool.name );
-		expect( names( {} ) ).not.toContain( 'generate_images' );
-		expect( names( { generateImages: vi.fn() } ) ).toContain( 'generate_images' );
 	} );
 
 	it( 'reports invalid core/html blocks and skips editor validation', async () => {
@@ -840,8 +832,8 @@ describe( 'Studio AI MCP tools', () => {
 			.mockResolvedValueOnce( { exitCode: 0, stdout: '', stderr: '' } );
 
 		try {
-			const tool = bindTool( createGenerateImagesTool( generateImages ), host );
-			const result = await tool.rawHandler( {
+			host.imageGenerator = async () => generateImages;
+			const result = await getTool( 'generate_images' ).rawHandler( {
 				images: [
 					{ path: path.join( uploads, 'hero.png' ), subject: 'A café counter at dawn' },
 					{ path: path.join( uploads, 'buns.png' ), subject: 'Cardamom buns on a tray' },

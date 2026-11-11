@@ -213,6 +213,13 @@ const EVENT_SOURCES = () => {
 	};
 };
 
+// The app words itself for the system it runs on (`navigator.platform`): ⌘ or Ctrl in shortcuts,
+// Finder or a file manager. Captures read as on a Mac wherever they are made, so a cloud
+// machine's match a Mac's.
+const AS_MAC = () => {
+	Object.defineProperty( Navigator.prototype, 'platform', { get: () => 'MacIntel' } );
+};
+
 export async function launchBrowser( {
 	profile,
 	look,
@@ -237,6 +244,7 @@ export async function launchBrowser( {
 		locale: 'en-US',
 	} );
 	await context.addInitScript( EVENT_SOURCES );
+	await context.addInitScript( AS_MAC );
 	const api = apiRouter( context, server.url );
 	await api.ready;
 	if ( authToken ) {

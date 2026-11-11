@@ -48,7 +48,7 @@ The harness runs in a headless Linux sandbox, such as a Claude Code cloud sessio
 | `github.com`, `raw.githubusercontent.com`, `release-assets.githubusercontent.com` | Electron, WP-CLI, the SQLite files and the agent skills |
 | `cdn.playwright.dev` | Playwright's Chromium |
 
-Signed-in scripts need no account or secret: they sign in as a demo person (see **Signed in**). Linux captures show Linux keyboard shortcuts (`Ctrl+Alt+P`, not `⌥⌘P`). The docs images come from this environment, the browser driver on Linux, so they carry no system's window chrome; capture them there, so the pixels match the committed ones.
+Signed-in scripts need no account or secret: they sign in as a demo person (see **Signed in**). The browser app is told it runs on a Mac, so captures show Mac wording (`⌥⌘P`, Finder) wherever they are made; Studio Desktop on Linux shows Linux's (`Ctrl+Alt+P`). The docs images come from this environment, the browser driver on Linux, so they carry no system's window chrome; capture them there, so the pixels match the committed ones.
 
 ## Commands
 

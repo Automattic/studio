@@ -4,6 +4,7 @@ import {
 	getAiModelLabel,
 	type AiModelId,
 } from '@studio/agent/protocol/models';
+import { AI_PROVIDER_IDS, getAiProvider } from '@studio/agent/protocol/providers';
 import { getAiSkillCommands } from '@studio/agent/protocol/slash-commands';
 import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/shared-config';
 import {
@@ -219,14 +220,44 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 	},
 	{
 		name: 'api-key',
-		description: __( 'Set or update the Anthropic API key' ),
+		description: __( 'Set or update an API key' ),
 		handler: async ( _prompt, ctx ) => {
 			try {
-				await ctx.prepareProviderSelection( 'anthropic-api-key', { force: true } );
-				ctx.ui.showInfo( __( 'Anthropic API key updated.' ) );
+				const apiKeyProviders = AI_PROVIDER_IDS.filter(
+					( id ) => getAiProvider( id ).connection.type === 'api-key'
+				);
+				let targetProvider: AiProviderId | undefined;
+				if ( getAiProvider( ctx.currentProvider ).connection.type === 'api-key' ) {
+					targetProvider = ctx.currentProvider;
+				} else if ( apiKeyProviders.length === 1 ) {
+					targetProvider = apiKeyProviders[ 0 ];
+				} else {
+					const labelToId = new Map< string, AiProviderId >();
+					const options = apiKeyProviders.map( ( id ) => {
+						const { label } = getAiProvider( id );
+						labelToId.set( label, id );
+						return { label, description: id };
+					} );
+					const answer = await ctx.ui.askUser( [
+						{ question: __( 'Select a provider to set its API key' ), options },
+					] );
+					const selectedLabel = Object.values( answer )[ 0 ] as string;
+					targetProvider = labelToId.get( selectedLabel );
+				}
+				if ( ! targetProvider ) {
+					return 'continue';
+				}
+				await ctx.prepareProviderSelection( targetProvider, { force: true } );
+				ctx.ui.showInfo(
+					sprintf(
+						/* translators: %s: provider name (e.g. Anthropic API, Google Gemini API) */
+						__( '%s key updated.' ),
+						getAiProvider( targetProvider ).label
+					)
+				);
 				if ( ctx.showCapabilitiesOnConnect ) {
 					ctx.showCapabilitiesOnConnect = false;
-					await ctx.switchProvider( 'anthropic-api-key' );
+					await ctx.switchProvider( targetProvider );
 					ctx.ui.showCapabilities();
 				}
 			} catch ( error ) {

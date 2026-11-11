@@ -116,3 +116,15 @@ export interface AiSettings {
 	provider: AiProviderId;
 	connections: Record< AiProviderId, AiProviderConnection >;
 }
+
+/** Build a disconnected `AiSettings['connections']` map across all cataloged providers. */
+export function createEmptyAiConnections(
+	overrides?: Partial< Record< AiProviderId, AiProviderConnection > >
+): Record< AiProviderId, AiProviderConnection > {
+	return {
+		...( Object.fromEntries(
+			AI_PROVIDER_IDS.map( ( id ) => [ id, { connected: false, apiKeyPreview: null } ] )
+		) as Record< AiProviderId, AiProviderConnection > ),
+		...overrides,
+	};
+}

@@ -368,7 +368,12 @@ async function validateAsWritten(
 				// an attribute only an older version declares is dropped from a block
 				// that matches the current one (jetpack/field-name's "label" beside an
 				// empty <div>), and a migration can drop one. className is classes,
-				// which are compared as such.
+				// which are compared as such. A preset a migration moves from style to
+				// the attribute naming its slug is held as that slug: core/site-title
+				// migrates style.typography.fontFamily var:preset|font-family|heading
+				// to a fontFamily of heading (utils/migrate-font-family.js in
+				// @wordpress/block-library), which WordPress renders as the same font
+				// (wp_apply_typography_support in wp-includes/block-supports/typography.php).
 				function droppedText( blockType: any, attrs: any, held: Set< string > ) {
 					const known = Object.assign(
 						{},
@@ -388,7 +393,13 @@ async function validateAsWritten(
 							return [];
 						}
 						return stringsIn( value )
-							.filter( ( text ) => /\p{L}/u.test( text ) && ! held.has( text ) )
+							.filter(
+								( text ) =>
+									/\p{L}/u.test( text ) &&
+									! [ text, text.replace( /^var:preset\|[\w-]+\|/, '' ) ].some( ( one ) =>
+										held.has( one )
+									)
+							)
 							.map( ( text ): [ string, string ] => [ key, text ] );
 					} );
 				}
@@ -964,6 +975,16 @@ async function validateAsWritten(
 				// stored where the block does not save the class from loses the class,
 				// so the fix keeps the block as written.
 				const PROBE = { string: 'studioprobe', number: 424242 };
+				// The style a preset's class gives, has-<slug>-<property>
+				// (getFontSizeClass and getColorClassName in @wordpress/block-editor),
+				// with its kind of preset and the site's presets as the editor reads them.
+				const PRESET_STYLES = [
+					[ 'font-size', 'font-size', 'fontSizes', 'size' ],
+					[ 'color', 'color', 'colors', 'color' ],
+					[ 'background-color', 'color', 'colors', 'color' ],
+				] as const;
+				const editorSettings =
+					( window as any ).wp?.data?.select( 'core/block-editor' )?.getSettings?.() ?? {};
 				function withWrittenClasses( made: any, raw: any ) {
 					if ( typeof rawParse !== 'function' ) {
 						return made;
@@ -1035,8 +1056,21 @@ async function validateAsWritten(
 								continue;
 							}
 							// The comment's own value stands, as the editor makes a
-							// block from its comment, and the class is lost.
-							if ( raw.attrs?.[ key ] !== undefined && String( raw.attrs[ key ] ) !== value ) {
+							// block from its comment, and the class is lost; but for
+							// the class of a preset the site has, which the page shows
+							// as written, as has-gold-dark-color written beside a
+							// textColor of gold.
+							if (
+								raw.attrs?.[ key ] !== undefined &&
+								String( raw.attrs[ key ] ) !== value &&
+								! PRESET_STYLES.some(
+									( [ property, , list ] ) =>
+										name === `has-${ value }-${ property }` &&
+										( editorSettings[ list ] ?? [] ).some(
+											( preset: any ) => preset.slug === value
+										)
+								)
+							) {
 								break;
 							}
 							result = wpBlocks.createBlock(
@@ -1451,16 +1485,6 @@ async function validateAsWritten(
 					} );
 				}
 
-				// The style a preset's class gives, has-<slug>-<property>
-				// (getFontSizeClass and getColorClassName in @wordpress/block-editor),
-				// with its kind of preset and the site's presets as the editor reads them.
-				const PRESET_STYLES = [
-					[ 'font-size', 'font-size', 'fontSizes', 'size' ],
-					[ 'color', 'color', 'colors', 'color' ],
-					[ 'background-color', 'color', 'colors', 'color' ],
-				] as const;
-				const editorSettings =
-					( window as any ).wp?.data?.select( 'core/block-editor' )?.getSettings?.() ?? {};
 				// A preset's value as the browser reads it, as an inline style is read.
 				const asRead = ( property: string, value: string ) => {
 					const scratch = document.createElement( 'div' );
@@ -1870,6 +1894,16 @@ async function validateAsWritten(
 									( [ property ]: string[] ) => [ property, shownAs( property ) ] as const
 								)
 							);
+							// A block its position support makes sticky or fixed it stacks
+							// above the page's content itself, at a z-index of 10
+							// (wp_render_position_support in
+							// wp-includes/block-supports/position.php): a z-index written for
+							// that, as 99 on a sticky header, it saves as 10, which stacks it
+							// over the page's content as well, though not over what the page
+							// stacks between the two.
+							const stacked =
+								[ 'sticky', 'fixed' ].includes( read( element, 'position' ) ) &&
+								Number( read( element, 'z-index' ) ) > 0;
 							element.style.cssText += `;${ loss.rootStyle }`;
 							const stays = where() === placed;
 							kept.set(
@@ -1881,6 +1915,7 @@ async function validateAsWritten(
 											const [ wasOnBlock, ...wasOnText ] = shown.get( property )!;
 											return (
 												onBlock === wasOnBlock ||
+												( property === 'z-index' && stacked && Number( value ) > 0 ) ||
 												( stays &&
 													onText.length > 0 &&
 													onText.join() === wasOnText.join() &&

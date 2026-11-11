@@ -457,14 +457,16 @@ describe.runIf( siteUrl )( 'validating in the block editor (live)', () => {
 			still: [],
 		},
 		{
-			name: 'a sticky group, with a style it has nowhere for',
+			// Its z-index the position support renders as 10
+			// (wp_render_position_support in wp-includes/block-supports/position.php).
+			name: 'a sticky group, with a z-index',
 			written:
 				'<!-- wp:group {"style":{"position":{"type":"sticky"}}} -->\n<div class="wp-block-group" style="position:sticky;top:0px;z-index:100"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->',
-			lost: 'drop the styles top:0px; z-index:100 — store top:0px as "style":{"position":{"type":"sticky","top":"0px"}}',
+			lost: 'drop the styles top:0px — store it as "style":{"position":{"type":"sticky","top":"0px"}}',
 			stored:
 				'<!-- wp:group {"style":{"position":{"type":"sticky","top":"0px"}}} -->\n<div class="wp-block-group" style="z-index:100"><!-- wp:paragraph -->\n<p>A</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->',
-			note: 'drop top:0px; z-index:100 from div.wp-block-group — store top:0px as "style":{"position":{"type":"sticky","top":"0px"}}',
-			still: [ 'drop the styles z-index:100' ],
+			note: 'drop top:0px from div.wp-block-group — store it as "style":{"position":{"type":"sticky","top":"0px"}}',
+			still: [],
 		},
 	] )(
 		'names the attributes a style it drops renders from: $name',
@@ -1875,5 +1877,113 @@ describe.runIf( siteUrl )( "the fix for the blocks inside one it can't fix (live
 			).toEqual( lossy );
 		},
 		60_000
+	);
+} );
+
+describe.runIf( siteUrl )( "eval31's ports: what the written HTML shows (live)", () => {
+	afterAll( cleanupValidatorPages );
+
+	// onepage-port-1's footer: a site title with its font family's preset
+	// written in style, which core/site-title's deprecation migrates to a
+	// fontFamily of heading (utils/migrate-font-family.js), the same font.
+	const SITE_TITLE = [
+		'<!-- wp:group {"layout":{"type":"constrained","contentSize":"420px"}} -->',
+		'<div class="wp-block-group"><!-- wp:site-title {"level":0,"style":{"typography":{"fontFamily":"var:preset|font-family|heading","fontSize":"2rem","fontWeight":"600"}}} /-->',
+		'<!-- wp:paragraph {"style":{"color":{"text":"#cdbfa7"},"typography":{"fontSize":"0.95rem"}}} -->',
+		`<p style="color:#cdbfa7;font-size:0.95rem;">Wedding photography bathed in the light you'll remember. Golden Hour Studio, chasing the last light of the day across every celebration.</p>`,
+		'<!-- /wp:paragraph --></div>',
+		'<!-- /wp:group -->',
+	].join( '\n' );
+	// onepage-port-1's header: a sticky group, its z-index written inline.
+	const HEADER = [
+		'<!-- wp:group {"align":"full","style":{"color":{"background":"#faf7f0"},"position":{"type":"sticky","top":"0px"},"spacing":{"padding":{"top":"14px","bottom":"14px","left":"0px","right":"0px"},"margin":{"top":"0px","bottom":"0px"}},"border":{"bottom":{"color":"#efe5d2","width":"1px","style":"solid"}}},"layout":{"type":"constrained"}} -->',
+		'<div class="wp-block-group alignfull" style="background-color:#faf7f0;border-bottom:1px solid #efe5d2;margin-top:0;margin-bottom:0;padding-top:14px;padding-bottom:14px;position:sticky;top:0px;z-index:99;">',
+		'<!-- wp:group {"layout":{"type":"flex","flexWrap":"nowrap","justifyContent":"space-between","verticalAlignment":"center"}} -->',
+		'<div class="wp-block-group"><!-- wp:site-title {"level":0,"style":{"typography":{"fontFamily":"var:preset|font-family|heading","fontSize":"1.8rem","fontWeight":"600","letterSpacing":"0.01em"}}} /-->',
+		'',
+		'<!-- wp:group {"layout":{"type":"flex","flexWrap":"nowrap","verticalAlignment":"center","justifyContent":"space-between"}} -->',
+		'<div class="wp-block-group"><!-- wp:navigation {"overlayMenu":"mobile","layout":{"type":"flex","justifyContent":"center","orientation":"horizontal","flexWrap":"wrap"},"style":{"spacing":{"blockGap":"2.1rem"}}} -->',
+		'<!-- wp:navigation-link {"label":"Portfolio","type":"custom","url":"#portfolio","kind":"custom"} /-->',
+		'<!-- wp:navigation-link {"label":"Contact","type":"custom","url":"#contact","kind":"custom"} /-->',
+		'<!-- /wp:navigation -->',
+		'',
+		'<!-- wp:buttons {"layout":{"type":"flex","justifyContent":"center"}} -->',
+		'<div class="wp-block-buttons"><!-- wp:button {"style":{"spacing":{"padding":{"top":"0.7em","right":"1.5em","bottom":"0.7em","left":"1.5em"}}}} -->',
+		'<div class="wp-block-button"><a class="wp-block-button__link wp-element-button" href="#contact">Book a Session</a></div>',
+		'<!-- /wp:button --></div>',
+		'<!-- /wp:buttons --></div>',
+		'<!-- /wp:group --></div>',
+		'<!-- /wp:group -->',
+		'</div>',
+		'<!-- /wp:group -->',
+	].join( '\n' );
+	// onepage-port-1's quote mark, whose class a sed changed and its comment
+	// not. The test site has no gold or gold-dark, so its accent-3 and
+	// accent-4 stand for them.
+	const QUOTE = ( textColor: string, shown: string ) =>
+		paragraph(
+			`{"style":{"typography":{"fontFamily":"var:preset|font-family|heading"}},"textColor":"${ textColor }","fontSize":"size-2-rem"}`,
+			`<p class="has-${ shown }-color has-text-color has-size-2-rem-font-size" style="font-family:var(--wp--preset--font-family--heading)">"</p>`
+		);
+
+	it.each( [
+		{
+			name: 'a site title with its font family preset in style',
+			written: SITE_TITLE,
+			fixed: [
+				'<!-- wp:site-title {"level":0,"style":{"typography":{"fontSize":"2rem","fontWeight":"600"}},"fontFamily":"heading"} /-->',
+			],
+			lost: [] as string[],
+		},
+		{
+			// wp_render_position_support (wp-includes/block-supports/position.php)
+			// renders the sticky position at a z-index of 10.
+			name: 'a sticky header with a z-index',
+			written: HEADER,
+			fixed: [
+				'"position":{"type":"sticky","top":"0px"}',
+				'"fontFamily":"heading"',
+				'<div class="wp-block-group alignfull has-background" style="border-bottom-color:#efe5d2;border-bottom-style:solid;border-bottom-width:1px;background-color:#faf7f0;margin-top:0px;margin-bottom:0px;padding-top:14px;padding-right:0px;padding-bottom:14px;padding-left:0px">',
+			],
+			lost: [],
+		},
+		{
+			name: 'a z-index on a group nothing positions',
+			written: HEADER.replace( ',"position":{"type":"sticky","top":"0px"}', '' ).replace(
+				'position:sticky;top:0px;',
+				''
+			),
+			fixed: [],
+			lost: [ 'drop the styles z-index:99' ],
+		},
+		{
+			name: 'a color class of a preset the site has, beside another in the comment',
+			written: QUOTE( 'accent-3', 'accent-4' ),
+			fixed: [ '"textColor":"accent-4"', '<p class="has-accent-4-color has-text-color' ],
+			lost: [],
+		},
+		{
+			// As written in the eval, on a site without that preset: the class
+			// shows nothing the comment's color would not.
+			name: 'a color class of a preset the site lacks',
+			written: QUOTE( 'gold', 'gold-dark' ),
+			fixed: [ '"textColor":"gold"', '<p class="has-gold-dark-color has-text-color' ],
+			lost: [ 'drop the classes has-gold-dark-color' ],
+		},
+	] )(
+		'keeps what the written HTML shows: $name',
+		async ( { written, fixed, lost } ) => {
+			const report = await validateBlocks( written, siteUrl! );
+			expect( report.proposedFix?.losses.map( ( loss ) => loss.lost ) ).toEqual( lost );
+			for ( const part of fixed ) {
+				expect( report.proposedFix?.fixedContent ).toContain( part );
+			}
+			if ( ! lost.length ) {
+				expect(
+					( await validateBlocks( report.proposedFix!.fixedContent, siteUrl! ) ).invalidBlocks
+				).toBe( 0 );
+			}
+		},
+		120_000
 	);
 } );

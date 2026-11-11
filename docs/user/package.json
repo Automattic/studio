@@ -6,8 +6,5 @@
 	"description": "WordPress Studio user docs in Markdown, and the script that captures their screenshots.",
 	"scripts": {
 		"screenshots": "node scripts/screenshots.mjs"
-	},
-	"dependencies": {
-		"playwright": "^1.47.0"
 	}
 }

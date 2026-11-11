@@ -36,7 +36,7 @@ Pick a driver, or take the default: the browser driver on Linux (a cloud machine
 
 When the request doesn't say how the images will be used, ask once before capturing, and offer the choices rather than an open question:
 
-1. **Where they go**: the docs (`docs`), a blog post (`blog`), a landing page or launch (`marketing`), social posts (`social`), or just plain stills (`docs`, unframed).
+1. **Where they go**: the docs (`docs`), a blog post (`blog`), a landing page or launch (`marketing`), social posts (`social`), or just plain stills (`plain`).
 2. **Light or dark** (default light): the app's scheme picks the `-dark` look where there is one; the background can differ (`--background dots-dark` puts the light app on dark dots).
 3. **Framed or plain**: framed looks save the plain still too (`keepRaw`), so this rarely needs asking; mention it.
 

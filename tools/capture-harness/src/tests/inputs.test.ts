@@ -208,7 +208,7 @@ describe( 'signIn', () => {
 	it( 'refuses an expired token', async () => {
 		await expect(
 			signIn( undefined, {
-				STUDIO_DOCS_AUTH_TOKEN: JSON.stringify( { ...token, expirationTime: 1 } ),
+				STUDIO_CAPTURE_AUTH_TOKEN: JSON.stringify( { ...token, expirationTime: 1 } ),
 			} )
 		).rejects.toThrow( /expired/ );
 	} );

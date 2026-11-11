@@ -27,9 +27,6 @@ export interface SignedInAs {
 	hideEmail: string | null;
 }
 
-// `STUDIO_DOCS_AUTH_TOKEN` is the name the docs scripts used first.
-const TOKEN_VARS = [ 'STUDIO_CAPTURE_AUTH_TOKEN', 'STUDIO_DOCS_AUTH_TOKEN' ];
-
 // Not a WordPress.com token: requests made with it are refused, and every
 // answer a signed-in shot needs comes from the scene instead.
 const DEMO_ACCESS_TOKEN = 'studio-capture-demo';
@@ -66,7 +63,7 @@ export async function signIn(
 	persona = DEFAULT_PERSONA,
 	env: NodeJS.ProcessEnv = process.env
 ): Promise< SignedInAs > {
-	const fromEnv = TOKEN_VARS.map( ( name ) => env[ name ] ).find( Boolean );
+	const fromEnv = env.STUDIO_CAPTURE_AUTH_TOKEN;
 	if ( fromEnv ) {
 		const token = JSON.parse( fromEnv ) as Partial< AuthToken >;
 		if ( ! token.accessToken ) {

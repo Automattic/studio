@@ -1,85 +1,15 @@
 import { dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
-import { getAuthTracksProps } from '@studio/common/lib/auth-tracks';
-import { updateSharedConfig, authTokenSchema } from '@studio/common/lib/shared-config';
-import wpcomFactory from '@studio/common/lib/wpcom-factory';
-import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
+import { connectProvider } from '@studio/common/lib/ai-settings';
+import { getAuthFailureReason, getAuthTracksProps } from '@studio/common/lib/auth-tracks';
+import { readAuthToken } from '@studio/common/lib/shared-config';
+import { getProvider } from '@studio/providers/services';
 import { __ } from '@wordpress/i18n';
-import { z } from 'zod';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { takePendingAuthContext } from 'src/lib/auth-tracks-context';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { getMainWindow } from 'src/main-window';
-import type { TracksAuthFailureReason } from 'src/lib/tracks';
-
-const meResponseSchema = z.object( {
-	ID: z.number(),
-	email: z.string(),
-	display_name: z.string(),
-} );
-
-type StoredAuthToken = z.infer< typeof authTokenSchema >;
-
-// Tags the failure so Tracks and the error dialog can classify it without matching on the message text.
-class AuthCallbackError extends Error {
-	constructor(
-		message: string,
-		public readonly code: TracksAuthFailureReason,
-		public readonly originalError?: unknown
-	) {
-		super( message );
-	}
-}
-
-// Only tagged failures are classified. Anything else is genuinely unexpected — `unknown`, matching what
-// the CLI reports for its own untagged failures, so a reason means the same thing in both channels.
-function classifyAuthFailure( error: unknown ): TracksAuthFailureReason {
-	return error instanceof AuthCallbackError ? error.code : 'unknown';
-}
-
-async function handleAuthCallback( hash: string ): Promise< StoredAuthToken > {
-	const params = new URLSearchParams( hash.substring( 1 ) );
-	const error = params.get( 'error' );
-
-	if ( error ) {
-		throw new AuthCallbackError(
-			error,
-			error === 'access_denied' ? 'access_denied' : 'token_error'
-		);
-	}
-
-	const accessToken = params.get( 'access_token' ) ?? '';
-	const expiresIn = parseInt( params.get( 'expires_in' ) ?? '0' );
-
-	if ( isNaN( expiresIn ) || expiresIn === 0 || ! accessToken ) {
-		throw new AuthCallbackError( 'Error while getting token', 'token_error' );
-	}
-	let response;
-	try {
-		const rawResponse = await wpcomFactory( accessToken, wpcomXhrRequest ).req.get(
-			'/me?fields=ID,email,display_name'
-		);
-		response = meResponseSchema.parse( rawResponse );
-	} catch ( error ) {
-		// The request failing and the response not matching the schema are both "we couldn't read the
-		// profile". Rethrow tagged, preserving the original message for the renderer and Sentry.
-		throw new AuthCallbackError(
-			error instanceof Error ? error.message : String( error ),
-			'profile_fetch_failed',
-			error
-		);
-	}
-
-	return authTokenSchema.parse( {
-		expiresIn,
-		expirationTime: new Date().getTime() + expiresIn * 1000,
-		accessToken,
-		id: response.ID,
-		email: response.email,
-		displayName: response.display_name,
-	} );
-}
 
 /**
  * Handles the OAuth authentication deeplink callback.
@@ -97,21 +27,22 @@ export async function handleAuthDeeplink( urlObject: URL ): Promise< void > {
 	const authProps = getAuthTracksProps( context );
 
 	try {
-		const authResult = await handleAuthCallback( hash );
-		await updateSharedConfig( { authToken: authResult } );
+		await connectProvider(
+			getProvider( 'wpcom' ),
+			Object.fromEntries( new URLSearchParams( hash.substring( 1 ) ) )
+		);
+		const authResult = await readAuthToken();
+		if ( ! authResult ) {
+			throw new Error( 'The WordPress.com sign-in was not stored.' );
+		}
 		setSentryWpcomUserIdMain( authResult.id );
 		// After the token is stored: the wrapper derives `is_a11n` from it, so recording earlier would
 		// tag every Automattician's login as `false`.
 		void recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH, { ...authProps, success: true } );
 		void sendIpcEventToRenderer( 'auth-updated', { token: authResult } );
 	} catch ( error ) {
-		// Report the underlying error where we wrapped one, so Sentry keeps the original stack.
-		Sentry.captureException(
-			error instanceof AuthCallbackError && error.originalError !== undefined
-				? error.originalError
-				: error
-		);
-		const failureReason = classifyAuthFailure( error );
+		Sentry.captureException( error );
+		const failureReason = getAuthFailureReason( error );
 		void recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH, {
 			...authProps,
 			success: false,

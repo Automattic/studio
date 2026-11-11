@@ -6,8 +6,7 @@ import { displayShortcut } from '@wordpress/keycodes';
 import { useRef, useState } from 'react';
 import { useSessionsBusy } from '@/data/agent-runs/use-agent-run';
 import { useConnector } from '@/data/core';
-import { useAiSettings } from '@/data/queries/use-ai-settings';
-import { useAuthUser } from '@/data/queries/use-auth-user';
+import { hasConnectedProvider, useAiSettings } from '@/data/queries/use-ai-settings';
 import { useSessions } from '@/data/queries/use-sessions';
 import { sitePinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useIsSiteBusy, useSites, useStopSite, useRestartSite } from '@/data/queries/use-sites';
@@ -175,9 +174,8 @@ export function SiteMenuItems( {
 	current?: boolean;
 } ) {
 	const { site, busy, running, othersRunning } = actions;
-	const { data: user } = useAuthUser();
 	const { data: aiSettings } = useAiSettings();
-	const providerConnected = !! user || !! aiSettings?.hasAnthropicApiKey;
+	const providerConnected = hasConnectedProvider( aiSettings );
 	const destinations = useOpenInDestinations( site );
 	const manage = Object.fromEntries(
 		useSiteManagementActions( site, {

@@ -8,17 +8,16 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { cliAgentHost } from 'cli/ai/host';
 import { createLibraryTools } from 'cli/ai/runtimes/mcp/library';
 import { runServedTool } from 'cli/ai/runtimes/mcp/served-tool';
-import { getUserInfo } from 'cli/lib/api';
 import * as tracks from 'cli/lib/tracks';
 
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/i18n', () => ( { getAppLocale: async () => 'en' } ) );
-vi.mock( 'cli/lib/api', async ( original ) => ( {
-	...( await original< typeof import('cli/lib/api') >() ),
-	getUserInfo: vi.fn(),
-} ) );
-
 const send = vi.fn( async ( _url: string ) => ( {} ) );
+// WordPress.com's `/me`, which checks a pasted token.
+const me = vi.fn( async () => ( {
+	ok: true,
+	json: async () => ( { ID: 123, email: 'private@example.com', display_name: 'Private name' } ),
+} ) );
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 let directory: string;
 let tools: ReturnType< typeof createLibraryTools >;
@@ -35,15 +34,11 @@ beforeEach( async () => {
 	vi.stubEnv( 'STUDIO_PLUGIN_VERSION', '1.0.0' );
 	vi.stubGlobal( '__ENABLE_CLI_TELEMETRY__', true );
 	vi.stubGlobal( '__STUDIO_CLI_VERSION__', 'test' );
-	vi.stubGlobal( 'fetch', send );
-	vi.mocked( getUserInfo )
-		.mockReset()
-		.mockResolvedValue( {
-			ID: 123,
-			email: 'private@example.com',
-			display_name: 'Private name',
-		} as never );
+	vi.stubGlobal( 'fetch', ( url: string ) =>
+		url.includes( '/rest/v1.1/me' ) ? me() : send( url )
+	);
 	send.mockClear();
+	me.mockClear();
 	tools = createLibraryTools( 'ui://studio/library.html' );
 } );
 
@@ -61,7 +56,7 @@ async function call( name: string, args: Record< string, unknown > = {}, served 
 		cliAgentHost,
 		bindTool( definition.tool, cliAgentHost ),
 		args,
-		createResultNotes()
+		createResultNotes( cliAgentHost )
 	);
 }
 
@@ -121,7 +116,7 @@ it( 'records a failure and gives an explicit token retry its own attempt', async
 	const journeyId = crypto.randomUUID();
 	const start = await call( 'wpcom_login', { journeyId } );
 	const attemptId = start._meta?.authAttemptId;
-	vi.mocked( getUserInfo ).mockRejectedValueOnce( new Error( 'private-token rejected' ) );
+	me.mockRejectedValueOnce( new Error( 'private-token rejected' ) );
 	expect( await call( 'wpcom_login', { token: 'private-token', attemptId } ) ).toMatchObject( {
 		isError: true,
 	} );
@@ -215,7 +210,7 @@ it( 'drops invalid attribution and never lets telemetry errors fail authenticati
 	expect(
 		await call( 'wpcom_login', { token: 'private-token', attemptId: start._meta?.authAttemptId } )
 	).toMatchObject( { isError: false } );
-	vi.mocked( getUserInfo ).mockRejectedValueOnce( new Error( 'Rejected' ) );
+	me.mockRejectedValueOnce( new Error( 'Rejected' ) );
 	expect( await call( 'wpcom_login', { token: 'bad' } ) ).toMatchObject( { isError: true } );
 } );
 

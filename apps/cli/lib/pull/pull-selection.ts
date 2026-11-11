@@ -4,6 +4,7 @@ import { __ } from '@wordpress/i18n';
 import { type PullSession } from 'cli/lib/pull/pull-session';
 import { type ReprintMetadata } from 'cli/lib/pull/reprint-metadata';
 import {
+	buildCategoryPullTree,
 	fetchJetpackPullTree,
 	mapCliOnlyToReprint,
 	selectPullItems,
@@ -102,6 +103,7 @@ export async function applySelection( params: {
 	cli: CliSelectionOptions;
 	wpComAccessToken: string;
 	wpComSiteId: number;
+	filesUnavailable?: boolean;
 } ): Promise< PullSelection | null > {
 	const { session, isFirstPull, reprintMetadata, cli, wpComAccessToken, wpComSiteId } = params;
 
@@ -185,7 +187,19 @@ export async function applySelection( params: {
 		savePullSelection( session, selection );
 		return selection;
 	}
-	const tree = await fetchJetpackPullTree( wpComAccessToken, wpComSiteId );
+	let filesUnavailable = params.filesUnavailable ?? false;
+	let tree;
+	try {
+		tree = filesUnavailable
+			? buildCategoryPullTree()
+			: await fetchJetpackPullTree( wpComAccessToken, wpComSiteId );
+	} catch ( error ) {
+		if ( ! ( error instanceof LoggerError ) || error.code !== 'missing_backup' ) {
+			throw error;
+		}
+		filesUnavailable = true;
+		tree = buildCategoryPullTree();
+	}
 	if ( tree.length === 0 ) {
 		const selection: PullSelection = {};
 		savePullSelection( session, selection );
@@ -193,8 +207,8 @@ export async function applySelection( params: {
 	}
 	const picked = await selectPullItems( tree, {
 		allowDatabaseOnly: isFirstPull,
-		token: wpComAccessToken,
-		remoteSiteId: wpComSiteId,
+		token: filesUnavailable ? undefined : wpComAccessToken,
+		remoteSiteId: filesUnavailable ? undefined : wpComSiteId,
 	} );
 	if ( ! picked ) {
 		return null;

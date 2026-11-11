@@ -2,60 +2,46 @@
 set -euo pipefail
 
 # Refreshes the user docs (docs/user) against the Studio in this checkout: checks every docs
-# screenshot, lets an agent update the pages and the shots that moved, and opens or updates one
-# pull request. See "Docs refresh" in docs/release-process.md.
+# screenshot, lets an agent update the pages and the shots that moved, and leaves the change as a
+# patch for publish-docs-refresh.sh. See "Docs refresh" in docs/release-process.md.
+#
+# Runs as root in a Linux container, with the browser driver (`studio ui` in headless Chromium),
+# as the docs images are captured: no window chrome from macOS or Windows, and no display.
 #
 #   DOCS_REFRESH_VERSION   the release to document; defaults to the version of a release/<version> branch
 #   DOCS_REFRESH_PROMPT    an extra instruction for the agent; also makes the agent run when nothing changed
-#   DOCS_REFRESH_DRY_RUN   true: stop before pushing, and upload the change as a patch instead
 #   DOCS_REFRESH_MODEL     the agent's model; defaults to the CLI's own default
 #   DOCS_REFRESH_MAX_BUDGET_USD   the most one agent run may spend (default 25)
 
-BASE_BRANCH="${BUILDKITE_BRANCH:?Expected BUILDKITE_BRANCH}"
-VERSION="${DOCS_REFRESH_VERSION:-}"
-if [[ -z "$VERSION" && "$BASE_BRANCH" == release/* ]]; then
-  VERSION="${BASE_BRANCH#release/}"
-fi
-TARGET="${VERSION:-$BASE_BRANCH}"
-DOCS_BRANCH="docs-refresh/$TARGET"
-OUT="docs-refresh-output"
+source .buildkite/commands/docs-refresh-branch.sh
+
 HARNESS=(node --experimental-strip-types tools/capture-harness/cli.ts)
 SCENE=moire
 CLAUDE_CODE_VERSION=2.1.322
-
-annotate() {
-  echo "$1"
-  if command -v buildkite-agent >/dev/null; then
-    buildkite-agent annotate "$1" --style "${2:-info}" --context docs-refresh
-  fi
-}
 
 rm -rf "$OUT"
 mkdir -p "$OUT"
 
 echo "--- :git: Check out $DOCS_BRANCH"
-# An open refresh for this target keeps its branch and pull request: start from it, with the base merged in.
-if git ls-remote --exit-code --heads origin "$DOCS_BRANCH" >/dev/null; then
-  git fetch origin "$DOCS_BRANCH"
-  git checkout -B "$DOCS_BRANCH" FETCH_HEAD
-  git merge --no-edit "$BUILDKITE_COMMIT"
-else
-  git checkout -B "$DOCS_BRANCH" "$BUILDKITE_COMMIT"
-fi
+# The container has no SSH keys and does not own the checkout; reading needs neither.
+git config --global --add safe.directory "$PWD"
+git remote set-url origin https://github.com/Automattic/studio.git
+# For the merge commit, which stays in this container: the publish step makes its own.
+export GIT_AUTHOR_NAME="Docs refresh" GIT_AUTHOR_EMAIL="docs-refresh@localhost"
+export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME" GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
+checkout_docs_branch
 
 echo "--- :npm: Install Node dependencies"
-bash .buildkite/commands/install-node-dependencies.sh
+# The a8c-ci-toolkit cache helpers install-node-dependencies.sh needs don't exist in the container.
+npm ci --unsafe-perm --no-audit --no-progress --maxsockets 1
 
 echo "--- :hammer: Set up the capture harness"
-"${HARNESS[@]}" setup
-if [[ ! -f "tools/capture-harness/scenes/$SCENE/.baked/scene.json" ]]; then
-  "${HARNESS[@]}" bake --scene "$SCENE"
-fi
+"${HARNESS[@]}" setup --driver browser
+"${HARNESS[@]}" bake --scene "$SCENE"
 
 echo "--- :camera: Check the docs screenshots"
 # Exits 1 when a shot changed or failed, which is a finding here, not an error.
-"${HARNESS[@]}" check docs/user/screenshots/shots \
-  --scene "$SCENE" --look docs \
+"${HARNESS[@]}" check docs/user/screenshots/shots --driver browser \
   --out docs/user/screenshots/images --diff-dir "$OUT/diffs" \
   --json > "$OUT/capture.json" || true
 if ! node -e 'if ( ! Array.isArray( JSON.parse( require( "fs" ).readFileSync( process.argv[ 1 ], "utf8" ) ).shots ) ) process.exit( 1 )' "$OUT/capture.json"; then
@@ -100,25 +86,14 @@ npx --yes "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION" "${agent_args[@]}" > 
 
 echo "--- :mag: Check the agent's work"
 node scripts/docs-refresh/docs-refresh.mjs verify --baseline "$OUT/baseline.txt"
-"${HARNESS[@]}" validate docs/user/screenshots/shots --scene "$SCENE"
+"${HARNESS[@]}" validate docs/user/screenshots/shots
 
-if [[ -z "$(git status --porcelain -- docs/user)" ]]; then
+git add docs/user
+if git diff --cached --quiet; then
   annotate "Docs refresh for $TARGET: the agent reviewed the changes and found the docs current." success
   exit 0
 fi
 
-git add docs/user
-git commit -m "Refresh the docs for $TARGET"
-
-if [[ "${DOCS_REFRESH_DRY_RUN:-false}" == "true" ]]; then
-  git format-patch -1 --stdout > "$OUT/docs-refresh.patch"
-  annotate "Docs refresh for $TARGET (dry run): the change is in the \`docs-refresh.patch\` artifact; nothing was pushed."
-  exit 0
-fi
-
-echo "--- :github: Open the pull request"
-git push origin "$DOCS_BRANCH"
-pr_url="$(node scripts/docs-refresh/docs-refresh.mjs open-pr \
-  --repo Automattic/studio --head "$DOCS_BRANCH" --base "$BASE_BRANCH" \
-  --target "$TARGET" --title "Refresh the docs for $TARGET" --out "$OUT")"
-annotate "Docs refresh for $TARGET: $pr_url" success
+# Binary, for the images. The publish step applies it to the same tree and opens the pull request.
+git diff --cached --binary > "$OUT/docs-refresh.patch"
+annotate "Docs refresh for $TARGET: the agent changed the docs; the change is in the \`docs-refresh.patch\` artifact."

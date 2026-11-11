@@ -16,7 +16,7 @@ Read these first:
    - *Failed* shots: the UI moved. Repair the script in `docs/user/screenshots/shots/` so it reaches the screen again.
    - *Changed* shots: open the difference image. Recapture when the app changed on purpose; if the new image shows something broken, leave the old image and say so in your summary.
    - A new feature a page now describes may need a new shot. Add it to the suite it belongs to.
-4. **Recapture** with `npm --prefix docs/user run screenshots -- --only <names>` (or `--suite <names>`), then look at every image you changed, as the capture skill describes.
+4. **Recapture** with `npm --prefix docs/user run screenshots -- --only <names>` (or `--suite <names>`), then look at every image you changed, as the capture skill describes. Captures here use the browser driver, as the committed docs images do. It skips the shots marked `desktopOnly` (Annotate, the CLI installer): if one of those needs a new image, say so under "Needs a person".
 5. **For a release** (the brief names a version): add its entry at the top of `docs/user/docs/developer-tools/studio/changelog.md`, in the form of the entries below it. Group what users will notice; leave out what they won't.
 6. **Write `docs-refresh-output/summary.md`** for the pull request: the pages you changed and why, the shots you recaptured or added, and a list headed "Needs a person" for anything you were unsure of, could not verify, or left alone on purpose.
 

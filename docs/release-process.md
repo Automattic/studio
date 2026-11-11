@@ -141,16 +141,16 @@ Drop `DRY_RUN=true` to upload for real. The `version:` must match the app releas
 
 ## Docs Refresh
 
-**Buildkite pipeline**: `.buildkite/docs-refresh.yml` | **Script**: `.buildkite/commands/run-docs-refresh.sh`
+**Buildkite pipeline**: `.buildkite/docs-refresh.yml` | **Scripts**: `.buildkite/commands/run-docs-refresh.sh`, `publish-docs-refresh.sh`
 
 Keeps the user docs in `docs/user` and their screenshots in step with the app. A run works on the branch it is started on:
 
-1. Checks every docs screenshot against the app built from that branch (`studio-capture check`, on a macOS agent).
+1. Checks every docs screenshot against the app built from that branch (`studio-capture check`). It runs in a Linux container with the browser driver, as the docs images are captured, so no image carries the window chrome of macOS or Windows. The four shots only Studio Desktop has (Annotate, the CLI installer) are skipped.
 2. Lists what changed: the `RELEASE-NOTES.txt` section for a release, or on `trunk` the pull requests merged since the docs last changed.
 3. Stops there when nothing changed and every screenshot matches.
 4. Otherwise an agent (Claude Code, following `scripts/docs-refresh/agent-instructions.md`) updates the pages, repairs and recaptures the shots that moved, and for a release writes the changelog entry.
 5. Fails if the agent changed anything outside `docs/user`, or if a page shows an image that does not exist.
-6. Opens a pull request from `docs-refresh/<version or branch>` against the branch, or adds a commit to the one already open. A person reviews and merges it.
+6. A second step, on an agent with the bot's Git access, applies the change and opens a pull request from `docs-refresh/<version or branch>` against the branch, or adds a commit to the one already open. A person reviews and merges it.
 
 Nothing is published: the website still deploys by hand (see [`docs/user/README.md`](user/README.md#how-the-docs-get-published)).
 
@@ -166,7 +166,7 @@ To start a run, create a [new build](https://buildkite.com/automattic/studio) on
 - **For a release**: run it on `release/<version>` after code freeze, once the draft release notes are in, so the docs merge before the release is finalized.
 - **On a cadence**: a Buildkite schedule on `trunk` with `PIPELINE=docs-refresh.yml`.
 
-The job needs `ANTHROPIC_API_KEY` and `GITHUB_TOKEN`. The brief, the screenshot results with pictures of the differences, and the agent's summary are uploaded as artifacts of every run.
+The first step needs `ANTHROPIC_API_KEY`, the second `GITHUB_TOKEN`. The brief, the screenshot results with pictures of the differences, and the agent's summary are uploaded as artifacts of every run.
 
 ## Running Lanes Locally
 

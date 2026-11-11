@@ -58,7 +58,7 @@ describe( 'interpretImageResponse', () => {
 			JSON.stringify( { data: [ { b64_json: PNG_BASE64 } ] } ),
 			200
 		);
-		expect( bytes.toString( 'base64' ) ).toBe( PNG_BASE64 );
+		expect( Buffer.from( bytes ).toString( 'base64' ) ).toBe( PNG_BASE64 );
 	} );
 
 	it( 'rejects a response without image data', () => {

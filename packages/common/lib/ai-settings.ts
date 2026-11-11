@@ -62,7 +62,7 @@ export async function persistSelectedAiProvider( provider: ProviderId ): Promise
 
 /**
  * Stores or clears the Anthropic API key, validated by `anthropic` (the
- * provider from `@studio/providers/node`). Clearing the key falls back to
+ * provider from `@studio/providers/services`). Clearing the key falls back to
  * WordPress.com, since the Anthropic provider needs one.
  */
 export async function saveAnthropicApiKey(

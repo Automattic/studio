@@ -31,7 +31,7 @@ import {
 	type UserPreferencesPatch,
 } from '@studio/common/lib/user-settings/user-preferences';
 import { normalizeProviderId, toStoredProviderId } from '@studio/providers';
-import { getProvider } from '@studio/providers/node';
+import { getProvider } from '@studio/providers/services';
 import { getUserLocaleWithFallback, loadLocaleData, setMacAppLanguage } from 'src/lib/locale-node';
 import { refreshSpotlightIndex } from 'src/lib/spotlight';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';

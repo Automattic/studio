@@ -12,7 +12,7 @@ import {
 	type ProviderConfigs,
 	type ProviderId,
 } from '@studio/providers';
-import { getProvider } from '@studio/providers/node';
+import { getProvider } from '@studio/providers/services';
 import { __ } from '@wordpress/i18n';
 import { password } from 'cli/lib/prompts';
 import { LoggerError } from 'cli/logger';
@@ -144,7 +144,7 @@ async function connect< Id extends ProviderId >(
 		throw new LoggerError( `${ getProviderDescriptor( provider ).label } offers no AI models.` );
 	}
 	const config = await readCliProviderConfig( provider );
-	return ai.connect( { config, userAgent: getStudioUserAgent() }, model, options );
+	return ai.connect( config, model, options );
 }
 
 export async function resolveAiConnection(
@@ -170,8 +170,7 @@ async function bindImageGenerator< Id extends ProviderId >(
 	if ( ! generateImages || ! config ) {
 		return undefined;
 	}
-	const context = { config, userAgent: getStudioUserAgent() };
-	return ( requests, onResult ) => generateImages( context, requests, onResult );
+	return ( requests, onResult ) => generateImages( config, requests, onResult );
 }
 
 // Image generation from the first connected provider that offers it, whichever

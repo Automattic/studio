@@ -38,11 +38,6 @@ export interface ProviderDescriptor< Config = unknown > {
 	};
 }
 
-export interface ProviderContext< Config > {
-	config: Config | undefined;
-	userAgent: string;
-}
-
 // Everything the runtime needs to register one model with pi.
 export interface AiConnection {
 	piProvider: string;
@@ -70,7 +65,7 @@ export interface GenerateImageResult {
 
 // Results keep the requests' order; a failure never aborts the rest.
 export type GenerateImages< Config > = (
-	context: ProviderContext< Config >,
+	config: Config | undefined,
 	requests: GenerateImageRequest[],
 	onResult?: ( index: number, result: GenerateImageResult ) => void
 ) => Promise< GenerateImageResult[] >;
@@ -84,7 +79,7 @@ export interface Provider< Config = unknown > {
 		// provider instead of asking for credentials.
 		fallbackWhenNotReady: boolean;
 		connect(
-			context: ProviderContext< Config >,
+			config: Config | undefined,
 			model: AiModelId,
 			options: { sessionId?: string }
 		): Promise< AiConnection >;

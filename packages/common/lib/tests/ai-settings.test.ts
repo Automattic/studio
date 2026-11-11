@@ -2,7 +2,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { InvalidCredentialError } from '@studio/providers';
-import { getProvider } from '@studio/providers/node';
+import { getProvider } from '@studio/providers/services';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	readAiSettings,

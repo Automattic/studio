@@ -7,7 +7,7 @@ import type { Model } from '@earendil-works/pi-ai';
 
 export const anthropicAi: NonNullable< Provider< AnthropicConfig >[ 'ai' ] > = {
 	fallbackWhenNotReady: false,
-	async connect( { config }, modelId ): Promise< AiConnection > {
+	async connect( config, modelId ): Promise< AiConnection > {
 		if ( ! config ) {
 			throw new ProviderNotReadyError(
 				'Anthropic API key required. Switch to Anthropic API with /provider to save one.'

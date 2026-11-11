@@ -6,7 +6,7 @@
 	"description": "The services Studio holds an account with, such as WordPress.com and Anthropic",
 	"exports": {
 		".": "./index.ts",
-		"./node": "./node.ts"
+		"./services": "./services.ts"
 	},
 	"scripts": {
 		"lint": "eslint .",

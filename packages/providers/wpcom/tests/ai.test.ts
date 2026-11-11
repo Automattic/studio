@@ -6,7 +6,7 @@ import type { AiConnection } from '../../types';
 import type { AssistantMessage } from '@earendil-works/pi-ai';
 
 const connect = ( model: 'fast' | 'balanced' | 'strong', sessionId?: string ) =>
-	wpcomAi.connect( { config: { token: 'wpcom-token' }, userAgent: 'Studio/test' }, model, {
+	wpcomAi.connect( { token: 'wpcom-token' }, model, {
 		sessionId,
 	} );
 
@@ -21,11 +21,7 @@ function retryable( errorMessage: string ): boolean {
 
 describe( 'wpcom ai', () => {
 	it( 'asks for Studio sign-in without a config', async () => {
-		const connection = wpcomAi.connect(
-			{ config: undefined, userAgent: 'Studio/test' },
-			'fast',
-			{}
-		);
+		const connection = wpcomAi.connect( undefined, 'fast', {} );
 		await expect( connection ).rejects.toBeInstanceOf( ProviderNotReadyError );
 	} );
 
@@ -34,7 +30,6 @@ describe( 'wpcom ai', () => {
 
 		expect( apiKey ).toBe( 'wpcom-token' );
 		expect( headers ).toEqual( {
-			'User-Agent': 'Studio/test',
 			'X-WPCOM-AI-Feature': 'studio-agent',
 			'X-WPCOM-Session-ID': 'session-2',
 		} );

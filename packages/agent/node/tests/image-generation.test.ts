@@ -1,7 +1,8 @@
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { composeImagePrompt, fitToTokens } from '@studio/agent/node/image-generation';
-import { resolveImageFilePath } from '@studio/agent/node/tools/generate-images';
+import { nodeHostServices } from '@studio/agent/node/node-host';
+import { composeImagePrompt, fitToTokens } from '@studio/agent/shared/image-generation';
+import { resolveImageFilePath } from '@studio/agent/shared/tools/generate-images';
 
 const SITES_ROOT = path.resolve( '/studio-sites' );
 
@@ -48,21 +49,23 @@ describe( 'fitToTokens', () => {
 	} );
 } );
 
+const hostPath = nodeHostServices().path;
+
 describe( 'resolveImageFilePath', () => {
 	it( 'accepts .png paths inside the sites root', () => {
 		const target = path.join( SITES_ROOT, 'my-site', 'wp-content', 'a.png' );
-		expect( resolveImageFilePath( SITES_ROOT, target ) ).toBe( target );
+		expect( resolveImageFilePath( hostPath, SITES_ROOT, target ) ).toBe( target );
 	} );
 
 	it( 'rejects paths escaping the sites root', () => {
 		expect( () =>
-			resolveImageFilePath( SITES_ROOT, path.join( SITES_ROOT, '..', 'escape.png' ) )
+			resolveImageFilePath( hostPath, SITES_ROOT, path.join( SITES_ROOT, '..', 'escape.png' ) )
 		).toThrow( /inside the Studio sites directory/ );
 	} );
 
 	it( 'rejects non-PNG extensions', () => {
-		expect( () => resolveImageFilePath( SITES_ROOT, path.join( SITES_ROOT, 'a.jpg' ) ) ).toThrow(
-			/end in .png/
-		);
+		expect( () =>
+			resolveImageFilePath( hostPath, SITES_ROOT, path.join( SITES_ROOT, 'a.jpg' ) )
+		).toThrow( /end in .png/ );
 	} );
 } );

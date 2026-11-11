@@ -25,7 +25,6 @@ const IMAGE_SIZE_BY_ASPECT_RATIO: Record< string, string > = {
 	'card-landscape': '1536x1024',
 	'card-portrait': '1024x1536',
 };
-
 // Error codes the proxy passes through when the moderation system rejected the
 // prompt; any other failure must not be reported as repairable-by-rewriting.
 const FILTERED_ERROR_CODES = new Set( [ 'moderation_blocked', 'content_policy_violation' ] );
@@ -36,14 +35,14 @@ export function resolveImageSize( aspectRatio: string | undefined ): string {
 
 export function buildImageRequestBody(
 	prompt: string,
-	aspectRatio: string | undefined
+	aspectRatioKeyword: string | undefined
 ): Record< string, unknown > {
 	// No `stream` and no `n` above 1: the proxy rejects both.
 	return {
 		model: IMAGE_MODEL_ALIAS,
 		prompt,
 		quality: IMAGE_QUALITY,
-		size: resolveImageSize( aspectRatio ),
+		size: resolveImageSize( aspectRatioKeyword ),
 	};
 }
 
@@ -63,7 +62,7 @@ function parseJson( raw: string ): ImagesResponse | null {
 	}
 }
 
-const PNG_SIGNATURE = Buffer.from( [ 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a ] );
+const PNG_SIGNATURE = new Uint8Array( [ 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a ] );
 
 /**
  * Interpret a completed transfer: HTTP-status classification plus images
@@ -71,7 +70,7 @@ const PNG_SIGNATURE = Buffer.from( [ 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0
  * (429/5xx — retryable), ImageFilteredError (moderation — retryable, and
  * repairable by rewriting the subject), or Error (permanent).
  */
-export function interpretImageResponse( raw: string, status: number ): Buffer {
+export function interpretImageResponse( raw: string, status: number ): Uint8Array {
 	if ( status === 429 || status >= 500 ) {
 		throw new TransientImageError( `HTTP ${ status }: ${ raw.slice( 0, 300 ) }` );
 	}
@@ -94,10 +93,10 @@ export function interpretImageResponse( raw: string, status: number ): Buffer {
 		throw new Error( `Image proxy response had no image data: ${ raw.slice( 0, 300 ) }` );
 	}
 
-	const bytes = Buffer.from( base64, 'base64' );
+	const bytes = Uint8Array.from( atob( base64 ), ( char ) => char.charCodeAt( 0 ) );
 	// Byte magic is the source of truth: never deliver non-PNG bytes under a
 	// .png filename.
-	if ( ! bytes.subarray( 0, PNG_SIGNATURE.length ).equals( PNG_SIGNATURE ) ) {
+	if ( ! PNG_SIGNATURE.every( ( byte, index ) => bytes[ index ] === byte ) ) {
 		throw new Error( 'Image proxy returned bytes that are not a PNG' );
 	}
 	return bytes;
@@ -107,7 +106,6 @@ const sleep = ( seconds: number ) =>
 	new Promise< void >( ( resolve ) => setTimeout( resolve, seconds * 1000 ) );
 
 async function generateOne(
-	userAgent: string,
 	endpoint: string,
 	token: string,
 	request: GenerateImageRequest
@@ -123,7 +121,6 @@ async function generateOne(
 					authorization: `Bearer ${ token }`,
 					'x-wpcom-ai-feature': IMAGE_FEATURE_SLUG,
 					'content-type': 'application/json',
-					'user-agent': userAgent,
 				},
 				body,
 			} );
@@ -149,7 +146,7 @@ async function generateOne(
 }
 
 export const generateWpcomImages: GenerateImages< WpcomConfig > = async (
-	{ config, userAgent },
+	config,
 	requests,
 	onResult
 ) => {
@@ -163,7 +160,7 @@ export const generateWpcomImages: GenerateImages< WpcomConfig > = async (
 	const worker = async () => {
 		while ( next < requests.length ) {
 			const index = next++;
-			const result = await generateOne( userAgent, endpoint, config.token, requests[ index ] );
+			const result = await generateOne( endpoint, config.token, requests[ index ] );
 			results[ index ] = result;
 			onResult?.( index, result );
 		}

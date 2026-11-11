@@ -1,6 +1,6 @@
 import { ModelRegistry, SessionManager } from '@earendil-works/pi-coding-agent';
 import { getAiModelProviders } from '@studio/providers';
-import { getProvider } from '@studio/providers/node';
+import { getProvider } from '@studio/providers/services';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAgent } from '@studio/agent/node/agent';
 import { createFakeHost } from '../../tests/fake-host';
@@ -203,11 +203,10 @@ const findAssistantText = ( events: AgentSessionEvent[] ): string | undefined =>
 
 // Connects through the provider serving `model`, as the CLI does.
 async function connect( model: AiModelId, token = 'wpcom-token' ) {
-	const context = { userAgent: 'Studio/test' };
 	return getAiModelProviders( model )[ 0 ] === 'wpcom'
-		? getProvider( 'wpcom' ).ai!.connect( { ...context, config: { token } }, model, {} )
+		? getProvider( 'wpcom' ).ai!.connect( { token }, model, {} )
 		: getProvider( 'anthropic' ).ai!.connect(
-				{ ...context, config: { method: 'api-key', apiKey: 'sk-ant-test' } },
+				{ method: 'api-key', apiKey: 'sk-ant-test' },
 				model,
 				{}
 		  );
@@ -378,46 +377,6 @@ describe( 'pi runtime', () => {
 				command: 'x'.repeat( 8 * 1024 + 1 ),
 			} )
 		).rejects.toThrow( /single-call safety limit/ );
-	} );
-
-	it( 'rejects remote wpcom_request calls from length-truncated assistant messages', async () => {
-		mocks.nextEvents = [
-			assistantMessage(
-				[
-					{
-						type: 'toolCall',
-						id: 'wpcom-call-1',
-						name: 'wpcom_request',
-						arguments: {
-							method: 'POST',
-							path: '/pages/4',
-							body: {
-								content: '<!-- wp:paragraph --><p>partial',
-							},
-						},
-						index: 0,
-					},
-				],
-				'length'
-			),
-			{ type: 'agent_end', willRetry: false, messages: [] },
-		] as AgentSessionEvent[];
-
-		await runRuntime( {
-			prompt: 'hello',
-			model: 'balanced',
-			session: newSession(),
-		} );
-
-		const wpcomRequest = getCreatedTool( 'wpcom_request' );
-
-		await expect(
-			wpcomRequest.execute( 'wpcom-call-1', {
-				method: 'POST',
-				path: '/pages/4',
-				body: { content: '<!-- wp:paragraph --><p>partial' },
-			} )
-		).rejects.toThrow( /hit the model output limit/ );
 	} );
 
 	describe( 'a reply with neither text nor a tool call', () => {

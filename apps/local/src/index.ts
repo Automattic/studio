@@ -165,6 +165,7 @@ import {
 	updateSiteMetadata,
 	type SiteMetadata,
 } from '@studio/common/sites/metadata';
+import { nodeSiteFiles } from '@studio/common/sites/node-site-files';
 import { designFixesSchema, fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
 import {
 	ensureSiteEmailDirectory,
@@ -190,7 +191,7 @@ import {
 	normalizeProviderId,
 	toStoredProviderId,
 } from '@studio/providers';
-import { getProvider } from '@studio/providers/node';
+import { getProvider } from '@studio/providers/services';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
@@ -1073,7 +1074,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			res.json(
-				await readSiteDesign( sitePath, activeThemeSlug( sitePath ), () =>
+				await readSiteDesign( nodeSiteFiles( sitePath ), activeThemeSlug( sitePath ), () =>
 					readGlobalStyles( execute, sitePath )
 				)
 			);
@@ -1093,7 +1094,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'Invalid design fixes' } );
 				return;
 			}
-			res.json( await fixSiteDesign( sitePath, activeThemeSlug( sitePath ), fixes.data ) );
+			res.json(
+				await fixSiteDesign( nodeSiteFiles( sitePath ), activeThemeSlug( sitePath ), fixes.data )
+			);
 		} )
 	);
 

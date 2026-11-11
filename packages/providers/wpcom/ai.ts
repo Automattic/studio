@@ -7,7 +7,7 @@ import type { Api, Model } from '@earendil-works/pi-ai';
 const DEFAULT_AI_GATEWAY_BASE_URL = 'https://public-api.wordpress.com/wpcom/v2/ai-api-proxy';
 
 export function getAiGatewayBaseUrl(): string {
-	const customBaseUrl = process.env.WPCOM_AI_PROXY_BASE_URL?.trim();
+	const customBaseUrl = globalThis.process?.env.WPCOM_AI_PROXY_BASE_URL?.trim();
 	return ( customBaseUrl || DEFAULT_AI_GATEWAY_BASE_URL ).replace( /\/+$/, '' );
 }
 
@@ -63,7 +63,7 @@ function rewriteUsageCapError( message: string ): string | undefined {
 
 export const wpcomAi: NonNullable< Provider< WpcomConfig >[ 'ai' ] > = {
 	fallbackWhenNotReady: true,
-	async connect( { config, userAgent }, modelId, { sessionId } ): Promise< AiConnection > {
+	async connect( config, modelId, { sessionId } ): Promise< AiConnection > {
 		if ( ! config ) {
 			throw new ProviderNotReadyError(
 				'WordPress.com login required. Use /login to authenticate.'
@@ -76,7 +76,6 @@ export const wpcomAi: NonNullable< Provider< WpcomConfig >[ 'ai' ] > = {
 		}
 		const { requestModelId, ...modelFields } = tier;
 		const headers: Record< string, string > = {
-			'User-Agent': userAgent,
 			'X-WPCOM-AI-Feature': AI_FEATURE,
 			...( sessionId ? { 'X-WPCOM-Session-ID': sessionId } : {} ),
 		};

@@ -234,12 +234,12 @@ export function ConnectedView( {
 							) : (
 								<>
 									<FieldSet
-										key={ `${ direction }-${ selection.fullOnly }` }
+										key={ `${ direction }-${ selection.filesUnavailable }` }
 										role="radiogroup"
 										aria-label={
 											direction === 'push' ? __( 'What to publish' ) : __( 'What to pull' )
 										}
-										disabled={ disabled || selection.loadingFiles || selection.fullOnly }
+										disabled={ disabled || selection.loadingFiles }
 										className={ styles.scopeChoices }
 									>
 										{ choices.map( ( choice ) => (
@@ -248,6 +248,7 @@ export function ConnectedView( {
 													type="radio"
 													name={ `${ id }-scope` }
 													value={ choice.value }
+													disabled={ choice.value === 'custom' && selection.filesUnavailable }
 													defaultChecked={ selection.scope === choice.value }
 													onChange={ () => selection.setScope( choice.value ) }
 												/>
@@ -256,11 +257,9 @@ export function ConnectedView( {
 										) ) }
 									</FieldSet>
 									{ selection.scope === 'custom' ? <FilePicker selection={ selection } /> : null }
-									{ selection.fullOnly ? (
+									{ selection.filesUnavailable ? (
 										<p className={ styles.text }>
-											{ __(
-												'Only a full-site pull is available until this website has a backup for selecting files.'
-											) }
+											{ __( 'Choosing individual files requires a backup of this website.' ) }
 										</p>
 									) : null }
 									{ offline ? (

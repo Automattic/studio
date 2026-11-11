@@ -44,7 +44,6 @@ function answerPrompt( key: string ) {
 describe( 'AI auth helpers', () => {
 	beforeEach( () => {
 		vi.resetAllMocks();
-		vi.stubGlobal( '__STUDIO_CLI_VERSION__', '1.2.3' );
 		vi.stubGlobal( 'fetch', vi.fn().mockResolvedValue( { ok: true, status: 200 } ) );
 		vi.stubEnv( 'WPCOM_AI_PROXY_BASE_URL', '' );
 		vi.stubEnv( 'STUDIO_WPCOM_TOKEN', '' );
@@ -106,7 +105,6 @@ describe( 'AI auth helpers', () => {
 		expect( ai.apiKey ).toBe( 'wpcom-token' );
 		expect( ai.model.baseUrl ).toBe( 'https://public-api.wordpress.com/wpcom/v2/ai-api-proxy/v1' );
 		expect( ai.headers ).toEqual( {
-			'User-Agent': 'WordPressStudio/1.2.3',
 			'X-WPCOM-AI-Feature': 'studio-agent',
 			'X-WPCOM-Session-ID': 'session-abc',
 		} );

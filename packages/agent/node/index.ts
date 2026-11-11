@@ -3,40 +3,30 @@
 // run-manager that only show the agent stay importable on their own, so those
 // apps never load the runtime.
 export { createAgent, type StudioAgent } from './agent';
-export type {
-	HostSite,
-	ProgressCallback,
-	StudioAgentHost,
-	StudioAgentUi,
-	WpCliOutput,
-} from './host';
+export type { HostSite, ProgressCallback, StudioAgentHost } from '@studio/agent/shared/host';
 export type { StudioAgentTurnConfig, StudioAgentTurnHandle } from './runtime';
-export type { AskUserHandler, AskUserQuestion, SiteInfo } from './types';
+export type { AskUserHandler, AskUserQuestion, SiteInfo } from '@studio/agent/shared/types';
 
 // Tools a host serves next to Studio's own, such as `studio mcp`'s.
 export {
 	bindTool,
 	defineTool,
-	LOCAL_CHANGE,
-	LOCAL_OVERWRITE,
 	READ_ONLY,
 	REMOTE_CHANGE,
-	REMOTE_OVERWRITE,
 	REMOTE_READ,
 	type AnyStudioAgentTool,
 	type StudioAgentTool,
 	type StudioToolDefinition,
 	type ToolResult,
-} from './tools/define-tool';
-export type { StudioToolsOptions } from './tools';
-export { createPresentDesignOptionsTool } from './tools/present-design-options';
-export { renderSkill } from './tools/skill';
-export { textResult } from './tools/utils';
-export { loadSkills } from './skills';
-export { buildSystemPrompt } from './system-prompt';
-export { createResultNotes } from './result-notes';
-export type { ImageGenerator } from './image-generation';
-export type { DesignTracksContext } from './design-tracks';
+} from '@studio/agent/shared/tools/define-tool';
+export { createPresentDesignOptionsTool } from '@studio/agent/shared/tools/present-design-options';
+export { renderSkill } from '@studio/agent/shared/tools/skill';
+export { textResult } from '@studio/agent/shared/tools/utils';
+export { loadSkills } from '@studio/agent/shared/skills';
+export { buildSystemPrompt } from '@studio/agent/shared/system-prompt';
+export { createResultNotes } from '@studio/agent/shared/result-notes';
+export type { ImageGenerator } from '@studio/agent/shared/image-generation';
+export type { DesignTracksContext } from '@studio/agent/shared/design-tracks';
 
 // Turns as the host records them.
 export { resolveResumeSessionContext } from './sessions/context';
@@ -49,5 +39,6 @@ export {
 	ensurePlaywrightChromiumInstalled,
 	getSharedBrowser,
 } from './browser-utils';
-export { captureScreenshotBuffer } from './tools/screenshot-helpers';
-export { validateBlocks } from './block-validator';
+export { captureScreenshotBuffer } from '@studio/agent/shared/tools/screenshot-helpers';
+export { validateBlocks } from '@studio/agent/shared/block-validator';
+export { nodeHostServices } from './node-host';

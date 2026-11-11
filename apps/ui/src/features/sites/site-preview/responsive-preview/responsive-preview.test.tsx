@@ -1,3 +1,4 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { act, fireEvent, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -54,11 +55,13 @@ describe( 'responsive mode', () => {
 		await view.user.click( screen.getByRole( 'button', { name: 'Rotate to portrait' } ) );
 		await view.user.click( screen.getByRole( 'button', { name: 'Fit' } ) );
 		await view.user.click( await screen.findByRole( 'menuitemradio', { name: '75%' } ) );
+		const eventsBeforeClose = view.connector.trackEvent.mock.calls.length;
 		await view.user.click( screen.getByRole( 'button', { name: 'Hide device toolbar' } ) );
 		expect(
 			screen.queryByRole( 'toolbar', { name: 'Responsive preview' } )
 		).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Browser options' } ) ).toHaveFocus();
+		expect( view.connector.trackEvent ).toHaveBeenCalledTimes( eventsBeforeClose );
 		expect( document.querySelector( 'iframe' ) ).toBe( page );
 		await toggle( view.user );
 		expect( width() ).toHaveValue( '440' );
@@ -100,7 +103,7 @@ describe( 'responsive mode', () => {
 			}
 		);
 		try {
-			const { user } = await renderPreview( 'responsive-fit-actions' );
+			const { user, connector } = await renderPreview( 'responsive-fit-actions' );
 			await toggle( user );
 			const scaledPage = document.querySelector( 'iframe' )?.parentElement?.parentElement;
 			expect( scaledPage ).toHaveStyle( { transform: 'scale(0.71)' } );
@@ -110,6 +113,7 @@ describe( 'responsive mode', () => {
 			await user.click( screen.getByRole( 'button', { name: 'Fit' } ) );
 			await user.click( await screen.findByRole( 'menuitemradio', { name: /Fit/ } ) );
 			expect( scaledPage ).toHaveStyle( { transform: 'scale(0.46)' } );
+			expect( connector.trackEvent ).not.toHaveBeenCalled();
 		} finally {
 			widthSpy.mockRestore();
 			heightSpy.mockRestore();
@@ -201,7 +205,7 @@ describe( 'responsive mode', () => {
 				</>
 			);
 		}
-		renderWithProviders( <Preview /> );
+		const { connector } = renderWithProviders( <Preview /> );
 		const edge = await screen.findByRole( 'button', { name: 'Resize viewport: Right' } );
 		Object.assign( edge, { setPointerCapture: () => {}, releasePointerCapture: () => {} } );
 		fireEvent.pointerDown( edge, { pointerId: 1, button: 0, clientX: 100, clientY: 100 } );
@@ -213,6 +217,18 @@ describe( 'responsive mode', () => {
 		fireEvent.pointerUp( edge, { pointerId: 1 } );
 		expect( width() ).toHaveValue( '512' );
 		expect( height() ).toHaveValue( '720' );
+		expect( connector.trackEvent ).not.toHaveBeenCalled();
+		fireEvent.keyDown( edge, { key: 'ArrowRight' } );
+		fireEvent.keyUp( edge, { key: 'ArrowRight' } );
+		expect( connector.trackEvent ).toHaveBeenCalledExactlyOnceWith(
+			TRACKS_EVENTS.RESPONSIVE_PREVIEW_CHANGED,
+			{
+				action: 'manual_resize',
+				preset_category: 'custom',
+				width_bucket: 'under_600',
+				height_bucket: '600_to_1023',
+			}
+		);
 	} );
 } );
 

@@ -30,9 +30,7 @@ describe( 'formatUpdateBanner', () => {
 
 	it( 'should include the changelog URL', () => {
 		const plain = stripAnsi( formatUpdateBanner( '1.7.8', '1.8.0', 'npm update -g wp-studio' ) );
-		expect( plain ).toContain(
-			'https://developer.wordpress.com/docs/developer-tools/studio/changelog/'
-		);
+		expect( plain ).toContain( 'https://wordpress.studio/docs/changelog/' );
 	} );
 
 	it( 'should use a custom update command when provided', () => {

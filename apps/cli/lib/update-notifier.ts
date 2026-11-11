@@ -12,7 +12,7 @@ import {
 const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const FETCH_TIMEOUT_MS = 3000;
 const NPM_REGISTRY_URL = 'https://registry.npmjs.org/wp-studio/latest';
-const CHANGELOG_URL = 'https://developer.wordpress.com/docs/developer-tools/studio/changelog/';
+const CHANGELOG_URL = 'https://wordpress.studio/docs/changelog/';
 
 // Standalone (curl-installed) CLIs check the same wpcom endpoint the desktop app uses; the
 // `product` param selects the Studio CLI builds. The server detects the channel from the

@@ -21,7 +21,7 @@
 		pointer-events: none;
 	}
 
-	.input[data-variant='default']:focus-visible {
+	.input:is( [data-variant='default'], [data-variant='ghost'] ):focus-visible {
 		border-color: var( --ring );
 	}
 

@@ -83,7 +83,7 @@ export function SiteHeaderActions( { site }: { site: SiteDetails } ) {
 	}
 	const publishButton = (
 		<span data-site-header-publish className={ styles.publish }>
-			<PublishButton site={ site } />
+			<PublishButton site={ site } compactWhenNarrow />
 		</span>
 	);
 	return (

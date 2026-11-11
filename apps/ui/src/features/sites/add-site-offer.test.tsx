@@ -40,6 +40,20 @@ afterEach( () => {
 } );
 
 describe( 'site creation', () => {
+	it( 'opens a deep-linked backup in setup without creating a site and cleans up on cancel', async () => {
+		const connector = createFakeConnector( { sites: [ mySite() ] } );
+		renderApp( { connector } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
+		act( () =>
+			connector.emit( 'onAddSite', {
+				backup: { path: '/tmp/backup/example.com.zip', name: 'example.com.zip' },
+			} )
+		);
+		const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
+		expect( await within( dialog ).findByText( 'example.com.zip' ) ).toBeVisible();
+		expect( within( dialog ).getByRole( 'button', { name: 'Add site' } ) ).toBeVisible();
+		expect( connector.createSite ).not.toHaveBeenCalled();
+	} );
 	it.each( [ { freshSites: [] }, { freshSites: [ mySite() ] } ] )(
 		'waits for fresh sites before offering creation with cached empty data ($freshSites.length fresh sites)',
 		async ( { freshSites } ) => {

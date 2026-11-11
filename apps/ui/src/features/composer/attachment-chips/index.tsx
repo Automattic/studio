@@ -7,7 +7,6 @@ import {
 	watchComposerAttachmentTextScroll,
 } from '@studio/agent/protocol/composer-attachment-preview';
 import { __, sprintf } from '@wordpress/i18n';
-import { clsx } from 'clsx';
 import { FileTextIcon } from 'lucide-react';
 import { useLayoutEffect, useRef } from 'react';
 import { AnnotationReviewChip } from '@/features/annotations';
@@ -114,7 +113,7 @@ function AttachmentChip( {
 		</>
 	);
 	return imageSrc ? (
-		<li className={ clsx( styles.attachment, styles.attachmentImage ) } aria-label={ label }>
+		<li className={ styles.attachment } aria-label={ label }>
 			{ content }
 		</li>
 	) : (

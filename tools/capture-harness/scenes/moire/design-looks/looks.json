@@ -3,28 +3,28 @@
 		"label": "Dia journal",
 		"description": "Moire's own: a huge brown wordmark on Dia yellow, Poppins and Libertinus Serif.",
 		"design": "dia.md",
-		"image": "photos/linen-stack.jpg",
+		"image": "blueprint/uploads.zip:2026/09/p7445127-scaled.jpg",
 		"file": "dia-journal.jpg"
 	},
 	{
 		"label": "Quiet linen",
 		"description": "Oat and sage, a soft serif, and lots of air around the cloth.",
 		"design": "quiet-linen.md",
-		"image": "photos/linen-shirt.jpg",
+		"image": "blueprint/uploads.zip:2026/10/p8788679-scaled.jpg",
 		"file": "quiet-linen.jpg"
 	},
 	{
 		"label": "Monochrome atelier",
 		"description": "Black on white, a heavy grotesque in capitals, garments on rails.",
 		"design": "monochrome-atelier.md",
-		"image": "photos/black-jacket.jpg",
+		"image": "blueprint/uploads.zip:2026/10/p6045049-scaled.jpg",
 		"file": "monochrome-atelier.jpg"
 	},
 	{
 		"label": "Deep wool",
 		"description": "Navy and rust on parchment, a bookish serif, close-up textures.",
 		"design": "deep-wool.md",
-		"image": "photos/blue-wool.jpg",
+		"image": "blueprint/uploads.zip:2026/10/p13717230.jpg",
 		"file": "deep-wool.jpg"
 	}
 ]

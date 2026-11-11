@@ -10,9 +10,10 @@
  *   npm -w @studio/capture-harness run wren-and-barley:looks
  *   npm -w @studio/capture-harness run moire:looks
  *
- * A look's `image` is a file in `design-looks/` (`photos/wool.jpg`), or the
- * name of a photo in the scene's `source/.cache/` (Wren & Barley's, which
- * `wren-and-barley:build` fills). The boards load their fonts from Google Fonts.
+ * A look's `image` is a file inside one of the scene's zips, as `<zip>:<file>`
+ * (`blueprint/uploads.zip:2026/10/wool.jpg`, so a photo the site already ships
+ * isn't committed twice), or the name of a photo in the scene's `source/.cache/`
+ * (Wren & Barley's, which `wren-and-barley:build` fills). The boards load their fonts from Google Fonts.
  */
 import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -21,6 +22,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import { chromium } from 'playwright';
+import { extractZip } from '../../../packages/common/lib/extract-zip.ts';
 import { REPO_ROOT, readJson } from './paths.ts';
 
 const SCENE_DIR = path.resolve(
@@ -40,6 +42,22 @@ interface DesignLook {
 const VIEWPORT = { width: 1200, height: 900 };
 
 const temp = await mkdtemp( path.join( tmpdir(), 'studio-design-looks-' ) );
+const unzipped = new Map< string, string >();
+
+/** The photo a look names: a file inside one of the scene's zips, or one of its cached photos. */
+async function photoFor( image: string ) {
+	const [ zip, file ] = image.split( ':' );
+	if ( ! file ) {
+		return path.join( PHOTOS_DIR, `${ image }.jpg` );
+	}
+	let dir = unzipped.get( zip );
+	if ( ! dir ) {
+		dir = path.join( temp, `zip-${ unzipped.size }` );
+		await extractZip( path.join( SCENE_DIR, zip ), dir );
+		unzipped.set( zip, dir );
+	}
+	return path.join( dir, file );
+}
 const browser = await chromium.launch();
 try {
 	// The board renderer is TypeScript in the agent package; bundle it to load it here.
@@ -62,9 +80,7 @@ try {
 
 	const page = await browser.newPage( { viewport: VIEWPORT } );
 	for ( const look of await readJson< DesignLook[] >( path.join( LOOKS_DIR, 'looks.json' ) ) ) {
-		const photo = /\.(jpe?g|png|webp)$/.test( look.image )
-			? path.join( LOOKS_DIR, look.image )
-			: path.join( PHOTOS_DIR, `${ look.image }.jpg` );
+		const photo = await photoFor( look.image );
 		if ( ! existsSync( photo ) ) {
 			throw new Error( `${ look.label }: no photo ${ photo }. Run the scene's build first.` );
 		}

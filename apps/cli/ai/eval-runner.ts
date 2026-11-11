@@ -7,6 +7,7 @@
  */
 
 import {
+	copyFileSync,
 	existsSync,
 	mkdirSync,
 	mkdtempSync,
@@ -210,6 +211,11 @@ function isolateStudioConfig() {
 		path.join( dir, 'shared.json' ),
 		JSON.stringify( { version, authToken, aiProvider } )
 	);
+	// As a returning user's Studio has them, the tools its MCP servers listed;
+	// copied, so a turn that lists them again leaves the user's own file alone.
+	if ( existsSync( path.join( userDir, 'mcp-tools.json' ) ) ) {
+		copyFileSync( path.join( userDir, 'mcp-tools.json' ), path.join( dir, 'mcp-tools.json' ) );
+	}
 	process.env.E2E_SHARED_CONFIG_PATH = dir;
 }
 

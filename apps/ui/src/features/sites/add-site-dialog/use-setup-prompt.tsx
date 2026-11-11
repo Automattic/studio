@@ -7,7 +7,7 @@ import { canUsePaidAiModels } from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
-import { PaperclipIcon } from 'lucide-react';
+import { InfoIcon, PaperclipIcon } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
@@ -34,6 +34,7 @@ import {
 	AttachmentRemoveButton,
 	Button,
 	DropOverlay,
+	FeaturePopover,
 	Field,
 	FieldDescription,
 	FieldError,
@@ -141,7 +142,30 @@ export function useSetupPrompt( { enabled = true, busy = false } = {} ) {
 	) : null;
 	const field = enabled ? (
 		<Field className={ styles.brief } hidden={ ! providerConnected } inert={ ! providerConnected }>
-			<FieldLabel htmlFor={ inputId }>{ __( 'Instructions' ) }</FieldLabel>
+			<div className={ styles.briefTitle }>
+				<FieldLabel htmlFor={ inputId }>{ __( 'Instructions' ) }</FieldLabel>
+				<FeaturePopover.Root>
+					<FeaturePopover.Trigger
+						render={
+							<IconButton
+								icon={ <InfoIcon /> }
+								label={ __( 'About instructions' ) }
+								variant="muted-ghost"
+								size="icon-2xs"
+								tooltip={ false }
+								disabled={ busy }
+							/>
+						}
+					/>
+					<FeaturePopover.Popup
+						title={ __( 'Start with inspiration' ) }
+						description={ __(
+							'Share your site’s goals, style, or inspiration. Studio uses your instructions and attached files to start an AI chat after creating the site.'
+						) }
+						sideOffset={ 8 }
+					/>
+				</FeaturePopover.Root>
+			</div>
 			<InputGroup ref={ setDropTarget }>
 				{ dragging && <DropOverlay>{ __( 'Drop to attach' ) }</DropOverlay> }
 				{ attachments.length > 0 && (
@@ -172,7 +196,7 @@ export function useSetupPrompt( { enabled = true, busy = false } = {} ) {
 					disabled={ busy }
 					onChange={ ( event ) => setText( event.target.value ) }
 					onPaste={ pasteHandlers.onPaste }
-					placeholder={ __( 'Describe what you’d like to build or change (optional)…' ) }
+					placeholder={ __( 'Share your ideas or inspiration for this site (optional)…' ) }
 				/>
 				<div className={ styles.briefToolbar }>
 					<IconButton

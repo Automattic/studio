@@ -1,9 +1,10 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { pendingPromptSlot } from '@/features/composer';
 import { createFakeConnector, type FakeConnectorInitialState } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
-import type { Connector, SelectedSiteFolder } from '@/data/core';
+import type { Connector, SelectedSiteFolder, SyncSite } from '@/data/core';
 import type { AiSettings } from '@studio/agent/protocol/providers';
 import type { Blueprint as CatalogBlueprint } from '@studio/common/lib/studio-blueprints-api';
 import type { Blueprint } from '@wp-playground/blueprints';
@@ -35,9 +36,9 @@ async function setup(
 	);
 	const connector = createFakeConnector( state, overrides );
 	const view = renderApp( { connector, path: '/?addSite=blank' } );
-	const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
+	const dialog = await screen.findByRole( 'dialog', { name: 'Add a WordPress' } );
 	await waitFor( () =>
-		expect( within( dialog ).getByRole( 'textbox', { name: 'Site name' } ) ).toHaveAttribute(
+		expect( within( dialog ).getByRole( 'textbox', { name: 'Name' } ) ).toHaveAttribute(
 			'placeholder',
 			'Blue Note'
 		)
@@ -45,14 +46,14 @@ async function setup(
 	return { ...view, dialog };
 }
 
+async function chooseType( label: string ) {
+	const user = userEvent.setup();
+	await user.click( screen.getByRole( 'combobox', { name: 'Type' } ) );
+	await user.click( await screen.findByRole( 'option', { name: label } ) );
+}
+
 async function startBlank() {
-	const remove = screen.queryByRole( 'button', { name: 'Remove Blueprint' } );
-	if ( remove ) fireEvent.click( remove );
-	else {
-		fireEvent.click( screen.getByRole( 'button', { name: 'Change' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Start blank' } ) );
-	}
-	await screen.findByRole( 'group', { name: 'Start from (optional)' } );
+	await chooseType( 'Blank' );
 }
 
 async function uploadBlueprint( blueprint: Blueprint & { meta?: object } ) {
@@ -65,15 +66,139 @@ async function uploadBlueprint( blueprint: Blueprint & { meta?: object } ) {
 }
 
 async function createSite( dialog: HTMLElement, name = 'Add site' ) {
+	const input = within( dialog ).getByRole< HTMLInputElement >( 'textbox', { name: 'Name' } );
+	if ( ! input.value.trim() ) {
+		fireEvent.change( input, { target: { value: input.placeholder } } );
+	}
 	const button = within( dialog ).getByRole( 'button', { name } );
 	await waitFor( () => expect( button ).toBeEnabled() );
 	fireEvent.click( button );
 }
 
 describe( 'Add site › blank setup', () => {
+	it( 'explains optional kickoff instructions without closing setup or changing its draft', async () => {
+		const { connector, dialog, user } = await setup();
+		const instructions = within( dialog ).getByRole( 'textbox', { name: 'Instructions' } );
+		expect( instructions ).toHaveAttribute(
+			'placeholder',
+			'Share your ideas or inspiration for this site (optional)…'
+		);
+		fireEvent.change( instructions, { target: { value: 'A warm, welcoming bakery' } } );
+		const help = within( dialog ).getByRole( 'button', { name: 'About instructions' } );
+		await user.click( help );
+		const details = await screen.findByRole( 'dialog', { name: 'Start with inspiration' } );
+		expect( details ).toHaveAccessibleDescription(
+			'Share your site’s goals, style, or inspiration. Studio uses your instructions and attached files to start an AI chat after creating the site.'
+		);
+		await user.keyboard( '{Escape}' );
+		await waitFor( () => expect( details ).not.toBeInTheDocument() );
+		expect( dialog ).toBeVisible();
+		expect( help ).toHaveFocus();
+		expect( instructions ).toHaveValue( 'A warm, welcoming bakery' );
+		expect( connector.createSite ).not.toHaveBeenCalled();
+	} );
+
+	it.each( [
+		[ 'Blueprint', 'Choose file' ],
+		[ 'Backup or export', 'Choose backup or export' ],
+	] )( 'requires a source for %s and preserves the edited name', async ( type, action ) => {
+		const { connector, dialog } = await setup();
+		fireEvent.change( screen.getByLabelText( 'Name' ), { target: { value: 'My bakery' } } );
+		await chooseType( type );
+		expect(
+			within( screen.getByRole( 'group', { name: 'Source' } ) ).getByRole( 'button', {
+				name: action,
+			} )
+		).toBeVisible();
+		expect( screen.getByLabelText( 'Name' ) ).toHaveValue( 'My bakery' );
+		expect( within( dialog ).getByRole( 'button', { name: 'Add site' } ) ).toBeDisabled();
+		await startBlank();
+		expect( screen.queryByRole( 'group', { name: 'Source' } ) ).not.toBeInTheDocument();
+		await createSite( dialog );
+		await waitFor( () =>
+			expect( connector.createSite ).toHaveBeenCalledWith(
+				expect.objectContaining( { name: 'My bakery' } )
+			)
+		);
+	} );
+
+	it( 'offers only creation sources in Type and explains existing folders below Folder', async () => {
+		const { dialog, user } = await setup(
+			{},
+			{
+				capabilities: { nativeFolderPicker: false, annotatePreview: false, studioLogs: false },
+			}
+		);
+		expect( screen.getByLabelText( 'Folder' ) ).toHaveAccessibleDescription(
+			expect.stringContaining(
+				'You can also choose a folder containing an existing WordPress site.'
+			)
+		);
+		expect( within( dialog ).getByRole( 'button', { name: 'Change…' } ) ).toBeDisabled();
+		await user.click( screen.getByRole( 'combobox', { name: 'Type' } ) );
+		expect(
+			( await screen.findAllByRole( 'option' ) ).map( ( option ) => option.textContent )
+		).toEqual( [ 'Blank', 'Blueprint', 'Backup or export' ] );
+	} );
+
+	it( 'connects from the first step without a Type field and preserves the draft', async () => {
+		const remote = {
+			id: 42,
+			name: 'Remote bakery',
+			url: 'https://bakery.example',
+			syncSupport: 'syncable',
+			isPressable: false,
+		} as SyncSite;
+		const { connector, dialog } = await setup(
+			{},
+			{ fetchSyncableWpcomSites: async () => [ remote ] }
+		);
+		fireEvent.change( screen.getByLabelText( 'Name' ), { target: { value: 'My bakery' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Back' } ) );
+		fireEvent.click( await screen.findByRole( 'tab', { name: 'Connect' } ) );
+		fireEvent.click( await within( dialog ).findByRole( 'button', { name: /Remote bakery/ } ) );
+		expect( await screen.findByLabelText( 'Name' ) ).toHaveValue( 'My bakery' );
+		expect( screen.queryByRole( 'combobox', { name: 'Type' } ) ).not.toBeInTheDocument();
+		expect(
+			within( screen.getByRole( 'group', { name: 'Source' } ) ).getByText( 'Remote bakery' )
+		).toBeVisible();
+		expect(
+			within( dialog ).queryByRole( 'textbox', { name: 'Instructions' } )
+		).not.toBeInTheDocument();
+		expect( connector.createSite ).not.toHaveBeenCalled();
+	} );
+
+	it( 'ignores a Blueprint load completed after changing its type to blank', async () => {
+		const { connector } = await setup();
+		let complete!: (
+			value: Awaited< ReturnType< Connector[ 'extractBlueprintBundle' ] > >
+		) => void;
+		connector.extractBlueprintBundle.mockReturnValueOnce(
+			new Promise( ( resolve ) => {
+				complete = resolve;
+			} )
+		);
+		await chooseType( 'Blueprint' );
+		fireEvent.change( screen.getByLabelText( 'Choose a Blueprint or backup' ), {
+			target: { files: [ new File( [], 'blueprint.zip' ) ] },
+		} );
+		await waitFor( () => expect( connector.extractBlueprintBundle ).toHaveBeenCalledOnce() );
+		await startBlank();
+		await act( async () =>
+			complete( {
+				blueprintJson: { steps: [] },
+				blueprintJsonPath: '/tmp/late/blueprint.json',
+				tempDir: '/tmp/late',
+			} )
+		);
+		expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/late' );
+		expect( screen.getByRole( 'combobox', { name: 'Type' } ) ).toHaveTextContent( 'Blank' );
+		expect( screen.queryByRole( 'group', { name: 'Source' } ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'shows only the selected source after choosing a Blueprint', async () => {
 		const { connector, dialog } = await setup();
-		fireEvent.change( screen.getByLabelText( 'Site name' ), { target: { value: 'My bakery' } } );
+		fireEvent.change( screen.getByLabelText( 'Name' ), { target: { value: 'My bakery' } } );
 		fireEvent.change( screen.getByRole( 'textbox', { name: 'Instructions' } ), {
 			target: { value: 'Make this a bakery' },
 		} );
@@ -81,13 +206,13 @@ describe( 'Add site › blank setup', () => {
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Browse Blueprints' } ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'View Portfolio' } ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Use Blueprint' } ) );
-		const source = await screen.findByRole( 'group', { name: 'Start from (optional)' } );
+		const source = await screen.findByRole( 'group', { name: 'Source' } );
 		expect( within( source ).getByText( 'Portfolio' ) ).toBeVisible();
 		expect(
 			screen.queryByRole( 'button', { name: 'Start with a Blueprint' } )
 		).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'region', { name: 'Blueprint cards' } ) ).not.toBeInTheDocument();
-		expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'My bakery' );
+		expect( screen.getByLabelText( 'Name' ) ).toHaveValue( 'My bakery' );
 		expect( connector.createSite ).not.toHaveBeenCalled();
 		await createSite( dialog );
 		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledOnce() );
@@ -102,12 +227,14 @@ describe( 'Add site › blank setup', () => {
 		expect( connector.continueSession.mock.calls[ 0 ][ 1 ] ).toBe( 'Make this a bakery' );
 	} );
 
-	it( 'keeps a dropped Blueprint selected when changing its source and returning from the gallery', async () => {
+	it( 'keeps an uploaded Blueprint selected when changing its source and returning from the gallery', async () => {
 		const { dialog } = await setup();
 		const contents = JSON.stringify( { steps: [], meta: { title: 'Bakery', author: 'Studio' } } );
 		const file = new File( [ contents ], 'dropped-blueprint.json', { type: 'application/json' } );
 		Object.defineProperty( file, 'text', { value: async () => contents } );
-		fireEvent.drop( dialog, { dataTransfer: { files: [ file ], types: [ 'Files' ] } } );
+		fireEvent.change( within( dialog ).getByLabelText( 'Choose a Blueprint or backup' ), {
+			target: { files: [ file ] },
+		} );
 		await screen.findByText( 'dropped-blueprint.json', { selector: 'span' } );
 		expect(
 			screen.queryByRole( 'button', { name: 'Start with a Blueprint' } )
@@ -125,12 +252,12 @@ describe( 'Add site › blank setup', () => {
 	it( 'allows adding a blank site without another starting-point chooser', async () => {
 		const { connector, dialog } = await setup( {}, {}, [] );
 		expect( within( dialog ).getByRole( 'button', { name: 'Back' } ) ).toBeVisible();
-		expect( screen.queryByRole( 'combobox', { name: 'Type' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'combobox', { name: 'Type' } ) ).toHaveTextContent( 'Blank' );
 		expect(
 			screen.queryByRole( 'button', { name: 'Start with a Blueprint' } )
 		).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Browse all' } ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: /^Choose(?: file|…)$/ } ) ).toBeVisible();
+		expect( screen.queryByRole( 'group', { name: 'Source' } ) ).not.toBeInTheDocument();
 		await createSite( dialog );
 		await waitFor( () => expect( connector.createSite ).toHaveBeenCalledOnce() );
 		expect( connector.createSite.mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'blueprint' );
@@ -138,16 +265,16 @@ describe( 'Add site › blank setup', () => {
 
 	it( 'chooses a backup inline and retains the name and AI brief when returning to blank', async () => {
 		const { dialog } = await setup();
-		fireEvent.change( screen.getByLabelText( 'Site name' ), { target: { value: 'My bakery' } } );
+		fireEvent.change( screen.getByLabelText( 'Name' ), { target: { value: 'My bakery' } } );
 		fireEvent.change( screen.getByRole( 'textbox', { name: 'Instructions' } ), {
 			target: { value: 'A bakery with a weekly menu' },
 		} );
-		expect( screen.queryByRole( 'combobox', { name: 'Type' } ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: /^Choose(?: file|…)$/ } ) ).toBeVisible();
+		expect( screen.getByRole( 'combobox', { name: 'Type' } ) ).toHaveTextContent( 'Blank' );
+		expect( screen.queryByRole( 'group', { name: 'Source' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'textbox', { name: 'Instructions' } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tablist' ) ).not.toBeInTheDocument();
 		expect(
-			within( screen.getByRole( 'dialog', { name: 'Add site' } ) ).getByRole( 'button', {
+			within( screen.getByRole( 'dialog', { name: 'Add a WordPress' } ) ).getByRole( 'button', {
 				name: 'Add site',
 			} )
 		).toBeEnabled();
@@ -159,7 +286,7 @@ describe( 'Add site › blank setup', () => {
 			screen.queryByRole( 'button', { name: 'Start with a Blueprint' } )
 		).not.toBeInTheDocument();
 		expect( screen.getByRole( 'textbox', { name: 'Instructions' } ) ).toBeVisible();
-		expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'My bakery' );
+		expect( screen.getByLabelText( 'Name' ) ).toHaveValue( 'My bakery' );
 		await startBlank();
 		expect( screen.getByRole( 'textbox', { name: 'Instructions' } ) ).toHaveValue(
 			'A bakery with a weekly menu'
@@ -182,7 +309,7 @@ describe( 'Add site › blank setup', () => {
 				],
 			} )
 		);
-		fireEvent.change( screen.getByLabelText( 'Site name' ), { target: { value: 'My portfolio' } } );
+		fireEvent.change( screen.getByLabelText( 'Name' ), { target: { value: 'My portfolio' } } );
 		fireEvent.change( screen.getByRole( 'textbox', { name: 'Instructions' } ), {
 			target: { value: 'Add my photography projects' },
 		} );
@@ -191,8 +318,8 @@ describe( 'Add site › blank setup', () => {
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Browse Blueprints' } ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'View Portfolio' } ) );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Use Blueprint' } ) );
-		expect( await screen.findByLabelText( 'Site name' ) ).toHaveValue( 'My portfolio' );
-		expect( screen.getByRole( 'group', { name: 'Start from (optional)' } ) ).toBeVisible();
+		expect( await screen.findByLabelText( 'Name' ) ).toHaveValue( 'My portfolio' );
+		expect( screen.getByRole( 'group', { name: 'Source' } ) ).toBeVisible();
 		expect( screen.getByRole( 'textbox', { name: 'Instructions' } ) ).toHaveValue(
 			'Add my photography projects'
 		);
@@ -262,7 +389,7 @@ describe( 'Add site › blank setup', () => {
 			within( dialog ).queryByRole( 'textbox', { name: 'Instructions' } )
 		).not.toBeInTheDocument();
 		expect( within( dialog ).queryByRole( 'button', { name: 'Add' } ) ).not.toBeInTheDocument();
-		fireEvent.change( within( dialog ).getByLabelText( 'Site name' ), {
+		fireEvent.change( within( dialog ).getByLabelText( 'Name' ), {
 			target: { value: 'Bakery' },
 		} );
 		await createSite( dialog );
@@ -317,7 +444,7 @@ describe( 'Add site › blank setup', () => {
 				},
 			}
 		);
-		fireEvent.change( within( dialog ).getByLabelText( 'Site name' ), {
+		fireEvent.change( within( dialog ).getByLabelText( 'Name' ), {
 			target: { value: 'Bakery' },
 		} );
 		const input = within( dialog ).getByRole( 'textbox', { name: 'Instructions' } );
@@ -359,8 +486,8 @@ describe( 'Add site › blank setup', () => {
 			expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic-api-key' )
 		);
 		fireEvent.click( within( settings ).getByRole( 'button', { name: /Close .*ettings/ } ) );
-		const restored = await screen.findByRole( 'dialog', { name: 'Add site' } );
-		expect( within( restored ).getByLabelText( 'Site name' ) ).toHaveValue( 'Bakery' );
+		const restored = await screen.findByRole( 'dialog', { name: 'Add a WordPress' } );
+		expect( within( restored ).getByLabelText( 'Name' ) ).toHaveValue( 'Bakery' );
 		expect( within( restored ).getByRole( 'textbox', { name: 'Instructions' } ) ).toHaveValue(
 			'Build a seasonal bakery site'
 		);
@@ -433,9 +560,18 @@ describe( 'Add site › blank setup', () => {
 		expect( connector.continueSession.mock.calls[ 0 ][ 1 ] ).toBe( 'Customize this for my bakery' );
 	} );
 
-	it( 'uses the placeholder suggestion when the site name is left empty', async () => {
+	it( 'keeps the suggested name out of the folder until a name is entered', async () => {
 		const { connector, dialog } = await setup();
-		expect( within( dialog ).getByRole( 'textbox', { name: 'Site name' } ) ).toHaveValue( '' );
+		expect( within( dialog ).getByRole( 'textbox', { name: 'Name' } ) ).toHaveValue( '' );
+		expect( within( dialog ).getByLabelText( 'Folder' ) ).toHaveValue( '' );
+		await waitFor( () =>
+			expect( within( dialog ).getByLabelText( 'Folder' ) ).toHaveAttribute( 'title', '/sites/' )
+		);
+		expect( within( dialog ).getByRole( 'button', { name: 'Add site' } ) ).toBeDisabled();
+		expect( connector.generateProposedSitePath ).not.toHaveBeenCalled();
+		fireEvent.change( within( dialog ).getByRole( 'textbox', { name: 'Name' } ), {
+			target: { value: 'Blue Note' },
+		} );
 		await createSite( dialog );
 		await waitFor( () =>
 			expect( connector.createSite ).toHaveBeenCalledWith(
@@ -446,18 +582,18 @@ describe( 'Add site › blank setup', () => {
 
 	it( 'switches between blank and uploaded Blueprint setup', async () => {
 		const { dialog } = await setup();
-		expect( within( dialog ).getByRole( 'heading', { name: 'Add site' } ) ).toBeVisible();
+		expect( within( dialog ).getByRole( 'heading', { name: 'Add a WordPress' } ) ).toBeVisible();
 		await uploadBlueprint( {} );
-		expect( await screen.findByRole( 'group', { name: 'Start from (optional)' } ) ).toBeVisible();
+		expect( await screen.findByRole( 'group', { name: 'Source' } ) ).toBeVisible();
 		expect( await screen.findByText( 'blueprint.json', { selector: 'span' } ) ).toBeVisible();
-		expect( within( dialog ).getByRole( 'heading', { name: 'Add site' } ) ).toBeVisible();
+		expect( within( dialog ).getByRole( 'heading', { name: 'Add a WordPress' } ) ).toBeVisible();
 		await startBlank();
-		expect( await screen.findByRole( 'heading', { name: 'Add site' } ) ).toBeVisible();
+		expect( await screen.findByRole( 'heading', { name: 'Add a WordPress' } ) ).toBeVisible();
 	} );
 
 	it( 'submits a blank site and opens its workspace without starting AI work', async () => {
 		const { connector, dialog, history } = await setup();
-		const name = within( dialog ).getByRole( 'textbox', { name: 'Site name' } );
+		const name = within( dialog ).getByRole( 'textbox', { name: 'Name' } );
 		fireEvent.change( name, { target: { value: 'My blank site' } } );
 		fireEvent.submit( name.closest( 'form' )! );
 		await waitFor( () =>
@@ -494,12 +630,12 @@ describe( 'Add site › blank setup', () => {
 			meta: { title: 'Bakery', author: 'Studio' },
 			steps: [],
 		} as Blueprint );
-		const source = await screen.findByRole( 'group', { name: 'Start from (optional)' } );
+		const source = await screen.findByRole( 'group', { name: 'Source' } );
 		expect( await within( source ).findByText( 'blueprint.json' ) ).toBeVisible();
 		expect( within( source ).getByRole( 'button', { name: 'Browse Blueprints' } ) ).toBeVisible();
 		const remove = within( source ).getByRole( 'button', { name: 'Remove Blueprint' } );
 		await user.click( remove );
-		expect( within( source ).getByRole( 'button', { name: 'Choose…' } ) ).toBeVisible();
+		expect( within( source ).getByRole( 'button', { name: 'Choose file' } ) ).toBeVisible();
 		expect( within( source ).queryByText( 'blueprint.json' ) ).not.toBeInTheDocument();
 	} );
 
@@ -518,64 +654,61 @@ describe( 'Add site › blank setup', () => {
 		expect( within( dialog ).getByRole( 'button', { name: 'Add site' } ) ).toBeEnabled();
 	} );
 
-	it( 'uses a selected WordPress folder in place, synchronizes Change, and restores defaults on Remove', async () => {
+	it( 'chooses an existing site through Folder and can return to an empty destination', async () => {
 		const { connector, dialog } = await setup();
-		const existing = {
+		connector.selectSiteFolder.mockResolvedValueOnce( {
 			name: 'Bakery',
 			path: '/projects/bakery',
 			isEmpty: false,
 			isWordPress: true,
-		};
-		connector.selectSiteFolder.mockImplementation( async ( path, options ) =>
-			options?.usePath ? { ...existing, path } : existing
-		);
-		fireEvent.click( screen.getByRole( 'button', { name: 'Choose…' } ) );
-		const source = screen.getByRole( 'group', { name: 'Start from (optional)' } );
-		await within( source ).findByText( 'Existing WordPress site' );
-		expect( within( source ).getByText( 'Bakery' ) ).toBeVisible();
-		expect( within( source ).queryByRole( 'button', { name: /Change/ } ) ).not.toBeInTheDocument();
-		expect( screen.getByLabelText( 'Site folder' ) ).toHaveValue( '/projects/bakery' );
-		expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute( 'readonly' );
-		expect( screen.getByRole( 'button', { name: 'Change…' } ) ).toBeEnabled();
-		connector.selectSiteFolder.mockResolvedValueOnce( {
-			...existing,
-			name: 'Another',
-			path: '/projects/another',
 		} );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Change…' } ) );
-		await within( source ).findByText( 'another' );
-		expect( screen.getByLabelText( 'Site folder' ) ).toHaveValue( '/projects/another' );
-		fireEvent.click( within( source ).getByRole( 'button', { name: 'Remove' } ) );
-		await within( source ).findByRole( 'button', { name: 'Choose…' } );
-		await waitFor( () =>
-			expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute( 'title', '/sites/Bakery' )
+		await screen.findByText(
+			'Studio will use this WordPress site in place. No files will be moved.'
 		);
-		expect( within( source ).queryByText( 'Existing WordPress site' ) ).not.toBeInTheDocument();
-		expect( within( dialog ).getByRole( 'button', { name: 'Add site' } ) ).toBeEnabled();
-		expect( connector.createSite ).not.toHaveBeenCalled();
-	} );
-
-	it( 'keeps the selected existing site when Change chooses an empty folder', async () => {
-		const { connector } = await setup();
-		const existing = {
-			name: 'Bakery',
-			path: '/projects/bakery',
-			isEmpty: false,
-			isWordPress: true,
-		};
-		connector.selectSiteFolder.mockResolvedValue( existing );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Choose…' } ) );
-		await screen.findByText( 'Existing WordPress site' );
+		expect( screen.getByLabelText( 'Folder' ) ).toHaveValue( '/projects/bakery' );
+		expect( screen.getByLabelText( 'Folder' ) ).toHaveAttribute( 'readonly' );
+		expect( screen.queryByRole( 'group', { name: 'Source' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'combobox', { name: 'Type' } ) ).toHaveTextContent( 'Blank' );
 		connector.selectSiteFolder.mockResolvedValueOnce( {
-			name: 'Empty',
-			path: '/projects/empty',
+			name: 'Destination',
+			path: '/projects/destination',
 			isEmpty: true,
 			isWordPress: false,
 		} );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Change…' } ) );
-		await screen.findByText( 'Choose a folder containing an existing WordPress site.' );
-		expect( screen.getByLabelText( 'Site folder' ) ).toHaveValue( existing.path );
-		expect( screen.getByText( 'Bakery', { selector: 'span' } ) ).toBeVisible();
+		await waitFor( () =>
+			expect( screen.getByLabelText( 'Folder' ) ).toHaveAttribute(
+				'title',
+				'/projects/destination'
+			)
+		);
+		expect( screen.getByLabelText( 'Folder' ) ).not.toHaveAttribute( 'readonly' );
+		expect(
+			screen.queryByText( 'Studio will use this WordPress site in place. No files will be moved.' )
+		).not.toBeInTheDocument();
+		expect( within( dialog ).getByRole( 'button', { name: 'Add site' } ) ).toBeEnabled();
+		expect( connector.createSite ).not.toHaveBeenCalled();
+	} );
+
+	it( 'keeps an existing folder when the folder picker is cancelled', async () => {
+		const { connector } = await setup();
+		connector.selectSiteFolder.mockResolvedValueOnce( {
+			name: 'Bakery',
+			path: '/projects/bakery',
+			isEmpty: false,
+			isWordPress: true,
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Change…' } ) );
+		await screen.findByText(
+			'Studio will use this WordPress site in place. No files will be moved.'
+		);
+		connector.selectSiteFolder.mockResolvedValueOnce( null );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Change…' } ) );
+		await waitFor( () =>
+			expect( screen.getByRole( 'button', { name: 'Change…' } ) ).toBeEnabled()
+		);
+		expect( screen.getByLabelText( 'Folder' ) ).toHaveValue( '/projects/bakery' );
 		expect( connector.createSite ).not.toHaveBeenCalled();
 	} );
 
@@ -593,7 +726,7 @@ describe( 'Add site › blank setup', () => {
 		} );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Change…' } ) );
 		await waitFor( () =>
-			expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute( 'title', destination )
+			expect( screen.getByLabelText( 'Folder' ) ).toHaveAttribute( 'title', destination )
 		);
 		connector.selectSiteFolder.mockResolvedValueOnce( {
 			name,
@@ -602,9 +735,10 @@ describe( 'Add site › blank setup', () => {
 			isEmpty: false,
 			isWordPress: false,
 		} );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Choose…' } ) );
+		await chooseType( 'Backup or export' );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Choose backup or export' } ) );
 		await screen.findByText( type, { selector: 'span' } );
-		expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute( 'title', destination );
+		expect( screen.getByLabelText( 'Folder' ) ).toHaveAttribute( 'title', destination );
 		await createSite( dialog );
 		await waitFor( () =>
 			expect( connector.importSiteFromBackup ).toHaveBeenCalledWith(
@@ -628,7 +762,7 @@ describe( 'Add site › blank setup', () => {
 		await within( dialog ).findByText(
 			'Studio will use this WordPress site in place. No files will be moved.'
 		);
-		expect( within( dialog ).getByRole( 'heading', { name: 'Add site' } ) ).toBeVisible();
+		expect( within( dialog ).getByRole( 'heading', { name: 'Add a WordPress' } ) ).toBeVisible();
 		expect( within( dialog ).getByRole( 'textbox', { name: 'Instructions' } ) ).toBeVisible();
 		await createSite( dialog );
 		await waitFor( () => expect( history.location.pathname ).toMatch( /^\/sessions\/|\/new$/ ) );
@@ -657,24 +791,16 @@ describe( 'Add site › blank setup', () => {
 			await screen.findByText(
 				'Choose an empty folder to use a source. The selected folder already contains a WordPress site.'
 			);
-			expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute(
-				'title',
-				'/projects/bakery'
-			);
+			expect( screen.getByLabelText( 'Folder' ) ).toHaveAttribute( 'title', '/projects/bakery' );
 			expect( within( dialog ).getByRole( 'button', { name: 'Add site' } ) ).toBeDisabled();
 			expect( connector.createSite ).not.toHaveBeenCalled();
 			await startBlank();
 			await waitFor( () =>
 				expect( within( dialog ).getByRole( 'button', { name: 'Add site' } ) ).toBeEnabled()
 			);
-			expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute(
-				'title',
-				'/projects/bakery'
-			);
+			expect( screen.getByLabelText( 'Folder' ) ).toHaveAttribute( 'title', '/projects/bakery' );
 			expect(
-				within( screen.getByRole( 'group', { name: 'Start from (optional)' } ) ).queryByText(
-					'/projects/bakery'
-				)
+				screen.queryByText( '/projects/bakery', { selector: 'span' } )
 			).not.toBeInTheDocument();
 		}
 	);
@@ -690,22 +816,57 @@ describe( 'Add site › blank setup', () => {
 		} );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Change…' } ) );
 		await waitFor( () =>
-			expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute(
+			expect( screen.getByLabelText( 'Folder' ) ).toHaveAttribute(
 				'title',
 				'/projects/destination'
 			)
 		);
-		fireEvent.change( screen.getByLabelText( 'Site name' ), { target: { value: 'Renamed site' } } );
-		expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute(
-			'title',
-			'/projects/destination'
-		);
+		fireEvent.change( screen.getByLabelText( 'Name' ), { target: { value: 'Renamed site' } } );
+		expect( screen.getByLabelText( 'Folder' ) ).toHaveAttribute( 'title', '/projects/destination' );
 		expect( screen.getByText( 'blueprint.json', { selector: 'span' } ) ).toBeVisible();
 		expect( connector.createSite ).not.toHaveBeenCalled();
 	} );
 
-	it( 'accepts a dropped folder through its existing path without opening a picker', async () => {
+	it.each( [
+		[ 'Blueprint', 'drop-blueprint.json', 'Choose file' ],
+		[ 'Backup or export', 'drop-backup.wpress', 'Choose backup or export' ],
+	] )( 'accepts %s drops within the source control', async ( type, filename, button ) => {
 		const { connector, dialog } = await setup();
+		fireEvent.change( screen.getByLabelText( 'Name' ), { target: { value: 'My bakery' } } );
+		await chooseType( type );
+		const source = screen.getByRole( 'group', { name: 'Source' } );
+		const target = within( source ).getByRole( 'button', { name: button } );
+		const contents = JSON.stringify( { steps: [] } );
+		const file = new File( [ contents ], filename );
+		Object.defineProperty( file, 'text', { value: async () => contents } );
+		const dataTransfer = { files: [ file ], types: [ 'Files' ] };
+		fireEvent.dragEnter( target, { dataTransfer } );
+		expect( target.closest( '[data-dragging]' ) ).toBeInTheDocument();
+		expect( dialog ).not.toHaveAttribute( 'data-dragging' );
+		expect( screen.queryByText( 'Drop to add site' ) ).not.toBeInTheDocument();
+		fireEvent.drop( target, { dataTransfer } );
+		expect( await screen.findByText( filename, { selector: 'span' } ) ).toBeVisible();
+		expect( source.querySelector( '[data-dragging]' ) ).not.toBeInTheDocument();
+		expect( screen.getByLabelText( 'Name' ) ).toHaveValue( 'My bakery' );
+		expect( screen.getByRole( 'combobox', { name: 'Type' } ) ).toHaveTextContent( type );
+		expect( connector.createSite ).not.toHaveBeenCalled();
+		if ( type === 'Blueprint' ) {
+			fireEvent.drop( screen.getByText( filename, { selector: 'span' } ), {
+				dataTransfer: {
+					files: [ new File( [ 'backup' ], 'replacement.wpress' ) ],
+					types: [ 'Files' ],
+				},
+			} );
+			expect( await screen.findByText( 'replacement.wpress' ) ).toBeVisible();
+			expect( screen.getByRole( 'combobox', { name: 'Type' } ) ).toHaveTextContent(
+				'Backup or export'
+			);
+		}
+	} );
+
+	it( 'uses a WordPress folder dropped within the source control in place', async () => {
+		const { connector, dialog } = await setup();
+		await chooseType( 'Blueprint' );
 		connector.getFilePath.mockResolvedValueOnce( '/projects/bakery' );
 		connector.selectSiteFolder.mockResolvedValueOnce( {
 			name: 'Bakery',
@@ -713,23 +874,46 @@ describe( 'Add site › blank setup', () => {
 			isEmpty: false,
 			isWordPress: true,
 		} );
-		fireEvent.drop( dialog, {
+		fireEvent.drop( screen.getByRole( 'button', { name: 'Choose file' } ), {
 			dataTransfer: {
 				files: [ new File( [], 'bakery' ) ],
 				types: [ 'Files' ],
 				items: [ { webkitGetAsEntry: () => ( { isDirectory: true } ) } ],
 			},
 		} );
-		await waitFor( () =>
-			expect( within( dialog ).getByLabelText( 'Site folder' ) ).toHaveAttribute(
-				'title',
-				'/projects/bakery'
-			)
+		await screen.findByText(
+			'Studio will use this WordPress site in place. No files will be moved.'
 		);
+		expect( screen.getByLabelText( 'Folder' ) ).toHaveValue( '/projects/bakery' );
+		expect( screen.getByLabelText( 'Folder' ) ).toHaveAttribute( 'readonly' );
 		expect( connector.selectSiteFolder ).toHaveBeenCalledWith( '/projects/bakery', {
 			allowSiteFiles: true,
 			usePath: true,
 		} );
+		expect( dialog ).not.toHaveAttribute( 'data-dragging' );
+		expect( connector.createSite ).not.toHaveBeenCalled();
+	} );
+
+	it( 'ignores source drops over the second-step form', async () => {
+		const { connector, dialog } = await setup();
+		const dataTransfer = {
+			files: [ new File( [], 'bakery' ) ],
+			types: [ 'Files' ],
+			items: [ { webkitGetAsEntry: () => ( { isDirectory: true } ) } ],
+		};
+		for ( const target of [
+			dialog,
+			screen.getByLabelText( 'Name' ),
+			within( dialog ).getByRole( 'button', { name: 'Add site' } ),
+		] ) {
+			fireEvent.dragEnter( target, { dataTransfer } );
+			expect( dialog ).not.toHaveAttribute( 'data-dragging' );
+			expect( screen.queryByText( 'Drop to add site' ) ).not.toBeInTheDocument();
+			expect( fireEvent.drop( target, { dataTransfer } ) ).toBe( false );
+		}
+		expect( screen.getByRole( 'combobox', { name: 'Type' } ) ).toHaveTextContent( 'Blank' );
+		expect( connector.selectSiteFolder ).not.toHaveBeenCalled();
+		expect( connector.extractBlueprintBundle ).not.toHaveBeenCalled();
 		expect( connector.createSite ).not.toHaveBeenCalled();
 	} );
 	it( 'discards a folder selection that completes after the dialog closes', async () => {
@@ -740,14 +924,8 @@ describe( 'Add site › blank setup', () => {
 				finishSelection = resolve;
 			} )
 		);
-		connector.getFilePath.mockResolvedValueOnce( '/tmp/late-blueprint' );
-		fireEvent.drop( dialog, {
-			dataTransfer: {
-				files: [ new File( [], 'late-blueprint' ) ],
-				types: [ 'Files' ],
-				items: [ { webkitGetAsEntry: () => ( { isDirectory: true } ) } ],
-			},
-		} );
+		await chooseType( 'Blueprint' );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Choose file' } ) );
 		await waitFor( () => expect( connector.selectSiteFolder ).toHaveBeenCalled() );
 		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Close Add site' } ) );
 		await waitFor( () => expect( dialog ).not.toBeInTheDocument() );
@@ -768,6 +946,6 @@ describe( 'Add site › blank setup', () => {
 			expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/late-blueprint' )
 		);
 		expect( connector.createSite ).not.toHaveBeenCalled();
-		expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'dialog', { name: 'Add a WordPress' } ) ).not.toBeInTheDocument();
 	} );
 } );

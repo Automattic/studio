@@ -186,7 +186,7 @@ it( 'focuses and keeps a narrow flyover open when the shortcut commits a hover p
 } );
 
 it.each( [
-	[ 'Add site', 'Add site' ],
+	[ 'Add site', 'Add a WordPress' ],
 	[ 'Settings', 'Settings' ],
 	[ 'Log in or create account', 'Do more with WordPress' ],
 ] )( 'dismisses the flyout while keeping the %s dialog open', async ( button, title ) => {

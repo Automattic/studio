@@ -74,6 +74,7 @@ interface CreateSiteFormProps {
 	requiresCustomDomain?: boolean;
 	submitError?: string | CreateSiteFormError;
 	children?: ReactNode;
+	typeControl?: ReactNode;
 	sourceControl?: ReactNode;
 	actionsContainer?: HTMLElement | null;
 	// Whether the folder already holds a WordPress site, which Studio adds as it is.
@@ -100,6 +101,7 @@ export function CreateSiteForm( {
 	requiresCustomDomain,
 	submitError,
 	children,
+	typeControl,
 	sourceControl,
 	actionsContainer,
 	onExistingChange,
@@ -128,7 +130,7 @@ export function CreateSiteForm( {
 	const [ isNameEdited, setIsNameEdited ] = useState( draft?.name !== undefined );
 	const [ isNameFocused, setIsNameFocused ] = useState( false );
 	const isSubmitQueuedRef = useRef( false );
-	const name = data.name.trim() || suggestedName || '';
+	const name = data.name.trim();
 
 	useEffect( () => {
 		const values = initialValues ?? {};
@@ -141,13 +143,12 @@ export function CreateSiteForm( {
 					values,
 					defaults,
 					previousSuggestedFields,
-					dirtyFieldsRef.current,
-					suggestedName
+					dirtyFieldsRef.current
 				)
 			);
 		}
 		suggestedFieldsRef.current = suggestedFields;
-	}, [ defaults, initialValues, suggestedName ] );
+	}, [ defaults, initialValues ] );
 
 	const { data: wpVersions } = useWordPressVersions();
 	const isOffline = useOffline();
@@ -205,19 +206,16 @@ export function CreateSiteForm( {
 		} );
 	}, [ resetPathKey, handleChangePartial ] );
 
-	const handleChange = useCallback(
-		( update: Partial< FormData > ) => {
-			isSubmitQueuedRef.current = false;
-			for ( const key of Object.keys( update ) ) {
-				if ( INITIAL_VALUE_FIELDS.includes( key as keyof CreateSiteFormValues ) ) {
-					dirtyFieldsRef.current.add( key as keyof CreateSiteFormValues );
-				}
+	const handleChange = useCallback( ( update: Partial< FormData > ) => {
+		isSubmitQueuedRef.current = false;
+		for ( const key of Object.keys( update ) ) {
+			if ( INITIAL_VALUE_FIELDS.includes( key as keyof CreateSiteFormValues ) ) {
+				dirtyFieldsRef.current.add( key as keyof CreateSiteFormValues );
 			}
-			if ( update.name !== undefined ) setIsNameEdited( true );
-			setData( ( prev ) => applyFormChange( prev, update, suggestedName ) );
-		},
-		[ suggestedName ]
-	);
+		}
+		if ( update.name !== undefined ) setIsNameEdited( true );
+		setData( ( prev ) => applyFormChange( prev, update ) );
+	}, [] );
 
 	useEffect( () => {
 		if ( ! selectedFolder ) return;
@@ -312,7 +310,7 @@ export function CreateSiteForm( {
 		! nameError && ! pathError && ! errorCount && ! isSubmitting && ! isSubmitDisabled;
 
 	const submitForm = () => {
-		onSubmit( getSubmittedValues( data, suggestedName ) );
+		onSubmit( getSubmittedValues( data ) );
 	};
 
 	const handleSubmit = ( event: FormEvent ) => {
@@ -542,17 +540,22 @@ export function CreateSiteForm( {
 	return (
 		<form id={ formId } className={ styles.form } onSubmit={ handleSubmit }>
 			<FieldGroup className={ styles.panel }>
-				<TextField
-					label={ __( 'Site name' ) }
-					value={ data.name }
-					placeholder={ suggestedName }
-					onChange={ ( event ) => handleChange( { name: event.target.value } ) }
-					onFocus={ () => setIsNameFocused( true ) }
-					onBlur={ () => setIsNameFocused( false ) }
-					error={ isNameEdited && ! isNameFocused ? nameError : undefined }
-					required={ ! suggestedName }
-					autoFocus
-				/>
+				<div className={ typeControl ? styles.identity : undefined }>
+					<TextField
+						label={ __( 'Name' ) }
+						value={ data.name }
+						placeholder={ suggestedName }
+						onChange={ ( event ) => handleChange( { name: event.target.value } ) }
+						onFocus={ () => setIsNameFocused( true ) }
+						onBlur={ () => setIsNameFocused( false ) }
+						error={ isNameEdited && ! isNameFocused ? nameError : undefined }
+						required
+						autoFocus
+					/>
+					{ typeControl }
+				</div>
+
+				{ sourceControl }
 
 				{ children }
 
@@ -565,8 +568,6 @@ export function CreateSiteForm( {
 					disabled={ isSubmitting }
 					onChange={ handleChange }
 				/>
-
-				{ sourceControl }
 
 				{ advancedSettings }
 

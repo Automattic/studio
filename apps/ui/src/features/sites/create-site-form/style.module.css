@@ -13,6 +13,19 @@
 	gap: var( --space-7 );
 }
 
+.identity {
+	display: grid;
+	grid-template-columns: minmax( 0, 1fr ) minmax( 120px, max-content );
+	align-items: start;
+	gap: var( --space-3 );
+}
+
+@media ( width < 380px ) {
+	.identity {
+		grid-template-columns: minmax( 0, 1fr );
+	}
+}
+
 .actions {
 	display: flex;
 	align-items: center;

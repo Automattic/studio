@@ -39,7 +39,7 @@ async function renderForm(
 		return <CreateSiteForm existingDomainNames={ [] } onSubmit={ onSubmit } { ...props } />;
 	}
 	const view = renderWithProviders( <Harness />, { connector } );
-	await screen.findByRole( 'textbox', { name: /Site name/ } );
+	await screen.findByRole( 'textbox', { name: /^Name$/ } );
 	return {
 		...view,
 		connector,
@@ -48,8 +48,8 @@ async function renderForm(
 	};
 }
 
-const siteName = () => screen.getByRole( 'textbox', { name: /Site name/ } );
-const localPath = () => screen.getByLabelText( 'Site folder' );
+const siteName = () => screen.getByRole( 'textbox', { name: /^Name$/ } );
+const localPath = () => screen.getByLabelText( 'Folder' );
 const submitButton = () => screen.getByTestId( 'create-site-submit' );
 const advanced = () => {
 	const control = screen.getByRole( 'button', { name: 'Advanced' } );
@@ -67,15 +67,19 @@ async function chooseOption( select: string, option: string | RegExp ) {
 afterEach( () => vi.restoreAllMocks() );
 
 describe( 'CreateSiteForm suggestions', () => {
-	it( 'shows the generated name as a placeholder and waits for its folder before creating', async () => {
+	it( 'waits for an entered name before suggesting a folder, then queues creation until it resolves', async () => {
 		const pending = deferred< ProposedPath >();
 		const connector = createFakeConnector();
 		connector.generateProposedSitePath.mockReturnValue( pending.promise );
 		const { onSubmit } = await renderForm( { suggestedName: 'Blue Note' }, connector );
 		expect( siteName() ).toHaveValue( '' );
 		expect( siteName() ).toHaveAttribute( 'placeholder', 'Blue Note' );
-		expect( siteName() ).not.toBeRequired();
-		expect( siteName() ).toBeValid();
+		expect( siteName() ).toBeRequired();
+		expect( localPath() ).toHaveValue( '' );
+		await waitFor( () => expect( localPath() ).toHaveAttribute( 'title', '/sites/' ) );
+		expect( submitButton() ).toBeDisabled();
+		expect( connector.generateProposedSitePath ).not.toHaveBeenCalled();
+		fireEvent.change( siteName(), { target: { value: 'Blue Note' } } );
 		expect( submitButton() ).toBeEnabled();
 		fireEvent.click( submitButton() );
 		expect( onSubmit ).not.toHaveBeenCalled();
@@ -87,7 +91,7 @@ describe( 'CreateSiteForm suggestions', () => {
 		);
 	} );
 
-	it( 'uses a typed name and restores the suggestion and folder when it is cleared', async () => {
+	it( 'uses a typed name and clears the automatic folder when the name is cleared', async () => {
 		const { onSubmit } = await renderForm( { suggestedName: 'Blue Note' } );
 		fireEvent.change( siteName(), { target: { value: 'My studio' } } );
 		expect( siteName() ).toHaveValue( 'My studio' );
@@ -98,46 +102,46 @@ describe( 'CreateSiteForm suggestions', () => {
 		);
 		fireEvent.change( siteName(), { target: { value: '' } } );
 		expect( siteName() ).toHaveValue( '' );
-		await waitFor( () => expect( localPath() ).toHaveValue( 'Blue Note' ) );
+		await waitFor( () => expect( localPath() ).toHaveValue( '' ) );
 		fireEvent.change( siteName(), { target: { value: ' ' } } );
-		expect( localPath() ).toHaveValue( 'Blue Note' );
-		expect( siteName() ).toBeValid();
+		expect( localPath() ).toHaveValue( '' );
+		expect( localPath() ).toHaveAttribute( 'title', '/sites/' );
+		expect( submitButton() ).toBeDisabled();
 		fireEvent.click( submitButton() );
-		expect( onSubmit ).toHaveBeenLastCalledWith(
-			expect.objectContaining( { name: 'Blue Note', path: '/sites/Blue Note' } )
-		);
+		expect( onSubmit ).toHaveBeenCalledOnce();
 	} );
 
-	it( 'keeps a chosen folder in sync with the placeholder after resetting its name', async () => {
+	it( 'keeps a chosen folder in sync with the entered name after resetting its name', async () => {
 		const { user, onSubmit } = await renderForm( {
 			suggestedName: 'Blue Note',
 			initialValues: { path: '/projects/custom' },
 		} );
+		fireEvent.change( siteName(), { target: { value: 'My bakery' } } );
 		await user.click(
 			screen.getByRole( 'button', { name: 'Reset folder name to match site name' } )
 		);
-		expect( localPath() ).toHaveValue( 'blue-note' );
-		fireEvent.change( siteName(), { target: { value: 'My bakery' } } );
 		expect( localPath() ).toHaveValue( 'my-bakery' );
-		fireEvent.change( siteName(), { target: { value: '' } } );
-		expect( siteName() ).toHaveValue( '' );
-		expect( localPath() ).toHaveValue( 'blue-note' );
 		fireEvent.click( submitButton() );
 		await waitFor( () =>
 			expect( onSubmit ).toHaveBeenCalledWith(
-				expect.objectContaining( { name: 'Blue Note', path: '/projects/blue-note' } )
+				expect.objectContaining( { name: 'My bakery', path: '/projects/my-bakery' } )
 			)
 		);
+		fireEvent.change( siteName(), { target: { value: '' } } );
+		expect( siteName() ).toHaveValue( '' );
+		expect( localPath() ).toHaveValue( '' );
+		expect( submitButton() ).toBeDisabled();
 	} );
 
-	it( 'submits the suggested name with a custom domain without filling the name input', async () => {
+	it( 'submits an entered name with a custom domain', async () => {
 		const { onSubmit } = await renderForm( { suggestedName: 'Hello Dolly' } );
+		fireEvent.change( siteName(), { target: { value: 'Hello Dolly' } } );
 		await waitFor( () => expect( localPath() ).toHaveValue( 'Hello Dolly' ) );
 		advanced();
 		fireEvent.change( screen.getByRole( 'textbox', { name: 'Domain name' } ), {
 			target: { value: 'hello-dolly.wp.local' },
 		} );
-		expect( siteName() ).toHaveValue( '' );
+		expect( siteName() ).toHaveValue( 'Hello Dolly' );
 		fireEvent.click( submitButton() );
 		expect( onSubmit ).toHaveBeenCalledWith(
 			expect.objectContaining( { name: 'Hello Dolly', customDomain: 'hello-dolly.wp.local' } )

@@ -32,9 +32,10 @@ describe( 'Open Folder', () => {
 			},
 		} );
 		act( () => connector.emit( 'onOpenFolder' ) );
-		const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
+		const dialog = await screen.findByRole( 'dialog', { name: 'Add a WordPress' } );
 		await within( dialog ).findByText( 'formwork.zip', { selector: 'span' } );
-		expect( within( dialog ).getByLabelText( 'Site name' ) ).toHaveValue( 'Fashion Magazine' );
+		expect( within( dialog ).getByLabelText( 'Name' ) ).toHaveValue( 'Fashion Magazine' );
+		expect( within( dialog ).queryByRole( 'combobox', { name: 'Type' } ) ).not.toBeInTheDocument();
 		expect(
 			within( dialog ).queryByText( 'Existing local WordPress site' )
 		).not.toBeInTheDocument();
@@ -50,13 +51,14 @@ describe( 'Open Folder', () => {
 		const { connector } = await setup();
 		connector.selectSiteFolder.mockResolvedValueOnce( folder );
 		act( () => connector.emit( 'onOpenFolder' ) );
-		const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
+		const dialog = await screen.findByRole( 'dialog', { name: 'Add a WordPress' } );
 		await within( dialog ).findByText(
 			'Studio will use this WordPress site in place. No files will be moved.'
 		);
-		expect( within( dialog ).getByLabelText( 'Site name' ) ).toHaveValue( folder.name );
+		expect( within( dialog ).getByLabelText( 'Name' ) ).toHaveValue( folder.name );
+		expect( within( dialog ).queryByRole( 'combobox', { name: 'Type' } ) ).not.toBeInTheDocument();
 		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Advanced' } ) );
-		expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute( 'title', folder.path );
+		expect( screen.getByLabelText( 'Folder' ) ).toHaveAttribute( 'title', folder.path );
 		expect( connector.createSite ).not.toHaveBeenCalled();
 		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Add site' } ) );
 		await waitFor( () => expect( connector.createSite ).toHaveBeenCalled() );
@@ -76,7 +78,7 @@ describe( 'Open Folder', () => {
 			await waitFor( () => expect( history.location.pathname ).toBe( '/sites/two/new' ) );
 			expect( connector.createSite ).not.toHaveBeenCalled();
 			expect( connector.startSite ).toHaveBeenCalledTimes( running ? 0 : 1 );
-			expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument();
+			expect( screen.queryByRole( 'dialog', { name: 'Add a WordPress' } ) ).not.toBeInTheDocument();
 		}
 	);
 
@@ -85,7 +87,7 @@ describe( 'Open Folder', () => {
 		connector.selectSiteFolder.mockResolvedValueOnce( { ...folder, isWordPress: false } );
 		act( () => connector.emit( 'onOpenFolder' ) );
 		await screen.findByText( 'Choose an empty folder or an existing WordPress site.' );
-		expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'dialog', { name: 'Add a WordPress' } ) ).not.toBeInTheDocument();
 		expect( connector.createSite ).not.toHaveBeenCalled();
 	} );
 } );

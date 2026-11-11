@@ -52,7 +52,7 @@ import {
 import { BlueprintDetails } from './blueprint-details';
 import { BlueprintGallery, getUseCaseLabel, getUseCases } from './blueprint-gallery';
 import { ConnectPanel } from './connect-panel';
-import { AddSiteContext, type CreatedSetupSite } from './context';
+import { AddSiteContext, type CreatedSetupSite, type SetupType } from './context';
 import { CreatePanel } from './create-panel';
 import { ImportPanel } from './import-panel';
 import styles from './style.module.css';
@@ -62,16 +62,24 @@ import type { CreateSiteFormDraft } from '@/features/sites/create-site-form';
 import type { AddSiteSection } from '@/features/sites/use-open-add-site';
 import type { BlueprintUseCase } from '@studio/common/lib/blueprint-catalog';
 import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
+import type { DragEvent } from 'react';
 
 type View =
 	| { name: 'gallery'; useCase?: BlueprintUseCase }
 	| { name: 'details'; blueprint: Blueprint; useCase?: BlueprintUseCase }
-	| { name: 'setup'; from?: View }
+	| { name: 'setup'; from?: View; showType: boolean }
 	| { name: 'connect' }
 	| { name: 'import' };
 
 function getInitialView( section: AddSiteSection ): View {
-	if ( section === 'blank' ) return { name: 'setup' };
+	if ( section === 'blank' )
+		return {
+			name: 'setup',
+			showType:
+				! pendingBlueprintSlot.getSnapshot() &&
+				! pendingBackupSlot.getSnapshot() &&
+				! pendingSiteFolderSlot.getSnapshot(),
+		};
 	if ( section === 'upload' || section === 'import' ) return { name: 'import' };
 	return { name: section === 'connect' ? 'connect' : 'gallery' };
 }
@@ -165,19 +173,27 @@ export function AddSiteDialog() {
 		pendingSiteFolderSlot.subscribe,
 		pendingSiteFolderSlot.getSnapshot
 	);
-	const showSetup = useCallback( () => {
-		if ( view.name === 'setup' ) return;
-		const reversedIndex = [ ...viewHistory ]
-			.reverse()
-			.findIndex( ( item ) => item.name === 'setup' );
-		const previousSetup = reversedIndex < 0 ? -1 : viewHistory.length - 1 - reversedIndex;
-		if ( previousSetup >= 0 ) {
-			replaceView( viewHistory[ previousSetup ] );
-			setViewHistory( viewHistory.slice( 0, previousSetup ) );
-		} else {
-			setView( { name: 'setup', from: view } );
-		}
-	}, [ view, viewHistory, setView ] );
+	const showSetup = useCallback(
+		( showType = false ) => {
+			if ( view.name === 'setup' ) return;
+			const reversedIndex = [ ...viewHistory ]
+				.reverse()
+				.findIndex( ( item ) => item.name === 'setup' );
+			const previousSetup = reversedIndex < 0 ? -1 : viewHistory.length - 1 - reversedIndex;
+			if ( previousSetup >= 0 ) {
+				const previous = viewHistory[ previousSetup ];
+				replaceView(
+					previous.name === 'setup'
+						? { ...previous, showType: previous.showType || showType }
+						: previous
+				);
+				setViewHistory( viewHistory.slice( 0, previousSetup ) );
+			} else {
+				setView( { name: 'setup', from: view, showType } );
+			}
+		},
+		[ view, viewHistory, setView ]
+	);
 	useEffect( () => {
 		if ( ! addSite || ! pendingBlueprint ) return;
 		setSource( { type: 'blueprint', blueprint: pendingBlueprint } );
@@ -189,7 +205,7 @@ export function AddSiteDialog() {
 		if ( ! addSite || ! pendingFolder ) return;
 		if ( view.name !== 'setup' || source.type === 'connect' ) {
 			setSource( { type: 'blank' } );
-			setView( { name: 'setup', from: view } );
+			setView( { name: 'setup', from: view, showType: false } );
 		}
 	}, [ addSite, pendingFolder, setSource, setView, source.type, view ] );
 	const selectBlueprint = useCallback(
@@ -334,7 +350,14 @@ export function AddSiteDialog() {
 		},
 		[ handleSiteFile, connector, handleFolder ]
 	);
-	const isDragging = useFileDrop( addSite && ! settings ? dropTarget : null, onFiles );
+	const acceptsSourceDrops = !! addSite && ! settings && ! progress && view.name !== 'setup';
+	const isDragging = useFileDrop( acceptsSourceDrops ? dropTarget : null, onFiles );
+	const ignoreSetupSourceDrop = ( event: DragEvent< HTMLDivElement > ) => {
+		if ( view.name === 'setup' && event.dataTransfer.types.includes( 'Files' ) ) {
+			event.preventDefault();
+			event.dataTransfer.dropEffect = 'none';
+		}
+	};
 
 	const { pins, setPins } = useSidebarPins();
 	const context = {
@@ -351,11 +374,18 @@ export function AddSiteDialog() {
 		setSetupDraft,
 		source,
 		setSource,
+		changeSourceType: ( type: SetupType ) => {
+			if ( type === source.type ) return;
+			upload.cancel();
+			if ( source.type === 'folder' ) removeFolder();
+			setSource( { type } );
+		},
 		browseBlueprints: () => setView( { name: 'gallery' } ),
+		browseSites: () => setView( { name: 'connect' } ),
 		onFile: handleSiteFile,
+		onFiles,
 		onFolder: handleFolder,
 		folderResetKey,
-		removeFolder,
 		setBlueprintTransferred,
 		createdSite,
 		setCreatedSite,
@@ -403,7 +433,7 @@ export function AddSiteDialog() {
 		view.name === 'details'
 			? view.blueprint.title
 			: view.name === 'setup'
-			? __( 'Add site' )
+			? __( 'Add a WordPress' )
 			: view.name === 'connect'
 			? __( 'Connect to an existing WordPress' )
 			: view.name === 'import'
@@ -523,7 +553,7 @@ export function AddSiteDialog() {
 							onBlank={ () => {
 								setSource( { type: 'blank' } );
 								setIsBlueprintValid( true );
-								showSetup();
+								showSetup( true );
 							} }
 							onView={ ( blueprint ) => {
 								setLastViewed( blueprint.slug );
@@ -535,14 +565,17 @@ export function AddSiteDialog() {
 						<BlueprintDetails
 							blueprint={ view.blueprint }
 							useCase={ view.useCase }
-							onSetup={ showSetup }
+							onSetup={ () => showSetup() }
 						/>
 					) : null }
 					{ view.name === 'setup' ? (
 						source.type === 'import' && source.backup ? (
-							<ImportPanel backup={ source.backup } />
+							<ImportPanel backup={ source.backup } showType={ view.showType } />
 						) : (
-							<CreatePanel remote={ source.type === 'connect' ? source.remote : undefined } />
+							<CreatePanel
+								remote={ source.type === 'connect' ? source.remote : undefined }
+								showType={ view.showType }
+							/>
 						)
 					) : null }
 					{ view.name === 'connect' ? (
@@ -569,15 +602,17 @@ export function AddSiteDialog() {
 		>
 			<DialogContent
 				ref={ setPopup }
-				data-dragging={ ( isDragging && ! progress ) || undefined }
+				data-dragging={ ( acceptsSourceDrops && isDragging ) || undefined }
+				onDragOver={ ignoreSetupSourceDrop }
+				onDrop={ ignoreSetupSourceDrop }
 				layout="creation"
 				className={ view.name === 'setup' ? styles.setupDialog : undefined }
 				initialFocus={ getInitialFocus }
 				finalFocus={ getFinalFocus }
 			>
-				<DialogTitle render={ <VisuallyHidden /> }>{ __( 'Add site' ) }</DialogTitle>
+				<DialogTitle render={ <VisuallyHidden /> }>{ __( 'Add a WordPress' ) }</DialogTitle>
 				<BlueprintErrorDialog error={ upload.error } onDismiss={ upload.dismissError } />
-				{ ( isDragging || upload.isLoading ) && ! progress ? (
+				{ acceptsSourceDrops && ( isDragging || upload.isLoading ) ? (
 					<DropOverlay>
 						{ upload.isLoading ? <Spinner aria-hidden="true" /> : null }
 						{ upload.isLoading ? __( 'Loading file…' ) : __( 'Drop to add site' ) }

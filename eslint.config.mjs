@@ -439,7 +439,7 @@ export default defineConfig(
 							from: 'packages/providers',
 							except: PROVIDERS_BROWSER_SAFE.flatMap( ( file ) =>
 								file.startsWith( '*/' )
-									? [ 'wpcom', 'anthropic' ].map( ( dir ) => `./${ file.replace( '*', dir ) }` )
+									? [ 'wpcom', 'anthropic' ].map( ( dir ) => `./${ file.replaceAll( '*', dir ) }` )
 									: [ `./${ file }` ]
 							),
 							message: 'The browser-safe @studio/providers files import only each other.',

@@ -38,7 +38,7 @@ export function normalizeProviderId( value: string ): ProviderId | undefined {
 	return PROVIDER_IDS.find( ( id ) => id === value || STORED_PROVIDER_IDS[ id ] === value );
 }
 
-export function isAiProviderId( id: ProviderId ): id is AiProviderId {
+function isAiProviderId( id: ProviderId ): id is AiProviderId {
 	return ( AI_PROVIDER_IDS as readonly ProviderId[] ).includes( id );
 }
 

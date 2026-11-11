@@ -2,7 +2,6 @@ export {
 	AI_PROVIDER_IDS,
 	DEFAULT_PROVIDER_ID,
 	getProviderDescriptor,
-	isAiProviderId,
 	normalizeAiProviderId,
 	normalizeProviderId,
 	PROVIDER_IDS,

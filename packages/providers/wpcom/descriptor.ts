@@ -25,7 +25,6 @@ export const wpcomDescriptor: ProviderDescriptor< WpcomConfig > = {
 		paidDefaultModel: 'balanced',
 	},
 	sites: {
-		content: 'wordpress',
 		maxPushSize: 5 * 1024 * 1024 * 1024,
 	},
 };

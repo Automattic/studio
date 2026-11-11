@@ -10,8 +10,8 @@ import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { LoggerError } from 'cli/logger';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
-// Staged inside the site so the PHP-wasm runtime, which only mounts the site folder, can
-// reach the driver, the plugin, the database copy and the output. Removed afterwards.
+// Staged inside the site folder, next to the site WP-CLI loads: the driver, the plugin, the
+// database copy and the output. Removed afterwards.
 const STAGING_SUBDIR = '.studio-static-export';
 const DATABASE_FILE = '.ht.sqlite';
 

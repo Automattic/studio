@@ -95,13 +95,8 @@ export interface ProviderDescriptor< Config = unknown > {
 		paidDefaultModel?: AiModelId;
 	};
 	sites?: {
-		// What a push sends: the site's WordPress archive, or a static export
-		// of its pages.
-		content: 'wordpress' | 'static';
 		// The largest archive a push sends, in bytes.
 		maxPushSize?: number;
-		// Whether Studio can create a site on the provider to push to.
-		canCreate?: boolean;
 	};
 }
 
@@ -137,9 +132,9 @@ export type GenerateImages< Config > = (
 	onResult?: ( index: number, result: GenerateImageResult ) => void
 ) => Promise< GenerateImageResult[] >;
 
-// What a push sends, as the provider's `sites.content` asks. A WordPress
-// archive is a Blob in the page and a readable stream of the file in Node. A
-// static export is its files, each read when the provider uploads it.
+// What a push sends: the site's WordPress archive (a Blob in the page, a
+// readable stream of the file in Node), or a static export of its pages, each
+// file read when the provider uploads it.
 export type PushContent =
 	| { kind: 'archive'; file: Blob | { pipe: unknown }; name: string; size: number }
 	| { kind: 'files'; files: PushFile[] };
@@ -174,7 +169,7 @@ export interface SitesService< Config, Site extends RemoteSite > {
 		config: Config | undefined,
 		options?: { connectedIds?: Site[ 'id' ][]; planRequired?: boolean }
 	): Promise< Site[] >;
-	// A new site to push to, when the descriptor's `sites.canCreate` says so.
+	// A new site to push to, for a provider that can create one.
 	create?( config: Config | undefined, options: { name: string } ): Promise< Site >;
 	push(
 		config: Config | undefined,

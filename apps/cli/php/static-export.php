@@ -2,7 +2,7 @@
 /**
  * Static export driver, loaded with `wp --require=<staging dir>/static-export.php studio-static-export`.
  *
- * The staging directory (inside the site, so the PHP-wasm runtime can reach it) holds this
+ * The staging directory, inside the site folder, holds this
  * file, a copy of the Simply Static plugin, a copy of the site database and `config.json`.
  * Simply Static is loaded from there instead of being installed in the site, and its state
  * (options, crawl table, cron events) goes to the database copy, so the site is left untouched.

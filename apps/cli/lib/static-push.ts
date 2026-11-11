@@ -117,7 +117,8 @@ async function resolveSpace(
 			String( b.lastPushTimestamp ).localeCompare( String( a.lastPushTimestamp ) )
 		);
 		if ( last ) {
-			return last;
+			const { lastPushTimestamp: _push, lastPullTimestamp: _pull, ...space } = last;
+			return space;
 		}
 	}
 

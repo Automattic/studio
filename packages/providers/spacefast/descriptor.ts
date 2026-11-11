@@ -9,8 +9,5 @@ export const spacefastDescriptor: ProviderDescriptor< SpacefastConfig > = {
 	learnMoreUrl: 'https://spacefast.com',
 	configSchema: spacefastConfigSchema,
 	connection: { kind: 'device' },
-	sites: {
-		content: 'static',
-		canCreate: true,
-	},
+	sites: {},
 };

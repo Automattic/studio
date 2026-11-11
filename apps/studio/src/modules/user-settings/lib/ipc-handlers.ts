@@ -31,7 +31,7 @@ import {
 	writeUserPreferences,
 	type UserPreferencesPatch,
 } from '@studio/common/lib/user-settings/user-preferences';
-import { normalizeProviderId, toStoredProviderId } from '@studio/providers';
+import { normalizeAiProviderId, normalizeProviderId, toStoredProviderId } from '@studio/providers';
 import { getProvider } from '@studio/providers/services';
 import { getUserLocaleWithFallback, loadLocaleData, setMacAppLanguage } from 'src/lib/locale-node';
 import { refreshSpotlightIndex } from 'src/lib/spotlight';
@@ -177,7 +177,10 @@ export async function disconnectAiProvider( _event: IpcMainInvokeEvent, requeste
 }
 
 export async function setAiProvider( _event: IpcMainInvokeEvent, requested: string ) {
-	const provider = parseProviderId( requested );
+	const provider = normalizeAiProviderId( requested );
+	if ( ! provider ) {
+		throw new Error( `Unknown AI provider: ${ requested }` );
+	}
 	return changeAiSettings( () => setAiProviderInConfig( provider ) );
 }
 

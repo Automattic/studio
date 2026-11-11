@@ -297,6 +297,7 @@ async function runPush(
 				{ token: token.accessToken },
 				remoteSite,
 				{
+					kind: 'archive',
 					file: fs.createReadStream( archivePath ),
 					name: path.basename( archivePath ),
 					size: archiveSize,
@@ -353,9 +354,18 @@ async function recordSyncPushEvent( siteFolder: string, props: SyncEventProps ):
 		// Best-effort telemetry — never block or fail the push.
 	}
 }
+// `spacefast` or `spacefast:<space>` publishes a static export to Spacefast.
+const STATIC_REMOTE = /^spacefast(?::(.+))?$/;
+
 export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 	exitOnCancel();
 	try {
+		const staticRemote = argv.remoteSite && STATIC_REMOTE.exec( argv.remoteSite );
+		if ( staticRemote ) {
+			const { pushStaticSite } = await import( 'cli/lib/static-push' );
+			await pushStaticSite( argv.path, staticRemote[ 1 ], defaultLogger );
+			return;
+		}
 		await runCommand( argv.path, argv.options, argv.remoteSite, defaultLogger, {
 			includeOnly: argv.includeOnly,
 		} );

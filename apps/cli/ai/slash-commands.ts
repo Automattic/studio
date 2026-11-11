@@ -17,7 +17,7 @@ import {
 	getAiModelLabel,
 	getAiModels,
 	getProviderDescriptor,
-	PROVIDER_IDS,
+	AI_PROVIDER_IDS,
 	type AiModelId,
 	type ProviderId,
 } from '@studio/providers';
@@ -359,7 +359,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		name: 'provider',
 		description: __( 'Switch the AI provider' ),
 		handler: async ( _prompt, ctx ) => {
-			const providerOptions = PROVIDER_IDS.map( ( id ) => ( {
+			const providerOptions = AI_PROVIDER_IDS.map( ( id ) => ( {
 				label:
 					id === ctx.currentProvider
 						? sprintf(
@@ -374,7 +374,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				{ question: __( 'Select an AI provider' ), options: providerOptions },
 			] );
 			const selectedLabel = Object.values( answer )[ 0 ] as string;
-			const newProvider = PROVIDER_IDS.find( ( id ) =>
+			const newProvider = AI_PROVIDER_IDS.find( ( id ) =>
 				selectedLabel.startsWith( getProviderDescriptor( id ).label )
 			);
 			if ( newProvider && newProvider !== ctx.currentProvider ) {

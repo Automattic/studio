@@ -14,7 +14,9 @@ export const builder = ( yargs: StudioArgv ) => {
 		} )
 		.option( 'remote-site', {
 			type: 'string',
-			description: __( 'Remote site URL or ID' ),
+			description: __(
+				'Remote site URL or ID, or `spacefast[:<space>]` to publish a static copy to Spacefast'
+			),
 		} )
 		.option( 'include-only', {
 			type: 'string',
@@ -26,7 +28,7 @@ export const builder = ( yargs: StudioArgv ) => {
 export const registerCommand = ( yargs: StudioArgv ) => {
 	return yargs.command( {
 		command: 'push',
-		describe: __( 'Push your local site to a WordPress.com site' ),
+		describe: __( 'Push your local site to a WordPress.com site, or publish it to Spacefast' ),
 		builder,
 		handler: async ( argv ) => {
 			const { commandHandler } = await import( 'cli/commands/push' );

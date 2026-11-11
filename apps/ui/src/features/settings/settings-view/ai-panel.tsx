@@ -1,8 +1,8 @@
 import {
 	getConnectFields,
 	getProviderDescriptor,
-	PROVIDER_IDS,
-	type ProviderId,
+	AI_PROVIDER_IDS,
+	type AiProviderId,
 } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useState } from 'react';
@@ -22,7 +22,7 @@ import { connectedBadge, SettingsGroup, SettingsRow, SettingsSelect } from './ro
 import styles from './style.module.css';
 
 // A provider that connects with a form: the form comes from its descriptor.
-function ProviderFormRow( { provider }: { provider: ProviderId } ) {
+function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 	const settings = useAiSettings();
 	const connect = useConnectProvider( provider );
 	const disconnect = useDisconnectProvider( provider );
@@ -159,7 +159,7 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 	const setProvider = useSetAiProvider();
 	const isOffline = useOffline();
 	const [ wpcomRequested, setWpcomRequested ] = useState( false );
-	const connected = PROVIDER_IDS.filter( ( id ) => settings.data?.accounts[ id ].connected );
+	const connected = AI_PROVIDER_IDS.filter( ( id ) => settings.data?.accounts[ id ].connected );
 
 	// Connecting WordPress.com finishes once the sign-up lands.
 	const { mutate: selectProvider } = setProvider;
@@ -207,7 +207,7 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 					{ user ? __( 'Manage' ) : __( 'Connect' ) }
 				</Button>
 			</SettingsRow>
-			{ PROVIDER_IDS.filter( ( id ) => getConnectFields( id ).length ).map( ( id ) => (
+			{ AI_PROVIDER_IDS.filter( ( id ) => getConnectFields( id ).length ).map( ( id ) => (
 				<ProviderFormRow key={ id } provider={ id } />
 			) ) }
 			{ connected.length > 1 && settings.data ? (
@@ -216,7 +216,7 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 					description={ __( 'The provider new chats use.' ) }
 					error={ setProvider.error?.message }
 				>
-					<SettingsSelect< ProviderId >
+					<SettingsSelect< AiProviderId >
 						label={ __( 'Default provider' ) }
 						value={ settings.data.provider }
 						disabled={ settings.isLoading || setProvider.isPending }

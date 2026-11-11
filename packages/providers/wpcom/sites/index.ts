@@ -96,17 +96,20 @@ export const wpcomSites: SitesService< WpcomConfig, SyncSite > = {
 			} )
 		),
 
-	async push( config, site, archive, options, onStatus, signal ) {
+	async push( config, site, content, options, onStatus, signal ) {
 		const token = requireToken( config );
+		if ( content.kind !== 'archive' ) {
+			throw new Error( 'WordPress.com imports a WordPress archive.' );
+		}
 		signal?.throwIfAborted();
 
 		onStatus( { phase: 'uploading', progress: 0 } );
 		const upload = createTusUpload( {
 			token,
 			remoteSiteId: site.id,
-			file: archive.file,
-			filename: archive.name,
-			size: archive.size,
+			file: content.file,
+			filename: content.name,
+			size: content.size,
 			onProgress: ( percent ) => onStatus( { phase: 'uploading', progress: percent } ),
 		} );
 		signal?.addEventListener( 'abort', upload.abort, { once: true } );

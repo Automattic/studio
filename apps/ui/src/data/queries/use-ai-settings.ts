@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useConnector } from '@/data/core';
 import type { AiSettings } from '@studio/common/lib/ai-settings';
-import type { ProviderId } from '@studio/providers';
+import type { AiProviderId, ProviderId } from '@studio/providers';
 
 // The WordPress.com account is the sign-in, so auth changes refresh it too.
 export const AI_SETTINGS_QUERY_KEY = [ 'ai-settings' ] as const;
@@ -23,7 +23,7 @@ export function useSetAiProvider() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
-		mutationFn: ( provider: ProviderId ) => connector.setAiProvider( provider ),
+		mutationFn: ( provider: AiProviderId ) => connector.setAiProvider( provider ),
 		onSuccess: ( settings ) => {
 			queryClient.setQueryData< AiSettings >( AI_SETTINGS_QUERY_KEY, settings );
 		},

@@ -408,6 +408,7 @@ export class WpcomServices {
 				{ token: await this.auth.requireToken() },
 				{ id: remoteSiteId, name: remoteSite?.name ?? String( remoteSiteId ) },
 				{
+					kind: 'archive',
 					file: new Blob( [ archive as BlobPart ], { type: 'application/gzip' } ),
 					name: `push-${ siteId }-${ Date.now() }.tar.gz`,
 					size: archive.byteLength,

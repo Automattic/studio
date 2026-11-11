@@ -50,7 +50,7 @@ import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
 import type { DesignFix } from '@studio/design-md';
-import type { AiModelId, ProviderId } from '@studio/providers';
+import type { AiModelId, ProviderId, AiProviderId } from '@studio/providers';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { ActiveAgentRun } from '@studio/agent/protocol/agent-events';
@@ -495,7 +495,7 @@ export interface Connector {
 	connectProvider( provider: ProviderId, input: Record< string, string > ): Promise< AiSettings >;
 	disconnectProvider( provider: ProviderId ): Promise< AiSettings >;
 	// The provider new conversations use.
-	setAiProvider( provider: ProviderId ): Promise< AiSettings >;
+	setAiProvider( provider: AiProviderId ): Promise< AiSettings >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't

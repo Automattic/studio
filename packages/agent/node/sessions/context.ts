@@ -3,11 +3,11 @@ import {
 	resolveSessionProvider,
 } from '@studio/agent/protocol/sessions/model';
 import type { LoadedAiSession } from '@studio/agent/protocol/sessions/types';
-import type { AiModelId, ProviderId } from '@studio/providers';
+import type { AiModelId, AiProviderId } from '@studio/providers';
 
 export interface ResumeSessionContext {
 	sessionId?: string;
-	provider?: ProviderId;
+	provider?: AiProviderId;
 	model?: AiModelId;
 }
 

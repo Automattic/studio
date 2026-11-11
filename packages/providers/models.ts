@@ -1,6 +1,6 @@
-import { getProviderDescriptor, PROVIDER_IDS } from './descriptors';
+import { getProviderDescriptor, AI_PROVIDER_IDS } from './descriptors';
 import type { ANTHROPIC_AI_MODELS } from './anthropic/descriptor';
-import type { ProviderId, AiModel } from './types';
+import type { AiProviderId, ProviderId, AiModel } from './types';
 import type { WPCOM_AI_MODELS } from './wpcom/descriptor';
 
 export type AiModelId = ( typeof WPCOM_AI_MODELS | typeof ANTHROPIC_AI_MODELS )[ number ][ 'id' ];
@@ -13,8 +13,8 @@ export function getAiModel( provider: ProviderId, id: string ): AiModel< AiModel
 	return getAiModels( provider ).find( ( model ) => model.id === id );
 }
 
-export function getAiModelProviders( id: string ): ProviderId[] {
-	return PROVIDER_IDS.filter( ( provider ) => getAiModel( provider, id ) );
+export function getAiModelProviders( id: string ): AiProviderId[] {
+	return AI_PROVIDER_IDS.filter( ( provider ) => getAiModel( provider, id ) );
 }
 
 export function isAiModelId( value: string ): value is AiModelId {

@@ -47,7 +47,7 @@ describe( 'ai settings', () => {
 	it( 'defaults to WordPress.com with nothing connected', async () => {
 		await expect( readAiSettings() ).resolves.toEqual( {
 			provider: 'wpcom',
-			accounts: { wpcom: disconnected, anthropic: disconnected },
+			accounts: { wpcom: disconnected, anthropic: disconnected, spacefast: disconnected },
 		} );
 	} );
 
@@ -61,6 +61,7 @@ describe( 'ai settings', () => {
 			accounts: {
 				wpcom: disconnected,
 				anthropic: { connected: true, summary: 'sk-ant-api03-tes...1234' },
+				spacefast: disconnected,
 			},
 		} );
 		expect( readShared().anthropicApiKey ).toBe( 'sk-ant-api03-testkey-abcd1234' );
@@ -118,7 +119,7 @@ describe( 'ai settings', () => {
 
 		await expect( disconnectProvider( anthropic ) ).resolves.toEqual( {
 			provider: 'wpcom',
-			accounts: { wpcom: disconnected, anthropic: disconnected },
+			accounts: { wpcom: disconnected, anthropic: disconnected, spacefast: disconnected },
 		} );
 		const written = readShared();
 		expect( written.anthropicApiKey ).toBeUndefined();

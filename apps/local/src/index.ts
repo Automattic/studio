@@ -184,6 +184,7 @@ import {
 	getRedirectUrl,
 	InvalidCredentialError,
 	isAiModelId,
+	normalizeAiProviderId,
 	normalizeProviderId,
 	toStoredProviderId,
 } from '@studio/providers';
@@ -824,7 +825,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider =
 				typeof req.body?.provider === 'string'
-					? normalizeProviderId( req.body.provider )
+					? normalizeAiProviderId( req.body.provider )
 					: undefined;
 			if ( ! provider ) {
 				res.status( 400 ).json( { error: 'provider must be a known AI provider id' } );
@@ -2227,7 +2228,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/sessions/:id/provider',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const { provider: requested, model } = req.body as { provider?: string; model?: string };
-			const provider = requested ? normalizeProviderId( requested ) : undefined;
+			const provider = requested ? normalizeAiProviderId( requested ) : undefined;
 			if ( ! provider ) {
 				res.status( 400 ).json( { error: `Unknown AI provider: ${ requested }` } );
 				return;

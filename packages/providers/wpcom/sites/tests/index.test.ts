@@ -80,7 +80,12 @@ describe( 'pull.latestBackupId', () => {
 } );
 
 describe( 'push', () => {
-	const archive = { file: new Blob( [ 'archive' ] ), name: 'push.tar.gz', size: 7 };
+	const archive = {
+		kind: 'archive' as const,
+		file: new Blob( [ 'archive' ] ),
+		name: 'push.tar.gz',
+		size: 7,
+	};
 	const push = ( onStatus = vi.fn() ) =>
 		wpcomSites.push( config, { id: 42, name: 'Live' }, archive, {}, onStatus );
 

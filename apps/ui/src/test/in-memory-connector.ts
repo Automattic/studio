@@ -2,7 +2,7 @@ import { AGENT_APP_IDS } from '@studio/common/lib/agent-apps';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
-import { PROVIDER_IDS, type ProviderId } from '@studio/providers';
+import { PROVIDER_IDS, type ProviderId, type AiProviderId } from '@studio/providers';
 import type {
 	AgentAppId,
 	AiSessionSummary,
@@ -84,7 +84,7 @@ let nextId = 1;
 
 // AI settings with `provider` selected and the `connected` providers' accounts connected.
 export function aiSettings(
-	provider: ProviderId = 'wpcom',
+	provider: AiProviderId = 'wpcom',
 	connected: readonly ProviderId[] = []
 ): AiSettings {
 	return {

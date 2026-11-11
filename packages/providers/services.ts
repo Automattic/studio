@@ -1,4 +1,5 @@
 import { anthropicProvider } from './anthropic';
+import { spacefastProvider } from './spacefast';
 import { wpcomProvider } from './wpcom';
 import type { Provider, ProviderConfigs, ProviderId, ProviderSites, RemoteSite } from './types';
 
@@ -11,6 +12,7 @@ const PROVIDERS: {
 } = {
 	wpcom: wpcomProvider,
 	anthropic: anthropicProvider,
+	spacefast: spacefastProvider,
 };
 
 export function getProvider< Id extends ProviderId >(

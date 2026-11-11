@@ -2,7 +2,7 @@ import { once } from 'events';
 import fs from 'fs';
 import * as configFile from '@studio/common/lib/cli-config-file';
 import { readAuthToken } from '@studio/common/lib/shared-config';
-import { RemoteSiteError, type PushArchive, type PushStatus } from '@studio/providers';
+import { RemoteSiteError, type PushContent, type PushStatus } from '@studio/providers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
@@ -44,8 +44,11 @@ const remoteSite = { id: 42, name: 'Live', syncSupport: 'syncable' } as SyncSite
 // `statuses`, then ends with `outcome`.
 function pushes( statuses: PushStatus[], outcome?: Error ) {
 	vi.mocked( wpcomSites.push ).mockImplementation(
-		async ( _config, _site, archive: PushArchive, _options, onStatus ) => {
-			await once( ( archive.file as Readable ).resume(), 'close' );
+		async ( _config, _site, content: PushContent, _options, onStatus ) => {
+			await once(
+				( ( content as Extract< PushContent, { kind: 'archive' } > ).file as Readable ).resume(),
+				'close'
+			);
 			statuses.forEach( onStatus );
 			if ( outcome ) {
 				throw outcome;

@@ -1,21 +1,28 @@
 import type { AnthropicConfig } from './anthropic/config';
 import type { AiModelId } from './models';
+import type { SpacefastConfig } from './spacefast/config';
+import type { Space } from './spacefast/site';
 import type { WpcomConfig } from './wpcom/config';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from './wpcom/site';
 import type { Api, Model } from '@earendil-works/pi-ai';
 import type { z } from 'zod';
 
-export type ProviderId = 'wpcom' | 'anthropic';
+export type ProviderId = 'wpcom' | 'anthropic' | 'spacefast';
+
+// The providers that serve AI models.
+export type AiProviderId = 'wpcom' | 'anthropic';
 
 // What Studio stores for each provider.
 export interface ProviderConfigs {
 	wpcom: WpcomConfig;
 	anthropic: AnthropicConfig;
+	spacefast: SpacefastConfig;
 }
 
 // The remote sites of each provider that offers them.
 export interface ProviderSites {
 	wpcom: SyncSite;
+	spacefast: Space;
 }
 
 export type SitesProviderId = keyof ProviderSites;
@@ -54,7 +61,21 @@ export type ProviderConnection =
 	| { kind: 'form'; input: () => ConnectInputSchema }
 	// Approving access on the provider's site, which redirects back to the app
 	// with the result in the URL's parameters.
-	| { kind: 'redirect'; redirectUrl( options: RedirectOptions ): string };
+	| { kind: 'redirect'; redirectUrl( options: RedirectOptions ): string }
+	// Approving a code on the provider's site, while Studio waits for the
+	// approval: the provider's `startConnect` returns the code and where to
+	// approve it, and `connect` takes it back and resolves once approved.
+	| { kind: 'device' };
+
+// A pending device sign-in: the user approves `userCode` at `verificationUrl`.
+export interface DeviceAuthorization {
+	deviceCode: string;
+	userCode: string;
+	verificationUrl: string;
+	// Seconds between checks for the approval.
+	interval: number;
+	expiresAt: string;
+}
 
 export interface ProviderDescriptor< Config = unknown > {
 	id: ProviderId;
@@ -74,8 +95,13 @@ export interface ProviderDescriptor< Config = unknown > {
 		paidDefaultModel?: AiModelId;
 	};
 	sites?: {
+		// What a push sends: the site's WordPress archive, or a static export
+		// of its pages.
+		content: 'wordpress' | 'static';
 		// The largest archive a push sends, in bytes.
 		maxPushSize?: number;
+		// Whether Studio can create a site on the provider to push to.
+		canCreate?: boolean;
 	};
 }
 
@@ -111,23 +137,27 @@ export type GenerateImages< Config > = (
 	onResult?: ( index: number, result: GenerateImageResult ) => void
 ) => Promise< GenerateImageResult[] >;
 
-// The archive of a local site a push sends: a Blob in the page, a readable
-// stream of the file in Node.
-export interface PushArchive {
-	file: Blob | { pipe: unknown };
-	name: string;
+// What a push sends, as the provider's `sites.content` asks. A WordPress
+// archive is a Blob in the page and a readable stream of the file in Node. A
+// static export is its files, each read when the provider uploads it.
+export type PushContent =
+	| { kind: 'archive'; file: Blob | { pipe: unknown }; name: string; size: number }
+	| { kind: 'files'; files: PushFile[] };
+
+export interface PushFile {
+	// Relative to the export's root, with `/` separators.
+	path: string;
 	size: number;
+	read(): Promise< Uint8Array >;
 }
 
-// The steps of a push on the provider's side, after Studio built the archive.
+// The steps of a push on the provider's side, after Studio built the content.
 // `progress` is the step's own percentage, when the provider reports one.
 export interface PushStatus {
 	phase: 'uploading' | 'creatingRemoteBackup' | 'applyingChanges' | 'finishing';
 	progress?: number;
 }
 
-// Sends local sites to a provider's sites and brings them back. The provider
-// owns the remote side; Studio builds the archives and applies what it pulls.
 // What Studio reads of any provider's remote site.
 export interface RemoteSite {
 	id: unknown;
@@ -135,6 +165,8 @@ export interface RemoteSite {
 	url: string;
 }
 
+// Sends local sites to a provider's sites and brings them back. The provider
+// owns the remote side; Studio builds the content and applies what it pulls.
 export interface SitesService< Config, Site extends RemoteSite > {
 	// The sites the account can sync with. A deleted site stays in the list
 	// while it is connected (`connectedIds`).
@@ -142,10 +174,12 @@ export interface SitesService< Config, Site extends RemoteSite > {
 		config: Config | undefined,
 		options?: { connectedIds?: Site[ 'id' ][]; planRequired?: boolean }
 	): Promise< Site[] >;
+	// A new site to push to, when the descriptor's `sites.canCreate` says so.
+	create?( config: Config | undefined, options: { name: string } ): Promise< Site >;
 	push(
 		config: Config | undefined,
 		site: Pick< Site, 'id' | 'name' >,
-		archive: PushArchive,
+		content: PushContent,
 		options: PushSyncOptions,
 		onStatus: ( status: PushStatus ) => void,
 		signal?: AbortSignal
@@ -192,6 +226,8 @@ export interface Provider< Config = unknown, Site extends RemoteSite = RemoteSit
 	// Checks what the user gave, a form's values or a redirect's parameters, and
 	// returns the config to store. Throws InvalidCredentialError when it fails.
 	connect( input: Record< string, string > ): Promise< Config >;
+	// Starts a device sign-in, for a provider whose connection kind is `device`.
+	startConnect?(): Promise< DeviceAuthorization >;
 	// Cleans up on the provider's side before Studio removes the config.
 	disconnect?( config: Config ): Promise< void >;
 	ai?: {

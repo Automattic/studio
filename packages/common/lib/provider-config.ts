@@ -1,12 +1,20 @@
 import { getProviderDescriptor, type ProviderConfigs, type ProviderId } from '@studio/providers';
 import { readCliConfigFileRaw } from './cli-config-file';
-import { readAuthToken, readSharedConfig, updateSharedConfig } from './shared-config';
+import {
+	lockSharedConfig,
+	readAuthToken,
+	readSharedConfig,
+	saveSharedConfig,
+	unlockSharedConfig,
+	updateSharedConfig,
+} from './shared-config';
 
 /**
- * Each provider's config, validated against its descriptor's schema. Until
- * configs get a section of their own, each maps onto the shared.json field
- * builds of every version read: the WordPress.com config is the Studio
- * sign-in (`authToken`), the Anthropic one the saved key (`anthropicApiKey`).
+ * Each provider's config, validated against its descriptor's schema. The first
+ * providers' map onto the shared.json fields builds of every version read: the
+ * WordPress.com config is the Studio sign-in (`authToken`), the Anthropic one
+ * the saved key (`anthropicApiKey`). Later providers keep theirs in
+ * `providerConfigs`.
  */
 
 interface AiFields {
@@ -87,7 +95,29 @@ const STORES: { [ Id in ProviderId ]: ConfigStore< ProviderConfigs[ Id ] > } = {
 			await updateAiFields( { anthropicApiKey: config?.apiKey } );
 		},
 	},
+	spacefast: providerConfigStore( 'spacefast' ),
 };
+
+// A provider that came after the fields above keeps its config in `providerConfigs`.
+function providerConfigStore( id: ProviderId ): ConfigStore< unknown > {
+	return {
+		read: async () => ( await readSharedConfig() ).providerConfigs?.[ id ],
+		write: async ( config ) => {
+			try {
+				await lockSharedConfig();
+				const shared = await readSharedConfig();
+				const { [ id ]: _removed, ...others } = shared.providerConfigs ?? {};
+				shared.providerConfigs = config === undefined ? others : { ...others, [ id ]: config };
+				if ( ! Object.keys( shared.providerConfigs ).length ) {
+					delete shared.providerConfigs;
+				}
+				await saveSharedConfig( shared );
+			} finally {
+				await unlockSharedConfig();
+			}
+		},
+	};
+}
 
 export async function readProviderConfig< Id extends ProviderId >(
 	provider: Id

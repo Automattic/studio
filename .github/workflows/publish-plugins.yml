@@ -2,15 +2,16 @@ name: Publish Plugins
 
 # Builds the Studio plugins with the Studio CLI inside and publishes them as Automattic/studio-plugins,
 # the marketplace agent apps install them from. The package for OpenAI's plugin directory is kept as
-# a workflow artifact. On releases, the plugin for Anthropic's directory, which downloads its CLI from
-# the release, goes to the claude-directory branch of the same repository.
+# a workflow artifact, and attached to releases: OpenAI's dashboard has no API, so someone uploads it
+# there. On releases, the plugin for Anthropic's directory, which downloads its CLI from the release,
+# goes to the claude-directory branch of the same repository.
 on:
   release:
     types: [published]
   workflow_dispatch:
 
 permissions:
-  # To attach the CLI download to the release.
+  # To attach the CLI download and OpenAI's package to the release.
   contents: write
 
 jobs:
@@ -73,8 +74,8 @@ jobs:
           git commit -qm "WordPress Studio $version" -m "Published from Automattic/studio@$GITHUB_SHA."
           git push --force origin HEAD:trunk
 
-      # The plugin for Anthropic's directory downloads this file, from the URL the build gave it.
-      - name: Attach the CLI download to the release
+      # The plugin for Anthropic's directory downloads the CLI from the URL the build gave it.
+      - name: Attach the CLI download and OpenAI's package to the release
         if: startsWith( github.ref, 'refs/tags/' )
         env:
           GH_TOKEN: ${{ github.token }}
@@ -84,7 +85,8 @@ jobs:
             echo "::error::The release tag $GITHUB_REF_NAME does not match the CLI version $version."
             exit 1
           fi
-          gh release upload "$GITHUB_REF_NAME" "standalone-bundles/wp-studio-cli-$version.tar.br" --clobber
+          gh release upload "$GITHUB_REF_NAME" "standalone-bundles/wp-studio-cli-$version.tar.br" \
+            "standalone-bundles/wp-studio-$version.zip" --clobber
 
       # Anthropic's directory reads a plugin from the root of a small repository, so it gets a branch
       # of its own, replaced on each release like trunk.

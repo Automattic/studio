@@ -121,7 +121,12 @@ async function main(): Promise< void > {
 	for ( const host of [ '.codex-plugin', '.claude-plugin', '.cursor-plugin', '.grok-plugin' ] ) {
 		const manifestPath = path.join( stagingDir, host, 'plugin.json' );
 		const manifest = JSON.parse( fs.readFileSync( manifestPath, 'utf8' ) );
-		fs.writeFileSync( manifestPath, JSON.stringify( { ...manifest, version }, null, 2 ) + '\n' );
+		manifest.version = version;
+		if ( host === '.codex-plugin' ) {
+			const { publication } = manifest.extensions[ 'com.openai' ];
+			publication.release_notes = `WordPress Studio ${ version }, with the Studio CLI of that release. What changed: https://github.com/Automattic/studio/releases/tag/v${ version }`;
+		}
+		fs.writeFileSync( manifestPath, JSON.stringify( manifest, null, 2 ) + '\n' );
 	}
 	await recordMcpSnapshot(
 		path.join( stagingDir, 'mcp-snapshot.json' ),

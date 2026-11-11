@@ -127,16 +127,6 @@
 	color: var( --muted-foreground );
 }
 
-.login {
-	color: var( --foreground );
-	font-weight: var( --font-weight-semibold );
-	text-decoration: none;
-}
-
-.login:hover:not( :disabled, [data-disabled] ) {
-	text-decoration: underline;
-}
-
 .studioIcon {
 	position: absolute;
 	z-index: 2;

@@ -186,7 +186,7 @@ async function main() {
 					sprintf(
 						/* translators: %s: Studio Code support documentation URL */
 						__( 'Learn more: %s' ),
-						'https://developer.wordpress.com/docs/developer-tools/studio/studio-code/'
+						'https://wordpress.studio/docs/studio-code/'
 					),
 				].join( '\n' )
 			)

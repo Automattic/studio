@@ -257,6 +257,15 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					__( 'Use Claude with your own API key.' ),
 					'anthropic-provider'
 				),
+				{
+					...setting(
+						'navigate',
+						__( 'Google Gemini' ),
+						__( 'Use Gemini with your own API key.' ),
+						'gemini-provider'
+					),
+					aliases: [ 'Gemini' ],
+				},
 				setting(
 					'navigate',
 					__( 'Default provider' ),

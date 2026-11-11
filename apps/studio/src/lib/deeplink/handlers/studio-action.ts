@@ -1,6 +1,7 @@
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { parseStudioActionLink } from 'src/lib/deeplink/studio-action-link';
 import { getMainWindow } from 'src/main-window';
+import { handleImportSite } from './import-site';
 
 export async function handleStudioActionDeeplink( url: URL ): Promise< void > {
 	const target = parseStudioActionLink( url.href );
@@ -13,7 +14,9 @@ export async function handleStudioActionDeeplink( url: URL ): Promise< void > {
 	}
 	window.show();
 	window.focus();
-	if ( target.action === 'new-site' ) {
+	if ( target.action === 'import-site' ) {
+		await handleImportSite( target, window );
+	} else if ( target.action === 'new-site' ) {
 		await sendIpcEventToRenderer( 'add-site' );
 	} else if ( target.action === 'pull-site' ) {
 		await sendIpcEventToRenderer( 'pull-site', { remoteSiteId: target.remoteSiteId } );

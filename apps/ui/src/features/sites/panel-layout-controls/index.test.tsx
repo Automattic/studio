@@ -34,7 +34,6 @@ it.each( [ true, false ] )(
 			[ 'Split view', 'split' ],
 			[ 'Panel', 'panel' ],
 		] as const ) {
-			if ( ! running && label === 'Panel' ) continue;
 			await chooseLayout( label );
 			await waitFor( () =>
 				expect( document.querySelector( '[data-layout-moving]' ) ).not.toBeInTheDocument()
@@ -52,9 +51,13 @@ it.each( [ true, false ] )(
 			expect( !! screen.queryByRole( 'toolbar', { name: 'Preview browser controls' } ) ).toBe(
 				value !== 'chat' && running
 			);
-			if ( ! running )
-				expect( screen.getAllByRole( 'button', { name: 'Start from preview' } ) ).toHaveLength( 1 );
+			if ( ! running && value !== 'panel' )
+				expect(
+					await screen.findAllByRole( 'button', { name: 'Start from preview' } )
+				).toHaveLength( 1 );
 		}
+		await chooseLayout( 'Split view' );
+		expect( trigger ).toHaveAttribute( 'data-workspace-layout', 'split' );
 		expect( connector.startSite ).not.toHaveBeenCalled();
 		expect( connector.stopSite ).not.toHaveBeenCalled();
 	}
@@ -104,6 +107,9 @@ it( 'remembers each site’s layout and preserves the draft across layout change
 	fireEvent.change( input, { target: { value: 'Keep my draft' } } );
 	await chooseLayout( 'Panel' );
 	fireEvent.click( screen.getByRole( 'button', { name: 'Second' } ) );
+	await waitFor( () =>
+		expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toHaveTextContent( 'Second' )
+	);
 	await chooseLayout( 'Chat' );
 	fireEvent.click( screen.getByRole( 'button', { name: 'First' } ) );
 	await waitFor( () =>
@@ -179,6 +185,26 @@ it( 'switches full view immediately in both directions', async () => {
 	expect( screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } ) ).toBeVisible();
 } );
 
+it( 'keeps the full-view and publish controls mounted through panel toggles', async () => {
+	const connector = createFakeConnector( {
+		sites: [ makeSite( { id: 'one', running: true } ) ],
+	} );
+	const { user } = renderApp( { connector, path: '/sites/one/new' } );
+	const fullView = await screen.findByRole( 'button', { name: 'Expand panel' } );
+	const publish = screen.getByRole( 'button', { name: 'Publish…' } );
+
+	await user.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
+	expect( fullView ).toBeInTheDocument();
+	expect( fullView.closest( '[inert]' ) ).not.toBeNull();
+	expect( screen.queryByRole( 'button', { name: 'Expand panel' } ) ).not.toBeInTheDocument();
+	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBe( publish );
+
+	await user.click( screen.getByRole( 'button', { name: 'Show panel' } ) );
+	expect( screen.getByRole( 'button', { name: 'Expand panel' } ) ).toBe( fullView );
+	expect( fullView.closest( '[inert]' ) ).toBeNull();
+	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBe( publish );
+} );
+
 it( 'opens chat from a standalone Browser page by hiding the panel', async () => {
 	const connector = createFakeConnector( {
 		sites: [ makeSite( { id: 'one', name: 'First', running: true } ) ],
@@ -228,11 +254,11 @@ it.each( [ true, false ] )(
 );
 
 it.each( [
-	{ running: false, thumbnail: false, expected: false },
-	{ running: false, thumbnail: true, expected: false },
+	{ running: false, thumbnail: false, expected: true },
+	{ running: false, thumbnail: true, expected: true },
 	{ running: true, thumbnail: false, expected: true },
 ] )(
-	'shows full view for a browser preview rather than a saved thumbnail ($running, $thumbnail)',
+	'shows full view whenever the panel is open ($running, $thumbnail)',
 	async ( { running, thumbnail, expected } ) => {
 		const connector = createFakeConnector(
 			{ sites: [ makeSite( { id: 'one', running } ) ] },

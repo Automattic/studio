@@ -197,6 +197,39 @@ describe( 'app-messages', () => {
 		expect( await runNoticeAction( action ) ).toBe( true );
 	} );
 
+	it( 'keeps a processing action pending across progress updates and waits for the result', async () => {
+		let finish!: () => void;
+		const onClick = vi.fn( () => new Promise< void >( ( resolve ) => ( finish = resolve ) ) );
+		const action = { label: 'Cancel', onClick };
+		toast.processing( 'Pulling changes…', { id: 'pull', action } );
+		const pending = runNoticeAction( action );
+		toast.processing( 'Pulling changes…', { id: 'pull', action, description: 'Downloading…' } );
+		expect( getVisibleToasts()[ 0 ].actionPending ).toBe( true );
+		expect( await runNoticeAction( action ) ).toBe( false );
+		expect( onClick ).toHaveBeenCalledOnce();
+		finish();
+		await pending;
+		settleExit();
+		expect( titles() ).toEqual( [ 'Pulling changes…' ] );
+		expect( getVisibleToasts()[ 0 ].leaving ).toBeUndefined();
+		toast.info( 'Pull cancelled', { id: 'pull' } );
+		expect( titles() ).toEqual( [ 'Pull cancelled' ] );
+	} );
+
+	it( 'keeps a replacement result visible when its action finishes', async () => {
+		const action = {
+			label: 'Cancel',
+			onClick: () => {
+				toast.info( 'Pull cancelled', { id: 'pull' } );
+			},
+		};
+		toast.processing( 'Pulling changes…', { id: 'pull', action } );
+		await runNoticeAction( action );
+		settleExit();
+		expect( titles() ).toEqual( [ 'Pull cancelled' ] );
+		expect( getVisibleToasts()[ 0 ].leaving ).toBeUndefined();
+	} );
+
 	it( 'cannot run an action after its toast expires', async () => {
 		const action = { label: 'Undo', onClick: vi.fn() };
 		toast.success( 'Archived', { action, durationMs: 10_000 } );

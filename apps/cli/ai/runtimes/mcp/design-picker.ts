@@ -17,6 +17,7 @@ export const DESIGN_PICKER_HTML = `<!doctype html>
 	button { all: unset; box-sizing: border-box; min-width: 0; cursor: pointer; display: block; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 	button:hover, button:focus-visible, button[aria-pressed="true"] { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: -2px; }
 	img { display: block; width: 100%; height: auto; }
+	#grid { border-radius: 8px; margin-bottom: 12px; }
 	span { display: block; padding: 8px 10px; }
 	small { color: var(--muted); }
 	footer { margin-top: 12px; }
@@ -24,6 +25,7 @@ export const DESIGN_PICKER_HTML = `<!doctype html>
 </head>
 <body hidden>
 <h1 id="question"></h1>
+<img id="grid" alt="" hidden>
 <main id="options"></main>
 <footer><button id="other"><span>Show other options</span></button></footer>
 <script>
@@ -37,10 +39,12 @@ function request( method, params ) {
 function say( text ) {
 	return request( 'ui/message', { role: 'user', content: [ { type: 'text', text } ] } );
 }
-// Codex hands the tool result over wrapped as JSON text.
+// Codex hands the tool result over wrapped as JSON text. Hosts that drop
+// \`_meta\` still pass the options as JSON text, without their previews.
 function optionsFrom( result ) {
 	if ( ! result ) return null;
 	if ( result._meta && Array.isArray( result._meta.options ) ) return result._meta;
+	if ( Array.isArray( result.options ) ) return result;
 	for ( const block of result.content || [] ) {
 		if ( block.type !== 'text' ) continue;
 		try {
@@ -50,22 +54,28 @@ function optionsFrom( result ) {
 	}
 	return null;
 }
-function render( data ) {
+function render( data, grid ) {
 	if ( ! data ) return;
 	document.body.hidden = false;
 	document.getElementById( 'question' ).textContent = data.question || '';
+	const gridImage = document.getElementById( 'grid' );
+	gridImage.hidden = ! grid;
+	if ( grid ) gridImage.src = 'data:' + grid.mimeType + ';base64,' + grid.data;
 	const list = document.getElementById( 'options' );
 	list.replaceChildren();
 	data.options.forEach( ( option, index ) => {
 		const button = document.createElement( 'button' );
-		const image = document.createElement( 'img' );
-		image.src = option.image;
-		image.alt = '';
+		if ( option.image ) {
+			const image = document.createElement( 'img' );
+			image.src = option.image;
+			image.alt = '';
+			button.append( image );
+		}
 		const label = document.createElement( 'span' );
 		label.innerHTML = '<strong></strong><br><small></small>';
 		label.querySelector( 'strong' ).textContent = ( index + 1 ) + '. ' + option.label;
 		label.querySelector( 'small' ).textContent = option.description;
-		button.append( image, label );
+		button.append( label );
 		button.addEventListener( 'click', () => {
 			list.querySelectorAll( 'button' ).forEach( ( b ) => b.setAttribute( 'aria-pressed', 'false' ) );
 			button.setAttribute( 'aria-pressed', 'true' );
@@ -84,7 +94,11 @@ window.addEventListener( 'message', ( event ) => {
 		return;
 	}
 	if ( message.method === 'ui/notifications/tool-result' ) {
-		render( optionsFrom( message.params ) );
+		const data = optionsFrom( message.params );
+		const grid = data && ! data.options.every( ( option ) => option.image )
+			? ( message.params.content || [] ).find( ( block ) => block.type === 'image' )
+			: null;
+		render( data, grid );
 	}
 } );
 request( 'ui/initialize', {

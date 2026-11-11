@@ -27,11 +27,16 @@
 	background-color: transparent;
 }
 
+:root[data-native-sidebar] {
+	--window-background: transparent;
+	--sidebar-background: color-mix( in oklab, var( --chrome ) 85%, transparent );
+}
+
 body {
 	font-family: var( --font-sans );
 	font-size: var( --text-sm );
 	line-height: var( --text-sm--line-height );
-	background-color: var( --chrome );
+	background-color: var( --window-background, var( --chrome ) );
 	color: var( --foreground );
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
@@ -137,6 +142,11 @@ body {
    here turns every one of them opaque while leaving the resting design
    untouched everywhere else. */
 @media ( prefers-reduced-transparency: reduce ) {
+	:root[data-native-sidebar] {
+		--window-background: var( --chrome );
+		--sidebar-background: var( --chrome );
+	}
+
 	:root {
 		--surface-alpha: 100%;
 	}

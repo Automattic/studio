@@ -65,9 +65,9 @@ describe( 'sidebar site menu', () => {
 		await waitFor( () => expect( connector.openSiteFolder ).toHaveBeenCalledWith( 'other' ) );
 		await waitFor( () => expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument() );
 		fireEvent.contextMenu( row );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Delete site' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Delete' } ) );
 		const dialog = await screen.findByRole( 'alertdialog', {
-			name: 'Remove “Other site” from WordPress Studio?',
+			name: 'Remove Other site',
 		} );
 		expect( connector.deleteSite ).not.toHaveBeenCalled();
 		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Remove site' } ) );
@@ -180,7 +180,6 @@ describe( 'site title actions', () => {
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		expect( screen.queryByRole( 'menuitem', { name: /^Start(?:\s|$)/ } ) ).not.toBeInTheDocument();
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop site' } ) );
 		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( 'one' ) );
 	} );
 
@@ -189,7 +188,7 @@ describe( 'site title actions', () => {
 		connector.deleteSite.mockRejectedValueOnce( new Error( 'Site is running' ) );
 		const openDelete = async () => {
 			fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
-			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Delete site' } ) );
+			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Delete' } ) );
 			return screen.findByRole( 'alertdialog' );
 		};
 		let dialog = await openDelete();
@@ -211,7 +210,7 @@ describe( 'site title actions', () => {
 		} );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		await waitFor( () =>
-			expect( screen.getByRole( 'menuitem', { name: /^Delete site/ } ) ).toHaveAttribute(
+			expect( screen.getByRole( 'menuitem', { name: 'Delete' } ) ).toHaveAttribute(
 				'aria-disabled',
 				'true'
 			)

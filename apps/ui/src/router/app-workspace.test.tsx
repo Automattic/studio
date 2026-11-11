@@ -321,11 +321,7 @@ describe( 'Studio workspace', () => {
 			);
 			expect( await screen.findByText( 'Old message' ) ).toBeVisible();
 			fireEvent.click( screen.getByRole( 'button', { name: 'Other site' } ) );
-			await waitFor( () =>
-				expect( history.location.pathname ).toBe(
-					action === 'play' ? '/sessions/previous' : '/sites/two/new'
-				)
-			);
+			await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/previous' ) );
 			expect( await findComposer() ).toHaveValue( '' );
 			expect( connector.createSession ).not.toHaveBeenCalled();
 		}
@@ -1347,7 +1343,7 @@ describe( 'Studio workspace', () => {
 	it( 'starts from the composer and stops through the site menu without a sidebar start button', async () => {
 		const { connector, history, refreshSessions } = setup( { signedIn: true } );
 		await findComposer();
-		for ( const name of [ 'Address', 'Back', 'Forward', 'Reload preview' ] ) {
+		for ( const name of [ 'Address', 'Back', 'Forward', 'Reload' ] ) {
 			expect( screen.queryByRole( 'button', { name } ) ).not.toBeInTheDocument();
 		}
 		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
@@ -1386,7 +1382,6 @@ describe( 'Studio workspace', () => {
 		expect( screen.queryByRole( 'button', { name: 'Stop site' } ) ).not.toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop site' } ) );
 		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( 'one' ) );
 		expect( await screen.findByRole( 'button', { name: 'Start My site' } ) ).toBeVisible();
 	} );

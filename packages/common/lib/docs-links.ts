@@ -4,46 +4,43 @@ type TranslatedLink = Partial< Record< SupportedLocale, string > > & { en: strin
 
 const DOCS_LINKS = {
 	docsCli: {
-		en: 'https://developer.wordpress.com/docs/developer-tools/studio/cli/',
-		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/cli/',
+		en: 'https://wordpress.studio/docs/cli/',
 	},
 	docsMcp: {
-		en: 'https://developer.wordpress.com/docs/developer-tools/studio/mcp-on-studio/',
+		en: 'https://wordpress.studio/docs/mcp-on-studio/',
 	},
 	docsSites: {
-		en: 'https://developer.wordpress.com/docs/developer-tools/studio/sites/',
-		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/sitios/',
+		en: 'https://wordpress.studio/docs/sites/',
 	},
 	docsSslInStudio: {
-		en: 'https://developer.wordpress.com/docs/developer-tools/studio/ssl-in-studio/',
+		en: 'https://wordpress.studio/docs/ssl-in-studio/',
 	},
 	docsSkills: {
-		en: 'https://developer.wordpress.com/docs/developer-tools/studio/agent-skills-wordpress-studio/',
+		en: 'https://wordpress.studio/docs/agent-skills-wordpress-studio/',
 	},
 	docsStudio: {
-		en: 'https://developer.wordpress.com/docs/developer-tools/studio/',
-		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/',
+		en: 'https://wordpress.studio/docs/',
 	},
 	docsStudioCode: {
-		en: 'https://developer.wordpress.com/docs/developer-tools/studio/studio-code/',
+		en: 'https://wordpress.studio/docs/studio-code/',
 	},
 	docsAiCredits: {
-		en: 'https://developer.wordpress.com/docs/developer-tools/studio/studio-code/ai-credits-guidelines/',
+		en: 'https://wordpress.studio/docs/studio-code/ai-credits-guidelines/',
 	},
 	docsAnthropicApiKey: {
 		en: 'https://platform.claude.com/docs/en/get-api-key',
 	},
 	docsCustomDomains: {
-		en: 'https://developer.wordpress.com/docs/developer-tools/studio/sites/#Using-a-custom-domain-and-SSL',
+		en: 'https://wordpress.studio/docs/sites/#using-a-custom-domain-and-ssl',
 	},
 	docsSiteSettings: {
-		en: 'https://developer.wordpress.com/docs/developer-tools/studio/sites/#site-settings',
+		en: 'https://wordpress.studio/docs/sites/#site-settings',
 	},
 	docsFileAccess: {
-		en: 'https://developer.wordpress.com/docs/developer-tools/studio/php-runtimes/#1-file-access',
+		en: 'https://wordpress.studio/docs/php-runtimes/#file-access',
 	},
 	docsXdebug: {
-		en: 'https://developer.wordpress.com/docs/developer-tools/studio/xdebug/',
+		en: 'https://wordpress.studio/docs/xdebug/',
 	},
 	docsWpEnvironmentType: {
 		en: 'https://developer.wordpress.org/reference/functions/wp_get_environment_type/',
@@ -55,11 +52,10 @@ const DOCS_LINKS = {
 		en: 'https://developer.wordpress.org/advanced-administration/debug/debug-wordpress/#wp_debug_display',
 	},
 	docsSyncSupportedSites: {
-		en: 'https://developer.wordpress.com/docs/developer-tools/studio/sync/#supported-sites',
-		es: 'https://developer.wordpress.com/es/docs/herramientas-para-desarrolladores/studio/sync/#sitios-compatibles',
+		en: 'https://wordpress.studio/docs/sync/#compatible-sites',
 	},
 	a8cTos: {
-		en: 'https://wordpress.com/tos/',
+		en: 'https://automattic.com/tos/',
 	},
 	a8cPrivacyPolicy: {
 		en: 'https://automattic.com/privacy/',

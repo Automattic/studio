@@ -30,6 +30,9 @@ const DOCS_LINKS = {
 	docsAnthropicApiKey: {
 		en: 'https://platform.claude.com/docs/en/get-api-key',
 	},
+	docsGeminiApiKey: {
+		en: 'https://aistudio.google.com/apikey',
+	},
 	docsCustomDomains: {
 		en: 'https://wordpress.studio/docs/sites/#using-a-custom-domain-and-ssl',
 	},

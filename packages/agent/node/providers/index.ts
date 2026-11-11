@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { anthropicProvider } from './anthropic';
-import { InvalidAiProviderCredentialsError } from './types';
+import { createApiKeyStudioProvider } from './api-key-provider';
+import { geminiProvider } from './gemini';
 import { wpcomProvider } from './wpcom';
 import type { AiProvider, ApiKeyValidation, ProviderCredentials } from './types';
 import type { AiProviderId } from '@studio/agent/protocol/providers';
@@ -37,53 +38,40 @@ export interface StudioAiProvider extends Omit< AiProvider, 'auth' > {
 
 export const AI_BACKEND_PROVIDERS: Readonly< Record< AiProviderId, StudioAiProvider > > = {
 	wpcom: wpcomProvider,
-	'anthropic-api-key': {
-		...anthropicProvider,
-		auth: {
-			type: 'api-key',
-			async validate( key ) {
-				// The core provider reports API outcomes; Studio owns localized messages.
-				const validation = await anthropicProvider.auth.validate( key );
-				return validation.status === 'invalid'
-					? {
-							status: 'invalid',
-							message: __( 'Anthropic rejected this API key. Check the key and try again.' ),
-					  }
-					: validation;
-			},
-			getPrompt: () => __( 'Enter your Anthropic API key (will be saved for future use):' ),
-			getMissingKeyMessage: () => 'Add an Anthropic API key first.',
-		},
-		environmentKeys: [
-			'ANTHROPIC_API_KEY',
+	'anthropic-api-key': createApiKeyStudioProvider( anthropicProvider, {
+		envKey: 'ANTHROPIC_API_KEY',
+		extraEnvironmentKeys: [
 			'ANTHROPIC_AUTH_TOKEN',
 			'ANTHROPIC_BASE_URL',
 			'ANTHROPIC_CUSTOM_HEADERS',
 		],
-		autoFallbackWhenUnavailable: false,
+		baseURL: 'https://api.anthropic.com',
+		getInvalidKeyMessage: () =>
+			__( 'Anthropic rejected this API key. Check the key and try again.' ),
+		getPrompt: () => __( 'Enter your Anthropic API key (will be saved for future use):' ),
+		getMissingKeyMessage: () => 'Add an Anthropic API key first.',
 		getErrorHint: () => __( 'Use /api-key to update the Anthropic API key.' ),
-		getConnectionMessages: async ( apiKey ) =>
-			apiKey ? {} : { info: __( 'No Anthropic API key saved. Use /api-key to enter one.' ) },
-		async resolveEnv( { apiKey } ) {
-			if ( ! apiKey ) {
-				throw new InvalidAiProviderCredentialsError(
-					__(
-						'Anthropic API key required. Switch to Anthropic · API key with /provider to save one.'
-					)
-				);
-			}
-			return { ANTHROPIC_API_KEY: apiKey };
-		},
-		resolveCredentials( env ) {
-			const apiKey = env.ANTHROPIC_API_KEY?.trim();
-			if ( ! apiKey ) {
-				return {
-					ok: false,
-					reason:
-						'Anthropic provider selected but ANTHROPIC_API_KEY is not set. Switch to the Anthropic · API key provider with /provider and save a key.',
-				};
-			}
-			return { ok: true, creds: { apiKey, baseURL: 'https://api.anthropic.com' } };
-		},
-	},
+		getNoSavedKeyInfo: () => __( 'No Anthropic API key saved. Use /api-key to enter one.' ),
+		getEnvRequiredMessage: () =>
+			__( 'Anthropic API key required. Switch to Anthropic · API key with /provider to save one.' ),
+		missingEnvReason:
+			'Anthropic provider selected but ANTHROPIC_API_KEY is not set. Switch to the Anthropic · API key provider with /provider and save a key.',
+	} ),
+	'gemini-api-key': createApiKeyStudioProvider( geminiProvider, {
+		envKey: 'GEMINI_API_KEY',
+		extraEnvironmentKeys: [ 'GOOGLE_API_KEY', 'GEMINI_BASE_URL' ],
+		baseURL: 'https://generativelanguage.googleapis.com/v1beta',
+		getInvalidKeyMessage: () =>
+			__( 'Google Gemini rejected this API key. Check the key and try again.' ),
+		getPrompt: () => __( 'Enter your Google Gemini API key (will be saved for future use):' ),
+		getMissingKeyMessage: () => 'Add a Google Gemini API key first.',
+		getErrorHint: () => __( 'Use /api-key to update the Google Gemini API key.' ),
+		getNoSavedKeyInfo: () => __( 'No Google Gemini API key saved. Use /api-key to enter one.' ),
+		getEnvRequiredMessage: () =>
+			__(
+				'Google Gemini API key required. Switch to Google Gemini · API key with /provider to save one.'
+			),
+		missingEnvReason:
+			'Google Gemini provider selected but GEMINI_API_KEY is not set. Switch to the Google Gemini · API key provider with /provider and save a key.',
+	} ),
 };

@@ -1,3 +1,4 @@
+import { createEmptyAiConnections } from '@studio/agent/protocol/providers';
 import { SKIPPED_QUESTION, STOPPED_WITHOUT_ANSWER } from '@studio/agent/protocol/tools';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
@@ -325,10 +326,10 @@ describe( 'useAgentRun queued handoff', () => {
 				{
 					getAiSettings: async () => ( {
 						provider,
-						connections: {
+						connections: createEmptyAiConnections( {
 							wpcom: { connected: true, apiKeyPreview: null },
 							'anthropic-api-key': { connected: true, apiKeyPreview: 'test' },
-						},
+						} ),
 					} ),
 				}
 			);

@@ -41,6 +41,7 @@ export function getComposerCommands( {
 	canChangeEnvironment,
 	panelCommand,
 	siteCommand,
+	canAnnotate,
 }: {
 	canAutoStart: boolean;
 	autoStartOn: boolean;
@@ -49,6 +50,7 @@ export function getComposerCommands( {
 	canChangeEnvironment: boolean;
 	panelCommand?: SkillSlashCommand;
 	siteCommand?: 'start' | 'stop';
+	canAnnotate?: boolean;
 } ): SkillSlashCommand[] {
 	return [
 		{
@@ -56,6 +58,15 @@ export function getComposerCommands( {
 			displayName: __( 'Add files' ),
 			description: '',
 		},
+		...( canAnnotate
+			? [
+					{
+						name: 'annotate',
+						displayName: __( 'Annotate' ),
+						description: __( 'Point or draw to suggest a change.' ),
+					},
+			  ]
+			: [] ),
 		...( siteCommand
 			? [
 					{
@@ -101,18 +112,20 @@ export function getComposerCommands( {
 	];
 }
 
-// The add menu lists everything; a `/fragment` lists its matches.
+// The add menu offers common actions; a `/fragment` also finds utility commands.
 export function getCommandGroups( {
 	addOpen,
 	commands,
 	skills,
 	matches,
+	searching = false,
 	isDisabled,
 }: {
 	addOpen: boolean;
 	commands: SkillSlashCommand[];
 	skills: SkillSlashCommand[];
 	matches: SkillSlashCommand[];
+	searching?: boolean;
 	isDisabled: ( name: string ) => boolean;
 } ): CommandGroup[] {
 	const isSkill = ( command: SkillSlashCommand ) =>
@@ -127,9 +140,11 @@ export function getCommandGroups( {
 	return [
 		{
 			label: __( 'Commands' ),
-			items: ( addOpen ? commands : matches.filter( ( command ) => ! isSkill( command ) ) ).map(
-				toCommand
-			),
+			items: ( addOpen ? commands : matches.filter( ( command ) => ! isSkill( command ) ) )
+				.filter(
+					( command ) => searching || ! [ 'stop', 'panel', 'model' ].includes( command.name )
+				)
+				.map( toCommand ),
 		},
 		{
 			label: __( 'Skills' ),

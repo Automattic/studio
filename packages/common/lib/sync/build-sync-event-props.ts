@@ -20,10 +20,8 @@ export type SyncEventProps = {
 };
 
 /**
- * The shared prop shape for `studio_sync_push` / `studio_sync_pull`. Sync has
- * three independent implementations (Classic renderer, agentic UI, CLI) with no
- * common code path, so this is what keeps the three emitting identical props
- * instead of drifting apart.
+ * The shared prop shape for `studio_sync_push` / `studio_sync_pull`, so every
+ * command that records them emits identical props instead of drifting apart.
  *
  * `failure_reason` is present only on failures. Cancelled syncs must not reach
  * here at all — they emit no event.

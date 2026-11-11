@@ -202,6 +202,9 @@ export function createInMemoryConnector(
 			}
 		},
 		getSiteThumbnail: async () => null,
+		captureAnnotationRegion: async () => {
+			throw new Error( 'No preview screenshot configured.' );
+		},
 		captureSitePreview: async () => null,
 		getSiteDesign: async () => null,
 		fixSiteDesignDrift: async () => null,
@@ -212,7 +215,7 @@ export function createInMemoryConnector(
 			isEmpty: true,
 			isWordPress: false,
 		} ),
-		generateProposedSiteName: async () => 'My WordPress Website',
+		generateProposedSiteName: async () => 'Blue Note',
 		generateNumberedSiteName: async ( name ) => name,
 		selectSiteFolder: async () => null,
 		comparePaths: async ( a, b ) => a === b,
@@ -239,6 +242,11 @@ export function createInMemoryConnector(
 		publishPreviewSite: async () => ( { url: 'preview.example.com' } ),
 		deleteSnapshot: async () => {},
 		renameSnapshot: async () => {},
+		getPreviewStatus: async () => ( {
+			localSiteId: null,
+			localChanged: null,
+			previewChanged: null,
+		} ),
 		getConnectedWpcomSites: async () => [],
 		fetchSyncableWpcomSites: async () => [],
 		connectWpcomSite: async () => {},
@@ -374,6 +382,7 @@ export function createInMemoryConnector(
 		onNewChat: subscribe( 'onNewChat' ),
 		onOpenFolder: subscribe( 'onOpenFolder' ),
 		onOpenSite: subscribe( 'onOpenSite' ),
+		onPullSite: subscribe( 'onPullSite' ),
 		onAddSiteWithBlueprint: subscribe( 'onAddSiteWithBlueprint' ),
 		readyForDeeplinks: () => {},
 		onOpenSettings: subscribe( 'onOpenSettings' ),

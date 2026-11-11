@@ -8,9 +8,8 @@ import {
 	scopeAccountJourney,
 	clearAccountJourneys,
 } from '@/data/account-analytics';
-import { dismissToast, getVisibleToasts, getNoticeHistory } from '@/data/app-messages';
+import { dismissToast, getVisibleToasts } from '@/data/app-messages';
 import { ConnectorProvider } from '@/data/core';
-import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
@@ -59,7 +58,7 @@ function setup(
 	return { connector, publish };
 }
 
-const latestNotice = () => getNoticeHistory()[ 0 ];
+const latestNotice = () => getVisibleToasts().at( -1 )!;
 
 function SyncActivityEvents() {
 	useSyncActivityEvents();
@@ -111,7 +110,7 @@ it.each( [ 'push', 'pull', 'import', 'preview' ] as const )(
 		expect( getVisibleToasts().find( ( item ) => item.id === id ) ).toBeUndefined();
 		act( () => publish( { siteId: 'notice-site', activity: { kind: 'success', direction } } ) );
 		act( () => publish( { siteId: 'notice-site', activity: { kind: 'success', direction } } ) );
-		expect( getNoticeHistory().filter( ( item ) => item.id === id ) ).toHaveLength( 1 );
+		expect( getVisibleToasts().filter( ( item ) => item.id === id ) ).toHaveLength( 1 );
 		expect( getVisibleToasts().find( ( item ) => item.id === id ) ).toMatchObject( {
 			intent: 'success',
 			processing: undefined,
@@ -281,7 +280,7 @@ describe( 'usePullSiteFromLive', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
 		await passReportGrace();
 
-		expect( getNoticeHistory().filter( ( notice ) => notice.intent === 'error' ) ).toHaveLength(
+		expect( getVisibleToasts().filter( ( notice ) => notice.intent === 'error' ) ).toHaveLength(
 			1
 		);
 	} );
@@ -319,11 +318,11 @@ describe( 'usePullSiteFromLive', () => {
 	);
 } );
 
-describe( 'sync Tracks events', () => {
-	function SyncHarness( { syncSite }: { syncSite?: { isPressable: boolean } } ) {
+describe( 'cancelling a live sync', () => {
+	function SyncHarness() {
 		const pull = usePullSiteFromLive();
 		const push = usePushSiteToLive();
-		const variables = { siteId: 'site-1', remoteSiteId: 42, syncSite: syncSite as never };
+		const variables = { siteId: 'site-1', remoteSiteId: 42 };
 		return (
 			<>
 				<button type="button" onClick={ () => pull.mutate( variables ) }>
@@ -336,98 +335,19 @@ describe( 'sync Tracks events', () => {
 		);
 	}
 
-	function renderSync( { cached = true, syncSite }: { cached?: boolean; syncSite?: object } = {} ) {
-		const queryClient = createTestQueryClient();
-		if ( cached ) {
-			// The `sync_type` prop is read from the connected-sites cache.
-			queryClient.setQueryData( connectedWpcomSitesQueryKey( 'site-1' ), [
-				{ id: 42, isPressable: true },
-			] );
-		}
-		return setup( <SyncHarness syncSite={ syncSite as never } />, { queryClient } ).connector;
-	}
-
-	const directions = [
-		[ 'Pull', 'pullSiteFromLive', 'studio_sync_pull' ],
-		[ 'Push', 'pushSiteToLive', 'studio_sync_push' ],
-	] as const;
-
-	it.each( directions )(
-		'records a successful %s with its duration and sync type',
-		async ( button, _, event ) => {
-			const connector = renderSync();
-
-			fireEvent.click( screen.getByRole( 'button', { name: button } ) );
-
-			await waitFor( () =>
-				expect( connector.trackEvent ).toHaveBeenCalledWith(
-					event,
-					{
-						success: true,
-						sync_type: 'pressable',
-						time_ms: expect.any( Number ),
-					},
-					...( button === 'Push' ? [ 'site-1' ] : [] )
-				)
-			);
-		}
-	);
-
-	it.each( directions )(
-		'records a failed %s with a classified reason',
-		async ( button, method, event ) => {
-			const connector = renderSync();
-			connector[ method ].mockRejectedValue( new Error( 'ENOSPC: no space left on device' ) );
-
-			fireEvent.click( screen.getByRole( 'button', { name: button } ) );
-
-			await waitFor( () =>
-				expect( connector.trackEvent ).toHaveBeenCalledWith(
-					event,
-					{
-						success: false,
-						sync_type: 'pressable',
-						time_ms: expect.any( Number ),
-						failure_reason: 'disk_full',
-					},
-					...( button === 'Push' ? [ 'site-1' ] : [] )
-				)
-			);
-		}
-	);
-
-	it.each( directions )( 'records nothing when a %s is cancelled', async ( button, method ) => {
-		const connector = renderSync();
+	it.each( [
+		[ 'Pull', 'pullSiteFromLive' ],
+		[ 'Push', 'pushSiteToLive' ],
+	] as const )( 'settles a cancelled %s as cancelled', async ( button, method ) => {
+		const { connector } = setup( <SyncHarness /> );
 		connector[ method ].mockRejectedValue( new Error( SYNC_CANCELLED_MESSAGE ) );
 
 		fireEvent.click( screen.getByRole( 'button', { name: button } ) );
 		await passReportGrace();
 
 		await waitFor( () => expect( getSyncActivity( 'site-1' )?.kind ).toBe( 'cancelled' ) );
-		expect( getNoticeHistory().some( ( notice ) => notice.intent === 'success' ) ).toBe( false );
-		expect( connector.trackEvent ).not.toHaveBeenCalled();
+		expect( getVisibleToasts().some( ( notice ) => notice.intent === 'success' ) ).toBe( false );
 	} );
-
-	it.each( [
-		// The onboarding flow creates its local site as it goes, so nothing has
-		// ever populated the connected-sites cache for it.
-		[ 'a caller-supplied site', { isPressable: true }, 'pressable' ],
-		[ 'nothing', undefined, 'unknown' ],
-	] )(
-		'reads the sync type from %s when the cache has nothing',
-		async ( _, syncSite, syncType ) => {
-			const connector = renderSync( { cached: false, syncSite } );
-
-			fireEvent.click( screen.getByRole( 'button', { name: 'Pull' } ) );
-
-			await waitFor( () =>
-				expect( connector.trackEvent ).toHaveBeenCalledWith(
-					'studio_sync_pull',
-					expect.objectContaining( { sync_type: syncType } )
-				)
-			);
-		}
-	);
 } );
 
 it.each( [
@@ -461,3 +381,52 @@ it.each( [
 		);
 	}
 );
+
+it( 'keeps a successful transfer with a warning until dismissed, including after View', async () => {
+	const queryClient = createTestQueryClient();
+	queryClient.setQueryData( SITES_QUERY_KEY, [
+		makeSite( { id: 'warning-site', name: 'Ocean' } ),
+	] );
+	const { publish } = setup( <SyncActivityEvents />, { queryClient } );
+	act( () =>
+		publish( { siteId: 'warning-site', activity: { kind: 'pending', direction: 'pull' } } )
+	);
+	act( () =>
+		publish( {
+			siteId: 'warning-site',
+			activity: { kind: 'success', direction: 'pull', warning: 'Some files were skipped.' },
+		} )
+	);
+	const warning = getVisibleToasts().find( ( item ) => item.id === 'pull-warning-site' )!;
+	expect( warning ).toMatchObject( {
+		intent: 'warning',
+		durationMs: 0,
+		description: 'Some files were skipped.',
+		action: { dismissOnSuccess: false },
+	} );
+	await warning.action!.onClick();
+	await act( () => vi.advanceTimersByTimeAsync( 60_000 ) );
+	expect( getVisibleToasts().find( ( item ) => item.id === warning.id )?.leaving ).not.toBe( true );
+} );
+
+it( 'offers restarting after changes were pulled but the site could not restart', async () => {
+	const { publish, connector } = setup( <SyncActivityEvents /> );
+	act( () =>
+		publish( { siteId: 'restart-site', activity: { kind: 'pending', direction: 'pull' } } )
+	);
+	act( () =>
+		publish( {
+			siteId: 'restart-site',
+			activity: {
+				kind: 'error',
+				direction: 'pull',
+				message: 'Restart failed',
+				localChangesApplied: true,
+			},
+		} )
+	);
+	const failure = getVisibleToasts().find( ( item ) => item.id === 'pull-restart-site' )!;
+	expect( failure ).toMatchObject( { durationMs: 0, action: { label: 'Start site' } } );
+	await failure.action!.onClick();
+	expect( connector.startSite ).toHaveBeenCalledWith( 'restart-site' );
+} );

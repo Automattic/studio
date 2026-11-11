@@ -146,11 +146,9 @@ where the sender actually runs — see Testing below for what fires in which bui
   sharing only the connected-sites storage and the WordPress.com endpoints. Classic never invokes the
   CLI for either operation, so there is no funnel to emit from; each surface emits its own event and
   `channel`/`ui_version` identify it. The agentic UI runs the CLI commands for both operations
-  (`pushSite`/`pullSite` in `packages/common/sites/sync.ts`) and emits from its own mutation hooks
-  (`apps/ui/src/data/queries/use-sync-site.ts`, shared by desktop and `studio ui`), so it passes the
-  same hidden `--suppress-tracks-event` flag the add-site and sync-pull import paths use — a
-  `channel=studio-cli` `studio_sync_push`/`studio_sync_pull` row is therefore always a run no UI
-  started. **Cancels emit nothing**
+  (`pushSite`/`pullSite` in `packages/common/sites/sync.ts`) and lets the CLI emit, so the event
+  carries the CLI's precise `failure_reason`; the host's `STUDIO_TRACKS_ORIGIN` attributes it to
+  `studio-ui:v2` (desktop) or `studio-web:v2` (`studio ui`). **Cancels emit nothing**
   at all, so `success=false` always means a real failure.
 - **`studio_code_message_sent`/`studio_code_turn_completed`** are emitted **only** by the CLI, from
   `runAgentTurn` (`apps/cli/commands/ai/index.ts`). Every chat surface forks the CLI to run a turn —
@@ -354,24 +352,26 @@ that handler is shared with single-file opens (AI skills, "Open <file>"); it fir
 site in editor" affordances instead (Classic overview button + site-menu, and the agentic UI's
 `openSiteInEditor` connector method).
 
-The site-content open events (`open_in_browser`, `open_wp_admin`, `open_customize`,
-`open_phpmyadmin`) carry a **`browser`** prop recording where the content opened: `external` (the OS
-browser) or `internal` (the agentic UI's in-app preview panel). Studio Classic always opens the OS
-browser, so it always sends `external`. The agentic UI sends `internal` when it opens content in the
-preview panel — the overview Customize buttons, and switching the preview's realm tabs (front end →
-`open_in_browser`, WP Admin → `open_wp_admin`, database → `open_phpmyadmin`, design system →
-`open_design_system`; re-selecting the active tab is a no-op and emits nothing) — and `external` when the affordance leaves Studio: the site-list
-"Open phpMyAdmin"/"Open WP admin" menu items, the site header's "open in your browser" link, and the
-preview's "Open in… → Browser" button. That last button fires the event matching whatever realm the
-preview is currently showing, so opening a WP Admin preview externally is an `open_wp_admin`
-(`external`), not an `open_in_browser`. Free-form navigation _within_ the preview panel (typing in the
-address bar) is out of scope here and tracked separately. `studio_panel_opened` fires in **both**
-front-ends: Classic from its tab strip, and the agentic UI from its route navigations (the
-overview/settings/debugging tab switches, the site-list gear → overview, a site-name click → assistant
-or, when chat is unavailable, overview, and the context-menu "Site settings" → settings). The agentic
-UI's General settings tab reports `panel: settings` so it lines up with Classic's Settings panel; its
-Debugging tab reports `panel: debugging`. No site names, paths, or URLs are ever sent — only the
-enumerated prop values below.
+The site-content open events carry a **`browser`** prop recording where the content opened:
+`external` (the OS browser) or `internal` (the in-app preview panel). The current UI emits `internal`
+for explicit project-tool opens (including their shortcuts and new-tab menu), chat tool links, and
+selection of a different preview tab. Front end maps to `open_in_browser`, WP Admin to
+`open_wp_admin`, database to `open_phpmyadmin`, design system to `open_design_system`, and Email log
+to `open_email`. Opening another tab counts even when it shows the same realm; re-selecting the
+active tab emits nothing. Initial rendering, restored tabs, and programmatic navigation do not
+emit an open event. Free-form address-bar navigation is outside these events.
+
+External browser/Admin/phpMyAdmin destinations emit their matching event with `browser: external`.
+The preview's external-open button and tab context menu also emit the event matching the content
+being opened, for both local and live previews. Design system and Email log exist only in Studio's
+preview, so their events always carry `browser: internal`. Design system cannot open externally; the
+Email log's file-manager action opens its local folder and does not emit a content-open event.
+
+`studio_panel_opened` is separate from workspace layouts and preview content. In the current UI,
+site selection emits `panel: assistant`, and site-settings actions emit `panel: settings`. Older
+Classic releases emitted tab-strip values (`overview`, `sync`, `settings`, `assistant`,
+`import-export`, `previews`); earlier agentic releases also emitted overview/debugging route changes.
+These historical values remain valid for older releases. No site names, paths, or URLs are sent.
 
 | Event                            | Emitted from                                            | Event-specific props                                                                                                                                                                                                                                                                                                 |
 | -------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -386,8 +386,38 @@ enumerated prop values below.
 | `studio_site_open_design_system` | Renderer (agentic)                                      | `browser` (always `internal` — the design system view only exists in the preview panel)                                                                                                                                                                                                                              |
 | `studio_site_open_email`         | Renderer (agentic)                                      | `browser` (always `internal` — the email view only exists in the preview panel)                                                                                                                                                                                                                                      |
 | `studio_site_open_folder`        | Renderer (Classic + agentic)                            | (none — opens the OS file manager)                                                                                                                                                                                                                                                                                   |
-| `studio_panel_opened`            | Renderer (Classic tab strip + agentic route navigation) | `panel` — the panel opened. Classic: `overview`/`sync`/`settings`/`assistant`/`import-export`/`previews` (only on a genuine user tab switch, not programmatic changes or re-selecting the current tab). Agentic: `overview`/`settings`/`debugging`/`assistant` (`sync`/`import-export`/`previews` are Classic-only). |
-| `studio_workspace_layout_changed` | Renderer (shared workspace layout setters, Desktop + browser UI) | `layout` (`chat`/`split`/`panel`); opaque `site_id` when the local site resolves. Emitted once per user-driven change to the resulting visible layout from header controls, View menu, command palette, or shortcuts. Re-selecting the current layout, initial rendering, site lifecycle changes, viewport-forced changes, and annotation-forced changes emit nothing. Existing Tracks opt-out and build-disable gates apply; delivery is best-effort. |
+| `studio_panel_opened`            | Renderer (site selection/settings; historical Classic tabs) | `panel` — current UI: `assistant` for site selection, `settings` for site-settings actions. Historical releases also used `overview`/`debugging` and Classic-only `sync`/`import-export`/`previews`. |
+| `studio_workspace_layout_changed` | Renderer (shared workspace layout setters, Desktop + browser UI) | `layout` (`chat` = chat only, `split` = chat and panel, `panel` = panel only); opaque `site_id` when the local site resolves. Emitted once per user-driven change to the resulting visible layout from header controls, View menu, command palette, shortcuts, chat show/hide actions, explicit tool opens that reveal the panel, or closing the final preview tab. Navigation to a different site is not a layout choice. Re-selecting the current layout, initial rendering, site lifecycle changes, viewport-forced changes, and annotation-forced changes emit nothing. Existing Tracks opt-out and build-disable gates apply; delivery is best-effort. |
+
+#### Responsive preview controls
+
+| Event | Emitted from | Event-specific props |
+| ----- | ------------ | -------------------- |
+| `studio_responsive_preview_changed` | Renderer responsive controls (Desktop + browser UI) | `action` (`preset_change`/`manual_resize`), `preset_category` (`phone`/`tablet`/`desktop`/`custom`), `width_bucket` and `height_bucket` (each `under_600`/`600_to_1023`/`1024_to_1439`/`1440_plus`). |
+
+Emits once per explicit preset change or completed manual resize on a site preview (front end or
+WP Admin, local or live). Named device presets carry a fixed category: phones, including the open
+foldable preset, are `phone`; iPads are `tablet`; Desktop is `desktop`. The Responsive option and
+manual dimension edits/handles are `custom`. Rotation retains the named preset's category.
+
+Pointer resizing emits on pointer release, never on drag movement. Valid dimension inputs commit on
+Enter/blur; keyboard handle repeats commit once on key release or blur. Rotation is a manual resize.
+Reselecting the current preset, unchanged dimensions (including square rotation), net-zero/clamped
+gestures, and duplicate completion notifications emit nothing. Cancelled/interrupted gestures are
+discarded, including capture loss, site changes, hiding/disabling the preview, and unmounting.
+Distinct completed interactions remain separate events even when their size buckets match.
+
+Initial rendering, restored settings, programmatic updates, automatic viewport resizing, Fit/zoom,
+and showing/hiding the device toolbar do not emit this event. Existing content-open events also
+exclude initial/restored/programmatic displays, so they describe explicit opens rather than every
+preview display. Responsive interactions can occur on a restored preview without an open event.
+Multiple size buckets intentionally cannot distinguish actual sizes within the same bucket pair.
+
+The existing anonymous installation identity, opt-out, and build/environment gates apply. Only the
+four bounded properties above and existing wrapper-provided common properties are sent: no device
+names, raw dimensions, content, URLs, paths, site identifiers, or person identity. Recording is
+best-effort; failures must not block the controls. An interaction does not establish that a
+responsive issue was found or fixed. Local tests/logs do not verify production receipt.
 
 #### Import/export events
 
@@ -461,8 +491,8 @@ No site names, URLs, paths, or raw error text are ever sent — `failure_reason`
 
 | Event                      | Emitted from                                                                                         | Event-specific props                                                                                                                                                     |
 | -------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `studio_sync_pull`         | Classic slice + agentic UI hook + CLI `pull` (standalone only)                                       | `success` (boolean), `sync_type`, `time_ms` (full pull duration, incl. the remote backup and the local import). On failure also `failure_reason`. The CLI's Reprint pull also sends `site_kind` (`preview` when the source is one of the user's preview sites, `site` otherwise, `unknown` when previews could not be listed). |
-| `studio_sync_push`         | Classic slice + agentic UI hook + CLI `push` (standalone only)                                       | `site_id` (opaque local site UUID when resolved), `success` (boolean), `sync_type`, `time_ms` (full push duration, incl. the local export, upload, and the remote import). On failure also `failure_reason`.               |
+| `studio_sync_pull`         | Classic slice + CLI `pull` (standalone and agentic UI)                                               | `success` (boolean), `sync_type`, `time_ms` (full pull duration, incl. the remote backup and the local import). On failure also `failure_reason`. The CLI's Reprint pull also sends `site_kind` (`preview` when the source is one of the user's preview sites, `site` otherwise, `unknown` when previews could not be listed). |
+| `studio_sync_push`         | Classic slice + CLI `push` (standalone and agentic UI)                                               | `site_id` (opaque local site UUID when resolved), `success` (boolean), `sync_type`, `time_ms` (full push duration, incl. the local export, upload, and the remote import). On failure also `failure_reason`.               |
 | `studio_sync_connect`      | Classic site-selection handler + agentic UI (publish picker, deep-link listener, onboarding connect) | `site_id` (opaque local site UUID when resolved), `success` (boolean), `num_of_sites` (live sites connected to this local site **after** this connect, so a first connection reports 1). On failure also `failure_reason`. |
 | `studio_sync_disconnect`   | Classic sync tab + agentic UI disconnect dialog                                                      | (none)                                                                                                                                                                   |
 | `studio_sync_create_site`  | Classic Create-site button + agentic UI onboarding connect                                           | (none — opens WordPress.com checkout)                                                                                                                                    |
@@ -484,7 +514,9 @@ embeds site names and filesystem paths.
 
 In the CLI those certain buckets come from the `LoggerError` codes the `sync-api` wrappers attach
 (`apps/cli/lib/sync-api.ts`), so a remote-side failure is attributed to the step that actually broke
-rather than inheriting the caller's fallback.
+rather than inheriting the caller's fallback. `push` and `pull` also pass the step they were in
+(`local_export`, `upload`, `remote_backup`, `remote_import`, `local_import`) as the phase, so
+`unknown` is left only for failures before the sync starts.
 
 #### Settings-change events
 

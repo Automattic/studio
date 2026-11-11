@@ -354,7 +354,27 @@ describe( 'update status emissions', () => {
 		await checkForAppUpdates( {} as IpcMainInvokeEvent );
 		expect( autoUpdater.checkForUpdates ).toHaveBeenCalledOnce();
 		await getHandler( 'checking-for-update' )?.();
-		expect( getLastEmittedStatus() ).toEqual( { state: 'checking', currentVersion: '1.8.2' } );
+		expect( getLastEmittedStatus() ).toEqual( {
+			state: 'checking',
+			currentVersion: '1.8.2',
+			requested: true,
+		} );
+	} );
+
+	it( 'reports an existing check when the user manually checks again without starting another', async () => {
+		setupDarwinUpdates();
+		await getHandler( 'checking-for-update' )?.();
+		vi.mocked( sendIpcEventToRenderer ).mockClear();
+		vi.mocked( autoUpdater.checkForUpdates ).mockClear();
+
+		await manualCheckForUpdates();
+
+		expect( getLastEmittedStatus() ).toEqual( {
+			state: 'checking',
+			currentVersion: '1.8.2',
+			requested: true,
+		} );
+		expect( autoUpdater.checkForUpdates ).not.toHaveBeenCalled();
 	} );
 
 	it( 'queries the nightly feed for the version after switching channels', async () => {

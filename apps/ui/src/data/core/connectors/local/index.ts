@@ -25,6 +25,7 @@ import type {
 	SiteDetails,
 	SiteAgentFile,
 	SkillStatus,
+	PreviewStatus,
 	Snapshot,
 	SnapshotUsage,
 	StudioAssistantQuota,
@@ -367,6 +368,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			);
 			return thumbnail;
 		},
+		async captureAnnotationRegion() {
+			throw new Error( 'Annotation screenshots are not available in the browser yet.' );
+		},
 		async captureSitePreview( siteId, { path, width, height } ) {
 			const { thumbnail } = await api< { thumbnail: string | null } >(
 				`/sites/${ encodeURIComponent( siteId ) }/capture-preview`,
@@ -423,8 +427,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				`/site-defaults/path?name=${ encodeURIComponent( siteName ) }`
 			);
 		},
-		// No native folder picker in a browser: the create form has the path typed
-		// (see capabilities.nativeFolderPicker), and this checks what it holds.
+		// The browser has no native folder picker; this checks a known path.
 		async selectSiteFolder( folderPath, options ): Promise< SelectedSiteFolder | null > {
 			return api< SelectedSiteFolder >( '/site-defaults/folder', {
 				method: 'POST',
@@ -588,6 +591,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'PATCH',
 				body: JSON.stringify( { name } ),
 			} );
+		},
+		async getPreviewStatus( hostname ): Promise< PreviewStatus > {
+			return api< PreviewStatus >( `/snapshots/${ encodeURIComponent( hostname ) }/status` );
 		},
 		async getConnectedWpcomSites( localSiteId ): Promise< SyncSite[] > {
 			return api< SyncSite[] >(
@@ -1019,6 +1025,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		onOpenSite() {
 			// Spotlight opens the installed desktop app.
+			return () => {};
+		},
+		onPullSite() {
+			// `pull-site` links open the installed desktop app.
 			return () => {};
 		},
 		onOpenSettings( listener ) {

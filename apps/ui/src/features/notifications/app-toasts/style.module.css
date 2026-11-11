@@ -121,3 +121,32 @@
 		transition-duration: var( --motion-duration-feedback );
 	}
 }
+
+.viewport[data-overflow] {
+	display: flex;
+	flex-direction: column-reverse;
+	gap: var( --space-3 );
+	max-height: calc( 100svh - var( --space-6 ) );
+	padding: var( --space-3 );
+	inset-block-end: 0;
+	inset-inline-end: 0;
+	width: min( 344px, 100vw );
+	overflow-y: auto;
+	pointer-events: auto;
+	overscroll-behavior: contain;
+}
+
+.viewport[data-overflow] .toast {
+	position: relative;
+	flex: none;
+	height: auto;
+	transform: none;
+}
+
+.viewport[data-overflow] .content {
+	opacity: 1;
+}
+
+.viewport[data-overflow] .toast::after {
+	display: none;
+}

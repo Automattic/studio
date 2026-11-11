@@ -180,10 +180,12 @@ import {
 } from '@studio/common/sites/site-email';
 import { readGlobalStyles } from '@studio/common/sites/site-identity';
 import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
+import { readSiteSource } from '@studio/common/sites/site-source';
 import {
 	deleteAllPreviewSites,
 	deletePreviewSite,
 	fetchSnapshots,
+	getPreviewStatus,
 	publishPreviewSite,
 	renamePreviewSite,
 } from '@studio/common/sites/snapshots';
@@ -1186,6 +1188,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				}
 			}
 			try {
+				if ( confined && req.body?.allowSiteFiles === true ) {
+					res.json( await readSiteSource( confined ) );
+					return;
+				}
 				const blueprint =
 					confined && req.body?.allowBlueprints === true
 						? await readBlueprintSource( confined )
@@ -1994,6 +2000,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			await renamePreviewSite( execute, req.params.hostname, name );
 			res.sendStatus( 204 );
+		} )
+	);
+
+	api.get(
+		'/snapshots/:hostname/status',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			res.json( await getPreviewStatus( execute, req.params.hostname ) );
 		} )
 	);
 

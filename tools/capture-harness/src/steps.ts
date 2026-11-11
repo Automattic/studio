@@ -71,7 +71,10 @@ const STEPS: { [ V in StepVerb ]: ( ctx: Ctx, step: StepOf< V > ) => Promise< vo
 		}
 	},
 	async press( ctx, step ) {
-		await ctx.w.keyboard.press( step.press );
+		// The browser app reads as on a Mac (see drivers/browser.ts), whatever this machine is.
+		await ctx.w.keyboard.press(
+			ctx.studio.driver === 'browser' ? step.press.replace( 'ControlOrMeta', 'Meta' ) : step.press
+		);
 	},
 	async toggle( ctx, step ) {
 		const spec: LocatorSpec = typeof step.toggle === 'string' ? { name: step.toggle } : step.toggle;

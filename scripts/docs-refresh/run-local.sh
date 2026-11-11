@@ -50,6 +50,21 @@ if [[ ! -d "$SOURCE" ]]; then
 fi
 git -C "$SOURCE" fetch --quiet "$ROOT" "$COMMIT"
 
+# PHP for the container, downloaded here: a machine behind a VPN or proxy can reach the Apps CDN
+# where its containers cannot.
+PHP_CACHE="${TMPDIR:-/tmp}/studio-docs-refresh-php"
+case "$(docker info --format '{{.Architecture}}')" in
+  aarch64 | arm64) PHP_ARCH=arm64 ;;
+  *) PHP_ARCH=x64 ;;
+esac
+if ! ls "$PHP_CACHE"/*/php >/dev/null 2>&1; then
+  (
+    cd "$ROOT"
+    version="$(node --experimental-strip-types -e "import( './packages/common/types/php-versions.ts' ).then( ( m ) => console.log( m.RecommendedPHPVersion ) )")"
+    node --experimental-strip-types scripts/download-php-binary.ts "$version" linux "$PHP_ARCH" --install-root "$PHP_CACHE"
+  )
+fi
+
 if [[ $# -eq 0 && -z "${ANTHROPIC_API_KEY:-}${CLAUDE_CODE_OAUTH_TOKEN:-}" ]]; then
   echo "Neither ANTHROPIC_API_KEY nor CLAUDE_CODE_OAUTH_TOKEN is set: checking the screenshots and writing the brief only."
   export DOCS_REFRESH_CHECK_ONLY=true
@@ -67,6 +82,7 @@ echo "Refreshing the docs for $BRANCH at ${COMMIT:0:9} in $IMAGE..."
 # shellcheck disable=SC2016
 docker run --rm --init "${env_args[@]}" \
   -v "$VOLUME:/workdir" -v "$SOURCE:/source:ro" -v "$ROOT/docs-refresh-output:/out" \
+  -v "$PHP_CACHE:/root/.studio/php-bin" -v "$VOLUME-cache:/root/.cache" \
   -w /workdir "$IMAGE" bash -c '
     set -euo pipefail
     git config --global --add safe.directory "*"

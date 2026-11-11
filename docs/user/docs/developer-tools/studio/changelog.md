@@ -2,6 +2,60 @@
 
 WordPress Studio ships fast and often. This changelog highlights what’s new, what’s improved, and what’s been fixed in each release. While you can always [view technical release notes on GitHub](https://github.com/Automattic/studio/releases), this page gives you the bigger picture: how each update helps you build faster, safer, and smarter with WordPress.
 
+## [2.2.0](#2-2-0)
+
+-   Site preview: the preview is now a small browser, with tabs
+    -   Open the site’s **Browser**, **Admin**, **Design System**, **Database**, and **Email log** side by side from **New tab** (**+**) or the site menu’s **Tools**
+    -   Added an **Email log** that lists the emails a site has sent and lets you read them in the preview
+    -   Added a device toolbar that shows the page at the size of a phone, a tablet, or a desktop, with rotation and zoom
+    -   Added a **Browser options** menu: show or hide the WordPress admin bar, take a screenshot and attach it to the chat, switch the page between light and dark, open the developer tools, and clear browsing data
+    -   Switch between **Chat**, **Split view**, and **Panel** layouts (⌘1, ⌘2, and ⌘3); each site remembers its layout
+    -   Preview controls stay in place while a site is stopped, and WordPress and WordPress Studio keyboard shortcuts keep working inside the preview
+-   Send feedback to the WordPress Studio team
+    -   Added a **Send feedback** dialog, in the account menu under **Support** and in the command palette
+    -   WordPress Studio Code can send feedback for you with `/feedback`: it writes the report from the chat and asks before sending
+-   WordPress Studio Code
+    -   Annotate: draw over an area as well as clicking an element, collect notes and send them together, and review them from the chat box
+    -   Suggests a performance audit and an SEO audit after building a site
+    -   Start a stopped site from the chat box
+    -   Each site reopens the chat you last had open
+    -   Added **New chat** to the site menu and the **File** menu (⇧⌘N)
+    -   Activity durations show minutes and seconds
+    -   The AI credits notice in the sidebar now appears from 90% usage
+-   Adding and managing sites
+    -   The **Add site** dialog has one form for every kind of site: start blank, or from a Blueprint, a backup, a WordPress export, or an existing WordPress folder
+    -   Blueprints and backups are both added from **Import**, or by dropping a file on the dialog
+    -   Regrouped the site menu, with **Tools** and **Open in** first
+    -   Added a **Default browser** setting, with more browsers to choose from
+    -   Opening a stopped site in the browser from **Open in** starts it first
+    -   Duplicating a site, and other long operations, show their progress in one notice until they finish
+    -   A site that fails to create keeps its error on screen until you dismiss it
+    -   macOS: open a site or start a new one from Spotlight
+    -   Added **File → Open Folder…** (⌘O) to open a site’s folder, or add a WordPress folder or a Blueprint
+-   Preview sites
+    -   New preview sites are created on WordPress.com; an older preview moves there the first time you update it
+    -   Opening your own preview from WordPress Studio signs you in to it
+    -   Previews of your sites made elsewhere with the same account are listed
+    -   Create a preview, copy its link, or visit it from the site menu’s **Share** submenu
+    -   Previews leave out inactive themes and the plugins WordPress.com provides, and larger sites upload more reliably
+-   Publishing
+    -   Added a switcher for local sites connected to more than one website
+    -   **Publish** in the site menu opens the publish dialog directly
+-   Settings, updates, and AI apps
+    -   Settings are split into **App** and **Site**
+    -   Change simple settings straight from the command palette
+    -   Connect Claude Code, ChatGPT, Cursor, and Grok Build to WordPress Studio with one **Connect** button in **Settings → MCP**
+    -   An update button in the sidebar shows an update’s download progress and lets you retry a failed download
+-   WordPress Studio CLI
+    -   `studio wp` works from any directory inside a site
+    -   Commands that need WordPress.com offer to log you in and then carry on
+    -   A site whose theme or plugin has a fatal error can be started again
+-   Other Fixes
+    -   Sites using an external MySQL database keep their database name
+    -   Imports and exports use the right database on sites with a `db-path.php` file
+    -   Fixed a crash when starting a site
+    -   WordPress Studio Code no longer hangs while checking blocks before its browser has downloaded
+
 ## [1.24.0](#0-1-24-0)
 
 -   Moved every site to native PHP:

@@ -170,7 +170,7 @@ To start a run, create a [new build](https://buildkite.com/automattic/studio) on
 
 **On your machine**: `scripts/docs-refresh/run-local.sh [<commit or branch>]` runs the first step in the same container with Docker, on a copy of the commit in a Docker volume, so your checkout is untouched and the screenshots come out as they do in CI. The agent runs with `ANTHROPIC_API_KEY` or, on your own machine, `CLAUDE_CODE_OAUTH_TOKEN` (a Claude subscription's token, from `claude setup-token`); without either it stops after the check. Apply the result with `git apply --index docs-refresh-output/local.patch`. Nothing is pushed.
 
-The first step needs `ANTHROPIC_API_KEY`, the second `GITHUB_TOKEN`. The brief, the screenshot results with pictures of the differences, and the agent's summary are uploaded as artifacts of every run.
+The first step needs `ANTHROPIC_API_KEY`, the second `GITHUB_TOKEN`. The brief, the screenshot results with pictures of the differences, the agent's summary and its whole run (`agent.jsonl`, with its turns and cost in `agent.json`) are uploaded as artifacts of every run. The run fails when the agent stops before it finishes, as it does on reaching `DOCS_REFRESH_MAX_BUDGET_USD` (default 25).
 
 ## Running Lanes Locally
 

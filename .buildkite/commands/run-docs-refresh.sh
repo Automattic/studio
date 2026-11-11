@@ -17,6 +17,7 @@ set -euo pipefail
 
 source .buildkite/commands/docs-refresh-branch.sh
 
+# A version published at least two days ago: .npmrc (min-release-age) keeps npx from a newer one.
 CLAUDE_CODE_VERSION=2.1.322
 
 rm -rf "$OUT"
@@ -62,7 +63,7 @@ if [[ -n "$desktop_shots" ]]; then
 fi
 
 echo "--- :memo: Collect what changed"
-brief_args=(--out "$OUT" "${captures[@]}")
+brief_args=(--out "$OUT" --target "$TARGET" "${captures[@]}")
 if [[ -n "$VERSION" ]]; then
   brief_args+=(--version "$VERSION")
 fi
@@ -83,7 +84,7 @@ echo "--- :robot_face: Update the docs"
 # An API key in CI; on your own machine, a subscription token from `claude setup-token` works too,
 # and so does a login the CLI already has (a cloud sandbox signs it in without either variable).
 if [[ -z "${ANTHROPIC_API_KEY:-}${CLAUDE_CODE_OAUTH_TOKEN:-}" ]] \
-  && ! npx --yes "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION" auth status > /dev/null 2>&1; then
+  && ! npx --yes "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION" auth status > /dev/null; then
   echo "The docs need a refresh, but neither ANTHROPIC_API_KEY nor CLAUDE_CODE_OAUTH_TOKEN is set, and the Claude Code CLI is not signed in."
   exit 1
 fi
@@ -94,7 +95,7 @@ agent_args=(
   --print "Follow scripts/docs-refresh/agent-instructions.md."
   --permission-mode acceptEdits
   --max-budget-usd "${DOCS_REFRESH_MAX_BUDGET_USD:-25}"
-  --output-format json
+  --output-format stream-json --verbose
   --allowedTools
   "Read" "Edit" "Write" "Glob" "Grep"
   "Bash(git log:*)" "Bash(git show:*)" "Bash(git diff:*)" "Bash(git status:*)"
@@ -105,7 +106,9 @@ agent_args=(
 if [[ -n "${DOCS_REFRESH_MODEL:-}" ]]; then
   agent_args+=(--model "$DOCS_REFRESH_MODEL")
 fi
-npx --yes "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION" "${agent_args[@]}" > "$OUT/agent.json"
+# All of the agent's run goes to agent.jsonl and its progress to this log; stops here if it did not finish.
+npx --yes "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION" "${agent_args[@]}" \
+  | node scripts/docs-refresh/docs-refresh.mjs agent-log --out "$OUT"
 
 echo "--- :mag: Check the agent's work"
 node scripts/docs-refresh/docs-refresh.mjs verify --baseline "$OUT/baseline.txt"

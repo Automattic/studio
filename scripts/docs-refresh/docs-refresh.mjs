@@ -4,8 +4,9 @@
  * The deterministic half of the docs refresh (.buildkite/docs-refresh.yml): what changed in
  * Studio, what the agent is told, and what its work has to pass before a pull request opens.
  *
- *   docs-refresh.mjs brief   --out <dir> [--version <x.y.z>] [--since <ref>] [--capture <results.json>]…
+ *   docs-refresh.mjs brief   --out <dir> [--version <x.y.z>] [--target <name>] [--since <ref>] [--capture <results.json>]…
  *   docs-refresh.mjs desktop-shots --shots <dir>
+ *   docs-refresh.mjs agent-log --out <dir>
  *   docs-refresh.mjs verify  [--baseline <file>]
  *   docs-refresh.mjs open-pr --repo <owner/name> --head <branch> --base <branch> --title <title> --out <dir>
  *
@@ -13,8 +14,16 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import {
+	appendFileSync,
+	existsSync,
+	mkdirSync,
+	readdirSync,
+	readFileSync,
+	writeFileSync,
+} from 'node:fs';
 import path from 'node:path';
+import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 
 const REPO_ROOT = path.resolve( path.dirname( fileURLToPath( import.meta.url ) ), '..', '..' );
@@ -144,7 +153,24 @@ export function shouldRun( { changes, capture, instruction } ) {
 	);
 }
 
-export function buildBrief( { target, source, changes, dependencyUpdates, capture, instruction } ) {
+// The version alone misleads on a branch that has moved past its last release.
+function describeBuild( studioVersion, commit ) {
+	const parts = [
+		studioVersion ? `Studio ${ studioVersion }` : '',
+		commit ? `at ${ commit.slice( 0, 9 ) }` : '',
+	].filter( Boolean );
+	return parts.length ? ` (${ parts.join( ' ' ) })` : '';
+}
+
+export function buildBrief( {
+	target,
+	commit,
+	source,
+	changes,
+	dependencyUpdates,
+	capture,
+	instruction,
+} ) {
 	const lines = [ `# Docs refresh brief: ${ target }`, '' ];
 	if ( instruction ) {
 		lines.push( '## Instruction from whoever started this run', '', instruction, '' );
@@ -158,11 +184,7 @@ export function buildBrief( { target, source, changes, dependencyUpdates, captur
 	if ( dependencyUpdates ) {
 		lines.push( '', `${ dependencyUpdates } dependency update(s) left out.` );
 	}
-	lines.push(
-		'',
-		`## Screenshot check${ capture.studioVersion ? ` (Studio ${ capture.studioVersion })` : '' }`,
-		''
-	);
+	lines.push( '', `## Screenshot check${ describeBuild( capture.studioVersion, commit ) }`, '' );
 	if ( ! capture.changed.length && ! capture.added.length && ! capture.failed.length ) {
 		lines.push( 'Every shot matches the committed image.' );
 	}
@@ -365,7 +387,8 @@ function runBrief( args ) {
 	writeFileSync(
 		path.join( out, 'brief.md' ),
 		buildBrief( {
-			target: version ?? 'trunk',
+			target: version ?? option( args, 'target' ) ?? 'trunk',
+			commit: git( [ 'rev-parse', 'HEAD' ] ),
 			source,
 			changes,
 			dependencyUpdates,
@@ -375,6 +398,95 @@ function runBrief( args ) {
 	);
 	writeFileSync( path.join( out, 'capture-summary.json' ), JSON.stringify( capture, null, '\t' ) );
 	console.log( shouldRun( { changes, capture, instruction } ) ? 'run' : 'skip' );
+}
+
+/**
+ * The lines of the build log for an event of the agent's stream (`--output-format stream-json`):
+ * what it said and the tools it called, each cut to one line.
+ */
+export function describeAgentEvent( event ) {
+	if ( event?.type !== 'assistant' ) {
+		return [];
+	}
+	const clip = ( text ) => {
+		const line = String( text ).trim().split( '\n' )[ 0 ];
+		return line.length > 160 ? `${ line.slice( 0, 159 ) }…` : line;
+	};
+	return ( event.message?.content ?? [] ).flatMap( ( block ) => {
+		if ( block.type === 'text' && block.text?.trim() ) {
+			return [ clip( block.text ) ];
+		}
+		if ( block.type === 'tool_use' ) {
+			const input = block.input ?? {};
+			const detail = input.file_path ?? input.command ?? input.pattern ?? input.description ?? '';
+			return [ clip( `> ${ block.name } ${ detail }` ) ];
+		}
+		return [];
+	} );
+}
+
+/**
+ * The agent's run from the `result` events of its stream. A run that waits on a background
+ * task ends more than once: the turns add up, the cost of the last is the total, and the
+ * run succeeded only if every end did.
+ */
+export function summarizeAgentRun( results ) {
+	const last = results.at( -1 );
+	if ( ! last ) {
+		return { ok: false, reason: 'the agent left no result', turns: 0, costUsd: 0, result: '' };
+	}
+	const failed = results.find( ( result ) => result.is_error || result.subtype !== 'success' );
+	let reason = null;
+	if ( failed ) {
+		reason = /budget/.test( failed.subtype ?? '' )
+			? 'the agent reached its budget (DOCS_REFRESH_MAX_BUDGET_USD) before it finished'
+			: `the agent stopped with ${ failed.subtype ?? 'an error' }`;
+	}
+	return {
+		ok: ! failed,
+		reason,
+		turns: results.reduce( ( sum, result ) => sum + ( result.num_turns ?? 0 ), 0 ),
+		costUsd: last.total_cost_usd ?? 0,
+		result: results
+			.map( ( result ) => result.result )
+			.filter( Boolean )
+			.join( '\n\n' ),
+	};
+}
+
+// Reads the agent's stream on stdin: keeps all of it, shows its progress, and fails the run
+// when the agent did not finish.
+async function runAgentLog( args ) {
+	const out = option( args, 'out' );
+	const log = path.join( out, 'agent.jsonl' );
+	writeFileSync( log, '' );
+	const results = [];
+	for await ( const line of createInterface( { input: process.stdin } ) ) {
+		if ( ! line.trim() ) {
+			continue;
+		}
+		appendFileSync( log, `${ line }\n` );
+		let event;
+		try {
+			event = JSON.parse( line );
+		} catch {
+			console.log( line );
+			continue;
+		}
+		if ( event.type === 'result' ) {
+			results.push( event );
+		}
+		for ( const text of describeAgentEvent( event ) ) {
+			console.log( text );
+		}
+	}
+	const summary = summarizeAgentRun( results );
+	writeFileSync( path.join( out, 'agent.json' ), JSON.stringify( summary, null, '\t' ) );
+	console.log( `The agent took ${ summary.turns } turns and $${ summary.costUsd.toFixed( 2 ) }.` );
+	if ( ! summary.ok ) {
+		console.error( `The docs refresh stopped: ${ summary.reason }.` );
+		process.exit( 1 );
+	}
 }
 
 function runVerify( args ) {
@@ -447,11 +559,14 @@ if ( process.argv[ 1 ] && path.resolve( process.argv[ 1 ] ) === fileURLToPath( i
 	const commands = {
 		brief: runBrief,
 		'desktop-shots': runDesktopShots,
+		'agent-log': runAgentLog,
 		verify: runVerify,
 		'open-pr': runOpenPr,
 	};
 	if ( ! commands[ command ] ) {
-		console.error( 'Usage: docs-refresh.mjs brief|desktop-shots|verify|open-pr [options]' );
+		console.error(
+			'Usage: docs-refresh.mjs brief|desktop-shots|agent-log|verify|open-pr [options]'
+		);
 		process.exit( 2 );
 	}
 	await commands[ command ]( args );

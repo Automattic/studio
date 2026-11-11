@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
 	buildBrief,
 	buildPullRequestBody,
+	describeAgentEvent,
+	summarizeAgentRun,
 	extractReleaseNotes,
 	findImageLinks,
 	findOutOfScope,
@@ -126,6 +128,7 @@ describe( 'buildBrief', () => {
 	it( 'lists the changes and the shots to look at', () => {
 		const brief = buildBrief( {
 			target: '2.2.0',
+			commit: 'accef9218c458ce243862646b7b2f427f43193e2',
 			source: 'release notes for 2.2.0',
 			changes: [ { title: 'Add responsive site preview controls', pr: 5543 } ],
 			dependencyUpdates: 1,
@@ -141,6 +144,53 @@ describe( 'buildBrief', () => {
 		expect( brief ).toContain( '`moved.webp` (a): 42 pixels differ' );
 		expect( brief ).toContain( '`broken` (b): No such button' );
 		expect( brief ).not.toContain( 'Instruction from' );
+		expect( brief ).toContain( '## Screenshot check (Studio 2.2.0 at accef9218)' );
+	} );
+} );
+
+describe( 'the agent’s run', () => {
+	it( 'shows what the agent says and the tools it calls, one line each', () => {
+		const lines = describeAgentEvent( {
+			type: 'assistant',
+			message: {
+				content: [
+					{ type: 'text', text: 'Reading the brief.\nThen the pages.' },
+					{ type: 'tool_use', name: 'Read', input: { file_path: 'docs-refresh-output/brief.md' } },
+					{ type: 'tool_use', name: 'Bash', input: { command: 'git log -3' } },
+				],
+			},
+		} );
+		expect( lines ).toEqual( [
+			'Reading the brief.',
+			'> Read docs-refresh-output/brief.md',
+			'> Bash git log -3',
+		] );
+		expect( describeAgentEvent( { type: 'user', message: { content: [] } } ) ).toEqual( [] );
+	} );
+
+	it( 'adds up a run that ended more than once', () => {
+		const run = summarizeAgentRun( [
+			{ subtype: 'success', is_error: false, num_turns: 80, total_cost_usd: 5.5, result: 'Done.' },
+			{
+				subtype: 'success',
+				is_error: false,
+				num_turns: 1,
+				total_cost_usd: 5.97,
+				result: 'Still done.',
+			},
+		] );
+		expect( run ).toMatchObject( { ok: true, reason: null, turns: 81, costUsd: 5.97 } );
+		expect( run.result ).toBe( 'Done.\n\nStill done.' );
+	} );
+
+	it( 'fails a run that reached its budget, errored or left no result', () => {
+		expect(
+			summarizeAgentRun( [ { subtype: 'error_max_budget_usd', is_error: true, num_turns: 40 } ] )
+		).toMatchObject( { ok: false, reason: expect.stringContaining( 'budget' ) } );
+		expect(
+			summarizeAgentRun( [ { subtype: 'error_during_execution', is_error: true } ] ).reason
+		).toContain( 'error_during_execution' );
+		expect( summarizeAgentRun( [] ).ok ).toBe( false );
 	} );
 } );
 

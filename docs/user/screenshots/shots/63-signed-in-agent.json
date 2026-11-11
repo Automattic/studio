@@ -20,7 +20,7 @@
 					"click": {
 						"within": { "role": "tablist", "name": "Ways to add a site" },
 						"role": "tab",
-						"name": "Create",
+						"name": "New",
 						"exact": true
 					}
 				},
@@ -30,7 +30,14 @@
 					"value": "My WordPress Website",
 					"blur": true
 				},
-				{ "click": { "role": "button", "name": "Create site", "exact": true } },
+				{
+					"click": {
+						"within": { "role": "dialog", "has": { "role": "textbox", "name": "Site name" } },
+						"role": "button",
+						"name": "Add site",
+						"exact": true
+					}
+				},
 				{
 					"waitFor": { "role": "dialog", "name": "Welcome to WordPress Studio" },
 					"timeout": 180000
@@ -48,7 +55,7 @@
 					"optional": true
 				},
 				{ "helper": "stubAgentRuns" },
-				{ "helper": "dragSeparator", "args": [ "Resize site preview", 260 ] },
+				{ "helper": "dragSeparator", "args": [ "Resize panel", 260 ] },
 				{ "click": { "role": "combobox", "name": "Message WordPress Studio" } },
 				{
 					"helper": "typeText",

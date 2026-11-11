@@ -15,7 +15,7 @@ Run from the repo root. `SC` below means `npx studio-capture` (or `node --experi
 2. `SC doctor` says what is still missing and how to fix it.
 3. Signed-in scripts need no account: they sign in as a made-up demo person (`--persona <name>`: `maya-okafor`, `daniel-ferreira`, `amira-haddad`, `owen-mercer`, `hana-watanabe`, `marcus-bennett`). Never copy or ask for a person's login.
 
-Pick a driver, or take the default: the browser driver on Linux (a cloud machine, CI), Studio Desktop on macOS and Windows. `--driver browser` is `studio ui` in headless Chromium: lighter, no display needed, the same screens, without desktop-only features (those shots are skipped). `--driver electron` is Studio Desktop, with every feature; on Linux it starts a virtual display (Xvfb) automatically. The official docs images come from Studio Desktop on macOS.
+Pick a driver, or take the default: the browser driver on Linux (a cloud machine, CI), Studio Desktop on macOS and Windows. `--driver browser` is `studio ui` in headless Chromium: lighter, no display needed, the same screens, without desktop-only features (those shots are skipped). `--driver electron` is Studio Desktop, with every feature; on Linux it starts a virtual display (Xvfb) automatically. The official docs images come from the browser driver on Linux.
 
 ## The loop
 

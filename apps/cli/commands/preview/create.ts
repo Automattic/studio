@@ -154,7 +154,8 @@ export async function runCommand(
 			token.id,
 			snapshotName,
 			preview.shareUrl,
-			versionId
+			versionId,
+			preview.liveSiteId
 		);
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 		await emitCliEvent( { event: SNAPSHOT_EVENTS.CREATED, data: { snapshotUrl: snapshot.url } } );

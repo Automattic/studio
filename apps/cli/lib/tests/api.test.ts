@@ -1,11 +1,16 @@
-import { wpcomClient } from '@studio/providers/services';
+import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import { vi } from 'vitest';
 import { getWpComSites } from 'cli/lib/api';
 
-vi.mock( '@studio/providers/services', () => ( { wpcomClient: vi.fn() } ) );
+vi.mock( 'wpcom' );
+vi.mock( 'wpcom-xhr-request' );
+vi.mock( '@studio/common/lib/wpcom-factory', () => ( {
+	__esModule: true,
+	default: vi.fn(),
+} ) );
 
-type WpcomReqMethods = Pick< ReturnType< typeof wpcomClient >[ 'req' ], 'post' | 'get' >;
-type WpcomFactory = ReturnType< typeof wpcomClient >;
+type WpcomReqMethods = Pick< ReturnType< typeof wpcomFactory >[ 'req' ], 'post' | 'get' >;
+type WpcomFactory = ReturnType< typeof wpcomFactory >;
 const createWpcomMock = ( req: Partial< WpcomReqMethods > ): WpcomFactory =>
 	( { req: req } ) as WpcomFactory;
 
@@ -30,7 +35,7 @@ describe( 'API Module', () => {
 					{ ID: 3, name: 'A8c', URL: 'https://a8c.example.com', is_a8c: true },
 				],
 			} );
-			vi.mocked( wpcomClient ).mockReturnValue( createWpcomMock( { get } ) );
+			vi.mocked( wpcomFactory ).mockReturnValue( createWpcomMock( { get } ) );
 
 			const sites = await getWpComSites( mockToken );
 

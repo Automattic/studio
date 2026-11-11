@@ -3,7 +3,9 @@ import path from 'path';
 import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_GB } from '@studio/common/constants';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { isWpcomPreview } from '@studio/common/lib/snapshots';
-import { wpcomClient, createTusUpload } from '@studio/providers/services';
+import wpcomFactory from '@studio/common/lib/wpcom-factory';
+import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
+import { createTusUpload } from '@studio/providers/services';
 import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
 import { deleteSnapshot } from 'cli/lib/api';
@@ -66,7 +68,7 @@ export type StandingPreview = {
 };
 
 function wpcom( token: string ) {
-	return wpcomClient( token );
+	return wpcomFactory( token, wpcomXhrRequest );
 }
 
 /**

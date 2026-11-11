@@ -19,5 +19,5 @@ export function getProvider< Id extends ProviderId >(
 	return PROVIDERS[ id ];
 }
 
-export { wpcomClient } from './wpcom/client';
+// Previews upload to WordPress.com the way a push does, until they are a capability of their own.
 export { createTusUpload } from './wpcom/sites/upload';

@@ -1,10 +1,11 @@
-import { wpcomClient } from '@studio/providers/services';
+import wpcomFactory from '@studio/common/lib/wpcom-factory';
+import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 import { LoggerError } from 'cli/logger';
 
 export async function deleteSnapshot( atomicSiteId: number, token: string ): Promise< void > {
-	const wpcom = wpcomClient( token );
+	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 
 	try {
 		await wpcom.req.post( {
@@ -22,7 +23,7 @@ export async function deleteSnapshot( atomicSiteId: number, token: string ): Pro
 }
 
 export async function deleteAllSnapshots( token: string ): Promise< void > {
-	const wpcom = wpcomClient( token );
+	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 
 	try {
 		await wpcom.req.post( {
@@ -44,7 +45,7 @@ const userResponseSchema = z.object( {
 export async function getUserInfo(
 	token: string
 ): Promise< z.infer< typeof userResponseSchema > > {
-	const wpcom = wpcomClient( token );
+	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 	try {
 		const rawResponse = await wpcom.req.get( '/me', {
 			fields: 'ID,username,email,display_name',
@@ -74,7 +75,7 @@ const wpComSitesResponseSchema = z.object( {
 } );
 
 export async function getWpComSites( token: string ): Promise< WpComSiteInfo[] > {
-	const wpcom = wpcomClient( token );
+	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 	try {
 		const rawResponse = await wpcom.req.get(
 			{

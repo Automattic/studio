@@ -8,8 +8,9 @@ import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
 import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
 import { getAiPayloadsPath } from '@studio/common/lib/well-known-paths';
+import wpcomFactory from '@studio/common/lib/wpcom-factory';
+import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { withWpcomDetails } from '@studio/providers';
-import { wpcomClient } from '@studio/providers/services';
 import { __ } from '@wordpress/i18n';
 import { getStudioUserAgent, resolveImageGenerator } from 'cli/ai/auth';
 import { runCommand as runExportCommand } from 'cli/commands/export';
@@ -218,7 +219,7 @@ export const cliAgentHost: StudioAgentHost = {
 					'Not logged in to WordPress.com. Ask the user to log in with `studio auth login`.'
 				);
 			}
-			const wpcom = wpcomClient( token.accessToken );
+			const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
 			switch ( method ) {
 				case 'GET':
 					return wpcom.req.get( path, query );

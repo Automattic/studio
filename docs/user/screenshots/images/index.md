@@ -42,9 +42,9 @@ Shots with annotations also have a `<name>-annotated.webp`.
 | `main-window-signed-in.webp` | signed-in | Main window, signed in: the account menu button at the bottom of the sidebar | `index.md` | — |
 | `account-menu.webp` | signed-in | Account menu: name, email, Providers, Usage, Support, Settings, Log out | `index.md` | — |
 | `composer-add-menu.webp` | signed-in | Chat box + menu, signed in: Add files, the commands, and Skills | `studio-code/index.md` | — |
-| `annotate-toolbar.webp` | signed-in | Annotate: the Annotations toolbar over the site preview, with Cancel and Send | — | — |
+| `annotate-toolbar.webp` | signed-in | Annotate turned on above the site preview, before any note | — | — |
 | `annotate-note.webp` | signed-in | Annotate: two saved notes on the page, and a third open on the hero photo, being typed | `studio-code/index.md` | — |
-| `annotate-staged.webp` | signed-in | Annotate: two saved notes marked on the page and waiting in the chat box as "2 annotations", with Send in the Annotations toolbar | `studio-code/index.md` | — |
+| `annotate-staged.webp` | signed-in | Annotate: two saved notes marked on the page and waiting in the chat box as "2 annotations" | `studio-code/index.md` | — |
 | `share-create-preview.webp` | signed-in | Share and publish → Share, with Create preview | — | `2025/01/studio-site-new-preview-1.png` |
 | `publish-panel.webp` | signed-in | Share and publish → Publish: Existing site… and New site… | — | — |
 | `publish-choose-site.webp` | signed-in | Publish → Choose an existing site, listing the account’s WordPress.com and Pressable sites | `sync.md` | `2025/01/studio-connect-live-site.png` |

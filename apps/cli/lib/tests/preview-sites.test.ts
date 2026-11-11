@@ -1,5 +1,5 @@
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
-import wpcomFactory from '@studio/common/lib/wpcom-factory';
+import { wpcomClient } from '@studio/providers/services';
 import { vi } from 'vitest';
 import { deleteSnapshot } from 'cli/lib/api';
 import {
@@ -15,12 +15,12 @@ vi.mock( 'wpcom' );
 vi.mock( 'cli/lib/api' );
 vi.mock( '@studio/common/lib/connected-sites' );
 vi.mock( 'wpcom-xhr-request' );
-vi.mock( '@studio/common/lib/wpcom-factory', () => ( {
-	__esModule: true,
-	default: vi.fn(),
+vi.mock( '@studio/providers/services', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/providers/services') >() ),
+	wpcomClient: vi.fn(),
 } ) );
 
-type WpcomFactory = ReturnType< typeof wpcomFactory >;
+type WpcomFactory = ReturnType< typeof wpcomClient >;
 
 describe( 'Preview sites', () => {
 	const token = 'mock-token';
@@ -32,7 +32,7 @@ describe( 'Preview sites', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		vi.useFakeTimers();
-		vi.mocked( wpcomFactory ).mockReturnValue( { req: { get, post } } as unknown as WpcomFactory );
+		vi.mocked( wpcomClient ).mockReturnValue( { req: { get, post } } as unknown as WpcomFactory );
 		get.mockImplementation( ( { path }: { path: string } ) =>
 			Promise.resolve(
 				path === '/wow-funnel/pending'

@@ -1,4 +1,4 @@
-import { getSyncSupport } from '@studio/common/lib/sync/sync-support';
+import { getSyncSupport } from '../support';
 
 // Mocks for site shapes
 const baseSite = {

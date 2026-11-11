@@ -44,7 +44,10 @@ vi.mock( 'cli/lib/daemon-client', () => ( {
 } ) );
 vi.mock( 'cli/lib/run-wp-cli-command', () => ( { runWpCliCommand: vi.fn() } ) );
 const wpcomReq = vi.hoisted( () => ( { get: vi.fn() } ) );
-vi.mock( '@studio/common/lib/wpcom-factory', () => ( { default: () => ( { req: wpcomReq } ) } ) );
+vi.mock( '@studio/providers/services', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/providers/services') >() ),
+	wpcomClient: () => ( { req: wpcomReq } ),
+} ) );
 
 const site = {
 	id: 'site-123',

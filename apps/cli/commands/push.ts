@@ -1,12 +1,9 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import {
-	addConnectedWpcomSite,
-	markConnectedWpcomSiteSynced,
-} from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { formatProgressLabel } from '@studio/common/lib/progress-label';
+import { rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import { getSiteTracksProps } from '@studio/common/lib/site-tracks';
 import {
 	buildSyncEventProps,
@@ -14,12 +11,9 @@ import {
 } from '@studio/common/lib/sync/build-sync-event-props';
 import {
 	SYNC_IGNORE_DEFAULTS,
-	SYNC_MAX_STALLED_ATTEMPTS,
-	SYNC_POLL_INTERVAL_MS,
 	SYNC_PUSH_SIZE_LIMIT_BYTES,
 	SYNC_PUSH_SIZE_LIMIT_GB,
 } from '@studio/common/lib/sync/constants';
-import { createTusUpload } from '@studio/common/lib/sync/tus-upload';
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { SyncOption } from '@studio/common/types/sync';
 import { __, sprintf } from '@wordpress/i18n';
@@ -29,7 +23,7 @@ import { ExportOptions } from 'cli/lib/import-export/export/types';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { exitOnCancel, reportSyncActivity } from 'cli/lib/sync-activity';
-import { fetchSyncableSites, initiateImport, pollImportStatus } from 'cli/lib/sync-api';
+import { fetchSyncableSites, toLoggerError, wpcomSites } from 'cli/lib/sync-api';
 import { selectSyncItemsForPush } from 'cli/lib/sync-selector';
 import { findSyncSiteByIdentifier, pickSyncSite } from 'cli/lib/sync-site-picker';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
@@ -42,7 +36,8 @@ import type {
 	SyncSelectionProps,
 } from '@studio/common/lib/sync/build-sync-event-props';
 import type { SyncFailurePhase } from '@studio/common/lib/sync/classify-sync-failure';
-import type { ImportResponse, PushPhase, SyncSite } from '@studio/common/types/sync';
+import type { PushPhase, SyncSite } from '@studio/common/types/sync';
+import type { PushStatus } from '@studio/providers';
 import type { builder } from 'cli/commands/push.command';
 import type { CommandArgs } from 'cli/types';
 
@@ -114,6 +109,14 @@ type PushOutcome = {
 	completed?: boolean;
 	// The step a failure is attributed to when its error names no cause of its own.
 	failurePhase?: SyncFailurePhase;
+};
+
+// Each remote step's label, and where it starts and how much it spans of the overall progress.
+const PUSH_PROGRESS: Record< PushStatus[ 'phase' ], [ () => string, number, number ] > = {
+	uploading: [ () => __( 'Uploading archive…' ), 20, 20 ],
+	creatingRemoteBackup: [ () => __( 'Backing up remote site…' ), 40, 20 ],
+	applyingChanges: [ () => __( 'Applying changes…' ), 60, 35 ],
+	finishing: [ () => __( 'Almost there…' ), 99, 0 ],
 };
 
 const FAILURE_PHASES: Record< PushPhase, SyncFailurePhase > = {
@@ -257,7 +260,6 @@ async function runPush(
 		}
 
 		// Push progress: Export (0-20%) → Upload (20-40%) → Remote backup (40-60%) → Import (60-99%) → Done (100%)
-		// Export phase skipped when using --archive, so upload starts at 20%
 
 		// Suppress DEP0169 warning from tus-js-client's internal use of url.parse()
 		const originalEmit = process.emit.bind( process );
@@ -269,29 +271,9 @@ async function runPush(
 			return ( originalEmit as ( ...a: any[] ) => boolean )( event, ...args );
 		};
 
-		reportPhase( 'uploading' );
-		let uploadPercent = -1;
-		logger.reportStart(
-			LoggerAction.UPLOAD,
-			formatProgressLabel( __( 'Uploading archive…' ), 20 )
-		);
-		const { promise: uploadPromise, abort: abortUpload } = createTusUpload( {
-			token: token.accessToken,
-			remoteSiteId: remoteSite.id,
-			file: fs.createReadStream( archivePath ),
-			filename: path.basename( archivePath ),
-			size: archiveSize,
-			onProgress: ( percent ) => {
-				if ( Math.round( percent ) !== uploadPercent ) {
-					uploadPercent = Math.round( percent );
-					reportPhase( 'uploading', uploadPercent );
-				}
-				// Upload phase: 20-40%
-				const progress = Math.round( 20 + percent * 0.2 );
-				logger.reportProgress( formatProgressLabel( __( 'Uploading archive…' ), progress ) );
-			},
-		} );
-
+		const abortUpload = new AbortController();
+		let uploading = true;
+		let lastReported = '';
 		let cancelCount = 0;
 		const onSigint = () => {
 			cancelCount++;
@@ -299,116 +281,54 @@ async function runPush(
 				console.error(
 					__( 'Press Ctrl+C again to cancel. The upload cannot be safely cancelled mid-transfer.' )
 				);
-			} else {
-				abortUpload();
+			} else if ( uploading ) {
+				abortUpload.abort( new Error( 'Upload aborted' ) );
 				logger.reportError( new LoggerError( __( 'Upload cancelled' ) ) );
 			}
 		};
 		process.on( 'SIGINT', onSigint );
 
-		let attachmentId: string;
+		logger.reportStart(
+			LoggerAction.UPLOAD,
+			formatProgressLabel( __( 'Uploading archive…' ), 20 )
+		);
 		try {
-			attachmentId = await uploadPromise;
+			await wpcomSites.push(
+				{ token: token.accessToken },
+				remoteSite,
+				{
+					file: fs.createReadStream( archivePath ),
+					name: path.basename( archivePath ),
+					size: archiveSize,
+				},
+				{ optionsToSync, specificSelectionPaths },
+				( { phase, progress } ) => {
+					const reported = `${ phase }:${ progress === undefined ? '' : Math.round( progress ) }`;
+					// The upload reports every chunk; the remote steps report every poll, which a
+					// Studio app that restarts or reloads needs to show the push again.
+					if ( phase !== 'uploading' || reported !== lastReported ) {
+						reportPhase( phase, progress );
+					}
+					lastReported = reported;
+					uploading = phase === 'uploading';
+					const [ label, start, span ] = PUSH_PROGRESS[ phase ];
+					logger.reportProgress(
+						formatProgressLabel( label(), Math.round( start + ( ( progress ?? 0 ) / 100 ) * span ) )
+					);
+				},
+				abortUpload.signal
+			);
+		} catch ( error ) {
+			throw toLoggerError( error, __( 'Push failed' ) );
 		} finally {
 			process.removeListener( 'SIGINT', onSigint );
 			process.emit = originalEmit;
 		}
 
-		reportPhase( 'creatingRemoteBackup' );
-		// Initiate import: 40%
-		logger.reportProgress( formatProgressLabel( __( 'Initiating import…' ), 40 ) );
-		await initiateImport( token.accessToken, remoteSite.id, attachmentId, {
-			optionsToSync,
-			specificSelectionPaths,
-		} );
-
-		// Poll import with stale-progress detection
-		let lastProgress = -1;
-		let stalledAttempts = 0;
-		let importFinished = false;
-
-		while ( stalledAttempts < SYNC_MAX_STALLED_ATTEMPTS ) {
-			const status = await pollImportStatus( token.accessToken, remoteSite.id );
-
-			if ( status.status === 'failed' ) {
-				throw new LoggerError( getImportFailureMessage( status ), undefined, 'remote_import' );
-			}
-			if ( ! status.success ) {
-				throw new LoggerError(
-					__( 'Something went wrong while updating the live site.' ),
-					undefined,
-					'remote_import'
-				);
-			}
-
-			if ( status.status === 'finished' ) {
-				importFinished = true;
-				break;
-			}
-
-			let statusMessage: string;
-			let progress: number;
-			let phase: PushPhase = 'creatingRemoteBackup';
-			let phaseProgress: number | undefined;
-
-			switch ( status.status ) {
-				case 'started':
-				case 'initial_backup_started':
-				case 'initial_backup_finished':
-					statusMessage = __( 'Backing up remote site…' );
-					progress = 40 + ( ( status.backup_progress ?? 0 ) / 100 ) * 20;
-					phaseProgress = status.backup_progress ?? undefined;
-					break;
-				case 'archive_import_started':
-					statusMessage = __( 'Applying changes…' );
-					progress = 60 + ( ( status.import_progress ?? 0 ) / 100 ) * 35;
-					phase = 'applyingChanges';
-					phaseProgress = status.import_progress ?? undefined;
-					break;
-				case 'archive_import_finished':
-					statusMessage = __( 'Almost there…' );
-					progress = 99;
-					phase = 'finishing';
-					break;
-				default:
-					statusMessage = __( 'Applying changes…' );
-					progress = 50;
-			}
-
-			// Reported on every poll, even unchanged, so a Studio app that restarts or reloads while the
-			// live site updates shows the push again.
-			reportPhase( phase, phaseProgress );
-			const roundedProgress = Math.round( progress );
-			if ( roundedProgress !== lastProgress ) {
-				stalledAttempts = 0;
-				lastProgress = roundedProgress;
-			} else {
-				stalledAttempts++;
-			}
-
-			logger.reportProgress( formatProgressLabel( statusMessage, roundedProgress ) );
-
-			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLL_INTERVAL_MS ) );
-		}
-
-		if ( ! importFinished ) {
-			throw new LoggerError(
-				sprintf(
-					__(
-						'%s stopped reporting import progress, but the update may still be running. Check the live site before pushing again.'
-					),
-					remoteSite.name
-				),
-				undefined,
-				'timeout'
-			);
-		}
-
 		// Remember this connection so future push/pull runs (and the Desktop UI)
 		// can surface it without re-selecting from the full site list.
 		try {
-			await addConnectedWpcomSite( site.id, { ...remoteSite, localSiteId: site.id } );
-			await markConnectedWpcomSiteSynced( site.id, remoteSite.id, 'push' );
+			await rememberRemoteSite( 'wpcom', site.id, remoteSite, 'push' );
 		} catch ( error ) {
 			logger.reportError( new LoggerError( 'Failed to save connected site', error ), false );
 		}
@@ -420,20 +340,6 @@ async function runPush(
 	} finally {
 		fs.rmSync( tempDir, { recursive: true, force: true } );
 	}
-}
-
-function getImportFailureMessage( response: Extract< ImportResponse, { status: 'failed' } > ) {
-	if ( /importing sql dump/i.test( response.error_data?.vp_restore_message ?? '' ) ) {
-		return __(
-			'The database failed to import on the live site. Review your database and try again.'
-		);
-	}
-	if ( response.error === 'Import timed out' ) {
-		return __(
-			'The live site timed out while importing, likely because the site is too large. Try reducing its content or files.'
-		);
-	}
-	return __( 'Something went wrong while updating the live site.' );
 }
 
 async function recordSyncPushEvent( siteFolder: string, props: SyncEventProps ): Promise< void > {

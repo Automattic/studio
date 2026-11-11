@@ -1,7 +1,8 @@
 import { __ } from '@wordpress/i18n';
-import { enableReprintExporter, installReprintPublicKey } from 'cli/lib/api';
+import { openExporter, type PullSource } from 'cli/lib/pull/pull-source';
 import { runReprintCommandUntilComplete } from 'cli/lib/pull/reprint-client';
 import { getReprintMetadata } from 'cli/lib/pull/reprint-metadata';
+import { toLoggerError, wpcomSites } from 'cli/lib/sync-api';
 import { LoggerError } from 'cli/logger';
 
 /**
@@ -11,22 +12,32 @@ import { LoggerError } from 'cli/logger';
  * itself, so no Reprint command needs a credential argument.
  */
 export async function ensureReprintKey( params: {
-	wpComSiteId: number;
-	wpComAccessToken: string;
+	source: PullSource;
 	apiUrl: string;
 	stateDirectory: string;
 	verbose: boolean;
 } ): Promise< void > {
-	const { wpComSiteId, wpComAccessToken, apiUrl, stateDirectory, verbose } = params;
+	const { source, apiUrl, stateDirectory, verbose } = params;
 
 	const metadata = await getReprintMetadata( { apiUrl, stateDirectory, verbose } );
 	const publicKey =
 		metadata.key?.publicKey ?? ( await generateReprintKey( { apiUrl, stateDirectory, verbose } ) );
 
-	await installReprintPublicKey( wpComSiteId, wpComAccessToken, publicKey );
+	try {
+		await wpcomSites.pull!.installExporterKey(
+			{ token: source.wpComToken.accessToken },
+			{ id: source.wpComSite.id },
+			publicKey
+		);
+	} catch ( error ) {
+		throw toLoggerError(
+			error,
+			__( 'Failed to install the migration key on the WordPress.com site' )
+		);
+	}
 	// Opens the export window, which stays closed on a site that had no key.
-	const reenabled = await enableReprintExporter( wpComSiteId, wpComAccessToken, verbose );
-	if ( ! reenabled.hasPublicKey ) {
+	const reenabled = await openExporter( source, apiUrl );
+	if ( ! reenabled.hasKey ) {
 		throw new LoggerError(
 			__( 'The WordPress.com site did not accept the migration key. Please try again.' )
 		);

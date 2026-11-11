@@ -1,17 +1,15 @@
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
-import wpcomFactory from '@studio/common/lib/wpcom-factory';
-import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
+import { wpcomClient } from '../client';
 import {
 	sitesEndpointResponseSchema,
 	pullSiteResponseSchema,
 	syncBackupResponseSchema,
 	importResponseSchema,
-} from '@studio/common/types/sync';
-import { backupLsItemSchema, backupLsResponseBodySchema } from '@studio/common/types/sync-tree';
-import { transformSitesResponse } from './transform-sites';
-import type { SyncSite, ImportResponse, SyncOption } from '@studio/common/types/sync';
-import type { BackupLsItem } from '@studio/common/types/sync-tree';
+	type ImportResponse,
+} from './schemas';
+import { transformSitesResponse } from './transform';
+import type { SyncOption, SyncSite } from '../site';
 
 const SITE_FIELDS = [
 	'name',
@@ -32,7 +30,7 @@ export async function fetchSyncableSites(
 	token: string,
 	options: { connectedSiteIds?: number[]; planRequired?: boolean } = {}
 ): Promise< SyncSite[] > {
-	const wpcom = wpcomFactory( token, wpcomXhrRequest );
+	const wpcom = wpcomClient( token );
 
 	const rawResponse = await wpcom.req.get(
 		{
@@ -56,7 +54,7 @@ export async function initiateBackup(
 	remoteSiteId: number,
 	options: { optionsToSync: SyncOption[]; includePathList?: string[] }
 ): Promise< number > {
-	const wpcom = wpcomFactory( token, wpcomXhrRequest );
+	const wpcom = wpcomClient( token );
 
 	const body: { options: SyncOption[]; include_path_list?: string[] } = {
 		options: options.optionsToSync,
@@ -88,7 +86,7 @@ export async function pollBackupStatus(
 	remoteSiteId: number,
 	backupId: number
 ): Promise< BackupStatus > {
-	const wpcom = wpcomFactory( token, wpcomXhrRequest );
+	const wpcom = wpcomClient( token );
 
 	const rawResponse = await wpcom.req.get( `/sites/${ remoteSiteId }/studio-app/sync/backup`, {
 		apiNamespace: 'wpcom/v2',
@@ -97,7 +95,6 @@ export async function pollBackupStatus(
 
 	const parseResult = syncBackupResponseSchema.safeParse( rawResponse );
 	if ( ! parseResult.success ) {
-		console.error( 'Unexpected backup status response:', rawResponse );
 		throw new Error( __( 'Unexpected response from server while checking backup status' ) );
 	}
 	const response = parseResult.data;
@@ -114,7 +111,7 @@ export async function initiateImport(
 	attachmentId: string,
 	options?: { optionsToSync?: SyncOption[]; specificSelectionPaths?: string[] }
 ): Promise< void > {
-	const wpcom = wpcomFactory( token, wpcomXhrRequest );
+	const wpcom = wpcomClient( token );
 
 	const formData: [ string, unknown, Record< string, string >? ][] = [];
 	formData.push( [ 'import_attachment_id', attachmentId ] );
@@ -138,7 +135,7 @@ export async function pollImportStatus(
 	token: string,
 	remoteSiteId: number
 ): Promise< ImportResponse > {
-	const wpcom = wpcomFactory( token, wpcomXhrRequest );
+	const wpcom = wpcomClient( token );
 
 	const rawResponse = await wpcom.req.get( `/sites/${ remoteSiteId }/studio-app/sync/import`, {
 		apiNamespace: 'wpcom/v2',
@@ -163,7 +160,7 @@ export async function fetchLatestRewindId(
 	token: string,
 	remoteSiteId: number
 ): Promise< string > {
-	const wpcom = wpcomFactory( token, wpcomXhrRequest );
+	const wpcom = wpcomClient( token );
 
 	const rawResponse = await wpcom.req.get(
 		`/sites/${ remoteSiteId }/studio-app/sync/get-latest-rewind-id`,
@@ -179,13 +176,6 @@ export async function fetchLatestRewindId(
 	return parsed.rewind_id;
 }
 
-export type RemoteFileEntry = {
-	name: string;
-	isDirectory: boolean;
-	pathId: string;
-	path: string;
-};
-
 /** Raw contents of a remote backup directory (rewind backup `ls`), keyed by entry name. */
 export async function fetchRemoteFileTreeContents(
 	token: string,
@@ -193,7 +183,7 @@ export async function fetchRemoteFileTreeContents(
 	rewindId: string,
 	treePath: string
 ): Promise< Record< string, unknown > > {
-	const wpcom = wpcomFactory( token, wpcomXhrRequest );
+	const wpcom = wpcomClient( token );
 
 	const rawResponse = await wpcom.req.post( {
 		path: `/sites/${ remoteSiteId }/rewind/backup/ls`,
@@ -201,8 +191,12 @@ export async function fetchRemoteFileTreeContents(
 		body: { backup_id: rewindId, path: treePath },
 	} );
 
-	const parsed = backupLsResponseBodySchema
-		.partial( { error: true, contents: true } )
+	const parsed = z
+		.object( {
+			ok: z.boolean(),
+			error: z.string().optional(),
+			contents: z.record( z.string(), z.unknown() ).optional(),
+		} )
 		.parse( rawResponse );
 
 	if ( ! parsed.ok ) {
@@ -217,7 +211,7 @@ export async function fetchHostingPhpVersion(
 	remoteSiteId: number
 ): Promise< string | undefined > {
 	try {
-		const wpcom = wpcomFactory( token, wpcomXhrRequest );
+		const wpcom = wpcomClient( token );
 		const response = await wpcom.req.get( {
 			apiNamespace: 'wpcom/v2',
 			path: `/sites/${ remoteSiteId }/hosting/php-version`,
@@ -226,30 +220,4 @@ export async function fetchHostingPhpVersion(
 	} catch {
 		return undefined;
 	}
-}
-
-export async function fetchRemoteFileTree(
-	token: string,
-	remoteSiteId: number,
-	rewindId: string,
-	treePath: string = '/wp-content/'
-): Promise< RemoteFileEntry[] > {
-	const contents = await fetchRemoteFileTreeContents( token, remoteSiteId, rewindId, treePath );
-
-	const entries: RemoteFileEntry[] = [];
-	for ( const [ name, rawItem ] of Object.entries( contents ) ) {
-		const itemResult = backupLsItemSchema.safeParse( rawItem );
-		if ( itemResult.success ) {
-			const item: BackupLsItem = itemResult.data;
-			const isDirectory = item.type === 'dir' || item.has_children === true;
-			entries.push( {
-				name,
-				isDirectory,
-				pathId: item.id,
-				path: `${ treePath }${ name }${ isDirectory ? '/' : '' }`,
-			} );
-		}
-	}
-
-	return entries;
 }

@@ -1,5 +1,5 @@
 import { Upload } from 'tus-js-client';
-import type { Readable } from 'stream';
+import type { PushArchive } from '../../types';
 
 // Each chunk waits for a server round trip, so larger chunks upload faster; a failed chunk is
 // resent whole. 10 MB matches WordPress.com's own tus uploaders (Calypso media, VideoPress).
@@ -9,7 +9,7 @@ const TUS_CHUNK_SIZE = 10_000_000;
  * 5xx and network errors (status 0) are transient. 4xx are terminal, except 409
  * (Conflict) and 423 (Locked), which the resumable protocol uses transiently.
  */
-export function shouldRetryTusStatus( status: number ): boolean {
+function shouldRetryTusStatus( status: number ): boolean {
 	if ( status >= 400 && status < 500 ) {
 		return status === 409 || status === 423;
 	}
@@ -20,7 +20,7 @@ export type TusUploadOptions = {
 	token: string;
 	remoteSiteId: number;
 	// A Blob in a browser; in Node, a stream of the archive with its size.
-	file: Blob | Readable;
+	file: PushArchive[ 'file' ];
 	filename: string;
 	size?: number;
 	onProgress?: ( percent: number ) => void;
@@ -60,7 +60,8 @@ export function createTusUpload( options: TusUploadOptions ): {
 				return;
 			}
 
-			const upload = new Upload( file, {
+			// tus-js-client reads a Node stream in Node and a Blob in the page.
+			const upload = new Upload( file as Blob, {
 				endpoint: `https://public-api.wordpress.com/rest/v1.1/studio-file-uploads/${ remoteSiteId }`,
 				chunkSize: TUS_CHUNK_SIZE,
 				retryDelays: [ 0, 1000, 3000, 5000, 10000, 25000 ],

@@ -92,7 +92,7 @@ export function setupUpdates() {
 	autoUpdater.on( 'checking-for-update', () => {
 		updaterState = 'checking-for-update';
 		lastError = null;
-		emitAppUpdateStatus();
+		emitAppUpdateStatus( { requested: showManualCheckDialogs } );
 	} );
 
 	autoUpdater.on( 'update-available', async () => {
@@ -249,7 +249,8 @@ export async function manualCheckForUpdates() {
 	}
 
 	if ( updaterState === 'checking-for-update' ) {
-		console.log( 'Manually checking for update, but discovered an check is already in progress' );
+		console.log( 'Manually checking for update, but discovered a check is already in progress' );
+		emitAppUpdateStatus( { requested: true } );
 	} else {
 		console.log( `Manually checking for update: ${ autoUpdater.getFeedURL() }` );
 		autoUpdater.checkForUpdates();

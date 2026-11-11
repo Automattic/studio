@@ -1,3 +1,4 @@
+import { getComposerAttachmentImageSrc } from '@studio/agent/protocol/composer-attachment-preview';
 import { __, sprintf } from '@wordpress/i18n';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
@@ -9,6 +10,9 @@ import {
 	Button,
 	IconButton,
 	Popover,
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
 } from '@/lib/ui';
 import styles from './review-chip.module.css';
 import {
@@ -71,9 +75,13 @@ export function AnnotationReviewChip( {
 				} }
 			>
 				<Popover.Trigger
-					openOnHover
 					render={
-						<AttachmentChipTrigger ref={ trigger } disabled={ busy } aria-label={ label } />
+						<AttachmentChipTrigger
+							ref={ trigger }
+							className={ styles.trigger }
+							disabled={ busy }
+							aria-label={ label }
+						/>
 					}
 				>
 					<AnnotateIcon />
@@ -94,9 +102,7 @@ export function AnnotationReviewChip( {
 							  false
 							: false
 					}
-					finalFocus={ ( interactionType ) =>
-						editing.current || interactionType !== 'keyboard' ? false : trigger.current ?? false
-					}
+					finalFocus={ () => ( editing.current ? false : trigger.current ?? false ) }
 				>
 					<div
 						ref={ list }
@@ -131,8 +137,7 @@ export function AnnotationReviewChip( {
 									className={ styles.note }
 									disabled={ busy }
 									aria-label={ sprintf(
-										__( 'Edit annotation %d: %s' ),
-										note.number,
+										__( 'Edit annotation: %s' ),
 										note.comment || __( 'Image annotation' )
 									) }
 									onClick={ () => {
@@ -142,32 +147,57 @@ export function AnnotationReviewChip( {
 										requestAnnotationReview( siteId, note.id );
 									} }
 								>
-									<span className={ styles.number } aria-hidden="true">
-										{ note.number }
-									</span>
-									<span className={ styles.label }>
-										{ note.comment || __( 'Image annotation' ) }
+									<span className={ styles.content }>
+										{ note.images.map( ( image ) => (
+											<Tooltip key={ image.id }>
+												<TooltipTrigger render={ <span className={ styles.thumbnail } /> }>
+													<img
+														src={ getComposerAttachmentImageSrc( image ) ?? undefined }
+														alt={ image.name }
+													/>
+												</TooltipTrigger>
+												<TooltipContent
+													side="right"
+													align="start"
+													className={ styles.imagePreview }
+													role="tooltip"
+													aria-label={ image.name }
+												>
+													<img src={ getComposerAttachmentImageSrc( image ) ?? undefined } alt="" />
+												</TooltipContent>
+											</Tooltip>
+										) ) }
+										<span className={ styles.label }>
+											{ note.comment || __( 'Image annotation' ) }
+										</span>
 									</span>
 								</Button>
 								<IconButton
 									variant="muted-ghost"
+									destructive
+									className={ styles.delete }
 									icon={ <TrashIcon /> }
 									size="icon-2xs"
-									label={ sprintf( __( 'Delete annotation %d' ), note.number ) }
+									tooltipSide="bottom"
+									label={ sprintf(
+										__( 'Delete annotation: %s' ),
+										note.comment || __( 'Image annotation' )
+									) }
 									disabled={ busy }
-									onClick={ () => {
+									onClick={ ( event ) => {
 										const input = trigger.current
 											?.closest( '[data-slot="input-group"]' )
 											?.querySelector< HTMLTextAreaElement >( 'textarea' );
-										removeAnnotations( siteId, [ note.id ] );
-										requestAnimationFrame(
-											() =>
-												(
-													list.current?.querySelector< HTMLButtonElement >(
-														'[data-annotation-edit]'
-													) ?? input
-												)?.focus()
+										const next = Array.from(
+											list.current?.querySelectorAll< HTMLButtonElement >(
+												'[data-annotation-edit]'
+											) ?? []
+										).find(
+											( button ) => button.parentElement !== event.currentTarget.parentElement
 										);
+										// Move focus before removal to avoid the popover's focus recovery.
+										( next ?? input )?.focus();
+										removeAnnotations( siteId, [ note.id ] );
 									} }
 								/>
 							</div>

@@ -8,11 +8,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useMemo } from 'react';
 import { setDismissedAiCreditsIntent, useDismissedAiCreditsIntent } from '@/data/ai-credits-notice';
-import {
-	DISMISSED_MESSAGES_QUERY_KEY,
-	syncCardNotices,
-	type ToastAction,
-} from '@/data/app-messages';
+import { DISMISSED_MESSAGES_QUERY_KEY, type ToastAction } from '@/data/app-messages';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useAiCreditsMeter } from './use-ai-credits-meter';
 
@@ -74,14 +70,6 @@ function usePersistentMessageSources(): PersistentMessage[] {
 
 		return messages;
 	}, [ aiCreditsIntent, aiCreditsFraction, aiCreditsNotice.visible, locale ] );
-}
-
-// Mount once.
-export function useRecordPersistentMessages(): void {
-	const sources = usePersistentMessageSources();
-	useEffect( () => {
-		syncCardNotices( sources );
-	}, [ sources ] );
 }
 
 export function useActivePersistentMessages(): {

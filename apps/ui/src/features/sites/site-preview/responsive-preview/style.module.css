@@ -15,9 +15,26 @@
 
 .responsiveToolbar {
 	composes: toolbar;
-	justify-content: safe center;
+	display: grid;
+	grid-template-columns: var( --control-size ) minmax( 0, 1fr ) var( --control-size );
 	padding-block: var( --space-0_5 );
 	border-block-start: 1px solid var( --border );
+	overflow: visible;
+}
+
+.responsiveControls {
+	grid-column: 2;
+	display: flex;
+	align-items: center;
+	justify-content: safe center;
+	gap: var( --band-gap );
+	min-width: 0;
+	overflow-x: auto;
+}
+
+.close {
+	grid-column: 3;
+	justify-self: end;
 }
 
 .device {
@@ -60,11 +77,12 @@
 
 .dimension {
 	width: 44px;
-	height: 32px;
+	height: 28px;
+	border-radius: var( --radius-sm );
 	padding: 0 var( --space-1 );
-	font-size: var( --text-xs );
+	font-size: var( --text-xxs );
 	font-weight: var( --font-weight-medium );
-	line-height: var( --text-xs--line-height );
+	line-height: var( --text-xxs--line-height );
 	font-variant-numeric: tabular-nums;
 	color: var( --foreground );
 	text-align: center;

@@ -232,8 +232,6 @@ steps:
         depends_on: input-dev-windows
         agents:
           queue: windows
-        env:
-          SIGN_WINDOWS_BUILD: 1
         command: powershell -File .buildkite/commands/build-for-windows.ps1 -BuildType dev -Architecture {{matrix}}
         artifact_paths:
           - apps\studio\out\**\studio-setup.exe

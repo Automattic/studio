@@ -1,6 +1,6 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { getNoticeHistory } from '@/data/app-messages';
+import { getVisibleToasts } from '@/data/app-messages';
 import { UserMenu } from '@/features/account';
 import { AppToasts } from '@/features/notifications';
 import { createFakeConnector, TEST_USER } from '@/test/fake-connector';
@@ -46,7 +46,7 @@ describe( 'AccountMenu', () => {
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
 			if ( label === 'Help Center' ) {
 				expect( connector.openExternalUrl ).toHaveBeenCalledWith(
-					'https://developer.wordpress.com/docs/developer-tools/studio/'
+					'https://wordpress.studio/docs/'
 				);
 			} else {
 				await waitFor( () =>
@@ -260,7 +260,7 @@ describe( 'AccountMenu', () => {
 		connector.getAuthUser.mockRejectedValue( new Error( 'Session expired' ) );
 		renderWithProviders( <UserMenu />, { connector } );
 		await waitFor( () =>
-			expect( getNoticeHistory()[ 0 ]?.title ).toBe( 'Couldn’t refresh your account' )
+			expect( getVisibleToasts()[ 0 ]?.title ).toBe( 'Couldn’t refresh your account' )
 		);
 		expect( screen.queryByRole( 'alert' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Session expired' ) ).not.toBeInTheDocument();

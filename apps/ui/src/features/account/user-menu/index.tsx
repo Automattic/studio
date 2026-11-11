@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
-import { SettingsIcon, WifiOffIcon } from 'lucide-react';
+import { SettingsIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
 import { useAuthUser, useLogout } from '@/data/queries/use-auth-user';
@@ -8,18 +8,16 @@ import { getSections } from '@/data/settings-sections';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { AccountPromptDialog } from '@/features/account/account-prompt';
 import { Gravatar } from '@/features/account/gravatar';
-import { AppUpdateButton, NoticeHistoryButton } from '@/features/notifications';
-import { useOffline } from '@/lib/hooks';
+import { AppUpdateButton } from '@/features/notifications';
 import { LoginIcon } from '@/lib/icons';
-import { Button, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
+import { Button, Menu } from '@/lib/ui';
 import styles from './style.module.css';
 import { SupportMenu } from './support-menu';
 
 const MENU_SECTIONS: string[] = [ 'ai', 'usage' ];
 
-export function UserMenu( { active = true }: { active?: boolean } ) {
+export function UserMenu() {
 	const { data: user } = useAuthUser();
-	const isOffline = useOffline();
 	const logout = useLogout();
 	const openSettingsDialog = useOpenSettings();
 	const openSettings = () => openSettingsDialog();
@@ -103,8 +101,6 @@ export function UserMenu( { active = true }: { active?: boolean } ) {
 				<div className={ styles.updateSlot }>
 					<AppUpdateButton />
 				</div>
-				{ isOffline && <OfflineIndicator /> }
-				<NoticeHistoryButton active={ active } />
 			</div>
 			<AccountPromptDialog
 				open={ promptOpen }
@@ -118,21 +114,5 @@ export function UserMenu( { active = true }: { active?: boolean } ) {
 				analytics={ { placement: 'account_menu', intent: 'account' } }
 			/>
 		</div>
-	);
-}
-
-function OfflineIndicator() {
-	const label = __( "You're offline" );
-	return (
-		<Tooltip>
-			<TooltipTrigger
-				render={ <span className={ styles.offline } role="img" aria-label={ label } /> }
-			>
-				<WifiOffIcon />
-			</TooltipTrigger>
-			<TooltipContent>
-				{ __( "You're offline. Your local sites still work normally." ) }
-			</TooltipContent>
-		</Tooltip>
 	);
 }

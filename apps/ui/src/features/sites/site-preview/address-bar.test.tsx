@@ -30,6 +30,28 @@ function autoLoginPath( target: string ) {
 	return `/studio-auto-login?redirect_to=${ encodeURIComponent( `${ SITE_URL }${ target }` ) }`;
 }
 
+it.each( [ false, true ] )(
+	'hides the scheme while retaining the full URL for editing (compact: %s)',
+	async ( compact ) => {
+		const user = userEvent.setup();
+		render(
+			<PreviewAddressBar
+				site={ SITE }
+				siteUrl={ SITE_URL }
+				path="/about/"
+				compact={ compact }
+				onNavigate={ vi.fn() }
+			/>
+		);
+		const input = screen.getByRole( 'textbox', { name: 'Address' } ) as HTMLInputElement;
+		expect( screen.getByText( 'localhost:8881/about/' ) ).toHaveAttribute( 'aria-hidden', 'true' );
+		await user.click( input );
+		expect( input ).toHaveValue( `${ SITE_URL }/about/` );
+		expect( input.selectionStart ).toBe( 0 );
+		expect( input.selectionEnd ).toBe( input.value.length );
+	}
+);
+
 function renderAddressBar( {
 	path = '/',
 	remote = false,
@@ -282,7 +304,7 @@ describe( 'PreviewAddressBar', () => {
 		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
 		const recent = await screen.findByRole( 'option', { name: /About the team/ } );
 		expect( within( recent ).getByText( '— localhost:8881/about/' ) ).toBeVisible();
-		for ( const label of [ 'Front end', 'WordPress Admin', 'Database', 'Design system' ] ) {
+		for ( const label of [ 'Front end', 'WordPress Admin', 'Database', 'Design System' ] ) {
 			expect( screen.queryByRole( 'option', { name: label } ) ).not.toBeInTheDocument();
 		}
 		fireEvent.click( recent );

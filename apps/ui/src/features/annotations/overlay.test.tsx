@@ -160,6 +160,51 @@ describe( 'AnnotationOverlay', () => {
 	} );
 
 	describe( 'images', () => {
+		it( 'keeps the region capture attached while allowing reference images to be removed', async () => {
+			annotate();
+			act( () => {
+				pickAnnotation(
+					SITE,
+					{ kind: 'region', path: '/' },
+					{ images: [ image( 'capture' ), image( 'reference' ) ] }
+				);
+			} );
+			await setup();
+			expect( screen.getByRole( 'img', { name: 'capture.png' } ) ).toBeVisible();
+			expect( screen.getAllByRole( 'button', { name: 'Remove attachment' } ) ).toHaveLength( 1 );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Remove attachment' } ) );
+			expect( getSiteAnnotations( SITE ).notes[ 0 ].images ).toEqual( [ image( 'capture' ) ] );
+			expect( screen.queryByRole( 'img', { name: 'reference.png' } ) ).not.toBeInTheDocument();
+			expect(
+				screen.queryByRole( 'button', { name: 'Remove attachment' } )
+			).not.toBeInTheDocument();
+			expect( screen.getByRole( 'button', { name: 'Delete annotation' } ) ).toBeVisible();
+		} );
+
+		it( 'hides the drawing capture while keeping reference images editable', async () => {
+			annotate();
+			act( () => {
+				pickAnnotation(
+					SITE,
+					{ kind: 'drawing', path: '/' },
+					{ images: [ image( 'capture' ), image( 'reference' ) ] }
+				);
+			} );
+			await setup();
+			expect( screen.queryByRole( 'img', { name: 'capture.png' } ) ).not.toBeInTheDocument();
+			expect( screen.getByRole( 'img', { name: 'reference.png' } ) ).toBeVisible();
+			const input = screen.getByRole( 'textbox', { name: 'Describe the change' } );
+			fireEvent.keyDown( input, { key: 'Escape' } );
+			expect( input ).toBeVisible();
+			expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'Add or delete this annotation' );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Remove attachment' } ) );
+			expect( getSiteAnnotations( SITE ).notes[ 0 ].images ).toEqual( [ image( 'capture' ) ] );
+			expect( screen.queryByRole( 'list', { name: 'Attachments' } ) ).not.toBeInTheDocument();
+			fireEvent.keyDown( input, { key: 'Escape' } );
+			expect( screen.queryByRole( 'group', { name: 'Annotation' } ) ).not.toBeInTheDocument();
+			expect( getSiteAnnotations( SITE ).notes ).toHaveLength( 0 );
+		} );
+
 		function editNote( otherImages: ComposerImageAttachment[] = [] ) {
 			let editing = '';
 			act( () => {
@@ -215,9 +260,8 @@ describe( 'AnnotationOverlay', () => {
 			await waitFor( () =>
 				expect( images().map( ( item ) => item.name ) ).toEqual( [ 'four.png' ] )
 			);
-			expect( getVisibleToasts().map( ( toast ) => toast.title ) ).toContain(
-				'You can attach up to 4 images'
-			);
+			expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'You can attach up to 4 images' );
+			expect( getVisibleToasts() ).toEqual( [] );
 		} );
 
 		it( 'rejects unsupported images instead of attaching them as filesystem paths', async () => {

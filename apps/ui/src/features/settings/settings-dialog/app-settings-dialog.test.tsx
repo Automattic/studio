@@ -3,7 +3,7 @@ import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { INTERFACE_PREFERENCE_DEFAULTS } from '@studio/common/lib/user-settings/preferences';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
+import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import {
 	PANEL_WIDTHS_RESET_EVENT,
 	PANEL_CONTENT_WIDTH_STORAGE_KEY,
@@ -123,10 +123,10 @@ const searchBox = () => screen.getByRole( 'textbox', { name: 'Search settings' }
 
 describe( 'WordPress Studio settings', () => {
 	it.each( [ undefined, true, false ] )(
-		'saves the split-view startup setting from %s',
+		'saves the startup chat setting from %s',
 		async ( value ) => {
 			const { connector } = await setup( { preferences: { openChatOnSiteStart: value } } );
-			const toggle = await screen.findByRole( 'switch', { name: 'Start sites in split view' } );
+			const toggle = await screen.findByRole( 'switch', { name: 'Start sites with chat' } );
 			if ( value ?? true ) expect( toggle ).toBeChecked();
 			else expect( toggle ).not.toBeChecked();
 			fireEvent.click( toggle );
@@ -338,18 +338,25 @@ describe( 'WordPress Studio settings', () => {
 		);
 	} );
 
-	it( 'shows account details above General preferences and supports logging out', async () => {
-		const { connector } = await setup();
+	it( 'hides the Application heading when logged in', async () => {
+		await setup();
 		await screen.findByRole( 'combobox', { name: 'Language' } );
-		expect( await screen.findByText( TEST_USER.email ) ).toBeVisible();
-		expect( screen.getByText( TEST_USER.displayName ) ).toBeVisible();
+		expect( screen.queryByText( TEST_USER.email ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( TEST_USER.displayName ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'tab', { name: 'Account' } ) ).not.toBeInTheDocument();
 		const general = screen.getByRole( 'tabpanel', { name: 'General' } );
-		expect( within( general ).getAllByRole( 'group' )[ 0 ] ).toHaveTextContent( TEST_USER.email );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Log out' } ) );
-		await waitFor( () => expect( connector.logout ).toHaveBeenCalledExactlyOnceWith() );
-		expect( await studioConnect() ).toBeVisible();
-		expect( screen.queryByText( TEST_USER.email ) ).not.toBeInTheDocument();
+		expect( within( general ).queryByText( 'Application' ) ).not.toBeInTheDocument();
+		expect(
+			within( general ).queryByRole( 'button', { name: 'Log out' } )
+		).not.toBeInTheDocument();
+		expect(
+			within( general ).queryByRole( 'button', { name: 'Connect' } )
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'shows the Application heading when logged out', async () => {
+		await setup( { signedIn: false } );
+		expect( await screen.findByRole( 'group', { name: 'Application' } ) ).toBeVisible();
 	} );
 
 	it( 'shows account-wide preview usage in Sharing', async () => {
@@ -417,7 +424,7 @@ describe( 'WordPress Studio settings', () => {
 		fireEvent.click( await screen.findByRole( 'combobox', { name: 'Default code editor' } ) );
 		const options = await screen.findAllByRole( 'option' );
 		expect( options.map( ( option ) => option.textContent ) ).toEqual( [
-			'System default',
+			'System',
 			supportedEditorConfig.cursor.label(),
 			supportedEditorConfig.vscode.label(),
 		] );
@@ -523,6 +530,42 @@ describe( 'WordPress Studio settings', () => {
 		expect( theme ).toBeEnabled();
 	} );
 
+	it( 'saves picked accent colors without changing intensity or contrast', async () => {
+		const { connector, user } = await setup( {
+			section: 'appearance',
+			preferences: { accentColor: '#ff0000', tintIntensity: 40, contrast: 30 },
+		} );
+		await user.click( await screen.findByRole( 'textbox', { name: 'Hex color' } ) );
+		await user.tab();
+		await user.tab();
+		await user.keyboard( '{ArrowRight}' );
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenCalledExactlyOnceWith(
+				{ accentColor: '#ff0400', tintIntensity: 40, contrast: 30 },
+				undefined
+			)
+		);
+		expect( document.documentElement.dataset.accentColor ).toBe( '#ff0400' );
+		await user.keyboard( '{Escape}' );
+		expect( screen.getByRole( 'dialog', { name: 'Settings' } ) ).toBeVisible();
+	} );
+
+	it( 'restores the saved accent color when saving a picked color fails', async () => {
+		const { connector, user } = await setup( {
+			section: 'appearance',
+			preferences: { accentColor: '#ff0000' },
+		} );
+		connector.setUserPreferences.mockRejectedValueOnce( new Error( 'Disk full' ) );
+		const input = await screen.findByRole( 'textbox', { name: 'Hex color' } );
+		await user.click( input );
+		await user.tab();
+		await user.tab();
+		await user.keyboard( '{ArrowRight}' );
+		expect( await screen.findByText( ERROR ) ).toBeVisible();
+		await waitFor( () => expect( input ).toHaveValue( '#ff0000' ) );
+		expect( document.documentElement.dataset.accentColor ).toBe( '#ff0000' );
+	} );
+
 	it( 'keeps the current panel while searching and opens the selected field', async () => {
 		const { connector } = await setup( { section: 'keyboard' } );
 		fireEvent.change( searchBox(), { target: { value: 'theme' } } );
@@ -574,8 +617,8 @@ describe( 'WordPress Studio settings', () => {
 		).toEqual( [
 			'General',
 			'Appearance',
-			'Sharing',
 			'Providers',
+			'Sharing',
 			'MCP',
 			'Usage',
 			'Skills',
@@ -695,7 +738,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( links ).toHaveLength( 1 );
 		fireEvent.click( links[ 0 ] );
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
-			'https://developer.wordpress.com/docs/developer-tools/studio/studio-code/'
+			'https://wordpress.studio/docs/studio-code/'
 		);
 		expect(
 			screen.getByText(
@@ -933,7 +976,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		connector.copyText.mockRejectedValueOnce( new Error( 'Clipboard unavailable' ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Copy MCP configuration' } ) );
 		await waitFor( () =>
-			expect( getNoticeHistory()[ 0 ] ).toMatchObject( {
+			expect( getVisibleToasts()[ 0 ] ).toMatchObject( {
 				title: 'Could not copy',
 				description: 'Clipboard unavailable',
 			} )

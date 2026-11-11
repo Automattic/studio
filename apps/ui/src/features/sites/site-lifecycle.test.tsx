@@ -1,8 +1,9 @@
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
+import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import { updateResponsivePreview } from '@/data/responsive-preview';
+import { clearComposerDrafts } from '@/features/composer';
 import splitStyles from '@/features/sites/panel-split-frame/style.module.css';
 import { createFakeConnector, makeSession, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
@@ -31,6 +32,15 @@ function setup( sites: SiteDetails[] = [ site() ], path = '/sites/one' ) {
 		sessions: sites.map( ( item ) => chatFor( item ) ),
 	} );
 	return renderApp( { connector, path } );
+}
+
+async function restartFromPalette() {
+	const isApple = /Mac|iPhone|iPad/.test( navigator.platform );
+	fireEvent.keyDown( document, { code: 'KeyK', key: 'k', metaKey: isApple, ctrlKey: ! isApple } );
+	fireEvent.change( await screen.findByLabelText( 'Search commands' ), {
+		target: { value: 'Restart site' },
+	} );
+	fireEvent.click( await screen.findByRole( 'option', { name: /^Restart site/ } ) );
 }
 
 function deferred() {
@@ -69,6 +79,7 @@ function useElectron() {
 
 beforeEach( () => {
 	localStorage.clear();
+	clearComposerDrafts();
 	resetAppMessagesForTests();
 } );
 
@@ -77,6 +88,42 @@ afterEach( () => {
 } );
 
 describe( 'site lifecycle and preview', () => {
+	it.each( [ '/sites/one', '/sessions/one-chat' ] )(
+		'attaches a screenshot to the site composer from %s',
+		async ( path ) => {
+			useElectron();
+			const { history, user, connector } = setup( [ site( { running: true } ) ], path );
+			await waitFor( () => expect( frame() ).not.toBeNull() );
+			loadWebview();
+			Object.assign( frame()!, {
+				capturePage: async () => ( {
+					isEmpty: () => false,
+					toDataURL: () => 'data:image/png;base64,c2NyZWVuc2hvdA==',
+				} ),
+			} );
+			fireEvent( frame()!, new Event( 'did-stop-loading' ) );
+			if ( path.startsWith( '/sessions/' ) ) {
+				fireEvent.change( await screen.findByRole( 'combobox', COMPOSER ), {
+					target: { value: 'Keep this draft' },
+				} );
+				await user.click( screen.getByRole( 'button', { name: 'Expand panel' } ) );
+			}
+
+			await user.click( await screen.findByRole( 'button', { name: 'Browser options' } ) );
+			await user.click( await screen.findByRole( 'menuitem', { name: 'Take screenshot' } ) );
+
+			const input = await screen.findByRole( 'combobox', COMPOSER );
+			expect( input ).toBeVisible();
+			await screen.findByRole( 'button', { name: /^Preview screenshot-.*\.png$/ } );
+			await waitFor( () => expect( input ).toHaveFocus() );
+			expect( input ).toHaveValue( path.startsWith( '/sessions/' ) ? 'Keep this draft' : '' );
+			expect( history.location.pathname ).toBe(
+				path.startsWith( '/sessions/' ) ? path : '/sites/one/new'
+			);
+			expect( connector.continueSession ).not.toHaveBeenCalled();
+		}
+	);
+
 	it.each( [ undefined, true, false ] )(
 		'uses the startup layout preference: %s',
 		async ( openChatOnSiteStart ) => {
@@ -266,9 +313,7 @@ describe( 'site lifecycle and preview', () => {
 			await waitFor( () => expect( panelShown() ).toBe( false ) );
 			expect( layoutMotion() ).toBeNull();
 			expect( composer ).toBeVisible();
-			expect(
-				screen.queryByRole( 'button', { name: 'Restore split view' } )
-			).not.toBeInTheDocument();
+			expect( screen.queryByRole( 'button', { name: 'Show chat' } ) ).not.toBeInTheDocument();
 			expect( composer ).toHaveValue( 'Keep this site draft' );
 			expect( screen.getByRole( 'combobox', { ...COMPOSER, hidden: true } ) ).toBe( composer );
 			expect( connector.createSession ).not.toHaveBeenCalled();
@@ -338,8 +383,7 @@ describe( 'site lifecycle and preview', () => {
 				}
 			};
 			try {
-				fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
-				fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Restart' } ) );
+				await restartFromPalette();
 				await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( 'one' ) );
 				expectPreserved();
 				await act( async () => stop.resolve() );
@@ -377,10 +421,9 @@ describe( 'site lifecycle and preview', () => {
 			if ( stage === 'stop' )
 				connector.stopSite.mockRejectedValueOnce( new Error( 'Restart failed' ) );
 			else connector.startSite.mockRejectedValueOnce( new Error( 'Restart failed' ) );
-			fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
-			fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Restart' } ) );
+			await restartFromPalette();
 			await waitFor( () =>
-				expect( getNoticeHistory().some( ( notice ) => notice.intent === 'error' ) ).toBe( true )
+				expect( getVisibleToasts().some( ( notice ) => notice.intent === 'error' ) ).toBe( true )
 			);
 			await waitFor( () =>
 				expect( screen.queryByText( 'Restarting site…' ) ).not.toBeInTheDocument()
@@ -401,7 +444,6 @@ describe( 'site lifecycle and preview', () => {
 		connector.stopSite.mockImplementation( () => stop.promise );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop site' } ) );
 		const action = lifecycle( 'My site' );
 		await waitFor( () => expect( panelShown() ).toBe( true ) );
 		expect( action ).not.toHaveAttribute( 'aria-busy' );
@@ -436,7 +478,10 @@ describe( 'site lifecycle and preview', () => {
 			);
 			expect( lifecycle( 'Second' ) ).not.toHaveAttribute( 'aria-disabled', 'true' );
 			fireEvent.click( screen.getByRole( 'button', { name: 'Second' } ) );
-			fireEvent.click( await screen.findByRole( 'button', { name: 'Site menu' } ) );
+			await waitFor( () =>
+				expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toHaveTextContent( 'Second' )
+			);
+			fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
 			if ( running ) {
 				fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
 			}
@@ -651,7 +696,7 @@ describe( 'site lifecycle and preview', () => {
 			connector.emit( 'onSiteEvent', { event: SITE_EVENTS.UPDATED, siteId: 'one', running: true } )
 		);
 		expect( connector.startSite ).toHaveBeenCalledTimes( 1 );
-		expect( getNoticeHistory() ).toHaveLength( 0 );
+		expect( getVisibleToasts() ).toHaveLength( 0 );
 	} );
 
 	it.each( [ false, true ] )(
@@ -664,10 +709,7 @@ describe( 'site lifecycle and preview', () => {
 			);
 			const trigger = await screen.findByRole( 'button', { name: 'Site menu' } );
 			fireEvent.click( trigger );
-			if ( running ) {
-				fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
-			}
-			const label = running ? 'Stop site' : 'Start';
+			const label = running ? 'Stop' : 'Start';
 			fireEvent.click( await screen.findByRole( 'menuitem', { name: label } ) );
 			await waitFor( () =>
 				expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toBeEnabled()
@@ -680,9 +722,10 @@ describe( 'site lifecycle and preview', () => {
 				expect( currentTrigger.querySelector( '[data-slot=spinner]' ) ).not.toBeInTheDocument();
 			} );
 			fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
-			expect(
-				await screen.findByRole( 'menuitem', { name: running ? 'Stop' : label } )
-			).toHaveAttribute( 'aria-disabled', 'true' );
+			expect( await screen.findByRole( 'menuitem', { name: label } ) ).toHaveAttribute(
+				'aria-disabled',
+				'true'
+			);
 			expect(
 				screen.queryByRole( 'menuitem', { name: 'WordPress credentials' } )
 			).not.toBeInTheDocument();
@@ -719,7 +762,7 @@ describe( 'site lifecycle and preview', () => {
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Start My site' } ) );
 		await screen.findByRole( 'button', { name: 'Stop My site' } );
 		expect( connector.startSite ).toHaveBeenCalledTimes( 2 );
-		expect( getNoticeHistory() ).toHaveLength( 0 );
+		expect( getVisibleToasts() ).toHaveLength( 0 );
 	} );
 
 	it( 'shows a failed start without claiming the site is running', async () => {

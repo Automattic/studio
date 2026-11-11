@@ -27,8 +27,9 @@
 /* Grows with its text up to six lines, then scrolls. */
 .input {
 	min-height: 0;
-	max-height: calc( 6lh + 28px );
+	max-height: calc( 6lh + 24px );
 	padding: var( --space-3_5 );
+	padding-block-end: var( --space-2_5 );
 	overflow-y: auto;
 }
 

@@ -32,6 +32,10 @@
 		}
 	}
 
+	.button:is( :active, [aria-pressed='true'], [aria-expanded='true'] ) {
+		transition-duration: 0s;
+	}
+
 	.button:focus-visible {
 		box-shadow: inset 0 0 0 2px var( --ring );
 	}
@@ -295,6 +299,14 @@
 		font-weight: inherit;
 	}
 
+	.button[data-destructive]:is( :hover, :active, :focus-visible ):not(
+			:disabled,
+			[data-disabled]
+		) {
+		background-color: var( --destructive-hover );
+		color: var( --destructive );
+	}
+
 	/* Sizes. */
 	.button[data-size='sm'] {
 		height: var( --button-control-size, 32px );
@@ -345,10 +357,13 @@
 		padding-inline-end: var( --space-1_5 );
 	}
 
+	.button[data-size='2xs']:has( > [data-dropdown-indicator] ) {
+		padding-inline-end: var( --space-1 );
+	}
+
 	.button[data-size='lg'] {
 		--button-padding-inline: 24px;
 
-		min-width: 208px;
 		height: 44px;
 		font-size: var( --text-sm );
 	}

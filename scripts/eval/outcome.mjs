@@ -762,3 +762,12 @@ export const designSystemReplyLink = check( ( d ) => {
 		? pass( 'final reply includes the design system link within prose' )
 		: fail( `design system link is in a standalone links row: ${ paragraph }` );
 } );
+
+export const regionAnnotationApplied = check( ( d ) => {
+	return ( d.inspections || [] ).some(
+		( inspection ) =>
+			inspection.exitCode === 0 && inspection.stdout.trim() === 'ANNOTATION_COPY_UPDATED'
+	)
+		? pass( 'The annotated heading changed in the rendered content.' )
+		: fail( 'The annotated heading did not reach the rendered content.' );
+} );

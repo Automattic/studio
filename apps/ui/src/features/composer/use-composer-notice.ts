@@ -3,7 +3,7 @@ import {
 	formatAiAccessRequiredHeadline,
 	getStudioCodeAiAccessState,
 	STUDIO_ASSISTANT_QUOTA_OFFLINE,
-	STUDIO_CODE_AI_BETA_APPLY_URL,
+	STUDIO_CODE_DOCS_URL,
 } from '@studio/common/lib/studio-assistant-quota';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useState } from 'react';
@@ -101,8 +101,8 @@ export function useComposerNotice(
 		return {
 			message: formatAiAccessRequiredHeadline( quota.data ),
 			action: {
-				label: __( 'Apply for access' ),
-				onClick: () => void connector.openExternalUrl( STUDIO_CODE_AI_BETA_APPLY_URL ),
+				label: __( 'Learn more' ),
+				onClick: () => void connector.openExternalUrl( STUDIO_CODE_DOCS_URL ),
 			},
 		};
 	}

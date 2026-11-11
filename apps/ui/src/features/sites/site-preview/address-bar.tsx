@@ -4,8 +4,8 @@ import { __ } from '@wordpress/i18n';
 import { UserRoundIcon } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import {
-	AppearanceIcon,
 	DatabaseIcon,
+	DesignSystemIcon,
 	ExternalLinkIcon,
 	GlobeIcon,
 	MailIcon,
@@ -134,6 +134,7 @@ interface PreviewAddressBarProps {
 	onOpenExternal?: () => void;
 	onExternalNavigate?: ( url: string ) => void;
 	disabled?: boolean;
+	compact?: boolean;
 }
 
 interface RecentPreviewLocation {
@@ -218,7 +219,7 @@ function storeRecentLocation(
 function getDisplayUrl( siteUrl: string, path: string ): string {
 	if ( path === EMAIL_PREVIEW_PATH ) return __( 'Email log' );
 	if ( path === DESIGN_SYSTEM_PREVIEW_PATH ) {
-		return __( 'Design system' );
+		return __( 'Design System' );
 	}
 	try {
 		return new URL( path, siteUrl ).toString().replace( /^(https?:\/\/[^/?#]+)\/$/i, '$1' );
@@ -273,6 +274,7 @@ export function PreviewAddressBar( {
 	onOpenExternal,
 	onExternalNavigate,
 	disabled = false,
+	compact = false,
 }: PreviewAddressBarProps ) {
 	const displayUrl = getDisplayUrl( siteUrl, path );
 	const [ value, setValue ] = useState( displayUrl );
@@ -371,7 +373,7 @@ export function PreviewAddressBar( {
 		staff: UserRoundIcon,
 		database: DatabaseIcon,
 		email: MailIcon,
-		design: AppearanceIcon,
+		design: DesignSystemIcon,
 	};
 	const recentGroups: CommandGroup[] = [
 		{
@@ -414,6 +416,7 @@ export function PreviewAddressBar( {
 				ref={ addressBarRef }
 				className={ styles.addressBar }
 				data-recent-open={ isRecentOpen || undefined }
+				data-compact={ compact || undefined }
 				onSubmit={ handleSubmit }
 			>
 				<Popover.Trigger
@@ -421,7 +424,7 @@ export function PreviewAddressBar( {
 					nativeButton={ false }
 					render={
 						<Input
-							variant="ghost"
+							variant="group"
 							disabled={ disabled }
 							role="textbox"
 							value={ value }
@@ -478,6 +481,9 @@ export function PreviewAddressBar( {
 					title={ invalid ? __( 'Enter a path or an address on this site.' ) : undefined }
 					spellCheck={ false }
 				/>
+				<span className={ styles.displayUrl } aria-hidden="true">
+					{ displayUrl.replace( /^https?:\/\//i, '' ) }
+				</span>
 				{ onOpenExternal ? (
 					<span className={ styles.actions } data-address-action>
 						<AddressAction

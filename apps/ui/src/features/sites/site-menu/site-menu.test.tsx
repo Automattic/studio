@@ -1,4 +1,5 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
+import { AI_PROVIDER_IDS } from '@studio/agent/protocol/providers';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -10,7 +11,7 @@ import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector'
 import { renderWithProviders } from '@/test/render';
 import { SiteMenu } from './index';
 import type { SyncSite } from '@/data/core';
-import type { AiProviderId } from '@studio/agent/protocol/providers';
+import type { AiProviderId, AiSettings } from '@studio/agent/protocol/providers';
 
 const DATABASE_PATH = '/phpmyadmin/index.php?route=/database/structure&db=wordpress';
 const autoLogin = ( path: string ) =>
@@ -56,8 +57,12 @@ function setup( {
 		{
 			getAiSettings: async () => ( {
 				provider: providerConnection ?? 'wpcom',
-				hasAnthropicApiKey: providerConnection === 'anthropic-api-key',
-				anthropicApiKeyPreview: null,
+				connections: Object.fromEntries(
+					AI_PROVIDER_IDS.map( ( id ) => [
+						id,
+						{ connected: id === providerConnection, apiKeyPreview: null },
+					] )
+				) as AiSettings[ 'connections' ],
 			} ),
 			getConnectedWpcomSites: async () => connections ?? [],
 			getSiteDesign: async () =>
@@ -102,12 +107,12 @@ function setup( {
 }
 
 describe( 'Stop other sites', () => {
-	it.each( [
-		[ false, false, 'wpcom' ],
-		[ false, true, 'anthropic-api-key' ],
-		[ true, false, 'anthropic-api-key' ],
-		[ true, true, 'wpcom' ],
-	] as const )(
+	it.each(
+		AI_PROVIDER_IDS.flatMap( ( provider ) => [
+			[ false, false, provider ] as const,
+			[ true, true, provider ] as const,
+		] )
+	)(
 		'opens a new chat from the first item (context menu: %s, running: %s, provider: %s)',
 		async ( contextMenu, selectedRunning, providerConnection ) => {
 			const { open, history, connector } = setup( {

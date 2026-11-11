@@ -44,7 +44,11 @@ vi.mock( 'cli/ai/auth', () => ( {
 	resolveUnavailableAiProvider: vi.fn(),
 } ) );
 vi.mock( 'cli/ai/providers', () => ( {
-	AI_PROVIDERS: { wpcom: 'WordPress.com', 'anthropic-api-key': 'Anthropic · API key' },
+	AI_PROVIDERS: {
+		wpcom: 'WordPress.com',
+		'anthropic-api-key': 'Anthropic · API key',
+		'gemini-api-key': 'Google Gemini · API key',
+	},
 	DEFAULT_AI_PROVIDER: 'wpcom',
 	getAiProviderDefinition: () => ( {
 		supportsModel: () => true,

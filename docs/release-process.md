@@ -45,14 +45,14 @@ Builds are signed, notarized (macOS), and uploaded to the Apps CDN automatically
 
 **Fastlane lane**: `publish_release`
 
-- Publishes the draft GitHub release (which creates the corresponding GitHub tag too). That triggers `publish-plugins.yml`, which builds the plugins with the Studio CLI inside (`npm run cli:bundle:plugin`) and publishes them to [Automattic/studio-plugins](https://github.com/Automattic/studio-plugins), the marketplace agent apps install the Studio plugins from, as that repository's single commit. It also attaches `wp-studio-<version>.zip`, the package for OpenAI's plugin directory, to the release
+- Publishes the draft GitHub release (which creates the corresponding GitHub tag too). That triggers `publish-plugins.yml`, which builds the plugins with the Studio CLI inside (`npm run cli:bundle:plugin`) and publishes them to [Automattic/studio-plugins](https://github.com/Automattic/studio-plugins), the marketplace agent apps install the Studio plugins from, as that repository's single commit. It also attaches `wp-studio-openai-<version>.zip`, the package for OpenAI's plugin directory, to the release
 - Creates a backmerge PR from `release/<version>` into `trunk`
 - Removes the branch protection from `release/<version>` and deletes the branch
 
 ### 6. Post-Release (manual)
 
 - Publish Windows build to the Microsoft Store
-- Submit the plugin to OpenAI's plugin directory, which has no API for it. Someone with the Apps Management Write permission in Automattic's OpenAI organization opens WordPress Studio in the [plugins dashboard](https://platform.openai.com/plugins), selects **Upload plugin to make changes**, uploads `wp-studio-<version>.zip` from the GitHub release, completes the attestations and submits it for review. Once OpenAI approves it, select **Publish plugin**. A plugin has one review at a time: if the previous version is still in review, cancel it and submit the new one
+- Submit the plugin to OpenAI's plugin directory, which has no API for it. Someone with the Apps Management Write permission in Automattic's OpenAI organization opens WordPress Studio in the [plugins dashboard](https://platform.openai.com/plugins), selects **Upload plugin to make changes**, uploads `wp-studio-openai-<version>.zip` from the GitHub release, completes the attestations and submits it for review. Once OpenAI approves it, select **Publish plugin**. A plugin has one review at a time: if the previous version is still in review, cancel it and submit the new one
 - Update Slack channel bookmark
 - Notify team for changelog update
 - Notify next Release Wrangler

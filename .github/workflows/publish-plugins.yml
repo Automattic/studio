@@ -85,8 +85,9 @@ jobs:
             echo "::error::The release tag $GITHUB_REF_NAME does not match the CLI version $version."
             exit 1
           fi
+          cp "standalone-bundles/wp-studio-$version.zip" "standalone-bundles/wp-studio-openai-$version.zip"
           gh release upload "$GITHUB_REF_NAME" "standalone-bundles/wp-studio-cli-$version.tar.br" \
-            "standalone-bundles/wp-studio-$version.zip" --clobber
+            "standalone-bundles/wp-studio-openai-$version.zip" --clobber
 
       # Anthropic's directory reads a plugin from the root of a small repository, so it gets a branch
       # of its own, replaced on each release like trunk.

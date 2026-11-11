@@ -41,6 +41,7 @@ describe( 'ai settings store', () => {
 			connections: {
 				wpcom: { connected: false, apiKeyPreview: null },
 				'anthropic-api-key': { connected: false, apiKeyPreview: null },
+				'gemini-api-key': { connected: false, apiKeyPreview: null },
 			},
 		} );
 	} );
@@ -56,6 +57,7 @@ describe( 'ai settings store', () => {
 			connections: {
 				wpcom: { connected: false, apiKeyPreview: null },
 				'anthropic-api-key': { connected: true, apiKeyPreview: 'sk-ant-api03-tes...1234' },
+				'gemini-api-key': { connected: false, apiKeyPreview: null },
 			},
 		} );
 		expect( readShared().anthropicApiKey ).toBe( 'sk-ant-api03-testkey-abcd1234' );
@@ -201,6 +203,7 @@ describe( 'ai settings store', () => {
 			connections: {
 				wpcom: { connected: false, apiKeyPreview: null },
 				'anthropic-api-key': { connected: false, apiKeyPreview: null },
+				'gemini-api-key': { connected: false, apiKeyPreview: null },
 			},
 		} );
 		const written = readShared();
@@ -252,5 +255,36 @@ describe( 'ai settings store', () => {
 		);
 
 		await expect( readAiSettings() ).resolves.toMatchObject( { provider: 'wpcom' } );
+	} );
+
+	it( 'stores, selects, and clears a Gemini API key independently of Anthropic', async () => {
+		await saveAiProviderApiKey( 'anthropic-api-key', 'sk-ant-api03-testkey-abcd1234' );
+		const withBoth = await saveAiProviderApiKey( 'gemini-api-key', 'AIzaSyGeminiTestKeyValue9876' );
+
+		expect( withBoth.connections[ 'gemini-api-key' ] ).toEqual( {
+			connected: true,
+			apiKeyPreview: 'AIzaSyGeminiTest...9876',
+		} );
+		expect( withBoth.connections[ 'anthropic-api-key' ].connected ).toBe( true );
+		expect( readShared().aiProviderCredentials?.[ 'gemini-api-key' ] ).toEqual( {
+			apiKey: 'AIzaSyGeminiTestKeyValue9876',
+		} );
+
+		await expect( setAiProvider( 'gemini-api-key' ) ).resolves.toMatchObject( {
+			provider: 'gemini-api-key',
+		} );
+
+		// Clearing Anthropic keeps Gemini active.
+		const afterClearingAnthropic = await saveAiProviderApiKey( 'anthropic-api-key', null );
+		expect( afterClearingAnthropic.provider ).toBe( 'gemini-api-key' );
+		expect( afterClearingAnthropic.connections[ 'gemini-api-key' ].connected ).toBe( true );
+
+		// Clearing Gemini resets provider to wpcom.
+		const afterClearingGemini = await saveAiProviderApiKey( 'gemini-api-key', null );
+		expect( afterClearingGemini.provider ).toBe( 'wpcom' );
+		expect( afterClearingGemini.connections[ 'gemini-api-key' ] ).toEqual( {
+			connected: false,
+			apiKeyPreview: null,
+		} );
 	} );
 } );

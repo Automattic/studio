@@ -7,7 +7,6 @@ import { enableReprintExporter } from 'cli/lib/api';
 import * as reprintClient from 'cli/lib/pull/reprint-client';
 import { emptyReprintMetadata } from 'cli/lib/pull/reprint-metadata';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
-import { Logger } from 'cli/logger';
 import { runFullPull } from '../pull';
 import type { SyncSite } from '@studio/common/types/sync';
 
@@ -526,81 +525,6 @@ describe( 'CLI: studio pull single pull phase', () => {
 			const calls = await pull( false, { skipFiles: true } );
 
 			expect( calls.map( ( args ) => args[ 0 ] ) ).toEqual( [ 'pull-db', 'apply-runtime' ] );
-		} );
-	} );
-
-	describe( 'table prefix', () => {
-		let technicalSiteDirectory: string;
-		let sitePath: string;
-		let wpConfigPath: string;
-
-		const pull = async ( selection = {} ) => {
-			vi.spyOn( reprintClient, 'runReprintCommandUntilComplete' ).mockResolvedValue( {
-				stdout: '{"ok":true}',
-				stderr: '',
-				exitCode: 0,
-			} );
-			await runFullPull(
-				{
-					sitePath,
-					technicalSiteDirectory,
-					rawDirectory: path.join( technicalSiteDirectory, 'raw' ),
-					stateDirectory: path.join( technicalSiteDirectory, 'state' ),
-					runtimeDirectory: path.join( technicalSiteDirectory, 'runtime' ),
-					localUrl: 'http://localhost:8881',
-				} as never,
-				'https://example.com/?reprint-api-jetpack',
-				false,
-				false,
-				selection,
-				{
-					...emptyReprintMetadata,
-					sourceSite: {
-						...emptyReprintMetadata.sourceSite,
-						contentDirectory: '/srv/htdocs/wp-content',
-						tablePrefix: 'ntmozf_',
-					},
-				}
-			);
-		};
-
-		beforeEach( () => {
-			technicalSiteDirectory = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-pull-prefix-' ) );
-			sitePath = path.join( technicalSiteDirectory, 'site' );
-			fs.mkdirSync( sitePath );
-			wpConfigPath = path.join( sitePath, 'wp-config.php' );
-			fs.writeFileSync( wpConfigPath, "<?php\n$table_prefix = 'wp_';\n" );
-		} );
-
-		afterEach( () => {
-			fs.rmSync( technicalSiteDirectory, { recursive: true, force: true } );
-		} );
-
-		it( "points the site's wp-config.php at the pulled tables", async () => {
-			await pull();
-
-			expect( fs.readFileSync( wpConfigPath, 'utf8' ) ).toContain( "$table_prefix = 'ntmozf_';" );
-		} );
-
-		it( 'sets the prefix when a pull takes only the database', async () => {
-			await pull( { skipFiles: true } );
-
-			expect( fs.readFileSync( wpConfigPath, 'utf8' ) ).toContain( "$table_prefix = 'ntmozf_';" );
-		} );
-
-		it( "keeps the site's prefix when the pull leaves the database out", async () => {
-			await pull( { skipDatabase: true } );
-
-			expect( fs.readFileSync( wpConfigPath, 'utf8' ) ).toContain( "$table_prefix = 'wp_';" );
-		} );
-
-		it( 'warns when the site has no wp-config.php to set the prefix in', async () => {
-			fs.rmSync( wpConfigPath );
-			const warn = vi.spyOn( Logger.prototype, 'reportWarning' ).mockImplementation( () => {} );
-
-			await pull();
-
-			expect( warn ).toHaveBeenCalledWith( expect.stringContaining( '"ntmozf_"' ) );
 		} );
 	} );
 

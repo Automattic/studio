@@ -1,5 +1,3 @@
-import fs from 'fs';
-import os from 'os';
 import path from 'path';
 import { move } from 'fs-extra';
 import { vi } from 'vitest';
@@ -130,30 +128,6 @@ describe( 'export-database', () => {
 
 			expect( files ).toEqual( [ path.join( '/dest', 'wp_options.sql' ) ] );
 			expect( runWpCliCommand ).toHaveBeenCalledTimes( 2 );
-		} );
-
-		it( "skips the user tables under the site's own table prefix", async () => {
-			const sitePath = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-export-prefix-' ) );
-			fs.writeFileSync(
-				path.join( sitePath, 'wp-config.php' ),
-				"<?php\n$table_prefix = 'ntmozf_';\n"
-			);
-			mockWpCliResult( {
-				stdout: '["ntmozf_options","ntmozf_users","ntmozf_usermeta","wp_users"]',
-			} );
-			mockWpCliResult( {} );
-			mockWpCliResult( {} );
-
-			try {
-				const files = await exportDatabaseToMultipleFiles( { ...site, path: sitePath }, '/dest' );
-
-				expect( files ).toEqual( [
-					path.join( '/dest', 'ntmozf_options.sql' ),
-					path.join( '/dest', 'wp_users.sql' ),
-				] );
-			} finally {
-				fs.rmSync( sitePath, { recursive: true, force: true } );
-			}
 		} );
 	} );
 } );

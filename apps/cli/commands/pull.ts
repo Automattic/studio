@@ -48,6 +48,7 @@ import {
 	emptyReprintMetadata,
 	type ReprintMetadata,
 } from 'cli/lib/pull/reprint-metadata';
+import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { buildAutoLoginUrl } from 'cli/lib/site-utils';
 import { getSiteVersion } from 'cli/lib/site-versions';
@@ -55,7 +56,6 @@ import { exitOnCancel, reportSyncActivity } from 'cli/lib/sync-activity';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { findFailureCode } from 'cli/lib/utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
-import { setSiteTablePrefix } from 'cli/lib/wp-config-table-prefix';
 import { Logger, LoggerError } from 'cli/logger';
 import type { SyncFailurePhase } from '@studio/common/lib/sync/classify-sync-failure';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -410,6 +410,27 @@ async function pullSite(
 				}
 			);
 
+			// The site keeps its own wp-config.php, so point it at the pulled tables.
+			const tablePrefix = reprintMetadata.sourceSite.tablePrefix;
+			if ( ! selection.skipDatabase && tablePrefix ) {
+				await using command = await runWpCliCommand( site, [
+					'config',
+					'set',
+					'table_prefix',
+					tablePrefix,
+					'--type=variable',
+				] );
+				if ( ( await command.response.exitCode ) !== 0 ) {
+					logger.reportWarning(
+						sprintf(
+							/* translators: %s: the remote site's database table prefix */
+							__( 'Could not set $table_prefix to "%s" in wp-config.php.' ),
+							tablePrefix
+						)
+					);
+				}
+			}
+
 			// Makes `studio site start` serve the pulled runtime instead of the blank install.
 			logger.reportStart( LoggerAction.CREATE_SITE, `Linking pulled files to "${ site.name }"…` );
 			site.runtimeBlueprintPath = studioMetadata.runtimeBlueprintPath;
@@ -682,38 +703,6 @@ export async function runFullPull(
 			`--state-dir=${ metadata.stateDirectory }`,
 			`--fs-root=${ metadata.rawDirectory }`,
 		] );
-	}
-
-	// The site keeps its own wp-config.php, which has the table prefix of the install Studio created.
-	// A pull that imported the database must point it at the remote's tables.
-	const tablePrefix = reprintMetadata.sourceSite.tablePrefix;
-	if ( ! selection.skipDatabase && tablePrefix ) {
-		const result = setSiteTablePrefix( metadata.sitePath, tablePrefix );
-		if ( result === 'missing' ) {
-			logger.reportWarning(
-				sprintf(
-					/* translators: %s: the remote site's database table prefix */
-					__(
-						'The site has no wp-config.php. Set $table_prefix to "%s" in the one you add, so WordPress reads the pulled database.'
-					),
-					tablePrefix
-				)
-			);
-		} else if (
-			result === 'no-assignment' ||
-			result === 'invalid-prefix' ||
-			result === 'write-failed'
-		) {
-			logger.reportWarning(
-				sprintf(
-					/* translators: %s: the remote site's database table prefix */
-					__(
-						'Could not set the table prefix in wp-config.php to "%s". Set $table_prefix to it so WordPress reads the pulled database.'
-					),
-					tablePrefix
-				)
-			);
-		}
 	}
 
 	// Last, so it picks up the database credentials pull-db stored. The SQLite

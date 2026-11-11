@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getFileToolPrompt } from '@studio/agent/node/runtime/file-tool-prompts';
+import { getFileToolPrompt } from '@studio/agent/shared/file-tool-prompts';
 
 describe( 'getFileToolPrompt', () => {
 	it( 'documents the pi-backed tools under their Studio names', () => {

@@ -1,10 +1,19 @@
 import path from 'path';
+import { nodeHostServices, type HostSite, type StudioAgentHost } from '@studio/agent/node';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
+import { REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
+import { sendStudioFeedback } from '@studio/common/lib/feedback';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
 import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
+import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
+import { withWpcomDetails } from '@studio/common/lib/sync/transform-sites';
+import { getAiPayloadsPath } from '@studio/common/lib/well-known-paths';
+import wpcomFactory from '@studio/common/lib/wpcom-factory';
+import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { __ } from '@wordpress/i18n';
-import { getStudioUserAgent } from 'cli/ai/providers';
+import { getStudioUserAgent, resolveImageGenerator } from 'cli/ai/auth';
 import { runCommand as runExportCommand } from 'cli/commands/export';
 import { runCommand as runImportCommand } from 'cli/commands/import';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
@@ -34,7 +43,6 @@ import { parseSyncOptions } from 'cli/lib/sync-api';
 import { getTracksOrigin, recordTracksEvent } from 'cli/lib/tracks';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
-import type { HostSite, StudioAgentHost } from '@studio/agent/node';
 
 function toHostSite( site: SiteData ): HostSite {
 	return {
@@ -89,9 +97,7 @@ async function withDaemon< T >( fn: () => Promise< T > ): Promise< T > {
 
 export const cliAgentHost: StudioAgentHost = {
 	sitesRoot: STUDIO_SITES_ROOT,
-	get userAgent() {
-		return getStudioUserAgent();
-	},
+	imageGenerator: resolveImageGenerator,
 	sites: {
 		resolve: async ( nameOrPath ) => toHostSite( await resolveSite( nameOrPath ) ),
 		findByFolder: async ( folder ) => {
@@ -195,9 +201,57 @@ export const cliAgentHost: StudioAgentHost = {
 				  ),
 	},
 	wpcom: {
-		sites: ( accessToken ) => getWpComSites( accessToken ),
+		token: async () => ( await readAuthToken() )?.accessToken,
+		sites: async () => {
+			const token = await readAuthToken();
+			return token ? getWpComSites( token.accessToken ) : [];
+		},
+		connectedSites: async ( site ) => {
+			const stored = await getConnectedWpcomSitesForLocalSite( site.id );
+			const token = await readAuthToken();
+			return stored.length && token
+				? withWpcomDetails( stored, await fetchSyncableSites( token.accessToken ) )
+				: [];
+		},
+		request: async ( method, path, query, body ) => {
+			const token = await readAuthToken();
+			if ( ! token?.accessToken ) {
+				throw new Error(
+					'Not logged in to WordPress.com. Ask the user to log in with `studio auth login`.'
+				);
+			}
+			const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
+			switch ( method ) {
+				case 'GET':
+					return wpcom.req.get( path, query );
+				case 'POST':
+					return wpcom.req.post( path, query, body );
+				case 'PUT':
+					return wpcom.req.put( path, query, body );
+				case 'DELETE':
+					// wpcom.js's req.del() sends a POST, which wp/v2 handles as an update. req.get()
+					// keeps an explicit method and, unlike req.post(), leaves the query as the query.
+					return wpcom.req.get( { path, method: 'DELETE' }, query );
+			}
+		},
+		get payloadsDirectory() {
+			return getAiPayloadsPath();
+		},
 	},
 	tracks: {
 		record: ( event, props ) => recordTracksEvent( event, { ...getTracksOrigin(), ...props } ),
 	},
+	sendFeedback: async ( feedback ) => {
+		const token = await readAuthToken();
+		if ( ! token?.accessToken ) {
+			throw new Error(
+				`Not logged in to WordPress.com. Ask the user to log in with \`studio auth login\`, or to share feedback at ${ REPORT_ISSUE_URL }.`
+			);
+		}
+		return sendStudioFeedback( feedback, {
+			accessToken: token.accessToken,
+			userAgent: getStudioUserAgent(),
+		} );
+	},
+	...nodeHostServices(),
 };

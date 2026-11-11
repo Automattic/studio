@@ -1,7 +1,7 @@
 {
 	"name": "wp-studio",
 	"author": "Automattic Inc.",
-	"version": "2.2.0-beta1",
+	"version": "2.2.0",
 	"productName": "Studio CLI",
 	"description": "WordPress Studio CLI",
 	"homepage": "https://wordpress.studio/",
@@ -74,6 +74,7 @@
 	"devDependencies": {
 		"@studio/agent": "file:../../packages/agent",
 		"@studio/common": "file:../../packages/common",
+		"@studio/providers": "file:../../packages/providers",
 		"@studio/local": "file:../local",
 		"@types/archiver": "^8.0.0",
 		"@types/http-proxy": "^1.17.17",

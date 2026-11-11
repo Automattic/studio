@@ -1,3 +1,4 @@
+import { once } from 'events';
 import fs from 'fs';
 import * as configFile from '@studio/common/lib/cli-config-file';
 import { readAuthToken } from '@studio/common/lib/shared-config';
@@ -11,6 +12,7 @@ import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { runCommand } from '../push';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { SiteData } from 'cli/lib/cli-config/core';
+import type { Readable } from 'stream';
 
 vi.mock( '@studio/common/lib/shared-config', async ( importActual ) => ( {
 	...( await importActual< typeof import('@studio/common/lib/shared-config') >() ),
@@ -64,8 +66,9 @@ describe( 'CLI: studio push', () => {
 		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( site );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ remoteSite ] );
-		vi.mocked( createTusUpload ).mockImplementation( () => ( {
-			promise: Promise.resolve( 'attachment-1' ),
+		// Reads the archive to the end, as the real upload does before the push removes it.
+		vi.mocked( createTusUpload ).mockImplementation( ( { file } ) => ( {
+			promise: once( ( file as Readable ).resume(), 'close' ).then( () => 'attachment-1' ),
 			abort: vi.fn(),
 		} ) );
 		vi.mocked( getExporter ).mockImplementation( async ( { backupFile } ) => {
@@ -165,8 +168,10 @@ describe( 'CLI: studio push', () => {
 			'upload',
 			'upload',
 			() =>
-				vi.mocked( createTusUpload ).mockImplementation( () => ( {
-					promise: Promise.reject( new Error( 'Upload crashed' ) ),
+				vi.mocked( createTusUpload ).mockImplementation( ( { file } ) => ( {
+					promise: once( ( file as Readable ).resume(), 'close' ).then( () =>
+						Promise.reject( new Error( 'Upload crashed' ) )
+					),
 					abort: vi.fn(),
 				} ) ),
 		],

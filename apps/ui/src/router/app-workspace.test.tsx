@@ -198,7 +198,12 @@ describe( 'Studio workspace', () => {
 			sites: [ site( { running: true } ) ],
 			path: '/sites/one/new',
 			overrides: {
-				capabilities: { annotatePreview: true, nativeFolderPicker: true, studioLogs: true },
+				capabilities: {
+					annotatePreview: true,
+					nativeFolderPicker: true,
+					studioLogs: true,
+					nativeSites: true,
+				},
 			},
 		} );
 		await findComposer();
@@ -1320,7 +1325,12 @@ describe( 'Studio workspace', () => {
 		const { connector } = setup( {
 			signedIn: true,
 			overrides: {
-				capabilities: { nativeFolderPicker: true, annotatePreview: true, studioLogs: true },
+				capabilities: {
+					nativeFolderPicker: true,
+					annotatePreview: true,
+					studioLogs: true,
+					nativeSites: true,
+				},
 			},
 		} );
 		await findComposer();

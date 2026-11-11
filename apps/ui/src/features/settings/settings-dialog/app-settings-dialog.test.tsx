@@ -1,3 +1,4 @@
+import { createEmptyAiConnections, type AiSettings } from '@studio/agent/protocol/providers';
 import { supportedLocaleNames } from '@studio/common/lib/locale';
 import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { INTERFACE_PREFERENCE_DEFAULTS } from '@studio/common/lib/user-settings/preferences';
@@ -14,7 +15,6 @@ import { applyColorTint, DEFAULT_COLOR_TINT } from '@/lib/theme';
 import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { Connector, UserPreferences } from '@/data/core';
-import type { AiSettings } from '@studio/agent/protocol/providers';
 
 beforeEach( () => {
 	resetAppMessagesForTests();
@@ -38,10 +38,10 @@ async function setup( {
 } = {} ) {
 	let connection: AiSettings = {
 		provider: 'wpcom',
-		connections: {
+		connections: createEmptyAiConnections( {
 			wpcom: { connected: signedIn, apiKeyPreview: null },
 			'anthropic-api-key': { connected: true, apiKeyPreview: 'sk-…last' },
-		},
+		} ),
 	};
 	let skills = [
 		{
@@ -871,19 +871,17 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 			overrides: {
 				getAiSettings: async () => ( {
 					provider: 'wpcom',
-					connections: {
-						wpcom: { connected: false, apiKeyPreview: null },
+					connections: createEmptyAiConnections( {
 						'anthropic-api-key': { connected: hasKey, apiKeyPreview: null },
-					},
+					} ),
 				} ),
 				saveAiProviderApiKey: async () => {
 					hasKey = true;
 					return {
 						provider: 'wpcom',
-						connections: {
-							wpcom: { connected: false, apiKeyPreview: null },
+						connections: createEmptyAiConnections( {
 							'anthropic-api-key': { connected: true, apiKeyPreview: 'test' },
-						},
+						} ),
 					};
 				},
 			},
@@ -953,6 +951,82 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 			expect( screen.queryByLabelText( 'Anthropic API key' ) ).not.toBeInTheDocument()
 		);
 		expect( connector.authenticate ).not.toHaveBeenCalled();
+	} );
+
+	it( 'connects and removes a Google Gemini API key', async () => {
+		const { connector } = await setup( { section: 'ai', signedIn: false } );
+		const gemini = await findProviderRow( 'gemini-provider' );
+		const connect = await within( gemini ).findByRole( 'button', { name: 'Connect' } );
+		await waitFor( () => expect( connect ).toBeEnabled() );
+		fireEvent.click( connect );
+		const input = await screen.findByLabelText( 'Google Gemini API key', { selector: 'input' } );
+		expect( input ).toHaveAttribute( 'type', 'password' );
+		fireEvent.change( input, { target: { value: '  AIzaSyTest1234  ' } } );
+		fireEvent.click(
+			within( screen.getByRole( 'form', { name: 'Google Gemini connection' } ) ).getByRole(
+				'button',
+				{ name: 'Save' }
+			)
+		);
+		await waitFor( () =>
+			expect( connector.saveAiProviderApiKey ).toHaveBeenCalledWith(
+				'gemini-api-key',
+				'AIzaSyTest1234'
+			)
+		);
+		await waitFor( () =>
+			expect( connector.setAiProvider ).toHaveBeenCalledWith( 'gemini-api-key' )
+		);
+		const manage = await within( await findProviderRow( 'gemini-provider' ) ).findByRole(
+			'button',
+			{ name: 'Manage' }
+		);
+		fireEvent.click( manage );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Remove key' } ) );
+		await waitFor( () =>
+			expect( connector.saveAiProviderApiKey ).toHaveBeenCalledWith( 'gemini-api-key', null )
+		);
+	} );
+
+	it( 'scopes API key validation errors to the provider being saved', async () => {
+		const { connector } = await setup( { section: 'ai', signedIn: false } );
+		connector.saveAiProviderApiKey.mockRejectedValueOnce(
+			new Error( 'Google Gemini rejected this API key.' )
+		);
+		const gemini = await findProviderRow( 'gemini-provider' );
+		const connect = await within( gemini ).findByRole( 'button', { name: 'Connect' } );
+		await waitFor( () => expect( connect ).toBeEnabled() );
+		fireEvent.click( connect );
+		const input = await screen.findByLabelText( 'Google Gemini API key', { selector: 'input' } );
+		fireEvent.change( input, { target: { value: 'AIzaInvalid' } } );
+		fireEvent.click(
+			within( screen.getByRole( 'form', { name: 'Google Gemini connection' } ) ).getByRole(
+				'button',
+				{ name: 'Save' }
+			)
+		);
+		expect(
+			await within( screen.getByRole( 'form', { name: 'Google Gemini connection' } ) ).findByText(
+				'Google Gemini rejected this API key.'
+			)
+		).toBeVisible();
+		fireEvent.click(
+			within( await findProviderRow( 'anthropic-provider' ) ).getByRole( 'button', {
+				name: 'Manage',
+			} )
+		);
+		const anthropicForm = await screen.findByRole( 'form', { name: 'Anthropic connection' } );
+		expect(
+			within( anthropicForm ).queryByText( 'Google Gemini rejected this API key.' )
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'navigates to Google Gemini from settings search', async () => {
+		await setup( { section: 'general' } );
+		fireEvent.change( searchBox(), { target: { value: 'Gemini' } } );
+		fireEvent.click( await screen.findByRole( 'tab', { name: 'Google Gemini' } ) );
+		const gemini = await findProviderRow( 'gemini-provider' );
+		await waitFor( () => expect( gemini ).toHaveAttribute( 'data-settings-match' ) );
 	} );
 
 	it( 'links to credits and external assistant setup inside the same dialog', async () => {

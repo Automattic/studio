@@ -257,7 +257,12 @@ export const wpcomRequestTool = defineTool(
 					if ( args.bodyFile || args.bodyFiles ) {
 						throw new Error( 'bodyFile and bodyFiles can only be used with POST or PUT requests.' );
 					}
-					result = await wpcom.req.del< ApiResponse >( fullPath, queryParams );
+					// wpcom.js's req.del() sends a POST, which wp/v2 handles as an update. req.get()
+					// keeps an explicit method and, unlike req.post(), leaves the query as the query.
+					result = await wpcom.req.get< ApiResponse >(
+						{ path: fullPath, method: 'DELETE' },
+						queryParams
+					);
 					break;
 			}
 

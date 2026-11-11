@@ -6,6 +6,7 @@ import {
 	pageHeaderWraps,
 	pageLargeText,
 	pageLayout,
+	pageSqueezedText,
 	pageSticky,
 	pageTextFit,
 	pageWideTextBreaks,
@@ -438,6 +439,100 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 			] );
 		}
 	);
+
+	// eval31 pileon port 4: a template's main, a constrained group laid out as a
+	// grid of a sidebar and the content, gave the content the content size as
+	// its max-width in its wider track, and its three testimonials a few words a line.
+	const CONSTRAINED = `<style>
+		:root { --wp--style--global--content-size: 620px; }
+		.is-layout-constrained > :where(:not(.alignleft):not(.alignright):not(.alignfull)) { max-width: var(--wp--style--global--content-size); margin-left: auto !important; margin-right: auto !important; }
+		.wp-block-group { box-sizing: border-box; }
+		.site-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 24px; }
+		.reviews-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+		.talk-bubble { padding: 24px; }
+		p { font: 16px/1.5 sans-serif; }
+	</style>
+	<main class="wp-block-group alignfull site-grid is-layout-constrained wp-block-group-is-layout-constrained">
+		<header class="wp-block-template-part"><p>Sudsy Paws</p></header>
+		<div class="wp-block-group site-main" style="padding:0 60px"><div class="wp-block-group reviews-grid is-layout-grid">
+			${ [
+				'“Bella came home smelling amazing and her coat has never been softer. She actually enjoys going!”',
+				'“My anxious rescue pup is calm here. They were so patient and gentle, we found our forever groomer.”',
+				'“The de-shedding spa changed everything. Hardly any fur on the couch now, and Cooper looks like a superstar.”',
+				'“We drive forty minutes for Sudsy Paws, and every single visit has been worth it for our two terriers.”',
+			]
+				// The last a quote, measured as one with the paragraph it holds.
+				.map( ( text, i ) =>
+					i < 3
+						? `<div class="wp-block-group talk-bubble"><p>${ text }</p></div>`
+						: `<div class="wp-block-group talk-bubble"><blockquote class="wp-block-quote" style="margin:0"><p>${ text }</p></blockquote></div>`
+				)
+				.join( '' ) }
+		</div></div>
+	</main>`;
+
+	it( 'names text squeezed to a few words a line, what narrows it, and the grid item a constrained layout caps', async () => {
+		const page = await browser.newPage( { viewport: { width: 1000, height: 800 } } );
+		try {
+			await page.setContent( `<body style="margin:0">${ CONSTRAINED }</body>` );
+			const lines = await pageSqueezedText( page );
+			expect( lines ).toHaveLength( 6 );
+			expect( lines[ 0 ] ).toBe(
+				'Text squeezed into a narrow box, under 16 characters a line (two or three words; body text runs 45–90):'
+			);
+			// The site's main column stops at 620px in its 651px track, 500px inside
+			// its padding; each of its three columns is 151px, and its text 103px
+			// inside the bubble's padding.
+			for ( const [ line, text ] of [
+				[ lines[ 1 ], '“Bella came home smelling amazing and he…' ],
+				[ lines[ 2 ], '“My anxious rescue pup is calm here. The…' ],
+				[ lines[ 3 ], '“The de-shedding spa changed everything.…' ],
+			] ) {
+				const match = line.match(
+					/^ {2}p "(.*)": 103px wide, (\d+) characters a line over (\d+) lines, in div\.wp-block-group\.talk-bubble in div\.wp-block-group\.reviews-grid\.$/
+				);
+				expect( match?.[ 1 ] ).toBe( text );
+				expect( Number( match?.[ 2 ] ) ).toBeLessThan( 16 );
+				expect( Number( match?.[ 3 ] ) ).toBeGreaterThan( 5 );
+			}
+			expect( lines[ 4 ] ).toBe( '  …and 1 more' );
+			// At 1600px, the track grows to 1051px and the column stays at 620px.
+			expect( lines[ 5 ] ).toBe(
+				"  At 1600px wide, div.wp-block-group.site-main stops at its max-width, 620px, where its grid track gives it 1051px: WordPress gives each child of a constrained layout (.is-layout-constrained > *) the theme's content size as its max-width and auto side margins (wp_get_layout_definitions() in wp-includes/block-supports/layout.php), so a grid or flex item of one shrinks to it and centers in its track."
+			);
+			// It leaves the page at its viewport.
+			expect( page.viewportSize() ).toEqual( { width: 1000, height: 800 } );
+		} finally {
+			await page.close();
+		}
+	} );
+
+	it.each( [
+		[
+			'three cards of a wide grid',
+			`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px;max-width:960px;margin:auto">${ '<div style="padding:24px"><p>A warm wash with gentle pet-safe suds, a full brush-out, towel dry, and a soft blow-dry finish.</p></div>'.repeat(
+				3
+			) }</div>`,
+		],
+		[
+			'four cards of a wide grid',
+			`<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:24px">${ '<div style="padding:16px"><p>Natural formulas designed to deliver vibrant, lasting results without harsh chemicals.</p></div>'.repeat(
+				4
+			) }</div>`,
+		],
+		[
+			'a content column, its text in boxes of its links and emphasis on its lines',
+			`<div style="max-width:620px;margin:auto"><p>At <a href="/">Sudsy Paws</a> we give your <em>best friend</em> a gentle, <strong>spa-like</strong> grooming experience — <a href="/">warm suds</a>, <em>soft brush strokes</em>, and a <strong>shiny fresh fluff</strong> they will <a href="/">show off</a> all week.</p></div>`,
+		],
+		[
+			"a menu item's submenu, placed out of the flow",
+			`<nav><ul style="display:flex;gap:24px;list-style:none"><li style="position:relative;width:60px">Services<ul style="position:absolute;top:100%;width:200px"><li>Managed services</li><li>Cyber security and business continuity planning</li><li>Cloud migration</li></ul></li></ul></nav>`,
+		],
+	] )( 'finds no squeezed text in %s', async ( _name, body ) => {
+		expect(
+			await open( `<style>p,li{font:16px/1.5 sans-serif}</style>${ body }`, pageSqueezedText )
+		).toEqual( [] );
+	} );
 
 	it( 'names a sticky element its parent is too short to let stick', async () => {
 		expect(

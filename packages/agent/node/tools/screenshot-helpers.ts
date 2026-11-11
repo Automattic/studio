@@ -14,6 +14,7 @@ import {
 	pageSticky,
 	pageLayout,
 	pageOverflow,
+	pageSqueezedText,
 	pageTextFit,
 	pageWideTextBreaks,
 	type TextFit,
@@ -551,8 +552,13 @@ export async function inspectPage(
 				screen: await capturePage( page, viewport, { ...options, fullPage: false } ),
 			};
 		}
-		// After the captures, as it lays the page out wider and back.
+		// After the captures, as they lay the page out wider and back. On a
+		// desktop only, as a phone's one column is narrow by design.
 		if ( viewport.width === VIEWPORTS.desktop.width ) {
+			const squeezed = await pageSqueezedText( page );
+			if ( squeezed.length ) {
+				problems.push( squeezed.join( '\n' ) );
+			}
 			const wideBreaks = await pageWideTextBreaks( page );
 			if ( wideBreaks.length ) {
 				problems.push( wideBreaks.join( '\n' ) );

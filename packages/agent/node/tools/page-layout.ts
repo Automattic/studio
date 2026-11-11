@@ -1124,6 +1124,246 @@ export async function pageLargeText( page: Page, bodyFontSize = 16 ): Promise< s
 	return boundedLines( lines, MAX_TEXT_LINES );
 }
 
+// Characters a line under which a block of text reads as squeezed: two or three
+// words, where body text runs 45 to 90, a card of a three-column grid 20 to 30
+// and one of a four-column grid at a 1040px desktop 17 or more.
+const SQUEEZED_LINE = 16;
+// The examples of squeezed text named; the rest are counted.
+const MAX_SQUEEZED = 3;
+
+/**
+ * Each paragraph, list item, quote or caption of at least 80 characters whose
+ * lines hold under SQUEEZED_LINE characters on average, as the browser lays it
+ * out, with the ancestor that narrows it. And, where the box holding them is a
+ * grid or flex item that its max-width keeps narrower than the room its grid
+ * track or flex line gives it, that item: measured at FLUID_TYPE_MAX_WIDTH,
+ * where a track that grows with the screen leaves it farthest behind. Leaves
+ * the page at its viewport.
+ */
+export async function pageSqueezedText( page: Page ): Promise< string[] > {
+	const found = await page.evaluateHandle(
+		( { squeezed } ) => {
+			// What narrows the text, as pageTextFit() names what narrows a word's box:
+			// the outermost ancestor too narrow to hold it, in the one that has room.
+			const settingsLabel = ( element: Element ) =>
+				element.tagName.toLowerCase() +
+				[ ...element.classList ]
+					.filter(
+						( name ) =>
+							! /^(has-|is-layout-|wp-container-|wp-elements-|wp-block-[a-z-]+-is-layout-)/.test(
+								name
+							)
+					)
+					.slice( 0, 3 )
+					.map( ( name ) => `.${ name }` )
+					.join( '' );
+			const narrowedBy = ( box: Element, needed: number ) => {
+				let narrow: Element | undefined;
+				for (
+					let at = box.parentElement;
+					at && at !== document.body && at !== document.documentElement;
+					at = at.parentElement
+				) {
+					const style = getComputedStyle( at );
+					if ( style.display === 'inline' || style.display === 'contents' ) {
+						continue;
+					}
+					const room =
+						at.clientWidth - parseFloat( style.paddingLeft ) - parseFloat( style.paddingRight );
+					if ( room >= needed ) {
+						return narrow ? ` in ${ settingsLabel( narrow ) } in ${ settingsLabel( at ) }` : '';
+					}
+					narrow = at;
+				}
+				return narrow ? ` in ${ settingsLabel( narrow ) }` : '';
+			};
+			const TEXT = 'p, li, blockquote, figcaption';
+			const lines: string[] = [];
+			// The grid and flex items with a max-width that hold squeezed text.
+			const items = new Set< Element >();
+			const range = document.createRange();
+			for ( const element of document.querySelectorAll( TEXT ) ) {
+				const style = getComputedStyle( element );
+				if (
+					( element.textContent ?? '' ).trim().length < 80 ||
+					element.parentElement?.closest( TEXT ) ||
+					element.closest( '.screen-reader-text, [aria-hidden="true"]' ) ||
+					style.visibility === 'hidden' ||
+					style.clipPath !== 'none' ||
+					style.writingMode !== 'horizontal-tb' ||
+					! element.getBoundingClientRect().height
+				) {
+					continue;
+				}
+				// Its text that lays out in its lines: not a menu item's submenu, placed
+				// out of the flow, nor text a visitor does not see.
+				const parts: string[] = [];
+				const boxes: DOMRect[] = [];
+				const walker = document.createTreeWalker( element, NodeFilter.SHOW_TEXT );
+				for ( let node = walker.nextNode(); node; node = walker.nextNode() ) {
+					let inLines = true;
+					for ( let at = node.parentElement; at && at !== element; at = at.parentElement ) {
+						const atStyle = getComputedStyle( at );
+						if (
+							[ 'absolute', 'fixed' ].includes( atStyle.position ) ||
+							atStyle.visibility !== 'visible' ||
+							atStyle.opacity === '0'
+						) {
+							inLines = false;
+							break;
+						}
+					}
+					range.selectNodeContents( node );
+					const rects = [ ...range.getClientRects() ].filter(
+						( rect ) => rect.width > 0 && rect.height > 0
+					);
+					if ( inLines && rects.length ) {
+						parts.push( node.textContent ?? '' );
+						boxes.push( ...rects );
+					}
+				}
+				const text = parts.join( '' ).replace( /\s+/g, ' ' ).trim();
+				if ( text.length < 80 ) {
+					continue;
+				}
+				// Its lines: each text box starts one when its middle is below the
+				// bottom of the line before, as a link's box sits on the line of the
+				// text around it.
+				let count = 0;
+				let bottom = -Infinity;
+				for ( const rect of boxes.sort( ( a, b ) => a.top - b.top ) ) {
+					if ( ( rect.top + rect.bottom ) / 2 > bottom ) {
+						count++;
+						bottom = rect.bottom;
+					} else {
+						bottom = Math.max( bottom, rect.bottom );
+					}
+				}
+				const perLine = text.length / count;
+				if ( ! count || perLine >= squeezed ) {
+					continue;
+				}
+				const padding = parseFloat( style.paddingLeft ) + parseFloat( style.paddingRight );
+				const width = element.clientWidth - padding;
+				// The width that would give it 30 characters a line, a card's.
+				const needed =
+					( width * 30 ) / perLine +
+					( element as HTMLElement ).offsetWidth -
+					element.clientWidth +
+					padding;
+				const narrowed = narrowedBy( element, needed );
+				lines.push(
+					`${ element.tagName.toLowerCase() } "${
+						text.length > 40 ? `${ text.slice( 0, 40 ) }…` : text
+					}": ${ Math.round( width ) }px wide, ${ Math.floor(
+						perLine
+					) } characters a line over ${ count } lines${ narrowed && `,${ narrowed }` }.`
+				);
+				for ( let at = element.parentElement; at?.parentElement; at = at.parentElement ) {
+					if (
+						/(grid|flex)$/.test( getComputedStyle( at.parentElement ).display ) &&
+						getComputedStyle( at ).maxWidth !== 'none'
+					) {
+						items.add( at );
+					}
+				}
+			}
+			return { lines: [ ...new Set( lines ) ], items: [ ...items ] };
+		},
+		{ squeezed: SQUEEZED_LINE }
+	);
+	try {
+		const lines = await found.evaluate( ( { lines } ) => lines );
+		if ( ! lines.length ) {
+			return [];
+		}
+		const viewport = page.viewportSize();
+		const wider = !! viewport && viewport.width < FLUID_TYPE_MAX_WIDTH;
+		if ( viewport && wider ) {
+			await page.setViewportSize( { ...viewport, width: FLUID_TYPE_MAX_WIDTH } );
+		}
+		let capped: {
+			item: string;
+			maxWidth: string;
+			room: number;
+			in: string;
+			constrained: boolean;
+		}[];
+		try {
+			// Each item as wide as its max-width lets it, and as wide as its grid
+			// area or flex line lets it with no max-width or side margins: laid out
+			// so and put back at once, before the browser paints.
+			capped = await found.evaluate( ( { items } ) => {
+				const generated = /^(is-|has-|wp-container-|wp-elements-|wp-block-[a-z-]+-is-layout-)/;
+				const label = ( element: Element ) =>
+					element.tagName.toLowerCase() +
+					[ ...element.classList ]
+						.filter( ( name ) => ! generated.test( name ) )
+						.slice( 0, 3 )
+						.map( ( name ) => `.${ name }` )
+						.join( '' );
+				return items.flatMap( ( item ) => {
+					const element = item as HTMLElement;
+					const width = element.getBoundingClientRect().width;
+					const saved = element.getAttribute( 'style' );
+					for ( const name of [ 'max-width', 'margin-left', 'margin-right' ] ) {
+						element.style.setProperty( name, name === 'max-width' ? 'none' : '0', 'important' );
+					}
+					const room = element.getBoundingClientRect().width;
+					if ( saved === null ) {
+						element.removeAttribute( 'style' );
+					} else {
+						element.setAttribute( 'style', saved );
+					}
+					const parent = element.parentElement;
+					if ( ! parent || room - width < 16 ) {
+						return [];
+					}
+					return [
+						{
+							item: label( element ),
+							maxWidth: getComputedStyle( element ).maxWidth,
+							room: Math.round( room ),
+							in: getComputedStyle( parent ).display.endsWith( 'grid' )
+								? 'grid track'
+								: 'flex line',
+							// WordPress's constrained layout, unless the item is aligned wide or full.
+							constrained:
+								parent.classList.contains( 'is-layout-constrained' ) &&
+								! element.matches( '.alignwide, .alignfull, .alignleft, .alignright' ),
+						},
+					];
+				} );
+			} );
+		} finally {
+			if ( viewport && wider ) {
+				await page.setViewportSize( viewport );
+			}
+		}
+		const at = wider ? `At ${ FLUID_TYPE_MAX_WIDTH }px wide, ` : '';
+		return [
+			`Text squeezed into a narrow box, under ${ SQUEEZED_LINE } characters a line (two or three words; body text runs 45–90):`,
+			...boundedLines(
+				lines.map( ( line ) => `  ${ line }` ),
+				MAX_SQUEEZED,
+				'  '
+			),
+			...capped.map(
+				( item ) =>
+					`  ${ at }${ item.item } stops at its max-width, ${ item.maxWidth }, where its ${
+						item.in
+					} gives it ${ item.room }px${
+						item.constrained
+							? ": WordPress gives each child of a constrained layout (.is-layout-constrained > *) the theme's content size as its max-width and auto side margins (wp_get_layout_definitions() in wp-includes/block-supports/layout.php), so a grid or flex item of one shrinks to it and centers in its track."
+							: '.'
+					}`
+			),
+		];
+	} finally {
+		await found.dispose();
+	}
+}
+
 /**
  * What a visitor gets that is broken, as the browser loaded the page: PHP's
  * own error output, which PHP prints into the page when display_errors is on

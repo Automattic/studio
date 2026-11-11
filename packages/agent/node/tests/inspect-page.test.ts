@@ -67,6 +67,15 @@ const FIT = `<!doctype html><meta name="viewport" content="width=device-width">
 <p style="margin:0">Walk-ins welcome every Saturday</p>
 </body>`;
 
+// Testimonials three to a row in a column too narrow for them, each a few
+// words a line: named once, as each says the same.
+const SQUEEZED = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+<body style="margin:0"><main style="max-width:480px;margin:auto"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px">
+${ '<div class="talk-bubble" style="padding:24px"><p style="font:16px/1.5 sans-serif">“Bella came home smelling amazing and her coat has never been softer. She actually enjoys going!”</p></div>'.repeat(
+	3
+) }
+</div></main></body>`;
+
 describe.runIf( CHROMIUM )( 'inspecting a page', () => {
 	let formText = 'Book a table';
 	let server: http.Server;
@@ -92,6 +101,9 @@ describe.runIf( CHROMIUM )( 'inspecting a page', () => {
 						'<p style="font-size:57.6px">Every loaf is shaped by hand before dawn</p></footer>'
 					)
 				);
+			} else if ( request.url === '/squeezed/' ) {
+				response.writeHead( 200, { 'content-type': 'text/html' } );
+				response.end( SQUEEZED );
 			} else if ( request.url === '/fit/' ) {
 				response.writeHead( 200, { 'content-type': 'text/html' } );
 				response.end( FIT );
@@ -188,6 +200,18 @@ describe.runIf( CHROMIUM )( 'inspecting a page', () => {
 		expect( problems ).toEqual( [
 			'p "Every loaf is shaped by hand before dawn" is 57.6px, 3 times the 19.2px body text; text this large reads as a heading.',
 		] );
+	}, 60000 );
+
+	it( 'names text squeezed to a few words a line on a desktop, not on a phone', async () => {
+		const { problems } = await inspectPage( `${ siteUrl }/squeezed/`, VIEWPORTS.desktop );
+		expect( problems ).toEqual( [
+			expect.stringMatching(
+				/^Text squeezed into a narrow box, under 16 characters a line \(two or three words; body text runs 45–90\):\n {2}p "“Bella came home smelling amazing and he…": 96px wide, \d+ characters a line over \d+ lines, in div\.talk-bubble in div\.$/
+			),
+		] );
+		expect( ( await inspectPage( `${ siteUrl }/squeezed/`, VIEWPORTS.mobile ) ).problems ).toEqual(
+			[]
+		);
 	}, 60000 );
 
 	it( 'answers a screenshot from the render while the page serves the same HTML', async () => {

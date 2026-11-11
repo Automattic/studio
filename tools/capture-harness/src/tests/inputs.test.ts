@@ -144,7 +144,7 @@ describe( 'scenes', () => {
 	} );
 
 	it( 'finds what a script needs that the scene lacks', async () => {
-		const scene = await loadScene( 'wren-and-barley' );
+		const scene = await loadScene( 'moire' );
 		const script = Script.parse( {
 			name: 'x',
 			description: 'x',
@@ -162,9 +162,9 @@ describe( 'scenes', () => {
 			],
 		} );
 		expect( checkScriptAgainstScene( script, scene ) ).toEqual( [
-			'chats: scene wren-and-barley has no chat "missing-chat"',
+			'chats: scene moire has no chat "missing-chat"',
 			'shots.0 (a): unknown placeholder {{account.name}}',
-			'shots.0 (a): scene wren-and-barley has no file "nope.zip"',
+			'shots.0 (a): scene moire has no file "nope.zip"',
 		] );
 	} );
 

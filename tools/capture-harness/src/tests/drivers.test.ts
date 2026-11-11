@@ -28,7 +28,7 @@ describe( 'browser driver', () => {
 
 	it( "answers /api/quota in the shape the server's own parse gives", async () => {
 		const raw = JSON.parse(
-			await readFile( path.join( SCENES_DIR, 'wren-and-barley/ai-quota.json' ), 'utf8' )
+			await readFile( path.join( SCENES_DIR, 'moire/ai-quota.json' ), 'utf8' )
 		);
 		expect( JSON.parse( JSON.stringify( parseQuota( raw ) ) ) ).toEqual(
 			JSON.parse( JSON.stringify( studioAssistantQuotaSchema.parse( raw ) ) )

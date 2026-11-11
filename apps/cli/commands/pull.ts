@@ -24,7 +24,6 @@ import { canUseExistingCore } from 'cli/lib/pull/local-core';
 import {
 	applySelection,
 	type CliSelectionOptions,
-	pullSelectionFromSyncOptions,
 	clearPullSelection,
 	isFullPull,
 	type PullSelection,
@@ -68,19 +67,11 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 	exitOnCancel();
 
 	try {
-		await runCommand(
-			argv.path,
-			argv.remoteSite,
-			verbose,
-			// The app and the agent describe what to pull with `--options`.
-			argv.options
-				? pullSelectionFromSyncOptions( argv.options, argv.only as string[] | undefined )
-				: {
-						only: argv.only as string[] | undefined,
-						skipDatabase: argv[ 'skip-database' ] as boolean,
-						skipFiles: argv[ 'skip-files' ] as boolean,
-				  }
-		);
+		await runCommand( argv.path, argv.remoteSite, verbose, {
+			only: argv.only as string[] | undefined,
+			skipDatabase: argv[ 'skip-database' ] as boolean,
+			skipFiles: argv[ 'skip-files' ] as boolean,
+		} );
 		// The pulled site's server keeps handles open.
 		process.exit( 0 );
 	} catch ( error ) {

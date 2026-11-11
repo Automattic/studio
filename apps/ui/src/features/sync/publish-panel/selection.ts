@@ -1,6 +1,7 @@
 import { categorizePath, shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { backupLsItemSchema } from '@studio/common/types/sync-tree';
 import type { TransferOptions } from './options';
+import type { PulledFilePicks, PullSyncOptions } from '@studio/common/types/sync';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 
 export type SyncNode = {
@@ -91,6 +92,20 @@ export function syncOptions( nodes: SyncNode[], content: boolean ): TransferOpti
 	const paths = selected.map( ( node ) =>
 		node.path.replace( /^\/?wp-content\//, '' ).replace( /\/$/, '' )
 	);
+	const [ firstPath, ...otherPaths ] = paths;
+	const files: PulledFilePicks | 'none' =
+		firstPath === undefined
+			? 'none'
+			: {
+					paths: [ firstPath, ...otherPaths ],
+					backupNodeIds: selected.map( ( node ) => node.id ),
+			  };
+	let pull: PullSyncOptions | null = null;
+	if ( content ) {
+		pull = { database: true, files };
+	} else if ( files !== 'none' ) {
+		pull = { database: false, files };
+	}
 	return {
 		push: {
 			optionsToSync: [
@@ -99,13 +114,6 @@ export function syncOptions( nodes: SyncNode[], content: boolean ): TransferOpti
 			],
 			specificSelectionPaths: paths.length ? paths : undefined,
 		},
-		pull: {
-			optionsToSync: [
-				...( selected.length ? [ 'paths' as const ] : [] ),
-				...( content ? [ 'sqls' as const ] : [] ),
-			],
-			includePathList: selected.map( ( node ) => node.id ),
-			...( paths.length ? { onlyPaths: paths } : {} ),
-		},
+		pull,
 	};
 }

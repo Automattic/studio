@@ -4,7 +4,8 @@ import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@/data/core';
 export type PublishView = 'publish' | 'pull' | 'websites';
 export type PublishScope = 'all' | 'files' | 'content' | 'custom';
 export type TransferDirection = 'push' | 'pull';
-export type TransferOptions = { push: PushSyncOptions; pull: PullSyncOptions };
+/** `pull` is null when nothing is picked. */
+export type TransferOptions = { push: PushSyncOptions; pull: PullSyncOptions | null };
 
 export function scopeLabel( scope: PublishScope ) {
 	switch ( scope ) {
@@ -26,7 +27,13 @@ export function presetOptions( scope: Exclude< PublishScope, 'custom' > ): Trans
 			: scope === 'content'
 			? [ 'sqls' ]
 			: [ 'plugins', 'themes', 'uploads', 'contents' ];
-	return { push: { optionsToSync }, pull: { optionsToSync } };
+	const pull: PullSyncOptions =
+		scope === 'all'
+			? { database: true, files: 'all' }
+			: scope === 'content'
+			? { database: true, files: 'none' }
+			: { database: false, files: 'all' };
+	return { push: { optionsToSync }, pull };
 }
 
 export function overwriteDescription( direction: TransferDirection ) {

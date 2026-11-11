@@ -10,7 +10,7 @@ describe( 'sync selections', () => {
 		expect( plugin.folder ).toBe( true );
 		expect( plugin.expandable ).toBe( false );
 	} );
-	it( 'sends remote backup IDs and their paths for selective pull, and paths for push', () => {
+	it( 'sends picked paths and their backup IDs for selective pull, and paths for push', () => {
 		const nodes = checkNodes(
 			remoteNodes( { theme: { id: 'backup-theme-42', type: 'dir' } }, '/wp-content/themes/' ),
 			true
@@ -18,9 +18,8 @@ describe( 'sync selections', () => {
 		expect( syncOptions( nodes, false ) ).toEqual( {
 			push: { optionsToSync: [ 'themes' ], specificSelectionPaths: [ 'themes/theme' ] },
 			pull: {
-				optionsToSync: [ 'paths' ],
-				includePathList: [ 'backup-theme-42' ],
-				onlyPaths: [ 'themes/theme' ],
+				database: false,
+				files: { paths: [ 'themes/theme' ], backupNodeIds: [ 'backup-theme-42' ] },
 			},
 		} );
 	} );
@@ -49,5 +48,14 @@ describe( 'sync selections', () => {
 	it( 'uses full-site transfer only when both categories are selected', () => {
 		expect( presetOptions( 'all' ).push ).toEqual( { optionsToSync: [ 'all' ] } );
 		expect( presetOptions( 'content' ).push.optionsToSync ).toEqual( [ 'sqls' ] );
+	} );
+	it( 'describes each pull preset by its database and files', () => {
+		expect( presetOptions( 'all' ).pull ).toEqual( { database: true, files: 'all' } );
+		expect( presetOptions( 'files' ).pull ).toEqual( { database: false, files: 'all' } );
+		expect( presetOptions( 'content' ).pull ).toEqual( { database: true, files: 'none' } );
+	} );
+	it( 'pulls only the database when only content is picked, and nothing when nothing is', () => {
+		expect( syncOptions( [], true ).pull ).toEqual( { database: true, files: 'none' } );
+		expect( syncOptions( [], false ).pull ).toBeNull();
 	} );
 } );

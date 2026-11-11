@@ -120,7 +120,8 @@ export function ConnectedView( {
 		const variables = { siteId: site.id, remoteSiteId: remote.id };
 		if ( direction === 'push' )
 			pushSite.mutate( { ...variables, options: selection.options.push } );
-		else pullSite.mutate( { ...variables, options: selection.options.pull } );
+		else if ( selection.options.pull )
+			pullSite.mutate( { ...variables, options: selection.options.pull } );
 	};
 	const choices = [
 		{ value: 'all', label: __( 'Entire site' ) },

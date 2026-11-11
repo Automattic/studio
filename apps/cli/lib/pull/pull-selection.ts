@@ -9,7 +9,6 @@ import {
 	selectPullItems,
 } from 'cli/lib/pull/reprint-selector';
 import { LoggerError } from 'cli/logger';
-import type { SyncOption } from '@studio/common/types/sync';
 
 /** What to pull. An empty selection pulls everything. */
 export interface PullSelection {
@@ -36,30 +35,6 @@ export interface CliSelectionOptions {
 	only?: string[];
 	skipDatabase?: boolean;
 	skipFiles?: boolean;
-}
-
-const FILE_SYNC_OPTIONS = [ 'plugins', 'themes', 'uploads' ] as const;
-
-/**
- * The selection for the sync options the app and the agent send, such as `themes,sqls`. `contents`
- * stands for the rest of wp-content, so it pulls every file. With the `paths` option, `only` holds
- * the picked files.
- */
-export function pullSelectionFromSyncOptions(
-	options: SyncOption[],
-	only: string[] = []
-): CliSelectionOptions {
-	if ( options.length === 0 || options.includes( 'all' ) ) {
-		return {};
-	}
-	const skipDatabase = ! options.includes( 'sqls' );
-	if ( options.includes( 'contents' ) ) {
-		return { skipDatabase };
-	}
-	const files = only.length
-		? only
-		: FILE_SYNC_OPTIONS.filter( ( option ) => options.includes( option ) );
-	return files.length > 0 ? { only: files, skipDatabase } : { skipFiles: true };
 }
 
 /**

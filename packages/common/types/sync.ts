@@ -172,15 +172,18 @@ export type PushSyncOptions = {
 	optionsToSync?: SyncOption[];
 	specificSelectionPaths?: string[];
 };
-/**
- * What a pull includes. By default, all files and the database. A pick of files is sent both as
- * Backup node ids for the Jetpack Backup pull and as paths for the Reprint pull
- * (`STUDIO_ENABLE_PULL_REPRINT`).
- */
-export type PullSyncOptions = {
-	optionsToSync?: SyncOption[];
-	/** Backup node ids, used with the `paths` option. */
-	includePathList?: string[];
-	/** The same picks as paths relative to wp-content, such as `plugins/akismet`. */
-	onlyPaths?: string[];
+/** Files picked from the remote site's wp-content. */
+export type PulledFilePicks = {
+	/** Paths relative to wp-content, such as `plugins/akismet`. */
+	paths: [ string, ...string[] ];
+	/** The same picks as Backup node ids, for the Jetpack Backup pull. Absent when picked by path. */
+	backupNodeIds?: string[];
 };
+
+/**
+ * What a pull includes, for either engine (`STUDIO_ENABLE_PULL_REPRINT`). A pull without the
+ * database includes files.
+ */
+export type PullSyncOptions =
+	| { database: true; files: 'all' | 'none' | PulledFilePicks }
+	| { database: false; files: 'all' | PulledFilePicks };

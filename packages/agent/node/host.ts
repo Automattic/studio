@@ -4,7 +4,7 @@ import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { SiteStatus } from '@studio/common/types/site-status';
 import type { Snapshot } from '@studio/common/types/snapshot';
-import type { SyncSite } from '@studio/common/types/sync';
+import type { PullSyncOptions, SyncSite } from '@studio/common/types/sync';
 
 export type ProgressCallback = ( message: string, update?: boolean ) => void;
 
@@ -83,7 +83,7 @@ export interface StudioAgentHost {
 		): Promise< SyncSite | undefined >;
 		pull(
 			site: HostSite,
-			options: string,
+			options: PullSyncOptions,
 			remoteSite: string | undefined,
 			onProgress: ProgressCallback
 		): Promise< SyncSite | undefined >;

@@ -16,8 +16,6 @@ set -euo pipefail
 
 source .buildkite/commands/docs-refresh-branch.sh
 
-HARNESS=(node --experimental-strip-types tools/capture-harness/cli.ts)
-SCENE=moire
 CLAUDE_CODE_VERSION=2.1.322
 
 rm -rf "$OUT"
@@ -32,13 +30,7 @@ export GIT_AUTHOR_NAME="Docs refresh" GIT_AUTHOR_EMAIL="docs-refresh@localhost"
 export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME" GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
 checkout_docs_branch
 
-echo "--- :npm: Install Node dependencies"
-# The a8c-ci-toolkit cache helpers install-node-dependencies.sh needs don't exist in the container.
-npm ci --unsafe-perm --no-audit --no-progress --maxsockets 1
-
-echo "--- :hammer: Set up the capture harness"
-"${HARNESS[@]}" setup --driver browser
-"${HARNESS[@]}" bake --scene "$SCENE"
+source .buildkite/commands/docs-refresh-setup.sh
 
 echo "--- :camera: Check the docs screenshots"
 # Exits 1 when a shot changed or failed, which is a finding here, not an error.

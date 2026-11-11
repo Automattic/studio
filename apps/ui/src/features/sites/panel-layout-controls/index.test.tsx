@@ -107,6 +107,9 @@ it( 'remembers each site’s layout and preserves the draft across layout change
 	fireEvent.change( input, { target: { value: 'Keep my draft' } } );
 	await chooseLayout( 'Panel' );
 	fireEvent.click( screen.getByRole( 'button', { name: 'Second' } ) );
+	await waitFor( () =>
+		expect( screen.getByRole( 'button', { name: 'Site menu' } ) ).toHaveTextContent( 'Second' )
+	);
 	await chooseLayout( 'Chat' );
 	fireEvent.click( screen.getByRole( 'button', { name: 'First' } ) );
 	await waitFor( () =>
@@ -180,6 +183,26 @@ it( 'switches full view immediately in both directions', async () => {
 	expect( screen.getByRole( 'button', { name: 'Expand panel' } ) ).toBeVisible();
 	expect( document.querySelector( '[data-layout-moving]' ) ).not.toBeInTheDocument();
 	expect( screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } ) ).toBeVisible();
+} );
+
+it( 'keeps the full-view and publish controls mounted through panel toggles', async () => {
+	const connector = createFakeConnector( {
+		sites: [ makeSite( { id: 'one', running: true } ) ],
+	} );
+	const { user } = renderApp( { connector, path: '/sites/one/new' } );
+	const fullView = await screen.findByRole( 'button', { name: 'Expand panel' } );
+	const publish = screen.getByRole( 'button', { name: 'Publish…' } );
+
+	await user.click( screen.getByRole( 'button', { name: 'Hide panel' } ) );
+	expect( fullView ).toBeInTheDocument();
+	expect( fullView.closest( '[inert]' ) ).not.toBeNull();
+	expect( screen.queryByRole( 'button', { name: 'Expand panel' } ) ).not.toBeInTheDocument();
+	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBe( publish );
+
+	await user.click( screen.getByRole( 'button', { name: 'Show panel' } ) );
+	expect( screen.getByRole( 'button', { name: 'Expand panel' } ) ).toBe( fullView );
+	expect( fullView.closest( '[inert]' ) ).toBeNull();
+	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBe( publish );
 } );
 
 it( 'opens chat from a standalone Browser page by hiding the panel', async () => {

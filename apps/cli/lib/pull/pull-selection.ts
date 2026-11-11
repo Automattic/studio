@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { __ } from '@wordpress/i18n';
 import { type PullSession } from 'cli/lib/pull/pull-session';
-import { getCoreRoots, type ReprintMetadata } from 'cli/lib/pull/reprint-metadata';
+import { type ReprintMetadata } from 'cli/lib/pull/reprint-metadata';
 import {
 	fetchJetpackPullTree,
 	mapCliOnlyToReprint,
@@ -16,7 +16,19 @@ export interface PullSelection {
 	skipDatabase?: boolean;
 	/** Pulls only the database and keeps the local files. Only for sites pulled before. */
 	skipFiles?: boolean;
+	/** The first pull of a site, with only the database picked. Later pulls use `skipFiles`. */
+	databaseOnly?: boolean;
 	fileOnlyPaths?: string[];
+}
+
+/** Whether the selection pulls the whole site: every file and the database. */
+export function isFullPull( selection: PullSelection ): boolean {
+	return (
+		! selection.skipFiles &&
+		! selection.skipDatabase &&
+		! selection.databaseOnly &&
+		! selection.fileOnlyPaths?.length
+	);
 }
 
 /** The `--only` and `--skip-database` flags. */
@@ -93,35 +105,8 @@ export async function applySelection( params: {
 } ): Promise< PullSelection | null > {
 	const { session, isFirstPull, reprintMetadata, cli, wpComAccessToken, wpComSiteId } = params;
 
-	// `--only` replaces Reprint's default paths, so a partial first pull must
-	// add WordPress core itself. Without known core paths, pull everything.
-	const withCoreRootsOnFirstPull = ( fileOnlyPaths: string[], databaseOnly = false ): string[] => {
-		if ( ! isFirstPull || ( fileOnlyPaths.length === 0 && ! databaseOnly ) ) {
-			return fileOnlyPaths;
-		}
-		const coreRoots = getCoreRoots( reprintMetadata );
-		if ( coreRoots.length === 0 ) {
-			console.log(
-				__(
-					'Could not determine where WordPress core lives on the remote site; pulling all files instead of the selection.'
-				)
-			);
-			return [];
-		}
-		return [
-			...coreRoots,
-			...fileOnlyPaths.filter( ( onlyPath ) => ! coreRoots.includes( onlyPath ) ),
-		];
-	};
-
-	// Core is added again in case Reprint started over with a fresh download.
 	const persisted = readPullSelection( session );
 	if ( persisted ) {
-		const healed = withCoreRootsOnFirstPull( persisted.fileOnlyPaths ?? [] );
-		if ( healed.length !== ( persisted.fileOnlyPaths?.length ?? 0 ) ) {
-			persisted.fileOnlyPaths = healed.length > 0 ? healed : undefined;
-			savePullSelection( session, persisted );
-		}
 		return persisted;
 	}
 
@@ -177,9 +162,9 @@ export async function applySelection( params: {
 					)
 				);
 			}
-			const withCore = withCoreRootsOnFirstPull( mapCliOnlyToReprint( cliOnly ) );
-			if ( withCore.length > 0 ) {
-				selection.fileOnlyPaths = withCore;
+			const onlyPaths = mapCliOnlyToReprint( cliOnly );
+			if ( onlyPaths.length > 0 ) {
+				selection.fileOnlyPaths = onlyPaths;
 			}
 		}
 		assertLocalDatabaseAvailable( selection );
@@ -214,12 +199,14 @@ export async function applySelection( params: {
 	if ( ! picked ) {
 		return null;
 	}
-	const fileOnlyPaths = withCoreRootsOnFirstPull( picked.fileOnlyPaths, ! picked.hasAnyFile );
 	const selection: PullSelection = {
 		skipDatabase: picked.skipDatabase,
 	};
-	if ( fileOnlyPaths.length > 0 ) {
-		selection.fileOnlyPaths = fileOnlyPaths;
+	// The picker offers a database-only pull only on a first pull.
+	if ( ! picked.hasAnyFile ) {
+		selection.databaseOnly = true;
+	} else if ( picked.fileOnlyPaths.length > 0 ) {
+		selection.fileOnlyPaths = picked.fileOnlyPaths;
 	}
 	assertLocalDatabaseAvailable( selection );
 	savePullSelection( session, selection );

@@ -140,7 +140,7 @@ describe( 'ConnectPanel', () => {
 		await waitFor( () => expect( connector.fetchSyncableWpcomSites ).toHaveBeenCalledTimes( 2 ) );
 		fireEvent.click( screen.getByRole( 'button', { name: /Supported sites/ } ) );
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
-			'https://developer.wordpress.com/docs/developer-tools/studio/sync/#supported-sites'
+			'https://wordpress.studio/docs/sync/#compatible-sites'
 		);
 	} );
 } );

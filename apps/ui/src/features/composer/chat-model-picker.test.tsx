@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { Composer } from '@/features/composer';
-import { createFakeConnector, type FakeConnector } from '@/test/fake-connector';
+import { aiSettings, createFakeConnector, type FakeConnector } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import type { AiModelId } from '@/data/core';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
@@ -35,11 +35,8 @@ function connectorFor( {
 	return createFakeConnector(
 		{},
 		{
-			getAiSettings: async () => ( {
-				provider: 'wpcom',
-				hasAnthropicApiKey: anthropic,
-				anthropicApiKeyPreview: null,
-			} ),
+			getAiSettings: async () =>
+				aiSettings( 'wpcom', anthropic ? [ 'wpcom', 'anthropic' ] : [ 'wpcom' ] ),
 			getStudioAssistantQuota: quota,
 			getStudioAssistantTopUpPricing: async () =>
 				( { options: [ { credits: 100000, display: '$10' } ] } ) as never,

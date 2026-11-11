@@ -27,9 +27,6 @@ const DOCS_LINKS = {
 	docsAiCredits: {
 		en: 'https://wordpress.studio/docs/studio-code/ai-credits-guidelines/',
 	},
-	docsAnthropicApiKey: {
-		en: 'https://platform.claude.com/docs/en/get-api-key',
-	},
 	docsCustomDomains: {
 		en: 'https://wordpress.studio/docs/sites/#using-a-custom-domain-and-ssl',
 	},

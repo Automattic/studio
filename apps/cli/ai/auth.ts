@@ -1,100 +1,188 @@
+import { connectProvider, readSelectedAiProvider } from '@studio/common/lib/ai-settings';
+import { readProviderConfig } from '@studio/common/lib/provider-config';
+import { getStudioUserAgent as buildStudioUserAgent } from '@studio/common/lib/user-agent';
 import {
-	persistSelectedAiProvider,
-	readSelectedAiProvider,
-} from '@studio/agent/node/settings-store';
-import {
-	AI_PROVIDER_PRIORITY,
-	DEFAULT_AI_PROVIDER,
-	getAiProviderDefinition,
-	hasInlineWpcomAuth,
-	type AiProviderId,
-	type ResolveAiEnvironmentOptions,
-} from 'cli/ai/providers';
+	DEFAULT_PROVIDER_ID,
+	getConnectFields,
+	getProviderDescriptor,
+	InvalidCredentialError,
+	PROVIDER_IDS,
+	ProviderNotReadyError,
+	type AiConnection,
+	type AiModelId,
+	type ProviderConfigs,
+	type ProviderId,
+} from '@studio/providers';
+import { getProvider } from '@studio/providers/services';
+import { __, sprintf } from '@wordpress/i18n';
+import { input, password } from 'cli/lib/prompts';
+import { LoggerError } from 'cli/logger';
+import type { ImageGenerator } from '@studio/agent/node';
+
+export function getStudioUserAgent(): string {
+	return buildStudioUserAgent(
+		typeof __STUDIO_CLI_VERSION__ === 'string' ? __STUDIO_CLI_VERSION__ : undefined
+	);
+}
+
+function readInlineWpcomToken(): string | undefined {
+	return process.env.STUDIO_WPCOM_TOKEN?.trim() || undefined;
+}
+
+// `STUDIO_WPCOM_TOKEN` stands in for the Studio sign-in.
+async function readCliProviderConfig< Id extends ProviderId >(
+	provider: Id
+): Promise< ProviderConfigs[ Id ] | undefined > {
+	const inlineToken = provider === 'wpcom' ? readInlineWpcomToken() : undefined;
+	return inlineToken
+		? ( { token: inlineToken } as ProviderConfigs[ Id ] )
+		: readProviderConfig( provider );
+}
+
+export async function isAiProviderReady( provider: ProviderId ): Promise< boolean > {
+	return ( await readCliProviderConfig( provider ) ) !== undefined;
+}
 
 async function getPreferredReadyProvider(
-	exclude?: AiProviderId
-): Promise< AiProviderId | undefined > {
-	for ( const provider of AI_PROVIDER_PRIORITY ) {
-		if ( provider === exclude ) {
-			continue;
-		}
-
-		const definition = getAiProviderDefinition( provider );
-		if ( ( await definition.isVisible() ) && ( await definition.isReady() ) ) {
+	exclude?: ProviderId
+): Promise< ProviderId | undefined > {
+	for ( const provider of PROVIDER_IDS ) {
+		if ( provider !== exclude && ( await isAiProviderReady( provider ) ) ) {
 			return provider;
 		}
 	}
-
 	return undefined;
 }
 
-export async function getAvailableAiProviders(): Promise< AiProviderId[] > {
-	const providers: AiProviderId[] = [];
-	for ( const provider of AI_PROVIDER_PRIORITY ) {
-		if ( await getAiProviderDefinition( provider ).isVisible() ) {
-			providers.push( provider );
-		}
-	}
-	return providers;
-}
-
-export async function isAiProviderReady( provider: AiProviderId ): Promise< boolean > {
-	return getAiProviderDefinition( provider ).isReady();
+function fallsBackWhenNotReady( provider: ProviderId ): boolean {
+	return getProvider( provider ).ai?.fallbackWhenNotReady ?? false;
 }
 
 export async function resolveUnavailableAiProvider(
-	provider: AiProviderId
-): Promise< AiProviderId | undefined > {
-	const definition = getAiProviderDefinition( provider );
-	if ( ( await definition.isReady() ) || ! definition.autoFallbackWhenUnavailable ) {
+	provider: ProviderId
+): Promise< ProviderId | undefined > {
+	if ( ( await isAiProviderReady( provider ) ) || ! fallsBackWhenNotReady( provider ) ) {
 		return undefined;
 	}
-
 	return getPreferredReadyProvider( provider );
 }
 
-export async function resolveInitialAiProvider(): Promise< AiProviderId > {
-	if ( hasInlineWpcomAuth() ) {
+export async function resolveInitialAiProvider(): Promise< ProviderId > {
+	if ( readInlineWpcomToken() ) {
 		return 'wpcom';
 	}
 
 	const savedProvider = await readSelectedAiProvider();
 	if ( savedProvider ) {
-		const definition = getAiProviderDefinition( savedProvider );
 		if (
-			( await definition.isVisible() ) &&
-			( ( await definition.isReady() ) || ! definition.autoFallbackWhenUnavailable )
+			( await isAiProviderReady( savedProvider ) ) ||
+			! fallsBackWhenNotReady( savedProvider )
 		) {
 			return savedProvider;
 		}
-
-		const fallbackProvider = await getPreferredReadyProvider( savedProvider );
-		if ( fallbackProvider ) {
-			return fallbackProvider;
-		}
-
-		if ( await definition.isVisible() ) {
-			return savedProvider;
-		}
+		return ( await getPreferredReadyProvider( savedProvider ) ) ?? savedProvider;
 	}
 
-	return ( await getPreferredReadyProvider() ) ?? DEFAULT_AI_PROVIDER;
+	return ( await getPreferredReadyProvider() ) ?? DEFAULT_PROVIDER_ID;
 }
 
-export async function saveSelectedAiProvider( provider: AiProviderId ): Promise< void > {
-	await persistSelectedAiProvider( provider );
+// Asks for the fields of a provider that connects with a form. The provider
+// checks the values once the last one is entered, and a rejection asks again.
+async function promptForConnection( provider: ProviderId ): Promise< void > {
+	const fields = getConnectFields( provider );
+	const values: Record< string, string > = {};
+	for ( const [ index, field ] of fields.entries() ) {
+		const prompt = field.secret ? password : input;
+		values[ field.name ] = await prompt( {
+			message: sprintf(
+				/* translators: %s: what the provider asks for, such as an API key */
+				__( '%s (saved for future use):' ),
+				field.title
+			),
+			...( field.secret ? { mask: '*' } : {} ),
+			validate: async ( value: string ) => {
+				const error = field.validate( value );
+				if ( error || index < fields.length - 1 ) {
+					return error ?? true;
+				}
+				try {
+					await connectProvider( getProvider( provider ), { ...values, [ field.name ]: value } );
+					return true;
+				} catch ( rejection ) {
+					if ( rejection instanceof InvalidCredentialError ) {
+						return rejection.message;
+					}
+					throw rejection;
+				}
+			},
+		} );
+	}
 }
 
+// Asks for what the provider needs before it is selected.
 export async function prepareAiProvider(
-	provider: AiProviderId,
+	provider: ProviderId,
 	options?: { force?: boolean }
 ): Promise< void > {
-	await getAiProviderDefinition( provider ).prepare( options );
+	const ready = await isAiProviderReady( provider );
+	if ( getConnectFields( provider ).length ) {
+		if ( options?.force || ! ready ) {
+			await promptForConnection( provider );
+		}
+		return;
+	}
+	if ( ! ready ) {
+		throw new LoggerError( __( 'WordPress.com login required. Use /login to authenticate.' ) );
+	}
 }
 
-export async function resolveAiEnvironment(
-	provider: AiProviderId,
-	options?: ResolveAiEnvironmentOptions
-): Promise< Record< string, string > > {
-	return getAiProviderDefinition( provider ).resolveEnv( options );
+async function connect< Id extends ProviderId >(
+	provider: Id,
+	model: AiModelId,
+	options: { sessionId?: string }
+): Promise< AiConnection > {
+	const ai = getProvider( provider ).ai;
+	if ( ! ai ) {
+		throw new LoggerError( `${ getProviderDescriptor( provider ).label } offers no AI models.` );
+	}
+	const config = await readCliProviderConfig( provider );
+	return ai.connect( config, model, options );
+}
+
+export async function resolveAiConnection(
+	provider: ProviderId,
+	model: AiModelId,
+	options: { sessionId?: string } = {}
+): Promise< AiConnection > {
+	try {
+		return await connect( provider, model, options );
+	} catch ( error ) {
+		if ( error instanceof ProviderNotReadyError ) {
+			throw new LoggerError( error.message );
+		}
+		throw error;
+	}
+}
+
+async function bindImageGenerator< Id extends ProviderId >(
+	provider: Id
+): Promise< ImageGenerator | undefined > {
+	const generateImages = getProvider( provider ).ai?.generateImages;
+	const config = generateImages && ( await readCliProviderConfig( provider ) );
+	if ( ! generateImages || ! config ) {
+		return undefined;
+	}
+	return ( requests, onResult ) => generateImages( config, requests, onResult );
+}
+
+// Image generation from the first connected provider that offers it, whichever
+// provider serves the chat.
+export async function resolveImageGenerator(): Promise< ImageGenerator | undefined > {
+	for ( const provider of PROVIDER_IDS ) {
+		const generator = await bindImageGenerator( provider );
+		if ( generator ) {
+			return generator;
+		}
+	}
+	return undefined;
 }

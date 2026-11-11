@@ -12,6 +12,7 @@ export default defineConfig( {
 			'./packages/agent/vitest.config.ts',
 			'./packages/common/vitest.config.ts',
 			'./packages/design-md/vitest.config.ts',
+			'./packages/providers/vitest.config.ts',
 			'./scripts/vitest.config.ts',
 			'./tools/capture-harness/vitest.config.ts',
 			'./tools/eslint-plugin-studio/vitest.config.ts',

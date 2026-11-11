@@ -24,13 +24,6 @@ import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { type TSchema } from 'typebox';
 import { readGlobalInstructions } from '@studio/agent/node/global-instructions';
 import {
-	aiModelSupportsImages,
-	DEFAULT_MODEL,
-	getAiModelFamily,
-	type AiModelFamily,
-	type AiModelId,
-} from '@studio/agent/protocol/models';
-import {
 	findLastAssistant,
 	getEmptyStopContinuation,
 	isEmptyStop,
@@ -38,7 +31,7 @@ import {
 } from '@studio/agent/protocol/session-events';
 import { withDesignSystemPreview } from '@studio/agent/shared/chat-artifacts';
 import { getFileToolPrompt } from '@studio/agent/shared/file-tool-prompts';
-import { buildStudioModel, streamStudioModel, type StudioModel } from '@studio/agent/shared/models';
+import { createConnectionStream } from '@studio/agent/shared/models';
 import { runWithPendingWork, type PendingWork } from '@studio/agent/shared/pending-work';
 import { createResultNotes } from '@studio/agent/shared/result-notes';
 import { findActiveSiteDesign } from '@studio/agent/shared/site-selection';
@@ -49,6 +42,7 @@ import { getPendingWork } from './pending-work';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
 import type { StudioAgentHost } from '@studio/agent/shared/host';
 import type { AskUserHandler, SiteInfo } from '@studio/agent/shared/types';
+import type { AiConnection } from '@studio/providers';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
@@ -65,8 +59,8 @@ export interface StudioAgentTurnConfig {
 	prompt: string;
 	images?: StudioChatImage[];
 	session: SessionManager;
-	env?: Record< string, string >;
-	model?: AiModelId;
+	// The model to run on, as the provider serving it connects to it.
+	ai: AiConnection;
 	activeSite?: SiteInfo | null;
 	onAskUser?: AskUserHandler;
 	onEvent: ( event: AgentSessionEvent ) => void;
@@ -74,8 +68,6 @@ export interface StudioAgentTurnConfig {
 
 interface ResolvedStudioAgentTurnConfig extends StudioAgentTurnConfig {
 	host: StudioAgentHost;
-	env: Record< string, string >;
-	model: AiModelId;
 }
 
 export interface StudioAgentTurnHandle {
@@ -91,12 +83,7 @@ export function runStudioAgentTurn(
 ): StudioAgentTurnHandle {
 	const controller = new AbortController();
 	let activeSession: AgentSession | undefined;
-	const resolvedConfig: ResolvedStudioAgentTurnConfig = {
-		...config,
-		host,
-		env: config.env ?? { ...( process.env as Record< string, string > ) },
-		model: config.model ?? DEFAULT_MODEL,
-	};
+	const resolvedConfig: ResolvedStudioAgentTurnConfig = { ...config, host };
 
 	if ( ! fs.existsSync( host.sitesRoot ) ) {
 		fs.mkdirSync( host.sitesRoot, { recursive: true } );
@@ -118,63 +105,9 @@ export function runStudioAgentTurn(
 	};
 }
 
-interface ResolvedCredentials {
-	apiKey: string;
-	baseURL: string;
-	extraHeaders?: Record< string, string >;
-}
-
-function resolveCredentials(
-	family: AiModelFamily,
-	env: Record< string, string >
-): { ok: true; creds: ResolvedCredentials } | { ok: false; reason: string } {
-	if ( family === 'studio' ) {
-		const apiKey = env.STUDIO_WPCOM_API_KEY?.trim();
-		if ( ! apiKey ) {
-			return {
-				ok: false,
-				reason:
-					'The WordPress.com models need a wpcom access token, and STUDIO_WPCOM_API_KEY is not set — run /login to authenticate.',
-			};
-		}
-		const baseURL = env.STUDIO_WPCOM_BASE_URL?.trim();
-		if ( ! baseURL ) {
-			return { ok: false, reason: 'STUDIO_WPCOM_BASE_URL not set — cannot route to wpcom proxy.' };
-		}
-		return {
-			ok: true,
-			creds: {
-				apiKey,
-				baseURL,
-				extraHeaders: parseJsonHeaderEnv(
-					'STUDIO_WPCOM_DEFAULT_HEADERS',
-					env.STUDIO_WPCOM_DEFAULT_HEADERS
-				),
-			},
-		};
-	}
-
-	const apiKey = env.ANTHROPIC_API_KEY?.trim();
-	if ( ! apiKey ) {
-		return {
-			ok: false,
-			reason:
-				'Anthropic provider selected but ANTHROPIC_API_KEY is not set. Switch to the Anthropic · API key provider with /provider and save a key.',
-		};
-	}
-	return {
-		ok: true,
-		creds: {
-			apiKey,
-			baseURL: 'https://api.anthropic.com',
-		},
-	};
-}
-
 // Synthesize a pi `agent_end` event with a single error assistant message.
 // Used for failures the runtime catches before pi's own `agent_end` fires
-// (missing credentials, abort during pre-flight, exceptions out of the
-// agent loop). Downstream consumers read `stopReason`/`errorMessage` from
+// (abort during pre-flight, exceptions out of the agent loop). Downstream consumers read `stopReason`/`errorMessage` from
 // the last assistant message — same path as a real run that errored.
 function syntheticErrorAgentEnd(
 	stopReason: 'error' | 'aborted',
@@ -211,17 +144,10 @@ async function runAgentSessionTurn(
 	controller: AbortController,
 	setActiveSession: ( session: AgentSession | undefined ) => void
 ): Promise< void > {
-	const family = getAiModelFamily( config.model );
-	const resolved = resolveCredentials( family, config.env );
-	if ( ! resolved.ok ) {
-		config.onEvent( syntheticErrorAgentEnd( 'error', resolved.reason ) );
-		return;
-	}
-
 	let session: AgentSession | undefined;
 	let unsubscribe: ( () => void ) | undefined;
 	try {
-		session = await createStudioAgentSession( config, family, resolved.creds );
+		session = await createStudioAgentSession( config );
 		setActiveSession( session );
 		let emptyStopContinues = 0;
 		let continueAfterEmptyStop = false;
@@ -288,19 +214,13 @@ async function runAgentSessionTurn(
 }
 
 async function createStudioAgentSession(
-	config: ResolvedStudioAgentTurnConfig,
-	family: AiModelFamily,
-	creds: ResolvedCredentials
+	config: ResolvedStudioAgentTurnConfig
 ): Promise< AgentSession > {
-	const model = buildStudioModel( config.model, family, {
-		apiKey: creds.apiKey,
-		baseUrl: creds.baseURL,
-		headers: creds.extraHeaders,
-	} );
-	const visionEnabled = aiModelSupportsImages( config.model );
+	const { model } = config.ai;
+	const visionEnabled = model.input.includes( 'image' );
 	const [ userInstructions, imageGenerationEnabled, designPath ] = await Promise.all( [
 		readGlobalInstructions(),
-		config.host.wpcom.imageToken().then( Boolean ),
+		config.host.imageGenerator?.().then( Boolean ) ?? false,
 		findActiveSiteDesign( config.host, config.activeSite ),
 	] );
 
@@ -323,8 +243,8 @@ async function createStudioAgentSession(
 	const toolDefinitions = tools.map( ( tool ) =>
 		toToolDefinition( config.host, tool, pendingWork, resultNotes )
 	);
-	const modelRuntime = await createModelRuntime( model, family, creds );
-	const settingsManager = createSettingsManager( config.env );
+	const modelRuntime = await createModelRuntime( config.ai );
+	const settingsManager = createSettingsManager();
 	const { sitesRoot } = config.host;
 	const resourceLoader = new DefaultResourceLoader( {
 		cwd: sitesRoot,
@@ -358,9 +278,8 @@ async function createStudioAgentSession(
 }
 
 // In-memory credential store so the runtime never reads or writes an auth.json
-// on disk. Studio resolves credentials from the environment on every turn and
-// injects them via runtime API keys or registered provider configs, so nothing
-// needs to be persisted.
+// on disk. Each turn registers its provider with the connection's credentials,
+// so nothing needs to be persisted.
 class InMemoryCredentialStore implements CredentialStore {
 	private readonly credentials = new Map< string, Credential >();
 
@@ -391,49 +310,37 @@ class InMemoryCredentialStore implements CredentialStore {
 	}
 }
 
-async function createModelRuntime(
-	model: StudioModel,
-	family: AiModelFamily,
-	creds: ResolvedCredentials
-): Promise< ModelRuntime > {
+async function createModelRuntime( ai: AiConnection ): Promise< ModelRuntime > {
 	const modelRuntime = await ModelRuntime.create( {
 		credentials: new InMemoryCredentialStore(),
 		modelsPath: null,
 	} );
-
-	if ( family === 'studio' ) {
-		modelRuntime.registerProvider( model.provider, createWpcomProviderConfig( model, creds ) );
-		return modelRuntime;
-	}
-
-	await modelRuntime.setRuntimeApiKey( family, creds.apiKey );
+	modelRuntime.registerProvider( ai.piProvider, createProviderConfig( ai ) );
 	return modelRuntime;
 }
 
 // pi (>= 0.78) parses `registerProvider` config values (apiKey, headers) as
 // templates: a `$NAME` / `${NAME}` sequence is read as an environment-variable
-// reference and a leading `!` is read as a shell command. wpcom OAuth tokens are
-// random strings that can contain `$` followed by a name-like sequence, so pi
-// resolves that fragment to an undefined env var and treats the provider as
-// unauthenticated ("No API key found for studio-wpcom-anthropic."). Escape the
-// token so pi treats it as a literal: `$` -> `$$`, and a leading `!` -> `$!`.
+// reference and a leading `!` is read as a shell command. API keys such as wpcom
+// OAuth tokens are random strings that can contain `$` followed by a name-like
+// sequence, so pi resolves that fragment to an undefined env var and treats the
+// provider as unauthenticated ("No API key found for studio-wpcom."). Escape the
+// key so pi treats it as a literal: `$` -> `$$`, and a leading `!` -> `$!`.
 function escapePiConfigValue( value: string ): string {
 	const dollarEscaped = value.replace( /\$/g, () => '$$' );
 	return dollarEscaped.startsWith( '!' ) ? `$${ dollarEscaped }` : dollarEscaped;
 }
 
-// The wpcom lane only needs pi's stock streaming for each tier's API; the
-// custom provider exists to run it through `streamStudioModel`.
-function createWpcomProviderConfig(
-	model: StudioModel,
-	creds: ResolvedCredentials
-): ProviderConfigInput {
+// Each provider only needs pi's stock streaming for its model's API; the
+// registration exists to run it through the connection's stream.
+function createProviderConfig( ai: AiConnection ): ProviderConfigInput {
+	const { apiKey, headers, model } = ai;
 	return {
-		baseUrl: creds.baseURL,
-		apiKey: escapePiConfigValue( creds.apiKey ),
+		baseUrl: model.baseUrl,
+		apiKey: escapePiConfigValue( apiKey ),
 		api: model.api,
-		headers: creds.extraHeaders,
-		streamSimple: streamStudioModel,
+		headers,
+		streamSimple: createConnectionStream( ai ),
 		models: [
 			{
 				id: model.id,
@@ -445,14 +352,14 @@ function createWpcomProviderConfig(
 				cost: model.cost,
 				contextWindow: model.contextWindow,
 				maxTokens: model.maxTokens,
-				headers: creds.extraHeaders,
+				headers,
 				compat: model.compat,
 			},
 		],
 	};
 }
 
-function createSettingsManager( _env: Record< string, string > ): SettingsManager {
+function createSettingsManager(): SettingsManager {
 	return SettingsManager.inMemory(
 		{
 			defaultThinkingLevel: 'high',
@@ -539,26 +446,4 @@ function buildAgentTools(
 		tracks: getAiTracksIdentity( config.session.getSessionId() ),
 	} ) as unknown as AgentToolAny[];
 	return [ ...conversationTools, ...piTools ];
-}
-
-function parseJsonHeaderEnv(
-	name: string,
-	value: string | undefined
-): Record< string, string > | undefined {
-	if ( ! value ) return undefined;
-	try {
-		const parsed: unknown = JSON.parse( value );
-		if ( parsed && typeof parsed === 'object' && ! Array.isArray( parsed ) ) {
-			const entries = Object.entries( parsed as Record< string, unknown > ).filter(
-				( [ , v ] ) => typeof v === 'string'
-			) as [ string, string ][];
-			return entries.length ? Object.fromEntries( entries ) : undefined;
-		}
-		console.warn(
-			`${ name } must be a JSON object of string→string pairs; ignoring custom headers.`
-		);
-	} catch {
-		console.warn( `${ name } contained malformed JSON; ignoring custom headers.` );
-	}
-	return undefined;
 }

@@ -1,4 +1,4 @@
-import { studioMessage } from '@studio/agent/node/studio-message';
+import { studioMessage } from '@studio/agent/shared/studio-message';
 import type { CallNotes } from './pending-work';
 import type { AgentMessage } from '@earendil-works/pi-agent-core';
 

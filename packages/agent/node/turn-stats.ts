@@ -4,11 +4,11 @@ import {
 	isOutOfCreditsError,
 	isUsageCapError,
 } from '@studio/agent/protocol/json-events';
-import { findSkill } from './skills';
+import { findSkill } from '@studio/agent/shared/skills';
 import { addAssistantMessageUsage, addToolCallUsage, createTokenUsage } from './token-usage';
-import type { RemoteSite } from './remote-hosts';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { TurnStatus } from '@studio/agent/protocol/sessions/types';
+import type { RemoteSite } from '@studio/agent/shared/remote-hosts';
 
 // Per-turn stats for `studio_code_turn_completed`. Every prop is a count, a
 // boolean or a value from a fixed list, so no text from the user, the model, a

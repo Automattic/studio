@@ -19,11 +19,11 @@ import {
 import { repeatedPostStyleNotes } from '@studio/agent/node/repeated-style-values';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { POST_VERSION, RENDERED, RENDERED_TYPES, savePost } from '@studio/agent/node/site-markup';
-import { validationSummary } from '@studio/agent/node/studio-message';
-import { printedJson, wpEval } from '@studio/agent/node/tools/utils';
+import { validationSummary } from '@studio/agent/shared/studio-message';
+import { printedJson, wpEval } from '@studio/agent/shared/tools/utils';
 import type { PresetValues } from '@studio/agent/node/block-validator';
-import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { ChangeReport, SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
+import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
 
 interface Row {
 	id: number;

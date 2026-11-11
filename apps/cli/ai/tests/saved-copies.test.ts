@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 import { savedCopiesFact } from '@studio/agent/node/saved-copies';
 import { readWordPressSite } from '@studio/agent/node/site-database';
-import { wpEvalJson } from '@studio/agent/node/tools/utils';
+import { wpEvalJson } from '@studio/agent/shared/tools/utils';
 import { afterAll, describe, expect, it } from 'vitest';
 import { liveHost, liveSite } from 'cli/ai/tests/live-host';
 

@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { createFakeHost } from '@studio/agent/node/tests/fake-host';
 import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';
 import { themeLook } from '@studio/agent/node/theme-look';
-import type { HostSite } from '@studio/agent/node/host';
+import type { HostSite } from '@studio/agent/shared/host';
 
 const host = createFakeHost();
 

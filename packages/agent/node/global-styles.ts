@@ -6,9 +6,9 @@
  * (WP_Theme_JSON_Resolver::get_user_data_from_wp_global_styles()).
  */
 import { savedPosts, type SavedPost } from '@studio/agent/node/saved-copies';
-import { AS_ADMINISTRATOR, wpEvalJson } from '@studio/agent/node/tools/utils';
-import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
+import { AS_ADMINISTRATOR, wpEvalJson } from '@studio/agent/shared/tools/utils';
 import type { WordPressSite } from '@studio/agent/node/site-database';
+import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
 
 export const GLOBAL_STYLES = 'wp_global_styles';
 

@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { boundedLines, boundedText } from '../bounded-list';
+import { boundedLines, boundedText } from '@studio/agent/shared/bounded-list';
 
 const items = ( count: number ) => Array.from( { length: count }, ( _, i ) => `i${ i }` );
 

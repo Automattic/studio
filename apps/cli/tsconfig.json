@@ -7,6 +7,8 @@
 			"cli/*": [ "./*" ],
 			"@studio/common/*": [ "../../packages/common/*" ],
 			"@studio/agent/*": [ "../../packages/agent/*" ],
+			"@studio/providers": [ "../../packages/providers/index.ts" ],
+			"@studio/providers/*": [ "../../packages/providers/*" ],
 			"@studio/local": [ "../local/src/index.ts" ]
 		}
 	},

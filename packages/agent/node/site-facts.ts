@@ -15,8 +15,8 @@ import { savedCopiesFact } from '@studio/agent/node/saved-copies';
 import { readWordPressSite, type WordPressSite } from '@studio/agent/node/site-database';
 import { themePresetsFact } from '@studio/agent/node/theme-presets';
 import { activeThemeFact } from '@studio/agent/node/themes';
-import type { StudioAgentHost } from '@studio/agent/node/host';
-import type { SiteInfo } from '@studio/agent/node/types';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
+import type { SiteInfo } from '@studio/agent/shared/types';
 
 // Facts about a local site, read from its own files and database, one line
 // each. They are what the agent would otherwise look up before acting, stated

@@ -3,51 +3,43 @@
 // run-manager that only show the agent stay importable on their own, so those
 // apps never load the runtime.
 export { createAgent, type StudioAgent } from './agent';
-export type {
-	HostSite,
-	ProgressCallback,
-	StudioAgentHost,
-	StudioAgentUi,
-	WpCliOutput,
-} from './host';
+export type { HostSite, ProgressCallback, StudioAgentHost } from '@studio/agent/shared/host';
 export type { StudioAgentTurnConfig, StudioAgentTurnHandle } from './runtime';
 export {
 	remoteSiteFromStored,
 	storedFromRemoteSite,
 	wpcomApproval,
+	WPCOM_HOST,
 	type HostSiteListing,
 	type RemoteHost,
 	type RemoteSite,
 	type StoredSiteSelection,
-} from './remote-hosts';
-export type { AskUserHandler, AskUserQuestion, SiteInfo } from './types';
+} from '@studio/agent/shared/remote-hosts';
+export type { AskUserHandler, AskUserQuestion, SiteInfo } from '@studio/agent/shared/types';
 
 // Tools a host serves next to Studio's own, such as `studio mcp`'s.
 export {
 	bindTool,
 	defineTool,
-	LOCAL_CHANGE,
-	LOCAL_OVERWRITE,
 	READ_ONLY,
 	REMOTE_CHANGE,
-	REMOTE_OVERWRITE,
 	REMOTE_READ,
 	type AnyStudioAgentTool,
 	type StudioAgentTool,
 	type StudioToolDefinition,
 	type ToolResult,
-} from './tools/define-tool';
-export type { StudioToolsOptions } from './tools';
-export { renderSkill } from './tools/skill';
-export { siteOfCall, textResult } from './tools/utils';
-export { loadSkills } from './skills';
-export { buildSystemPrompt } from './system-prompt';
-export { isImageGenerationAvailable } from './image-generation';
+} from '@studio/agent/shared/tools/define-tool';
+export type { StudioToolsOptions } from '@studio/agent/shared/tools';
+export { renderSkill } from '@studio/agent/shared/tools/skill';
+export { siteOfCall, textResult } from '@studio/agent/shared/tools/utils';
+export { loadSkills } from '@studio/agent/shared/skills';
+export { buildSystemPrompt } from '@studio/agent/shared/system-prompt';
+export type { ImageGenerator } from '@studio/agent/shared/image-generation';
 
 // What Studio says about a site after a served tool's call, for `studio mcp`.
 export { createSiteNotes, notesAfterCall, type SiteNotes } from './site-notes';
 export { NO_CHANGES, SiteChanges, type SettledChanges } from './site-changes';
-export { studioMessage, validationLines } from './studio-message';
+export { studioMessage, validationLines } from '@studio/agent/shared/studio-message';
 export { getSessionState } from './runtime/session-state';
 
 // Turns as the host records them.
@@ -66,6 +58,6 @@ export {
 	ensurePlaywrightChromiumInstalled,
 	getSharedBrowser,
 } from './browser-utils';
-export { captureScreenshotBuffer } from './tools/screenshot-helpers';
+export { captureScreenshotBuffer } from '@studio/agent/shared/tools/screenshot-helpers';
 export { validateBlocks } from './block-validator';
-export { getWpcomAiGatewayBaseUrl } from './ai-gateway';
+export { nodeHostServices } from './node-host';

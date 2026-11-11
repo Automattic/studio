@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -10,10 +10,10 @@ const host = createFakeHost();
 // The design board each capture was given.
 const boards: string[] = [];
 
-vi.mock( '@studio/agent/node/tools/screenshot-helpers', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@studio/agent/node/tools/screenshot-helpers') >() ),
-	captureScreenshotBuffer: async ( url: string ) => {
-		boards.push( readFileSync( new URL( url ), 'utf8' ) );
+vi.mock( '@studio/agent/shared/tools/screenshot-helpers', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/agent/shared/tools/screenshot-helpers') >() ),
+	captureScreenshotBuffer: async ( _pages: unknown, { html }: { html: string } ) => {
+		boards.push( html );
 		return { buffer: Buffer.from( 'png' ), mimeType: 'image/png' };
 	},
 } ) );

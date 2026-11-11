@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createFakeHost } from '@studio/agent/node/tests/fake-host';
-import { createAskUserQuestionTool } from '@studio/agent/node/tools/ask-user-question';
-import { bindTool } from '@studio/agent/node/tools/define-tool';
+import { createAskUserQuestionTool } from '@studio/agent/shared/tools/ask-user-question';
+import { bindTool } from '@studio/agent/shared/tools/define-tool';
 
 const asked = {
 	questions: [

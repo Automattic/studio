@@ -43,6 +43,8 @@ vi.mock( 'cli/lib/daemon-client', () => ( {
 	disconnectFromDaemon: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/run-wp-cli-command', () => ( { runWpCliCommand: vi.fn() } ) );
+const wpcomReq = vi.hoisted( () => ( { get: vi.fn() } ) );
+vi.mock( '@studio/common/lib/wpcom-factory', () => ( { default: () => ( { req: wpcomReq } ) } ) );
 
 const site = {
 	id: 'site-123',
@@ -167,5 +169,13 @@ describe( 'cliAgentHost', () => {
 		expect( runWpCliCommand ).toHaveBeenCalledWith( site, [ 'option', 'get' ] );
 		expect( connectToDaemon ).toHaveBeenCalled();
 		expect( disconnectFromDaemon ).toHaveBeenCalled();
+	} );
+
+	it( 'asks the user to log in before sending feedback while signed out', async () => {
+		vi.mocked( readAuthToken ).mockResolvedValue( null );
+
+		await expect(
+			cliAgentHost.sendFeedback!( { type: 'bug', message: 'Something broke.' } )
+		).rejects.toThrow( /studio auth login.*github\.com\/Automattic\/studio\/issues/ );
 	} );
 } );

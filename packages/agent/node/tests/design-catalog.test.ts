@@ -1,11 +1,11 @@
 import { readdirSync } from 'fs';
 import path from 'path';
 import { describe, expect, it } from 'vitest';
-import { designCatalog, drawDesign } from '@studio/agent/node/design-catalog';
+import { designCatalog, drawDesign } from '@studio/agent/shared/design-catalog';
 
 describe( 'the design catalogs', () => {
 	it.each( [ 'directions', 'layouts' ] as const )( 'read every %s file as an entry', ( kind ) => {
-		const files = readdirSync( path.join( __dirname, '../design-catalog', kind ) ).filter(
+		const files = readdirSync( path.join( __dirname, '../../shared/design-catalog', kind ) ).filter(
 			( file ) => file.endsWith( '.md' ) && file !== 'README.md'
 		);
 		const entries = designCatalog( kind );

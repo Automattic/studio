@@ -22,6 +22,7 @@ export default mergeConfig(
 				cli: path.resolve( __dirname, '.' ),
 				'@studio/common': path.resolve( __dirname, '../../packages/common' ),
 				'@studio/agent': path.resolve( __dirname, '../../packages/agent' ),
+				'@studio/providers': path.resolve( __dirname, '../../packages/providers' ),
 				'@studio/local': path.resolve( __dirname, '../local/src' ),
 				'@wp-playground/blueprints/blueprint-schema-validator': path.resolve(
 					__dirname,

@@ -25,7 +25,7 @@ import { filesUnder } from '@studio/agent/node/active-code';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { placeOf, saveMarkup, type Markup } from '@studio/agent/node/site-markup';
 import { isBlockTheme, isUpdatableTheme } from '@studio/agent/node/themes';
-import type { StudioAgentHost } from '@studio/agent/node/host';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
 
 interface Rule {
 	start: number;

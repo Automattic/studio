@@ -5,7 +5,7 @@ import { expect, it, vi } from 'vitest';
 import { postCopies } from '@studio/agent/node/post-copies';
 import { createFakeHost, fakeSite } from '@studio/agent/node/tests/fake-host';
 import { createSite } from './fixtures/wordpress-site';
-import type { HostSite } from '@studio/agent/node/host';
+import type { HostSite } from '@studio/agent/shared/host';
 
 // As run eval5 picky 2: a perl edit that failed printed nothing, and
 // `wp post update 11 --post_content="$(cat …)"` saved that to the front page.

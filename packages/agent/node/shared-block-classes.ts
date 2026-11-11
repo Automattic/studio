@@ -18,7 +18,7 @@ import { readWordPressSite } from '@studio/agent/node/site-database';
 import { isBlockMarkup, type SiteFile } from '@studio/agent/node/site-file';
 import { siteMarkup } from '@studio/agent/node/site-markup';
 import { themePresets } from '@studio/agent/node/theme-presets';
-import type { StudioAgentHost } from '@studio/agent/node/host';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
 
 // The blocks of one type that carry a class before it reads as a shared look.
 const SHARED = 3;

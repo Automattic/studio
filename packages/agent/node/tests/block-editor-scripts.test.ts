@@ -2,7 +2,7 @@ import { expect, it, vi } from 'vitest';
 import { blockEditorScripts } from '@studio/agent/node/block-editor-scripts';
 import { createFakeHost } from '@studio/agent/node/tests/fake-host';
 import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';
-import type { HostSite } from '@studio/agent/node/host';
+import type { HostSite } from '@studio/agent/shared/host';
 
 // The site's block editor registers none of the blocks it is asked about.
 vi.mock( '@studio/agent/node/block-validator', () => ( {

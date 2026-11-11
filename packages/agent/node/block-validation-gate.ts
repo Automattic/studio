@@ -15,7 +15,6 @@ import { readFileSync } from 'fs';
 import { readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import { lastBlockCode } from '@studio/agent/node/block-code';
-import { validateHtmlBlockPolicy } from '@studio/agent/node/block-content-policy';
 import { saveBlockStyles, takesBlockStyles } from '@studio/agent/node/block-style-move';
 import {
 	bindNavigationLinks,
@@ -34,15 +33,16 @@ import {
 	type RendersAlike,
 	type ValidationReportBase,
 } from '@studio/agent/node/block-validator';
-import { boundedText } from '@studio/agent/node/bounded-list';
 import { rewriteNotes } from '@studio/agent/node/file-rewrites';
 import { hash } from '@studio/agent/node/post-copies';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { themePresets } from '@studio/agent/node/theme-presets';
 import { themesDir } from '@studio/agent/node/themes';
-import { printedJson, wpEval } from '@studio/agent/node/tools/utils';
-import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
+import { validateHtmlBlockPolicy } from '@studio/agent/shared/block-content-policy';
+import { boundedText } from '@studio/agent/shared/bounded-list';
+import { printedJson, wpEval } from '@studio/agent/shared/tools/utils';
 import type { OpenProblems } from '@studio/agent/node/open-problems';
+import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
 
 const THEME_MARKUP =
 	/[\\/]wp-content[\\/]themes[\\/][^\\/]+[\\/](templates|parts)[\\/][^\\/]+\.html$/;

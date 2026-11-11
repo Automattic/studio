@@ -16,7 +16,7 @@ import path from 'path';
 import { fileStamp } from '@studio/agent/node/active-code';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { activeThemes, isUpdatableTheme, themesDir } from '@studio/agent/node/themes';
-import { wpEvalJson } from '@studio/agent/node/tools/utils';
+import { wpEvalJson } from '@studio/agent/shared/tools/utils';
 import type { SiteChangeSource } from '@studio/agent/node/site-changes';
 
 const LOADED = `

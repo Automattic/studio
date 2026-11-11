@@ -25,9 +25,8 @@ import {
 	updatableThemeChangeHome,
 } from '@studio/agent/node/theme-file-changes';
 import { isUpdatableTheme, parentThemeDir, wordPressOrgNamesake } from '@studio/agent/node/themes';
-import type { StudioAgentHost } from '@studio/agent/node/host';
-
-const CORE_ROOT_FILE = /^(index|xmlrpc|wp-(?!config\b)[a-z-]+)\.php$/;
+import { coreFileRefusal } from '@studio/agent/shared/tool-safety';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
 
 /**
  * Why a write to this file of a Studio site would be lost, and where the
@@ -39,14 +38,9 @@ export async function getSiteFileWriteRefusal(
 	host: StudioAgentHost,
 	{ siteRoot, relativePath, theme }: SiteFile
 ): Promise< string | undefined > {
-	let reason: string | undefined;
+	let reason = coreFileRefusal( relativePath );
 	if (
-		relativePath.startsWith( 'wp-includes/' ) ||
-		relativePath.startsWith( 'wp-admin/' ) ||
-		CORE_ROOT_FILE.test( relativePath )
-	) {
-		reason = `${ relativePath } is this Studio site's copy of WordPress core, which a WordPress update replaces. Read it as reference. Make the change in wp-content/ (a theme, child theme, or plugin).`;
-	} else if (
+		! reason &&
 		theme &&
 		( await isUpdatableTheme( siteRoot, theme.slug ) ) &&
 		// A theme of its own in a WordPress.org theme's folder is the change's place.

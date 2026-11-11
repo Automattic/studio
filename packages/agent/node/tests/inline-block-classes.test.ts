@@ -6,7 +6,7 @@ import { OpenProblems } from '@studio/agent/node/open-problems';
 import { SiteChanges } from '@studio/agent/node/site-changes';
 import { createFakeHost } from '@studio/agent/node/tests/fake-host';
 import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';
-import type { HostSite } from '@studio/agent/node/host';
+import type { HostSite } from '@studio/agent/shared/host';
 
 describe( 'inlineBlockClasses', () => {
 	// eval29 redo port 2: two classes' notes joined in one problem, and the one

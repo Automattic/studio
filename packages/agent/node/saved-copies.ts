@@ -1,12 +1,12 @@
 import { readdir } from 'fs/promises';
 import path from 'path';
-import { boundedText } from '@studio/agent/node/bounded-list';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { activeIsBlockTheme, activeThemes, themesDir } from '@studio/agent/node/themes';
-import { wpEvalJson } from '@studio/agent/node/tools/utils';
-import type { StudioAgentHost } from '@studio/agent/node/host';
+import { boundedText } from '@studio/agent/shared/bounded-list';
+import { wpEvalJson } from '@studio/agent/shared/tools/utils';
 import type { WordPressSite } from '@studio/agent/node/site-database';
 import type { SiteFile } from '@studio/agent/node/site-file';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
 
 // A block theme's templates, template parts, and theme.json are only what
 // WordPress renders until someone saves a copy in the Site Editor: from then

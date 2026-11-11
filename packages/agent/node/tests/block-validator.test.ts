@@ -13,7 +13,6 @@ import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { validateHtmlBlockPolicy } from '@studio/agent/node/block-content-policy';
 import { blockEditorScripts } from '@studio/agent/node/block-editor-scripts';
 import {
 	createBlockValidationGate,
@@ -34,7 +33,8 @@ import {
 import { getSharedBrowser } from '@studio/agent/node/browser-utils';
 import { OpenProblems } from '@studio/agent/node/open-problems';
 import { SiteChanges } from '@studio/agent/node/site-changes';
-import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
+import { validateHtmlBlockPolicy } from '@studio/agent/shared/block-content-policy';
+import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
 import type { ChildProcess } from 'child_process';
 
 // Runs the site's own block editor, so it needs a running WordPress site:

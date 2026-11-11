@@ -8,7 +8,7 @@
  * other way.
  */
 import { NOT_FOUND, render } from '@studio/agent/node/page-render';
-import type { StudioAgentHost } from '@studio/agent/node/host';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
 
 // A header or footer template part WordPress renders (wp-includes/blocks/template-part.php),
 // to its own closing tag, past any element of the same tag inside it.

@@ -3,13 +3,16 @@ import http from 'http';
 import { chromium } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closeSharedBrowser, getSharedBrowser } from '@studio/agent/node/browser-utils';
+import { nodeHostServices } from '@studio/agent/node/node-host';
 import {
 	captureScreenshotBuffer,
 	inspectPage,
 	renderedCapture,
 	forgetRenders,
-} from '@studio/agent/node/tools/screenshot-helpers';
+} from '@studio/agent/shared/tools/screenshot-helpers';
 import type { AddressInfo } from 'net';
+
+const { pages } = nodeHostServices();
 
 // A real Chromium to load pages with, when one is installed.
 const CHROMIUM = existsSync( chromium.executablePath() );
@@ -71,7 +74,8 @@ describe.runIf( CHROMIUM )( 'capturing a page', () => {
 		'reports the redirected address (fullPage=%s)',
 		async ( fullPage ) => {
 			const capture = await captureScreenshotBuffer(
-				`${ siteUrl }/checkout`,
+				pages,
+				{ url: `${ siteUrl }/checkout` },
 				{ width: 400, height: 300 },
 				{ fullPage }
 			);
@@ -81,8 +85,8 @@ describe.runIf( CHROMIUM )( 'capturing a page', () => {
 
 	it( 'keeps redirect identity when reusing a rendered capture', async () => {
 		const viewport = { width: 400, height: 300 };
-		await inspectPage( `${ siteUrl }/checkout`, viewport );
-		expect( ( await renderedCapture( `${ siteUrl }/checkout`, viewport, true ) )?.url ).toBe(
+		await inspectPage( pages, `${ siteUrl }/checkout`, viewport );
+		expect( ( await renderedCapture( pages, `${ siteUrl }/checkout`, viewport, true ) )?.url ).toBe(
 			`${ siteUrl }/cart`
 		);
 		forgetRenders();
@@ -92,7 +96,8 @@ describe.runIf( CHROMIUM )( 'capturing a page', () => {
 		'waits for what %s loads before it captures',
 		async ( page ) => {
 			const capture = await captureScreenshotBuffer(
-				`${ siteUrl }${ page }`,
+				pages,
+				{ url: `${ siteUrl }${ page }` },
 				{ width: 400, height: 300 },
 				{ fullPage: true, format: 'jpeg' }
 			);
@@ -104,7 +109,8 @@ describe.runIf( CHROMIUM )( 'capturing a page', () => {
 
 	it( 'paints backgrounds fixed to the viewport below the first screen of a full page', async () => {
 		const capture = await captureScreenshotBuffer(
-			`${ siteUrl }/fixed`,
+			pages,
+			{ url: `${ siteUrl }/fixed` },
 			{ width: 400, height: 300 },
 			{ fullPage: true }
 		);
@@ -123,7 +129,7 @@ describe.runIf( CHROMIUM )( 'capturing a page', () => {
 					Array.from( context.getImageData( 200, y, 1, 1 ).data.slice( 0, 3 ) );
 				return [ at( 600 ), at( 1000 ) ];
 			},
-			`data:image/png;base64,${ capture.buffer.toString( 'base64' ) }`
+			`data:image/png;base64,${ Buffer.from( capture.buffer ).toString( 'base64' ) }`
 		);
 		await page.close();
 		expect( Math.max( ...below ) ).toBeLessThan( 40 );
@@ -133,7 +139,8 @@ describe.runIf( CHROMIUM )( 'capturing a page', () => {
 	it( 'captures a page once its requests finish, short of the most it waits', async () => {
 		const started = Date.now();
 		await captureScreenshotBuffer(
-			`${ siteUrl }/still`,
+			pages,
+			{ url: `${ siteUrl }/still` },
 			{ width: 400, height: 300 },
 			{ fullPage: false, format: 'jpeg' }
 		);

@@ -20,9 +20,9 @@ import { fileStamp, filesUnder } from '@studio/agent/node/active-code';
 import { readWordPressSite, type WordPressSite } from '@studio/agent/node/site-database';
 import { studioChange } from '@studio/agent/node/studio-file-changes';
 import { activeThemes, parentTheme, themesDir } from '@studio/agent/node/themes';
-import { wpEvalJson } from '@studio/agent/node/tools/utils';
-import type { StudioAgentHost } from '@studio/agent/node/host';
+import { wpEvalJson } from '@studio/agent/shared/tools/utils';
 import type { SiteFile } from '@studio/agent/node/site-file';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
 
 interface Presets {
 	colors: Array< [ string, string ] >;

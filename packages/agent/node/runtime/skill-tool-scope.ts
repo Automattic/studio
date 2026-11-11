@@ -1,4 +1,4 @@
-import { findSkill, getSkillScopedToolNames } from '@studio/agent/node/skills';
+import { findSkill, getSkillScopedToolNames, type Skill } from '@studio/agent/shared/skills';
 import type { SessionManager } from '@earendil-works/pi-coding-agent';
 
 // Tools a skill brings stay out of the model's tool list until that skill is
@@ -8,7 +8,11 @@ export class SkillToolScope {
 	private readonly scoped = getSkillScopedToolNames();
 	private readonly unlocked = new Set< string >();
 
-	constructor( session: SessionManager ) {
+	// `userSkills` are the user's own, whose tools a load brings like a Studio skill's.
+	constructor(
+		session: SessionManager,
+		private readonly userSkills: Skill[] = []
+	) {
 		for ( const message of session.buildSessionContext().messages ) {
 			if ( message.role !== 'assistant' ) continue;
 			for ( const part of message.content ) {
@@ -20,7 +24,7 @@ export class SkillToolScope {
 	}
 
 	unlock( skillName: string ): void {
-		for ( const tool of findSkill( skillName )?.tools ?? [] ) {
+		for ( const tool of findSkill( skillName, this.userSkills )?.tools ?? [] ) {
 			this.unlocked.add( tool );
 		}
 	}

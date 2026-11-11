@@ -2,7 +2,7 @@ import { cpSync, mkdtempSync, rmSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import { globalStylesFlag } from '@studio/agent/node/global-styles-flag';
-import { runWpCli } from '@studio/agent/node/tools/utils';
+import { runWpCli } from '@studio/agent/shared/tools/utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { liveHost, liveSite } from 'cli/ai/tests/live-host';
 import type { StudioAgentHost } from '@studio/agent/node';

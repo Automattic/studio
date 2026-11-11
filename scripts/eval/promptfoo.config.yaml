@@ -21,6 +21,11 @@ description: Studio Code agent evaluation
 evaluateOptions:
   maxConcurrency: 4
 
+# Compare harnesses in separate saved runs (see README.md, Harnesses):
+#   STUDIO_EVAL_HARNESS=claude-code npm run eval
+#   npm run eval:view
+# Keep the same pinned model and outcome-only cases in each run.
+# Shell assignments after exec: are not supported; set env on npm instead.
 providers:
   - id: exec:node ../../apps/cli/dist/cli/eval-runner.mjs
     label: studio-agent

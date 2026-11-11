@@ -23,7 +23,7 @@ import {
 	workspaceOfSite,
 } from '@studio/agent/node/post-copies';
 import { readWordPressSite } from '@studio/agent/node/site-database';
-import { AS_ADMINISTRATOR, wpEvalJson } from '@studio/agent/node/tools/utils';
+import { AS_ADMINISTRATOR, wpEvalJson } from '@studio/agent/shared/tools/utils';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 import type { WordPressSite } from '@studio/agent/node/site-database';
 

@@ -2,8 +2,6 @@ import type { ActiveAgentRun, AgentRunEvent } from '@studio/agent/protocol/agent
 import type { StudioChatFileAttachment } from '@studio/agent/protocol/chat-files';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
 import type { InspectorSelection } from '@studio/agent/protocol/inspector/selection';
-import type { AiModelId } from '@studio/agent/protocol/models';
-import type { AiProviderId, AiSettings } from '@studio/agent/protocol/providers';
 import type {
 	AiSessionMetadata,
 	AiSessionSummary,
@@ -12,6 +10,7 @@ import type {
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 import type { AgentApp, AgentAppId } from '@studio/common/lib/agent-apps';
 import type { SiteAgentFile } from '@studio/common/lib/agent-skills';
+import type { AiSettings } from '@studio/common/lib/ai-settings';
 import type { AuthAnalytics, OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
 import type { SiteEvent, SiteListItem, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { StudioFeedback } from '@studio/common/lib/feedback';
@@ -50,6 +49,7 @@ import type { Snapshot } from '@studio/common/types/snapshot';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
+import type { AiModelId, ProviderId } from '@studio/providers';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { ActiveAgentRun } from '@studio/agent/protocol/agent-events';
@@ -63,7 +63,7 @@ export type {
 export type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 export type { SessionEntry } from '@earendil-works/pi-coding-agent';
 export type { StudioCustomEntry } from '@studio/agent/protocol/sessions/entry-types';
-export type { AiModelId } from '@studio/agent/protocol/models';
+export type { AiModelId } from '@studio/providers';
 export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SnapshotUsage } from '@studio/common/lib/snapshots';
 export type { PreviewStatus } from '@studio/common/sites/snapshots';
@@ -147,8 +147,8 @@ export interface AuthUser {
 
 // What native affordances the host environment offers, so the UI can choose
 // between a native flow and a browser-friendly fallback (instead of branching on
-// "am I in Electron"). The desktop app has them all; the browser (`studio ui`)
-// does not.
+// "am I in Electron"). The desktop app has them all; `studio ui` and Studio on
+// the web have fewer.
 interface ConnectorCapabilities {
 	// A native OS folder picker is available (`selectSiteFolder`). When false,
 	// the UI offers an editable path field instead.
@@ -164,6 +164,11 @@ interface ConnectorCapabilities {
 	// `~/.studio/daemon/logs` and everything else to the terminal that started
 	// it, so there is no single log to point a browser user at.
 	studioLogs: boolean;
+	// Sites run on native PHP from a folder on this machine, with what that
+	// brings: opening the folder in an app, site email, phpMyAdmin, custom
+	// domains, Xdebug, a site's agent files, file access, and a choice of PHP and
+	// WordPress versions. Studio on the web runs them in Playground instead.
+	nativeSites: boolean;
 }
 
 export interface Connector {
@@ -218,11 +223,14 @@ export interface Connector {
 	// The last page of the site captured in a preview, shown while it's stopped.
 	// Null when the site has not been captured yet.
 	getSiteThumbnail( siteId: string ): Promise< string | null >;
-	// Captures the selected area of the visible Desktop preview.
-	captureAnnotationRegion( request: {
-		guestId: number;
-		selection: InspectorSelection;
-	} ): Promise< StudioChatImage >;
+	// Captures the selected area of the visible preview: the Desktop's webview,
+	// named by `guestId`, or Studio on the web's frame.
+	captureAnnotationRegion(
+		request: { selection: InspectorSelection } & (
+			| { guestId: number }
+			| { frame: HTMLIFrameElement }
+		)
+	): Promise< StudioChatImage >;
 	// Captures the preview's page as the site's thumbnail and returns it, or null
 	// when that page isn't kept (sign-in and admin screens). The Desktop app
 	// captures the preview webview, named by `guestId`.
@@ -426,11 +434,7 @@ export interface Connector {
 	// Pin the session to an AI provider, with the model it should use there.
 	// Same mechanism as setSessionModel: an entry in the session JSONL the CLI
 	// honors on resume.
-	setSessionProvider(
-		sessionId: string,
-		provider: AiProviderId,
-		model: AiModelId
-	): Promise< void >;
+	setSessionProvider( sessionId: string, provider: ProviderId, model: AiModelId ): Promise< void >;
 	// Point the session's next turn at its local site or its connected live site.
 	setSessionEnvironment( sessionId: string, environment: 'local' | 'live' ): Promise< void >;
 	interruptAgentRun( runId: string ): Promise< void >;
@@ -481,12 +485,14 @@ export interface Connector {
 		options?: { editSession?: { previousContent: string } }
 	): Promise< void >;
 
-	// AI provider settings stored in the CLI config. Clearing the key (null)
-	// also falls back to WordPress.com.
+	// The chat provider and each provider's account. Disconnecting the selected
+	// provider falls back to WordPress.com.
 	getAiSettings(): Promise< AiSettings >;
-	saveAnthropicApiKey( key: string | null ): Promise< AiSettings >;
+	// Connects the provider with its form's values; throws when it rejects them.
+	connectProvider( provider: ProviderId, input: Record< string, string > ): Promise< AiSettings >;
+	disconnectProvider( provider: ProviderId ): Promise< AiSettings >;
 	// The provider new conversations use.
-	setAiProvider( provider: AiProviderId ): Promise< AiSettings >;
+	setAiProvider( provider: ProviderId ): Promise< AiSettings >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't
@@ -517,6 +523,15 @@ export interface Connector {
 	getSiteEmails( siteId: string ): Promise< SiteEmailSummary[] >;
 	getSiteEmail( siteId: string, emailId: string ): Promise< SiteEmail | null >;
 
+	// Connects a preview <iframe> whose pages can run Studio's scripts (Studio
+	// on the web, through each site's bridge), for the annotation inspector:
+	// `onPage` after each page load, `onLog` with the page's inspector messages,
+	// and `run` to run a script in the page. Absent where frames can't be reached.
+	connectPreviewFrame?(
+		iframe: HTMLIFrameElement,
+		listeners: { onPage(): void; onLog( message: string ): void }
+	): { run( script: string ): void; dispose(): void };
+
 	// The site's WordPress debug log, resolved host-side from the site id. Its
 	// existence is a query, not a `SiteDetails` field: the file comes and goes
 	// while the UI is open.
@@ -534,8 +549,9 @@ export interface Connector {
 	openExternalUrl( url: string ): Promise< void >;
 
 	// Sends feedback about WordPress Studio to the WordPress Studio team and returns the ID the
-	// service assigned it. Needs the WordPress.com login.
-	sendFeedback( feedback: StudioFeedback ): Promise< { feedbackId: number } >;
+	// service assigned it. Needs the WordPress.com login. Absent where the feedback service
+	// can't be reached, which hides Send feedback.
+	sendFeedback?( feedback: StudioFeedback ): Promise< { feedbackId: number } >;
 
 	// Wapuu World easter-egg high score. Returns undefined when no score has
 	// been recorded yet; saving keeps only the highest score seen.

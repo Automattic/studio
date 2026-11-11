@@ -16,9 +16,9 @@
 import { readFile } from 'fs/promises';
 import { FILE, readRenderedVersions, renderFrontPage } from '@studio/agent/node/front-page-render';
 import { readPosts } from '@studio/agent/node/post-content-check';
-import { printedJson, wpEval } from '@studio/agent/node/tools/utils';
-import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
+import { printedJson, wpEval } from '@studio/agent/shared/tools/utils';
 import type { ChangeReport, SiteChangeSource } from '@studio/agent/node/site-changes';
+import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
 
 // The post types whose content the front end renders through the_content.
 const FRONT_END_TYPES = new Set( [ 'post', 'page' ] );

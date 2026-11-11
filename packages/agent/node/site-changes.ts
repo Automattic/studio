@@ -31,8 +31,8 @@ import { themeErrors } from '@studio/agent/node/theme-errors';
 import { updatableThemeChanges } from '@studio/agent/node/theme-file-changes';
 import { themeLook } from '@studio/agent/node/theme-look';
 import { themeStylesheet } from '@studio/agent/node/theme-stylesheet';
-import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { OpenProblems } from '@studio/agent/node/open-problems';
+import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
 
 /** Each thing's version on a site, by key. */
 export type Versions = Record< string, string >;

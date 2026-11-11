@@ -11,9 +11,9 @@
  */
 import { readdir, readFile } from 'fs/promises';
 import path from 'path';
-import { boundedText } from '@studio/agent/node/bounded-list';
 import { render } from '@studio/agent/node/page-render';
-import type { StudioAgentHost } from '@studio/agent/node/host';
+import { boundedText } from '@studio/agent/shared/bounded-list';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
 
 // WordPress's own folders, and readme.html, which WordPress ships at the root.
 const NOT_THE_SITES = new Set( [ 'wp-admin', 'wp-includes', 'wp-content', 'node_modules' ] );

@@ -11,9 +11,9 @@ import { validateBlocks } from '@studio/agent/node/block-validator';
 import { resolveSiteFile } from '@studio/agent/node/site-file';
 import { getSiteFileWriteRefusal } from '@studio/agent/node/site-file-guards';
 import { saveMarkup } from '@studio/agent/node/site-markup';
-import { defineTool, LOCAL_CHANGE } from './define-tool';
-import { failsAs, textResult, wpEvalJson } from './utils';
-import type { StudioAgentHost } from '@studio/agent/node/host';
+import { defineTool, LOCAL_CHANGE } from '@studio/agent/shared/tools/define-tool';
+import { failsAs, textResult, wpEvalJson } from '@studio/agent/shared/tools/utils';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
 
 interface SupportStylesheet {
 	placement: string;
@@ -233,6 +233,9 @@ export const convertToBlocksTool = defineTool(
 			}
 		}
 
+		if ( ! host.blocksEngine ) {
+			throw new Error( 'Blocks Engine is not available here.' );
+		}
 		onProgress( 'Preparing Blocks Engine' );
 		const transformer = await host.blocksEngine();
 		onProgress( `Converting with Blocks Engine ${ transformer.version }` );

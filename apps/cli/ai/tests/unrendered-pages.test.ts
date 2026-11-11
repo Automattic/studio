@@ -2,7 +2,7 @@ import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import { unrenderedPages } from '@studio/agent/node/open-problems';
-import { wpEvalJson } from '@studio/agent/node/tools/utils';
+import { wpEvalJson } from '@studio/agent/shared/tools/utils';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { liveHost, liveSite } from 'cli/ai/tests/live-host';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node';

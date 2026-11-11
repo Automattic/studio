@@ -1,8 +1,8 @@
 import path from 'path';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createFakeHostWithSites } from '@studio/agent/node/tests/fake-host';
-import { bindTool } from '@studio/agent/node/tools/define-tool';
-import { generateImagesTool } from '@studio/agent/node/tools/generate-images';
+import { bindTool } from '@studio/agent/shared/tools/define-tool';
+import { generateImagesTool } from '@studio/agent/shared/tools/generate-images';
 
 const STUDIO_SITES_ROOT = path.resolve( '/sites' );
 const SITE = path.join( STUDIO_SITES_ROOT, 'studio-test-oak' );
@@ -17,12 +17,8 @@ const host = createFakeHostWithSites(
 );
 
 // Each image fails, so nothing is written to the sites root.
-vi.mock( '@studio/agent/node/image-generation', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@studio/agent/node/image-generation') >() ),
-	isImageGenerationAvailable: async () => true,
-	generateImages: async ( _userAgent: string, requests: unknown[] ) =>
-		requests.map( () => ( { ok: false, error: 'not generated' } ) ),
-} ) );
+host.imageGenerator = async () => async ( requests ) =>
+	requests.map( () => ( { ok: false, error: 'not generated' } ) );
 
 describe( 'the files images generating in the background will be', () => {
 	it.each< { name: string; paths: string[]; files: string[]; folder?: string } >( [

@@ -2,7 +2,7 @@ import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
 import os from 'os';
 import path from 'path';
 import { inlineBlockClasses } from '@studio/agent/node/inline-block-classes';
-import { runWpCli } from '@studio/agent/node/tools/utils';
+import { runWpCli } from '@studio/agent/shared/tools/utils';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { liveHost, liveSite } from 'cli/ai/tests/live-host';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node';

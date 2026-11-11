@@ -4,7 +4,7 @@ import path from 'path';
 import { validateToolArguments } from '@earendil-works/pi-ai';
 import { createEditTool } from '@earendil-works/pi-coding-agent';
 import { expect, it } from 'vitest';
-import { withStringEdits } from '@studio/agent/node/tools/edit-arguments';
+import { withStringEdits } from '@studio/agent/shared/tools/edit-arguments';
 
 // eval6: the model sent `edits` as a JSON string holding theme.json's tabs raw.
 it( 'applies edits sent as a JSON string with raw tabs in their texts', async () => {

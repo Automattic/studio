@@ -21,7 +21,7 @@ import { readVersions } from '@studio/agent/node/post-content-check';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { inlineDisplayClasses } from '@studio/agent/node/theme-css-notes';
 import { activeThemes, themesDir } from '@studio/agent/node/themes';
-import { wpEvalJson } from '@studio/agent/node/tools/utils';
+import { wpEvalJson } from '@studio/agent/shared/tools/utils';
 import type { SiteChangeSource } from '@studio/agent/node/site-changes';
 
 const KEY = 'inline block classes';

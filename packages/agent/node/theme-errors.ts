@@ -17,9 +17,9 @@
 import { readdir } from 'fs/promises';
 import path from 'path';
 import { exists, parentTheme, themesDir } from '@studio/agent/node/themes';
-import { printedJson, wpEval } from '@studio/agent/node/tools/utils';
-import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
+import { printedJson, wpEval } from '@studio/agent/shared/tools/utils';
 import type { ChangeReport, SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
+import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
 
 // A version's files, then what is known of them: '' for a theme being made.
 const STATUS = '#';

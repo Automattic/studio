@@ -5,7 +5,7 @@
  * built save function.
  */
 import { savedExamples } from '@studio/agent/node/block-validator';
-import type { StudioAgentHost } from '@studio/agent/node/host';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
 
 // A block type's metadata, as block.json declares it: its API version and its
 // namespaced name (register_block_type_from_metadata() in wp-includes/blocks.php).

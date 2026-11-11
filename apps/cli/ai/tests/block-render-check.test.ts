@@ -10,7 +10,7 @@ import {
 import os from 'os';
 import path from 'path';
 import { emptyBlocks, renderedBlocks } from '@studio/agent/node/block-render-check';
-import { runWpCli } from '@studio/agent/node/tools/utils';
+import { runWpCli } from '@studio/agent/shared/tools/utils';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { liveHost, liveSite } from 'cli/ai/tests/live-host';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node';

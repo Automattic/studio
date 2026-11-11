@@ -12,9 +12,9 @@ import { readVersions } from '@studio/agent/node/post-content-check';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { themeMarkupFiles } from '@studio/agent/node/site-markup';
 import { activeThemes, themesDir } from '@studio/agent/node/themes';
-import { wpEvalJson } from '@studio/agent/node/tools/utils';
-import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
+import { wpEvalJson } from '@studio/agent/shared/tools/utils';
 import type { Versions } from '@studio/agent/node/site-changes';
+import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
 
 /** The prefix of a markup file's key in the rendered versions. */
 export const FILE = 'file ';

@@ -7,7 +7,7 @@ import { createFakeHost, fakeSite } from '@studio/agent/node/tests/fake-host';
 import { readActiveSiteFacts } from '../site-facts';
 import { createSiteNotes } from '../site-notes';
 import { createSite as createWordPressSite } from './fixtures/wordpress-site';
-import type { HostSite } from '@studio/agent/node/host';
+import type { HostSite } from '@studio/agent/shared/host';
 
 // The site's WordPress is not run: what its code registers is read by admin-capabilities' tests.
 const host = createFakeHost();

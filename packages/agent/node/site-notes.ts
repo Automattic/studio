@@ -19,7 +19,6 @@
 import fs from 'fs';
 import path from 'path';
 import { createBlockExampleNotes } from '@studio/agent/node/block-examples';
-import { createBlockSettingsNotes } from '@studio/agent/node/block-settings';
 import { rewriteNotes } from '@studio/agent/node/file-rewrites';
 import { repeatedStyleValueNotes } from '@studio/agent/node/repeated-style-values';
 import { savedCopyNotes } from '@studio/agent/node/saved-copies';
@@ -46,10 +45,11 @@ import { keepThemePresets } from '@studio/agent/node/theme-presets';
 import { themeRootPaddingNotes } from '@studio/agent/node/theme-root-padding';
 import { themeStyleOverrideNotes } from '@studio/agent/node/theme-style-overrides';
 import { writeThemeThumbnail } from '@studio/agent/node/theme-thumbnail';
+import { createResultNotes } from '@studio/agent/shared/result-notes';
 import type { BlockValidationGate } from '@studio/agent/node/block-validation-gate';
-import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { OpenProblems } from '@studio/agent/node/open-problems';
 import type { SettledChanges } from '@studio/agent/node/site-changes';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
 
 type Notes = string[] | Promise< string[] >;
 
@@ -77,17 +77,11 @@ interface SiteNotesOptions {
 	open?: OpenProblems;
 }
 
-// The settings of the core blocks a result shows, once each per site.
-function blockSettingsSource(): Sources[ 'result' ][ number ] {
-	const bySite = new Map< string, ( text: string ) => string >();
-	return ( sitePath, text ) => {
-		let describe = bySite.get( sitePath );
-		if ( ! describe ) {
-			describe = createBlockSettingsNotes( path.join( sitePath, 'wp-includes', 'blocks' ) );
-			bySite.set( sitePath, describe );
-		}
-		return [ describe( text ) ].filter( Boolean );
-	};
+// The notes every surface adds to a result, such as the settings of the core
+// blocks it shows.
+function resultNotesSource( host: StudioAgentHost ): Sources[ 'result' ][ number ] {
+	const notes = createResultNotes( host );
+	return async ( sitePath, text ) => [ await notes( sitePath, text ) ].filter( Boolean );
 }
 
 // The site's facts the agent does not have yet, and the ones that stopped
@@ -163,7 +157,7 @@ function sources(
 			'front page template': frontPageTemplateNotes,
 		},
 		result: {
-			'block settings': blockSettingsSource(),
+			'block settings': resultNotesSource( host ),
 			'block examples': createBlockExampleNotes( host ),
 			'site facts': siteFactsSource( host, stated ),
 		},

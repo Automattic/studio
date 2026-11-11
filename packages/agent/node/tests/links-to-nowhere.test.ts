@@ -3,7 +3,7 @@ import path from 'path';
 import { afterEach, expect, it, vi } from 'vitest';
 import { linksToNowhereChanges } from '@studio/agent/node/links-to-nowhere';
 import { createFakeHostWithSites } from '@studio/agent/node/tests/fake-host';
-import type { HostSite } from '@studio/agent/node/host';
+import type { HostSite } from '@studio/agent/shared/host';
 
 // The home page WordPress renders; none when WordPress cannot render it.
 const page = vi.hoisted( () => ( { html: undefined as string | undefined } ) );

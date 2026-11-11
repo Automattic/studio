@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, it } from 'vitest';
 import { renamedSlugs } from '@studio/agent/node/renamed-slugs';
 import { createFakeHost } from '@studio/agent/node/tests/fake-host';
 import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';
-import type { HostSite } from '@studio/agent/node/host';
+import type { HostSite } from '@studio/agent/shared/host';
 
 let fixture: ReturnType< typeof createSite >;
 let site: HostSite;

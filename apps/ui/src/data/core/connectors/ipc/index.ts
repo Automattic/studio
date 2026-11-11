@@ -15,6 +15,7 @@ import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
+import { UnsupportedError } from '../unsupported-error';
 import type {
 	AgentApp,
 	ActiveAgentRun,
@@ -43,7 +44,7 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/agent/protocol/agent-events';
-import type { AiSettings } from '@studio/agent/protocol/providers';
+import type { AiSettings } from '@studio/common/lib/ai-settings';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 import type { AuthAnalytics, OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
 import type { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
@@ -127,6 +128,7 @@ export function createIpcConnector(): Connector {
 			nativeFolderPicker: true,
 			annotatePreview: true,
 			studioLogs: true,
+			nativeSites: true,
 		},
 
 		agenticRequiresAuth: true,
@@ -344,6 +346,9 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
 		},
 		async captureAnnotationRegion( request ) {
+			if ( ! ( 'guestId' in request ) ) {
+				throw new UnsupportedError( 'captureAnnotationRegion' );
+			}
 			return ipcApi.captureAnnotationRegion( request );
 		},
 		async captureSitePreview( siteId, { path, guestId } ) {
@@ -681,8 +686,11 @@ export function createIpcConnector(): Connector {
 		async getAiSettings(): Promise< AiSettings > {
 			return ( await ipcApi.getAiSettings() ) as AiSettings;
 		},
-		async saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
-			return unwrapIpcError( ipcApi.saveAnthropicApiKey( key ) );
+		async connectProvider( provider, input ): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.connectAiProvider( provider, input ) );
+		},
+		async disconnectProvider( provider ): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.disconnectAiProvider( provider ) );
 		},
 		async setAiProvider( provider ): Promise< AiSettings > {
 			return unwrapIpcError( ipcApi.setAiProvider( provider ) );

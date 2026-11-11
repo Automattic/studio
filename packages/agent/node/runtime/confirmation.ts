@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
-import { closedWithoutAnswering } from '@studio/agent/node/tools/ask-user-question';
-import type { AskUserHandler, AskUserQuestion } from '@studio/agent/node/types';
+import { closedWithoutAnswering } from '@studio/agent/shared/tools/ask-user-question';
+import type { Confirmation } from '@studio/agent/shared/remote-hosts';
+import type { AskUserHandler, AskUserQuestion } from '@studio/agent/shared/types';
 
 // The harness asks the user before calls that need their yes, so the agent
 // cannot skip the question and needs no rule telling it to ask. Calls that
@@ -8,12 +9,7 @@ import type { AskUserHandler, AskUserQuestion } from '@studio/agent/node/types';
 // no revision), or that change a whole site's content at once, are described
 // here; site-pin.ts describes changes to a site other than the request's.
 
-export interface Confirmation {
-	question: string;
-	consequence: string;
-	/** What follows from No, where it is more than nothing changing. */
-	declined?: string;
-}
+export type { Confirmation };
 
 const CONFIRM = 'Yes, go ahead';
 const DECLINE = 'No';

@@ -25,16 +25,16 @@
  * registries with the code loaded and skipped, and where WordPress lists each.
  */
 import { activeCode } from '@studio/agent/node/active-code';
-import { boundedText, joinWithAnd as list } from '@studio/agent/node/bounded-list';
 import {
 	describeRemoteFonts,
 	REMOTE_STYLES,
 	type RemoteStyles,
 } from '@studio/agent/node/remote-font-styles';
-import { AS_ADMINISTRATOR, printedJson, runWpCli } from '@studio/agent/node/tools/utils';
-import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
+import { boundedText, joinWithAnd as list } from '@studio/agent/shared/bounded-list';
+import { AS_ADMINISTRATOR, printedJson, runWpCli } from '@studio/agent/shared/tools/utils';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 import type { WordPressSite } from '@studio/agent/node/site-database';
+import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
 
 const KEY = 'administrator capabilities';
 

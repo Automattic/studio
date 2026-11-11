@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderDesignBoard } from '../design-board';
+import { renderDesignBoard } from '@studio/agent/shared/design-board';
 
 describe( 'renderDesignBoard', () => {
 	it( 'draws a theme whose styles name no font family with the first one it declares', () => {

@@ -6,11 +6,11 @@ import { previewTabsKey, usePreviewTabs } from '@/data/preview-tabs';
 import { subscribeHeaderPanelRequest } from '@/data/use-open-header-panel';
 import { SessionUIProvider, useSessionPreviewUI } from '@/data/use-session-ui';
 import { SiteContextMenu } from '@/features/sites/stopped-site-preview';
-import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
+import { aiSettings, createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SiteMenu } from './index';
 import type { SyncSite } from '@/data/core';
-import type { AiProviderId } from '@studio/agent/protocol/providers';
+import type { ProviderId } from '@studio/providers';
 
 const DATABASE_PATH = '/phpmyadmin/index.php?route=/database/structure&db=wordpress';
 const autoLogin = ( path: string ) =>
@@ -44,7 +44,7 @@ function setup( {
 	busy?: boolean;
 	designAvailable?: boolean;
 	connections?: SyncSite[];
-	providerConnection?: AiProviderId | null;
+	providerConnection?: ProviderId | null;
 } = {} ) {
 	const sites = [
 		makeSite( { id: 'selected', name: 'Selected', running: selectedRunning, port: 9010 } ),
@@ -54,11 +54,11 @@ function setup( {
 	const connector = createFakeConnector(
 		{ sites, user: connections || providerConnection === 'wpcom' ? TEST_USER : null },
 		{
-			getAiSettings: async () => ( {
-				provider: providerConnection ?? 'wpcom',
-				hasAnthropicApiKey: providerConnection === 'anthropic-api-key',
-				anthropicApiKeyPreview: null,
-			} ),
+			getAiSettings: async () =>
+				aiSettings( providerConnection ?? 'wpcom', [
+					...( connections || providerConnection === 'wpcom' ? [ 'wpcom' as const ] : [] ),
+					...( providerConnection === 'anthropic' ? [ 'anthropic' as const ] : [] ),
+				] ),
 			getConnectedWpcomSites: async () => connections ?? [],
 			getGlobalStyles: async () => ( designAvailable ? { settings: {}, styles: {} } : null ),
 		}
@@ -97,8 +97,8 @@ function setup( {
 describe( 'Stop other sites', () => {
 	it.each( [
 		[ false, false, 'wpcom' ],
-		[ false, true, 'anthropic-api-key' ],
-		[ true, false, 'anthropic-api-key' ],
+		[ false, true, 'anthropic' ],
+		[ true, false, 'anthropic' ],
 		[ true, true, 'wpcom' ],
 	] as const )(
 		'opens a new chat from the first item (context menu: %s, running: %s, provider: %s)',
@@ -209,7 +209,7 @@ describe( 'Stop other sites', () => {
 			const { open } = setup( {
 				contextMenu,
 				busy: true,
-				providerConnection: 'anthropic-api-key',
+				providerConnection: 'anthropic',
 			} );
 			await open();
 			expect( await screen.findByRole( 'menuitem', { name: 'New chat' } ) ).not.toHaveAttribute(

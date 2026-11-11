@@ -18,11 +18,15 @@ import path from 'path';
 import { readVersions } from '@studio/agent/node/post-content-check';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { themesDir } from '@studio/agent/node/themes';
-import { forgetRenders, inspectPage, VIEWPORTS } from '@studio/agent/node/tools/screenshot-helpers';
-import type { StudioAgentHost } from '@studio/agent/node/host';
+import {
+	forgetRenders,
+	inspectPage,
+	VIEWPORTS,
+} from '@studio/agent/shared/tools/screenshot-helpers';
 import type { OpenProblems } from '@studio/agent/node/open-problems';
 import type { PendingWork } from '@studio/agent/node/runtime/pending-work';
-import type { PageInspection } from '@studio/agent/node/tools/screenshot-helpers';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
+import type { PageInspection } from '@studio/agent/shared/tools/screenshot-helpers';
 
 // The front page and the first published pages: a site's own pages, not a shop's catalogue.
 const MAX_PAGES = 6;
@@ -90,7 +94,7 @@ export class RenderCheck {
 		private readonly host: StudioAgentHost,
 		private readonly open?: OpenProblems,
 		private readonly inspect: Inspect = ( url, viewport ) =>
-			inspectPage( url, VIEWPORTS[ viewport ] )
+			inspectPage( host.pages, url, VIEWPORTS[ viewport ] )
 	) {}
 
 	/**

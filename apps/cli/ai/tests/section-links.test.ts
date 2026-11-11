@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 import { linksToNowhereChanges } from '@studio/agent/node/links-to-nowhere';
 import { sectionLinks } from '@studio/agent/node/section-links';
-import { runWpCli } from '@studio/agent/node/tools/utils';
+import { runWpCli } from '@studio/agent/shared/tools/utils';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { liveHost, liveSite } from 'cli/ai/tests/live-host';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node';

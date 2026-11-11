@@ -30,10 +30,10 @@ import { activePlugins } from '@studio/agent/node/plugins';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { RENDERED_TYPES } from '@studio/agent/node/site-markup';
 import { activeThemes, themesDir } from '@studio/agent/node/themes';
-import { wpEvalJson } from '@studio/agent/node/tools/utils';
+import { wpEvalJson } from '@studio/agent/shared/tools/utils';
 import type { FormSend, MarkedRow, PageForm } from '@studio/agent/node/form-submission';
-import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { OpenProblems } from '@studio/agent/node/open-problems';
+import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
 import type { Page } from 'playwright';
 
 const KEY = 'visitor forms';

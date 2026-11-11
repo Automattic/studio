@@ -11,8 +11,8 @@ import { rewriteNotes } from '@studio/agent/node/file-rewrites';
 import { describeStillOpen, type OpenProblems } from '@studio/agent/node/open-problems';
 import { NO_CHANGES, type SiteChanges } from '@studio/agent/node/site-changes';
 import { notesAfterCall, readFileText, type SiteNotes } from '@studio/agent/node/site-notes';
-import { studioMessage, validationLines } from '@studio/agent/node/studio-message';
-import { siteOfCall } from '@studio/agent/node/tools/utils';
+import { studioMessage, validationLines } from '@studio/agent/shared/studio-message';
+import { siteOfCall } from '@studio/agent/shared/tools/utils';
 import { declinedResult, describeDestructiveCall, type Confirmer } from './confirmation';
 import {
 	getEditedTexts,
@@ -27,12 +27,12 @@ import type { PendingWork } from './pending-work';
 import type { SitePin } from './site-pin';
 import type { Writers } from './writers';
 import type { FormCheck } from '@studio/agent/node/form-check';
-import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { RenderCheck } from '@studio/agent/node/render-check';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
 import type {
 	CheckedToolOptions,
 	StudioToolResultDetails,
-} from '@studio/agent/node/tools/define-tool';
+} from '@studio/agent/shared/tools/define-tool';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;

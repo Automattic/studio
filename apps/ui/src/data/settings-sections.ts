@@ -1,3 +1,4 @@
+import { getConnectFields, getProviderDescriptor, PROVIDER_IDS } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
 import { BugIcon, FileTextIcon, SettingsIcon } from 'lucide-react';
 import {
@@ -251,12 +252,10 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					__( 'Get started with a one-time free allowance, then buy more as you go.' ),
 					'wpcom-provider'
 				),
-				setting(
-					'navigate',
-					__( 'Anthropic' ),
-					__( 'Use Claude with your own API key.' ),
-					'anthropic-provider'
-				),
+				...PROVIDER_IDS.filter( ( id ) => getConnectFields( id ).length ).map( ( id ) => {
+					const { label, description } = getProviderDescriptor( id );
+					return setting( 'navigate', label, description?.() ?? '', `${ id }-provider` );
+				} ),
 				setting(
 					'navigate',
 					__( 'Default provider' ),
@@ -490,8 +489,41 @@ function getSiteSections(): Section[] {
 	];
 }
 
-export function getSections( scope: SettingsScope, { signedIn = true } = {} ): Section[] {
-	return scope === 'studio' ? getStudioSections( signedIn ) : getSiteSections();
+// Sections and settings for local apps, folders, the CLI, PHP and analytics,
+// which only exist where sites run natively.
+const NATIVE_ONLY_IDS = new Set( [
+	'code-editor',
+	'browser',
+	'terminal',
+	'default-directory',
+	'usage-statistics',
+	'quit-behavior',
+	'mcp',
+	'skills',
+	'wordpress-version',
+	'automatic-updates',
+	'custom-domain',
+	'https',
+	'xdebug',
+	'php',
+	'site-skills',
+	'site-instructions',
+] );
+
+export function getSections(
+	scope: SettingsScope,
+	{ signedIn = true, nativeSites = true }: { signedIn?: boolean; nativeSites?: boolean } = {}
+): Section[] {
+	const sections = scope === 'studio' ? getStudioSections( signedIn ) : getSiteSections();
+	if ( nativeSites ) {
+		return sections;
+	}
+	return sections
+		.filter( ( section ) => ! NATIVE_ONLY_IDS.has( section.id ) )
+		.map( ( section ) => ( {
+			...section,
+			settings: section.settings.filter( ( entry ) => ! NATIVE_ONLY_IDS.has( entry.id ?? '' ) ),
+		} ) );
 }
 
 /** Alternate names for existing commands that already own a settings destination. */
@@ -536,7 +568,7 @@ export type SearchResult = { scope: SettingsScope; section: Section; setting?: S
 export function searchSettings(
 	query: string,
 	scope: SettingsScope,
-	{ hasSite, signedIn }: { hasSite: boolean; signedIn: boolean }
+	{ hasSite, signedIn, nativeSites }: { hasSite: boolean; signedIn: boolean; nativeSites: boolean }
 ): SearchResult[] {
 	const words = query.trim().toLocaleLowerCase().split( /\s+/ ).filter( Boolean );
 	if ( ! words.length ) {
@@ -552,7 +584,7 @@ export function searchSettings(
 	};
 	return scopes
 		.flatMap( ( candidate, scopeIndex ) =>
-			getSections( candidate, { signedIn } ).flatMap( ( section ) =>
+			getSections( candidate, { signedIn, nativeSites } ).flatMap( ( section ) =>
 				[
 					{ ...setting( 'navigate', section.label ), aliases: section.aliases },
 					...section.settings,

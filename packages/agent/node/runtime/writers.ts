@@ -1,7 +1,7 @@
 import path from 'path';
 import { siteIdOfCopy } from '@studio/agent/node/post-copies';
-import type { HostSite } from '@studio/agent/node/host';
 import type { ChangeReport } from '@studio/agent/node/site-changes';
+import type { HostSite } from '@studio/agent/shared/host';
 
 /** An agent writing to a chat session's sites: the session's own, or a subagent it runs. */
 interface Writer {

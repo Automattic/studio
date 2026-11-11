@@ -1,7 +1,7 @@
 import { cpSync, mkdtempSync, rmSync } from 'fs';
 import os from 'os';
 import path from 'path';
-import { deleteInstallDefaults } from '@studio/agent/node/tools/create-site';
+import { deleteInstallDefaults } from '@studio/agent/shared/tools/create-site';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { liveHost, liveSite } from 'cli/ai/tests/live-host';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node';

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createScriptedUser, DISMISSED, type EvalAnswers } from 'cli/ai/eval-answers';
-import type { AskUserQuestion } from '@studio/agent/node/types';
+import type { AskUserQuestion } from '@studio/agent/shared/types';
 
 const confirmation = ( question: string ): AskUserQuestion => ( {
 	question,

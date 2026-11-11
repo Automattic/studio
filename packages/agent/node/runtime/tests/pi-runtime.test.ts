@@ -1,21 +1,19 @@
 import fs from 'fs';
-import { createServer } from 'node:http';
 import os from 'os';
 import path from 'path';
-import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import { ModelRegistry, SessionManager } from '@earendil-works/pi-coding-agent';
+import { getAiModelProviders } from '@studio/providers';
+import { getProvider } from '@studio/providers/services';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAgent } from '@studio/agent/node/agent';
 import { OpenProblems } from '@studio/agent/node/open-problems';
-import { checkCustomEndpoint, type StudioAgentTurnConfig } from '@studio/agent/node/runtime';
-import { AI_MODELS } from '@studio/agent/protocol/models';
+import { type StudioAgentTurnConfig } from '@studio/agent/node/runtime';
 import { createFakeHost, fakeSite } from '../../tests/fake-host';
 import { getSessionState } from '../session-state';
 import type { AgentMessage } from '@earendil-works/pi-agent-core';
 import type { AgentSessionEvent, CreateAgentSessionOptions } from '@earendil-works/pi-coding-agent';
-import type { StudioAgentHost } from '@studio/agent/node/host';
-import type { AiModelId } from '@studio/agent/protocol/models';
-import type { CustomEndpoint } from '@studio/common/lib/shared-config';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
+import type { AiModelId } from '@studio/providers';
 
 const mocks = vi.hoisted( () => ( {
 	createAgentSession: vi.fn(),
@@ -49,20 +47,8 @@ const mocks = vi.hoisted( () => ( {
 	turnEnd: [] as string[],
 	// The next prompt runs until its session is aborted.
 	holdNextPrompt: false,
-	// Image generation is available, and finishes when this is called.
+	// Image generation finishes when this is called.
 	images: undefined as undefined | { finish?: () => void },
-} ) );
-
-vi.mock( '@studio/agent/node/image-generation', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@studio/agent/node/image-generation') >() ),
-	isImageGenerationAvailable: async () => Boolean( mocks.images ),
-	generateImages: ( _userAgent: string, requests: unknown[] ) =>
-		new Promise( ( resolve ) => {
-			mocks.images!.finish = () => {
-				mocks.steps.push( 'images done' );
-				resolve( requests.map( () => ( { ok: false, error: 'not generated' } ) ) );
-			};
-		} ),
 } ) );
 
 // The session's checks of its sites and of their forms, stubbed; the work its tools leave running,
@@ -118,19 +104,6 @@ vi.mock( '@studio/agent/node/open-problems', async ( importOriginal ) => ( {
 	describeOpenProblems: ( problems: string[] ) => `checks: ${ problems.join( ' | ' ) }`,
 } ) );
 
-// Model-swap test uses a synthetic id outside `AI_MODELS`; route unknowns to
-// 'studio' so the env credentials match.
-vi.mock( '@studio/agent/protocol/models', async ( importOriginal ) => {
-	const actual = await importOriginal< typeof import('@studio/agent/protocol/models') >();
-	return {
-		...actual,
-		getAiModelFamily: ( id: string ) =>
-			actual.isAiModelId( id ) ? actual.getAiModelFamily( id ) : 'studio',
-		getAiModel: ( id: string ) =>
-			actual.isAiModelId( id ) ? actual.getAiModel( id ) : { id, label: id, family: 'studio' },
-	};
-} );
-
 vi.mock( '@earendil-works/pi-coding-agent', async ( importOriginal ) => {
 	const actual = await importOriginal< typeof import('@earendil-works/pi-coding-agent') >();
 	const stub = ( name: string ) => ( {
@@ -165,8 +138,8 @@ vi.mock( '@earendil-works/pi-coding-agent', async ( importOriginal ) => {
 } );
 
 // Each trigger answers with what it was fired with.
-vi.mock( '@studio/agent/node/tools/utils', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@studio/agent/node/tools/utils') >() ),
+vi.mock( '@studio/agent/shared/tools/utils', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/agent/shared/tools/utils') >() ),
 	siteOfCall: async ( _host: unknown, _tool: unknown, args: { nameOrPath?: string } ) =>
 		args?.nameOrPath ? { path: `/sites/${ args.nameOrPath }` } : undefined,
 } ) );
@@ -436,22 +409,38 @@ const findAssistantText = ( events: AgentSessionEvent[] ): string | undefined =>
 	return undefined;
 };
 
-async function runRuntime(
-	config: Omit< StudioAgentTurnConfig, 'onEvent' >
-): Promise< AgentSessionEvent[] > {
+// Connects through the provider serving `model`, as the CLI does.
+async function connect( model: AiModelId, token = 'wpcom-token' ) {
+	return getAiModelProviders( model )[ 0 ] === 'wpcom'
+		? getProvider( 'wpcom' ).ai!.connect( { token }, model, {} )
+		: getProvider( 'anthropic' ).ai!.connect(
+				{ method: 'api-key', apiKey: 'sk-ant-test' },
+				model,
+				{}
+		  );
+}
+
+type RuntimeConfig = Omit< StudioAgentTurnConfig, 'onEvent' | 'ai' > & {
+	model?: AiModelId;
+	token?: string;
+};
+
+async function runRuntime( {
+	model = 'fast',
+	token,
+	...config
+}: RuntimeConfig ): Promise< AgentSessionEvent[] > {
 	const events: AgentSessionEvent[] = [];
-	const handle = agent.runTurn( { ...config, onEvent: ( event ) => events.push( event ) } );
+	const ai = await connect( model, token );
+	const handle = agent.runTurn( { ...config, ai, onEvent: ( event ) => events.push( event ) } );
 	await handle.result;
 	return events;
 }
 
-const WPCOM_ENV = {
-	STUDIO_WPCOM_API_KEY: 'wpcom-token',
-	STUDIO_WPCOM_BASE_URL: 'https://proxy.example.com/v1',
-};
-
 describe( 'pi runtime', () => {
 	beforeEach( () => {
+		vi.unstubAllEnvs();
+		vi.stubEnv( 'WPCOM_AI_PROXY_BASE_URL', 'https://proxy.example.com' );
 		mocks.createdSessions.length = 0;
 		mocks.nextEvents = null;
 		mocks.continueEvents = [];
@@ -469,28 +458,6 @@ describe( 'pi runtime', () => {
 		} );
 	} );
 
-	it( 'emits agent_end carrying the credential error when STUDIO_WPCOM_API_KEY is absent', async () => {
-		const events = await runRuntime( {
-			prompt: 'hello',
-			env: {},
-			model: 'balanced',
-			session: newSession(),
-		} );
-
-		expect( mocks.createAgentSession ).not.toHaveBeenCalled();
-		expect( events ).toHaveLength( 1 );
-		const final = events[ 0 ];
-		expect( final.type ).toBe( 'agent_end' );
-		if ( final.type === 'agent_end' ) {
-			const last = final.messages[ final.messages.length - 1 ];
-			expect( last.role ).toBe( 'assistant' );
-			if ( last.role === 'assistant' ) {
-				expect( last.stopReason ).toBe( 'error' );
-				expect( last.errorMessage ).toMatch( /STUDIO_WPCOM_API_KEY/ );
-			}
-		}
-	} );
-
 	it( "starts Bash in the active local site's folder, and says where it starts", async () => {
 		const site = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-shell-site-' ) );
 		const local = { name: 'A', path: site, running: true };
@@ -501,9 +468,9 @@ describe( 'pi runtime', () => {
 			[ undefined, mocks.studioRoot ],
 		] as const ) {
 			const handle = agent.runTurn( {
+				ai: await connect( 'fast' ),
 				prompt: 'hello',
 				session: newSession(),
-				env: WPCOM_ENV,
 				activeSite: activeSite as StudioAgentTurnConfig[ 'activeSite' ],
 				onEvent: () => {},
 			} );
@@ -524,9 +491,9 @@ describe( 'pi runtime', () => {
 		const session = newSession();
 		const turn = async () => {
 			const handle = agent.runTurn( {
+				ai: await connect( 'fast' ),
 				prompt: 'hello',
 				session,
-				env: WPCOM_ENV,
 				onEvent: () => {},
 			} );
 			await handle.result;
@@ -552,9 +519,9 @@ describe( 'pi runtime', () => {
 
 	it( 'reports the system prompt its model requests carry', async () => {
 		const handle = agent.runTurn( {
+			ai: await connect( 'fast' ),
 			prompt: 'hello',
 			session: newSession(),
-			env: WPCOM_ENV,
 			onEvent: () => {},
 		} );
 		expect( handle.systemPrompt() ).toBeUndefined();
@@ -564,8 +531,15 @@ describe( 'pi runtime', () => {
 
 	it( 'runs a call naming an image still being generated once it is done', async () => {
 		mocks.images = {};
+		host.imageGenerator = async () => ( requests ) =>
+			new Promise( ( resolve ) => {
+				mocks.images!.finish = () => {
+					mocks.steps.push( 'images done' );
+					resolve( requests.map( () => ( { ok: false, error: 'not generated' } ) ) );
+				};
+			} );
 		try {
-			await runRuntime( { prompt: 'hello', session: newSession(), env: WPCOM_ENV } );
+			await runRuntime( { prompt: 'hello', session: newSession() } );
 			const image = `${ mocks.studioRoot }/oak/wp-content/themes/oak/hero.png`;
 			await getCreatedTool( 'generate_images' ).execute( 't', {
 				images: [ { path: image, subject: 'a bench' } ],
@@ -604,11 +578,12 @@ describe( 'pi runtime', () => {
 			).toEqual( [ 'images done', 'Bash' ] );
 		} finally {
 			mocks.images = undefined;
+			delete host.imageGenerator;
 		}
 	} );
 
 	it( 'activates the tools a skill brings once the skill is loaded', async () => {
-		await runRuntime( { prompt: 'hello', session: newSession(), env: WPCOM_ENV } );
+		await runRuntime( { prompt: 'hello', session: newSession() } );
 		const session = mocks.createdSessions[ 0 ] as unknown as FakeSession;
 		expect( session.activeToolNames ).toContain( 'Bash' );
 		expect( session.activeToolNames ).not.toContain( 'wp_cli' );
@@ -617,19 +592,8 @@ describe( 'pi runtime', () => {
 		expect( session.activeToolNames ).toContain( 'install_taxonomy_scripts' );
 	} );
 
-	it( 'routes the fast tier to the wpcom Chat Completions path', async () => {
-		await runRuntime( {
-			prompt: 'hello',
-			env: {
-				...WPCOM_ENV,
-				STUDIO_WPCOM_DEFAULT_HEADERS: JSON.stringify( {
-					'X-WPCOM-AI-Feature': 'studio-agent',
-					'X-WPCOM-Session-ID': 'session-2',
-				} ),
-			},
-			model: 'fast',
-			session: newSession(),
-		} );
+	it( 'registers the connection with pi under its provider', async () => {
+		await runRuntime( { prompt: 'hello', model: 'fast', session: newSession() } );
 
 		const options = mocks.createdSessions[ 0 ].options;
 		expect( options.model?.id ).toBe( 'fast' );
@@ -640,122 +604,65 @@ describe( 'pi runtime', () => {
 		expect( auth ).toMatchObject( {
 			ok: true,
 			apiKey: 'wpcom-token',
-			headers: {
-				'X-WPCOM-AI-Feature': 'studio-agent',
-				'X-WPCOM-Session-ID': 'session-2',
-			},
+			headers: { 'X-WPCOM-AI-Feature': 'studio-agent' },
 		} );
 	} );
 
-	// Without these the request carries OpenAI-only fields other upstreams
-	// reject: pi infers them from the base URL, which for us reads as OpenAI.
-	it( 'declares compat overrides the proxy URL cannot be detected from', async () => {
-		await runRuntime( {
-			prompt: 'hello',
-			env: WPCOM_ENV,
-			model: 'fast',
-			session: newSession(),
+	// The tier table is the provider's (wpcom/tests/ai.test.ts); this checks the
+	// registration applies the connection's upstream alias and error rewrite.
+	it( 'streams with the connection’s upstream model and error rewrite', async () => {
+		await runRuntime( { prompt: 'hello', model: 'strong', session: newSession() } );
+		const options = mocks.createdSessions[ 0 ].options;
+		const body = JSON.stringify( {
+			error: { code: 'cost_cap_exceeded', message: 'Monthly cost cap exceeded.' },
 		} );
+		const fetchSpy = vi
+			.spyOn( globalThis, 'fetch' )
+			.mockImplementation( async () => new Response( body, { status: 429 } ) );
 
-		expect( mocks.createdSessions[ 0 ].options.model?.compat ).toMatchObject( {
-			supportsStore: false,
-			supportsDeveloperRole: false,
-			supportsReasoningEffort: false,
-			supportsStrictMode: false,
-			maxTokensField: 'max_tokens',
-		} );
-	} );
-
-	// `balanced` resolves to a reasoning model that rejects the Chat Completions
-	// dialect's tools-plus-reasoning combination, so it rides the Responses
-	// path — the plain OpenAI dialect, with no compat overrides.
-	it( 'routes the balanced tier to the wpcom Responses path', async () => {
-		await runRuntime( {
-			prompt: 'hello',
-			env: WPCOM_ENV,
-			model: 'balanced',
-			session: newSession(),
-		} );
-
-		const model = mocks.createdSessions[ 0 ].options.model!;
-		expect( model.api ).toBe( 'openai-responses' );
-		expect( model.provider ).toBe( 'studio-wpcom' );
-		expect( model.compat ).toBeUndefined();
-	} );
-
-	it.each( [
-		[ 'balanced', 'https://proxy.example.com/v1/responses', 'balanced-2' ],
-		[ 'strong', 'https://proxy.example.com/v1/messages', 'strong-2' ],
-	] as const )(
-		'sends the %s tier to the proxy under its API model name',
-		async ( model, expectedUrl, expectedModel ) => {
-			await runRuntime( { prompt: 'hello', env: WPCOM_ENV, model, session: newSession() } );
-			const options = mocks.createdSessions[ 0 ].options;
-			const fetchSpy = vi
-				.spyOn( globalThis, 'fetch' )
-				.mockResolvedValue( new Response( '{}', { status: 400 } ) );
-
-			let request: Parameters< typeof fetch > | undefined;
-			try {
-				await options
-					.modelRuntime!.streamSimple(
-						options.model!,
-						{ messages: [ { role: 'user', content: 'hi', timestamp: 0 } ] },
-						{ maxRetries: 0 }
-					)
-					.result();
-				request = fetchSpy.mock.calls[ 0 ];
-			} finally {
-				fetchSpy.mockRestore();
-			}
-
-			const [ url, init ] = request!;
-			// pi's Anthropic client adds `?beta=true`; the endpoint is what matters.
-			const sent = new URL( String( url ) );
-			expect( sent.origin + sent.pathname ).toBe( expectedUrl );
-			expect( JSON.parse( String( init?.body ) ).model ).toBe( expectedModel );
+		try {
+			const result = await options
+				.modelRuntime!.streamSimple(
+					options.model!,
+					{ messages: [ { role: 'user', content: 'hi', timestamp: 0 } ] },
+					{ maxRetries: 0 }
+				)
+				.result();
+			const [ url, init ] = fetchSpy.mock.calls[ 0 ];
+			expect( String( url ) ).toBe( 'https://proxy.example.com/v1/messages?beta=true' );
+			expect( JSON.parse( String( init?.body ) ).model ).toBe( 'strong-2' );
 			expect( new Headers( init?.headers ).get( 'authorization' ) ).toBe( 'Bearer wpcom-token' );
-			expect( options.model!.id ).toBe( model );
+			expect( result.errorMessage ).toMatch( /^Monthly usage limit reached: / );
+		} finally {
+			fetchSpy.mockRestore();
 		}
-	);
+	} );
 
-	it.each( [ 'fast', 'balanced', 'strong' ] as const )(
-		'surfaces the proxy cost cap on the %s tier as a usage-cap error',
-		async ( model ) => {
-			await runRuntime( { prompt: 'hello', env: WPCOM_ENV, model, session: newSession() } );
-			const options = mocks.createdSessions[ 0 ].options;
-			const body = JSON.stringify( {
-				error: { code: 'cost_cap_exceeded', message: 'Monthly cost cap exceeded.' },
-			} );
-			const fetchSpy = vi
-				.spyOn( globalThis, 'fetch' )
-				.mockImplementation( async () => new Response( body, { status: 429 } ) );
-
-			try {
-				const result = await options
-					.modelRuntime!.streamSimple(
-						options.model!,
-						{ messages: [ { role: 'user', content: 'hi', timestamp: 0 } ] },
-						{ maxRetries: 0 }
-					)
-					.result();
-				expect( result.errorMessage ).toMatch( /^Monthly usage limit reached: / );
-			} finally {
-				fetchSpy.mockRestore();
-			}
+	it( 'offers generate_images only when the host has an image generator', async () => {
+		const toolNames = ( index: number ) =>
+			( ( mocks.createdSessions[ index ].options.customTools ?? [] ) as { name: string }[] ).map(
+				( tool ) => tool.name
+			);
+		await runRuntime( { prompt: 'hello', model: 'fast', session: newSession() } );
+		host.imageGenerator = async () => async () => [];
+		try {
+			await runRuntime( { prompt: 'hello', model: 'fast', session: newSession() } );
+		} finally {
+			delete host.imageGenerator;
 		}
-	);
+
+		expect( toolNames( 0 ) ).not.toContain( 'generate_images' );
+		expect( toolNames( 1 ) ).toContain( 'generate_images' );
+	} );
 
 	it( 'advertises image input per model rather than per family', async () => {
 		await runRuntime( {
 			prompt: 'hello',
-			env: WPCOM_ENV,
 			model: 'balanced',
 			session: newSession(),
 		} );
 		await runRuntime( {
 			prompt: 'hello',
-			env: WPCOM_ENV,
 			model: 'fast',
 			session: newSession(),
 		} );
@@ -767,13 +674,11 @@ describe( 'pi runtime', () => {
 	it( 'keeps take_screenshot for models that cannot see images, without the image', async () => {
 		await runRuntime( {
 			prompt: 'hello',
-			env: WPCOM_ENV,
 			model: 'balanced',
 			session: newSession(),
 		} );
 		await runRuntime( {
 			prompt: 'hello',
-			env: WPCOM_ENV,
 			model: 'fast',
 			session: newSession(),
 		} );
@@ -788,188 +693,6 @@ describe( 'pi runtime', () => {
 		expect( takeScreenshot( 0 )?.description ).toContain( 'analyze visually' );
 		expect( takeScreenshot( 1 )?.description ).toContain( 'This model cannot view images' );
 		expect( takeScreenshot( 1 )?.description ).not.toContain( 'analyze visually' );
-	} );
-
-	describe( 'a custom endpoint', () => {
-		type Seen = { url?: string; headers: Record< string, unknown >; body: { model: string } };
-		// A local endpoint that answers "hi" in the streaming shape of the API it is asked on.
-		const serve = async ( status = 200 ) => {
-			const seen: Seen[] = [];
-			const server = createServer( ( request, response ) => {
-				let body = '';
-				request.on( 'data', ( chunk ) => ( body += chunk ) );
-				request.on( 'end', () => {
-					// The path; pi's Anthropic client adds `?beta=true`.
-					const path = request.url?.split( '?' )[ 0 ];
-					seen.push( { url: path, headers: request.headers, body: JSON.parse( body ) } );
-					if ( status !== 200 ) {
-						response.writeHead( status, { 'content-type': 'application/json' } );
-						response.end( JSON.stringify( { error: { message: 'bad key' } } ) );
-						return;
-					}
-					response.writeHead( 200, { 'content-type': 'text/event-stream' } );
-					const sse = ( event: { type?: string; [ key: string ]: unknown } ) =>
-						`${ event.type ? `event: ${ event.type }\n` : '' }data: ${ JSON.stringify(
-							event
-						) }\n\n`;
-					response.end(
-						path === '/v1/messages'
-							? [
-									{
-										type: 'message_start',
-										message: { id: 'm', usage: { input_tokens: 1, output_tokens: 0 } },
-									},
-									{
-										type: 'content_block_start',
-										index: 0,
-										content_block: { type: 'text', text: '' },
-									},
-									{
-										type: 'content_block_delta',
-										index: 0,
-										delta: { type: 'text_delta', text: 'hi' },
-									},
-									{ type: 'content_block_stop', index: 0 },
-									{
-										type: 'message_delta',
-										delta: { stop_reason: 'end_turn' },
-										usage: { output_tokens: 1 },
-									},
-									{ type: 'message_stop' },
-							  ]
-									.map( sse )
-									.join( '' )
-							: sse( {
-									id: '1',
-									choices: [ { index: 0, delta: { content: 'hi' }, finish_reason: 'stop' } ],
-							  } ) + 'data: [DONE]\n\n'
-					);
-				} );
-			} );
-			await new Promise< void >( ( resolve ) => server.listen( 0, '127.0.0.1', resolve ) );
-			const { port } = server.address() as { port: number };
-			return { seen, server, url: `http://127.0.0.1:${ port }` };
-		};
-		const endpointEnv = ( endpoint: CustomEndpoint ) => ( {
-			STUDIO_CUSTOM_ENDPOINT: JSON.stringify( endpoint ),
-		} );
-		const ask = ( options: CreateAgentSessionOptions ) =>
-			options
-				.modelRuntime!.streamSimple(
-					options.model!,
-					{ messages: [ { role: 'user', content: 'hi', timestamp: 0 } ] },
-					{ maxRetries: 0 }
-				)
-				.result();
-		const screenshot = ( options: CreateAgentSessionOptions ) =>
-			( options.customTools as { name: string; description: string }[] ).find(
-				( tool ) => tool.name === 'take_screenshot'
-			)?.description;
-
-		it( 'runs the model its connection names, sending its key the way the API takes it', async () => {
-			const { seen, server, url } = await serve();
-			try {
-				const endpoint: CustomEndpoint = {
-					baseUrl: `${ url }/v1`,
-					api: 'openai-completions',
-					apiKey: 'local-key',
-					models: [ 'vendor/reads' ],
-					images: false,
-				};
-				// No wpcom credentials: the connection is all the turn needs.
-				await runRuntime( {
-					prompt: 'hello',
-					env: endpointEnv( endpoint ),
-					model: 'custom:vendor/reads',
-					session: newSession(),
-				} );
-				const [ { options } ] = mocks.createdSessions;
-				expect( options.model ).toMatchObject( {
-					id: 'vendor/reads',
-					api: 'openai-completions',
-					input: [ 'text' ],
-				} );
-				expect( screenshot( options ) ).toContain( 'This model cannot view images' );
-
-				const reply = await ask( options );
-				expect( reply.content ).toEqual( [ { type: 'text', text: 'hi' } ] );
-				expect( seen ).toMatchObject( [
-					{
-						url: '/v1/chat/completions',
-						headers: { authorization: 'Bearer local-key' },
-						body: { model: 'vendor/reads' },
-					},
-				] );
-				expect( seen[ 0 ].body ).not.toHaveProperty( 'store' );
-			} finally {
-				server.close();
-			}
-		} );
-
-		it( 'speaks Anthropic Messages when connected in it, and shows images when the models take them', async () => {
-			const { seen, server, url } = await serve();
-			try {
-				await runRuntime( {
-					prompt: 'hello',
-					env: endpointEnv( {
-						baseUrl: url,
-						api: 'anthropic-messages',
-						apiKey: 'pool-key',
-						models: [ 'sees' ],
-						images: true,
-					} ),
-					model: 'custom:sees',
-					session: newSession(),
-				} );
-				const [ { options } ] = mocks.createdSessions;
-				expect( screenshot( options ) ).toContain( 'analyze visually' );
-				const reply = await ask( options );
-				expect( reply.content ).toEqual( [ { type: 'text', text: 'hi' } ] );
-				expect( seen ).toMatchObject( [
-					{ url: '/v1/messages', headers: { 'x-api-key': 'pool-key' }, body: { model: 'sees' } },
-				] );
-			} finally {
-				server.close();
-			}
-		} );
-
-		it( 'ends the turn asking for a connection when none is', async () => {
-			const events = await runRuntime( {
-				prompt: 'hello',
-				env: {},
-				model: 'custom:sees',
-				session: newSession(),
-			} );
-			expect( mocks.createAgentSession ).not.toHaveBeenCalled();
-			const end = events.at( -1 ) as Extract< AgentSessionEvent, { type: 'agent_end' } >;
-			expect( ( end.messages.at( -1 ) as { errorMessage?: string } ).errorMessage ).toBe(
-				'No custom endpoint is connected — connect one with /provider.'
-			);
-		} );
-
-		it( 'checks a connection with the request a turn sends, and gives what a failing one answered', async () => {
-			const ok = await serve();
-			const refused = await serve( 401 );
-			try {
-				const endpoint = ( baseUrl: string ): CustomEndpoint => ( {
-					baseUrl: `${ baseUrl }/v1`,
-					api: 'openai-completions',
-					apiKey: 'k',
-					models: [ 'm' ],
-					images: false,
-				} );
-				expect( await checkCustomEndpoint( endpoint( ok.url ), 'custom:m' ) ).toBeUndefined();
-				expect( ok.seen ).toMatchObject( [
-					{ url: '/v1/chat/completions', body: { model: 'm' } },
-				] );
-				expect( await checkCustomEndpoint( endpoint( refused.url ), 'custom:m' ) ).toContain(
-					'401'
-				);
-			} finally {
-				ok.server.close();
-				refused.server.close();
-			}
-		} );
 	} );
 
 	describe( 'subagent', () => {
@@ -997,7 +720,7 @@ describe( 'pi runtime', () => {
 		} );
 		const subagentTool = async () => {
 			const onAskUser = vi.fn().mockResolvedValue( { 'Delete the site "nope"?': 'No' } );
-			await runRuntime( { prompt: 'hello', session: newSession(), env: WPCOM_ENV, onAskUser } );
+			await runRuntime( { prompt: 'hello', session: newSession(), onAskUser } );
 			return { tool: getCreatedTool( 'subagent' ), onAskUser };
 		};
 		const child = () => mocks.createdSessions[ 1 ];
@@ -1108,7 +831,7 @@ describe( 'pi runtime', () => {
 
 	it( 'asks the user before a destructive call runs, and does not run it when declined', async () => {
 		const onAskUser = vi.fn().mockResolvedValue( { 'Delete the site "nope"?': 'No' } );
-		await runRuntime( { prompt: 'hello', session: newSession(), env: WPCOM_ENV, onAskUser } );
+		await runRuntime( { prompt: 'hello', session: newSession(), onAskUser } );
 		await expect(
 			getCreatedTool( 'site_delete' ).execute( 't', { nameOrPath: 'nope' } )
 		).rejects.toThrow( 'Not run: the user answered "No" to: Delete the site "nope"?' );
@@ -1117,7 +840,7 @@ describe( 'pi runtime', () => {
 
 	it( 'ends the turn, without running the call, when the user closes its question', async () => {
 		const onAskUser = vi.fn().mockResolvedValue( {} );
-		await runRuntime( { prompt: 'hello', session: newSession(), env: WPCOM_ENV, onAskUser } );
+		await runRuntime( { prompt: 'hello', session: newSession(), onAskUser } );
 		const result = await getCreatedTool( 'site_delete' ).execute( 't', { nameOrPath: 'nope' } );
 		expect( result ).toMatchObject( {
 			content: [ { text: expect.stringContaining( 'The user closed without answering' ) } ],
@@ -1137,7 +860,7 @@ describe( 'pi runtime', () => {
 			async () => new Response( JSON.stringify( { themes: {}, no_update: {} } ) )
 		);
 		try {
-			await runRuntime( { prompt: 'hello', session: newSession(), env: WPCOM_ENV, onAskUser } );
+			await runRuntime( { prompt: 'hello', session: newSession(), onAskUser } );
 			await expect(
 				getCreatedTool( 'Write' ).execute( 'w', {
 					path: 'classic-site/wp-content/themes/yoga/index.php',
@@ -1159,7 +882,6 @@ describe( 'pi runtime', () => {
 	it( "returns a call's result before Studio's checks of it, which the next call waits for", async () => {
 		await runRuntime( {
 			prompt: 'hello',
-			env: WPCOM_ENV,
 			session: newSession(),
 			activeSite: {
 				name: 'A',
@@ -1213,7 +935,6 @@ describe( 'pi runtime', () => {
 	it( "holds a render's verdict until the call's own checks have saved what it changed", async () => {
 		await runRuntime( {
 			prompt: 'hello',
-			env: WPCOM_ENV,
 			session: newSession(),
 			activeSite: {
 				name: 'A',
@@ -1246,7 +967,6 @@ describe( 'pi runtime', () => {
 	it( "carries a site tool's own checks, the site's facts among them, in its result", async () => {
 		await runRuntime( {
 			prompt: 'hello',
-			env: WPCOM_ENV,
 			session: newSession(),
 			activeSite: {
 				name: 'A',
@@ -1273,7 +993,7 @@ describe( 'pi runtime', () => {
 	} );
 
 	it( 'tells the notes the text the file tool left, before Studio acts on it', async () => {
-		await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession() } );
+		await runRuntime( { prompt: 'hello', session: newSession() } );
 		const file = path.resolve( mocks.studioRoot, 'a/style.css' );
 		const other = '/sites/a/wp-content/themes/t/theme.json';
 		fs.mkdirSync( path.dirname( file ), { recursive: true } );
@@ -1330,7 +1050,7 @@ describe( 'pi runtime', () => {
 			],
 		},
 	] )( 'shows an Edit missing its text $case', async ( { oldText, notes } ) => {
-		await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession() } );
+		await runRuntime( { prompt: 'hello', session: newSession() } );
 		const file = path.resolve( mocks.studioRoot, 'a/theme.json' );
 		const lines = Array.from( { length: 12 }, ( _, index ) => `line ${ index }` );
 		fs.mkdirSync( path.dirname( file ), { recursive: true } );
@@ -1385,7 +1105,7 @@ describe( 'pi runtime', () => {
 	// A Read of part of a file the agent wrote leaves the whole it holds,
 	// which what Studio changes in it since is told from.
 	it( 'tells what changed in a file it wrote after a Read of part of it', async () => {
-		await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession() } );
+		await runRuntime( { prompt: 'hello', session: newSession() } );
 		const file = path.resolve( mocks.studioRoot, 'a/theme.json' );
 		fs.mkdirSync( path.dirname( file ), { recursive: true } );
 		try {
@@ -1405,7 +1125,7 @@ describe( 'pi runtime', () => {
 	// eval19: in 2 of 5 branch runs Studio self-hosted theme.json's fonts after
 	// its Write returned, so the agent's next Edit, made from the text it wrote, failed.
 	it( 'reports what Studio fixes in a file it wrote on the file tool result', async () => {
-		await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession() } );
+		await runRuntime( { prompt: 'hello', session: newSession() } );
 		const file = path.resolve( mocks.studioRoot, 'a/theme.json' );
 		fs.mkdirSync( path.dirname( file ), { recursive: true } );
 		fs.writeFileSync( file, 'one\ntwo\nthree' );
@@ -1448,7 +1168,7 @@ describe( 'pi runtime', () => {
 	// before Studio published it and moved it to the page's copy, so the
 	// agent's next Read or Edit of the file it wrote found nothing there.
 	it( "says on a write's own result that a check moved the file it wrote", async () => {
-		await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession() } );
+		await runRuntime( { prompt: 'hello', session: newSession() } );
 		const workspace = path.join( mocks.configRoot, 'workspace/site-id' );
 		const file = path.join( workspace, 'page/private-events.html' );
 		const copy = path.join( workspace, 'page/44.html' );
@@ -1482,7 +1202,7 @@ describe( 'pi runtime', () => {
 	// while checking a page the agent wrote, and said only "Studio saved
 	// parts/footer.html", so the agent's next Edit of the footer missed its text.
 	it( 'says how a check changed another file the agent holds, as it says of a file written', async () => {
-		await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession() } );
+		await runRuntime( { prompt: 'hello', session: newSession() } );
 		const footer = path.resolve( mocks.studioRoot, 'a/parts/footer.html' );
 		const page = path.resolve( mocks.studioRoot, 'a/page.html' );
 		fs.mkdirSync( path.dirname( footer ), { recursive: true } );
@@ -1526,7 +1246,7 @@ describe( 'pi runtime', () => {
 	// at once, and the writes left one theme.json with another's end after it.
 	it( 'runs the notes on each file a call wrote, and on parallel calls, one at a time', async () => {
 		mocks.createdSessions.length = 0;
-		await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession() } );
+		await runRuntime( { prompt: 'hello', session: newSession() } );
 		mocks.postChanges.written = [ '/sites/parallel/header.html', '/sites/parallel/footer.html' ];
 		mocks.afterWriteMs = 10;
 		mocks.afterWritesAtOnce.length = 0;
@@ -1548,7 +1268,7 @@ describe( 'pi runtime', () => {
 	it( 'fires the site notes triggers on a write, and on a result for a local active site', async () => {
 		const run = async ( activeSite: StudioAgentTurnConfig[ 'activeSite' ] ) => {
 			mocks.createdSessions.length = 0;
-			await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession(), activeSite } );
+			await runRuntime( { prompt: 'hello', session: newSession(), activeSite } );
 			return getCreatedTool( 'Write' );
 		};
 		const local = {
@@ -1612,7 +1332,7 @@ describe( 'pi runtime', () => {
 		host.sites.all = async () => [ { ...fakeSite, id: '1', name: 'Shop', path: site } ];
 		try {
 			mocks.createdSessions.length = 0;
-			await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession() } );
+			await runRuntime( { prompt: 'hello', session: newSession() } );
 			const bash = () => withNotes( getCreatedTool( 'Bash' ).execute( 'b', { command: 'true' } ) );
 			expect( await bash() ).toEqual( [ '' ] );
 			await withNotes(
@@ -1628,7 +1348,7 @@ describe( 'pi runtime', () => {
 
 	it( 'reports the post content a call changed, from a snapshot taken before it', async () => {
 		mocks.createdSessions.length = 0;
-		await runRuntime( { prompt: 'hello', env: WPCOM_ENV, session: newSession() } );
+		await runRuntime( { prompt: 'hello', session: newSession() } );
 		mocks.steps.length = 0;
 		mocks.postChanges = {
 			summaries: [ 'page 9 changed' ],
@@ -1697,7 +1417,6 @@ describe( 'pi runtime', () => {
 
 		await runRuntime( {
 			prompt: 'hello',
-			env: WPCOM_ENV,
 			model: 'balanced',
 			session: newSession(),
 		} );
@@ -1721,7 +1440,7 @@ describe( 'pi runtime', () => {
 					event.type === 'agent_end'
 			);
 		const runFast = () =>
-			runRuntime( { prompt: 'build it', env: WPCOM_ENV, model: 'fast', session: newSession() } );
+			runRuntime( { prompt: 'build it', model: 'fast', session: newSession() } );
 
 		it( 'continues the turn with a message the user does not see', async () => {
 			mocks.nextEvents = runEndingWith( emptyReply() );
@@ -1829,7 +1548,7 @@ describe( 'pi runtime', () => {
 				"<studio-checks>\nStudio checked the sites again as the turn ends: these blocks are still invalid on the site, as noted above. The turn is done when each is fixed, or, for one that needs the user's choice, when the user is asked:\n- parts/footer.html: core/site-title\n</studio-checks>";
 			const done = () => runEndingWith( assistantMessage( [ { type: 'text', text: 'Done.' } ] ) );
 			const turn = ( session: SessionManager ) =>
-				runRuntime( { prompt: 'build it', env: WPCOM_ENV, model: 'fast', session } );
+				runRuntime( { prompt: 'build it', model: 'fast', session } );
 			const withOpenProblems = () => {
 				const session = newSession();
 				const open = new OpenProblems( [] );
@@ -1904,7 +1623,7 @@ describe( 'pi runtime', () => {
 			const session = newSession();
 			getSessionState( host, session ).pendingWork.add( Promise.resolve( 'page 9 changed' ) );
 
-			await runRuntime( { prompt: 'build it', env: WPCOM_ENV, model: 'fast', session } );
+			await runRuntime( { prompt: 'build it', model: 'fast', session } );
 
 			expect( mocks.customMessages.map( ( { message } ) => message ) ).toEqual( [
 				{
@@ -1927,9 +1646,8 @@ describe( 'pi runtime', () => {
 			mocks.nextEvents = runEndingWith( emptyReply() );
 			const events: AgentSessionEvent[] = [];
 			const handle = agent.runTurn( {
+				ai: await connect( 'fast' ),
 				prompt: 'build it',
-				env: WPCOM_ENV,
-				model: 'fast',
 				session: newSession(),
 				onEvent: ( event ) => {
 					events.push( event );
@@ -1949,13 +1667,12 @@ describe( 'pi runtime', () => {
 
 	it( 'creates each AgentSession with the requested model', async () => {
 		const session = newSession();
-		const otherStudioModel = 'tier-test-other' as AiModelId;
+		const otherStudioModel = 'fast';
 
-		await runRuntime( { prompt: 'hi', env: WPCOM_ENV, model: 'balanced', session } );
-		await runRuntime( { prompt: 'follow-up', env: WPCOM_ENV, model: otherStudioModel, session } );
+		await runRuntime( { prompt: 'hi', model: 'balanced', session } );
+		await runRuntime( { prompt: 'follow-up', model: otherStudioModel, session } );
 		await runRuntime( {
 			prompt: 'still on the second model',
-			env: WPCOM_ENV,
 			model: otherStudioModel,
 			session,
 		} );
@@ -1967,52 +1684,17 @@ describe( 'pi runtime', () => {
 		] );
 	} );
 
-	// Without `compat.forceAdaptiveThinking`, pi-ai sends a thinking shape that
-	// Sonnet 5 / Opus 5 reject with a 400.
-	it( 'marks direct-key Anthropic models as adaptive-thinking', async () => {
-		await runRuntime( {
-			prompt: 'hello',
-			env: { ANTHROPIC_API_KEY: 'sk-ant-test' },
-			model: 'claude-sonnet-5',
-			session: newSession(),
-		} );
+	// The registered key wins over pi's own environment lookup.
+	it( 'runs Anthropic models on the connection key, not the environment', async () => {
+		vi.stubEnv( 'ANTHROPIC_API_KEY', 'sk-ant-from-env' );
+		await runRuntime( { prompt: 'hello', model: 'claude-sonnet-5-5', session: newSession() } );
 
-		const model = mocks.createdSessions[ 0 ].options.model!;
-		expect( model.provider ).toBe( 'anthropic' );
-		expect( model.compat ).toMatchObject( { forceAdaptiveThinking: true } );
-		expect( model.thinkingLevelMap ).toEqual( { xhigh: 'xhigh', max: 'max' } );
-		// Studio's conservative limits are intentionally not taken from pi's catalog.
-		expect( model.maxTokens ).toBe( 32_000 );
-		expect( model.contextWindow ).toBe( 200_000 );
-	} );
-
-	it( 'copies per-model compat from the pi catalog', async () => {
-		await runRuntime( {
-			prompt: 'hello',
-			env: { ANTHROPIC_API_KEY: 'sk-ant-test' },
-			model: 'claude-opus-5',
-			session: newSession(),
-		} );
-
-		const model = mocks.createdSessions[ 0 ].options.model!;
-		expect( model.compat ).toMatchObject( {
-			forceAdaptiveThinking: true,
-			supportsTemperature: false,
-		} );
-	} );
-
-	// A Studio model missing from the pinned pi-ai catalog would silently fall
-	// back to the rejected thinking shape.
-	it( 'has a pi catalog entry with adaptive-thinking compat for every Anthropic model', () => {
-		const anthropicIds = AI_MODELS.filter( ( m ) => m.family === 'anthropic' ).map( ( m ) => m.id );
-		expect( anthropicIds.length ).toBeGreaterThan( 0 );
-		for ( const id of anthropicIds ) {
-			const catalogModel = ( ANTHROPIC_MODELS as Record< string, { compat?: object } > )[ id ];
-			expect( catalogModel, `missing pi catalog entry for ${ id }` ).toBeDefined();
-			expect( catalogModel.compat, `missing compat for ${ id }` ).toMatchObject( {
-				forceAdaptiveThinking: true,
-			} );
-		}
+		const options = mocks.createdSessions[ 0 ].options;
+		expect( options.model?.provider ).toBe( 'anthropic' );
+		const auth = await new ModelRegistry( options.modelRuntime! ).getApiKeyAndHeaders(
+			options.model!
+		);
+		expect( auth ).toMatchObject( { ok: true, apiKey: 'sk-ant-test' } );
 	} );
 
 	// pi parses registerProvider config values as templates, so a wpcom token
@@ -2024,10 +1706,7 @@ describe( 'pi runtime', () => {
 
 		await runRuntime( {
 			prompt: 'hello',
-			env: {
-				STUDIO_WPCOM_API_KEY: tokenWithDollar,
-				STUDIO_WPCOM_BASE_URL: 'https://proxy.example.com/v1',
-			},
+			token: tokenWithDollar,
 			model: 'balanced',
 			session: newSession(),
 		} );
@@ -2037,29 +1716,5 @@ describe( 'pi runtime', () => {
 		expect( modelRegistry.hasConfiguredAuth( options.model! ) ).toBe( true );
 		const auth = await modelRegistry.getApiKeyAndHeaders( options.model! );
 		expect( auth ).toMatchObject( { ok: true, apiKey: tokenWithDollar } );
-	} );
-
-	// Silent header-drop would surface as an opaque 401 from the wpcom proxy.
-	it( 'warns and continues when STUDIO_WPCOM_DEFAULT_HEADERS is malformed', async () => {
-		const warnSpy = vi.spyOn( console, 'warn' ).mockImplementation( () => {} );
-
-		try {
-			await runRuntime( {
-				prompt: 'hello',
-				env: {
-					...WPCOM_ENV,
-					STUDIO_WPCOM_DEFAULT_HEADERS: '{not json',
-				},
-				model: 'balanced',
-				session: newSession(),
-			} );
-
-			expect( warnSpy ).toHaveBeenCalledTimes( 1 );
-			expect( warnSpy.mock.calls[ 0 ][ 0 ] ).toMatch(
-				/STUDIO_WPCOM_DEFAULT_HEADERS.*malformed JSON/
-			);
-		} finally {
-			warnSpy.mockRestore();
-		}
 	} );
 } );

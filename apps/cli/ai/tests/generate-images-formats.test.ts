@@ -1,7 +1,7 @@
 import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'fs';
 import path from 'path';
-import { bindTool } from '@studio/agent/node/tools/define-tool';
-import { generateImagesTool } from '@studio/agent/node/tools/generate-images';
+import { bindTool } from '@studio/agent/shared/tools/define-tool';
+import { generateImagesTool } from '@studio/agent/shared/tools/generate-images';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { liveHost, liveSite } from 'cli/ai/tests/live-host';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
@@ -11,8 +11,8 @@ const WORDPRESS = process.env.STUDIO_TEST_WORDPRESS;
 const site = liveSite( '', 'Formats', 'formats' );
 const tool = bindTool( generateImagesTool, liveHost( site ) );
 // The image model's PNG, truecolor as it delivers: one core ships.
-vi.mock( '@studio/agent/node/image-generation', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@studio/agent/node/image-generation') >() ),
+vi.mock( '@studio/agent/shared/image-generation', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/agent/shared/image-generation') >() ),
 	isImageGenerationAvailable: async () => true,
 	generateImages: async ( _userAgent: string, requests: unknown[] ) =>
 		requests.map( () => ( {

@@ -2,10 +2,10 @@ import { createHash } from 'crypto';
 import { mkdir, readFile, rename, writeFile } from 'fs/promises';
 import path from 'path';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
-import { declinedResult, type Confirmation, type Confirmer } from './confirmation';
+import { declinedResult, type Confirmer } from './confirmation';
 import type { AgentTool } from '@earendil-works/pi-agent-core';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import type { RemoteHost } from '@studio/agent/node/remote-hosts';
+import type { McpApproval, RemoteHost } from '@studio/agent/shared/remote-hosts';
 
 // Studio Code's tools from MCP servers: each host's own, when the user is
 // signed in to it, and any the user lists in ~/.studio/mcp.json under "mcpServers",
@@ -25,13 +25,6 @@ export interface McpServerSpec {
 	approval?: McpApproval;
 	// Whether the server is part of Studio, so its tool names may be reported.
 	builtIn?: boolean;
-}
-
-export interface McpApproval {
-	// The boolean argument that tells the server the user approved the call.
-	argument: string;
-	// The question in a result that asks for approval, if the result asks.
-	request( result: string ): Confirmation | undefined;
 }
 
 export async function readMcpServers(
@@ -196,7 +189,6 @@ export function prepareMcpServers( remoteHosts: Record< string, RemoteHost > ): 
 async function createTransport( server: McpServerSpec ) {
 	if ( server.url ) {
 		const { StreamableHTTPClientTransport } = await import(
-			// eslint-disable-next-line import-x/no-unresolved -- subpath resolved via package's wildcard export, which the lint resolver doesn't follow
 			'@modelcontextprotocol/sdk/client/streamableHttp.js'
 		);
 		return new StreamableHTTPClientTransport( new URL( server.url ), {

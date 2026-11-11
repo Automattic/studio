@@ -9,8 +9,8 @@ import { readFileSync } from 'fs';
 import { mkdir, readdir, rm, writeFile } from 'fs/promises';
 import path from 'path';
 import { readWordPressSite } from '@studio/agent/node/site-database';
-import { AS_ADMINISTRATOR, wpEval, wpEvalJson } from '@studio/agent/node/tools/utils';
-import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
+import { AS_ADMINISTRATOR, wpEval, wpEvalJson } from '@studio/agent/shared/tools/utils';
+import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
 
 /** Same-second edits can have equal lengths; the content hash distinguishes them. */
 export const POST_VERSION = "post_modified_gmt || ' ' || studio_content_hash(post_content)";

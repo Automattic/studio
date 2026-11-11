@@ -17,8 +17,8 @@ import { readRenderedVersions, renderFrontPage } from '@studio/agent/node/front-
 import { templatePart } from '@studio/agent/node/header-menu';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { isUpdatableTheme } from '@studio/agent/node/themes';
-import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
 import type { SiteChangeSource } from '@studio/agent/node/site-changes';
+import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
 
 // A label as the visitor reads it, from the escaped HTML (esc_html()).
 const decode = ( text: string ) =>

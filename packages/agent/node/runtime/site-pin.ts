@@ -1,9 +1,9 @@
 import path from 'node:path';
 import { siteIdOfCopy } from '@studio/agent/node/post-copies';
 import type { Confirmation } from './confirmation';
-import type { StudioAgentHost } from '@studio/agent/node/host';
-import type { RemoteSite } from '@studio/agent/node/remote-hosts';
-import type { SiteInfo } from '@studio/agent/node/types';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
+import type { RemoteSite } from '@studio/agent/shared/remote-hosts';
+import type { SiteInfo } from '@studio/agent/shared/types';
 
 // A request works on one site: the active site, or the first site the turn
 // changes when none is active, plus any site the turn creates. A change to any

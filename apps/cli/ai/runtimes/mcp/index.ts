@@ -16,7 +16,6 @@ import {
 	createSiteNotes,
 	defineTool,
 	getSessionState,
-	isImageGenerationAvailable,
 	loadSkills,
 	READ_ONLY,
 	renderSkill,
@@ -124,7 +123,7 @@ export async function startMcpStdioServer(): Promise< void > {
 	process.env.STUDIO_TRACKS_ORIGIN = 'studio-mcp';
 	const host = cliAgentHost;
 	const agent = createAgent( { host } );
-	const imageGeneration = await isImageGenerationAvailable();
+	const imageGeneration = Boolean( await host.imageGenerator?.() );
 	const server = new Server(
 		{ name: 'studio', version: '1.0.0' },
 		{

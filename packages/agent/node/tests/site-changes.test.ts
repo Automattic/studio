@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SiteChanges, type SiteChangeSource } from '@studio/agent/node/site-changes';
 import { createFakeHost } from '@studio/agent/node/tests/fake-host';
-import type { HostSite } from '@studio/agent/node/host';
+import type { HostSite } from '@studio/agent/shared/host';
 
 const sites = [
 	{ path: '/a', name: 'A' },

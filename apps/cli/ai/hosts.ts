@@ -5,12 +5,19 @@
  * account. Spacefast serves static copies of local sites, so it has no sites
  * for Studio to work on or pull from.
  */
-import { wpcomApproval, type HostSiteListing, type RemoteHost } from '@studio/agent/node';
+import {
+	wpcomApproval,
+	WPCOM_HOST,
+	type HostSiteListing,
+	type RemoteHost,
+} from '@studio/agent/node';
+import { getRemoteSites } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
+import { withWpcomDetails } from '@studio/providers';
 import { spacefast } from 'cli/ai/spacefast-host';
 import { getWpComSites } from 'cli/lib/api';
-import { parseSyncOptions } from 'cli/lib/sync-api';
+import { fetchSyncableSites, parseSyncOptions } from 'cli/lib/sync-api';
 import { Logger } from 'cli/logger';
 
 const errorText = ( error: unknown ) =>
@@ -36,9 +43,7 @@ async function wpcomListing(
 }
 
 const wpcom: RemoteHost = {
-	name: 'WordPress.com',
-	environment:
-		"The user's WordPress.com sites are live sites, reached through the WordPress.com REST API.",
+	...WPCOM_HOST,
 	sites: {
 		listKey: 'wordpressCom',
 		list: () => wpcomListing( getWpComSites ),
@@ -48,35 +53,17 @@ const wpcom: RemoteHost = {
 			return [];
 		},
 	},
-	publishes:
-		"the user's WordPress.com sites, and the Pressable sites in their WordPress.com account",
 	signIn: 'The user signs in to WordPress.com with /login.',
 	publishable: () =>
-		wpcomListing( async ( token ) => {
-			const { fetchSyncableSites } = await import( 'cli/lib/sync-api' );
-			const sites = await fetchSyncableSites( token );
-			return sites.filter( ( site ) => site.syncSupport === 'syncable' );
-		} ),
-	newSiteUrl( name ) {
-		const url = new URL( 'https://wordpress.com/setup/new-hosted-site' );
-		url.searchParams.set( 'ref', 'studio' );
-		url.searchParams.set( 'section', 'studio-sync' );
-		url.searchParams.set( 'showDomainStep', 'true' );
-		url.searchParams.set( 'new', name );
-		return url.toString();
-	},
+		wpcomListing( async ( token ) =>
+			( await fetchSyncableSites( token ) ).filter( ( site ) => site.syncSupport === 'syncable' )
+		),
 	async targets( { id: localSiteId } ) {
-		const [ { getConnectedWpcomSitesForLocalSite }, { fetchSyncableSites }, { withWpcomDetails } ] =
-			await Promise.all( [
-				import( '@studio/common/lib/connected-sites' ),
-				import( '@studio/common/lib/sync/sync-api' ),
-				import( '@studio/common/lib/sync/transform-sites' ),
-			] );
 		const token = await readAuthToken();
 		if ( ! token?.accessToken ) {
 			return { signedIn: false, targets: [] };
 		}
-		const stored = await getConnectedWpcomSitesForLocalSite( localSiteId );
+		const stored = await getRemoteSites( 'wpcom', localSiteId );
 		if ( ! stored.length ) {
 			return { signedIn: true, targets: [] };
 		}

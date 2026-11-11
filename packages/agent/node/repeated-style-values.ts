@@ -34,7 +34,7 @@ import { placeOf, saveMarkup, siteMarkup, type Markup } from '@studio/agent/node
 import { studioChange } from '@studio/agent/node/studio-file-changes';
 import { themePresets } from '@studio/agent/node/theme-presets';
 import { activeThemes, isUpdatableTheme, parentTheme, themesDir } from '@studio/agent/node/themes';
-import type { StudioAgentHost } from '@studio/agent/node/host';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
 
 // The blocks set to one raw value before it reads as a shared treatment.
 const REPEATED = 3;

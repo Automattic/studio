@@ -2,15 +2,13 @@
  * The thumbnail Appearance → Themes shows for a theme Studio's agent makes.
  */
 import { readdirSync } from 'fs';
-import { readFile, unlink, writeFile } from 'fs/promises';
+import { readFile, writeFile } from 'fs/promises';
 import path from 'path';
-import { pathToFileURL } from 'url';
-import { renderDesignBoard } from '@studio/agent/node/design-board';
-import { resolveScreenshotDirectory } from '@studio/agent/node/screenshot-storage';
 import { parentThemeDir } from '@studio/agent/node/themes';
-import { captureScreenshotBuffer } from '@studio/agent/node/tools/screenshot-helpers';
-import type { StudioAgentHost } from '@studio/agent/node/host';
+import { renderDesignBoard } from '@studio/agent/shared/design-board';
+import { captureScreenshotBuffer } from '@studio/agent/shared/tools/screenshot-helpers';
 import type { SiteFile } from '@studio/agent/node/site-file';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
 
 const THUMBNAIL = { width: 1200, height: 900 } as const;
 
@@ -86,21 +84,13 @@ async function makeThemeThumbnail(
 	if ( ! themeJson ) {
 		return [];
 	}
-	const board = renderDesignBoard( JSON.stringify( themeJson ) );
-	const page = path.join(
-		await resolveScreenshotDirectory( host ),
-		`thumbnail-${ theme.slug }.html`
+	const { buffer } = await captureScreenshotBuffer(
+		host.pages,
+		{ html: renderDesignBoard( JSON.stringify( themeJson ) ) },
+		THUMBNAIL,
+		{ fullPage: false, format: 'png' }
 	);
-	await writeFile( page, `\ufeff${ board }` );
-	try {
-		const { buffer } = await captureScreenshotBuffer( pathToFileURL( page ).href, THUMBNAIL, {
-			fullPage: false,
-			format: 'png',
-		} );
-		await writeFile( path.join( theme.dir, 'screenshot.png' ), buffer );
-	} finally {
-		await unlink( page );
-	}
+	await writeFile( path.join( theme.dir, 'screenshot.png' ), buffer );
 	return [
 		`Studio saved the theme's design board as wp-content/themes/${ theme.slug }/screenshot.png, its thumbnail in Appearance → Themes.`,
 	];

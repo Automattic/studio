@@ -10,9 +10,9 @@
  */
 import { readdir, readFile } from 'fs/promises';
 import path from 'path';
-import { joinWithAnd as list } from '@studio/agent/node/bounded-list';
 import { themesDir } from '@studio/agent/node/themes';
-import type { HostSite } from '@studio/agent/node/host';
+import { joinWithAnd as list } from '@studio/agent/shared/bounded-list';
+import type { HostSite } from '@studio/agent/shared/host';
 
 /** By handle, the src of each style the front end loads from a host other than the site's. */
 export type RemoteStyles = Record< string, string >;

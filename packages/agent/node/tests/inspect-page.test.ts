@@ -3,14 +3,17 @@ import http from 'http';
 import { chromium } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { closeSharedBrowser, getSharedBrowser } from '@studio/agent/node/browser-utils';
-import { pageTextFit } from '@studio/agent/node/tools/page-layout';
+import { nodeHostServices } from '@studio/agent/node/node-host';
+import { pageTextFit } from '@studio/agent/shared/tools/page-layout';
 import {
 	forgetRenders,
 	inspectPage,
 	renderedCapture,
 	VIEWPORTS,
-} from '@studio/agent/node/tools/screenshot-helpers';
+} from '@studio/agent/shared/tools/screenshot-helpers';
 import type { AddressInfo } from 'net';
+
+const { pages } = nodeHostServices();
 
 // A real Chromium to load pages with, when one is installed.
 const CHROMIUM = existsSync( chromium.executablePath() );
@@ -127,6 +130,7 @@ describe.runIf( CHROMIUM )( 'inspecting a page', () => {
 		'finds nothing wrong with a healthy page at %s, and the size its body text renders at',
 		async ( viewport ) => {
 			const { problems, bodyFontSize } = await inspectPage(
+				pages,
 				`${ siteUrl }/`,
 				VIEWPORTS[ viewport ]
 			);
@@ -137,7 +141,7 @@ describe.runIf( CHROMIUM )( 'inspecting a page', () => {
 	);
 
 	it( 'names what a visitor gets that is broken', async () => {
-		const { problems } = await inspectPage( `${ siteUrl }/broken/`, VIEWPORTS.mobile );
+		const { problems } = await inspectPage( pages, `${ siteUrl }/broken/`, VIEWPORTS.mobile );
 
 		expect( problems ).toEqual(
 			expect.arrayContaining( [
@@ -162,7 +166,7 @@ describe.runIf( CHROMIUM )( 'inspecting a page', () => {
 	}, 60000 );
 
 	it( "states text against the viewport's edge that a visitor sees, and what narrows a box a word breaks in", async () => {
-		const { problems } = await inspectPage( `${ siteUrl }/fit/`, VIEWPORTS.mobile );
+		const { problems } = await inspectPage( pages, `${ siteUrl }/fit/`, VIEWPORTS.mobile );
 		const edges = problems.filter( ( problem ) =>
 			problem.startsWith( "Text against the viewport's edge:" )
 		);
@@ -193,6 +197,7 @@ describe.runIf( CHROMIUM )( 'inspecting a page', () => {
 
 	it( "names paragraph text the size of a heading, against the page's body text", async () => {
 		const { problems, bodyFontSize } = await inspectPage(
+			pages,
 			`${ siteUrl }/large/`,
 			VIEWPORTS.desktop
 		);
@@ -203,34 +208,36 @@ describe.runIf( CHROMIUM )( 'inspecting a page', () => {
 	}, 60000 );
 
 	it( 'names text squeezed to a few words a line on a desktop, not on a phone', async () => {
-		const { problems } = await inspectPage( `${ siteUrl }/squeezed/`, VIEWPORTS.desktop );
+		const { problems } = await inspectPage( pages, `${ siteUrl }/squeezed/`, VIEWPORTS.desktop );
 		expect( problems ).toEqual( [
 			expect.stringMatching(
 				/^Text squeezed into a narrow box, under 16 characters a line \(two or three words; body text runs 45–90\):\n {2}p "“Bella came home smelling amazing and he…": 96px wide, \d+ characters a line over \d+ lines, in div\.talk-bubble in div\.$/
 			),
 		] );
-		expect( ( await inspectPage( `${ siteUrl }/squeezed/`, VIEWPORTS.mobile ) ).problems ).toEqual(
-			[]
-		);
+		expect(
+			( await inspectPage( pages, `${ siteUrl }/squeezed/`, VIEWPORTS.mobile ) ).problems
+		).toEqual( [] );
 	}, 60000 );
 
 	it( 'answers a screenshot from the render while the page serves the same HTML', async () => {
 		const url = `${ siteUrl }/form/`;
-		await inspectPage( url, VIEWPORTS.desktop );
+		await inspectPage( pages, url, VIEWPORTS.desktop );
 
 		// A fresh nonce on each request is the same page.
-		const capture = await renderedCapture( url, VIEWPORTS.desktop, true );
+		const capture = await renderedCapture( pages, url, VIEWPORTS.desktop, true );
 		expect( capture?.buffer.length ).toBeGreaterThan( 0 );
-		expect( ( await renderedCapture( url, VIEWPORTS.desktop, false ) )?.clipped ).toBe( false );
-		expect( await renderedCapture( url, VIEWPORTS.mobile, true ) ).toBeUndefined();
-		await inspectPage( `${ siteUrl }/`, VIEWPORTS.desktop );
-		expect( await renderedCapture( siteUrl, VIEWPORTS.desktop, true ) ).toBeDefined();
+		expect( ( await renderedCapture( pages, url, VIEWPORTS.desktop, false ) )?.clipped ).toBe(
+			false
+		);
+		expect( await renderedCapture( pages, url, VIEWPORTS.mobile, true ) ).toBeUndefined();
+		await inspectPage( pages, `${ siteUrl }/`, VIEWPORTS.desktop );
+		expect( await renderedCapture( pages, siteUrl, VIEWPORTS.desktop, true ) ).toBeDefined();
 
 		formText = 'Book a room';
-		expect( await renderedCapture( url, VIEWPORTS.desktop, true ) ).toBeUndefined();
+		expect( await renderedCapture( pages, url, VIEWPORTS.desktop, true ) ).toBeUndefined();
 
 		formText = 'Book a table';
 		forgetRenders();
-		expect( await renderedCapture( url, VIEWPORTS.desktop, true ) ).toBeUndefined();
+		expect( await renderedCapture( pages, url, VIEWPORTS.desktop, true ) ).toBeUndefined();
 	}, 60000 );
 } );

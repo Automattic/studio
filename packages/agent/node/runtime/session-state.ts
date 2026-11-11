@@ -5,8 +5,8 @@ import { RenderCheck } from '@studio/agent/node/render-check';
 import { PendingWork } from './pending-work';
 import { Writers } from './writers';
 import type { BlockValidationGate } from '@studio/agent/node/block-validation-gate';
-import type { StudioAgentHost } from '@studio/agent/node/host';
 import type { OpenProblems } from '@studio/agent/node/open-problems';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
 
 /**
  * What Studio keeps of a chat session across its turns: the problems open on

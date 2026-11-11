@@ -3,7 +3,7 @@ import fs from 'fs';
 import net from 'net';
 import os from 'os';
 import path from 'path';
-import type { StudioAgentHost } from '@studio/agent/node/host';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
 
 const servers = new WeakMap< StudioAgentHost, Promise< string | undefined > >();
 

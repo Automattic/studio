@@ -3,26 +3,26 @@ import os from 'os';
 import path from 'path';
 import { vi } from 'vitest';
 import { getSharedBrowser } from '@studio/agent/node/browser-utils';
-import { generateImages, isImageGenerationAvailable } from '@studio/agent/node/image-generation';
+import { nodeHostServices } from '@studio/agent/node/node-host';
 import {
 	resolveStudioTools,
 	studioToolDefinitions,
 	withChatArtifactEmission,
 	type StudioToolsOptions,
-} from '@studio/agent/node/tools';
-import { createSiteTool } from '@studio/agent/node/tools/create-site';
+} from '@studio/agent/shared/tools';
+import { createSiteTool } from '@studio/agent/shared/tools/create-site';
 import {
 	bindTool,
 	LOCAL_CHANGE,
 	READ_ONLY,
 	REMOTE_READ,
 	type AnyStudioAgentTool,
-} from '@studio/agent/node/tools/define-tool';
-import { enrichPreviewListOutput } from '@studio/agent/node/tools/list-previews';
-import { createTakeScreenshotTool } from '@studio/agent/node/tools/take-screenshot';
-import { splitCommandArgs } from '@studio/agent/node/wp-cli-args';
+} from '@studio/agent/shared/tools/define-tool';
+import { enrichPreviewListOutput } from '@studio/agent/shared/tools/list-previews';
+import { createTakeScreenshotTool } from '@studio/agent/shared/tools/take-screenshot';
+import { splitCommandArgs } from '@studio/agent/shared/wp-cli-args';
 import { createFakeHost, fakeSite, fakeWpcom } from './fake-host';
-import type { StudioAgentHost } from '@studio/agent/node/host';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
 
 vi.mock( '@studio/agent/node/block-validator', () => ( {
 	validateBlocks: vi.fn(),
@@ -30,12 +30,6 @@ vi.mock( '@studio/agent/node/block-validator', () => ( {
 
 vi.mock( '@studio/agent/node/browser-utils', () => ( {
 	getSharedBrowser: vi.fn(),
-} ) );
-
-vi.mock( '@studio/agent/node/image-generation', async () => ( {
-	...( await vi.importActual( '@studio/agent/node/image-generation' ) ),
-	generateImages: vi.fn(),
-	isImageGenerationAvailable: vi.fn(),
 } ) );
 
 vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
@@ -106,7 +100,8 @@ describe( 'Studio AI MCP tools', () => {
 	};
 	beforeEach( () => {
 		vi.resetAllMocks();
-		host = createFakeHost( os.tmpdir() );
+		// The Node pages over a faked Playwright browser.
+		host = { ...createFakeHost( os.tmpdir() ), pages: nodeHostServices().pages };
 	} );
 
 	it( 'marks only reads and non-destructive local changes as safe to run without asking', () => {
@@ -136,7 +131,9 @@ describe( 'Studio AI MCP tools', () => {
 
 		beforeEach( async () => {
 			screenshotDirectory = await mkdtemp( path.join( os.tmpdir(), 'studio-screenshots-' ) );
-			host.screenshotsDirectory = () => screenshotDirectory;
+			host.saveImage = nodeHostServices( {
+				imagesDirectory: () => screenshotDirectory,
+			} ).saveImage;
 		} );
 
 		afterEach( async () => {
@@ -599,8 +596,7 @@ describe( 'Studio AI MCP tools', () => {
 		const themeImage = path.join( sitePath, 'wp-content/themes/acme/assets/images/band.png' );
 		const urlOf = ( name: string ) => `http://localhost:8888/wp-content/uploads/2026/09/${ name }`;
 		vi.mocked( host.sites.all ).mockResolvedValue( [ mockSite, site ] );
-		vi.mocked( isImageGenerationAvailable ).mockResolvedValue( true );
-		vi.mocked( generateImages ).mockResolvedValue( [
+		const generateImages = vi.fn().mockResolvedValue( [
 			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
 			{ ok: false, error: 'Timed out' },
 			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
@@ -617,6 +613,7 @@ describe( 'Studio AI MCP tools', () => {
 			.mockResolvedValueOnce( { exitCode: 0, stdout: '', stderr: '' } );
 
 		try {
+			host.imageGenerator = async () => generateImages;
 			const result = await getTool( 'generate_images' ).rawHandler( {
 				images: [
 					{ path: path.join( uploads, 'hero.png' ), subject: 'A café counter at dawn' },

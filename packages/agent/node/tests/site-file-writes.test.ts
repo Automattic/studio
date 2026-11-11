@@ -4,7 +4,7 @@ import path from 'path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { siteFileWrites } from '@studio/agent/node/site-file-writes';
 import { createFakeHost } from '@studio/agent/node/tests/fake-host';
-import type { HostSite } from '@studio/agent/node/host';
+import type { HostSite } from '@studio/agent/shared/host';
 
 const host = createFakeHost();
 

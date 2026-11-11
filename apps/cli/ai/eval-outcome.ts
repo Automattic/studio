@@ -39,6 +39,7 @@ import {
 } from '@studio/agent/node/form-submission';
 import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
+import { cliAgentHost } from 'cli/ai/host';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
 import { readCliConfig } from 'cli/lib/cli-config/core';
@@ -422,7 +423,8 @@ export async function sendPageForms( sitePath: string, siteId: string, links: st
 export async function saveHomeScreenshot( url: string, file: string ): Promise< boolean > {
 	try {
 		const capture = await captureScreenshotBuffer(
-			url,
+			cliAgentHost.pages,
+			{ url },
 			{ width: 1280, height: 900 },
 			{ fullPage: true, format: 'jpeg' }
 		);

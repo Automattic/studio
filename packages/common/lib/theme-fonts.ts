@@ -76,13 +76,13 @@ function parseFontFaces( css: string ): StylesheetFace[] {
 }
 
 /**
- * Downloads the font files behind a Google Fonts stylesheet URL into the theme's
- * assets/fonts directory and returns the theme.json `fontFace` entries, keyed by
- * family name, pointing at them.
+ * Downloads the font files behind a Google Fonts stylesheet URL, hands each to
+ * `writeFontFile` at its path in the theme (under assets/fonts), and returns the
+ * theme.json `fontFace` entries, keyed by family name, pointing at them.
  */
 export async function downloadThemeFonts(
 	stylesheetUrl: string,
-	themeDir: string
+	writeFontFile: ( themePath: string, data: Uint8Array ) => Promise< void >
 ): Promise< Record< string, ThemeFontFace[] > > {
 	const response = await fetchOk( stylesheetUrl, {
 		headers: { 'User-Agent': BROWSER_USER_AGENT },
@@ -102,7 +102,7 @@ export async function downloadThemeFonts(
 		return {
 			...face,
 			fontWeight: min === max ? String( min ) : `${ min } ${ max }`,
-			file: path.posix.join( 'assets', 'fonts', familySlug, `${ fileName }.woff2` ),
+			file: `assets/fonts/${ familySlug }/${ fileName }.woff2`,
 		};
 	} );
 	if ( ! faces.length ) {
@@ -111,9 +111,8 @@ export async function downloadThemeFonts(
 
 	await Promise.all(
 		faces.map( async ( face ) => {
-			const data = Buffer.from( await ( await fetchOk( face.url ) ).arrayBuffer() );
-			await mkdir( path.join( themeDir, path.dirname( face.file ) ), { recursive: true } );
-			await writeFile( path.join( themeDir, face.file ), data );
+			const data = new Uint8Array( await ( await fetchOk( face.url ) ).arrayBuffer() );
+			await writeFontFile( face.file, data );
 		} )
 	);
 
@@ -207,6 +206,14 @@ async function namesMissingFiles( family: FontFamilyPreset, dirs: string[] ): Pr
 	return found.includes( false );
 }
 
+// Writes a file at its path in a theme, with the folders it needs.
+const writeThemeFile =
+	( themeDir: string ) =>
+	async ( file: string, data: Uint8Array ): Promise< void > => {
+		await mkdir( path.join( themeDir, path.dirname( file ) ), { recursive: true } );
+		await writeFile( path.join( themeDir, file ), data );
+	};
+
 // Downloads the font files a family's fontFace names by URL into the theme's
 // assets/fonts and names them as "file:./" sources, as the Font Library keeps
 // each font it installs as a file on the site (wp_font_dir() in
@@ -249,9 +256,7 @@ async function downloadSources(
 						stylesheets.set( face, source );
 						return written;
 					}
-					const data = Buffer.from( await response.arrayBuffer() );
-					await mkdir( path.join( themeDir, path.dirname( file ) ), { recursive: true } );
-					await writeFile( path.join( themeDir, file ), data );
+					await writeThemeFile( themeDir )( file, new Uint8Array( await response.arrayBuffer() ) );
 				} catch {
 					return written;
 				}
@@ -264,7 +269,9 @@ async function downloadSources(
 	if ( stylesheets.size ) {
 		const faces = new Map< string, ThemeFontFace >();
 		for ( const url of new Set( stylesheets.values() ) ) {
-			const byFamily = await downloadThemeFonts( url, themeDir ).catch( () => null );
+			const byFamily = await downloadThemeFonts( url, writeThemeFile( themeDir ) ).catch(
+				() => null
+			);
 			if ( ! byFamily ) continue;
 			// The faces of this family, when the stylesheet declares several.
 			for ( const face of ( font && byFamily[ font ] ) || Object.values( byFamily ).flat() ) {
@@ -322,7 +329,9 @@ export async function selfHostThemeJsonFonts( themeDir: string ): Promise< SelfH
 			'+'
 		) }:wght@${ weightsOf( themeJson.styles ).join( ';' ) }&display=swap`;
 		try {
-			family.fontFace = Object.values( await downloadThemeFonts( url, themeDir ) ).flat();
+			family.fontFace = Object.values(
+				await downloadThemeFonts( url, writeThemeFile( themeDir ) )
+			).flat();
 			result.hosted.push( name );
 			if ( missing ) {
 				result.missing.push( name );

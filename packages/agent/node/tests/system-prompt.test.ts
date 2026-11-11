@@ -1,14 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { getSkillScopedToolNames, loadSkills } from '../skills';
-import { buildSystemPrompt, buildTurnContext, PROXY_IDENTITY } from '../system-prompt';
-import { resolveStudioTools } from '../tools';
+import { getSkillScopedToolNames, loadSkills } from '@studio/agent/shared/skills';
+import {
+	buildSystemPrompt,
+	buildTurnContext,
+	PROXY_IDENTITY,
+} from '@studio/agent/shared/system-prompt';
+import { resolveStudioTools } from '@studio/agent/shared/tools';
+import { nodeHostServices } from '../node-host';
+import { nodeStudioToolDefinitions } from '../tools';
 import { createFakeHost, fakeWpcom } from './fake-host';
 
-// Every tool Studio has: an app shows the conversation and Studio generates images.
+// Every tool Studio has: an app shows the conversation, Studio generates images,
+// opens the annotation browser and sends feedback.
 const allTools = () =>
 	resolveStudioTools(
-		{ ...createFakeHost(), ui: { showArtifact: () => {}, reloadPreview: () => {} } },
-		{ imageGeneration: true }
+		{
+			...createFakeHost(),
+			ui: { showArtifact: () => {}, reloadPreview: () => {} },
+			annotate: nodeHostServices().annotate,
+			sendFeedback: async () => ( { feedbackId: 1 } ),
+		},
+		{ imageGeneration: true },
+		nodeStudioToolDefinitions
 	);
 
 describe( 'buildSystemPrompt', () => {

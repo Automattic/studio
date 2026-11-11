@@ -124,7 +124,7 @@ export function AddSiteDialog() {
 	const [ isBlueprintValid, setIsBlueprintValid ] = useState( true );
 	const [ lastViewed, setLastViewed ] = useState< string >();
 	const [ setupDraft, setSetupDraft ] = useState< CreateSiteFormDraft >();
-	const { source, setSource, setBlueprintTransferred, folderResetKey, removeFolder } =
+	const { source, setSource, adoptFolder, setBlueprintTransferred, folderResetKey, removeFolder } =
 		useSetupSource();
 	const briefDraftKey = useId();
 	useEffect( () => {
@@ -322,7 +322,7 @@ export function AddSiteDialog() {
 				return;
 			}
 			if ( ! connector.capabilities.nativeFolderPicker ) {
-				toast.error( __( 'Open Studio Desktop to add an existing WordPress folder.' ) );
+				toast.error( __( 'Open the WordPress Studio app to add an existing WordPress folder.' ) );
 				return;
 			}
 			void ( async () => {
@@ -351,6 +351,7 @@ export function AddSiteDialog() {
 		setSetupDraft,
 		source,
 		setSource,
+		adoptFolder,
 		browseBlueprints: () => setView( { name: 'gallery' } ),
 		onFile: handleSiteFile,
 		onFolder: handleFolder,

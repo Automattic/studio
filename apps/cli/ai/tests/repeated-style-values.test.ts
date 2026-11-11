@@ -15,14 +15,14 @@ import {
 import { resolvedStyles } from '@studio/agent/node/resolved-styles';
 import { SiteChanges } from '@studio/agent/node/site-changes';
 import { resolveSiteFile } from '@studio/agent/node/site-file';
-import { runWpCli } from '@studio/agent/node/tools/utils';
+import { runWpCli } from '@studio/agent/shared/tools/utils';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { liveHost, liveSite } from 'cli/ai/tests/live-host';
 import type { StudioAgentHost } from '@studio/agent/node';
 
 // The copy of WordPress the tests write to is not one of Studio's sites.
-vi.mock( '@studio/agent/node/tools/utils', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@studio/agent/node/tools/utils') >() ),
+vi.mock( '@studio/agent/shared/tools/utils', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/agent/shared/tools/utils') >() ),
 	resolveSite: async ( root: string ) => ( { id: 'site', name: 'Ember Roasters', path: root } ),
 } ) );
 // Its block editor is the one the given URL serves.

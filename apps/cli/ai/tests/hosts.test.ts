@@ -1,16 +1,17 @@
 import { remoteSiteFromStored, storedFromRemoteSite } from '@studio/agent/node';
-import { buildSystemPrompt } from '@studio/agent/node/system-prompt';
-import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
+import { buildSystemPrompt } from '@studio/agent/shared/system-prompt';
+import { getRemoteSites } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
-import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { describe, expect, it, vi } from 'vitest';
 import { HOSTS } from 'cli/ai/hosts';
 import { getWpComSites } from 'cli/lib/api';
+import { fetchSyncableSites } from 'cli/lib/sync-api';
 
-vi.mock( '@studio/common/lib/connected-sites', () => ( {
-	getConnectedWpcomSitesForLocalSite: vi.fn(),
+vi.mock( '@studio/common/lib/remote-sites', () => ( { getRemoteSites: vi.fn() } ) );
+vi.mock( 'cli/lib/sync-api', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('cli/lib/sync-api') >() ),
+	fetchSyncableSites: vi.fn(),
 } ) );
-vi.mock( '@studio/common/lib/sync/sync-api', () => ( { fetchSyncableSites: vi.fn() } ) );
 vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/lib/shared-config') >() ),
 	readAuthToken: vi.fn(),
@@ -75,9 +76,9 @@ describe( 'WordPress.com', () => {
 				lastPullTimestamp: null,
 				lastPushTimestamp: null,
 			};
-			vi.mocked( getConnectedWpcomSitesForLocalSite ).mockResolvedValue( [
+			vi.mocked( getRemoteSites ).mockResolvedValue( [
 				{ ...site, localSiteId: 'site-123', name: 'Name at connect time' },
-			] );
+			] as never );
 			vi.mocked( readAuthToken ).mockResolvedValue(
 				( signedIn ? { accessToken: 'token' } : null ) as never
 			);
@@ -91,7 +92,7 @@ describe( 'WordPress.com', () => {
 			} ).toEqual( expected );
 			expect( HOSTS.wpcom.publishes ).toContain( 'Pressable' );
 			if ( signedIn ) {
-				expect( getConnectedWpcomSitesForLocalSite ).toHaveBeenCalledWith( 'site-123' );
+				expect( getRemoteSites ).toHaveBeenCalledWith( 'wpcom', 'site-123' );
 				expect( listing.targets[ 0 ] ).toMatchObject( {
 					id: 111,
 					name: 'My Production Site',

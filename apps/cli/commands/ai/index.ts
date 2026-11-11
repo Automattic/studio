@@ -2,6 +2,7 @@ import {
 	closeSharedBrowser,
 	createAgent,
 	createTurnStatsTracker,
+	nodeHostServices,
 	resolveResumeSessionContext,
 	remoteSiteFromStored,
 	storedFromRemoteSite,
@@ -9,7 +10,6 @@ import {
 	type StudioAgentHost,
 	AskUserQuestion,
 } from '@studio/agent/node';
-import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/agent/node/settings-store';
 import { buildChatAttachmentSummaries } from '@studio/agent/protocol/chat-attachments';
 import {
 	buildAttachedFilesPromptBlock,
@@ -17,17 +17,14 @@ import {
 } from '@studio/agent/protocol/chat-files';
 import { type StudioChatImage } from '@studio/agent/protocol/chat-images';
 import { getAgentEndFailure } from '@studio/agent/protocol/json-events';
-import {
-	getAiModelFamily,
-	readRecordedSessionModel,
-	type AiModelId,
-} from '@studio/agent/protocol/models';
-import { getAiProviderDefaultModel } from '@studio/agent/protocol/providers';
 import { getAgentEndTurnResult } from '@studio/agent/protocol/session-events';
+import { readRecordedSessionModel } from '@studio/agent/protocol/sessions/model';
 import {
 	buildSkillInvocationPrompt,
 	resolveSkillFromPrompt,
 } from '@studio/agent/protocol/slash-commands';
+import { persistSelectedAiProvider, readSelectedAiProvider } from '@studio/common/lib/ai-settings';
+import { readProviderConfig } from '@studio/common/lib/provider-config';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	canUsePaidAiModels,
@@ -35,27 +32,28 @@ import {
 } from '@studio/common/lib/studio-assistant-quota';
 import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
+import {
+	DEFAULT_PROVIDER_ID,
+	getAiModel,
+	getDefaultAiModel,
+	getProviderDescriptor,
+	PROVIDER_IDS,
+	toStoredProviderId,
+	type AiModelId,
+	type ProviderId,
+} from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
 import {
-	getAvailableAiProviders,
 	isAiProviderReady,
 	prepareAiProvider,
-	resolveAiEnvironment,
+	resolveAiConnection,
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
-	saveSelectedAiProvider,
 } from 'cli/ai/auth';
 import { cliAgentHost } from 'cli/ai/host';
 import { emitEvent } from 'cli/ai/json-events';
 import { type AiOutputAdapter, JsonAdapter } from 'cli/ai/output-adapter';
-import {
-	AI_PROVIDERS,
-	DEFAULT_AI_PROVIDER,
-	getAiProviderDefinition,
-	getProviderDefaultModel,
-	type AiProviderId,
-} from 'cli/ai/providers';
 import { replaySessionHistory } from 'cli/ai/sessions/replay';
 import { getActiveSlashCommands, type SlashCommandContext } from 'cli/ai/slash-commands';
 import { AiChatUI } from 'cli/ai/ui';
@@ -139,7 +137,7 @@ async function resolveWpcomDefaultModel(): Promise< AiModelId > {
 				} ),
 		  ] )
 		: null;
-	return getAiProviderDefaultModel( DEFAULT_AI_PROVIDER, {
+	return getDefaultAiModel( DEFAULT_PROVIDER_ID, {
 		canUsePaidModels: canUsePaidAiModels( quota, token?.email ),
 	} );
 }
@@ -168,17 +166,19 @@ export async function runCommand( options: {
 	const isJsonMode = ui instanceof JsonAdapter;
 	const host: StudioAgentHost = {
 		...cliAgentHost,
-		// Persist screenshots next to the session file (`<session>.screenshots/`)
+		// Persist images next to the session file (`<session>.screenshots/`)
 		// so artifacts in the transcript keep rendering after OS temp cleanup;
 		// `deleteAiSession` removes the sidecar together with the session.
-		screenshotsDirectory: async () => {
-			const sm = await ensureSession();
-			const sessionFile = sm.getSessionFile();
-			if ( ! sessionFile?.endsWith( '.jsonl' ) ) {
-				return null;
-			}
-			return `${ sessionFile.slice( 0, -'.jsonl'.length ) }.screenshots`;
-		},
+		...nodeHostServices( {
+			imagesDirectory: async () => {
+				const sm = await ensureSession();
+				const sessionFile = sm.getSessionFile();
+				if ( ! sessionFile?.endsWith( '.jsonl' ) ) {
+					return null;
+				}
+				return `${ sessionFile.slice( 0, -'.jsonl'.length ) }.screenshots`;
+			},
+		} ),
 		selectSite:
 			ui instanceof JsonAdapter
 				? async ( site ) => {
@@ -208,38 +208,35 @@ export async function runCommand( options: {
 	const agent = createAgent( { host } );
 	agent.prepare();
 	const resumeContext = resolveResumeSessionContext( options.resumeSession );
-	let currentProvider: AiProviderId =
-		resumeContext.provider ?? ( await resolveInitialAiProvider() );
+	let currentProvider: ProviderId = resumeContext.provider ?? ( await resolveInitialAiProvider() );
 	// A pin whose provider can't run (e.g. its key was removed) falls back to
 	// WordPress.com for this run only; the pin stays so a restored key revives it.
 	if (
 		resumeContext.provider &&
-		resumeContext.provider !== DEFAULT_AI_PROVIDER &&
+		resumeContext.provider !== DEFAULT_PROVIDER_ID &&
 		! ( await isAiProviderReady( resumeContext.provider ) )
 	) {
-		currentProvider = DEFAULT_AI_PROVIDER;
+		currentProvider = DEFAULT_PROVIDER_ID;
 	}
 	// The recorded model only sticks when the provider still serves it — old
 	// wpcom sessions snap to the provider default instead.
-	const initialDefinition = getAiProviderDefinition( currentProvider );
 	const recordedModel =
-		resumeContext.model && initialDefinition.supportsModel( resumeContext.model )
+		resumeContext.model && getAiModel( currentProvider, resumeContext.model )
 			? resumeContext.model
 			: undefined;
-	let currentModel: AiModelId =
-		recordedModel ?? ( await getProviderDefaultModel( initialDefinition ) );
+	let currentModel: AiModelId = recordedModel ?? getDefaultAiModel( currentProvider );
 	ui.currentProvider = currentProvider;
 	ui.currentModel = currentModel;
 
 	// The wpcom default is quota-dependent; resolved in the background so
 	// startup never waits on the network. Turns await the resolution, and it
 	// only applies while nothing else picked a model.
-	let wpcomDefaultModel: AiModelId = getAiProviderDefaultModel( DEFAULT_AI_PROVIDER );
-	let quotaDefaultApplicable = ! recordedModel && currentProvider === DEFAULT_AI_PROVIDER;
+	let wpcomDefaultModel: AiModelId = getDefaultAiModel( DEFAULT_PROVIDER_ID );
+	let quotaDefaultApplicable = ! recordedModel && currentProvider === DEFAULT_PROVIDER_ID;
 	const wpcomDefaultModelResolution = resolveWpcomDefaultModel()
 		.then( ( model ) => {
 			wpcomDefaultModel = model;
-			if ( quotaDefaultApplicable && currentProvider === DEFAULT_AI_PROVIDER ) {
+			if ( quotaDefaultApplicable && currentProvider === DEFAULT_PROVIDER_ID ) {
 				currentModel = model;
 				ui.currentModel = model;
 			}
@@ -285,10 +282,7 @@ export async function runCommand( options: {
 						// Adopt the recorded model only when the provider still
 						// serves it; otherwise keep the (quota-based) default.
 						const sessionModel = readRecordedSessionModel( sm.getEntries() );
-						if (
-							sessionModel &&
-							getAiProviderDefinition( currentProvider ).supportsModel( sessionModel )
-						) {
+						if ( sessionModel && getAiModel( currentProvider, sessionModel ) ) {
 							quotaDefaultApplicable = false;
 							currentModel = sessionModel;
 							ui.currentModel = currentModel;
@@ -340,7 +334,7 @@ export async function runCommand( options: {
 	async function persistProviderPin(): Promise< void > {
 		await append( ( sm ) =>
 			appendStudioEntry( sm, 'studio.session_context', {
-				provider: currentProvider,
+				provider: toStoredProviderId( currentProvider ),
 				model: currentModel,
 			} )
 		);
@@ -376,7 +370,7 @@ export async function runCommand( options: {
 	}
 
 	async function prepareProviderSelection(
-		provider: AiProviderId,
+		provider: ProviderId,
 		options?: { force?: boolean }
 	): Promise< void > {
 		ui.stop();
@@ -387,7 +381,7 @@ export async function runCommand( options: {
 		}
 	}
 
-	async function switchProvider( provider: AiProviderId, announce = true ): Promise< void > {
+	async function switchProvider( provider: ProviderId, announce = true ): Promise< void > {
 		// The pin written below carries the model, so the quota-based default
 		// must be final first — otherwise an early switch durably records the
 		// static fallback for a paid account.
@@ -396,26 +390,25 @@ export async function runCommand( options: {
 		ui.currentProvider = currentProvider;
 
 		// Auto-correct model when the provider change leaves it unsupported
-		// (e.g. switching from wpcom → anthropic-api-key while a tier is
-		// selected). Fall back to the provider's default — the quota-based one
-		// for WordPress.com.
-		const definition = getAiProviderDefinition( currentProvider );
-		if ( ! definition.supportsModel( currentModel ) ) {
+		// (e.g. switching from wpcom → anthropic while a tier is selected).
+		// Fall back to the provider's default — the quota-based one for
+		// WordPress.com.
+		if ( ! getAiModel( currentProvider, currentModel ) ) {
 			currentModel =
-				currentProvider === DEFAULT_AI_PROVIDER
+				currentProvider === DEFAULT_PROVIDER_ID
 					? wpcomDefaultModel
-					: await getProviderDefaultModel( definition );
+					: getDefaultAiModel( currentProvider );
 			ui.currentModel = currentModel;
 		}
 
-		await saveSelectedAiProvider( currentProvider );
+		await persistSelectedAiProvider( currentProvider );
 		await persistProviderPin();
 		if ( announce ) {
 			ui.showInfo(
 				sprintf(
 					/* translators: %s: provider name */
 					__( 'Switched to %s' ),
-					AI_PROVIDERS[ currentProvider ]
+					getProviderDescriptor( currentProvider ).label
 				)
 			);
 		}
@@ -433,8 +426,8 @@ export async function runCommand( options: {
 			sprintf(
 				/* translators: 1: previous provider name, 2: new provider name */
 				__( '%1$s is no longer available. Switched to %2$s.' ),
-				AI_PROVIDERS[ previousProvider ],
-				AI_PROVIDERS[ currentProvider ]
+				getProviderDescriptor( previousProvider ).label,
+				getProviderDescriptor( currentProvider ).label
 			)
 		);
 	}
@@ -455,7 +448,7 @@ export async function runCommand( options: {
 			ui.showError( __( 'AI agent failed' ) );
 		}
 
-		if ( currentProvider === 'anthropic-api-key' ) {
+		if ( currentProvider === 'anthropic' ) {
 			ui.showInfo( __( 'Use /api-key to update the Anthropic API key.' ) );
 		}
 	}
@@ -475,10 +468,10 @@ export async function runCommand( options: {
 		ui.showOnboarding();
 
 		// Auto-trigger provider selection on first run
-		const availableProviders = await getAvailableAiProviders();
-		const labelToProvider = new Map< string, AiProviderId >();
-		const providerOptions = availableProviders.map( ( id ) => {
-			const label = id === 'wpcom' ? __( 'WordPress.com (recommended)' ) : AI_PROVIDERS[ id ];
+		const labelToProvider = new Map< string, ProviderId >();
+		const providerOptions = PROVIDER_IDS.map( ( id ) => {
+			const label =
+				id === 'wpcom' ? __( 'WordPress.com (recommended)' ) : getProviderDescriptor( id ).label;
 			labelToProvider.set( label, id );
 			return { label, description: id };
 		} );
@@ -551,7 +544,7 @@ export async function runCommand( options: {
 		} else {
 			ui.setStatusMessage( __( 'Use /login to authenticate to WordPress.com' ) );
 		}
-	} else if ( currentProvider === 'anthropic-api-key' && ! ( await readAnthropicApiKey() ) ) {
+	} else if ( currentProvider === 'anthropic' && ! ( await readProviderConfig( 'anthropic' ) ) ) {
 		ui.showInfo( __( 'No Anthropic API key saved. Use /api-key to enter one.' ) );
 	}
 
@@ -603,9 +596,7 @@ export async function runCommand( options: {
 		await maybeAutoSwitchProvider();
 		const sm = await ensureSession();
 		const sessionId = sm.getSessionId();
-		const env = await resolveAiEnvironment( currentProvider, {
-			sessionId,
-		} );
+		const ai = await resolveAiConnection( currentProvider, currentModel, { sessionId } );
 
 		ui.beginAgentTurn( sessionId );
 
@@ -652,9 +643,9 @@ export async function runCommand( options: {
 			turn_id: z.string().uuid().safeParse( requestedTurnId ).data ?? crypto.randomUUID(),
 			...getTracksOrigin(),
 			...getAiTracksIdentity( sessionId ),
-			provider: currentProvider,
+			provider: toStoredProviderId( currentProvider ),
 			model: currentModel,
-			model_family: getAiModelFamily( currentModel ),
+			model_family: currentProvider === 'wpcom' ? 'studio' : currentProvider,
 		};
 		const turnStartedAt = Date.now();
 		await recordChatTracksEvent( TRACKS_EVENTS.CODE_MESSAGE_SENT, () => ( {
@@ -686,8 +677,7 @@ export async function runCommand( options: {
 		const agentQuery = agent.runTurn( {
 			prompt: enrichedPrompt,
 			images,
-			env,
-			model: currentModel,
+			ai,
 			session: sm,
 			activeSite: site,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),

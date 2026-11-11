@@ -18,6 +18,27 @@ Each case creates its sites in a temporary folder of its own instead of `~/Studi
 
 Run one named test with `npm run eval -- --filter-pattern "preview sites"` (regex against the test description). Note: the flag is `--filter-pattern`, **not** `--filter-description` (which is not a valid promptfoo flag).
 
+## Harnesses
+
+Select a harness with `vars.harness` or `STUDIO_EVAL_HARNESS` (default `studio`); vars take precedence. Both harnesses share isolated registries/config, seeded fixtures, bystander sites, outcome capture, inspections and cleanup. The result identifies its `harness`.
+
+- **studio** supplies the existing Studio Code agent conversation, tools, scripted `answers` and session transcript.
+- **claude-code** runs the bare Claude Code CLI, using its own authentication and tools, in the seeded active site's directory (otherwise the case's sites root). It receives a factual note with that path and the availability of the `studio` CLI on PATH, not Studio's identity, skills or instructions. Follow-ups resume its session. Install/authenticate `claude` separately; `STUDIO_EVAL_CLAUDE_BIN` overrides its binary. Raw stream events are retained in `sessionFile`. Scripted `answers` are unsupported and reported as `unsupported: ['answers']`; they are never simulated. Both adapters honour `timeoutMs` and `stopAt`, but stop rules must use the selected harness's tool names. A matched tool may already have begun executing.
+
+Outcome-only checks such as `siteWorks`, `otherSitesUntouched`, and palette/theme checks are harness-neutral. Tool-name checks (`take_screenshot`, `site_push`, `send_feedback`), `questions`, routing skills and identity assertions are Studio-specific; exclude those when comparing harnesses. Shared seeding does not make Studio-specific guidance available to other harnesses.
+
+Pin the same model for a fair comparison using `vars.model` or `STUDIO_EVAL_MODEL` (vars take precedence). Claude Code receives the model as `--model`; use an actual model id both harnesses support, not a Studio tier alias. Claude Code reports result-level usage and turn counts; Studio's per-request timing records are not available from this stream.
+
+Run the same outcome cases separately, then compare saved runs in `eval:view`:
+
+```bash
+STUDIO_EVAL_MODEL=<shared-model-id> npm run eval
+STUDIO_EVAL_HARNESS=claude-code STUDIO_EVAL_MODEL=<shared-model-id> npm run eval
+npm run eval:view
+```
+
+Do not put shell environment assignments after promptfoo's `exec:` prefix; set them on the eval process as above.
+
 ## How a case is judged
 
 After the turn, the runner captures what it left (`apps/cli/ai/eval-outcome.ts`) into the result's `outcome`:
@@ -61,7 +82,7 @@ The home page is also saved as a screenshot (`homeScreenshot`, `<site>-home.jpg`
 
 ## Running the runner directly
 
-`node apps/cli/dist/cli/eval-runner.mjs "<prompt>" "" '{"vars":{"timeoutMs":1800000}}'` runs one turn outside promptfoo and prints `EVAL_RUNNER_RESULT_FILE=<path>`. Environment variables: `STUDIO_EVAL_MODEL` picks the model (`fast`, `claude-sonnet-5`, …), and `STUDIO_EVAL_SESSION_DIR` sets where the session JSONL (the full transcript, kept for every run and reported as `sessionFile`) is written, by default `<tmpdir>/studio-eval-sessions`. `STUDIO_EVAL_ARTIFACT_DIR` sets where each run's outcome artifacts go, among them every site's full-page home screenshot (`outcome.sites[].homeScreenshot`), by default the system's temp directory. A turn that ends with an empty reply is resumed by the runtime itself, as in the app, and shows up in `timing.emptyStops`. A `followUps` var (a list of `{ "prompt": "…" }` objects; objects because promptfoo turns an array of strings into one test per element) sends each as a further user message in the same session once the previous one finishes, for cases that measure a conversation rather than a single request. An `answers` var (a list of `{ "label": "…", "when": "<regex>" }` objects, `when` optional) scripts the user's replies: the turn then runs with Studio chat's ask-the-user handler, so `AskUserQuestion` and tools that confirm with the user work. Each question gets the first answer whose `when` matches its text and that it can take (typed, where it allows a typed answer, otherwise one of its option labels), whatever order the agent asks in; a question no answer fits is dismissed, as a user does who closes the picker, and its answer is recorded as `(dismissed)`. `defaultTest` gives every case a user who leaves the choices to the agent and answers No to starting a classic theme. Without it the agent has no way to ask the user, unlike the app and `studio ai`, which always give it one.
+`node apps/cli/dist/cli/eval-runner.mjs "<prompt>" "" '{"vars":{"timeoutMs":1800000}}'` runs one turn outside promptfoo and prints `EVAL_RUNNER_RESULT_FILE=<path>`. Environment variables: `STUDIO_EVAL_MODEL` picks the model (`fast`, `claude-sonnet-5-5`, …), and `STUDIO_EVAL_SESSION_DIR` sets where the session JSONL (the full transcript, kept for every run and reported as `sessionFile`) is written, by default `<tmpdir>/studio-eval-sessions`. `STUDIO_EVAL_ARTIFACT_DIR` sets where each run's outcome artifacts go, among them every site's full-page home screenshot (`outcome.sites[].homeScreenshot`), by default the system's temp directory. A turn that ends with an empty reply is resumed by the runtime itself, as in the app, and shows up in `timing.emptyStops`. A `followUps` var (a list of `{ "prompt": "…" }` objects; objects because promptfoo turns an array of strings into one test per element) sends each as a further user message in the same session once the previous one finishes, for cases that measure a conversation rather than a single request. An `answers` var (a list of `{ "label": "…", "when": "<regex>" }` objects, `when` optional) scripts the user's replies: the turn then runs with Studio chat's ask-the-user handler, so `AskUserQuestion` and tools that confirm with the user work. Each question gets the first answer whose `when` matches its text and that it can take (typed, where it allows a typed answer, otherwise one of its option labels), whatever order the agent asks in; a question no answer fits is dismissed, as a user does who closes the picker, and its answer is recorded as `(dismissed)`. `defaultTest` gives every case a user who leaves the choices to the agent and answers No to starting a classic theme. Without it the agent has no way to ask the user, unlike the app and `studio ai`, which always give it one. A `stopAt` var (a list of `{ "tool": "<name>", "input": { "<field>": "<regex>" } }` rules, `input` optional) ends the run at the first tool call matching a rule, whose argument fields each match their regex, before any follow-ups; the result's `stoppedAt` names that call (`toolUseId`, `toolName`, and `index` in `toolCalls`). The matched call may already have started when the run ends.
 
 ## Adding tests
 

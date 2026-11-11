@@ -52,7 +52,7 @@ describe( 'Open Folder', () => {
 		act( () => connector.emit( 'onOpenFolder' ) );
 		const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
 		await within( dialog ).findByText(
-			'Studio will use this WordPress site in place. No files will be moved.'
+			'WordPress Studio will use this WordPress site in place. No files will be moved.'
 		);
 		expect( within( dialog ).getByLabelText( 'Site name' ) ).toHaveValue( folder.name );
 		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Advanced' } ) );

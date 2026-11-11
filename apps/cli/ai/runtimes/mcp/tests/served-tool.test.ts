@@ -6,13 +6,13 @@ import {
 	createSiteNotes,
 	defineTool,
 	getSessionState,
-	LOCAL_CHANGE,
 	READ_ONLY,
 	SiteChanges,
 	type StudioToolDefinition,
 } from '@studio/agent/node';
 import { validateBlocks } from '@studio/agent/node/block-validator';
 import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';
+import { LOCAL_CHANGE } from '@studio/agent/shared/tools/define-tool';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { Type } from 'typebox';
 import { expect, it, vi } from 'vitest';

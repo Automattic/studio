@@ -9,7 +9,7 @@ import {
 	updatableThemeChangeHome,
 	updatableThemeChanges,
 } from '@studio/agent/node/theme-file-changes';
-import type { HostSite } from '@studio/agent/node/host';
+import type { HostSite } from '@studio/agent/shared/host';
 
 let fixture: ReturnType< typeof createSite >;
 let site: HostSite;

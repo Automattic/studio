@@ -19,7 +19,7 @@ import { fileStamp } from '@studio/agent/node/active-code';
 import { savedPosts } from '@studio/agent/node/saved-copies';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { exists, isUpdatableTheme, themesDir } from '@studio/agent/node/themes';
-import { wpEvalJson } from '@studio/agent/node/tools/utils';
+import { wpEvalJson } from '@studio/agent/shared/tools/utils';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
 // A block theme's folders, and those of themes from before WordPress 5.9

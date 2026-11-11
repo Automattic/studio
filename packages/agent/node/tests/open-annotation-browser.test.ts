@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { NOTE_EDITOR_EVENT } from '@studio/agent/node/inspector/note-editor';
-import { bindTool } from '@studio/agent/node/tools/define-tool';
-import { openAnnotationBrowserTool } from '@studio/agent/node/tools/open-annotation-browser';
 import {
 	INSPECTOR_BRIDGE_PREFIX,
 	INSPECTOR_COMMAND_EVENT,
 } from '@studio/agent/protocol/inspector/page-script';
+import { bindTool } from '@studio/agent/shared/tools/define-tool';
+import { openAnnotationBrowserTool } from '@studio/agent/shared/tools/open-annotation-browser';
+import { nodeHostServices } from '../node-host';
 import { createFakeHost } from './fake-host';
 
 const page = vi.hoisted( () => ( {
@@ -47,7 +48,10 @@ function editingId(): string {
 
 describe( 'open_annotation_browser', () => {
 	it( 'opens the page of the site it names, and returns the notes once the user clicks Send', async () => {
-		const result = bindTool( openAnnotationBrowserTool, createFakeHost() ).rawHandler( {
+		const result = bindTool( openAnnotationBrowserTool, {
+			...createFakeHost(),
+			annotate: nodeHostServices().annotate,
+		} ).rawHandler( {
 			nameOrPath: 'My Site',
 			page: '/about',
 		} );
@@ -106,11 +110,10 @@ describe( 'open_annotation_browser', () => {
 		close.mockClear();
 		page.editor = undefined;
 		const turn = new AbortController();
-		const result = bindTool( openAnnotationBrowserTool, createFakeHost() ).execute(
-			'a',
-			{ nameOrPath: 'My Site' } as never,
-			turn.signal
-		);
+		const result = bindTool( openAnnotationBrowserTool, {
+			...createFakeHost(),
+			annotate: nodeHostServices().annotate,
+		} ).execute( 'a', { nameOrPath: 'My Site' } as never, turn.signal );
 		await vi.waitFor( () => expect( page.editor ).toBeDefined() );
 		turn.abort();
 		expect( ( await result ).content ).toEqual( [

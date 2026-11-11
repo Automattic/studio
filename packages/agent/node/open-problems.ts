@@ -18,10 +18,10 @@ import { frontPageTemplateProblem } from '@studio/agent/node/front-page-template
 import { headerMenu } from '@studio/agent/node/header-menu';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { missingSourceText } from '@studio/agent/node/source-text';
-import { studioMessage } from '@studio/agent/node/studio-message';
 import { isUpdatableTheme } from '@studio/agent/node/themes';
-import { wpEvalJson } from '@studio/agent/node/tools/utils';
-import type { StudioAgentHost } from '@studio/agent/node/host';
+import { studioMessage } from '@studio/agent/shared/studio-message';
+import { wpEvalJson } from '@studio/agent/shared/tools/utils';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
 
 export class OpenProblems {
 	// The sites changed, whose state is checked at the end of the turn.

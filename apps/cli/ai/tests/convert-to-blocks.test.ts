@@ -11,7 +11,7 @@ import {
 import os from 'os';
 import path from 'path';
 import { convertToBlocksTool } from '@studio/agent/node/tools/convert-to-blocks';
-import { bindTool } from '@studio/agent/node/tools/define-tool';
+import { bindTool } from '@studio/agent/shared/tools/define-tool';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { liveHost, liveSite } from 'cli/ai/tests/live-host';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node';

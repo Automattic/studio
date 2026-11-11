@@ -9,6 +9,7 @@ import {
 } from '@/data/account-analytics';
 import { dismissToast, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { AI_SETTINGS_QUERY_KEY } from '@/data/queries/use-ai-settings';
 import { USER_SCOPED_QUERY_KEYS } from '@/data/queries/user-scoped-query-keys';
 import type { AuthAnalytics } from '@studio/common/lib/auth-tracks';
 import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
@@ -76,6 +77,7 @@ function useRemoveUserScopedQueries() {
 		for ( const key of USER_SCOPED_QUERY_KEYS ) {
 			queryClient.removeQueries( { queryKey: key } );
 		}
+		void queryClient.invalidateQueries( { queryKey: AI_SETTINGS_QUERY_KEY } );
 	}, [ queryClient ] );
 }
 
@@ -112,7 +114,11 @@ export function useLogin( {
 				? connector.authenticate( signup, source, context )
 				: connector.authenticate( signup, source );
 		},
-		onSuccess: () => queryClient.invalidateQueries( { queryKey: AUTH_USER_QUERY_KEY } ),
+		onSuccess: () =>
+			Promise.all( [
+				queryClient.invalidateQueries( { queryKey: AUTH_USER_QUERY_KEY } ),
+				queryClient.invalidateQueries( { queryKey: AI_SETTINGS_QUERY_KEY } ),
+			] ),
 	} );
 	// A login outlives the prompt that started it, so one opened meanwhile waits for it.
 	const running = useIsMutating( { mutationKey } ) > 0;

@@ -361,7 +361,7 @@ describe( 'AiChatUI.handleEvent', () => {
 			renderedToolResultIds: new Set(),
 			currentMarkdown: null,
 			currentResponseText: '',
-			currentProvider: 'anthropic-api-key',
+			currentProvider: 'anthropic',
 			replayMode: true,
 			loaderVisible: false,
 			autoSelectSiteFromToolResult: vi.fn(),
@@ -736,7 +736,7 @@ describe( 'AiChatUI.handleEvent', () => {
 		ui.hideLoader = vi.fn();
 		ui.showError = showError;
 		ui.showInfo = showInfo;
-		ui.currentProvider = 'anthropic-api-key';
+		ui.currentProvider = 'anthropic';
 		ui.currentMarkdown = null;
 		ui.currentResponseText = '';
 		ui.usageCapReached = false;
@@ -899,7 +899,7 @@ describe( 'AiChatUI.showTurnStats', () => {
 	} );
 
 	it( 'does not fetch the quota on the Anthropic API key provider', async () => {
-		const { ui, messages } = makeStatsUi( { currentProvider: 'anthropic-api-key' } );
+		const { ui, messages } = makeStatsUi( { currentProvider: 'anthropic' } );
 
 		ui.showTurnStats( 'Thought for 5s · 1 turn' );
 		await new Promise( ( resolve ) => setImmediate( resolve ) );

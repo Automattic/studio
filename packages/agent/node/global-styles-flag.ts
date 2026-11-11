@@ -20,9 +20,9 @@
  */
 import { GLOBAL_STYLES, saveGlobalStyles } from '@studio/agent/node/global-styles';
 import { readWordPressSite } from '@studio/agent/node/site-database';
-import { wpEvalJson } from '@studio/agent/node/tools/utils';
-import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
+import { wpEvalJson } from '@studio/agent/shared/tools/utils';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
+import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
 
 const UNFLAGGED = 'unflagged:';
 const UNTHEMED = 'unthemed:';

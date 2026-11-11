@@ -5,8 +5,8 @@ import { childThemeCopies } from '@studio/agent/node/child-theme-copies';
 import { SiteChanges } from '@studio/agent/node/site-changes';
 import { createFakeHost } from '@studio/agent/node/tests/fake-host';
 import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';
-import type { HostSite } from '@studio/agent/node/host';
 import type { OpenProblems } from '@studio/agent/node/open-problems';
+import type { HostSite } from '@studio/agent/shared/host';
 
 let fixture: ReturnType< typeof createSite >;
 let site: HostSite;

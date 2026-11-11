@@ -113,6 +113,7 @@ cli/vendor/
 # Build output
 dist
 dist-local
+dist-static
 # …except the data-liberation plugin's committed MCP server bundle (the plugin
 # installer copies the package without running npm install or a build). The
 # package-level .gitignore keeps everything else in its dist/ ignored.

@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createFakeHost } from '@studio/agent/node/tests/fake-host';
-import { bindTool } from '@studio/agent/node/tools/define-tool';
-import { createTakeScreenshotTool } from '@studio/agent/node/tools/take-screenshot';
+import { bindTool } from '@studio/agent/shared/tools/define-tool';
+import { createTakeScreenshotTool } from '@studio/agent/shared/tools/take-screenshot';
 
-vi.mock( '@studio/agent/node/tools/screenshot-helpers', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@studio/agent/node/tools/screenshot-helpers') >() ),
+vi.mock( '@studio/agent/shared/tools/screenshot-helpers', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/agent/shared/tools/screenshot-helpers') >() ),
 	captureScreenshotBuffer: async (
-		url: string,
+		_pages: unknown,
+		{ url }: { url: string },
 		viewport: { width: number },
 		options: { fullPage: boolean }
 	) => {
@@ -23,7 +24,7 @@ vi.mock( '@studio/agent/node/tools/screenshot-helpers', async ( importOriginal )
 			offset: 0,
 			clipped: false,
 			textFit: {
-				edges: [ "p.tagline \"Left\": its text starts at the viewport's left edge (x 0)." ],
+				edges: [ 'p.tagline "Left": its text starts at the viewport\'s left edge (x 0).' ],
 				breaks: [
 					'h1: the browser breaks "Everything" across lines, as the word (240px) is wider than its box (180px).',
 				],
@@ -117,7 +118,7 @@ describe( 'take_screenshot', () => {
 		expect( await text( result ) ).toContain(
 			[
 				"  Text against the viewport's edge:",
-				"    p.tagline \"Left\": its text starts at the viewport's left edge (x 0).",
+				'    p.tagline "Left": its text starts at the viewport\'s left edge (x 0).',
 				'  Words the browser breaks across lines:',
 				'    h1: the browser breaks "Everything" across lines, as the word (240px) is wider than its box (180px).',
 			].join( '\n' )

@@ -3,9 +3,10 @@ import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createFakeHost } from '@studio/agent/node/tests/fake-host';
-import { bindTool } from '@studio/agent/node/tools/define-tool';
+import { readUserSkills } from '@studio/agent/node/user-skills';
+import { bindTool } from '@studio/agent/shared/tools/define-tool';
+import { createSkillTool } from '@studio/agent/shared/tools/skill';
 import { SkillToolScope } from '../runtime/skill-tool-scope';
-import { createSkillTool } from '../tools/skill';
 import type { SessionManager } from '@earendil-works/pi-coding-agent';
 
 const emptySession = {
@@ -45,7 +46,7 @@ describe( "the user's own skills", () => {
 			'name: launch-checklist\ndescription: Checks a site before launch\ntools: need_for_speed, Read',
 			'Run the speed check, then read checklist.md.'
 		);
-		const tool = createSkillTool()!;
+		const tool = createSkillTool( { userSkills: readUserSkills() } )!;
 		expect( tool.description ).toContain(
 			'- launch-checklist: Checks a site before launch (brings need_for_speed, Read)'
 		);
@@ -58,7 +59,7 @@ describe( "the user's own skills", () => {
 		expect( loaded ).toContain( `The skill's folder: ${ dir }` );
 		expect( loaded ).toContain( 'Now available: need_for_speed, Read.' );
 
-		const scope = new SkillToolScope( emptySession );
+		const scope = new SkillToolScope( emptySession, readUserSkills() );
 		expect( scope.activeToolNames( [ 'need_for_speed', 'Read' ] ) ).toEqual( [ 'Read' ] );
 		scope.unlock( 'launch-checklist' );
 		expect( scope.activeToolNames( [ 'need_for_speed', 'Read' ] ) ).toEqual( [
@@ -69,7 +70,7 @@ describe( "the user's own skills", () => {
 
 	it( 'keeps a Studio skill whose name a user skill reuses, and names the folder left out', async () => {
 		const dir = addSkill( 'mine', 'name: taxonomist\ndescription: Mine', 'My version.' );
-		const tool = createSkillTool()!;
+		const tool = createSkillTool( { userSkills: readUserSkills() } )!;
 		expect( tool.description ).toContain(
 			`Not loaded, since a Studio skill has the same name: ${ dir }`
 		);

@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'fs';
 import path from 'path';
-import { boundedText } from '@studio/agent/node/bounded-list';
+import { boundedText } from '@studio/agent/shared/bounded-list';
 import type { WordPressSite } from '@studio/agent/node/site-database';
 
 // The strings of an option that stores a list.

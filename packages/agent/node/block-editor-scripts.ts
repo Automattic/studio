@@ -29,7 +29,7 @@
  */
 import { blockCodeVersion, readBlockCode, seeBlockCode } from '@studio/agent/node/block-code';
 import { unregisteredInEditor } from '@studio/agent/node/block-validator';
-import { printedJson, wpEval } from '@studio/agent/node/tools/utils';
+import { printedJson, wpEval } from '@studio/agent/shared/tools/utils';
 import type { SiteChangeSource } from '@studio/agent/node/site-changes';
 
 const KEY = 'block editor scripts';

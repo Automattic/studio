@@ -2,8 +2,8 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { wpcomApproval } from '@studio/agent/node/remote-hosts';
 import { fakeWpcom } from '@studio/agent/node/tests/fake-host';
+import { wpcomApproval } from '@studio/agent/shared/remote-hosts';
 import { createMcpTools, isUserMcpTool, readMcpServers, type McpServerSpec } from '../mcp-tools';
 import type { Confirmer } from '../confirmation';
 

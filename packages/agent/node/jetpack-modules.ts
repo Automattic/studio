@@ -10,10 +10,10 @@
  * header says they need no connection, as Jetpack::activate_default_modules()
  * does, and says so. A site whose modules were set, even to none, keeps them.
  */
-import { joinWithAnd as list } from '@studio/agent/node/bounded-list';
 import { activePlugins } from '@studio/agent/node/plugins';
 import { readWordPressSite } from '@studio/agent/node/site-database';
-import { printedJson, wpEval } from '@studio/agent/node/tools/utils';
+import { joinWithAnd as list } from '@studio/agent/shared/bounded-list';
+import { printedJson, wpEval } from '@studio/agent/shared/tools/utils';
 import type { SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 
 const KEY = 'jetpack modules';

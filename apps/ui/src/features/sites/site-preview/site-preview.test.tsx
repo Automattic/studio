@@ -1,4 +1,5 @@
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
+import { INSPECTOR_PAGE_SCRIPT } from '@studio/agent/protocol/inspector/page-script';
 import { READ_ADMIN_BAR_VISIBILITY_SCRIPT } from '@studio/common/lib/preview-shortcuts-script';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
@@ -373,6 +374,14 @@ describe( 'site preview', () => {
 		}
 	);
 
+	it( 'keeps the page showing when a running site is started again', async () => {
+		const { update } = await renderPreview( 'browser' );
+		finishLoading( 'browser' );
+		update( { site: site( { operation: { pid: 1, kind: 'start' } } ) } );
+		update( { site: site() } );
+		expect( isPageHidden() ).toBe( false );
+	} );
+
 	it( 'reports the guest URL and native history after navigation', async () => {
 		const onPathChange = vi.fn();
 		const { user } = await renderPreview( 'desktop', { onPathChange } );
@@ -617,6 +626,18 @@ describe( 'site preview controls', () => {
 		expect( connector.trackEvent ).toHaveBeenCalledExactlyOnceWith( event, {
 			browser: 'external',
 		} );
+	} );
+
+	it( 'sends the notes to each page a browser preview loads', async () => {
+		const run = vi.fn();
+		const connector = createFakeConnector();
+		connector.connectPreviewFrame.mockReturnValue( { run, dispose: vi.fn() } );
+		await renderPreview( 'browser', {}, connector );
+		const { onPage } = connector.connectPreviewFrame.mock.calls[ 0 ][ 1 ];
+		act( () => onPage() );
+		act( () => onPage() );
+		const commands = run.mock.calls.filter( ( [ script ] ) => script !== INSPECTOR_PAGE_SCRIPT );
+		expect( commands ).toHaveLength( 2 );
 	} );
 
 	it.each( [ undefined, 'https://example.wordpress.com' ] )(

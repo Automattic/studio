@@ -6,7 +6,7 @@ import { RenderCheck } from '@studio/agent/node/render-check';
 import { PendingWork } from '@studio/agent/node/runtime/pending-work';
 import { createFakeHost } from '@studio/agent/node/tests/fake-host';
 import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';
-import type { HostSite } from '@studio/agent/node/host';
+import type { HostSite } from '@studio/agent/shared/host';
 
 // A site with an About page, whose server answers, and a browser that finds
 // the problems the test sets for each page and viewport.

@@ -28,7 +28,6 @@ import { existsSync, mkdirSync, realpathSync } from 'fs';
 import { readFile, readdir, rename, rm, writeFile } from 'fs/promises';
 import path from 'path';
 import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
-import { boundedLines } from '@studio/agent/node/bounded-list';
 import {
 	GLOBAL_STYLES,
 	describeSavedGlobalStyles,
@@ -45,9 +44,10 @@ import {
 	savePost,
 } from '@studio/agent/node/site-markup';
 import { activeIsBlockTheme, activeThemes } from '@studio/agent/node/themes';
-import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
+import { boundedLines } from '@studio/agent/shared/bounded-list';
 import type { ChangeReport, SiteChangeSource, Versions } from '@studio/agent/node/site-changes';
 import type { WordPressSite } from '@studio/agent/node/site-database';
+import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
 
 const MANIFEST = '.copies.json';
 

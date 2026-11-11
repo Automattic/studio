@@ -1440,14 +1440,22 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.get(
 		'/sites/:id/export',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const mode = req.query.mode === 'database' ? 'db' : 'full';
+			const mode =
+				req.query.mode === 'database'
+					? 'db'
+					: req.query.mode === 'blueprint'
+					? 'blueprint'
+					: 'full';
 			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
 			if ( ! site ) {
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
 			const dir = mkdtempSync( path.join( os.tmpdir(), 'studio-export-' ) );
-			const filename = `${ backupFilename( site.name ) }.${ mode === 'db' ? 'sql' : 'tar.gz' }`;
+			const filename =
+				mode === 'blueprint'
+					? `${ backupFilename( site.name ) }-blueprint.zip`
+					: `${ backupFilename( site.name ) }.${ mode === 'db' ? 'sql' : 'tar.gz' }`;
 			const dest = path.join( dir, filename );
 			const cleanup = () => rm( dir, { recursive: true, force: true }, () => undefined );
 			try {

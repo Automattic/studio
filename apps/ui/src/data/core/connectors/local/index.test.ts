@@ -356,6 +356,7 @@ it( 'passes telemetry site lookup context outside the event properties', async (
 it.each( [
 	[ 'exportFullSite', 'full' ],
 	[ 'exportDatabase', 'database' ],
+	[ 'exportBlueprint', 'blueprint' ],
 ] as const )( 'announces %s before preparing the browser download', async ( method, mode ) => {
 	const onStarted = vi.fn();
 	const fetchMock = vi.fn( async () => {

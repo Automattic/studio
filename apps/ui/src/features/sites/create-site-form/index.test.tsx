@@ -1009,3 +1009,27 @@ describe( 'CreateSiteForm fields', () => {
 		expect( screen.getByText( 'CLI command failed' ) ).toBeVisible();
 	} );
 } );
+
+it.each( [ false, true ] )(
+	'preserves a snapshot WordPress patch version (offline: %s)',
+	async ( offline ) => {
+		vi.spyOn( navigator, 'onLine', 'get' ).mockReturnValue( ! offline );
+		const connector = createFakeConnector();
+		connector.getWordPressVersions.mockResolvedValue(
+			versions( [ '6.8', 'latest' ], [ '6.8.2', '6.8.2' ] )
+		);
+		const { onSubmit } = await renderForm(
+			{ initialValues: { name: 'Exact snapshot', wpVersion: '6.8.1' }, preserveWpVersion: true },
+			connector
+		);
+		advanced();
+		await waitFor( () =>
+			expect( screen.getByRole( 'combobox', { name: 'WordPress version' } ) ).toHaveTextContent(
+				'6.8.1'
+			)
+		);
+		await waitFor( () => expect( submitButton() ).toBeEnabled() );
+		fireEvent.click( submitButton() );
+		expect( onSubmit ).toHaveBeenCalledWith( expect.objectContaining( { wpVersion: '6.8.1' } ) );
+	}
+);

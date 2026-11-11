@@ -10,7 +10,7 @@ export const builder = ( yargs: StudioArgv ) => {
 			normalize: true,
 			demandOption: false,
 			description: __(
-				'Path to the export file. All exports can use .zip or .tar.gz. Database-only exports can also use .sql.'
+				'Path to the export file. Blueprint exports require .zip. Other exports accept .zip or .tar.gz; database-only exports also accept .sql.'
 			),
 			coerce: ( value ) => {
 				return path.resolve( untildify( value ) );
@@ -18,10 +18,10 @@ export const builder = ( yargs: StudioArgv ) => {
 		} )
 		.option( 'mode', {
 			type: 'string',
-			choices: [ 'full', 'content', 'db' ] as const,
+			choices: [ 'full', 'content', 'db', 'blueprint' ] as const,
 			default: 'full' as const,
 			description: __(
-				'Export the full site, just the content, or just the database. Default exports full site.'
+				'Export the full site, just the content, just the database, or a Blueprint ZIP bundle. Default exports full site.'
 			),
 		} )
 		.option( 'split-db-dump-by-table', {

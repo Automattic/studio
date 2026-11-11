@@ -40,9 +40,9 @@ const prefixedLegacyMuPluginNames = LEGACY_MU_PLUGIN_FILENAMES.map(
 );
 
 export class DefaultExporter extends ImportExportEventEmitter implements Exporter {
-	private archiveBuilder!: Archiver;
+	protected archiveBuilder!: Archiver;
 	private backup: BackupContents;
-	private readonly options: ExportOptions;
+	protected readonly options: ExportOptions;
 
 	isExactPathExcluded( pathToCheck: string ) {
 		const PATHS_TO_EXCLUDE = [
@@ -131,8 +131,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			this.addWpConfig();
 			await this.addWpContent();
 			await this.addDatabase();
-			const studioJsonPath = await this.createStudioJsonFile();
-			this.archiveBuilder.file( studioJsonPath, { name: 'meta.json' } );
+			await this.addMetadata();
 			await this.archiveBuilder.finalize();
 			this.emit( ExportEvents.BACKUP_CREATE_COMPLETE );
 			await archiveClosedPromise;
@@ -146,6 +145,11 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 				await this.cleanupTempFiles();
 			}
 		}
+	}
+
+	protected async addMetadata(): Promise< void > {
+		const studioJsonPath = await this.createStudioJsonFile();
+		this.archiveBuilder.file( studioJsonPath, { name: 'meta.json' } );
 	}
 
 	private createArchiveBuilder(): Archiver {
@@ -179,7 +183,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		} );
 	}
 
-	private addWpConfig(): void {
+	protected addWpConfig(): void {
 		const wpConfigPath = path.join( this.options.site.path, 'wp-config.php' );
 		if ( fs.existsSync( wpConfigPath ) ) {
 			const content = fs.readFileSync( wpConfigPath, 'utf-8' );
@@ -282,7 +286,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		}
 	}
 
-	private async addDatabase(): Promise< void > {
+	protected async addDatabase(): Promise< void > {
 		if ( ! this.options.includes.database ) {
 			return;
 		}

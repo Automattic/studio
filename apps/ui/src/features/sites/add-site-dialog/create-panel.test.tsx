@@ -6,7 +6,7 @@ import { renderApp } from '@/test/render';
 import type { Connector, SelectedSiteFolder } from '@/data/core';
 import type { AiSettings } from '@studio/agent/protocol/providers';
 import type { Blueprint as CatalogBlueprint } from '@studio/common/lib/studio-blueprints-api';
-import type { Blueprint } from '@wp-playground/blueprints';
+import type { BlueprintV1Declaration as Blueprint } from '@wp-playground/blueprints';
 
 afterEach( () => {
 	vi.unstubAllGlobals();
@@ -770,4 +770,37 @@ describe( 'Add site › blank setup', () => {
 		expect( connector.createSite ).not.toHaveBeenCalled();
 		expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument();
 	} );
+} );
+
+it( 'keeps an exported snapshot on its recorded WordPress patch version', async () => {
+	const { connector, dialog } = await setup(
+		{},
+		{
+			getWordPressVersions: async () => [
+				{ label: '7.1', value: 'latest', isBeta: false, isDevelopment: false },
+				{ label: '7.1', value: '7.1.4', isBeta: false, isDevelopment: false },
+			],
+		}
+	);
+	await uploadBlueprint( {
+		preferredVersions: { php: '8.4', wp: '7.1.3' },
+		steps: [
+			{
+				step: 'importWordPressFiles',
+				wordPressFilesZip: { resource: 'bundled', path: 'site.zip' },
+			},
+		],
+	} );
+	await screen.findByRole( 'button', { name: 'Remove Blueprint' } );
+	await createSite( dialog );
+	await waitFor( () =>
+		expect( connector.createSite ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				wpVersion: '7.1.3',
+				blueprint: expect.objectContaining( {
+					blueprint: expect.objectContaining( { preferredVersions: { php: '8.4', wp: '7.1.3' } } ),
+				} ),
+			} )
+		)
+	);
 } );

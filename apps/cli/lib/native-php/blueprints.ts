@@ -14,6 +14,7 @@ import {
 import { getFullyResolvedTmpDirPath } from 'cli/lib/native-php/tmp-dir';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { getWpCliPhpIniArgs } from 'cli/lib/wp-cli-php-ini';
+import { importWordPressFiles } from './import-wordpress-files';
 import { PhpCommandError, runPhpCommand } from './php-process';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
@@ -221,7 +222,7 @@ export function formatBlueprintRunnerError( error: PhpCommandError ): string {
 	return stderr ? truncate( stderr ) : error.message;
 }
 
-export async function runBlueprint(
+async function runBlueprintWithRunner(
 	config: ServerConfig,
 	blueprint: NonNullable< ServerConfig[ 'blueprint' ] >,
 	phpVersion: SupportedPHPVersion,
@@ -348,4 +349,36 @@ export async function runBlueprint(
 			await keepSqliteIntegrationUpdated( config.sitePath );
 		}
 	}
+}
+
+export async function runBlueprint(
+	config: ServerConfig,
+	blueprint: NonNullable< ServerConfig[ 'blueprint' ] >,
+	phpVersion: SupportedPHPVersion,
+	signal: AbortSignal
+): Promise< void > {
+	const steps = blueprint.contents.steps ?? [];
+	if ( ! steps.some( ( step: { step?: string } ) => step?.step === 'importWordPressFiles' ) ) {
+		return runBlueprintWithRunner( config, blueprint, phpVersion, signal );
+	}
+	let pending: unknown[] = [];
+	let first = true;
+	const flush = async () => {
+		if ( ! first && pending.length === 0 ) return;
+		const contents = first
+			? { ...blueprint.contents, steps: pending }
+			: { constants: blueprint.contents.constants, steps: pending };
+		await runBlueprintWithRunner( config, { ...blueprint, contents }, phpVersion, signal );
+		first = false;
+		pending = [];
+	};
+	for ( const step of steps ) {
+		if ( step?.step === 'importWordPressFiles' ) {
+			await flush();
+			await importWordPressFiles( config, step, blueprint.uri, phpVersion, signal );
+		} else {
+			pending.push( step );
+		}
+	}
+	await flush();
 }

@@ -56,6 +56,34 @@ describe( 'createIpcConnector exports', () => {
 		expect( result ).toBe( '/tmp/demo-backup.sql' );
 	} );
 
+	it( 'saves a Blueprint ZIP through the same CLI export handler', async () => {
+		showSaveAsDialog.mockResolvedValue( '/tmp/demo-blueprint.zip' );
+		const onStarted = vi.fn();
+		await expect( createIpcConnector().exportBlueprint( 'site-1', { onStarted } ) ).resolves.toBe(
+			'/tmp/demo-blueprint.zip'
+		);
+		expect( showSaveAsDialog ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				filters: [ { name: 'Blueprint ZIP bundle', extensions: [ 'zip' ] } ],
+			} )
+		);
+		expect( exportSite ).toHaveBeenCalledWith(
+			'site-1',
+			'/tmp/demo-blueprint.zip',
+			expect.objectContaining( { mode: 'blueprint' } )
+		);
+		expect( onStarted ).toHaveBeenCalledOnce();
+	} );
+	it( 'keeps a cancelled Blueprint save quiet', async () => {
+		showSaveAsDialog.mockResolvedValue( undefined );
+		const onStarted = vi.fn();
+		await expect(
+			createIpcConnector().exportBlueprint( 'site-1', { onStarted } )
+		).resolves.toBeNull();
+		expect( onStarted ).not.toHaveBeenCalled();
+		expect( exportSite ).not.toHaveBeenCalled();
+	} );
+
 	it( 'skips the export when the save dialog is cancelled', async () => {
 		showSaveAsDialog.mockResolvedValue( undefined );
 

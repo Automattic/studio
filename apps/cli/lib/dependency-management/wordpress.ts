@@ -7,7 +7,7 @@ import { extractZip } from '@studio/common/lib/extract-zip';
 import { recursiveCopyDirectory } from '@studio/common/lib/fs-utils';
 import { getWordPressVersionUrl } from '@studio/common/lib/wordpress-version-utils';
 import semver from 'semver';
-import { getWordPressVersionPath } from './paths';
+import { getWordPressVersionPath, getWpFilesPath } from './paths';
 
 const MINIMUM_SUPPORTED_WP_VERSION = 6;
 const DEFAULT_WORDPRESS_VERSION = 'latest';
@@ -20,6 +20,18 @@ export async function downloadWordPress(
 
 	if ( ! overwrite && fs.existsSync( finalFolder ) ) {
 		return;
+	}
+	if ( ! overwrite && wordPressVersion !== DEFAULT_WORDPRESS_VERSION ) {
+		const candidates = [
+			getWordPressVersionPath( DEFAULT_WORDPRESS_VERSION ),
+			path.join( getWpFilesPath(), 'latest', 'wordpress' ),
+		];
+		for ( const candidate of candidates ) {
+			if ( ( await getWordPressVersionFromInstallation( candidate ) ) === wordPressVersion ) {
+				await fs.promises.cp( candidate, finalFolder, { recursive: true, dereference: true } );
+				return;
+			}
+		}
 	}
 
 	const tempDir = path.join( os.tmpdir(), 'wordpress-download-', crypto.randomUUID() );

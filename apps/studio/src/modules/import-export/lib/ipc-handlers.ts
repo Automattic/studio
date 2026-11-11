@@ -198,7 +198,7 @@ async function showExportErrorModal( event: IpcMainInvokeEvent, error: unknown )
 }
 
 type ExportOptions = {
-	mode: 'full' | 'content' | 'db';
+	mode: 'full' | 'content' | 'db' | 'blueprint';
 	showErrorModal?: boolean;
 	showItemInFolder?: boolean;
 	showNotification?: boolean;
@@ -256,10 +256,12 @@ export async function exportSite(
 
 	return new Promise< void >( ( resolve, reject ) => {
 		eventEmitter.on( 'completed', () => {
-			bumpStat(
-				StatsGroup.STUDIO_EXPORT,
-				mode === 'db' ? StatsMetric.DATABASE_ONLY : StatsMetric.FULL_SITE
-			);
+			if ( mode !== 'blueprint' ) {
+				bumpStat(
+					StatsGroup.STUDIO_EXPORT,
+					mode === 'db' ? StatsMetric.DATABASE_ONLY : StatsMetric.FULL_SITE
+				);
+			}
 
 			if ( showNotification ) {
 				const notification = new Notification( {

@@ -6,6 +6,7 @@ import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.mode
 import { ModelRegistry, SessionManager } from '@earendil-works/pi-coding-agent';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAgent } from '@studio/agent/node/agent';
+import { OpenProblems } from '@studio/agent/node/open-problems';
 import { checkCustomEndpoint, type StudioAgentTurnConfig } from '@studio/agent/node/runtime';
 import { AI_MODELS } from '@studio/agent/protocol/models';
 import { createFakeHost, fakeSite } from '../../tests/fake-host';
@@ -89,6 +90,7 @@ vi.mock( '../session-state', async () => {
 						mocks.turnEnd.push( 'sites checked' );
 						return mocks.openProblems.shift() ?? [];
 					},
+					remind: () => [],
 				};
 				const pendingWork = new PendingWork();
 				states.set( session, {
@@ -1814,6 +1816,77 @@ describe( 'pi runtime', () => {
 			expect( await context( [ lastCall, reply( 'Done.' ), checks, reply( 'Fixed.' ) ] ) ).toEqual(
 				[ lastCall, checks, reply( 'Fixed.' ) ]
 			);
+		} );
+
+		// eval31 onepage port 1: an invalid core/site-title in parts/footer.html,
+		// raised as the turn ended, was left as it was and shipped.
+		describe( 'the invalid blocks left as they were as the turn ends', () => {
+			const footer = [
+				'parts/footer.html: 1 block(s) the editor shows as invalid: each differs from what the block saves:',
+				'  - core/site-title: saving it drops its font family.',
+			].join( '\n' );
+			const reminder =
+				"<studio-checks>\nStudio checked the sites again as the turn ends: these blocks are still invalid on the site, as noted above. The turn is done when each is fixed, or, for one that needs the user's choice, when the user is asked:\n- parts/footer.html: core/site-title\n</studio-checks>";
+			const done = () => runEndingWith( assistantMessage( [ { type: 'text', text: 'Done.' } ] ) );
+			const turn = ( session: SessionManager ) =>
+				runRuntime( { prompt: 'build it', env: WPCOM_ENV, model: 'fast', session } );
+			const withOpenProblems = () => {
+				const session = newSession();
+				const open = new OpenProblems( [] );
+				Object.assign( getSessionState( host, session ), { openProblems: open } );
+				open.record( '/a', '/a/parts/footer.html', footer );
+				return { session, open };
+			};
+			const sent = () =>
+				mocks.customMessages.map( ( { message } ) => ( message as { content: string } ).content );
+
+			it( 'are said once more, once, as the turn ends', async () => {
+				const { session } = withOpenProblems();
+				mocks.nextEvents = done();
+				mocks.continueEvents = [ done(), done(), done() ];
+
+				const events = await turn( session );
+
+				expect( sent() ).toEqual( [ expect.stringContaining( footer ), reminder ] );
+				expect( agentEnds( events ).map( ( event ) => event.willRetry ) ).toEqual( [
+					true,
+					true,
+					false,
+				] );
+				mocks.customMessages = [];
+				mocks.nextEvents = done();
+				await turn( session );
+				expect( sent() ).toEqual( [] );
+			} );
+
+			it( 'wait for an end with nothing new raised', async () => {
+				const { session, open } = withOpenProblems();
+				mocks.nextEvents = done();
+				mocks.continueEvents = [ done(), done(), done() ];
+				mocks.onCustomMessage = () => {
+					open.record( '/a', '/a/theme.json', 'theme.json drops a key' );
+					mocks.onCustomMessage = null;
+				};
+
+				await turn( session );
+
+				expect( sent() ).toEqual( [
+					expect.stringContaining( footer ),
+					'checks: theme.json drops a key',
+					reminder,
+				] );
+			} );
+
+			it( 'are not said once fixed', async () => {
+				const { session, open } = withOpenProblems();
+				mocks.nextEvents = done();
+				mocks.continueEvents = [ done(), done() ];
+				mocks.onCustomMessage = () => open.record( '/a', '/a/parts/footer.html' );
+
+				await turn( session );
+
+				expect( sent() ).toEqual( [ expect.stringContaining( footer ) ] );
+			} );
 		} );
 
 		it( 'shows a reply the checks find nothing after as it is', async () => {

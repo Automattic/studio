@@ -34,7 +34,11 @@ import { type TSchema } from 'typebox';
 import { environmentFacts } from '@studio/agent/node/environment-facts';
 import { readGlobalInstructions } from '@studio/agent/node/global-instructions';
 import { isImageGenerationAvailable } from '@studio/agent/node/image-generation';
-import { describeOpenProblems, withoutNoted } from '@studio/agent/node/open-problems';
+import {
+	describeOpenProblems,
+	describeStillInvalid,
+	withoutNoted,
+} from '@studio/agent/node/open-problems';
 import { SiteChanges } from '@studio/agent/node/site-changes';
 import { readActiveSiteFacts } from '@studio/agent/node/site-facts';
 import { createSiteNotes } from '@studio/agent/node/site-notes';
@@ -427,7 +431,10 @@ async function runAgentSessionTurn(
 			]
 				.filter( Boolean )
 				.join( '\n' );
-			return content ? { customType: OPEN_PROBLEMS_TYPE, content } : undefined;
+			// With nothing new, the turn ends: the invalid blocks it was told of and
+			// left as they were are said once more, each once (OpenProblems.remind()).
+			const reminder = content || describeStillInvalid( state.openProblems.remind() );
+			return reminder ? { customType: OPEN_PROBLEMS_TYPE, content: reminder } : undefined;
 		};
 
 		await session.prompt( config.prompt, {

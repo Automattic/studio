@@ -36,6 +36,9 @@ export class OpenProblems {
 	// The problems open at the agent's last look at a site, and those it was told again.
 	private looked: string[] = [];
 	private readonly repeated: string[] = [];
+	// The problems the last raise() raised, and those said again as a turn ended (remind()).
+	private fresh: string[] = [];
+	private readonly reminded = new Set< string >();
 	// Each site's problems as Studio first saw it, before the session changed
 	// it: the user's site as it was, not the session's to raise.
 	private readonly before = new Map< string, Promise< string[] > >();
@@ -127,7 +130,11 @@ export class OpenProblems {
 		);
 		const again = Object.entries( this.open )
 			.filter( ( [ key ] ) => this.changedSinceRaised.includes( key ) )
-			.map( ( [ , problem ] ) => problem );
+			.map( ( [ key, problem ] ) => {
+				// Raised again, it may be said again once more as a turn ends.
+				this.reminded.delete( problemIdentity( problem, key ) );
+				return problem;
+			} );
 		this.changedSinceRaised = [];
 		// Each problem open, by its items' identities.
 		const open = new Map< string, string[] >();
@@ -147,8 +154,57 @@ export class OpenProblems {
 			)
 			.map( ( [ problem ] ) => problem );
 		open.forEach( ( items ) => items.forEach( ( item ) => this.raised.add( item ) ) );
+		this.fresh = problems;
 		return problems;
 	}
+
+	/**
+	 * As the agent ends its turn with nothing new raised, the invalid blocks of
+	 * each file or post raised at an earlier end and left as they were, as its
+	 * latest validation finds them: one line each, said once until a change to
+	 * it raises it again, so an agent that leaves one for the user is not held
+	 * in the turn. In eval31 onepage port 1 an agent told of an invalid
+	 * core/site-title in parts/footer.html, and 3 paragraphs on its home page,
+	 * ended the turn with them as they were, and in pileon port 1 an agent told
+	 * the user the Jetpack fields Studio found invalid were "expected and harmless".
+	 */
+	remind(): string[] {
+		const lines: string[] = [];
+		for ( const [ key, problem ] of Object.entries( this.open ) ) {
+			const identity = problemIdentity( problem, key );
+			const raisedBefore =
+				! this.fresh.includes( problem ) &&
+				this.items[ key ].every( ( item ) => this.raised.has( problemIdentity( item, key ) ) );
+			const blocks =
+				raisedBefore && ! this.reminded.has( identity ) ? invalidBlocks( problem ) : [];
+			if ( blocks.length ) {
+				this.reminded.add( identity );
+				lines.push( ...blocks );
+			}
+		}
+		return lines;
+	}
+}
+
+/**
+ * The blocks a block validation problem lists as invalid, as
+ * "<where>: <block names>", one line for each place it is about.
+ */
+function invalidBlocks( problem: string ): string[] {
+	const byPlace = new Map< string, Set< string > >();
+	let place: string | undefined;
+	for ( const line of problem.split( '\n' ) ) {
+		const heading = line.match( /^(\S.*?): \d+ (?:invalid )?block\(s\)/ );
+		if ( heading ) {
+			place = heading[ 1 ];
+			continue;
+		}
+		const block = line.match( /^ {2}- ([a-z0-9-]+\/[a-z0-9-]+): / );
+		if ( block && place ) {
+			byPlace.set( place, ( byPlace.get( place ) ?? new Set() ).add( block[ 1 ] ) );
+		}
+	}
+	return [ ...byPlace ].map( ( [ where, names ] ) => `${ where }: ${ [ ...names ].join( ', ' ) }` );
 }
 
 /**
@@ -198,6 +254,16 @@ export function describeStillOpen( problems: string[] ): string | undefined {
 				'Studio reported these on earlier calls, and they are still open on the site:',
 				...problems.map( ( problem ) => `- ${ problem }` ),
 		  ].join( '\n' )
+		: undefined;
+}
+
+/** The invalid blocks said again as the turn ends (OpenProblems.remind()). */
+export function describeStillInvalid( lines: string[] ): string | undefined {
+	return lines.length
+		? studioMessage( 'checks', [
+				"Studio checked the sites again as the turn ends: these blocks are still invalid on the site, as noted above. The turn is done when each is fixed, or, for one that needs the user's choice, when the user is asked:",
+				...lines.map( ( line ) => `- ${ line }` ),
+		  ] )
 		: undefined;
 }
 

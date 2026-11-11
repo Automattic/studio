@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	describeOpenProblems,
+	describeStillInvalid,
 	frontPageIsPostsPage,
 	OpenProblems,
 	postsPageContent,
@@ -144,6 +145,62 @@ describe( 'OpenProblems', () => {
 		expect( await open.raise() ).toEqual( [
 			'page 9: 3 block(s) do not match what the block saves',
 		] );
+	} );
+
+	// eval31 onepage port 1: a footer's site-title and a page's paragraphs, raised
+	// as the turn ended and left as they were.
+	it( 'says the invalid blocks raised before and left as they were once more, once', async () => {
+		const footer = [
+			'parts/footer.html: 1 block(s) the editor shows as invalid: each differs:',
+			'  - core/site-title: saving it drops its font family.',
+			'    written: <p>',
+		].join( '\n' );
+		const page = [
+			'Site page 14 "Home": 3 block(s) the editor shows as invalid: each differs:',
+			'  - core/paragraph: saving it drops a class.',
+			'  - core/paragraph: saving it drops a class.',
+			'  - core/cover: saving it drops a class.',
+		].join( '\n' );
+		const open = new OpenProblems( [] );
+		open.record( '/a', '/a/parts/footer.html', footer );
+		open.record( '/a', '/a#14', page );
+		open.record( '/a', '/a/theme.json', 'theme.json drops a key' );
+		// Raised now, it is said in full now.
+		expect( await open.raise() ).toHaveLength( 3 );
+		expect( open.remind() ).toEqual( [] );
+		expect( await open.raise() ).toEqual( [] );
+		expect( open.remind() ).toEqual( [
+			'parts/footer.html: core/site-title',
+			'Site page 14 "Home": core/paragraph, core/cover',
+		] );
+		expect( await open.raise() ).toEqual( [] );
+		expect( open.remind() ).toEqual( [] );
+		// Changed and still invalid, it is raised again, and may be said once more after.
+		open.record( '/a', '/a/parts/footer.html', footer, true );
+		open.record( '/a', '/a#14' );
+		expect( await open.raise() ).toEqual( [ footer ] );
+		expect( await open.raise() ).toEqual( [] );
+		expect( open.remind() ).toEqual( [ 'parts/footer.html: core/site-title' ] );
+	} );
+
+	it( 'says nothing more of invalid blocks fixed since they were raised', async () => {
+		const open = new OpenProblems( [] );
+		open.record(
+			'/a',
+			'/a/parts/footer.html',
+			'parts/footer.html: 1 invalid block(s), which the block editor cannot fix:\n  - core/site-title: x'
+		);
+		await open.raise();
+		open.record( '/a', '/a/parts/footer.html' );
+		expect( await open.raise() ).toEqual( [] );
+		expect( open.remind() ).toEqual( [] );
+	} );
+
+	it( "tags the invalid blocks said again as Studio's checks", () => {
+		expect( describeStillInvalid( [] ) ).toBeUndefined();
+		expect( describeStillInvalid( [ 'parts/footer.html: core/site-title' ] ) ).toBe(
+			"<studio-checks>\nStudio checked the sites again as the turn ends: these blocks are still invalid on the site, as noted above. The turn is done when each is fixed, or, for one that needs the user's choice, when the user is asked:\n- parts/footer.html: core/site-title\n</studio-checks>"
+		);
 	} );
 
 	it( 'leaves out a problem the notes of the same message say', () => {

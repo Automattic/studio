@@ -69,7 +69,11 @@ if [[ "${DOCS_REFRESH_CHECK_ONLY:-false}" == "true" ]]; then
 fi
 
 echo "--- :robot_face: Update the docs"
-: "${ANTHROPIC_API_KEY:?The docs need a refresh, but ANTHROPIC_API_KEY is not set for this job}"
+# An API key in CI; on your own machine, a subscription token from `claude setup-token` works too.
+if [[ -z "${ANTHROPIC_API_KEY:-}${CLAUDE_CODE_OAUTH_TOKEN:-}" ]]; then
+  echo "The docs need a refresh, but neither ANTHROPIC_API_KEY nor CLAUDE_CODE_OAUTH_TOKEN is set."
+  exit 1
+fi
 # Whatever setup left behind is not the agent's doing.
 git status --porcelain --untracked-files=all > "$OUT/baseline.txt"
 

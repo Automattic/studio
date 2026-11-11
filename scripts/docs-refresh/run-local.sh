@@ -7,8 +7,9 @@ set -euo pipefail
 #
 #   scripts/docs-refresh/run-local.sh [<commit or branch, default HEAD>]
 #
-# Only committed work is included. Without ANTHROPIC_API_KEY the run stops after the screenshot
-# check and the brief; with it, the agent runs and leaves docs-refresh-output/docs-refresh.patch,
+# Only committed work is included. The agent needs ANTHROPIC_API_KEY, or CLAUDE_CODE_OAUTH_TOKEN
+# (a Claude subscription's token, from `claude setup-token`). Without either the run stops after
+# the screenshot check and the brief; with one, it leaves docs-refresh-output/docs-refresh.patch,
 # which `git apply --index docs-refresh-output/docs-refresh.patch` puts on your branch.
 # The DOCS_REFRESH_* variables of run-docs-refresh.sh pass through.
 
@@ -36,12 +37,12 @@ git -C "$WORK" checkout --quiet --force --detach "$COMMIT"
 # What an earlier run changed, without the installed dependencies.
 git -C "$WORK" clean --quiet -fd
 
-if [[ -z "${ANTHROPIC_API_KEY:-}" ]]; then
-  echo "ANTHROPIC_API_KEY isn't set: checking the screenshots and writing the brief only."
+if [[ -z "${ANTHROPIC_API_KEY:-}${CLAUDE_CODE_OAUTH_TOKEN:-}" ]]; then
+  echo "Neither ANTHROPIC_API_KEY nor CLAUDE_CODE_OAUTH_TOKEN is set: checking the screenshots and writing the brief only."
   export DOCS_REFRESH_CHECK_ONLY=true
 fi
 
-env_args=(-e "BUILDKITE_BRANCH=$BRANCH" -e "BUILDKITE_COMMIT=$COMMIT" -e ANTHROPIC_API_KEY)
+env_args=(-e "BUILDKITE_BRANCH=$BRANCH" -e "BUILDKITE_COMMIT=$COMMIT" -e ANTHROPIC_API_KEY -e CLAUDE_CODE_OAUTH_TOKEN)
 for name in $(compgen -v DOCS_REFRESH_); do
   env_args+=(-e "$name")
 done

@@ -167,7 +167,7 @@ To start a run, create a [new build](https://buildkite.com/automattic/studio) on
 - **For a release**: run it on `release/<version>` after code freeze, once the draft release notes are in, so the docs merge before the release is finalized.
 - **On a cadence**: a Buildkite schedule on `trunk` with `PIPELINE=docs-refresh.yml`.
 
-**On your machine**: `scripts/docs-refresh/run-local.sh [<commit or branch>]` runs the first step in the same container with Docker, on a clone of the commit, so your checkout is untouched and the screenshots come out as they do in CI. Without `ANTHROPIC_API_KEY` it stops after the check; with it, apply the result with `git apply --index docs-refresh-output/docs-refresh.patch`. Nothing is pushed.
+**On your machine**: `scripts/docs-refresh/run-local.sh [<commit or branch>]` runs the first step in the same container with Docker, on a clone of the commit, so your checkout is untouched and the screenshots come out as they do in CI. The agent runs with `ANTHROPIC_API_KEY` or, on your own machine, `CLAUDE_CODE_OAUTH_TOKEN` (a Claude subscription's token, from `claude setup-token`); without either it stops after the check. Apply the result with `git apply --index docs-refresh-output/docs-refresh.patch`. Nothing is pushed.
 
 The first step needs `ANTHROPIC_API_KEY`, the second `GITHUB_TOKEN`. The brief, the screenshot results with pictures of the differences, and the agent's summary are uploaded as artifacts of every run.
 

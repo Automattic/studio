@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import type { SetupSource } from './context';
+import type { SelectedSiteFolder } from '@/data/core';
 import type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
 
 export function useSetupSource() {
@@ -30,6 +31,14 @@ export function useSetupSource() {
 		},
 		[ cleanup ]
 	);
+	const adoptFolder = useCallback( ( folder: SelectedSiteFolder ) => {
+		updateSource( ( current ) =>
+			current.type === 'blank' ||
+			( current.type === 'folder' && current.folder.path !== folder.path )
+				? { type: 'folder', folder }
+				: current
+		);
+	}, [] );
 	useEffect( () => {
 		const current = lifecycle.current;
 		const generation = ++current.generation;
@@ -47,5 +56,5 @@ export function useSetupSource() {
 		setSource( { type: 'blank' } );
 		setFolderResetKey( ( key ) => key + 1 );
 	}, [ setSource ] );
-	return { source, setSource, setBlueprintTransferred, folderResetKey, removeFolder };
+	return { source, setSource, adoptFolder, setBlueprintTransferred, folderResetKey, removeFolder };
 }

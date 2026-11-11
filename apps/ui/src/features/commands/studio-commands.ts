@@ -120,7 +120,7 @@ export function getAppCommands( {
 	savePreferences: ( preferences: Partial< WritableUserPreferences > ) => void;
 	toggleSidebar: () => void;
 	openWhatsNew: () => void;
-	openFeedback: () => void;
+	openFeedback?: () => void;
 	// Set while the sidebar has more than one site unfolded.
 	collapseAll?: () => void;
 } ): PaletteCommand[] {
@@ -188,15 +188,23 @@ export function getAppCommands( {
 			keywords: [ __( 'New features' ) ],
 			run: openWhatsNew,
 		},
-		{
-			id: 'send-feedback',
-			group: 'commands',
-			label: __( 'Send feedback' ),
-			icon: FeedbackIcon,
-			aliases: [ __( 'Feedback' ) ],
-			keywords: [ __( 'Report a bug' ), __( 'Feature request' ), __( 'WordPress Studio team' ) ],
-			run: openFeedback,
-		},
+		...( openFeedback
+			? [
+					{
+						id: 'send-feedback',
+						group: 'commands' as const,
+						label: __( 'Send feedback' ),
+						icon: FeedbackIcon,
+						aliases: [ __( 'Feedback' ) ],
+						keywords: [
+							__( 'Report a bug' ),
+							__( 'Feature request' ),
+							__( 'WordPress Studio team' ),
+						],
+						run: openFeedback,
+					},
+			  ]
+			: [] ),
 		...( collapseAll
 			? [
 					{

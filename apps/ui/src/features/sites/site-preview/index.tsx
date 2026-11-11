@@ -337,9 +337,7 @@ function SitePreviewContent( {
 	);
 	const annotationTools = useAnnotationTools( {
 		siteId: site.id,
-		// Selecting an area and drawing capture the page from the webview.
-		enabled:
-			canUseWebview && canAnnotate && activeSurfaceKey === 'site' && ! inactive && ! collapsed,
+		enabled: canAnnotate && activeSurfaceKey === 'site' && ! inactive && ! collapsed,
 		viewportRef,
 		onPick: handleAnnotationPick,
 	} );
@@ -513,7 +511,7 @@ function SitePreviewContent( {
 						<AnnotateButton
 							{ ...annotate }
 							annotationCount={ batchNotes.length }
-							pageTools={ activeSurfaceKey === 'site' && canAnnotate && canUseWebview }
+							pageTools={ activeSurfaceKey === 'site' && canAnnotate }
 						/>,
 						annotationSpace
 				  )
@@ -633,6 +631,8 @@ function SitePreviewContent( {
 											src={ `${ siteUrl }${ surface.requestedPath }` }
 											title={ site.name }
 											{ ...inspectorProps }
+											annotationTool={ annotationTools.tool }
+											clearSelection={ annotationTools.clearSelection }
 											browserCommand={ surface.browserCommand }
 											onCommandHandled={ () => patchSurface( key, { browserCommand: null } ) }
 											onAdminBarVisibilityChange={
@@ -694,7 +694,7 @@ function SitePreviewContent( {
 						visible={
 							! inactive && ! collapsed && annotations.active && canAnnotate && !! annotate
 						}
-						pageTools={ activeSurfaceKey === 'site' && canUseWebview }
+						pageTools={ activeSurfaceKey === 'site' }
 						disabled={ isAnnotationsBusy( annotations ) }
 						onDiscard={ discard }
 					/>

@@ -18,6 +18,7 @@ import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
+import { UnsupportedError } from '../unsupported-error';
 import type {
 	AgentApp,
 	ActiveAgentRun,
@@ -348,6 +349,9 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
 		},
 		async captureAnnotationRegion( request ) {
+			if ( ! ( 'guestId' in request ) ) {
+				throw new UnsupportedError( 'captureAnnotationRegion' );
+			}
 			return ipcApi.captureAnnotationRegion( request );
 		},
 		async captureSitePreview( siteId, { path, guestId } ) {

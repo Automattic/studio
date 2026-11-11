@@ -18,7 +18,10 @@ export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SyncSite } from '@studio/common/types/sync';
 
 // A site as the UI lists it: the CLI's shape, with its place in the sidebar.
-export type StaticSiteDetails = SiteListItem & { sortOrder?: number };
+export type StaticSiteDetails = SiteListItem & {
+	sortOrder?: number;
+	hideFrontendAdminBar?: boolean;
+};
 
 // What updating a site's settings changes.
 export type StaticSiteSettings = Pick< StaticSiteDetails, 'id' | 'name' > &

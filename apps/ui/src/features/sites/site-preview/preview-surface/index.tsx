@@ -12,11 +12,12 @@ import { useColorScheme } from '@/data/host/use-color-scheme';
 import { PanelLoadError } from '@/features/sites/panel-load-error';
 import { normalizeDocumentTitle } from '@/features/sites/site-preview/browser-state';
 import { ResponsiveViewport } from '../responsive-preview/viewport';
-import { buildInspectorCommandScript } from './inspector-command';
+import { buildClearSelectionScript, buildInspectorCommandScript } from './inspector-command';
 import styles from './style.module.css';
 import type { ResponsivePreviewSettings } from '@/data/responsive-preview';
 import type { SiteAnnotations } from '@/features/annotations';
 import type { BrowserCommand } from '@/features/sites/site-preview/browser-state';
+import type { AnnotationTool } from '@studio/agent/protocol/inspector/shortcuts';
 import type { ReactNode } from 'react';
 
 export { WebviewSurface } from './webview-surface';
@@ -85,6 +86,8 @@ export function FrameSurface( {
 	onCommandHandled,
 	onAdminBarVisibilityChange,
 	annotations,
+	annotationTool,
+	clearSelection,
 	onInspectorReady,
 	onInspectorEvent,
 }: {
@@ -99,6 +102,9 @@ export function FrameSurface( {
 	onCommandHandled?: () => void;
 	onAdminBarVisibilityChange?: ( visible: boolean | null ) => void;
 	annotations?: SiteAnnotations;
+	// Without a tool, the inspector only picks elements.
+	annotationTool?: AnnotationTool;
+	clearSelection?: string;
 	onInspectorReady?: ( ready: boolean ) => void;
 	onInspectorEvent?: ( event: InspectorEvent ) => void;
 } ) {
@@ -162,9 +168,12 @@ export function FrameSurface( {
 	const colorScheme = useColorScheme();
 	useEffect( () => {
 		if ( page && annotations && ref.current ) {
-			page.run( buildInspectorCommandScript( annotations, ref.current ) );
+			page.run( buildInspectorCommandScript( annotations, ref.current, annotationTool ) );
 		}
-	}, [ annotations, colorScheme, page ] );
+	}, [ annotations, annotationTool, colorScheme, page ] );
+	useEffect( () => {
+		if ( page && clearSelection ) page.run( buildClearSelectionScript( clearSelection ) );
+	}, [ clearSelection, page ] );
 
 	useEffect( () => {
 		const onMessage = ( event: MessageEvent ) => {
@@ -238,6 +247,7 @@ export function FrameSurface( {
 			className={ styles.iframe }
 			src={ src }
 			title={ title }
+			data-annotation-surface={ inspector || undefined }
 			onLoad={ ( event ) => {
 				callbacks.current.onAdminBarVisibilityChange?.( null );
 				navigationId.current += 1;

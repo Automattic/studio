@@ -16,9 +16,12 @@ export {
 	exportSiteZip,
 	getPathSize,
 	listFileTree,
+	playgroundSiteFiles,
+	readActiveThemeSlug,
+	readGlobalStyles,
 	readWordPressVersion,
 } from './site-data';
-export { connectPreviewFrame, withSitePage } from './site-page';
+export { capturePreviewRegion, connectPreviewFrame, withSitePage } from './site-page';
 export { kvGet, kvSet, kvUpdate } from './store';
 export { completeRedirectSignIn } from './wpcom-auth';
 export type { BlueprintBundle } from '@wp-playground/client';
@@ -28,8 +31,11 @@ export type { BlueprintBundle } from '@wp-playground/client';
  * Playground, the WordPress.com account and its services, and Studio Code's
  * runs. The static connector in `apps/ui` maps the UI's calls onto it.
  */
-export function createStaticBackend( deps: StaticAgentPage ) {
-	const sites = new StaticSites();
+export function createStaticBackend( {
+	hidesAdminBarByDefault,
+	...deps
+}: StaticAgentPage & { hidesAdminBarByDefault: () => Promise< boolean > } ) {
+	const sites = new StaticSites( hidesAdminBarByDefault );
 	const auth = new WpcomAuth();
 	const wpcom = new WpcomServices( auth, sites );
 	const agent = new StaticAgentRuns( { sites, auth, wpcom, ...deps } );

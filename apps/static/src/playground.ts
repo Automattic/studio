@@ -1,4 +1,5 @@
 import { INSPECTOR_BRIDGE_PREFIX } from '@studio/agent/protocol/inspector/page-script';
+import { PREVIEW_SHORTCUTS_SCRIPT } from '@studio/common/lib/preview-shortcuts-script';
 import { phpQuote } from './php';
 import { kvGet, kvSet } from './store';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
@@ -48,6 +49,7 @@ async function rememberSiteOrigin( client: PlaygroundClient ): Promise< void > {
 }
 const DOCROOT = '/wordpress';
 const BRIDGE_PATH = '/internal/shared/mu-plugins/studio-bridge.php';
+const SETTINGS_PATH = '/internal/shared/studio-settings.json';
 const SCREENSHOT_LIBRARY = 'https://cdn.jsdelivr.net/npm/modern-screenshot@4.6.0/+esm';
 
 interface SiteRuntimeConfig {
@@ -150,13 +152,17 @@ function pageBridge( appOrigin: string, screenshotLibrary: string, consolePrefix
 		}
 		document.documentElement.style.colorScheme = scheme;
 	};
+	// Built with Function so bundlers leave this runtime import alone.
+	const loadScreenshotLibrary = () =>
+		(
+			new Function( 'url', 'return import( url )' ) as ( url: string ) => Promise< {
+				domToJpeg( node: Element, options: object ): Promise< string >;
+				domToPng( node: Element, options: object ): Promise< string >;
+			} >
+		 )( screenshotLibrary );
 	const actions: Record< string, ( payload: Record< string, unknown > ) => Promise< unknown > > = {
 		async capture( payload ) {
-			// Built with Function so bundlers leave this runtime import alone.
-			const load = new Function( 'url', 'return import( url )' ) as (
-				url: string
-			) => Promise< { domToJpeg( node: Element, options: object ): Promise< string > } >;
-			const lib = await load( screenshotLibrary );
+			const lib = await loadScreenshotLibrary();
 			const root = document.documentElement;
 			const pageHeight = Math.max( root.scrollHeight, document.body?.scrollHeight ?? 0 );
 			const offset = Math.min( Number( payload.offset ?? 0 ), Math.max( 0, pageHeight - 1 ) );
@@ -170,6 +176,44 @@ function pageBridge( appOrigin: string, screenshotLibrary: string, consolePrefix
 				height,
 				backgroundColor: '#ffffff',
 				...( offset ? { style: { transform: `translateY(-${ offset }px)` } } : {} ),
+			} );
+		},
+		// An area of the viewport the annotation inspector selected, as a PNG data
+		// URL, without the inspector's own overlay. Refuses when the page moved
+		// since the selection.
+		async 'capture-region'( payload ) {
+			const expected = payload as {
+				id: string;
+				url: string;
+				viewport: { width: number; height: number };
+				scroll: { left: number; top: number };
+				rect: { left: number; top: number; width: number; height: number };
+				scale: number;
+			};
+			const host = document.getElementById( '__studio-inspector-host' );
+			if (
+				! host ||
+				host.dataset.captureId !== expected.id ||
+				location.href !== expected.url ||
+				innerWidth !== expected.viewport.width ||
+				innerHeight !== expected.viewport.height ||
+				Math.abs( scrollX - expected.scroll.left ) > 1 ||
+				Math.abs( scrollY - expected.scroll.top ) > 1
+			) {
+				throw new Error( 'The annotated page changed. Select the area again.' );
+			}
+			const lib = await loadScreenshotLibrary();
+			const { left, top, width, height } = expected.rect;
+			// The capture starts at the root's own box, which a margin (the admin
+			// bar's, for one) moves away from the viewport's origin.
+			const root = document.documentElement.getBoundingClientRect();
+			return lib.domToPng( document.documentElement, {
+				width,
+				height,
+				scale: expected.scale,
+				backgroundColor: '#ffffff',
+				filter: ( node: Node ) => node !== host,
+				style: { transform: `translate(${ root.left - left }px, ${ root.top - top }px)` },
 			} );
 		},
 		async evaluate( payload ) {
@@ -234,6 +278,18 @@ export function buildBridgeScript( appOrigin: string ): string {
 		.join( ', ' ) });`;
 }
 
+// What the bridge plugin reads on each request; it changes while the site runs.
+export interface SiteRuntimeSettings {
+	hideFrontendAdminBar: boolean;
+}
+
+export function writeSiteSettings(
+	client: PlaygroundClient,
+	settings: SiteRuntimeSettings
+): Promise< void > {
+	return client.writeFile( SETTINGS_PATH, JSON.stringify( settings ) );
+}
+
 function buildBridgePlugin( appOrigin: string ): string {
 	const script = buildBridgeScript( appOrigin );
 	return `<?php
@@ -243,6 +299,20 @@ function studio_bridge_script() {
 add_action( 'wp_footer', 'studio_bridge_script', 999 );
 add_action( 'admin_footer', 'studio_bridge_script', 999 );
 add_action( 'login_footer', 'studio_bridge_script', 999 );
+// The preview reads the admin bar's state and signs in through this script.
+function studio_preview_script() {
+	echo '<script>window.studioAutoLoginUrl = ' . wp_json_encode( home_url( '/studio-auto-login' ) ) . ';</script>';
+	echo '<script>' . ${ phpQuote( PREVIEW_SHORTCUTS_SCRIPT ) } . '</script>';
+}
+add_action( 'wp_head', 'studio_preview_script' );
+add_action( 'admin_head', 'studio_preview_script' );
+add_action( 'login_head', 'studio_preview_script' );
+$studio_settings = json_decode( (string) @file_get_contents( ${ phpQuote(
+		SETTINGS_PATH
+	) } ), true );
+if ( isset( $_GET['studio-hide-adminbar'] ) || ( $studio_settings['hideFrontendAdminBar'] ?? false ) === true ) {
+	add_filter( 'show_admin_bar', '__return_false', PHP_INT_MAX );
+}
 // The preview opens admin screens through Studio's auto-login route.
 add_action( 'init', function () {
 	$path = (string) parse_url( $_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH );

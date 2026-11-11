@@ -1,9 +1,15 @@
 import { generateBackupFilename } from '@studio/common/lib/generate-backup-filename';
-import { DEFAULT_COLOR_SCHEME } from '@studio/common/lib/user-settings/preferences';
+import { numberedSiteName, pickSiteName } from '@studio/common/lib/site-names';
+import {
+	DEFAULT_COLOR_SCHEME,
+	DEFAULT_HIDE_FRONTEND_ADMIN_BAR,
+} from '@studio/common/lib/user-settings/preferences';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
+import { fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
 import {
 	AGENT_INSTRUCTIONS_ENABLED_KEY,
 	AGENT_INSTRUCTIONS_KEY,
+	capturePreviewRegion,
 	connectPreviewFrame,
 	createStaticBackend,
 	exportDatabaseSql,
@@ -17,6 +23,9 @@ import {
 	loadBlueprintBundle,
 	loadPlaygroundClient,
 	loadSiteOrigin,
+	playgroundSiteFiles,
+	readActiveThemeSlug,
+	readGlobalStyles,
 	readWordPressVersion,
 	withSitePage,
 	type BlueprintBundle,
@@ -78,14 +87,6 @@ function download( data: BlobPart, filename: string, type: string ): string {
 	return filename;
 }
 
-function numberedName( baseName: string, usedNames: Set< string > ): string {
-	let name = baseName;
-	for ( let suffix = 2; usedNames.has( name ); suffix++ ) {
-		name = `${ baseName } ${ suffix }`;
-	}
-	return name;
-}
-
 /**
  * Studio on the web: the data source for a static deployment with no Studio
  * server. Sites run in WordPress Playground and persist in the browser's
@@ -99,6 +100,8 @@ export function createStaticConnector(): Connector {
 	const { sites, auth, wpcom, agent } = createStaticBackend( {
 		readAttachment: ( filePath ) => pickedFiles.get( filePath ),
 		download,
+		hidesAdminBarByDefault: async () =>
+			( await readPreferences() ).hideFrontendAdminBar ?? DEFAULT_HIDE_FRONTEND_ADMIN_BAR,
 	} );
 
 	async function readPreferences(): Promise< UserPreferences > {
@@ -150,16 +153,19 @@ export function createStaticConnector(): Connector {
 		async copySite( sourceSiteId ) {
 			const source = await sites.get( sourceSiteId );
 			const names = new Set( ( await sites.list() ).map( ( site ) => site.name ) );
-			return sites.copy( sourceSiteId, numberedName( `${ source.name } Copy`, names ) );
+			const name = await numberedSiteName( `${ source.name } Copy`, ( n ) => ! names.has( n ) );
+			return sites.copy( sourceSiteId, name );
 		},
 		startSite: ( id ) => sites.start( id ),
 		stopSite: ( id ) => sites.stop( id ),
 		updateSite: ( site ) => sites.update( site ),
 		updateSitesSortOrder: ( updates ) => sites.updateSortOrder( updates ),
 		getSiteThumbnail: ( siteId ) => sites.getThumbnail( siteId ),
-		// The preview frame only picks elements, so it never asks for a region.
-		async captureAnnotationRegion() {
-			throw new UnsupportedError( 'captureAnnotationRegion' );
+		async captureAnnotationRegion( request ) {
+			if ( ! ( 'frame' in request ) ) {
+				throw new UnsupportedError( 'captureAnnotationRegion' );
+			}
+			return capturePreviewRegion( request.frame, request.selection );
 		},
 		async captureSitePreview( siteId, { path } ) {
 			if ( /^\/?wp-(admin|login)/.test( path ) ) {
@@ -177,8 +183,21 @@ export function createStaticConnector(): Connector {
 			}
 			return thumbnail;
 		},
-		async getSiteDesign() {
-			return null;
+		async getSiteDesign( siteId ) {
+			const client = await sites.client( siteId );
+			return readSiteDesign(
+				playgroundSiteFiles( client ),
+				() => readActiveThemeSlug( client ),
+				() => readGlobalStyles( client )
+			);
+		},
+		async fixSiteDesignDrift( siteId, fixes ) {
+			const client = await sites.client( siteId );
+			return fixSiteDesign(
+				playgroundSiteFiles( client ),
+				() => readActiveThemeSlug( client ),
+				fixes
+			);
 		},
 		// Playground sites send no email Studio can save.
 		async getSiteEmails() {
@@ -187,16 +206,7 @@ export function createStaticConnector(): Connector {
 		async getSiteEmail() {
 			return null;
 		},
-		async fixSiteDesignDrift() {
-			throw new UnsupportedError( 'fixSiteDesignDrift' );
-		},
-		async setSiteFrontendAdminBar() {
-			throw new UnsupportedError( 'setSiteFrontendAdminBar' );
-		},
-		// The feedback service's client names Studio with a User-Agent, which a page can't set.
-		async sendFeedback() {
-			throw new UnsupportedError( 'sendFeedback' );
-		},
+		setSiteFrontendAdminBar: ( siteId, hidden ) => sites.setFrontendAdminBar( siteId, hidden ),
 		// Agent apps run Studio's CLI, which a page doesn't have.
 		async getAgentApps() {
 			return [];
@@ -223,10 +233,13 @@ export function createStaticConnector(): Connector {
 			return { path: await sites.uniquePath( siteName ), isEmpty: true, isWordPress: false };
 		},
 		async generateProposedSiteName( usedSites ) {
-			return this.generateNumberedSiteName( __( 'My WordPress Website' ), usedSites );
+			return pickSiteName( ( name ) => ! usedSites.some( ( site ) => site.name === name ) );
 		},
 		async generateNumberedSiteName( baseName, usedSites ) {
-			return numberedName( baseName, new Set( usedSites.map( ( site ) => site.name ) ) );
+			return numberedSiteName(
+				baseName,
+				( name ) => ! usedSites.some( ( site ) => site.name === name )
+			);
 		},
 		// Sites have no folder to choose: the create form hides the path field.
 		async selectSiteFolder(): Promise< SelectedSiteFolder | null > {
@@ -393,6 +406,9 @@ export function createStaticConnector(): Connector {
 				}
 				return next;
 			} );
+			if ( 'hideFrontendAdminBar' in partial ) {
+				await sites.refreshRuntimeSettings();
+			}
 		},
 		async selectDefaultSiteDirectory() {
 			return null;

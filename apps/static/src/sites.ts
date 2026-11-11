@@ -1,7 +1,12 @@
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS, type SiteEvent } from '@studio/common/lib/cli-events';
 import { decodePassword, encodePassword } from '@studio/common/lib/passwords';
-import { PlaygroundRuntimes, getSiteUrl, type FreshSiteOptions } from './playground';
+import {
+	PlaygroundRuntimes,
+	getSiteUrl,
+	writeSiteSettings,
+	type FreshSiteOptions,
+} from './playground';
 import { applySettingsToWpConfig, exportSiteZip, importBackup, removeSiteFiles } from './site-data';
 import { kvDelete, kvGet, kvSet, kvUpdate } from './store';
 import type { CreateSiteParams, StaticSiteDetails, StaticSiteSettings } from './types';
@@ -30,6 +35,8 @@ export interface StaticSiteRecord {
 	enableDebugDisplay?: boolean;
 	enableScriptDebug?: boolean;
 	environmentType?: WpEnvironmentType;
+	// Overrides the user's default for this site.
+	hideFrontendAdminBar?: boolean;
 	createdAt: number;
 	sortOrder?: number;
 	// Set once the site's files reached OPFS: a site whose first boot failed
@@ -54,6 +61,8 @@ export class StaticSites {
 	private readonly listeners = new Set< ( event: SiteEvent ) => void >();
 	// A fresh site's Blueprint runs on its first start.
 	private readonly pendingInstalls = new Map< string, FreshSiteOptions >();
+
+	constructor( private readonly hidesAdminBarByDefault: () => Promise< boolean > ) {}
 
 	async list(): Promise< StaticSiteRecord[] > {
 		return ( await kvGet< StaticSiteRecord[] >( SITES_KEY ) ) ?? [];
@@ -93,6 +102,7 @@ export class StaticSites {
 			enableDebugDisplay: record.enableDebugDisplay,
 			enableScriptDebug: record.enableScriptDebug,
 			environmentType: record.environmentType,
+			hideFrontendAdminBar: record.hideFrontendAdminBar,
 			sortOrder: record.sortOrder,
 			...( operation ? { operation: { pid: 0, kind: operation } } : {} ),
 		};
@@ -207,6 +217,7 @@ export class StaticSites {
 		if ( record.installed ) {
 			const client = await this.runtimes.start( config );
 			await applySettingsToWpConfig( client, record );
+			await this.applyRuntimeSettings( client, record );
 			return client;
 		}
 		const client = await this.runtimes.create(
@@ -215,6 +226,7 @@ export class StaticSites {
 		);
 		this.pendingInstalls.delete( id );
 		await applySettingsToWpConfig( client, record );
+		await this.applyRuntimeSettings( client, record );
 		await this.save( { ...( await this.get( id ) ), installed: true } );
 		return client;
 	}
@@ -295,6 +307,31 @@ export class StaticSites {
 			await applySettingsToWpConfig( await client, next );
 		}
 		await this.emit( SITE_EVENTS.UPDATED, site.id );
+	}
+
+	private async applyRuntimeSettings( client: PlaygroundClient, record: StaticSiteRecord ) {
+		await writeSiteSettings( client, {
+			hideFrontendAdminBar: record.hideFrontendAdminBar ?? ( await this.hidesAdminBarByDefault() ),
+		} );
+	}
+
+	// `null` follows the user's default.
+	async setFrontendAdminBar( id: string, hidden: boolean | null ): Promise< void > {
+		const { hideFrontendAdminBar: _previous, ...record } = await this.get( id );
+		const next = hidden === null ? record : { ...record, hideFrontendAdminBar: hidden };
+		await this.save( next );
+		await this.refreshRuntimeSettings( [ next ] );
+		await this.emit( SITE_EVENTS.UPDATED, id );
+	}
+
+	// Rewrites the running sites' settings, after the user's defaults change.
+	async refreshRuntimeSettings( records?: StaticSiteRecord[] ): Promise< void > {
+		for ( const record of records ?? ( await this.list() ) ) {
+			const client = this.runtimes.client( record.id );
+			if ( client ) {
+				await this.applyRuntimeSettings( await client, record );
+			}
+		}
 	}
 
 	async updateSortOrder( updates: { siteId: string; sortOrder: number }[] ) {

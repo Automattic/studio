@@ -224,11 +224,14 @@ export interface Connector {
 	// The last page of the site captured in a preview, shown while it's stopped.
 	// Null when the site has not been captured yet.
 	getSiteThumbnail( siteId: string ): Promise< string | null >;
-	// Captures the selected area of the visible Desktop preview.
-	captureAnnotationRegion( request: {
-		guestId: number;
-		selection: InspectorSelection;
-	} ): Promise< StudioChatImage >;
+	// Captures the selected area of the visible preview: the Desktop's webview,
+	// named by `guestId`, or Studio on the web's frame.
+	captureAnnotationRegion(
+		request: { selection: InspectorSelection } & (
+			| { guestId: number }
+			| { frame: HTMLIFrameElement }
+		)
+	): Promise< StudioChatImage >;
 	// Captures the preview's page as the site's thumbnail and returns it, or null
 	// when that page isn't kept (sign-in and admin screens). The Desktop app
 	// captures the preview webview, named by `guestId`.
@@ -551,8 +554,9 @@ export interface Connector {
 	openExternalUrl( url: string ): Promise< void >;
 
 	// Sends feedback about WordPress Studio to the WordPress Studio team and returns the ID the
-	// service assigned it. Needs the WordPress.com login.
-	sendFeedback( feedback: StudioFeedback ): Promise< { feedbackId: number } >;
+	// service assigned it. Needs the WordPress.com login. Absent where the feedback service
+	// can't be reached, which hides Send feedback.
+	sendFeedback?( feedback: StudioFeedback ): Promise< { feedbackId: number } >;
 
 	// Wapuu World easter-egg high score. Returns undefined when no score has
 	// been recorded yet; saving keeps only the highest score seen.

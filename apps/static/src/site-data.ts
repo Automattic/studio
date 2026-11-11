@@ -3,6 +3,7 @@ import { shouldLimitDepth } from '@studio/common/lib/sync/tree-utils';
 import { getSettingsWpConfigConstants } from '@studio/common/lib/wp-config-constants';
 import { phpQuote } from './php';
 import { loadPlaygroundClient } from './playground';
+import type { SiteFiles } from '@studio/common/sites/site-design';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { PlaygroundClient } from '@wp-playground/client';
 
@@ -584,4 +585,37 @@ export async function applySettingsToWpConfig(
 		consts: getSettingsWpConfigConstants( settings ),
 		method: 'rewrite-wp-config',
 	} );
+}
+
+// The site's files for `@studio/common/sites/site-design`, under its document root.
+export function playgroundSiteFiles( client: PlaygroundClient ): SiteFiles {
+	return {
+		read: ( file ) => client.readFileAsText( `/wordpress/${ file }` ).catch( () => null ),
+		async write( file, data ) {
+			const target = `/wordpress/${ file }`;
+			await client.mkdir( target.slice( 0, target.lastIndexOf( '/' ) ) );
+			await client.writeFile( target, data );
+		},
+	};
+}
+
+export async function readActiveThemeSlug( client: PlaygroundClient ): Promise< string > {
+	return runPhp( client, `<?php require '/wordpress/wp-load.php'; echo get_stylesheet();` );
+}
+
+// What `studio get-global-styles` reads for a native site: block themes only.
+export async function readGlobalStyles(
+	client: PlaygroundClient
+): Promise< Record< string, unknown > | null > {
+	return JSON.parse(
+		await runPhp(
+			client,
+			`<?php
+require '/wordpress/wp-load.php';
+echo wp_json_encode( wp_is_block_theme() ? array(
+	'settings' => (object) wp_get_global_settings(),
+	'styles' => (object) wp_get_global_styles( array(), array( 'transforms' => array( 'resolve-variables' ) ) ),
+) : null );`
+		)
+	);
 }

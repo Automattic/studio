@@ -153,7 +153,7 @@ You can talk with WordPress Studio Code in any language you prefer.
 
 ### [Can I use WordPress Studio Code without a WordPress.com account?](#5-can-i-use-the-studio-assistant-without-a-wordpress-com-account-)
 
-Yes, with your own Anthropic API key. Connect **Anthropic** in **Settings → Providers** in the desktop app, or use the `/api-key` command in the terminal. Usage is billed through your Anthropic account. See [Use your own Anthropic API key](https://wordpress.studio/docs/studio-code/#use-your-own-anthropic-api-key).
+Yes, with your own Anthropic API key. Connect **Anthropic API** in **Settings → Providers** in the desktop app, or use the `/api-key` command in the terminal. Usage is billed through your Anthropic account. See [Use your own Anthropic API key](https://wordpress.studio/docs/studio-code/#use-your-own-anthropic-api-key).
 
 To use WordPress.com AI credits instead, [log into WordPress Studio with your WordPress.com account](https://wordpress.studio/docs/#connect-to-wordpresscom). Some features, such as [image generation](https://wordpress.studio/docs/studio-code/image-generation/), preview sites, and publishing to WordPress.com, also need a WordPress.com login.
 

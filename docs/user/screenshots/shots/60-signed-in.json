@@ -114,6 +114,13 @@
 			"meta": { "pages": [ "studio-code/index.md" ] },
 			"steps": [
 				{
+					"waitFor": {
+						"role": "button",
+						"name": "Model"
+					},
+					"timeout": 60000
+				},
+				{
 					"click": {
 						"role": "button",
 						"name": "Annotate",
@@ -182,15 +189,7 @@
 			],
 			"capture": {
 				"keepMouse": true
-			},
-			"after": [
-				{
-					"press": "Escape"
-				},
-				{
-					"wait": 600
-				}
-			]
+			}
 		},
 		{
 			"name": "annotate-staged",
@@ -200,6 +199,11 @@
 			"steps": [
 				{
 					"click": {
+						"within": {
+							"role": "group",
+							"name": "Annotation",
+							"exact": true
+						},
 						"role": "button",
 						"name": "Delete annotation",
 						"exact": true

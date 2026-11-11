@@ -42,7 +42,7 @@ By default, WordPress Studio Code uses WordPress.com infrastructure to generate 
 3.  A browser window will open. Log into your WordPress.com account and approve the connection.
 4.  Paste the authorization token back into the terminal to complete the login.
 
-Alternatively, you can [use your own Anthropic API key](#use-your-own-anthropic-api-key): type /api-key in the chat in the terminal, or connect **Anthropic** in **Settings → Providers** in the desktop app.
+Alternatively, you can [use your own Anthropic API key](#use-your-own-anthropic-api-key): type /api-key in the chat in the terminal, or connect **Anthropic API** in **Settings → Providers** in the desktop app.
 
 ### [When the chat box can’t send](#when-the-chat-box-cant-send)
 
@@ -131,9 +131,9 @@ When the agent edits a block theme’s template or template part that you’ve c
 
 ### [Slash commands](#10-slash-commands)
 
-While chatting, you can use slash commands for quick actions. In the desktop app, type `/` in the chat box to list the commands and skills that match, or click **+** to see them all: **Add files** and the commands come first, followed by the skills under **Skills**. The desktop app shows commands and skills by name, for example **Choose model** for `/model`, **Performance Audit** for `/need-for-speed`, **SEO Audit** for `/rank-me-up`, and **Send feedback** for `/feedback`.
+While chatting, you can use slash commands for quick actions. In the desktop app, type `/` in the chat box to list the commands and skills that match, or click **+** to see the most common ones: **Add files** and the commands come first, followed by the skills under **Skills**. A few commands, such as **Choose model**, only appear when you type `/`. The desktop app shows commands and skills by name, for example **Annotate** for `/annotate`, **Choose model** for `/model`, **Performance audit** for `/need-for-speed`, **SEO audit** for `/rank-me-up`, and **Send feedback** for `/feedback`.
 
-![The chat box + menu open, listing Add files, Choose model, and Connect providers, then Skills: Visual Annotations, Taxonomist, Performance Audit, SEO Audit, Liberate, and Send feedback.](../../../../screenshots/images/composer-add-menu.webp)
+![The chat box + menu open, listing Add files, Annotate, and Connect providers, then Skills: Taxonomist, Performance audit, SEO audit, Liberate, and Send feedback.](../../../../screenshots/images/composer-add-menu.webp)
 
 | Command | Description | Available in… |
 | --- | --- | --- |
@@ -187,7 +187,7 @@ Balanced and Strong require purchased AI Credits. Until your account has bought 
 
 Switch tiers at any time, including mid-conversation:
 
--   **Desktop**: click the model button in the chat box (it shows the current tier, such as **Fast**), or choose **Choose model** from the **+** menu
+-   **Desktop**: click the model button in the chat box (it shows the current tier, such as **Fast**), or type `/model` and choose **Choose model**
 -   **Terminal**: run the `/model` command
 
 If you use your own Anthropic API key, the model menu lists **Sonnet 5.5** and **Opus 5.5** instead of tiers. See [AI providers](#ai-providers).
@@ -215,7 +215,7 @@ In the desktop app, each site’s chats are listed under the site in the sidebar
 You can choose how AI responses are generated, in both the desktop app and the terminal:
 
 -   **WordPress.com** (default): uses your WordPress.com account and AI Credits. No additional setup is required beyond logging in.
--   **Anthropic API key**: uses your own API key for direct access to Claude. In the desktop app, connect **Anthropic** in **Settings → Providers**. In the terminal, set it with the `/api-key` command.
+-   **Anthropic API key**: uses your own API key for direct access to Claude. In the desktop app, connect **Anthropic API** in **Settings → Providers**. In the terminal, set it with the `/api-key` command.
 
 With your own key, the model menu offers **Sonnet 5.5** and **Opus 5.5** instead of Fast, Balanced, and Strong. In the desktop app, choose the provider for each chat from the model menu, and set the provider new chats use with **Default provider** in **Settings → Providers**. In the terminal, switch providers with the `/provider` command.
 
@@ -307,10 +307,10 @@ To use your own key in the desktop app:
 
 1.  Create an API key at [console.anthropic.com](https://console.anthropic.com/) (requires an Anthropic account with billing set up).
 2.  Open **Settings** from the account menu at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux), and select **Providers**. You can also choose **Providers** from the account menu.
-3.  Next to **Anthropic**, click **Connect**, paste your key in the **Anthropic API key** field, and click **Save**.
+3.  Next to **Anthropic API**, click **Connect**, paste your key in the **Anthropic API key** field, and click **Save**.
 4.  In the chat box, choose **Sonnet 5.5** or **Opus 5.5** from the model menu.
 
-![The Providers page of WordPress Studio's Settings, with WordPress.com marked Connected and a Manage button, and Anthropic with a Connect button to use your own API key.](../../../../screenshots/images/settings-ai-providers-signed-in.webp)
+![The Providers page of WordPress Studio's Settings, with WordPress.com marked Connected and a Manage button, and Anthropic API with a Connect button to use your own API key.](../../../../screenshots/images/settings-ai-providers-signed-in.webp)
 
 To switch it using CLI:
 

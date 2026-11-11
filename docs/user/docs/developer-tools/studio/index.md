@@ -135,7 +135,7 @@ If you don’t already have a WordPress.com account, you can [create one for fre
 
 To connect WordPress Studio to WordPress.com:
 
-1.  Click the account button at the bottom of the sidebar, choose **Log in or create account**, and click **Log in** (or **Create account** if you don’t have one yet). You can also log in from the welcome dialog when you first open WordPress Studio, from **Connect** under **Do more with WordPress** in **Settings → General**, or from the prompt that appears when you click **Publish** or **Share** while logged out.
+1.  Click the account button at the bottom of the sidebar, choose **Log in or create account**, and click **Log in** (or **Create account** if you don’t have one yet). You can also log in from the welcome dialog when you first open WordPress Studio, from **Connect** under **Do more with WordPress** in **Settings → General** or on a site’s **Settings** page, or from the prompt that appears when you click **Publish** or **Share** while logged out.
 2.  A new browser window will open. Log into WordPress.com.
 3.  On the authorization screen, click **Approve** to connect WordPress Studio to your account.
 4.  Once approved, a popup will appear prompting you to open the WordPress Studio app. Click on the **“Open Studio”** button to finalize the process.

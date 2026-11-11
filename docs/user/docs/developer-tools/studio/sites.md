@@ -134,24 +134,24 @@ Each site keeps its device toolbar settings until you stop the site or quit Word
 
 Each site has a menu with quick access to everything you can do with it. To open it, click the **Site menu** button, which shows the site’s name, at the top left of the site’s header, or right-click the site in the sidebar.
 
-![The site menu in WordPress Studio, open from the button with the site's name in the site's header, with New chat, Tools, Open in, Settings, Stop, Restart, Pin, Rename, Import, Export, Duplicate, Share, Publish, and Delete site.](../../../screenshots/images/site-menu.webp)
+![The site menu in WordPress Studio, open from the button with the site's name in the site's header, with Stop, Tools, Open in, Pin, Rename, Duplicate, Settings, Share, Publish, Export, and Delete.](../../../screenshots/images/site-menu.webp)
 
 The site menu includes:
 
--   **New chat**: starts a new [WordPress Studio Code](https://wordpress.studio/docs/studio-code/) chat for the site
+-   **New chat**: starts a new [WordPress Studio Code](https://wordpress.studio/docs/studio-code/) chat for the site. It appears once you’ve logged in to WordPress.com or added your own API key.
+-   **Start**, or **Stop**. When more than one site is running, **Stop** opens a submenu with **Stop site**, **Stop other sites**, and **Stop all sites**.
 -   **Tools**: opens the site’s **Browser**, **Admin**, **Design System** (when it has one), **Database**, or **Email log** in the site preview (see [View sites](#4-view-sites))
 -   **Open in**: opens the site in other apps (see below)
--   **Settings**: opens the site’s [settings](#site-settings)
--   **Start**, or **Stop** (**Stop site**, **Stop other sites**, or **Stop all sites**) and **Restart**
 -   **Pin** or **Unpin**: keeps the site in the **Pinned** section at the top of the sidebar
 -   **Rename**
--   **Import** and **Export** (**Export site** or **Export database**): see [Import & export](https://wordpress.studio/docs/import-export/)
 -   **Duplicate**: a notice shows the progress while WordPress Studio copies the site
+-   **Settings**: opens the site’s [settings](#site-settings)
 -   **Share**: see [Preview sites](https://wordpress.studio/docs/preview-sites/)
 -   **Publish**: see [WordPress Studio Sync](https://wordpress.studio/docs/sync/)
--   **Delete site**
+-   **Export** (**Export site** or **Export database**): see [Import & export](https://wordpress.studio/docs/import-export/)
+-   **Delete**
 
-Site actions are also available in the command palette: press ⌘K (Ctrl+K on Windows and Linux) and start typing. A few actions are only there, such as **Copy site URL**.
+Site actions are also available in the command palette: press ⌘K (Ctrl+K on Windows and Linux) and start typing. A few actions are only there, such as **Restart site**, **Import backup…**, and **Copy site URL**.
 
 On macOS, you can also open a site from Spotlight: search for the site’s name and choose **Open** followed by the name. WordPress Studio starts the site if it’s stopped and shows it in the preview. **New WordPress Studio Site** opens the **Add site** dialog.
 
@@ -203,7 +203,7 @@ WordPress Studio keeps the settings for the app and for each site in one **Setti
 
 To open a site’s settings, choose **Settings** from the [site menu](#site-menu), or search for **Site settings** in the command palette.
 
-![The Settings page of a site's settings in WordPress Studio, with Site selected in the App and Site switch, showing Site name, Local path, WordPress version, Automatic updates, and Use custom domain under Local domain.](../../../screenshots/images/site-settings.webp)
+![The Settings page of a site's settings in WordPress Studio, with Site selected in the App and Site switch, showing the Do more with WordPress card with Connect, then Site name, Local path, WordPress version, Automatic updates, and Use custom domain under Local domain.](../../../screenshots/images/site-settings.webp)
 
 A site’s settings are grouped into these pages:
 
@@ -241,7 +241,7 @@ Each site in the sidebar can be expanded to show its WordPress Studio Code chats
 
 ### [Delete a site](#12-delete-a-site)
 
-To delete a local site, choose **Delete site** from the [site menu](#site-menu). WordPress Studio asks you to confirm that you want to remove the site from WordPress Studio. To also delete its files from your computer, select **Also move files and database to Trash**, then click **Remove site**.
+To delete a local site, choose **Delete** from the [site menu](#site-menu). WordPress Studio asks you to confirm that you want to remove the site from WordPress Studio. To also delete its files from your computer, select **Also move files and database to Trash**, then click **Remove site**.
 
 To delete several sites at once, select them in the sidebar, right-click the selection, and choose **Delete *N* sites**. To keep one of them, click **Exclude** (**×**) next to its name in the confirmation, then click **Remove sites**.
 

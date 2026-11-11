@@ -564,12 +564,14 @@ describe( 'ShareDialog', () => {
 
 	it( 'copies, views, and updates the preview whose row menu was opened', async () => {
 		const actions = userEvent.setup();
+		const shareUrl = 'https://earlier.example.com/?share=earlier';
 		const { connector, ready, site } = setup( TEST_USER, [
 			preview( { name: 'Current' } ),
 			preview( {
 				atomicSiteId: 2,
 				name: 'Earlier',
 				url: 'earlier.example.com',
+				shareUrl,
 				date: Date.now() - DAY_MS,
 			} ),
 		] );
@@ -580,11 +582,17 @@ describe( 'ShareDialog', () => {
 			actions.click( within( row ).getByRole( 'button', { name: 'Preview actions' } ) );
 		await openMenu();
 		await actions.click( await screen.findByRole( 'menuitem', { name: 'Copy link' } ) );
-		expect( connector.copyText ).toHaveBeenCalledWith( 'https://earlier.example.com' );
+		expect( connector.copyText ).toHaveBeenCalledWith( shareUrl );
 		expect( screen.getByRole( 'radio', { name: 'Select Current' } ) ).toBeChecked();
 		await openMenu();
 		await actions.click( await screen.findByRole( 'menuitem', { name: 'Visit preview' } ) );
-		expect( connector.openExternalUrl ).toHaveBeenCalledWith( 'https://earlier.example.com' );
+		expect( connector.openExternalUrl ).toHaveBeenCalledWith( shareUrl );
+		// Signing in is its own action, so the preview opens the moment it is built.
+		await openMenu();
+		await actions.click( await screen.findByRole( 'menuitem', { name: 'WordPress admin' } ) );
+		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
+			'https://earlier.example.com/wp-login.php?redirect_to=https%3A%2F%2Fearlier.example.com%2Fwp-admin%2F'
+		);
 		await openMenu();
 		await actions.click( await screen.findByRole( 'menuitem', { name: 'Update' } ) );
 		await waitFor( () =>

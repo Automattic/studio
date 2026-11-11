@@ -1,10 +1,13 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
+import { useConnector } from '@/data/core';
 
-// Opens the Send feedback dialog over the current screen.
+// Opens the Send feedback dialog over the current screen; undefined where the
+// connector can't send feedback.
 export function useOpenFeedback() {
 	const navigate = useNavigate();
-	return useCallback(
+	const canSend = !! useConnector().sendFeedback;
+	const open = useCallback(
 		() =>
 			void navigate( {
 				to: '.',
@@ -13,4 +16,5 @@ export function useOpenFeedback() {
 			} ),
 		[ navigate ]
 	);
+	return canSend ? open : undefined;
 }

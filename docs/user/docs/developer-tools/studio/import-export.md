@@ -29,9 +29,9 @@ If your site is hosted on a paid WordPress.com plan or on [Pressable](https://pr
 To add a new site to WordPress Studio from backup, you’ll need a `.tar.gz`, `.tar`, `.zip`, `.wpress`, or `.xml` file:
 
 1.  Click the **Add site** (**+**) button next to **Sites** at the top of the WordPress Studio sidebar, and choose **Import**.
-2.  Click **Choose file** and select your backup file. Alternatively, drag and drop your backup file onto the **Drop a WordPress backup here** box.
-3.  On the **Create your site** screen, name your site and choose its **Local path**.
-4.  Click **Import site**.
+2.  Click **Choose file** and select your backup file. Alternatively, drag and drop your backup file onto the **Drop your file here** area, or anywhere on the **Add site** dialog.
+3.  The **Add site** form opens with your backup under **Start from**. Name your site and check its **Site folder**, which must be empty.
+4.  Click **Add site**.
 
 Any imported site is started by default and visible in the sidebar. If the import fails, WordPress Studio explains what went wrong in plain language and lets you try again.
 
@@ -39,9 +39,9 @@ Any imported site is started by default and visible in the sidebar. If the impor
 
 To update an existing WordPress Studio site from a backup, you’ll need a `.tar.gz`, `.tar`, `.zip`, `.wpress`, `.sql`, or `.xml` file:
 
-1.  Open the site menu: click the **Site menu** button (globe) at the top left of the site’s header, or right-click the site in the sidebar.
-2.  Click **Import** and select your backup file.
-3.  When WordPress Studio asks whether to overwrite the site, click **Import** to overwrite your WordPress Studio site with your backup file.
+1.  Open the site menu: click the **Site menu** button, which shows the site’s name, at the top left of the site’s header, or right-click the site in the sidebar.
+2.  Click **Import** and select your backup file. You can also search for **Import backup…** in the command palette.
+3.  When WordPress Studio asks **Overwrite** followed by the site’s name, click **Import** to overwrite your WordPress Studio site with your backup file.
 
 The WordPress Studio site will be replaced from the provided `.tar.gz`, `.tar`, `.zip`, or `.wpress` backup. However, when you import a `.sql` file to an existing site, the database dump will be imported on top of the existing site, and when you import a WordPress export (`.xml`) file, its posts, pages, terms, authors, and media are added to the existing site.
 
@@ -51,7 +51,7 @@ WordPress Studio allows you to export your entire local site into a `.zip` for
 
 To export a site from WordPress Studio:
 
-1.  Open the site menu: click the **Site menu** button (globe) at the top left of the site’s header, or right-click the site in the sidebar.
+1.  Open the site menu: click the **Site menu** button, which shows the site’s name, at the top left of the site’s header, or right-click the site in the sidebar.
 2.  Choose **Export**, then **Export site** to generate a full-site `.zip` file, or **Export database** to generate a `.sql` file.
 3.  Choose the destination and click **Save.**
 

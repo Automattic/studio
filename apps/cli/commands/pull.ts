@@ -20,17 +20,13 @@ import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { linkPulledPreview } from 'cli/lib/cli-config/snapshots';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { getStandingPreviews, type StandingPreview } from 'cli/lib/preview-sites';
-import {
-	canKeepOwnCore,
-	hasOwnCore,
-	installOwnCore,
-	linkPulledWpContent,
-} from 'cli/lib/pull/local-core';
+import { canUseExistingCore } from 'cli/lib/pull/local-core';
 import {
 	applySelection,
 	type CliSelectionOptions,
 	pullSelectionFromSyncOptions,
 	clearPullSelection,
+	isFullPull,
 	type PullSelection,
 } from 'cli/lib/pull/pull-selection';
 import { getPullSession, type PullSession, updateSiteRecord } from 'cli/lib/pull/pull-session';
@@ -46,9 +42,8 @@ import {
 	type ReprintProcessResult,
 	runReprintCommandUntilComplete,
 } from 'cli/lib/pull/reprint-client';
-import { ensureReprintKey, reinstallReprintKey, withKeyRecovery } from 'cli/lib/pull/reprint-key';
+import { ensureReprintKey } from 'cli/lib/pull/reprint-key';
 import {
-	getCoreRoots,
 	getReprintMetadata,
 	emptyReprintMetadata,
 	type ReprintMetadata,
@@ -315,7 +310,8 @@ async function pullSite(
 	run.remoteSite = sourceSite.wpComSite;
 	run.failurePhase = 'remote_backup';
 	run.preview = await findPreview( sourceSite );
-	const exporter = await enableReprintExporter(
+	// Fails early with an "update Jetpack" message on a site that can't export.
+	await enableReprintExporter(
 		sourceSite.wpComSite.id,
 		sourceSite.wpComToken.accessToken,
 		verbose
@@ -369,20 +365,11 @@ async function pullSite(
 		await ensureReprintKey( {
 			wpComSiteId: sourceSite.wpComSite.id,
 			wpComAccessToken: sourceSite.wpComToken.accessToken,
-			exporter,
 			apiUrl,
 			stateDirectory: studioMetadata.stateDirectory,
 			verbose,
 		} );
-		const reinstallKey = () =>
-			reinstallReprintKey( {
-				wpComSiteId: sourceSite.wpComSite.id,
-				wpComAccessToken: sourceSite.wpComToken.accessToken,
-				apiUrl,
-				stateDirectory: studioMetadata.stateDirectory,
-				verbose,
-			} );
-		await runPreflight( studioMetadata, apiUrl, verbose, reinstallKey );
+		await runPreflight( studioMetadata, apiUrl, verbose );
 		const reprintMetadata = await getReprintMetadata( {
 			apiUrl,
 			stateDirectory: studioMetadata.stateDirectory,
@@ -409,9 +396,7 @@ async function pullSite(
 			} );
 
 			run.localChangesApplied = true;
-			const isFullPull =
-				! selection.skipFiles && ! selection.skipDatabase && ! selection.fileOnlyPaths?.length;
-			const pulledAt = isFullPull ? Date.now() : undefined;
+			const pulledAt = isFullPull( selection ) ? Date.now() : undefined;
 			await runFullPull(
 				studioMetadata,
 				apiUrl,
@@ -419,8 +404,6 @@ async function pullSite(
 				! isRepull,
 				selection,
 				reprintMetadata,
-				reinstallKey,
-				sourceSite.wpComSite.wpVersion,
 				( phase ) => {
 					run.failurePhase = phase;
 				}
@@ -513,8 +496,7 @@ async function pullSite(
 async function runPreflight(
 	sessionMetadata: PullSession,
 	sourceSiteApiUrl: string,
-	verbose = false,
-	reinstallKey?: () => Promise< void >
+	verbose = false
 ): Promise< void > {
 	const preflightCachePath = path.join( sessionMetadata.stateDirectory, 'preflight.json' );
 
@@ -526,20 +508,16 @@ async function runPreflight(
 
 	let preflightResult: ReprintProcessResult;
 	try {
-		preflightResult = await withKeyRecovery(
-			() =>
-				runReprintCommandUntilComplete(
-					[
-						'preflight',
-						sourceSiteApiUrl,
-						'--no-adaptive',
-						`--state-dir=${ sessionMetadata.stateDirectory }`,
-						`--fs-root=${ sessionMetadata.rawDirectory }`,
-					],
-					undefined,
-					{ verboseCommands: verbose }
-				),
-			reinstallKey
+		preflightResult = await runReprintCommandUntilComplete(
+			[
+				'preflight',
+				sourceSiteApiUrl,
+				'--no-adaptive',
+				`--state-dir=${ sessionMetadata.stateDirectory }`,
+				`--fs-root=${ sessionMetadata.rawDirectory }`,
+			],
+			undefined,
+			{ verboseCommands: verbose }
 		);
 	} catch ( preflightError ) {
 		const details =
@@ -587,63 +565,6 @@ async function runPreflight(
 }
 
 /**
- * Writes a minimal wp-config.php when a scoped pull left WordPress without one.
- *
- * On WP Cloud, wp-config.php sits at the document root, outside every
- * `--only` path, so only a dangling symlink to it gets pulled. The runtime
- * already defines the database constants, so the table prefix is all the
- * config needs.
- */
-export function ensureScopedPullWpConfig(
-	metadata: PullSession,
-	reprintMetadata: ReprintMetadata = emptyReprintMetadata
-): void {
-	const abspath = reprintMetadata.sourceSite.wordpressAbsolutePath;
-	if ( ! abspath ) {
-		return;
-	}
-
-	const segments = abspath.split( '/' ).filter( Boolean );
-	const rawAbspath = path.join( metadata.rawDirectory, ...segments );
-	const candidates = [ path.join( rawAbspath, 'wp-config.php' ) ];
-	if ( segments.length > 0 ) {
-		candidates.push( path.join( path.dirname( rawAbspath ), 'wp-config.php' ) );
-	}
-
-	for ( const candidate of candidates ) {
-		try {
-			if ( fs.statSync( candidate ).size > 0 ) {
-				return;
-			}
-		} catch {
-			// Missing or a dangling symlink.
-		}
-	}
-
-	const tablePrefix = reprintMetadata.sourceSite.tablePrefix ?? 'wp_';
-	// Escaped for a PHP single-quoted string.
-	const escapedTablePrefix = tablePrefix.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
-	// Writing through a dangling symlink creates its target.
-	const target = candidates[ candidates.length - 1 ];
-	fs.mkdirSync( path.dirname( target ), { recursive: true } );
-	fs.writeFileSync(
-		target,
-		[
-			'<?php',
-			'/**',
-			' * Generated by Studio: the remote wp-config.php was outside the',
-			" * scoped pull's selection. Database constants come from the",
-			' * runtime prepend; ABSPATH is defined by wp-load.php.',
-			' */',
-			`$table_prefix = '${ escapedTablePrefix }';`,
-			'',
-			"require_once ABSPATH . 'wp-settings.php';",
-			'',
-		].join( '\n' )
-	);
-}
-
-/**
  * Pulls the selected files and database into the site directory and
  * generates its runtime configuration. Each step is a separate Reprint
  * command, so a selection can skip the database.
@@ -655,8 +576,6 @@ export async function runFullPull(
 	isFirstPull: boolean,
 	selection: PullSelection = {},
 	reprintMetadata: ReprintMetadata = emptyReprintMetadata,
-	reinstallKey?: () => Promise< void >,
-	remoteWpVersion?: string,
 	onPhase?: ( phase: SyncFailurePhase ) => void
 ): Promise< void > {
 	// The database lives in the pulled wp-content, or in the local one when
@@ -688,35 +607,23 @@ export async function runFullPull(
 		}
 	}
 
-	// A site that keeps its own copy of the remote's WordPress release doesn't pull core.
-	const keptCoreVersion =
-		contentDir && ( await canKeepOwnCore( metadata.sitePath, remoteWpVersion ) )
-			? remoteWpVersion
-			: undefined;
-	const coreRoots = keptCoreVersion ? getCoreRoots( reprintMetadata ) : [];
-	const isScoped = ( selection.fileOnlyPaths ?? [] ).length > 0;
-	const fileOnlyPaths = ( selection.fileOnlyPaths ?? [] ).filter(
-		( onlyPath ) => ! coreRoots.includes( onlyPath )
-	);
-	const filesArgs =
-		isScoped || ! keptCoreVersion
-			? fileOnlyPaths.map( ( onlyPath ) => `--only=${ onlyPath }` )
-			: [ '--include=:wp-content:' ];
+	// A database-only first pull still pulls core even when the site could use its own. Without
+	// any pulled files, flat-docroot couldn't set the site up the way it does after other first
+	// pulls, with wp-content linked to the pulled copy.
+	const pullsCore =
+		!! selection.databaseOnly ||
+		! canUseExistingCore( metadata.sitePath, reprintMetadata.sourceSite.wordpressVersion );
+	const filesArgs = filesSelectionArgs( selection, contentDir, pullsCore );
 
 	const runStep = ( progressLabel: string, args: string[] ) =>
-		withKeyRecovery(
-			() =>
-				runReprintCommandUntilComplete( args, ( progress ) => logger.reportProgress( progress ), {
-					progressLabel,
-					verboseCommands: verbose,
-				} ),
-			reinstallKey
-		);
+		runReprintCommandUntilComplete( args, ( progress ) => logger.reportProgress( progress ), {
+			progressLabel,
+			verboseCommands: verbose,
+		} );
 
 	logger.reportStart( LoggerAction.DOWNLOAD_FILES, __( 'Pulling site…' ) );
 
-	// A database-only first pull has nothing left to pull once core is kept.
-	if ( ! selection.skipFiles && ( ! isScoped || fileOnlyPaths.length > 0 ) ) {
+	if ( ! selection.skipFiles ) {
 		const pullFiles = () =>
 			runStep( __( 'Pulling files' ), [
 				'pull-files',
@@ -748,38 +655,29 @@ export async function runFullPull(
 
 	onPhase?.( 'local_import' );
 
-	if ( isScoped && ! keptCoreVersion ) {
-		ensureScopedPullWpConfig( metadata, reprintMetadata );
-	}
+	// A pull without files leaves the layout as it is: the pulled tree has nothing new to link, and
+	// it may hold no core, or older core than the site's. A first pull always has files.
+	if ( ! selection.skipFiles ) {
+		// Keeps the plugins, themes and uploads only the blank install has, which
+		// flat-docroot would otherwise replace. Later pulls have nothing to merge.
+		if ( isFirstPull ) {
+			await runStep( __( 'Merging local content' ), [
+				'merge-wp-content',
+				apiUrl,
+				`--from=${ path.join( metadata.sitePath, 'wp-content' ) }`,
+				`--state-dir=${ metadata.stateDirectory }`,
+				`--fs-root=${ metadata.rawDirectory }`,
+			] );
+		}
 
-	// Keeps the plugins, themes and uploads only the blank install has, which
-	// flat-docroot would otherwise replace. Later pulls have nothing to merge.
-	if ( isFirstPull ) {
-		await runStep( __( 'Merging local content' ), [
-			'merge-wp-content',
-			apiUrl,
-			`--from=${ path.join( metadata.sitePath, 'wp-content' ) }`,
-			`--state-dir=${ metadata.stateDirectory }`,
-			`--fs-root=${ metadata.rawDirectory }`,
-		] );
-	}
-
-	if ( keptCoreVersion && contentDir ) {
-		await installOwnCore( metadata.sitePath, keptCoreVersion );
-		linkPulledWpContent(
-			metadata.sitePath,
-			path.join( metadata.rawDirectory, ...contentDir.split( '/' ).filter( Boolean ) )
-		);
-	} else {
-		// Copying core leaves `wp-content` as the site's only link into the pulled tree, and a later
-		// pull can keep that core. `--force` replaces the blank install on a first pull, and the
-		// site's own files next to core when its core can't be kept.
+		// `--force` replaces the blank install's wp-content on a first pull. Without it, a later pull
+		// never replaces the site's own files next to core.
 		await runStep( __( 'Flattening layout' ), [
 			'flat-docroot',
 			apiUrl,
 			`--flatten-to=${ metadata.sitePath }`,
-			'--core-files=copy',
-			...( isFirstPull || hasOwnCore( metadata.sitePath ) ? [ '--force' ] : [] ),
+			`--core-files=${ pullsCore ? 'copy' : 'use-existing' }`,
+			...( isFirstPull ? [ '--force' ] : [] ),
 			`--state-dir=${ metadata.stateDirectory }`,
 			`--fs-root=${ metadata.rawDirectory }`,
 		] );
@@ -799,6 +697,31 @@ export async function runFullPull(
 	] );
 
 	logger.reportSuccess( __( 'Site pulled' ) );
+}
+
+/** Reprint's selector for the WordPress core the remote runs, and only that version. */
+const WP_CORE = ':wp-core:';
+
+/**
+ * The `pull-files` arguments that select what to pull. A full pull never takes the remote's
+ * wp-config.php, so the site keeps its own, unless the remote's wp-content location is unknown:
+ * then it takes everything.
+ */
+function filesSelectionArgs(
+	selection: PullSelection,
+	contentDir: string | null,
+	pullsCore: boolean
+): string[] {
+	const core = pullsCore ? [ WP_CORE ] : [];
+	if ( selection.databaseOnly || selection.fileOnlyPaths?.length ) {
+		return [ ...core, ...( selection.fileOnlyPaths ?? [] ) ].map(
+			( onlyPath ) => `--only=${ onlyPath }`
+		);
+	}
+	if ( ! contentDir ) {
+		return [];
+	}
+	return [ ':wp-content:', ...core ].map( ( selector ) => `--include=${ selector }` );
 }
 
 /**

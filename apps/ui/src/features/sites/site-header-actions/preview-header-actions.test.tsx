@@ -152,7 +152,7 @@ it( 'keeps icon-only annotation available with sharing feedback', async () => {
 		webview,
 		Object.assign( new Event( 'did-start-navigation' ), { isMainFrame: true, isInPlace: false } )
 	);
-	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeDisabled();
+	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeEnabled();
 	expect( screen.queryByRole( 'menuitemcheckbox', { name: 'Annotate' } ) ).not.toBeInTheDocument();
 	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeInTheDocument();
 	expect( headerButtons( 'Send 1 annotation' ) ).toHaveLength( 0 );
@@ -248,6 +248,10 @@ it( 'keeps the device toolbar available in browser options as the row compacts',
 	await user.keyboard( '{ArrowDown}' );
 	await waitFor( () =>
 		expect( screen.getByRole( 'menuitem', { name: 'Hide device toolbar' } ) ).toHaveFocus()
+	);
+	await user.keyboard( '{ArrowDown}' );
+	await waitFor( () =>
+		expect( screen.getByRole( 'menuitem', { name: 'Annotate' } ) ).toHaveFocus()
 	);
 	await user.keyboard( '{Escape}' );
 	expect( screen.getByRole( 'button', { name: 'Browser options' } ) ).toHaveFocus();

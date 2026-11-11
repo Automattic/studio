@@ -163,6 +163,22 @@ describe( 'buildSystemPrompt', () => {
 		);
 	} );
 
+	it( 'requires the registered host for an active remote site', () => {
+		expect( () =>
+			buildSystemPrompt( {
+				remoteHosts: {},
+				activeSite: {
+					name: 'Live',
+					path: '',
+					running: false,
+					remote: true,
+					url: 'https://example.wordpress.com',
+				},
+			} )
+		).toThrow( 'Remote host "wpcom" is required to describe the active remote site.' );
+		expect( buildSystemPrompt( { external: true } ) ).not.toContain( '## Active site' );
+	} );
+
 	it( "names the active site's design system when it has a DESIGN.md", () => {
 		const sitePath = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-active-site-' ) );
 		try {

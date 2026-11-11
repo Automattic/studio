@@ -8,10 +8,14 @@ import type { SiteInfo } from './types';
 // attached to, rebuilt every turn from Studio's site data.
 export function formatActiveSite(
 	site: SiteInfo,
-	remoteHosts?: Record< string, RemoteHost >
+	remoteHosts: Record< string, RemoteHost >
 ): string {
 	if ( site.remote && site.url ) {
-		return remoteHosts!.wpcom.describeSite( site );
+		const host = remoteHosts.wpcom;
+		if ( ! host ) {
+			throw new Error( 'Remote host "wpcom" is required to describe the active remote site.' );
+		}
+		return host.describeSite( site );
 	}
 	const designPath = path.join( site.path, 'DESIGN.md' );
 	const design = existsSync( designPath ) ? `, design system: ${ designPath }` : '';

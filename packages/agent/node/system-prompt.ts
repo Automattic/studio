@@ -63,7 +63,7 @@ function buildActiveSiteSection(
 	// A WordPress.com site is live and changes only through wpcom_request, so
 	// its runbook comes with it rather than waiting for the agent to load it.
 	const runbook = site.remote ? findSkill( 'edit-manage-remote-site' )?.body : undefined;
-	return `\n\n## Active site\n\n${ formatActiveSite( site, remoteHosts ) }${
+	return `\n\n## Active site\n\n${ formatActiveSite( site, remoteHosts ?? {} ) }${
 		runbook ? `\n\n${ runbook }` : ''
 	}`;
 }

@@ -3,7 +3,6 @@ import path from 'path';
 import { confirm, input } from '@inquirer/prompts';
 import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
-import { getUserInfo } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { createPreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
@@ -274,14 +273,20 @@ describe( 'Preview Create Command', () => {
 	} );
 
 	it( 'should offer to sign in at a terminal and carry on creating the preview', async () => {
-		vi.mocked( readAuthToken ).mockResolvedValue( null );
+		let storedToken: unknown = null;
+		vi.mocked( readAuthToken ).mockImplementation( async () => storedToken as never );
+		vi.mocked( updateSharedConfig ).mockImplementation( async ( update ) => {
+			storedToken = update.authToken ?? storedToken;
+		} );
 		vi.mocked( confirm ).mockResolvedValue( true );
 		vi.mocked( input ).mockResolvedValue( 'pasted-token' );
-		vi.mocked( getUserInfo, { partial: true } ).mockResolvedValue( {
-			ID: 123,
-			email: 'test@example.com',
-			display_name: 'Test User',
-		} );
+		vi.stubGlobal(
+			'fetch',
+			vi.fn().mockResolvedValue( {
+				ok: true,
+				json: async () => ( { ID: 123, email: 'test@example.com', display_name: 'Test User' } ),
+			} )
+		);
 		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
 		const isTTY = [ process.stdin.isTTY, process.stdout.isTTY ];
 		process.stdin.isTTY = process.stdout.isTTY = true;

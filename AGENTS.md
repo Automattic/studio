@@ -50,6 +50,7 @@ Prefer targeted runs: `npm run eval -- --filter-pattern "<case>"`. The full suit
 **`/apps/static`**: Studio on the web's backend (`@studio/static`), running in the page: sites in WordPress Playground, the WordPress.com account and services, and Studio Code's runs over `@studio/agent/browser`. `apps/ui` builds the static site (`build:static`) and reaches it only through its `static` connector.
 **`/apps/mcp-ui`**: MCP Apps pages that agent apps show for `studio mcp` (`@studio/mcp-ui`), currently the WordPress library. React + TanStack Query and plain CSS, built into one HTML document that `studio mcp` serves; the data layer talks to the host through one bridge, with no connectors. Not a target of `apps/ui`: see `docs/design-docs/studio-apps-and-surfaces.md`.
 **`/packages/agent`**: The Studio Code agent (`@studio/agent`). protocol/ is its contract with the apps (events, session types, chat artifacts, models), browser-safe and the only part `apps/ui` imports. shared/ holds what every agent runs, in Node or a browser: tools/, skills/, the system prompt and the host interface (`shared/host.ts`), reaching files, pages and WordPress.com only through the host. node/ is the Node agent: runtime/, pi's file tools, sessions store, run-manager, and the Node host services (`nodeHostServices`). browser/ is the agent in a browser (`createBrowserAgent`), which Studio on the web runs over Playground (`apps/static/src/agent/`). Apps run it with `createAgent( { host } )` from `@studio/agent/node`: the host (the CLI's is `apps/cli/ai/host.ts`) runs the site operations and reaches the user, so the package never imports `apps/cli`.
+**`/packages/providers`**: The services Studio holds an account with (`@studio/providers`), one folder per provider (`wpcom/`, `anthropic/`). The `.` entry is what surfaces read (descriptors, models, config schemas); `./services` holds the implementations (`getProvider( id )`), which run in Node and in the page. Providers own no storage and import no workspace package: Studio stores their config through `@studio/common/lib/provider-config.ts` and passes it into every call. See `docs/design-docs/providers.md`.
 **`/packages/common`**: Electron-free code shared by the Desktop app, `studio ui` and the CLI: sites/ (site operations over the CLI), lib/, types/, translations/
 **`/tools/eslint-plugin-studio`**: eslint-plugin-studio
 
@@ -171,7 +172,7 @@ For in-depth information, see these docs:
 ## Quick Reference
 
 **Sites**: CLI runs WordPress with native PHP (`apps/cli/php-server-child.ts`), Blueprints applied via `blueprints.phar`, `validateBlueprintData()` for schema validation
-**Sync**: OAuth via `packages/common/lib/oauth.ts`, pull/push WordPress.com sites through the CLI `push`/`pull` commands
+**Sync**: Studio sign-in through the WordPress.com provider (`packages/providers/wpcom/`), pull/push WordPress.com sites through the CLI `push`/`pull` commands
 **Security**: Renderer sandboxed, IPC validation, strict CSP, no Node integration, self-signed HTTPS certs
 
 ---

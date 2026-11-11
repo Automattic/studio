@@ -43,6 +43,8 @@ interface AddSiteContextValue {
 	setSetupDraft: ( draft: CreateSiteFormDraft ) => void;
 	source: SetupSource;
 	setSource: ( source: SetupSource ) => void;
+	// Makes a chosen WordPress folder the source unless another source was picked.
+	adoptFolder: ( folder: SelectedSiteFolder ) => void;
 	folderResetKey: number;
 	removeFolder: () => void;
 	browseBlueprints: () => void;

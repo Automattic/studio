@@ -53,6 +53,7 @@
 		"@electron-forge/shared-types": "^8.0.1",
 		"@studio/agent": "file:../../packages/agent",
 		"@studio/common": "file:../../packages/common",
+		"@studio/providers": "file:../../packages/providers",
 		"@types/follow-redirects": "^1.14.4",
 		"@types/fs-extra": "^11.0.4",
 		"@wp-playground/blueprints": "3.1.53",

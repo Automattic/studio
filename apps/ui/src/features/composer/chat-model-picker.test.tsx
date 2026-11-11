@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { Composer } from '@/features/composer';
-import { createFakeConnector, type FakeConnector } from '@/test/fake-connector';
+import { aiSettings, createFakeConnector, type FakeConnector } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import type { AiModelId } from '@/data/core';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
@@ -35,11 +35,8 @@ function connectorFor( {
 	return createFakeConnector(
 		{},
 		{
-			getAiSettings: async () => ( {
-				provider: 'wpcom',
-				hasAnthropicApiKey: anthropic,
-				anthropicApiKeyPreview: null,
-			} ),
+			getAiSettings: async () =>
+				aiSettings( 'wpcom', anthropic ? [ 'wpcom', 'anthropic' ] : [ 'wpcom' ] ),
 			getStudioAssistantQuota: quota,
 			getStudioAssistantTopUpPricing: async () =>
 				( { options: [ { credits: 100000, display: '$10' } ] } ) as never,
@@ -67,9 +64,12 @@ async function renderPicker( model: AiModelId, connector: FakeConnector, onModel
 
 describe( 'Chat model picker', () => {
 	it( 'opens with the current model selected for keyboard navigation', async () => {
-		const { trigger } = await renderPicker( 'claude-opus-5', connectorFor( { anthropic: true } ) );
+		const { trigger } = await renderPicker(
+			'claude-opus-5-5',
+			connectorFor( { anthropic: true } )
+		);
 		fireEvent.click( trigger );
-		const current = await screen.findByRole( 'option', { name: /Opus 5/ } );
+		const current = await screen.findByRole( 'option', { name: /Opus 5.5/ } );
 		expect( current ).toHaveAttribute( 'aria-selected', 'true' );
 		expect( current ).toHaveTextContent( 'Claude · Plan complex builds and solve harder problems' );
 	} );

@@ -1,10 +1,10 @@
 import { captureScreenshotBuffer } from '@studio/agent/node';
 import { readAuthToken } from '@studio/common/lib/shared-config';
-import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { cliAgentHost } from 'cli/ai/host';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
 import { getSitesRunningStatus } from 'cli/lib/site-utils';
+import { fetchSyncableSites } from 'cli/lib/sync-api';
 
 // Reads the config directly rather than through site_list, whose console
 // capture loses output when the page's calls overlap.

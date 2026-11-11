@@ -1,10 +1,10 @@
-import { getAiModelLabel } from '@studio/agent/protocol/models';
-import {
-	AI_PROVIDER_LABELS,
-	getAiProviderModels,
-	type AiProviderId,
-} from '@studio/agent/protocol/providers';
 import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
+import {
+	getAiModelLabel,
+	getAiModels,
+	getProviderDescriptor,
+	type ProviderId,
+} from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { PlugIcon } from 'lucide-react';
 import { useRef, useState, type RefObject } from 'react';
@@ -21,12 +21,12 @@ interface ModelPickerProps {
 	onOpenChange: ( open: boolean ) => void;
 	model: AiModelId;
 	// The providers this chat can use, and the one it is on.
-	providers: AiProviderId[];
-	sessionProvider: AiProviderId;
+	providers: ProviderId[];
+	sessionProvider: ProviderId;
 	isModelLocked: ( id: AiModelId ) => boolean;
 	disabled: boolean;
 	anchor: HTMLElement | null;
-	onChange: ( provider: AiProviderId, model: AiModelId ) => void;
+	onChange: ( provider: ProviderId, model: AiModelId ) => void;
 	onAddCredits: ( returnFocus: RefObject< HTMLElement | null > ) => void;
 }
 
@@ -62,7 +62,7 @@ export function ModelPicker( {
 		credits.hasCredits &&
 		getStudioCodeAiAccessState( quota ) === 'available' &&
 		quota.hasPaymentMethod;
-	const modelDetails = [ modelLabel, AI_PROVIDER_LABELS[ sessionProvider ] ];
+	const modelDetails = [ modelLabel, getProviderDescriptor( sessionProvider ).label ];
 	if ( isWpcom ) {
 		modelDetails.push( credits.label );
 	}
@@ -74,7 +74,7 @@ export function ModelPicker( {
 			openSettings( 'ai' );
 		} else {
 			const provider = providers.find( ( id ) =>
-				getAiProviderModels( id ).some( ( item ) => item.id === value )
+				getAiModels( id ).some( ( item ) => item.id === value )
 			);
 			if ( provider ) {
 				onChange( provider, value as AiModelId );
@@ -85,7 +85,7 @@ export function ModelPicker( {
 		{
 			label: __( 'Models' ),
 			items: providers.flatMap( ( provider ) =>
-				getAiProviderModels( provider ).map( ( { id } ): Command => {
+				getAiModels( provider ).map( ( { id } ): Command => {
 					const description = sprintf(
 						/* translators: 1: the model's provider, 2: what the model is good at. */
 						__( '%1$s · %2$s' ),

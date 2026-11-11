@@ -14,7 +14,7 @@ import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { useOffline } from '@/lib/hooks';
 import type { ComposerNotice } from './notice-tab';
-import type { AiProviderId } from '@studio/agent/protocol/providers';
+import type { ProviderId } from '@studio/providers';
 
 /**
  * Why this chat can't send right now, shown above the composer while the
@@ -23,7 +23,7 @@ import type { AiProviderId } from '@studio/agent/protocol/providers';
  * quota fails open.
  */
 export function useComposerNotice(
-	provider: AiProviderId,
+	provider: ProviderId,
 	siteId?: string
 ): ComposerNotice | undefined {
 	const connector = useConnector();

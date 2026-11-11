@@ -410,16 +410,24 @@ async function pullSite(
 				}
 			);
 
-			// The site keeps its own wp-config.php, so point it at the pulled tables.
+			// The site keeps its own wp-config.php, so point it at the pulled tables. A site created
+			// without starting has none yet; the database settings are unused, as the site runs on SQLite.
 			const tablePrefix = reprintMetadata.sourceSite.tablePrefix;
 			if ( ! selection.skipDatabase && tablePrefix ) {
-				await using command = await runWpCliCommand( site, [
-					'config',
-					'set',
-					'table_prefix',
-					tablePrefix,
-					'--type=variable',
-				] );
+				await using command = await runWpCliCommand(
+					site,
+					fs.existsSync( path.join( site.path, 'wp-config.php' ) )
+						? [ 'config', 'set', 'table_prefix', tablePrefix, '--type=variable' ]
+						: [
+								'config',
+								'create',
+								'--dbname=wordpress',
+								'--dbuser=root',
+								`--dbprefix=${ tablePrefix }`,
+								'--skip-check',
+								'--skip-salts',
+						  ]
+				);
 				if ( ( await command.response.exitCode ) !== 0 ) {
 					logger.reportWarning(
 						sprintf(

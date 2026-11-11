@@ -229,7 +229,9 @@ export const cliAgentHost: StudioAgentHost = {
 				case 'PUT':
 					return wpcom.req.put( path, query, body );
 				case 'DELETE':
-					return wpcom.req.del( path, query );
+					// wpcom.js's req.del() sends a POST, which wp/v2 handles as an update. req.get()
+					// keeps an explicit method and, unlike req.post(), leaves the query as the query.
+					return wpcom.req.get( { path, method: 'DELETE' }, query );
 			}
 		},
 		get payloadsDirectory() {

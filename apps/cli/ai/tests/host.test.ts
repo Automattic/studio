@@ -43,6 +43,8 @@ vi.mock( 'cli/lib/daemon-client', () => ( {
 	disconnectFromDaemon: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/run-wp-cli-command', () => ( { runWpCliCommand: vi.fn() } ) );
+const wpcomReq = vi.hoisted( () => ( { get: vi.fn() } ) );
+vi.mock( '@studio/common/lib/wpcom-factory', () => ( { default: () => ( { req: wpcomReq } ) } ) );
 
 const site = {
 	id: 'site-123',
@@ -167,5 +169,20 @@ describe( 'cliAgentHost', () => {
 		expect( runWpCliCommand ).toHaveBeenCalledWith( site, [ 'option', 'get' ] );
 		expect( connectToDaemon ).toHaveBeenCalled();
 		expect( disconnectFromDaemon ).toHaveBeenCalled();
+	} );
+
+	it( 'sends WordPress.com DELETE requests as HTTP DELETE with their query', async () => {
+		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
+		wpcomReq.get.mockResolvedValue( { deleted: true } );
+
+		await cliAgentHost.wpcom.request( 'DELETE', '/sites/123/pages/67', {
+			force: true,
+			apiNamespace: 'wp/v2',
+		} );
+
+		expect( wpcomReq.get ).toHaveBeenCalledWith(
+			{ path: '/sites/123/pages/67', method: 'DELETE' },
+			{ force: true, apiNamespace: 'wp/v2' }
+		);
 	} );
 } );

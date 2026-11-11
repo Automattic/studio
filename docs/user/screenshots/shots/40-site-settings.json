@@ -2,6 +2,8 @@
 	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "site-settings",
 	"description": "The Settings dialog, Site scope: Settings, Debug and PHP",
+	"scene": "moire",
+	"look": "docs",
 	"capture": {
 		"target": {
 			"role": "dialog",

@@ -2,6 +2,8 @@
 	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "workspace",
 	"description": "The main window with the demo site: chat, command palette, site preview, and the site’s start/stop button",
+	"scene": "moire",
+	"look": "docs",
 	"shots": [
 		{
 			"name": "main-window-signed-out",

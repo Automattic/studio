@@ -1,6 +1,6 @@
 # Studio screenshots
 
-Captured from Studio 2.1.0 by `npm run screenshots`, signed out except the signed-in suites (`signedIn` in their JSON), which show a WordPress.com account with its email masked.
+Captured from Studio 2.1.0 by `npm run screenshots`, signed out except the signed-in suites (`signedIn` in their JSON), which sign in as a made-up demo person.
 Upload to WordPress.com; a file named `<name>.webp` becomes `https://developer.wordpress.com/wp-content/uploads/YYYY/MM/<name>.webp`.
 Shots with annotations also have a `<name>-annotated.webp`.
 

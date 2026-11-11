@@ -2,6 +2,8 @@
 	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "signed-in-chat",
 	"description": "Signed in, with a recorded Studio Code chat on the demo site (chats/): the workspace mid-conversation",
+	"scene": "moire",
+	"look": "docs",
 	"signedIn": true,
 	"chats": [ "moire-home", "moire-lookbook", "moire-soft-armor", "moire-fabric-archive", "bistro-lune-reservations" ],
 	"shots": [

@@ -174,8 +174,8 @@ describe( 'Usage settings', () => {
 			await screen.findByText( /Studio Code AI is currently available through limited beta access/ )
 		).toBeVisible();
 		expect(
-			screen.getByRole( 'link', { name: 'developer.wordpress.com/studio/studio-code-beta' } )
-		).toHaveAttribute( 'href', 'https://developer.wordpress.com/studio/studio-code-beta/' );
+			screen.getByRole( 'link', { name: 'wordpress.studio/docs/studio-code' } )
+		).toHaveAttribute( 'href', 'https://wordpress.studio/docs/studio-code/' );
 		expect(
 			screen.queryByText( /is blocked for this WordPress.com account/ )
 		).not.toBeInTheDocument();

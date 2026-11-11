@@ -106,7 +106,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				setting(
 					'navigate',
 					__( 'Default browser' ),
-					__( 'The browser used to open your sites, WP Admin, and phpMyAdmin.' ),
+					__( 'The default browser for your sites.' ),
 					'browser'
 				),
 				setting(

@@ -222,7 +222,7 @@ export function getSiteCommands( {
 					{
 						id: 'reload',
 						group: 'commands' as const,
-						label: __( 'Reload preview' ),
+						label: __( 'Reload' ),
 						icon: RotateCwIcon,
 						keywords: [ __( 'Refresh' ) ],
 						run: reloadPreview,

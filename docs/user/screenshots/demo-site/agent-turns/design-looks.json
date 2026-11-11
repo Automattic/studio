@@ -1,0 +1,88 @@
+{
+	"description": "Studio Code asks which of four looks to build for a neighborhood bakery (design-looks/), Wren & Barley's own among them.",
+	"events": [
+		{
+			"type": "run.started"
+		},
+		{
+			"type": "turn.started"
+		},
+		{
+			"type": "message",
+			"message": {
+				"type": "message_end",
+				"message": {
+					"role": "assistant",
+					"content": [
+						{
+							"type": "text",
+							"text": "Wren & Barley sounds lovely. Let's settle the look first: here are four directions, each drawn as a design board. Pick one and I'll show you layouts in it."
+						},
+						{
+							"type": "toolCall",
+							"id": "docs-call-1",
+							"name": "present_design_options",
+							"arguments": {
+								"catalog": "directions",
+								"question": "Which look should I build?",
+								"options": [
+									{
+										"label": "Quiet luxury editorial",
+										"description": "Warm terracotta and white, one serif in spaced capitals, and the bread in the photos doing the talking."
+									},
+									{
+										"label": "Pastel soft",
+										"description": "Light and airy, with blush and mint fields and a friendly rounded sans."
+									},
+									{
+										"label": "Mid-century retro",
+										"description": "A bright diner-sign bakery in mustard, teal and burnt orange."
+									},
+									{
+										"label": "Scandinavian",
+										"description": "Calm and clean: pale birch, slate, and plenty of space around the bread."
+									}
+								]
+							}
+						}
+					],
+					"stopReason": "toolUse"
+				}
+			}
+		},
+		{
+			"type": "question.asked",
+			"questions": [
+				{
+					"question": "Which look should I build?",
+					"options": [
+						{
+							"label": "Quiet luxury editorial",
+							"description": "Warm terracotta and white, one serif in spaced capitals, and the bread in the photos doing the talking.",
+							"image": "demo-site:design-looks/quiet-luxury-editorial.jpg"
+						},
+						{
+							"label": "Pastel soft",
+							"description": "Light and airy, with blush and mint fields and a friendly rounded sans.",
+							"image": "demo-site:design-looks/pastel-soft.jpg"
+						},
+						{
+							"label": "Mid-century retro",
+							"description": "A bright diner-sign bakery in mustard, teal and burnt orange.",
+							"image": "demo-site:design-looks/mid-century-retro.jpg"
+						},
+						{
+							"label": "Scandinavian",
+							"description": "Calm and clean: pale birch, slate, and plenty of space around the bread.",
+							"image": "demo-site:design-looks/scandinavian.jpg"
+						},
+						{
+							"label": "Show other options",
+							"description": "New ones, none of these again."
+						}
+					]
+				}
+			]
+		}
+	]
+}

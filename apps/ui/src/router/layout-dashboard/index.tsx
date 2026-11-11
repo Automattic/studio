@@ -32,6 +32,7 @@ import {
 } from '@/features/annotations';
 import { SiteWorkspace, SessionHeader } from '@/features/chats';
 import { CommandPalette } from '@/features/commands';
+import { pendingComposerFilesSlot } from '@/features/composer';
 import {
 	useOrientationAutostart,
 	useOrientationReplay,
@@ -220,14 +221,14 @@ function DashboardLayout() {
 		narrow,
 	} );
 	const panelExpanded = showPanel && ( ! narrow || chatHidden );
-	const showFullView =
-		showPanel && ( chatHidden || !! liveUrl || !! previewSite?.running || previewStarting );
+	const showFullView = showPanel;
 	const [ tabHeader, setTabHeader ] = useState< HTMLDivElement | null >( null );
 	useLayoutEffect( () => {
 		if ( ! tabHeader ) return;
 		const lead = tabHeader.querySelector< HTMLElement >( '[data-site-header-reserved]' );
-		const actions = tabHeader.querySelector< HTMLElement >( '[data-site-header-actions]' );
-		if ( ! lead || ! actions ) return;
+		const actions = tabHeader.querySelector< HTMLElement >( '[data-site-header-delivery]' );
+		const actionsContainer = tabHeader.querySelector< HTMLElement >( '[data-site-header-actions]' );
+		if ( ! lead || ! actions || ! actionsContainer ) return;
 		const measure = () => {
 			const box = tabHeader.getBoundingClientRect();
 			const title = lead.getBoundingClientRect();
@@ -238,7 +239,8 @@ function DashboardLayout() {
 				'--tabs-lead-width',
 				`${ ( isRTL() ? box.right - title.left : title.right - box.left ) + gap }px`
 			);
-			tabHeader.style.setProperty( '--tabs-actions-width', `${ buttons.width + gap }px` );
+			const inset = Number.parseFloat( getComputedStyle( actionsContainer ).paddingInlineEnd ) || 0;
+			tabHeader.style.setProperty( '--tabs-actions-width', `${ buttons.width + inset + gap }px` );
 		};
 		const observer = new ResizeObserver( measure );
 		observer.observe( lead );
@@ -407,6 +409,18 @@ function DashboardLayout() {
 		[ hasProvider, navigate, sessionId, sessionSite?.id, setChatHidden ]
 	);
 
+	const attachScreenshot = ( siteId: string, file: File ) => {
+		const pending = pendingComposerFilesSlot.getSnapshot();
+		pendingComposerFilesSlot.set( {
+			siteId,
+			files: [ ...( pending?.siteId === siteId ? pending.files : [] ), file ],
+		} );
+		setChatHidden( false, siteId );
+		if ( ! sessionId || sessionSite?.id !== siteId ) {
+			void navigate( { to: '/sites/$siteId/new', params: { siteId } } );
+		}
+	};
+
 	const renderPanel = ( { collapsed }: PanelSplitFramePanelProps ) =>
 		previewSite ? (
 			<SitePreview
@@ -417,6 +431,7 @@ function DashboardLayout() {
 				reloadNonce={ preview.reloadNonce }
 				onSendAnnotations={ sendAnnotations }
 				onStartAnnotating={ startAnnotating }
+				onAttachScreenshot={ attachScreenshot }
 				onPathChange={ liveUrl ? updateLivePath : preview.updatePath }
 				collapsed={ collapsed || ! panelExpanded }
 			/>
@@ -441,6 +456,7 @@ function DashboardLayout() {
 			<AccountPromptDialog
 				open={ providerPromptOpen }
 				onOpenChange={ setProviderPromptOpen }
+				illustration="annotations"
 				title={ __( 'Put your feedback to work' ) }
 				description={ __(
 					'Connect an AI provider to turn your notes and ideas into changes to your site.'
@@ -464,7 +480,7 @@ function DashboardLayout() {
 					}
 					panelOpen={ showPanel }
 					chatHidden={ chatHidden }
-					instant={ ! previewStopping && preview.instant }
+					instant={ ( ! previewStopping || ! preview.open ) && preview.instant }
 					panel={ renderPanel }
 					header={
 						supportsPreview && routeSite ? (

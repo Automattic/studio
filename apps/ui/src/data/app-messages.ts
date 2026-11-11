@@ -234,7 +234,9 @@ export async function runNoticeAction( action: ToastAction ): Promise< boolean >
 		await action.onClick();
 		if ( action.dismissOnSuccess !== false ) {
 			for ( const id of toastIds ) {
-				if ( visible.some( ( item ) => item.id === id && item.action === action ) ) {
+				if (
+					visible.some( ( item ) => item.id === id && item.action === action && ! item.processing )
+				) {
 					beginToastExit( id );
 				}
 			}

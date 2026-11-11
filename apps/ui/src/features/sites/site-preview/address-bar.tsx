@@ -231,6 +231,7 @@ interface PreviewAddressBarProps {
 	onOpenExternal?: () => void;
 	onExternalNavigate?: ( url: string ) => void;
 	disabled?: boolean;
+	compact?: boolean;
 }
 
 interface RecentPreviewLocation {
@@ -370,6 +371,7 @@ export function PreviewAddressBar( {
 	onOpenExternal,
 	onExternalNavigate,
 	disabled = false,
+	compact = false,
 }: PreviewAddressBarProps ) {
 	const frontendUrl = remote ? undefined : getSiteFrontendUrl( site );
 	const frontendOrigin = useMemo( () => getFrontendOrigin( frontendUrl ), [ frontendUrl ] );
@@ -519,6 +521,7 @@ export function PreviewAddressBar( {
 				ref={ addressBarRef }
 				className={ styles.addressBar }
 				data-recent-open={ isRecentOpen || undefined }
+				data-compact={ compact || undefined }
 				onSubmit={ handleSubmit }
 			>
 				<Popover.Trigger
@@ -526,7 +529,7 @@ export function PreviewAddressBar( {
 					nativeButton={ false }
 					render={
 						<Input
-							variant="ghost"
+							variant="group"
 							disabled={ disabled }
 							role="textbox"
 							value={ value }
@@ -583,6 +586,9 @@ export function PreviewAddressBar( {
 					title={ invalid ? __( 'Enter a path or an address on this site.' ) : undefined }
 					spellCheck={ false }
 				/>
+				<span className={ styles.displayUrl } aria-hidden="true">
+					{ displayUrl.replace( /^https?:\/\//i, '' ) }
+				</span>
 				{ onOpenExternal ? (
 					<span className={ styles.actions } data-address-action>
 						<AddressAction

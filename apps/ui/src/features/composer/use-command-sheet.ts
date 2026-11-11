@@ -21,14 +21,19 @@ export function useCommandSheet( {
 	const [ addOpen, setAddOpen ] = useState( false );
 	const [ dismissedText, setDismissedText ] = useState< string | null >( null );
 	const [ highlight, setHighlight ] = useState< string >();
-	const skills = getAiSkillCommands();
+	const skills = getAiSkillCommands().filter(
+		( skill ) => ! commands.some( ( command ) => command.name === skill.name )
+	);
 	const slash = getSlashCommandMatches( value, null, commands );
 	const open = addOpen || ( slash.open && dismissedText !== value );
 	const groups = getCommandGroups( {
 		addOpen,
 		commands,
 		skills,
-		matches: slash.matches,
+		matches: slash.matches.filter(
+			( match ) =>
+				! commands.some( ( command ) => command.name === match.name && command !== match )
+		),
 		searching: ! addOpen && slash.open && ! value.endsWith( '/' ),
 		isDisabled,
 	} );

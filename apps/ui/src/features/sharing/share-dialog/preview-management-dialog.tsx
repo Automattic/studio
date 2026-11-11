@@ -72,9 +72,7 @@ function DeletePreviewDialog( {
 			>
 				<DialogHeader>
 					<DialogTitle>{ __( 'Delete preview?' ) }</DialogTitle>
-					<DialogDescription tone="default">
-						{ __( 'Its shared link will stop working.' ) }
-					</DialogDescription>
+					<DialogDescription>{ __( 'Its shared link will stop working.' ) }</DialogDescription>
 				</DialogHeader>
 				<SiteCard
 					title={ getSnapshotHostname( snapshot ) }

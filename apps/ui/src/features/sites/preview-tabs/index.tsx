@@ -140,6 +140,13 @@ export function PreviewTabs( {
 			event.preventDefault();
 			runLayoutTransition( () => setOpen( true, { siteId } ) );
 			requestAnimationFrame( () => {
+				if ( newTabButton.current && getComputedStyle( newTabButton.current ).display === 'none' ) {
+					add( '/' );
+					requestAnimationFrame( () => {
+						list.current?.querySelector< HTMLElement >( '[data-active]' )?.focus();
+					} );
+					return;
+				}
 				newTabButton.current?.focus();
 				if ( newTabButton.current?.getAttribute( 'aria-expanded' ) !== 'true' ) {
 					newTabButton.current?.click();
@@ -148,7 +155,7 @@ export function PreviewTabs( {
 		};
 		document.addEventListener( 'keydown', onKeyDown );
 		return () => document.removeEventListener( 'keydown', onKeyDown );
-	}, [ busy, setOpen, siteId, runLayoutTransition ] );
+	}, [ add, busy, setOpen, siteId, runLayoutTransition ] );
 	const openEmailFolder = () => {
 		void connector.openSiteEmailFolder( siteId ).catch( () =>
 			showToast( {
@@ -174,7 +181,7 @@ export function PreviewTabs( {
 		const isLastTab = workspace.tabs.every( ( tab ) => ids.includes( tab.id ) );
 		closeMany( ids );
 		if ( isLastTab ) {
-			runLayoutTransition( () => preview.setOpen( false, { siteId } ) );
+			runLayoutTransition( () => preview.setOpen( false, { siteId, instant: true } ) );
 			if ( ! liveUrl && site.running && ! busy ) stopSite.mutate( siteId );
 		}
 		requestAnimationFrame( () => {
@@ -264,6 +271,10 @@ export function PreviewTabs( {
 										/>
 									</Menu.ContextMenuTrigger>
 									<Menu.ContextPopup>
+										<Menu.Item disabled={ busy } onClick={ () => add( '/' ) }>
+											<PlusIcon />
+											{ __( 'New tab' ) }
+										</Menu.Item>
 										<Menu.Item
 											disabled={ busy || tab.path === null || realm === 'design' }
 											onClick={ realm === 'email' ? openEmailFolder : () => openInBrowser( tab ) }
@@ -323,6 +334,7 @@ export function PreviewTabs( {
 					render={
 						<IconButton
 							ref={ newTabButton }
+							className={ running ? styles.newTab : undefined }
 							size="icon-sm"
 							variant="muted-ghost"
 							icon={ <PlusIcon /> }

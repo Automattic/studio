@@ -1,8 +1,8 @@
 import { sortSites } from '@studio/common/lib/sort-sites';
-import { useParams, useRouterState } from '@tanstack/react-router';
+import { useParams, useRouter, useRouterState } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { useMemo, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { errorMessage, toast } from '@/data/app-messages';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSidebarPreferences } from '@/data/queries/use-sidebar-pins';
@@ -32,6 +32,40 @@ import { useRevealedSites } from './use-revealed-sites';
 import type { AiSessionSummary } from '@/data/core';
 import type { ReorderableItemProps } from '@/features/sidebar/reorderable-list';
 
+function useSidebarNavigation() {
+	const router = useRouter();
+	const pending = useRef< { frame: number; timer: number } | null >( null );
+	const cancel = useCallback( () => {
+		if ( ! pending.current ) return;
+		cancelAnimationFrame( pending.current.frame );
+		window.clearTimeout( pending.current.timer );
+		pending.current = null;
+	}, [] );
+	useEffect( () => {
+		const unsubscribe = router.history.subscribe( cancel );
+		return () => {
+			cancel();
+			unsubscribe();
+		};
+	}, [ cancel, router ] );
+
+	return ( openSite?: () => void ) => {
+		cancel();
+		if ( ! openSite ) return;
+		const work = { frame: 0, timer: 0 };
+		pending.current = work;
+		// Let the chat-list animation paint before mounting the workspace.
+		work.frame = requestAnimationFrame( () => {
+			work.frame = requestAnimationFrame( () => {
+				work.timer = window.setTimeout( () => {
+					pending.current = null;
+					openSite();
+				}, 0 );
+			} );
+		} );
+	};
+}
+
 export function SiteList( {
 	active = true,
 	className,
@@ -52,6 +86,7 @@ export function SiteList( {
 	const { data: allSessions, isLoading: sessionsLoading, isError: sessionsError } = useSessions();
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
 	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
+	const scheduleNavigation = useSidebarNavigation();
 	const activeSessionId = params.sessionId;
 	const sessions = useMemo( () => getListedSessions( allSessions ), [ allSessions ] );
 	const activeSiteId = params.siteId;
@@ -123,7 +158,14 @@ export function SiteList( {
 			expanded={ sections && revealed.has( row.site.id ) }
 			loadError={ sessionsError }
 			reorderable={ reorderable }
-			onOpen={ sections ? () => toggle( row.site.id ) : undefined }
+			onOpen={
+				sections
+					? ( openSite ) => {
+							toggle( row.site.id );
+							scheduleNavigation( openSite );
+					  }
+					: undefined
+			}
 			onReorderChats={ ( ids ) =>
 				save(
 					{

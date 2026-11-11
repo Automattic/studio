@@ -168,7 +168,7 @@ describe( 'site instruction rows', () => {
 		const connector = setup( true, false, 'instructions' );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Learn more…' } ) );
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
-			'https://developer.wordpress.com/docs/developer-tools/studio/cli/'
+			'https://wordpress.studio/docs/cli/'
 		);
 		expect( screen.queryByRole( 'button', { name: 'Install all' } ) ).not.toBeInTheDocument();
 	} );

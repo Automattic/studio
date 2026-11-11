@@ -123,7 +123,8 @@ export async function runCommand(
 				token.id,
 				snapshotToUpdate.name ?? site.name,
 				created.preview.shareUrl,
-				created.versionId
+				created.versionId,
+				created.preview.liveSiteId
 			);
 			await deleteSnapshotFromConfig( snapshotToUpdate.url );
 			await emitCliEvent( {
@@ -166,7 +167,7 @@ export async function runCommand(
 			logger.reportSuccess( __( 'Archive uploaded' ) );
 
 			reportStep( LoggerAction.READY, __( 'Updating preview site…' ), 60 );
-			const { shareUrl } = await updatePreviewSite(
+			const { shareUrl, liveSiteId } = await updatePreviewSite(
 				snapshotToUpdate.atomicSiteId,
 				attachmentId,
 				token.accessToken,
@@ -178,7 +179,8 @@ export async function runCommand(
 				snapshotToUpdate.atomicSiteId,
 				siteFolder,
 				shareUrl,
-				versionId
+				versionId,
+				liveSiteId
 			);
 			logger.reportSuccess(
 				sprintf( __( 'Preview site available at: %s' ), getSnapshotLink( snapshot ) )

@@ -110,6 +110,20 @@ describe( 'MCP tools', () => {
 		expect( textOf( await tools[ 0 ].execute( 't', { id: '2' } ) ) ).toBe( 'read 2, listed 1' );
 	} );
 
+	it( "leaves out a host's own server it has never listed, listing it for the next turn", async () => {
+		const server = { ...FIXTURE, args: [ ...FIXTURE.args!, 'slow', 'host' ], builtIn: true };
+		const started = Date.now();
+		expect( await createMcpTools( [ server ], async () => undefined ) ).toEqual( [] );
+		expect( Date.now() - started ).toBeLessThan( 500 );
+		await vi.waitFor(
+			async () =>
+				expect(
+					( await createMcpTools( [ server ], async () => undefined ) ).map( ( tool ) => tool.name )
+				).toEqual( [ 'shop_read', 'shop_write' ] ),
+			{ timeout: 10_000 }
+		);
+	} );
+
 	it( "leaves out a tool named like the harness's own or an earlier server's", async () => {
 		const tools = await createMcpTools(
 			[ FIXTURE, { ...FIXTURE, name: 'shop' } ],

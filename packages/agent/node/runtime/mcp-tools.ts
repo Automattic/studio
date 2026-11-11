@@ -170,14 +170,16 @@ function listTools( server: McpServerSpec ): Promise< Listing > {
 
 // The server's tools as last listed, if they ever were; otherwise as it lists
 // them now. Either way the server is listed again in the background, so a later
-// turn has its current tools.
+// turn has its current tools. A host's own server, never listed yet, is left
+// out of this turn rather than waited for: the user did not ask for its tools,
+// and connecting to it takes seconds.
 async function toolsOf( server: McpServerSpec ): Promise< ListedTool[] > {
 	const key = serverKey( server );
 	const listing = listTools( server );
 	const tools = known.get( key ) ?? ( await readLists() )[ listKey( key ) ];
-	if ( tools ) {
+	if ( tools || server.builtIn ) {
 		listing.catch( () => undefined );
-		return tools;
+		return tools ?? [];
 	}
 	return ( await listing ).tools;
 }

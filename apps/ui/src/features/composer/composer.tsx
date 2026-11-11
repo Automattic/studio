@@ -14,11 +14,15 @@ import {
 	type MouseEvent,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { toast } from '@/data/app-messages';
 import { useIsOutOfAiCredits } from '@/data/queries/use-is-out-of-ai-credits';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
-import { getStagedAnnotations, removeAnnotations } from '@/features/annotations';
+import { usePanelCommand } from '@/data/use-panel-command';
+import {
+	getStagedAnnotations,
+	removeAnnotations,
+	type PreviewAnnotation,
+} from '@/features/annotations';
 import { AttachmentChips } from '@/features/composer/attachment-chips';
 import { applyCommandToDraft, getComposerCommands } from '@/features/composer/composer-commands';
 import { composerSubmission } from '@/features/composer/composer-submission';
@@ -27,19 +31,19 @@ import { FamilySwitchConfirmDialog } from '@/features/composer/family-switch-con
 import { ModeChip } from '@/features/composer/mode-chip';
 import { ModelPicker } from '@/features/composer/model-picker';
 import { NoticeTab, type ComposerNotice } from '@/features/composer/notice-tab';
-import { SendButton, StopButton } from '@/features/composer/submit-button';
+import { SendButton, StartButton, StopButton } from '@/features/composer/submit-button';
 import { useAddCredits } from '@/features/composer/use-add-credits';
 import { useCommandSheet } from '@/features/composer/use-command-sheet';
 import { useComposerHandle, type ComposerHandle } from '@/features/composer/use-composer-handle';
 import { useDraftAttachments } from '@/features/composer/use-draft-attachments';
 import { useModelAccess } from '@/features/composer/use-model-access';
 import { useModelSwitch } from '@/features/composer/use-model-switch';
-import { useSubmitFeedback } from '@/features/composer/use-submit-feedback';
 import { AiCreditsPurchaseDialog } from '@/features/credits';
+import { useSubmitFeedback } from '@/lib/hooks';
 import { PlusIcon, StartSiteIcon } from '@/lib/icons';
 import { isImeComposing } from '@/lib/keyboard';
 import {
-	AttachmentDropOverlay,
+	DropOverlay,
 	Button,
 	CommandSheet,
 	handleCommandKey,
@@ -49,7 +53,7 @@ import {
 } from '@/lib/ui';
 import styles from './style.module.css';
 import type { AiModelId, SessionEntry, StudioVisualAnnotationSummary } from '@/data/core';
-import type { ComposerSendAttachments } from '@/data/use-composer-attachments';
+import type { ComposerAttachment, ComposerSendAttachments } from '@/data/use-composer-attachments';
 import type { AiProviderId } from '@studio/agent/protocol/providers';
 
 /**
@@ -95,10 +99,17 @@ interface ComposerProps {
 	// `getSubmission()` — no Send/Stop control, Enter inserts a newline.
 	variant?: 'chat' | 'field';
 	placeholder?: string;
+	ariaLabel?: string;
 	// The placeholder describes work in progress (e.g. the site starting).
 	placeholderBusy?: boolean;
 	// Offers the auto-start preference, for a chat on a local site.
 	canAutoStart?: boolean;
+	onStartSite?: () => void;
+	onStopSite?: () => void;
+	onAnnotate?: () => void;
+	annotationDisabled?: boolean;
+	siteActionDisabled?: boolean;
+	isSiteStarting?: boolean;
 	// The site the chat works on; a chat on the live site can switch back to local.
 	environment?: 'local' | 'live';
 	onEnvironmentChange?: ( environment: 'local' | 'live' ) => void;
@@ -137,8 +148,15 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		autoFocus = false,
 		variant = 'chat',
 		placeholder: placeholderOverride,
+		ariaLabel,
 		placeholderBusy = false,
 		canAutoStart = false,
+		onStartSite,
+		onStopSite,
+		onAnnotate,
+		annotationDisabled = false,
+		siteActionDisabled = false,
+		isSiteStarting = false,
 		environment = 'local',
 		onEnvironmentChange,
 		dropTarget,
@@ -149,9 +167,25 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	ref
 ) {
 	const isField = variant === 'field';
+	const panelCommand = usePanelCommand( isField ? undefined : ownerSiteId );
+	const siteCommand =
+		isField || environment === 'live'
+			? undefined
+			: onStopSite
+			? 'stop'
+			: onStartSite
+			? 'start'
+			: undefined;
 	const [ initialDraft ] = useState( () => getComposerDraft( draftKey ) );
 	const [ value, setValue ] = useState( initialDraft.text );
 	const [ sending, setSending ] = useState( false );
+	const [ validationError, setValidationError ] = useState< {
+		message: string;
+		value: string;
+		model: AiModelId;
+		attachments: ComposerAttachment[];
+		notes: PreviewAnnotation[];
+	} | null >( null );
 	const [ modelOpen, setModelOpen ] = useState( false );
 	const { feedback: submitFeedback, shake } = useSubmitFeedback();
 	const [ shellNode, setShellNode ] = useState< HTMLDivElement | null >( null );
@@ -171,9 +205,9 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		provider,
 	} );
 	const isWpcom = sessionProvider === 'wpcom';
-	const isOutOfCredits = useIsOutOfAiCredits() && ! isField && isWpcom;
+	const isOutOfCredits = useIsOutOfAiCredits() && isWpcom;
 	const { openAddCredits, purchase, closePurchase } = useAddCredits();
-	const notice =
+	const blockingComposerNotice =
 		blockingNotice ??
 		( isOutOfCredits
 			? {
@@ -192,12 +226,17 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		value,
 		commands: getComposerCommands( {
 			canAutoStart,
+			panelCommand,
+			siteCommand,
+			canAnnotate: ! isField && !! onAnnotate,
 			autoStartOn,
 			canChooseModel: ! busy && providers.length > 0,
 			environment,
 			canChangeEnvironment: !! onEnvironmentChange,
 		} ),
 		isDisabled: ( name ) =>
+			( name === siteCommand && siteActionDisabled ) ||
+			( name === 'annotate' && !! onAnnotate && ( annotationDisabled || siteActionDisabled ) ) ||
 			( name === 'auto-start' && ( ! preferences || savePreferences.isPending ) ) ||
 			( ( name === 'live' || name === 'local' ) && busy ),
 	} );
@@ -206,21 +245,27 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	// action runs and leaves the draft without its fragment.
 	const runCommand = ( name: string ) => {
 		sheet.close();
-		if ( name === 'add-files' ) {
-			fileInputRef.current?.click();
-			return;
-		}
 		const start = textareaRef.current?.selectionStart ?? value.length;
 		const end = textareaRef.current?.selectionEnd ?? start;
 		const isSkill = sheet.skills.some( ( skill ) => skill.name === name );
 		const draft = applyCommandToDraft( value, start, end, name, isSkill );
 		if ( ! isSkill ) {
-			if ( name === 'model' ) {
+			if ( name === 'add-files' ) {
+				fileInputRef.current?.click();
+			} else if ( name === 'start' ) {
+				onStartSite?.();
+			} else if ( name === 'stop' ) {
+				onStopSite?.();
+			} else if ( name === 'annotate' ) {
+				onAnnotate?.();
+			} else if ( name === 'model' ) {
 				pendingCommandRef.current = () => setModelOpen( true );
 			} else if ( name === 'connect-provider' ) {
 				openSettings( 'ai' );
 			} else if ( name === 'local' ) {
 				onEnvironmentChange?.( name );
+			} else if ( name === 'panel' ) {
+				panelCommand?.run();
 			} else if ( name === 'auto-start' ) {
 				setAutoStart( true );
 			}
@@ -242,6 +287,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 
 	const fileDropTarget = dropTarget ?? shellNode;
 	const {
+		attachmentError,
 		attachments,
 		restoreAttachments,
 		pasteHandlers,
@@ -253,11 +299,24 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		onFileInputChange,
 	} = useDraftAttachments( {
 		initialAttachments: initialDraft.attachments,
+		siteId: isField ? undefined : ownerSiteId,
 		annotationSiteId,
 		dropTarget: fileDropTarget,
 		textareaRef,
 	} );
 	const hasAttachments = attachments.length > 0;
+	const currentValidationError =
+		validationError?.value === value &&
+		validationError.model === model &&
+		validationError.attachments === attachments &&
+		validationError.notes === stagedNotes
+			? validationError.message
+			: null;
+	const notice =
+		blockingComposerNotice ??
+		( attachmentError || currentValidationError
+			? { message: attachmentError || currentValidationError! }
+			: undefined );
 
 	useEffect( () => {
 		if ( draftEffectInitializedRef.current ) {
@@ -318,15 +377,28 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		try {
 			submission = composerSubmission( trimmed, attachments, sentNotes );
 		} catch ( error ) {
-			toast.error( ( error as Error ).message.replace( /\.$/, '' ) );
+			setValidationError( {
+				message: ( error as Error ).message.replace( /\.$/, '' ),
+				value,
+				model,
+				attachments,
+				notes: stagedNotes,
+			} );
 			return;
 		}
 		if ( submission.options.images?.length && ! aiModelSupportsImages( model ) ) {
-			toast.error( __( 'Choose a model that supports images before sending these attachments' ) );
+			setValidationError( {
+				message: __( 'Choose a model that supports images before sending these attachments' ),
+				value,
+				model,
+				attachments,
+				notes: stagedNotes,
+			} );
 			return;
 		}
 		// Cleared up front so a composer remounted before the send is accepted
 		// doesn't bring the sent draft back; a failed send restores it.
+		setValidationError( null );
 		setValue( '' );
 		restoreAttachments( [] );
 		setSending( true );
@@ -366,6 +438,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		restoreAttachments,
 		annotationSiteId,
 		model,
+		stagedNotes,
 	] );
 
 	useComposerHandle( ref, {
@@ -377,10 +450,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		send,
 	} );
 
-	const openFilePicker = useCallback( () => {
-		fileInputRef.current?.click();
-	}, [] );
-
 	const focusTextareaFromShell = useCallback( ( event: MouseEvent< HTMLDivElement > ) => {
 		if ( ! shouldShellFocusTextarea( event.target ) ) {
 			return;
@@ -390,6 +459,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 	}, [] );
 
 	const showStop = ! isField && busy && ( sending || ! hasContent );
+	const showStart = ! busy && ! sending && ! hasContent && !! onStartSite;
 	const canSend = hasContent && ! sending;
 	const placeholder = answerQuestion
 		? __( 'Your answer' )
@@ -401,16 +471,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		: busy
 		? __( 'Queue message' )
 		: __( 'Send message' );
-	const addLabel = isField ? __( 'Upload attachment' ) : __( 'Add' );
-
 	const addButton = (
-		<Button
-			variant="ghost"
-			size="icon"
-			shape="round"
-			aria-label={ addLabel }
-			onClick={ isField ? openFilePicker : undefined }
-		>
+		<Button variant="ghost" size="icon" shape="round" aria-label={ __( 'Add' ) }>
 			<PlusIcon />
 		</Button>
 	);
@@ -432,19 +494,17 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 				<InputGroup
 					ref={ setShellNode }
 					variant="composer"
-					className={ clsx( styles.shell, isField && styles.shellField ) }
+					className={ styles.shell }
 					onMouseDown={ focusTextareaFromShell }
 				>
 					{ isDraggingFiles && fileDropTarget
-						? createPortal(
-								<AttachmentDropOverlay>{ __( 'Drop to attach' ) }</AttachmentDropOverlay>,
-								fileDropTarget
-						  )
+						? createPortal( <DropOverlay>{ __( 'Drop to attach' ) }</DropOverlay>, fileDropTarget )
 						: null }
 					{ shownAttachments.length ? (
 						<AttachmentChips
 							attachments={ shownAttachments }
 							annotationsAttachment={ annotationsAttachment }
+							annotationSiteId={ annotationSiteId }
 							onRemove={ removeShownAttachment }
 						/>
 					) : null }
@@ -459,7 +519,10 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 							className={ clsx( styles.input, placeholderBusy && styles.inputShimmering ) }
 							placeholder={ placeholder }
 							aria-label={
-								answerQuestion ? __( 'Answer WordPress Studio' ) : __( 'Message WordPress Studio' )
+								ariaLabel ??
+								( answerQuestion
+									? __( 'Answer WordPress Studio' )
+									: __( 'Message WordPress Studio' ) )
 							}
 							value={ value }
 							role="combobox"
@@ -516,7 +579,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 					</div>
 					<div className={ styles.toolbar }>
 						<div className={ styles.leftActions }>
-							{ isField ? addButton : <Popover.Trigger render={ addButton } /> }
+							<Popover.Trigger render={ addButton } />
 							{ autoStartOn ? (
 								<ModeChip
 									icon={ StartSiteIcon }
@@ -558,6 +621,12 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 							) : null }
 							{ isField ? null : showStop ? (
 								<StopButton isInterrupting={ isInterrupting } onStop={ () => void onInterrupt() } />
+							) : showStart ? (
+								<StartButton
+									disabled={ siteActionDisabled }
+									isStarting={ isSiteStarting }
+									onStart={ onStartSite }
+								/>
 							) : (
 								<SendButton
 									label={ sendLabel }

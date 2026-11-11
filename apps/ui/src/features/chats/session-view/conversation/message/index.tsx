@@ -25,6 +25,9 @@ export const UserTurn = memo( function UserTurn( {
 	attachments?: StudioChatAttachmentSummary[];
 	annotation?: StudioVisualAnnotationSummary;
 } & Joined ) {
+	const hasElementReference = Boolean(
+		annotation?.tag || ( annotation?.elementLabel && ! annotation.imageIds?.length )
+	);
 	return (
 		<div
 			className={ styles.userTurn }
@@ -42,31 +45,42 @@ export const UserTurn = memo( function UserTurn( {
 						/>
 					) : null }
 					<div className={ styles.userText } data-side="user" { ...joinedAttributes( joined ) }>
-						{ text ? <div className={ styles.userTextBody }>{ text }</div> : null }
 						{ attachments?.length ? (
 							<ul className={ styles.userAttachments }>
-								{ attachments.map( ( attachment, index ) => (
-									<li key={ `${ attachment.name }:${ index }` } className={ styles.userAttachment }>
-										<span className={ styles.userAttachmentPreview }>
-											{ attachment.kind === 'image' && attachment.previewDataUrl ? (
-												<img src={ attachment.previewDataUrl } alt="" />
-											) : attachment.kind === 'image' ? (
-												<ImageIcon />
-											) : (
-												<FileTextIcon />
-											) }
-										</span>
-										<span className={ styles.userAttachmentName } title={ attachment.name }>
-											{ attachment.name }
-										</span>
-									</li>
-								) ) }
+								{ attachments.map( ( attachment, index ) =>
+									attachment.kind === 'image' && attachment.previewDataUrl ? (
+										<li
+											key={ `${ attachment.name }:${ index }` }
+											className={ styles.userImageAttachment }
+											title={ attachment.name }
+										>
+											<img
+												className={ styles.userImageAttachmentContent }
+												src={ attachment.previewDataUrl }
+												alt={ attachment.name }
+											/>
+										</li>
+									) : (
+										<li
+											key={ `${ attachment.name }:${ index }` }
+											className={ styles.userAttachment }
+										>
+											<span className={ styles.userAttachmentPreview }>
+												{ attachment.kind === 'image' ? <ImageIcon /> : <FileTextIcon /> }
+											</span>
+											<span className={ styles.userAttachmentName } title={ attachment.name }>
+												{ attachment.name }
+											</span>
+										</li>
+									)
+								) }
 							</ul>
 						) : null }
+						{ text ? <div className={ styles.userTextBody }>{ text }</div> : null }
 					</div>
 				</div>
 			) : null }
-			{ annotation?.elementLabel || annotation?.tag ? (
+			{ hasElementReference && annotation ? (
 				<AttachmentChip
 					className={ styles.annotationAttachment }
 					font="mono"

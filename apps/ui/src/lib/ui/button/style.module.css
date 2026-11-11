@@ -4,7 +4,7 @@
 
 		display: inline-flex;
 		flex-shrink: 0;
-		gap: var( --space-1 );
+		gap: var( --space-1_5 );
 		align-items: center;
 		justify-content: center;
 		max-width: 100%;
@@ -30,6 +30,10 @@
 		.button:not( :focus-visible ) {
 			transition-property: color, background-color, border-color, transform;
 		}
+	}
+
+	.button:is( :active, [aria-pressed='true'], [aria-expanded='true'] ) {
+		transition-duration: 0s;
 	}
 
 	.button:focus-visible {
@@ -74,10 +78,16 @@
 	}
 
 	.button:has( > [data-icon='inline-start'] ) {
-		padding-inline-start: var( --space-2 );
+		padding-inline-start: calc( var( --space-2 ) - 1px );
 	}
 
-	.button:has( > [data-icon='inline-end'] ) {
+	.button:has(
+			> :is(
+					[data-icon='inline-end'],
+					[data-slot='kbd']:last-child,
+					[data-slot='kbd-group']:last-child
+				)
+		) {
 		padding-inline-end: var( --space-2 );
 	}
 
@@ -112,6 +122,12 @@
 		color: var( --primary-foreground );
 	}
 
+	.button[data-variant='default']:focus-visible {
+		outline: 2px solid var( --primary );
+		outline-offset: 0;
+		box-shadow: none;
+	}
+
 	.button[data-variant='accent'] {
 		--button-hover-background: var( --accent-hover );
 
@@ -133,6 +149,20 @@
 		color: var( --foreground );
 	}
 
+	.button[data-variant='outline']:is( :hover, :focus-visible ):not( :disabled, [data-disabled] )
+		> [data-slot='kbd'][data-variant='default'] {
+		background-color: var( --background );
+		color: inherit;
+	}
+
+	.button[data-variant='outline']:is( :disabled, [data-disabled] ):not(
+			:has( [data-slot='spinner'] ),
+			[data-disabled-appearance]
+		) {
+		opacity: 1;
+		color: color-mix( in srgb, var( --foreground ) 50%, transparent );
+	}
+
 	.button[data-variant='segmented'] {
 		--button-hover-background: var( --hover );
 
@@ -148,9 +178,27 @@
 	}
 
 	.button[data-variant='muted'] {
-		--button-hover-background: var( --hover );
+		--surface: var( --muted );
+		--button-hover-background: var( --surface );
 
-		--button-background: var( --muted );
+		--button-background: var( --surface );
+		color: var( --foreground );
+	}
+
+	.button[data-variant='muted']:is(
+			:is( :hover, :active ):not( :disabled, [data-disabled] ),
+			[aria-expanded='true'],
+			[aria-pressed='true']
+		) {
+		--surface: var( --selected );
+	}
+
+	.button[data-variant='muted']:is(
+			:is( :hover, :active ):not( :disabled, [data-disabled] ),
+			[aria-expanded='true'],
+			[aria-pressed='true']
+		)
+		> [data-slot='kbd'][data-variant='default'] {
 		color: var( --foreground );
 	}
 
@@ -168,10 +216,7 @@
 	}
 
 	.button[data-variant='accent-ghost']:is( [aria-pressed='true'], [aria-expanded='true'] ) {
-		--button-hover-background: light-dark(
-			color-mix( in srgb, var( --accent ) 8%, transparent ),
-			color-mix( in srgb, var( --accent ) 15%, transparent )
-		);
+		--button-hover-background: var( --accent-subtle );
 		--button-hover-color: var( --accent-text );
 	}
 
@@ -179,10 +224,8 @@
 			[aria-pressed='true'],
 			[aria-expanded='true']
 		):hover:not( :disabled, [data-disabled] ) {
-		--button-hover-background: light-dark(
-			color-mix( in srgb, var( --accent ) 14%, transparent ),
-			color-mix( in srgb, var( --accent ) 22%, transparent )
-		);
+		--button-hover-background: var( --accent-subtle-hover );
+		--button-hover-color: var( --accent-text-hover );
 	}
 
 	.button[data-variant='muted-ghost'] {
@@ -256,8 +299,16 @@
 		font-weight: inherit;
 	}
 
+	.button[data-destructive]:is( :hover, :active, :focus-visible ):not(
+			:disabled,
+			[data-disabled]
+		) {
+		background-color: var( --destructive-hover );
+		color: var( --destructive );
+	}
+
 	/* Sizes. */
-	.button[data-size='header'] {
+	.button[data-size='sm'] {
 		height: var( --button-control-size, 32px );
 		border-radius: var( --radius-md );
 	}
@@ -269,12 +320,12 @@
 	}
 
 	.button[data-size='2xs'] {
-		--button-padding-inline: 6px;
+		--button-padding-inline: 8px;
 		font-size: var( --text-xxs );
 
-		gap: var( --space-1 );
-		height: var( --button-control-size, 24px );
-		border-radius: var( --radius-md );
+		gap: var( --space-1_5 );
+		height: var( --button-control-size, 28px );
+		border-radius: var( --radius-sm );
 	}
 
 	.button[data-size='2xs'] svg:not( [data-size] ) {
@@ -287,8 +338,8 @@
 	}
 
 	.button[data-size='sm'] svg:not( [data-size] ) {
-		width: 14px;
-		height: 14px;
+		width: 16px;
+		height: 16px;
 	}
 
 	.button :is( svg[data-dropdown-indicator], [data-dropdown-indicator] svg ):not( [data-size] ) {
@@ -296,18 +347,23 @@
 		height: 16px;
 	}
 
-	.button[data-size='sm']:has( > [data-icon='inline-start'] ) {
-		padding-inline-start: var( --space-1_5 );
+	.button[data-size='sm']:has(
+			> :is(
+					[data-icon='inline-end'],
+					[data-slot='kbd']:last-child,
+					[data-slot='kbd-group']:last-child
+				)
+		) {
+		padding-inline-end: var( --space-1_5 );
 	}
 
-	.button[data-size='sm']:has( > [data-icon='inline-end'] ) {
-		padding-inline-end: var( --space-1_5 );
+	.button[data-size='2xs']:has( > [data-dropdown-indicator] ) {
+		padding-inline-end: var( --space-1 );
 	}
 
 	.button[data-size='lg'] {
 		--button-padding-inline: 24px;
 
-		min-width: 208px;
 		height: 44px;
 		font-size: var( --text-sm );
 	}
@@ -378,7 +434,13 @@
 	}
 
 	.button[data-shape='round']:not( [data-size^='icon'], [data-size='inline'] ):not(
-			:has( > [data-icon='inline-end'] )
+			:has(
+					> :is(
+							[data-icon='inline-end'],
+							[data-slot='kbd']:last-child,
+							[data-slot='kbd-group']:last-child
+						)
+				)
 		) {
 		padding-inline-end: var( --space-3 );
 	}

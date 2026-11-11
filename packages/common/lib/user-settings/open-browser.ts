@@ -27,7 +27,12 @@ export function getBrowserPath( browser: SupportedBrowser ): string | null {
 			return null;
 		}
 		return (
-			[ process.env.ProgramFiles, process.env[ 'ProgramFiles(x86)' ], process.env.LOCALAPPDATA ]
+			[
+				process.env.ProgramFiles,
+				process.env[ 'ProgramFiles(x86)' ],
+				process.env.LOCALAPPDATA,
+				process.env.LOCALAPPDATA && path.win32.join( process.env.LOCALAPPDATA, 'Programs' ),
+			]
 				.filter( ( dir ): dir is string => !! dir )
 				.map( ( dir ) => path.win32.join( dir, config.winPath ) )
 				.find( ( file ) => fs.existsSync( file ) ) ?? null

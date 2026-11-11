@@ -4,7 +4,6 @@ import { clsx } from 'clsx';
 import { CheckIcon } from 'lucide-react';
 import { forwardRef } from 'react';
 import { ChevronDownIcon } from '@/lib/icons';
-import { FloatingSurface } from '@/lib/ui/surface';
 import surface from '@/lib/ui/surface/style.module.css';
 import styles from './style.module.css';
 import type { ComponentPropsWithoutRef, ElementRef, ReactNode } from 'react';
@@ -91,7 +90,15 @@ export function Popup( {
 			>
 				<BaseMenu.Popup
 					render={
-						<FloatingSurface className={ clsx( surface.padded, styles.popup, className ) } />
+						<div
+							className={ clsx(
+								surface.floating,
+								surface.popup,
+								surface.padded,
+								styles.popup,
+								className
+							) }
+						/>
 					}
 					{ ...props }
 				>
@@ -121,7 +128,15 @@ export function ContextPopup( { children, className, ...props }: ContextPopupPro
 			>
 				<BaseMenu.Popup
 					render={
-						<FloatingSurface className={ clsx( surface.padded, styles.popup, className ) } />
+						<div
+							className={ clsx(
+								surface.floating,
+								surface.popup,
+								surface.padded,
+								styles.popup,
+								className
+							) }
+						/>
 					}
 					{ ...props }
 				>
@@ -130,6 +145,10 @@ export function ContextPopup( { children, className, ...props }: ContextPopupPro
 			</BaseMenu.Positioner>
 		</BaseMenu.Portal>
 	);
+}
+
+export function ItemLabel( { className, ...props }: ComponentPropsWithoutRef< 'span' > ) {
+	return <span className={ clsx( styles.itemLabel, className ) } { ...props } />;
 }
 
 type ItemProps = ComponentPropsWithoutRef< typeof BaseMenu.Item > & {
@@ -144,7 +163,7 @@ export const Item = forwardRef< ElementRef< typeof BaseMenu.Item >, ItemProps >(
 	return (
 		<BaseMenu.Item
 			ref={ ref }
-			className={ clsx( surface.item, destructive && styles.destructive, className ) }
+			className={ clsx( surface.item, styles.item, destructive && styles.destructive, className ) }
 			{ ...props }
 		>
 			{ children }

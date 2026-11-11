@@ -1,9 +1,10 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { onlineManager } from '@tanstack/react-query';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useSyncExternalStore } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
+import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import { requestHeaderPanel } from '@/data/use-open-header-panel';
 import { SessionUIProvider } from '@/data/use-session-ui';
 import { PublishButton, SiteDeliveryDialog } from '@/features/site-delivery';
@@ -133,6 +134,46 @@ beforeEach( () => {
 } );
 
 describe( 'PublishPopover', () => {
+	it.each( [ true, false ] )(
+		'keeps Pull available and gates Publish when pushNeedsUpgrade is %s',
+		async ( pushNeedsUpgrade ) => {
+			const destination = { ...remote, pushNeedsUpgrade };
+			const { connector, ready } = setup( [ destination ], true, true, false );
+			connector.fetchSyncableWpcomSites.mockResolvedValue( [ destination ] );
+			if ( pushNeedsUpgrade ) {
+				// WordPress.com refuses Backup requests for sites without a qualifying plan.
+				connector.getLatestRewindId.mockRejectedValue(
+					new Error( 'Sorry, syncing isn’t available for this site.' )
+				);
+			}
+			await ready;
+			const pull = await screen.findByRole( 'button', { name: 'Pull changes' } );
+			expect( pull ).toBeEnabled();
+			const publish = screen.getByRole( 'button', { name: 'Publish changes' } );
+			if ( pushNeedsUpgrade ) {
+				expect( publish ).toBeDisabled();
+				expect(
+					screen.getByText(
+						'This website needs a hosting plan that supports publishing from WordPress Studio.'
+					)
+				).toBeVisible();
+			} else {
+				expect( publish ).toBeEnabled();
+			}
+			fireEvent.click( pull );
+			await screen.findByRole( 'radiogroup', { name: 'What to pull' } );
+			await waitFor( () =>
+				expect( screen.getByRole( 'button', { name: 'Pull changes' } ) ).toBeEnabled()
+			);
+			expect(
+				screen.queryByText(
+					'This website needs a hosting plan that supports publishing from WordPress Studio.'
+				)
+			).not.toBeInTheDocument();
+			expect( connector.getLatestRewindId ).toHaveBeenCalledTimes( pushNeedsUpgrade ? 0 : 1 );
+		}
+	);
+
 	it( 'shows only the loading state until connected destinations are ready', async () => {
 		const { connector, ready } = setup( [ remote ], true, true, false );
 		let finish!: ( sites: SyncSite[] ) => void;
@@ -174,7 +215,11 @@ describe( 'PublishPopover', () => {
 		expect( screen.queryByRole( 'button', { name: 'Existing site…' } ) ).not.toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Log in' } ) );
 		await waitFor( () =>
-			expect( connector.authenticate ).toHaveBeenCalledWith( false, 'sync_tab' )
+			expect( connector.authenticate ).toHaveBeenCalledWith(
+				false,
+				'sync_tab',
+				expect.any( Object )
+			)
 		);
 		await waitFor( () => expect( connector.fetchSyncableWpcomSites ).toHaveBeenCalled() );
 	} );
@@ -198,17 +243,22 @@ describe( 'PublishPopover', () => {
 				'https://wordpress.com/setup/new-hosted-site'
 			)
 		);
-		expect( connector.authenticate ).toHaveBeenCalledWith( true, 'sync_tab' );
+		expect( connector.authenticate ).toHaveBeenCalledWith( true, 'sync_tab', expect.any( Object ) );
 	} );
 
 	it( 'keeps setup continuation alive when its panel unmounts', async () => {
-		const { connector, completeSetup, hide, ready } = setup();
+		const { connector, completeSetup, hide, ready, site } = setup();
 		await ready;
 		fireEvent.click( await screen.findByRole( 'button', { name: 'New site…' } ) );
 		await waitFor( () => expect( connector.openExternalUrl ).toHaveBeenCalledTimes( 1 ) );
 		hide();
 		await completeSetup( true );
 		await waitFor( () => expect( connector.connectWpcomSite ).toHaveBeenCalled() );
+		expect( connector.trackEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.SYNC_CONNECT,
+			{ success: true, num_of_sites: 1 },
+			site.id
+		);
 		expect( connector.pushSiteToLive ).not.toHaveBeenCalled();
 	} );
 
@@ -327,16 +377,27 @@ describe( 'PublishPopover', () => {
 		await waitFor( () => expect( connector.pullSiteFromLive ).toHaveBeenCalledTimes( 2 ) );
 	} );
 
-	it( 'connects an eligible Pressable website without starting a transfer', async () => {
+	it.each( [
+		{ name: 'Pressable', isPressable: true, pushNeedsUpgrade: false },
+		{ name: 'pull-only Atomic', isPressable: false, pushNeedsUpgrade: true },
+	] )( 'connects an eligible $name website without starting a transfer', async ( eligibility ) => {
 		const { connector, ready, site } = setup();
-		connector.fetchSyncableWpcomSites.mockResolvedValue( [ { ...remote, isPressable: true } ] );
+		const { isPressable, pushNeedsUpgrade } = eligibility;
+		connector.fetchSyncableWpcomSites.mockResolvedValue( [
+			{ ...remote, isPressable, pushNeedsUpgrade },
+		] );
 		await ready;
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Existing site…' } ) );
 		fireEvent.click( await screen.findByRole( 'option', { name: /Hosted site.*example\.com/ } ) );
 		await screen.findByRole( 'button', { name: 'Pull changes' } );
 		expect( connector.connectWpcomSite ).toHaveBeenCalledWith(
 			site.id,
-			expect.objectContaining( { id: 42, isPressable: true } )
+			expect.objectContaining( { id: 42, isPressable, pushNeedsUpgrade } )
+		);
+		expect( connector.trackEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.SYNC_CONNECT,
+			{ success: true, num_of_sites: 1 },
+			site.id
 		);
 		expect( connector.pushSiteToLive ).not.toHaveBeenCalled();
 	} );
@@ -348,7 +409,12 @@ describe( 'PublishPopover', () => {
 			connector.fetchSyncableWpcomSites.mockResolvedValue(
 				state === 'none'
 					? []
-					: [ { ...remote, syncSupport: state === 'ineligible' ? 'needs-upgrade' : 'syncable' } ]
+					: [
+							{
+								...remote,
+								syncSupport: state === 'ineligible' ? 'needs-upgrade' : 'syncable',
+							},
+					  ]
 			);
 			if ( state === 'connected elsewhere' ) {
 				connector.getConnectedWpcomSites.mockImplementation( async ( siteId ) =>
@@ -455,9 +521,15 @@ describe( 'PublishPopover', () => {
 				optionsToSync: [ 'plugins', 'themes', 'uploads', 'contents' ],
 			} )
 		);
-		await waitFor( () => expect( getNoticeHistory()[ 0 ]?.title ).toBe( 'Published Local site' ), {
-			timeout: 3000,
-		} );
+		await waitFor(
+			() =>
+				expect(
+					getVisibleToasts().find( ( notice ) => notice.id === `push-${ site.id }` )?.title
+				).toBe( 'Published Local site' ),
+			{
+				timeout: 3000,
+			}
+		);
 	} );
 
 	it( 'forces a full pull when no remote backup exists', async () => {
@@ -681,18 +753,20 @@ describe( 'PublishPopover', () => {
 		expect( connector.pullSiteFromLive ).not.toHaveBeenCalled();
 	} );
 
-	it( 'blocks publishing when administrator access has been lost', async () => {
+	it( 'blocks publishing when the hosting plan no longer supports it', async () => {
 		const { connector, queryClient, ready } = setup( [ remote ] );
 		await ready;
 		await screen.findByRole( 'button', { name: 'Publish changes' } );
 		connector.fetchSyncableWpcomSites.mockResolvedValue( [
-			{ ...remote, syncSupport: 'missing-permissions' },
+			{ ...remote, syncSupport: 'needs-upgrade' },
 		] );
 		await act( async () => {
 			await queryClient.invalidateQueries();
 		} );
 		expect(
-			await screen.findByText( 'You need administrator access to publish or pull changes.' )
+			await screen.findByText(
+				'This website needs a hosting plan that supports publishing from WordPress Studio.'
+			)
 		).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Publish changes' } ) ).toBeDisabled();
 	} );
@@ -780,12 +854,19 @@ describe( 'PublishPopover', () => {
 	} );
 
 	it( 'retries a delayed setup callback without opening another setup', async () => {
-		const { connector, completeSetup, ready } = setup();
+		const { connector, completeSetup, ready, site } = setup();
 		await ready;
 		fireEvent.click( await screen.findByRole( 'button', { name: 'New site…' } ) );
 		await waitFor( () => expect( connector.openExternalUrl ).toHaveBeenCalledTimes( 1 ) );
 		connector.fetchSyncableWpcomSites.mockRejectedValueOnce( new Error( 'Website not ready' ) );
 		await completeSetup( true );
+		await waitFor( () =>
+			expect( connector.trackEvent ).toHaveBeenCalledWith(
+				TRACKS_EVENTS.SYNC_CONNECT,
+				expect.objectContaining( { success: false } ),
+				site.id
+			)
+		);
 		await waitFor( () =>
 			expect(
 				screen.getAllByRole( 'button', { name: 'Publish…', hidden: true } )[ 0 ]

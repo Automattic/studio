@@ -1,9 +1,12 @@
-import { HOUR_MS, DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
+import { HOUR_MS, DAY_MS } from '@studio/common/constants';
+import { getSnapshotExpiry } from '@studio/common/lib/snapshots';
 import { __ } from '@wordpress/i18n';
-import { addDays } from 'date-fns/addDays';
 import { addHours } from 'date-fns/addHours';
 import { formatDuration } from 'date-fns/formatDuration';
 import { intervalToDuration } from 'date-fns/intervalToDuration';
+import { reconcilePreviews } from 'cli/lib/cli-config/snapshots';
+import { getStandingPreviews, type StandingPreview } from 'cli/lib/preview-sites';
+import type { Snapshot } from '@studio/common/types/snapshot';
 import type { DurationUnit } from 'date-fns';
 
 export {
@@ -14,11 +17,27 @@ export {
 	pruneExpiredOrphanedSnapshots,
 } from 'cli/lib/cli-config/snapshots';
 
-export { isSnapshotExpired } from '@studio/common/lib/snapshots';
+export { getSnapshotLink, isSnapshotExpired, isWpcomPreview } from '@studio/common/lib/snapshots';
 
-export function formatDurationUntilExpiry( lastUpdatedAt: number ) {
+/**
+ * Brings saved previews in line with WordPress.com: drops those that ended there, so Studio does not
+ * list or try to update them, and takes each one's expiry and preview link from the server. Best effort: when the
+ * server cannot be asked, the saved list stands.
+ */
+export async function syncPreviewsWithServer( userId: number, token: string ): Promise< void > {
+	const checkedAt = Date.now();
+	let standing: Map< number, StandingPreview >;
+	try {
+		standing = await getStandingPreviews( token );
+	} catch {
+		return;
+	}
+	await reconcilePreviews( userId, standing, checkedAt );
+}
+
+export function formatDurationUntilExpiry( snapshot: Snapshot ) {
 	const now = new Date();
-	const endDate = addDays( lastUpdatedAt, DEMO_SITE_EXPIRATION_DAYS );
+	const endDate = new Date( getSnapshotExpiry( snapshot ) );
 	const difference = endDate.getTime() - now.getTime();
 	let format: DurationUnit[] = [ 'days', 'hours' ];
 

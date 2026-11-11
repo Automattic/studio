@@ -1,13 +1,14 @@
 /* The sidebar's part of the workspace's top band: the app menu (Windows and
    Linux) and the sidebar toggle at its start, past the macOS traffic lights. */
 .root {
+	--control-size: 32px;
 	--toggle-start: var( --traffic-light-space );
 	display: flex;
 	align-items: center;
-	gap: var( --space-1 );
+	gap: var( --band-gap );
 	height: var( --band-height );
 	flex-shrink: 0;
-	padding-inline: var( --toggle-start ) var( --space-3 );
+	padding-inline: var( --toggle-start ) var( --band-inset );
 	-webkit-app-region: drag;
 	/* Stay pinned while the sidebar scrolls. Opaque background so
 	   scrolling content doesn't bleed through. */
@@ -42,10 +43,6 @@
 .toggleSlot[data-sidebar-open='false'] > * {
 	visibility: hidden;
 	transition: visibility 0s var( --motion-duration-layout );
-}
-
-.root > * {
-	-webkit-app-region: no-drag;
 }
 
 .action {

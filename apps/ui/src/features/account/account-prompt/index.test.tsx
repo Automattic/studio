@@ -13,7 +13,7 @@ function Prompt() {
 			<AccountPromptDialog
 				open={ open }
 				onOpenChange={ setOpen }
-				title="Do more with WordPress.com"
+				title="Do more with WordPress"
 				description="Log in to share your site."
 				source="unknown"
 			/>
@@ -46,7 +46,37 @@ describe( 'AccountPromptDialog', () => {
 		);
 	} );
 
-	it( 'keeps a login started before the prompt was closed and reopened from starting again', async () => {
+	it( 'carries placement, intent and an opaque journey through authentication', async () => {
+		const connector = createFakeConnector( { user: null } );
+		renderWithProviders(
+			<AccountPromptDialog
+				open
+				onOpenChange={ () => {} }
+				title="Publish"
+				description="Connect to publish"
+				source="sync_tab"
+				analytics={ { placement: 'publish', intent: 'publish' } }
+				scope="local-site"
+			/>,
+			{ connector }
+		);
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Log in' } ) );
+		await waitFor( () =>
+			expect( connector.authenticate ).toHaveBeenCalledWith(
+				false,
+				'sync_tab',
+				expect.objectContaining( {
+					placement: 'publish',
+					intent: 'publish',
+					journey_id: expect.any( String ),
+				} )
+			)
+		);
+		const metadata = connector.authenticate.mock.calls[ 0 ][ 2 ];
+		expect( metadata ).not.toHaveProperty( 'scope' );
+	} );
+
+	it( 'allows retrying login after closing and reopening the prompt', async () => {
 		const connector = createFakeConnector( { user: null } );
 		connector.authenticate.mockReturnValue( new Promise( () => {} ) );
 		renderWithProviders( <Prompt />, { connector } );
@@ -59,8 +89,8 @@ describe( 'AccountPromptDialog', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Share' } ) );
 
 		const logIn = await screen.findByRole( 'button', { name: 'Log in' } );
-		expect( logIn ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( logIn ).toBeEnabled();
 		fireEvent.click( logIn );
-		expect( connector.authenticate ).toHaveBeenCalledTimes( 1 );
+		await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledTimes( 2 ) );
 	} );
 } );

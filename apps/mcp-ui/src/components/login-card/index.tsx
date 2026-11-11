@@ -1,15 +1,18 @@
 import { useState } from 'react';
 import { useLogIn, useOpenLogin } from '@/data/queries/use-host-actions';
+import { useLoginPromptExposure } from '@/hooks/use-login-prompt-exposure';
 
 // WordPress.com shows a token once the user authorizes Studio; they paste it here.
 export function LoginCard() {
-	const openLogin = useOpenLogin();
+	const [ journeyId ] = useState( () => crypto.randomUUID() );
+	const exposureRef = useLoginPromptExposure( journeyId );
+	const openLogin = useOpenLogin( journeyId );
 	const logIn = useLogIn();
 	const [ token, setToken ] = useState( '' );
 	const error = openLogin.error || logIn.error;
 
 	return (
-		<div className="empty">
+		<div className="empty" ref={ exposureRef }>
 			<p className="empty-title">Log in to WordPress.com</p>
 			{ openLogin.isSuccess ? (
 				<>
@@ -18,7 +21,7 @@ export function LoginCard() {
 						className="login-form"
 						onSubmit={ ( event ) => {
 							event.preventDefault();
-							logIn.mutate( token );
+							logIn.mutate( { token, attemptId: openLogin.data, journeyId, retry: logIn.isError } );
 						} }
 					>
 						<input

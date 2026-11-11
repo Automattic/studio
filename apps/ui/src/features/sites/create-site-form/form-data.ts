@@ -1,12 +1,13 @@
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
-import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
 import {
 	DEFAULT_ADMIN_EMAIL,
 	DEFAULT_ADMIN_USERNAME,
 	generatePassword,
 } from '@studio/common/lib/passwords';
+import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
+import { getFolderNameError, splitFolderPath } from './folder-path';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
@@ -24,21 +25,24 @@ export interface CreateSiteFormValues {
 	adminEmail: string;
 }
 
+export type CreateSiteFormDraft = Partial< CreateSiteFormValues > & {
+	isWordPress?: boolean;
+	matchSiteName?: boolean;
+};
+
 export interface FormData {
 	name: string;
 	path: string;
 	// Stops the name→path auto-gen from overriding a manually picked folder.
 	hasCustomPath: boolean;
+	matchSiteName: boolean;
 	pathError: string;
 	isWordPress: boolean;
-	// Suppresses the path field's required check during the auto-gen async
-	// window so a seeded name doesn't flash "1 error found" on the Advanced
-	// toggle before `generateProposedPath` resolves.
+	// Suppresses the required-path check while its suggested value is pending.
 	isPathPending: boolean;
 	phpVersion: SupportedPHPVersion;
 	fileAccess: SiteFileAccess;
 	wpVersion: string;
-	useCustomDomain: boolean;
 	customDomain: string;
 	enableHttps: boolean;
 	adminUsername: string;
@@ -63,14 +67,14 @@ export function createDefaultFormData(): FormData {
 		name: '',
 		path: '',
 		hasCustomPath: false,
+		matchSiteName: false,
 		pathError: '',
 		isWordPress: false,
 		isPathPending: false,
 		phpVersion: RecommendedPHPVersion,
 		fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
 		wpVersion: DEFAULT_WORDPRESS_VERSION,
-		useCustomDomain: false,
-		customDomain: '',
+		customDomain: 'localhost',
 		enableHttps: false,
 		adminUsername: DEFAULT_ADMIN_USERNAME,
 		adminPassword: generatePassword(),
@@ -83,17 +87,18 @@ export function getSuggestedFields(
 ): Set< keyof CreateSiteFormValues > {
 	return new Set(
 		( Object.keys( values ) as ( keyof CreateSiteFormValues )[] ).filter(
-			( field ) => values[ field ] !== undefined
+			( field ) => INITIAL_VALUE_FIELDS.includes( field ) && values[ field ] !== undefined
 		)
 	);
 }
 
 export function applyInitialValues(
 	prev: FormData,
-	values: Partial< CreateSiteFormValues >,
+	values: CreateSiteFormDraft,
 	defaults: FormData,
 	previousSuggestedFields: Set< keyof CreateSiteFormValues > = new Set(),
-	dirtyFields: Set< keyof CreateSiteFormValues > = new Set()
+	dirtyFields: Set< keyof CreateSiteFormValues > = new Set(),
+	suggestedName = ''
 ): FormData {
 	const next: FormData = { ...prev };
 	const defaultValuesByField: Record< keyof CreateSiteFormValues, Partial< FormData > > = {
@@ -101,6 +106,7 @@ export function applyInitialValues(
 		path: {
 			path: defaults.path,
 			hasCustomPath: defaults.hasCustomPath,
+			matchSiteName: defaults.matchSiteName,
 			pathError: defaults.pathError,
 			isWordPress: defaults.isWordPress,
 			isPathPending: defaults.isPathPending,
@@ -109,7 +115,6 @@ export function applyInitialValues(
 		fileAccess: { fileAccess: defaults.fileAccess },
 		wpVersion: { wpVersion: defaults.wpVersion },
 		customDomain: {
-			useCustomDomain: defaults.useCustomDomain,
 			customDomain: defaults.customDomain,
 		},
 		enableHttps: { enableHttps: defaults.enableHttps },
@@ -129,19 +134,15 @@ export function applyInitialValues(
 	if ( values.path !== undefined && ! dirtyFields.has( 'path' ) ) {
 		next.path = values.path;
 		next.hasCustomPath = !! values.path;
+		next.isWordPress = !! values.path && !! values.isWordPress;
+		next.matchSiteName = !! values.path && !! values.matchSiteName && ! next.isWordPress;
 		next.pathError = '';
-		next.isWordPress = false;
 		next.isPathPending = false;
 	}
 	if ( values.customDomain !== undefined && ! dirtyFields.has( 'customDomain' ) ) {
-		next.useCustomDomain = !! values.customDomain;
 		next.customDomain = values.customDomain;
 	}
-	if ( ! next.hasCustomPath && next.name !== prev.name ) {
-		next.isPathPending = !! next.name.trim();
-		next.pathError = '';
-		if ( ! next.name.trim() ) next.path = '';
-	}
+	updatePathForSiteName( prev, next, suggestedName );
 	return Object.keys( next ).some(
 		( key ) => next[ key as keyof FormData ] !== prev[ key as keyof FormData ]
 	)
@@ -150,30 +151,50 @@ export function applyInitialValues(
 }
 
 // A change the person made to the form.
-export function applyFormChange( prev: FormData, update: Partial< FormData > ): FormData {
+export function applyFormChange(
+	prev: FormData,
+	update: Partial< FormData >,
+	suggestedName = ''
+): FormData {
 	const next: FormData = { ...prev, ...update };
-	if ( update.name !== undefined && ! prev.hasCustomPath && next.name !== prev.name ) {
-		next.isPathPending = !! next.name.trim();
-		next.pathError = '';
-		if ( ! next.name.trim() ) next.path = '';
-	}
-	if ( ! prev.useCustomDomain && next.useCustomDomain && ! next.customDomain ) {
-		next.customDomain = generateCustomDomainFromSiteName( next.name );
-	}
+	updatePathForSiteName( prev, next, suggestedName );
 	return next;
 }
 
-export function getSubmittedValues( data: FormData ): CreateSiteFormValues {
+function updatePathForSiteName( prev: FormData, next: FormData, suggestedName = '' ) {
+	const siteName = next.name.trim() || suggestedName;
+	const previousName = prev.name.trim() || suggestedName;
+	if (
+		siteName === previousName &&
+		next.path === prev.path &&
+		next.matchSiteName === prev.matchSiteName
+	)
+		return;
+	if ( ! next.hasCustomPath ) {
+		next.isPathPending = !! siteName;
+		next.pathError = '';
+		if ( ! siteName ) next.path = '';
+	} else if ( next.matchSiteName ) {
+		const name = sanitizeFolderName( siteName );
+		next.path = splitFolderPath( next.path ).parent + name;
+		next.pathError = siteName ? getFolderNameError( name ) : '';
+		next.isWordPress = false;
+		next.isPathPending = ! next.pathError;
+	}
+}
+
+export function getSubmittedValues( data: FormData, suggestedName = '' ): CreateSiteFormValues {
+	const name = data.name.trim() || suggestedName;
+	const domain = data.customDomain.trim();
+	const customDomain = domain && domain !== 'localhost' ? domain : undefined;
 	return {
-		name: data.name.trim(),
+		name,
 		path: data.path,
 		phpVersion: data.phpVersion,
 		fileAccess: data.fileAccess,
 		wpVersion: data.wpVersion,
-		customDomain: data.useCustomDomain
-			? data.customDomain || generateCustomDomainFromSiteName( data.name )
-			: undefined,
-		enableHttps: data.useCustomDomain && data.enableHttps,
+		customDomain,
+		enableHttps: !! customDomain && data.enableHttps,
 		adminUsername: data.adminUsername,
 		adminPassword: data.adminPassword,
 		adminEmail: data.adminEmail,

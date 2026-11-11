@@ -1,10 +1,24 @@
 .trigger {
-	min-width: max-content;
+	--control-size: 32px;
+	min-width: 0;
+	max-width: var( --site-menu-max-width, 100% );
+	flex-shrink: 1;
 	padding-inline-end: var( --space-1_5 );
 	color: var( --foreground );
 	-webkit-app-region: no-drag;
 }
 
+.siteName {
+	composes: truncate from '@/lib/theme/recipes.module.css';
+	min-width: 0;
+}
+
 .items {
-	min-width: 200px;
+	min-width: 180px;
+}
+
+@container site-header ( max-width: 240px ) {
+	.siteName {
+		display: none;
+	}
 }

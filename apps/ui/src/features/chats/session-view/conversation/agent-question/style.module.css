@@ -69,6 +69,15 @@
 }
 
 .questionOptionImage {
+	composes: imageOutline from '@/lib/theme/recipes.module.css';
+	position: relative;
+}
+
+.questionOptionImage img {
+	display: block;
+	width: 100%;
+	height: 100%;
+	border-radius: inherit;
 	object-fit: cover;
 	object-position: top;
 }
@@ -102,9 +111,18 @@
 	border-radius: var( --radius-lg );
 }
 
+.questionOptionZoomArtwork {
+	composes: imageOutline from '@/lib/theme/recipes.module.css';
+	position: relative;
+	display: block;
+	border-radius: inherit;
+}
+
 .questionOptionZoomImage {
+	display: block;
 	max-width: calc( 100vw - 2 * 24px );
 	max-height: calc( 100dvh - 2 * 24px );
+	border-radius: inherit;
 }
 
 .questionOptionZoomClose,

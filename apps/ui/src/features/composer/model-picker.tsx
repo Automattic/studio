@@ -120,8 +120,8 @@ export function ModelPicker( {
 					: [] ),
 				{
 					value: 'connect-provider',
-					label: __( 'Connect provider…' ),
-					description: __( 'Add or manage your AI providers' ),
+					label: __( 'Connect providers' ),
+					description: __( 'Use WordPress.com AI credits or your own API key.' ),
 					icon: PlugIcon,
 				},
 			],

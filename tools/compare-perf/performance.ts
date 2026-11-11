@@ -27,6 +27,11 @@ interface PerformanceCommandOptions {
 	 * The branch whose performance test files will be used for testing.
 	 */
 	testsBranch?: string;
+	/**
+	 * Use the checkout running this tool for any ref that resolves to its `HEAD`,
+	 * rather than cloning it and installing its dependencies again.
+	 */
+	reuseCheckout?: boolean;
 }
 
 /**
@@ -73,6 +78,43 @@ function median( array: number[] ): number | undefined {
 }
 
 /**
+ * Whether `ref` names the commit the checkout running this tool is on.
+ *
+ * @param ref Git ref to check.
+ */
+async function isCheckoutHead( ref: string ): Promise< boolean > {
+	const git = simpleGit( config.repositoryRoot );
+	try {
+		const [ head, commit ] = await Promise.all( [
+			git.revparse( [ 'HEAD' ] ),
+			git.revparse( [ '--verify', '--quiet', `${ ref }^{commit}` ] ),
+		] );
+		return head === commit;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Moves a directory, copying it when the destination is on another volume.
+ *
+ * @param from Directory to move.
+ * @param to   Destination path.
+ */
+function moveDirectory( from: string, to: string ) {
+	fs.mkdirSync( path.dirname( to ), { recursive: true } );
+	try {
+		fs.renameSync( from, to );
+	} catch ( error ) {
+		if ( ( error as NodeJS.ErrnoException ).code !== 'EXDEV' ) {
+			throw error;
+		}
+		fs.cpSync( from, to, { recursive: true, verbatimSymlinks: true } );
+		fs.rmSync( from, { recursive: true } );
+	}
+}
+
+/**
  * Runs the performance tests on the current branch.
  *
  * @param testSuite     Name of the tests set.
@@ -108,9 +150,11 @@ async function runTestSuite(
 	fs.mkdirSync( path.dirname( testRunnerOutDir ), { recursive: true } );
 	fs.symlinkSync( outDir, testRunnerOutDir, 'dir' );
 
-	// Run the test suite
-	await runShellScript( `${ config.testCommand } ${ testSuite }`, testRunnerDir, {
+	// The suite name is a file name, so it reaches the shell as a variable rather than as syntax.
+	const testSuiteArgument = process.platform === 'win32' ? '%TEST_SUITE%' : '"$TEST_SUITE"';
+	await runShellScript( `${ config.testCommand } ${ testSuiteArgument }`, testRunnerDir, {
 		...process.env,
+		TEST_SUITE: testSuite,
 		ARTIFACTS_PATH: config.artifactsPath,
 		RESULTS_FILE_SUFFIX: config.resultsFileSuffix,
 		RESULTS_ID: runKey,
@@ -197,19 +241,25 @@ export async function runPerformanceTests(
 
 	logAtIndent( 1, 'Setting up test runner' );
 
-	const testRunnerDir = path.join( baseDir, 'tests' );
+	let testRunnerDir = path.join( baseDir, 'tests' );
 
-	logAtIndent( 2, 'Copying source to:', formats.success( testRunnerDir ) );
-	fs.cpSync( sourceDir, testRunnerDir, { recursive: true } );
+	if ( options.reuseCheckout && ( await isCheckoutHead( testRunnerBranch ) ) ) {
+		testRunnerDir = config.repositoryRoot;
+		logAtIndent( 2, 'Reusing checkout:', formats.success( testRunnerDir ) );
+		await runShellScript( config.installTestBrowsers, testRunnerDir );
+	} else {
+		logAtIndent( 2, 'Copying source to:', formats.success( testRunnerDir ) );
+		fs.cpSync( sourceDir, testRunnerDir, { recursive: true } );
 
-	logAtIndent( 2, 'Checking out branch:', formats.success( testRunnerBranch ) );
-	await simpleGit( testRunnerDir ).raw( 'checkout', testRunnerBranch );
+		logAtIndent( 2, 'Checking out branch:', formats.success( testRunnerBranch ) );
+		await simpleGit( testRunnerDir ).raw( 'checkout', testRunnerBranch );
 
-	logAtIndent( 2, 'Installing dependencies and building' );
+		logAtIndent( 2, 'Installing dependencies and building' );
 
-	await runShellScript( config.setupTestRunner, testRunnerDir, {
-		GITHUB_TOKEN: process.env.GITHUB_TOKEN,
-	} );
+		await runShellScript( config.setupTestRunner, testRunnerDir, {
+			GITHUB_TOKEN: process.env.GITHUB_TOKEN,
+		} );
+	}
 
 	logAtIndent( 1, 'Setting up test environments' );
 
@@ -227,6 +277,24 @@ export async function runPerformanceTests(
 		fs.mkdirSync( envDir );
 		branchDirs[ branch ] = envDir;
 		const buildDir = path.join( envDir, 'app' );
+		const buildEnv = {
+			// Lets `npm run package` build in place instead of reinstalling into an isolated copy.
+			CI: process.env.CI,
+			GITHUB_TOKEN: process.env.GITHUB_TOKEN,
+			SKIP_WORKER_THREAD_BUILD: process.env.SKIP_WORKER_THREAD_BUILD,
+			IS_DEV_BUILD: 'true',
+		};
+
+		if ( options.reuseCheckout && ( await isCheckoutHead( branch ) ) ) {
+			logAtIndent( 3, 'Building in checkout:', formats.success( config.repositoryRoot ) );
+			await runShellScript( config.packageCommand, config.repositoryRoot, buildEnv );
+
+			// The test runner symlinks its `out` to each environment's, so the build can't stay
+			// in the checkout when that's also the test runner.
+			const outDir = path.join( 'apps', 'studio', 'out' );
+			moveDirectory( path.join( config.repositoryRoot, outDir ), path.join( buildDir, outDir ) );
+			continue;
+		}
 
 		logAtIndent( 3, 'Copying source to:', formats.success( buildDir ) );
 		fs.cpSync( sourceDir, buildDir, { recursive: true } );
@@ -235,11 +303,7 @@ export async function runPerformanceTests(
 		await simpleGit( buildDir ).raw( 'checkout', branch );
 
 		logAtIndent( 3, 'Installing dependencies and building' );
-		await runShellScript( config.setupCommand, buildDir, {
-			GITHUB_TOKEN: process.env.GITHUB_TOKEN,
-			SKIP_WORKER_THREAD_BUILD: process.env.SKIP_WORKER_THREAD_BUILD,
-			IS_DEV_BUILD: 'true',
-		} );
+		await runShellScript( config.setupCommand, buildDir, buildEnv );
 	}
 
 	logAtIndent( 0, 'Looking for test files' );

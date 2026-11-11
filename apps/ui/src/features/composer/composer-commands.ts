@@ -10,18 +10,23 @@ import {
 	TagsIcon,
 	UnlockIcon,
 } from 'lucide-react';
-import { McpIcon, StartSiteIcon } from '@/lib/icons';
+import { FeedbackIcon, McpIcon, SplitViewIcon, StartSiteIcon, StopSiteIcon } from '@/lib/icons';
 import type { Command, CommandGroup } from '@/lib/ui';
 import type { SkillSlashCommand } from '@studio/agent/protocol/slash-commands';
 import type { ComponentType } from 'react';
 
 const COMMAND_ICONS: Partial< Record< string, ComponentType< { className?: string } > > > = {
+	'add-files': PaperclipIcon,
+	start: StartSiteIcon,
+	stop: StopSiteIcon,
 	annotate: PencilRulerIcon,
 	taxonomist: TagsIcon,
 	'need-for-speed': GaugeIcon,
 	'rank-me-up': ChartNoAxesCombinedIcon,
 	liberate: UnlockIcon,
+	feedback: FeedbackIcon,
 	'auto-start': StartSiteIcon,
+	panel: SplitViewIcon,
 	'connect-provider': McpIcon,
 	model: SlidersHorizontalIcon,
 	local: PlayIcon,
@@ -34,14 +39,43 @@ export function getComposerCommands( {
 	canChooseModel,
 	environment,
 	canChangeEnvironment,
+	panelCommand,
+	siteCommand,
+	canAnnotate,
 }: {
 	canAutoStart: boolean;
 	autoStartOn: boolean;
 	canChooseModel: boolean;
 	environment: 'local' | 'live';
 	canChangeEnvironment: boolean;
+	panelCommand?: SkillSlashCommand;
+	siteCommand?: 'start' | 'stop';
+	canAnnotate?: boolean;
 } ): SkillSlashCommand[] {
 	return [
+		{
+			name: 'add-files',
+			displayName: __( 'Add files' ),
+			description: '',
+		},
+		...( canAnnotate
+			? [
+					{
+						name: 'annotate',
+						displayName: __( 'Annotate' ),
+						description: __( 'Point or draw to suggest a change.' ),
+					},
+			  ]
+			: [] ),
+		...( siteCommand
+			? [
+					{
+						name: siteCommand,
+						displayName: siteCommand === 'start' ? __( 'Start site' ) : __( 'Stop site' ),
+						description: siteCommand === 'start' ? __( 'Start this site.' ) : '',
+					},
+			  ]
+			: [] ),
 		...( canAutoStart && ! autoStartOn
 			? [
 					{
@@ -51,6 +85,7 @@ export function getComposerCommands( {
 					},
 			  ]
 			: [] ),
+		...( panelCommand ? [ panelCommand ] : [] ),
 		...( canChooseModel
 			? [
 					{
@@ -62,7 +97,7 @@ export function getComposerCommands( {
 			: [] ),
 		{
 			name: 'connect-provider',
-			displayName: __( 'Connect AI providers' ),
+			displayName: __( 'Connect providers' ),
 			description: __( 'Use WordPress.com AI credits or your own API key.' ),
 		},
 		...( canChangeEnvironment && environment === 'live'
@@ -77,18 +112,20 @@ export function getComposerCommands( {
 	];
 }
 
-// The add menu lists everything; a `/fragment` lists its matches.
+// The add menu offers common actions; a `/fragment` also finds utility commands.
 export function getCommandGroups( {
 	addOpen,
 	commands,
 	skills,
 	matches,
+	searching = false,
 	isDisabled,
 }: {
 	addOpen: boolean;
 	commands: SkillSlashCommand[];
 	skills: SkillSlashCommand[];
 	matches: SkillSlashCommand[];
+	searching?: boolean;
 	isDisabled: ( name: string ) => boolean;
 } ): CommandGroup[] {
 	const isSkill = ( command: SkillSlashCommand ) =>
@@ -103,18 +140,15 @@ export function getCommandGroups( {
 	return [
 		{
 			label: __( 'Commands' ),
-			items: [
-				...( addOpen
-					? [ { value: 'add-files', label: __( 'Add files' ), icon: PaperclipIcon } ]
-					: [] ),
-				...( addOpen ? commands : matches.filter( ( command ) => ! isSkill( command ) ) ).map(
-					toCommand
-				),
-			],
+			items: ( addOpen ? commands : matches.filter( ( command ) => ! isSkill( command ) ) )
+				.filter(
+					( command ) => searching || ! [ 'stop', 'panel', 'model' ].includes( command.name )
+				)
+				.map( toCommand ),
 		},
 		{
 			label: __( 'Skills' ),
-			heading: __( 'Skills' ),
+			heading: addOpen ? __( 'Skills' ) : undefined,
 			items: ( addOpen ? skills : matches.filter( isSkill ) ).map( toCommand ),
 		},
 	];

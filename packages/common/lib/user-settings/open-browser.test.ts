@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readAppConfig } from '@studio/common/lib/app-config';
-import { openSiteInBrowser } from './open-browser';
+import { getBrowserPath, openSiteInBrowser } from './open-browser';
 
 vi.mock( 'node:child_process', () => ( { spawn: vi.fn() } ) );
 vi.mock( '@studio/common/lib/app-config', () => ( { readAppConfig: vi.fn() } ) );
@@ -90,4 +90,15 @@ describe( 'site browser selection', () => {
 		);
 		expect( fallback ).not.toHaveBeenCalled();
 	} );
+} );
+
+it.each( [
+	'C:\\Program Files\\Opera\\launcher.exe',
+	'C:\\Users\\person\\AppData\\Local\\Programs\\Opera\\launcher.exe',
+] )( 'detects Opera at %s', ( executable ) => {
+	vi.spyOn( process, 'platform', 'get' ).mockReturnValue( 'win32' );
+	vi.stubEnv( 'ProgramFiles', 'C:\\Program Files' );
+	vi.stubEnv( 'LOCALAPPDATA', 'C:\\Users\\person\\AppData\\Local' );
+	vi.mocked( fs.existsSync ).mockImplementation( ( file ) => file === executable );
+	expect( getBrowserPath( 'opera' ) ).toBe( executable );
 } );

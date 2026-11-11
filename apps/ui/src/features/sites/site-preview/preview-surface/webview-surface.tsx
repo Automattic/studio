@@ -4,6 +4,7 @@ import {
 	parseInspectorMessage,
 	type InspectorEvent,
 } from '@studio/agent/protocol/inspector/page-script';
+import { READ_ADMIN_BAR_VISIBILITY_SCRIPT } from '@studio/common/lib/preview-shortcuts-script';
 import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useColorScheme } from '@/data/host/use-color-scheme';
@@ -29,19 +30,24 @@ import {
 	type WebviewPageTitleUpdatedEvent,
 	type WebviewStartNavigationEvent,
 	type WebviewTag,
+	type PreviewColorScheme,
 } from './webview';
 import type { SiteAnnotations } from '@/features/annotations';
 
 interface WebviewSurfaceProps {
 	url: string;
+	colorScheme?: PreviewColorScheme;
 	reloadNonce: number;
 	// The site's annotations, mirrored into the page as markers.
 	annotations?: SiteAnnotations;
+	annotationTool?: 'select' | 'draw';
+	clearSelection?: string;
 	onInspectorReady?: ( ready: boolean ) => void;
 	onInspectorEvent?: ( event: InspectorEvent ) => void;
 	browserCommand?: BrowserCommand | null;
 	onBrowserStateChange?: ( state: BrowserNavigationState ) => void;
 	onNavigate?: ( url: string ) => void;
+	onAdminBarVisibilityChange?: ( visible: boolean | null ) => void;
 	// A page finished loading, with the webview's guest id for capturing it.
 	onLoad?: ( url: string, guestId: number ) => void;
 	// Whether to inject the annotation inspector into the guest page. Off for
@@ -57,31 +63,36 @@ interface WebviewSurfaceProps {
  */
 export function WebviewSurface( {
 	url,
+	colorScheme = 'system',
 	reloadNonce,
 	annotations,
+	annotationTool = 'select',
+	clearSelection,
 	onInspectorReady,
 	onInspectorEvent,
 	browserCommand,
 	onBrowserStateChange,
 	onNavigate,
+	onAdminBarVisibilityChange,
 	onLoad,
 	inspector = true,
 }: WebviewSurfaceProps ) {
 	const ref = useRef< HTMLElement | null >( null );
 	const [ ready, setReady ] = useState( false );
+	const [ documentVersion, setDocumentVersion ] = useState( 0 );
 	const [ inspectorReady, setInspectorReady ] = useState( false );
 	const onInspectorReadyRef = useRef( onInspectorReady );
 	const onInspectorEventRef = useRef( onInspectorEvent );
 	const onBrowserStateChangeRef = useRef( onBrowserStateChange );
 	const onNavigateRef = useRef( onNavigate );
+	const onAdminBarVisibilityRef = useRef( onAdminBarVisibilityChange );
+	const visibilityRequestRef = useRef( 0 );
 	const onLoadRef = useRef( onLoad );
 	const browserStateRef = useRef< BrowserNavigationState >( EMPTY_BROWSER_STATE );
 	const domReadyRef = useRef( false );
 	const inspectorEnabledRef = useRef( inspector );
 	const currentUrlRef = useRef( url );
 	const lastReloadNonceRef = useRef( reloadNonce );
-	const progressTimerRef = useRef< ReturnType< typeof setInterval > | null >( null );
-	const progressResetTimerRef = useRef< ReturnType< typeof setTimeout > | null >( null );
 	useEffect( () => {
 		onInspectorReadyRef.current = onInspectorReady;
 	}, [ onInspectorReady ] );
@@ -94,6 +105,9 @@ export function WebviewSurface( {
 	useEffect( () => {
 		onNavigateRef.current = onNavigate;
 	}, [ onNavigate ] );
+	useEffect( () => {
+		onAdminBarVisibilityRef.current = onAdminBarVisibilityChange;
+	}, [ onAdminBarVisibilityChange ] );
 	useEffect( () => {
 		onLoadRef.current = onLoad;
 	}, [ onLoad ] );
@@ -115,6 +129,20 @@ export function WebviewSurface( {
 	// Identifies the most recent load we started, so a rejection from a load
 	// that a newer one superseded can't roll the address bar backwards.
 	const loadGenerationRef = useRef( 0 );
+	const readAdminBarVisibility = useCallback( () => {
+		const webview = ref.current as WebviewTag | null;
+		if ( ! webview || ! domReadyRef.current || ! onAdminBarVisibilityRef.current ) return;
+		const request = ++visibilityRequestRef.current;
+		void webview
+			.executeJavaScript( READ_ADMIN_BAR_VISIBILITY_SCRIPT, false )
+			.then( ( visible ) => {
+				if ( request === visibilityRequestRef.current && typeof visible === 'boolean' )
+					onAdminBarVisibilityRef.current?.( visible );
+			} )
+			.catch( () => {
+				if ( request === visibilityRequestRef.current ) onAdminBarVisibilityRef.current?.( null );
+			} );
+	}, [] );
 
 	const publishBrowserState = useCallback( ( patch: Partial< BrowserNavigationState > = {} ) => {
 		const webview = ref.current as WebviewTag | null;
@@ -138,41 +166,6 @@ export function WebviewSurface( {
 		browserStateRef.current = next;
 		onBrowserStateChangeRef.current?.( next );
 	}, [] );
-
-	const clearProgressTimers = useCallback( () => {
-		if ( progressTimerRef.current ) {
-			clearInterval( progressTimerRef.current );
-			progressTimerRef.current = null;
-		}
-		if ( progressResetTimerRef.current ) {
-			clearTimeout( progressResetTimerRef.current );
-			progressResetTimerRef.current = null;
-		}
-	}, [] );
-
-	// The webview emits no incremental load progress, so the bar is
-	// simulated: it eases toward 88% while loading and snaps to 100% on
-	// completion before resetting.
-	const startProgress = useCallback( () => {
-		clearProgressTimers();
-		publishBrowserState( {
-			loading: true,
-			progress: Math.max( browserStateRef.current.progress, 0.12 ),
-		} );
-		progressTimerRef.current = setInterval( () => {
-			const current = browserStateRef.current.progress;
-			const next = Math.min( 0.88, current + Math.max( 0.02, ( 0.88 - current ) * 0.18 ) );
-			publishBrowserState( { loading: true, progress: next } );
-		}, 250 );
-	}, [ clearProgressTimers, publishBrowserState ] );
-
-	const finishProgress = useCallback( () => {
-		clearProgressTimers();
-		publishBrowserState( { loading: false, progress: 1 } );
-		progressResetTimerRef.current = setTimeout( () => {
-			publishBrowserState( { loading: false, progress: 0 } );
-		}, 180 );
-	}, [ clearProgressTimers, publishBrowserState ] );
 
 	// The mount-time url is loaded via the `src` attribute (calling `loadURL`
 	// before `dom-ready` throws); it must stay stable so later navigation
@@ -205,7 +198,9 @@ export function WebviewSurface( {
 				.catch( () => undefined );
 		};
 
+		let titleRequest = 0;
 		const publishDocumentTitle = ( title?: unknown ) => {
+			const request = ++titleRequest;
 			if ( typeof title === 'string' ) {
 				publishBrowserState( { title: normalizeDocumentTitle( title ) } );
 				return;
@@ -214,6 +209,7 @@ export function WebviewSurface( {
 			webview
 				.executeJavaScript( 'document.title', false )
 				.then( ( nextTitle ) => {
+					if ( request !== titleRequest ) return;
 					publishBrowserState( { title: normalizeDocumentTitle( nextTitle ) } );
 				} )
 				.catch( () => undefined );
@@ -222,7 +218,9 @@ export function WebviewSurface( {
 		const handleDomReady = () => {
 			domReadyRef.current = true;
 			setReady( true );
+			setDocumentVersion( ( version ) => version + 1 );
 			publishDocumentTitle();
+			readAdminBarVisibility();
 			publishNavigationHistory();
 			if ( ! inspectorEnabledRef.current ) {
 				return;
@@ -294,22 +292,27 @@ export function WebviewSurface( {
 		// navigations keep it.
 		const handleStartNavigation = ( event: Event ) => {
 			const { isMainFrame, isInPlace } = event as WebviewStartNavigationEvent;
+			if ( isMainFrame && ! isInPlace ) {
+				visibilityRequestRef.current += 1;
+				onAdminBarVisibilityRef.current?.( null );
+			}
 			if ( isMainFrame && ! isInPlace && inspectorEnabledRef.current ) {
 				setInspectorReady( false );
 				onInspectorReadyRef.current?.( false );
 			}
 		};
 		const handleStartLoading = () => {
+			titleRequest++;
 			didReadTitleAfterLoad = false;
-			publishBrowserState( { title: null, failed: false } );
-			startProgress();
+			publishBrowserState( { loading: true, failed: false } );
 		};
 		const handleStopLoading = () => {
-			finishProgress();
+			publishBrowserState( { loading: false } );
 			publishNavigationHistory();
 			if ( domReadyRef.current && ! didReadTitleAfterLoad ) {
 				didReadTitleAfterLoad = true;
 				publishDocumentTitle();
+				readAdminBarVisibility();
 			}
 		};
 
@@ -339,7 +342,7 @@ export function WebviewSurface( {
 		publishBrowserState();
 		return () => {
 			domReadyRef.current = false;
-			clearProgressTimers();
+			visibilityRequestRef.current += 1;
 			webview.removeEventListener( 'dom-ready', handleDomReady );
 			webview.removeEventListener( 'console-message', handleConsoleMessage );
 			webview.removeEventListener( 'page-title-updated', handlePageTitleUpdated );
@@ -352,7 +355,7 @@ export function WebviewSurface( {
 			webview.removeEventListener( 'did-fail-load', handleFailLoad );
 			webview.removeEventListener( 'did-finish-load', handleStopLoading );
 		};
-	}, [ clearProgressTimers, finishProgress, publishBrowserState, startProgress ] );
+	}, [ publishBrowserState, readAdminBarVisibility ] );
 
 	// Navigation effect — gated on `ready` so the first call happens after
 	// `dom-ready` (the initial url is loaded by the `src` attribute on the
@@ -403,18 +406,37 @@ export function WebviewSurface( {
 		} );
 	}, [ url, reloadNonce, ready ] );
 
+	useEffect( () => {
+		const webview = ref.current as WebviewTag | null;
+		if ( ! documentVersion || ! webview ) return;
+		void getPreviewIpc()
+			?.setWebviewColorScheme?.( getWebviewContentsId( webview ), colorScheme )
+			.catch( ( error ) => console.error( 'Failed to set preview appearance:', error ) );
+	}, [ colorScheme, documentVersion ] );
+
 	// Mirrors the notes into the page, in the theme's accent.
-	const colorScheme = useColorScheme();
+	const appColorScheme = useColorScheme();
 	useEffect( () => {
 		const webview = ref.current as WebviewTag | null;
 		if ( ! inspectorReady || ! webview || ! annotations ) return;
 		const theme = getComputedStyle( webview );
+		// Only notes picked on a page. Told about a note on the design system or
+		// in an email, the page would report it off screen and hide its editor.
+		const notes = annotations.notes.filter( ( note ) => note.url );
 		const detail = {
 			active: annotations.active,
-			editingId: annotations.editingId,
-			notes: annotations.notes.map(
-				( { id, number, selector, url, documentRect, point, staged } ) => ( {
+			tool: annotationTool,
+			areaSelection: true,
+			busy: !! ( annotations.preparing || annotations.sending ),
+			blockedNavigation: annotations.blockedNavigation ?? 0,
+			editingId: notes.some( ( note ) => note.id === annotations.editingId )
+				? annotations.editingId
+				: null,
+			notes: notes.map(
+				( { id, number, selector, url, documentRect, point, staged, kind, drawing } ) => ( {
 					id,
+					kind,
+					drawing,
 					number,
 					selector,
 					url,
@@ -427,7 +449,12 @@ export function WebviewSurface( {
 			pendingAnnotationLabel: __( 'Pending annotation' ),
 			fontFamily: '"Studio Annotation", system-ui',
 			accent: theme.getPropertyValue( '--accent' ).trim(),
+			penColor:
+				theme.getPropertyValue( '--accent-solid' ).trim() ||
+				theme.getPropertyValue( '--accent' ).trim(),
 			onAccent: theme.getPropertyValue( '--accent-foreground' ).trim(),
+			destructive: theme.getPropertyValue( '--destructive' ).trim(),
+			onDestructive: theme.getPropertyValue( '--destructive-foreground' ).trim(),
 			motionDuration: theme.getPropertyValue( '--motion-duration-surface' ).trim(),
 			motionEasing: theme.getPropertyValue( '--motion-ease-enter' ).trim(),
 		};
@@ -439,7 +466,19 @@ export function WebviewSurface( {
 				false
 			)
 			.catch( () => undefined );
-	}, [ annotations, colorScheme, inspectorReady ] );
+	}, [ annotations, annotationTool, appColorScheme, inspectorReady ] );
+
+	useEffect( () => {
+		const webview = ref.current as WebviewTag | null;
+		if ( ! inspectorReady || ! webview || ! clearSelection ) return;
+		void webview
+			.executeJavaScript(
+				`window.dispatchEvent(new CustomEvent(${ JSON.stringify(
+					INSPECTOR_COMMAND_EVENT
+				) }, { detail: ${ JSON.stringify( { clearSelection } ) } }));`
+			)
+			.catch( () => undefined );
+	}, [ clearSelection, inspectorReady ] );
 
 	useEffect( () => {
 		if ( ! ready || ! browserCommand ) return;
@@ -462,16 +501,19 @@ export function WebviewSurface( {
 				);
 			} else if ( browserCommand.type === 'reload' ) {
 				void reloadPreview( webview, urlRef.current, currentUrlRef.current );
+			} else if ( browserCommand.type === 'read-admin-bar' ) {
+				readAdminBarVisibility();
 			}
 		} finally {
 			publishBrowserState();
 		}
-	}, [ browserCommand, publishBrowserState, ready ] );
+	}, [ browserCommand, publishBrowserState, readAdminBarVisibility, ready ] );
 
 	return (
 		<>
 			<webview
 				ref={ ref }
+				data-annotation-surface={ inspector || undefined }
 				src={ initialSrc }
 				className={ styles.iframe }
 				// @types/react types this as boolean, but React 19 drops `true` on

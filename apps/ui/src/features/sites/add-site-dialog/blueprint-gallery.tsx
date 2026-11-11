@@ -1,6 +1,8 @@
 import { getBlueprintUseCases } from '@studio/common/lib/blueprint-catalog';
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useRef } from 'react';
+import { useConnector } from '@/data/core';
 import { useBlueprints } from '@/data/queries/use-blueprints';
 import { useOffline } from '@/lib/hooks';
 import { PlusIcon } from '@/lib/icons';
@@ -49,6 +51,7 @@ export function BlueprintGallery( {
 	onBlank: () => void;
 	onView: ( blueprint: Blueprint ) => void;
 } ) {
+	const connector = useConnector();
 	const isOffline = useOffline();
 	const root = useRef< HTMLDivElement >( null );
 	const { data: blueprints, isLoading, isError, isSuccess } = useBlueprints();
@@ -67,7 +70,7 @@ export function BlueprintGallery( {
 	if ( isLoading ) {
 		return (
 			<div className={ dialogStyles.loading }>
-				<Spinner aria-label={ __( 'Loading Blueprints…' ) } />
+				<Spinner aria-label={ __( 'Loading sites…' ) } />
 			</div>
 		);
 	}
@@ -76,7 +79,7 @@ export function BlueprintGallery( {
 		<div ref={ root } className={ styles.root }>
 			{ ! blueprints?.length && ( isError || isOffline ) ? (
 				<p className={ styles.notice }>
-					{ __( 'Blueprints could not be loaded. Check your internet connection and try again.' ) }
+					{ __( 'Sites could not be loaded. Check your internet connection and try again.' ) }
 				</p>
 			) : null }
 			<div className={ styles.grid }>
@@ -86,10 +89,19 @@ export function BlueprintGallery( {
 						className={ styles.card }
 						data-start-blank
 						aria-label={ __( 'Start with Blank site' ) }
-						onClick={ onBlank }
+						onClick={ () => {
+							void connector
+								.trackEvent( TRACKS_EVENTS.BLANK_SITE_SELECTED, {
+									placement: 'add_site_blueprint_gallery',
+								} )
+								.catch( () => undefined );
+							onBlank();
+						} }
 					>
 						<PreviewFrame className={ styles.blank }>
-							<PlusIcon />
+							<span className={ styles.blankIcon }>
+								<PlusIcon />
+							</span>
 						</PreviewFrame>
 						<span className={ styles.cardTitle }>{ __( 'Blank site' ) }</span>
 					</button>
@@ -105,10 +117,18 @@ export function BlueprintGallery( {
 							__( 'View %s' ),
 							blueprint.title
 						) }
-						onClick={ () => onView( blueprint ) }
+						onClick={ () => {
+							void connector
+								.trackEvent( TRACKS_EVENTS.BLUEPRINT_VIEWED, {
+									blueprint_slug: blueprint.slug,
+									...( useCase ? { use_case: useCase } : {} ),
+								} )
+								.catch( () => undefined );
+							onView( blueprint );
+						} }
 					>
 						<span className={ styles.thumbnail }>
-							<PreviewFrame>
+							<PreviewFrame className={ styles.thumbnailFrame }>
 								<PreviewImage
 									src={ getBlueprintThumbnail( blueprint ) }
 									alt={ sprintf(
@@ -120,7 +140,7 @@ export function BlueprintGallery( {
 								/>
 							</PreviewFrame>
 							<span className={ styles.action } aria-hidden="true">
-								<span className={ styles.actionLabel }>{ __( 'View blueprint' ) }</span>
+								<span className={ styles.actionLabel }>{ __( 'View Blueprint' ) }</span>
 							</span>
 						</span>
 						<span className={ styles.cardTitle }>{ blueprint.title }</span>
@@ -130,7 +150,7 @@ export function BlueprintGallery( {
 			{ isSuccess && useCase && ! items.length ? (
 				<Empty>
 					<EmptyHeader>
-						<EmptyDescription>{ __( 'No matching Blueprints.' ) }</EmptyDescription>
+						<EmptyDescription>{ __( 'No matching sites.' ) }</EmptyDescription>
 					</EmptyHeader>
 					<EmptyContent>
 						<Button variant="outline" onClick={ onClearFilters }>

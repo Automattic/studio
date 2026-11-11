@@ -1,26 +1,39 @@
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
-import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { getSnapshotLink, isSnapshotExpired, isWpcomPreview } from '@studio/common/lib/snapshots';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { Snapshot } from '@studio/common/types/snapshot';
 import { __, _n, sprintf } from '@wordpress/i18n';
-import { addDays } from 'date-fns/addDays';
-import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { cleanup, archiveSiteContent } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { countSitePreviews } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
+import {
+	deleteSnapshotSite,
+	getLivePreviewSite,
+	updatePreviewSite,
+	uploadPreviewArchive,
+} from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
-import { getSnapshotsFromConfig, updateSnapshotInConfig } from 'cli/lib/snapshots';
+import { getSiteTracksProps } from 'cli/lib/site-tracks';
+import { getSiteVersion } from 'cli/lib/site-versions';
+import {
+	deleteSnapshotFromConfig,
+	getSnapshotsFromConfig,
+	saveSnapshotToConfig,
+	updateSnapshotInConfig,
+} from 'cli/lib/snapshots';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { classifyPreviewFailure } from 'cli/lib/utils';
 import { validateSiteSize } from 'cli/lib/validation';
+import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
+import { createWpcomPreviewSite } from './create';
 
 async function getSnapshotToUpdate(
 	snapshots: Snapshot[],
@@ -33,14 +46,16 @@ async function getSnapshotToUpdate(
 
 	const snapshotToUpdate = snapshots.find( ( s ) => s.url === host );
 	if ( ! snapshotToUpdate ) {
-		throw new LoggerError( 'Preview site not found' );
+		throw new LoggerError( 'Preview site not found', undefined, 'not_found' );
 	}
 
 	if ( snapshotToUpdate.localSiteId !== currentSiteId && ! overwrite ) {
 		throw new LoggerError(
 			__(
 				'The specified directory does not match the original site for this preview. If you want to overwrite, run the command with --overwrite.'
-			)
+			),
+			undefined,
+			'site_mismatch'
 		);
 	}
 
@@ -59,19 +74,19 @@ export async function runCommand(
 	);
 	const startedAt = Date.now();
 	let siteId: string | undefined;
+	let preview: Snapshot | undefined;
+	let step: LoggerAction | undefined;
+	let archiveBytes: number | undefined;
 
 	try {
-		const token = await readAuthToken();
-		if ( ! token ) {
-			throw new LoggerError(
-				__( 'Authentication required. Please log in with `studio auth login`.' )
-			);
-		}
+		const token = await requireAuthToken();
 		const snapshots = await getSnapshotsFromConfig( token.id );
 		const snapshotToUpdate = await getSnapshotToUpdate( snapshots, host, siteFolder, overwrite );
+		preview = snapshotToUpdate;
 		const site = await getSiteByFolder( siteFolder );
 		siteId = site.id;
 		const reportStep = ( action: LoggerAction, message: string, progress: number ) => {
+			step = action;
 			logger.reportStart( action, message );
 			void reportSyncActivity( site.id, {
 				kind: 'pending',
@@ -83,39 +98,101 @@ export async function runCommand(
 		};
 		reportStep( LoggerAction.VALIDATE, __( 'Validating…' ), 0 );
 
-		const now = new Date();
-		const endDate = addDays( snapshotToUpdate.date, DEMO_SITE_EXPIRATION_DAYS );
-		if ( endDate < now ) {
-			throw new LoggerError( __( 'Cannot update an expired preview site.' ) );
+		if ( isSnapshotExpired( snapshotToUpdate ) ) {
+			throw new LoggerError( __( 'Cannot update an expired preview site.' ), undefined, 'expired' );
 		}
-		await validateSiteSize( siteFolder );
+		let snapshot: Snapshot;
 
-		reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
-		await withSiteOperation( siteFolder, 'export', () =>
-			archiveSiteContent( siteFolder, archivePath )
-		);
-		logger.reportSuccess( __( 'Archive created' ) );
+		// A preview made on Jurassic Ninja moves to WordPress.com when it's updated.
+		if ( ! isWpcomPreview( snapshotToUpdate ) ) {
+			const created = await createWpcomPreviewSite( {
+				siteId: site.id,
+				siteFolder,
+				archivePath,
+				name: snapshotToUpdate.name ?? site.name,
+				accessToken: token.accessToken,
+				logger,
+				reportStep,
+				onArchiveBytes: ( bytes ) => ( archiveBytes = bytes ),
+			} );
+			reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );
+			snapshot = await saveSnapshotToConfig(
+				siteFolder,
+				created.preview.siteId,
+				created.preview.hostname,
+				token.id,
+				snapshotToUpdate.name ?? site.name,
+				created.preview.shareUrl,
+				created.versionId,
+				created.preview.liveSiteId
+			);
+			await deleteSnapshotFromConfig( snapshotToUpdate.url );
+			await emitCliEvent( {
+				event: SNAPSHOT_EVENTS.DELETED,
+				data: { snapshotUrl: snapshotToUpdate.url },
+			} );
+			try {
+				await deleteSnapshotSite( snapshotToUpdate, token.accessToken );
+			} catch {
+				logger.reportWarning(
+					__( 'Could not delete the old preview site. It will expire on its own.' )
+				);
+			}
+			logger.reportSuccess(
+				sprintf(
+					/* translators: %s: new preview link */
+					__( 'Your preview moved to WordPress.com, so its link changed. New link: %s' ),
+					getSnapshotLink( snapshot )
+				)
+			);
+		} else {
+			await validateSiteSize( siteFolder, { onWpcom: true } );
 
-		reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
-		const wordpressVersion = getWordPressVersion( siteFolder );
-		const uploadResponse = await uploadArchive(
-			archivePath,
-			token.accessToken,
-			wordpressVersion,
-			snapshotToUpdate.atomicSiteId
-		);
-		logger.reportSuccess( __( 'Archive uploaded' ) );
+			reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
+			// The version is taken under the same lock as the archive, so it's what the preview holds.
+			const versionId = await withSiteOperation( siteFolder, 'export', async () => {
+				const version = await getSiteVersion( site.id, siteFolder );
+				await archiveSiteContent( siteFolder, archivePath, { onWpcom: true } );
+				return version;
+			} );
+			archiveBytes = fs.statSync( archivePath, { throwIfNoEntry: false } )?.size;
+			logger.reportSuccess( __( 'Archive created' ) );
 
-		reportStep( LoggerAction.READY, __( 'Updating preview site…' ), 60 );
-		await waitForSiteReady( uploadResponse.site_id, token.accessToken );
-		logger.reportSuccess(
-			sprintf( __( 'Preview site available at: %s' ), `https://${ uploadResponse.site_url }` )
-		);
+			reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
+			const attachmentId = await uploadPreviewArchive(
+				archivePath,
+				token.accessToken,
+				snapshotToUpdate.atomicSiteId
+			);
+			logger.reportSuccess( __( 'Archive uploaded' ) );
 
-		reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );
-		const snapshot = await updateSnapshotInConfig( uploadResponse.site_id, siteFolder );
+			reportStep( LoggerAction.READY, __( 'Updating preview site…' ), 60 );
+			const { shareUrl, liveSiteId } = await updatePreviewSite(
+				snapshotToUpdate.atomicSiteId,
+				attachmentId,
+				token.accessToken,
+				( await getLivePreviewSite( site.id ) )?.id
+			);
+
+			reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );
+			snapshot = await updateSnapshotInConfig(
+				snapshotToUpdate.atomicSiteId,
+				siteFolder,
+				shareUrl,
+				versionId,
+				liveSiteId
+			);
+			logger.reportSuccess(
+				sprintf( __( 'Preview site available at: %s' ), getSnapshotLink( snapshot ) )
+			);
+		}
 		await emitCliEvent( { event: SNAPSHOT_EVENTS.UPDATED, data: { snapshotUrl: snapshot.url } } );
-		await recordPreviewUpdateEvent( { success: true, time_ms: Date.now() - startedAt } );
+		await recordPreviewUpdateEvent( siteFolder, preview, {
+			success: true,
+			time_ms: Date.now() - startedAt,
+			archive_bytes: archiveBytes,
+			site_preview_count: countSitePreviews( site.id, snapshots, token.id ),
+		} );
 		await reportSyncActivity( siteId, { kind: 'success', direction: 'preview' } );
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 
@@ -129,10 +206,11 @@ export async function runCommand(
 				message: error instanceof Error ? error.message : String( error ),
 			} );
 		}
-		await recordPreviewUpdateEvent( {
+		await recordPreviewUpdateEvent( siteFolder, preview, {
 			success: false,
-			failure_reason: classifyPreviewFailure( error ),
+			failure_reason: classifyPreviewFailure( error, step ),
 			time_ms: Date.now() - startedAt,
+			archive_bytes: archiveBytes,
 		} );
 		throw error instanceof LoggerError
 			? error
@@ -142,14 +220,21 @@ export async function runCommand(
 	}
 }
 
-async function recordPreviewUpdateEvent( props: {
-	success: boolean;
-	failure_reason?: string;
-	time_ms: number;
-} ): Promise< void > {
+async function recordPreviewUpdateEvent(
+	siteFolder: string,
+	snapshot: Snapshot | undefined,
+	props: {
+		success: boolean;
+		failure_reason?: string;
+		time_ms: number;
+		archive_bytes?: number;
+		site_preview_count?: number;
+	}
+): Promise< void > {
 	try {
 		await recordTracksEvent( TRACKS_EVENTS.PREVIEW_SITE_UPDATE, {
 			...props,
+			...( await getSiteTracksProps( siteFolder, snapshot ) ),
 			...getTracksOrigin(),
 		} );
 	} catch {

@@ -129,13 +129,27 @@ describe( 'site skill rows', () => {
 		const connector = setup( false );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Actions for Studio CLI' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Uninstall' } ) );
-		await waitFor( () =>
-			expect(
-				screen.queryByRole( 'button', { name: 'Actions for Studio CLI' } )
-			).not.toBeInTheDocument()
-		);
+		await waitFor( () => expect( connector.removeSiteAgentFile ).toHaveBeenCalled() );
 		expect( connector.removeSiteAgentFile ).toHaveBeenCalledWith( 'one', 'skills', 'studio-cli' );
 		expect( screen.getByRole( 'switch', { name: 'Studio CLI' } ) ).not.toBeChecked();
+		await waitFor( () =>
+			expect( screen.getByRole( 'button', { name: 'Actions for Studio CLI' } ) ).toBeEnabled()
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'Actions for Studio CLI' } ) );
+		expect( await screen.findByRole( 'menuitem', { name: 'Open on GitHub' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'menuitem', { name: 'Open in' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'menuitem', { name: 'Finder' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'menuitem', { name: 'Uninstall' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'opens the skill source on GitHub even when disabled', async () => {
+		const connector = setup( false );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Actions for Studio CLI' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open on GitHub' } ) );
+		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
+			'https://github.com/Automattic/studio/tree/trunk/skills/studio-cli'
+		);
+		expect( connector.openSiteAgentFile ).not.toHaveBeenCalled();
 	} );
 
 	it( 'keeps the original state and shows an error when updating fails', async () => {
@@ -154,7 +168,7 @@ describe( 'site instruction rows', () => {
 		const connector = setup( true, false, 'instructions' );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Learn more…' } ) );
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
-			'https://developer.wordpress.com/docs/developer-tools/studio/cli/'
+			'https://wordpress.studio/docs/cli/'
 		);
 		expect( screen.queryByRole( 'button', { name: 'Install all' } ) ).not.toBeInTheDocument();
 	} );

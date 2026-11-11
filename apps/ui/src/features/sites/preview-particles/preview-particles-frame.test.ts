@@ -7,6 +7,24 @@ import {
 } from './frame';
 
 describe( 'preview particle frames', () => {
+	it( 'keeps resting dots in place as the viewport grows and shrinks', () => {
+		const positions = ( width: number, height: number ) =>
+			createPreviewDots( width, height ).map( ( { x, y } ) => ( { x, y } ) );
+		const original = positions( 800, 600 );
+		for ( const [ width, height ] of [
+			[ 813, 611 ],
+			[ 960, 720 ],
+			[ 1920, 1080 ],
+		] ) {
+			expect( positions( width, height ).filter( ( { x, y } ) => x <= 776 && y <= 576 ) ).toEqual(
+				original
+			);
+		}
+		expect( positions( 600, 400 ) ).toEqual(
+			original.filter( ( { x, y } ) => x <= 576 && y <= 376 )
+		);
+	} );
+
 	it( 'opens the space for the logo gradually without moving a resting dot', () => {
 		const dot = createPreviewDots( 1, 1 )[ 0 ];
 		const frame = { time: 0, amount: 0, centerX: 0.5, centerY: 0.5 };

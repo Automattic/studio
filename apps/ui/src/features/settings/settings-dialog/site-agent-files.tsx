@@ -1,5 +1,4 @@
-import { __, sprintf } from '@wordpress/i18n';
-import { EllipsisIcon } from 'lucide-react';
+import { __ } from '@wordpress/i18n';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useSiteAgentFiles, useUpdateSiteAgentFiles } from '@/data/queries/use-site-agent-files';
@@ -12,8 +11,8 @@ import {
 	SettingsToggle,
 } from '@/features/settings/settings-view/rows';
 import { useOpenInDestinations } from '@/features/sites';
-import { ExternalLinkIcon, TrashIcon } from '@/lib/icons';
-import { Menu, IconButton } from '@/lib/ui';
+import { Menu } from '@/lib/ui';
+import { SkillActions } from '../skill-actions';
 import styles from './style.module.css';
 import type { SiteAgentFileKind, SiteDetails } from '@/data/core';
 import type { SiteAgentFileOpenTarget } from '@studio/common/lib/site-agent-file-paths';
@@ -51,6 +50,7 @@ export function SiteAgentFiles( {
 			{ update.error ? <p className={ styles.error }>{ update.error.message }</p> : null }
 			<SettingsGroup>
 				<SettingsRow
+					settingId={ skills ? 'site-wordpress-skills' : 'site-agent-instructions' }
 					title={ title }
 					description={
 						skills
@@ -105,50 +105,26 @@ export function SiteAgentFiles( {
 			>
 				{ files.map( ( file ) => (
 					<SettingsRow key={ file.id } title={ file.displayName } description={ file.description }>
-						{ file.installed ? (
-							<Menu.Root>
-								<Menu.Trigger
-									render={
-										<IconButton
-											size="icon-sm"
-											icon={ <EllipsisIcon /> }
-											label={ sprintf(
-												/* translators: %s: a skill or instruction file name. */
-												__( 'Actions for %s' ),
-												file.displayName
-											) }
-											disabled={ update.isPending }
-										/>
-									}
-								/>
-								<Menu.Popup side="bottom" align="end">
-									<Menu.SubmenuRoot>
-										<Menu.SubmenuTrigger>
-											<ExternalLinkIcon />
-											{ __( 'Open in' ) }
-										</Menu.SubmenuTrigger>
-										<Menu.SubmenuPopup>
-											{ destinations.map( ( destination ) => (
-												<Menu.Item
-													key={ destination.id }
-													onClick={ () =>
-														void open( file.id, destination.id as SiteAgentFileOpenTarget )
-													}
-												>
-													{ destination.logo }
-													{ destination.label }
-												</Menu.Item>
-											) ) }
-										</Menu.SubmenuPopup>
-									</Menu.SubmenuRoot>
-									<Menu.Separator />
-									<Menu.Item destructive onClick={ () => update.mutate( { remove: file.id } ) }>
-										<TrashIcon />
-										{ __( 'Uninstall' ) }
-									</Menu.Item>
-								</Menu.Popup>
-							</Menu.Root>
-						) : null }
+						<SkillActions
+							id={ skills ? file.id : undefined }
+							name={ file.displayName }
+							disabled={ update.isPending }
+							onRemove={ file.installed ? () => update.mutate( { remove: file.id } ) : undefined }
+						>
+							{ file.installed
+								? destinations.map( ( destination ) => (
+										<Menu.Item
+											key={ destination.id }
+											onClick={ () =>
+												void open( file.id, destination.id as SiteAgentFileOpenTarget )
+											}
+										>
+											{ destination.logo }
+											{ destination.label }
+										</Menu.Item>
+								  ) )
+								: null }
+						</SkillActions>
 						<SettingsToggle
 							label={ file.displayName }
 							checked={ file.enabled }

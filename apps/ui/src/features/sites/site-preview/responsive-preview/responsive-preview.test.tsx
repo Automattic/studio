@@ -1,11 +1,13 @@
+import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { act, fireEvent, screen } from '@testing-library/react';
 import { useState } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { updateResponsivePreview, useResponsivePreview } from '@/data/responsive-preview';
 import { SessionUIProvider } from '@/data/use-session-ui';
 import { makeSite } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { SitePreview } from '../index';
+import { getFitScale } from './settings';
 import { ResponsiveToolbar } from './toolbar';
 import { ResponsiveViewport } from './viewport';
 
@@ -19,10 +21,14 @@ async function renderPreview( id: string ) {
 			/>
 		</SessionUIProvider>
 	);
-	await screen.findByRole( 'complementary', { name: 'Site preview' } );
+	await screen.findByRole( 'complementary', { name: 'Panel' } );
 	return view;
 }
-const toggle = () => screen.getByRole( 'button', { name: 'Responsive mode' } );
+async function toggle( user: ReturnType< typeof renderWithProviders >[ 'user' ] ) {
+	act( () => screen.getByRole( 'button', { name: 'Browser options' } ).focus() );
+	await user.keyboard( '{ArrowDown}' );
+	await user.click( screen.getByRole( 'menuitem', { name: /^(Show|Hide) device toolbar$/ } ) );
+}
 const width = () => screen.getByRole( 'textbox', { name: 'Width' } );
 const height = () => screen.getByRole( 'textbox', { name: 'Height' } );
 
@@ -30,9 +36,11 @@ describe( 'responsive mode', () => {
 	it( 'starts at 400 × 800, retains settings across toggles and remounts, and keeps the page mounted', async () => {
 		const view = await renderPreview( 'responsive-restore' );
 		const page = document.querySelector( 'iframe' );
-		expect( toggle() ).toHaveAttribute( 'aria-pressed', 'false' );
-		await view.user.click( toggle() );
-		expect( toggle() ).toHaveAttribute( 'aria-pressed', 'true' );
+		expect(
+			screen.queryByRole( 'toolbar', { name: 'Responsive preview' } )
+		).not.toBeInTheDocument();
+		await toggle( view.user );
+		expect( screen.getByRole( 'toolbar', { name: 'Responsive preview' } ) ).toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Fit' } ) ).toBeInTheDocument();
 		expect( width() ).toHaveValue( '400' );
 		expect( height() ).toHaveValue( '800' );
@@ -41,33 +49,81 @@ describe( 'responsive mode', () => {
 			await screen.findByRole( 'menuitemradio', { name: /iPhone 17 Pro Max/ } )
 		);
 		expect( width() ).toHaveValue( '440' );
+		await view.user.click( screen.getByRole( 'button', { name: 'Rotate to landscape' } ) );
+		expect( screen.getByRole( 'button', { name: 'iPhone 17 Pro Max' } ) ).toBeInTheDocument();
+		expect( width() ).toHaveValue( '956' );
+		await view.user.click( screen.getByRole( 'button', { name: 'Rotate to portrait' } ) );
 		await view.user.click( screen.getByRole( 'button', { name: 'Fit' } ) );
 		await view.user.click( await screen.findByRole( 'menuitemradio', { name: '75%' } ) );
-		await view.user.click( screen.getByRole( 'button', { name: 'Exit responsive mode' } ) );
-		expect( toggle() ).toHaveAttribute( 'aria-pressed', 'false' );
+		const eventsBeforeClose = view.connector.trackEvent.mock.calls.length;
+		await view.user.click( screen.getByRole( 'button', { name: 'Hide device toolbar' } ) );
 		expect(
 			screen.queryByRole( 'toolbar', { name: 'Responsive preview' } )
 		).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Browser options' } ) ).toHaveFocus();
+		expect( view.connector.trackEvent ).toHaveBeenCalledTimes( eventsBeforeClose );
 		expect( document.querySelector( 'iframe' ) ).toBe( page );
-		await view.user.click( toggle() );
+		await toggle( view.user );
 		expect( width() ).toHaveValue( '440' );
 		expect( height() ).toHaveValue( '956' );
 		expect( screen.getByRole( 'button', { name: '75%' } ) ).toBeInTheDocument();
 		expect( document.querySelector( 'iframe' ) ).toBe( page );
 		view.unmount();
 		const other = await renderPreview( 'responsive-other' );
-		expect( toggle() ).toHaveAttribute( 'aria-pressed', 'false' );
-		await other.user.click( toggle() );
+		expect(
+			screen.queryByRole( 'toolbar', { name: 'Responsive preview' } )
+		).not.toBeInTheDocument();
+		await toggle( other.user );
 		expect( width() ).toHaveValue( '400' );
 		other.unmount();
 		await renderPreview( 'responsive-restore' );
-		expect( toggle() ).toHaveAttribute( 'aria-pressed', 'true' );
+		expect( screen.getByRole( 'toolbar', { name: 'Responsive preview' } ) ).toBeInTheDocument();
 		expect( width() ).toHaveValue( '440' );
+	} );
+
+	it( 'keeps the applied fit on window resize until Fit is selected again', async () => {
+		let availableHeight = 600;
+		let measure = () => {};
+		const heightSpy = vi
+			.spyOn( HTMLElement.prototype, 'clientHeight', 'get' )
+			.mockImplementation( () => availableHeight );
+		const widthSpy = vi.spyOn( HTMLElement.prototype, 'clientWidth', 'get' ).mockReturnValue( 800 );
+		vi.stubGlobal(
+			'ResizeObserver',
+			class {
+				private callback: () => void;
+				constructor( callback: () => void ) {
+					this.callback = callback;
+				}
+				observe( target: Element ) {
+					if ( target.className.includes( 'previewViewport' ) ) measure = this.callback;
+				}
+				unobserve() {}
+				disconnect() {}
+			}
+		);
+		try {
+			const { user, connector } = await renderPreview( 'responsive-fit-actions' );
+			await toggle( user );
+			const scaledPage = document.querySelector( 'iframe' )?.parentElement?.parentElement;
+			expect( scaledPage ).toHaveStyle( { transform: 'scale(0.71)' } );
+			availableHeight = 400;
+			act( () => measure() );
+			expect( scaledPage ).toHaveStyle( { transform: 'scale(0.71)' } );
+			await user.click( screen.getByRole( 'button', { name: 'Fit' } ) );
+			await user.click( await screen.findByRole( 'menuitemradio', { name: /Fit/ } ) );
+			expect( scaledPage ).toHaveStyle( { transform: 'scale(0.46)' } );
+			expect( connector.trackEvent ).not.toHaveBeenCalled();
+		} finally {
+			widthSpy.mockRestore();
+			heightSpy.mockRestore();
+			vi.unstubAllGlobals();
+		}
 	} );
 
 	it( 'commits valid dimensions, cancels on Escape, rejects invalid values, and rotates', async () => {
 		const { user } = await renderPreview( 'responsive-inputs' );
-		await user.click( toggle() );
+		await toggle( user );
 		await user.clear( width() );
 		await user.type( width(), '512{Enter}' );
 		expect( width() ).toHaveValue( '512' );
@@ -90,7 +146,7 @@ describe( 'responsive mode', () => {
 
 	it( 'resizes with keyboard handles and returns presets to Responsive', async () => {
 		const { user } = await renderPreview( 'responsive-handles' );
-		await user.click( toggle() );
+		await toggle( user );
 		act( () =>
 			updateResponsivePreview( 'responsive-handles', {
 				preset: 'iPhone 16e',
@@ -111,7 +167,7 @@ describe( 'responsive mode', () => {
 
 	it( 'converts pointer movement into viewport pixels without replacing the page', async () => {
 		const { user } = await renderPreview( 'responsive-pointer' );
-		await user.click( toggle() );
+		await toggle( user );
 		act( () => updateResponsivePreview( 'responsive-pointer', { zoom: 0.5 } ) );
 		const page = document.querySelector( 'iframe' );
 		expect( screen.getAllByRole( 'button', { name: /^Resize viewport:/ } ) ).toHaveLength( 4 );
@@ -149,7 +205,7 @@ describe( 'responsive mode', () => {
 				</>
 			);
 		}
-		renderWithProviders( <Preview /> );
+		const { connector } = renderWithProviders( <Preview /> );
 		const edge = await screen.findByRole( 'button', { name: 'Resize viewport: Right' } );
 		Object.assign( edge, { setPointerCapture: () => {}, releasePointerCapture: () => {} } );
 		fireEvent.pointerDown( edge, { pointerId: 1, button: 0, clientX: 100, clientY: 100 } );
@@ -161,5 +217,26 @@ describe( 'responsive mode', () => {
 		fireEvent.pointerUp( edge, { pointerId: 1 } );
 		expect( width() ).toHaveValue( '512' );
 		expect( height() ).toHaveValue( '720' );
+		expect( connector.trackEvent ).not.toHaveBeenCalled();
+		fireEvent.keyDown( edge, { key: 'ArrowRight' } );
+		fireEvent.keyUp( edge, { key: 'ArrowRight' } );
+		expect( connector.trackEvent ).toHaveBeenCalledExactlyOnceWith(
+			TRACKS_EVENTS.RESPONSIVE_PREVIEW_CHANGED,
+			{
+				action: 'manual_resize',
+				preset_category: 'custom',
+				width_bucket: 'under_600',
+				height_bucket: '600_to_1023',
+			}
+		);
+	} );
+} );
+
+describe( 'fit scale', () => {
+	it( 'caps small devices at 100% and rounds down to whole percentages', () => {
+		expect( getFitScale( 1200, 1200, 393, 852 ) ).toBe( 1 );
+		expect( getFitScale( 1000, 800, 393, 852 ) ).toBe( 0.9 );
+		expect( getFitScale( 300, 1000, 393, 852 ) ).toBe( 0.68 );
+		expect( getFitScale( 0, 0, 393, 852 ) ).toBe( 0.01 );
 	} );
 } );

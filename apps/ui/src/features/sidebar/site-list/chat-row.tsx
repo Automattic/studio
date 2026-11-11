@@ -7,6 +7,7 @@ import { useSessions } from '@/data/queries/use-sessions';
 import { chatPinKey } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
+import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
 import { ChatActionsMenuItems, useChatActions, getSessionTitle } from '@/features/chats';
 import { ArchiveIcon, ChatIcon, NeedsInputIcon, PinIcon, UnpinIcon } from '@/lib/icons';
 import {
@@ -60,6 +61,7 @@ export function ChatRow( {
 	const preview = useOptionalSessionPreviewUI();
 	const { data: sites } = useSites();
 	const owner = findAiSessionOwnerSite( sites, session );
+	const runLayoutTransition = useUserWorkspaceLayoutTransition( owner?.id );
 	const { sessionId } = useParams( { strict: false } );
 	const isCurrentChat = session.id === sessionId;
 	const activity = useSiteAgentActivity( [ session.id ] );
@@ -94,11 +96,13 @@ export function ChatRow( {
 								}
 								onClick={ () => {
 									onOpen?.();
-									if ( owner ) preview?.setChatHidden( false, owner.id );
-									void navigate( {
-										to: '/sessions/$sessionId',
-										params: { sessionId: session.id },
-										state: { chatNavigation: navigation },
+									runLayoutTransition( () => {
+										if ( owner ) preview?.setChatHidden( false, owner.id );
+										return navigate( {
+											to: '/sessions/$sessionId',
+											params: { sessionId: session.id },
+											state: { chatNavigation: navigation },
+										} );
 									} );
 								} }
 							>

@@ -1,5 +1,8 @@
 import { isSupportedLocale } from '@studio/common/lib/locale';
-import { INTERFACE_PREFERENCE_DEFAULTS } from '@studio/common/lib/user-settings/preferences';
+import {
+	DEFAULT_HIDE_FRONTEND_ADMIN_BAR,
+	INTERFACE_PREFERENCE_DEFAULTS,
+} from '@studio/common/lib/user-settings/preferences';
 import type {
 	ColorScheme,
 	QuitSitesBehavior,
@@ -27,7 +30,8 @@ export interface PreferencesFormData {
 	defaultSiteDirectory: string;
 	autoStartSiteOnChat: boolean;
 	openChatOnSiteStart: boolean;
-	confirmDeleteAnnotations: boolean;
+	hideFrontendAdminBar: boolean;
+	batchAnnotations: boolean;
 }
 
 // The saved locale can be any string the main process resolved (including ones
@@ -53,8 +57,8 @@ export function toPreferencesFormData( prefs: UserPreferences ): PreferencesForm
 			prefs.autoStartSiteOnChat ?? INTERFACE_PREFERENCE_DEFAULTS.autoStartSiteOnChat,
 		openChatOnSiteStart:
 			prefs.openChatOnSiteStart ?? INTERFACE_PREFERENCE_DEFAULTS.openChatOnSiteStart,
-		confirmDeleteAnnotations:
-			prefs.confirmDeleteAnnotations ?? INTERFACE_PREFERENCE_DEFAULTS.confirmDeleteAnnotations,
+		batchAnnotations: prefs.batchAnnotations ?? INTERFACE_PREFERENCE_DEFAULTS.batchAnnotations,
+		hideFrontendAdminBar: prefs.hideFrontendAdminBar ?? DEFAULT_HIDE_FRONTEND_ADMIN_BAR,
 	};
 }
 

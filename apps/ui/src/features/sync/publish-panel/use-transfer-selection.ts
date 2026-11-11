@@ -72,7 +72,9 @@ export function useTransferSelection(
 			if ( direction === 'push' ) {
 				nodes = localNodes( await connector.listLocalFileTree( site.id, 'wp-content', 3 ) );
 			} else {
-				rewind = await connector.getLatestRewindId( remote.id );
+				// Without the plan that includes Backup there are no backups to browse, so only a
+				// full pull is offered.
+				rewind = remote.pushNeedsUpgrade ? null : await connector.getLatestRewindId( remote.id );
 				if ( ! rewind ) {
 					return { rewind, fullOnly: true };
 				}

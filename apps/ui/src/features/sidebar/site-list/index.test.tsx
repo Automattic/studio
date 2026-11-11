@@ -84,7 +84,7 @@ function drag( row: HTMLElement, toY: number ) {
 beforeEach( () => localStorage.clear() );
 
 describe( 'sidebar site list', () => {
-	it( 'records Tracks for the Open in destinations, opening admin pages through the host', async () => {
+	it( 'records external Open in destinations and internal project tools separately', async () => {
 		const { connector } = await setup();
 		await openIn( 'My site' );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Finder' } ) );
@@ -93,11 +93,9 @@ describe( 'sidebar site list', () => {
 
 		await openIn( 'Running site' );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'phpMyAdmin' } ) );
-		await openIn( 'Running site' );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'WordPress admin' } ) );
-		await waitFor( () =>
-			expect( connector.openSiteUrl ).toHaveBeenCalledWith( 'two', '/wp-admin/' )
-		);
+		fireEvent.contextMenu( await siteButton( 'Running site' ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Tools' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Admin' } ) );
 		expect( connector.openSiteUrl ).toHaveBeenCalledWith(
 			'two',
 			'/phpmyadmin/index.php?route=/database/structure&db=wordpress'
@@ -106,9 +104,11 @@ describe( 'sidebar site list', () => {
 		expect( connector.trackEvent ).toHaveBeenCalledWith( 'studio_site_open_phpmyadmin', {
 			browser: 'external',
 		} );
-		expect( connector.trackEvent ).toHaveBeenCalledWith( 'studio_site_open_wp_admin', {
-			browser: 'external',
-		} );
+		expect( connector.openSiteUrl ).not.toHaveBeenCalledWith( 'two', '/wp-admin/' );
+		expect( await screen.findByRole( 'tab', { name: 'Admin' } ) ).toHaveAttribute(
+			'aria-selected',
+			'true'
+		);
 	} );
 
 	it( 'names the configured editor and terminal in Open in', async () => {
@@ -169,10 +169,10 @@ describe( 'sidebar site list', () => {
 		await waitFor( () => expect( view.history.location.pathname ).toBe( '/sessions/older' ) );
 	} );
 
-	it( 'lists sites while chats are still loading', async () => {
+	it( 'lists sites while chats load within an open workspace', async () => {
 		const connector = createFakeConnector( { sites: [ mySite ] } );
 		connector.getSessions.mockReturnValue( new Promise( () => {} ) );
-		renderApp( { connector } );
+		renderApp( { connector, path: '/sites/one' } );
 		expect( await siteButton( 'My site' ) ).toBeVisible();
 	} );
 

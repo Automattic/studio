@@ -3,6 +3,16 @@
 	padding-bottom: var( --space-12 );
 }
 
+.dialogWithFooter {
+	padding-bottom: var( --dialog-inset );
+}
+
+.footer {
+	display: grid;
+	gap: var( --space-4 );
+	margin-top: var( --space-6 );
+}
+
 .body {
 	display: flex;
 	flex-direction: column;
@@ -46,19 +56,19 @@
 }
 
 .cardStart {
-	composes: previewFrame from '@/lib/theme/recipes.module.css';
+	composes: imagePreviewFrame from '@/lib/theme/recipes.module.css';
 	left: 10%;
 	transform: translateY( -45% ) rotate( -8deg );
 }
 
 .cardEnd {
-	composes: previewFrame from '@/lib/theme/recipes.module.css';
+	composes: imagePreviewFrame from '@/lib/theme/recipes.module.css';
 	right: 10%;
 	transform: translateY( -45% ) rotate( 8deg );
 }
 
 .cardCenter {
-	composes: previewFrame from '@/lib/theme/recipes.module.css';
+	composes: imagePreviewFrame from '@/lib/theme/recipes.module.css';
 	left: 50%;
 	z-index: 1;
 	width: 43%;
@@ -115,16 +125,6 @@
 .loginPrompt {
 	margin: 0;
 	color: var( --muted-foreground );
-}
-
-.login {
-	color: var( --foreground );
-	font-weight: var( --font-weight-semibold );
-	text-decoration: none;
-}
-
-.login:hover:not( :disabled, [data-disabled] ) {
-	text-decoration: underline;
 }
 
 .studioIcon {

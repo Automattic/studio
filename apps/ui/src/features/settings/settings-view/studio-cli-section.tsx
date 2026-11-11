@@ -37,7 +37,7 @@ export function StudioCliSection() {
 
 	const toggle = (
 		<SettingsToggle
-			label={ __( 'Studio CLI for terminal' ) }
+			label={ __( 'WordPress Studio CLI for terminal' ) }
 			checked={ checked }
 			disabled={ savePreferences.isPending || externallyManaged }
 			onChange={ handleChange }
@@ -45,9 +45,9 @@ export function StudioCliSection() {
 	);
 
 	return (
-		<SettingsGroup title={ __( 'Studio CLI' ) }>
+		<SettingsGroup title={ __( 'WordPress Studio CLI' ) }>
 			<SettingsRow
-				title={ __( 'Studio CLI for terminal' ) }
+				title={ __( 'WordPress Studio CLI for terminal' ) }
 				description={
 					<>
 						{ __( 'Use the studio command in any terminal to manage sites and run WP-CLI.' ) }{ ' ' }
@@ -56,7 +56,7 @@ export function StudioCliSection() {
 				}
 				error={
 					savePreferences.isError
-						? __( 'An error occurred while updating the Studio CLI. Please try again.' )
+						? __( 'An error occurred while updating the WordPress Studio CLI. Please try again.' )
 						: undefined
 				}
 			>

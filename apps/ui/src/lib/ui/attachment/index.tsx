@@ -1,36 +1,30 @@
 import { clsx } from 'clsx';
 import { XIcon } from 'lucide-react';
-import { Button, type ButtonProps } from '@/lib/ui/button';
+import { IconButton, type ButtonProps } from '@/lib/ui/button';
 import styles from './style.module.css';
-import type { ComponentProps } from 'react';
 
-export function AttachmentRemoveButton( {
+export function DismissButton( {
 	className,
+	label,
 	...props
-}: Omit< ButtonProps, 'variant' | 'size' | 'shape' | 'children' > ) {
+}: Omit< ButtonProps, 'variant' | 'size' | 'shape' | 'children' > & { label: string } ) {
 	return (
-		<Button
+		<IconButton
 			{ ...props }
-			variant="outline"
+			icon={
+				<span className={ styles.face }>
+					<XIcon />
+				</span>
+			}
+			label={ label }
+			data-slot="attachment-remove"
+			data-color-scheme="light"
+			variant="ghost"
 			size="icon-2xs"
 			shape="round"
 			className={ clsx( styles.remove, className ) }
-		>
-			<XIcon />
-		</Button>
+		/>
 	);
 }
 
-export function AttachmentDropOverlay( {
-	children,
-	className,
-	...props
-}: ComponentProps< 'div' > ) {
-	return (
-		<div { ...props } className={ clsx( styles.dropOverlay, className ) } aria-hidden="true">
-			<Button variant="accent" tabIndex={ -1 }>
-				{ children }
-			</Button>
-		</div>
-	);
-}
+export { DismissButton as AttachmentRemoveButton };

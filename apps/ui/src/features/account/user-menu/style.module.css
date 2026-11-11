@@ -1,6 +1,4 @@
-/* The sidebar footer: the account avatar at the start, Settings and the
-   notification bell at the end, as 36px controls inset 12px. Pinning to the
-   sidebar bottom is handled by the layout's `sidebarFooter` wrapper. */
+/* The footer shares the site list's horizontal inset. */
 .root {
 	padding: 0 var( --space-3 ) var( --space-2_5 );
 }
@@ -8,11 +6,7 @@
 .row {
 	display: flex;
 	align-items: center;
-}
-
-.offline {
-	display: flex;
-	color: var( --muted-foreground );
+	gap: var( --space-1 );
 }
 
 .avatar {
@@ -20,8 +14,15 @@
 	height: 24px;
 }
 
-.spacer {
+.loginTrigger {
+	--button-background: var( --studio-sidebar-bg, var( --chrome ) );
+}
+
+.updateSlot {
+	display: flex;
 	flex: 1;
+	min-width: 0;
+	justify-content: flex-end;
 }
 
 .popup {

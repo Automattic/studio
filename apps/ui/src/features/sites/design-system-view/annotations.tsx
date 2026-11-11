@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useSiteAnnotations } from '@/features/annotations';
+import { AnnotationMarker, useSiteAnnotations } from '@/features/annotations';
 import styles from './style.module.css';
 import type { AnnotationAnchor } from '@/features/annotations';
 import type { VisualAnnotationTarget } from '@studio/agent/protocol/visual-annotations';
@@ -28,28 +28,42 @@ function anchorFor( element: Element, point: VisualAnnotationTarget[ 'point' ] )
  */
 export function useDesignAnnotations( {
 	siteId,
+	root,
+	enabled = true,
 	onAnnotationPick,
 	onAnnotationAnchor,
-}: DesignAnnotationProps & { siteId: string } ) {
-	const { active, notes, editingId } = useSiteAnnotations( siteId );
+}: DesignAnnotationProps & { siteId: string; root: HTMLElement | null; enabled?: boolean } ) {
+	const {
+		active: annotationActive,
+		notes,
+		editingId,
+		blockedNavigation,
+	} = useSiteAnnotations( siteId );
+	const active = enabled && annotationActive;
 	const targets = useRef( new Map< string, VisualAnnotationTarget >() );
-	const editing = notes.find( ( note ) => note.id === editingId && note.designKey );
+	const editing = notes.find( ( note ) => note.id === editingId && note.targetKey );
 
 	useEffect( () => {
-		if ( ! editing?.designKey || ! onAnnotationAnchor ) return;
-		const key = editing.designKey;
+		if ( ! root || ! editing?.targetKey || ! onAnnotationAnchor ) return;
+		const key = editing.targetKey;
 		const point = editing.point;
 		const follow = () => {
-			const element = document.querySelector( `[${ TARGET_ATTRIBUTE }="${ CSS.escape( key ) }"]` );
+			const element = root.querySelector( `[${ TARGET_ATTRIBUTE }="${ CSS.escape( key ) }"]` );
 			if ( element ) onAnnotationAnchor( anchorFor( element, point ) );
 		};
+		const observer = new ResizeObserver( follow );
+		observer.observe( root );
 		window.addEventListener( 'scroll', follow, { capture: true, passive: true } );
-		return () => window.removeEventListener( 'scroll', follow, { capture: true } );
-	}, [ editing?.designKey, editing?.point, onAnnotationAnchor ] );
+		follow();
+		return () => {
+			observer.disconnect();
+			window.removeEventListener( 'scroll', follow, { capture: true } );
+		};
+	}, [ root, editing?.targetKey, editing?.point, onAnnotationAnchor ] );
 
 	const target = ( key: string, label: string, value?: string, token?: string ) => {
 		targets.current.set( key, {
-			designKey: key,
+			targetKey: key,
 			designToken: token,
 			nearbyText: value ? `${ label }: ${ value }` : label,
 			path: 'DESIGN.md',
@@ -58,11 +72,15 @@ export function useDesignAnnotations( {
 	};
 
 	const marker = ( key: string ) => {
-		const note = active && notes.find( ( item ) => item.designKey === key );
+		const note = notes.find( ( item ) => item.targetKey === key );
 		return note ? (
-			<span className={ styles.annotationMarker } aria-hidden="true">
-				{ note.number }
-			</span>
+			<AnnotationMarker
+				active={ active }
+				blockedNavigation={ blockedNavigation }
+				editing={ note.id === editingId }
+				className={ styles.annotationMarker }
+				number={ note.number }
+			/>
 		) : null;
 	};
 

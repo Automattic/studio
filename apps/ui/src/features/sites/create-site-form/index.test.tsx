@@ -28,23 +28,15 @@ async function renderForm(
 	initialProps: Partial< Props > = {},
 	connector: FakeConnector = createFakeConnector(
 		{},
-		{ capabilities: { nativeFolderPicker: false, annotatePreview: false, studioLogs: false } }
+		{ capabilities: { nativeFolderPicker: true, annotatePreview: false, studioLogs: false } }
 	)
 ) {
 	const onSubmit = vi.fn();
-	const onCancel = vi.fn();
 	let setProps!: ( props: Partial< Props > ) => void;
 	function Harness() {
 		const [ props, set ] = useState( initialProps );
 		setProps = ( next ) => set( ( previous ) => ( { ...previous, ...next } ) );
-		return (
-			<CreateSiteForm
-				existingDomainNames={ [] }
-				onSubmit={ onSubmit }
-				onCancel={ onCancel }
-				{ ...props }
-			/>
-		);
+		return <CreateSiteForm existingDomainNames={ [] } onSubmit={ onSubmit } { ...props } />;
 	}
 	const view = renderWithProviders( <Harness />, { connector } );
 	await screen.findByRole( 'textbox', { name: /Site name/ } );
@@ -52,16 +44,18 @@ async function renderForm(
 		...view,
 		connector,
 		onSubmit,
-		onCancel,
 		update: ( props: Partial< Props > ) => act( () => setProps( props ) ),
 	};
 }
 
 const siteName = () => screen.getByRole( 'textbox', { name: /Site name/ } );
-const localPath = () => screen.getByLabelText( 'Local path' );
+const localPath = () => screen.getByLabelText( 'Site folder' );
 const submitButton = () => screen.getByTestId( 'create-site-submit' );
-const advanced = () =>
-	fireEvent.click( screen.getByRole( 'button', { name: /Advanced settings/ } ) );
+const advanced = () => {
+	const control = screen.getByRole( 'button', { name: 'Advanced' } );
+	if ( control.getAttribute( 'aria-expanded' ) !== 'true' ) fireEvent.click( control );
+};
+const credentials = () => fireEvent.click( screen.getByRole( 'button', { name: 'Change' } ) );
 
 async function chooseOption( select: string, option: string | RegExp ) {
 	fireEvent.click( screen.getByRole( 'combobox', { name: select } ) );
@@ -73,6 +67,98 @@ async function chooseOption( select: string, option: string | RegExp ) {
 afterEach( () => vi.restoreAllMocks() );
 
 describe( 'CreateSiteForm suggestions', () => {
+	it( 'shows the generated name as a placeholder and waits for its folder before creating', async () => {
+		const pending = deferred< ProposedPath >();
+		const connector = createFakeConnector();
+		connector.generateProposedSitePath.mockReturnValue( pending.promise );
+		const { onSubmit } = await renderForm( { suggestedName: 'Blue Note' }, connector );
+		expect( siteName() ).toHaveValue( '' );
+		expect( siteName() ).toHaveAttribute( 'placeholder', 'Blue Note' );
+		expect( siteName() ).not.toBeRequired();
+		expect( siteName() ).toBeValid();
+		expect( submitButton() ).toBeEnabled();
+		fireEvent.click( submitButton() );
+		expect( onSubmit ).not.toHaveBeenCalled();
+		await pending.resolve( { path: '/sites/blue-note', isEmpty: true, isWordPress: false } );
+		await waitFor( () =>
+			expect( onSubmit ).toHaveBeenCalledWith(
+				expect.objectContaining( { name: 'Blue Note', path: '/sites/blue-note' } )
+			)
+		);
+	} );
+
+	it( 'uses a typed name and restores the suggestion and folder when it is cleared', async () => {
+		const { onSubmit } = await renderForm( { suggestedName: 'Blue Note' } );
+		fireEvent.change( siteName(), { target: { value: 'My studio' } } );
+		expect( siteName() ).toHaveValue( 'My studio' );
+		await waitFor( () => expect( localPath() ).toHaveValue( 'My studio' ) );
+		fireEvent.click( submitButton() );
+		expect( onSubmit ).toHaveBeenLastCalledWith(
+			expect.objectContaining( { name: 'My studio', path: '/sites/My studio' } )
+		);
+		fireEvent.change( siteName(), { target: { value: '' } } );
+		expect( siteName() ).toHaveValue( '' );
+		await waitFor( () => expect( localPath() ).toHaveValue( 'Blue Note' ) );
+		fireEvent.change( siteName(), { target: { value: ' ' } } );
+		expect( localPath() ).toHaveValue( 'Blue Note' );
+		expect( siteName() ).toBeValid();
+		fireEvent.click( submitButton() );
+		expect( onSubmit ).toHaveBeenLastCalledWith(
+			expect.objectContaining( { name: 'Blue Note', path: '/sites/Blue Note' } )
+		);
+	} );
+
+	it( 'keeps a chosen folder in sync with the placeholder after resetting its name', async () => {
+		const { user, onSubmit } = await renderForm( {
+			suggestedName: 'Blue Note',
+			initialValues: { path: '/projects/custom' },
+		} );
+		await user.click(
+			screen.getByRole( 'button', { name: 'Reset folder name to match site name' } )
+		);
+		expect( localPath() ).toHaveValue( 'blue-note' );
+		fireEvent.change( siteName(), { target: { value: 'My bakery' } } );
+		expect( localPath() ).toHaveValue( 'my-bakery' );
+		fireEvent.change( siteName(), { target: { value: '' } } );
+		expect( siteName() ).toHaveValue( '' );
+		expect( localPath() ).toHaveValue( 'blue-note' );
+		fireEvent.click( submitButton() );
+		await waitFor( () =>
+			expect( onSubmit ).toHaveBeenCalledWith(
+				expect.objectContaining( { name: 'Blue Note', path: '/projects/blue-note' } )
+			)
+		);
+	} );
+
+	it( 'submits the suggested name with a custom domain without filling the name input', async () => {
+		const { onSubmit } = await renderForm( { suggestedName: 'Hello Dolly' } );
+		await waitFor( () => expect( localPath() ).toHaveValue( 'Hello Dolly' ) );
+		advanced();
+		fireEvent.change( screen.getByRole( 'textbox', { name: 'Domain name' } ), {
+			target: { value: 'hello-dolly.wp.local' },
+		} );
+		expect( siteName() ).toHaveValue( '' );
+		fireEvent.click( submitButton() );
+		expect( onSubmit ).toHaveBeenCalledWith(
+			expect.objectContaining( { name: 'Hello Dolly', customDomain: 'hello-dolly.wp.local' } )
+		);
+	} );
+
+	it( 'keeps a typed name when the placeholder suggestion arrives later', async () => {
+		const { update } = await renderForm( {
+			selectedFolder: {
+				name: 'Selected folder',
+				path: '/sites/selected-folder',
+				isEmpty: true,
+				isWordPress: false,
+			},
+		} );
+		fireEvent.change( siteName(), { target: { value: 'My studio' } } );
+		update( { suggestedName: 'Blue Note' } );
+		expect( siteName() ).toHaveValue( 'My studio' );
+		expect( siteName() ).toHaveAttribute( 'placeholder', 'Blue Note' );
+	} );
+
 	it( 'applies later suggestions only to the fields the user has not edited', async () => {
 		const { update } = await renderForm();
 		fireEvent.change( siteName(), { target: { value: 'My manual name' } } );
@@ -89,7 +175,8 @@ describe( 'CreateSiteForm suggestions', () => {
 		expect( siteName() ).toHaveValue( 'My manual name' );
 		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( '6.8' );
 		expect( screen.getByRole( 'combobox', { name: 'PHP version' } ) ).toHaveTextContent( '8.3' );
-		expect( screen.getByLabelText( /Admin username/ ) ).toHaveValue( 'blueprint-admin' );
+		credentials();
+		expect( screen.getByLabelText( /Username/ ) ).toHaveValue( 'blueprint-admin' );
 	} );
 
 	it( 'starts from the fields edited in an earlier opening, over suggestions', async () => {
@@ -104,14 +191,16 @@ describe( 'CreateSiteForm suggestions', () => {
 		} );
 		expect( siteName() ).toHaveValue( 'My draft ' );
 		advanced();
-		expect( screen.getByLabelText( /Admin username/ ) ).toHaveValue( 'blueprint-admin' );
+		credentials();
+		expect( screen.getByLabelText( /Username/ ) ).toHaveValue( 'blueprint-admin' );
 		expect( onDraftChange ).toHaveBeenLastCalledWith( { name: 'My draft ' } );
 	} );
 
 	it( 'replaces earlier suggestions and restores defaults, keeping edits', async () => {
 		const { update } = await renderForm( { initialValues: { name: 'Suggested site' } } );
 		advanced();
-		const defaultPassword = ( screen.getByLabelText( /Admin password/ ) as HTMLInputElement ).value;
+		credentials();
+		const defaultPassword = ( screen.getByLabelText( /Password/ ) as HTMLInputElement ).value;
 		update( {
 			initialValues: {
 				name: 'First Blueprint',
@@ -125,26 +214,30 @@ describe( 'CreateSiteForm suggestions', () => {
 				adminEmail: 'first@example.com',
 			},
 		} );
-		fireEvent.change( screen.getByLabelText( /Admin username/ ), {
+		fireEvent.change( screen.getByLabelText( /Username/ ), {
 			target: { value: 'manual-admin' },
 		} );
 		update( { initialValues: { name: 'Second Blueprint', adminEmail: 'second@example.com' } } );
 
 		expect( siteName() ).toHaveValue( 'Second Blueprint' );
-		await waitFor( () => expect( localPath() ).toHaveValue( '/sites/Second Blueprint' ) );
+		await waitFor( () =>
+			expect( localPath() ).toHaveAttribute( 'title', '/sites/Second Blueprint' )
+		);
 		expect( screen.getByRole( 'combobox', { name: 'PHP version' } ) ).toHaveTextContent(
 			RecommendedPHPVersion
 		);
 		expect( screen.getByLabelText( 'WordPress version' ) ).toHaveValue( DEFAULT_WORDPRESS_VERSION );
-		expect( screen.getByLabelText( /Admin username/ ) ).toHaveValue( 'manual-admin' );
-		expect( screen.getByLabelText( /Admin password/ ) ).toHaveValue( defaultPassword );
-		expect( screen.getByLabelText( /Admin email/ ) ).toHaveValue( 'second@example.com' );
-		expect( screen.getByRole( 'switch', { name: 'Use custom domain' } ) ).not.toBeChecked();
+		expect( screen.getByLabelText( /Username/ ) ).toHaveValue( 'manual-admin' );
+		expect( screen.getByLabelText( /Password/ ) ).toHaveValue( defaultPassword );
+		expect( screen.getByLabelText( /Email/ ) ).toHaveValue( 'second@example.com' );
+		credentials();
+		expect( screen.getByLabelText( 'Domain name' ) ).toHaveValue( 'localhost' );
+		credentials();
 
 		update( { initialValues: { name: 'Suggested site' } } );
 		expect( siteName() ).toHaveValue( 'Suggested site' );
-		expect( screen.getByLabelText( /Admin username/ ) ).toHaveValue( 'manual-admin' );
-		expect( screen.getByLabelText( /Admin email/ ) ).toHaveValue( 'admin@localhost.com' );
+		expect( screen.getByLabelText( /Username/ ) ).toHaveValue( 'manual-admin' );
+		expect( screen.getByLabelText( /Email/ ) ).toHaveValue( 'admin@localhost.com' );
 	} );
 
 	it( 'shows validation errors from suggestions', async () => {
@@ -157,9 +250,332 @@ describe( 'CreateSiteForm suggestions', () => {
 		fireEvent.change( domain, { target: { value: 'example.local' } } );
 		await waitFor( () => expect( domain ).toBeValid() );
 	} );
+
+	it( 'keeps localhost when reopening over a Blueprint domain suggestion', async () => {
+		const initialValues = { name: 'Shop', customDomain: 'shop.local', enableHttps: true };
+		const onDraftChange = vi.fn();
+		const { unmount } = await renderForm( { initialValues, onDraftChange } );
+		advanced();
+		fireEvent.change( screen.getByLabelText( 'Domain name' ), {
+			target: { value: 'localhost' },
+		} );
+		unmount();
+
+		const { onSubmit } = await renderForm( {
+			initialValues,
+			draft: onDraftChange.mock.lastCall?.[ 0 ],
+		} );
+		advanced();
+		expect( screen.getByLabelText( 'Domain name' ) ).toHaveValue( 'localhost' );
+		expect( screen.getByRole( 'switch', { name: 'Enable HTTPS' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+		await waitFor( () => expect( submitButton() ).toBeEnabled() );
+		fireEvent.click( submitButton() );
+		expect( onSubmit ).toHaveBeenCalledWith(
+			expect.objectContaining( { customDomain: undefined, enableHttps: false } )
+		);
+	} );
 } );
 
 describe( 'CreateSiteForm path', () => {
+	it.each( [ '/projects/custom', 'C:\\Users\\Rich\\Studio\\custom' ] )(
+		'restores automatic folder naming while preserving the parent: %s',
+		async ( path ) => {
+			const { user, connector, onSubmit } = await renderForm( {
+				initialValues: { name: 'Café & Bakery!', path },
+			} );
+			const parent = path.slice( 0, -'custom'.length );
+			connector.selectSiteFolder.mockImplementation( async ( selectedPath ) => ( {
+				path: selectedPath,
+				name: 'folder',
+				isEmpty: true,
+				isWordPress: false,
+			} ) );
+			const reset = () =>
+				screen.queryByRole( 'button', { name: 'Reset folder name to match site name' } );
+			expect( reset() ).toBeVisible();
+			await user.click( reset()! );
+			expect( localPath() ).toHaveValue( 'cafe-bakery' );
+			expect( localPath() ).toHaveAttribute( 'title', parent + 'cafe-bakery' );
+			expect( localPath() ).toHaveFocus();
+			expect( reset() ).not.toBeInTheDocument();
+			fireEvent.change( siteName(), { target: { value: 'New title' } } );
+			expect( localPath() ).toHaveValue( 'new-title' );
+			expect( reset() ).not.toBeInTheDocument();
+			fireEvent.change( siteName(), { target: { value: '' } } );
+			expect( localPath() ).toHaveValue( '' );
+			expect( localPath() ).toHaveAttribute( 'title', parent );
+			fireEvent.change( siteName(), { target: { value: 'New title' } } );
+			expect( localPath() ).toHaveValue( 'new-title' );
+			fireEvent.change( localPath(), { target: { value: 'independent' } } );
+			fireEvent.change( siteName(), { target: { value: 'Another title' } } );
+			expect( localPath() ).toHaveValue( 'independent' );
+			await user.click( reset()! );
+			expect( localPath() ).toHaveValue( 'another-title' );
+			fireEvent.click( submitButton() );
+			await waitFor( () =>
+				expect( onSubmit ).toHaveBeenCalledWith(
+					expect.objectContaining( { name: 'Another title', path: parent + 'another-title' } )
+				)
+			);
+			expect( connector.selectSiteFolder ).toHaveBeenCalledWith( parent + 'another-title', {
+				usePath: true,
+			} );
+		}
+	);
+
+	it( 'keeps restored automatic naming when reopening the draft', async () => {
+		const onDraftChange = vi.fn();
+		const { user, unmount } = await renderForm( {
+			initialValues: { name: 'Bakery', path: '/projects/custom' },
+			onDraftChange,
+		} );
+		await user.click(
+			screen.getByRole( 'button', { name: 'Reset folder name to match site name' } )
+		);
+		const draft = onDraftChange.mock.lastCall?.[ 0 ];
+		unmount();
+		await renderForm( { initialValues: { name: 'Bakery' }, draft } );
+		fireEvent.change( siteName(), { target: { value: 'New Bakery' } } );
+		expect( localPath() ).toHaveValue( 'new-bakery' );
+		expect( localPath() ).toHaveAttribute( 'title', '/projects/new-bakery' );
+	} );
+
+	it( 'matches a new suggested title when restoring an automatically named draft', async () => {
+		await renderForm( {
+			initialValues: { name: 'New Blueprint' },
+			draft: { path: '/projects/old-blueprint', matchSiteName: true },
+		} );
+		expect( localPath() ).toHaveValue( 'new-blueprint' );
+		expect( localPath() ).toHaveAttribute( 'title', '/projects/new-blueprint' );
+		fireEvent.change( siteName(), { target: { value: 'Updated title' } } );
+		expect( localPath() ).toHaveValue( 'updated-title' );
+	} );
+
+	it( 'does not offer a reset for an empty site name or an existing WordPress location', async () => {
+		const { update } = await renderForm( { initialValues: { name: '', path: '/sites/custom' } } );
+		const reset = () =>
+			screen.queryByRole( 'button', { name: 'Reset folder name to match site name' } );
+		expect( reset() ).not.toBeInTheDocument();
+		fireEvent.change( siteName(), { target: { value: 'Custom title' } } );
+		expect( reset() ).toBeVisible();
+		update( { requiresExistingPath: true } );
+		expect( localPath() ).toHaveAttribute( 'readonly' );
+		expect( reset() ).not.toBeInTheDocument();
+	} );
+
+	it( 'validates the reset destination before allowing source files to be imported', async () => {
+		const { user, connector, onSubmit } = await renderForm( {
+			initialValues: { name: 'Existing', path: '/sites/custom' },
+			requiresEmptyPath: true,
+		} );
+		connector.selectSiteFolder.mockImplementation( async ( path ) => ( {
+			path,
+			name: 'folder',
+			isEmpty: path !== '/sites/existing',
+			isWordPress: path === '/sites/existing',
+		} ) );
+		await user.click(
+			screen.getByRole( 'button', { name: 'Reset folder name to match site name' } )
+		);
+		fireEvent.click( submitButton() );
+		await screen.findByText(
+			'Choose an empty folder to use a source. The selected folder already contains a WordPress site.'
+		);
+		expect( submitButton() ).toBeDisabled();
+		expect( onSubmit ).not.toHaveBeenCalled();
+		fireEvent.change( siteName(), { target: { value: 'Fresh' } } );
+		expect( localPath() ).toHaveValue( 'fresh' );
+		fireEvent.click( submitButton() );
+		await waitFor( () =>
+			expect( onSubmit ).toHaveBeenCalledWith( expect.objectContaining( { path: '/sites/fresh' } ) )
+		);
+	} );
+
+	it( 'keeps Change visible and disabled when the host has no folder picker', async () => {
+		const connector = createFakeConnector(
+			{},
+			{ capabilities: { nativeFolderPicker: false, annotatePreview: false, studioLogs: false } }
+		);
+		const { user } = await renderForm( { initialValues: { name: 'Bakery' } }, connector );
+		const change = screen.getByRole( 'button', { name: 'Change…' } );
+		expect( change ).toBeVisible();
+		expect( change ).toBeDisabled();
+		await user.click( change );
+		expect( connector.selectSiteFolder ).not.toHaveBeenCalled();
+	} );
+
+	it( 'keeps the parent fixed and lets the folder name diverge from the site name', async () => {
+		const { user, onSubmit } = await renderForm();
+		const parent = await screen.findByRole( 'group', { name: 'Parent folder' } );
+		await waitFor( () => expect( parent ).toHaveTextContent( '/sites/' ) );
+		expect( parent ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( parent.querySelector( 'input, textarea' ) ).toBeNull();
+		expect( localPath() ).toHaveValue( '' );
+		fireEvent.change( siteName(), { target: { value: 'Bakery' } } );
+		await waitFor( () => expect( localPath() ).toHaveValue( 'Bakery' ) );
+		expect( localPath() ).not.toHaveAttribute( 'readonly' );
+		await user.clear( localPath() );
+		await user.type( localPath(), 'independent-folder' );
+		fireEvent.change( siteName(), { target: { value: 'Different title' } } );
+		expect( localPath() ).toHaveValue( 'independent-folder' );
+		expect( parent ).toHaveTextContent( '/sites/' );
+		expect( localPath() ).toHaveAttribute( 'title', '/sites/independent-folder' );
+		fireEvent.click( submitButton() );
+		await waitFor( () =>
+			expect( onSubmit ).toHaveBeenCalledWith(
+				expect.objectContaining( { name: 'Different title', path: '/sites/independent-folder' } )
+			)
+		);
+	} );
+
+	it.each( [ '../outside', 'other/folder', 'other\\folder' ] )(
+		'prevents editing the parent through %s',
+		async ( name ) => {
+			await renderForm( { initialValues: { name: 'Bakery' } } );
+			await waitFor( () => expect( localPath() ).toHaveValue( 'Bakery' ) );
+			fireEvent.change( localPath(), { target: { value: name } } );
+			expect( localPath() ).toHaveValue( 'Bakery' );
+			expect( localPath() ).toHaveAttribute( 'title', '/sites/Bakery' );
+		}
+	);
+
+	it.each( [ '.', '..' ] )( 'refuses the folder name "%s"', async ( name ) => {
+		const { onSubmit } = await renderForm( { initialValues: { name: 'Bakery' } } );
+		await waitFor( () => expect( localPath() ).toHaveValue( 'Bakery' ) );
+		fireEvent.change( localPath(), { target: { value: name } } );
+		expect( submitButton() ).toBeDisabled();
+		fireEvent.submit( submitButton().closest( 'form' )! );
+		expect( onSubmit ).not.toHaveBeenCalled();
+	} );
+
+	it.each( [ '/projects/custom', 'C:\\Users\\Rich\\Studio\\custom' ] )(
+		'restores the title-derived name after clearing the slug in %s',
+		async ( path ) => {
+			const { user } = await renderForm( { initialValues: { name: 'Café & Bakery!', path } } );
+			await user.clear( localPath() );
+			expect( localPath() ).toHaveValue( '' );
+			expect( localPath() ).not.toBeInvalid();
+			expect( screen.queryByText( 'Site folder is required.' ) ).not.toBeInTheDocument();
+			await user.tab();
+			expect( localPath() ).toHaveValue( 'cafe-bakery' );
+			expect( localPath() ).toHaveAttribute(
+				'title',
+				path.slice( 0, -'custom'.length ) + 'cafe-bakery'
+			);
+			fireEvent.change( siteName(), { target: { value: 'New Bakery' } } );
+			expect( localPath() ).toHaveValue( 'new-bakery' );
+			await user.clear( localPath() );
+			await user.type( localPath(), 'independent' );
+			fireEvent.change( siteName(), { target: { value: 'Another Bakery' } } );
+			expect( localPath() ).toHaveValue( 'independent' );
+		}
+	);
+
+	it( 'submits the title-derived destination when the slug is cleared without blurring', async () => {
+		const { user, onSubmit } = await renderForm( {
+			initialValues: { name: 'Café & Bakery!', path: '/projects/custom' },
+		} );
+		await user.clear( localPath() );
+		fireEvent.submit( submitButton().closest( 'form' )! );
+		await waitFor( () =>
+			expect( onSubmit ).toHaveBeenCalledWith(
+				expect.objectContaining( { path: '/projects/cafe-bakery' } )
+			)
+		);
+	} );
+
+	it( 'does not add a folder-required error when both the title and slug are empty', async () => {
+		const { user, onSubmit } = await renderForm( {
+			initialValues: { name: 'Bakery', path: '/projects/custom' },
+		} );
+		await user.clear( siteName() );
+		await user.clear( localPath() );
+		await user.tab();
+		expect( localPath() ).toHaveValue( '' );
+		expect( localPath() ).not.toBeInvalid();
+		expect( screen.queryByText( 'Site folder is required.' ) ).not.toBeInTheDocument();
+		fireEvent.submit( submitButton().closest( 'form' )! );
+		expect( onSubmit ).not.toHaveBeenCalled();
+		fireEvent.change( siteName(), { target: { value: 'New Bakery' } } );
+		expect( localPath() ).toHaveValue( 'new-bakery' );
+	} );
+
+	it( 'validates typed destination names against existing WordPress sites', async () => {
+		const { connector, onSubmit } = await renderForm( {
+			initialValues: { name: 'Import' },
+			requiresEmptyPath: true,
+		} );
+		connector.selectSiteFolder.mockImplementation( async ( path ) => ( {
+			path,
+			name: 'folder',
+			isEmpty: path !== '/sites/existing',
+			isWordPress: path === '/sites/existing',
+		} ) );
+		fireEvent.change( localPath(), { target: { value: 'existing' } } );
+		await screen.findByText(
+			'Choose an empty folder to use a source. The selected folder already contains a WordPress site.'
+		);
+		expect( submitButton() ).toBeDisabled();
+		fireEvent.change( localPath(), { target: { value: 'fresh' } } );
+		fireEvent.click( submitButton() );
+		await waitFor( () =>
+			expect( onSubmit ).toHaveBeenCalledWith( expect.objectContaining( { path: '/sites/fresh' } ) )
+		);
+	} );
+
+	it.each( [ '/projects/chosen', 'C:\\Users\\Rich\\Studio\\chosen', '\\\\server\\share\\chosen' ] )(
+		'preserves the chosen full path when the title changes: %s',
+		async ( path ) => {
+			const { connector } = await renderForm( { initialValues: { name: 'Bakery' } } );
+			connector.selectSiteFolder.mockResolvedValue( {
+				name: 'chosen',
+				path,
+				isEmpty: true,
+				isWordPress: false,
+			} );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Change…' } ) );
+			await waitFor( () => expect( localPath() ).toHaveAttribute( 'title', path ) );
+			fireEvent.change( siteName(), { target: { value: 'Unrelated title' } } );
+			expect( localPath() ).toHaveAttribute( 'title', path );
+			expect( localPath() ).not.toHaveAttribute( 'readonly' );
+		}
+	);
+
+	it( 'rejects an existing WordPress destination for an imported source and accepts an empty replacement', async () => {
+		const { connector, onSubmit } = await renderForm( {
+			initialValues: { name: 'Import' },
+			requiresEmptyPath: true,
+		} );
+		connector.selectSiteFolder.mockResolvedValue( {
+			name: 'existing',
+			path: '/sites/existing',
+			isEmpty: false,
+			isWordPress: true,
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Change…' } ) );
+		await screen.findByText(
+			'Choose an empty folder to use a source. The selected folder already contains a WordPress site.'
+		);
+		expect( submitButton() ).toBeDisabled();
+		fireEvent.submit( submitButton().closest( 'form' )! );
+		expect( onSubmit ).not.toHaveBeenCalled();
+		connector.selectSiteFolder.mockResolvedValue( {
+			name: 'empty',
+			path: '/sites/empty',
+			isEmpty: true,
+			isWordPress: false,
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Change…' } ) );
+		await waitFor( () => expect( submitButton() ).toBeEnabled() );
+		fireEvent.click( submitButton() );
+		await waitFor( () =>
+			expect( onSubmit ).toHaveBeenCalledWith( expect.objectContaining( { path: '/sites/empty' } ) )
+		);
+	} );
+
 	it( 'keeps validation pending, with submit available, while a suggested name resolves', async () => {
 		const pending = deferred< ProposedPath >();
 		const connector = createFakeConnector();
@@ -189,19 +605,19 @@ describe( 'CreateSiteForm path', () => {
 		);
 		await second.resolve( { path: '/sites/second', isEmpty: true, isWordPress: false } );
 		advanced();
-		expect( localPath() ).toHaveValue( '/sites/second' );
+		expect( localPath() ).toHaveAttribute( 'title', '/sites/second' );
 		await first.resolve( { path: '/sites/first', isEmpty: true, isWordPress: false } );
-		expect( localPath() ).toHaveValue( '/sites/second' );
+		expect( localPath() ).toHaveAttribute( 'title', '/sites/second' );
 	} );
 
 	it( 'does not regenerate the path while it submits', async () => {
 		const { connector, update } = await renderForm( { initialValues: { name: 'Created site' } } );
 		advanced();
-		await waitFor( () => expect( localPath() ).toHaveValue( '/sites/Created site' ) );
+		await waitFor( () => expect( localPath() ).toHaveAttribute( 'title', '/sites/Created site' ) );
 		connector.generateProposedSitePath.mockClear();
 		update( { isSubmitting: true, initialValues: { name: 'Created site' } } );
 		expect( connector.generateProposedSitePath ).not.toHaveBeenCalled();
-		expect( localPath() ).toHaveValue( '/sites/Created site' );
+		expect( localPath() ).toHaveAttribute( 'title', '/sites/Created site' );
 	} );
 
 	it( 'queues a submit until the path resolves', async () => {
@@ -221,7 +637,7 @@ describe( 'CreateSiteForm path', () => {
 		);
 	} );
 
-	it( 'keeps a typed path over a generated one still pending', async () => {
+	it( 'keeps a chosen folder over a generated one still pending', async () => {
 		const pending = deferred< ProposedPath >();
 		const { connector, onSubmit } = await renderForm( { initialValues: { name: 'Pending' } } );
 		connector.generateProposedSitePath.mockReturnValue( pending.promise );
@@ -232,9 +648,9 @@ describe( 'CreateSiteForm path', () => {
 			isWordPress: false,
 		} );
 		advanced();
-		fireEvent.change( localPath(), { target: { value: '/sites/manual' } } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Change…' } ) );
 		await pending.resolve( { path: '/sites/generated', isEmpty: true, isWordPress: false } );
-		expect( localPath() ).toHaveValue( '/sites/manual' );
+		expect( localPath() ).toHaveAttribute( 'title', '/sites/manual' );
 		await waitFor( () => expect( submitButton() ).toBeEnabled() );
 		fireEvent.click( submitButton() );
 		await waitFor( () =>
@@ -244,7 +660,7 @@ describe( 'CreateSiteForm path', () => {
 		);
 	} );
 
-	it( 'checks a typed folder, and adds an existing WordPress site as it is', async () => {
+	it( 'checks a chosen folder, and adds an existing WordPress site as it is', async () => {
 		const onExistingChange = vi.fn();
 		const { connector } = await renderForm( {
 			initialValues: { name: 'Typed' },
@@ -257,17 +673,38 @@ describe( 'CreateSiteForm path', () => {
 			isWordPress: path === '/sites/wordpress',
 		} ) );
 		advanced();
-		fireEvent.change( localPath(), { target: { value: '/sites/full' } } );
+		connector.selectSiteFolder.mockResolvedValueOnce( {
+			name: 'Full',
+			path: '/sites/full',
+			isEmpty: false,
+			isWordPress: false,
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Change…' } ) );
 		await waitFor( () =>
 			expect( localPath() ).toHaveAccessibleDescription(
-				'Choose an empty folder or an existing WordPress site.'
+				/Choose an empty folder or an existing WordPress site./
 			)
 		);
-		fireEvent.change( localPath(), { target: { value: '/sites/wordpress' } } );
-		expect( await screen.findByText( 'Existing local WordPress site' ) ).toBeVisible();
-		expect( screen.queryByLabelText( /Admin username/ ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'switch', { name: 'Use custom domain' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByText( 'WordPress version' ) ).not.toBeInTheDocument();
+		connector.selectSiteFolder.mockResolvedValue( {
+			name: 'WordPress',
+			path: '/sites/wordpress',
+			isEmpty: false,
+			isWordPress: true,
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Change…' } ) );
+		expect(
+			await screen.findByText(
+				'Studio will use this WordPress site in place. No files will be moved.'
+			)
+		).toBeVisible();
+		advanced();
+		expect( screen.queryByLabelText( /Username/ ) ).not.toBeInTheDocument();
+		await waitFor( () =>
+			expect( screen.queryByLabelText( 'Domain name' ) ).not.toBeInTheDocument()
+		);
+		await waitFor( () =>
+			expect( screen.queryByText( 'WordPress version' ) ).not.toBeInTheDocument()
+		);
 		expect( onExistingChange ).toHaveBeenLastCalledWith( true );
 	} );
 
@@ -280,13 +717,15 @@ describe( 'CreateSiteForm path', () => {
 		} );
 		await renderForm( { initialValues: { name: 'Occupied' }, requiresEmptyPath: true }, connector );
 		await waitFor( () =>
-			expect( localPath() ).toHaveAccessibleDescription( /Choose an empty folder/ )
+			expect( localPath() ).toHaveAccessibleDescription( /Choose an empty folder to use a source/ )
 		);
-		expect( screen.queryByText( 'Existing local WordPress site' ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Create site' } ) ).toBeDisabled();
+		expect(
+			screen.queryByText( 'Studio will use this WordPress site in place. No files will be moved.' )
+		).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Add site' } ) ).toBeDisabled();
 	} );
 
-	it( 'shows folder errors without opening Advanced settings, keeping focus on the name', async () => {
+	it( 'shows folder errors beside the path without opening Advanced or moving focus', async () => {
 		const connector = createFakeConnector();
 		connector.generateProposedSitePath.mockResolvedValue( {
 			path: '/sites/full',
@@ -296,17 +735,16 @@ describe( 'CreateSiteForm path', () => {
 		await renderForm( { initialValues: { name: 'Full' } }, connector );
 		expect( siteName() ).toHaveFocus();
 		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: /Advanced settings/ } ) ).toHaveAttribute(
-				'aria-expanded',
-				'false'
-			)
-		);
-		await waitFor( () =>
 			expect( localPath() ).toHaveAccessibleDescription(
-				'Choose an empty folder or an existing WordPress site.'
+				/Choose an empty folder or an existing WordPress site./
 			)
 		);
 		expect( localPath() ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Advanced' } ) ).toHaveAttribute(
+			'aria-expanded',
+			'false'
+		);
+		expect( siteName() ).toHaveFocus();
 		expect( submitButton() ).toBeDisabled();
 	} );
 
@@ -314,7 +752,6 @@ describe( 'CreateSiteForm path', () => {
 		const connector = createFakeConnector();
 		connector.generateProposedSitePath.mockRejectedValue( new Error( 'offline' ) );
 		await renderForm( { initialValues: { name: 'Unavailable' } }, connector );
-		advanced();
 		expect(
 			await screen.findByText( 'Unable to suggest a folder for this site name.' )
 		).toBeVisible();
@@ -331,9 +768,9 @@ describe( 'CreateSiteForm path', () => {
 		} );
 		await renderForm( { initialValues: { name: 'Site' } }, connector );
 		advanced();
-		await waitFor( () => expect( localPath() ).toHaveValue( '/sites/Site' ) );
+		await waitFor( () => expect( localPath() ).toHaveAttribute( 'title', '/sites/Site' ) );
 		const picker = screen.getByRole( 'button', {
-			name: /select a different folder|Select a folder/,
+			name: 'Change…',
 		} );
 		picker.focus();
 		fireEvent.click( picker );
@@ -346,6 +783,30 @@ describe( 'CreateSiteForm path', () => {
 } );
 
 describe( 'CreateSiteForm fields', () => {
+	it( 'reveals advanced settings inside the form and preserves edits when collapsed', async () => {
+		const { user } = await renderForm( { initialValues: { name: 'Bakery' } } );
+		const control = screen.getByRole( 'button', { name: 'Advanced' } );
+		expect( control ).toHaveAttribute( 'aria-expanded', 'false' );
+		expect( screen.queryByRole( 'combobox', { name: 'PHP version' } ) ).not.toBeInTheDocument();
+		await user.click( control );
+		const region = screen.getByRole( 'region', { name: 'Advanced' } );
+		expect( siteName().closest( 'form' ) ).toContainElement( region );
+		expect( control ).toHaveAttribute( 'aria-controls', region.id );
+		await waitFor( () =>
+			expect( region ).toContainElement( document.activeElement as HTMLElement )
+		);
+		await user.click( siteName() );
+		expect( control ).toHaveAttribute( 'aria-expanded', 'true' );
+		await chooseOption( 'PHP version', '8.2' );
+		fireEvent.click( control );
+		expect( control ).toHaveAttribute( 'aria-expanded', 'false' );
+		await waitFor( () =>
+			expect( screen.queryByRole( 'combobox', { name: 'PHP version' } ) ).not.toBeInTheDocument()
+		);
+		fireEvent.click( control );
+		expect( screen.getByRole( 'combobox', { name: 'PHP version' } ) ).toHaveTextContent( '8.2' );
+	} );
+
 	it( 'offers file access choices without a PHP runtime choice', async () => {
 		const { onSubmit } = await renderForm( { initialValues: { name: 'Runtime' } } );
 		advanced();
@@ -433,21 +894,95 @@ describe( 'CreateSiteForm fields', () => {
 		await waitFor( () => expect( select ).toHaveTextContent( 'Auto-update' ) );
 	} );
 
-	it( 'requires a site name once it has been edited', async () => {
-		await renderForm( { initialValues: { name: 'Named site' } } );
+	it( 'clears name errors on focus and revalidates on blur while preventing an empty submission', async () => {
+		const { onSubmit } = await renderForm( { initialValues: { name: 'Named site' } } );
 		expect( screen.queryByText( 'Site name is required.' ) ).not.toBeInTheDocument();
 		fireEvent.change( siteName(), { target: { value: ' ' } } );
+		expect( screen.queryByText( 'Site name is required.' ) ).not.toBeInTheDocument();
+		fireEvent.blur( siteName() );
 		expect( siteName() ).toHaveAccessibleDescription( 'Site name is required.' );
 		expect( submitButton() ).toBeDisabled();
+		fireEvent.focus( siteName() );
+		expect( screen.queryByText( 'Site name is required.' ) ).not.toBeInTheDocument();
+		expect( siteName() ).not.toHaveAttribute( 'aria-invalid', 'true' );
+		expect( submitButton() ).toBeDisabled();
+		fireEvent.submit( siteName().closest( 'form' )! );
+		expect( onSubmit ).not.toHaveBeenCalled();
+		fireEvent.blur( siteName() );
+		expect( siteName() ).toHaveAccessibleDescription( 'Site name is required.' );
+		fireEvent.focus( siteName() );
+		fireEvent.change( siteName(), { target: { value: 'Valid site' } } );
+		fireEvent.blur( siteName() );
+		expect( screen.queryByText( 'Site name is required.' ) ).not.toBeInTheDocument();
+		await waitFor( () => expect( submitButton() ).toBeEnabled() );
 	} );
 
-	it( 'counts errors in the collapsed advanced settings', async () => {
+	it( 'opens advanced settings to reveal invalid Blueprint defaults', async () => {
 		await renderForm( { initialValues: { name: 'Site', adminEmail: 'not-an-email' } } );
-		expect( screen.getByText( '1 error found' ) ).toBeVisible();
+		const control = screen.getByRole( 'button', { name: 'Advanced' } );
+		expect( control ).toHaveAttribute( 'aria-expanded', 'true' );
 		expect( submitButton() ).toBeDisabled();
-		advanced();
-		expect( screen.getByLabelText( /Admin email/ ) ).toHaveAccessibleDescription(
+		fireEvent.click( control );
+		expect( control ).toHaveAttribute( 'aria-expanded', 'false' );
+		expect(
+			screen.getByText( 'Review the advanced settings to finish creating your site.' )
+		).toBeVisible();
+		fireEvent.click( control );
+		expect( screen.getByRole( 'button', { name: 'Change' } ) ).toHaveAccessibleDescription(
 			'Please enter a valid email address.'
+		);
+		credentials();
+		expect( screen.getByLabelText( /Email/ ) ).toHaveAccessibleDescription(
+			'Please enter a valid email address.'
+		);
+		fireEvent.change( screen.getByLabelText( /Email/ ), {
+			target: { value: 'owner@example.com' },
+		} );
+		credentials();
+		await waitFor( () => expect( submitButton() ).toBeEnabled() );
+	} );
+
+	it( 'keeps credentials and domain edits when popovers close and submits them', async () => {
+		const { onSubmit, user } = await renderForm( { initialValues: { name: 'Bakery' } } );
+		advanced();
+		expect( screen.queryByLabelText( /Username/ ) ).not.toBeInTheDocument();
+		await user.click( screen.getByRole( 'button', { name: 'Change' } ) );
+		fireEvent.change( screen.getByLabelText( /Username/ ), {
+			target: { value: 'baker' },
+		} );
+		fireEvent.change( screen.getByLabelText( /Password/ ), {
+			target: { value: 'my-password' },
+		} );
+		fireEvent.change( screen.getByLabelText( /Email/ ), {
+			target: { value: 'baker@example.com' },
+		} );
+		await user.keyboard( '{Escape}' );
+		await user.click( screen.getByRole( 'button', { name: 'Change' } ) );
+		expect( screen.getByLabelText( /Username/ ) ).toHaveValue( 'baker' );
+		await user.keyboard( '{Escape}' );
+		const https = screen.getByRole( 'switch', { name: 'Enable HTTPS' } );
+		expect( https ).toHaveAttribute( 'aria-disabled', 'true' );
+		expect( https ).not.toBeChecked();
+		fireEvent.change( screen.getByLabelText( 'Domain name' ), {
+			target: { value: 'bakery.local' },
+		} );
+		expect( https ).not.toHaveAttribute( 'aria-disabled', 'true' );
+		await user.click( https );
+		expect( https ).toBeChecked();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Advanced' } ) );
+		advanced();
+		expect( screen.getByLabelText( 'Domain name' ) ).toHaveValue( 'bakery.local' );
+		expect( screen.getByRole( 'switch', { name: 'Enable HTTPS' } ) ).toBeChecked();
+		await waitFor( () => expect( submitButton() ).toBeEnabled() );
+		fireEvent.click( submitButton() );
+		expect( onSubmit ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				adminUsername: 'baker',
+				adminPassword: 'my-password',
+				adminEmail: 'baker@example.com',
+				customDomain: 'bakery.local',
+				enableHttps: true,
+			} )
 		);
 	} );
 
@@ -457,10 +992,8 @@ describe( 'CreateSiteForm fields', () => {
 	} );
 
 	it( 'shows an actionable submission error with optional technical details', async () => {
-		const { onCancel } = await renderForm( {
+		await renderForm( {
 			initialValues: { name: 'Imported site', path: '/sites/imported-site' },
-			submitLabel: 'Retry import',
-			cancelLabel: 'Choose another backup',
 			submitError: {
 				title: 'WordPress Studio could not import this backup.',
 				message: 'The incomplete site was removed.',
@@ -470,9 +1003,8 @@ describe( 'CreateSiteForm fields', () => {
 		const alert = screen.getByRole( 'alert' );
 		expect( alert ).toHaveTextContent( 'WordPress Studio could not import this backup.' );
 		expect( alert ).toHaveTextContent( 'The incomplete site was removed.' );
-		expect( screen.getByRole( 'button', { name: 'Retry import' } ) ).toBeVisible();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Choose another backup' } ) );
-		expect( onCancel ).toHaveBeenCalledOnce();
+		expect( screen.getByRole( 'button', { name: 'Add site' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'button', { name: 'Cancel' } ) ).not.toBeInTheDocument();
 		fireEvent.click( screen.getByText( 'View technical details' ) );
 		expect( screen.getByText( 'CLI command failed' ) ).toBeVisible();
 	} );

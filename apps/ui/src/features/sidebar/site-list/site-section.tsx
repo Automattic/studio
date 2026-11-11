@@ -1,14 +1,17 @@
-import { useNavigate, useRouterState } from '@tanstack/react-router';
+import { useNavigate } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useEffect, useRef } from 'react';
 import { useSiteAgentActivity } from '@/data/agent-runs/use-agent-run';
 import { sitePinKey } from '@/data/queries/use-sidebar-pins';
+import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
 import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
-import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOpenSite } from '@/data/use-open-site';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
+import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
+import { getStagedAnnotations } from '@/features/annotations';
+import { getComposerDraft } from '@/features/composer';
 import { XdebugIcon } from '@/features/sidebar/xdebug-icon';
 import { GlobeIcon, NeedsInputIcon, NewChatIcon } from '@/lib/icons';
 import {
@@ -55,8 +58,8 @@ export function SiteSection( {
 	expanded: boolean;
 	loadError: boolean;
 	reorderable: boolean;
-	// Clicking the row, before it opens the site; folds or unfolds its chats.
-	onOpen?: () => void;
+	// Folds or unfolds the chats, then schedules opening another site's workspace.
+	onOpen?: ( openSite?: () => void ) => void;
 	onReorderChats: ( ids: string[] ) => void;
 	onSiteOpen?: () => void;
 	// Drag handling, when the row is in a reorderable list.
@@ -68,11 +71,16 @@ export function SiteSection( {
 	const navigate = useNavigate();
 	const sectionRef = useRef< HTMLLIElement >( null );
 	const isActive = isChatActive || isContextActive;
-	const showChats = expanded && ( chats.length > 0 || loadError );
+	const { draft } = useSiteChatDraft( site.id );
+	const pendingChat =
+		draft.pendingPrompt !== undefined && ! chats.some( ( chat ) => chat.id === draft.sessionId );
+	const showChats = expanded && ( chats.length > 0 || pendingChat || loadError );
 	const agentActivity = useSiteAgentActivity( row.sessionIds );
 	const needsInput = ! expanded && agentActivity === 'pending-question';
 	// Highlighted, with its actions showing, unless its open chat is listed under it.
-	const highlighted = ( isChatActive && ( ! showChats || ! activeSessionId ) ) || isContextActive;
+	const highlighted =
+		( isChatActive && ( ! showChats || ( ! activeSessionId && ! pendingChat ) ) ) ||
+		isContextActive;
 	// Keep the active site visible — e.g. when launch restores a site that
 	// sits below the sidebar's fold. `nearest` no-ops when already visible.
 	useEffect( () => {
@@ -96,30 +104,20 @@ export function SiteSection( {
 			? 'sync'
 			: undefined;
 	const displayActivity = siteActivity ?? 'idle';
-	const openSite = useOpenSite();
+	const openSite = useOpenSite( { animateSelection: ! ( onOpen && isActive && expanded ) } );
 	const preview = useOptionalSessionPreviewUI();
-	const pathname = useRouterState( { select: ( state ) => state.location.pathname } );
-	const emptyChatOpen =
-		pathname === `/sites/${ encodeURIComponent( site.id ) }/new` && ! preview?.chatHidden;
+	const runLayoutTransition = useUserWorkspaceLayoutTransition( site.id );
 	const handleOpenSite = () => {
-		onOpen?.();
+		if ( onOpen ) {
+			onOpen( isChatActive ? undefined : () => openSite( site ) );
+			return;
+		}
 		onSiteOpen?.();
 		openSite( site );
 	};
-	const { data: preferences } = useUserPreferences();
 	const handleStartSite = () => {
-		if ( ! isActive ) {
-			if ( preferences?.openChatOnSiteStart ?? true ) {
-				handleOpenSite();
-			} else {
-				onOpen?.();
-				onSiteOpen?.();
-				preview?.setOpen( true );
-				void navigate( { to: '/sites/$siteId', params: { siteId: site.id } } );
-			}
-		} else {
-			preview?.setOpen( true );
-		}
+		if ( ! isActive ) handleOpenSite();
+		else preview?.setOpen( true );
 	};
 
 	return (
@@ -155,7 +153,9 @@ export function SiteSection( {
 								className={ status === 'transitioning' ? 'studio-shimmer' : undefined }
 								aria-current={ isChatActive ? 'page' : undefined }
 								aria-pressed={ pressed }
-								aria-expanded={ onOpen && chats.length > 0 ? showChats : undefined }
+								aria-expanded={
+									onOpen && ( chats.length > 0 || pendingChat ) ? showChats : undefined
+								}
 							>
 								{ site.name }
 							</SidebarMenuLabel>
@@ -186,15 +186,23 @@ export function SiteSection( {
 					label={ sprintf( __( 'New chat for %s' ), site.name ) }
 					onClick={ () => {
 						onSiteOpen?.();
+						const draft = getComposerDraft( `site:${ site.id }` );
 						const hideChat =
-							emptyChatOpen &&
-							preview?.open &&
-							site.running &&
-							! isStopping &&
-							operation !== 'stop' &&
-							preview.revealingSiteId !== site.id;
-						preview?.setChatHidden( !! hideChat, site.id );
-						void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+							isChatActive &&
+							! activeSessionId &&
+							!! site.running &&
+							preview?.siteId === site.id &&
+							preview.open &&
+							! preview.chatHidden &&
+							! draft.text &&
+							draft.attachments.length === 0 &&
+							getStagedAnnotations( site.id ).length === 0;
+						runLayoutTransition( () => {
+							preview?.setChatHidden( hideChat, site.id, { instant: true } );
+							if ( ! hideChat ) {
+								return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+							}
+						} );
 					} }
 				/>
 				<SiteStatusButton
@@ -212,6 +220,18 @@ export function SiteSection( {
 				loadError={ loadError }
 				reorderable={ reorderable }
 				activeSessionId={ activeSessionId }
+				pendingChat={
+					pendingChat
+						? { label: draft.pendingPrompt ?? '', active: isChatActive && ! activeSessionId }
+						: undefined
+				}
+				onOpenDraft={ () => {
+					onSiteOpen?.();
+					runLayoutTransition( () => {
+						preview?.setChatHidden( false, site.id );
+						return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+					} );
+				} }
 				onReorderChats={ onReorderChats }
 				onSiteOpen={ onSiteOpen }
 			/>

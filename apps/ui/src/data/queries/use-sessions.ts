@@ -103,6 +103,7 @@ export function useSession( sessionId: string | undefined ) {
 		// persisted cache can miss entries, so only that one refetches on mount.
 		refetchOnMount: ( query ) =>
 			query.state.dataUpdatedAt < performance.timeOrigin ? 'always' : false,
+		retryOnMount: false,
 		refetchOnWindowFocus: false,
 		refetchOnReconnect: false,
 		staleTime: Infinity,

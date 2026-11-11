@@ -15,17 +15,20 @@ import {
 	useAgentInstructionsEnabled,
 	useSetAgentInstructionsEnabled,
 } from '@/data/queries/use-agent-instructions';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useResetAppearance, useResetInterface } from '@/data/queries/use-reset-interface';
+import { useSites } from '@/data/queries/use-sites';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { hasCustomPanelLayout } from '@/data/resizable-panels';
+import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
+import { ExternalLinkIcon } from '@/lib/icons';
 import { isDefaultColorTint } from '@/lib/theme';
 import { Input, Button } from '@/lib/ui';
-import { AccountSection } from './account-section';
+import { ConnectionCard } from './account-section';
 import { ColorTintSettings } from './color-tint-settings';
 import { InstructionsEditor } from './instructions-editor';
-import { NewSiteBehaviorRow } from './new-site-behavior-row';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
 import {
 	SettingsGroup,
@@ -48,7 +51,7 @@ import type {
 	UserPreferences,
 } from '@/data/core';
 
-// "Default" first, then the installed apps and the saved one, even if it's gone.
+// "System" first, then the installed apps and the saved one, even if it's gone.
 function appElements< TApp extends keyof InstalledApps >(
 	apps: readonly TApp[],
 	installedApps: InstalledApps | undefined,
@@ -56,7 +59,7 @@ function appElements< TApp extends keyof InstalledApps >(
 	label: ( app: TApp ) => string
 ) {
 	return [
-		{ value: UNSET, label: __( 'Default' ) },
+		{ value: UNSET, label: __( 'System' ) },
 		...apps
 			.filter( ( app ) => ! installedApps || installedApps[ app ] || app === saved )
 			.map( ( app ) => ( { value: app, label: label( app ) } ) ),
@@ -170,15 +173,16 @@ function PreferencesPanel( {
 } ) {
 	const connector = useConnector();
 	const locale = useUserLocale();
+	const { data: user, isSuccess: authLoaded } = useAuthUser();
 	return (
 		<div className={ styles.preferencesPanel }>
-			<AccountSection />
+			<ConnectionCard />
 			{ saveError ? (
 				<div className={ styles.errorMessage }>
 					{ __( 'An error occurred while saving settings. Please try again.' ) }
 				</div>
 			) : null }
-			<SettingsGroup title={ __( 'Application' ) }>
+			<SettingsGroup title={ authLoaded && ! user ? __( 'Application' ) : undefined }>
 				<SettingsRow
 					title={ __( 'Language' ) }
 					description={ __( 'Default language for WordPress Studio.' ) }
@@ -191,11 +195,11 @@ function PreferencesPanel( {
 					/>
 				</SettingsRow>
 				<SettingsRow
-					title={ __( 'Code editor' ) }
+					title={ __( 'Default code editor' ) }
 					description={ __( 'The default code editor for your sites.' ) }
 				>
 					<SettingsSelect
-						label={ __( 'Code editor' ) }
+						label={ __( 'Default code editor' ) }
 						value={ data.editor }
 						options={ appElements( SUPPORTED_EDITORS, installedApps, data.editor, ( editor ) =>
 							supportedEditorConfig[ editor ].label()
@@ -204,14 +208,14 @@ function PreferencesPanel( {
 					/>
 				</SettingsRow>
 				<SettingsRow
-					title={ __( 'Browser' ) }
-					description={ __( 'The browser used to open your sites, WP Admin, and phpMyAdmin.' ) }
+					title={ __( 'Default browser' ) }
+					description={ __( 'The default browser for your sites.' ) }
 				>
 					<SettingsSelect
-						label={ __( 'Browser' ) }
+						label={ __( 'Default browser' ) }
 						value={ data.browser }
 						options={ [
-							{ value: UNSET, label: __( 'System default' ) },
+							{ value: UNSET, label: __( 'System' ) },
 							...SUPPORTED_BROWSERS.filter(
 								( browser ) => installedApps?.[ browser ] || browser === data.browser
 							).map( ( browser ) => ( { value: browser, label: browserConfig[ browser ].name } ) ),
@@ -220,11 +224,11 @@ function PreferencesPanel( {
 					/>
 				</SettingsRow>
 				<SettingsRow
-					title={ __( 'Terminal' ) }
+					title={ __( 'Default terminal app' ) }
 					description={ __( 'The default terminal for your sites.' ) }
 				>
 					<SettingsSelect
-						label={ __( 'Terminal' ) }
+						label={ __( 'Default terminal app' ) }
 						value={ data.terminal }
 						options={ appElements(
 							SUPPORTED_TERMINALS,
@@ -252,7 +256,6 @@ function PreferencesPanel( {
 				</SettingsRow>
 			</SettingsGroup>
 			<SettingsGroup title={ __( 'Interface' ) }>
-				<NewSiteBehaviorRow />
 				<SettingsRow
 					title={ __( 'When WordPress Studio quits' ) }
 					description={ __(
@@ -277,26 +280,41 @@ function PreferencesPanel( {
 					/>
 				</SettingsRow>
 				<SettingsRow
-					title={ __( 'Open chat when starting a site' ) }
-					description={ __( 'Show the chat panel alongside the preview when starting a site.' ) }
+					title={ __( 'Start sites with chat' ) }
+					description={ __( 'Show chat beside the panel when starting a site.' ) }
 				>
 					<SettingsToggle
-						label={ __( 'Open chat when starting a site' ) }
+						label={ __( 'Start sites with chat' ) }
 						checked={ data.openChatOnSiteStart }
 						onChange={ ( openChatOnSiteStart ) => onChange( { openChatOnSiteStart } ) }
 					/>
 				</SettingsRow>
-				<SidebarSettings />
 				<SettingsRow
-					title={ __( 'Confirm before deleting annotations' ) }
-					description={ __( 'Ask before deleting pending notes and attached images.' ) }
+					title={ __( 'Batch notes' ) }
+					description={ __(
+						'Collect annotations and send them together instead of one at a time.'
+					) }
 				>
 					<SettingsToggle
-						label={ __( 'Confirm before deleting annotations' ) }
-						checked={ data.confirmDeleteAnnotations }
-						onChange={ ( confirmDeleteAnnotations ) => onChange( { confirmDeleteAnnotations } ) }
+						label={ __( 'Batch notes' ) }
+						checked={ data.batchAnnotations }
+						onChange={ ( batchAnnotations ) => onChange( { batchAnnotations } ) }
 					/>
 				</SettingsRow>
+
+				<SettingsRow
+					title={ __( 'Hide admin bar' ) }
+					description={ __(
+						'Hide the WordPress admin bar by default on local sites. Change this for individual sites in Browser options.'
+					) }
+				>
+					<SettingsToggle
+						label={ __( 'Hide admin bar' ) }
+						checked={ data.hideFrontendAdminBar }
+						onChange={ ( hideFrontendAdminBar ) => onChange( { hideFrontendAdminBar } ) }
+					/>
+				</SettingsRow>
+				<SidebarSettings />
 				<SettingsRow
 					title={ __( 'Reset interface' ) }
 					description={ __(
@@ -321,11 +339,12 @@ function PreferencesPanel( {
 							void connector.openExternalUrl( getLocalizedLink( locale, 'docsStudio' ) )
 						}
 					>
-						{ __( 'Open docs' ) }
+						{ __( 'Open' ) }
+						<ExternalLinkIcon data-icon="inline-end" />
 					</Button>
 				</SettingsRow>
 				<SettingsRow
-					title={ __( 'Report an issue' ) }
+					title={ __( 'Report an issue on GitHub' ) }
 					description={ __( 'Report a bug or request a feature.' ) }
 				>
 					<Button
@@ -333,6 +352,7 @@ function PreferencesPanel( {
 						onClick={ () => void connector.openExternalUrl( REPORT_ISSUE_URL ) }
 					>
 						{ __( 'Report' ) }
+						<ExternalLinkIcon data-icon="inline-end" />
 					</Button>
 				</SettingsRow>
 			</SettingsGroup>
@@ -408,12 +428,22 @@ function usePreferencesForm() {
 
 export function GeneralSettings() {
 	const connector = useConnector();
+	const preview = useOptionalSessionPreviewUI();
+	const { data: sites } = useSites();
 	const { data: installedApps } = useInstalledApps();
 	const { saved, data, handleChange, resetInterface, saveError, loadFailed, retry } =
 		usePreferencesForm();
 	if ( ! data || ! saved ) {
 		return <SettingsLoadState loadFailed={ loadFailed } onRetry={ retry } />;
 	}
+	const hasCustomPreview =
+		preview &&
+		( sites ?? [] ).some( ( site ) => {
+			const open = preview.siteId === site.id ? preview.open : preview.openBySiteId[ site.id ];
+			return (
+				( open !== undefined && open !== !! site.running ) || preview.chatHiddenBySiteId[ site.id ]
+			);
+		} );
 	const selectDefaultDirectory = async () => {
 		const directory = await connector.selectDefaultSiteDirectory( data.defaultSiteDirectory );
 		if ( directory ) {
@@ -425,7 +455,7 @@ export function GeneralSettings() {
 			data={ data }
 			installedApps={ installedApps }
 			saveError={ saveError }
-			interfaceIsDefault={ isDefaultInterface( saved ) }
+			interfaceIsDefault={ ! hasCustomPreview && isDefaultInterface( saved ) }
 			onResetInterface={ resetInterface }
 			onDefaultSiteDirectorySelect={
 				connector.capabilities.nativeFolderPicker ? () => void selectDefaultDirectory() : undefined
@@ -451,20 +481,25 @@ export function AppearanceSettings() {
 				</div>
 			) : null }
 			<SettingsGroup>
-				<SettingsRow title={ __( 'Theme' ) } description={ __( 'Choose light, dark, or system.' ) }>
+				<SettingsRow
+					title={ __( 'Interface theme' ) }
+					description={ __( 'Choose light, dark, or system.' ) }
+				>
 					<SettingsSelect
-						label={ __( 'Theme' ) }
+						label={ __( 'Interface theme' ) }
 						value={ data.colorScheme }
 						options={ getColorSchemeElements() }
 						onChange={ ( colorScheme ) => handleChange( { colorScheme } ) }
 					/>
 				</SettingsRow>
-				<ColorTintSettings tint={ tint } onCommit={ ( next ) => savePreferences.mutate( next ) } />
+				<ColorTintSettings tint={ tint } onCommit={ savePreferences.mutateAsync } />
 			</SettingsGroup>
 			<SettingsGroup title={ __( 'Reset' ) }>
 				<SettingsRow
 					title={ __( 'Reset appearance' ) }
-					description={ __( 'Restore the default theme, color, intensity, and contrast.' ) }
+					description={ __(
+						'Restore the default interface theme, accent color, intensity, and contrast.'
+					) }
 				>
 					<Button
 						variant="outline"

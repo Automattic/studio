@@ -1,12 +1,12 @@
 /* The chat column. The site preview panel lives in the dashboard layout's
-   PreviewSplitFrame, which hosts this view in its content column. */
+   PanelSplitFrame, which hosts this view in its content column. */
 .root {
-	--column-inline-gutter: var( --space-5 );
+	--column-inline-gutter: var( --space-4 );
 	--column-max-width: 644px;
 	--header-height: var( --band-height );
 	--composer-height: 0px;
 	/* The composer sits this far above the panel's bottom edge. */
-	--composer-bottom-gap: var( --space-5 );
+	--composer-bottom-gap: var( --column-inline-gutter );
 
 	position: relative;
 	height: 100%;
@@ -16,14 +16,13 @@
 }
 
 .header {
-	composes: bandEdge from '@/lib/theme/recipes.module.css';
+	container: site-header / inline-size;
 	display: flex;
 	align-items: center;
-	gap: var( --space-1 );
+	gap: var( --band-group-gap );
 	padding-inline: var( --band-inset );
 	height: var( --band-height );
 	transition: padding var( --motion-duration-layout ) var( --motion-ease-layout );
-	background-color: var( --chrome );
 	font-size: var( --text-xxs );
 	color: var( --foreground );
 	-webkit-app-region: drag;
@@ -32,7 +31,7 @@
 .headerLead {
 	display: flex;
 	align-items: center;
-	gap: var( --space-0_5 );
+	gap: var( --band-gap );
 	min-width: 0;
 }
 
@@ -52,22 +51,6 @@
 	margin-inline-end: calc( -1 * var( --space-1 ) );
 }
 
-.headerDot {
-	width: 6px;
-	height: 6px;
-	border-radius: var( --radius-full );
-	background-color: var( --status-running );
-	flex-shrink: 0;
-	/* Extra horizontal margin around the dot only — keeps the toggle-to-title
-	   gap at the header's base 8px while giving the site/dot/local grouping
-	   more breathing room. */
-	margin: 0 var( --space-1 );
-}
-
-.headerEnv {
-	color: var( --muted-foreground );
-}
-
 .headerSpacer {
 	flex: 1;
 }
@@ -79,7 +62,7 @@
 	min-height: 0;
 	overflow-y: auto;
 	overflow-x: hidden;
-	padding-block: var( --header-height )
+	padding-block: calc( var( --header-height ) + var( --workspace-header-height, 0px ) )
 		calc( var( --composer-height ) + var( --composer-bottom-gap ) );
 	padding-inline: var( --column-inline-gutter );
 	container-type: inline-size;
@@ -91,9 +74,18 @@
 	scrollbar-width: thin;
 }
 
+.topBlur {
+	height: calc( var( --header-height ) + var( --workspace-header-height, 0px ) );
+	display: none;
+}
+
+.root:has( > .scroll[data-scroll-top] ) > .topBlur {
+	display: block;
+}
+
 .headerLayer {
 	position: absolute;
-	top: 0;
+	top: var( --workspace-header-height, 0px );
 	left: 0;
 	right: 0;
 	z-index: 2;
@@ -108,13 +100,32 @@
 	z-index: 2;
 }
 
-.composerBacking::before {
-	content: '';
+.headerLayer::before,
+.composerOuter::before {
 	position: absolute;
-	inset: -24px 0 calc( -1 * var( --composer-bottom-gap ) );
+	inset-inline: 0;
 	z-index: -1;
+	background: var( --chat );
+	content: '';
 	pointer-events: none;
-	background: linear-gradient( to bottom, transparent, var( --chat ) 24px );
+	display: none;
+}
+
+.headerLayer::before {
+	top: calc( -1 * var( --workspace-header-height, 0px ) );
+	bottom: calc( -1 * var( --space-8 ) );
+	mask-image: linear-gradient( to top, var( --surface-strong-overlay-fade-stops ) );
+}
+
+.composerOuter::before {
+	top: calc( -1 * var( --space-8 ) );
+	bottom: calc( -1 * var( --composer-bottom-gap ) );
+	mask-image: linear-gradient( to bottom, var( --surface-strong-overlay-fade-stops ) );
+}
+
+.root:has( > .scroll[data-scroll-top] ) > .headerLayer::before,
+.root:has( > .scroll[data-scroll-bottom] ) > .composerOuter::before {
+	display: block;
 }
 
 /* The conversation and the composer share one reading column. As the preview
@@ -152,14 +163,8 @@
 }
 
 .scrollToLatestButton {
-	--button-background: var( --background );
-
-	opacity: 0;
-}
-
-.scrollToLatestButton[data-visible] {
-	pointer-events: auto;
-	opacity: 1;
+	composes: floatingReveal from '@/lib/theme/recipes.module.css';
+	transition: var( --floating-reveal-transition );
 }
 
 /* Composer fade-in after the entitlement check resolves. No fill mode:
@@ -193,12 +198,14 @@
 /* An empty chat's dot field, with a stopped site's screenshot over it. */
 .emptyState {
 	position: absolute;
+	z-index: 1;
 	inset: 0;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	/* Centred between the header and the composer. */
-	padding: calc( var( --header-height ) + var( --space-6 ) ) var( --space-6 )
+	padding: calc( var( --workspace-header-height, 0px ) + var( --header-height ) + var( --space-6 ) )
+		var( --space-6 )
 		calc( var( --space-6 ) + var( --composer-height ) + 2 * var( --composer-bottom-gap ) );
 	transition: opacity var( --motion-duration-layout ) var( --motion-ease-layout );
 }

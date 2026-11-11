@@ -14,6 +14,28 @@ describe( 'createLocalConnector Connect contracts', () => {
 		vi.unstubAllGlobals();
 	} );
 
+	it( 'uploads Blueprint bytes without handing the selected file to the request', async () => {
+		const data = new TextEncoder().encode( 'zip fixture' ).buffer;
+		const file = new File( [ data ], 'blueprint.zip', { type: 'application/zip' } );
+		Object.defineProperty( file, 'arrayBuffer', { value: async () => data } );
+		const extracted = {
+			blueprintJson: {},
+			blueprintJsonPath: '/tmp/blueprint.json',
+			tempDir: '/tmp/bundle',
+		};
+		fetchMock.mockResolvedValueOnce( Response.json( extracted ) );
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+		await expect( connector.extractBlueprintBundle( file ) ).resolves.toEqual( extracted );
+		expect( fetchMock ).toHaveBeenCalledWith(
+			'http://localhost:8081/api/blueprints/extract',
+			expect.objectContaining( {
+				method: 'POST',
+				body: data,
+				signal: expect.any( AbortSignal ),
+			} )
+		);
+	} );
+
 	it( 'delegates browser selection and site URL opening to the local host', async () => {
 		fetchMock.mockResolvedValue( new Response( null, { status: 204 } ) );
 		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
@@ -67,6 +89,17 @@ describe( 'createLocalConnector Connect contracts', () => {
 		);
 	} );
 
+	it( 'preserves the dispatched turn ID in the message request', async () => {
+		fetchMock.mockResolvedValue( new Response( JSON.stringify( { runId: 'run-a' } ) ) );
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+		const turnId = crypto.randomUUID();
+		await connector.continueSession( 'session-a', 'hello', { turnId } );
+		expect( JSON.parse( String( fetchMock.mock.calls[ 0 ][ 1 ]?.body ) ) ).toMatchObject( {
+			prompt: 'hello',
+			turnId,
+		} );
+	} );
+
 	it( 'requests the signup-aware login URL', async () => {
 		fetchMock.mockResolvedValue(
 			new Response( JSON.stringify( { url: 'https://wordpress.com/start' } ) )
@@ -79,7 +112,11 @@ describe( 'createLocalConnector Connect contracts', () => {
 		vi.spyOn( window, 'open' ).mockReturnValue( popup as unknown as Window );
 		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
 
-		const authenticating = connector.authenticate( true );
+		const authenticating = connector.authenticate( true, 'settings', {
+			placement: 'settings_ai',
+			intent: 'build',
+			journey_started_at: 1234,
+		} );
 		await vi.waitFor( () => expect( popup.location.href ).toBe( 'https://wordpress.com/start' ) );
 		window.dispatchEvent(
 			new MessageEvent( 'message', {
@@ -90,7 +127,64 @@ describe( 'createLocalConnector Connect contracts', () => {
 		await authenticating;
 
 		expect( String( fetchMock.mock.calls[ 0 ][ 0 ] ) ).toContain( '&signup=1' );
+		expect(
+			new URL( String( fetchMock.mock.calls[ 0 ][ 0 ] ) ).searchParams.get( 'journey_started_at' )
+		).toBe( '1234' );
 		expect( popup.location.href ).toBe( 'https://wordpress.com/start' );
+	} );
+
+	it( 'does not resolve another browser attempt when a callback arrives', async () => {
+		const firstId = crypto.randomUUID();
+		const secondId = crypto.randomUUID();
+		const popups = [
+			{ closed: false, close: vi.fn(), location: { href: '' } },
+			{ closed: false, close: vi.fn(), location: { href: '' } },
+		];
+		const open = vi.spyOn( window, 'open' );
+		open
+			.mockReturnValueOnce( popups[ 0 ] as unknown as Window )
+			.mockReturnValueOnce( popups[ 1 ] as unknown as Window );
+		fetchMock
+			.mockResolvedValueOnce(
+				new Response(
+					JSON.stringify( { url: 'https://wordpress.com/first', authAttemptId: firstId } )
+				)
+			)
+			.mockResolvedValueOnce(
+				new Response(
+					JSON.stringify( { url: 'https://wordpress.com/second', authAttemptId: secondId } )
+				)
+			);
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+		let firstDone = false;
+		let secondDone = false;
+		const first = connector.authenticate( false, 'settings' ).then( () => {
+			firstDone = true;
+		} );
+		const second = connector.authenticate( true, 'add_site' ).then( () => {
+			secondDone = true;
+		} );
+		await vi.waitFor( () =>
+			expect( popups[ 1 ].location.href ).toBe( 'https://wordpress.com/second' )
+		);
+		window.dispatchEvent(
+			new MessageEvent( 'message', {
+				origin: window.location.origin,
+				data: { type: 'studio-auth-success', auth_attempt_id: firstId },
+			} )
+		);
+		await first;
+		expect( firstDone ).toBe( true );
+		expect( secondDone ).toBe( false );
+		window.dispatchEvent(
+			new MessageEvent( 'message', {
+				origin: window.location.origin,
+				data: { type: 'studio-auth-success', auth_attempt_id: secondId },
+			} )
+		);
+		await second;
+		expect( secondDone ).toBe( true );
+		expect( open.mock.calls[ 0 ][ 1 ] ).not.toBe( open.mock.calls[ 1 ][ 1 ] );
 	} );
 
 	it( 'reads global preferences from the server, not the browser', async () => {
@@ -206,14 +300,16 @@ describe( 'createLocalConnector menu shortcuts', () => {
 	it( 'binds the application menu’s accelerators in the page', () => {
 		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
 		const toggleSidebar = vi.fn();
-		const toggleSitePreview = vi.fn();
+		const togglePanel = vi.fn();
 		const openSettings = vi.fn();
 		const addSite = vi.fn();
+		const newChat = vi.fn();
 		const unsubscribe = [
 			connector.onToggleSidebar( toggleSidebar ),
-			connector.onToggleSitePreview( toggleSitePreview ),
+			connector.onTogglePanel( togglePanel ),
 			connector.onOpenSettings( openSettings ),
 			connector.onAddSite( addSite ),
+			connector.onNewChat( newChat ),
 		];
 
 		const press = ( init: KeyboardEventInit ) =>
@@ -224,12 +320,68 @@ describe( 'createLocalConnector menu shortcuts', () => {
 		press( { key: 'B', code: 'KeyB', shiftKey: true } );
 		press( { key: ',', code: 'Comma' } );
 		press( { key: 'n', code: 'KeyN' } );
+		press( { key: 'N', code: 'KeyN', shiftKey: true } );
 		unsubscribe.forEach( ( stop ) => stop() );
 		press( { key: 'b', code: 'KeyB' } );
 
 		expect( toggleSidebar ).toHaveBeenCalledTimes( 1 );
-		expect( toggleSitePreview ).toHaveBeenCalledTimes( 1 );
+		expect( togglePanel ).toHaveBeenCalledTimes( 1 );
 		expect( openSettings ).toHaveBeenCalledTimes( 1 );
 		expect( addSite ).toHaveBeenCalledTimes( 1 );
+		expect( newChat ).toHaveBeenCalledTimes( 1 );
 	} );
+} );
+
+it( 'passes telemetry site lookup context outside the event properties', async () => {
+	const send = vi.fn().mockResolvedValue( new Response( null, { status: 204 } ) );
+	vi.stubGlobal( 'fetch', send );
+	try {
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+		await connector.trackEvent( 'studio_sync_connect', { success: true }, 'operational-id' );
+		expect( send ).toHaveBeenCalledWith(
+			'http://localhost:8081/api/analytics/event',
+			expect.objectContaining( {
+				body: JSON.stringify( {
+					eventName: 'studio_sync_connect',
+					props: { success: true },
+					siteId: 'operational-id',
+				} ),
+			} )
+		);
+	} finally {
+		vi.unstubAllGlobals();
+	}
+} );
+
+it.each( [
+	[ 'exportFullSite', 'full' ],
+	[ 'exportDatabase', 'database' ],
+] as const )( 'announces %s before preparing the browser download', async ( method, mode ) => {
+	const onStarted = vi.fn();
+	const fetchMock = vi.fn( async () => {
+		expect( onStarted ).toHaveBeenCalledOnce();
+		return new Response( 'backup', {
+			headers: { 'Content-Disposition': 'attachment; filename="ocean.zip"' },
+		} );
+	} );
+	vi.stubGlobal( 'fetch', fetchMock );
+	vi.stubGlobal(
+		'URL',
+		class extends URL {
+			static createObjectURL = vi.fn().mockReturnValue( 'blob:export' );
+			static revokeObjectURL = vi.fn();
+		}
+	);
+	const click = vi.spyOn( HTMLAnchorElement.prototype, 'click' ).mockImplementation( () => {} );
+	try {
+		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
+		await expect( connector[ method ]( 'site-1', { onStarted } ) ).resolves.toBe( 'ocean.zip' );
+		expect( fetchMock ).toHaveBeenCalledWith(
+			`http://localhost:8081/api/sites/site-1/export?mode=${ mode }`
+		);
+		expect( click ).toHaveBeenCalledOnce();
+	} finally {
+		vi.restoreAllMocks();
+		vi.unstubAllGlobals();
+	}
 } );

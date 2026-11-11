@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
 	clampResizablePanelWidth,
-	getStoredSiteChatVisibility,
 	SITE_CHAT_HIDDEN_STORAGE_KEY,
-	getPreviewContentWidthStorageKey,
+	LEGACY_PANEL_OPEN_STORAGE_KEY,
 	hasCustomPanelLayout,
 	resetPanelLayout,
-	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
-	getPreviewSplitLayout,
+	PANEL_CONTENT_WIDTH_STORAGE_KEY,
+	getPanelSplitLayout,
 	getResizablePanelMaxWidth,
 	type ResizablePanelConfig,
 } from '@/data/resizable-panels';
@@ -33,74 +32,72 @@ describe( 'resizable panels', () => {
 	} );
 } );
 
-describe( 'getPreviewSplitLayout', () => {
-	// Content floor 320, preview floor 360.
+describe( 'getPanelSplitLayout', () => {
+	// Content floor 360, panel floor 360.
 	it( 'leaves a comfortable preferred width untouched on a wide frame', () => {
-		const layout = getPreviewSplitLayout( 1000, 600 );
+		const layout = getPanelSplitLayout( 1000, 600 );
 		expect( layout.contentWidth ).toBe( 600 );
-		expect( layout.previewWidth ).toBe( 400 );
-		expect( layout.previewMinWidth ).toBe( 360 );
-		expect( layout.previewMaxWidth ).toBe( 680 );
+		expect( layout.panelWidth ).toBe( 400 );
+		expect( layout.panelMinWidth ).toBe( 360 );
+		expect( layout.panelMaxWidth ).toBe( 640 );
 	} );
 
-	it( 'caps content so the preview keeps its minimum width', () => {
-		// Preferred content larger than container - previewMin -> clamped down.
-		expect( getPreviewSplitLayout( 1000, 900 ).contentWidth ).toBe( 640 );
-		expect( getPreviewSplitLayout( 1000, 900 ).previewWidth ).toBe( 360 );
+	it( 'caps content so the panel keeps its minimum width', () => {
+		// Preferred content larger than container - panelMin -> clamped down.
+		expect( getPanelSplitLayout( 1000, 900 ).contentWidth ).toBe( 640 );
+		expect( getPanelSplitLayout( 1000, 900 ).panelWidth ).toBe( 360 );
 	} );
 
-	it( 'floors content at its minimum so the preview cannot swallow it', () => {
+	it( 'floors content at its minimum so the panel cannot swallow it', () => {
 		// This is the regime where the old CSS-only clamp diverged: a preferred
-		// content below the 320 floor must be raised to 320, not left as-is.
-		expect( getPreviewSplitLayout( 1000, 100 ).contentWidth ).toBe( 320 );
-		expect( getPreviewSplitLayout( 1000, 100 ).previewWidth ).toBe( 680 );
+		// content below the 360 floor must be raised to 360, not left as-is.
+		expect( getPanelSplitLayout( 1000, 100 ).contentWidth ).toBe( 360 );
+		expect( getPanelSplitLayout( 1000, 100 ).panelWidth ).toBe( 640 );
 	} );
 
 	it.each( [ 320, 540 ] )( 'gives chat the full frame at %ipx', ( width ) => {
-		expect( getPreviewSplitLayout( width, 360 ) ).toEqual( {
+		expect( getPanelSplitLayout( width, 360 ) ).toEqual( {
 			contentWidth: width,
-			previewWidth: 0,
-			previewMinWidth: 0,
-			previewMaxWidth: 0,
+			panelWidth: 0,
+			panelMinWidth: 0,
+			panelMaxWidth: 0,
 		} );
 	} );
 
 	it( 'splits a frame too narrow for both floors in their proportion, and fixes it', () => {
-		const layout = getPreviewSplitLayout( 544, 600 );
-		expect( layout.contentWidth ).toBe( 256 );
-		expect( layout.previewWidth ).toBe( 288 );
-		expect( layout.previewMinWidth ).toBe( 288 );
-		expect( layout.previewMaxWidth ).toBe( 288 );
+		const layout = getPanelSplitLayout( 544, 600 );
+		expect( layout.contentWidth ).toBe( 272 );
+		expect( layout.panelWidth ).toBe( 272 );
+		expect( layout.panelMinWidth ).toBe( 272 );
+		expect( layout.panelMaxWidth ).toBe( 272 );
 	} );
 } );
 
 it( 'detects and resets all site widths and the legacy width', () => {
 	localStorage.clear();
-	localStorage.setItem( getPreviewContentWidthStorageKey( 'one' ), '500' );
-	localStorage.setItem( getPreviewContentWidthStorageKey( 'two' ), '400' );
+	localStorage.setItem( `${ PANEL_CONTENT_WIDTH_STORAGE_KEY }:one`, '500' );
+	localStorage.setItem( `${ PANEL_CONTENT_WIDTH_STORAGE_KEY }:two`, '400' );
 	localStorage.setItem( SITE_CHAT_HIDDEN_STORAGE_KEY, JSON.stringify( { one: true } ) );
+	localStorage.setItem( LEGACY_PANEL_OPEN_STORAGE_KEY, 'false' );
 	localStorage.setItem( 'unrelated', 'keep' );
 	expect( hasCustomPanelLayout() ).toBe( true );
-	localStorage.setItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY, '600' );
+	localStorage.setItem( PANEL_CONTENT_WIDTH_STORAGE_KEY, '600' );
 	resetPanelLayout();
 	expect( hasCustomPanelLayout() ).toBe( false );
-	expect( localStorage.getItem( getPreviewContentWidthStorageKey( 'one' ) ) ).toBeNull();
-	expect( localStorage.getItem( getPreviewContentWidthStorageKey( 'two' ) ) ).toBeNull();
-	expect( localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBeNull();
+	expect( localStorage.getItem( `${ PANEL_CONTENT_WIDTH_STORAGE_KEY }:one` ) ).toBeNull();
+	expect( localStorage.getItem( `${ PANEL_CONTENT_WIDTH_STORAGE_KEY }:two` ) ).toBeNull();
+	expect( localStorage.getItem( PANEL_CONTENT_WIDTH_STORAGE_KEY ) ).toBeNull();
 	expect( localStorage.getItem( SITE_CHAT_HIDDEN_STORAGE_KEY ) ).toBeNull();
+	expect( localStorage.getItem( LEGACY_PANEL_OPEN_STORAGE_KEY ) ).toBeNull();
 	expect( localStorage.getItem( 'unrelated' ) ).toBe( 'keep' );
 	localStorage.clear();
 } );
 
-it( 'defaults to open for invalid visibility storage and reads only hidden sites', () => {
-	for ( const invalid of [ 'broken', 'null', '[]', '42' ] ) {
-		localStorage.setItem( SITE_CHAT_HIDDEN_STORAGE_KEY, invalid );
-		expect( getStoredSiteChatVisibility() ).toEqual( {} );
-	}
-	localStorage.setItem(
-		SITE_CHAT_HIDDEN_STORAGE_KEY,
-		JSON.stringify( { one: true, two: false, three: 'true' } )
-	);
-	expect( getStoredSiteChatVisibility() ).toEqual( { one: true } );
-	localStorage.removeItem( SITE_CHAT_HIDDEN_STORAGE_KEY );
+it( 'ignores obsolete panel visibility when checking for a custom layout', () => {
+	localStorage.clear();
+	localStorage.setItem( SITE_CHAT_HIDDEN_STORAGE_KEY, JSON.stringify( { one: true } ) );
+	localStorage.setItem( LEGACY_PANEL_OPEN_STORAGE_KEY, 'false' );
+	expect( hasCustomPanelLayout() ).toBe( false );
+	resetPanelLayout();
+	expect( localStorage.length ).toBe( 0 );
 } );

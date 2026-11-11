@@ -80,7 +80,7 @@ export function useSyncConnectSiteListener(): void {
 					__( 'Your new website isn’t available yet. Refresh the website list to try again.' )
 				);
 			}
-			const issue = websiteIssue( remote );
+			const issue = websiteIssue( remote, 'push' );
 			if ( issue ) {
 				throw new Error( issue );
 			}
@@ -91,10 +91,14 @@ export function useSyncConnectSiteListener(): void {
 			};
 			await connector.connectWpcomSite( studioSiteId, siteToSave );
 			connected = true;
-			void connector.trackEvent( TRACKS_EVENTS.SYNC_CONNECT, {
-				success: true,
-				num_of_sites: connectedSites().filter( ( { id } ) => id !== remoteSiteId ).length + 1,
-			} );
+			void connector.trackEvent(
+				TRACKS_EVENTS.SYNC_CONNECT,
+				{
+					success: true,
+					num_of_sites: connectedSites().filter( ( { id } ) => id !== remoteSiteId ).length + 1,
+				},
+				studioSiteId
+			);
 		} catch ( error ) {
 			handled.current.delete( key );
 			setSetupFailure( studioSiteId, {
@@ -102,11 +106,15 @@ export function useSyncConnectSiteListener(): void {
 				event,
 			} );
 			if ( ! connected ) {
-				void connector.trackEvent( TRACKS_EVENTS.SYNC_CONNECT, {
-					success: false,
-					failure_reason: classifySyncFailure( error, { phase: 'site_fetch' } ),
-					num_of_sites: connectedSites().length,
-				} );
+				void connector.trackEvent(
+					TRACKS_EVENTS.SYNC_CONNECT,
+					{
+						success: false,
+						failure_reason: classifySyncFailure( error, { phase: 'site_fetch' } ),
+						num_of_sites: connectedSites().length,
+					},
+					studioSiteId
+				);
 			}
 		} finally {
 			void queryClient.invalidateQueries( {

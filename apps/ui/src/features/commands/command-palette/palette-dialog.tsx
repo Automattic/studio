@@ -24,13 +24,12 @@ export type PaletteProps = {
 export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) {
 	const [ query, setQuery ] = useState( '' );
 	const [ highlight, setHighlight ] = useState< string >();
-	const [ executing, setExecuting ] = useState( false );
 	const listId = useId();
 	const matches = matchCommands( commands, query );
 	const groups = groupCommands( matches );
 	const active = getActiveCommand( groups, highlight );
+
 	const run = ( id: string ) => {
-		setExecuting( true );
 		onOpenChange( false );
 		matches.find( ( command ) => command.id === id )?.run();
 	};
@@ -42,16 +41,15 @@ export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) 
 			onOpenChangeComplete={ ( isOpen ) => {
 				if ( ! isOpen ) {
 					setQuery( '' );
-					setExecuting( false );
 				}
 			} }
 		>
 			<DialogContent
 				className={ styles.popup }
-				data-instant={ executing && ! open ? '' : undefined }
+				motion="none"
 				aria-label={ __( 'Command palette' ) }
 			>
-				<InputGroup variant="commands">
+				<InputGroup variant="commands" className={ styles.input }>
 					<InputGroupInput
 						role="combobox"
 						aria-autocomplete="list"
@@ -74,6 +72,7 @@ export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) 
 					</InputGroupAddon>
 				</InputGroup>
 				<CommandList
+					className={ styles.list }
 					id={ listId }
 					label={ __( 'Commands' ) }
 					size="default"
@@ -81,7 +80,15 @@ export function PaletteDialog( { open, onOpenChange, commands }: PaletteProps ) 
 					highlighted={ active?.value }
 					onHighlight={ setHighlight }
 					onSelect={ run }
-					empty={ __( 'No commands found.' ) }
+					empty={
+						<div className={ styles.empty }>
+							<p className={ styles.emptyLabel }>{ __( 'No commands found.' ) }</p>
+							<hr className={ styles.divider } aria-hidden="true" />
+							<p className={ styles.haiku }>
+								{ __( 'From many, one tool.\nFind strength in community\nfor a better web.' ) }
+							</p>
+						</div>
+					}
 				/>
 			</DialogContent>
 		</Dialog>

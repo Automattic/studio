@@ -1,45 +1,60 @@
 .popup {
-	display: block;
+	composes: padded from '@/lib/ui/surface/style.module.css';
+	--surface: var( --popover );
+	top: 25dvh;
+	display: flex;
+	flex-direction: column;
+	gap: 0;
 	max-width: 400px;
+	max-height: calc( 75dvh - var( --space-4 ) );
 	overflow: hidden;
-	padding: var( --space-1_5 );
 	border-radius: var( --radius-3xl );
 	scale: 1;
-	transform: translate( -50%, -50% );
-	transform-origin: center;
-	transition-property: opacity, transform;
-}
-
-.popup:is( [data-starting-style], [data-ending-style] ) {
-	transform: translate( -50%, -50% ) scale( 0.97 );
-}
-
-@starting-style {
-	.popup {
-		transform: translate( -50%, -50% ) scale( 0.97 );
-	}
-}
-
-@media ( prefers-reduced-motion: reduce ) {
-	.popup {
-		transition-property: opacity;
-	}
-
-	.popup:is( [data-starting-style], [data-ending-style] ) {
-		transform: translate( -50%, -50% );
-	}
-
-	@starting-style {
-		.popup {
-			transform: translate( -50%, -50% );
-		}
-	}
-}
-
-.popup[data-instant] {
-	transition: none;
+	translate: -50% 0;
 }
 
 .icon {
 	flex: none;
+}
+
+.input {
+	border-radius: calc( var( --radius-3xl ) - var( --space-1_5 ) );
+	flex-shrink: 0;
+}
+
+.list {
+	/* Seven command rows and two section headings. */
+	max-height: calc(
+		7 * var( --control-size ) + 2 * ( var( --text-sm--line-height ) + var( --space-4 ) )
+	);
+	min-height: 0;
+}
+
+.empty {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-6 );
+}
+
+.emptyLabel,
+.haiku {
+	margin: 0;
+	color: var( --muted-foreground );
+	font-size: var( --text-xs );
+	line-height: var( --leading-relaxed );
+}
+
+.emptyLabel {
+	color: var( --foreground );
+}
+
+.divider {
+	width: var( --space-10 );
+	margin: 0 auto;
+	border: 0;
+	border-block-start: 1px solid var( --border );
+}
+
+.haiku {
+	white-space: pre-line;
 }

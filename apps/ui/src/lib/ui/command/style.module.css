@@ -23,9 +23,14 @@
 		--command-radius: var( --radius-lg );
 	}
 
+	.list[data-radius='menu'] {
+		--command-radius: var( --radius-md );
+	}
+
 	.empty {
 		padding: var( --space-6 ) 0;
-		font-size: var( --text-sm );
+		color: var( --muted-foreground );
+		font-size: var( --text-xs );
 		text-align: center;
 	}
 
@@ -63,6 +68,10 @@
 		composes: item from '@/lib/ui/surface/style.module.css';
 		min-height: var( --control-size );
 		padding-inline: var( --space-2_5 );
+	}
+
+	.list .menuItem {
+		height: var( --control-size );
 		border-radius: var( --command-radius );
 	}
 
@@ -106,9 +115,17 @@
 		scrollbar-width: none;
 	}
 
+	.list[data-size='default'] .menuItem {
+		padding-inline-end: var( --space-4 );
+	}
+
 	.list[data-size='default'] .icon {
 		width: 16px;
 		height: 16px;
+	}
+
+	.list[data-size='default'] .text {
+		gap: var( --space-3 );
 	}
 
 	.list[data-size='default'] .label {

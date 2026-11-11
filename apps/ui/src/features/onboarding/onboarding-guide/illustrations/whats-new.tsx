@@ -111,7 +111,7 @@ export function CommandPaletteIllustration() {
 					<span>pub</span>
 					<kbd className={ styles.kbd }>{ displayShortcut.primary( 'k' ) }</kbd>
 				</div>
-				<div className={ styles.paletteGroup }>{ __( 'Site actions' ) }</div>
+				<div className={ styles.paletteGroup }>{ __( 'Commands' ) }</div>
 				<div className={ clsx( styles.paletteItem, styles.paletteItemActive ) }>
 					<SyncIcon className={ styles.paletteItemIcon } />
 					<span>{ __( 'Publish & Sync…' ) }</span>

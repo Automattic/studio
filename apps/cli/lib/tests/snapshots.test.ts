@@ -2,6 +2,7 @@ import fs from 'fs';
 import { writeFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
+import { linkPulledPreview, reconcilePreviews } from 'cli/lib/cli-config/snapshots';
 import {
 	deleteSnapshotFromConfig,
 	getSnapshotsFromConfig,
@@ -69,6 +70,7 @@ describe( 'Snapshots Module', () => {
 	const mockHomeDir = '/mock/home';
 	const mockSiteFolderName = 'folder';
 	const mockSiteUrl = 'test-preview.example.com';
+	const mockShareUrl = `https://${ mockSiteUrl }/?share=abc123`;
 	const mockAtomicSiteId = 12345;
 	const mockSiteFolder = '/test/folder';
 	const mockUserId = 9876;
@@ -114,7 +116,8 @@ describe( 'Snapshots Module', () => {
 				mockAtomicSiteId,
 				mockSiteUrl,
 				mockUserId,
-				'Test Site Preview 1'
+				'Test Site Preview 1',
+				mockShareUrl
 			);
 
 			expect( writeFile ).toHaveBeenCalled();
@@ -126,9 +129,11 @@ describe( 'Snapshots Module', () => {
 				atomicSiteId: mockAtomicSiteId,
 				localSiteId: mockSiteId,
 				date: 1234567890,
+				syncedAt: 1234567890,
 				name: 'Test Site Preview 1',
 				userId: mockUserId,
 				sequence: 1,
+				shareUrl: mockShareUrl,
 			} );
 		} );
 
@@ -169,7 +174,8 @@ describe( 'Snapshots Module', () => {
 				mockAtomicSiteId + 1,
 				mockSiteUrl,
 				mockUserId,
-				'Test Site Preview 2'
+				'Test Site Preview 2',
+				mockShareUrl
 			);
 
 			expect( writeFile ).toHaveBeenCalled();
@@ -182,9 +188,11 @@ describe( 'Snapshots Module', () => {
 				atomicSiteId: mockAtomicSiteId + 1,
 				localSiteId: mockSiteId,
 				date: 1234567890,
+				syncedAt: 1234567890,
 				name: 'Test Site Preview 2',
 				userId: mockUserId,
 				sequence: 2,
+				shareUrl: mockShareUrl,
 			} );
 		} );
 
@@ -210,7 +218,14 @@ describe( 'Snapshots Module', () => {
 			mocks.readFile.mockResolvedValue( JSON.stringify( mockUserData ) );
 
 			await expect(
-				saveSnapshotToConfig( mockSiteFolder, mockAtomicSiteId, mockSiteUrl, mockUserId, 'Test' )
+				saveSnapshotToConfig(
+					mockSiteFolder,
+					mockAtomicSiteId,
+					mockSiteUrl,
+					mockUserId,
+					'Test',
+					mockShareUrl
+				)
 			).rejects.toThrow( LoggerError );
 
 			expect( writeFile ).not.toHaveBeenCalled();
@@ -220,7 +235,14 @@ describe( 'Snapshots Module', () => {
 			vi.spyOn( fs, 'existsSync' ).mockReturnValueOnce( false );
 
 			await expect(
-				saveSnapshotToConfig( mockSiteFolder, mockAtomicSiteId, mockSiteUrl, mockUserId, 'Test' )
+				saveSnapshotToConfig(
+					mockSiteFolder,
+					mockAtomicSiteId,
+					mockSiteUrl,
+					mockUserId,
+					'Test',
+					mockShareUrl
+				)
 			).rejects.toThrow( LoggerError );
 		} );
 	} );
@@ -514,6 +536,131 @@ describe( 'Snapshots Module', () => {
 
 			expect( pruned ).toBe( 0 );
 			expect( writeFile ).not.toHaveBeenCalled();
+		} );
+	} );
+
+	describe( 'reconcilePreviews', () => {
+		const USER_ID = 42;
+		const snapshot = ( url: string, atomicSiteId: number, date: number, userId = USER_ID ) => ( {
+			url,
+			atomicSiteId,
+			localSiteId: 'site',
+			date,
+			userId,
+		} );
+
+		it( "forgets the user's ended WordPress.com previews, updates the rest and lists ones made elsewhere", async () => {
+			// The live site a preview shows changes to follows the server: set, cleared and listed.
+			mocks.readFile.mockResolvedValue(
+				JSON.stringify( {
+					version: 1,
+					sites: [],
+					snapshots: [
+						snapshot( 'standing.wpcomstaging.com', 1, 1000 ),
+						snapshot( 'ended.wpcomstaging.com', 2, 1000 ),
+						snapshot( 'saved-after-check.wpcomstaging.com', 3, 6000 ),
+						snapshot( 'legacy.wp.build', 4, 1000 ),
+						snapshot( 'other-user.wpcomstaging.com', 5, 1000, 999 ),
+						{ ...snapshot( 'unlinked.wpcomstaging.com', 7, 1000 ), liveSiteId: 70 },
+					],
+				} )
+			);
+
+			const shareUrl = 'https://standing.wpcomstaging.com/?share=abc';
+			const elsewhereUrl = 'https://elsewhere.wpcomstaging.com/?share=def';
+			await reconcilePreviews(
+				USER_ID,
+				new Map( [
+					[
+						1,
+						{
+							hostname: 'standing.wpcomstaging.com',
+							expiresAt: 9000,
+							shareUrl,
+							liveSiteId: 10,
+						},
+					],
+					[
+						6,
+						{
+							hostname: 'elsewhere.wpcomstaging.com',
+							expiresAt: 8000,
+							shareUrl: elsewhereUrl,
+							liveSiteId: 60,
+						},
+					],
+					[ 7, { hostname: 'unlinked.wpcomstaging.com', expiresAt: 7000 } ],
+				] ),
+				5000
+			);
+
+			const savedData = JSON.parse( mocks.writeFile.mock.calls[ 0 ][ 1 ] );
+			expect(
+				savedData.snapshots.map( ( s: Snapshot ) => [
+					s.url,
+					s.expiresAt,
+					s.shareUrl,
+					s.liveSiteId,
+				] )
+			).toEqual( [
+				[ 'standing.wpcomstaging.com', 9000, shareUrl, 10 ],
+				[ 'saved-after-check.wpcomstaging.com', undefined, undefined, undefined ],
+				[ 'legacy.wp.build', undefined, undefined, undefined ],
+				[ 'other-user.wpcomstaging.com', undefined, undefined, undefined ],
+				[ 'unlinked.wpcomstaging.com', 7000, undefined, undefined ],
+				[ 'elsewhere.wpcomstaging.com', 8000, elsewhereUrl, 60 ],
+			] );
+		} );
+	} );
+
+	describe( 'linkPulledPreview', () => {
+		it( 'attaches a pulled preview and its version to the local site, unless another site has it', async () => {
+			const preview = ( url: string, atomicSiteId: number, localSiteId: string ) => ( {
+				url,
+				atomicSiteId,
+				localSiteId,
+				date: 1000,
+				userId: 42,
+			} );
+			mocks.readFile.mockResolvedValue(
+				JSON.stringify( {
+					version: 1,
+					sites: [],
+					snapshots: [
+						preview( 'made-elsewhere.wpcomstaging.com', 1, '' ),
+						preview( 'taken.wpcomstaging.com', 2, 'other-site' ),
+						{
+							...preview( 'pulled-before.wpcomstaging.com', 4, 'pulled-site' ),
+							versionId: 'old',
+							syncedAt: 1,
+						},
+					],
+				} )
+			);
+			const standing = { hostname: 'unlisted.wpcomstaging.com', expiresAt: 9000 };
+
+			for ( const atomicSiteId of [ 1, 2, 3, 4 ] ) {
+				// The pull of preview 4 was partial, which leaves its sync unknown.
+				const sync =
+					atomicSiteId === 4 ? undefined : { versionId: `v${ atomicSiteId }`, syncedAt: 5 };
+				await linkPulledPreview( 'pulled-site', atomicSiteId, 42, standing, sync );
+				mocks.readFile.mockResolvedValue( mocks.writeFile.mock.lastCall?.[ 1 ] );
+			}
+
+			const savedData = JSON.parse( mocks.writeFile.mock.lastCall?.[ 1 ] );
+			expect(
+				savedData.snapshots.map( ( s: Snapshot ) => [
+					s.url,
+					s.localSiteId,
+					s.versionId,
+					s.syncedAt,
+				] )
+			).toEqual( [
+				[ 'made-elsewhere.wpcomstaging.com', 'pulled-site', 'v1', 5 ],
+				[ 'taken.wpcomstaging.com', 'other-site', undefined, undefined ],
+				[ 'pulled-before.wpcomstaging.com', 'pulled-site', undefined, undefined ],
+				[ 'unlisted.wpcomstaging.com', 'pulled-site', 'v3', 5 ],
+			] );
 		} );
 	} );
 } );

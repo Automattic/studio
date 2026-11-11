@@ -10,6 +10,9 @@ describe( 'isShortcut', () => {
 			true
 		);
 		expect( isShortcut( keydown( { key: 'л', code: 'KeyK' } ), 'k' ) ).toBe( true );
+		expect(
+			isShortcut( keydown( { key: '>', code: 'Period', shiftKey: true } ), '.', 'shift' )
+		).toBe( true );
 		// AZERTY types a on the key QWERTY calls Q.
 		expect(
 			isShortcut( keydown( { key: 'a', code: 'KeyQ', shiftKey: true } ), 'a', 'shift' )

@@ -13,13 +13,6 @@ async function openBlankSetup( dialog: HTMLElement ) {
 		await within( dialog ).findByRole( 'button', { name: 'Start with Blank site' } )
 	);
 	await within( dialog ).findByLabelText( 'Site name' );
-	if (
-		within( dialog )
-			.getByRole( 'button', { name: 'Advanced settings' } )
-			.getAttribute( 'aria-expanded' ) !== 'true'
-	) {
-		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Advanced settings' } ) );
-	}
 }
 
 // The index route offers Add site once per app session until a site exists:
@@ -35,6 +28,10 @@ async function resetAddSiteOffer() {
 beforeEach( () => {
 	localStorage.clear();
 	resetAppMessagesForTests();
+	vi.stubGlobal(
+		'fetch',
+		vi.fn( async () => Response.json( { blueprints: [] } ) )
+	);
 } );
 
 afterEach( () => {
@@ -43,6 +40,20 @@ afterEach( () => {
 } );
 
 describe( 'site creation', () => {
+	it( 'opens a deep-linked backup in setup without creating a site and cleans up on cancel', async () => {
+		const connector = createFakeConnector( { sites: [ mySite() ] } );
+		renderApp( { connector } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
+		act( () =>
+			connector.emit( 'onAddSite', {
+				backup: { path: '/tmp/backup/example.com.zip', name: 'example.com.zip' },
+			} )
+		);
+		const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
+		expect( await within( dialog ).findByText( 'example.com.zip' ) ).toBeVisible();
+		expect( within( dialog ).getByRole( 'button', { name: 'Add site' } ) ).toBeVisible();
+		expect( connector.createSite ).not.toHaveBeenCalled();
+	} );
 	it.each( [ { freshSites: [] }, { freshSites: [ mySite() ] } ] )(
 		'waits for fresh sites before offering creation with cached empty data ($freshSites.length fresh sites)',
 		async ( { freshSites } ) => {
@@ -80,10 +91,10 @@ describe( 'site creation', () => {
 		fireEvent.change( within( dialog ).getByLabelText( 'Site name' ), {
 			target: { value: 'New site' },
 		} );
-		const submit = within( dialog ).getByRole( 'button', { name: 'Create site' } );
+		const submit = within( dialog ).getByRole( 'button', { name: 'Add site' } );
 		await waitFor( () => expect( submit ).toBeEnabled() );
 		fireEvent.click( submit );
-		expect( await within( dialog ).findByText( 'Creation failed' ) ).toBeInTheDocument();
+		expect( await screen.findByText( 'Creation failed' ) ).toBeInTheDocument();
 		expect( within( dialog ).getByLabelText( 'Site name' ) ).toHaveValue( 'New site' );
 	} );
 
@@ -96,9 +107,9 @@ describe( 'site creation', () => {
 			target: { value: 'New site' },
 		} );
 		await waitFor( () =>
-			expect( within( dialog ).getByLabelText( 'Local path' ) ).toHaveValue( '/sites/New site' )
+			expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute( 'title', '/sites/New site' )
 		);
-		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Create site' } ) );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Add site' } ) );
 		await waitFor( () =>
 			expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument()
 		);
@@ -130,9 +141,12 @@ describe( 'site creation', () => {
 				target: { value: 'New site' },
 			} );
 			await waitFor( () =>
-				expect( within( dialog ).getByLabelText( 'Local path' ) ).toHaveValue( '/sites/New site' )
+				expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute(
+					'title',
+					'/sites/New site'
+				)
 			);
-			fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Create site' } ) );
+			fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Add site' } ) );
 			await waitFor( () =>
 				expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument()
 			);
@@ -160,7 +174,7 @@ describe( 'site creation', () => {
 		}
 	);
 
-	it( 'uses the native Add Site and sidebar menu events', async () => {
+	it( 'opens the gallery from the native Add Site menu', async () => {
 		const { connector } = renderApp( {
 			connector: createFakeConnector( { sites: [ mySite() ] } ),
 		} );
@@ -174,7 +188,10 @@ describe( 'site creation', () => {
 		).not.toBeInTheDocument();
 		act( () => connector.emit( 'onToggleSidebar' ) );
 		act( () => connector.emit( 'onAddSite' ) );
-		expect( await screen.findByRole( 'dialog' ) ).toBeVisible();
+		const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
+		expect(
+			await within( dialog ).findByRole( 'button', { name: 'Start with Blank site' } )
+		).toBeVisible();
 	} );
 
 	it( 'opens Add site with a deep-linked Blueprint', async () => {
@@ -188,7 +205,7 @@ describe( 'site creation', () => {
 			connector.emit( 'onAddSiteWithBlueprint', { blueprintPath: '/tmp/deep-link.json' } )
 		);
 		const dialog = await screen.findByRole( 'dialog' );
-		expect( await within( dialog ).findByText( 'Deep-linked Blueprint' ) ).toBeVisible();
+		expect( await within( dialog ).findByText( 'deep-link.json' ) ).toBeVisible();
 		expect( connector.readBlueprintFile ).toHaveBeenCalledWith( '/tmp/deep-link.json' );
 	} );
 
@@ -222,16 +239,14 @@ describe( 'site creation', () => {
 			target: { value: 'New site' },
 		} );
 		await waitFor( () =>
-			expect( within( dialog ).getByLabelText( 'Local path' ) ).toHaveValue( '/sites/New site' )
+			expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute( 'title', '/sites/New site' )
 		);
-		fireEvent.click(
-			within( dialog ).getByRole( 'button', { name: /select a different folder|Select a folder/ } )
-		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'Change…' } ) );
 		await waitFor( () => expect( connector.selectSiteFolder ).toHaveBeenCalled() );
 		await waitFor( () =>
-			expect( within( dialog ).getByRole( 'button', { name: 'Create site' } ) ).toBeEnabled()
+			expect( within( dialog ).getByRole( 'button', { name: 'Add site' } ) ).toBeEnabled()
 		);
-		expect( within( dialog ).getByLabelText( 'Local path' ) ).toHaveValue( '/sites/New site' );
+		expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute( 'title', '/sites/New site' );
 	} );
 
 	it( 'does not re-register an existing Studio site', async () => {
@@ -250,18 +265,20 @@ describe( 'site creation', () => {
 		fireEvent.change( within( dialog ).getByLabelText( 'Site name' ), {
 			target: { value: 'New site' },
 		} );
-		fireEvent.click(
-			within( dialog ).getByRole( 'button', { name: /select a different folder|Select a folder/ } )
-		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'Change…' } ) );
 		await waitFor( () =>
-			expect( within( dialog ).getByLabelText( 'Local path' ) ).toHaveValue( '/sites/my-site' )
+			expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute( 'title', '/sites/my-site' )
 		);
-		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Create site' } ) );
-		expect(
-			await screen.findByText(
-				'The directory is already associated with another Studio site. Please choose a different custom local path.'
-			)
-		).toBeVisible();
+		const addButton = within( dialog ).getByRole( 'button', { name: 'Add site' } );
+		expect( addButton ).toBeDisabled();
+		fireEvent.click( addButton );
+		await waitFor( () =>
+			expect(
+				screen.getByText(
+					'This folder is already associated with another Studio site. Choose a different local folder.'
+				)
+			).toBeVisible()
+		);
 		expect( connector.createSite ).not.toHaveBeenCalled();
 	} );
 } );

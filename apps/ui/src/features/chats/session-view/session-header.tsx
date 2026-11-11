@@ -1,4 +1,3 @@
-import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
 import { useWindowControlsInset } from '@/data/host/use-window-controls-inset';
@@ -13,34 +12,28 @@ export function SessionHeader( {
 	start,
 	siteName,
 	site,
-	effectiveEnvironment,
+	reserveSiteActions = true,
 }: {
 	start?: ReactNode;
 	siteName?: string;
 	site?: SiteDetails;
-	effectiveEnvironment: 'local' | 'live';
+	reserveSiteActions?: boolean;
 } ) {
 	const sidebarCollapsed = useSidebarCollapsed();
 	const reserveTrafficLightSpace = useTrafficLightSpace().start;
 	const windowControlsInset = useWindowControlsInset( 'toolbar' );
 	const { host } = useSiteHeader();
-	const local = site && effectiveEnvironment === 'local';
+	const withSiteActions = !! site && host !== null;
 
 	return (
 		<header
 			data-site-header
 			className={ clsx(
 				styles.header,
-				local && host === 'chat' && styles.headerWithSiteActions,
+				withSiteActions && styles.headerWithSiteActions,
 				sidebarCollapsed && reserveTrafficLightSpace && styles.headerSidebarCollapsed
 			) }
-			style={
-				windowControlsInset > 0
-					? {
-							paddingRight: windowControlsInset + 8,
-					  }
-					: undefined
-			}
+			style={ windowControlsInset > 0 ? { paddingRight: windowControlsInset + 8 } : undefined }
 		>
 			<div data-site-header-reserved className={ styles.headerLead }>
 				{ start }
@@ -49,15 +42,12 @@ export function SessionHeader( {
 					<>
 						<GlobeIcon className={ styles.headerSiteIcon } />
 						<span className={ styles.headerSite }>{ siteName }</span>
-						<span className={ styles.headerDot } aria-hidden="true" />
-						<span className={ styles.headerEnv }>
-							{ effectiveEnvironment === 'live' ? __( 'Live' ) : __( 'Local' ) }
-						</span>
 					</>
 				) : null }
 			</div>
+
 			<span className={ styles.headerSpacer } aria-hidden="true" />
-			{ local && host === 'chat' ? <SiteHeaderSpace /> : null }
+			{ withSiteActions && reserveSiteActions ? <SiteHeaderSpace /> : null }
 		</header>
 	);
 }

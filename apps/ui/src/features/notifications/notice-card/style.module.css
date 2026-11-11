@@ -1,6 +1,8 @@
-/* A toast, and an entry in the notification history. */
+/* Toasts and contextual sidebar cards. */
 .card {
 	--notice-icon-size: 16px;
+	--notice-row-height: var( --text-sm--line-height );
+	--notice-title-inset: calc( ( var( --notice-row-height ) - var( --text-sm--line-height ) ) / 2 );
 	position: relative;
 	pointer-events: auto;
 	padding: var( --space-3_5 );
@@ -18,9 +20,21 @@
 	font-variant-numeric: tabular-nums;
 }
 
+.card:has( [data-notice-toggle] ) {
+	cursor: pointer;
+}
+
+.card:has( .trailing ) {
+	--notice-row-height: var( --space-6 );
+}
+
+.card:has( .action ) {
+	--notice-row-height: var( --space-7 );
+}
+
 .row {
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	gap: var( --space-2 );
 }
 
@@ -33,6 +47,7 @@
 	height: var( --notice-icon-size );
 	border-radius: var( --radius-full );
 	color: var( --secondary );
+	margin-block-start: calc( ( var( --notice-row-height ) - var( --notice-icon-size ) ) / 2 );
 }
 
 .status svg {
@@ -71,7 +86,7 @@
 	flex-direction: column;
 	align-items: flex-start;
 	gap: var( --space-2 );
-	margin-top: var( --space-0_5 );
+	margin-top: calc( var( --space-1 ) - var( --notice-title-inset ) );
 	padding-inline-start: calc( var( --notice-icon-size ) + var( --space-2 ) );
 }
 
@@ -79,14 +94,16 @@
 	position: relative;
 	width: 100%;
 	max-width: 100%;
+	line-height: var( --text-xs--line-height );
 }
 
-/* Laid over the text rather than wrapping it, so the measured node stays
-   mounted. Expanded, it covers the first line only and leaves the rest to
-   scroll and select. */
+/* Keep the button over the chevron so expanded text remains selectable. */
 .toggle {
 	position: absolute;
-	inset: 0;
+	inset-block-start: 0;
+	inset-inline-end: 0;
+	width: 40px;
+	height: 1lh;
 	border-radius: var( --radius-sm );
 	cursor: pointer;
 }
@@ -96,11 +113,6 @@
 	outline-offset: 2px;
 }
 
-.toggle[aria-expanded='true'] {
-	inset-block-end: auto;
-	height: 1lh;
-}
-
 .description {
 	max-width: 100%;
 	height: 1lh;
@@ -108,7 +120,7 @@
 	overflow: hidden;
 	color: var( --muted-foreground );
 	font-size: var( --text-xs );
-	line-height: var( --leading-relaxed );
+	line-height: var( --text-xs--line-height );
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
 	interpolate-size: allow-keywords;
@@ -137,8 +149,6 @@
 	width: 40px;
 	background: linear-gradient( to right, transparent, var( --secondary ) 50% );
 	color: var( --muted-foreground );
-	opacity: 0;
-	transition: opacity var( --motion-duration-feedback );
 }
 
 .chevron svg {
@@ -146,11 +156,6 @@
 	height: 14px;
 	flex: none;
 	transition: rotate var( --motion-duration-layout ) var( --motion-ease-layout );
-}
-
-.card:hover .chevron,
-.toggle:focus-visible .chevron {
-	opacity: 1;
 }
 
 .toggle[aria-expanded='true'] .chevron svg {
@@ -161,19 +166,12 @@
 }
 
 .close {
-	composes: dismissIcon from '@/lib/theme/recipes.module.css';
-	--button-background: var( --chrome );
-
-	position: absolute;
-	inset-block-start: calc( var( --space-1_5 ) * -1 );
-	inset-inline-start: calc( var( --space-1_5 ) * -1 );
-	opacity: 0;
-	transition: opacity var( --motion-duration-feedback ) ease;
-}
-
-.card:hover .close,
-.card:focus-within .close {
 	opacity: 1;
+	transform: none;
+	pointer-events: auto;
+	inset-block-start: calc( var( --space-1_5 ) * -1 );
+	inset-inline-start: auto;
+	inset-inline-end: calc( var( --space-1_5 ) * -1 );
 }
 
 .trailing {
@@ -195,33 +193,20 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
-.trailing[data-swap] .action {
-	opacity: 0;
-	pointer-events: none;
-}
-.card:hover .trailing[data-swap] .action,
-.card:focus-within .trailing[data-swap] .action,
-.trailing[data-pending] .action {
-	opacity: 1;
-	pointer-events: auto;
-}
-.card:hover .trailing[data-swap] .timestamp,
-.card:focus-within .trailing[data-swap] .timestamp,
-.trailing[data-pending] .timestamp {
-	opacity: 0;
-	pointer-events: none;
-}
-@media ( hover: none ) {
-	.trailing[data-swap] .action {
-		opacity: 1;
-		pointer-events: auto;
+
+@media ( hover: hover ) and ( pointer: fine ) and ( not ( any-pointer: coarse ) ) {
+	.chevron {
+		opacity: 0;
+		transition: opacity var( --motion-duration-feedback ) ease-out;
 	}
-	.trailing[data-swap] .timestamp {
-		display: none;
-	}
-	.chevron,
-	.close {
+
+	.card:hover .chevron,
+	.card:focus-within .chevron {
 		opacity: 1;
+	}
+
+	.card:focus-within .chevron {
+		transition: none;
 	}
 }
 
@@ -229,22 +214,25 @@
 	position: relative;
 	flex: 1;
 	min-width: 0;
+	padding-block: var( --notice-title-inset );
 }
 
 .title[data-expanded] {
 	white-space: normal;
 	overflow-wrap: anywhere;
 }
-.row[data-expanded] {
-	align-items: flex-start;
+.titleSummary .toggle {
+	height: var( --notice-row-height );
 }
-.row[data-expanded] .status {
-	margin-top: var( --space-0_5 );
+
+.processing {
+	display: flex;
+	flex: none;
+	color: var( --muted-foreground );
+	margin-block-start: calc( ( var( --notice-row-height ) - var( --notice-icon-size ) ) / 2 );
 }
-.titleSummary .toggle[aria-expanded='true'] {
-	inset-block-end: 0;
-	height: auto;
-}
-.titleSummary .chevron {
-	height: var( --text-sm--line-height );
+
+.processing svg {
+	width: var( --notice-icon-size );
+	height: var( --notice-icon-size );
 }

@@ -75,8 +75,15 @@ test.describe( 'Chat', () => {
 		await fileInput.setInputFiles( imagePath );
 		const remove = session.mainWindow.getByRole( 'button', { name: 'Remove attachment' } );
 		await expect( remove ).toHaveCount( 2 );
+		await session.mainWindow.getByRole( 'button', { name: 'Preview reference.txt' } ).hover();
+		const filePreview = session.mainWindow.getByRole( 'dialog', { name: 'reference.txt' } );
+		await expect( filePreview ).toBeVisible();
+		await filePreview.hover();
+		await expect( filePreview.getByRole( 'heading', { name: 'reference.txt' } ) ).toBeVisible();
+		await session.mainWindow.getByRole( 'listitem', { name: /^reference\.txt,/ } ).hover();
 		await remove.first().click();
 		await expect( remove ).toHaveCount( 1 );
+		await session.mainWindow.getByRole( 'listitem', { name: /^reference\.png,/ } ).hover();
 		await remove.click();
 		await expect( remove ).toHaveCount( 0 );
 		await expect( composer() ).toHaveValue( 'Use these references' );
@@ -86,24 +93,22 @@ test.describe( 'Chat', () => {
 	test( 'starts a stopped site on send when auto-start is on, and keeps the preference', async () => {
 		const page = session.mainWindow;
 		const sidebar = new Sidebar( page );
-		await sidebar.getStatusButton( siteName ).click();
+		await sidebar.toggleSite( siteName );
 		await expect( sidebar.getStatusButton( siteName ) ).toHaveAttribute( 'data-state', 'stopped', {
 			timeout: 120_000,
 		} );
-		const chatToggle = page.getByRole( 'button', { name: 'Show chat for active site' } );
-		if ( await chatToggle.isVisible() ) {
-			await chatToggle.click();
-		}
+		await sidebar.openSite( siteName );
 
 		const chip = page.getByRole( 'button', { name: 'Remove Auto-start' } );
+		await recordSends();
 		await composer().fill( '/auto-start' );
+		await expect( page.getByRole( 'option', { name: /^Auto-start / } ) ).toBeEnabled();
 		await composer().press( 'Enter' );
 		await expect( chip ).toBeVisible();
 		await expect
 			.poll( async () => ( await session.getAppConfig() ).autoStartSiteOnChat )
 			.toBe( true );
 
-		await recordSends();
 		await composer().fill( 'Build a home page' );
 		await page.getByRole( 'button', { name: 'Send message' } ).click();
 		await expect( composer() ).toHaveValue( '' );
@@ -116,20 +121,15 @@ test.describe( 'Chat', () => {
 		await expect(
 			session.mainWindow.getByRole( 'button', { name: 'Remove Auto-start' } )
 		).toBeVisible();
+		await new Sidebar( session.mainWindow ).expectRunning( siteName );
+		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );
 	} );
 
 	test( 'sends an annotation picked on the preview with its image', async () => {
 		const page = session.mainWindow;
 		const sidebar = new Sidebar( page );
 		await sidebar.openSite( siteName );
-		const status = sidebar.getStatusButton( siteName );
-		await expect( status ).toHaveAttribute( 'data-state', /^(running|stopped)$/, {
-			timeout: 120_000,
-		} );
-		if ( ( await status.getAttribute( 'data-state' ) ) === 'stopped' ) {
-			await status.click();
-			await sidebar.expectRunning( siteName );
-		}
+		await sidebar.expectRunning( siteName );
 		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );
 		await recordSends();
 
@@ -148,13 +148,13 @@ test.describe( 'Chat', () => {
 		const annotate = page.getByRole( 'button', { name: 'Annotate', exact: true } );
 		if ( await annotate.isVisible() ) {
 			await annotate.click();
+			await expect( annotate ).toHaveAttribute( 'aria-pressed', 'true' );
 		} else {
-			await page.getByRole( 'button', { name: 'More preview actions' } ).click();
-			await page.getByRole( 'menuitemcheckbox', { name: 'Annotate' } ).click();
+			await page.getByRole( 'button', { name: 'Browser options' } ).click();
+			await page.getByRole( 'menuitem', { name: 'Annotate', exact: true } ).click();
 		}
-		await expect( page.getByRole( 'toolbar', { name: 'Annotations' } ) ).toBeVisible();
 
-		const note = page.getByRole( 'textbox', { name: 'Leave a note' } );
+		const note = page.getByRole( 'textbox', { name: 'Describe the change' } );
 		await expect
 			.poll( () =>
 				inspect( `document.readyState === 'complete' && !!document.querySelector('h1,h2')` )
@@ -182,7 +182,7 @@ test.describe( 'Chat', () => {
 		expect( markerPoint.x ).toBeCloseTo( pickedPoint.x, 3 );
 		expect( markerPoint.y ).toBeCloseTo( pickedPoint.y, 3 );
 		await note.fill( 'Make this heading shorter' );
-		await page.getByRole( 'button', { name: 'Save annotation', exact: true } ).click();
+		await page.getByRole( 'button', { name: 'Add annotation to batch', exact: true } ).click();
 		expect( await sentPrompts() ).toHaveLength( 0 );
 		await expect.poll( () => inspect( `${ marker }?.dataset.pending` ) ).toBe( 'false' );
 		await inspect( `${ marker }.click()` );
@@ -198,7 +198,27 @@ test.describe( 'Chat', () => {
 				.getByRole( 'group', { name: 'Annotation', exact: true } )
 				.getByRole( 'button', { name: 'Remove attachment' } )
 		).toBeVisible();
-		await note.press( 'ControlOrMeta+Enter' );
+		await note.press( 'Enter' );
+		await expect( note ).toBeHidden();
+		const openChat = page.getByRole( 'button', { name: 'Open chat', exact: true } );
+		if ( await openChat.isVisible() ) {
+			await openChat.click();
+		}
+		const annotations = page.getByRole( 'button', { name: '1 annotation', exact: true } );
+		await expect( annotations ).toBeVisible();
+		const review = page.getByRole( 'dialog', { name: 'Annotations' } );
+		await annotations.hover();
+		await expect( review ).toBeHidden();
+		await annotations.click();
+		await expect( review ).toBeVisible();
+		await expect( review.getByRole( 'img', { name: 'reference.png' } ) ).toBeVisible();
+		await review.getByRole( 'button', { name: /Edit annotation:/ } ).hover();
+		await expect( review ).toBeVisible();
+		await composer().hover();
+		await expect( review ).toBeVisible();
+		await composer().click();
+		await expect( review ).toBeHidden();
+		await page.getByRole( 'button', { name: 'Send message', exact: true } ).click();
 
 		await expect.poll( async () => ( await sentPrompts() ).length ).toBe( 1 );
 		const [ sent ] = await sentPrompts();

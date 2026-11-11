@@ -85,4 +85,33 @@ export const AI_PROVIDERS = [
 			},
 		],
 	},
+	{
+		id: 'gemini-api-key',
+		label: 'Google Gemini API',
+		cliLabel: 'Google Gemini · API key',
+		modelLabel: 'Gemini',
+		usesStudioCredits: false,
+		connection: { type: 'api-key' },
+		defaultModel: 'gemini-3.8-flash',
+		models: [
+			{
+				id: 'gemini-3.8-flash',
+				label: 'Gemini 3.8 Flash',
+				getDescription: () => __( 'Quick fixes and questions' ),
+				family: 'google',
+			},
+			{
+				id: 'gemini-4-argon',
+				label: 'Gemini 4 Argon',
+				getDescription: () => __( 'Build features, style pages, and fix bugs' ),
+				family: 'google',
+			},
+			{
+				id: 'gemini-4-carbon',
+				label: 'Gemini 4 Carbon',
+				getDescription: () => __( 'Plan complex builds and solve harder problems' ),
+				family: 'google',
+			},
+		],
+	},
 ] as const satisfies readonly AiProviderDescriptor[];

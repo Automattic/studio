@@ -9,6 +9,8 @@ import {
 	parseStatusPaths,
 	shouldRun,
 	summarizeCapture,
+	mergeCaptures,
+	findDesktopShots,
 } from './docs-refresh.mjs';
 
 const NOTES = `Unreleased
@@ -190,5 +192,82 @@ describe( 'buildPullRequestBody', () => {
 		}
 		expect( body ).toContain( 'Updated sites.md for the responsive preview.' );
 		expect( body ).toContain( '`moved.webp`: changed' );
+	} );
+} );
+
+describe( 'the Studio Desktop pass', () => {
+	it( 'names the shots only Studio Desktop can capture', () => {
+		expect(
+			findDesktopShots( [
+				{ shots: [ { name: 'site-menu' }, { name: 'annotate-note', desktopOnly: true } ] },
+				{ shots: [ { name: 'settings-studio-cli', desktopOnly: true } ] },
+				{},
+			] )
+		).toEqual( [ 'annotate-note', 'settings-studio-cli' ] );
+	} );
+
+	it( 'replaces the shots the browser skipped with what Studio Desktop found', () => {
+		const merged = mergeCaptures( [
+			{
+				studioVersion: '2.2.0',
+				shots: [
+					{ script: 'signed-in', name: 'account-menu', status: 'ok', files: [] },
+					{ script: 'signed-in', name: 'annotate-note', status: 'skipped', files: [] },
+				],
+			},
+			{
+				studioVersion: '2.2.0',
+				shots: [
+					{ script: 'signed-in', name: 'annotate-note', status: 'failed', error: 'Timeout' },
+				],
+			},
+		] );
+		expect( merged.shots ).toHaveLength( 2 );
+		expect( summarizeCapture( merged ).failed ).toEqual( [
+			{ name: 'annotate-note', script: 'signed-in', error: 'Timeout' },
+		] );
+	} );
+} );
+
+describe( 'shots a failure kept from running', () => {
+	const capture = summarizeCapture( {
+		shots: [
+			{ script: 'site-menu', name: 'site-menu', status: 'failed', error: 'Timeout' },
+			{ script: 'site-menu', name: 'site-menu-export', status: 'notRun', files: [] },
+			{
+				script: 'workspace',
+				name: 'model-menu',
+				status: 'ok',
+				files: [ { file: 'docs/user/screenshots/images/model-menu.webp', status: 'changed' } ],
+			},
+		],
+	} );
+
+	it( 'are listed in the brief, and are a reason to run', () => {
+		expect( capture.notRun ).toEqual( [ { name: 'site-menu-export', script: 'site-menu' } ] );
+		expect( shouldRun( { changes: [], capture: { ...capture, failed: [], changed: [] } } ) ).toBe(
+			true
+		);
+		const brief = buildBrief( {
+			target: 'trunk',
+			source: 'merged since abc',
+			changes: [],
+			dependencyUpdates: 0,
+			capture,
+		} );
+		expect( brief ).toContain( '### Not run: an earlier shot of the same script failed' );
+		expect( brief ).toContain( '- `site-menu-export` (site-menu)' );
+	} );
+
+	it( 'says an image changed size instead of an undefined pixel count', () => {
+		const brief = buildBrief( {
+			target: 'trunk',
+			source: 'merged since abc',
+			changes: [],
+			dependencyUpdates: 0,
+			capture,
+		} );
+		expect( brief ).toContain( 'model-menu.webp` (workspace): the image changed size' );
+		expect( brief ).not.toContain( 'undefined' );
 	} );
 } );

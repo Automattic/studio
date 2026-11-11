@@ -4,7 +4,8 @@
  * The deterministic half of the docs refresh (.buildkite/docs-refresh.yml): what changed in
  * Studio, what the agent is told, and what its work has to pass before a pull request opens.
  *
- *   docs-refresh.mjs brief   --out <dir> [--version <x.y.z>] [--since <ref>] [--capture <results.json>]
+ *   docs-refresh.mjs brief   --out <dir> [--version <x.y.z>] [--since <ref>] [--capture <results.json>]…
+ *   docs-refresh.mjs desktop-shots --shots <dir>
  *   docs-refresh.mjs verify  [--baseline <file>]
  *   docs-refresh.mjs open-pr --repo <owner/name> --head <branch> --base <branch> --title <title> --out <dir>
  *
@@ -64,6 +65,39 @@ export function parseChanges( text ) {
 }
 
 /**
+ * Several `studio-capture check --json` results as one: a later result's shots replace the
+ * same shots of an earlier one, as the Studio Desktop pass does for the shots the browser skipped.
+ */
+export function mergeCaptures( results ) {
+	const shots = new Map();
+	for ( const result of results ) {
+		for ( const shot of result?.shots ?? [] ) {
+			shots.set( `${ shot.script }/${ shot.name }`, shot );
+		}
+	}
+	return {
+		studioVersion: results.find( ( result ) => result?.studioVersion )?.studioVersion ?? null,
+		shots: [ ...shots.values() ],
+	};
+}
+
+/**
+ * The names of the shots only Studio Desktop can capture (`desktopOnly`), from parsed shot scripts.
+ */
+export function findDesktopShots( scripts ) {
+	return scripts.flatMap( ( script ) =>
+		( script.shots ?? [] )
+			.filter( ( shot ) => shot.desktopOnly && shot.name )
+			.map( ( shot ) => shot.name )
+	);
+}
+
+// The harness reports absolute paths; the brief is read in other checkouts.
+function fromRepoRoot( file ) {
+	return file && path.isAbsolute( file ) ? path.relative( REPO_ROOT, file ) : file;
+}
+
+/**
  * What `studio-capture check --json` found, reduced to the shots that need a look.
  */
 export function summarizeCapture( result ) {
@@ -72,16 +106,25 @@ export function summarizeCapture( result ) {
 		changed: [],
 		added: [],
 		failed: [],
+		notRun: [],
 	};
 	for ( const shot of result?.shots ?? [] ) {
 		if ( shot.status === 'failed' ) {
 			summary.failed.push( { name: shot.name, script: shot.script, error: shot.error } );
 			continue;
 		}
+		if ( shot.status === 'notRun' ) {
+			summary.notRun.push( { name: shot.name, script: shot.script } );
+			continue;
+		}
 		for ( const file of shot.files ?? [] ) {
-			const entry = { name: shot.name, script: shot.script, file: file.file };
+			const entry = { name: shot.name, script: shot.script, file: fromRepoRoot( file.file ) };
 			if ( file.status === 'changed' ) {
-				summary.changed.push( { ...entry, diffPixels: file.diffPixels, diff: file.diff } );
+				summary.changed.push( {
+					...entry,
+					diffPixels: file.diffPixels,
+					diff: fromRepoRoot( file.diff ),
+				} );
 			} else if ( file.status === 'new' ) {
 				summary.added.push( entry );
 			}
@@ -96,7 +139,8 @@ export function shouldRun( { changes, capture, instruction } ) {
 			changes.length ||
 			capture.changed.length ||
 			capture.added.length ||
-			capture.failed.length
+			capture.failed.length ||
+			capture.notRun?.length
 	);
 }
 
@@ -132,15 +176,27 @@ export function buildBrief( { target, source, changes, dependencyUpdates, captur
 			''
 		);
 	}
+	if ( capture.notRun?.length ) {
+		lines.push(
+			'### Not run: an earlier shot of the same script failed',
+			'',
+			'A script’s shots build on each other, so these were never checked. Repair the failed shot, then run the script again: they may need repairs too.',
+			'',
+			...capture.notRun.map( ( shot ) => `- \`${ shot.name }\` (${ shot.script })` ),
+			''
+		);
+	}
 	if ( capture.changed.length ) {
 		lines.push(
 			'### Changed: the app no longer looks like the committed image',
 			'',
 			...capture.changed.map(
 				( shot ) =>
-					`- \`${ shot.file }\` (${ shot.script }): ${ shot.diffPixels } pixels differ${
-						shot.diff ? `, differences in \`${ shot.diff }\`` : ''
-					}`
+					`- \`${ shot.file }\` (${ shot.script }): ${
+						shot.diffPixels === undefined
+							? 'the image changed size'
+							: `${ shot.diffPixels } pixels differ`
+					}${ shot.diff ? `, differences in \`${ shot.diff }\`` : '' }`
 			),
 			''
 		);
@@ -247,10 +303,27 @@ function option( args, name ) {
 	return index === -1 ? undefined : args[ index + 1 ];
 }
 
-function readCapture( file ) {
+function options( args, name ) {
+	return args.flatMap( ( arg, index ) => ( arg === `--${ name }` ? [ args[ index + 1 ] ] : [] ) );
+}
+
+function readCapture( files ) {
 	return summarizeCapture(
-		file && existsSync( file ) ? JSON.parse( readFileSync( file, 'utf8' ) ) : {}
+		mergeCaptures(
+			files
+				.filter( ( file ) => file && existsSync( file ) )
+				.map( ( file ) => JSON.parse( readFileSync( file, 'utf8' ) ) )
+		)
 	);
+}
+
+function runDesktopShots( args ) {
+	const dir = path.resolve( option( args, 'shots' ) );
+	const scripts = readdirSync( dir )
+		.filter( ( file ) => file.endsWith( '.json' ) )
+		.sort()
+		.map( ( file ) => JSON.parse( readFileSync( path.join( dir, file ), 'utf8' ) ) );
+	console.log( findDesktopShots( scripts ).join( ',' ) );
 }
 
 function collectChanges( { version, since } ) {
@@ -283,7 +356,7 @@ function runBrief( args ) {
 	const out = option( args, 'out' );
 	const version = option( args, 'version' );
 	const instruction = ( process.env.DOCS_REFRESH_PROMPT ?? '' ).trim();
-	const capture = readCapture( option( args, 'capture' ) );
+	const capture = readCapture( options( args, 'capture' ) );
 	const { source, changes, dependencyUpdates } = collectChanges( {
 		version,
 		since: option( args, 'since' ),
@@ -371,9 +444,14 @@ async function runOpenPr( args ) {
 
 if ( process.argv[ 1 ] && path.resolve( process.argv[ 1 ] ) === fileURLToPath( import.meta.url ) ) {
 	const [ command, ...args ] = process.argv.slice( 2 );
-	const commands = { brief: runBrief, verify: runVerify, 'open-pr': runOpenPr };
+	const commands = {
+		brief: runBrief,
+		'desktop-shots': runDesktopShots,
+		verify: runVerify,
+		'open-pr': runOpenPr,
+	};
 	if ( ! commands[ command ] ) {
-		console.error( 'Usage: docs-refresh.mjs brief|verify|open-pr [options]' );
+		console.error( 'Usage: docs-refresh.mjs brief|desktop-shots|verify|open-pr [options]' );
 		process.exit( 2 );
 	}
 	await commands[ command ]( args );

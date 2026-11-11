@@ -146,7 +146,7 @@ Drop `DRY_RUN=true` to upload for real. The `version:` must match the app releas
 
 Keeps the user docs in `docs/user` and their screenshots in step with the app. A run works on the branch it is started on:
 
-1. Checks every docs screenshot against the app built from that branch (`studio-capture check`). It runs in a Linux container with the browser driver, as the docs images are captured, so no image carries the window chrome of macOS or Windows. The four shots only Studio Desktop has (Annotate, the CLI installer) are skipped.
+1. Checks every docs screenshot against the app built from that branch (`studio-capture check`). It runs in a Linux container with the browser driver, as the docs images are captured, so no image carries the window chrome of macOS or Windows. The four shots only Studio Desktop has (Annotate, the CLI installer) are checked on Studio Desktop under a virtual display in the same container.
 2. Lists what changed: the `RELEASE-NOTES.txt` section for a release, or on `trunk` the pull requests merged since the docs last changed.
 3. Stops there when nothing changed and every screenshot matches.
 4. Otherwise an agent (Claude Code, following `scripts/docs-refresh/agent-instructions.md`) updates the pages, repairs and recaptures the shots that moved, and for a release writes the changelog entry.
@@ -165,7 +165,7 @@ To start a run, create a [new build](https://buildkite.com/automattic/studio) on
 | `DOCS_REFRESH_CHECK_ONLY=true` | Stop after the screenshot check and the list of changes, without running the agent |
 | `DOCS_REFRESH_DRY_RUN=true` | Push nothing: the change is uploaded as the `docs-refresh.patch` artifact |
 
-- **For a release**: run it on `release/<version>` after code freeze, once the draft release notes are in, so the docs merge before the release is finalized.
+- **For a release**: run it on `release/<version>` after code freeze, once the draft release notes are in, so the docs merge before the release is finalized. Run it on the release branch, not on `trunk`: `trunk` moves on after the freeze, and its screenshots would show an app the release does not ship.
 - **On a cadence**: a Buildkite schedule on `trunk` with `PIPELINE=docs-refresh.yml`.
 
 **On your machine**: `scripts/docs-refresh/run-local.sh [<commit or branch>]` runs the first step in the same container with Docker, on a copy of the commit in a Docker volume, so your checkout is untouched and the screenshots come out as they do in CI. The agent runs with `ANTHROPIC_API_KEY` or, on your own machine, `CLAUDE_CODE_OAUTH_TOKEN` (a Claude subscription's token, from `claude setup-token`); without either it stops after the check. Apply the result with `git apply --index docs-refresh-output/local.patch`. Nothing is pushed.

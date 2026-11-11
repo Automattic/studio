@@ -6,7 +6,8 @@ set -euo pipefail
 # patch for publish-docs-refresh.sh. See "Docs refresh" in docs/release-process.md.
 #
 # Runs as root in a Linux container, with the browser driver (`studio ui` in headless Chromium),
-# as the docs images are captured: no window chrome from macOS or Windows, and no display.
+# as the docs images are captured: no window chrome from macOS or Windows, and no display. The few
+# shots only Studio Desktop has run on it under a virtual display.
 #
 #   DOCS_REFRESH_VERSION   the release to document; defaults to the version of a release/<version> branch
 #   DOCS_REFRESH_PROMPT    an extra instruction for the agent; also makes the agent run when nothing changed
@@ -34,16 +35,34 @@ source .buildkite/commands/docs-refresh-setup.sh
 
 echo "--- :camera: Check the docs screenshots"
 # Exits 1 when a shot changed or failed, which is a finding here, not an error.
+has_results() {
+  node -e 'if ( ! Array.isArray( JSON.parse( require( "fs" ).readFileSync( process.argv[ 1 ], "utf8" ) ).shots ) ) process.exit( 1 )' "$1"
+}
 "${HARNESS[@]}" check docs/user/screenshots/shots --driver browser \
   --out docs/user/screenshots/images --diff-dir "$OUT/diffs" \
   --json > "$OUT/capture.json" || true
-if ! node -e 'if ( ! Array.isArray( JSON.parse( require( "fs" ).readFileSync( process.argv[ 1 ], "utf8" ) ).shots ) ) process.exit( 1 )' "$OUT/capture.json"; then
+if ! has_results "$OUT/capture.json"; then
   echo "The screenshot check did not finish: $OUT/capture.json has no results."
   exit 1
 fi
+captures=(--capture "$OUT/capture.json")
+
+# The shots the browser app cannot show (`desktopOnly`), on Studio Desktop under a virtual display.
+desktop_shots="$(node scripts/docs-refresh/docs-refresh.mjs desktop-shots --shots docs/user/screenshots/shots)"
+if [[ -n "$desktop_shots" ]]; then
+  echo "--- :desktop_computer: Check the Studio Desktop screenshots"
+  "${HARNESS[@]}" check docs/user/screenshots/shots --driver electron --only "$desktop_shots" \
+    --out docs/user/screenshots/images --diff-dir "$OUT/diffs" \
+    --json > "$OUT/capture-desktop.json" || true
+  if ! has_results "$OUT/capture-desktop.json"; then
+    echo "The Studio Desktop screenshot check did not finish: $OUT/capture-desktop.json has no results."
+    exit 1
+  fi
+  captures+=(--capture "$OUT/capture-desktop.json")
+fi
 
 echo "--- :memo: Collect what changed"
-brief_args=(--out "$OUT" --capture "$OUT/capture.json")
+brief_args=(--out "$OUT" "${captures[@]}")
 if [[ -n "$VERSION" ]]; then
   brief_args+=(--version "$VERSION")
 fi

@@ -174,6 +174,7 @@ export function AnnotationReviewChip( {
 								</Button>
 								<IconButton
 									variant="muted-ghost"
+									destructive
 									className={ styles.delete }
 									icon={ <TrashIcon /> }
 									size="icon-2xs"

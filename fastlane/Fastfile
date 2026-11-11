@@ -288,7 +288,7 @@ lane :publish_npm_package do |version: nil, skip_confirm: false|
     - Publish `wp-studio` to npm with the `#{tag_label}` dist-tag
 
     Reminder: after publishing, update the public changelog at
-      https://developer.wordpress.com/docs/developer-tools/studio/changelog/
+      https://wordpress.studio/docs/changelog/
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 

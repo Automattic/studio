@@ -104,7 +104,7 @@ export async function captureAnnotationRegion(
 			throw new Error( 'The annotation screenshot is too large.' );
 		return {
 			id: randomUUID(),
-			name: 'Selected area.png',
+			name: selection.drawing ? 'Drawing.png' : 'Selected area.png',
 			mimeType: 'image/png',
 			size: png.length,
 			...output.getSize(),

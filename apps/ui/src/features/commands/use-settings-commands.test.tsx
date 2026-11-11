@@ -137,6 +137,7 @@ it.each( [ false, true ] )(
 				split ? 'Hide chat when starting sites' : 'Show chat when starting sites'
 			)
 		);
+		expect( command()?.aliases ).toContain( 'Start sites with chat' );
 		act( () => command()!.run() );
 		await waitFor( () =>
 			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
@@ -144,6 +145,11 @@ it.each( [ false, true ] )(
 					openChatOnSiteStart: ! split,
 				},
 				undefined
+			)
+		);
+		await waitFor( () =>
+			expect( getVisibleToasts()[ 0 ]?.title ).toBe(
+				split ? 'Sites will start with the panel expanded.' : 'Sites will start with chat.'
 			)
 		);
 	}

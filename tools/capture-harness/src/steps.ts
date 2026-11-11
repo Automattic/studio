@@ -195,7 +195,8 @@ export const HELPERS: Record< ( typeof HELPER_NAMES )[ number ], Helper > = {
 		const button = ctx.w.getByRole( 'button', { name: 'Site menu', exact: true } );
 		await glideTo( ctx, button );
 		await button.click();
-		await ctx.w.getByRole( 'menuitem', { name: 'Delete site' } ).waitFor();
+		// The menu itself, not one of its items: items are renamed and regrouped between releases.
+		await ctx.w.getByRole( 'menu', { name: 'Site menu', exact: true } ).waitFor();
 	},
 
 	/**
@@ -264,19 +265,22 @@ export const HELPERS: Record< ( typeof HELPER_NAMES )[ number ], Helper > = {
 		await w.mouse.up();
 	},
 
-	/** Leaves annotation mode, discarding any notes, without sending them. */
+	/** Leaves annotation mode and removes the notes staged in the chat box, without sending them. */
 	async discardAnnotations( { w } ) {
-		const toolbar = w.getByRole( 'toolbar', { name: 'Annotations' } );
-		if ( ! ( await toolbar.count() ) ) {
-			return;
+		const annotate = w.getByRole( 'button', { name: 'Annotate', exact: true } ).first();
+		if (
+			( await annotate.count() ) &&
+			( await annotate.getAttribute( 'aria-pressed' ) ) === 'true'
+		) {
+			await annotate.click();
 		}
-		await toolbar.getByRole( 'button', { name: 'Cancel', exact: true } ).click();
-		const discard = w.getByRole( 'button', { name: 'Discard', exact: true } );
-		await discard.waitFor( { timeout: 2_000 } ).then(
-			() => discard.click(),
-			() => {}
-		);
-		await toolbar.waitFor( { state: 'hidden' } );
+		// The chip's remove button only shows while the pointer is over it.
+		const staged = w.getByText( /^\d+ annotations?$/ ).first();
+		if ( await staged.count() ) {
+			await staged.hover();
+			await w.getByRole( 'button', { name: 'Remove attachment', exact: true } ).first().click();
+			await staged.waitFor( { state: 'hidden' } );
+		}
 	},
 
 	/**

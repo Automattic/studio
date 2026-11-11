@@ -1,4 +1,6 @@
 import { writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { resolveLocator } from './locators.ts';
 import { runScripts } from './run.ts';
 import { screenshotWindow, tidyText } from './still.ts';
@@ -75,7 +77,8 @@ export async function inspect( options: InspectOptions ): Promise< InspectResult
 	const result = await runScripts( {
 		scripts: [ script ],
 		mode: 'inspect',
-		outDir: process.cwd(),
+		// Where a failed step's picture goes: not the folder inspect was run from.
+		outDir: path.join( os.tmpdir(), 'studio-capture-inspect' ),
 		scene: options.scene,
 		look: options.look,
 		driver: options.driver,

@@ -177,6 +177,15 @@ afterAll( () => {
 	vi.spyOn( console, 'error' ).mockRestore();
 } );
 
+// `process.getuid` does not exist on Windows, so it is set rather than spied on.
+function stubUid( uid: number ) {
+	const original = process.getuid;
+	process.getuid = () => uid;
+	return () => {
+		process.getuid = original;
+	};
+}
+
 describe( 'App initialization', () => {
 	it( 'sandboxes every renderer', async () => {
 		mockElectron();
@@ -194,9 +203,9 @@ describe( 'App initialization', () => {
 		vi.mocked( app.commandLine.hasSwitch ).mockImplementation(
 			( name: string ) => name === 'no-sandbox'
 		);
-		const getuid = vi.spyOn( process, 'getuid' ).mockReturnValue( 1000 );
+		const restoreUid = stubUid( 1000 );
 		await import( '../index' );
-		getuid.mockRestore();
+		restoreUid();
 
 		expect( app.enableSandbox ).toHaveBeenCalled();
 	} );
@@ -210,9 +219,9 @@ describe( 'App initialization', () => {
 		);
 		const originalProcessPlatform = process.platform;
 		Object.defineProperty( process, 'platform', { value: 'linux' } );
-		const getuid = vi.spyOn( process, 'getuid' ).mockReturnValue( 0 );
+		const restoreUid = stubUid( 0 );
 		await import( '../index' );
-		getuid.mockRestore();
+		restoreUid();
 		Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
 
 		expect( app.enableSandbox ).not.toHaveBeenCalled();

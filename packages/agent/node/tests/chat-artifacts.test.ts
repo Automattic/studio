@@ -2,8 +2,9 @@ import { mkdir, mkdtemp, rm } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { withDesignSystemPreview } from '@studio/agent/node/chat-artifacts';
 import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
+import { withDesignSystemPreview } from '@studio/agent/shared/chat-artifacts';
+import { createFakeHost } from './fake-host';
 import type { AgentToolResult } from '@earendil-works/pi-agent-core';
 
 let sitesRoot: string;
@@ -30,8 +31,7 @@ it( "opens the design system in the preview when a site's DESIGN.md is written",
 				.fn< ( id: string, params: { path?: unknown } ) => Promise< AgentToolResult< unknown > > >()
 				.mockResolvedValue( result ),
 		},
-		sitesRoot,
-		ui
+		{ ...createFakeHost( sitesRoot ), ui }
 	);
 
 	await expect( write.execute( 'call-1', { path: 'bakery/notes/DESIGN.md' } ) ).resolves.toBe(
@@ -65,8 +65,7 @@ it( 'keeps a failed file result unchanged without offering the design system', a
 	};
 	const write = withDesignSystemPreview(
 		{ execute: vi.fn().mockResolvedValue( result ) },
-		sitesRoot,
-		ui
+		{ ...createFakeHost( sitesRoot ), ui }
 	);
 	await expect( write.execute( 'failed', { path: 'bakery/DESIGN.md' } ) ).resolves.toBe( result );
 	expect( ui.showArtifact ).not.toHaveBeenCalled();
@@ -74,6 +73,6 @@ it( 'keeps a failed file result unchanged without offering the design system', a
 
 it( 'keeps file tools unchanged when no Studio UI is attached', () => {
 	const tool = { description: 'Write a file.', execute: vi.fn() };
-	expect( withDesignSystemPreview( tool, sitesRoot ) ).toBe( tool );
+	expect( withDesignSystemPreview( tool, createFakeHost( sitesRoot ) ) ).toBe( tool );
 	expect( tool.description ).not.toContain( 'studio:design-system' );
 } );

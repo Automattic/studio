@@ -39,7 +39,7 @@
     "websiteURL": "https://wordpress.studio/",
     "supportURL": "https://developer.wordpress.com/contact/",
     "privacyPolicyURL": "https://automattic.com/privacy/",
-    "termsOfServiceURL": "https://wordpress.com/tos/",
+    "termsOfServiceURL": "https://automattic.com/tos/",
     "defaultPrompt": [
       "Build a WordPress site for my bakery",
       "Redesign my Studio site",
@@ -47,11 +47,7 @@
     ],
     "brandColor": "#101517",
     "composerIcon": "./assets/logo.png",
-    "logo": "./assets/logo.png",
-    "screenshots": [
-      "./assets/screenshot-look.png",
-      "./assets/screenshot-layout.png"
-    ]
+    "logo": "./assets/logo.png"
   },
   "extensions": {
     "com.openai": {
@@ -108,8 +104,7 @@
         "commerce": false
       },
       "publication": {
-        "countries": [],
-        "release_notes": "First release of WordPress Studio for ChatGPT. Build WordPress sites on your computer from a conversation: Studio asks about the look and the layout, builds a block theme, and checks the result. A WordPress tab lists your local and WordPress.com sites. Edit sites, run speed and SEO audits, and publish to WordPress.com. Studio comes inside the plugin."
+        "countries": []
       }
     }
   }

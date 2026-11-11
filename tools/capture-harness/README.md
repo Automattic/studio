@@ -174,7 +174,7 @@ Each script launches Studio afresh, so its shots stand on their own; its shots r
 | `openSiteMenu`, `openSubmenu(trigger, item)`, `closeMenus` | The site menu and its submenus |
 | `clickInPreview(selector)`, `typeText(text)` | Click inside the site preview's `<webview>`, which locators can't reach, and type into whatever has focus |
 | `dragSeparator(name, dx)` | Drags a resize handle, such as "Resize site preview" |
-| `discardAnnotations`, `discardSettings` | Leave annotation mode or unsaved settings without saving |
+| `discardAnnotations`, `discardSettings` | Leave annotation mode and remove the notes staged in the chat box, or undo unsaved settings |
 | `stubAgentRuns`, `playAgentTurn(name)` | Stand in for Studio Code: sending a prompt answers with a made-up run, and `playAgentTurn` plays `agentTurns/<name>.json` to the real renderer. No model runs and no credits are used |
 
 **Capture** (a script's `capture` is the default for its shots): `target` crops to a locator, or frames a list of them together (a menu and the button that opened it); without one the whole window is kept. `pad` is the margin (the look's `crop.pad`, 48 in docs, or `[x, y]`), `aspect` the least width-to-height ratio (the look's `crop.aspect`, 1.5 in docs, since a tall crop sits badly on a page), `reach` runs the crop out to window edges (`["left", "bottom"]` ends it at the window's bottom-left corner: on a framed look, the window's real corner sits on the background with a margin, and the cut top and right run off the image; for a social crop of a menu near a corner), `settle` the wait before capturing (ms), `keepMouse` leaves the pointer and focus where they are. Before every capture, toasts are dismissed, the pointer parked, the preview scrolled to its top, and paths inside the throwaway profile rewritten to `/Users/username`.
@@ -203,10 +203,10 @@ A look sets how Studio is shown and what is made of each still. Every field has 
 
 ## Outputs
 
-- **Stills**, `<name>[-annotated][-<variant>].webp`. A file is rewritten only when its pixels change beyond anti-aliasing noise (pixelmatch's threshold), so unchanged shots leave git clean.
+- **Stills**, `<name>[-annotated][-<variant>].webp`. A file is rewritten only when its pixels change beyond anti-aliasing noise (pixelmatch's threshold), so unchanged shots leave git clean. Stills are taken with reduced motion (`prefers-reduced-motion`), so animated backgrounds and scrolling labels come out the same on every run; recordings keep the app's motion.
 - **Video**, `record`: each selected shot's steps play at a watchable pace (the pointer glides to each target, text is typed out, a pause after each step) and are recorded from Electron's own capture, then the last frame holds with the shot's annotations drawn. Earlier shots' steps run at full speed, unrecorded, to reach the start.
 - **Visual check**, `check` (or `capture --check`): every shot is captured and compared with the file in `--out`, which is left alone (a failed shot's picture still goes to `<out>/failures/`). Each file is `new`, `changed` (with `diffPixels`, and a picture of the differences in `--diff-dir`) or `unchanged`; the exit code is 1 if any is new or changed.
-- **Results**, `--json`: the mode, Studio version, scripts (scene, look, signed in), and per shot its status (`ok`, `failed`, or `skipped` for a desktop-only shot in the browser), files (`file`, `status`, `diffPixels`, `diff`), videos, error and failure picture, plus `meta`; and a summary. Manual shots are listed under `manual`.
+- **Results**, `--json`: the mode, Studio version, scripts (scene, look, signed in), and per shot its status (`ok`, `failed`, `notRun` for a shot after a failed one in the same script, or `skipped` for a desktop-only shot in the browser), files (`file`, `status`, `diffPixels`, `diff`), videos, error and failure picture, plus `meta`; and a summary. Manual shots are listed under `manual`.
 
 ### Getting the images out
 

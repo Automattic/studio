@@ -1,0 +1,15 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"module": "es2022",
+		"moduleResolution": "bundler",
+		"lib": [ "es2023", "dom", "dom.iterable" ],
+		"types": [ "vite/client" ],
+		"paths": {
+			"@studio/common/*": [ "../../packages/common/*" ],
+			"@studio/agent/*": [ "../../packages/agent/*" ]
+		}
+	},
+	"include": [ "**/*" ],
+	"exclude": [ "**/node_modules/**/*", "**/dist/**/*" ]
+}

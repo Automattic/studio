@@ -578,6 +578,14 @@ function SitePreviewContent( {
 								);
 							}
 							const frameKey = getFrameKey( siteUrl, surface );
+							const inspectorProps = {
+								annotations: key === 'site' && ! inactive ? annotations : undefined,
+								onInspectorReady: ( inspectorReady: boolean ) => {
+									patchSurface( key, { inspectorReady } );
+									if ( ! inspectorReady ) setAnnotationAnchor( null );
+								},
+								onInspectorEvent: handleInspectorEvent,
+							};
 							return (
 								<SurfaceLayer
 									key={ key }
@@ -604,12 +612,7 @@ function SitePreviewContent( {
 											// phpMyAdmin isn't an annotation target, so the
 											// inspector never goes near it.
 											inspector={ key === 'site' && ! inactive }
-											annotations={ key === 'site' && ! inactive ? annotations : undefined }
-											onInspectorReady={ ( inspectorReady ) => {
-												patchSurface( key, { inspectorReady } );
-												if ( ! inspectorReady ) setAnnotationAnchor( null );
-											} }
-											onInspectorEvent={ handleInspectorEvent }
+											{ ...inspectorProps }
 											annotationTool={ annotationTools.tool }
 											clearSelection={ annotationTools.clearSelection }
 											browserCommand={ surface.browserCommand }
@@ -627,6 +630,9 @@ function SitePreviewContent( {
 											key={ frameKey }
 											src={ `${ siteUrl }${ surface.requestedPath }` }
 											title={ site.name }
+											{ ...inspectorProps }
+											annotationTool={ annotationTools.tool }
+											clearSelection={ annotationTools.clearSelection }
 											browserCommand={ surface.browserCommand }
 											onCommandHandled={ () => patchSurface( key, { browserCommand: null } ) }
 											onAdminBarVisibilityChange={

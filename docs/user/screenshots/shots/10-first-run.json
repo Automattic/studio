@@ -51,7 +51,7 @@
 		},
 		{
 			"name": "add-site",
-			"description": "Add site dialog: Create / Connect / Import, Blueprint categories, Choose a starting point",
+			"description": "Add site dialog: New / Connect / Import, Blueprint categories, and the Blueprints library",
 			"meta": { "pages": [ "sites.md", "blueprints/index.md" ], "replaces": [ "2025/01/add-a-site.png" ] },
 			"steps": [
 				{
@@ -113,7 +113,7 @@
 		},
 		{
 			"name": "blueprint-details",
-			"description": "A Blueprint’s details, with Preview in browser and Create site",
+			"description": "A Blueprint’s details, with Preview in browser and Use Blueprint",
 			"meta": { "pages": [ "blueprints/index.md" ], "replaces": [ "2025/10/create-site-from-blueprint.png" ] },
 			"steps": [
 				{
@@ -200,8 +200,8 @@
 		},
 		{
 			"name": "add-site-import",
-			"description": "Add site → Import: Drop a WordPress backup here / Choose file",
-			"meta": { "pages": [ "import-export.md" ], "replaces": [ "2025/01/add-a-site-1.png" ] },
+			"description": "Add site → Import: Drop your file here / Choose file, for Blueprints, backups and WordPress exports",
+			"meta": { "pages": [ "import-export.md", "blueprints/index.md" ], "replaces": [ "2025/01/add-a-site-1.png" ] },
 			"steps": [
 				{
 					"click": {
@@ -216,37 +216,14 @@
 				},
 				{
 					"waitFor": {
-						"text": "Drop a WordPress backup here."
-					}
-				}
-			]
-		},
-		{
-			"name": "add-site-upload",
-			"description": "Add site → Upload: Upload a Blueprint, with its drop area and Choose file",
-			"meta": { "pages": [ "blueprints/index.md" ] },
-			"steps": [
-				{
-					"click": {
-						"within": {
-							"role": "tablist",
-							"name": "Ways to add a site"
-						},
-						"role": "tab",
-						"name": "Upload",
-						"exact": true
-					}
-				},
-				{
-					"waitFor": {
-						"text": "Drop a Blueprint here."
+						"text": "Drop your file here"
 					}
 				}
 			]
 		},
 		{
 			"name": "create-site",
-			"description": "Create a blank site: Site name, Local path, and the WordPress and PHP versions",
+			"description": "Add site form for a blank site: Site name, Site folder, and Start from",
 			"meta": { "pages": [ "sites.md" ] },
 			"steps": [
 				{
@@ -256,7 +233,7 @@
 							"name": "Ways to add a site"
 						},
 						"role": "tab",
-						"name": "Create",
+						"name": "New",
 						"exact": true
 					}
 				},
@@ -287,20 +264,21 @@
 		},
 		{
 			"name": "create-site-advanced",
-			"description": "Create a blank site → Advanced settings (File access, Use custom domain, admin credentials)",
+			"description": "Add site form → Advanced (WordPress and PHP versions, File access, WordPress credentials, Domain name and HTTPS)",
 			"meta": { "pages": [ "sites.md", "php-runtimes.md" ], "replaces": [ "2025/01/create-site-advanced.png" ] },
 			"steps": [
 				{
 					"click": {
 						"role": "button",
-						"name": "Advanced settings"
+						"name": "Advanced",
+						"exact": true
 					}
 				},
 				{
-					"scrollTo": {
-						"text": "Advanced settings"
-					},
-					"offset": 80
+					"waitFor": {
+						"role": "textbox",
+						"name": "Domain name"
+					}
 				}
 			],
 			"capture": {
@@ -315,23 +293,20 @@
 		},
 		{
 			"name": "create-site-https",
-			"description": "Create your site → Advanced settings with Use custom domain and Enable HTTPS",
+			"description": "Add site form → Advanced with a custom Domain name and HTTPS turned on",
 			"meta": { "pages": [ "ssl-in-studio.md" ], "replaces": [ "2025/03/create-site-https.png" ] },
 			"steps": [
 				{
-					"toggle": "Use custom domain",
-					"on": true
+					"fill": {
+						"role": "textbox",
+						"name": "Domain name"
+					},
+					"value": "my-wordpress-website.local",
+					"blur": true
 				},
 				{
 					"toggle": "Enable HTTPS",
 					"on": true
-				},
-				{
-					"scrollTo": {
-						"role": "switch",
-						"name": "Use custom domain"
-					},
-					"offset": 120
 				}
 			],
 			"after": [
@@ -340,8 +315,12 @@
 					"on": false
 				},
 				{
-					"toggle": "Use custom domain",
-					"on": false
+					"fill": {
+						"role": "textbox",
+						"name": "Domain name"
+					},
+					"value": "",
+					"blur": true
 				}
 			],
 			"capture": {
@@ -362,8 +341,15 @@
 				{
 					"click": {
 						"role": "button",
-						"name": "Create site",
-						"exact": true
+						"name": "Add site",
+						"exact": true,
+						"within": {
+							"role": "dialog",
+							"has": {
+								"role": "textbox",
+								"name": "Site name"
+							}
+						}
 					}
 				},
 				{

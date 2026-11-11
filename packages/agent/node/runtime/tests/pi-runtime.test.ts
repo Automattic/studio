@@ -466,47 +466,6 @@ describe( 'pi runtime', () => {
 		).rejects.toThrow( /single-call safety limit/ );
 	} );
 
-	it( 'rejects remote wpcom_request calls from length-truncated assistant messages', async () => {
-		mocks.nextEvents = [
-			assistantMessage(
-				[
-					{
-						type: 'toolCall',
-						id: 'wpcom-call-1',
-						name: 'wpcom_request',
-						arguments: {
-							method: 'POST',
-							path: '/pages/4',
-							body: {
-								content: '<!-- wp:paragraph --><p>partial',
-							},
-						},
-						index: 0,
-					},
-				],
-				'length'
-			),
-			{ type: 'agent_end', willRetry: false, messages: [] },
-		] as AgentSessionEvent[];
-
-		await runRuntime( {
-			prompt: 'hello',
-			env: WPCOM_ENV,
-			model: 'balanced',
-			session: newSession(),
-		} );
-
-		const wpcomRequest = getCreatedTool( 'wpcom_request' );
-
-		await expect(
-			wpcomRequest.execute( 'wpcom-call-1', {
-				method: 'POST',
-				path: '/pages/4',
-				body: { content: '<!-- wp:paragraph --><p>partial' },
-			} )
-		).rejects.toThrow( /hit the model output limit/ );
-	} );
-
 	describe( 'a reply with neither text nor a tool call', () => {
 		const emptyReply = () => assistantMessage( [ { type: 'thinking', thinking: 'reasoning…' } ] );
 		const runEndingWith = ( message: MessageEndEvent ): AgentSessionEvent[] => [

@@ -5,7 +5,14 @@ import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getImporter } from 'cli/lib/import-export/import/import-manager';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
-import { checkBackupSize, fetchSyncableSites, pollBackupStatus } from 'cli/lib/sync-api';
+import {
+	checkBackupSize,
+	fetchSyncableSites,
+	initiateBackup,
+	pollBackupStatus,
+} from 'cli/lib/sync-api';
+import { fetchPullTree, selectSyncItemsForPull } from 'cli/lib/sync-selector';
+import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import {
 	isServerRunning,
 	startWordPressServer,
@@ -34,6 +41,7 @@ vi.mock( 'cli/lib/import-export/import/import-manager', async ( importActual ) =
 vi.mock( 'cli/lib/site-operations' );
 vi.mock( 'cli/lib/sync-activity' );
 vi.mock( 'cli/lib/tracks' );
+vi.mock( 'cli/lib/sync-selector' );
 vi.mock( 'cli/lib/sync-api', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/sync-api') >() ),
 	fetchSyncableSites: vi.fn(),
@@ -99,6 +107,34 @@ describe( 'CLI: studio pull', () => {
 			] );
 		}
 	);
+
+	it.each( [ false, true ] )( 'classifies real paths (interactive: %s)', async ( interactive ) => {
+		vi.mocked( fetchPullTree ).mockResolvedValueOnce( { tree: [], rewindId: 'rewind' } );
+		vi.mocked( selectSyncItemsForPull ).mockResolvedValueOnce( {
+			optionsToSync: [ 'paths' ],
+			includePathList: [ 'opaque-id' ],
+			specificSelectionPaths: [ 'plugins' ],
+		} );
+
+		await runCommand(
+			site.path,
+			interactive ? undefined : [ 'paths' ],
+			String( remoteSite.id ),
+			interactive ? undefined : [ 'opaque-id' ],
+			undefined,
+			undefined,
+			interactive ? undefined : [ 'plugins' ]
+		);
+
+		expect( initiateBackup ).toHaveBeenCalledWith( 'token', remoteSite.id, {
+			optionsToSync: [ 'paths' ],
+			includePathList: [ 'opaque-id' ],
+		} );
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.SYNC_PULL,
+			expect.objectContaining( { selection: 'categories', includes_database: false } )
+		);
+	} );
 
 	it.each( [
 		[ 'warns and continues without asking when nobody can answer', undefined, true ],

@@ -1,16 +1,7 @@
 import fs from 'fs';
+import os from 'os';
 import { type AgentTool } from '@earendil-works/pi-agent-core';
-import {
-	type Credential,
-	type CredentialInfo,
-	type CredentialStore,
-	type Model,
-	type SimpleStreamOptions,
-} from '@earendil-works/pi-ai';
-import { streamSimple as streamAnthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages';
-import { streamSimple as streamOpenAiCompletions } from '@earendil-works/pi-ai/api/openai-completions';
-import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
-import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
+import { type Credential, type CredentialInfo, type CredentialStore } from '@earendil-works/pi-ai';
 import {
 	createAgentSession,
 	createBashTool,
@@ -29,59 +20,40 @@ import {
 	type ToolDefinition,
 } from '@earendil-works/pi-coding-agent';
 import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
+import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { type TSchema } from 'typebox';
-import { withDesignSystemPreview } from '@studio/agent/node/chat-artifacts';
 import { readGlobalInstructions } from '@studio/agent/node/global-instructions';
-import { isImageGenerationAvailable } from '@studio/agent/node/image-generation';
-import { createResultNotes } from '@studio/agent/node/result-notes';
-import { buildSystemPrompt, type ToolPromptContribution } from '@studio/agent/node/system-prompt';
-import { resolveStudioTools } from '@studio/agent/node/tools';
-import { createAskUserQuestionTool } from '@studio/agent/node/tools/ask-user-question';
-import { bindTool } from '@studio/agent/node/tools/define-tool';
-import { createPresentDesignOptionsTool } from '@studio/agent/node/tools/present-design-options';
-import { createSkillTool } from '@studio/agent/node/tools/skill';
 import {
 	aiModelSupportsImages,
 	DEFAULT_MODEL,
-	getAiModel,
 	getAiModelFamily,
 	type AiModelFamily,
 	type AiModelId,
 } from '@studio/agent/protocol/models';
-import { findLastAssistant, isEmptyStop } from '@studio/agent/protocol/session-events';
-import { getFileToolPrompt } from './file-tool-prompts';
-import { withLeakedToolCallMarkupRemoved } from './leaked-tool-call-markup';
-import { getPendingWork, type PendingWork } from './pending-work';
-import { stripStaleImagesFromContext } from './strip-stale-images';
 import {
-	getIncompleteToolCallReason,
-	getFileWriteRefusal,
-	getPayloadLimitViolation,
-	type StudioToolPayloadGuardState,
-	updateStudioToolPayloadGuardState,
-} from './tool-safety';
-import { withUsageCapErrorRewrite } from './usage-cap';
-import type { StudioAgentHost } from '@studio/agent/node/host';
-import type { StudioToolResultDetails } from '@studio/agent/node/tools/define-tool';
-import type { AskUserHandler, SiteInfo } from '@studio/agent/node/types';
+	findLastAssistant,
+	getEmptyStopContinuation,
+	isEmptyStop,
+	MAX_EMPTY_STOP_CONTINUES,
+} from '@studio/agent/protocol/session-events';
+import { withDesignSystemPreview } from '@studio/agent/shared/chat-artifacts';
+import { getFileToolPrompt } from '@studio/agent/shared/file-tool-prompts';
+import { buildStudioModel, streamStudioModel, type StudioModel } from '@studio/agent/shared/models';
+import { runWithPendingWork, type PendingWork } from '@studio/agent/shared/pending-work';
+import { createResultNotes } from '@studio/agent/shared/result-notes';
+import { findActiveSiteDesign } from '@studio/agent/shared/site-selection';
+import { buildSystemPrompt, type ToolPromptContribution } from '@studio/agent/shared/system-prompt';
+import { assertToolCallAllowed } from '@studio/agent/shared/tool-safety';
+import { resolveConversationTools } from '@studio/agent/shared/tools';
+import { getPendingWork } from './pending-work';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
+import type { AskUserHandler, SiteInfo } from '@studio/agent/shared/types';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
-type StudioWpcomModel =
-	| Model< 'openai-completions' >
-	| Model< 'openai-responses' >
-	| Model< 'anthropic-messages' >;
-type StudioModel = StudioWpcomModel | Model< 'anthropic-messages' >;
 type ProviderConfigInput = Parameters< ModelRuntime[ 'registerProvider' ] >[ 1 ];
 
-const STUDIO_WPCOM_PROVIDER = 'studio-wpcom';
-// A reply with nothing in it ends the turn without the user seeing why (see
-// `isEmptyStop`). Resume it with a message the user doesn't see, up to this
-// many times per turn. pi leaves a reply that has only reasoning out of the
-// next request, so the message carries that reasoning; otherwise the model
-// starts the same reasoning over and runs out again.
-const MAX_EMPTY_STOP_CONTINUES = 2;
 const EMPTY_STOP_CONTINUE_TYPE = 'studio.empty_stop_continue';
 const STUDIO_COMPACTION_SETTINGS = {
 	enabled: true,
@@ -248,15 +220,13 @@ async function runAgentSessionTurn(
 
 	let session: AgentSession | undefined;
 	let unsubscribe: ( () => void ) | undefined;
-	const payloadGuardState: StudioToolPayloadGuardState = {};
 	try {
-		session = await createStudioAgentSession( config, family, resolved.creds, payloadGuardState );
+		session = await createStudioAgentSession( config, family, resolved.creds );
 		setActiveSession( session );
 		let emptyStopContinues = 0;
 		let continueAfterEmptyStop = false;
-		let cutOffReasoning = '';
+		let continuation = '';
 		unsubscribe = session.subscribe( ( event ) => {
-			updateStudioToolPayloadGuardState( event, payloadGuardState );
 			if (
 				event.type === 'agent_end' &&
 				! event.willRetry &&
@@ -266,10 +236,7 @@ async function runAgentSessionTurn(
 				if ( isEmptyStop( lastAssistant ) ) {
 					// Not final: consumers wait for the turn's real end.
 					continueAfterEmptyStop = true;
-					cutOffReasoning = ( lastAssistant?.content ?? [] )
-						.map( ( block ) => ( block.type === 'thinking' ? block.thinking : '' ) )
-						.join( '' )
-						.trim();
+					continuation = getEmptyStopContinuation( lastAssistant );
 					config.onEvent( { ...event, willRetry: true } );
 					return;
 				}
@@ -302,9 +269,7 @@ async function runAgentSessionTurn(
 			await session.sendCustomMessage(
 				{
 					customType: EMPTY_STOP_CONTINUE_TYPE,
-					content: cutOffReasoning
-						? `Your reasoning was cut off before you replied. Continue from where it stopped:\n\n${ cutOffReasoning }`
-						: 'continue',
+					content: continuation,
 					display: false,
 				},
 				{ triggerTurn: true }
@@ -325,14 +290,18 @@ async function runAgentSessionTurn(
 async function createStudioAgentSession(
 	config: ResolvedStudioAgentTurnConfig,
 	family: AiModelFamily,
-	creds: ResolvedCredentials,
-	payloadGuardState: StudioToolPayloadGuardState
+	creds: ResolvedCredentials
 ): Promise< AgentSession > {
-	const model = buildModel( config.model, family, creds );
+	const model = buildStudioModel( config.model, family, {
+		apiKey: creds.apiKey,
+		baseUrl: creds.baseURL,
+		headers: creds.extraHeaders,
+	} );
 	const visionEnabled = aiModelSupportsImages( config.model );
-	const [ userInstructions, imageGenerationEnabled ] = await Promise.all( [
+	const [ userInstructions, imageGenerationEnabled, designPath ] = await Promise.all( [
 		readGlobalInstructions(),
-		isImageGenerationAvailable(),
+		config.host.wpcom.imageToken().then( Boolean ),
+		findActiveSiteDesign( config.host, config.activeSite ),
 	] );
 
 	const tools = buildAgentTools( config, imageGenerationEnabled, visionEnabled );
@@ -340,15 +309,19 @@ async function createStudioAgentSession(
 		userInstructions,
 		tools: tools.map( toolPromptContribution ),
 		activeSite: config.activeSite,
+		activeSiteDesignPath: designPath,
+		activeSiteEmailPath: config.activeSite?.id
+			? getSiteEmailDirectory( config.activeSite.id )
+			: undefined,
 	} );
 
 	const pendingWork = getPendingWork( config.session );
 	const site = config.activeSite;
-	const notes = createResultNotes();
+	const notes = createResultNotes( config.host );
 	const resultNotes =
 		site && ! site.remote ? ( text: string ) => notes( site.path, text ) : undefined;
 	const toolDefinitions = tools.map( ( tool ) =>
-		toToolDefinition( config.host, tool, payloadGuardState, pendingWork, resultNotes )
+		toToolDefinition( config.host, tool, pendingWork, resultNotes )
 	);
 	const modelRuntime = await createModelRuntime( model, family, creds );
 	const settingsManager = createSettingsManager( config.env );
@@ -382,101 +355,6 @@ async function createStudioAgentSession(
 	} );
 
 	return result.session;
-}
-
-function buildModel(
-	modelId: AiModelId,
-	family: AiModelFamily,
-	creds: ResolvedCredentials
-): StudioModel {
-	const baseUrl = creds.baseURL.replace( /\/+$/, '' );
-	const common = {
-		id: modelId,
-		name: modelId,
-		baseUrl,
-		input: aiModelSupportsImages( modelId )
-			? [ 'text' as const, 'image' as const ]
-			: [ 'text' as const ],
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-		...( creds.extraHeaders ? { headers: creds.extraHeaders } : {} ),
-	};
-
-	if ( family === 'studio' ) {
-		// The capability tiers are resolved to upstream models by the wpcom
-		// proxy. The context window is a conservative floor across the
-		// upstreams a tier may resolve to, so compaction kicks in before any
-		// of them overflows.
-		//
-		// `strong` rides the proxy's Anthropic Messages path, which sits beside
-		// `/v1` rather than under it and authenticates with a bearer token.
-		if ( modelId === 'strong' ) {
-			return {
-				...common,
-				baseUrl: baseUrl.replace( /\/v1$/, '' ),
-				headers: { ...creds.extraHeaders, Authorization: `Bearer ${ creds.apiKey }` },
-				api: 'anthropic-messages',
-				provider: STUDIO_WPCOM_PROVIDER,
-				reasoning: false,
-				contextWindow: 200_000,
-				maxTokens: 32_000,
-			};
-		}
-		// `balanced` rides the Responses path: its upstream is a reasoning model
-		// that rejects tools-plus-reasoning on Chat Completions.
-		if ( modelId === 'balanced' ) {
-			return {
-				...common,
-				api: 'openai-responses',
-				provider: STUDIO_WPCOM_PROVIDER,
-				reasoning: true,
-				contextWindow: 200_000,
-				maxTokens: 32_000,
-			};
-		}
-		// The other tiers speak Chat Completions. pi infers `compat` from the
-		// base URL, which for us reads as plain OpenAI — so spell out the shape
-		// or requests carry OpenAI-only fields other upstreams reject. With
-		// `supportsReasoningEffort` false no thinking switch is sent at all and
-		// each upstream uses its own default — the portable choice across
-		// vendors that spell that parameter differently.
-		return {
-			...common,
-			api: 'openai-completions',
-			provider: STUDIO_WPCOM_PROVIDER,
-			reasoning: true,
-			contextWindow: 200_000,
-			maxTokens: 32_000,
-			compat: {
-				supportsStore: false,
-				supportsDeveloperRole: false,
-				supportsReasoningEffort: false,
-				supportsStrictMode: false,
-				maxTokensField: 'max_tokens',
-			},
-		};
-	}
-	// Without `compat.forceAdaptiveThinking` pi-ai sends the legacy
-	// `thinking: { type: 'enabled', budget_tokens }` shape, which Sonnet 5 /
-	// Opus 5 reject with a 400 — copy the thinking fields from pi's catalog.
-	const catalogModel = (
-		ANTHROPIC_MODELS as Partial< Record< string, Model< 'anthropic-messages' > > >
-	 )[ modelId ];
-	return {
-		...common,
-		api: 'anthropic-messages',
-		provider: 'anthropic',
-		reasoning: true,
-		// contextWindow/maxTokens intentionally stay below the catalog values.
-		contextWindow: 200_000,
-		// thinkingLevel 'high' reserves ~16384 of this budget for extended thinking
-		// (see adjustMaxTokensForThinking in pi-ai); keep enough headroom for visible
-		// output so single tool calls can emit a full-page HTML payload.
-		maxTokens: 32_000,
-		...( catalogModel?.thinkingLevelMap
-			? { thinkingLevelMap: catalogModel.thinkingLevelMap }
-			: {} ),
-		...( catalogModel?.compat ? { compat: catalogModel.compat } : {} ),
-	};
 }
 
 // In-memory credential store so the runtime never reads or writes an auth.json
@@ -524,10 +402,7 @@ async function createModelRuntime(
 	} );
 
 	if ( family === 'studio' ) {
-		modelRuntime.registerProvider(
-			model.provider,
-			createWpcomProviderConfig( model as StudioWpcomModel, creds )
-		);
+		modelRuntime.registerProvider( model.provider, createWpcomProviderConfig( model, creds ) );
 		return modelRuntime;
 	}
 
@@ -548,46 +423,17 @@ function escapePiConfigValue( value: string ): string {
 }
 
 // The wpcom lane only needs pi's stock streaming for each tier's API; the
-// custom provider exists to wrap the stream with the usage-cap 429 rewrite and
-// the leaked tool-call cleanup, and to strip stale screenshots, which would
-// otherwise bloat requests past the proxy's body limit.
+// custom provider exists to run it through `streamStudioModel`.
 function createWpcomProviderConfig(
-	model: StudioWpcomModel,
+	model: StudioModel,
 	creds: ResolvedCredentials
 ): ProviderConfigInput {
-	// pi types `streamSimple` against `Model<Api>`; each API's stream function
-	// is narrower, and the model registered below is the one passed in.
-	const stream = (
-		model.api === 'openai-completions'
-			? streamOpenAiCompletions
-			: model.api === 'anthropic-messages'
-			? streamAnthropicMessages
-			: streamOpenAiResponses
-	) as NonNullable< ProviderConfigInput[ 'streamSimple' ] >;
-	// The model keeps its stable id for pi and the session history; only the
-	// request names the proxy's current upstream alias.
-	const apiModelId = getAiModel( model.id as AiModelId )?.apiModelId;
 	return {
 		baseUrl: creds.baseURL,
 		apiKey: escapePiConfigValue( creds.apiKey ),
 		api: model.api,
 		headers: creds.extraHeaders,
-		streamSimple: ( m, ctx, options?: SimpleStreamOptions ) =>
-			withUsageCapErrorRewrite(
-				withLeakedToolCallMarkupRemoved(
-					stream( m, stripStaleImagesFromContext( ctx ), {
-						...options,
-						...( apiModelId
-							? {
-									onPayload: async ( params: unknown, payloadModel ) => {
-										const next = ( await options?.onPayload?.( params, payloadModel ) ) ?? params;
-										return { ...( next as Record< string, unknown > ), model: apiModelId };
-									},
-							  }
-							: {} ),
-					} )
-				)
-			),
+		streamSimple: streamStudioModel,
 		models: [
 			{
 				id: model.id,
@@ -624,10 +470,19 @@ function toolPromptContribution( tool: AgentToolAny ): ToolPromptContribution {
 	return { name: tool.name, promptSnippet: ( tool as ToolPromptFields ).promptSnippet };
 }
 
+// Where pi's file tools put a path: without a leading `@`, with `~` expanded.
+function resolveToolPath( { path, sitesRoot }: StudioAgentHost, file: string ): string {
+	const withoutAt = file.replace( /^@/, '' );
+	const expanded =
+		withoutAt === '~' || withoutAt.startsWith( '~/' )
+			? path.join( os.homedir(), withoutAt.slice( 1 ) )
+			: withoutAt;
+	return path.resolve( sitesRoot, expanded );
+}
+
 function toToolDefinition(
 	host: StudioAgentHost,
 	tool: AgentToolAny,
-	payloadGuardState: StudioToolPayloadGuardState,
 	pendingWork: PendingWork,
 	resultNotes?: ( text: string ) => Promise< string >
 ): ToolDefinition {
@@ -640,41 +495,17 @@ function toToolDefinition(
 		executionMode: tool.executionMode,
 		promptSnippet: ( tool as ToolPromptFields ).promptSnippet,
 		execute: async ( toolCallId, params, signal, onUpdate ) => {
-			const incompleteToolCallReason = getIncompleteToolCallReason( payloadGuardState, toolCallId );
-			if ( incompleteToolCallReason ) {
-				throw new Error( incompleteToolCallReason );
-			}
-			const payloadLimitViolation = getPayloadLimitViolation( tool.name, params );
-			if ( payloadLimitViolation ) {
-				throw new Error( payloadLimitViolation );
-			}
-			const fileWriteRefusal = await getFileWriteRefusal(
-				tool.name,
-				params,
-				host.sitesRoot,
-				async ( folder ) => Boolean( await host.sites.findByFolder( folder ) )
+			await assertToolCallAllowed( tool.name, params, host, ( file ) =>
+				resolveToolPath( host, file )
 			);
-			if ( fileWriteRefusal ) {
-				throw new Error( fileWriteRefusal );
-			}
-			if ( ( tool as { settlesPendingWork?: boolean } ).settlesPendingWork ) {
-				await pendingWork.settle();
-			}
-			const result = await tool.execute( toolCallId, params, signal, onUpdate );
-			const details = result.details as StudioToolResultDetails | undefined;
-			if ( details?.pending ) {
-				pendingWork.add( details.pending );
-				delete details.pending;
-			}
-			const resultText = result.content
-				.map( ( part ) => ( part.type === 'text' ? part.text : '' ) )
-				.join( '\n' );
-			const notes = [ await resultNotes?.( resultText ), pendingWork.takeReports() ]
-				.filter( Boolean )
-				.join( '\n' );
-			return notes
-				? { ...result, content: [ ...result.content, { type: 'text', text: notes } ] }
-				: result;
+			return runWithPendingWork(
+				{
+					settles: ( tool as { settlesPendingWork?: boolean } ).settlesPendingWork,
+					pendingWork,
+					resultNotes,
+				},
+				() => tool.execute( toolCallId, params, signal, onUpdate )
+			);
 		},
 	};
 }
@@ -685,47 +516,29 @@ function buildAgentTools(
 	visionEnabled: boolean
 ): AgentToolAny[] {
 	const { host } = config;
-	const askUserTool: AgentToolAny[] = config.onAskUser
-		? [ bindTool( createAskUserQuestionTool( config.onAskUser ), host ) ]
-		: [];
-	const tracks = getAiTracksIdentity( config.session.getSessionId() );
-	const designOptionsTool: AgentToolAny[] =
-		config.onAskUser && host.ui
-			? [
-					bindTool(
-						createPresentDesignOptionsTool( { onAskUser: config.onAskUser, tracks } ),
-						host
-					) as unknown as AgentToolAny,
-			  ]
-			: [];
-
-	const skillToolDef = createSkillTool();
-	const skillTool: AgentToolAny[] = skillToolDef ? [ bindTool( skillToolDef, host ) ] : [];
 
 	// pi's tools are registered under Studio's names; the prompt text for them
 	// is Studio's too (file-tool-prompts.ts), so nothing of pi's wording leaks.
 	const renameTool = < S extends TSchema >( tool: AgentTool< S >, name: string ): AgentTool< S > =>
 		( { ...tool, name, label: name, ...getFileToolPrompt( name ) } ) as AgentTool< S >;
 
-	const { sitesRoot, ui } = host;
-	const designSystemPreview = < TTool extends AgentToolAny >( tool: TTool ) =>
-		withDesignSystemPreview( tool, sitesRoot, ui );
+	const { sitesRoot } = host;
 	const piTools: AgentToolAny[] = [
 		renameTool( createReadTool( sitesRoot ), 'Read' ),
-		designSystemPreview( renameTool( createWriteTool( sitesRoot ), 'Write' ) ),
-		designSystemPreview( renameTool( createEditTool( sitesRoot ), 'Edit' ) ),
+		withDesignSystemPreview( renameTool( createWriteTool( sitesRoot ), 'Write' ), host ),
+		withDesignSystemPreview( renameTool( createEditTool( sitesRoot ), 'Edit' ), host ),
 		renameTool( createBashTool( sitesRoot ), 'Bash' ),
 		renameTool( createGrepTool( sitesRoot ), 'Grep' ),
 		renameTool( createFindTool( sitesRoot ), 'Glob' ),
 		renameTool( createLsTool( sitesRoot ), 'Ls' ),
 	];
-	const studioTools = resolveStudioTools( host, {
+	const conversationTools = resolveConversationTools( host, {
 		imageGeneration: imageGenerationEnabled,
 		visionEnabled,
-		canAskUser: Boolean( config.onAskUser ),
-		tracks,
+		onAskUser: config.onAskUser,
+		tracks: getAiTracksIdentity( config.session.getSessionId() ),
 	} ) as unknown as AgentToolAny[];
-	return [ ...studioTools, ...askUserTool, ...designOptionsTool, ...skillTool, ...piTools ];
+	return [ ...conversationTools, ...piTools ];
 }
 
 function parseJsonHeaderEnv(

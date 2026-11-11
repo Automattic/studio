@@ -322,7 +322,7 @@ export function AddSiteDialog() {
 				return;
 			}
 			if ( ! connector.capabilities.nativeFolderPicker ) {
-				toast.error( __( 'Open Studio Desktop to add an existing WordPress folder.' ) );
+				toast.error( __( 'Open the WordPress Studio app to add an existing WordPress folder.' ) );
 				return;
 			}
 			void ( async () => {

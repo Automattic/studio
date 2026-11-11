@@ -532,19 +532,29 @@ describe( 'PublishPopover', () => {
 		);
 	} );
 
-	it( 'forces a full pull when no remote backup exists', async () => {
-		const { connector, ready, site } = setup( [ remote ] );
+	it.each( [
+		[ 'Files only', [ 'plugins', 'themes', 'uploads', 'contents' ] ],
+		[ 'Content and settings only', [ 'sqls' ] ],
+	] )( 'allows %s without a backup', async ( scope, optionsToSync ) => {
+		const destination = { ...remote, pushNeedsUpgrade: true };
+		const { connector, ready, site } = setup( [ destination ], true, true, false );
+		connector.fetchSyncableWpcomSites.mockResolvedValue( [ destination ] );
 		await ready;
 		await openPull();
 		await waitFor( () =>
-			expect( screen.getByRole( 'radiogroup', { name: 'What to pull' } ) ).toBeDisabled()
+			expect( screen.getByRole( 'radio', { name: 'Choose files…' } ) ).toBeDisabled()
 		);
+		expect( screen.getByRole( 'radio', { name: 'Entire site' } ) ).toBeEnabled();
+		expect( screen.getByRole( 'radio', { name: 'Files only' } ) ).toBeEnabled();
+		expect( screen.getByRole( 'radio', { name: 'Content and settings only' } ) ).toBeEnabled();
+		expect( connector.getLatestRewindId ).not.toHaveBeenCalled();
+		await selectScope( scope, true );
 		const pull = screen.getByRole( 'button', { name: 'Pull changes' } );
 		await waitFor( () => expect( pull ).toBeEnabled() );
 		fireEvent.click( pull );
 		await waitFor( () =>
 			expect( connector.pullSiteFromLive ).toHaveBeenCalledWith( site.id, 42, {
-				optionsToSync: [ 'all' ],
+				optionsToSync,
 			} )
 		);
 		await screen.findByText( 'Changes pulled into WordPress Studio', {}, { timeout: 3000 } );

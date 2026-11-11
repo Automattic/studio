@@ -162,9 +162,9 @@ export function CreatePanel( { remote }: { remote?: SyncSite } ) {
 			requiresExistingPath={ source.type === 'folder' }
 			folderDescription={
 				selectedBlueprint
-					? __( 'Studio will create a site from this blueprint in an empty folder.' )
+					? __( 'WordPress Studio will create a site from this blueprint in an empty folder.' )
 					: remote
-					? __( 'Studio will create a local copy of this site in an empty folder.' )
+					? __( 'WordPress Studio will create a local copy of this site in an empty folder.' )
 					: undefined
 			}
 			requiresEmptyPath={ !! remote || !! selectedBlueprint }

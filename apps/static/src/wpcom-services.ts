@@ -401,8 +401,8 @@ export class WpcomServices {
 			} );
 			signal.throwIfAborted();
 			progress( 'uploading', 20, __( 'Uploading…' ) );
-			const remoteSite = ( await this.getConnectedSites( siteId ) ).find(
-				( site ) => site.id === remoteSiteId
+			const remoteSite = ( await this.connections() ).find(
+				( site ) => site.localSiteId === siteId && site.id === remoteSiteId
 			);
 			await wpcomSites.push(
 				{ token: await this.auth.requireToken() },

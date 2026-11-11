@@ -3,7 +3,6 @@ import {
 	getConnectedWpcomSitesForLocalSite,
 	markConnectedWpcomSiteSynced,
 	removeAllConnectedWpcomSitesForLocalSite,
-	removeConnectedWpcomSite,
 } from './connected-sites';
 import type { ProviderSites, SitesProviderId } from '@studio/providers';
 
@@ -16,7 +15,6 @@ import type { ProviderSites, SitesProviderId } from '@studio/providers';
 type ConnectionStore< Site extends { id: unknown } > = {
 	list( localSiteId: string ): Promise< Site[] >;
 	add( localSiteId: string, site: Site, synced?: 'push' | 'pull' ): Promise< void >;
-	remove( localSiteId: string, siteId: Site[ 'id' ] ): Promise< void >;
 	removeAll( localSiteId: string ): Promise< void >;
 };
 
@@ -28,9 +26,6 @@ const STORES: { [ Id in SitesProviderId ]: ConnectionStore< ProviderSites[ Id ] 
 			if ( synced ) {
 				await markConnectedWpcomSiteSynced( localSiteId, site.id, synced );
 			}
-		},
-		remove: async ( localSiteId, siteId ) => {
-			await removeConnectedWpcomSite( localSiteId, siteId );
 		},
 		removeAll: removeAllConnectedWpcomSitesForLocalSite,
 	},
@@ -51,14 +46,6 @@ export function rememberRemoteSite< Id extends SitesProviderId >(
 	synced?: 'push' | 'pull'
 ): Promise< void > {
 	return STORES[ provider ].add( localSiteId, site, synced );
-}
-
-export function forgetRemoteSite< Id extends SitesProviderId >(
-	provider: Id,
-	localSiteId: string,
-	siteId: ProviderSites[ Id ][ 'id' ]
-): Promise< void > {
-	return STORES[ provider ].remove( localSiteId, siteId );
 }
 
 // Every provider's connections of a local site, as when it is deleted.

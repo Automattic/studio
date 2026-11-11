@@ -64,14 +64,16 @@ describe( 'AI auth helpers', () => {
 	it( 'connects Anthropic models with the saved key', async () => {
 		storeConfigs( { anthropic: { method: 'api-key', apiKey: 'saved-key' } } );
 
-		await expect( resolveAiConnection( 'anthropic', 'claude-sonnet-5' ) ).resolves.toMatchObject( {
-			piProvider: 'anthropic',
-			apiKey: 'saved-key',
-		} );
+		await expect( resolveAiConnection( 'anthropic', 'claude-sonnet-5-5' ) ).resolves.toMatchObject(
+			{
+				piProvider: 'anthropic',
+				apiKey: 'saved-key',
+			}
+		);
 	} );
 
 	it( 'requires a saved Anthropic API key', async () => {
-		await expect( resolveAiConnection( 'anthropic', 'claude-sonnet-5' ) ).rejects.toBeInstanceOf(
+		await expect( resolveAiConnection( 'anthropic', 'claude-sonnet-5-5' ) ).rejects.toBeInstanceOf(
 			LoggerError
 		);
 		expect( password ).not.toHaveBeenCalled();

@@ -52,7 +52,7 @@ describe( 'Conversation usage and model picker', () => {
 					'Purchased credits required'
 				);
 			}
-			expect( await screen.findByRole( 'option', { name: /^Sonnet 5/ } ) ).toBeVisible();
+			expect( await screen.findByRole( 'option', { name: /^Sonnet 5.5/ } ) ).toBeVisible();
 			expect( screen.getByRole( 'option', { name: /^Connect providers/ } ) ).toBeVisible();
 			await user.keyboard( '{Escape}' );
 			if ( provider === 'wpcom' ) {
@@ -75,11 +75,11 @@ describe( 'Conversation usage and model picker', () => {
 		const { user } = renderApp( { connector, path: '/sites/one/new' } );
 		await screen.findByRole( 'button', { name: 'Site menu' } );
 		await user.click( await screen.findByRole( 'button', { name: 'Model' } ) );
-		await user.click( await screen.findByRole( 'option', { name: /^Sonnet 5/ } ) );
+		await user.click( await screen.findByRole( 'option', { name: /^Sonnet 5.5/ } ) );
 		expect( connector.createSession ).not.toHaveBeenCalled();
 		expect( connector.setSessionProvider ).not.toHaveBeenCalled();
 		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveTextContent( 'Sonnet 5' )
+			expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveTextContent( 'Sonnet 5.5' )
 		);
 		expect( screen.getByRole( 'button', { name: 'Model' } ) ).not.toHaveAttribute(
 			'aria-description',
@@ -94,7 +94,7 @@ describe( 'Conversation usage and model picker', () => {
 			expect( connector.setSessionProvider ).toHaveBeenCalledWith(
 				expect.any( String ),
 				'anthropic',
-				'claude-sonnet-5'
+				'claude-sonnet-5-5'
 			)
 		);
 		expect( connector.createSession ).toHaveBeenCalledTimes( 1 );

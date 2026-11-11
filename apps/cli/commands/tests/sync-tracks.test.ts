@@ -1,11 +1,11 @@
 import * as configFile from '@studio/common/lib/cli-config-file';
-import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
+import { getRemoteSites } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
+import { RemoteSiteError } from '@studio/providers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { enableReprintExporter } from 'cli/lib/api';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
-import { fetchSyncableSites, initiateBackup, pollBackupStatus } from 'cli/lib/sync-api';
+import { backupRemoteSite, fetchSyncableSites, wpcomSites } from 'cli/lib/sync-api';
 import { pickSyncSite } from 'cli/lib/sync-site-picker';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { LoggerError } from 'cli/logger';
@@ -19,7 +19,7 @@ vi.mock( '@studio/common/lib/shared-config', async ( importActual ) => ( {
 	...( await importActual< typeof import('@studio/common/lib/shared-config') >() ),
 	readAuthToken: vi.fn(),
 } ) );
-vi.mock( '@studio/common/lib/connected-sites' );
+vi.mock( '@studio/common/lib/remote-sites' );
 vi.mock( '@studio/common/lib/deploy-ignore', () => ( {
 	createDeployIgnoreFilter: vi.fn().mockResolvedValue( { ignores: vi.fn() } ),
 } ) );
@@ -32,12 +32,8 @@ vi.mock( 'cli/lib/sqlite-integration' );
 vi.mock( 'cli/lib/sync-api', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/sync-api') >() ),
 	fetchSyncableSites: vi.fn(),
-	initiateBackup: vi.fn(),
-	pollBackupStatus: vi.fn(),
-} ) );
-vi.mock( 'cli/lib/api', async ( importActual ) => ( {
-	...( await importActual< typeof import('cli/lib/api') >() ),
-	enableReprintExporter: vi.fn(),
+	backupRemoteSite: vi.fn(),
+	wpcomSites: { pull: { openExporter: vi.fn() } },
 } ) );
 vi.mock( 'cli/lib/sync-activity' );
 vi.mock( 'cli/lib/sync-site-picker', async ( importActual ) => ( {
@@ -78,7 +74,7 @@ const remoteSite = {
 beforeEach( () => {
 	vi.clearAllMocks();
 	vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
-	vi.mocked( getConnectedWpcomSitesForLocalSite ).mockResolvedValue( [] );
+	vi.mocked( getRemoteSites ).mockResolvedValue( [] );
 	vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
 	vi.mocked( fetchSyncableSites ).mockResolvedValue( [ remoteSite ] );
 	vi.mocked( pickSyncSite ).mockResolvedValue( remoteSite );
@@ -96,8 +92,8 @@ afterEach( () => vi.restoreAllMocks() );
 
 describe( 'CLI: studio pull Tracks events', () => {
 	it( "records a failure with the site's sync type and a classified reason, and tells the app", async () => {
-		vi.mocked( enableReprintExporter ).mockRejectedValue(
-			new LoggerError( 'Failed to enable the export', undefined, 'remote_backup' )
+		vi.mocked( wpcomSites.pull!.openExporter ).mockRejectedValue(
+			new RemoteSiteError( 'Failed to enable the export', 'remote_backup' )
 		);
 
 		await expect( runPull( testSite.path, String( remoteSite.id ) ) ).rejects.toThrow();
@@ -137,8 +133,9 @@ describe( 'CLI: studio pull Tracks events', () => {
 
 describe( 'CLI: studio pull Tracks events (Jetpack Backup engine)', () => {
 	it( "records a failure with the site's sync type and a classified reason", async () => {
-		vi.mocked( initiateBackup ).mockResolvedValue( 7 as never );
-		vi.mocked( pollBackupStatus ).mockResolvedValue( { status: 'failed', percent: 0 } as never );
+		vi.mocked( backupRemoteSite ).mockRejectedValue(
+			new LoggerError( 'Remote backup failed', undefined, 'remote_backup' )
+		);
 
 		await expect(
 			runBackupPull( testSite.path, [ 'all' ], String( remoteSite.id ) )
@@ -184,7 +181,7 @@ describe( 'CLI: studio pull Tracks events (Jetpack Backup engine)', () => {
 	} );
 
 	it( 'attributes a backup-initiation failure to the remote backup', async () => {
-		vi.mocked( initiateBackup ).mockRejectedValue(
+		vi.mocked( backupRemoteSite ).mockRejectedValue(
 			new LoggerError( 'Failed to initiate backup', undefined, 'remote_backup' )
 		);
 

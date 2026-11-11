@@ -136,12 +136,6 @@ import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assi
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import { getLocalFileSize, listLocalFileTree } from '@studio/common/lib/sync/local-file-tree';
 import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
-import {
-	fetchHostingPhpVersion,
-	fetchLatestRewindId,
-	fetchRemoteFileTreeContents,
-	fetchSyncableSites,
-} from '@studio/common/lib/sync/sync-api';
 import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
 import { getStudioUserAgent } from '@studio/common/lib/user-agent';
 import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor';
@@ -238,6 +232,8 @@ import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { UserPreferencesContext } from '@studio/common/lib/user-settings/user-preferences';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
+
+const wpcomSites = getProvider( 'wpcom' ).sites!;
 
 /**
  * The local Studio web server: the browser analog of the desktop app, exposed
@@ -459,7 +455,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			let matchId: number | undefined;
 			try {
-				const sites = await fetchSyncableSites( accessToken );
+				const sites = await wpcomSites.list( { token: accessToken } );
 				const fresh = sites.filter( ( candidate ) => ! knownIds.has( candidate.id ) );
 				const match =
 					fresh.find(
@@ -1916,7 +1912,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			res.json(
-				await fetchSyncableSites( token.accessToken, { planRequired: ! isReprintPullEnabled() } )
+				await wpcomSites.list(
+					{ token: token.accessToken },
+					{ planRequired: ! isReprintPullEnabled() }
+				)
 			);
 		} )
 	);
@@ -2071,7 +2070,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			// No backup yet (or lookup failure) rejects and surfaces as a 500 via
 			// the error middleware — the dialog needs the error state to disable
 			// per-item selection and force a full sync.
-			res.json( await fetchLatestRewindId( token.accessToken, Number( req.params.remoteSiteId ) ) );
+			res.json(
+				await wpcomSites.pull!.latestBackupId(
+					{ token: token.accessToken },
+					{ id: Number( req.params.remoteSiteId ) }
+				)
+			);
 		} )
 	);
 
@@ -2089,9 +2093,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			res.json(
-				await fetchRemoteFileTreeContents(
-					token.accessToken,
-					Number( req.params.remoteSiteId ),
+				await wpcomSites.pull!.listBackupFiles(
+					{ token: token.accessToken },
+					{ id: Number( req.params.remoteSiteId ) },
 					rewindId,
 					treePath
 				)
@@ -2108,8 +2112,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			res.json(
-				( await fetchHostingPhpVersion( token.accessToken, Number( req.params.remoteSiteId ) ) ) ??
-					null
+				( await wpcomSites.pull!.phpVersion(
+					{ token: token.accessToken },
+					{ id: Number( req.params.remoteSiteId ) }
+				) ) ?? null
 			);
 		} )
 	);
@@ -2242,7 +2248,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			const site = ( await listSites( execute ) ).find( ( s ) => s.id === studioSiteId );
 			const expectedName = site?.customDomain ?? site?.name ?? '';
 			const knownIds = new Set(
-				( await fetchSyncableSites( token.accessToken ) ).map( ( s ) => s.id )
+				( await wpcomSites.list( { token: token.accessToken } ) ).map( ( s ) => s.id )
 			);
 			startPublishWatch( studioSiteId, expectedName, token.accessToken, knownIds );
 			res.sendStatus( 202 );

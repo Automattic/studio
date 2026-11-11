@@ -488,7 +488,7 @@ describe( 'pi runtime', () => {
 	// The registered key wins over pi's own environment lookup.
 	it( 'runs Anthropic models on the connection key, not the environment', async () => {
 		vi.stubEnv( 'ANTHROPIC_API_KEY', 'sk-ant-from-env' );
-		await runRuntime( { prompt: 'hello', model: 'claude-sonnet-5', session: newSession() } );
+		await runRuntime( { prompt: 'hello', model: 'claude-sonnet-5-5', session: newSession() } );
 
 		const options = mocks.createdSessions[ 0 ].options;
 		expect( options.model?.provider ).toBe( 'anthropic' );

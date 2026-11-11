@@ -30,8 +30,11 @@ const FOOTERS: Record< string, string > = {
 };
 
 // eval17 and eval18's home pages as a visitor sees them, in one: what each fault looks like, and what is not one, as a ticker running across the window
-// or an eyebrow above a display heading set tighter than its type (eval24's redo runs), whose letters start below it.
+// or an eyebrow above a display heading set tighter than its type (eval24's redo runs), whose letters start below it,
+// a form's spam trap set out of the window, and a label led by a dot of another color (eval-compare's Mara Quinn runs).
 const PAGE = `<p class="skip" style="position:absolute;left:0;clip-path:inset(50%)">Skip to content</p>
+	<form><p style="position:absolute;left:-9999px"><label>Leave empty <input name="website"></label></p></form>
+	<section style="padding:40px;background:#e9e4dc"><p style="color:#3b4552"><span style="display:inline-block;width:8px;height:8px;margin-right:8px;background:#2f5d4a"></span>Now booking 2027</p></section>
 	<section style="padding:0 40px"><p>A welcome set in from the window's edge.</p></section>
 	<section><p>A welcome against the window's edge.</p></section>
 	<section style="position:relative;padding:0 40px"><p>A heading under an overlay</p><div style="position:absolute;inset:0;background:rgba(0,0,0,.5)"></div></section>
@@ -41,7 +44,7 @@ const PAGE = `<p class="skip" style="position:absolute;left:0;clip-path:inset(50
 	<section style="padding:40px;background:url(data:image/gif;base64,R0lGODlhAQABAAAAACw=) #fff"><p style="color:#fff">White text on a photo</p></section>
 	<section style="position:relative;padding:40px;background:url(data:image/gif;base64,R0lGODlhAQABAAAAACw=)"><span style="position:absolute;inset:0;background:#12314f;opacity:.4"></span><p style="position:relative;color:#12314f">Dark text on a photo, dimmed</p></section>
 	<section style="padding:0 40px"><h2 style="font-size:48px">A heading as long as a sentence, set large</h2><ul><li style="font-size:48px">Call us, or book online in under a minute.</li><li>Short</li></ul>
-	<blockquote style="font-size:32px">A testimonial set large, as a design does</blockquote>
+	<blockquote style="font-size:44px"><p>A testimonial set large, as a design does, in a quote block's paragraph</p></blockquote>
 	<p>Body text for the median size of the page, at sixteen pixels.</p></section>
 	<style>@keyframes ticker{to{transform:translateX(-50%)}}</style>
 	<section style="overflow:hidden"><div style="display:flex;gap:40px;width:max-content;animation:ticker 20s linear infinite"><p style="white-space:nowrap">Fresh bread daily · Open seven days · Order ahead</p><p style="white-space:nowrap">Fresh bread daily · Open seven days · Order ahead</p><p style="white-space:nowrap">Fresh bread daily · Open seven days · Order ahead</p></div></section>

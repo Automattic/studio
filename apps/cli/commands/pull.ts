@@ -396,7 +396,6 @@ async function pullSite(
 				record.status = 'pulling';
 			} );
 
-			run.localChangesApplied = true;
 			const pulledAt = isFullPull( selection ) ? Date.now() : undefined;
 			await runFullPull(
 				studioMetadata,
@@ -412,6 +411,11 @@ async function pullSite(
 
 			// The site keeps its own wp-config.php, so point it at the pulled tables.
 			const tablePrefix = reprintMetadata.sourceSite.tablePrefix;
+			if ( ! selection.skipDatabase && ! tablePrefix ) {
+				logger.reportWarning(
+					__( 'The remote site did not report its table prefix, so wp-config.php keeps its own.' )
+				);
+			}
 			if ( ! selection.skipDatabase && tablePrefix ) {
 				await using command = await runWpCliCommand( site, [
 					'config',
@@ -455,6 +459,17 @@ async function pullSite(
 
 			const runtimeStartOptions = savePulledSiteStartOptions( studioMetadata );
 
+			// The pull is complete: a failed start below leaves a site that can start again, and the
+			// next pull asks again instead of reusing this choice.
+			clearPullSelection( studioMetadata );
+			site.importComplete = true;
+			site.status = 'ready';
+			await updateSiteRecord( site.id, ( record ) => {
+				record.importComplete = true;
+				record.status = 'ready';
+			} );
+			run.localChangesApplied = true;
+
 			logger.reportStart( LoggerAction.START_SITE, __( 'Starting WordPress server…' ) );
 
 			await startPulledSite( site, logger, runtimeStartOptions, {
@@ -471,16 +486,6 @@ async function pullSite(
 				console.log( '' );
 				printSiteUrls( studioMetadata.localUrl );
 			}
-
-			// So the next pull asks again instead of reusing this choice.
-			clearPullSelection( studioMetadata );
-
-			site.importComplete = true;
-			site.status = 'ready';
-			await updateSiteRecord( site.id, ( record ) => {
-				record.importComplete = true;
-				record.status = 'ready';
-			} );
 
 			run.completed = true;
 			console.log( '' );

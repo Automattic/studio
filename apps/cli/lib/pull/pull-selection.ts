@@ -52,6 +52,9 @@ export function pullSelectionFromSyncOptions(
 	if ( options.length === 0 || options.includes( 'all' ) ) {
 		return {};
 	}
+	if ( options.includes( 'paths' ) && only.length === 0 ) {
+		throw new LoggerError( __( 'The "paths" option needs the paths to pull, given with --only.' ) );
+	}
 	const skipDatabase = ! options.includes( 'sqls' );
 	if ( options.includes( 'contents' ) ) {
 		return { skipDatabase };
@@ -134,14 +137,7 @@ export async function applySelection( params: {
 	};
 
 	if ( cli.skipFiles ) {
-		if ( isFirstPull ) {
-			throw new LoggerError(
-				__(
-					'The first pull of a site has to include its files. Pull the whole site once, then pull only the database.'
-				)
-			);
-		}
-		const selection: PullSelection = { skipFiles: true };
+		const selection: PullSelection = isFirstPull ? { databaseOnly: true } : { skipFiles: true };
 		savePullSelection( session, selection );
 		return selection;
 	}

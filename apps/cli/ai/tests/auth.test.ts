@@ -81,6 +81,42 @@ describe( 'AI auth helpers', () => {
 		expect( persistAiProviderApiKey ).toHaveBeenCalledWith( 'anthropic-api-key', 'updated-key' );
 	} );
 
+	it( 'uses the saved Gemini API key and clears other provider env vars', async () => {
+		process.env.ANTHROPIC_API_KEY = 'stale-anthropic';
+		process.env.GOOGLE_API_KEY = 'stale-google';
+		vi.mocked( readAiProviderApiKey ).mockResolvedValue( 'AIzaSyTest1234' );
+
+		try {
+			const env = await resolveAiEnvironment( 'gemini-api-key' );
+
+			expect( env.GEMINI_API_KEY ).toBe( 'AIzaSyTest1234' );
+			expect( env.ANTHROPIC_API_KEY ).toBeUndefined();
+			expect( env.GOOGLE_API_KEY ).toBeUndefined();
+			expect( env.STUDIO_AI_PROVIDER ).toBe( 'gemini-api-key' );
+			expect( persistAiProviderApiKey ).not.toHaveBeenCalled();
+		} finally {
+			delete process.env.ANTHROPIC_API_KEY;
+			delete process.env.GOOGLE_API_KEY;
+		}
+	} );
+
+	it( 'requires a saved Gemini API key when resolving Gemini environment', async () => {
+		vi.mocked( readAiProviderApiKey ).mockResolvedValue( undefined );
+
+		await expect( resolveAiEnvironment( 'gemini-api-key' ) ).rejects.toBeInstanceOf( LoggerError );
+		expect( password ).not.toHaveBeenCalled();
+	} );
+
+	it( 'prompts for and persists the Gemini API key when preparing Gemini', async () => {
+		vi.mocked( readAiProviderApiKey ).mockResolvedValue( undefined );
+		vi.mocked( password ).mockResolvedValue( 'AIzaSyPrompted' );
+
+		await prepareAiProvider( 'gemini-api-key' );
+
+		expect( password ).toHaveBeenCalledOnce();
+		expect( persistAiProviderApiKey ).toHaveBeenCalledWith( 'gemini-api-key', 'AIzaSyPrompted' );
+	} );
+
 	it( 'configures the WP.com gateway environment', async () => {
 		vi.mocked( readAuthToken ).mockResolvedValue( {
 			accessToken: 'wpcom-token',

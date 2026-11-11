@@ -662,6 +662,35 @@ describe( 'pi runtime', () => {
 		}
 	} );
 
+	it( 'builds thinking-capable models and configures ModelRegistry auth for every Google Gemini model', async () => {
+		const googleIds = AI_MODELS.filter( ( m ) => m.family === 'google' ).map( ( m ) => m.id );
+		expect( googleIds.length ).toBeGreaterThan( 0 );
+
+		for ( const [ index, id ] of googleIds.entries() ) {
+			await runRuntime( {
+				prompt: 'hello',
+				env: { GEMINI_API_KEY: 'AIzaSyRuntimeTestKey' },
+				model: id,
+				session: newSession(),
+			} );
+
+			const options = mocks.createdSessions[ index ].options;
+			expect( options.model?.id ).toBe( id );
+			expect( options.model?.api ).toBe( 'google-generative-ai' );
+			expect( options.model?.provider ).toBe( 'google' );
+			expect( options.model?.thinkingLevelMap ).toMatchObject( {
+				low: 'low',
+				medium: 'medium',
+				high: 'high',
+			} );
+			const modelRegistry = new ModelRegistry( options.modelRuntime! );
+			await expect( modelRegistry.getApiKeyAndHeaders( options.model! ) ).resolves.toMatchObject( {
+				ok: true,
+				apiKey: 'AIzaSyRuntimeTestKey',
+			} );
+		}
+	} );
+
 	// pi parses registerProvider config values as templates, so a wpcom token
 	// containing `$name` would be read as an undefined env-var reference and the
 	// provider would look unauthenticated ("No API key found"). The token must be

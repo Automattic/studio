@@ -80,9 +80,11 @@ if [[ "${DOCS_REFRESH_CHECK_ONLY:-false}" == "true" ]]; then
 fi
 
 echo "--- :robot_face: Update the docs"
-# An API key in CI; on your own machine, a subscription token from `claude setup-token` works too.
-if [[ -z "${ANTHROPIC_API_KEY:-}${CLAUDE_CODE_OAUTH_TOKEN:-}" ]]; then
-  echo "The docs need a refresh, but neither ANTHROPIC_API_KEY nor CLAUDE_CODE_OAUTH_TOKEN is set."
+# An API key in CI; on your own machine, a subscription token from `claude setup-token` works too,
+# and so does a login the CLI already has (a cloud sandbox signs it in without either variable).
+if [[ -z "${ANTHROPIC_API_KEY:-}${CLAUDE_CODE_OAUTH_TOKEN:-}" ]] \
+  && ! npx --yes "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION" auth status > /dev/null 2>&1; then
+  echo "The docs need a refresh, but neither ANTHROPIC_API_KEY nor CLAUDE_CODE_OAUTH_TOKEN is set, and the Claude Code CLI is not signed in."
   exit 1
 fi
 # Whatever setup left behind is not the agent's doing.

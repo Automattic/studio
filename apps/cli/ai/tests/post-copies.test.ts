@@ -318,6 +318,102 @@ describe.runIf( WORDPRESS )( 'Global Styles saved from their copy to a real Word
 	}, 120000 );
 } );
 
+describe.runIf( WORDPRESS )( 'the styles WordPress resolves after a save of Global Styles', () => {
+	const save = async ( styles: object ) => {
+		const file = path.join(
+			config,
+			'workspace',
+			'live',
+			'wp_global_styles',
+			'twentytwentyfive.json'
+		);
+		writeFileSync(
+			file,
+			JSON.stringify( { version: 3, isGlobalStylesUserThemeJSON: true, ...styles } )
+		);
+		return check!.settle();
+	};
+	let root: string;
+	let check: Awaited< ReturnType< typeof openedWorkspace > >[ 'check' ] | undefined;
+	beforeEach( async () => {
+		root = mkdtempSync( path.join( os.tmpdir(), 'post-copies-' ) );
+		cpSync( WORDPRESS!, root, { recursive: true } );
+		site = liveSite( root, 'Seaside', 'live' );
+		host = liveHost( site );
+		vi.mocked( runWpCliCommand ).mockReset().mockImplementation( realRunWpCliCommand.run! );
+		( { check } = await openedWorkspace() );
+	} );
+	afterEach( () => rmSync( root, { recursive: true, force: true } ) );
+
+	it( 'states the heading font and link color WordPress resolves, and what the save changed', async () => {
+		const { summaries, problems } = await save( {
+			settings: {
+				typography: {
+					fontFamilies: [
+						{ slug: 'fraunces', name: 'Fraunces', fontFamily: 'Fraunces, Georgia, serif' },
+					],
+				},
+			},
+			styles: {
+				elements: {
+					heading: {
+						typography: { fontFamily: 'var:preset|font-family|fraunces', fontWeight: '600' },
+					},
+					link: { color: { text: 'var:preset|color|accent-3' } },
+				},
+			},
+		} );
+		expect( problems ).toEqual( [] );
+		expect( summaries[ 0 ] ).toContain(
+			"WordPress now resolves the site's styles to: body text Manrope (Manrope, sans-serif)"
+		);
+		expect( summaries[ 0 ] ).toContain(
+			'headings Fraunces (Fraunces, Georgia, serif), weight 600'
+		);
+		expect( summaries[ 0 ] ).toContain( 'links #503AA8' );
+		expect( summaries[ 0 ] ).toContain( 'This save changed: headings, links.' );
+	}, 120000 );
+
+	it( 'says which of its values resolve to nothing, and which font files the theme lacks', async () => {
+		const { summaries, problems } = await save( {
+			settings: {
+				typography: {
+					fontFamilies: [
+						{
+							slug: 'fraunces',
+							name: 'Fraunces',
+							fontFamily: 'Fraunces, serif',
+							fontFace: [
+								{ fontFamily: 'Fraunces', src: [ 'file:./assets/fonts/fraunces/Fraunces.woff2' ] },
+							],
+						},
+					],
+				},
+			},
+			styles: {
+				elements: {
+					heading: { typography: { fontFamily: 'var:preset|font-family|serif', font: 'Fraunces' } },
+					link: { color: { text: 'var(--wp--preset--color--brand)' } },
+				},
+			},
+		} );
+		expect( summaries[ 0 ] ).toContain( 'headings unresolved font, weight 400; links unresolved' );
+		expect( summaries[ 0 ] ).toContain( 'This save changed: headings, links.' );
+		expect( problems[ 0 ] ).toContain(
+			'styles.elements.heading.typography.fontFamily is "var:preset|font-family|serif", which WordPress resolves to nothing, so browsers treat that property as unset: it names --wp--preset--font-family--serif: the site has no "serif" in settings.typography.fontFamilies'
+		);
+		expect( problems[ 0 ] ).toContain(
+			'styles.elements.link.color.text is "var(--wp--preset--color--brand)", which WordPress resolves to nothing'
+		);
+		expect( problems[ 0 ] ).toContain(
+			'Font family "Fraunces" loads file:./assets/fonts/fraunces/Fraunces.woff2'
+		);
+		expect( problems[ 0 ] ).toContain(
+			'WordPress did not keep styles.elements.heading.typography.font: theme.json defines no such style'
+		);
+	}, 120000 );
+} );
+
 async function fixtureContent( root: string, id: number ) {
 	return readWordPressSite(
 		root,

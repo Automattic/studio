@@ -31,7 +31,8 @@ import { getConfigDirectory } from '@studio/common/lib/well-known-paths';
 import { boundedLines } from '@studio/agent/node/bounded-list';
 import {
 	GLOBAL_STYLES,
-	saveGlobalStyles,
+	describeSavedGlobalStyles,
+	saveResolvedGlobalStyles,
 	themeGlobalStyles,
 } from '@studio/agent/node/global-styles';
 import { readWordPressSite } from '@studio/agent/node/site-database';
@@ -156,17 +157,19 @@ function globalStyles( site: WordPressSite ): Post | undefined {
 }
 
 // Saves the copy of the active theme's Global Styles, making the theme's post
-// first when it has none (WP_Theme_JSON_Resolver::get_user_global_styles_post_id()).
+// first when it has none (WP_Theme_JSON_Resolver::get_user_global_styles_post_id()),
+// and returns what WordPress then resolves the site's styles to.
 async function saveStylesCopy( host: StudioAgentHost, site: HostSite, file: string ) {
-	const refused = await saveGlobalStyles(
+	const saved = await saveResolvedGlobalStyles(
 		host,
 		site,
 		'WP_Theme_JSON_Resolver::get_user_global_styles_post_id()',
 		`json_decode( (string) file_get_contents( ${ JSON.stringify( file ) } ), true )`
 	);
-	if ( refused ) {
-		throw new Error( refused );
+	if ( saved.refused ) {
+		throw new Error( saved.refused );
 	}
+	return describeSavedGlobalStyles( saved );
 }
 
 function readContent( site: WordPressSite, post: Post | undefined ): string {
@@ -496,10 +499,13 @@ export const postCopies: SiteChangeSource = {
 				} );
 				continue;
 			}
+			let resolved: { summary?: string; problems: string[] } = { problems: [] };
 			try {
-				await ( type === GLOBAL_STYLES
-					? saveStylesCopy( host, site, file )
-					: savePost( host, site, Number( id ), file ) );
+				if ( type === GLOBAL_STYLES ) {
+					resolved = await saveStylesCopy( host, site, file );
+				} else {
+					await savePost( host, site, Number( id ), file );
+				}
 			} catch ( error ) {
 				reports.push( {
 					key: `copy ${ id }`,
@@ -520,7 +526,8 @@ export const postCopies: SiteChangeSource = {
 				post: id,
 				summary: `${ label }: Studio saved ${ file } to it (${
 					type === GLOBAL_STYLES ? 'PUT /wp/v2/global-styles' : 'wp_update_post()'
-				})`,
+				})${ resolved.summary ? `. ${ resolved.summary }` : '' }`,
+				problem: resolved.problems.length ? resolved.problems.join( '\n' ) : undefined,
 			} );
 		}
 		await writeFile( path.join( workspace, MANIFEST ), JSON.stringify( manifest ), 'utf8' );

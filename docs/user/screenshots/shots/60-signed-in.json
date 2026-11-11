@@ -1,7 +1,7 @@
 {
 	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "signed-in",
-	"description": "Signed in to WordPress.com: the account menu, Share and publish, the model menu, and the account settings",
+	"description": "Signed in to WordPress.com: the account menu, Share and publish, the model menu, the account settings, and Send feedback",
 	"scene": "moire",
 	"look": "docs",
 	"signedIn": true,
@@ -33,7 +33,7 @@
 		},
 		{
 			"name": "account-menu",
-			"description": "Account menu: name, email, Settings, Appearance, AI Providers, Usage, Log out",
+			"description": "Account menu: name, email, Providers, Usage, Support, Settings, Log out",
 			"meta": { "pages": [ "index.md" ] },
 			"steps": [
 				{
@@ -380,17 +380,12 @@
 			]
 		},
 		{
-			"name": "settings-account",
-			"description": "Settings → General, signed in: the account row with Log out",
-			"meta": { "pages": [ "index.md" ] },
+			"name": "settings-usage",
+			"description": "Settings → Usage: AI credits remaining, Add credits, and Preview sites",
+			"meta": { "pages": [ "preview-sites.md", "studio-code/index.md", "studio-code/ai-credits-guidelines.md" ] },
 			"steps": [
 				{
-					"click": {
-						"role": "button",
-						"name": "Settings",
-						"exact": true,
-						"first": true
-					}
+					"press": "ControlOrMeta+,"
 				},
 				{
 					"click": {
@@ -402,26 +397,6 @@
 						"name": "App"
 					}
 				},
-				{
-					"waitFor": {
-						"role": "group",
-						"name": "{{account.name}}"
-					}
-				}
-			],
-			"capture": {
-				"target": {
-					"role": "dialog",
-					"name": "Settings",
-					"exact": true
-				}
-			}
-		},
-		{
-			"name": "settings-usage",
-			"description": "Settings → Usage: AI credits remaining, Add credits, and Preview sites",
-			"meta": { "pages": [ "preview-sites.md", "studio-code/index.md", "studio-code/ai-credits-guidelines.md" ] },
-			"steps": [
 				{
 					"click": {
 						"within": {
@@ -478,7 +453,7 @@
 		},
 		{
 			"name": "settings-ai-providers-signed-in",
-			"description": "Settings → AI Providers, signed in: WordPress.com connected",
+			"description": "Settings → Providers, signed in: WordPress.com connected",
 			"meta": { "pages": [ "studio-code/index.md" ] },
 			"steps": [
 				{
@@ -488,7 +463,7 @@
 							"name": "Settings sections"
 						},
 						"role": "tab",
-						"name": "AI Providers",
+						"name": "Providers",
 						"exact": true
 					}
 				},
@@ -552,6 +527,88 @@
 					"press": "Escape"
 				}
 			]
+		},
+		{
+			"name": "send-feedback",
+			"description": "Send feedback dialog, opened from the account menu → Support: Topic, Area, Message, Cancel and Send",
+			"meta": { "pages": [ "feedback/index.md" ] },
+			"steps": [
+				{
+					"helper": "closeMenus"
+				},
+				{
+					"click": {
+						"role": "button",
+						"name": "{{account.name}}",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "menuitem",
+						"name": "Support",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "menuitem",
+						"name": "Send feedback",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "dialog",
+						"name": "Send feedback"
+					}
+				},
+				{
+					"click": {
+						"within": {
+							"role": "group",
+							"name": "Feedback areas"
+						},
+						"role": "button",
+						"name": "Preview",
+						"exact": true
+					}
+				},
+				{
+					"fill": {
+						"role": "textbox",
+						"name": "Message"
+					},
+					"value": "The device toolbar is great for checking a page on a phone. It would help to save my own sizes next to the built-in devices.",
+					"blur": true
+				}
+			],
+			"after": [
+				{
+					"click": {
+						"within": {
+							"role": "dialog",
+							"name": "Send feedback"
+						},
+						"role": "button",
+						"name": "Cancel"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "dialog",
+						"name": "Send feedback"
+					},
+					"hidden": true
+				}
+			],
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"name": "Send feedback"
+				},
+				"pad": 48
+			}
 		}
 	]
 }

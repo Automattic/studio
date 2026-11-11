@@ -1,14 +1,22 @@
 {
 	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "workspace",
-	"description": "The main window with the demo site: chat, command palette, site preview, and the site’s start/stop button",
+	"description": "The main window with the demo site: chat, command palette, preview tabs, the device toolbar, and the site’s start/stop button",
 	"scene": "moire",
 	"look": "docs",
 	"shots": [
 		{
 			"name": "main-window-signed-out",
 			"description": "Main window, signed out: sidebar, Studio Code chat, and the site preview",
-			"meta": { "pages": [ "index.md", "studio-code/index.md" ], "replaces": [ "2024/04/main-window-signed-out.png" ] },
+			"meta": {
+				"pages": [
+					"index.md",
+					"studio-code/index.md"
+				],
+				"replaces": [
+					"2024/04/main-window-signed-out.png"
+				]
+			},
 			"steps": [
 				{
 					"waitFor": {
@@ -53,7 +61,11 @@
 		{
 			"name": "command-palette",
 			"description": "Command palette (⌘K)",
-			"meta": { "pages": [ "index.md" ] },
+			"meta": {
+				"pages": [
+					"index.md"
+				]
+			},
 			"steps": [
 				{
 					"press": "ControlOrMeta+K"
@@ -86,27 +98,37 @@
 		},
 		{
 			"name": "preview-destinations",
-			"description": "Site preview address bar shortcuts: Front end / WordPress Admin / Database",
-			"meta": { "pages": [ "sites.md", "debugging/index.md", "frequently-asked-questions.md" ], "replaces": [ "2026/04/preview-destinations.png" ] },
+			"description": "Site preview → New tab: Browser, Admin, Design System, Database and Email log",
+			"meta": {
+				"pages": [
+					"sites.md",
+					"debugging/index.md",
+					"frequently-asked-questions.md"
+				],
+				"replaces": [
+					"2026/04/preview-destinations.png"
+				]
+			},
 			"steps": [
 				{
 					"click": {
-						"role": "textbox",
-						"name": "Address"
+						"role": "button",
+						"name": "New tab",
+						"exact": true
 					}
 				},
 				{
 					"waitFor": {
-						"role": "dialog",
-						"name": "Preview shortcuts"
+						"role": "menu",
+						"name": "New tab"
 					}
 				}
 			],
 			"annotate": [
 				{
 					"outline": {
-						"role": "dialog",
-						"name": "Preview shortcuts"
+						"role": "menu",
+						"name": "New tab"
 					}
 				}
 			],
@@ -116,8 +138,8 @@
 				},
 				{
 					"waitFor": {
-						"role": "dialog",
-						"name": "Preview shortcuts"
+						"role": "menu",
+						"name": "New tab"
 					},
 					"hidden": true
 				}
@@ -125,8 +147,12 @@
 			"capture": {
 				"target": [
 					{
-						"role": "dialog",
-						"name": "Preview shortcuts"
+						"role": "menu",
+						"name": "New tab"
+					},
+					{
+						"role": "tablist",
+						"name": "Preview tabs"
 					},
 					{
 						"role": "textbox",
@@ -138,31 +164,30 @@
 		},
 		{
 			"name": "design-system",
-			"description": "Site preview → Design system: the demo site’s DESIGN.md as colors, type, components and guidelines",
-			"meta": { "pages": [ "studio-code/index.md" ] },
+			"description": "Site preview → Design System: the demo site’s DESIGN.md as colors, type, components and guidelines",
+			"meta": {
+				"pages": [
+					"studio-code/index.md"
+				]
+			},
 			"steps": [
 				{
 					"click": {
-						"role": "textbox",
-						"name": "Address"
-					}
-				},
-				{
-					"waitFor": {
-						"role": "dialog",
-						"name": "Preview shortcuts"
+						"role": "button",
+						"name": "New tab",
+						"exact": true
 					}
 				},
 				{
 					"click": {
-						"role": "option",
-						"name": "Design system"
+						"role": "menuitem",
+						"name": "Design System"
 					}
 				},
 				{
 					"waitFor": {
-						"role": "dialog",
-						"name": "Preview shortcuts"
+						"role": "menu",
+						"name": "New tab"
 					},
 					"hidden": true
 				},
@@ -176,41 +201,42 @@
 			"after": [
 				{
 					"click": {
-						"role": "textbox",
-						"name": "Address"
-					}
-				},
-				{
-					"waitFor": {
-						"role": "dialog",
-						"name": "Preview shortcuts"
-					}
+						"role": "tab",
+						"name": "Design System",
+						"exact": true
+					},
+					"button": "right"
 				},
 				{
 					"click": {
-						"role": "option",
-						"name": "Front end"
+						"role": "menuitem",
+						"name": "Close tab",
+						"exact": true
 					}
 				},
 				{
 					"waitFor": {
-						"text": "Loading site preview"
+						"role": "tab",
+						"name": "Design System",
+						"exact": true
 					},
-					"hidden": true,
-					"timeout": 60000,
-					"optional": true
+					"hidden": true
 				}
 			]
 		},
 		{
 			"name": "responsive-mode-presets",
-			"description": "Responsive mode: the device menu open, with Responsive and the device sizes",
-			"meta": { "pages": [ "sites.md" ] },
+			"description": "Device toolbar: the device menu open, with Responsive and the device sizes",
+			"meta": {
+				"pages": [
+					"sites.md"
+				]
+			},
 			"steps": [
 				{
 					"click": {
 						"role": "button",
-						"name": "Close chat",
+						"name": "Expand panel",
 						"exact": true
 					}
 				},
@@ -218,16 +244,16 @@
 					"wait": 800
 				},
 				{
-					"hover": {
-						"role": "textbox",
-						"name": "Address"
+					"click": {
+						"role": "button",
+						"name": "Browser options",
+						"exact": true
 					}
 				},
 				{
 					"click": {
-						"role": "button",
-						"name": "Responsive mode",
-						"exact": true
+						"role": "menuitem",
+						"name": "Show device toolbar"
 					}
 				},
 				{
@@ -250,7 +276,7 @@
 				{
 					"waitFor": {
 						"role": "menuitemradio",
-						"name": "iPhone 17 ·"
+						"pattern": "^iPhone 17\\s*402"
 					}
 				}
 			],
@@ -269,7 +295,7 @@
 					},
 					{
 						"role": "button",
-						"name": "Share",
+						"name": "Browser options",
 						"exact": true
 					}
 				],
@@ -278,13 +304,17 @@
 		},
 		{
 			"name": "responsive-mode",
-			"description": "Responsive mode at a phone size (iPhone 17), with the responsive toolbar above the preview",
-			"meta": { "pages": [ "sites.md" ] },
+			"description": "The device toolbar at a phone size (iPhone 17), above the preview",
+			"meta": {
+				"pages": [
+					"sites.md"
+				]
+			},
 			"steps": [
 				{
 					"click": {
 						"role": "menuitemradio",
-						"name": "iPhone 17 ·"
+						"pattern": "^iPhone 17\\s*402"
 					}
 				},
 				{
@@ -298,7 +328,7 @@
 				{
 					"click": {
 						"role": "button",
-						"name": "Exit responsive mode"
+						"name": "Hide device toolbar"
 					}
 				},
 				{
@@ -311,7 +341,7 @@
 				{
 					"click": {
 						"role": "button",
-						"name": "Open chat",
+						"name": "Show chat",
 						"exact": true
 					}
 				},
@@ -323,7 +353,14 @@
 		{
 			"name": "site-status-button",
 			"description": "Sidebar site row with its Stop button and tooltip",
-			"meta": { "pages": [ "sites.md" ], "replaces": [ "2025/01/site-status-tooltip.png" ] },
+			"meta": {
+				"pages": [
+					"sites.md"
+				],
+				"replaces": [
+					"2025/01/site-status-tooltip.png"
+				]
+			},
 			"steps": [
 				{
 					"hover": {
@@ -345,7 +382,10 @@
 					"exact": true,
 					"first": true
 				},
-				"pad": [ 360, 56 ]
+				"pad": [
+					360,
+					56
+				]
 			},
 			"annotate": [
 				{
@@ -362,7 +402,14 @@
 		{
 			"name": "site-stopped",
 			"description": "A stopped site: Start button in the sidebar and the saved preview image",
-			"meta": { "pages": [ "sites.md" ], "replaces": [ "2025/01/site-stopped.png" ] },
+			"meta": {
+				"pages": [
+					"sites.md"
+				],
+				"replaces": [
+					"2025/01/site-stopped.png"
+				]
+			},
 			"steps": [
 				{
 					"click": {

@@ -11,7 +11,7 @@
 			"description": "Settings → Appearance, signed in: Theme, Color, Intensity and Contrast over the demo site (the 2026 workspace announcement)",
 			"meta": { "pages": [] },
 			"steps": [
-				{ "click": { "role": "button", "name": "Settings", "exact": true, "first": true } },
+				{ "press": "ControlOrMeta+," },
 				{ "waitFor": { "role": "tablist", "name": "Settings scope" } },
 				{
 					"click": {

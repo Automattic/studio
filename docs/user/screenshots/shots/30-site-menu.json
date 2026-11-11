@@ -1,7 +1,7 @@
 {
 	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "site-menu",
-	"description": "The site menu and the dialogs it opens: Open in, Export, Delete site, and importing a backup",
+	"description": "The site menu and the dialogs it opens: Open in, Export, Delete, and importing a backup",
 	"scene": "moire",
 	"look": "docs",
 	"capture": {
@@ -25,7 +25,7 @@
 	"shots": [
 		{
 			"name": "site-menu",
-			"description": "The site menu, opened from the site icon at the top of the chat",
+			"description": "The site menu, opened from the site’s name at the top of the chat",
 			"meta": { "pages": [ "sites.md" ], "replaces": [ "2025/01/sidebar-site-menu.png" ] },
 			"steps": [
 				{
@@ -68,7 +68,7 @@
 		},
 		{
 			"name": "delete-site-dialog",
-			"description": "Delete site confirmation, with Also move files and database to Trash",
+			"description": "Delete confirmation, with Also move files and database to Trash",
 			"meta": { "pages": [ "sites.md" ], "replaces": [ "2025/01/delete-site-dialog.png" ] },
 			"steps": [
 				{
@@ -85,7 +85,8 @@
 				{
 					"click": {
 						"role": "menuitem",
-						"name": "Delete site"
+						"name": "Delete",
+						"exact": true
 					}
 				},
 				{

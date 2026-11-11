@@ -62,16 +62,20 @@ describe( 'native workspace startup', () => {
 		connector.getSites.mockImplementation( () => sites.promise );
 		connector.getSessions.mockImplementation( () => sessions.promise );
 		renderApp( { connector } );
-		expect( await screen.findByRole( 'status', { name: 'Loading Studio…' } ) ).toBeVisible();
+		expect(
+			await screen.findByRole( 'status', { name: 'Loading WordPress Studio…' } )
+		).toBeVisible();
 		expect( screen.queryByRole( 'complementary' ) ).not.toBeInTheDocument();
 		await act( async () => sites.resolve( [ site ] ) );
-		expect( screen.getByRole( 'status', { name: 'Loading Studio…' } ) ).toBeVisible();
+		expect( screen.getByRole( 'status', { name: 'Loading WordPress Studio…' } ) ).toBeVisible();
 		expect( screen.queryByRole( 'complementary' ) ).not.toBeInTheDocument();
 		await act( async () => sessions.resolve( [] ) );
 		await waitFor( () =>
 			expect( screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } ) ).toBeVisible()
 		);
-		expect( screen.queryByRole( 'status', { name: 'Loading Studio…' } ) ).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'status', { name: 'Loading WordPress Studio…' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it( 'also waits for chats when opening a saved site URL directly', async () => {

@@ -446,9 +446,7 @@ export function PublishPanel( {
 							variant="inline-accent"
 							size="inline"
 							onClick={ () =>
-								void connector.openExternalUrl(
-									'https://developer.wordpress.com/docs/developer-tools/studio/sync/'
-								)
+								void connector.openExternalUrl( 'https://wordpress.studio/docs/sync/' )
 							}
 						>
 							{ __( 'Learn more…' ) }

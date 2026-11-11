@@ -11,9 +11,12 @@ import {
 	markConnectedWpcomSiteSynced,
 } from '@studio/common/lib/connected-sites';
 import { encodePassword } from '@studio/common/lib/passwords';
-import { buildSyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
+import {
+	buildSyncEventProps,
+	classifySyncSelection,
+} from '@studio/common/lib/sync/build-sync-event-props';
 import { PullCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import chalk from 'chalk';
 import { enableReprintExporter } from 'cli/lib/api';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
@@ -48,6 +51,7 @@ import {
 	emptyReprintMetadata,
 	type ReprintMetadata,
 } from 'cli/lib/pull/reprint-metadata';
+import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { buildAutoLoginUrl } from 'cli/lib/site-utils';
 import { getSiteVersion } from 'cli/lib/site-versions';
@@ -56,6 +60,7 @@ import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/track
 import { findFailureCode } from 'cli/lib/utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
+import type { SyncSelectionProps } from '@studio/common/lib/sync/build-sync-event-props';
 import type { SyncFailurePhase } from '@studio/common/lib/sync/classify-sync-failure';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { builder } from 'cli/commands/pull.command';
@@ -185,6 +190,7 @@ class PullError extends LoggerError {
 
 /** What a pull got to, for the activity and Tracks reports. */
 interface PullRun {
+	selection?: SyncSelectionProps;
 	siteId?: string;
 	remoteSite?: SyncSite;
 	preview?: StandingPreview | null;
@@ -251,6 +257,7 @@ export async function runCommand(
 				...buildSyncEventProps( {
 					startedAt,
 					site: run.remoteSite,
+					selection: run.selection,
 					error: pullError,
 					hint: { code: findFailureCode( pullError ), phase: run.failurePhase },
 				} ),
@@ -383,11 +390,14 @@ async function pullSite(
 			cli: cliSelection,
 			wpComAccessToken: sourceSite.wpComToken.accessToken,
 			wpComSiteId: sourceSite.wpComSite.id,
+			filesUnavailable: sourceSite.wpComSite.pushNeedsUpgrade,
 		} );
 		if ( ! selection ) {
 			console.log( __( 'Cancelled.' ) );
 			return;
 		}
+
+		run.selection = classifySyncSelection( selection );
 
 		await withSiteOperation( site.path, 'import', async () => {
 			site.status = 'pulling';
@@ -408,6 +418,35 @@ async function pullSite(
 					run.failurePhase = phase;
 				}
 			);
+
+			// The site keeps its own wp-config.php, so point it at the pulled tables. A site created
+			// without starting has none yet; the database settings are unused, as the site runs on SQLite.
+			const tablePrefix = reprintMetadata.sourceSite.tablePrefix;
+			if ( ! selection.skipDatabase && tablePrefix ) {
+				await using command = await runWpCliCommand(
+					site,
+					fs.existsSync( path.join( site.path, 'wp-config.php' ) )
+						? [ 'config', 'set', 'table_prefix', tablePrefix, '--type=variable' ]
+						: [
+								'config',
+								'create',
+								'--dbname=wordpress',
+								'--dbuser=root',
+								`--dbprefix=${ tablePrefix }`,
+								'--skip-check',
+								'--skip-salts',
+						  ]
+				);
+				if ( ( await command.response.exitCode ) !== 0 ) {
+					logger.reportWarning(
+						sprintf(
+							/* translators: %s: the remote site's database table prefix */
+							__( 'Could not set $table_prefix to "%s" in wp-config.php.' ),
+							tablePrefix
+						)
+					);
+				}
+			}
 
 			// Makes `studio site start` serve the pulled runtime instead of the blank install.
 			logger.reportStart( LoggerAction.CREATE_SITE, `Linking pulled files to "${ site.name }"…` );

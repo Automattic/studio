@@ -3,7 +3,7 @@ import { getAuthenticationUrl, getSignUpUrl } from '@studio/common/lib/oauth';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { __ } from '@wordpress/i18n';
-import { isShortcut } from '@/lib/keyboard';
+import { download, menuShortcuts } from '../browser-tab';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
@@ -78,18 +78,6 @@ type ServerEvent =
  * machine (the real site list, start/stop, the agent) are implemented for real;
  * the few a browser can't offer throw `UnsupportedError`.
  */
-// A browser tab has no application menu, so the page binds its accelerators.
-function onMenuShortcut( listener: () => void, key: string, modifier?: 'shift' ) {
-	const onKeyDown = ( event: KeyboardEvent ) => {
-		if ( ! event.defaultPrevented && ! event.repeat && isShortcut( event, key, modifier ) ) {
-			event.preventDefault();
-			listener();
-		}
-	};
-	document.addEventListener( 'keydown', onKeyDown );
-	return () => document.removeEventListener( 'keydown', onKeyDown );
-}
-
 export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): Connector {
 	// The server namespaces its API under /api so the SPA's real-path routes
 	// (also /sessions/:id, /sites/:id) can share the same origin.
@@ -152,15 +140,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		const disposition = response.headers.get( 'Content-Disposition' ) ?? '';
 		const filename = /filename="?([^"]+)"?/.exec( disposition )?.[ 1 ] ?? 'download';
 		const blob = await response.blob();
-		const url = URL.createObjectURL( blob );
-		const anchor = document.createElement( 'a' );
-		anchor.href = url;
-		anchor.download = filename;
-		document.body.appendChild( anchor );
-		anchor.click();
-		anchor.remove();
-		URL.revokeObjectURL( url );
-		return filename;
+		return download( blob, filename, blob.type );
 	}
 
 	// Upload a File's bytes and get back a server-side temp path — the browser
@@ -223,6 +203,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			nativeFolderPicker: false,
 			annotatePreview: false,
 			studioLogs: false,
+			nativeSites: true,
 		},
 
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as
@@ -995,9 +976,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			snapshotEventListeners.add( listener );
 			return () => snapshotEventListeners.delete( listener );
 		},
-		onTogglePanel( listener ) {
-			return onMenuShortcut( listener, 'b', 'shift' );
-		},
+		...menuShortcuts,
 		async copyText( text ) {
 			await navigator.clipboard.writeText( text );
 		},
@@ -1008,17 +987,8 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				)
 			);
 		},
-		onToggleSidebar( listener ) {
-			return onMenuShortcut( listener, 'b' );
-		},
 		onOpenFolder() {
 			return () => {};
-		},
-		onNewChat( listener ) {
-			return onMenuShortcut( listener, 'n', 'shift' );
-		},
-		onAddSite( listener ) {
-			return onMenuShortcut( listener, 'n' );
 		},
 		onAddSiteWithBlueprint() {
 			return () => {};
@@ -1030,9 +1000,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		onPullSite() {
 			// `pull-site` links open the installed desktop app.
 			return () => {};
-		},
-		onOpenSettings( listener ) {
-			return onMenuShortcut( () => listener( {} ), ',' );
 		},
 		onAiCreditsPurchased() {
 			// A browser tab can't receive the wp-studio:// checkout return link.

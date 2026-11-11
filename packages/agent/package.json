@@ -3,11 +3,14 @@
 	"private": true,
 	"version": "1.0.0",
 	"type": "module",
-	"description": "The Studio Code agent: its contract with the apps (protocol) and its Node runtime (node)",
+	"description": "The Studio Code agent: its contract with the apps (protocol), its tools and prompt (shared), and its runtimes in Node (node) and a browser (browser)",
 	"exports": {
 		"./protocol/*": "./protocol/*.ts",
+		"./shared/tools": "./shared/tools/index.ts",
+		"./shared/*": "./shared/*.ts",
 		"./node": "./node/index.ts",
-		"./node/*": "./node/*.ts"
+		"./node/*": "./node/*.ts",
+		"./browser": "./browser/index.ts"
 	},
 	"scripts": {
 		"lint": "eslint .",
@@ -21,6 +24,7 @@
 		"@studio/design-md": "file:../design-md",
 		"@wordpress/i18n": "^6.30.0",
 		"atomically": "^2.1.1",
+		"diff": "8.0.4",
 		"playwright": "^1.64.1",
 		"typebox": "^1.1.38",
 		"yaml": "^2.9.0"

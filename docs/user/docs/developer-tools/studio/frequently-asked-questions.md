@@ -17,7 +17,7 @@ Themes created in WordPress Studio are the same as themes created on traditional
 
 1.  Select the local site within WordPress Studio.
 2.  Ensure that your site is already running.
-3.  Click the site preview’s address bar and choose **WordPress Admin**.
+3.  Click **New tab** (**+**) above the site preview and choose **Admin**.
 4.  In WP Admin, go to **Appearance → Editor**.
 5.  Once the site editor loads, expand the editor by clicking anywhere on the site preview.
 6.  Click the **Options** menu button in the top right of the screen, represented by the ellipsis icon (⋮). 
@@ -96,7 +96,7 @@ When publishing, pulling, importing or exporting fails, WordPress Studio offers 
 
 ### [Where do emails sent by my site go?](#site-email)
 
-WordPress Studio saves them instead of sending them. To see them, choose **Tools → Email** from the site menu, which opens the site’s email folder. See [Site email](https://wordpress.studio/docs/sites/#site-email).
+WordPress Studio saves them instead of sending them. To read them, choose **Tools → Email log** from the site menu, which lists the site’s emails in the preview. See [Site email](https://wordpress.studio/docs/sites/#site-email).
 
 ### [Is it possible to change the port or URL of my WordPress Studio site?](#10-is-it-possible-to-change-the-port-or-url-of-my-studio-site-)
 
@@ -153,7 +153,7 @@ You can talk with WordPress Studio Code in any language you prefer.
 
 ### [Can I use WordPress Studio Code without a WordPress.com account?](#5-can-i-use-the-studio-assistant-without-a-wordpress-com-account-)
 
-Yes, with your own Anthropic API key. Connect **Anthropic** in **Settings → AI Providers** in the desktop app, or use the `/api-key` command in the terminal. Usage is billed through your Anthropic account. See [Use your own Anthropic API key](https://wordpress.studio/docs/studio-code/#use-your-own-anthropic-api-key).
+Yes, with your own Anthropic API key. Connect **Anthropic** in **Settings → Providers** in the desktop app, or use the `/api-key` command in the terminal. Usage is billed through your Anthropic account. See [Use your own Anthropic API key](https://wordpress.studio/docs/studio-code/#use-your-own-anthropic-api-key).
 
 To use WordPress.com AI credits instead, [log into WordPress Studio with your WordPress.com account](https://wordpress.studio/docs/#connect-to-wordpresscom). Some features, such as [image generation](https://wordpress.studio/docs/studio-code/image-generation/), preview sites, and publishing to WordPress.com, also need a WordPress.com login.
 

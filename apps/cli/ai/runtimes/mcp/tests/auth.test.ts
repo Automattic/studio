@@ -61,7 +61,7 @@ async function call( name: string, args: Record< string, unknown > = {}, served 
 		cliAgentHost,
 		bindTool( definition.tool, cliAgentHost ),
 		args,
-		createResultNotes()
+		createResultNotes( cliAgentHost )
 	);
 }
 

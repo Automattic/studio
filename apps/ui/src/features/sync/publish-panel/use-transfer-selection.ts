@@ -72,11 +72,10 @@ export function useTransferSelection(
 			if ( direction === 'push' ) {
 				nodes = localNodes( await connector.listLocalFileTree( site.id, 'wp-content', 3 ) );
 			} else {
-				// Without the plan that includes Backup there are no backups to browse, so only a
-				// full pull is offered.
+				// Individual files can only be browsed when the website has a backup.
 				rewind = remote.pushNeedsUpgrade ? null : await connector.getLatestRewindId( remote.id );
 				if ( ! rewind ) {
-					return { rewind, fullOnly: true };
+					return { rewind, filesUnavailable: true };
 				}
 				nodes = remoteNodes(
 					await connector.listRemoteFileTree( remote.id, rewind, '/wp-content/' ),
@@ -84,11 +83,11 @@ export function useTransferSelection(
 				);
 			}
 			save( ( current ) => ( { nodes: restoreSelection( nodes, current.nodes ) } ) );
-			return { rewind, fullOnly: false };
+			return { rewind, filesUnavailable: false };
 		},
 	} );
 
-	const scope = tree.data?.fullOnly ? 'all' : saved.scope;
+	const scope = tree.data?.filesUnavailable && saved.scope === 'custom' ? 'all' : saved.scope;
 	const chosen = selectedNodes( saved.nodes );
 	const options =
 		scope === 'custom' ? syncOptions( saved.nodes, saved.content ) : presetOptions( scope );
@@ -156,7 +155,7 @@ export function useTransferSelection(
 		content: saved.content,
 		setContent: ( content: boolean ) => save( () => ( { content } ) ),
 		options,
-		fullOnly: tree.data?.fullOnly === true,
+		filesUnavailable: tree.data?.filesUnavailable === true,
 		error: tree.error || size.error || versions.error,
 		loading: tree.isFetching || ( pushing && ( size.isFetching || versions.isFetching ) ),
 		loadingFiles: tree.isFetching && ! tree.data,

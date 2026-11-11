@@ -145,7 +145,18 @@ export async function fetchLatestRewindId(
 	try {
 		return await fetchLatestRewindIdBase( token, remoteSiteId );
 	} catch ( error ) {
-		throw wrapError( __( 'Failed to fetch latest rewind ID' ), error, 'remote_backup' );
+		const missingBackup =
+			error instanceof Error &&
+			( error.message === 'No rewind ID available' ||
+				( 'statusCode' in error &&
+					error.statusCode === 412 &&
+					'error' in error &&
+					error.error === 'rest_forbidden' ) );
+		throw wrapError(
+			__( 'Failed to fetch latest rewind ID' ),
+			error,
+			missingBackup ? 'missing_backup' : 'remote_backup'
+		);
 	}
 }
 

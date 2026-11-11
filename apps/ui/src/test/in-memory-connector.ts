@@ -1,3 +1,4 @@
+import { createEmptyAiConnections, type AiSettings } from '@studio/agent/protocol/providers';
 import { AGENT_APP_IDS } from '@studio/common/lib/agent-apps';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
@@ -13,7 +14,6 @@ import type {
 	SiteEmail,
 	UserPreferences,
 } from '@/data/core';
-import type { AiSettings } from '@studio/agent/protocol/providers';
 
 type Methods = {
 	[ K in keyof Connector as Required< Connector >[ K ] extends ( ...args: never[] ) => unknown
@@ -155,10 +155,9 @@ export function createInMemoryConnector(
 	let agentInstructionsEnabled = true;
 	let aiSettings: AiSettings = {
 		provider: 'wpcom',
-		connections: {
+		connections: createEmptyAiConnections( {
 			wpcom: { connected: !! state.user, apiKeyPreview: null },
-			'anthropic-api-key': { connected: false, apiKeyPreview: null },
-		},
+		} ),
 	};
 
 	const methods: Methods = {

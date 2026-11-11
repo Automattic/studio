@@ -1,3 +1,4 @@
+import { createEmptyAiConnections } from '@studio/agent/protocol/providers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createLocalConnector } from './index';
 
@@ -33,10 +34,10 @@ describe( 'createLocalConnector server contracts', () => {
 			new Response(
 				JSON.stringify( {
 					provider: 'anthropic-api-key',
-					connections: {
+					connections: createEmptyAiConnections( {
 						wpcom: { connected: true, apiKeyPreview: null },
 						'anthropic-api-key': { connected: true, apiKeyPreview: 'sk-…last' },
-					},
+					} ),
 				} )
 			)
 		);
@@ -55,10 +56,10 @@ describe( 'createLocalConnector server contracts', () => {
 	it.each( [ 'secret-key', null ] )( 'saves an AI provider key (%s)', async ( apiKey ) => {
 		const settings = {
 			provider: 'wpcom',
-			connections: {
+			connections: createEmptyAiConnections( {
 				wpcom: { connected: true, apiKeyPreview: null },
 				'anthropic-api-key': { connected: !! apiKey, apiKeyPreview: apiKey ? 'sk-…last' : null },
-			},
+			} ),
 		};
 		fetchMock.mockResolvedValueOnce( new Response( JSON.stringify( settings ) ) );
 		await expect(

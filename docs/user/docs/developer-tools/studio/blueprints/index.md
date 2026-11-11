@@ -22,28 +22,34 @@ Blueprints in WordPress Studio follow the same format as [WordPress Playground](
 
 Creating local sites from Blueprints is incorporated into the site creation flow within WordPress Studio.
 
-1.  Click the **Add site** (**+**) button next to **Sites** at the top of the WordPress Studio sidebar. The **Add site** dialog opens on **Create**, which shows **Blank site** and the Blueprints library under **Create a new WordPress**.
+1.  Click the **Add site** (**+**) button next to **Sites** at the top of the WordPress Studio sidebar. The **Add site** dialog opens on **New**, which shows **Blank site** and the Blueprints library under **Create a new WordPress**.
 
-![The Add site dialog in WordPress Studio, open on Create, showing Create a new WordPress with a Blank site card and Blueprint cards such as Wedding RSVP, Stylish Press, and University Website, and categories under By use case on the left.](../../../../screenshots/images/add-site.webp)
+![The Add site dialog in WordPress Studio, open on New, showing Create a new WordPress with a Blank site card and Blueprint cards such as Home + Living, Food + Drink, and Digital Goods, and Categories on the left.](../../../../screenshots/images/add-site.webp)
 
-2.  Browse the Blueprints library, or pick a category under **By use case** on the left: **Business**, **Blog**, **Portfolio**, **Store**, **Events**, or **Development**.
+2.  Browse the Blueprints library, or pick one of the **Categories** on the left: **Business**, **Blog**, **Portfolio**, **Store**, **Events**, or **Development**.
 
 ![The Business category of the Blueprints library in WordPress Studio's Add site dialog, showing the University Website, Non-profit Organization, and Quick Start Blueprints.](../../../../screenshots/images/blueprints-library.webp)
 
 3.  Click a Blueprint to see a larger preview. Click **Preview in browser** to try it out first. To go back to the library, click **Blueprints** at the top of the dialog.
-4.  Click **Create site**. WordPress Studio creates the site with the Blueprint’s name, in your default site folder. If the Blueprint needs more information, such as a custom domain, or the folder isn’t empty, WordPress Studio shows the **Create your site** form first: review the Blueprint, including the plugins and themes it installs, give your site a name, and click **Create site from Blueprint**.
+4.  Click **Use Blueprint**. The **Add site** form opens with the Blueprint under **Start from**, and the Blueprint’s name as the site name.
+5.  Change the **Site name** and **Site folder** if you like. The folder must be empty. Click **Advanced** to review the WordPress and PHP versions, the admin credentials, and the domain name.
+6.  Click **Add site**.
 
-![A larger preview of the University Website Blueprint in WordPress Studio's Add site dialog, with Preview in browser and Create site buttons at the top.](../../../../screenshots/images/blueprint-details.webp)
+![A larger preview of the University Website Blueprint in WordPress Studio's Add site dialog, with Preview in browser and Use Blueprint buttons at the top.](../../../../screenshots/images/blueprint-details.webp)
 
 To use your own Blueprint:
 
-1.  In the **Add site** dialog, choose **Upload**. The **Upload a Blueprint** screen opens.
-2.  Drop a Blueprint file (a `.json` file or a `.zip` bundle) on the **Drop a Blueprint here** area, or click **Choose file** and select it.
-3.  The **Create your site** form opens and shows the Blueprint. Give your site a name and click **Create site from Blueprint**.
+1.  In the **Add site** dialog, choose **Import**. The **Import a blueprint or backup** screen opens.
+2.  Drop a Blueprint file (a `.json` file or a `.zip` bundle) on the **Drop your file here** area, or click **Choose file** and select it. You can also drop the file anywhere on the **Add site** dialog.
+3.  The **Add site** form opens and shows the Blueprint under **Start from**. Give your site a name and click **Add site**.
 
-To use a blank site instead, click **Remove** next to the Blueprint.
+![The Import screen of the Add site dialog in WordPress Studio, with Drop your file here, Blueprints, backups, and WordPress exports, a Choose file button, and the list of supported files.](../../../../screenshots/images/add-site-import.webp)
 
-A Blueprint that sets up a WordPress multisite requires a custom domain. When you pick one, the form shows “This Blueprint requires a custom domain.” and you need to enter a domain before you can create the site.
+You can also start from the form: click **Blank site**, then click **Choose…** under **Start from** and select the Blueprint file. In the desktop app, **File → Open Folder…** opens a Blueprint file, or a folder that contains a `blueprint.json`, the same way.
+
+To swap the Blueprint, click **Browse Blueprints** next to it. To use a blank site instead, click **Remove Blueprint**.
+
+A Blueprint that sets up a WordPress multisite requires a custom domain. When you pick one, the form shows “This Blueprint requires a custom domain.” under **Advanced**, and you need to enter a **Domain name** before you can add the site.
 
 Behind the scenes, WordPress Studio builds the site from whichever Blueprint you selected or added. 
 
@@ -51,11 +57,11 @@ Behind the scenes, WordPress Studio builds the site from whichever Blueprint you
 
 WordPress Studio currently has three free featured Blueprints that you can use when setting up a new local site. Find them in the Blueprints library in the **Add site** dialog.
 
-1.  **Theme & plugin development**: Designed for building themes and plugins, this Blueprint enables debug settings and includes tools like Query Monitor, Plugin Check, Theme Check, and Create Block Theme.
-2.  **WordPress.com**: An environment that mirrors a WordPress.com site. It includes the Business plan plugins and themes you’d find pre-installed on WordPress.com, so you can spin up a production-like site right away.
-3.  **WooCommerce**: Tailored for launching an online store, this Blueprint comes with WooCommerce and companion plugins pre-installed, along with optional extensions such as payment, advertising, and product listing tools. It provides a store-ready framework that you can extend for client projects.
+1.  **Development**: Designed for building themes and plugins, this Blueprint enables debug settings and includes tools like Query Monitor, Plugin Check, Theme Check, and Create Block Theme.
+2.  **Quick Start**: An environment that mirrors a WordPress.com site. It includes the Business plan plugins and themes you’d find pre-installed on WordPress.com, so you can spin up a production-like site right away.
+3.  **Commerce**: Tailored for launching an online store, this Blueprint comes with WooCommerce and companion plugins pre-installed, along with optional extensions such as payment, advertising, and product listing tools. It provides a store-ready framework that you can extend for client projects.
 
-The rest of the Blueprints library, built into the **Add site** dialog, offers a growing set of pre-configured sites for things like blogging, ecommerce, portfolios, and organizations. Use the categories under **By use case** on the left of the dialog to find one.
+The rest of the Blueprints library, built into the **Add site** dialog, offers a growing set of pre-configured sites for things like blogging, ecommerce, portfolios, and organizations. Use the **Categories** on the left of the dialog to find one.
 
 ## [Building your own Blueprints](#3-building-your-own-blueprints)
 

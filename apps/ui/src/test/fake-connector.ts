@@ -2,10 +2,10 @@ import { vi, type Mock } from 'vitest';
 import {
 	createInMemoryConnector,
 	type ConnectorMethods,
+	type ConnectorOverrides,
 	type FakeConnectorInitialState,
 	type InMemoryConnector,
 } from './in-memory-connector';
-import type { Connector } from '@/data/core';
 
 export {
 	makeSession,
@@ -25,7 +25,7 @@ export type FakeConnector = Omit< InMemoryConnector, keyof ConnectorMethods > & 
  */
 export function createFakeConnector(
 	initial: FakeConnectorInitialState = {},
-	overrides: Partial< Connector > = {}
+	overrides: ConnectorOverrides = {}
 ): FakeConnector {
 	const connector = createInMemoryConnector( initial, overrides );
 	for ( const [ name, value ] of Object.entries( connector ) ) {

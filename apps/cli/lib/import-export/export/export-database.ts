@@ -99,11 +99,24 @@ export async function exportDatabaseToMultipleFiles(
 		);
 	}
 
+	// A pulled site uses the remote's table prefix, so its users tables aren't always wp_users and
+	// wp_usermeta.
+	await using prefixCommand = await runWpCliCommand( site, [ 'config', 'get', 'table_prefix' ], {
+		phpVersion: DEFAULT_PHP_VERSION,
+	} );
+	const tablePrefix = ( await prefixCommand.response.stdoutText ).trim();
+	if ( ( await prefixCommand.response.exitCode ) !== 0 || ! tablePrefix ) {
+		throw await createDatabaseExportError(
+			__( 'Could not read the table prefix from wp-config.php' ),
+			prefixCommand.response.stderrText
+		);
+	}
+
 	const tmpFiles: string[] = [];
 
 	for ( const table of tables ) {
-		if ( table === 'wp_users' || table === 'wp_usermeta' ) {
-			// Skip the wp_users and wp_usermeta tables as they are not needed
+		if ( table === `${ tablePrefix }users` || table === `${ tablePrefix }usermeta` ) {
+			// Skip the users tables as they are not needed
 			continue;
 		}
 

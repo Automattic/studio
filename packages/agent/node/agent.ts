@@ -1,3 +1,4 @@
+import { resolveStudioTools, type StudioToolsOptions } from '@studio/agent/shared/tools';
 import {
 	runStudioAgentTurn,
 	type StudioAgentTurnConfig,
@@ -9,10 +10,9 @@ import {
 	openStudioSession,
 	type CreateStudioSessionOptions,
 } from './sessions/pi-session';
-import { resolveStudioTools, type StudioToolsOptions } from './tools';
-import type { StudioAgentHost } from './host';
-import type { AnyStudioAgentTool } from './tools/define-tool';
 import type { SessionManager } from '@earendil-works/pi-coding-agent';
+import type { StudioAgentHost } from '@studio/agent/shared/host';
+import type { AnyStudioAgentTool } from '@studio/agent/shared/tools/define-tool';
 
 export interface StudioAgent {
 	// Runs one turn of a conversation: the prompt, the model's tool calls, its answer.

@@ -1,4 +1,5 @@
 import fs from 'fs';
+import path from 'path';
 import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_GB } from '@studio/common/constants';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { isWpcomPreview } from '@studio/common/lib/snapshots';
@@ -79,7 +80,8 @@ export async function uploadPreviewArchive(
 	token: string,
 	siteId = 0
 ): Promise< number > {
-	if ( fs.statSync( archivePath ).size > DEMO_SITE_SIZE_LIMIT_BYTES ) {
+	const archiveSize = fs.statSync( archivePath ).size;
+	if ( archiveSize > DEMO_SITE_SIZE_LIMIT_BYTES ) {
 		throw new LoggerError(
 			sprintf(
 				/* translators: %d: Size limit in GB */
@@ -93,7 +95,9 @@ export async function uploadPreviewArchive(
 		const attachmentId = await createTusUpload( {
 			token,
 			remoteSiteId: siteId,
-			archivePath,
+			file: fs.createReadStream( archivePath ),
+			filename: path.basename( archivePath ),
+			size: archiveSize,
 		} ).promise;
 		return Number( attachmentId );
 	} catch ( error ) {

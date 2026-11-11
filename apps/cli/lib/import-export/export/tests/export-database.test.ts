@@ -105,6 +105,7 @@ describe( 'export-database', () => {
 
 		it( 'logs and includes the WP-CLI SQLite error when a table export fails', async () => {
 			mockWpCliResult( { stdout: '["wp_options","wp_posts"]' } );
+			mockWpCliResult( { stdout: 'wp_\n' } );
 			mockWpCliResult( {} );
 			mockWpCliResult( { exitCode: 1, stderr: 'Error: near "FROM": syntax error' } );
 
@@ -122,12 +123,39 @@ describe( 'export-database', () => {
 
 		it( 'returns the exported table files, skipping user tables', async () => {
 			mockWpCliResult( { stdout: '["wp_options","wp_users","wp_usermeta"]' } );
+			mockWpCliResult( { stdout: 'wp_\n' } );
 			mockWpCliResult( {} );
 
 			const files = await exportDatabaseToMultipleFiles( site, '/dest' );
 
 			expect( files ).toEqual( [ path.join( '/dest', 'wp_options.sql' ) ] );
-			expect( runWpCliCommand ).toHaveBeenCalledTimes( 2 );
+			expect( runWpCliCommand ).toHaveBeenCalledTimes( 3 );
+		} );
+
+		it( "skips the user tables under the site's table prefix", async () => {
+			mockWpCliResult( { stdout: '["ntmozf_options","ntmozf_users","ntmozf_usermeta"]' } );
+			mockWpCliResult( { stdout: 'ntmozf_\n' } );
+			mockWpCliResult( {} );
+
+			const files = await exportDatabaseToMultipleFiles( site, '/dest' );
+
+			expect( files ).toEqual( [ path.join( '/dest', 'ntmozf_options.sql' ) ] );
+		} );
+
+		it( 'fails when the table prefix cannot be read', async () => {
+			mockWpCliResult( { stdout: '["wp_options","wp_users"]' } );
+			mockWpCliResult( {
+				exitCode: 1,
+				stderr:
+					"Error: The constant or variable 'table_prefix' is not defined in the 'wp-config.php' file.",
+			} );
+
+			const error = await captureError( exportDatabaseToMultipleFiles( site, '/dest' ) );
+
+			expect( error.message ).toBe(
+				"Could not read the table prefix from wp-config.php: Error: The constant or variable 'table_prefix' is not defined in the 'wp-config.php' file."
+			);
+			expect( move ).not.toHaveBeenCalled();
 		} );
 	} );
 } );

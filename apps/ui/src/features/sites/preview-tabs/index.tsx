@@ -159,7 +159,7 @@ export function PreviewTabs( {
 	const openEmailFolder = () => {
 		void connector.openSiteEmailFolder( siteId ).catch( () =>
 			showToast( {
-				title: __( 'Studio could not open the email folder.' ),
+				title: __( 'WordPress Studio could not open the email folder.' ),
 				intent: 'error',
 			} )
 		);

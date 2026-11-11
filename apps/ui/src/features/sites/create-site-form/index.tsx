@@ -607,7 +607,7 @@ export function CreateSiteForm( {
 								data.frontend === 'theme'
 									? undefined
 									: __(
-											'WordPress runs as the content API; Studio also runs the frontend. Astro and Next.js need Node.js installed.'
+											'WordPress runs as the content API; WordPress Studio also runs the frontend. Astro and Next.js need Node.js installed.'
 									  )
 							}
 							value={ data.frontend }

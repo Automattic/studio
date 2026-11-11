@@ -100,7 +100,7 @@ npx --yes "@anthropic-ai/claude-code@$CLAUDE_CODE_VERSION" "${agent_args[@]}" > 
 
 echo "--- :mag: Check the agent's work"
 node scripts/docs-refresh/docs-refresh.mjs verify --baseline "$OUT/baseline.txt"
-"${HARNESS[@]}" validate docs/user/screenshots/shots
+"${HARNESS[@]}" validate docs/user/screenshots/shots --scene "$SCENE"
 
 if [[ -z "$(git status --porcelain -- docs/user)" ]]; then
   annotate "Docs refresh for $TARGET: the agent reviewed the changes and found the docs current." success

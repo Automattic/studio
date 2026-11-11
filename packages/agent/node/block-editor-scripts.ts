@@ -27,7 +27,7 @@
  * the installed plugins changed since its last check. Offline, the plugin's
  * blocks are reported.
  */
-import { activeCodeVersion } from '@studio/agent/node/active-code';
+import { blockCodeVersion, readBlockCode, seeBlockCode } from '@studio/agent/node/block-code';
 import { unregisteredInEditor } from '@studio/agent/node/block-validator';
 import { printedJson, wpEval } from '@studio/agent/node/tools/utils';
 import type { SiteChangeSource } from '@studio/agent/node/site-changes';
@@ -78,14 +78,16 @@ echo 'WITHOUT_EDITOR_SCRIPT=' . wp_json_encode( (object) $without );`;
 export const blockEditorScripts: SiteChangeSource = {
 	name: KEY,
 	async read( sitePath ) {
-		return {
-			code: await activeCodeVersion( sitePath, ( name ) => /\.(php|js|json)$/.test( name ) ),
-		};
+		const code = await blockCodeVersion( sitePath );
+		// For the block validations of files, which hold for the code they ran with.
+		readBlockCode( sitePath, code );
+		return { code };
 	},
 	async check( site, before, after, host ) {
 		if ( before.code === after.code ) {
 			return { reports: [] };
 		}
+		seeBlockCode( site.url, after.code );
 		let without: Record< string, string[] >;
 		// The folders of the plugins WordPress's last update check found an update source for.
 		let updated: string[];

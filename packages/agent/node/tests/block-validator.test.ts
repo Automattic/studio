@@ -1,11 +1,22 @@
-import { execFile } from 'child_process';
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'fs';
+import { execFile, spawn } from 'child_process';
+import {
+	appendFileSync,
+	cpSync,
+	mkdirSync,
+	mkdtempSync,
+	readFileSync,
+	rmSync,
+	writeFileSync,
+} from 'fs';
+import net from 'net';
 import os from 'os';
 import path from 'path';
 import { promisify } from 'util';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { validateHtmlBlockPolicy } from '@studio/agent/node/block-content-policy';
+import { blockEditorScripts } from '@studio/agent/node/block-editor-scripts';
 import {
+	createBlockValidationGate,
 	rendersAlikeOn,
 	validateBlockMarkup,
 	validateBlockMarkupFile,
@@ -21,7 +32,10 @@ import {
 	validateBlocks,
 } from '@studio/agent/node/block-validator';
 import { getSharedBrowser } from '@studio/agent/node/browser-utils';
+import { OpenProblems } from '@studio/agent/node/open-problems';
+import { SiteChanges } from '@studio/agent/node/site-changes';
 import type { HostSite, StudioAgentHost } from '@studio/agent/node/host';
+import type { ChildProcess } from 'child_process';
 
 // Runs the site's own block editor, so it needs a running WordPress site:
 // STUDIO_BLOCK_EDITOR_URL=http://localhost:8881 npx vitest run block-validator
@@ -1987,3 +2001,153 @@ describe.runIf( siteUrl )( "eval31's ports: what the written HTML shows (live)",
 		120_000
 	);
 } );
+
+// eval31 pileon port 4: parts/footer.html's sudsy/newsletter, registered in
+// PHP with a render_callback only, stayed open after functions.php gave it
+// "autoRegister", as the part itself was unchanged.
+describe.runIf( wordpress )(
+	"a theme's block the theme then registers in the editor (live)",
+	() => {
+		let site: HostSite;
+		let server: ChildProcess;
+		const run = promisify( execFile );
+		const host = {
+			sites: {
+				resolve: async () => site,
+				wpCli: async ( { path: at }: HostSite, args: string[] ) => ( {
+					exitCode: 0,
+					...( await run( 'wp', [ `--path=${ at }`, ...args ], { maxBuffer: 1e8 } ) ),
+				} ),
+			},
+		} as unknown as StudioAgentHost;
+		const theme = () => path.join( site.path, 'wp-content/themes/twentytwentyfive' );
+		const register = ( args: string ) =>
+			`\nadd_action( 'init', fn() => register_block_type( 'studio-test/newsletter', array( 'render_callback' => fn() => '<form class="studio-test-newsletter"></form>'${ args } ) ) );\n`;
+
+		beforeAll( async () => {
+			const root = mkdtempSync( path.join( os.tmpdir(), 'block-code-' ) );
+			cpSync( wordpress!, root, { recursive: true } );
+			const port = await new Promise< number >( ( resolve ) => {
+				const probe = net.createServer().listen( 0, '127.0.0.1', () => {
+					const { port: free } = probe.address() as net.AddressInfo;
+					probe.close( () => resolve( free ) );
+				} );
+			} );
+			site = { path: root, url: `http://127.0.0.1:${ port }`, name: 'Sudsy' } as HostSite;
+			for ( const option of [ 'home', 'siteurl' ] ) {
+				await run( 'wp', [ `--path=${ root }`, 'option', 'update', option, site.url ] );
+			}
+			await run( 'wp', [ `--path=${ root }`, 'theme', 'activate', 'twentytwentyfive' ] );
+			// As Studio logs its browser in (EditorPage).
+			mkdirSync( path.join( root, 'wp-content/mu-plugins' ), { recursive: true } );
+			writeFileSync(
+				path.join( root, 'wp-content/mu-plugins/studio-test-auto-login.php' ),
+				`<?php
+add_action( 'init', function () {
+	if ( '/studio-auto-login' === parse_url( $_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH ) ) {
+		wp_set_auth_cookie( 1 );
+		wp_redirect( home_url( $_GET['redirect_to'] ?? '/wp-admin/' ) );
+		exit;
+	}
+} );
+`
+			);
+			// Without opcache, which serves a file changed within opcache.revalidate_freq as it was.
+			server = spawn(
+				'php',
+				[ '-d', 'opcache.enable=0', '-S', `127.0.0.1:${ port }`, '-t', root ],
+				{
+					cwd: root,
+					stdio: 'ignore',
+				}
+			);
+			for ( let tries = 0; tries < 50; tries++ ) {
+				if (
+					await fetch( site.url ).then(
+						() => true,
+						() => false
+					)
+				) {
+					break;
+				}
+				await new Promise( ( resolve ) => setTimeout( resolve, 100 ) );
+			}
+		}, 120_000 );
+		afterAll( async () => {
+			await cleanupValidatorPages();
+			server?.kill();
+			rmSync( site.path, { recursive: true, force: true } );
+		} );
+
+		it( 'validates the part again once functions.php gives the block autoRegister, and clears its problem', async () => {
+			const functions = path.join( theme(), 'functions.php' );
+			appendFileSync( functions, register( '' ) );
+			const part = path.join( theme(), 'parts/studio-test-newsletter.html' );
+			writeFileSync( part, '<!-- wp:studio-test/newsletter /-->\n' );
+			const open = new OpenProblems( [] );
+			const gate = createBlockValidationGate( host, open );
+			// The checks of the calls, which read the code the site registers its blocks from.
+			const changes = new SiteChanges( host, open, async () => [ site ], [ blockEditorScripts ] );
+			await changes.snapshot();
+			gate.track( part, site.path );
+			const first = await gate.settle();
+			expect( first.problems ).toHaveLength( 1 );
+			expect( first.problems[ 0 ] ).toMatch(
+				/^parts\/studio-test-newsletter\.html: 1 invalid block\(s\)[\s\S]*studio-test\/newsletter is registered on the site in PHP but not in the block editor[\s\S]*'autoRegister' => true/
+			);
+			expect( await open.raise() ).toEqual( first.problems );
+
+			// The part stays as it was; only functions.php changes, in a call of its own.
+			await changes.begin();
+			const php = readFileSync( functions, 'utf8' );
+			writeFileSync(
+				functions,
+				php.replace( register( '' ), register( ", 'supports' => array( 'autoRegister' => true )" ) )
+			);
+			expect( ( await changes.settle() ).problems ).toEqual( [] );
+			const started = Date.now();
+			const second = await gate.settle();
+			console.warn( `revalidated after the block code changed in ${ Date.now() - started }ms` );
+			expect( second ).toEqual( {
+				summaries: [ 'parts/studio-test-newsletter.html: 1/1 blocks valid' ],
+				problems: [],
+				saved: [],
+			} );
+			expect( await open.raise() ).toEqual( [] );
+			expect( open.remind() ).toEqual( [] );
+			// Nothing changed since: the validation is reused.
+			expect( await gate.settle() ).toEqual( { summaries: [], problems: [], saved: [] } );
+		}, 300_000 );
+
+		it( 'validates the part again in an editor loaded anew once a block the editor knows saves differently', async () => {
+			// The editor registers the block from a script, which saves the text it names.
+			const script = ( saved: string ) =>
+				`\nadd_action( 'init', fn() => register_block_type( 'studio-test/stamp' ) );\nadd_action( 'enqueue_block_editor_assets', fn() => wp_add_inline_script( 'wp-blocks', "wp.blocks.registerBlockType( 'studio-test/stamp', { title: 'Stamp', save: () => wp.element.createElement( 'p', null, '${ saved }' ) } );" ) );\n`;
+			const functions = path.join( theme(), 'functions.php' );
+			appendFileSync( functions, script( 'Old stamp' ) );
+			const part = path.join( theme(), 'parts/studio-test-stamp.html' );
+			writeFileSync(
+				part,
+				'<!-- wp:studio-test/stamp -->\n<p class="wp-block-studio-test-stamp">New stamp</p>\n<!-- /wp:studio-test/stamp -->\n'
+			);
+			const open = new OpenProblems( [] );
+			const gate = createBlockValidationGate( host, open );
+			const changes = new SiteChanges( host, open, async () => [ site ], [ blockEditorScripts ] );
+			await changes.snapshot();
+			gate.track( part, site.path );
+			const first = await gate.settle();
+			expect( first.summaries ).toEqual( [ 'parts/studio-test-stamp.html: 1 invalid block(s)' ] );
+			expect( first.saved ).toEqual( [] );
+
+			await changes.begin();
+			const php = readFileSync( functions, 'utf8' );
+			writeFileSync( functions, php.replace( script( 'Old stamp' ), script( 'New stamp' ) ) );
+			await changes.settle();
+			expect( await gate.settle() ).toMatchObject( {
+				summaries: [ 'parts/studio-test-stamp.html: 1/1 blocks valid' ],
+				problems: [],
+			} );
+			expect( await open.raise() ).toEqual( [] );
+		}, 300_000 );
+	}
+);

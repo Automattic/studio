@@ -221,6 +221,56 @@ describe( 'postContentChanges', () => {
 		expect( await open.raise() ).toEqual( [] );
 	} );
 
+	// eval31 pileon port 4: a block the theme registers in PHP only, given
+	// "autoRegister" in functions.php, which registers it in the editor.
+	it( 'validates a post left with a problem again once the code registering its blocks changes', async () => {
+		const { site, open, changes } = setup();
+		const functions = path.join( site.root, 'wp-content/themes/bakery/functions.php' );
+		writeFileSync( functions, "<?php register_block_type( 'sudsy/newsletter' );" );
+		site.save( 15, 'page', 'news', '', 1, 'publish', 'News' );
+		await changes.snapshot();
+		vi.mocked( validateBlocks ).mockImplementation( async () =>
+			readFileSync( functions, 'utf8' ).includes( 'autoRegister' )
+				? { totalBlocks: 1, validBlocks: 1, invalidBlocks: 0, results: [] }
+				: {
+						totalBlocks: 1,
+						validBlocks: 0,
+						invalidBlocks: 1,
+						results: [
+							{
+								blockName: 'sudsy/newsletter',
+								place: '/0',
+								isValid: false,
+								issues: [ 'unsupported' ],
+								originalContent: '',
+							},
+						],
+				  }
+		);
+		try {
+			site.edit( 15, '<!-- wp:sudsy/newsletter /-->' );
+			const [ problem ] = ( await changes.settle() ).problems;
+			expect( problem ).toContain( 'sudsy/newsletter: unsupported' );
+			expect( await open.raise() ).toEqual( [ problem ] );
+
+			writeFileSync(
+				functions,
+				"<?php register_block_type( 'sudsy/newsletter', array( 'supports' => array( 'autoRegister' => true ) ) );"
+			);
+			await changes.settle();
+			expect( await open.raise() ).toEqual( [] );
+			expect( open.remind() ).toEqual( [] );
+		} finally {
+			vi.mocked( validateBlocks ).mockReset();
+			vi.mocked( validateBlocks ).mockResolvedValue( {
+				totalBlocks: 1,
+				validBlocks: 1,
+				invalidBlocks: 0,
+				results: [],
+			} );
+		}
+	} );
+
 	// eval26 picky4: four pages a call created were validated one after another,
 	// about 7.6s each, and the next call waited for all of them.
 	it( 'validates the posts a call changed side by side, reporting them in their order', async () => {

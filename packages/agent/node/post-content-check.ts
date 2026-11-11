@@ -6,6 +6,7 @@
  */
 import { mkdir, rm, writeFile } from 'fs/promises';
 import path from 'path';
+import { blockCodeVersion, seeBlockCode } from '@studio/agent/node/block-code';
 import {
 	blockEditorOf,
 	blockStylesOn,
@@ -36,8 +37,9 @@ interface Row {
 // its own, as WooCommerce writes its Shop and Cart pages (WC_Install::create_pages()),
 // in the same call as the agent writes its own: their fixes are stated, not saved.
 const CODE = 'code';
-// The posts last validated with a problem, after the presets they were
-// validated with: a problem can name presets a later change to the theme adds.
+// The posts last validated with a problem, after the presets and block code
+// they were validated with: a problem can name presets a later change to the
+// theme adds, or a block its code registers in the editor since.
 const OPEN = 'open';
 const isPost = ( id: string ) => id !== CODE && id !== OPEN;
 
@@ -357,12 +359,19 @@ export const postContentChanges: SiteChangeSource = {
 		const changed = Object.keys( after ).filter(
 			( id ) => isPost( id ) && before[ id ] !== after[ id ]
 		);
-		const presetsNow = async () => JSON.stringify( await sitePresetValues( host, site.path ) );
+		const presetsAndCodeNow = async () => {
+			const code = await blockCodeVersion( site.path ).catch( () => '' );
+			if ( code ) {
+				seeBlockCode( site.url, code );
+			}
+			return JSON.stringify( [ await sitePresetValues( host, site.path ), code ] );
+		};
 		// The posts left with a problem that did not change, validated again
-		// when the presets changed.
+		// when the presets or the block code changed.
 		const [ validatedWith, ...open ] = JSON.parse( before[ OPEN ] ?? '[""]' ) as string[];
 		const unchanged = open.filter( ( id ) => id in after && ! changed.includes( id ) );
-		const recheck = unchanged.length && ( await presetsNow() ) !== validatedWith ? unchanged : [];
+		const recheck =
+			unchanged.length && ( await presetsAndCodeNow() ) !== validatedWith ? unchanged : [];
 		// A post deleted or trashed has no problem left on the site.
 		const reports: ChangeReport[] = Object.keys( before )
 			.filter( ( id ) => isPost( id ) && ! ( id in after ) )
@@ -416,7 +425,10 @@ export const postContentChanges: SiteChangeSource = {
 			reports,
 			next: {
 				...( saved ? await readPostsAndCode( site.path ) : after ),
-				[ OPEN ]: JSON.stringify( [ stillOpen.length ? await presetsNow() : '', ...stillOpen ] ),
+				[ OPEN ]: JSON.stringify( [
+					stillOpen.length ? await presetsAndCodeNow() : '',
+					...stillOpen,
+				] ),
 			},
 		};
 	},

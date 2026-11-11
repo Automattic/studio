@@ -808,6 +808,70 @@ describe( 'the gate', () => {
 		expect( await open.raise() ).toEqual( [ 'home.html is invalid' ] );
 	} );
 
+	// eval31 pileon port 4: parts/footer.html's sudsy/newsletter, registered in
+	// PHP only, stayed open after functions.php gave it "autoRegister".
+	describe( 'once the code the site registers its blocks from changes', () => {
+		const setup = ( files: Record< string, string > ) => {
+			let code = 'v1';
+			const open = new OpenProblems( [] );
+			// The editor registers the site's block once the code is v2.
+			const validateFile = vi.fn( async ( filePath: string ) => {
+				const content = readFileSync( filePath, 'utf8' );
+				const invalid = content.includes( 'sudsy/' ) && code === 'v1';
+				return {
+					...ok( `${ path.basename( filePath ) } ${ invalid ? 'invalid' : 'valid' }`, content ),
+					...( invalid && {
+						problem: `${ path.basename( filePath ) }: sudsy/newsletter unsupported`,
+					} ),
+				};
+			} );
+			const gate = new BlockValidationGate( validateFile, open, () => code );
+			const paths = Object.entries( files ).map( ( [ name, content ] ) =>
+				write( `wp-content/themes/t/parts/${ name }`, content )
+			);
+			paths.forEach( ( file ) => gate.track( file, site ) );
+			return { gate, open, validateFile, paths, change: () => ( code = 'v2' ) };
+		};
+
+		it( "validates again a file with a site's block, and clears its problem", async () => {
+			const { gate, open, change } = setup( { 'footer.html': '<!-- wp:sudsy/newsletter /-->' } );
+			expect( await gate.settle() ).toMatchObject( {
+				summaries: [ 'footer.html invalid' ],
+				problems: [ 'footer.html: sudsy/newsletter unsupported' ],
+			} );
+			expect( await open.raise() ).toEqual( [ 'footer.html: sudsy/newsletter unsupported' ] );
+			change();
+			expect( await gate.settle() ).toEqual( {
+				summaries: [ 'footer.html valid' ],
+				problems: [],
+				saved: [],
+			} );
+			expect( await open.raise() ).toEqual( [] );
+			expect( open.remind() ).toEqual( [] );
+		} );
+
+		it( 'keeps the validation of a file of core blocks with no problem', async () => {
+			const { gate, validateFile, change } = setup( {
+				'header.html': '<!-- wp:site-title /-->',
+			} );
+			await gate.settle();
+			change();
+			expect( ( await gate.settle() ).summaries ).toEqual( [] );
+			expect( validateFile ).toHaveBeenCalledTimes( 1 );
+		} );
+
+		it( 'starts validating again on a call that does not wait, and reports it once come', async () => {
+			const { gate, change } = setup( { 'footer.html': '<!-- wp:sudsy/newsletter /-->' } );
+			await gate.settle();
+			change();
+			expect( ( await gate.settle( { ready: true } ) ).summaries ).toEqual( [] );
+			await new Promise( ( resolve ) => setTimeout( resolve, 10 ) );
+			expect( ( await gate.settle( { ready: true } ) ).summaries ).toEqual( [
+				'footer.html valid',
+			] );
+		} );
+	} );
+
 	it( 'reports a file it could not validate', async () => {
 		const gate = new BlockValidationGate( async () => {
 			throw new Error( 'the site is not running' );

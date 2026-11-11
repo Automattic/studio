@@ -1,3 +1,4 @@
+import { seenBlockCode } from '@studio/agent/node/block-code';
 import { EditorPage, withTimeout } from './browser-utils';
 import type { Page } from 'playwright';
 
@@ -84,6 +85,9 @@ const EDITOR_PATHS: Record< BlockEditor, string > = {
 // Cache one EditorPage per site URL and editor so repeated validations reuse the same
 // browser tab instead of navigating and loading the block editor each time.
 const editorPages = new Map< string, EditorPage >();
+// The version of the site's block code (seenBlockCode()) each editor page was
+// loaded after, by its key.
+const pageBlockCode = new Map< string, string | undefined >();
 
 function getEditorPage( siteUrl: string, editor: BlockEditor ): EditorPage {
 	const key = `${ editor } ${ siteUrl }`;
@@ -91,9 +95,13 @@ function getEditorPage( siteUrl: string, editor: BlockEditor ): EditorPage {
 	if ( ! ep ) {
 		ep = new EditorPage( siteUrl, EDITOR_PATHS[ editor ] );
 		editorPages.set( key, ep );
+		pageBlockCode.set( key, seenBlockCode( siteUrl ) );
 	}
 	return ep;
 }
+
+// Whether a block is one a site's code registers, not WordPress's own.
+const isSiteBlock = ( name: string ) => ! name.startsWith( 'core/' );
 
 /** The block names that block comments in content name, `core/` for those without a namespace. */
 export function blockNames( content: string ): string[] {
@@ -109,16 +117,24 @@ export function blockNames( content: string ): string[] {
 /**
  * Runs `fn` on the site's block editor, loaded again when it lacks a block
  * that the names name: the editor registers the blocks of the plugins active
- * when it loaded, and a plugin activated since adds its own. Other calls on
- * the editor finish on the page they started on.
+ * when it loaded, and a plugin activated since adds its own; and loaded again
+ * for a block of the site's own once the code that registers its blocks
+ * changed (seeBlockCode()), as a block's script or its PHP supports can. Other
+ * calls on the editor finish on the page they started on.
  */
-function withEditor< T >(
+async function withEditor< T >(
 	siteUrl: string,
 	names: string[],
 	editor: BlockEditor,
 	fn: ( page: Page ) => Promise< T >
 ): Promise< T > {
 	const editorPage = getEditorPage( siteUrl, editor );
+	const key = `${ editor } ${ siteUrl }`;
+	const code = seenBlockCode( siteUrl );
+	if ( pageBlockCode.get( key ) !== code && names.some( isSiteBlock ) ) {
+		pageBlockCode.set( key, code );
+		await editorPage.replace();
+	}
 	return editorPage.use( async ( page ) => {
 		const knows = await page.evaluate(
 			( wanted ) =>
@@ -129,6 +145,7 @@ function withEditor< T >(
 		if ( knows ) {
 			return fn( page );
 		}
+		pageBlockCode.set( key, seenBlockCode( siteUrl ) );
 		await editorPage.replace();
 		return editorPage.use( fn );
 	} );

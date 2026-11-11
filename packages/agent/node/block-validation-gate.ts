@@ -14,6 +14,7 @@
 import { readFileSync } from 'fs';
 import { readFile, writeFile } from 'fs/promises';
 import path from 'path';
+import { lastBlockCode } from '@studio/agent/node/block-code';
 import { validateHtmlBlockPolicy } from '@studio/agent/node/block-content-policy';
 import { saveBlockStyles, takesBlockStyles } from '@studio/agent/node/block-style-move';
 import {
@@ -147,6 +148,8 @@ function describeInvalidBlocks(
 interface FileValidation {
 	/** The hash of the content validated. */
 	contentHash: string;
+	/** The version of the site's block code it was validated with (lastBlockCode()), when read. */
+	blockCode?: string;
 	summary: string;
 	problem?: string;
 	/** What the block editor would save instead, losing nothing. */
@@ -798,7 +801,10 @@ export class BlockValidationGate {
 			filePath: string,
 			siteRoot: string
 		) => Promise< FileValidation >,
-		private readonly open?: OpenProblems
+		private readonly open?: OpenProblems,
+		// The version of the code a site registers its blocks from, which the
+		// editor's verdict on a block of the site's own depends on, as last read.
+		private readonly blockCode: ( siteRoot: string ) => string | undefined = () => undefined
 	) {}
 
 	/** Queues a written file and starts validating it in the background. */
@@ -832,7 +838,7 @@ export class BlockValidationGate {
 			if ( ! mine( filePath ) ) {
 				continue;
 			}
-			if ( ready && ( filePath === except || ! ( await isCurrent( filePath, tracked ) ) ) ) {
+			if ( ready && ( filePath === except || ! ( await this.isCurrent( filePath, tracked ) ) ) ) {
 				continue;
 			}
 			const result = await this.current( filePath, tracked.siteRoot ).then(
@@ -896,7 +902,8 @@ export class BlockValidationGate {
 
 	/**
 	 * The validation of a file's current content, reusing the last one while
-	 * the file is unchanged; undefined once the file is gone.
+	 * it holds for the file and the site's block code; undefined once the file
+	 * is gone.
 	 */
 	private async current(
 		filePath: string,
@@ -908,16 +915,41 @@ export class BlockValidationGate {
 		}
 		const tracked = this.files.get( filePath ) ?? this.start( { siteRoot }, filePath );
 		let result = await tracked.result;
-		if ( result.contentHash !== hash( content ) ) {
+		if ( ! holdsFor( result, content, this.blockCode( siteRoot ) ) ) {
 			result = await this.start( tracked, filePath ).result;
 		}
 		this.files.set( filePath, tracked );
 		return result;
 	}
 
-	/** Starts validating a file's current content. */
+	/**
+	 * Whether a file's validation has come, for the content it holds now and
+	 * the site's block code; a validation of the content that the code changed
+	 * under is started again.
+	 */
+	private async isCurrent( filePath: string, tracked: Tracked ): Promise< boolean > {
+		const { validated } = tracked;
+		if ( ! validated ) {
+			return false;
+		}
+		const content = await readFile( filePath, 'utf8' ).catch( () => undefined );
+		if ( content === undefined || hash( content ) !== validated.contentHash ) {
+			return false;
+		}
+		if ( holdsFor( validated, content, this.blockCode( tracked.siteRoot ) ) ) {
+			return true;
+		}
+		this.start( tracked, filePath );
+		return false;
+	}
+
+	/** Starts validating a file's current content, with the site's block code as last read. */
 	private start( tracked: Omit< Tracked, 'result' > & Partial< Tracked >, filePath: string ) {
-		const result = this.validate( filePath, tracked.siteRoot );
+		const blockCode = this.blockCode( tracked.siteRoot );
+		const result = this.validate( filePath, tracked.siteRoot ).then( ( validated ) => ( {
+			...validated,
+			blockCode,
+		} ) );
 		Object.assign( tracked, { result, validated: undefined } );
 		void result.then( ( validated ) => {
 			if ( tracked.result === result ) {
@@ -938,13 +970,21 @@ export class BlockValidationGate {
 	}
 }
 
-// Whether a file's validation has come, for the content it holds now.
-async function isCurrent( filePath: string, tracked: Tracked ): Promise< boolean > {
-	if ( ! tracked.validated ) {
+/**
+ * Whether a validation holds for a file's content and the site's block code
+ * `code`: the editor's verdict on a block of the site's own, or on a problem
+ * it found, is the one the code registered then. In eval31 pileon port 4 a
+ * part's sudsy/newsletter, registered in PHP only, stayed reported invalid
+ * after the theme gave it "autoRegister", which registers it in the editor.
+ */
+function holdsFor( result: FileValidation, content: string, code?: string ): boolean {
+	if ( result.contentHash !== hash( content ) ) {
 		return false;
 	}
-	const content = await readFile( filePath, 'utf8' ).catch( () => undefined );
-	return content !== undefined && hash( content ) === tracked.validated.contentHash;
+	return (
+		result.blockCode === code ||
+		( ! result.problem && ! blockNames( content ).some( ( name ) => ! name.startsWith( 'core/' ) ) )
+	);
 }
 
 // The theme a file is in, by its folder under wp-content/themes.
@@ -996,5 +1036,5 @@ export function createBlockValidationGate(
 	host: StudioAgentHost,
 	open: OpenProblems
 ): BlockValidationGate {
-	return new BlockValidationGate( validateWithSite( host ), open );
+	return new BlockValidationGate( validateWithSite( host ), open, lastBlockCode );
 }

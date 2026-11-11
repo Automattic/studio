@@ -8,7 +8,6 @@
 
 import fs from 'node:fs';
 import http from 'node:http';
-import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { writeStudioMuPlugins } from '@studio/common/lib/mu-plugins';
@@ -18,6 +17,7 @@ import {
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 } from '@studio/common/lib/site-file-access';
 import { getMuPluginsPath } from '@studio/common/lib/well-known-paths';
+import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { z } from 'zod';
 import {
 	managerMessageSchema,
@@ -45,15 +45,12 @@ import {
 	installWordPress,
 	writeSiteUrlPrependFile,
 } from './lib/native-php/site-setup';
+import { getAvailablePorts } from './lib/native-php/worker-ports';
 import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
 import type { ChildProcess } from 'node:child_process';
 
 const ROUTER_PATH = path.resolve( import.meta.dirname, 'php', 'router.php' );
-const SET_DEFAULT_PERMALINKS_PATH = path.resolve(
-	import.meta.dirname,
-	'php',
-	'set-default-permalinks.php'
-);
+const FINISH_INSTALL_PATH = path.resolve( import.meta.dirname, 'php', 'finish-install.php' );
 
 // Tracks how many proxied requests each PHP worker is currently handling.
 // Each `php -S` worker processes one request at a time, so a non-zero count
@@ -170,24 +167,7 @@ function pickPhpWorker( req: http.IncomingMessage ): { index: number; port: numb
 	return { index: bestIndex, port: phpWorkerPorts[ bestIndex ] };
 }
 
-async function getAvailablePort(): Promise< number > {
-	return await new Promise< number >( ( resolve, reject ) => {
-		const server = net.createServer();
-		server.unref();
-		server.once( 'error', reject );
-		server.listen( 0, '127.0.0.1', () => {
-			const address = server.address();
-			if ( ! address || typeof address === 'string' ) {
-				server.close( () => reject( new Error( 'Could not allocate a PHP worker port' ) ) );
-				return;
-			}
-			const port = address.port;
-			server.close( () => resolve( port ) );
-		} );
-	} );
-}
-
-async function waitForServerReady( url: string, signal?: AbortSignal ): Promise< void > {
+export async function waitForServerReady( url: string, signal?: AbortSignal ): Promise< void > {
 	const pollIntervalMs = 50;
 	const timeoutMs = 30_000;
 	const deadline = Date.now() + timeoutMs;
@@ -195,7 +175,10 @@ async function waitForServerReady( url: string, signal?: AbortSignal ): Promise<
 	while ( true ) {
 		signal?.throwIfAborted();
 		try {
-			await fetch( url, { redirect: 'manual', signal } );
+			const response = await fetch( url, { redirect: 'manual', signal } );
+			// Leaving the body unread can crash undici's parser when the server closes the
+			// connection to end the response, as the PHP dev server does.
+			await response.body?.cancel();
 			return;
 		} catch {
 			signal?.throwIfAborted();
@@ -380,6 +363,9 @@ async function closePhpProxyServer(): Promise< void > {
 
 	await new Promise< void >( ( resolve ) => {
 		proxyServer.close( () => resolve() );
+		// The PHP workers are about to be killed, so no open request can be answered. Drop the
+		// connections rather than waiting for clients to end them.
+		proxyServer.closeAllConnections();
 	} ).catch( () => {} );
 }
 
@@ -486,13 +472,16 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 	startupAbortController = new AbortController();
 	const stopSignal = AbortSignal.any( [ signal, startupAbortController.signal ] );
 
-	// Sites imported by `studio pull-reprint` arrive with WordPress already
+	// Sites imported by `studio pull` arrive with WordPress already
 	// installed and a database already in place; reprint's auto_prepend_file
 	// owns their constants and SQLite wiring. So we skip wp-config rewriting,
 	// the WordPress installer, and Blueprint execution — running any of them
 	// against the imported database would be wrong — and just write Studio's
 	// mu-plugins before starting the workers.
 	const isImportedSite = Boolean( config.autoPrependFile );
+	// Set when this start ran the installer, which created the admin user with the
+	// configured credentials, and no Blueprint ran after it that could change them.
+	let credentialsJustInstalled = false;
 
 	try {
 		stopSignal.throwIfAborted();
@@ -504,22 +493,17 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 			stopSignal.throwIfAborted();
 		}
 
-		await writeStudioMuPlugins( config.sitePath, config.isWpAutoUpdating );
+		await writeStudioMuPlugins( config.sitePath, config.isWpAutoUpdating, config.siteId );
 		stopSignal.throwIfAborted();
 
 		if ( ! isImportedSite ) {
-			await timePhase( 'wordpress_install', () =>
-				installWordPress(
-					config,
-					phpVersion,
-					stopSignal,
-					SET_DEFAULT_PERMALINKS_PATH,
-					logToConsole
-				)
+			const installed = await timePhase( 'wordpress_install', () =>
+				installWordPress( config, phpVersion, stopSignal, FINISH_INSTALL_PATH, logToConsole )
 			);
 			stopSignal.throwIfAborted();
 
 			const blueprint = config.blueprint;
+			credentialsJustInstalled = installed && ! blueprint;
 			if ( blueprint ) {
 				await timePhase( 'blueprint', () =>
 					runBlueprint( config, blueprint, phpVersion, stopSignal )
@@ -569,8 +553,10 @@ async function startServer( config: ServerConfig, signal: AbortSignal ): Promise
 
 		phpProcess = await doStartServer( config, stopSignal );
 		stopSignal.throwIfAborted();
-		await timePhase( 'admin_credentials', () => setAdminCredentials( config, stopSignal ) );
-		stopSignal.throwIfAborted();
+		if ( ! credentialsJustInstalled ) {
+			await timePhase( 'admin_credentials', () => setAdminCredentials( config, stopSignal ) );
+			stopSignal.throwIfAborted();
+		}
 	} catch ( error ) {
 		killPhpProcess();
 		phpProcess = null;
@@ -611,10 +597,15 @@ async function doStartServer(
 		const phpMyAdminWpEnvPath = await writeNativePhpMyAdminWpEnv( config );
 		const siteUrl = config.absoluteUrl || `http://localhost:${ config.port }`;
 		const autoPrependFile = writeSiteUrlPrependFile( siteUrl, config.autoPrependFile );
-		const workerPorts: number[] = [];
-		for ( let index = 0; index < NATIVE_PHP_WORKER_POOL_SIZE; index++ ) {
-			workerPorts.push( await getAvailablePort() );
+		// Created up front so the folder opens from the app before the site sends any email.
+		// The site still starts without it: sendmail.php then reports each email it can't save.
+		const emailDirectory = getSiteEmailDirectory( config.siteId );
+		try {
+			fs.mkdirSync( emailDirectory, { recursive: true } );
+		} catch ( error ) {
+			errorToConsole( `Failed to create the email folder ${ emailDirectory }:`, error );
 		}
+		const workerPorts = await getAvailablePorts( NATIVE_PHP_WORKER_POOL_SIZE );
 
 		phpWorkerPorts = workerPorts;
 		phpWorkerRequestTracker = new PhpWorkerRequestTracker( workerPorts.length );
@@ -638,6 +629,7 @@ async function doStartServer(
 				disallowRiskyFunctions: isFileAccessRestricted( config ),
 				enableXdebug: config.enableXdebug,
 				autoPrependFile,
+				emailDirectory,
 				workerIndex: index,
 			} );
 			spawnedChildren.push( serverChild );
@@ -820,12 +812,16 @@ async function ipcMessageHandler( packet: unknown ) {
 					abortController.signal,
 					blueprintConfig
 				);
-				await writeStudioMuPlugins( blueprintConfig.sitePath, blueprintConfig.isWpAutoUpdating );
+				await writeStudioMuPlugins(
+					blueprintConfig.sitePath,
+					blueprintConfig.isWpAutoUpdating,
+					blueprintConfig.siteId
+				);
 				await installWordPress(
 					blueprintConfig,
 					blueprintPhpVersion,
 					abortController.signal,
-					SET_DEFAULT_PERMALINKS_PATH,
+					FINISH_INSTALL_PATH,
 					logToConsole
 				);
 				if ( ! blueprintConfig.blueprint ) {

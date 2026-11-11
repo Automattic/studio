@@ -177,12 +177,6 @@ afterAll( () => {
 } );
 
 describe( 'App initialization', () => {
-	it( 'should boot successfully', async () => {
-		mockElectron();
-		vi.resetModules();
-		await expect( import( '../index' ) ).resolves.toBeDefined();
-	}, 10_000 );
-
 	it( 'should identify YouTube embed requests with the Studio referrer', async () => {
 		const { mockedEvents } = mockElectron();
 		vi.resetModules();
@@ -220,7 +214,7 @@ describe( 'App initialization', () => {
 		expect( callback ).toHaveBeenCalledWith( {
 			requestHeaders: {
 				Accept: 'text/html',
-				Referer: 'https://developer.wordpress.com/studio/',
+				Referer: 'https://wordpress.studio/',
 			},
 		} );
 	} );

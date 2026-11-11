@@ -1,5 +1,6 @@
 import { clsx } from 'clsx';
 import { useId } from 'react';
+import { MarqueeLabel } from '@/lib/ui/marquee-label';
 import * as Popover from '@/lib/ui/popover';
 import styles from './style.module.css';
 import type { ComponentProps, ComponentType, KeyboardEvent, ReactNode, Ref } from 'react';
@@ -8,6 +9,7 @@ export interface Command {
 	value: string;
 	label: string;
 	description?: string;
+	trailing?: ReactNode;
 	icon: ComponentType< { className?: string } >;
 	disabled?: boolean;
 }
@@ -71,8 +73,8 @@ export function handleCommandKey(
 /**
  * A list of commands that always highlights one of them. It takes focus, or a
  * text field drives it through `handleCommandKey`; only the keyboard scrolls
- * it. `sm` rows (32px, muted icons, inline descriptions) suit sheets, and
- * `default` rows (36px, descriptions at the end) suit the palette.
+ * it. `sm` rows (32px, inline descriptions) suit sheets, and
+ * `default` rows use regular button sizing, with descriptions at the end.
  */
 export function CommandList( {
 	label,
@@ -83,6 +85,7 @@ export function CommandList( {
 	listRef,
 	id: listId,
 	size = 'sm',
+	radius = 'default',
 	empty,
 	className,
 }: {
@@ -94,6 +97,7 @@ export function CommandList( {
 	listRef?: Ref< HTMLDivElement >;
 	id?: string;
 	size?: 'sm' | 'default';
+	radius?: 'default' | 'control' | 'menu';
 	empty?: ReactNode;
 	className?: string;
 } ) {
@@ -112,6 +116,7 @@ export function CommandList( {
 			aria-label={ label }
 			aria-activedescendant={ active ? optionId( active.value ) : undefined }
 			data-size={ size }
+			data-radius={ radius }
 			className={ clsx( styles.list, className ) }
 			onKeyDown={ ( event ) =>
 				handleCommandKey( event, groups, active?.value, onHighlight, onSelect )
@@ -125,31 +130,35 @@ export function CommandList( {
 							{ group.heading }
 						</div>
 					) : null }
-					{ group.items.map( ( { value, label: itemLabel, description, icon: Icon, disabled } ) => (
-						<div
-							key={ value }
-							id={ optionId( value ) }
-							role="option"
-							aria-selected={ value === active?.value }
-							aria-disabled={ disabled || undefined }
-							data-highlighted={ value === active?.value ? '' : undefined }
-							data-disabled={ disabled ? '' : undefined }
-							className={ styles.item }
-							onPointerMove={ () => ! disabled && onHighlight( value ) }
-							onMouseDown={ ( event ) => event.preventDefault() }
-							onClick={ () => ! disabled && onSelect( value ) }
-						>
-							<Icon className={ styles.icon } />
-							{ description ? (
-								<span className={ styles.text }>
+					{ group.items.map(
+						( { value, label: itemLabel, description, trailing, icon: Icon, disabled } ) => (
+							<div
+								key={ value }
+								id={ optionId( value ) }
+								role="option"
+								data-marquee-row
+								aria-selected={ value === active?.value }
+								aria-disabled={ disabled || undefined }
+								data-highlighted={ value === active?.value ? '' : undefined }
+								data-disabled={ disabled ? '' : undefined }
+								className={ size === 'default' ? styles.menuItem : styles.item }
+								onPointerMove={ () => ! disabled && onHighlight( value ) }
+								onMouseDown={ ( event ) => event.preventDefault() }
+								onClick={ () => ! disabled && onSelect( value ) }
+							>
+								<Icon className={ styles.icon } />
+								{ description ? (
+									<span className={ styles.text }>
+										<span className={ styles.label }>{ itemLabel }</span>
+										<MarqueeLabel className={ styles.description }>{ description }</MarqueeLabel>
+									</span>
+								) : (
 									<span className={ styles.label }>{ itemLabel }</span>
-									<span className={ styles.description }>{ description }</span>
-								</span>
-							) : (
-								<span className={ styles.label }>{ itemLabel }</span>
-							) }
-						</div>
-					) ) }
+								) }
+								{ trailing }
+							</div>
+						)
+					) }
 				</div>
 			) ) }
 		</div>

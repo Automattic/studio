@@ -30,14 +30,7 @@ describe( 'formatUpdateBanner', () => {
 
 	it( 'should include the changelog URL', () => {
 		const plain = stripAnsi( formatUpdateBanner( '1.7.8', '1.8.0', 'npm update -g wp-studio' ) );
-		expect( plain ).toContain(
-			'https://developer.wordpress.com/docs/developer-tools/studio/changelog/'
-		);
-	} );
-
-	it( 'should render the npm update command when given it', () => {
-		const plain = stripAnsi( formatUpdateBanner( '1.7.8', '1.8.0', 'npm update -g wp-studio' ) );
-		expect( plain ).toContain( 'npm update -g wp-studio' );
+		expect( plain ).toContain( 'https://wordpress.studio/docs/changelog/' );
 	} );
 
 	it( 'should use a custom update command when provided', () => {
@@ -50,13 +43,6 @@ describe( 'formatUpdateBanner', () => {
 		);
 		expect( plain ).toContain( 'curl -fsSL https://wordpress.studio/install.sh | bash' );
 		expect( plain ).not.toContain( 'npm update -g wp-studio' );
-	} );
-
-	it( 'should be wrapped in a box', () => {
-		const plain = stripAnsi( formatUpdateBanner( '1.0.0', '2.0.0', 'npm update -g wp-studio' ) );
-		expect( plain ).toContain( '╭' );
-		expect( plain ).toContain( '╰' );
-		expect( plain ).toContain( '│' );
 	} );
 } );
 

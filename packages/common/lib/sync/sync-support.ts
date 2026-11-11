@@ -14,10 +14,8 @@ function hasSupportedPlan( site: SitesEndpointSite ): boolean {
 	return site.plan?.features.active.includes( STUDIO_SYNC_FEATURE_NAME ) ?? false;
 }
 
-export function hasStudioPublishingPlan( site: SitesEndpointSite ): boolean {
-	return Boolean(
-		site.plan && ! site.plan.expired && ! site.plan.is_free && hasSupportedPlan( site )
-	);
+export function pushNeedsUpgrade( site: SitesEndpointSite ): boolean {
+	return ! hasSupportedPlan( site ) && ! isPressableSite( site );
 }
 
 // Sites hosted outside wp.com and Pressable (e.g. jurassic.ninja).
@@ -31,7 +29,13 @@ function needsTransfer( site: SitesEndpointSite ): boolean {
 	return ! site.jetpack && ! isAtomicSite( site );
 }
 
-export function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: number[] ): SyncSupport {
+// Backup-based push and pull need a plan with the Studio sync feature. A Reprint pull reads the site
+// through Jetpack, so it only needs an Atomic or Pressable site: unpaid preview sites qualify.
+export function getSyncSupport(
+	site: SitesEndpointSite,
+	connectedSiteIds: number[],
+	{ planRequired = true }: { planRequired?: boolean } = {}
+): SyncSupport {
 	if ( site.is_deleted ) {
 		return 'deleted';
 	}
@@ -41,7 +45,7 @@ export function getSyncSupport( site: SitesEndpointSite, connectedSiteIds: numbe
 	if ( isUnsupported( site ) && ! isPressableSite( site ) ) {
 		return 'unsupported';
 	}
-	if ( ! hasSupportedPlan( site ) && ! isPressableSite( site ) ) {
+	if ( planRequired && pushNeedsUpgrade( site ) ) {
 		return 'needs-upgrade';
 	}
 	if ( needsTransfer( site ) && ! isPressableSite( site ) ) {

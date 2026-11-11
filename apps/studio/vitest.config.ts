@@ -22,6 +22,7 @@ export default mergeConfig(
 			alias: {
 				src: path.resolve( __dirname, './src' ),
 				'@studio/common': path.resolve( __dirname, '../../packages/common' ),
+				'@studio/agent': path.resolve( __dirname, '../../packages/agent' ),
 				'@wp-playground/blueprints/blueprint-schema-validator': path.resolve(
 					__dirname,
 					'../../node_modules/@wp-playground/blueprints/blueprint-schema-validator.js'

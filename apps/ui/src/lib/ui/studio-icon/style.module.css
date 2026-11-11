@@ -1,0 +1,15 @@
+.icon {
+	composes: previewFrame from '@/lib/theme/recipes.module.css';
+	position: relative;
+	display: grid;
+	place-items: center;
+	flex: none;
+	width: 64px;
+	height: 64px;
+	border-radius: 24%;
+	background: var( --background );
+}
+.icon img {
+	width: 100%;
+	height: 100%;
+}

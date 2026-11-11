@@ -3,10 +3,10 @@ import { supportedEditorConfig } from '@studio/common/lib/user-settings/editor';
 import { INTERFACE_PREFERENCE_DEFAULTS } from '@studio/common/lib/user-settings/preferences';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
+import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import {
 	PANEL_WIDTHS_RESET_EVENT,
-	PREVIEW_CONTENT_WIDTH_STORAGE_KEY,
+	PANEL_CONTENT_WIDTH_STORAGE_KEY,
 	SIDEBAR_COLLAPSED_STORAGE_KEY,
 	SIDEBAR_PANEL_STORAGE_KEY,
 } from '@/data/resizable-panels';
@@ -14,7 +14,6 @@ import { applyColorTint, DEFAULT_COLOR_TINT } from '@/lib/theme';
 import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { Connector, UserPreferences } from '@/data/core';
-import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 
 beforeEach( () => {
 	resetAppMessagesForTests();
@@ -27,14 +26,12 @@ async function setup( {
 	section = 'general',
 	signedIn = true,
 	preferences = {},
-	quota = null,
 	overrides = {},
 	nativeFolderPicker = false,
 }: {
 	section?: string;
 	signedIn?: boolean;
 	preferences?: Partial< UserPreferences >;
-	quota?: StudioAssistantQuota | null;
 	overrides?: Partial< Connector >;
 	nativeFolderPicker?: boolean;
 } = {} ) {
@@ -89,7 +86,7 @@ async function setup( {
 					skill.id === id ? { ...skill, installed: false } : skill
 				);
 			},
-			getStudioAssistantQuota: async () => quota,
+			getStudioAssistantQuota: async () => null,
 			getSnapshotUsage: async () => ( { siteCount: 2, siteLimit: 10 } ) as never,
 			getSnapshots: async () =>
 				[
@@ -126,6 +123,23 @@ const searchBox = () => screen.getByRole( 'textbox', { name: 'Search settings' }
 
 describe( 'WordPress Studio settings', () => {
 	it.each( [ undefined, true, false ] )(
+		'saves the startup chat setting from %s',
+		async ( value ) => {
+			const { connector } = await setup( { preferences: { openChatOnSiteStart: value } } );
+			const toggle = await screen.findByRole( 'switch', { name: 'Start sites with chat' } );
+			if ( value ?? true ) expect( toggle ).toBeChecked();
+			else expect( toggle ).not.toBeChecked();
+			fireEvent.click( toggle );
+			await waitFor( () =>
+				expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+					{ openChatOnSiteStart: ! ( value ?? true ) },
+					undefined
+				)
+			);
+		}
+	);
+
+	it.each( [ undefined, true, false ] )(
 		'saves recent chats visibility from %s',
 		async ( value ) => {
 			const { connector } = await setup( { preferences: { showRecentChats: value } } );
@@ -152,27 +166,57 @@ describe( 'WordPress Studio settings', () => {
 
 	it.each( [
 		{ colorScheme: 'dark' as const },
-		{ newSiteBehavior: 'blank' as const },
 		{ accentColor: '#069e08' },
 		{ tintIntensity: 20 },
 		{ contrast: 30 },
 		{ quitSitesBehavior: 'stop' as const },
 		{ showRecentChats: false },
 		{ autoStartSiteOnChat: true },
+		{ hideFrontendAdminBar: true },
 		{ autoCollapseSites: false },
+		{ sidebarPinnedSort: 'manual' as const },
+		{ sidebarSiteSort: 'status' as const },
+		{ sidebarChatSort: 'manual' as const },
 	] )( 'enables interface reset for changed preferences: %j', async ( preferences ) => {
 		await setup( { preferences } );
 		expect( await screen.findByRole( 'button', { name: 'Reset interface' } ) ).toBeEnabled();
 	} );
 
+	it( 'restores sidebar sorting without removing pins or saved chat order', async () => {
+		const sidebarPins = [ 'site:one' ];
+		const sidebarChatOrder = { one: [ 'chat-one', 'chat-two' ] };
+		const { connector } = await setup( {
+			preferences: {
+				sidebarPinnedSort: 'manual',
+				sidebarSiteSort: 'status',
+				sidebarChatSort: 'manual',
+				sidebarPins,
+				sidebarChatOrder,
+			},
+		} );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Reset interface' } ) );
+		await waitFor( () => {
+			expect( connector.state.preferences ).toMatchObject( {
+				sidebarPinnedSort: 'type',
+				sidebarSiteSort: 'manual',
+				sidebarChatSort: 'updated',
+				sidebarPins,
+				sidebarChatOrder,
+			} );
+		} );
+		expect( await screen.findByRole( 'button', { name: 'Reset interface' } ) ).toBeDisabled();
+	} );
+
 	it( 'resets only interface preferences and saved panel widths', async () => {
 		localStorage.setItem( SIDEBAR_PANEL_STORAGE_KEY, '320' );
-		localStorage.setItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY, '600' );
+		localStorage.setItem( PANEL_CONTENT_WIDTH_STORAGE_KEY, '600' );
 		localStorage.setItem( SIDEBAR_COLLAPSED_STORAGE_KEY, 'true' );
 		localStorage.setItem( 'unrelated-key', 'one' );
 		const reset = vi.fn();
 		window.addEventListener( PANEL_WIDTHS_RESET_EVENT, reset );
-		const { connector, settingsParam } = await setup();
+		const { connector, settingsParam } = await setup( {
+			preferences: { hideFrontendAdminBar: true },
+		} );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Reset interface' } ) );
 		await waitFor( () => expect( reset ).toHaveBeenCalledOnce() );
 		await waitFor( () =>
@@ -182,38 +226,34 @@ describe( 'WordPress Studio settings', () => {
 			{ ...INTERFACE_PREFERENCE_DEFAULTS },
 			undefined
 		);
+		expect( screen.getByRole( 'switch', { name: 'Hide admin bar' } ) ).not.toBeChecked();
 		expect( localStorage.getItem( SIDEBAR_PANEL_STORAGE_KEY ) ).toBeNull();
-		expect( localStorage.getItem( PREVIEW_CONTENT_WIDTH_STORAGE_KEY ) ).toBeNull();
+		expect( localStorage.getItem( PANEL_CONTENT_WIDTH_STORAGE_KEY ) ).toBeNull();
 		expect( localStorage.getItem( SIDEBAR_COLLAPSED_STORAGE_KEY ) ).not.toBe( 'true' );
 		expect( localStorage.getItem( 'unrelated-key' ) ).toBe( 'one' );
 		expect( settingsParam() ).toBe( 'general' );
 		window.removeEventListener( PANEL_WIDTHS_RESET_EVENT, reset );
 	} );
 
-	it.each( [ 'light', 'dark' ] as const )(
-		'resets saved colors and the live tint when resetting the %s interface',
-		async ( colorScheme ) => {
-			const customTint = { accentColor: '#069e08', tintIntensity: 40, contrast: 30 };
-			applyColorTint( customTint );
-			const { connector } = await setup( { preferences: { colorScheme, ...customTint } } );
-			fireEvent.click( await screen.findByRole( 'button', { name: 'Reset interface' } ) );
-			await waitFor( () => {
-				expect( document.documentElement.dataset.accentColor ).toBe(
-					DEFAULT_COLOR_TINT.accentColor
-				);
-				expect( document.documentElement.style.getPropertyValue( '--tint-intensity' ) ).toBe(
-					String( DEFAULT_COLOR_TINT.tintIntensity )
-				);
-				expect( document.documentElement.style.getPropertyValue( '--contrast' ) ).toBe(
-					String( DEFAULT_COLOR_TINT.contrast )
-				);
-			} );
-			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
-				expect.objectContaining( DEFAULT_COLOR_TINT ),
-				undefined
+	it( 'resets saved colors and the live tint when resetting the interface', async () => {
+		const customTint = { accentColor: '#069e08', tintIntensity: 40, contrast: 30 };
+		applyColorTint( customTint );
+		const { connector } = await setup( { preferences: { colorScheme: 'dark', ...customTint } } );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Reset interface' } ) );
+		await waitFor( () => {
+			expect( document.documentElement.dataset.accentColor ).toBe( DEFAULT_COLOR_TINT.accentColor );
+			expect( document.documentElement.style.getPropertyValue( '--tint-intensity' ) ).toBe(
+				String( DEFAULT_COLOR_TINT.tintIntensity )
 			);
-		}
-	);
+			expect( document.documentElement.style.getPropertyValue( '--contrast' ) ).toBe(
+				String( DEFAULT_COLOR_TINT.contrast )
+			);
+		} );
+		expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+			expect.objectContaining( DEFAULT_COLOR_TINT ),
+			undefined
+		);
+	} );
 
 	it( 'keeps panel widths when resetting preferences fails and allows retry', async () => {
 		localStorage.setItem( SIDEBAR_PANEL_STORAGE_KEY, '320' );
@@ -237,17 +277,22 @@ describe( 'WordPress Studio settings', () => {
 		);
 		const connect = await studioConnect();
 		expect( connect.closest( '[data-settings-row]' ) ).toHaveTextContent(
-			'Do more with WordPress.com'
+			'Do more with WordPress'
 		);
 		fireEvent.click( connect );
-		await waitFor( () => expect( connect ).toHaveAttribute( 'aria-busy', 'true' ) );
-		expect( connect ).toHaveAttribute( 'aria-disabled', 'true' );
+		await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledOnce() );
+		expect( connect ).not.toHaveAttribute( 'aria-busy', 'true' );
+		expect( connect ).toBeEnabled();
 		connector.state.user = TEST_USER;
 		await act( async () => finishLogin() );
 		await waitFor( () =>
 			expect( screen.queryByRole( 'button', { name: 'Connect' } ) ).not.toBeInTheDocument()
 		);
-		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith( true, 'settings' );
+		expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith(
+			true,
+			'settings',
+			expect.any( Object )
+		);
 	} );
 
 	it( 'keeps the launch card available when connection fails', async () => {
@@ -270,15 +315,19 @@ describe( 'WordPress Studio settings', () => {
 	] )( 'hides the CLI fieldset in %s', async ( _host, appGlobals ) => {
 		await setup( { overrides: { getAppGlobals: async () => appGlobals as never } } );
 		await screen.findByRole( 'combobox', { name: 'Language' } );
-		expect( screen.queryByRole( 'group', { name: 'Studio CLI' } ) ).not.toBeInTheDocument();
 		expect(
-			screen.queryByRole( 'switch', { name: 'Studio CLI for terminal' } )
+			screen.queryByRole( 'group', { name: 'WordPress Studio CLI' } )
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByRole( 'switch', { name: 'WordPress Studio CLI for terminal' } )
 		).not.toBeInTheDocument();
 	} );
 
-	it( 'shows the CLI toggle on desktop and opens it from search', async () => {
+	it( 'shows the CLI toggle on desktop', async () => {
 		const { connector } = await setup();
-		const toggle = await screen.findByRole( 'switch', { name: 'Studio CLI for terminal' } );
+		const toggle = await screen.findByRole( 'switch', {
+			name: 'WordPress Studio CLI for terminal',
+		} );
 		expect( toggle ).toBeEnabled();
 		fireEvent.click( toggle );
 		await waitFor( () =>
@@ -287,28 +336,49 @@ describe( 'WordPress Studio settings', () => {
 				undefined
 			)
 		);
-		fireEvent.change( searchBox(), { target: { value: 'Studio CLI' } } );
-		fireEvent.keyDown( searchBox(), { key: 'Enter' } );
-		expect( screen.getByRole( 'switch', { name: 'Studio CLI for terminal' } ) ).toBeVisible();
 	} );
 
-	it( 'shows account details above General preferences and supports logging out', async () => {
-		const { connector } = await setup();
+	it( 'hides the Application heading when logged in', async () => {
+		await setup();
 		await screen.findByRole( 'combobox', { name: 'Language' } );
-		expect( await screen.findByText( TEST_USER.email ) ).toBeVisible();
-		expect( screen.getByText( TEST_USER.displayName ) ).toBeVisible();
+		expect( screen.queryByText( TEST_USER.email ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( TEST_USER.displayName ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'tab', { name: 'Account' } ) ).not.toBeInTheDocument();
 		const general = screen.getByRole( 'tabpanel', { name: 'General' } );
-		expect( within( general ).getAllByRole( 'group' )[ 0 ] ).toHaveTextContent( TEST_USER.email );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Log out' } ) );
-		await waitFor( () => expect( connector.logout ).toHaveBeenCalledExactlyOnceWith() );
-		expect( await studioConnect() ).toBeVisible();
-		expect( screen.queryByText( TEST_USER.email ) ).not.toBeInTheDocument();
+		expect( within( general ).queryByText( 'Application' ) ).not.toBeInTheDocument();
+		expect(
+			within( general ).queryByRole( 'button', { name: 'Log out' } )
+		).not.toBeInTheDocument();
+		expect(
+			within( general ).queryByRole( 'button', { name: 'Connect' } )
+		).not.toBeInTheDocument();
+	} );
+
+	it( 'shows the Application heading when logged out', async () => {
+		await setup( { signedIn: false } );
+		expect( await screen.findByRole( 'group', { name: 'Application' } ) ).toBeVisible();
+	} );
+
+	it( 'shows account-wide preview usage in Sharing', async () => {
+		await setup( {
+			section: 'sharing',
+			overrides: {
+				getSnapshotUsage: async () => ( {
+					siteCount: 8,
+					siteLimit: 10,
+					siteCreationBlocked: false,
+				} ),
+			},
+		} );
+		const usage = await screen.findByRole( 'group', { name: 'Usage' } );
+		expect( await within( usage ).findByText( '8 of 10 active preview sites' ) ).toBeVisible();
+		expect( within( usage ).getByRole( 'button', { name: 'Preview site actions' } ) ).toBeEnabled();
+		expect( screen.queryByText( '2 of 10 preview sites used' ) ).not.toBeInTheDocument();
 	} );
 
 	it.each( [
 		[ 'Create account', true ],
-		[ 'Log in to WordPress.com', false ],
+		[ 'Log in', false ],
 	] as const )( 'opens the %s flow from Sharing Settings', async ( label, signup ) => {
 		const { connector } = await setup( { section: 'sharing', signedIn: false } );
 		expect( await screen.findByRole( 'tab', { name: 'Sharing' } ) ).toHaveAttribute(
@@ -318,31 +388,11 @@ describe( 'WordPress Studio settings', () => {
 		expect( await screen.findByRole( 'heading', { name: 'Share your WordPress' } ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: label } ) );
 		await waitFor( () =>
-			expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith( signup, 'previews_tab' )
-		);
-	} );
-
-	it( 'keeps Sharing Settings open and enables both account actions after a login failure', async () => {
-		const { connector } = await setup( { section: 'sharing', signedIn: false } );
-		let fail!: ( error: Error ) => void;
-		connector.authenticate.mockImplementationOnce(
-			() =>
-				new Promise< void >( ( _resolve, reject ) => {
-					fail = reject;
-				} )
-		);
-		const login = await screen.findByRole( 'button', { name: 'Log in to WordPress.com' } );
-		const signup = screen.getByRole( 'button', { name: 'Create account' } );
-		fireEvent.click( login );
-		await waitFor( () => expect( login ).toHaveAttribute( 'aria-disabled', 'true' ) );
-		expect( signup ).toBeDisabled();
-		await act( async () => fail( new Error( 'Login failed' ) ) );
-		expect( await screen.findByRole( 'alert' ) ).toHaveTextContent( 'Login failed' );
-		expect( login ).toBeEnabled();
-		expect( signup ).toBeEnabled();
-		expect( screen.getByRole( 'tab', { name: 'Sharing' } ) ).toHaveAttribute(
-			'aria-selected',
-			'true'
+			expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith(
+				signup,
+				'previews_tab',
+				expect.any( Object )
+			)
 		);
 	} );
 
@@ -351,7 +401,11 @@ describe( 'WordPress Studio settings', () => {
 		expect( screen.queryByRole( 'tab', { name: 'Account' } ) ).not.toBeInTheDocument();
 		fireEvent.click( await studioConnect() );
 		await waitFor( () =>
-			expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith( true, 'settings' )
+			expect( connector.authenticate ).toHaveBeenCalledExactlyOnceWith(
+				true,
+				'settings',
+				expect.any( Object )
+			)
 		);
 	} );
 
@@ -367,10 +421,10 @@ describe( 'WordPress Studio settings', () => {
 
 	it( 'offers Default, the installed editors and a saved editor that is gone', async () => {
 		const { connector } = await setup( { preferences: { editor: 'cursor' } } );
-		fireEvent.click( await screen.findByRole( 'combobox', { name: 'Code editor' } ) );
+		fireEvent.click( await screen.findByRole( 'combobox', { name: 'Default code editor' } ) );
 		const options = await screen.findAllByRole( 'option' );
 		expect( options.map( ( option ) => option.textContent ) ).toEqual( [
-			'Default',
+			'System',
 			supportedEditorConfig.cursor.label(),
 			supportedEditorConfig.vscode.label(),
 		] );
@@ -381,14 +435,12 @@ describe( 'WordPress Studio settings', () => {
 		);
 	} );
 
-	it( 'turns the annotation delete confirmation back on', async () => {
-		const { connector } = await setup( { preferences: { confirmDeleteAnnotations: false } } );
-		fireEvent.click(
-			await screen.findByRole( 'switch', { name: 'Confirm before deleting annotations' } )
-		);
+	it( 'enables annotation batching from interface settings', async () => {
+		const { connector } = await setup( { preferences: { batchAnnotations: false } } );
+		fireEvent.click( await screen.findByRole( 'switch', { name: 'Batch notes' } ) );
 		await waitFor( () =>
 			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
-				{ confirmDeleteAnnotations: true },
+				{ batchAnnotations: true },
 				undefined
 			)
 		);
@@ -416,20 +468,25 @@ describe( 'WordPress Studio settings', () => {
 	it( 'says so when a linked setting is not available on this device', async () => {
 		await setup( { section: 'general&settingsFocus=future-setting' } );
 		expect(
-			await screen.findByText( 'This setting is not available on this device.' )
+			await screen.findByText( 'This setting is not available on this device' )
 		).toBeVisible();
 	} );
 
-	it.each( [ 'system', 'light', 'dark' ] as const )(
-		'disables reset for default colors with the %s theme',
-		async ( colorScheme ) => {
-			const { connector } = await setup( { section: 'appearance', preferences: { colorScheme } } );
-			const reset = await screen.findByRole( 'button', { name: 'Reset' } );
-			expect( reset ).toBeDisabled();
-			fireEvent.click( reset );
-			expect( connector.setUserPreferences ).not.toHaveBeenCalled();
-		}
-	);
+	it( 'enables reset for default colors with a non-default theme', async () => {
+		const { connector } = await setup( {
+			section: 'appearance',
+			preferences: { colorScheme: 'dark' },
+		} );
+		const reset = await screen.findByRole( 'button', { name: 'Reset' } );
+		expect( reset ).toBeEnabled();
+		fireEvent.click( reset );
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+				{ ...DEFAULT_COLOR_TINT, colorScheme: 'system' },
+				undefined
+			)
+		);
+	} );
 
 	it.each( [ { accentColor: '#069e08' }, { tintIntensity: 50 }, { contrast: 25 } ] )(
 		'enables reset for a changed appearance preference: %j',
@@ -439,20 +496,20 @@ describe( 'WordPress Studio settings', () => {
 		}
 	);
 
-	it.each( [ 'system', 'light', 'dark' ] as const )(
-		'resets colors while preserving the %s theme',
-		async ( colorScheme ) => {
-			const { connector } = await setup( {
-				section: 'appearance',
-				preferences: { colorScheme, tintIntensity: 40 },
-			} );
-			expect( screen.queryByRole( 'button', { name: 'Done' } ) ).not.toBeInTheDocument();
-			fireEvent.click( await screen.findByRole( 'button', { name: 'Reset' } ) );
-			await waitFor( () =>
-				expect( connector.setUserPreferences ).toHaveBeenCalledWith( DEFAULT_COLOR_TINT, undefined )
-			);
-		}
-	);
+	it( 'resets colors and the theme', async () => {
+		const { connector } = await setup( {
+			section: 'appearance',
+			preferences: { colorScheme: 'dark', tintIntensity: 40 },
+		} );
+		expect( screen.queryByRole( 'button', { name: 'Done' } ) ).not.toBeInTheDocument();
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Reset' } ) );
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+				{ ...DEFAULT_COLOR_TINT, colorScheme: 'system' },
+				undefined
+			)
+		);
+	} );
 
 	it( 'restores saved appearance after a failed background save', async () => {
 		const { connector } = await setup( { section: 'appearance' } );
@@ -463,8 +520,8 @@ describe( 'WordPress Studio settings', () => {
 					failSave = reject;
 				} )
 		);
-		const theme = await screen.findByRole( 'combobox', { name: 'Theme' } );
-		await choose( 'Theme', 'Dark' );
+		const theme = await screen.findByRole( 'combobox', { name: 'Interface theme' } );
+		await choose( 'Interface theme', 'Dark' );
 		await waitFor( () => expect( theme ).toHaveTextContent( 'Dark' ) );
 		await waitFor( () => expect( connector.setUserPreferences ).toHaveBeenCalledOnce() );
 		await act( async () => failSave( new Error( 'Unable to save appearance' ) ) );
@@ -473,16 +530,51 @@ describe( 'WordPress Studio settings', () => {
 		expect( theme ).toBeEnabled();
 	} );
 
+	it( 'saves picked accent colors without changing intensity or contrast', async () => {
+		const { connector, user } = await setup( {
+			section: 'appearance',
+			preferences: { accentColor: '#ff0000', tintIntensity: 40, contrast: 30 },
+		} );
+		await user.click( await screen.findByRole( 'textbox', { name: 'Hex color' } ) );
+		await user.tab();
+		await user.tab();
+		await user.keyboard( '{ArrowRight}' );
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenCalledExactlyOnceWith(
+				{ accentColor: '#ff0400', tintIntensity: 40, contrast: 30 },
+				undefined
+			)
+		);
+		expect( document.documentElement.dataset.accentColor ).toBe( '#ff0400' );
+		await user.keyboard( '{Escape}' );
+		expect( screen.getByRole( 'dialog', { name: 'Settings' } ) ).toBeVisible();
+	} );
+
+	it( 'restores the saved accent color when saving a picked color fails', async () => {
+		const { connector, user } = await setup( {
+			section: 'appearance',
+			preferences: { accentColor: '#ff0000' },
+		} );
+		connector.setUserPreferences.mockRejectedValueOnce( new Error( 'Disk full' ) );
+		const input = await screen.findByRole( 'textbox', { name: 'Hex color' } );
+		await user.click( input );
+		await user.tab();
+		await user.tab();
+		await user.keyboard( '{ArrowRight}' );
+		expect( await screen.findByText( ERROR ) ).toBeVisible();
+		await waitFor( () => expect( input ).toHaveValue( '#ff0000' ) );
+		expect( document.documentElement.dataset.accentColor ).toBe( '#ff0000' );
+	} );
+
 	it( 'keeps the current panel while searching and opens the selected field', async () => {
 		const { connector } = await setup( { section: 'keyboard' } );
 		fireEvent.change( searchBox(), { target: { value: 'theme' } } );
-		expect( screen.queryByRole( 'combobox', { name: 'Theme' } ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'tab', { name: 'Theme' } ) ).toHaveAttribute( 'data-highlighted' );
-		fireEvent.click( screen.getByRole( 'tab', { name: 'Theme' } ) );
-		const control = await screen.findByRole( 'combobox', { name: 'Theme' } );
+		expect( screen.queryByRole( 'combobox', { name: 'Interface theme' } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Interface theme' } ) );
+		const control = await screen.findByRole( 'combobox', { name: 'Interface theme' } );
 		await waitFor( () => expect( row( 'theme' ) ).toHaveAttribute( 'data-settings-match' ) );
 		expect( row( 'theme' ) ).toContainElement( control );
-		await choose( 'Theme', 'Dark' );
+		await choose( 'Interface theme', 'Dark' );
 		await waitFor( () =>
 			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
 				{ colorScheme: 'dark' },
@@ -490,52 +582,10 @@ describe( 'WordPress Studio settings', () => {
 			)
 		);
 		expect( searchBox() ).toHaveValue( 'theme' );
-		expect( screen.getByRole( 'tab', { name: 'Theme' } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Interface theme' } ) ).toBeVisible();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Clear search' } ) );
 		expect( screen.getByRole( 'heading', { name: 'Appearance' } ) ).toBeVisible();
 	} );
-
-	it( 'finds the Instructions sidebar tab from Settings search', async () => {
-		await setup();
-		fireEvent.change( searchBox(), { target: { value: 'Agent instructions' } } );
-		fireEvent.click( await screen.findByRole( 'tab', { name: 'Agent instructions' } ) );
-		expect(
-			await screen.findByRole( 'textbox', { name: 'WordPress Studio instructions' } )
-		).toBeVisible();
-		expect( screen.getByRole( 'tab', { name: 'Agent instructions' } ) ).toBeVisible();
-		expect( searchBox() ).toHaveValue( 'Agent instructions' );
-	} );
-
-	it.each( [
-		{ remaining: 600, used: 40, allowance: 600, purchased: 0, topUp: 0 },
-		{ remaining: 900, used: 40, allowance: 600, purchased: 300, topUp: 500 },
-		{ remaining: 500, used: 0, allowance: 0, purchased: 500, topUp: 500 },
-		{ remaining: 0, used: 100, allowance: 0, purchased: 0, topUp: 0 },
-	] )(
-		'shows $remaining credits and $used% usage together in Usage',
-		async ( { remaining, used, allowance, purchased, topUp } ) => {
-			await setup( {
-				section: 'usage',
-				quota: {
-					costCap: 1000,
-					costUsage: 400,
-					allowanceRemaining: allowance,
-					purchasedRemaining: purchased,
-					purchasedAtTopUp: topUp,
-					emailVerified: true,
-					hasPaymentMethod: true,
-				} as StudioAssistantQuota,
-			} );
-			const label = await screen.findByText( `${ remaining } credits remaining` );
-			const balance = label.closest< HTMLElement >( '[data-slot=field]' )!;
-			expect( within( balance ).getByText( `${ used }% used` ) ).toBeVisible();
-			expect( screen.queryByText( 'Current balance' ) ).not.toBeInTheDocument();
-			expect( screen.queryByText( /Purchased credits are used after/ ) ).not.toBeInTheDocument();
-			fireEvent.click( screen.getByRole( 'tab', { name: 'Sharing' } ) );
-			expect( await screen.findByText( '2 of 10 preview sites used' ) ).toBeVisible();
-			expect( screen.queryByText( `${ remaining } credits remaining` ) ).not.toBeInTheDocument();
-		}
-	);
 
 	it.each( [ undefined, true, false ] )(
 		'saves the sidebar expansion preference from %s',
@@ -567,8 +617,8 @@ describe( 'WordPress Studio settings', () => {
 		).toEqual( [
 			'General',
 			'Appearance',
+			'Providers',
 			'Sharing',
-			'AI Providers',
 			'MCP',
 			'Usage',
 			'Skills',
@@ -654,17 +704,6 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( connector.setAiProvider ).not.toHaveBeenCalled();
 	} );
 
-	it( 'turns Studio Code off', async () => {
-		const { connector } = await setup( { section: 'ai' } );
-		fireEvent.click( await screen.findByRole( 'switch', { name: 'Studio Code' } ) );
-		await waitFor( () =>
-			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
-				{ agenticFeaturesEnabled: false },
-				undefined
-			)
-		);
-	} );
-
 	it( 'toggles custom instructions without changing saved text', async () => {
 		let enabled = true;
 		const { connector } = await setup( {
@@ -699,7 +738,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( links ).toHaveLength( 1 );
 		fireEvent.click( links[ 0 ] );
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
-			'https://developer.wordpress.com/docs/developer-tools/studio/studio-code/'
+			'https://wordpress.studio/docs/studio-code/'
 		);
 		expect(
 			screen.getByText(
@@ -708,7 +747,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		).toBeVisible();
 	} );
 
-	it( 'opens AI Providers for a signed-out Usage link and hides Usage from search', async () => {
+	it( 'opens Providers for a signed-out Usage link and hides Usage from search', async () => {
 		const { connector } = await setup( { section: 'usage', signedIn: false } );
 		const connect = await within( await findProviderRow( 'wpcom-provider' ) ).findByRole(
 			'button',
@@ -717,26 +756,54 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 			}
 		);
 		await waitFor( () => expect( connect ).toBeEnabled() );
-		expect( screen.getByRole( 'tab', { name: 'AI Providers', selected: true } ) ).toBeVisible();
+		expect( screen.getByRole( 'tab', { name: 'Providers', selected: true } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Usage' } ) ).not.toBeInTheDocument();
 		fireEvent.change( searchBox(), { target: { value: 'balance' } } );
 		expect( screen.getByText( 'No settings found.' ) ).toBeVisible();
 		fireEvent.keyDown( searchBox(), { key: 'Escape' } );
 		fireEvent.click( connect );
 		await waitFor( () =>
-			expect( connector.authenticate ).toHaveBeenCalledWith( true, 'settings' )
+			expect( connector.authenticate ).toHaveBeenCalledWith(
+				true,
+				'settings',
+				expect.any( Object )
+			)
 		);
 	} );
 
-	it( 'returns to AI Providers when WordPress.com disconnects while viewing Usage', async () => {
+	it( 'returns to Providers when WordPress.com disconnects while viewing Usage', async () => {
 		const { connector } = await setup( { section: 'usage' } );
 		await screen.findByRole( 'tab', { name: 'Usage', selected: true } );
 		connector.state.user = null;
 		act( () => connector.emit( 'onAuthStateChanged' ) );
-		expect(
-			await screen.findByRole( 'tab', { name: 'AI Providers', selected: true } )
-		).toBeVisible();
+		expect( await screen.findByRole( 'tab', { name: 'Providers', selected: true } ) ).toBeVisible();
 		expect( screen.queryByRole( 'tab', { name: 'Usage' } ) ).not.toBeInTheDocument();
+	} );
+
+	it( 'keeps the Connect label without a spinner while WordPress.com OAuth is pending', async () => {
+		let finishLogin!: () => void;
+		const { connector } = await setup( {
+			section: 'ai',
+			signedIn: false,
+			overrides: {
+				authenticate: () => new Promise< void >( ( resolve ) => ( finishLogin = resolve ) ),
+			},
+		} );
+		const connect = await within( await findProviderRow( 'wpcom-provider' ) ).findByRole(
+			'button',
+			{ name: 'Connect' }
+		);
+		await waitFor( () => expect( connect ).toBeEnabled() );
+		fireEvent.click( connect );
+		await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledOnce() );
+		expect( connect ).toHaveAccessibleName( 'Connect' );
+		expect( connect ).not.toHaveAttribute( 'aria-busy', 'true' );
+		expect( connect.querySelector( '[role="status"]' ) ).toBeNull();
+		expect( connect ).toBeEnabled();
+		fireEvent.click( connect );
+		await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledTimes( 2 ) );
+		await act( async () => finishLogin() );
+		await waitFor( () => expect( connect ).toBeEnabled() );
 	} );
 
 	it( 'waits for completed WordPress.com OAuth before selecting its provider', async () => {
@@ -754,7 +821,11 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		await waitFor( () => expect( connect ).toBeEnabled() );
 		fireEvent.click( connect );
 		await waitFor( () =>
-			expect( connector.authenticate ).toHaveBeenCalledWith( true, 'settings' )
+			expect( connector.authenticate ).toHaveBeenCalledWith(
+				true,
+				'settings',
+				expect.any( Object )
+			)
 		);
 		expect( connector.setAiProvider ).not.toHaveBeenCalled();
 		connector.state.user = TEST_USER;
@@ -869,48 +940,14 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect(
 			screen.queryByRole( 'tablist', { name: 'Intelligence sections' } )
 		).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'tab', { name: 'AI Providers' } ) );
-		expect(
-			await screen.findByRole( 'tab', { name: 'AI Providers', selected: true } )
-		).toBeVisible();
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Providers' } ) );
+		expect( await screen.findByRole( 'tab', { name: 'Providers', selected: true } ) ).toBeVisible();
 		expect( screen.getAllByRole( 'dialog', { name: 'Settings' } ) ).toHaveLength( 1 );
 		const copyButtons = () =>
 			screen.queryAllByRole( 'button', { name: /^Copy (install command|MCP configuration)$/ } );
 		expect( copyButtons() ).toHaveLength( 0 );
 		fireEvent.click( screen.getByRole( 'tab', { name: 'MCP' } ) );
 		await waitFor( () => expect( copyButtons() ).toHaveLength( 2 ) );
-	} );
-
-	it( 'hides skills when off and keeps individual controls visible with a partial selection', async () => {
-		await setup( { section: 'skills' } );
-		const toggle = await screen.findByRole( 'switch', { name: 'WordPress skills' } );
-		expect( toggle ).not.toBeChecked();
-		expect( screen.queryByRole( 'group', { name: 'Skills' } ) ).not.toBeInTheDocument();
-		fireEvent.click( toggle );
-		const cli = await screen.findByRole( 'switch', { name: 'WordPress Studio CLI' } );
-		await waitFor( () => expect( cli ).toBeEnabled() );
-		fireEvent.click( cli );
-		await waitFor( () => expect( cli ).not.toBeChecked() );
-		expect( toggle ).toBeChecked();
-		expect( screen.getByRole( 'group', { name: 'Skills' } ) ).toBeVisible();
-		await waitFor( () => expect( toggle ).toBeEnabled() );
-		fireEvent.click( toggle );
-		await waitFor( () => expect( toggle ).not.toBeChecked() );
-		expect( screen.queryByRole( 'group', { name: 'Skills' } ) ).not.toBeInTheDocument();
-		await waitFor( () => expect( toggle ).toBeEnabled() );
-		fireEvent.click( toggle );
-		expect( await screen.findByRole( 'switch', { name: 'WordPress Studio CLI' } ) ).toBeChecked();
-	} );
-
-	it( 'reports failed skill installation and leaves its toggle off', async () => {
-		const { connector } = await setup( { section: 'skills' } );
-		connector.installWordPressSkillToAllSites.mockRejectedValueOnce(
-			new Error( 'Skill install failed' )
-		);
-		fireEvent.click( await screen.findByRole( 'switch', { name: 'WordPress skills' } ) );
-		await screen.findByText( 'Skill install failed' );
-		expect( screen.getByRole( 'switch', { name: 'WordPress skills' } ) ).not.toBeChecked();
-		expect( screen.queryByRole( 'group', { name: 'Skills' } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'copies the install command and shared MCP configuration independently', async () => {
@@ -939,11 +976,27 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		connector.copyText.mockRejectedValueOnce( new Error( 'Clipboard unavailable' ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Copy MCP configuration' } ) );
 		await waitFor( () =>
-			expect( getNoticeHistory()[ 0 ] ).toMatchObject( {
-				title: 'Could not copy.',
+			expect( getVisibleToasts()[ 0 ] ).toMatchObject( {
+				title: 'Could not copy',
 				description: 'Clipboard unavailable',
 			} )
 		);
 		expect( screen.queryByText( 'Copied' ) ).not.toBeInTheDocument();
 	} );
+	it.each( [ undefined, false, true ] )(
+		'persists the Batch notes interface setting from %s',
+		async ( value ) => {
+			const { connector } = await setup( { preferences: { batchAnnotations: value } } );
+			const control = await screen.findByRole( 'switch', { name: 'Batch notes' } );
+			if ( value ?? true ) expect( control ).toBeChecked();
+			else expect( control ).not.toBeChecked();
+			fireEvent.click( control );
+			await waitFor( () =>
+				expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+					{ batchAnnotations: ! ( value ?? true ) },
+					undefined
+				)
+			);
+		}
+	);
 } );

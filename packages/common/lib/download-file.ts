@@ -3,6 +3,10 @@ import path from 'path';
 import { Writable } from 'stream';
 import { isErrnoException } from './is-errno-exception.ts';
 
+// How long the server has to start responding. The body itself has no limit, since large
+// files on slow connections take as long as they take.
+const RESPONSE_TIMEOUT_MS = 5_000;
+
 export async function downloadFile(
 	url: string,
 	destinationPath: string,
@@ -16,7 +20,17 @@ export async function downloadFile(
 		}
 	}
 
-	const response = await fetch( url );
+	const controller = new AbortController();
+	const timer = setTimeout(
+		() => controller.abort( new DOMException( 'No response from server', 'TimeoutError' ) ),
+		RESPONSE_TIMEOUT_MS
+	);
+	let response: Response;
+	try {
+		response = await fetch( url, { signal: controller.signal } );
+	} finally {
+		clearTimeout( timer );
+	}
 	if ( ! response.ok ) {
 		throw new Error( `Request failed with status code: ${ response.status }` );
 	}

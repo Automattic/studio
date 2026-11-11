@@ -1,6 +1,10 @@
 import crypto from 'node:crypto';
 import { z } from 'zod';
-import { runCliCommand, type ExecuteCliCommand } from '@studio/common/lib/cli-process';
+import {
+	isCliCommandDone,
+	runCliCommand,
+	type ExecuteCliCommand,
+} from '@studio/common/lib/cli-process';
 import { PreviewCommandLoggerAction } from '@studio/common/logger-actions';
 import { snapshotSchema, type Snapshot } from '@studio/common/types/snapshot';
 
@@ -60,6 +64,9 @@ export function createSnapshotManager( ctx: SnapshotCommandContext ): SnapshotMa
 		const [ emitter ] = ctx.executeCliCommand( args, { output: 'capture', logPrefix: 'preview' } );
 
 		emitter.on( 'data', ( { data } ) => {
+			if ( isCliCommandDone( data ) ) {
+				return;
+			}
 			const parsed = snapshotEventSchema.safeParse( data );
 			if ( ! parsed.success ) {
 				console.error( 'Invalid snapshot event:', parsed.error );
@@ -136,6 +143,24 @@ export async function deletePreviewSite(
 	hostname: string
 ): Promise< void > {
 	await runCliCommand( executeCliCommand, [ 'preview', 'delete', hostname ], previewResultSchema, {
+		logPrefix: 'preview',
+	} );
+}
+
+// What changed since Studio last pushed the local site to the preview or pulled the preview into
+// it, as `studio preview status` reports. Each is null when Studio can't tell.
+const previewStatusSchema = z.object( {
+	localSiteId: z.string().nullable(),
+	localChanged: z.boolean().nullable(),
+	previewChanged: z.boolean().nullable(),
+} );
+export type PreviewStatus = z.infer< typeof previewStatusSchema >;
+
+export function getPreviewStatus(
+	executeCliCommand: ExecuteCliCommand,
+	hostname: string
+): Promise< PreviewStatus > {
+	return runCliCommand( executeCliCommand, [ 'preview', 'status', hostname ], previewStatusSchema, {
 		logPrefix: 'preview',
 	} );
 }

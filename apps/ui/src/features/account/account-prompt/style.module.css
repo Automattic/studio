@@ -1,16 +1,30 @@
+.dialog {
+	row-gap: 0;
+	padding-bottom: var( --space-12 );
+}
+
+.dialogWithFooter {
+	padding-bottom: var( --dialog-inset );
+}
+
+.footer {
+	display: grid;
+	gap: var( --space-4 );
+	margin-top: var( --space-6 );
+}
+
 .body {
 	display: flex;
 	flex-direction: column;
 	align-items: center;
 	width: 100%;
-	margin-top: calc( var( --space-4 ) * -1 );
+	margin-top: calc( var( --space-7 ) * -1 );
 	padding-bottom: var( --space-8 );
 	text-align: center;
 	text-wrap: pretty;
 }
 
-/* eslint-disable-next-line studio/no-primitive-overrides -- the prompt drops its dialog offsets inside an Empty, which spaces it already. */
-:global( [data-slot='empty'] ) > .body {
+.flush {
 	margin-top: 0;
 	padding-bottom: 0;
 }
@@ -20,7 +34,7 @@
 	width: 100%;
 	max-width: 448px;
 	aspect-ratio: 2.6 / 1;
-	margin-bottom: var( --space-5 );
+	margin-bottom: var( --space-7 );
 	pointer-events: none;
 }
 
@@ -34,10 +48,6 @@
 	background-color: var( --muted );
 	background-position: center;
 	background-size: cover;
-	/* eslint-disable-next-line studio/use-theme-tokens -- a one-off card shadow, lighter than --shadow-sm. */
-	box-shadow:
-		inset 0 0 0 1px var( --border ),
-		0 1px 3px rgb( 0 0 0 / 10% );
 }
 
 .cardStart,
@@ -46,16 +56,19 @@
 }
 
 .cardStart {
+	composes: imagePreviewFrame from '@/lib/theme/recipes.module.css';
 	left: 10%;
 	transform: translateY( -45% ) rotate( -8deg );
 }
 
 .cardEnd {
+	composes: imagePreviewFrame from '@/lib/theme/recipes.module.css';
 	right: 10%;
 	transform: translateY( -45% ) rotate( 8deg );
 }
 
 .cardCenter {
+	composes: imagePreviewFrame from '@/lib/theme/recipes.module.css';
 	left: 50%;
 	z-index: 1;
 	width: 43%;
@@ -105,6 +118,19 @@
 	flex-direction: column;
 	align-items: center;
 	gap: var( --space-4 );
-	margin-top: var( --space-7 );
+	margin-top: var( --space-6 );
 	font-size: var( --text-xs );
+}
+
+.loginPrompt {
+	margin: 0;
+	color: var( --muted-foreground );
+}
+
+.studioIcon {
+	position: absolute;
+	z-index: 2;
+	bottom: 0;
+	left: 50%;
+	transform: translateX( -50% );
 }

@@ -1,7 +1,9 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import * as defaultBrowser from '@studio/common/lib/user-settings/default-browser';
+import { getMuPluginSettingsPath } from '@studio/common/lib/well-known-paths';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { startLocalServer, type LocalServer } from '../index';
 
 // Driven over HTTP: the request validation and the `null`-clears-a-preference
@@ -54,12 +56,38 @@ beforeEach( async () => {
 } );
 
 afterEach( async () => {
+	vi.restoreAllMocks();
 	await server.close();
 	delete process.env.DEV_CONFIG_DIR;
 	rmSync( configDir, { recursive: true, force: true } );
 } );
 
+it( 'reports the host default browser alongside installed applications', async () => {
+	vi.spyOn( defaultBrowser, 'detectDefaultBrowser' ).mockResolvedValue( {
+		name: 'Safari',
+		browser: 'safari',
+	} );
+	const response = await fetch( `${ server.url }/api/installed-apps` );
+	expect( response.status ).toBe( 200 );
+	expect( await response.json() ).toMatchObject( {
+		terminal: true,
+		defaultBrowser: { name: 'Safari', browser: 'safari' },
+	} );
+} );
+
 describe( 'GET/PATCH /api/user-preferences', () => {
+	it( 'persists and clears the admin bar default shared with the desktop and PHP', async () => {
+		expect( ( await getPreferences() ).hideFrontendAdminBar ).toBe( false );
+		expect( ( await patchPreferences( { hideFrontendAdminBar: true } ) ).status ).toBe( 204 );
+		expect( ( await getPreferences() ).hideFrontendAdminBar ).toBe( true );
+		expect( JSON.parse( readFileSync( getMuPluginSettingsPath(), 'utf8' ) ) ).toEqual( {
+			hideFrontendAdminBar: true,
+			sites: {},
+		} );
+		expect( ( await patchPreferences( { hideFrontendAdminBar: null } ) ).status ).toBe( 204 );
+		expect( ( await getPreferences() ).hideFrontendAdminBar ).toBe( false );
+		expect( ( await patchPreferences( { hideFrontendAdminBar: 'hide' } ) ).status ).toBe( 400 );
+	} );
 	it( 'reports what the desktop stored', async () => {
 		writeAppConfig( { preferredEditor: 'zed', preferredTerminal: 'iterm', colorScheme: 'dark' } );
 
@@ -77,7 +105,6 @@ describe( 'GET/PATCH /api/user-preferences', () => {
 			terminal: null,
 			colorScheme: 'system',
 			analyticsEnabled: true,
-			agenticFeaturesEnabled: true,
 			defaultSiteDirectory: path.join( os.tmpdir(), 'studio-test-sites' ),
 		} );
 	} );
@@ -121,6 +148,42 @@ describe( 'GET/PATCH /api/user-preferences', () => {
 		const response = await patchPreferences( body );
 
 		expect( response.status ).toBe( 400 );
+		expect( readAppConfigFile() ).toEqual( {} );
+	} );
+} );
+
+describe( 'PATCH /api/sites/:id/frontend-admin-bar', () => {
+	const patchAdminBar = ( siteId: string, hidden: unknown ) =>
+		fetch( `${ server.url }/api/sites/${ siteId }/frontend-admin-bar`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify( { hidden } ),
+		} );
+
+	it( 'sets and clears only the site override, preserving the default and other metadata', async () => {
+		writeFileSync(
+			path.join( configDir, 'cli.json' ),
+			JSON.stringify( { sites: [ { id: 'one', name: 'One', path: configDir } ] } )
+		);
+		writeAppConfig( {
+			hideFrontendAdminBar: true,
+			siteMetadata: { one: { sortOrder: 2, autoStart: true } },
+		} );
+		expect( ( await patchAdminBar( 'one', false ) ).status ).toBe( 204 );
+		expect( JSON.parse( readFileSync( getMuPluginSettingsPath(), 'utf8' ) ) ).toEqual( {
+			hideFrontendAdminBar: true,
+			sites: { one: false },
+		} );
+		expect( ( await patchAdminBar( 'one', null ) ).status ).toBe( 204 );
+		expect( readAppConfigFile().siteMetadata ).toEqual( {
+			one: { sortOrder: 2, autoStart: true },
+		} );
+	} );
+
+	it( 'rejects malformed preferences and unknown sites', async () => {
+		expect( ( await patchAdminBar( 'one', 'hide' ) ).status ).toBe( 400 );
+		expect( ( await patchAdminBar( 'one', undefined ) ).status ).toBe( 400 );
+		expect( ( await patchAdminBar( 'missing', true ) ).status ).toBe( 404 );
 		expect( readAppConfigFile() ).toEqual( {} );
 	} );
 } );
@@ -218,4 +281,46 @@ describe( 'POST /api/site-defaults/folder', () => {
 			isWordPress: false,
 		} );
 	} );
+} );
+
+describe( 'GET/PATCH /api/onboarding', () => {
+	it( 'shares the desktop completion flag and retains other settings', async () => {
+		expect( await ( await fetch( `${ server.url }/api/onboarding` ) ).json() ).toBe( false );
+		writeAppConfig( { colorScheme: 'dark', onboardingHints: { tourDismissedVersion: 2 } } );
+		const response = await fetch( `${ server.url }/api/onboarding`, {
+			method: 'PATCH',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify( { completed: true } ),
+		} );
+		expect( response.status ).toBe( 204 );
+		expect( await ( await fetch( `${ server.url }/api/onboarding` ) ).json() ).toBe( true );
+		expect( readAppConfigFile() ).toMatchObject( {
+			colorScheme: 'dark',
+			onboardingHints: { tourDismissedVersion: 2 },
+			onboardingCompleted: true,
+		} );
+	} );
+
+	it.each( [ {}, { completed: 'true' }, { completed: null } ] )(
+		'rejects invalid completion: %j',
+		async ( body ) => {
+			const response = await fetch( `${ server.url }/api/onboarding`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify( body ),
+			} );
+			expect( response.status ).toBe( 400 );
+			expect( readAppConfigFile().onboardingCompleted ).toBeUndefined();
+		}
+	);
+} );
+
+it( 'shares the browser preference over HTTP and clears it back to the OS default', async () => {
+	expect( ( await getPreferences() ).browser ).toBeNull();
+	expect( ( await patchPreferences( { browser: 'chrome' } ) ).status ).toBe( 204 );
+	expect( ( await getPreferences() ).browser ).toBe( 'chrome' );
+	expect( readAppConfigFile().preferredBrowser ).toBe( 'chrome' );
+	expect( ( await patchPreferences( { browser: 'unknown' } ) ).status ).toBe( 400 );
+	expect( ( await patchPreferences( { browser: null } ) ).status ).toBe( 204 );
+	expect( ( await getPreferences() ).browser ).toBeNull();
 } );

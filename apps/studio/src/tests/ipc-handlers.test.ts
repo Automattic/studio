@@ -1,104 +1,60 @@
 /**
  * @vitest-environment node
  */
-import { IpcMainInvokeEvent, shell } from 'electron';
+import { IpcMainInvokeEvent, dialog, shell } from 'electron';
 import { existsSync } from 'fs';
 import { normalize } from 'path';
+import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { readSitePath } from '@studio/common/sites/site-path';
-import { readFile } from 'atomically';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
 import {
-	createSite,
+	fetchSyncableWpcomSites,
 	getFileSize,
-	isFullscreen,
 	openURL,
 	readBlueprintFile,
+	showOpenFolderDialog,
 } from 'src/ipc-handlers';
-import { getMainWindow } from 'src/main-window';
-import { createSiteViaCli } from 'src/modules/cli/lib/cli-site-creator';
+import { getAuthenticationToken } from 'src/lib/oauth';
 
 vi.mock( 'fs' );
 vi.mock( 'fs/promises', async () => {
 	const { fs } = await import( 'memfs' );
 	return { default: fs.promises };
 } );
-vi.mock( 'fs-extra' );
-vi.mock( '@studio/common/lib/fs-utils' );
-vi.mock( '@sentry/electron/main', () => ( {
-	captureException: vi.fn(),
-	captureMessage: vi.fn(),
-	setTag: vi.fn(),
-} ) );
-vi.mock( 'src/lib/sites' );
-vi.mock( 'src/modules/cli/lib/cli-site-creator' );
 vi.mock( '@studio/common/sites/site-path' );
-vi.mock( '@studio/common/sites/site-identity' );
-vi.mock( 'src/main-window' );
-vi.mock( import( 'src/lib/bump-stats' ), async ( importOriginal ) => {
-	const actual = await importOriginal();
-	return {
-		...actual,
-		bumpStat: vi.fn(),
-		bumpAggregatedUniqueStat: vi.fn().mockResolvedValue( undefined ),
-	};
-} );
-vi.mock( 'atomically' );
-vi.mock( 'src/lib/capture-site-thumbnail', () => ( {
-	captureSiteThumbnail: vi.fn(),
-} ) );
-
-const mockSiteDetails = {
-	id: 'mock-cli-site-id',
-	name: 'Test',
-	path: '/test',
-	port: 9999,
-	url: 'http://localhost:9999',
-	phpVersion: '8.4',
-	running: false,
-	adminPassword: 'mock-password',
-	isWpAutoUpdating: false,
-};
-
-vi.mocked( createSiteViaCli ).mockResolvedValue( mockSiteDetails );
-
-const mockUserData = {
-	sites: [],
-};
+vi.mock( '@studio/common/lib/sync/sync-api' );
+vi.mock( 'src/lib/oauth' );
 
 beforeEach( () => {
 	vol.reset();
-	vol.fromJSON( {
-		[ normalize( '/path/to/app/appData/App Name/appdata-v1.json' ) ]:
-			JSON.stringify( mockUserData ),
-	} );
 } );
-
-vi.mocked( readFile ).mockResolvedValue( Buffer.from( JSON.stringify( mockUserData ) ) );
 
 const mockIpcMainInvokeEvent = {
 	sender: { isDestroyed: vi.fn().mockReturnValue( false ) },
 	// Double assert the type with `unknown` to simplify mocking this value
 } as unknown as IpcMainInvokeEvent;
 
-describe( 'createSite', () => {
-	it( 'should delegate to CLI and return site details', async () => {
-		const userData = await createSite( mockIpcMainInvokeEvent, '/test', {
-			siteName: 'Test',
-			wpVersion: '6.4',
-			noStart: true,
-		} );
+describe( 'fetchSyncableWpcomSites', () => {
+	afterEach( () => vi.unstubAllEnvs() );
 
-		expect( userData ).toEqual( mockSiteDetails );
-		expect( createSiteViaCli ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				path: '/test',
-				name: 'Test',
-				wpVersion: '6.4',
-				noStart: true,
-			} )
-		);
-	} );
+	it.each( [
+		{ flag: undefined, planRequired: true },
+		{ flag: '1', planRequired: false },
+	] )(
+		'requires a plan: $planRequired with Reprint flag $flag',
+		async ( { flag, planRequired } ) => {
+			vi.stubEnv( 'STUDIO_ENABLE_PULL_REPRINT', flag );
+			vi.mocked( getAuthenticationToken ).mockResolvedValue( {
+				accessToken: 'test-token',
+			} as Awaited< ReturnType< typeof getAuthenticationToken > > );
+			vi.mocked( fetchSyncableSites ).mockResolvedValue( [] );
+
+			await fetchSyncableWpcomSites( mockIpcMainInvokeEvent );
+
+			expect( fetchSyncableSites ).toHaveBeenCalledWith( 'test-token', { planRequired } );
+		}
+	);
 } );
 
 describe( 'readBlueprintFile', () => {
@@ -118,28 +74,6 @@ describe( 'readBlueprintFile', () => {
 
 		await expect( readBlueprintFile( mockIpcMainInvokeEvent, filePath ) ).rejects.toThrow();
 		expect( existsSync( filePath ) ).toBe( false );
-	} );
-} );
-
-describe( 'isFullscreen', () => {
-	it( 'should return false when window is not in fullscreen', async () => {
-		vi.mocked( getMainWindow, { partial: true } ).mockResolvedValue( {
-			isFullScreen: () => false,
-		} );
-
-		const result = await isFullscreen( mockIpcMainInvokeEvent );
-
-		expect( result ).toBe( false );
-	} );
-
-	it( 'should return true when window is in fullscreen', async () => {
-		vi.mocked( getMainWindow, { partial: true } ).mockResolvedValue( {
-			isFullScreen: () => true,
-		} );
-
-		const result = await isFullscreen( mockIpcMainInvokeEvent );
-
-		expect( result ).toBe( true );
 	} );
 } );
 
@@ -195,5 +129,120 @@ describe( 'openURL', () => {
 			[ 'https://wordpress.com/' ],
 			[ 'http://localhost:8881/' ],
 		] );
+	} );
+} );
+
+describe( 'site source picker', () => {
+	const originalPlatform = process.platform;
+	beforeEach( () => {
+		Object.assign( dialog, {
+			showOpenDialog: vi.fn().mockResolvedValue( { canceled: true, filePaths: [] } ),
+		} );
+	} );
+	afterEach( () => Object.defineProperty( process, 'platform', { value: originalPlatform } ) );
+
+	it.each( [ 'win32', 'linux' ] )(
+		'offers separate native folder and Blueprint pickers on %s',
+		async ( platform ) => {
+			Object.defineProperty( process, 'platform', { value: platform } );
+			for ( const [ response, properties ] of [
+				[ 0, [ 'openDirectory' ] ],
+				[ 1, [ 'openFile' ] ],
+			] as const ) {
+				vi.mocked( dialog.showMessageBox ).mockResolvedValueOnce( {
+					response,
+					checkboxChecked: false,
+				} );
+				await expect(
+					showOpenFolderDialog( mockIpcMainInvokeEvent, 'Open', '/sites', {
+						allowBlueprints: true,
+					} )
+				).resolves.toBeNull();
+				expect( dialog.showOpenDialog ).toHaveBeenLastCalledWith(
+					expect.anything(),
+					expect.objectContaining( {
+						properties: [ ...properties ],
+						filters: [ { name: 'Blueprints', extensions: [ 'json', 'zip' ] } ],
+					} )
+				);
+			}
+			vi.mocked( dialog.showMessageBox ).mockResolvedValueOnce( {
+				response: 2,
+				checkboxChecked: false,
+			} );
+			await expect(
+				showOpenFolderDialog( mockIpcMainInvokeEvent, 'Open', '/sites', { allowBlueprints: true } )
+			).resolves.toBeNull();
+			expect( dialog.showOpenDialog ).toHaveBeenCalledTimes( 2 );
+		}
+	);
+
+	it( 'accepts a destination that does not exist yet without presenting a picker', async () => {
+		await expect(
+			showOpenFolderDialog( mockIpcMainInvokeEvent, 'Choose folder', '/sites/new-destination', {
+				usePath: true,
+			} )
+		).resolves.toEqual( {
+			path: '/sites/new-destination',
+			name: 'new-destination',
+			isEmpty: true,
+			isWordPress: false,
+		} );
+		expect( dialog.showOpenDialog ).not.toHaveBeenCalled();
+	} );
+
+	it( 'reads a dropped Blueprint folder without presenting a picker', async () => {
+		vol.fromJSON( { '/sites/starter/blueprint.json': JSON.stringify( { steps: [] } ) } );
+		const result = await showOpenFolderDialog( mockIpcMainInvokeEvent, 'Open', '/sites/starter', {
+			allowBlueprints: true,
+			usePath: true,
+		} );
+		expect( result?.blueprint?.blueprintJson ).toEqual( { steps: [] } );
+		expect( result?.path ).toBe( '/sites/starter' );
+		expect( dialog.showOpenDialog ).not.toHaveBeenCalled();
+	} );
+
+	it.each( [ 'backup.wpress', 'export.xml', 'blueprint.json' ] )(
+		'opens the combined source picker for %s',
+		async ( name ) => {
+			Object.defineProperty( process, 'platform', { value: 'darwin' } );
+			vol.fromJSON( { [ '/sites/' + name ]: name.endsWith( '.json' ) ? '{}' : 'file' } );
+			vi.mocked( dialog.showOpenDialog ).mockResolvedValueOnce( {
+				canceled: false,
+				filePaths: [ '/sites/' + name ],
+			} );
+			const result = await showOpenFolderDialog( mockIpcMainInvokeEvent, 'Choose', '/sites', {
+				allowSiteFiles: true,
+			} );
+			expect( result?.path ).toBe( '/sites/' + name );
+			if ( name.endsWith( '.json' ) ) expect( result?.blueprint?.blueprintJson ).toEqual( {} );
+			else expect( result?.file ).toEqual( { path: '/sites/' + name, name } );
+			expect( dialog.showOpenDialog ).toHaveBeenLastCalledWith(
+				expect.anything(),
+				expect.objectContaining( {
+					properties: [ 'openDirectory', 'createDirectory', 'openFile' ],
+					filters: [
+						{
+							name: 'Site sources',
+							extensions: expect.arrayContaining( [ 'json', 'zip', 'xml', 'wpress' ] ),
+						},
+					],
+				} )
+			);
+		}
+	);
+
+	it( 'keeps the combined native picker on macOS', async () => {
+		Object.defineProperty( process, 'platform', { value: 'darwin' } );
+		await showOpenFolderDialog( mockIpcMainInvokeEvent, 'Open', '/sites', {
+			allowBlueprints: true,
+		} );
+		expect( dialog.showMessageBox ).not.toHaveBeenCalled();
+		expect( dialog.showOpenDialog ).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.objectContaining( {
+				properties: [ 'openDirectory', 'createDirectory', 'openFile' ],
+			} )
+		);
 	} );
 } );

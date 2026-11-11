@@ -8,7 +8,6 @@ it( 'opens the pages from Help ▸ What’s New and marks them seen when closed'
 	const { connector } = renderApp( {
 		connector: createFakeConnector( {
 			sites: [ makeSite() ],
-			preferences: { agenticFeaturesEnabled: false },
 		} ),
 		path: '/sites/site-1',
 	} );
@@ -18,8 +17,6 @@ it( 'opens the pages from Help ▸ What’s New and marks them seen when closed'
 	expect(
 		await screen.findByRole( 'dialog', { name: 'Meet the new WordPress Studio' } )
 	).toBeVisible();
-	// Chat is off, so the Studio Code page is left out.
-	expect( screen.queryByText( 'Studio Code, right beside your site' ) ).not.toBeInTheDocument();
 
 	fireEvent.click( screen.getByRole( 'button', { name: 'Skip' } ) );
 	await waitFor( () =>

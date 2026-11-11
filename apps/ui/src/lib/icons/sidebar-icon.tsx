@@ -1,9 +1,13 @@
 import type { ComponentProps } from 'react';
 
 export function SidebarIcon( {
-	expanded,
+	state = 'docked',
+	side = 'left',
 	...props
-}: ComponentProps< 'svg' > & { expanded: boolean } ) {
+}: ComponentProps< 'svg' > & {
+	state?: 'closed' | 'flyout' | 'docked';
+	side?: 'left' | 'right';
+} ) {
 	return (
 		<svg
 			width="16"
@@ -16,10 +20,19 @@ export function SidebarIcon( {
 			{ ...props }
 		>
 			<rect x="3" y="3" width="18" height="18" rx="4" />
-			<path
-				d={ expanded ? 'M10 3V21' : 'M7.5 7.5V16.5' }
-				strokeLinecap={ expanded ? 'butt' : 'round' }
-			/>
+			{ state === 'docked' ? (
+				<path d={ side === 'right' ? 'M14 3V21' : 'M10 3V21' } />
+			) : (
+				<rect
+					x={ side === 'right' ? ( state === 'flyout' ? 12 : 15.5 ) : 6.5 }
+					y="6.5"
+					width={ state === 'flyout' ? 5.5 : 2 }
+					height="11"
+					rx={ state === 'flyout' ? 2 : 1 }
+					fill="currentColor"
+					stroke="none"
+				/>
+			) }
 		</svg>
 	);
 }

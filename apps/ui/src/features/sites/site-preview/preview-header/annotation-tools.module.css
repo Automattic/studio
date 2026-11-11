@@ -1,0 +1,45 @@
+.overlay {
+	position: absolute;
+	inset-inline: var( --space-3 );
+	bottom: 0;
+	z-index: var( --z-overlay );
+	display: flex;
+	justify-content: center;
+	padding-block: var( --space-4 );
+	pointer-events: none;
+	mask-image: linear-gradient( to top, transparent, var( --foreground ) var( --space-3 ) );
+	mask-mode: alpha;
+}
+
+.tools {
+	composes: floatingReveal from '@/lib/theme/recipes.module.css';
+	composes: floating padded from '@/lib/ui/surface/style.module.css';
+	--floating-reveal-opacity: opacity 0s linear var( --motion-duration-layout );
+	--floating-reveal-duration: var( --motion-duration-layout );
+	--floating-reveal-easing: var( --motion-ease-layout );
+	--surface: var( --chat );
+	display: flex;
+	align-items: center;
+	gap: var( --space-1 );
+	width: max-content;
+	max-width: 100%;
+	border-radius: var( --radius-3xl );
+	transform: translateY( calc( 50% + var( --space-4 ) + var( --space-2 ) ) ) scale( 0 );
+	/* The mask handles the fade; opacity changes only after the toolbar leaves. */
+	transition: var( --floating-reveal-transition );
+}
+
+.tools[data-visible] {
+	--floating-reveal-opacity: opacity 0s;
+	--floating-reveal-duration: var( --motion-duration-reveal );
+	--floating-reveal-easing: var( --motion-ease-spring-gentle );
+	transform: translateY( 0 ) scale( 1 );
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.tools,
+	.tools[data-visible] {
+		transform: none;
+		transition: var( --floating-reveal-transition );
+	}
+}

@@ -19,7 +19,7 @@ export const METRIC_NAMES = [
 	'templateSave',
 ] as const;
 
-export type MetricName = ( typeof METRIC_NAMES )[ number ];
+type MetricName = ( typeof METRIC_NAMES )[ number ];
 
 /** A single measurement result: one timing value per metric. A metric may be missing if that step failed. */
 export type MeasurementResult = Partial< Record< MetricName, number > >;

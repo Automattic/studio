@@ -1,18 +1,18 @@
-import { getAiModelLabel } from '@studio/common/ai/models';
+import { getAiModelLabel } from '@studio/agent/protocol/models';
 import {
 	AI_PROVIDER_LABELS,
 	getAiProviderModels,
 	type AiProviderId,
-} from '@studio/common/ai/providers';
+} from '@studio/agent/protocol/providers';
 import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
 import { __, sprintf } from '@wordpress/i18n';
-import { PlugIcon, PlusIcon } from 'lucide-react';
+import { PlugIcon } from 'lucide-react';
 import { useRef, useState, type RefObject } from 'react';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { getCreditsLabel, getModelDescription } from '@/features/composer/model-options';
-import { ChevronDownIcon, ClaudeIcon, WordPressIcon } from '@/lib/icons';
+import { PlusIcon, ChevronDownIcon, ClaudeIcon, WordPressIcon } from '@/lib/icons';
 import { Button, CommandSheet, Popover, type Command, type CommandGroup } from '@/lib/ui';
 import type { AiModelId } from '@/data/core';
 
@@ -60,7 +60,6 @@ export function ModelPicker( {
 		isWpcom &&
 		!! quota &&
 		credits.hasCredits &&
-		! isQuotaError &&
 		getStudioCodeAiAccessState( quota ) === 'available' &&
 		quota.hasPaymentMethod;
 	const modelDetails = [ modelLabel, AI_PROVIDER_LABELS[ sessionProvider ] ];
@@ -121,8 +120,8 @@ export function ModelPicker( {
 					: [] ),
 				{
 					value: 'connect-provider',
-					label: __( 'Connect provider…' ),
-					description: __( 'Add or manage your AI providers' ),
+					label: __( 'Connect providers' ),
+					description: __( 'Use WordPress.com AI credits or your own API key.' ),
 					icon: PlugIcon,
 				},
 			],

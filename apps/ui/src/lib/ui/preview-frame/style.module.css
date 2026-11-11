@@ -1,6 +1,6 @@
 @layer ui {
 	.frame {
-		composes: imageOutline from '@/lib/theme/recipes.module.css';
+		composes: imagePreviewFrame from '@/lib/theme/recipes.module.css';
 		position: relative;
 		display: block;
 		width: 100%;
@@ -8,6 +8,10 @@
 		overflow: hidden;
 		border-radius: var( --radius-sm );
 		background-color: var( --muted );
+	}
+
+	.frame:empty {
+		display: none;
 	}
 
 	.frame::after {
@@ -19,11 +23,5 @@
 		height: 100%;
 		object-fit: cover;
 		object-position: top;
-	}
-
-	.skeleton {
-		position: absolute;
-		inset: 0;
-		border-radius: 0;
 	}
 }

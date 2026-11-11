@@ -7,10 +7,11 @@ function renderQuestion( {
 	shortcuts = true,
 	checked = '',
 	disabled = false,
+	groupDisabled = false,
 } = {} ) {
 	const onSelect = vi.fn();
 	render(
-		<Questionnaire multiple={ multiple } shortcuts={ shortcuts }>
+		<Questionnaire multiple={ multiple } shortcuts={ shortcuts } disabled={ groupDisabled }>
 			<QuestionnaireTitle>Which layout?</QuestionnaireTitle>
 			<QuestionnaireChoices>
 				{ [ 'Grid', 'List' ].map( ( label, index ) => (
@@ -61,7 +62,7 @@ describe( 'Questionnaire', () => {
 		expect( onSelect ).toHaveBeenCalledWith( 'List' );
 	} );
 
-	it.each( [ { shortcuts: false }, { disabled: true } ] )(
+	it.each( [ { shortcuts: false }, { disabled: true }, { groupDisabled: true } ] )(
 		'ignores letter keys with %o',
 		( options ) => {
 			const onSelect = renderQuestion( options );

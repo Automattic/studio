@@ -7,15 +7,40 @@ import {
 } from './frame';
 
 describe( 'preview particle frames', () => {
-	it( 'lights the selected-site grid downward in an upward arch with the sides leading', () => {
-		const dots = createPreviewDots( 800, 600 );
-		const top = dots.reduce( ( closest, dot ) =>
-			Math.hypot( dot.x - 400, dot.y - 100 ) < Math.hypot( closest.x - 400, closest.y - 100 )
-				? dot
-				: closest
+	it( 'keeps resting dots in place as the viewport grows and shrinks', () => {
+		const positions = ( width: number, height: number ) =>
+			createPreviewDots( width, height ).map( ( { x, y } ) => ( { x, y } ) );
+		const original = positions( 800, 600 );
+		for ( const [ width, height ] of [
+			[ 813, 611 ],
+			[ 960, 720 ],
+			[ 1920, 1080 ],
+		] ) {
+			expect( positions( width, height ).filter( ( { x, y } ) => x <= 776 && y <= 576 ) ).toEqual(
+				original
+			);
+		}
+		expect( positions( 600, 400 ) ).toEqual(
+			original.filter( ( { x, y } ) => x <= 576 && y <= 376 )
 		);
+	} );
+
+	it( 'opens the space for the logo gradually without moving a resting dot', () => {
+		const dot = createPreviewDots( 1, 1 )[ 0 ];
+		const frame = { time: 0, amount: 0, centerX: 0.5, centerY: 0.5 };
+		const resting = getPreviewDotFrame( dot, { ...frame, logoAmount: 0 } );
+		const opening = getPreviewDotFrame( dot, { ...frame, logoAmount: 0.5 } );
+		const cleared = getPreviewDotFrame( dot, { ...frame, logoAmount: 1 } );
+		expect( opening.x ).toBe( resting.x );
+		expect( opening.y ).toBe( resting.y );
+		expect( opening.opacity ).toBeGreaterThan( cleared.opacity );
+		expect( opening.opacity ).toBeLessThan( resting.opacity );
+	} );
+
+	it( 'lights the selected-site grid downward in an upward arch with the sides leading', () => {
+		const top = { ...createPreviewDots( 800, 600 )[ 0 ], x: 400, y: 100 };
 		const bottom = { ...top, y: 500 };
-		const side = { ...bottom, x: 18 };
+		const side = { ...bottom, x: 24 };
 		const wave = ( dot: typeof top, elapsed: number ) =>
 			getSelectionWave( dot, {
 				elapsed: ( elapsed * SELECTION_WAVE_DURATION ) / 1000,
@@ -39,7 +64,7 @@ describe( 'preview particle frames', () => {
 
 	it( 'keeps the outer dots anchored while interior dots move', () => {
 		const dots = createPreviewDots( 800, 600 );
-		const frame = { time: 2400, amount: 1, centerX: 400, centerY: 300, clearCenter: false };
+		const frame = { time: 2400, amount: 1, centerX: 400, centerY: 300, logoAmount: 0 };
 		for ( const dot of dots.filter( ( point ) => point.edge === 0 ) ) {
 			const point = getPreviewDotFrame( dot, frame );
 			expect( point.x ).toBeCloseTo( dot.x );
@@ -51,7 +76,7 @@ describe( 'preview particle frames', () => {
 
 	it( 'reproduces the same positions and opacity when seeking back to a frame', () => {
 		const dots = createPreviewDots( 960, 600 );
-		const frame = { time: 1234, amount: 1, centerX: 480, centerY: 300, clearCenter: false };
+		const frame = { time: 1234, amount: 1, centerX: 480, centerY: 300, logoAmount: 0 };
 		const before = dots.map( ( dot ) => getPreviewDotFrame( dot, frame ) );
 		dots.forEach( ( dot ) => getPreviewDotFrame( dot, { ...frame, time: 9000 } ) );
 		expect( dots.map( ( dot ) => getPreviewDotFrame( dot, frame ) ) ).toEqual( before );
@@ -66,10 +91,10 @@ describe( 'preview particle frames', () => {
 					amount: 0,
 					centerX: size / 2,
 					centerY: size / 2,
-					clearCenter: false,
+					logoAmount: 0,
 				} );
 				expect( Number.isFinite( point.x + point.y + point.opacity ) ).toBe( true );
-				expect( point.opacity ).toBeCloseTo( 0.2 );
+				expect( point.opacity ).toBe( 1 );
 				if ( Math.hypot( point.x - size / 2, point.y - size / 2 ) <= 36 ) {
 					expect(
 						getPreviewDotFrame( dot, {
@@ -77,11 +102,30 @@ describe( 'preview particle frames', () => {
 							amount: 0,
 							centerX: size / 2,
 							centerY: size / 2,
-							clearCenter: true,
+							logoAmount: 1,
 						} ).opacity
 					).toBe( 0 );
 				}
 			}
+		}
+	} );
+
+	it( 'keeps a moving dot within one grid spacing of the center without a logo', () => {
+		const [ width, height ] = [ 800, 600 ];
+		const dots = createPreviewDots( width, height );
+		const spacing = dots[ 1 ].x - dots[ 0 ].x;
+		for ( let time = 0; time <= 14000; time += 250 ) {
+			const distances = dots.map( ( dot ) => {
+				const { x, y } = getPreviewDotFrame( dot, {
+					time,
+					amount: 1,
+					centerX: width / 2,
+					centerY: height / 2,
+					logoAmount: 0,
+				} );
+				return Math.hypot( x - width / 2, y - height / 2 );
+			} );
+			expect( Math.min( ...distances ) ).toBeLessThan( spacing );
 		}
 	} );
 } );

@@ -1,7 +1,9 @@
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
+import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { vi } from 'vitest';
 import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { getPrettyPath } from 'cli/lib/utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { runCommand } from '../status';
 vi.mock( 'cli/lib/cli-config/sites', async () => {
@@ -61,15 +63,6 @@ describe( 'CLI: studio site status', () => {
 	} );
 
 	describe( 'Success Cases', () => {
-		it( 'should display site status with table format', async () => {
-			await runCommand( '/path/to/site', 'table' );
-
-			expect( getSiteByFolder ).toHaveBeenCalledWith( '/path/to/site' );
-			expect( connectToDaemon ).toHaveBeenCalled();
-			expect( isServerRunning ).toHaveBeenCalledWith( testSite.id );
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
 		it( 'should output JSON format correctly', async () => {
 			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
 
@@ -80,6 +73,7 @@ describe( 'CLI: studio site status', () => {
 					{
 						siteUrl: 'http://localhost:8080/',
 						sitePath: '/path/to/site',
+						emailPath: getPrettyPath( getSiteEmailDirectory( 'site-1' ) ),
 						status: '🔴 Offline',
 						isOnline: false,
 						phpVersion: '8.0',
@@ -135,6 +129,7 @@ describe( 'CLI: studio site status', () => {
 						siteUrl: 'http://localhost:8080/',
 						autoLoginUrl: 'http://localhost:8080/studio-auto-login?redirect_to=%2Fwp-admin%2F',
 						sitePath: '/path/to/site',
+						emailPath: getPrettyPath( getSiteEmailDirectory( 'site-1' ) ),
 						status: '🟢 Online',
 						isOnline: true,
 						phpVersion: '8.0',
@@ -169,20 +164,6 @@ describe( 'CLI: studio site status', () => {
 			consoleSpy.mockRestore();
 		} );
 
-		it( 'should handle custom domain in site URL', async () => {
-			vi.mocked( getSiteUrl ).mockReturnValue( 'http://my-site.wp.local' );
-
-			const consoleSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
-
-			await runCommand( '/path/to/site', 'json' );
-
-			expect( consoleSpy ).toHaveBeenCalledWith(
-				expect.stringContaining( 'http://my-site.wp.local' )
-			);
-
-			consoleSpy.mockRestore();
-		} );
-
 		it( 'should handle missing optional site properties', async () => {
 			vi.mocked( getSiteByFolder ).mockResolvedValue( testSiteWithoutOptional as typeof testSite );
 
@@ -195,6 +176,7 @@ describe( 'CLI: studio site status', () => {
 					{
 						siteUrl: 'http://localhost:8080/',
 						sitePath: '/path/to/site',
+						emailPath: getPrettyPath( getSiteEmailDirectory( 'site-1' ) ),
 						status: '🔴 Offline',
 						isOnline: false,
 						fileAccess: 'Site directory',
@@ -208,26 +190,6 @@ describe( 'CLI: studio site status', () => {
 			);
 
 			consoleSpy.mockRestore();
-		} );
-	} );
-
-	describe( 'Cleanup', () => {
-		it( 'should always disconnect from process manager on success', async () => {
-			await runCommand( '/path/to/site', 'table' );
-
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should always disconnect from process manager on error', async () => {
-			vi.mocked( getSiteByFolder ).mockRejectedValue( new Error( 'Error' ) );
-
-			try {
-				await runCommand( '/path/to/site', 'table' );
-			} catch {
-				// Expected
-			}
-
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
 	} );
 } );

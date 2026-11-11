@@ -62,10 +62,10 @@ describe( 'account and session events', () => {
 		await waitFor( () =>
 			expect( queryClient.getQueryState( [ 'auth-user' ] )?.status ).toBe( 'error' )
 		);
-		expect( getVisibleToasts() ).toHaveLength( 0 );
+		expect( toastTitles() ).toEqual( [ 'Couldn’t refresh your account' ] );
 		authChanged();
 		await settle();
-		expect( getVisibleToasts() ).toHaveLength( 0 );
+		await waitFor( () => expect( getVisibleToasts() ).toHaveLength( 0 ) );
 	} );
 
 	it( 'shares subscriptions across consumers and unsubscribes on unmount', async () => {

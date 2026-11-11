@@ -1,4 +1,16 @@
 @layer ui {
+	.item:not( :has( > [data-icon='inline-end'] ) ) {
+		padding-inline-end: var( --space-3 );
+	}
+
+	.itemLabel {
+		min-width: 0;
+		max-width: min( 320px, 60vw );
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
 	.positioner {
 		z-index: var( --z-popover );
 		outline: none;
@@ -15,7 +27,8 @@
 	}
 
 	.destructive[data-highlighted] {
-		background-color: var( --destructive-hover );
+		--item-hover-background: var( --destructive-hover );
+		--item-hover-foreground: var( --destructive );
 		color: var( --destructive );
 	}
 
@@ -26,6 +39,15 @@
 		rotate: -90deg;
 	}
 
+	.submenuChevron:dir( rtl ) {
+		rotate: 90deg;
+	}
+
+	.radioIndicator {
+		display: flex;
+		margin-inline-start: auto;
+	}
+
 	.shortcut {
 		margin-inline-start: auto;
 		padding-inline-start: var( --space-3 );
@@ -34,11 +56,7 @@
 		letter-spacing: 0.1em;
 	}
 
-	.groupLabel {
-		padding: var( --space-1 ) var( --space-1_5 );
-		color: var( --muted-foreground );
-		font-size: var( --text-xs );
-		font-weight: var( --font-weight-medium );
-		line-height: var( --text-xs--line-height );
+	.destructive .shortcut {
+		color: inherit;
 	}
 }

@@ -1,4 +1,9 @@
-import { __recordTracksEvent, TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
+import {
+	__recordTracksEvent,
+	TRACKS_EVENTS,
+	type TracksProps,
+	type TracksEventName,
+} from '@studio/common/lib/record-tracks-event';
 import {
 	getOrCreateAnalyticsInstallId,
 	isAnalyticsOptedOut,
@@ -53,19 +58,9 @@ describe( 'getTracksOrigin', () => {
 		expect( getTracksOrigin() ).toEqual( { channel: 'studio-ui', ui_version: 'v1' } );
 	} );
 
-	it( 'resolves studio-ui:v2', () => {
-		process.env.STUDIO_TRACKS_ORIGIN = 'studio-ui:v2';
-		expect( getTracksOrigin() ).toEqual( { channel: 'studio-ui', ui_version: 'v2' } );
-	} );
-
 	it( 'resolves studio-web:v2, the value `studio ui` sets', () => {
 		process.env.STUDIO_TRACKS_ORIGIN = 'studio-web:v2';
 		expect( getTracksOrigin() ).toEqual( { channel: 'studio-web', ui_version: 'v2' } );
-	} );
-
-	it( 'resolves studio-web:v1', () => {
-		process.env.STUDIO_TRACKS_ORIGIN = 'studio-web:v1';
-		expect( getTracksOrigin() ).toEqual( { channel: 'studio-web', ui_version: 'v1' } );
 	} );
 
 	it( 'defaults the ui_version to v1 when the origin carries no version', () => {
@@ -173,4 +168,116 @@ describe( 'recordTracksEvent', () => {
 			} )
 		);
 	} );
+} );
+
+it.each( [
+	TRACKS_EVENTS.ACCOUNT_PROMPT_VIEWED,
+	TRACKS_EVENTS.ONBOARDING_VIEWED,
+	TRACKS_EVENTS.WPCOM_AUTH_STARTED,
+	TRACKS_EVENTS.WPCOM_AUTH_CANCELLED,
+	TRACKS_EVENTS.WPCOM_AUTH_LAUNCH_FAILED,
+	TRACKS_EVENTS.ACCOUNT_JOURNEY_COMPLETED,
+	TRACKS_EVENTS.WPCOM_AUTH,
+	TRACKS_EVENTS.ONBOARDING_COMPLETE,
+	TRACKS_EVENTS.CODE_MESSAGE_SENT,
+	TRACKS_EVENTS.CODE_TURN_COMPLETED,
+] )( 'opt-out suppresses account/turn event %s', async ( name ) => {
+	mockOptedOut.mockResolvedValue( true );
+	for ( const channel of [ 'studio-cli', 'studio-web', 'studio-mcp' ] ) {
+		await recordTracksEvent( name, { channel } );
+	}
+	expect( mockRecord ).not.toHaveBeenCalled();
+	expect( mockInstallId ).not.toHaveBeenCalled();
+} );
+
+describe.each( [
+	[ TRACKS_EVENTS.BLUEPRINT_VIEWED, { blueprint_slug: 'substrata', use_case: 'blog' } ],
+	[ TRACKS_EVENTS.BLUEPRINT_USE_CASE_FILTER_CHANGED, { use_case: 'all' } ],
+	[
+		TRACKS_EVENTS.BLUEPRINT_PREVIEW_IN_BROWSER,
+		{ blueprint_slug: 'substrata', placement: 'add_site_blueprint_details' },
+	],
+	[
+		TRACKS_EVENTS.BLUEPRINT_CREATE_SITE_INTENT,
+		{ blueprint_slug: 'substrata', placement: 'add_site_blueprint_details' },
+	],
+	[ TRACKS_EVENTS.BLANK_SITE_SELECTED, { placement: 'add_site_blueprint_gallery' } ],
+	[
+		TRACKS_EVENTS.RESPONSIVE_PREVIEW_CHANGED,
+		{
+			action: 'manual_resize',
+			preset_category: 'custom',
+			width_bucket: 'under_600',
+			height_bucket: '600_to_1023',
+		},
+	],
+] satisfies [ TracksEventName, TracksProps ][] )( 'UI event %s', ( event, props ) => {
+	it( 'does not send or create an install identity when opted out', async () => {
+		mockOptedOut.mockResolvedValue( true );
+		process.env.STUDIO_TRACKS_ORIGIN = 'studio-web:v2';
+		await recordTracksEvent( event, { ...getTracksOrigin(), ...props } );
+		expect( mockRecord ).not.toHaveBeenCalled();
+		expect( mockInstallId ).not.toHaveBeenCalled();
+	} );
+	it( 'does not send when browser telemetry is disabled in the build', async () => {
+		vi.stubGlobal( '__ENABLE_CLI_TELEMETRY__', false );
+		delete process.env.STUDIO_FORCE_CLI_TELEMETRY;
+		process.env.NODE_ENV = 'production';
+		process.env.STUDIO_TRACKS_ORIGIN = 'studio-web:v2';
+		await recordTracksEvent( event, { ...getTracksOrigin(), ...props } );
+		expect( mockRecord ).not.toHaveBeenCalled();
+		expect( mockInstallId ).not.toHaveBeenCalled();
+	} );
+	it( 'sends once with anonymous identity, common props and the original action props', async () => {
+		mockOptedOut.mockResolvedValue( false );
+		process.env.STUDIO_TRACKS_ORIGIN = 'studio-web:v2';
+		await recordTracksEvent( event, { ...getTracksOrigin(), ...props } );
+		expect( mockRecord ).toHaveBeenCalledExactlyOnceWith(
+			event,
+			{ type: 'anon', id: 'install-uuid' },
+			{
+				...props,
+				platform: process.platform,
+				arch: process.arch,
+				is_a11n: false,
+				app_version: '2.3.4',
+				channel: 'studio-web',
+				ui_version: 'v2',
+			}
+		);
+	} );
+} );
+
+it( 'keeps workspace layout telemetry silent when opted out', async () => {
+	mockOptedOut.mockResolvedValue( true );
+	await recordTracksEvent( TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED, {
+		layout: 'panel',
+		channel: 'studio-web',
+	} );
+	expect( mockRecord ).not.toHaveBeenCalled();
+	expect( mockInstallId ).not.toHaveBeenCalled();
+} );
+
+it( 'records workspace layouts from studio-web with the browser origin', async () => {
+	process.env.STUDIO_TRACKS_ORIGIN = 'studio-web:v2';
+	await recordTracksEvent( TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED, {
+		...getTracksOrigin(),
+		layout: 'split',
+	} );
+	expect( mockRecord ).toHaveBeenCalledExactlyOnceWith(
+		TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED,
+		{ type: 'anon', id: 'install-uuid' },
+		expect.objectContaining( { layout: 'split', channel: 'studio-web', ui_version: 'v2' } )
+	);
+} );
+
+it( 'disables browser workspace telemetry when the telemetry build flag is off', async () => {
+	vi.stubGlobal( '__ENABLE_CLI_TELEMETRY__', false );
+	delete process.env.STUDIO_FORCE_CLI_TELEMETRY;
+	process.env.NODE_ENV = 'production';
+	await recordTracksEvent( TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED, {
+		layout: 'split',
+		channel: 'studio-web',
+	} );
+	expect( mockRecord ).not.toHaveBeenCalled();
 } );

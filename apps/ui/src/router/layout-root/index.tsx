@@ -1,4 +1,4 @@
-import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
+import { aiSessionBelongsToSite } from '@studio/agent/protocol/sessions/owner-site';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { useQueryClient } from '@tanstack/react-query';
 import { createRootRouteWithContext, Outlet, useNavigate, useParams } from '@tanstack/react-router';
@@ -10,6 +10,7 @@ import { isSettingsSection } from '@/data/settings-sections';
 import { SessionUIProvider } from '@/data/use-session-ui';
 import { useAppMenuNavigation } from '@/features/commands';
 import { useAiCreditsPurchaseResult } from '@/features/credits';
+import { FeedbackDialog } from '@/features/feedback';
 import { WelcomeDialog } from '@/features/onboarding';
 import { WapuuWorldMount, SettingsDialog } from '@/features/settings';
 import { AddSiteDialog, isAddSiteSection } from '@/features/sites';
@@ -106,6 +107,7 @@ interface RootSearch {
 	addSite?: AddSiteSection;
 	pin?: true;
 	welcome?: true;
+	feedback?: true;
 }
 
 export const rootRoute = createRootRouteWithContext< RouterContext >()( {
@@ -116,6 +118,7 @@ export const rootRoute = createRootRouteWithContext< RouterContext >()( {
 		...( isAddSiteSection( search.addSite ) ? { addSite: search.addSite } : {} ),
 		...( search.pin === true || search.pin === 'true' ? { pin: true } : {} ),
 		...( search.welcome === true || search.welcome === 'true' ? { welcome: true } : {} ),
+		...( search.feedback === true || search.feedback === 'true' ? { feedback: true } : {} ),
 	} ),
 	component: () => (
 		<SessionUIProvider>
@@ -128,6 +131,7 @@ export const rootRoute = createRootRouteWithContext< RouterContext >()( {
 			<SettingsDialog />
 			<AddSiteDialog />
 			<WelcomeDialog />
+			<FeedbackDialog />
 		</SessionUIProvider>
 	),
 } );

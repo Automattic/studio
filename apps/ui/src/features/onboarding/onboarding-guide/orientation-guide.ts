@@ -6,15 +6,10 @@ import type { GuideDefinition, GuidePage } from './guide';
 // tourDismissedVersion — the field names predate the modal and stay generic).
 export const ORIENTATION_GUIDE_VERSION = 2;
 
-// Two independent axes drive the copy (see the Welcome Tour Figma):
-//   migrating   — coming from classic Studio vs a fresh install (page 1 only)
-//   chatEnabled — whether Studio Code (chat) is on offer (the chat page and the
-//                 preview copy). The design labels this "signed in", but
-//                 signed-out, offline, and opted-out (Settings → AI) all
-//                 collapse to the non-chat tour.
+// The copy differs only by whether the user is coming from classic Studio or
+// is on a fresh install (page 1 only, see the Welcome Tour Figma).
 export interface OrientationVariant {
 	migrating: boolean;
-	chatEnabled: boolean;
 }
 
 // Page 1 — the sidebar. Differs only by new vs migrating; a migrating user gets
@@ -43,7 +38,7 @@ function sitesPage( migrating: boolean ): GuidePage {
 	};
 }
 
-// Page 2 — building with Studio Code, only when chat is on offer.
+// Page 2 — building with Studio Code.
 function chatPage(): GuidePage {
 	return {
 		illustration: 'chat',
@@ -56,40 +51,22 @@ function chatPage(): GuidePage {
 	};
 }
 
-// Page 3 — the live preview. Signed-in copy calls out the realtime refresh that
-// comes with Studio Code edits; signed-out copy is the plain preview.
-function previewPage( chatEnabled: boolean ): GuidePage {
-	if ( chatEnabled ) {
-		return {
-			illustration: 'preview',
-			title: () => __( 'See your site update in realtime' ),
-			description: () =>
-				/* translators: "on the right" describes the preview in left-to-right layouts; in right-to-left languages it sits on the left — adapt the direction accordingly. */
-				__(
-					'Your site is shown on the right, automatically refreshing as you make changes with Studio Code. Switch between the front-end, wp-admin, and the database from the toolbar.'
-				),
-			action: () => __( 'Let’s go' ),
-		};
-	}
+// Page 3 — the live preview, refreshing as Studio Code edits the site.
+function previewPage(): GuidePage {
 	return {
 		illustration: 'preview',
-		title: () => __( 'See your site inline' ),
+		title: () => __( 'See your site update in realtime' ),
 		description: () =>
 			/* translators: "on the right" describes the preview in left-to-right layouts; in right-to-left languages it sits on the left — adapt the direction accordingly. */
 			__(
-				'Your site is shown on the right. Switch between the front-end, wp-admin, and the database from the toolbar.'
+				'Your site is shown on the right, automatically refreshing as you make changes with Studio Code. Switch between the front-end, wp-admin, and the database from the toolbar.'
 			),
 		action: () => __( 'Let’s go' ),
 	};
 }
 
-export function getOrientationGuide( {
-	migrating,
-	chatEnabled,
-}: OrientationVariant ): GuideDefinition {
+export function getOrientationGuide( { migrating }: OrientationVariant ): GuideDefinition {
 	return {
-		pages: chatEnabled
-			? [ sitesPage( migrating ), chatPage(), previewPage( chatEnabled ) ]
-			: [ sitesPage( migrating ), previewPage( chatEnabled ) ],
+		pages: [ sitesPage( migrating ), chatPage(), previewPage() ],
 	};
 }

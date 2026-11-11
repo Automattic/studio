@@ -1,4 +1,4 @@
-import { deleteAiSession, listAiSessions } from '@studio/common/ai/sessions/store';
+import { deleteAiSession, listAiSessions } from '@studio/agent/node/sessions/store';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
 import { __ } from '@wordpress/i18n';
 import { chooseSessionForAction } from 'cli/commands/ai/sessions/helpers';

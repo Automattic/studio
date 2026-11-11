@@ -25,7 +25,7 @@ export interface WpcomAccount {
 
 export type SiteEntry = { kind: 'local'; site: LocalSite } | { kind: 'wpcom'; site: WpcomSite };
 
-export type DisplayMode = 'inline' | 'fullscreen' | 'pip';
+type DisplayMode = 'inline' | 'fullscreen' | 'pip';
 
 export interface HostContext {
 	theme?: 'light' | 'dark';

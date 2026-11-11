@@ -1,14 +1,14 @@
-import { search } from '@inquirer/prompts';
 import chalk from '@studio/common/lib/chalk';
+import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { __, sprintf } from '@wordpress/i18n';
-import { normalizeHostname } from 'cli/lib/utils';
+import { search } from 'cli/lib/prompts';
 import { LoggerError } from 'cli/logger';
 import type { SyncSite } from '@studio/common/types/sync';
 
 /**
  * Maps a site's `syncSupport` state to a clear, actionable error explaining
- * why it can't be synced. Shared by every CLI sync command (push, pull,
- * pull-reprint) so a Business-plan site awaiting Atomic transfer, a site that
+ * why it can't be synced. Shared by every CLI sync command (push and
+ * pull) so a Business-plan site awaiting Atomic transfer, a site that
  * needs a plan upgrade, and so on each report the specific condition and next
  * step instead of a generic failure or a raw internal state identifier.
  */

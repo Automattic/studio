@@ -1,17 +1,17 @@
-import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
+import { aiSessionBelongsToSite } from '@studio/agent/protocol/sessions/owner-site';
 import { sortSites } from '@studio/common/lib/sort-sites';
 import { createRoute, redirect } from '@tanstack/react-router';
-import { resolveChatEnabled } from '@/data/queries/use-agentic-features';
+import { StartupScreen } from '@/app/startup-screen';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
-import { SidebarLayout, readLastVisited, resumeChat } from '@/features/sidebar';
+import { readLastVisited, resumeChat } from '@/features/sidebar';
 import { rootRoute } from '../layout-root';
 
 export const indexRoute = createRoute( {
 	getParentRoute: () => rootRoute,
 	path: '/',
-	// The workspace shell shows, its sidebar loading, until the redirect.
-	pendingComponent: () => <SidebarLayout>{ null }</SidebarLayout>,
+	// Keep the opening screen until the initial destination is known.
+	pendingComponent: StartupScreen,
 	pendingMs: 0,
 	pendingMinMs: 0,
 	// Redirects carry the root search along, so Settings or Add site opened from
@@ -42,14 +42,6 @@ export const indexRoute = createRoute( {
 			( lastVisited.siteId && sites.find( ( site ) => site.id === lastVisited.siteId ) ) ||
 			sortSites( [ ...sites ] )[ 0 ];
 
-		if ( ! ( await resolveChatEnabled( context ) ) ) {
-			throw redirect( {
-				to: '/sites/$siteId',
-				params: { siteId: targetSite.id },
-				search,
-			} );
-		}
-
 		const sessions = await context.queryClient.fetchQuery( {
 			queryKey: SESSIONS_QUERY_KEY,
 			queryFn: () => context.connector.getSessions(),
@@ -60,7 +52,10 @@ export const indexRoute = createRoute( {
 		const topSession = resumeChat(
 			targetSite.id,
 			sessions.filter(
-				( session ) => ! session.archived && aiSessionBelongsToSite( session, targetSite )
+				( session ) =>
+					!! session.firstPrompt &&
+					! session.archived &&
+					aiSessionBelongsToSite( session, targetSite )
 			)
 		);
 		if ( topSession ) {
@@ -71,8 +66,7 @@ export const indexRoute = createRoute( {
 			} );
 		}
 
-		// No sessions yet: the new-session route creates an empty
-		// session for the site and redirects to it.
+		// No conversations yet: open the site with its unsent draft.
 		throw redirect( { to: '/sites/$siteId/new', params: { siteId: targetSite.id }, search } );
 	},
 } );

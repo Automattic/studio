@@ -1,0 +1,21 @@
+.surface {
+	border: var( --bubble-border-width, 0.5px ) solid
+		color-mix( in srgb, var( --border ) 65%, transparent );
+	border-radius: var( --radius-2xl );
+}
+
+.surface:not( [data-side='user'] )[data-joined-above] {
+	border-start-start-radius: var( --radius-md );
+}
+
+.surface:not( [data-side='user'] )[data-joined-below] {
+	border-end-start-radius: var( --radius-md );
+}
+
+.surface[data-side='user'][data-joined-above] {
+	border-start-end-radius: var( --radius-md );
+}
+
+.surface[data-side='user'][data-joined-below] {
+	border-end-end-radius: var( --radius-md );
+}

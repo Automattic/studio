@@ -1,57 +1,36 @@
-import { AI_PROVIDER_LABELS } from '@studio/common/ai/providers';
+import { AI_PROVIDER_LABELS } from '@studio/agent/protocol/providers';
 import { __ } from '@wordpress/i18n';
-import { CheckIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { getProviderIntent } from '@/data/account-analytics';
+import { useConnector } from '@/data/core';
 import {
 	useAiSettings,
 	useSaveAnthropicApiKey,
 	useSetAiProvider,
 } from '@/data/queries/use-ai-settings';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
-import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { LearnMoreLink } from '@/features/onboarding';
 import { useOffline } from '@/lib/hooks';
-import { Badge, Button, Input } from '@/lib/ui';
-import { SettingsGroup, SettingsRow, SettingsSelect, SettingsToggle } from './rows';
+import { Button, Input } from '@/lib/ui';
+import { connectedBadge, SettingsGroup, SettingsRow, SettingsSelect } from './rows';
 import styles from './style.module.css';
-import type { AiProviderId } from '@studio/common/ai/providers';
-
-function AgenticFeaturesSection() {
-	const { data: preferences, isLoading } = useUserPreferences();
-	const savePreferences = useSaveUserPreferences();
-
-	return (
-		<SettingsGroup title={ __( 'Chat' ) }>
-			<SettingsRow
-				title={ __( 'Studio Code' ) }
-				description={ __(
-					'Chat with an agent that builds and edits your sites. Turning this off hides chat — your existing conversations are kept.'
-				) }
-			>
-				<SettingsToggle
-					label={ __( 'Studio Code' ) }
-					checked={ preferences?.agenticFeaturesEnabled ?? true }
-					disabled={ isLoading }
-					onChange={ ( agenticFeaturesEnabled ) =>
-						savePreferences.mutate( { agenticFeaturesEnabled } )
-					}
-				/>
-			</SettingsRow>
-		</SettingsGroup>
-	);
-}
-
-const connectedBadge = () => (
-	<Badge size="xs" variant="accent">
-		<CheckIcon aria-hidden="true" />
-		{ __( 'Connected' ) }
-	</Badge>
-);
+import type { AiProviderId } from '@studio/agent/protocol/providers';
 
 function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } ) {
 	const settings = useAiSettings();
 	const { data: user, isLoading: userLoading } = useAuthUser();
-	const signup = useLogin( { signup: true, source: 'settings' } );
+	const origin = getProviderIntent( useConnector() );
+	const { promptRef, ...signup } = useLogin( {
+		signup: true,
+		source: 'settings',
+		analytics: {
+			placement: 'settings_ai',
+			intent: origin?.intent ?? 'build',
+			journey_id: origin?.journey_id,
+		},
+		scope: origin?.scope,
+		trackExposure: ! user && ! userLoading,
+	} );
 	const setProvider = useSetAiProvider();
 	const saveKey = useSaveAnthropicApiKey();
 	const isOffline = useOffline();
@@ -85,7 +64,7 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 	return (
 		<SettingsGroup title={ __( 'Providers' ) }>
 			{ settings.isError ? (
-				<SettingsRow title={ __( "Couldn't load AI providers." ) }>
+				<SettingsRow title={ __( "Couldn't load providers." ) }>
 					<Button variant="outline" onClick={ () => void settings.refetch() }>
 						{ __( 'Retry' ) }
 					</Button>
@@ -106,8 +85,7 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 			>
 				<Button
 					disabled={ userLoading || ( ! user && isOffline ) }
-					loading={ signup.isPending }
-					loadingAnnouncement={ __( 'Connecting' ) }
+					ref={ promptRef }
 					onClick={ () => {
 						if ( user ) {
 							onManageCredits();
@@ -167,6 +145,7 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 								onChange={ ( event ) => setKey( event.target.value ) }
 							/>
 							<Button
+								variant="accent"
 								type="submit"
 								disabled={ pending || ( ! key.trim() && ! hasKey ) }
 								loading={ saveKey.isPending || setProvider.isPending }
@@ -214,11 +193,11 @@ export function AiPanel( { onManageCredits }: { onManageCredits: () => void } ) 
 		<div className={ styles.preferencesPanel }>
 			<SettingsGroup>
 				<SettingsRow
-					title={ __( 'AI providers' ) }
+					title={ __( 'Providers' ) }
 					description={
 						<>
 							{ __(
-								'AI providers give WordPress Studio access to the models that understand your requests and make changes to your sites. Connect one to build pages, write content, and customize themes and plugins through chat.'
+								'Providers give WordPress Studio access to the models that understand your requests and make changes to your sites. Connect one to build pages, write content, and customize themes and plugins through chat.'
 							) }{ ' ' }
 							<LearnMoreLink docsLinksKey="docsStudioCode" />
 						</>
@@ -226,7 +205,6 @@ export function AiPanel( { onManageCredits }: { onManageCredits: () => void } ) 
 				/>
 			</SettingsGroup>
 			<ProvidersSection onManageCredits={ onManageCredits } />
-			<AgenticFeaturesSection />
 		</div>
 	);
 }

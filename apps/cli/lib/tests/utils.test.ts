@@ -2,40 +2,10 @@ import os from 'node:os';
 import {
 	classifyExportFailure,
 	classifyImportFailure,
+	classifyPreviewFailure,
 	getPrettyPath,
-	normalizeHostname,
 } from 'cli/lib/utils';
 import { LoggerError } from 'cli/logger';
-
-describe( 'normalizeHostname', () => {
-	it( 'should normalize a basic hostname', () => {
-		expect( normalizeHostname( 'example.com' ) ).toBe( 'example.com' );
-	} );
-
-	it( 'should remove http protocol', () => {
-		expect( normalizeHostname( 'http://example.com' ) ).toBe( 'example.com' );
-	} );
-
-	it( 'should remove https protocol', () => {
-		expect( normalizeHostname( 'https://example.com' ) ).toBe( 'example.com' );
-	} );
-
-	it( 'should remove trailing slash', () => {
-		expect( normalizeHostname( 'example.com/' ) ).toBe( 'example.com' );
-	} );
-
-	it( 'should convert to lowercase', () => {
-		expect( normalizeHostname( 'EXAMPLE.COM' ) ).toBe( 'example.com' );
-	} );
-
-	it( 'should trim whitespace', () => {
-		expect( normalizeHostname( '  example.com  ' ) ).toBe( 'example.com' );
-	} );
-
-	it( 'should handle multiple transformations', () => {
-		expect( normalizeHostname( '  HTTPS://EXAMPLE.COM/  ' ) ).toBe( 'example.com' );
-	} );
-} );
 
 describe( 'getPrettyPath', () => {
 	afterEach( () => {
@@ -182,5 +152,28 @@ describe( 'classifyExportFailure', () => {
 			new LoggerError( 'Database export failed', undefined, 'database_export' )
 		);
 		expect( classifyExportFailure( error ) ).toBe( 'database_export' );
+	} );
+} );
+
+describe( 'classifyPreviewFailure', () => {
+	it( 'returns the code carried by a LoggerError, whatever the display language', () => {
+		const error = new LoggerError(
+			'Échec du téléversement de l’archive',
+			new LoggerError( 'Failed to upload archive', undefined, 'upload_http_502' )
+		);
+		expect( classifyPreviewFailure( error, 'upload' ) ).toBe( 'upload_http_502' );
+	} );
+
+	it( 'classifies untranslated ENOSPC errors as disk_full', () => {
+		expect(
+			classifyPreviewFailure( new Error( 'ENOSPC: no space left on device' ), 'archive' )
+		).toBe( 'disk_full' );
+	} );
+
+	it( 'falls back to the step that failed, then to unknown', () => {
+		expect( classifyPreviewFailure( new Error( 'zip stream ended' ), 'archive' ) ).toBe(
+			'archive'
+		);
+		expect( classifyPreviewFailure( new Error( 'Something else' ) ) ).toBe( 'unknown' );
 	} );
 } );

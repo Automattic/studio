@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { E2ESession } from '../../../apps/studio/e2e/e2e-helpers';
 import AddSite from '../../../apps/studio/e2e/page-objects/add-site';
 import Sidebar from '../../../apps/studio/e2e/page-objects/sidebar';
-import { median } from '../utils';
+import { getRunningSince, median, recordRunningTimes } from '../utils';
 
 test.describe( 'Startup Metrics', () => {
 	const results: Record< string, number[] > = {};
@@ -11,6 +11,7 @@ test.describe( 'Startup Metrics', () => {
 
 	test.beforeAll( async () => {
 		await session.launch();
+		await recordRunningTimes( session.mainWindow );
 	} );
 
 	// eslint-disable-next-line no-empty-pattern
@@ -41,22 +42,34 @@ test.describe( 'Startup Metrics', () => {
 			const startTime = Date.now();
 			await addSite.createSite( { siteName } );
 			await sidebar.expectRunning( siteName );
-			results.siteCreation = [ Date.now() - startTime ];
+			results.siteCreation = [ ( await getRunningSince( statusButton ) ) - startTime ];
 		} );
+
+		await sidebar.ensureOpen();
+		const runButton = sidebar
+			.getSiteRow( siteName )
+			.and( session.mainWindow.locator( ':not([inert] *)' ) )
+			.locator( 'button[data-state]' );
+		await expect( runButton ).toBeInViewport();
 
 		results.siteStartup = [];
 		// Measure server stop/start 5 times
 		for ( let i = 0; i < 5; i++ ) {
 			await test.step( `Run ${ i + 1 }/5: Stopping and starting site`, async () => {
-				await statusButton.click();
+				await runButton.click();
 				await expect( statusButton ).toHaveAttribute( 'data-state', 'stopped', {
 					timeout: 120_000,
 				} );
+				// The button can read `stopped` while the stop is still finishing and
+				// the button is disabled; don't count that wait as startup time.
+				await expect( runButton ).toBeEnabled( { timeout: 120_000 } );
 
 				const startTime = Date.now();
-				await statusButton.click();
-				await sidebar.expectRunning( siteName );
-				const duration = Date.now() - startTime;
+				await runButton.click();
+				await expect( statusButton ).toHaveAttribute( 'data-state', 'running', {
+					timeout: 120_000,
+				} );
+				const duration = ( await getRunningSince( statusButton ) ) - startTime;
 
 				console.log( `Run ${ i + 1 }/5: Restart took ${ duration }ms` );
 				results.siteStartup.push( duration );

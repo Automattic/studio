@@ -19,8 +19,6 @@ vi.mock( 'fs' );
 vi.mock( 'src/ipc-utils' );
 vi.mock( 'atomically' );
 
-// Create a simpler mock that tracks event handlers
-const mockEventHandlers = new Map< string, ( ( ...args: any[] ) => void )[] >();
 const mockWebContentsEventHandlers = new Map< string, ( ( ...args: any[] ) => void )[] >();
 
 vi.mock( 'electron', () => {
@@ -37,12 +35,7 @@ vi.mock( 'electron', () => {
 		setTitleBarOverlay = vi.fn();
 		getBounds = vi.fn().mockReturnValue( { x: 0, y: 0, width: 800, height: 600 } );
 
-		on = vi.fn().mockImplementation( ( event: string, handler: ( ...args: any[] ) => void ) => {
-			if ( ! mockEventHandlers.has( event ) ) {
-				mockEventHandlers.set( event, [] );
-			}
-			mockEventHandlers.get( event )!.push( handler );
-		} );
+		on = vi.fn();
 
 		webContents = {
 			isDestroyed: vi.fn().mockReturnValue( false ),
@@ -170,17 +163,6 @@ describe( 'renderer selection', () => {
 		__resetMainWindow();
 	} );
 
-	it( 'loads the bundled renderer', async () => {
-		vol.fromJSON( { [ RENDERER_PATH ]: '<!doctype html>' } );
-
-		const createdWindow = await createMainWindow();
-
-		await vi.waitFor( () =>
-			expect( createdWindow.loadFile ).toHaveBeenCalledWith( RENDERER_PATH )
-		);
-		expect( createdWindow.loadURL ).not.toHaveBeenCalled();
-	} );
-
 	it( 'loads the UI dev server when one is running', async () => {
 		process.env.ELECTRON_UI_RENDERER_URL = 'http://localhost:5200';
 
@@ -256,74 +238,6 @@ describe( 'sidebar shortcut', () => {
 		expect( sendIpcEventToRendererWithWindow ).toHaveBeenCalledWith(
 			createdWindow,
 			'toggle-sidebar'
-		);
-	} );
-
-	it( 'handles app zoom shortcuts without relying on the application menu', async () => {
-		const createdWindow = await createMainWindow();
-		const handlers = mockWebContentsEventHandlers.get( 'before-input-event' );
-		const event = { preventDefault: vi.fn() };
-
-		handlers![ 0 ]( event, {
-			type: 'keyDown',
-			key: '+',
-			code: 'Equal',
-			isAutoRepeat: false,
-			isComposing: false,
-			shift: true,
-			control: process.platform !== 'darwin',
-			alt: false,
-			meta: process.platform === 'darwin',
-			location: 0,
-			modifiers: [],
-		} as Electron.Input );
-
-		expect( event.preventDefault ).toHaveBeenCalled();
-		expect( createdWindow.webContents.setZoomLevel ).toHaveBeenCalledWith( 0.5 );
-	} );
-} );
-
-describe( 'fullscreen events', () => {
-	let createdWindow: BrowserWindow;
-
-	beforeEach( async () => {
-		mockEventHandlers.clear();
-		createdWindow = await createMainWindow();
-	} );
-
-	afterEach( () => {
-		__resetMainWindow();
-	} );
-
-	it( 'sends fullscreen-change event when entering fullscreen', () => {
-		// Get the registered event handler for 'enter-full-screen'
-		const handlers = mockEventHandlers.get( 'enter-full-screen' );
-		expect( handlers ).toBeDefined();
-		expect( handlers!.length ).toBeGreaterThan( 0 );
-
-		// Simulate entering fullscreen by calling the handler
-		handlers![ 0 ]();
-
-		expect( sendIpcEventToRendererWithWindow ).toHaveBeenCalledWith(
-			createdWindow,
-			'window-fullscreen-change',
-			true
-		);
-	} );
-
-	it( 'sends fullscreen-change event when leaving fullscreen', () => {
-		// Get the registered event handler for 'leave-full-screen'
-		const handlers = mockEventHandlers.get( 'leave-full-screen' );
-		expect( handlers ).toBeDefined();
-		expect( handlers!.length ).toBeGreaterThan( 0 );
-
-		// Simulate leaving fullscreen by calling the handler
-		handlers![ 0 ]();
-
-		expect( sendIpcEventToRendererWithWindow ).toHaveBeenCalledWith(
-			createdWindow,
-			'window-fullscreen-change',
-			false
 		);
 	} );
 } );

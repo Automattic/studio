@@ -1,12 +1,12 @@
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { loadAiSession } from '@studio/common/ai/sessions/store';
+import { loadAiSession } from '@studio/agent/node/sessions/store';
 import { vi, type Mock } from 'vitest';
 import { runCommand as runAiCommand } from 'cli/commands/ai';
 import { runCommand } from '../resume';
 
-vi.mock( '@studio/common/ai/sessions/store', () => ( {
+vi.mock( '@studio/agent/node/sessions/store', () => ( {
 	loadAiSession: vi.fn(),
 	listAiSessions: vi.fn(),
 } ) );
@@ -52,42 +52,6 @@ describe( 'sessions resume — active site hydration (JSON mode)', () => {
 		);
 	} );
 
-	it( 'passes remote sites through with their WordPress.com identity', async () => {
-		( loadAiSession as Mock ).mockResolvedValue( {
-			entries: [
-				siteSelectedEntry( {
-					siteName: 'Live',
-					sitePath: '/sites/live',
-					remote: true,
-					url: 'https://example.wordpress.com',
-					wpcomSiteId: 123,
-				} ),
-			],
-		} );
-
-		await runCommand( 'session-1', { json: true, message: 'hello' } );
-
-		expect( runAiCommand ).toHaveBeenCalledWith(
-			expect.objectContaining( {
-				activeSite: expect.objectContaining( {
-					remote: true,
-					url: 'https://example.wordpress.com',
-					wpcomSiteId: 123,
-				} ),
-			} )
-		);
-	} );
-
-	it( 'passes no active site when the session has no site_selected entry', async () => {
-		( loadAiSession as Mock ).mockResolvedValue( { entries: [] } );
-
-		await runCommand( 'session-1', { json: true, message: 'hello' } );
-
-		expect( runAiCommand ).toHaveBeenCalledWith(
-			expect.objectContaining( { activeSite: undefined } )
-		);
-	} );
-
 	it( 'passes validated visual annotations from an input payload', async () => {
 		( loadAiSession as Mock ).mockResolvedValue( { entries: [] } );
 		const directory = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-annotations-' ) );
@@ -96,6 +60,7 @@ describe( 'sessions resume — active site hydration (JSON mode)', () => {
 			inputPayloadPath,
 			JSON.stringify( {
 				prompt: 'Update the selected heading',
+				turnId: '102fe369-58e2-4e3f-aa19-07151756f6d8',
 				displayMessage: '1 annotation submitted',
 				visualAnnotations: [
 					{ comment: '  Make it smaller  ', tag: ' h1 ', nearbyText: 'Welcome' },
@@ -112,6 +77,7 @@ describe( 'sessions resume — active site hydration (JSON mode)', () => {
 		expect( runAiCommand ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				initialMessage: 'Update the selected heading',
+				initialTurnId: '102fe369-58e2-4e3f-aa19-07151756f6d8',
 				initialDisplayMessage: '1 annotation submitted',
 				initialVisualAnnotations: [
 					{

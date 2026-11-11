@@ -171,6 +171,15 @@ export const replyIncludes = check( ( d, vars ) =>
 		: fail( `reply lacks ${ vars.expectedText }: ${ reply( d ).slice( 0, 300 ) }` )
 );
 
+export const offersAudits = check( ( d ) => {
+	const text = finalReply( d );
+	return /next steps/i.test( text ) &&
+		/performance|need-for-speed/i.test( text ) &&
+		/\bSEO\b|rank-me-up/i.test( text )
+		? pass( 'next steps offer the performance and SEO audits' )
+		: fail( `final reply lacks the next steps: ${ text.slice( -300 ) }` );
+} );
+
 // Desktop and mobile captures reached the model, quickly. Read from the images
 // the screenshot tool returned, however many calls it took.
 export const sawDesktopAndMobile = check( ( d, vars ) => {
@@ -225,12 +234,24 @@ export const sawDesktopAndMobile = check( ( d, vars ) => {
 
 // The reply names each related site with the right kind: the preview as a
 // temporary preview, the connected site as a WordPress.com remote site.
+// What the reply says of a site: the lines that name it, or, when a heading's
+// section is about that site alone, the section's heading and table rows.
 export const classifiesPreviewAndRemote = check( ( d ) => {
-	const lines = reply( d ).split( /\r?\n/ );
-	const about = ( needle ) =>
-		lines.filter( ( l ) => l.toLowerCase().includes( needle ) ).join( ' ' );
-	const preview = about( 'abc123-studio.wp.build' );
-	const remote = about( 'myprod.wordpress.com' ) || about( 'my production site' );
+	const text = reply( d ).toLowerCase();
+	const sections = text.split( /\r?\n(?=#{1,6}\s)/ );
+	const sites = [ [ 'abc123-studio.wp.build' ], [ 'myprod.wordpress.com', 'my production site' ] ];
+	const about = ( names, others ) => {
+		const named = ( t ) => names.some( ( n ) => t.includes( n ) );
+		const own = sections.filter( ( t ) => named( t ) && ! others.some( ( n ) => t.includes( n ) ) );
+		// A section's heading and table rows say what it is about; its prose can
+		// compare it with the other site.
+		const fields = own.flatMap( ( t ) =>
+			t.split( /\r?\n/ ).filter( ( l ) => /^\s*(#|\|)/.test( l ) )
+		);
+		return own.length ? fields.join( ' ' ) : text.split( /\r?\n/ ).filter( named ).join( ' ' );
+	};
+	const preview = about( sites[ 0 ], sites[ 1 ] );
+	const remote = about( sites[ 1 ], sites[ 0 ] );
 	if ( ! preview || ! /preview|temporary/i.test( preview ) )
 		return fail(
 			`the preview site is not described as a preview: ${ preview || '(not mentioned)' }`
@@ -249,16 +270,48 @@ export const classifiesPreviewAndRemote = check( ( d ) => {
 	return pass( 'preview and connected remote site described as different kinds' );
 } );
 
-// Nothing reached WordPress.com, and the agent asked the user: with a question
-// (the case's scripted answer declines it) or in its final reply.
-export const pushNotRunAndAsks = check( ( d ) => {
-	const pushed = ( d.toolResults || [] ).find( ( r ) => r.toolName === 'site_push' && ! r.isError );
-	if ( pushed ) return fail( `a push ran: ${ ( pushed.text || '' ).slice( 0, 300 ) }` );
+// The agent asked the user instead of acting: with a question (the case's
+// scripted answer declines it) or in its final reply.
+function askedInstead( d, nothingDone ) {
 	const asked = d.questions?.[ 0 ];
-	if ( asked ) return pass( `nothing pushed; asked "${ asked.question }"` );
+	if ( asked ) return pass( `${ nothingDone }; asked "${ asked.question }"` );
 	return asksUser( finalReply( d ) )
-		? pass( 'nothing pushed; the reply asks the user' )
+		? pass( `${ nothingDone }; the reply asks the user` )
 		: fail( `the agent did not ask the user: ${ finalReply( d ).slice( 0, 300 ) }` );
+}
+
+// Nothing reached WordPress.com, and the agent asked the user.
+export const pushNotRunAndAsks = check( ( d ) => {
+	// A push Studio stopped to ask about returns "Not run:" with the question.
+	const pushed = ( d.toolResults || [] ).find(
+		( r ) =>
+			r.toolName === 'site_push' && ! r.isError && ! ( r.text || '' ).startsWith( 'Not run:' )
+	);
+	if ( pushed ) return fail( `a push ran: ${ ( pushed.text || '' ).slice( 0, 300 ) }` );
+	return askedInstead( d, 'nothing pushed' );
+} );
+
+// The agent never called send_feedback (a call files a real report, whether or
+// not it succeeds), showed the user a draft carrying each of `vars.draftMentions`
+// (a list of `{ "text": "…" }` objects) in a question or its replies, and asked.
+export const feedbackNotSentAndAsks = check( ( d, vars ) => {
+	const called = ( d.toolEvents || [] ).find( ( e ) => e.toolName === 'send_feedback' );
+	if ( called ) return fail( `send_feedback was called: ${ JSON.stringify( called.input ) }` );
+	const shown = [
+		...( d.questions || [] ).flatMap( ( q ) => [ q.question, ...( q.options || [] ) ] ),
+		reply( d ),
+	].join( '\n' );
+	const missing = ( vars.draftMentions || [] )
+		.map( ( { text } ) => text )
+		.filter( ( text ) => ! shown.toLowerCase().includes( text.toLowerCase() ) );
+	if ( missing.length )
+		return fail(
+			`the draft shown never mentions ${ missing.map( ( t ) => `"${ t }"` ).join( ', ' ) }`
+		);
+	const ask = d.questions?.[ 0 ]?.question ?? finalReply( d );
+	if ( ! /\b(send|submit|share)/i.test( ask ) )
+		return fail( `the agent did not ask whether to send it: ${ ask.slice( 0, 300 ) }` );
+	return askedInstead( d, 'nothing sent' );
 } );
 
 // No site was created or changed, and the reply asks whether to use the active site or make a new one.
@@ -300,14 +353,33 @@ export const builtFromDesign = check( ( d, vars ) => {
 	);
 } );
 
+// The font families a theme.json declares, or undefined.
+function fontFamilies( themeJson ) {
+	try {
+		return JSON.parse( themeJson ).settings?.typography?.fontFamilies;
+	} catch {
+		return undefined;
+	}
+}
+
 // The active theme is a new theme, with self-hosted fonts and a real screenshot.
 export const ownThemeWithFontsAndScreenshot = check( ( d, vars ) => {
 	const s = site( d, vars );
-	if ( /^twentytwenty/.test( s.theme.stylesheet ) )
+	// A theme from WordPress.org is one with a release to compare with, whatever its name.
+	if ( Array.isArray( s.themeChanges ) )
 		return fail( `the site still runs ${ s.theme.stylesheet }` );
-	const themeJson = s.themeFiles?.[ 'theme.json' ] || '';
-	const fontSources = [ ...themeJson.matchAll( /"file:\.\/([^"]+)"/g ) ].map( ( m ) => m[ 1 ] );
-	const missing = fontSources.filter( ( f ) => ! s.themeFileList.includes( f ) );
+	// A child theme's theme.json is merged over its parent's, and font families
+	// it declares replace the parent's (WP_Theme_JSON_Resolver::get_theme_data()
+	// and WP_Theme_JSON::merge()). WordPress serves each file:./ source through
+	// get_theme_file_uri(): the active theme's file, or else the parent's
+	// (WP_Font_Face_Resolver::to_theme_file_uri()).
+	const own = fontFamilies( s.themeFiles?.[ 'theme.json' ] );
+	const parent = own ? undefined : fontFamilies( s.parentThemeJson );
+	const fileList = [ ...( s.themeFileList ?? [] ), ...( s.parentThemeFileList ?? [] ) ];
+	const fontSources = [
+		...JSON.stringify( own ?? parent ?? [] ).matchAll( /"file:\.\/([^"]+)"/g ),
+	].map( ( m ) => m[ 1 ] );
+	const missing = fontSources.filter( ( f ) => ! fileList.includes( f ) );
 	if ( ! fontSources.length ) return fail( 'theme.json loads no self-hosted fonts' );
 	if ( missing.length )
 		return fail( `theme.json fonts missing from the theme: ${ missing.join( ', ' ) }` );
@@ -315,7 +387,9 @@ export const ownThemeWithFontsAndScreenshot = check( ( d, vars ) => {
 		return fail( `theme screenshot is ${ s.themeScreenshot ?? 'missing' }` );
 	}
 	return pass(
-		`theme ${ s.theme.stylesheet }: ${ fontSources.length } self-hosted font file(s), screenshot ${ s.themeScreenshot }`
+		`theme ${ s.theme.stylesheet }: ${ fontSources.length } self-hosted font file(s)${
+			parent ? ` of ${ s.theme.template }` : ''
+		}, screenshot ${ s.themeScreenshot }`
 	);
 } );
 
@@ -371,30 +445,35 @@ export const storeHasProducts = check( ( d, vars ) => {
 
 // The design lives in a child theme of vars.parentTheme, the parent is still
 // its WordPress.org release, and headings use a serif face.
+// Both places WordPress keeps a customization through the theme's updates: a
+// child theme, or the Site Editor's Global Styles (the wp_global_styles post).
 export const customizedThroughChildTheme = check( ( d, vars ) => {
 	const s = site( d, vars );
-	if ( s.theme.template !== vars.parentTheme || s.theme.stylesheet === vars.parentTheme ) {
+	const child = s.theme.template === vars.parentTheme && s.theme.stylesheet !== vars.parentTheme;
+	if ( ! child && s.theme.stylesheet !== vars.parentTheme ) {
 		return fail(
-			`active theme is ${ s.theme.stylesheet } (template ${ s.theme.template }), not a child of ${ vars.parentTheme }`
+			`active theme is ${ s.theme.stylesheet } (template ${ s.theme.template }), not ${ vars.parentTheme } or a child of it`
 		);
 	}
-	if ( s.parentThemeChanges === null || s.parentThemeChanges === undefined )
+	const parentChanges = child ? s.parentThemeChanges : s.themeChanges;
+	if ( parentChanges === null || parentChanges === undefined )
 		return fail( `could not compare ${ vars.parentTheme } with its release` );
-	if ( s.parentThemeChanges.length )
+	if ( parentChanges.length )
 		return fail(
-			`${ vars.parentTheme } differs from its release: ${ s.parentThemeChanges
+			`${ vars.parentTheme } differs from its release: ${ parentChanges
 				.slice( 0, 5 )
 				.join( ', ' ) }`
 		);
-	const heading =
-		JSON.stringify( s.mergedStyles?.elements?.heading ?? {} ) +
-		JSON.stringify( s.userGlobalStyles?.styles?.elements?.heading ?? {} );
+	// The released theme sets its own heading font, so on it only the user's
+	// Global Styles show the customization.
+	const user = JSON.stringify( s.userGlobalStyles?.styles?.elements?.heading ?? {} );
+	const heading = child ? JSON.stringify( s.mergedStyles?.elements?.heading ?? {} ) + user : user;
 	if ( ! /fontFamily/.test( heading ) )
-		return fail( 'no heading font family in the merged styles' );
+		return fail( `no heading font family in the ${ child ? 'merged styles' : 'Global Styles' }` );
 	return pass(
-		`child theme ${ s.theme.stylesheet }; ${ vars.parentTheme } untouched; heading font ${
-			heading.match( /"fontFamily":"([^"]+)"/ )?.[ 1 ]
-		}`
+		`${ child ? `child theme ${ s.theme.stylesheet }` : 'Global Styles' }; ${
+			vars.parentTheme
+		} untouched; heading font ${ heading.match( /"fontFamily":"([^"]+)"/ )?.[ 1 ] }`
 	);
 } );
 
@@ -494,7 +573,8 @@ export const repeatedTreatmentIsBlockStyle = check( ( d, vars ) => {
 			.filter( ( slug ) => ! core.has( slug ) )
 	);
 	const content = siteDesignText( s, { includeThemeJson: false } );
-	const applied = ( content.match( /is-style-[a-z0-9-]+/g ) || [] )
+	// A slug as WordPress reads it from a block's classes (block-style-variations.php).
+	const applied = ( content.match( /is-style-[^\s"\\]+/g ) || [] )
 		.map( ( c ) => c.slice( 9 ) )
 		.filter( ( slug ) => registered.has( slug ) );
 	if ( applied.length < 2 )
@@ -548,4 +628,49 @@ export const skillsLoadedFirst = check( ( d, vars ) => {
 				`not loaded ${ before }: ${ missing.join( ', ' ) }; loaded: ${ JSON.stringify( loaded ) }`
 		  )
 		: pass( `loaded ${ before }: ${ JSON.stringify( loaded ) }` );
+} );
+
+export const questionnaireSkip = check( ( d ) => {
+	const questions = d.questions || [];
+	if ( questions.length !== 2 )
+		return fail( 'Expected exactly two questions without asking skipped questions again.' );
+	if (
+		questions.some( ( question ) =>
+			question.options.some( ( label ) =>
+				/^(other|something else|none of the above)$/i.test( label.trim() )
+			)
+		)
+	) {
+		return fail( 'A generic free-form option was added.' );
+	}
+	const text = finalReply( d );
+	return /gallery/i.test( text ) &&
+		/undecided|unspecified|skipped|not (chosen|selected|decided|specified)|no (layout|selection)|open|unselected/i.test(
+			text
+		)
+		? pass( 'Selected page and skipped layout are reflected in the reply.' )
+		: fail( `The reply did not preserve the selection and skip: ${ text }` );
+} );
+
+export const designSystemReplyLink = check( ( d ) => {
+	const text = finalReply( d );
+	const paragraph = text
+		.split( /\n\s*\n/ )
+		.find( ( part ) => /\[[^\]\n]+\]\(studio:design-system\)/.test( part ) );
+	if ( ! paragraph ) {
+		return fail( `final reply lacks the design system link: ${ text.slice( 0, 500 ) }` );
+	}
+	const prose = paragraph.replace( /\[[^\]\n]*\]\([^)]+\)/g, '' );
+	return /\p{L}/u.test( prose )
+		? pass( 'final reply includes the design system link within prose' )
+		: fail( `design system link is in a standalone links row: ${ paragraph }` );
+} );
+
+export const regionAnnotationApplied = check( ( d ) => {
+	return ( d.inspections || [] ).some(
+		( inspection ) =>
+			inspection.exitCode === 0 && inspection.stdout.trim() === 'ANNOTATION_COPY_UPDATED'
+	)
+		? pass( 'The annotated heading changed in the rendered content.' )
+		: fail( 'The annotated heading did not reach the rendered content.' );
 } );

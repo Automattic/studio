@@ -1,5 +1,6 @@
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { resetAppMessagesForTests } from '@/data/app-messages';
 import { setCommandPaletteOpen } from '@/data/use-command-palette';
@@ -27,8 +28,9 @@ function setup( sites: SiteDetails[] = [ site() ] ) {
 }
 
 async function openSettings() {
-	await screen.findByRole( 'button', { name: 'Site actions for My site' } );
-	fireEvent.click( screen.getByRole( 'button', { name: /^Settings$/ } ) );
+	await screen.findByRole( 'button', { name: 'Site menu' } );
+	fireEvent.click( screen.getByRole( 'button', { name: 'Account' } ) );
+	fireEvent.click( await screen.findByRole( 'menuitem', { name: /Settings/ } ) );
 	return screen.findByRole( 'dialog', { name: 'Settings' } );
 }
 
@@ -54,7 +56,7 @@ describe( 'Settings in the Studio workspace', () => {
 		const search = await screen.findByRole( 'textbox', { name: 'Search settings' } );
 		fireEvent.change( search, { target: { value: 'MCP' } } );
 		const matches = screen.getByRole( 'tablist', { name: 'Matching settings' } );
-		expect( within( matches ).getAllByText( 'Studio' )[ 0 ] ).toBeVisible();
+		expect( within( matches ).getAllByText( 'App' )[ 0 ] ).toBeVisible();
 		expect( within( matches ).queryByText( 'Site' ) ).not.toBeInTheDocument();
 		fireEvent.change( search, { target: { value: 'PHP version' } } );
 		fireEvent.click( screen.getByRole( 'tab', { name: /^PHP version/ } ) );
@@ -86,22 +88,19 @@ describe( 'Settings in the Studio workspace', () => {
 	it( 'switches settings scopes and remembers the settings site', async () => {
 		setup( [ site(), site( { id: 'two', name: 'Second' } ) ] );
 		const dialog = await openSettings();
-		const overlay = document.querySelector( '[data-slot="dialog-overlay"]' );
-		expect( scopeTab( 'Studio' ) ).toHaveAttribute( 'aria-selected', 'true' );
+		expect( scopeTab( 'App' ) ).toHaveAttribute( 'aria-selected', 'true' );
 		fireEvent.click( scopeTab( 'Site' ) );
 		expect( await screen.findByRole( 'textbox', { name: 'Site name' } ) ).toHaveValue( 'My site' );
 		expect( screen.getByRole( 'dialog', { name: 'Settings' } ) ).toBe( dialog );
-		expect( document.querySelector( '[data-slot="dialog-overlay"]' ) ).toBe( overlay );
 		expect(
 			screen.queryByRole( 'button', { name: 'Switch site settings' } )
 		).not.toBeInTheDocument();
-		fireEvent.click( scopeTab( 'Studio' ) );
+		fireEvent.click( scopeTab( 'App' ) );
 		await screen.findByRole( 'combobox', { name: 'Language' } );
 		expect( screen.getByRole( 'dialog', { name: 'Settings' } ) ).toBe( dialog );
-		expect( document.querySelector( '[data-slot="dialog-overlay"]' ) ).toBe( overlay );
 		fireEvent.click( scopeTab( 'Site' ) );
 		expect( await screen.findByRole( 'textbox', { name: 'Site name' } ) ).toHaveValue( 'My site' );
-		fireEvent.click( scopeTab( 'Studio' ) );
+		fireEvent.click( scopeTab( 'App' ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Close settings' } ) );
 		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
 	} );
@@ -113,8 +112,33 @@ describe( 'Settings in the Studio workspace', () => {
 				name: 'Close Add site',
 			} )
 		);
-		fireEvent.click( await screen.findByRole( 'button', { name: /^Settings$/ } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Account' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: /Settings/ } ) );
 		await screen.findByRole( 'dialog', { name: 'Settings' } );
 		expect( scopeTab( 'Site' ) ).toHaveAttribute( 'aria-disabled', 'true' );
+		fireEvent.click( scopeTab( 'Site' ) );
+		expect( scopeTab( 'App' ) ).toHaveAttribute( 'aria-selected', 'true' );
 	} );
+} );
+
+it( 'offers installed browsers and saves or clears the site browser preference', async () => {
+	const connector = createFakeConnector( { sites: [ site() ], user: null } );
+	const installed = await connector.getInstalledApps();
+	connector.getInstalledApps.mockResolvedValue( { ...installed, chrome: true, safari: false } );
+	renderApp( { connector } );
+	await openSettings();
+	const browser = await screen.findByRole( 'combobox', { name: 'Default browser' } );
+	expect( browser ).toHaveTextContent( 'System' );
+	await userEvent.click( browser );
+	expect( await screen.findByRole( 'option', { name: 'Google Chrome' } ) ).toBeVisible();
+	expect( screen.queryByRole( 'option', { name: 'Safari' } ) ).not.toBeInTheDocument();
+	await userEvent.click( screen.getByRole( 'option', { name: 'Google Chrome' } ) );
+	await waitFor( () =>
+		expect( connector.setUserPreferences ).toHaveBeenCalledWith( { browser: 'chrome' }, undefined )
+	);
+	await userEvent.click( screen.getByRole( 'combobox', { name: 'Default browser' } ) );
+	await userEvent.click( await screen.findByRole( 'option', { name: 'System' } ) );
+	await waitFor( () =>
+		expect( connector.setUserPreferences ).toHaveBeenCalledWith( { browser: null }, undefined )
+	);
 } );

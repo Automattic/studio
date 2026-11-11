@@ -38,6 +38,7 @@ vi.mock( 'cli/logger', () => ( {
 		reportStart = mockReportStart;
 		reportSuccess = mockReportSuccess;
 		reportError = mockReportError;
+		reportResult = vi.fn();
 		reportProgress = mockReportProgress;
 		reportWarning = mockReportWarning;
 		reportKeyValuePair = mockReportKeyValuePair;
@@ -48,7 +49,7 @@ vi.mock( 'cli/logger', () => ( {
 } ) );
 
 describe( 'Preview Delete Command', () => {
-	const mockSiteUrl = 'test-preview.example.com';
+	const mockSiteUrl = 'test-preview.wp.build';
 	const mockAtomicSiteId = 12345;
 	const mockAuthToken = {
 		accessToken: 'mock-auth-token',
@@ -109,20 +110,18 @@ describe( 'Preview Delete Command', () => {
 	it( 'should handle authentication errors', async () => {
 		vi.mocked( readAuthToken ).mockResolvedValue( null );
 
-		await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl );
-
-		expect( mockReportError ).toHaveBeenCalled();
-		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		await expect( runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl ) ).rejects.toThrow(
+			LoggerError
+		);
 		expect( deleteSnapshot ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should handle snapshot not found errors', async () => {
 		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
 
-		await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl );
-
-		expect( mockReportError ).toHaveBeenCalled();
-		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		await expect( runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl ) ).rejects.toThrow(
+			LoggerError
+		);
 		expect( deleteSnapshot ).not.toHaveBeenCalled();
 	} );
 
@@ -146,23 +145,10 @@ describe( 'Preview Delete Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl );
-
-		expect( mockReportError ).toHaveBeenCalled();
-		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		await expect( runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl ) ).rejects.toThrow(
+			LoggerError
+		);
 		expect( deleteSnapshotFromConfig ).not.toHaveBeenCalled();
-	} );
-
-	it( 'should handle delete snapshot errors', async () => {
-		const errorMessage = 'Failed to delete snapshot';
-		vi.mocked( deleteSnapshotFromConfig ).mockImplementation( () => {
-			throw new LoggerError( errorMessage );
-		} );
-
-		await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl );
-
-		expect( mockReportError ).toHaveBeenCalled();
-		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 	} );
 
 	it( 'should complete deleting all preview sites successfully', async () => {
@@ -187,10 +173,9 @@ describe( 'Preview Delete Command', () => {
 			throw new LoggerError( errorMessage );
 		} );
 
-		await runCommand( Mode.DELETE_ALL_SNAPSHOT, undefined );
-
-		expect( mockReportError ).toHaveBeenCalled();
-		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		await expect( runCommand( Mode.DELETE_ALL_SNAPSHOT, undefined ) ).rejects.toThrow(
+			LoggerError
+		);
 		expect( deleteAllSnapshotsForUserFromConfig ).not.toHaveBeenCalled();
 	} );
 } );

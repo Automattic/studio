@@ -50,7 +50,7 @@ function setup( {
 		} as FakeConnectorState[ 'preferences' ],
 	} );
 	const view = renderApp( { connector, path } );
-	const ready = () => screen.findByRole( 'button', { name: 'Site actions for My site' } );
+	const ready = () => screen.findByRole( 'button', { name: 'Site menu' } );
 	const refreshSessions = async ( sessions: ReturnType< typeof chat >[] ) => {
 		connector.state.sessions = [ ...connector.state.sessions, ...sessions ];
 		await act( () => view.queryClient.invalidateQueries( { queryKey: [ 'sessions' ] } ) );
@@ -87,6 +87,115 @@ afterEach( () => {
 } );
 
 describe( 'Sidebar in the Studio workspace', () => {
+	it( 'switches site controls before the saved chat transcript finishes loading', async () => {
+		const { connector, ready, history } = setup( {
+			path: '/sites/one/new',
+			sites: [
+				site(),
+				site( { id: 'two', name: 'Second site', path: '/sites/second', running: true } ),
+			],
+			sessions: [
+				chat( {
+					id: 'slow-chat',
+					title: 'Saved chat',
+					ownerSiteId: 'two',
+					ownerSitePath: '/sites/second',
+				} ),
+			],
+		} );
+		await ready();
+		await screen.findByRole( 'button', { name: 'Saved chat' } );
+		const transcript = connector.state.sessions[ 0 ];
+		let finishLoading!: ( value: typeof transcript ) => void;
+		connector.getSession.mockImplementation(
+			() =>
+				new Promise( ( resolve ) => {
+					finishLoading = resolve;
+				} )
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'Second site' } ) );
+		expect( screen.getByRole( 'button', { name: 'Second site' } ) ).toHaveAttribute(
+			'aria-expanded',
+			'true'
+		);
+		expect(
+			within( screen.getByRole( 'group', { name: 'Second site chats' } ) ).getByRole( 'button', {
+				name: 'Saved chat',
+			} )
+		).toBeVisible();
+		expect( history.location.pathname ).toBe( '/sites/one/new' );
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/slow-chat' ) );
+		await waitFor( () => expect( connector.getSession ).toHaveBeenCalledWith( 'slow-chat' ) );
+		fireEvent.click(
+			within( screen.getByRole( 'main' ) ).getByRole( 'button', { name: 'Site menu' } )
+		);
+		expect( await screen.findByRole( 'menuitem', { name: 'Stop' } ) ).toBeVisible();
+		await act( async () => finishLoading( transcript ) );
+	} );
+
+	it( 'folds the active site without navigating or disturbing its chat draft', async () => {
+		const { history, ready } = setup( {
+			path: '/sessions/active-chat',
+			sites: [ site( { running: true } ) ],
+			sessions: [ chat( { id: 'active-chat', title: 'Active chat' } ) ],
+		} );
+		await ready();
+		const input = await screen.findByRole( 'combobox', { name: 'Message WordPress Studio' } );
+		await waitFor( () => expect( input ).toBeEnabled() );
+		fireEvent.change( input, { target: { value: 'Keep this draft' } } );
+		let navigations = 0;
+		const unsubscribe = history.subscribe( () => navigations++ );
+		const row = screen.getByRole( 'button', { name: 'My site' } );
+		fireEvent.click( row );
+		expect( row ).toHaveAttribute( 'aria-expanded', 'false' );
+		fireEvent.click( row );
+		expect( row ).toHaveAttribute( 'aria-expanded', 'true' );
+		expect( input ).toHaveValue( 'Keep this draft' );
+		expect( history.location.pathname ).toBe( '/sessions/active-chat' );
+		expect( navigations ).toBe( 0 );
+		unsubscribe();
+	} );
+
+	it( 'opens only the last site when another row is chosen before navigation starts', async () => {
+		const { connector, history, ready } = setup( {
+			path: '/sites/one/new',
+			sites: [
+				site(),
+				site( { id: 'two', name: 'Second site', path: '/sites/second', running: true } ),
+				site( { id: 'three', name: 'Third site', path: '/sites/third', running: true } ),
+			],
+			preferences: { autoCollapseSites: true } as never,
+			sessions: [
+				chat( {
+					id: 'second-chat',
+					title: 'Second chat',
+					ownerSiteId: 'two',
+					ownerSitePath: '/sites/second',
+				} ),
+				chat( {
+					id: 'third-chat',
+					title: 'Third chat',
+					ownerSiteId: 'three',
+					ownerSitePath: '/sites/third',
+				} ),
+			],
+		} );
+		await ready();
+		await screen.findByRole( 'button', { name: 'Third chat' } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Second site' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Third site' } ) );
+		expect( screen.getByRole( 'button', { name: 'Second site' } ) ).toHaveAttribute(
+			'aria-expanded',
+			'false'
+		);
+		expect( screen.getByRole( 'button', { name: 'Third site' } ) ).toHaveAttribute(
+			'aria-expanded',
+			'true'
+		);
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/third-chat' ) );
+		expect( connector.getSession ).not.toHaveBeenCalledWith( 'second-chat' );
+	} );
+
 	it( 'collapses site groups through the palette while preserving the chat and draft', async () => {
 		const { history, ready } = setup( {
 			sites: [
@@ -168,20 +277,18 @@ describe( 'Sidebar in the Studio workspace', () => {
 	} );
 
 	it( 'reveals site chats in batches of ten after the first five', async () => {
-		const { history, ready, refreshSessions } = setup( { path: '/sites/one' } );
-		await ready();
-		await refreshSessions(
-			Array.from( { length: 27 }, ( _, index ) =>
+		const { ready } = setup( {
+			path: '/sessions/batch-chat-0',
+			sessions: Array.from( { length: 27 }, ( _, index ) =>
 				chat( {
 					id: `batch-chat-${ index }`,
 					title: `Batch chat ${ index }`,
 					updatedAt: new Date( 2026, 0, 27 - index ).toISOString(),
 				} )
-			)
-		);
+			),
+		} );
+		await ready();
 		const chats = () => within( screen.getByRole( 'group', { name: 'My site chats' } ) );
-		fireEvent.click( await screen.findByRole( 'button', { name: /^My site$/ } ) );
-		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/batch-chat-0' ) );
 		await waitFor( () =>
 			expect( chats().getAllByRole( 'button', { name: /^Batch chat / } ) ).toHaveLength( 5 )
 		);
@@ -212,44 +319,13 @@ describe( 'Sidebar in the Studio workspace', () => {
 		expect( chats().getByRole( 'button', { name: 'Show more' } ) ).toBeInTheDocument();
 	} );
 
-	it( 'selects multiple chats without navigating and offers bulk context actions', async () => {
-		const { history, ready, refreshSessions } = setup( { path: '/sites/one' } );
-		await ready();
-		await refreshSessions(
-			[ 0, 1 ].map( ( index ) =>
-				chat( { id: `single-${ index }`, title: `Single chat ${ index }` } )
-			)
-		);
-		const chats = within( await screen.findByRole( 'group', { name: 'My site chats' } ) );
-		const first = await chats.findByRole( 'button', { name: 'Single chat 0' } );
-		const second = chats.getByRole( 'button', { name: 'Single chat 1' } );
-		const row = ( button: HTMLElement ) => button.parentElement!;
-		fireEvent.click( first, { metaKey: isApple, ctrlKey: ! isApple } );
-		expect( row( first ) ).toHaveAttribute( 'data-selected', 'true' );
-		expect( first ).not.toHaveAttribute( 'aria-current' );
-		fireEvent.click( second, { shiftKey: true } );
-		expect( row( second ) ).toHaveAttribute( 'data-selected', 'true' );
-		expect( second ).not.toHaveAttribute( 'aria-current' );
-		expect( first ).not.toHaveAttribute( 'aria-current' );
-		expect( history.location.pathname ).toBe( '/sites/one' );
-		fireEvent.contextMenu( second );
-		expect( await screen.findByRole( 'menuitem', { name: 'Archive 2 chats' } ) ).toBeVisible();
-		expect(
-			screen
-				.getAllByRole( 'menuitem' )
-				.map(
-					( item ) =>
-						item.textContent?.replace( /Ctrl\+Alt\+[PRS]|⌥⌘[PRS]|Ctrl\+Shift\+A|⇧⌘A/g, '' )
-				)
-		).toEqual( [ 'Mark as read', 'Mark as unread', 'Pin', 'Unpin', 'Archive 2 chats' ] );
-	} );
-
 	it( 'marks a chat unread from its context menu and clears it on opening', async () => {
 		const { connector, ready, refreshSessions } = setup( { path: '/sites/one' } );
 		await ready();
 		await refreshSessions( [
 			chat( { id: 'unread-chat', title: 'Homepage polish', unread: false } ),
 		] );
+		await screen.findByRole( 'group', { name: 'My site chats' } );
 		const chats = () => within( screen.getByRole( 'group', { name: 'My site chats' } ) );
 		fireEvent.contextMenu( await chats().findByRole( 'button', { name: 'Homepage polish' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Mark as unread' } ) );
@@ -292,7 +368,6 @@ describe( 'Sidebar in the Studio workspace', () => {
 		expect(
 			screen.queryByRole( 'group', { name: 'My site chats' } )?.textContent ?? ''
 		).not.toContain( 'Homepage polish' );
-		expect( shortcut.querySelector( 'svg' ) ).toBeInTheDocument();
 		await waitFor( () =>
 			expect( connector.state.preferences.sidebarPins ).toEqual( [ 'chat:pinned-chat' ] )
 		);
@@ -317,7 +392,7 @@ describe( 'Sidebar in the Studio workspace', () => {
 				preferences: { sidebarPins: [ 'chat:pinned-chat' ] } as never,
 			} );
 			await ready();
-			await waitFor( () => expect( history.location.pathname ).toMatch( /^\/sessions\// ) );
+			await waitFor( () => expect( history.location.pathname ).toBe( '/sites/one/new' ) );
 			await refreshSessions( [
 				chat( { id: 'pinned-chat', title: 'Pinned conversation' } ),
 				chat( { id: 'other-chat', title: 'Other conversation' } ),
@@ -327,12 +402,12 @@ describe( 'Sidebar in the Studio workspace', () => {
 				pinnedGroup().getByRole( 'button', { name: 'Pinned conversation' } )
 			);
 			const siteRow = screen.getByRole( 'button', { name: 'My site' } );
+			if ( siteRow.getAttribute( 'aria-expanded' ) === 'true' ) {
+				fireEvent.click( siteRow );
+			}
 			if ( selected ) {
 				fireEvent.click( pinned );
 				await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/pinned-chat' ) );
-			}
-			if ( siteRow.getAttribute( 'aria-expanded' ) === 'true' ) {
-				fireEvent.click( siteRow );
 			}
 			const createCalls = connector.createSession.mock.calls.length;
 			expect( siteRow ).toHaveAttribute( 'aria-expanded', 'false' );

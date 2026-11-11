@@ -1,14 +1,162 @@
-.navGroup {
+.setupDialog {
+	inset: auto;
+	top: 50%;
+	left: 50%;
+	width: calc( 100% - 2rem );
+	max-width: 448px;
+	height: auto;
+	max-height: calc( 100dvh - 2rem );
+	margin: 0;
+	translate: -50% -50%;
+}
+
+.setupFooter {
+	padding-block-start: var( --space-4 );
+}
+
+.fileInput {
+	display: none;
+}
+
+.sourceArea {
+	min-width: 0;
+}
+
+.sourceDropZone,
+.selectedSource {
+	border-radius: var( --radius-lg );
+}
+
+.sourceDropZone {
+	gap: var( --space-3 );
+	padding-block: var( --space-6 );
+	border: 0;
+	background-color: var( --muted );
+}
+
+.sourceDropZone p:empty {
+	display: none;
+}
+
+.selectedSource {
+	display: flex;
+	align-items: center;
+	gap: var( --space-3 );
+	min-width: 0;
+	padding: var( --space-3 );
+	border: 1px solid var( --border );
+}
+
+.sourceActions {
 	display: flex;
 	flex: none;
 	align-items: center;
-	height: 36px;
-	margin: var( --space-4 ) 0 0;
-	padding: 0 var( --space-2 );
+	gap: var( --space-1 );
+}
+
+.sourceThumbnail,
+.sourceIcon {
+	flex: none;
+	width: 112px;
+	height: 80px;
+	border-radius: var( --radius-md );
+}
+
+.sourceThumbnail {
+	height: auto;
+	aspect-ratio: auto;
+}
+
+.sourceScreenshot {
+	height: auto;
+}
+
+.sourceIcon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background-color: var( --muted );
 	color: var( --muted-foreground );
-	font-size: var( --text-sm );
-	font-weight: var( --font-weight-medium );
-	line-height: var( --text-sm--line-height );
+}
+
+.sourceIcon svg {
+	width: var( --space-8 );
+	height: var( --space-8 );
+}
+
+.sourceInfo {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: var( --space-1 );
+	min-width: 0;
+}
+
+.selectedSourceName,
+.sourceDescription {
+	composes: truncate from '@/lib/theme/recipes.module.css';
+}
+
+.sourceDescription {
+	color: var( --muted-foreground );
+	font-size: var( --text-xxs );
+}
+
+@container ( width < 380px ) {
+	.sourceThumbnail,
+	.sourceIcon {
+		width: 80px;
+		height: 64px;
+	}
+
+	.sourceThumbnail {
+		height: auto;
+	}
+}
+
+.brief {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-2 );
+}
+
+.brief[hidden] {
+	display: none;
+}
+
+.briefTitle {
+	gap: var( --space-1 );
+}
+
+.briefOptional {
+	color: var( --muted-foreground );
+	font-weight: var( --font-weight-normal );
+}
+
+.briefTextarea {
+	min-height: calc( 2 * var( --text-sm--line-height ) + var( --space-4 ) );
+}
+
+.briefToolbar {
+	display: flex;
+	align-items: center;
+	width: 100%;
+	padding: 0 var( --space-1 ) var( --space-1 );
+}
+
+.briefAttachments {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var( --space-1 );
+	width: 100%;
+	padding: var( --space-2 ) var( --space-2 ) 0;
+}
+
+.briefAttachmentName {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .leading {
@@ -37,11 +185,34 @@
 }
 
 .actions {
-	display: contents;
+	display: flex;
+	align-items: center;
+	gap: var( --space-2 );
 }
 
 .content {
-	/* Room above the first row for a focused card's outline. */
-	padding-top: 3px;
+	position: relative;
+	display: flex;
+	flex: 1;
+	flex-direction: column;
 	container-type: inline-size;
+}
+
+.loading {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: var( --muted-foreground );
+}
+
+.useCaseHeader {
+	margin-block-start: var( --space-6 );
+}
+
+.useCaseHeading {
+	padding-inline: var( --space-2 );
+	color: var( --muted-foreground );
+	font-weight: var( --font-weight-medium );
 }

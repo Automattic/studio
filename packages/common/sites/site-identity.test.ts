@@ -1,43 +1,27 @@
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { readSiteIcon } from './site-identity';
-import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
+import EventEmitter from 'node:events';
+import { expect, it, vi } from 'vitest';
+import { readGlobalStyles } from './site-identity';
+import type { ExecuteCliCommand } from '../lib/cli-process';
 
-function cliPrinting( stdout: string ): ExecuteCliCommand {
-	return vi.fn( () => {
-		const emitter = {
-			on: ( event: string, listener: ( payload: unknown ) => void ) => {
-				if ( event === 'success' ) {
-					setTimeout( () => listener( { result: { stdout, stderr: '' } } ) );
-				}
-				return emitter;
-			},
-		};
-		return [ emitter, {} ];
-	} ) as unknown as ExecuteCliCommand;
-}
+it.each( [ { settings: {}, styles: {} }, null ] )(
+	'reads WordPress global styles, including unsupported classic themes: %j',
+	async ( styles ) => {
+		const emitter = new EventEmitter();
+		const execute = vi.fn( () => [ emitter, {} ] ) as unknown as ExecuteCliCommand;
+		const result = readGlobalStyles( execute, '/sites/example' );
+		emitter.emit( 'success', { result: { stdout: JSON.stringify( styles ) } } );
+		expect( await result ).toEqual( styles );
+		expect( execute ).toHaveBeenCalledWith(
+			[ 'wp', '--path', '/sites/example', 'studio', 'get-global-styles' ],
+			{ output: 'capture' }
+		);
+	}
+);
 
-describe( 'readSiteIcon', () => {
-	const sitePath = mkdtempSync( path.join( os.tmpdir(), 'site-identity-' ) );
-	afterEach( () =>
-		rmSync( path.join( sitePath, 'wp-content' ), { recursive: true, force: true } )
-	);
-
-	it( 'returns the icon as a data URL', async () => {
-		mkdirSync( path.join( sitePath, 'wp-content' ) );
-		writeFileSync( path.join( sitePath, 'wp-content', 'icon.png' ), 'png-bytes' );
-
-		await expect(
-			readSiteIcon( cliPrinting( '{"relativePath":"wp-content\\/icon.png"}' ), sitePath )
-		).resolves.toBe( `data:image/png;base64,${ Buffer.from( 'png-bytes' ).toString( 'base64' ) }` );
-	} );
-
-	it( 'returns null when the site has no icon, or its file is gone', async () => {
-		await expect( readSiteIcon( cliPrinting( 'null' ), sitePath ) ).resolves.toBeNull();
-		await expect(
-			readSiteIcon( cliPrinting( '{"relativePath":"wp-content\\/gone.png"}' ), sitePath )
-		).resolves.toBeNull();
-	} );
+it( 'rejects a command failure so the UI can offer a retry', async () => {
+	const emitter = new EventEmitter();
+	const execute = vi.fn( () => [ emitter, {} ] ) as unknown as ExecuteCliCommand;
+	const result = readGlobalStyles( execute, '/sites/example' );
+	emitter.emit( 'failure', { error: new Error( 'Could not read styles' ) } );
+	await expect( result ).rejects.toThrow( 'Could not read styles' );
 } );

@@ -254,7 +254,9 @@ abstract class BaseBackupImporter extends BaseImporter {
 		}
 
 		if ( ! site.runtimeBlueprintPath ) {
-			await ensureWpConfig( site.path, this.resolvePhpVersion( site ) );
+			await ensureWpConfig( site.path, this.resolvePhpVersion( site ), undefined, {
+				forceDefaultDatabaseName: true,
+			} );
 		}
 	}
 
@@ -264,7 +266,6 @@ abstract class BaseBackupImporter extends BaseImporter {
 		const wpContentSourceDir = this.backup.wpContentDirectory;
 		const wpContentDestDir = path.join( site.path, 'wp-content' );
 
-		// Group files by type
 		const filesByType = this.categorizeWpContentFiles( this.backup.wpContentFiles );
 		let processedItems = 0;
 		const totalItems = this.backup.wpContentFiles.length;
@@ -273,7 +274,6 @@ abstract class BaseBackupImporter extends BaseImporter {
 			for ( const file of files ) {
 				try {
 					const stats = await fs.promises.lstat( file );
-					// Skip if it's a directory
 					if ( stats.isDirectory() ) {
 						continue;
 					}
@@ -297,7 +297,6 @@ abstract class BaseBackupImporter extends BaseImporter {
 
 				processedItems++;
 
-				// Emit progress event after file is copied
 				this.emit( ImportEvents.IMPORT_WP_CONTENT_PROGRESS, {
 					type: type as 'plugins' | 'themes' | 'uploads' | 'other',
 					currentItem: relativePath,
@@ -308,7 +307,7 @@ abstract class BaseBackupImporter extends BaseImporter {
 		}
 
 		await keepSqliteIntegrationUpdated( site.path );
-		await writeStudioMuPlugins( site.path, site.isWpAutoUpdating );
+		await writeStudioMuPlugins( site.path, site.isWpAutoUpdating, site.id );
 
 		this.emit( ImportEvents.IMPORT_WP_CONTENT_COMPLETE );
 	}
@@ -435,6 +434,7 @@ export class SQLImporter extends BaseImporter {
 		this.emit( ImportEvents.IMPORT_START, 'sql' );
 
 		try {
+			await keepSqliteIntegrationUpdated( site.path );
 			await this.importDatabase( site, this.backup.sqlFiles );
 
 			this.emit( ImportEvents.IMPORT_COMPLETE, 'sql' );

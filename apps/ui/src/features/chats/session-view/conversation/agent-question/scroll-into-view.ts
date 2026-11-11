@@ -63,9 +63,7 @@ export function scrollElementIntoViewIfNeeded(
 		? container.getBoundingClientRect()
 		: {
 				top: 0,
-				right: window.innerWidth || document.documentElement.clientWidth,
 				bottom: window.innerHeight || document.documentElement.clientHeight,
-				left: 0,
 		  };
 	const scrollDelta = getQuestionScrollDelta( {
 		elementTop: elementRect.top,

@@ -5,14 +5,14 @@ import type { ComponentProps } from 'react';
 
 export function Spinner( {
 	className,
-	size = 'default',
 	'aria-label': ariaLabel = __( 'Loading' ),
 	...props
-}: ComponentProps< 'svg' > & { size?: 'default' | 'xs' } ) {
+}: ComponentProps< 'svg' > ) {
 	return (
 		<svg
 			data-slot="spinner"
-			data-size={ size }
+			// Keeps the `svg:not( [data-size] )` icon sizing in buttons and inputs off it.
+			data-size="default"
 			role="status"
 			aria-label={ ariaLabel }
 			viewBox="0 0 24 24"

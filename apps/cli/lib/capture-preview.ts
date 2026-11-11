@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { getSharedBrowser } from 'cli/ai/browser-utils';
+import { getSharedBrowser } from '@studio/agent/node';
 
 /**
  * Screenshots a site page for `studio ui`'s stopped-site preview, on the
@@ -16,7 +16,13 @@ export async function capturePreview(
 	}
 	const page = await ( await getSharedBrowser() ).newPage( { viewport: size } );
 	try {
-		await page.goto( url, { waitUntil: 'load', timeout: 5000 } );
+		await page.goto( new URL( '/?studio-hide-adminbar', url ).href, {
+			waitUntil: 'load',
+			timeout: 5000,
+		} );
+		await page.addStyleTag( {
+			content: '#wpadminbar { display: none !important; } html { margin-top: 0 !important; }',
+		} );
 		return await page.screenshot();
 	} finally {
 		await page.close();

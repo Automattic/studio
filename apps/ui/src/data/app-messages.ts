@@ -2,18 +2,16 @@ import { __ } from '@wordpress/i18n';
 import { useSyncExternalStore } from 'react';
 import type { Connector } from '@/data/core';
 
-// Session-only dismissals for persistent sidebar cards. Lives here rather than in
-// use-app-messages so the update hooks can reset it without an import cycle.
+// Session-only dismissals for persistent sidebar cards.
 export const DISMISSED_MESSAGES_QUERY_KEY = [ 'dismissed-messages' ] as const;
 
-type ToastIntent = 'success' | 'info' | 'error';
+type ToastIntent = 'success' | 'info' | 'warning' | 'error';
 
 export type ToastAction = {
 	label: string;
 	onClick: () => void | Promise< unknown >;
-	// Leaves the history once it has run, for actions like Undo that make no
-	// sense twice.
-	once?: boolean;
+	// Reading details does not resolve the problem.
+	dismissOnSuccess?: boolean;
 };
 
 type ToastInput = {
@@ -25,7 +23,10 @@ type ToastInput = {
 	title: string;
 	description?: string;
 	action?: ToastAction;
+	// Zero keeps the notice visible until it is dismissed or replaced.
 	durationMs?: number;
+	dismissible?: boolean;
+	processing?: boolean;
 };
 
 export type ToastMessage = {
@@ -35,6 +36,8 @@ export type ToastMessage = {
 	description?: string;
 	action?: ToastAction;
 	durationMs: number;
+	dismissible?: boolean;
+	processing?: boolean;
 	// True while the exit transition plays. The toast stays in the visible
 	// list (so the renderer can animate it out) and is actually removed —
 	// and the queue promoted — TOAST_EXIT_MS later.
@@ -43,22 +46,14 @@ export type ToastMessage = {
 	actionPending?: boolean;
 };
 
-export type NoticeIntent = ToastIntent | 'warning';
+export type NoticeIntent = ToastIntent;
 
-export type NoticeRecord = {
-	id: string;
-	intent: NoticeIntent;
-	title: string;
-	description?: string;
-	action?: ToastAction;
-	actionPending?: boolean;
-	// Epoch ms of the first showing; an in-place replacement keeps it.
-	shownAt: number;
-};
+export type Notice = Pick<
+	ToastMessage,
+	'intent' | 'title' | 'description' | 'action' | 'actionPending' | 'processing'
+> & { source?: 'studio' };
 
 const DEFAULT_TOAST_TTL_MS = 4_500;
-// Failures linger so a glance away doesn't miss them.
-const ERROR_TOAST_TTL_MS = 10_000;
 const MAX_VISIBLE_TOASTS = 3;
 // The length of the deck's exit slide, before the queue is promoted.
 export const TOAST_EXIT_MS = 240;
@@ -68,13 +63,8 @@ let queued: ToastMessage[] = [];
 let nextId = 1;
 let rendererMounted = false;
 
-// Session-only log of everything shown, newest first. A toast clamps long
-// error text and then expires; the history panel is where the full message
-// can still be read. Bounded so a noisy session can't grow it forever.
-const HISTORY_LIMIT = 50;
-let noticeHistory: NoticeRecord[] = [];
-// Keeps re-renders from re-logging a card, and "Clear all" from restoring one still showing.
-let loggedCards = new Map< string, string >();
+const dismissedProcessingNotices = new Set< string >();
+const pendingActions = new Set< ToastAction >();
 
 const timers = new Map< string, ReturnType< typeof setTimeout > >();
 const listeners = new Set< () => void >();
@@ -98,10 +88,15 @@ function clearExpiryTimer( id: string ) {
 
 // Expiry timers live in the store (not the component) so queue promotion is
 // atomic with expiry, and so a toast's clock only starts once it is actually
-// visible — queued failures keep their full linger time.
+// visible — queued confirmations keep their full duration.
 function scheduleExpiry( toast: ToastMessage ) {
 	clearExpiryTimer( toast.id );
-	if ( ! rendererMounted ) {
+	if (
+		! rendererMounted ||
+		toast.processing ||
+		toast.dismissible === false ||
+		toast.durationMs === 0
+	) {
 		return;
 	}
 	const timer = setTimeout( () => {
@@ -111,30 +106,8 @@ function scheduleExpiry( toast: ToastMessage ) {
 	timers.set( toast.id, timer );
 }
 
-function recordNotice(
-	toastMessage: Pick< NoticeRecord, 'id' | 'intent' | 'title' | 'description' | 'action' >,
-	isReplacement: boolean
-) {
-	const record: NoticeRecord = {
-		id: toastMessage.id,
-		intent: toastMessage.intent,
-		title: toastMessage.title,
-		description: toastMessage.description,
-		action: toastMessage.action,
-		shownAt: Date.now(),
-	};
-	if ( isReplacement ) {
-		const index = noticeHistory.findIndex( ( item ) => item.id === toastMessage.id );
-		if ( index >= 0 ) {
-			// A sync ticking from "Pushing… 62%" to "Push complete" is one event,
-			// not two entries.
-			noticeHistory = noticeHistory.map( ( item, i ) =>
-				i === index ? { ...record, shownAt: item.shownAt } : item
-			);
-			return;
-		}
-	}
-	noticeHistory = [ record, ...noticeHistory ].slice( 0, HISTORY_LIMIT );
+function isPersistent( message: ToastMessage ): boolean {
+	return !! message.processing || message.durationMs === 0 || message.dismissible === false;
 }
 
 function promoteQueued() {
@@ -174,32 +147,49 @@ function beginToastExit( id: string ) {
 
 export function showToast( input: ToastInput ): string {
 	const intent = input.intent ?? 'info';
+	const duplicate =
+		! input.id && ( intent === 'error' || intent === 'warning' )
+			? [ ...visible, ...queued ].find(
+					( item ) =>
+						item.intent === intent &&
+						item.title === input.title &&
+						item.description === input.description
+			  )
+			: undefined;
 	const toastMessage: ToastMessage = {
-		id: input.id ?? `toast-${ nextId++ }`,
+		id: input.id ?? duplicate?.id ?? `toast-${ nextId++ }`,
 		intent,
 		title: input.title,
 		description: input.description,
 		action: input.action,
+		actionPending: input.action && pendingActions.has( input.action ) ? true : undefined,
+		dismissible: input.dismissible,
+		processing: input.processing,
 		durationMs:
-			input.durationMs ?? ( intent === 'error' ? ERROR_TOAST_TTL_MS : DEFAULT_TOAST_TTL_MS ),
+			input.durationMs ?? ( intent === 'error' || intent === 'warning' ? 0 : DEFAULT_TOAST_TTL_MS ),
 	};
+	if ( toastMessage.processing && dismissedProcessingNotices.has( toastMessage.id ) ) {
+		return toastMessage.id;
+	}
+	if ( ! toastMessage.processing ) dismissedProcessingNotices.delete( toastMessage.id );
 
 	if ( visible.some( ( toast ) => toast.id === toastMessage.id ) ) {
 		// Re-showing also rescues a toast mid-exit: the replacement carries no
 		// leaving flag, and scheduleExpiry clears the pending removal timer.
 		visible = visible.map( ( toast ) => ( toast.id === toastMessage.id ? toastMessage : toast ) );
 		scheduleExpiry( toastMessage );
-		recordNotice( toastMessage, true );
 	} else if ( queued.some( ( toast ) => toast.id === toastMessage.id ) ) {
-		queued = queued.map( ( toast ) => ( toast.id === toastMessage.id ? toastMessage : toast ) );
-		recordNotice( toastMessage, true );
-	} else if ( visible.length < MAX_VISIBLE_TOASTS ) {
+		queued = queued.filter( ( item ) => item.id !== toastMessage.id );
+		if ( isPersistent( toastMessage ) ) {
+			visible = [ ...visible, toastMessage ];
+		} else {
+			queued = [ ...queued, toastMessage ];
+		}
+	} else if ( visible.length < MAX_VISIBLE_TOASTS || isPersistent( toastMessage ) ) {
 		visible = [ ...visible, toastMessage ];
 		scheduleExpiry( toastMessage );
-		recordNotice( toastMessage, false );
 	} else {
 		queued = [ ...queued, toastMessage ];
-		recordNotice( toastMessage, false );
 	}
 
 	emit();
@@ -207,6 +197,15 @@ export function showToast( input: ToastInput ): string {
 }
 
 export function dismissToast( id: string ): void {
+	const target = [ ...visible, ...queued ].find( ( toast ) => toast.id === id );
+	if ( target?.dismissible === false ) return;
+	if ( target?.processing ) dismissedProcessingNotices.add( id );
+	beginToastExit( id );
+}
+
+// Programmatic completion also releases a dismissed operation for its next run.
+export function clearToast( id: string ): void {
+	dismissedProcessingNotices.delete( id );
 	beginToastExit( id );
 }
 
@@ -215,37 +214,56 @@ export function errorMessage( error: unknown ): string {
 }
 
 function setActionPending( action: ToastAction, actionPending: boolean ) {
+	if ( actionPending ) pendingActions.add( action );
+	else pendingActions.delete( action );
 	const update = < T extends { action?: ToastAction } >( item: T ): T =>
 		item.action === action ? { ...item, actionPending } : item;
 	visible = visible.map( update );
-	noticeHistory = noticeHistory.map( update );
+	queued = queued.map( update );
 	emit();
 }
 
-// Runs an action from its toast or the history, one run at a time. Success
-// closes the toast; a failure says so and leaves the action there to try again.
+// Only a recovery action dismisses an error; inspecting it leaves it available.
 export async function runNoticeAction( action: ToastAction ): Promise< boolean > {
-	// A toast on its way out still shows its button, but the action left with it.
-	const offering = [ ...visible.filter( ( item ) => ! item.leaving ), ...noticeHistory ].filter(
-		( item ) => item.action === action
-	);
-	if ( ! offering.length || offering.some( ( item ) => item.actionPending ) ) {
-		return false;
-	}
-	const toastIds = visible.filter( ( item ) => item.action === action ).map( ( item ) => item.id );
+	const offering = visible.filter( ( item ) => ! item.leaving && item.action === action );
+	if ( ! offering.length || offering.some( ( item ) => item.actionPending ) ) return false;
+	const toastIds = offering.map( ( item ) => item.id );
 	toastIds.forEach( clearExpiryTimer );
 	setActionPending( action, true );
 	try {
 		await action.onClick();
-		if ( action.once ) {
-			noticeHistory = noticeHistory.map( ( item ) =>
-				item.action === action ? { ...item, action: undefined, actionPending: undefined } : item
-			);
+		if ( action.dismissOnSuccess !== false ) {
+			for ( const id of toastIds ) {
+				if (
+					visible.some( ( item ) => item.id === id && item.action === action && ! item.processing )
+				) {
+					beginToastExit( id );
+				}
+			}
 		}
-		toastIds.forEach( beginToastExit );
 		return true;
 	} catch ( error ) {
-		toast.error( __( 'Action failed' ), { description: errorMessage( error ) } );
+		for ( const id of toastIds ) {
+			if ( visible.some( ( item ) => item.id === id && item.action === action ) ) {
+				const original = offering.find( ( item ) => item.id === id )!;
+				const detail = errorMessage( error );
+				if ( original.processing ) {
+					toast.error( __( 'Action failed' ), { description: detail } );
+					continue;
+				}
+				let description = detail;
+				if ( action.dismissOnSuccess === false && original.description ) {
+					description = original.description.includes( detail )
+						? original.description
+						: `${ original.description }\n${ detail }`;
+				}
+				toast.error( action.dismissOnSuccess === false ? original.title : __( 'Action failed' ), {
+					id,
+					description,
+					action,
+				} );
+			}
+		}
 		return false;
 	} finally {
 		setActionPending( action, false );
@@ -254,10 +272,16 @@ export async function runNoticeAction( action: ToastAction ): Promise< boolean >
 }
 
 export const toast = {
+	processing: (
+		title: string,
+		options: Omit< ToastInput, 'title' | 'intent' | 'processing' > = {}
+	) => showToast( { dismissible: true, ...options, intent: 'info', title, processing: true } ),
 	success: ( title: string, options: Omit< ToastInput, 'title' | 'intent' > = {} ) =>
 		showToast( { intent: 'success', title, ...options } ),
 	info: ( title: string, options: Omit< ToastInput, 'title' | 'intent' > = {} ) =>
 		showToast( { intent: 'info', title, ...options } ),
+	warning: ( title: string, options: Omit< ToastInput, 'title' | 'intent' > = {} ) =>
+		showToast( { intent: 'warning', title, ...options } ),
 	error: ( title: string, options: Omit< ToastInput, 'title' | 'intent' > = {} ) =>
 		showToast( { intent: 'error', title, ...options } ),
 };
@@ -268,12 +292,9 @@ export function openStudioLogsAction( connector: Connector ): ToastAction | unde
 		return undefined;
 	}
 	return {
-		label: __( 'Open WordPress Studio Logs' ),
-		onClick: () => {
-			void connector.openStudioLogs().catch( ( error ) => {
-				console.error( 'Failed to open Studio logs:', error );
-			} );
-		},
+		label: __( 'Open logs' ),
+		dismissOnSuccess: false,
+		onClick: () => connector.openStudioLogs(),
 	};
 }
 
@@ -338,61 +359,8 @@ export function getQueuedToastCount(): number {
 }
 
 const EMPTY_TOASTS: readonly ToastMessage[] = [];
-const EMPTY_HISTORY: readonly NoticeRecord[] = [];
-
-export function getNoticeHistory(): readonly NoticeRecord[] {
-	return noticeHistory;
-}
-
-export function useNoticeHistory(): readonly NoticeRecord[] {
-	return useSyncExternalStore(
-		subscribe,
-		() => noticeHistory,
-		() => EMPTY_HISTORY
-	);
-}
-
-// "Clear all" in the recent-notifications dialog: the list, plus whatever is
-// still showing or waiting in the sidebar — a cleared list with toasts left
-// behind reads as if nothing happened.
-export function clearNoticeHistory(): void {
-	queued = [];
-	for ( const toastMessage of visible ) {
-		beginToastExit( toastMessage.id );
-	}
-	noticeHistory = [];
-	emit();
-}
-
-// Removes one entry, and its toast if that is still showing.
-export function dismissNotice( notice: NoticeRecord ): void {
-	noticeHistory = noticeHistory.filter( ( item ) => item !== notice );
-	beginToastExit( notice.id );
-	emit();
-}
-
-// A card that goes away and comes back is logged again.
-export function syncCardNotices(
-	cards: readonly Pick< NoticeRecord, 'id' | 'intent' | 'title' | 'description' >[]
-): void {
-	const next = new Map< string, string >();
-	let changed = false;
-	for ( const card of cards ) {
-		const content = [ card.intent, card.title, card.description ?? '' ].join( '\n' );
-		next.set( card.id, content );
-		if ( loggedCards.get( card.id ) !== content ) {
-			recordNotice( card, loggedCards.has( card.id ) );
-			changed = true;
-		}
-	}
-	loggedCards = next;
-	if ( changed ) {
-		emit();
-	}
-}
-
 // Title plus the full description, for the clipboard.
-export function noticeToText( notice: Pick< NoticeRecord, 'title' | 'description' > ): string {
+export function noticeToText( notice: Pick< Notice, 'title' | 'description' > ): string {
 	return notice.description ? `${ notice.title }\n${ notice.description }` : notice.title;
 }
 
@@ -406,6 +374,6 @@ export function resetAppMessagesForTests(): void {
 	nextId = 1;
 	rendererMounted = false;
 	snapshot = visible;
-	noticeHistory = [];
-	loggedCards = new Map();
+	dismissedProcessingNotices.clear();
+	pendingActions.clear();
 }

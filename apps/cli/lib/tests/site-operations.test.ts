@@ -1,32 +1,15 @@
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import {
-	lockCliConfig,
-	readCliConfig,
-	saveCliConfig,
-	SiteData,
-	unlockCliConfig,
-} from 'cli/lib/cli-config/core';
+import { getCliConfigPath } from '@studio/common/lib/well-known-paths';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { readCliConfig, SiteData } from 'cli/lib/cli-config/core';
 import { emitCliEvent } from 'cli/lib/daemon-client';
-import { LoggerError } from 'cli/logger';
 import { getLiveSiteOperation, withSiteOperation, withSiteOperations } from '../site-operations';
 
-vi.mock( 'cli/lib/cli-config/core', () => ( {
-	lockCliConfig: vi.fn(),
-	unlockCliConfig: vi.fn(),
-	readCliConfig: vi.fn(),
-	saveCliConfig: vi.fn(),
-} ) );
 vi.mock( 'cli/lib/daemon-client', () => ( { emitCliEvent: vi.fn() } ) );
-vi.mock( 'cli/lib/cli-config/sites', () => ( {
-	getSiteByFolder: vi.fn( async ( folder: string ) => {
-		if ( folder !== site.path ) {
-			throw new LoggerError( 'Site not found' );
-		}
-		return site;
-	} ),
-} ) );
 
 const site: SiteData = {
 	id: 'site-1',
@@ -43,25 +26,33 @@ const secondSite: SiteData = {
 	path: '/home/user/Studio/second-site',
 };
 
-let mockConfig: Awaited< ReturnType< typeof readCliConfig > >;
+function writeSites( sites: SiteData[] ) {
+	fs.writeFileSync( getCliConfigPath(), JSON.stringify( { version: 1, sites, snapshots: [] } ) );
+}
 
-function storedOperation() {
-	return mockConfig.sites[ 0 ].operation;
+async function storedSites() {
+	return ( await readCliConfig() ).sites;
+}
+
+async function storedOperation() {
+	return ( await storedSites() )[ 0 ].operation;
 }
 
 // A pid that is guaranteed not to be running, standing in for a client that
 // crashed mid-operation.
 const DEAD_PID = 0x7ffffffe;
 
+let configDirectory: string;
+
 beforeEach( () => {
-	vi.clearAllMocks();
-	mockConfig = { version: 1, sites: [ structuredClone( site ) ], snapshots: [] };
-	vi.mocked( lockCliConfig ).mockResolvedValue( undefined );
-	vi.mocked( unlockCliConfig ).mockResolvedValue( undefined );
-	vi.mocked( readCliConfig ).mockImplementation( async () => structuredClone( mockConfig ) );
-	vi.mocked( saveCliConfig ).mockImplementation( async ( config ) => {
-		mockConfig = structuredClone( config );
-	} );
+	configDirectory = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-config-' ) );
+	vi.stubEnv( 'DEV_CONFIG_DIR', configDirectory );
+	writeSites( [ site ] );
+} );
+
+afterEach( () => {
+	vi.unstubAllEnvs();
+	fs.rmSync( configDirectory, { recursive: true, force: true } );
 } );
 
 describe( 'getLiveSiteOperation', () => {
@@ -85,10 +76,10 @@ describe( 'getLiveSiteOperation', () => {
 describe( 'withSiteOperation', () => {
 	it( 'records the operation while it runs and clears it afterwards', async () => {
 		await withSiteOperation( site.path, 'settings', async () => {
-			expect( storedOperation() ).toEqual( { pid: process.pid, kind: 'settings' } );
+			expect( await storedOperation() ).toEqual( { pid: process.pid, kind: 'settings' } );
 		} );
 
-		expect( storedOperation() ).toBeUndefined();
+		expect( await storedOperation() ).toBeUndefined();
 	} );
 
 	it( 'releases the operation when the work throws', async () => {
@@ -98,7 +89,7 @@ describe( 'withSiteOperation', () => {
 			} )
 		).rejects.toThrow( 'settings blew up' );
 
-		expect( storedOperation() ).toBeUndefined();
+		expect( await storedOperation() ).toBeUndefined();
 	} );
 
 	it( 'refuses a second operation while one is held', async () => {
@@ -126,12 +117,12 @@ describe( 'withSiteOperation', () => {
 	} );
 
 	it( 'reclaims an operation whose owning process is gone', async () => {
-		mockConfig.sites[ 0 ].operation = { pid: DEAD_PID, kind: 'delete' };
+		writeSites( [ { ...site, operation: { pid: DEAD_PID, kind: 'delete' } } ] );
 
 		const result = await withSiteOperation( site.path, 'start', async () => 'started' );
 
 		expect( result ).toBe( 'started' );
-		expect( storedOperation() ).toBeUndefined();
+		expect( await storedOperation() ).toBeUndefined();
 	} );
 
 	// Reusing SITE_EVENTS.UPDATED here made every acquire assert a running state
@@ -147,41 +138,41 @@ describe( 'withSiteOperation', () => {
 	it( 'does not lock a site that is not in the config', async () => {
 		await expect(
 			withSiteOperation( '/no/such/site', 'start', async () => undefined )
-		).rejects.toThrow( 'Site not found' );
+		).rejects.toThrow( 'not added to Studio' );
 	} );
 } );
 
 describe( 'withSiteOperations', () => {
 	beforeEach( () => {
-		mockConfig.sites.push( structuredClone( secondSite ) );
+		writeSites( [ site, secondSite ] );
 	} );
 
-	it( 'acquires and releases every site in one config transaction', async () => {
+	it( 'acquires and releases every site', async () => {
 		await withSiteOperations( [ site.id, secondSite.id ], 'delete', async () => {
-			expect( mockConfig.sites.map( ( item ) => item.operation ) ).toEqual( [
+			expect( ( await storedSites() ).map( ( item ) => item.operation ) ).toEqual( [
 				{ pid: process.pid, kind: 'delete' },
 				{ pid: process.pid, kind: 'delete' },
 			] );
 		} );
 
-		expect( mockConfig.sites.every( ( item ) => item.operation === undefined ) ).toBe( true );
-		expect( saveCliConfig ).toHaveBeenCalledTimes( 2 );
+		expect( ( await storedSites() ).every( ( item ) => item.operation === undefined ) ).toBe(
+			true
+		);
 	} );
 
 	it( 'does not acquire any site when one is busy', async () => {
-		mockConfig.sites[ 1 ].operation = { pid: process.pid, kind: 'settings' };
+		const busy = { pid: process.pid, kind: 'settings' } as const;
+		writeSites( [ site, { ...secondSite, operation: busy } ] );
 		const work = vi.fn();
 
 		await expect(
 			withSiteOperations( [ site.id, secondSite.id ], 'delete', work )
 		).rejects.toThrow( /already in progress/ );
 
-		expect( mockConfig.sites[ 0 ].operation ).toBeUndefined();
-		expect( mockConfig.sites[ 1 ].operation ).toEqual( {
-			pid: process.pid,
-			kind: 'settings',
-		} );
-		expect( saveCliConfig ).not.toHaveBeenCalled();
+		expect( ( await storedSites() ).map( ( item ) => item.operation ) ).toEqual( [
+			undefined,
+			busy,
+		] );
 		expect( work ).not.toHaveBeenCalled();
 	} );
 
@@ -192,17 +183,16 @@ describe( 'withSiteOperations', () => {
 			withSiteOperations( [ site.id, 'missing-site' ], 'delete', work )
 		).rejects.toThrow( 'Site not found' );
 
-		expect( mockConfig.sites[ 0 ].operation ).toBeUndefined();
-		expect( saveCliConfig ).not.toHaveBeenCalled();
+		expect( await storedOperation() ).toBeUndefined();
 		expect( work ).not.toHaveBeenCalled();
 	} );
 
 	it( 'releases surviving sites after deleted records disappear', async () => {
 		await withSiteOperations( [ site.id, secondSite.id ], 'delete', async () => {
-			mockConfig.sites = mockConfig.sites.filter( ( item ) => item.id !== site.id );
+			writeSites( ( await storedSites() ).filter( ( item ) => item.id !== site.id ) );
 		} );
 
-		expect( mockConfig.sites ).toEqual( [ expect.objectContaining( { id: secondSite.id } ) ] );
-		expect( mockConfig.sites[ 0 ].operation ).toBeUndefined();
+		expect( await storedSites() ).toEqual( [ expect.objectContaining( { id: secondSite.id } ) ] );
+		expect( await storedOperation() ).toBeUndefined();
 	} );
 } );

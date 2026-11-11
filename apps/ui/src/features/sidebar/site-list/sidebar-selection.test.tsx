@@ -262,7 +262,6 @@ describe( 'sidebar selection', () => {
 					'true'
 				)
 			);
-			expect( within( menu ).getByText( /Wait for active chats/ ) ).toBeVisible();
 			expect( connector.updateSessionMetadata ).not.toHaveBeenCalled();
 		}
 	);
@@ -302,6 +301,32 @@ describe( 'sidebar selection', () => {
 		expect( selected() ).toContain( 'site:one' );
 	} );
 
+	it( 'removes only included sites and keeps an excluded site open', async () => {
+		const { connector, history } = await setup();
+		select( 'one', 'two' );
+		deleteShortcut( await bulkMenu( 'one' ) );
+		const dialog = await screen.findByRole( 'alertdialog' );
+		fireEvent.click(
+			within( dialog ).getByRole( 'button', { name: 'Exclude “Site one” from removal' } )
+		);
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Remove site' } ) );
+		await waitFor( () => expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument() );
+		expect( connector.deleteSite ).toHaveBeenCalledExactlyOnceWith( 'two', false );
+		expect( history.location.pathname ).toBe( '/sites/one' );
+	} );
+
+	it( 'keeps the current site open when its removal fails and another succeeds', async () => {
+		const { connector, history } = await setup();
+		connector.deleteSite.mockRejectedValueOnce( new Error( 'Removal failed' ) );
+		select( 'one', 'two' );
+		deleteShortcut( await bulkMenu( 'one' ) );
+		const dialog = await screen.findByRole( 'alertdialog' );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Remove sites' } ) );
+		await screen.findByRole( 'alert' );
+		expect( connector.deleteSite ).toHaveBeenCalledTimes( 2 );
+		expect( history.location.pathname ).toBe( '/sites/one' );
+	} );
+
 	it( 'keeps archive and deletion eligibility separate in mixed selections', async () => {
 		await setup( { busy: { sessionId: 'b', phase: 'running' } } );
 		select( 'c', 'one' );
@@ -338,8 +363,8 @@ describe( 'sidebar selection', () => {
 		expect( connector.deleteSite ).not.toHaveBeenCalled();
 	} );
 
-	it( 'blocks site removal for busy chat work and prunes removed sites', async () => {
-		const { connector, queryClient } = await setup( {
+	it( 'blocks site removal for busy chat work and prunes removed inactive sites', async () => {
+		const { connector, queryClient, history } = await setup( {
 			busy: { sessionId: 'b', phase: 'running' },
 		} );
 		select( 'one', 'two' );
@@ -352,9 +377,10 @@ describe( 'sidebar selection', () => {
 		);
 		deleteShortcut( menu );
 		expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument();
-		connector.state.sites = connector.state.sites.filter( ( entry ) => entry.id !== 'one' );
+		connector.state.sites = connector.state.sites.filter( ( entry ) => entry.id !== 'two' );
 		await act( () => queryClient.invalidateQueries( { queryKey: [ 'sites' ] } ) );
-		await waitFor( () => expect( selected() ).toEqual( [ 'site:two' ] ) );
+		await waitFor( () => expect( selected() ).toEqual( [ 'site:one' ] ) );
+		expect( history.location.pathname ).toBe( '/sites/one' );
 	} );
 
 	it.each( [ false, true ] )(

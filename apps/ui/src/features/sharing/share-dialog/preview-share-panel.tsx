@@ -1,13 +1,14 @@
-import { DAY_MS, DEMO_SITE_EXPIRATION_DAYS } from '@studio/common/constants';
+import { getSnapshotExpiry } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
-import { CopyIcon, EllipsisIcon, RefreshCwIcon } from 'lucide-react';
-import { useId, useState, type ReactNode } from 'react';
+import { EllipsisIcon, RefreshCwIcon } from 'lucide-react';
+import { useEffect, useId, useRef, useState, type RefObject } from 'react';
+import { useConnector } from '@/data/core';
 import { useCopyText } from '@/data/host/use-copy-text';
-import { markPreviewSeen } from '@/data/preview-ready';
-import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
-import { useDeleteSnapshot, useRenameSnapshot } from '@/data/queries/use-snapshots';
+import { useRenameSnapshot } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
+import { getSnapshotAdminUrl, getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
+import { SiteCard, getWebsiteThumbnailUrl } from '@/features/site-card';
+import { DuplicateIcon, ExternalLinkIcon, RenameIcon, TrashIcon, WordPressIcon } from '@/lib/icons';
 import {
 	Button,
 	IconButton,
@@ -15,15 +16,49 @@ import {
 	FieldLabel,
 	Input,
 	Menu,
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
 	Spinner,
+	VisuallyHidden,
 } from '@/lib/ui';
 import styles from './style.module.css';
-import type { SiteDetails, Snapshot } from '@/data/core';
+import type { PreviewManagementAction } from './preview-management-dialog';
+import type { Snapshot } from '@/data/core';
+
+function PreviewLinkActions( {
+	snapshot,
+	locked,
+	onUpdate,
+}: {
+	snapshot: Snapshot;
+	locked: boolean;
+	onUpdate: () => void;
+} ) {
+	const connector = useConnector();
+	const url = getSnapshotUrl( snapshot );
+	const adminUrl = getSnapshotAdminUrl( snapshot );
+	const { copy } = useCopyText( url );
+	return (
+		<>
+			<Menu.Item disabled={ locked } onClick={ onUpdate }>
+				<RefreshCwIcon />
+				{ __( 'Update' ) }
+			</Menu.Item>
+			<Menu.Item onClick={ copy }>
+				<DuplicateIcon />
+				{ __( 'Copy link' ) }
+			</Menu.Item>
+			<Menu.Item onClick={ () => void connector.openExternalUrl( url ) }>
+				<ExternalLinkIcon />
+				{ __( 'Visit preview' ) }
+			</Menu.Item>
+			{ adminUrl ? (
+				<Menu.Item onClick={ () => void connector.openExternalUrl( adminUrl ) }>
+					<WordPressIcon />
+					{ __( 'WordPress admin' ) }
+				</Menu.Item>
+			) : null }
+		</>
+	);
+}
 
 export function previewExpiry(
 	snapshot: Snapshot,
@@ -33,10 +68,7 @@ export function previewExpiry(
 	return sprintf(
 		/* translators: %s: the date a preview site expires */
 		__( 'Expires %s' ),
-		new Date( snapshot.date + DEMO_SITE_EXPIRATION_DAYS * DAY_MS ).toLocaleDateString(
-			locale,
-			format
-		)
+		new Date( getSnapshotExpiry( snapshot ) ).toLocaleDateString( locale, format )
 	);
 }
 
@@ -79,11 +111,16 @@ export function RenamePreview( { snapshot, onDone }: { snapshot: Snapshot; onDon
 					} }
 				/>
 			</Field>
+			{ rename.error ? (
+				<p className={ styles.error } role="alert">
+					{ rename.error.message }
+				</p>
+			) : null }
 			<div className={ styles.confirmActions }>
 				<Button variant="ghost" onClick={ onDone }>
 					{ __( 'Cancel' ) }
 				</Button>
-				<Button type="submit" loading={ rename.isPending }>
+				<Button variant="accent" type="submit" loading={ rename.isPending }>
 					{ __( 'Save' ) }
 				</Button>
 			</div>
@@ -91,219 +128,228 @@ export function RenamePreview( { snapshot, onDone }: { snapshot: Snapshot; onDon
 	);
 }
 
-const NEW_PREVIEW = -1;
-
 export function PreviewSharePanel( {
-	site,
+	primaryAction,
 	previews,
 	busy,
 	creating,
-	updatingHostname,
-	failed,
+	offline,
+	error,
+	onRetry,
+	retryCreates,
+	createdUrl,
+	restriction,
 	canCreate,
 	notice,
-	footer,
 	onPublish,
+	onManagePreview,
 }: {
-	site: SiteDetails;
+	primaryAction: RefObject< HTMLButtonElement | null >;
 	previews: Snapshot[];
 	busy: boolean;
-	// A new preview is publishing; `updatingHostname` names an existing one being refreshed.
 	creating: boolean;
-	updatingHostname?: string;
-	failed: boolean;
+	offline: boolean;
+	error?: string;
+	onRetry?: () => void;
+	retryCreates: boolean;
+	createdUrl?: string;
+	restriction?: string;
 	canCreate: boolean;
 	notice?: string;
-	footer?: ReactNode;
 	onPublish: ( hostname?: string ) => void;
+	onManagePreview: ( action: PreviewManagementAction ) => void;
 } ) {
 	const locale = useUserLocale();
-	const linkId = useId();
+	const connector = useConnector();
+	const selectionId = useId();
 	const [ selectedId, setSelectedId ] = useState< number >();
-	const [ editing, setEditing ] = useState< 'rename' | 'delete' | null >( null );
-	const [ imageFailed, setImageFailed ] = useState( false );
-	const remove = useDeleteSnapshot();
-	const thumbnail = useSiteThumbnail( site.id );
-	const showingNew = selectedId === NEW_PREVIEW && creating;
-	const snapshot = showingNew
-		? undefined
-		: previews.find( ( item ) => item.atomicSiteId === selectedId ) ?? previews[ 0 ];
-	const picker =
-		previews.length > 1 || creating ? (
-			<Select
-				value={ snapshot?.atomicSiteId ?? NEW_PREVIEW }
-				disabled={ busy && ! creating }
-				onValueChange={ ( value ) => {
-					if ( value === null ) return;
-					setSelectedId( value );
-					setEditing( null );
+	const previewMenuTrigger = useRef< HTMLButtonElement >( null );
+	const transferringFocus = useRef( false );
+	const appliedCreatedUrl = useRef< string >( undefined );
+	useEffect( () => {
+		if ( ! createdUrl || appliedCreatedUrl.current === createdUrl ) return;
+		const created = previews.find( ( preview ) => getSnapshotUrl( preview ) === createdUrl );
+		if ( created ) {
+			appliedCreatedUrl.current = createdUrl;
+			setSelectedId( created.atomicSiteId );
+		}
+	}, [ createdUrl, previews ] );
+	const snapshot = previews.find( ( item ) => item.atomicSiteId === selectedId ) ?? previews[ 0 ];
+	const locked = busy || offline || creating;
+	const managementLocked = offline || ( busy && ! creating );
+
+	const managementItems = ( item: Snapshot ) => (
+		<>
+			<Menu.Item
+				disabled={ managementLocked }
+				onClick={ () => {
+					transferringFocus.current = true;
+					onManagePreview( {
+						kind: 'rename',
+						snapshot: item,
+						trigger: previewMenuTrigger.current,
+					} );
 				} }
 			>
-				<SelectTrigger aria-label={ __( 'Select preview' ) } className={ styles.previewSelect }>
-					<SelectValue>
-						{ snapshot ? snapshot.name || __( 'Preview site' ) : __( 'New preview · Publishing…' ) }
-					</SelectValue>
-				</SelectTrigger>
-				<SelectContent>
-					{ creating ? (
-						<SelectItem value={ NEW_PREVIEW }>{ __( 'New preview · Publishing…' ) }</SelectItem>
-					) : null }
-					{ previews.map( ( item ) => (
-						<SelectItem key={ item.atomicSiteId } value={ item.atomicSiteId }>
-							{ item.name || __( 'Preview site' ) }
-						</SelectItem>
-					) ) }
-				</SelectContent>
-			</Select>
-		) : null;
-	const url = snapshot ? getSnapshotUrl( snapshot ) : '';
-	const updating = !! snapshot && updatingHostname === getSnapshotHostname( snapshot );
-	const locked = busy || remove.isPending;
-	const { copied, copy } = useCopyText( url );
+				<RenameIcon />
+				{ __( 'Rename' ) }
+			</Menu.Item>
+			<Menu.Separator />
+			<Menu.Item
+				disabled={ managementLocked }
+				destructive
+				onClick={ () => {
+					transferringFocus.current = true;
+					onManagePreview( {
+						kind: 'delete',
+						snapshot: item,
+						trigger: previewMenuTrigger.current,
+					} );
+				} }
+			>
+				<TrashIcon />
+				{ __( 'Delete preview' ) }
+			</Menu.Item>
+		</>
+	);
 
-	if ( ! snapshot ) {
-		return (
-			<div className={ styles.panel }>
-				{ picker }
-				<Button
-					size="lg"
-					disabled={ creating || locked || ! canCreate }
-					onClick={ () => onPublish() }
-				>
-					{ creating ? <Spinner data-icon="inline-start" aria-hidden="true" /> : null }
-					{ creating
-						? __( 'Publishing preview…' )
-						: failed
-						? __( 'Try again' )
-						: __( 'Create preview' ) }
-				</Button>
-				{ notice ? <p className={ styles.notice }>{ notice }</p> : null }
-				{ footer }
-			</div>
-		);
-	}
+	const feedback = (
+		<>
+			{ restriction ? (
+				<p className={ styles.notice } role="status">
+					{ restriction }
+				</p>
+			) : null }
+			{ notice ? <p className={ styles.notice }>{ notice }</p> : null }
+			{ error ? (
+				<div className={ styles.error } role="alert">
+					<p>{ error }</p>
+					{ onRetry && snapshot ? (
+						<Button
+							variant="outline"
+							disabled={ locked || ( retryCreates && ! canCreate ) }
+							onClick={ onRetry }
+						>
+							{ __( 'Try again' ) }
+						</Button>
+					) : null }
+				</div>
+			) : null }
+		</>
+	);
 
 	return (
 		<div className={ styles.panel }>
-			{ picker }
-			<figure className={ styles.frame }>
-				{ thumbnail.data && ! imageFailed ? (
-					<img
-						src={ thumbnail.data }
-						/* translators: %s: site name */
-						alt={ sprintf( __( 'Local site preview of %s' ), site.name ) }
-						onError={ () => setImageFailed( true ) }
-					/>
-				) : (
-					<p>
-						{ thumbnail.isPending
-							? __( 'Loading preview image…' )
-							: __( 'Preview image unavailable' ) }
-					</p>
-				) }
-				{ editing === 'delete' ? null : (
-					<Button
-						variant="overlay"
-						className={ styles.update }
-						disabled={ locked }
-						onClick={ () => onPublish( getSnapshotHostname( snapshot ) ) }
-					>
-						{ updating ? (
-							<Spinner data-icon="inline-start" aria-hidden="true" />
-						) : (
-							<RefreshCwIcon data-icon="inline-start" />
-						) }
-						{ updating ? __( 'Updating' ) : failed ? __( 'Try again' ) : __( 'Update preview' ) }
-					</Button>
-				) }
-			</figure>
-			{ editing === 'delete' ? (
-				<div className={ styles.confirm }>
-					<p>{ __( 'Delete this preview? Its shared link will stop working.' ) }</p>
-					<div className={ styles.confirmActions }>
-						<Button
-							variant="ghost"
-							disabled={ remove.isPending }
-							onClick={ () => setEditing( null ) }
-						>
-							{ __( 'Cancel' ) }
-						</Button>
-						<Button
-							variant="destructive"
-							loading={ remove.isPending }
-							onClick={ () =>
-								remove.mutate(
-									{ hostname: getSnapshotHostname( snapshot ) },
-									{ onSuccess: () => setEditing( null ) }
-								)
-							}
-						>
-							{ __( 'Delete preview' ) }
-						</Button>
-					</div>
+			{ snapshot ? (
+				<div className={ styles.previewListWrap }>
+					<ul className={ styles.previewList } aria-label={ __( 'Previews' ) }>
+						{ previews.map( ( item, index ) => {
+							const title =
+								item.name ||
+								sprintf( __( 'Preview %d' ), item.sequence ?? previews.length - index );
+							const selected = item.atomicSiteId === snapshot.atomicSiteId;
+							return (
+								<li
+									key={ item.atomicSiteId }
+									className={ styles.previewRow }
+									aria-label={ sprintf( __( 'Select %s' ), title ) }
+									data-selected={ selected || undefined }
+									onClick={ () => setSelectedId( item.atomicSiteId ) }
+								>
+									<VisuallyHidden>
+										<input
+											type="radio"
+											name={ selectionId }
+											aria-label={ sprintf( __( 'Select %s' ), title ) }
+											checked={ selected }
+											onChange={ () => setSelectedId( item.atomicSiteId ) }
+										/>
+									</VisuallyHidden>
+									<SiteCard
+										thumbnailUrl={ getWebsiteThumbnailUrl( getSnapshotUrl( item ) ) }
+										title={
+											<a
+												className={ styles.previewLink }
+												href={ getSnapshotUrl( item ) }
+												title={ title }
+												onClick={ ( event ) => {
+													event.preventDefault();
+													void connector.openExternalUrl( getSnapshotUrl( item ) );
+												} }
+											>
+												<span className={ styles.previewLinkText }>{ title }</span>
+												<ExternalLinkIcon className={ styles.previewExternalIcon } />
+											</a>
+										}
+										description={ previewExpiry( item, locale, {
+											month: 'short',
+											day: 'numeric',
+										} ) }
+										actions={
+											<div onClick={ ( event ) => event.stopPropagation() }>
+												<Menu.Root modal={ false }>
+													<Menu.Trigger
+														render={
+															<IconButton
+																size="icon-sm"
+																icon={ <EllipsisIcon /> }
+																label={ __( 'Preview actions' ) }
+																variant="muted-ghost"
+																onClick={ ( event ) => {
+																	previewMenuTrigger.current = event.currentTarget;
+																	transferringFocus.current = false;
+																} }
+															/>
+														}
+													/>
+													<Menu.Popup
+														side="right"
+														align="start"
+														finalFocus={ () =>
+															transferringFocus.current ? false : previewMenuTrigger.current
+														}
+													>
+														<PreviewLinkActions
+															snapshot={ item }
+															locked={ locked }
+															onUpdate={ () => {
+																setSelectedId( item.atomicSiteId );
+																onPublish( getSnapshotHostname( item ) );
+															} }
+														/>
+														{ managementItems( item ) }
+													</Menu.Popup>
+												</Menu.Root>
+											</div>
+										}
+									/>
+								</li>
+							);
+						} ) }
+					</ul>
 				</div>
-			) : (
-				<Button
-					disabled={ remove.isPending }
-					onClick={ () => {
-						copy();
-						markPreviewSeen( site.id );
-					} }
-				>
-					<CopyIcon data-icon="inline-start" />
-					{ copied ? __( 'Copied' ) : __( 'Copy link' ) }
-				</Button>
-			) }
-			{ editing === 'rename' ? (
-				<RenamePreview
-					key={ snapshot.atomicSiteId }
-					snapshot={ snapshot }
-					onDone={ () => setEditing( null ) }
-				/>
-			) : (
-				<div className={ styles.expiry }>
-					<p>{ previewExpiry( snapshot, locale ) }</p>
-					<Menu.Root modal={ false }>
-						<Menu.Trigger
-							render={
-								<IconButton
-									size="icon-sm"
-									icon={ <EllipsisIcon /> }
-									label={ __( 'Preview actions' ) }
-									disabled={ locked }
-								/>
-							}
-						/>
-						<Menu.Popup side="bottom" align="end">
-							<Menu.Item
-								disabled={ ! canCreate }
-								onClick={ () => {
-									setSelectedId( NEW_PREVIEW );
-									onPublish();
-								} }
-							>
-								{ __( 'New preview' ) }
-							</Menu.Item>
-							<Menu.Item onClick={ () => setEditing( 'rename' ) }>{ __( 'Rename…' ) }</Menu.Item>
-							<Menu.Separator />
-							<Menu.Item destructive onClick={ () => setEditing( 'delete' ) }>
-								{ __( 'Delete preview' ) }
-							</Menu.Item>
-						</Menu.Popup>
-					</Menu.Root>
-				</div>
-			) }
-			{ notice ? <p className={ styles.notice }>{ notice }</p> : null }
-			{ footer }
-			<Field>
-				<FieldLabel htmlFor={ linkId }>{ __( 'Preview link' ) }</FieldLabel>
-				<Input
-					id={ linkId }
-					readOnly
-					value={ url }
-					onFocus={ ( event ) => event.currentTarget.select() }
-				/>
-			</Field>
+			) : null }
+
+			{ feedback }
+
+			<Button
+				className={ styles.createAction }
+				variant="accent"
+				ref={ primaryAction }
+				size="lg"
+				aria-busy={ creating || undefined }
+				disabled={ locked || ! canCreate }
+				onClick={ ! snapshot && error && onRetry ? onRetry : () => onPublish() }
+			>
+				{ creating ? <Spinner data-icon="inline-start" aria-hidden="true" /> : null }
+				{ creating
+					? __( 'Creating preview…' )
+					: ! snapshot && error && onRetry
+					? __( 'Try again' )
+					: snapshot
+					? __( 'Create another preview' )
+					: __( 'Create preview' ) }
+			</Button>
 		</div>
 	);
 }

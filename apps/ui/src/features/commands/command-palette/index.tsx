@@ -3,11 +3,12 @@ import { __ } from '@wordpress/i18n';
 import { useEffect } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { setCommandPaletteOpen, useCommandPaletteOpen } from '@/data/use-command-palette';
 import { useOpenHeaderPanel } from '@/data/use-open-header-panel';
 import { useOpenSettings } from '@/data/use-open-settings';
+import { usePanelCommand } from '@/data/use-panel-command';
 import { useSessionUIDispatch, useSessionPreviewUI } from '@/data/use-session-ui';
+import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
 import { setAnnotating, useSiteAnnotations } from '@/features/annotations';
 import { useChatActions } from '@/features/chats';
 import { getSiteCommands } from '@/features/commands/site-commands';
@@ -32,12 +33,11 @@ import type { AiSessionSummary, SiteDetails } from '@/data/core';
 export function CommandPalette( {
 	site,
 	session,
-	chatHidden,
+	panelShown,
 }: {
 	site?: SiteDetails;
 	session?: AiSessionSummary;
-	// Set where the chat can be hidden beside the preview.
-	chatHidden?: boolean;
+	panelShown?: boolean;
 } ) {
 	const open = useCommandPaletteOpen();
 	const commands = useAppCommands();
@@ -65,7 +65,7 @@ export function CommandPalette( {
 			key={ site.id }
 			site={ site }
 			session={ session }
-			chatHidden={ chatHidden }
+			panelShown={ panelShown }
 			{ ...palette }
 		/>
 	) : (
@@ -76,14 +76,17 @@ export function CommandPalette( {
 function SiteCommands( {
 	site,
 	session,
-	chatHidden,
+	panelShown,
 	commands,
 	...palette
-}: PaletteProps & { site: SiteDetails; session?: AiSessionSummary; chatHidden?: boolean } ) {
+}: PaletteProps & {
+	site: SiteDetails;
+	session?: AiSessionSummary;
+	panelShown?: boolean;
+} ) {
 	const navigate = useNavigate();
 	const openSettings = useOpenSettings();
 	const connector = useConnector();
-	const { chatEnabled } = useAgenticFeatures();
 	const actions = useSiteActions( site );
 	const destinations = useOpenInDestinations( site );
 	const manage = useSiteManagementActions( site, {
@@ -95,12 +98,25 @@ function SiteCommands( {
 	const openHeaderPanel = useOpenHeaderPanel();
 	const annotations = useSiteAnnotations( site.id );
 	const settingCommands = useSettingCommands( 'site', site );
+	const panelCommand = usePanelCommand( site.id );
+	const runLayoutTransition = useUserWorkspaceLayoutTransition( site.id );
+
+	useEffect(
+		() =>
+			connector.onNewChat( () => {
+				replaceOpenDialogs( () => {
+					runLayoutTransition( () => {
+						preview.setChatHidden( false, site.id, { instant: true } );
+						return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+					} );
+				} );
+			} ),
+		[ connector, navigate, preview, site.id, runLayoutTransition ]
+	);
 
 	const siteCommands = getSiteCommands( {
 		site,
-		chatEnabled,
-		chatHidden,
-		previewShown: preview.open && preview.siteId === site.id,
+		panelShown: panelShown ?? preview.open,
 		canAnnotate: connector.capabilities.annotatePreview,
 		annotating: annotations.active,
 		actions,
@@ -109,24 +125,41 @@ function SiteCommands( {
 		settingCommands,
 		openSettings,
 		openHeaderPanel,
-		newChat: () => void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } ),
+		newChat: () =>
+			runLayoutTransition( () => {
+				preview.setChatHidden( false, site.id, { instant: true } );
+				return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+			} ),
 		reloadPreview: () => dispatch( { type: 'preview/reload' } ),
 		annotate: ( active ) => setAnnotating( site.id, active ),
-		showPreview: ( show ) => {
-			preview.setSite( site.id );
-			preview.setOpen( show );
-		},
-		setChatHidden: preview.setChatHidden,
 		copyUrl: () =>
 			void connector
 				.copyText( getSiteUrl( site ) )
 				.then( () => toast.success( __( 'Site URL copied' ) ) ),
 	} );
 
-	const props = { ...palette, commands: [ ...commands, ...siteCommands ] };
+	const props = {
+		...palette,
+		commands: [
+			...commands,
+			...siteCommands,
+			...( panelCommand
+				? [
+						{
+							id: panelCommand.name,
+							group: 'commands' as const,
+							label: panelCommand.displayName,
+							keywords: [ __( 'Split view' ), __( 'Layout' ) ],
+							icon: panelCommand.icon,
+							run: panelCommand.run,
+						},
+				  ]
+				: [] ),
+		],
+	};
 	return (
 		<>
-			{ session && ! session.archived && chatEnabled ? (
+			{ session && ! session.archived ? (
 				<ChatCommands key={ session.id } session={ session } { ...props } />
 			) : (
 				<PaletteDialog { ...props } />

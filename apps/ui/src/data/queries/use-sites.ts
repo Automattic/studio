@@ -5,13 +5,21 @@ import { getSiteOperationNoun } from '@studio/common/lib/site-operation-labels';
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useMemo, useRef } from 'react';
-import { openStudioLogsAction, toast } from '@/data/app-messages';
+import { dismissToast, openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
+import { updateResponsivePreview } from '@/data/responsive-preview';
+import {
+	isSiteRestarting,
+	RESTART_SITE_MUTATION_KEY,
+	useIsSiteRestarting,
+} from '@/data/site-restarts';
 import { useOpenSite } from '@/data/use-open-site';
-import type { Connector, CreateSiteParams, SiteDetails } from '@/data/core';
+import type { CreateSiteParams, SiteDetails } from '@/data/core';
+import type { SiteEvent, SiteListItem } from '@studio/common/lib/cli-events';
 import type { SiteOperationKind } from '@studio/common/lib/site-operation';
+import type { SiteMetadata } from '@studio/common/sites/metadata';
 import type { QueryClient } from '@tanstack/react-query';
 
 export const SITES_QUERY_KEY = [ 'sites' ] as const;
@@ -29,15 +37,23 @@ const STOP_SITE_MUTATION_KEY = [ 'stopSite' ] as const;
 // component that created it, so a remounted screen would report "idle" while
 // the work is still running. Counting the mutation cache instead is the same
 // trick `useIsSiteStarting` uses.
-export const COPY_SITE_MUTATION_KEY = [ 'copySite' ] as const;
+const COPY_SITE_MUTATION_KEY = [ 'copySite' ] as const;
 export const EXPORT_FULL_SITE_MUTATION_KEY = [ 'exportFullSite' ] as const;
 export const EXPORT_DATABASE_MUTATION_KEY = [ 'exportDatabase' ] as const;
 
 export function useSites() {
 	const connector = useConnector();
+	const queryClient = useQueryClient();
 	return useQuery( {
 		queryKey: SITES_QUERY_KEY,
-		queryFn: () => connector.getSites(),
+		queryFn: async () => {
+			const sites = await connector.getSites();
+			for ( const site of sites ) {
+				if ( ! site.running && ! isSiteRestarting( queryClient, site.id ) )
+					updateResponsivePreview( site.id, { enabled: false } );
+			}
+			return sites;
+		},
 		// Also catches running states that changed without a site event (e.g. a daemon crash).
 		refetchInterval: 2 * 60 * 1000,
 		// The sidebar mounts another reader once the list stops loading: a failed
@@ -52,16 +68,20 @@ export function useCreateSite() {
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationFn: ( params: CreateSiteParams ) => connector.createSite( params ),
-		onSuccess: ( site ) => {
+		onSuccess: ( site, { path } ) => {
 			// translators: %s is the site name.
-			toast.success( sprintf( __( 'Site created: %s' ), site.name ) );
+			toast.success( sprintf( __( 'Site created: %s' ), site.name ), {
+				id: `create-site:${ path }`,
+			} );
 			return queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
-		onError: ( error, { name } ) =>
+		onError: ( error, { name, path } ) =>
 			// translators: %s is the site name.
 			toast.error( sprintf( __( 'Couldn’t create site: %s' ), name ), {
+				id: `create-site:${ path }`,
 				description: getErrorMessage( error ),
 				action: openStudioLogsAction( connector ),
+				durationMs: 0,
 			} ),
 	} );
 }
@@ -103,39 +123,71 @@ export function useCopySite() {
 		// the one kind no CLI command records — see `SITE_OPERATIONS`.
 		mutationKey: COPY_SITE_MUTATION_KEY,
 		mutationFn: ( sourceSiteId: string ) => connector.copySite( sourceSiteId ),
-		onSuccess: ( site ) => {
+		onMutate: ( sourceSiteId ) =>
+			toast.processing( __( 'Duplicating site…' ), {
+				id: `duplicate-${ sourceSiteId }`,
+				description: queryClient
+					.getQueryData< SiteDetails[] >( SITES_QUERY_KEY )
+					?.find( ( site ) => site.id === sourceSiteId )?.name,
+			} ),
+		onSuccess: ( site, _sourceSiteId, noticeId ) => {
 			/* translators: %s: name of the new copy of a site */
 			toast.success( sprintf( __( 'Site duplicated: %s' ), site.name ), {
-				action: { label: __( 'Open site' ), onClick: () => openSite( site ) },
+				id: noticeId,
+				action: { label: __( 'Open' ), onClick: () => openSite( site ) },
 			} );
 			return queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 		},
-		onError: ( error ) =>
-			toast.error( __( 'Failed to copy site' ), { description: error.message } ),
+		onError: ( error, _sourceSiteId, noticeId ) =>
+			toast.error( __( 'Failed to copy site' ), { id: noticeId, description: error.message } ),
 	} );
 }
 
-export function useExportFullSite() {
+function useExportSite( databaseOnly: boolean ) {
 	const connector = useConnector();
+	const queryClient = useQueryClient();
 	return useMutation( {
-		mutationKey: EXPORT_FULL_SITE_MUTATION_KEY,
-		mutationFn: ( siteId: string ) => connector.exportFullSite( siteId ),
-		onError: () => toastExportFailure( connector, __( 'Failed to export site' ) ),
+		mutationKey: databaseOnly ? EXPORT_DATABASE_MUTATION_KEY : EXPORT_FULL_SITE_MUTATION_KEY,
+		mutationFn: async ( siteId: string ) => {
+			const id = `export-${ databaseOnly ? 'database' : 'site' }-${ siteId }`;
+			const siteName = queryClient
+				.getQueryData< SiteDetails[] >( SITES_QUERY_KEY )
+				?.find( ( site ) => site.id === siteId )?.name;
+			try {
+				const result = await connector[ databaseOnly ? 'exportDatabase' : 'exportFullSite' ](
+					siteId,
+					{
+						onStarted: () =>
+							toast.processing(
+								databaseOnly ? __( 'Exporting database…' ) : __( 'Exporting site…' ),
+								{ id, description: siteName }
+							),
+					}
+				);
+				if ( result !== null ) {
+					toast.success( databaseOnly ? __( 'Database exported' ) : __( 'Site exported' ), {
+						id,
+						description: siteName,
+					} );
+				}
+				return result;
+			} catch ( error ) {
+				toast.error(
+					databaseOnly ? __( 'Failed to export database' ) : __( 'Failed to export site' ),
+					{
+						id,
+						description: [ siteName, getErrorMessage( error ) ].filter( Boolean ).join( ' · ' ),
+						action: openStudioLogsAction( connector ),
+					}
+				);
+				throw error;
+			}
+		},
 	} );
 }
 
-export function useExportDatabase() {
-	const connector = useConnector();
-	return useMutation( {
-		mutationKey: EXPORT_DATABASE_MUTATION_KEY,
-		mutationFn: ( siteId: string ) => connector.exportDatabase( siteId ),
-		onError: () => toastExportFailure( connector, __( 'Failed to export database' ) ),
-	} );
-}
-
-function toastExportFailure( connector: Connector, title: string ) {
-	toast.error( title, { action: openStudioLogsAction( connector ) } );
-}
+export const useExportFullSite = () => useExportSite( false );
+export const useExportDatabase = () => useExportSite( true );
 
 // Invalidation is awaited inside `mutationFn` (not `onSettled`) so
 // `isPending` stays true until `site.running` reflects the new state. The
@@ -149,21 +201,29 @@ export function useStartSite() {
 		// claims a site came up.
 		mutationFn: async ( id: string ): Promise< boolean > => {
 			// A stop this window fired moments ago hasn't been recorded by the CLI
-			// yet, and racing it used to loop forever. Deliberately the only
+			// yet, and a start racing it loops. Deliberately the only
 			// pre-flight: everything else is the CLI's call, so a stale cache
 			// can't silently swallow a start.
 			if ( isSiteMutating( queryClient, STOP_SITE_MUTATION_KEY, id ) ) {
 				return false;
 			}
-			await connector.startSite( id );
-			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+			await showSite( queryClient, await connector.startSite( id ) );
+			dismissToast( `start-${ id }` );
 			return true;
 		},
-		onError: ( error, id ) =>
-			toast.error( getBusyMessage( queryClient, id, __( 'Failed to start site' ) ), {
-				description: getErrorMessage( error ),
+		onError: ( error, id ) => {
+			const { title, description } = getBusyNotice(
+				queryClient,
+				id,
+				__( 'Failed to start site' ),
+				getErrorMessage( error )
+			);
+			toast.error( title, {
+				id: `start-${ id }`,
+				description,
 				action: openStudioLogsAction( connector ),
-			} ),
+			} );
+		},
 	} );
 }
 
@@ -173,11 +233,27 @@ export function useStopSite() {
 	return useMutation( {
 		mutationKey: STOP_SITE_MUTATION_KEY,
 		mutationFn: async ( id: string ) => {
-			await connector.stopSite( id );
-			await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+			await showSite( queryClient, await connector.stopSite( id ) );
+			dismissToast( `stop-${ id }` );
+			if ( ! isSiteRestarting( queryClient, id ) )
+				updateResponsivePreview( id, { enabled: false } );
 		},
-		onError: ( _error, id ) =>
-			toast.error( getBusyMessage( queryClient, id, __( 'Failed to stop site' ) ) ),
+		onError: ( _error, id ) => {
+			const { title, description } = getBusyNotice( queryClient, id, __( 'Failed to stop site' ) );
+			toast.error( title, { id: `stop-${ id }`, description } );
+		},
+	} );
+}
+
+export function useRestartSite() {
+	const stop = useStopSite();
+	const start = useStartSite();
+	return useMutation( {
+		mutationKey: RESTART_SITE_MUTATION_KEY,
+		mutationFn: async ( id: string ) => {
+			await stop.mutateAsync( id );
+			await start.mutateAsync( id );
+		},
 	} );
 }
 
@@ -291,16 +367,29 @@ function isSiteMutating(
  * that's a beat behind costs nothing — unlike using it to *decide*, which would
  * silently swallow the action.
  */
-function getBusyMessage( queryClient: QueryClient, siteId: string, fallback: string ): string {
+function getBusyNotice(
+	queryClient: QueryClient,
+	siteId: string,
+	fallback: string,
+	description?: string
+) {
 	const sites = queryClient.getQueryData< SiteDetails[] >( SITES_QUERY_KEY );
 	const operation = sites?.find( ( site ) => site.id === siteId )?.operation?.kind;
 	return operation
-		? sprintf(
-				/* translators: %s: an operation already running, e.g. "a settings change". */
-				__( 'This site is busy: %s is in progress. Try again once it finishes.' ),
-				getSiteOperationNoun( operation )
-		  )
-		: fallback;
+		? {
+				title: __( 'Site is busy' ),
+				description: [
+					sprintf(
+						/* translators: %s: an operation already running, e.g. "a settings change". */
+						__( 'Wait for %s to finish, then try again.' ),
+						getSiteOperationNoun( operation )
+					),
+					description,
+				]
+					.filter( Boolean )
+					.join( '\n\n' ),
+		  }
+		: { title: fallback, description };
 }
 
 export function useIsSiteStarting( siteId: string | undefined ): boolean {
@@ -334,7 +423,64 @@ export function useIsSiteBusy( site: SiteDetails | undefined ): boolean {
 	const isStarting = useIsSiteStarting( site?.id );
 	const isStopping = useIsSiteStopping( site?.id );
 	const operation = useSiteOperation( site );
-	return isStarting || isStopping || operation !== null;
+	const isRestarting = useIsSiteRestarting( site?.id );
+	return isStarting || isStopping || isRestarting || operation !== null;
+}
+
+/**
+ * Writes the site an event carries into the cached list, so it needs no
+ * refetch. False when the list can't take it: no list yet, a site it doesn't
+ * have, or a create or delete, which change which sites there are.
+ */
+function applySiteEvent( queryClient: QueryClient, event: SiteEvent ): boolean {
+	if (
+		event.event === SITE_EVENTS.UPDATED &&
+		! event.running &&
+		! isSiteRestarting( queryClient, event.siteId )
+	) {
+		updateResponsivePreview( event.siteId, { enabled: false } );
+	}
+	const { site } = event;
+	const sites = queryClient.getQueryData< SiteDetails[] >( SITES_QUERY_KEY );
+	const cached = sites?.find( ( item ) => item.id === site?.id );
+	const applies =
+		event.event === SITE_EVENTS.UPDATED || event.event === SITE_EVENTS.OPERATIONS_CHANGED;
+	if ( ! site || ! sites || ! cached || ! applies ) {
+		return false;
+	}
+	// Studio's own metadata, which events don't carry. `satisfies` stops a new
+	// field from compiling until it's carried over too.
+	const metadata = {
+		sortOrder: cached.sortOrder,
+		autoStart: cached.autoStart,
+		hideFrontendAdminBar: cached.hideFrontendAdminBar,
+	} satisfies Record< keyof SiteMetadata, unknown >;
+	const updated: SiteDetails = {
+		...site,
+		// An operation change says nothing about whether the site is running.
+		running: event.event === SITE_EVENTS.UPDATED ? event.running : cached.running,
+		...metadata,
+	};
+	queryClient.setQueryData< SiteDetails[] >(
+		SITES_QUERY_KEY,
+		sites.map( ( item ) => ( item === cached ? updated : item ) )
+	);
+	return true;
+}
+
+/** Shows the site a start or stop reported, or reads the list when there's none to show. */
+async function showSite( queryClient: QueryClient, site: SiteListItem | void ): Promise< void > {
+	const applied =
+		site &&
+		applySiteEvent( queryClient, {
+			event: SITE_EVENTS.UPDATED,
+			siteId: site.id,
+			running: site.running,
+			site,
+		} );
+	if ( ! applied ) {
+		await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+	}
 }
 
 /**
@@ -346,17 +492,20 @@ export function useSyncSitesWithEvents(): void {
 	const queryClient = useQueryClient();
 	useEffect( () => {
 		return connector.onSiteEvent( ( event ) => {
+			const applied = applySiteEvent( queryClient, event );
 			// Keeping the in-flight fetch means joining it, and it may have read the
 			// sites before this event (an operation's release lands moments after its
 			// acquire). Refetch once more after it settles so the event isn't lost.
 			const joinsInFlightFetch = queryClient.isFetching( { queryKey: SITES_QUERY_KEY } ) > 0;
-			void queryClient
-				.invalidateQueries( { queryKey: SITES_QUERY_KEY }, KEEP_INFLIGHT_FETCH )
-				.then( () =>
-					joinsInFlightFetch
-						? queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY }, KEEP_INFLIGHT_FETCH )
-						: undefined
-				);
+			if ( ! applied || joinsInFlightFetch ) {
+				void queryClient
+					.invalidateQueries( { queryKey: SITES_QUERY_KEY }, KEEP_INFLIGHT_FETCH )
+					.then( () =>
+						joinsInFlightFetch
+							? queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY }, KEEP_INFLIGHT_FETCH )
+							: undefined
+					);
+			}
 			// Site deletion deletes the site's chat sessions (CLI `site delete`),
 			// so refresh the session list too. Scoped to deletes: start/stop
 			// events fire often and don't affect sessions. `exact` keeps this off
@@ -373,21 +522,27 @@ export function useSyncSitesWithEvents(): void {
 
 // Boot-time counterpart of the "Stop, restart on next launch" quit behavior:
 // those sites keep their autoStart flag when stopped on quit, and the renderer
-// starts them again on launch. Gated on isFetchedAfterMount so a rehydrated
-// persisted cache with stale flags can't trigger starts.
+// starts them again on launch. Reads the list this launch, joining the fetch
+// already in flight, because the persisted list predates the flags the quit set.
 export function useAutoStartSites(): void {
-	const { data: sites, isFetchedAfterMount } = useSites();
+	const connector = useConnector();
+	const queryClient = useQueryClient();
 	const { mutate: startSite } = useStartSite();
 	const startedRef = useRef( false );
 	useEffect( () => {
-		if ( ! isFetchedAfterMount || ! sites || startedRef.current ) {
+		if ( startedRef.current ) {
 			return;
 		}
 		startedRef.current = true;
-		for ( const site of sites ) {
-			if ( site.autoStart && ! site.running ) {
-				startSite( site.id );
-			}
-		}
-	}, [ isFetchedAfterMount, sites, startSite ] );
+		void queryClient
+			.fetchQuery( { queryKey: SITES_QUERY_KEY, queryFn: () => connector.getSites() } )
+			.then( ( sites ) => {
+				for ( const site of sites ) {
+					if ( site.autoStart && ! site.running ) {
+						startSite( site.id );
+					}
+				}
+			} )
+			.catch( () => undefined );
+	}, [ connector, queryClient, startSite ] );
 }

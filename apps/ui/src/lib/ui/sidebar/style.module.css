@@ -22,17 +22,19 @@
 		display: inline-flex;
 		flex: 1;
 		align-items: center;
-		gap: var( --space-1 );
+		gap: var( --space-1_5 );
 		height: 100%;
 		padding: 0 var( --space-2 );
 		border-radius: var( --radius-md );
 		color: var( --muted-foreground );
 		font-weight: var( --font-weight-medium );
-		cursor: pointer;
-		transition: color var( --motion-duration-feedback ) ease;
 	}
 
-	.groupLabel:hover {
+	.groupLabel[aria-expanded] {
+		cursor: pointer;
+	}
+
+	.groupLabel[aria-expanded]:hover {
 		color: var( --foreground );
 	}
 
@@ -52,16 +54,9 @@
 		rotate: 90deg;
 	}
 
-	.group:hover .groupLabel > svg,
+	.groupLabel:is( :hover, :focus-visible ) > svg,
 	.groupLabel[aria-expanded='false'] > svg {
 		opacity: 1;
-	}
-
-	.groupLabelSkeleton {
-		flex: none;
-		width: 36px;
-		height: 16px;
-		margin-inline: var( --space-2 );
 	}
 
 	.menu {
@@ -84,7 +79,7 @@
 		min-width: 0;
 		height: 36px;
 		padding-inline: var( --space-2 );
-		border-radius: var( --radius-md );
+		border-radius: var( --radius-lg );
 		color: var( --foreground );
 		text-align: start;
 		outline: none;
@@ -117,9 +112,13 @@
 		box-shadow: inset 0 0 0 2px var( --ring );
 	}
 
-	/* Hovered, holding keyboard focus, active, selected, its menu open, or its actions hovered. */
-	.button:is( :hover, :has( :focus-visible ), [data-active], [data-selected], [data-popup-open] ),
-	.item:is( [data-selected], [data-popup-open], :has( > .actions:hover ) ) > .button {
+	.button:where( :hover, :has( :focus-visible ) ),
+	.item:where( :has( > .actions:hover ) ) > .button {
+		background-color: var( --hover );
+	}
+
+	.button:is( [data-active], [data-selected], [data-popup-open] ),
+	.item:is( [data-selected], [data-popup-open] ) > .button {
 		background-color: var( --hover );
 	}
 
@@ -138,8 +137,7 @@
 		text-align: start;
 	}
 
-	/* Hovering an action fills its row, so the actions sit on the row's hover
-	   fill and their own hover steps one up from it. */
+	/* Hovering an action also highlights its row. */
 	.actions {
 		--surface: var( --hover );
 
@@ -194,20 +192,13 @@
 	.skeleton {
 		display: flex;
 		align-items: center;
-		gap: var( --space-1_5 );
-		height: 36px;
-		padding-inline: var( --space-2 );
-	}
-
-	.skeletonIcon {
-		flex: none;
-		width: 16px;
-		height: 16px;
+		height: 32px;
 	}
 
 	.skeletonLabel {
 		flex: 1;
 		max-width: var( --skeleton-width );
-		height: 16px;
+		height: 100%;
+		border-radius: var( --radius-lg );
 	}
 }

@@ -82,7 +82,6 @@ export function SelectContent( {
 						surface.popup,
 						surface.padded,
 						styles.content,
-						! alignItemWithTrigger && surface.motion,
 						className
 					) }
 					{ ...props }

@@ -14,7 +14,7 @@ const owns = ( value: unknown, key: string ) =>
 const text = ( value: unknown ) => ( typeof value === 'string' ? value : '' );
 
 // Some hosts (Codex) pass tool results wrapped as JSON text.
-export function unwrap( value: unknown ): ToolResult {
+function unwrap( value: unknown ): ToolResult {
 	const payload = record( value );
 	if ( owns( payload, '_meta' ) || payload.isError ) {
 		return payload as ToolResult;
@@ -44,7 +44,7 @@ const metaOf = ( value: unknown ): JsonRecord => {
 	return record( result._meta );
 };
 
-export function localSitesFrom( value: unknown ): LocalSite[] {
+function localSitesFrom( value: unknown ): LocalSite[] {
 	const { localSites } = metaOf( value );
 	if ( ! Array.isArray( localSites ) ) {
 		throw new Error( LOAD_FAILED );
@@ -186,15 +186,29 @@ export async function readWpcomSites(): Promise< WpcomAccount > {
 	};
 }
 
-export async function readLoginUrl() {
-	return text( metaOf( await callTool( 'wpcom_login' ) ).url );
+export async function readLoginUrl( journeyId: string ) {
+	const meta = metaOf( await callTool( 'wpcom_login', { journeyId } ) );
+	return { url: text( meta.url ), attemptId: text( meta.authAttemptId ) || undefined };
 }
 
-export async function logIn( token: string ) {
-	const result = unwrap( await callTool( 'wpcom_login', { token } ) );
+export async function logIn( args: {
+	token: string;
+	attemptId?: string;
+	journeyId: string;
+	retry: boolean;
+} ) {
+	const result = unwrap( await callTool( 'wpcom_login', args ) );
 	if ( result.isError ) {
 		throw new Error( text( result.content?.[ 0 ]?.text ) || 'That token did not work. Try again.' );
 	}
+}
+
+export async function recordLoginEvent( args: {
+	event: 'prompt_viewed' | 'launch_failed';
+	journeyId?: string;
+	attemptId?: string;
+} ) {
+	await callTool( 'wpcom_login_event', args );
 }
 
 export async function waitForSiteChanges( since?: number ) {

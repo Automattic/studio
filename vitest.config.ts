@@ -5,8 +5,10 @@ export default defineConfig( {
 		projects: [
 			'./apps/cli/vitest.config.ts',
 			'./apps/local/vitest.config.ts',
+			'./apps/mcp-ui/vitest.config.ts',
 			'./apps/studio/vitest.config.ts',
 			'./apps/ui/vitest.config.ts',
+			'./packages/agent/vitest.config.ts',
 			'./packages/common/vitest.config.ts',
 			'./packages/design-md/vitest.config.ts',
 			'./scripts/vitest.config.ts',

@@ -5,7 +5,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { renderBannerBox } from 'cli/lib/banner-box';
 import { updateCliConfigWithPartial } from 'cli/lib/cli-config/core';
 
-export const TOS_URL = 'https://wordpress.com/tos/';
+export const TOS_URL = 'https://automattic.com/tos/';
 export const PRIVACY_POLICY_URL = 'https://automattic.com/privacy/';
 
 // Commands whose UI renders the notice natively (Studio Code TUI / JSON adapter).
@@ -16,7 +16,7 @@ const TUI_COMMANDS = new Set( [ 'code', 'ai' ] );
  * update-notifier's readUpdateCheck) so the banner can print before any
  * command output.
  */
-export function readTosNoticeShownAt(): number | null {
+function readTosNoticeShownAt(): number | null {
 	try {
 		const content = fs.readFileSync( getCliConfigPath(), 'utf8' );
 		const data = JSON.parse( content );
@@ -27,7 +27,7 @@ export function readTosNoticeShownAt(): number | null {
 	return null;
 }
 
-export async function markTosNoticeShown(): Promise< void > {
+async function markTosNoticeShown(): Promise< void > {
 	try {
 		await updateCliConfigWithPartial( { tosNoticeShownAt: Date.now() } );
 	} catch {

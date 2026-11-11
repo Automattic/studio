@@ -15,10 +15,7 @@ export const easings = {
 };
 
 function prefersReducedMotion(): boolean {
-	return (
-		typeof window !== 'undefined' &&
-		Boolean( window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches )
-	);
+	return Boolean( window.matchMedia?.( '(prefers-reduced-motion: reduce)' ).matches );
 }
 
 interface Timeline {

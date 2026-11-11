@@ -1,17 +1,22 @@
-import { IpcMainInvokeEvent, nativeTheme } from 'electron';
+import { IpcMainInvokeEvent, nativeTheme, shell } from 'electron';
 import {
 	readGlobalInstructionsFile,
 	writeGlobalInstructions,
-} from '@studio/common/ai/global-instructions';
-import { isAiProviderId } from '@studio/common/ai/providers';
+} from '@studio/agent/node/global-instructions';
 import {
 	readAiSettings,
 	saveAnthropicApiKey as saveAnthropicApiKeyToConfig,
 	setAiProvider as setAiProviderInConfig,
-} from '@studio/common/ai/settings-store';
+} from '@studio/agent/node/settings-store';
+import { isAiProviderId } from '@studio/agent/protocol/providers';
+import { isAgentAppId, type AgentApp } from '@studio/common/lib/agent-apps';
+import {
+	connectAgentApp as connectAgentAppToStudio,
+	detectAgentApps,
+} from '@studio/common/lib/connect-agent-app';
 import { getInstructionsLengthBucket } from '@studio/common/lib/record-tracks-event';
 import {
-	detectInstalledApps,
+	detectInstalledAppsWithDefaultBrowser,
 	type InstalledApps,
 } from '@studio/common/lib/user-settings/installed-apps';
 import { DEFAULT_COLOR_SCHEME } from '@studio/common/lib/user-settings/preferences';
@@ -26,14 +31,30 @@ import {
 	type UserPreferencesPatch,
 } from '@studio/common/lib/user-settings/user-preferences';
 import { getUserLocaleWithFallback, loadLocaleData, setMacAppLanguage } from 'src/lib/locale-node';
+import { refreshSpotlightIndex } from 'src/lib/spotlight';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
-import { defaultSitePath } from 'src/storage/paths';
+import { defaultSitePath, getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 import { OnboardingHintsState } from 'src/storage/storage-types';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
-import type { AiSettings } from '@studio/common/ai/providers';
+import type { AiSettings } from '@studio/agent/protocol/providers';
 
-export function getInstalledAppsAndTerminals(): InstalledApps {
-	return detectInstalledApps();
+export async function getInstalledAppsAndTerminals(): Promise< InstalledApps > {
+	return detectInstalledAppsWithDefaultBrowser();
+}
+
+export function getAgentApps(): Promise< AgentApp[] > {
+	return detectAgentApps( { nodeBinary: getBundledNodeBinaryPath(), cliBinary: getCliPath() } );
+}
+
+export async function connectAgentApp( _event: IpcMainInvokeEvent, id: string ): Promise< void > {
+	if ( ! isAgentAppId( id ) ) {
+		throw new Error( `Unknown agent app: ${ id }` );
+	}
+	await connectAgentAppToStudio( id, {
+		nodeBinary: getBundledNodeBinaryPath(),
+		cliBinary: getCliPath(),
+		openUrl: ( url ) => shell.openExternal( url ),
+	} );
 }
 
 export async function getUserPreferences() {
@@ -55,15 +76,12 @@ export async function setUserPreferences(
 	if ( parsed.locale ) {
 		loadLocaleData( parsed.locale );
 		setMacAppLanguage( parsed.locale );
+		void refreshSpotlightIndex();
 	}
 }
 
 export async function getDefaultSiteDirectory(): Promise< string > {
 	return readDefaultSiteDirectory( defaultSitePath );
-}
-
-export async function getAgenticFeaturesEnabled(): Promise< boolean > {
-	return ( await loadUserData() ).agenticFeaturesEnabled !== false;
 }
 
 export async function saveWapuuScore( _event: IpcMainInvokeEvent, score: number ): Promise< void > {

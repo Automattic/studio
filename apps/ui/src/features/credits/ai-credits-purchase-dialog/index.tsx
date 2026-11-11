@@ -80,7 +80,7 @@ export function AiCreditsPurchaseDialog( {
 
 	return (
 		<Dialog open={ open } onOpenChange={ onOpenChange }>
-			<DialogContent showCloseButton={ false } finalFocus={ finalFocus }>
+			<DialogContent layout="compact" showCloseButton={ false } finalFocus={ finalFocus }>
 				<DialogHeader>
 					<DialogTitle>{ __( 'Add AI credits' ) }</DialogTitle>
 					<DialogDescription>
@@ -123,6 +123,7 @@ export function AiCreditsPurchaseDialog( {
 				<DialogFooter>
 					<DialogClose render={ <Button variant="outline" /> }>{ __( 'Cancel' ) }</DialogClose>
 					<Button
+						variant="accent"
 						disabled={ ! selected }
 						onClick={ () => {
 							if ( ! selected ) {

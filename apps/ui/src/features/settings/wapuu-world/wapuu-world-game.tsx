@@ -49,7 +49,6 @@ export function WapuuWorldGame( { onClose }: WapuuWorldGameProps ) {
 				aria-label={ __( 'Wapuu World' ) }
 				className={ styles.dialog }
 			>
-				{ /* Title bar */ }
 				<div className={ styles.titleBar } style={ { minWidth: CANVAS_W } }>
 					<span className={ styles.title }>
 						<img
@@ -73,7 +72,6 @@ export function WapuuWorldGame( { onClose }: WapuuWorldGameProps ) {
 					</div>
 				</div>
 
-				{ /* Game canvas */ }
 				<canvas
 					ref={ canvasRef }
 					width={ CANVAS_W }
@@ -89,7 +87,6 @@ export function WapuuWorldGame( { onClose }: WapuuWorldGameProps ) {
 					} }
 				/>
 
-				{ /* Controls hint */ }
 				<div className={ styles.controlsHint }>
 					{ __( 'Arrow keys / WASD to move · Up / W / Space to jump' ) }
 				</div>

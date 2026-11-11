@@ -4,12 +4,13 @@ import { PencilIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
-import { useDeleteSnapshot, useSnapshotUsage, useSnapshots } from '@/data/queries/use-snapshots';
+import { useDeleteSnapshot, useSnapshots } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
 import { AccountPrompt, previewSiteImage } from '@/features/account';
 import { CopyButton } from '@/features/chats';
 import { previewExpiry, RenamePreview } from '@/features/sharing';
+import { SiteCard, getWebsiteThumbnailUrl } from '@/features/site-card';
 import { TrashIcon } from '@/lib/icons';
 import {
 	Button,
@@ -25,6 +26,7 @@ import {
 } from '@/lib/ui';
 import { SettingsGroup, SettingsRow } from './rows';
 import styles from './style.module.css';
+import { PreviewSitesUsage } from './usage-panel';
 import type { Snapshot } from '@/data/core';
 
 function PreviewRow( {
@@ -83,6 +85,7 @@ function PreviewRow( {
 				<IconButton
 					variant="muted-ghost"
 					size="icon-sm"
+					destructive
 					icon={ <TrashIcon /> }
 					label={ expired ? __( 'Remove expired preview' ) : __( 'Delete preview' ) }
 					onClick={ () => onDelete( snapshot ) }
@@ -116,9 +119,13 @@ export function SharingPanel() {
 	const connector = useConnector();
 	const user = useAuthUser();
 	const snapshots = useSnapshots( user.data?.id );
-	const usage = useSnapshotUsage( user.data?.id );
 	const remove = useDeleteSnapshot();
 	const [ deleting, setDeleting ] = useState< Snapshot | null >( null );
+	const [ deleteOpen, setDeleteOpen ] = useState( false );
+	const confirmDelete = ( snapshot: Snapshot ) => {
+		setDeleting( snapshot );
+		setDeleteOpen( true );
+	};
 	const [ showExpired, setShowExpired ] = useState( false );
 	const cancelRef = useRef< HTMLButtonElement >( null );
 
@@ -129,11 +136,14 @@ export function SharingPanel() {
 		return (
 			<Empty>
 				<AccountPrompt
+					flush
+					showStudioIcon={ false }
 					title={ __( 'Share your WordPress' ) }
 					description={ __(
 						'Create an account or log in to share previews and keep your sites in sync.'
 					) }
 					source="previews_tab"
+					analytics={ { placement: 'settings_sharing', intent: 'share' } }
 				/>
 			</Empty>
 		);
@@ -150,33 +160,22 @@ export function SharingPanel() {
 					description={
 						<>
 							{ __(
-								'Share a temporary copy of your local site with anyone. Preview sites expire seven days after their last update.'
+								'Share a temporary copy of your local site with anyone. A preview site expires if it goes about a week without an update.'
 							) }{ ' ' }
 							<Button
-								variant="inline-link"
+								variant="inline-accent"
 								size="inline"
 								onClick={ () =>
-									void connector.openExternalUrl(
-										'https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/'
-									)
+									void connector.openExternalUrl( 'https://wordpress.studio/docs/preview-sites/' )
 								}
 							>
 								{ __( 'Learn more…' ) }
 							</Button>
 						</>
 					}
-					additionalContent={
-						live.length
-							? sprintf(
-									/* translators: 1: number of live previews, 2: the account's limit. */
-									__( '%1$d of %2$d preview sites used' ),
-									live.length,
-									usage.data?.siteLimit ?? 10
-							  )
-							: null
-					}
 				/>
 			</SettingsGroup>
+			<PreviewSitesUsage />
 			{ snapshots.error ? (
 				<div className={ styles.errorMessage }>{ snapshots.error.message }</div>
 			) : null }
@@ -188,7 +187,7 @@ export function SharingPanel() {
 						<PreviewRow
 							key={ snapshot.atomicSiteId }
 							snapshot={ snapshot }
-							onDelete={ setDeleting }
+							onDelete={ confirmDelete }
 						/>
 					) ) }
 				</SettingsGroup>
@@ -198,7 +197,7 @@ export function SharingPanel() {
 			{ expired.length ? (
 				<div>
 					<Button
-						variant="inline-link"
+						variant="inline-accent"
 						size="inline"
 						className={ styles.expiredToggle }
 						aria-expanded={ showExpired }
@@ -216,7 +215,7 @@ export function SharingPanel() {
 								<PreviewRow
 									key={ snapshot.atomicSiteId }
 									snapshot={ snapshot }
-									onDelete={ setDeleting }
+									onDelete={ confirmDelete }
 								/>
 							) ) }
 						</SettingsGroup>
@@ -224,18 +223,23 @@ export function SharingPanel() {
 				</div>
 			) : null }
 			<AlertDialog
-				open={ deleting !== null }
-				onOpenChange={ ( open ) => ! open && ! remove.isPending && setDeleting( null ) }
-				onOpenChangeComplete={ ( open ) => ! open && remove.reset() }
+				open={ deleteOpen }
+				onOpenChange={ ( open ) => ! open && ! remove.isPending && setDeleteOpen( false ) }
+				onOpenChangeComplete={ ( open ) => {
+					if ( ! open ) {
+						setDeleting( null );
+						remove.reset();
+					}
+				} }
 			>
 				<DialogContent
 					layout="confirmation"
-					showCloseButton={ ! remove.isPending }
+					closeButtonDisabled={ remove.isPending }
 					initialFocus={ cancelRef }
 				>
 					<DialogHeader>
 						<DialogTitle>{ __( 'Delete preview' ) }</DialogTitle>
-						<DialogDescription tone="default" render={ <div /> }>
+						<DialogDescription render={ <div /> }>
 							<p>
 								{ sprintf(
 									/* translators: %s: preview name */
@@ -252,13 +256,20 @@ export function SharingPanel() {
 							</p>
 						</DialogDescription>
 					</DialogHeader>
+					{ deleting ? (
+						<SiteCard
+							title={ getSnapshotHostname( deleting ) }
+							thumbnailUrl={ getWebsiteThumbnailUrl( getSnapshotUrl( deleting ) ) }
+							updatedAt={ deleting.date }
+						/>
+					) : null }
 					{ remove.error ? <p className={ styles.dialogError }>{ remove.error.message }</p> : null }
 					<DialogFooter>
 						<Button
 							ref={ cancelRef }
 							variant="outline"
 							disabled={ remove.isPending }
-							onClick={ () => setDeleting( null ) }
+							onClick={ () => setDeleteOpen( false ) }
 						>
 							{ __( 'Cancel' ) }
 						</Button>
@@ -269,7 +280,7 @@ export function SharingPanel() {
 								deleting &&
 								remove.mutate(
 									{ hostname: getSnapshotHostname( deleting ) },
-									{ onSuccess: () => setDeleting( null ) }
+									{ onSuccess: () => setDeleteOpen( false ) }
 								)
 							}
 						>

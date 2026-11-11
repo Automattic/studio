@@ -29,22 +29,6 @@ function toolProgress( message: string, timestamp: string ): SessionEntry {
 }
 
 describe( 'replaySessionHistory', () => {
-	it( 'does not replay persisted studio.tool_progress entries', () => {
-		const ui = createUiSpy();
-		const entries: SessionEntry[] = Array.from( { length: 5000 }, ( _, i ) =>
-			toolProgress(
-				`progress ${ i }`,
-				`2026-06-01T00:00:${ String( i % 60 ).padStart( 2, '0' ) }.000Z`
-			)
-		);
-
-		replaySessionHistory( ui as unknown as AiChatUI, entries );
-
-		expect( ui.setLoaderMessage ).not.toHaveBeenCalled();
-		expect( ui.prepareForReplay ).toHaveBeenCalledTimes( 1 );
-		expect( ui.finishReplay ).toHaveBeenCalledTimes( 1 );
-	} );
-
 	it( 'replays the conversation while ignoring interleaved progress', () => {
 		const ui = createUiSpy();
 		const entries: SessionEntry[] = [

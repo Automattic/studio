@@ -52,7 +52,9 @@ export async function downloadWordPress(
 
 async function fetchWordPressVersions() {
 	try {
-		const response = await fetch( 'https://api.wordpress.org/core/stable-check/1.0/' );
+		const response = await fetch( 'https://api.wordpress.org/core/stable-check/1.0/', {
+			signal: AbortSignal.timeout( 5_000 ),
+		} );
 		const versionsStatus: Record< string, string > = await response.json();
 		const versions = Object.keys( versionsStatus )
 			.filter( ( item ) => {

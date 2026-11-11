@@ -83,6 +83,7 @@ export async function prepareSourceImport(
 	siteName: string | undefined,
 	logger: Logger< LoggerAction >,
 	options: {
+		siteNameIsExplicit?: boolean;
 		staticSiteImporter?: StaticSiteImporterPlugin;
 		liberate?: typeof liberateWebsite;
 	} = {}
@@ -142,7 +143,8 @@ export async function prepareSourceImport(
 		importSource,
 		resolvedSiteName,
 		options.staticSiteImporter ?? { path: ( await resolveStaticSiteImporterPlugin() ).path },
-		sourceUrl
+		sourceUrl,
+		options.siteNameIsExplicit ?? false
 	);
 	return {
 		blueprint,

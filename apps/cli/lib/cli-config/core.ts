@@ -17,16 +17,6 @@ import { StatsMetric } from 'cli/lib/types/bump-stats';
 import { LoggerError } from 'cli/logger';
 
 /**
- * Durable origin of a site that was populated by `studio pull-reprint`:
- * where it syncs from. Present only on reprint-pulled sites.
- */
-export const reprintOriginSchema = z.object( {
-	remoteUrl: z.string(),
-	remoteSiteUrl: z.string().optional(),
-	tablePrefix: z.string().optional(),
-} );
-
-/**
  * Health of a site's local install.
  *
  *   - `ready`        a normal, fully-written site (the default; `site
@@ -37,22 +27,20 @@ export const reprintOriginSchema = z.object( {
  *                    written and must not be trusted as a healthy site.
  *   - `pull-failed`  the last reprint pull errored or was killed; the
  *                    site is half-written. Recovered by re-running
- *                    `pull-reprint --path <site>` (idempotent) or `site
+ *                    `pull --path <site>` (idempotent) or `site
  *                    delete`.
  *
  * Absent on records created before this field existed; readers treat a
  * missing value as `ready`.
  */
-export const siteStatusSchema = z.enum( [ 'ready', 'pulling', 'pull-failed' ] );
-export type SiteStatus = z.infer< typeof siteStatusSchema >;
+const siteStatusSchema = z.enum( [ 'ready', 'pulling', 'pull-failed' ] );
 
 const siteSchema = siteDetailsSchema
 	.extend( {
 		url: z.string().optional(),
+		tracksId: z.string().optional(),
 		latestCliPid: z.number().optional(),
-		reprintOrigin: reprintOriginSchema.optional(),
-		// True once a full reprint pull has completed at least once; selects
-		// first-full-pull vs. delta. Durable on the site record.
+		// True once a full reprint pull has completed at least once
 		importComplete: z.boolean().optional(),
 		status: siteStatusSchema.default( 'ready' ).optional(),
 		// The in-flight Studio operation holding this site. Unlike `status`, it's
@@ -76,7 +64,7 @@ export const updateCheckSchema = z.object( {
 const cliConfigSchema = z.looseObject( {
 	version: z.literal( CLI_CONFIG_VERSION ),
 	sites: z.array( siteSchema ).default( () => [] ),
-	snapshots: z.array( snapshotSchema ).default( () => [] ),
+	snapshots: z.array( snapshotSchema.loose() ).default( () => [] ),
 	lastBumpStats: z
 		.record( z.string(), z.partialRecord( z.enum( StatsMetric ), z.number() ) )
 		.optional(),

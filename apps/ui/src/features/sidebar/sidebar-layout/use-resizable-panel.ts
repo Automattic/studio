@@ -14,15 +14,13 @@ import type { KeyboardEvent } from 'react';
 
 interface UseResizablePanelOptions {
 	config: ResizablePanelConfig;
-	// The panel's resize edge in LTR terms; mirrored automatically in RTL.
-	edge: 'left' | 'right';
 	storageKey: string;
 }
 
-export function useResizablePanel( { config, edge, storageKey }: UseResizablePanelOptions ) {
+export function useResizablePanel( { config, storageKey }: UseResizablePanelOptions ) {
 	// In RTL the panel (and its resize edge) sits mirrored, so a rightward drag
-	// has the opposite effect on the width.
-	const growsWithDeltaX = ( edge === 'right' ) !== isRTL();
+	// shrinks it.
+	const growsWithDeltaX = ! isRTL();
 	const [ viewportWidth, setViewportWidth ] = useState( getViewportWidth );
 	const [ width, setWidth ] = useState( () =>
 		getStoredResizablePanelWidth( storageKey, config, getViewportWidth() )
@@ -46,8 +44,6 @@ export function useResizablePanel( { config, edge, storageKey }: UseResizablePan
 	const { isDragging, onMouseDown } = usePointerDrag( {
 		onStart: () => width,
 		onMove: ( start, deltaX ) => {
-			// `edge` (direction-adjusted) decides which way a rightward drag grows
-			// the panel.
 			const delta = growsWithDeltaX ? deltaX : -deltaX;
 			const nextWidth = clampResizablePanelWidth( start + delta, config, getViewportWidth() );
 			setWidth( nextWidth );

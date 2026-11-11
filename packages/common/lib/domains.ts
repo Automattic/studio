@@ -5,9 +5,6 @@ import { sanitizeFolderName } from './sanitize-folder-name';
 const DOMAIN_PATTERN =
 	/^(?!-)[\p{L}\p{N}][\p{L}\p{N}-]{0,61}[\p{L}\p{N}](?<!-)(?:\.(?!-)[\p{L}\p{N}-]{1,61}[\p{L}\p{N}](?<!-))+$/u;
 
-/**
- * Generates a suitable domain name from site name
- */
 export const generateCustomDomainFromSiteName = ( siteName: string ): string => {
 	const domainBase = sanitizeFolderName( siteName );
 

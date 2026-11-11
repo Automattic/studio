@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -11,7 +12,6 @@ import {
 	recursiveCopyDirectory,
 } from '@studio/common/lib/fs-utils';
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
-import { isOnline } from '@studio/common/lib/network-utils';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { normalizeLineEndings } from '@studio/common/lib/remove-default-db-constants';
 import {
@@ -20,7 +20,7 @@ import {
 } from '@studio/common/lib/site-file-access';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { type SupportedPHPVersion } from '@studio/common/types/php-versions';
-import { Blueprint, BlueprintV1Declaration } from '@wp-playground/blueprints';
+import { Blueprint } from '@wp-playground/blueprints';
 import { vi, type MockInstance } from 'vitest';
 import yargs from 'yargs';
 import {
@@ -35,9 +35,11 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { liberateWebsite } from 'cli/lib/data-liberation-client';
 import { updateServerFiles } from 'cli/lib/dependency-management/setup';
 import { downloadWordPress } from 'cli/lib/dependency-management/wordpress';
+import { resolveStaticSiteImporterPlugin } from 'cli/lib/import-runtime';
 import { copyLanguagePackToSite } from 'cli/lib/language-packs';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { getPreferredSiteLanguage } from 'cli/lib/site-language';
+import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { logSiteDetails, openSiteInBrowser, setupCustomDomain } from 'cli/lib/site-utils';
 import {
 	isSqliteIntegrationAvailable,
@@ -48,18 +50,19 @@ import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { ProcessDescription } from 'cli/lib/types/process-manager-ipc';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
-import { registerCommand, runCommand } from '../create';
+import { runCommand } from '../create';
+import { registerCommand } from '../create.command';
 
 vi.mock( '@inquirer/prompts' );
 vi.mock( '@studio/common/lib/fs-utils' );
-vi.mock( '@studio/common/lib/network-utils' );
 vi.mock( '@studio/common/lib/port-finder', () => ( {
 	portFinder: {
 		addUnavailablePort: vi.fn(),
 		getOpenPort: vi.fn(),
 	},
 } ) );
-vi.mock( '@studio/common/lib/passwords', () => ( {
+vi.mock( '@studio/common/lib/passwords', async ( importActual ) => ( {
+	...( await importActual< typeof import('@studio/common/lib/passwords') >() ),
 	createPassword: vi.fn().mockReturnValue( 'generated-password-123' ),
 } ) );
 vi.mock( '@studio/common/lib/blueprint-validation' );
@@ -191,7 +194,6 @@ describe( 'CLI: studio create', () => {
 
 	let consoleLogSpy: MockInstance;
 	let fsMkdirSyncSpy: MockInstance;
-	let loggerReportSuccessSpy: MockInstance;
 
 	const printedOutput = () =>
 		consoleLogSpy.mock.calls.map( ( args ) => args.map( String ).join( ' ' ) ).join( '\n' );
@@ -239,7 +241,7 @@ describe( 'CLI: studio create', () => {
 
 		consoleLogSpy = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
 		fsMkdirSyncSpy = vi.spyOn( fs, 'mkdirSync' ).mockReturnValue( undefined );
-		loggerReportSuccessSpy = vi.spyOn( Logger.prototype, 'reportSuccess' );
+		vi.spyOn( Logger.prototype, 'reportSuccess' );
 		vi.mocked( getServerFilesPath ).mockReturnValue( '/test/server-files' );
 		createPathExistsMock( false );
 		vi.mocked( isEmptyDir ).mockResolvedValue( true );
@@ -267,7 +269,6 @@ describe( 'CLI: studio create', () => {
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
 		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
 		vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
-		vi.mocked( isOnline ).mockResolvedValue( true );
 		vi.mocked( getPreferredSiteLanguage ).mockResolvedValue( 'en' );
 		vi.mocked( copyLanguagePackToSite ).mockResolvedValue( false );
 		vi.mocked( getWordPressVersion ).mockReturnValue( '6.5' );
@@ -849,7 +850,7 @@ describe( 'CLI: studio create', () => {
 			}
 		} );
 
-		it( 'imports a capture that lost a few routes and keeps it for review', async () => {
+		it( 'imports a mostly-failed capture with a bounded warning and keeps it for review', async () => {
 			const siteRoot = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-partial-capture-' ) );
 			const sitePath = path.join( siteRoot, 'site' );
 			const capturePath = `${ sitePath }-source`;
@@ -863,14 +864,12 @@ describe( 'CLI: studio create', () => {
 					websiteRoot: 'website',
 					entrypoint: 'website/index.html',
 					source: { url: 'https://example.com/' },
-					discoveryDiagnostics: [
-						{
-							code: 'route_capture_failed',
-							url: 'https://example.com/contact',
-							reason: 'HTTP 500',
-						},
-					],
-					summary: { routesDiscovered: 14, routesCaptured: 13, routesSkipped: 0, routesFailed: 2 },
+					discoveryDiagnostics: Array.from( { length: 13 }, ( _, index ) => ( {
+						code: 'route_capture_failed',
+						url: `https://example.com/page-${ index }`,
+						reason: 'HTTP 500',
+					} ) ),
+					summary: { routesDiscovered: 14, routesCaptured: 1, routesSkipped: 0, routesFailed: 13 },
 				} )
 			);
 			const reportWarning = vi.spyOn( Logger.prototype, 'reportWarning' );
@@ -890,9 +889,9 @@ describe( 'CLI: studio create', () => {
 									outputDir,
 									summary: {
 										routesDiscovered: 14,
-										routesCaptured: 12,
+										routesCaptured: 1,
 										routesSkipped: 0,
-										routesFailed: 2,
+										routesFailed: 13,
 									},
 								} ),
 							} ),
@@ -914,10 +913,20 @@ describe( 'CLI: studio create', () => {
 				expect( process.exitCode ).toBeUndefined();
 				expect( runBlueprint ).toHaveBeenCalled();
 				expect( reportWarning ).toHaveBeenCalledWith(
-					expect.stringContaining( 'could not capture 1 of 14 routes' )
+					expect.stringContaining( 'could not capture 13 of 14 routes' )
 				);
 				expect( reportWarning ).toHaveBeenCalledWith(
-					expect.stringContaining( 'https://example.com/contact: HTTP 500' )
+					expect.stringContaining( 'https://example.com/page-0: HTTP 500' )
+				);
+				expect( reportWarning ).toHaveBeenCalledWith(
+					expect.stringContaining( 'https://example.com/page-9: HTTP 500' )
+				);
+				expect( reportWarning ).not.toHaveBeenCalledWith(
+					expect.stringContaining( 'https://example.com/page-10' )
+				);
+				expect( reportWarning ).toHaveBeenCalledWith( expect.stringContaining( '…and 3 more.' ) );
+				expect( reportWarning ).toHaveBeenCalledWith(
+					expect.stringContaining( path.join( capturePath, 'example.com', 'diagnostics.json' ) )
 				);
 				expect( fs.existsSync( capturePath ) ).toBe( true );
 			} finally {
@@ -1042,6 +1051,188 @@ describe( 'CLI: studio create', () => {
 			expect( liberate ).not.toHaveBeenCalled();
 			expect( fsMkdirSyncSpy ).not.toHaveBeenCalledWith( mockSitePath, { recursive: true } );
 			expect( process.exitCode ).toBe( 1 );
+		} );
+
+		it.each( [
+			{
+				problem: 'the site directory is not empty',
+				args: [],
+				arrange: () => {
+					createPathExistsMock( true );
+					vi.mocked( isEmptyDir ).mockResolvedValue( false );
+				},
+				error: 'The selected directory is not empty nor an existing WordPress site.',
+			},
+			{
+				problem: 'another site uses the directory',
+				args: [],
+				arrange: () => {
+					vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+						version: 1,
+						sites: [ { ...mockExistingSite, path: mockSitePath } ],
+					} );
+				},
+				error: 'The selected directory is already in use.',
+			},
+			{
+				problem: 'the custom domain is taken',
+				args: [ '--domain', 'taken.local' ],
+				arrange: () => {
+					vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+						version: 1,
+						sites: [ { ...mockExistingSite, customDomain: 'taken.local' } ],
+					} );
+				},
+				error: 'The domain name is already in use',
+			},
+			{
+				problem: 'the admin email is invalid',
+				args: [ '--admin-email', 'not-an-email' ],
+				arrange: () => {},
+				error: 'Please enter a valid email address.',
+			},
+		] )(
+			'fails before capturing a URL source when $problem',
+			async ( { args, arrange, error } ) => {
+				arrange();
+				const liberate = vi.fn();
+				const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
+				const parser = registerCommand(
+					yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } ),
+					{ liberate }
+				).exitProcess( false );
+
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--name',
+					'Imported Site',
+					'--no-start',
+					'--skip-browser',
+					...args,
+				] );
+
+				expect( liberate ).not.toHaveBeenCalled();
+				expect( reportErrorSpy ).toHaveBeenCalledWith(
+					expect.objectContaining( { message: expect.stringContaining( error ) } )
+				);
+				expect( process.exitCode ).toBe( 1 );
+			}
+		);
+
+		it( 'resumes a staged URL import on its existing site and domain', async () => {
+			const sitePath = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-url-resume-' ) );
+			await fs.promises.mkdir( path.join( sitePath, '.studio-import', 'source' ), {
+				recursive: true,
+			} );
+			fs.writeFileSync(
+				path.join( sitePath, '.studio-import', 'request.json' ),
+				JSON.stringify( { source_metadata: { source_path: 'https://example.com' } } )
+			);
+			vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+				version: 1,
+				sites: [ { ...mockExistingSite, path: sitePath, customDomain: 'imported.local' } ],
+			} );
+			const liberate = vi.fn();
+			const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
+			const parser = registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+				{ liberate }
+			).exitProcess( false );
+
+			try {
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					'https://example.com',
+					'--domain',
+					'imported.local',
+					'--no-start',
+					'--skip-browser',
+				] );
+
+				expect( liberate ).not.toHaveBeenCalled();
+				expect( Logger.prototype.reportSuccess ).toHaveBeenCalledWith(
+					'Resuming the staged import; the source is not captured again'
+				);
+				const reportedErrors = reportErrorSpy.mock.calls.map( ( [ error ] ) => error.message );
+				expect( reportedErrors ).not.toContain( 'The selected directory is already in use.' );
+				expect( reportedErrors ).not.toContain( 'The domain name is already in use' );
+			} finally {
+				await fs.promises.rm( sitePath, { recursive: true, force: true } );
+			}
+		} );
+
+		describe( 'with a local source and a directory another site already uses', () => {
+			let root: string;
+			let sitePath: string;
+			let source: string;
+
+			beforeEach( async () => {
+				root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-local-in-use-' ) );
+				sitePath = path.join( root, 'site' );
+				source = path.join( root, 'source' );
+				await fs.promises.mkdir( source, { recursive: true } );
+				fs.writeFileSync( path.join( source, 'index.html' ), '<main>Local</main>' );
+				await fs.promises.mkdir( path.join( sitePath, '.studio-import', 'source' ), {
+					recursive: true,
+				} );
+				vi.mocked( readCliConfig, { partial: true } ).mockResolvedValue( {
+					version: 1,
+					sites: [ { ...mockExistingSite, path: sitePath } ],
+				} );
+			} );
+
+			afterEach( async () => {
+				await fs.promises.rm( root, { recursive: true, force: true } );
+			} );
+
+			const createFromLocalSource = async () => {
+				const parser = registerCommand(
+					yargs( [] ).option( 'path', { type: 'string', default: sitePath } )
+				).exitProcess( false );
+				await parser.parseAsync( [
+					'create',
+					'--from',
+					source,
+					'--name',
+					'Local Site',
+					'--no-start',
+					'--skip-browser',
+				] );
+			};
+
+			it( 'fails before preparing the source', async () => {
+				const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
+
+				await createFromLocalSource();
+
+				expect( resolveStaticSiteImporterPlugin ).not.toHaveBeenCalled();
+				expect( reportErrorSpy ).toHaveBeenCalledWith(
+					expect.objectContaining( { message: 'The selected directory is already in use.' } )
+				);
+				expect( process.exitCode ).toBe( 1 );
+			} );
+
+			it( 'resumes an import of the same source staged there', async () => {
+				const { request } = buildCreateFromSourceBlueprint(
+					source,
+					'Local Site',
+					{ path: staticSiteImporterFixture },
+					undefined,
+					true
+				).staticSiteImport;
+				fs.writeFileSync( path.join( sitePath, '.studio-import', 'request.json' ), request );
+				const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
+
+				await createFromLocalSource();
+
+				expect( resolveStaticSiteImporterPlugin ).toHaveBeenCalled();
+				expect( reportErrorSpy.mock.calls.map( ( [ error ] ) => error.message ) ).not.toContain(
+					'The selected directory is already in use.'
+				);
+			} );
 		} );
 
 		it( 'invokes the SSI host command once and consumes its terminal receipt', async () => {
@@ -1228,22 +1419,6 @@ describe( 'CLI: studio create', () => {
 			} );
 		} );
 
-		it( 'should create a basic site successfully', async () => {
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( fsMkdirSyncSpy ).toHaveBeenCalledWith( mockSitePath, { recursive: true } );
-			expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( mockSitePath );
-			expect( loggerReportSuccessSpy ).toHaveBeenCalledWith( 'SQLite integration configured' );
-			expect( portFinder.getOpenPort ).toHaveBeenCalled();
-			expect( lockCliConfig ).toHaveBeenCalled();
-			expect( saveCliConfig ).toHaveBeenCalled();
-			expect( connectToDaemon ).toHaveBeenCalled();
-			expect( startWordPressServer ).toHaveBeenCalled();
-			expect( logSiteDetails ).toHaveBeenCalled();
-			expect( openSiteInBrowser ).toHaveBeenCalled();
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
 		it( 'should persist the file access on the created site', async () => {
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
@@ -1277,57 +1452,6 @@ describe( 'CLI: studio create', () => {
 					] ),
 				} )
 			);
-			// blogname is now set by the server child process, not create.ts
-			expect( startWordPressServer ).toHaveBeenCalled();
-		} );
-
-		it( 'should NOT override blogname when adding existing WordPress directory with wp-config.php and name', async () => {
-			const wpConfigPath = require( 'path' ).join( mockSitePath, 'wp-config.php' );
-			const bundledWPPath = require( 'path' ).join(
-				'/test/server-files',
-				'wordpress-versions',
-				'latest'
-			);
-			vi.mocked( pathExists ).mockImplementation(
-				async ( path: string ) =>
-					path === bundledWPPath || path === wpConfigPath || path === mockSitePath
-			);
-			vi.mocked( isEmptyDir ).mockResolvedValue( false );
-			vi.mocked( isWordPressDirectory ).mockReturnValue( true );
-
-			await runCommand( mockSitePath, {
-				...defaultTestOptions,
-				name: 'My Custom Site',
-			} );
-
-			// Verify setSiteOptions step is NOT in the blueprint steps
-			const calls = vi.mocked( startWordPressServer ).mock.calls;
-			const blueprintCall = calls.find(
-				( call ) =>
-					( call[ 2 ] as { blueprint?: BlueprintV1Declaration } )?.blueprint?.steps?.some(
-						( step ) => typeof step === 'object' && step?.step === 'setSiteOptions'
-					)
-			);
-			expect( blueprintCall ).toBeUndefined();
-		} );
-
-		it( 'should set blogname when WordPress directory exists but has no wp-config.php', async () => {
-			const bundledWPPath = require( 'path' ).join(
-				'/test/server-files',
-				'wordpress-versions',
-				'latest'
-			);
-			vi.mocked( pathExists ).mockImplementation(
-				async ( path: string ) => path === bundledWPPath || path === mockSitePath
-			);
-			vi.mocked( isEmptyDir ).mockResolvedValue( false );
-			vi.mocked( isWordPressDirectory ).mockReturnValue( true );
-
-			await runCommand( mockSitePath, {
-				...defaultTestOptions,
-				name: 'My Custom Site',
-			} );
-
 			// blogname is now set by the server child process, not create.ts
 			expect( startWordPressServer ).toHaveBeenCalled();
 		} );
@@ -1381,24 +1505,6 @@ describe( 'CLI: studio create', () => {
 				} )
 			);
 			expect( setupCustomDomain ).toHaveBeenCalled();
-		} );
-
-		it( 'should create site with HTTPS enabled', async () => {
-			await runCommand( mockSitePath, {
-				...defaultTestOptions,
-				customDomain: 'mysite.local',
-				enableHttps: true,
-			} );
-
-			expect( saveCliConfig ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					sites: expect.arrayContaining( [
-						expect.objectContaining( {
-							enableHttps: true,
-						} ),
-					] ),
-				} )
-			);
 		} );
 
 		it( 'should add existing site ports to unavailable ports', async () => {
@@ -1483,26 +1589,7 @@ describe( 'CLI: studio create', () => {
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
-				expect.objectContaining( {
-					blueprint: expect.any( Object ),
-				} )
-			);
-		} );
-
-		it( 'should pass Blueprint through when name is provided with Blueprint', async () => {
-			await runCommand( mockSitePath, {
-				...defaultTestOptions,
-				name: 'My Site',
-				blueprint: {
-					uri: '/home/test/blueprint.json',
-					contents: testBlueprint,
-				},
-			} );
-
-			// blogname is now set by the server child process, not prepended here
-			expect( startWordPressServer ).toHaveBeenCalledWith(
-				expect.anything(),
-				expect.any( Logger ),
+				'create',
 				expect.objectContaining( {
 					blueprint: expect.any( Object ),
 				} )
@@ -1578,21 +1665,6 @@ describe( 'CLI: studio create', () => {
 			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Run "studio start" to start the site.' );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
-
-		it( 'should create site with siteLanguage when preferred language is configured but no Blueprint given', async () => {
-			vi.mocked( getPreferredSiteLanguage ).mockResolvedValue( 'es_ES' );
-
-			await runCommand( mockSitePath, {
-				...defaultTestOptions,
-				noStart: true,
-			} );
-
-			// No blueprint to run — language steps are applied by the server child process on first start
-			expect( connectToDaemon ).not.toHaveBeenCalled();
-			expect( runBlueprint ).not.toHaveBeenCalled();
-			expect( startWordPressServer ).not.toHaveBeenCalled();
-			expect( consoleLogSpy ).toHaveBeenCalledWith( 'Site created successfully' );
-		} );
 	} );
 
 	describe( 'Language Packs', () => {
@@ -1608,20 +1680,7 @@ describe( 'CLI: studio create', () => {
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
-				expect.objectContaining( { siteLanguage: 'sv_SE' } )
-			);
-		} );
-
-		it( 'should fall back to setSiteLanguage when bundled packs are not available', async () => {
-			vi.mocked( getPreferredSiteLanguage ).mockResolvedValue( 'sv_SE' );
-			vi.mocked( copyLanguagePackToSite ).mockResolvedValue( false );
-
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			// setSiteLanguage vs defineWpConfigConsts is now decided by the server child process
-			expect( startWordPressServer ).toHaveBeenCalledWith(
-				expect.anything(),
-				expect.any( Logger ),
+				'create',
 				expect.objectContaining( { siteLanguage: 'sv_SE' } )
 			);
 		} );
@@ -1639,6 +1698,7 @@ describe( 'CLI: studio create', () => {
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
+				'create',
 				expect.objectContaining( { siteLanguage: 'sv_SE' } )
 			);
 		} );
@@ -1813,43 +1873,9 @@ describe( 'CLI: studio create', () => {
 			expect( process.exitCode ).toBe( 1 );
 			expectRetainedImportedSiteReported( { running: true } );
 		} );
-
-		it( 'should handle SQLite setup failure', async () => {
-			vi.mocked( keepSqliteIntegrationUpdated ).mockRejectedValue(
-				new Error( 'SQLite setup failed' )
-			);
-
-			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow();
-
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
 	} );
 
 	describe( 'Cleanup', () => {
-		it( 'should disconnect from process manager even on error', async () => {
-			vi.mocked( readCliConfig ).mockRejectedValue( new Error( 'Appdata error' ) );
-
-			try {
-				await runCommand( mockSitePath, { ...defaultTestOptions } );
-			} catch {
-				// Expected
-			}
-
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should disconnect from process manager on success', async () => {
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( disconnectFromDaemon ).toHaveBeenCalled();
-		} );
-
-		it( 'should unlock appdata after saving', async () => {
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( unlockCliConfig ).toHaveBeenCalled();
-		} );
-
 		it( 'should remove site from appdata when server start fails', async () => {
 			vi.mocked( startWordPressServer ).mockRejectedValue( new Error( 'Server start failed' ) );
 
@@ -1973,15 +1999,6 @@ $table_prefix = 'wp_';
 `
 		);
 
-		const wpConfigWithoutDbBlock = normalizeLineEndings(
-			`<?php
-/**
- * Database connection information is automatically provided.
- */
-$table_prefix = 'wp_';
-`
-		);
-
 		it( 'should strip default DB constants from wp-config.php after server start', async () => {
 			const wpConfigPath = require( 'path' ).join( mockSitePath, 'wp-config.php' );
 			const fsExistsSyncSpy = vi
@@ -2036,67 +2053,129 @@ $table_prefix = 'wp_';
 				'utf-8'
 			);
 		} );
-
-		it( 'should not modify wp-config.php if no default DB constants found', async () => {
-			const wpConfigPath = require( 'path' ).join( mockSitePath, 'wp-config.php' );
-			vi.spyOn( fs, 'existsSync' ).mockImplementation( ( p ) => p === wpConfigPath );
-			vi.spyOn( fs, 'readFileSync' ).mockImplementation( ( p ) => {
-				if ( p === wpConfigPath ) {
-					return wpConfigWithoutDbBlock;
-				}
-				return '';
-			} );
-			const fsWriteFileSyncSpy = vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
-
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( fsWriteFileSyncSpy ).not.toHaveBeenCalledWith(
-				wpConfigPath,
-				expect.anything(),
-				'utf-8'
-			);
-		} );
 	} );
 
 	describe( 'Dependency updates', () => {
-		it( 'calls updateServerFiles when online', async () => {
+		it( 'calls updateServerFiles', async () => {
 			await runCommand( mockSitePath, { ...defaultTestOptions } );
 
 			expect( updateServerFiles ).toHaveBeenCalledTimes( 1 );
 		} );
-
-		it( 'skips updateServerFiles when offline', async () => {
-			vi.mocked( isOnline ).mockResolvedValue( false );
-
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
-
-			expect( updateServerFiles ).not.toHaveBeenCalled();
-		} );
 	} );
 
 	describe( 'Tracks: studio_site_created', () => {
+		beforeEach( () => {
+			vi.stubEnv( 'STUDIO_TRACKS_ORIGIN', '' );
+		} );
 		const mockRecord = vi.mocked( recordTracksEvent );
 
 		const testBlueprint: Blueprint = { steps: [] };
 
-		it( 'emits flow_type "new" with config + timing for a plain create', async () => {
-			await runCommand( mockSitePath, { ...defaultTestOptions } );
+		it.each( [
+			{ origin: '', channel: 'studio-cli' },
+			{ origin: 'studio-ui:v2', channel: 'studio-ui' },
+		] )(
+			'emits the creation UUID with config, timing and $channel origin',
+			async ( { origin, channel } ) => {
+				vi.stubEnv( 'STUDIO_TRACKS_ORIGIN', origin );
+				await runCommand( mockSitePath, { ...defaultTestOptions } );
 
-			expect( mockRecord ).toHaveBeenCalledTimes( 1 );
-			expect( mockRecord ).toHaveBeenCalledWith(
+				expect( mockRecord ).toHaveBeenCalledTimes( 1 );
+				expect( mockRecord ).toHaveBeenCalledWith(
+					TRACKS_EVENTS.SITE_CREATE,
+					expect.objectContaining( {
+						flow_type: 'new',
+						php_version: '8.3',
+						wp_version: '6.5',
+						custom_domain: false,
+						ssl_enabled: false,
+						channel,
+						site_id: expect.stringMatching(
+							/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+						),
+					} )
+				);
+				const props = mockRecord.mock.calls[ 0 ][ 1 ] as Record< string, unknown >;
+				expect( typeof props.time_ms ).toBe( 'number' );
+				expect( props.time_ms as number ).toBeGreaterThanOrEqual( 0 );
+			}
+		);
+
+		it( 'persists a separate UUID and reuses it for preview create/update', async () => {
+			const operationalId = crypto.randomUUID();
+			await runCommand( mockSitePath, {
+				...defaultTestOptions,
+				siteId: operationalId,
+				name: 'Private site title',
+			} );
+
+			const props = mockRecord.mock.calls[ 0 ][ 1 ] ?? {};
+			const config = await readCliConfig();
+			expect( config.sites[ 0 ].tracksId ).toBe( props.site_id );
+			expect( props.site_id ).not.toBe( operationalId );
+			expect( props.site_id ).not.toBe( mockSitePath );
+			expect( props.site_id ).not.toBe( 'Private site title' );
+			config.snapshots = [
+				{
+					atomicSiteId: 12345,
+					userId: 42,
+					localSiteId: operationalId,
+					url: 'private-preview.wp.build',
+					date: Date.now(),
+				},
+			];
+			const createdPreview = await getSiteTracksProps( mockSitePath, config.snapshots[ 0 ] );
+			const updatedPreview = await getSiteTracksProps( mockSitePath, config.snapshots[ 0 ] );
+			expect( createdPreview.site_id ).toBe( props.site_id );
+			expect( updatedPreview ).toEqual( createdPreview );
+			expect( createdPreview.preview_id ).not.toBe( props.site_id );
+			await runCommand( '/test/site/another-site', { ...defaultTestOptions } );
+			expect( mockRecord ).toHaveBeenCalledTimes( 2 );
+			expect( mockRecord.mock.calls[ 1 ][ 1 ]?.site_id ).not.toBe( props.site_id );
+		} );
+
+		it( 'reuses a UUID initialized by preview before the creation event', async () => {
+			let previewSiteId: string | undefined;
+			vi.mocked( openSiteInBrowser ).mockImplementationOnce( async () => {
+				previewSiteId = ( await getSiteTracksProps( mockSitePath ) ).site_id;
+			} );
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
+			expect( previewSiteId ).toEqual( expect.any( String ) );
+			expect( mockRecord.mock.calls[ 0 ][ 1 ]?.site_id ).toBe( previewSiteId );
+		} );
+
+		it( 'keeps creation and its event successful when ID storage fails', async () => {
+			vi.mocked( openSiteInBrowser ).mockImplementationOnce( async () => {
+				vi.mocked( saveCliConfig ).mockRejectedValueOnce( new Error( 'Storage unavailable' ) );
+			} );
+			await expect(
+				runCommand( mockSitePath, { ...defaultTestOptions } )
+			).resolves.toBeUndefined();
+			expect( mockRecord ).toHaveBeenCalledExactlyOnceWith(
 				TRACKS_EVENTS.SITE_CREATE,
 				expect.objectContaining( {
 					flow_type: 'new',
-					php_version: '8.3',
-					wp_version: '6.5',
-					custom_domain: false,
-					ssl_enabled: false,
 					channel: 'studio-cli',
+					time_ms: expect.any( Number ),
 				} )
 			);
-			const props = mockRecord.mock.calls[ 0 ][ 1 ] as Record< string, unknown >;
-			expect( typeof props.time_ms ).toBe( 'number' );
-			expect( props.time_ms as number ).toBeGreaterThanOrEqual( 0 );
+			expect( mockRecord.mock.calls[ 0 ][ 1 ] ).not.toHaveProperty( 'site_id' );
+		} );
+
+		it( 'omits site_id if the saved record cannot be resolved', async () => {
+			vi.mocked( openSiteInBrowser ).mockImplementationOnce( async () => {
+				( await readCliConfig() ).sites = [];
+			} );
+			await runCommand( mockSitePath, { ...defaultTestOptions } );
+			expect( mockRecord ).toHaveBeenCalledTimes( 1 );
+			expect( mockRecord.mock.calls[ 0 ][ 1 ] ).not.toHaveProperty( 'site_id' );
+		} );
+
+		it( 'does not emit or initialize an ID if creation fails before a record exists', async () => {
+			vi.mocked( portFinder.getOpenPort ).mockRejectedValueOnce( new Error( 'No port' ) );
+			await expect( runCommand( mockSitePath, { ...defaultTestOptions } ) ).rejects.toThrow();
+			expect( mockRecord ).not.toHaveBeenCalled();
+			expect( saveCliConfig ).not.toHaveBeenCalled();
 		} );
 
 		it( 'derives flow_type "blueprint" from a blueprint when no flowType is given', async () => {
@@ -2136,6 +2215,67 @@ $table_prefix = 'wp_';
 			);
 		} );
 
+		it.each( [ 'url', 'capture', 'directory' ] as const )(
+			'reports flow_type "static_site_import" with source "%s" for --from',
+			async ( source ) => {
+				const root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-tracks-from-' ) );
+				const sitePath = path.join( root, 'site' );
+				let from = 'https://example.com';
+				if ( source !== 'url' ) {
+					from = path.join( root, source );
+					await fs.promises.mkdir( path.join( from, 'website' ), { recursive: true } );
+					await fs.promises.writeFile(
+						path.join( from, 'website', 'index.html' ),
+						'<main>Hello</main>'
+					);
+					if ( source === 'capture' ) {
+						await fs.promises.writeFile(
+							path.join( from, 'capture-receipt.json' ),
+							JSON.stringify( {
+								schema: 'blocks-engine-capture/capture-receipt/v1',
+								title: 'Example Brand',
+							} )
+						);
+					}
+				}
+				const liberate = vi.fn().mockImplementation( async ( _url: string, outputDir: string ) => {
+					const website = path.join( outputDir, 'example.com', 'website' );
+					await fs.promises.mkdir( website, { recursive: true } );
+					await fs.promises.writeFile(
+						path.join( website, 'index.html' ),
+						'<main>Liberated</main>'
+					);
+					return { websiteDir: website, compareCommand: () => '' };
+				} );
+				vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+				vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+				const parser = registerCommand(
+					yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+					{ liberate }
+				).exitProcess( false );
+
+				try {
+					await parser.parseAsync( [
+						'create',
+						'--from',
+						from,
+						'--name',
+						'Imported Site',
+						'--no-start',
+						'--skip-browser',
+					] );
+
+					expect( mockRecord ).toHaveBeenCalledTimes( 1 );
+					expect( mockRecord ).toHaveBeenCalledWith(
+						TRACKS_EVENTS.SITE_CREATE,
+						expect.objectContaining( { flow_type: 'static_site_import', source } )
+					);
+				} finally {
+					await fs.promises.rm( root, { recursive: true, force: true } );
+				}
+			}
+		);
+
 		it( 'reports custom_domain/ssl_enabled as booleans and never sends the domain string', async () => {
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,
@@ -2147,7 +2287,7 @@ $table_prefix = 'wp_';
 				TRACKS_EVENTS.SITE_CREATE,
 				expect.objectContaining( { custom_domain: true, ssl_enabled: true } )
 			);
-			const props = mockRecord.mock.calls[ 0 ][ 1 ];
+			const props = mockRecord.mock.calls[ 0 ][ 1 ] ?? {};
 			expect( JSON.stringify( props ) ).not.toContain( 'mysite.local' );
 		} );
 

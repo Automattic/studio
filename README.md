@@ -1,62 +1,97 @@
-![Crash Free Sessions Rate](https://img.shields.io/badge/Crash_Free_Session_Rate-98.31%25-blue)
-
 # WordPress Studio
 
-[WordPress Studio](https://developer.wordpress.com/studio/) is an open source desktop application for creating and managing WordPress sites and testing and building plugins and themes locally. Powered by [WordPress.com](https://wordpress.com/), it streamlines modern WordPress development workflows and requires no external dependencies.
+[WordPress Studio](https://wordpress.studio/) is a free, open source development environment for WordPress. Create and manage local sites, build plugins and themes, and use AI to work on real WordPress projects. No Docker, external web server, or database setup required.
 
-Spin up sites in seconds, sync with WordPress.com or Pressable, or import any WordPress site to work on it locally. Use the Studio CLI to access WordPress Studio features outside the desktop application. Share live preview links with clients, and collaborate with the built-in Studio Code assistant that runs WP-CLI commands natively.
+Start with a blank site, a Blueprint, or an existing WordPress site. Work through the desktop app, the command line, or an AI agent connected through MCP. Share previews for feedback, publish to [WordPress.com](https://wordpress.com/) or [Pressable](https://pressable.com/), or export your site to host elsewhere.
 
-![WordPress Studio](/docs/assets/wordpress-studio-main.png)
+[Get started ↗](https://wordpress.studio/docs/) · [Local development ↗](https://wordpress.studio/docs/sites/) · [AI ↗](https://wordpress.studio/docs/studio-code/) · [Previews ↗](https://wordpress.studio/docs/preview-sites/) · [Publishing & syncing ↗](https://wordpress.studio/docs/sync/) · [Agents ↗](https://wordpress.studio/docs/mcp-on-studio/) · [CLI ↗](https://wordpress.studio/docs/cli/)
 
 ## Get started
 
-WordPress Studio is free to use for Mac, Windows, and Linux. Simply download the app to start building and testing — no dependencies required.
+Download WordPress Studio for your platform:
 
-[Download WordPress Studio](https://developer.wordpress.com/studio/) for:
+| Platform               | Downloads                                                                                                                                                                                                 |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| macOS                  | [Apple Silicon](https://appscdn.wordpress.com/downloads/wordpress-com-studio/mac-silicon/latest) · [Intel](https://appscdn.wordpress.com/downloads/wordpress-com-studio/mac-intel/latest)                 |
+| Windows                | [Intel/AMD — x64](https://appscdn.wordpress.com/downloads/wordpress-com-studio/windows-x64/latest) · [ARM64](https://appscdn.wordpress.com/downloads/wordpress-com-studio/windows-arm64/latest)           |
+| Linux — Debian package | [Intel/AMD — x64](https://appscdn.wordpress.com/downloads/wordpress-com-studio/linux-x64/latest/update) · [ARM64](https://appscdn.wordpress.com/downloads/wordpress-com-studio/linux-arm64/latest/update) |
 
-- macOS (Intel or Apple Silicon)
-- Windows (x64 or ARM64)
-- Linux (x64 or ARM64)
+[Create your first site](https://wordpress.studio/docs/) from scratch or a Blueprint, or import an existing WordPress backup. Open wp-admin, edit files in your preferred editor, or connect an AI provider and describe your first change.
 
-## Highlights
+## Develop locally
 
-### Studio Sync
+Run WordPress on your machine with a bundled native PHP runtime and a SQLite database. [Manage multiple sites](https://wordpress.studio/docs/sites/), test plugins and themes, and develop against local copies of production sites.
 
-![WordPress Studio - Selective Sync](/docs/assets/wordpress-studio-sync.png)
+- Choose PHP and WordPress versions for each project.
+- Configure custom domains and HTTPS.
+- Use Blueprints for repeatable setups with your preferred themes, plugins, content, and settings.
+- Access site files, inspect the database, and run WP-CLI commands.
+- Import existing sites and export full-site or database backups.
 
-Push updates or pull down a WordPress.com or Pressable production or staging site with just a few clicks. Choose exactly which parts of your site to sync, like specific plugins, standalone themes, or the database, so you’re always in control. [Learn more about Studio Sync →](https://developer.wordpress.com/docs/developer-tools/studio/sync/)
+## Build and edit with AI
 
-### Free Cloud-hosted Preview Sites
+Use the [built-in agent](https://wordpress.studio/docs/studio-code/) to create pages, develop plugins and themes, investigate issues, and run WP-CLI commands. It works with your site’s files and WordPress installation, with a live preview alongside the conversation.
 
-![WordPress Studio - Preview Sites](/docs/assets/wordpress-studio-preview-sites.png)
+Attach screenshots or reference files to your requests, or select an element in the preview and describe what you want to change. Continue working on the result in your editor or WordPress.
 
-Preview, polish, then hand it off. Share a stable, cloud-hosted preview link that your clients or team can access at any time. Preview sites expire after seven days without updates. [Learn more about Preview Sites →](https://developer.wordpress.com/docs/developer-tools/studio/preview-sites/)
+Connect through WordPress.com or use your own Anthropic API key. AI usage is subject to the connected provider’s credits and billing.
 
-### Studio Code
+## Share previews
 
-![WordPress Studio - Studio Code](/docs/assets/wordpress-studio-ai-assistant.png)
+Create a [cloud-hosted preview](https://wordpress.studio/docs/preview-sites/) of a local site to share with clients and teammates. Preview links remain accessible when your computer is offline, so you can gather feedback without running a tunnel or deploying to production.
 
-Skip the repetitive setup and ask Studio Code to install plugins, create pages, or run WP-CLI commands without leaving the app or searching for syntax. [Learn more about Studio Code →](https://developer.wordpress.com/docs/developer-tools/studio/studio-code/)
+Preview sites are free, require a WordPress.com account, and expire after seven days without updates.
 
-## Explore the documentation
+## Publish and pull changes
 
-[Review the documentation](https://developer.wordpress.com/docs/developer-tools/studio/) for:
+Publish a local site to [WordPress.com](https://wordpress.com/) or [Pressable](https://pressable.com/), or pull an existing production or staging site into your local environment.
 
-- Installation instructions  
-- Feature guides  
-- Troubleshooting and FAQs  
+[Choose what to transfer](https://wordpress.studio/docs/sync/): the full site, database, individual plugins or themes, or other files in `wp-content`. Develop and test locally, then publish when you’re ready.
 
-## Give feedback and contribute
+For other hosts, export your site and move it through your preferred deployment workflow.
 
-We’d love to hear about your experience using Studio. If you have questions, suggestions, or run into issues, reach out to our [Happiness Engineers](https://developer.wordpress.com/contact/). Because Studio is open source, you can also:
+## Use the CLI and your own agents
 
-- Open a GitHub Issue to to [suggest ideas](https://github.com/Automattic/studio/issues/new?assignees=&labels=%5BType%5D+Feature+Request&projects=&template=feature_request.yml&title=Feature+Request%3A) or [report bugs](https://github.com/Automattic/studio/issues/new?assignees=&labels=Needs+triage%2C%5BType%5D+Bug&projects=&template=bug_report.yml)  
-- Submit pull requests for bug fixes and enhancements  
-- Help translate Studio into your language via [GlotPress](https://translate.wordpress.com/projects/studio/)  
-- Proposals for new features may require additional review and discussion
+The [WordPress Studio CLI](https://wordpress.studio/docs/cli/) brings site management to your terminal. Create and manage sites, run WP-CLI commands, import and export backups, create previews, and push or pull changes.
 
-For details, please see our [Contributing Guidelines](CONTRIBUTING.md) and [Code Contributions](docs/code-contributions.md) guide.
+With the CLI installed:
+
+```bash
+# Create a local WordPress site
+studio create
+
+# List your sites
+studio list
+
+# Run WP-CLI against a local site
+studio wp plugin list --path ~/Studio/my-site
+
+# Start an interactive agent session
+studio code
+```
+
+The built-in [MCP (Model Context Protocol) server](https://wordpress.studio/docs/mcp-on-studio/) exposes WordPress tools to compatible AI clients, including Claude Code, Codex, and Cursor. Connect your agent to create sites, run WP-CLI commands, and work with your WordPress projects.
+
+## Documentation
+
+Visit the [WordPress Studio documentation](https://wordpress.studio/docs/) for installation instructions, feature guides, troubleshooting, and FAQs.
+
+For a walkthrough of chat, live previews, and annotations, read the [desktop experience beta announcement](https://wordpress.com/blog/2026/08/24/studio-agentic-beta/).
+
+For questions or help using WordPress Studio, [contact our Happiness Engineers](https://developer.wordpress.com/contact/).
+
+## Contribute
+
+WordPress Studio welcomes bug reports, feature proposals, code contributions, and translations.
+
+- [Report a bug](https://github.com/Automattic/studio/issues/new?assignees=&labels=Needs+triage%2C%5BType%5D+Bug&projects=&template=bug_report.yml).
+- [Suggest a feature](https://github.com/Automattic/studio/issues/new?assignees=&labels=%5BType%5D+Feature+Request&projects=&template=feature_request.yml&title=Feature+Request%3A).
+- [Help translate WordPress Studio](https://translate.wordpress.com/projects/studio/).
+
+To set up the development environment and run WordPress Studio from source, start with the [contributing guidelines](CONTRIBUTING.md) and [code contributions guide](docs/code-contributions.md).
+
+For substantial new features, open an issue first so the approach can be discussed before implementation.
 
 ## License
 
-WordPress Studio is [GPLv2 licensed](LICENSE.md).
+WordPress Studio is licensed under [GPLv2](LICENSE.md).

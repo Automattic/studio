@@ -1,10 +1,14 @@
-import { MAX_VISUAL_ANNOTATIONS } from '@studio/common/ai/visual-annotations';
+import { MAX_VISUAL_ANNOTATIONS } from '@studio/agent/protocol/visual-annotations';
 import { describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts } from '@/data/app-messages';
 import {
 	changeAnnotation,
+	discardAnnotations,
 	escapeAnnotations,
 	getSiteAnnotations,
+	hasAnnotationContent,
+	isBatchedAnnotation,
+	stageAnnotations,
 	pickAnnotation,
 	requestAnnotationSend,
 	setAnnotating,
@@ -12,10 +16,59 @@ import {
 } from './store';
 
 describe( 'annotation store', () => {
+	it( 'protects a reference image after the automatic capture has been removed', () => {
+		const siteId = 'capture-content-site';
+		const capture = {
+			id: 'capture',
+			kind: 'image' as const,
+			name: 'Selected area.png',
+			mimeType: 'image/png' as const,
+			size: 1,
+			dataBase64: 'eA==',
+		};
+		setAnnotating( siteId, true );
+		const id = pickAnnotation( siteId, { kind: 'region' }, { images: [ capture ] } )!;
+		expect( hasAnnotationContent( getSiteAnnotations( siteId ).notes[ 0 ] ) ).toBe( false );
+		changeAnnotation( siteId, id, {
+			images: [ { ...capture, id: 'reference', name: 'Reference.png' } ],
+		} );
+		expect( pickAnnotation( siteId, { selector: 'h1' } ) ).toBeNull();
+		expect( getSiteAnnotations( siteId ).editingId ).toBe( id );
+		expect( getSiteAnnotations( siteId ).notes[ 0 ].images[ 0 ].id ).toBe( 'reference' );
+	} );
+
+	it( 'discards saved notes and the current draft for one site and exits annotation mode', () => {
+		const siteId = 'discard-store-site';
+		const otherSiteId = 'kept-discard-store-site';
+		setAnnotating( siteId, true );
+		const saved = pickAnnotation( siteId, { selector: 'h1' } )!;
+		changeAnnotation( siteId, saved, { comment: 'Saved note' } );
+		stageAnnotations( siteId, [ saved ], true );
+		const draft = pickAnnotation( siteId, { selector: 'p' } )!;
+		changeAnnotation( siteId, draft, { comment: 'Unfinished note' } );
+		setAnnotating( otherSiteId, true );
+		const other = pickAnnotation( otherSiteId, { selector: 'footer' } )!;
+		changeAnnotation( otherSiteId, other, { comment: 'Keep this note' } );
+
+		discardAnnotations( siteId );
+
+		expect( getSiteAnnotations( siteId ) ).toMatchObject( {
+			active: false,
+			notes: [],
+			editingId: null,
+		} );
+		expect( getSiteAnnotations( otherSiteId ) ).toMatchObject( {
+			active: true,
+			editingId: other,
+			notes: [ expect.objectContaining( { id: other, comment: 'Keep this note' } ) ],
+		} );
+	} );
+
 	it( 'drops a note left empty and numbers the next one after those kept', () => {
 		setAnnotating( 'store-site', true );
 		const kept = pickAnnotation( 'store-site', { selector: 'h1' } )!;
 		changeAnnotation( 'store-site', kept, { comment: 'Bigger' } );
+		stageAnnotations( 'store-site' );
 		pickAnnotation( 'store-site', { selector: 'p' } );
 		const last = pickAnnotation( 'store-site', { selector: 'footer' } );
 
@@ -32,11 +85,30 @@ describe( 'annotation store', () => {
 	} );
 
 	it( 'reopens the note of a design token picked again', () => {
-		const id = pickAnnotation( 'design-site', { designKey: 'colors.primary' } )!;
+		const id = pickAnnotation( 'design-site', { targetKey: 'colors.primary' } )!;
 		changeAnnotation( 'design-site', id, { comment: 'Warmer' } );
 
-		expect( pickAnnotation( 'design-site', { designKey: 'colors.primary' } ) ).toBe( id );
+		expect( pickAnnotation( 'design-site', { targetKey: 'colors.primary' } ) ).toBe( id );
 		expect( getSiteAnnotations( 'design-site' ).notes ).toHaveLength( 1 );
+	} );
+
+	it( 'keeps batched notes distinct from immediate submissions when annotation mode changes', () => {
+		const siteId = 'batch-store-site';
+		setAnnotating( siteId, true );
+		const direct = pickAnnotation( siteId, { selector: 'h1' } )!;
+		changeAnnotation( siteId, direct, { comment: 'Immediate' } );
+		stageAnnotations( siteId, [ direct ] );
+		expect( getSiteAnnotations( siteId ).notes.filter( isBatchedAnnotation ) ).toHaveLength( 0 );
+		const batched = pickAnnotation( siteId, { selector: 'p' } )!;
+		changeAnnotation( siteId, batched, { comment: 'Batch this' } );
+		stageAnnotations( siteId, [ batched ], true );
+		setAnnotating( siteId, false );
+		setAnnotating( siteId, true );
+		expect(
+			getSiteAnnotations( siteId )
+				.notes.filter( isBatchedAnnotation )
+				.map( ( note ) => note.id )
+		).toEqual( [ batched ] );
 	} );
 
 	it( 'holds a send request until a chat for that site takes it', () => {
@@ -56,12 +128,13 @@ describe( 'annotation store', () => {
 			changeAnnotation( 'full-site', pickAnnotation( 'full-site', { selector: `#n${ index }` } )!, {
 				comment: 'Note',
 			} );
+			stageAnnotations( 'full-site' );
 		}
 
 		expect( pickAnnotation( 'full-site', { selector: 'footer' } ) ).toBeNull();
 		expect( getSiteAnnotations( 'full-site' ).notes ).toHaveLength( MAX_VISUAL_ANNOTATIONS );
 		expect( getVisibleToasts().map( ( toast ) => toast.title ) ).toContain(
-			'Send or delete some annotations before adding more.'
+			'Send or delete some annotations before adding more'
 		);
 	} );
 
@@ -77,6 +150,7 @@ describe( 'annotation store', () => {
 		expect( getSiteAnnotations( 'busy-site' ).sending ).toBe( true );
 		expect( pickAnnotation( 'busy-site', { selector: 'h1' } ) ).toBeNull();
 		escapeAnnotations( 'busy-site' );
+		discardAnnotations( 'busy-site' );
 		expect( getSiteAnnotations( 'busy-site' ).active ).toBe( true );
 
 		finishSend();

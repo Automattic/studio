@@ -1,11 +1,14 @@
 # WordPress Studio plugin
 
-Build, design, and manage WordPress sites from Codex in the ChatGPT app, or from Claude Code, with
-[WordPress Studio](https://developer.wordpress.com/studio/). Ask for a site and Studio creates it on
+Build, design, and manage WordPress sites from Codex in the ChatGPT app, Claude Code, Cursor, or Grok
+Build, with [WordPress Studio](https://wordpress.studio/). Ask for a site and Studio creates it on
 your computer, asks about the look and the layout with rendered previews, builds a block theme, and
 checks the result visually. Publish it to WordPress.com when you are ready.
 
 ## Install
+
+With the Studio app, open **Settings** → **MCP** and select **Connect** next to your agent app.
+Or run the steps for your app.
 
 In Codex:
 
@@ -25,6 +28,25 @@ claude plugin install wp-studio@studio
 
 Claude Code runs the plugin with the Node.js on your `PATH`, version 22 or later. In the Claude app,
 it works in the Code tab and in Cowork tasks on your computer, not in regular chats.
+
+In Cursor:
+
+```bash
+git clone --depth 1 https://github.com/Automattic/studio-plugins
+mkdir -p ~/.cursor/plugins/local
+cp -R studio-plugins/wp-studio ~/.cursor/plugins/local/WordPress-Studio
+```
+
+Restart Cursor afterwards. Cursor runs the plugin with the Node.js on your `PATH`, version 22 or
+later.
+
+In Grok Build:
+
+```bash
+grok plugin install Automattic/studio-plugins@claude-directory --trust
+```
+
+Grok Build runs the plugin with the Node.js on your `PATH`, version 22 or later.
 
 Any other MCP client can run the server directly: add a stdio server named `wordpress-studio` that
 runs `studio mcp`.
@@ -55,4 +77,4 @@ The plugin itself sends no telemetry. The Studio CLI sends anonymous usage event
 anonymous usage counters. To turn the usage events off, set `"analyticsOptOut": true`
 in `~/.studio/shared.json`, or switch off analytics in the Studio desktop app's settings. See the
 [privacy policy](https://automattic.com/privacy/) and the
-[terms of service](https://wordpress.com/tos/).
+[terms of service](https://automattic.com/tos/).

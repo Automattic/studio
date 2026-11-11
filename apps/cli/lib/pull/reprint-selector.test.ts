@@ -1,30 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
-import { fetchPullTree } from 'cli/lib/sync-selector';
-import {
-	fetchJetpackPullTree,
-	mapCheckedNodesToSelection,
-	mapCliOnlyToReprint,
-} from './reprint-selector';
+import { describe, expect, it } from 'vitest';
+import { mapCheckedNodesToSelection, mapCliOnlyToReprint } from './reprint-selector';
 import type { TreeNode } from 'cli/lib/tree-checkbox';
-
-vi.mock( 'cli/lib/sync-selector', () => ( {
-	fetchPullTree: vi.fn(),
-	buildTreeFromRemote: vi.fn(),
-} ) );
 
 /** Minimal checked node — mapCheckedNodesToSelection only reads `value`. */
 function checked( value: string, depth = 1 ): TreeNode {
 	return { name: value, value, isDirectory: false, checked: true, expanded: false, depth };
 }
-
-describe( 'fetchJetpackPullTree', () => {
-	it( 'keeps file leaves from the remote tree', async () => {
-		const tree = [ checked( 'database', 0 ), checked( 'uploads/banner.jpg', 2 ) ];
-		vi.mocked( fetchPullTree ).mockResolvedValue( { tree, rewindId: 'rewind-1' } );
-
-		expect( await fetchJetpackPullTree( 'token', 123 ) ).toEqual( tree );
-	} );
-} );
 
 describe( 'mapCheckedNodesToSelection', () => {
 	it( 'maps a full selection to no --only and keeps the database', () => {

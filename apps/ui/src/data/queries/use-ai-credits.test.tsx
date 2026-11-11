@@ -49,6 +49,25 @@ describe( 'useAiCreditsMeter', () => {
 	} );
 
 	it.each( [
+		{ allowance: 600, purchased: 0, topUp: 0, remaining: 600, fraction: 0.4 },
+		{ allowance: 600, purchased: 300, topUp: 500, remaining: 900, fraction: 0.4 },
+		{ allowance: 0, purchased: 500, topUp: 500, remaining: 500, fraction: 0 },
+		{ allowance: 0, purchased: 0, topUp: 0, remaining: 0, fraction: 1 },
+	] )(
+		'measures $allowance allowance and $purchased of $topUp purchased as one pool',
+		async ( { allowance, purchased, topUp, remaining, fraction } ) => {
+			const { meter } = await renderCredits( {
+				costCap: 1000,
+				costUsage: 400,
+				allowanceRemaining: allowance,
+				purchasedRemaining: purchased,
+				purchasedAtTopUp: topUp,
+			} );
+			expect( meter ).toMatchObject( { remainingCredits: remaining, fraction } );
+		}
+	);
+
+	it.each( [
 		[ 'the quota is unknown', null ],
 		[ 'the server reports no credit pools', { costUsage: 25, costCap: 100 } ],
 		[

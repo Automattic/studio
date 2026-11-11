@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
-import { openStudioLogsAction, toast } from '@/data/app-messages';
+import { dismissToast, openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 
 const CERTIFICATE_TRUST_QUERY_KEY = [ 'certificate-trust' ] as const;
@@ -22,9 +22,11 @@ export function useTrustCertificate() {
 	return useMutation( {
 		mutationFn: () => connector.trustCertificate(),
 		onError: () =>
-			toast.error( __( "Couldn't trust WordPress Studio's certificate" ), {
+			toast.error( __( 'Couldn’t trust certificate' ), {
+				id: 'certificate-trust-error',
 				action: openStudioLogsAction( connector ),
 			} ),
+		onSuccess: () => dismissToast( 'certificate-trust-error' ),
 		onSettled: () => queryClient.invalidateQueries( { queryKey: CERTIFICATE_TRUST_QUERY_KEY } ),
 	} );
 }

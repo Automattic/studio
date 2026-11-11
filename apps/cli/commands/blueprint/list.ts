@@ -1,4 +1,4 @@
-import { isOnline } from '@studio/common/lib/network-utils';
+import { isNetworkError } from '@studio/common/lib/network-utils';
 import { readSharedConfig } from '@studio/common/lib/shared-config';
 import { fetchStudioBlueprints, type Blueprint } from '@studio/common/lib/studio-blueprints-api';
 import { BlueprintCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
@@ -44,15 +44,19 @@ function displayBlueprints( blueprints: Blueprint[], format: 'table' | 'json' ):
 }
 
 export async function runCommand( format: 'table' | 'json', category?: string ): Promise< void > {
-	if ( ! ( await isOnline() ) ) {
-		throw new LoggerError( __( 'An internet connection is required to list blueprints.' ) );
-	}
-
 	logger.reportStart( LoggerAction.FETCH_BLUEPRINTS, __( 'Fetching blueprints…' ) );
 
 	const sharedConfig = await readSharedConfig();
 	const locale = sharedConfig.locale;
-	const blueprints = await fetchStudioBlueprints( locale );
+	const blueprints = await fetchStudioBlueprints( locale ).catch( ( error: unknown ) => {
+		if ( isNetworkError( error ) ) {
+			throw new LoggerError(
+				__( 'An internet connection is required to list blueprints.' ),
+				error
+			);
+		}
+		throw error;
+	} );
 
 	if ( blueprints.length === 0 ) {
 		logger.reportSuccess( __( 'No blueprints available' ) );

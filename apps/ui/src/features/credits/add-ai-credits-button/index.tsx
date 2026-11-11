@@ -12,10 +12,9 @@ import { Button, type ButtonProps } from '@/lib/ui';
  * goes straight to checkout for the single fixed top-up.
  */
 export function AddAiCreditsButton( {
-	className,
 	variant = 'outline',
 	size,
-}: Pick< ButtonProps, 'className' | 'variant' | 'size' > ) {
+}: Pick< ButtonProps, 'variant' | 'size' > ) {
 	const openCheckout = useOpenAiCreditsCheckout();
 	const { data: pricing } = useStudioAssistantTopUpPricing();
 	const [ dialogOpen, setDialogOpen ] = useState( false );
@@ -24,7 +23,6 @@ export function AddAiCreditsButton( {
 	return (
 		<>
 			<Button
-				className={ className }
 				variant={ variant }
 				size={ size }
 				onClick={ () => {

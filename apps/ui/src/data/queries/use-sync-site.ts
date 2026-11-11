@@ -1,19 +1,22 @@
-import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import { buildSyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
-import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
+import { canCancelSyncActivity, isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect } from 'react';
-import { openStudioLogsAction, toast } from '@/data/app-messages';
+import { getAccountJourney, completeAccountJourney } from '@/data/account-analytics';
+import {
+	getVisibleToasts,
+	openStudioLogsAction,
+	toast,
+	type ToastAction,
+} from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { markPreviewReady, markPreviewSeen } from '@/data/preview-ready';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
 import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
 import { getSnapshotUrl } from '@/data/snapshot-url';
-import { applySyncActivity, getSyncActivity } from '@/data/sync-activity';
+import { applySyncActivity, getSyncActivity, getSyncActivityRunId } from '@/data/sync-activity';
 import type {
 	Connector,
 	PullSyncOptions,
@@ -24,13 +27,12 @@ import type {
 import type { SyncActivity, SyncDirection } from '@studio/common/lib/sync/activity';
 import type { SyncSite } from '@studio/common/types/sync';
 
-// Mutation keys are exported so downstream consumers (e.g. a cross-page
-// activity indicator or future bulk-sync UI) can filter the react-query
-// mutation cache for in-flight push/pull operations by site.
+// Exported so the publish panel can find a site's in-flight push or pull in
+// the mutation cache.
 export const PUSH_TO_LIVE_MUTATION_KEY = [ 'pushSiteToLive' ] as const;
 export const PULL_FROM_LIVE_MUTATION_KEY = [ 'pullSiteFromLive' ] as const;
 
-// Records a sync's activity and, the first time it settles, announces the result.
+// Records progress and announces each result once, including work started outside this UI.
 export function useSettleSync() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
@@ -45,10 +47,8 @@ export function useSettleSync() {
 					? { ...activity, message: plainMessage }
 					: activity;
 			const previous = getSyncActivity( siteId );
-			if ( ! applySyncActivity( siteId, settled ) ) {
-				return;
-			}
-			if ( activity.kind === 'error' && plainMessage ) {
+			const didSettle = applySyncActivity( siteId, settled );
+			if ( didSettle && activity.kind === 'error' && plainMessage ) {
 				console.error( 'Sync activity failed:', activity.direction, activity.message );
 			}
 
@@ -56,12 +56,76 @@ export function useSettleSync() {
 				queryClient
 					.getQueryData< SiteDetails[] >( SITES_QUERY_KEY )
 					?.find( ( { id } ) => id === siteId )?.name ?? '';
+			const noticeId = `${ settled.direction }-${ siteId }`;
+			if ( settled.kind === 'pending' ) {
+				const title =
+					settled.direction === 'preview'
+						? settled.hostname
+							? __( 'Updating preview…' )
+							: __( 'Creating preview…' )
+						: settled.direction === 'import'
+						? __( 'Importing backup…' )
+						: settled.direction === 'push'
+						? __( 'Publishing changes…' )
+						: __( 'Pulling changes…' );
+				const current = getSyncActivity( siteId );
+				let action: ToastAction | undefined;
+				if (
+					settled.direction === 'pull' &&
+					settled.remoteSiteId !== undefined &&
+					canCancelSyncActivity( settled )
+				) {
+					const { remoteSiteId } = settled;
+					const ownsPull = () =>
+						queryClient.isMutating( {
+							mutationKey: PULL_FROM_LIVE_MUTATION_KEY,
+							predicate: ( mutation ) => {
+								const variables = mutation.state.variables as CancelSyncVariables | undefined;
+								return variables?.siteId === siteId && variables.remoteSiteId === remoteSiteId;
+							},
+						} ) > 0;
+					if ( ownsPull() ) {
+						const runId = getSyncActivityRunId( siteId );
+						action = ( previous?.kind === 'pending' &&
+						previous.direction === 'pull' &&
+						previous.remoteSiteId === remoteSiteId
+							? getVisibleToasts().find( ( notice ) => notice.id === noticeId && notice.processing )
+									?.action
+							: undefined ) ?? {
+							label: __( 'Cancel' ),
+							dismissOnSuccess: false,
+							onClick: () => {
+								const latest = getSyncActivity( siteId );
+								if (
+									getSyncActivityRunId( siteId ) === runId &&
+									latest?.kind === 'pending' &&
+									latest.remoteSiteId === remoteSiteId &&
+									canCancelSyncActivity( latest ) &&
+									ownsPull()
+								) {
+									return connector.cancelSync( siteId, remoteSiteId );
+								}
+							},
+						};
+					}
+				}
+				toast.processing( title, {
+					id: noticeId,
+					action,
+					description:
+						[ siteName(), current?.kind === 'pending' ? current.message : undefined ]
+							.filter( Boolean )
+							.join( ' · ' ) || undefined,
+				} );
+				return;
+			}
+			if ( ! didSettle ) return;
 			if ( settled.direction === 'preview' ) {
 				void queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
 				if ( settled.kind === 'success' ) {
-					markPreviewReady( siteId );
 					/* translators: %s: site name */
-					toast.success( sprintf( __( '%s preview ready' ), siteName() ), {
+					toast.success( sprintf( __( '%s preview is ready' ), siteName() ), {
+						id: noticeId,
 						action: {
 							label: __( 'Copy link' ),
 							onClick: () => {
@@ -70,9 +134,7 @@ export function useSettleSync() {
 									?.filter( ( snapshot ) => snapshot.localSiteId === siteId )
 									.sort( ( a, b ) => b.date - a.date )[ 0 ];
 								if ( latest ) {
-									void connector
-										.copyText( getSnapshotUrl( latest ) )
-										.then( () => markPreviewSeen( siteId ) );
+									void connector.copyText( getSnapshotUrl( latest ) );
 								}
 							},
 						},
@@ -80,7 +142,13 @@ export function useSettleSync() {
 				} else if ( settled.kind === 'error' ) {
 					/* translators: %s: site name */
 					toast.error( sprintf( __( 'Couldn’t publish preview: %s' ), siteName() ), {
+						id: noticeId,
 						description: settled.message,
+					} );
+				} else if ( settled.kind === 'cancelled' ) {
+					toast.info( __( 'Preview creation cancelled' ), {
+						id: noticeId,
+						description: siteName(),
 					} );
 				}
 				return;
@@ -96,12 +164,15 @@ export function useSettleSync() {
 					void queryClient.invalidateQueries( { queryKey } );
 				}
 				if ( settled.kind === 'success' ) {
-					toast.success( __( 'Import finished' ) );
+					toast.success( __( 'Import finished' ), { id: noticeId, description: siteName() } );
 				} else if ( settled.kind === 'error' ) {
 					toast.error( __( "Import didn't complete" ), {
-						description: settled.message,
+						id: noticeId,
+						description: [ siteName(), settled.message ].filter( Boolean ).join( ' · ' ),
 						action: openStudioLogsAction( connector ),
 					} );
+				} else if ( settled.kind === 'cancelled' ) {
+					toast.info( __( 'Import cancelled' ), { id: noticeId, description: siteName() } );
 				}
 				return;
 			}
@@ -118,14 +189,20 @@ export function useSettleSync() {
 				const viewSite = isPush
 					? remote && ( () => connector.openExternalUrl( remote.url ) )
 					: () => connector.openSiteUrl( siteId, '', { autoLogin: false } );
-				toast.success(
+				( settled.warning ? toast.warning : toast.success )(
 					sprintf(
 						/* translators: %s: site name */
 						isPush ? __( 'Published %s' ) : __( 'Changes pulled into %s' ),
 						siteName()
 					),
 					{
-						action: viewSite && { label: __( 'View site' ), onClick: () => void viewSite() },
+						id: noticeId,
+						description: settled.warning,
+						action: viewSite && {
+							label: __( 'View' ),
+							onClick: () => viewSite(),
+							dismissOnSuccess: ! settled.warning,
+						},
 					}
 				);
 			} else if ( settled.kind === 'error' ) {
@@ -136,8 +213,22 @@ export function useSettleSync() {
 					  sprintf( __( 'Changes pulled into %s' ), siteName() )
 					: __( 'Pulling didn’t finish' );
 				toast.error( title, {
-					description: settled.message,
-					action: openStudioLogsAction( connector ),
+					id: noticeId,
+					description: [ siteName(), settled.message ].filter( Boolean ).join( ' · ' ),
+					action: settled.localChangesApplied
+						? {
+								label: __( 'Start site' ),
+								onClick: async () => {
+									await connector.startSite( siteId );
+									await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+								},
+						  }
+						: openStudioLogsAction( connector ),
+				} );
+			} else if ( settled.kind === 'cancelled' ) {
+				toast.info( isPush ? __( 'Publishing cancelled' ) : __( 'Pull cancelled' ), {
+					id: noticeId,
+					description: siteName(),
 				} );
 			}
 		},
@@ -153,24 +244,22 @@ function getPlainErrorMessage(
 	canOpenLogs: boolean
 ) {
 	if ( localChangesApplied ) {
-		return __(
-			'WordPress Studio couldn’t restart the site. Your changes have already been pulled.'
-		);
+		return __( 'Couldn’t restart the site. Your changes have already been pulled.' );
 	}
 	if ( direction === 'pull' ) {
 		return canOpenLogs
 			? __(
-					"WordPress Studio couldn't copy the live site. Try again. If the problem continues, check WordPress Studio Logs for details."
+					"Couldn't copy the live site. Try again. If the problem continues, check the logs for details."
 			  )
-			: __( "WordPress Studio couldn't copy the live site. Try again." );
+			: __( "Couldn't copy the live site. Try again." );
 	}
 	if ( direction === 'import' ) {
 		return canOpenLogs
 			? __(
-					"WordPress Studio couldn't import this backup. Check that it's a complete, supported backup and try again. If the problem continues, check WordPress Studio Logs for details."
+					"Couldn't import this backup. Check that it's a complete, supported backup and try again. If the problem continues, check the logs for details."
 			  )
 			: __(
-					"WordPress Studio couldn't import this backup. Check that it's a complete, supported backup and try again."
+					"Couldn't import this backup. Check that it's a complete, supported backup and try again."
 			  );
 	}
 	return undefined;
@@ -194,6 +283,9 @@ const CLI_REPORT_GRACE_MS = 1500;
 export function useSettleFromMutation() {
 	const settleSync = useSettleSync();
 	return ( siteId: string, direction: SyncDirection, error?: unknown ) => {
+		const current = getSyncActivity( siteId );
+		if ( current?.kind !== 'pending' || current.direction !== direction ) return;
+		const runId = getSyncActivityRunId( siteId );
 		let activity: SyncActivity = { kind: 'success', direction };
 		if ( isSyncCancelledError( error ) ) {
 			activity = { kind: 'cancelled', direction };
@@ -201,7 +293,9 @@ export function useSettleFromMutation() {
 			const message = error instanceof Error ? error.message : String( error );
 			activity = { kind: 'error', direction, message };
 		}
-		setTimeout( () => settleSync( siteId, activity ), CLI_REPORT_GRACE_MS );
+		setTimeout( () => {
+			if ( getSyncActivityRunId( siteId ) === runId ) settleSync( siteId, activity );
+		}, CLI_REPORT_GRACE_MS );
 	};
 }
 
@@ -209,8 +303,6 @@ type LiveSyncVariables< Options > = {
 	siteId: string;
 	remoteSiteId: number;
 	options?: Options;
-	// Supplied by callers whose site isn't in the connected-sites cache yet.
-	syncSite?: Pick< SyncSite, 'isPressable' >;
 };
 
 function useLiveSync< Options >(
@@ -223,44 +315,29 @@ function useLiveSync< Options >(
 	) => Promise< void >
 ) {
 	const connector = useConnector();
-	const queryClient = useQueryClient();
 	const settleFromMutation = useSettleFromMutation();
-	// `sync_type` comes from the connected site; a cache miss reports `unknown`.
-	const track = (
-		{ siteId, remoteSiteId, syncSite }: LiveSyncVariables< Options >,
-		startedAt: number,
-		error?: unknown
-	) =>
-		void connector.trackEvent(
-			direction === 'push' ? TRACKS_EVENTS.SYNC_PUSH : TRACKS_EVENTS.SYNC_PULL,
-			buildSyncEventProps( {
-				startedAt,
-				site:
-					syncSite ??
-					queryClient
-						.getQueryData< SyncSite[] >( connectedWpcomSitesQueryKey( siteId ) )
-						?.find( ( site ) => site.id === remoteSiteId ),
-				error,
-			} )
-		);
-
+	const recordActivity = useSettleSync();
 	return useMutation( {
 		mutationKey: direction === 'push' ? PUSH_TO_LIVE_MUTATION_KEY : PULL_FROM_LIVE_MUTATION_KEY,
 		mutationFn: ( { siteId, remoteSiteId, options }: LiveSyncVariables< Options > ) =>
 			sync( connector, siteId, remoteSiteId, options ),
 		onMutate: ( { siteId, remoteSiteId } ) => {
-			applySyncActivity( siteId, { kind: 'pending', direction, remoteSiteId } );
-			return { startedAt: Date.now() };
+			recordActivity( siteId, { kind: 'pending', direction, remoteSiteId } );
+			return {
+				journey:
+					direction === 'push'
+						? getAccountJourney( connector, 'publish', siteId )
+						: getAccountJourney( connector, 'connect_site', `${ siteId }:${ remoteSiteId }` ),
+			};
 		},
-		onSuccess: ( _result, variables, { startedAt } ) => {
+		onSuccess: ( _result, variables, { journey } ) => {
+			completeAccountJourney( connector, journey, {
+				completion_kind: direction === 'push' ? 'sync_push' : 'sync_pull',
+			} );
 			settleFromMutation( variables.siteId, direction );
-			track( variables, startedAt );
 		},
-		onError: ( error, variables, context ) => {
+		onError: ( error, variables ) => {
 			settleFromMutation( variables.siteId, direction, error );
-			if ( ! isSyncCancelledError( error ) ) {
-				track( variables, context?.startedAt ?? Date.now(), error );
-			}
 		},
 	} );
 }

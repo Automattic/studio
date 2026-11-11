@@ -12,7 +12,7 @@
 
 .section h3 {
 	color: var( --foreground );
-	font-weight: var( --font-weight-semibold );
+	font-weight: var( --font-weight-medium );
 }
 
 .section ul {

@@ -12,12 +12,7 @@ import {
 	isAutomatticianFromToken,
 } from '@studio/common/lib/shared-config';
 
-export {
-	TRACKS_EVENTS,
-	type TracksEventName,
-	type TracksChannel,
-	type TracksUiVersion,
-} from '@studio/common/lib/record-tracks-event';
+export { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-tracks-event';
 
 export interface TracksOrigin {
 	channel: TracksChannel;

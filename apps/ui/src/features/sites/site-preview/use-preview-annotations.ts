@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type RefObject } from 'react';
 import {
 	type AnnotationAnchor,
+	type PreviewAnnotation,
 	editAnnotation,
 	escapeAnnotations,
 	getSiteAnnotations,
@@ -8,10 +9,13 @@ import {
 	setAnnotating,
 } from '@/features/annotations';
 import type { PreviewSurfaceKey } from './surfaces';
-import type { InspectorEvent } from '@studio/common/ai/inspector/page-script';
-import type { VisualAnnotationTarget } from '@studio/common/ai/visual-annotations';
+import type { InspectorEvent } from '@studio/agent/protocol/inspector/page-script';
+import type { VisualAnnotationTarget } from '@studio/agent/protocol/visual-annotations';
 
-type AnnotationEvent = Exclude< InspectorEvent, { type: 'browser-command' } >;
+type AnnotationEvent = Exclude<
+	InspectorEvent,
+	{ type: 'browser-command' | 'selection' | 'annotation-tool' }
+>;
 
 // Where the note being written sits over the preview, from the picks and
 // moves the annotated surface reports.
@@ -21,19 +25,21 @@ export function usePreviewAnnotations( {
 	canAnnotateSurface,
 	viewportRef,
 	onSendAnnotations,
+	enabled = true,
 }: {
 	siteId: string;
 	surfaceKey: PreviewSurfaceKey;
 	canAnnotateSurface: boolean;
+	enabled?: boolean;
 	viewportRef: RefObject< HTMLDivElement | null >;
 	onSendAnnotations?: ( siteId: string, noteIds?: string[] ) => void;
 } ) {
 	const [ annotationAnchor, setAnnotationAnchor ] = useState< AnnotationAnchor | null >( null );
 	useEffect( () => {
-		if ( ! canAnnotateSurface ) {
+		if ( enabled && ! canAnnotateSurface ) {
 			setAnnotating( siteId, false );
 		}
-	}, [ canAnnotateSurface, siteId ] );
+	}, [ canAnnotateSurface, siteId, enabled ] );
 	useEffect( () => {
 		setAnnotationAnchor( null );
 	}, [ surfaceKey, siteId ] );
@@ -46,10 +52,16 @@ export function usePreviewAnnotations( {
 		[ viewportRef ]
 	);
 	const handleAnnotationPick = useCallback(
-		( target: VisualAnnotationTarget, anchor: AnnotationAnchor ) => {
-			if ( pickAnnotation( siteId, target ) ) {
+		(
+			target: VisualAnnotationTarget,
+			anchor: AnnotationAnchor,
+			initial?: Pick< PreviewAnnotation, 'images' | 'drawing' >
+		) => {
+			const id = pickAnnotation( siteId, target, initial );
+			if ( id ) {
 				setAnnotationAnchor( toViewportAnchor( anchor ) );
 			}
+			return id;
 		},
 		[ siteId, toViewportAnchor ]
 	);
@@ -70,8 +82,9 @@ export function usePreviewAnnotations( {
 			} else if ( event.type === 'pick' ) {
 				handleAnnotationPick( event.target, event.anchor );
 			} else if ( event.type === 'edit' ) {
-				editAnnotation( siteId, event.id );
-				setAnnotationAnchor( toViewportAnchor( event.anchor ) );
+				if ( editAnnotation( siteId, event.id ) ) {
+					setAnnotationAnchor( toViewportAnchor( event.anchor ) );
+				}
 			} else if ( event.id === editingId ) {
 				const next = toViewportAnchor( event.anchor );
 				setAnnotationAnchor( ( current ) =>

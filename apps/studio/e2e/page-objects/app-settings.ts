@@ -1,4 +1,5 @@
 import { type ElectronApplication, type Page, expect } from '@playwright/test';
+import Sidebar from './sidebar';
 
 // Studio settings in the settings dialog. Changes save as soon as they're made.
 export default class AppSettings {
@@ -9,7 +10,12 @@ export default class AppSettings {
 	}
 
 	async open() {
-		await this.page.getByRole( 'button', { name: 'Settings', exact: true } ).click();
+		await new Sidebar( this.page ).ensureOpen();
+		await this.page
+			.getByRole( 'button', { name: 'Account', exact: true } )
+			.and( this.page.locator( ':not([inert] *)' ) )
+			.click();
+		await this.page.getByRole( 'menuitem', { name: /^Settings/ } ).click();
 		await expect( this.closeButton ).toBeVisible();
 	}
 
@@ -42,7 +48,7 @@ export default class AppSettings {
 	}
 
 	get themeSelect() {
-		return this.page.getByRole( 'combobox', { name: 'Theme' } );
+		return this.page.getByRole( 'combobox', { name: 'Interface theme' } );
 	}
 
 	get instructionsInput() {

@@ -1,13 +1,16 @@
+import { AGENT_APP_IDS } from '@studio/common/lib/agent-apps';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
 import type {
+	AgentAppId,
 	AiSessionSummary,
 	AuthUser,
 	Connector,
 	InstalledApps,
 	LoadedAiSession,
 	SiteDetails,
+	SiteEmail,
 	UserPreferences,
 } from '@/data/core';
 
@@ -34,6 +37,8 @@ export interface FakeConnectorState {
 	sessions: LoadedAiSession[];
 	user: AuthUser | null;
 	preferences: UserPreferences;
+	// Each site's email, newest first.
+	emails: Record< string, SiteEmail[] >;
 }
 
 export type FakeConnectorInitialState = Partial< Omit< FakeConnectorState, 'preferences' > > & {
@@ -62,6 +67,7 @@ export function makeSession( overrides: Partial< AiSessionSummary > = {} ): AiSe
 		updatedAt: '2026-01-01T00:00:00.000Z',
 		activeEnvironment: 'local',
 		eventCount: 0,
+		firstPrompt: overrides.title,
 		...overrides,
 	};
 }
@@ -74,6 +80,7 @@ export const TEST_USER: AuthUser = { id: 1, email: 'test@example.test', displayN
 
 const defaultPreferences = (): UserPreferences => ( {
 	editor: 'vscode',
+	browser: null,
 	terminal: 'terminal',
 	colorScheme: 'light',
 	locale: 'en',
@@ -81,7 +88,6 @@ const defaultPreferences = (): UserPreferences => ( {
 	defaultSiteDirectory: '/sites',
 	studioCliInstalled: false,
 	studioCliExternallyManaged: false,
-	agenticFeaturesEnabled: true,
 	showRecentChats: true,
 } );
 
@@ -91,7 +97,7 @@ const installedApps = () =>
 			app,
 			app === 'vscode' || app === 'terminal',
 		] )
-	) as InstalledApps;
+	) as Omit< InstalledApps, 'defaultBrowser' >;
 
 /**
  * A `Connector` over in-memory state, for rendering real providers and
@@ -106,9 +112,11 @@ export function createInMemoryConnector(
 		sites: [],
 		sessions: [],
 		user: TEST_USER,
+		emails: {},
 		...initial,
 		preferences: { ...defaultPreferences(), ...initial.preferences },
 	};
+	const connectedAgentApps = new Set< AgentAppId >();
 	type AnyListener = ( ...args: never[] ) => void;
 	const listeners = new Map< string, Set< AnyListener > >();
 	const subscribe = ( event: string ) => ( listener: AnyListener ) => {
@@ -186,14 +194,18 @@ export function createInMemoryConnector(
 		startSite: async ( id ) => updateSite( id, { running: true } ),
 		stopSite: async ( id ) => updateSite( id, { running: false } ),
 		updateSite: async ( site ) => updateSite( site.id, site ),
+		setSiteFrontendAdminBar: async ( siteId, hidden ) =>
+			updateSite( siteId, { hideFrontendAdminBar: hidden ?? undefined } ),
 		updateSitesSortOrder: async ( updates ) => {
 			for ( const { siteId, sortOrder } of updates ) {
 				updateSite( siteId, { sortOrder } );
 			}
 		},
 		getSiteThumbnail: async () => null,
+		captureAnnotationRegion: async () => {
+			throw new Error( 'No preview screenshot configured.' );
+		},
 		captureSitePreview: async () => null,
-		getSiteIcon: async () => null,
 		getSiteDesign: async () => null,
 		fixSiteDesignDrift: async () => null,
 		exportFullSite: async () => null,
@@ -203,7 +215,7 @@ export function createInMemoryConnector(
 			isEmpty: true,
 			isWordPress: false,
 		} ),
-		generateProposedSiteName: async () => 'My WordPress Website',
+		generateProposedSiteName: async () => 'Blue Note',
 		generateNumberedSiteName: async ( name ) => name,
 		selectSiteFolder: async () => null,
 		comparePaths: async ( a, b ) => a === b,
@@ -230,6 +242,11 @@ export function createInMemoryConnector(
 		publishPreviewSite: async () => ( { url: 'preview.example.com' } ),
 		deleteSnapshot: async () => {},
 		renameSnapshot: async () => {},
+		getPreviewStatus: async () => ( {
+			localSiteId: null,
+			localChanged: null,
+			previewChanged: null,
+		} ),
 		getConnectedWpcomSites: async () => [],
 		fetchSyncableWpcomSites: async () => [],
 		connectWpcomSite: async () => {},
@@ -310,22 +327,36 @@ export function createInMemoryConnector(
 			anthropicApiKeyPreview: null,
 		} ),
 		getInstalledApps: async () => installedApps(),
+		getAgentApps: async () =>
+			AGENT_APP_IDS.map( ( id ) => ( {
+				id,
+				installed: true,
+				connected: connectedAgentApps.has( id ),
+			} ) ),
+		connectAgentApp: async ( id ) => {
+			connectedAgentApps.add( id );
+		},
 		getAppGlobals: async () => ( { platform: 'darwin', isWindowsStore: false } ),
-		fetchSiteRest: async () => ( {
-			status: 200,
-			statusText: 'OK',
-			headers: {},
-			body: '',
-			url: '',
-		} ),
 		openSiteFolder: async () => {},
 		openSiteInEditor: async () => {},
 		openSiteInTerminal: async () => {},
+		openSiteEmailFolder: async () => {},
+		getSiteEmails: async ( siteId ) =>
+			( state.emails[ siteId ] ?? [] ).map( ( { id, subject, from, to, date } ) => ( {
+				id,
+				subject,
+				from,
+				to,
+				date,
+			} ) ),
+		getSiteEmail: async ( siteId, emailId ) =>
+			state.emails[ siteId ]?.find( ( email ) => email.id === emailId ) ?? null,
 		siteDebugLogExists: async () => false,
 		openSiteDebugLog: async () => {},
 		openStudioLogs: async () => {},
 		trackEvent: async () => {},
 		openExternalUrl: async () => {},
+		sendFeedback: async () => ( { feedbackId: 1 } ),
 		getWapuuScore: async () => undefined,
 		saveWapuuScore: async () => {},
 		popupAppMenu: async () => {},
@@ -344,9 +375,14 @@ export function createInMemoryConnector(
 		onFullscreenChange: subscribe( 'onFullscreenChange' ),
 		onSiteEvent: subscribe( 'onSiteEvent' ),
 		onSnapshotEvent: subscribe( 'onSnapshotEvent' ),
-		onToggleSitePreview: subscribe( 'onToggleSitePreview' ),
+		onTogglePanel: subscribe( 'onTogglePanel' ),
+		onSetWorkspaceLayout: subscribe( 'onSetWorkspaceLayout' ),
 		onToggleSidebar: subscribe( 'onToggleSidebar' ),
 		onAddSite: subscribe( 'onAddSite' ),
+		onNewChat: subscribe( 'onNewChat' ),
+		onOpenFolder: subscribe( 'onOpenFolder' ),
+		onOpenSite: subscribe( 'onOpenSite' ),
+		onPullSite: subscribe( 'onPullSite' ),
 		onAddSiteWithBlueprint: subscribe( 'onAddSiteWithBlueprint' ),
 		readyForDeeplinks: () => {},
 		onOpenSettings: subscribe( 'onOpenSettings' ),
@@ -360,6 +396,7 @@ export function createInMemoryConnector(
 		onShowWhatsNew: subscribe( 'onShowWhatsNew' ),
 		getAppUpdateStatus: async () => ( { state: 'idle', currentVersion: null } ),
 		installAppUpdate: async () => {},
+		checkForAppUpdates: async () => {},
 		onAppUpdateStatusChanged: subscribe( 'onAppUpdateStatusChanged' ),
 		onAppUpdateNotAvailable: subscribe( 'onAppUpdateNotAvailable' ),
 	};

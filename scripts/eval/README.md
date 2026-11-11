@@ -18,6 +18,27 @@ Each case creates its sites in a temporary folder of its own instead of `~/Studi
 
 Run one named test with `npm run eval -- --filter-pattern "preview sites"` (regex against the test description). Note: the flag is `--filter-pattern`, **not** `--filter-description` (which is not a valid promptfoo flag).
 
+## Harnesses
+
+Select a harness with `vars.harness` or `STUDIO_EVAL_HARNESS` (default `studio`); vars take precedence. Both harnesses share isolated registries/config, seeded fixtures, bystander sites, outcome capture, inspections and cleanup. The result identifies its `harness`.
+
+- **studio** supplies the existing Studio Code agent conversation, tools, scripted `answers` and session transcript.
+- **claude-code** runs the bare Claude Code CLI, using its own authentication and tools, in the seeded active site's directory (otherwise the case's sites root). It receives a factual note with that path and the availability of the `studio` CLI on PATH, not Studio's identity, skills or instructions. Follow-ups resume its session. Install/authenticate `claude` separately; `STUDIO_EVAL_CLAUDE_BIN` overrides its binary. Raw stream events are retained in `sessionFile`. Scripted `answers` are unsupported and reported as `unsupported: ['answers']`; they are never simulated. Both adapters honour `timeoutMs` and `stopAt`, but stop rules must use the selected harness's tool names. A matched tool may already have begun executing.
+
+Outcome-only checks such as `siteWorks`, `otherSitesUntouched`, and palette/theme checks are harness-neutral. Tool-name checks (`take_screenshot`, `site_push`, `send_feedback`), `questions`, routing skills and identity assertions are Studio-specific; exclude those when comparing harnesses. Shared seeding does not make Studio-specific guidance available to other harnesses.
+
+Pin the same model for a fair comparison using `vars.model` or `STUDIO_EVAL_MODEL` (vars take precedence). Claude Code receives the model as `--model`; use an actual model id both harnesses support, not a Studio tier alias. Claude Code reports result-level usage and turn counts; Studio's per-request timing records are not available from this stream.
+
+Run the same outcome cases separately, then compare saved runs in `eval:view`:
+
+```bash
+STUDIO_EVAL_MODEL=<shared-model-id> npm run eval
+STUDIO_EVAL_HARNESS=claude-code STUDIO_EVAL_MODEL=<shared-model-id> npm run eval
+npm run eval:view
+```
+
+Do not put shell environment assignments after promptfoo's `exec:` prefix; set them on the eval process as above.
+
 ## How a case is judged
 
 After the turn, the runner captures what it left (`apps/cli/ai/eval-outcome.ts`) into the result's `outcome`:
@@ -33,10 +54,12 @@ The checks in `outcome.mjs` read that state. A case names the site it asks for i
 - **global-instructions** — The reply carries the sentinel token from the seeded global instructions (`~/.studio/knowledge/instructions.md`, restored after the turn).
 - **site-creation** — The requested site exists and works.
 - **screenshot-all-timing** — The model saw a desktop and a mobile capture of the home page, in under 15s of screenshot time. Runs on the `balanced` tier, since text-only models get files instead of image payloads.
-- **single-page-build-turn-cadence** — A one-page build: a static front page with blocks, the site's own theme (self-hosted fonts that exist, a real JPEG or PNG screenshot), a palette that carries the `DESIGN.md` colors, and no turn over 60s.
+- **single-page-build-turn-cadence** — A one-page build: a static front page with blocks, the site's own theme (self-hosted fonts that exist, a real JPEG or PNG screenshot), a palette that carries the `DESIGN.md` colors, no turn over 60s, and a closing message offering the performance and SEO audits.
 - **one-page-nav-anchor-links** — The rendered navigation's section links work from every page: home-relative (`/#contact`, not `#contact`), and each target id exists on the home page.
 - **differentiate-preview-vs-remote** — Regression for STU-1775. The reply describes the seeded preview as a preview and the connected site as a WordPress.com remote site.
 - **push-confirms-target** — The seeded remote no longer exists. No push ran and the reply asks the user for a target.
+- **feedback-confirms-message** — The agent showed a draft of the feedback that names what the user reported, asked before sending, and never called `send_feedback` once the user declined.
+- **feedback-skill-confirms-message** — The same, invoked through the `/feedback` skill.
 - **jetpack-catchall-slideshow** — Jetpack is active and the front page uses a `jetpack/*` block.
 - **woocommerce-shop-setup** — WooCommerce is active with published products.
 - **child-theme-for-installed-theme** — Regression for STU-2017. The active theme is a child of Ollie, Ollie still matches its WordPress.org release file for file, and headings have a font family.
@@ -57,6 +80,8 @@ The checks in `outcome.mjs` read that state. A case names the site it asks for i
 ## Adding tests
 
 Cases live in `promptfoo.config.yaml`; checks live in `outcome.mjs` and are referenced as `value: file://outcome.mjs:<check>`, with parameters in the case's `vars`. Judge the state a user would see, not the route to it. Cost is the exception: a right result reached by looping through dozens of tool calls still costs the user credits, so a case can cap the turn with `withinBudget` and `vars.maxToolCalls` / `vars.maxTokens`, set from the spread of repeated passing runs (`--repeat`) with headroom for normal variance. When a check needs state the capture lacks, add it to `eval-outcome.ts` rather than reading tool calls. The runner also returns the transcript (`toolCalls`, `toolResults`, `toolEvents`, `textSegments`, `questions` (each question the agent asked the user, its option labels and the scripted answer; see `answers`), `turnDurationsMs`, and `inspections` when the seed asks for them), `usage` (input, output, cache read, cache write and total tokens, summed over every assistant message), `stopReason` and `errorMessage` (from the last assistant message, so a provider failure shows its cause), `sessionFile` (the session JSONL), `requests` (one per model request: start, end and duration, context tokens sent, output tokens, `stopReason` and any `errorMessage`, and whether it carried text or tool calls) and `timing` (model time, tool wall time with parallel calls counted once, peak context, empty stops — a `stop` with neither text nor a tool call — and per-tool calls, total and max time and output size), for reasons and debugging. Each `toolEvents` entry also carries `outputChars`, the length of the result's text. Each `toolResults` entry carries the result's text block plus any image content blocks (`images`, base64) and structured `details` (e.g. `studioArtifacts`).
+
+Every case also asserts `github.mjs:githubAnswered`, from `defaultTest`. GitHub's unauthenticated API serves 60 requests an hour per IP address, shared by everything on the network, and an agent refused by it can conclude a repository has no releases. A `beforeEach` extension records the quota as each case starts; a case whose commands used `github.com` fails as `INVALID (environment)` when it started with fewer than 10 requests left, ended with none, or was told "API rate limit exceeded". Leave those runs out of comparisons, and run again later or from another network.
 
 ### Seeding fixtures
 

@@ -6,7 +6,7 @@ import { liberateWebsite } from '../data-liberation-client';
 import type { CaptureEngine } from '../import-runtime';
 
 // An injected engine skips the browser check; this proves no test here can reach it.
-vi.mock( 'cli/ai/browser-utils', () => ( {
+vi.mock( '@studio/agent/node/browser-utils', () => ( {
 	ensurePlaywrightChromiumInstalled: vi.fn( () => {
 		throw new Error( 'the browser check must not run with an injected engine' );
 	} ),
@@ -100,6 +100,51 @@ describe( 'liberateWebsite', () => {
 			liberateWebsite( 'https://example.com/', tempRoot(), { loadEngine: async () => loaded } )
 		).rejects.toThrow( /cannot be confirmed complete/ );
 	} );
+
+	it.each( [ 14, 0 ] )(
+		'imports a mostly-failed capture and reports dropped routes (discovered: %d)',
+		async ( routesDiscovered ) => {
+			const outputBase = tempRoot();
+			const droppedRoutes = Array.from( { length: 13 }, ( _, index ) => ( {
+				url: `https://example.com/page-${ index }`,
+				reason: 'Navigation timed out',
+			} ) );
+			const loaded = engine( {
+				captureWebsite: vi.fn( async ( { outputDir } ) => {
+					fs.mkdirSync( path.join( outputDir, 'website' ), { recursive: true } );
+					fs.writeFileSync( path.join( outputDir, 'website', 'index.html' ), '<main>Home</main>' );
+					const captureReceiptPath = path.join( outputDir, 'capture-receipt.json' );
+					fs.writeFileSync(
+						captureReceiptPath,
+						JSON.stringify( {
+							entrypoint: 'website/index.html',
+							source: { url: 'https://example.com/' },
+							discoveryDiagnostics: droppedRoutes.map( ( route ) => ( {
+								code: 'route_capture_failed',
+								...route,
+							} ) ),
+						} )
+					);
+					return {
+						captureReceiptPath,
+						outputDir,
+						summary: { routesDiscovered, routesCaptured: 1, routesSkipped: 0, routesFailed: 26 },
+					};
+				} ),
+			} );
+
+			const result = await liberateWebsite( 'https://example.com/', outputBase, {
+				loadEngine: async () => loaded,
+			} );
+
+			expect( result.websiteDir ).toBe( path.join( outputBase, 'example.com', 'website' ) );
+			expect( result.partialCapture ).toEqual( {
+				routesDiscovered,
+				droppedRoutes,
+				diagnosticsPath: path.join( outputBase, 'example.com', 'diagnostics.json' ),
+			} );
+		}
+	);
 
 	it( 'rejects non-HTTP sources before loading the engine', async () => {
 		const loadEngine = vi.fn();

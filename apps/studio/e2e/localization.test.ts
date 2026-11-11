@@ -50,7 +50,11 @@ test.describe( 'Localization', () => {
 		const siteName = 'Localized-Site-Test';
 		await changeLanguage( '日本語', 'ja' );
 
-		await session.mainWindow.getByRole( 'button', { name: 'サイトを追加', exact: true } ).click();
+		await new Sidebar( session.mainWindow ).ensureOpen();
+		await session.mainWindow
+			.getByRole( 'button', { name: 'サイトを追加', exact: true } )
+			.and( session.mainWindow.locator( ':not([inert] *)' ) )
+			.click();
 		const dialog = session.mainWindow.getByRole( 'dialog' );
 		await dialog.locator( '[data-start-blank]' ).click();
 		await dialog.getByRole( 'textbox' ).first().fill( siteName );

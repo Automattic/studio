@@ -1,15 +1,15 @@
-import { validateStudioChatImages } from '@studio/common/ai/chat-images';
+import { validateStudioChatImages } from '@studio/agent/protocol/chat-images';
 import {
 	toComposerSendAttachments,
 	type ComposerAttachment,
 	type ComposerFileAttachment,
-} from '@studio/common/ai/composer-attachments';
+} from '@studio/agent/protocol/composer-attachments';
 import {
 	formatVisualAnnotationsPrompt,
 	MAX_VISUAL_ANNOTATIONS,
 	validateStudioVisualAnnotations,
 	type StudioVisualAnnotationSummary,
-} from '@studio/common/ai/visual-annotations';
+} from '@studio/agent/protocol/visual-annotations';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import type { PreviewAnnotation } from './store';
 
@@ -23,7 +23,10 @@ function truncateText( text: string, maxLength: number ): string {
 /* Short CSS-ish handle for the chip in the transcript: the tag plus up to two
  * of the element's own classes, e.g. `h1.hero-title`. */
 function describeElement( note: PreviewAnnotation ): string | undefined {
+	if ( note.kind === 'region' ) return __( 'Selected area' );
+	if ( note.kind === 'drawing' ) return __( 'Drawing' );
 	if ( note.designToken ) return note.designToken;
+	if ( note.email && ! note.tag ) return `paragraph ${ ( note.email.paragraph ?? 0 ) + 1 }`;
 	if ( ! note.tag ) return undefined;
 	const classes = ( note.classes ?? [] ).slice( 0, 2 );
 	return classes.length ? `${ note.tag }.${ classes.join( '.' ) }` : `<${ note.tag }>`;
@@ -75,7 +78,15 @@ export function annotationSubmission(
 		prompt: [
 			message,
 			formatVisualAnnotationsPrompt(
-				notes.map( ( { staged: _staged, ...note } ) => note ),
+				notes.map(
+					( {
+						staged: _staged,
+						batched: _batched,
+						drawing: _drawing,
+						capturedImageId: _capturedImageId,
+						...note
+					} ) => note
+				),
 				images
 			),
 		]

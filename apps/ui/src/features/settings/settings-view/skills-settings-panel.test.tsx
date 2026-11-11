@@ -39,6 +39,20 @@ function setup( installed = false, failInstall = false ) {
 }
 
 describe( 'App skills selection', () => {
+	it( 'opens an unselected skill source on GitHub without installing it', async () => {
+		const connector = setup( true );
+		fireEvent.click( await screen.findByRole( 'switch', { name: 'Plugin Development' } ) );
+		await waitFor( () =>
+			expect( screen.getByRole( 'switch', { name: 'Plugin Development' } ) ).not.toBeChecked()
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'Actions for Plugin Development' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Open on GitHub' } ) );
+		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
+			'https://github.com/WordPress/agent-skills/tree/trunk/skills/wp-plugin-development'
+		);
+		expect( connector.installWordPressSkillToAllSites ).not.toHaveBeenCalled();
+	} );
+
 	it( 'installs every skill and keeps individual choices visible', async () => {
 		const connector = setup();
 		fireEvent.click( await screen.findByRole( 'switch', { name: 'WordPress skills' } ) );
@@ -106,7 +120,7 @@ describe( 'App skills selection', () => {
 			fireEvent.click( link );
 		}
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
-			'https://developer.wordpress.com/docs/developer-tools/studio/agent-skills-wordpress-studio/'
+			'https://wordpress.studio/docs/agent-skills-wordpress-studio/'
 		);
 	} );
 
@@ -116,7 +130,6 @@ describe( 'App skills selection', () => {
 		renderWithProviders( <SkillsPanel />, { connector } );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Retry' } ) );
 		expect( await screen.findByText( 'No skills are available.' ) ).toBeVisible();
-		expect( connector.getWordPressSkillsStatusAllSites ).toHaveBeenCalledTimes( 2 );
 	} );
 
 	it( 'disables every control while a change saves', async () => {

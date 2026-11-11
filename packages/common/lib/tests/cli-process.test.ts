@@ -115,6 +115,21 @@ describe( 'runCliCommand', () => {
 		);
 	} );
 
+	it( 'resolves once the command says it finished, while its process is still running', async () => {
+		const emitter = new EventEmitter();
+		const execute = vi.fn( () => {
+			queueMicrotask( () => {
+				emitter.emit( 'data', { data: { action: 'result', value: { url: 'https://a.example' } } } );
+				emitter.emit( 'data', { data: { action: 'done' } } );
+			} );
+			return [ emitter, {} ];
+		} ) as unknown as ExecuteCliCommand;
+
+		await expect( runCliCommand( execute, [ 'site', 'create' ], schema ) ).resolves.toEqual( {
+			url: 'https://a.example',
+		} );
+	} );
+
 	it( 'rejects with the command error when it fails', async () => {
 		const emitter = new EventEmitter();
 		const execute = vi.fn( () => {

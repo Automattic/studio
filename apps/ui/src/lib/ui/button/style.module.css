@@ -8,12 +8,11 @@
 		align-items: center;
 		justify-content: center;
 		max-width: 100%;
-		height: var( --control-size );
+		height: var( --button-control-size, var( --control-size ) );
 		padding: 0 var( --button-padding-inline );
 		border: 1px solid transparent;
 		border-radius: var( --radius-lg );
 		background: var( --button-background, transparent );
-		background-clip: padding-box;
 		font-size: var( --text-xs );
 		font-weight: var( --font-weight-medium );
 		line-height: var( --text-xs--line-height );
@@ -22,38 +21,19 @@
 		outline: none;
 		cursor: pointer;
 		user-select: none;
-		transition-property: opacity;
-		transition-duration: var( --button-active-duration, var( --motion-duration-surface ) );
-		transition-timing-function: var( --button-active-easing, var( --motion-ease-enter ) );
-	}
-
-	.button[aria-pressed] {
-		--button-active-duration: var( --motion-duration-layout );
-	}
-
-	.button[data-active-motion='layout'] {
-		--button-active-duration: var( --motion-duration-layout );
-		--button-active-easing: var( --motion-ease-layout );
+		transition-property: color, background-color, border-color;
+		transition-duration: var( --motion-duration-feedback );
+		transition-timing-function: ease;
 	}
 
 	@media ( prefers-reduced-motion: no-preference ) {
-		.button:not( :focus-visible, [aria-haspopup='menu'], [aria-haspopup='listbox'] ) {
-			transition-property: color, background-color, border-color, transform, opacity;
-			transition-duration: var( --motion-duration-feedback ), var( --motion-duration-feedback ),
-				var( --motion-duration-feedback ), var( --motion-duration-feedback ),
-				var( --button-active-duration, var( --motion-duration-surface ) );
-			transition-timing-function: ease, ease, ease, ease,
-				var( --button-active-easing, var( --motion-ease-enter ) );
+		.button:not( :focus-visible ) {
+			transition-property: color, background-color, border-color, transform;
 		}
 	}
 
-	/* Switches state at once, as feedback timed to another animation. */
-	.button[data-active-motion='instant'] {
-		transition: none;
-	}
-
-	.button:is( [aria-expanded='true'], [aria-pressed='true'] ) {
-		opacity: 0.7;
+	.button:is( :active, [aria-pressed='true'], [aria-expanded='true'] ) {
+		transition-duration: 0s;
 	}
 
 	.button:focus-visible {
@@ -63,6 +43,12 @@
 	.button:is( :disabled, [data-disabled] ) {
 		opacity: 0.5;
 		cursor: default;
+	}
+
+	.button[data-variant='accent']:is( :disabled, [data-disabled] ):not( [aria-busy='true'] ) {
+		--button-background: var( --primary );
+
+		color: var( --primary-foreground );
 	}
 
 	.button:is( :disabled, [data-disabled] ):is(
@@ -88,21 +74,26 @@
 	}
 
 	.button [data-dropdown-indicator] {
-		margin-inline: calc( var( --space-1 ) * -1 ) calc( var( --space-0_5 ) * -1 );
 		color: var( --muted-foreground );
 	}
 
 	.button:has( > [data-icon='inline-start'] ) {
-		padding-inline-start: var( --space-2 );
+		padding-inline-start: calc( var( --space-2 ) - 1px );
 	}
 
-	.button:has( > [data-icon='inline-end'] ) {
+	.button:has(
+			> :is(
+					[data-icon='inline-end'],
+					[data-slot='kbd']:last-child,
+					[data-slot='kbd-group']:last-child
+				)
+		) {
 		padding-inline-end: var( --space-2 );
 	}
 
 	/* Variants. Hover only applies to enabled buttons. */
 	.button:is(
-			:hover:not( :disabled, [data-disabled] ),
+			:is( :hover, :active ):not( :disabled, [data-disabled] ),
 			[aria-expanded='true'],
 			[aria-pressed='true']
 		) {
@@ -111,12 +102,13 @@
 
 	.button:is(
 			[data-variant='ghost'],
+			[data-variant='accent-ghost'],
 			[data-variant='muted-ghost'],
 			[data-variant='inline-text'],
 			[data-variant='inline-accent'],
 			[data-variant='overlay']
 		):is(
-			:hover:not( :disabled, [data-disabled] ),
+			:is( :hover, :active ):not( :disabled, [data-disabled] ),
 			[aria-expanded='true'],
 			[aria-pressed='true']
 		) {
@@ -128,6 +120,12 @@
 
 		--button-background: var( --primary );
 		color: var( --primary-foreground );
+	}
+
+	.button[data-variant='default']:focus-visible {
+		outline: 2px solid var( --primary );
+		outline-offset: 0;
+		box-shadow: none;
 	}
 
 	.button[data-variant='accent'] {
@@ -148,6 +146,21 @@
 		--button-hover-background: var( --hover );
 
 		border-color: var( --border );
+		color: var( --foreground );
+	}
+
+	.button[data-variant='outline']:is( :hover, :focus-visible ):not( :disabled, [data-disabled] )
+		> [data-slot='kbd'][data-variant='default'] {
+		background-color: var( --background );
+		color: inherit;
+	}
+
+	.button[data-variant='outline']:is( :disabled, [data-disabled] ):not(
+			:has( [data-slot='spinner'] ),
+			[data-disabled-appearance]
+		) {
+		opacity: 1;
+		color: color-mix( in srgb, var( --foreground ) 50%, transparent );
 	}
 
 	.button[data-variant='segmented'] {
@@ -165,15 +178,54 @@
 	}
 
 	.button[data-variant='muted'] {
-		--button-hover-background: var( --hover );
+		--surface: var( --muted );
+		--button-hover-background: var( --surface );
 
-		--button-background: var( --muted );
+		--button-background: var( --surface );
 		color: var( --foreground );
 	}
 
-	.button[data-variant='ghost'] {
+	.button[data-variant='muted']:is(
+			:is( :hover, :active ):not( :disabled, [data-disabled] ),
+			[aria-expanded='true'],
+			[aria-pressed='true']
+		) {
+		--surface: var( --selected );
+	}
+
+	.button[data-variant='muted']:is(
+			:is( :hover, :active ):not( :disabled, [data-disabled] ),
+			[aria-expanded='true'],
+			[aria-pressed='true']
+		)
+		> [data-slot='kbd'][data-variant='default'] {
+		color: var( --foreground );
+	}
+
+	.button:is( [data-variant='ghost'], [data-variant='accent-ghost'] ) {
 		--button-hover-background: var( --hover );
 		--button-hover-color: var( --foreground );
+	}
+
+	.button:is(
+			[data-variant='ghost'],
+			[data-variant='accent-ghost'],
+			[data-variant='muted-ghost']
+		) {
+		border: 0;
+	}
+
+	.button[data-variant='accent-ghost']:is( [aria-pressed='true'], [aria-expanded='true'] ) {
+		--button-hover-background: var( --accent-subtle );
+		--button-hover-color: var( --accent-text );
+	}
+
+	.button[data-variant='accent-ghost']:is(
+			[aria-pressed='true'],
+			[aria-expanded='true']
+		):hover:not( :disabled, [data-disabled] ) {
+		--button-hover-background: var( --accent-subtle-hover );
+		--button-hover-color: var( --accent-text-hover );
 	}
 
 	.button[data-variant='muted-ghost'] {
@@ -247,24 +299,33 @@
 		font-weight: inherit;
 	}
 
+	.button[data-destructive]:is( :hover, :active, :focus-visible ):not(
+			:disabled,
+			[data-disabled]
+		) {
+		background-color: var( --destructive-hover );
+		color: var( --destructive );
+	}
+
 	/* Sizes. */
-	.button[data-size='header'] {
-		height: 32px;
+	.button[data-size='sm'] {
+		height: var( --button-control-size, 32px );
 		border-radius: var( --radius-md );
 	}
 
 	.button[data-size='composer-notice'] {
 		--button-padding-inline: 12px;
 
-		height: 32px;
+		height: var( --button-control-size, 32px );
 	}
 
 	.button[data-size='2xs'] {
-		--button-padding-inline: 6px;
+		--button-padding-inline: 8px;
+		font-size: var( --text-xxs );
 
-		gap: var( --space-1 );
-		height: 24px;
-		border-radius: var( --radius-md );
+		gap: var( --space-1_5 );
+		height: var( --button-control-size, 28px );
+		border-radius: var( --radius-sm );
 	}
 
 	.button[data-size='2xs'] svg:not( [data-size] ) {
@@ -277,8 +338,8 @@
 	}
 
 	.button[data-size='sm'] svg:not( [data-size] ) {
-		width: 14px;
-		height: 14px;
+		width: 16px;
+		height: 16px;
 	}
 
 	.button :is( svg[data-dropdown-indicator], [data-dropdown-indicator] svg ):not( [data-size] ) {
@@ -286,18 +347,23 @@
 		height: 16px;
 	}
 
-	.button[data-size='sm']:has( > [data-icon='inline-start'] ) {
-		padding-inline-start: var( --space-1_5 );
+	.button[data-size='sm']:has(
+			> :is(
+					[data-icon='inline-end'],
+					[data-slot='kbd']:last-child,
+					[data-slot='kbd-group']:last-child
+				)
+		) {
+		padding-inline-end: var( --space-1_5 );
 	}
 
-	.button[data-size='sm']:has( > [data-icon='inline-end'] ) {
-		padding-inline-end: var( --space-1_5 );
+	.button[data-size='2xs']:has( > [data-dropdown-indicator] ) {
+		padding-inline-end: var( --space-1 );
 	}
 
 	.button[data-size='lg'] {
 		--button-padding-inline: 24px;
 
-		min-width: 208px;
 		height: 44px;
 		font-size: var( --text-sm );
 	}
@@ -325,23 +391,23 @@
 	}
 
 	.button[data-size='icon'] {
-		--button-size: var( --control-size );
+		--button-size: var( --button-control-size, var( --control-size ) );
 	}
 
 	.button[data-size='icon-sm'] {
-		--button-size: 32px;
+		--button-size: var( --button-control-size, 32px );
 
 		border-radius: var( --radius-md );
 	}
 
 	.button[data-size='icon-xs'] {
-		--button-size: 28px;
+		--button-size: var( --button-control-size, 28px );
 
 		border-radius: var( --radius-sm );
 	}
 
 	.button[data-size='icon-2xs'] {
-		--button-size: 24px;
+		--button-size: var( --button-control-size, 24px );
 
 		border-radius: var( --radius-md );
 	}
@@ -361,6 +427,24 @@
 		border-radius: var( --radius-full );
 	}
 
+	.button[data-shape='round']:not( [data-size^='icon'], [data-size='inline'] ):not(
+			:has( > [data-icon='inline-start'] )
+		) {
+		padding-inline-start: var( --space-3 );
+	}
+
+	.button[data-shape='round']:not( [data-size^='icon'], [data-size='inline'] ):not(
+			:has(
+					> :is(
+							[data-icon='inline-end'],
+							[data-slot='kbd']:last-child,
+							[data-slot='kbd-group']:last-child
+						)
+				)
+		) {
+		padding-inline-end: var( --space-3 );
+	}
+
 	.button[data-layout='row'] {
 		justify-content: flex-start;
 		width: 100%;
@@ -374,5 +458,23 @@
 		justify-content: flex-start;
 		text-align: start;
 		white-space: normal;
+	}
+}
+
+@layer ui {
+	.button[data-loading-mode='replace'] {
+		position: relative;
+
+		&[aria-busy='true'] {
+			.loadingLabel {
+				opacity: 0;
+			}
+
+			[data-slot='spinner'] {
+				position: absolute;
+				inset: 0;
+				margin: auto;
+			}
+		}
 	}
 }

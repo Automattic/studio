@@ -9,6 +9,7 @@ import {
 	publishStagedInstall,
 	resetImportRuntimeCacheForTests,
 	resolveLatestReleaseAsset,
+	resolveStaticSiteImporterPlugin,
 	type ReleaseAsset,
 } from '../import-runtime';
 
@@ -290,4 +291,50 @@ describe( 'linkPlaywright', () => {
 		expect( fs.realpathSync( target() ) ).toBe( fs.realpathSync( current ) );
 		expect( fs.readdirSync( path.dirname( target() ) ) ).toEqual( [ 'playwright' ] );
 	} );
+} );
+
+describe( 'resolveStaticSiteImporterPlugin', () => {
+	afterEach( () => vi.unstubAllGlobals() );
+
+	it.each< { name: string; installed: string[]; release: string; kept: string[] } >( [
+		{
+			name: 'keeps the new version and the previous one',
+			installed: [ '1.2.0', '1.9.0', '1.10.0' ],
+			release: '1.11.0',
+			kept: [ '1.10.0', '1.11.0' ],
+		},
+		{
+			name: 'keeps the newest version when an older release is published after it is withdrawn',
+			installed: [ '1.2.0', '2.0.0' ],
+			release: '1.5.0',
+			kept: [ '1.5.0', '2.0.0' ],
+		},
+	] )(
+		'removes older versions once a release installs: $name',
+		async ( { installed, release, kept } ) => {
+			const directory = path.join( configDirectory, 'import-runtime', 'static-site-importer' );
+			for ( const version of installed ) {
+				fs.mkdirSync( path.join( directory, version ), { recursive: true } );
+			}
+			vi.stubGlobal( 'fetch', async ( url: string ) =>
+				new URL( url ).hostname === 'api.github.com'
+					? new Response(
+							JSON.stringify( {
+								tag_name: `v${ release }`,
+								assets: [
+									{
+										name: 'static-site-importer-html-site-import.zip',
+										browser_download_url: 'https://example.com/ssi.zip',
+										digest: `sha256:${ digest( 'plugin' ) }`,
+									},
+								],
+							} )
+					  )
+					: new Response( 'plugin' )
+			);
+
+			expect( ( await resolveStaticSiteImporterPlugin() ).version ).toBe( release );
+			expect( fs.readdirSync( directory ).sort() ).toEqual( kept );
+		}
+	);
 } );

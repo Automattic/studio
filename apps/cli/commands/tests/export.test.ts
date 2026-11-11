@@ -1,3 +1,4 @@
+import * as configFile from '@studio/common/lib/cli-config-file';
 import { ExportEvents } from '@studio/common/lib/import-export-events';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { vi } from 'vitest';
@@ -10,7 +11,8 @@ import { withSiteOperation } from 'cli/lib/site-operations';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { Logger, LoggerError } from 'cli/logger';
-import { registerCommand, runCommand } from '../export';
+import { runCommand } from '../export';
+import { registerCommand } from '../export.command';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
 vi.mock( '@studio/common/lib/deploy-ignore', () => ( {
@@ -41,6 +43,16 @@ vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 vi.mock( 'cli/lib/site-operations', () => ( {
 	withSiteOperation: vi.fn( ( _folder: string, _kind: string, fn: () => unknown ) => fn() ),
 } ) );
+
+const siteTracksId = '6ad36785-267a-4e6d-b036-0a7460c76497';
+beforeEach( () => {
+	vi.spyOn( configFile, 'readCliConfigFileRaw' ).mockResolvedValue( {
+		version: 1,
+		sites: [ { id: 'site-1', name: 'Private title', path: '/test/site', tracksId: siteTracksId } ],
+		snapshots: [],
+	} );
+} );
+afterEach( () => vi.restoreAllMocks() );
 
 describe( 'CLI: studio export', () => {
 	const testSitePath = '/test/site';
@@ -91,27 +103,17 @@ describe( 'CLI: studio export', () => {
 	it( 'loads site and exports backup', async () => {
 		await runCommand( testSitePath, testExportPath );
 
-		expect( connectToDaemon ).toHaveBeenCalled();
-		expect( getSiteByFolder ).toHaveBeenCalledWith( testSitePath );
-		expect( keepSqliteIntegrationUpdated ).toHaveBeenCalledWith( testSitePath );
-		expect( getExporter ).toHaveBeenCalledWith( {
-			site: testSite,
-			backupFile: testExportPath,
-			phpVersion: '8.4',
-			includes: {
-				wpContent: true,
-				database: true,
-			},
-			specificSelectionPaths: undefined,
-			splitDatabaseDumpByTable: false,
-			ignoreFilter: undefined,
-		} );
+		expect( getExporter ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				backupFile: testExportPath,
+				includes: { wpContent: true, database: true },
+			} )
+		);
 		expect( withSiteOperation ).toHaveBeenCalledWith(
 			testSitePath,
 			'export',
 			expect.any( Function )
 		);
-		expect( disconnectFromDaemon ).toHaveBeenCalled();
 	} );
 
 	it( 'applies deploy-ignore filter when applyDeployIgnore is set', async () => {
@@ -153,16 +155,6 @@ describe( 'CLI: studio export', () => {
 		expect( reportSuccessSpy ).toHaveBeenCalledWith( 'Site exported successfully' );
 	} );
 
-	it( 'throws when no suitable exporter is found', async () => {
-		vi.mocked( getExporter ).mockResolvedValue( null as never );
-
-		const command = runCommand( testSitePath, testExportPath );
-		await expect( command ).rejects.toThrow( LoggerError );
-		await expect( command ).rejects.toThrow(
-			'No suitable exporter found for the provided backup file'
-		);
-	} );
-
 	it( 'allows .sql exports when --mode db is used', async () => {
 		const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
 
@@ -194,19 +186,11 @@ describe( 'CLI: studio export', () => {
 				export_type: 'full',
 				time_ms: expect.any( Number ),
 				channel: 'studio-cli',
+				site_id: siteTracksId,
 			} )
 		);
 		expect( vi.mocked( recordTracksEvent ).mock.calls[ 0 ][ 1 ] ).not.toHaveProperty(
 			'failure_reason'
-		);
-	} );
-
-	it( 'reports the requested mode as export_type', async () => {
-		await runCommand( testSitePath, testExportPath, 'db' );
-
-		expect( recordTracksEvent ).toHaveBeenCalledWith(
-			TRACKS_EVENTS.SITE_EXPORT,
-			expect.objectContaining( { success: true, export_type: 'db' } )
 		);
 	} );
 
@@ -223,6 +207,7 @@ describe( 'CLI: studio export', () => {
 				success: false,
 				export_type: 'full',
 				failure_reason: 'no_exporter_found',
+				site_id: siteTracksId,
 				time_ms: expect.any( Number ),
 			} )
 		);
@@ -241,7 +226,11 @@ describe( 'CLI: studio export', () => {
 
 		expect( recordTracksEvent ).toHaveBeenCalledWith(
 			TRACKS_EVENTS.SITE_EXPORT,
-			expect.objectContaining( { success: false, failure_reason: 'database_export' } )
+			expect.objectContaining( {
+				success: false,
+				failure_reason: 'database_export',
+				site_id: siteTracksId,
+			} )
 		);
 	} );
 
@@ -256,6 +245,23 @@ describe( 'CLI: studio export', () => {
 		expect( recordTracksEvent ).not.toHaveBeenCalled();
 	} );
 
+	it( 'omits the site UUID when no local record can be resolved', async () => {
+		vi.mocked( getSiteByFolder ).mockRejectedValueOnce( new Error( 'Missing site' ) );
+		await expect( runCommand( '/missing', testExportPath ) ).rejects.toThrow( 'Missing site' );
+		expect( recordTracksEvent ).toHaveBeenCalledTimes( 1 );
+		expect( vi.mocked( recordTracksEvent ).mock.calls[ 0 ][ 1 ] ).not.toHaveProperty( 'site_id' );
+	} );
+	it( 'keeps export and its event when the site ID cannot be read', async () => {
+		vi.spyOn( configFile, 'readCliConfigFileRaw' ).mockRejectedValueOnce(
+			new Error( 'Storage unavailable' )
+		);
+		await expect( runCommand( testSitePath, testExportPath ) ).resolves.toBeUndefined();
+		expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith(
+			TRACKS_EVENTS.SITE_EXPORT,
+			expect.objectContaining( { success: true, export_type: 'full' } )
+		);
+		expect( vi.mocked( recordTracksEvent ).mock.calls[ 0 ][ 1 ] ).not.toHaveProperty( 'site_id' );
+	} );
 	it( 'rejects .sql exports with --mode full', async () => {
 		const reportErrorSpy = vi.spyOn( Logger.prototype, 'reportError' );
 

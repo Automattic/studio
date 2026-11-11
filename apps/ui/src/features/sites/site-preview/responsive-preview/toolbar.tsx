@@ -1,0 +1,204 @@
+import { __, sprintf } from '@wordpress/i18n';
+import { XIcon } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { updateResponsivePreview, type ResponsivePreviewSettings } from '@/data/responsive-preview';
+import { ChevronDownIcon, RefreshIcon } from '@/lib/icons';
+import { Button, IconButton, Input, Menu } from '@/lib/ui';
+import { devicePresets, parseDimension } from './settings';
+import styles from './style.module.css';
+import { useResponsivePreviewTracks } from './use-responsive-preview-tracks';
+import type { TracksResponsivePreviewAction } from '@studio/common/lib/record-tracks-event';
+
+function DimensionInput( {
+	label,
+	value,
+	onCommit,
+}: {
+	label: string;
+	value: number;
+	onCommit: ( value: number ) => void;
+} ) {
+	const cancelled = useRef( false );
+	const [ draft, setDraft ] = useState( String( value ) );
+	const [ focused, setFocused ] = useState( false );
+	return (
+		<Input
+			variant="ghost"
+			className={ styles.dimension }
+			aria-label={ label }
+			inputMode="numeric"
+			value={ focused ? draft : String( value ) }
+			onFocus={ ( event ) => {
+				setDraft( String( value ) );
+				setFocused( true );
+				event.currentTarget.select();
+			} }
+			onChange={ ( event ) => setDraft( event.target.value ) }
+			onBlur={ () => {
+				const next = cancelled.current ? null : parseDimension( draft );
+				cancelled.current = false;
+				if ( next !== null ) onCommit( next );
+				setFocused( false );
+			} }
+			onKeyDown={ ( event ) => {
+				if ( event.key === 'Enter' ) event.currentTarget.blur();
+				if ( event.key === 'Escape' ) {
+					cancelled.current = true;
+					setDraft( String( value ) );
+					event.preventDefault();
+					event.stopPropagation();
+					event.currentTarget.blur();
+				}
+			} }
+		/>
+	);
+}
+
+export function ResponsiveToolbar( {
+	siteId,
+	settings,
+	fitScale,
+	active = true,
+}: {
+	siteId: string;
+	settings: ResponsivePreviewSettings;
+	fitScale: number;
+	active?: boolean;
+} ) {
+	const track = useResponsivePreviewTracks( active && settings.enabled );
+	const update = ( patch: Partial< ResponsivePreviewSettings > ) =>
+		updateResponsivePreview( siteId, patch );
+	const commit = (
+		action: TracksResponsivePreviewAction,
+		patch: Partial< ResponsivePreviewSettings >
+	) => {
+		update( patch );
+		track( action, settings, { ...settings, ...patch } );
+	};
+	const isLandscape = settings.width > settings.height;
+	const isSquare = settings.width === settings.height;
+	return (
+		<div
+			className={ styles.responsiveToolbar }
+			role="toolbar"
+			aria-label={ __( 'Responsive preview' ) }
+		>
+			<div className={ styles.responsiveControls }>
+				<Menu.Root>
+					<Menu.Trigger
+						render={ <Button variant="ghost" size="2xs" className={ styles.device } /> }
+					>
+						<span>{ settings.preset === 'responsive' ? __( 'Responsive' ) : settings.preset }</span>
+						<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
+					</Menu.Trigger>
+					<Menu.Popup side="bottom">
+						<Menu.RadioGroup
+							value={ settings.preset }
+							onValueChange={ ( value ) => {
+								const preset = devicePresets.find( ( item ) => item.name === value );
+								commit(
+									'preset_change',
+									preset
+										? { preset: preset.name, width: preset.width, height: preset.height }
+										: { preset: 'responsive' }
+								);
+							} }
+						>
+							<Menu.RadioItem value="responsive">{ __( 'Responsive' ) }</Menu.RadioItem>
+							{ devicePresets.map( ( preset ) => (
+								<Menu.RadioItem
+									key={ preset.name }
+									value={ preset.name }
+									className={ styles.presetItem }
+								>
+									<span>{ preset.name }</span>
+									<span className={ styles.presetDimensions }>
+										{ preset.width } × { preset.height }
+									</span>
+									{ settings.preset !== preset.name && (
+										<span className={ styles.indicatorSpace } aria-hidden="true" />
+									) }
+								</Menu.RadioItem>
+							) ) }
+						</Menu.RadioGroup>
+					</Menu.Popup>
+				</Menu.Root>
+				<span className={ styles.divider } aria-hidden="true" />
+				<div className={ styles.dimensions }>
+					<DimensionInput
+						label={ __( 'Width' ) }
+						value={ settings.width }
+						onCommit={ ( width ) => commit( 'manual_resize', { width, preset: 'responsive' } ) }
+					/>
+					<span aria-hidden="true">×</span>
+					<DimensionInput
+						label={ __( 'Height' ) }
+						value={ settings.height }
+						onCommit={ ( height ) => commit( 'manual_resize', { height, preset: 'responsive' } ) }
+					/>
+				</div>
+				<IconButton
+					className={ styles.rotate }
+					variant="ghost"
+					size="icon-xs"
+					label={
+						isSquare
+							? __( 'Rotate viewport' )
+							: isLandscape
+							? __( 'Rotate to portrait' )
+							: __( 'Rotate to landscape' )
+					}
+					icon={ <RefreshIcon /> }
+					onClick={ () =>
+						commit( 'manual_resize', { width: settings.height, height: settings.width } )
+					}
+				/>
+				<span className={ styles.divider } aria-hidden="true" />
+				<Menu.Root>
+					<Menu.Trigger render={ <Button variant="ghost" size="sm" /> }>
+						{ settings.zoom === 'fit' ? __( 'Fit' ) : `${ settings.zoom * 100 }%` }
+						<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
+					</Menu.Trigger>
+					<Menu.Popup side="bottom" align="start">
+						<Menu.RadioGroup
+							value={ String( settings.zoom ) }
+							onValueChange={ ( value ) => {
+								if ( value !== 'fit' ) update( { zoom: Number( value ) } );
+							} }
+						>
+							<Menu.RadioItem value="fit" onClick={ () => update( { zoom: 'fit', fitScale } ) }>
+								<span>
+									{ __( 'Fit' ) }{ ' ' }
+									<span className={ styles.optionDetail }>
+										{ sprintf( __( '· %d%%' ), Math.round( fitScale * 100 ) ) }
+									</span>
+								</span>
+							</Menu.RadioItem>
+							<Menu.Separator />
+							{ [ 0.5, 0.75, 1, 1.25, 1.5, 2 ].map( ( zoom ) => (
+								<Menu.RadioItem key={ zoom } value={ String( zoom ) }>
+									{ zoom * 100 }%
+								</Menu.RadioItem>
+							) ) }
+						</Menu.RadioGroup>
+					</Menu.Popup>
+				</Menu.Root>
+			</div>
+			<IconButton
+				className={ styles.close }
+				variant="ghost"
+				size="icon-xs"
+				icon={ <XIcon /> }
+				label={ __( 'Hide device toolbar' ) }
+				tooltipSide="bottom"
+				onClick={ ( event ) => {
+					event.currentTarget
+						.closest( 'aside' )
+						?.querySelector< HTMLButtonElement >( '[data-preview-browser-options]' )
+						?.focus();
+					update( { enabled: false } );
+				} }
+			/>
+		</div>
+	);
+}

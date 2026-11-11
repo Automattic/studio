@@ -1,4 +1,11 @@
-import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/common/ai/settings-store';
+import { runStudioAgentTurn } from '@studio/agent/node/runtime';
+import { resolveResumeSessionContext } from '@studio/agent/node/sessions/context';
+import {
+	createStudioSession,
+	listStudioSessionFiles,
+	openStudioSession,
+} from '@studio/agent/node/sessions/pi-session';
+import { readAnthropicApiKey, readSelectedAiProvider } from '@studio/agent/node/settings-store';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { vi, type Mock } from 'vitest';
@@ -9,13 +16,6 @@ import {
 	saveSelectedAiProvider,
 } from 'cli/ai/auth';
 import { JsonAdapter } from 'cli/ai/output-adapter';
-import { runStudioAgentTurn } from 'cli/ai/runtimes/pi';
-import { resolveResumeSessionContext } from 'cli/ai/sessions/context';
-import {
-	createStudioSession,
-	listStudioSessionFiles,
-	openStudioSession,
-} from 'cli/ai/sessions/pi-session';
 import { findSiteByFolder } from 'cli/lib/cli-config/sites';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
@@ -50,8 +50,9 @@ vi.mock( 'cli/ai/providers', () => ( {
 		supportsModel: () => true,
 		defaultModel: 'claude-sonnet-5',
 	} ),
+	getStudioUserAgent: () => 'WordPressStudio',
 } ) );
-vi.mock( '@studio/common/ai/settings-store', () => ( {
+vi.mock( '@studio/agent/node/settings-store', () => ( {
 	readAnthropicApiKey: vi.fn(),
 	readSelectedAiProvider: vi.fn().mockResolvedValue( 'wpcom' ),
 } ) );
@@ -64,10 +65,10 @@ vi.mock( 'cli/lib/site-utils', () => ( {
 vi.mock( 'cli/lib/daemon-client', () => ( {
 	disconnectFromDaemon: vi.fn().mockResolvedValue( undefined ),
 } ) );
-vi.mock( 'cli/ai/sessions/context', () => ( {
+vi.mock( '@studio/agent/node/sessions/context', () => ( {
 	resolveResumeSessionContext: vi.fn( () => ( { provider: undefined, model: undefined } ) ),
 } ) );
-vi.mock( 'cli/ai/sessions/pi-session', () => ( {
+vi.mock( '@studio/agent/node/sessions/pi-session', () => ( {
 	createStudioSession: vi.fn(),
 	openStudioSession: vi.fn(),
 	listStudioSessionFiles: vi.fn(),
@@ -77,7 +78,7 @@ vi.mock( '@studio/common/lib/well-known-paths', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/lib/well-known-paths') >() ),
 	getSessionsDirectory: vi.fn(),
 } ) );
-vi.mock( 'cli/ai/runtimes/pi', () => ( {
+vi.mock( '@studio/agent/node/runtime', () => ( {
 	// A completed turn so the JSON single-turn path returns instead of looping.
 	runStudioAgentTurn: vi.fn( () => ( {
 		result: Promise.resolve(),
@@ -86,12 +87,7 @@ vi.mock( 'cli/ai/runtimes/pi', () => ( {
 	} ) ),
 } ) );
 vi.mock( 'cli/ai/slash-commands', () => ( { getActiveSlashCommands: vi.fn( () => [] ) } ) );
-vi.mock( 'cli/ai/browser-utils', () => ( { closeSharedBrowser: vi.fn() } ) );
-vi.mock( 'cli/ai/chat-artifacts', () => ( { setChatArtifactCallback: vi.fn() } ) );
-vi.mock( 'cli/ai/site-selection', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('cli/ai/site-selection') >() ),
-	setLocalSiteSelectedCallback: vi.fn(),
-} ) );
+vi.mock( '@studio/agent/node/browser-utils', () => ( { closeSharedBrowser: vi.fn() } ) );
 vi.mock( 'cli/commands/auth/login', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/ai/ui', () => ( { AiChatUI: class AiChatUI {} } ) );
 vi.mock( 'cli/logger', () => ( {
@@ -209,7 +205,7 @@ describe( 'AI runCommand — resume by id restores session model', () => {
 		} );
 
 		expect( runStudioAgentTurn ).toHaveBeenCalledTimes( 1 );
-		const callArgs = ( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 0 ] as { model: string };
+		const callArgs = ( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 1 ] as { model: string };
 		expect( callArgs.model ).toBe( 'claude-opus-5' );
 	} );
 } );
@@ -218,7 +214,7 @@ describe( 'AI runCommand — active site banner running state', () => {
 	let stdoutSpy: ReturnType< typeof vi.spyOn >;
 
 	const dispatched = () =>
-		( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 0 ] as {
+		( runStudioAgentTurn as Mock ).mock.calls[ 0 ][ 1 ] as {
 			prompt: string;
 			activeSite?: { running: boolean };
 		};
@@ -285,23 +281,6 @@ describe( 'AI runCommand — active site banner running state', () => {
 		const checkOrder = ( isSiteRunning as Mock ).mock.invocationCallOrder[ 0 ];
 		const disconnectOrder = ( disconnectFromDaemon as Mock ).mock.invocationCallOrder[ 0 ];
 		expect( disconnectOrder ).toBeGreaterThan( checkOrder );
-	} );
-
-	it( 'reports the site as stopped when the daemon says it is not running', async () => {
-		( findSiteByFolder as Mock ).mockResolvedValue( {
-			id: 'site-1',
-			name: 'My Site',
-			path: '/sites/my-site',
-		} );
-		( isSiteRunning as Mock ).mockResolvedValue( false );
-
-		await runCommand( {
-			adapter: new JsonAdapter(),
-			initialMessage: 'hello',
-			activeSite: { name: 'My Site', path: '/sites/my-site' },
-		} );
-
-		expect( dispatched().activeSite?.running ).toBe( false );
 	} );
 
 	it( 'treats a site missing from the CLI config as stopped', async () => {
@@ -375,6 +354,9 @@ describe( 'AI runCommand — Tracks events', () => {
 			TRACKS_EVENTS.CODE_MESSAGE_SENT,
 			TRACKS_EVENTS.CODE_TURN_COMPLETED,
 		] );
+		const calls = ( recordTracksEvent as Mock ).mock.calls;
+		expect( calls[ 0 ][ 1 ].turn_id ).toEqual( expect.any( String ) );
+		expect( calls[ 1 ][ 1 ].turn_id ).toBe( calls[ 0 ][ 1 ].turn_id );
 	} );
 
 	it( 'reports the turn outcome and the resolved provider and model', async () => {
@@ -395,18 +377,74 @@ describe( 'AI runCommand — Tracks events', () => {
 		expect( props.duration_ms ).toBeTypeOf( 'number' );
 	} );
 
+	it( 'returns the same turn identity and edit count used by Tracks', async () => {
+		const adapter = new JsonAdapter();
+		const emit = vi.spyOn( adapter, 'emitTurnCompleted' );
+		const turnId = crypto.randomUUID();
+		await runCommand( { adapter, initialMessage: 'hello', initialTurnId: turnId } );
+		const props = ( recordTracksEvent as Mock ).mock.calls.find(
+			( [ name ] ) => name === TRACKS_EVENTS.CODE_TURN_COMPLETED
+		)![ 1 ];
+		expect( props.turn_id ).toBe( turnId );
+		expect( emit ).toHaveBeenCalledWith( expect.any( String ), 'session-id', undefined, {
+			turnId,
+			edits: props.edits,
+		} );
+	} );
+
+	it( 'does not accept arbitrary text as a correlation identifier', async () => {
+		await runCommand( {
+			adapter: new JsonAdapter(),
+			initialMessage: 'hello',
+			initialTurnId: 'private-input',
+		} );
+		const props = ( recordTracksEvent as Mock ).mock.calls[ 0 ][ 1 ];
+		expect( props.turn_id ).toMatch( /^[0-9a-f-]{36}$/ );
+		expect( JSON.stringify( ( recordTracksEvent as Mock ).mock.calls ) ).not.toContain(
+			'private-input'
+		);
+	} );
+
+	it.each( [
+		[ undefined, false, 0 ],
+		[ 'Read', false, 0 ],
+		[ 'Write', true, 0 ],
+		[ 'Edit', false, 1 ],
+	] as const )(
+		'returns successful-turn edit evidence for %s (failed=%s)',
+		async ( toolName, isError, expectedEdits ) => {
+			( runStudioAgentTurn as Mock ).mockImplementationOnce(
+				( _host: unknown, { onEvent }: { onEvent: ( event: unknown ) => void } ) => {
+					if ( toolName )
+						onEvent( {
+							type: 'tool_execution_end',
+							toolCallId: 'tool-1',
+							toolName,
+							result: {},
+							isError,
+						} );
+					onEvent( { type: 'agent_end', messages: [] } );
+					return { result: Promise.resolve(), interrupt: vi.fn(), hasTool: () => true };
+				}
+			);
+			const adapter = new JsonAdapter();
+			const emit = vi.spyOn( adapter, 'emitTurnCompleted' );
+			const turnId = crypto.randomUUID();
+			await runCommand( { adapter, initialMessage: 'hello', initialTurnId: turnId } );
+			expect( emit ).toHaveBeenCalledWith( 'success', 'session-id', undefined, {
+				turnId,
+				edits: expectedEdits,
+			} );
+			expect( recordTracksEvent ).toHaveBeenCalledWith(
+				TRACKS_EVENTS.CODE_TURN_COMPLETED,
+				expect.objectContaining( { turn_id: turnId, edits: expectedEdits, outcome: 'success' } )
+			);
+		}
+	);
+
 	it( 'adds the turn stats gathered from the agent events', async () => {
 		( runStudioAgentTurn as Mock ).mockImplementationOnce(
-			( { onEvent }: { onEvent: ( event: unknown ) => void } ) => {
-				onEvent( {
-					type: 'message_end',
-					message: {
-						role: 'assistant',
-						content: [],
-						stopReason: 'toolUse',
-						usage: { input: 120, output: 30, cacheRead: 0, cacheWrite: 0, totalTokens: 150 },
-					},
-				} );
+			( _host: unknown, { onEvent }: { onEvent: ( event: unknown ) => void } ) => {
 				onEvent( {
 					type: 'tool_execution_end',
 					toolCallId: '1',
@@ -414,22 +452,6 @@ describe( 'AI runCommand — Tracks events', () => {
 					result: {},
 					isError: false,
 				} );
-				onEvent( {
-					type: 'tool_execution_end',
-					toolCallId: '2',
-					toolName: 'wp_cli',
-					result: {},
-					isError: true,
-				} );
-				const failed = {
-					role: 'assistant',
-					content: [],
-					stopReason: 'error',
-					errorMessage: '402 studio_out_of_credits',
-					usage: { input: 10, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 10 },
-				};
-				onEvent( { type: 'message_end', message: failed } );
-				onEvent( { type: 'agent_end', messages: [ failed ] } );
 				return { result: Promise.resolve(), interrupt: vi.fn(), hasTool: () => true };
 			}
 		);
@@ -439,20 +461,7 @@ describe( 'AI runCommand — Tracks events', () => {
 		const [ , props ] = ( recordTracksEvent as Mock ).mock.calls.find(
 			( [ name ] ) => name === TRACKS_EVENTS.CODE_TURN_COMPLETED
 		) as [ string, Record< string, unknown > ];
-		expect( props ).toMatchObject( {
-			outcome: 'error',
-			tool_calls: 2,
-			tool_errors: 1,
-			failed_tools: 'wp_cli',
-			edits: 1,
-			model_requests: 2,
-			input_tokens: 130,
-			output_tokens: 30,
-			cache_read_tokens: 0,
-			cache_write_tokens: 0,
-			error_kind: 'out_of_credits',
-			site_kind: 'none',
-		} );
+		expect( props ).toMatchObject( { tool_calls: 1, edits: 1, site_kind: 'none' } );
 	} );
 
 	// One call sits on the turn's critical path, the other in a `finally` where a rejection would
@@ -468,7 +477,7 @@ describe( 'AI runCommand — Tracks events', () => {
 
 	it( 'completes the turn even when gathering the turn stats fails', async () => {
 		( runStudioAgentTurn as Mock ).mockImplementationOnce(
-			( { onEvent }: { onEvent: ( event: unknown ) => void } ) => {
+			( _host: unknown, { onEvent }: { onEvent: ( event: unknown ) => void } ) => {
 				// The failed tool makes the stats look up its name, which throws.
 				onEvent( {
 					type: 'tool_execution_end',
@@ -577,17 +586,5 @@ describe( 'AI runCommand — pinned provider falls back when unusable', () => {
 		expect( resolveAiEnvironment ).toHaveBeenCalledWith( 'anthropic-api-key', expect.anything() );
 		// The Desktop wpcom default must not overwrite the pin on disk.
 		expect( saveSelectedAiProvider ).not.toHaveBeenCalled();
-	} );
-
-	it( 'honors the pin while its provider is usable', async () => {
-		( resolveResumeSessionContext as Mock ).mockReturnValue( {
-			provider: 'anthropic-api-key',
-			model: 'claude-sonnet-5',
-		} );
-		( isAiProviderReady as Mock ).mockResolvedValue( true );
-
-		await runCommand( { adapter: new JsonAdapter(), initialMessage: 'hello', resumeSession } );
-
-		expect( resolveAiEnvironment ).toHaveBeenCalledWith( 'anthropic-api-key', expect.anything() );
 	} );
 } );

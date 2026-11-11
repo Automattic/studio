@@ -1,11 +1,13 @@
-import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
 import { useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
 import { ChevronLeftIcon, SearchIcon, XIcon } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { setProviderIntent } from '@/data/account-analytics';
 import { toast } from '@/data/app-messages';
+import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
@@ -24,6 +26,11 @@ import {
 import { SiteSettingsForm } from '@/features/settings/site-settings-view';
 import { readLastVisited } from '@/features/sidebar';
 import {
+	AlertDialog,
+	Button,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
 	IconButton,
 	Dialog,
 	DialogContent,
@@ -90,7 +97,7 @@ function StudioSection( {
 // The route's site, or the last one visited.
 function useCurrentSiteId( requested?: string ) {
 	const params = useParams( { strict: false } ) as { sessionId?: string; siteId?: string };
-	const { data: sites } = useSites();
+	const { data: sites, isPending } = useSites();
 	const { data: sessions } = useSessions();
 	const session = sessions?.find( ( candidate ) => candidate.id === params.sessionId );
 	const siteId =
@@ -98,7 +105,7 @@ function useCurrentSiteId( requested?: string ) {
 		params.siteId ??
 		findAiSessionOwnerSite( sites, session )?.id ??
 		readLastVisited()?.siteId;
-	return sites?.find( ( site ) => site.id === siteId ) ?? sites?.[ 0 ];
+	return { site: sites?.find( ( site ) => site.id === siteId ) ?? sites?.[ 0 ], isPending };
 }
 
 // A setting's row, by its link id or its title.
@@ -132,6 +139,7 @@ function focusControl( row: HTMLElement ) {
 export function SettingsDialog() {
 	const router = useRouter();
 	const navigate = useNavigate();
+	const connector = useConnector();
 	const { settings, settingsSite, settingsFocus } = useSearch( { strict: false } ) as {
 		settings?: SettingsSectionId;
 		settingsSite?: string;
@@ -144,9 +152,10 @@ export function SettingsDialog() {
 	if ( settings && settings !== shown ) {
 		setShown( settings );
 	}
-	const site = useCurrentSiteId( settingsSite );
+	const { site, isPending: sitePending } = useCurrentSiteId( settingsSite );
 	const requested = shown === 'usage' && ! signedIn ? 'ai' : shown;
-	const scope: SettingsScope = isSiteSection( requested ) && site ? 'site' : 'studio';
+	const scope: SettingsScope =
+		isSiteSection( requested ) && ( site || sitePending ) ? 'site' : 'studio';
 	const section = scope === 'site' || ! isSiteSection( requested ) ? requested : 'general';
 	const [ siteSection, setSiteSection ] = useState< SettingsSectionId >( 'site' );
 	if ( scope === 'site' && section !== siteSection ) {
@@ -162,6 +171,8 @@ export function SettingsDialog() {
 	// The setting to reveal, by link id or title.
 	const [ target, setTarget ] = useState< string | null >( null );
 	const [ dirty, setDirty ] = useState( false );
+	const [ confirmingDiscard, setConfirmingDiscard ] = useState( false );
+	const discardCancelRef = useRef< HTMLButtonElement >( null );
 	const [ actions, setActions ] = useState< HTMLElement | null >( null );
 	const [ content, setContent ] = useState< HTMLDivElement | null >( null );
 	const pendingExit = useRef< ( () => void ) | null >( null );
@@ -169,13 +180,14 @@ export function SettingsDialog() {
 
 	// Each opening starts fresh.
 	useEffect( () => {
+		if ( settings !== 'ai' ) setProviderIntent( connector );
 		if ( ! settings ) {
 			setHistory( { entries: [], index: -1 } );
 			setQuery( '' );
 			setTarget( null );
 			pendingExit.current = null;
 		}
-	}, [ settings ] );
+	}, [ settings, connector ] );
 
 	// A link's setting leaves the URL once taken, so following it again reveals it again.
 	useEffect( () => {
@@ -184,6 +196,7 @@ export function SettingsDialog() {
 			setTarget( settingsFocus );
 			void navigate( {
 				to: '.',
+				state: true,
 				search: ( { settingsFocus: _focus, ...rest }: Record< string, unknown > ) => rest,
 				replace: true,
 			} );
@@ -208,6 +221,7 @@ export function SettingsDialog() {
 		setTarget( null );
 		void navigate( {
 			to: '.',
+			state: true,
 			search: ( { settingsFocus: _focus, ...previous }: Record< string, unknown > ) => ( {
 				...previous,
 				settings: next,
@@ -232,6 +246,7 @@ export function SettingsDialog() {
 		}
 		void navigate( {
 			to: '.',
+			state: true,
 			search: ( {
 				settings: _section,
 				settingsSite: _site,
@@ -242,11 +257,10 @@ export function SettingsDialog() {
 		} );
 	};
 
-	// With unsaved site changes, closing waits for Discard or Save.
+	// Keep the form mounted while confirming so cancellation preserves its draft.
 	const close = () => {
 		if ( dirty ) {
-			pendingExit.current = closeNow;
-			actions?.querySelector< HTMLElement >( 'button' )?.focus();
+			setConfirmingDiscard( true );
 			return;
 		}
 		closeNow();
@@ -282,7 +296,7 @@ export function SettingsDialog() {
 		const timeout = setTimeout( () => {
 			observer.disconnect();
 			if ( ! row ) {
-				toast.info( __( 'This setting is not available on this device.' ) );
+				toast.info( __( 'This setting is not available on this device' ) );
 			}
 			setTarget( null );
 		}, 3000 );
@@ -307,6 +321,7 @@ export function SettingsDialog() {
 	return (
 		<Dialog replaceable open={ !! settings } onOpenChange={ ( isOpen ) => ! isOpen && close() }>
 			<DialogContent
+				className={ confirmingDiscard ? styles.confirmingDiscard : undefined }
 				layout="settings"
 				onInputCapture={ () => {
 					pendingExit.current = null;
@@ -342,7 +357,7 @@ export function SettingsDialog() {
 								aria-label={ __( 'Settings scope' ) }
 								className={ styles.scopes }
 							>
-								<TabsTrigger value="studio">{ __( 'Studio' ) }</TabsTrigger>
+								<TabsTrigger value="studio">{ __( 'App' ) }</TabsTrigger>
 								<TabsTrigger value="site" disabled={ ! site }>
 									{ __( 'Site' ) }
 								</TabsTrigger>
@@ -410,7 +425,7 @@ export function SettingsDialog() {
 											<item.section.icon />
 											<MarqueeLabel>{ item.setting?.title ?? item.section.label }</MarqueeLabel>
 											<TabsScopeLabel>
-												{ item.scope === 'site' ? __( 'Site' ) : __( 'Studio' ) }
+												{ item.scope === 'site' ? __( 'Site' ) : __( 'App' ) }
 											</TabsScopeLabel>
 										</TabsTrigger>
 									) ) }
@@ -423,10 +438,10 @@ export function SettingsDialog() {
 						) }
 					</TabsSidebar>
 					<DialogPanel
+						className={ styles.content }
 						id={ panelId }
 						role="tabpanel"
 						aria-label={ current.label }
-						className={ styles.content }
 						scrollRef={ setContent }
 						header={
 							<PanelHeader
@@ -476,7 +491,12 @@ export function SettingsDialog() {
 												styles.hidden
 										) }
 									>
-										<SiteSettingsForm key={ site.id } site={ site } section={ formSection } />
+										<SiteSettingsForm
+											key={ site.id }
+											site={ site }
+											section={ formSection }
+											active={ scope === 'site' && SITE_FORM_SECTIONS.includes( section ) }
+										/>
 									</div>
 								</>
 							) : null }
@@ -484,6 +504,38 @@ export function SettingsDialog() {
 					</DialogPanel>
 				</Tabs>
 			</DialogContent>
+
+			<AlertDialog open={ confirmingDiscard } onOpenChange={ setConfirmingDiscard }>
+				<DialogContent
+					layout="confirmation"
+					showCloseButton={ false }
+					initialFocus={ discardCancelRef }
+				>
+					<DialogHeader>
+						<DialogTitle>{ __( 'Discard changes?' ) }</DialogTitle>
+						<DialogDescription>{ __( 'Your unsaved changes will be lost.' ) }</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<Button
+							ref={ discardCancelRef }
+							variant="outline"
+							onClick={ () => setConfirmingDiscard( false ) }
+						>
+							{ __( 'Cancel' ) }
+						</Button>
+						<Button
+							variant="destructive"
+							onClick={ () => {
+								setConfirmingDiscard( false );
+								setDirty( false );
+								closeNow();
+							} }
+						>
+							{ __( 'Discard changes' ) }
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</AlertDialog>
 		</Dialog>
 	);
 }

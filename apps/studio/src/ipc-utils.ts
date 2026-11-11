@@ -1,13 +1,18 @@
 import { BrowserWindow } from 'electron';
 import { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
 import { getExistingMainWindow } from 'src/main-window';
-import type { AgentRunEvent } from '@studio/common/ai/agent-events';
-import type { AiSessionPlacementUpdatedEvent } from '@studio/common/ai/sessions/placement';
+import type { AiSessionPlacementUpdatedEvent } from '@studio/agent/node/sessions/placement';
+import type { AgentRunEvent } from '@studio/agent/protocol/agent-events';
 import type { StoredAuthToken } from '@studio/common/lib/shared-config';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
+import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
 
 export interface IpcEvents {
-	'add-site': [ void ];
+	'add-site': [ { backup?: { path: string; name: string } } | void ];
+	'new-chat': [ void ];
+	'open-folder': [ void ];
+	'open-site': [ { siteId: string } ];
+	'pull-site': [ { remoteSiteId: number } ];
 	'add-site-with-blueprint': [
 		{
 			blueprintPath: string;
@@ -28,7 +33,8 @@ export interface IpcEvents {
 		},
 	];
 	'toggle-sidebar': [ void ];
-	'toggle-site-preview': [ void ];
+	'toggle-panel': [ void ];
+	'set-workspace-layout': [ WorkspaceLayout ];
 	'user-settings': [ { tabName?: string; settingId?: string } ];
 	'window-fullscreen-change': [ boolean ];
 	'ai-agent-event': [ AgentRunEvent ];

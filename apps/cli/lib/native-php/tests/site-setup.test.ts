@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ensureWpConfig } from 'cli/lib/native-php/site-setup';
 
 const runPhpCommand = vi.hoisted( () => vi.fn() );
+const isSqliteIntegrationInstalled = vi.hoisted( () => vi.fn() );
 
 vi.mock( 'cli/lib/native-php/php-process', () => ( { runPhpCommand } ) );
 vi.mock( 'cli/lib/dependency-management/paths', () => ( {
@@ -9,6 +10,9 @@ vi.mock( 'cli/lib/dependency-management/paths', () => ( {
 } ) );
 vi.mock( 'cli/lib/dependency-management/php-binary', () => ( {
 	ensurePhpBinaryAvailable: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/sqlite-integration', () => ( {
+	isSqliteIntegrationInstalled,
 } ) );
 
 // The constants are passed to PHP as the third positional arg, JSON-encoded.
@@ -23,6 +27,7 @@ async function getWrittenConstants(
 
 describe( 'ensureWpConfig', () => {
 	beforeEach( () => {
+		isSqliteIntegrationInstalled.mockResolvedValue( false );
 		runPhpCommand.mockResolvedValue( undefined );
 	} );
 
@@ -31,6 +36,12 @@ describe( 'ensureWpConfig', () => {
 
 		expect( constants.SCRIPT_DEBUG ).toBe( false );
 		expect( constants.WP_ENVIRONMENT_TYPE ).toBe( 'local' );
+	} );
+
+	it( 'omits DB_NAME when the SQLite integration is not installed', async () => {
+		const constants = await getWrittenConstants();
+
+		expect( constants ).not.toHaveProperty( 'DB_NAME' );
 	} );
 
 	it( 'writes SCRIPT_DEBUG when script debug is enabled', async () => {

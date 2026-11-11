@@ -1,14 +1,13 @@
 import {
 	getEffectiveSessionProvider,
 	resolveSessionModelForProvider,
-} from '@studio/common/ai/providers';
-import { pickLiveSite } from '@studio/common/ai/sessions/effective-site';
-import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+} from '@studio/agent/protocol/providers';
+import { pickLiveSite } from '@studio/agent/protocol/sessions/effective-site';
+import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
 import { canUsePaidAiModels } from '@studio/common/lib/studio-assistant-quota';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useRouter } from '@tanstack/react-router';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { ArrowDownIcon } from 'lucide-react';
 import {
 	useCallback,
 	useEffect,
@@ -20,6 +19,7 @@ import {
 } from 'react';
 import { useAgentRun } from '@/data/agent-runs/use-agent-run';
 import { toast } from '@/data/app-messages';
+import { useConnector } from '@/data/core';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAuthUser } from '@/data/queries/use-auth-user';
@@ -28,22 +28,28 @@ import { useIsOutOfAiCredits } from '@/data/queries/use-is-out-of-ai-credits';
 import {
 	useSession,
 	useSessionLiveSite,
+	useSessions,
 	useSetSessionEnvironment,
 } from '@/data/queries/use-sessions';
+import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
 import {
 	useIsSiteBusy,
 	useIsSiteStarting,
 	useIsSiteStopping,
 	useSites,
 	useStartSite,
+	useStopSite,
 } from '@/data/queries/use-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
+import { useOpenSettings } from '@/data/use-open-settings';
 import { useSiteSelectionTime } from '@/data/use-open-site';
 import { SessionUIProvider, useOptionalSessionPreviewUI } from '@/data/use-session-ui';
+import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import {
 	getSiteAnnotations,
 	hasAnnotationContent,
 	removeAnnotations,
+	setAnnotating,
 	stageAnnotations,
 	subscribeAnnotationSend,
 	annotationSubmission,
@@ -52,24 +58,33 @@ import {
 	formatComposerTextQuote,
 	watchComposerTextQuote,
 } from '@/features/chats/composer-text-quote';
-import { pendingPromptSlot } from '@/features/composer';
-import { Composer, ComposerSkeleton, type ComposerHandle } from '@/features/composer';
-import { PreviewParticles, SiteContextMenu, StoppedSitePreview } from '@/features/sites';
+import {
+	Composer,
+	ComposerSkeleton,
+	pendingPromptSlot,
+	useComposerNotice,
+	type ComposerHandle,
+} from '@/features/composer';
+import { PreviewParticles, StoppedSitePreview } from '@/features/sites';
+import { ArrowDownIcon } from '@/lib/icons';
 import { getMotionDuration } from '@/lib/theme';
-import { Button, IconButton } from '@/lib/ui';
+import { Button, IconButton, VisuallyHidden } from '@/lib/ui';
 import { Conversation } from './conversation';
 import { QueuedPrompts } from './queued-prompts';
 import { SessionFrame } from './session-frame';
 import { SessionHeader } from './session-header';
 import styles from './style.module.css';
 import { useAnchoredScroll } from './use-anchored-scroll';
-import { useComposerNotice } from './use-composer-notice';
 import { useMarkChatRead } from './use-mark-chat-read';
+import { useSendSiteDraft } from './use-send-site-draft';
 import { useSessionCommands } from './use-session-commands';
 
 interface SessionViewProps {
-	sessionId: string;
+	sessionId?: string;
+	siteId?: string;
 	headerStart?: ReactNode;
+	hideHeader?: boolean;
+	panelVisible?: boolean;
 }
 
 export function SessionView( props: SessionViewProps ) {
@@ -80,12 +95,33 @@ export function SessionView( props: SessionViewProps ) {
 	);
 }
 
-function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
+function SessionViewContent( {
+	sessionId,
+	siteId,
+	headerStart,
+	hideHeader,
+	panelVisible = false,
+}: SessionViewProps ) {
+	const draftKey = sessionId ?? `site:${ siteId }`;
+	const { draft, update: updateDraft } = useSiteChatDraft( siteId );
+	const sendDraft = useSendSiteDraft( siteId );
 	const navigate = useNavigate();
 	const { data, isLoading, error, refetch } = useSession( sessionId );
 	const { data: sites } = useSites();
-	const ownerSite = findAiSessionOwnerSite( sites, data?.summary );
-	const effectiveEnvironment = useSessionLiveSite( data?.summary, ownerSite?.id )
+	const { data: sessions } = useSessions();
+	const sessionSummary = data?.summary ?? sessions?.find( ( session ) => session.id === sessionId );
+	const ownerSite = sessionId
+		? findAiSessionOwnerSite( sites, sessionSummary )
+		: sites?.find( ( site ) => site.id === siteId );
+	useEffect( () => {
+		if ( ! sessionId && sites && ! ownerSite ) {
+			void navigate( { to: '/' } );
+		}
+	}, [ navigate, ownerSite, sessionId, sites ] );
+	const effectiveEnvironment = useSessionLiveSite(
+		sessionId ? sessionSummary : draft,
+		ownerSite?.id
+	)
 		? 'live'
 		: 'local';
 	const {
@@ -96,7 +132,7 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 		pendingQuestions,
 		pendingAnswers,
 		queuedPrompts,
-		sendMessage,
+		sendMessage: sendSessionMessage,
 		interrupt,
 		answerQuestion,
 		clearQuestionAnswer,
@@ -112,17 +148,27 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 	// back to pending; only the first check holds the chat back.
 	const isQuotaLoading = isQuotaPending && ! isQuotaFetched;
 	const { data: aiSettings } = useAiSettings();
-	const sessionProvider = getEffectiveSessionProvider( data?.entries ?? [], aiSettings );
+	const sessionProvider =
+		( ! sessionId && draft.provider ) ||
+		getEffectiveSessionProvider( data?.entries ?? [], aiSettings );
 	const isWpcom = sessionProvider === 'wpcom';
-	const notice = useComposerNotice( sessionProvider );
+	const notice = useComposerNotice( sessionProvider, ownerSite?.id );
 	// A fresh wpcom session defaults to balanced when the paid tiers are
 	// unlocked, fast otherwise.
-	const currentModel = useMemo(
+	const defaultModel = useMemo(
 		() =>
 			resolveSessionModelForProvider( data?.entries ?? [], sessionProvider, {
 				canUsePaidModels: canUsePaidAiModels( quota, authUser?.email ),
 			} ),
 		[ data?.entries, sessionProvider, quota, authUser?.email ]
+	);
+	const currentModel = ( ! sessionId && draft.model ) || defaultModel;
+	const sendMessage = useCallback(
+		( prompt: string, options?: Parameters< typeof sendSessionMessage >[ 1 ] ) =>
+			sessionId
+				? sendSessionMessage( prompt, options )
+				: sendDraft( prompt, options, sessionProvider, currentModel ),
+		[ sessionId, sendSessionMessage, sendDraft, sessionProvider, currentModel ]
 	);
 	const pendingQuestionTexts = useMemo(
 		() => new Set( pendingQuestions.map( ( q ) => q.question ) ),
@@ -149,6 +195,16 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 	// in state lets the scroll effects re-run when it appears; a ref can't.
 	const [ scrollNode, setScrollNode ] = useState< HTMLDivElement | null >( null );
 	const composerRef = useRef< ComposerHandle >( null );
+	const router = useRouter();
+	useEffect( () => {
+		if ( sessionId ) return;
+		return router.subscribe( 'onResolved', ( { pathChanged, hrefChanged } ) => {
+			if ( ! pathChanged && hrefChanged ) return;
+			if ( router.state.location.pathname === `/sites/${ siteId }/new` ) {
+				composerRef.current?.focus();
+			}
+		} );
+	}, [ router, sessionId, siteId ] );
 	useEffect(
 		() =>
 			watchComposerTextQuote( ( text ) => {
@@ -195,7 +251,7 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 	);
 	const { spacerRef, isScrolledAway, scrollToLatest } = useAnchoredScroll( {
 		scrollNode,
-		sessionId,
+		sessionId: draftKey,
 		content: data,
 		paused: pendingQuestions.length > 0,
 	} );
@@ -228,17 +284,40 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 	const [ frameNode, setFrameNode ] = useState< HTMLDivElement | null >( null );
 	const { data: preferences } = useUserPreferences();
 	const { mutate: startSite } = useStartSite();
+	const { mutate: startSitePreview } = useStartSiteWithChat();
+	const { mutate: stopSite } = useStopSite();
 	const isSiteStarting = useIsSiteStarting( ownerSite?.id );
 	const isSiteStopping = useIsSiteStopping( ownerSite?.id );
-	const revealingSiteId = useOptionalSessionPreviewUI()?.revealingSiteId;
+	const preview = useOptionalSessionPreviewUI();
+	const revealingSiteId = preview?.revealingSiteId;
+	const connector = useConnector();
+	const openSettings = useOpenSettings();
+	const beginAnnotating = () => {
+		if ( ! ownerSite || ! preview ) return;
+		if ( ! authUser && ! aiSettings?.hasAnthropicApiKey ) {
+			openSettings( 'ai', undefined, undefined, { intent: 'build', scope: ownerSite.id } );
+			return;
+		}
+		preview.setSite( ownerSite.id );
+		preview.setOpen( true, { siteId: ownerSite.id } );
+		preview.setChatHidden( false, ownerSite.id );
+		setAnnotating( ownerSite.id, true );
+		if ( ! ownerSite.running ) {
+			startSitePreview( ownerSite.id, {
+				onError: () => setAnnotating( ownerSite.id, false ),
+			} );
+		}
+	};
 	const siteLoading =
-		isSiteStarting || isSiteStopping || ( !! ownerSite && revealingSiteId === ownerSite.id );
+		! isSiteStopping && ( isSiteStarting || ( !! ownerSite && revealingSiteId === ownerSite.id ) );
+	const showStoppedPreview =
+		!! ownerSite && ( ! ownerSite.running || isSiteStopping ) && ! isSiteStarting;
 	const selectionTime = useSiteSelectionTime( ownerSite?.id );
 	const isSiteBusy = useIsSiteBusy( ownerSite );
 	const canAutoStart = !! ownerSite && effectiveEnvironment === 'local';
 	const { data: connectedSites } = useConnectedWpcomSites( ownerSite?.id );
 	const liveSite = pickLiveSite( connectedSites ?? [] );
-	const { mutate: setEnvironment } = useSetSessionEnvironment( sessionId );
+	const { mutate: setEnvironment } = useSetSessionEnvironment( sessionId ?? '' );
 	const sendWithAutoStart = useCallback(
 		( prompt: string, attachments?: Parameters< typeof sendMessage >[ 1 ] ) => {
 			if (
@@ -257,8 +336,6 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 		? sprintf(
 				isSiteStarting
 					? /* translators: %s: site name. */ __( 'Starting %s' )
-					: isSiteStopping
-					? /* translators: %s: site name. */ __( 'Stopping %s' )
 					: /* translators: %s: site name. */ __( 'Work with %s' ),
 				ownerSite.name
 		  )
@@ -270,12 +347,12 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 		pendingPromptSlot.subscribe,
 		pendingPromptSlot.getSnapshot
 	);
-	const pendingPrompt = handedOver?.sessionId === sessionId ? handedOver : null;
+	const pendingPrompt = sessionId && handedOver?.sessionId === sessionId ? handedOver : null;
 	// The empty state fades out under the first prompt, then unmounts.
 	const showEmpty = isEmpty && ! pendingPrompt;
-	const [ emptySessionId, setEmptySessionId ] = useState( showEmpty ? sessionId : null );
-	if ( showEmpty && emptySessionId !== sessionId ) {
-		setEmptySessionId( sessionId );
+	const [ emptySessionId, setEmptySessionId ] = useState( showEmpty ? draftKey : null );
+	if ( showEmpty && emptySessionId !== draftKey ) {
+		setEmptySessionId( draftKey );
 	}
 	useEffect( () => {
 		if ( showEmpty || emptySessionId === null ) return;
@@ -285,12 +362,16 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 		);
 		return () => window.clearTimeout( timeoutId );
 	}, [ showEmpty, emptySessionId ] );
-	const isChatReady = !! data && ! isQuotaLoading && ! notice && ! isOutOfCredits;
+	const isChatReady =
+		( !! data || ( ! sessionId && !! ownerSite ) ) &&
+		! isQuotaLoading &&
+		! notice &&
+		! isOutOfCredits;
 	useEffect( () => {
 		// Read the slot live rather than the rendered value: StrictMode runs the
 		// effect twice for one render, and the second pass must find it empty.
 		const prompt = pendingPromptSlot.getSnapshot();
-		if ( ! isChatReady || prompt?.sessionId !== sessionId ) return;
+		if ( ! sessionId || ! isChatReady || prompt?.sessionId !== sessionId ) return;
 		pendingPromptSlot.clear( prompt );
 		void sendMessage( prompt.prompt, prompt.attachments ).catch( () => {
 			composerRef.current?.replaceDraft( prompt.prompt, prompt.attachments );
@@ -298,13 +379,13 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 	}, [ isChatReady, pendingPrompt, sendMessage, sessionId ] );
 
 	// Notes sent from the preview land in the composer, then go out with its
-	// draft, or alone when they were sent directly. While the agent works they
-	// wait in the composer.
+	// draft, or alone when they were sent directly. Direct sends join the queue
+	// while the agent works.
 	useEffect( () => {
 		if ( ! isChatReady || ! annotationSiteId ) return;
 		return subscribeAnnotationSend( annotationSiteId, ( { noteIds } ) => {
-			stageAnnotations( annotationSiteId, noteIds );
-			if ( composerBusy ) return;
+			if ( ! noteIds ) stageAnnotations( annotationSiteId );
+			if ( composerBusy && ! noteIds ) return;
 			if ( ! noteIds ) {
 				return composerRef.current?.send();
 			}
@@ -355,7 +436,7 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 	// flash. Signed-out and failed quota queries report isLoading false.
 	if ( error && ! data && ! notFound ) {
 		return (
-			<SessionFrame header={ <div className={ styles.header } /> }>
+			<SessionFrame header={ hideHeader ? null : <div className={ styles.header } /> }>
 				<div className={ styles.loadError } role="alert">
 					<span>{ __( 'This chat could not load.' ) }</span>
 					<Button variant="outline" onClick={ () => void refetch() }>
@@ -366,47 +447,46 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 		);
 	}
 
-	if ( isLoading || notFound || ! data || isQuotaLoading ) {
-		// Use the same SessionFrame with an empty header and a structural
-		// ComposerSkeleton so the scroll area has the exact same dimensions
-		// as the loaded view — otherwise the empty-state dots jump
-		// mid-transition.
+	if (
+		( sessionId && ( isLoading || notFound || ! data ) ) ||
+		( ! ownerSite && ! data ) ||
+		isQuotaLoading
+	) {
+		// Match the loaded view's scroll area while the chat is loading.
 		return (
 			<SessionFrame
-				header={ <div className={ styles.header } /> }
+				header={ hideHeader ? null : <div className={ styles.header } /> }
 				composer={
 					<div className={ clsx( styles.column, styles.composerColumn ) }>
 						<ComposerSkeleton />
 					</div>
 				}
 			>
-				<div className={ styles.emptyState }>
-					<PreviewParticles />
-				</div>
+				<div className={ styles.emptyState } />
 			</SessionFrame>
 		);
 	}
 
 	return (
 		<SessionFrame
-			session={ data.summary }
-			canExpand={ !! ownerSite?.running || effectiveEnvironment === 'live' }
+			session={ data?.summary }
 			scrollRef={ setScrollNode }
 			rootRef={ setFrameNode }
 			header={
-				<SessionHeader
-					start={ headerStart }
-					siteName={ data.summary.ownerSiteName }
-					site={ ownerSite }
-					effectiveEnvironment={ effectiveEnvironment }
-				/>
+				hideHeader ? null : (
+					<SessionHeader
+						start={ headerStart }
+						siteName={ data?.summary.ownerSiteName }
+						site={ ownerSite }
+					/>
+				)
 			}
 			composer={
 				<div
 					className={ clsx(
 						styles.column,
 						styles.composerColumn,
-						fadeAfterQuotaCheck && styles.fadeInQuick
+						! showEmpty && fadeAfterQuotaCheck && styles.fadeInQuick
 					) }
 				>
 					<QueuedPrompts
@@ -435,48 +515,79 @@ function SessionViewContent( { sessionId, headerStart }: SessionViewProps ) {
 						onAnswer={ targetQuestion ? answerTargetQuestion : undefined }
 						onInterrupt={ interrupt }
 						sessionId={ sessionId }
+						draftKey={ draftKey }
+						provider={ sessionProvider }
+						onModelChange={
+							sessionId ? undefined : ( model, provider ) => updateDraft( { model, provider } )
+						}
 						autoFocus={ isEmpty }
-						entries={ data.entries }
+						entries={ data?.entries }
 						ownerSiteId={ ownerSite?.id }
 						onSwitchSession={ switchSession }
 						placeholder={ composerPlaceholder }
 						placeholderBusy={ isSiteStarting || isSiteStopping }
-						canAutoStart={ canAutoStart }
+						canAutoStart={ canAutoStart && ! ownerSite?.running }
+						onStartSite={
+							canAutoStart && ( ! ownerSite.running || isSiteStarting || isSiteStopping )
+								? () => startSitePreview( ownerSite.id )
+								: undefined
+						}
+						onStopSite={
+							canAutoStart && ownerSite.running ? () => stopSite( ownerSite.id ) : undefined
+						}
+						siteActionDisabled={ isSiteBusy }
+						onAnnotate={ beginAnnotating }
+						annotationDisabled={
+							! canTogglePreview || ! preview || ! connector.capabilities.annotatePreview
+						}
+						isSiteStarting={ isSiteStarting }
 						environment={ effectiveEnvironment }
-						liveUrl={ liveSite?.url }
-						onEnvironmentChange={ ownerSite ? setEnvironment : undefined }
+						onEnvironmentChange={
+							ownerSite
+								? ( environment ) =>
+										sessionId
+											? setEnvironment( environment )
+											: updateDraft( {
+													activeEnvironment: environment,
+													lastSelectedWpcomSiteId: liveSite?.id,
+											  } )
+								: undefined
+						}
 						dropTarget={ frameNode }
 						annotationSiteId={ annotationSiteId }
 						notice={ notice }
 					/>
 				</div>
 			}
-		>
-			{ emptySessionId === sessionId ? (
-				<SiteContextMenu site={ ownerSite } disabled={ ! ownerSite || ownerSite.running }>
+			background={
+				emptySessionId === draftKey ? (
 					<div className={ styles.emptyState } data-hidden={ ! showEmpty || undefined }>
+						{ siteLoading && ! panelVisible ? (
+							<VisuallyHidden role="status">{ __( 'Loading site preview' ) }</VisuallyHidden>
+						) : null }
 						<PreviewParticles
-							active={ siteLoading }
-							showLogo={ siteLoading }
+							active={ siteLoading && ! panelVisible }
+							showLogo={ siteLoading && ! panelVisible }
 							selectionTime={ ownerSite?.running ? undefined : selectionTime }
 						/>
-						{ ownerSite && ! ownerSite.running && ! isSiteStarting ? (
-							<StoppedSitePreview site={ ownerSite } />
-						) : null }
+						{ showStoppedPreview ? <StoppedSitePreview site={ ownerSite } /> : null }
 					</div>
-				</SiteContextMenu>
-			) : null }
+				) : null
+			}
+		>
 			<div data-chat-transcript className={ clsx( styles.column, styles.conversationSpacing ) }>
-				<Conversation
-					data={ data }
-					isRunning={ isRunning }
-					startedAt={ startedAt }
-					pendingQuestions={ pendingQuestionTexts }
-					pendingAnswers={ pendingAnswers }
-					freeFormQuestion={ freeFormQuestion }
-					onAnswerQuestion={ answerQuestionFromOption }
-					onChooseFreeForm={ chooseFreeFormAnswer }
-				/>
+				{ data ? (
+					<Conversation
+						data={ data }
+						isRunning={ isRunning }
+						startedAt={ startedAt }
+						pendingQuestions={ pendingQuestionTexts }
+						pendingAnswers={ pendingAnswers }
+						freeFormQuestion={ freeFormQuestion }
+						onAnswerQuestion={ answerQuestionFromOption }
+						onChooseFreeForm={ chooseFreeFormAnswer }
+					/>
+				) : null }
 			</div>
 			<div ref={ spacerRef } aria-hidden="true" />
 		</SessionFrame>

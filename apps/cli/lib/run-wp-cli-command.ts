@@ -5,6 +5,7 @@ import { buffer, text } from 'node:stream/consumers';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { writeStudioMuPlugins } from '@studio/common/lib/mu-plugins';
 import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
+import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import {
 	getPhpBinaryPath,
 	getSqliteCommandPath,
@@ -18,7 +19,7 @@ import {
 	killPhpProcessTree,
 	reapPhpTreeOnInterrupt,
 } from './native-php/php-process';
-import { loadImportedRuntimeStartOptions } from './pull/runtime-start-options';
+import { getPulledSiteStartOptions } from './pull/pulled-site-start-options';
 import { getWpCliPhpIniArgs } from './wp-cli-php-ini';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { SiteData } from 'cli/lib/cli-config/core';
@@ -212,15 +213,18 @@ export async function runWpCliCommand(
 ): Promise< DisposableWpCliResponse | DisposableExitCode > {
 	const phpVersion = resolveSupportedPhpVersion( options.phpVersion ?? DEFAULT_PHP_VERSION );
 	await ensurePhpBinaryAvailable( phpVersion );
-	await writeStudioMuPlugins( site.path, site.isWpAutoUpdating );
+	await writeStudioMuPlugins( site.path, site.isWpAutoUpdating, site.id );
 
 	// Reprint-pulled sites wire SQLite through runtime.php (loaded as auto_prepend_file),
 	// so load it here too. No-op for normal sites (helper returns undefined).
 	const autoPrependFile = options.requireSqliteCliCommand
 		? undefined
-		: loadImportedRuntimeStartOptions( site )?.autoPrependFile;
+		: getPulledSiteStartOptions( site )?.autoPrependFile;
 	// Don't apply open_basedir or disable_functions to the WP-CLI process
-	const defaultArgs = getDefaultPhpArgs( phpVersion, { autoPrependFile } );
+	const defaultArgs = getDefaultPhpArgs( phpVersion, {
+		autoPrependFile,
+		emailDirectory: getSiteEmailDirectory( site.id ),
+	} );
 	const wpCliArgs = applyWpCliCommandOptions( args, options );
 	const child = spawn(
 		getPhpBinaryPath( phpVersion ),

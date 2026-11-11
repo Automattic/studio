@@ -1,17 +1,19 @@
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
-import { deleteAllSnapshots, deleteSnapshot } from 'cli/lib/api';
+import { deleteAllSnapshots } from 'cli/lib/api';
 import { deleteAllSnapshotsForUserFromConfig } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
+import { deletePreviewSite, deleteSnapshotSite } from 'cli/lib/preview-sites';
 import {
 	deleteSnapshotFromConfig,
 	getSnapshotsFromConfig,
 	isSnapshotExpired,
+	isWpcomPreview,
 } from 'cli/lib/snapshots';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
-import { normalizeHostname } from 'cli/lib/utils';
+import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
@@ -36,12 +38,7 @@ export async function runCommand(
 	logger: Logger< LoggerAction > = new Logger< LoggerAction >()
 ): Promise< void > {
 	try {
-		const token = await readAuthToken();
-		if ( ! token ) {
-			throw new LoggerError(
-				__( 'Authentication required. Please log in with `studio auth login`.' )
-			);
-		}
+		const token = await requireAuthToken();
 
 		const snapshots = await getSnapshotsFromConfig( token.id );
 
@@ -60,7 +57,7 @@ export async function runCommand(
 
 			logger.reportStart( LoggerAction.DELETE, __( 'Deleting…' ) );
 			if ( ! isSnapshotExpired( snapshotToDelete ) ) {
-				await deleteSnapshot( snapshotToDelete.atomicSiteId, token.accessToken );
+				await deleteSnapshotSite( snapshotToDelete, token.accessToken );
 			}
 			await deleteSnapshotFromConfig( snapshotToDelete.url );
 			await emitCliEvent( {
@@ -74,6 +71,12 @@ export async function runCommand(
 			logger.reportStart( LoggerAction.DELETE_ALL, __( 'Deleting all preview sites…' ) );
 
 			const count = snapshots.length;
+			for ( const snapshot of snapshots ) {
+				if ( isWpcomPreview( snapshot ) && ! isSnapshotExpired( snapshot ) ) {
+					await deletePreviewSite( snapshot.atomicSiteId, token.accessToken );
+				}
+			}
+			// Previews made on Jurassic Ninja.
 			await deleteAllSnapshots( token.accessToken );
 			await deleteAllSnapshotsForUserFromConfig( token.id );
 			await emitCliEvent( { event: SNAPSHOT_EVENTS.DELETED_ALL } );
@@ -82,12 +85,9 @@ export async function runCommand(
 			logger.reportSuccess( __( 'Deletion successful' ) );
 		}
 	} catch ( error ) {
-		if ( error instanceof LoggerError ) {
-			logger.reportError( error );
-		} else {
-			const loggerError = new LoggerError( __( 'Failed to delete preview site' ), error );
-			logger.reportError( loggerError );
-		}
+		throw error instanceof LoggerError
+			? error
+			: new LoggerError( __( 'Failed to delete preview site' ), error );
 	}
 }
 
@@ -128,11 +128,16 @@ export const registerCommand = ( yargs: StudioArgv ) => {
 				} );
 		},
 		handler: async ( argv ) => {
-			if ( argv.all ) {
-				await runCommand( Mode.DELETE_ALL_SNAPSHOT, undefined );
-			} else if ( argv.host ) {
-				const normalizedHost = normalizeHostname( argv.host );
-				await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, normalizedHost );
+			const logger = new Logger< LoggerAction >();
+			try {
+				if ( argv.all ) {
+					await runCommand( Mode.DELETE_ALL_SNAPSHOT, undefined, logger );
+				} else if ( argv.host ) {
+					const normalizedHost = normalizeHostname( argv.host );
+					await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, normalizedHost, logger );
+				}
+			} catch ( error ) {
+				logger.reportError( error as LoggerError );
 			}
 		},
 	} );

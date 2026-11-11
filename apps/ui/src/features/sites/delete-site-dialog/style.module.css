@@ -3,8 +3,10 @@
 }
 
 .sites {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-2 );
 	max-height: 12rem;
 	overflow-y: auto;
-	padding-inline-start: var( --space-4 );
-	list-style: disc;
+	list-style: none;
 }

@@ -1,9 +1,24 @@
+import { useSyncExternalStore } from 'react';
+
 interface OpenDialog {
 	replaceable: boolean;
 	close: () => void;
 }
 
 const openDialogs = new Set< OpenDialog >();
+const listeners = new Set< () => void >();
+const subscribe = ( listener: () => void ) => {
+	listeners.add( listener );
+	return () => {
+		listeners.delete( listener );
+	};
+};
+const hasOpenDialog = () => openDialogs.size > 0;
+
+export function useHasOpenDialog() {
+	return useSyncExternalStore( subscribe, hasOpenDialog, () => false );
+}
+
 let pending: ( () => void ) | null = null;
 
 function dropPending() {
@@ -14,8 +29,10 @@ function dropPending() {
 
 export function registerOpenDialog( dialog: OpenDialog ) {
 	openDialogs.add( dialog );
+	listeners.forEach( ( listener ) => listener() );
 	return () => {
 		openDialogs.delete( dialog );
+		listeners.forEach( ( listener ) => listener() );
 		if ( pending && openDialogs.size === 0 ) {
 			const next = pending;
 			dropPending();

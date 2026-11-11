@@ -1,5 +1,5 @@
 import { sitesEndpointSiteSchema } from '@studio/common/types/sync';
-import { getSyncSupport, hasStudioPublishingPlan, isPressableSite } from './sync-support';
+import { getSyncSupport, pushNeedsUpgrade, isPressableSite } from './sync-support';
 import type { SitesEndpointSite, SyncSite, SyncSupport } from '@studio/common/types/sync';
 
 export function transformSingleSiteResponse(
@@ -20,7 +20,7 @@ export function transformSingleSiteResponse(
 		lastPushTimestamp: null,
 		wpVersion: site.options?.software_version,
 		planName: site.plan?.product_name_short,
-		hasStudioPublishingPlan: hasStudioPublishingPlan( site ),
+		pushNeedsUpgrade: pushNeedsUpgrade( site ),
 		createdAt: site.options?.created_at,
 	};
 }
@@ -33,12 +33,15 @@ export function transformSingleSiteResponse(
  *                           When provided, used to: 1) keep deleted sites in the list if they're connected, and
  *                           2) determine sync support status (already-connected vs syncable).
  * @param options.onParseError - Optional callback for site parse errors (e.g. Sentry.captureException)
+ * @param options.planRequired - Whether syncing needs a plan with the Studio sync feature. Defaults
+ *                           to true; a Reprint pull passes false.
  */
 export function transformSitesResponse(
 	sites: unknown[],
 	options?: {
 		connectedSiteIds?: number[];
 		onParseError?: ( error: unknown ) => void;
+		planRequired?: boolean;
 	}
 ): SyncSite[] {
 	const connectedSiteIds = options?.connectedSiteIds ?? [];
@@ -65,7 +68,9 @@ export function transformSitesResponse(
 		)
 		.map( ( site ) => {
 			const isStaging = allStagingSiteIds.includes( site.ID );
-			const syncSupport = getSyncSupport( site, connectedSiteIds );
+			const syncSupport = getSyncSupport( site, connectedSiteIds, {
+				planRequired: options?.planRequired,
+			} );
 
 			return transformSingleSiteResponse( site, syncSupport, isStaging );
 		} );

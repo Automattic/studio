@@ -1,9 +1,10 @@
 import { __ } from '@wordpress/i18n';
 import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
-import { useIsSiteBusy, useStartSite } from '@/data/queries/use-sites';
-import { SiteActionsMenuItems, useSiteActions } from '@/features/sites/site-actions-menu';
+import { useIsSiteBusy } from '@/data/queries/use-sites';
+import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
+import { SiteMenuItems, useSiteActions } from '@/features/sites/site-menu';
 import { StartSiteIcon } from '@/lib/icons';
-import { Menu } from '@/lib/ui';
+import { IconButton, Menu } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { ReactElement } from 'react';
@@ -42,7 +43,7 @@ function SiteActionsContextMenu( {
 			<Menu.ContextMenuRoot disabled={ disabled }>
 				<Menu.ContextMenuTrigger render={ children } />
 				<Menu.ContextPopup { ...actions.shortcuts }>
-					<SiteActionsMenuItems actions={ actions } />
+					<SiteMenuItems actions={ actions } />
 				</Menu.ContextPopup>
 			</Menu.ContextMenuRoot>
 			{ actions.dialogs }
@@ -51,12 +52,28 @@ function SiteActionsContextMenu( {
 }
 
 /** A stopped site's last screenshot; clicking it starts the site. Nothing until one exists. */
-export function StoppedSitePreview( { site }: { site: SiteDetails } ) {
+export function StoppedSitePreview( {
+	site,
+	showStartButton = false,
+}: {
+	site: SiteDetails;
+	showStartButton?: boolean;
+} ) {
 	const { data: thumbnail } = useSiteThumbnail( site.id );
-	const startSite = useStartSite();
+	const startSite = useStartSiteWithChat();
 	const isBusy = useIsSiteBusy( site );
 	if ( ! thumbnail ) {
-		return null;
+		return showStartButton ? (
+			<IconButton
+				className={ styles.startButton }
+				variant="accent"
+				shape="round"
+				label={ __( 'Start site' ) }
+				icon={ <StartSiteIcon fill="currentColor" /> }
+				disabled={ isBusy }
+				onClick={ () => startSite.mutate( site.id ) }
+			/>
+		) : null;
 	}
 	return (
 		<button

@@ -17,7 +17,7 @@ function useLeaveDeletedSite( siteId: string ) {
 	}, [ siteExists, navigate ] );
 }
 
-async function assertSiteExists( siteId: string, context: RouterContext ) {
+export async function assertSiteExists( siteId: string, context: RouterContext ) {
 	const cachedSites = context.queryClient.getQueryData< SiteDetails[] >( SITES_QUERY_KEY );
 	const sites = cachedSites?.some( ( site ) => site.id === siteId )
 		? cachedSites

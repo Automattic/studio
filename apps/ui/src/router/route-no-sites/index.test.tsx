@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { createFakeConnector } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
@@ -7,7 +7,7 @@ describe( 'the empty workspace', () => {
 	it( 'leaves Add site to the welcome, which opens it itself', async () => {
 		renderApp( { path: '/sites?welcome=true' } );
 		expect(
-			await screen.findByRole( 'alertdialog', { name: 'Welcome to WordPress Studio' } )
+			await screen.findByRole( 'dialog', { name: 'Welcome to WordPress Studio' } )
 		).toBeVisible();
 		expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument();
 	} );
@@ -21,8 +21,23 @@ describe( 'the empty workspace', () => {
 			expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument()
 		);
 
-		await connector.createSite( { name: 'From the terminal', path: '/sites/from-cli' } );
+		const toggle = screen
+			.getAllByRole( 'button', { name: 'Show sidebar' } )
+			.find( ( button ) => ! button.closest( '[inert]' ) )!;
+		await user.click( toggle );
+		expect(
+			screen
+				.getAllByRole( 'button', { name: 'Hide sidebar' } )
+				.find( ( button ) => ! button.closest( '[inert]' ) )
+		).toBeVisible();
 
-		await waitFor( () => expect( history.location.pathname ).not.toBe( '/sites' ) );
+		await act( async () => {
+			await connector.createSite( { name: 'From the terminal', path: '/sites/from-cli' } );
+		} );
+
+		expect(
+			await screen.findByRole( 'combobox', { name: 'Message WordPress Studio' } )
+		).toBeVisible();
+		expect( history.location.pathname ).not.toBe( '/sites' );
 	} );
 } );

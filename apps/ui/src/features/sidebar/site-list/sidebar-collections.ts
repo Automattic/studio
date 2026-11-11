@@ -1,4 +1,10 @@
-import { findAiSessionOwnerSite } from '@studio/common/ai/sessions/owner-site';
+import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
+import {
+	getDefaultSidebarChatSort,
+	type SidebarPinnedSort,
+	type SidebarSiteSort,
+	type SidebarChatSort,
+} from '@studio/common/lib/user-settings/preferences';
 import { chatPinKey, orderChats, sitePinKey } from '@/data/queries/use-sidebar-pins';
 import type { AiSessionSummary, SiteDetails } from '@/data/core';
 
@@ -24,14 +30,11 @@ function byMostRecent( a: AiSessionSummary, b: AiSessionSummary ): number {
 	return getTimestamp( b ) - getTimestamp( a );
 }
 
-// A new chat isn't listed until its first prompt, unless it's open.
+// Drafts stay in the site's workspace until the first message is sent.
 export function getListedSessions(
-	sessions: AiSessionSummary[] | undefined,
-	activeSessionId: string | undefined
+	sessions: AiSessionSummary[] | undefined
 ): AiSessionSummary[] | undefined {
-	return sessions?.filter(
-		( session ) => session.firstPrompt || session.title || session.id === activeSessionId
-	);
+	return sessions?.filter( ( session ) => session.firstPrompt );
 }
 
 export function createSiteRows(
@@ -90,21 +93,22 @@ export function getActiveSiteKeys(
 	return { chat, context };
 }
 
-// Pinned sites and chats move out of their usual place into the Pinned group,
-// and a chat waiting on an answer shows once, under Needs input.
+// Pinned sites and chats move out of their usual place into the Pinned group.
 export function getSidebarCollections(
 	rows: SiteRow[],
 	sessions: AiSessionSummary[] | undefined,
 	{
 		pins,
 		chatOrder,
-		needingInput,
-		chatEnabled,
+		pinnedSort = 'type',
+		siteSort = 'manual',
+		chatSort = getDefaultSidebarChatSort( chatOrder ),
 	}: {
 		pins: string[];
 		chatOrder: Record< string, string[] | undefined >;
-		needingInput: string[];
-		chatEnabled: boolean;
+		pinnedSort?: SidebarPinnedSort;
+		siteSort?: SidebarSiteSort;
+		chatSort?: SidebarChatSort;
 	}
 ) {
 	const pinned = new Set( pins );
@@ -119,33 +123,35 @@ export function getSidebarCollections(
 		if ( row ) {
 			return [ { key, row } ];
 		}
-		return session && chatEnabled && ! session.archived && ! needingInput.includes( session.id )
+		return session && ! session.archived
 			? [ { key, session, siteName: findSessionSiteRow( rows, session.id )?.site.name } ]
 			: [];
 	} );
+	if ( pinnedSort === 'type' ) {
+		pinnedItems.sort( ( a, b ) => Number( !! b.row ) - Number( !! a.row ) );
+	}
 	const siteRows = rows.filter( ( row ) => ! pinned.has( sitePinKey( row.site.id ) ) );
+	if ( siteSort === 'status' ) {
+		siteRows.sort( ( a, b ) => Number( b.site.running ) - Number( a.site.running ) );
+	}
 	const chatsBySite = new Map(
 		rows.map( ( row ) => [
 			row.site.id,
 			orderChats(
-				row.chats.filter(
-					( session ) => ! isChatPinned( session ) && ! needingInput.includes( session.id )
-				),
-				chatOrder[ row.site.id ]
+				row.chats.filter( ( session ) => ! isChatPinned( session ) ),
+				chatSort === 'manual' ? chatOrder[ row.site.id ] : undefined
 			),
 		] )
 	);
 
-	const openChats = chatEnabled
-		? ( sessions ?? [] ).filter( ( session ) => ! session.archived ).sort( byMostRecent )
-		: [];
-	// Chats waiting on an answer move to the top until it's given.
-	const needsInputChats = openChats.filter( ( session ) => needingInput.includes( session.id ) );
+	const openChats = ( sessions ?? [] )
+		.filter( ( session ) => ! session.archived )
+		.sort( byMostRecent );
 	const recentChats = openChats
-		.filter( ( session ) => ! needingInput.includes( session.id ) && ! isChatPinned( session ) )
+		.filter( ( session ) => ! isChatPinned( session ) )
 		.slice( 0, RECENT_CHATS_LIMIT );
 
-	return { pinnedItems, siteRows, chatsBySite, needsInputChats, recentChats };
+	return { pinnedItems, siteRows, chatsBySite, recentChats };
 }
 
 // Opening a site unfolds its chats and, unless the user turned it off, folds

@@ -4,6 +4,7 @@ import type { UserPreferences } from '@/data/core';
 
 const SAVED_PREFERENCES: UserPreferences = {
 	editor: 'vscode',
+	browser: null,
 	terminal: 'terminal',
 	colorScheme: 'system',
 	quitSitesBehavior: 'stop',
@@ -12,7 +13,6 @@ const SAVED_PREFERENCES: UserPreferences = {
 	defaultSiteDirectory: '/Users/example/Studio',
 	studioCliInstalled: false,
 	studioCliExternallyManaged: false,
-	agenticFeaturesEnabled: true,
 };
 
 describe( 'settings preference helpers', () => {
@@ -27,6 +27,7 @@ describe( 'settings preference helpers', () => {
 			} )
 		).toEqual( {
 			editor: UNSET,
+			browser: UNSET,
 			terminal: UNSET,
 			colorScheme: 'system',
 			quitSitesBehavior: UNSET,
@@ -34,26 +35,14 @@ describe( 'settings preference helpers', () => {
 			analyticsEnabled: true,
 			defaultSiteDirectory: '/Users/example/Studio',
 			autoStartSiteOnChat: false,
-			confirmDeleteAnnotations: true,
-		} );
-	} );
-
-	it( 'returns an empty patch for an empty update', () => {
-		expect( toPreferencesPatch( {} ) ).toEqual( {} );
-	} );
-
-	it( 'maps a single-field update to a single-field patch', () => {
-		expect( toPreferencesPatch( { colorScheme: 'dark' } ) ).toEqual( { colorScheme: 'dark' } );
-		expect( toPreferencesPatch( { locale: 'es' } ) ).toEqual( { locale: 'es' } );
-		expect( toPreferencesPatch( { quitSitesBehavior: 'leave-running' } ) ).toEqual( {
-			quitSitesBehavior: 'leave-running',
-		} );
-		expect( toPreferencesPatch( { defaultSiteDirectory: '/Users/example/Sites' } ) ).toEqual( {
-			defaultSiteDirectory: '/Users/example/Sites',
+			openChatOnSiteStart: true,
+			batchAnnotations: true,
+			hideFrontendAdminBar: false,
 		} );
 	} );
 
 	it( 'persists the editor/terminal UNSET sentinel as null', () => {
+		expect( toPreferencesPatch( { browser: UNSET } ) ).toEqual( { browser: null } );
 		expect( toPreferencesPatch( { editor: UNSET } ) ).toEqual( { editor: null } );
 		expect( toPreferencesPatch( { terminal: UNSET } ) ).toEqual( { terminal: null } );
 	} );

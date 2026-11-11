@@ -8,7 +8,9 @@
 import { createHash, randomUUID } from 'crypto';
 import { mkdir, readdir, readFile, rename, rm, unlink, writeFile } from 'fs/promises';
 import path from 'path';
-import { getMuPluginsPath } from './well-known-paths.ts';
+import { syncMuPluginSettings } from './mu-plugin-settings.ts';
+import { PREVIEW_SHORTCUTS_SCRIPT } from './preview-shortcuts-script.ts';
+import { getMuPluginsPath, getMuPluginSettingsPath } from './well-known-paths.ts';
 
 export interface MuPlugin {
 	filename: string;
@@ -27,8 +29,13 @@ export function escapePhpSingleQuotedString( value: string ): string {
 	return value.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" );
 }
 
-function getLoaderMuPluginContent( muPluginsDir: string ): string {
+function getLoaderMuPluginContent( muPluginsDir: string, siteId?: string ): string {
 	const escapedMuPluginsDir = escapePhpSingleQuotedString( muPluginsDir );
+	const siteIdDefinition = siteId
+		? "if ( ! defined( 'STUDIO_SITE_ID' ) ) define( 'STUDIO_SITE_ID', '" +
+		  escapePhpSingleQuotedString( siteId ) +
+		  "' );"
+		: '';
 
 	return `<?php
 		/**
@@ -50,6 +57,7 @@ function getLoaderMuPluginContent( muPluginsDir: string ): string {
 		if ( ! defined( 'WP_ENVIRONMENT_TYPE' ) ) define( 'WP_ENVIRONMENT_TYPE', 'local' );
 
 		$studio_mu_plugins_dir = '${ escapedMuPluginsDir }';
+		${ siteIdDefinition }
 
 		if ( is_dir( $studio_mu_plugins_dir ) ) {
 			$files = glob( $studio_mu_plugins_dir . '/*.php' );
@@ -66,13 +74,21 @@ function getLoaderMuPluginContent( muPluginsDir: string ): string {
 		`;
 }
 
-/**
- * Get all standard mu-plugins for WordPress local development
- * @param options Configuration options for mu-plugins
- * @returns Array of mu-plugin definitions
- */
 function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	const muPlugins: MuPlugin[] = [];
+	muPlugins.push( {
+		filename: '0-preview-shortcuts.php',
+		content: `<?php
+		function studio_preview_shortcuts() {
+			echo <<<'STUDIO_PREVIEW_SHORTCUTS'
+<script>${ PREVIEW_SHORTCUTS_SCRIPT }</script>
+STUDIO_PREVIEW_SHORTCUTS;
+		}
+		add_action( 'wp_head', 'studio_preview_shortcuts' );
+		add_action( 'login_head', 'studio_preview_shortcuts' );
+		add_action( 'admin_head', 'studio_preview_shortcuts' );
+		`,
+	} );
 
 	// Capture PHP errors so a failed site start can show why (STU-1757).
 	if ( options.errorLogPath ) {
@@ -93,7 +109,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		} );
 	}
 
-	// HTTPS detection for reverse proxy
 	muPlugins.push( {
 		filename: '0-https-for-reverse-proxy.php',
 		content: `<?php
@@ -104,7 +119,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
-	// Redirect to SITEURL constant
 	muPlugins.push( {
 		filename: '0-redirect-to-siteurl-constant.php',
 		content: `<?php
@@ -136,18 +150,25 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
-	// Studio-specific: Hide admin bar for screenshots and health check
 	muPlugins.push( {
 		filename: '0-thumbnails.php',
 		content: `<?php
-		// Facilitates the taking of screenshots to be used as thumbnails.
-		if ( isset( $_GET['studio-hide-adminbar'] ) ) {
-			add_filter( 'show_admin_bar', '__return_false' );
+		$studio_browser_settings = json_decode( (string) @file_get_contents( '${ escapePhpSingleQuotedString(
+			getMuPluginSettingsPath()
+		) }' ), true );
+		$studio_hide_admin_bar = is_array( $studio_browser_settings ) && ( $studio_browser_settings['hideFrontendAdminBar'] ?? false ) === true;
+		if ( defined( 'STUDIO_SITE_ID' ) && is_array( $studio_browser_settings['sites'] ?? null ) ) {
+			$studio_site_override = $studio_browser_settings['sites'][STUDIO_SITE_ID] ?? null;
+			if ( is_bool( $studio_site_override ) ) {
+				$studio_hide_admin_bar = $studio_site_override;
+			}
+		}
+		if ( isset( $_GET['studio-hide-adminbar'] ) || $studio_hide_admin_bar ) {
+			add_filter( 'show_admin_bar', '__return_false', PHP_INT_MAX );
 		}
 		`,
 	} );
 
-	// Check theme availability
 	muPlugins.push( {
 		filename: '0-check-theme-availability.php',
 		content: `<?php
@@ -176,7 +197,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	`,
 	} );
 
-	// Enable permalinks
 	muPlugins.push( {
 		filename: '0-permalinks.php',
 		content: `<?php
@@ -185,7 +205,17 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 	`,
 	} );
 
-	// Trailing slash handling for wp-admin
+	muPlugins.push( {
+		filename: '0-mail-from.php',
+		content: `<?php
+		// WordPress sends as wordpress@<site host>, and PHPMailer refuses wordpress@localhost
+		// (no dot in the domain), so without this every email a localhost site sends fails.
+		add_filter( 'wp_mail_from', function ( $from_email ) {
+			return preg_match( '/@[^.@]+$/', $from_email ) ? $from_email . '.localdomain' : $from_email;
+		} );
+		`,
+	} );
+
 	muPlugins.push( {
 		filename: '0-wp-admin-trailing-slash.php',
 		content: `<?php
@@ -212,7 +242,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		`,
 	} );
 
-	// Deactivate Jetpack modules
 	muPlugins.push( {
 		filename: '0-deactivate-jetpack-modules.php',
 		content: `<?php
@@ -252,7 +281,6 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		} );
 	}
 
-	// Studio-specific: Fix plugin spinner display
 	muPlugins.push( {
 		filename: '0-tmp-fix-hide-plugins-spinner.php',
 		content: `<?php
@@ -307,43 +335,21 @@ function getStandardMuPlugins( options: MuPluginOptions ): MuPlugin[] {
 		} );
 
 		/**
-		 * Gets the path of the configured Site Icon relative to the
-		 * WordPress install root, or null when no Site Icon is set.
-		 *
-		 * The host (Studio) turns it into a real filesystem path by
-		 * joining the site folder with the returned relative path.
-		 *
-		 * ## EXAMPLES
-		 *
-		 *     wp studio get-site-icon
+		 * Gets merged core, theme and user styles for block themes.
 		 *
 		 * @when after_wp_load
 		 */
-		WP_CLI::add_command( 'studio get-site-icon', function() {
-			$icon_id = (int) get_option( 'site_icon' );
-			if ( ! $icon_id ) {
-				echo json_encode( null );
+		WP_CLI::add_command( 'studio get-global-styles', function() {
+			if ( ! wp_is_block_theme() ) {
+				echo wp_json_encode( null );
 				return;
 			}
-
-			$path = get_attached_file( $icon_id );
-			if ( ! $path || ! file_exists( $path ) ) {
-				echo json_encode( null );
-				return;
-			}
-
-			// get_attached_file() returns an absolute path. Strip ABSPATH
-			// to get a relative path rooted at the site folder.
-			$normalized_path = wp_normalize_path( $path );
-			$normalized_abspath = wp_normalize_path( ABSPATH );
-			$relative = str_starts_with( $normalized_path, $normalized_abspath )
-				? substr( $normalized_path, strlen( $normalized_abspath ) )
-				: $path;
-
-			echo json_encode( [
-				'relativePath' => ltrim( $relative, '/' ),
+			echo wp_json_encode( [
+				'settings' => (object) wp_get_global_settings(),
+				'styles' => (object) wp_get_global_styles( [], [ 'transforms' => [ 'resolve-variables' ] ] ),
 			] );
 		} );
+
 		`,
 	} );
 
@@ -594,6 +600,7 @@ async function writeFileIfChanged( filePath: string, content: string ): Promise<
  * Write the Studio mu-plugins for a WordPress instance and return their directory.
  */
 export async function getMuPlugins( options: MuPluginOptions = {} ): Promise< string > {
+	await syncMuPluginSettings();
 	const muPlugins = getStandardMuPlugins( options );
 	const muPluginsDir = getMuPluginsDirectory( muPlugins );
 	try {
@@ -614,7 +621,8 @@ export async function getMuPlugins( options: MuPluginOptions = {} ): Promise< st
  */
 export async function writeStudioMuPlugins(
 	siteFolder: string,
-	isWpAutoUpdating: MuPluginOptions[ 'isWpAutoUpdating' ]
+	isWpAutoUpdating: MuPluginOptions[ 'isWpAutoUpdating' ],
+	siteId?: string
 ): Promise< string > {
 	const muPluginsDir = path.join( siteFolder, 'wp-content', 'mu-plugins' );
 	await mkdir( muPluginsDir, { recursive: true } );
@@ -623,7 +631,7 @@ export async function writeStudioMuPlugins(
 	const studioMuPluginsDir = await getMuPlugins( { isWpAutoUpdating } );
 	await writeFileIfChanged(
 		path.join( muPluginsDir, STUDIO_LOADER_MU_PLUGIN_FILENAME ),
-		getLoaderMuPluginContent( studioMuPluginsDir )
+		getLoaderMuPluginContent( studioMuPluginsDir, siteId )
 	);
 	return studioMuPluginsDir;
 }
@@ -645,7 +653,6 @@ export const STUDIO_LOADER_MU_PLUGIN_FILENAME = '99-studio-loader.php';
  * scrub anything previously installed by Studio.
  */
 export const LEGACY_MU_PLUGIN_FILENAMES = [
-	// Current mu-plugins (from getStandardMuPlugins)
 	'0-allowed-redirect-hosts.php',
 	'0-auto-login.php',
 	'0-check-theme-availability.php',
@@ -665,7 +672,6 @@ export const LEGACY_MU_PLUGIN_FILENAMES = [
 	'0-tmp-fix-hide-plugins-spinner.php',
 	'0-tmp-fix-qm-plugin-sapi.php',
 	'0-wp-admin-trailing-slash.php',
-	// Retired mu-plugins from older Studio versions
 	'0-32bit-integer-warnings.php',
 	'0-dns-functions.php',
 	'0-sqlite.php',
@@ -679,8 +685,6 @@ export const LEGACY_MU_PLUGIN_FILENAMES = [
  * Newer versions load them through `STUDIO_LOADER_MU_PLUGIN_FILENAME`. Having both
  * copies causes PHP fatal errors like "Cannot redeclare" because the same functions
  * are defined in both the on-disk file and the loaded one.
- *
- * @param sitePath - Absolute path to the WordPress site directory
  */
 export async function cleanupLegacyMuPlugins( sitePath: string ): Promise< void > {
 	const muPluginsDir = path.join( sitePath, 'wp-content', 'mu-plugins' );

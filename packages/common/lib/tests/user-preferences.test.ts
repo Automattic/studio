@@ -17,7 +17,7 @@ beforeEach( () => {
 	process.env.DEV_CONFIG_DIR = configDir;
 	writeFileSync(
 		path.join( configDir, 'app.json' ),
-		JSON.stringify( { preferredEditor: 'vscode', colorScheme: 'dark' } )
+		JSON.stringify( { preferredEditor: 'vscode', colorScheme: 'dark', newSiteBehavior: 'blank' } )
 	);
 } );
 
@@ -85,15 +85,10 @@ it( 'keeps the sidebar preferences, which default to recent chats shown and site
 	} );
 } );
 
-it( 'keeps what Add site opens on, choosing a starting point until set', async () => {
-	const context = { sitesRoot: configDir, installedApps: {} as never };
-	expect( ( await readUserPreferences( context ) ).newSiteBehavior ).toBe( 'choose' );
-
-	await writeUserPreferences( { newSiteBehavior: 'blank' }, { sitesRoot: configDir } );
-	expect( ( await readUserPreferences( context ) ).newSiteBehavior ).toBe( 'blank' );
-
-	await writeUserPreferences( { newSiteBehavior: null }, { sitesRoot: configDir } );
-	expect( ( await readUserPreferences( context ) ).newSiteBehavior ).toBe( 'choose' );
+it( 'ignores the retired Add site opening preference in saved settings and patches', async () => {
+	const preferences = await readUserPreferences( { sitesRoot: configDir } );
+	expect( preferences ).not.toHaveProperty( 'newSiteBehavior' );
+	expect( userPreferencesPatchSchema.parse( { newSiteBehavior: 'blank' } ) ).toEqual( {} );
 } );
 
 it( 'keeps the appearance tint, falling back to the defaults for unset or invalid values', async () => {
@@ -128,4 +123,90 @@ it( 'keeps the appearance tint, falling back to the defaults for unset or invali
 it( 'rejects an accent color that is not a hex color', () => {
 	expect( userPreferencesPatchSchema.safeParse( { accentColor: 'red' } ).success ).toBe( false );
 	expect( userPreferencesPatchSchema.safeParse( { tintIntensity: 101 } ).success ).toBe( false );
+} );
+
+it( 'persists sidebar sort choices independently of manual arrangements', async () => {
+	const context = { sitesRoot: configDir };
+	expect( await readUserPreferences( context ) ).toMatchObject( {
+		sidebarPinnedSort: 'type',
+		sidebarSiteSort: 'manual',
+		sidebarChatSort: 'updated',
+	} );
+	await writeUserPreferences( { sidebarChatOrder: { site: [ 'old', 'new' ] } }, context );
+	expect( ( await readUserPreferences( context ) ).sidebarChatSort ).toBe( 'manual' );
+	await writeUserPreferences(
+		{ sidebarPinnedSort: 'manual', sidebarSiteSort: 'status', sidebarChatSort: 'updated' },
+		context
+	);
+	expect( await readUserPreferences( context ) ).toMatchObject( {
+		sidebarPinnedSort: 'manual',
+		sidebarSiteSort: 'status',
+		sidebarChatSort: 'updated',
+		sidebarChatOrder: { site: [ 'old', 'new' ] },
+	} );
+	await writeUserPreferences(
+		{ sidebarPinnedSort: null, sidebarSiteSort: null, sidebarChatSort: null },
+		context
+	);
+	expect( await readUserPreferences( context ) ).toMatchObject( {
+		sidebarPinnedSort: 'type',
+		sidebarSiteSort: 'manual',
+		sidebarChatSort: 'manual',
+	} );
+} );
+
+it( 'rejects invalid sort choices and recovers invalid stored values', async () => {
+	for ( const key of [ 'sidebarPinnedSort', 'sidebarSiteSort', 'sidebarChatSort' ] ) {
+		expect( userPreferencesPatchSchema.safeParse( { [ key ]: 'invalid' } ).success ).toBe( false );
+	}
+	writeFileSync(
+		path.join( configDir, 'app.json' ),
+		JSON.stringify( {
+			sidebarPinnedSort: 'invalid',
+			sidebarSiteSort: 'invalid',
+			sidebarChatSort: 'invalid',
+		} )
+	);
+	expect( await readUserPreferences( { sitesRoot: configDir } ) ).toMatchObject( {
+		sidebarPinnedSort: 'type',
+		sidebarSiteSort: 'manual',
+		sidebarChatSort: 'updated',
+	} );
+} );
+
+it( 'opens chat on site start by default and persists the opt-out', async () => {
+	const context = { sitesRoot: configDir };
+	expect( ( await readUserPreferences( context ) ).openChatOnSiteStart ).toBe( true );
+	await writeUserPreferences(
+		userPreferencesPatchSchema.parse( { openChatOnSiteStart: false } ),
+		context
+	);
+	expect( ( await readUserPreferences( context ) ).openChatOnSiteStart ).toBe( false );
+	await writeUserPreferences( { openChatOnSiteStart: null }, context );
+	expect( ( await readUserPreferences( context ) ).openChatOnSiteStart ).toBe( true );
+} );
+
+it( 'saves and clears the browser preference without changing the editor', async () => {
+	const context = { sitesRoot: configDir };
+	expect( ( await readUserPreferences( context ) ).browser ).toBeNull();
+	await writeUserPreferences( { browser: 'chrome' }, context );
+	expect( await readUserPreferences( context ) ).toMatchObject( {
+		browser: 'chrome',
+		editor: 'vscode',
+	} );
+	await writeUserPreferences( { browser: null }, context );
+	expect( ( await readUserPreferences( context ) ).browser ).toBeNull();
+	expect( userPreferencesPatchSchema.safeParse( { browser: 'unknown' } ).success ).toBe( false );
+} );
+
+it( 'keeps annotation batching on by default and persists it across preference reads', async () => {
+	const context = { sitesRoot: configDir };
+	expect( ( await readUserPreferences( context ) ).batchAnnotations ).toBe( true );
+	await writeUserPreferences(
+		userPreferencesPatchSchema.parse( { batchAnnotations: false } ),
+		context
+	);
+	expect( ( await readUserPreferences( context ) ).batchAnnotations ).toBe( false );
+	await writeUserPreferences( { batchAnnotations: null }, context );
+	expect( ( await readUserPreferences( context ) ).batchAnnotations ).toBe( true );
 } );

@@ -6,7 +6,7 @@ import {
 	isKeyboardEvent,
 	shortcutAriaLabel,
 } from '@wordpress/keycodes';
-import type { BrowserShortcutCommand } from '@studio/common/ai/inspector/page-script';
+import type { BrowserShortcutCommand } from '@studio/agent/protocol/inspector/page-script';
 
 export function getBrowserShortcutDescriptor( key: string ) {
 	return {

@@ -1,15 +1,17 @@
-import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/common/ai/chat-artifacts';
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	DATABASE_HOME_PATH,
+	EMAIL_PREVIEW_PATH,
 	getPathFromPreviewUrl,
 	getPreviewRealm,
 	getRealmNavigationPath,
 	getRealmOpenEvent,
+	isWordPressAuthPath,
 	parseOmniboxInput,
 	PreviewAddressBar,
-	type PreviewRealm,
 } from './address-bar';
 import type { SiteDetails } from '@/data/core';
 import type { Mock } from 'vitest';
@@ -28,30 +30,52 @@ function autoLoginPath( target: string ) {
 	return `/studio-auto-login?redirect_to=${ encodeURIComponent( `${ SITE_URL }${ target }` ) }`;
 }
 
+it.each( [ false, true ] )(
+	'hides the scheme while retaining the full URL for editing (compact: %s)',
+	async ( compact ) => {
+		const user = userEvent.setup();
+		render(
+			<PreviewAddressBar
+				site={ SITE }
+				siteUrl={ SITE_URL }
+				path="/about/"
+				compact={ compact }
+				onNavigate={ vi.fn() }
+			/>
+		);
+		const input = screen.getByRole( 'textbox', { name: 'Address' } ) as HTMLInputElement;
+		expect( screen.getByText( 'localhost:8881/about/' ) ).toHaveAttribute( 'aria-hidden', 'true' );
+		await user.click( input );
+		expect( input ).toHaveValue( `${ SITE_URL }/about/` );
+		expect( input.selectionStart ).toBe( 0 );
+		expect( input.selectionEnd ).toBe( input.value.length );
+	}
+);
+
 function renderAddressBar( {
 	path = '/',
+	remote = false,
 	site = SITE,
-	siteIcon,
 	onNavigate = vi.fn< ( path: string ) => void >(),
-	onSwitchRealm = vi.fn< ( realm: PreviewRealm ) => void >(),
+	pageTitle = 'Example Site',
 }: {
 	path?: string;
+	remote?: boolean;
 	site?: SiteDetails;
-	siteIcon?: string;
 	onNavigate?: Mock< ( path: string ) => void >;
-	onSwitchRealm?: Mock< ( realm: PreviewRealm ) => void >;
+	pageTitle?: string | null;
 } = {} ) {
 	const result = render(
 		<PreviewAddressBar
 			site={ site }
-			siteIcon={ siteIcon }
 			siteUrl={ SITE_URL }
 			path={ path }
+			remote={ remote }
 			onNavigate={ onNavigate }
-			onSwitchRealm={ onSwitchRealm }
+			pageTitle={ pageTitle }
 		/>
 	);
-	return { ...result, onNavigate, onSwitchRealm };
+	return { ...result, onNavigate };
 }
 
 describe( 'parseOmniboxInput', () => {
@@ -96,6 +120,24 @@ describe( 'getPathFromPreviewUrl', () => {
 } );
 
 describe( 'preview realms', () => {
+	it.each( [
+		'/wp-login.php',
+		'/wp-login.php?action=logout&_wpnonce=example',
+		'/wp-signup.php',
+		'/wp-activate.php?key=example',
+		autoLoginPath( '/wp-login.php?action=logout' ),
+	] )( 'recognizes authentication URL %s', ( path ) => {
+		expect( isWordPressAuthPath( path ) ).toBe( true );
+	} );
+	it.each( [
+		'/',
+		'/about-wp-login.php/',
+		'/wp-admin/',
+		'/?next=wp-login.php',
+		autoLoginPath( '/wp-admin/' ),
+	] )( 'keeps normal page %s', ( path ) => {
+		expect( isWordPressAuthPath( path ) ).toBe( false );
+	} );
 	it( 'classifies regular and auto-login paths', () => {
 		expect( getPreviewRealm( '/' ) ).toBe( 'frontend' );
 		expect( getPreviewRealm( '/wp-admin/' ) ).toBe( 'admin' );
@@ -104,12 +146,14 @@ describe( 'preview realms', () => {
 		expect( getPreviewRealm( DESIGN_SYSTEM_PREVIEW_PATH ) ).toBe( 'design' );
 		expect( getPreviewRealm( '/wp-admin-guide/' ) ).toBe( 'frontend' );
 		expect( getPreviewRealm( '/phpmyadmin-notes/' ) ).toBe( 'frontend' );
+		expect( getPreviewRealm( EMAIL_PREVIEW_PATH ) ).toBe( 'email' );
 	} );
 
 	it( 'maps realms to open events', () => {
 		expect( getRealmOpenEvent( 'frontend' ) ).toBe( 'studio_site_open_in_browser' );
 		expect( getRealmOpenEvent( 'admin' ) ).toBe( 'studio_site_open_wp_admin' );
 		expect( getRealmOpenEvent( 'database' ) ).toBe( 'studio_site_open_phpmyadmin' );
+		expect( getRealmOpenEvent( 'email' ) ).toBe( 'studio_site_open_email' );
 		expect( getRealmOpenEvent( 'design' ) ).toBe( 'studio_site_open_design_system' );
 	} );
 
@@ -125,27 +169,89 @@ describe( 'preview realms', () => {
 describe( 'PreviewAddressBar', () => {
 	beforeEach( () => window.localStorage.clear() );
 
-	it( 'shows the current complete URL and follows path updates', () => {
-		const { rerender } = renderAddressBar( { path: '/about/?preview=1' } );
-		const input = screen.getByRole( 'textbox', { name: 'Address' } );
-		expect( input ).toHaveValue( `${ SITE_URL }/about/?preview=1` );
-
-		rerender(
-			<PreviewAddressBar
-				site={ SITE }
-				siteUrl={ SITE_URL }
-				path="/contact/"
-				onNavigate={ vi.fn() }
-				onSwitchRealm={ vi.fn() }
-			/>
+	it( 'removes saved authentication links and never remembers a logout or reset URL', async () => {
+		const key = 'studio-preview-recent-locations:site-1';
+		localStorage.setItem(
+			key,
+			JSON.stringify( {
+				version: 1,
+				locations: [
+					{ path: '/wp-login.php?action=logout&_wpnonce=old', label: 'Old logout' },
+					{ path: '/sample-page/', label: 'Sample page', title: 'Sample page' },
+				],
+			} )
 		);
-		expect( input ).toHaveValue( `${ SITE_URL }/contact/` );
+		const { user } = { user: userEvent.setup() };
+		renderAddressBar( { path: '/wp-login.php?action=rp&key=reset', pageTitle: 'Reset Password' } );
+		await user.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
+		expect( screen.getByRole( 'option', { name: /Sample page/ } ) ).toBeVisible();
+		expect(
+			screen.queryByRole( 'option', { name: /logout|Reset Password/i } )
+		).not.toBeInTheDocument();
+		expect( localStorage.getItem( key ) ).not.toMatch( /wp-login|_wpnonce|key=reset/ );
 	} );
 
-	it( 'flags an address off the site, and Escape restores the URL', () => {
-		const { onNavigate } = renderAddressBar( { path: '/about/' } );
+	it( 'opens recent pages on mouse-down before the click finishes', async () => {
+		const user = userEvent.setup();
+		renderAddressBar();
 		const input = screen.getByRole( 'textbox', { name: 'Address' } );
-		input.focus();
+		await user.pointer( { keys: '[MouseLeft>]', target: input } );
+		expect( screen.getByRole( 'option', { name: /Example Site/ } ) ).toBeVisible();
+		expect( input ).toHaveFocus();
+		await user.pointer( { keys: '[/MouseLeft]', target: input } );
+		expect( screen.getByRole( 'option', { name: /Example Site/ } ) ).toBeVisible();
+		await user.click( screen.getByRole( 'option', { name: /Example Site/ } ) );
+	} );
+
+	it( 'opens recent pages on keyboard focus', async () => {
+		const user = userEvent.setup();
+		renderAddressBar();
+		await user.tab();
+		expect( screen.getByRole( 'textbox', { name: 'Address' } ) ).toHaveFocus();
+		expect( await screen.findByRole( 'option', { name: /Example Site/ } ) ).toBeVisible();
+		await user.click( screen.getByRole( 'option', { name: /Example Site/ } ) );
+	} );
+
+	it( 'keeps remote addresses editable without local recent pages', async () => {
+		const user = userEvent.setup();
+		const { onNavigate } = renderAddressBar( { remote: true } );
+		const input = screen.getByRole( 'textbox', { name: 'Address' } );
+		await user.click( input );
+		expect( screen.queryByRole( 'dialog', { name: 'Recent pages' } ) ).not.toBeInTheDocument();
+		await user.keyboard( '/about{Enter}' );
+		expect( onNavigate ).toHaveBeenCalledWith( '/about' );
+	} );
+
+	it( 'keeps the address editable while recent pages are open', async () => {
+		const user = userEvent.setup();
+		const { onNavigate } = renderAddressBar();
+		const input = screen.getByRole( 'textbox', { name: 'Address' } ) as HTMLInputElement;
+		await user.click( input );
+		expect( await screen.findByRole( 'option', { name: /Example Site/ } ) ).toBeVisible();
+		expect( input ).toHaveFocus();
+		expect( input.selectionStart ).toBe( 0 );
+		expect( input.selectionEnd ).toBe( SITE_URL.length );
+		await user.keyboard( '/about' );
+		expect( input ).toHaveValue( '/about' );
+		await user.clear( input );
+		await user.keyboard( `${ SITE_URL }/about` );
+		expect( input ).toHaveValue( `${ SITE_URL }/about` );
+		await user.click( input );
+		expect( input.selectionStart ).toBe( input.selectionEnd );
+		expect( screen.getByRole( 'option', { name: /Example Site/ } ) ).toBeVisible();
+		await user.keyboard( '{Enter}' );
+		expect( onNavigate ).toHaveBeenLastCalledWith( '/about' );
+		await user.click( input );
+		await user.clear( input );
+		await user.keyboard( 'hello world{Enter}' );
+		expect( onNavigate ).toHaveBeenLastCalledWith( '/?s=hello%20world' );
+	} );
+
+	it( 'flags an address off the site, and Escape restores the URL', async () => {
+		const user = userEvent.setup();
+		const { onNavigate } = renderAddressBar( { path: '/about/', remote: true } );
+		const input = screen.getByRole( 'textbox', { name: 'Address' } );
+		await user.click( input );
 
 		fireEvent.change( input, { target: { value: 'https://example.com/' } } );
 		fireEvent.submit( input.closest( 'form' )! );
@@ -154,19 +260,11 @@ describe( 'PreviewAddressBar', () => {
 		expect( input ).toHaveAttribute( 'aria-invalid', 'true' );
 		expect( input ).toHaveAttribute( 'title', 'Enter a path or an address on this site.' );
 
-		fireEvent.keyDown( input, { key: 'Escape' } );
+		await user.keyboard( '{Escape}' );
 
 		expect( input ).toHaveValue( `${ SITE_URL }/about/` );
 		expect( input ).not.toHaveAttribute( 'aria-invalid' );
 		expect( input ).not.toHaveFocus();
-	} );
-
-	it( 'selects the URL on focus', () => {
-		renderAddressBar();
-		const input = screen.getByRole( 'textbox', { name: 'Address' } ) as HTMLInputElement;
-		fireEvent.focus( input );
-		expect( input.selectionStart ).toBe( 0 );
-		expect( input.selectionEnd ).toBe( input.value.length );
 	} );
 
 	it( 'navigates paths and searches submitted from the address field', () => {
@@ -182,26 +280,6 @@ describe( 'PreviewAddressBar', () => {
 		expect( onNavigate ).toHaveBeenLastCalledWith( '/?s=hello%20world' );
 	} );
 
-	it( 'does not navigate to a cross-origin URL', () => {
-		const { onNavigate } = renderAddressBar();
-		const input = screen.getByRole( 'textbox', { name: 'Address' } );
-		fireEvent.change( input, { target: { value: 'https://example.com/' } } );
-		fireEvent.submit( input.closest( 'form' )! );
-		expect( onNavigate ).not.toHaveBeenCalled();
-	} );
-
-	it( 'puts the configured site icon inside the address field', () => {
-		const siteIcon = 'data:image/png;base64,c2l0ZS1pY29u';
-		const { container } = renderAddressBar( { siteIcon } );
-		const input = screen.getByRole( 'textbox', { name: 'Address' } );
-		expect(
-			input.closest( 'form' )?.querySelector( `img[src="${ siteIcon }"]` )
-		).toBeInTheDocument();
-		// The site icon opens the shortcuts, same as clicking the address. No
-		// external-open button without a host callback.
-		expect( container.querySelectorAll( 'button' ) ).toHaveLength( 1 );
-	} );
-
 	it( 'offers to open the current page in the OS browser when the host allows', () => {
 		const onOpenExternal = vi.fn();
 		render(
@@ -210,7 +288,6 @@ describe( 'PreviewAddressBar', () => {
 				siteUrl={ SITE_URL }
 				path="/wp-admin/plugins.php"
 				onNavigate={ vi.fn() }
-				onSwitchRealm={ vi.fn() }
 				onOpenExternal={ onOpenExternal }
 			/>
 		);
@@ -218,71 +295,98 @@ describe( 'PreviewAddressBar', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Open this page in your browser' } ) );
 
 		expect( onOpenExternal ).toHaveBeenCalledTimes( 1 );
-		expect( screen.queryByRole( 'dialog', { name: 'Preview shortcuts' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'dialog', { name: 'Recent pages' } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'opens the shortcuts from the site icon too', async () => {
-		renderAddressBar();
-
-		fireEvent.click( screen.getByRole( 'button', { name: 'Preview shortcuts' } ) );
-
-		expect( await screen.findByRole( 'dialog', { name: 'Preview shortcuts' } ) ).toBeVisible();
+	it( 'shows only recent pages with a title and muted address', async () => {
+		const { onNavigate } = renderAddressBar( { path: '/about/', pageTitle: 'About the team' } );
+		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
+		const recent = await screen.findByRole( 'option', { name: /About the team/ } );
+		expect( within( recent ).getByText( '— localhost:8881/about/' ) ).toBeVisible();
+		for ( const label of [ 'Front end', 'WordPress Admin', 'Database', 'Design System' ] ) {
+			expect( screen.queryByRole( 'option', { name: label } ) ).not.toBeInTheDocument();
+		}
+		fireEvent.click( recent );
+		expect( onNavigate ).toHaveBeenCalledWith( '/about/' );
+		await waitFor( () =>
+			expect( screen.queryByRole( 'dialog', { name: 'Recent pages' } ) ).not.toBeInTheDocument()
+		);
 	} );
 
-	it( 'changes the address icon for WP Admin and Database', () => {
-		const { container, rerender } = renderAddressBar( { path: '/wp-admin/' } );
-		expect( container.querySelector( '[data-realm="admin"]' ) ).toBeInTheDocument();
-		expect( container.querySelector( '[data-realm="admin"] svg' ) ).toBeInTheDocument();
+	it( 'does not open an empty dropdown without any recent pages', () => {
+		renderAddressBar( { pageTitle: null } );
+		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
+		expect( screen.queryByRole( 'dialog', { name: 'Recent pages' } ) ).not.toBeInTheDocument();
+	} );
+	it( 'deduplicates saved slash variants while keeping distinct queries and anchors', async () => {
+		const locations = [
+			{ path: '/about/', title: 'About the team' },
+			{ path: '/about', title: 'Example Site' },
+			{ path: '/about/?view=compact#team', title: 'Compact team' },
+			{ path: '/about?view=full#team', title: 'Full team' },
+			{ path: '/about?view=compact#contact', title: 'Compact contact' },
+			{ path: '/', title: 'Home' },
+		].map( ( location ) => ( { ...location, label: `${ SITE_URL }${ location.path }` } ) );
+		localStorage.setItem(
+			`studio-preview-recent-locations:${ SITE.id }`,
+			JSON.stringify( { version: 1, locations } )
+		);
+		const { onNavigate } = renderAddressBar( { path: '/about/', pageTitle: null } );
+		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
+		const about = await screen.findByRole( 'option', { name: /About the team/ } );
+		expect( screen.getAllByRole( 'option' ) ).toHaveLength( 5 );
+		for ( const title of [ 'Compact team', 'Full team', 'Compact contact', 'Home' ] ) {
+			expect( screen.getByRole( 'option', { name: new RegExp( title ) } ) ).toBeVisible();
+		}
+		fireEvent.click( about );
+		expect( onNavigate ).toHaveBeenCalledWith( '/about/' );
+	} );
 
+	it( 'keeps a known title when resubmitting a page and updates it after a redirect', async () => {
+		const { onNavigate, rerender } = renderAddressBar( {
+			path: '/about/',
+			pageTitle: 'About the team',
+		} );
+		const input = screen.getByRole( 'textbox', { name: 'Address' } );
+		fireEvent.change( input, { target: { value: '/about' } } );
+		fireEvent.submit( input.closest( 'form' )! );
+		expect( onNavigate ).toHaveBeenCalledWith( '/about' );
+		fireEvent.click( input );
+		expect( await screen.findByRole( 'option', { name: /About the team/ } ) ).toBeVisible();
+		expect( screen.getAllByRole( 'option' ) ).toHaveLength( 1 );
 		rerender(
 			<PreviewAddressBar
 				site={ SITE }
 				siteUrl={ SITE_URL }
-				path={ DATABASE_HOME_PATH }
-				onNavigate={ vi.fn() }
-				onSwitchRealm={ vi.fn() }
+				path="/about/"
+				pageTitle="Updated about page"
+				onNavigate={ onNavigate }
 			/>
 		);
-		expect( container.querySelector( '[data-realm="database"]' ) ).toBeInTheDocument();
+		const updated = await screen.findByRole( 'option', { name: /Updated about page/ } );
+		expect( screen.getAllByRole( 'option' ) ).toHaveLength( 1 );
+		fireEvent.click( updated );
+		expect( onNavigate ).toHaveBeenLastCalledWith( '/about/' );
 	} );
 
-	it( 'shows preview shortcuts from the address field', async () => {
-		const siteIcon = 'data:image/png;base64,c2hvcnRjdXQtaWNvbg==';
-		const { onSwitchRealm } = renderAddressBar( { siteIcon } );
+	it( 'selects recent pages with arrow keys and otherwise submits the typed address', async () => {
+		const first = renderAddressBar( { path: '/about/', pageTitle: 'About the team' } );
+		first.unmount();
+		const { onNavigate } = renderAddressBar( { pageTitle: 'Home' } );
 		const input = screen.getByRole( 'textbox', { name: 'Address' } );
 		fireEvent.click( input );
-
-		expect( await screen.findByRole( 'option', { name: /Front end/ } ) ).toBeVisible();
-		expect( screen.getByRole( 'option', { name: /WP Admin/ } ) ).toBeVisible();
-		expect( document.querySelectorAll( `img[src="${ siteIcon }"]` ) ).toHaveLength( 2 );
-		fireEvent.click( screen.getByRole( 'option', { name: /Database/ } ) );
-
-		expect( onSwitchRealm ).toHaveBeenCalledWith( 'database' );
-		await waitFor( () =>
-			expect( screen.queryByRole( 'option', { name: /Database/ } ) ).not.toBeInTheDocument()
-		);
-		fireEvent.focus( input );
-		expect( screen.queryByRole( 'option', { name: /Database/ } ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'picks a shortcut with the arrow keys, and Enter otherwise goes to the address', async () => {
-		const { onSwitchRealm, onNavigate } = renderAddressBar();
-		const input = screen.getByRole( 'textbox', { name: 'Address' } );
-		fireEvent.click( input );
-		await screen.findByRole( 'option', { name: 'WP Admin' } );
-
-		fireEvent.change( input, { target: { value: '/about/' } } );
+		await screen.findByRole( 'option', { name: /About the team/ } );
+		fireEvent.change( input, { target: { value: '/new/' } } );
 		fireEvent.submit( input.closest( 'form' )! );
-		expect( onNavigate ).toHaveBeenCalledWith( '/about/' );
-
+		expect( onNavigate ).toHaveBeenCalledWith( '/new/' );
 		fireEvent.click( input );
-		fireEvent.keyDown( input, { key: 'ArrowDown' } );
-		expect( await screen.findByRole( 'option', { name: 'WP Admin' } ) ).toHaveAttribute(
+		fireEvent.keyDown( input, { key: 'ArrowUp' } );
+		expect( screen.getByRole( 'option', { name: /About the team/ } ) ).toHaveAttribute(
 			'aria-selected',
 			'true'
 		);
 		fireEvent.keyDown( input, { key: 'Enter' } );
-		expect( onSwitchRealm ).toHaveBeenCalledWith( 'admin' );
+		expect( onNavigate ).toHaveBeenLastCalledWith( '/about/' );
 	} );
 
 	it( 'remembers submitted addresses per site and lists them as recent destinations', async () => {
@@ -294,9 +398,9 @@ describe( 'PreviewAddressBar', () => {
 
 		renderAddressBar();
 		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
-		const popup = await screen.findByRole( 'dialog', { name: 'Preview shortcuts' } );
+		const popup = await screen.findByRole( 'dialog', { name: 'Recent pages' } );
 
-		expect( within( popup ).getByText( 'Recent' ) ).toBeVisible();
+		expect( within( popup ).queryByText( 'Recent' ) ).not.toBeInTheDocument();
 		expect( within( popup ).getByRole( 'option', { name: `${ SITE_URL }/about/` } ) ).toBeVisible();
 	} );
 } );

@@ -1,0 +1,100 @@
+import { __ } from '@wordpress/i18n';
+
+export interface SkillSlashCommand {
+	name: string;
+	displayName?: string;
+	description: string;
+}
+
+export const getAiSkillCommands = (): SkillSlashCommand[] => [
+	{
+		name: 'annotate',
+		displayName: __( 'Visual Annotations' ),
+		description: __( 'Annotate site elements visually in a browser.' ),
+	},
+	{
+		name: 'taxonomist',
+		displayName: __( 'Taxonomist' ),
+		description: __( 'Optimize category taxonomy with AI.' ),
+	},
+	{
+		name: 'need-for-speed',
+		displayName: __( 'Performance audit' ),
+		description: __( 'Run a performance audit on a site.' ),
+	},
+	{
+		name: 'rank-me-up',
+		displayName: __( 'SEO audit' ),
+		description: __( 'Run an on-page SEO audit on a site.' ),
+	},
+	{
+		name: 'liberate',
+		displayName: __( 'Liberate' ),
+		description: __( 'Migrate & rebuild a site from a closed platform.' ),
+	},
+	{
+		name: 'feedback',
+		displayName: __( 'Send feedback' ),
+		description: __( 'Request a feature or report a bug.' ),
+	},
+];
+
+export interface SlashCommandMatches {
+	open: boolean;
+	matches: SkillSlashCommand[];
+}
+
+/**
+ * Decides whether the slash-command popup is open and which commands match.
+ * Opens when the draft ends with a `/` token at the start or after whitespace
+ * (`path/to` doesn't trigger it); the text after the `/` is matched as a
+ * case-insensitive substring of command names and descriptions.
+ */
+export function getSlashCommandMatches(
+	value: string,
+	previewPrompt: string | null | undefined,
+	composerCommands: SkillSlashCommand[] = []
+): SlashCommandMatches {
+	if ( previewPrompt ) {
+		return { open: false, matches: [] };
+	}
+	const match = /(?:^|\s)\/([\w-]*)$/.exec( value );
+	if ( ! match ) {
+		return { open: false, matches: [] };
+	}
+	const query = match[ 1 ].toLowerCase();
+	const matches = [ ...composerCommands, ...getAiSkillCommands() ].filter(
+		( command ) =>
+			command.name.toLowerCase().includes( query ) ||
+			command.description.toLowerCase().includes( query )
+	);
+	if ( matches.length === 0 ) {
+		return { open: false, matches: [] };
+	}
+	return { open: true, matches };
+}
+
+export function buildSkillInvocationPrompt( name: string ): string {
+	return `Run the /${ name } skill using the Skill tool.`;
+}
+
+// Which predefined skill a prompt invokes, or `undefined`. Handles the shapes that reach the
+// agent: the bare `/rank-me-up`, the command with arguments (`/feedback the preview broke`), and
+// the sentence the bare form expands into. Only catalog names are returned — callers report this
+// to analytics.
+export function resolveSkillFromPrompt( prompt: string ): string | undefined {
+	const trimmed = prompt.trim();
+	const name = trimmed.startsWith( '/' )
+		? trimmed.slice( 1 ).split( /\s/, 1 )[ 0 ]
+		: getAiSkillCommands().find( ( cmd ) => buildSkillInvocationPrompt( cmd.name ) === trimmed )
+				?.name;
+	return getAiSkillCommands().find( ( cmd ) => cmd.name === name )?.name;
+}
+
+// Expand a bare skill prompt (e.g. `/rank-me-up`) into the instruction the
+// agent acts on, matching the CLI's interactive main loop. A command with
+// arguments is passed through, so the agent sees what the user typed after it.
+export function expandSkillCommandPrompt( prompt: string ): string {
+	const name = resolveSkillFromPrompt( prompt );
+	return name && prompt.trim() === `/${ name }` ? buildSkillInvocationPrompt( name ) : prompt;
+}

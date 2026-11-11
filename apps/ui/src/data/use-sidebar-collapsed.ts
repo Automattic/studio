@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 
 // True whenever the sidebar isn't docked beside the content: collapsed, or
 // shown as an overlay on a small window. Headers then carry the sidebar toggle.
@@ -20,3 +20,15 @@ export const SidebarToggleContext = createContext< () => void >( () => {} );
 export function useToggleSidebar(): () => void {
 	return useContext( SidebarToggleContext );
 }
+
+export const SidebarHoverContext = createContext( {
+	peek: false,
+	onEnter: () => {},
+	onLeave: () => {},
+} );
+
+export function useSidebarHover() {
+	return useContext( SidebarHoverContext );
+}
+
+export const SidebarHeaderActionContext = createContext< ReactNode >( null );

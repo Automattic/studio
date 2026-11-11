@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { ensurePlaywrightChromiumInstalled } from '@studio/agent/node';
 import { z } from 'zod';
-import { ensurePlaywrightChromiumInstalled } from 'cli/ai/browser-utils';
 import {
 	loadCaptureEngine,
 	resolveCaptureEngineAsset,
@@ -20,11 +20,8 @@ const captureReceiptSchema = z.object( {
 
 // On any real source an occasional route fails for reasons the pipeline does not control:
 // a source-side error, a timeout, a gated page. Dropping the whole import for those costs
-// the user every route that did capture, so a capture that kept nearly all of its routes is
-// imported and the missing ones are reported. Past this share the result is too incomplete
-// to be worth creating, and the entry route is never tradeable: a site with no home page is
-// not a usable outcome.
-const MAX_DROPPED_ROUTE_RATIO = 0.1;
+// the user every route that did capture, so a capture with its entry route is imported and
+// its dropped routes are reported.
 const ROUTE_CAPTURE_FAILED = 'route_capture_failed';
 
 export type PartialCaptureReport = {
@@ -55,7 +52,7 @@ type LiberatedWebsite = {
 	websiteDir: string;
 	/** Builds the command that compares a site at `siteUrl` against the original, route by route. */
 	compareCommand: ( siteUrl: string ) => string;
-	/** Set when a few routes could not be captured; the site is imported without them. */
+	/** Set when routes could not be captured; the site is imported without them. */
 	partialCapture?: PartialCaptureReport;
 };
 
@@ -97,7 +94,7 @@ export async function captureCompareCommand(
  * Capture `url` with the newest Data Liberation release and return the
  * portable `website/` directory it wrote.
  *
- * A capture that lost a few routes is still imported and the missing routes are reported; see
+ * A capture with its entry route is imported and its dropped routes are reported; see
  * `checkPartialCapture`.
  */
 export async function liberateWebsite(
@@ -151,9 +148,9 @@ export async function liberateWebsite(
 }
 
 /**
- * A capture that lost a few routes is still imported, with the missing routes reported; one
- * that lost its entry route, more than a small share of routes, or its per-route diagnostics
- * is refused. `summary.routesFailed` counts failure records rather than routes -- one dead
+ * A capture with its entry route is imported and its dropped routes are reported; one
+ * that lost its entry route or its per-route diagnostics is refused.
+ * `summary.routesFailed` counts failure records rather than routes -- one dead
  * route fails once per captured viewport -- so only the receipt's per-route diagnostics can
  * name the routes that produced no page.
  */
@@ -190,16 +187,6 @@ function checkPartialCapture(
 	) {
 		throw new Error(
 			`Data Liberation could not capture the entry route ${ entryRoute }. Review ${ diagnosticsPath } before importing.`
-		);
-	}
-	if ( ! ( routesDiscovered > 0 ) ) {
-		throw new Error(
-			`Data Liberation did not report how many routes it discovered. Review ${ diagnosticsPath } before importing.`
-		);
-	}
-	if ( droppedRoutes.length / routesDiscovered > MAX_DROPPED_ROUTE_RATIO ) {
-		throw new Error(
-			`Data Liberation could not capture ${ droppedRoutes.length } of ${ routesDiscovered } routes. Review ${ diagnosticsPath } before importing.`
 		);
 	}
 	return { routesDiscovered, droppedRoutes, diagnosticsPath };

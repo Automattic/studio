@@ -7,7 +7,7 @@ import type { AiSessionSummary } from '@/data/core';
 // host marks the chat unread as the run exits). Marking the open chat unread by
 // hand sticks until one of those happens again.
 export function useMarkChatRead(
-	sessionId: string,
+	sessionId: string | undefined,
 	summary: AiSessionSummary | undefined,
 	hasActiveRun: boolean
 ) {
@@ -15,7 +15,7 @@ export function useMarkChatRead(
 	const loaded = !! summary;
 	const unread = !! summary?.unread;
 	const markRead = useEffectEvent( () => {
-		if ( unread && document.visibilityState === 'visible' && document.hasFocus() ) {
+		if ( sessionId && unread && document.visibilityState === 'visible' && document.hasFocus() ) {
 			mutate( { sessionId, patch: { unread: false } } );
 		}
 	} );

@@ -1,12 +1,23 @@
+import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
+import * as configFile from '@studio/common/lib/cli-config-file';
+import {
+	TRACKS_EVENTS,
+	type TracksEventName,
+	type TracksProps,
+} from '@studio/common/lib/record-tracks-event';
+import { getCliConfigPath } from '@studio/common/lib/well-known-paths';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { startLocalServer, type LocalServer } from '../index';
 
-const recordTracksEvent = vi.fn( async () => undefined );
+const recordTracksEvent = vi.fn<
+	( event: TracksEventName, props?: TracksProps ) => Promise< void >
+>( async () => undefined );
 
 let server: LocalServer;
+let directory: string;
+const operationalId = 'caller@example.test';
 
 async function postEvent( body: unknown ): Promise< Response > {
 	return fetch( `${ server.url }/api/analytics/event`, {
@@ -18,6 +29,17 @@ async function postEvent( body: unknown ): Promise< Response > {
 
 beforeEach( async () => {
 	vi.clearAllMocks();
+	directory = await fs.mkdtemp( path.join( os.tmpdir(), 'studio-analytics-route-' ) );
+	vi.stubEnv( 'DEV_CONFIG_DIR', directory );
+	await fs.writeFile(
+		getCliConfigPath(),
+		JSON.stringify( {
+			version: 1,
+			sites: [ { id: operationalId, path: '/private/path', name: 'Private title' } ],
+			snapshots: [],
+			otherField: { preserved: true },
+		} )
+	);
 	server = await startLocalServer( {
 		cliBinary: path.join( os.tmpdir(), 'studio-test-cli.mjs' ),
 		sessionsRoot: path.join( os.tmpdir(), 'studio-test-sessions' ),
@@ -29,6 +51,9 @@ beforeEach( async () => {
 
 afterEach( async () => {
 	await server.close();
+	vi.restoreAllMocks();
+	vi.unstubAllEnvs();
+	await fs.rm( directory, { recursive: true, force: true } );
 } );
 
 describe( 'POST /api/analytics/event', () => {
@@ -42,6 +67,33 @@ describe( 'POST /api/analytics/event', () => {
 		expect( recordTracksEvent ).toHaveBeenCalledWith( TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, {
 			browser: 'external',
 		} );
+	} );
+
+	it.each( [
+		[ TRACKS_EVENTS.BLUEPRINT_VIEWED, { blueprint_slug: 'substrata', use_case: 'blog' } ],
+		[ TRACKS_EVENTS.BLUEPRINT_USE_CASE_FILTER_CHANGED, { use_case: 'all' } ],
+		[
+			TRACKS_EVENTS.BLUEPRINT_PREVIEW_IN_BROWSER,
+			{ blueprint_slug: 'substrata', placement: 'add_site_blueprint_details' },
+		],
+		[
+			TRACKS_EVENTS.BLUEPRINT_CREATE_SITE_INTENT,
+			{ blueprint_slug: 'substrata', placement: 'add_site_blueprint_details' },
+		],
+		[ TRACKS_EVENTS.BLANK_SITE_SELECTED, { placement: 'add_site_blueprint_gallery' } ],
+		[
+			TRACKS_EVENTS.RESPONSIVE_PREVIEW_CHANGED,
+			{
+				action: 'manual_resize',
+				preset_category: 'custom',
+				width_bucket: 'under_600',
+				height_bucket: '600_to_1023',
+			},
+		],
+	] )( 'forwards UI event %s through the browser recorder', async ( eventName, props ) => {
+		const response = await postEvent( { eventName, props } );
+		expect( response.status ).toBe( 204 );
+		expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith( eventName, props );
 	} );
 
 	it( 'accepts an event with no props', async () => {
@@ -110,3 +162,89 @@ describe( 'POST /api/analytics/event', () => {
 		expect( response.status ).toBe( 204 );
 	} );
 } );
+
+const events = [ TRACKS_EVENTS.SITE_EXPORT, TRACKS_EVENTS.SYNC_CONNECT, TRACKS_EVENTS.SYNC_PUSH ];
+it.each(
+	events.flatMap( ( eventName ) =>
+		[ true, false ].map( ( success ) => ( { eventName, success } ) )
+	)
+)(
+	'resolves the stored site UUID for $eventName (success $success)',
+	async ( { eventName, success } ) => {
+		await postEvent( {
+			eventName,
+			siteId: operationalId,
+			props: { success, site_id: operationalId, preview_id: 'caller-preview' },
+		} );
+		const config = JSON.parse( await fs.readFile( getCliConfigPath(), 'utf8' ) );
+		const id = config.sites[ 0 ].tracksId;
+		expect( id ).toMatch( /^[0-9a-f-]{36}$/ );
+		expect( id ).not.toBe( operationalId );
+		expect( config.otherField ).toEqual( { preserved: true } );
+		expect( recordTracksEvent ).toHaveBeenLastCalledWith( eventName, { success, site_id: id } );
+		await postEvent( { eventName, siteId: operationalId, props: { success } } );
+		expect( recordTracksEvent ).toHaveBeenLastCalledWith( eventName, { success, site_id: id } );
+	}
+);
+it( 'omits an unresolved site ID and preserves the event', async () => {
+	await postEvent( {
+		eventName: TRACKS_EVENTS.SYNC_CONNECT,
+		siteId: 'missing',
+		props: { success: false, site_id: '/private/path' },
+	} );
+	expect( recordTracksEvent ).toHaveBeenLastCalledWith( TRACKS_EVENTS.SYNC_CONNECT, {
+		success: false,
+	} );
+} );
+it( 'preserves the event when site ID persistence fails', async () => {
+	vi.spyOn( configFile, 'writeCliConfigFileRaw' ).mockRejectedValueOnce(
+		new Error( 'Storage unavailable' )
+	);
+	const response = await postEvent( {
+		eventName: TRACKS_EVENTS.SYNC_CONNECT,
+		siteId: operationalId,
+		props: { success: false, site_id: operationalId },
+	} );
+	expect( response.status ).toBe( 204 );
+	expect( recordTracksEvent ).toHaveBeenLastCalledWith( TRACKS_EVENTS.SYNC_CONNECT, {
+		success: false,
+	} );
+} );
+
+it.each( [ 'chat', 'split', 'panel' ] )(
+	'resolves workspace layout %s without forwarding caller identifiers',
+	async ( layout ) => {
+		const response = await postEvent( {
+			eventName: TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED,
+			siteId: operationalId,
+			props: { layout, site_id: operationalId, preview_id: '/private/path' },
+		} );
+		expect( response.status ).toBe( 204 );
+		const config = JSON.parse( await fs.readFile( getCliConfigPath(), 'utf8' ) );
+		expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith(
+			TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED,
+			{ layout, site_id: config.sites[ 0 ].tracksId }
+		);
+		expect( config.sites[ 0 ].tracksId ).toMatch( /^[0-9a-f-]{36}$/ );
+		expect( config.sites[ 0 ].tracksId ).not.toBe( operationalId );
+	}
+);
+
+it.each( [ 'missing', 'storage' ] )(
+	'preserves the workspace layout event when attribution is %s',
+	async ( failure ) => {
+		if ( failure === 'storage' )
+			vi.spyOn( configFile, 'writeCliConfigFileRaw' ).mockRejectedValueOnce(
+				new Error( 'Unavailable' )
+			);
+		await postEvent( {
+			eventName: TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED,
+			siteId: failure === 'missing' ? 'missing' : operationalId,
+			props: { layout: 'split', site_id: operationalId },
+		} );
+		expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith(
+			TRACKS_EVENTS.WORKSPACE_LAYOUT_CHANGED,
+			{ layout: 'split' }
+		);
+	}
+);

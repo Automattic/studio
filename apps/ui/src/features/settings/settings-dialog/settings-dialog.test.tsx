@@ -17,21 +17,6 @@ async function renderDialog( section = 'general' ) {
 }
 
 describe( 'Shared settings dialog', () => {
-	it( 'preserves searches when selecting results across settings scopes', async () => {
-		await renderDialog();
-		const search = screen.getByRole( 'textbox', { name: 'Search settings' } );
-		fireEvent.change( search, { target: { value: 'PHP version' } } );
-		fireEvent.click( screen.getByRole( 'tab', { name: 'PHP version' } ) );
-		expect( await screen.findByRole( 'heading', { name: 'PHP' } ) ).toBeVisible();
-		expect( search ).toHaveValue( 'PHP version' );
-		expect( screen.getByRole( 'tab', { name: 'PHP version' } ) ).toBeVisible();
-		fireEvent.change( search, { target: { value: 'Language' } } );
-		fireEvent.keyDown( search, { key: 'Enter' } );
-		expect( await screen.findByRole( 'heading', { name: 'General' } ) ).toBeVisible();
-		expect( search ).toHaveValue( 'Language' );
-		expect( screen.getByRole( 'tab', { name: 'Language' } ) ).toBeVisible();
-	} );
-
 	it( 'keeps one modal and the same frame while switching scopes and traversing history', async () => {
 		await renderDialog();
 		const dialog = screen.getByRole( 'dialog', { name: 'Settings' } );

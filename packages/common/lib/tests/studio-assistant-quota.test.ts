@@ -1,12 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+	canUsePaidAiModels,
 	formatAiAccessRequiredNotice,
 	formatAiCreditsAddedTitle,
-	formatAiCreditsAvailableLabel,
 	formatAiCreditsCallout,
 	formatAiCreditsThresholdDescription,
 	formatAiCreditsUsageTitle,
-	formatAiCreditsUsedLabel,
 	getAiCreditsMeter,
 	getAiCreditsMeterIntent,
 	formatUsageCapNotice,
@@ -162,16 +161,51 @@ describe( 'studioAssistantQuotaSchema reset date', () => {
 	} );
 } );
 
+describe( 'canUsePaidAiModels', () => {
+	const free = 'person@example.com';
+
+	it( 'stays locked for an account that never bought credits', () => {
+		expect( canUsePaidAiModels( { purchasedRemaining: 0, purchasedAtTopUp: 0 }, free ) ).toBe(
+			false
+		);
+		expect( canUsePaidAiModels( null, free ) ).toBe( false );
+	} );
+
+	it( 'unlocks while purchased credits remain', () => {
+		expect(
+			canUsePaidAiModels( { purchasedRemaining: 1000, purchasedAtTopUp: undefined }, free )
+		).toBe( true );
+	} );
+
+	it( 'stays unlocked once a purchased pool is spent', () => {
+		expect( canUsePaidAiModels( { purchasedRemaining: 0, purchasedAtTopUp: 500000 }, free ) ).toBe(
+			true
+		);
+	} );
+
+	it( 'stays unlocked when billing is unreachable for a past buyer', () => {
+		expect(
+			canUsePaidAiModels( { purchasedRemaining: undefined, purchasedAtTopUp: 500000 }, free )
+		).toBe( true );
+	} );
+
+	it( 'exempts Automatticians', () => {
+		expect(
+			canUsePaidAiModels( { purchasedRemaining: 0, purchasedAtTopUp: 0 }, 'person@automattic.com' )
+		).toBe( true );
+	} );
+} );
+
 describe( 'formatAiAccessRequiredNotice', () => {
 	it( 'tells accounts with spend this billing cycle that beta access is now required', () => {
 		expect( formatAiAccessRequiredNotice( { costUsage: 3 } ) ).toBe(
-			'Thanks for participating in the Studio Code AI beta. Access is now limited. Apply to continue at <applyLink>developer.wordpress.com/studio/studio-code-beta</applyLink>.'
+			'Thanks for participating in the Studio Code AI beta. Access is now limited. Learn more at <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>.'
 		);
 	} );
 
 	it( 'falls back to the generic beta copy without spend or without a quota', () => {
 		const genericNotice =
-			'Studio Code AI is currently available through limited beta access. Apply at <applyLink>developer.wordpress.com/studio/studio-code-beta</applyLink>.';
+			'Studio Code AI is currently available through limited beta access. Learn more at <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>.';
 		expect( formatAiAccessRequiredNotice( { costUsage: 0 } ) ).toBe( genericNotice );
 		expect( formatAiAccessRequiredNotice( undefined ) ).toBe( genericNotice );
 		expect( formatAiAccessRequiredNotice( null ) ).toBe( genericNotice );
@@ -278,17 +312,6 @@ describe( 'getAiCreditsMeterIntent', () => {
 	} );
 } );
 
-describe( 'AI credits meter labels', () => {
-	it( 'formats used and available figures for the reader', () => {
-		expect(
-			formatAiCreditsUsedLabel( { usedCredits: 1200000, totalCredits: 1500000 }, 'en-US' )
-		).toBe( '1,200,000 of 1,500,000 AI credits used' );
-		expect( formatAiCreditsAvailableLabel( { remainingCredits: 300000 }, 'en-US' ) ).toBe(
-			'300,000 available'
-		);
-	} );
-} );
-
 describe( 'formatAiCreditsCallout', () => {
 	const neverBought = { costCap: 1500000, allowanceRemaining: 960000, purchasedAtTopUp: 0 };
 
@@ -332,26 +355,24 @@ describe( 'formatAiCreditsCallout', () => {
 } );
 
 describe( 'resolveAiCreditsThresholdNotice', () => {
-	// The agentic sidebar owns the 80% step; the composer strip owns 90%.
-	const SIDEBAR = [ 'warning' ] as const;
-	// Classic has one slot above its composer, so it carries both steps.
-	const CLASSIC = [ 'warning', 'critical' ] as const;
+	// The sidebar owns the 80% and 90% steps; the composer notice owns exhaustion.
+	const SIDEBAR = [ 'warning', 'critical' ] as const;
 
 	it( 'shows an undismissed notice at a step the surface owns', () => {
 		expect( resolveAiCreditsThresholdNotice( 'warning', null, SIDEBAR ).visible ).toBe( true );
-		expect( resolveAiCreditsThresholdNotice( 'critical', null, CLASSIC ).visible ).toBe( true );
+		expect( resolveAiCreditsThresholdNotice( 'critical', null, SIDEBAR ).visible ).toBe( true );
 	} );
 
 	it( 'leaves a step it does not own to the surface that does', () => {
-		// The composer strip announces 90% in the agentic UI, so the sidebar
-		// stays quiet rather than repeating it.
-		expect( resolveAiCreditsThresholdNotice( 'critical', null, SIDEBAR ).visible ).toBe( false );
+		expect( resolveAiCreditsThresholdNotice( 'critical', null, [ 'warning' ] ).visible ).toBe(
+			false
+		);
 	} );
 
 	it( 'shows nothing below the first step, or once exhausted', () => {
-		expect( resolveAiCreditsThresholdNotice( 'ok', null, CLASSIC ).visible ).toBe( false );
-		expect( resolveAiCreditsThresholdNotice( 'exhausted', null, CLASSIC ).visible ).toBe( false );
-		expect( resolveAiCreditsThresholdNotice( null, null, CLASSIC ).visible ).toBe( false );
+		expect( resolveAiCreditsThresholdNotice( 'ok', null, SIDEBAR ).visible ).toBe( false );
+		expect( resolveAiCreditsThresholdNotice( 'exhausted', null, SIDEBAR ).visible ).toBe( false );
+		expect( resolveAiCreditsThresholdNotice( null, null, SIDEBAR ).visible ).toBe( false );
 	} );
 
 	it( 'stays hidden at the step it was dismissed at', () => {
@@ -361,7 +382,7 @@ describe( 'resolveAiCreditsThresholdNotice', () => {
 	} );
 
 	it( 're-arms when usage escalates past the dismissed step', () => {
-		const state = resolveAiCreditsThresholdNotice( 'critical', 'warning', CLASSIC );
+		const state = resolveAiCreditsThresholdNotice( 'critical', 'warning', SIDEBAR );
 		expect( state.visible ).toBe( true );
 		expect( state.dismissedIntent ).toBeNull();
 	} );
@@ -373,14 +394,14 @@ describe( 'resolveAiCreditsThresholdNotice', () => {
 			resolveAiCreditsThresholdNotice( 'ok', 'warning', SIDEBAR ).dismissedIntent
 		).toBeNull();
 		expect(
-			resolveAiCreditsThresholdNotice( 'exhausted', 'critical', CLASSIC ).dismissedIntent
+			resolveAiCreditsThresholdNotice( 'exhausted', 'critical', SIDEBAR ).dismissedIntent
 		).toBeNull();
 	} );
 
 	it( 'retires a dismissal even at a step the surface does not own', () => {
-		// The sidebar's 80% dismissal must not outlive a trip through 90%.
+		// The sidebar's 80% dismissal must not outlive a trip through exhaustion.
 		expect(
-			resolveAiCreditsThresholdNotice( 'critical', 'warning', SIDEBAR ).dismissedIntent
+			resolveAiCreditsThresholdNotice( 'exhausted', 'warning', SIDEBAR ).dismissedIntent
 		).toBeNull();
 	} );
 } );

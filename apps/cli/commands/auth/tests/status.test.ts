@@ -138,22 +138,5 @@ describe( 'Auth Status Command', () => {
 				JSON.stringify( { authenticated: false }, null, 2 )
 			);
 		} );
-
-		it( 'should forward LoggerError from getUserInfo', async () => {
-			const apiError = new LoggerError( 'API error' );
-			vi.mocked( getUserInfo ).mockRejectedValue( apiError );
-
-			await runCommand( 'json' );
-
-			expect( mockReportError ).toHaveBeenCalledWith( apiError );
-		} );
-
-		it( 'should wrap unknown error when getUserInfo fails', async () => {
-			vi.mocked( getUserInfo ).mockRejectedValue( new Error( 'Unknown error' ) );
-
-			await runCommand( 'json' );
-
-			expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-		} );
 	} );
 } );

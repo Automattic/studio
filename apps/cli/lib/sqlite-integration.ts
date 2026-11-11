@@ -24,6 +24,10 @@ export async function keepSqliteIntegrationUpdated( sitePath: string ) {
 	return provider.keepSqliteIntegrationUpdated( sitePath );
 }
 
+export async function isSqliteIntegrationInstalled( sitePath: string ) {
+	return provider.isSqliteInstalled( sitePath );
+}
+
 /**
  * Installs the SQLite integration for imported (reprint-pulled) sites when it's
  * missing. Those sites wire SQLite through runtime.php and ship no db.php drop-in,
@@ -38,8 +42,4 @@ export async function ensureSqliteIntegrationForImportedSite( site: {
 	if ( site.runtimeBlueprintPath && ! ( await provider.isSqliteInstalled( site.path ) ) ) {
 		await provider.installSqliteIntegration( site.path );
 	}
-}
-
-export async function getSqliteVersionFromInstallation( sqlitePath: string ) {
-	return provider.getSqliteVersionFromInstallation( sqlitePath );
 }

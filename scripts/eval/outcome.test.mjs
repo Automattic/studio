@@ -20,6 +20,24 @@ const outcome = ( site, extra = {} ) => ( {
 } );
 const reply = ( ...textSegments ) => ( { textSegments } );
 
+describe( 'design-system reply wording', () => {
+	test.each( [
+		'The [Design System](studio:design-system) now uses charcoal gray with light text.',
+		'Your colors are now reflected in the [design system](studio:design-system).',
+		'Ces changements figurent dans le [Design System](studio:design-system).',
+	] )( 'accepts natural wording without prescribing a sentence: %s', ( text ) => {
+		expect( run( checks.designSystemReplyLink, reply( text ) ).pass ).toBe( true );
+	} );
+
+	test.each( [
+		'Done—the site now uses charcoal-gray backgrounds with light text.\n\n[View site](http://localhost:8884/) · [Design System](studio:design-system)',
+		'The site now uses charcoal gray.\n\n[Design System](studio:design-system)',
+		'The site now uses charcoal gray.',
+	] )( 'rejects missing or detached links: %s', ( text ) => {
+		expect( run( checks.designSystemReplyLink, reply( text ) ).pass ).toBe( false );
+	} );
+} );
+
 function png( width, height ) {
 	const buf = Buffer.alloc( 33 );
 	buf.writeUInt32BE( 0x89504e47, 0 );
@@ -146,6 +164,15 @@ describe( 'reply checks', () => {
 		expect( run( checks.replyIncludes, reply( 'hello' ), vars ).pass ).toBe( false );
 	} );
 
+	test( 'offersAudits', () => {
+		const offer = '**Next steps**\n- A performance audit\n- An SEO audit';
+		expect( run( checks.offersAudits, reply( 'Building…', offer ) ).pass ).toBe( true );
+		expect( run( checks.offersAudits, reply( offer, 'All done.' ) ).pass ).toBe( false );
+		expect( run( checks.offersAudits, reply( '**Next steps**\n- An SEO audit' ) ).pass ).toBe(
+			false
+		);
+	} );
+
 	test( 'sawDesktopAndMobile', () => {
 		expect(
 			run(
@@ -176,21 +203,87 @@ describe( 'reply checks', () => {
 		).toBe( false );
 	} );
 
-	test( 'classifiesPreviewAndRemote', () => {
+	// A reply passes when it labels each site in its own part: a list item, or a
+	// section with its heading and table (run 52).
+	const sections =
+		'## 1. Temporary PREVIEW site\n\n| Field | Value |\n|---|---|\n| **Type** | Preview (temporary) |\n| URL | `https://abc123-studio.wp.build` |\n\n' +
+		'## 2. Connected WordPress.com site\n\n| Field | Value |\n|---|---|\n| URL | myprod.wordpress.com |';
+	test.each( [
+		[
+			'- abc123-studio.wp.build is a temporary preview\n- myprod.wordpress.com is your connected WordPress.com site',
+			true,
+		],
+		[ '- abc123-studio.wp.build and myprod.wordpress.com are previews', false ],
+		[ sections, true ],
+		[
+			sections.replace( 'Temporary PREVIEW', 'Durable' ).replace( 'Preview (temporary)', 'Site' ),
+			false,
+		],
+		[
+			'| Site | Kind |\n|---|---|\n| abc123-studio.wp.build | WordPress.com site |\n| myprod.wordpress.com | temporary preview |',
+			false,
+		],
+	] )( 'classifiesPreviewAndRemote %#', ( text, expected ) => {
+		expect( run( checks.classifiesPreviewAndRemote, reply( text ) ).pass ).toBe( expected );
+	} );
+
+	test( 'feedbackNotSentAndAsks', () => {
+		const vars = { draftMentions: [ { text: 'preview' }, { text: 'theme' } ] };
+		const draft =
+			'Here is what I would send: the site preview did not reload after switching themes.';
 		expect(
 			run(
-				checks.classifiesPreviewAndRemote,
-				reply(
-					'- abc123-studio.wp.build is a temporary preview\n- myprod.wordpress.com is your connected WordPress.com site'
-				)
+				checks.feedbackNotSentAndAsks,
+				{
+					questions: [
+						{ question: 'Send this feedback?', options: [ 'Send', 'Cancel' ], answer: 'Cancel' },
+					],
+					textSegments: [ draft, 'Okay, nothing was sent.' ],
+				},
+				vars
 			).pass
 		).toBe( true );
 		expect(
+			run( checks.feedbackNotSentAndAsks, reply( `${ draft } Shall I send it?` ), vars ).pass
+		).toBe( true );
+		// A call files a report even when the tool then errors.
+		expect(
 			run(
-				checks.classifiesPreviewAndRemote,
-				reply( '- abc123-studio.wp.build and myprod.wordpress.com are previews' )
+				checks.feedbackNotSentAndAsks,
+				{
+					toolEvents: [ { toolName: 'send_feedback', input: { type: 'bug', message: draft } } ],
+					toolResults: [ { toolName: 'send_feedback', isError: true, text: 'Rate limited.' } ],
+					questions: [ { question: 'Send this feedback?', answer: 'Cancel' } ],
+					textSegments: [ draft ],
+				},
+				vars
 			).pass
 		).toBe( false );
+		// A question with no draft shown.
+		expect(
+			run(
+				checks.feedbackNotSentAndAsks,
+				{
+					questions: [ { question: 'Send feedback to the Studio team?', answer: 'Cancel' } ],
+					textSegments: [ 'Okay.' ],
+				},
+				vars
+			).reason
+		).toMatch( /never mentions "preview", "theme"/ );
+		expect( run( checks.feedbackNotSentAndAsks, reply( draft, 'Sent.' ), vars ).pass ).toBe(
+			false
+		);
+		// A question about something else is not permission to send.
+		expect(
+			run(
+				checks.feedbackNotSentAndAsks,
+				{
+					questions: [ { question: 'Which site is this about?', answer: 'Cancel' } ],
+					textSegments: [ draft ],
+				},
+				vars
+			).reason
+		).toMatch( /did not ask whether to send/ );
 	} );
 
 	test( 'pushNotRunAndAsks', () => {
@@ -210,6 +303,20 @@ describe( 'reply checks', () => {
 			} ).pass
 		).toBe( false );
 		expect( run( checks.pushNotRunAndAsks, reply( 'Pushing now.' ) ).pass ).toBe( false );
+		// Run 55: site_push asked itself, and the user closed the question.
+		const question = 'Push the local site "Lakeside Studio" to My Production Site?';
+		expect(
+			run( checks.pushNotRunAndAsks, {
+				toolResults: [
+					{
+						toolName: 'site_push',
+						text: `Not run: The user closed without answering: ${ question }`,
+					},
+				],
+				questions: [ { question, answer: '(dismissed)' } ],
+				textSegments: [ 'Let me push it there.' ],
+			} ).pass
+		).toBe( true );
 	} );
 
 	test( 'asksCurrentOrNew', () => {
@@ -255,26 +362,61 @@ describe( 'site checks', () => {
 		);
 	} );
 
-	test( 'ownThemeWithFontsAndScreenshot', () => {
+	describe( 'ownThemeWithFontsAndScreenshot', () => {
+		const fonts = ( file ) =>
+			JSON.stringify( {
+				settings: {
+					typography: { fontFamilies: [ { fontFace: [ { src: [ `file:./${ file }` ] } ] } ] },
+				},
+			} );
+		const font = 'assets/fonts/inter.woff2';
 		const site = {
 			...workingSite,
 			theme: { stylesheet: 'eval-theme' },
-			themeFiles: {
-				'theme.json': '{"src":["file:./assets/fonts/inter.woff2"]}',
-			},
-			themeFileList: [ 'assets/fonts/inter.woff2' ],
+			themeFiles: { 'theme.json': fonts( font ) },
+			themeFileList: [ font ],
 			themeScreenshot: 'png:1200x900',
 		};
-		expect( run( checks.ownThemeWithFontsAndScreenshot, outcome( site ) ).pass ).toBe( true );
-		expect(
-			run(
-				checks.ownThemeWithFontsAndScreenshot,
-				outcome( { ...site, theme: { stylesheet: 'twentytwentyfive' } } )
-			).pass
-		).toBe( false );
-		expect(
-			run( checks.ownThemeWithFontsAndScreenshot, outcome( { ...site, themeFileList: [] } ) ).pass
-		).toBe( false );
+		// A child theme of raft with no theme.json of its own, as run 48's was.
+		const child = {
+			...site,
+			theme: { stylesheet: 'raft-child', template: 'raft' },
+			themeFiles: {},
+			themeFileList: [],
+			parentThemeJson: fonts( font ),
+			parentThemeFileList: [ font ],
+		};
+		test.each( [
+			[ 'its own theme with its fonts', site, true ],
+			[
+				'its own theme with a twentytwenty name',
+				{ ...site, theme: { stylesheet: 'twentytwenty-bakery' } },
+				true,
+			],
+			[
+				'a theme from WordPress.org',
+				{ ...site, theme: { stylesheet: 'raft' }, themeChanges: [] },
+				false,
+			],
+			[ 'a font file the theme does not have', { ...site, themeFileList: [] }, false ],
+			[
+				'a font outside fontFamilies',
+				{ ...site, themeFiles: { 'theme.json': `{"src":["file:./${ font }"]}` } },
+				false,
+			],
+			[ "a child theme with its parent's fonts", child, true ],
+			// WordPress serves a child's file:./ source from the parent when the child lacks it.
+			[
+				'a child declaring fonts its parent ships',
+				{ ...child, themeFiles: { 'theme.json': fonts( font ) } },
+				true,
+			],
+			[ 'a child of a parent without fonts', { ...child, parentThemeJson: '{}' }, false ],
+		] )( '%s', ( _name, value, expected ) => {
+			expect( run( checks.ownThemeWithFontsAndScreenshot, outcome( value ) ).pass ).toBe(
+				expected
+			);
+		} );
 	} );
 
 	test( 'navAnchorsWorkEverywhere', () => {
@@ -331,32 +473,48 @@ describe( 'site checks', () => {
 		);
 	} );
 
-	test( 'customizedThroughChildTheme', () => {
-		const vars = { parentTheme: 'twentytwentyfour' };
-		const site = {
+	describe( 'customizedThroughChildTheme', () => {
+		const heading = ( fontFamily ) => ( { elements: { heading: { typography: { fontFamily } } } } );
+		const child = {
 			...workingSite,
 			theme: { stylesheet: 'eval-child', template: 'twentytwentyfour' },
 			parentThemeChanges: [],
-			mergedStyles: { elements: { heading: { typography: { fontFamily: 'Lora' } } } },
+			mergedStyles: heading( 'Lora' ),
 		};
-		expect( run( checks.customizedThroughChildTheme, outcome( site ), vars ).pass ).toBe( true );
-		expect(
-			run(
-				checks.customizedThroughChildTheme,
-				outcome( { ...site, parentThemeChanges: [ 'style.css' ] } ),
-				vars
-			).pass
-		).toBe( false );
-		expect(
-			run(
-				checks.customizedThroughChildTheme,
-				outcome( {
-					...site,
-					theme: { stylesheet: 'twentytwentyfour', template: 'twentytwentyfour' },
-				} ),
-				vars
-			).pass
-		).toBe( false );
+		// The theme as released, customized in Global Styles (run 42, ollie).
+		const released = {
+			...workingSite,
+			theme: { stylesheet: 'twentytwentyfour', template: 'twentytwentyfour' },
+			themeChanges: [],
+			mergedStyles: heading( 'Inter' ),
+		};
+		const customized = { ...released, userGlobalStyles: { styles: heading( 'Fraunces' ) } };
+		test.each( [
+			[ 'a child theme', child, true ],
+			[
+				'a child theme that edited its parent',
+				{ ...child, parentThemeChanges: [ 'style.css' ] },
+				false,
+			],
+			[ 'the released theme customized in Global Styles', customized, true ],
+			[ 'the released theme as it ships', released, false ],
+			[
+				'the released theme with its files edited',
+				{ ...customized, themeChanges: [ 'theme.json' ] },
+				false,
+			],
+			[
+				'another theme',
+				{ ...customized, theme: { stylesheet: 'other', template: 'other' } },
+				false,
+			],
+		] )( '%s', ( _name, value, expected ) => {
+			expect(
+				run( checks.customizedThroughChildTheme, outcome( value ), {
+					parentTheme: 'twentytwentyfour',
+				} ).pass
+			).toBe( expected );
+		} );
 	} );
 
 	test( 'colorsFromPalette', () => {
@@ -444,6 +602,18 @@ describe( 'site checks', () => {
 				outcome( site( 'is-style-section-1 is-style-section-1' ) )
 			).pass
 		).toBe( false );
+		// As run 41's 01a1…3852fa479c named its style from a BEM class.
+		expect(
+			run(
+				checks.repeatedTreatmentIsBlockStyle,
+				outcome( {
+					...site(
+						'"className":"card__media is-style-card__media"} --><figure class="wp-block-image card__media is-style-card__media"> "className":"is-style-card__media"}'
+					),
+					blockStyles: { 'core/image': [ 'card__media' ] },
+				} )
+			).pass
+		).toBe( true );
 		expect(
 			run(
 				checks.repeatedTreatmentIsBlockStyle,

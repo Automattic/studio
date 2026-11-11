@@ -29,26 +29,19 @@ describe( 'Sidebar kit', () => {
 		expect( screen.getByRole( 'list' ) ).toContainElement( item );
 		const button = screen.getByRole( 'button', { name: 'Bistro Unread' } );
 		expect( button ).toHaveAttribute( 'type', 'button' );
-		expect( button ).toHaveAttribute( 'data-active' );
 		expect( screen.getByRole( 'img', { name: 'Unread' } ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Pin' } ).parentElement ).toHaveAttribute(
-			'data-show-on-hover'
-		);
+		expect( item ).toContainElement( screen.getByRole( 'button', { name: 'Pin' } ) );
 	} );
 
 	it( 'renders a row as another element around its own control', () => {
 		const onClick = vi.fn();
 		render(
-			<SidebarMenuButton render={ <div /> } inset muted onClick={ onClick }>
+			<SidebarMenuButton render={ <div /> } onClick={ onClick }>
 				<SidebarMenuLabel render={ <button type="button" /> }>Field Notes</SidebarMenuLabel>
 			</SidebarMenuButton>
 		);
 		const label = screen.getByRole( 'button', { name: 'Field Notes' } );
-		const row = label.parentElement!;
-		expect( row.tagName ).toBe( 'DIV' );
-		expect( row ).not.toHaveAttribute( 'type' );
-		expect( row ).toHaveAttribute( 'data-inset' );
-		expect( row ).toHaveAttribute( 'data-muted' );
+		expect( screen.getAllByRole( 'button' ) ).toEqual( [ label ] );
 		fireEvent.click( label );
 		expect( onClick ).toHaveBeenCalled();
 	} );

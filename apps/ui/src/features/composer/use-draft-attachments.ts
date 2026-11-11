@@ -1,5 +1,12 @@
-import { watchComposerFilePaste } from '@studio/common/ai/composer-attachments';
-import { useCallback, useEffect, useMemo, type ChangeEvent, type RefObject } from 'react';
+import { watchComposerFilePaste } from '@studio/agent/protocol/composer-attachments';
+import {
+	useCallback,
+	useEffect,
+	useMemo,
+	useSyncExternalStore,
+	type ChangeEvent,
+	type RefObject,
+} from 'react';
 import {
 	useComposerAttachments,
 	useFileDrop,
@@ -11,29 +18,46 @@ import {
 	removeAnnotations,
 	useSiteAnnotations,
 } from '@/features/annotations';
+import { pendingComposerFilesSlot } from './pending-files';
 
 // File/image attachments (attach button, drop and paste). Images ride as
 // base64 content blocks; other files are referenced by disk path. The site's
 // staged annotations show first, as one file.
 export function useDraftAttachments( {
 	initialAttachments,
+	siteId,
 	annotationSiteId,
 	dropTarget,
 	textareaRef,
 }: {
 	initialAttachments: ComposerAttachment[];
+	siteId?: string;
 	annotationSiteId?: string;
 	dropTarget: HTMLElement | null;
 	textareaRef: RefObject< HTMLTextAreaElement | null >;
 } ) {
 	const {
+		error: attachmentError,
 		attachments,
 		addFiles,
 		removeAttachment,
-		removeAttachments,
 		restore: restoreAttachments,
 		pasteHandlers,
 	} = useComposerAttachments( initialAttachments );
+	const pendingFiles = useSyncExternalStore(
+		pendingComposerFilesSlot.subscribe,
+		pendingComposerFilesSlot.getSnapshot
+	);
+	useEffect( () => {
+		if (
+			! siteId ||
+			pendingFiles?.siteId !== siteId ||
+			pendingComposerFilesSlot.getSnapshot() !== pendingFiles
+		)
+			return;
+		pendingComposerFilesSlot.clear( pendingFiles );
+		void addFiles( pendingFiles.files ).then( () => textareaRef.current?.focus() );
+	}, [ addFiles, pendingFiles, siteId, textareaRef ] );
 	const { notes } = useSiteAnnotations( annotationSiteId );
 	const stagedNotes = useMemo( () => notes.filter( isStagedAnnotation ), [ notes ] );
 	const annotationsAttachment = stagedNotes.length ? getAnnotationsAttachment( stagedNotes ) : null;
@@ -76,8 +100,8 @@ export function useDraftAttachments( {
 			: removeAttachment( attachment.id );
 
 	return {
+		attachmentError,
 		attachments,
-		removeAttachments,
 		restoreAttachments,
 		pasteHandlers,
 		stagedNotes,

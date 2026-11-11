@@ -14,6 +14,7 @@ export type ButtonVariant =
 	| 'secondary'
 	| 'muted'
 	| 'ghost'
+	| 'accent-ghost'
 	| 'muted-ghost'
 	| 'destructive'
 	| 'link'
@@ -25,7 +26,6 @@ export type ButtonVariant =
 
 export type ButtonSize =
 	| 'default'
-	| 'header'
 	| 'composer-notice'
 	| '2xs'
 	| 'xs'
@@ -43,26 +43,26 @@ export type ButtonProps = ComponentProps< typeof BaseButton > & {
 	size?: ButtonSize;
 	shape?: 'default' | 'round';
 	layout?: 'default' | 'row' | 'inline';
-	/**
-	 * How fast the expanded or pressed state fades in: `layout` for a trigger whose popup slides in,
-	 * `instant` for a button whose state changes in step with another animation.
-	 */
-	activeMotion?: 'surface' | 'layout' | 'instant';
 	disabledAppearance?: 'default' | 'icon' | 'outline';
+	/** Uses destructive hover and focus colors while preserving the resting style. */
+	destructive?: boolean;
 	/** Disables the button and leads its label with a spinner. */
 	loading?: boolean;
+	/** Replaces the visible label with a centered spinner while preserving its width. */
+	loadingMode?: 'leading' | 'replace';
 	/** The spinner's accessible label while `loading`. */
 	loadingAnnouncement?: string;
 };
 
 export function Button( {
-	variant = 'default',
+	variant = 'outline',
 	size = 'default',
 	shape = 'default',
 	layout = 'default',
-	activeMotion = 'surface',
 	disabledAppearance = 'default',
+	destructive = false,
 	loading = false,
+	loadingMode = 'leading',
 	loadingAnnouncement,
 	disabled,
 	focusableWhenDisabled,
@@ -77,8 +77,9 @@ export function Button( {
 			data-size={ size }
 			data-shape={ shape === 'default' ? undefined : shape }
 			data-layout={ layout === 'default' ? undefined : layout }
-			data-active-motion={ activeMotion === 'surface' ? undefined : activeMotion }
 			data-disabled-appearance={ disabledAppearance === 'default' ? undefined : disabledAppearance }
+			data-destructive={ destructive || undefined }
+			data-loading-mode={ loadingMode === 'replace' ? loadingMode : undefined }
 			aria-busy={ loading || undefined }
 			disabled={ disabled || loading }
 			focusableWhenDisabled={ loading || focusableWhenDisabled }
@@ -87,12 +88,15 @@ export function Button( {
 		>
 			{ loading && (
 				<Spinner
-					data-icon="inline-start"
 					aria-hidden={ ! loadingAnnouncement || undefined }
 					aria-label={ loadingAnnouncement }
 				/>
 			) }
-			{ children }
+			{ loadingMode === 'replace' ? (
+				<span className={ styles.loadingLabel }>{ children }</span>
+			) : (
+				children
+			) }
 		</BaseButton>
 	);
 }

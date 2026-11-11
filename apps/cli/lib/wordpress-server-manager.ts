@@ -11,6 +11,7 @@ import {
 	SITE_SERVER_INACTIVITY_TIMEOUT,
 	SITE_SERVER_MAX_TIMEOUT,
 } from '@studio/common/constants';
+import { SITE_START_REQUESTED_AT_ENV } from '@studio/common/lib/cli-events';
 import { readLastLines } from '@studio/common/lib/fs-utils';
 import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
 import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
@@ -194,12 +195,16 @@ async function ensureSitePhpBinaryAvailable(
  * 4. Wait for response before resolving
  * 5. Persist the process PID so running-status checks match the live process
  */
+/** The command that started the site, reported as `command` on `studio_site_start`. */
+export type SiteStartCommand = 'start' | 'create' | 'import' | 'pull' | 'config';
+
 export async function startWordPressServer(
 	site: SiteData,
 	logger: Logger< string >,
+	command: SiteStartCommand,
 	options?: StartServerOptions
 ): Promise< ProcessDescription > {
-	// For sites imported via `studio pull-reprint`, the pull command persists
+	// For sites imported via `studio pull`, the pull command persists
 	// the computed start options to start-options.json next to its runtime files.
 	if ( ! options && site.runtimeBlueprintPath ) {
 		const optionsPath = path.join(
@@ -243,11 +248,16 @@ export async function startWordPressServer(
 
 	const readyOrExit = await subscribeForReadyOrExit( processName );
 	const phaseTimings: Record< string, number > = {};
-	const startedAt = Date.now();
+	const now = Date.now();
+	// Phases time from here; a `site start` an app asked for times from the request, so it includes
+	// spawning and loading this CLI and the preparation above.
+	const requestedAt =
+		command === 'start' ? Number( process.env[ SITE_START_REQUESTED_AT_ENV ] ) : NaN;
+	const startedAt = requestedAt <= now ? requestedAt : now;
 	try {
 		const processDesc = await startProcess( processName, WORDPRESS_SERVER_CHILD_PATH );
 		await readyOrExit.waitFor( processDesc.pmId );
-		phaseTimings.daemon_ms = Date.now() - startedAt;
+		phaseTimings.daemon_ms = Date.now() - now;
 		await sendMessage(
 			processDesc.pmId,
 			processName,
@@ -276,6 +286,7 @@ export async function startWordPressServer(
 		try {
 			await recordTracksEvent( TRACKS_EVENTS.SITE_START, {
 				...getTracksOrigin(),
+				command,
 				success: true,
 				time_ms: Date.now() - startedAt,
 				...phaseTimings,
@@ -293,6 +304,7 @@ export async function startWordPressServer(
 		try {
 			await recordTracksEvent( TRACKS_EVENTS.SITE_START, {
 				...getTracksOrigin(),
+				command,
 				success: false,
 				failure_reason: classifyStartFailure( error ),
 				time_ms: Date.now() - startedAt,
@@ -476,7 +488,7 @@ const messageActivityTrackers = new Map<
 >();
 const CHILD_EXIT_ERROR_GRACE_MS = 100;
 
-export interface SendMessageOptions {
+interface SendMessageOptions {
 	maxTotalElapsedTime?: number;
 	logger?: Logger< string >;
 	// Receives the start steps the child finishes for this message.
@@ -490,7 +502,7 @@ export interface SendMessageOptions {
  * - Checks periodically for inactivity
  * - Has both inactivity timeout and max total timeout
  */
-export async function sendMessage(
+async function sendMessage(
 	pmId: number,
 	processName: string,
 	message: ManagerMessagePayload,
@@ -639,16 +651,22 @@ export async function stopWordPressServer( siteId: string ): Promise< void > {
 		);
 
 		// Allow 5 seconds (arbitrary number) of cleanup time for the child process before throwing an
-		// exception and telling the process manager to send a SIGKILL signal.
-		await Promise.race( [
-			exitPromise,
-			new Promise( ( resolve, reject ) =>
-				setTimeout(
-					() => reject( new Error( 'Timed out waiting for the server to stop' ) ),
-					GRACEFUL_STOP_TIMEOUT
-				)
-			),
-		] );
+		// exception and telling the process manager to send a SIGKILL signal. Clear the timer once the
+		// race settles, or it keeps the CLI process alive for the full 5 seconds.
+		let exitTimeout: NodeJS.Timeout | undefined;
+		try {
+			await Promise.race( [
+				exitPromise,
+				new Promise( ( resolve, reject ) => {
+					exitTimeout = setTimeout(
+						() => reject( new Error( 'Timed out waiting for the server to stop' ) ),
+						GRACEFUL_STOP_TIMEOUT
+					);
+				} ),
+			] );
+		} finally {
+			clearTimeout( exitTimeout );
+		}
 	} catch {
 		await stopProcess( processName );
 		// SIGKILL is asynchronous: the daemon returns before the OS has torn the
@@ -721,7 +739,6 @@ export async function runBlueprint(
 				{ logger }
 			);
 		} finally {
-			// Always stop the process after blueprint is applied
 			await stopProcess( processName );
 		}
 	} finally {

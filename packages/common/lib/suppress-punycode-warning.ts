@@ -5,13 +5,10 @@
 const SUPPRESSED_DEPRECATION_CODES = [ 'DEP0040', 'DEP0049', 'DEP0053' ];
 
 export function suppressPunycodeWarning() {
-	// Save existing listeners
 	const originalListeners = process.listeners( 'warning' );
 
-	// Remove all current listeners
 	process.removeAllListeners( 'warning' );
 
-	// Add custom listener with filter
 	process.on( 'warning', ( warning: Error & { code?: string } ) => {
 		if (
 			warning.name === 'DeprecationWarning' &&
@@ -20,7 +17,6 @@ export function suppressPunycodeWarning() {
 		) {
 			return;
 		}
-		// Otherwise, call original listeners (print warning as usual)
 		for ( const listener of originalListeners ) {
 			listener.call( process, warning );
 		}

@@ -26,7 +26,6 @@ export async function exportDatabaseToFile(
 	site: SiteData,
 	finalDestination: string
 ): Promise< void > {
-	// Generate a temporary file name in the project directory
 	const tempFileName = `${ generateBackupFilename( 'db-export' ) }.sql`;
 
 	// Exports don't start the site, so the start-time collation fix may not have run yet.
@@ -50,7 +49,6 @@ export async function exportDatabaseToFile(
 		);
 	}
 
-	// Move the file to its final destination
 	const tempFilePath = path.join( site.path, tempFileName );
 	await move( tempFilePath, finalDestination );
 }
@@ -137,7 +135,6 @@ export async function exportDatabaseToMultipleFiles(
 			);
 		}
 
-		// Move the file to its final destination
 		const tempFilePath = path.join( site.path, fileName );
 		const finalDestination = path.join( finalDestinationDir, fileName );
 		await move( tempFilePath, finalDestination );

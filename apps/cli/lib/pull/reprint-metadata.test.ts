@@ -1,15 +1,20 @@
 import { describe, expect, it, vi } from 'vitest';
-import * as migrationClient from 'cli/lib/pull/migration-client';
-import { getCoreRoots, getReprintMetadata } from './reprint-metadata';
+import * as reprintClient from 'cli/lib/pull/reprint-client';
+import { getReprintMetadata } from './reprint-metadata';
 
 describe( 'reprint metadata', () => {
 	it( 'reads the one-line metadata response from Reprint', async () => {
-		vi.spyOn( migrationClient, 'runReprintCommandUntilComplete' ).mockResolvedValue( {
+		vi.spyOn( reprintClient, 'runReprintCommandUntilComplete' ).mockResolvedValue( {
 			stdout: JSON.stringify( {
 				hasCompletedOnce: true,
 				hasLocalIndex: true,
 				hasSkippedFiles: false,
 				pullStage: 'files-pull',
+				key: {
+					id: 'c1c08fadfa3a465c',
+					path: '/state/remotes/abc/key.pem',
+					publicKey: 'MIIBojANBg',
+				},
 				sourceSite: {
 					homeUrl: 'https://example.com',
 					siteUrl: 'https://example.com',
@@ -19,6 +24,7 @@ describe( 'reprint metadata', () => {
 					contentDirectory: '/srv/htdocs/wp-content',
 					wordpressAbsolutePath: '/wordpress/core',
 					wordpressRoots: [ 'base64:L3dvcmRwcmVzcy9jb3JlLzcuMA==', '/wordpress/core' ],
+					wordpressVersion: '7.1.4',
 					extraDirectories: [ '/scripts' ],
 				},
 			} ),
@@ -27,16 +33,50 @@ describe( 'reprint metadata', () => {
 		} );
 
 		const metadata = await getReprintMetadata( {
-			apiUrl: 'https://example.com/?reprint-api',
+			apiUrl: 'https://example.com/?reprint-api-jetpack',
 			stateDirectory: '/state',
 			verbose: false,
 		} );
 
-		expect( getCoreRoots( metadata ) ).toEqual( [ '/wordpress/core/7.0' ] );
-		expect( migrationClient.runReprintCommandUntilComplete ).toHaveBeenCalledWith(
-			[ 'import-metadata', 'https://example.com/?reprint-api', '--state-dir=/state' ],
+		expect( metadata.sourceSite.contentDirectory ).toBe( '/srv/htdocs/wp-content' );
+		expect( metadata.sourceSite.wordpressVersion ).toBe( '7.1.4' );
+		expect( metadata.sourceSite.tablePrefix ).toBe( 'wp_' );
+		expect( metadata.key?.publicKey ).toBe( 'MIIBojANBg' );
+		expect( reprintClient.runReprintCommandUntilComplete ).toHaveBeenCalledWith(
+			[ 'pull-metadata', 'https://example.com/?reprint-api-jetpack', '--state-dir=/state' ],
 			undefined,
 			{ verboseCommands: false }
 		);
+	} );
+
+	it( 'reports no remote WordPress version from a Reprint that does not', async () => {
+		vi.spyOn( reprintClient, 'runReprintCommandUntilComplete' ).mockResolvedValue( {
+			stdout: JSON.stringify( {
+				hasCompletedOnce: false,
+				hasLocalIndex: false,
+				hasSkippedFiles: false,
+				pullStage: null,
+				key: null,
+				sourceSite: {
+					homeUrl: null,
+					siteUrl: null,
+					tablePrefix: null,
+					wordpressDatabaseCharset: null,
+					serverDatabaseCharset: null,
+					contentDirectory: null,
+					extraDirectories: [],
+				},
+			} ),
+			stderr: '',
+			exitCode: 0,
+		} );
+
+		const metadata = await getReprintMetadata( {
+			apiUrl: 'https://example.com/?reprint-api-jetpack',
+			stateDirectory: '/state',
+			verbose: false,
+		} );
+
+		expect( metadata.sourceSite.wordpressVersion ).toBeNull();
 	} );
 } );

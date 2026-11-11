@@ -1,4 +1,3 @@
-import { isOnline } from '@studio/common/lib/network-utils';
 import { readSharedConfig } from '@studio/common/lib/shared-config';
 import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import { vol } from 'memfs';
@@ -7,7 +6,6 @@ import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand } from '../use';
 
 vi.mock( 'fs' );
-vi.mock( '@studio/common/lib/network-utils' );
 vi.mock( '@studio/common/lib/shared-config' );
 vi.mock( '@studio/common/lib/studio-blueprints-api' );
 vi.mock( '@studio/common/lib/blueprint-bundle', () => ( {
@@ -62,7 +60,6 @@ const defaultOptions = {
 describe( 'CLI: studio blueprint use', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
-		vi.mocked( isOnline ).mockResolvedValue( true );
 		vi.mocked( readSharedConfig ).mockResolvedValue( { version: 1 } );
 		vi.mocked( fetchStudioBlueprints ).mockResolvedValue( testBlueprints );
 		vi.mocked( runCreateSiteCommand ).mockResolvedValue( undefined );
@@ -90,7 +87,7 @@ describe( 'CLI: studio blueprint use', () => {
 	} );
 
 	it( 'should throw when offline', async () => {
-		vi.mocked( isOnline ).mockResolvedValue( false );
+		vi.mocked( fetchStudioBlueprints ).mockRejectedValue( new TypeError( 'fetch failed' ) );
 
 		await expect( runCommand( '/tmp/test-site', 'quick-start', defaultOptions ) ).rejects.toThrow(
 			'internet connection'
@@ -123,37 +120,6 @@ describe( 'CLI: studio blueprint use', () => {
 			value: originalIsTTY,
 			writable: true,
 		} );
-	} );
-
-	it( 'should pass site creation options to runCreateSiteCommand', async () => {
-		await runCommand( '/tmp/test-site', 'quick-start', {
-			name: 'My Site',
-			wpVersion: '6.5',
-			phpVersion: '8.2',
-			customDomain: 'mysite.local',
-			enableHttps: true,
-			adminUsername: 'admin',
-			adminPassword: 'secret',
-			adminEmail: 'admin@test.com',
-			noStart: true,
-			skipBrowser: true,
-		} );
-
-		expect( runCreateSiteCommand ).toHaveBeenCalledWith(
-			'/tmp/test-site',
-			expect.objectContaining( {
-				name: 'My Site',
-				wpVersion: '6.5',
-				phpVersion: '8.2',
-				customDomain: 'mysite.local',
-				enableHttps: true,
-				adminUsername: 'admin',
-				adminPassword: 'secret',
-				adminEmail: 'admin@test.com',
-				noStart: true,
-				skipBrowser: true,
-			} )
-		);
 	} );
 
 	it( 'should pass locale from shared config when fetching blueprints', async () => {

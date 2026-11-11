@@ -9,8 +9,8 @@ import type { StudioChatFileAttachment, StudioChatImage } from '@/data/core';
 
 /**
  * Imperative API surfaced via the Composer's forwarded ref. Lets parents
- * (e.g. the annotate-toolbar hand-off) inject a draft without making the
- * value a controlled prop — the latter would re-render the entire
+ * (a quoted selection, a reopened queued prompt) inject a draft without
+ * making the value a controlled prop — the latter would re-render the entire
  * SessionView (and the heavy Conversation tree) on every keystroke.
  */
 export interface ComposerHandle {

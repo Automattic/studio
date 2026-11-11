@@ -40,6 +40,8 @@ export const siteDetailsSchema = z.object( {
 	// The in-flight Studio operation holding the site, if any. The UI disables
 	// the actions it blocks, so it stays correct even when the agent started it.
 	operation: siteOperationSchema.optional(),
+	// The folder the email the site sends is saved in.
+	emailPath: z.string().optional(),
 } );
 
 export type SiteDetails = z.infer< typeof siteDetailsSchema >;
@@ -188,3 +190,9 @@ export const cliSyncEventSchema = z.object( {
 		.transform( ( val ) => JSON.parse( val ) )
 		.pipe( syncEventSchema ),
 } );
+
+/**
+ * Set by an app on the `site start` it spawns: the time (ms since the epoch) the user asked for the
+ * start, so the CLI's `studio_site_start` event can include the app's side of it.
+ */
+export const SITE_START_REQUESTED_AT_ENV = 'STUDIO_SITE_START_REQUESTED_AT';

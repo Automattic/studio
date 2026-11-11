@@ -1,9 +1,12 @@
+import { aiSessionBelongsToSite } from '@studio/agent/protocol/sessions/owner-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { useNavigate } from '@tanstack/react-router';
 import { useSyncExternalStore } from 'react';
 import { useConnector } from '@/data/core';
-import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
-import type { AiSessionSummary, SiteDetails } from '@/data/core';
+import { resumeChat } from '@/data/last-visited';
+import { useSessions } from '@/data/queries/use-sessions';
+import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
+import type { SiteDetails } from '@/data/core';
 
 // When the site was last opened this way, for the wave across its dot field.
 let selection: { siteId: string; time: number } | null = null;
@@ -20,26 +23,30 @@ export function useSiteSelectionTime( siteId: string | undefined ): number | und
 	return current && current.siteId === siteId ? current.time : undefined;
 }
 
-// Opens a site where the sidebar does: its latest chat, a new chat, or, without
-// Studio Code, its own page.
-export function useOpenSite() {
+export function useOpenSite( { animateSelection = true } = {} ) {
 	const navigate = useNavigate();
 	const connector = useConnector();
-	const { chatEnabled } = useAgenticFeatures();
+	const { data: sessions } = useSessions();
+	const preview = useOptionalSessionPreviewUI();
 
-	return ( site: SiteDetails, latestSession?: AiSessionSummary ) => {
-		selection = { siteId: site.id, time: performance.now() };
-		selectionListeners.forEach( ( listener ) => listener() );
-		if ( ! chatEnabled ) {
-			void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'overview' } );
-			void navigate( { to: '/sites/$siteId', params: { siteId: site.id } } );
-			return;
+	return ( site: SiteDetails ) => {
+		if ( animateSelection ) {
+			selection = { siteId: site.id, time: performance.now() };
+			selectionListeners.forEach( ( listener ) => listener() );
 		}
 		void connector.trackEvent( TRACKS_EVENTS.PANEL_OPENED, { panel: 'assistant' } );
-		if ( latestSession ) {
-			void navigate( { to: '/sessions/$sessionId', params: { sessionId: latestSession.id } } );
-			return;
+		preview?.setSite( site.id, { running: !! site.running } );
+		const session = resumeChat(
+			site.id,
+			( sessions ?? [] ).filter(
+				( session ) =>
+					!! session.firstPrompt && ! session.archived && aiSessionBelongsToSite( session, site )
+			)
+		);
+		if ( site.running && session ) {
+			void navigate( { to: '/sessions/$sessionId', params: { sessionId: session.id } } );
+		} else {
+			void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 		}
-		void navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
 	};
 }

@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react';
 import { useConnector } from '@/data/core';
-import { useAgenticFeatures } from '@/data/queries/use-agentic-features';
 import { useOnboardingHints, useSetOnboardingHints } from '@/data/queries/use-onboarding-hints';
 import { getOrientationGuide, ORIENTATION_GUIDE_VERSION } from './orientation-guide';
 import { useOnboardingGuide } from './use-onboarding-guide';
@@ -14,20 +13,16 @@ import { useOnboardingGuide } from './use-onboarding-guide';
  */
 export function useOrientationReplay(): void {
 	const connector = useConnector();
-	const agentic = useAgenticFeatures();
 	const { data: hints } = useOnboardingHints();
 	const setHints = useSetOnboardingHints();
 	const { openGuide } = useOnboardingGuide();
 
 	// The menu event fires outside React's data flow, so read the latest variant
 	// inputs through a ref instead of resubscribing every time they change.
-	const variantRef = useRef( { migrating: false, chatEnabled: agentic.chatEnabled } );
+	const variantRef = useRef( { migrating: false } );
 	useEffect( () => {
-		variantRef.current = {
-			migrating: hints?.migratedFromClassic ?? false,
-			chatEnabled: agentic.chatEnabled,
-		};
-	}, [ agentic.chatEnabled, hints?.migratedFromClassic ] );
+		variantRef.current = { migrating: hints?.migratedFromClassic ?? false };
+	}, [ hints?.migratedFromClassic ] );
 
 	useEffect( () => {
 		return connector.onShowGettingStarted( () => {

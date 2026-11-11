@@ -1,7 +1,6 @@
+import { defineTool, READ_ONLY, REMOTE_READ, textResult } from '@studio/agent/node';
 import { Type } from 'typebox';
-import { defineTool, READ_ONLY, REMOTE_CHANGE, REMOTE_READ } from 'cli/ai/tools/define-tool';
-import { textResult } from 'cli/ai/tools/utils';
-import { getCliAuthenticationUrl, storeAuthToken } from 'cli/lib/wpcom-auth';
+import { createLibraryAuthTools } from './auth';
 import { createSiteWatcher } from './site-changes';
 import { capturePreview, readLocalSites, readWpcomSites } from './sites';
 
@@ -94,24 +93,6 @@ export function createLibraryTools( uri: string ) {
 			),
 			listing: { _meta: pageOnly },
 		},
-		{
-			tool: defineTool(
-				'wpcom_login',
-				"Returns WordPress.com's authorization page, or stores the token it showed.",
-				{ token: Type.Optional( Type.String() ) },
-				async ( { token } ) => {
-					if ( ! token ) {
-						return {
-							...textResult( 'Authorization page.' ),
-							_meta: { url: await getCliAuthenticationUrl() },
-						};
-					}
-					await storeAuthToken( token.trim() );
-					return textResult( 'Logged in.' );
-				},
-				{ annotations: REMOTE_CHANGE }
-			),
-			listing: { _meta: pageOnly },
-		},
+		...createLibraryAuthTools().map( ( tool ) => ( { tool, listing: { _meta: pageOnly } } ) ),
 	];
 }

@@ -9,6 +9,7 @@ import {
 } from '@studio/common/lib/passwords';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { getWpCliPharPath } from 'cli/lib/dependency-management/paths';
+import { isSqliteIntegrationInstalled } from 'cli/lib/sqlite-integration';
 import { ensurePhpBinaryAvailable } from '../dependency-management/php-binary';
 import { runPhpCommand } from './php-process';
 import { getFullyResolvedTmpDirPath } from './tmp-dir';
@@ -25,14 +26,18 @@ const DEFAULT_WP_CONFIG_CONSTANTS = { DB_NAME: 'wordpress' } as const;
 
 type Logger = ( ...args: Parameters< typeof console.log > ) => void;
 
+type EnsureWpConfigOptions = Pick<
+	ServerConfig,
+	'enableDebugLog' | 'enableDebugDisplay' | 'enableScriptDebug' | 'environmentType'
+> & {
+	forceDefaultDatabaseName?: boolean;
+};
+
 export async function ensureWpConfig(
 	siteFolder: string,
 	phpVersion: SupportedPHPVersion,
 	signal?: AbortSignal,
-	config?: Pick<
-		ServerConfig,
-		'enableDebugLog' | 'enableDebugDisplay' | 'enableScriptDebug' | 'environmentType'
-	>
+	config?: EnsureWpConfigOptions
 ): Promise< void > {
 	const wpConfigPath = path.join( siteFolder, 'wp-config.php' );
 	const wpConfigSamplePath = path.join( siteFolder, 'wp-config-sample.php' );
@@ -54,8 +59,10 @@ $transformer->to_file( $wp_config_path );
 
 	const enableDebugLog = config?.enableDebugLog ?? false;
 	const enableDebugDisplay = config?.enableDebugDisplay ?? false;
+	const shouldSetDefaultDatabaseName =
+		config?.forceDefaultDatabaseName ?? ( await isSqliteIntegrationInstalled( siteFolder ) );
 	const constants = {
-		...DEFAULT_WP_CONFIG_CONSTANTS,
+		...( shouldSetDefaultDatabaseName ? DEFAULT_WP_CONFIG_CONSTANTS : {} ),
 		WP_DEBUG: enableDebugLog || enableDebugDisplay,
 		WP_DEBUG_LOG: enableDebugLog,
 		WP_DEBUG_DISPLAY: enableDebugDisplay,
@@ -86,10 +93,7 @@ $transformer->to_file( $wp_config_path );
 	}
 }
 
-export function getSiteUrlPrependContent(
-	siteUrl: string,
-	originalAutoPrependFile?: string
-): string {
+function getSiteUrlPrependContent( siteUrl: string, originalAutoPrependFile?: string ): string {
 	const escapedSiteUrl = escapePhpSingleQuotedString( siteUrl );
 	const chained = originalAutoPrependFile
 		? `require '${ escapePhpSingleQuotedString( originalAutoPrependFile ) }';`
@@ -126,14 +130,18 @@ export function writeSiteUrlPrependFile(
 	return prependPath;
 }
 
-export async function isWordPressInstalled(
+async function isWordPressInstalled(
 	siteFolder: string,
 	phpVersion: SupportedPHPVersion,
 	signal: AbortSignal
 ): Promise< boolean > {
+	// SHORTINIT stops wp-settings.php once the database drop-in is loaded, before the
+	// site's plugins and theme, whose fatal error would otherwise fail the check
+	// and keep the site from starting.
 	const installationCheckScript = `
 error_reporting( E_ERROR );
 ini_set( 'display_errors', '0' );
+define( 'SHORTINIT', true );
 
 $wp_load = getcwd() . '/wp-load.php';
 if ( ! file_exists( $wp_load ) ) {
@@ -172,17 +180,21 @@ function isCoreLanguagePackInstalled( sitePath: string, locale: string ): boolea
 	);
 }
 
+/**
+ * Installs WordPress unless it already is. Returns whether it ran the installer,
+ * which also creates the admin user with the configured credentials.
+ */
 export async function installWordPress(
 	config: ServerConfig,
 	phpVersion: SupportedPHPVersion,
 	signal: AbortSignal,
-	setDefaultPermalinksPath: string,
+	finishInstallPath: string,
 	logToConsole: Logger
-): Promise< void > {
+): Promise< boolean > {
 	const alreadyInstalled = await isWordPressInstalled( config.sitePath, phpVersion, signal );
 	if ( alreadyInstalled ) {
 		logToConsole( `WordPress already installed; skipping installer` );
-		return;
+		return false;
 	}
 
 	const siteTitle = config.siteTitle ?? 'My WordPress Website';
@@ -207,6 +219,7 @@ export async function installWordPress(
 			`--admin_email=${ email }`,
 			...( locale ? [ `--locale=${ locale }` ] : [] ),
 			'--skip-email',
+			`--require=${ finishInstallPath }`,
 		],
 		{ phpVersion, signal }
 	);
@@ -250,30 +263,5 @@ export async function installWordPress(
 			);
 		}
 	}
-
-	await runPhpCommand(
-		[
-			getWpCliPharPath(),
-			'option',
-			'update',
-			'studio_admin_username',
-			username,
-			`--path=${ config.sitePath }`,
-		],
-		{ phpVersion, signal }
-	);
-
-	try {
-		await runPhpCommand( [ setDefaultPermalinksPath ], {
-			phpVersion,
-			siteFolder: config.sitePath,
-			signal,
-		} );
-	} catch ( error ) {
-		throw new Error(
-			`Failed to set default permalinks: ${
-				error instanceof Error ? error.message : String( error )
-			}`
-		);
-	}
+	return true;
 }

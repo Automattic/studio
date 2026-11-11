@@ -1,7 +1,3 @@
-export {
-	AppMessageCards,
-	AppMessageCardsDot,
-	AppMessageHistoryRecorder,
-} from './app-message-cards';
+export { AppMessageCards } from './app-message-cards';
 export { AppToasts } from './app-toasts';
-export { NoticeHistoryButton, openNoticeHistory } from './notice-history';
+export { AppUpdateButton } from './app-update-button';

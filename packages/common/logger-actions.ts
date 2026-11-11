@@ -55,11 +55,10 @@ export enum SiteCommandLoggerAction {
 	ENSURE_PHP_BINARY = 'ensurePhpBinary',
 }
 
-export enum PullReprintCommandLoggerAction {
+export enum PullCommandLoggerAction {
 	LOAD_SITES = 'loadSites',
 	PREFLIGHT = 'preflight',
 	LOAD_WPCOM_SITES = 'loadWpComSites',
-	ROTATE_SECRET = 'rotateSecret',
 	ABORT_IMPORT = 'abortImport',
 	CREATE_SITE = 'createSite',
 	DOWNLOAD_FILES = 'downloadFiles',

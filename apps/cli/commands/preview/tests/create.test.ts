@@ -1,29 +1,29 @@
 import os from 'os';
 import path from 'path';
-import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { confirm, input } from '@inquirer/prompts';
+import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
-import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
+import { getUserInfo } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { createPreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
-import { saveSnapshotToConfig } from 'cli/lib/snapshots';
+import { getSiteTracksProps } from 'cli/lib/site-tracks';
+import { getSnapshotsFromConfig, saveSnapshotToConfig } from 'cli/lib/snapshots';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { LoggerError } from 'cli/logger';
 import { runCommand } from '../create';
 
-// Shared mock functions for Logger
-const mockReportStart = vi.fn();
 const mockReportSuccess = vi.fn();
 const mockReportError = vi.fn();
-const mockReportProgress = vi.fn();
-const mockReportWarning = vi.fn();
 
-vi.mock( '@studio/common/lib/get-wordpress-version' );
 vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
 	...( await importOriginal() ),
 	readAuthToken: vi.fn(),
+	updateSharedConfig: vi.fn(),
 } ) );
+vi.mock( '@inquirer/prompts' );
+vi.mock( 'cli/lib/browser' );
 vi.mock( 'cli/lib/cli-config/snapshots', async () => ( {
 	...( await vi.importActual( 'cli/lib/cli-config/snapshots' ) ),
 	getNextSnapshotSequence: vi.fn().mockReturnValue( 1 ),
@@ -36,7 +36,9 @@ vi.mock( 'cli/lib/validation', () => ( {
 	validateSiteSize: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/archive' );
+vi.mock( 'cli/lib/site-tracks' );
 vi.mock( 'cli/lib/api' );
+vi.mock( 'cli/lib/preview-sites' );
 vi.mock( 'cli/lib/snapshots', async () => ( {
 	...( await vi.importActual( 'cli/lib/snapshots' ) ),
 	getSnapshotsFromConfig: vi.fn().mockResolvedValue( [] ),
@@ -44,15 +46,15 @@ vi.mock( 'cli/lib/snapshots', async () => ( {
 } ) );
 vi.mock( 'cli/lib/tracks', async ( importActual ) => {
 	const actual = await importActual< typeof import('cli/lib/tracks') >();
-	return { ...actual, recordTracksEvent: vi.fn() };
+	return { ...actual, recordTracksEvent: vi.fn( async () => undefined ) };
 } );
 vi.mock( 'cli/logger', () => ( {
 	Logger: class {
-		reportStart = mockReportStart;
+		reportStart = vi.fn();
 		reportSuccess = mockReportSuccess;
 		reportError = mockReportError;
-		reportProgress = mockReportProgress;
-		reportWarning = mockReportWarning;
+		reportProgress = vi.fn();
+		reportWarning = vi.fn();
 		reportResult = vi.fn();
 		spinner = {};
 		currentAction = null;
@@ -60,6 +62,9 @@ vi.mock( 'cli/logger', () => ( {
 	LoggerError: class LoggerError extends Error {},
 } ) );
 
+vi.mock( 'cli/lib/site-versions', () => ( {
+	getSiteVersion: vi.fn().mockResolvedValue( 'version-1' ),
+} ) );
 vi.mock( 'cli/lib/site-operations', () => ( {
 	withSiteOperation: vi.fn( ( _folder: string, _kind: string, fn: () => unknown ) => fn() ),
 } ) );
@@ -71,6 +76,8 @@ describe( 'Preview Create Command', () => {
 	const mockArchivePath = path.join( os.tmpdir(), `${ mockBasename }-${ mockDate }.zip` );
 	const mockSiteUrl = 'test-preview.example.com';
 	const mockAtomicSiteId = 12345;
+	const mockAttachmentId = 678;
+	const mockShareUrl = `https://${ mockSiteUrl }/?share=abc123`;
 	const mockAuthToken = {
 		accessToken: 'mock-auth-token',
 		id: 123,
@@ -89,9 +96,12 @@ describe( 'Preview Create Command', () => {
 
 	beforeEach( () => {
 		vi.clearAllMocks();
+		vi.mocked( getSiteTracksProps ).mockImplementation( async ( _folder, preview ) => ( {
+			site_id: 'b4bfb381-cbf4-4003-b3db-233bcda55f51',
+			...( preview ? { preview_id: '603537e6-95ed-4583-84c2-d2725af37d8a' } : {} ),
+		} ) );
 		vi.spyOn( Date, 'now' ).mockReturnValue( mockDate );
 		vi.spyOn( path, 'basename' ).mockReturnValue( mockBasename );
-		vi.spyOn( process, 'cwd' ).mockReturnValue( mockFolder );
 
 		vi.mocked( readAuthToken ).mockResolvedValue( mockAuthToken );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( {
@@ -103,11 +113,13 @@ describe( 'Preview Create Command', () => {
 		} );
 		vi.mocked( archiveSiteContent, { partial: true } ).mockResolvedValue( mockArchiver );
 		vi.mocked( cleanup ).mockResolvedValue( undefined );
-		vi.mocked( uploadArchive ).mockResolvedValue( {
-			site_url: mockSiteUrl,
-			site_id: mockAtomicSiteId,
+		vi.mocked( uploadPreviewArchive ).mockResolvedValue( mockAttachmentId );
+		vi.mocked( createPreviewSite ).mockResolvedValue( {
+			siteId: mockAtomicSiteId,
+			hostname: mockSiteUrl,
+			shareUrl: mockShareUrl,
+			liveSiteId: 777,
 		} );
-		vi.mocked( waitForSiteReady ).mockResolvedValue( true );
 		vi.mocked( saveSnapshotToConfig ).mockResolvedValue( {
 			url: mockSiteUrl,
 			atomicSiteId: mockAtomicSiteId,
@@ -116,6 +128,7 @@ describe( 'Preview Create Command', () => {
 			name: 'Test Site Preview 1',
 			sequence: 1,
 			userId: mockAuthToken.id,
+			shareUrl: mockShareUrl,
 		} );
 	} );
 
@@ -123,69 +136,124 @@ describe( 'Preview Create Command', () => {
 		vi.restoreAllMocks();
 	} );
 
-	it( 'should complete the preview creation process successfully', async () => {
-		vi.mocked( getWordPressVersion ).mockReturnValue( '6.8.1' );
+	it( 'creates the preview on WordPress.com for any account', async () => {
 		await runCommand( mockFolder );
 
-		expect( getSiteByFolder ).toHaveBeenCalledWith( mockFolder );
-		expect( mockReportStart.mock.calls[ 0 ] ).toEqual( [ 'validate', 'Validating…' ] );
-
-		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath );
 		expect( withSiteOperation ).toHaveBeenCalledWith(
 			mockFolder,
 			'export',
 			expect.any( Function )
 		);
-		expect( mockReportStart.mock.calls[ 1 ] ).toEqual( [ 'archive', 'Creating archive…' ] );
-		expect( mockReportSuccess.mock.calls[ 0 ] ).toEqual( [ 'Archive created' ] );
-
-		expect( uploadArchive ).toHaveBeenCalledWith(
+		expect( archiveSiteContent ).toHaveBeenCalledWith( mockFolder, mockArchivePath, {
+			onWpcom: true,
+		} );
+		expect( uploadPreviewArchive ).toHaveBeenCalledWith(
 			mockArchivePath,
-			mockAuthToken.accessToken,
-			'6.8.1'
+			mockAuthToken.accessToken
 		);
-		expect( mockReportStart.mock.calls[ 2 ] ).toEqual( [ 'upload', 'Uploading archive…' ] );
-		expect( mockReportSuccess.mock.calls[ 1 ] ).toEqual( [ 'Archive uploaded' ] );
-
-		expect( waitForSiteReady ).toHaveBeenCalledWith( mockAtomicSiteId, mockAuthToken.accessToken );
-		expect( mockReportStart.mock.calls[ 3 ] ).toEqual( [ 'ready', 'Creating preview site…' ] );
-		expect( mockReportSuccess.mock.calls[ 2 ] ).toEqual( [
-			`Preview site available at: https://${ mockSiteUrl }`,
-		] );
-
+		expect( createPreviewSite ).toHaveBeenCalledWith(
+			mockAttachmentId,
+			'Test Site Preview 1',
+			mockAuthToken.accessToken,
+			undefined
+		);
 		expect( saveSnapshotToConfig ).toHaveBeenCalledWith(
 			mockFolder,
 			mockAtomicSiteId,
 			mockSiteUrl,
 			mockAuthToken.id,
-			'Test Site Preview 1'
+			'Test Site Preview 1',
+			mockShareUrl,
+			'version-1',
+			777
 		);
-		expect( mockReportStart.mock.calls[ 4 ] ).toEqual( [
-			'appdata',
-			'Saving preview site to Studio…',
-		] );
-		expect( mockReportSuccess.mock.calls[ 3 ] ).toEqual( [ 'Preview site saved to Studio' ] );
-
+		expect( mockReportSuccess ).toHaveBeenCalledWith(
+			`Preview site available at: ${ mockShareUrl }`
+		);
+		expect( mockReportError ).not.toHaveBeenCalled();
 		expect( cleanup ).toHaveBeenCalledWith( mockArchivePath );
 	} );
 
-	it( 'records a successful preview_site_create Tracks event', async () => {
+	it( "records a successful preview_site_create Tracks event with the site's preview count", async () => {
+		const preview = ( localSiteId: string, userId: number, date: number ) => ( {
+			url: `${ localSiteId }-${ userId }-${ date }.example.com`,
+			atomicSiteId: 1,
+			localSiteId,
+			userId,
+			name: 'Preview',
+			date,
+		} );
+		// Counts this user's unexpired previews of this site, the new one included.
+		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [
+			preview( 'site-123', mockAuthToken.id, Date.now() ),
+			preview( 'site-123', mockAuthToken.id, Date.now() - 1000 ),
+			preview( 'site-123', mockAuthToken.id, 0 ),
+			preview( 'other-site', mockAuthToken.id, Date.now() ),
+			preview( 'site-123', mockAuthToken.id + 1, Date.now() ),
+		] );
+
 		await runCommand( mockFolder );
 
 		expect( recordTracksEvent ).toHaveBeenCalledWith(
 			TRACKS_EVENTS.PREVIEW_SITE_CREATE,
 			expect.objectContaining( {
 				success: true,
+				site_id: 'b4bfb381-cbf4-4003-b3db-233bcda55f51',
+				preview_id: '603537e6-95ed-4583-84c2-d2725af37d8a',
 				time_ms: expect.any( Number ),
+				site_preview_count: 2,
 				channel: 'studio-cli',
 			} )
 		);
 	} );
 
-	it( 'records a failed preview_site_create Tracks event with a failure_reason', async () => {
-		vi.mocked( uploadArchive ).mockRejectedValue( new LoggerError( 'Failed to upload archive' ) );
+	it( 'omits preview_id when creation fails before a preview record exists', async () => {
+		vi.mocked( uploadPreviewArchive ).mockRejectedValueOnce( new Error( 'Upload failed' ) );
+		await expect( runCommand( mockFolder ) ).rejects.toThrow();
+		expect( getSiteTracksProps ).toHaveBeenCalledWith( mockFolder, undefined );
+		const props = vi
+			.mocked( recordTracksEvent )
+			.mock.calls.find( ( [ event ] ) => event === TRACKS_EVENTS.PREVIEW_SITE_CREATE )?.[ 1 ];
+		expect( props ).toMatchObject( {
+			success: false,
+			site_id: 'b4bfb381-cbf4-4003-b3db-233bcda55f51',
+		} );
+		expect( props ).not.toHaveProperty( 'preview_id' );
+	} );
 
+	it( 'keeps preview context when a failure follows saving the preview', async () => {
+		vi.mocked( getSnapshotsFromConfig ).mockRejectedValueOnce( new Error( 'Read failed' ) );
+		await expect( runCommand( mockFolder, 'Preview' ) ).rejects.toThrow();
+		expect( getSiteTracksProps ).toHaveBeenCalledWith(
+			mockFolder,
+			expect.objectContaining( {
+				atomicSiteId: mockAtomicSiteId,
+			} )
+		);
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.PREVIEW_SITE_CREATE,
+			expect.objectContaining( {
+				success: false,
+				preview_id: '603537e6-95ed-4583-84c2-d2725af37d8a',
+			} )
+		);
+	} );
+
+	it( 'preserves a successful operation and its event when ID storage is unavailable', async () => {
+		vi.mocked( getSiteTracksProps ).mockResolvedValueOnce( {} );
 		await runCommand( mockFolder );
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.PREVIEW_SITE_CREATE,
+			expect.objectContaining( { success: true, channel: 'studio-cli' } )
+		);
+	} );
+
+	it( 'records a failed preview_site_create Tracks event with a failure_reason', async () => {
+		vi.mocked( uploadPreviewArchive ).mockRejectedValue(
+			new LoggerError( 'Failed to upload archive' )
+		);
+
+		await expect( runCommand( mockFolder ) ).rejects.toThrow( LoggerError );
 
 		expect( recordTracksEvent ).toHaveBeenCalledWith(
 			TRACKS_EVENTS.PREVIEW_SITE_CREATE,
@@ -198,93 +266,54 @@ describe( 'Preview Create Command', () => {
 		);
 	} );
 
-	it( 'should use current directory when no folder is specified', async () => {
-		await runCommand( process.cwd() );
-
-		expect( getSiteByFolder ).toHaveBeenCalledWith( process.cwd() );
-	} );
-
-	it( 'should handle errors when folder is not a Studio site', async () => {
-		const errorMessage =
-			'The specified folder is not added to Studio. Please use `studio create` to add it first.';
-		vi.mocked( getSiteByFolder ).mockImplementation( () => {
-			throw new LoggerError( errorMessage );
-		} );
-
-		await runCommand( mockFolder );
-
-		expect( mockReportError ).toHaveBeenCalled();
-		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-		expect( archiveSiteContent ).not.toHaveBeenCalled();
-	} );
-
 	it( 'should handle authentication errors', async () => {
 		vi.mocked( readAuthToken ).mockResolvedValue( null );
 
-		await runCommand( mockFolder );
-
-		expect( mockReportError ).toHaveBeenCalled();
-		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
+		await expect( runCommand( mockFolder ) ).rejects.toThrow( LoggerError );
 		expect( archiveSiteContent ).not.toHaveBeenCalled();
 	} );
 
-	it( 'should handle archive creation errors', async () => {
-		const errorMessage = 'Archive creation failed';
-		vi.mocked( archiveSiteContent ).mockImplementation( () => {
-			throw new LoggerError( errorMessage );
+	it( 'should offer to sign in at a terminal and carry on creating the preview', async () => {
+		vi.mocked( readAuthToken ).mockResolvedValue( null );
+		vi.mocked( confirm ).mockResolvedValue( true );
+		vi.mocked( input ).mockResolvedValue( 'pasted-token' );
+		vi.mocked( getUserInfo, { partial: true } ).mockResolvedValue( {
+			ID: 123,
+			email: 'test@example.com',
+			display_name: 'Test User',
 		} );
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		const isTTY = [ process.stdin.isTTY, process.stdout.isTTY ];
+		process.stdin.isTTY = process.stdout.isTTY = true;
 
-		await runCommand( mockFolder );
+		try {
+			await runCommand( mockFolder );
+		} finally {
+			[ process.stdin.isTTY, process.stdout.isTTY ] = isTTY;
+		}
 
-		expect( mockReportError ).toHaveBeenCalled();
-		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-		expect( uploadArchive ).not.toHaveBeenCalled();
-	} );
-
-	it( 'should handle upload errors', async () => {
-		const errorMessage = 'Upload failed';
-		vi.mocked( uploadArchive ).mockImplementation( () => {
-			throw new LoggerError( errorMessage );
+		expect( updateSharedConfig ).toHaveBeenCalledWith( {
+			authToken: expect.objectContaining( { accessToken: 'pasted-token', id: 123 } ),
 		} );
-
-		await runCommand( mockFolder );
-
-		expect( mockReportError ).toHaveBeenCalled();
-		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-		expect( waitForSiteReady ).not.toHaveBeenCalled();
-	} );
-
-	it( 'should handle site readiness errors', async () => {
-		const errorMessage = 'Failed to create preview site';
-		vi.mocked( waitForSiteReady ).mockImplementation( () => {
-			throw new LoggerError( errorMessage );
+		expect( createPreviewSite ).toHaveBeenCalled();
+		const started = vi
+			.mocked( recordTracksEvent )
+			.mock.calls.find( ( [ name ] ) => name === TRACKS_EVENTS.WPCOM_AUTH_STARTED );
+		expect( started?.[ 1 ] ).toEqual(
+			expect.objectContaining( { auth_attempt_id: expect.any( String ), source: 'cli' } )
+		);
+		expect( recordTracksEvent ).toHaveBeenCalledWith( TRACKS_EVENTS.WPCOM_AUTH, {
+			...started?.[ 1 ],
+			success: true,
 		} );
-
-		await runCommand( mockFolder );
-
-		expect( mockReportError ).toHaveBeenCalled();
-		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
-		expect( saveSnapshotToConfig ).not.toHaveBeenCalled();
-	} );
-
-	it( 'should handle appdata errors', async () => {
-		const errorMessage = 'Failed to save to appdata';
-		vi.mocked( saveSnapshotToConfig ).mockImplementation( () => {
-			throw new LoggerError( errorMessage );
-		} );
-
-		await runCommand( mockFolder );
-
-		expect( mockReportError ).toHaveBeenCalled();
-		expect( mockReportError ).toHaveBeenCalledWith( expect.any( LoggerError ) );
 	} );
 
 	it( 'should always clean up archive file even on error', async () => {
-		vi.mocked( uploadArchive ).mockImplementation( () => {
+		vi.mocked( uploadPreviewArchive ).mockImplementation( () => {
 			throw new LoggerError( 'Upload failed' );
 		} );
 
-		await runCommand( mockFolder );
+		await expect( runCommand( mockFolder ) ).rejects.toThrow( LoggerError );
 
 		expect( cleanup ).toHaveBeenCalledWith( mockArchivePath );
 	} );

@@ -1,17 +1,19 @@
+import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifacts';
 import { __ } from '@wordpress/i18n';
 import { isValidElement, memo, useMemo } from 'react';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useConnector } from '@/data/core';
 import { CopyButton } from '@/features/chats/copy-button';
+import { ToolLink } from '@/features/chats/tool-link';
 import { CODE_TEXT_ATTRIBUTE } from '@/features/chats/use-text-context-menu';
+import { DesignSystemIcon } from '@/lib/icons';
 import { CodeBlock } from '@/lib/ui';
 import { closeOpenMarkdown, splitMarkdownBlocks } from './blocks';
 import styles from './style.module.css';
 import type { MouseEvent, ReactNode } from 'react';
 import type { Components } from 'react-markdown';
 
-/** Recursively collect the plain-text content of a React node tree. */
 function extractText( node: ReactNode ): string {
 	if ( typeof node === 'string' ) {
 		return node;
@@ -51,6 +53,11 @@ const baseComponents: Components = {
 	h3: ( { children } ) => <h3 className={ styles.h3 }>{ children }</h3>,
 	h4: ( { children } ) => <h4 className={ styles.h4 }>{ children }</h4>,
 	p: ( { children } ) => <p className={ styles.p }>{ children }</p>,
+	img: ( { src, alt, title } ) => (
+		<span className={ styles.imageFrame }>
+			<img src={ src } alt={ alt } title={ title } />
+		</span>
+	),
 	ul: ( { children } ) => <ul className={ styles.ul }>{ children }</ul>,
 	ol: ( { children } ) => <ol className={ styles.ol }>{ children }</ol>,
 	li: ( { children } ) => <li className={ styles.li }>{ children }</li>,
@@ -68,7 +75,6 @@ const baseComponents: Components = {
 	th: ( { children } ) => <th className={ styles.th }>{ children }</th>,
 	td: ( { children } ) => <td className={ styles.td }>{ children }</td>,
 	code: ( { className, children, ref: _ref, ...props } ) => {
-		// Inline code: no language class, no embedded newline.
 		const isInline = ! className && ! String( children ).includes( '\n' );
 		if ( isInline ) {
 			return (
@@ -88,6 +94,10 @@ const baseComponents: Components = {
 
 const remarkPlugins = [ remarkGfm ];
 
+function transformChatUrl( url: string ) {
+	return url === DESIGN_SYSTEM_PREVIEW_PATH ? url : defaultUrlTransform( url );
+}
+
 const MarkdownBlock = memo( function MarkdownBlock( {
 	text,
 	components,
@@ -96,7 +106,11 @@ const MarkdownBlock = memo( function MarkdownBlock( {
 	components: Components;
 } ) {
 	return (
-		<ReactMarkdown remarkPlugins={ remarkPlugins } components={ components }>
+		<ReactMarkdown
+			remarkPlugins={ remarkPlugins }
+			components={ components }
+			urlTransform={ transformChatUrl }
+		>
 			{ text }
 		</ReactMarkdown>
 	);
@@ -118,6 +132,17 @@ export const Markdown = memo( function Markdown( {
 			// Electron swallows plain `target="_blank"` navigations — route clicks
 			// through the connector so links open in the system browser.
 			a: ( { children: linkChildren, href } ) => {
+				if ( href === DESIGN_SYSTEM_PREVIEW_PATH ) {
+					return (
+						<ToolLink
+							icon={ <DesignSystemIcon aria-hidden="true" /> }
+							aria-label={ __( 'Open Design System' ) }
+							path={ DESIGN_SYSTEM_PREVIEW_PATH }
+						>
+							{ __( 'Design System' ) }
+						</ToolLink>
+					);
+				}
 				const handleClick = ( event: MouseEvent< HTMLAnchorElement > ) => {
 					if ( ! href ) {
 						return;

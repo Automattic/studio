@@ -1,3 +1,7 @@
+.modeChip {
+	--button-hover-background: color-mix( in oklab, var( --muted ) 95%, var( --foreground ) );
+}
+
 .modeChipIcon {
 	position: relative;
 	display: flex;

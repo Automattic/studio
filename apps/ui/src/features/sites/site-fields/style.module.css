@@ -17,3 +17,13 @@
 	gap: var( --space-1 );
 	min-width: min( 224px, 100% );
 }
+.selectContent {
+	max-width: min( 20rem, var( --available-width ) );
+	max-height: min( 22rem, var( --available-height ) );
+}
+
+.selectGroup + .selectGroup {
+	margin-block-start: var( --space-1_5 );
+	padding-block-start: var( --space-1_5 );
+	border-block-start: 1px solid var( --border );
+}

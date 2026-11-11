@@ -1,13 +1,21 @@
-import { useLayoutEffect, useRef, type ReactNode, type Ref } from 'react';
-import { ChatContextMenu } from '@/features/chats/chat-actions';
-import { ProgressiveBlur } from '@/features/chats/progressive-blur';
+import {
+	useCallback,
+	useImperativeHandle,
+	useLayoutEffect,
+	useRef,
+	type ReactNode,
+	type Ref,
+} from 'react';
+import { ActiveChatShortcuts } from '@/features/chats/chat-actions';
+import { useScrollFade } from '@/lib/hooks';
+import { ScrollBlur } from '@/lib/ui';
 import styles from './style.module.css';
 import type { AiSessionSummary } from '@/data/core';
 
 interface SessionFrameProps {
 	session?: AiSessionSummary;
-	canExpand?: boolean;
 	header?: ReactNode;
+	background?: ReactNode;
 	composer?: ReactNode;
 	scrollRef?: Ref< HTMLDivElement >;
 	rootRef?: ( node: HTMLDivElement | null ) => void;
@@ -16,16 +24,26 @@ interface SessionFrameProps {
 
 // Lays out the chat column as fixed chrome over a full-height conversation
 // scroller. The site preview panel lives in the dashboard layout's
-// PreviewSplitFrame, which keeps it mounted across routes.
+// PanelSplitFrame, which keeps it mounted across routes.
 export function SessionFrame( {
 	session,
-	canExpand,
 	header,
+	background,
 	composer,
 	scrollRef,
 	rootRef: onRootNode,
 	children,
 }: SessionFrameProps ) {
+	const scroller = useRef< HTMLDivElement >( null );
+	const setFadeElement = useScrollFade< HTMLDivElement >( { inset: true } );
+	const setScroller = useCallback(
+		( node: HTMLDivElement | null ) => {
+			scroller.current = node;
+			setFadeElement( node );
+		},
+		[ setFadeElement ]
+	);
+	useImperativeHandle( scrollRef, () => scroller.current!, [] );
 	const rootRef = useRef< HTMLDivElement | null >( null );
 	const headerRef = useRef< HTMLDivElement >( null );
 	const composerRef = useRef< HTMLDivElement >( null );
@@ -46,11 +64,6 @@ export function SessionFrame( {
 
 		updateChromeSize();
 
-		if ( typeof ResizeObserver === 'undefined' ) {
-			window.addEventListener( 'resize', updateChromeSize );
-			return () => window.removeEventListener( 'resize', updateChromeSize );
-		}
-
 		const resizeObserver = new ResizeObserver( updateChromeSize );
 		if ( headerRef.current ) {
 			resizeObserver.observe( headerRef.current );
@@ -63,29 +76,39 @@ export function SessionFrame( {
 	}, [] );
 
 	return (
-		<ChatContextMenu session={ session } canExpand={ canExpand }>
+		<>
+			{ session ? <ActiveChatShortcuts session={ session } /> : null }
 			<div
 				ref={ ( node ) => {
 					rootRef.current = node;
 					onRootNode?.( node );
 				} }
 				className={ styles.root }
+				data-chat-frame
+				onContextMenuCapture={ ( event ) => {
+					if (
+						( event.target as Element ).closest(
+							'input, textarea, [contenteditable="true"], [data-chat-transcript]'
+						)
+					) {
+						event.stopPropagation();
+					}
+				} }
 			>
+				{ background }
 				<div ref={ headerRef } className={ styles.headerLayer }>
 					{ header }
 				</div>
-				<div ref={ scrollRef } className={ styles.scroll }>
+				<div ref={ setScroller } className={ styles.scroll }>
 					{ children }
 				</div>
+				<ScrollBlur edge="top" className={ styles.topBlur } />
 				{ composer ? (
-					<>
-						<ProgressiveBlur direction="up" className={ styles.composerBlur } fadeToSurface />
-						<div ref={ composerRef } className={ styles.composerOuter }>
-							{ composer }
-						</div>
-					</>
+					<div ref={ composerRef } className={ styles.composerOuter }>
+						{ composer }
+					</div>
 				) : null }
 			</div>
-		</ChatContextMenu>
+		</>
 	);
 }

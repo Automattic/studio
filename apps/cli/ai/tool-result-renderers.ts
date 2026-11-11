@@ -12,7 +12,7 @@ export function formatToolOutputLines( lines: string[] ): string {
 		.join( '\n' );
 }
 
-export interface ToolResultRenderContext {
+interface ToolResultRenderContext {
 	input: Record< string, unknown >;
 	text: string;
 	isError: boolean;

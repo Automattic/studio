@@ -3,20 +3,19 @@ import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-wa
 import { __, sprintf } from '@wordpress/i18n';
 import semver from 'semver';
 import yargs from 'yargs';
-import { registerCommand as registerExportCommand } from 'cli/commands/export';
-import { registerCommand as registerImportCommand } from 'cli/commands/import';
-import { registerCommand as registerMcpCommand } from 'cli/commands/mcp';
-import { registerCommand as registerPullCommand } from 'cli/commands/pull';
-import { registerCommand as registerPullReprintCommand } from 'cli/commands/pull-reprint';
-import { registerCommand as registerPushCommand } from 'cli/commands/push';
-import { registerCommand as registerSiteCreateCommand } from 'cli/commands/site/create';
-import { registerCommand as registerSiteDeleteCommand } from 'cli/commands/site/delete';
-import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list';
-import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start';
-import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status';
-import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop';
-import { registerCommand as registerUiCommand } from 'cli/commands/ui';
-import { registerCommand as registerUninstallCommand } from 'cli/commands/uninstall';
+import { registerCommand as registerExportCommand } from 'cli/commands/export.command';
+import { registerCommand as registerImportCommand } from 'cli/commands/import.command';
+import { registerCommand as registerMcpCommand } from 'cli/commands/mcp.command';
+import { registerCommand as registerPullCommand } from 'cli/commands/pull.command';
+import { registerCommand as registerPushCommand } from 'cli/commands/push.command';
+import { registerCommand as registerSiteCreateCommand } from 'cli/commands/site/create.command';
+import { registerCommand as registerSiteDeleteCommand } from 'cli/commands/site/delete.command';
+import { registerCommand as registerSiteListCommand } from 'cli/commands/site/list.command';
+import { registerCommand as registerSiteStartCommand } from 'cli/commands/site/start.command';
+import { registerCommand as registerSiteStatusCommand } from 'cli/commands/site/status.command';
+import { registerCommand as registerSiteStopCommand } from 'cli/commands/site/stop.command';
+import { registerCommand as registerUiCommand } from 'cli/commands/ui.command';
+import { registerCommand as registerUninstallCommand } from 'cli/commands/uninstall.command';
 import {
 	bumpAggregatedUniqueStat,
 	bumpStat,
@@ -187,7 +186,7 @@ async function main() {
 					sprintf(
 						/* translators: %s: Studio Code support documentation URL */
 						__( 'Learn more: %s' ),
-						'https://developer.wordpress.com/docs/developer-tools/studio/studio-code/'
+						'https://wordpress.studio/docs/studio-code/'
 					),
 				].join( '\n' )
 			)
@@ -212,9 +211,6 @@ async function main() {
 
 	registerPushCommand( studioArgv );
 	registerPullCommand( studioArgv );
-	if ( process.env.STUDIO_ENABLE_PULL_REPRINT ) {
-		registerPullReprintCommand( studioArgv );
-	}
 
 	registerImportCommand( studioArgv );
 	registerExportCommand( studioArgv );
@@ -229,12 +225,14 @@ async function main() {
 			{ registerCommand: registerPreviewDeleteCommand },
 			{ registerCommand: registerPreviewUpdateCommand },
 			{ registerCommand: registerPreviewSetCommand },
+			{ registerCommand: registerPreviewStatusCommand },
 		] = await Promise.all( [
 			import( 'cli/commands/preview/create' ),
 			import( 'cli/commands/preview/list' ),
 			import( 'cli/commands/preview/delete' ),
 			import( 'cli/commands/preview/update' ),
 			import( 'cli/commands/preview/set' ),
+			import( 'cli/commands/preview/status' ),
 		] );
 
 		registerPreviewCreateCommand( previewYargs );
@@ -242,6 +240,7 @@ async function main() {
 		registerPreviewDeleteCommand( previewYargs );
 		registerPreviewUpdateCommand( previewYargs );
 		registerPreviewSetCommand( previewYargs );
+		registerPreviewStatusCommand( previewYargs );
 		previewYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 	} );
 
@@ -331,6 +330,12 @@ async function main() {
 		.strict();
 
 	await studioArgv.argv;
+
+	// Tell the host that started this command it has finished, so it needn't wait for the
+	// process to exit after best-effort telemetry requests complete.
+	if ( process.connected && ! process.exitCode ) {
+		process.send?.( { action: 'done' } );
+	}
 }
 
 void main();

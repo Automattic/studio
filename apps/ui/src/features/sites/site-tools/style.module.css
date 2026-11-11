@@ -1,0 +1,11 @@
+.launcher {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-1 );
+	width: min( 100%, 280px );
+	text-align: start;
+}
+
+.shortcut {
+	margin-inline-start: auto;
+}

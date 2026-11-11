@@ -44,12 +44,8 @@ interface Header {
 }
 
 /**
- * Reads a string from a buffer at a given start and end position.
- *
- * @param {Buffer} buffer - The buffer to read from.
- * @param {number} start - The start position of the string in the buffer.
- * @param {number} end - The end position of the string in the buffer.
- * @returns {string} - The substring buffer, stopping at a null-terminator if present.
+ * Reads a string from a buffer at a given start and end position, stopping at
+ * a null-terminator if present.
  */
 function readFromBuffer( buffer: Buffer, start: number, end: number ): string {
 	const _buffer = buffer.subarray( start, end );
@@ -249,12 +245,6 @@ export class BackupHandlerWpress extends ImportExportEventEmitter implements Bac
 
 	/**
 	 * Lists all files in a .wpress backup file by reading the headers sequentially.
-	 *
-	 * It opens the .wpress file, reads each header to get the file names, and stores them in an array.
-	 * The function continues reading headers until it reaches the end of the file.
-	 *
-	 * @param {BackupArchiveInfo} file - The backup archive information, including the file path.
-	 * @returns {Promise<string[]>} - A promise that resolves to an array of file names.
 	 */
 	async listFiles( file: BackupArchiveInfo ): Promise< string[] > {
 		const fileNames: string[] = [];
@@ -291,13 +281,6 @@ export class BackupHandlerWpress extends ImportExportEventEmitter implements Bac
 		return fileNames;
 	}
 
-	/**
-	 * Extracts files from a .wpress backup file into a specified extraction directory.
-	 *
-	 * @param {BackupArchiveInfo} file - The backup archive information, including the file path.
-	 * @param {string} extractionDirectory - The directory where the files will be extracted.
-	 * @returns {Promise<void>} - A promise that resolves when the extraction is complete.
-	 */
 	async extractFiles( file: BackupArchiveInfo, extractionDirectory: string ): Promise< void > {
 		try {
 			await fs.promises.access( file.path, constants.F_OK );
@@ -326,7 +309,6 @@ export class BackupHandlerWpress extends ImportExportEventEmitter implements Bac
 			while ( ( header = await readHeader( inputFile, position ) ) !== null ) {
 				position += HEADER_SIZE;
 
-				// Emit progress before processing file
 				const currentFile = path.join( header.prefix, header.name );
 
 				this.emit( ImportEvents.BACKUP_EXTRACT_FILE_START, {
@@ -340,7 +322,6 @@ export class BackupHandlerWpress extends ImportExportEventEmitter implements Bac
 				position += header.size;
 				this.processedFiles++;
 
-				// Emit progress after processing file
 				this.emit( ImportEvents.BACKUP_EXTRACT_PROGRESS, {
 					progress: this.calculateProgress(),
 					processedFiles: this.processedFiles,

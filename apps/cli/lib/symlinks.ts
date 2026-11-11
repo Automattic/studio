@@ -270,7 +270,7 @@ async function findSymlinksInDir( dir: string ): Promise< string[] > {
 // PHP's open_basedir compares against the realpath of the accessed file, so we
 // follow the symlink chain and grant the containing directory of the target
 // (so a single grant covers a whole symlinked plugin/theme, not just one file).
-export async function resolveSymlinkAllowlistEntry( linkPath: string ): Promise< string | null > {
+async function resolveSymlinkAllowlistEntry( linkPath: string ): Promise< string | null > {
 	try {
 		const real = fs.realpathSync.native( linkPath );
 		const stat = await fs.promises.stat( real );

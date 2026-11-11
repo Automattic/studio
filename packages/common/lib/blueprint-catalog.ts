@@ -29,7 +29,7 @@ const CATALOG: Record< string, { useCases: BlueprintUseCase[]; demoUrl?: string 
 		useCases: [ 'portfolio' ],
 		demoUrl: 'https://readymadedemo.wordpress.com/',
 	},
-	'personal-blog-2': { useCases: [ 'blog' ], demoUrl: 'https://substratademo.wordpress.com/' },
+	substrata: { useCases: [ 'blog' ], demoUrl: 'https://substratademo.wordpress.com/' },
 	'non-profit-organization-2': {
 		useCases: [ 'business' ],
 		demoUrl: 'https://koinoniathemedemo.wordpress.com/',

@@ -1,4 +1,4 @@
-import { readBlobAsDataUrl } from '@studio/common/ai/composer-attachments';
+import { readBlobAsDataUrl } from '@studio/agent/protocol/composer-attachments';
 import { useQuery } from '@tanstack/react-query';
 import { useConnector } from '@/data/core';
 

@@ -1,16 +1,16 @@
 @layer ui {
-	/* Rows are rounded to sit inside a 24px surface, 10px in. */
+	/* Rows are rounded to sit inside a 24px surface, 6px in. */
 	.sheet {
-		padding: var( --space-2_5 );
+		padding: var( --space-1_5 );
 	}
 
 	/* A sheet grows with its commands, up to the room above its anchor. */
 	.sheet .list {
-		max-height: calc( var( --available-height ) - 22px );
+		max-height: calc( var( --available-height ) - 2 * var( --space-1_5 ) - 2px );
 	}
 
 	.list {
-		--command-radius: 14px;
+		--command-radius: calc( var( --radius-3xl ) - var( --space-1_5 ) );
 
 		max-height: 288px;
 		overflow-x: hidden;
@@ -19,9 +19,18 @@
 		outline: none;
 	}
 
+	.list[data-radius='control'] {
+		--command-radius: var( --radius-lg );
+	}
+
+	.list[data-radius='menu'] {
+		--command-radius: var( --radius-md );
+	}
+
 	.empty {
 		padding: var( --space-6 ) 0;
-		font-size: var( --text-sm );
+		color: var( --muted-foreground );
+		font-size: var( --text-xs );
 		text-align: center;
 	}
 
@@ -55,11 +64,22 @@
 		pointer-events: none;
 	}
 
+	.menuItem {
+		composes: item from '@/lib/ui/surface/style.module.css';
+		min-height: var( --control-size );
+		padding-inline: var( --space-2_5 );
+	}
+
+	.list .menuItem {
+		height: var( --control-size );
+		border-radius: var( --command-radius );
+	}
+
 	.icon {
 		flex: none;
 		width: 14px;
 		height: 14px;
-		color: var( --muted-foreground );
+		color: inherit;
 		pointer-events: none;
 	}
 
@@ -76,7 +96,7 @@
 	}
 
 	/* A label on its own, like an address, truncates instead. */
-	.item > .label {
+	:is( .item, .menuItem ) > .label {
 		flex-shrink: 1;
 		min-width: 0;
 		overflow: hidden;
@@ -95,17 +115,17 @@
 		scrollbar-width: none;
 	}
 
-	.list[data-size='default'] .item {
-		height: auto;
-		min-height: 36px;
-		font-size: var( --text-sm );
-		font-weight: var( --font-weight-normal );
+	.list[data-size='default'] .menuItem {
+		padding-inline-end: var( --space-4 );
 	}
 
 	.list[data-size='default'] .icon {
 		width: 16px;
 		height: 16px;
-		color: inherit;
+	}
+
+	.list[data-size='default'] .text {
+		gap: var( --space-3 );
 	}
 
 	.list[data-size='default'] .label {

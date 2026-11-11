@@ -1,63 +1,52 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { CheckIcon, ChevronRightIcon, InfoIcon, TriangleAlertIcon, XIcon } from 'lucide-react';
+import { ChevronRightIcon } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import {
 	noticeToText,
 	runNoticeAction,
 	type NoticeIntent,
-	type NoticeRecord,
+	type Notice,
 	type ToastAction,
 } from '@/data/app-messages';
 import { useCopyText } from '@/data/host/use-copy-text';
-import { Button, IconButton, Spinner } from '@/lib/ui';
+import { ErrorIcon, InfoIcon, SuccessIcon, WarningIcon } from '@/lib/icons';
+import { Button, DismissButton, Spinner } from '@/lib/ui';
 import styles from './style.module.css';
 
-type Notice = Pick< NoticeRecord, 'intent' | 'title' | 'description' | 'action' | 'actionPending' >;
-
-function StatusIcon( { intent }: { intent: NoticeIntent } ) {
+function StatusIcon( { intent, source }: { intent: NoticeIntent; source?: 'studio' } ) {
+	const iconIntent = source === 'studio' ? 'info' : intent;
 	return (
-		<span className={ styles.status } data-intent={ intent } aria-hidden="true">
+		<span className={ styles.status } data-intent={ iconIntent } aria-hidden="true">
 			{
 				{
 					info: <InfoIcon />,
-					warning: <TriangleAlertIcon />,
-					success: <CheckIcon strokeWidth={ 3 } />,
-					error: <XIcon strokeWidth={ 3 } />,
-				}[ intent ]
+					warning: <WarningIcon />,
+					success: <SuccessIcon />,
+					error: <ErrorIcon />,
+				}[ iconIntent ]
 			}
 		</span>
 	);
 }
 
-function NoticeActionButton( {
-	action,
-	pending,
-	onDone,
-}: {
-	action: ToastAction;
-	pending?: boolean;
-	onDone?: () => void;
-} ) {
+function NoticeActionButton( { action, pending }: { action: ToastAction; pending?: boolean } ) {
 	return (
 		<Button
-			size="sm"
+			size="2xs"
+			variant="outline"
 			disabled={ pending }
 			aria-busy={ pending || undefined }
 			onClick={ async () => {
-				if ( await runNoticeAction( action ) ) {
-					onDone?.();
-				}
+				await runNoticeAction( action );
 			} }
 		>
-			{ pending ? <Spinner aria-hidden="true" /> : null }
 			{ action.label }
 		</Button>
 	);
 }
 
-// Flips to "Copied" briefly; a toast would be the obvious feedback, but a
-// toast about copying a notice would itself land in the history.
+// Keep copy feedback on the button.
 function CopyNoticeButton( { notice }: { notice: Notice } ) {
 	const { copied, copy } = useCopyText( noticeToText( notice ) );
 	return (
@@ -69,9 +58,18 @@ function CopyNoticeButton( { notice }: { notice: Notice } ) {
 
 // One line until clicked; error text can run to a stack trace. Closing
 // animates the height back to one line before the ellipsis returns.
-function NoticeDescription( { notice }: { notice: Notice } ) {
+function NoticeDescription( {
+	notice,
+	titleClipped,
+	expanded,
+	setExpanded,
+}: {
+	notice: Notice;
+	titleClipped: boolean;
+	expanded: boolean;
+	setExpanded: ( expanded: boolean ) => void;
+} ) {
 	const ref = useRef< HTMLParagraphElement >( null );
-	const [ expanded, setExpanded ] = useState( false );
 	const [ clamped, setClamped ] = useState( true );
 	const [ expandable, setExpandable ] = useState( false );
 	useLayoutEffect( () => {
@@ -81,9 +79,6 @@ function NoticeDescription( { notice }: { notice: Notice } ) {
 		}
 		const update = () => setExpandable( description.scrollHeight > description.clientHeight + 1 );
 		update();
-		if ( typeof ResizeObserver === 'undefined' ) {
-			return;
-		}
 		const observer = new ResizeObserver( update );
 		observer.observe( description );
 		return () => observer.disconnect();
@@ -112,10 +107,11 @@ function NoticeDescription( { notice }: { notice: Notice } ) {
 				>
 					{ notice.description }
 				</p>
-				{ expandable || ! clamped ? (
+				{ expandable || titleClipped || ! clamped ? (
 					<button
 						type="button"
 						className={ styles.toggle }
+						data-notice-toggle=""
 						aria-expanded={ expanded }
 						aria-label={ sprintf(
 							/* translators: %s: notification title. */
@@ -130,7 +126,6 @@ function NoticeDescription( { notice }: { notice: Notice } ) {
 					</button>
 				) : null }
 			</div>
-			{ expanded && notice.intent === 'error' ? <CopyNoticeButton notice={ notice } /> : null }
 		</div>
 	);
 }
@@ -139,48 +134,113 @@ export function NoticeCard( {
 	className,
 	notice,
 	action,
-	time,
 	onDismiss,
-	onActionDone,
 }: {
 	className?: string;
 	notice: Notice;
 	// In place of the notice's own action button.
 	action?: ReactNode;
-	time?: ReactNode;
-	onDismiss: () => void;
-	onActionDone?: () => void;
+	onDismiss?: () => void;
 } ) {
+	const titleRef = useRef< HTMLParagraphElement >( null );
+	const [ titleClipped, setTitleClipped ] = useState( false );
+	const [ expanded, setExpanded ] = useState( false );
+	useLayoutEffect( () => {
+		const title = titleRef.current;
+		if ( ! title || expanded ) return;
+		const update = () => setTitleClipped( title.scrollWidth > title.clientWidth + 1 );
+		update();
+		const observer = new ResizeObserver( update );
+		observer.observe( title );
+		return () => observer.disconnect();
+	}, [ notice.title, expanded ] );
+	const actionButton =
+		action ??
+		( notice.action ? (
+			<NoticeActionButton action={ notice.action } pending={ notice.actionPending } />
+		) : notice.intent === 'error' ? (
+			<CopyNoticeButton notice={ notice } />
+		) : null );
 	return (
-		<div className={ clsx( styles.card, className ) }>
+		<div
+			className={ clsx( styles.card, className ) }
+			role="presentation"
+			onClick={ ( event ) => {
+				const target = event.target;
+				if (
+					event.defaultPrevented ||
+					! ( target instanceof Element ) ||
+					! event.currentTarget.contains( target ) ||
+					target.closest( 'button, a, input, select, textarea, [contenteditable]' ) ||
+					event.currentTarget.ownerDocument.getSelection()?.isCollapsed === false
+				) {
+					return;
+				}
+				event.currentTarget.querySelector< HTMLButtonElement >( '[data-notice-toggle]' )?.click();
+			} }
+		>
 			<div className={ styles.row }>
-				<StatusIcon intent={ notice.intent } />
-				<p className={ styles.title }>{ notice.title }</p>
-				{ action ??
-					( notice.action ? (
-						<NoticeActionButton
-							action={ notice.action }
-							pending={ notice.actionPending }
-							onDone={ onActionDone }
-						/>
-					) : null ) }
-				{ time }
-			</div>
-			{ notice.description ? <NoticeDescription notice={ notice } /> : null }
-			<IconButton
-				className={ styles.close }
-				icon={ <XIcon /> }
-				label={ __( 'Dismiss' ) }
-				aria-label={ sprintf(
-					/* translators: %s: notification title. */
-					__( 'Dismiss %s' ),
-					notice.title
+				{ notice.processing ? (
+					<span className={ styles.processing } aria-hidden="true">
+						<Spinner />
+					</span>
+				) : (
+					<StatusIcon intent={ notice.intent } source={ notice.source } />
 				) }
-				variant="outline"
-				size="icon-2xs"
-				shape="round"
-				onClick={ onDismiss }
-			/>
+				<div className={ styles.titleSummary }>
+					<p
+						ref={ titleRef }
+						className={ clsx( styles.title, notice.processing && 'studio-shimmer' ) }
+						data-expanded={ expanded || undefined }
+					>
+						{ notice.title }
+					</p>
+					{ titleClipped && ! notice.description ? (
+						<button
+							type="button"
+							className={ styles.toggle }
+							data-notice-toggle=""
+							aria-expanded={ expanded }
+							aria-label={ sprintf(
+								/* translators: %s: notification title. */
+								__( 'View notification: %s' ),
+								notice.title
+							) }
+							onClick={ () => setExpanded( ! expanded ) }
+						>
+							<span className={ styles.chevron } aria-hidden="true">
+								<ChevronRightIcon />
+							</span>
+						</button>
+					) : null }
+				</div>
+				{ actionButton ? (
+					<div className={ styles.trailing } data-pending={ notice.actionPending || undefined }>
+						{ actionButton ? <span className={ styles.action }>{ actionButton }</span> : null }
+					</div>
+				) : null }
+			</div>
+			{ notice.description ? (
+				<NoticeDescription
+					notice={ notice }
+					titleClipped={ titleClipped }
+					expanded={ expanded }
+					setExpanded={ setExpanded }
+				/>
+			) : null }
+
+			{ onDismiss ? (
+				<DismissButton
+					className={ styles.close }
+					label={ __( 'Dismiss' ) }
+					aria-label={ sprintf(
+						/* translators: %s: notification title. */
+						__( 'Dismiss %s' ),
+						notice.title
+					) }
+					onClick={ onDismiss }
+				/>
+			) : null }
 		</div>
 	);
 }

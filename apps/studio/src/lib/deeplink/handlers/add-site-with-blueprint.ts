@@ -56,13 +56,11 @@ export async function handleAddSiteWithBlueprint( urlObject: URL ): Promise< voi
 		const timestamp = Date.now();
 		blueprintPath = nodePath.join( tmpDir, `blueprint-${ timestamp }.json` );
 
-		// Handle base64-encoded blueprint in the deeplink URL
 		if ( blueprintBase64 ) {
 			const blueprintJsonString = Buffer.from( blueprintBase64, 'base64' ).toString( 'utf-8' );
 			blueprintJson = JSON.parse( blueprintJsonString );
 			await fs.writeJson( blueprintPath, blueprintJson );
 		} else if ( blueprintUrl ) {
-			// Handle blueprint linked in the deeplink URL
 			const decodedUrl = decodeURIComponent( blueprintUrl );
 			new URL( decodedUrl );
 

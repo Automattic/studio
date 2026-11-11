@@ -11,7 +11,7 @@ import { getCliConfigPath, getConfigDirectory } from './well-known-paths';
  * bootstrap, lockfile, and raw (schema-less) read/write. The CLI layers its
  * typed schema on top (`apps/cli/lib/cli-config/core.ts`); other processes
  * (local server, desktop) read and patch individual fields through
- * `packages/common/ai/settings-store.ts`. Keep serialization and locking here
+ * `packages/agent/node/settings-store.ts`. Keep serialization and locking here
  * so every writer agrees on them.
  */
 

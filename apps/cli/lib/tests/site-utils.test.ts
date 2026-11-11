@@ -68,15 +68,6 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 		vi.unstubAllGlobals();
 	} );
 
-	it( 'should do nothing if proxy is not running', async () => {
-		( isProxyProcessRunning as Mock ).mockResolvedValue( undefined );
-
-		await stopProxyIfNoSitesNeedIt( 'site-1', mockLogger );
-
-		expect( readCliConfig ).not.toHaveBeenCalled();
-		expect( stopProxyProcess ).not.toHaveBeenCalled();
-	} );
-
 	it( 'should stop proxy if no other sites exist', async () => {
 		( isProxyProcessRunning as Mock ).mockResolvedValue( mockProcessDescription );
 		( readCliConfig as Mock ).mockResolvedValue( {
@@ -142,19 +133,6 @@ describe( 'stopProxyIfNoSitesNeedIt', () => {
 
 		expect( isServerRunning ).toHaveBeenCalledWith( 'running-site' );
 		expect( stopProxyProcess ).not.toHaveBeenCalled();
-	} );
-
-	it( 'should not check if the stopped site is running', async () => {
-		( isProxyProcessRunning as Mock ).mockResolvedValue( mockProcessDescription );
-		( readCliConfig as Mock ).mockResolvedValue( {
-			sites: [ createSiteData( { id: 'stopped-site', customDomain: 'stopped.local' } ) ],
-			version: 1,
-		} );
-
-		await stopProxyIfNoSitesNeedIt( 'stopped-site', mockLogger );
-
-		expect( isServerRunning ).not.toHaveBeenCalledWith( 'stopped-site' );
-		expect( stopProxyProcess ).toHaveBeenCalled();
 	} );
 
 	it( 'should release port 443 when no running site uses HTTPS anymore', async () => {

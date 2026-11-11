@@ -22,7 +22,11 @@ export function usePreviewCapture(
 			return;
 		}
 		const timer = setTimeout( () => {
-			const viewport = viewportRef.current;
+			const page =
+				viewportRef.current?.querySelector< HTMLElement >(
+					'[data-responsive-viewport] webview, [data-responsive-viewport] iframe'
+				) ?? viewportRef.current?.querySelector< HTMLElement >( 'webview, iframe' );
+			const viewport = page?.clientWidth && page.clientHeight ? page : viewportRef.current;
 			if ( ! viewport?.clientWidth || ! viewport.clientHeight ) {
 				return;
 			}

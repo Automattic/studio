@@ -1,6 +1,6 @@
 import { useState, type MouseEvent, type PointerEvent, type ReactElement } from 'react';
 import { sitePinKey } from '@/data/queries/use-sidebar-pins';
-import { SiteActionsMenuItems, useSiteActions } from '@/features/sites';
+import { SiteMenuItems, useSiteActions } from '@/features/sites';
 import { Menu } from '@/lib/ui';
 import { BulkMenu, useIsBulkTarget } from './selection';
 import type { SiteDetails } from '@/data/core';
@@ -46,7 +46,7 @@ export function SiteRowMenu( {
 						onPointerDown={ stopMenuEventPropagation }
 						{ ...actions.shortcuts }
 					>
-						<SiteActionsMenuItems actions={ actions } />
+						<SiteMenuItems actions={ actions } />
 					</Menu.ContextPopup>
 				) }
 			</Menu.ContextMenuRoot>

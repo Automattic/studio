@@ -1,9 +1,8 @@
 import { __ } from '@wordpress/i18n';
-import { ArrowUpIcon } from 'lucide-react';
-import { StopSiteIcon } from '@/lib/icons';
-import { Button } from '@/lib/ui';
+import { SendIcon, StartSiteIcon, StopSiteIcon } from '@/lib/icons';
+import { IconButton } from '@/lib/ui';
 import styles from './style.module.css';
-import type { SubmitFeedback } from '@/features/composer/use-submit-feedback';
+import type { SubmitFeedback } from '@/lib/hooks';
 
 export function SendButton( {
 	label,
@@ -17,17 +16,40 @@ export function SendButton( {
 	onSend: () => void;
 } ) {
 	return (
-		<Button
-			variant={ feedback ? 'destructive' : canSend ? 'accent' : 'default' }
+		<IconButton
+			variant={ feedback ? 'destructive' : 'accent' }
 			size="icon"
 			shape="round"
-			activeMotion="instant"
 			onClick={ onSend }
 			disabled={ ! canSend }
-			aria-label={ label }
-		>
-			<ArrowUpIcon />
-		</Button>
+			label={ label }
+			shortcut={ { ariaKeyShortcut: 'Enter', displayShortcut: '↵' } }
+			icon={ <SendIcon /> }
+		/>
+	);
+}
+
+export function StartButton( {
+	disabled,
+	isStarting,
+	onStart,
+}: {
+	disabled: boolean;
+	isStarting: boolean;
+	onStart: () => void;
+} ) {
+	return (
+		<IconButton
+			variant="accent"
+			size="icon"
+			shape="round"
+			label={ isStarting ? __( 'Starting site' ) : __( 'Start site' ) }
+			icon={ <StartSiteIcon fill="currentColor" /> }
+			loading={ isStarting }
+			loadingMode="replace"
+			disabled={ disabled }
+			onClick={ onStart }
+		/>
 	);
 }
 
@@ -39,15 +61,15 @@ export function StopButton( {
 	onStop: () => void;
 } ) {
 	return (
-		<Button
+		<IconButton
+			variant="accent"
 			size="icon"
 			shape="round"
 			className={ styles.stopButton }
 			onClick={ onStop }
-			aria-label={ isInterrupting ? __( 'Force stop' ) : __( 'Stop response' ) }
+			label={ isInterrupting ? __( 'Force stop' ) : __( 'Stop response' ) }
+			icon={ <StopSiteIcon fill="currentColor" /> }
 			aria-busy={ isInterrupting }
-		>
-			<StopSiteIcon fill="currentColor" />
-		</Button>
+		/>
 	);
 }

@@ -13,6 +13,7 @@ import { trackSyncActivity } from 'src/lib/active-sync-operations';
 import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import { isInErrorRecovery } from 'src/lib/php-error-recovery';
 import { forgetSite, getSites } from 'src/lib/sites';
+import { refreshSpotlightIndex } from 'src/lib/spotlight';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 
 // The last running state of each site, so a site's thumbnail is captured when it starts only.
@@ -22,6 +23,9 @@ let seeded: Promise< void > = Promise.resolve();
 
 const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > => {
 	const { event: eventType, siteId, site } = event;
+	if ( eventType !== SITE_EVENTS.OPERATIONS_CHANGED ) {
+		void refreshSpotlightIndex();
+	}
 
 	if ( eventType === SITE_EVENTS.DELETED ) {
 		lastRunning.delete( siteId );
@@ -41,9 +45,14 @@ const handleSiteEvent = sequential( async ( event: SiteEvent ): Promise< void > 
 		return;
 	}
 
-	// A site serving a PHP-error page stays "running" even though the CLI reports it stopped.
-	const running = event.running || isInErrorRecovery( siteId );
-	void sendIpcEventToRenderer( 'site-event', { ...event, running } );
+	// A site serving a PHP-error page stays "running" even though the CLI reports it stopped. Its
+	// details go without, so the renderer refetches the list, where `getSites` gives the page's URL.
+	const inErrorRecovery = isInErrorRecovery( siteId );
+	const running = event.running || inErrorRecovery;
+	void sendIpcEventToRenderer(
+		'site-event',
+		inErrorRecovery ? { event: eventType, siteId, running } : { ...event, running }
+	);
 	await seeded;
 	const wasRunning = lastRunning.get( siteId ) ?? false;
 	lastRunning.set( siteId, running );

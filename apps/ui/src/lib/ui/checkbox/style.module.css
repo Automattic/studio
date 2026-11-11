@@ -31,7 +31,7 @@
 	}
 
 	.checkbox:focus-visible {
-		box-shadow: inset 0 0 0 2px var( --ring );
+		box-shadow: inset 0 0 0 1px var( --input-ring );
 	}
 
 	.checkbox[data-disabled] {

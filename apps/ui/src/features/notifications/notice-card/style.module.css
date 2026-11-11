@@ -1,13 +1,16 @@
-/* A toast, and an entry in the notification history. */
+/* Toasts and contextual sidebar cards. */
 .card {
+	--notice-icon-size: 16px;
+	--notice-row-height: var( --text-sm--line-height );
+	--notice-title-inset: calc( ( var( --notice-row-height ) - var( --text-sm--line-height ) ) / 2 );
 	position: relative;
 	pointer-events: auto;
-	padding: var( --space-4 );
+	padding: var( --space-3_5 );
 	border-radius: var( --radius-xl );
 	background-color: var( --secondary );
 	color: var( --secondary-foreground );
 	box-shadow:
-		0 0 0 1px var( --border ),
+		0 0 0 1px var( --popover-border ),
 		var( --shadow-sm );
 	font-size: var( --text-sm );
 	line-height: var( --text-sm--line-height );
@@ -17,9 +20,21 @@
 	font-variant-numeric: tabular-nums;
 }
 
+.card:has( [data-notice-toggle] ) {
+	cursor: pointer;
+}
+
+.card:has( .trailing ) {
+	--notice-row-height: var( --space-6 );
+}
+
+.card:has( .action ) {
+	--notice-row-height: var( --space-7 );
+}
+
 .row {
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	gap: var( --space-2 );
 }
 
@@ -28,25 +43,26 @@
 	flex: none;
 	align-items: center;
 	justify-content: center;
-	width: 14px;
-	height: 14px;
+	width: var( --notice-icon-size );
+	height: var( --notice-icon-size );
 	border-radius: var( --radius-full );
 	color: var( --secondary );
+	margin-block-start: calc( ( var( --notice-row-height ) - var( --notice-icon-size ) ) / 2 );
 }
 
 .status svg {
-	width: 10px;
-	height: 10px;
+	width: var( --notice-icon-size );
+	height: var( --notice-icon-size );
+	flex: none;
 }
 
 .status[data-intent='success'] {
-	background-color: var( --success );
+	color: var( --success );
 }
 
 .status[data-intent='error'] {
-	background-color: var( --destructive );
+	color: var( --destructive );
 }
-
 .status:is( [data-intent='info'], [data-intent='warning'] ) {
 	color: var( --muted-foreground );
 }
@@ -55,16 +71,14 @@
 	color: var( --warning );
 }
 
-.status:is( [data-intent='info'], [data-intent='warning'] ) svg {
-	width: 14px;
-	height: 14px;
-}
-
 .title {
+	font-size: var( --text-xs );
 	flex: 1;
 	min-width: 0;
 	font-weight: var( --font-weight-medium );
-	text-wrap: pretty;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .details {
@@ -72,21 +86,24 @@
 	flex-direction: column;
 	align-items: flex-start;
 	gap: var( --space-2 );
-	margin-top: var( --space-0_5 );
-	padding-inline-start: 22px;
+	margin-top: calc( var( --space-1 ) - var( --notice-title-inset ) );
+	padding-inline-start: calc( var( --notice-icon-size ) + var( --space-2 ) );
 }
 
 .summary {
 	position: relative;
+	width: 100%;
 	max-width: 100%;
+	line-height: var( --text-xs--line-height );
 }
 
-/* Laid over the text rather than wrapping it, so the measured node stays
-   mounted. Expanded, it covers the first line only and leaves the rest to
-   scroll and select. */
+/* Keep the button over the chevron so expanded text remains selectable. */
 .toggle {
 	position: absolute;
-	inset: 0;
+	inset-block-start: 0;
+	inset-inline-end: 0;
+	width: 40px;
+	height: 1lh;
 	border-radius: var( --radius-sm );
 	cursor: pointer;
 }
@@ -96,11 +113,6 @@
 	outline-offset: 2px;
 }
 
-.toggle[aria-expanded='true'] {
-	inset-block-end: auto;
-	height: 1lh;
-}
-
 .description {
 	max-width: 100%;
 	height: 1lh;
@@ -108,7 +120,7 @@
 	overflow: hidden;
 	color: var( --muted-foreground );
 	font-size: var( --text-xs );
-	line-height: var( --leading-relaxed );
+	line-height: var( --text-xs--line-height );
 	white-space: pre-wrap;
 	overflow-wrap: anywhere;
 	interpolate-size: allow-keywords;
@@ -137,60 +149,90 @@
 	width: 40px;
 	background: linear-gradient( to right, transparent, var( --secondary ) 50% );
 	color: var( --muted-foreground );
-	opacity: 0;
-	transition: opacity var( --motion-duration-feedback );
 }
 
 .chevron svg {
+	width: 14px;
+	height: 14px;
+	flex: none;
 	transition: rotate var( --motion-duration-layout ) var( --motion-ease-layout );
 }
 
-.card:hover .chevron,
-.toggle:focus-visible .chevron {
-	opacity: 1;
-}
-
 .toggle[aria-expanded='true'] .chevron svg {
+	width: 14px;
+	height: 14px;
+	flex: none;
 	rotate: 90deg;
 }
 
 .close {
-	--button-background: var( --chrome );
-
-	position: absolute;
-	inset-block-start: calc( var( --space-1_5 ) * -1 );
-	inset-inline-start: calc( var( --space-1_5 ) * -1 );
-	opacity: 0;
-	transition: opacity var( --motion-duration-feedback ) ease;
-}
-
-.card:hover .close,
-.card:focus-within .close {
 	opacity: 1;
+	transform: none;
+	pointer-events: auto;
+	inset-block-start: calc( var( --space-1_5 ) * -1 );
+	inset-inline-start: auto;
+	inset-inline-end: calc( var( --space-1_5 ) * -1 );
 }
 
-/* Too narrow to share the title's line, as in the sidebar, the action goes
-   under the text. */
-@container (width < 300px) {
-	.card {
-		display: grid;
-		grid-template-columns: auto minmax( 0, 1fr );
-		align-items: center;
-		column-gap: var( --space-2 );
+.trailing {
+	display: grid;
+	flex: none;
+	align-items: center;
+	justify-items: end;
+	min-height: var( --space-6 );
+	max-width: 50%;
+}
+.trailing > span {
+	grid-area: 1 / 1;
+	min-width: 0;
+	max-width: 100%;
+}
+.action > button {
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+@media ( hover: hover ) and ( pointer: fine ) and ( not ( any-pointer: coarse ) ) {
+	.chevron {
+		opacity: 0;
+		transition: opacity var( --motion-duration-feedback ) ease-out;
 	}
 
-	.row {
-		display: contents;
+	.card:hover .chevron,
+	.card:focus-within .chevron {
+		opacity: 1;
 	}
 
-	.details {
-		grid-column: 2;
-		padding-inline-start: 0;
+	.card:focus-within .chevron {
+		transition: none;
 	}
+}
 
-	.row > button {
-		grid-area: 3 / 2;
-		justify-self: start;
-		margin-top: var( --space-3 );
-	}
+.titleSummary {
+	position: relative;
+	flex: 1;
+	min-width: 0;
+	padding-block: var( --notice-title-inset );
+}
+
+.title[data-expanded] {
+	white-space: normal;
+	overflow-wrap: anywhere;
+}
+.titleSummary .toggle {
+	height: var( --notice-row-height );
+}
+
+.processing {
+	display: flex;
+	flex: none;
+	color: var( --muted-foreground );
+	margin-block-start: calc( ( var( --notice-row-height ) - var( --notice-icon-size ) ) / 2 );
+}
+
+.processing svg {
+	width: var( --notice-icon-size );
+	height: var( --notice-icon-size );
 }

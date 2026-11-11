@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { errorMessage, toast } from '@/data/app-messages';
+import { dismissToast, errorMessage, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 
 // Route through the connector (host clipboard) — the renderer's
@@ -23,6 +23,7 @@ export function useCopyText( text: string ): { copied: boolean; copy: () => void
 		void connector
 			.copyText( text )
 			.then( () => {
+				dismissToast( 'clipboard-error' );
 				setCopied( true );
 				// Re-arm the reset on every click so copying again mid-"Copied"
 				// doesn't let the earlier timer flip the state back too soon.
@@ -32,7 +33,10 @@ export function useCopyText( text: string ): { copied: boolean; copy: () => void
 				resetTimer.current = setTimeout( () => setCopied( false ), 2000 );
 			} )
 			.catch( ( error ) => {
-				toast.error( __( 'Could not copy.' ), { description: errorMessage( error ) } );
+				toast.error( __( 'Could not copy' ), {
+					id: 'clipboard-error',
+					description: errorMessage( error ),
+				} );
 			} );
 	}, [ connector, text ] );
 

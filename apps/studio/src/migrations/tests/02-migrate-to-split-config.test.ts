@@ -23,10 +23,6 @@ vi.mock( 'atomically', () => ( {
 	writeFile: vi.fn(),
 } ) );
 
-vi.mock( 'src/lib/sanitize-for-logging', () => ( {
-	sanitizeUserpath: ( p: string ) => p,
-} ) );
-
 // Validation schemas matching the actual config file schemas.
 // shared.json schema
 const sharedConfigValidationSchema = sharedConfigSchema;
@@ -245,12 +241,6 @@ describe( 'migrateAppConfig', () => {
 		await expect( migrateAppConfig.run() ).rejects.toThrow( SyntaxError );
 
 		expect( writeFile ).not.toHaveBeenCalled();
-	} );
-
-	it( 'writes three config files from old appdata', async () => {
-		await runMigration();
-
-		expect( writeFile ).toHaveBeenCalledTimes( 3 );
 	} );
 
 	describe( 'shared.json', () => {

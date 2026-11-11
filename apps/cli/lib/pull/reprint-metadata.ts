@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { runReprintCommandUntilComplete } from 'cli/lib/pull/migration-client';
+import { runReprintCommandUntilComplete } from 'cli/lib/pull/reprint-client';
 
 const sourceSiteSchema = z.object( {
 	homeUrl: z.string().nullable(),
@@ -8,16 +8,26 @@ const sourceSiteSchema = z.object( {
 	wordpressDatabaseCharset: z.string().nullable(),
 	serverDatabaseCharset: z.string().nullable(),
 	contentDirectory: z.string().nullable(),
-	wordpressAbsolutePath: z.string().nullable(),
-	wordpressRoots: z.array( z.string() ),
+	// Reprint releases before WordPress/reprint#982 don't report it.
+	wordpressVersion: z.string().nullable().default( null ),
 	extraDirectories: z.array( z.string() ),
 } );
+
+/** The key Reprint signs requests to this remote with, or null when none is stored. */
+const storedKeySchema = z
+	.object( {
+		id: z.string(),
+		path: z.string(),
+		publicKey: z.string(),
+	} )
+	.nullable();
 
 const reprintMetadataSchema = z.object( {
 	hasCompletedOnce: z.boolean(),
 	hasLocalIndex: z.boolean(),
 	hasSkippedFiles: z.boolean(),
 	pullStage: z.unknown(),
+	key: storedKeySchema,
 	sourceSite: sourceSiteSchema,
 } );
 
@@ -28,6 +38,7 @@ export const emptyReprintMetadata: ReprintMetadata = {
 	hasLocalIndex: false,
 	hasSkippedFiles: false,
 	pullStage: null,
+	key: null,
 	sourceSite: {
 		homeUrl: null,
 		siteUrl: null,
@@ -35,8 +46,7 @@ export const emptyReprintMetadata: ReprintMetadata = {
 		wordpressDatabaseCharset: null,
 		serverDatabaseCharset: null,
 		contentDirectory: null,
-		wordpressAbsolutePath: null,
-		wordpressRoots: [],
+		wordpressVersion: null,
 		extraDirectories: [],
 	},
 };
@@ -47,7 +57,7 @@ export async function getReprintMetadata( options: {
 	verbose: boolean;
 } ): Promise< ReprintMetadata > {
 	const result = await runReprintCommandUntilComplete(
-		[ 'import-metadata', options.apiUrl, `--state-dir=${ options.stateDirectory }` ],
+		[ 'pull-metadata', options.apiUrl, `--state-dir=${ options.stateDirectory }` ],
 		undefined,
 		{ verboseCommands: options.verbose }
 	);
@@ -57,19 +67,4 @@ export async function getReprintMetadata( options: {
 	} catch ( error ) {
 		throw new Error( `Invalid metadata returned by reprint: ${ String( error ) }` );
 	}
-}
-
-export function decodeReprintPath( value: string ): string {
-	const prefix = 'base64:';
-	return value.startsWith( prefix )
-		? Buffer.from( value.slice( prefix.length ), 'base64' ).toString( 'utf-8' )
-		: value;
-}
-
-export function getCoreRoots( metadata: ReprintMetadata ): string[] {
-	const roots = metadata.sourceSite.wordpressRoots.map( decodeReprintPath );
-	return roots.filter(
-		( rootPath ) =>
-			! roots.some( ( other ) => other !== rootPath && other.startsWith( `${ rootPath }/` ) )
-	);
 }

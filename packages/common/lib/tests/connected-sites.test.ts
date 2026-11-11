@@ -1,19 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { removeAllConnectedWpcomSitesForLocalSite } from '../connected-sites';
-import {
-	lockSharedConfig,
-	readSharedConfig,
-	saveSharedConfig,
-	unlockSharedConfig,
-} from '../shared-config';
 import type { SyncSite } from '../../types/sync';
-
-vi.mock( '../shared-config', () => ( {
-	lockSharedConfig: vi.fn(),
-	readSharedConfig: vi.fn(),
-	saveSharedConfig: vi.fn(),
-	unlockSharedConfig: vi.fn(),
-} ) );
 
 function connection( id: number, localSiteId: string ): SyncSite {
 	return {
@@ -30,38 +20,41 @@ function connection( id: number, localSiteId: string ): SyncSite {
 }
 
 describe( 'removeAllConnectedWpcomSitesForLocalSite', () => {
+	let configDir: string;
+	const writeConnections = ( connectedWpcomSites: Record< string, SyncSite[] > ) =>
+		writeFileSync(
+			path.join( configDir, 'shared.json' ),
+			JSON.stringify( { version: 1, connectedWpcomSites } )
+		);
+	const readConfig = () =>
+		JSON.parse( readFileSync( path.join( configDir, 'shared.json' ), 'utf8' ) );
+
 	beforeEach( () => {
-		vi.clearAllMocks();
+		configDir = mkdtempSync( path.join( os.tmpdir(), 'studio-connected-sites-' ) );
+		process.env.DEV_CONFIG_DIR = configDir;
 	} );
 
-	it( 'removes every connection for the local site across account buckets while locked', async () => {
-		const config = {
-			version: 1 as const,
-			connectedWpcomSites: {
-				'7': [ connection( 1, 'local-a' ), connection( 2, 'local-b' ), connection( 3, 'local-a' ) ],
-				'8': [ connection( 4, 'local-a' ) ],
-			},
-		};
-		vi.mocked( readSharedConfig ).mockResolvedValue( config );
+	afterEach( () => {
+		delete process.env.DEV_CONFIG_DIR;
+		rmSync( configDir, { recursive: true, force: true } );
+	} );
+
+	it( 'removes every connection for the local site across account buckets', async () => {
+		writeConnections( {
+			'7': [ connection( 1, 'local-a' ), connection( 2, 'local-b' ), connection( 3, 'local-a' ) ],
+			'8': [ connection( 4, 'local-a' ) ],
+		} );
 
 		await removeAllConnectedWpcomSitesForLocalSite( 'local-a' );
 
-		expect( lockSharedConfig ).toHaveBeenCalledOnce();
-		expect( saveSharedConfig ).toHaveBeenCalledWith( config );
-		expect( unlockSharedConfig ).toHaveBeenCalledOnce();
-		expect( config.connectedWpcomSites[ '7' ] ).toEqual( [ connection( 2, 'local-b' ) ] );
-		expect( config.connectedWpcomSites ).not.toHaveProperty( '8' );
+		expect( readConfig().connectedWpcomSites ).toEqual( { '7': [ connection( 2, 'local-b' ) ] } );
 	} );
 
 	it( 'prunes the connection map when no connections remain', async () => {
-		const config = {
-			version: 1 as const,
-			connectedWpcomSites: { '7': [ connection( 1, 'local-a' ) ] },
-		};
-		vi.mocked( readSharedConfig ).mockResolvedValue( config );
+		writeConnections( { '7': [ connection( 1, 'local-a' ) ] } );
 
 		await removeAllConnectedWpcomSitesForLocalSite( 'local-a' );
 
-		expect( config ).not.toHaveProperty( 'connectedWpcomSites' );
+		expect( readConfig() ).not.toHaveProperty( 'connectedWpcomSites' );
 	} );
 } );

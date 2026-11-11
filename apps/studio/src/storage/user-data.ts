@@ -83,8 +83,7 @@ type UserDataSafeKeys =
 	| 'onboardingHints'
 	| 'lastNightlyUpdateCheck'
 	| 'nightlyPromptResult'
-	| 'dontShowArm64Warning'
-	| 'agenticFeaturesEnabled';
+	| 'dontShowArm64Warning';
 
 type PartialUserDataWithSafeKeysToUpdate = Partial< Pick< UserData, UserDataSafeKeys > >;
 

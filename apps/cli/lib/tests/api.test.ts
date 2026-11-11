@@ -1,17 +1,7 @@
-import fs from 'fs';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import { vi } from 'vitest';
-import {
-	enableReprintExporter,
-	getWpComSites,
-	rotateReprintSecret,
-	SnapshotStatus,
-	uploadArchive,
-	waitForSiteReady,
-} from 'cli/lib/api';
-import { LoggerError } from 'cli/logger';
+import { enableReprintExporter, getWpComSites, installReprintPublicKey } from 'cli/lib/api';
 
-vi.mock( 'fs' );
 vi.mock( 'wpcom' );
 vi.mock( 'wpcom-xhr-request' );
 vi.mock( '@studio/common/lib/wpcom-factory', () => ( {
@@ -25,16 +15,11 @@ const createWpcomMock = ( req: Partial< WpcomReqMethods > ): WpcomFactory =>
 	( { req: req } ) as WpcomFactory;
 
 describe( 'API Module', () => {
-	const mockArchivePath = '/mock/archive.zip';
 	const mockToken = 'mock-token-123';
-	const mockWordPressVersion = '6.8.1';
-	const mockSiteUrl = 'test-site.wp.build';
 	const mockSiteId = 12345;
-	const mockReadStream = { pipe: vi.fn() } as unknown as ReturnType< typeof fs.createReadStream >;
 
 	beforeEach( () => {
 		vi.clearAllMocks();
-		vi.spyOn( fs, 'createReadStream' ).mockReturnValue( mockReadStream );
 		vi.stubGlobal( 'fetch', vi.fn() );
 	} );
 
@@ -42,281 +27,77 @@ describe( 'API Module', () => {
 		vi.unstubAllGlobals();
 	} );
 
-	describe( 'uploadArchive', () => {
-		it( 'should successfully upload archive', async () => {
-			const mockResponse = {
-				domain_name: mockSiteUrl,
-				atomic_site_id: mockSiteId,
-			};
-
-			const mockWpcom = createWpcomMock( {
-				post: vi.fn().mockResolvedValue( mockResponse ),
-			} );
-			vi.mocked( wpcomFactory ).mockReturnValue( mockWpcom );
-
-			const result = await uploadArchive( mockArchivePath, mockToken, mockWordPressVersion );
-
-			expect( wpcomFactory ).toHaveBeenCalledWith( mockToken, expect.anything() );
-			expect( mockWpcom.req.post ).toHaveBeenCalledWith( {
-				path: '/jurassic-ninja/create-new-site-from-zip',
-				apiNamespace: 'wpcom/v2',
-				formData: [
-					[
-						'import',
-						mockReadStream,
-						{
-							filename: 'local-env-site-1.zip',
-							contentType: 'application/zip',
-						},
-					],
-					[ 'wordpress_version', '6.8.1' ],
-				],
-			} );
-			expect( result ).toEqual( {
-				site_url: mockSiteUrl,
-				site_id: mockSiteId,
-			} );
-		} );
-
-		it( 'should successfully send wordpress_version to create new site from zip', async () => {
-			const mockWpcom = createWpcomMock( {
-				post: vi.fn().mockResolvedValue( {
-					domain_name: mockSiteUrl,
-					atomic_site_id: mockSiteId,
-				} ),
-			} );
-			vi.mocked( wpcomFactory ).mockReturnValue( mockWpcom );
-
-			await uploadArchive( mockArchivePath, mockToken, mockWordPressVersion );
-			expect( mockWpcom.req.post ).toHaveBeenCalledWith( {
-				path: '/jurassic-ninja/create-new-site-from-zip',
-				apiNamespace: 'wpcom/v2',
-				formData: [
-					[
-						'import',
-						mockReadStream,
-						{
-							filename: 'local-env-site-1.zip',
-							contentType: 'application/zip',
-						},
-					],
-					[ 'wordpress_version', '6.8.1' ],
-				],
-			} );
-		} );
-
-		it( 'should throw LoggerError for API errors', async () => {
-			const mockError = new Error( 'API error' );
-			const mockWpcom = createWpcomMock( {
-				post: vi.fn().mockRejectedValue( mockError ),
-			} );
-			vi.mocked( wpcomFactory ).mockReturnValue( mockWpcom );
-
-			await expect(
-				uploadArchive( mockArchivePath, mockToken, mockWordPressVersion )
-			).rejects.toThrow( 'Failed to upload archive' );
-		} );
-
-		it( 'should throw LoggerError for invalid API response', async () => {
-			const invalidResponse = {
-				// Missing required fields
-				some_field: 'value',
-			};
-
-			const mockWpcom = createWpcomMock( {
-				post: vi.fn().mockResolvedValue( invalidResponse ),
-			} );
-			vi.mocked( wpcomFactory ).mockReturnValue( mockWpcom );
-
-			await expect(
-				uploadArchive( mockArchivePath, mockToken, mockWordPressVersion )
-			).rejects.toThrow( 'Invalid API response format' );
-		} );
-	} );
-
-	describe( 'waitForSiteReady', () => {
-		beforeEach( () => {
-			// @ts-expect-error - mock implementation returns number instead of Timeout for simplicity
-			vi.spyOn( global, 'setTimeout' ).mockImplementation( ( fn ) => {
-				fn();
-				return 1;
-			} );
-		} );
-
-		afterEach( () => {
-			vi.restoreAllMocks();
-		} );
-
-		it( 'should return true when site becomes active', async () => {
-			const pendingResponse = {
-				status: SnapshotStatus.Pending,
-				domain_name: mockSiteUrl,
-				atomic_site_id: mockSiteId,
-				is_deleted: 'false',
-			};
-
-			const activeResponse = {
-				status: SnapshotStatus.Active,
-				domain_name: mockSiteUrl,
-				atomic_site_id: mockSiteId,
-				is_deleted: 'false',
-			};
-
-			const mockWpcom = createWpcomMock( {
-				get: vi
-					.fn()
-					.mockResolvedValueOnce( pendingResponse )
-					.mockResolvedValueOnce( activeResponse ),
-			} );
-			vi.mocked( wpcomFactory ).mockReturnValue( mockWpcom );
-
-			const result = await waitForSiteReady( mockSiteId, mockToken );
-			expect( mockWpcom.req.get ).toHaveBeenCalledTimes( 2 );
-			expect( result ).toBe( true );
-		} );
-
-		it( 'should throw LoggerError after max attempts', async () => {
-			const pendingResponse = {
-				status: SnapshotStatus.Pending,
-				domain_name: mockSiteUrl,
-				atomic_site_id: mockSiteId,
-				is_deleted: 'false',
-			};
-
-			const mockWpcom = createWpcomMock( {
-				get: vi.fn().mockResolvedValue( pendingResponse ),
-			} );
-			vi.mocked( wpcomFactory ).mockReturnValue( mockWpcom );
-
-			try {
-				await waitForSiteReady( mockSiteId, mockToken );
-			} catch ( error ) {
-				expect( error ).toBeInstanceOf( LoggerError );
-				expect( error ).toMatchObject( {
-					message: expect.stringContaining( 'Failed to create preview site' ),
-				} );
-				expect( mockWpcom.req.get ).toHaveBeenCalledTimes( 100 );
-			}
-		} );
-
-		it( 'should continue polling if API validation fails', async () => {
-			const invalidResponse = {}; // Empty response
-
-			const validResponse = {
-				status: SnapshotStatus.Active,
-				domain_name: mockSiteUrl,
-				atomic_site_id: mockSiteId,
-				is_deleted: 'false',
-			};
-
-			const mockWpcom = createWpcomMock( {
-				get: vi
-					.fn()
-					.mockResolvedValueOnce( invalidResponse )
-					.mockResolvedValueOnce( validResponse ),
-			} );
-			vi.mocked( wpcomFactory ).mockReturnValue( mockWpcom );
-
-			const result = await waitForSiteReady( mockSiteId, mockToken );
-			expect( mockWpcom.req.get ).toHaveBeenCalledTimes( 2 );
-			expect( result ).toBe( true );
-		} );
-	} );
-
-	describe( 'rotateReprintSecret', () => {
-		it( 'rotates via the v1 wpcomsh route and reads the nested `{ data: { secret } }` shape', async () => {
+	describe( 'installReprintPublicKey', () => {
+		it( 'sends the public key as the JSON body of install-public-key', async () => {
 			vi.mocked( fetch ).mockResolvedValue( {
 				ok: true,
 				json: vi.fn().mockResolvedValue( {
 					code: 200,
 					body: {
-						data: {
-							secret: 'rotated-secret',
-						},
+						key_id: 'c1c08fadfa3a465c',
+						export_url: 'https://example.com/?reprint-api-jetpack',
 					},
 				} ),
 			} as never );
 
-			await expect( rotateReprintSecret( mockSiteId, mockToken, 'v1' ) ).resolves.toBe(
-				'rotated-secret'
-			);
+			await expect(
+				installReprintPublicKey( mockSiteId, mockToken, 'MIIBojANBg' )
+			).resolves.toBeUndefined();
 			expect( fetch ).toHaveBeenCalledWith(
 				`https://public-api.wordpress.com/rest/v1.1/jetpack-blogs/${ mockSiteId }/rest-api?http_envelope=1&`,
 				expect.objectContaining( {
 					method: 'POST',
-					headers: expect.objectContaining( {
-						Authorization: `Bearer ${ mockToken }`,
+					body: JSON.stringify( {
+						path: '/jetpack/v4/reprint/install-public-key',
+						body: JSON.stringify( { public_key: 'MIIBojANBg' } ),
+						json: true,
 					} ),
-					body: JSON.stringify( { path: '/wpcomsh/v1/reprint/rotate-export-secret' } ),
 				} )
 			);
 		} );
 
-		it( 'rotates via the v2 jetpack route and reads the flat `{ secret }` shape', async () => {
+		it( 'throws when the site rejects the key', async () => {
 			vi.mocked( fetch ).mockResolvedValue( {
 				ok: true,
 				json: vi.fn().mockResolvedValue( {
-					code: 200,
-					body: {
-						secret: 'v2-secret',
-					},
+					code: 400,
+					body: { code: 'jetpack_reprint_invalid_public_key', data: { status: 400 } },
 				} ),
 			} as never );
 
-			await expect( rotateReprintSecret( mockSiteId, mockToken, 'v2' ) ).resolves.toBe(
-				'v2-secret'
-			);
-			expect( fetch ).toHaveBeenCalledWith(
-				expect.stringContaining( `jetpack-blogs/${ mockSiteId }/rest-api?http_envelope=1&` ),
-				expect.objectContaining( {
-					body: JSON.stringify( { path: '/jetpack/v4/reprint/rotate-export-secret' } ),
-				} )
+			await expect( installReprintPublicKey( mockSiteId, mockToken, 'bogus' ) ).rejects.toThrow(
+				'Failed to install the migration key on the WordPress.com site'
 			);
 		} );
 
-		it( 'throws when the rotate response carries no secret', async () => {
-			vi.mocked( fetch ).mockResolvedValue( {
-				ok: true,
-				json: vi.fn().mockResolvedValue( { code: 200, body: {} } ),
-			} as never );
+		it( 'throws on a transport failure', async () => {
+			vi.mocked( fetch ).mockResolvedValue( { ok: false, status: 502 } as never );
 
-			await expect( rotateReprintSecret( mockSiteId, mockToken, 'v2' ) ).rejects.toThrow(
-				'Invalid API response format'
-			);
-		} );
-
-		it( 'should throw when rotating the WordPress.com secret fails', async () => {
-			vi.mocked( fetch ).mockResolvedValue( {
-				ok: false,
-				status: 500,
-			} as never );
-
-			await expect( rotateReprintSecret( mockSiteId, mockToken, 'v1' ) ).rejects.toThrow(
-				'Failed to rotate the WordPress.com site secret'
-			);
+			await expect(
+				installReprintPublicKey( mockSiteId, mockToken, 'MIIBojANBg' )
+			).rejects.toThrow( 'Failed to install the migration key on the WordPress.com site' );
 		} );
 	} );
 
 	describe( 'enableReprintExporter', () => {
-		it( 'returns "v2" when the enable-export probe succeeds and does not touch the settings endpoint', async () => {
+		it( 'reports a key when enable-export opens the window', async () => {
 			vi.mocked( fetch ).mockResolvedValue( {
 				ok: true,
 				json: vi.fn().mockResolvedValue( { code: 200, body: { enabled: true } } ),
 			} as never );
 
-			await expect( enableReprintExporter( mockSiteId, mockToken ) ).resolves.toBe( 'v2' );
+			await expect( enableReprintExporter( mockSiteId, mockToken ) ).resolves.toEqual( {
+				hasPublicKey: true,
+			} );
 			expect( fetch ).toHaveBeenCalledWith(
 				`https://public-api.wordpress.com/rest/v1.1/jetpack-blogs/${ mockSiteId }/rest-api?http_envelope=1&`,
 				expect.objectContaining( {
 					body: JSON.stringify( { path: '/jetpack/v4/reprint/enable-export' } ),
 				} )
 			);
-			// The v2 path enables the exporter through the probe itself, so it
-			// must never fall through to the legacy settings-based enable.
-			expect( wpcomFactory ).not.toHaveBeenCalled();
 		} );
 
-		it( 'falls back to "v1" when the probe returns an inner `rest_no_route` body', async () => {
+		it( 'tells the user to update Jetpack when the site has no enable-export route', async () => {
 			vi.mocked( fetch ).mockResolvedValue( {
 				ok: true,
 				json: vi.fn().mockResolvedValue( {
@@ -324,32 +105,43 @@ describe( 'API Module', () => {
 					body: { code: 'rest_no_route', data: { status: 404 } },
 				} ),
 			} as never );
-			const post = vi.fn().mockResolvedValue( {
-				updated: { reprint_exporter_enabled: 1_700_000_000 },
-			} );
-			vi.mocked( wpcomFactory ).mockReturnValue( createWpcomMock( { post } ) );
 
-			await expect( enableReprintExporter( mockSiteId, mockToken ) ).resolves.toBe( 'v1' );
-			expect( post ).toHaveBeenCalledWith(
-				expect.objectContaining( {
-					path: `/sites/${ mockSiteId }/settings`,
-					body: expect.objectContaining( { reprint_exporter_enabled: expect.any( Number ) } ),
-				} )
+			await expect( enableReprintExporter( mockSiteId, mockToken ) ).rejects.toThrow(
+				'Update Jetpack on the site'
 			);
 		} );
 
-		it( 'falls back to "v1" when the envelope reports a 404 code directly', async () => {
+		it( 'reports no key when the site has no public key installed yet', async () => {
 			vi.mocked( fetch ).mockResolvedValue( {
 				ok: true,
-				json: vi.fn().mockResolvedValue( { code: 404, body: {} } ),
+				json: vi.fn().mockResolvedValue( {
+					// As WordPress.com's Jetpack proxy relays the site's WP_Error.
+					code: 409,
+					body: {
+						error: 'jetpack_reprint_no_credential',
+						message: 'Install a public key first.',
+						data: { status: 409 },
+					},
+				} ),
 			} as never );
-			const post = vi.fn().mockResolvedValue( {
-				updated: { reprint_exporter_enabled: 1_700_000_000 },
-			} );
-			vi.mocked( wpcomFactory ).mockReturnValue( createWpcomMock( { post } ) );
 
-			await expect( enableReprintExporter( mockSiteId, mockToken ) ).resolves.toBe( 'v1' );
-			expect( post ).toHaveBeenCalled();
+			await expect( enableReprintExporter( mockSiteId, mockToken ) ).resolves.toEqual( {
+				hasPublicKey: false,
+			} );
+		} );
+
+		it( 'throws on a 409 that is not the missing-credential error', async () => {
+			vi.mocked( fetch ).mockResolvedValue( {
+				ok: true,
+				json: vi.fn().mockResolvedValue( {
+					code: 409,
+					body: { code: 'something_else', data: { status: 409 } },
+				} ),
+			} as never );
+
+			await expect( enableReprintExporter( mockSiteId, mockToken ) ).rejects.toThrow(
+				'Failed to enable the reprint exporter'
+			);
 		} );
 
 		it( 'throws on an unexpected probe status', async () => {
@@ -360,19 +152,6 @@ describe( 'API Module', () => {
 
 			await expect( enableReprintExporter( mockSiteId, mockToken ) ).rejects.toThrow(
 				'Failed to enable the reprint exporter'
-			);
-		} );
-
-		it( 'throws when the v1 settings endpoint does not acknowledge the key', async () => {
-			vi.mocked( fetch ).mockResolvedValue( {
-				ok: true,
-				json: vi.fn().mockResolvedValue( { code: 404, body: {} } ),
-			} as never );
-			const post = vi.fn().mockResolvedValue( { updated: {} } );
-			vi.mocked( wpcomFactory ).mockReturnValue( createWpcomMock( { post } ) );
-
-			await expect( enableReprintExporter( mockSiteId, mockToken ) ).rejects.toThrow(
-				'did not acknowledge the reprint exporter activation'
 			);
 		} );
 	} );

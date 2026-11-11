@@ -27,10 +27,10 @@ import {
 	truncateToWidth,
 	CURSOR_MARKER,
 } from '@earendil-works/pi-tui';
-import { isOutOfCreditsError, isUsageCapError } from '@studio/common/ai/json-events';
-import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/common/ai/models';
-import { findLastAssistant } from '@studio/common/ai/session-events';
-import { randomThinkingMessage } from '@studio/common/ai/thinking-messages';
+import { isOutOfCreditsError, isUsageCapError } from '@studio/agent/protocol/json-events';
+import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/agent/protocol/models';
+import { findLastAssistant } from '@studio/agent/protocol/session-events';
+import { randomThinkingMessage } from '@studio/agent/protocol/thinking-messages';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	fetchStudioAssistantQuota,
@@ -59,7 +59,7 @@ import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getSitesRunningStatus, isSiteRunning } from 'cli/lib/site-utils';
 import { formatTosNoticeLines } from 'cli/lib/tos-notice';
 import type { ToolResultMessage } from '@earendil-works/pi-ai';
-import type { AskUserQuestion, SiteInfo } from 'cli/ai/types';
+import type { AskUserQuestion, SiteInfo } from '@studio/agent/node';
 
 const SITE_PICKER_TAB_LOCAL = 'local' as const;
 const SITE_PICKER_TAB_REMOTE = 'remote' as const;

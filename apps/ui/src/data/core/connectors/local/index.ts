@@ -8,6 +8,7 @@ import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
 import type {
+	AgentApp,
 	ActiveAgentRun,
 	AiSessionPlacementUpdatedEvent,
 	AiSessionSummary,
@@ -24,6 +25,7 @@ import type {
 	SiteDetails,
 	SiteAgentFile,
 	SkillStatus,
+	PreviewStatus,
 	Snapshot,
 	SnapshotUsage,
 	StudioAssistantQuota,
@@ -31,9 +33,11 @@ import type {
 	SyncSite,
 	UserPreferences,
 } from '../../types';
-import type { AgentRunEvent } from '@studio/common/ai/agent-events';
-import type { AiSettings } from '@studio/common/ai/providers';
-import type { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
+import type { AgentRunEvent } from '@studio/agent/protocol/agent-events';
+import type { AiSettings } from '@studio/agent/protocol/providers';
+import type { AuthAnalytics, OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
+import type { SiteEvent, SiteListItem, SnapshotEvent } from '@studio/common/lib/cli-events';
+import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 
@@ -72,7 +76,7 @@ type ServerEvent =
  * The server delegates to the local Studio CLI, so the same business logic the
  * desktop app runs is reachable here. The capabilities that depend on the local
  * machine (the real site list, start/stop, the agent) are implemented for real;
- * the rest grow in later increments (site create/export land in Phase 2).
+ * the few a browser can't offer throw `UnsupportedError`.
  */
 // A browser tab has no application menu, so the page binds its accelerators.
 function onMenuShortcut( listener: () => void, key: string, modifier?: 'shift' ) {
@@ -102,9 +106,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 	const authListeners = new Set< () => void >();
 	let eventSource: EventSource | undefined;
 	const connectionRestoredListeners = new Set< () => void >();
-	// Last site list fetched via getSites(), so one-off lookups (openSiteUrl)
-	// don't trigger an extra round-trip.
-	let lastSites: SiteDetails[] | undefined;
 
 	async function api< T >( path: string, init?: RequestInit ): Promise< T > {
 		const response = await fetch( `${ base }${ path }`, {
@@ -178,14 +179,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		return ( ( await response.json() ) as { path: string } ).path;
 	}
 
-	function findSiteUrl( sites: SiteDetails[], siteId: string ): string {
-		const site = sites.find( ( candidate ) => candidate.id === siteId );
-		if ( ! site?.url ) {
-			throw new Error( `Site ${ siteId } has no URL` );
-		}
-		return site.url;
-	}
-
 	return {
 		async init() {
 			// The browser's EventSource reconnects automatically.
@@ -243,17 +236,35 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		// configured: a popup goes through WordPress.com to /auth/callback, which
 		// stores the token and posts back here. Falls back to the paste flow
 		// (`studio auth login`-style) when no client is configured.
-		async authenticate( signup = false ) {
+		async authenticate(
+			signup = false,
+			source: TracksAuthSource = 'unknown',
+			analytics?: AuthAnalytics
+		) {
 			// Open the popup synchronously (inside the click gesture) so it isn't
 			// blocked, then navigate it once the authorize URL is resolved.
-			const popup = window.open( 'about:blank', 'studio-auth', 'width=600,height=720' );
+			const popupName = `studio-auth-${ crypto.randomUUID() }`;
+			let popup = window.open( 'about:blank', popupName, 'width=600,height=720' );
 
 			let loginUrl: string | null = null;
+			let authAttemptId: string | undefined;
+			const cancel = ( launchFailed = false ) =>
+				api( '/auth/cancel', {
+					method: 'POST',
+					body: JSON.stringify( { auth_attempt_id: authAttemptId, launch_failed: launchFailed } ),
+				} ).catch( () => undefined );
+			const analyticsParams = new URLSearchParams( { source } );
+			for ( const [ key, value ] of Object.entries( analytics ?? {} ) ) {
+				if ( value !== undefined ) analyticsParams.set( key, String( value ) );
+			}
 			try {
-				( { url: loginUrl } = await api< { url: string | null } >(
+				( { url: loginUrl, authAttemptId } = await api< {
+					url: string | null;
+					authAttemptId?: string;
+				} >(
 					`/auth/login-url?redirect_uri=${ encodeURIComponent(
 						`${ window.location.origin }/auth/callback`
-					) }${ signup ? '&signup=1' : '' }`
+					) }${ signup ? '&signup=1' : '' }&${ analyticsParams }`
 				) );
 			} catch {
 				loginUrl = null;
@@ -274,8 +285,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				if ( token?.trim() ) {
 					await api( '/auth/login', {
 						method: 'POST',
-						body: JSON.stringify( { token: token.trim() } ),
+						body: JSON.stringify( { token: token.trim(), auth_attempt_id: authAttemptId } ),
 					} );
+				} else {
+					void cancel();
 				}
 				return;
 			}
@@ -283,7 +296,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			if ( popup ) {
 				popup.location.href = loginUrl;
 			} else {
-				window.open( loginUrl, '_blank', 'noopener,noreferrer' );
+				popup = window.open( loginUrl, popupName );
+				if ( ! popup ) {
+					void cancel( true );
+					return;
+				}
 			}
 
 			// Wait for the callback page to report success (it has already stored the
@@ -293,6 +310,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					if ( event.origin !== window.location.origin || ! event.data ) {
 						return;
 					}
+					if ( authAttemptId && event.data.auth_attempt_id !== authAttemptId ) return;
 					if ( event.data.type === 'studio-auth-success' ) {
 						cleanup();
 						resolve();
@@ -304,6 +322,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				window.addEventListener( 'message', onMessage );
 				const closedTimer = setInterval( () => {
 					if ( popup?.closed ) {
+						void cancel();
 						cleanup();
 						resolve();
 					}
@@ -322,22 +341,26 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return () => authListeners.delete( listener );
 		},
 		async getOnboardingCompleted() {
-			return true;
+			return api< boolean >( '/onboarding' );
 		},
-		async setOnboardingCompleted() {
-			// No-op.
+		async setOnboardingCompleted( completed, analytics?: OnboardingAnalytics ) {
+			await api( '/onboarding', {
+				method: 'PATCH',
+				body: JSON.stringify( { completed, analytics } ),
+			} );
 		},
 
 		// Sites — the local machine's real Studio sites, served by the CLI.
 		async getSites(): Promise< SiteDetails[] > {
-			lastSites = await api< SiteDetails[] >( '/sites' );
-			return lastSites;
+			return api< SiteDetails[] >( '/sites' );
 		},
 		async startSite( id ) {
-			await api( `/sites/${ encodeURIComponent( id ) }/start`, { method: 'POST' } );
+			return api< SiteListItem >( `/sites/${ encodeURIComponent( id ) }/start`, {
+				method: 'POST',
+			} );
 		},
 		async stopSite( id ) {
-			await api( `/sites/${ encodeURIComponent( id ) }/stop`, { method: 'POST' } );
+			return api< SiteListItem >( `/sites/${ encodeURIComponent( id ) }/stop`, { method: 'POST' } );
 		},
 		async getSiteThumbnail( siteId ) {
 			const { thumbnail } = await api< { thumbnail: string | null } >(
@@ -345,15 +368,15 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			);
 			return thumbnail;
 		},
+		async captureAnnotationRegion() {
+			throw new Error( 'Annotation screenshots are not available in the browser yet.' );
+		},
 		async captureSitePreview( siteId, { path, width, height } ) {
 			const { thumbnail } = await api< { thumbnail: string | null } >(
 				`/sites/${ encodeURIComponent( siteId ) }/capture-preview`,
 				{ method: 'POST', body: JSON.stringify( { path, width, height } ) }
 			);
 			return thumbnail;
-		},
-		async getSiteIcon( siteId ) {
-			return api< string | null >( `/sites/${ encodeURIComponent( siteId ) }/site-icon` );
 		},
 		async getSiteDesign( siteId ) {
 			return api( `/sites/${ encodeURIComponent( siteId ) }/design` );
@@ -404,12 +427,11 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				`/site-defaults/path?name=${ encodeURIComponent( siteName ) }`
 			);
 		},
-		// No native folder picker in a browser: the create form has the path typed
-		// (see capabilities.nativeFolderPicker), and this checks what it holds.
-		async selectSiteFolder( folderPath ): Promise< SelectedSiteFolder | null > {
+		// The browser has no native folder picker; this checks a known path.
+		async selectSiteFolder( folderPath, options ): Promise< SelectedSiteFolder | null > {
 			return api< SelectedSiteFolder >( '/site-defaults/folder', {
 				method: 'POST',
-				body: JSON.stringify( { path: folderPath } ),
+				body: JSON.stringify( { path: folderPath, ...options } ),
 			} );
 		},
 		async selectDefaultSiteDirectory(): Promise< string | null > {
@@ -454,11 +476,20 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async updateSitesSortOrder( updates ) {
 			await api( '/sites/sort-order', { method: 'POST', body: JSON.stringify( { updates } ) } );
 		},
+
+		async setSiteFrontendAdminBar( siteId, hidden ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/frontend-admin-bar`, {
+				method: 'PATCH',
+				body: JSON.stringify( { hidden } ),
+			} );
+		},
 		// Export downloads the archive in the browser (no native Save-As dialog).
-		async exportFullSite( siteId ): Promise< string | null > {
+		async exportFullSite( siteId, options ): Promise< string | null > {
+			options?.onStarted?.();
 			return downloadFromServer( `/sites/${ encodeURIComponent( siteId ) }/export?mode=full` );
 		},
-		async exportDatabase( siteId ): Promise< string | null > {
+		async exportDatabase( siteId, options ): Promise< string | null > {
+			options?.onStarted?.();
 			return downloadFromServer( `/sites/${ encodeURIComponent( siteId ) }/export?mode=database` );
 		},
 
@@ -491,10 +522,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			};
 		},
 		async extractBlueprintBundle( file ): Promise< ExtractedBlueprintBundle > {
+			const data = await file.arrayBuffer();
 			const response = await fetch( `${ base }/blueprints/extract`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/octet-stream' },
-				body: file,
+				body: data,
+				signal: AbortSignal.timeout( 60_000 ),
 			} );
 			if ( ! response.ok ) {
 				const text = await response.text().catch( () => '' );
@@ -558,6 +591,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'PATCH',
 				body: JSON.stringify( { name } ),
 			} );
+		},
+		async getPreviewStatus( hostname ): Promise< PreviewStatus > {
+			return api< PreviewStatus >( `/snapshots/${ encodeURIComponent( hostname ) }/status` );
 		},
 		async getConnectedWpcomSites( localSiteId ): Promise< SyncSite[] > {
 			return api< SyncSite[] >(
@@ -699,6 +735,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'POST',
 				body: JSON.stringify( {
 					prompt,
+					turnId: options?.turnId,
 					displayMessage: options?.displayMessage,
 					images: options?.images,
 					files: options?.files,
@@ -776,6 +813,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			return api< InstalledApps >( '/installed-apps' );
 		},
 
+		async getAgentApps(): Promise< AgentApp[] > {
+			return api< AgentApp[] >( '/agent-apps' );
+		},
+		async connectAgentApp( id ): Promise< void > {
+			await api< void >( `/agent-apps/${ id }/connect`, { method: 'POST' } );
+		},
+
 		async getAppGlobals(): Promise< AppGlobals > {
 			return { platform: 'browser', isWindowsStore: false };
 		},
@@ -820,16 +864,21 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			} );
 		},
 
-		// The local server has no REST-proxy route yet; the preview omnibox
-		// only offers search where the webview connector serves it.
-		async fetchSiteRest() {
-			throw new UnsupportedError( 'fetchSiteRest' );
-		},
-
 		// The server runs on the user's machine, so it opens paths in OS apps on
 		// the browser's behalf (the editor/terminal choice comes from prefs above).
 		async openSiteFolder( siteId ) {
 			await api( `/sites/${ encodeURIComponent( siteId ) }/open-folder`, { method: 'POST' } );
+		},
+		async openSiteEmailFolder( siteId ) {
+			await api( `/sites/${ encodeURIComponent( siteId ) }/open-email-folder`, { method: 'POST' } );
+		},
+		async getSiteEmails( siteId ) {
+			return api( `/sites/${ encodeURIComponent( siteId ) }/emails` );
+		},
+		async getSiteEmail( siteId, emailId ) {
+			return api(
+				`/sites/${ encodeURIComponent( siteId ) }/emails/${ encodeURIComponent( emailId ) }`
+			);
 		},
 		// The server resolves the preference; a 400 means none is configured and
 		// callers route the user to Settings, matching the desktop contract.
@@ -868,16 +917,22 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 		// The server attaches the origin and common props. Callers fire and forget, so a
 		// failure here must not become an unhandled rejection.
-		async trackEvent( eventName, props = {} ) {
+		async trackEvent( eventName, props = {}, siteId ) {
 			await api< void >( '/analytics/event', {
 				method: 'POST',
-				body: JSON.stringify( { eventName, props } ),
+				body: JSON.stringify( { eventName, props, siteId } ),
 			} ).catch( () => undefined );
 		},
 
 		// External links work natively in the browser.
 		async openExternalUrl( url ) {
 			window.open( url, '_blank', 'noopener,noreferrer' );
+		},
+		async sendFeedback( feedback ) {
+			return api< { feedbackId: number } >( '/feedback', {
+				method: 'POST',
+				body: JSON.stringify( feedback ),
+			} );
 		},
 		async getWapuuScore() {
 			return readWapuuScore( WAPUU_SCORE_STORAGE_KEY );
@@ -888,18 +943,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async popupAppMenu() {},
 		showsAppMenuButton: false,
 		async openSiteUrl( siteId, relativeUrl = '', { autoLogin = true } = {} ) {
-			const sites = lastSites ?? ( await api< SiteDetails[] >( '/sites' ) );
-			const siteUrl = findSiteUrl( sites, siteId );
-			let target = new URL( relativeUrl || '/', siteUrl );
-			// Mirrors the desktop host's `openSiteURL`: go through the site's
-			// /studio-auto-login endpoint so admin screens don't land on the
-			// login form.
-			if ( autoLogin ) {
-				const autoLoginUrl = new URL( '/studio-auto-login', siteUrl );
-				autoLoginUrl.searchParams.set( 'redirect_to', target.toString() );
-				target = autoLoginUrl;
-			}
-			window.open( target.toString(), '_blank', 'noopener,noreferrer' );
+			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-browser`, {
+				method: 'POST',
+				body: JSON.stringify( { relativeUrl, autoLogin } ),
+			} );
 		},
 		async getWordPressSkillsStatusAllSites() {
 			return api< SkillStatus[] >( '/skills' );
@@ -948,7 +995,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			snapshotEventListeners.add( listener );
 			return () => snapshotEventListeners.delete( listener );
 		},
-		onToggleSitePreview( listener ) {
+		onTogglePanel( listener ) {
 			return onMenuShortcut( listener, 'b', 'shift' );
 		},
 		async copyText( text ) {
@@ -964,10 +1011,24 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		onToggleSidebar( listener ) {
 			return onMenuShortcut( listener, 'b' );
 		},
+		onOpenFolder() {
+			return () => {};
+		},
+		onNewChat( listener ) {
+			return onMenuShortcut( listener, 'n', 'shift' );
+		},
 		onAddSite( listener ) {
 			return onMenuShortcut( listener, 'n' );
 		},
 		onAddSiteWithBlueprint() {
+			return () => {};
+		},
+		onOpenSite() {
+			// Spotlight opens the installed desktop app.
+			return () => {};
+		},
+		onPullSite() {
+			// `pull-site` links open the installed desktop app.
 			return () => {};
 		},
 		onOpenSettings( listener ) {
@@ -997,6 +1058,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async installAppUpdate() {
 			// No-op.
+		},
+		async checkForAppUpdates() {
+			throw new Error( 'App updates are only available in the desktop app.' );
 		},
 		onAppUpdateStatusChanged() {
 			return () => {};

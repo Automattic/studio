@@ -7,7 +7,7 @@ import {
 } from '@studio/common/lib/connected-sites';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { formatProgressLabel } from '@studio/common/lib/progress-label';
-import { readAuthToken } from '@studio/common/lib/shared-config';
+import { getSiteTracksProps } from '@studio/common/lib/site-tracks';
 import { buildSyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
 import {
 	SYNC_IGNORE_DEFAULTS,
@@ -26,21 +26,19 @@ import { ExportOptions } from 'cli/lib/import-export/export/types';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { exitOnCancel, reportSyncActivity } from 'cli/lib/sync-activity';
-import {
-	fetchSyncableSites,
-	initiateImport,
-	parseSyncOptions,
-	pollImportStatus,
-} from 'cli/lib/sync-api';
+import { fetchSyncableSites, initiateImport, pollImportStatus } from 'cli/lib/sync-api';
 import { selectSyncItemsForPush } from 'cli/lib/sync-selector';
 import { findSyncSiteByIdentifier, pickSyncSite } from 'cli/lib/sync-site-picker';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { findFailureCode } from 'cli/lib/utils';
+import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
-import { StudioArgv } from 'cli/types';
 import { handleExportEvents } from './export';
 import type { SyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
+import type { SyncFailurePhase } from '@studio/common/lib/sync/classify-sync-failure';
 import type { ImportResponse, PushPhase, SyncSite } from '@studio/common/types/sync';
+import type { builder } from 'cli/commands/push.command';
+import type { CommandArgs } from 'cli/types';
 
 const defaultLogger = new Logger< LoggerAction >();
 
@@ -49,8 +47,8 @@ export async function runCommand(
 	syncOptions?: SyncOption[],
 	remoteSiteIdentifier?: string,
 	logger: Logger< LoggerAction > = defaultLogger,
-	{ includeOnly, suppressTracksEvent = false }: PushFlags = {}
-): Promise< void > {
+	{ includeOnly }: PushFlags = {}
+): Promise< SyncSite | undefined > {
 	const startedAt = Date.now();
 	// The remote site is only known part-way through, but the setup steps before
 	// it (auth, site load, remote-site fetch) can fail too — `runPush` reports the
@@ -68,16 +66,15 @@ export async function runCommand(
 				message: error instanceof Error ? error.message : String( error ),
 			} );
 		}
-		if ( ! suppressTracksEvent ) {
-			await recordSyncPushEvent(
-				buildSyncEventProps( {
-					startedAt,
-					site: pushed.remoteSite,
-					error,
-					hint: { code: findFailureCode( error ) },
-				} )
-			);
-		}
+		await recordSyncPushEvent(
+			siteFolder,
+			buildSyncEventProps( {
+				startedAt,
+				site: pushed.remoteSite,
+				error,
+				hint: { code: findFailureCode( error ), phase: pushed.failurePhase },
+			} )
+		);
 		throw error;
 	}
 
@@ -89,13 +86,31 @@ export async function runCommand(
 	}
 	// Backing out of the site picker or the item selector returns without
 	// completing — a cancel, which emits nothing.
-	if ( pushed.completed && ! suppressTracksEvent ) {
-		await recordSyncPushEvent( buildSyncEventProps( { startedAt, site: pushed.remoteSite } ) );
+	if ( pushed.completed ) {
+		await recordSyncPushEvent(
+			siteFolder,
+			buildSyncEventProps( { startedAt, site: pushed.remoteSite } )
+		);
 	}
+	return pushed.completed ? pushed.remoteSite : undefined;
 }
 
-type PushFlags = { includeOnly?: string[]; suppressTracksEvent?: boolean };
-type PushOutcome = { siteId?: string; remoteSite?: SyncSite; completed?: boolean };
+type PushFlags = { includeOnly?: string[] };
+type PushOutcome = {
+	siteId?: string;
+	remoteSite?: SyncSite;
+	completed?: boolean;
+	// The step a failure is attributed to when its error names no cause of its own.
+	failurePhase?: SyncFailurePhase;
+};
+
+const FAILURE_PHASES: Record< PushPhase, SyncFailurePhase > = {
+	creatingBackup: 'local_export',
+	uploading: 'upload',
+	creatingRemoteBackup: 'remote_backup',
+	applyingChanges: 'remote_import',
+	finishing: 'remote_import',
+};
 
 async function runPush(
 	siteFolder: string,
@@ -107,20 +122,16 @@ async function runPush(
 ): Promise< void > {
 	let remoteSite: SyncSite | undefined;
 
-	const token = await readAuthToken();
-	if ( ! token ) {
-		throw new LoggerError(
-			__( 'Authentication required. Please log in with `studio auth login`.' ),
-			undefined,
-			'auth'
-		);
-	}
+	const token = await requireAuthToken( 'auth' );
 
 	logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
 	const site = await getSiteByFolder( siteFolder );
 	logger.reportSuccess( __( 'Site loaded' ) );
 	pushed.siteId = site.id;
-	const reportPhase = ( phase?: PushPhase, progress?: number ) =>
+	const reportPhase = ( phase?: PushPhase, progress?: number ) => {
+		if ( phase ) {
+			pushed.failurePhase = FAILURE_PHASES[ phase ];
+		}
 		void reportSyncActivity( site.id, {
 			kind: 'pending',
 			direction: 'push',
@@ -128,6 +139,7 @@ async function runPush(
 			...( phase ? { phase } : {} ),
 			...( progress === undefined ? {} : { progress: Math.round( progress ) } ),
 		} );
+	};
 	reportPhase();
 
 	logger.reportStart(
@@ -167,6 +179,7 @@ async function runPush(
 		specificSelectionPaths = selection.specificSelectionPaths;
 	}
 
+	reportPhase( 'creatingBackup' );
 	const tempDir = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-sync' ) );
 
 	try {
@@ -212,7 +225,6 @@ async function runPush(
 			);
 		}
 
-		reportPhase( 'creatingBackup' );
 		handleExportEvents( exporter, logger );
 		await withSiteOperation( site.path, 'export', () => exporter.export() );
 
@@ -408,58 +420,29 @@ function getImportFailureMessage( response: Extract< ImportResponse, { status: '
 	return __( 'Something went wrong while updating the live site.' );
 }
 
-async function recordSyncPushEvent( props: SyncEventProps ): Promise< void > {
+async function recordSyncPushEvent( siteFolder: string, props: SyncEventProps ): Promise< void > {
 	try {
-		await recordTracksEvent( TRACKS_EVENTS.SYNC_PUSH, { ...props, ...getTracksOrigin() } );
+		await recordTracksEvent( TRACKS_EVENTS.SYNC_PUSH, {
+			...props,
+			...( await getSiteTracksProps( { siteFolder } ) ),
+			...getTracksOrigin(),
+		} );
 	} catch {
 		// Best-effort telemetry — never block or fail the push.
 	}
 }
-
-export const registerCommand = ( yargs: StudioArgv ) => {
-	return yargs.command( {
-		command: 'push',
-		describe: __( 'Push your local site to a WordPress.com site' ),
-		builder: ( yargs ) => {
-			return yargs
-				.option( 'options', {
-					type: 'string',
-					description: __(
-						'Comma-separated sync options: all, sqls, uploads, plugins, themes, contents'
-					),
-					coerce: ( val: string | undefined ) =>
-						val !== undefined ? parseSyncOptions( val ) : undefined,
-				} )
-				.option( 'remote-site', {
-					type: 'string',
-					description: __( 'Remote site URL or ID' ),
-				} )
-				.option( 'include-only', {
-					type: 'string',
-					array: true,
-					description: __( 'Only push these paths from the selection made with --options' ),
-				} )
-				.option( 'suppress-tracks-event', {
-					type: 'boolean',
-					default: false,
-					hidden: true,
-				} );
-		},
-		handler: async ( argv ) => {
-			exitOnCancel();
-			try {
-				await runCommand( argv.path, argv.options, argv.remoteSite, defaultLogger, {
-					includeOnly: argv.includeOnly,
-					suppressTracksEvent: argv.suppressTracksEvent,
-				} );
-			} catch ( error ) {
-				if ( error instanceof LoggerError ) {
-					defaultLogger.reportError( error );
-				} else {
-					const loggerError = new LoggerError( __( 'Push failed' ), error );
-					defaultLogger.reportError( loggerError );
-				}
-			}
-		},
-	} );
-};
+export async function commandHandler( argv: CommandArgs< typeof builder > ) {
+	exitOnCancel();
+	try {
+		await runCommand( argv.path, argv.options, argv.remoteSite, defaultLogger, {
+			includeOnly: argv.includeOnly,
+		} );
+	} catch ( error ) {
+		if ( error instanceof LoggerError ) {
+			defaultLogger.reportError( error );
+		} else {
+			const loggerError = new LoggerError( __( 'Push failed' ), error );
+			defaultLogger.reportError( loggerError );
+		}
+	}
+}

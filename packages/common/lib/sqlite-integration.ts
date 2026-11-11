@@ -6,7 +6,15 @@ import path from 'path';
 // SQLite-compatible drop-ins are preserved.
 const STOCK_DB_DROPIN_MARKER = 'This file is auto-generated and copied from the sqlite plugin.';
 
-// Abstract base class for SQLite integration across different contexts
+// Since sqlite-database-integration 3.1, a database path that isn't configured
+// moves wp-content/database/.ht.sqlite into a randomized directory on first load.
+// Studio reads the database at the fixed path, so pin it unless the site
+// configures its own location.
+const DB_PATH_DEFINITION = `if ( ! defined( 'DB_PATH' ) && ! defined( 'FQDB' ) && ! defined( 'FQDBDIR' ) && ! defined( 'DB_DIR' ) && ! defined( 'DB_FILE' ) ) {
+	define( 'DB_PATH', __DIR__ . '/database/.ht.sqlite' );
+}
+`;
+
 export abstract class SqliteIntegrationProvider {
 	abstract getSqliteDirname(): string;
 	protected abstract getSqlitePluginSourcePath(): string;
@@ -22,7 +30,7 @@ export abstract class SqliteIntegrationProvider {
 	 *
 	 * A user can run Studio against their own database server (e.g. MySQL) by removing
 	 * the SQLite drop-in, database, and mu-plugin, then pointing wp-config.php at it
-	 * (https://developer.wordpress.com/docs/developer-tools/studio/frequently-asked-questions/#use-studio-with-mysql-server).
+	 * (https://wordpress.studio/docs/frequently-asked-questions/#how-can-i-use-wordpress-studio-with-the-mysql-server-of-my-choice).
 	 * We must not reinstall SQLite over that. But a SQLite site whose db.php drop-in went
 	 * missing still has its database/mu-plugin, and needs the drop-in restored.
 	 *
@@ -100,11 +108,16 @@ export abstract class SqliteIntegrationProvider {
 				path.join( sqliteSourcePath, 'db.copy' ),
 				'utf8'
 			);
-			const updatedContent = dbCopyContent.replace(
-				"'{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
-				`realpath( __DIR__ . '/mu-plugins/${ sqliteDirname }' )`
-			);
+			const updatedContent = dbCopyContent
+				.replace(
+					"'{SQLITE_IMPLEMENTATION_FOLDER_PATH}'",
+					`realpath( __DIR__ . '/mu-plugins/${ sqliteDirname }' )`
+				)
+				.replace( /^<\?php\s*\n/, ( openingTag ) => `${ openingTag }${ DB_PATH_DEFINITION }` );
 			await fs.promises.writeFile( path.join( wpContentPath, 'db.php' ), updatedContent );
+			// `wp sqlite import` and `export` run before db.php and would follow this file instead
+			// of the pin. Playground exports include it.
+			await fs.promises.rm( path.join( databasePath, 'db-path.php' ), { force: true } );
 		}
 
 		const sqliteDestPath = path.join( wpContentPath, 'mu-plugins', sqliteDirname );

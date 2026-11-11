@@ -1,4 +1,3 @@
-import { vi } from 'vitest';
 import { getSyncSupport } from '@studio/common/lib/sync/sync-support';
 
 // Mocks for site shapes
@@ -22,8 +21,6 @@ const baseSite = {
 		user_is_owner: true,
 	},
 };
-
-vi.mock( 'src/lib/get-ipc-api' );
 
 describe( 'getSyncSupport', () => {
 	it( 'returns "deleted" if site is deleted', () => {
@@ -61,6 +58,18 @@ describe( 'getSyncSupport', () => {
 			hosting_provider_guess: undefined,
 		};
 		expect( getSyncSupport( site, [] ) ).toBe( 'needs-upgrade' );
+	} );
+
+	it.each( [
+		[ 'an Atomic site, such as a preview', { is_wpcom_atomic: true, jetpack: true }, 'syncable' ],
+		[ 'a Simple site', { is_wpcom_atomic: false, jetpack: false }, 'needs-transfer' ],
+	] )( 'without a plan, lets a Reprint pull use %s', ( _, shape, expected ) => {
+		const site = {
+			...baseSite,
+			...shape,
+			plan: { ...baseSite.plan, features: { active: [] } },
+		};
+		expect( getSyncSupport( site, [], { planRequired: false } ) ).toBe( expected );
 	} );
 
 	it( 'returns "needs-transfer" if site not Atomic, Jetpack, nor Pressable', () => {

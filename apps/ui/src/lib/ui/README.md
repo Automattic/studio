@@ -22,15 +22,31 @@ import { Button, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui'
 ## Which primitive
 
 - An action: `Button`. Icon only: `IconButton`, whose `label` is also its tooltip. A link inside copy: `Button variant="inline-link" size="inline"`.
+- A toolbar toggle: `Button` or `IconButton` with `variant="accent-ghost"` and `aria-pressed`. Pressed and expanded toggles use an accent fill and text, with a stronger accent fill on hover. Other variants use their hover fill and text for pressed and expanded states.
 - A form row: `Field` with `FieldLabel`, `FieldDescription` and `FieldError`, grouped in a `FieldGroup`. Text: `Input` and `Textarea`, or `InputGroup` for buttons and icons inside the border.
+- Dismiss controls: `DismissButton` for the small floating close button on notifications and attachments; its `label` supplies the tooltip. `AttachmentRemoveButton` is its attachment alias.
+- File drops: `DropOverlay` for drag feedback, with a translated action label as its children; `DropZone` for a file picker's resting placeholder, with an icon, title, description, and file-selection controls. `DropZone size="sm"` uses text-xs and tighter caption spacing for compact areas. Feature code owns file handling.
 - A choice: `Select`, `Switch` for on/off, `Checkbox` in forms, `Tabs` for sections or a scope switch, `Slider`. A question with options: `Questionnaire`.
-- A modal: `Dialog` with `DialogContent`. A confirmation: `AlertDialog`. Two panes: `DialogPanel`.
-- Floating: `Menu` (right click: `Menu.ContextMenuRoot`), `Popover`, `HoverCard`, `Tooltip`.
-- Status: `Alert`, `Empty`, `Skeleton`, `Spinner`, `Progress`, `Badge`, `NotificationDot`.
+- A color: `ColorPicker`, with a controlled six-digit hex `value`, `onValueChange` for live previews and `onValueCommitted` for saves. Its editable hex field opens a saturation/brightness and hue popover.
+- A modal: `Dialog` with `DialogContent`. All dialogs share the settings dialog’s popover surface, popover-border outline, small shadow, and rounding. Dialog sidebars use the same background as their content. Settings field groups share the same muted fill in both color schemes. Small info dialogs and forms: `layout="compact"` (16px leading inset, standard 12px padding elsewhere, and extra space above actions). Confirmations: `AlertDialog` with `layout="confirmation"` (the same spacing at a wider width). Two panes: `DialogPanel`. Its optional `footer` accepts a `DialogFooter` outside the scrolling body, using the standard dialog inset.
+- Menu text: Use `Menu.ItemLabel` for item text that should truncate instead of widening the menu.
+- Floating: `Menu` (right click: `Menu.ContextMenuRoot`), `Popover`, `Tooltip`. Use `Popover.Title` and `Popover.Description` for the shared informational text styles: 14px title at medium weight, 13px muted description, and a 4px gap, matching the empty notification popover.
+- Feature education: `FeaturePopover` composes `Popover` with an optional badge, dismiss action, and footer. Use `Navigation` for Next/Skip and step text. The caller owns opening, progression, dismissal, and persistence; the card supports both hover hints and controlled onboarding steps.
+- Status: `Alert`, `Empty`, `Skeleton`, `Spinner`, `Progress`, `Badge`, `NotificationDot`. Attachment labels: `AttachmentChip`, with `font="mono"` for element references. Add `AttachmentChipTrigger` to open a preview, with `AttachmentRemoveButton` as its sibling.
 - Sidebar groups and rows: `SidebarGroup`, `SidebarMenu`, `SidebarMenuButton`.
-- Also `CodeBlock`, `PreviewFrame`, `ResizeHandle`, `MarqueeLabel` (a long label that scrolls on hover), `CommandSheet` (slash commands), `Kbd` and `VisuallyHidden`.
+- Image previews: `PreviewFrame` for a 16:10 screenshot. Other image wrappers compose `imageOutline` from the theme recipes: a 1px inset overlay at 12% foreground opacity, following the wrapper's radius. Apply it to a positioned wrapper, rather than the `img`, so the line draws over the pixels. `imagePreviewFrame` adds the shared preview shadow.
+- Also `CodeBlock`, `ResizeHandle`, `MarqueeLabel` (a long label that scrolls on hover), `CommandSheet` (slash commands), `Kbd` and `VisuallyHidden`.
 
 When none fits, add one here rather than styling a `div` in a feature.
+
+## Button hierarchy
+
+- Use `variant="accent"` for the primary action in a screen, form or dialog: Publish, Send, Create site, Save, Import and Continue.
+- Supporting actions use `outline`, the default for `Button`: Manage, Connect, Reload, Retry, Cancel, Discard and dismiss-only Done buttons. Choose by role in context: Buy credits is accent as the primary action in Add credits.
+- Use `ghost` for quiet toolbar utilities, link variants for navigation within copy, and `destructive` for destructive actions or error feedback.
+- Add the `destructive` prop to a quiet `Button` or `IconButton` to keep its resting style and use destructive colors on hover, press and keyboard focus. Use `variant="destructive"` for a filled destructive action.
+- The white-filled `default` variant is not used for product actions. Choose accent or outline according to the action's role.
+- Form controls use the standard 36px size. Dialog-header Save and Discard actions use `size="sm"` (32px).
 
 ## Restyling
 
@@ -38,6 +54,8 @@ Styles sit in the `ui` cascade layer, so a feature's CSS module overrides them w
 
 - Pick a `variant` and `size` first. If none matches, add one here. A primitive that looks wrong everywhere gets fixed here, not on the screen where you noticed it.
 - From a feature, pass `className` for layout: placement, width, margins, grid and flex.
+- Button color, background and border feedback use `--motion-duration-feedback`. Hover-only actions appear immediately, without an opacity transition.
+- Menu items, sidebar rows and tabs respond immediately to hover and selection, without color or background transitions.
 - Change a button's fill with `--button-background`, `--button-hover-background` or `--button-hover-color`, not `background-color`.
 - Don't reach into a primitive's parts with `[data-slot]` selectors, set its other custom properties, or raise specificity to beat it.
 

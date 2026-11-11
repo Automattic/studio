@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import { z } from 'zod';
 import { readAppConfig, updateAppConfig, type AppConfig } from '@studio/common/lib/app-config';
 import { isSupportedLocale } from '@studio/common/lib/locale';
+import { updateMuPluginSettings } from '@studio/common/lib/mu-plugin-settings';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import {
 	isAnalyticsOptedOutInConfig,
@@ -11,20 +12,27 @@ import {
 import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
 import {
 	DEFAULT_COLOR_SCHEME,
+	DEFAULT_HIDE_FRONTEND_ADMIN_BAR,
 	getColorTint,
+	getDefaultSidebarChatSort,
+	SIDEBAR_PINNED_SORTS,
+	SIDEBAR_SITE_SORTS,
+	SIDEBAR_CHAT_SORTS,
 	INTERFACE_PREFERENCE_DEFAULTS,
-	NEW_SITE_BEHAVIORS,
 	QUIT_SITES_BEHAVIORS,
 	SUPPORTED_COLOR_SCHEMES,
 } from '@studio/common/lib/user-settings/preferences';
 import { DEFAULT_TERMINAL, SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
+import { SUPPORTED_BROWSERS, type SupportedBrowser } from './browser';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 import type {
 	ColorScheme,
 	ColorTint,
-	NewSiteBehavior,
 	QuitSitesBehavior,
+	SidebarPinnedSort,
+	SidebarSiteSort,
+	SidebarChatSort,
 } from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 
@@ -36,15 +44,18 @@ import type { SupportedTerminal } from '@studio/common/lib/user-settings/termina
 export interface UserPreferences extends ColorTint {
 	// `null` is the default: the first installed editor, the system terminal.
 	editor: SupportedEditor | null;
+	browser: SupportedBrowser | null;
 	terminal: SupportedTerminal | null;
 	colorScheme: ColorScheme;
 	quitSitesBehavior?: QuitSitesBehavior;
 	locale: string | undefined;
 	analyticsEnabled: boolean;
 	defaultSiteDirectory: string;
-	agenticFeaturesEnabled: boolean;
 	// The sidebar's Pinned group, in order, as `site:<id>` and `chat:<id>` keys.
 	sidebarPins: string[];
+	sidebarPinnedSort: SidebarPinnedSort;
+	sidebarSiteSort: SidebarSiteSort;
+	sidebarChatSort: SidebarChatSort;
 	// Each site's chats in the order the user dragged them into, by site id.
 	sidebarChatOrder: Record< string, string[] >;
 	showRecentChats: boolean;
@@ -52,9 +63,9 @@ export interface UserPreferences extends ColorTint {
 	autoCollapseSites: boolean;
 	// Start a stopped local site when a chat message is sent to it.
 	autoStartSiteOnChat: boolean;
-	// Ask before discarding preview annotations.
-	confirmDeleteAnnotations: boolean;
-	newSiteBehavior: NewSiteBehavior;
+	openChatOnSiteStart: boolean;
+	hideFrontendAdminBar: boolean;
+	batchAnnotations: boolean;
 }
 
 // Passed in, so this stays a pure reader over the config files.
@@ -82,6 +93,7 @@ const sidebarChatOrderSchema = z.record( z.string(), z.array( z.string() ) );
 // so a clear can't travel as one.
 export const userPreferencesPatchSchema = z.object( {
 	editor: editorSchema.nullish(),
+	browser: z.enum( SUPPORTED_BROWSERS ).nullish(),
 	terminal: z.enum( SUPPORTED_TERMINALS ).nullish(),
 	colorScheme: z.enum( SUPPORTED_COLOR_SCHEMES ).nullish(),
 	quitSitesBehavior: z.enum( QUIT_SITES_BEHAVIORS ).nullish(),
@@ -89,14 +101,17 @@ export const userPreferencesPatchSchema = z.object( {
 	locale: z.string().refine( isSupportedLocale ).nullish(),
 	analyticsEnabled: z.boolean().nullish(),
 	defaultSiteDirectory: z.string().nullish(),
-	agenticFeaturesEnabled: z.boolean().nullish(),
 	sidebarPins: sidebarPinsSchema.nullish(),
+	sidebarPinnedSort: z.enum( SIDEBAR_PINNED_SORTS ).nullish(),
+	sidebarSiteSort: z.enum( SIDEBAR_SITE_SORTS ).nullish(),
+	sidebarChatSort: z.enum( SIDEBAR_CHAT_SORTS ).nullish(),
 	sidebarChatOrder: sidebarChatOrderSchema.nullish(),
 	showRecentChats: z.boolean().nullish(),
 	autoCollapseSites: z.boolean().nullish(),
 	autoStartSiteOnChat: z.boolean().nullish(),
-	confirmDeleteAnnotations: z.boolean().nullish(),
-	newSiteBehavior: z.enum( NEW_SITE_BEHAVIORS ).nullish(),
+	openChatOnSiteStart: z.boolean().nullish(),
+	hideFrontendAdminBar: z.boolean().nullish(),
+	batchAnnotations: z.boolean().nullish(),
 	accentColor: z
 		.string()
 		.regex( /^#[0-9a-f]{6}$/i )
@@ -113,18 +128,22 @@ export type UserPreferencesPatch = z.infer< typeof userPreferencesPatchSchema >;
 // Patch key -> `app.json` field. Also answers whether the lock is needed.
 const APP_CONFIG_KEYS = [
 	[ 'editor', 'preferredEditor' ],
+	[ 'browser', 'preferredBrowser' ],
 	[ 'terminal', 'preferredTerminal' ],
 	[ 'colorScheme', 'colorScheme' ],
 	[ 'quitSitesBehavior', 'quitSitesBehavior' ],
 	[ 'defaultSiteDirectory', 'defaultSiteDirectory' ],
-	[ 'agenticFeaturesEnabled', 'agenticFeaturesEnabled' ],
 	[ 'sidebarPins', 'sidebarPins' ],
+	[ 'sidebarPinnedSort', 'sidebarPinnedSort' ],
+	[ 'sidebarSiteSort', 'sidebarSiteSort' ],
+	[ 'sidebarChatSort', 'sidebarChatSort' ],
 	[ 'sidebarChatOrder', 'sidebarChatOrder' ],
 	[ 'showRecentChats', 'showRecentChats' ],
 	[ 'autoCollapseSites', 'autoCollapseSites' ],
 	[ 'autoStartSiteOnChat', 'autoStartSiteOnChat' ],
-	[ 'confirmDeleteAnnotations', 'confirmDeleteAnnotations' ],
-	[ 'newSiteBehavior', 'newSiteBehavior' ],
+	[ 'openChatOnSiteStart', 'openChatOnSiteStart' ],
+	[ 'hideFrontendAdminBar', 'hideFrontendAdminBar' ],
+	[ 'batchAnnotations', 'batchAnnotations' ],
 	[ 'accentColor', 'accentColor' ],
 	[ 'tintIntensity', 'tintIntensity' ],
 	[ 'contrast', 'contrast' ],
@@ -145,37 +164,52 @@ export async function readUserPreferences( {
 	const [ config, shared ] = await Promise.all( [ readAppConfig(), readSharedConfig() ] );
 	const {
 		autoStartSiteOnChat,
-		confirmDeleteAnnotations,
+		openChatOnSiteStart,
+		batchAnnotations,
 		showRecentChats,
 		autoCollapseSites,
-		newSiteBehavior,
 	} = INTERFACE_PREFERENCE_DEFAULTS;
 
+	const sidebarChatOrder = sidebarChatOrderSchema.catch( {} ).parse( config.sidebarChatOrder );
 	return {
 		editor: optionalEditor.parse( config.preferredEditor ?? null ),
+		browser: z
+			.enum( SUPPORTED_BROWSERS )
+			.nullable()
+			.catch( null )
+			.parse( config.preferredBrowser ?? null ),
 		terminal: optionalTerminal.parse( config.preferredTerminal ?? null ),
 		colorScheme: colorSchemeWithDefault.parse( config.colorScheme ),
 		quitSitesBehavior: optionalQuitSitesBehavior.parse( config.quitSitesBehavior ),
 		locale: shared.locale,
 		analyticsEnabled: ! isAnalyticsOptedOutInConfig( shared ),
 		defaultSiteDirectory: getDefaultSiteDirectory( config, sitesRoot ),
-		agenticFeaturesEnabled: config.agenticFeaturesEnabled !== false,
 		sidebarPins: sidebarPinsSchema.catch( [] ).parse( config.sidebarPins ),
-		sidebarChatOrder: sidebarChatOrderSchema.catch( {} ).parse( config.sidebarChatOrder ?? {} ),
+		sidebarChatOrder,
+		sidebarPinnedSort: z
+			.enum( SIDEBAR_PINNED_SORTS )
+			.catch( 'type' )
+			.parse( config.sidebarPinnedSort ),
+		sidebarSiteSort: z.enum( SIDEBAR_SITE_SORTS ).catch( 'manual' ).parse( config.sidebarSiteSort ),
+		sidebarChatSort: z
+			.enum( SIDEBAR_CHAT_SORTS )
+			.catch( getDefaultSidebarChatSort( sidebarChatOrder ) )
+			.parse( config.sidebarChatSort ),
 		showRecentChats: z.boolean().catch( showRecentChats ).parse( config.showRecentChats ),
 		autoCollapseSites: z.boolean().catch( autoCollapseSites ).parse( config.autoCollapseSites ),
 		autoStartSiteOnChat: z
 			.boolean()
 			.catch( autoStartSiteOnChat )
 			.parse( config.autoStartSiteOnChat ),
-		confirmDeleteAnnotations: z
+		openChatOnSiteStart: z
 			.boolean()
-			.catch( confirmDeleteAnnotations )
-			.parse( config.confirmDeleteAnnotations ),
-		newSiteBehavior: z
-			.enum( NEW_SITE_BEHAVIORS )
-			.catch( newSiteBehavior )
-			.parse( config.newSiteBehavior ),
+			.catch( openChatOnSiteStart )
+			.parse( config.openChatOnSiteStart ),
+		batchAnnotations: z.boolean().catch( batchAnnotations ).parse( config.batchAnnotations ),
+		hideFrontendAdminBar: z
+			.boolean()
+			.catch( DEFAULT_HIDE_FRONTEND_ADMIN_BAR )
+			.parse( config.hideFrontendAdminBar ),
 		...getColorTint( config ),
 	};
 }
@@ -224,15 +258,6 @@ async function getChangeEvents(
 			{ behavior: quitSitesBehavior, surface },
 		] );
 	}
-	if (
-		typeof patch.agenticFeaturesEnabled === 'boolean' &&
-		patch.agenticFeaturesEnabled !== ( config.agenticFeaturesEnabled !== false )
-	) {
-		events.push( [
-			TRACKS_EVENTS.SETTING_AGENTIC_FEATURES_CHANGE,
-			{ enabled: patch.agenticFeaturesEnabled, surface },
-		] );
-	}
 	if ( typeof patch.analyticsEnabled === 'boolean' ) {
 		events.push( [
 			TRACKS_EVENTS.SETTING_TELEMETRY_CHANGE,
@@ -261,7 +286,8 @@ export async function writeUserPreferences(
 	const appEntries = APP_CONFIG_KEYS.filter( ( [ key ] ) => key in patch );
 
 	if ( appEntries.length > 0 ) {
-		await updateAppConfig( ( config ) => {
+		const update = 'hideFrontendAdminBar' in patch ? updateMuPluginSettings : updateAppConfig;
+		await update( ( config ) => {
 			for ( const [ patchKey, configKey ] of appEntries ) {
 				const value = patch[ patchKey ];
 				if ( value === null || value === undefined ) {
@@ -299,6 +325,7 @@ export const onboardingHintsSchema = z
 		tourDismissedVersion: z.number().optional(),
 		migratedFromClassic: z.boolean().optional(),
 		whatsNewSeenVersion: z.number().optional(),
+		annotateHintDismissed: z.boolean().optional(),
 	} )
 	.loose();
 

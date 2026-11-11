@@ -1,4 +1,4 @@
-import { moveAiSessionsToStudioDir } from '@studio/common/ai/sessions/root-migration';
+import { moveAiSessionsToStudioDir } from '@studio/agent/node/sessions/root-migration';
 import { renameLaunchUniquesStat } from './01-rename-launch-uniques-stat';
 import { migrateAppConfig } from './02-migrate-to-split-config';
 import { copyHttpsCertsToWellKnown } from './03-copy-https-certs-to-well-known';

@@ -1,8 +1,11 @@
-import { MAX_VISUAL_ANNOTATIONS } from '@studio/common/ai/visual-annotations';
+import {
+	MAX_VISUAL_ANNOTATIONS,
+	validateStudioVisualAnnotations,
+} from '@studio/agent/protocol/visual-annotations';
 import { describe, expect, it } from 'vitest';
 import { annotationSubmission } from './submission';
 import type { PreviewAnnotation } from './store';
-import type { ComposerImageAttachment } from '@studio/common/ai/composer-attachments';
+import type { ComposerImageAttachment } from '@studio/agent/protocol/composer-attachments';
 
 const image = ( id: string ): ComposerImageAttachment => ( {
 	id,
@@ -24,6 +27,30 @@ const note = ( overrides: Partial< PreviewAnnotation > ): PreviewAnnotation => (
 } );
 
 describe( 'annotationSubmission', () => {
+	it( 'sends a selected area with its screenshot and geometry without inventing a selector', () => {
+		const area = { left: 10, top: 120, width: 300, height: 200 };
+		const { prompt, options } = annotationSubmission(
+			'',
+			[],
+			[
+				note( {
+					kind: 'region',
+					tag: undefined,
+					viewport: { width: 800, height: 600 },
+					documentRect: area,
+					images: [ image( 'region' ) ],
+				} ),
+			]
+		);
+		expect( prompt ).toContain( '### 1. selected area' );
+		expect( prompt ).toContain( '"kind": "region"' );
+		expect( prompt ).toContain( '"top": 120' );
+		expect( prompt ).not.toContain( '- Selector:' );
+		expect( options.visualAnnotations ).toMatchObject( [
+			{ elementLabel: 'Selected area', imageIds: [ 'region' ] },
+		] );
+	} );
+
 	it( 'puts the typed message first and numbers each note’s images in send order', () => {
 		const { prompt, options } = annotationSubmission(
 			'Also check spacing',
@@ -48,6 +75,57 @@ describe( 'annotationSubmission', () => {
 			[ 'first' ],
 			[ 'second', 'third' ],
 		] );
+	} );
+
+	it( 'keeps image data and local batching state out of the prompt', () => {
+		const { prompt } = annotationSubmission(
+			'',
+			[],
+			[
+				note( {
+					comment: '',
+					images: [ image( 'reference' ) ],
+					capturedImageId: 'reference',
+					staged: true,
+					batched: true,
+				} ),
+			]
+		);
+		expect( prompt ).not.toContain( 'attached images 1' );
+		expect( prompt ).not.toContain( 'eA==' );
+		expect( prompt ).not.toContain( '"staged":' );
+		expect( prompt ).not.toContain( '"batched":' );
+		expect( prompt ).not.toContain( '"capturedImageId":' );
+	} );
+
+	it( 'labels a drawing and attaches its screenshot without sending raw strokes', () => {
+		const { prompt, options } = annotationSubmission(
+			'',
+			[],
+			[
+				note( {
+					kind: 'drawing',
+					tag: undefined,
+					images: [ image( 'capture' ) ],
+					drawing: { color: '#3858e9', width: 3, strokes: [ [ { x: 20, y: 30 } ] ] },
+				} ),
+			]
+		);
+		expect( prompt ).toContain( '### 1. drawing' );
+		expect( prompt ).toContain( '- Attached images (in attachment order): 1' );
+		expect( prompt ).not.toContain( '"strokes"' );
+		expect( options.visualAnnotations[ 0 ] ).toMatchObject( {
+			elementLabel: 'Drawing',
+			imageIds: [ 'capture' ],
+		} );
+	} );
+
+	it( 'rejects empty or repeated image references', () => {
+		for ( const imageIds of [ [], [ 'reference', 'reference' ] ] ) {
+			expect( () =>
+				validateStudioVisualAnnotations( [ { comment: '', imageIds } ], [ { id: 'reference' } ] )
+			).toThrow();
+		}
 	} );
 
 	it( 'reads as the note count when there is no message, and points design notes at DESIGN.md', () => {

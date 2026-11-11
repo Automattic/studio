@@ -48,7 +48,7 @@ async function renderQuestion( pending: boolean ) {
 }
 
 describe( 'Agent question keys', () => {
-	it( 'answers with the option lettered like the key pressed inside the question', async () => {
+	it( 'answers immediately with a letter key inside the question', async () => {
 		const { onAnswerQuestion, onChooseFreeForm } = await renderQuestion( true );
 		const group = screen.getByRole( 'group', { name: question } );
 
@@ -60,7 +60,7 @@ describe( 'Agent question keys', () => {
 		expect( onAnswerQuestion ).toHaveBeenCalledWith( question, 'List' );
 
 		fireEvent.keyDown( screen.getByRole( 'radio', { name: 'Grid' } ), { key: 'C' } );
-		expect( onChooseFreeForm ).toHaveBeenCalledWith( question );
+		expect( onChooseFreeForm ).not.toHaveBeenCalled();
 	} );
 
 	it( 'moves between options with the arrow keys without answering', async () => {
@@ -72,7 +72,7 @@ describe( 'Agent question keys', () => {
 		expect( screen.getByRole( 'radio', { name: 'List' } ) ).toHaveFocus();
 		fireEvent.keyDown( document.activeElement!, { key: 'ArrowUp' } );
 		fireEvent.keyDown( document.activeElement!, { key: 'ArrowUp' } );
-		expect( screen.getByRole( 'radio', { name: 'Something else' } ) ).toHaveFocus();
+		expect( screen.getByRole( 'radio', { name: 'List' } ) ).toHaveFocus();
 		expect( onAnswerQuestion ).not.toHaveBeenCalled();
 	} );
 

@@ -18,22 +18,28 @@ import styles from './style.module.css';
 export function PreviewParticles( {
 	active = false,
 	showLogo = false,
+	showDots = true,
+	fade = true,
 	selectionTime,
 }: {
 	active?: boolean;
 	showLogo?: boolean;
+	showDots?: boolean;
+	fade?: boolean;
 	selectionTime?: number;
 } ) {
 	const canvasRef = useRef< HTMLCanvasElement >( null );
 	const activeRef = useRef( active );
+	const showLogoRef = useRef( showLogo );
 	const selectionTimeRef = useRef( selectionTime );
 	const syncRef = useRef< () => void >( undefined );
 
 	useEffect( () => {
 		activeRef.current = active;
+		showLogoRef.current = showLogo;
 		selectionTimeRef.current = selectionTime;
 		syncRef.current?.();
-	}, [ active, selectionTime ] );
+	}, [ active, showLogo, selectionTime ] );
 
 	useEffect( () => {
 		const canvas = canvasRef.current;
@@ -45,9 +51,12 @@ export function PreviewParticles( {
 		const motion = window.matchMedia( '(prefers-reduced-motion: reduce)' );
 		let width = 0;
 		let height = 0;
+		let centerY = 0;
 		let dots: PreviewDot[] = [];
 		let color = '';
+		let highlightColor = '';
 		let strength = activeRef.current ? 1 : 0;
+		let logoStrength = activeRef.current && showLogoRef.current ? 1 : 0;
 		let frame = 0;
 		let lastDraw = 0;
 		const waving = ( time: number ) =>
@@ -58,15 +67,15 @@ export function PreviewParticles( {
 
 		const draw = ( time: number ) => {
 			context.clearRect( 0, 0, width, height );
-			context.fillStyle = color;
 			const amount = motion.matches ? 0 : strength * strength * ( 3 - 2 * strength );
+			const logoAmount = logoStrength * logoStrength * ( 3 - 2 * logoStrength );
 			for ( const dot of dots ) {
 				const point = getPreviewDotFrame( dot, {
 					time,
 					amount,
 					centerX: width / 2,
-					centerY: height / 2,
-					clearCenter: showLogo,
+					centerY,
+					logoAmount,
 				} );
 				const highlight = waving( time )
 					? getSelectionWave( dot, {
@@ -75,10 +84,16 @@ export function PreviewParticles( {
 							centerX: width / 2,
 					  } )
 					: 0;
-				context.globalAlpha = Math.min( 1, point.opacity * ( 1 + highlight * 3 ) );
+				context.fillStyle = color;
+				context.globalAlpha = point.opacity;
 				context.beginPath();
-				context.arc( point.x, point.y, 1, 0, Math.PI * 2 );
+				context.arc( point.x, point.y, 0.75, 0, Math.PI * 2 );
 				context.fill();
+				if ( highlight > 0 ) {
+					context.fillStyle = highlightColor;
+					context.globalAlpha = point.opacity * highlight * 0.35;
+					context.fill();
+				}
 			}
 		};
 		const animate = ( now: number ) => {
@@ -87,21 +102,36 @@ export function PreviewParticles( {
 				0,
 				Math.min( 1, strength + ( activeRef.current ? delta / 400 : -delta / 300 ) )
 			);
+			logoStrength = Math.max(
+				0,
+				Math.min(
+					1,
+					logoStrength + ( activeRef.current && showLogoRef.current ? delta / 400 : -delta / 300 )
+				)
+			);
 			draw( now );
 			lastDraw = now;
-			if ( activeRef.current || strength > 0 || waving( now ) ) {
+			if (
+				! motion.matches &&
+				! document.hidden &&
+				( activeRef.current || strength > 0 || logoStrength > 0 || waving( now ) )
+			) {
 				frame = requestAnimationFrame( animate );
 			}
 		};
 		const sync = () => {
 			cancelAnimationFrame( frame );
+			if ( motion.matches ) {
+				strength = 0;
+				logoStrength = activeRef.current && showLogoRef.current ? 1 : 0;
+			}
 			draw( performance.now() );
 			if (
 				! motion.matches &&
 				! document.hidden &&
 				width &&
 				height &&
-				( activeRef.current || strength > 0 || waving( performance.now() ) )
+				( activeRef.current || strength > 0 || logoStrength > 0 || waving( performance.now() ) )
 			) {
 				lastDraw = performance.now();
 				frame = requestAnimationFrame( animate );
@@ -110,12 +140,18 @@ export function PreviewParticles( {
 		const resize = () => {
 			width = host.clientWidth;
 			height = host.clientHeight;
+			const hostStyle = getComputedStyle( host );
+			const paddingTop = parseFloat( hostStyle.paddingTop ) || 0;
+			const paddingBottom = parseFloat( hostStyle.paddingBottom ) || 0;
+			centerY = ( height + paddingTop - paddingBottom ) / 2;
 			const scale = Math.min( window.devicePixelRatio || 1, 2 );
 			canvas.width = Math.round( width * scale );
 			canvas.height = Math.round( height * scale );
 			context.setTransform( scale, 0, 0, scale, 0, 0 );
-			color = getComputedStyle( canvas ).color;
-			dots = createPreviewDots( width, height );
+			const style = getComputedStyle( canvas );
+			color = style.color;
+			highlightColor = style.getPropertyValue( '--foreground' );
+			dots = createPreviewDots( width, height, centerY );
 			sync();
 		};
 		syncRef.current = sync;
@@ -134,11 +170,18 @@ export function PreviewParticles( {
 			motion.removeEventListener( 'change', sync );
 			document.removeEventListener( 'visibilitychange', sync );
 		};
-	}, [ showLogo ] );
+	}, [ showDots ] );
 
 	return (
 		<>
-			<canvas ref={ canvasRef } className={ styles.canvas } aria-hidden="true" />
+			{ showDots ? (
+				<canvas
+					ref={ canvasRef }
+					className={ styles.canvas }
+					data-fade={ fade }
+					aria-hidden="true"
+				/>
+			) : null }
 			{ showLogo ? (
 				<span className={ styles.logo } data-active={ active || undefined } aria-hidden="true">
 					<WordPressIcon />

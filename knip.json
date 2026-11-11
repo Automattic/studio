@@ -11,10 +11,12 @@
 				"src/preload.ts",
 				"src/migrations/index.ts",
 				"forge.config.ts",
+				"native/build.ts",
 				"e2e/global-setup.ts",
 				"e2e/**/*.test.ts"
 			],
-			"project": "{src,e2e}/**/*.{ts,tsx}"
+			"project": "{src,e2e}/**/*.{ts,tsx}",
+			"ignoreDependencies": ["ignore", "tus-js-client", "wpcom", "@wp-playground/blueprints"]
 		},
 		"apps/cli": {
 			"entry": [
@@ -23,19 +25,22 @@
 				"process-manager-daemon.ts",
 				"proxy-daemon.ts",
 				"logger.ts",
-				"ai/eval-runner.ts",
+				"ai/eval-runner-entry.ts",
 				"commands/**/*.ts",
 				"vite.config.*.ts"
 			],
 			"project": "**/*.ts"
 		},
 		"apps/ui": {
-			"entry": ["src/main.local.tsx", "src/dev/{chat,animation}.tsx"],
+			"entry": ["src/main.local.tsx", "src/dev/{chat,animation,annotate-tip,update-preview,email-preview,sidebar-preview}.tsx"],
 			"project": "src/**/*.{ts,tsx}"
 		},
 		"apps/local": {
 			"entry": ["src/index.ts"],
 			"project": "src/**/*.{ts,tsx}"
+		},
+		"packages/agent": {
+			"project": "**/*.ts"
 		},
 		"packages/common": {
 			"entry": ["globals.ts"],

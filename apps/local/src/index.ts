@@ -3,20 +3,15 @@ import { createReadStream, createWriteStream, existsSync, mkdtempSync, rm } from
 import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
-import { validateStudioChatFiles } from '@studio/common/ai/chat-files';
-import {
-	STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES,
-	validateStudioChatImages,
-} from '@studio/common/ai/chat-images';
+import { recordAnnotationSubmitted } from '@studio/agent/node/annotation-tracks';
 import {
 	getGlobalInstructionsEnabled,
 	readGlobalInstructionsFile,
 	setGlobalInstructionsEnabled,
 	writeGlobalInstructions,
-} from '@studio/common/ai/global-instructions';
-import { isAiModelId } from '@studio/common/ai/models';
-import { isAiProviderId, providerServesModel } from '@studio/common/ai/providers';
-import { createAgentRunManager } from '@studio/common/ai/run-manager';
+} from '@studio/agent/node/global-instructions';
+import { resolveLocalMediaFile } from '@studio/agent/node/local-media';
+import { createAgentRunManager } from '@studio/agent/node/run-manager';
 import {
 	createHydratedAiSession,
 	listHydratedAiSessions,
@@ -24,23 +19,30 @@ import {
 	reconcileSessionEnvironment,
 	setSessionEnvironment,
 	updateHydratedAiSessionMetadata,
-} from '@studio/common/ai/sessions/manage';
-import { deleteAiSessionPlacement } from '@studio/common/ai/sessions/placement';
+} from '@studio/agent/node/sessions/manage';
+import { deleteAiSessionPlacement } from '@studio/agent/node/sessions/placement';
 import {
 	appendModelChangeEntry,
 	appendStudioEntry,
 	deleteAiSession,
-} from '@studio/common/ai/sessions/store';
+} from '@studio/agent/node/sessions/store';
 import {
 	InvalidAnthropicApiKeyError,
 	readAiSettings,
 	saveAnthropicApiKey,
 	setAiProvider,
-} from '@studio/common/ai/settings-store';
-import { expandSkillCommandPrompt } from '@studio/common/ai/slash-commands';
-import { getAiTracksIdentity } from '@studio/common/ai/tracks-identity';
-import { validateStudioVisualAnnotations } from '@studio/common/ai/visual-annotations';
+} from '@studio/agent/node/settings-store';
+import { validateStudioChatFiles } from '@studio/agent/protocol/chat-files';
+import {
+	STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES,
+	validateStudioChatImages,
+} from '@studio/agent/protocol/chat-images';
+import { isAiModelId } from '@studio/agent/protocol/models';
+import { isAiProviderId, providerServesModel } from '@studio/agent/protocol/providers';
+import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
+import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH, DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
+import { isAgentAppId } from '@studio/common/lib/agent-apps';
 import {
 	getSiteAgentFiles,
 	getSkillsStatusForAllSites,
@@ -50,6 +52,14 @@ import {
 	setSiteAgentFileEnabled,
 	type SiteAgentFileKind,
 } from '@studio/common/lib/agent-skills';
+import {
+	onboardingAnalyticsSchema,
+	authAnalyticsSchema,
+	authSourceSchema,
+	createAuthAttempt,
+	createAuthAttemptStore,
+	getAuthTracksProps,
+} from '@studio/common/lib/auth-tracks';
 import { downloadAndExtractBlueprintBundle } from '@studio/common/lib/blueprint-bundle';
 import {
 	cliAuthEventSchema,
@@ -60,11 +70,18 @@ import {
 } from '@studio/common/lib/cli-events';
 import { CliCommandError, createCliRunner, runCliCommand } from '@studio/common/lib/cli-process';
 import {
+	connectAgentApp,
+	detectAgentApps,
+	refreshAgentPlugins,
+} from '@studio/common/lib/connect-agent-app';
+import {
 	addConnectedWpcomSite,
 	getAllConnectedWpcomSitesForCurrentUser,
 	getConnectedWpcomSitesForLocalSite,
 	removeConnectedWpcomSite,
 } from '@studio/common/lib/connected-sites';
+import { getErrorMessage } from '@studio/common/lib/error-formatting';
+import { sendStudioFeedback, STUDIO_FEEDBACK_TYPES } from '@studio/common/lib/feedback';
 import {
 	arePathsEqual,
 	calculateDirectorySizeForArchive,
@@ -77,7 +94,6 @@ import { generateNumberedName, generateSiteName } from '@studio/common/lib/gener
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
-import { resolveLocalMediaFile } from '@studio/common/lib/local-media';
 import { isSupportedLocale } from '@studio/common/lib/locale';
 import { getAuthenticationUrl, getSignUpUrl, revokeAuthToken } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
@@ -106,18 +122,32 @@ import {
 	readSitePreview,
 	writeSitePreview,
 } from '@studio/common/lib/site-preview-cache';
+import { resolveSiteTracksEventProps } from '@studio/common/lib/site-tracks';
 import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
 import { requestStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
+import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import { getLocalFileSize, listLocalFileTree } from '@studio/common/lib/sync/local-file-tree';
+import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
 import {
 	fetchHostingPhpVersion,
 	fetchLatestRewindId,
 	fetchRemoteFileTreeContents,
 	fetchSyncableSites,
 } from '@studio/common/lib/sync/sync-api';
+import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
+import { getStudioUserAgent } from '@studio/common/lib/user-agent';
 import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor';
-import { detectInstalledApps } from '@studio/common/lib/user-settings/installed-apps';
+import {
+	detectInstalledApps,
+	detectInstalledAppsWithDefaultBrowser,
+} from '@studio/common/lib/user-settings/installed-apps';
+import {
+	readOnboardingCompleted,
+	writeOnboardingCompleted,
+} from '@studio/common/lib/user-settings/onboarding';
+import { openSiteInBrowser } from '@studio/common/lib/user-settings/open-browser';
+import { getSiteBrowserUrl } from '@studio/common/lib/user-settings/site-browser-url';
 import {
 	onboardingHintsSchema,
 	readDefaultSiteDirectory,
@@ -131,18 +161,31 @@ import {
 	cleanupBlueprintTempDir,
 	extractBlueprintUpload,
 } from '@studio/common/sites/blueprint-extract';
+import { readBlueprintSource } from '@studio/common/sites/blueprint-source';
 import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/sites/create';
 import { buildSiteSetArgs, getSiteEditOptions } from '@studio/common/sites/edit';
 import { deleteSite, startSite, stopSite } from '@studio/common/sites/lifecycle';
 import { listSites } from '@studio/common/sites/list';
-import { listSitesWithMetadata, updateSiteMetadata } from '@studio/common/sites/metadata';
+import {
+	listSitesWithMetadata,
+	setSiteFrontendAdminBar,
+	updateSiteMetadata,
+	type SiteMetadata,
+} from '@studio/common/sites/metadata';
 import { designFixesSchema, fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
-import { readSiteIcon } from '@studio/common/sites/site-identity';
-import { readSitePath, readSitePaths } from '@studio/common/sites/site-path';
+import {
+	ensureSiteEmailDirectory,
+	listSiteEmails,
+	readSiteEmail,
+} from '@studio/common/sites/site-email';
+import { readGlobalStyles } from '@studio/common/sites/site-identity';
+import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
+import { readSiteSource } from '@studio/common/sites/site-source';
 import {
 	deleteAllPreviewSites,
 	deletePreviewSite,
 	fetchSnapshots,
+	getPreviewStatus,
 	publishPreviewSite,
 	renamePreviewSite,
 } from '@studio/common/sites/snapshots';
@@ -150,12 +193,19 @@ import { createSyncRunner } from '@studio/common/sites/sync';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
-import { isEditor, isTerminal, openInEditor, openInTerminal, openPath } from './open-in-os';
-import type { StudioChatFileAttachment } from '@studio/common/ai/chat-files';
-import type { StudioChatImage } from '@studio/common/ai/chat-images';
-import type { AiSettings } from '@studio/common/ai/providers';
-import type { AiSessionMetadata } from '@studio/common/ai/sessions/types';
-import type { StudioVisualAnnotationSummary } from '@studio/common/ai/visual-annotations';
+import {
+	isEditor,
+	isTerminal,
+	openInEditor,
+	openInTerminal,
+	openPath,
+	openUrl,
+} from './open-in-os';
+import type { StudioChatFileAttachment } from '@studio/agent/protocol/chat-files';
+import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
+import type { AiSettings } from '@studio/agent/protocol/providers';
+import type { AiSessionMetadata } from '@studio/agent/protocol/sessions/types';
+import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type {
 	TracksEventName,
@@ -204,6 +254,8 @@ export interface LocalServerOptions {
 	recordTracksEvent?: ( event: TracksEventName, props?: TracksProps ) => Promise< void >;
 	// Screenshots a page of a running site; absent when no browser is available.
 	capturePreview?: ( url: string, size: { width: number; height: number } ) => Promise< Buffer >;
+	// `WordPressStudio/<version>`, sent with feedback reports. Injected by `studio ui`.
+	userAgent?: string;
 }
 
 export interface LocalServer {
@@ -234,9 +286,8 @@ const AUTH_CALLBACK_HTML = `<!DOCTYPE html>
 	var params=new URLSearchParams(location.hash.slice(1));
 	var token=params.get('access_token');
 	var error=params.get('error');
-	function notify(type,message){try{if(window.opener){window.opener.postMessage({type:type,message:message},location.origin);}}catch(e){}}
-	if(error||!token){msg.textContent='Login failed: '+(error||'no token returned');notify('studio-auth-error',error||'no token');return;}
-	fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:token})})
+	function notify(type,message){try{if(window.opener){window.opener.postMessage({type:type,message:message,auth_attempt_id:params.get('state')},location.origin);}}catch(e){}}
+	fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:token,error:error,auth_attempt_id:params.get('state')})})
 		.then(function(r){if(!r.ok){throw new Error('Token could not be validated');}return r.json();})
 		.then(function(){msg.textContent='Signed in! You can close this window.';notify('studio-auth-success');setTimeout(function(){window.close();},800);})
 		.catch(function(e){msg.textContent='Login failed: '+e.message;notify('studio-auth-error',e.message);});
@@ -245,7 +296,7 @@ const AUTH_CALLBACK_HTML = `<!DOCTYPE html>
 
 // The agentic UI's SiteDetails shape. The CLI's `site list` already reports
 // nearly all of it; `sortOrder` comes from `app.json`, merged in by callers.
-function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
+function toSiteDetails( site: SiteListItem & SiteMetadata, sortOrder?: number ) {
 	return {
 		id: site.id,
 		name: site.name,
@@ -267,7 +318,9 @@ function toSiteDetails( site: SiteListItem, sortOrder?: number ) {
 		enableScriptDebug: site.enableScriptDebug,
 		environmentType: site.environmentType,
 		operation: site.operation,
+		emailPath: site.emailPath,
 		sortOrder,
+		hideFrontendAdminBar: site.hideFrontendAdminBar,
 	};
 }
 
@@ -321,6 +374,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	const host = options.host ?? '127.0.0.1';
 
 	// Analytics must never fail a user action, so every call is fire-and-forget.
+	const authAttempts = createAuthAttemptStore();
+
 	function trackEvent( event: TracksEventName, props?: TracksProps ): void {
 		void options.recordTracksEvent?.( event, props ).catch( () => undefined );
 	}
@@ -330,6 +385,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	}
 
 	const cliRunner = createCliRunner( { cliBinary, nodeBinary } );
+	void refreshAgentPlugins( { nodeBinary: nodeBinary ?? process.execPath, cliBinary } ).catch(
+		() => undefined
+	);
 	const execute = cliRunner.executeCliCommand;
 	const uploads = new Map< string, { path: string; directory: string } >();
 
@@ -526,20 +584,30 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 
 	// --- Analytics — the browser UI's equivalent of the desktop's IPC handler --
 	// Unknown names are dropped, not forwarded, as in `recordAnalyticsEvent`.
-	api.post( '/analytics/event', ( req: Request, res: Response ) => {
-		const eventName = req.body?.eventName;
-		if ( typeof eventName !== 'string' ) {
-			res.status( 400 ).json( { error: 'eventName required' } );
-			return;
-		}
-		if ( ! isTracksEventName( eventName ) ) {
-			console.warn( `Ignoring unknown analytics event name: ${ eventName }` );
+	api.post(
+		'/analytics/event',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const eventName = req.body?.eventName;
+			if ( typeof eventName !== 'string' ) {
+				res.status( 400 ).json( { error: 'eventName required' } );
+				return;
+			}
+			if ( ! isTracksEventName( eventName ) ) {
+				console.warn( `Ignoring unknown analytics event name: ${ eventName }` );
+				res.status( 204 ).end();
+				return;
+			}
+			trackEvent(
+				eventName,
+				await resolveSiteTracksEventProps(
+					eventName,
+					sanitizeTracksProps( req.body?.props ),
+					req.body?.siteId
+				)
+			);
 			res.status( 204 ).end();
-			return;
-		}
-		trackEvent( eventName, sanitizeTracksProps( req.body?.props ) );
-		res.status( 204 ).end();
-	} );
+		} )
+	);
 
 	// --- Auth — the WordPress.com user the CLI is already logged in as ---------
 	// Read straight from the shared auth token (`~/.studio/shared.json`); the
@@ -560,56 +628,99 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// connector falls back to the paste flow.
 	api.get( '/auth/login-url', ( req: Request, res: Response ) => {
 		const redirectUri = typeof req.query.redirect_uri === 'string' ? req.query.redirect_uri : '';
-		if ( ! redirectUri ) {
-			res.json( { url: null } );
-			return;
-		}
+		const analytics = authAnalyticsSchema.safeParse( {
+			...req.query,
+			journey_started_at:
+				typeof req.query.journey_started_at === 'string'
+					? Number( req.query.journey_started_at )
+					: undefined,
+		} ).data;
+		const attempt = createAuthAttempt(
+			authSourceSchema.catch( 'unknown' ).parse( req.query.source ),
+			req.query.signup === '1',
+			analytics
+		);
+		authAttempts.add( attempt );
+		trackEvent( TRACKS_EVENTS.WPCOM_AUTH_STARTED, getAuthTracksProps( attempt ) );
 		res.json( {
-			url:
-				req.query.signup === '1'
-					? getSignUpUrl( 'en', redirectUri )
-					: getAuthenticationUrl( 'en', redirectUri ),
+			url: redirectUri
+				? attempt.auth_flow === 'signup'
+					? getSignUpUrl( 'en', redirectUri, attempt.auth_attempt_id )
+					: getAuthenticationUrl( 'en', redirectUri, attempt.auth_attempt_id )
+				: null,
+			authAttemptId: attempt.auth_attempt_id,
 		} );
 	} );
 
-	// Log in by storing a token from the redirect callback (or pasted from
-	// WordPress.com's copy-token page — the same implicit-OAuth flow
-	// `studio auth login` uses). The token is validated against /me before being
-	// written to the shared config.
+	api.post( '/auth/cancel', ( req: Request, res: Response ) => {
+		const attempt = authAttempts.take( req.body?.auth_attempt_id );
+		if ( attempt )
+			trackEvent(
+				req.body?.launch_failed === true
+					? TRACKS_EVENTS.WPCOM_AUTH_LAUNCH_FAILED
+					: TRACKS_EVENTS.WPCOM_AUTH_CANCELLED,
+				getAuthTracksProps( attempt )
+			);
+		res.status( 204 ).end();
+	} );
+
 	api.post(
 		'/auth/login',
 		asyncHandler( async ( req: Request, res: Response ) => {
+			const attempt = authAttempts.take(
+				typeof req.body?.auth_attempt_id === 'string' ? req.body.auth_attempt_id : undefined
+			);
+			const props = getAuthTracksProps( attempt );
+			const fail = ( status: number, message: string, reason: string ) => {
+				trackEvent( TRACKS_EVENTS.WPCOM_AUTH, {
+					...props,
+					success: false,
+					failure_reason: reason,
+				} );
+				res.status( status ).json( { error: message } );
+			};
 			const token = typeof req.body?.token === 'string' ? req.body.token.trim() : '';
-			if ( ! token ) {
-				res.status( 400 ).json( { error: 'token required' } );
+			if ( req.body?.error || ! token ) {
+				fail(
+					400,
+					'Authentication failed',
+					req.body?.error === 'access_denied' ? 'access_denied' : 'token_error'
+				);
 				return;
 			}
 			let me: { ID: number; email: string; display_name: string };
 			try {
-				const meResponse = await fetch(
+				const response = await fetch(
 					'https://public-api.wordpress.com/rest/v1.1/me?fields=ID,email,display_name',
 					{ headers: { Authorization: `Bearer ${ token }` } }
 				);
-				if ( ! meResponse.ok ) {
-					res.status( 401 ).json( { error: 'Invalid authentication token' } );
+				if ( ! response.ok ) {
+					fail( 401, 'Invalid authentication token', 'profile_fetch_failed' );
 					return;
 				}
-				me = ( await meResponse.json() ) as { ID: number; email: string; display_name: string };
-			} catch ( error ) {
-				console.error( 'Auth login: failed to reach WordPress.com:', error );
-				res.status( 502 ).json( { error: 'Could not reach WordPress.com to validate the token.' } );
+				me = z
+					.object( { ID: z.number(), email: z.string(), display_name: z.string() } )
+					.parse( await response.json() );
+			} catch {
+				fail( 502, 'Could not reach WordPress.com to validate the token.', 'profile_fetch_failed' );
 				return;
 			}
-			await updateSharedConfig( {
-				authToken: {
-					accessToken: token,
-					id: me.ID,
-					email: me.email,
-					displayName: me.display_name,
-					expiresIn: DEFAULT_TOKEN_LIFETIME_MS / 1000,
-					expirationTime: Date.now() + DEFAULT_TOKEN_LIFETIME_MS,
-				},
-			} );
+			try {
+				await updateSharedConfig( {
+					authToken: {
+						accessToken: token,
+						id: me.ID,
+						email: me.email,
+						displayName: me.display_name,
+						expiresIn: DEFAULT_TOKEN_LIFETIME_MS / 1000,
+						expirationTime: Date.now() + DEFAULT_TOKEN_LIFETIME_MS,
+					},
+				} );
+			} catch {
+				fail( 500, 'Could not save authentication.', 'unknown' );
+				return;
+			}
+			trackEvent( TRACKS_EVENTS.WPCOM_AUTH, { ...props, success: true } );
 			res.json( { id: me.ID, email: me.email, displayName: me.display_name } );
 		} )
 	);
@@ -768,6 +879,23 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	api.patch(
+		'/sites/:id/frontend-admin-bar',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = z.object( { hidden: z.boolean().nullable() } ).safeParse( req.body );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'hidden must be a boolean or null' } );
+				return;
+			}
+			if ( ! ( await readSite( req.params.id ) ) ) {
+				res.status( 404 ).json( { error: 'Site not found.' } );
+				return;
+			}
+			await setSiteFrontendAdminBar( req.params.id, parsed.data.hidden );
+			res.sendStatus( 204 );
+		} )
+	);
+
 	api.get(
 		'/sites/:id/thumbnail',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -799,7 +927,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.json( { thumbnail: null } );
 				return;
 			}
-			const url = new URL( pagePath, site.url );
+			const url = new URL( '/?studio-hide-adminbar', site.url );
 			if ( url.origin !== new URL( site.url ).origin ) {
 				res.status( 400 ).json( { error: 'The page must be on the site.' } );
 				return;
@@ -825,8 +953,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			await startSite( execute, site.path );
-			res.sendStatus( 204 );
+			res.json( await startSite( execute, site.path ) );
 		} )
 	);
 
@@ -839,23 +966,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			await stopSite( execute, site.path );
-			res.sendStatus( 204 );
-		} )
-	);
-
-	// Reads straight from cli.json via `readSitePath` rather than forking the
-	// CLI for a site list: the UI asks for it on every site switch, and a fork
-	// costs about a second of CPU each time.
-	api.get(
-		'/sites/:id/site-icon',
-		asyncHandler( async ( req: Request, res: Response ) => {
-			const sitePath = await readSitePath( req.params.id );
-			if ( ! sitePath ) {
-				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
-				return;
-			}
-			res.json( await readSiteIcon( execute, sitePath ) );
+			res.json( await stopSite( execute, site.path ) );
 		} )
 	);
 
@@ -957,7 +1068,11 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			res.json( await readSiteDesign( sitePath, activeThemeSlug( sitePath ) ) );
+			res.json(
+				await readSiteDesign( sitePath, activeThemeSlug( sitePath ), () =>
+					readGlobalStyles( execute, sitePath )
+				)
+			);
 		} )
 	);
 
@@ -1073,10 +1188,19 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				}
 			}
 			try {
+				if ( confined && req.body?.allowSiteFiles === true ) {
+					res.json( await readSiteSource( confined ) );
+					return;
+				}
+				const blueprint =
+					confined && req.body?.allowBlueprints === true
+						? await readBlueprintSource( confined )
+						: null;
 				res.json( {
 					...folder,
-					isEmpty: confined ? await isEmptyDir( confined ) : true,
-					isWordPress: confined ? isWordPressDirectory( confined ) : false,
+					...( blueprint ? { blueprint } : {} ),
+					isEmpty: blueprint ? false : confined ? await isEmptyDir( confined ) : true,
+					isWordPress: ! blueprint && confined ? isWordPressDirectory( confined ) : false,
 				} );
 			} catch ( err ) {
 				if ( ! isErrnoException( err ) || err.code !== 'ENOENT' ) throw err;
@@ -1118,8 +1242,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				flowType?: TracksSiteCreateFlowType;
 				// Optional Blueprint to apply on creation: `blueprint` is the parsed
 				// blueprint JSON; `filePath` (set for uploaded ZIP bundles) lets the
-				// CLI resolve relative assets. `bundleUrl` triggers a server-side
-				// download so API blueprints with bundled resources resolve correctly.
+				// CLI resolve relative assets. `bundleUrl` names a bundle from Studio's
+				// blueprint catalog, which the server downloads so relative paths resolve.
 				blueprint?: {
 					blueprint?: SiteCreateOptions[ 'blueprint' ];
 					slug?: string;
@@ -1142,7 +1266,17 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			let bundleTempDir: string | undefined;
 			let blueprintFilePath = body.blueprint?.filePath;
 			if ( body.blueprint?.bundleUrl && ! blueprintFilePath ) {
-				const result = await downloadAndExtractBlueprintBundle( body.blueprint.bundleUrl );
+				// Download the catalog's copy of the URL, so this server only fetches
+				// bundles Studio publishes, whatever a caller sends.
+				const requestedUrl = body.blueprint.bundleUrl;
+				const catalogUrl = ( await fetchStudioBlueprints() ).find(
+					( item ) => item.bundle_url === requestedUrl
+				)?.bundle_url;
+				if ( ! catalogUrl ) {
+					res.status( 400 ).json( { error: 'Unknown blueprint bundle' } );
+					return;
+				}
+				const result = await downloadAndExtractBlueprintBundle( catalogUrl );
 				bundleTempDir = result.tempDir;
 				blueprintFilePath = result.blueprintJsonPath;
 			}
@@ -1458,7 +1592,34 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.get(
 		'/installed-apps',
 		asyncHandler( async ( _req: Request, res: Response ) => {
-			res.json( detectInstalledApps() );
+			res.json( await detectInstalledAppsWithDefaultBrowser() );
+		} )
+	);
+
+	// Agent apps Settings installs the Studio plugin in.
+	api.get(
+		'/agent-apps',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json(
+				await detectAgentApps( { nodeBinary: nodeBinary ?? process.execPath, cliBinary } )
+			);
+		} )
+	);
+
+	api.post(
+		'/agent-apps/:id/connect',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const { id } = req.params;
+			if ( ! isAgentAppId( id ) ) {
+				res.status( 400 ).json( { error: `Unknown agent app: ${ id }` } );
+				return;
+			}
+			await connectAgentApp( id, {
+				nodeBinary: nodeBinary ?? process.execPath,
+				cliBinary,
+				openUrl,
+			} );
+			res.status( 204 ).end();
 		} )
 	);
 
@@ -1509,6 +1670,62 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	// --- Feedback — one report to the WordPress Studio team, through the shared sender ---
+	api.post(
+		'/feedback',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = z
+				.object( { type: z.enum( STUDIO_FEEDBACK_TYPES ), message: z.string().trim().min( 1 ) } )
+				.safeParse( req.body ?? {} );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'type and message required' } );
+				return;
+			}
+			const token = await readAuthToken();
+			if ( ! token?.accessToken ) {
+				res.status( 401 ).json( { error: 'Log in to WordPress.com to send feedback.' } );
+				return;
+			}
+			try {
+				res.json(
+					await sendStudioFeedback( parsed.data, {
+						accessToken: token.accessToken,
+						userAgent: options.userAgent ?? getStudioUserAgent(),
+					} )
+				);
+			} catch ( error ) {
+				res.status( 502 ).json( { error: getErrorMessage( error ) ?? String( error ) } );
+			}
+		} )
+	);
+
+	api.get(
+		'/onboarding',
+		asyncHandler( async ( _req: Request, res: Response ) => {
+			res.json( await readOnboardingCompleted() );
+		} )
+	);
+
+	api.patch(
+		'/onboarding',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const parsed = z
+				.object( { completed: z.boolean(), analytics: onboardingAnalyticsSchema.optional() } )
+				.safeParse( req.body );
+			if ( ! parsed.success ) {
+				res.status( 400 ).json( { error: 'Invalid onboarding state' } );
+				return;
+			}
+			if ( await writeOnboardingCompleted( parsed.data.completed ) ) {
+				trackEvent( TRACKS_EVENTS.ONBOARDING_COMPLETE, {
+					authenticated: !! ( await readAuthToken() ),
+					...parsed.data.analytics,
+				} );
+			}
+			res.status( 204 ).end();
+		} )
+	);
+
 	api.get(
 		'/onboarding-hints',
 		asyncHandler( async ( _req: Request, res: Response ) => {
@@ -1525,6 +1742,41 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			await writeOnboardingHints( parsed.data );
+			res.status( 204 ).end();
+		} )
+	);
+
+	// `readSite` rather than `listSites`: the email view polls the list while it's open.
+	api.get(
+		'/sites/:id/emails',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			if ( ! ( await readSite( req.params.id ) ) ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			res.json( await listSiteEmails( req.params.id ) );
+		} )
+	);
+
+	api.get(
+		'/sites/:id/emails/:emailId',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			if ( ! ( await readSite( req.params.id ) ) ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			res.json( await readSiteEmail( req.params.id, req.params.emailId ) );
+		} )
+	);
+
+	api.post(
+		'/sites/:id/open-email-folder',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			if ( ! ( await readSite( req.params.id ) ) ) {
+				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
+				return;
+			}
+			await openPath( await ensureSiteEmailDirectory( req.params.id ) );
 			res.status( 204 ).end();
 		} )
 	);
@@ -1551,6 +1803,22 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		return terminal && isTerminal( terminal ) ? terminal : 'terminal';
 	};
 
+	api.post(
+		'/sites/:id/open-in-browser',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
+			if ( ! site ) {
+				res.status( 404 ).json( { error: 'Site not found' } );
+				return;
+			}
+			const relativeUrl = typeof req.body?.relativeUrl === 'string' ? req.body.relativeUrl : '';
+			await openSiteInBrowser(
+				getSiteBrowserUrl( site, relativeUrl, req.body?.autoLogin !== false ),
+				openUrl
+			);
+			res.status( 204 ).end();
+		} )
+	);
 	api.post(
 		'/sites/:id/open-in-editor',
 		asyncHandler( async ( req: Request, res: Response ) => {
@@ -1637,7 +1905,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.json( [] );
 				return;
 			}
-			res.json( await fetchSyncableSites( token.accessToken ) );
+			res.json(
+				await fetchSyncableSites( token.accessToken, { planRequired: ! isReprintPullEnabled() } )
+			);
 		} )
 	);
 
@@ -1733,6 +2003,13 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	api.get(
+		'/snapshots/:hostname/status',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			res.json( await getPreviewStatus( execute, req.params.hostname ) );
+		} )
+	);
+
 	// --- Sync: pull from a connected WordPress.com live site ------------------
 	api.post(
 		'/sites/:id/pull',
@@ -1783,7 +2060,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			// No backup yet (or lookup failure) rejects and surfaces as a 500 via
 			// the error middleware — the dialog needs the error state to disable
-			// per-item selection and force a full sync, like the classic renderer.
+			// per-item selection and force a full sync.
 			res.json( await fetchLatestRewindId( token.accessToken, Number( req.params.remoteSiteId ) ) );
 		} )
 	);
@@ -2008,10 +2285,17 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			const { runId } = runManager.startAgentRun( {
 				sessionId: req.params.id,
 				prompt: expandSkillCommandPrompt( prompt ),
+				turnId: typeof req.body.turnId === 'string' ? req.body.turnId : undefined,
 				displayMessage,
 				images,
 				files,
 				visualAnnotations: validatedVisualAnnotations,
+			} );
+			void recordAnnotationSubmitted( {
+				annotationCount: validatedVisualAnnotations?.length ?? 0,
+				sessionsRoot,
+				sessionId: req.params.id,
+				record: options.recordTracksEvent,
 			} );
 			res.json( { runId } );
 		} )

@@ -30,7 +30,10 @@ const SITE_FIELDS = [
 	'environment_type',
 ].join( ',' );
 
-export async function fetchSyncableSites( token: string ): Promise< SyncSite[] > {
+export async function fetchSyncableSites(
+	token: string,
+	options: { planRequired?: boolean } = {}
+): Promise< SyncSite[] > {
 	const wpcom = wpcomFactory( token, wpcomXhrRequest );
 
 	const rawResponse = await wpcom.req.get(
@@ -47,7 +50,7 @@ export async function fetchSyncableSites( token: string ): Promise< SyncSite[] >
 	);
 
 	const parsed = sitesEndpointResponseSchema.parse( rawResponse );
-	return transformSitesResponse( parsed.sites );
+	return transformSitesResponse( parsed.sites, options );
 }
 
 export async function initiateBackup(

@@ -45,7 +45,7 @@ export function buildTreeFromRemote( entries: RemoteFileEntry[], depth: number =
 	);
 }
 
-export function buildRootTree( wpContentChildren: TreeNode[] ): TreeNode[] {
+function buildRootTree( wpContentChildren: TreeNode[] ): TreeNode[] {
 	return [
 		{
 			name: __( 'Database' ),

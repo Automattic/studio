@@ -165,7 +165,7 @@ steps:
       buildkite-agent artifact download "*.appx" .
       buildkite-agent artifact download "*.nupkg" .
       buildkite-agent artifact download "*.deb" .
-      buildkite-agent artifact download "*\\RELEASES" .
+      buildkite-agent artifact download "*RELEASES" .
       buildkite-agent artifact download "*.tgz" .
       buildkite-agent artifact download "*.tgz.sha256" .
 

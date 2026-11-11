@@ -9,6 +9,7 @@ import {
 	SNAPSHOT_USAGE_QUERY_KEY,
 	SNAPSHOTS_QUERY_KEY,
 } from '@/data/queries/user-scoped-query-keys';
+import { getSnapshotHostname } from '@/data/snapshot-url';
 import type { Snapshot, SnapshotUsage } from '@/data/core';
 
 function getSnapshotUsageQueryKey( userId?: number ) {
@@ -93,17 +94,38 @@ export function useSyncSnapshotsWithEvents(): void {
 
 export function useDeleteSnapshot() {
 	const connector = useConnector();
+	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationFn: ( { hostname }: { hostname: string } ) => connector.deleteSnapshot( hostname ),
+		onSuccess: async ( _result, { hostname } ) => {
+			await queryClient.cancelQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
+			queryClient.setQueryData< Snapshot[] >(
+				SNAPSHOTS_QUERY_KEY,
+				( current ) =>
+					current?.filter( ( snapshot ) => getSnapshotHostname( snapshot ) !== hostname )
+			);
+			void queryClient.invalidateQueries( { queryKey: SNAPSHOT_USAGE_QUERY_KEY } );
+		},
 		onError: () => toast.error( __( "Couldn't delete the preview site" ) ),
 	} );
 }
 
 export function useRenameSnapshot() {
 	const connector = useConnector();
+	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationFn: ( { hostname, name }: { hostname: string; name: string } ) =>
 			connector.renameSnapshot( hostname, name ),
+		onSuccess: async ( _result, { hostname, name } ) => {
+			await queryClient.cancelQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
+			queryClient.setQueryData< Snapshot[] >(
+				SNAPSHOTS_QUERY_KEY,
+				( current ) =>
+					current?.map( ( snapshot ) =>
+						getSnapshotHostname( snapshot ) === hostname ? { ...snapshot, name } : snapshot
+					)
+			);
+		},
 		onError: () => toast.error( __( "Couldn't rename the preview site" ) ),
 	} );
 }

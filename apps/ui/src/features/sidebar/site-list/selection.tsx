@@ -1,4 +1,4 @@
-import { aiSessionBelongsToSite } from '@studio/common/ai/sessions/owner-site';
+import { aiSessionBelongsToSite } from '@studio/agent/protocol/sessions/owner-site';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { displayShortcut, isAppleOS } from '@wordpress/keycodes';
@@ -8,9 +8,16 @@ import { errorMessage, toast } from '@/data/app-messages';
 import { useSessions, useUpdateSessionMetadata } from '@/data/queries/use-sessions';
 import { chatPinKey, useSidebarPins } from '@/data/queries/use-sidebar-pins';
 import { useSites } from '@/data/queries/use-sites';
-import { getArchiveBlockedReason, useLeaveArchivedChat } from '@/features/chats';
+import { useLeaveArchivedChat } from '@/features/chats';
 import { useDeleteBlockedReason, DeleteSiteDialog } from '@/features/sites';
-import { ArchiveIcon, PinIcon, ReadStatusIcon, TrashIcon, UnpinIcon } from '@/lib/icons';
+import {
+	ArchiveIcon,
+	PinIcon,
+	ReadStatusIcon,
+	TrashIcon,
+	UnpinIcon,
+	UnreadStatusIcon,
+} from '@/lib/icons';
 import { isShortcut } from '@/lib/keyboard';
 import { VisuallyHidden, Menu } from '@/lib/ui';
 import styles from './style.module.css';
@@ -70,9 +77,12 @@ function keyOf( target: EventTarget | null ) {
 	return row?.getAttribute( KEY_ATTRIBUTE ) ?? null;
 }
 
-function isEditing( target: EventTarget | null ) {
+function isEditing( target: EventTarget | null, container: HTMLElement | null ) {
+	if ( ! ( target instanceof Element ) ) return false;
+	const dialog = target.closest( '[role="dialog"]' );
 	return (
-		target instanceof Element && !! target.closest( 'input, textarea, select, [role="dialog"]' )
+		!! target.closest( 'input, textarea, select, [contenteditable="true"]' ) ||
+		( !! dialog && dialog !== container?.closest( '[role="dialog"]' ) )
 	);
 }
 
@@ -144,7 +154,7 @@ export function SidebarSelection( { children }: { children: ReactNode } ) {
 
 	function onClickCapture( event: MouseEvent ) {
 		const key = keyOf( event.target );
-		if ( ! key || isEditing( event.target ) ) {
+		if ( ! key || isEditing( event.target, root.current ) ) {
 			return;
 		}
 		if ( event.metaKey || event.ctrlKey || event.shiftKey ) {
@@ -159,7 +169,10 @@ export function SidebarSelection( { children }: { children: ReactNode } ) {
 
 	function onKeyDownCapture( event: KeyboardEvent ) {
 		// Keys in a row's menu reach here through its portal.
-		if ( isEditing( event.target ) || ! root.current?.contains( event.target as Node ) ) {
+		if (
+			isEditing( event.target, root.current ) ||
+			! root.current?.contains( event.target as Node )
+		) {
 			return;
 		}
 		if ( event.key === 'Escape' && selection ) {
@@ -224,10 +237,12 @@ export function SidebarSelection( { children }: { children: ReactNode } ) {
 				sites={ deletingSites }
 				open={ deletingSites.length > 0 }
 				onOpenChange={ ( open ) => ! open && setDeleting( null ) }
-				onDeleted={ () => {
+				onDeleted={ ( deletedIds ) => {
 					const viewingDeleted = deletingSites.some(
 						( site ) =>
-							site.id === params.siteId || ( viewing && aiSessionBelongsToSite( viewing, site ) )
+							deletedIds.includes( site.id ) &&
+							( site.id === params.siteId ||
+								( viewing && aiSessionBelongsToSite( viewing, site ) ) )
 					);
 					if ( viewingDeleted ) {
 						void navigate( { to: '/' } );
@@ -322,7 +337,6 @@ export function BulkMenu( {
 			patch.archived && updated.length
 				? {
 						label: __( 'Undo' ),
-						once: true,
 						onClick: () =>
 							Promise.all(
 								updated.map( ( sessionId ) =>
@@ -335,7 +349,7 @@ export function BulkMenu( {
 			toast.error(
 				sprintf(
 					/* translators: 1: chats updated, 2: chats selected, 3: chats that failed. */
-					__( '%1$d of %2$d items updated. %3$d failed.' ),
+					__( '%1$d of %2$d items updated. %3$d failed' ),
 					updated.length,
 					chatIds.length,
 					errors.length
@@ -351,7 +365,7 @@ export function BulkMenu( {
 							updated.length
 					  )
 					: itemsUpdated( updated.length ),
-				{ action: undo }
+				{ action: undo, durationMs: undo ? 10_000 : undefined }
 			);
 		}
 		const viewing = sessions?.find( ( session ) => session.id === params.sessionId );
@@ -401,7 +415,7 @@ export function BulkMenu( {
 						disabled={ chats.every( ( chat ) => chat.unread ) }
 						onClick={ () => void updateChats( { unread: true } ) }
 					>
-						<ReadStatusIcon />
+						<UnreadStatusIcon />
 						{ __( 'Mark as unread' ) }
 					</Menu.Item>
 				</>
@@ -419,10 +433,8 @@ export function BulkMenu( {
 			<Menu.Separator />
 			{ chatIds.length > 0 ? (
 				<Menu.Group>
-					{ archiveBlocked ? (
-						<Menu.GroupLabel>{ getArchiveBlockedReason() }</Menu.GroupLabel>
-					) : null }
 					<Menu.Item
+						destructive
 						disabled={ archiveBlocked }
 						onClick={ () => void updateChats( { archived: true } ) }
 					>
@@ -438,7 +450,6 @@ export function BulkMenu( {
 			) : null }
 			{ siteIds.length > 0 ? (
 				<Menu.Group>
-					{ deleteBlocked ? <Menu.GroupLabel>{ deleteBlocked }</Menu.GroupLabel> : null }
 					<Menu.Item destructive disabled={ !! deleteBlocked } onClick={ confirmDelete }>
 						<TrashIcon />
 						{ sprintf(

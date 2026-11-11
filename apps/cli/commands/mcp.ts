@@ -5,7 +5,8 @@ import {
 } from '@studio/common/lib/mcp-config';
 import { __ } from '@wordpress/i18n';
 import { Logger, LoggerError } from 'cli/logger';
-import { StudioArgv } from 'cli/types';
+import type { builder } from 'cli/commands/mcp.command';
+import type { CommandArgs } from 'cli/types';
 
 const logger = new Logger< string >();
 
@@ -73,29 +74,19 @@ export async function runCommand(): Promise< void > {
 	const { startMcpStdioServer } = await import( 'cli/ai/runtimes/mcp' );
 	await startMcpStdioServer();
 }
-
-export const registerCommand = ( yargs: StudioArgv ) => {
-	return yargs.command( {
-		command: 'mcp',
-		describe: __( 'MCP server for AI agents' ),
-		builder: ( yargs ) => {
-			return yargs.help( false ).option( 'help', { type: 'boolean' } );
-		},
-		handler: async ( argv ) => {
-			if ( argv.help ) {
-				printInstallationInstructions();
-				return;
-			}
-			try {
-				await runCommand();
-			} catch ( error ) {
-				if ( error instanceof LoggerError ) {
-					logger.reportError( error );
-				} else {
-					const loggerError = new LoggerError( __( 'MCP server failed' ), error );
-					logger.reportError( loggerError );
-				}
-			}
-		},
-	} );
-};
+export async function commandHandler( argv: CommandArgs< typeof builder > ) {
+	if ( argv.help ) {
+		printInstallationInstructions();
+		return;
+	}
+	try {
+		await runCommand();
+	} catch ( error ) {
+		if ( error instanceof LoggerError ) {
+			logger.reportError( error );
+		} else {
+			const loggerError = new LoggerError( __( 'MCP server failed' ), error );
+			logger.reportError( loggerError );
+		}
+	}
+}

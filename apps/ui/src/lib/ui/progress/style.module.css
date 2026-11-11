@@ -26,6 +26,21 @@
 		transition: width var( --motion-duration-feedback ) linear;
 	}
 
+	/* The filters brighten the warning token toward a yellow, then an orange. */
+	.root[data-intent='warning'] .indicator {
+		background-color: var( --warning );
+		filter: saturate( 2 ) brightness( 1.8 );
+	}
+
+	.root[data-intent='critical'] .indicator {
+		background-color: var( --warning );
+		filter: saturate( 1.6 ) brightness( 1.35 );
+	}
+
+	.root[data-intent='exhausted'] .indicator {
+		background-color: var( --destructive );
+	}
+
 	@media ( prefers-reduced-motion: reduce ) {
 		.indicator {
 			transition: none;

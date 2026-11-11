@@ -37,16 +37,20 @@ export function BrowserHistoryButton( {
 	const [ menuOpen, setMenuOpen ] = useState( false );
 	const trigger = (
 		<IconButton
+			size="icon-sm"
 			icon={ back ? <ArrowLeftIcon /> : <ArrowRightIcon /> }
 			label={ label }
 			shortcut={ shortcut }
+			tooltip={ ! disabled }
 			tooltipSide="bottom"
 			disabled={ disabled }
 			disabledAppearance="icon"
 			onClick={ onStep }
 			onContextMenu={ ( event ) => {
 				event.preventDefault();
-				setMenuOpen( true );
+				if ( ! disabled ) {
+					setMenuOpen( true );
+				}
 			} }
 		/>
 	);

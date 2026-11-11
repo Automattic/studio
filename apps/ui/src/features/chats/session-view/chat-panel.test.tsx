@@ -1,6 +1,6 @@
 import { ADD_PAYMENT_METHOD_URL } from '@studio/common/lib/studio-assistant-quota';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createModelChangeEntry } from '@/data/queries/use-sessions';
 import {
 	changeAnnotation,
@@ -8,10 +8,13 @@ import {
 	pickAnnotation,
 	removeAnnotations,
 	requestAnnotationSend,
+	setAnnotating,
 } from '@/features/annotations';
+import { clearComposerDrafts } from '@/features/composer';
 import { createFakeConnector, makeSession, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { AgentRunEvent, SessionEntry } from '@/data/core';
+import type { AiSettings } from '@studio/agent/protocol/providers';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 
 vi.setConfig( { testTimeout: 30_000 } );
@@ -29,6 +32,7 @@ async function setupChat( {
 	entries = [],
 	firstPrompt = 'Hello',
 	running = false,
+	annotatePreview = true,
 }: {
 	provider?: 'wpcom' | 'anthropic-api-key';
 	quota?: Partial< StudioAssistantQuota >;
@@ -40,6 +44,7 @@ async function setupChat( {
 	entries?: SessionEntry[];
 	firstPrompt?: string;
 	running?: boolean;
+	annotatePreview?: boolean;
 } = {} ) {
 	const site = makeSite( { id: SITE_ID, name: 'Example', running } );
 	const context = pinnedProvider
@@ -52,7 +57,7 @@ async function setupChat( {
 				} as SessionEntry,
 		  ]
 		: [];
-	let connected = { hasAnthropicApiKey, provider };
+	const connected = { hasAnthropicApiKey, provider };
 	const connector = createFakeConnector(
 		{
 			sites: [ site ],
@@ -65,6 +70,7 @@ async function setupChat( {
 			],
 		},
 		{
+			capabilities: { annotatePreview, nativeFolderPicker: true, studioLogs: true },
 			getAiSettings: async () => {
 				if ( settingsError ) {
 					throw new Error( 'Connections unavailable' );
@@ -110,16 +116,181 @@ async function setupChat( {
 		...view,
 		connector,
 		input,
-		connect: ( next: typeof connected ) => {
-			connected = next;
-		},
 	};
 }
 
 const notice = () => screen.findByRole( 'alert' );
 const sendButton = () => screen.getByRole( 'button', { name: 'Send message' } );
+const COMPOSER = { name: 'Message WordPress Studio' };
+const composerStartButton = () =>
+	within( screen.getByRole( 'combobox', COMPOSER ).closest( '[role="group"]' )! ).getByRole(
+		'button',
+		{ name: 'Start site' }
+	);
+
+describe( 'Composer site controls', () => {
+	beforeEach( () => clearComposerDrafts() );
+	afterEach( () => setAnnotating( SITE_ID, false ) );
+
+	it( 'disables preview annotation when the connector cannot annotate the site', async () => {
+		const { connector, input } = await setupChat( { running: true, annotatePreview: false } );
+		fireEvent.change( input, { target: { value: '/annotate' } } );
+		const option = await screen.findByRole( 'option', { name: /^Annotate / } );
+		expect( option ).toHaveAttribute( 'aria-disabled', 'true' );
+		fireEvent.click( option );
+		expect( getSiteAnnotations( SITE_ID ).active ).toBe( false );
+		expect( connector.continueSession ).not.toHaveBeenCalled();
+	} );
+
+	it.each( [ 'menu', 'slash' ] )(
+		'enables preview annotations through %s without sending the draft',
+		async ( source ) => {
+			const { connector, input } = await setupChat( { running: true } );
+			for ( let round = 0; round < 2; round++ ) {
+				fireEvent.change( input, {
+					target: { value: source === 'slash' ? 'Keep this draft /annotate' : 'Keep this draft' },
+				} );
+				if ( source === 'menu' ) fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+				const options = await screen.findAllByRole( 'option', { name: /^Annotate / } );
+				expect( options ).toHaveLength( 1 );
+				if ( source === 'slash' ) fireEvent.keyDown( input, { key: 'Enter' } );
+				else fireEvent.click( options[ 0 ] );
+				await waitFor( () => expect( getSiteAnnotations( SITE_ID ).active ).toBe( true ) );
+				expect( input ).toHaveValue( source === 'slash' ? 'Keep this draft ' : 'Keep this draft' );
+			}
+			expect( connector.continueSession ).not.toHaveBeenCalled();
+			expect( connector.startSite ).not.toHaveBeenCalled();
+			expect( connector.openExternalUrl ).not.toHaveBeenCalled();
+			expect( screen.getByRole( 'button', { name: 'Hide panel' } ) ).toBeVisible();
+		}
+	);
+
+	it( 'starts a stopped site for annotation and exits annotation mode if starting fails', async () => {
+		const { connector, input } = await setupChat();
+		connector.startSite.mockRejectedValueOnce( new Error( 'Unable to start' ) );
+		fireEvent.change( input, { target: { value: '/annotate' } } );
+		await screen.findByRole( 'option', { name: /^Annotate / } );
+		fireEvent.keyDown( input, { key: 'Enter' } );
+		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( SITE_ID ) );
+		await waitFor( () => expect( getSiteAnnotations( SITE_ID ).active ).toBe( false ) );
+		expect( connector.continueSession ).not.toHaveBeenCalled();
+	} );
+
+	it( 'asks to connect a provider before enabling annotations', async () => {
+		const { connector, input } = await setupChat( { signedIn: false, hasAnthropicApiKey: false } );
+		fireEvent.change( input, { target: { value: '/annotate' } } );
+		await screen.findByRole( 'option', { name: /^Annotate / } );
+		fireEvent.keyDown( input, { key: 'Enter' } );
+		await screen.findByRole( 'dialog' );
+		expect( getSiteAnnotations( SITE_ID ).active ).toBe( false );
+		expect( connector.startSite ).not.toHaveBeenCalled();
+		expect( connector.continueSession ).not.toHaveBeenCalled();
+	} );
+
+	it.each( [ 'menu', 'slash' ] )(
+		'starts through %s and stops through slash without sending or losing the draft',
+		async ( source ) => {
+			const { connector, input, queryClient } = await setupChat( {
+				signedIn: false,
+				hasAnthropicApiKey: false,
+			} );
+			for ( const action of [ 'start', 'stop' ] as const ) {
+				const useSlash = source === 'slash' || action === 'stop';
+				const command = action === 'start' ? connector.startSite : connector.stopSite;
+				const run = command.getMockImplementation()!;
+				let finish!: () => void;
+				command.mockImplementationOnce(
+					( id ) =>
+						new Promise( ( resolve ) => {
+							finish = () => resolve( run( id ) );
+						} )
+				);
+				const label = action === 'start' ? /^Start site(?: |$)/ : 'Stop site';
+				fireEvent.change( input, {
+					target: {
+						value: useSlash ? `Keep this draft /${ action }` : 'Keep this draft',
+					},
+				} );
+				if ( useSlash ) {
+					await screen.findByRole( 'option', { name: label } );
+					fireEvent.keyDown( input, { key: 'Enter' } );
+				} else {
+					fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+					fireEvent.click( await screen.findByRole( 'option', { name: label } ) );
+				}
+				await waitFor( () => expect( command ).toHaveBeenCalledExactlyOnceWith( SITE_ID ) );
+				expect( input ).toHaveValue( useSlash ? 'Keep this draft ' : 'Keep this draft' );
+				fireEvent.change( input, { target: { value: `Keep this draft /${ action }` } } );
+				const pending = await screen.findByRole( 'option', { name: label } );
+				expect( pending ).toHaveAttribute( 'aria-disabled', 'true' );
+				fireEvent.click( pending );
+				expect( command ).toHaveBeenCalledOnce();
+				fireEvent.keyDown( input, { key: 'Escape' } );
+				await act( async () => finish() );
+				await waitFor( () => expect( queryClient.isMutating() ).toBe( 0 ) );
+			}
+			expect( connector.continueSession ).not.toHaveBeenCalled();
+		}
+	);
+
+	it( 'starts a stopped site from the empty composer without sending a message', async () => {
+		const { connector, input } = await setupChat( {
+			signedIn: false,
+			hasAnthropicApiKey: false,
+		} );
+		let finishStart!: () => void;
+		connector.startSite.mockImplementationOnce(
+			() =>
+				new Promise( ( resolve ) => {
+					finishStart = () => {
+						const site = {
+							...connector.state.sites[ 0 ],
+							running: true,
+							url: 'http://localhost:8881',
+						};
+						connector.state.sites[ 0 ] = site;
+						resolve( site );
+					};
+				} )
+		);
+		const startButton = composerStartButton();
+		fireEvent.click( startButton );
+		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledWith( SITE_ID ) );
+		await waitFor( () => expect( startButton ).toHaveAttribute( 'aria-disabled', 'true' ) );
+		expect( startButton ).toHaveAccessibleName( 'Starting site' );
+		expect( startButton ).toHaveAttribute( 'aria-busy', 'true' );
+		fireEvent.click( startButton );
+		expect( connector.startSite ).toHaveBeenCalledOnce();
+		expect( connector.continueSession ).not.toHaveBeenCalled();
+		expect( input ).toHaveValue( '' );
+		await act( async () => finishStart() );
+		await waitFor( () => expect( sendButton() ).toHaveAttribute( 'aria-disabled', 'true' ) );
+	} );
+
+	it( 'offers Send when there is text and Start again when it is cleared', async () => {
+		const { connector, input } = await setupChat();
+		fireEvent.change( input, { target: { value: 'Update the homepage' } } );
+		expect( sendButton() ).toBeEnabled();
+		fireEvent.change( input, { target: { value: '  ' } } );
+		expect( composerStartButton() ).toBeEnabled();
+		expect( connector.startSite ).not.toHaveBeenCalled();
+	} );
+
+	it( 'keeps the empty Send button disabled for a running site', async () => {
+		await setupChat( { running: true } );
+		expect( sendButton() ).toHaveAttribute( 'aria-disabled', 'true' );
+	} );
+} );
+
+function anthropicRow( dialog: HTMLElement ) {
+	return within(
+		within( dialog ).getByText( 'Anthropic', { exact: true } ).closest( '[data-settings-row]' )!
+	);
+}
 
 describe( 'Composer access notices', () => {
+	beforeEach( () => localStorage.clear() );
+
 	it.each( [ 'wpcom', 'anthropic-api-key' ] as const )(
 		'hides the notice when %s can send, even if an unused provider has an error',
 		async ( provider ) => {
@@ -143,7 +314,7 @@ describe( 'Composer access notices', () => {
 		expect( within( alert ).getAllByRole( 'button' ) ).toHaveLength( 1 );
 		fireEvent.change( input, { target: { value: 'Preserve this draft' } } );
 		const calls = connector.getAiSettings.mock.calls.length;
-		fireEvent.click( within( alert ).getByRole( 'button', { name: 'Try again' } ) );
+		fireEvent.click( within( alert ).getByRole( 'button', { name: 'Refresh' } ) );
 		await waitFor( () =>
 			expect( connector.getAiSettings.mock.calls.length ).toBeGreaterThan( calls )
 		);
@@ -228,9 +399,170 @@ describe( 'Composer access notices', () => {
 			} );
 		}
 	} );
+
+	it.each( [
+		{ provider: 'wpcom' as const, payment: false, gated: true },
+		{ provider: 'wpcom' as const, payment: null, gated: false },
+		{ provider: 'anthropic-api-key' as const, payment: false, gated: false },
+	] )(
+		'checks payment access for $provider with payment=$payment',
+		async ( { provider, payment, gated } ) => {
+			const quota =
+				payment === null
+					? null
+					: {
+							costUsage: 0,
+							costCap: 500000,
+							costResetDate: '',
+							emailVerified: true,
+							hasPaymentMethod: payment,
+							studioCodeAiHasAccess: true,
+							studioCodeAiAccess: 'granted' as const,
+							allowanceRemaining: 100,
+							purchasedRemaining: 0,
+							purchasedAtTopUp: 0,
+					  };
+			const connector = createFakeConnector(
+				{ sites: [ makeSite( { id: 'one', path: '/sites/my-site' } ) ] },
+				{
+					getAiSettings: async () => ( {
+						provider,
+						hasAnthropicApiKey: true,
+						anthropicApiKeyPreview: 'test',
+					} ),
+					getStudioAssistantQuota: async () => quota,
+				}
+			);
+			renderApp( { connector, path: '/sites/one/new' } );
+			await screen.findByRole( 'button', { name: 'Site menu' } );
+			const input = await screen.findByRole( 'combobox', COMPOSER );
+			if ( gated ) {
+				const addPayment = await screen.findByRole( 'button', { name: 'Set up' } );
+				expect( input ).toBeEnabled();
+				expect( composerStartButton() ).toBeEnabled();
+				fireEvent.click( addPayment );
+				expect( connector.openExternalUrl ).toHaveBeenCalledWith( ADD_PAYMENT_METHOD_URL );
+				expect( connector.continueSession ).not.toHaveBeenCalled();
+				connector.getStudioAssistantQuota.mockResolvedValue( {
+					...quota!,
+					hasPaymentMethod: true,
+				} );
+				fireEvent.focus( window, { relatedTarget: input } );
+			}
+			await waitFor( () => expect( input ).toBeEnabled() );
+			await waitFor( () =>
+				expect( screen.queryByRole( 'button', { name: 'Set up' } ) ).not.toBeInTheDocument()
+			);
+		}
+	);
+
+	it.each( [ false, true ] )(
+		'connects a personal key without WordPress.com login (saved=%s)',
+		async ( saved ) => {
+			let connection: AiSettings = {
+				provider: 'wpcom',
+				hasAnthropicApiKey: saved,
+				anthropicApiKeyPreview: saved ? 'test' : null,
+			};
+			const site = makeSite( { id: 'one', path: '/sites/my-site' } );
+			const connector = createFakeConnector(
+				{
+					user: null,
+					sites: [ site ],
+					sessions: [
+						{
+							summary: makeSession( {
+								id: 'key-chat',
+								ownerSiteId: 'one',
+								ownerSitePath: site.path,
+							} ),
+							entries: [],
+						},
+					],
+				},
+				{
+					getAiSettings: async () => connection,
+					saveAnthropicApiKey: async () => {
+						connection = {
+							...connection,
+							hasAnthropicApiKey: true,
+							anthropicApiKeyPreview: 'test',
+						};
+						return connection;
+					},
+					setAiProvider: async ( provider ) => {
+						connection = { ...connection, provider };
+						return connection;
+					},
+					continueSession: async () => ( { runId: 'key-run' } ),
+				}
+			);
+			renderApp( { connector, path: '/sessions/key-chat' } );
+			await screen.findByRole( 'button', { name: 'Site menu' } );
+			const draftInput = await screen.findByRole( 'combobox', COMPOSER );
+			fireEvent.change( draftInput, { target: { value: 'Update my site' } } );
+			await screen.findByRole( 'button', { name: 'Connect' } );
+			expect( draftInput ).toBeEnabled();
+			expect( sendButton() ).toBeEnabled();
+			fireEvent.click( sendButton() );
+			expect( draftInput ).toHaveValue( 'Update my site' );
+			expect( connector.createSession ).not.toHaveBeenCalled();
+			expect( connector.continueSession ).not.toHaveBeenCalled();
+			expect( screen.queryByText( 'Checking access…' ) ).not.toBeInTheDocument();
+			expect( screen.queryByRole( 'button', { name: 'Check again' } ) ).not.toBeInTheDocument();
+			fireEvent.click( screen.getByRole( 'button', { name: 'Connect' } ) );
+			const dialog = await screen.findByRole( 'dialog', { name: 'Settings' } );
+			fireEvent.click(
+				anthropicRow( dialog ).getByRole( 'button', { name: saved ? 'Manage' : 'Connect' } )
+			);
+			if ( ! saved ) {
+				const keyInput = await screen.findByLabelText( 'Anthropic API key', { selector: 'input' } );
+				expect( keyInput ).toHaveAttribute( 'type', 'password' );
+				fireEvent.change( keyInput, { target: { value: '  test-key  ' } } );
+			}
+			fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Save' } ) );
+			await waitFor( () =>
+				expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic-api-key' )
+			);
+			await waitFor( () =>
+				expect( anthropicRow( dialog ).getByRole( 'button', { name: 'Manage' } ) ).toBeEnabled()
+			);
+			fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Close settings' } ) );
+			await waitFor( () => expect( sendButton() ).toBeEnabled() );
+			const input = screen.getByRole( 'combobox', COMPOSER );
+			expect( input ).toHaveValue( 'Update my site' );
+			expect( connector.authenticate ).not.toHaveBeenCalled();
+			fireEvent.click( sendButton() );
+			await waitFor( () =>
+				expect( connector.continueSession ).toHaveBeenCalledWith(
+					'key-chat',
+					'Update my site',
+					expect.anything()
+				)
+			);
+		}
+	);
 } );
 
 describe( 'Chat target selection', () => {
+	it( 'hides the auto-start chip while the site runs and restores it when stopped', async () => {
+		const { connector } = await setupChat();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Auto-start / } ) );
+		await screen.findByRole( 'button', { name: 'Remove Auto-start' } );
+
+		await act( async () => connector.startSite( SITE_ID ) );
+		await waitFor( () =>
+			expect(
+				screen.queryByRole( 'button', { name: 'Remove Auto-start' } )
+			).not.toBeInTheDocument()
+		);
+		expect( connector.state.preferences.autoStartSiteOnChat ).toBe( true );
+
+		await act( async () => connector.stopSite( SITE_ID ) );
+		expect( await screen.findByRole( 'button', { name: 'Remove Auto-start' } ) ).toBeVisible();
+	} );
+
 	it.each( [
 		{ signedIn: false, hasAnthropicApiKey: false },
 		{ signedIn: true, hasAnthropicApiKey: false },
@@ -241,16 +573,15 @@ describe( 'Chat target selection', () => {
 		if ( ! connections.signedIn && ! connections.hasAnthropicApiKey ) {
 			expect( screen.queryByRole( 'button', { name: 'Model' } ) ).not.toBeInTheDocument();
 			fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-			await screen.findByRole( 'option', { name: /^Connect AI providers/ } );
+			await screen.findByRole( 'option', { name: /^Connect providers/ } );
 			expect( screen.queryByRole( 'option', { name: /^Choose model/ } ) ).not.toBeInTheDocument();
 			fireEvent.keyDown( document.activeElement!, { key: 'Escape' } );
 			fireEvent.change( input, { target: { value: '/model' } } );
 			expect( screen.queryByRole( 'option', { name: /^Choose model/ } ) ).not.toBeInTheDocument();
 			return;
 		}
-		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Choose model/ } ) );
-		const connect = await screen.findByRole( 'option', { name: /^Connect provider…/ } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
+		const connect = await screen.findByRole( 'option', { name: /^Connect providers/ } );
 		for ( const name of [ 'Fast', 'Balanced', 'Strong' ] ) {
 			expect( !! screen.queryByRole( 'option', { name: new RegExp( `^${ name }` ) } ) ).toBe(
 				connections.signedIn
@@ -279,7 +610,6 @@ describe( 'Chat target selection', () => {
 		fireEvent.change( input, { target: { value: 'Build a homepage' } } );
 		fireEvent.click( sendButton() );
 		expect( sendButton() ).toBeEnabled();
-		expect( alert ).toHaveAttribute( 'data-feedback', 'shake' );
 		fireEvent.keyDown( input, { key: 'Enter' } );
 		await waitFor( () => expect( input ).toHaveValue( 'Build a homepage' ) );
 		expect( connector.startSite ).not.toHaveBeenCalled();
@@ -289,25 +619,7 @@ describe( 'Chat target selection', () => {
 		expect( connector.authenticate ).not.toHaveBeenCalled();
 	} );
 
-	it( 'enables signed-out BYOK after setup without sending or losing the draft', async () => {
-		const { connector, input, queryClient, connect } = await setupChat( {
-			signedIn: false,
-			hasAnthropicApiKey: false,
-		} );
-		const alert = await notice();
-		fireEvent.change( input, { target: { value: 'Keep my draft' } } );
-		fireEvent.keyDown( input, { key: 'Enter' } );
-		expect( alert ).toHaveAttribute( 'data-feedback', 'shake' );
-		connect( { provider: 'anthropic-api-key', hasAnthropicApiKey: true } );
-		await act( () => queryClient.invalidateQueries( { queryKey: [ 'ai-settings' ] } ) );
-		await waitFor( () => expect( sendButton() ).toBeEnabled() );
-		expect( screen.queryByRole( 'alert' ) ).not.toBeInTheDocument();
-		expect( input ).toHaveValue( 'Keep my draft' );
-		expect( connector.authenticate ).not.toHaveBeenCalled();
-		expect( connector.continueSession ).not.toHaveBeenCalled();
-	} );
-
-	it( 'switches an empty chat to the picked model and the live site while preserving the draft', async () => {
+	it( 'switches an empty chat to the picked model while preserving the draft', async () => {
 		const { connector, input } = await setupChat( {
 			provider: 'anthropic-api-key',
 			signedIn: false,
@@ -322,12 +634,6 @@ describe( 'Chat target selection', () => {
 		await waitFor( () =>
 			expect( connector.setSessionModel ).toHaveBeenCalledWith( 'chat', 'claude-opus-5' )
 		);
-		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Work on live site/ } ) );
-		await waitFor( () =>
-			expect( connector.setSessionEnvironment ).toHaveBeenCalledWith( 'chat', 'live' )
-		);
-		expect( await screen.findByRole( 'button', { name: 'Remove Live' } ) ).toBeVisible();
 		expect( screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } ) ).toHaveValue(
 			'Preserve this draft'
 		);
@@ -431,17 +737,13 @@ describe( 'Chat pane context menu', () => {
 		expect( await screen.findByRole( 'dialog', { name: 'Rename chat' } ) ).toBeVisible();
 	} );
 
-	it( 'opens the shared chat actions from the body and toggles full screen', async () => {
+	it( 'leaves the native context menu available on the chat body', async () => {
 		await setupChat( { pinnedProvider: 'wpcom', running: true } );
-		const body = () => document.querySelector( '[data-chat-transcript]' )!.parentElement!;
-		fireEvent.contextMenu( body() );
-		expect( await screen.findByRole( 'menuitem', { name: /^Rename/ } ) ).toBeVisible();
-		expect( screen.getByRole( 'menuitem', { name: /^Pin/ } ) ).toBeVisible();
-		expect( screen.getByRole( 'menuitem', { name: /^Archive/ } ) ).toBeVisible();
-		fireEvent.click( screen.getByRole( 'menuitem', { name: 'Full screen' } ) );
-		await waitFor( () => expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument() );
-		fireEvent.contextMenu( body() );
-		expect( await screen.findByRole( 'menuitem', { name: 'Exit full screen' } ) ).toBeVisible();
+		const body = document.querySelector( '[data-chat-transcript]' )!.parentElement!;
+		const event = new MouseEvent( 'contextmenu', { bubbles: true, cancelable: true } );
+		fireEvent( body, event );
+		expect( event.defaultPrevented ).toBe( false );
+		expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'has no chat actions while the chat is loading', async () => {
@@ -534,8 +836,36 @@ describe( 'Annotation drafts during an active run', () => {
 		return id;
 	}
 
+	it( 'sends a direct annotation immediately while the chat is idle', async () => {
+		const { connector, input } = await setupChat( { pinnedProvider: 'wpcom' } );
+		fireEvent.change( input, { target: { value: 'Keep my draft' } } );
+		let accept!: () => void;
+		const originalContinue = connector.continueSession.getMockImplementation()!;
+		connector.continueSession.mockImplementationOnce( async ( ...args ) => {
+			await new Promise< void >( ( resolve ) => {
+				accept = resolve;
+			} );
+			return originalContinue( ...args );
+		} );
+		const id = addNote();
+		act( () => requestAnnotationSend( { siteId: SITE_ID, noteIds: [ id ] } ) );
+		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledOnce() );
+		expect( getSiteAnnotations( SITE_ID ).notes[ 0 ].staged ).not.toBe( true );
+		expect( screen.queryByRole( 'listitem', { name: /^1 annotation,/ } ) ).not.toBeInTheDocument();
+		await act( async () => accept() );
+		expect( connector.continueSession.mock.calls[ 0 ][ 2 ] ).toEqual(
+			expect.objectContaining( {
+				visualAnnotations: expect.arrayContaining( [
+					expect.objectContaining( { comment: 'Make the heading shorter' } ),
+				] ),
+			} )
+		);
+		expect( input ).toHaveValue( 'Keep my draft' );
+		await waitFor( () => expect( getSiteAnnotations( SITE_ID ).notes ).toHaveLength( 0 ) );
+	} );
+
 	it.each( [ true, false ] )(
-		'keeps annotations in the composer instead of queuing (direct: %s)',
+		'queues direct annotations and preserves composer saves during a run (direct: %s)',
 		async ( direct ) => {
 			const { connector, input } = await setupChat( { pinnedProvider: 'wpcom' } );
 			fireEvent.change( input, { target: { value: 'Keep my draft' } } );
@@ -554,9 +884,14 @@ describe( 'Annotation drafts during an active run', () => {
 			act( () =>
 				requestAnnotationSend( { siteId: SITE_ID, noteIds: direct ? [ id ] : undefined } )
 			);
-			expect( await screen.findByRole( 'listitem', { name: /^1 annotation,/ } ) ).toBeVisible();
+			if ( direct ) {
+				expect( await screen.findByLabelText( 'Queued messages' ) ).toBeVisible();
+				await waitFor( () => expect( getSiteAnnotations( SITE_ID ).notes ).toHaveLength( 0 ) );
+			} else {
+				expect( await screen.findByRole( 'listitem', { name: /^1 annotation,/ } ) ).toBeVisible();
+				expect( screen.queryByLabelText( 'Queued messages' ) ).not.toBeInTheDocument();
+			}
 			expect( connector.continueSession ).toHaveBeenCalledOnce();
-			expect( screen.queryByLabelText( 'Queued messages' ) ).not.toBeInTheDocument();
 			expect( input ).toHaveValue( 'Keep my draft' );
 			act( () =>
 				connector.emit( 'onAgentEvent', {
@@ -570,8 +905,10 @@ describe( 'Annotation drafts during an active run', () => {
 					},
 				} as AgentRunEvent )
 			);
-			await waitFor( () => expect( sendButton() ).toBeEnabled() );
-			fireEvent.click( sendButton() );
+			if ( ! direct ) {
+				await waitFor( () => expect( sendButton() ).toBeEnabled() );
+				fireEvent.click( sendButton() );
+			}
 			await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledTimes( 2 ) );
 			expect( connector.continueSession.mock.calls[ 1 ][ 2 ] ).toEqual(
 				expect.objectContaining( {

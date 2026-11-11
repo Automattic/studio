@@ -3,26 +3,23 @@ import { Dialog as BaseDialog } from '@base-ui/react/dialog';
 import { __ } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { XIcon } from 'lucide-react';
-import {
-	createContext,
-	useCallback,
-	useContext,
-	useEffect,
-	useImperativeHandle,
-	useLayoutEffect,
-	useRef,
-	useState,
-} from 'react';
+import { createContext, useContext, useEffect, useImperativeHandle, useRef } from 'react';
+import { useScrollFade } from '@/lib/hooks';
 import { IconButton } from '@/lib/ui/button';
 import surfaceStyles from '@/lib/ui/surface/style.module.css';
 import { registerOpenDialog, replaceOpenDialogs } from './replacement';
 import styles from './style.module.css';
 import type { ComponentProps, ReactNode, Ref } from 'react';
 
-type Layout = 'default' | 'settings' | 'creation' | 'confirmation';
+type Layout = 'default' | 'compact' | 'settings' | 'creation' | 'confirmation';
 
-const DialogContentContext = createContext< { showCloseButton: boolean; layout: Layout } >( {
+const DialogContentContext = createContext< {
+	showCloseButton: boolean;
+	closeButtonDisabled: boolean;
+	layout: Layout;
+} >( {
 	showCloseButton: true,
+	closeButtonDisabled: false,
 	layout: 'default',
 } );
 
@@ -57,6 +54,7 @@ export function AlertDialog( props: BaseAlertDialog.Root.Props ) {
 }
 
 export { replaceOpenDialogs };
+export { useHasOpenDialog } from './replacement';
 export const DialogClose = BaseDialog.Close;
 
 export function DialogDismissButton( {
@@ -65,7 +63,7 @@ export function DialogDismissButton( {
 }: Partial< ComponentProps< typeof IconButton > > ) {
 	return (
 		<IconButton
-			variant="outline"
+			variant="ghost"
 			size="icon-sm"
 			icon={ <XIcon /> }
 			label={ label }
@@ -79,27 +77,37 @@ export function DialogContent( {
 	className,
 	children,
 	showCloseButton = true,
+	closeButtonDisabled = false,
 	layout = 'default',
-	surface = 'default',
 	backdrop = 'dimmed',
+	keepMounted = false,
+	motion = 'default',
 	...props
 }: ComponentProps< typeof BaseDialog.Popup > & {
 	showCloseButton?: boolean;
+	closeButtonDisabled?: boolean;
 	layout?: Layout;
-	surface?: 'default' | 'composer';
 	backdrop?: 'dimmed' | 'transparent';
+	/** Keeps ongoing operations and form state alive after dismissal. */
+	keepMounted?: boolean;
+	motion?: 'default' | 'none';
 } ) {
 	return (
-		<BaseDialog.Portal>
-			<BaseDialog.Backdrop data-variant={ backdrop } className={ styles.overlay } />
+		<BaseDialog.Portal keepMounted={ keepMounted }>
+			<BaseDialog.Backdrop
+				data-variant={ backdrop }
+				data-motion={ motion }
+				className={ styles.overlay }
+			/>
 			<BaseDialog.Popup
 				data-slot="dialog-content"
 				data-layout={ layout }
-				data-surface={ surface }
+				data-backdrop={ backdrop }
+				data-motion={ motion }
 				className={ clsx( surfaceStyles.floating, styles.content, className ) }
 				{ ...props }
 			>
-				<DialogContentContext.Provider value={ { showCloseButton, layout } }>
+				<DialogContentContext.Provider value={ { showCloseButton, closeButtonDisabled, layout } }>
 					{ children }
 				</DialogContentContext.Provider>
 			</BaseDialog.Popup>
@@ -108,31 +116,24 @@ export function DialogContent( {
 }
 
 export function DialogHeader( { className, children, ...props }: ComponentProps< 'div' > ) {
-	const { showCloseButton } = useContext( DialogContentContext );
+	const { showCloseButton, closeButtonDisabled } = useContext( DialogContentContext );
 	return (
 		<div data-slot="dialog-header" className={ clsx( styles.header, className ) } { ...props }>
 			{ children }
 			{ showCloseButton && (
-				<BaseDialog.Close className={ styles.headerClose } render={ <DialogDismissButton /> } />
+				<BaseDialog.Close
+					className={ styles.headerClose }
+					disabled={ closeButtonDisabled }
+					render={ <DialogDismissButton /> }
+				/>
 			) }
 		</div>
 	);
 }
 
-export function DialogFooter( {
-	className,
-	separator = false,
-	padding = false,
-	...props
-}: ComponentProps< 'div' > & { separator?: boolean; padding?: boolean } ) {
+export function DialogFooter( { className, ...props }: ComponentProps< 'div' > ) {
 	return (
-		<div
-			data-slot="dialog-footer"
-			data-separator={ separator || undefined }
-			data-padding={ padding || undefined }
-			className={ clsx( styles.footer, className ) }
-			{ ...props }
-		/>
+		<div data-slot="dialog-footer" className={ clsx( styles.footer, className ) } { ...props } />
 	);
 }
 
@@ -148,13 +149,11 @@ export function DialogTitle( { className, ...props }: ComponentProps< typeof Bas
 
 export function DialogDescription( {
 	className,
-	tone = 'muted',
 	...props
-}: ComponentProps< typeof BaseDialog.Description > & { tone?: 'muted' | 'default' } ) {
+}: ComponentProps< typeof BaseDialog.Description > ) {
 	return (
 		<BaseDialog.Description
 			data-slot="dialog-description"
-			data-tone={ tone }
 			className={ clsx( styles.description, className ) }
 			{ ...props }
 		/>
@@ -186,7 +185,12 @@ export function PanelHeader( {
 				<h1>{ title }</h1>
 			</div>
 			{ actions && <div className={ styles.panelActions }>{ actions }</div> }
-			<DialogDismissButton disabled={ disabled } onClick={ onClose } label={ closeLabel } />
+			<DialogDismissButton
+				size="icon-sm"
+				disabled={ disabled }
+				onClick={ onClose }
+				label={ closeLabel }
+			/>
 		</div>
 	);
 }
@@ -214,7 +218,7 @@ export function DialogPanel( {
 	);
 }
 
-/** A scroll container whose top edge fades once its content has scrolled. */
+/** A scroll container that fades only its overflowing edges. */
 function DialogScrollArea( {
 	className,
 	onScroll,
@@ -223,31 +227,18 @@ function DialogScrollArea( {
 	...props
 }: ComponentProps< 'div' > ) {
 	const element = useRef< HTMLDivElement >( null );
-	const [ scrolled, setScrolled ] = useState( false );
+	const setFadeElement = useScrollFade< HTMLDivElement >();
 	useImperativeHandle( ref, () => element.current!, [] );
-	const measure = useCallback( () => {
-		setScrolled( ( element.current?.scrollTop ?? 0 ) > 0 );
-	}, [] );
-	useLayoutEffect( () => {
-		measure();
-		if ( typeof ResizeObserver === 'undefined' ) return;
-		const observer = new ResizeObserver( measure );
-		const node = element.current!;
-		observer.observe( node );
-		if ( node.firstElementChild ) observer.observe( node.firstElementChild );
-		return () => observer.disconnect();
-	}, [ children, measure ] );
 	return (
 		<div
 			{ ...props }
-			ref={ element }
-			data-slot="dialog-scroll-area"
-			data-scrolled={ scrolled }
-			className={ clsx( styles.scrollArea, className ) }
-			onScroll={ ( event ) => {
-				measure();
-				onScroll?.( event );
+			ref={ ( node ) => {
+				element.current = node;
+				setFadeElement( node );
 			} }
+			data-slot="dialog-scroll-area"
+			className={ clsx( styles.scrollArea, className ) }
+			onScroll={ onScroll }
 		>
 			{ children }
 		</div>

@@ -8,12 +8,10 @@ export type ColorScheme = ( typeof SUPPORTED_COLOR_SCHEMES )[ number ];
 
 export const DEFAULT_COLOR_SCHEME: ColorScheme = 'system';
 
+export const DEFAULT_HIDE_FRONTEND_ADMIN_BAR = false;
+
 export const QUIT_SITES_BEHAVIORS = [ 'stop', 'stop-and-auto-start', 'leave-running' ] as const;
 export type QuitSitesBehavior = ( typeof QUIT_SITES_BEHAVIORS )[ number ];
-
-// What Add site opens on: the starting points, or straight on a blank site's setup.
-export const NEW_SITE_BEHAVIORS = [ 'choose', 'blank' ] as const;
-export type NewSiteBehavior = ( typeof NEW_SITE_BEHAVIORS )[ number ];
 
 export const DEFAULT_ACCENT_COLOR = '#3858e9';
 export const DEFAULT_TINT_INTENSITY = 0;
@@ -52,11 +50,28 @@ export const INTERFACE_PREFERENCE_DEFAULTS = {
 	colorScheme: DEFAULT_COLOR_SCHEME,
 	quitSitesBehavior: null,
 	autoStartSiteOnChat: false,
-	confirmDeleteAnnotations: true,
+	openChatOnSiteStart: true,
+	hideFrontendAdminBar: DEFAULT_HIDE_FRONTEND_ADMIN_BAR,
+	batchAnnotations: true,
 	showRecentChats: true,
 	autoCollapseSites: true,
-	newSiteBehavior: 'choose',
+	sidebarPinnedSort: 'type',
+	sidebarSiteSort: 'manual',
+	sidebarChatSort: 'updated',
 	accentColor: DEFAULT_ACCENT_COLOR,
 	tintIntensity: DEFAULT_TINT_INTENSITY,
 	contrast: DEFAULT_CONTRAST,
 } as const;
+
+export const SIDEBAR_PINNED_SORTS = [ 'type', 'manual' ] as const;
+export type SidebarPinnedSort = ( typeof SIDEBAR_PINNED_SORTS )[ number ];
+export const SIDEBAR_SITE_SORTS = [ 'status', 'manual' ] as const;
+export type SidebarSiteSort = ( typeof SIDEBAR_SITE_SORTS )[ number ];
+export const SIDEBAR_CHAT_SORTS = [ 'updated', 'manual' ] as const;
+export type SidebarChatSort = ( typeof SIDEBAR_CHAT_SORTS )[ number ];
+
+export function getDefaultSidebarChatSort(
+	order: Record< string, string[] | undefined >
+): SidebarChatSort {
+	return Object.values( order ).some( ( ids ) => ids && ids.length > 0 ) ? 'manual' : 'updated';
+}

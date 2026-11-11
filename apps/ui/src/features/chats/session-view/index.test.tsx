@@ -169,16 +169,28 @@ describe( 'SessionView entitlement', () => {
 			purchasedRemaining: 1000,
 			model: 'Balanced',
 		},
-	] )( 'starts a chat for $case on $model', async ( { email, purchasedRemaining, model } ) => {
-		const connector = chatConnector( { user: { ...TEST_USER, email } } );
-		connector.getStudioAssistantQuota.mockResolvedValue( quota( { purchasedRemaining } ) );
-		renderApp( { connector, path: PATH } );
+		{
+			case: 'spent purchased credits',
+			email: TEST_USER.email,
+			purchasedRemaining: 0,
+			purchasedAtTopUp: 500000,
+			model: 'Balanced',
+		},
+	] )(
+		'starts a chat for $case on $model',
+		async ( { email, purchasedRemaining, purchasedAtTopUp, model } ) => {
+			const connector = chatConnector( { user: { ...TEST_USER, email } } );
+			connector.getStudioAssistantQuota.mockResolvedValue(
+				quota( { purchasedRemaining, purchasedAtTopUp } )
+			);
+			renderApp( { connector, path: PATH } );
 
-		await composer();
-		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveTextContent( model )
-		);
-	} );
+			await composer();
+			await waitFor( () =>
+				expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveTextContent( model )
+			);
+		}
+	);
 
 	it( 'reads an unreachable WordPress.com as offline, settles on the composer and retries', async () => {
 		const connector = chatConnector();
@@ -193,7 +205,7 @@ describe( 'SessionView entitlement', () => {
 		await sleep( 50 );
 		expect( connector.getStudioAssistantQuota ).toHaveBeenCalledOnce();
 
-		fireEvent.click( within( alert ).getByRole( 'button', { name: 'Try again' } ) );
+		fireEvent.click( within( alert ).getByRole( 'button', { name: 'Refresh' } ) );
 		await waitFor( () => expect( connector.getStudioAssistantQuota ).toHaveBeenCalledTimes( 2 ) );
 	} );
 
@@ -276,9 +288,7 @@ describe( 'SessionView stopped site', () => {
 		const { queryClient } = renderApp( { connector, path: PATH } );
 		await composer();
 
-		expect(
-			await within( scroller() ).findByRole( 'img', { name: 'Saved site preview' } )
-		).toBeInTheDocument();
+		expect( await screen.findByRole( 'img', { name: 'Saved site preview' } ) ).toBeInTheDocument();
 
 		connector.state.sessions = [
 			{ ...connector.state.sessions[ 0 ], entries: [ prompt( 'Hello' ) ] },
@@ -286,9 +296,7 @@ describe( 'SessionView stopped site', () => {
 		await act( () => queryClient.invalidateQueries( { queryKey: SESSIONS_QUERY_KEY } ) );
 
 		await waitFor( () =>
-			expect(
-				within( scroller() ).queryByRole( 'img', { name: 'Saved site preview' } )
-			).not.toBeInTheDocument()
+			expect( screen.queryByRole( 'img', { name: 'Saved site preview' } ) ).not.toBeInTheDocument()
 		);
 	} );
 } );

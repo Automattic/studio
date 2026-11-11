@@ -38,7 +38,6 @@ export class BackupHandlerTarGz extends ImportExportEventEmitter implements Back
 			throw error;
 		}
 
-		// Get total file count first
 		const fileList = await this.listFiles( file );
 		const totalFiles = fileList.length;
 

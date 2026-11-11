@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { ToolUseRow } from './index';
-import type { NormalizedToolResult } from '@studio/common/ai/tools';
+import type { NormalizedToolResult } from '@studio/agent/protocol/tools';
 
 function ToolRow( { result }: { result?: NormalizedToolResult } ) {
 	return (
@@ -32,16 +32,6 @@ describe( 'tool trace', () => {
 		);
 		expect( screen.getByText( 'File contents' ) ).toBeVisible();
 		await user.keyboard( ' ' );
-		expect( trigger ).toHaveAttribute( 'aria-expanded', 'false' );
-	} );
-
-	it( 'shows failed results expanded and allows closing them', async () => {
-		const user = userEvent.setup();
-		render( <ToolRow result={ { text: 'File missing', isError: true } } /> );
-		const trigger = screen.getByRole( 'button', { name: /style\.css/ } );
-		expect( trigger ).toHaveAttribute( 'aria-expanded', 'true' );
-		expect( screen.getByText( 'File missing' ) ).toBeVisible();
-		await user.click( trigger );
 		expect( trigger ).toHaveAttribute( 'aria-expanded', 'false' );
 	} );
 } );

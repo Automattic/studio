@@ -6,9 +6,16 @@ import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
 import { useSites } from '@/data/queries/use-sites';
 import { useSidebarCollapsed } from '@/data/use-sidebar-collapsed';
 import { HeaderSidebarToggle } from '@/features/sidebar';
-import { useOpenAddSite } from '@/features/sites';
-import { PlusIcon } from '@/lib/icons';
-import { Empty, EmptyContent, EmptyDescription, EmptyHeader, Button } from '@/lib/ui';
+import { PreviewParticles, useOpenAddSite } from '@/features/sites';
+import {
+	Empty,
+	EmptyContent,
+	EmptyDescription,
+	EmptyHeader,
+	EmptyTitle,
+	Button,
+	StudioIcon,
+} from '@/lib/ui';
 import { dashboardLayoutRoute } from '../layout-dashboard';
 import styles from './style.module.css';
 
@@ -46,9 +53,10 @@ function NoSitesContent() {
 	const sites = useSites();
 	const navigate = useNavigate();
 	const openAddSite = useOpenAddSite();
-	const { welcome, addSite } = useSearch( { strict: false } ) as {
+	const { welcome, addSite, settings } = useSearch( { strict: false } ) as {
 		welcome?: true;
 		addSite?: string;
+		settings?: string;
 	};
 	const hasSites = !! sites.data?.length;
 	const empty = sites.isSuccess && ! hasSites;
@@ -56,11 +64,11 @@ function NoSitesContent() {
 	useEffect( () => {
 		if ( empty && ! welcome && ! offered.current ) {
 			offered.current = true;
-			if ( ! addSite ) {
+			if ( ! addSite && ! settings ) {
 				openAddSite();
 			}
 		}
-	}, [ empty, welcome, addSite, openAddSite ] );
+	}, [ empty, welcome, addSite, settings, openAddSite ] );
 	useEffect( () => {
 		if ( hasSites && ! addSite ) {
 			void navigate( { to: '/', search: true, replace: true } );
@@ -81,14 +89,17 @@ function NoSitesContent() {
 		);
 	}
 	return (
-		<Empty>
+		<Empty className={ styles.workspace }>
+			<div className={ styles.dots } aria-hidden="true">
+				<PreviewParticles active />
+			</div>
+			<StudioIcon />
 			<EmptyHeader>
-				<EmptyDescription>{ __( 'Add a local WordPress site to get started.' ) }</EmptyDescription>
+				<EmptyTitle className={ styles.title }>{ __( 'Welcome to WordPress Studio' ) }</EmptyTitle>
 			</EmptyHeader>
 			<EmptyContent>
-				<Button data-add-first-site onClick={ () => openAddSite() }>
-					<PlusIcon data-icon="inline-start" />
-					{ __( 'Add site' ) }
+				<Button variant="accent" size="lg" data-add-first-site onClick={ () => openAddSite() }>
+					{ __( 'Start here' ) }
 				</Button>
 			</EmptyContent>
 		</Empty>

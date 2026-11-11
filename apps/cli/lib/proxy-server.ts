@@ -18,7 +18,6 @@ let isHttpsProxyRunning = false;
 
 const proxy = httpProxy.createProxyServer();
 
-// Setup error handling for the proxy
 proxy.on( 'error', ( err, req, res ) => {
 	console.error( '[Proxy Error]', err.message );
 	if ( res && res instanceof http.ServerResponse ) {
@@ -38,9 +37,6 @@ function logProxyBindError( err: NodeJS.ErrnoException, port: number ): void {
 	}
 }
 
-/**
- * Gets the site details for a given domain
- */
 async function getSiteByHost( domain: string ) {
 	try {
 		const cliConfig = await readCliConfig();
@@ -54,9 +50,6 @@ async function getSiteByHost( domain: string ) {
 	}
 }
 
-/**
- * Health check endpoint
- */
 function handleHealthCheck( res: http.ServerResponse ) {
 	respondWithProxyStatus( res );
 }
@@ -112,7 +105,6 @@ async function handleProxyRequest(
 	res: http.ServerResponse,
 	isHttps: boolean
 ) {
-	// Health check endpoint
 	if ( req.url === '/__studio_health' ) {
 		return handleHealthCheck( res );
 	}
@@ -145,7 +137,6 @@ async function handleProxyRequest(
 	// Note: We don't check site.running here because that field is not persisted to disk
 	// If the site is stopped, the proxy connection to localhost:port will fail naturally
 
-	// If we're on HTTP and site has HTTPS enabled, redirect to HTTPS
 	if ( ! isHttps && site.enableHttps ) {
 		res.writeHead( 301, {
 			Location: `https://${ host }${ req.url }`,
@@ -211,7 +202,6 @@ async function startHttpsProxy(): Promise< void > {
 						return;
 					}
 
-					// Generate or load certificate from disk
 					const { cert, key } = await generateSiteCertificate( site.customDomain );
 
 					const ctx = createSecureContext( {
@@ -309,7 +299,6 @@ export async function stopProxyServers(): Promise< void > {
 export async function startProxyServers(): Promise< void > {
 	console.log( '[Proxy] Starting WordPress Studio Proxy Server…' );
 
-	// Setup graceful shutdown
 	const shutdown = async ( signal: string ) => {
 		console.log( `[Proxy] Received ${ signal }, shutting down gracefully...` );
 		await stopProxyServers();
@@ -333,11 +322,4 @@ export async function startProxyServers(): Promise< void > {
 		console.error( '[Proxy] Failed to start proxy servers:', error );
 		throw error;
 	}
-}
-
-/**
- * Check if the proxy is running
- */
-export function isProxyRunning(): boolean {
-	return isHttpProxyRunning || isHttpsProxyRunning;
 }

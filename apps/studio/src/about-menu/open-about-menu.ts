@@ -57,7 +57,6 @@ export function openAboutWindow() {
 		return { action: 'deny' };
 	} );
 
-	// Read package.json and pass version to about window
 	const packageJson = app.getVersion();
 
 	aboutWindow.webContents.on( 'dom-ready', () => {
@@ -66,17 +65,13 @@ export function openAboutWindow() {
 			const versionText = escapeSingleQuotes( `${ packageJson } (${ getPlatformLabel() })` );
 			const studioByWpcomText = escapeSingleQuotes( __( 'WordPress Studio' ) );
 			const aboutStudioText = escapeSingleQuotes( __( 'About WordPress Studio' ) );
-			const shareFeedbackText = escapeSingleQuotes( __( 'Share Feedback' ) );
 			const releasesText = escapeSingleQuotes( __( 'Release Notes' ) );
-			const demoSitesText = escapeSingleQuotes( __( 'Preview sites powered by' ) );
 
 			const script = `
 				document.title = '${ aboutStudioText }';
 				document.getElementById('studio-by-wpcom').innerText = '${ studioByWpcomText }';
 				document.getElementById('version-text').innerText = '${ versionText }';
-				document.getElementById('share-feedback').innerText = '${ shareFeedbackText }';
 				document.getElementById('release-notes').innerText = '${ releasesText }';
-				document.getElementById('demo-sites').innerText = '${ demoSitesText }';
 			`;
 			aboutWindow.webContents.executeJavaScript( script ).catch( ( err ) => {
 				console.error( 'Error executing JavaScript:', err );

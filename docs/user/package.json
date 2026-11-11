@@ -1,0 +1,18 @@
+{
+	"name": "studio-user-docs",
+	"version": "1.0.0",
+	"private": true,
+	"type": "module",
+	"description": "WordPress Studio user docs in Markdown, and the tooling that captures their screenshots.",
+	"scripts": {
+		"screenshots": "node scripts/capture-screenshots.mjs",
+		"screenshots:frame": "node scripts/frame-screenshots.mjs",
+		"demo-site:build": "node scripts/build-demo-site.mjs",
+		"design-looks:build": "node scripts/build-design-looks.mjs"
+	},
+	"dependencies": {
+		"pixelmatch": "^7.2.0",
+		"playwright": "^1.47.0",
+		"sharp": "^0.35.5"
+	}
+}

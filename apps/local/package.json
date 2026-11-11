@@ -25,6 +25,7 @@
 		"express-rate-limit": "^8.5.2"
 	},
 	"devDependencies": {
+		"@studio/agent": "file:../../packages/agent",
 		"@studio/common": "file:../../packages/common",
 		"@types/express": "^4.17.23"
 	}

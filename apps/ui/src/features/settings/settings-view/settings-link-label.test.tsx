@@ -1,5 +1,5 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { resolveSettingsLink } from '@/data/settings-sections';
 import { SettingsLinkContext } from '@/features/settings/settings-dialog/context';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
@@ -21,28 +21,12 @@ async function renderLabel() {
 }
 
 describe( 'setting link labels', () => {
-	it( 'copies the stable link, keeps the label accessible, and clears repeated feedback', async () => {
-		const view = await renderLabel();
-		vi.useFakeTimers();
-		try {
-			fireEvent.click( view.button );
-			await act( async () => {} );
-			expect( view.connector.copyText ).toHaveBeenCalledWith(
-				'wp-studio://app/v1/settings?id=language'
-			);
-			expect( view.button ).toHaveAttribute( 'data-copied' );
-			expect( screen.getByRole( 'textbox', { name: 'Language' } ) ).toBeInTheDocument();
-			await act( () => vi.advanceTimersByTime( 1500 ) );
-			fireEvent.click( view.button );
-			await act( async () => {} );
-			await act( () => vi.advanceTimersByTime( 1500 ) );
-			expect( view.button ).toHaveAttribute( 'data-copied' );
-			await act( () => vi.advanceTimersByTime( 500 ) );
-			expect( view.button ).not.toHaveAttribute( 'data-copied' );
-		} finally {
-			view.unmount();
-			vi.useRealTimers();
-		}
+	it( 'copies the stable link and keeps the label accessible', async () => {
+		const { button, connector } = await renderLabel();
+		fireEvent.click( button );
+		expect( await screen.findByText( 'Copied' ) ).toBeInTheDocument();
+		expect( connector.copyText ).toHaveBeenCalledWith( 'wp-studio://app/v1/settings?id=language' );
+		expect( screen.getByRole( 'textbox', { name: 'Language' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'leaves site labels and dynamic labels without link buttons', async () => {

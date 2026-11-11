@@ -1,19 +1,44 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts } from '@/data/app-messages';
-import { ConnectorProvider } from '@/data/core';
-import { TooltipProvider } from '@/lib/ui';
 import { createFakeConnector } from '@/test/fake-connector';
+import { renderWithProviders } from '@/test/render';
 import { AnnotationOverlay } from './overlay';
 import {
 	changeAnnotation,
 	getSiteAnnotations,
 	pickAnnotation,
+	removeAnnotations,
 	setAnnotating,
 	stageAnnotations,
 } from './store';
-import type { ComposerImageAttachment } from '@studio/common/ai/composer-attachments';
+import type { ComposerImageAttachment } from '@studio/agent/protocol/composer-attachments';
+
+const SITE = 'one';
+
+afterEach( () => {
+	removeAnnotations(
+		SITE,
+		getSiteAnnotations( SITE ).notes.map( ( note ) => note.id )
+	);
+	setAnnotating( SITE, false );
+} );
+
+async function setup( anchor: { left: number; top: number } | null = { left: 20, top: 20 } ) {
+	const { connector } = renderWithProviders(
+		<AnnotationOverlay siteId={ SITE } anchor={ anchor } onSend={ vi.fn() } />
+	);
+	await waitFor( () =>
+		expect( document.querySelector( '[data-annotation-overlay]' ) ).not.toBeNull()
+	);
+	return connector;
+}
+
+const annotate = () => act( () => setAnnotating( SITE, true ) );
+const pick = () =>
+	act( () => {
+		pickAnnotation( SITE, { selector: 'h1', tag: 'h1', path: '/' } );
+	} );
 
 const image = ( id: string ): ComposerImageAttachment => ( {
 	id,
@@ -24,81 +49,241 @@ const image = ( id: string ): ComposerImageAttachment => ( {
 	dataBase64: 'eA==',
 } );
 
-function renderOverlay( siteId: string ) {
-	render(
-		<ConnectorProvider connector={ createFakeConnector() }>
-			<QueryClientProvider client={ new QueryClient() }>
-				<TooltipProvider delay={ 0 }>
-					<AnnotationOverlay
-						siteId={ siteId }
-						anchor={ { left: 10, top: 10 } }
-						onSend={ vi.fn() }
-					/>
-				</TooltipProvider>
-			</QueryClientProvider>
-		</ConnectorProvider>
-	);
-}
-
 describe( 'AnnotationOverlay', () => {
-	beforeEach( () => {
-		vi.stubGlobal(
-			'ResizeObserver',
-			class {
-				observe() {}
-				disconnect() {}
-			}
-		);
+	it( 'keeps delete available for empty and started annotations', async () => {
+		await setup();
+		annotate();
+		pick();
+		expect( screen.getByRole( 'button', { name: 'Delete annotation' } ) ).toBeVisible();
+		const input = screen.getByRole( 'textbox', { name: 'Describe the change' } );
+		fireEvent.change( input, { target: { value: 'Change this heading' } } );
+		expect( screen.getByRole( 'button', { name: 'Delete annotation' } ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Delete annotation' } ) );
+		expect(
+			screen.queryByRole( 'textbox', { name: 'Describe the change' } )
+		).not.toBeInTheDocument();
 	} );
 
-	it( 'leaves annotation mode on Cancel, deleting the notes once confirmed', async () => {
-		setAnnotating( 'cancel-site', true );
-		renderOverlay( 'cancel-site' );
+	it.each( [ false, true ] )(
+		'uses Enter to add and primary Enter to send while batching (%s)',
+		async ( send ) => {
+			const onSend = vi.fn();
+			const connector = createFakeConnector( { preferences: { batchAnnotations: true } } );
+			renderWithProviders(
+				<AnnotationOverlay siteId={ SITE } anchor={ { left: 40, top: 40 } } onSend={ onSend } />,
+				{ connector }
+			);
+			await waitFor( () => expect( connector.getUserPreferences ).toHaveBeenCalled() );
+			await act( async () => {} );
+			annotate();
+			pick();
+			const input = screen.getByRole( 'textbox', { name: 'Describe the change' } );
+			fireEvent.change( input, { target: { value: 'Change this heading' } } );
+			fireEvent.keyDown( input, { key: 'Enter', ctrlKey: send } );
+			if ( send ) expect( onSend ).toHaveBeenCalledOnce();
+			else {
+				expect( onSend ).not.toHaveBeenCalled();
+				expect( getSiteAnnotations( SITE ).notes[ 0 ].staged ).toBe( true );
+			}
+		}
+	);
 
-		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel' } ) );
-		expect( getSiteAnnotations( 'cancel-site' ).active ).toBe( false );
+	it.each( [
+		{ name: 'top edge', anchor: { left: 24, top: 24 }, height: 120 },
+		{ name: 'bottom edge', anchor: { left: 376, top: 276 }, height: 120 },
+		{
+			name: 'limited space',
+			anchor: { left: 200, top: 150 },
+			height: 240,
+		},
+	] )(
+		'keeps the editor within the viewport and clear of the marker at the $name',
+		async ( { anchor, height } ) => {
+			const viewport = { width: 400, height: 300 };
+			const editorWidth = 320;
+			const dimensions = [
+				vi.spyOn( HTMLElement.prototype, 'clientWidth', 'get' ).mockReturnValue( viewport.width ),
+				vi.spyOn( HTMLElement.prototype, 'clientHeight', 'get' ).mockReturnValue( viewport.height ),
+				vi.spyOn( HTMLElement.prototype, 'offsetWidth', 'get' ).mockReturnValue( editorWidth ),
+				vi.spyOn( HTMLElement.prototype, 'offsetHeight', 'get' ).mockReturnValue( height ),
+				vi.spyOn( HTMLElement.prototype, 'scrollHeight', 'get' ).mockReturnValue( height ),
+			];
+			try {
+				await setup( anchor );
+				annotate();
+				pick();
+				const editor = await screen.findByRole( 'group', { name: 'Annotation' } );
+				const top = parseFloat( editor.style.top );
+				const left = parseFloat( editor.style.left );
+				const maxHeight = parseFloat( editor.style.maxHeight );
+				const bottom = top + Math.min( height, maxHeight );
+				expect( maxHeight ).toBeGreaterThan( 0 );
+				expect( top ).toBeGreaterThanOrEqual( 0 );
+				expect( left ).toBeGreaterThanOrEqual( 0 );
+				expect( left + editorWidth ).toBeLessThanOrEqual( viewport.width );
+				expect( top > anchor.top || bottom < anchor.top ).toBe( true );
+				expect( bottom ).toBeLessThanOrEqual( viewport.height );
+			} finally {
+				dimensions.forEach( ( dimension ) => dimension.mockRestore() );
+			}
+		}
+	);
 
-		act( () => {
-			setAnnotating( 'cancel-site', true );
-			changeAnnotation( 'cancel-site', pickAnnotation( 'cancel-site', { selector: 'h1' } )!, {
-				comment: 'Bigger',
-			} );
-			stageAnnotations( 'cancel-site' );
+	it( 'leaves annotation mode with Escape while a notification is visible', async () => {
+		await setup();
+		render( <div role="dialog" aria-modal="false" data-slot="toast" /> );
+		annotate();
+		pick();
+		fireEvent.keyDown( screen.getByRole( 'textbox', { name: 'Describe the change' } ), {
+			key: 'Escape',
 		} );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel' } ) );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Delete annotations' } ) );
-
-		expect( getSiteAnnotations( 'cancel-site' ) ).toMatchObject( { active: false, notes: [] } );
+		expect(
+			screen.queryByRole( 'textbox', { name: 'Describe the change' } )
+		).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'toolbar', { name: 'Annotations' } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'counts the other notes’ images against the message’s image limit', async () => {
-		setAnnotating( 'images-site', true );
-		const other = pickAnnotation( 'images-site', { selector: 'p' } )!;
-		changeAnnotation( 'images-site', other, { images: [ 'a', 'b', 'c' ].map( image ) } );
-		const editing = pickAnnotation( 'images-site', { selector: 'h1' } )!;
-		renderOverlay( 'images-site' );
+	it( 'leaves the annotation open for Escape in a dialog and ignores closed dialogs', async () => {
+		await setup();
+		annotate();
+		pick();
+		const dialog = render( <div role="dialog" data-slot="dialog-content" /> );
+		fireEvent.keyDown( screen.getByRole( 'dialog' ), { key: 'Escape' } );
+		expect( screen.getByRole( 'textbox', { name: 'Describe the change' } ) ).toBeInTheDocument();
+		dialog.rerender( <div role="dialog" data-slot="dialog-content" data-closed="" /> );
+		fireEvent.keyDown( screen.getByRole( 'textbox', { name: 'Describe the change' } ), {
+			key: 'Escape',
+		} );
+		expect(
+			screen.queryByRole( 'textbox', { name: 'Describe the change' } )
+		).not.toBeInTheDocument();
+	} );
 
-		fireEvent.change(
-			screen.getByRole( 'group', { name: 'Annotation' } ).querySelector( 'input[type="file"]' )!,
-			{
-				target: {
-					files: [
-						new File( [ 'x' ], 'four.png', { type: 'image/png' } ),
-						new File( [ 'x' ], 'five.png', { type: 'image/png' } ),
-					],
-				},
-			}
-		);
-
-		await waitFor( () =>
+	describe( 'images', () => {
+		it( 'keeps the region capture attached while allowing reference images to be removed', async () => {
+			annotate();
+			act( () => {
+				pickAnnotation(
+					SITE,
+					{ kind: 'region', path: '/' },
+					{ images: [ image( 'capture' ), image( 'reference' ) ] }
+				);
+			} );
+			await setup();
+			expect( screen.getByRole( 'img', { name: 'capture.png' } ) ).toBeVisible();
+			expect( screen.getAllByRole( 'button', { name: 'Remove attachment' } ) ).toHaveLength( 1 );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Remove attachment' } ) );
+			expect( getSiteAnnotations( SITE ).notes[ 0 ].images ).toEqual( [ image( 'capture' ) ] );
+			expect( screen.queryByRole( 'img', { name: 'reference.png' } ) ).not.toBeInTheDocument();
 			expect(
-				getSiteAnnotations( 'images-site' )
-					.notes.find( ( note ) => note.id === editing )
-					?.images.map( ( item ) => item.name )
-			).toEqual( [ 'four.png' ] )
-		);
-		expect( getVisibleToasts().map( ( toast ) => toast.title ) ).toContain(
-			'You can attach up to 4 images.'
-		);
+				screen.queryByRole( 'button', { name: 'Remove attachment' } )
+			).not.toBeInTheDocument();
+			expect( screen.getByRole( 'button', { name: 'Delete annotation' } ) ).toBeVisible();
+		} );
+
+		it( 'hides the drawing capture while keeping reference images editable', async () => {
+			annotate();
+			act( () => {
+				pickAnnotation(
+					SITE,
+					{ kind: 'drawing', path: '/' },
+					{ images: [ image( 'capture' ), image( 'reference' ) ] }
+				);
+			} );
+			await setup();
+			expect( screen.queryByRole( 'img', { name: 'capture.png' } ) ).not.toBeInTheDocument();
+			expect( screen.getByRole( 'img', { name: 'reference.png' } ) ).toBeVisible();
+			const input = screen.getByRole( 'textbox', { name: 'Describe the change' } );
+			fireEvent.keyDown( input, { key: 'Escape' } );
+			expect( input ).toBeVisible();
+			expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'Add or delete this annotation' );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Remove attachment' } ) );
+			expect( getSiteAnnotations( SITE ).notes[ 0 ].images ).toEqual( [ image( 'capture' ) ] );
+			expect( screen.queryByRole( 'list', { name: 'Attachments' } ) ).not.toBeInTheDocument();
+			fireEvent.keyDown( input, { key: 'Escape' } );
+			expect( screen.queryByRole( 'group', { name: 'Annotation' } ) ).not.toBeInTheDocument();
+			expect( getSiteAnnotations( SITE ).notes ).toHaveLength( 0 );
+		} );
+
+		function editNote( otherImages: ComposerImageAttachment[] = [] ) {
+			let editing = '';
+			act( () => {
+				setAnnotating( SITE, true );
+				if ( otherImages.length ) {
+					const other = pickAnnotation( SITE, { selector: 'p' } )!;
+					changeAnnotation( SITE, other, { images: otherImages } );
+					stageAnnotations( SITE );
+				}
+				editing = pickAnnotation( SITE, { selector: 'h1' } )!;
+			} );
+			return () =>
+				getSiteAnnotations( SITE ).notes.find( ( note ) => note.id === editing )?.images ?? [];
+		}
+		const upload = ( files: File[] ) =>
+			fireEvent.change( document.querySelector( 'input[type="file"]' )!, { target: { files } } );
+
+		it( 'keeps drop feedback across child elements, attaches the dropped image, and removes it', async () => {
+			const images = editNote();
+			await setup();
+			const editor = screen.getByRole( 'group', { name: 'Annotation' } );
+			const input = screen.getByRole( 'textbox', { name: 'Describe the change' } );
+			const dataTransfer = {
+				types: [ 'Files' ],
+				files: [ new File( [ 'x' ], 'dropped.png', { type: 'image/png' } ) ],
+			};
+			fireEvent.dragEnter( editor, { dataTransfer } );
+			expect( screen.getByText( 'Drop to attach' ) ).toBeInTheDocument();
+			fireEvent.dragEnter( input, { dataTransfer } );
+			fireEvent.dragLeave( editor, { dataTransfer } );
+			expect( screen.getByText( 'Drop to attach' ) ).toBeInTheDocument();
+			fireEvent.drop( input, { dataTransfer } );
+			expect( screen.queryByText( 'Drop to attach' ) ).not.toBeInTheDocument();
+			await waitFor( () =>
+				expect( images().map( ( item ) => item.name ) ).toEqual( [ 'dropped.png' ] )
+			);
+			fireEvent.click( screen.getByRole( 'button', { name: 'Remove attachment' } ) );
+			await waitFor( () => expect( images() ).toHaveLength( 0 ) );
+			expect( input ).toBeInTheDocument();
+			fireEvent.dragEnter( editor, { dataTransfer } );
+			expect( screen.getByText( 'Drop to attach' ) ).toBeInTheDocument();
+			fireEvent.dragEnd( window );
+			expect( screen.queryByText( 'Drop to attach' ) ).not.toBeInTheDocument();
+		} );
+
+		it( 'counts the other notes’ images against the message’s image limit', async () => {
+			const images = editNote( [ 'a', 'b', 'c' ].map( image ) );
+			await setup( { left: 10, top: 10 } );
+			upload( [
+				new File( [ 'x' ], 'four.png', { type: 'image/png' } ),
+				new File( [ 'x' ], 'five.png', { type: 'image/png' } ),
+			] );
+			await waitFor( () =>
+				expect( images().map( ( item ) => item.name ) ).toEqual( [ 'four.png' ] )
+			);
+			expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'You can attach up to 4 images' );
+			expect( getVisibleToasts() ).toEqual( [] );
+		} );
+
+		it( 'rejects unsupported images instead of attaching them as filesystem paths', async () => {
+			const images = editNote();
+			const connector = await setup( { left: 10, top: 10 } );
+			upload( [ new File( [ '<svg />' ], 'reference.svg', { type: 'image/svg+xml' } ) ] );
+			await act( async () => {} );
+			expect( images() ).toHaveLength( 0 );
+			expect( connector.getFilePath ).not.toHaveBeenCalled();
+		} );
+	} );
+
+	it( 'leaves staged annotation actions in the header without a bottom toolbar', async () => {
+		act( () => {
+			setAnnotating( SITE, true );
+			const id = pickAnnotation( SITE, { selector: 'h1' } )!;
+			changeAnnotation( SITE, id, { comment: 'Make the heading smaller' } );
+			stageAnnotations( SITE );
+		} );
+		await setup( null );
+		expect( screen.queryByRole( 'toolbar' ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: /^Send/ } ) ).not.toBeInTheDocument();
+		expect( getSiteAnnotations( SITE ).notes[ 0 ].staged ).toBe( true );
 	} );
 } );

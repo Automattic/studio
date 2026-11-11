@@ -4,15 +4,22 @@ import { revealSite, toggleRevealedSite } from './sidebar-collections';
 // Sites whose chats show under their row. Opening a site unfolds it (and,
 // unless the user turned it off, folds the others); clicking the open site
 // again folds it.
-export function useRevealedSites( activeSiteKey: string | undefined, autoCollapse: boolean ) {
+export function useRevealedSites(
+	activeSiteKey: string | undefined,
+	autoCollapse: boolean,
+	autoReveal: boolean
+) {
 	const [ revealed, setRevealed ] = useState< ReadonlySet< string > >(
-		() => new Set( activeSiteKey ? [ activeSiteKey ] : [] )
+		() => new Set( activeSiteKey && autoReveal ? [ activeSiteKey ] : [] )
 	);
-	const revealActive = useEffectEvent( ( siteId: string ) =>
+	const revealActive = useEffectEvent( ( siteId: string ) => {
+		if ( ! autoReveal ) {
+			return;
+		}
 		setRevealed( ( current ) =>
 			current.has( siteId ) ? current : revealSite( current, siteId, autoCollapse )
-		)
-	);
+		);
+	} );
 	useEffect( () => {
 		if ( activeSiteKey ) {
 			revealActive( activeSiteKey );

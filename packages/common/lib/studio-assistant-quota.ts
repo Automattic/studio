@@ -126,24 +126,27 @@ export function getTotalRemainingAiCredits(
 }
 
 /**
- * Whether the account still has purchased (paid) AI credits. Unknown quota
- * (unreachable, feature off) reads as false — the free tier is the safe floor.
+ * Whether the account has ever bought AI credits. A purchased pool
+ * (`purchasedAtTopUp` > 0) counts even once it is spent, and so does a
+ * positive balance when the pool size is missing (older servers). Unknown
+ * quota (unreachable, feature off) reads as false — the free tier is the
+ * safe floor.
  */
-export function hasPaidAiCredits(
-	quota: Pick< StudioAssistantQuota, 'purchasedRemaining' > | null | undefined
+export function hasPurchasedAiCredits(
+	quota: Pick< StudioAssistantQuota, 'purchasedRemaining' | 'purchasedAtTopUp' > | null | undefined
 ): boolean {
-	return ( quota?.purchasedRemaining ?? 0 ) > 0;
+	return ( quota?.purchasedAtTopUp ?? 0 ) > 0 || ( quota?.purchasedRemaining ?? 0 ) > 0;
 }
 
 /**
- * Whether the paid model tiers are unlocked: purchased credits remain, or the
- * account is an Automattician's, which the credit gate exempts.
+ * Whether the paid model tiers are unlocked: the account has bought credits
+ * at some point, or it is an Automattician's, which the credit gate exempts.
  */
 export function canUsePaidAiModels(
-	quota: Pick< StudioAssistantQuota, 'purchasedRemaining' > | null | undefined,
+	quota: Pick< StudioAssistantQuota, 'purchasedRemaining' | 'purchasedAtTopUp' > | null | undefined,
 	email: string | undefined | null
 ): boolean {
-	return hasPaidAiCredits( quota ) || isAutomatticianEmail( email );
+	return hasPurchasedAiCredits( quota ) || isAutomatticianEmail( email );
 }
 
 export type StudioCodeAiAccessState = 'available' | 'blocked' | 'not-enabled';
@@ -308,10 +311,8 @@ export interface AiCreditsThresholdNoticeState {
  * this intent.
  *
  * `ownedIntents` is the escalation steps the calling surface announces, so one
- * step is never stated twice on one screen. The agentic UI splits the ladder:
- * the sidebar notice takes `warning`, the composer strip takes `critical`, and
- * the composer lockout takes exhaustion. Classic has only the one slot above
- * its composer, so that slot passes both warning steps.
+ * step is never stated twice on one screen. The sidebar notice takes `warning`
+ * and `critical`, and the composer notice takes exhaustion.
  *
  * A dismissal is recorded against the intent it was made at, so moving between
  * steps re-arms the notice without a separate expiry rule.
@@ -326,10 +327,7 @@ export function resolveAiCreditsThresholdNotice(
 	return { visible: owned && surviving === null, dismissedIntent: surviving };
 }
 
-/**
- * Title shared by every AI credit usage warning — the sidebar notice and the
- * composer strip — so the two can never word the same fact differently.
- */
+/** Title of the AI credit usage notice, at both warning steps. */
 export function formatAiCreditsUsageTitle( fraction: number, locale?: string ): string {
 	return sprintf(
 		/* translators: %s: share of the AI credit balance used, formatted as a percentage (e.g. 90%). */
@@ -343,30 +341,6 @@ export function formatAiCreditsUsageTitle( fraction: number, locale?: string ): 
 
 export function formatAiCreditsThresholdDescription(): string {
 	return __( 'Add AI credits to keep chatting without interruption.' );
-}
-
-export function formatAiCreditsUsedLabel(
-	meter: Pick< AiCreditsMeter, 'usedCredits' | 'totalCredits' >,
-	locale?: string
-): string {
-	const credits = new Intl.NumberFormat( locale );
-	return sprintf(
-		/* translators: 1: AI credits used (e.g. 1,200,000). 2: total AI credits the meter is measured against (e.g. 1,500,000). */
-		__( '%1$s of %2$s AI credits used' ),
-		credits.format( meter.usedCredits ),
-		credits.format( meter.totalCredits )
-	);
-}
-
-export function formatAiCreditsAvailableLabel(
-	meter: Pick< AiCreditsMeter, 'remainingCredits' >,
-	locale?: string
-): string {
-	return sprintf(
-		/* translators: %s: number of AI credits still available (e.g. 300,000). */
-		__( '%s available' ),
-		new Intl.NumberFormat( locale ).format( meter.remainingCredits )
-	);
 }
 
 /**
@@ -414,12 +388,11 @@ export function formatAiBlockedNotice(): string {
 	);
 }
 
-export const STUDIO_CODE_AI_BETA_APPLY_URL =
-	'https://developer.wordpress.com/studio/studio-code-beta/';
+export const STUDIO_CODE_DOCS_URL = 'https://wordpress.studio/docs/studio-code/';
 
 /**
  * Headline sentence for an account that hasn't been granted Studio Code AI
- * beta access yet (STU-2146), without an apply CTA — for surfaces that render
+ * beta access yet (STU-2146), without a learn-more link — for surfaces that render
  * their own action button (e.g. the AccessRequirements gate). Spend on the
  * quota means the account has demonstrably used Studio Code AI this billing
  * cycle (the backend keeps reporting the real month total after access flips
@@ -437,26 +410,20 @@ export function formatAiAccessRequiredHeadline(
 
 /**
  * Full inline notice for an account without Studio Code AI beta access:
- * the headline above followed by an apply sentence. Deliberately distinct
+ * the headline above followed by a learn-more sentence. Deliberately distinct
  * from the blocked notice — nothing is wrong with the account; access just
- * hasn't been enabled. The apply sentence wraps the application URL in an
- * `<applyLink>` token: render it with `createInterpolateElement`, pointing
- * the token at `STUDIO_CODE_AI_BETA_APPLY_URL`.
+ * hasn't been enabled. The sentence wraps the docs URL in a
+ * `<learnMoreLink>` token: render it with `createInterpolateElement`, pointing
+ * the token at `STUDIO_CODE_DOCS_URL`.
  */
 export function formatAiAccessRequiredNotice(
 	quota?: Pick< StudioAssistantQuota, 'costUsage' > | null
 ): string {
-	const applySentence =
-		quota && quota.costUsage > 0
-			? __(
-					/* translators: <applyLink> and </applyLink> wrap the beta application URL and must be kept as-is. */
-					'Apply to continue at <applyLink>developer.wordpress.com/studio/studio-code-beta</applyLink>.'
-			  )
-			: __(
-					/* translators: <applyLink> and </applyLink> wrap the beta application URL and must be kept as-is. */
-					'Apply at <applyLink>developer.wordpress.com/studio/studio-code-beta</applyLink>.'
-			  );
-	return `${ formatAiAccessRequiredHeadline( quota ) } ${ applySentence }`;
+	const learnMoreSentence = __(
+		/* translators: <learnMoreLink> and </learnMoreLink> wrap the documentation URL and must be kept as-is. */
+		'Learn more at <learnMoreLink>wordpress.studio/docs/studio-code</learnMoreLink>.'
+	);
+	return `${ formatAiAccessRequiredHeadline( quota ) } ${ learnMoreSentence }`;
 }
 
 /**

@@ -1,4 +1,4 @@
-import { moveAiSessionsToStudioDir } from '@studio/common/ai/sessions/root-migration';
+import { moveAiSessionsToStudioDir } from '@studio/agent/node/sessions/root-migration';
 import { checkStudioCompatibilityForInitialMigration } from './00-check-studio-compatibility';
 import { hideStudioDirWindows } from './01-hide-studio-dir-windows';
 import { renameProcessManagerHome } from './03-rename-pm-home';

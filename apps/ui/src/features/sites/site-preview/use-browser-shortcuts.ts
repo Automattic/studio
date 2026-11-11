@@ -5,7 +5,7 @@ import {
 	getBrowserShortcutDescriptor,
 	getNavigationShortcutDescriptor,
 } from './browser-shortcuts';
-import type { BrowserShortcutCommand } from '@studio/common/ai/inspector/page-script';
+import type { BrowserShortcutCommand } from '@studio/agent/protocol/inspector/page-script';
 
 // Browser shortcuts (⌘R / ⌘[ / ⌘] / ⌘←/⌘→) pressed anywhere in the host
 // document but a dialog, the composer included. Shortcuts pressed inside the

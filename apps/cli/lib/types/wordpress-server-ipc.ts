@@ -86,7 +86,7 @@ const childMessageActivity = z.object( {
 } );
 
 // The steps of a site start, timed for the `studio_site_start` Tracks event.
-export const SITE_START_PHASES = [
+const SITE_START_PHASES = [
 	'wp_config',
 	'wordpress_install',
 	'blueprint',

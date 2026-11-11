@@ -1,15 +1,28 @@
-.root {
+.root,
+.activityItems {
 	display: flex;
 	flex-direction: column;
 	gap: var( --space-6 );
 }
 
-.root > [data-joined-above] {
-	margin-top: calc( var( --space-5 ) * -1 );
+.speakerGroup,
+.activityItems {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-1 );
 }
 
-/* Rows off screen skip layout and paint. The clip margin keeps focus rings
-   that paint containment would cut; without it, every row renders. */
+.activityItems > [data-trace-row] + :not( [data-trace-row] ),
+.activityItems > :not( [data-trace-row] ) + [data-trace-row] {
+	margin-block-start: var( --space-2 );
+}
+
+.speakerGroup + .speakerGroup:has( > [data-turn-activity]:first-child ) {
+	margin-block-start: calc( var( --space-4_5 ) - var( --space-6 ) );
+}
+
+/* Only speaker groups skip layout and paint: collapsible contents need their real
+   height for animation measurements. The clip margin preserves focus rings. */
 @supports ( overflow-clip-margin: 4px ) {
 	.root > * {
 		content-visibility: auto;
@@ -21,12 +34,20 @@
 .mediaArtifacts {
 	display: flex;
 	flex-direction: column;
-	gap: var( --space-3 );
+	gap: var( --space-1 );
 }
 
 .mediaArtifactImage {
+	composes: imageOutline from '@/lib/theme/recipes.module.css';
+	position: relative;
 	max-width: 100%;
 	border-radius: var( --radius-lg );
+}
+
+.mediaArtifactImage img {
+	display: block;
+	width: 100%;
+	border-radius: inherit;
 }
 
 .marker {

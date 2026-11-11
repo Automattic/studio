@@ -38,7 +38,6 @@ export function useKonamiCode( onActivate: () => void ) {
 					onActivate();
 					return;
 				}
-				// Reset the sequence if no key is pressed within the time window
 				if ( timerRef.current !== null ) clearTimeout( timerRef.current );
 				timerRef.current = setTimeout( resetSequence, RESET_TIMEOUT_MS );
 			} else {

@@ -1,3 +1,4 @@
+import { getDefaultSidebarChatSort } from '@studio/common/lib/user-settings/preferences';
 import { __ } from '@wordpress/i18n';
 import { errorMessage, toast } from '@/data/app-messages';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
@@ -6,7 +7,13 @@ import type { UserPreferences } from '@/data/core';
 type SidebarPreferences = Partial<
 	Pick<
 		UserPreferences,
-		'sidebarPins' | 'sidebarChatOrder' | 'showRecentChats' | 'autoCollapseSites'
+		| 'sidebarPins'
+		| 'sidebarChatOrder'
+		| 'sidebarPinnedSort'
+		| 'sidebarSiteSort'
+		| 'sidebarChatSort'
+		| 'showRecentChats'
+		| 'autoCollapseSites'
 	>
 >;
 
@@ -40,6 +47,11 @@ export function useSidebarPreferences() {
 	return {
 		pins: preferences?.sidebarPins ?? NO_PINS,
 		chatOrder: preferences?.sidebarChatOrder ?? NO_ORDER,
+		pinnedSort: preferences?.sidebarPinnedSort ?? 'type',
+		siteSort: preferences?.sidebarSiteSort ?? 'manual',
+		chatSort:
+			preferences?.sidebarChatSort ??
+			getDefaultSidebarChatSort( preferences?.sidebarChatOrder ?? NO_ORDER ),
 		showRecentChats: preferences?.showRecentChats !== false,
 		autoCollapseSites: preferences?.autoCollapseSites !== false,
 		save,

@@ -3,11 +3,10 @@ import { isSupportedBackupFilename } from '@studio/common/lib/backup-files';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { __, sprintf } from '@wordpress/i18n';
 import { useRef, useState } from 'react';
-import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useImportSite } from '@/data/queries/use-import-site';
 import { useSettleSync } from '@/data/queries/use-sync-site';
-import { applySyncActivity, useSiteSyncActivity } from '@/data/sync-activity';
+import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useConfirmOnEnter } from '@/lib/keyboard';
 import {
 	AlertDialog,
@@ -38,6 +37,7 @@ export function useSiteBackupImport( site: SiteDetails ) {
 	const settleSync = useSettleSync();
 	// Everything here is stamped with a site id, so a pending pick can't follow
 	// the user to another site's surface.
+	const [ validationError, setValidationError ] = useState< string | null >( null );
 	const [ pending, setPending ] = useState< PendingImport | null >( null );
 
 	// The activity store is keyed by site and lives outside React, so progress
@@ -54,13 +54,14 @@ export function useSiteBackupImport( site: SiteDetails ) {
 		// The input's `accept` filter is advisory — a drag or an "All files"
 		// pick can still hand us something unsupported.
 		if ( ! isSupportedBackupFilename( picked.name ) ) {
-			toast.error(
+			setValidationError(
 				__(
-					'This file type is not supported. Please use a .zip, .gz, .gzip, .tar, .tar.gz, .wpress, .sql, or .xml file.'
+					'This file type is not supported. Please use a .zip, .gz, .gzip, .tar, .tar.gz, .wpress, .sql, or .xml file'
 				)
 			);
 			return;
 		}
+		setValidationError( null );
 		setPending( { siteId: site.id, file: picked, confirming: true } );
 	};
 
@@ -77,7 +78,7 @@ export function useSiteBackupImport( site: SiteDetails ) {
 		const { id: siteId } = site;
 		closeDialog();
 		// Covers the backup's upload too, before the CLI starts reporting.
-		applySyncActivity( siteId, { kind: 'pending', direction: 'import' } );
+		settleSync( siteId, { kind: 'pending', direction: 'import' } );
 		try {
 			const backupPath = await connector.getFilePath( file );
 			if ( ! backupPath ) {
@@ -98,6 +99,8 @@ export function useSiteBackupImport( site: SiteDetails ) {
 	};
 
 	return {
+		validationError,
+		clearValidationError: () => setValidationError( null ),
 		file: active?.file ?? null,
 		isConfirming: active?.confirming ?? false,
 		selectFile,
@@ -113,6 +116,8 @@ interface ImportSiteDialogProps {
 	open: boolean;
 	onCancel: () => void;
 	onConfirm: () => void;
+	validationError?: string | null;
+	onClearValidationError?: () => void;
 }
 
 export function ImportSiteDialog( {
@@ -121,14 +126,31 @@ export function ImportSiteDialog( {
 	open,
 	onCancel,
 	onConfirm,
+	validationError,
+	onClearValidationError,
 }: ImportSiteDialogProps ) {
 	const confirmLabel = __( 'Import' );
 	const handleKeyDown = useConfirmOnEnter( confirmLabel );
 	const cancelRef = useRef< HTMLButtonElement >( null );
 
+	if ( validationError ) {
+		return (
+			<AlertDialog open onOpenChange={ ( next ) => ! next && onClearValidationError?.() }>
+				<DialogContent layout="compact">
+					<DialogHeader>
+						<DialogTitle>{ __( 'Unsupported backup file' ) }</DialogTitle>
+						<DialogDescription>{ validationError }</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<Button onClick={ onClearValidationError }>{ __( 'Done' ) }</Button>
+					</DialogFooter>
+				</DialogContent>
+			</AlertDialog>
+		);
+	}
 	return (
 		<AlertDialog open={ open } onOpenChange={ ( next ) => ! next && onCancel() }>
-			<DialogContent initialFocus={ cancelRef } onKeyDown={ handleKeyDown }>
+			<DialogContent layout="compact" initialFocus={ cancelRef } onKeyDown={ handleKeyDown }>
 				<DialogHeader>
 					<DialogTitle>{ sprintf( __( 'Overwrite %s?' ), site.name ) }</DialogTitle>
 					<DialogDescription>
@@ -144,7 +166,9 @@ export function ImportSiteDialog( {
 					</Button>
 					{ /* Not destructive: the importer moves the site's existing wp-content
 					     and database to the trash rather than deleting them. */ }
-					<Button onClick={ onConfirm }>{ confirmLabel }</Button>
+					<Button variant="accent" onClick={ onConfirm }>
+						{ confirmLabel }
+					</Button>
 				</DialogFooter>
 			</DialogContent>
 		</AlertDialog>

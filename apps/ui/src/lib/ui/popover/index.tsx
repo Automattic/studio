@@ -6,7 +6,19 @@ import type { ComponentProps, CSSProperties, ReactNode } from 'react';
 
 export const Root = BasePopover.Root;
 export const Trigger = BasePopover.Trigger;
-export const Title = BasePopover.Title;
+export const Arrow = BasePopover.Arrow;
+export function Title( { className, ...props }: ComponentProps< typeof BasePopover.Title > ) {
+	return <BasePopover.Title { ...props } className={ clsx( styles.title, className ) } />;
+}
+
+export function Description( {
+	className,
+	...props
+}: ComponentProps< typeof BasePopover.Description > ) {
+	return (
+		<BasePopover.Description { ...props } className={ clsx( styles.description, className ) } />
+	);
+}
 
 type PositionerProps = ComponentProps< typeof BasePopover.Positioner >;
 type PopupProps = ComponentProps< typeof BasePopover.Popup >;
@@ -25,41 +37,54 @@ export function Popup( {
 	align = 'start',
 	sideOffset = 4,
 	alignOffset,
+	arrowPadding,
 	anchor,
 	backdrop = false,
+	keepMounted = false,
 	className,
 	style,
 	initialFocus,
 	finalFocus,
 	variant = 'floating',
+	instant = false,
+	'data-color-scheme': colorScheme,
 	'aria-label': ariaLabel,
+	'aria-describedby': ariaDescribedBy,
 }: {
 	children: ReactNode;
 	side?: PositionerProps[ 'side' ];
 	align?: PositionerProps[ 'align' ];
 	sideOffset?: number;
 	alignOffset?: number;
+	arrowPadding?: PositionerProps[ 'arrowPadding' ];
 	anchor?: PositionerProps[ 'anchor' ];
 	// Catches outside clicks that would otherwise land in a webview and never dismiss it.
 	backdrop?: boolean;
+	keepMounted?: boolean;
 	className?: string;
 	style?: CSSProperties;
 	initialFocus?: PopupProps[ 'initialFocus' ];
 	finalFocus?: PopupProps[ 'finalFocus' ];
 	variant?: 'floating' | 'commands';
+	instant?: boolean;
+	'data-color-scheme'?: 'light' | 'dark';
 	'aria-label'?: string;
+	'aria-describedby'?: string;
 } ) {
 	const commands = variant === 'commands';
 	return (
-		<BasePopover.Portal>
+		<BasePopover.Portal keepMounted={ keepMounted }>
 			{ backdrop ? <BasePopover.Backdrop className={ styles.backdrop } /> : null }
 			{ /* Fixed, so a popup sliding in from off-screen can't scroll the page sideways. */ }
 			<BasePopover.Positioner
 				positionMethod="fixed"
+				data-color-scheme={ colorScheme }
+				style={ colorScheme ? ( { '--accent-fill': 'initial' } as CSSProperties ) : undefined }
 				side={ side }
 				align={ align }
 				sideOffset={ sideOffset }
 				alignOffset={ alignOffset }
+				arrowPadding={ arrowPadding }
 				anchor={ anchor }
 				collisionAvoidance={ commands ? COMMANDS_COLLISION_AVOIDANCE : undefined }
 				collisionPadding={ commands ? 5 : undefined }
@@ -67,9 +92,11 @@ export function Popup( {
 			>
 				<BasePopover.Popup
 					data-slot="popover-content"
+					data-instant={ instant || undefined }
 					initialFocus={ initialFocus }
 					finalFocus={ finalFocus }
 					aria-label={ ariaLabel }
+					aria-describedby={ ariaDescribedBy }
 					render={
 						commands ? (
 							<div className={ clsx( styles.commands, className ) } style={ style } />

@@ -1,6 +1,8 @@
 export { ConnectorProvider, useConnector } from './connector-context';
 export { queryClient, persistPromise } from './query-client';
 export type {
+	AgentApp,
+	AgentAppId,
 	AiModelId,
 	AiSessionMetadata,
 	AiSessionSummary,
@@ -16,8 +18,12 @@ export type {
 	PushSyncOptions,
 	QuitSitesBehavior,
 	SessionEntry,
+	SelectedSiteFolder,
 	SiteDesign,
 	SiteDetails,
+	SiteEmail,
+	SiteEmailAddress,
+	SiteEmailSummary,
 	SiteAgentFileKind,
 	SkillStatus,
 	Snapshot,
@@ -34,4 +40,4 @@ export type {
 	UserPreferences,
 	WritableUserPreferences,
 } from './types';
-export type { AgentEvent, AgentRunEvent } from '@studio/common/ai/agent-events';
+export type { AgentEvent, AgentRunEvent } from '@studio/agent/protocol/agent-events';

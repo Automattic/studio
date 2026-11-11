@@ -16,26 +16,24 @@ describe( 'getComposerCommands', () => {
 		canChangeEnvironment: false,
 	};
 
-	it( 'always offers connecting a provider', () => {
-		expect( names( getComposerCommands( base ) ) ).toEqual( [ 'connect-provider' ] );
+	it( 'always offers attachments and connecting a provider', () => {
+		expect( names( getComposerCommands( base ) ) ).toEqual( [ 'add-files', 'connect-provider' ] );
 	} );
 
 	it( 'offers auto-start until it is on, and the model when it can be chosen', () => {
 		expect(
 			names( getComposerCommands( { ...base, canAutoStart: true, canChooseModel: true } ) )
-		).toEqual( [ 'auto-start', 'model', 'connect-provider' ] );
+		).toEqual( [ 'add-files', 'auto-start', 'model', 'connect-provider' ] );
 		expect(
 			names( getComposerCommands( { ...base, canAutoStart: true, autoStartOn: true } ) )
-		).toEqual( [ 'connect-provider' ] );
+		).toEqual( [ 'add-files', 'connect-provider' ] );
 	} );
 
-	it( 'offers the other environment, the live one only with a live site', () => {
+	it( 'offers switching back to the local site from the live one', () => {
 		const local = { ...base, canChangeEnvironment: true };
-		expect( names( getComposerCommands( local ) ) ).toEqual( [ 'connect-provider' ] );
-		expect(
-			getComposerCommands( { ...local, liveUrl: 'https://example.com' } ).at( -1 )
-		).toMatchObject( { name: 'live', description: 'https://example.com' } );
+		expect( names( getComposerCommands( local ) ) ).toEqual( [ 'add-files', 'connect-provider' ] );
 		expect( names( getComposerCommands( { ...local, environment: 'live' } ) ) ).toEqual( [
+			'add-files',
 			'connect-provider',
 			'local',
 		] );
@@ -44,12 +42,12 @@ describe( 'getComposerCommands', () => {
 
 describe( 'getCommandGroups', () => {
 	const command = ( name: string ) => ( { name, description: '' } );
-	const commands = [ command( 'model' ), command( 'connect-provider' ) ];
+	const commands = [ command( 'add-files' ), command( 'model' ), command( 'connect-provider' ) ];
 	const skills = [ command( 'annotate' ), command( 'liberate' ) ];
 	const values = ( group: { items: { value: string }[] } ) =>
 		group.items.map( ( item ) => item.value );
 
-	it( 'lists every command and skill in the add menu, after adding files', () => {
+	it( 'lists suggested commands and skills in the add menu', () => {
 		const [ actions, skillGroup ] = getCommandGroups( {
 			addOpen: true,
 			commands,
@@ -57,8 +55,9 @@ describe( 'getCommandGroups', () => {
 			matches: [],
 			isDisabled: () => false,
 		} );
-		expect( values( actions ) ).toEqual( [ 'add-files', 'model', 'connect-provider' ] );
+		expect( values( actions ) ).toEqual( [ 'add-files', 'connect-provider' ] );
 		expect( values( skillGroup ) ).toEqual( [ 'annotate', 'liberate' ] );
+		expect( skillGroup.heading ).toBe( 'Skills' );
 	} );
 
 	it( 'splits slash matches into commands and skills', () => {
@@ -67,12 +66,35 @@ describe( 'getCommandGroups', () => {
 			commands,
 			skills,
 			matches: [ command( 'liberate' ), command( 'model' ) ],
+			searching: true,
 			isDisabled: ( name ) => name === 'model',
 		} );
 		expect( actions.items ).toEqual( [
 			expect.objectContaining( { value: 'model', disabled: true } ),
 		] );
 		expect( values( skillGroup ) ).toEqual( [ 'liberate' ] );
+		expect( skillGroup.heading ).toBeUndefined();
+	} );
+
+	it( 'keeps stop and panel out of default suggestions but includes their search matches', () => {
+		const utilities = [ command( 'stop' ), command( 'panel' ) ];
+		const options = {
+			commands: [ ...commands, ...utilities ],
+			skills,
+			matches: [ ...commands, ...utilities ],
+			isDisabled: () => false,
+		};
+		for ( const addOpen of [ true, false ] ) {
+			const [ actions ] = getCommandGroups( { ...options, addOpen } );
+			expect( values( actions ) ).toEqual( [ 'add-files', 'connect-provider' ] );
+		}
+		const [ actions ] = getCommandGroups( {
+			...options,
+			addOpen: false,
+			searching: true,
+			matches: utilities,
+		} );
+		expect( values( actions ) ).toEqual( [ 'stop', 'panel' ] );
 	} );
 } );
 

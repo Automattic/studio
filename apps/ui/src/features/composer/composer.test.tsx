@@ -1,4 +1,5 @@
 import { DEFAULT_MODEL } from '@studio/agent/protocol/models';
+import { createEmptyAiConnections } from '@studio/agent/protocol/providers';
 import { getAiSkillCommands } from '@studio/agent/protocol/slash-commands';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { createRef, useState, type ComponentProps } from 'react';
@@ -30,10 +31,10 @@ const interrupt = vi.fn( async () => {} );
 
 const ANTHROPIC_KEY = {
 	provider: 'wpcom' as const,
-	connections: {
+	connections: createEmptyAiConnections( {
 		wpcom: { connected: true, apiKeyPreview: null },
 		'anthropic-api-key': { connected: true, apiKeyPreview: 'sk-ant-api03-tes...1234' },
-	},
+	} ),
 };
 
 const OUT_OF_CREDITS = {

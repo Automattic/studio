@@ -1,19 +1,19 @@
+import { createEmptyAiConnections, type AiSettings } from '@studio/agent/protocol/providers';
 import { screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { Connector } from '@/data/core';
-import type { AiSettings } from '@studio/agent/protocol/providers';
 
 const site = makeSite( { id: 'one', name: 'My site', path: '/sites/my-site' } );
 
 const withKey = ( provider: AiSettings[ 'provider' ] ): Partial< Connector > => ( {
 	getAiSettings: async () => ( {
 		provider,
-		connections: {
+		connections: createEmptyAiConnections( {
 			wpcom: { connected: true, apiKeyPreview: null },
 			'anthropic-api-key': { connected: true, apiKeyPreview: 'test' },
-		},
+		} ),
 	} ),
 } );
 

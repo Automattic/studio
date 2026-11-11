@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'tmpdir'
+
 fastlane_require 'digest'
 fastlane_require 'zip'
 fastlane_require 'aws-sdk-cloudfront'
@@ -8,6 +10,7 @@ fastlane_require 'net/http'
 fastlane_require 'octokit'
 fastlane_require 'uri'
 
+require_relative 'lib/microsoft_store_submission'
 require_relative 'lib/studio_release_git'
 require_relative 'lib/studio_release_version'
 
@@ -44,6 +47,10 @@ APPLE_BUNDLE_IDENTIFIER = 'com.automattic.studio'
 WPCOM_STUDIO_SITE_ID = '239164481'
 WPCOM_STUDIO_PHP_CLI_PRODUCT = 'WordPress.com Studio PHP CLI'
 WPCOM_STUDIO_CLI_PRODUCT = 'WordPress.com Studio CLI'
+
+# Partner Center product ID of the Studio listing (apps.microsoft.com/detail/9pntbl35pzvs)
+MICROSOFT_STORE_APP_ID = '9PNTBL35PZVS'
+MICROSOFT_STORE_CREDENTIAL_KEYS = %w[MICROSOFT_STORE_TENANT_ID MICROSOFT_STORE_CLIENT_ID MICROSOFT_STORE_CLIENT_SECRET].freeze
 
 GITHUB_REPO = 'Automattic/studio'
 MAIN_BRANCH = 'trunk'
@@ -502,6 +509,7 @@ lane :publish_release do |version:, skip_confirm: false, github_username: nil|
     - Publish the draft GitHub release for v#{version}
     - Create a backmerge PR from `#{release_branch}` into `#{MAIN_BRANCH}`
     - Remove the branch protection from `#{release_branch}` and delete it
+    - Submit the Appx packages to the Microsoft Store (skipped when MICROSOFT_STORE_* credentials are missing)
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 
@@ -526,7 +534,32 @@ lane :publish_release do |version:, skip_confirm: false, github_username: nil|
   Fastlane::Helper::GitHelper.checkout_and_pull(MAIN_BRANCH)
   Fastlane::Helper::GitHelper.delete_local_branch_if_exists!(release_branch)
 
+  # Last, and never fatal: everything above has already happened and can't be re-run, while the
+  # Store submission can be retried on its own with the submit_to_microsoft_store lane.
+  begin
+    submit_release_to_microsoft_store(version: version)
+  rescue StandardError => e
+    report_microsoft_store_failure(version: version, error: e)
+  end
+
   UI.success("Release v#{version} published!")
+end
+
+# Submit the release's Appx packages to the Microsoft Store as a new submission of the Studio listing.
+#
+# {publish_release} calls this automatically. Run it on its own to retry a failed submission:
+#
+#   bundle exec fastlane submit_to_microsoft_store version:"1.8.0"
+#
+# Needs GITHUB_TOKEN plus the MICROSOFT_STORE_* credentials of an Entra ID app that has the
+# Manager role in Partner Center.
+#
+# @param version [String] The published version (e.g., '1.8.0')
+# @param discard_pending_submission [Boolean] Delete an unpublished submission already open in Partner Center
+#
+lane :submit_to_microsoft_store do |version:, discard_pending_submission: false|
+  # Lane options passed on the command line arrive as strings
+  submit_release_to_microsoft_store(version: version, discard_pending_submission: discard_pending_submission.to_s == 'true', require_credentials: true)
 end
 
 # Create a hotfix release branch from the latest release tag.
@@ -1407,6 +1440,14 @@ def create_draft_github_release(version:, release_tag:, builds:)
 
   body += "\n<!-- CDN_POST_IDS:#{cdn_post_ids.join(',')} -->"
 
+  # Lets publish_release find the Appx packages to submit to the Microsoft Store.
+  store_package_urls = MICROSOFT_STORE_BUILDS.keys.filter_map { |key| builds.dig(key, :cdn_url) }
+  if store_package_urls.size == MICROSOFT_STORE_BUILDS.size
+    body += "\n#{MicrosoftStoreSubmission.release_body_marker(store_package_urls)}"
+  else
+    UI.important('Missing CDN URLs for the Appx packages: publish_release will not be able to submit to the Microsoft Store.')
+  end
+
   release_name = github_release_name(version:)
   release_notes_path = File.join(PROJECT_ROOT_FOLDER, 'fastlane', 'github_release_notes.txt')
   File.write(release_notes_path, body)
@@ -1460,6 +1501,101 @@ def make_cdn_builds_public(version:)
   )
 
   UI.success('All CDN builds are now public (External visibility)')
+end
+
+# Appx builds from {distribute_builds} that go to the Microsoft Store, with their architecture.
+MICROSOFT_STORE_BUILDS = {
+  windows_appx_unsigned: 'x64',
+  windows_arm64_appx_unsigned: 'arm64'
+}.freeze
+
+def microsoft_store_credentials_configured?
+  MICROSOFT_STORE_CREDENTIAL_KEYS.all? { |key| !ENV[key].to_s.empty? }
+end
+
+# Download the release's Appx packages from the Apps CDN and submit them to the Microsoft Store.
+#
+# Without credentials this only warns (or fails when `require_credentials` is set), so releases keep
+# working until the Partner Center client is set up in CI.
+#
+def submit_release_to_microsoft_store(version:, discard_pending_submission: false, require_credentials: false)
+  unless microsoft_store_credentials_configured?
+    message = "Microsoft Store credentials (#{MICROSOFT_STORE_CREDENTIAL_KEYS.join(', ')}) are not set."
+    UI.user_error!(message) if require_credentials
+    UI.important("#{message} Skipping the Microsoft Store submission: upload the Appx packages in Partner Center by hand.")
+    return
+  end
+
+  package_urls = microsoft_store_package_urls(version: version)
+  UI.user_error!("No Microsoft Store packages listed in the GitHub release for #{version} (no MS_STORE_PACKAGES comment in its body).") if package_urls.empty?
+
+  appx_version = "#{StudioReleaseVersion.base_version(version)}.0"
+  package_names = MICROSOFT_STORE_BUILDS.values.map { |arch| "Studio-#{appx_version}-#{arch}.appx" }
+  UI.user_error!("Expected #{package_names.size} Microsoft Store packages, found #{package_urls.size}.") unless package_urls.size == package_names.size
+
+  if DRY_RUN
+    UI.message("[DRY RUN] Would submit #{package_names.join(', ')} to Microsoft Store app #{MICROSOFT_STORE_APP_ID} from #{package_urls.join(', ')}")
+    return
+  end
+
+  Dir.mktmpdir('studio-microsoft-store-') do |dir|
+    zip_path = File.join(dir, 'packages.zip')
+    Zip::OutputStream.open(zip_path) do |zip|
+      package_names.zip(package_urls).each do |name, url|
+        package_path = File.join(dir, name)
+        UI.message("Downloading #{url}")
+        download_file(url: url, path: package_path)
+        zip.put_next_entry(name)
+        File.open(package_path, 'rb') { |file| IO.copy_stream(file, zip) }
+      end
+    end
+
+    client = MicrosoftStoreSubmission.new(
+      tenant_id: ENV.fetch('MICROSOFT_STORE_TENANT_ID'),
+      client_id: ENV.fetch('MICROSOFT_STORE_CLIENT_ID'),
+      client_secret: ENV.fetch('MICROSOFT_STORE_CLIENT_SECRET'),
+      application_id: MICROSOFT_STORE_APP_ID,
+      logger: ->(message) { UI.message(message) }
+    )
+    result = client.submit(packages: package_names, zip_path: zip_path, discard_pending_submission: discard_pending_submission)
+
+    message = "Submitted v#{version} to the Microsoft Store (submission #{result[:submission_id]}, status #{result[:status]}). " \
+              "Track certification in [Partner Center](https://partner.microsoft.com/dashboard/products/#{MICROSOFT_STORE_APP_ID}/overview)."
+    UI.success(message)
+    buildkite_annotate(context: 'microsoft-store', style: 'success', message: message) if is_ci?
+  end
+end
+
+def report_microsoft_store_failure(version:, error:)
+  message = "Microsoft Store submission for v#{version} failed: #{error.message}. " \
+            "Retry with `bundle exec fastlane submit_to_microsoft_store version:#{version}` or upload the Appx packages in Partner Center."
+  UI.error(message)
+  buildkite_annotate(context: 'microsoft-store', style: 'error', message: message) if is_ci?
+end
+
+# Find the Store package URLs embedded by {create_draft_github_release}. Looks at drafts and published
+# releases alike, so the submit_to_microsoft_store lane also works after publish_release.
+def microsoft_store_package_urls(version:)
+  client = Octokit::Client.new(access_token: get_required_env('GITHUB_TOKEN'), auto_paginate: true)
+  release = client.releases(GITHUB_REPO).find { |r| r.name == github_release_name(version:) }
+  MicrosoftStoreSubmission.package_urls_from_release_body(release&.body)
+end
+
+def download_file(url:, path:, redirects_left: 5)
+  uri = URI(url)
+  Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https', read_timeout: 300) do |http|
+    http.request(Net::HTTP::Get.new(uri)) do |response|
+      case response
+      when Net::HTTPRedirection
+        UI.user_error!("Too many redirects downloading #{url}") if redirects_left.zero?
+        return download_file(url: URI.join(url, response['location']).to_s, path: path, redirects_left: redirects_left - 1)
+      when Net::HTTPSuccess
+        File.open(path, 'wb') { |file| response.read_body { |chunk| file.write(chunk) } }
+      else
+        UI.user_error!("Downloading #{url} failed: HTTP #{response.code}")
+      end
+    end
+  end
 end
 
 # Extract CDN post IDs from the draft GitHub release body.

@@ -11,41 +11,41 @@ export const BLUEPRINT_USE_CASES = [
 
 export type BlueprintUseCase = ( typeof BLUEPRINT_USE_CASES )[ number ];
 
-// The registry's categories don't say what each Blueprint is for, and only some
-// have a hosted demo. Keyed by registry slug until the catalog ships with Studio.
-const CATALOG: Record< string, { useCases: BlueprintUseCase[]; demoUrl?: string } > = {
-	'wedding-rsvp': { useCases: [ 'events' ] },
-	'stylish-press-2': { useCases: [ 'store' ] },
-	'university-website-2': {
-		useCases: [ 'business' ],
-		demoUrl: 'https://kentwooddemo.wordpress.com/',
-	},
-	'skincare-blog-2': { useCases: [ 'blog' ], demoUrl: 'https://goodskindemo.wordpress.com/' },
-	'photography-portfolio': {
-		useCases: [ 'portfolio' ],
-		demoUrl: 'https://grammerthemedemo.wordpress.com/',
-	},
-	'personal-resume-2': {
-		useCases: [ 'portfolio' ],
-		demoUrl: 'https://readymadedemo.wordpress.com/',
-	},
-	substrata: { useCases: [ 'blog' ], demoUrl: 'https://substratademo.wordpress.com/' },
-	'non-profit-organization-2': {
-		useCases: [ 'business' ],
-		demoUrl: 'https://koinoniathemedemo.wordpress.com/',
-	},
-	'gaming-news-2': { useCases: [ 'blog' ], demoUrl: 'https://spieldemo.wordpress.com/' },
-	'woo-shop': { useCases: [ 'store' ] },
-	development: { useCases: [ 'development' ] },
-	'quick-start': { useCases: [ 'business' ] },
+// Only some Blueprints have a hosted demo. Keyed by registry slug.
+const DEMO_URLS: Record< string, string > = {
+	'university-website-2': 'https://kentwooddemo.wordpress.com/',
+	'skincare-blog-2': 'https://goodskindemo.wordpress.com/',
+	'photography-portfolio': 'https://grammerthemedemo.wordpress.com/',
+	'personal-resume-2': 'https://readymadedemo.wordpress.com/',
+	substrata: 'https://substratademo.wordpress.com/',
+	'non-profit-organization-2': 'https://koinoniathemedemo.wordpress.com/',
+	'gaming-news-2': 'https://spieldemo.wordpress.com/',
 };
 
-export function getBlueprintUseCases( blueprint: Pick< Blueprint, 'slug' > ): BlueprintUseCase[] {
-	return CATALOG[ blueprint.slug ]?.useCases ?? [];
+function getBlueprintCategories( blueprint: Pick< Blueprint, 'blueprint' > ): string[] {
+	const meta = blueprint.blueprint.meta as { categories?: unknown } | null | undefined;
+	if ( ! Array.isArray( meta?.categories ) ) {
+		return [];
+	}
+	return meta.categories.filter( ( category ): category is string => typeof category === 'string' );
+}
+
+// Use cases come from the categories each Blueprint has in the registry
+// (`meta.categories`). Matching ignores case and accepts the singular, so the
+// registry's "Event" category maps to `events`.
+export function getBlueprintUseCases(
+	blueprint: Pick< Blueprint, 'blueprint' >
+): BlueprintUseCase[] {
+	const categories = new Set(
+		getBlueprintCategories( blueprint ).map( ( category ) => category.trim().toLowerCase() )
+	);
+	return BLUEPRINT_USE_CASES.filter(
+		( useCase ) => categories.has( useCase ) || categories.has( useCase.replace( /s$/, '' ) )
+	);
 }
 
 export function getBlueprintPreviewUrl(
 	blueprint: Pick< Blueprint, 'slug' | 'playground_url' >
 ): string {
-	return CATALOG[ blueprint.slug ]?.demoUrl ?? blueprint.playground_url;
+	return DEMO_URLS[ blueprint.slug ] ?? blueprint.playground_url;
 }

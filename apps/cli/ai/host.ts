@@ -2,6 +2,7 @@ import path from 'path';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
+import { legacyPullOptions, reprintPullFlags } from '@studio/common/lib/sync/pull-options';
 import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
 import { __ } from '@wordpress/i18n';
 import { getStudioUserAgent } from 'cli/ai/providers';
@@ -26,7 +27,6 @@ import { getWpComSites } from 'cli/lib/api';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { findSiteByFolder, getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
-import { pullSelectionFromSyncOptions } from 'cli/lib/pull/pull-selection';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
@@ -177,22 +177,25 @@ export const cliAgentHost: StudioAgentHost = {
 				remoteSite,
 				new Logger( { onProgress } )
 			),
-		pull: async ( site, options, remoteSite, onProgress ) =>
-			isReprintPullEnabled()
-				? runPullCommand(
-						site.path,
-						remoteSite,
-						false,
-						pullSelectionFromSyncOptions( parseSyncOptions( options ) ),
-						onProgress
-				  )
-				: runLegacyPullCommand(
-						site.path,
-						parseSyncOptions( options ),
-						remoteSite,
-						undefined,
-						new Logger( { onProgress } )
-				  ),
+		pull: async ( site, options, remoteSite, onProgress ) => {
+			if ( isReprintPullEnabled() ) {
+				return runPullCommand(
+					site.path,
+					remoteSite,
+					false,
+					reprintPullFlags( options ),
+					onProgress
+				);
+			}
+			const { optionsToSync, includePathList } = legacyPullOptions( options );
+			return runLegacyPullCommand(
+				site.path,
+				optionsToSync,
+				remoteSite,
+				includePathList,
+				new Logger( { onProgress } )
+			);
+		},
 	},
 	wpcom: {
 		sites: ( accessToken ) => getWpComSites( accessToken ),

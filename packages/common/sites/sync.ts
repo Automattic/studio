@@ -1,5 +1,11 @@
 import { killChild } from '@studio/common/lib/cli-process';
 import { isSyncCancelledError, SyncCancelledError } from '@studio/common/lib/sync/cancel';
+import {
+	FULL_PULL,
+	legacyPullOptions,
+	reprintPullFlags,
+} from '@studio/common/lib/sync/pull-options';
+import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
 import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 import type { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync';
 
@@ -69,11 +75,31 @@ export function pushSite(
 	);
 }
 
+// The arguments for the pull engine the CLI runs, which reads the same environment.
+function pullSelectionArgs( options: PullSyncOptions ): string[] {
+	if ( isReprintPullEnabled() ) {
+		const { skipDatabase, skipFiles, only = [] } = reprintPullFlags( options );
+		return [
+			...( skipDatabase ? [ '--skip-database' ] : [] ),
+			...( skipFiles ? [ '--skip-files' ] : [] ),
+			...only.flatMap( ( path ) => [ '--only', path ] ),
+		];
+	}
+	const { optionsToSync, includePathList = [] } = legacyPullOptions( options );
+	return [
+		'--options',
+		optionsToSync.join( ',' ),
+		// Each backup node id is its own argv value: ids can contain commas (e.g. themes
+		// `cjE6,ZjE6Lw==`), so a join/split would corrupt them.
+		...( includePathList.length ? [ '--include-path-list', ...includePathList ] : [] ),
+	];
+}
+
 export function pullSite(
 	executeCliCommand: ExecuteCliCommand,
 	siteFolder: string,
 	remoteSiteId: number,
-	options?: PullSyncOptions,
+	options: PullSyncOptions = FULL_PULL,
 	signal?: AbortSignal
 ): Promise< void > {
 	return runSyncCommand(
@@ -84,15 +110,7 @@ export function pullSite(
 			siteFolder,
 			'--remote-site',
 			String( remoteSiteId ),
-			'--options',
-			( options?.optionsToSync?.length ? options.optionsToSync : [ 'all' ] ).join( ',' ),
-			// Pass each backup node id as its own argv value — ids can contain
-			// commas (e.g. themes `cjE6,ZjE6Lw==`), so a join/split would corrupt them.
-			...( options?.includePathList?.length
-				? [ '--include-path-list', ...options.includePathList ]
-				: [] ),
-			// The same picks as paths, for the Reprint pull.
-			...( options?.onlyPaths ?? [] ).flatMap( ( onlyPath ) => [ '--only', onlyPath ] ),
+			...pullSelectionArgs( options ),
 		],
 		signal
 	);

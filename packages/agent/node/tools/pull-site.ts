@@ -1,6 +1,26 @@
 import { Type } from 'typebox';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { textResult } from './utils';
+import type { PulledFilePicks, PullSyncOptions } from '@studio/common/types/sync';
+
+function toPullSyncOptions( database: boolean, files: 'all' | 'none' | string[] ): PullSyncOptions {
+	let picked: 'all' | 'none' | PulledFilePicks = 'none';
+	if ( files === 'all' ) {
+		picked = 'all';
+	} else if ( Array.isArray( files ) ) {
+		const [ firstPath, ...otherPaths ] = files;
+		if ( firstPath !== undefined ) {
+			picked = { paths: [ firstPath, ...otherPaths ] };
+		}
+	}
+	if ( database ) {
+		return { database: true, files: picked };
+	}
+	if ( picked === 'none' ) {
+		throw new Error( 'Nothing to pull: include the database, files, or both.' );
+	}
+	return { database: false, files: picked };
+}
 
 export const pullSiteTool = defineTool(
 	'site_pull',
@@ -14,11 +34,23 @@ export const pullSiteTool = defineTool(
 		remoteSite: Type.String( {
 			description: 'The remote WordPress.com site URL or numeric site ID to pull from',
 		} ),
-		options: Type.Optional(
-			Type.String( {
-				description:
-					'Comma-separated sync options: all, sqls, uploads, plugins, themes, contents. Defaults to "all".',
+		database: Type.Optional(
+			Type.Boolean( {
+				description: 'Whether to pull the database: content, users and settings. Defaults to true.',
 			} )
+		),
+		files: Type.Optional(
+			Type.Union(
+				[
+					Type.Literal( 'all' ),
+					Type.Literal( 'none' ),
+					Type.Array( Type.String(), { minItems: 1 } ),
+				],
+				{
+					description:
+						'Which files to pull: "all" (the default), "none", or paths relative to wp-content, such as "plugins/akismet" or "uploads".',
+				}
+			)
 		),
 	},
 	async ( args, context ) => {
@@ -26,7 +58,7 @@ export const pullSiteTool = defineTool(
 			const site = await context.host.sites.resolve( args.nameOrPath );
 			const remoteSite = await context.host.sync.pull(
 				site,
-				args.options ?? 'all',
+				toPullSyncOptions( args.database ?? true, args.files ?? 'all' ),
 				args.remoteSite,
 				context.onProgress
 			);
@@ -43,7 +75,7 @@ export const pullSiteTool = defineTool(
 	},
 	{
 		promptSnippet:
-			'Pull a WordPress.com site to a local site. Requires authentication. Specify the remote site URL or ID and sync options.',
+			'Pull a WordPress.com site to a local site. Requires authentication. Specify the remote site URL or ID, and optionally whether to pull the database and which files.',
 		annotations: REMOTE_OVERWRITE,
 	}
 );

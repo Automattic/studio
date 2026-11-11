@@ -1,5 +1,5 @@
 import EventEmitter from 'node:events';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { killChild } from '@studio/common/lib/cli-process';
 import { canCancelPull, canCancelPush, isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { createSyncRunner, pullSite, pushSite } from './sync';
@@ -40,37 +40,55 @@ describe( 'pullSite', () => {
 		expect( execute ).not.toHaveBeenCalled();
 	} );
 
-	// Each pull engine reads its own form of a file pick.
-	it( 'passes both selection forms, one argv value per id or path', async () => {
+	const pullArgv = async ( options: Parameters< typeof pullSite >[ 3 ] ) => {
 		const { emitter, execute } = fakeCli();
-		const includePathList = [ 'cjE6,ZjE6Lw==', 'cjI6,ZjI6Lw==', 'ZjM6Lw==' ];
-		const pulling = pullSite( execute, '/sites/local', 42, {
-			optionsToSync: [ 'paths' ],
-			includePathList,
-			onlyPaths: [ 'themes/one,two', 'uploads' ],
-		} );
-
+		const pulling = pullSite( execute, '/sites/local', 42, options );
 		emitter.emit( 'success' );
 		await pulling;
+		return vi.mocked( execute ).mock.calls[ 0 ][ 0 ].slice( 5 );
+	};
+	const backupNodeIds = [ 'cjE6,ZjE6Lw==', 'cjI6,ZjI6Lw==' ];
+	const picks = { paths: [ 'themes/one,two', 'uploads' ] as [ string, string ], backupNodeIds };
 
-		expect( execute ).toHaveBeenCalledWith(
+	describe( 'with the Jetpack Backup pull', () => {
+		it.each( [
+			[ 'everything', undefined, [ '--options', 'all' ] ],
+			[ 'the database', { database: true, files: 'none' } as const, [ '--options', 'sqls' ] ],
 			[
-				'pull',
-				'--path',
-				'/sites/local',
-				'--remote-site',
-				'42',
-				'--options',
-				'paths',
-				'--include-path-list',
-				...includePathList,
-				'--only',
-				'themes/one,two',
-				'--only',
-				'uploads',
+				'all files',
+				{ database: false, files: 'all' } as const,
+				[ '--options', 'plugins,themes,uploads,contents' ],
 			],
-			{ output: 'capture' }
-		);
+			[
+				'picked files, one argv value per id',
+				{ database: true, files: picks } as const,
+				[ '--options', 'paths,sqls', '--include-path-list', ...backupNodeIds ],
+			],
+		] )( 'pulls %s', async ( _, options, expected ) => {
+			expect( await pullArgv( options ) ).toEqual( expected );
+		} );
+	} );
+
+	describe( 'with the Reprint pull', () => {
+		beforeEach( () => {
+			vi.stubEnv( 'STUDIO_ENABLE_PULL_REPRINT', '1' );
+		} );
+		afterEach( () => {
+			vi.unstubAllEnvs();
+		} );
+
+		it.each( [
+			[ 'everything', undefined, [] ],
+			[ 'the database', { database: true, files: 'none' } as const, [ '--skip-files' ] ],
+			[ 'all files', { database: false, files: 'all' } as const, [ '--skip-database' ] ],
+			[
+				'picked files, one argv value per path',
+				{ database: false, files: picks } as const,
+				[ '--skip-database', '--only', 'themes/one,two', '--only', 'uploads' ],
+			],
+		] )( 'pulls %s', async ( _, options, expected ) => {
+			expect( await pullArgv( options ) ).toEqual( expected );
+		} );
 	} );
 } );
 

@@ -3,7 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { parseSyncOptions } from 'cli/lib/sync-api';
 import { StudioArgv } from 'cli/types';
 
-// Both engines' options are accepted so the app can send both; help shows the active engine's.
+// Help shows the active engine's options. The Reprint pull rejects the Jetpack Backup pull's.
 export const builder = ( builderYargs: StudioArgv ) => {
 	const reprint = isReprintPullEnabled();
 	return builderYargs
@@ -53,6 +53,19 @@ export const builder = ( builderYargs: StudioArgv ) => {
 			hidden: ! reprint,
 			describe: __( 'Show detailed error information and executed commands' ),
 			default: false,
+		} )
+		.check( ( argv ) => {
+			if (
+				reprint &&
+				( argv.options !== undefined || argv[ 'include-path-list' ] !== undefined )
+			) {
+				throw new Error(
+					__(
+						'--options and --include-path-list belong to the Jetpack Backup pull. Choose what to pull with --skip-database, --skip-files or --only.'
+					)
+				);
+			}
+			return true;
 		} );
 };
 

@@ -6,7 +6,7 @@ import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import { useSnapshotUsage, useSnapshots } from '@/data/queries/use-snapshots';
-import { getSnapshotOpenUrl, getSnapshotUrl } from '@/data/snapshot-url';
+import { getSnapshotUrl } from '@/data/snapshot-url';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOpenHeaderPanel } from '@/data/use-open-header-panel';
 import { useOffline } from '@/lib/hooks';
@@ -28,7 +28,7 @@ function PreviewLink( {
 		<Menu.Item
 			onClick={ () => {
 				if ( visit ) {
-					void connector.openExternalUrl( getSnapshotOpenUrl( snapshot ) );
+					void connector.openExternalUrl( getSnapshotUrl( snapshot ) );
 					return;
 				}
 				void connector.copyText( getSnapshotUrl( snapshot ) ).then(

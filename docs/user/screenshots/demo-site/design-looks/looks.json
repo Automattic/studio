@@ -1,0 +1,30 @@
+[
+	{
+		"label": "Quiet luxury editorial",
+		"description": "Warm terracotta and white, one serif in spaced capitals, and the bread in the photos doing the talking.",
+		"design": "../wren-and-barley/DESIGN.md",
+		"image": "hero-counter",
+		"file": "quiet-luxury-editorial.jpg"
+	},
+	{
+		"label": "Pastel soft",
+		"description": "Light and airy, with blush and mint fields and a friendly rounded sans.",
+		"design": "pastel-soft.md",
+		"image": "pastry-tray",
+		"file": "pastel-soft.jpg"
+	},
+	{
+		"label": "Mid-century retro",
+		"description": "A bright diner-sign bakery in mustard, teal and burnt orange.",
+		"design": "mid-century-retro.md",
+		"image": "rustic-treats",
+		"file": "mid-century-retro.jpg"
+	},
+	{
+		"label": "Scandinavian",
+		"description": "Calm and clean: pale birch, slate, and plenty of space around the bread.",
+		"design": "scandinavian.md",
+		"image": "artisan-loaves",
+		"file": "scandinavian.jpg"
+	}
+]

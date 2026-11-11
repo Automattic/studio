@@ -119,6 +119,22 @@ describe( 'wpcom_request', () => {
 		expect( site.plan.product_slug ).toBe( 'free_plan' );
 	} );
 
+	it( 'sends DELETE requests as HTTP DELETE with their query', async () => {
+		mocks.req.get.mockResolvedValue( { deleted: true } );
+
+		await wpcomRequest.rawHandler( {
+			siteId: 123,
+			method: 'DELETE',
+			path: '/pages/67',
+			query: { force: true },
+		} );
+
+		expect( mocks.req.get ).toHaveBeenCalledWith(
+			{ path: '/sites/123/pages/67', method: 'DELETE' },
+			{ force: true, apiNamespace: 'wp/v2' }
+		);
+	} );
+
 	it( 'needs a stored WordPress.com login', async () => {
 		mocks.readAuthToken.mockResolvedValue( undefined );
 		await expect(

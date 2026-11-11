@@ -27,6 +27,7 @@ import { createSelectedBlueprint } from '@/features/sites/blueprint-selection';
 import { SiteFileUpload } from '@/features/sites/blueprint-upload';
 import { isBlueprintFile } from '@/features/sites/blueprint-upload/load-blueprint-file';
 import { useBlueprintUpload } from '@/features/sites/blueprint-upload/use-blueprint-upload';
+import { pendingBackupSlot } from '@/features/sites/pending-backup';
 import { pendingBlueprintSlot } from '@/features/sites/pending-blueprint';
 import { pendingSiteFolderSlot } from '@/features/sites/pending-site-folder';
 import { ImportIcon, PlusIcon } from '@/lib/icons';
@@ -205,6 +206,15 @@ export function AddSiteDialog() {
 		},
 		[ setSource, showSetup ]
 	);
+	const pendingBackup = useSyncExternalStore(
+		pendingBackupSlot.subscribe,
+		pendingBackupSlot.getSnapshot
+	);
+	useEffect( () => {
+		if ( ! addSite || ! pendingBackup || progress ) return;
+		selectBackup( pendingBackup );
+		pendingBackupSlot.clear( pendingBackup );
+	}, [ addSite, pendingBackup, progress, selectBackup ] );
 	const upload = useBlueprintUpload( {
 		enabled: !! addSite && ! settings && ! progress,
 		onSelect: selectBlueprint,
@@ -312,7 +322,7 @@ export function AddSiteDialog() {
 				return;
 			}
 			if ( ! connector.capabilities.nativeFolderPicker ) {
-				toast.error( __( 'Open Studio Desktop to add an existing WordPress folder.' ) );
+				toast.error( __( 'Open the WordPress Studio app to add an existing WordPress folder.' ) );
 				return;
 			}
 			void ( async () => {

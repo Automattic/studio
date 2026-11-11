@@ -16,7 +16,7 @@ const skipTestOnWindows = process.platform === 'win32' ? test.skip : test;
 const session = new E2ESession();
 
 async function deleteSite( siteName: string, { keepFiles }: { keepFiles: boolean } ) {
-	await new Sidebar( session.mainWindow ).openContextMenuItem( siteName, 'Delete site' );
+	await new Sidebar( session.mainWindow ).openContextMenuItem( siteName, 'Delete' );
 	const dialog = session.mainWindow.getByRole( 'alertdialog' );
 	const deleteFiles = dialog.getByRole( 'checkbox', {
 		name: 'Also move files and database to Trash',
@@ -36,14 +36,12 @@ async function expectStopped( siteName: string ) {
 	);
 }
 
-// The preview header folds its actions into a More menu when it runs out of room.
-async function previewAction( menuItem: string, button = menuItem ) {
+async function openPreviewInBrowser() {
 	const page = session.mainWindow;
-	const inline = page.getByRole( 'button', { name: button, exact: true } );
+	const inline = page.getByRole( 'button', { name: 'Open this page in your browser' } );
 	await expect( async () => {
 		try {
 			if ( await inline.isVisible() ) {
-				// The address bar reveals its own actions on hover.
 				await page
 					.locator( 'form' )
 					.filter( { has: page.getByRole( 'textbox', { name: 'Address' } ) } )
@@ -51,9 +49,10 @@ async function previewAction( menuItem: string, button = menuItem ) {
 				await inline.click( { timeout: 2000 } );
 			} else {
 				await page
-					.getByRole( 'button', { name: 'More preview actions' } )
-					.click( { timeout: 2000 } );
-				await page.getByRole( 'menuitem', { name: menuItem, exact: true } ).click( {
+					.getByRole( 'tablist', { name: 'Preview tabs' } )
+					.getByRole( 'tab', { selected: true } )
+					.click( { button: 'right', timeout: 2000 } );
+				await page.getByRole( 'menuitem', { name: /^Open in / } ).click( {
 					timeout: 2000,
 				} );
 			}
@@ -102,7 +101,7 @@ test.describe( 'Sites', () => {
 				captured.openedUrls.push( url );
 			};
 		} );
-		await previewAction( 'Open in browser', 'Open this page in your browser' );
+		await openPreviewInBrowser();
 		const openedUrls = () =>
 			session.electronApp.evaluate(
 				() => ( globalThis as typeof globalThis & { openedUrls: string[] } ).openedUrls

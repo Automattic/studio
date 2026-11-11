@@ -1,4 +1,4 @@
-import { act, fireEvent, screen } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import { useState, type ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { createFakeConnector } from '@/test/fake-connector';
@@ -30,14 +30,25 @@ async function setup(
 }
 
 describe( 'annotation control', () => {
-	it( 'shows the ordinary tooltip and toggles without a feature popover', async () => {
-		const { button, user, connector } = await setup();
+	it( 'explains pointing and drawing, then shows Escape when active', async () => {
+		const { button, user, connector } = await setup( { pageTools: true } );
 		await user.hover( button );
-		expect( await screen.findByText( 'Point to anything to describe a change' ) ).toBeVisible();
+		const hint = await screen.findByText( 'Point or draw to suggest a change.' );
+		const tooltip = hint.closest< HTMLElement >( '[data-slot="tooltip-content"]' )!;
+		expect( within( tooltip ).queryByText( 'Annotate' ) ).not.toBeInTheDocument();
+		expect( hint ).toBeVisible();
+		expect( button ).toHaveAccessibleDescription( 'Point or draw to suggest a change.' );
 		await user.click( button );
 		expect( button ).toHaveAttribute( 'aria-pressed', 'true' );
 		expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
 		expect( connector.setOnboardingHints ).not.toHaveBeenCalled();
+		await user.unhover( button );
+		await user.hover( button );
+		const exitLabel = await screen.findByText( 'Stop annotating' );
+		const activeTooltip = exitLabel.closest< HTMLElement >( '[data-slot="tooltip-content"]' )!;
+		expect( exitLabel ).toBeVisible();
+		expect( activeTooltip.querySelector( 'kbd' ) ).toHaveTextContent( /^Esc$/ );
+		expect( button ).toHaveAttribute( 'aria-keyshortcuts', expect.stringContaining( 'Escape' ) );
 		await user.click( button );
 		expect( button ).toHaveAttribute( 'aria-pressed', 'false' );
 	} );

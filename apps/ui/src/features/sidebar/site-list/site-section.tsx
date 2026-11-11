@@ -58,8 +58,8 @@ export function SiteSection( {
 	expanded: boolean;
 	loadError: boolean;
 	reorderable: boolean;
-	// Clicking the row, before it opens the site; folds or unfolds its chats.
-	onOpen?: () => void;
+	// Folds or unfolds the chats, then schedules opening another site's workspace.
+	onOpen?: ( openSite?: () => void ) => void;
 	onReorderChats: ( ids: string[] ) => void;
 	onSiteOpen?: () => void;
 	// Drag handling, when the row is in a reorderable list.
@@ -108,8 +108,11 @@ export function SiteSection( {
 	const preview = useOptionalSessionPreviewUI();
 	const runLayoutTransition = useUserWorkspaceLayoutTransition( site.id );
 	const handleOpenSite = () => {
-		onOpen?.();
-		if ( ! onOpen ) onSiteOpen?.();
+		if ( onOpen ) {
+			onOpen( isChatActive ? undefined : () => openSite( site ) );
+			return;
+		}
+		onSiteOpen?.();
 		openSite( site );
 	};
 	const handleStartSite = () => {

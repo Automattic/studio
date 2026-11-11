@@ -22,7 +22,7 @@ vi.mock( '@studio/common/lib/shared-config', async ( importActual ) => ( {
 	...( await importActual< typeof import('@studio/common/lib/shared-config') >() ),
 	readAuthToken: vi.fn(),
 } ) );
-vi.mock( '@studio/common/lib/connected-sites' );
+vi.mock( '@studio/common/lib/remote-sites' );
 vi.mock( 'cli/lib/cli-config/sites', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/cli-config/sites') >() ),
 	getSiteByFolder: vi.fn(),

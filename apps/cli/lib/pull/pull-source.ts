@@ -96,17 +96,16 @@ export async function resolveSourceSite( identifier?: string ): Promise< PullSou
 }
 
 /**
- * Opens the site's exporter, which a local Reprint pulls the site through, at `url`. Reports
- * whether the site already has a migration key.
+ * Opens the site's exporter, which a local Reprint pulls the site through. Reports whether the site
+ * already has a migration key.
  */
 export async function openExporter(
-	source: PullSource,
-	url: string
+	source: PullSource
 ): Promise< { apiUrl: string; hasKey: boolean } > {
 	try {
 		return await wpcomSites.pull!.openExporter(
 			{ token: source.wpComToken.accessToken },
-			{ id: source.wpComSite.id, url }
+			{ id: source.wpComSite.id, url: normalizeSiteUrl( source.url ) }
 		);
 	} catch ( error ) {
 		throw toLoggerError( error, __( 'Failed to enable the reprint exporter' ) );

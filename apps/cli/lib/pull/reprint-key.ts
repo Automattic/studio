@@ -36,7 +36,7 @@ export async function ensureReprintKey( params: {
 		);
 	}
 	// Opens the export window, which stays closed on a site that had no key.
-	const reenabled = await openExporter( source, apiUrl );
+	const reenabled = await openExporter( source );
 	if ( ! reenabled.hasKey ) {
 		throw new LoggerError(
 			__( 'The WordPress.com site did not accept the migration key. Please try again.' )

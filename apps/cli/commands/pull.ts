@@ -313,7 +313,7 @@ async function pullSite(
 	run.preview = await findPreview( sourceSite );
 	const normalizedRemoteUrl = normalizeSiteUrl( sourceSite.url );
 	// Fails early with an "update Jetpack" message on a site that can't export.
-	const { apiUrl } = await openExporter( sourceSite, normalizedRemoteUrl );
+	const { apiUrl } = await openExporter( sourceSite );
 	const studioMetadata = getPullSession( site );
 
 	const isRepull = Boolean( site.importComplete );

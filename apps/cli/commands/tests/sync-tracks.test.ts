@@ -1,5 +1,5 @@
 import * as configFile from '@studio/common/lib/cli-config-file';
-import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
+import { getRemoteSites } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { RemoteSiteError } from '@studio/providers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -19,7 +19,7 @@ vi.mock( '@studio/common/lib/shared-config', async ( importActual ) => ( {
 	...( await importActual< typeof import('@studio/common/lib/shared-config') >() ),
 	readAuthToken: vi.fn(),
 } ) );
-vi.mock( '@studio/common/lib/connected-sites' );
+vi.mock( '@studio/common/lib/remote-sites' );
 vi.mock( '@studio/common/lib/deploy-ignore', () => ( {
 	createDeployIgnoreFilter: vi.fn().mockResolvedValue( { ignores: vi.fn() } ),
 } ) );
@@ -74,7 +74,7 @@ const remoteSite = {
 beforeEach( () => {
 	vi.clearAllMocks();
 	vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
-	vi.mocked( getConnectedWpcomSitesForLocalSite ).mockResolvedValue( [] );
+	vi.mocked( getRemoteSites ).mockResolvedValue( [] );
 	vi.mocked( getSiteByFolder ).mockResolvedValue( testSite );
 	vi.mocked( fetchSyncableSites ).mockResolvedValue( [ remoteSite ] );
 	vi.mocked( pickSyncSite ).mockResolvedValue( remoteSite );

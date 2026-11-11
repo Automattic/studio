@@ -6,7 +6,7 @@ import { writeGlobalInstructions } from '@studio/agent/node/global-instructions'
 import {
 	readAiSettings,
 	saveAnthropicApiKey as saveAnthropicApiKeyToConfig,
-} from '@studio/agent/node/settings-store';
+} from '@studio/common/lib/ai-settings';
 import { vi } from 'vitest';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import {
@@ -27,7 +27,7 @@ vi.mock( '@studio/agent/node/global-instructions', () => ( {
 	readGlobalInstructionsFile: vi.fn(),
 	writeGlobalInstructions: vi.fn(),
 } ) );
-vi.mock( '@studio/agent/node/settings-store', () => ( {
+vi.mock( '@studio/common/lib/ai-settings', () => ( {
 	readAiSettings: vi.fn(),
 	saveAnthropicApiKey: vi.fn(),
 } ) );
@@ -116,7 +116,7 @@ describe( 'AI provider settings', () => {
 		anthropicApiKeyPreview: null,
 	} as const;
 	const anthropicWithKey = {
-		provider: 'anthropic-api-key',
+		provider: 'anthropic',
 		hasAnthropicApiKey: true,
 		anthropicApiKeyPreview: keyPreview,
 	} as const;
@@ -165,7 +165,7 @@ describe( 'AI provider settings', () => {
 	it( 'emits when a saved key is swapped for a different one', async () => {
 		mockReadAiSettings.mockResolvedValue( anthropicWithKey );
 		mockSaveAnthropicApiKey.mockResolvedValue( {
-			provider: 'anthropic-api-key',
+			provider: 'anthropic',
 			hasAnthropicApiKey: true,
 			anthropicApiKeyPreview: 'sk-ant-api03-tes...9999',
 		} );

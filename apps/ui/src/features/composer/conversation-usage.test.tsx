@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { Connector } from '@/data/core';
-import type { AiSettings } from '@studio/agent/protocol/providers';
+import type { AiSettings } from '@studio/common/lib/ai-settings';
 
 const site = makeSite( { id: 'one', name: 'My site', path: '/sites/my-site' } );
 
@@ -20,7 +20,7 @@ beforeEach( () => {
 } );
 
 describe( 'Conversation usage and model picker', () => {
-	it.each( [ 'wpcom', 'anthropic-api-key' ] as const )(
+	it.each( [ 'wpcom', 'anthropic' ] as const )(
 		'shows credits for the effective provider with a saved key: %s',
 		async ( provider ) => {
 			const connector = createFakeConnector(
@@ -97,7 +97,7 @@ describe( 'Conversation usage and model picker', () => {
 		await waitFor( () =>
 			expect( connector.setSessionProvider ).toHaveBeenCalledWith(
 				expect.any( String ),
-				'anthropic-api-key',
+				'anthropic',
 				'claude-sonnet-5'
 			)
 		);

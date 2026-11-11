@@ -35,7 +35,7 @@ export { textResult } from './tools/utils';
 export { loadSkills } from './skills';
 export { buildSystemPrompt } from './system-prompt';
 export { createResultNotes } from './result-notes';
-export { isImageGenerationAvailable } from './image-generation';
+export type { ImageGenerator } from './image-generation';
 export type { DesignTracksContext } from './design-tracks';
 
 // Turns as the host records them.
@@ -51,4 +51,3 @@ export {
 } from './browser-utils';
 export { captureScreenshotBuffer } from './tools/screenshot-helpers';
 export { validateBlocks } from './block-validator';
-export { getWpcomAiGatewayBaseUrl } from './ai-gateway';

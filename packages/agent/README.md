@@ -11,12 +11,12 @@ node/       the agent, in Node
 
 ## protocol/
 
-What both sides agree on: events (`agent-events`, `session-events`, `json-events`), session and entry types (`sessions/`), chat artifacts, files, images and attachments, models and providers, slash commands, tool progress, visual annotations, and the inspector page script.
+What both sides agree on: events (`agent-events`, `session-events`, `json-events`), session and entry types (`sessions/`), chat artifacts, files, images and attachments, a session's model and provider, slash commands, tool progress, visual annotations, and the inspector page script.
 
 It is browser-safe: no Node APIs and nothing from `node/`. `apps/ui` imports this and nothing else from the package.
 
 ```ts
-import { isAiModelId } from '@studio/agent/protocol/models';
+import { resolveSessionModel } from '@studio/agent/protocol/sessions/model';
 ```
 
 ## node/
@@ -90,10 +90,10 @@ node/
   skills/         the skills' runbooks, copied next to the CLI's built chunks
   system-prompt.ts
   sessions/       session files and the sessions store
-  settings-store.ts, global-instructions.ts, run-manager.ts, local-media.ts
+  global-instructions.ts, run-manager.ts, local-media.ts
 ```
 
-The last line, and the sessions store, are for the apps that show the agent: the Desktop main process and `apps/local` read and write settings and sessions, and fork the CLI to run turns. They import these modules by path (`@studio/agent/node/sessions/store`) rather than from the entry, so they never load the runtime.
+The last line, and the sessions store, are for the apps that show the agent: the Desktop main process and `apps/local` read and write instructions and sessions, and fork the CLI to run turns. They import these modules by path (`@studio/agent/node/sessions/store`) rather than from the entry, so they never load the runtime.
 
 ## Boundaries
 

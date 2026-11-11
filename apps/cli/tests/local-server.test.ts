@@ -3,9 +3,9 @@
  */
 import crypto from 'node:crypto';
 import EventEmitter from 'node:events';
-import { InvalidAnthropicApiKeyError } from '@studio/agent/node/settings-store';
 import { createCliRunner } from '@studio/common/lib/cli-process';
 import { listSites } from '@studio/common/sites/list';
+import { InvalidCredentialError } from '@studio/providers';
 import nock from 'nock';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { startLocalServer } from '../../local/src/index';
@@ -30,8 +30,8 @@ vi.mock( '@studio/common/lib/cli-process', async ( importOriginal ) => ( {
 } ) );
 vi.mock( '@studio/common/sites/list', () => ( { listSites: vi.fn() } ) );
 vi.mock( '@studio/common/sites/site-path', () => ( { readSitePath: mocks.readSitePath } ) );
-vi.mock( '@studio/agent/node/settings-store', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@studio/agent/node/settings-store') >() ),
+vi.mock( '@studio/common/lib/ai-settings', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/ai-settings') >() ),
 	readAiSettings: mocks.readAiSettings,
 	saveAnthropicApiKey: mocks.saveAnthropicApiKey,
 	setAiProvider: mocks.setAiProvider,
@@ -135,7 +135,10 @@ describe( 'local web server Connect contracts', () => {
 			hasAnthropicApiKey: true,
 			anthropicApiKeyPreview: '1234',
 		} );
-		expect( mocks.saveAnthropicApiKey ).toHaveBeenCalledWith( '  sk-ant-test-1234  ' );
+		expect( mocks.saveAnthropicApiKey ).toHaveBeenCalledWith(
+			'  sk-ant-test-1234  ',
+			expect.anything()
+		);
 	} );
 
 	it( 'clears the Anthropic API key', async () => {
@@ -150,14 +153,12 @@ describe( 'local web server Connect contracts', () => {
 
 		expect( response.status ).toBe( 200 );
 		await expect( response.json() ).resolves.toMatchObject( { hasAnthropicApiKey: false } );
-		expect( mocks.saveAnthropicApiKey ).toHaveBeenCalledWith( null );
+		expect( mocks.saveAnthropicApiKey ).toHaveBeenCalledWith( null, expect.anything() );
 	} );
 
 	it( 'returns 400 with the message when Anthropic rejects a key being saved', async () => {
 		mocks.saveAnthropicApiKey.mockRejectedValueOnce(
-			new InvalidAnthropicApiKeyError(
-				'Anthropic rejected this API key. Check the key and try again.'
-			)
+			new InvalidCredentialError( 'Anthropic rejected this API key. Check the key and try again.' )
 		);
 
 		const response = await fetch(
@@ -195,20 +196,18 @@ describe( 'local web server Connect contracts', () => {
 			{
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify( { provider: 'anthropic-api-key' } ),
+				body: JSON.stringify( { provider: 'anthropic' } ),
 			}
 		);
 
 		expect( response.status ).toBe( 200 );
-		await expect( response.json() ).resolves.toMatchObject( { provider: 'anthropic-api-key' } );
-		expect( mocks.setAiProvider ).toHaveBeenCalledWith( 'anthropic-api-key' );
+		await expect( response.json() ).resolves.toMatchObject( { provider: 'anthropic' } );
+		expect( mocks.setAiProvider ).toHaveBeenCalledWith( 'anthropic', expect.anything() );
 	} );
 
 	it( 'returns 400 with the message when Anthropic rejects the saved key', async () => {
 		mocks.setAiProvider.mockRejectedValueOnce(
-			new InvalidAnthropicApiKeyError(
-				'Anthropic rejected this API key. Check the key and try again.'
-			)
+			new InvalidCredentialError( 'Anthropic rejected this API key. Check the key and try again.' )
 		);
 
 		const response = await fetch(
@@ -216,7 +215,7 @@ describe( 'local web server Connect contracts', () => {
 			{
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify( { provider: 'anthropic-api-key' } ),
+				body: JSON.stringify( { provider: 'anthropic' } ),
 			}
 		);
 
@@ -262,7 +261,7 @@ describe( 'local web server Connect contracts', () => {
 			{
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify( { provider: 'anthropic-api-key', model: 'balanced' } ),
+				body: JSON.stringify( { provider: 'anthropic', model: 'balanced' } ),
 			}
 		);
 

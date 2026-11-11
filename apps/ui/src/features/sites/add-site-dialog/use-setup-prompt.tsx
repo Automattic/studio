@@ -1,7 +1,7 @@
 import {
 	getEffectiveSessionProvider,
 	resolveSessionModelForProvider,
-} from '@studio/agent/protocol/providers';
+} from '@studio/agent/protocol/sessions/model';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { canUsePaidAiModels } from '@studio/common/lib/studio-assistant-quota';
 import { useQueryClient } from '@tanstack/react-query';

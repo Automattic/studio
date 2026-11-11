@@ -3,13 +3,13 @@ import {
 	readGlobalInstructionsFile,
 	writeGlobalInstructions,
 } from '@studio/agent/node/global-instructions';
+import { isAgentAppId, type AgentApp } from '@studio/common/lib/agent-apps';
 import {
 	readAiSettings,
 	saveAnthropicApiKey as saveAnthropicApiKeyToConfig,
 	setAiProvider as setAiProviderInConfig,
-} from '@studio/agent/node/settings-store';
-import { isAiProviderId } from '@studio/agent/protocol/providers';
-import { isAgentAppId, type AgentApp } from '@studio/common/lib/agent-apps';
+	type AiSettings,
+} from '@studio/common/lib/ai-settings';
 import {
 	connectAgentApp as connectAgentAppToStudio,
 	detectAgentApps,
@@ -30,13 +30,14 @@ import {
 	writeUserPreferences,
 	type UserPreferencesPatch,
 } from '@studio/common/lib/user-settings/user-preferences';
+import { normalizeProviderId, toStoredProviderId } from '@studio/providers';
+import { getProvider } from '@studio/providers/node';
 import { getUserLocaleWithFallback, loadLocaleData, setMacAppLanguage } from 'src/lib/locale-node';
 import { refreshSpotlightIndex } from 'src/lib/spotlight';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
 import { defaultSitePath, getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 import { OnboardingHintsState } from 'src/storage/storage-types';
 import { loadUserData, lockAppdata, saveUserData, unlockAppdata } from 'src/storage/user-data';
-import type { AiSettings } from '@studio/agent/protocol/providers';
 
 export async function getInstalledAppsAndTerminals(): Promise< InstalledApps > {
 	return detectInstalledAppsWithDefaultBrowser();
@@ -142,7 +143,7 @@ async function recordAiSettingsChange( previous: AiSettings, next: AiSettings ):
 		return;
 	}
 	await recordTracksEvent( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
-		provider: next.provider,
+		provider: toStoredProviderId( next.provider ),
 		has_anthropic_api_key: next.hasAnthropicApiKey,
 		surface: 'settings',
 	} );
@@ -150,17 +151,18 @@ async function recordAiSettingsChange( previous: AiSettings, next: AiSettings ):
 
 export async function saveAnthropicApiKey( _event: IpcMainInvokeEvent, key: string | null ) {
 	const previous = await readAiSettings();
-	const settings = await saveAnthropicApiKeyToConfig( key );
+	const settings = await saveAnthropicApiKeyToConfig( key, getProvider( 'anthropic' ) );
 	await recordAiSettingsChange( previous, settings );
 	return settings;
 }
 
-export async function setAiProvider( _event: IpcMainInvokeEvent, provider: string ) {
-	if ( ! isAiProviderId( provider ) ) {
-		throw new Error( `Unknown AI provider: ${ provider }` );
+export async function setAiProvider( _event: IpcMainInvokeEvent, requested: string ) {
+	const provider = normalizeProviderId( requested );
+	if ( ! provider ) {
+		throw new Error( `Unknown AI provider: ${ requested }` );
 	}
 	const previous = await readAiSettings();
-	const settings = await setAiProviderInConfig( provider );
+	const settings = await setAiProviderInConfig( provider, getProvider( 'anthropic' ) );
 	await recordAiSettingsChange( previous, settings );
 	return settings;
 }

@@ -32,8 +32,6 @@ import {
 import { appendModelChangeEntry, appendStudioEntry } from '@studio/agent/node/sessions/store';
 import { validateStudioChatFiles } from '@studio/agent/protocol/chat-files';
 import { validateStudioChatImages } from '@studio/agent/protocol/chat-images';
-import { isAiModelId } from '@studio/agent/protocol/models';
-import { isAiProviderId, providerServesModel } from '@studio/agent/protocol/providers';
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
@@ -135,6 +133,12 @@ import {
 import { readGlobalStyles, readThemeDetails } from '@studio/common/sites/site-identity';
 import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import { readSiteSource, type SiteSourceFile } from '@studio/common/sites/site-source';
+import {
+	getAiModel,
+	isAiModelId,
+	normalizeProviderId,
+	toStoredProviderId,
+} from '@studio/providers';
 import { __ } from '@wordpress/i18n';
 import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
@@ -370,17 +374,18 @@ export async function setAiSessionModel(
 export async function setAiSessionProvider(
 	_event: IpcMainInvokeEvent,
 	sessionId: string,
-	provider: string,
+	requested: string,
 	model: string
 ): Promise< void > {
-	if ( ! isAiProviderId( provider ) ) {
-		throw new Error( `Unknown AI provider: ${ provider }` );
+	const provider = normalizeProviderId( requested );
+	if ( ! provider ) {
+		throw new Error( `Unknown AI provider: ${ requested }` );
 	}
-	if ( ! isAiModelId( model ) || ! providerServesModel( provider, model ) ) {
+	if ( ! getAiModel( provider, model ) ) {
 		throw new Error( `Model ${ model } is not served by provider ${ provider }` );
 	}
 	await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.session_context', {
-		provider,
+		provider: toStoredProviderId( provider ),
 		model,
 	} );
 }

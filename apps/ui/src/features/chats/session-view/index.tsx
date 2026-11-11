@@ -1,8 +1,8 @@
+import { pickLiveSite } from '@studio/agent/protocol/sessions/effective-site';
 import {
 	getEffectiveSessionProvider,
 	resolveSessionModelForProvider,
-} from '@studio/agent/protocol/providers';
-import { pickLiveSite } from '@studio/agent/protocol/sessions/effective-site';
+} from '@studio/agent/protocol/sessions/model';
 import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
 import { canUsePaidAiModels } from '@studio/common/lib/studio-assistant-quota';
 import { useNavigate, useRouter } from '@tanstack/react-router';

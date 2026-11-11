@@ -4,7 +4,7 @@ import { pendingPromptSlot } from '@/features/composer';
 import { createFakeConnector, type FakeConnectorInitialState } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { Connector, SelectedSiteFolder } from '@/data/core';
-import type { AiSettings } from '@studio/agent/protocol/providers';
+import type { AiSettings } from '@studio/common/lib/ai-settings';
 import type { Blueprint as CatalogBlueprint } from '@studio/common/lib/studio-blueprints-api';
 import type { Blueprint } from '@wp-playground/blueprints';
 
@@ -355,9 +355,7 @@ describe( 'Add site › blank setup', () => {
 			}
 		);
 		fireEvent.submit( within( settings ).getByRole( 'form', { name: 'Anthropic connection' } ) );
-		await waitFor( () =>
-			expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic-api-key' )
-		);
+		await waitFor( () => expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic' ) );
 		fireEvent.click( within( settings ).getByRole( 'button', { name: /Close .*ettings/ } ) );
 		const restored = await screen.findByRole( 'dialog', { name: 'Add site' } );
 		expect( within( restored ).getByLabelText( 'Site name' ) ).toHaveValue( 'Bakery' );
@@ -375,7 +373,7 @@ describe( 'Add site › blank setup', () => {
 		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledOnce() );
 		expect( connector.setSessionProvider ).toHaveBeenCalledWith(
 			expect.any( String ),
-			'anthropic-api-key',
+			'anthropic',
 			expect.any( String )
 		);
 	} );

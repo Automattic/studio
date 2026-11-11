@@ -2,8 +2,6 @@ import type { ActiveAgentRun, AgentRunEvent } from '@studio/agent/protocol/agent
 import type { StudioChatFileAttachment } from '@studio/agent/protocol/chat-files';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
 import type { InspectorSelection } from '@studio/agent/protocol/inspector/selection';
-import type { AiModelId } from '@studio/agent/protocol/models';
-import type { AiProviderId, AiSettings } from '@studio/agent/protocol/providers';
 import type {
 	AiSessionMetadata,
 	AiSessionSummary,
@@ -12,6 +10,7 @@ import type {
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 import type { AgentApp, AgentAppId } from '@studio/common/lib/agent-apps';
 import type { SiteAgentFile, SiteAgentFileKind } from '@studio/common/lib/agent-skills';
+import type { AiSettings } from '@studio/common/lib/ai-settings';
 import type { AuthAnalytics, OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
 import type { SiteEvent, SiteListItem, SnapshotEvent } from '@studio/common/lib/cli-events';
 import type { StudioFeedback } from '@studio/common/lib/feedback';
@@ -51,6 +50,7 @@ import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
 import type { DesignFix } from '@studio/design-md';
+import type { AiModelId, ProviderId } from '@studio/providers';
 import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { ActiveAgentRun } from '@studio/agent/protocol/agent-events';
@@ -64,7 +64,7 @@ export type {
 export type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
 export type { SessionEntry } from '@earendil-works/pi-coding-agent';
 export type { StudioCustomEntry } from '@studio/agent/protocol/sessions/entry-types';
-export type { AiModelId } from '@studio/agent/protocol/models';
+export type { AiModelId } from '@studio/providers';
 export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SnapshotUsage } from '@studio/common/lib/snapshots';
 export type { PreviewStatus } from '@studio/common/sites/snapshots';
@@ -429,11 +429,7 @@ export interface Connector {
 	// Pin the session to an AI provider, with the model it should use there.
 	// Same mechanism as setSessionModel: an entry in the session JSONL the CLI
 	// honors on resume.
-	setSessionProvider(
-		sessionId: string,
-		provider: AiProviderId,
-		model: AiModelId
-	): Promise< void >;
+	setSessionProvider( sessionId: string, provider: ProviderId, model: AiModelId ): Promise< void >;
 	// Point the session's next turn at its local site or its connected live site.
 	setSessionEnvironment( sessionId: string, environment: 'local' | 'live' ): Promise< void >;
 	interruptAgentRun( runId: string ): Promise< void >;
@@ -489,7 +485,7 @@ export interface Connector {
 	getAiSettings(): Promise< AiSettings >;
 	saveAnthropicApiKey( key: string | null ): Promise< AiSettings >;
 	// The provider new conversations use.
-	setAiProvider( provider: AiProviderId ): Promise< AiSettings >;
+	setAiProvider( provider: ProviderId ): Promise< AiSettings >;
 
 	// Apps detected on disk (editors + terminals). Options in the preferences
 	// form are filtered against this so users can't pick something that isn't

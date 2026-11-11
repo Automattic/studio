@@ -7,7 +7,6 @@ import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { vi } from 'vitest';
 import { validateBlocks } from '@studio/agent/node/block-validator';
 import { getSharedBrowser } from '@studio/agent/node/browser-utils';
-import { generateImages, isImageGenerationAvailable } from '@studio/agent/node/image-generation';
 import {
 	resolveStudioTools,
 	studioToolDefinitions,
@@ -22,6 +21,7 @@ import {
 	REMOTE_READ,
 	type AnyStudioAgentTool,
 } from '@studio/agent/node/tools/define-tool';
+import { createGenerateImagesTool } from '@studio/agent/node/tools/generate-images';
 import { enrichPreviewListOutput } from '@studio/agent/node/tools/list-previews';
 import { createTakeScreenshotTool } from '@studio/agent/node/tools/take-screenshot';
 import { splitCommandArgs } from '@studio/agent/node/tools/wp-cli';
@@ -34,12 +34,6 @@ vi.mock( '@studio/agent/node/block-validator', () => ( {
 
 vi.mock( '@studio/agent/node/browser-utils', () => ( {
 	getSharedBrowser: vi.fn(),
-} ) );
-
-vi.mock( '@studio/agent/node/image-generation', async () => ( {
-	...( await vi.importActual( '@studio/agent/node/image-generation' ) ),
-	generateImages: vi.fn(),
-	isImageGenerationAvailable: vi.fn(),
 } ) );
 
 vi.mock( '@studio/common/lib/connected-sites', () => ( {
@@ -173,6 +167,13 @@ describe( 'Studio AI MCP tools', () => {
 			resolveStudioTools( host, options ).map( ( tool ) => tool.name );
 		expect( names( {} ) ).toContain( 'wpcom_request' );
 		expect( names( { wpcomRequest: false } ) ).not.toContain( 'wpcom_request' );
+	} );
+
+	it( 'offers generate_images only with a provider’s image generation', () => {
+		const names = ( options: StudioToolsOptions ) =>
+			resolveStudioTools( host, options ).map( ( tool ) => tool.name );
+		expect( names( {} ) ).not.toContain( 'generate_images' );
+		expect( names( { generateImages: vi.fn() } ) ).toContain( 'generate_images' );
 	} );
 
 	it( 'reports invalid core/html blocks and skips editor validation', async () => {
@@ -822,8 +823,7 @@ describe( 'Studio AI MCP tools', () => {
 		const themeImage = path.join( sitePath, 'wp-content/themes/acme/assets/images/band.png' );
 		const urlOf = ( name: string ) => `http://localhost:8888/wp-content/uploads/2026/09/${ name }`;
 		vi.mocked( host.sites.all ).mockResolvedValue( [ mockSite, site ] );
-		vi.mocked( isImageGenerationAvailable ).mockResolvedValue( true );
-		vi.mocked( generateImages ).mockResolvedValue( [
+		const generateImages = vi.fn().mockResolvedValue( [
 			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
 			{ ok: false, error: 'Timed out' },
 			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
@@ -840,7 +840,8 @@ describe( 'Studio AI MCP tools', () => {
 			.mockResolvedValueOnce( { exitCode: 0, stdout: '', stderr: '' } );
 
 		try {
-			const result = await getTool( 'generate_images' ).rawHandler( {
+			const tool = bindTool( createGenerateImagesTool( generateImages ), host );
+			const result = await tool.rawHandler( {
 				images: [
 					{ path: path.join( uploads, 'hero.png' ), subject: 'A café counter at dawn' },
 					{ path: path.join( uploads, 'buns.png' ), subject: 'Cardamom buns on a tray' },

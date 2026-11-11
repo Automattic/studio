@@ -26,19 +26,11 @@ import {
 	appendStudioEntry,
 	deleteAiSession,
 } from '@studio/agent/node/sessions/store';
-import {
-	InvalidAnthropicApiKeyError,
-	readAiSettings,
-	saveAnthropicApiKey,
-	setAiProvider,
-} from '@studio/agent/node/settings-store';
 import { validateStudioChatFiles } from '@studio/agent/protocol/chat-files';
 import {
 	STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES,
 	validateStudioChatImages,
 } from '@studio/agent/protocol/chat-images';
-import { isAiModelId } from '@studio/agent/protocol/models';
-import { isAiProviderId, providerServesModel } from '@studio/agent/protocol/providers';
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
 import { DEBUG_LOG_RELATIVE_PATH, DEFAULT_TOKEN_LIFETIME_MS } from '@studio/common/constants';
@@ -52,6 +44,7 @@ import {
 	setSiteAgentFileEnabled,
 	type SiteAgentFileKind,
 } from '@studio/common/lib/agent-skills';
+import { readAiSettings, saveAnthropicApiKey, setAiProvider } from '@studio/common/lib/ai-settings';
 import {
 	onboardingAnalyticsSchema,
 	authAnalyticsSchema,
@@ -190,6 +183,14 @@ import {
 	renamePreviewSite,
 } from '@studio/common/sites/snapshots';
 import { createSyncRunner } from '@studio/common/sites/sync';
+import {
+	getAiModel,
+	InvalidCredentialError,
+	isAiModelId,
+	normalizeProviderId,
+	toStoredProviderId,
+} from '@studio/providers';
+import { getProvider } from '@studio/providers/node';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
@@ -203,9 +204,9 @@ import {
 } from './open-in-os';
 import type { StudioChatFileAttachment } from '@studio/agent/protocol/chat-files';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
-import type { AiSettings } from '@studio/agent/protocol/providers';
 import type { AiSessionMetadata } from '@studio/agent/protocol/sessions/types';
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
+import type { AiSettings } from '@studio/common/lib/ai-settings';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type {
 	TracksEventName,
@@ -808,7 +809,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			return;
 		}
 		trackEvent( TRACKS_EVENTS.SETTING_AI_PROVIDER_CHANGE, {
-			provider: next.provider,
+			provider: toStoredProviderId( next.provider ),
 			has_anthropic_api_key: next.hasAnthropicApiKey,
 			surface: 'settings',
 		} );
@@ -825,7 +826,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			const previous = await readAiSettings();
-			const settings = await saveAnthropicApiKey( key );
+			const settings = await saveAnthropicApiKey( key, getProvider( 'anthropic' ) );
 			res.json( settings );
 			trackAiSettingsChange( previous, settings );
 		} )
@@ -836,13 +837,16 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.put(
 		'/ai-settings/provider',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const provider = req.body?.provider;
-			if ( typeof provider !== 'string' || ! isAiProviderId( provider ) ) {
+			const provider =
+				typeof req.body?.provider === 'string'
+					? normalizeProviderId( req.body.provider )
+					: undefined;
+			if ( ! provider ) {
 				res.status( 400 ).json( { error: 'provider must be a known AI provider id' } );
 				return;
 			}
 			const previous = await readAiSettings();
-			const settings = await setAiProvider( provider );
+			const settings = await setAiProvider( provider, getProvider( 'anthropic' ) );
 			res.json( settings );
 			trackAiSettingsChange( previous, settings );
 		} )
@@ -2228,17 +2232,18 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sessions/:id/provider',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const { provider, model } = req.body as { provider?: string; model?: string };
-			if ( ! provider || ! isAiProviderId( provider ) ) {
-				res.status( 400 ).json( { error: `Unknown AI provider: ${ provider }` } );
+			const { provider: requested, model } = req.body as { provider?: string; model?: string };
+			const provider = requested ? normalizeProviderId( requested ) : undefined;
+			if ( ! provider ) {
+				res.status( 400 ).json( { error: `Unknown AI provider: ${ requested }` } );
 				return;
 			}
-			if ( ! model || ! isAiModelId( model ) || ! providerServesModel( provider, model ) ) {
+			if ( ! model || ! getAiModel( provider, model ) ) {
 				res.status( 400 ).json( { error: `Model ${ model } is not served by ${ provider }` } );
 				return;
 			}
 			await appendStudioEntry( sessionsRoot, req.params.id, 'studio.session_context', {
-				provider,
+				provider: toStoredProviderId( provider ),
 				model,
 			} );
 			res.sendStatus( 204 );
@@ -2461,7 +2466,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	}
 
 	app.use( ( err: unknown, _req: Request, res: Response, _next: ( e?: unknown ) => void ) => {
-		if ( err instanceof InvalidAnthropicApiKeyError ) {
+		if ( err instanceof InvalidCredentialError ) {
 			res.status( 400 ).json( { error: err.message } );
 			return;
 		}

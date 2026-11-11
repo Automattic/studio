@@ -14,7 +14,7 @@ import { clearComposerDrafts } from '@/features/composer';
 import { createFakeConnector, makeSession, makeSite, TEST_USER } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { AgentRunEvent, SessionEntry } from '@/data/core';
-import type { AiSettings } from '@studio/agent/protocol/providers';
+import type { AiSettings } from '@studio/common/lib/ai-settings';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 
 vi.setConfig( { testTimeout: 30_000 } );
@@ -34,13 +34,13 @@ async function setupChat( {
 	running = false,
 	annotatePreview = true,
 }: {
-	provider?: 'wpcom' | 'anthropic-api-key';
+	provider?: 'wpcom' | 'anthropic';
 	quota?: Partial< StudioAssistantQuota >;
 	quotaError?: boolean;
 	settingsError?: boolean;
 	hasAnthropicApiKey?: boolean;
 	signedIn?: boolean;
-	pinnedProvider?: 'wpcom' | 'anthropic-api-key';
+	pinnedProvider?: 'wpcom' | 'anthropic';
 	entries?: SessionEntry[];
 	firstPrompt?: string;
 	running?: boolean;
@@ -291,12 +291,12 @@ function anthropicRow( dialog: HTMLElement ) {
 describe( 'Composer access notices', () => {
 	beforeEach( () => localStorage.clear() );
 
-	it.each( [ 'wpcom', 'anthropic-api-key' ] as const )(
+	it.each( [ 'wpcom', 'anthropic' ] as const )(
 		'hides the notice when %s can send, even if an unused provider has an error',
 		async ( provider ) => {
 			const { input } = await setupChat( {
 				provider,
-				quotaError: provider === 'anthropic-api-key',
+				quotaError: provider === 'anthropic',
 			} );
 			expect( screen.queryByRole( 'alert' ) ).not.toBeInTheDocument();
 			fireEvent.change( input, { target: { value: 'Keep this draft' } } );
@@ -403,7 +403,7 @@ describe( 'Composer access notices', () => {
 	it.each( [
 		{ provider: 'wpcom' as const, payment: false, gated: true },
 		{ provider: 'wpcom' as const, payment: null, gated: false },
-		{ provider: 'anthropic-api-key' as const, payment: false, gated: false },
+		{ provider: 'anthropic' as const, payment: false, gated: false },
 	] )(
 		'checks payment access for $provider with payment=$payment',
 		async ( { provider, payment, gated } ) => {
@@ -521,9 +521,7 @@ describe( 'Composer access notices', () => {
 				fireEvent.change( keyInput, { target: { value: '  test-key  ' } } );
 			}
 			fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Save' } ) );
-			await waitFor( () =>
-				expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic-api-key' )
-			);
+			await waitFor( () => expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic' ) );
 			await waitFor( () =>
 				expect( anthropicRow( dialog ).getByRole( 'button', { name: 'Manage' } ) ).toBeEnabled()
 			);
@@ -621,7 +619,7 @@ describe( 'Chat target selection', () => {
 
 	it( 'switches an empty chat to the picked model while preserving the draft', async () => {
 		const { connector, input } = await setupChat( {
-			provider: 'anthropic-api-key',
+			provider: 'anthropic',
 			signedIn: false,
 			firstPrompt: '',
 		} );

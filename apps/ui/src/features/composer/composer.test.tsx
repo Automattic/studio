@@ -1,5 +1,5 @@
-import { DEFAULT_MODEL } from '@studio/agent/protocol/models';
 import { getAiSkillCommands } from '@studio/agent/protocol/slash-commands';
+import { DEFAULT_PROVIDER_ID, getDefaultAiModel } from '@studio/providers';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { createRef, useState, type ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -22,6 +22,8 @@ import { pendingComposerFilesSlot } from './pending-files';
 import type { LoadedAiSession, SessionEntry } from '@/data/core';
 import type { ComposerImageAttachment } from '@studio/agent/protocol/composer-attachments';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
+
+const DEFAULT_MODEL = getDefaultAiModel( DEFAULT_PROVIDER_ID );
 
 type Props = Partial< ComponentProps< typeof Composer > > & { ref?: React.Ref< ComposerHandle > };
 
@@ -880,7 +882,7 @@ describe( 'Annotation attachments in the composer', () => {
 
 describe( 'Composer model picker', () => {
 	it( 'falls back to WordPress.com when a pinned conversation has no key', async () => {
-		await setup( { entries: [ sessionContextEntry( 'anthropic-api-key' ) ] } );
+		await setup( { entries: [ sessionContextEntry( 'anthropic' ) ] } );
 
 		const trigger = await modelButton();
 		await waitFor( () =>
@@ -1007,7 +1009,7 @@ describe( 'Composer model picker', () => {
 		await waitFor( () => expect( onSwitchSession ).toHaveBeenCalledWith( 'fresh-session' ) );
 		expect( connector.setSessionProvider ).toHaveBeenCalledWith(
 			'fresh-session',
-			'anthropic-api-key',
+			'anthropic',
 			'claude-sonnet-5'
 		);
 		const cached = queryClient.getQueryData< LoadedAiSession >( [
@@ -1126,7 +1128,7 @@ describe( 'Composer sending', () => {
 		const connector = createFakeConnector( {}, { getAiSettings: async () => ANTHROPIC_KEY } );
 		connector.getStudioAssistantQuota.mockResolvedValue( OUT_OF_CREDITS );
 		const { input, onSend } = await setup(
-			{ model: 'claude-sonnet-5', entries: [ sessionContextEntry( 'anthropic-api-key' ) ] },
+			{ model: 'claude-sonnet-5', entries: [ sessionContextEntry( 'anthropic' ) ] },
 			connector
 		);
 		const trigger = await modelButton();

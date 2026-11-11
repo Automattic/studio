@@ -228,6 +228,7 @@ export const baseConfig = defineConfig( {
 			cli: resolve( __dirname, '.' ),
 			'@studio/common': resolve( __dirname, '../../packages/common' ),
 			'@studio/agent': resolve( __dirname, '../../packages/agent' ),
+			'@studio/providers': resolve( __dirname, '../../packages/providers' ),
 			'@studio/design-md': resolve( __dirname, '../../packages/design-md/index.ts' ),
 			// The `studio ui` local server (apps/local) is bundled into the CLI
 			// from source, the same way `@studio/common` is.

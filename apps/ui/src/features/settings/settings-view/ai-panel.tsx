@@ -1,4 +1,4 @@
-import { AI_PROVIDER_LABELS } from '@studio/agent/protocol/providers';
+import { getProviderDescriptor, PROVIDER_IDS, type ProviderId } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useState } from 'react';
 import { getProviderIntent } from '@/data/account-analytics';
@@ -14,7 +14,6 @@ import { useOffline } from '@/lib/hooks';
 import { Button, Input } from '@/lib/ui';
 import { connectedBadge, SettingsGroup, SettingsRow, SettingsSelect } from './rows';
 import styles from './style.module.css';
-import type { AiProviderId } from '@studio/agent/protocol/providers';
 
 function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } ) {
 	const settings = useAiSettings();
@@ -57,7 +56,7 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 		if ( key.trim() ) {
 			await saveKey.mutateAsync( key.trim() );
 		}
-		await setProvider.mutateAsync( 'anthropic-api-key' );
+		await setProvider.mutateAsync( 'anthropic' );
 		closeKeyForm();
 	};
 
@@ -172,13 +171,13 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 					description={ __( 'The provider new chats use.' ) }
 					error={ keyFormOpen ? undefined : setProvider.error?.message }
 				>
-					<SettingsSelect< AiProviderId >
+					<SettingsSelect< ProviderId >
 						label={ __( 'Default provider' ) }
 						value={ settings.data.provider }
 						disabled={ pending }
-						options={ ( [ 'wpcom', 'anthropic-api-key' ] as const ).map( ( provider ) => ( {
+						options={ PROVIDER_IDS.map( ( provider ) => ( {
 							value: provider,
-							label: AI_PROVIDER_LABELS[ provider ],
+							label: getProviderDescriptor( provider ).label,
 						} ) ) }
 						onChange={ ( provider ) => setProvider.mutate( provider ) }
 					/>

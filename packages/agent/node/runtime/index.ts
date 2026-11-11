@@ -4,13 +4,11 @@ import {
 	type Credential,
 	type CredentialInfo,
 	type CredentialStore,
-	type Model,
 	type SimpleStreamOptions,
 } from '@earendil-works/pi-ai';
 import { streamSimple as streamAnthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages';
 import { streamSimple as streamOpenAiCompletions } from '@earendil-works/pi-ai/api/openai-completions';
 import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
-import { ANTHROPIC_MODELS } from '@earendil-works/pi-ai/providers/anthropic.models';
 import {
 	createAgentSession,
 	createBashTool,
@@ -32,7 +30,6 @@ import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
 import { type TSchema } from 'typebox';
 import { withDesignSystemPreview } from '@studio/agent/node/chat-artifacts';
 import { readGlobalInstructions } from '@studio/agent/node/global-instructions';
-import { isImageGenerationAvailable } from '@studio/agent/node/image-generation';
 import { createResultNotes } from '@studio/agent/node/result-notes';
 import { buildSystemPrompt, type ToolPromptContribution } from '@studio/agent/node/system-prompt';
 import { resolveStudioTools } from '@studio/agent/node/tools';
@@ -40,15 +37,8 @@ import { createAskUserQuestionTool } from '@studio/agent/node/tools/ask-user-que
 import { bindTool } from '@studio/agent/node/tools/define-tool';
 import { createPresentDesignOptionsTool } from '@studio/agent/node/tools/present-design-options';
 import { createSkillTool } from '@studio/agent/node/tools/skill';
-import {
-	aiModelSupportsImages,
-	DEFAULT_MODEL,
-	getAiModel,
-	getAiModelFamily,
-	type AiModelFamily,
-	type AiModelId,
-} from '@studio/agent/protocol/models';
 import { findLastAssistant, isEmptyStop } from '@studio/agent/protocol/session-events';
+import { withErrorRewrite } from './error-rewrite';
 import { getFileToolPrompt } from './file-tool-prompts';
 import { withLeakedToolCallMarkupRemoved } from './leaked-tool-call-markup';
 import { getPendingWork, type PendingWork } from './pending-work';
@@ -60,22 +50,17 @@ import {
 	type StudioToolPayloadGuardState,
 	updateStudioToolPayloadGuardState,
 } from './tool-safety';
-import { withUsageCapErrorRewrite } from './usage-cap';
 import type { StudioAgentHost } from '@studio/agent/node/host';
+import type { ImageGenerator } from '@studio/agent/node/image-generation';
 import type { StudioToolResultDetails } from '@studio/agent/node/tools/define-tool';
 import type { AskUserHandler, SiteInfo } from '@studio/agent/node/types';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
+import type { AiConnection } from '@studio/providers';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AgentToolAny = AgentTool< any >;
-type StudioWpcomModel =
-	| Model< 'openai-completions' >
-	| Model< 'openai-responses' >
-	| Model< 'anthropic-messages' >;
-type StudioModel = StudioWpcomModel | Model< 'anthropic-messages' >;
 type ProviderConfigInput = Parameters< ModelRuntime[ 'registerProvider' ] >[ 1 ];
 
-const STUDIO_WPCOM_PROVIDER = 'studio-wpcom';
 // A reply with nothing in it ends the turn without the user seeing why (see
 // `isEmptyStop`). Resume it with a message the user doesn't see, up to this
 // many times per turn. pi leaves a reply that has only reasoning out of the
@@ -93,8 +78,10 @@ export interface StudioAgentTurnConfig {
 	prompt: string;
 	images?: StudioChatImage[];
 	session: SessionManager;
-	env?: Record< string, string >;
-	model?: AiModelId;
+	// The model to run on, as the provider serving it connects to it.
+	ai: AiConnection;
+	// A connected provider's image generation; enables generate_images.
+	generateImages?: ImageGenerator;
 	activeSite?: SiteInfo | null;
 	onAskUser?: AskUserHandler;
 	onEvent: ( event: AgentSessionEvent ) => void;
@@ -102,8 +89,6 @@ export interface StudioAgentTurnConfig {
 
 interface ResolvedStudioAgentTurnConfig extends StudioAgentTurnConfig {
 	host: StudioAgentHost;
-	env: Record< string, string >;
-	model: AiModelId;
 }
 
 export interface StudioAgentTurnHandle {
@@ -119,12 +104,7 @@ export function runStudioAgentTurn(
 ): StudioAgentTurnHandle {
 	const controller = new AbortController();
 	let activeSession: AgentSession | undefined;
-	const resolvedConfig: ResolvedStudioAgentTurnConfig = {
-		...config,
-		host,
-		env: config.env ?? { ...( process.env as Record< string, string > ) },
-		model: config.model ?? DEFAULT_MODEL,
-	};
+	const resolvedConfig: ResolvedStudioAgentTurnConfig = { ...config, host };
 
 	if ( ! fs.existsSync( host.sitesRoot ) ) {
 		fs.mkdirSync( host.sitesRoot, { recursive: true } );
@@ -146,63 +126,9 @@ export function runStudioAgentTurn(
 	};
 }
 
-interface ResolvedCredentials {
-	apiKey: string;
-	baseURL: string;
-	extraHeaders?: Record< string, string >;
-}
-
-function resolveCredentials(
-	family: AiModelFamily,
-	env: Record< string, string >
-): { ok: true; creds: ResolvedCredentials } | { ok: false; reason: string } {
-	if ( family === 'studio' ) {
-		const apiKey = env.STUDIO_WPCOM_API_KEY?.trim();
-		if ( ! apiKey ) {
-			return {
-				ok: false,
-				reason:
-					'The WordPress.com models need a wpcom access token, and STUDIO_WPCOM_API_KEY is not set — run /login to authenticate.',
-			};
-		}
-		const baseURL = env.STUDIO_WPCOM_BASE_URL?.trim();
-		if ( ! baseURL ) {
-			return { ok: false, reason: 'STUDIO_WPCOM_BASE_URL not set — cannot route to wpcom proxy.' };
-		}
-		return {
-			ok: true,
-			creds: {
-				apiKey,
-				baseURL,
-				extraHeaders: parseJsonHeaderEnv(
-					'STUDIO_WPCOM_DEFAULT_HEADERS',
-					env.STUDIO_WPCOM_DEFAULT_HEADERS
-				),
-			},
-		};
-	}
-
-	const apiKey = env.ANTHROPIC_API_KEY?.trim();
-	if ( ! apiKey ) {
-		return {
-			ok: false,
-			reason:
-				'Anthropic provider selected but ANTHROPIC_API_KEY is not set. Switch to the Anthropic · API key provider with /provider and save a key.',
-		};
-	}
-	return {
-		ok: true,
-		creds: {
-			apiKey,
-			baseURL: 'https://api.anthropic.com',
-		},
-	};
-}
-
 // Synthesize a pi `agent_end` event with a single error assistant message.
 // Used for failures the runtime catches before pi's own `agent_end` fires
-// (missing credentials, abort during pre-flight, exceptions out of the
-// agent loop). Downstream consumers read `stopReason`/`errorMessage` from
+// (abort during pre-flight, exceptions out of the agent loop). Downstream consumers read `stopReason`/`errorMessage` from
 // the last assistant message — same path as a real run that errored.
 function syntheticErrorAgentEnd(
 	stopReason: 'error' | 'aborted',
@@ -239,18 +165,11 @@ async function runAgentSessionTurn(
 	controller: AbortController,
 	setActiveSession: ( session: AgentSession | undefined ) => void
 ): Promise< void > {
-	const family = getAiModelFamily( config.model );
-	const resolved = resolveCredentials( family, config.env );
-	if ( ! resolved.ok ) {
-		config.onEvent( syntheticErrorAgentEnd( 'error', resolved.reason ) );
-		return;
-	}
-
 	let session: AgentSession | undefined;
 	let unsubscribe: ( () => void ) | undefined;
 	const payloadGuardState: StudioToolPayloadGuardState = {};
 	try {
-		session = await createStudioAgentSession( config, family, resolved.creds, payloadGuardState );
+		session = await createStudioAgentSession( config, payloadGuardState );
 		setActiveSession( session );
 		let emptyStopContinues = 0;
 		let continueAfterEmptyStop = false;
@@ -324,18 +243,11 @@ async function runAgentSessionTurn(
 
 async function createStudioAgentSession(
 	config: ResolvedStudioAgentTurnConfig,
-	family: AiModelFamily,
-	creds: ResolvedCredentials,
 	payloadGuardState: StudioToolPayloadGuardState
 ): Promise< AgentSession > {
-	const model = buildModel( config.model, family, creds );
-	const visionEnabled = aiModelSupportsImages( config.model );
-	const [ userInstructions, imageGenerationEnabled ] = await Promise.all( [
-		readGlobalInstructions(),
-		isImageGenerationAvailable(),
-	] );
-
-	const tools = buildAgentTools( config, imageGenerationEnabled, visionEnabled );
+	const { model } = config.ai;
+	const userInstructions = await readGlobalInstructions();
+	const tools = buildAgentTools( config, model.input.includes( 'image' ) );
 	const systemPrompt = buildSystemPrompt( {
 		userInstructions,
 		tools: tools.map( toolPromptContribution ),
@@ -350,8 +262,8 @@ async function createStudioAgentSession(
 	const toolDefinitions = tools.map( ( tool ) =>
 		toToolDefinition( config.host, tool, payloadGuardState, pendingWork, resultNotes )
 	);
-	const modelRuntime = await createModelRuntime( model, family, creds );
-	const settingsManager = createSettingsManager( config.env );
+	const modelRuntime = await createModelRuntime( config.ai );
+	const settingsManager = createSettingsManager();
 	const { sitesRoot } = config.host;
 	const resourceLoader = new DefaultResourceLoader( {
 		cwd: sitesRoot,
@@ -384,105 +296,9 @@ async function createStudioAgentSession(
 	return result.session;
 }
 
-function buildModel(
-	modelId: AiModelId,
-	family: AiModelFamily,
-	creds: ResolvedCredentials
-): StudioModel {
-	const baseUrl = creds.baseURL.replace( /\/+$/, '' );
-	const common = {
-		id: modelId,
-		name: modelId,
-		baseUrl,
-		input: aiModelSupportsImages( modelId )
-			? [ 'text' as const, 'image' as const ]
-			: [ 'text' as const ],
-		cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
-		...( creds.extraHeaders ? { headers: creds.extraHeaders } : {} ),
-	};
-
-	if ( family === 'studio' ) {
-		// The capability tiers are resolved to upstream models by the wpcom
-		// proxy. The context window is a conservative floor across the
-		// upstreams a tier may resolve to, so compaction kicks in before any
-		// of them overflows.
-		//
-		// `strong` rides the proxy's Anthropic Messages path, which sits beside
-		// `/v1` rather than under it and authenticates with a bearer token.
-		if ( modelId === 'strong' ) {
-			return {
-				...common,
-				baseUrl: baseUrl.replace( /\/v1$/, '' ),
-				headers: { ...creds.extraHeaders, Authorization: `Bearer ${ creds.apiKey }` },
-				api: 'anthropic-messages',
-				provider: STUDIO_WPCOM_PROVIDER,
-				reasoning: false,
-				contextWindow: 200_000,
-				maxTokens: 32_000,
-			};
-		}
-		// `balanced` rides the Responses path: its upstream is a reasoning model
-		// that rejects tools-plus-reasoning on Chat Completions.
-		if ( modelId === 'balanced' ) {
-			return {
-				...common,
-				api: 'openai-responses',
-				provider: STUDIO_WPCOM_PROVIDER,
-				reasoning: true,
-				contextWindow: 200_000,
-				maxTokens: 32_000,
-			};
-		}
-		// The other tiers speak Chat Completions. pi infers `compat` from the
-		// base URL, which for us reads as plain OpenAI — so spell out the shape
-		// or requests carry OpenAI-only fields other upstreams reject. With
-		// `supportsReasoningEffort` false no thinking switch is sent at all and
-		// each upstream uses its own default — the portable choice across
-		// vendors that spell that parameter differently.
-		return {
-			...common,
-			api: 'openai-completions',
-			provider: STUDIO_WPCOM_PROVIDER,
-			reasoning: true,
-			contextWindow: 200_000,
-			maxTokens: 32_000,
-			compat: {
-				supportsStore: false,
-				supportsDeveloperRole: false,
-				supportsReasoningEffort: false,
-				supportsStrictMode: false,
-				maxTokensField: 'max_tokens',
-			},
-		};
-	}
-	// Without `compat.forceAdaptiveThinking` pi-ai sends the legacy
-	// `thinking: { type: 'enabled', budget_tokens }` shape, which Sonnet 5 /
-	// Opus 5 reject with a 400 — copy the thinking fields from pi's catalog.
-	const catalogModel = (
-		ANTHROPIC_MODELS as Partial< Record< string, Model< 'anthropic-messages' > > >
-	 )[ modelId ];
-	return {
-		...common,
-		api: 'anthropic-messages',
-		provider: 'anthropic',
-		reasoning: true,
-		// contextWindow/maxTokens intentionally stay below the catalog values.
-		contextWindow: 200_000,
-		// thinkingLevel 'high' reserves ~16384 of this budget for extended thinking
-		// (see adjustMaxTokensForThinking in pi-ai); keep enough headroom for visible
-		// output so single tool calls can emit a full-page HTML payload.
-		maxTokens: 32_000,
-		...( catalogModel?.thinkingLevelMap
-			? { thinkingLevelMap: catalogModel.thinkingLevelMap }
-			: {} ),
-		...( catalogModel?.compat ? { compat: catalogModel.compat } : {} ),
-	};
-}
-
 // In-memory credential store so the runtime never reads or writes an auth.json
-// on disk. Studio resolves credentials from the environment on every turn and
-// injects them via runtime API keys or registered provider configs, so nothing
-// needs to be persisted.
+// on disk. Each turn registers its provider with the connection's credentials,
+// so nothing needs to be persisted.
 class InMemoryCredentialStore implements CredentialStore {
 	private readonly credentials = new Map< string, Credential >();
 
@@ -513,48 +329,38 @@ class InMemoryCredentialStore implements CredentialStore {
 	}
 }
 
-async function createModelRuntime(
-	model: StudioModel,
-	family: AiModelFamily,
-	creds: ResolvedCredentials
-): Promise< ModelRuntime > {
+async function createModelRuntime( ai: AiConnection ): Promise< ModelRuntime > {
 	const modelRuntime = await ModelRuntime.create( {
 		credentials: new InMemoryCredentialStore(),
 		modelsPath: null,
 	} );
-
-	if ( family === 'studio' ) {
-		modelRuntime.registerProvider(
-			model.provider,
-			createWpcomProviderConfig( model as StudioWpcomModel, creds )
-		);
-		return modelRuntime;
-	}
-
-	await modelRuntime.setRuntimeApiKey( family, creds.apiKey );
+	modelRuntime.registerProvider( ai.piProvider, createProviderConfig( ai ) );
 	return modelRuntime;
 }
 
 // pi (>= 0.78) parses `registerProvider` config values (apiKey, headers) as
 // templates: a `$NAME` / `${NAME}` sequence is read as an environment-variable
-// reference and a leading `!` is read as a shell command. wpcom OAuth tokens are
-// random strings that can contain `$` followed by a name-like sequence, so pi
-// resolves that fragment to an undefined env var and treats the provider as
-// unauthenticated ("No API key found for studio-wpcom-anthropic."). Escape the
-// token so pi treats it as a literal: `$` -> `$$`, and a leading `!` -> `$!`.
+// reference and a leading `!` is read as a shell command. API keys such as wpcom
+// OAuth tokens are random strings that can contain `$` followed by a name-like
+// sequence, so pi resolves that fragment to an undefined env var and treats the
+// provider as unauthenticated ("No API key found for studio-wpcom."). Escape the
+// key so pi treats it as a literal: `$` -> `$$`, and a leading `!` -> `$!`.
 function escapePiConfigValue( value: string ): string {
 	const dollarEscaped = value.replace( /\$/g, () => '$$' );
 	return dollarEscaped.startsWith( '!' ) ? `$${ dollarEscaped }` : dollarEscaped;
 }
 
-// The wpcom lane only needs pi's stock streaming for each tier's API; the
-// custom provider exists to wrap the stream with the usage-cap 429 rewrite and
-// the leaked tool-call cleanup, and to strip stale screenshots, which would
-// otherwise bloat requests past the proxy's body limit.
-function createWpcomProviderConfig(
-	model: StudioWpcomModel,
-	creds: ResolvedCredentials
-): ProviderConfigInput {
+// Each provider only needs pi's stock streaming for its model's API; the
+// registration exists to wrap the stream with the connection's error rewrite
+// and the leaked tool-call cleanup, and to strip stale screenshots, which would
+// otherwise bloat requests past the provider's body limit.
+function createProviderConfig( {
+	apiKey,
+	headers,
+	model,
+	requestModelId,
+	rewriteError,
+}: AiConnection ): ProviderConfigInput {
 	// pi types `streamSimple` against `Model<Api>`; each API's stream function
 	// is narrower, and the model registered below is the one passed in.
 	const stream = (
@@ -565,28 +371,28 @@ function createWpcomProviderConfig(
 			: streamOpenAiResponses
 	) as NonNullable< ProviderConfigInput[ 'streamSimple' ] >;
 	// The model keeps its stable id for pi and the session history; only the
-	// request names the proxy's current upstream alias.
-	const apiModelId = getAiModel( model.id as AiModelId )?.apiModelId;
+	// request names the provider's upstream alias.
 	return {
-		baseUrl: creds.baseURL,
-		apiKey: escapePiConfigValue( creds.apiKey ),
+		baseUrl: model.baseUrl,
+		apiKey: escapePiConfigValue( apiKey ),
 		api: model.api,
-		headers: creds.extraHeaders,
+		headers,
 		streamSimple: ( m, ctx, options?: SimpleStreamOptions ) =>
-			withUsageCapErrorRewrite(
+			withErrorRewrite(
 				withLeakedToolCallMarkupRemoved(
 					stream( m, stripStaleImagesFromContext( ctx ), {
 						...options,
-						...( apiModelId
+						...( requestModelId
 							? {
 									onPayload: async ( params: unknown, payloadModel ) => {
 										const next = ( await options?.onPayload?.( params, payloadModel ) ) ?? params;
-										return { ...( next as Record< string, unknown > ), model: apiModelId };
+										return { ...( next as Record< string, unknown > ), model: requestModelId };
 									},
 							  }
 							: {} ),
 					} )
-				)
+				),
+				rewriteError
 			),
 		models: [
 			{
@@ -599,14 +405,14 @@ function createWpcomProviderConfig(
 				cost: model.cost,
 				contextWindow: model.contextWindow,
 				maxTokens: model.maxTokens,
-				headers: creds.extraHeaders,
+				headers,
 				compat: model.compat,
 			},
 		],
 	};
 }
 
-function createSettingsManager( _env: Record< string, string > ): SettingsManager {
+function createSettingsManager(): SettingsManager {
 	return SettingsManager.inMemory(
 		{
 			defaultThinkingLevel: 'high',
@@ -681,7 +487,6 @@ function toToolDefinition(
 
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
-	imageGenerationEnabled: boolean,
 	visionEnabled: boolean
 ): AgentToolAny[] {
 	const { host } = config;
@@ -720,32 +525,10 @@ function buildAgentTools(
 		renameTool( createLsTool( sitesRoot ), 'Ls' ),
 	];
 	const studioTools = resolveStudioTools( host, {
-		imageGeneration: imageGenerationEnabled,
+		generateImages: config.generateImages,
 		visionEnabled,
 		canAskUser: Boolean( config.onAskUser ),
 		tracks,
 	} ) as unknown as AgentToolAny[];
 	return [ ...studioTools, ...askUserTool, ...designOptionsTool, ...skillTool, ...piTools ];
-}
-
-function parseJsonHeaderEnv(
-	name: string,
-	value: string | undefined
-): Record< string, string > | undefined {
-	if ( ! value ) return undefined;
-	try {
-		const parsed: unknown = JSON.parse( value );
-		if ( parsed && typeof parsed === 'object' && ! Array.isArray( parsed ) ) {
-			const entries = Object.entries( parsed as Record< string, unknown > ).filter(
-				( [ , v ] ) => typeof v === 'string'
-			) as [ string, string ][];
-			return entries.length ? Object.fromEntries( entries ) : undefined;
-		}
-		console.warn(
-			`${ name } must be a JSON object of string→string pairs; ignoring custom headers.`
-		);
-	} catch {
-		console.warn( `${ name } contained malformed JSON; ignoring custom headers.` );
-	}
-	return undefined;
 }

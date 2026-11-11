@@ -24,6 +24,24 @@ const AGENT_NODE = {
 	message: 'Apps that show the agent import its contract, @studio/agent/protocol, not the agent.',
 };
 
+const PROVIDERS_NODE = {
+	group: [ '@studio/providers/*' ],
+	message: 'Import the browser-safe @studio/providers; its other entries run in Node.',
+};
+
+// The browser-safe entry of @studio/providers and the files it is made of.
+const PROVIDERS_BROWSER_SAFE = [
+	'index.ts',
+	'types.ts',
+	'models.ts',
+	'descriptors.ts',
+	'errors.ts',
+	'*/descriptor.ts',
+	'*/config.ts',
+];
+
+const NODE_APIS = [ 'node:*', 'fs', 'fs/*', 'path', 'os', 'child_process', 'crypto' ];
+
 // `apps/ui/src` is layered as internal packages (`lib/*`), product areas (`features/*`),
 // then `data/`, `router/` and `app/`. See apps/ui/README.md.
 const UI_SRC = path.join( import.meta.dirname, 'apps/ui/src' );
@@ -149,6 +167,7 @@ export default defineConfig(
 						path.join( import.meta.dirname, 'packages/agent/tsconfig.json' ),
 						path.join( import.meta.dirname, 'packages/common/tsconfig.json' ),
 						path.join( import.meta.dirname, 'packages/design-md/tsconfig.json' ),
+						path.join( import.meta.dirname, 'packages/providers/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/compare-perf/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/metrics/tsconfig.json' ),
 					],
@@ -312,6 +331,7 @@ export default defineConfig(
 					patterns: [
 						WP_UI_PACKAGES,
 						AGENT_NODE,
+						PROVIDERS_NODE,
 						{
 							group: [ '@base-ui/react', '@base-ui/react/*' ],
 							message: 'Use the primitives in @/lib/ui, and add one there when none fits.',
@@ -332,6 +352,7 @@ export default defineConfig(
 					patterns: [
 						WP_UI_PACKAGES,
 						AGENT_NODE,
+						PROVIDERS_NODE,
 						{ group: [ '@tanstack/*' ], message: 'lib/ packages stay independent of app code.' },
 					],
 				},
@@ -348,6 +369,80 @@ export default defineConfig(
 						{
 							group: [ '@studio/agent/*' ],
 							message: '@studio/agent builds on common, not the reverse.',
+						},
+					],
+				},
+			],
+		},
+	},
+	{
+		// Common stores provider config; the apps pass in the implementations it needs.
+		files: [ 'packages/common/**/*.ts' ],
+		ignores: [ 'packages/common/**/tests/**' ],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							group: [ '@studio/agent/*' ],
+							message: '@studio/agent builds on common, not the reverse.',
+						},
+						PROVIDERS_NODE,
+					],
+				},
+			],
+		},
+	},
+	{
+		// Studio passes providers their config and the user agent, so they never
+		// depend on Studio's packages.
+		files: [ 'packages/providers/**/*.ts' ],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							group: [ '@studio/*', 'cli/*', 'src/*' ],
+							message: '@studio/providers imports no other workspace package.',
+						},
+					],
+				},
+			],
+		},
+	},
+	{
+		files: PROVIDERS_BROWSER_SAFE.map( ( file ) => `packages/providers/${ file }` ),
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					patterns: [
+						{
+							group: NODE_APIS,
+							message: 'The @studio/providers entry runs in the browser too; keep Node APIs out.',
+						},
+						{
+							group: [ '@studio/*', 'cli/*', 'src/*' ],
+							message: '@studio/providers imports no other workspace package.',
+						},
+					],
+				},
+			],
+			'import-x/no-restricted-paths': [
+				'error',
+				{
+					zones: [
+						{
+							target: PROVIDERS_BROWSER_SAFE.map( ( file ) => `packages/providers/${ file }` ),
+							from: 'packages/providers',
+							except: PROVIDERS_BROWSER_SAFE.flatMap( ( file ) =>
+								file.startsWith( '*/' )
+									? [ 'wpcom', 'anthropic' ].map( ( dir ) => `./${ file.replace( '*', dir ) }` )
+									: [ `./${ file }` ]
+							),
+							message: 'The browser-safe @studio/providers files import only each other.',
 						},
 					],
 				},
@@ -381,13 +476,14 @@ export default defineConfig(
 				{
 					patterns: [
 						{
-							group: [ 'node:*', 'fs', 'fs/*', 'path', 'os', 'child_process', 'crypto' ],
+							group: NODE_APIS,
 							message: 'protocol/ runs in the browser too; keep Node APIs in node/.',
 						},
 						{
 							group: [ '@studio/agent/node/*', 'cli/*', 'src/*' ],
-							message: 'protocol/ depends on nothing but common.',
+							message: 'protocol/ depends on nothing but common and @studio/providers.',
 						},
+						PROVIDERS_NODE,
 					],
 				},
 			],

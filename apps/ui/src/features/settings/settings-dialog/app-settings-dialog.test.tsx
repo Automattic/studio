@@ -924,9 +924,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( connector.setAiProvider ).not.toHaveBeenCalled();
 		await waitFor( () => expect( save() ).toBeEnabled() );
 		fireEvent.click( save() );
-		await waitFor( () =>
-			expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic-api-key' )
-		);
+		await waitFor( () => expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic' ) );
 		expect( connector.saveAnthropicApiKey ).toHaveBeenCalledWith( 'test-key' );
 		await waitFor( () =>
 			expect( screen.queryByLabelText( 'Anthropic API key' ) ).not.toBeInTheDocument()

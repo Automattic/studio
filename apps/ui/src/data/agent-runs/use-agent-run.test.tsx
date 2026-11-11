@@ -317,7 +317,7 @@ describe( 'useAgentRun queued handoff', () => {
 		).toBe( true );
 	} );
 
-	it.each( [ 'wpcom', 'anthropic-api-key' ] as const )(
+	it.each( [ 'wpcom', 'anthropic' ] as const )(
 		'only holds WordPress.com queues when credits run out: %s',
 		async ( provider ) => {
 			const connector = createFakeConnector(

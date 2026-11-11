@@ -4,7 +4,7 @@ Screenshots and recordings of the Studio app, made reproducibly from three swapp
 
 | Input | What it holds | Bundled |
 | --- | --- | --- |
-| **Scene** | The sites Studio opens on (from a backup or a Blueprint), the made-up WordPress.com account data, recorded chats and agent turns | `scenes/wren-and-barley/` |
+| **Scene** | The sites Studio opens on (from a backup or a Blueprint), the made-up WordPress.com account data, recorded chats and agent turns | `scenes/wren-and-barley/`, `scenes/moire/` |
 | **Script** | The shots: the steps that reach each screen, the crop, the annotations | `examples/`, and the docs' in `docs/user/screenshots/shots/` |
 | **Look** | Window size, scale, color scheme, annotation colors, frame and output sizes, video settings | `looks/`: `plain` (the default), `docs`, `docs-dark`, `blog`, `marketing`, `marketing-dark`, `social`, `social-dark` |
 
@@ -48,7 +48,7 @@ The harness runs in a headless Linux sandbox, such as a Claude Code cloud sessio
 | `github.com`, `raw.githubusercontent.com`, `release-assets.githubusercontent.com` | Electron, WP-CLI, the SQLite files and the agent skills |
 | `cdn.playwright.dev` | Playwright's Chromium |
 
-Signed-in scripts need `STUDIO_CAPTURE_AUTH_TOKEN`, set as the sandbox's secret, since there is no local login. Linux captures show Linux keyboard shortcuts (`Ctrl+Alt+P`, not `⌥⌘P`) and scrollbars, so for the docs images, which should come from one fixed environment, capture on macOS with Studio Desktop.
+Signed-in scripts need no account or secret: they sign in as a demo person (see **Signed in**). Linux captures show Linux keyboard shortcuts (`Ctrl+Alt+P`, not `⌥⌘P`) and scrollbars, so for the docs images, which should come from one fixed environment, capture on macOS with Studio Desktop.
 
 ## Commands
 
@@ -75,7 +75,7 @@ A scene or look named without a path (`wren-and-barley`, `marketing`) is a bundl
 
 ```sh
 # The docs screenshots (what `npm run screenshots` in docs/user runs)
-studio-capture capture docs/user/screenshots/shots --look docs --out docs/user/screenshots/images
+studio-capture capture docs/user/screenshots/shots --out docs/user/screenshots/images
 
 # Your own Blueprint, in the marketing look
 studio-capture capture tools/capture-harness/examples/workspace-tour.json --blueprint ./my-blueprint.json --look marketing --out captures
@@ -125,7 +125,7 @@ npx studio-capture capture examples/moire.json --look marketing-dark
 npx studio-capture capture examples/moire-design-looks.json --look marketing-dark
 ```
 
-`examples/moire.json` is the main set (the workspace mid-chat, the model menu from the window's corner, the command palette, Share and Publish, Appearance, phone width and Annotate) with Moire's own chat and Annotate targets; scripts written for Wren & Barley, like the docs suites, click things only the bakery has. The same goes for any other Blueprint: a scene beside these with its Blueprint, chats and account data, baked once.
+`examples/moire.json` is the main set (the workspace mid-chat, the model menu from the window's corner, the command palette, Share and Publish, Appearance, phone width and Annotate) with Moire's own chat and Annotate targets; scripts written for another scene click things only that scene has. The same goes for any other Blueprint: a scene beside these with its Blueprint, chats and account data, baked once.
 
 ### Wren & Barley
 
@@ -222,7 +222,7 @@ The harness writes to `--out` on the machine it runs on and uploads nothing. On 
 
 Signed-in scripts need no WordPress.com account. They sign in as a made-up demo person from `personas/` (`maya-okafor`, the default, `daniel-ferreira`, `amira-haddad`, `owen-mercer`, `hana-watanabe` and `marcus-bennett`; `--persona <name|file>` picks one): Studio trusts the login it has stored and checks it with WordPress.com only when someone logs in, so a demo login shows as signed in, and the scene answers for the account (its WordPress.com sites, preview sites, AI credits and top-up prices). A persona is a `name`, a made-up `email` at wordpress.studio (no such mailboxes exist), an `id` and an optional `avatar` image, which the harness serves for Studio's Gravatar requests; without one Studio draws its placeholder. The bundled avatars are AI-generated faces of no one real, 256 pixels square (Studio shows them round); new ones are licensed photos or AI-generated faces, never a real person without their permission.
 
-`STUDIO_CAPTURE_AUTH_TOKEN` (the `authToken` object of a Studio `shared.json`, as JSON; `STUDIO_DOCS_AUTH_TOKEN` also works) signs in as a real account instead, for a screen the scene doesn't answer for. Only the throwaway profile gets a copy of the token; the harness never uses a local login.
+`STUDIO_CAPTURE_AUTH_TOKEN` (the `authToken` object of a Studio `shared.json`, as JSON) signs in as a real account instead, for a screen the scene doesn't answer for. Only the throwaway profile gets a copy of the token; the harness never uses a local login.
 
 Every signed-in launch is guarded, whatever script runs: logging out (which would revoke the token), publishing, pulling, connecting sites, changing preview sites and starting an agent run throw instead (`BLOCKED_SIGNED_IN_HANDLERS` in `src/guard.ts`), and the window's requests to WordPress.com other than reads are aborted. With a real account, its email is replaced by `you@example.com` on screen before every capture (and kept replaced while recording), and a shot fails rather than save if it reappears; its name and avatar are its own, so review those shots before publishing them.
 

@@ -187,14 +187,33 @@ describe( 'App initialization', () => {
 		expect( app.enableSandbox ).toHaveBeenCalled();
 	} );
 
-	it( 'leaves the sandbox off when started with --no-sandbox, as root in a container', async () => {
+	it( 'still sandboxes when started with --no-sandbox as a regular user', async () => {
 		mockElectron();
 		vi.resetModules();
 		const { app } = await import( 'electron' );
 		vi.mocked( app.commandLine.hasSwitch ).mockImplementation(
 			( name: string ) => name === 'no-sandbox'
 		);
+		const getuid = vi.spyOn( process, 'getuid' ).mockReturnValue( 1000 );
 		await import( '../index' );
+		getuid.mockRestore();
+
+		expect( app.enableSandbox ).toHaveBeenCalled();
+	} );
+
+	it( 'leaves the sandbox off when started with --no-sandbox as root on Linux, as in a container', async () => {
+		mockElectron();
+		vi.resetModules();
+		const { app } = await import( 'electron' );
+		vi.mocked( app.commandLine.hasSwitch ).mockImplementation(
+			( name: string ) => name === 'no-sandbox'
+		);
+		const originalProcessPlatform = process.platform;
+		Object.defineProperty( process, 'platform', { value: 'linux' } );
+		const getuid = vi.spyOn( process, 'getuid' ).mockReturnValue( 0 );
+		await import( '../index' );
+		getuid.mockRestore();
+		Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
 
 		expect( app.enableSandbox ).not.toHaveBeenCalled();
 	} );

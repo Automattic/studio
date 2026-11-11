@@ -2,7 +2,7 @@
 
 This folder is the source of the WordPress Studio documentation published at [wordpress.studio/docs](https://wordpress.studio/docs/), along with the script that captures its screenshots.
 
-It has its own `package.json` and `node_modules`, and isn't part of the repo's npm workspaces. Screenshots are captured with the capture harness in [`tools/capture-harness`](../../tools/capture-harness/README.md), which is part of the workspaces.
+It has its own `package.json`, with no dependencies of its own, and isn't part of the repo's npm workspaces. Screenshots are captured with the capture harness in [`tools/capture-harness`](../../tools/capture-harness/README.md), which is part of the workspaces.
 
 **On this page**
 
@@ -58,10 +58,7 @@ See the [`studio-website` README](https://github.com/Automattic/studio-website#p
 First-time setup:
 
 ```sh
-npm install                       # at the repo root, for the capture harness
-cd docs/user
-npm install
-npx playwright install chromium
+node --experimental-strip-types tools/capture-harness/cli.ts setup   # at the repo root: installs and builds what captures need
 ```
 
 | Command | Purpose |
@@ -130,9 +127,8 @@ Shots live in `screenshots/shots/*.json`, one file per feature (a *suite*), with
 
 ### Signed-in suites
 
-- **Login:** suites use `STUDIO_CAPTURE_AUTH_TOKEN` when set, otherwise the login of the WordPress Studio on your machine.
-- **Email:** the account's email is masked.
-- **Name and avatar:** these are the account's own, so review those shots before uploading.
+- **Login:** suites sign in as a made-up demo person from the harness's `personas/`, so they need no account and never use the login of the WordPress Studio on your machine.
+- **Name, avatar and email:** these are the demo person's.
 - **Made-up data:** the AI credits, preview-site count and WordPress.com sites come from the scene.
 - **No real changes:** the harness blocks logging out, publishing, pulling and anything else that would change the account. The connected suite never starts a pull or publish.
 

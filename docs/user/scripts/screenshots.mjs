@@ -15,8 +15,8 @@ import { spawn, spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { ROOT } from './lib/common.mjs';
 
+const ROOT = path.resolve( import.meta.dirname, '..' );
 const UPLOADS_URL = 'https://developer.wordpress.com/wp-content/uploads/';
 const HARNESS = path.resolve( ROOT, '../../tools/capture-harness/cli.ts' );
 const IMAGES_DIR = path.join( ROOT, 'screenshots', 'images' );
@@ -65,7 +65,7 @@ function formatIndex( { shots, manual, studioVersion } ) {
 	const lines = [
 		`# Studio screenshots`,
 		'',
-		`Captured from Studio ${ studioVersion } by \`npm run screenshots\`, signed out except the signed-in suites (\`signedIn\` in their JSON), which show a WordPress.com account with its email masked.`,
+		`Captured from Studio ${ studioVersion } by \`npm run screenshots\`, signed out except the signed-in suites (\`signedIn\` in their JSON), which sign in as a made-up demo person.`,
 		`Upload to WordPress.com; a file named \`<name>.webp\` becomes \`${ UPLOADS_URL }YYYY/MM/<name>.webp\`.`,
 		`Shots with annotations also have a \`<name>-annotated.webp\`.`,
 		'',
@@ -118,10 +118,6 @@ const child = spawn(
 		HARNESS,
 		'capture',
 		path.join( ROOT, 'screenshots', 'shots' ),
-		'--scene',
-		SCENE,
-		'--look',
-		'docs',
 		'--out',
 		IMAGES_DIR,
 		'--json',

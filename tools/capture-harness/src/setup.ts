@@ -285,7 +285,7 @@ export function doctor( env = process.env ): Check[] {
 			  }
 	);
 
-	const token = env.STUDIO_CAPTURE_AUTH_TOKEN ?? env.STUDIO_DOCS_AUTH_TOKEN;
+	const token = env.STUDIO_CAPTURE_AUTH_TOKEN;
 	add( {
 		name: 'Signed in',
 		status: 'ok',

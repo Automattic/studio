@@ -85,7 +85,7 @@ To publish `wp-studio` to npm **without** running a full app release (e.g. a CLI
     - Dispatches `publish-npm-package.yml` (publishes to npm with provenance via OIDC trusted publishing)
     - For `X.Y.Z-betaN` the package is published with `--tag next`; otherwise as `latest`
     - For `latest` releases, the same workflow then updates Studio's entry in the [MCP Registry](https://registry.modelcontextprotocol.io) from `apps/cli/server.json`
-4. **Update the public changelog** at https://developer.wordpress.com/docs/developer-tools/studio/changelog/. The CLI displays a nudge pointing to that page.
+4. **Update the public changelog** at https://wordpress.studio/docs/changelog/. The CLI displays a nudge pointing to that page.
 
 ### Sanity-checking the npm release lanes locally
 

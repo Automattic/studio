@@ -738,7 +738,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( links ).toHaveLength( 1 );
 		fireEvent.click( links[ 0 ] );
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
-			'https://developer.wordpress.com/docs/developer-tools/studio/studio-code/'
+			'https://wordpress.studio/docs/studio-code/'
 		);
 		expect(
 			screen.getByText(

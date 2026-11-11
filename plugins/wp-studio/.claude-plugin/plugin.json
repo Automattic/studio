@@ -18,10 +18,10 @@
     "block-theme"
   ],
   "icon": "./assets/logo.png",
-  "documentationUrl": "https://developer.wordpress.com/docs/developer-tools/studio/",
+  "documentationUrl": "https://wordpress.studio/docs/",
   "supportUrl": "https://developer.wordpress.com/contact/",
   "privacyPolicyUrl": "https://automattic.com/privacy/",
-  "termsOfServiceUrl": "https://wordpress.com/tos/",
+  "termsOfServiceUrl": "https://automattic.com/tos/",
   "mcpServers": {
     "wordpress-studio": {
       "command": "node",

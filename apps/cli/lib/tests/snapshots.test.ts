@@ -550,6 +550,7 @@ describe( 'Snapshots Module', () => {
 		} );
 
 		it( "forgets the user's ended WordPress.com previews, updates the rest and lists ones made elsewhere", async () => {
+			// The live site a preview shows changes to follows the server: set, cleared and listed.
 			mocks.readFile.mockResolvedValue(
 				JSON.stringify( {
 					version: 1,
@@ -560,6 +561,7 @@ describe( 'Snapshots Module', () => {
 						snapshot( 'saved-after-check.wpcomstaging.com', 3, 6000 ),
 						snapshot( 'legacy.wp.build', 4, 1000 ),
 						snapshot( 'other-user.wpcomstaging.com', 5, 1000, 999 ),
+						{ ...snapshot( 'unlinked.wpcomstaging.com', 7, 1000 ), liveSiteId: 70 },
 					],
 				} )
 			);
@@ -569,24 +571,44 @@ describe( 'Snapshots Module', () => {
 			await reconcilePreviews(
 				USER_ID,
 				new Map( [
-					[ 1, { hostname: 'standing.wpcomstaging.com', expiresAt: 9000, shareUrl } ],
+					[
+						1,
+						{
+							hostname: 'standing.wpcomstaging.com',
+							expiresAt: 9000,
+							shareUrl,
+							liveSiteId: 10,
+						},
+					],
 					[
 						6,
-						{ hostname: 'elsewhere.wpcomstaging.com', expiresAt: 8000, shareUrl: elsewhereUrl },
+						{
+							hostname: 'elsewhere.wpcomstaging.com',
+							expiresAt: 8000,
+							shareUrl: elsewhereUrl,
+							liveSiteId: 60,
+						},
 					],
+					[ 7, { hostname: 'unlinked.wpcomstaging.com', expiresAt: 7000 } ],
 				] ),
 				5000
 			);
 
 			const savedData = JSON.parse( mocks.writeFile.mock.calls[ 0 ][ 1 ] );
 			expect(
-				savedData.snapshots.map( ( s: Snapshot ) => [ s.url, s.expiresAt, s.shareUrl ] )
+				savedData.snapshots.map( ( s: Snapshot ) => [
+					s.url,
+					s.expiresAt,
+					s.shareUrl,
+					s.liveSiteId,
+				] )
 			).toEqual( [
-				[ 'standing.wpcomstaging.com', 9000, shareUrl ],
-				[ 'saved-after-check.wpcomstaging.com', undefined, undefined ],
-				[ 'legacy.wp.build', undefined, undefined ],
-				[ 'other-user.wpcomstaging.com', undefined, undefined ],
-				[ 'elsewhere.wpcomstaging.com', 8000, elsewhereUrl ],
+				[ 'standing.wpcomstaging.com', 9000, shareUrl, 10 ],
+				[ 'saved-after-check.wpcomstaging.com', undefined, undefined, undefined ],
+				[ 'legacy.wp.build', undefined, undefined, undefined ],
+				[ 'other-user.wpcomstaging.com', undefined, undefined, undefined ],
+				[ 'unlinked.wpcomstaging.com', 7000, undefined, undefined ],
+				[ 'elsewhere.wpcomstaging.com', 8000, elsewhereUrl, 60 ],
 			] );
 		} );
 	} );

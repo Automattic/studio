@@ -747,9 +747,11 @@ export async function homeStyles( url: string, siteName: string ) {
 					visible( el ) &&
 					( el.textContent ?? '' ).trim() &&
 					! el.parentElement?.closest( 'p, h1, h2, h3, h4, h5, h6, li' ) &&
-					// Not text kept for screen readers, clipped out of sight.
+					// Not text kept for screen readers, clipped out of sight, or set left of
+					// the window, where no scroll reaches, as a form's spam trap is.
 					getComputedStyle( el ).clipPath === 'none' &&
-					getComputedStyle( el ).clip === 'auto'
+					getComputedStyle( el ).clip === 'auto' &&
+					el.getBoundingClientRect().right > 0
 			);
 			const lineRects = ( el: Element ) => {
 				const range = document.createRange();
@@ -854,12 +856,15 @@ export async function homeStyles( url: string, siteName: string ) {
 					top: box.top + window.scrollY - window.innerHeight / 2,
 					behavior: 'instant',
 				} );
-				const [ first ] = lineRects( el );
-				// The color of the text itself, as a link's label in a span of its own.
+				// The text itself, as a link's label in a span of its own: its color, and
+				// where its first line is, past a dot or icon of another color before it.
 				const walker = document.createTreeWalker( el, NodeFilter.SHOW_TEXT );
 				let node = walker.nextNode();
 				while ( node && ! node.textContent?.trim() ) node = walker.nextNode();
 				const color = getComputedStyle( node?.parentElement ?? el ).color;
+				const textRange = document.createRange();
+				textRange.selectNodeContents( node ?? el );
+				const [ first ] = [ ...textRange.getClientRects() ].filter( ( rect ) => rect.width );
 				const x = first && shownMiddle( first );
 				const behind = first && x !== null && paintedBehind( x, first.top + first.height / 2 );
 				if ( ! behind || ! alpha( color ) ) continue;
@@ -880,8 +885,10 @@ export async function homeStyles( url: string, siteName: string ) {
 			const bodySize = bodyFontSize ?? 16;
 			for ( const el of texts ) {
 				const fontSize = parseFloat( getComputedStyle( el ).fontSize );
+				// A quote block's paragraphs are a testimonial set large, as a design does.
 				if (
 					/^(P|LI)$/.test( el.tagName ) &&
+					! el.closest( 'blockquote' ) &&
 					( el.textContent ?? '' ).trim().length > 30 &&
 					fontSize > bodySize * 2.25
 				)

@@ -45,15 +45,13 @@ const LIMITS = { zip: 100 * MiB, unpacked: 512 * MiB, entries: 5000, entry: 100 
 const DIRECTORY_LIMITS = { unpacked: 50 * MiB, entries: 512, entry: 5 * MiB };
 
 // What only Codex, Cursor and Grok Build read: their manifests and MCP configs, and Codex's app
-// metadata, screenshots and launchers.
+// metadata and launchers.
 const NOT_FOR_CLAUDE = [
 	'.codex-plugin',
 	'.cursor-plugin',
 	'.grok-plugin',
 	'.mcp.json',
 	'agents',
-	'assets/screenshot-layout.png',
-	'assets/screenshot-look.png',
 	'scripts/launch-mcp',
 	'scripts/launch-mcp.cmd',
 ];

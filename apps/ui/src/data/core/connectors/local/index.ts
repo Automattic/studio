@@ -25,6 +25,7 @@ import type {
 	SiteDetails,
 	SiteAgentFile,
 	SkillStatus,
+	PreviewStatus,
 	Snapshot,
 	SnapshotUsage,
 	StudioAssistantQuota,
@@ -591,6 +592,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { name } ),
 			} );
 		},
+		async getPreviewStatus( hostname ): Promise< PreviewStatus > {
+			return api< PreviewStatus >( `/snapshots/${ encodeURIComponent( hostname ) }/status` );
+		},
 		async getConnectedWpcomSites( localSiteId ): Promise< SyncSite[] > {
 			return api< SyncSite[] >(
 				localSiteId
@@ -1021,6 +1025,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		onOpenSite() {
 			// Spotlight opens the installed desktop app.
+			return () => {};
+		},
+		onPullSite() {
+			// `pull-site` links open the installed desktop app.
 			return () => {};
 		},
 		onOpenSettings( listener ) {

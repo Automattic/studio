@@ -11,7 +11,12 @@ import { cleanup, archiveSiteContent } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { countSitePreviews } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
-import { deleteSnapshotSite, updatePreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
+import {
+	deleteSnapshotSite,
+	getLivePreviewSite,
+	updatePreviewSite,
+	uploadPreviewArchive,
+} from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { getSiteVersion } from 'cli/lib/site-versions';
@@ -118,7 +123,8 @@ export async function runCommand(
 				token.id,
 				snapshotToUpdate.name ?? site.name,
 				created.preview.shareUrl,
-				created.versionId
+				created.versionId,
+				created.preview.liveSiteId
 			);
 			await deleteSnapshotFromConfig( snapshotToUpdate.url );
 			await emitCliEvent( {
@@ -161,10 +167,11 @@ export async function runCommand(
 			logger.reportSuccess( __( 'Archive uploaded' ) );
 
 			reportStep( LoggerAction.READY, __( 'Updating preview site…' ), 60 );
-			const { shareUrl } = await updatePreviewSite(
+			const { shareUrl, liveSiteId } = await updatePreviewSite(
 				snapshotToUpdate.atomicSiteId,
 				attachmentId,
-				token.accessToken
+				token.accessToken,
+				( await getLivePreviewSite( site.id ) )?.id
 			);
 
 			reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );
@@ -172,7 +179,8 @@ export async function runCommand(
 				snapshotToUpdate.atomicSiteId,
 				siteFolder,
 				shareUrl,
-				versionId
+				versionId,
+				liveSiteId
 			);
 			logger.reportSuccess(
 				sprintf( __( 'Preview site available at: %s' ), getSnapshotLink( snapshot ) )

@@ -115,6 +115,7 @@ describe( 'Preview Update Command', () => {
 			siteId: mockAtomicSiteId,
 			hostname: mockSiteUrl,
 			shareUrl: mockShareUrl,
+			liveSiteId: 777,
 		} );
 		vi.mocked( updateSnapshotInConfig ).mockResolvedValue( mockSnapshot );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( {
@@ -144,14 +145,16 @@ describe( 'Preview Update Command', () => {
 		expect( updatePreviewSite ).toHaveBeenCalledWith(
 			mockAtomicSiteId,
 			678,
-			mockAuthToken.accessToken
+			mockAuthToken.accessToken,
+			undefined
 		);
 		expect( createPreviewSite ).not.toHaveBeenCalled();
 		expect( updateSnapshotInConfig ).toHaveBeenCalledWith(
 			mockAtomicSiteId,
 			mockFolder,
 			mockShareUrl,
-			'version-1'
+			'version-1',
+			777
 		);
 		expect( mockReportSuccess ).toHaveBeenCalledWith(
 			`Preview site available at: ${ mockShareUrl }`
@@ -177,6 +180,7 @@ describe( 'Preview Update Command', () => {
 			siteId: 999,
 			hostname: newHost,
 			shareUrl,
+			liveSiteId: 777,
 		} );
 		vi.mocked( saveSnapshotToConfig ).mockResolvedValue( newSnapshot );
 		if ( deleteError ) {
@@ -191,7 +195,8 @@ describe( 'Preview Update Command', () => {
 		expect( createPreviewSite ).toHaveBeenCalledWith(
 			678,
 			mockSnapshot.name,
-			mockAuthToken.accessToken
+			mockAuthToken.accessToken,
+			undefined
 		);
 		expect( updatePreviewSite ).not.toHaveBeenCalled();
 		expect( updateSnapshotInConfig ).not.toHaveBeenCalled();
@@ -202,7 +207,8 @@ describe( 'Preview Update Command', () => {
 			mockAuthToken.id,
 			mockSnapshot.name,
 			shareUrl,
-			'version-1'
+			'version-1',
+			777
 		);
 		expect( deleteSnapshotFromConfig ).toHaveBeenCalledWith( jurassicNinjaHost );
 		expect( deleteSnapshotSite ).toHaveBeenCalledWith(

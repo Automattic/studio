@@ -147,6 +147,24 @@ export async function deletePreviewSite(
 	} );
 }
 
+// What changed since Studio last pushed the local site to the preview or pulled the preview into
+// it, as `studio preview status` reports. Each is null when Studio can't tell.
+const previewStatusSchema = z.object( {
+	localSiteId: z.string().nullable(),
+	localChanged: z.boolean().nullable(),
+	previewChanged: z.boolean().nullable(),
+} );
+export type PreviewStatus = z.infer< typeof previewStatusSchema >;
+
+export function getPreviewStatus(
+	executeCliCommand: ExecuteCliCommand,
+	hostname: string
+): Promise< PreviewStatus > {
+	return runCliCommand( executeCliCommand, [ 'preview', 'status', hostname ], previewStatusSchema, {
+		logPrefix: 'preview',
+	} );
+}
+
 // `preview delete --all` reports no result, so only its exit status matters.
 export function deleteAllPreviewSites( executeCliCommand: ExecuteCliCommand ): Promise< void > {
 	return new Promise( ( resolve, reject ) => {

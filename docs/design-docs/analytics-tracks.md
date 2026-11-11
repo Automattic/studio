@@ -146,11 +146,9 @@ where the sender actually runs — see Testing below for what fires in which bui
   sharing only the connected-sites storage and the WordPress.com endpoints. Classic never invokes the
   CLI for either operation, so there is no funnel to emit from; each surface emits its own event and
   `channel`/`ui_version` identify it. The agentic UI runs the CLI commands for both operations
-  (`pushSite`/`pullSite` in `packages/common/sites/sync.ts`) and emits from its own mutation hooks
-  (`apps/ui/src/data/queries/use-sync-site.ts`, shared by desktop and `studio ui`), so it passes the
-  same hidden `--suppress-tracks-event` flag the add-site and sync-pull import paths use — a
-  `channel=studio-cli` `studio_sync_push`/`studio_sync_pull` row is therefore always a run no UI
-  started. **Cancels emit nothing**
+  (`pushSite`/`pullSite` in `packages/common/sites/sync.ts`) and lets the CLI emit, so the event
+  carries the CLI's precise `failure_reason`; the host's `STUDIO_TRACKS_ORIGIN` attributes it to
+  `studio-ui:v2` (desktop) or `studio-web:v2` (`studio ui`). **Cancels emit nothing**
   at all, so `success=false` always means a real failure.
 - **`studio_code_message_sent`/`studio_code_turn_completed`** are emitted **only** by the CLI, from
   `runAgentTurn` (`apps/cli/commands/ai/index.ts`). Every chat surface forks the CLI to run a turn —
@@ -391,6 +389,36 @@ These historical values remain valid for older releases. No site names, paths, o
 | `studio_panel_opened`            | Renderer (site selection/settings; historical Classic tabs) | `panel` — current UI: `assistant` for site selection, `settings` for site-settings actions. Historical releases also used `overview`/`debugging` and Classic-only `sync`/`import-export`/`previews`. |
 | `studio_workspace_layout_changed` | Renderer (shared workspace layout setters, Desktop + browser UI) | `layout` (`chat` = chat only, `split` = chat and panel, `panel` = panel only); opaque `site_id` when the local site resolves. Emitted once per user-driven change to the resulting visible layout from header controls, View menu, command palette, shortcuts, chat show/hide actions, explicit tool opens that reveal the panel, or closing the final preview tab. Navigation to a different site is not a layout choice. Re-selecting the current layout, initial rendering, site lifecycle changes, viewport-forced changes, and annotation-forced changes emit nothing. Existing Tracks opt-out and build-disable gates apply; delivery is best-effort. |
 
+#### Responsive preview controls
+
+| Event | Emitted from | Event-specific props |
+| ----- | ------------ | -------------------- |
+| `studio_responsive_preview_changed` | Renderer responsive controls (Desktop + browser UI) | `action` (`preset_change`/`manual_resize`), `preset_category` (`phone`/`tablet`/`desktop`/`custom`), `width_bucket` and `height_bucket` (each `under_600`/`600_to_1023`/`1024_to_1439`/`1440_plus`). |
+
+Emits once per explicit preset change or completed manual resize on a site preview (front end or
+WP Admin, local or live). Named device presets carry a fixed category: phones, including the open
+foldable preset, are `phone`; iPads are `tablet`; Desktop is `desktop`. The Responsive option and
+manual dimension edits/handles are `custom`. Rotation retains the named preset's category.
+
+Pointer resizing emits on pointer release, never on drag movement. Valid dimension inputs commit on
+Enter/blur; keyboard handle repeats commit once on key release or blur. Rotation is a manual resize.
+Reselecting the current preset, unchanged dimensions (including square rotation), net-zero/clamped
+gestures, and duplicate completion notifications emit nothing. Cancelled/interrupted gestures are
+discarded, including capture loss, site changes, hiding/disabling the preview, and unmounting.
+Distinct completed interactions remain separate events even when their size buckets match.
+
+Initial rendering, restored settings, programmatic updates, automatic viewport resizing, Fit/zoom,
+and showing/hiding the device toolbar do not emit this event. Existing content-open events also
+exclude initial/restored/programmatic displays, so they describe explicit opens rather than every
+preview display. Responsive interactions can occur on a restored preview without an open event.
+Multiple size buckets intentionally cannot distinguish actual sizes within the same bucket pair.
+
+The existing anonymous installation identity, opt-out, and build/environment gates apply. Only the
+four bounded properties above and existing wrapper-provided common properties are sent: no device
+names, raw dimensions, content, URLs, paths, site identifiers, or person identity. Recording is
+best-effort; failures must not block the controls. An interaction does not establish that a
+responsive issue was found or fixed. Local tests/logs do not verify production receipt.
+
 #### Import/export events
 
 Backup import/export, emitted by the **CLI** `import`/`export` commands (the sole funnel — the desktop
@@ -463,8 +491,8 @@ No site names, URLs, paths, or raw error text are ever sent — `failure_reason`
 
 | Event                      | Emitted from                                                                                         | Event-specific props                                                                                                                                                     |
 | -------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `studio_sync_pull`         | Classic slice + agentic UI hook + CLI `pull` (standalone only)                                       | `success` (boolean), `sync_type`, `time_ms` (full pull duration, incl. the remote backup and the local import). On failure also `failure_reason`. The CLI's Reprint pull also sends `site_kind` (`preview` when the source is one of the user's preview sites, `site` otherwise, `unknown` when previews could not be listed). |
-| `studio_sync_push`         | Classic slice + agentic UI hook + CLI `push` (standalone only)                                       | `site_id` (opaque local site UUID when resolved), `success` (boolean), `sync_type`, `time_ms` (full push duration, incl. the local export, upload, and the remote import). On failure also `failure_reason`.               |
+| `studio_sync_pull`         | Classic slice + CLI `pull` (standalone and agentic UI)                                               | `success` (boolean), `sync_type`, `time_ms` (full pull duration, incl. the remote backup and the local import). On failure also `failure_reason`. The CLI's Reprint pull also sends `site_kind` (`preview` when the source is one of the user's preview sites, `site` otherwise, `unknown` when previews could not be listed). |
+| `studio_sync_push`         | Classic slice + CLI `push` (standalone and agentic UI)                                               | `site_id` (opaque local site UUID when resolved), `success` (boolean), `sync_type`, `time_ms` (full push duration, incl. the local export, upload, and the remote import). On failure also `failure_reason`.               |
 | `studio_sync_connect`      | Classic site-selection handler + agentic UI (publish picker, deep-link listener, onboarding connect) | `site_id` (opaque local site UUID when resolved), `success` (boolean), `num_of_sites` (live sites connected to this local site **after** this connect, so a first connection reports 1). On failure also `failure_reason`. |
 | `studio_sync_disconnect`   | Classic sync tab + agentic UI disconnect dialog                                                      | (none)                                                                                                                                                                   |
 | `studio_sync_create_site`  | Classic Create-site button + agentic UI onboarding connect                                           | (none — opens WordPress.com checkout)                                                                                                                                    |
@@ -486,7 +514,9 @@ embeds site names and filesystem paths.
 
 In the CLI those certain buckets come from the `LoggerError` codes the `sync-api` wrappers attach
 (`apps/cli/lib/sync-api.ts`), so a remote-side failure is attributed to the step that actually broke
-rather than inheriting the caller's fallback.
+rather than inheriting the caller's fallback. `push` and `pull` also pass the step they were in
+(`local_export`, `upload`, `remote_backup`, `remote_import`, `local_import`) as the phase, so
+`unknown` is left only for failures before the sync starts.
 
 #### Settings-change events
 

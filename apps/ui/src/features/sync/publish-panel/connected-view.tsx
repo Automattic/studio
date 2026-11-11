@@ -117,7 +117,7 @@ export function ConnectedView( {
 		);
 	};
 	const start = () => {
-		const variables = { siteId: site.id, remoteSiteId: remote.id, syncSite: remote };
+		const variables = { siteId: site.id, remoteSiteId: remote.id };
 		if ( direction === 'push' )
 			pushSite.mutate( { ...variables, options: selection.options.push } );
 		else pullSite.mutate( { ...variables, options: selection.options.pull } );

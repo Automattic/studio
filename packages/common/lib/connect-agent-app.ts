@@ -570,10 +570,17 @@ async function installWithCli(
 // before a first Connect writes the marketplace, or for another Studio of the
 // same version, like a development build beside the app.
 export async function refreshAgentPlugins( cli: StudioCli ): Promise< void > {
+	// Checked before taking the lock too, which writes to the config directory:
+	// most starts have nothing to refresh.
+	if ( ! ( await readRefreshWork( cli ) ) ) {
+		return;
+	}
 	return withAgentPluginsLock( () => refreshAgentPluginsUnlocked( cli ) );
 }
 
-async function refreshAgentPluginsUnlocked( cli: StudioCli ): Promise< void > {
+async function readRefreshWork(
+	cli: StudioCli
+): Promise< { previous: RefreshState; bundled: string } | undefined > {
 	const previous = await readRefreshState( getMarketplacePath() );
 	const bundled = await readPluginVersion( getBundledMarketplacePath( cli ) );
 	if (
@@ -581,8 +588,17 @@ async function refreshAgentPluginsUnlocked( cli: StudioCli ): Promise< void > {
 		! bundled ||
 		( ! isOlderVersion( previous.version, bundled ) && ! previous.pending.length )
 	) {
+		return undefined;
+	}
+	return { previous, bundled };
+}
+
+async function refreshAgentPluginsUnlocked( cli: StudioCli ): Promise< void > {
+	const work = await readRefreshWork( cli );
+	if ( ! work ) {
 		return;
 	}
+	const { previous, bundled } = work;
 	const marketplace = await writeMarketplace( cli );
 	const plans = getCliPlans( marketplace );
 	const state: RefreshState = {

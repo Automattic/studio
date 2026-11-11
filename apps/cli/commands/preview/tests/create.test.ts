@@ -118,6 +118,7 @@ describe( 'Preview Create Command', () => {
 			siteId: mockAtomicSiteId,
 			hostname: mockSiteUrl,
 			shareUrl: mockShareUrl,
+			liveSiteId: 777,
 		} );
 		vi.mocked( saveSnapshotToConfig ).mockResolvedValue( {
 			url: mockSiteUrl,
@@ -153,7 +154,8 @@ describe( 'Preview Create Command', () => {
 		expect( createPreviewSite ).toHaveBeenCalledWith(
 			mockAttachmentId,
 			'Test Site Preview 1',
-			mockAuthToken.accessToken
+			mockAuthToken.accessToken,
+			undefined
 		);
 		expect( saveSnapshotToConfig ).toHaveBeenCalledWith(
 			mockFolder,
@@ -162,7 +164,8 @@ describe( 'Preview Create Command', () => {
 			mockAuthToken.id,
 			'Test Site Preview 1',
 			mockShareUrl,
-			'version-1'
+			'version-1',
+			777
 		);
 		expect( mockReportSuccess ).toHaveBeenCalledWith(
 			`Preview site available at: ${ mockShareUrl }`

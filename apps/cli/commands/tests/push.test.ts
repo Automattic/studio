@@ -198,7 +198,12 @@ describe( 'CLI: studio push', () => {
 
 			expect( recordTracksEvent ).toHaveBeenCalledExactlyOnceWith(
 				TRACKS_EVENTS.SYNC_PUSH,
-				expect.objectContaining( { success: false, failure_reason: failureReason } )
+				expect.objectContaining( {
+					success: false,
+					failure_reason: failureReason,
+					selection: 'full',
+					includes_database: true,
+				} )
 			);
 		}
 	);

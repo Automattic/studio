@@ -1,10 +1,10 @@
+import { createEmptyAiConnections, type AiSettings } from '@studio/agent/protocol/providers';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { pendingPromptSlot } from '@/features/composer';
 import { createFakeConnector, type FakeConnectorInitialState } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { Connector, SelectedSiteFolder } from '@/data/core';
-import type { AiSettings } from '@studio/agent/protocol/providers';
 import type { Blueprint as CatalogBlueprint } from '@studio/common/lib/studio-blueprints-api';
 import type { Blueprint } from '@wp-playground/blueprints';
 
@@ -300,10 +300,7 @@ describe( 'Add site › blank setup', () => {
 	it( 'keeps the site draft and attachments when reconnecting a provider in settings', async () => {
 		let aiSettings: AiSettings = {
 			provider: 'wpcom',
-			connections: {
-				wpcom: { connected: false, apiKeyPreview: null },
-				'anthropic-api-key': { connected: false, apiKeyPreview: null },
-			},
+			connections: createEmptyAiConnections(),
 		};
 		const { connector, dialog, history } = await setup(
 			{},

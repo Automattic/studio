@@ -14,6 +14,7 @@ import { parseStudioActionLink } from 'src/lib/deeplink/studio-action-link';
  * - wp-studio://add-site?blueprint_url=<encoded-url> - Add site with blueprint from URL
  * - wp-studio://checkout-return?studioReturnTo=<flow> - Return from a WordPress.com checkout
  * - wp-studio://app/v1/settings?id=<setting> - Open Settings on one setting
+ * - wp-studio://app/v1/pull-site?remoteSiteId=<id> - Pull a WordPress.com or Pressable site
  */
 export async function handleDeeplink( url: string ): Promise< void > {
 	const urlObject = new URL( url );

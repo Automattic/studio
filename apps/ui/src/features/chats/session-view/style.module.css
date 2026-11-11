@@ -56,8 +56,6 @@
 }
 
 .scroll {
-	composes: scrollFade from '@/lib/theme/recipes.module.css';
-
 	position: absolute;
 	inset: 0;
 	height: 100%;
@@ -102,6 +100,34 @@
 	z-index: 2;
 }
 
+.headerLayer::before,
+.composerOuter::before {
+	position: absolute;
+	inset-inline: 0;
+	z-index: -1;
+	background: var( --chat );
+	content: '';
+	pointer-events: none;
+	display: none;
+}
+
+.headerLayer::before {
+	top: calc( -1 * var( --workspace-header-height, 0px ) );
+	bottom: calc( -1 * var( --space-8 ) );
+	mask-image: linear-gradient( to top, var( --surface-strong-overlay-fade-stops ) );
+}
+
+.composerOuter::before {
+	top: calc( -1 * var( --space-8 ) );
+	bottom: calc( -1 * var( --composer-bottom-gap ) );
+	mask-image: linear-gradient( to bottom, var( --surface-strong-overlay-fade-stops ) );
+}
+
+.root:has( > .scroll[data-scroll-top] ) > .headerLayer::before,
+.root:has( > .scroll[data-scroll-bottom] ) > .composerOuter::before {
+	display: block;
+}
+
 /* The conversation and the composer share one reading column. As the preview
    opens or closes, it eases to its width beside the preview with the chat pane
    instead of keeping its full width until the pane runs out of room. */
@@ -137,28 +163,8 @@
 }
 
 .scrollToLatestButton {
-	opacity: 0;
-	transform: scale( 0 );
-	transform-origin: center;
-	transition:
-		opacity var( --motion-duration-feedback ) ease-out,
-		transform var( --motion-duration-reveal ) var( --motion-ease-spring ),
-		color var( --motion-duration-feedback ) ease,
-		background-color var( --motion-duration-feedback ) ease,
-		border-color var( --motion-duration-feedback ) ease;
-}
-
-.scrollToLatestButton[data-visible] {
-	pointer-events: auto;
-	opacity: 1;
-	transform: scale( 1 );
-}
-
-@media ( prefers-reduced-motion: reduce ) {
-	.scrollToLatestButton {
-		transform: none;
-		transition: opacity var( --motion-duration-feedback ) ease-out;
-	}
+	composes: floatingReveal from '@/lib/theme/recipes.module.css';
+	transition: var( --floating-reveal-transition );
 }
 
 /* Composer fade-in after the entitlement check resolves. No fill mode:

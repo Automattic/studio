@@ -14,8 +14,10 @@ import {
 	useStartSite,
 } from '@/data/queries/use-sites';
 import { useResponsivePreview, updateResponsivePreview } from '@/data/responsive-preview';
+import { useIsSiteRestarting } from '@/data/site-restarts';
 import {
 	AnnotationOverlay,
+	discardAnnotations,
 	isBatchedAnnotation,
 	getSiteAnnotations,
 	subscribeAnnotationReview,
@@ -38,12 +40,12 @@ import {
 	getPathFromPreviewUrl,
 	getPreviewRealm,
 	getRealmNavigationPath,
-	getRealmOpenEvent,
 	isWordPressAuthPath,
 } from './address-bar';
 import { EMPTY_BROWSER_STATE, type BrowserNavigationState } from './browser-state';
 import { PreviewHeader } from './preview-header';
 import { AnnotateButton } from './preview-header/annotate-button';
+import { AnnotationTools } from './preview-header/annotation-tools';
 import {
 	FrameSurface,
 	isElectron,
@@ -55,11 +57,14 @@ import { getFitScale } from './responsive-preview/settings';
 import { ResponsiveToolbar } from './responsive-preview/toolbar';
 import styles from './style.module.css';
 import { getFrameKey, getSafePath, type PreviewSurfaceKey } from './surfaces';
+import { useAnnotationTools } from './use-annotation-tools';
 import { useBrowserShortcuts } from './use-browser-shortcuts';
 import { useLoadingStage } from './use-loading-stage';
 import { usePreviewAnnotations } from './use-preview-annotations';
 import { usePreviewBrowser } from './use-preview-browser';
 import { usePreviewCapture } from './use-preview-capture';
+import { usePreviewOpenTracks } from './use-preview-open-tracks';
+import { usePreviewScreenshot } from './use-preview-screenshot';
 import { usePreviewSurfaces } from './use-preview-surfaces';
 import type { SiteDetails } from '@/data/core';
 import type { InspectorEvent } from '@studio/agent/protocol/inspector/page-script';
@@ -78,6 +83,7 @@ interface SitePreviewProps {
 	// or only `noteIds`, straight away.
 	onSendAnnotations?: ( siteId: string, noteIds?: string[] ) => void;
 	onStartAnnotating?: () => boolean;
+	onAttachScreenshot?: ( siteId: string, file: File ) => void;
 	// Called when the user navigates within the preview (link clicks,
 	// back/forward) so the parent can keep its `path` in sync without
 	// forcing a reload.
@@ -97,6 +103,7 @@ function SitePreviewContent( {
 	reloadNonce,
 	onSendAnnotations,
 	onStartAnnotating,
+	onAttachScreenshot,
 	onPathChange,
 	collapsed = false,
 	inactive = false,
@@ -104,6 +111,7 @@ function SitePreviewContent( {
 	onTitleChange,
 }: SitePreviewProps ) {
 	const connector = useConnector();
+	const trackOpen = usePreviewOpenTracks();
 	const { annotationSpace } = useSiteHeader();
 	const startSite = useStartSite();
 	const operation = useSiteOperation( site );
@@ -111,10 +119,11 @@ function SitePreviewContent( {
 	const stopPending = useIsSiteStopping( site.id );
 	const live = !! liveUrl;
 	// This window's own start or stop lands before the CLI records it.
-	const isStarting = ! live && ( startPending || operation === 'start' );
-	const isStopping = ! live && ( stopPending || operation === 'stop' );
+	const isRestarting = useIsSiteRestarting( site.id ) && ! live;
+	const isStarting = ! live && ( isRestarting || startPending || operation === 'start' );
+	const isStopping = ! live && ! isRestarting && ( stopPending || operation === 'stop' );
 	const siteUrl = liveUrl ?? getSiteUrl( site );
-	const canPreview = live || site.running;
+	const canPreview = live || site.running || isRestarting;
 	const showStoppedPreview = ! blank && ! canPreview && ! isStarting;
 	const tools = useSiteToolActions( site, { liveUrl, onNavigate: onPathChange } );
 	const canUseWebview = isElectron();
@@ -150,6 +159,19 @@ function SitePreviewContent( {
 		rendered: rendered || blank,
 		publish: ! inactive && ! blank,
 	} );
+	const [ restartReveal, setRestartReveal ] = useState( false );
+	useEffect( () => {
+		if ( isRestarting ) setRestartReveal( true );
+		else if ( ! loadingStage ) setRestartReveal( false );
+	}, [ isRestarting, loadingStage ] );
+	const wasRestarting = useRef( isRestarting );
+	useEffect( () => {
+		const finished = wasRestarting.current && ! isRestarting;
+		wasRestarting.current = isRestarting;
+		if ( ! finished ) return;
+		if ( site.running && ! inactive && activeRealm !== 'admin' ) sendBrowserCommand( 'reload' );
+		else reveal();
+	}, [ isRestarting, site.running, inactive, activeRealm, sendBrowserCommand, reveal ] );
 	// Track the first load too, before a frame can report in-page navigation.
 	const [ loadedFrames, setLoadedFrames ] = useState<
 		Partial< Record< PreviewSurfaceKey, string > >
@@ -174,6 +196,10 @@ function SitePreviewContent( {
 			: activeSurfaceKey === 'email' || !! activeSurface?.inspectorReady );
 	const viewportRef = useRef< HTMLDivElement | null >( null );
 	const previewBrowser = usePreviewBrowser( viewportRef );
+	const screenshot = usePreviewScreenshot(
+		viewportRef,
+		onAttachScreenshot ? ( file ) => onAttachScreenshot( site.id, file ) : undefined
+	);
 	const browserActions = canUseWebview && ! rendered && ! blank ? previewBrowser : undefined;
 	const reloadFrontend = useCallback(
 		() => sendSurfaceCommand( 'site', 'reload' ),
@@ -225,6 +251,7 @@ function SitePreviewContent( {
 	} );
 	const responsiveSettings = useResponsivePreview( site.id );
 	const responsiveEnabled = responsiveSettings.enabled && canPreview && activeSurfaceKey === 'site';
+	const responsiveActive = ! inactive && ! collapsed && ! isStarting && ! isStopping;
 	const [ availableSize, setAvailableSize ] = useState( { width: 0, height: 0 } );
 	useLayoutEffect( () => {
 		const viewport = viewportRef.current;
@@ -308,6 +335,14 @@ function SitePreviewContent( {
 		},
 		[ setAnnotationAnchor, toViewportAnchor ]
 	);
+	const annotationTools = useAnnotationTools( {
+		siteId: site.id,
+		enabled: canAnnotate && activeSurfaceKey === 'site' && ! inactive && ! collapsed,
+		viewportRef,
+		onPick: handleAnnotationPick,
+	} );
+	const handleAnnotationToolEvent = annotationTools.handleEvent;
+	const discard = useCallback( () => discardAnnotations( site.id ), [ site.id ] );
 	const capturePage = usePreviewCapture( site.id, siteUrl, viewportRef );
 	const handleSurfaceLoad = useCallback(
 		( key: PreviewSurfaceKey, url: string, guestId?: number ) => {
@@ -336,11 +371,13 @@ function SitePreviewContent( {
 			if ( inactive ) return;
 			if ( event.type === 'browser-command' ) {
 				sendBrowserCommand( event.command );
+			} else if ( event.type === 'selection' || event.type === 'annotation-tool' ) {
+				handleAnnotationToolEvent( event );
 			} else {
 				handleAnnotationEvent( event );
 			}
 		},
-		[ handleAnnotationEvent, sendBrowserCommand, inactive ]
+		[ handleAnnotationEvent, handleAnnotationToolEvent, sendBrowserCommand, inactive ]
 	);
 
 	const browserShortcuts = useBrowserShortcuts(
@@ -352,11 +389,14 @@ function SitePreviewContent( {
 	// than always the front end. Admin screens go through /studio-auto-login so
 	// they don't land on the login form; the front end opens logged out.
 	const openExternal = live
-		? () => void connector.openExternalUrl( `${ siteUrl }${ safePath }` )
+		? () => {
+				trackOpen( safePath, 'external' );
+				void connector.openExternalUrl( `${ siteUrl }${ safePath }` );
+		  }
 		: rendered
 		? undefined
 		: () => {
-				void connector.trackEvent( getRealmOpenEvent( activeRealm ), { browser: 'external' } );
+				trackOpen( safePath, 'external' );
 				void connector
 					.openSiteUrl( site.id, safePath, { autoLogin: activeRealm !== 'frontend' } )
 					.catch( ( error ) => {
@@ -366,7 +406,12 @@ function SitePreviewContent( {
 	const responsive = {
 		active: responsiveEnabled,
 		disabled: blank || ! canPreview || isStarting || isStopping || activeSurfaceKey !== 'site',
-		onClick: () => updateResponsivePreview( site.id, { enabled: ! responsiveSettings.enabled } ),
+		onClick: () => {
+			if ( ! responsiveSettings.enabled && adminBarActions.value === 'show' ) {
+				adminBarActions.onChange( 'hide' );
+			}
+			updateResponsivePreview( site.id, { enabled: ! responsiveSettings.enabled } );
+		},
 	};
 	const beginAnnotating = () => {
 		if ( onStartAnnotating?.() === false ) return false;
@@ -378,7 +423,8 @@ function SitePreviewContent( {
 		return true;
 	};
 	const batchNotes = annotations.notes.filter( isBatchedAnnotation );
-	const showBrowserBar = canPreview && ! blank && ! loadingStage;
+	const showBrowserBar =
+		canPreview && ! blank && ( ! loadingStage || isRestarting || restartReveal );
 
 	// A link in an email to the site opens in the preview, like a password reset
 	// link; any other opens in the browser.
@@ -399,7 +445,7 @@ function SitePreviewContent( {
 					! canAnnotateSurface ||
 					isStarting ||
 					isStopping ||
-					( site.running && ( blank || ! canAnnotate ) ) ||
+					( site.running && ( blank || ( activeSurfaceKey !== 'site' && ! canAnnotate ) ) ) ||
 					isAnnotationsBusy( annotations ),
 				disabledReason: blank
 					? __( 'Open a project page to annotate.' )
@@ -426,6 +472,7 @@ function SitePreviewContent( {
 			live={ live }
 			canPreview={ canPreview }
 			isStarting={ isStarting }
+			isRestarting={ isRestarting }
 			isStopping={ isStopping }
 			browserState={ browserState }
 			shortcuts={ browserShortcuts }
@@ -437,6 +484,19 @@ function SitePreviewContent( {
 			onOpenExternal={ blank ? undefined : openExternal }
 			onExternalNavigate={ ( url ) => void connector.openExternalUrl( url ) }
 			responsive={ responsive }
+			annotation={ inactive ? undefined : annotate }
+			screenshot={
+				! rendered && ! blank && onAttachScreenshot
+					? {
+							disabled: ! canUseWebview || navigating || browserState.failed,
+							disabledReason: ! canUseWebview
+								? __( 'Screenshots are available in the desktop app.' )
+								: undefined,
+							capturing: screenshot.capturing,
+							onClick: () => void screenshot.capture(),
+					  }
+					: undefined
+			}
 		/>
 	);
 
@@ -448,16 +508,21 @@ function SitePreviewContent( {
 		>
 			{ ! inactive && annotate && annotationSpace
 				? createPortal(
-						<AnnotateButton { ...annotate } annotationCount={ batchNotes.length } />,
+						<AnnotateButton
+							{ ...annotate }
+							annotationCount={ batchNotes.length }
+							pageTools={ activeSurfaceKey === 'site' && canAnnotate }
+						/>,
 						annotationSpace
 				  )
 				: null }
-			{ showBrowserBar ? header : null }
+			{ showBrowserBar && activeSurfaceKey !== 'email' ? header : null }
 			{ showBrowserBar && responsiveEnabled ? (
 				<ResponsiveToolbar
 					siteId={ site.id }
 					settings={ responsiveSettings }
 					fitScale={ fitScale }
+					active={ responsiveActive }
 				/>
 			) : null }
 			<div className={ styles.body }>
@@ -486,6 +551,8 @@ function SitePreviewContent( {
 													siteId={ site.id }
 													siteDesign={ siteDesign.data ?? null }
 													error={ siteDesign.error }
+													onRetry={ () => void siteDesign.refetch() }
+													retrying={ siteDesign.isFetching }
 													onAnnotationPick={ handleAnnotationPick }
 													onAnnotationAnchor={ handleDesignAnchor }
 												/>
@@ -517,10 +584,16 @@ function SitePreviewContent( {
 									active={ active }
 									responsive={
 										key === 'site'
-											? { siteId: site.id, settings: responsiveSettings, scale: responsiveScale }
+											? {
+													siteId: site.id,
+													settings: responsiveSettings,
+													scale: responsiveScale,
+													active: responsiveActive,
+											  }
 											: undefined
 									}
 									loading={ loadingStage }
+									failed={ surface.browser.failed }
 								>
 									{ canUseWebview ? (
 										<WebviewSurface
@@ -537,6 +610,8 @@ function SitePreviewContent( {
 												if ( ! inspectorReady ) setAnnotationAnchor( null );
 											} }
 											onInspectorEvent={ handleInspectorEvent }
+											annotationTool={ annotationTools.tool }
+											clearSelection={ annotationTools.clearSelection }
 											browserCommand={ surface.browserCommand }
 											onBrowserStateChange={ ( state ) => handleSurfaceBrowserState( key, state ) }
 											onNavigate={ ( url ) => handleSurfaceNavigation( key, url ) }
@@ -608,11 +683,21 @@ function SitePreviewContent( {
 							) : null }
 						</div>
 					</SiteContextMenu>
+					<AnnotationTools
+						{ ...annotationTools.controls }
+						visible={
+							! inactive && ! collapsed && annotations.active && canAnnotate && !! annotate
+						}
+						pageTools={ activeSurfaceKey === 'site' }
+						disabled={ isAnnotationsBusy( annotations ) }
+						onDiscard={ discard }
+					/>
 					{ ! inactive && ! blank && canAnnotateSurface ? (
 						<AnnotationOverlay
 							siteId={ site.id }
 							anchor={ annotationAnchor }
 							onSend={ sendAnnotations }
+							onEscape={ annotationTools.escapeDraft }
 						/>
 					) : null }
 				</div>
@@ -631,7 +716,7 @@ export function SitePreview( props: SitePreviewProps ) {
 		liveUrl: reviewLiveUrl,
 		onStartAnnotating: onReviewStart,
 	} = props;
-	const { workspace, selected, patch, select, update, setChatSelected } = usePreviewTabs(
+	const { workspace, selected, patch, select, update } = usePreviewTabs(
 		previewTabsKey( props.site.id, props.liveUrl ),
 		hostPath
 	);
@@ -666,19 +751,10 @@ export function SitePreview( props: SitePreviewProps ) {
 		} else if ( observed.host !== hostPath ) {
 			setObserved( { host: hostPath, selectedId: workspace.selectedId, forwarded: null } );
 			if ( observed.forwarded !== hostPath ) {
-				setChatSelected( false );
 				patch( workspace.selectedId, { path: hostPath, title: null } );
 			}
 		}
-	}, [
-		hostPath,
-		onHostPathChange,
-		workspace.selectedId,
-		selected.path,
-		patch,
-		observed,
-		setChatSelected,
-	] );
+	}, [ hostPath, onHostPathChange, workspace.selectedId, selected.path, patch, observed ] );
 
 	useEffect( () => {
 		if ( lastFocusRequest.current === workspace.focusRequest ) return;
@@ -721,7 +797,6 @@ export function SitePreview( props: SitePreviewProps ) {
 				: note.targetKey && note.path === 'DESIGN.md'
 				? DESIGN_SYSTEM_PREVIEW_PATH
 				: note.path ?? '/';
-			setChatSelected( false );
 			const match = workspace.tabs.find( ( tab ) => tab.path === path );
 			if ( match ) select( match.id );
 			else navigate( workspace.selectedId, path );
@@ -739,7 +814,6 @@ export function SitePreview( props: SitePreviewProps ) {
 		workspace.selectedId,
 		select,
 		navigate,
-		setChatSelected,
 		reviewStarting,
 		startReviewSite,
 	] );

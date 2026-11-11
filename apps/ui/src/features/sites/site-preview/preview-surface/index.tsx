@@ -2,9 +2,8 @@ import { __ } from '@wordpress/i18n';
 import { isAppleOS } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
 import { useEffect, useRef } from 'react';
+import { PanelLoadError } from '@/features/sites/panel-load-error';
 import { normalizeDocumentTitle } from '@/features/sites/site-preview/browser-state';
-import { GlobeIcon } from '@/lib/icons';
-import { Button, Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/lib/ui';
 import { ResponsiveViewport } from '../responsive-preview/viewport';
 import styles from './style.module.css';
 import type { ResponsivePreviewSettings } from '@/data/responsive-preview';
@@ -20,14 +19,21 @@ export { isElectron } from './webview';
 export function SurfaceLayer( {
 	active,
 	loading,
+	failed,
 	design,
 	responsive,
 	children,
 }: {
 	active: boolean;
 	loading?: boolean;
+	failed?: boolean;
 	design?: boolean;
-	responsive?: { siteId: string; settings: ResponsivePreviewSettings; scale: number };
+	responsive?: {
+		siteId: string;
+		settings: ResponsivePreviewSettings;
+		scale: number;
+		active: boolean;
+	};
 	children: ReactNode;
 } ) {
 	return (
@@ -36,8 +42,11 @@ export function SurfaceLayer( {
 			data-loading={ loading || undefined }
 			inert={ active ? undefined : true }
 		>
-			<ResponsiveViewport { ...responsive }>
-				<div className={ clsx( styles.surfaceFrame, design && styles.designSurface ) }>
+			<ResponsiveViewport { ...responsive } active={ active && ( responsive?.active ?? true ) }>
+				<div
+					className={ clsx( styles.surfaceFrame, design && styles.designSurface ) }
+					data-failed={ failed || undefined }
+				>
 					{ children }
 				</div>
 			</ResponsiveViewport>
@@ -211,19 +220,10 @@ export function FrameSurface( {
 
 export function PreviewLoadFailed( { onRetry }: { onRetry: () => void } ) {
 	return (
-		<Empty className={ styles.loadFailed }>
-			<EmptyHeader>
-				<EmptyMedia>
-					<GlobeIcon />
-				</EmptyMedia>
-				<EmptyTitle>{ __( 'Preview could not load' ) }</EmptyTitle>
-				<EmptyDescription>
-					{ __( 'Check that your site is running, then try again.' ) }
-				</EmptyDescription>
-			</EmptyHeader>
-			<Button variant="outline" onClick={ onRetry }>
-				{ __( 'Try again' ) }
-			</Button>
-		</Empty>
+		<PanelLoadError
+			className={ styles.loadFailed }
+			message={ __( 'Browser could not load.' ) }
+			onRetry={ onRetry }
+		/>
 	);
 }

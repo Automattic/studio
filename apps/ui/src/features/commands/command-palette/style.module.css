@@ -24,7 +24,9 @@
 
 .list {
 	/* Seven command rows and two section headings. */
-	max-height: calc( 7 * 32px + 2 * ( var( --text-sm--line-height ) + var( --space-4 ) ) );
+	max-height: calc(
+		7 * var( --control-size ) + 2 * ( var( --text-sm--line-height ) + var( --space-4 ) )
+	);
 	min-height: 0;
 }
 

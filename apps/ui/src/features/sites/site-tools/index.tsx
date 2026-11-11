@@ -8,13 +8,15 @@ import { useSiteDesign } from '@/data/queries/use-site-design';
 import { useIsSiteBusy } from '@/data/queries/use-sites';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
+import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
 import { getSiteUrl } from '@/features/sites/get-site-url';
 import {
 	DATABASE_HOME_PATH,
 	EMAIL_PREVIEW_PATH,
 	getRealmNavigationPath,
 } from '@/features/sites/site-preview/address-bar';
-import { AppearanceIcon, DatabaseIcon, GlobeIcon, MailIcon, WordPressIcon } from '@/lib/icons';
+import { usePreviewOpenTracks } from '@/features/sites/site-preview/use-preview-open-tracks';
+import { DatabaseIcon, DesignSystemIcon, GlobeIcon, MailIcon, WordPressIcon } from '@/lib/icons';
 import { isDialogOpen, isTextEntry } from '@/lib/keyboard';
 import { Button, Kbd, Menu } from '@/lib/ui';
 import styles from './style.module.css';
@@ -33,8 +35,8 @@ export function getSiteTool( id: 'frontend' | 'admin' | 'database' | 'email' | '
 			},
 			email: { label: __( 'Email log' ), Icon: MailIcon, shortcut: 'E', action: 'openEmail' },
 			design: {
-				label: __( 'Design system' ),
-				Icon: AppearanceIcon,
+				label: __( 'Design System' ),
+				Icon: DesignSystemIcon,
 				shortcut: 'S',
 				action: 'openDesignSystem',
 			},
@@ -50,11 +52,12 @@ export function useSiteToolActions(
 	const preview = useSessionPreviewUI();
 	const startSite = useStartSiteWithChat();
 	const tabs = usePreviewTabs( previewTabsKey( site.id, liveUrl ) );
-	const open = async ( path: string, newTab = false ) => {
-		tabs.setChatSelected( false );
+	const runLayoutTransition = useUserWorkspaceLayoutTransition( site.id );
+	const trackOpen = usePreviewOpenTracks();
+	const open = async ( path: string ) => {
 		const location = liveUrl ? path : getRealmNavigationPath( path, getSiteUrl( site ) );
 		if ( onNavigate ) onNavigate( location );
-		else if ( newTab ) {
+		else {
 			if ( ! liveUrl && ! site.running && tabs.workspace.tabs.length === 1 ) {
 				tabs.patch( tabs.workspace.selectedId, { path: location, title: null } );
 			} else tabs.add( location );
@@ -65,15 +68,17 @@ export function useSiteToolActions(
 			! ( await startSite.mutateAsync( site.id ).catch( () => false ) )
 		)
 			return;
-		preview.setSite( site.id );
-		if ( ! onNavigate && ! newTab ) preview.updatePath( location );
-		preview.setOpen( true );
-		if ( preview.siteId !== site.id ) {
-			void navigate( { to: '/sites/$siteId', params: { siteId: site.id } } );
-		}
+		trackOpen( path );
+		runLayoutTransition( () => {
+			preview.setSite( site.id );
+			preview.setOpen( true );
+			if ( preview.siteId !== site.id ) {
+				return navigate( { to: '/sites/$siteId', params: { siteId: site.id } } );
+			}
+		} );
 	};
 	return {
-		openBrowser: () => void open( '/', true ),
+		openBrowser: () => void open( '/' ),
 		openAdmin: () => void open( '/wp-admin/' ),
 		openDatabase: () => void open( DATABASE_HOME_PATH ),
 		openEmail: () => void open( EMAIL_PREVIEW_PATH ),
@@ -94,7 +99,7 @@ function useAvailableSiteTools( site: SiteDetails, live: boolean ) {
 			return false;
 		}
 	}, [ design ] );
-	return ( [ 'frontend', 'admin', 'database', 'email', 'design' ] as const )
+	return ( [ 'frontend', 'admin', 'design', 'database', 'email' ] as const )
 		.filter(
 			( id ) =>
 				( ! live || id === 'frontend' || id === 'admin' ) && ( id !== 'design' || designAvailable )
@@ -149,7 +154,6 @@ export function SiteToolLauncher( {
 				<Button
 					key={ id }
 					variant="muted"
-					className={ styles.launcherButton }
 					layout="inline"
 					disabled={ busy }
 					onClick={ actions[ action ] }

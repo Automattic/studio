@@ -35,6 +35,7 @@ export const TRACKS_EVENTS = {
 	PREVIEW_SITE_DELETE_ALL: 'studio_preview_site_delete_all',
 	PANEL_OPENED: 'studio_panel_opened',
 	WORKSPACE_LAYOUT_CHANGED: 'studio_workspace_layout_changed',
+	RESPONSIVE_PREVIEW_CHANGED: 'studio_responsive_preview_changed',
 	SETTING_TELEMETRY_CHANGE: 'studio_setting_telemetry_change',
 	SETTING_APPEARANCE_CHANGE: 'studio_setting_appearance_change',
 	SETTING_LANGUAGE_CHANGE: 'studio_setting_language_change',
@@ -122,6 +123,17 @@ export type TracksSiteCreateSource = 'url' | 'capture' | 'directory';
 // browser (`external`); the agentic UI (v2) can open its in-app preview panel (`internal`).
 export type TracksBrowserTarget = 'external' | 'internal';
 
+export type TracksResponsivePreviewAction = 'preset_change' | 'manual_resize';
+export type TracksResponsivePreviewCategory = 'phone' | 'tablet' | 'desktop' | 'custom';
+export type TracksPreviewSizeBucket = 'under_600' | '600_to_1023' | '1024_to_1439' | '1440_plus';
+
+export type TracksResponsivePreviewProps = {
+	action: TracksResponsivePreviewAction;
+	preset_category: TracksResponsivePreviewCategory;
+	width_bucket: TracksPreviewSizeBucket;
+	height_bucket: TracksPreviewSizeBucket;
+};
+
 // The affordance a `studio_site_open_customize` event was launched from, sent as `entry_point`. Block
 // themes expose the site editor and its sub-views plus the media library; classic themes expose the
 // Customizer and (theme-dependent) Menus/Widgets screens.
@@ -162,9 +174,8 @@ export function getInstructionsLengthBucket( content: string ): TracksInstructio
 	return length <= 1000 ? 'medium' : 'long';
 }
 
-// The site panel/tab a `studio_panel_opened` event refers to. Studio Classic emits the tab-strip names
-// (`sync`/`import-export`/`previews` are Classic-only); the agentic UI reuses the shared names —
-// `settings` for its General tab and `debugging` for its Debugging tab.
+// Current UI: site selection (`assistant`) and site settings (`settings`). Other
+// values remain for historical agentic route navigation and Classic tabs.
 export type TracksPanel =
 	| 'overview'
 	| 'settings'

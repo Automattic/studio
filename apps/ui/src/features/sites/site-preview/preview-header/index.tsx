@@ -2,10 +2,15 @@ import { __ } from '@wordpress/i18n';
 import { useWindowControlsInset } from '@/data/host/use-window-controls-inset';
 import { useSiteHeader } from '@/features/sites/site-header-actions';
 import { PreviewAddressBar } from '@/features/sites/site-preview/address-bar';
-import { RotateCwIcon, ResponsiveIcon } from '@/lib/icons';
+import { RotateCwIcon } from '@/lib/icons';
 import { IconButton, VisuallyHidden } from '@/lib/ui';
 import { BrowserHistoryButton } from './browser-history-button';
-import { BrowserMenu, type PreviewBrowserActions } from './browser-menu';
+import {
+	BrowserMenu,
+	type PreviewBrowserActions,
+	type PreviewResponsiveActions,
+	type PreviewScreenshotActions,
+} from './browser-menu';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { useFrontendAdminBar } from '@/data/queries/use-frontend-admin-bar';
@@ -21,6 +26,7 @@ interface PreviewHeaderProps {
 	live: boolean;
 	canPreview: boolean;
 	isStarting: boolean;
+	isRestarting?: boolean;
 	isStopping: boolean;
 	browserState: BrowserNavigationState;
 	shortcuts: ReturnType< typeof useBrowserShortcuts >;
@@ -31,7 +37,9 @@ interface PreviewHeaderProps {
 	browserActions?: PreviewBrowserActions;
 	adminBarActions?: ReturnType< typeof useFrontendAdminBar >;
 	onExternalNavigate?: ( url: string ) => void;
-	responsive?: { active: boolean; disabled: boolean; onClick: () => void };
+	responsive?: PreviewResponsiveActions;
+	screenshot?: PreviewScreenshotActions;
+	annotation?: { active: boolean; disabled: boolean; disabledReason?: string; onClick: () => void };
 }
 
 export function PreviewHeader( {
@@ -41,6 +49,7 @@ export function PreviewHeader( {
 	live,
 	canPreview,
 	isStarting,
+	isRestarting = false,
 	isStopping,
 	browserState,
 	shortcuts,
@@ -52,6 +61,8 @@ export function PreviewHeader( {
 	adminBarActions,
 	onExternalNavigate,
 	responsive,
+	screenshot,
+	annotation,
 	inactive = false,
 }: PreviewHeaderProps ) {
 	const { layout: headerLayout, attachAnnotationSpace, attachBrowserHeader } = useSiteHeader();
@@ -67,26 +78,12 @@ export function PreviewHeader( {
 			onNavigate={ ( nextPath ) => onPathChange?.( nextPath ) }
 			pageTitle={ browserState.title }
 			loading={ browserState.loading }
+			compact={ headerLayout === 'mobile-overflow' }
 			onOpenExternal={ onOpenExternal }
 			onExternalNavigate={ onExternalNavigate }
 			disabled={ ! canPreview || isStarting || isStopping }
 		/>
 	);
-
-	const responsiveButton = responsive ? (
-		<IconButton
-			size="icon-sm"
-			data-preview-responsive
-			icon={ <ResponsiveIcon /> }
-			label={ responsive.active ? __( 'Exit responsive mode' ) : __( 'Responsive mode' ) }
-			aria-label={ __( 'Responsive mode' ) }
-			variant="accent-ghost"
-			aria-pressed={ responsive.active }
-			disabled={ responsive.disabled }
-			onClick={ responsive.onClick }
-			tooltipSide="bottom"
-		/>
-	) : null;
 
 	return (
 		<div
@@ -106,7 +103,11 @@ export function PreviewHeader( {
 		>
 			{ isStarting || isStopping ? (
 				<VisuallyHidden role="status">
-					{ isStopping ? __( 'Stopping site…' ) : __( 'Starting site…' ) }
+					{ isRestarting
+						? __( 'Restarting site…' )
+						: isStopping
+						? __( 'Stopping site…' )
+						: __( 'Starting site…' ) }
 				</VisuallyHidden>
 			) : null }
 			<div className={ styles.headerSide }>
@@ -119,18 +120,20 @@ export function PreviewHeader( {
 						onStep={ () => onBrowserCommand( 'back' ) }
 						onJump={ onJump }
 					/>
-					<BrowserHistoryButton
-						direction="forward"
-						browserState={ browserState }
-						shortcut={ shortcuts.forward }
-						disabled={ disabled }
-						onStep={ () => onBrowserCommand( 'forward' ) }
-						onJump={ onJump }
-					/>
+					<span hidden={ headerLayout === 'mobile-overflow' && ! browserState.canGoForward }>
+						<BrowserHistoryButton
+							direction="forward"
+							browserState={ browserState }
+							shortcut={ shortcuts.forward }
+							disabled={ disabled }
+							onStep={ () => onBrowserCommand( 'forward' ) }
+							onJump={ onJump }
+						/>
+					</span>
 					<IconButton
 						size="icon-sm"
 						icon={ <RotateCwIcon /> }
-						label={ __( 'Reload preview' ) }
+						label={ __( 'Reload' ) }
 						shortcut={ shortcuts.reload }
 						tooltipSide="bottom"
 						disabled={ disabled }
@@ -139,18 +142,22 @@ export function PreviewHeader( {
 				</div>
 			</div>
 			<div className={ styles.browserLocation } data-site-header-address>
-				{ headerLayout !== 'mobile-overflow' ? addressBar : null }
+				{ addressBar }
 			</div>
 			<div className={ styles.headerSide }>
 				<span
 					ref={ inactive ? undefined : attachAnnotationSpace }
 					className={ styles.previewActions }
+					data-site-header-annotation
+					hidden={ headerLayout === 'mobile-overflow' }
 				/>
-				{ responsiveButton }
-				{ canPreview && ( browserActions || adminBarActions ) ? (
+				{ canPreview && ( browserActions || adminBarActions || responsive || screenshot ) ? (
 					<BrowserMenu
 						actions={ browserActions }
 						adminBar={ adminBarActions }
+						responsive={ responsive }
+						screenshot={ screenshot }
+						annotation={ headerLayout === 'mobile-overflow' ? annotation : undefined }
 						disabled={ disabled }
 					/>
 				) : null }

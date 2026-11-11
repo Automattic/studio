@@ -36,6 +36,7 @@ import type {
 	SiteDetails,
 	SiteAgentFile,
 	SkillStatus,
+	PreviewStatus,
 	Snapshot,
 	SnapshotUsage,
 	StudioAssistantQuota,
@@ -262,7 +263,9 @@ export function createIpcConnector(): Connector {
 
 		async selectSiteFolder( defaultPath, options ): Promise< SelectedSiteFolder | null > {
 			const response = ( await ipcApi.showOpenFolderDialog(
-				options?.allowBlueprints
+				options?.allowSiteFiles
+					? __( 'Choose a site source' )
+					: options?.allowBlueprints
 					? __( 'Open a site or Blueprint' )
 					: __( 'Choose folder for site' ),
 				defaultPath,
@@ -342,6 +345,9 @@ export function createIpcConnector(): Connector {
 
 		async getSiteThumbnail( siteId ): Promise< string | null > {
 			return ( await ipcApi.getThumbnailData( siteId ) ) as string | null;
+		},
+		async captureAnnotationRegion( request ) {
+			return ipcApi.captureAnnotationRegion( request );
 		},
 		async captureSitePreview( siteId, { path, guestId } ) {
 			return guestId === undefined ? null : ipcApi.captureSitePreview( siteId, guestId, path );
@@ -452,6 +458,10 @@ export function createIpcConnector(): Connector {
 
 		async renameSnapshot( hostname, name ): Promise< void > {
 			await ipcApi.renamePreviewSite( hostname, name );
+		},
+
+		async getPreviewStatus( hostname ): Promise< PreviewStatus > {
+			return ( await ipcApi.getPreviewStatus( hostname ) ) as PreviewStatus;
 		},
 
 		// Connected WPCom sites
@@ -917,7 +927,11 @@ export function createIpcConnector(): Connector {
 		onAddSite( listener ) {
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			const ipcListener = ( window as any ).ipcListener;
-			return ipcListener.subscribe( 'add-site', () => listener() );
+			return ipcListener.subscribe(
+				'add-site',
+				( _event: unknown, payload?: { backup?: { path: string; name: string } } ) =>
+					listener( payload )
+			);
 		},
 
 		onAddSiteWithBlueprint( listener ) {
@@ -930,6 +944,13 @@ export function createIpcConnector(): Connector {
 		onOpenSite( listener ) {
 			return ipcListener.subscribe( 'open-site', ( _event: unknown, payload: { siteId: string } ) =>
 				listener( payload )
+			);
+		},
+
+		onPullSite( listener ) {
+			return ipcListener.subscribe(
+				'pull-site',
+				( _event: unknown, payload: { remoteSiteId: number } ) => listener( payload )
 			);
 		},
 

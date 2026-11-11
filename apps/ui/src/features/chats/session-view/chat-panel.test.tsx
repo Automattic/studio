@@ -8,6 +8,7 @@ import {
 	pickAnnotation,
 	removeAnnotations,
 	requestAnnotationSend,
+	setAnnotating,
 } from '@/features/annotations';
 import { clearComposerDrafts } from '@/features/composer';
 import { createFakeConnector, makeSession, makeSite, TEST_USER } from '@/test/fake-connector';
@@ -31,6 +32,7 @@ async function setupChat( {
 	entries = [],
 	firstPrompt = 'Hello',
 	running = false,
+	annotatePreview = true,
 }: {
 	provider?: 'wpcom' | 'anthropic-api-key';
 	quota?: Partial< StudioAssistantQuota >;
@@ -42,6 +44,7 @@ async function setupChat( {
 	entries?: SessionEntry[];
 	firstPrompt?: string;
 	running?: boolean;
+	annotatePreview?: boolean;
 } = {} ) {
 	const site = makeSite( { id: SITE_ID, name: 'Example', running } );
 	const context = pinnedProvider
@@ -67,6 +70,7 @@ async function setupChat( {
 			],
 		},
 		{
+			capabilities: { annotatePreview, nativeFolderPicker: true, studioLogs: true },
 			getAiSettings: async () => {
 				if ( settingsError ) {
 					throw new Error( 'Connections unavailable' );
@@ -126,15 +130,72 @@ const composerStartButton = () =>
 
 describe( 'Composer site controls', () => {
 	beforeEach( () => clearComposerDrafts() );
+	afterEach( () => setAnnotating( SITE_ID, false ) );
+
+	it( 'disables preview annotation when the connector cannot annotate the site', async () => {
+		const { connector, input } = await setupChat( { running: true, annotatePreview: false } );
+		fireEvent.change( input, { target: { value: '/annotate' } } );
+		const option = await screen.findByRole( 'option', { name: /^Annotate / } );
+		expect( option ).toHaveAttribute( 'aria-disabled', 'true' );
+		fireEvent.click( option );
+		expect( getSiteAnnotations( SITE_ID ).active ).toBe( false );
+		expect( connector.continueSession ).not.toHaveBeenCalled();
+	} );
 
 	it.each( [ 'menu', 'slash' ] )(
-		'starts and stops the local site through %s without sending or losing the draft',
+		'enables preview annotations through %s without sending the draft',
+		async ( source ) => {
+			const { connector, input } = await setupChat( { running: true } );
+			for ( let round = 0; round < 2; round++ ) {
+				fireEvent.change( input, {
+					target: { value: source === 'slash' ? 'Keep this draft /annotate' : 'Keep this draft' },
+				} );
+				if ( source === 'menu' ) fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+				const options = await screen.findAllByRole( 'option', { name: /^Annotate / } );
+				expect( options ).toHaveLength( 1 );
+				if ( source === 'slash' ) fireEvent.keyDown( input, { key: 'Enter' } );
+				else fireEvent.click( options[ 0 ] );
+				await waitFor( () => expect( getSiteAnnotations( SITE_ID ).active ).toBe( true ) );
+				expect( input ).toHaveValue( source === 'slash' ? 'Keep this draft ' : 'Keep this draft' );
+			}
+			expect( connector.continueSession ).not.toHaveBeenCalled();
+			expect( connector.startSite ).not.toHaveBeenCalled();
+			expect( connector.openExternalUrl ).not.toHaveBeenCalled();
+			expect( screen.getByRole( 'button', { name: 'Hide panel' } ) ).toBeVisible();
+		}
+	);
+
+	it( 'starts a stopped site for annotation and exits annotation mode if starting fails', async () => {
+		const { connector, input } = await setupChat();
+		connector.startSite.mockRejectedValueOnce( new Error( 'Unable to start' ) );
+		fireEvent.change( input, { target: { value: '/annotate' } } );
+		await screen.findByRole( 'option', { name: /^Annotate / } );
+		fireEvent.keyDown( input, { key: 'Enter' } );
+		await waitFor( () => expect( connector.startSite ).toHaveBeenCalledExactlyOnceWith( SITE_ID ) );
+		await waitFor( () => expect( getSiteAnnotations( SITE_ID ).active ).toBe( false ) );
+		expect( connector.continueSession ).not.toHaveBeenCalled();
+	} );
+
+	it( 'asks to connect a provider before enabling annotations', async () => {
+		const { connector, input } = await setupChat( { signedIn: false, hasAnthropicApiKey: false } );
+		fireEvent.change( input, { target: { value: '/annotate' } } );
+		await screen.findByRole( 'option', { name: /^Annotate / } );
+		fireEvent.keyDown( input, { key: 'Enter' } );
+		await screen.findByRole( 'dialog' );
+		expect( getSiteAnnotations( SITE_ID ).active ).toBe( false );
+		expect( connector.startSite ).not.toHaveBeenCalled();
+		expect( connector.continueSession ).not.toHaveBeenCalled();
+	} );
+
+	it.each( [ 'menu', 'slash' ] )(
+		'starts through %s and stops through slash without sending or losing the draft',
 		async ( source ) => {
 			const { connector, input, queryClient } = await setupChat( {
 				signedIn: false,
 				hasAnthropicApiKey: false,
 			} );
 			for ( const action of [ 'start', 'stop' ] as const ) {
+				const useSlash = source === 'slash' || action === 'stop';
 				const command = action === 'start' ? connector.startSite : connector.stopSite;
 				const run = command.getMockImplementation()!;
 				let finish!: () => void;
@@ -147,10 +208,10 @@ describe( 'Composer site controls', () => {
 				const label = action === 'start' ? /^Start site(?: |$)/ : 'Stop site';
 				fireEvent.change( input, {
 					target: {
-						value: source === 'slash' ? `Keep this draft /${ action }` : 'Keep this draft',
+						value: useSlash ? `Keep this draft /${ action }` : 'Keep this draft',
 					},
 				} );
-				if ( source === 'slash' ) {
+				if ( useSlash ) {
 					await screen.findByRole( 'option', { name: label } );
 					fireEvent.keyDown( input, { key: 'Enter' } );
 				} else {
@@ -158,8 +219,8 @@ describe( 'Composer site controls', () => {
 					fireEvent.click( await screen.findByRole( 'option', { name: label } ) );
 				}
 				await waitFor( () => expect( command ).toHaveBeenCalledExactlyOnceWith( SITE_ID ) );
-				expect( input ).toHaveValue( source === 'slash' ? 'Keep this draft ' : 'Keep this draft' );
-				fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
+				expect( input ).toHaveValue( useSlash ? 'Keep this draft ' : 'Keep this draft' );
+				fireEvent.change( input, { target: { value: `Keep this draft /${ action }` } } );
 				const pending = await screen.findByRole( 'option', { name: label } );
 				expect( pending ).toHaveAttribute( 'aria-disabled', 'true' );
 				fireEvent.click( pending );
@@ -253,7 +314,7 @@ describe( 'Composer access notices', () => {
 		expect( within( alert ).getAllByRole( 'button' ) ).toHaveLength( 1 );
 		fireEvent.change( input, { target: { value: 'Preserve this draft' } } );
 		const calls = connector.getAiSettings.mock.calls.length;
-		fireEvent.click( within( alert ).getByRole( 'button', { name: 'Try again' } ) );
+		fireEvent.click( within( alert ).getByRole( 'button', { name: 'Refresh' } ) );
 		await waitFor( () =>
 			expect( connector.getAiSettings.mock.calls.length ).toBeGreaterThan( calls )
 		);
@@ -519,9 +580,8 @@ describe( 'Chat target selection', () => {
 			expect( screen.queryByRole( 'option', { name: /^Choose model/ } ) ).not.toBeInTheDocument();
 			return;
 		}
-		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Choose model/ } ) );
-		const connect = await screen.findByRole( 'option', { name: /^Connect provider…/ } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
+		const connect = await screen.findByRole( 'option', { name: /^Connect providers/ } );
 		for ( const name of [ 'Fast', 'Balanced', 'Strong' ] ) {
 			expect( !! screen.queryByRole( 'option', { name: new RegExp( `^${ name }` ) } ) ).toBe(
 				connections.signedIn
@@ -779,9 +839,20 @@ describe( 'Annotation drafts during an active run', () => {
 	it( 'sends a direct annotation immediately while the chat is idle', async () => {
 		const { connector, input } = await setupChat( { pinnedProvider: 'wpcom' } );
 		fireEvent.change( input, { target: { value: 'Keep my draft' } } );
+		let accept!: () => void;
+		const originalContinue = connector.continueSession.getMockImplementation()!;
+		connector.continueSession.mockImplementationOnce( async ( ...args ) => {
+			await new Promise< void >( ( resolve ) => {
+				accept = resolve;
+			} );
+			return originalContinue( ...args );
+		} );
 		const id = addNote();
 		act( () => requestAnnotationSend( { siteId: SITE_ID, noteIds: [ id ] } ) );
 		await waitFor( () => expect( connector.continueSession ).toHaveBeenCalledOnce() );
+		expect( getSiteAnnotations( SITE_ID ).notes[ 0 ].staged ).not.toBe( true );
+		expect( screen.queryByRole( 'listitem', { name: /^1 annotation,/ } ) ).not.toBeInTheDocument();
+		await act( async () => accept() );
 		expect( connector.continueSession.mock.calls[ 0 ][ 2 ] ).toEqual(
 			expect.objectContaining( {
 				visualAnnotations: expect.arrayContaining( [

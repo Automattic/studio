@@ -33,12 +33,12 @@ describe( 'Open Folder', () => {
 		} );
 		act( () => connector.emit( 'onOpenFolder' ) );
 		const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
-		await within( dialog ).findByText( 'Fashion Magazine', { selector: 'span' } );
+		await within( dialog ).findByText( 'formwork.zip', { selector: 'span' } );
 		expect( within( dialog ).getByLabelText( 'Site name' ) ).toHaveValue( 'Fashion Magazine' );
 		expect(
 			within( dialog ).queryByText( 'Existing local WordPress site' )
 		).not.toBeInTheDocument();
-		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Create site' } ) );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Add site' } ) );
 		await waitFor( () => expect( connector.createSite ).toHaveBeenCalled() );
 		expect( connector.createSite.mock.calls[ 0 ][ 0 ].blueprint ).toMatchObject( {
 			filePath: '/tmp/bundle/formwork/blueprint.json',
@@ -51,12 +51,14 @@ describe( 'Open Folder', () => {
 		connector.selectSiteFolder.mockResolvedValueOnce( folder );
 		act( () => connector.emit( 'onOpenFolder' ) );
 		const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
-		await within( dialog ).findByText( 'Existing local WordPress site' );
+		await within( dialog ).findByText(
+			'Studio will use this WordPress site in place. No files will be moved.'
+		);
 		expect( within( dialog ).getByLabelText( 'Site name' ) ).toHaveValue( folder.name );
-		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Advanced settings' } ) );
-		expect( within( dialog ).getByLabelText( 'Local path' ) ).toHaveValue( folder.path );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Advanced' } ) );
+		expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute( 'title', folder.path );
 		expect( connector.createSite ).not.toHaveBeenCalled();
-		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Create site' } ) );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Add site' } ) );
 		await waitFor( () => expect( connector.createSite ).toHaveBeenCalled() );
 		expect( connector.createSite.mock.calls[ 0 ][ 0 ] ).toMatchObject( {
 			name: folder.name,

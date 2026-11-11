@@ -1,8 +1,5 @@
 import { clsx } from 'clsx';
-import {
-	useActivePersistentMessages,
-	useRecordPersistentMessages,
-} from '@/data/queries/use-app-messages';
+import { useActivePersistentMessages } from '@/data/queries/use-app-messages';
 import { AddAiCreditsButton } from '@/features/credits';
 import { NoticeCard } from '@/features/notifications/notice-card';
 import { Button } from '@/lib/ui';
@@ -21,8 +18,6 @@ export function AppMessageCards( { className }: { className?: string } ) {
 				<div key={ message.id } className={ styles.cell }>
 					<NoticeCard
 						notice={ { ...message, source: 'studio' } }
-						// The card's own button: NoticeCard's runs an action only while a toast or
-						// the history still offers it, and cards are neither.
 						action={
 							message.purchaseCta ? (
 								<AddAiCreditsButton variant="outline" size="2xs" />
@@ -38,10 +33,4 @@ export function AppMessageCards( { className }: { className?: string } ) {
 			) ) }
 		</div>
 	);
-}
-
-// Separate from the cards so logging continues while the sidebar is collapsed.
-export function AppMessageHistoryRecorder() {
-	useRecordPersistentMessages();
-	return null;
 }

@@ -1,6 +1,7 @@
 import type { ActiveAgentRun, AgentRunEvent } from '@studio/agent/protocol/agent-events';
 import type { StudioChatFileAttachment } from '@studio/agent/protocol/chat-files';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
+import type { InspectorSelection } from '@studio/agent/protocol/inspector/selection';
 import type { AiModelId } from '@studio/agent/protocol/models';
 import type { AiProviderId, AiSettings } from '@studio/agent/protocol/providers';
 import type {
@@ -35,7 +36,6 @@ import type {
 	SidebarSiteSort,
 	SidebarChatSort,
 	ColorScheme,
-	NewSiteBehavior,
 	QuitSitesBehavior,
 } from '@studio/common/lib/user-settings/preferences';
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
@@ -44,6 +44,7 @@ import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import type { BlueprintSource } from '@studio/common/sites/blueprint-source';
 import type { SiteDesign } from '@studio/common/sites/site-design';
 import type { SiteEmail, SiteEmailSummary } from '@studio/common/sites/site-email';
+import type { PreviewStatus } from '@studio/common/sites/snapshots';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
@@ -66,6 +67,7 @@ export type { StudioCustomEntry } from '@studio/agent/protocol/sessions/entry-ty
 export type { AiModelId } from '@studio/agent/protocol/models';
 export type { Snapshot } from '@studio/common/types/snapshot';
 export type { SnapshotUsage } from '@studio/common/lib/snapshots';
+export type { PreviewStatus } from '@studio/common/sites/snapshots';
 export type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 export type { SupportedEditor } from '@studio/common/lib/user-settings/editor';
 export type { ColorScheme, QuitSitesBehavior } from '@studio/common/lib/user-settings/preferences';
@@ -217,6 +219,11 @@ export interface Connector {
 	// The last page of the site captured in a preview, shown while it's stopped.
 	// Null when the site has not been captured yet.
 	getSiteThumbnail( siteId: string ): Promise< string | null >;
+	// Captures the selected area of the visible Desktop preview.
+	captureAnnotationRegion( request: {
+		guestId: number;
+		selection: InspectorSelection;
+	} ): Promise< StudioChatImage >;
 	// Captures the preview's page as the site's thumbnail and returns it, or null
 	// when that page isn't kept (sign-in and admin screens). The Desktop app
 	// captures the preview webview, named by `guestId`.
@@ -245,7 +252,7 @@ export interface Connector {
 	generateNumberedSiteName( baseName: string, usedSites: SiteDetails[] ): Promise< string >;
 	selectSiteFolder(
 		defaultPath: string,
-		options?: { allowBlueprints?: boolean }
+		options?: { allowBlueprints?: boolean; allowSiteFiles?: boolean; usePath?: boolean }
 	): Promise< SelectedSiteFolder | null >;
 	comparePaths( path1: string, path2: string ): Promise< boolean >;
 
@@ -309,6 +316,8 @@ export interface Connector {
 	// Deletes one preview site, both on WordPress.com and from the local list.
 	deleteSnapshot( hostname: string ): Promise< void >;
 	renameSnapshot( hostname: string, name: string ): Promise< void >;
+	// What changed on each side since the site was last pushed to the preview or pulled from it.
+	getPreviewStatus( hostname: string ): Promise< PreviewStatus >;
 
 	// Connected WordPress.com live sites for a local site, or every persisted
 	// connection for the current user when no local site is supplied.
@@ -622,11 +631,15 @@ export interface Connector {
 
 	// Fires when the user activates "File > Add Site…" (or its keyboard
 	// shortcut) in the application menu.
-	onAddSite( listener: () => void ): () => void;
+	onAddSite(
+		listener: ( payload?: { backup?: { path: string; name: string } } | void ) => void
+	): () => void;
 	onNewChat( listener: () => void ): () => void;
 	onOpenFolder( listener: () => void ): () => void;
 	// Desktop links and Spotlight select a site in the Studio workspace.
 	onOpenSite( listener: ( payload: { siteId: string } ) => void ): () => void;
+	// `pull-site` links from WordPress.com pull a remote site into Studio.
+	onPullSite( listener: ( payload: { remoteSiteId: number } ) => void ): () => void;
 	onAddSiteWithBlueprint( listener: ( payload: { blueprintPath: string } ) => void ): () => void;
 	// Tells the host the app now listens for the events links send (Settings, Add
 	// site, sync and checkout returns), so a link that arrived earlier opens.
@@ -740,7 +753,6 @@ export interface UserPreferences {
 	hideFrontendAdminBar?: boolean;
 	// Save annotation notes for a combined send.
 	batchAnnotations?: boolean;
-	newSiteBehavior?: NewSiteBehavior;
 	// The appearance tint: a `#rrggbb` accent color, and percentages.
 	accentColor?: string;
 	tintIntensity?: number;
@@ -813,6 +825,7 @@ export interface ProposedSitePath {
 }
 
 export interface SelectedSiteFolder {
+	file?: { path: string; name: string };
 	blueprint?: BlueprintSource;
 	path: string;
 	name: string;

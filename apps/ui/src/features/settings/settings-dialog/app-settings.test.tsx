@@ -29,7 +29,8 @@ function setup( sites: SiteDetails[] = [ site() ] ) {
 
 async function openSettings() {
 	await screen.findByRole( 'button', { name: 'Site menu' } );
-	fireEvent.click( screen.getByRole( 'button', { name: /^Settings$/ } ) );
+	fireEvent.click( screen.getByRole( 'button', { name: 'Account' } ) );
+	fireEvent.click( await screen.findByRole( 'menuitem', { name: /Settings/ } ) );
 	return screen.findByRole( 'dialog', { name: 'Settings' } );
 }
 
@@ -111,7 +112,8 @@ describe( 'Settings in the Studio workspace', () => {
 				name: 'Close Add site',
 			} )
 		);
-		fireEvent.click( await screen.findByRole( 'button', { name: /^Settings$/ } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Account' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: /Settings/ } ) );
 		await screen.findByRole( 'dialog', { name: 'Settings' } );
 		expect( scopeTab( 'Site' ) ).toHaveAttribute( 'aria-disabled', 'true' );
 		fireEvent.click( scopeTab( 'Site' ) );
@@ -126,7 +128,7 @@ it( 'offers installed browsers and saves or clears the site browser preference',
 	renderApp( { connector } );
 	await openSettings();
 	const browser = await screen.findByRole( 'combobox', { name: 'Default browser' } );
-	expect( browser ).toHaveTextContent( 'System default' );
+	expect( browser ).toHaveTextContent( 'System' );
 	await userEvent.click( browser );
 	expect( await screen.findByRole( 'option', { name: 'Google Chrome' } ) ).toBeVisible();
 	expect( screen.queryByRole( 'option', { name: 'Safari' } ) ).not.toBeInTheDocument();
@@ -135,7 +137,7 @@ it( 'offers installed browsers and saves or clears the site browser preference',
 		expect( connector.setUserPreferences ).toHaveBeenCalledWith( { browser: 'chrome' }, undefined )
 	);
 	await userEvent.click( screen.getByRole( 'combobox', { name: 'Default browser' } ) );
-	await userEvent.click( await screen.findByRole( 'option', { name: 'System default' } ) );
+	await userEvent.click( await screen.findByRole( 'option', { name: 'System' } ) );
 	await waitFor( () =>
 		expect( connector.setUserPreferences ).toHaveBeenCalledWith( { browser: null }, undefined )
 	);

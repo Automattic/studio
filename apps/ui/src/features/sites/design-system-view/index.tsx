@@ -11,6 +11,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { PanelLoadError } from '@/features/sites/panel-load-error';
 import { useDesignAnnotations, type DesignAnnotationProps } from './annotations';
 import { DriftPanel } from './drift-panel';
 import styles from './style.module.css';
@@ -59,12 +60,16 @@ export function DesignSystemView( {
 	siteId,
 	siteDesign,
 	error,
+	onRetry,
+	retrying,
 	onAnnotationPick,
 	onAnnotationAnchor,
 }: {
 	siteId: string;
 	siteDesign: SiteDesign | null;
 	error?: Error | null;
+	onRetry: () => void;
+	retrying?: boolean;
 } & DesignAnnotationProps ) {
 	const view = useMemo( () => {
 		if ( ! siteDesign ) {
@@ -93,11 +98,13 @@ export function DesignSystemView( {
 		onAnnotationAnchor,
 	} );
 
-	if ( error ) {
+	if ( error || ( view && 'error' in view ) ) {
 		return (
-			<div className={ styles.message } role="alert">
-				<p>{ __( 'The design system could not be loaded. Try reloading the preview.' ) }</p>
-			</div>
+			<PanelLoadError
+				message={ __( 'Design system could not load.' ) }
+				onRetry={ onRetry }
+				retrying={ retrying }
+			/>
 		);
 	}
 
@@ -107,23 +114,6 @@ export function DesignSystemView( {
 				<p>{ __( 'No design system is available for this theme.' ) }</p>
 				<p className={ styles.messageDetail }>
 					{ __( 'Design systems are available for block themes.' ) }
-				</p>
-			</div>
-		);
-	}
-
-	if ( 'error' in view ) {
-		return (
-			<div className={ styles.message }>
-				<p>
-					{ siteDesign?.design
-						? __( 'DESIGN.md could not be read.' )
-						: __( 'The theme’s design system could not be read.' ) }
-				</p>
-				<p className={ styles.messageDetail }>
-					{ siteDesign?.design
-						? view.error
-						: __( 'The theme does not provide enough colors to display a design system.' ) }
 				</p>
 			</div>
 		);
@@ -199,7 +189,7 @@ export function DesignSystemView( {
 		>
 			{ fontsUrl ? <link rel="stylesheet" href={ fontsUrl } precedence="default" /> : null }
 			<header className={ styles.header }>
-				<p className={ styles.eyebrow }>{ __( 'Design system' ) }</p>
+				<p className={ styles.eyebrow }>{ __( 'Design System' ) }</p>
 				{ tokens.name ? (
 					<h1
 						className={ styles.title }

@@ -103,7 +103,8 @@ async function hashDatabase( siteFolder: string ): Promise< string | null > {
 		return null;
 	}
 	const { DatabaseSync } = await import( 'node:sqlite' );
-	const database = new DatabaseSync( databasePath, { readOnly: true } );
+	// A running site writes to its database, and a read during a write fails without a timeout.
+	const database = new DatabaseSync( databasePath, { readOnly: true, timeout: 5000 } );
 	try {
 		const hash = createHash( 'sha256' );
 		const tables = database

@@ -11,12 +11,18 @@ interface AppProps {
 	connector: Connector;
 	queryClient?: QueryClient;
 	history?: RouterHistory;
+	router?: ReturnType< typeof createAppRouter >;
 }
 
-export function App( { connector, queryClient = defaultQueryClient, history }: AppProps ) {
+export function App( { connector, queryClient = defaultQueryClient, history, router }: AppProps ) {
 	return (
 		<AppProviders connector={ connector } queryClient={ queryClient }>
-			<AppRouter connector={ connector } queryClient={ queryClient } history={ history } />
+			<AppRouter
+				connector={ connector }
+				queryClient={ queryClient }
+				history={ history }
+				router={ router }
+			/>
 		</AppProviders>
 	);
 }
@@ -25,10 +31,12 @@ function AppRouter( {
 	connector,
 	queryClient,
 	history,
-}: Required< Pick< AppProps, 'connector' | 'queryClient' > > & Pick< AppProps, 'history' > ) {
+	router: initialRouter,
+}: Required< Pick< AppProps, 'connector' | 'queryClient' > > &
+	Pick< AppProps, 'history' | 'router' > ) {
 	const router = useMemo(
-		() => createAppRouter( { queryClient, connector }, history ),
-		[ queryClient, connector, history ]
+		() => initialRouter ?? createAppRouter( { queryClient, connector }, history ),
+		[ queryClient, connector, history, initialRouter ]
 	);
 	useTextContextMenu();
 	return <RouterProvider router={ router } />;

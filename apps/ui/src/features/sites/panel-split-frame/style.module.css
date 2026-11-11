@@ -78,14 +78,6 @@
 	--content-column-motion: var( --motion-duration-layout );
 }
 
-.rootPanelOpen .contentColumnFull {
-	--content-column-width: 100%;
-	--content-column-motion: 0ms;
-
-	width: 100%;
-	transition: none;
-}
-
 /* The chat keeps its width while the panel covers it. */
 .contentColumnHidden {
 	visibility: hidden;
@@ -191,6 +183,10 @@
 
 .rootWithHeader .panelSlot {
 	--workspace-header-height: var( --band-height );
+}
+
+.rootWithHeader .panelResizeHandle {
+	inset-block-start: var( --band-height );
 }
 
 .panelResizeHandle[inert] {

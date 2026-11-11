@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { BugIcon, ChartNoAxesColumnIncreasingIcon, FileTextIcon, SettingsIcon } from 'lucide-react';
+import { BugIcon, FileTextIcon, SettingsIcon } from 'lucide-react';
 import {
 	AppearanceIcon,
 	CodeIcon,
@@ -13,14 +13,15 @@ import {
 	SiteSettingsIcon,
 	SkillsIcon,
 	TerminalIcon,
+	UsageIcon,
 } from '@/lib/icons';
 import type { ComponentType } from 'react';
 
 const STUDIO_SECTIONS = [
 	'general',
 	'appearance',
-	'sharing',
 	'ai',
+	'sharing',
 	'mcp',
 	'usage',
 	'skills',
@@ -105,7 +106,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				setting(
 					'navigate',
 					__( 'Default browser' ),
-					__( 'The browser used to open your sites, WP Admin, and phpMyAdmin.' ),
+					__( 'The default browser for your sites.' ),
 					'browser'
 				),
 				setting(
@@ -129,12 +130,6 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				),
 				setting(
 					'navigate',
-					__( 'When adding a site' ),
-					__( 'Choose a starting point or go straight to creating a blank site.' ),
-					'new-site-behavior'
-				),
-				setting(
-					'navigate',
 					__( 'When WordPress Studio quits' ),
 					__( 'Choose what happens to running sites when you quit WordPress Studio.' ),
 					'quit-behavior'
@@ -147,7 +142,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				),
 				setting(
 					'action',
-					__( 'Start sites in split view' ),
+					__( 'Start sites with chat' ),
 					__( 'Show chat beside the panel when starting a site.' ),
 					'open-chat-on-site-start'
 				),
@@ -219,7 +214,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					...setting(
 						'navigate',
 						__( 'Accent' ),
-						__( 'Studio adapts your chosen color to work with your theme.' ),
+						__( 'Color may be adapted for your theme.' ),
 						'color'
 					),
 					aliases: [ __( 'Colour' ), __( 'Change color' ) ],
@@ -242,23 +237,6 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					__( 'Restore the default interface theme, accent color, intensity, and contrast.' ),
 					'reset-appearance'
 				),
-			],
-		},
-		{
-			id: 'sharing',
-			label: __( 'Sharing' ),
-			icon: ShareIcon,
-			settings: [
-				{
-					...setting(
-						'section',
-						__( 'Sharing previews on WordPress.com' ),
-						__( 'Share a temporary copy of your local site with anyone.' ),
-						'preview-sites'
-					),
-					aliases: [ __( 'Snapshots' ) ],
-				},
-				setting( 'section', __( 'Live previews' ) ),
 			],
 		},
 		{
@@ -288,6 +266,23 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			],
 		},
 		{
+			id: 'sharing',
+			label: __( 'Sharing' ),
+			icon: ShareIcon,
+			settings: [
+				{
+					...setting(
+						'section',
+						__( 'Sharing previews on WordPress.com' ),
+						__( 'Share a temporary copy of your local site with anyone.' ),
+						'preview-sites'
+					),
+					aliases: [ __( 'Snapshots' ) ],
+				},
+				setting( 'section', __( 'Live previews' ) ),
+			],
+		},
+		{
 			id: 'mcp',
 			label: __( 'MCP' ),
 			icon: McpIcon,
@@ -304,7 +299,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 		{
 			id: 'usage',
 			label: __( 'Usage' ),
-			icon: ChartNoAxesColumnIncreasingIcon,
+			icon: UsageIcon,
 			settings: [
 				{
 					...setting(

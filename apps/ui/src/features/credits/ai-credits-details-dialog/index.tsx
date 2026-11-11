@@ -32,7 +32,7 @@ export function AiCreditsDetailsDialog( {
 	const handleLearnMoreClick = ( event: MouseEvent< HTMLAnchorElement > ) => {
 		event.preventDefault();
 		void connector.openExternalUrl(
-			'https://developer.wordpress.com/docs/developer-tools/studio/studio-code/ai-credits-guidelines/'
+			'https://wordpress.studio/docs/studio-code/ai-credits-guidelines/'
 		);
 	};
 	const handleBuyCreditsClick = ( event: MouseEvent< HTMLAnchorElement > ) => {
@@ -46,7 +46,7 @@ export function AiCreditsDetailsDialog( {
 				<DialogHeader>
 					<DialogTitle>{ __( 'How AI credits work' ) }</DialogTitle>
 				</DialogHeader>
-				<DialogDescription tone="default" className={ styles.details } render={ <div /> }>
+				<DialogDescription className={ styles.details } render={ <div /> }>
 					<p>
 						{ __(
 							'AI Credits are how you pay for AI usage in WordPress Studio — things like generating code, building out a site, or running other AI-powered features. They’re not money. You can’t withdraw them, exchange them for cash, or use them outside WordPress Studio.'
@@ -82,7 +82,7 @@ export function AiCreditsDetailsDialog( {
 				<DialogFooter>
 					<a
 						className={ styles.learnMoreButton }
-						href="https://developer.wordpress.com/docs/developer-tools/studio/studio-code/ai-credits-guidelines/"
+						href="https://wordpress.studio/docs/studio-code/ai-credits-guidelines/"
 						onClick={ handleLearnMoreClick }
 						target="_blank"
 						rel="noreferrer noopener"

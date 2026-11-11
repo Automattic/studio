@@ -117,7 +117,7 @@ export function ConnectedView( {
 		);
 	};
 	const start = () => {
-		const variables = { siteId: site.id, remoteSiteId: remote.id, syncSite: remote };
+		const variables = { siteId: site.id, remoteSiteId: remote.id };
 		if ( direction === 'push' )
 			pushSite.mutate( { ...variables, options: selection.options.push } );
 		else pullSite.mutate( { ...variables, options: selection.options.pull } );
@@ -156,9 +156,7 @@ export function ConnectedView( {
 								variant="inline-accent"
 								size="inline"
 								onClick={ () =>
-									void connector.openExternalUrl(
-										'https://developer.wordpress.com/docs/developer-tools/studio/sync/'
-									)
+									void connector.openExternalUrl( 'https://wordpress.studio/docs/sync/' )
 								}
 							>
 								{ __( 'Learn more…' ) }
@@ -221,6 +219,7 @@ export function ConnectedView( {
 										error={ finished?.kind === 'error' ? finished.message : undefined }
 									/>
 									<Button
+										variant="accent"
 										disabled={ startSite.isPending }
 										onClick={ () => startSite.mutate( site.id ) }
 									>
@@ -304,7 +303,7 @@ export function ConnectedView( {
 											{ __( 'Cancel' ) }
 										</Button>
 										<Button
-											variant={ direction === 'push' ? 'accent' : 'default' }
+											variant="accent"
 											size="lg"
 											disabled={
 												disabled ||

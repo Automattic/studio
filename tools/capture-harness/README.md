@@ -32,8 +32,8 @@ The harness finds the rest itself:
 
 The harness drives either front end of Studio; `--driver`, or a script's `driver`, picks one.
 
-- **`electron`** (the default on macOS and Windows): Studio Desktop. Every feature, and the docs images. It needs a display: on Linux without one, the harness starts a virtual one (Xvfb) for the run, and passes Chromium's `--no-sandbox` when running as root, as in most containers. Off macOS, captures leave out the app-menu button and the room Studio keeps for the system's window buttons, so the window looks as it does in the browser app.
-- **`browser`** (the default on Linux, so in cloud machines and CI): `studio ui`, the browser app the CLI serves, in headless Chromium. The renderer is the same `apps/ui`, so most screens look the same, without the macOS window buttons; it needs no display, Electron or app build, so it is the lighter choice in a container. Desktop-only features (Annotate, opening sites in other apps, native dialogs) aren't there. Stubs and the signed-in guard answer the browser app's `/api` requests instead of IPC.
+- **`electron`** (the default on macOS and Windows): Studio Desktop. Every feature. It needs a display: on Linux without one, the harness starts a virtual one (Xvfb) for the run, and passes Chromium's `--no-sandbox` when running as root, as in most containers. Off macOS, captures leave out the app-menu button and the room Studio keeps for the system's window buttons, so the window looks as it does in the browser app.
+- **`browser`** (the default on Linux, so in cloud machines and CI): `studio ui`, the browser app the CLI serves, in headless Chromium. The renderer is the same `apps/ui`, so most screens look the same, without the macOS window buttons, which is why the docs images are captured with it; it needs no display, Electron or app build, so it is the lighter choice in a container. Desktop-only features (Annotate, opening sites in other apps, native dialogs) aren't there. Stubs and the signed-in guard answer the browser app's `/api` requests instead of IPC.
 
 ### In the cloud
 
@@ -48,7 +48,7 @@ The harness runs in a headless Linux sandbox, such as a Claude Code cloud sessio
 | `github.com`, `raw.githubusercontent.com`, `release-assets.githubusercontent.com` | Electron, WP-CLI, the SQLite files and the agent skills |
 | `cdn.playwright.dev` | Playwright's Chromium |
 
-Signed-in scripts need no account or secret: they sign in as a demo person (see **Signed in**). Linux captures show Linux keyboard shortcuts (`Ctrl+Alt+P`, not `⌥⌘P`) and scrollbars, so for the docs images, which should come from one fixed environment, capture on macOS with Studio Desktop.
+Signed-in scripts need no account or secret: they sign in as a demo person (see **Signed in**). Linux captures show Linux keyboard shortcuts (`Ctrl+Alt+P`, not `⌥⌘P`). The docs images come from this environment, the browser driver on Linux, so they carry no system's window chrome; capture them there, so the pixels match the committed ones.
 
 ## Commands
 
@@ -239,7 +239,7 @@ The loop is: open the scene and read the screen, write a step, validate, capture
 
 ## Running it as a job
 
-Any agent that can run commands can run the harness where it is (see **In the cloud**). For the official docs images, a follow-up is a Buildkite step on a pinned macOS agent that runs `capture --json` and uploads the images and `results.json` as artifacts, so who triggers a run doesn't change the pixels. `results.json` records the Studio version each run captured.
+Any agent that can run commands can run the harness where it is (see **In the cloud**). For the official docs images, a follow-up is a Buildkite step in a pinned Linux container that runs `check --json` with the browser driver and uploads the results as artifacts, so who triggers a run doesn't change the pixels. `results.json` records the Studio version each run captured.
 
 ## Sharing with `apps/studio/e2e`
 

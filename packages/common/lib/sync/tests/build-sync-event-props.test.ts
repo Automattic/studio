@@ -34,11 +34,18 @@ describe( 'classifySyncSelection', () => {
 		[ 'all files category', { optionsToSync: [ 'contents' ] }, 'categories', false ],
 		[ 'all files and database', { optionsToSync: [ 'contents', 'sqls' ] }, 'full', true ],
 		[
-			'legacy paths',
-			{ optionsToSync: [ 'paths', 'sqls' ], includePathList: [ '123' ] },
-			'folders',
+			'legacy whole plugins category',
+			{ optionsToSync: [ 'paths', 'sqls' ], specificSelectionPaths: [ 'plugins' ] },
+			'categories',
 			true,
 		],
+		[
+			'legacy plugin folder',
+			{ optionsToSync: [ 'paths' ], specificSelectionPaths: [ 'plugins/akismet' ] },
+			'folders',
+			false,
+		],
+		[ 'legacy paths without real paths', { optionsToSync: [ 'paths', 'sqls' ] }, 'unknown', true ],
 		[
 			'push specific paths',
 			{ optionsToSync: [ 'plugins' ], specificSelectionPaths: [ 'wp-content/plugins/akismet' ] },

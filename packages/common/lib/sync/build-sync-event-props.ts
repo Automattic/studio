@@ -13,7 +13,7 @@ import type { SyncOption, SyncSite } from '@studio/common/types/sync';
 // A type alias rather than an interface: interfaces have no implicit index
 // signature, so they aren't assignable to the wrappers' `TracksProps`.
 export type SyncSelectionProps = {
-	selection: 'full' | 'categories' | 'folders';
+	selection: 'full' | 'categories' | 'folders' | 'unknown';
 	includes_database: boolean;
 };
 
@@ -26,20 +26,19 @@ type SyncSelection =
 	  }
 	| {
 			optionsToSync: SyncOption[];
-			includePathList?: string[];
 			specificSelectionPaths?: string[];
 	  };
 
 export function classifySyncSelection( input: SyncSelection ): SyncSelectionProps {
 	if ( 'optionsToSync' in input ) {
-		const { optionsToSync, includePathList, specificSelectionPaths } = input;
+		const { optionsToSync, specificSelectionPaths } = input;
 		const includes_database = optionsToSync.includes( 'all' ) || optionsToSync.includes( 'sqls' );
-		const folders =
-			( optionsToSync.includes( 'paths' ) && !! includePathList?.length ) ||
-			specificSelectionPaths?.some( isFolderPath );
+		const folders = specificSelectionPaths?.some( isFolderPath );
 		return {
 			selection: folders
 				? 'folders'
+				: optionsToSync.includes( 'paths' ) && ! specificSelectionPaths?.length
+				? 'unknown'
 				: optionsToSync.includes( 'all' ) ||
 				  ( includes_database &&
 						optionsToSync.includes( 'contents' ) &&

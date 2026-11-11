@@ -64,11 +64,12 @@ export async function runCommand(
 	siteIdentifier?: string,
 	syncIncludePathList?: string[],
 	logger: Logger< LoggerAction > = defaultLogger,
-	confirmLargeBackup?: () => Promise< boolean >
+	confirmLargeBackup?: () => Promise< boolean >,
+	specificSelectionPaths?: string[]
 ): Promise< SyncSite | undefined > {
 	let pullError: unknown;
 	let selectionProps: SyncSelectionProps | undefined = syncOptions
-		? classifySyncSelection( { optionsToSync: syncOptions, includePathList: syncIncludePathList } )
+		? classifySyncSelection( { optionsToSync: syncOptions, specificSelectionPaths } )
 		: undefined;
 	let restartSiteError: unknown;
 	let remoteSite: SyncSite | undefined;
@@ -121,9 +122,10 @@ export async function runCommand(
 			}
 			optionsToSync = selection.optionsToSync;
 			includePathList = selection.includePathList;
+			specificSelectionPaths = selection.specificSelectionPaths;
 		}
 
-		selectionProps ??= classifySyncSelection( { optionsToSync, includePathList } );
+		selectionProps ??= classifySyncSelection( { optionsToSync, specificSelectionPaths } );
 
 		// Pull progress: Backup (0-50%) → Download (50-80%) → Import (80-100%)
 		failurePhase = 'remote_backup';
@@ -368,7 +370,8 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 							),
 							default: true,
 						} )
-				: undefined
+				: undefined,
+			argv.only
 		);
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {

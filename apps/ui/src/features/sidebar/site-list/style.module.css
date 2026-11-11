@@ -105,7 +105,6 @@
 }
 
 .groupHeader {
-	container-type: scroll-state;
 	flex-shrink: 0;
 	margin-block-start: var( --space-3 );
 	position: sticky;
@@ -119,34 +118,13 @@
 	top: var( --space-1_5 );
 }
 
-.groupHeader::before {
-	position: absolute;
-	inset: 0;
-	bottom: calc( -1 * var( --space-1 ) );
-	z-index: -1;
-	background: var( --studio-sidebar-bg );
+.groupPanel {
 	mask-image: linear-gradient(
-		to top,
-		transparent,
-		rgb( 0 0 0 / 0.6 ) 10%,
-		rgb( 0 0 0 / 0.9 ) 20%,
-		rgb( 0 0 0 / 0.99 ) 30%,
-		#000 45%
+		to bottom,
+		transparent var( --group-clip-top, 0px ),
+		rgb( 0 0 0 / 0.65 ) calc( var( --group-clip-top, 0px ) + var( --group-fade-size, 0px ) * 0.35 ),
+		#000 calc( var( --group-clip-top, 0px ) + var( --group-fade-size, 0px ) )
 	);
-	opacity: 0;
-	transition: opacity var( --motion-duration-surface ) ease;
-	content: '';
-	pointer-events: none;
-}
-
-.group:first-child > .groupHeader::before {
-	top: calc( -1 * var( --space-1_5 ) );
-}
-
-@container scroll-state( stuck: top ) {
-	.groupHeader::before {
-		opacity: 1;
-	}
 }
 
 .groupHeader:hover .groupHoverAction,
@@ -168,10 +146,6 @@
 }
 
 @media ( prefers-reduced-motion: reduce ) {
-	.groupHeader::before {
-		transition: none;
-	}
-
 	.groupPanel,
 	.chatsPanel {
 		transition-duration: 0s;

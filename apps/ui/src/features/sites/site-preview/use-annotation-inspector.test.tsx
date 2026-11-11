@@ -719,18 +719,24 @@ describe( 'annotation inspector navigation', () => {
 		expect( onStartAnnotating ).toHaveBeenCalledTimes( 2 );
 	} );
 
-	it( 'resets readiness for a new main document and reinjects when it is ready', async () => {
+	it( 'keeps Annotate enabled during navigation and reinjects when the document is ready', async () => {
 		const { preview, emit, annotate } = await setup();
 		emit( 'dom-ready' );
 		await waitFor( () => expect( annotate() ).toBeEnabled() );
 		act( () => setAnnotating( site.id, true ) );
 		emit( 'did-start-navigation', { isMainFrame: true, isInPlace: false } );
 		emit( 'did-start-loading' );
-		expect( annotate() ).toBeDisabled();
+		expect( annotate() ).toBeEnabled();
+		expect( screen.queryByRole( 'group', { name: 'Annotation tools' } ) ).not.toBeInTheDocument();
+		fireEvent.click( annotate() );
+		expect( getSiteAnnotations( site.id ).active ).toBe( false );
+		fireEvent.click( annotate() );
+		expect( getSiteAnnotations( site.id ).active ).toBe( true );
 		emit( 'dom-ready' );
 		await waitFor( () => expect( annotate() ).toBeEnabled() );
 		expect( getSiteAnnotations( site.id ).active ).toBe( true );
 		expect( injections( preview ) ).toHaveLength( 2 );
+		expect( pageState( preview ).active ).toBe( true );
 	} );
 
 	it( 'ignores an injection failure from the previous document', async () => {

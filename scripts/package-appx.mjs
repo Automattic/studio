@@ -6,16 +6,23 @@ import packageJson from '../apps/studio/package.json' with { type: 'json' };
 
 console.log( '--- :electron: Packaging AppX' );
 
-const { assertAzureSigningEnv, getAzureSignArgs, getAzureSigningConfig } = (
-	await import( './azure-signing.cjs' )
-).default;
+const {
+	assertAzureSigningEnv,
+	getAzureSignArgs,
+	getAzureSigningConfig,
+	isWindowsSigningRequested,
+} = ( await import( './azure-signing.cjs' ) ).default;
 
-console.log( '~~~ Verifying Azure Trusted Signing env vars...' );
-try {
-	assertAzureSigningEnv();
-} catch ( error ) {
-	console.error( error instanceof Error ? error.message : error );
-	process.exit( 1 );
+const signWindows = isWindowsSigningRequested();
+
+if ( signWindows ) {
+	console.log( '~~~ Verifying Azure Trusted Signing env vars...' );
+	try {
+		assertAzureSigningEnv();
+	} catch ( error ) {
+		console.error( error instanceof Error ? error.message : error );
+		process.exit( 1 );
+	}
 }
 
 // Get architecture from environment variable, default to x64 for backward compatibility
@@ -189,6 +196,11 @@ await convertToWindowsStore( {
 	devCert: 'nil',
 	outputDirectory: appxOutputPathSigned,
 } );
+
+if ( ! signWindows ) {
+	console.log( '~~~ SIGN_WINDOWS_BUILD is not set, leaving the sideload .appx unsigned.' );
+	process.exit( 0 );
+}
 
 console.log( '~~~ Signing sideload .appx with Azure Trusted Signing...' );
 const appxFiles = ( await fs.readdir( appxOutputPathSigned ) ).filter( ( f ) =>

@@ -1,6 +1,5 @@
 import { __ } from '@wordpress/i18n';
 import { EllipsisVerticalIcon } from 'lucide-react';
-import { AnnotateIcon } from '@/lib/icons';
 import { Button, Menu, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import type { PreviewColorScheme } from '../preview-surface/webview';
 import type { useFrontendAdminBar } from '@/data/queries/use-frontend-admin-bar';
@@ -45,16 +44,6 @@ function BrowserMenuItems( {
 }: BrowserMenuItemsProps ) {
 	return (
 		<>
-			{ annotation ? (
-				<Menu.Item
-					disabled={ disabled || annotation.disabled }
-					onClick={ annotation.onClick }
-					aria-description={ annotation.disabledReason }
-				>
-					<AnnotateIcon />
-					{ annotation.active ? __( 'Stop annotating' ) : __( 'Annotate' ) }
-				</Menu.Item>
-			) : null }
 			{ adminBar ? (
 				<Menu.Item
 					disabled={ disabled || adminBar.disabled }
@@ -68,8 +57,17 @@ function BrowserMenuItems( {
 					{ responsive.active ? __( 'Hide device toolbar' ) : __( 'Show device toolbar' ) }
 				</Menu.Item>
 			) : null }
-			{ ( screenshot || actions ) && ( annotation || adminBar || responsive ) ? (
+			{ ( annotation || screenshot || actions ) && ( adminBar || responsive ) ? (
 				<Menu.Separator />
+			) : null }
+			{ annotation ? (
+				<Menu.Item
+					disabled={ disabled || annotation.disabled }
+					onClick={ annotation.onClick }
+					aria-description={ annotation.disabledReason }
+				>
+					{ annotation.active ? __( 'Stop annotating' ) : __( 'Annotate' ) }
+				</Menu.Item>
 			) : null }
 			{ screenshot ? (
 				<Menu.Item

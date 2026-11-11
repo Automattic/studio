@@ -10,11 +10,18 @@
 	initial-value: 100%;
 }
 
+@property --layout-controls-space {
+	syntax: '<length>';
+	inherits: true;
+	initial-value: 36px;
+}
+
 .header {
 	--layout-controls-space: calc( 32px + var( --band-gap ) );
 	--panel-chat-header-width: calc( 100% - var( --layout-controls-space ) );
 	--panel-tabs-start: calc( 100% + var( --band-inset ) );
 	transition:
+		--layout-controls-space var( --panel-layout-duration ) var( --motion-ease-layout ),
 		--panel-chat-header-width var( --panel-layout-duration ) var( --motion-ease-layout ),
 		--panel-tabs-start var( --panel-layout-duration ) var( --motion-ease-layout );
 	position: relative;
@@ -34,7 +41,8 @@
 	inset-inline-end: var( --layout-controls-space );
 }
 .header[data-panel-open] > [data-site-header-actions] {
-	inset-inline-start: var( --panel-frame-boundary );
+	/* The sliding boundary briefly leaves no room for the actions. Size them to the destination. */
+	inset-inline-start: var( --panel-frame-visible-content-width );
 }
 .header[data-full-view-control] {
 	--layout-controls-space: calc( 64px + 2 * var( --band-gap ) );

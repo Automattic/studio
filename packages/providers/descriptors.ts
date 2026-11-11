@@ -1,15 +1,21 @@
 import { anthropicDescriptor } from './anthropic/descriptor';
+import { geminiDescriptor } from './gemini/descriptor';
 import { wpcomDescriptor } from './wpcom/descriptor';
 import type { ProviderConfigs, ProviderDescriptor, ProviderId } from './types';
 
 // Also the fallback order: the first ready provider wins.
-export const PROVIDER_IDS = [ 'wpcom', 'anthropic' ] as const satisfies readonly ProviderId[];
+export const PROVIDER_IDS = [
+	'wpcom',
+	'anthropic',
+	'gemini',
+] as const satisfies readonly ProviderId[];
 
 export const DEFAULT_PROVIDER_ID: ProviderId = 'wpcom';
 
 const DESCRIPTORS: { [ Id in ProviderId ]: ProviderDescriptor< ProviderConfigs[ Id ] > } = {
 	wpcom: wpcomDescriptor,
 	anthropic: anthropicDescriptor,
+	gemini: geminiDescriptor,
 };
 
 export function getProviderDescriptor< Id extends ProviderId >(
@@ -24,6 +30,7 @@ export function getProviderDescriptor< Id extends ProviderId >(
 const STORED_PROVIDER_IDS: Record< ProviderId, string > = {
 	wpcom: 'wpcom',
 	anthropic: 'anthropic-api-key',
+	gemini: 'gemini',
 };
 
 export function normalizeProviderId( value: string ): ProviderId | undefined {

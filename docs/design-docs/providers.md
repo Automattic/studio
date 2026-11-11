@@ -29,6 +29,7 @@ It describes the architecture and the rules, not the exact APIs, which are expec
 | --------------------------------------------------------- | --------------------------------- | ------------------------------------ | ---------------------- | ----------- |
 | WordPress.com (`wpcom`)                                   | Studio sign-in                    | `fast`, `balanced`, `strong`; images | push, pull _(planned)_ | _(planned)_ |
 | Anthropic (`anthropic`)                                   | API key; subscription _(planned)_ | Claude models                        | —                      | —           |
+| Google Gemini (`gemini`)                                  | Google AI Studio API key          | Gemini models                        | —                      | —           |
 | Other hosts, such as an SSH host or Spacefast _(planned)_ | Per host                          | —                                    | push, pull             | —           |
 
 The WordPress.com tiers are capability aliases. The proxy's `studio-agent` lane resolves each one to an upstream model server-side, so the mapping can change without a release.
@@ -74,7 +75,7 @@ It is a package of its own because sites and previews are not agent concerns, so
 - Surfaces render the form from its schema, so neither the settings nor `studio code` know what a provider asks for.
 - Connecting hands what the user gave, a form's values or the redirect's result, to the provider, which checks it and returns its config. Studio stores the config without looking inside it. Disconnecting lets the provider clean up on its side, as WordPress.com revokes its token, then Studio removes the config.
 - When a provider has no usable config, it says so, along with how it can connect. The CLI asks the user; without a terminal, it reports the error.
-- Studio stores configs in `shared.json` and validates them against each provider's schema. Configs move to a per-provider section _(planned)_. Until then, and for a few releases after so older builds keep working, Studio uses the existing fields (`authToken` and `anthropicApiKey`). This mapping is Studio's storage code; providers never see it. When `STUDIO_WPCOM_TOKEN` is set, the CLI uses it for the WordPress.com config.
+- Studio stores configs in `shared.json` and validates them against each provider's schema. Configs move to a per-provider section _(planned)_. Until then, and for a few releases after so older builds keep working, Studio uses individual fields (`authToken`, `anthropicApiKey`, and `geminiApiKey`). This mapping is Studio's storage code; providers never see it. When `STUDIO_WPCOM_TOKEN` is set, the CLI uses it for the WordPress.com config.
 - The app's settings list every provider with its connection state and a summary the provider gives, such as a key's first and last characters, never the credential itself. WordPress.com shows the Studio sign-in; other providers show their form. In `studio code`, `/provider` asks for what is missing, and one command connects any provider the way it says _(planned)_. No provider connects through `studio auth`.
 
 ## AI

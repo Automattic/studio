@@ -1,15 +1,17 @@
 import type { AnthropicConfig } from './anthropic/config';
+import type { GeminiConfig } from './gemini/config';
 import type { AiModelId } from './models';
 import type { WpcomConfig } from './wpcom/config';
 import type { Api, Model } from '@earendil-works/pi-ai';
 import type { z } from 'zod';
 
-export type ProviderId = 'wpcom' | 'anthropic';
+export type ProviderId = 'wpcom' | 'anthropic' | 'gemini';
 
 // What Studio stores for each provider.
 export interface ProviderConfigs {
 	wpcom: WpcomConfig;
 	anthropic: AnthropicConfig;
+	gemini: GeminiConfig;
 }
 
 export interface AiModel< Id extends string = string > {

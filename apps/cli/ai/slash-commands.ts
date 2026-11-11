@@ -16,6 +16,7 @@ import {
 	getAiModel,
 	getAiModelLabel,
 	getAiModels,
+	getConnectFields,
 	getProviderDescriptor,
 	PROVIDER_IDS,
 	type AiModelId,
@@ -62,6 +63,22 @@ export function getActiveSlashCommands(): SlashCommandDef[] {
 	// Alphabetical order is what the autocomplete shows for a bare `/`; once
 	// the user types a query, fuzzy-match scoring takes over the ordering.
 	return [ ...AI_CHAT_SLASH_COMMANDS ].sort( ( a, b ) => a.name.localeCompare( b.name ) );
+}
+
+async function selectProvider( ctx: SlashCommandContext, providers: readonly ProviderId[] ) {
+	const options = providers.map( ( id ) => ( {
+		label:
+			id === ctx.currentProvider
+				? sprintf(
+						/* translators: %s: provider name */
+						__( '%s (current)' ),
+						getProviderDescriptor( id ).label
+				  )
+				: getProviderDescriptor( id ).label,
+		description: id,
+	} ) );
+	const answer = await ctx.ui.askUser( [ { question: __( 'Select an AI provider' ), options } ] );
+	return options.find( ( option ) => option.label === Object.values( answer )[ 0 ] )?.description;
 }
 
 function isPromptAbortError( error: unknown ): boolean {
@@ -218,14 +235,29 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 	},
 	{
 		name: 'api-key',
-		description: __( 'Set or update the Anthropic API key' ),
+		description: __( 'Set or update a provider API key' ),
 		handler: async ( _prompt, ctx ) => {
 			try {
-				await ctx.prepareProviderSelection( 'anthropic', { force: true } );
-				ctx.ui.showInfo( __( 'Anthropic API key updated.' ) );
+				const providers = PROVIDER_IDS.filter( ( id ) =>
+					getConnectFields( id ).some( ( field ) => field.name === 'apiKey' && field.secret )
+				);
+				const provider = providers.includes( ctx.currentProvider )
+					? ctx.currentProvider
+					: await selectProvider( ctx, providers );
+				if ( ! provider ) {
+					return 'continue';
+				}
+				await ctx.prepareProviderSelection( provider, { force: true } );
+				ctx.ui.showInfo(
+					sprintf(
+						/* translators: %s: provider name */
+						__( 'API key updated for %s.' ),
+						getProviderDescriptor( provider ).label
+					)
+				);
 				if ( ctx.showCapabilitiesOnConnect ) {
 					ctx.showCapabilitiesOnConnect = false;
-					await ctx.switchProvider( 'anthropic' );
+					await ctx.switchProvider( provider );
 					ctx.ui.showCapabilities();
 				}
 			} catch ( error ) {
@@ -359,24 +391,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		name: 'provider',
 		description: __( 'Switch the AI provider' ),
 		handler: async ( _prompt, ctx ) => {
-			const providerOptions = PROVIDER_IDS.map( ( id ) => ( {
-				label:
-					id === ctx.currentProvider
-						? sprintf(
-								/* translators: %s: provider name */
-								__( '%s (current)' ),
-								getProviderDescriptor( id ).label
-						  )
-						: getProviderDescriptor( id ).label,
-				description: id,
-			} ) );
-			const answer = await ctx.ui.askUser( [
-				{ question: __( 'Select an AI provider' ), options: providerOptions },
-			] );
-			const selectedLabel = Object.values( answer )[ 0 ] as string;
-			const newProvider = PROVIDER_IDS.find( ( id ) =>
-				selectedLabel.startsWith( getProviderDescriptor( id ).label )
-			);
+			const newProvider = await selectProvider( ctx, PROVIDER_IDS );
 			if ( newProvider && newProvider !== ctx.currentProvider ) {
 				const previousModel = ctx.currentModel;
 				try {

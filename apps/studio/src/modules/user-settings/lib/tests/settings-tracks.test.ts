@@ -119,6 +119,7 @@ describe( 'AI provider settings', () => {
 		accounts: {
 			wpcom: { connected: false, summary: null },
 			anthropic: { connected: summary !== null, summary },
+			gemini: { connected: false, summary: null },
 		},
 	} );
 	const keyPreview = 'sk-ant-api03-tes...1234';

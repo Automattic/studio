@@ -51,12 +51,13 @@ export const sharedConfigSchema = z
 		// Both Studio and the Studio CLI read and write this field through
 		// the helpers in `./connected-sites.ts`. Loose, so a build keeps the fields a newer one added.
 		connectedWpcomSites: z.record( z.string(), z.array( syncSiteSchema.loose() ) ).optional(),
-		// AI provider selection and the Anthropic API key, shared by Studio and
+		// AI provider selection and API keys, shared by Studio and
 		// the Studio CLI. Typed as plain strings so an unknown provider value
 		// written by a newer build degrades gracefully instead of failing the
 		// parse; readers go through `normalizeProviderId`.
 		aiProvider: z.string().optional(),
 		anthropicApiKey: z.string().optional(),
+		geminiApiKey: z.string().optional(),
 		// Anonymous install identifier for Tracks analytics, shared by Studio and the Studio CLI.
 		// See `docs/design-docs/analytics-tracks.md`.
 		analyticsInstallId: z.string().optional(),

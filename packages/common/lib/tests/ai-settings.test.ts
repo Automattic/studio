@@ -47,7 +47,7 @@ describe( 'ai settings', () => {
 	it( 'defaults to WordPress.com with nothing connected', async () => {
 		await expect( readAiSettings() ).resolves.toEqual( {
 			provider: 'wpcom',
-			accounts: { wpcom: disconnected, anthropic: disconnected },
+			accounts: { wpcom: disconnected, anthropic: disconnected, gemini: disconnected },
 		} );
 	} );
 
@@ -61,6 +61,7 @@ describe( 'ai settings', () => {
 			accounts: {
 				wpcom: disconnected,
 				anthropic: { connected: true, summary: 'sk-ant-api03-tes...1234' },
+				gemini: disconnected,
 			},
 		} );
 		expect( readShared().anthropicApiKey ).toBe( 'sk-ant-api03-testkey-abcd1234' );
@@ -74,6 +75,30 @@ describe( 'ai settings', () => {
 			connectProvider( anthropic, { apiKey: 'sk-ant-api03-rejected' } )
 		).rejects.toBeInstanceOf( InvalidCredentialError );
 		expect( fs.existsSync( sharedConfigPath() ) ).toBe( false );
+	} );
+
+	it( 'keeps Gemini credentials separate through connection, selection and removal', async () => {
+		const gemini = getProvider( 'gemini' );
+		writeShared( { anthropicApiKey: 'existing-key' } );
+		await connectProvider( gemini, { apiKey: '  google-test-1234  ' } );
+		await expect( setAiProvider( 'gemini' ) ).resolves.toMatchObject( {
+			provider: 'gemini',
+			accounts: { gemini: { connected: true, summary: '...1234' } },
+		} );
+		await expect( readProviderConfig( 'gemini' ) ).resolves.toEqual( {
+			method: 'api-key',
+			apiKey: 'google-test-1234',
+		} );
+		vi.mocked( fetch ).mockResolvedValue( new Response( null, { status: 400 } ) );
+		await expect( connectProvider( gemini, { apiKey: 'invalid' } ) ).rejects.toBeInstanceOf(
+			InvalidCredentialError
+		);
+		expect( readShared().geminiApiKey ).toBe( 'google-test-1234' );
+		await expect( disconnectProvider( gemini ) ).resolves.toMatchObject( {
+			provider: 'wpcom',
+			accounts: { gemini: disconnected, anthropic: { connected: true } },
+		} );
+		expect( readShared().geminiApiKey ).toBeUndefined();
 	} );
 
 	it( 'reads legacy values from cli.json and migrates them on write', async () => {
@@ -118,7 +143,7 @@ describe( 'ai settings', () => {
 
 		await expect( disconnectProvider( anthropic ) ).resolves.toEqual( {
 			provider: 'wpcom',
-			accounts: { wpcom: disconnected, anthropic: disconnected },
+			accounts: { wpcom: disconnected, anthropic: disconnected, gemini: disconnected },
 		} );
 		const written = readShared();
 		expect( written.anthropicApiKey ).toBeUndefined();

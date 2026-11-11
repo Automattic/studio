@@ -1,6 +1,6 @@
 # @studio/providers
 
-The services Studio holds an account with: WordPress.com (`wpcom`) and Anthropic (`anthropic`). Each provider describes itself and implements what it offers, so the CLI, the apps and the agent never hardcode one. The architecture and its rules are in `docs/design-docs/providers.md`.
+The services Studio holds an account with: WordPress.com (`wpcom`), Anthropic (`anthropic`) and Google Gemini (`gemini`). Each provider describes itself and implements what it offers, so the CLI, the apps and the agent never hardcode one. The architecture and its rules are in `docs/design-docs/providers.md`.
 
 ```
 index.ts         the entry surfaces read: descriptors, models, ids, errors and types
@@ -12,6 +12,7 @@ errors.ts        ProviderNotReadyError, InvalidCredentialError
 services.ts      the implementations: getProvider( id )
 wpcom/           descriptor, config, OAuth URL, sign-in, AI connection, image generation
 anthropic/       descriptor, config, API key form and validation, AI connection
+gemini/          descriptor, config, Google AI Studio key validation, Gemini AI connection
 ```
 
 ## Two entries

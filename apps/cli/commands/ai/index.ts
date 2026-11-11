@@ -443,8 +443,8 @@ export async function runCommand( options: {
 			ui.showError( __( 'AI agent failed' ) );
 		}
 
-		if ( currentProvider === 'anthropic' ) {
-			ui.showInfo( __( 'Use /api-key to update the Anthropic API key.' ) );
+		if ( getProviderDescriptor( currentProvider ).connection.kind === 'form' ) {
+			ui.showInfo( __( 'Use /api-key to update the provider API key.' ) );
 		}
 	}
 
@@ -539,8 +539,8 @@ export async function runCommand( options: {
 		} else {
 			ui.setStatusMessage( __( 'Use /login to authenticate to WordPress.com' ) );
 		}
-	} else if ( currentProvider === 'anthropic' && ! ( await readProviderConfig( 'anthropic' ) ) ) {
-		ui.showInfo( __( 'No Anthropic API key saved. Use /api-key to enter one.' ) );
+	} else if ( ! ( await readProviderConfig( currentProvider ) ) ) {
+		ui.showInfo( __( 'No provider API key saved. Use /api-key to enter one.' ) );
 	}
 
 	async function askUserAndPersistAnswers(

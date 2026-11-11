@@ -1,7 +1,7 @@
 import { password } from '@inquirer/prompts';
 import { connectProvider, readSelectedAiProvider } from '@studio/common/lib/ai-settings';
 import { readProviderConfig } from '@studio/common/lib/provider-config';
-import { InvalidCredentialError } from '@studio/providers';
+import { InvalidCredentialError, type ProviderConfigs } from '@studio/providers';
 import { vi } from 'vitest';
 import {
 	isAiProviderReady,
@@ -30,12 +30,8 @@ const anthropicProvider = expect.objectContaining( {
 	descriptor: expect.objectContaining( { id: 'anthropic' } ),
 } );
 
-type Configs = { wpcom?: { token: string }; anthropic?: { method: 'api-key'; apiKey: string } };
-
-function storeConfigs( configs: Configs ) {
-	vi.mocked( readProviderConfig ).mockImplementation(
-		async ( provider ) => configs[ provider ] as never
-	);
+function storeConfigs( configs: Partial< ProviderConfigs > ) {
+	vi.mocked( readProviderConfig ).mockImplementation( async ( provider ) => configs[ provider ] );
 }
 
 // The prompt runs its validation like inquirer, and reports what it returned.

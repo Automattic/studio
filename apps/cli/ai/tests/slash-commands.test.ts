@@ -50,6 +50,23 @@ function buildModelCtx(
 	return { ctx, persistMock };
 }
 
+describe( '/api-key slash command', () => {
+	const handler = AI_CHAT_SLASH_COMMANDS.find( ( command ) => command.name === 'api-key' )!
+		.handler!;
+
+	it.each( [ 'wpcom', 'gemini' ] as const )(
+		'updates the Gemini key from %s',
+		async ( currentProvider ) => {
+			const { ctx } = buildModelCtx( { askUserResponse: 'Google Gemini' } );
+			ctx.currentProvider = currentProvider;
+			await handler( '', ctx );
+			expect( ctx.ui.askUser ).toHaveBeenCalledTimes( currentProvider === 'wpcom' ? 1 : 0 );
+			expect( ctx.prepareProviderSelection ).toHaveBeenCalledWith( 'gemini', { force: true } );
+			expect( ctx.switchProvider ).not.toHaveBeenCalled();
+		}
+	);
+} );
+
 describe( '/model slash command', () => {
 	const setAccount = ( {
 		hasPaid,

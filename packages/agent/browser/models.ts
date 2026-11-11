@@ -17,5 +17,10 @@ const corsSafeFetch: typeof fetch = ( input, init ) => {
 export function createStreamFn( ai: AiConnection ): StreamFn {
 	const stream = createConnectionStream( ai );
 	return ( model, context, options ) =>
-		stream( model, context, { ...options, apiKey: ai.apiKey, fetch: corsSafeFetch } );
+		stream( model, context, {
+			...options,
+			apiKey: ai.apiKey,
+			// Google's SDK uses the browser's fetch directly and rejects a custom one.
+			fetch: model.api === 'google-generative-ai' ? undefined : corsSafeFetch,
+		} );
 }

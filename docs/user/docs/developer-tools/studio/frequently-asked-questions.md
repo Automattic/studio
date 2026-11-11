@@ -153,13 +153,13 @@ You can talk with WordPress Studio Code in any language you prefer.
 
 ### [Can I use WordPress Studio Code without a WordPress.com account?](#5-can-i-use-the-studio-assistant-without-a-wordpress-com-account-)
 
-Yes, with your own Anthropic API key. Connect **Anthropic** in **Settings → Providers** in the desktop app, or use the `/api-key` command in the terminal. Usage is billed through your Anthropic account. See [Use your own Anthropic API key](https://wordpress.studio/docs/studio-code/#use-your-own-anthropic-api-key).
+Yes. Connect **Anthropic API** or **Google Gemini** in **Settings → Providers**, or select the provider with `/provider` in the terminal. Enter your own API key to use that account for billing. See [AI providers](https://wordpress.studio/docs/studio-code/#ai-providers).
 
 To use WordPress.com AI credits instead, [log into WordPress Studio with your WordPress.com account](https://wordpress.studio/docs/#connect-to-wordpresscom). Some features, such as [image generation](https://wordpress.studio/docs/studio-code/image-generation/), preview sites, and publishing to WordPress.com, also need a WordPress.com login.
 
 ### [Is there any cost to use WordPress Studio Code?](#6-is-there-any-cost-to-use-the-studio-assistant-)
 
-WordPress Studio Code runs on AI Credits. Every account starts with a free allowance for the Fast tier; after that, or to use Balanced and Strong, you buy more. With your own Anthropic API key, Anthropic bills you instead. See [How AI Credits Work](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/).
+WordPress Studio Code runs on AI Credits. Every account starts with a free allowance for the Fast tier; after that, or to use Balanced and Strong, you buy more. When you use your own API key, Anthropic or Google handles billing. See [How AI Credits Work](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/).
 
 ### [How many prompts can I use per month?](#7-how-many-prompts-can-i-use-per-month-)
 

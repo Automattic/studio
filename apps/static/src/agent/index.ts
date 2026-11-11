@@ -395,11 +395,7 @@ export class StaticAgentRuns {
 				config = await this.readConfig( provider );
 			}
 			if ( ! config ) {
-				throw new Error(
-					__(
-						'Sign in to WordPress.com, or add an Anthropic API key in Settings, to use Studio Code.'
-					)
-				);
+				throw new Error( __( 'Connect a provider in Settings to use Studio Code.' ) );
 			}
 			const quota =
 				provider === 'wpcom' && token ? await fetchStudioAssistantQuota( token.accessToken ) : null;

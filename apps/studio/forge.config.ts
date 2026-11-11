@@ -286,14 +286,12 @@ const config: ForgeConfig = {
 				}
 			}
 
-			// Strip AI provider SDKs Studio never loads (Mistral, AWS Bedrock, Google). pi-ai
-			// loads them lazily and Studio only exposes Anthropic/OpenAI, so they're dead weight —
-			// and @mistralai's ~200-char generated filenames, nested under pi-coding-agent, blow
+			// Strip unused AI provider SDKs. @mistralai's ~200-char generated filenames blow
 			// past Windows' 260-char path limit and crash the Squirrel maker.
 			console.log( 'Removing unused AI provider SDKs from CLI bundle...' );
 			const unusedProviderPatterns = [
-				'{@mistralai,@aws-sdk,@aws-crypto,@smithy,@google/genai}/',
-				'**/node_modules/{@mistralai,@aws-sdk,@aws-crypto,@smithy,@google/genai}/',
+				'{@mistralai,@aws-sdk,@aws-crypto,@smithy}/',
+				'**/node_modules/{@mistralai,@aws-sdk,@aws-crypto,@smithy}/',
 			];
 			const unusedProviderPaths = globSync( unusedProviderPatterns, {
 				cwd: cliNodeModules,

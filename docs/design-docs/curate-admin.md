@@ -13,11 +13,11 @@ The skill works through four decisions, in this order:
 
 | Piece | Where | Role |
 | --- | --- | --- |
-| Skill | `packages/agent/node/skills/curate-admin/SKILL.md` | The runbook: read the site, walk through the four decisions, write the plan and manifest, build the site side, verify, hand over |
+| Skill | `packages/agent/shared/skills/curate-admin/SKILL.md` | The runbook: read the site, walk through the four decisions, write the plan and manifest, build the site side, verify, hand over |
 | `inspect_wp_admin` | `packages/agent/node/tools` | Reads the real menu, submenus and dashboard widgets as an administrator sees them. WP-CLI never builds the menu, so this takes a page load |
 | `install_curated_admin` | `packages/agent/node/tools` | Validates a manifest, copies the runtime, writes the site plugin, creates the Staff account |
 | `verify_curated_admin` | `packages/agent/node/tools` | Signs in, opens every menu link, adds an item of each post type, saves each setting, and proves what must stay closed does |
-| Runtime plugin | `packages/agent/node/skills/curate-admin/plugin` (`wp-content/plugins/curate-admin`) | Reads the manifest. Generic: holds no site data, and has no build step |
+| Runtime plugin | `packages/agent/shared/skills/curate-admin/plugin` (`wp-content/plugins/curate-admin`) | Reads the manifest. Generic: holds no site data, and has no build step |
 | Site plugin | Generated (`wp-content/plugins/curate-admin-site`) | Holds `curate-admin.json`, `guide/` and `templates/` for this site |
 | Staff admin | `getStaffAdminLogin` in `packages/common/lib/curate-admin.ts`, read by `getSiteDetails` | Tells Studio which account to open, and hides the links on other sites |
 

@@ -40,6 +40,7 @@ describe( 'reprint metadata', () => {
 
 		expect( metadata.sourceSite.contentDirectory ).toBe( '/srv/htdocs/wp-content' );
 		expect( metadata.sourceSite.wordpressVersion ).toBe( '7.1.4' );
+		expect( metadata.sourceSite.tablePrefix ).toBe( 'wp_' );
 		expect( metadata.key?.publicKey ).toBe( 'MIIBojANBg' );
 		expect( reprintClient.runReprintCommandUntilComplete ).toHaveBeenCalledWith(
 			[ 'pull-metadata', 'https://example.com/?reprint-api-jetpack', '--state-dir=/state' ],
@@ -59,6 +60,7 @@ describe( 'reprint metadata', () => {
 				sourceSite: {
 					homeUrl: null,
 					siteUrl: null,
+					tablePrefix: null,
 					wordpressDatabaseCharset: null,
 					serverDatabaseCharset: null,
 					contentDirectory: null,

@@ -8,7 +8,10 @@ import {
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { formatProgressLabel } from '@studio/common/lib/progress-label';
 import { getSiteTracksProps } from '@studio/common/lib/site-tracks';
-import { buildSyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
+import {
+	buildSyncEventProps,
+	classifySyncSelection,
+} from '@studio/common/lib/sync/build-sync-event-props';
 import {
 	SYNC_IGNORE_DEFAULTS,
 	SYNC_MAX_STALLED_ATTEMPTS,
@@ -34,7 +37,10 @@ import { findFailureCode } from 'cli/lib/utils';
 import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { handleExportEvents } from './export';
-import type { SyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
+import type {
+	SyncEventProps,
+	SyncSelectionProps,
+} from '@studio/common/lib/sync/build-sync-event-props';
 import type { SyncFailurePhase } from '@studio/common/lib/sync/classify-sync-failure';
 import type { ImportResponse, PushPhase, SyncSite } from '@studio/common/types/sync';
 import type { builder } from 'cli/commands/push.command';
@@ -54,7 +60,11 @@ export async function runCommand(
 	// it (auth, site load, remote-site fetch) can fail too — `runPush` reports the
 	// site back through this ref so those failures are still recorded, just with
 	// `sync_type: unknown`.
-	const pushed: PushOutcome = {};
+	const pushed: PushOutcome = {
+		selection: syncOptions
+			? classifySyncSelection( { optionsToSync: syncOptions, specificSelectionPaths: includeOnly } )
+			: undefined,
+	};
 
 	try {
 		await runPush( siteFolder, syncOptions, includeOnly, remoteSiteIdentifier, logger, pushed );
@@ -71,6 +81,7 @@ export async function runCommand(
 			buildSyncEventProps( {
 				startedAt,
 				site: pushed.remoteSite,
+				selection: pushed.selection,
 				error,
 				hint: { code: findFailureCode( error ), phase: pushed.failurePhase },
 			} )
@@ -89,7 +100,7 @@ export async function runCommand(
 	if ( pushed.completed ) {
 		await recordSyncPushEvent(
 			siteFolder,
-			buildSyncEventProps( { startedAt, site: pushed.remoteSite } )
+			buildSyncEventProps( { startedAt, site: pushed.remoteSite, selection: pushed.selection } )
 		);
 	}
 	return pushed.completed ? pushed.remoteSite : undefined;
@@ -97,6 +108,7 @@ export async function runCommand(
 
 type PushFlags = { includeOnly?: string[] };
 type PushOutcome = {
+	selection?: SyncSelectionProps;
 	siteId?: string;
 	remoteSite?: SyncSite;
 	completed?: boolean;
@@ -178,6 +190,8 @@ async function runPush(
 		optionsToSync = selection.optionsToSync;
 		specificSelectionPaths = selection.specificSelectionPaths;
 	}
+
+	pushed.selection ??= classifySyncSelection( { optionsToSync, specificSelectionPaths } );
 
 	reportPhase( 'creatingBackup' );
 	const tempDir = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-sync' ) );
@@ -264,7 +278,9 @@ async function runPush(
 		const { promise: uploadPromise, abort: abortUpload } = createTusUpload( {
 			token: token.accessToken,
 			remoteSiteId: remoteSite.id,
-			archivePath,
+			file: fs.createReadStream( archivePath ),
+			filename: path.basename( archivePath ),
+			size: archiveSize,
 			onProgress: ( percent ) => {
 				if ( Math.round( percent ) !== uploadPercent ) {
 					uploadPercent = Math.round( percent );

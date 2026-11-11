@@ -18,6 +18,8 @@ import { PREVIEW_HISTORY_CLEARED_EVENT } from './preview-browser-settings';
 import type { SiteDetails } from '@/data/core';
 import type { ComponentType, FormEvent, ReactNode } from 'react';
 
+// Paths are relative to the site URL, which may itself sit below its origin's
+// root (Studio on the web serves each site under `/scope:<id>`).
 export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
 	try {
 		const parsedUrl = new URL( url );
@@ -25,10 +27,21 @@ export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
 		if ( parsedUrl.origin !== parsedBaseUrl.origin ) {
 			return null;
 		}
-		return `${ parsedUrl.pathname }${ parsedUrl.search }${ parsedUrl.hash }`;
+		const prefix = parsedBaseUrl.pathname.replace( /\/$/, '' );
+		const pathname =
+			prefix && ( parsedUrl.pathname === prefix || parsedUrl.pathname.startsWith( `${ prefix }/` ) )
+				? parsedUrl.pathname.slice( prefix.length ) || '/'
+				: parsedUrl.pathname;
+		return `${ pathname }${ parsedUrl.search }${ parsedUrl.hash }`;
 	} catch {
 		return null;
 	}
+}
+
+function resolveSitePath( path: string, siteUrl: string ): URL {
+	return new URL(
+		`${ siteUrl.replace( /\/$/, '' ) }${ path.startsWith( '/' ) ? path : `/${ path }` }`
+	);
 }
 
 export type PreviewRealm = 'frontend' | 'admin' | 'staff' | 'database' | 'email' | 'design';
@@ -90,7 +103,7 @@ export function getRealmNavigationPath( path: string, siteUrl: string, user?: st
 		return path;
 	}
 	try {
-		const redirectTo = new URL( path, siteUrl ).toString();
+		const redirectTo = resolveSitePath( path, siteUrl ).toString();
 		const login = `/studio-auto-login?redirect_to=${ encodeURIComponent( redirectTo ) }`;
 		return user ? `${ login }&user=${ encodeURIComponent( user ) }` : login;
 	} catch {
@@ -222,7 +235,9 @@ function getDisplayUrl( siteUrl: string, path: string ): string {
 		return __( 'Design System' );
 	}
 	try {
-		return new URL( path, siteUrl ).toString().replace( /^(https?:\/\/[^/?#]+)\/$/i, '$1' );
+		return resolveSitePath( path, siteUrl )
+			.toString()
+			.replace( /^(https?:\/\/[^/?#]+)\/$/i, '$1' );
 	} catch {
 		return `${ siteUrl }${ path }`;
 	}

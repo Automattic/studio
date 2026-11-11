@@ -1,9 +1,10 @@
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'fs/promises';
 import os from 'os';
 import path from 'path';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { installCuratedAdmin, parseCurateAdminManifest } from '../curate-admin';
-import type { HostSite, StudioAgentHost } from '../host';
+import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
+import { installCuratedAdmin, parseCurateAdminManifest } from '@studio/agent/shared/curate-admin';
+import { createFakeHost } from './fake-host';
+import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
 
 const PAGES = 'edit.php?post_type=page';
 
@@ -137,7 +138,7 @@ describe( 'installCuratedAdmin', () => {
 	};
 
 	let site: HostSite;
-	let wpCli: ReturnType< typeof vi.fn >;
+	let wpCli: Mock< StudioAgentHost[ 'sites' ][ 'wpCli' ] >;
 	let host: StudioAgentHost;
 
 	const installed = async () =>
@@ -158,9 +159,8 @@ describe( 'installCuratedAdmin', () => {
 			stdout: stdoutFor( args ),
 			stderr: '',
 		} ) );
-		host = {
-			sites: { isRunning: async () => true, wpCli },
-		} as unknown as StudioAgentHost;
+		const fake = createFakeHost();
+		host = { ...fake, sites: { ...fake.sites, isRunning: async () => true, wpCli } };
 	} );
 
 	afterEach( async () => {
@@ -184,6 +184,19 @@ describe( 'installCuratedAdmin', () => {
 
 		const runtime = path.join( site.path, 'wp-content/plugins/curate-admin' );
 		expect( await readdir( runtime ) ).toContain( 'curate-admin.php' );
+		expect( await readdir( path.join( runtime, 'assets' ) ) ).toContain( 'editor.js' );
+	} );
+
+	it( "lists the runtime's strings for a site that isn't in English", async () => {
+		wpCli.mockImplementation( async ( _site, args ) => ( {
+			exitCode: args[ 0 ] === 'user' && args[ 1 ] === 'get' ? 1 : 0,
+			stdout: args[ 1 ]?.includes( 'get_locale' ) ? 'fr_FR' : stdoutFor( args ),
+			stderr: '',
+		} ) );
+
+		const { untranslated } = await installCuratedAdmin( host, site, manifest );
+
+		expect( untranslated ).toEqual( expect.arrayContaining( [ 'Full admin', 'Send request' ] ) );
 	} );
 
 	it( 'creates the Staff account with the role, under a login Studio can read', async () => {

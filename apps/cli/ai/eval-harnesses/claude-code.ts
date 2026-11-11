@@ -45,7 +45,7 @@ interface StreamBlock {
 export interface ClaudeStreamEvent {
 	type: string;
 	session_id?: string;
-	message?: { model?: string; content?: StreamBlock[] };
+	message?: { id?: string; model?: string; content?: StreamBlock[] };
 	subtype?: string;
 	is_error?: boolean;
 	num_turns?: number;
@@ -59,16 +59,26 @@ export interface ClaudeStreamEvent {
 	};
 }
 
+// The parser remembers the last assistant message id: Claude Code streams each
+// content block of one model response as its own `assistant` event.
+export type ClaudeTranscript = HarnessTranscript & { lastMessageId?: string };
+
 // Pure reducer: timestamps are supplied by the caller, not read from the clock.
 export function parseClaudeEvent(
-	previous: HarnessTranscript,
+	previous: ClaudeTranscript,
 	event: ClaudeStreamEvent,
 	elapsedMs: number,
 	stopAt: StopRule[] = []
-): HarnessTranscript {
+): ClaudeTranscript {
 	const next = structuredClone( previous );
 	if ( event.type === 'assistant' ) {
 		next.model = event.message?.model ?? next.model;
+		const messageId = event.message?.id;
+		if ( ! messageId || messageId !== next.lastMessageId ) next.turnDurationsMs.push( 0 );
+		next.lastMessageId = messageId;
+		const turn = next.turnDurationsMs.length;
+		const earlier = next.turnDurationsMs.slice( 0, -1 ).reduce( ( a, b ) => a + b, 0 );
+		next.turnDurationsMs[ turn - 1 ] = elapsedMs - earlier;
 		for ( const block of event.message?.content ?? [] ) {
 			if ( block.type === 'text' && block.text ) next.textSegments.push( block.text );
 			if ( block.type !== 'tool_use' || ! block.id || ! block.name ) continue;
@@ -82,10 +92,9 @@ export function parseClaudeEvent(
 				toolName: call.name,
 				input: call.input,
 				startedAtMs: elapsedMs,
-				turnIndex: next.turnDurationsMs.length + 1,
+				turnIndex: turn,
 			} );
 		}
-		next.turnDurationsMs.push( elapsedMs - next.turnDurationsMs.reduce( ( a, b ) => a + b, 0 ) );
 	}
 	if ( event.type === 'user' ) {
 		for ( const block of event.message?.content ?? [] ) {
@@ -139,7 +148,7 @@ export async function runClaudeConversation(
 	input: HarnessInput,
 	ctx: HarnessContext
 ): Promise< HarnessTranscript > {
-	let transcript = emptyClaudeTranscript( input.model );
+	let transcript: ClaudeTranscript = emptyClaudeTranscript( input.model );
 	if ( input.answers ) transcript.unsupported = [ 'answers' ];
 	const sessionDir =
 		process.env.STUDIO_EVAL_SESSION_DIR?.trim() || path.join( os.tmpdir(), 'studio-eval-sessions' );
@@ -160,7 +169,16 @@ export async function runClaudeConversation(
 		for ( const [ index, prompt ] of prompts.entries() ) {
 			if ( index > 0 && ! sessionId )
 				throw new Error( 'Claude Code did not return a session_id for follow-ups' );
-			const args = [ '-p', '--output-format', 'stream-json', '--verbose' ];
+			// Headless runs cannot answer permission prompts; the case's sites
+			// live in a temporary folder of their own.
+			const args = [
+				'-p',
+				'--output-format',
+				'stream-json',
+				'--verbose',
+				'--permission-mode',
+				'bypassPermissions',
+			];
 			if ( input.model ) args.push( '--model', input.model );
 			if ( sessionId ) args.push( '--resume', sessionId );
 			args.push( prompt );
@@ -217,5 +235,6 @@ export async function runClaudeConversation(
 		transcript.success = false;
 	}
 	if ( transcript.timedOut || transcript.stoppedAt ) transcript.success = false;
-	return transcript;
+	const { lastMessageId: _lastMessageId, ...result } = transcript;
+	return result;
 }

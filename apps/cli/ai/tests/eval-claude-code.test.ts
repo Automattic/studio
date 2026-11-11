@@ -5,12 +5,14 @@ import {
 	type ClaudeStreamEvent,
 } from '../eval-harnesses/claude-code';
 
-// Claude Code's newline-delimited stream (system init, assistant, tool response, result).
+// Claude Code's newline-delimited stream: one event per content block, so a
+// response's text and tool call arrive as two `assistant` events sharing an id.
 const recording = `
 {"type":"system","subtype":"init","session_id":"session-123","tools":["Bash"],"model":"claude-sonnet-4-6"}
-{"type":"assistant","session_id":"session-123","message":{"role":"assistant","model":"claude-sonnet-4-6","content":[{"type":"text","text":"I will check the active theme."},{"type":"tool_use","id":"toolu_01","name":"Bash","input":{"command":"studio site list"}}]}}
+{"type":"assistant","session_id":"session-123","message":{"id":"msg_01","role":"assistant","model":"claude-sonnet-4-6","content":[{"type":"text","text":"I will check the active theme."}]}}
+{"type":"assistant","session_id":"session-123","message":{"id":"msg_01","role":"assistant","model":"claude-sonnet-4-6","content":[{"type":"tool_use","id":"toolu_01","name":"Bash","input":{"command":"studio site list"}}]}}
 {"type":"user","session_id":"session-123","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_01","content":[{"type":"text","text":"Example Site"}],"is_error":false}]}}
-{"type":"assistant","session_id":"session-123","message":{"role":"assistant","model":"claude-sonnet-4-6","content":[{"type":"text","text":"The site is ready."}]}}
+{"type":"assistant","session_id":"session-123","message":{"id":"msg_02","role":"assistant","model":"claude-sonnet-4-6","content":[{"type":"text","text":"The site is ready."}]}}
 {"type":"result","subtype":"success","is_error":false,"session_id":"session-123","num_turns":2,"result":"The site is ready.","usage":{"input_tokens":42,"output_tokens":23,"cache_read_input_tokens":100,"cache_creation_input_tokens":15}}
 `;
 
@@ -45,9 +47,11 @@ describe( 'Claude Code stream transcript', () => {
 			totalTokens: 180,
 		} );
 		expect( transcript.stoppedAt ).toEqual( { toolUseId: 'toolu_01', toolName: 'Bash', index: 0 } );
+		expect( transcript.turnDurationsMs ).toEqual( [ 200, 200 ] );
 		expect( transcript.toolEvents[ 0 ] ).toMatchObject( {
-			startedAtMs: 100,
-			endedAtMs: 200,
+			turnIndex: 1,
+			startedAtMs: 200,
+			endedAtMs: 300,
 			durationMs: 100,
 			outputChars: 12,
 		} );

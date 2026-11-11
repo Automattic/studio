@@ -1,10 +1,10 @@
+import { createEmptyAiConnections, type AiProviderId } from '@studio/agent/protocol/providers';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { Composer } from '@/features/composer';
 import { createFakeConnector, type FakeConnector } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import type { AiModelId } from '@/data/core';
-import type { AiProviderId } from '@studio/agent/protocol/providers';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 
 const paidQuota: StudioAssistantQuota = {
@@ -31,10 +31,12 @@ const allowanceQuota: StudioAssistantQuota = {
 
 function connectorFor( {
 	anthropic = false,
+	gemini = false,
 	provider = 'wpcom',
 	quota = async () => paidQuota,
 }: {
 	anthropic?: boolean;
+	gemini?: boolean;
 	provider?: AiProviderId;
 	quota?: () => Promise< StudioAssistantQuota | null >;
 } = {} ) {
@@ -43,10 +45,11 @@ function connectorFor( {
 		{
 			getAiSettings: async () => ( {
 				provider,
-				connections: {
+				connections: createEmptyAiConnections( {
 					wpcom: { connected: true, apiKeyPreview: null },
 					'anthropic-api-key': { connected: anthropic, apiKeyPreview: null },
-				},
+					'gemini-api-key': { connected: gemini, apiKeyPreview: null },
+				} ),
 			} ),
 			getStudioAssistantQuota: quota,
 			getStudioAssistantTopUpPricing: async () =>
@@ -83,6 +86,23 @@ describe( 'Chat model picker', () => {
 		const current = await screen.findByRole( 'option', { name: /Opus 5/ } );
 		expect( current ).toHaveAttribute( 'aria-selected', 'true' );
 		expect( current ).toHaveTextContent( 'Claude · Plan complex builds and solve harder problems' );
+	} );
+
+	it( 'lists Google Gemini models when Gemini is connected', async () => {
+		const { trigger } = await renderPicker(
+			'gemini-3.8-flash',
+			connectorFor( { gemini: true, provider: 'gemini-api-key' } )
+		);
+		fireEvent.click( trigger );
+		const flash = await screen.findByRole( 'option', { name: /Gemini 3\.8 Flash/ } );
+		expect( flash ).toHaveAttribute( 'aria-selected', 'true' );
+		expect( flash ).toHaveTextContent( 'Gemini · Quick fixes and questions' );
+		expect( screen.getByRole( 'option', { name: /Gemini 4 Argon/ } ) ).toHaveTextContent(
+			'Gemini · Build features, style pages, and fix bugs'
+		);
+		expect( screen.getByRole( 'option', { name: /Gemini 4 Carbon/ } ) ).toHaveTextContent(
+			'Gemini · Plan complex builds and solve harder problems'
+		);
 	} );
 
 	it( 'lists the tiers and closes after selection', async () => {

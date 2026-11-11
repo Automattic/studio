@@ -195,7 +195,7 @@ export const HELPERS: Record< ( typeof HELPER_NAMES )[ number ], Helper > = {
 		const button = ctx.w.getByRole( 'button', { name: 'Site menu', exact: true } );
 		await glideTo( ctx, button );
 		await button.click();
-		await ctx.w.getByRole( 'menuitem', { name: 'Delete site' } ).waitFor();
+		await ctx.w.getByRole( 'menuitem', { name: 'Delete', exact: true } ).waitFor();
 	},
 
 	/**

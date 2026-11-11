@@ -111,7 +111,7 @@ it( 'hides an unreadable design system and its shortcut in the launcher', async 
 		{ queryClient }
 	);
 	await screen.findByRole( 'group', { name: 'Project tools' } );
-	expect( screen.queryByRole( 'button', { name: 'Design system S' } ) ).not.toBeInTheDocument();
+	expect( screen.queryByRole( 'button', { name: 'Design System S' } ) ).not.toBeInTheDocument();
 	fireEvent.keyDown( document.body, { key: 's' } );
 	expect( openDesignSystem ).not.toHaveBeenCalled();
 	await act( () =>
@@ -121,5 +121,5 @@ it( 'hides an unreadable design system and its shortcut in the launcher', async 
 			themeJson: {},
 		} )
 	);
-	await screen.findByRole( 'button', { name: 'Design system S' } );
+	await screen.findByRole( 'button', { name: 'Design System S' } );
 } );

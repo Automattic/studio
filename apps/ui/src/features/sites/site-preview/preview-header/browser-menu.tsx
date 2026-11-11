@@ -12,20 +12,75 @@ export interface PreviewBrowserActions {
 	clearing: boolean;
 }
 
+export interface PreviewResponsiveActions {
+	active: boolean;
+	disabled: boolean;
+	onClick: () => void;
+}
+
+export interface PreviewScreenshotActions {
+	disabled: boolean;
+	disabledReason?: string;
+	capturing: boolean;
+	onClick: () => void;
+}
+
 interface BrowserMenuItemsProps {
 	actions?: PreviewBrowserActions;
 	adminBar?: ReturnType< typeof useFrontendAdminBar >;
+	responsive?: PreviewResponsiveActions;
+	screenshot?: PreviewScreenshotActions;
 	disabled?: boolean;
+	annotation?: { active: boolean; disabled: boolean; disabledReason?: string; onClick: () => void };
 }
 
-function BrowserMenuItems( { actions, adminBar, disabled }: BrowserMenuItemsProps ) {
+function BrowserMenuItems( {
+	actions,
+	adminBar,
+	responsive,
+	screenshot,
+	disabled,
+	annotation,
+}: BrowserMenuItemsProps ) {
 	return (
 		<>
+			{ adminBar ? (
+				<Menu.Item
+					disabled={ disabled || adminBar.disabled }
+					onClick={ () => adminBar.onChange( adminBar.value === 'show' ? 'hide' : 'show' ) }
+				>
+					{ adminBar.value === 'show' ? __( 'Hide admin bar' ) : __( 'Show admin bar' ) }
+				</Menu.Item>
+			) : null }
+			{ responsive ? (
+				<Menu.Item disabled={ disabled || responsive.disabled } onClick={ responsive.onClick }>
+					{ responsive.active ? __( 'Hide device toolbar' ) : __( 'Show device toolbar' ) }
+				</Menu.Item>
+			) : null }
+			{ ( annotation || screenshot || actions ) && ( adminBar || responsive ) ? (
+				<Menu.Separator />
+			) : null }
+			{ annotation ? (
+				<Menu.Item
+					disabled={ disabled || annotation.disabled }
+					onClick={ annotation.onClick }
+					aria-description={ annotation.disabledReason }
+				>
+					{ annotation.active ? __( 'Stop annotating' ) : __( 'Annotate' ) }
+				</Menu.Item>
+			) : null }
+			{ screenshot ? (
+				<Menu.Item
+					disabled={ disabled || screenshot.disabled || screenshot.capturing }
+					aria-description={ screenshot.disabledReason }
+					aria-busy={ screenshot.capturing || undefined }
+					onClick={ screenshot.onClick }
+				>
+					{ screenshot.capturing ? __( 'Taking screenshot…' ) : __( 'Take screenshot' ) }
+				</Menu.Item>
+			) : null }
 			{ actions ? (
 				<>
-					<Menu.Item disabled={ disabled } onClick={ actions.onOpenDevTools }>
-						{ __( 'Open DevTools' ) }
-					</Menu.Item>
 					<Menu.SubmenuRoot>
 						<Menu.SubmenuTrigger disabled={ disabled }>{ __( 'Appearance' ) }</Menu.SubmenuTrigger>
 						<Menu.SubmenuPopup>
@@ -41,35 +96,9 @@ function BrowserMenuItems( { actions, adminBar, disabled }: BrowserMenuItemsProp
 							</Menu.RadioGroup>
 						</Menu.SubmenuPopup>
 					</Menu.SubmenuRoot>
-				</>
-			) : null }
-			{ adminBar ? (
-				<Menu.SubmenuRoot>
-					<Menu.SubmenuTrigger disabled={ disabled || adminBar.disabled }>
-						{ __( 'Admin bar' ) }
-					</Menu.SubmenuTrigger>
-					<Menu.SubmenuPopup>
-						<Menu.RadioGroup value={ adminBar.value }>
-							<Menu.RadioItem
-								value="show"
-								disabled={ disabled || adminBar.disabled }
-								onClick={ () => adminBar.onChange( 'show' ) }
-							>
-								{ __( 'Show' ) }
-							</Menu.RadioItem>
-							<Menu.RadioItem
-								value="hide"
-								disabled={ disabled || adminBar.disabled }
-								onClick={ () => adminBar.onChange( 'hide' ) }
-							>
-								{ __( 'Hide' ) }
-							</Menu.RadioItem>
-						</Menu.RadioGroup>
-					</Menu.SubmenuPopup>
-				</Menu.SubmenuRoot>
-			) : null }
-			{ actions ? (
-				<>
+					<Menu.Item disabled={ disabled } onClick={ actions.onOpenDevTools }>
+						{ __( 'Developer tools' ) }
+					</Menu.Item>
 					<Menu.Separator />
 					<Menu.Item
 						disabled={ disabled || actions.clearing }
@@ -102,6 +131,7 @@ export function BrowserMenu( {
 									variant="ghost"
 									size="icon-sm"
 									className={ className }
+									data-preview-browser-options
 									aria-label={ __( 'Browser options' ) }
 								/>
 							}

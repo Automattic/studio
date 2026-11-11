@@ -9,6 +9,7 @@ import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/q
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOpenSite } from '@/data/use-open-site';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
+import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
 import { getStagedAnnotations } from '@/features/annotations';
 import { getComposerDraft } from '@/features/composer';
 import { XdebugIcon } from '@/features/sidebar/xdebug-icon';
@@ -57,8 +58,8 @@ export function SiteSection( {
 	expanded: boolean;
 	loadError: boolean;
 	reorderable: boolean;
-	// Clicking the row, before it opens the site; folds or unfolds its chats.
-	onOpen?: () => void;
+	// Folds or unfolds the chats, then schedules opening another site's workspace.
+	onOpen?: ( openSite?: () => void ) => void;
 	onReorderChats: ( ids: string[] ) => void;
 	onSiteOpen?: () => void;
 	// Drag handling, when the row is in a reorderable list.
@@ -105,9 +106,13 @@ export function SiteSection( {
 	const displayActivity = siteActivity ?? 'idle';
 	const openSite = useOpenSite( { animateSelection: ! ( onOpen && isActive && expanded ) } );
 	const preview = useOptionalSessionPreviewUI();
+	const runLayoutTransition = useUserWorkspaceLayoutTransition( site.id );
 	const handleOpenSite = () => {
-		onOpen?.();
-		if ( ! onOpen ) onSiteOpen?.();
+		if ( onOpen ) {
+			onOpen( isChatActive ? undefined : () => openSite( site ) );
+			return;
+		}
+		onSiteOpen?.();
 		openSite( site );
 	};
 	const handleStartSite = () => {
@@ -192,10 +197,12 @@ export function SiteSection( {
 							! draft.text &&
 							draft.attachments.length === 0 &&
 							getStagedAnnotations( site.id ).length === 0;
-						preview?.setChatHidden( hideChat, site.id, { instant: true } );
-						if ( ! hideChat ) {
-							return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
-						}
+						runLayoutTransition( () => {
+							preview?.setChatHidden( hideChat, site.id, { instant: true } );
+							if ( ! hideChat ) {
+								return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+							}
+						} );
 					} }
 				/>
 				<SiteStatusButton
@@ -220,8 +227,10 @@ export function SiteSection( {
 				}
 				onOpenDraft={ () => {
 					onSiteOpen?.();
-					preview?.setChatHidden( false, site.id );
-					return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+					runLayoutTransition( () => {
+						preview?.setChatHidden( false, site.id );
+						return navigate( { to: '/sites/$siteId/new', params: { siteId: site.id } } );
+					} );
 				} }
 				onReorderChats={ onReorderChats }
 				onSiteOpen={ onSiteOpen }

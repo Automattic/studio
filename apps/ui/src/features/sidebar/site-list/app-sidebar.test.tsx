@@ -114,6 +114,16 @@ describe( 'Sidebar in the Studio workspace', () => {
 				} )
 		);
 		fireEvent.click( screen.getByRole( 'button', { name: 'Second site' } ) );
+		expect( screen.getByRole( 'button', { name: 'Second site' } ) ).toHaveAttribute(
+			'aria-expanded',
+			'true'
+		);
+		expect(
+			within( screen.getByRole( 'group', { name: 'Second site chats' } ) ).getByRole( 'button', {
+				name: 'Saved chat',
+			} )
+		).toBeVisible();
+		expect( history.location.pathname ).toBe( '/sites/one/new' );
 		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/slow-chat' ) );
 		await waitFor( () => expect( connector.getSession ).toHaveBeenCalledWith( 'slow-chat' ) );
 		fireEvent.click(
@@ -121,6 +131,69 @@ describe( 'Sidebar in the Studio workspace', () => {
 		);
 		expect( await screen.findByRole( 'menuitem', { name: 'Stop' } ) ).toBeVisible();
 		await act( async () => finishLoading( transcript ) );
+	} );
+
+	it( 'folds the active site without navigating or disturbing its chat draft', async () => {
+		const { history, ready } = setup( {
+			path: '/sessions/active-chat',
+			sites: [ site( { running: true } ) ],
+			sessions: [ chat( { id: 'active-chat', title: 'Active chat' } ) ],
+		} );
+		await ready();
+		const input = await screen.findByRole( 'combobox', { name: 'Message WordPress Studio' } );
+		await waitFor( () => expect( input ).toBeEnabled() );
+		fireEvent.change( input, { target: { value: 'Keep this draft' } } );
+		let navigations = 0;
+		const unsubscribe = history.subscribe( () => navigations++ );
+		const row = screen.getByRole( 'button', { name: 'My site' } );
+		fireEvent.click( row );
+		expect( row ).toHaveAttribute( 'aria-expanded', 'false' );
+		fireEvent.click( row );
+		expect( row ).toHaveAttribute( 'aria-expanded', 'true' );
+		expect( input ).toHaveValue( 'Keep this draft' );
+		expect( history.location.pathname ).toBe( '/sessions/active-chat' );
+		expect( navigations ).toBe( 0 );
+		unsubscribe();
+	} );
+
+	it( 'opens only the last site when another row is chosen before navigation starts', async () => {
+		const { connector, history, ready } = setup( {
+			path: '/sites/one/new',
+			sites: [
+				site(),
+				site( { id: 'two', name: 'Second site', path: '/sites/second', running: true } ),
+				site( { id: 'three', name: 'Third site', path: '/sites/third', running: true } ),
+			],
+			preferences: { autoCollapseSites: true } as never,
+			sessions: [
+				chat( {
+					id: 'second-chat',
+					title: 'Second chat',
+					ownerSiteId: 'two',
+					ownerSitePath: '/sites/second',
+				} ),
+				chat( {
+					id: 'third-chat',
+					title: 'Third chat',
+					ownerSiteId: 'three',
+					ownerSitePath: '/sites/third',
+				} ),
+			],
+		} );
+		await ready();
+		await screen.findByRole( 'button', { name: 'Third chat' } );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Second site' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Third site' } ) );
+		expect( screen.getByRole( 'button', { name: 'Second site' } ) ).toHaveAttribute(
+			'aria-expanded',
+			'false'
+		);
+		expect( screen.getByRole( 'button', { name: 'Third site' } ) ).toHaveAttribute(
+			'aria-expanded',
+			'true'
+		);
+		await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/third-chat' ) );
+		expect( connector.getSession ).not.toHaveBeenCalledWith( 'second-chat' );
 	} );
 
 	it( 'collapses site groups through the palette while preserving the chat and draft', async () => {

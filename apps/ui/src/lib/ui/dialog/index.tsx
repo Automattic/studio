@@ -63,7 +63,7 @@ export function DialogDismissButton( {
 }: Partial< ComponentProps< typeof IconButton > > ) {
 	return (
 		<IconButton
-			variant="outline"
+			variant="ghost"
 			size="icon-sm"
 			icon={ <XIcon /> }
 			label={ label }
@@ -149,13 +149,11 @@ export function DialogTitle( { className, ...props }: ComponentProps< typeof Bas
 
 export function DialogDescription( {
 	className,
-	tone = 'muted',
 	...props
-}: ComponentProps< typeof BaseDialog.Description > & { tone?: 'muted' | 'default' } ) {
+}: ComponentProps< typeof BaseDialog.Description > ) {
 	return (
 		<BaseDialog.Description
 			data-slot="dialog-description"
-			data-tone={ tone }
 			className={ clsx( styles.description, className ) }
 			{ ...props }
 		/>

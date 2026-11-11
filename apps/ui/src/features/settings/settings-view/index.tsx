@@ -15,6 +15,7 @@ import {
 	useAgentInstructionsEnabled,
 	useSetAgentInstructionsEnabled,
 } from '@/data/queries/use-agent-instructions';
+import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useInstalledApps } from '@/data/queries/use-installed-apps';
 import { useResetAppearance, useResetInterface } from '@/data/queries/use-reset-interface';
 import { useSites } from '@/data/queries/use-sites';
@@ -25,7 +26,7 @@ import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { ExternalLinkIcon } from '@/lib/icons';
 import { isDefaultColorTint } from '@/lib/theme';
 import { Input, Button } from '@/lib/ui';
-import { AccountSection } from './account-section';
+import { ConnectionCard } from './account-section';
 import { ColorTintSettings } from './color-tint-settings';
 import { InstructionsEditor } from './instructions-editor';
 import { UNSET, toPreferencesFormData, toPreferencesPatch } from './preferences';
@@ -50,7 +51,7 @@ import type {
 	UserPreferences,
 } from '@/data/core';
 
-// "System default" first, then the installed apps and the saved one, even if it's gone.
+// "System" first, then the installed apps and the saved one, even if it's gone.
 function appElements< TApp extends keyof InstalledApps >(
 	apps: readonly TApp[],
 	installedApps: InstalledApps | undefined,
@@ -58,7 +59,7 @@ function appElements< TApp extends keyof InstalledApps >(
 	label: ( app: TApp ) => string
 ) {
 	return [
-		{ value: UNSET, label: __( 'System default' ) },
+		{ value: UNSET, label: __( 'System' ) },
 		...apps
 			.filter( ( app ) => ! installedApps || installedApps[ app ] || app === saved )
 			.map( ( app ) => ( { value: app, label: label( app ) } ) ),
@@ -172,15 +173,16 @@ function PreferencesPanel( {
 } ) {
 	const connector = useConnector();
 	const locale = useUserLocale();
+	const { data: user, isSuccess: authLoaded } = useAuthUser();
 	return (
 		<div className={ styles.preferencesPanel }>
-			<AccountSection />
+			<ConnectionCard />
 			{ saveError ? (
 				<div className={ styles.errorMessage }>
 					{ __( 'An error occurred while saving settings. Please try again.' ) }
 				</div>
 			) : null }
-			<SettingsGroup title={ __( 'Application' ) }>
+			<SettingsGroup title={ authLoaded && ! user ? __( 'Application' ) : undefined }>
 				<SettingsRow
 					title={ __( 'Language' ) }
 					description={ __( 'Default language for WordPress Studio.' ) }
@@ -207,13 +209,13 @@ function PreferencesPanel( {
 				</SettingsRow>
 				<SettingsRow
 					title={ __( 'Default browser' ) }
-					description={ __( 'The browser used to open your sites, WP Admin, and phpMyAdmin.' ) }
+					description={ __( 'The default browser for your sites.' ) }
 				>
 					<SettingsSelect
 						label={ __( 'Default browser' ) }
 						value={ data.browser }
 						options={ [
-							{ value: UNSET, label: __( 'System default' ) },
+							{ value: UNSET, label: __( 'System' ) },
 							...SUPPORTED_BROWSERS.filter(
 								( browser ) => installedApps?.[ browser ] || browser === data.browser
 							).map( ( browser ) => ( { value: browser, label: browserConfig[ browser ].name } ) ),
@@ -278,11 +280,11 @@ function PreferencesPanel( {
 					/>
 				</SettingsRow>
 				<SettingsRow
-					title={ __( 'Start sites in split view' ) }
+					title={ __( 'Start sites with chat' ) }
 					description={ __( 'Show chat beside the panel when starting a site.' ) }
 				>
 					<SettingsToggle
-						label={ __( 'Start sites in split view' ) }
+						label={ __( 'Start sites with chat' ) }
 						checked={ data.openChatOnSiteStart }
 						onChange={ ( openChatOnSiteStart ) => onChange( { openChatOnSiteStart } ) }
 					/>
@@ -490,7 +492,7 @@ export function AppearanceSettings() {
 						onChange={ ( colorScheme ) => handleChange( { colorScheme } ) }
 					/>
 				</SettingsRow>
-				<ColorTintSettings tint={ tint } onCommit={ ( next ) => savePreferences.mutate( next ) } />
+				<ColorTintSettings tint={ tint } onCommit={ savePreferences.mutateAsync } />
 			</SettingsGroup>
 			<SettingsGroup title={ __( 'Reset' ) }>
 				<SettingsRow

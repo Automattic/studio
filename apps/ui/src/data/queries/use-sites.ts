@@ -5,7 +5,7 @@ import { getSiteOperationNoun } from '@studio/common/lib/site-operation-labels';
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useMemo, useRef } from 'react';
-import { openStudioLogsAction, toast } from '@/data/app-messages';
+import { dismissToast, openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
@@ -176,7 +176,7 @@ function useExportSite( databaseOnly: boolean ) {
 					databaseOnly ? __( 'Failed to export database' ) : __( 'Failed to export site' ),
 					{
 						id,
-						description: siteName,
+						description: [ siteName, getErrorMessage( error ) ].filter( Boolean ).join( ' · ' ),
 						action: openStudioLogsAction( connector ),
 					}
 				);
@@ -208,6 +208,7 @@ export function useStartSite() {
 				return false;
 			}
 			await showSite( queryClient, await connector.startSite( id ) );
+			dismissToast( `start-${ id }` );
 			return true;
 		},
 		onError: ( error, id ) => {
@@ -217,7 +218,11 @@ export function useStartSite() {
 				__( 'Failed to start site' ),
 				getErrorMessage( error )
 			);
-			toast.error( title, { description, action: openStudioLogsAction( connector ) } );
+			toast.error( title, {
+				id: `start-${ id }`,
+				description,
+				action: openStudioLogsAction( connector ),
+			} );
 		},
 	} );
 }
@@ -229,12 +234,13 @@ export function useStopSite() {
 		mutationKey: STOP_SITE_MUTATION_KEY,
 		mutationFn: async ( id: string ) => {
 			await showSite( queryClient, await connector.stopSite( id ) );
+			dismissToast( `stop-${ id }` );
 			if ( ! isSiteRestarting( queryClient, id ) )
 				updateResponsivePreview( id, { enabled: false } );
 		},
 		onError: ( _error, id ) => {
 			const { title, description } = getBusyNotice( queryClient, id, __( 'Failed to stop site' ) );
-			toast.error( title, { description } );
+			toast.error( title, { id: `stop-${ id }`, description } );
 		},
 	} );
 }

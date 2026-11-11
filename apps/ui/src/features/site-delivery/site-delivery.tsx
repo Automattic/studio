@@ -14,7 +14,7 @@ import {
 } from '@/features/sharing';
 import { SpacefastPanel, useSpacefastAvailable } from '@/features/spacefast';
 import { PublishPanel, usePublishSetupError } from '@/features/sync';
-import { PublishTransferIcon, ShareIcon } from '@/lib/icons';
+import { PublishTransferIcon, ShareIcon, SyncIcon } from '@/lib/icons';
 import {
 	Button,
 	Dialog,
@@ -256,7 +256,11 @@ export function ShareButton( props: { site: SiteDetails; className?: string } ) 
 	);
 }
 
-export function PublishButton( props: { site: SiteDetails; variant?: 'accent' | 'outline' } ) {
+export function PublishButton( props: {
+	site: SiteDetails;
+	variant?: 'accent' | 'outline';
+	compactWhenNarrow?: boolean;
+} ) {
 	const activity = useSiteSyncActivity( props.site.id );
 	const setupError = usePublishSetupError( props.site.id );
 	const transfer =
@@ -276,7 +280,9 @@ export function PublishButton( props: { site: SiteDetails; variant?: 'accent' | 
 	return (
 		<Button
 			variant={ props.variant ?? 'accent' }
+			className={ props.compactWhenNarrow ? styles.responsivePublish : undefined }
 			size="sm"
+			title={ __( 'Publish' ) }
 			aria-label={ __( 'Publish…' ) }
 			aria-description={
 				setupError ??
@@ -301,6 +307,8 @@ export function PublishButton( props: { site: SiteDetails; variant?: 'accent' | 
 				<PublishTransferIcon direction={ transfer.direction === 'pull' ? 'pull' : 'push' } />
 			) : success ? (
 				<CheckIcon />
+			) : props.compactWhenNarrow ? (
+				<SyncIcon className={ styles.publishIcon } />
 			) : null }
 			<span className={ styles.triggerLabel }>
 				{ __( 'Publish' ) }

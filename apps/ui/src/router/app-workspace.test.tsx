@@ -1,7 +1,7 @@
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getNoticeHistory, resetAppMessagesForTests } from '@/data/app-messages';
+import { getVisibleToasts, resetAppMessagesForTests } from '@/data/app-messages';
 import {
 	SITE_CHAT_HIDDEN_STORAGE_KEY,
 	LEGACY_PANEL_LAYOUT_STORAGE_KEY,
@@ -126,8 +126,8 @@ async function chooseWorkspaceLayout( name: 'Chat' | 'Split view' | 'Panel' ) {
 	}
 	if ( layout === 'chat' ) fireEvent.click( toggle );
 	const full = name === 'Panel';
-	const button = screen.getByRole( 'button', { name: /^(Expand panel|Restore split view)$/ } );
-	if ( button.getAttribute( 'aria-label' ) === ( full ? 'Expand panel' : 'Restore split view' ) )
+	const button = screen.getByRole( 'button', { name: /^(Expand panel|Show chat)$/ } );
+	if ( button.getAttribute( 'aria-label' ) === ( full ? 'Expand panel' : 'Show chat' ) )
 		fireEvent.click( button );
 }
 
@@ -273,7 +273,7 @@ describe( 'Studio workspace', () => {
 		try {
 			fireEvent.click( await screen.findByRole( 'button', { name: '1 annotation' } ) );
 			fireEvent.click(
-				await screen.findByRole( 'button', { name: 'Edit annotation 1: Review this heading' } )
+				await screen.findByRole( 'button', { name: 'Edit annotation: Review this heading' } )
 			);
 			await waitFor( () => expect( getSiteAnnotations( 'one' ).active ).toBe( true ) );
 			await findLayoutControl( 'split' );
@@ -321,11 +321,7 @@ describe( 'Studio workspace', () => {
 			);
 			expect( await screen.findByText( 'Old message' ) ).toBeVisible();
 			fireEvent.click( screen.getByRole( 'button', { name: 'Other site' } ) );
-			await waitFor( () =>
-				expect( history.location.pathname ).toBe(
-					action === 'play' ? '/sessions/previous' : '/sites/two/new'
-				)
-			);
+			await waitFor( () => expect( history.location.pathname ).toBe( '/sessions/previous' ) );
 			expect( await findComposer() ).toHaveValue( '' );
 			expect( connector.createSession ).not.toHaveBeenCalled();
 		}
@@ -1347,7 +1343,7 @@ describe( 'Studio workspace', () => {
 	it( 'starts from the composer and stops through the site menu without a sidebar start button', async () => {
 		const { connector, history, refreshSessions } = setup( { signedIn: true } );
 		await findComposer();
-		for ( const name of [ 'Address', 'Back', 'Forward', 'Reload preview' ] ) {
+		for ( const name of [ 'Address', 'Back', 'Forward', 'Reload' ] ) {
 			expect( screen.queryByRole( 'button', { name } ) ).not.toBeInTheDocument();
 		}
 		expect( screen.queryByRole( 'textbox', { name: 'Address' } ) ).not.toBeInTheDocument();
@@ -1386,7 +1382,6 @@ describe( 'Studio workspace', () => {
 		expect( screen.queryByRole( 'button', { name: 'Stop site' } ) ).not.toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Site menu' } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop' } ) );
-		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Stop site' } ) );
 		await waitFor( () => expect( connector.stopSite ).toHaveBeenCalledWith( 'one' ) );
 		expect( await screen.findByRole( 'button', { name: 'Start My site' } ) ).toBeVisible();
 	} );
@@ -1558,7 +1553,7 @@ describe( 'Studio workspace', () => {
 			await waitFor( () => expect( composer() ).toHaveValue( '' ) );
 			await waitFor( () =>
 				expect(
-					getNoticeHistory().some( ( item ) => item.description?.includes( 'Startup failed' ) )
+					getVisibleToasts().some( ( item ) => item.description?.includes( 'Startup failed' ) )
 				).toBe( true )
 			);
 		} );

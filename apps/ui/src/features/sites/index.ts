@@ -7,6 +7,7 @@ export {
 	type OpenInDestination,
 	useOpenInDestinations,
 } from './open-in-menu/use-open-in-destinations';
+export { pendingBackupSlot } from './pending-backup';
 export { pendingBlueprintSlot } from './pending-blueprint';
 export { pendingRemoteSiteSlot } from './pending-remote-site';
 export { pendingSiteFolderSlot } from './pending-site-folder';
@@ -30,6 +31,7 @@ export {
 	useSiteHeader,
 } from './site-header-actions';
 export { SitePreview } from './site-preview';
+export { usePreviewOpenTracks } from './site-preview/use-preview-open-tracks';
 export { StoppedSitePreview } from './stopped-site-preview';
 export { type AddSiteSection, isAddSiteSection, useOpenAddSite } from './use-open-add-site';
 export { useItemShortcuts } from './use-item-shortcuts';

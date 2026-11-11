@@ -1,9 +1,14 @@
-import { isSyncCancelledError } from '@studio/common/lib/sync/cancel';
+import { canCancelSyncActivity, isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect } from 'react';
 import { getAccountJourney, completeAccountJourney } from '@/data/account-analytics';
-import { ERROR_TOAST_TTL_MS, openStudioLogsAction, toast } from '@/data/app-messages';
+import {
+	getVisibleToasts,
+	openStudioLogsAction,
+	toast,
+	type ToastAction,
+} from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
 import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
@@ -68,8 +73,49 @@ export function useSettleSync() {
 						? __( 'Publishing changes…' )
 						: __( 'Pulling changes…' );
 				const current = getSyncActivity( siteId );
+				let action: ToastAction | undefined;
+				if (
+					settled.direction === 'pull' &&
+					settled.remoteSiteId !== undefined &&
+					canCancelSyncActivity( settled )
+				) {
+					const { remoteSiteId } = settled;
+					const ownsPull = () =>
+						queryClient.isMutating( {
+							mutationKey: PULL_FROM_LIVE_MUTATION_KEY,
+							predicate: ( mutation ) => {
+								const variables = mutation.state.variables as CancelSyncVariables | undefined;
+								return variables?.siteId === siteId && variables.remoteSiteId === remoteSiteId;
+							},
+						} ) > 0;
+					if ( ownsPull() ) {
+						const runId = getSyncActivityRunId( siteId );
+						action = ( previous?.kind === 'pending' &&
+						previous.direction === 'pull' &&
+						previous.remoteSiteId === remoteSiteId
+							? getVisibleToasts().find( ( notice ) => notice.id === noticeId && notice.processing )
+									?.action
+							: undefined ) ?? {
+							label: __( 'Cancel' ),
+							dismissOnSuccess: false,
+							onClick: () => {
+								const latest = getSyncActivity( siteId );
+								if (
+									getSyncActivityRunId( siteId ) === runId &&
+									latest?.kind === 'pending' &&
+									latest.remoteSiteId === remoteSiteId &&
+									canCancelSyncActivity( latest ) &&
+									ownsPull()
+								) {
+									return connector.cancelSync( siteId, remoteSiteId );
+								}
+							},
+						};
+					}
+				}
 				toast.processing( title, {
 					id: noticeId,
+					action,
 					description:
 						[ siteName(), current?.kind === 'pending' ? current.message : undefined ]
 							.filter( Boolean )
@@ -138,7 +184,7 @@ export function useSettleSync() {
 				} else if ( settled.kind === 'error' ) {
 					toast.error( __( "Import didn't complete" ), {
 						id: noticeId,
-						description: settled.message,
+						description: [ siteName(), settled.message ].filter( Boolean ).join( ' · ' ),
 						action: openStudioLogsAction( connector ),
 					} );
 				} else if ( settled.kind === 'cancelled' ) {
@@ -159,7 +205,7 @@ export function useSettleSync() {
 				const viewSite = isPush
 					? remote && ( () => connector.openExternalUrl( remote.url ) )
 					: () => connector.openSiteUrl( siteId, '', { autoLogin: false } );
-				toast.success(
+				( settled.warning ? toast.warning : toast.success )(
 					sprintf(
 						/* translators: %s: site name */
 						isPush ? __( 'Published %s' ) : __( 'Changes pulled into %s' ),
@@ -168,8 +214,11 @@ export function useSettleSync() {
 					{
 						id: noticeId,
 						description: settled.warning,
-						durationMs: settled.warning ? ERROR_TOAST_TTL_MS : undefined,
-						action: viewSite && { label: __( 'View' ), onClick: () => void viewSite() },
+						action: viewSite && {
+							label: __( 'View' ),
+							onClick: () => viewSite(),
+							dismissOnSuccess: ! settled.warning,
+						},
 					}
 				);
 			} else if ( settled.kind === 'error' ) {
@@ -181,8 +230,16 @@ export function useSettleSync() {
 					: __( 'Pulling didn’t finish' );
 				toast.error( title, {
 					id: noticeId,
-					description: settled.message,
-					action: openStudioLogsAction( connector ),
+					description: [ siteName(), settled.message ].filter( Boolean ).join( ' · ' ),
+					action: settled.localChangesApplied
+						? {
+								label: __( 'Start site' ),
+								onClick: async () => {
+									await connector.startSite( siteId );
+									await queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
+								},
+						  }
+						: openStudioLogsAction( connector ),
 				} );
 			} else if ( settled.kind === 'cancelled' ) {
 				toast.info( isPush ? __( 'Publishing cancelled' ) : __( 'Pull cancelled' ), {

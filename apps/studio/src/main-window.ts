@@ -309,6 +309,9 @@ function getOSWindowOptions(): Partial< BrowserWindowConstructorOptions > {
 		case 'darwin':
 			return {
 				frame: false,
+				backgroundColor: '#00000000',
+				vibrancy: 'sidebar',
+				visualEffectState: 'followWindow',
 				titleBarStyle: 'hidden',
 				trafficLightPosition: MACOS_TRAFFIC_LIGHT_POSITION,
 			};

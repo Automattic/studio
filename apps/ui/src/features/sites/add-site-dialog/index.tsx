@@ -124,7 +124,7 @@ export function AddSiteDialog() {
 	const [ isBlueprintValid, setIsBlueprintValid ] = useState( true );
 	const [ lastViewed, setLastViewed ] = useState< string >();
 	const [ setupDraft, setSetupDraft ] = useState< CreateSiteFormDraft >();
-	const { source, setSource, setBlueprintTransferred, folderResetKey, removeFolder } =
+	const { source, setSource, adoptFolder, setBlueprintTransferred, folderResetKey, removeFolder } =
 		useSetupSource();
 	const briefDraftKey = useId();
 	useEffect( () => {
@@ -351,6 +351,7 @@ export function AddSiteDialog() {
 		setSetupDraft,
 		source,
 		setSource,
+		adoptFolder,
 		browseBlueprints: () => setView( { name: 'gallery' } ),
 		onFile: handleSiteFile,
 		onFolder: handleFolder,

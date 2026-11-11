@@ -85,7 +85,7 @@ function sessionContextEntry( provider: string ): SessionEntry {
 		parentId: null,
 		timestamp: '2026-06-26T12:00:00.000Z',
 		customType: 'studio.session_context',
-		data: { provider, model: 'claude-sonnet-5' },
+		data: { provider, model: 'claude-sonnet-5-5' },
 	} as SessionEntry;
 }
 
@@ -886,7 +886,7 @@ describe( 'Composer model picker', () => {
 		);
 		fireEvent.click( trigger );
 		await screen.findByRole( 'option', { name: /^Fast/ } );
-		expect( screen.queryByRole( 'option', { name: /^Sonnet 5/ } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'option', { name: /^Sonnet 5.5/ } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'shows the AI credits left as a count, not a share of past top-ups', async () => {
@@ -993,12 +993,12 @@ describe( 'Composer model picker', () => {
 		);
 
 		fireEvent.click( await modelButton() );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Sonnet 5/ } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Sonnet 5.5/ } ) );
 		const dialog = await screen.findByRole( 'dialog' );
 		expect( dialog ).toHaveTextContent( 'Start a new chat?' );
 		expect( connector.createSession ).not.toHaveBeenCalled();
 		expect( dialog ).toHaveTextContent(
-			'Switching from Balanced to Sonnet 5 starts a fresh chat because the models don’t share memory. You can find previous chats using Chat history below the chat box.'
+			'Switching from Balanced to Sonnet 5.5 starts a fresh chat because the models don’t share memory. You can find previous chats using Chat history below the chat box.'
 		);
 		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Yes, new chat' } ) );
 
@@ -1006,7 +1006,7 @@ describe( 'Composer model picker', () => {
 		expect( connector.setSessionProvider ).toHaveBeenCalledWith(
 			'fresh-session',
 			'anthropic',
-			'claude-sonnet-5'
+			'claude-sonnet-5-5'
 		);
 		const cached = queryClient.getQueryData< LoadedAiSession >( [
 			...SESSIONS_QUERY_KEY,
@@ -1016,7 +1016,7 @@ describe( 'Composer model picker', () => {
 		expect( cached?.entries ).toEqual( [
 			expect.objectContaining( {
 				customType: 'studio.session_context',
-				data: { provider: 'anthropic-api-key', model: 'claude-sonnet-5' },
+				data: { provider: 'anthropic-api-key', model: 'claude-sonnet-5-5' },
 			} ),
 		] );
 	} );
@@ -1124,12 +1124,12 @@ describe( 'Composer sending', () => {
 		const connector = createFakeConnector( {}, { getAiSettings: async () => ANTHROPIC_KEY } );
 		connector.getStudioAssistantQuota.mockResolvedValue( OUT_OF_CREDITS );
 		const { input, onSend } = await setup(
-			{ model: 'claude-sonnet-5', entries: [ sessionContextEntry( 'anthropic' ) ] },
+			{ model: 'claude-sonnet-5-5', entries: [ sessionContextEntry( 'anthropic' ) ] },
 			connector
 		);
 		const trigger = await modelButton();
 		await waitFor( () =>
-			expect( trigger ).toHaveAccessibleDescription( 'Sonnet 5 · Anthropic API' )
+			expect( trigger ).toHaveAccessibleDescription( 'Sonnet 5.5 · Anthropic API' )
 		);
 
 		fireEvent.change( input, { target: { value: 'One more' } } );

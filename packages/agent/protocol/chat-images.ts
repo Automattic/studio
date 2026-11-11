@@ -26,6 +26,8 @@ export interface StudioChatImage extends StudioChatImageAttachment {
 }
 
 export interface StudioAiSessionInputPayload {
+	model?: import('@studio/agent/protocol/models').AiModelId;
+	effort?: import('@studio/agent/protocol/model-effort').AiEffort;
 	turnId?: string;
 	prompt: string;
 	displayMessage?: string;

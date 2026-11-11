@@ -66,6 +66,8 @@ export interface AgentRunManagerConfig {
 }
 
 export interface StartAgentRunOptions {
+	model?: import('@studio/agent/protocol/models').AiModelId;
+	effort?: import('@studio/agent/protocol/model-effort').AiEffort;
 	turnId?: string;
 	sessionId: string;
 	prompt: string;
@@ -172,6 +174,8 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 			files = [],
 			visualAnnotations,
 			turnId,
+			model,
+			effort,
 		} = options;
 
 		if ( runsBySessionId.has( sessionId ) ) {
@@ -181,7 +185,12 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 		const runId = crypto.randomUUID();
 		const startedAt = Date.now();
 		const inputPayload =
-			turnId || images.length > 0 || files.length > 0 || ( visualAnnotations?.length ?? 0 ) > 0
+			model ||
+			effort ||
+			turnId ||
+			images.length > 0 ||
+			files.length > 0 ||
+			( visualAnnotations?.length ?? 0 ) > 0
 				? writeInputPayloadFile( {
 						prompt,
 						displayMessage,
@@ -189,6 +198,8 @@ export function createAgentRunManager( config: AgentRunManagerConfig ): AgentRun
 						files,
 						visualAnnotations,
 						turnId,
+						model,
+						effort,
 				  } )
 				: undefined;
 		const args = [ 'code', 'sessions', 'resume', sessionId ];

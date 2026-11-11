@@ -1,10 +1,19 @@
+import { AI_MODELS } from '@studio/agent/protocol/models';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { Composer } from '@/features/composer';
 import { createFakeConnector, type FakeConnector } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import type { AiModelId } from '@/data/core';
+import type { AiProviderId } from '@studio/agent/protocol/providers';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
+
+const allFavorites = AI_MODELS.map( ( model ) => ( {
+	provider: model.family === 'studio' ? 'wpcom' : 'anthropic-api-key',
+	model: model.id,
+	effort: 'default' as const,
+} ) );
 
 const paidQuota: StudioAssistantQuota = {
 	costCap: 1000,
@@ -33,10 +42,10 @@ function connectorFor( {
 	quota = async () => paidQuota,
 }: { anthropic?: boolean; quota?: () => Promise< StudioAssistantQuota | null > } = {} ) {
 	return createFakeConnector(
-		{},
+		{ preferences: { modelFavorites: allFavorites } },
 		{
 			getAiSettings: async () => ( {
-				provider: 'wpcom',
+				provider: anthropic ? 'anthropic-api-key' : 'wpcom',
 				hasAnthropicApiKey: anthropic,
 				anthropicApiKeyPreview: null,
 			} ),
@@ -69,21 +78,82 @@ describe( 'Chat model picker', () => {
 	it( 'opens with the current model selected for keyboard navigation', async () => {
 		const { trigger } = await renderPicker( 'claude-opus-5', connectorFor( { anthropic: true } ) );
 		fireEvent.click( trigger );
-		const current = await screen.findByRole( 'option', { name: /Opus 5/ } );
-		expect( current ).toHaveAttribute( 'aria-selected', 'true' );
-		expect( current ).toHaveTextContent( 'Claude · Plan complex builds and solve harder problems' );
+		const current = await screen.findByRole( 'button', { name: /^Opus 5$/ } );
+		expect( current ).toHaveAttribute( 'aria-pressed', 'true' );
+		expect( current ).toHaveAccessibleDescription(
+			'Plan complex builds and solve harder problems'
+		);
 	} );
 
-	it( 'lists the tiers and closes after selection', async () => {
+	it( 'lists the tiers and stays open after selection', async () => {
 		const { trigger, onModelChange } = await renderPicker( 'balanced', connectorFor() );
 		fireEvent.click( trigger );
-		expect( await screen.findByRole( 'option', { name: /^Fast/ } ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'option', { name: /^Balanced/ } ) ).toBeInTheDocument();
-		expect( screen.getByRole( 'option', { name: /^Strong/ } ) ).toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'option', { name: /^Fast/ } ) );
+		expect( await screen.findByRole( 'button', { name: /^Fast/ } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: /^Balanced/ } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: /^Strong/ } ) ).toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: /^Fast/ } ) );
 		await waitFor( () => expect( onModelChange ).toHaveBeenCalledWith( 'fast', 'wpcom' ) );
-		await waitFor( () => expect( screen.queryByRole( 'option' ) ).not.toBeInTheDocument() );
+		expect( screen.getByRole( 'dialog', { name: 'Choose a model' } ) ).toBeVisible();
 	} );
+
+	it.each( [ 'pointer', 'keyboard' ] )(
+		'lets a %s selection change the model and effort without reopening the picker',
+		async ( method ) => {
+			function ModelSelection() {
+				const [ model, setModel ] = useState< AiModelId >( 'fast' );
+				const [ provider, setProvider ] = useState< AiProviderId >( 'wpcom' );
+				return (
+					<Composer
+						model={ model }
+						provider={ provider }
+						busy={ false }
+						onSend={ vi.fn() }
+						onInterrupt={ vi.fn() }
+						onModelChange={ ( nextModel, nextProvider ) => {
+							setModel( nextModel );
+							setProvider( nextProvider );
+						} }
+					/>
+				);
+			}
+			const { user } = renderWithProviders( <ModelSelection />, {
+				connector: connectorFor( { anthropic: true } ),
+			} );
+			const trigger = await screen.findByRole( 'button', { name: 'Model' } );
+			await user.click( trigger );
+			expect( screen.getByRole( 'button', { name: 'Effort: Unavailable' } ) ).toBeDisabled();
+			const balanced = await screen.findByRole( 'button', { name: 'Balanced' } );
+			if ( method === 'keyboard' ) {
+				balanced.focus();
+				await user.keyboard( '{Enter}' );
+			} else await user.click( balanced );
+			expect( screen.getByRole( 'dialog', { name: 'Choose a model' } ) ).toBeVisible();
+			expect( screen.getByRole( 'button', { name: 'Balanced', pressed: true } ) ).toBeVisible();
+			await user.click( screen.getByRole( 'button', { name: 'Effort: Medium' } ) );
+			await user.click( await screen.findByRole( 'menuitemradio', { name: 'High' } ) );
+			expect( trigger ).toHaveTextContent( 'Balanced · High' );
+			expect( screen.getByRole( 'button', { name: 'Effort: High' } ) ).toBeVisible();
+			await user.keyboard( '{Escape}' );
+			expect( screen.queryByRole( 'dialog', { name: 'Choose a model' } ) ).not.toBeInTheDocument();
+			expect( trigger ).toHaveTextContent( 'Balanced · High' );
+			await user.click( trigger );
+			const search = screen.getByRole( 'textbox', { name: 'Search models' } );
+			await user.type( search, 'claude' );
+			const sonnet = screen.getByRole( 'button', { name: 'Sonnet 5' } );
+			if ( method === 'keyboard' ) {
+				sonnet.focus();
+				await user.keyboard( '{Enter}' );
+			} else await user.click( sonnet );
+			expect( search ).toHaveValue( 'claude' );
+			expect( screen.getByRole( 'button', { name: 'Sonnet 5', pressed: true } ) ).toBeVisible();
+			await user.click( screen.getByRole( 'button', { name: 'Opus 5' } ) );
+			expect( search ).toHaveValue( 'claude' );
+			expect( screen.getByRole( 'button', { name: 'Opus 5', pressed: true } ) ).toBeVisible();
+			await user.keyboard( '{Escape}' );
+			await user.click( trigger );
+			expect( screen.getByRole( 'textbox', { name: 'Search models' } ) ).toHaveValue( '' );
+		}
+	);
 
 	it( 'keeps paid models locked', async () => {
 		const connector = connectorFor( {
@@ -91,8 +161,8 @@ describe( 'Chat model picker', () => {
 		} );
 		const { trigger, onModelChange } = await renderPicker( 'fast', connector );
 		fireEvent.click( trigger );
-		const strong = await screen.findByRole( 'option', { name: /^Strong/ } );
-		await waitFor( () => expect( strong ).toHaveAttribute( 'aria-disabled', 'true' ) );
+		const strong = await screen.findByRole( 'button', { name: /^Strong/ } );
+		await waitFor( () => expect( strong ).toBeDisabled() );
 		fireEvent.click( strong );
 		expect( onModelChange ).not.toHaveBeenCalled();
 	} );
@@ -115,8 +185,8 @@ describe( 'Chat model picker', () => {
 			)
 		);
 		fireEvent.click( trigger );
-		await screen.findByRole( 'option', { name: /^Fast/ } );
-		expect( screen.queryByRole( 'option', { name: /^Get more credits/ } ) ).not.toBeInTheDocument();
+		await screen.findByRole( 'button', { name: /^Fast/ } );
+		expect( screen.queryByRole( 'button', { name: /^Get more credits/ } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'hides stale balance and purchase action on query failure', async () => {
@@ -135,26 +205,15 @@ describe( 'Chat model picker', () => {
 			)
 		);
 		fireEvent.click( trigger );
-		await screen.findByRole( 'option', { name: /^Fast/ } );
-		expect( screen.queryByRole( 'option', { name: /^Get more credits/ } ) ).not.toBeInTheDocument();
+		await screen.findByRole( 'button', { name: /^Fast/ } );
+		expect( screen.queryByRole( 'button', { name: /^Get more credits/ } ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'opens the existing purchase dialog from the model picker and continues to desktop checkout', async () => {
-		const { connector, trigger } = await renderPicker(
-			'fast',
-			connectorFor( { quota: async () => allowanceQuota } )
-		);
+	it( 'keeps provider setup and credit purchases outside the model picker', async () => {
+		const { trigger } = await renderPicker( 'balanced', connectorFor() );
 		fireEvent.click( trigger );
-		const buy = await screen.findByRole( 'option', { name: /^Get more credits/ } );
-		await waitFor( () => expect( buy ).not.toHaveAttribute( 'aria-disabled', 'true' ) );
-		fireEvent.click( buy );
-		expect( await screen.findByRole( 'heading', { name: 'Add AI credits' } ) ).toBeVisible();
-		expect( screen.queryByRole( 'option', { name: /^Fast/ } ) ).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'button', { name: /^Continue/ } ) );
-		await waitFor( () =>
-			expect( connector.openExternalUrl ).toHaveBeenCalledWith(
-				expect.stringContaining( 'studioReturnTo=ai-credits-purchased' )
-			)
-		);
+		await screen.findByRole( 'button', { name: 'Balanced' } );
+		expect( screen.queryByRole( 'button', { name: /^Get more credits/ } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: /^Manage providers/ } ) ).not.toBeInTheDocument();
 	} );
 } );

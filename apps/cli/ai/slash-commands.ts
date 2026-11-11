@@ -1,4 +1,10 @@
 import {
+	getEffortLabel,
+	getModelEffortLevels,
+	resolveModelEffort,
+	type AiEffort,
+} from '@studio/agent/protocol/model-effort';
+import {
 	aiModelRequiresPaidCredits,
 	getAiModelFamily,
 	getAiModelLabel,
@@ -36,6 +42,7 @@ import type { AiChatUI } from 'cli/ai/ui';
 export interface SlashCommandContext {
 	ui: AiChatUI;
 	currentModel: AiModelId;
+	currentEffort: AiEffort;
 	currentProvider: AiProviderId;
 	showCapabilitiesOnConnect: boolean;
 	switchProvider( provider: AiProviderId, announce?: boolean ): Promise< void >;
@@ -120,6 +127,36 @@ function showCreditBalance( ctx: SlashCommandContext, quota: StudioAssistantQuot
 }
 
 export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
+	{
+		name: 'effort',
+		description: __( 'Choose how much effort the model uses' ),
+		handler: async ( _prompt, ctx ) => {
+			const levels = getModelEffortLevels( ctx.currentModel );
+			if ( ! levels.length ) {
+				ctx.ui.showInfo( __( 'This model does not support effort selection.' ) );
+				return 'continue';
+			}
+			const current = resolveModelEffort( ctx.currentModel, ctx.currentEffort );
+			const answer = await ctx.ui.askUser( [
+				{
+					question: __( 'Effort' ),
+					options: levels.map( ( level ) => ( {
+						label: getEffortLabel( level ),
+						description: level === current ? __( 'Current' ) : '',
+					} ) ),
+				},
+			] );
+			const picked = levels.find(
+				( level ) => getEffortLabel( level ) === Object.values( answer )[ 0 ]
+			);
+			if ( picked ) {
+				ctx.currentEffort = picked === 'medium' ? 'default' : picked;
+				await ctx.persistSessionContext();
+				ctx.ui.showInfo( `${ __( 'Effort' ) }: ${ getEffortLabel( picked ) }` );
+			}
+			return 'continue';
+		},
+	},
 	{
 		name: 'browser',
 		description: __( 'Open the active site in the browser' ),

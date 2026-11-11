@@ -3,17 +3,22 @@ import { clsx } from 'clsx';
 import {
 	Fragment,
 	useEffect,
+	useEffectEvent,
+	useId,
 	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
 	type CSSProperties,
+	type KeyboardEvent,
 	type MouseEvent,
 	type PointerEvent as ReactPointerEvent,
 	type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { getMotionDuration } from '@/lib/theme';
-import { SidebarMenu, VisuallyHidden } from '@/lib/ui';
+import { SidebarMenu } from '../sidebar';
+import { VisuallyHidden } from '../visually-hidden';
 import styles from './style.module.css';
 
 type ActiveDrag = {
@@ -92,6 +97,7 @@ export type ReorderableItemProps = {
 	className: string;
 	style?: CSSProperties;
 	'aria-hidden'?: true;
+	inert?: boolean;
 } & Record< `data-${ string }`, string | true | undefined >;
 
 export type ReorderableListProps< T > = {
@@ -100,12 +106,18 @@ export type ReorderableListProps< T > = {
 	getItemId: ( item: T ) => string;
 	/** Renders a row as a `SidebarMenuItem` spread with `props`; also used for the floating drag preview. */
 	renderItem: ( item: T, props: ReorderableItemProps ) => ReactNode;
-	onReorder: ( nextIds: string[] ) => void;
+	/** May return a normalized visible order for the dropped rows. */
+	onReorder: ( nextIds: string[], movedId: string ) => string[] | void;
 	className?: string;
 	itemClassName?: string;
 	previewClassName?: string;
 	/** Pointer-downs inside a match of this selector never start a drag. */
 	excludeSelector?: string;
+	/** Restricts dragging and keyboard reordering to this handle. */
+	handleSelector?: string;
+	/** Places the preview outside a floating surface's positioning container. */
+	portalPreview?: boolean;
+	onReorderingChange?: ( active: boolean ) => void;
 	/** No drag starts, e.g. while rows are being multi-selected. */
 	disabled?: boolean;
 	/** Names a dropped row when its new position is announced. */
@@ -125,6 +137,9 @@ export function ReorderableList< T >( {
 	itemClassName,
 	previewClassName,
 	excludeSelector,
+	handleSelector,
+	portalPreview = false,
+	onReorderingChange,
 	disabled = false,
 	getItemLabel,
 	onDragStart,
@@ -141,6 +156,13 @@ export function ReorderableList< T >( {
 	const containerRef = useRef< HTMLUListElement | null >( null );
 	const scrollParentRef = useRef< HTMLElement | null >( null );
 	const autoScrollRef = useRef< { step: number; rafId: number } | null >( null );
+	const previewId = useId();
+	const reordering = activeDrag !== null;
+	const notifyReordering = useEffectEvent( ( active: boolean ) => onReorderingChange?.( active ) );
+	useEffect( () => {
+		notifyReordering( reordering );
+		return () => notifyReordering( false );
+	}, [ reordering ] );
 
 	// A dropped order shows until `items` changes: a parent reading its order
 	// from the query cache renders it a tick after the drop, and the landing
@@ -190,7 +212,7 @@ export function ReorderableList< T >( {
 			activeDragRef.current = null;
 			setActiveDrag( null );
 		};
-		const preview = list?.querySelector( ':scope > [data-reorder-preview]' );
+		const preview = document.querySelector( `[data-reorder-preview="${ previewId }"]` );
 		const duration = prefersReducedMotion() ? 0 : getMotionDuration( 'surface' );
 		if ( ! row || ! preview || ! duration || typeof preview.animate !== 'function' ) {
 			land();
@@ -213,7 +235,7 @@ export function ReorderableList< T >( {
 		);
 		animation.onfinish = land;
 		return () => animation.cancel();
-	}, [ landingId ] );
+	}, [ landingId, previewId ] );
 
 	// Tear down the window drag listeners and auto-scroll if the list unmounts
 	// mid-drag.
@@ -379,9 +401,10 @@ export function ReorderableList< T >( {
 			const sourceOrder =
 				dragStartOrderRef.current.length > 0 ? dragStartOrderRef.current : itemIds;
 			const nextIds = insertIdAtIndex( sourceOrder, active.id, active.dropIndex );
-			onReorder( nextIds );
+			const normalizedIds = onReorder( nextIds, active.id );
+			const appliedIds = normalizedIds ?? nextIds;
 			setDropped( {
-				ids: insertIdAtIndex( itemIds, active.id, active.dropIndex ),
+				ids: normalizedIds ?? insertIdAtIndex( itemIds, active.id, active.dropIndex ),
 				over: parentIds,
 			} );
 			const item = items.find( ( value ) => getItemId( value ) === active.id );
@@ -391,24 +414,19 @@ export function ReorderableList< T >( {
 						/* translators: 1: name of the moved item, 2: its new position, 3: number of items. */
 						__( '%1$s moved to position %2$d of %3$d' ),
 						getItemLabel( item ),
-						nextIds.indexOf( active.id ) + 1,
-						nextIds.length
+						appliedIds.indexOf( active.id ) + 1,
+						appliedIds.length
 					)
 				);
 			}
 		}
 		if ( active ) {
 			suppressNextClickRef.current = true;
-			// The rows' click-capture consumes the flag, but a drop outside any
-			// row never reaches it — clear on the next click wherever it lands
-			// so it can't swallow a later, legitimate one.
-			window.addEventListener(
-				'click',
-				() => {
-					suppressNextClickRef.current = false;
-				},
-				{ once: true }
-			);
+			// Only suppress the click generated by this pointerup. A browser
+			// may omit it when the drop moves the row under the pointer.
+			setTimeout( () => {
+				suppressNextClickRef.current = false;
+			}, 0 );
 		}
 		endDrag( active );
 	};
@@ -420,6 +438,17 @@ export function ReorderableList< T >( {
 			endDrag( activeDragRef.current );
 		}
 	};
+	const cancelDrag = () => endDrag( null );
+	const handleWindowKeyDown = ( event: globalThis.KeyboardEvent ) => {
+		if ( event.key !== 'Escape' ) return;
+		event.preventDefault();
+		event.stopPropagation();
+		cancelDrag();
+	};
+	const cancelDisabledDrag = useEffectEvent( () => {
+		if ( disabled ) cancelDrag();
+	} );
+	useEffect( () => cancelDisabledDrag(), [ disabled ] );
 
 	const handlePointerDown = ( event: ReactPointerEvent< HTMLElement > ) => {
 		const row = ( event.target as Element ).closest( '[data-reorder-id]' );
@@ -428,11 +457,14 @@ export function ReorderableList< T >( {
 			row.parentElement !== event.currentTarget ||
 			disabled ||
 			activeDragRef.current ||
+			dragCandidateRef.current ||
 			event.button !== 0 ||
+			event.isPrimary === false ||
 			event.metaKey ||
 			event.ctrlKey ||
 			event.shiftKey ||
 			event.altKey ||
+			( handleSelector && ! ( event.target as Element ).closest( handleSelector ) ) ||
 			( excludeSelector && ( event.target as HTMLElement ).closest( excludeSelector ) )
 		) {
 			return;
@@ -459,12 +491,54 @@ export function ReorderableList< T >( {
 		window.addEventListener( 'pointermove', handleWindowPointerMove, { passive: false } );
 		window.addEventListener( 'pointerup', handleWindowPointerUp );
 		window.addEventListener( 'pointercancel', handleWindowPointerCancel );
+		window.addEventListener( 'keydown', handleWindowKeyDown, true );
+		window.addEventListener( 'blur', cancelDrag );
+		window.addEventListener( 'resize', cancelDrag );
 		removeDragListenersRef.current = () => {
 			window.removeEventListener( 'pointermove', handleWindowPointerMove );
 			window.removeEventListener( 'pointerup', handleWindowPointerUp );
 			window.removeEventListener( 'pointercancel', handleWindowPointerCancel );
+			window.removeEventListener( 'keydown', handleWindowKeyDown, true );
+			window.removeEventListener( 'blur', cancelDrag );
+			window.removeEventListener( 'resize', cancelDrag );
 			removeDragListenersRef.current = null;
 		};
+	};
+	const handleKeyDown = ( event: KeyboardEvent< HTMLUListElement > ) => {
+		if (
+			disabled ||
+			activeDragRef.current ||
+			! handleSelector ||
+			! ( event.target as Element ).closest( handleSelector ) ||
+			! [ 'ArrowUp', 'ArrowDown' ].includes( event.key )
+		)
+			return;
+		const row = ( event.target as Element ).closest( '[data-reorder-id]' );
+		if ( row?.parentElement !== event.currentTarget ) return;
+		event.preventDefault();
+		event.stopPropagation();
+		const id = row.getAttribute( 'data-reorder-id' )!;
+		const index = itemIds.indexOf( id );
+		const target = Math.max(
+			0,
+			Math.min( itemIds.length - 1, index + ( event.key === 'ArrowUp' ? -1 : 1 ) )
+		);
+		if ( target === index ) return;
+		const nextIds = insertIdAtIndex( itemIds, id, target );
+		const appliedIds = onReorder( nextIds, id ) ?? nextIds;
+		setDropped( { ids: appliedIds, over: parentIds } );
+		const item = items.find( ( value ) => getItemId( value ) === id );
+		if ( item !== undefined && getItemLabel ) {
+			setAnnouncement(
+				sprintf(
+					__( '%1$s moved to position %2$d of %3$d' ),
+					getItemLabel( item ),
+					appliedIds.indexOf( id ) + 1,
+					appliedIds.length
+				)
+			);
+		}
+		queueMicrotask( () => row.scrollIntoView( { block: 'nearest' } ) );
 	};
 
 	const handleClickCapture = ( event: MouseEvent< HTMLElement > ) => {
@@ -488,12 +562,28 @@ export function ReorderableList< T >( {
 		return index < sourceIndex ? 'before' : 'after';
 	};
 
+	const preview =
+		activeDrag && draggedItem !== undefined
+			? renderItem( draggedItem, {
+					'data-reorder-preview': previewId,
+					className: clsx( styles.dragPreview, previewClassName ),
+					style: {
+						inlineSize: activeDrag.previewWidth,
+						insetBlockStart: activeDrag.currentY - activeDrag.pointerOffsetY,
+						insetInlineStart: activeDrag.previewLeft,
+					},
+					'aria-hidden': true,
+					inert: true,
+			  } )
+			: null;
 	return (
 		<>
 			<SidebarMenu
 				ref={ containerRef }
 				className={ className }
+				data-reordering={ reordering || undefined }
 				onPointerDown={ handlePointerDown }
+				onKeyDown={ handleKeyDown }
 				onClickCapture={ handleClickCapture }
 			>
 				{ orderedItems.map( ( item, index ) => {
@@ -510,20 +600,10 @@ export function ReorderableList< T >( {
 						</Fragment>
 					);
 				} ) }
-				{ activeDrag && draggedItem !== undefined
-					? renderItem( draggedItem, {
-							'data-reorder-preview': true,
-							className: clsx( styles.dragPreview, previewClassName ),
-							style: {
-								inlineSize: activeDrag.previewWidth,
-								insetBlockStart: activeDrag.currentY - activeDrag.pointerOffsetY,
-								insetInlineStart: activeDrag.previewLeft,
-							},
-							'aria-hidden': true,
-					  } )
-					: null }
+				{ ! portalPreview ? preview : null }
 				{ children }
 			</SidebarMenu>
+			{ portalPreview && preview ? createPortal( preview, document.body ) : null }
 			{ getItemLabel ? <VisuallyHidden role="status">{ announcement }</VisuallyHidden> : null }
 		</>
 	);

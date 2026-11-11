@@ -78,6 +78,7 @@ function getShortcutSections( isApple: boolean ): ShortcutSection[] {
 			shortcuts: [
 				{ label: __( 'Send message' ), keys: [ '↩' ] },
 				{ label: __( 'Insert newline' ), keys: [ shiftKey, '↩' ] },
+				{ label: __( 'Switch to starred model' ), keys: [ altKey, modifierKey, '1–9' ] },
 				{ label: __( 'Stop response' ), keys: [ 'Esc' ] },
 			],
 		},

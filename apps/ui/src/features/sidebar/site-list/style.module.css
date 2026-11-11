@@ -29,12 +29,6 @@
 	display: none;
 }
 
-.dragPreview {
-	opacity: 0.95;
-	border-radius: var( --radius-md );
-	background-color: var( --hover );
-}
-
 .groupPanel,
 .chatsPanel {
 	overflow: clip;

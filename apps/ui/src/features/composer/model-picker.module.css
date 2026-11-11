@@ -1,0 +1,123 @@
+.popup {
+	composes: padded from '@/lib/ui/surface/style.module.css';
+	width: max-content;
+	min-width: min( 224px, calc( 100vw - 24px ) );
+	max-width: calc( 100vw - 24px );
+}
+.searchRow {
+	--control-size: 40px;
+	display: block;
+	width: calc( 100% + 2 * var( --space-1_5 ) );
+	margin: calc( -1 * var( --space-1_5 ) ) calc( -1 * var( --space-1_5 ) ) var( --space-1_5 );
+	padding-inline: var( --space-3_5 );
+	border-block-end: 1px solid var( --border );
+	background: transparent;
+}
+.models {
+	max-height: min( 360px, 55dvh );
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	margin-inline: calc( -1 * var( --space-1 ) );
+	padding-inline: var( --space-1 );
+}
+.row:not( [data-reorder-preview] ) {
+	position: relative;
+	border-radius: var( --radius-md );
+}
+.row:not( :has( > .choice:disabled ) ):is( :hover, :focus-within ) {
+	background-color: var( --hover );
+}
+.favorites {
+	gap: 0;
+}
+.favorites[data-reordering] {
+	pointer-events: none;
+}
+.favorites[data-reordering] > .row .star {
+	opacity: 0;
+}
+.favorites[data-reordering] > .row .trailing {
+	opacity: 1;
+}
+.dragPreview .star {
+	display: none;
+}
+.dragPreview .grip {
+	cursor: grabbing;
+}
+.label {
+	flex: 1;
+}
+.trailing {
+	display: flex;
+	align-items: center;
+	min-width: 16px;
+	margin-inline-start: auto;
+}
+.row:is( :hover, :focus-within ) .trailing {
+	opacity: 0;
+}
+.effortValue {
+	display: flex;
+	align-items: center;
+	gap: var( --space-1_5 );
+	margin-inline-start: auto;
+	color: var( --muted-foreground );
+}
+.presetEffort {
+	margin-inline-start: var( --space-1_5 );
+	color: var( --muted-foreground );
+	font-weight: var( --font-weight-normal );
+}
+.check {
+	width: 16px;
+	height: 16px;
+}
+
+.separator {
+	composes: separator from '@/lib/ui/surface/style.module.css';
+}
+.grip {
+	--button-hover-background: transparent;
+
+	position: absolute;
+	inset-block-start: var( --space-1 );
+	inset-inline-start: 0;
+	z-index: 1;
+	touch-action: none;
+	cursor: grab;
+}
+.grip:focus-visible {
+	box-shadow: none;
+}
+.row:has( > .grip:focus-visible ) .choice {
+	box-shadow: inset 0 0 0 2px var( --ring );
+}
+.row:has( > .grip ) .providerIcon {
+	margin-inline-start: var( --space-4 );
+}
+.grip:active {
+	cursor: grabbing;
+}
+.star {
+	position: absolute;
+	inset-block-start: var( --space-1 );
+	inset-inline-end: var( --space-1 );
+	opacity: 0;
+}
+.row:is( :hover, :focus-within ) .star {
+	opacity: 1;
+}
+@media ( hover: none ) {
+	.star {
+		opacity: 1;
+	}
+	.trailing {
+		opacity: 0;
+	}
+}
+.empty {
+	margin: var( --space-2 );
+	color: var( --muted-foreground );
+	font-size: var( --text-xs );
+}

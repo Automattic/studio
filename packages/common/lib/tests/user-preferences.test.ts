@@ -210,3 +210,27 @@ it( 'keeps annotation batching on by default and persists it across preference r
 	await writeUserPreferences( { batchAnnotations: null }, context );
 	expect( ( await readUserPreferences( context ) ).batchAnnotations ).toBe( true );
 } );
+
+it( 'persists ordered model and effort favorites without constraining future providers', async () => {
+	const context = { sitesRoot: configDir };
+	expect( ( await readUserPreferences( context ) ).modelFavorites ).toEqual( [] );
+	const modelFavorites = [
+		{ provider: 'wpcom', model: 'balanced', effort: 'high' as const },
+		{ provider: 'wpcom', model: 'balanced', effort: 'default' as const },
+		{ provider: 'another-provider', model: 'a-future-model', effort: 'max' as const },
+	];
+	await writeUserPreferences( { modelFavorites }, context );
+	expect( ( await readUserPreferences( context ) ).modelFavorites ).toEqual( modelFavorites );
+	await writeUserPreferences( { modelFavorites: [] }, context );
+	expect( ( await readUserPreferences( context ) ).modelFavorites ).toEqual( [] );
+	expect(
+		userPreferencesPatchSchema.safeParse( {
+			modelFavorites: [ { provider: '', model: 'balanced', effort: 'high' } ],
+		} ).success
+	).toBe( false );
+	expect(
+		userPreferencesPatchSchema.safeParse( {
+			modelFavorites: [ { provider: 'wpcom', model: 'balanced', effort: 'unknown' } ],
+		} ).success
+	).toBe( false );
+} );

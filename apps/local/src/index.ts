@@ -20,12 +20,9 @@ import {
 	setSessionEnvironment,
 	updateHydratedAiSessionMetadata,
 } from '@studio/agent/node/sessions/manage';
+import { setSessionModelSettings } from '@studio/agent/node/sessions/model-settings';
 import { deleteAiSessionPlacement } from '@studio/agent/node/sessions/placement';
-import {
-	appendModelChangeEntry,
-	appendStudioEntry,
-	deleteAiSession,
-} from '@studio/agent/node/sessions/store';
+import { deleteAiSession } from '@studio/agent/node/sessions/store';
 import {
 	InvalidAnthropicApiKeyError,
 	readAiSettings,
@@ -37,6 +34,11 @@ import {
 	STUDIO_CHAT_MAX_TOTAL_IMAGE_BYTES,
 	validateStudioChatImages,
 } from '@studio/agent/protocol/chat-images';
+import {
+	isAiEffort,
+	normalizeModelEffort,
+	validateTurnModelSettings,
+} from '@studio/agent/protocol/model-effort';
 import { isAiModelId } from '@studio/agent/protocol/models';
 import { isAiProviderId, providerServesModel } from '@studio/agent/protocol/providers';
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
@@ -2220,7 +2222,15 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: `Unknown AI model: ${ model }` } );
 				return;
 			}
-			await appendModelChangeEntry( sessionsRoot, req.params.id, '', model );
+			if (
+				req.body.effort !== undefined &&
+				( ! isAiEffort( req.body.effort ) ||
+					normalizeModelEffort( model, req.body.effort ) !== req.body.effort )
+			) {
+				res.status( 400 ).json( { error: 'Unsupported effort for this model' } );
+				return;
+			}
+			await setSessionModelSettings( sessionsRoot, req.params.id, model, req.body.effort );
 			res.sendStatus( 204 );
 		} )
 	);
@@ -2237,10 +2247,21 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: `Model ${ model } is not served by ${ provider }` } );
 				return;
 			}
-			await appendStudioEntry( sessionsRoot, req.params.id, 'studio.session_context', {
-				provider,
+			if (
+				req.body.effort !== undefined &&
+				( ! isAiEffort( req.body.effort ) ||
+					normalizeModelEffort( model, req.body.effort ) !== req.body.effort )
+			) {
+				res.status( 400 ).json( { error: 'Unsupported effort for this model' } );
+				return;
+			}
+			await setSessionModelSettings(
+				sessionsRoot,
+				req.params.id,
 				model,
-			} );
+				req.body.effort,
+				provider
+			);
 			res.sendStatus( 204 );
 		} )
 	);
@@ -2273,10 +2294,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			let images: StudioChatImage[];
 			let files: StudioChatFileAttachment[];
 			let validatedVisualAnnotations: StudioVisualAnnotationSummary[] | undefined;
+			let modelSettings: ReturnType< typeof validateTurnModelSettings >;
 			try {
 				images = validateStudioChatImages( req.body.images );
 				files = validateStudioChatFiles( req.body.files );
 				validatedVisualAnnotations = validateStudioVisualAnnotations( visualAnnotations, images );
+				modelSettings = validateTurnModelSettings( req.body );
 			} catch ( error ) {
 				res.status( 400 ).json( { error: ( error as Error ).message } );
 				return;
@@ -2286,6 +2309,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				sessionId: req.params.id,
 				prompt: expandSkillCommandPrompt( prompt ),
 				turnId: typeof req.body.turnId === 'string' ? req.body.turnId : undefined,
+				...modelSettings,
 				displayMessage,
 				images,
 				files,

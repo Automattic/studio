@@ -285,8 +285,26 @@ export function createInMemoryConnector(
 		},
 		continueSession: async () => ( { runId: `run-${ nextId++ }` } ),
 		getActiveAgentRuns: async () => [],
-		setSessionModel: async () => {},
-		setSessionProvider: async () => {},
+		setSessionModel: async ( id, model, effort ) => {
+			findSession( id ).entries.push( {
+				type: 'custom',
+				id: crypto.randomUUID(),
+				parentId: null,
+				timestamp: new Date().toISOString(),
+				customType: 'studio.session_context',
+				data: { model, effort },
+			} );
+		},
+		setSessionProvider: async ( id, provider, model, effort ) => {
+			findSession( id ).entries.push( {
+				type: 'custom',
+				id: crypto.randomUUID(),
+				parentId: null,
+				timestamp: new Date().toISOString(),
+				customType: 'studio.session_context',
+				data: { provider, model, effort },
+			} );
+		},
 		setSessionEnvironment: async ( id, environment ) => {
 			const session = findSession( id );
 			session.summary = { ...session.summary, activeEnvironment: environment };

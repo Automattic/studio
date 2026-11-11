@@ -11,6 +11,10 @@ import {
 } from '@studio/common/lib/shared-config';
 import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
 import {
+	modelFavoritesSchema,
+	type ModelFavorite,
+} from '@studio/common/lib/user-settings/model-favorites';
+import {
 	DEFAULT_COLOR_SCHEME,
 	DEFAULT_HIDE_FRONTEND_ADMIN_BAR,
 	getColorTint,
@@ -42,6 +46,7 @@ import type { SupportedTerminal } from '@studio/common/lib/user-settings/termina
  */
 
 export interface UserPreferences extends ColorTint {
+	modelFavorites: ModelFavorite[];
 	// `null` is the default: the first installed editor, the system terminal.
 	editor: SupportedEditor | null;
 	browser: SupportedBrowser | null;
@@ -92,6 +97,7 @@ const sidebarChatOrderSchema = z.record( z.string(), z.array( z.string() ) );
 // `null` clears a preference back to its default; JSON drops `undefined` keys,
 // so a clear can't travel as one.
 export const userPreferencesPatchSchema = z.object( {
+	modelFavorites: modelFavoritesSchema.nullish(),
 	editor: editorSchema.nullish(),
 	browser: z.enum( SUPPORTED_BROWSERS ).nullish(),
 	terminal: z.enum( SUPPORTED_TERMINALS ).nullish(),
@@ -134,6 +140,7 @@ const APP_CONFIG_KEYS = [
 	[ 'quitSitesBehavior', 'quitSitesBehavior' ],
 	[ 'defaultSiteDirectory', 'defaultSiteDirectory' ],
 	[ 'sidebarPins', 'sidebarPins' ],
+	[ 'modelFavorites', 'modelFavorites' ],
 	[ 'sidebarPinnedSort', 'sidebarPinnedSort' ],
 	[ 'sidebarSiteSort', 'sidebarSiteSort' ],
 	[ 'sidebarChatSort', 'sidebarChatSort' ],
@@ -172,6 +179,7 @@ export async function readUserPreferences( {
 
 	const sidebarChatOrder = sidebarChatOrderSchema.catch( {} ).parse( config.sidebarChatOrder );
 	return {
+		modelFavorites: modelFavoritesSchema.catch( [] ).parse( config.modelFavorites ),
 		editor: optionalEditor.parse( config.preferredEditor ?? null ),
 		browser: z
 			.enum( SUPPORTED_BROWSERS )

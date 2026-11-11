@@ -10,6 +10,8 @@ export interface PendingQuestion {
 }
 
 export interface SendMessageOptions {
+	model?: import('@studio/agent/protocol/models').AiModelId;
+	effort?: import('@studio/agent/protocol/model-effort').AiEffort;
 	displayMessage?: string;
 	images?: StudioChatImage[];
 	files?: StudioChatFileAttachment[];

@@ -76,6 +76,7 @@ describe( 'openNewSession', () => {
 		const invalidateQueries = vi.spyOn( queryClient, 'invalidateQueries' );
 		const summary = createSummary( { eventCount: 0 } );
 		const connector = createFakeConnector();
+		connector.state.sessions.push( { summary, entries: [] } );
 		connector.createSession.mockResolvedValue( summary );
 
 		await expect(

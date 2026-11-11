@@ -143,12 +143,20 @@ it( 'passes the exact dispatched turn ID through the existing input payload', ()
 		emit: vi.fn(),
 	} );
 	const turnId = crypto.randomUUID();
-	manager.startAgentRun( { sessionId: 'correlated', prompt: 'hello', turnId } );
+	manager.startAgentRun( {
+		sessionId: 'correlated',
+		prompt: 'hello',
+		turnId,
+		model: 'balanced',
+		effort: 'high',
+	} );
 	const args = mockFork.mock.calls.at( -1 )![ 1 ] as string[];
 	const input = args[ args.indexOf( '--input-payload' ) + 1 ];
 	expect( JSON.parse( fs.readFileSync( input, 'utf8' ) ) ).toMatchObject( {
 		prompt: 'hello',
 		turnId,
+		model: 'balanced',
+		effort: 'high',
 	} );
 	child.emit( 'exit', 0 );
 } );

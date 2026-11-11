@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import { listAiSessions, loadAiSession } from '@studio/agent/node/sessions/store';
 import { validateStudioChatFiles } from '@studio/agent/protocol/chat-files';
 import { validateStudioChatImages } from '@studio/agent/protocol/chat-images';
+import { validateTurnModelSettings } from '@studio/agent/protocol/model-effort';
 import { resolveActiveSiteFromEntries } from '@studio/agent/protocol/sessions/active-site';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
@@ -20,10 +21,12 @@ async function readInputPayload( path: string ): Promise< StudioAiSessionInputPa
 	if ( ! parsed || typeof parsed.prompt !== 'string' || ! parsed.prompt.trim() ) {
 		throw new Error( __( 'Invalid AI session input payload.' ) );
 	}
+	const settings = validateTurnModelSettings( parsed );
 	const images = validateStudioChatImages( parsed.images );
 	return {
 		prompt: parsed.prompt,
 		turnId: parsed.turnId,
+		...settings,
 		displayMessage: parsed.displayMessage,
 		images,
 		files: validateStudioChatFiles( parsed.files ),
@@ -81,6 +84,8 @@ export async function runCommand(
 		resumeSession: session,
 		initialMessage: inputPayload?.prompt ?? options.message,
 		initialTurnId: inputPayload?.turnId,
+		initialModel: inputPayload?.model,
+		initialEffort: inputPayload?.effort,
 		initialDisplayMessage: inputPayload?.displayMessage ?? options.displayMessage,
 		initialImages: inputPayload?.images,
 		initialFiles: inputPayload?.files,

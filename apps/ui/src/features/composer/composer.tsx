@@ -1,3 +1,8 @@
+import {
+	normalizeModelEffort,
+	readSessionEffort,
+	type AiEffort,
+} from '@studio/agent/protocol/model-effort';
 import { aiModelSupportsImages } from '@studio/agent/protocol/models';
 import { resolveSkillFromPrompt } from '@studio/agent/protocol/slash-commands';
 import { __, sprintf } from '@wordpress/i18n';
@@ -80,6 +85,8 @@ interface ComposerProps {
 	onSend: (
 		prompt: string,
 		options?: ComposerSendAttachments & {
+			model?: AiModelId;
+			effort?: AiEffort;
 			displayMessage?: string;
 			visualAnnotations?: StudioVisualAnnotationSummary[];
 		}
@@ -178,6 +185,12 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			: undefined;
 	const [ initialDraft ] = useState( () => getComposerDraft( draftKey ) );
 	const [ value, setValue ] = useState( initialDraft.text );
+	const [ effort, setEffort ] = useState< AiEffort >( () =>
+		normalizeModelEffort( model, initialDraft.effort ?? readSessionEffort( entries, model ) )
+	);
+	useEffect( () => {
+		if ( sessionId && ! onModelChange ) setEffort( readSessionEffort( entries, model ) );
+	}, [ entries, model, sessionId, onModelChange ] );
 	const [ sending, setSending ] = useState( false );
 	const [ validationError, setValidationError ] = useState< {
 		message: string;
@@ -320,11 +333,11 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 
 	useEffect( () => {
 		if ( draftEffectInitializedRef.current ) {
-			saveComposerDraft( draftKey, { text: value, attachments } );
+			saveComposerDraft( draftKey, { text: value, attachments, effort } );
 		} else {
 			draftEffectInitializedRef.current = true;
 		}
-	}, [ attachments, draftKey, value ] );
+	}, [ attachments, draftKey, value, effort ] );
 
 	const {
 		changeModel,
@@ -333,6 +346,8 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		cancelFamilyChange,
 		confirmFamilyChange,
 	} = useModelSwitch( {
+		effort,
+		onEffortChange: setEffort,
 		model,
 		sessionId,
 		entries,
@@ -403,7 +418,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		restoreAttachments( [] );
 		setSending( true );
 		try {
-			await onSend( submission.prompt, submission.options );
+			await onSend( submission.prompt, { ...submission.options, model, effort } );
 		} catch {
 			// The parent reports the failure in a toast. Keep the draft even if
 			// its site was closed while the request was pending.
@@ -411,6 +426,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			saveComposerDraft( draftKey, {
 				text: currentDraft.text || value,
 				attachments: [ ...attachments, ...currentDraft.attachments ],
+				effort: currentDraft.effort ?? effort,
 			} );
 			setValue( ( current ) => current || value );
 			restoreAttachments( ( current ) => [ ...attachments, ...current ] );
@@ -435,6 +451,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		shake,
 		answerQuestion,
 		onSend,
+		effort,
 		restoreAttachments,
 		annotationSiteId,
 		model,
@@ -610,13 +627,12 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 									open={ modelOpen }
 									onOpenChange={ setModelOpen }
 									model={ model }
+									effort={ effort }
 									providers={ providers }
 									sessionProvider={ sessionProvider }
 									isModelLocked={ isModelLocked }
 									disabled={ busy }
-									anchor={ rootNode }
 									onChange={ changeModel }
-									onAddCredits={ openAddCredits }
 								/>
 							) : null }
 							{ isField ? null : showStop ? (

@@ -119,6 +119,41 @@ describe( 'createLocalConnector server contracts', () => {
 		);
 	} );
 
+	it( 'forwards model and effort together for session settings and turns', async () => {
+		fetchMock.mockImplementation(
+			async () => new Response( JSON.stringify( { runId: 'run-1' } ) )
+		);
+		const local = connector();
+		await local.setSessionModel( 'chat', 'balanced', 'high' );
+		expect( fetchMock ).toHaveBeenLastCalledWith(
+			'http://localhost:8081/api/sessions/chat/model',
+			expect.objectContaining( {
+				method: 'POST',
+				body: JSON.stringify( { model: 'balanced', effort: 'high' } ),
+			} )
+		);
+		await local.setSessionProvider( 'chat', 'anthropic-api-key', 'claude-sonnet-5', 'low' );
+		expect( fetchMock ).toHaveBeenLastCalledWith(
+			'http://localhost:8081/api/sessions/chat/provider',
+			expect.objectContaining( {
+				method: 'POST',
+				body: JSON.stringify( {
+					provider: 'anthropic-api-key',
+					model: 'claude-sonnet-5',
+					effort: 'low',
+				} ),
+			} )
+		);
+		await local.continueSession( 'chat', 'Build a site', { model: 'balanced', effort: 'high' } );
+		expect( fetchMock ).toHaveBeenLastCalledWith(
+			'http://localhost:8081/api/sessions/chat/messages',
+			expect.objectContaining( {
+				method: 'POST',
+				body: JSON.stringify( { prompt: 'Build a site', model: 'balanced', effort: 'high' } ),
+			} )
+		);
+	} );
+
 	it( 'persists session environments through the local server', async () => {
 		fetchMock.mockResolvedValue( new Response( null, { status: 204 } ) );
 		await expect( connector().setSessionEnvironment( 'chat', 'live' ) ).resolves.toBeUndefined();

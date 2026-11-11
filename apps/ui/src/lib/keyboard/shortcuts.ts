@@ -7,6 +7,7 @@ type Modifier = 'alt' | 'shift';
 // layout types a Latin letter there.
 function getKey( event: KeyboardEvent ) {
 	if ( event.code === 'Period' ) return '.';
+	if ( /^Digit[0-9]$/.test( event.code ) ) return event.code.slice( 5 );
 	if ( /^[a-z]$/i.test( event.key ) ) {
 		return event.key.toLowerCase();
 	}

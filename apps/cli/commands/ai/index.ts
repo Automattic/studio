@@ -14,6 +14,7 @@ import {
 } from '@studio/agent/protocol/chat-files';
 import { type StudioChatImage } from '@studio/agent/protocol/chat-images';
 import { getAgentEndFailure } from '@studio/agent/protocol/json-events';
+import { normalizeModelEffort, type AiEffort } from '@studio/agent/protocol/model-effort';
 import {
 	getAiModelFamily,
 	readRecordedSessionModel,
@@ -144,6 +145,8 @@ export async function runCommand( options: {
 	adapter: AiOutputAdapter;
 	initialMessage?: string;
 	initialTurnId?: string;
+	initialModel?: AiModelId;
+	initialEffort?: AiEffort;
 	initialDisplayMessage?: string;
 	initialImages?: StudioChatImage[];
 	initialFiles?: StudioChatFileAttachment[];
@@ -221,7 +224,15 @@ export async function runCommand( options: {
 		resumeContext.model && initialDefinition.supportsModel( resumeContext.model )
 			? resumeContext.model
 			: undefined;
-	let currentModel: AiModelId = recordedModel ?? initialDefinition.defaultModel;
+	if ( options.initialModel && ! initialDefinition.supportsModel( options.initialModel ) ) {
+		throw new Error( __( 'The selected model is no longer available for this conversation.' ) );
+	}
+	let currentModel: AiModelId =
+		options.initialModel ?? recordedModel ?? initialDefinition.defaultModel;
+	let currentEffort: AiEffort = normalizeModelEffort(
+		currentModel,
+		options.initialEffort ?? resumeContext.effort
+	);
 	ui.currentProvider = currentProvider;
 	ui.currentModel = currentModel;
 
@@ -229,7 +240,8 @@ export async function runCommand( options: {
 	// startup never waits on the network. Turns await the resolution, and it
 	// only applies while nothing else picked a model.
 	let wpcomDefaultModel: AiModelId = getAiProviderDefaultModel( DEFAULT_AI_PROVIDER );
-	let quotaDefaultApplicable = ! recordedModel && currentProvider === DEFAULT_AI_PROVIDER;
+	let quotaDefaultApplicable =
+		! options.initialModel && ! recordedModel && currentProvider === DEFAULT_AI_PROVIDER;
 	const wpcomDefaultModelResolution = resolveWpcomDefaultModel()
 		.then( ( model ) => {
 			wpcomDefaultModel = model;
@@ -328,6 +340,7 @@ export async function runCommand( options: {
 		await append( ( sm ) =>
 			appendStudioEntry( sm, 'studio.session_context', {
 				model: currentModel,
+				effort: currentEffort,
 			} )
 		);
 	}
@@ -337,6 +350,7 @@ export async function runCommand( options: {
 			appendStudioEntry( sm, 'studio.session_context', {
 				provider: currentProvider,
 				model: currentModel,
+				effort: currentEffort,
 			} )
 		);
 	}
@@ -635,6 +649,7 @@ export async function runCommand( options: {
 			enrichedPrompt = `${ enrichedPrompt }${ buildAttachedFilesPromptBlock( files ) }`;
 		}
 
+		currentEffort = normalizeModelEffort( currentModel, currentEffort );
 		await persistSessionContext();
 
 		// Sole emitter of the chat events: every surface forks this process, and only this layer holds
@@ -679,6 +694,7 @@ export async function runCommand( options: {
 			images,
 			env,
 			model: currentModel,
+			effort: currentEffort,
 			session: sm,
 			activeSite: site,
 			onAskUser: ( questions ) => askUserAndPersistAnswers( questions ),
@@ -817,11 +833,18 @@ export async function runCommand( options: {
 
 	const slashCommandContext: SlashCommandContext = {
 		ui,
+		get currentEffort() {
+			return currentEffort;
+		},
+		set currentEffort( value ) {
+			currentEffort = normalizeModelEffort( currentModel, value );
+		},
 		get currentModel() {
 			return currentModel;
 		},
 		set currentModel( value ) {
 			currentModel = value;
+			currentEffort = 'default';
 			// An explicit pick wins over the pending quota-based default.
 			quotaDefaultApplicable = false;
 		},

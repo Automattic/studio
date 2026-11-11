@@ -795,3 +795,41 @@ it( 'does not cross attribution between overlapping sessions', async () => {
 		completion_kind: 'ai_edit',
 	} );
 } );
+
+it( 'keeps the model and effort chosen for a queued turn', async () => {
+	function SettingsQueue() {
+		const run = useAgentRun( 'session-1' );
+		const [ effort, setEffort ] = useState< 'low' | 'high' >( 'high' );
+		return (
+			<>
+				<button
+					onClick={ () =>
+						void run.sendMessage( 'Queued with settings', {
+							model: 'balanced',
+							effort,
+						} )
+					}
+				>
+					Queue settings
+				</button>
+				<button onClick={ () => setEffort( 'low' ) }>Change effort</button>
+			</>
+		);
+	}
+	const { connector, user } = await setup( {}, <SettingsQueue /> );
+	act( () => connector.emit( 'onAgentEvent', started( 'working-run' ) ) );
+	await user.click( screen.getByRole( 'button', { name: 'Queue settings' } ) );
+	await user.click( screen.getByRole( 'button', { name: 'Change effort' } ) );
+	act( () => connector.emit( 'onAgentEvent', exited( 'working-run' ) ) );
+	await waitFor( () =>
+		expect( connector.continueSession ).toHaveBeenCalledWith(
+			'session-1',
+			'Queued with settings',
+			expect.objectContaining( {
+				model: 'balanced',
+				effort: 'high',
+				turnId: expect.stringMatching( /^[0-9a-f-]{36}$/ ),
+			} )
+		)
+	);
+} );

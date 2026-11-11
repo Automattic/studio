@@ -23,7 +23,7 @@ describe( 'provider ids', () => {
 describe( 'models', () => {
 	it( 'finds the providers serving a model', () => {
 		expect( getAiModelProviders( 'balanced' ) ).toEqual( [ 'wpcom' ] );
-		expect( getAiModelProviders( 'claude-opus-5' ) ).toEqual( [ 'anthropic' ] );
+		expect( getAiModelProviders( 'claude-opus-5-5' ) ).toEqual( [ 'anthropic' ] );
 		expect( isAiModelId( 'gpt-4' ) ).toBe( false );
 	} );
 
@@ -31,7 +31,7 @@ describe( 'models', () => {
 		expect( getDefaultAiModel( 'wpcom' ) ).toBe( 'fast' );
 		expect( getDefaultAiModel( 'wpcom', { canUsePaidModels: true } ) ).toBe( 'balanced' );
 		expect( getDefaultAiModel( 'anthropic', { canUsePaidModels: true } ) ).toBe(
-			'claude-sonnet-5'
+			'claude-sonnet-5-5'
 		);
 	} );
 } );

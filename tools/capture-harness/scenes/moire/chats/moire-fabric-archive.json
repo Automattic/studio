@@ -1,0 +1,16 @@
+{
+	"description": "Organizing the Moire archive.",
+	"title": "Group the archive by fabric",
+	"site": "moire",
+	"minutesAgo": 1500,
+	"turns": [
+		{
+			"prompt": "Can the archive be grouped by fabric? Wool, linen, cotton.",
+			"replies": [
+				[
+					"I added Wool, Linen and Cotton categories, tagged each post, and the archive now shows a heading for each fabric with its posts underneath."
+				]
+			]
+		}
+	]
+}

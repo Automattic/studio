@@ -8,9 +8,9 @@ const connect = ( model: ( typeof ANTHROPIC_AI_MODELS )[ number ][ 'id' ] ) =>
 
 describe( 'anthropic ai', () => {
 	it( 'asks for an API key without a config', async () => {
-		await expect( anthropicAi.connect( undefined, 'claude-sonnet-5', {} ) ).rejects.toBeInstanceOf(
-			ProviderNotReadyError
-		);
+		await expect(
+			anthropicAi.connect( undefined, 'claude-sonnet-5-5', {} )
+		).rejects.toBeInstanceOf( ProviderNotReadyError );
 	} );
 
 	// A model missing pi's adaptive-thinking compat gets the legacy thinking

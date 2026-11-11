@@ -4,8 +4,8 @@ import { anthropicConfigSchema, type AnthropicConfig } from './config';
 import type { AiModel, ProviderDescriptor } from '../types';
 
 export const ANTHROPIC_AI_MODELS = [
-	{ id: 'claude-sonnet-5', label: () => 'Sonnet 5' },
-	{ id: 'claude-opus-5', label: () => 'Opus 5' },
+	{ id: 'claude-sonnet-5-5', label: () => 'Sonnet 5.5' },
+	{ id: 'claude-opus-5-5', label: () => 'Opus 5.5' },
 ] as const satisfies readonly AiModel[];
 
 const KEY_PREFIX_LENGTH = 16;
@@ -44,6 +44,6 @@ export const anthropicDescriptor: ProviderDescriptor< AnthropicConfig > = {
 	summarize: ( config ) => previewApiKey( config.apiKey ),
 	ai: {
 		models: ANTHROPIC_AI_MODELS,
-		defaultModel: 'claude-sonnet-5',
+		defaultModel: 'claude-sonnet-5-5',
 	},
 };

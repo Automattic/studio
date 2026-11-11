@@ -18,7 +18,17 @@
 			"meta": { "pages": [ "sites.md" ], "replaces": [ "2025/01/app-settings.png" ] },
 			"steps": [
 				{
-					"press": "ControlOrMeta+,"
+					"click": {
+						"role": "button",
+						"name": "Account",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "menuitem",
+						"pattern": "^Settings"
+					}
 				},
 				{
 					"waitFor": {

@@ -109,7 +109,7 @@
 		},
 		{
 			"name": "annotate-toolbar",
-			"description": "Annotate: the Annotations toolbar over the site preview, with Cancel and Send",
+			"description": "Annotate turned on above the site preview, before any note",
 			"desktopOnly": true,
 			"meta": { "pages": [ "studio-code/index.md" ] },
 			"steps": [
@@ -118,12 +118,6 @@
 						"role": "button",
 						"name": "Annotate",
 						"exact": true
-					}
-				},
-				{
-					"waitFor": {
-						"role": "toolbar",
-						"name": "Annotations"
 					}
 				},
 				{
@@ -200,16 +194,47 @@
 		},
 		{
 			"name": "annotate-staged",
-			"description": "Annotate: two saved notes marked on the page and waiting in the chat box as \"2 annotations\", with Send in the Annotations toolbar",
+			"description": "Annotate: two saved notes marked on the page and waiting in the chat box as \"2 annotations\"",
 			"desktopOnly": true,
 			"meta": { "pages": [ "studio-code/index.md" ] },
-			"steps": [],
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Delete annotation",
+						"exact": true
+					}
+				},
+				{
+					"wait": 600
+				}
+			],
 			"capture": {
 				"settle": 1200
 			},
 			"after": [
 				{
-					"helper": "discardAnnotations"
+					"click": {
+						"role": "button",
+						"name": "Annotate",
+						"exact": true
+					}
+				},
+				{
+					"hover": {
+						"text": "2 annotations",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "button",
+						"name": "Remove attachment",
+						"exact": true
+					}
+				},
+				{
+					"wait": 600
 				}
 			]
 		},
@@ -385,7 +410,17 @@
 			"meta": { "pages": [ "preview-sites.md", "studio-code/index.md", "studio-code/ai-credits-guidelines.md" ] },
 			"steps": [
 				{
-					"press": "ControlOrMeta+,"
+					"click": {
+						"role": "button",
+						"name": "{{account.name}}",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "menuitem",
+						"pattern": "^Settings"
+					}
 				},
 				{
 					"click": {

@@ -104,9 +104,9 @@ Instead of describing which part of the page you mean, you can point at it. In t
 5.  Add more notes the same way. Click a marker, or the note in the chat box’s list of annotations, to edit it, or click **Delete annotation** (the trash can) to remove it.
 6.  Send from the chat box. WordPress Studio Code gets your message and every note, each with the element or area it points at.
 
-![Annotating a site preview: numbered markers 1 and 2 on the wordmark and the tagline, and an open note on the photo reading “Swap in the wool close-up”, with the attach, delete, and save buttons. The chat box shows 2 annotations, and the toolbar shows Send 2.](../../../../screenshots/images/annotate-note.webp)
+![Annotating a site preview: numbered markers 1 and 2 on the wordmark and the tagline, and an open note on the photo reading “Swap in the wool close-up”, with the attach, delete, and add buttons. The chat box shows 2 annotations, and the Select, Draw, and Discard annotations tools sit below the page.](../../../../screenshots/images/annotate-note.webp)
 
-![The WordPress Studio window with Annotate turned on above the site preview: two notes marked 1 and 2 on the page wait in the chat box as 2 annotations, and the Annotations toolbar shows Cancel and Send 2.](../../../../screenshots/images/annotate-staged.webp)
+![The WordPress Studio window with Annotate turned on above the site preview: two notes marked 1 and 2 on the page wait in the chat box as 2 annotations, ready to send with a message.](../../../../screenshots/images/annotate-staged.webp)
 
 To send a single note right away, press ⌘Enter (Ctrl+Enter on Windows and Linux) in it. If WordPress Studio Code is still replying, the note waits in the queue and is sent when the reply ends. Notes staged in the chat box also wait for the reply to end, because they point at the page as it is now.
 

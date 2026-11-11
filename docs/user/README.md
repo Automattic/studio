@@ -142,6 +142,16 @@ To find the accessible names to use in a new shot, run this from the repo root:
 npx studio-capture inspect
 ```
 
+#### Shots change with the app
+
+The shot scripts follow the UI of the WordPress Studio in the same checkout, so expect to repair some of them with each release: a renamed button or a regrouped menu makes a step time out. A few habits keep that to a minimum, and let one script run against both a release and `trunk`:
+
+- **Wait for the container, not one of its items.** Wait for the menu, dialog or tab panel a step opens (`{ "role": "menu", "name": "Site menu" }`), not for an item inside it that may be renamed.
+- **Match a label that is changing with `pattern`.** `{ "role": "menuitem", "pattern": "^Delete( site)?$" }` finds the item under either name.
+- **Open things the way both drivers can.** A keyboard shortcut that Studio Desktop handles from its application menu (such as ⌘, for Settings) does nothing when a script presses it there; click through the UI instead (the account menu, then **Settings**).
+- **Leave the app as the next shot expects it.** Use `after` to close what a shot opened and to remove what it left behind, such as notes staged in the chat box, so a failure in one shot doesn't cascade.
+- **Run the Desktop-only shots too.** The browser driver skips shots marked `desktopOnly`, so they go stale unnoticed. Capture them with `--driver electron`, which also runs on Linux under a virtual display.
+
 ### Blog images
 
 Keep one-off blog images in `70-signed-in-blog.json` rather than a throwaway suite, so the next post can recapture them. To frame them for a white page, use the harness's `frame --look blog <image…>`.

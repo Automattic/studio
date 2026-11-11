@@ -52,5 +52,9 @@
 .loadFailed {
 	position: absolute;
 	inset: 0;
-	background-color: var( --chat );
+}
+
+.surfaceFrame[data-failed] > .iframe {
+	visibility: hidden;
+	pointer-events: none;
 }

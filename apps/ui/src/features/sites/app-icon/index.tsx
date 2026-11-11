@@ -1,8 +1,10 @@
 import { useState, type ReactNode } from 'react';
 import arc from './assets/arc.png';
 import brave from './assets/brave.png';
+import chatgpt from './assets/chatgpt.png';
 import chrome from './assets/chrome.png';
 import chromium from './assets/chromium.png';
+import claude from './assets/claude.png';
 import cursor from './assets/cursor.png';
 import dia from './assets/dia.png';
 import duckduckgo from './assets/duckduckgo.png';
@@ -11,6 +13,8 @@ import finder from './assets/finder.png';
 import firefoxDeveloper from './assets/firefox-developer.png';
 import firefox from './assets/firefox.png';
 import ghostty from './assets/ghostty.png';
+import github from './assets/github.png';
+import grok from './assets/grok.svg';
 import opera from './assets/opera.png';
 import phpmyadmin from './assets/phpmyadmin.png';
 import safari from './assets/safari.png';
@@ -26,6 +30,8 @@ const icons: Record< string, string > = {
 	brave,
 	chrome,
 	chromium,
+	'claude-code': claude,
+	codex: chatgpt,
 	cursor,
 	dia,
 	duckduckgo,
@@ -34,6 +40,8 @@ const icons: Record< string, string > = {
 	firefox,
 	'firefox-developer': firefoxDeveloper,
 	ghostty,
+	github,
+	'grok-build': grok,
 	opera,
 	phpmyadmin,
 	safari,

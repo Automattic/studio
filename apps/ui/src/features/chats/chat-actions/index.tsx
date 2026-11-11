@@ -147,9 +147,9 @@ export function useChatActions(
 			return;
 		}
 		toast.success( __( 'Chat archived' ), {
+			durationMs: 10_000,
 			action: {
 				label: __( 'Undo' ),
-				once: true,
 				onClick: () => mutateAsync( { sessionId: session.id, patch: { archived: false } } ),
 			},
 		} );
@@ -309,7 +309,7 @@ function RenameChatForm( {
 				<DialogClose render={ <Button variant="outline" /> } disabled={ saving }>
 					{ __( 'Cancel' ) }
 				</DialogClose>
-				<Button type="submit" disabled={ saving }>
+				<Button variant="accent" type="submit" disabled={ saving }>
 					{ saving ? <Spinner aria-hidden="true" /> : null }
 					{ __( 'Save' ) }
 				</Button>

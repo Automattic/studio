@@ -186,7 +186,7 @@ async function main() {
 					sprintf(
 						/* translators: %s: Studio Code support documentation URL */
 						__( 'Learn more: %s' ),
-						'https://developer.wordpress.com/docs/developer-tools/studio/studio-code/'
+						'https://wordpress.studio/docs/studio-code/'
 					),
 				].join( '\n' )
 			)
@@ -225,12 +225,14 @@ async function main() {
 			{ registerCommand: registerPreviewDeleteCommand },
 			{ registerCommand: registerPreviewUpdateCommand },
 			{ registerCommand: registerPreviewSetCommand },
+			{ registerCommand: registerPreviewStatusCommand },
 		] = await Promise.all( [
 			import( 'cli/commands/preview/create' ),
 			import( 'cli/commands/preview/list' ),
 			import( 'cli/commands/preview/delete' ),
 			import( 'cli/commands/preview/update' ),
 			import( 'cli/commands/preview/set' ),
+			import( 'cli/commands/preview/status' ),
 		] );
 
 		registerPreviewCreateCommand( previewYargs );
@@ -238,6 +240,7 @@ async function main() {
 		registerPreviewDeleteCommand( previewYargs );
 		registerPreviewUpdateCommand( previewYargs );
 		registerPreviewSetCommand( previewYargs );
+		registerPreviewStatusCommand( previewYargs );
 		previewYargs.version( false ).demandCommand( 1, __( 'You must provide a valid command' ) );
 	} );
 

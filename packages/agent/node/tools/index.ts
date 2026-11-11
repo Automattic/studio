@@ -20,6 +20,7 @@ import { pushSiteTool } from './push-site';
 import { auditSeoTool } from './rank-me-up';
 import { refreshBrowserTool } from './refresh-browser';
 import { scaffoldThemeTool } from './scaffold-theme';
+import { sendFeedbackTool } from './send-feedback';
 import { getSiteInfoTool } from './site-info';
 import { startSiteTool } from './start-site';
 import { stopSiteTool } from './stop-site';
@@ -65,6 +66,7 @@ export const studioToolDefinitions: StudioToolDefinition[] = [
 	exportSiteTool,
 	openAnnotationBrowserTool,
 	refreshBrowserTool,
+	sendFeedbackTool,
 ];
 
 export interface StudioToolsOptions {

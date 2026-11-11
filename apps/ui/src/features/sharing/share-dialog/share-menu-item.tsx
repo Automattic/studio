@@ -1,16 +1,16 @@
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
 import { PlusIcon } from 'lucide-react';
-import { toast } from '@/data/app-messages';
+import { dismissToast, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import { useSnapshotUsage, useSnapshots } from '@/data/queries/use-snapshots';
-import { getSnapshotOpenUrl, getSnapshotUrl } from '@/data/snapshot-url';
+import { getSnapshotUrl } from '@/data/snapshot-url';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOpenHeaderPanel } from '@/data/use-open-header-panel';
 import { useOffline } from '@/lib/hooks';
-import { ExternalLinkIcon, GlobeIcon, LinkIcon, ShareIcon } from '@/lib/icons';
+import { DuplicateIcon, ExternalLinkIcon, GlobeIcon, ShareIcon } from '@/lib/icons';
 import { Menu } from '@/lib/ui';
 import type { SiteDetails, Snapshot } from '@/data/core';
 
@@ -28,16 +28,19 @@ function PreviewLink( {
 		<Menu.Item
 			onClick={ () => {
 				if ( visit ) {
-					void connector.openExternalUrl( getSnapshotOpenUrl( snapshot ) );
+					void connector.openExternalUrl( getSnapshotUrl( snapshot ) );
 					return;
 				}
 				void connector.copyText( getSnapshotUrl( snapshot ) ).then(
-					() => toast.success( __( 'Link copied' ) ),
-					() => toast.error( __( 'Could not copy' ) )
+					() => {
+						dismissToast( 'clipboard-error' );
+						toast.success( __( 'Link copied' ) );
+					},
+					() => toast.error( __( 'Could not copy' ), { id: 'clipboard-error' } )
 				);
 			} }
 		>
-			{ visit ? <GlobeIcon /> : <LinkIcon /> }
+			{ visit ? <GlobeIcon /> : <DuplicateIcon /> }
 			<Menu.ItemLabel>
 				{ snapshot.name || sprintf( __( 'Preview %d' ), snapshot.sequence ?? sequence ) }
 			</Menu.ItemLabel>
@@ -89,7 +92,7 @@ export function SiteShareMenuItem( { site, disabled }: { site: SiteDetails; disa
 						<Menu.Separator />
 						<Menu.SubmenuRoot>
 							<Menu.SubmenuTrigger>
-								<LinkIcon />
+								<DuplicateIcon />
 								{ __( 'Copy links' ) }
 							</Menu.SubmenuTrigger>
 							<Menu.SubmenuPopup>

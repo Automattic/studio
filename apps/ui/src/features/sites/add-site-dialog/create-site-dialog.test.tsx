@@ -31,13 +31,11 @@ const remote = {
 afterEach( () => vi.unstubAllGlobals() );
 
 function setup( {
-	behavior = 'choose',
 	blueprint = portfolio,
 	path = '/?addSite=create',
 	colorScheme = 'light',
 	strict = false,
 }: {
-	behavior?: 'choose' | 'blank';
 	blueprint?: Blueprint | null;
 	path?: string;
 	colorScheme?: 'light' | 'dark';
@@ -53,7 +51,7 @@ function setup( {
 	);
 	const site = makeSite( { id: 'created', name: 'New site', path: '/sites/new' } );
 	const connector = createFakeConnector(
-		{ preferences: { newSiteBehavior: behavior, colorScheme } },
+		{ preferences: { colorScheme } },
 		{
 			createSite: async () => {
 				connector.state.sites = [ ...connector.state.sites, site ];
@@ -86,13 +84,17 @@ const created = ( history: { location: { pathname: string } } ) =>
 		expect( history.location.pathname ).toMatch( /^\/sites\/created\/new$|^\/sessions\// )
 	);
 
-async function useBlueprint() {
+async function useBlueprint( create = true ) {
 	fireEvent.click( await screen.findByRole( 'button', { name: 'View Portfolio' } ) );
-	fireEvent.click( await screen.findByRole( 'button', { name: 'Create site' } ) );
+	fireEvent.click( await screen.findByRole( 'button', { name: 'Use Blueprint' } ) );
+	await screen.findByLabelText( 'Site name' );
+	if ( create ) await submit();
 }
 
-async function submit( name = 'Create site' ) {
-	const button = screen.getByRole( 'button', { name } );
+async function submit( name = 'Add site' ) {
+	const button = within( screen.getByRole( 'dialog', { name: 'Add site' } ) ).getByRole( 'button', {
+		name,
+	} );
 	await waitFor( () => expect( button ).toBeEnabled() );
 	fireEvent.click( button );
 }
@@ -146,7 +148,7 @@ describe( 'Add site flow', () => {
 		}
 	);
 
-	it( 'retraces tab changes and stops at the initial screen', async () => {
+	it( 'retraces tab changes and closes from the initial screen', async () => {
 		setup();
 		await screen.findByRole( 'button', { name: 'Start with Blank site' } );
 		fireEvent.click( screen.getByRole( 'tab', { name: 'Connect' } ) );
@@ -157,13 +159,58 @@ describe( 'Add site flow', () => {
 			'true'
 		);
 		fireEvent.click( screen.getByRole( 'button', { name: 'Back' } ) );
-		expect( screen.getByRole( 'tab', { name: 'Start' } ) ).toHaveAttribute(
-			'aria-selected',
-			'true'
-		);
-		expect( screen.getByRole( 'button', { name: 'Back' } ) ).toHaveAttribute(
+		expect( screen.getByRole( 'tab', { name: 'New' } ) ).toHaveAttribute( 'aria-selected', 'true' );
+		expect( screen.getByRole( 'button', { name: 'Back' } ) ).not.toHaveAttribute(
 			'aria-disabled',
 			'true'
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'Back' } ) );
+		await waitFor( () =>
+			expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument()
+		);
+	} );
+
+	it.each( [ 'blank', 'connect', 'import', 'upload' ] )(
+		'returns directly opened %s setup to the chooser, then exits with Back',
+		async ( section ) => {
+			setup( { path: `/?addSite=${ section }` } );
+			const back = await screen.findByRole( 'button', { name: 'Back' } );
+			expect( back ).not.toHaveAttribute( 'aria-disabled', 'true' );
+			fireEvent.click( back );
+			expect(
+				await screen.findByRole( 'button', { name: 'Start with Blank site' } )
+			).toBeVisible();
+			fireEvent.click( screen.getByRole( 'button', { name: 'Back' } ) );
+			await waitFor( () =>
+				expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument()
+			);
+		}
+	);
+
+	it( 'keeps the name, custom folder and AI brief when going Back to the chooser and returning', async () => {
+		const { connector } = setup( { path: '/?addSite=blank' } );
+		connector.selectSiteFolder.mockResolvedValue( {
+			name: 'custom',
+			path: '/sites/custom',
+			isEmpty: true,
+			isWordPress: false,
+		} );
+		fireEvent.change( await screen.findByLabelText( 'Site name' ), {
+			target: { value: 'My bakery' },
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Change…' } ) );
+		await waitFor( () =>
+			expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute( 'title', '/sites/custom' )
+		);
+		fireEvent.change( screen.getByRole( 'textbox', { name: 'Instructions' } ), {
+			target: { value: 'A bakery with a seasonal menu' },
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Back' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Start with Blank site' } ) );
+		expect( await screen.findByLabelText( 'Site name' ) ).toHaveValue( 'My bakery' );
+		expect( screen.getByLabelText( 'Site folder' ) ).toHaveAttribute( 'title', '/sites/custom' );
+		expect( screen.getByRole( 'textbox', { name: 'Instructions' } ) ).toHaveValue(
+			'A bakery with a seasonal menu'
 		);
 	} );
 
@@ -198,7 +245,7 @@ describe( 'Add site flow', () => {
 			within( screen.getByRole( 'tablist', { name: 'Ways to add a site' } ) ).getAllByRole( 'tab' )
 		).toHaveLength( 9 );
 		const card = await screen.findByRole( 'button', { name: 'View Portfolio' } );
-		expect( within( card ).getByText( 'View site' ) ).toBeInTheDocument();
+		expect( within( card ).getByText( 'View Blueprint' ) ).toBeInTheDocument();
 		expect( within( card ).queryByRole( 'button' ) ).not.toBeInTheDocument();
 	} );
 
@@ -221,10 +268,10 @@ describe( 'Add site flow', () => {
 		);
 	} );
 
-	it( 'imports a Blueprint from the shared picker and cleans its bundle when returning', async () => {
+	it( 'keeps an uploaded Blueprint while browsing the gallery and cleans its bundle on close', async () => {
 		const { connector } = setup();
 		fireEvent.click( await screen.findByRole( 'tab', { name: 'Import' } ) );
-		await screen.findByRole( 'button', { name: 'Choose file' } );
+		await screen.findByRole( 'button', { name: /^Choose(?: file|…)$/ } );
 		connector.extractBlueprintBundle.mockResolvedValueOnce( {
 			blueprintJson: { meta: { title: 'Uploaded site', author: 'Studio' } },
 			blueprintJsonPath: '/tmp/upload/blueprint.json',
@@ -233,22 +280,25 @@ describe( 'Add site flow', () => {
 		fireEvent.change( document.querySelector( 'input[type="file"]' )!, {
 			target: { files: [ new File( [ 'bundle' ], 'blueprint.zip', { type: 'application/zip' } ) ] },
 		} );
-		expect( await screen.findByText( 'Uploaded site', { selector: 'span' } ) ).toBeVisible();
-		expect( screen.getByRole( 'heading', { name: 'Create your site' } ) ).toBeVisible();
+		expect( await screen.findByText( 'blueprint.zip', { selector: 'span' } ) ).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'Add site' } ) ).toBeVisible();
 		expect( screen.queryByRole( 'button', { name: 'Upload Blueprint…' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Back' } ) ).toBeVisible();
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Browse Blueprints' } ) );
+		await screen.findByRole( 'button', { name: 'View Portfolio' } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Back' } ) );
-		await screen.findByRole( 'button', { name: 'Choose file' } );
-		expect( screen.getByRole( 'tab', { name: 'Import' } ) ).toHaveAttribute(
-			'aria-selected',
-			'true'
+		expect( await screen.findByText( 'blueprint.zip', { selector: 'span' } ) ).toBeVisible();
+		expect( connector.cleanupBlueprintTempDir ).not.toHaveBeenCalled();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Close Add site' } ) );
+		await waitFor( () =>
+			expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/upload' )
 		);
-		expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/upload' );
 	} );
 
 	it( 'can start blank while an uploaded bundle is still loading', async () => {
 		const { connector } = setup();
 		fireEvent.click( await screen.findByRole( 'tab', { name: 'Import' } ) );
-		await screen.findByRole( 'button', { name: 'Choose file' } );
+		await screen.findByRole( 'button', { name: /^Choose(?: file|…)$/ } );
 		let complete!: (
 			value: Awaited< ReturnType< typeof connector.extractBlueprintBundle > >
 		) => void;
@@ -264,11 +314,15 @@ describe( 'Add site flow', () => {
 		expect(
 			screen.getByText( 'Loading file…', { selector: '[role="status"]' } )
 		).toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'tab', { name: 'Start' } ) );
+		fireEvent.click( screen.getByRole( 'tab', { name: 'New' } ) );
 		expect( screen.queryByText( 'Loading file…' ) ).not.toBeInTheDocument();
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Start with Blank site' } ) );
 		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Create site' } ) ).toBeEnabled()
+			expect(
+				within( screen.getByRole( 'dialog', { name: 'Add site' } ) ).getByRole( 'button', {
+					name: 'Add site',
+				} )
+			).toBeEnabled()
 		);
 		await act( async () =>
 			complete( {
@@ -278,7 +332,7 @@ describe( 'Add site flow', () => {
 			} )
 		);
 		expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/canceled' );
-		expect( screen.getByRole( 'heading', { name: 'Create your site' } ) ).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'Add site' } ) ).toBeVisible();
 	} );
 
 	it( 'shows shared drag feedback across the import modal', async () => {
@@ -298,7 +352,11 @@ describe( 'Add site flow', () => {
 		fireEvent.dragLeave( target, { dataTransfer } );
 		expect( dialog ).not.toHaveAttribute( 'data-dragging' );
 		fireEvent.drop( target, { dataTransfer } );
-		expect( await screen.findByRole( 'button', { name: 'Create site' } ) ).toBeVisible();
+		expect(
+			await within( screen.getByRole( 'dialog', { name: 'Add site' } ) ).findByRole( 'button', {
+				name: 'Add site',
+			} )
+		).toBeVisible();
 	} );
 
 	it( 'opens legacy Upload links in Import and accepts a dropped Blueprint', async () => {
@@ -315,7 +373,11 @@ describe( 'Add site flow', () => {
 		fireEvent.drop( screen.getByText( 'Drop your file here' ).parentElement!.parentElement!, {
 			dataTransfer: { files: [ file ], types: [ 'Files' ] },
 		} );
-		expect( await screen.findByRole( 'button', { name: 'Create site' } ) ).toBeVisible();
+		expect(
+			await within( screen.getByRole( 'dialog', { name: 'Add site' } ) ).findByRole( 'button', {
+				name: 'Add site',
+			} )
+		).toBeVisible();
 	} );
 
 	it( 'filters by use case and restores the gallery when filters are cleared', async () => {
@@ -327,17 +389,14 @@ describe( 'Add site flow', () => {
 			screen.queryByRole( 'button', { name: 'Start with Blank site' } )
 		).not.toBeInTheDocument();
 		expect( screen.getAllByText( 'Portfolio' ).length ).toBeGreaterThan( 1 );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Back to Start' } ) );
-		expect( screen.getByRole( 'tab', { name: 'Start' } ) ).toHaveAttribute(
-			'aria-selected',
-			'true'
-		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'Back to Blueprints' } ) );
+		expect( screen.getByRole( 'tab', { name: 'New' } ) ).toHaveAttribute( 'aria-selected', 'true' );
 		expect(
 			await screen.findByRole( 'button', { name: 'Start with Blank site' } )
 		).toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'tab', { name: 'Portfolio' } ) );
-		expect( screen.getByRole( 'button', { name: 'Start' } ) ).toBeVisible();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Start' } ) );
+		expect( screen.getByRole( 'button', { name: 'Blueprints' } ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Blueprints' } ) );
 		expect( screen.getByText( 'Create a new WordPress' ) ).toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'tab', { name: 'Blog' } ) );
 		expect( await screen.findByText( 'No matching sites.' ) ).toBeInTheDocument();
@@ -347,18 +406,20 @@ describe( 'Add site flow', () => {
 		).toBeInTheDocument();
 	} );
 
-	it( 'honors direct blank setup and still exposes the picker', async () => {
-		const { connector } = setup( { behavior: 'blank' } );
+	it( 'opens direct blank setup with the standard Back and close controls', async () => {
+		const { connector } = setup( { path: '/?addSite=blank' } );
 		expect( await screen.findByLabelText( 'Site name' ) ).toHaveFocus();
 		expect( screen.queryByRole( 'tablist' ) ).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Back' } ) );
-		expect(
-			await screen.findByRole( 'button', { name: 'Start with Blank site' } )
-		).toBeInTheDocument();
+		expect( screen.queryByRole( 'combobox', { name: 'Type' } ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Back' } ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Close Add site' } ) );
+		await waitFor( () =>
+			expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument()
+		);
 		expect( connector.trackEvent ).not.toHaveBeenCalled();
 	} );
 
-	it( 'uses the Blueprint title and an available name when creating without setup', async () => {
+	it( 'uses the Blueprint title and an available name in shared setup', async () => {
 		const { connector, history } = setup();
 		connector.generateNumberedSiteName.mockResolvedValue( 'Portfolio 2' );
 		await useBlueprint();
@@ -399,28 +460,37 @@ describe( 'Add site flow', () => {
 				} )
 			)
 		);
-		expect( screen.getByRole( 'button', { name: /Creating…/ } ) ).toHaveAttribute(
-			'aria-disabled',
-			'true'
+		const addingButton = within( screen.getByRole( 'dialog', { name: 'Add site' } ) ).getByRole(
+			'button',
+			{ name: 'Adding site Add site' }
 		);
-		fireEvent.click( screen.getByRole( 'button', { name: /Creating…/ } ) );
+		expect( addingButton ).toHaveAttribute( 'aria-disabled', 'true' );
+		fireEvent.click( addingButton );
 		expect(
 			connector.trackEvent.mock.calls.filter(
 				( [ name ] ) => name === TRACKS_EVENTS.BLUEPRINT_CREATE_SITE_INTENT
 			)
 		).toHaveLength( 1 );
-		expect( screen.getByRole( 'status', { name: 'Creating site' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'status', { name: 'Adding site' } ) ).toBeInTheDocument();
 		expect( screen.queryByText( 'Creating site…' ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Browse Blueprints' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
+		expect( screen.getByRole( 'button', { name: 'Remove Blueprint' } ) ).toHaveAttribute(
+			'aria-disabled',
+			'true'
+		);
 		expect( screen.getByRole( 'button', { name: 'Close Add site' } ) ).toHaveAttribute(
 			'aria-disabled',
 			'true'
 		);
-		expect( screen.getByRole( 'button', { name: 'Back to Start' } ) ).toHaveAttribute(
+		expect( screen.getByRole( 'button', { name: 'Back' } ) ).toHaveAttribute(
 			'aria-disabled',
 			'true'
 		);
 		expect( screen.queryByText( 'Creating your site…' ) ).not.toBeInTheDocument();
-		expect( screen.queryByLabelText( 'Site name' ) ).not.toBeInTheDocument();
+		expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'Recipe name' );
 		fireEvent.keyDown( document.activeElement!, { key: 'Escape', code: 'Escape' } );
 		expect( screen.getByRole( 'dialog', { name: 'Add site' } ) ).toBeInTheDocument();
 		await act( async () => {
@@ -430,36 +500,26 @@ describe( 'Add site flow', () => {
 		await created( history );
 	} );
 
-	it( 'shows creation failures only in the top-level notice and lets the user retry', async () => {
+	it( 'uses the bottom failure notice and retries without reselecting the Blueprint', async () => {
 		const { connector, history } = setup();
 		connector.createSite.mockRejectedValueOnce( new Error( 'Creation interrupted' ) );
 		await useBlueprint();
-		expect( await screen.findByText( 'Creation interrupted' ) ).toBeInTheDocument();
-		expect( screen.getByText( 'Couldn’t create site: Portfolio' ) ).toBeInTheDocument();
+		expect( await screen.findByText( 'Couldn’t create site: Portfolio' ) ).toBeVisible();
 		expect(
-			within( screen.getByRole( 'dialog', { name: 'Add site' } ) ).queryByText(
-				'Creation interrupted'
-			)
+			screen.queryByText( 'WordPress Studio could not create the site.' )
 		).not.toBeInTheDocument();
-		expect( screen.queryByLabelText( 'Site name' ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Create site' } ) ).toBeEnabled();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Create site' } ) );
+		expect(
+			within( screen.getByRole( 'dialog', { name: 'Add site' } ) ).queryByRole( 'alert' )
+		).not.toBeInTheDocument();
+		expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'Portfolio' );
+		await submit();
 		await created( history );
 		expect( connector.createSite ).toHaveBeenCalledTimes( 2 );
 		expect(
 			connector.trackEvent.mock.calls.filter(
 				( [ name ] ) => name === TRACKS_EVENTS.BLUEPRINT_CREATE_SITE_INTENT
 			)
-		).toStrictEqual( [
-			[
-				TRACKS_EVENTS.BLUEPRINT_CREATE_SITE_INTENT,
-				{ blueprint_slug: portfolio.slug, placement: 'add_site_blueprint_details' },
-			],
-			[
-				TRACKS_EVENTS.BLUEPRINT_CREATE_SITE_INTENT,
-				{ blueprint_slug: portfolio.slug, placement: 'add_site_blueprint_details' },
-			],
-		] );
+		).toHaveLength( 1 );
 	} );
 
 	it( 'shows screenshots before preparing a Blueprint and restores the filtered gallery focus', async () => {
@@ -478,11 +538,11 @@ describe( 'Add site flow', () => {
 		expect( screen.queryByRole( 'tablist' ) ).not.toBeInTheDocument();
 		expect( screen.queryByLabelText( 'Site name' ) ).not.toBeInTheDocument();
 		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Create site' } ) ).toHaveFocus()
+			expect( screen.getByRole( 'button', { name: 'Use Blueprint' } ) ).toHaveFocus()
 		);
 		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
 		expect( connector.createSite ).not.toHaveBeenCalled();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Back to Start' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Back to Blueprints' } ) );
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: 'View Portfolio' } ) ).toHaveFocus()
 		);
@@ -500,7 +560,9 @@ describe( 'Add site flow', () => {
 		fireEvent.click( await screen.findByRole( 'button', { name: 'View Portfolio' } ) );
 		fireEvent.error( await screen.findByRole( 'img', { name: 'Portfolio screenshot' } ) );
 		expect( screen.queryByRole( 'img', { name: 'Portfolio screenshot' } ) ).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Create site' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Use Blueprint' } ) );
+		await screen.findByLabelText( 'Site name' );
+		await submit();
 		await created( history );
 		expect( screen.queryByLabelText( 'Site name' ) ).not.toBeInTheDocument();
 	} );
@@ -533,9 +595,13 @@ describe( 'Add site flow', () => {
 			isEmpty: false,
 			isWordPress: true,
 		} );
-		await useBlueprint();
+		await useBlueprint( false );
 		expect( await screen.findByLabelText( 'Site name' ) ).toBeVisible();
-		expect( await screen.findByRole( 'button', { name: 'Create site' } ) ).toBeVisible();
+		expect(
+			await within( screen.getByRole( 'dialog', { name: 'Add site' } ) ).findByRole( 'button', {
+				name: 'Add site',
+			} )
+		).toBeVisible();
 		expect( connector.createSite ).not.toHaveBeenCalled();
 	} );
 
@@ -558,7 +624,7 @@ describe( 'Add site flow', () => {
 		connector.createSite.mockRejectedValueOnce( new Error( 'Invalid recipe' ) );
 		await useBlueprint();
 		expect( await screen.findByText( 'Invalid recipe' ) ).toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Back to Start' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'Browse Blueprints' } ) );
 		fireEvent.click( screen.getByRole( 'tab', { name: 'Connect' } ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: /Remote site/ } ) );
 		await submit();
@@ -593,7 +659,7 @@ describe( 'Modal-wide file drops', () => {
 		drop( screen.getByRole( 'dialog', { name: 'Add site' } ) );
 		await waitFor( () => expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'SYSTEM' ) );
 		expect( connector.cleanupBlueprintTempDir ).not.toHaveBeenCalled();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Cancel' } ) );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Close Add site' } ) );
 		await waitFor( () =>
 			expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledExactlyOnceWith( '/tmp/uploaded' )
 		);
@@ -603,7 +669,7 @@ describe( 'Modal-wide file drops', () => {
 		'accepts %s from the shared Import picker',
 		async ( extension ) => {
 			const { connector } = setup( { path: '/?addSite=import' } );
-			await screen.findByRole( 'button', { name: 'Choose file' } );
+			await screen.findByRole( 'button', { name: /^Choose(?: file|…)$/ } );
 			const input = document.querySelector< HTMLInputElement >( 'input[type="file"]' )!;
 			expect( input.accept.split( ',' ) ).toContain( extension );
 			const file = new File( [ '{}' ], 'My Store' + extension );
@@ -621,9 +687,13 @@ describe( 'Modal-wide file drops', () => {
 					extension === '.json' ? 'SYSTEM' : 'My Store'
 				)
 			);
-			expect( screen.getByRole( 'heading', { name: 'Create your site' } ) ).toBeVisible();
-			expect( screen.getByRole( 'button', { name: 'Cancel' } ) ).toBeVisible();
-			expect( screen.getByRole( 'button', { name: 'Create site' } ) ).toBeEnabled();
+			expect( screen.getByRole( 'heading', { name: 'Add site' } ) ).toBeVisible();
+			expect( screen.queryByRole( 'button', { name: 'Cancel' } ) ).not.toBeInTheDocument();
+			expect(
+				within( screen.getByRole( 'dialog', { name: 'Add site' } ) ).getByRole( 'button', {
+					name: 'Add site',
+				} )
+			).toBeEnabled();
 		}
 	);
 
@@ -642,8 +712,8 @@ describe( 'Modal-wide file drops', () => {
 				expect( within( dialog ).getByLabelText( 'Site name' ) ).toHaveValue( 'My Store' )
 			);
 			expect( within( dialog ).getByText( 'studio-backup-My Store.zip' ) ).toBeVisible();
-			expect( within( dialog ).getByRole( 'heading', { name: 'Create your site' } ) ).toBeVisible();
-			expect( within( dialog ).getByRole( 'button', { name: 'Create site' } ) ).toBeEnabled();
+			expect( within( dialog ).getByRole( 'heading', { name: 'Add site' } ) ).toBeVisible();
+			expect( within( dialog ).getByRole( 'button', { name: 'Add site' } ) ).toBeEnabled();
 			expect( connector.extractBlueprintBundle ).toHaveBeenCalledOnce();
 			expect( connector.createSite ).not.toHaveBeenCalled();
 		}
@@ -652,7 +722,7 @@ describe( 'Modal-wide file drops', () => {
 	it( 'accepts non-ZIP backups anywhere in the modal without Blueprint extraction', async () => {
 		const { connector } = setup();
 		await screen.findByRole( 'button', { name: 'Start with Blank site' } );
-		fireEvent.drop( screen.getByRole( 'tab', { name: 'Start' } ), {
+		fireEvent.drop( screen.getByRole( 'tab', { name: 'New' } ), {
 			dataTransfer: { files: [ new File( [ 'backup' ], 'My Store.wpress' ) ], types: [ 'Files' ] },
 		} );
 		await screen.findByText( 'My Store.wpress' );
@@ -696,7 +766,12 @@ describe( 'Modal-wide file drops', () => {
 		connector.extractBlueprintBundle.mockRejectedValueOnce(
 			new Error( 'No blueprint.json found in the ZIP.' )
 		);
-		drop( screen.getByRole( 'button', { name: 'Cancel' } ), 'backup-My Store.zip' );
+		drop(
+			within( screen.getByRole( 'dialog', { name: 'Add site' } ) ).getByRole( 'button', {
+				name: 'Add site',
+			} ),
+			'backup-My Store.zip'
+		);
 		await screen.findByText( 'backup-My Store.zip' );
 		expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/uploaded' );
 	} );
@@ -710,14 +785,15 @@ describe( 'Modal-wide file drops', () => {
 						? '/?addSite=import'
 						: area === 'upload'
 						? '/?addSite=upload'
+						: area === 'setup'
+						? '/?addSite=blank'
 						: '/?addSite=create',
-				behavior: area === 'setup' ? 'blank' : 'choose',
 			} );
 			const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
 			connector.extractBlueprintBundle.mockResolvedValueOnce( extracted() );
 			const target =
 				area === 'sidebar'
-					? await within( dialog ).findByRole( 'tab', { name: 'Start' } )
+					? await within( dialog ).findByRole( 'tab', { name: 'New' } )
 					: area === 'header'
 					? await within( dialog ).findByText( 'Create a new WordPress' )
 					: area === 'upload'
@@ -731,9 +807,11 @@ describe( 'Modal-wide file drops', () => {
 			await waitFor( () =>
 				expect( within( dialog ).getByLabelText( 'Site name' ) ).toHaveValue( 'SYSTEM' )
 			);
-			expect( within( dialog ).getByRole( 'heading', { name: 'Create your site' } ) ).toBeVisible();
-			expect( within( dialog ).getByRole( 'button', { name: 'Cancel' } ) ).toBeVisible();
-			expect( within( dialog ).getByRole( 'button', { name: 'Create site' } ) ).toBeVisible();
+			expect( within( dialog ).getByRole( 'heading', { name: 'Add site' } ) ).toBeVisible();
+			expect(
+				within( dialog ).queryByRole( 'button', { name: 'Cancel' } )
+			).not.toBeInTheDocument();
+			expect( within( dialog ).getByRole( 'button', { name: 'Add site' } ) ).toBeVisible();
 			expect( connector.extractBlueprintBundle ).toHaveBeenCalledOnce();
 			expect( connector.importSiteFromBackup ).not.toHaveBeenCalled();
 		}
@@ -744,7 +822,11 @@ describe( 'Modal-wide file drops', () => {
 		fireEvent.click( await screen.findByRole( 'button', { name: /Remote site/ } ) );
 		await screen.findByLabelText( 'Site name' );
 		connector.extractBlueprintBundle.mockResolvedValueOnce( extracted() );
-		drop( screen.getByRole( 'button', { name: 'Cancel' } ) );
+		drop(
+			within( screen.getByRole( 'dialog', { name: 'Add site' } ) ).getByRole( 'button', {
+				name: 'Add site',
+			} )
+		);
 		await waitFor( () => expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'SYSTEM' ) );
 		expect( screen.queryByText( 'remote.example' ) ).not.toBeInTheDocument();
 		await submit();
@@ -758,7 +840,7 @@ describe( 'Modal-wide file drops', () => {
 	} );
 
 	it( 'preserves edits and a valid Blueprint after a failed replacement', async () => {
-		const { connector } = setup( { behavior: 'blank' } );
+		const { connector } = setup( { path: '/?addSite=blank' } );
 		await screen.findByLabelText( 'Site name' );
 		connector.extractBlueprintBundle.mockResolvedValueOnce( extracted() );
 		drop( screen.getByRole( 'dialog', { name: 'Add site' } ) );
@@ -767,7 +849,11 @@ describe( 'Modal-wide file drops', () => {
 			target: { value: 'My Edited Title' },
 		} );
 		connector.extractBlueprintBundle.mockRejectedValueOnce( new Error( 'Invalid ZIP' ) );
-		drop( screen.getByRole( 'button', { name: 'Create site' } ) );
+		drop(
+			within( screen.getByRole( 'dialog', { name: 'Add site' } ) ).getByRole( 'button', {
+				name: 'Add site',
+			} )
+		);
 		await screen.findByRole( 'dialog', { name: 'Blueprint error' } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Close' } ) );
 		expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'My Edited Title' );
@@ -785,7 +871,7 @@ describe( 'Modal-wide file drops', () => {
 	} );
 
 	it( 'cleans a superseded bundle and ignores drops during creation', async () => {
-		const { connector } = setup( { behavior: 'blank' } );
+		const { connector } = setup( { path: '/?addSite=blank' } );
 		await screen.findByLabelText( 'Site name' );
 		let complete!: ( value: ReturnType< typeof extracted > ) => void;
 		connector.extractBlueprintBundle.mockReturnValueOnce(
@@ -830,16 +916,16 @@ describe( 'Modal-wide file drops', () => {
 } );
 
 describe( 'Preview navigation', () => {
-	it.each( [ 'Start', 'Portfolio' ] )(
+	it.each( [ 'New', 'Portfolio' ] )(
 		'hides the sidebar on a preview and restores the %s gallery',
 		async ( tab ) => {
 			setup();
 			await screen.findByRole( 'button', { name: 'View Portfolio' } );
 			if ( tab === 'Portfolio' ) fireEvent.click( screen.getByRole( 'tab', { name: tab } ) );
 			fireEvent.click( screen.getByRole( 'button', { name: 'View Portfolio' } ) );
-			await screen.findByRole( 'button', { name: 'Start' } );
+			await screen.findByRole( 'button', { name: 'Blueprints' } );
 			expect( screen.queryByRole( 'tablist' ) ).not.toBeInTheDocument();
-			fireEvent.click( screen.getByRole( 'button', { name: 'Start' } ) );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Blueprints' } ) );
 			expect( await screen.findByRole( 'button', { name: 'View Portfolio' } ) ).toBeVisible();
 			expect( screen.getByRole( 'tab', { name: tab } ) ).toHaveAttribute( 'aria-selected', 'true' );
 		}
@@ -853,10 +939,10 @@ it( 'returns to all sites from a category breadcrumb after switching filters', a
 	expect( await screen.findByRole( 'heading', { name: 'Portfolio' } ) ).toBeVisible();
 	fireEvent.click( screen.getByRole( 'tab', { name: 'Blog' } ) );
 	expect( await screen.findByRole( 'heading', { name: 'Blog' } ) ).toBeVisible();
-	fireEvent.click( screen.getByRole( 'button', { name: 'Start' } ) );
+	fireEvent.click( screen.getByRole( 'button', { name: 'Blueprints' } ) );
 	expect( await screen.findByRole( 'button', { name: 'Start with Blank site' } ) ).toBeVisible();
-	expect( screen.getByRole( 'tab', { name: 'Start' } ) ).toHaveAttribute( 'aria-selected', 'true' );
-	expect( screen.queryByRole( 'button', { name: 'Start' } ) ).not.toBeInTheDocument();
+	expect( screen.getByRole( 'tab', { name: 'New' } ) ).toHaveAttribute( 'aria-selected', 'true' );
+	expect( screen.queryByRole( 'button', { name: 'Blueprints' } ) ).not.toBeInTheDocument();
 } );
 
 it( 'resolves connect failure telemetry before removing the local record', async () => {
@@ -926,11 +1012,13 @@ describe( 'Add site Blueprint Tracks actions', () => {
 			expect( connector.trackEvent.mock.invocationCallOrder.at( -1 ) ).toBeLessThan(
 				connector.openExternalUrl.mock.invocationCallOrder[ 0 ]
 			);
-			await user.click( screen.getByRole( 'button', { name: 'Create site' } ) );
+			await user.click( screen.getByRole( 'button', { name: 'Use Blueprint' } ) );
 			expected.push( [
 				TRACKS_EVENTS.BLUEPRINT_CREATE_SITE_INTENT,
 				{ ...props, placement: 'add_site_blueprint_details' },
 			] );
+			await screen.findByLabelText( 'Site name' );
+			await submit();
 			await created( history );
 			expect( blueprintEvents( connector ) ).toStrictEqual( expected );
 			expect( connector.trackEvent.mock.invocationCallOrder.at( -1 ) ).toBeLessThan(
@@ -960,14 +1048,14 @@ describe( 'Add site Blueprint Tracks actions', () => {
 		const { connector, user } = setup();
 		await screen.findByRole( 'button', { name: 'View Portfolio' } );
 		await user.click( screen.getByRole( 'tab', { name: 'Portfolio' } ) );
-		await user.click( screen.getByRole( 'button', { name: 'Back to Start' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Back to Blueprints' } ) );
 		await user.click( screen.getByRole( 'tab', { name: 'Blog' } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Clear filters' } ) );
 		await user.click( screen.getByRole( 'tab', { name: 'Portfolio' } ) );
-		await user.click( screen.getByRole( 'tab', { name: 'Start' } ) );
+		await user.click( screen.getByRole( 'tab', { name: 'New' } ) );
 		await user.click( screen.getByRole( 'tab', { name: 'Import' } ) );
 		await user.click( screen.getByRole( 'tab', { name: 'Connect' } ) );
-		await user.click( screen.getByRole( 'tab', { name: 'Start' } ) );
+		await user.click( screen.getByRole( 'tab', { name: 'New' } ) );
 		expect( blueprintEvents( connector ) ).toStrictEqual( [
 			[ TRACKS_EVENTS.BLUEPRINT_USE_CASE_FILTER_CHANGED, { use_case: 'portfolio' } ],
 			[ TRACKS_EVENTS.BLUEPRINT_USE_CASE_FILTER_CHANGED, { use_case: 'blog' } ],
@@ -978,14 +1066,18 @@ describe( 'Add site Blueprint Tracks actions', () => {
 	} );
 
 	it( 'records each keyboard activation of Blank site with placement only', async () => {
-		const { connector, user } = setup();
+		const { connector, history, user } = setup();
 		await screen.findByRole( 'button', { name: 'Start with Blank site' } );
 		await waitFor( () =>
 			expect( screen.getByRole( 'button', { name: 'Start with Blank site' } ) ).toHaveFocus()
 		);
 		await user.keyboard( '{Enter}' );
 		await screen.findByLabelText( 'Site name' );
-		await user.click( screen.getByRole( 'button', { name: 'Back' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Close Add site' } ) );
+		await waitFor( () =>
+			expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument()
+		);
+		await act( async () => history.push( '/?addSite=create' ) );
 		await user.click( await screen.findByRole( 'button', { name: 'Start with Blank site' } ) );
 		expect( blueprintEvents( connector ) ).toStrictEqual( [
 			[ TRACKS_EVENTS.BLANK_SITE_SELECTED, { placement: 'add_site_blueprint_gallery' } ],
@@ -1009,7 +1101,7 @@ describe( 'Add site Blueprint Tracks actions', () => {
 					isWordPress: true,
 				} );
 			await user.click( await screen.findByRole( 'button', { name: 'View Portfolio' } ) );
-			await user.click( screen.getByRole( 'button', { name: 'Create site' } ) );
+			await user.click( screen.getByRole( 'button', { name: 'Use Blueprint' } ) );
 			await screen.findByLabelText( 'Site name' );
 			expect( connector.createSite ).not.toHaveBeenCalled();
 			expect( blueprintEvents( connector ) ).toStrictEqual( [
@@ -1027,7 +1119,7 @@ describe( 'Add site Blueprint Tracks actions', () => {
 		for ( let attempt = 0; attempt < 2; attempt++ ) {
 			await user.click( await screen.findByRole( 'button', { name: 'View Portfolio' } ) );
 			await user.click( screen.getByRole( 'button', { name: 'Preview in browser' } ) );
-			await user.click( screen.getByRole( 'button', { name: 'Back to Start' } ) );
+			await user.click( screen.getByRole( 'button', { name: 'Back to Blueprints' } ) );
 		}
 		expect( blueprintEvents( connector ).map( ( [ name ] ) => name ) ).toEqual( [
 			TRACKS_EVENTS.BLUEPRINT_VIEWED,
@@ -1047,13 +1139,20 @@ describe( 'Add site Blueprint Tracks actions', () => {
 			await screen.findByRole( 'button', { name: 'View Portfolio' } );
 			await user.click( screen.getByRole( 'button', { name: 'Start with Blank site' } ) );
 			await screen.findByLabelText( 'Site name' );
-			await user.click( screen.getByRole( 'button', { name: 'Back' } ) );
+			await user.click( screen.getByRole( 'button', { name: 'Close Add site' } ) );
+			await waitFor( () =>
+				expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument()
+			);
+			await act( async () => history.push( '/?addSite=create' ) );
+			await screen.findByRole( 'button', { name: 'View Portfolio' } );
 			await user.click( screen.getByRole( 'tab', { name: 'Blog' } ) );
 			await user.click( screen.getByRole( 'button', { name: 'Clear filters' } ) );
 			await user.click( screen.getByRole( 'button', { name: 'View Portfolio' } ) );
 			await user.click( screen.getByRole( 'button', { name: 'Preview in browser' } ) );
 			expect( connector.openExternalUrl ).toHaveBeenCalledOnce();
-			await user.click( screen.getByRole( 'button', { name: 'Create site' } ) );
+			await user.click( screen.getByRole( 'button', { name: 'Use Blueprint' } ) );
+			await screen.findByLabelText( 'Site name' );
+			await submit();
 			await created( history );
 			expect( blueprintEvents( connector ).map( ( [ name ] ) => name ) ).toEqual( [
 				TRACKS_EVENTS.BLANK_SITE_SELECTED,
@@ -1085,7 +1184,9 @@ describe( 'Add site Blueprint Tracks actions', () => {
 		await user.click( await screen.findByRole( 'button', { name: `View ${ sensitive.title }` } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Preview in browser' } ) );
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith( sensitive.playground_url );
-		await user.click( screen.getByRole( 'button', { name: 'Create site' } ) );
+		await user.click( screen.getByRole( 'button', { name: 'Use Blueprint' } ) );
+		await screen.findByLabelText( 'Site name' );
+		await submit();
 		await created( history );
 		expect( blueprintEvents( connector ) ).toStrictEqual( [
 			[ TRACKS_EVENTS.BLUEPRINT_VIEWED, { blueprint_slug: sensitive.slug } ],

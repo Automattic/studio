@@ -18,6 +18,7 @@ import { Button } from '@/lib/ui';
 import { createFakeConnector, makeSession, TEST_USER } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { clearComposerDrafts, getComposerDraft, saveComposerDraft } from './draft-store';
+import { pendingComposerFilesSlot } from './pending-files';
 import type { LoadedAiSession, SessionEntry } from '@/data/core';
 import type { ComposerImageAttachment } from '@studio/agent/protocol/composer-attachments';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
@@ -127,6 +128,8 @@ const errorToasts = () =>
 
 beforeEach( () => {
 	clearComposerDrafts();
+	const pendingFiles = pendingComposerFilesSlot.getSnapshot();
+	if ( pendingFiles ) pendingComposerFilesSlot.clear( pendingFiles );
 	removeAnnotations(
 		SITE,
 		getSiteAnnotations( SITE ).notes.map( ( note ) => note.id )
@@ -232,7 +235,7 @@ describe( 'Chat composer', () => {
 		expect( input ).toHaveValue( 'Keep this prompt' );
 	} );
 
-	it.each( [ 'menu', 'slash' ] )(
+	it.each( [ 'button', 'slash' ] )(
 		'opens the model picker through %s without sending or losing the draft',
 		async ( source ) => {
 			const { input, onSend } = await setup();
@@ -246,7 +249,10 @@ describe( 'Chat composer', () => {
 				fireEvent.keyDown( input, { key: 'Enter' } );
 			} else {
 				fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-				fireEvent.click( await screen.findByRole( 'option', { name: /^Choose model/ } ) );
+				await screen.findByRole( 'option', { name: /^Connect providers/ } );
+				expect( screen.queryByRole( 'option', { name: /^Choose model/ } ) ).not.toBeInTheDocument();
+				fireEvent.keyDown( document.activeElement!, { key: 'Escape' } );
+				fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
 			}
 			await waitFor( () =>
 				expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveAttribute(
@@ -633,7 +639,8 @@ describe( 'Annotation attachments in the composer', () => {
 		const { onSend, input } = await setup( { annotationSiteId: SITE } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Send message' } ) );
 		expect( onSend ).not.toHaveBeenCalled();
-		expect( errorToasts() ).toContain( 'You can attach up to 4 images' );
+		expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'You can attach up to 4 images' );
+		expect( errorToasts() ).toEqual( [] );
 		expect( input ).toHaveValue( 'Keep my instructions' );
 		expect( getSiteAnnotations( SITE ).notes ).toHaveLength( 1 );
 		expect( getComposerDraft( 'test' ).attachments ).toHaveLength( 1 );
@@ -728,17 +735,20 @@ describe( 'Annotation attachments in the composer', () => {
 		expect( getSiteAnnotations( SITE ).notes ).toHaveLength( 0 );
 	} );
 
-	it( 'opens the annotation chip as an editable list and deletes individual notes', async () => {
-		const first = stageNote( 'Make the heading shorter' );
+	it( 'reviews images, navigates notes, and deletes an individual annotation', async () => {
+		stageNote( 'Make the heading shorter', [ image( 'capture' ) ] );
 		const second = stageNote( 'Make the background warmer' );
 		const review = vi.fn();
 		const unsubscribe = subscribeAnnotationReview( SITE, review );
 		try {
 			const { user } = await setup( { annotationSiteId: SITE } );
 			await user.click( screen.getByRole( 'button', { name: '2 annotations' } ) );
-			expect(
-				await screen.findByRole( 'button', { name: 'Edit annotation 1: Make the heading shorter' } )
-			).not.toHaveFocus();
+			const firstEdit = await screen.findByRole( 'button', {
+				name: 'Edit annotation: Make the heading shorter',
+			} );
+			expect( firstEdit ).not.toHaveFocus();
+			expect( firstEdit ).toHaveTextContent( /^Make the heading shorter$/ );
+			expect( screen.getByRole( 'img', { name: 'capture.png' } ) ).toBeVisible();
 			await user.keyboard( '{Escape}' );
 			await user.keyboard( '{Enter}' );
 			await waitFor( () =>
@@ -746,36 +756,100 @@ describe( 'Annotation attachments in the composer', () => {
 			);
 			await user.keyboard( '{ArrowDown}' );
 			expect(
-				screen.getByRole( 'button', { name: 'Edit annotation 2: Make the background warmer' } )
+				screen.getByRole( 'button', { name: 'Edit annotation: Make the background warmer' } )
 			).toHaveFocus();
 			await user.keyboard( '{ArrowUp}' );
 			expect(
-				screen.getByRole( 'button', { name: 'Edit annotation 1: Make the heading shorter' } )
-			).toBeVisible();
-			await user.click( screen.getByRole( 'button', { name: 'Delete annotation 1' } ) );
+				screen.getByRole( 'button', { name: 'Edit annotation: Make the heading shorter' } )
+			).toHaveFocus();
+			const remove = screen.getByRole( 'button', {
+				name: 'Delete annotation: Make the heading shorter',
+			} );
+			await user.click( remove );
 			expect( getSiteAnnotations( SITE ).notes.map( ( note ) => note.id ) ).toEqual( [ second ] );
+			expect( screen.queryByRole( 'img', { name: 'capture.png' } ) ).not.toBeInTheDocument();
 			await waitFor( () =>
 				expect(
-					screen.getByRole( 'button', { name: 'Edit annotation 2: Make the background warmer' } )
+					screen.getByRole( 'button', { name: 'Edit annotation: Make the background warmer' } )
 				).toHaveFocus()
 			);
 			await user.keyboard( '{Escape}' );
 			expect( screen.getByRole( 'button', { name: '1 annotation' } ) ).toHaveFocus();
 			await user.click( screen.getByRole( 'button', { name: '1 annotation' } ) );
 			await user.click(
-				screen.getByRole( 'button', { name: 'Edit annotation 2: Make the background warmer' } )
+				screen.getByRole( 'button', { name: 'Edit annotation: Make the background warmer' } )
 			);
 			expect( review ).toHaveBeenCalledExactlyOnceWith( second );
 			expect(
-				screen.queryByRole( 'button', { name: 'Edit annotation 2: Make the background warmer' } )
+				screen.queryByRole( 'button', { name: 'Edit annotation: Make the background warmer' } )
 			).not.toBeInTheDocument();
-			expect( getSiteAnnotations( SITE ).notes.some( ( note ) => note.id === first ) ).toBe(
-				false
-			);
 		} finally {
 			unsubscribe();
 		}
 	} );
+
+	it( 'switches from annotations to a file preview without moving focus back', async () => {
+		stageNote( 'Make the heading shorter' );
+		const { user } = await setup( { annotationSiteId: SITE } );
+		upload( 'notes.txt' );
+		const annotations = screen.getByRole( 'button', { name: '1 annotation' } );
+		const file = await screen.findByRole( 'button', { name: 'Preview notes.txt' } );
+
+		await user.click( annotations );
+		await screen.findByRole( 'dialog', { name: 'Annotations' } );
+		await user.click( file );
+
+		await screen.findByRole( 'dialog', { name: 'notes.txt' } );
+		await waitFor( () => expect( file ).toHaveFocus() );
+		expect( annotations ).toHaveAttribute( 'aria-expanded', 'false' );
+		await user.keyboard( '{Escape}' );
+		await waitFor( () => expect( file ).toHaveFocus() );
+	} );
+
+	it( 'previews an annotation image without closing review or moving focus', async () => {
+		stageNote( '', [ image( 'capture' ) ] );
+		const { user, input } = await setup( { annotationSiteId: SITE } );
+		const trigger = screen.getByRole( 'button', { name: '1 annotation' } );
+		await user.click( trigger );
+		const review = await screen.findByRole( 'dialog', { name: 'Annotations' } );
+		const thumbnail = within( review ).getByRole( 'img', { name: 'capture.png' } );
+		await user.hover( thumbnail );
+
+		expect( await screen.findByRole( 'tooltip', { name: 'capture.png' } ) ).toBeVisible();
+		expect( review ).toBeVisible();
+		expect( trigger ).toHaveFocus();
+		await user.unhover( thumbnail );
+		await waitFor( () =>
+			expect( screen.queryByRole( 'tooltip', { name: 'capture.png' } ) ).not.toBeInTheDocument()
+		);
+		await user.click( input );
+		await waitFor( () => expect( review ).not.toBeInTheDocument() );
+		expect( input ).toHaveFocus();
+	} );
+
+	it.each( [ 'pointer', 'keyboard' ] )(
+		'returns focus to the composer after deleting the last annotation with the %s',
+		async ( method ) => {
+			stageNote( 'Make the heading shorter' );
+			const { user, input } = await setup( { annotationSiteId: SITE } );
+			await user.click( screen.getByRole( 'button', { name: '1 annotation' } ) );
+			const remove = screen.getByRole( 'button', {
+				name: 'Delete annotation: Make the heading shorter',
+			} );
+			if ( method === 'keyboard' ) {
+				await user.tab();
+				await user.tab();
+				expect( remove ).toHaveFocus();
+				await user.keyboard( '{Enter}' );
+			} else {
+				await user.click( remove );
+			}
+
+			await waitFor( () => expect( input ).toHaveFocus() );
+			expect( screen.queryByRole( 'dialog', { name: 'Annotations' } ) ).not.toBeInTheDocument();
+			expect( screen.queryByRole( 'button', { name: '1 annotation' } ) ).not.toBeInTheDocument();
+		}
+	);
 
 	it( 'groups staged notes and removes them together without changing the text after a rejected send', async () => {
 		saveComposerDraft( 'test', { text: 'Keep my message', attachments: [] } );
@@ -951,6 +1025,17 @@ describe( 'Composer model picker', () => {
 } );
 
 describe( 'Composer as a form field', () => {
+	it( 'shows the credits notice while the form owns submission', async () => {
+		const connector = createFakeConnector(
+			{},
+			{ getStudioAssistantQuota: async () => OUT_OF_CREDITS }
+		);
+		await setup( { variant: 'field' }, connector );
+		expect( await screen.findByText( 'Add AI credits to send another message.' ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Add credits' } ) ).toBeVisible();
+		expect( screen.queryByRole( 'button', { name: 'Send message' } ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'has no send control and hands its draft over through the ref', async () => {
 		const onModelChange = vi.fn();
 		const { connector, ref, input, onSend } = await setup( {
@@ -962,8 +1047,7 @@ describe( 'Composer as a form field', () => {
 		} );
 
 		expect( screen.queryByRole( 'button', { name: 'Send message' } ) ).not.toBeInTheDocument();
-		expect( screen.queryByRole( 'button', { name: 'Add' } ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Upload attachment' } ) ).toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Add' } ) ).toBeInTheDocument();
 		expect( ref.current?.getSubmission() ).toBeNull();
 
 		expect( input ).toHaveAttribute( 'placeholder', 'Describe the site' );
@@ -1077,15 +1161,134 @@ describe( 'Composer sending', () => {
 } );
 
 describe( 'Composer drafts and attachments', () => {
-	it( 'previews an attachment while its chip is hovered', async () => {
-		const { user } = await setup();
-		upload( 'notes.txt' );
+	it( 'adds a preview screenshot to the draft and sends it as an ordinary image', async () => {
+		saveComposerDraft( 'test', {
+			text: 'Please update this page',
+			attachments: [ image( 'reference' ) ],
+		} );
+		const { user, input, onSend } = await setup( { ownerSiteId: SITE, model: 'balanced' } );
+		act( () =>
+			pendingComposerFilesSlot.set( {
+				siteId: SITE,
+				files: [ new File( [ 'screenshot' ], 'screenshot.png', { type: 'image/png' } ) ],
+			} )
+		);
 
-		await user.hover( await screen.findByRole( 'listitem', { name: /^notes\.txt/ } ) );
+		expect( await screen.findByRole( 'button', { name: 'Preview screenshot.png' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Preview reference.png' } ) ).toBeVisible();
+		expect( input ).toHaveValue( 'Please update this page' );
+		await waitFor( () => expect( input ).toHaveFocus() );
+		expect( onSend ).not.toHaveBeenCalled();
+		await user.keyboard( '{Enter}' );
+
+		await waitFor( () => expect( onSend ).toHaveBeenCalledOnce() );
+		expect( onSend.mock.calls[ 0 ][ 1 ]?.images ).toEqual( [
+			expect.objectContaining( { name: 'reference.png' } ),
+			expect.objectContaining( { name: 'screenshot.png', dataBase64: 'c2NyZWVuc2hvdA==' } ),
+		] );
+	} );
+
+	it( 'keeps screenshots for the matching site and lets the user remove them', async () => {
+		const pending = {
+			siteId: SITE,
+			files: [ new File( [ 'screenshot' ], 'screenshot.png', { type: 'image/png' } ) ],
+		};
+		pendingComposerFilesSlot.set( pending );
+		const other = await setup( { ownerSiteId: 'another-site' } );
+		expect( pendingComposerFilesSlot.getSnapshot() ).toBe( pending );
+		other.unmount();
+		const { user, onSend } = await setup( { ownerSiteId: SITE } );
+		await screen.findByRole( 'button', { name: 'Preview screenshot.png' } );
+
+		await user.click( screen.getByRole( 'button', { name: 'Remove attachment' } ) );
 
 		expect(
-			await screen.findByText( 'notes.txt text', {}, { timeout: 2000 } )
-		).toBeInTheDocument();
+			screen.queryByRole( 'button', { name: 'Preview screenshot.png' } )
+		).not.toBeInTheDocument();
+		expect( pendingComposerFilesSlot.getSnapshot() ).toBeNull();
+		expect( onSend ).not.toHaveBeenCalled();
+	} );
+
+	it.each( [ 'file', 'image' ] )(
+		'opens a %s preview on hover without moving typing focus',
+		async ( kind ) => {
+			if ( kind === 'image' ) {
+				saveComposerDraft( 'test', { text: '', attachments: [ image( 'reference' ) ] } );
+			}
+			const { user, input } = await setup( { annotationSiteId: SITE } );
+			if ( kind === 'file' ) upload( 'notes.txt' );
+			const label = kind === 'image' ? 'Preview reference.png' : 'Preview notes.txt';
+			const trigger = await screen.findByRole( 'button', { name: label } );
+			await user.click( input );
+
+			await user.hover( trigger );
+
+			const preview = await screen.findByRole( 'dialog', {
+				name: kind === 'image' ? 'reference.png' : 'notes.txt',
+			} );
+			expect( preview ).toBeVisible();
+			expect( trigger ).toHaveAttribute( 'aria-expanded', 'true' );
+			expect( input ).toHaveFocus();
+			await user.keyboard( '{Escape}' );
+			await waitFor( () => expect( preview ).not.toBeInTheDocument() );
+		}
+	);
+
+	it( 'opens an attachment preview on click and restores focus when dismissed', async () => {
+		const { user } = await setup();
+		upload( 'notes.txt' );
+		const trigger = await screen.findByRole( 'button', { name: 'Preview notes.txt' } );
+
+		await user.click( trigger );
+
+		const preview = await screen.findByRole( 'dialog', { name: 'notes.txt' } );
+		expect( within( preview ).getByText( 'notes.txt text' ) ).toBeInTheDocument();
+		await user.unhover( trigger );
+		expect( trigger ).toHaveAttribute( 'aria-expanded', 'true' );
+		await user.keyboard( '{Escape}' );
+		await waitFor( () => expect( preview ).not.toBeInTheDocument() );
+		expect( trigger ).toHaveFocus();
+
+		await user.keyboard( '{Enter}' );
+		await screen.findByRole( 'dialog', { name: 'notes.txt' } );
+		await user.keyboard( '{Escape}' );
+		await waitFor( () => expect( trigger ).toHaveFocus() );
+	} );
+
+	it( 'previews file details even when no visual preview is available', async () => {
+		saveComposerDraft( 'test', {
+			text: '',
+			attachments: [
+				{
+					id: 'document',
+					kind: 'file',
+					name: 'document.pdf',
+					path: '/tmp/document.pdf',
+					mimeType: 'application/pdf',
+					size: 2048,
+				},
+			],
+		} );
+		const { user, input } = await setup();
+
+		await user.click( screen.getByRole( 'button', { name: 'Preview document.pdf' } ) );
+
+		const preview = await screen.findByRole( 'dialog', { name: 'document.pdf' } );
+		expect( within( preview ).getByText( 'application/pdf · 2 KB' ) ).toBeInTheDocument();
+		await user.click( input );
+		await waitFor( () => expect( preview ).not.toBeInTheDocument() );
+		expect( input ).toHaveFocus();
+	} );
+
+	it( 'removes an attachment without opening its preview', async () => {
+		const { user } = await setup();
+		upload( 'notes.txt' );
+		await screen.findByRole( 'button', { name: 'Preview notes.txt' } );
+
+		await user.click( screen.getByRole( 'button', { name: 'Remove attachment' } ) );
+
+		expect( screen.queryByRole( 'listitem', { name: /^notes\.txt/ } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'restores text and attachments independently for each session', async () => {

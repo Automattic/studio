@@ -7,20 +7,20 @@ import {
 	watchComposerAttachmentTextScroll,
 } from '@studio/agent/protocol/composer-attachment-preview';
 import { __, sprintf } from '@wordpress/i18n';
-import { clsx } from 'clsx';
 import { FileTextIcon } from 'lucide-react';
-import { cloneElement, useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import { AnnotationReviewChip } from '@/features/annotations';
 import { AnnotateIcon } from '@/lib/icons';
 import {
 	AttachmentChip as AttachmentChipSurface,
+	AttachmentChipTrigger,
 	AttachmentRemoveButton,
-	HoverCard,
+	Popover,
 } from '@/lib/ui';
 import styles from './style.module.css';
 import type { ComposerAttachment } from '@/data/use-composer-attachments';
 
-function AttachmentHoverTextPreview( { text }: { text: string } ) {
+function AttachmentTextPreview( { text }: { text: string } ) {
 	const viewportRef = useRef< HTMLDivElement | null >( null );
 	const textRef = useRef< HTMLPreElement | null >( null );
 
@@ -29,21 +29,21 @@ function AttachmentHoverTextPreview( { text }: { text: string } ) {
 	}, [ text ] );
 
 	return (
-		<div className={ styles.attachmentHoverTextViewport } aria-hidden="true" ref={ viewportRef }>
-			<pre className={ styles.attachmentHoverText } ref={ textRef }>
+		<div className={ styles.attachmentPreviewTextViewport } ref={ viewportRef }>
+			<pre className={ styles.attachmentPreviewText } ref={ textRef }>
 				{ text }
 			</pre>
 		</div>
 	);
 }
 
-function renderAttachmentHoverVisual( attachment: ComposerAttachment ) {
+function renderAttachmentVisual( attachment: ComposerAttachment ) {
 	const imageSrc = getComposerAttachmentImageSrc( attachment );
 	if ( imageSrc ) {
-		return <img className={ styles.attachmentHoverImage } src={ imageSrc } alt="" />;
+		return <img className={ styles.attachmentPreviewImage } src={ imageSrc } alt="" />;
 	}
 	const textPreview = getComposerAttachmentTextPreview( attachment );
-	return textPreview ? <AttachmentHoverTextPreview text={ textPreview } /> : null;
+	return textPreview ? <AttachmentTextPreview text={ textPreview } /> : null;
 }
 
 function AttachmentChip( {
@@ -65,49 +65,61 @@ function AttachmentChip( {
 				sizeLabel
 		  )
 		: attachment.name;
-	const chip = imageSrc ? (
-		<li className={ clsx( styles.attachment, styles.attachmentImage ) } aria-label={ label } />
-	) : (
-		<AttachmentChipSurface render={ <li /> } aria-label={ label } />
-	);
 	const content = (
 		<>
-			{ imageSrc ? (
-				<img className={ styles.attachmentThumb } src={ imageSrc } alt="" />
-			) : (
-				<>
-					{ isAnnotations ? <AnnotateIcon /> : <FileTextIcon /> }
-					<span className={ styles.attachmentName }>{ attachment.name }</span>
-				</>
-			) }
-			<AttachmentRemoveButton aria-label={ __( 'Remove attachment' ) } onClick={ onRemove } />
+			<Popover.Root>
+				<Popover.Trigger
+					openOnHover
+					render={
+						<AttachmentChipTrigger
+							className={ imageSrc ? styles.imageTrigger : undefined }
+							aria-label={ sprintf( __( 'Preview %s' ), attachment.name ) }
+						/>
+					}
+				>
+					{ imageSrc ? (
+						<img className={ styles.attachmentThumb } src={ imageSrc } alt="" />
+					) : (
+						<>
+							{ isAnnotations ? <AnnotateIcon /> : <FileTextIcon /> }
+							<span className={ styles.attachmentName }>{ attachment.name }</span>
+						</>
+					) }
+				</Popover.Trigger>
+				<Popover.Popup
+					side="top"
+					align="start"
+					sideOffset={ 8 }
+					className={ styles.attachmentPreview }
+					aria-label={ attachment.name }
+					initialFocus={ ( interactionType ) => interactionType === 'keyboard' }
+				>
+					{ hasComposerAttachmentVisualPreview( attachment ) && (
+						<div className={ styles.attachmentPreviewArtwork }>
+							{ renderAttachmentVisual( attachment ) }
+						</div>
+					) }
+					<div className={ styles.attachmentPreviewDetails }>
+						<Popover.Title>{ attachment.name }</Popover.Title>
+						<Popover.Description>
+							{ [ getComposerAttachmentTypeDescription( attachment, __( 'File' ) ), sizeLabel ]
+								.filter( Boolean )
+								.join( ' · ' ) }
+						</Popover.Description>
+					</div>
+				</Popover.Popup>
+			</Popover.Root>
+			<AttachmentRemoveButton label={ __( 'Remove attachment' ) } onClick={ onRemove } />
 		</>
 	);
-	if ( ! hasComposerAttachmentVisualPreview( attachment ) ) {
-		return cloneElement( chip, {}, content );
-	}
-	return (
-		<HoverCard.Root>
-			<HoverCard.Trigger render={ chip }>{ content }</HoverCard.Trigger>
-			<HoverCard.Popup
-				side="top"
-				align="start"
-				sideOffset={ 8 }
-				className={ styles.attachmentHoverPreview }
-			>
-				<div className={ styles.attachmentHoverArtwork }>
-					{ renderAttachmentHoverVisual( attachment ) }
-				</div>
-				<div className={ styles.attachmentHoverDetails }>
-					<span className={ styles.attachmentHoverName }>{ attachment.name }</span>
-					<span className={ styles.attachmentHoverMeta }>
-						{ [ getComposerAttachmentTypeDescription( attachment, __( 'File' ) ), sizeLabel ]
-							.filter( Boolean )
-							.join( ' · ' ) }
-					</span>
-				</div>
-			</HoverCard.Popup>
-		</HoverCard.Root>
+	return imageSrc ? (
+		<li className={ styles.attachment } aria-label={ label }>
+			{ content }
+		</li>
+	) : (
+		<AttachmentChipSurface render={ <li /> } aria-label={ label }>
+			{ content }
+		</AttachmentChipSurface>
 	);
 }
 

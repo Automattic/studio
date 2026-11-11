@@ -4,11 +4,10 @@ import { isValidElement, memo, useMemo } from 'react';
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useConnector } from '@/data/core';
-import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { CopyButton } from '@/features/chats/copy-button';
 import { ToolLink } from '@/features/chats/tool-link';
 import { CODE_TEXT_ATTRIBUTE } from '@/features/chats/use-text-context-menu';
-import { AppearanceIcon } from '@/lib/icons';
+import { DesignSystemIcon } from '@/lib/icons';
 import { CodeBlock } from '@/lib/ui';
 import { closeOpenMarkdown, splitMarkdownBlocks } from './blocks';
 import styles from './style.module.css';
@@ -54,6 +53,11 @@ const baseComponents: Components = {
 	h3: ( { children } ) => <h3 className={ styles.h3 }>{ children }</h3>,
 	h4: ( { children } ) => <h4 className={ styles.h4 }>{ children }</h4>,
 	p: ( { children } ) => <p className={ styles.p }>{ children }</p>,
+	img: ( { src, alt, title } ) => (
+		<span className={ styles.imageFrame }>
+			<img src={ src } alt={ alt } title={ title } />
+		</span>
+	),
 	ul: ( { children } ) => <ul className={ styles.ul }>{ children }</ul>,
 	ol: ( { children } ) => <ol className={ styles.ol }>{ children }</ol>,
 	li: ( { children } ) => <li className={ styles.li }>{ children }</li>,
@@ -121,7 +125,6 @@ export const Markdown = memo( function Markdown( {
 	streaming?: boolean;
 } ) {
 	const connector = useConnector();
-	const navigatePreview = useOptionalSessionPreviewUI()?.navigate;
 
 	const components = useMemo< Components >( () => {
 		return {
@@ -132,9 +135,9 @@ export const Markdown = memo( function Markdown( {
 				if ( href === DESIGN_SYSTEM_PREVIEW_PATH ) {
 					return (
 						<ToolLink
-							icon={ <AppearanceIcon aria-hidden="true" /> }
-							aria-label={ __( 'Open design system' ) }
-							onClick={ () => navigatePreview?.( DESIGN_SYSTEM_PREVIEW_PATH ) }
+							icon={ <DesignSystemIcon aria-hidden="true" /> }
+							aria-label={ __( 'Open Design System' ) }
+							path={ DESIGN_SYSTEM_PREVIEW_PATH }
 						>
 							{ __( 'Design System' ) }
 						</ToolLink>
@@ -160,7 +163,7 @@ export const Markdown = memo( function Markdown( {
 				);
 			},
 		};
-	}, [ connector, navigatePreview ] );
+	}, [ connector ] );
 
 	const blocks = splitMarkdownBlocks( children );
 	return (

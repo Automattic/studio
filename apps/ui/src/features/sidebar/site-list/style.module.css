@@ -103,10 +103,11 @@
 	pointer-events: none;
 }
 
-/* Headers share the full list's sticky bounds so the next one covers the
-   previous one without pushing it out of position. */
 .group {
-	display: contents;
+	display: flex;
+	flex-direction: column;
+	flex-shrink: 0;
+	padding-block: 0;
 }
 
 .groupHeader {
@@ -115,7 +116,21 @@
 	position: sticky;
 	top: 0;
 	z-index: 1;
-	background: var( --studio-sidebar-bg );
+	isolation: isolate;
+}
+
+.group:first-child > .groupHeader {
+	margin-block-start: var( --space-1_5 );
+	top: var( --space-1_5 );
+}
+
+.groupPanel {
+	mask-image: linear-gradient(
+		to bottom,
+		transparent var( --group-clip-top, 0px ),
+		rgb( 0 0 0 / 0.65 ) calc( var( --group-clip-top, 0px ) + var( --group-fade-size, 0px ) * 0.35 ),
+		#000 calc( var( --group-clip-top, 0px ) + var( --group-fade-size, 0px ) )
+	);
 }
 
 .groupHeader:hover .groupHoverAction,
@@ -123,6 +138,10 @@
 .groupHoverAction[aria-expanded='true'] {
 	opacity: 1;
 	pointer-events: auto;
+}
+
+.groupHeader[data-clipped] > :not( :first-child ) {
+	visibility: hidden;
 }
 
 @media ( hover: none ) {
@@ -137,4 +156,9 @@
 	.chatsPanel {
 		transition-duration: 0s;
 	}
+}
+
+.loadingMenu {
+	gap: var( --space-1 );
+	padding-block-start: var( --space-3 );
 }

@@ -45,3 +45,16 @@ export async function readThemeDetails(
 		await runStudioWpCommand( execute, sitePath, 'get-theme-details' )
 	);
 }
+
+export async function readGlobalStyles(
+	execute: ExecuteCliCommand,
+	sitePath: string
+): Promise< Record< string, unknown > | null > {
+	return z
+		.object( {
+			settings: z.record( z.string(), z.unknown() ),
+			styles: z.record( z.string(), z.unknown() ),
+		} )
+		.nullable()
+		.parse( await runStudioWpCommand( execute, sitePath, 'get-global-styles' ) );
+}

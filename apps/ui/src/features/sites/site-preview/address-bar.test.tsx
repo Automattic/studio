@@ -9,6 +9,7 @@ import {
 	getPreviewRealm,
 	getRealmNavigationPath,
 	getRealmOpenEvent,
+	isWordPressAuthPath,
 	parseOmniboxInput,
 	PreviewAddressBar,
 } from './address-bar';
@@ -28,6 +29,28 @@ const SITE = {
 function autoLoginPath( target: string ) {
 	return `/studio-auto-login?redirect_to=${ encodeURIComponent( `${ SITE_URL }${ target }` ) }`;
 }
+
+it.each( [ false, true ] )(
+	'hides the scheme while retaining the full URL for editing (compact: %s)',
+	async ( compact ) => {
+		const user = userEvent.setup();
+		render(
+			<PreviewAddressBar
+				site={ SITE }
+				siteUrl={ SITE_URL }
+				path="/about/"
+				compact={ compact }
+				onNavigate={ vi.fn() }
+			/>
+		);
+		const input = screen.getByRole( 'textbox', { name: 'Address' } ) as HTMLInputElement;
+		expect( screen.getByText( 'localhost:8881/about/' ) ).toHaveAttribute( 'aria-hidden', 'true' );
+		await user.click( input );
+		expect( input ).toHaveValue( `${ SITE_URL }/about/` );
+		expect( input.selectionStart ).toBe( 0 );
+		expect( input.selectionEnd ).toBe( input.value.length );
+	}
+);
 
 function renderAddressBar( {
 	path = '/',
@@ -97,6 +120,24 @@ describe( 'getPathFromPreviewUrl', () => {
 } );
 
 describe( 'preview realms', () => {
+	it.each( [
+		'/wp-login.php',
+		'/wp-login.php?action=logout&_wpnonce=example',
+		'/wp-signup.php',
+		'/wp-activate.php?key=example',
+		autoLoginPath( '/wp-login.php?action=logout' ),
+	] )( 'recognizes authentication URL %s', ( path ) => {
+		expect( isWordPressAuthPath( path ) ).toBe( true );
+	} );
+	it.each( [
+		'/',
+		'/about-wp-login.php/',
+		'/wp-admin/',
+		'/?next=wp-login.php',
+		autoLoginPath( '/wp-admin/' ),
+	] )( 'keeps normal page %s', ( path ) => {
+		expect( isWordPressAuthPath( path ) ).toBe( false );
+	} );
 	it( 'classifies regular and auto-login paths', () => {
 		expect( getPreviewRealm( '/' ) ).toBe( 'frontend' );
 		expect( getPreviewRealm( '/wp-admin/' ) ).toBe( 'admin' );
@@ -127,6 +168,28 @@ describe( 'preview realms', () => {
 
 describe( 'PreviewAddressBar', () => {
 	beforeEach( () => window.localStorage.clear() );
+
+	it( 'removes saved authentication links and never remembers a logout or reset URL', async () => {
+		const key = 'studio-preview-recent-locations:site-1';
+		localStorage.setItem(
+			key,
+			JSON.stringify( {
+				version: 1,
+				locations: [
+					{ path: '/wp-login.php?action=logout&_wpnonce=old', label: 'Old logout' },
+					{ path: '/sample-page/', label: 'Sample page', title: 'Sample page' },
+				],
+			} )
+		);
+		const { user } = { user: userEvent.setup() };
+		renderAddressBar( { path: '/wp-login.php?action=rp&key=reset', pageTitle: 'Reset Password' } );
+		await user.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
+		expect( screen.getByRole( 'option', { name: /Sample page/ } ) ).toBeVisible();
+		expect(
+			screen.queryByRole( 'option', { name: /logout|Reset Password/i } )
+		).not.toBeInTheDocument();
+		expect( localStorage.getItem( key ) ).not.toMatch( /wp-login|_wpnonce|key=reset/ );
+	} );
 
 	it( 'opens recent pages on mouse-down before the click finishes', async () => {
 		const user = userEvent.setup();
@@ -240,7 +303,7 @@ describe( 'PreviewAddressBar', () => {
 		fireEvent.click( screen.getByRole( 'textbox', { name: 'Address' } ) );
 		const recent = await screen.findByRole( 'option', { name: /About the team/ } );
 		expect( within( recent ).getByText( '— localhost:8881/about/' ) ).toBeVisible();
-		for ( const label of [ 'Front end', 'WordPress Admin', 'Database', 'Design system' ] ) {
+		for ( const label of [ 'Front end', 'WordPress Admin', 'Database', 'Design System' ] ) {
 			expect( screen.queryByRole( 'option', { name: label } ) ).not.toBeInTheDocument();
 		}
 		fireEvent.click( recent );

@@ -34,3 +34,15 @@
 	color: var( --muted-foreground );
 	font-size: var( --text-xs );
 }
+
+.certificateNotice {
+	padding-block-start: var( --space-4 );
+	border-block-start: 1px solid var( --border );
+	color: var( --muted-foreground );
+	font-size: var( --text-xs );
+	line-height: var( --text-xs--line-height );
+}
+
+.certificateNotice:empty {
+	display: none;
+}

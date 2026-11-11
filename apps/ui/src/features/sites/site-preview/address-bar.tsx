@@ -3,8 +3,8 @@ import { TRACKS_EVENTS, type TracksEventName } from '@studio/common/lib/record-t
 import { __ } from '@wordpress/i18n';
 import { useEffect, useId, useRef, useState } from 'react';
 import {
-	AppearanceIcon,
 	DatabaseIcon,
+	DesignSystemIcon,
 	ExternalLinkIcon,
 	GlobeIcon,
 	MailIcon,
@@ -31,6 +31,14 @@ export function getPathFromPreviewUrl( url: string, baseUrl: string ) {
 }
 
 export type PreviewRealm = 'frontend' | 'admin' | 'database' | 'email' | 'design';
+
+export function isWordPressAuthPath( path: string ): boolean {
+	if ( path.startsWith( '/studio-auto-login' ) ) {
+		const redirect = new URLSearchParams( path.split( '?' )[ 1 ] ?? '' ).get( 'redirect_to' );
+		if ( redirect ) path = redirect.replace( /^https?:\/\/[^/?#]*/i, '' );
+	}
+	return /(?:^|\/)wp-(?:login|signup|activate)\.php\/?$/.test( path.split( /[?#]/ )[ 0 ] );
+}
 
 export const DATABASE_HOME_PATH = '/phpmyadmin/index.php?route=/database/structure&db=wordpress';
 
@@ -122,6 +130,7 @@ interface PreviewAddressBarProps {
 	onOpenExternal?: () => void;
 	onExternalNavigate?: ( url: string ) => void;
 	disabled?: boolean;
+	compact?: boolean;
 }
 
 interface RecentPreviewLocation {
@@ -147,6 +156,7 @@ function getRecentLocationKey( path: string ): string {
 function deduplicateRecentLocations( locations: RecentPreviewLocation[] ): RecentPreviewLocation[] {
 	const unique = new Map< string, RecentPreviewLocation >();
 	for ( const location of locations ) {
+		if ( isWordPressAuthPath( location.path ) ) continue;
 		const key = getRecentLocationKey( location.path );
 		const existing = unique.get( key );
 		const title = location.title?.trim() || undefined;
@@ -205,7 +215,7 @@ function storeRecentLocation(
 function getDisplayUrl( siteUrl: string, path: string ): string {
 	if ( path === EMAIL_PREVIEW_PATH ) return __( 'Email log' );
 	if ( path === DESIGN_SYSTEM_PREVIEW_PATH ) {
-		return __( 'Design system' );
+		return __( 'Design System' );
 	}
 	try {
 		return new URL( path, siteUrl ).toString().replace( /^(https?:\/\/[^/?#]+)\/$/i, '$1' );
@@ -233,7 +243,7 @@ function AddressAction( {
 			<TooltipTrigger
 				render={
 					<Button
-						variant="ghost"
+						variant="muted-ghost"
 						size="icon-2xs"
 						className={ styles.action }
 						aria-label={ label }
@@ -260,6 +270,7 @@ export function PreviewAddressBar( {
 	onOpenExternal,
 	onExternalNavigate,
 	disabled = false,
+	compact = false,
 }: PreviewAddressBarProps ) {
 	const displayUrl = getDisplayUrl( siteUrl, path );
 	const [ value, setValue ] = useState( displayUrl );
@@ -357,7 +368,7 @@ export function PreviewAddressBar( {
 		admin: WordPressIcon,
 		database: DatabaseIcon,
 		email: MailIcon,
-		design: AppearanceIcon,
+		design: DesignSystemIcon,
 	};
 	const recentGroups: CommandGroup[] = [
 		{
@@ -400,6 +411,7 @@ export function PreviewAddressBar( {
 				ref={ addressBarRef }
 				className={ styles.addressBar }
 				data-recent-open={ isRecentOpen || undefined }
+				data-compact={ compact || undefined }
 				onSubmit={ handleSubmit }
 			>
 				<Popover.Trigger
@@ -407,7 +419,7 @@ export function PreviewAddressBar( {
 					nativeButton={ false }
 					render={
 						<Input
-							variant="ghost"
+							variant="group"
 							disabled={ disabled }
 							role="textbox"
 							value={ value }
@@ -464,6 +476,9 @@ export function PreviewAddressBar( {
 					title={ invalid ? __( 'Enter a path or an address on this site.' ) : undefined }
 					spellCheck={ false }
 				/>
+				<span className={ styles.displayUrl } aria-hidden="true">
+					{ displayUrl.replace( /^https?:\/\//i, '' ) }
+				</span>
 				{ onOpenExternal ? (
 					<span className={ styles.actions } data-address-action>
 						<AddressAction

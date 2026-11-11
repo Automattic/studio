@@ -1,7 +1,6 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
-import { SessionUIProvider, useSessionPreviewUI } from '@/data/use-session-ui';
 import { CODE_TEXT_ATTRIBUTE } from '@/features/chats/use-text-context-menu';
 import { renderWithProviders } from '@/test/render';
 import { Markdown } from '.';
@@ -24,30 +23,12 @@ function renderMarkdown( markdown: string ) {
 }
 
 describe( 'Markdown', () => {
-	it( 'opens inline design system links in the preview instead of an external browser', async () => {
-		function PreviewState() {
-			const preview = useSessionPreviewUI();
-			return (
-				<>
-					<button onClick={ () => preview.setSite( 'site-a' ) }>Select site</button>
-					<output aria-label="Preview path">{ preview.path }</output>
-				</>
-			);
-		}
-		const { connector } = renderWithProviders(
-			<SessionUIProvider>
-				<Markdown>Updated the [design system](studio:design-system) with warmer colors.</Markdown>
-				<PreviewState />
-			</SessionUIProvider>
-		);
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Select site' } ) );
-		const chip = screen.getByRole( 'button', { name: 'Open design system' } );
+	it( 'renders the design system tool link within the reply', async () => {
+		renderMarkdown( 'Updated the [design system](studio:design-system) with warmer colors.' );
+		const chip = await screen.findByRole( 'button', { name: 'Open Design System' } );
 		expect( chip.closest( 'p' ) ).toHaveTextContent(
 			'Updated the Design System with warmer colors.'
 		);
-		fireEvent.click( chip );
-		expect( screen.getByLabelText( 'Preview path' ) ).toHaveTextContent( 'studio:design-system' );
-		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
 	} );
 
 	it( 'does not allow arbitrary custom URL schemes', async () => {
@@ -55,7 +36,7 @@ describe( 'Markdown', () => {
 		expect( await screen.findByText( 'unsafe' ) ).toHaveAttribute( 'href', '' );
 		expect( screen.getByText( 'other' ) ).toHaveAttribute( 'href', '' );
 		expect(
-			screen.queryByRole( 'button', { name: 'Open design system' } )
+			screen.queryByRole( 'button', { name: 'Open Design System' } )
 		).not.toBeInTheDocument();
 	} );
 

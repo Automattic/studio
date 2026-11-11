@@ -96,35 +96,38 @@ describe( 'AnnotationOverlay', () => {
 			anchor: { left: 200, top: 150 },
 			height: 240,
 		},
-	] )( 'keeps the editor clear of the marker at the $name', async ( { anchor, height } ) => {
-		const viewport = { width: 400, height: 300 };
-		const editorWidth = 320;
-		const dimensions = [
-			vi.spyOn( HTMLElement.prototype, 'clientWidth', 'get' ).mockReturnValue( viewport.width ),
-			vi.spyOn( HTMLElement.prototype, 'clientHeight', 'get' ).mockReturnValue( viewport.height ),
-			vi.spyOn( HTMLElement.prototype, 'offsetWidth', 'get' ).mockReturnValue( editorWidth ),
-			vi.spyOn( HTMLElement.prototype, 'offsetHeight', 'get' ).mockReturnValue( height ),
-			vi.spyOn( HTMLElement.prototype, 'scrollHeight', 'get' ).mockReturnValue( height ),
-		];
-		try {
-			await setup( anchor );
-			annotate();
-			pick();
-			const editor = await screen.findByRole( 'group', { name: 'Annotation' } );
-			const top = parseFloat( editor.style.top );
-			const left = parseFloat( editor.style.left );
-			const maxHeight = parseFloat( editor.style.maxHeight );
-			const bottom = top + Math.min( height, maxHeight );
-			expect( maxHeight ).toBeGreaterThan( 0 );
-			expect( top ).toBeGreaterThanOrEqual( 0 );
-			expect( left ).toBeGreaterThanOrEqual( 0 );
-			expect( left + editorWidth ).toBeLessThanOrEqual( viewport.width );
-			expect( top >= anchor.top + 18 || bottom <= anchor.top - 18 ).toBe( true );
-			expect( bottom ).toBeLessThanOrEqual( viewport.height );
-		} finally {
-			dimensions.forEach( ( dimension ) => dimension.mockRestore() );
+	] )(
+		'keeps the editor within the viewport and clear of the marker at the $name',
+		async ( { anchor, height } ) => {
+			const viewport = { width: 400, height: 300 };
+			const editorWidth = 320;
+			const dimensions = [
+				vi.spyOn( HTMLElement.prototype, 'clientWidth', 'get' ).mockReturnValue( viewport.width ),
+				vi.spyOn( HTMLElement.prototype, 'clientHeight', 'get' ).mockReturnValue( viewport.height ),
+				vi.spyOn( HTMLElement.prototype, 'offsetWidth', 'get' ).mockReturnValue( editorWidth ),
+				vi.spyOn( HTMLElement.prototype, 'offsetHeight', 'get' ).mockReturnValue( height ),
+				vi.spyOn( HTMLElement.prototype, 'scrollHeight', 'get' ).mockReturnValue( height ),
+			];
+			try {
+				await setup( anchor );
+				annotate();
+				pick();
+				const editor = await screen.findByRole( 'group', { name: 'Annotation' } );
+				const top = parseFloat( editor.style.top );
+				const left = parseFloat( editor.style.left );
+				const maxHeight = parseFloat( editor.style.maxHeight );
+				const bottom = top + Math.min( height, maxHeight );
+				expect( maxHeight ).toBeGreaterThan( 0 );
+				expect( top ).toBeGreaterThanOrEqual( 0 );
+				expect( left ).toBeGreaterThanOrEqual( 0 );
+				expect( left + editorWidth ).toBeLessThanOrEqual( viewport.width );
+				expect( top > anchor.top || bottom < anchor.top ).toBe( true );
+				expect( bottom ).toBeLessThanOrEqual( viewport.height );
+			} finally {
+				dimensions.forEach( ( dimension ) => dimension.mockRestore() );
+			}
 		}
-	} );
+	);
 
 	it( 'leaves annotation mode with Escape while a notification is visible', async () => {
 		await setup();
@@ -157,6 +160,51 @@ describe( 'AnnotationOverlay', () => {
 	} );
 
 	describe( 'images', () => {
+		it( 'keeps the region capture attached while allowing reference images to be removed', async () => {
+			annotate();
+			act( () => {
+				pickAnnotation(
+					SITE,
+					{ kind: 'region', path: '/' },
+					{ images: [ image( 'capture' ), image( 'reference' ) ] }
+				);
+			} );
+			await setup();
+			expect( screen.getByRole( 'img', { name: 'capture.png' } ) ).toBeVisible();
+			expect( screen.getAllByRole( 'button', { name: 'Remove attachment' } ) ).toHaveLength( 1 );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Remove attachment' } ) );
+			expect( getSiteAnnotations( SITE ).notes[ 0 ].images ).toEqual( [ image( 'capture' ) ] );
+			expect( screen.queryByRole( 'img', { name: 'reference.png' } ) ).not.toBeInTheDocument();
+			expect(
+				screen.queryByRole( 'button', { name: 'Remove attachment' } )
+			).not.toBeInTheDocument();
+			expect( screen.getByRole( 'button', { name: 'Delete annotation' } ) ).toBeVisible();
+		} );
+
+		it( 'hides the drawing capture while keeping reference images editable', async () => {
+			annotate();
+			act( () => {
+				pickAnnotation(
+					SITE,
+					{ kind: 'drawing', path: '/' },
+					{ images: [ image( 'capture' ), image( 'reference' ) ] }
+				);
+			} );
+			await setup();
+			expect( screen.queryByRole( 'img', { name: 'capture.png' } ) ).not.toBeInTheDocument();
+			expect( screen.getByRole( 'img', { name: 'reference.png' } ) ).toBeVisible();
+			const input = screen.getByRole( 'textbox', { name: 'Describe the change' } );
+			fireEvent.keyDown( input, { key: 'Escape' } );
+			expect( input ).toBeVisible();
+			expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'Add or delete this annotation' );
+			fireEvent.click( screen.getByRole( 'button', { name: 'Remove attachment' } ) );
+			expect( getSiteAnnotations( SITE ).notes[ 0 ].images ).toEqual( [ image( 'capture' ) ] );
+			expect( screen.queryByRole( 'list', { name: 'Attachments' } ) ).not.toBeInTheDocument();
+			fireEvent.keyDown( input, { key: 'Escape' } );
+			expect( screen.queryByRole( 'group', { name: 'Annotation' } ) ).not.toBeInTheDocument();
+			expect( getSiteAnnotations( SITE ).notes ).toHaveLength( 0 );
+		} );
+
 		function editNote( otherImages: ComposerImageAttachment[] = [] ) {
 			let editing = '';
 			act( () => {
@@ -212,9 +260,8 @@ describe( 'AnnotationOverlay', () => {
 			await waitFor( () =>
 				expect( images().map( ( item ) => item.name ) ).toEqual( [ 'four.png' ] )
 			);
-			expect( getVisibleToasts().map( ( toast ) => toast.title ) ).toContain(
-				'You can attach up to 4 images'
-			);
+			expect( screen.getByRole( 'alert' ) ).toHaveTextContent( 'You can attach up to 4 images' );
+			expect( getVisibleToasts() ).toEqual( [] );
 		} );
 
 		it( 'rejects unsupported images instead of attaching them as filesystem paths', async () => {

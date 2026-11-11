@@ -2,6 +2,7 @@
 	.chip {
 		composes: imageOutline from '@/lib/theme/recipes.module.css';
 		--image-outline-width: 1px;
+		--attachment-chip-background: light-dark( var( --surface-1 ), var( --surface-4 ) );
 		position: relative;
 		display: flex;
 		gap: var( --space-1 );
@@ -12,11 +13,78 @@
 		padding: 0 var( --space-2_5 );
 		padding-inline-start: var( --space-2 );
 		border-radius: var( --radius-xl );
-		background-color: light-dark( var( --surface-1 ), var( --surface-4 ) );
+		background-color: var( --attachment-chip-background );
 		color: var( --foreground );
 		font-size: var( --text-xs );
 		line-height: var( --text-xs--line-height );
 		user-select: none;
+	}
+
+	.chip > [data-slot='attachment-remove'] {
+		inset-block-start: calc( 50% - var( --space-2_5 ) );
+		inset-inline-end: var( --space-2 );
+	}
+
+	.chip:has( > [data-slot='attachment-remove'] )::before {
+		position: absolute;
+		z-index: 1;
+		inset-block: 0;
+		inset-inline-end: 0;
+		width: var( --space-12 );
+		border-radius: inherit;
+		background: linear-gradient( to right, transparent, var( --attachment-chip-background ) 50% );
+		content: '';
+		pointer-events: none;
+	}
+
+	.chip:dir( rtl )::before {
+		background: linear-gradient( to left, transparent, var( --attachment-chip-background ) 50% );
+	}
+
+	@media ( hover: hover ) and ( pointer: fine ) and ( not ( any-pointer: coarse ) ) {
+		.chip:has( > [data-slot='attachment-remove'] )::before {
+			opacity: 0;
+			transition: opacity var( --motion-duration-feedback ) ease-out;
+		}
+
+		.chip:has( > [data-slot='attachment-remove'] ):is( :hover, :focus-within )::before {
+			opacity: 1;
+		}
+
+		.chip:has( > [data-slot='attachment-remove'] ):focus-within::before {
+			transition: none;
+		}
+	}
+
+	.chip:has( > .trigger ) {
+		padding: 0;
+	}
+
+	.trigger[data-slot] {
+		--button-hover-background: color-mix(
+			in oklab,
+			var( --attachment-chip-background, var( --muted ) ) 95%,
+			var( --foreground )
+		);
+
+		flex: 1;
+		min-width: 0;
+		height: 100%;
+		gap: var( --space-1 );
+		justify-content: flex-start;
+		padding: 0 var( --space-2_5 ) 0 var( --space-2 );
+		border-radius: inherit;
+		font-weight: var( --font-weight-normal );
+		text-align: start;
+	}
+
+	.trigger[data-slot]:focus-visible {
+		box-shadow: none;
+	}
+
+	.chip:has( > .trigger:focus-visible ) {
+		outline: 2px solid var( --ring );
+		outline-offset: 2px;
 	}
 
 	.chip[data-font='mono'] {
@@ -24,9 +92,14 @@
 		font-size: var( --text-2xs );
 	}
 
-	.chip > svg:not( [data-size] ) {
+	.chip > svg:not( [data-size] ),
+	.trigger > svg:not( [data-size] ) {
 		flex: none;
 		width: 16px;
 		height: 16px;
+	}
+
+	.chip::after {
+		--image-outline-color: var( --border );
 	}
 }

@@ -44,6 +44,16 @@ function useSettingToggles(): SettingToggles {
 		return {};
 	}
 	return {
+		'hide-frontend-admin-bar': toggle(
+			'hideFrontendAdminBar',
+			preferences.hideFrontendAdminBar,
+			preferences.hideFrontendAdminBar
+				? __( 'Show admin bar by default' )
+				: __( 'Hide admin bar by default' ),
+			preferences.hideFrontendAdminBar
+				? __( 'Admin bar shown by default.' )
+				: __( 'Admin bar hidden by default.' )
+		),
 		'show-recent-chats': toggle(
 			'showRecentChats',
 			showRecentChats,
@@ -85,22 +95,20 @@ function useSettingToggles(): SettingToggles {
 			'openChatOnSiteStart',
 			preferences.openChatOnSiteStart,
 			preferences.openChatOnSiteStart
-				? __( 'Disable starting sites in split view' )
-				: __( 'Enable starting sites in split view' ),
+				? __( 'Hide chat when starting sites' )
+				: __( 'Show chat when starting sites' ),
 			preferences.openChatOnSiteStart
 				? __( 'Sites will start with the panel expanded.' )
-				: __( 'Sites will start in split view.' )
+				: __( 'Sites will start with chat.' )
 		),
-		'usage-statistics': toggle(
-			'analyticsEnabled',
-			preferences.analyticsEnabled,
-			preferences.analyticsEnabled
-				? __( 'Disable anonymous usage statistics' )
-				: __( 'Enable anonymous usage statistics' ),
-			preferences.analyticsEnabled
-				? __( 'Anonymous usage statistics disabled.' )
-				: __( 'Anonymous usage statistics enabled.' )
-		),
+		...( ! preferences.analyticsEnabled && {
+			'usage-statistics': toggle(
+				'analyticsEnabled',
+				false,
+				__( 'Enable anonymous usage statistics' ),
+				__( 'Anonymous usage statistics enabled.' )
+			),
+		} ),
 	};
 }
 

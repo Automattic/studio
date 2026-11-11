@@ -52,7 +52,9 @@ export async function saveSnapshotToConfig(
 	previewUrl: string,
 	userId: number,
 	name: string,
-	shareUrl?: string
+	shareUrl?: string,
+	versionId?: string,
+	liveSiteId?: number
 ): Promise< Snapshot > {
 	const site = await getSiteByFolder( siteFolder );
 	try {
@@ -71,6 +73,9 @@ export async function saveSnapshotToConfig(
 			sequence: nextSequenceNumber,
 			userId,
 			shareUrl,
+			versionId,
+			syncedAt: Date.now(),
+			liveSiteId,
 		};
 
 		// A sync while the preview was being created may already have listed it.
@@ -85,13 +90,15 @@ export async function saveSnapshotToConfig(
 
 /**
  * Attaches a pulled preview to the local site it was pulled into, so updating the preview pushes
- * this site to it. A preview already attached to another local site keeps that link.
+ * this site to it. A preview already attached to another local site keeps that link. Without
+ * `sync`, the pull was partial, so what the two have in common is unknown.
  */
 export async function linkPulledPreview(
 	localSiteId: string,
 	atomicSiteId: number,
 	userId: number,
-	preview: StandingPreview
+	preview: StandingPreview,
+	sync?: { versionId: string; syncedAt: number }
 ): Promise< void > {
 	try {
 		await lockCliConfig();
@@ -109,13 +116,16 @@ export async function linkPulledPreview(
 				userId,
 				shareUrl: preview.shareUrl,
 				expiresAt: preview.expiresAt,
+				liveSiteId: preview.liveSiteId,
 			};
 			config.snapshots.push( snapshot );
 		}
-		if ( snapshot.localSiteId ) {
+		if ( snapshot.localSiteId && snapshot.localSiteId !== localSiteId ) {
 			return;
 		}
 		snapshot.localSiteId = localSiteId;
+		snapshot.versionId = sync?.versionId;
+		snapshot.syncedAt = sync?.syncedAt;
 		await saveCliConfig( config );
 	} finally {
 		await unlockCliConfig();
@@ -125,7 +135,9 @@ export async function linkPulledPreview(
 export async function updateSnapshotInConfig(
 	atomicSiteId: number,
 	siteFolder: string,
-	shareUrl?: string
+	shareUrl?: string,
+	versionId?: string,
+	liveSiteId?: number
 ): Promise< Snapshot > {
 	const site = await getSiteByFolder( siteFolder );
 	try {
@@ -138,6 +150,9 @@ export async function updateSnapshotInConfig(
 
 		snapshot.localSiteId = site.id;
 		snapshot.date = Date.now();
+		snapshot.versionId = versionId;
+		snapshot.syncedAt = snapshot.date;
+		snapshot.liveSiteId = liveSiteId;
 		// The update restarted the server's window; the next sync reports where it now ends.
 		delete snapshot.expiresAt;
 		if ( shareUrl ) {
@@ -234,10 +249,10 @@ export async function setSnapshotInConfig(
 
 /**
  * Brings the user's WordPress.com previews in line with the server: forgets those it no longer has
- * standing (bought, expired or deleted elsewhere), records when the rest expire and the preview link
- * it hands out for each, and lists the ones made elsewhere (another computer or tool), since they
- * count toward the account's limit too. A preview saved after `checkedAt` is left alone, since the
- * server's answer may predate it.
+ * standing (bought, expired or deleted elsewhere), records when the rest expire, the preview link
+ * it hands out for each and the paid site each shows changes to, and lists the ones made elsewhere
+ * (another computer or tool), since they count toward the account's limit too. A preview saved
+ * after `checkedAt` is left alone, since the server's answer may predate it.
  *
  * @param standing The server's standing previews, by site ID.
  */
@@ -263,6 +278,7 @@ export async function reconcilePreviews(
 				return false;
 			}
 			snapshot.expiresAt = preview.expiresAt;
+			snapshot.liveSiteId = preview.liveSiteId;
 			if ( preview.shareUrl ) {
 				snapshot.shareUrl = preview.shareUrl;
 			}
@@ -282,6 +298,7 @@ export async function reconcilePreviews(
 				userId,
 				shareUrl: preview.shareUrl,
 				expiresAt: preview.expiresAt,
+				liveSiteId: preview.liveSiteId,
 			} );
 		}
 		if ( JSON.stringify( config.snapshots ) !== before ) {

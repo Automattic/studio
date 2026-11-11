@@ -17,7 +17,7 @@ beforeEach( () => {
 	process.env.DEV_CONFIG_DIR = configDir;
 	writeFileSync(
 		path.join( configDir, 'app.json' ),
-		JSON.stringify( { preferredEditor: 'vscode', colorScheme: 'dark' } )
+		JSON.stringify( { preferredEditor: 'vscode', colorScheme: 'dark', newSiteBehavior: 'blank' } )
 	);
 } );
 
@@ -85,15 +85,10 @@ it( 'keeps the sidebar preferences, which default to recent chats shown and site
 	} );
 } );
 
-it( 'keeps what Add site opens on, choosing a starting point until set', async () => {
-	const context = { sitesRoot: configDir, installedApps: {} as never };
-	expect( ( await readUserPreferences( context ) ).newSiteBehavior ).toBe( 'choose' );
-
-	await writeUserPreferences( { newSiteBehavior: 'blank' }, { sitesRoot: configDir } );
-	expect( ( await readUserPreferences( context ) ).newSiteBehavior ).toBe( 'blank' );
-
-	await writeUserPreferences( { newSiteBehavior: null }, { sitesRoot: configDir } );
-	expect( ( await readUserPreferences( context ) ).newSiteBehavior ).toBe( 'choose' );
+it( 'ignores the retired Add site opening preference in saved settings and patches', async () => {
+	const preferences = await readUserPreferences( { sitesRoot: configDir } );
+	expect( preferences ).not.toHaveProperty( 'newSiteBehavior' );
+	expect( userPreferencesPatchSchema.parse( { newSiteBehavior: 'blank' } ) ).toEqual( {} );
 } );
 
 it( 'keeps the appearance tint, falling back to the defaults for unset or invalid values', async () => {

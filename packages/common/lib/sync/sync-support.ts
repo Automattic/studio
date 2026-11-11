@@ -14,10 +14,8 @@ function hasSupportedPlan( site: SitesEndpointSite ): boolean {
 	return site.plan?.features.active.includes( STUDIO_SYNC_FEATURE_NAME ) ?? false;
 }
 
-export function hasStudioPublishingPlan( site: SitesEndpointSite ): boolean {
-	return Boolean(
-		site.plan && ! site.plan.expired && ! site.plan.is_free && hasSupportedPlan( site )
-	);
+export function pushNeedsUpgrade( site: SitesEndpointSite ): boolean {
+	return ! hasSupportedPlan( site ) && ! isPressableSite( site );
 }
 
 // Sites hosted outside wp.com and Pressable (e.g. jurassic.ninja).
@@ -47,7 +45,7 @@ export function getSyncSupport(
 	if ( isUnsupported( site ) && ! isPressableSite( site ) ) {
 		return 'unsupported';
 	}
-	if ( planRequired && ! hasSupportedPlan( site ) && ! isPressableSite( site ) ) {
+	if ( planRequired && pushNeedsUpgrade( site ) ) {
 		return 'needs-upgrade';
 	}
 	if ( needsTransfer( site ) && ! isPressableSite( site ) ) {

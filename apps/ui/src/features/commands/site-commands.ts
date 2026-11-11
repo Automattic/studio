@@ -218,7 +218,7 @@ export function getSiteCommands( {
 					{
 						id: 'reload',
 						group: 'commands' as const,
-						label: __( 'Reload preview' ),
+						label: __( 'Reload' ),
 						icon: RotateCwIcon,
 						keywords: [ __( 'Refresh' ) ],
 						run: reloadPreview,
@@ -249,7 +249,7 @@ export function getSiteCommands( {
 		{
 			id: 'publish',
 			group: 'commands',
-			label: __( 'Publish & Sync…' ),
+			label: __( 'Publish' ),
 			icon: SyncIcon,
 			description,
 			keywords: [ __( 'publish site sync push pull upload download' ) ],

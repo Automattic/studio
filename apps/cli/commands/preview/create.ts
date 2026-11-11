@@ -2,19 +2,23 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
-import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
-import { createsPreviewsOnWpcom } from '@studio/common/lib/snapshots';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { type Snapshot } from '@studio/common/types/snapshot';
+import { type SyncSite } from '@studio/common/types/sync';
 import { __, sprintf } from '@wordpress/i18n';
-import { uploadArchive, waitForSiteReady } from 'cli/lib/api';
 import { archiveSiteContent, cleanup } from 'cli/lib/archive';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { countSitePreviews, getNextSnapshotSequence } from 'cli/lib/cli-config/snapshots';
 import { emitCliEvent } from 'cli/lib/daemon-client';
-import { createPreviewSite, type PreviewSite, uploadPreviewArchive } from 'cli/lib/preview-sites';
+import {
+	createPreviewSite,
+	getLivePreviewSite,
+	type PreviewSite,
+	uploadPreviewArchive,
+} from 'cli/lib/preview-sites';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
+import { getSiteVersion } from 'cli/lib/site-versions';
 import { getSnapshotsFromConfig, saveSnapshotToConfig } from 'cli/lib/snapshots';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
@@ -23,6 +27,59 @@ import { validateSiteSize } from 'cli/lib/validation';
 import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
+
+export type ReportPreviewStep = ( action: LoggerAction, message: string, progress: number ) => void;
+
+/**
+ * The WordPress.com steps of making a preview from a local site: validate, archive, upload and
+ * create. Shared by `preview create` and by `preview update` when it moves a Jurassic Ninja preview.
+ */
+export async function createWpcomPreviewSite( {
+	siteId,
+	siteFolder,
+	archivePath,
+	name,
+	accessToken,
+	logger,
+	reportStep,
+	onArchiveBytes,
+}: {
+	siteId: string;
+	siteFolder: string;
+	archivePath: string;
+	name: string;
+	accessToken: string;
+	logger: Logger< LoggerAction >;
+	reportStep: ReportPreviewStep;
+	onArchiveBytes?: ( bytes: number | undefined ) => void;
+} ): Promise< {
+	preview: PreviewSite;
+	archiveBytes: number | undefined;
+	versionId: string;
+	liveSite: SyncSite | undefined;
+} > {
+	await validateSiteSize( siteFolder, { onWpcom: true } );
+
+	reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
+	// The version is taken under the same lock as the archive, so it's what the preview holds.
+	const versionId = await withSiteOperation( siteFolder, 'export', async () => {
+		const version = await getSiteVersion( siteId, siteFolder );
+		await archiveSiteContent( siteFolder, archivePath, { onWpcom: true } );
+		return version;
+	} );
+	const archiveBytes = fs.statSync( archivePath, { throwIfNoEntry: false } )?.size;
+	onArchiveBytes?.( archiveBytes );
+	logger.reportSuccess( __( 'Archive created' ) );
+
+	reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
+	const attachmentId = await uploadPreviewArchive( archivePath, accessToken );
+	logger.reportSuccess( __( 'Archive uploaded' ) );
+
+	reportStep( LoggerAction.READY, __( 'Creating preview site…' ), 60 );
+	const liveSite = await getLivePreviewSite( siteId );
+	const preview = await createPreviewSite( attachmentId, name, accessToken, liveSite?.id );
+	return { preview, archiveBytes, versionId, liveSite };
+}
 
 export async function runCommand(
 	siteFolder: string,
@@ -54,15 +111,6 @@ export async function runCommand(
 		};
 		const token = await requireAuthToken();
 		reportStep( LoggerAction.VALIDATE, __( 'Validating…' ), 0 );
-		const onWpcom = await createsPreviewsOnWpcom( token.accessToken );
-		await validateSiteSize( siteFolder, { onWpcom } );
-
-		reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
-		await withSiteOperation( siteFolder, 'export', () =>
-			archiveSiteContent( siteFolder, archivePath, { onWpcom } )
-		);
-		archiveBytes = fs.statSync( archivePath, { throwIfNoEntry: false } )?.size;
-		logger.reportSuccess( __( 'Archive created' ) );
 
 		let snapshotName = name;
 		if ( ! snapshotName ) {
@@ -76,25 +124,27 @@ export async function runCommand(
 			);
 		}
 
-		reportStep( LoggerAction.UPLOAD, __( 'Uploading archive…' ), 30 );
-		let preview: PreviewSite;
-		if ( onWpcom ) {
-			const attachmentId = await uploadPreviewArchive( archivePath, token.accessToken );
-			logger.reportSuccess( __( 'Archive uploaded' ) );
-
-			reportStep( LoggerAction.READY, __( 'Creating preview site…' ), 60 );
-			preview = await createPreviewSite( attachmentId, snapshotName, token.accessToken );
-		} else {
-			const wordpressVersion = getWordPressVersion( siteFolder );
-			const upload = await uploadArchive( archivePath, token.accessToken, wordpressVersion );
-			logger.reportSuccess( __( 'Archive uploaded' ) );
-
-			reportStep( LoggerAction.READY, __( 'Creating preview site…' ), 60 );
-			await waitForSiteReady( upload.site_id, token.accessToken );
-			preview = { siteId: upload.site_id, hostname: upload.site_url };
-		}
+		const { preview, versionId, liveSite } = await createWpcomPreviewSite( {
+			siteId: site.id,
+			siteFolder,
+			archivePath,
+			name: snapshotName,
+			accessToken: token.accessToken,
+			logger,
+			reportStep,
+			onArchiveBytes: ( bytes ) => ( archiveBytes = bytes ),
+		} );
 		const link = preview.shareUrl ?? `https://${ preview.hostname }`;
 		logger.reportSuccess( sprintf( __( 'Preview site available at: %s' ), link ) );
+		if ( liveSite && preview.liveSiteId === liveSite.id ) {
+			logger.reportSuccess(
+				sprintf(
+					/* translators: %s: Name or URL of the connected WordPress.com site */
+					__( 'Publish to %s to apply these changes.' ),
+					liveSite.name || liveSite.url
+				)
+			);
+		}
 
 		reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );
 		snapshot = await saveSnapshotToConfig(
@@ -103,7 +153,9 @@ export async function runCommand(
 			preview.hostname,
 			token.id,
 			snapshotName,
-			preview.shareUrl
+			preview.shareUrl,
+			versionId,
+			preview.liveSiteId
 		);
 		logger.reportSuccess( __( 'Preview site saved to Studio' ) );
 		await emitCliEvent( { event: SNAPSHOT_EVENTS.CREATED, data: { snapshotUrl: snapshot.url } } );

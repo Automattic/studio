@@ -136,7 +136,8 @@ describe( 'setupCustomDomain', () => {
 	// answer when `proxyServesHttps` is undefined.
 	async function startSiteWithProxyRunning(
 		site: Partial< SiteData >,
-		proxyServesHttps: boolean | undefined
+		proxyServesHttps: boolean | undefined,
+		otherSites: Partial< SiteData >[] = []
 	) {
 		const siteData: SiteData = {
 			id: 'site-1',
@@ -147,6 +148,10 @@ describe( 'setupCustomDomain', () => {
 			customDomain: 'site.local',
 			...site,
 		};
+		( readCliConfig as Mock ).mockResolvedValue( {
+			version: 1,
+			sites: [ siteData, ...otherSites ],
+		} );
 		if ( proxyServesHttps === undefined ) {
 			mockFetch.mockRejectedValue( new Error( 'fetch failed' ) );
 		} else {
@@ -170,29 +175,37 @@ describe( 'setupCustomDomain', () => {
 		vi.unstubAllGlobals();
 	} );
 
-	it( 'should restart a proxy without port 443 for a site that uses HTTPS', async () => {
+	it( 'should restart a proxy without port 443 when a site uses HTTPS', async () => {
 		await startSiteWithProxyRunning( { enableHttps: true }, false );
 
 		expect( stopProxyProcess ).toHaveBeenCalled();
 		expect( startProxyProcess ).toHaveBeenCalled();
 	} );
 
-	it( 'should keep a proxy that already holds port 443', async () => {
-		await startSiteWithProxyRunning( { enableHttps: true }, true );
+	it( 'should restart a proxy holding port 443 when no site uses HTTPS', async () => {
+		await startSiteWithProxyRunning( { enableHttps: false }, true );
 
-		expect( stopProxyProcess ).not.toHaveBeenCalled();
-		expect( startProxyProcess ).not.toHaveBeenCalled();
+		expect( stopProxyProcess ).toHaveBeenCalled();
+		expect( startProxyProcess ).toHaveBeenCalled();
 	} );
 
 	it.each( [ true, false ] )(
-		'should keep the proxy for a site that does not use HTTPS (port 443 held: %s)',
-		async ( proxyServesHttps ) => {
-			await startSiteWithProxyRunning( { enableHttps: false }, proxyServesHttps );
+		'should keep the proxy running when its ports match the sites (HTTPS: %s)',
+		async ( enableHttps ) => {
+			await startSiteWithProxyRunning( { enableHttps }, enableHttps );
 
 			expect( stopProxyProcess ).not.toHaveBeenCalled();
 			expect( startProxyProcess ).not.toHaveBeenCalled();
 		}
 	);
+
+	it( 'should keep port 443 for a site without HTTPS while another site uses HTTPS', async () => {
+		await startSiteWithProxyRunning( { enableHttps: false }, true, [
+			{ id: 'site-2', customDomain: 'other.local', enableHttps: true },
+		] );
+
+		expect( stopProxyProcess ).not.toHaveBeenCalled();
+	} );
 
 	it( 'should keep the proxy running when it does not answer', async () => {
 		await startSiteWithProxyRunning( { enableHttps: true }, undefined );

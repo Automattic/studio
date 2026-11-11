@@ -61,7 +61,8 @@ interface ShotResult {
 	script: string;
 	name: string;
 	description: string;
-	status: 'ok' | 'failed' | 'skipped';
+	// `notRun`: an earlier shot of the script failed, and a script's shots build on each other.
+	status: 'ok' | 'failed' | 'skipped' | 'notRun';
 	files: FileResult[];
 	videos?: VideoResult[];
 	error?: string;
@@ -90,6 +91,7 @@ export interface RunResult {
 		unchanged: number;
 		failed: number;
 		skipped: number;
+		notRun: number;
 		videos: number;
 	};
 }
@@ -304,7 +306,7 @@ export async function runScripts( options: RunOptions ): Promise< RunResult > {
 		} ) ),
 		shots: [],
 		manual,
-		summary: { new: 0, changed: 0, unchanged: 0, failed: 0, skipped: 0, videos: 0 },
+		summary: { new: 0, changed: 0, unchanged: 0, failed: 0, skipped: 0, notRun: 0, videos: 0 },
 	};
 
 	const profiles: Profile[] = [];
@@ -413,6 +415,11 @@ export async function runScripts( options: RunOptions ): Promise< RunResult > {
 					account: signedIn && authToken ? { name: authToken.displayName } : undefined,
 				},
 			};
+			// Stills are taken with reduced motion, so animated backgrounds and scrolling labels
+			// come out the same on every run; a recording keeps the app's motion.
+			if ( options.mode !== 'record' ) {
+				await studio.window.emulateMedia( { reducedMotion: 'reduce' } ).catch( () => {} );
+			}
 			try {
 				try {
 					if ( firstRun ) {
@@ -436,7 +443,7 @@ export async function runScripts( options: RunOptions ): Promise< RunResult > {
 					log( `  FAILED   opening the scene: ${ firstLine( error ) }` );
 					continue;
 				}
-				for ( const shot of script.shots ) {
+				for ( const [ index, shot ] of script.shots.entries() ) {
 					const name = shot.name ?? '';
 					const wanted = ! options.only || options.only.has( name );
 					const shotResult: ShotResult = {
@@ -502,6 +509,28 @@ export async function runScripts( options: RunOptions ): Promise< RunResult > {
 						log(
 							`  Window saved to ${ shotResult.failure }; the rest of this script depends on this step.`
 						);
+						for ( const later of script.shots.slice( index + 1 ) ) {
+							const laterName = later.name ?? '';
+							const laterWanted = ! options.only || options.only.has( laterName );
+							if ( ! laterWanted || options.mode === 'inspect' ) {
+								continue;
+							}
+							const skipped = Boolean( later.desktopOnly && driver === 'browser' );
+							result.shots.push( {
+								script: script.name,
+								name: laterName,
+								description: later.description,
+								status: skipped ? 'skipped' : 'notRun',
+								files: [],
+								meta: later.meta,
+							} );
+							result.summary[ skipped ? 'skipped' : 'notRun' ]++;
+							log(
+								skipped
+									? `  skipped   ${ laterName } (Studio Desktop only)`
+									: `  not run   ${ laterName }`
+							);
+						}
 						break;
 					}
 				}

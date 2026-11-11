@@ -24,6 +24,7 @@ import { canUseExistingCore } from 'cli/lib/pull/local-core';
 import {
 	applySelection,
 	type CliSelectionOptions,
+	parsePullSyncOptions,
 	pullSelectionFromSyncOptions,
 	clearPullSelection,
 	isFullPull,
@@ -74,7 +75,9 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 			verbose,
 			// The app and the agent describe what to pull with `--options`.
 			argv.options
-				? pullSelectionFromSyncOptions( argv.options, argv.only as string[] | undefined )
+				? pullSelectionFromSyncOptions(
+						parsePullSyncOptions( argv.options, argv.only as string[] | undefined )
+				  )
 				: {
 						only: argv.only as string[] | undefined,
 						skipDatabase: argv[ 'skip-database' ] as boolean,

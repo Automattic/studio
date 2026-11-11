@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	applySelection,
 	isFullPull,
+	parsePullSyncOptions,
 	pullSelectionFromSyncOptions,
 } from 'cli/lib/pull/pull-selection';
 import { emptyReprintMetadata } from 'cli/lib/pull/reprint-metadata';
@@ -34,6 +35,7 @@ describe( 'pullSelectionFromSyncOptions', () => {
 			undefined,
 			{ only: [ 'themes' ], skipDatabase: false },
 		],
+		[ 'the uploads', [ 'uploads' ], undefined, { only: [ ':wp-uploads:' ], skipDatabase: true } ],
 		[
 			'picked files',
 			[ 'paths' ],
@@ -42,11 +44,13 @@ describe( 'pullSelectionFromSyncOptions', () => {
 		],
 		[ 'only the database, picked', [ 'sqls' ], [], { skipFiles: true } ],
 	] )( 'pulls %s', ( _, options, only, expected ) => {
-		expect( pullSelectionFromSyncOptions( options, only ) ).toEqual( expected );
+		expect( pullSelectionFromSyncOptions( parsePullSyncOptions( options, only ) ) ).toEqual(
+			expected
+		);
 	} );
 
 	it( 'rejects the paths option without paths', () => {
-		expect( () => pullSelectionFromSyncOptions( [ 'paths', 'sqls' ] ) ).toThrow( '--only' );
+		expect( () => parsePullSyncOptions( [ 'paths', 'sqls' ] ) ).toThrow( '--only' );
 	} );
 } );
 

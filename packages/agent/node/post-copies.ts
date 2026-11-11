@@ -33,6 +33,7 @@ import {
 	GLOBAL_STYLES,
 	describeSavedGlobalStyles,
 	saveResolvedGlobalStyles,
+	stateResolvedStyles,
 	themeGlobalStyles,
 } from '@studio/agent/node/global-styles';
 import { readWordPressSite } from '@studio/agent/node/site-database';
@@ -519,6 +520,9 @@ export const postCopies: SiteChangeSource = {
 			const saved = await readWordPressSite( site.path, ( wp ) =>
 				readPosts( wp ).find( ( post ) => String( post.id ) === id )
 			);
+			if ( type === GLOBAL_STYLES && saved ) {
+				stateResolvedStyles( site.path, saved.version );
+			}
 			manifest[ id ] = { type, post: saved?.version ?? postVersion, file: copyHash ?? '' };
 			next[ id ] = `${ type } ${ manifest[ id ].post } ${ copyHash }`;
 			reports.push( {

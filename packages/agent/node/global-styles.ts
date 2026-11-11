@@ -177,6 +177,13 @@ export interface SavedGlobalStyles {
 	dropped?: string[];
 }
 
+// The style paths `$data`, a decoded Global Styles JSON, held that WordPress
+// dropped from the user's styles it applies (WP_Theme_JSON::sanitize()).
+const droppedPhp = (
+	data: string
+) => `$kept = $style_paths( WP_Theme_JSON_Resolver::get_user_data()->get_raw_data()['styles'] ?? array(), array( 'styles' ) );
+$dropped = array_values( array_diff( is_array( ${ data }['styles'] ?? null ) ? $style_paths( ${ data }['styles'], array( 'styles' ) ) : array(), $kept ) );`;
+
 const savePhp = ( post: string, data: string, resolve: boolean ) => `$data = ${ data };
 if ( ! is_array( $data ) ) { echo wp_json_encode( array( 'refused' => 'it is not a JSON object' ) ); return; }
 ${ resolve ? RESOLVED_STYLES + STYLE_PATHS + '$before = $studio_styles();' : '' }
@@ -189,8 +196,7 @@ ${
 	resolve
 		? `wp_clean_theme_json_cache();
 $after = $studio_styles();
-$kept = $style_paths( WP_Theme_JSON_Resolver::get_user_data()->get_raw_data()['styles'] ?? array(), array( 'styles' ) );
-$dropped = array_values( array_diff( is_array( $data['styles'] ?? null ) ? $style_paths( $data['styles'], array( 'styles' ) ) : array(), $kept ) );
+${ droppedPhp( '$data' ) }
 echo wp_json_encode( array( 'before' => $before, 'after' => $after, 'dropped' => $dropped ) );`
 		: "echo wp_json_encode( array( 'refused' => null ) );"
 }`;
@@ -229,6 +235,45 @@ export async function saveResolvedGlobalStyles(
 	data: string
 ): Promise< SavedGlobalStyles > {
 	return wpEvalJson< SavedGlobalStyles >( host, site, savePhp( post, data, true ) );
+}
+
+// What WordPress resolves the site's styles to now, and what of the Global
+// Styles post it reads it dropped; none when WordPress ignores the post, as
+// one without the flag.
+const RESOLVE_PHP = `${ RESOLVED_STYLES }${ STYLE_PATHS }
+$after = $studio_styles();
+$saved = json_decode( (string) ( WP_Theme_JSON_Resolver::get_user_data_from_wp_global_styles( wp_get_theme() )['post_content'] ?? '' ), true );
+$dropped = array();
+if ( is_array( $saved ) && ! empty( $saved['isGlobalStylesUserThemeJSON'] ) ) {
+	${ droppedPhp( '$saved' ) }
+}
+echo wp_json_encode( array( 'after' => $after, 'dropped' => $dropped ) );`;
+
+/**
+ * What WordPress resolves the site's styles to now, as saveResolvedGlobalStyles()
+ * returns after a save, with no state before it.
+ */
+export async function resolveGlobalStyles(
+	host: StudioAgentHost,
+	site: HostSite
+): Promise< SavedGlobalStyles > {
+	return wpEvalJson< SavedGlobalStyles >( host, site, RESOLVE_PHP );
+}
+
+// The Global Styles post versions, by site, whose resolved styles a save stated,
+// so a check of the same call does not state them again.
+const stated = new Map< string, string >();
+
+/** A save stated what WordPress resolves the styles to, with the theme's post at `version`. */
+export function stateResolvedStyles( sitePath: string, version: string ): void {
+	stated.set( sitePath, version );
+}
+
+/** Whether a save stated the resolved styles with the theme's post at `version`; asked once. */
+export function resolvedStylesStated( sitePath: string, version: string ): boolean {
+	const was = stated.get( sitePath );
+	stated.delete( sitePath );
+	return was === version;
 }
 
 // The resolved styles, each part as the stylesheet sets it.
@@ -308,10 +353,13 @@ export function describeSavedGlobalStyles( saved: SavedGlobalStyles ): {
 				.map( ( part ) => `${ part.label } ${ part.now }` )
 				.join(
 					'; '
-				) } (wp_get_global_styles() and wp_get_global_settings() in wp-includes/global-styles-and-settings.php). ${
-				changed.length
-					? `This save changed: ${ changed.join( ', ' ) }.`
-					: 'This save changed none of these.'
+				) } (wp_get_global_styles() and wp_get_global_settings() in wp-includes/global-styles-and-settings.php).${
+				// What a save changed is known only from the styles before it.
+				! before
+					? ''
+					: changed.length
+					? ` This save changed: ${ changed.join( ', ' ) }.`
+					: ' This save changed none of these.'
 		  }`
 		: undefined;
 	const problems = [

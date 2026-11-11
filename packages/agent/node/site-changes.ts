@@ -22,6 +22,7 @@ import { navigationRefs } from '@studio/agent/node/navigation-refs';
 import { postContentChanges } from '@studio/agent/node/post-content-check';
 import { postCopies } from '@studio/agent/node/post-copies';
 import { renamedSlugs } from '@studio/agent/node/renamed-slugs';
+import { resolvedStyles } from '@studio/agent/node/resolved-styles';
 import { sectionLinks } from '@studio/agent/node/section-links';
 import { siteFileWrites } from '@studio/agent/node/site-file-writes';
 import { siteSettingsCopy } from '@studio/agent/node/site-settings-copy';
@@ -98,6 +99,8 @@ const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	blockScriptAssets,
 	// Before the posts, so a copy saved to its post is checked as the post.
 	postCopies,
+	// After the checks that save Global Styles, so it states the styles they leave.
+	resolvedStyles,
 	// After the posts, so a page a new copy published can be the homepage.
 	siteSettingsCopy,
 	postContentChanges,

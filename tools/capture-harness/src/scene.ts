@@ -35,7 +35,7 @@ export interface LoadedScene {
 	files?: string;
 }
 
-export function slugify( label: string ) {
+function slugify( label: string ) {
 	return label
 		.toLowerCase()
 		.trim()

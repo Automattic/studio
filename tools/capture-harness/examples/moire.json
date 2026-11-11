@@ -14,7 +14,7 @@
 	"shots": [
 		{
 			"name": "workspace-chat",
-			"description": "The main window with Wren & Barley pinned and a conversation polishing its home page",
+			"description": "The main window with Moire pinned and a conversation polishing its home page",
 			"steps": [
 				{
 					"waitFor": {
@@ -258,9 +258,14 @@
 				{
 					"click": {
 						"role": "button",
-						"name": "Settings",
-						"exact": true,
-						"first": true
+						"name": "{{account.name}}",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "menuitem",
+						"pattern": "^Settings"
 					}
 				},
 				{
@@ -306,12 +311,12 @@
 		},
 		{
 			"name": "responsive-phone",
-			"description": "Responsive mode: the device menu open, with Responsive and the device sizes",
+			"description": "The device toolbar at a phone size (iPhone 17), above the preview",
 			"steps": [
 				{
 					"click": {
 						"role": "button",
-						"name": "Close chat",
+						"name": "Expand panel",
 						"exact": true
 					}
 				},
@@ -319,16 +324,16 @@
 					"wait": 800
 				},
 				{
-					"hover": {
-						"role": "textbox",
-						"name": "Address"
+					"click": {
+						"role": "button",
+						"name": "Browser options",
+						"exact": true
 					}
 				},
 				{
 					"click": {
-						"role": "button",
-						"name": "Responsive mode",
-						"exact": true
+						"role": "menuitem",
+						"name": "Show device toolbar"
 					}
 				},
 				{
@@ -351,13 +356,13 @@
 				{
 					"waitFor": {
 						"role": "menuitemradio",
-						"name": "iPhone 17 ·"
+						"pattern": "^iPhone 17\\s*402"
 					}
 				},
 				{
 					"click": {
 						"role": "menuitemradio",
-						"name": "iPhone 17 ·"
+						"pattern": "^iPhone 17\\s*402"
 					}
 				},
 				{
@@ -371,7 +376,7 @@
 				{
 					"click": {
 						"role": "button",
-						"name": "Exit responsive mode"
+						"name": "Hide device toolbar"
 					}
 				},
 				{
@@ -384,7 +389,7 @@
 				{
 					"click": {
 						"role": "button",
-						"name": "Open chat",
+						"name": "Show chat",
 						"exact": true
 					}
 				},
@@ -395,19 +400,14 @@
 		},
 		{
 			"name": "annotate-toolbar",
-			"description": "Annotate: the Annotations toolbar over the site preview, with Cancel and Send",
+			"description": "Annotate turned on above the site preview, before any note",
+			"desktopOnly": true,
 			"steps": [
 				{
 					"click": {
 						"role": "button",
 						"name": "Annotate",
 						"exact": true
-					}
-				},
-				{
-					"waitFor": {
-						"role": "toolbar",
-						"name": "Annotations"
 					}
 				},
 				{
@@ -418,6 +418,7 @@
 		{
 			"name": "annotate-note",
 			"description": "Annotate: two saved notes on the page, and a third open on the hero photo, being typed",
+			"desktopOnly": true,
 			"steps": [
 				{
 					"helper": "clickInPreview",
@@ -494,8 +495,20 @@
 		},
 		{
 			"name": "annotate-staged",
-			"description": "Annotate: two saved notes marked on the page and waiting in the chat box as \"2 annotations\", with Send in the Annotations toolbar",
-			"steps": [],
+			"description": "Annotate: two saved notes marked on the page and waiting in the chat box as \"2 annotations\"",
+			"desktopOnly": true,
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Delete annotation",
+						"exact": true
+					}
+				},
+				{
+					"wait": 600
+				}
+			],
 			"capture": {
 				"settle": 1200
 			},

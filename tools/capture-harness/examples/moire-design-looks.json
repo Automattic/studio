@@ -8,7 +8,7 @@
 	"shots": [
 		{
 			"name": "design-looks",
-			"description": "A new blank site's first chat asking for a bakery called Wren & Barley, and Studio Code's pick of four looks (design-looks/), Wren & Barley's among them",
+			"description": "A new blank site's first chat asking for a slow-fashion journal called Moire, and Studio Code's pick of four looks (design-looks/), Moire's own among them",
 			"steps": [
 				{
 					"waitFor": {
@@ -39,7 +39,7 @@
 							"name": "Ways to add a site"
 						},
 						"role": "tab",
-						"name": "Create",
+						"name": "New",
 						"exact": true
 					}
 				},
@@ -59,8 +59,15 @@
 				},
 				{
 					"click": {
+						"within": {
+							"role": "dialog",
+							"has": {
+								"role": "textbox",
+								"name": "Site name"
+							}
+						},
 						"role": "button",
-						"name": "Create site",
+						"name": "Add site",
 						"exact": true
 					}
 				},
@@ -102,7 +109,7 @@
 				{
 					"helper": "dragSeparator",
 					"args": [
-						"Resize site preview",
+						"Resize panel",
 						260
 					]
 				},

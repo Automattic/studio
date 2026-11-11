@@ -4,7 +4,7 @@ Screenshots and recordings of the Studio app, made reproducibly from three swapp
 
 | Input | What it holds | Bundled |
 | --- | --- | --- |
-| **Scene** | The sites Studio opens on (from a backup or a Blueprint), the made-up WordPress.com account data, recorded chats and agent turns | `scenes/wren-and-barley/`, `scenes/moire/` |
+| **Scene** | The sites Studio opens on (from a backup or a Blueprint), the made-up WordPress.com account data, recorded chats and agent turns | `scenes/moire/` |
 | **Script** | The shots: the steps that reach each screen, the crop, the annotations | `examples/`, and the docs' in `docs/user/screenshots/shots/` |
 | **Look** | Window size, scale, color scheme, annotation colors, frame and output sizes, video settings | `looks/`: `plain` (the default), `docs`, `docs-dark`, `blog`, `marketing`, `marketing-dark`, `social`, `social-dark` |
 
@@ -67,9 +67,9 @@ studio-capture list <script|dir>…
 studio-capture schemas [--check]
 ```
 
-Common options: `--driver electron|browser` picks the front end (see **Drivers**), `--suite <a,b>` runs only those scripts, `--only <a,b>` keeps only those shots (the steps of the shots before them still run), `--json` prints the results as JSON on stdout (progress goes to stderr), `--keep-profile` keeps the throwaway profiles to look at afterwards. `--signed-in` captures any script signed in, as the demo person `--persona` names: a signed-in variant of a signed-out shot. `--chat <name>` opens any script on one of the scene's chats, for a variant with a conversation beside the screen (Wren & Barley has `wren-and-barley-homepage` and `wren-and-barley-design-system`). `open` starts Studio Desktop on a scene as a capture would (the scene's sites, signed in as the demo person, all the scene's chats in the sidebar, the look's window size and color scheme) and leaves it to you, for recording a video by hand or trying things out; it cleans up when you close the window. It's the same throwaway profile, so your own Studio is untouched, and the same guards apply: nothing publishes, logs out or buys anything, and sending a message doesn't start the agent. A failed shot stops its script; the window at that moment is saved under `<out>/failures/`. A shot also fails when the window shows a could-not-load message (the Blueprints list without internet, say) instead of saving it. The exit code is non-zero when a shot fails, and in `check` when any shot changed.
+Common options: `--driver electron|browser` picks the front end (see **Drivers**), `--suite <a,b>` runs only those scripts, `--only <a,b>` keeps only those shots (the steps of the shots before them still run), `--json` prints the results as JSON on stdout (progress goes to stderr), `--keep-profile` keeps the throwaway profiles to look at afterwards. `--signed-in` captures any script signed in, as the demo person `--persona` names: a signed-in variant of a signed-out shot. `--chat <name>` opens any script on one of the scene's chats, for a variant with a conversation beside the screen (Moire has `moire-home`, `moire-lookbook` and others in `scenes/moire/chats/`). `open` starts Studio Desktop on a scene as a capture would (the scene's sites, signed in as the demo person, all the scene's chats in the sidebar, the look's window size and color scheme) and leaves it to you, for recording a video by hand or trying things out; it cleans up when you close the window. It's the same throwaway profile, so your own Studio is untouched, and the same guards apply: nothing publishes, logs out or buys anything, and sending a message doesn't start the agent. A failed shot stops its script; the window at that moment is saved under `<out>/failures/`. A shot also fails when the window shows a could-not-load message (the Blueprints list without internet, say) instead of saving it. The exit code is non-zero when a shot fails, and in `check` when any shot changed.
 
-A scene or look named without a path (`wren-and-barley`, `marketing`) is a bundled one; anything else is a file. Precedence: `--scene`/`--look` on the command line, then the script's own `scene`/`look`, then `wren-and-barley` and `plain`.
+A scene or look named without a path (`moire`, `marketing`) is a bundled one; anything else is a file. Precedence: `--scene`/`--look` on the command line, then the script's own `scene`/`look`, then `moire` and `plain`.
 
 ### Examples
 
@@ -95,7 +95,7 @@ studio-capture check docs/user/screenshots/shots --out docs/user/screenshots/ima
 	"name": "my-shop",
 	"sites": [
 		{ "name": "Rich's Shop", "blueprint": "https://example.com/shop-blueprint.json" },
-		{ "name": "Wren & Barley", "import": "../wren-and-barley/wren-and-barley.zip", "design": "../wren-and-barley/source/DESIGN.md" },
+		{ "name": "Old Site", "import": "backups/old-site.zip", "design": "backups/DESIGN.md" },
 		{ "name": "Ada Portfolio" }
 	],
 	"account": { "aiQuota": "ai-quota.json" }
@@ -117,7 +117,7 @@ The rest of a scene answers for a signed-in account and fills the app with histo
 
 ### Moire
 
-`scenes/moire/` is a slow-fashion journal from Rich's Moire Blueprint (`blueprint/`: the Moire theme in its Dia yellow and brown palette, posts, images and a setup script, all bundled, so it builds offline), with the same two blank sites below it, Moire chats (`chats/`), and its own design picker turn: four looks drawn from the Blueprint's photos (`design-looks/`, redrawn with `npm -w @studio/capture-harness run moire:looks`). Bake it once on a machine, then capture with `--scene moire`:
+`scenes/moire/`, the bundled scene and the default, is a slow-fashion journal from Rich's Moire Blueprint (`blueprint/`: the Moire theme in its Dia yellow and brown palette, posts, images and a setup script, all bundled, so it builds offline), with two blank sites below it (Bistro Lune and Ada Portfolio), Moire chats (`chats/`), and its own design picker turn: four looks drawn from the Blueprint's photos (`design-looks/`, redrawn with `npm -w @studio/capture-harness run moire:looks`). Bake it once on a machine; captures use the baked copy from then on:
 
 ```sh
 npx studio-capture bake --scene moire
@@ -126,12 +126,6 @@ npx studio-capture capture examples/moire-design-looks.json --look marketing-dar
 ```
 
 `examples/moire.json` is the main set (the workspace mid-chat, the model menu from the window's corner, the command palette, Share and Publish, Appearance, phone width and Annotate) with Moire's own chat and Annotate targets; scripts written for another scene click things only that scene has. The same goes for any other Blueprint: a scene beside these with its Blueprint, chats and account data, baked once.
-
-### Wren & Barley
-
-The bundled scene is a small bakery-and-café site on a Twenty Twenty-Five child theme: a photo-first front page, Menu, Our story, Visit us and Order pages, three posts with featured images, and its own header, footer and journal templates; then two blank sites, Bistro Lune and Ada Portfolio. Its source is `scenes/wren-and-barley/source/`: `theme/` is the child theme (its `theme.json` holds the palette, Literata type and flat square buttons), `DESIGN.md` is the design system Studio Code would have written for it (the site preview's **Design system** view shows it), `images.json` lists the photos (all CC0, from Wikimedia Commons, with their authors) and `content/` holds the block markup, with `{{url:name}}`, `{{id:name}}` and `{{alt:name}}` placeholders for the photos. Keep `DESIGN.md` and `theme/theme.json` in step: the Design system view lists every color, font and size where they differ.
-
-After editing the source, `npm -w @studio/capture-harness run wren-and-barley:build` rebuilds `wren-and-barley.zip` (database, uploads and the child theme; about 7 MB) in a throwaway profile. It needs the internet for the photos the first time, then keeps them in `source/.cache/`. `wren-and-barley:looks` redraws the four design boards in `design-looks/` (listed in `looks.json`) with the agent's own `renderDesignBoard`, for the design picker that `agent-turns/design-looks.json` plays.
 
 ## Scripts
 

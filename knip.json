@@ -52,7 +52,7 @@
 			"project": "**/*.ts"
 		},
 		"tools/capture-harness": {
-			"entry": ["scenes/*/build-*.ts", "src/tests/*.test.ts"],
+			"entry": ["src/tests/*.test.ts"],
 			"project": "**/*.ts"
 		},
 		"tools/eslint-plugin-studio": {

@@ -33,7 +33,8 @@
 			"name": "settings-appearance",
 			"description": "Settings → Appearance: theme, color, intensity and contrast over the site",
 			"steps": [
-				{ "click": { "role": "button", "name": "Settings", "exact": true, "first": true } },
+				{ "helper": "openSiteMenu" },
+				{ "click": { "role": "menuitem", "name": "Settings", "exact": true } },
 				{ "waitFor": { "role": "tablist", "name": "Settings scope" } },
 				{
 					"click": {

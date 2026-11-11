@@ -7,13 +7,12 @@
  * `stubAgentRuns` / `playAgentTurn` helpers), so no model runs. Run it after
  * editing a look:
  *
- *   npm -w @studio/capture-harness run wren-and-barley:looks
  *   npm -w @studio/capture-harness run moire:looks
  *
  * A look's `image` is a file inside one of the scene's zips, as `<zip>:<file>`
  * (`blueprint/uploads.zip:2026/10/wool.jpg`, so a photo the site already ships
- * isn't committed twice), or the name of a photo in the scene's `source/.cache/`
- * (Wren & Barley's, which `wren-and-barley:build` fills). The boards load their fonts from Google Fonts.
+ * isn't committed twice), or the name of a photo in the scene's `source/.cache/`.
+ * The boards load their fonts from Google Fonts.
  */
 import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -26,7 +25,7 @@ import { extractZip } from '../../../packages/common/lib/extract-zip.ts';
 import { REPO_ROOT, readJson } from './paths.ts';
 
 const SCENE_DIR = path.resolve(
-	process.argv[ 2 ] ?? path.join( import.meta.dirname, '../scenes/wren-and-barley' )
+	process.argv[ 2 ] ?? path.join( import.meta.dirname, '../scenes/moire' )
 );
 const LOOKS_DIR = path.join( SCENE_DIR, 'design-looks' );
 const PHOTOS_DIR = path.join( SCENE_DIR, 'source', '.cache' );

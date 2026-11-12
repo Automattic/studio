@@ -6,6 +6,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '@/app';
 import { applyUserPreferences } from '@/app/apply-user-preferences';
+import { onCaughtError, setupBrowserErrorReporting } from '@/app/error-reporting';
 import { loadStartupRouter } from '@/app/load-startup-router';
 import { StartupScreen } from '@/app/startup-screen';
 import { toast } from '@/data/app-messages';
@@ -15,8 +16,10 @@ import { completeRedirectSignIn, createStaticConnector } from '@/data/core/conne
 // Static entry point, for a deployment with no Studio server: wires the `static`
 // connector, which runs sites in WordPress Playground.
 
+setupBrowserErrorReporting( 'web' );
+
 async function bootstrap() {
-	const root = createRoot( document.getElementById( 'root' )! );
+	const root = createRoot( document.getElementById( 'root' )!, { onCaughtError } );
 	root.render( <StartupScreen /> );
 
 	// WordPress.com sign-in comes back to /auth/callback, then to the page it

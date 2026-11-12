@@ -1,20 +1,21 @@
 import { connectProvider, readSelectedAiProvider } from '@studio/common/lib/ai-settings';
-import { readProviderConfig } from '@studio/common/lib/provider-config';
+import { readFreshProviderConfig, readProviderConfig } from '@studio/common/lib/provider-config';
 import { getStudioUserAgent as buildStudioUserAgent } from '@studio/common/lib/user-agent';
 import {
 	DEFAULT_PROVIDER_ID,
 	getConnectFields,
 	getProviderDescriptor,
 	InvalidCredentialError,
-	PROVIDER_IDS,
+	AI_PROVIDER_IDS,
 	ProviderNotReadyError,
 	type AiConnection,
 	type AiModelId,
 	type ProviderConfigs,
-	type ProviderId,
+	type AiProviderId,
 } from '@studio/providers';
 import { getProvider } from '@studio/providers/services';
 import { __, sprintf } from '@wordpress/i18n';
+import { openBrowser } from 'cli/lib/browser';
 import { input, password } from 'cli/lib/prompts';
 import { LoggerError } from 'cli/logger';
 import type { ImageGenerator } from '@studio/agent/node';
@@ -30,7 +31,7 @@ function readInlineWpcomToken(): string | undefined {
 }
 
 // `STUDIO_WPCOM_TOKEN` stands in for the Studio sign-in.
-async function readCliProviderConfig< Id extends ProviderId >(
+async function readCliProviderConfig< Id extends AiProviderId >(
 	provider: Id
 ): Promise< ProviderConfigs[ Id ] | undefined > {
 	const inlineToken = provider === 'wpcom' ? readInlineWpcomToken() : undefined;
@@ -39,14 +40,23 @@ async function readCliProviderConfig< Id extends ProviderId >(
 		: readProviderConfig( provider );
 }
 
-export async function isAiProviderReady( provider: ProviderId ): Promise< boolean > {
+// The config to make requests with, renewed first when its credential is about to expire.
+async function readUsableProviderConfig< Id extends AiProviderId >(
+	provider: Id
+): Promise< ProviderConfigs[ Id ] | undefined > {
+	return provider === 'wpcom'
+		? readCliProviderConfig( provider )
+		: readFreshProviderConfig( getProvider( provider ) );
+}
+
+export async function isAiProviderReady( provider: AiProviderId ): Promise< boolean > {
 	return ( await readCliProviderConfig( provider ) ) !== undefined;
 }
 
 async function getPreferredReadyProvider(
-	exclude?: ProviderId
-): Promise< ProviderId | undefined > {
-	for ( const provider of PROVIDER_IDS ) {
+	exclude?: AiProviderId
+): Promise< AiProviderId | undefined > {
+	for ( const provider of AI_PROVIDER_IDS ) {
 		if ( provider !== exclude && ( await isAiProviderReady( provider ) ) ) {
 			return provider;
 		}
@@ -54,20 +64,20 @@ async function getPreferredReadyProvider(
 	return undefined;
 }
 
-function fallsBackWhenNotReady( provider: ProviderId ): boolean {
+function fallsBackWhenNotReady( provider: AiProviderId ): boolean {
 	return getProvider( provider ).ai?.fallbackWhenNotReady ?? false;
 }
 
 export async function resolveUnavailableAiProvider(
-	provider: ProviderId
-): Promise< ProviderId | undefined > {
+	provider: AiProviderId
+): Promise< AiProviderId | undefined > {
 	if ( ( await isAiProviderReady( provider ) ) || ! fallsBackWhenNotReady( provider ) ) {
 		return undefined;
 	}
 	return getPreferredReadyProvider( provider );
 }
 
-export async function resolveInitialAiProvider(): Promise< ProviderId > {
+export async function resolveInitialAiProvider(): Promise< AiProviderId > {
 	if ( readInlineWpcomToken() ) {
 		return 'wpcom';
 	}
@@ -88,7 +98,7 @@ export async function resolveInitialAiProvider(): Promise< ProviderId > {
 
 // Asks for the fields of a provider that connects with a form. The provider
 // checks the values once the last one is entered, and a rejection asks again.
-async function promptForConnection( provider: ProviderId ): Promise< void > {
+async function promptForConnection( provider: AiProviderId ): Promise< void > {
 	const fields = getConnectFields( provider );
 	const values: Record< string, string > = {};
 	for ( const [ index, field ] of fields.entries() ) {
@@ -119,9 +129,46 @@ async function promptForConnection( provider: ProviderId ): Promise< void > {
 	}
 }
 
+// Signs in in the browser, which comes back to this computer. Over SSH it
+// can't, so the user pastes the address the browser lands on instead.
+async function signInInBrowser( provider: AiProviderId ): Promise< void > {
+	const pasting = new AbortController();
+	try {
+		await connectProvider(
+			getProvider( provider ),
+			{},
+			{
+				openUrl: async ( url ) => {
+					console.log(
+						sprintf(
+							/* translators: %s: a sign-in address */
+							__( 'Sign in at %s' ),
+							url
+						)
+					);
+					await openBrowser( url ).catch( () => undefined );
+				},
+				pasteUrl: () =>
+					input(
+						{
+							message: __(
+								'Waiting for the browser. If it can’t reach this computer, paste the address it ends on:'
+							),
+						},
+						{ signal: pasting.signal }
+					),
+			}
+		);
+	} catch ( error ) {
+		throw error instanceof InvalidCredentialError ? new LoggerError( error.message ) : error;
+	} finally {
+		pasting.abort();
+	}
+}
+
 // Asks for what the provider needs before it is selected.
 export async function prepareAiProvider(
-	provider: ProviderId,
+	provider: AiProviderId,
 	options?: { force?: boolean }
 ): Promise< void > {
 	const ready = await isAiProviderReady( provider );
@@ -131,12 +178,18 @@ export async function prepareAiProvider(
 		}
 		return;
 	}
+	if ( getProviderDescriptor( provider ).connection.kind === 'loopback' ) {
+		if ( options?.force || ! ready ) {
+			await signInInBrowser( provider );
+		}
+		return;
+	}
 	if ( ! ready ) {
 		throw new LoggerError( __( 'WordPress.com login required. Use /login to authenticate.' ) );
 	}
 }
 
-async function connect< Id extends ProviderId >(
+async function connect< Id extends AiProviderId >(
 	provider: Id,
 	model: AiModelId,
 	options: { sessionId?: string }
@@ -145,12 +198,11 @@ async function connect< Id extends ProviderId >(
 	if ( ! ai ) {
 		throw new LoggerError( `${ getProviderDescriptor( provider ).label } offers no AI models.` );
 	}
-	const config = await readCliProviderConfig( provider );
-	return ai.connect( config, model, options );
+	return ai.connect( await readUsableProviderConfig( provider ), model, options );
 }
 
 export async function resolveAiConnection(
-	provider: ProviderId,
+	provider: AiProviderId,
 	model: AiModelId,
 	options: { sessionId?: string } = {}
 ): Promise< AiConnection > {
@@ -164,21 +216,26 @@ export async function resolveAiConnection(
 	}
 }
 
-async function bindImageGenerator< Id extends ProviderId >(
+async function bindImageGenerator< Id extends AiProviderId >(
 	provider: Id
 ): Promise< ImageGenerator | undefined > {
 	const generateImages = getProvider( provider ).ai?.generateImages;
-	const config = generateImages && ( await readCliProviderConfig( provider ) );
+	const config = generateImages && ( await readUsableProviderConfig( provider ) );
 	if ( ! generateImages || ! config ) {
 		return undefined;
 	}
 	return ( requests, onResult ) => generateImages( config, requests, onResult );
 }
 
-// Image generation from the first connected provider that offers it, whichever
-// provider serves the chat.
-export async function resolveImageGenerator(): Promise< ImageGenerator | undefined > {
-	for ( const provider of PROVIDER_IDS ) {
+// Image generation from the chat's provider when it offers it, otherwise from the
+// first connected provider that does.
+export async function resolveImageGenerator(
+	chatProvider?: AiProviderId
+): Promise< ImageGenerator | undefined > {
+	const providers = chatProvider
+		? [ chatProvider, ...AI_PROVIDER_IDS.filter( ( id ) => id !== chatProvider ) ]
+		: AI_PROVIDER_IDS;
+	for ( const provider of providers ) {
 		const generator = await bindImageGenerator( provider );
 		if ( generator ) {
 			return generator;

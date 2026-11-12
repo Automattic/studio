@@ -581,7 +581,7 @@ describe( 'App initialization', () => {
 		await vi.waitFor( () => expect( app.quit ).toHaveBeenCalled() );
 		expect( event.preventDefault ).toHaveBeenCalled();
 		await mockedEvents[ 'will-quit' ]( { preventDefault: vi.fn() } );
-		await vi.waitFor( () => expect( app.exit ).toHaveBeenCalled() );
+		await vi.waitFor( () => expect( app.quit ).toHaveBeenCalledTimes( 2 ) );
 
 		return {
 			dialog,
@@ -621,7 +621,7 @@ describe( 'App initialization', () => {
 		expect( stopAllServers ).not.toHaveBeenCalled();
 	} );
 
-	it( 'runs the quit cleanup once when will-quit fires again during it', async () => {
+	it( 'runs the quit cleanup once, then lets the quit through', async () => {
 		let finishStop = () => {};
 		vi.doMock( 'src/lib/sites', () => ( {
 			getSites: vi.fn().mockResolvedValue( [ { id: 'running-site', running: true } ] ),
@@ -645,10 +645,14 @@ describe( 'App initialization', () => {
 		expect( secondEvent.preventDefault ).toHaveBeenCalled();
 		expect( stopCliCommands ).toHaveBeenCalledTimes( 1 );
 		expect( stopAllServers ).toHaveBeenCalledTimes( 1 );
-		expect( app.exit ).not.toHaveBeenCalled();
+		expect( app.quit ).not.toHaveBeenCalled();
 
 		finishStop();
-		await vi.waitFor( () => expect( app.exit ).toHaveBeenCalledTimes( 1 ) );
+		await vi.waitFor( () => expect( app.quit ).toHaveBeenCalledTimes( 1 ) );
+		// So Sentry's own `will-quit` handler ends the session.
+		const finalEvent = { preventDefault: vi.fn() };
+		await mockedEvents[ 'will-quit' ]( finalEvent );
+		expect( finalEvent.preventDefault ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should wait app initialization before creating main window via second-instance event', async () => {

@@ -1,7 +1,9 @@
 import {
 	getConnectFields,
 	getProviderDescriptor,
-	PROVIDER_IDS,
+	AI_PROVIDER_IDS,
+	normalizeAiProviderId,
+	type AiProviderId,
 	type ProviderId,
 } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
@@ -11,10 +13,12 @@ import { useConnector } from '@/data/core';
 import {
 	useAiSettings,
 	useConnectProvider,
+	useSignIn,
 	useDisconnectProvider,
 	useSetAiProvider,
 } from '@/data/queries/use-ai-settings';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
+import { usePublishProviders } from '@/data/queries/use-remote-sites';
 import { LearnMoreLink } from '@/features/onboarding';
 import { useOffline } from '@/lib/hooks';
 import { Button, Input } from '@/lib/ui';
@@ -22,7 +26,7 @@ import { connectedBadge, SettingsGroup, SettingsRow, SettingsSelect } from './ro
 import styles from './style.module.css';
 
 // A provider that connects with a form: the form comes from its descriptor.
-function ProviderFormRow( { provider }: { provider: ProviderId } ) {
+function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 	const settings = useAiSettings();
 	const connect = useConnectProvider( provider );
 	const disconnect = useDisconnectProvider( provider );
@@ -159,7 +163,14 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 	const setProvider = useSetAiProvider();
 	const isOffline = useOffline();
 	const [ wpcomRequested, setWpcomRequested ] = useState( false );
-	const connected = PROVIDER_IDS.filter( ( id ) => settings.data?.accounts[ id ].connected );
+	const connected = AI_PROVIDER_IDS.filter( ( id ) => settings.data?.accounts[ id ].connected );
+	const { capabilities } = useConnector();
+	const aiProviders = AI_PROVIDER_IDS.filter(
+		( id ) => capabilities.nativeSites || getProviderDescriptor( id ).ai?.inPage !== false
+	);
+	const signInProviders = [ ...new Set( [ ...aiProviders, ...usePublishProviders() ] ) ].filter(
+		( id ) => [ 'device', 'loopback' ].includes( getProviderDescriptor( id ).connection.kind )
+	);
 
 	// Connecting WordPress.com finishes once the sign-up lands.
 	const { mutate: selectProvider } = setProvider;
@@ -207,8 +218,13 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 					{ user ? __( 'Manage' ) : __( 'Connect' ) }
 				</Button>
 			</SettingsRow>
-			{ PROVIDER_IDS.filter( ( id ) => getConnectFields( id ).length ).map( ( id ) => (
-				<ProviderFormRow key={ id } provider={ id } />
+			{ aiProviders
+				.filter( ( id ) => getConnectFields( id ).length )
+				.map( ( id ) => (
+					<ProviderFormRow key={ id } provider={ id } />
+				) ) }
+			{ signInProviders.map( ( id ) => (
+				<SignInProviderRow key={ id } provider={ id } />
 			) ) }
 			{ connected.length > 1 && settings.data ? (
 				<SettingsRow
@@ -216,7 +232,7 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 					description={ __( 'The provider new chats use.' ) }
 					error={ setProvider.error?.message }
 				>
-					<SettingsSelect< ProviderId >
+					<SettingsSelect< AiProviderId >
 						label={ __( 'Default provider' ) }
 						value={ settings.data.provider }
 						disabled={ settings.isLoading || setProvider.isPending }
@@ -232,6 +248,75 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 	);
 }
 
+// A provider that connects by signing in on its site, with a code or in the browser.
+function SignInProviderRow( { provider }: { provider: ProviderId } ) {
+	const settings = useAiSettings();
+	const signIn = useSignIn( provider );
+	const setProvider = useSetAiProvider();
+	const disconnect = useDisconnectProvider( provider );
+	const offline = useOffline();
+	const descriptor = getProviderDescriptor( provider );
+	const connected = settings.data?.accounts[ provider ].connected;
+	// Signing in again starts over, for when the browser tab was closed.
+	const inBrowser = signIn.isPending && descriptor.connection.kind === 'loopback';
+	return (
+		<SettingsRow
+			title={ descriptor.label }
+			settingId={ `${ provider }-provider` }
+			badge={ connected ? connectedBadge() : null }
+			description={
+				<>
+					{ signIn.authorization
+						? sprintf(
+								/* translators: 1: a sign-in code, 2: a service name such as Spacefast */
+								__( 'Approve the code %1$s on %2$s to connect.' ),
+								signIn.authorization.userCode,
+								descriptor.label
+						  )
+						: inBrowser
+						? sprintf(
+								/* translators: %s: a service name such as ChatGPT */
+								__( 'Finish signing in to %s in your browser.' ),
+								descriptor.label
+						  )
+						: descriptor.description?.() }{ ' ' }
+					{ descriptor.learnMoreUrl ? <LearnMoreLink url={ descriptor.learnMoreUrl } /> : null }
+				</>
+			}
+			error={ ( signIn.error ?? setProvider.error ?? disconnect.error )?.message }
+		>
+			{ connected ? (
+				<Button
+					variant="outline"
+					disabled={ disconnect.isPending }
+					onClick={ () => disconnect.mutate() }
+				>
+					{ __( 'Disconnect' ) }
+				</Button>
+			) : (
+				<Button
+					variant="outline"
+					disabled={ settings.isLoading || offline }
+					loading={ signIn.isPending && ! inBrowser }
+					onClick={ () =>
+						signIn.mutate( undefined, {
+							// Connecting a chat provider selects it, as saving a form does.
+							onSuccess: () => {
+								const id = normalizeAiProviderId( provider );
+								if ( id ) {
+									setProvider.mutate( id );
+								}
+							},
+						} )
+					}
+				>
+					{ inBrowser ? __( 'Try again' ) : descriptor.connectLabel?.() ?? __( 'Connect' ) }
+				</Button>
+			) }
+		</SettingsRow>
+	);
+}
+
 export function AiPanel( { onManageCredits }: { onManageCredits: () => void } ) {
 	return (
 		<div className={ styles.preferencesPanel }>
@@ -241,7 +326,7 @@ export function AiPanel( { onManageCredits }: { onManageCredits: () => void } ) 
 					description={
 						<>
 							{ __(
-								'Providers give WordPress Studio access to the models that understand your requests and make changes to your sites. Connect one to build pages, write content, and customize themes and plugins through chat.'
+								'Providers give WordPress Studio access to the models that understand your requests and make changes to your sites, and to the places you publish them. Connect one to build pages, write content, and customize themes and plugins through chat.'
 							) }{ ' ' }
 							<LearnMoreLink docsLinksKey="docsStudioCode" />
 						</>

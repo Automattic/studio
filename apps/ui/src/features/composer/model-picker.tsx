@@ -3,18 +3,39 @@ import {
 	getAiModelLabel,
 	getAiModels,
 	getProviderDescriptor,
+	PROVIDER_IDS,
 	type ProviderId,
 } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { PlugIcon } from 'lucide-react';
-import { useRef, useState, type RefObject } from 'react';
+import { useRef, useState, type ComponentType, type RefObject } from 'react';
+import { useConnector } from '@/data/core';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { getCreditsLabel, getModelDescription } from '@/features/composer/model-options';
-import { PlusIcon, ChevronDownIcon, ClaudeIcon, WordPressIcon } from '@/lib/icons';
+import { PlusIcon, ChevronDownIcon, ExternalLinkIcon, IntelligenceIcon } from '@/lib/icons';
 import { Button, CommandSheet, Popover, type Command, type CommandGroup } from '@/lib/ui';
 import type { AiModelId } from '@/data/core';
+
+const PROVIDER_ICONS = Object.fromEntries(
+	PROVIDER_IDS.map( ( id ) => {
+		const path = getProviderDescriptor( id ).icon;
+		const Icon = ( { className }: { className?: string } ) => (
+			<svg
+				className={ className }
+				width="16"
+				height="16"
+				viewBox="0 0 24 24"
+				fill="currentColor"
+				aria-hidden="true"
+			>
+				<path d={ path } />
+			</svg>
+		);
+		return [ id, path ? Icon : IntelligenceIcon ];
+	} )
+) as Record< ProviderId, ComponentType< { className?: string } > >;
 
 interface ModelPickerProps {
 	open: boolean;
@@ -46,6 +67,7 @@ export function ModelPicker( {
 	const listRef = useRef< HTMLDivElement | null >( null );
 	const triggerRef = useRef< HTMLButtonElement | null >( null );
 	const openSettings = useOpenSettings();
+	const connector = useConnector();
 	const {
 		data: quota,
 		isError: isQuotaError,
@@ -62,9 +84,13 @@ export function ModelPicker( {
 		credits.hasCredits &&
 		getStudioCodeAiAccessState( quota ) === 'available' &&
 		quota.hasPaymentMethod;
+	const planUsage = getProviderDescriptor( sessionProvider ).ai?.planUsage;
 	const modelDetails = [ modelLabel, getProviderDescriptor( sessionProvider ).label ];
 	if ( isWpcom ) {
 		modelDetails.push( credits.label );
+	}
+	if ( planUsage ) {
+		modelDetails.push( planUsage.label() );
 	}
 	const pickCommand = ( value: string ) => {
 		onOpenChange( false );
@@ -72,6 +98,8 @@ export function ModelPicker( {
 			onAddCredits( triggerRef );
 		} else if ( value === 'connect-provider' ) {
 			openSettings( 'ai' );
+		} else if ( value === 'manage-usage' && planUsage ) {
+			void connector.openExternalUrl( planUsage.manageUrl );
 		} else {
 			const provider = providers.find( ( id ) =>
 				getAiModels( id ).some( ( item ) => item.id === value )
@@ -86,19 +114,23 @@ export function ModelPicker( {
 			label: __( 'Models' ),
 			items: providers.flatMap( ( provider ) =>
 				getAiModels( provider ).map( ( { id } ): Command => {
-					const description = sprintf(
-						/* translators: 1: the model's provider, 2: what the model is good at. */
-						__( '%1$s · %2$s' ),
-						provider === 'wpcom' ? 'WordPress' : 'Claude',
-						getModelDescription( id )
-					);
+					const { label } = getProviderDescriptor( provider );
+					const strengths = getModelDescription( id );
+					const description = strengths
+						? sprintf(
+								/* translators: 1: the model's provider, 2: what the model is good at. */
+								__( '%1$s · %2$s' ),
+								label,
+								strengths
+						  )
+						: label;
 					return {
 						value: id,
 						label: getAiModelLabel( id ),
 						description: isModelLocked( id )
 							? `${ description } · ${ __( 'Purchased credits required' ) }`
 							: description,
-						icon: provider === 'wpcom' ? WordPressIcon : ClaudeIcon,
+						icon: PROVIDER_ICONS[ provider ],
 						disabled: isModelLocked( id ),
 					};
 				} )
@@ -115,6 +147,16 @@ export function ModelPicker( {
 								label: __( 'Get more credits' ),
 								description: credits.label,
 								icon: PlusIcon,
+							},
+					  ]
+					: [] ),
+				...( planUsage
+					? [
+							{
+								value: 'manage-usage',
+								label: __( 'Manage usage' ),
+								description: planUsage.label(),
+								icon: ExternalLinkIcon,
 							},
 					  ]
 					: [] ),

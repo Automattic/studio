@@ -1,16 +1,16 @@
 import { anthropicProvider } from './anthropic';
+import { openaiProvider } from './openai';
+import { spacefastProvider } from './spacefast';
 import { wpcomProvider } from './wpcom';
-import type { Provider, ProviderConfigs, ProviderId, ProviderSites, RemoteSite } from './types';
-
-type ProviderSite< Id extends ProviderId > = Id extends keyof ProviderSites
-	? ProviderSites[ Id ]
-	: RemoteSite;
+import type { Provider, ProviderConfigs, ProviderId, ProviderSite } from './types';
 
 const PROVIDERS: {
 	[ Id in ProviderId ]: Provider< ProviderConfigs[ Id ], ProviderSite< Id > >;
 } = {
 	wpcom: wpcomProvider,
 	anthropic: anthropicProvider,
+	openai: openaiProvider,
+	spacefast: spacefastProvider,
 };
 
 export function getProvider< Id extends ProviderId >(

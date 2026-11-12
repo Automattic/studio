@@ -9,9 +9,8 @@ import { rememberAccountJourney } from '@/data/account-analytics';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { createTestQueryClient, renderApp } from '@/test/render';
 import type { SiteDetails, SyncSite } from '@/data/core';
-import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
 
-const portfolio: Blueprint = {
+const portfolio = {
 	slug: 'photography-portfolio',
 	title: 'Portfolio',
 	excerpt: 'A portfolio',
@@ -40,7 +39,7 @@ function setup( {
 	colorScheme = 'light',
 	strict = false,
 }: {
-	blueprint?: Blueprint | null;
+	blueprint?: object | null;
 	path?: string;
 	colorScheme?: 'light' | 'dark';
 	strict?: boolean;
@@ -61,7 +60,7 @@ function setup( {
 				connector.state.sites = [ ...connector.state.sites, site ];
 				return site;
 			},
-			fetchSyncableWpcomSites: async () => [ remote ],
+			listAccountSites: async () => [ remote ],
 			getFilePath: async () => '/tmp/upload/backup.zip',
 		}
 	);
@@ -115,10 +114,10 @@ describe( 'Add site flow', () => {
 				journey_id: crypto.randomUUID(),
 			} as const;
 			rememberAccountJourney( connector, context );
-			connector.getConnectedWpcomSites.mockResolvedValue( [
+			connector.getRemoteSites.mockResolvedValue( [
 				{ ...remote, localSiteId: site.id, syncSupport: 'already-connected' },
 			] );
-			connector.pullSiteFromLive.mockRejectedValueOnce( new Error( 'Initial pull failed' ) );
+			connector.pullSite.mockRejectedValueOnce( new Error( 'Initial pull failed' ) );
 			await screen.findByRole( 'button', { name: 'Start with Blank site' } );
 			fireEvent.click( screen.getByRole( 'tab', { name: 'Connect' } ) );
 			fireEvent.click( await screen.findByRole( 'button', { name: /Remote site/ } ) );
@@ -126,7 +125,7 @@ describe( 'Add site flow', () => {
 			await waitFor( () =>
 				expect( connector.trackEvent ).toHaveBeenCalledWith(
 					TRACKS_EVENTS.SYNC_CONNECT,
-					{ success: true, num_of_sites: 1 },
+					{ success: true, num_of_sites: 1, sync_type: 'wpcom' },
 					site.id
 				)
 			);
@@ -148,7 +147,7 @@ describe( 'Add site flow', () => {
 					{ ...context, completion_kind: 'sync_pull' }
 				)
 			);
-			expect( connector.pullSiteFromLive ).toHaveBeenCalledTimes( 2 );
+			expect( connector.pullSite ).toHaveBeenCalledTimes( 2 );
 		}
 	);
 
@@ -272,14 +271,12 @@ describe( 'Add site flow', () => {
 		);
 	} );
 
-	it( 'keeps an uploaded Blueprint while browsing the gallery and cleans its bundle on close', async () => {
+	it( 'keeps an uploaded Blueprint while browsing the gallery', async () => {
 		const { connector } = setup();
 		fireEvent.click( await screen.findByRole( 'tab', { name: 'Import' } ) );
 		await screen.findByRole( 'button', { name: /^Choose(?: file|…)$/ } );
-		connector.extractBlueprintBundle.mockResolvedValueOnce( {
-			blueprintJson: { meta: { title: 'Uploaded site', author: 'Studio' } },
-			blueprintJsonPath: '/tmp/upload/blueprint.json',
-			tempDir: '/tmp/upload',
+		connector.readBlueprint.mockResolvedValueOnce( {
+			meta: { title: 'Uploaded site', author: 'Studio' },
 		} );
 		fireEvent.change( document.querySelector( 'input[type="file"]' )!, {
 			target: { files: [ new File( [ 'bundle' ], 'blueprint.zip', { type: 'application/zip' } ) ] },
@@ -292,21 +289,14 @@ describe( 'Add site flow', () => {
 		await screen.findByRole( 'button', { name: 'View Portfolio' } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Back' } ) );
 		expect( await screen.findByText( 'blueprint.zip', { selector: 'span' } ) ).toBeVisible();
-		expect( connector.cleanupBlueprintTempDir ).not.toHaveBeenCalled();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Close Add site' } ) );
-		await waitFor( () =>
-			expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/upload' )
-		);
 	} );
 
 	it( 'can start blank while an uploaded bundle is still loading', async () => {
 		const { connector } = setup();
 		fireEvent.click( await screen.findByRole( 'tab', { name: 'Import' } ) );
 		await screen.findByRole( 'button', { name: /^Choose(?: file|…)$/ } );
-		let complete!: (
-			value: Awaited< ReturnType< typeof connector.extractBlueprintBundle > >
-		) => void;
-		connector.extractBlueprintBundle.mockReturnValueOnce(
+		let complete!: ( value: Awaited< ReturnType< typeof connector.readBlueprint > > ) => void;
+		connector.readBlueprint.mockReturnValueOnce(
 			new Promise( ( resolve ) => {
 				complete = resolve;
 			} )
@@ -314,7 +304,7 @@ describe( 'Add site flow', () => {
 		fireEvent.change( document.querySelector( 'input[type="file"]' )!, {
 			target: { files: [ new File( [ 'bundle' ], 'blueprint.zip', { type: 'application/zip' } ) ] },
 		} );
-		await waitFor( () => expect( connector.extractBlueprintBundle ).toHaveBeenCalledOnce() );
+		await waitFor( () => expect( connector.readBlueprint ).toHaveBeenCalledOnce() );
 		expect(
 			screen.getByText( 'Loading file…', { selector: '[role="status"]' } )
 		).toBeInTheDocument();
@@ -328,14 +318,7 @@ describe( 'Add site flow', () => {
 				} )
 			).toBeEnabled()
 		);
-		await act( async () =>
-			complete( {
-				blueprintJson: {},
-				blueprintJsonPath: '/tmp/canceled/blueprint.json',
-				tempDir: '/tmp/canceled',
-			} )
-		);
-		expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/canceled' );
+		await act( async () => complete( {} ) );
 		expect( screen.getByRole( 'heading', { name: 'Add site' } ) ).toBeVisible();
 	} );
 
@@ -632,7 +615,7 @@ describe( 'Add site flow', () => {
 		fireEvent.click( screen.getByRole( 'tab', { name: 'Connect' } ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: /Remote site/ } ) );
 		await submit();
-		await waitFor( () => expect( connector.pullSiteFromLive ).toHaveBeenCalled() );
+		await waitFor( () => expect( connector.pullSite ).toHaveBeenCalled() );
 	} );
 } );
 
@@ -645,29 +628,12 @@ describe( 'Modal-wide file drops', () => {
 			},
 		} );
 	}
-	function extracted( title = 'SYSTEM', tempDir = '/tmp/uploaded' ) {
+	function extracted( title = 'SYSTEM' ) {
 		return {
-			blueprintJson: {
-				meta: { title: 'Fashion Magazine', author: 'Studio' },
-				siteOptions: { blogname: title },
-			},
-			blueprintJsonPath: tempDir + '/blueprint.json',
-			tempDir,
+			meta: { title: 'Fashion Magazine', author: 'Studio' },
+			siteOptions: { blogname: title },
 		};
 	}
-
-	it( 'keeps bundle resources through Strict Mode effect replay and releases them on close', async () => {
-		const { connector } = setup( { strict: true } );
-		await screen.findByRole( 'button', { name: 'Start with Blank site' } );
-		connector.extractBlueprintBundle.mockResolvedValueOnce( extracted() );
-		drop( screen.getByRole( 'dialog', { name: 'Add site' } ) );
-		await waitFor( () => expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'SYSTEM' ) );
-		expect( connector.cleanupBlueprintTempDir ).not.toHaveBeenCalled();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Close Add site' } ) );
-		await waitFor( () =>
-			expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledExactlyOnceWith( '/tmp/uploaded' )
-		);
-	} );
 
 	it.each( [ '.json', '.zip', '.gz', '.gzip', '.tar', '.tar.gz', '.tgz', '.wpress', '.xml' ] )(
 		'accepts %s from the shared Import picker',
@@ -682,7 +648,7 @@ describe( 'Modal-wide file drops', () => {
 					value: async () => JSON.stringify( { siteOptions: { blogname: 'SYSTEM' } } ),
 				} );
 			if ( extension === '.zip' )
-				connector.extractBlueprintBundle.mockRejectedValueOnce(
+				connector.readBlueprint.mockRejectedValueOnce(
 					new Error( 'No blueprint.json found in the ZIP.' )
 				);
 			fireEvent.change( input, { target: { files: [ file ] } } );
@@ -706,7 +672,7 @@ describe( 'Modal-wide file drops', () => {
 		async ( section ) => {
 			const { connector } = setup( { path: '/?addSite=' + section } );
 			const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
-			connector.extractBlueprintBundle.mockRejectedValueOnce(
+			connector.readBlueprint.mockRejectedValueOnce(
 				new Error(
 					'No blueprint.json found in the ZIP. Place it at the root or inside one enclosing folder.'
 				)
@@ -718,7 +684,7 @@ describe( 'Modal-wide file drops', () => {
 			expect( within( dialog ).getByText( 'studio-backup-My Store.zip' ) ).toBeVisible();
 			expect( within( dialog ).getByRole( 'heading', { name: 'Add site' } ) ).toBeVisible();
 			expect( within( dialog ).getByRole( 'button', { name: 'Add site' } ) ).toBeEnabled();
-			expect( connector.extractBlueprintBundle ).toHaveBeenCalledOnce();
+			expect( connector.readBlueprint ).toHaveBeenCalledOnce();
 			expect( connector.createSite ).not.toHaveBeenCalled();
 		}
 	);
@@ -731,13 +697,13 @@ describe( 'Modal-wide file drops', () => {
 		} );
 		await screen.findByText( 'My Store.wpress' );
 		expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'My Store' );
-		expect( connector.extractBlueprintBundle ).not.toHaveBeenCalled();
+		expect( connector.readBlueprint ).not.toHaveBeenCalled();
 	} );
 
 	it( 'does not treat a malformed Blueprint as a backup', async () => {
 		const { connector } = setup();
 		await screen.findByRole( 'button', { name: 'Start with Blank site' } );
-		connector.extractBlueprintBundle.mockRejectedValueOnce( new SyntaxError( 'Unexpected token' ) );
+		connector.readBlueprint.mockRejectedValueOnce( new SyntaxError( 'Unexpected token' ) );
 		drop( screen.getByRole( 'dialog', { name: 'Add site' } ) );
 		await screen.findByRole( 'dialog', { name: 'Blueprint error' } );
 		expect( screen.queryByLabelText( 'Site name' ) ).not.toBeInTheDocument();
@@ -747,13 +713,13 @@ describe( 'Modal-wide file drops', () => {
 		const { connector } = setup();
 		await screen.findByRole( 'button', { name: 'Start with Blank site' } );
 		let reject!: ( error: Error ) => void;
-		connector.extractBlueprintBundle.mockReturnValueOnce(
+		connector.readBlueprint.mockReturnValueOnce(
 			new Promise( ( _, fail ) => {
 				reject = fail;
 			} )
 		);
 		drop( screen.getByRole( 'dialog', { name: 'Add site' } ), 'old-backup.zip' );
-		connector.extractBlueprintBundle.mockResolvedValueOnce( extracted() );
+		connector.readBlueprint.mockResolvedValueOnce( extracted() );
 		drop( screen.getByRole( 'dialog', { name: 'Add site' } ) );
 		await waitFor( () => expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'SYSTEM' ) );
 		await act( async () => reject( new Error( 'No blueprint.json found in the ZIP.' ) ) );
@@ -761,13 +727,13 @@ describe( 'Modal-wide file drops', () => {
 		expect( screen.queryByText( 'old-backup.zip' ) ).not.toBeInTheDocument();
 	} );
 
-	it( 'cleans up a selected Blueprint when replacing it with a backup', async () => {
+	it( 'replaces a selected Blueprint with a backup', async () => {
 		const { connector } = setup();
 		await screen.findByRole( 'button', { name: 'Start with Blank site' } );
-		connector.extractBlueprintBundle.mockResolvedValueOnce( extracted() );
+		connector.readBlueprint.mockResolvedValueOnce( extracted() );
 		drop( screen.getByRole( 'dialog', { name: 'Add site' } ) );
 		await waitFor( () => expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'SYSTEM' ) );
-		connector.extractBlueprintBundle.mockRejectedValueOnce(
+		connector.readBlueprint.mockRejectedValueOnce(
 			new Error( 'No blueprint.json found in the ZIP.' )
 		);
 		drop(
@@ -776,8 +742,7 @@ describe( 'Modal-wide file drops', () => {
 			} ),
 			'backup-My Store.zip'
 		);
-		await screen.findByText( 'backup-My Store.zip' );
-		expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/uploaded' );
+		expect( await screen.findByText( 'backup-My Store.zip' ) ).toBeVisible();
 	} );
 
 	it.each( [ 'header', 'sidebar', 'gallery', 'upload', 'import', 'setup' ] )(
@@ -794,7 +759,7 @@ describe( 'Modal-wide file drops', () => {
 						: '/?addSite=create',
 			} );
 			const dialog = await screen.findByRole( 'dialog', { name: 'Add site' } );
-			connector.extractBlueprintBundle.mockResolvedValueOnce( extracted() );
+			connector.readBlueprint.mockResolvedValueOnce( extracted() );
 			const target =
 				area === 'sidebar'
 					? await within( dialog ).findByRole( 'tab', { name: 'New' } )
@@ -816,7 +781,7 @@ describe( 'Modal-wide file drops', () => {
 				within( dialog ).queryByRole( 'button', { name: 'Cancel' } )
 			).not.toBeInTheDocument();
 			expect( within( dialog ).getByRole( 'button', { name: 'Add site' } ) ).toBeVisible();
-			expect( connector.extractBlueprintBundle ).toHaveBeenCalledOnce();
+			expect( connector.readBlueprint ).toHaveBeenCalledOnce();
 			expect( connector.importSiteFromBackup ).not.toHaveBeenCalled();
 		}
 	);
@@ -825,7 +790,7 @@ describe( 'Modal-wide file drops', () => {
 		const { connector } = setup( { path: '/?addSite=connect' } );
 		fireEvent.click( await screen.findByRole( 'button', { name: /Remote site/ } ) );
 		await screen.findByLabelText( 'Site name' );
-		connector.extractBlueprintBundle.mockResolvedValueOnce( extracted() );
+		connector.readBlueprint.mockResolvedValueOnce( extracted() );
 		drop(
 			within( screen.getByRole( 'dialog', { name: 'Add site' } ) ).getByRole( 'button', {
 				name: 'Add site',
@@ -837,22 +802,22 @@ describe( 'Modal-wide file drops', () => {
 		await waitFor( () => expect( connector.createSite ).toHaveBeenCalled() );
 		expect( connector.createSite ).toHaveBeenCalledWith(
 			expect.objectContaining( {
-				blueprint: expect.objectContaining( { filePath: '/tmp/uploaded/blueprint.json' } ),
+				blueprint: expect.any( File ),
 			} )
 		);
-		expect( connector.pullSiteFromLive ).not.toHaveBeenCalled();
+		expect( connector.pullSite ).not.toHaveBeenCalled();
 	} );
 
 	it( 'preserves edits and a valid Blueprint after a failed replacement', async () => {
 		const { connector } = setup( { path: '/?addSite=blank' } );
 		await screen.findByLabelText( 'Site name' );
-		connector.extractBlueprintBundle.mockResolvedValueOnce( extracted() );
+		connector.readBlueprint.mockResolvedValueOnce( extracted() );
 		drop( screen.getByRole( 'dialog', { name: 'Add site' } ) );
 		await waitFor( () => expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'SYSTEM' ) );
 		fireEvent.change( screen.getByLabelText( 'Site name' ), {
 			target: { value: 'My Edited Title' },
 		} );
-		connector.extractBlueprintBundle.mockRejectedValueOnce( new Error( 'Invalid ZIP' ) );
+		connector.readBlueprint.mockRejectedValueOnce( new Error( 'Invalid ZIP' ) );
 		drop(
 			within( screen.getByRole( 'dialog', { name: 'Add site' } ) ).getByRole( 'button', {
 				name: 'Add site',
@@ -866,45 +831,42 @@ describe( 'Modal-wide file drops', () => {
 			expect( connector.createSite ).toHaveBeenCalledWith(
 				expect.objectContaining( {
 					name: 'My Edited Title',
-					blueprint: expect.objectContaining( {
-						blueprint: expect.objectContaining( { siteOptions: { blogname: 'My Edited Title' } } ),
-					} ),
+					blueprint: expect.any( File ),
 				} )
 			)
 		);
 	} );
 
-	it( 'cleans a superseded bundle and ignores drops during creation', async () => {
+	it( 'ignores a superseded bundle and drops during creation', async () => {
 		const { connector } = setup( { path: '/?addSite=blank' } );
 		await screen.findByLabelText( 'Site name' );
 		let complete!: ( value: ReturnType< typeof extracted > ) => void;
-		connector.extractBlueprintBundle.mockReturnValueOnce(
+		connector.readBlueprint.mockReturnValueOnce(
 			new Promise( ( resolve ) => {
 				complete = resolve;
 			} )
 		);
 		const dialog = screen.getByRole( 'dialog', { name: 'Add site' } );
 		drop( dialog );
-		connector.extractBlueprintBundle.mockResolvedValueOnce( extracted( 'Latest', '/tmp/latest' ) );
+		connector.readBlueprint.mockResolvedValueOnce( extracted( 'Latest' ) );
 		drop( dialog );
 		await waitFor( () => expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'Latest' ) );
-		await act( async () => complete( extracted( 'Stale', '/tmp/stale' ) ) );
-		expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/stale' );
+		await act( async () => complete( extracted( 'Stale' ) ) );
 		expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'Latest' );
 		connector.createSite.mockReturnValueOnce( new Promise( () => {} ) );
 		await submit();
 		await waitFor( () => expect( connector.createSite ).toHaveBeenCalledOnce() );
 		drop( dialog );
-		expect( connector.extractBlueprintBundle ).toHaveBeenCalledTimes( 2 );
+		expect( connector.readBlueprint ).toHaveBeenCalledTimes( 2 );
 	} );
 
-	it( 'ignores drops outside the modal and cleans loads completed after closure', async () => {
+	it( 'ignores drops outside the modal and loads completed after closure', async () => {
 		const { connector } = setup();
 		await screen.findByRole( 'button', { name: 'Start with Blank site' } );
 		drop( window );
-		expect( connector.extractBlueprintBundle ).not.toHaveBeenCalled();
+		expect( connector.readBlueprint ).not.toHaveBeenCalled();
 		let complete!: ( value: ReturnType< typeof extracted > ) => void;
-		connector.extractBlueprintBundle.mockReturnValueOnce(
+		connector.readBlueprint.mockReturnValueOnce(
 			new Promise( ( resolve ) => {
 				complete = resolve;
 			} )
@@ -915,7 +877,7 @@ describe( 'Modal-wide file drops', () => {
 			expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument()
 		);
 		await act( async () => complete( extracted() ) );
-		expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/uploaded' );
+		expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument();
 	} );
 } );
 
@@ -951,7 +913,7 @@ it( 'returns to all sites from a category breadcrumb after switching filters', a
 
 it( 'resolves connect failure telemetry before removing the local record', async () => {
 	const { connector, site } = setup();
-	connector.connectWpcomSite.mockRejectedValueOnce( new Error( 'Cannot save connection' ) );
+	connector.connectRemoteSite.mockRejectedValueOnce( new Error( 'Cannot save connection' ) );
 	let finishTelemetry: () => void = () => {};
 	connector.trackEvent.mockImplementation( async ( event ) => {
 		if ( event === TRACKS_EVENTS.SYNC_CONNECT )

@@ -1,10 +1,10 @@
 # @studio/providers
 
-The services Studio holds an account with: WordPress.com (`wpcom`) and Anthropic (`anthropic`). Each provider describes itself and implements what it offers, so the CLI, the apps and the agent never hardcode one. The architecture and its rules are in `docs/design-docs/providers.md`.
+The services Studio holds an account with: WordPress.com (`wpcom`), Anthropic (`anthropic`), OpenAI (`openai`) and Spacefast (`spacefast`). Each provider describes itself and implements what it offers, so the CLI, the apps and the agent never hardcode one. The architecture and its rules are in `docs/design-docs/providers.md`.
 
 ```
 index.ts         the entry surfaces read: descriptors, models, ids, errors and types
-descriptors.ts   PROVIDER_IDS, getProviderDescriptor, the stored ids
+descriptors.ts   PROVIDER_IDS, AI_PROVIDER_IDS, getProviderDescriptor, the stored ids
 models.ts        getAiModel( provider, id ), getAiModelProviders( id ), defaults
 connection.ts    getConnectFields( provider ), getRedirectUrl( provider, options )
 types.ts         ProviderDescriptor, Provider, AiConnection, AiModel, SitesService
@@ -14,6 +14,8 @@ wpcom/           descriptor, config, OAuth URL, sign-in, REST client, AI connect
 wpcom/site.ts    its remote site (`SyncSite`) and sync options, which surfaces read
 wpcom/sites/     push and pull: site list, upload, remote import and backup, Reprint exporter
 anthropic/       descriptor, config, API key form and validation, AI connection
+openai/          descriptor, config, ChatGPT sign-in for agents and token renewal, AI connection
+spacefast/       descriptor, config, device sign-in, its Spaces, and publishing a static export to one
 ```
 
 ## Two entries
@@ -36,8 +38,10 @@ A descriptor says how its account connects (`connection`), and the provider's `c
 
 - **A form** (`kind: 'form'`): `input()` returns a zod object of string fields, whose metadata (`.meta()`) gives each field's `title`, `description` and `examples`; `writeOnly: true` marks a secret. `getConnectFields( provider )` reads it for any surface: the settings panel renders it as a form, `studio code` as prompts. Anthropic asks for an API key this way.
 - **A redirect** (`kind: 'redirect'`): `redirectUrl( options )` is where the user approves access. The app receives the redirect its own way (Desktop's `wp-studio://auth` deep link, `studio ui`'s callback page, Studio on the web's page, or the token the CLI user pastes) and passes its parameters to `connect`. WordPress.com connects this way, and connecting it is signing in to Studio.
+- **A device sign-in** (`kind: 'device'`): the provider's `startConnect()` returns a code and the page where the user approves it. Studio shows both, then passes the code back to `connect`, which resolves once the user approves. Spacefast connects this way.
+- **A loopback redirect** (`kind: 'loopback'`): Studio listens on a free port on this computer (`@studio/common/lib/loopback-sign-in.ts`, through `connectProvider`), and the provider's `startLoopbackConnect( redirectUri, { hostId, remembered } )` returns where to sign in. `hostId` stays the same on this computer, and `remembered` is what the descriptor's `remember( config )` kept from a config the provider rejected, so signing in again continues the same registration. Studio passes `remembered`, the redirect's parameters, the authorization's `verifier` and the `redirectUri` to `connect`. OpenAI connects this way.
 
-`disconnect( config )` lets a provider clean up before Studio removes the config, as WordPress.com revokes its token. `summarize( config )` is what the settings show for a connected account, never the credential.
+`refresh( config )` renews a credential about to expire, such as a ChatGPT access token, and returns the config to store; Studio calls it through `readFreshProviderConfig` before using the config. `disconnect( config )` lets a provider clean up before Studio removes the config, as WordPress.com revokes its token. `summarize( config )` is what the settings show for a connected account, never the credential.
 
 ## Providers own no storage
 

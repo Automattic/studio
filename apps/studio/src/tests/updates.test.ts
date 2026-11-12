@@ -309,39 +309,34 @@ describe( 'update status emissions', () => {
 		} );
 	} );
 
-	it.each( [ -1009, -1005 ] )(
-		'ends download progress on a connection error (%s) and allows retry',
-		async ( code ) => {
-			vi.useFakeTimers();
-			try {
-				setupDarwinUpdates();
-				await getHandler( 'error' )?.( Object.assign( new Error( 'Connection lost' ), { code } ) );
-				expect( getLastEmittedStatus() ).toMatchObject( {
-					state: 'error',
-					detail: 'Check your internet connection and try again.',
-				} );
-				vi.mocked( autoUpdater.checkForUpdates ).mockClear();
-				await checkForAppUpdates( {} as IpcMainInvokeEvent );
-				expect( autoUpdater.checkForUpdates ).toHaveBeenCalledOnce();
-			} finally {
-				vi.clearAllTimers();
-				vi.useRealTimers();
-			}
-		}
-	);
-
 	it.each( [
-		[ "System.Exception: Couldn't acquire lock, is another instance running", 'lock' ],
-		[ 'System.Net.WebException: Impossible de résoudre le nom distant', 'network' ],
-		[ 'System.Net.Sockets.SocketException: Verbindungsfehler', 'network' ],
-		[ 'Unrelated update failure', null ],
-	] )( 'handles Windows update errors: %s', async ( message, kind ) => {
+		[
+			'win32',
+			"System.Exception: Couldn't acquire lock, is another instance running",
+			undefined,
+			'lock',
+		],
+		[
+			'win32',
+			'System.Net.WebException: Impossible de résoudre le nom distant',
+			undefined,
+			'network',
+		],
+		[ 'win32', 'System.Net.Sockets.SocketException: Verbindungsfehler', undefined, 'network' ],
+		[ 'win32', 'Unrelated update failure', undefined, null ],
+		[ 'darwin', 'The request timed out.', -1001, 'network' ],
+		[ 'darwin', 'A server with the specified hostname could not be found.', -1003, 'network' ],
+		[ 'darwin', 'Could not connect to the server.', -1004, 'network' ],
+		[ 'darwin', 'The network connection was lost.', -1005, 'network' ],
+		[ 'darwin', 'The Internet connection appears to be offline.', -1009, 'network' ],
+		[ 'darwin', 'The server returned an invalid response.', -1011, null ],
+	] )( 'handles %s update errors: %s', async ( platform, message, code, kind ) => {
 		vi.useFakeTimers();
 		try {
-			Object.defineProperty( process, 'platform', { value: 'win32', configurable: true } );
+			Object.defineProperty( process, 'platform', { value: platform, configurable: true } );
 			setupUpdates();
 			await getHandler( 'checking-for-update' )?.();
-			const err = new Error( message );
+			const err = Object.assign( new Error( message ), code === undefined ? {} : { code } );
 			await getHandler( 'error' )?.( err );
 
 			if ( kind ) {
@@ -366,6 +361,20 @@ describe( 'update status emissions', () => {
 		} finally {
 			vi.clearAllTimers();
 			vi.useRealTimers();
+		}
+	} );
+
+	it( 'leaves updates to the Microsoft Store in Store builds', () => {
+		Object.defineProperty( process, 'platform', { value: 'win32', configurable: true } );
+		Object.defineProperty( process, 'windowsStore', { value: true, configurable: true } );
+		try {
+			setupUpdates();
+
+			expect( autoUpdater.setFeedURL ).not.toHaveBeenCalled();
+			expect( autoUpdater.on ).not.toHaveBeenCalled();
+			expect( autoUpdater.checkForUpdates ).not.toHaveBeenCalled();
+		} finally {
+			Object.defineProperty( process, 'windowsStore', { value: undefined, configurable: true } );
 		}
 	} );
 

@@ -1,4 +1,3 @@
-import { getBlueprintPreviewUrl } from '@studio/common/lib/blueprint-catalog';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useRef } from 'react';
@@ -8,18 +7,19 @@ import { toSelectedBlueprint } from '@/features/sites/blueprint-selection';
 import { pendingBlueprintSlot } from '@/features/sites/pending-blueprint';
 import { ExternalLinkIcon } from '@/lib/icons';
 import { PreviewFrame, PreviewImage, Button } from '@/lib/ui';
+import { getBlueprintPreviewUrl } from './blueprint-catalog';
 import styles from './blueprint-gallery.module.css';
 import { getBlueprintScreenshots } from './blueprint-screenshots';
 import { useAddSite } from './context';
-import type { BlueprintUseCase } from '@studio/common/lib/blueprint-catalog';
-import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
+import type { BlueprintUseCase } from './blueprint-catalog';
+import type { LibraryBlueprint } from '@studio/blueprints';
 
 export function BlueprintDetails( {
 	blueprint,
 	useCase,
 	onSetup,
 }: {
-	blueprint: Blueprint;
+	blueprint: LibraryBlueprint;
 	useCase?: BlueprintUseCase;
 	onSetup: () => void;
 } ) {

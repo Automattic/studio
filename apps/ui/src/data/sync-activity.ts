@@ -70,7 +70,8 @@ function getPushPhaseMessage( phase: PushPhase, progress?: number ): string {
  * reported.
  */
 export function applySyncActivity( siteId: string, activity: SyncActivity ): boolean {
-	const wasPending = entries.get( siteId )?.kind === 'pending';
+	const previous = entries.get( siteId );
+	const wasPending = previous?.kind === 'pending';
 	if ( activity.kind === 'pending' ) {
 		if ( ! wasPending || entries.get( siteId )?.direction !== activity.direction ) {
 			runIds.set( siteId, nextRunId++ );
@@ -86,7 +87,12 @@ export function applySyncActivity( siteId: string, activity: SyncActivity ): boo
 		if ( ! wasPending ) {
 			return false;
 		}
-		entries.set( siteId, activity );
+		// A result is for the site and provider its run targeted.
+		entries.set( siteId, {
+			...activity,
+			remoteSiteId: activity.remoteSiteId ?? previous.remoteSiteId,
+			provider: activity.provider ?? previous.provider,
+		} );
 		scheduleExpiry( siteId );
 	}
 	emit();

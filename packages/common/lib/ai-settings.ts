@@ -2,13 +2,15 @@ import {
 	DEFAULT_PROVIDER_ID,
 	getProviderDescriptor,
 	InvalidCredentialError,
-	normalizeProviderId,
+	normalizeAiProviderId,
 	PROVIDER_IDS,
 	toStoredProviderId,
+	type AiProviderId,
 	type Provider,
 	type ProviderConfigs,
 	type ProviderId,
 } from '@studio/providers';
+import { signInThroughLoopback, type LoopbackSignInOptions } from './loopback-sign-in';
 import {
 	readAiFields,
 	readProviderConfig,
@@ -24,14 +26,14 @@ export interface ProviderAccount {
 
 export interface AiSettings {
 	// The chat provider new conversations use.
-	provider: ProviderId;
+	provider: AiProviderId;
 	accounts: Record< ProviderId, ProviderAccount >;
 }
 
 /** The saved chat provider, or undefined when none was ever chosen. */
-export async function readSelectedAiProvider(): Promise< ProviderId | undefined > {
+export async function readSelectedAiProvider(): Promise< AiProviderId | undefined > {
 	const { aiProvider } = await readAiFields();
-	return aiProvider === undefined ? undefined : normalizeProviderId( aiProvider );
+	return aiProvider === undefined ? undefined : normalizeAiProviderId( aiProvider );
 }
 
 async function readAccount( id: ProviderId ): Promise< ProviderAccount > {
@@ -59,20 +61,27 @@ export async function readAiSettings(): Promise< AiSettings > {
 }
 
 /** Persists the provider without validation — for flows that already ran it. */
-export async function persistSelectedAiProvider( provider: ProviderId ): Promise< void > {
+export async function persistSelectedAiProvider( provider: AiProviderId ): Promise< void > {
 	await updateAiFields( { aiProvider: toStoredProviderId( provider ) } );
 }
 
 /**
  * Connects `provider` (from `@studio/providers/services`) with what the user
- * gave: a form's values or a redirect's parameters. The provider checks them,
- * and its config is stored only when it accepts them.
+ * gave: a form's values or a redirect's parameters. A provider that signs in
+ * through a loopback redirect gets them from signing in in the browser
+ * instead. The provider checks them, and its config is stored only when it
+ * accepts them.
  */
 export async function connectProvider< Config >(
 	provider: Provider< Config >,
-	input: Record< string, string >
+	input: Record< string, string >,
+	options: LoopbackSignInOptions = {}
 ): Promise< AiSettings > {
-	const config = await provider.connect( input );
+	const config = await provider.connect(
+		provider.descriptor.connection.kind === 'loopback'
+			? await signInThroughLoopback( provider as Provider< unknown >, options )
+			: input
+	);
 	await writeProviderConfig( provider.descriptor.id, config as ProviderConfigs[ ProviderId ] );
 	return readAiSettings();
 }
@@ -101,7 +110,7 @@ export async function disconnectProvider< Config >(
  * Selects the provider for new conversations, once it is connected. Existing
  * sessions keep the provider recorded in their session context.
  */
-export async function setAiProvider( provider: ProviderId ): Promise< AiSettings > {
+export async function setAiProvider( provider: AiProviderId ): Promise< AiSettings > {
 	if ( ! ( await readProviderConfig( provider ) ) ) {
 		throw new InvalidCredentialError(
 			`Connect ${ getProviderDescriptor( provider ).label } first.`

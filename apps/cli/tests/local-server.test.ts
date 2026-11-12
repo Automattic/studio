@@ -133,7 +133,8 @@ describe( 'local web server Connect contracts', () => {
 		} );
 		expect( mocks.connectProvider ).toHaveBeenCalledWith(
 			expect.objectContaining( { descriptor: expect.objectContaining( { id: 'anthropic' } ) } ),
-			{ apiKey: '  sk-ant-test-1234  ' }
+			{ apiKey: '  sk-ant-test-1234  ' },
+			{ openUrl: expect.any( Function ) }
 		);
 	} );
 
@@ -369,10 +370,10 @@ describe( 'local web server Connect contracts', () => {
 		} );
 		const baseUrl = server.url.replace( 'localhost', '127.0.0.1' );
 
-		const pulling = fetch( `${ baseUrl }/api/sites/local-a/pull`, {
+		const pulling = fetch( `${ baseUrl }/api/sites/local-a/remote-sites/wpcom/42/pull`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify( { remoteSiteId: 42 } ),
+			body: JSON.stringify( {} ),
 		} );
 		await started;
 		const cancelled = await fetch( `${ baseUrl }/api/sites/local-a/sync/cancel`, {

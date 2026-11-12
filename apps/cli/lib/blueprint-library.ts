@@ -1,59 +1,30 @@
 import fs from 'fs';
-import path from 'path';
-import {
-	createBlueprintTempDir,
-	downloadAndExtractBlueprintBundle,
-} from '@studio/common/lib/blueprint-bundle';
+import { fetchLibraryBlueprints, type LibraryBlueprint } from '@studio/blueprints';
+import { openBlueprint } from '@studio/blueprints/node';
 import { isNetworkError } from '@studio/common/lib/network-utils';
 import { readSharedConfig } from '@studio/common/lib/shared-config';
-import { fetchStudioBlueprints, type Blueprint } from '@studio/common/lib/studio-blueprints-api';
-import { BlueprintCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
-import { __, _n, sprintf } from '@wordpress/i18n';
-import { Logger, LoggerError } from 'cli/logger';
+import { __ } from '@wordpress/i18n';
+import { LoggerError } from 'cli/logger';
 
-const logger = new Logger< LoggerAction >();
-
-export async function fetchLibraryBlueprints(): Promise< Blueprint[] > {
-	logger.reportStart( LoggerAction.FETCH_BLUEPRINTS, __( 'Fetching blueprints…' ) );
-
-	const { locale } = await readSharedConfig();
-	const blueprints = await fetchStudioBlueprints( locale ).catch( ( error: unknown ) => {
-		if ( isNetworkError( error ) ) {
-			throw new LoggerError( __( 'An internet connection is required to use blueprints.' ), error );
-		}
-		throw error;
-	} );
-
-	logger.reportSuccess(
-		sprintf(
-			_n( 'Found %d blueprint', 'Found %d blueprints', blueprints.length ),
-			blueprints.length
-		)
-	);
-	return blueprints;
+function toLoggerError( error: unknown, hint?: string ): never {
+	if ( isNetworkError( error ) ) {
+		throw new LoggerError( __( 'An internet connection is required to use blueprints.' ), error );
+	}
+	throw error instanceof Error && ! ( error instanceof LoggerError )
+		? new LoggerError( hint ? `${ error.message } ${ hint }` : error.message )
+		: error;
 }
 
-/**
- * Writes a Library Blueprint to a temp directory, extracting its bundle when it has one so
- * resources relative to the Blueprint resolve. The caller removes `tempDir` once done.
- */
-export async function prepareLibraryBlueprint( blueprint: Blueprint ): Promise< {
-	contents: unknown;
-	uri: string;
-	tempDir: string;
-} > {
-	if ( blueprint.bundle_url ) {
-		logger.reportStart( LoggerAction.DOWNLOAD_BUNDLE, __( 'Downloading blueprint bundle…' ) );
-		const { blueprintJsonPath, tempDir } = await downloadAndExtractBlueprintBundle(
-			blueprint.bundle_url
-		);
-		const contents = JSON.parse( await fs.promises.readFile( blueprintJsonPath, 'utf-8' ) );
-		logger.reportSuccess( __( 'Blueprint bundle downloaded' ) );
-		return { contents, uri: blueprintJsonPath, tempDir };
-	}
+export async function loadLibraryBlueprints(): Promise< LibraryBlueprint[] > {
+	const { locale } = await readSharedConfig();
+	return fetchLibraryBlueprints( { locale } ).catch( ( error ) => toLoggerError( error ) );
+}
 
-	const tempDir = await createBlueprintTempDir();
-	const uri = path.join( tempDir, 'blueprint.json' );
-	await fs.promises.writeFile( uri, JSON.stringify( blueprint.blueprint ) );
-	return { contents: blueprint.blueprint, uri, tempDir };
+/** Opens a Blueprint for the CLI, in the Library of the user's language when it's a slug. */
+export async function openBlueprintSource( source: string | LibraryBlueprint ) {
+	const { locale } = await readSharedConfig();
+	const isSlug =
+		typeof source === 'string' && /^[\w-]+$/.test( source ) && ! fs.existsSync( source );
+	const hint = isSlug ? __( 'Run "studio blueprint list" to see available slugs.' ) : undefined;
+	return openBlueprint( source, { locale } ).catch( ( error ) => toLoggerError( error, hint ) );
 }

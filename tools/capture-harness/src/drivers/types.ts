@@ -36,7 +36,7 @@ export interface Stubs {
 	connectedSites(
 		connected: { localSiteId: string }[],
 		trees: RemoteTrees,
-		hosting: { phpVersion: string; rewindId: string }
+		backupId: string
 	): Promise< void >;
 	// Sending a prompt starts a made-up run instead of the agent.
 	agentRuns(): Promise< void >;

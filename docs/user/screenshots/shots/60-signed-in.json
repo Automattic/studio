@@ -247,7 +247,7 @@
 		},
 		{
 			"name": "publish-panel",
-			"description": "Share and publish → Publish: Existing site… and New site…",
+			"description": "Share and publish → Publish: where to publish, WordPress.com or Spacefast",
 			"meta": { "pages": [ "sync.md" ] },
 			"steps": [
 				{
@@ -263,8 +263,8 @@
 				},
 				{
 					"waitFor": {
-						"role": "button",
-						"name": "Existing site…"
+						"role": "heading",
+						"name": "Where do you want to publish?"
 					}
 				}
 			],
@@ -280,6 +280,12 @@
 			"description": "Publish → Choose an existing site, listing the account’s WordPress.com and Pressable sites",
 			"meta": { "pages": [ "sync.md" ], "replaces": [ "2025/01/studio-connect-live-site.png" ] },
 			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"pattern": "^WordPress\\.com"
+					}
+				},
 				{
 					"click": {
 						"role": "button",

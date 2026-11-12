@@ -1,20 +1,49 @@
 import { anthropicDescriptor } from './anthropic/descriptor';
+import { openaiDescriptor } from './openai/descriptor';
+import { spacefastDescriptor } from './spacefast/descriptor';
 import { wpcomDescriptor } from './wpcom/descriptor';
-import type { ProviderConfigs, ProviderDescriptor, ProviderId } from './types';
+import type {
+	AiProviderId,
+	ProviderConfigs,
+	ProviderDescriptor,
+	ProviderId,
+	ProviderSite,
+	SitesDescriptor,
+	SitesProviderId,
+} from './types';
 
-// Also the fallback order: the first ready provider wins.
-export const PROVIDER_IDS = [ 'wpcom', 'anthropic' ] as const satisfies readonly ProviderId[];
+// The providers that serve AI models, in fallback order: the first ready provider wins.
+export const AI_PROVIDER_IDS = [
+	'wpcom',
+	'anthropic',
+	'openai',
+] as const satisfies readonly AiProviderId[];
 
-export const DEFAULT_PROVIDER_ID: ProviderId = 'wpcom';
+export const PROVIDER_IDS = [
+	...AI_PROVIDER_IDS,
+	'spacefast',
+] as const satisfies readonly ProviderId[];
 
-const DESCRIPTORS: { [ Id in ProviderId ]: ProviderDescriptor< ProviderConfigs[ Id ] > } = {
+export const DEFAULT_PROVIDER_ID: AiProviderId = 'wpcom';
+
+// The providers with remote sites, in the order the publish panel offers them.
+export const SITES_PROVIDER_IDS = [
+	'wpcom',
+	'spacefast',
+] as const satisfies readonly SitesProviderId[];
+
+const DESCRIPTORS: {
+	[ Id in ProviderId ]: ProviderDescriptor< ProviderConfigs[ Id ], ProviderSite< Id > >;
+} = {
 	wpcom: wpcomDescriptor,
 	anthropic: anthropicDescriptor,
+	openai: openaiDescriptor,
+	spacefast: spacefastDescriptor,
 };
 
 export function getProviderDescriptor< Id extends ProviderId >(
 	id: Id
-): ProviderDescriptor< ProviderConfigs[ Id ] > {
+): ProviderDescriptor< ProviderConfigs[ Id ], ProviderSite< Id > > {
 	return DESCRIPTORS[ id ];
 }
 
@@ -24,10 +53,48 @@ export function getProviderDescriptor< Id extends ProviderId >(
 const STORED_PROVIDER_IDS: Record< ProviderId, string > = {
 	wpcom: 'wpcom',
 	anthropic: 'anthropic-api-key',
+	openai: 'openai',
+	spacefast: 'spacefast',
 };
 
 export function normalizeProviderId( value: string ): ProviderId | undefined {
 	return PROVIDER_IDS.find( ( id ) => id === value || STORED_PROVIDER_IDS[ id ] === value );
+}
+
+// How a provider presents its remote sites, for surfaces that handle any provider's: they only
+// ever hand a provider back the sites it gave them.
+export function getSitesDescriptor( provider: SitesProviderId ): SitesDescriptor {
+	return getProviderDescriptor( provider ).sites as unknown as SitesDescriptor;
+}
+
+function isAiProviderId( id: ProviderId ): id is AiProviderId {
+	return ( AI_PROVIDER_IDS as readonly ProviderId[] ).includes( id );
+}
+
+export function normalizeSitesProviderId( value: string ): SitesProviderId | undefined {
+	return SITES_PROVIDER_IDS.find( ( id ) => id === value );
+}
+
+// A remote site as the CLI and the agent name it: `<provider>:<site>`, or `<provider>` alone.
+// Without a provider it is a WordPress.com site's URL or ID.
+export function formatRemoteSite( provider: SitesProviderId, id: string | number ): string {
+	return `${ provider }:${ id }`;
+}
+
+export function parseRemoteSite( value: string | undefined ): {
+	provider: SitesProviderId;
+	identifier?: string;
+} {
+	const [ prefix, ...rest ] = value?.trim().split( ':' ) ?? [];
+	const provider = prefix ? normalizeSitesProviderId( prefix ) : undefined;
+	return provider
+		? { provider, identifier: rest.join( ':' ) || undefined }
+		: { provider: 'wpcom', identifier: value?.trim() || undefined };
+}
+
+export function normalizeAiProviderId( value: string ): AiProviderId | undefined {
+	const id = normalizeProviderId( value );
+	return id && isAiProviderId( id ) ? id : undefined;
 }
 
 export function toStoredProviderId( id: ProviderId ): string {

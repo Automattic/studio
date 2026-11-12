@@ -4,6 +4,7 @@ import { escapeRegex } from '@studio/common/lib/escape-regex';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { syncOptionSchema, type SyncOption, SyncSite } from '@studio/common/types/sync';
+import { getProviderDescriptor, parseRemoteSite } from '@studio/providers';
 import { getProvider } from '@studio/providers/services';
 import { posix } from 'pathe';
 import { phpQuote } from '../php';
@@ -357,7 +358,17 @@ echo implode( "\\n", $found );`,
 		},
 	};
 
-	async function findRemoteSite( site: HostSite, remoteSite: string | undefined ) {
+	// Studio on the web can't make the static export other providers publish, so it syncs with
+	// WordPress.com only.
+	async function findRemoteSite( site: HostSite, named: string | undefined ) {
+		const { provider, identifier: remoteSite } = parseRemoteSite( named );
+		if ( provider !== 'wpcom' ) {
+			throw new Error(
+				`Studio on the web publishes only to WordPress.com; publishing to ${
+					getProviderDescriptor( provider ).label
+				} needs the Studio app.`
+			);
+		}
 		if ( ! ( await auth.token() ) ) {
 			throw new Error(
 				'This needs WordPress.com authentication: ask the user to log in to WordPress.com from Settings.'
@@ -490,6 +501,13 @@ echo implode( "\\n", $found );`,
 			delete: ( hostname ) => wpcom.deleteSnapshot( normalizeHostname( hostname ) ),
 		},
 		sync: {
+			connectedSites: async ( site ) =>
+				( await auth.token() )
+					? ( await wpcom.getConnectedSites( site.id ) ).map( ( remote ) => ( {
+							provider: 'wpcom' as const,
+							site: remote,
+					  } ) )
+					: [],
 			push: async ( site, options, remoteSite ): Promise< SyncSite > => {
 				const remote = await findRemoteSite( site, remoteSite );
 				await wpcom.push( site.id, remote.id, { optionsToSync: parseSyncOptions( options ) } );
@@ -511,8 +529,6 @@ echo implode( "\\n", $found );`,
 		wpcom: {
 			token: async () => ( await auth.token() )?.accessToken,
 			sites: () => wpcom.fetchSyncableSites(),
-			connectedSites: async ( site ) =>
-				( await auth.token() ) ? wpcom.getConnectedSites( site.id ) : [],
 			request: async ( method, requestPath, query, body ) => {
 				const { apiNamespace, ...params } = query;
 				const search = new URLSearchParams(

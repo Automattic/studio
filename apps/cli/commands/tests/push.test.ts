@@ -1,14 +1,17 @@
 import { once } from 'events';
 import fs from 'fs';
 import * as configFile from '@studio/common/lib/cli-config-file';
+import { readProviderConfig } from '@studio/common/lib/provider-config';
 import { getRemoteSites, rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
-import { RemoteSiteError, type PushArchive, type PushStatus } from '@studio/providers';
+import { RemoteSiteError, type PushContent, type PushStatus } from '@studio/providers';
+import { getProvider } from '@studio/providers/services';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
-import { reportSyncActivity } from 'cli/lib/sync-activity';
-import { fetchSyncableSites, wpcomSites } from 'cli/lib/sync-api';
+import { exportStaticContent } from 'cli/lib/static-content';
+import { onCancel, reportSyncActivity } from 'cli/lib/sync-activity';
+import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { runCommand } from '../push';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -20,6 +23,11 @@ vi.mock( '@studio/common/lib/shared-config', async ( importActual ) => ( {
 	readAuthToken: vi.fn(),
 } ) );
 vi.mock( '@studio/common/lib/remote-sites' );
+vi.mock( '@studio/common/lib/provider-config', async ( importActual ) => ( {
+	...( await importActual< typeof import('@studio/common/lib/provider-config') >() ),
+	readProviderConfig: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/static-content' );
 vi.mock( '@studio/common/lib/deploy-ignore' );
 vi.mock( 'cli/lib/cli-config/sites', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/cli-config/sites') >() ),
@@ -34,19 +42,39 @@ vi.mock( 'cli/lib/sync-activity' );
 vi.mock( 'cli/lib/sync-api', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/sync-api') >() ),
 	fetchSyncableSites: vi.fn(),
-	wpcomSites: { push: vi.fn() },
 } ) );
+vi.mock( '@studio/providers/services', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('@studio/providers/services') >();
+	const sites = {
+		wpcom: { push: vi.fn() },
+		spacefast: { list: vi.fn(), create: vi.fn(), push: vi.fn() },
+	};
+	return {
+		...actual,
+		getProvider: ( id: keyof typeof sites ) => ( {
+			...actual.getProvider( id ),
+			sites: sites[ id ],
+		} ),
+	};
+} );
 vi.mock( 'cli/lib/tracks' );
 
+const wpcomSites = getProvider( 'wpcom' ).sites!;
 const site = { id: 'site-1', path: '/test/site', phpVersion: '8.3' } as SiteData;
 const remoteSite = { id: 42, name: 'Live', syncSupport: 'syncable' } as SyncSite;
+
+const readArchive = ( content: PushContent ) =>
+	once(
+		( ( content as Extract< PushContent, { kind: 'archive' } > ).file as Readable ).resume(),
+		'close'
+	);
 
 // Reads the archive to the end, as the real upload does before the push removes it, reports
 // `statuses`, then ends with `outcome`.
 function pushes( statuses: PushStatus[], outcome?: Error ) {
 	vi.mocked( wpcomSites.push ).mockImplementation(
-		async ( _config, _site, archive: PushArchive, _options, onStatus ) => {
-			await once( ( archive.file as Readable ).resume(), 'close' );
+		async ( _config, _site, content: PushContent, _options, onStatus ) => {
+			await readArchive( content );
 			statuses.forEach( onStatus );
 			if ( outcome ) {
 				throw outcome;
@@ -72,6 +100,7 @@ afterEach( () => vi.restoreAllMocks() );
 describe( 'CLI: studio push', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
+		vi.mocked( onCancel ).mockReturnValue( () => true );
 		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( site );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ remoteSite ] );
@@ -90,8 +119,8 @@ describe( 'CLI: studio push', () => {
 		async ( failed ) => {
 			vi.mocked( getRemoteSites ).mockResolvedValue( [ { ...remoteSite, launchAfterPush: true } ] );
 			vi.mocked( wpcomSites.push ).mockImplementation(
-				async ( _config, _site, archive, options, onStatus ) => {
-					await once( ( archive.file as Readable ).resume(), 'close' );
+				async ( _config, _site, content, options, onStatus ) => {
+					await readArchive( content );
 					expect( options.launchAfterPush ).toBe( true );
 					onStatus( { phase: 'launching' } );
 					return failed ? { launchError: 'Changes pushed, but launch failed' } : undefined;
@@ -227,4 +256,99 @@ describe( 'CLI: studio push', () => {
 			);
 		}
 	);
+} );
+
+describe( 'CLI: studio push to a provider that publishes a static copy', () => {
+	const space = {
+		id: 'spc_1',
+		name: 'My Site',
+		url: 'https://my-site.space.fast',
+		slug: 'my-site',
+		teamId: 'team_1',
+	};
+	const spacefastSites = getProvider( 'spacefast' ).sites!;
+	const files: PushContent = {
+		kind: 'files',
+		files: [ { path: 'index.html', size: 4, read: async () => new Uint8Array() } ],
+	};
+
+	beforeEach( () => {
+		vi.clearAllMocks();
+		vi.mocked( onCancel ).mockReturnValue( () => true );
+		vi.mocked( getSiteByFolder ).mockResolvedValue( { ...site, name: 'My Site' } );
+		vi.mocked( readProviderConfig ).mockResolvedValue( { apiKey: 'sfa_key' } as never );
+		vi.mocked( exportStaticContent ).mockResolvedValue( files );
+	} );
+
+	it( 'publishes the export to the site last published to, and reports and records it as that provider’s', async () => {
+		vi.mocked( getRemoteSites ).mockResolvedValue( [
+			{ ...space, localSiteId: site.id, lastPushTimestamp: null, lastPullTimestamp: null },
+			{
+				...space,
+				id: 'spc_2',
+				localSiteId: site.id,
+				lastPushTimestamp: '2026-11-01T00:00:00Z',
+				lastPullTimestamp: null,
+			},
+		] );
+
+		await expect( runCommand( site.path, undefined, 'spacefast' ) ).resolves.toMatchObject( {
+			id: 'spc_2',
+		} );
+
+		expect( exportStaticContent ).toHaveBeenCalledWith(
+			site.path,
+			space.url,
+			expect.any( String )
+		);
+		expect( spacefastSites.push ).toHaveBeenCalledWith(
+			{ apiKey: 'sfa_key' },
+			expect.objectContaining( { id: 'spc_2' } ),
+			files,
+			expect.objectContaining( { optionsToSync: [ 'all' ] } ),
+			expect.any( Function ),
+			expect.any( AbortSignal )
+		);
+		expect( rememberRemoteSite ).toHaveBeenCalledWith(
+			'spacefast',
+			site.id,
+			expect.objectContaining( { id: 'spc_2' } ),
+			'push'
+		);
+		expect( reported().at( -1 ) ).toEqual( {
+			kind: 'success',
+			direction: 'push',
+			provider: 'spacefast',
+			remoteSiteId: 'spc_2',
+		} );
+		expect( recordTracksEvent ).toHaveBeenCalledWith(
+			TRACKS_EVENTS.SYNC_PUSH,
+			expect.objectContaining( { success: true, sync_type: 'spacefast' } )
+		);
+	} );
+
+	it( 'asks for a site when there is no terminal to pick one in', async () => {
+		vi.mocked( getRemoteSites ).mockResolvedValue( [] );
+		vi.mocked( spacefastSites.list ).mockResolvedValue( [ space ] );
+
+		await expect( runCommand( site.path, undefined, 'spacefast' ) ).rejects.toThrow(
+			'Choose a site with `--remote-site spacefast:<site>`'
+		);
+		expect( spacefastSites.push ).not.toHaveBeenCalled();
+	} );
+
+	it( 'publishes to the site an ID or URL names', async () => {
+		vi.mocked( spacefastSites.list ).mockResolvedValue( [ space ] );
+
+		await runCommand( site.path, undefined, 'spacefast:my-site.space.fast' );
+
+		expect( spacefastSites.push ).toHaveBeenCalledWith(
+			expect.anything(),
+			space,
+			files,
+			expect.anything(),
+			expect.anything(),
+			expect.anything()
+		);
+	} );
 } );

@@ -101,13 +101,25 @@ function setup( connections: SyncSite[] = [], signedIn = true, running = true, r
 		if ( start.tagName === 'BUTTON' ) {
 			fireEvent.click( start );
 		} else if ( start.tagName === 'H2' ) {
-			fireEvent.click( await screen.findByRole( 'button', { name: address( connected[ 0 ] ) } ) );
+			// A site connected meanwhile may open its panel before its row is clicked.
+			const next = await waitFor( () => {
+				const found =
+					screen.queryByRole( 'button', { name: address( connected[ 0 ] ) } ) ??
+					screen.queryByRole( 'group', { name: 'Website' } );
+				expect( found ).not.toBeNull();
+				return found!;
+			} );
+			if ( next.tagName === 'BUTTON' ) {
+				fireEvent.click( next );
+			}
 		}
 		if ( connections.length && review ) {
 			fireEvent.click( await screen.findByRole( 'button', { name: 'Publish changes' } ) );
 			await screen.findByRole( 'radiogroup', { name: 'What to publish' } );
 		}
 	} );
+	// Tests that never wait for the panel leave this running past their end.
+	ready.catch( () => undefined );
 	return {
 		...view,
 		connector,

@@ -10,7 +10,8 @@ import {
 	type ToastAction,
 } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
+import { AI_SETTINGS_QUERY_KEY } from '@/data/queries/use-ai-settings';
+import { remoteSitesQueryKey } from '@/data/queries/use-remote-sites';
 import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
@@ -25,12 +26,12 @@ import type {
 	Snapshot,
 } from '@/data/core';
 import type { SyncActivity, SyncDirection } from '@studio/common/lib/sync/activity';
-import type { SyncSite } from '@studio/common/types/sync';
+import type { RemoteSite, SitesProviderId } from '@studio/providers';
 
 // Exported so the publish panel can find a site's in-flight push or pull in
 // the mutation cache.
-export const PUSH_TO_LIVE_MUTATION_KEY = [ 'pushSiteToLive' ] as const;
-export const PULL_FROM_LIVE_MUTATION_KEY = [ 'pullSiteFromLive' ] as const;
+export const PUSH_TO_LIVE_MUTATION_KEY = [ 'pushSite' ] as const;
+export const PULL_FROM_LIVE_MUTATION_KEY = [ 'pullSite' ] as const;
 
 // Records progress and announces each result once, including work started outside this UI.
 export function useSettleSync() {
@@ -177,14 +178,19 @@ export function useSettleSync() {
 				return;
 			}
 
-			void queryClient.invalidateQueries( { queryKey: connectedWpcomSitesQueryKey( siteId ) } );
+			const provider = ( getSyncActivity( siteId )?.provider ?? 'wpcom' ) as SitesProviderId;
+			void queryClient.invalidateQueries( { queryKey: remoteSitesQueryKey( provider, siteId ) } );
+			// A provider that rejected its config forgot it, which disconnects the account.
+			if ( settled.kind === 'error' ) {
+				void queryClient.invalidateQueries( { queryKey: AI_SETTINGS_QUERY_KEY } );
+			}
 			if ( settled.direction === 'pull' ) {
 				void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 			}
 			const isPush = settled.direction === 'push';
 			if ( settled.kind === 'success' ) {
 				const remote = queryClient
-					.getQueryData< SyncSite[] >( connectedWpcomSitesQueryKey( siteId ) )
+					.getQueryData< RemoteSite[] >( remoteSitesQueryKey( provider, siteId ) )
 					?.find( ( { id } ) => previous?.kind === 'pending' && id === previous.remoteSiteId );
 				const viewSite = isPush
 					? remote && ( () => connector.openExternalUrl( remote.url ) )
@@ -299,30 +305,25 @@ export function useSettleFromMutation() {
 	};
 }
 
-type LiveSyncVariables< Options > = {
+type SyncVariables< Options > = {
+	provider: SitesProviderId;
 	siteId: string;
-	remoteSiteId: number;
+	remoteSiteId: string | number;
 	options?: Options;
 };
 
-function useLiveSync< Options >(
+function useSync< Options >(
 	direction: 'push' | 'pull',
-	sync: (
-		connector: Connector,
-		siteId: string,
-		remoteSiteId: number,
-		options?: Options
-	) => Promise< void >
+	sync: ( connector: Connector, variables: SyncVariables< Options > ) => Promise< void >
 ) {
 	const connector = useConnector();
 	const settleFromMutation = useSettleFromMutation();
 	const recordActivity = useSettleSync();
 	return useMutation( {
 		mutationKey: direction === 'push' ? PUSH_TO_LIVE_MUTATION_KEY : PULL_FROM_LIVE_MUTATION_KEY,
-		mutationFn: ( { siteId, remoteSiteId, options }: LiveSyncVariables< Options > ) =>
-			sync( connector, siteId, remoteSiteId, options ),
-		onMutate: ( { siteId, remoteSiteId } ) => {
-			recordActivity( siteId, { kind: 'pending', direction, remoteSiteId } );
+		mutationFn: ( variables: SyncVariables< Options > ) => sync( connector, variables ),
+		onMutate: ( { provider, siteId, remoteSiteId } ) => {
+			recordActivity( siteId, { kind: 'pending', direction, provider, remoteSiteId } );
 			return {
 				journey:
 					direction === 'push'
@@ -342,38 +343,39 @@ function useLiveSync< Options >(
 	} );
 }
 
-export const usePushSiteToLive = () =>
-	useLiveSync< PushSyncOptions >( 'push', ( connector, ...args ) =>
-		connector.pushSiteToLive( ...args )
+export const usePushSite = () =>
+	useSync< PushSyncOptions >( 'push', ( connector, { provider, siteId, remoteSiteId, options } ) =>
+		connector.pushSite( provider, siteId, remoteSiteId, options )
 	);
 
-export const usePullSiteFromLive = () =>
-	useLiveSync< PullSyncOptions >( 'pull', ( connector, ...args ) =>
-		connector.pullSiteFromLive( ...args )
+export const usePullSite = () =>
+	useSync< PullSyncOptions >( 'pull', ( connector, { provider, siteId, remoteSiteId, options } ) =>
+		connector.pullSite( provider, siteId, remoteSiteId, options )
 	);
 
-type DisconnectWpcomSiteVariables = {
+type DisconnectVariables = {
+	provider: SitesProviderId;
 	siteId: string;
-	remoteSiteId: number;
+	remoteSiteId: string | number;
 };
 
-export function useDisconnectWpcomSite() {
+export function useDisconnectRemoteSite() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
-		mutationFn: ( { siteId, remoteSiteId }: DisconnectWpcomSiteVariables ) =>
-			connector.disconnectWpcomSite( siteId, remoteSiteId ),
-		onSuccess: ( _result, { siteId } ) => {
-			void queryClient.invalidateQueries( {
-				queryKey: connectedWpcomSitesQueryKey( siteId ),
-			} );
-		},
+		mutationFn: ( { provider, siteId, remoteSiteId }: DisconnectVariables ) =>
+			connector.disconnectRemoteSite( provider, siteId, remoteSiteId ),
+		onSuccess: ( _result, { provider, siteId } ) =>
+			Promise.all( [
+				queryClient.invalidateQueries( { queryKey: remoteSitesQueryKey( provider, siteId ) } ),
+				queryClient.invalidateQueries( { queryKey: remoteSitesQueryKey( provider ) } ),
+			] ),
 	} );
 }
 
 type CancelSyncVariables = {
 	siteId: string;
-	remoteSiteId: number;
+	remoteSiteId: string | number;
 };
 
 export function useCancelSync() {

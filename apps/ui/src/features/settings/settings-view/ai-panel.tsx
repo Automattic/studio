@@ -1,8 +1,9 @@
 import {
 	getConnectFields,
 	getProviderDescriptor,
-	PROVIDER_IDS,
-	type ProviderId,
+	AI_PROVIDER_IDS,
+	type AiProviderId,
+	type SitesProviderId,
 } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useState } from 'react';
@@ -11,10 +12,12 @@ import { useConnector } from '@/data/core';
 import {
 	useAiSettings,
 	useConnectProvider,
+	useDeviceSignIn,
 	useDisconnectProvider,
 	useSetAiProvider,
 } from '@/data/queries/use-ai-settings';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
+import { usePublishProviders } from '@/data/queries/use-remote-sites';
 import { LearnMoreLink } from '@/features/onboarding';
 import { useOffline } from '@/lib/hooks';
 import { Button, Input } from '@/lib/ui';
@@ -22,7 +25,7 @@ import { connectedBadge, SettingsGroup, SettingsRow, SettingsSelect } from './ro
 import styles from './style.module.css';
 
 // A provider that connects with a form: the form comes from its descriptor.
-function ProviderFormRow( { provider }: { provider: ProviderId } ) {
+function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 	const settings = useAiSettings();
 	const connect = useConnectProvider( provider );
 	const disconnect = useDisconnectProvider( provider );
@@ -159,7 +162,10 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 	const setProvider = useSetAiProvider();
 	const isOffline = useOffline();
 	const [ wpcomRequested, setWpcomRequested ] = useState( false );
-	const connected = PROVIDER_IDS.filter( ( id ) => settings.data?.accounts[ id ].connected );
+	const connected = AI_PROVIDER_IDS.filter( ( id ) => settings.data?.accounts[ id ].connected );
+	const deviceProviders = usePublishProviders().filter(
+		( id ) => getProviderDescriptor( id ).connection.kind === 'device'
+	);
 
 	// Connecting WordPress.com finishes once the sign-up lands.
 	const { mutate: selectProvider } = setProvider;
@@ -207,8 +213,11 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 					{ user ? __( 'Manage' ) : __( 'Connect' ) }
 				</Button>
 			</SettingsRow>
-			{ PROVIDER_IDS.filter( ( id ) => getConnectFields( id ).length ).map( ( id ) => (
+			{ AI_PROVIDER_IDS.filter( ( id ) => getConnectFields( id ).length ).map( ( id ) => (
 				<ProviderFormRow key={ id } provider={ id } />
+			) ) }
+			{ deviceProviders.map( ( id ) => (
+				<DeviceProviderRow key={ id } provider={ id } />
 			) ) }
 			{ connected.length > 1 && settings.data ? (
 				<SettingsRow
@@ -216,7 +225,7 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 					description={ __( 'The provider new chats use.' ) }
 					error={ setProvider.error?.message }
 				>
-					<SettingsSelect< ProviderId >
+					<SettingsSelect< AiProviderId >
 						label={ __( 'Default provider' ) }
 						value={ settings.data.provider }
 						disabled={ settings.isLoading || setProvider.isPending }
@@ -232,6 +241,56 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 	);
 }
 
+// A provider that connects with a device sign-in, such as one that publishes sites.
+function DeviceProviderRow( { provider }: { provider: SitesProviderId } ) {
+	const settings = useAiSettings();
+	const signIn = useDeviceSignIn( provider );
+	const disconnect = useDisconnectProvider( provider );
+	const offline = useOffline();
+	const descriptor = getProviderDescriptor( provider );
+	const connected = settings.data?.accounts[ provider ].connected;
+	return (
+		<SettingsRow
+			title={ descriptor.label }
+			settingId={ `${ provider }-provider` }
+			badge={ connected ? connectedBadge() : null }
+			description={
+				<>
+					{ signIn.authorization
+						? sprintf(
+								/* translators: 1: a sign-in code, 2: a service name such as Spacefast */
+								__( 'Approve the code %1$s on %2$s to connect.' ),
+								signIn.authorization.userCode,
+								descriptor.label
+						  )
+						: descriptor.description?.() }{ ' ' }
+					{ descriptor.learnMoreUrl ? <LearnMoreLink url={ descriptor.learnMoreUrl } /> : null }
+				</>
+			}
+			error={ ( signIn.error ?? disconnect.error )?.message }
+		>
+			{ connected ? (
+				<Button
+					variant="outline"
+					disabled={ disconnect.isPending }
+					onClick={ () => disconnect.mutate() }
+				>
+					{ __( 'Disconnect' ) }
+				</Button>
+			) : (
+				<Button
+					variant="outline"
+					disabled={ settings.isLoading || offline }
+					loading={ signIn.isPending }
+					onClick={ () => signIn.mutate() }
+				>
+					{ __( 'Connect' ) }
+				</Button>
+			) }
+		</SettingsRow>
+	);
+}
+
 export function AiPanel( { onManageCredits }: { onManageCredits: () => void } ) {
 	return (
 		<div className={ styles.preferencesPanel }>
@@ -241,7 +300,7 @@ export function AiPanel( { onManageCredits }: { onManageCredits: () => void } ) 
 					description={
 						<>
 							{ __(
-								'Providers give WordPress Studio access to the models that understand your requests and make changes to your sites. Connect one to build pages, write content, and customize themes and plugins through chat.'
+								'Providers give WordPress Studio access to the models that understand your requests and make changes to your sites, and to the places you publish them. Connect one to build pages, write content, and customize themes and plugins through chat.'
 							) }{ ' ' }
 							<LearnMoreLink docsLinksKey="docsStudioCode" />
 						</>

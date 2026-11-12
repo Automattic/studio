@@ -60,7 +60,7 @@ function setup( {
 				connector.state.sites = [ ...connector.state.sites, site ];
 				return site;
 			},
-			fetchSyncableWpcomSites: async () => [ remote ],
+			listAccountSites: async () => [ remote ],
 			getFilePath: async () => '/tmp/upload/backup.zip',
 		}
 	);
@@ -114,10 +114,10 @@ describe( 'Add site flow', () => {
 				journey_id: crypto.randomUUID(),
 			} as const;
 			rememberAccountJourney( connector, context );
-			connector.getConnectedWpcomSites.mockResolvedValue( [
+			connector.getRemoteSites.mockResolvedValue( [
 				{ ...remote, localSiteId: site.id, syncSupport: 'already-connected' },
 			] );
-			connector.pullSiteFromLive.mockRejectedValueOnce( new Error( 'Initial pull failed' ) );
+			connector.pullSite.mockRejectedValueOnce( new Error( 'Initial pull failed' ) );
 			await screen.findByRole( 'button', { name: 'Start with Blank site' } );
 			fireEvent.click( screen.getByRole( 'tab', { name: 'Connect' } ) );
 			fireEvent.click( await screen.findByRole( 'button', { name: /Remote site/ } ) );
@@ -125,7 +125,7 @@ describe( 'Add site flow', () => {
 			await waitFor( () =>
 				expect( connector.trackEvent ).toHaveBeenCalledWith(
 					TRACKS_EVENTS.SYNC_CONNECT,
-					{ success: true, num_of_sites: 1 },
+					{ success: true, num_of_sites: 1, sync_type: 'wpcom' },
 					site.id
 				)
 			);
@@ -147,7 +147,7 @@ describe( 'Add site flow', () => {
 					{ ...context, completion_kind: 'sync_pull' }
 				)
 			);
-			expect( connector.pullSiteFromLive ).toHaveBeenCalledTimes( 2 );
+			expect( connector.pullSite ).toHaveBeenCalledTimes( 2 );
 		}
 	);
 
@@ -615,7 +615,7 @@ describe( 'Add site flow', () => {
 		fireEvent.click( screen.getByRole( 'tab', { name: 'Connect' } ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: /Remote site/ } ) );
 		await submit();
-		await waitFor( () => expect( connector.pullSiteFromLive ).toHaveBeenCalled() );
+		await waitFor( () => expect( connector.pullSite ).toHaveBeenCalled() );
 	} );
 } );
 
@@ -805,7 +805,7 @@ describe( 'Modal-wide file drops', () => {
 				blueprint: expect.any( File ),
 			} )
 		);
-		expect( connector.pullSiteFromLive ).not.toHaveBeenCalled();
+		expect( connector.pullSite ).not.toHaveBeenCalled();
 	} );
 
 	it( 'preserves edits and a valid Blueprint after a failed replacement', async () => {
@@ -913,7 +913,7 @@ it( 'returns to all sites from a category breadcrumb after switching filters', a
 
 it( 'resolves connect failure telemetry before removing the local record', async () => {
 	const { connector, site } = setup();
-	connector.connectWpcomSite.mockRejectedValueOnce( new Error( 'Cannot save connection' ) );
+	connector.connectRemoteSite.mockRejectedValueOnce( new Error( 'Cannot save connection' ) );
 	let finishTelemetry: () => void = () => {};
 	connector.trackEvent.mockImplementation( async ( event ) => {
 		if ( event === TRACKS_EVENTS.SYNC_CONNECT )

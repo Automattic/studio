@@ -6,12 +6,12 @@ import {
 	getConnectFields,
 	getProviderDescriptor,
 	InvalidCredentialError,
-	PROVIDER_IDS,
+	AI_PROVIDER_IDS,
 	ProviderNotReadyError,
 	type AiConnection,
 	type AiModelId,
 	type ProviderConfigs,
-	type ProviderId,
+	type AiProviderId,
 } from '@studio/providers';
 import { getProvider } from '@studio/providers/services';
 import { __, sprintf } from '@wordpress/i18n';
@@ -30,7 +30,7 @@ function readInlineWpcomToken(): string | undefined {
 }
 
 // `STUDIO_WPCOM_TOKEN` stands in for the Studio sign-in.
-async function readCliProviderConfig< Id extends ProviderId >(
+async function readCliProviderConfig< Id extends AiProviderId >(
 	provider: Id
 ): Promise< ProviderConfigs[ Id ] | undefined > {
 	const inlineToken = provider === 'wpcom' ? readInlineWpcomToken() : undefined;
@@ -39,14 +39,14 @@ async function readCliProviderConfig< Id extends ProviderId >(
 		: readProviderConfig( provider );
 }
 
-export async function isAiProviderReady( provider: ProviderId ): Promise< boolean > {
+export async function isAiProviderReady( provider: AiProviderId ): Promise< boolean > {
 	return ( await readCliProviderConfig( provider ) ) !== undefined;
 }
 
 async function getPreferredReadyProvider(
-	exclude?: ProviderId
-): Promise< ProviderId | undefined > {
-	for ( const provider of PROVIDER_IDS ) {
+	exclude?: AiProviderId
+): Promise< AiProviderId | undefined > {
+	for ( const provider of AI_PROVIDER_IDS ) {
 		if ( provider !== exclude && ( await isAiProviderReady( provider ) ) ) {
 			return provider;
 		}
@@ -54,20 +54,20 @@ async function getPreferredReadyProvider(
 	return undefined;
 }
 
-function fallsBackWhenNotReady( provider: ProviderId ): boolean {
+function fallsBackWhenNotReady( provider: AiProviderId ): boolean {
 	return getProvider( provider ).ai?.fallbackWhenNotReady ?? false;
 }
 
 export async function resolveUnavailableAiProvider(
-	provider: ProviderId
-): Promise< ProviderId | undefined > {
+	provider: AiProviderId
+): Promise< AiProviderId | undefined > {
 	if ( ( await isAiProviderReady( provider ) ) || ! fallsBackWhenNotReady( provider ) ) {
 		return undefined;
 	}
 	return getPreferredReadyProvider( provider );
 }
 
-export async function resolveInitialAiProvider(): Promise< ProviderId > {
+export async function resolveInitialAiProvider(): Promise< AiProviderId > {
 	if ( readInlineWpcomToken() ) {
 		return 'wpcom';
 	}
@@ -88,7 +88,7 @@ export async function resolveInitialAiProvider(): Promise< ProviderId > {
 
 // Asks for the fields of a provider that connects with a form. The provider
 // checks the values once the last one is entered, and a rejection asks again.
-async function promptForConnection( provider: ProviderId ): Promise< void > {
+async function promptForConnection( provider: AiProviderId ): Promise< void > {
 	const fields = getConnectFields( provider );
 	const values: Record< string, string > = {};
 	for ( const [ index, field ] of fields.entries() ) {
@@ -121,7 +121,7 @@ async function promptForConnection( provider: ProviderId ): Promise< void > {
 
 // Asks for what the provider needs before it is selected.
 export async function prepareAiProvider(
-	provider: ProviderId,
+	provider: AiProviderId,
 	options?: { force?: boolean }
 ): Promise< void > {
 	const ready = await isAiProviderReady( provider );
@@ -136,7 +136,7 @@ export async function prepareAiProvider(
 	}
 }
 
-async function connect< Id extends ProviderId >(
+async function connect< Id extends AiProviderId >(
 	provider: Id,
 	model: AiModelId,
 	options: { sessionId?: string }
@@ -150,7 +150,7 @@ async function connect< Id extends ProviderId >(
 }
 
 export async function resolveAiConnection(
-	provider: ProviderId,
+	provider: AiProviderId,
 	model: AiModelId,
 	options: { sessionId?: string } = {}
 ): Promise< AiConnection > {
@@ -164,7 +164,7 @@ export async function resolveAiConnection(
 	}
 }
 
-async function bindImageGenerator< Id extends ProviderId >(
+async function bindImageGenerator< Id extends AiProviderId >(
 	provider: Id
 ): Promise< ImageGenerator | undefined > {
 	const generateImages = getProvider( provider ).ai?.generateImages;
@@ -178,7 +178,7 @@ async function bindImageGenerator< Id extends ProviderId >(
 // Image generation from the first connected provider that offers it, whichever
 // provider serves the chat.
 export async function resolveImageGenerator(): Promise< ImageGenerator | undefined > {
-	for ( const provider of PROVIDER_IDS ) {
+	for ( const provider of AI_PROVIDER_IDS ) {
 		const generator = await bindImageGenerator( provider );
 		if ( generator ) {
 			return generator;

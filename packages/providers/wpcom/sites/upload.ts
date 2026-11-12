@@ -1,5 +1,5 @@
 import { Upload } from 'tus-js-client';
-import type { PushArchive } from '../../types';
+import type { PushContent } from '../../types';
 
 // Each chunk waits for a server round trip, so larger chunks upload faster; a failed chunk is
 // resent whole. 10 MB matches WordPress.com's own tus uploaders (Calypso media, VideoPress).
@@ -20,7 +20,7 @@ export type TusUploadOptions = {
 	token: string;
 	remoteSiteId: number;
 	// A Blob in a browser; in Node, a stream of the archive with its size.
-	file: PushArchive[ 'file' ];
+	file: Extract< PushContent, { kind: 'archive' } >[ 'file' ];
 	filename: string;
 	size?: number;
 	onProgress?: ( percent: number ) => void;

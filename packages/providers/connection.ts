@@ -1,5 +1,11 @@
 import { getProviderDescriptor } from './descriptors';
-import type { ConnectionMethod, ProviderConnection, ProviderId, RedirectOptions } from './types';
+import type {
+	ConnectionMethod,
+	ConnectStep,
+	ProviderConnection,
+	ProviderId,
+	RedirectOptions,
+} from './types';
 
 // One field of a provider's connection form, as a surface renders it.
 export interface ConnectField {
@@ -32,6 +38,12 @@ export function getConnection( provider: ProviderId, method?: string ): Provider
 export function getConnectedMethod( provider: ProviderId, config: unknown ): string | undefined {
 	const method = ( config as { method?: unknown } | undefined )?.method;
 	return getConnectionMethods( provider ).find( ( { id } ) => id === method )?.id;
+}
+
+// What the user does before filling the provider's form in.
+export function getConnectSteps( provider: ProviderId, method?: string ): ConnectStep[] {
+	const connection = getConnection( provider, method );
+	return ( connection.kind === 'form' && connection.steps?.() ) || [];
 }
 
 // The fields a provider's form asks for; empty when it doesn't connect with a form.

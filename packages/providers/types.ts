@@ -64,8 +64,8 @@ export interface RedirectOptions {
 // How the user connects an account. Studio passes what it collected to the
 // provider's `connect`, which turns it into the config to store.
 export type ProviderConnection =
-	// A form rendered from `input`.
-	| { kind: 'form'; input: () => ConnectInputSchema }
+	// A form rendered from `input`, after the steps that get its values.
+	| { kind: 'form'; input: () => ConnectInputSchema; steps?: () => ConnectStep[] }
 	// Approving access on the provider's site, which redirects back to the app
 	// with the result in the URL's parameters.
 	| { kind: 'redirect'; redirectUrl( options: RedirectOptions ): string }
@@ -83,6 +83,15 @@ export type ProviderConnection =
 // `connect` receives the chosen one's id as `input.method`, and the config
 // records it as `method`.
 export type ConnectionMethod = ProviderConnection & { id: string; label: () => string };
+
+// A step the user takes to get what a form asks for.
+export interface ConnectStep {
+	text: string;
+	// A page with the details.
+	url?: string;
+	// Run in a terminal; surfaces show it apart and offer to copy it.
+	command?: string;
+}
 
 // A pending device sign-in: the user approves `userCode` at `verificationUrl`.
 export interface DeviceAuthorization {

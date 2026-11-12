@@ -24,6 +24,7 @@ export {
 export {
 	getConnectedMethod,
 	getConnectFields,
+	getConnectSteps,
 	getConnection,
 	getConnectionMethods,
 	getRedirectUrl,

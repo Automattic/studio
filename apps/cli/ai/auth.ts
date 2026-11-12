@@ -4,6 +4,7 @@ import { getStudioUserAgent as buildStudioUserAgent } from '@studio/common/lib/u
 import {
 	DEFAULT_PROVIDER_ID,
 	getConnectFields,
+	getConnectSteps,
 	getConnectionMethods,
 	getConnection,
 	getProviderDescriptor,
@@ -17,6 +18,7 @@ import {
 } from '@studio/providers';
 import { getProvider } from '@studio/providers/services';
 import { __, sprintf } from '@wordpress/i18n';
+import chalk from 'chalk';
 import { openBrowser } from 'cli/lib/browser';
 import { input, password, select } from 'cli/lib/prompts';
 import { LoggerError } from 'cli/logger';
@@ -113,6 +115,12 @@ async function promptForConnection( provider: AiProviderId ): Promise< void > {
 				choices: methods.map( ( { id, label } ) => ( { value: id, name: label() } ) ),
 		  } )
 		: undefined;
+	for ( const [ index, step ] of getConnectSteps( provider, method ).entries() ) {
+		console.log( `${ index + 1 }. ${ step.text }${ step.url ? ` ${ step.url }` : '' }` );
+		if ( step.command ) {
+			console.log( `   ${ chalk.cyan( step.command ) }` );
+		}
+	}
 	const fields = getConnectFields( provider, method );
 	const values: Record< string, string > = method ? { method } : {};
 	for ( const [ index, field ] of fields.entries() ) {

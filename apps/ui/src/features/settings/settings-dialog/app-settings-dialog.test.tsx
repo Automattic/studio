@@ -938,6 +938,8 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		);
 		expect( await screen.findByRole( 'menuitemradio', { name: 'API key' } ) ).toBeChecked();
 		fireEvent.click( screen.getByRole( 'menuitemradio', { name: 'Claude subscription' } ) );
+		expect( await screen.findByText( 'claude setup-token' ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Copy command' } ) ).toBeVisible();
 		fireEvent.change(
 			await screen.findByLabelText( 'Claude subscription token', { selector: 'input' } ),
 			{ target: { value: 'sk-ant-oat01-token' } }

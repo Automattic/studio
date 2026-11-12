@@ -1,11 +1,13 @@
 import {
 	getConnectFields,
+	getConnectSteps,
 	getConnection,
 	getConnectionMethods,
 	getProviderDescriptor,
 	AI_PROVIDER_IDS,
 	normalizeAiProviderId,
 	type AiProviderId,
+	type ConnectStep,
 	type ProviderId,
 } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
@@ -21,12 +23,37 @@ import {
 } from '@/data/queries/use-ai-settings';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { usePublishProviders } from '@/data/queries/use-remote-sites';
-import { LearnMoreLink } from '@/features/onboarding';
+import { CopyButton } from '@/features/clipboard';
+import { LearnHowLink, LearnMoreLink } from '@/features/onboarding';
 import { useOffline } from '@/lib/hooks';
 import { ChevronDownIcon } from '@/lib/icons';
 import { Button, Input, Menu } from '@/lib/ui';
 import { connectedBadge, SettingsGroup, SettingsRow, SettingsSelect } from './rows';
 import styles from './style.module.css';
+
+function ConnectSteps( { steps }: { steps: ConnectStep[] } ) {
+	return (
+		<ol className={ styles.connectSteps }>
+			{ steps.map( ( step ) => (
+				<li key={ step.text }>
+					{ step.text }
+					{ step.url ? (
+						<>
+							{ ' ' }
+							<LearnHowLink url={ step.url } />
+						</>
+					) : null }
+					{ step.command ? (
+						<div className={ styles.connectCommand }>
+							<code>{ step.command }</code>
+							<CopyButton text={ step.command } label={ __( 'Copy command' ) } />
+						</div>
+					) : null }
+				</li>
+			) ) }
+		</ol>
+	);
+}
 
 // A provider that connects with a form: the form comes from its descriptor.
 function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
@@ -40,6 +67,7 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 	const [ pickedMethod, setPickedMethod ] = useState< string >();
 	const method = pickedMethod ?? account?.method ?? methods[ 0 ]?.id;
 	const fields = getConnectFields( provider, method );
+	const steps = getConnectSteps( provider, method );
 	// The account is connected with the form being shown.
 	const current = account?.connected && account.method === method;
 	const connectLabel = account?.connected ? __( 'Manage' ) : __( 'Connect' );
@@ -124,6 +152,11 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 						}
 					} }
 				>
+					{ steps.length ? (
+						<SettingsRow title={ __( 'How to connect' ) } stacked>
+							<ConnectSteps steps={ steps } />
+						</SettingsRow>
+					) : null }
 					{ fields.map( ( field, index ) => (
 						<SettingsRow
 							key={ field.name }

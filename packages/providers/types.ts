@@ -98,8 +98,6 @@ export interface SitesDescriptor< Site extends RemoteSite = RemoteSite > {
 	newSite: 'checkout' | 'create';
 	// What the panel says before a site is connected.
 	intro: { title: () => string; description: () => string; learnMoreUrl: string };
-	// The site's address, as the panel shows it.
-	address( site: Site ): string;
 	// Facts about a connected site, and links to manage it on the provider.
 	details( site: Site ): { title: string; value: string }[];
 	links( site: Site ): { title: string; url: string }[];

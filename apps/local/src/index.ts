@@ -190,8 +190,7 @@ import {
 	isAiModelId,
 	normalizeAiProviderId,
 	normalizeProviderId,
-	ProviderNotReadyError,
-	SITES_PROVIDER_IDS,
+	normalizeSitesProviderId,
 	toStoredProviderId,
 	type SitesProviderId,
 } from '@studio/providers';
@@ -1917,7 +1916,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	}
 
 	function readSitesProvider( req: Request, res: Response ): SitesProviderId | undefined {
-		const provider = SITES_PROVIDER_IDS.find( ( id ) => id === req.params.provider );
+		const provider = normalizeSitesProviderId( req.params.provider );
 		if ( ! provider ) {
 			res.status( 400 ).json( { error: 'provider must be a provider with sites' } );
 		}
@@ -1935,21 +1934,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// The sites the provider's account can connect to; none until it is connected.
 	api.get(
 		'/remote-sites/:provider/account',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readSitesProvider( req, res );
-			if ( ! provider ) {
-				return;
-			}
-			try {
+			if ( provider ) {
 				res.json( await listAccountSites( getProvider( provider ) ) );
-			} catch ( error ) {
-				if ( ! ( error instanceof ProviderNotReadyError ) ) {
-					throw error;
-				}
-				res.json( [] );
 			}
 		} )
 	);
@@ -2066,22 +2056,17 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	// response comes once the sync has finished.
 	function syncRoute( direction: 'push' | 'pull' ) {
 		return asyncHandler( async ( req: Request, res: Response ) => {
-			const { provider, remoteSiteId, options } = req.body as {
-				provider?: string;
-				remoteSiteId?: string | number;
-				options?: PushSyncOptions & PullSyncOptions;
-			};
-			const sitesProvider = SITES_PROVIDER_IDS.find( ( id ) => id === ( provider ?? 'wpcom' ) );
-			if ( ! sitesProvider || ! remoteSiteId ) {
-				res.status( 400 ).json( { error: 'provider and remoteSiteId are required' } );
+			const provider = readSitesProvider( req, res );
+			if ( ! provider ) {
 				return;
 			}
+			const { options } = req.body as { options?: PushSyncOptions & PullSyncOptions };
 			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
 			if ( ! site ) {
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			const remote = { provider: sitesProvider, id: remoteSiteId };
+			const remote = { provider, id: remoteSiteIdParam( provider, req ) as string | number };
 			res.json(
 				await ( direction === 'push'
 					? syncRunner.push( req.params.id, site.path, remote, options )
@@ -2089,8 +2074,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			);
 		} );
 	}
-	api.post( '/sites/:id/push', syncRoute( 'push' ) );
-	api.post( '/sites/:id/pull', syncRoute( 'pull' ) );
+	api.post( '/sites/:id/remote-sites/:provider/:remoteSiteId/push', syncRoute( 'push' ) );
+	api.post( '/sites/:id/remote-sites/:provider/:remoteSiteId/pull', syncRoute( 'pull' ) );
 
 	// Stop an in-flight push or pull. No-op when nothing is running for the site,
 	// and the operation itself refuses to stop once it has moved past its point

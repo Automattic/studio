@@ -45,10 +45,14 @@ function createSite(): SiteData {
 	return { id: 'site-id', name: 'Site', path: sitePath, port: 8881 } as SiteData;
 }
 
+const stagingDirs = ( site: SiteData ) =>
+	fs.readdirSync( site.path ).filter( ( name ) => name.startsWith( '.studio-static-export' ) );
+
 // Stands in for the PHP driver: writes the export where Simply Static would.
 function mockWpCli( exitCode = 0 ) {
-	vi.mocked( runWpCliCommand ).mockImplementation( async ( site ) => {
-		const stagingDir = path.join( site.path, '.studio-static-export' );
+	vi.mocked( runWpCliCommand ).mockImplementation( async ( site, args ) => {
+		const driver = ( args as string[] )[ 1 ].replace( '--require=', '' );
+		const stagingDir = path.join( site.path, path.dirname( driver ) );
 		const config = JSON.parse( fs.readFileSync( path.join( stagingDir, 'config.json' ), 'utf8' ) );
 		const snapshot = new DatabaseSync( path.join( stagingDir, config.databaseFile ) );
 		snapshot.exec( "INSERT INTO wp_options VALUES ('simply-static')" );
@@ -90,14 +94,14 @@ describe( 'exportStaticSite', () => {
 
 		expect( runWpCliCommand ).toHaveBeenCalledWith( site, [
 			'--no-color',
-			'--require=.studio-static-export/static-export.php',
+			expect.stringMatching( /^--require=\.studio-static-export-\w+\/static-export\.php$/ ),
 			'studio-static-export',
 		] );
 		expect( fs.readFileSync( path.join( outputDir, 'index.html' ), 'utf8' ) ).toBe(
 			'http://localhost:8881'
 		);
 		expect( progress ).toEqual( [ 'Fetched 3 of 3 pages/files' ] );
-		expect( fs.existsSync( path.join( site.path, '.studio-static-export' ) ) ).toBe( false );
+		expect( stagingDirs( site ) ).toEqual( [] );
 
 		const database = new DatabaseSync(
 			path.join( site.path, 'wp-content', 'database', '.ht.sqlite' )
@@ -119,7 +123,7 @@ describe( 'exportStaticSite', () => {
 				outputDir: path.join( tempDir(), 'out' ),
 			} )
 		).rejects.toThrow( 'Static export failed: Error: boom' );
-		expect( fs.existsSync( path.join( site.path, '.studio-static-export' ) ) ).toBe( false );
+		expect( stagingDirs( site ) ).toEqual( [] );
 	} );
 
 	it( 'refuses output directories that overlap the site or are not empty', async () => {

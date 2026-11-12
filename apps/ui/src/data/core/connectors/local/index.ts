@@ -620,8 +620,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async pushSite( provider, siteId, remoteSiteId, options ) {
 			const result = await api< { cancelled?: boolean } >(
-				`/sites/${ encodeURIComponent( siteId ) }/push`,
-				{ method: 'POST', body: JSON.stringify( { provider, remoteSiteId, options } ) }
+				`/sites/${ encodeURIComponent( siteId ) }/remote-sites/${ provider }/${ encodeURIComponent(
+					remoteSiteId
+				) }/push`,
+				{ method: 'POST', body: JSON.stringify( { options } ) }
 			);
 			// The server reports a cancel instead of failing the request; turn it
 			// back into an error for the caller.
@@ -638,8 +640,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async pullSite( provider, siteId, remoteSiteId, options ) {
 			const result = await api< { cancelled?: boolean } >(
-				`/sites/${ encodeURIComponent( siteId ) }/pull`,
-				{ method: 'POST', body: JSON.stringify( { provider, remoteSiteId, options } ) }
+				`/sites/${ encodeURIComponent( siteId ) }/remote-sites/${ provider }/${ encodeURIComponent(
+					remoteSiteId
+				) }/pull`,
+				{ method: 'POST', body: JSON.stringify( { options } ) }
 			);
 			if ( result?.cancelled ) {
 				throw new SyncCancelledError();

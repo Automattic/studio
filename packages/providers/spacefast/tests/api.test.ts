@@ -144,4 +144,22 @@ describe( 'publishFiles', () => {
 			publishFiles( 'sfa_key', 'spc_1', [ file( 'index.html', 'home' ) ], () => {} )
 		).rejects.toThrow( "Spacefast requested a file that isn't in the export: about/index.html" );
 	} );
+
+	it( 'gives up when Spacefast keeps refusing the uploads', async () => {
+		const page = {
+			summary: { upload: 1 },
+			targets: [ { path: 'index.html', method: 'PUT', url: '/uploads/index.html' } ],
+		};
+		const fetch = vi.fn( async ( url: URL ) =>
+			url.pathname.startsWith( '/uploads/' )
+				? new Response( null, { status: 403 } )
+				: json( { data: { versionId: 'ver_1', upload: page } } )
+		);
+		vi.stubGlobal( 'fetch', fetch );
+
+		await expect( publishFiles( 'sfa_key', 'spc_1', files, () => undefined ) ).rejects.toThrow(
+			'Spacefast kept refusing the uploads.'
+		);
+		expect( fetch.mock.calls.length ).toBeLessThan( 10 );
+	} );
 } );

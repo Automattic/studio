@@ -1,6 +1,8 @@
+import { AI_PROVIDER_IDS } from '@studio/providers';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useConnector } from '@/data/core';
+import { ACCOUNT_SITES_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
 import type { AiSettings } from '@studio/common/lib/ai-settings';
 import type { AiProviderId, DeviceAuthorization, ProviderId } from '@studio/providers';
 
@@ -16,8 +18,19 @@ export function useAiSettings() {
 	} );
 }
 
+// Whether a provider that serves AI models is connected.
 export function hasConnectedProvider( settings: AiSettings | undefined ): boolean {
-	return Object.values( settings?.accounts ?? {} ).some( ( account ) => account.connected );
+	return AI_PROVIDER_IDS.some( ( id ) => settings?.accounts[ id ].connected );
+}
+
+// The sites of the account a provider was connected to are no longer the ones it has.
+function setProviderSettings(
+	queryClient: ReturnType< typeof useQueryClient >,
+	provider: ProviderId,
+	settings: AiSettings
+) {
+	queryClient.setQueryData< AiSettings >( AI_SETTINGS_QUERY_KEY, settings );
+	queryClient.removeQueries( { queryKey: [ ...ACCOUNT_SITES_QUERY_KEY, provider ] } );
 }
 
 export function useSetAiProvider() {
@@ -36,9 +49,7 @@ export function useConnectProvider( provider: ProviderId ) {
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationFn: ( input: Record< string, string > ) => connector.connectProvider( provider, input ),
-		onSuccess: ( settings ) => {
-			queryClient.setQueryData< AiSettings >( AI_SETTINGS_QUERY_KEY, settings );
-		},
+		onSuccess: ( settings ) => setProviderSettings( queryClient, provider, settings ),
 	} );
 }
 
@@ -47,9 +58,7 @@ export function useDisconnectProvider( provider: ProviderId ) {
 	const queryClient = useQueryClient();
 	return useMutation( {
 		mutationFn: () => connector.disconnectProvider( provider ),
-		onSuccess: ( settings ) => {
-			queryClient.setQueryData< AiSettings >( AI_SETTINGS_QUERY_KEY, settings );
-		},
+		onSuccess: ( settings ) => setProviderSettings( queryClient, provider, settings ),
 	} );
 }
 

@@ -14,14 +14,18 @@ import {
 import { readSitePath } from '@studio/common/sites/site-path';
 import { createSyncRunner, type SyncResult } from '@studio/common/sites/sync';
 import { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync';
-import { SITES_PROVIDER_IDS, type ProviderSites, type SitesProviderId } from '@studio/providers';
+import {
+	normalizeSitesProviderId,
+	type ProviderSites,
+	type SitesProviderId,
+} from '@studio/providers';
 import { getProvider } from '@studio/providers/services';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 
 const syncRunner = createSyncRunner( executeCliCommand );
 
 function parseProvider( requested: string ): SitesProviderId {
-	const provider = SITES_PROVIDER_IDS.find( ( id ) => id === requested );
+	const provider = normalizeSitesProviderId( requested );
 	if ( ! provider ) {
 		throw new Error( `Unknown provider with sites: ${ requested }` );
 	}

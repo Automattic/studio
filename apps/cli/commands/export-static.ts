@@ -7,6 +7,7 @@ import { getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { isSiteRunning } from 'cli/lib/site-utils';
 import { exportStaticSite } from 'cli/lib/static-export';
+import { onCancel } from 'cli/lib/sync-activity';
 import { Logger, LoggerError } from 'cli/logger';
 import type { builder } from 'cli/commands/export-static.command';
 import type { CommandArgs } from 'cli/types';
@@ -26,9 +27,15 @@ export async function runCommand(
 	await disconnectFromDaemon();
 
 	// Pages are rendered by the running site, so start it for the export if needed.
+	const stop = async () => {
+		if ( ! wasRunning ) {
+			await stopSite( StopMode.STOP_SINGLE_SITE, sitePath, logger );
+		}
+	};
 	if ( ! wasRunning ) {
 		await startSite( sitePath, true, true, logger );
 	}
+	const forgetStop = onCancel( stop );
 
 	try {
 		logger.reportStart( LoggerAction.EXPORT_SITE, __( 'Generating static site…' ) );
@@ -42,9 +49,8 @@ export async function runCommand(
 		} );
 		logger.reportSuccess( sprintf( __( 'Static site exported to %s' ), outputDir ) );
 	} finally {
-		if ( ! wasRunning ) {
-			await stopSite( StopMode.STOP_SINGLE_SITE, sitePath, logger );
-		}
+		forgetStop();
+		await stop();
 	}
 }
 

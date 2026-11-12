@@ -10,10 +10,6 @@ export interface Space {
 	teamName?: string;
 }
 
-export function spaceAddress( space: Space ): string {
-	return space.url.replace( /^https?:\/\//, '' ).replace( /\/$/, '' );
-}
-
 export function spaceDetails( space: Space ): { title: string; value: string }[] {
 	return space.teamName ? [ { title: __( 'Team' ), value: space.teamName } ] : [];
 }

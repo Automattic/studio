@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { spacefastConfigSchema, type SpacefastConfig } from './config';
-import { spaceAddress, spaceDetails, withSpaceDetails, type Space } from './site';
+import { spaceDetails, withSpaceDetails, type Space } from './site';
 import type { ProviderDescriptor } from '../types';
 
 export const spacefastDescriptor: ProviderDescriptor< SpacefastConfig, Space > = {
@@ -23,7 +23,6 @@ export const spacefastDescriptor: ProviderDescriptor< SpacefastConfig, Space > =
 				),
 			learnMoreUrl: 'https://spacefast.com',
 		},
-		address: spaceAddress,
 		details: spaceDetails,
 		links: () => [],
 		issue: () => null,

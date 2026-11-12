@@ -1,9 +1,7 @@
 import {
 	getConnectFields,
 	getProviderDescriptor,
-	getSitesDescriptor,
 	AI_PROVIDER_IDS,
-	SITES_PROVIDER_IDS,
 	type AiProviderId,
 	type SitesProviderId,
 } from '@studio/providers';
@@ -19,6 +17,7 @@ import {
 	useSetAiProvider,
 } from '@/data/queries/use-ai-settings';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
+import { usePublishProviders } from '@/data/queries/use-remote-sites';
 import { LearnMoreLink } from '@/features/onboarding';
 import { useOffline } from '@/lib/hooks';
 import { Button, Input } from '@/lib/ui';
@@ -148,9 +147,7 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } ) {
 	const settings = useAiSettings();
 	const { data: user, isLoading: userLoading } = useAuthUser();
-	const connector = useConnector();
-	const { capabilities } = connector;
-	const origin = getProviderIntent( connector );
+	const origin = getProviderIntent( useConnector() );
 	const { promptRef, ...signup } = useLogin( {
 		signup: true,
 		source: 'settings',
@@ -166,11 +163,8 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 	const isOffline = useOffline();
 	const [ wpcomRequested, setWpcomRequested ] = useState( false );
 	const connected = AI_PROVIDER_IDS.filter( ( id ) => settings.data?.accounts[ id ].connected );
-	// A provider that publishes a static export needs the site to run on native PHP.
-	const deviceProviders = SITES_PROVIDER_IDS.filter(
-		( id ) =>
-			getProviderDescriptor( id ).connection.kind === 'device' &&
-			( capabilities.nativeSites || ! getSitesDescriptor( id ).exportsStaticSite )
+	const deviceProviders = usePublishProviders().filter(
+		( id ) => getProviderDescriptor( id ).connection.kind === 'device'
 	);
 
 	// Connecting WordPress.com finishes once the sign-up lands.

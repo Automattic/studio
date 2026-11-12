@@ -17,7 +17,7 @@ import { runCommand as exportStaticSite } from 'cli/commands/export-static';
 import { openBrowser } from 'cli/lib/browser';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { confirm, select } from 'cli/lib/prompts';
-import { reportSyncActivity } from 'cli/lib/sync-activity';
+import { onCancel, reportSyncActivity } from 'cli/lib/sync-activity';
 import { toLoggerError } from 'cli/lib/sync-api';
 import { Logger, LoggerError } from 'cli/logger';
 import type { SyncActivity } from '@studio/common/lib/sync/activity';
@@ -61,6 +61,8 @@ export async function pushStaticSite(
 		remoteSiteId = space.id;
 
 		const outputDir = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-static-' ) );
+		const removeOutput = () => fs.promises.rm( outputDir, { recursive: true, force: true } );
+		const forgetOutput = onCancel( removeOutput );
 		try {
 			report( { phase: 'creatingBackup' } );
 			await exportStaticSite( site.path, outputDir, space.url, true );
@@ -88,7 +90,8 @@ export async function pushStaticSite(
 				}
 			);
 		} finally {
-			await fs.promises.rm( outputDir, { recursive: true, force: true } );
+			forgetOutput();
+			await removeOutput();
 		}
 	} catch ( error ) {
 		const loggerError = toLoggerError( error, __( 'Failed to publish to Spacefast' ) );
@@ -151,7 +154,7 @@ async function resolveSpace(
 ): Promise< Space | undefined > {
 	if ( ! identifier ) {
 		const [ last ] = ( await getRemoteSites( 'spacefast', localSiteId ) ).sort( ( a, b ) =>
-			String( b.lastPushTimestamp ).localeCompare( String( a.lastPushTimestamp ) )
+			( b.lastPushTimestamp ?? '' ).localeCompare( a.lastPushTimestamp ?? '' )
 		);
 		if ( last ) {
 			const {

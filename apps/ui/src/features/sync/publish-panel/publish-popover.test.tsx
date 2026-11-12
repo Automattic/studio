@@ -101,7 +101,7 @@ function setup( connections: SyncSite[] = [], signedIn = true, running = true, r
 		if ( start.tagName === 'BUTTON' ) {
 			fireEvent.click( start );
 		} else if ( start.tagName === 'H2' ) {
-			fireEvent.click( screen.getByRole( 'button', { name: address( connected[ 0 ] ) } ) );
+			fireEvent.click( await screen.findByRole( 'button', { name: address( connected[ 0 ] ) } ) );
 		}
 		if ( connections.length && review ) {
 			fireEvent.click( await screen.findByRole( 'button', { name: 'Publish changes' } ) );

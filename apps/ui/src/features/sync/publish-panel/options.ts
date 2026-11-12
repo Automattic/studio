@@ -12,6 +12,11 @@ export type PublishView = 'publish' | 'pull';
 // What the panel opens on: `start` offers a new or existing site even when one is connected.
 export type PanelRequest = { view: PublishView | 'start'; remoteSiteId?: Website[ 'id' ] };
 
+// A remote site's address, as the panel shows it.
+export function siteAddress( website: Website ) {
+	return website.url.replace( /^https?:\/\//, '' ).replace( /\/$/, '' );
+}
+
 // A WordPress.com site still waiting for its launch hasn't been published yet.
 export function lastPublished( website: Website ) {
 	return 'launchAfterPush' in website && website.launchAfterPush ? null : website.lastPushTimestamp;

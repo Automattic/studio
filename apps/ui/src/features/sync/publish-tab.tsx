@@ -1,21 +1,21 @@
-import {
-	getProviderDescriptor,
-	getSitesDescriptor,
-	SITES_PROVIDER_IDS,
-	type SitesProviderId,
-} from '@studio/providers';
+import { getProviderDescriptor, getSitesDescriptor, type SitesProviderId } from '@studio/providers';
 import { useQueries } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useConnector } from '@/data/core';
-import { remoteSitesQueryKey } from '@/data/queries/use-remote-sites';
+import { remoteSitesQueryKey, usePublishProviders } from '@/data/queries/use-remote-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { getWebsiteThumbnailUrl, RelativeTime, SiteCard } from '@/features/site-card';
 import { PlusIcon } from '@/lib/icons';
 import { Button } from '@/lib/ui';
 import { PublishPanel } from './publish-panel';
-import { lastPublished, type PanelRequest, type Website } from './publish-panel/options';
+import {
+	lastPublished,
+	siteAddress,
+	type PanelRequest,
+	type Website,
+} from './publish-panel/options';
 import { PanelBody } from './publish-panel/parts';
 import styles from './publish-tab.module.css';
 import type { SiteDetails } from '@/data/core';
@@ -38,22 +38,16 @@ type Published = { provider: SitesProviderId; website: Website };
 const PUBLISH: PanelRequest = { view: 'publish' };
 const ADD: PanelRequest = { view: 'start' };
 
-// The providers a site can be published to here: one that publishes a static export needs the
-// site to run on native PHP.
-function usePublishProviders(): SitesProviderId[] {
-	const connector = useConnector();
-	return SITES_PROVIDER_IDS.filter(
-		( id ) => connector.capabilities.nativeSites || ! getSitesDescriptor( id ).exportsStaticSite
-	);
-}
-
 export function usePublishTab( siteId: string ) {
 	const connector = useConnector();
 	const providers = usePublishProviders();
+	// Undefined until the tab is first opened, which is when it reads the connections.
+	const [ screen, setScreen ] = useState< Screen >();
 	const results = useQueries( {
 		queries: providers.map( ( provider ) => ( {
 			queryKey: remoteSitesQueryKey( provider, siteId ),
 			queryFn: () => connector.getRemoteSites( provider, siteId ),
+			enabled: screen !== undefined,
 		} ) ),
 	} );
 	const loading = results.some( ( result ) => result.isPending );
@@ -61,22 +55,16 @@ export function usePublishTab( siteId: string ) {
 		( results[ index ]?.data ?? [] ).map( ( website ) => ( { provider, website } ) )
 	);
 	const activity = useSiteSyncActivity( siteId );
-	const transfer =
-		activity?.kind === 'pending' && activity.remoteSiteId !== undefined ? activity : null;
-	// Undefined until the tab is first opened.
-	const [ screen, setScreen ] = useState< Screen >();
 	const single = providers.length === 1 ? providers[ 0 ] : undefined;
-	const fallback: Screen = single
-		? { kind: 'provider', provider: single, request: PUBLISH }
-		: { kind: 'choose' };
+	const hasPublished = published.length > 0;
 
 	// The tab opens on the transfer under way, else on the published sites.
 	const home = screen?.kind === 'home';
-	const hasPublished = published.length > 0;
-	const transferProvider = transfer
-		? ( ( transfer.provider ?? 'wpcom' ) as SitesProviderId )
-		: undefined;
-	const transferSiteId = transfer?.remoteSiteId;
+	const transferProvider =
+		activity?.kind === 'pending'
+			? ( ( activity.provider ?? 'wpcom' ) as SitesProviderId )
+			: undefined;
+	const transferSiteId = activity?.kind === 'pending' ? activity.remoteSiteId : undefined;
 	useEffect( () => {
 		if ( ! home || loading ) return;
 		setScreen(
@@ -86,20 +74,21 @@ export function usePublishTab( siteId: string ) {
 						provider: transferProvider,
 						request: { view: 'publish', remoteSiteId: transferSiteId },
 				  }
-				: hasPublished || ! single
-				? { kind: hasPublished ? 'list' : 'choose' }
-				: { kind: 'provider', provider: single, request: PUBLISH }
+				: { kind: 'list' }
 		);
-	}, [ home, loading, transferProvider, transferSiteId, hasPublished, single ] );
+	}, [ home, loading, transferProvider, transferSiteId ] );
 
+	// With nothing published, the list gives way to the choice of where to publish.
 	const current: Screen | 'loading' | undefined =
-		! screen || screen.kind === 'provider' || screen.kind === 'choose'
+		screen?.kind !== 'home' && screen?.kind !== 'list'
 			? screen
-			: screen.kind === 'home' || ( loading && ! hasPublished )
+			: loading || home
 			? 'loading'
 			: hasPublished
 			? screen
-			: fallback;
+			: single
+			? { kind: 'provider', provider: single, request: PUBLISH }
+			: { kind: 'choose' };
 	return {
 		providers,
 		published,
@@ -125,9 +114,15 @@ export function usePublishTab( siteId: string ) {
 			setScreen(
 				single ? { kind: 'provider', provider: single, request: ADD } : { kind: 'choose' }
 			),
+		// A provider's first connection shows as soon as it lands; with some already, the panel
+		// offers a new or existing site.
 		choose: ( provider: SitesProviderId ) =>
-			setScreen( { kind: 'provider', provider, request: ADD } ),
-		back: () => setScreen( { kind: hasPublished ? 'list' : 'choose' } ),
+			setScreen( {
+				kind: 'provider',
+				provider,
+				request: published.some( ( entry ) => entry.provider === provider ) ? ADD : PUBLISH,
+			} ),
+		back: () => setScreen( { kind: 'list' } ),
 	};
 }
 
@@ -157,7 +152,7 @@ function PublishedSites( {
 			<h2 className={ styles.heading }>{ __( 'Published to' ) }</h2>
 			<ul className={ styles.sites }>
 				{ tab.published.map( ( { provider, website } ) => {
-					const address = getSitesDescriptor( provider ).address( website );
+					const address = siteAddress( website );
 					const { label } = getProviderDescriptor( provider );
 					const transfer =
 						activity?.kind === 'pending' &&

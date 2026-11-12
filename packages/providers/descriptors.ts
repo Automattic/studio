@@ -64,6 +64,10 @@ function isAiProviderId( id: ProviderId ): id is AiProviderId {
 	return ( AI_PROVIDER_IDS as readonly ProviderId[] ).includes( id );
 }
 
+export function normalizeSitesProviderId( value: string ): SitesProviderId | undefined {
+	return SITES_PROVIDER_IDS.find( ( id ) => id === value );
+}
+
 export function normalizeAiProviderId( value: string ): AiProviderId | undefined {
 	const id = normalizeProviderId( value );
 	return id && isAiProviderId( id ) ? id : undefined;

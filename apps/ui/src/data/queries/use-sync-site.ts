@@ -177,7 +177,7 @@ export function useSettleSync() {
 				return;
 			}
 
-			const provider = ( settled.provider ?? 'wpcom' ) as SitesProviderId;
+			const provider = ( getSyncActivity( siteId )?.provider ?? 'wpcom' ) as SitesProviderId;
 			void queryClient.invalidateQueries( { queryKey: remoteSitesQueryKey( provider, siteId ) } );
 			if ( settled.direction === 'pull' ) {
 				void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );

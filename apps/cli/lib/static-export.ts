@@ -7,12 +7,13 @@ import {
 	getBundledStaticExportScriptPath,
 } from 'cli/lib/dependency-management/paths';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
+import { onCancel } from 'cli/lib/sync-activity';
 import { LoggerError } from 'cli/logger';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
 // Staged inside the site folder, next to the site WP-CLI loads: the driver, the plugin, the
-// database copy and the output. Removed afterwards.
-const STAGING_SUBDIR = '.studio-static-export';
+// database copy and the output. One per export, removed afterwards.
+const STAGING_PREFIX = '.studio-static-export-';
 const DATABASE_FILE = '.ht.sqlite';
 
 export type StaticExportOptions = {
@@ -52,9 +53,9 @@ export async function exportStaticSite( {
 		);
 	}
 
-	const stagingDir = path.join( site.path, STAGING_SUBDIR );
-	await fs.promises.rm( stagingDir, { recursive: true, force: true } );
-	await fs.promises.mkdir( stagingDir, { recursive: true } );
+	const stagingDir = await fs.promises.mkdtemp( path.join( site.path, STAGING_PREFIX ) );
+	const removeStaging = () => fs.promises.rm( stagingDir, { recursive: true, force: true } );
+	const forgetStaging = onCancel( removeStaging );
 
 	try {
 		await snapshotDatabase( site.path, path.join( stagingDir, DATABASE_FILE ) );
@@ -72,7 +73,7 @@ export async function exportStaticSite( {
 
 		await using command = await runWpCliCommand( site, [
 			'--no-color',
-			`--require=${ STAGING_SUBDIR }/static-export.php`,
+			`--require=${ path.basename( stagingDir ) }/static-export.php`,
 			'studio-static-export',
 		] );
 
@@ -95,7 +96,8 @@ export async function exportStaticSite( {
 		await fs.promises.mkdir( path.dirname( outputDir ), { recursive: true } );
 		await fs.promises.cp( path.join( stagingDir, 'output' ), outputDir, { recursive: true } );
 	} finally {
-		await fs.promises.rm( stagingDir, { recursive: true, force: true } );
+		forgetStaging();
+		await removeStaging();
 	}
 }
 

@@ -38,9 +38,9 @@ import { ConnectAccount } from './connect-account';
 import { ConnectedView } from './connected-view';
 import { ConnectedWebsite } from './connected-website';
 import { DisconnectSiteDialog } from './disconnect-site-dialog';
+import { siteAddress, type PanelRequest, type PublishView, type Website } from './options';
 import { ErrorMessage, PanelBody, PanelHeader, TransferProgress } from './parts';
 import styles from './style.module.css';
-import type { PanelRequest, PublishView, Website } from './options';
 import type { SiteDetails } from '@/data/core';
 
 export function PublishPanel( {
@@ -326,7 +326,7 @@ export function PublishPanel( {
 										items: selectableWebsites.map( ( remote ) => ( {
 											value: String( remote.id ),
 											label: remote.name || remote.url,
-											description: sites.address( remote ),
+											description: siteAddress( remote ),
 											trailing: (
 												<span className={ styles.environmentLabel }>
 													{ sites.details( remote )[ 0 ]?.value }
@@ -493,7 +493,7 @@ export function PublishPanel( {
 			{ disconnecting ? (
 				<DisconnectSiteDialog
 					website={ disconnecting }
-					address={ sites.address( disconnecting ) }
+					address={ siteAddress( disconnecting ) }
 					disabled={ offline || siteBusy || Boolean( pending ) }
 					pending={ disconnect.isPending }
 					error={ disconnect.error }

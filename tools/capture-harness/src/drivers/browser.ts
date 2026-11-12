@@ -32,11 +32,15 @@ const BLOCKED_API: { method: RegExp; path: RegExp; name: string }[] = [
 	{ method: /DELETE|PATCH/, path: /^\/snapshots(\/.*)?$/, name: 'changing preview sites' },
 	{ method: /POST/, path: /^\/sites\/[^/]+\/preview$/, name: 'publishing a preview site' },
 	{
+		method: /POST/,
+		path: /^\/sites\/[^/]+\/remote-sites\/[^/]+\/[^/]+\/(push|pull)$/,
+		name: 'publishing or pulling',
+	},
+	{
 		method: /POST|DELETE/,
-		path: /^\/sites\/[^/]+\/connected-sites(\/.*)?$/,
+		path: /^\/sites\/[^/]+\/remote-sites(\/.*)?$/,
 		name: 'connecting sites',
 	},
-	{ method: /POST/, path: /^\/sites\/[^/]+\/(push|pull)$/, name: 'publishing or pulling' },
 	{ method: /POST/, path: /^\/sites\/[^/]+\/watch-published-site$/, name: 'watching for a site' },
 	{ method: /POST/, path: /^\/sessions\/[^/]+\/messages$/, name: 'starting an agent run' },
 ];
@@ -282,21 +286,20 @@ export async function launchBrowser( {
 	let lastRun: { runId: string; sessionId: string } | undefined;
 	const stubs: Stubs = {
 		async syncableSites( sites ) {
-			api.answer( 'GET', /^\/wpcom\/syncable-sites$/, () => sites );
+			api.answer( 'GET', /^\/remote-sites\/wpcom\/account$/, () => sites );
 		},
 		async previewSites( snapshots ) {
 			api.answer( 'GET', /^\/snapshots$/, () => snapshots );
 		},
-		async connectedSites( connected, trees: RemoteTrees, hosting ) {
-			api.answer( 'GET', /^\/wpcom\/connected-sites$/, () => connected );
-			api.answer( 'GET', /^\/sites\/([^/]+)\/connected-sites$/, ( match ) =>
-				connected.filter( ( site ) => site.localSiteId === decodeURIComponent( match[ 1 ] ) )
-			);
-			api.answer( 'GET', /^\/wpcom\/sites\/[^/]+\/hosting-php-version$/, () => hosting.phpVersion );
-			api.answer( 'GET', /^\/wpcom\/sites\/[^/]+\/latest-rewind-id$/, () => hosting.rewindId );
+		async connectedSites( connected, trees: RemoteTrees, backupId ) {
+			api.answer( 'GET', /^\/remote-sites\/wpcom$/, ( _match, url ) => {
+				const localSiteId = url.searchParams.get( 'localSiteId' );
+				return connected.filter( ( site ) => ! localSiteId || site.localSiteId === localSiteId );
+			} );
+			api.answer( 'GET', /^\/remote-sites\/wpcom\/[^/]+\/backup$/, () => backupId );
 			api.answer(
 				'GET',
-				/^\/wpcom\/sites\/[^/]+\/remote-file-tree$/,
+				/^\/remote-sites\/wpcom\/[^/]+\/backup-files$/,
 				( _match, url ) => trees[ url.searchParams.get( 'path' ) ?? '' ] ?? {}
 			);
 		},

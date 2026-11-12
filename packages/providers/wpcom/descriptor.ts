@@ -4,7 +4,6 @@ import { getAuthorizeUrl } from './oauth';
 import {
 	withWpcomDetails,
 	wpcomPushWarning,
-	wpcomSiteAddress,
 	wpcomSiteDetails,
 	wpcomSiteIssue,
 	wpcomSiteLinks,
@@ -46,7 +45,6 @@ export const wpcomDescriptor: ProviderDescriptor< WpcomConfig, SyncSite > = {
 				),
 			learnMoreUrl: 'https://wordpress.studio/docs/sync/',
 		},
-		address: wpcomSiteAddress,
 		details: wpcomSiteDetails,
 		links: wpcomSiteLinks,
 		issue: wpcomSiteIssue,

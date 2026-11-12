@@ -87,8 +87,12 @@ export function applySyncActivity( siteId: string, activity: SyncActivity ): boo
 		if ( ! wasPending ) {
 			return false;
 		}
-		// A result is for the site its run targeted.
-		entries.set( siteId, { remoteSiteId: previous.remoteSiteId, ...activity } );
+		// A result is for the site and provider its run targeted.
+		entries.set( siteId, {
+			...activity,
+			remoteSiteId: activity.remoteSiteId ?? previous.remoteSiteId,
+			provider: activity.provider ?? previous.provider,
+		} );
 		scheduleExpiry( siteId );
 	}
 	emit();

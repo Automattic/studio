@@ -234,12 +234,15 @@ export async function publishFiles(
 	const total = firstUpload?.summary.upload ?? 0;
 	let uploaded = 0;
 	let upload = firstUpload;
+	// Pages in a row that uploaded nothing: refused targets that refreshing doesn't fix.
+	let stalled = 0;
 	onProgress( { stage: 'uploading', percent: 0 } );
 	for ( let page = 0; upload?.targets.length; page++ ) {
 		if ( page >= MAX_UPLOAD_PAGES ) {
 			throw new SpacefastApiError( 'Spacefast kept requesting uploads.', 500 );
 		}
 		const targets = [ ...upload.targets ];
+		const before = uploaded;
 		let expired = false;
 		await Promise.all(
 			Array.from( { length: UPLOAD_CONCURRENCY }, async () => {
@@ -257,6 +260,10 @@ export async function publishFiles(
 				}
 			} )
 		);
+		stalled = uploaded === before ? stalled + 1 : 0;
+		if ( stalled > NETWORK_RETRIES ) {
+			throw new SpacefastApiError( 'Spacefast kept refusing the uploads.', 403 );
+		}
 		// Targets come in pages and expire, so ask for the remaining ones until none are left.
 		( { upload } = (
 			await request< VersionUpload >( `${ spaceRoute }/versions/${ versionId }/uploads/refresh`, {

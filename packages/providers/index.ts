@@ -4,6 +4,7 @@ export {
 	getProviderDescriptor,
 	getSitesDescriptor,
 	normalizeAiProviderId,
+	normalizeSitesProviderId,
 	normalizeProviderId,
 	PROVIDER_IDS,
 	SITES_PROVIDER_IDS,

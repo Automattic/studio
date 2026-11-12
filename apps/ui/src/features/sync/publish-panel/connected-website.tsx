@@ -15,7 +15,7 @@ import {
 	Menu,
 	VisuallyHidden,
 } from '@/lib/ui';
-import { lastPublished, type Website } from './options';
+import { lastPublished, siteAddress, type Website } from './options';
 import styles from './style.module.css';
 import type { ReactNode, RefObject } from 'react';
 
@@ -50,7 +50,7 @@ export function ConnectedWebsite( {
 		<FieldSet aria-label={ __( 'Website' ) }>
 			<SiteCard
 				thumbnailUrl={ getWebsiteThumbnailUrl( website.url ) }
-				title={ sites.address( website ) }
+				title={ siteAddress( website ) }
 				updatedAt={ lastPublished( website ) }
 				active={ open }
 				description={ __( 'Not published yet' ) }

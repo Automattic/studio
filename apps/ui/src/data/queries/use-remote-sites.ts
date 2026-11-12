@@ -1,3 +1,9 @@
+import {
+	getSitesDescriptor,
+	SITES_PROVIDER_IDS,
+	type ProviderSites,
+	type SitesProviderId,
+} from '@studio/providers';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useConnector } from '@/data/core';
@@ -8,13 +14,21 @@ import {
 	REMOTE_SITES_QUERY_KEY,
 } from '@/data/queries/user-scoped-query-keys';
 import type { RemoteSiteConnection } from '@/data/core';
-import type { ProviderSites, SitesProviderId } from '@studio/providers';
 
 export const remoteSitesQueryKey = ( provider: SitesProviderId, localSiteId?: string ) =>
 	[ ...REMOTE_SITES_QUERY_KEY, provider, localSiteId ?? null ] as const;
 
 export const accountSitesQueryKey = ( provider: SitesProviderId ) =>
 	[ ...ACCOUNT_SITES_QUERY_KEY, provider ] as const;
+
+// The providers this app publishes to: one that publishes a static export needs the site to run
+// on native PHP.
+export function usePublishProviders(): SitesProviderId[] {
+	const { capabilities } = useConnector();
+	return SITES_PROVIDER_IDS.filter(
+		( id ) => capabilities.nativeSites || ! getSitesDescriptor( id ).exportsStaticSite
+	);
+}
 
 // Whether the provider's account is connected. WordPress.com's is the Studio sign-in.
 export function useProviderConnected( provider: SitesProviderId ): boolean | undefined {

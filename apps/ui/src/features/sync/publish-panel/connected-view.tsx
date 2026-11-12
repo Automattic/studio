@@ -7,7 +7,13 @@ import { useCancelSync, usePullSite, usePushSite } from '@/data/queries/use-sync
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { Button, FieldSet } from '@/lib/ui';
 import { FilePicker } from './file-picker';
-import { overwriteDescription, scopeLabel, type PublishView, type Website } from './options';
+import {
+	overwriteDescription,
+	scopeLabel,
+	siteAddress,
+	type PublishView,
+	type Website,
+} from './options';
 import { ErrorMessage, PanelBody, PanelHeader, TransferProgress } from './parts';
 import styles from './style.module.css';
 import { useTransferSelection } from './use-transfer-selection';
@@ -126,7 +132,7 @@ export function ConnectedView( {
 	if ( pending ) {
 		return (
 			<PanelBody>
-				<p className={ styles.address }>{ sites.address( remote ) }</p>
+				<p className={ styles.address }>{ siteAddress( remote ) }</p>
 				<TransferProgress
 					siteId={ site.id }
 					activity={ activity }
@@ -207,7 +213,7 @@ export function ConnectedView( {
 						: null }
 					<div className={ styles.transferReview }>
 						<div className={ styles.transferFields }>
-							<p className={ styles.address }>{ sites.address( remote ) }</p>
+							<p className={ styles.address }>{ siteAddress( remote ) }</p>
 							{ ! restartFailed && ! completePull ? (
 								<p className={ styles.text }>
 									{ overwriteDescription( direction, sites.selective ) }

@@ -96,10 +96,6 @@ export function withWpcomDetails< Connection extends SyncSite >(
 	} );
 }
 
-export function wpcomSiteAddress( site: SyncSite ): string {
-	return site.url.replace( /^https?:\/\//, '' ).replace( /\/$/, '' );
-}
-
 // Why a site can't be published to or pulled from, from what WordPress.com says about it.
 export function wpcomSiteIssue( site: SyncSite, direction: 'push' | 'pull' ): string | null {
 	switch ( site.syncSupport ) {

@@ -3,21 +3,20 @@ import { InvalidCredentialError, ProviderNotReadyError } from '../errors';
 import type { OpenaiConfig } from './config';
 import type { LoopbackAuthorization, Provider } from '../types';
 
-// ChatGPT plans sign in through the Codex client, the way pi does.
-const CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
-const AUTH_URL = 'https://auth.openai.com';
-// Registered for the Codex client, so only a server on this port can receive the sign-in.
-const REDIRECT_URI = 'http://localhost:1455/auth/callback';
+// OpenAI's sign-in for agents: each sign-in registers an OAuth client for
+// Studio, and the user agrees to share their ChatGPT plan with it through the
+// public API.
+const AUTH_URL = 'https://auth.openai.com/api/accounts';
+const RESOURCE = 'https://api.openai.com/v1';
+const SHARING_SCOPE = 'chatgpt.tokens.use.direct';
 const REFRESH_MARGIN_MS = 5 * 60_000;
 const REQUEST_TIMEOUT_MS = 15_000;
-const AUTH_CLAIM = 'https://api.openai.com/auth';
-const PROFILE_CLAIM = 'https://api.openai.com/profile';
 
 function requestTokens( body: Record< string, string > ): Promise< Response > {
 	return fetch( `${ AUTH_URL }/oauth/token`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-		body: new URLSearchParams( { client_id: CLIENT_ID, ...body } ),
+		body: new URLSearchParams( { ...body, resource: RESOURCE } ),
 		signal: AbortSignal.timeout( REQUEST_TIMEOUT_MS ),
 	} );
 }
@@ -29,75 +28,79 @@ function base64Url( bytes: Uint8Array ): string {
 		.replace( /=+$/, '' );
 }
 
-function readClaims( token: string ): Record< string, { [ key: string ]: unknown } | undefined > {
+function readEmail( idToken: string | undefined ): string | undefined {
 	try {
-		const payload = token.split( '.' )[ 1 ].replace( /-/g, '+' ).replace( /_/g, '/' );
-		return JSON.parse( atob( payload ) );
+		const payload = idToken!.split( '.' )[ 1 ].replace( /-/g, '+' ).replace( /_/g, '/' );
+		const { email } = JSON.parse( atob( payload ) );
+		return typeof email === 'string' ? email : undefined;
 	} catch {
-		return {};
+		return undefined;
 	}
 }
 
-async function readTokens( response: Response ): Promise< OpenaiConfig > {
+async function readTokens( response: Response, clientId: string ): Promise< OpenaiConfig > {
 	const tokens = ( await response.json() ) as {
 		access_token?: string;
 		refresh_token?: string;
+		id_token?: string;
 		expires_in?: number;
+		scope?: string;
 	};
-	const claims = tokens.access_token ? readClaims( tokens.access_token ) : {};
-	const accountId = claims[ AUTH_CLAIM ]?.chatgpt_account_id;
-	const email = claims[ PROFILE_CLAIM ]?.email;
-	if ( ! tokens.access_token || ! tokens.refresh_token || typeof accountId !== 'string' ) {
+	if ( ! tokens.access_token || ! tokens.refresh_token ) {
 		throw new InvalidCredentialError( __( 'ChatGPT sent back an incomplete sign-in.' ) );
 	}
+	if ( ! tokens.scope?.split( ' ' ).includes( SHARING_SCOPE ) ) {
+		throw new InvalidCredentialError(
+			__( 'Allow WordPress Studio to use your ChatGPT plan when signing in.' ),
+			'denied'
+		);
+	}
+	const email = readEmail( tokens.id_token );
 	return {
 		method: 'chatgpt',
+		clientId,
 		accessToken: tokens.access_token,
 		refreshToken: tokens.refresh_token,
 		accessTokenExpiresAt: Date.now() + ( tokens.expires_in ?? 3600 ) * 1000,
-		accountId,
-		...( typeof email === 'string' ? { email } : {} ),
+		...( email ? { email } : {} ),
 	};
 }
 
 export const startOpenaiConnect: NonNullable<
 	Provider< OpenaiConfig >[ 'startLoopbackConnect' ]
-> = async () => {
+> = async ( redirectUri ) => {
 	const verifier = base64Url( crypto.getRandomValues( new Uint8Array( 32 ) ) );
 	const challenge = base64Url(
 		new Uint8Array( await crypto.subtle.digest( 'SHA-256', new TextEncoder().encode( verifier ) ) )
 	);
 	const state = base64Url( crypto.getRandomValues( new Uint8Array( 16 ) ) );
-	const url = new URL( `${ AUTH_URL }/oauth/authorize` );
+	const url = new URL( `${ AUTH_URL }/authorize` );
 	url.search = new URLSearchParams( {
+		client_id: 'dynamic_agent_client',
+		agent_name_hint: 'WordPress Studio',
+		ext_agent_host_id: `urn:uuid:${ crypto.randomUUID() }`,
 		response_type: 'code',
-		client_id: CLIENT_ID,
-		redirect_uri: REDIRECT_URI,
-		scope: 'openid profile email offline_access',
+		redirect_uri: redirectUri,
+		scope: `openid profile email offline_access resource.invoke ${ SHARING_SCOPE }`,
+		resource: RESOURCE,
+		state,
 		code_challenge: challenge,
 		code_challenge_method: 'S256',
-		state,
-		id_token_add_organizations: 'true',
-		codex_cli_simplified_flow: 'true',
-		originator: 'wordpress_studio',
 	} ).toString();
-	return {
-		url: url.toString(),
-		redirectUri: REDIRECT_URI,
-		state,
-		verifier,
-	} satisfies LoopbackAuthorization;
+	return { url: url.toString(), state, verifier } satisfies LoopbackAuthorization;
 };
 
+// The redirect names the client OpenAI registered for this sign-in.
 export const connectOpenai: Provider< OpenaiConfig >[ 'connect' ] = async ( input ) => {
-	if ( ! input.code || ! input.verifier ) {
+	if ( ! input.code || ! input.client_id || ! input.verifier || ! input.redirectUri ) {
 		throw new InvalidCredentialError( __( 'Start signing in with ChatGPT again.' ) );
 	}
 	const response = await requestTokens( {
 		grant_type: 'authorization_code',
+		client_id: input.client_id,
 		code: input.code,
 		code_verifier: input.verifier,
-		redirect_uri: REDIRECT_URI,
+		redirect_uri: input.redirectUri,
 	} );
 	if ( ! response.ok ) {
 		throw new InvalidCredentialError(
@@ -105,7 +108,7 @@ export const connectOpenai: Provider< OpenaiConfig >[ 'connect' ] = async ( inpu
 			'unverified'
 		);
 	}
-	return readTokens( response );
+	return readTokens( response, input.client_id );
 };
 
 // Renews the access token shortly before it expires. A refresh token OpenAI
@@ -118,6 +121,7 @@ export const refreshOpenai: NonNullable< Provider< OpenaiConfig >[ 'refresh' ] >
 	}
 	const response = await requestTokens( {
 		grant_type: 'refresh_token',
+		client_id: config.clientId,
 		refresh_token: config.refreshToken,
 	} );
 	if ( response.status === 400 || response.status === 401 ) {
@@ -128,5 +132,5 @@ export const refreshOpenai: NonNullable< Provider< OpenaiConfig >[ 'refresh' ] >
 	if ( ! response.ok ) {
 		throw new Error( `ChatGPT sign-in could not be renewed (${ response.status }).` );
 	}
-	return readTokens( response );
+	return readTokens( response, config.clientId );
 };

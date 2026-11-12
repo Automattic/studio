@@ -19,7 +19,7 @@ export const openaiDescriptor: ProviderDescriptor< OpenaiConfig > = {
 	ai: {
 		models: OPENAI_AI_MODELS,
 		defaultModel: 'gpt-6.1-terra',
-		// ChatGPT's API refuses requests from web pages.
+		// Signing in needs a server on this computer.
 		inPage: false,
 	},
 };

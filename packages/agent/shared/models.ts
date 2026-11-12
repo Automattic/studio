@@ -1,5 +1,4 @@
 import { streamSimple as streamAnthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages';
-import { streamSimple as streamOpenAiCodexResponses } from '@earendil-works/pi-ai/api/openai-codex-responses';
 import { streamSimple as streamOpenAiCompletions } from '@earendil-works/pi-ai/api/openai-completions';
 import { streamSimple as streamOpenAiResponses } from '@earendil-works/pi-ai/api/openai-responses';
 import { withErrorRewrite } from './runtime-guards/error-rewrite';
@@ -20,8 +19,6 @@ export function createConnectionStream( { requestModelId, rewriteError }: AiConn
 				? streamOpenAiCompletions
 				: model.api === 'anthropic-messages'
 				? streamAnthropicMessages
-				: model.api === 'openai-codex-responses'
-				? streamOpenAiCodexResponses
 				: streamOpenAiResponses
 		) as typeof streamOpenAiCompletions;
 		// The model keeps its stable id for pi and the session history; only the

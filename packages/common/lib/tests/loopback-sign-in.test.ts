@@ -1,63 +1,41 @@
-import http from 'http';
 import { InvalidCredentialError, type Provider } from '@studio/providers';
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { signInThroughLoopback } from '@studio/common/lib/loopback-sign-in';
 
-const PORT = 41455;
-const redirectUri = `http://localhost:${ PORT }/auth/callback`;
-const provider = {
-	descriptor: { id: 'openai' },
-	startLoopbackConnect: async () => ( {
-		url: 'https://example.com/authorize',
-		redirectUri,
-		state: 'state-1',
-		verifier: 'verifier-1',
-	} ),
-} as unknown as Provider< unknown >;
-
-// The browser coming back to Studio.
-const redirectBrowser = ( query: string ) => () =>
-	void fetch( `http://127.0.0.1:${ PORT }/auth/callback?${ query }` );
+// A provider whose site redirects straight back with `query`.
+const providerRedirecting = ( query: string ) =>
+	( {
+		descriptor: { id: 'openai' },
+		startLoopbackConnect: async ( redirectUri: string ) => ( {
+			url: `${ redirectUri }?${ query }`,
+			state: 'state-1',
+			verifier: 'verifier-1',
+		} ),
+	} ) as unknown as Provider< unknown >;
+const browser = { openUrl: ( url: string ) => void fetch( url ) };
 
 describe( 'signInThroughLoopback', () => {
-	let blocker: http.Server | undefined;
+	it( 'listens on a free port, and returns the redirect with the verifier and the address', async () => {
+		const input = await signInThroughLoopback(
+			providerRedirecting( 'code=abc&state=state-1' ),
+			browser
+		);
 
-	afterEach( () => {
-		blocker?.close();
-		blocker = undefined;
-	} );
-
-	it( 'opens the sign-in once listening, and returns the redirect with the verifier', async () => {
-		await expect(
-			signInThroughLoopback( provider, { openUrl: redirectBrowser( 'code=abc&state=state-1' ) } )
-		).resolves.toEqual( { code: 'abc', state: 'state-1', verifier: 'verifier-1' } );
+		expect( input ).toMatchObject( { code: 'abc', state: 'state-1', verifier: 'verifier-1' } );
+		expect( input.redirectUri ).toMatch( /^http:\/\/127\.0\.0\.1:\d+\/auth\/callback$/ );
 	} );
 
 	it( 'refuses a redirect for another attempt', async () => {
 		await expect(
-			signInThroughLoopback( provider, { openUrl: redirectBrowser( 'code=abc&state=other' ) } )
+			signInThroughLoopback( providerRedirecting( 'code=abc&state=other' ), browser )
 		).rejects.toBeInstanceOf( InvalidCredentialError );
 	} );
 
-	it( 'takes a pasted address when another app holds the port', async () => {
-		blocker = http.createServer().listen( PORT, '127.0.0.1' );
-		await new Promise( ( resolve ) => blocker!.once( 'listening', resolve ) );
-
-		await expect( signInThroughLoopback( provider, {} ) ).rejects.toThrow( `port ${ PORT }` );
+	it( 'takes the address the browser landed on, when pasted', async () => {
 		await expect(
-			signInThroughLoopback( provider, {
-				pasteUrl: async () => `${ redirectUri }?code=pasted&state=state-1`,
+			signInThroughLoopback( providerRedirecting( '' ), {
+				pasteUrl: async () => 'http://127.0.0.1:1/auth/callback?code=pasted&state=state-1',
 			} )
 		).resolves.toMatchObject( { code: 'pasted', verifier: 'verifier-1' } );
-	} );
-
-	it( 'cancels a sign-in still waiting when another starts', async () => {
-		const first = signInThroughLoopback( provider, {} );
-		const second = signInThroughLoopback( provider, {
-			openUrl: redirectBrowser( 'code=abc&state=state-1' ),
-		} );
-
-		await expect( first ).rejects.toThrow( 'canceled' );
-		await expect( second ).resolves.toMatchObject( { code: 'abc' } );
 	} );
 } );

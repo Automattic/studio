@@ -1,24 +1,25 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ProviderNotReadyError } from '../../errors';
+import { InvalidCredentialError, ProviderNotReadyError } from '../../errors';
 import { connectOpenai, refreshOpenai, startOpenaiConnect } from '../account';
 import { openaiAi } from '../ai';
 import type { OpenaiConfig } from '../config';
 
-const claims = {
-	'https://api.openai.com/auth': { chatgpt_account_id: 'account-1' },
-	'https://api.openai.com/profile': { email: 'me@example.com' },
+const tokens = {
+	access_token: 'access-2',
+	refresh_token: 'refresh-2',
+	id_token: `header.${ btoa( JSON.stringify( { email: 'me@example.com' } ) ) }.signature`,
+	expires_in: 3600,
+	scope: 'openid email resource.invoke chatgpt.tokens.use.direct',
 };
-const accessToken = `header.${ btoa( JSON.stringify( claims ) ) }.signature`;
-const tokens = { access_token: accessToken, refresh_token: 'refresh-2', expires_in: 3600 };
 const json = ( status: number, body: unknown = {} ) =>
 	new Response( JSON.stringify( body ), { status } );
 
 const config = ( expiresIn: number ): OpenaiConfig => ( {
 	method: 'chatgpt',
+	clientId: 'oaiapp_1',
 	accessToken: 'old-access',
 	refreshToken: 'refresh-1',
 	accessTokenExpiresAt: Date.now() + expiresIn,
-	accountId: 'account-1',
 } );
 
 describe( 'openai account', () => {
@@ -33,30 +34,33 @@ describe( 'openai account', () => {
 		vi.unstubAllGlobals();
 	} );
 
-	it( 'starts a PKCE sign-in that comes back to the Codex loopback address', async () => {
-		const { url, redirectUri, state } = await startOpenaiConnect();
+	it( 'registers Studio as an agent sharing the ChatGPT plan', async () => {
+		const redirectUri = 'http://127.0.0.1:5000/auth/callback';
+		const { url, state } = await startOpenaiConnect( redirectUri );
 
-		expect( redirectUri ).toBe( 'http://localhost:1455/auth/callback' );
 		expect( Object.fromEntries( new URL( url ).searchParams ) ).toMatchObject( {
+			client_id: 'dynamic_agent_client',
+			agent_name_hint: 'WordPress Studio',
 			redirect_uri: redirectUri,
+			resource: 'https://api.openai.com/v1',
 			state,
 			code_challenge_method: 'S256',
 		} );
 	} );
 
-	it( 'exchanges the redirect’s code with the verifier', async () => {
+	it( 'exchanges the code for the client OpenAI registered, and needs plan sharing', async () => {
+		const input = { code: 'code', client_id: 'oaiapp_1', verifier: 'v', redirectUri: 'r' };
 		fetchMock.mockResolvedValueOnce( json( 200, tokens ) );
 
-		await expect( connectOpenai( { code: 'code', verifier: 'verifier' } ) ).resolves.toMatchObject(
-			{
-				method: 'chatgpt',
-				accessToken,
-				refreshToken: 'refresh-2',
-				accountId: 'account-1',
-				email: 'me@example.com',
-			}
-		);
-		expect( String( fetchMock.mock.calls[ 0 ][ 1 ].body ) ).toContain( 'code_verifier=verifier' );
+		await expect( connectOpenai( input ) ).resolves.toMatchObject( {
+			clientId: 'oaiapp_1',
+			accessToken: 'access-2',
+			email: 'me@example.com',
+		} );
+		expect( String( fetchMock.mock.calls[ 0 ][ 1 ].body ) ).toContain( 'client_id=oaiapp_1' );
+
+		fetchMock.mockResolvedValueOnce( json( 200, { ...tokens, scope: 'openid email' } ) );
+		await expect( connectOpenai( input ) ).rejects.toBeInstanceOf( InvalidCredentialError );
 	} );
 
 	it( 'renews a token only when it is about to expire', async () => {
@@ -66,7 +70,7 @@ describe( 'openai account', () => {
 		fetchMock.mockResolvedValueOnce( json( 200, tokens ) );
 
 		await expect( refreshOpenai( config( 60_000 ) ) ).resolves.toMatchObject( {
-			accessToken,
+			accessToken: 'access-2',
 			refreshToken: 'refresh-2',
 		} );
 		expect( String( fetchMock.mock.calls[ 0 ][ 1 ].body ) ).toContain( 'refresh_token=refresh-1' );
@@ -78,14 +82,15 @@ describe( 'openai account', () => {
 		await expect( refreshOpenai( config( 0 ) ) ).rejects.toBeInstanceOf( ProviderNotReadyError );
 	} );
 
-	it( 'connects models over the ChatGPT backend with the access token', async () => {
+	it( 'connects models over the public API with the access token', async () => {
 		await expect( openaiAi.connect( config( 60_000 ), 'gpt-6.1-sol', {} ) ).resolves.toMatchObject(
 			{
-				piProvider: 'openai-codex',
+				piProvider: 'openai',
 				apiKey: 'old-access',
 				model: {
 					id: 'gpt-6.1-sol',
-					api: 'openai-codex-responses',
+					api: 'openai-responses',
+					baseUrl: 'https://api.openai.com/v1',
 					contextWindow: 200_000,
 					maxTokens: 32_000,
 				},

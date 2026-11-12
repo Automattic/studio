@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { ImageFilteredError, resolveImageSize, TransientImageError } from '../../images';
-import { buildImageRequestBody, interpretImageResponse } from '../images';
+import {
+	buildImageRequestBody,
+	ImageFilteredError,
+	interpretImageResponse,
+	resolveImageSize,
+	TransientImageError,
+} from '../images';
 
 const PNG_BASE64 = Buffer.from( [
 	0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00,

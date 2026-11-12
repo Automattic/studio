@@ -204,7 +204,7 @@ describe( 'ai settings', () => {
 			accessToken: 'old',
 			refreshToken: 'refresh',
 			accessTokenExpiresAt: 0,
-			accountId: 'account',
+			clientId: 'oaiapp_1',
 		} as const;
 		writeShared( { providerConfigs: { openai: stored } } );
 		const refresh = vi.fn().mockResolvedValueOnce( { ...stored, accessToken: 'new' } );

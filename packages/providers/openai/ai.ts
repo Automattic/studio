@@ -1,4 +1,4 @@
-import { OPENAI_CODEX_MODELS } from '@earendil-works/pi-ai/providers/openai-codex.models';
+import { OPENAI_MODELS } from '@earendil-works/pi-ai/providers/openai.models';
 import { ProviderNotReadyError } from '../errors';
 import { getAiModel } from '../models';
 import type { OpenaiConfig } from './config';
@@ -13,14 +13,12 @@ export const openaiAi: NonNullable< Provider< OpenaiConfig >[ 'ai' ] > = {
 			);
 		}
 		const model =
-			getAiModel( 'openai', modelId ) &&
-			OPENAI_CODEX_MODELS[ modelId as keyof typeof OPENAI_CODEX_MODELS ];
+			getAiModel( 'openai', modelId ) && OPENAI_MODELS[ modelId as keyof typeof OPENAI_MODELS ];
 		if ( ! model ) {
 			throw new Error( `ChatGPT does not serve ${ modelId }` );
 		}
-		// pi reads the ChatGPT account from the access token.
 		return {
-			piProvider: 'openai-codex',
+			piProvider: 'openai',
 			apiKey: config.accessToken,
 			model: {
 				...model,

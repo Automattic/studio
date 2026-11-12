@@ -73,10 +73,10 @@ export type ProviderConnection =
 	// approval: the provider's `startConnect` returns the code and where to
 	// approve it, and `connect` takes it back and resolves once approved.
 	| { kind: 'device' }
-	// Signing in on the provider's site, which redirects back to a fixed address
-	// on this computer where Studio listens: the provider's
-	// `startLoopbackConnect` returns where to sign in, and `connect` takes the
-	// redirect's parameters with the authorization's `verifier`.
+	// Signing in on the provider's site, which redirects back to an address on
+	// this computer where Studio listens: Studio passes that address to the
+	// provider's `startLoopbackConnect`, and `connect` takes the redirect's
+	// parameters with the authorization's `verifier` and the `redirectUri`.
 	| { kind: 'loopback' };
 
 // A pending device sign-in: the user approves `userCode` at `verificationUrl`.
@@ -90,10 +90,9 @@ export interface DeviceAuthorization {
 }
 
 // A pending loopback sign-in: the user signs in at `url`, and the provider
-// redirects the browser to `redirectUri`, echoing `state`.
+// redirects the browser back to Studio, echoing `state`.
 export interface LoopbackAuthorization {
 	url: string;
-	redirectUri: string;
 	state: string;
 	// Never sent through the browser, such as a PKCE code verifier.
 	verifier: string;
@@ -147,7 +146,7 @@ export interface ProviderDescriptor< Config = unknown, Site extends RemoteSite =
 		// The default when the account has paid AI credits left.
 		paidDefaultModel?: AiModelId;
 		// Defaults to true. Studio on the web runs the agent in the page, which
-		// only reaches models whose API accepts requests from web pages.
+		// can't offer a provider that signs in through this computer.
 		inPage?: boolean;
 	};
 	sites?: SitesDescriptor< Site >;
@@ -274,7 +273,7 @@ export interface Provider< Config = unknown, Site extends RemoteSite = RemoteSit
 	// Starts a device sign-in, for a provider whose connection kind is `device`.
 	startConnect?(): Promise< DeviceAuthorization >;
 	// Starts a loopback sign-in, for a provider whose connection kind is `loopback`.
-	startLoopbackConnect?(): Promise< LoopbackAuthorization >;
+	startLoopbackConnect?( redirectUri: string ): Promise< LoopbackAuthorization >;
 	// Cleans up on the provider's side before Studio removes the config.
 	disconnect?( config: Config ): Promise< void >;
 	// A renewed config when its credential is about to expire, which Studio

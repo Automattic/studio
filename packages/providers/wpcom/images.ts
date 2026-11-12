@@ -1,13 +1,6 @@
-import {
-	FILTERED_ERROR_CODES,
-	generateEach,
-	ImageFilteredError,
-	resolveImageSize,
-	TransientImageError,
-} from '../images';
 import { getAiGatewayBaseUrl } from './ai';
 import type { WpcomConfig } from './config';
-import type { GenerateImageRequest, GenerateImages } from '../types';
+import type { GenerateImageRequest, GenerateImageResult, GenerateImages } from '../types';
 
 // Image generation through the proxy's OpenAI-compatible images route, which
 // only delivers PNG.
@@ -20,6 +13,25 @@ const IMAGE_QUALITY = 'medium';
 // Studio's image slug on the proxy; it accepts regular user OAuth tokens.
 const IMAGE_FEATURE_SLUG = 'studio-image';
 const MAX_CONCURRENT_REQUESTS = 5;
+const RETRY_DELAYS_SECONDS = [ 2, 5, 12 ];
+
+// The route renders only these three canvases, so each slot shape maps to the
+// nearest one and CSS crops to the slot.
+const IMAGE_SIZE_BY_ASPECT_RATIO: Record< string, string > = {
+	square: '1024x1024',
+	landscape: '1536x1024',
+	ultrawide: '1536x1024',
+	portrait: '1024x1536',
+	'card-landscape': '1536x1024',
+	'card-portrait': '1024x1536',
+};
+// Error codes the proxy passes through when the moderation system rejected the
+// prompt; any other failure must not be reported as repairable-by-rewriting.
+const FILTERED_ERROR_CODES = new Set( [ 'moderation_blocked', 'content_policy_violation' ] );
+
+export function resolveImageSize( aspectRatio: string | undefined ): string {
+	return IMAGE_SIZE_BY_ASPECT_RATIO[ aspectRatio ?? 'landscape' ] ?? '1536x1024';
+}
 
 export function buildImageRequestBody(
 	prompt: string,
@@ -33,6 +45,9 @@ export function buildImageRequestBody(
 		size: resolveImageSize( aspectRatioKeyword ),
 	};
 }
+
+export class TransientImageError extends Error {}
+export class ImageFilteredError extends Error {}
 
 interface ImagesResponse {
 	data?: Array< { b64_json?: string } >;
@@ -87,21 +102,47 @@ export function interpretImageResponse( raw: string, status: number ): Uint8Arra
 	return bytes;
 }
 
+const sleep = ( seconds: number ) =>
+	new Promise< void >( ( resolve ) => setTimeout( resolve, seconds * 1000 ) );
+
 async function generateOne(
 	endpoint: string,
 	token: string,
 	request: GenerateImageRequest
-): Promise< Uint8Array > {
-	const response = await fetch( endpoint, {
-		method: 'POST',
-		headers: {
-			authorization: `Bearer ${ token }`,
-			'x-wpcom-ai-feature': IMAGE_FEATURE_SLUG,
-			'content-type': 'application/json',
-		},
-		body: JSON.stringify( buildImageRequestBody( request.prompt, request.aspectRatio ) ),
-	} );
-	return interpretImageResponse( await response.text(), response.status );
+): Promise< GenerateImageResult > {
+	const body = JSON.stringify( buildImageRequestBody( request.prompt, request.aspectRatio ) );
+	// Transient transport errors AND safety-filtered prompts retry: the
+	// non-deterministic filter can pass the same prompt on a later attempt.
+	for ( let attempt = 0; ; attempt++ ) {
+		try {
+			const response = await fetch( endpoint, {
+				method: 'POST',
+				headers: {
+					authorization: `Bearer ${ token }`,
+					'x-wpcom-ai-feature': IMAGE_FEATURE_SLUG,
+					'content-type': 'application/json',
+				},
+				body,
+			} );
+			const raw = await response.text();
+			return { ok: true, bytes: interpretImageResponse( raw, response.status ) };
+		} catch ( error ) {
+			const transient =
+				error instanceof TransientImageError ||
+				error instanceof ImageFilteredError ||
+				// fetch network failures (DNS, reset, timeout) surface as TypeError.
+				error instanceof TypeError;
+			if ( transient && attempt < RETRY_DELAYS_SECONDS.length ) {
+				await sleep( RETRY_DELAYS_SECONDS[ attempt ] );
+				continue;
+			}
+			return {
+				ok: false,
+				error: error instanceof Error ? error.message : String( error ),
+				...( error instanceof ImageFilteredError ? { filtered: true } : {} ),
+			};
+		}
+	}
 }
 
 export const generateWpcomImages: GenerateImages< WpcomConfig > = async (
@@ -113,10 +154,19 @@ export const generateWpcomImages: GenerateImages< WpcomConfig > = async (
 		throw new Error( 'Image generation requires a WordPress.com login (studio auth login).' );
 	}
 	const endpoint = `${ getAiGatewayBaseUrl() }/v1/images/generations`;
-	return generateEach(
-		requests,
-		MAX_CONCURRENT_REQUESTS,
-		( request ) => generateOne( endpoint, config.token, request ),
-		onResult
+	const results: GenerateImageResult[] = new Array( requests.length );
+	let next = 0;
+
+	const worker = async () => {
+		while ( next < requests.length ) {
+			const index = next++;
+			const result = await generateOne( endpoint, config.token, requests[ index ] );
+			results[ index ] = result;
+			onResult?.( index, result );
+		}
+	};
+	await Promise.all(
+		Array.from( { length: Math.min( MAX_CONCURRENT_REQUESTS, requests.length ) }, worker )
 	);
+	return results;
 };

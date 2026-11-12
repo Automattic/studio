@@ -348,7 +348,7 @@ describe( 'Add site › blank setup', () => {
 		act( () => history.push( '/?addSite=blank&settings=ai' ) );
 		const settings = await screen.findByRole( 'dialog', { name: 'Settings' } );
 		fireEvent.click(
-			within( within( settings ).getByRole( 'group', { name: 'Anthropic API' } ) ).getByRole(
+			within( within( settings ).getByRole( 'group', { name: 'Anthropic' } ) ).getByRole(
 				'button',
 				{ name: 'Connect' }
 			)
@@ -359,9 +359,7 @@ describe( 'Add site › blank setup', () => {
 				target: { value: 'sk-test-local' },
 			}
 		);
-		fireEvent.submit(
-			within( settings ).getByRole( 'form', { name: 'Anthropic API connection' } )
-		);
+		fireEvent.submit( within( settings ).getByRole( 'form', { name: 'Anthropic connection' } ) );
 		await waitFor( () => expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic' ) );
 		fireEvent.click( within( settings ).getByRole( 'button', { name: /Close .*ettings/ } ) );
 		const restored = await screen.findByRole( 'dialog', { name: 'Add site' } );

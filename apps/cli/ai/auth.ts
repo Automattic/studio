@@ -4,6 +4,7 @@ import { getStudioUserAgent as buildStudioUserAgent } from '@studio/common/lib/u
 import {
 	DEFAULT_PROVIDER_ID,
 	getConnectFields,
+	getConnectionMethods,
 	getProviderDescriptor,
 	InvalidCredentialError,
 	AI_PROVIDER_IDS,
@@ -15,7 +16,7 @@ import {
 } from '@studio/providers';
 import { getProvider } from '@studio/providers/services';
 import { __, sprintf } from '@wordpress/i18n';
-import { input, password } from 'cli/lib/prompts';
+import { input, password, select } from 'cli/lib/prompts';
 import { LoggerError } from 'cli/logger';
 import type { ImageGenerator } from '@studio/agent/node';
 
@@ -86,11 +87,23 @@ export async function resolveInitialAiProvider(): Promise< AiProviderId > {
 	return ( await getPreferredReadyProvider() ) ?? DEFAULT_PROVIDER_ID;
 }
 
-// Asks for the fields of a provider that connects with a form. The provider
-// checks the values once the last one is entered, and a rejection asks again.
+// Asks for the fields of a provider that connects with a form, after the method
+// when it offers several. The provider checks the values once the last one is
+// entered, and a rejection asks again.
 async function promptForConnection( provider: AiProviderId ): Promise< void > {
-	const fields = getConnectFields( provider );
-	const values: Record< string, string > = {};
+	const methods = getConnectionMethods( provider );
+	const method = methods.length
+		? await select( {
+				message: sprintf(
+					/* translators: %s: provider name */
+					__( 'How do you want to connect %s?' ),
+					getProviderDescriptor( provider ).label
+				),
+				choices: methods.map( ( { id, label } ) => ( { value: id, name: label() } ) ),
+		  } )
+		: undefined;
+	const fields = getConnectFields( provider, method );
+	const values: Record< string, string > = method ? { method } : {};
 	for ( const [ index, field ] of fields.entries() ) {
 		const prompt = field.secret ? password : input;
 		values[ field.name ] = await prompt( {

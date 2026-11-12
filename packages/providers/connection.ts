@@ -1,5 +1,5 @@
 import { getProviderDescriptor } from './descriptors';
-import type { ProviderId, RedirectOptions } from './types';
+import type { ConnectionMethod, ProviderConnection, ProviderId, RedirectOptions } from './types';
 
 // One field of a provider's connection form, as a surface renders it.
 export interface ConnectField {
@@ -13,9 +13,30 @@ export interface ConnectField {
 	validate( value: string ): string | undefined;
 }
 
-// The fields a provider's form asks for; empty when it doesn't connect with a form.
-export function getConnectFields( provider: ProviderId ): ConnectField[] {
+// The ways a provider's account connects, for the user to pick; empty when it has only one.
+export function getConnectionMethods( provider: ProviderId ): ConnectionMethod[] {
 	const { connection } = getProviderDescriptor( provider );
+	return Array.isArray( connection ) ? connection : [];
+}
+
+// How the account connects with `method`, or with the provider's first method.
+export function getConnection( provider: ProviderId, method?: string ): ProviderConnection {
+	const { connection } = getProviderDescriptor( provider );
+	if ( ! Array.isArray( connection ) ) {
+		return connection;
+	}
+	return connection.find( ( { id } ) => id === method ) ?? connection[ 0 ];
+}
+
+// The method a config was connected with, for a provider with several.
+export function getConnectedMethod( provider: ProviderId, config: unknown ): string | undefined {
+	const method = ( config as { method?: unknown } | undefined )?.method;
+	return getConnectionMethods( provider ).find( ( { id } ) => id === method )?.id;
+}
+
+// The fields a provider's form asks for; empty when it doesn't connect with a form.
+export function getConnectFields( provider: ProviderId, method?: string ): ConnectField[] {
+	const connection = getConnection( provider, method );
 	if ( connection.kind !== 'form' ) {
 		return [];
 	}
@@ -38,7 +59,7 @@ export function getConnectFields( provider: ProviderId ): ConnectField[] {
 
 // Where to send the user to approve access, for a provider that connects with a redirect.
 export function getRedirectUrl( provider: ProviderId, options: RedirectOptions ): string {
-	const { connection } = getProviderDescriptor( provider );
+	const connection = getConnection( provider );
 	if ( connection.kind !== 'redirect' ) {
 		throw new Error( `${ provider } does not connect with a redirect` );
 	}

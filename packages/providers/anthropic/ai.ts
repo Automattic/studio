@@ -10,7 +10,7 @@ export const anthropicAi: NonNullable< Provider< AnthropicConfig >[ 'ai' ] > = {
 	async connect( config, modelId ): Promise< AiConnection > {
 		if ( ! config ) {
 			throw new ProviderNotReadyError(
-				'Anthropic API key required. Switch to Anthropic API with /provider to save one.'
+				'Anthropic API key or Claude subscription token required. Switch to Anthropic with /provider to save one.'
 			);
 		}
 		const model = getAiModel( 'anthropic', modelId );
@@ -25,7 +25,8 @@ export const anthropicAi: NonNullable< Provider< AnthropicConfig >[ 'ai' ] > = {
 		 )[ modelId ];
 		return {
 			piProvider: 'anthropic',
-			apiKey: config.apiKey,
+			// pi switches to Bearer auth for a subscription token on its own.
+			apiKey: config.method === 'api-key' ? config.apiKey : config.token,
 			model: {
 				id: modelId,
 				name: modelId,

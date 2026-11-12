@@ -25,12 +25,12 @@ It describes the architecture and the rules, not the exact APIs, which are expec
 
 ## Providers
 
-| Provider                                     | Account                           | AI                                   | Sites      | Previews    |
-| -------------------------------------------- | --------------------------------- | ------------------------------------ | ---------- | ----------- |
-| WordPress.com (`wpcom`)                      | Studio sign-in                    | `fast`, `balanced`, `strong`; images | push, pull | _(planned)_ |
-| Anthropic (`anthropic`)                      | API key; subscription _(planned)_ | Claude models                        | —          | —           |
-| Spacefast (`spacefast`)                      | Device sign-in                    | —                                    | publish    | —           |
-| Other hosts, such as an SSH host _(planned)_ | Per host                          | —                                    | push, pull | —           |
+| Provider                                     | Account                        | AI                                   | Sites      | Previews    |
+| -------------------------------------------- | ------------------------------ | ------------------------------------ | ---------- | ----------- |
+| WordPress.com (`wpcom`)                      | Studio sign-in                 | `fast`, `balanced`, `strong`; images | push, pull | _(planned)_ |
+| Anthropic (`anthropic`)                      | API key, or subscription token | Claude models                        | —          | —           |
+| Spacefast (`spacefast`)                      | Device sign-in                 | —                                    | publish    | —           |
+| Other hosts, such as an SSH host _(planned)_ | Per host                       | —                                    | push, pull | —           |
 
 The WordPress.com tiers are capability aliases. The proxy's `studio-agent` lane resolves each one to an upstream model server-side, so the mapping can change without a release.
 
@@ -72,12 +72,12 @@ It is a package of its own because sites and previews are not agent concerns, so
   - **A form**, described by a schema whose fields carry their labels, help and whether they are secret. Anthropic asks for an API key this way.
   - **A redirect** to the provider's site, where the user approves access and is sent back to the app. WordPress.com connects this way, and connecting it is signing in to Studio.
   - **A device sign-in**: the provider gives a code to approve on its site while Studio waits for the approval. No redirect comes back, so it works the same in every app and the CLI. Spacefast connects this way.
-  - A subscription sign-in for Anthropic comes later _(planned)_. When a provider offers several ways, the user picks one.
+  - **Several methods**, each with a stable id and a label, when a provider offers several ways. The user picks one, and only one is connected at a time. Anthropic takes an API key, or a token from `claude setup-token` that bills the Claude subscription; both are forms. The provider receives the chosen method with the form's values, and its config records it.
 - Surfaces render the form from its schema, so neither the settings nor `studio code` know what a provider asks for.
 - Connecting hands what the user gave, a form's values or the redirect's result, to the provider, which checks it and returns its config. Studio stores the config without looking inside it. Disconnecting lets the provider clean up on its side, as WordPress.com revokes its token, then Studio removes the config.
 - When a provider has no usable config, it says so, along with how it can connect. The CLI asks the user; without a terminal, it reports the error.
-- Studio stores configs in `shared.json` and validates them against each provider's schema. Providers added after the first two keep their config in a per-provider section, `providerConfigs`. The first two keep using their existing fields (`authToken` and `anthropicApiKey`), which builds of every version read. This mapping is Studio's storage code; providers never see it. When `STUDIO_WPCOM_TOKEN` is set, the CLI uses it for the WordPress.com config.
-- The app's settings list every provider with its connection state and a summary the provider gives, such as a key's first and last characters, never the credential itself. WordPress.com shows the Studio sign-in; other providers show their form. In `studio code`, `/provider` asks for what is missing, and one command connects any provider the way it says _(planned)_. No provider connects through `studio auth`.
+- Studio stores configs in `shared.json` and validates them against each provider's schema. Providers added after the first two keep their config in a per-provider section, `providerConfigs`. The first two keep using their existing fields (`authToken` and `anthropicApiKey`), which builds of every version read. An Anthropic subscription token is a later method, so it goes in `providerConfigs`, and connecting one method clears the other. This mapping is Studio's storage code; providers never see it. When `STUDIO_WPCOM_TOKEN` is set, the CLI uses it for the WordPress.com config.
+- The app's settings list every provider with its connection state and a summary the provider gives, such as a key's first and last characters, never the credential itself. WordPress.com shows the Studio sign-in; other providers show their form. In `studio code`, `/provider` asks for what is missing, first asking how to connect when the provider offers several methods, and one command connects any provider the way it says _(planned)_. No provider connects through `studio auth`.
 
 ## AI
 

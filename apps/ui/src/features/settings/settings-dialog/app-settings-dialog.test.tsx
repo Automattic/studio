@@ -879,15 +879,13 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( input ).toHaveAttribute( 'type', 'password' );
 		fireEvent.change( input, { target: { value: '  personal-key  ' } } );
 		fireEvent.click(
-			within( screen.getByRole( 'form', { name: 'Anthropic API connection' } ) ).getByRole(
-				'button',
-				{
-					name: 'Save',
-				}
-			)
+			within( screen.getByRole( 'form', { name: 'Anthropic connection' } ) ).getByRole( 'button', {
+				name: 'Save',
+			} )
 		);
 		await waitFor( () =>
 			expect( connector.connectProvider ).toHaveBeenCalledWith( 'anthropic', {
+				method: 'api-key',
 				apiKey: '  personal-key  ',
 			} )
 		);
@@ -900,6 +898,28 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 			} )
 		).toBeVisible();
 		expect( connector.authenticate ).not.toHaveBeenCalled();
+	} );
+
+	it( 'connects with the method the user picks', async () => {
+		const { connector } = await setup( { section: 'ai', signedIn: false } );
+		fireEvent.click(
+			await within( await findProviderRow( 'anthropic-provider' ) ).findByRole( 'button', {
+				name: 'Manage',
+			} )
+		);
+		await choose( 'Connect with', 'Claude subscription' );
+		fireEvent.change(
+			await screen.findByLabelText( 'Claude subscription token', { selector: 'input' } ),
+			{ target: { value: 'sk-ant-oat01-token' } }
+		);
+		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
+
+		await waitFor( () =>
+			expect( connector.connectProvider ).toHaveBeenCalledWith( 'anthropic', {
+				method: 'setup-token',
+				token: 'sk-ant-oat01-token',
+			} )
+		);
 	} );
 
 	it( 'preserves a rejected key for retry and only switches providers after it is saved', async () => {
@@ -917,12 +937,9 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( input ).toHaveAttribute( 'type', 'password' );
 		fireEvent.change( input, { target: { value: '  test-key  ' } } );
 		const save = () =>
-			within( screen.getByRole( 'form', { name: 'Anthropic API connection' } ) ).getByRole(
-				'button',
-				{
-					name: 'Save',
-				}
-			);
+			within( screen.getByRole( 'form', { name: 'Anthropic connection' } ) ).getByRole( 'button', {
+				name: 'Save',
+			} );
 		fireEvent.click( save() );
 		await screen.findByText( 'Invalid API key' );
 		expect( input ).toHaveValue( '  test-key  ' );
@@ -931,6 +948,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		fireEvent.click( save() );
 		await waitFor( () => expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic' ) );
 		expect( connector.connectProvider ).toHaveBeenCalledWith( 'anthropic', {
+			method: 'api-key',
 			apiKey: '  test-key  ',
 		} );
 		await waitFor( () =>

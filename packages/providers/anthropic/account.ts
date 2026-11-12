@@ -1,70 +1,90 @@
 import { __ } from '@wordpress/i18n';
 import { InvalidCredentialError } from '../errors';
-import { anthropicConnectInput } from './descriptor';
+import { anthropicConnectInput, anthropicSetupTokenInput } from './descriptor';
 import type { AnthropicConfig } from './config';
 import type { Provider } from '../types';
+import type { z } from 'zod';
 
 const ANTHROPIC_MODELS_URL = 'https://api.anthropic.com/v1/models?limit=1';
 const ANTHROPIC_API_VERSION = '2023-06-01';
 const VALIDATION_TIMEOUT_MS = 10_000;
 
-type AnthropicKeyValidation =
+type AnthropicValidation =
 	| { status: 'valid' }
 	| { status: 'invalid'; message: string }
 	| { status: 'unverifiable'; message: string };
 
 /**
- * Checks an Anthropic API key against the live API with a cheap authenticated
- * request (listing models consumes no tokens).
+ * Checks an Anthropic credential against the live API with a cheap
+ * authenticated request (listing models consumes no tokens).
  *
  * Only a definitive authentication failure reports `invalid`; rate limits,
  * server errors, and network failures report `unverifiable` so callers can
- * decide whether to accept the key anyway (e.g. saving while offline) rather
- * than locking the user out on an Anthropic outage.
+ * decide whether to accept the credential anyway (e.g. saving while offline)
+ * rather than locking the user out on an Anthropic outage. A subscription
+ * token is only refused on a 401, since a 403 may mean the endpoint, not the
+ * token, is off limits to it.
  */
-export async function validateAnthropicApiKey( apiKey: string ): Promise< AnthropicKeyValidation > {
+export async function validateAnthropicConfig(
+	config: AnthropicConfig
+): Promise< AnthropicValidation > {
 	let response: Response;
 	try {
 		response = await fetch( ANTHROPIC_MODELS_URL, {
 			headers: {
-				'x-api-key': apiKey,
 				'anthropic-version': ANTHROPIC_API_VERSION,
+				...( config.method === 'api-key'
+					? { 'x-api-key': config.apiKey }
+					: { Authorization: `Bearer ${ config.token }`, 'anthropic-beta': 'oauth-2025-04-20' } ),
 			},
 			signal: AbortSignal.timeout( VALIDATION_TIMEOUT_MS ),
 		} );
 	} catch {
 		return {
 			status: 'unverifiable',
-			message: __( 'Could not reach Anthropic to verify the API key.' ),
+			message: __( 'Could not reach Anthropic to verify the credential.' ),
 		};
 	}
 
 	if ( response.ok ) {
 		return { status: 'valid' };
 	}
-	if ( response.status === 401 || response.status === 403 ) {
+	if ( response.status === 401 || ( response.status === 403 && config.method === 'api-key' ) ) {
 		return {
 			status: 'invalid',
-			message: __( 'Anthropic rejected this API key. Check the key and try again.' ),
+			message:
+				config.method === 'api-key'
+					? __( 'Anthropic rejected this API key. Check the key and try again.' )
+					: __( 'Anthropic rejected this token. Run claude setup-token again.' ),
 		};
 	}
 	return {
 		status: 'unverifiable',
-		message: __( 'Could not verify the API key with Anthropic.' ),
+		message: __( 'Could not verify the credential with Anthropic.' ),
 	};
 }
 
-// A key Anthropic rejects is refused; an unverifiable one (offline, an
-// Anthropic outage) is accepted.
-export const connectAnthropic: Provider< AnthropicConfig >[ 'connect' ] = async ( input ) => {
-	const parsed = anthropicConnectInput().safeParse( input );
+function parseInput< Schema extends z.ZodType >(
+	schema: Schema,
+	input: unknown
+): z.infer< Schema > {
+	const parsed = schema.safeParse( input );
 	if ( ! parsed.success ) {
 		throw new InvalidCredentialError( parsed.error.issues[ 0 ].message );
 	}
-	const { apiKey } = parsed.data;
-	const validation = await validateAnthropicApiKey( apiKey );
+	return parsed.data;
+}
+
+// A credential Anthropic rejects is refused; an unverifiable one (offline, an
+// Anthropic outage) is accepted.
+export const connectAnthropic: Provider< AnthropicConfig >[ 'connect' ] = async ( input ) => {
+	const config: AnthropicConfig =
+		input.method === 'setup-token'
+			? { method: 'setup-token', token: parseInput( anthropicSetupTokenInput(), input ).token }
+			: { method: 'api-key', apiKey: parseInput( anthropicConnectInput(), input ).apiKey };
+	const validation = await validateAnthropicConfig( config );
 	if ( validation.status === 'invalid' ) {
 		throw new InvalidCredentialError( validation.message );
 	}
-	return { method: 'api-key', apiKey };
+	return config;
 };

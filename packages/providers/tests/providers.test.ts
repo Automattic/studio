@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
 	getAiModelProviders,
+	getConnectedMethod,
 	getConnectFields,
+	getConnectionMethods,
 	getRedirectUrl,
 	getDefaultAiModel,
 	isAiModelId,
@@ -50,6 +52,22 @@ describe( 'connections', () => {
 		expect( apiKey.validate( ' ' ) ).toBe( 'API key is required' );
 		expect( apiKey.validate( 'sk-ant-key' ) ).toBeUndefined();
 		expect( getConnectFields( 'wpcom' ) ).toEqual( [] );
+	} );
+
+	it( 'lets the user pick a method only when a provider offers several', () => {
+		expect( getConnectionMethods( 'anthropic' ).map( ( { id } ) => id ) ).toEqual( [
+			'api-key',
+			'setup-token',
+		] );
+		expect( getConnectionMethods( 'wpcom' ) ).toEqual( [] );
+		expect( getConnectionMethods( 'spacefast' ) ).toEqual( [] );
+
+		const [ token ] = getConnectFields( 'anthropic', 'setup-token' );
+		expect( token ).toMatchObject( { name: 'token', placeholder: 'sk-ant-oat01-…', secret: true } );
+		expect( token.validate( 'sk-ant-api03-key' ) ).toMatch( /not an API key/ );
+		expect( getConnectedMethod( 'anthropic', { method: 'setup-token', token: 'x' } ) ).toBe(
+			'setup-token'
+		);
 	} );
 
 	it( 'builds the redirect only for a provider that connects with one', () => {

@@ -2,7 +2,12 @@ import { AGENT_APP_IDS } from '@studio/common/lib/agent-apps';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
-import { PROVIDER_IDS, type ProviderId, type AiProviderId } from '@studio/providers';
+import {
+	getConnectionMethods,
+	PROVIDER_IDS,
+	type ProviderId,
+	type AiProviderId,
+} from '@studio/providers';
 import type {
 	AgentAppId,
 	AiSessionSummary,
@@ -92,10 +97,13 @@ export function aiSettings(
 		accounts: Object.fromEntries(
 			PROVIDER_IDS.map( ( id ) => [
 				id,
-				{
-					connected: connected.includes( id ),
-					summary: connected.includes( id ) ? 'sk-ant-…test' : null,
-				},
+				connected.includes( id )
+					? {
+							connected: true,
+							summary: 'sk-ant-…test',
+							method: getConnectionMethods( id )[ 0 ]?.id,
+					  }
+					: { connected: false, summary: null },
 			] )
 		) as AiSettings[ 'accounts' ],
 	};

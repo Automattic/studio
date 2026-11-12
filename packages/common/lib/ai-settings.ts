@@ -1,5 +1,6 @@
 import {
 	DEFAULT_PROVIDER_ID,
+	getConnectedMethod,
 	getProviderDescriptor,
 	InvalidCredentialError,
 	normalizeAiProviderId,
@@ -21,6 +22,8 @@ import {
 export interface ProviderAccount {
 	connected: boolean;
 	summary: string | null;
+	// How it connected, for a provider with several methods.
+	method?: string;
 }
 
 export interface AiSettings {
@@ -40,9 +43,11 @@ async function readAccount( id: ProviderId ): Promise< ProviderAccount > {
 	const { summarize } = getProviderDescriptor( id ) as {
 		summarize?: ( config: unknown ) => string;
 	};
+	const method = getConnectedMethod( id, config );
 	return {
 		connected: config !== undefined,
 		summary: config && summarize ? summarize( config ) : null,
+		...( method ? { method } : {} ),
 	};
 }
 
@@ -66,7 +71,8 @@ export async function persistSelectedAiProvider( provider: AiProviderId ): Promi
 
 /**
  * Connects `provider` (from `@studio/providers/services`) with what the user
- * gave: a form's values or a redirect's parameters. The provider checks them,
+ * gave: a form's values, with `method` naming the one picked when the provider
+ * offers several, or a redirect's parameters. The provider checks them,
  * and its config is stored only when it accepts them.
  */
 export async function connectProvider< Config >(

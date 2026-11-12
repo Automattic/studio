@@ -21,7 +21,14 @@ export {
 	isAiModelId,
 	type AiModelId,
 } from './models';
-export { getConnectFields, getRedirectUrl, type ConnectField } from './connection';
+export {
+	getConnectedMethod,
+	getConnectFields,
+	getConnection,
+	getConnectionMethods,
+	getRedirectUrl,
+	type ConnectField,
+} from './connection';
 export type { AnthropicConfig } from './anthropic/config';
 export type { SpacefastConfig } from './spacefast/config';
 export type { Space } from './spacefast/site';

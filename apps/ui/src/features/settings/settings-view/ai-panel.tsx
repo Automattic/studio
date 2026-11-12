@@ -1,5 +1,7 @@
 import {
 	getConnectFields,
+	getConnection,
+	getConnectionMethods,
 	getProviderDescriptor,
 	AI_PROVIDER_IDS,
 	type AiProviderId,
@@ -31,8 +33,13 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 	const disconnect = useDisconnectProvider( provider );
 	const setProvider = useSetAiProvider();
 	const descriptor = getProviderDescriptor( provider );
-	const fields = getConnectFields( provider );
+	const methods = getConnectionMethods( provider );
 	const account = settings.data?.accounts[ provider ];
+	const [ pickedMethod, setPickedMethod ] = useState< string >();
+	const method = pickedMethod ?? account?.method ?? methods[ 0 ]?.id;
+	const fields = getConnectFields( provider, method );
+	// The account is connected with the form being shown.
+	const current = account?.connected && account.method === method;
 	const [ formOpen, setFormOpen ] = useState( false );
 	const [ values, setValues ] = useState< Record< string, string > >( {} );
 	const pending =
@@ -41,12 +48,13 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 
 	const closeForm = () => {
 		setValues( {} );
+		setPickedMethod( undefined );
 		setFormOpen( false );
 	};
 	// Saving the values the account already has just selects the provider.
 	const save = async () => {
 		if ( filled ) {
-			await connect.mutateAsync( values );
+			await connect.mutateAsync( method ? { ...values, method } : values );
 		}
 		await setProvider.mutateAsync( provider );
 		closeForm();
@@ -83,11 +91,25 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 					) }
 					onSubmit={ ( event ) => {
 						event.preventDefault();
-						if ( ! pending && ( filled || account?.connected ) ) {
+						if ( ! pending && ( filled || current ) ) {
 							void save().catch( () => {} );
 						}
 					} }
 				>
+					{ methods.length ? (
+						<SettingsRow title={ __( 'Connect with' ) }>
+							<SettingsSelect
+								label={ __( 'Connect with' ) }
+								value={ method ?? '' }
+								disabled={ pending }
+								options={ methods.map( ( { id, label } ) => ( { value: id, label: label() } ) ) }
+								onChange={ ( next ) => {
+									setValues( {} );
+									setPickedMethod( next );
+								} }
+							/>
+						</SettingsRow>
+					) : null }
 					{ fields.map( ( field, index ) => (
 						<SettingsRow
 							key={ field.name }
@@ -106,7 +128,9 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 									type={ field.secret ? 'password' : 'text' }
 									autoComplete="off"
 									aria-label={ field.title }
-									placeholder={ ( field.secret && account?.summary ) || field.placeholder }
+									placeholder={
+										( field.secret && current && account.summary ) || field.placeholder
+									}
 									value={ values[ field.name ] ?? '' }
 									disabled={ pending }
 									onChange={ ( event ) =>
@@ -118,7 +142,7 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 										<Button
 											variant="accent"
 											type="submit"
-											disabled={ pending || ( ! filled && ! account?.connected ) }
+											disabled={ pending || ( ! filled && ! current ) }
 											loading={ connect.isPending || setProvider.isPending }
 											loadingAnnouncement={ __( 'Saving' ) }
 										>
@@ -164,7 +188,7 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 	const [ wpcomRequested, setWpcomRequested ] = useState( false );
 	const connected = AI_PROVIDER_IDS.filter( ( id ) => settings.data?.accounts[ id ].connected );
 	const deviceProviders = usePublishProviders().filter(
-		( id ) => getProviderDescriptor( id ).connection.kind === 'device'
+		( id ) => getConnection( id ).kind === 'device'
 	);
 
 	// Connecting WordPress.com finishes once the sign-up lands.

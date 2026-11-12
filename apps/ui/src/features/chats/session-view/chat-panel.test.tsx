@@ -296,7 +296,7 @@ describe( 'Composer site controls', () => {
 
 function anthropicRow( dialog: HTMLElement ) {
 	return within(
-		within( dialog ).getByText( 'Anthropic API', { exact: true } ).closest( '[data-settings-row]' )!
+		within( dialog ).getByText( 'Anthropic', { exact: true } ).closest( '[data-settings-row]' )!
 	);
 }
 
@@ -637,7 +637,7 @@ describe( 'Chat target selection', () => {
 		);
 		expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveAttribute(
 			'aria-description',
-			'Opus 5.5 · Anthropic API'
+			'Opus 5.5 · Anthropic'
 		);
 	} );
 } );

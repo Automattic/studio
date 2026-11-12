@@ -34,14 +34,45 @@ export const anthropicConnectInput = () =>
 			} ),
 	} );
 
+const SETUP_TOKEN_PREFIX = 'sk-ant-oat01-';
+
+export const anthropicSetupTokenInput = () =>
+	z.object( {
+		token: z
+			.string()
+			.trim()
+			.min( 1, __( 'Token is required' ) )
+			.startsWith(
+				SETUP_TOKEN_PREFIX,
+				__( 'Enter a token from claude setup-token, not an API key.' )
+			)
+			.meta( {
+				title: __( 'Claude subscription token' ),
+				description: __(
+					'Run claude setup-token in a terminal and paste the token it prints. Usage counts against your Claude plan.'
+				),
+				examples: [ `${ SETUP_TOKEN_PREFIX }…` ],
+				writeOnly: true,
+			} ),
+	} );
+
 export const anthropicDescriptor: ProviderDescriptor< AnthropicConfig > = {
 	id: 'anthropic',
-	label: 'Anthropic API',
-	description: () => __( 'Use Claude with your own API key.' ),
+	label: 'Anthropic',
+	description: () => __( 'Use Claude with your own API key or Claude subscription.' ),
 	learnMoreUrl: 'https://platform.claude.com/docs/en/get-api-key',
 	configSchema: anthropicConfigSchema,
-	connection: { kind: 'form', input: anthropicConnectInput },
-	summarize: ( config ) => previewApiKey( config.apiKey ),
+	connection: [
+		{ id: 'api-key', label: () => __( 'API key' ), kind: 'form', input: anthropicConnectInput },
+		{
+			id: 'setup-token',
+			label: () => __( 'Claude subscription' ),
+			kind: 'form',
+			input: anthropicSetupTokenInput,
+		},
+	],
+	summarize: ( config ) =>
+		previewApiKey( config.method === 'api-key' ? config.apiKey : config.token ),
 	ai: {
 		models: ANTHROPIC_AI_MODELS,
 		defaultModel: 'claude-sonnet-5-5',

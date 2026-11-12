@@ -12,6 +12,7 @@ import {
 } from '@studio/common/lib/studio-assistant-quota';
 import {
 	DEFAULT_PROVIDER_ID,
+	getConnectedMethod,
 	getProviderDescriptor,
 	normalizeAiProviderId,
 	normalizeProviderId,
@@ -257,9 +258,14 @@ export class StaticAgentRuns {
 				const { summarize } = getProviderDescriptor( id ) as {
 					summarize?: ( config: unknown ) => string;
 				};
+				const method = getConnectedMethod( id, config );
 				return [
 					id,
-					{ connected: !! config, summary: config && summarize ? summarize( config ) : null },
+					{
+						connected: !! config,
+						summary: config && summarize ? summarize( config ) : null,
+						...( method ? { method } : {} ),
+					},
 				] as const;
 			} )
 		);

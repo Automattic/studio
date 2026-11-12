@@ -13,6 +13,16 @@ describe( 'anthropic ai', () => {
 		).rejects.toBeInstanceOf( ProviderNotReadyError );
 	} );
 
+	it( 'hands pi a subscription token as the key, which pi sends with Bearer auth', async () => {
+		const { apiKey } = await anthropicAi.connect(
+			{ method: 'setup-token', token: 'sk-ant-oat01-token' },
+			'claude-sonnet-5-5',
+			{}
+		);
+
+		expect( apiKey ).toBe( 'sk-ant-oat01-token' );
+	} );
+
 	// A model missing pi's adaptive-thinking compat gets the legacy thinking
 	// shape, which current Claude models reject with a 400.
 	it.each( ANTHROPIC_AI_MODELS.map( ( model ) => model.id ) )(

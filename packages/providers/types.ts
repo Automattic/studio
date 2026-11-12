@@ -72,6 +72,11 @@ export type ProviderConnection =
 	// approve it, and `connect` takes it back and resolves once approved.
 	| { kind: 'device' };
 
+// One of several ways a provider's account connects, for the user to pick.
+// `connect` receives the chosen one's id as `input.method`, and the config
+// records it as `method`.
+export type ConnectionMethod = ProviderConnection & { id: string; label: () => string };
+
 // A pending device sign-in: the user approves `userCode` at `verificationUrl`.
 export interface DeviceAuthorization {
 	deviceCode: string;
@@ -119,7 +124,7 @@ export interface ProviderDescriptor< Config = unknown, Site extends RemoteSite =
 	learnMoreUrl?: string;
 	// What Studio stores for this provider.
 	configSchema: z.ZodType< Config >;
-	connection: ProviderConnection;
+	connection: ProviderConnection | ConnectionMethod[];
 	// What to show for a connected account; never the credential itself.
 	summarize?( config: Config ): string;
 	ai?: {
@@ -248,6 +253,7 @@ export interface Provider< Config = unknown, Site extends RemoteSite = RemoteSit
 	descriptor: ProviderDescriptor< Config, Site >;
 	// Checks what the user gave, a form's values or a redirect's parameters, and
 	// returns the config to store. Throws InvalidCredentialError when it fails.
+	// Without `input.method`, a provider with several methods takes its first.
 	connect( input: Record< string, string > ): Promise< Config >;
 	// Starts a device sign-in, for a provider whose connection kind is `device`.
 	startConnect?(): Promise< DeviceAuthorization >;

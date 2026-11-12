@@ -60,12 +60,40 @@ describe( 'ai settings', () => {
 			provider: 'wpcom',
 			accounts: {
 				wpcom: disconnected,
-				anthropic: { connected: true, summary: 'sk-ant-api03-tes...1234' },
+				anthropic: { connected: true, summary: 'sk-ant-api03-tes...1234', method: 'api-key' },
 				spacefast: disconnected,
 			},
 		} );
 		expect( readShared().anthropicApiKey ).toBe( 'sk-ant-api03-testkey-abcd1234' );
 		expect( fs.existsSync( cliConfigPath() ) ).toBe( false );
+	} );
+
+	it( 'keeps a subscription token in its own section, and clears the other method on write', async () => {
+		writeShared( { anthropicApiKey: 'sk-ant-api03-testkey-abcd1234' } );
+
+		const settings = await connectProvider( anthropic, {
+			method: 'setup-token',
+			token: 'sk-ant-oat01-token-abcd1234',
+		} );
+
+		expect( settings.accounts.anthropic ).toMatchObject( {
+			connected: true,
+			method: 'setup-token',
+		} );
+		expect( readShared() ).toMatchObject( {
+			providerConfigs: {
+				anthropic: { method: 'setup-token', token: 'sk-ant-oat01-token-abcd1234' },
+			},
+		} );
+		expect( readShared().anthropicApiKey ).toBeUndefined();
+
+		await connectProvider( anthropic, { apiKey: 'sk-ant-api03-testkey-abcd1234' } );
+
+		expect( readShared().providerConfigs ).toBeUndefined();
+		await expect( readProviderConfig( 'anthropic' ) ).resolves.toEqual( {
+			method: 'api-key',
+			apiKey: 'sk-ant-api03-testkey-abcd1234',
+		} );
 	} );
 
 	it( 'does not store input the provider rejects', async () => {

@@ -2,7 +2,7 @@ import { AGENT_APP_IDS } from '@studio/common/lib/agent-apps';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
-import { PROVIDER_IDS, type ProviderId } from '@studio/providers';
+import { PROVIDER_IDS, type ProviderId, type AiProviderId } from '@studio/providers';
 import type {
 	AgentAppId,
 	AiSessionSummary,
@@ -84,7 +84,7 @@ let nextId = 1;
 
 // AI settings with `provider` selected and the `connected` providers' accounts connected.
 export function aiSettings(
-	provider: ProviderId = 'wpcom',
+	provider: AiProviderId = 'wpcom',
 	connected: readonly ProviderId[] = []
 ): AiSettings {
 	return {
@@ -281,17 +281,19 @@ export function createInMemoryConnector(
 			localChanged: null,
 			previewChanged: null,
 		} ),
-		getConnectedWpcomSites: async () => [],
-		fetchSyncableWpcomSites: async () => [],
-		connectWpcomSite: async () => {},
-		disconnectWpcomSite: async () => {},
-		pushSiteToLive: async () => {},
-		pullSiteFromLive: async () => {},
+		getRemoteSites: async () => [],
+		listAccountSites: async () => [],
+		connectRemoteSite: async () => {},
+		disconnectRemoteSite: async () => {},
+		createRemoteSite: async () => {
+			throw new Error( 'createRemoteSite is not faked' );
+		},
+		pushSite: async () => {},
+		pullSite: async () => {},
 		onSyncActivity: subscribe( 'onSyncActivity' ),
 		cancelSync: async () => {},
-		getLatestRewindId: async () => null,
-		listRemoteFileTree: async () => ( {} ),
-		getHostingPhpVersion: async () => undefined,
+		getRemoteBackupId: async () => null,
+		listRemoteBackupFiles: async () => ( {} ),
 		listLocalFileTree: async () => [],
 		getDirectorySize: async () => 0,
 		getFileSize: async () => 0,
@@ -351,6 +353,9 @@ export function createInMemoryConnector(
 		connectProvider: async ( provider ) =>
 			aiSettings( 'wpcom', state.user ? [ 'wpcom', provider ] : [ provider ] ),
 		disconnectProvider: async () => aiSettings( 'wpcom', state.user ? [ 'wpcom' ] : [] ),
+		startProviderConnect: async () => {
+			throw new Error( 'startProviderConnect is not faked' );
+		},
 		setAiProvider: async ( provider ) =>
 			aiSettings( provider, state.user ? [ 'wpcom', provider ] : [ provider ] ),
 		getInstalledApps: async () => installedApps(),

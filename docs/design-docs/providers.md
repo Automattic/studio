@@ -25,11 +25,12 @@ It describes the architecture and the rules, not the exact APIs, which are expec
 
 ## Providers
 
-| Provider                                                  | Account                           | AI                                   | Sites      | Previews    |
-| --------------------------------------------------------- | --------------------------------- | ------------------------------------ | ---------- | ----------- |
-| WordPress.com (`wpcom`)                                   | Studio sign-in                    | `fast`, `balanced`, `strong`; images | push, pull | _(planned)_ |
-| Anthropic (`anthropic`)                                   | API key; subscription _(planned)_ | Claude models                        | —          | —           |
-| Other hosts, such as an SSH host or Spacefast _(planned)_ | Per host                          | —                                    | push, pull | —           |
+| Provider                                     | Account                           | AI                                   | Sites      | Previews    |
+| -------------------------------------------- | --------------------------------- | ------------------------------------ | ---------- | ----------- |
+| WordPress.com (`wpcom`)                      | Studio sign-in                    | `fast`, `balanced`, `strong`; images | push, pull | _(planned)_ |
+| Anthropic (`anthropic`)                      | API key; subscription _(planned)_ | Claude models                        | —          | —           |
+| Spacefast (`spacefast`)                      | Device sign-in                    | —                                    | publish    | —           |
+| Other hosts, such as an SSH host _(planned)_ | Per host                          | —                                    | push, pull | —           |
 
 The WordPress.com tiers are capability aliases. The proxy's `studio-agent` lane resolves each one to an upstream model server-side, so the mapping can change without a release.
 
@@ -70,11 +71,12 @@ It is a package of its own because sites and previews are not agent concerns, so
 - Each provider says how its account connects, in its descriptor:
   - **A form**, described by a schema whose fields carry their labels, help and whether they are secret. Anthropic asks for an API key this way.
   - **A redirect** to the provider's site, where the user approves access and is sent back to the app. WordPress.com connects this way, and connecting it is signing in to Studio.
+  - **A device sign-in**: the provider gives a code to approve on its site while Studio waits for the approval. No redirect comes back, so it works the same in every app and the CLI. Spacefast connects this way.
   - A subscription sign-in for Anthropic comes later _(planned)_. When a provider offers several ways, the user picks one.
 - Surfaces render the form from its schema, so neither the settings nor `studio code` know what a provider asks for.
 - Connecting hands what the user gave, a form's values or the redirect's result, to the provider, which checks it and returns its config. Studio stores the config without looking inside it. Disconnecting lets the provider clean up on its side, as WordPress.com revokes its token, then Studio removes the config.
 - When a provider has no usable config, it says so, along with how it can connect. The CLI asks the user; without a terminal, it reports the error.
-- Studio stores configs in `shared.json` and validates them against each provider's schema. Configs move to a per-provider section _(planned)_. Until then, and for a few releases after so older builds keep working, Studio uses the existing fields (`authToken` and `anthropicApiKey`). This mapping is Studio's storage code; providers never see it. When `STUDIO_WPCOM_TOKEN` is set, the CLI uses it for the WordPress.com config.
+- Studio stores configs in `shared.json` and validates them against each provider's schema. Providers added after the first two keep their config in a per-provider section, `providerConfigs`. The first two keep using their existing fields (`authToken` and `anthropicApiKey`), which builds of every version read. This mapping is Studio's storage code; providers never see it. When `STUDIO_WPCOM_TOKEN` is set, the CLI uses it for the WordPress.com config.
 - The app's settings list every provider with its connection state and a summary the provider gives, such as a key's first and last characters, never the credential itself. WordPress.com shows the Studio sign-in; other providers show their form. In `studio code`, `/provider` asks for what is missing, and one command connects any provider the way it says _(planned)_. No provider connects through `studio auth`.
 
 ## AI
@@ -109,12 +111,12 @@ The Anthropic provider is `anthropic`. Builds before this design stored `anthrop
 
 ## Remote sites
 
-- A remote site is a site on a provider that a local site syncs with. Each provider with remote sites declares the shape of its site; WordPress.com's is `SyncSite`.
-- The provider owns the remote side of a sync: listing the account's sites, sending a pushed archive and applying it remotely, and, for pull, backing the site up remotely or opening the export API a local Reprint reads it through. It reports the steps it runs through as a status.
-- Studio owns the local side, shared by every provider: building the archive a push sends, and running Reprint or importing a downloaded backup on pull. The CLI does this; Studio on the web builds the archive in the page and hands the same provider a Blob.
-- Connections are Studio's data about its local sites, not provider config. `@studio/common/lib/remote-sites.ts` reads and writes them per provider, and records when each site was last pushed or pulled. WordPress.com's stay in `connectedWpcomSites`, so builds of every version read them.
+- A remote site is a site on a provider that a local site syncs with. Each provider with remote sites declares the shape of its site: WordPress.com's is `SyncSite`, Spacefast's a `Space`.
+- The provider owns the remote side of a sync: listing the account's sites, creating one when it can, sending what a push sends and applying it remotely, and, for pull, backing the site up remotely or opening the export API a local Reprint reads it through. It reports the steps it runs through as a status. Pull is optional: Spacefast only publishes.
+- Studio owns the local side, shared by every provider, and builds what the provider's push takes: the site's WordPress archive (WordPress.com), or a static export of its pages (Spacefast). On pull, it runs Reprint or imports a downloaded backup. The CLI does this; Studio on the web builds the archive in the page and hands the same provider a Blob.
+- Connections are Studio's data about its local sites, not provider config. `@studio/common/lib/remote-sites.ts` reads and writes them per provider, and records when each site was last pushed or pulled. WordPress.com's stay in `connectedWpcomSites`, so builds of every version read them; later providers' are in `remoteSites`.
 - Whether a site can sync is a status with an optional action, replacing the WordPress.com-specific states. For example, a site that needs a plan upgrade is blocked, with a link to upgrade _(planned)_.
-- `studio push` and `studio pull` stay the commands, and take a remote that names its provider. Bare WordPress.com site ids and URLs keep working _(planned)_.
+- `studio push` and `studio pull` stay the commands. `studio push --remote-site spacefast[:<space>]` publishes to Spacefast, and bare WordPress.com site ids and URLs keep working. A remote that names any provider comes with the descriptor-driven UI _(planned)_.
 - A provider declares whether it supports selective sync _(planned)_.
 
 ## Previews _(planned)_
@@ -135,4 +137,4 @@ Previews are a capability, and WordPress.com is the only provider that offers it
 
 ## Open questions
 
-1. **Designing sites against a second host.** The remote-sites capability above is drawn from WordPress.com. Spacefast, the next host, differs in almost every way: it is publish-only, with no pull; its push takes a static HTML build rather than a WordPress archive, so Studio needs a second local side; it has no remote backup, import polling or selective sync; and it signs in with a device login, a connection kind of its own. The capability should take these on before more of WordPress.com's steps are generalized.
+1. **The UI for remote sites.** Settings and Share and publish still name WordPress.com. They should render every provider with remote sites from its descriptor: its connection, its sites and the statuses a site can sync with.

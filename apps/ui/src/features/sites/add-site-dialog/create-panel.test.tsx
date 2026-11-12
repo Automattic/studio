@@ -8,7 +8,7 @@ import {
 } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { Connector, SelectedSiteFolder } from '@/data/core';
-import type { ProviderId } from '@studio/providers';
+import type { AiProviderId } from '@studio/providers';
 import type { Blueprint } from '@wp-playground/blueprints';
 
 afterEach( () => {
@@ -301,7 +301,7 @@ describe( 'Add site › blank setup', () => {
 	it( 'keeps the site draft and attachments when reconnecting a provider in settings', async () => {
 		let signedIn = true;
 		let anthropicConnected = false;
-		let selected: ProviderId = 'wpcom';
+		let selected: AiProviderId = 'wpcom';
 		const currentSettings = () =>
 			aiSettings( selected, [
 				...( signedIn ? [ 'wpcom' as const ] : [] ),

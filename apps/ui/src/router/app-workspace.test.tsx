@@ -429,6 +429,8 @@ describe( 'Studio workspace', () => {
 		expect( await screen.findByRole( 'button', { name: 'Share' } ) ).toBeVisible();
 		expect( await screen.findByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 		await paletteCommand( 'Publish' );
+		// Signing in is only needed to publish to WordPress.com.
+		fireEvent.click( await screen.findByRole( 'button', { name: /^WordPress\.com/ } ) );
 		expect( await screen.findByRole( 'dialog', { name: 'Publish your WordPress' } ) ).toBeVisible();
 		expect( connector.authenticate ).not.toHaveBeenCalled();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Close' } ) );
@@ -582,7 +584,7 @@ describe( 'Studio workspace', () => {
 		const { connector, refreshSessions, history } = setup( {
 			signedIn: true,
 			overrides: {
-				getConnectedWpcomSites: async () =>
+				getRemoteSites: async () =>
 					[ { id: 123, url: 'https://example.test', name: 'Live site' } ] as never,
 			},
 		} );
@@ -1606,7 +1608,7 @@ describe( 'Studio workspace', () => {
 				signedIn: true,
 				preferences: { autoStartSiteOnChat: true } as never,
 				overrides: {
-					getConnectedWpcomSites: async () =>
+					getRemoteSites: async () =>
 						[ { id: 123, url: 'https://example.test', name: 'Live site' } ] as never,
 				},
 			} );

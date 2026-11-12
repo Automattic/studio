@@ -43,7 +43,6 @@ import type {
 	StudioAssistantQuota,
 	StudioAssistantTopUpPricing,
 	SupportedEditor,
-	SyncSite,
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/agent/protocol/agent-events';
@@ -465,21 +464,25 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.getPreviewStatus( hostname ) ) as PreviewStatus;
 		},
 
-		// Connected WPCom sites
-		async getConnectedWpcomSites( localSiteId?: string ): Promise< SyncSite[] > {
-			return ( await ipcApi.getConnectedWpcomSites( localSiteId ) ) as SyncSite[];
+		// Remote sites
+		async getRemoteSites( provider, localSiteId ) {
+			return await ipcApi.getRemoteSites( provider, localSiteId );
 		},
 
-		async fetchSyncableWpcomSites(): Promise< SyncSite[] > {
-			return ( await ipcApi.fetchSyncableWpcomSites() ) as SyncSite[];
+		async listAccountSites( provider ) {
+			return await ipcApi.listAccountSites( provider );
 		},
 
-		async connectWpcomSite( localSiteId, site ): Promise< void > {
-			await ipcApi.connectWpcomSites( [ { sites: [ site ], localSiteId } ] );
+		async connectRemoteSite( provider, localSiteId, site ): Promise< void > {
+			await ipcApi.connectRemoteSite( provider, localSiteId, site );
 		},
 
-		async disconnectWpcomSite( localSiteId, remoteSiteId ): Promise< void > {
-			await ipcApi.disconnectWpcomSites( [ { siteIds: [ remoteSiteId ], localSiteId } ] );
+		async disconnectRemoteSite( provider, localSiteId, remoteSiteId ): Promise< void > {
+			await ipcApi.disconnectRemoteSite( provider, localSiteId, remoteSiteId );
+		},
+
+		async createRemoteSite( provider, localSiteId, name ) {
+			return unwrapIpcError( ipcApi.createRemoteSite( provider, localSiteId, name ) );
 		},
 
 		onSyncConnectSite( listener ) {
@@ -492,8 +495,8 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
-		async pushSiteToLive( siteId, remoteSiteId, options ): Promise< void > {
-			const result = await ipcApi.pushSiteToLive( siteId, remoteSiteId, options );
+		async pushSite( provider, siteId, remoteSiteId, options ): Promise< void > {
+			const result = await ipcApi.pushSite( provider, siteId, remoteSiteId, options );
 			// The main process reports a cancel instead of rejecting, to keep it out
 			// of the logs as an error; turn it back into one for the caller.
 			if ( result?.cancelled ) {
@@ -505,8 +508,8 @@ export function createIpcConnector(): Connector {
 			ipcApi.cancelSyncOperation( siteId, remoteSiteId );
 		},
 
-		async pullSiteFromLive( siteId, remoteSiteId, options ): Promise< void > {
-			const result = await ipcApi.pullSiteFromLive( siteId, remoteSiteId, options );
+		async pullSite( provider, siteId, remoteSiteId, options ): Promise< void > {
+			const result = await ipcApi.pullSite( provider, siteId, remoteSiteId, options );
 			if ( result?.cancelled ) {
 				throw new SyncCancelledError();
 			}
@@ -518,19 +521,22 @@ export function createIpcConnector(): Connector {
 			);
 		},
 
-		async getLatestRewindId( remoteSiteId ): Promise< string | null > {
-			return ( await ipcApi.getLatestRewindId( remoteSiteId ) ) as string | null;
+		async getRemoteBackupId( provider, remoteSiteId ): Promise< string | null > {
+			return ( await ipcApi.getRemoteBackupId( provider, remoteSiteId ) ) as string | null;
 		},
 
-		async listRemoteFileTree( remoteSiteId, rewindId, path ): Promise< Record< string, unknown > > {
-			return ( await ipcApi.listRemoteFileTree( remoteSiteId, rewindId, path ) ) as Record<
-				string,
-				unknown
-			>;
-		},
-
-		async getHostingPhpVersion( remoteSiteId ): Promise< string | undefined > {
-			return ( await ipcApi.getHostingPhpVersion( remoteSiteId ) ) as string | undefined;
+		async listRemoteBackupFiles(
+			provider,
+			remoteSiteId,
+			backupId,
+			path
+		): Promise< Record< string, unknown > > {
+			return ( await ipcApi.listRemoteBackupFiles(
+				provider,
+				remoteSiteId,
+				backupId,
+				path
+			) ) as Record< string, unknown >;
 		},
 
 		async listLocalFileTree( siteId, path, depth ): Promise< RawDirectoryEntry[] > {
@@ -693,6 +699,9 @@ export function createIpcConnector(): Connector {
 		},
 		async disconnectProvider( provider ): Promise< AiSettings > {
 			return unwrapIpcError( ipcApi.disconnectAiProvider( provider ) );
+		},
+		async startProviderConnect( provider ) {
+			return unwrapIpcError( ipcApi.startProviderConnect( provider ) );
 		},
 		async setAiProvider( provider ): Promise< AiSettings > {
 			return unwrapIpcError( ipcApi.setAiProvider( provider ) );

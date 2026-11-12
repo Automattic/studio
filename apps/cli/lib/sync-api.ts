@@ -2,7 +2,7 @@ import fs from 'fs';
 import { Readable } from 'stream';
 import { syncOptionSchema } from '@studio/common/types/sync';
 import { backupLsItemSchema } from '@studio/common/types/sync-tree';
-import { RemoteSiteError } from '@studio/providers';
+import { ProviderNotReadyError, RemoteSiteError } from '@studio/providers';
 import { getProvider } from '@studio/providers/services';
 import { __, sprintf } from '@wordpress/i18n';
 import { LoggerError } from 'cli/logger';
@@ -38,6 +38,9 @@ export function toLoggerError( error: unknown, fallback: string ): LoggerError {
 	}
 	if ( error instanceof RemoteSiteError ) {
 		return new LoggerError( error.message, error.cause, error.code );
+	}
+	if ( error instanceof ProviderNotReadyError ) {
+		return new LoggerError( error.message, error, 'auth_required' );
 	}
 	return new LoggerError( fallback, error );
 }

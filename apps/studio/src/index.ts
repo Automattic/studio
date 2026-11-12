@@ -15,6 +15,7 @@ import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { PROTOCOL_PREFIX } from '@studio/common/constants';
 import { refreshAgentPlugins } from '@studio/common/lib/connect-agent-app';
+import { prepareErrorEvent, setErrorReporter } from '@studio/common/lib/error-reporting';
 import { runMigrations } from '@studio/common/lib/migration';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
@@ -73,6 +74,7 @@ import {
 	lockAppdata,
 	saveUserData,
 	unlockAppdata,
+	readSentryUserId,
 	updateAppdata,
 	type QuitSitesBehavior,
 } from 'src/storage/user-data';
@@ -150,13 +152,17 @@ function handleSitePreviewPopups( contents: WebContents ) {
 if ( ! process.env.IS_DEV_BUILD ) {
 	const { sentryRelease, isDevEnvironment } = getSentryReleaseInfo( app.getVersion() );
 
+	const sentryUserId = readSentryUserId();
 	Sentry.init( {
 		dsn: 'https://97693275b2716fb95048c6d12f4318cf@o248881.ingest.sentry.io/4506612776501248',
-		debug: true,
-		enabled: ! isDevEnvironment,
+		// A run from source reports as the release it's built from, so only packaged builds report.
+		enabled: app.isPackaged && ! isDevEnvironment,
 		release: sentryRelease,
 		environment: isDevEnvironment ? 'development' : 'production',
+		initialScope: sentryUserId ? { user: { id: sentryUserId } } : undefined,
+		beforeSend: prepareErrorEvent,
 	} );
+	setErrorReporter( Sentry.captureException );
 }
 
 suppressPunycodeWarning();
@@ -687,16 +693,22 @@ async function appBoot() {
 		} )();
 	} );
 
-	let isQuitCleanupRunning = false;
+	let quitCleanup: 'pending' | 'running' | 'done' = 'pending';
 	app.on( 'will-quit', ( event ) => {
-		event.preventDefault();
-		// `will-quit` fires again if anything calls `app.quit()` while the cleanup runs, for example
-		// `window-all-closed` on Windows and Linux. Cleanup ends in `app.exit()`, so a repeat only
-		// waits: running it again would kill the `site stop --all` this one started.
-		if ( isQuitCleanupRunning ) {
+		// Once the cleanup is done, the quit goes through. Sentry's own `will-quit` handler then ends
+		// the session; otherwise every session counts as abnormal on the next launch.
+		if ( quitCleanup === 'done' ) {
 			return;
 		}
-		isQuitCleanupRunning = true;
+		event.preventDefault();
+		// `will-quit` fires again if anything calls `app.quit()` while the cleanup runs, for example
+		// `window-all-closed` on Windows and Linux. A repeat only waits: running the cleanup again
+		// would kill the `site stop --all` this one started.
+		if ( quitCleanup === 'running' ) {
+			return;
+		}
+		quitCleanup = 'running';
+		isQuittingConfirmed = true;
 
 		markAppQuitting();
 		globalShortcut.unregisterAll();
@@ -719,7 +731,8 @@ async function appBoot() {
 					await stopAllServers( STOP_ALL_SERVERS_ON_QUIT_TIMEOUT_MS );
 				}
 			} finally {
-				app.exit();
+				quitCleanup = 'done';
+				app.quit();
 			}
 		} )();
 	} );

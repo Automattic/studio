@@ -43,8 +43,10 @@ import type {
 	InstalledApps,
 	OnboardingHintsState,
 	SelectedSiteFolder,
+	SyncSite,
 	UserPreferences,
 } from '../../types';
+import type { SitesProviderId } from '@studio/providers';
 
 export { completeRedirectSignIn } from '@studio/static';
 
@@ -82,6 +84,12 @@ export function createStaticConnector(): Connector {
 		hidesAdminBarByDefault: async () =>
 			( await readPreferences() ).hideFrontendAdminBar ?? DEFAULT_HIDE_FRONTEND_ADMIN_BAR,
 	} );
+	const wpcomOnly = ( provider: SitesProviderId ) => {
+		if ( provider !== 'wpcom' ) {
+			throw new UnsupportedError( provider );
+		}
+		return wpcom;
+	};
 
 	async function pathSize( siteId: string, path: string[] ) {
 		return getPathSize( await sites.client( siteId ), path.join( '/' ) );
@@ -328,21 +336,32 @@ export function createStaticConnector(): Connector {
 		async getPreviewStatus() {
 			return { localSiteId: null, localChanged: null, previewChanged: null };
 		},
-		getConnectedWpcomSites: ( localSiteId ) => wpcom.getConnectedSites( localSiteId ),
-		fetchSyncableWpcomSites: () => wpcom.fetchSyncableSites(),
-		connectWpcomSite: ( localSiteId, site ) => wpcom.connectSite( localSiteId, site ),
-		disconnectWpcomSite: ( localSiteId, remoteSiteId ) =>
-			wpcom.disconnectSite( localSiteId, remoteSiteId ),
-		pushSiteToLive: ( siteId, remoteSiteId, options ) =>
-			wpcom.push( siteId, remoteSiteId, options ),
-		pullSiteFromLive: ( siteId, remoteSiteId, options ) =>
-			wpcom.pull( siteId, remoteSiteId, options ),
+		// Spacefast publishes a static export, which needs a native PHP site.
+		async getRemoteSites( provider, localSiteId ) {
+			return provider === 'wpcom' ? ( wpcom.getConnectedSites( localSiteId ) as never ) : [];
+		},
+		async listAccountSites( provider ) {
+			return provider === 'wpcom' ? ( wpcom.fetchSyncableSites() as never ) : [];
+		},
+		async connectRemoteSite( provider, localSiteId, site ) {
+			await wpcomOnly( provider ).connectSite( localSiteId, site as SyncSite );
+		},
+		async disconnectRemoteSite( provider, localSiteId, remoteSiteId ) {
+			await wpcomOnly( provider ).disconnectSite( localSiteId, Number( remoteSiteId ) );
+		},
+		async createRemoteSite() {
+			throw new UnsupportedError( 'createRemoteSite' );
+		},
+		pushSite: ( provider, siteId, remoteSiteId, options ) =>
+			wpcomOnly( provider ).push( siteId, Number( remoteSiteId ), options ),
+		pullSite: ( provider, siteId, remoteSiteId, options ) =>
+			wpcomOnly( provider ).pull( siteId, Number( remoteSiteId ), options ),
 		onSyncActivity: ( listener ) => wpcom.onSyncActivity( listener ),
-		cancelSync: ( siteId, remoteSiteId ) => wpcom.cancelSync( siteId, remoteSiteId ),
-		getLatestRewindId: ( remoteSiteId ) => wpcom.getLatestRewindId( remoteSiteId ),
-		listRemoteFileTree: ( remoteSiteId, rewindId, path ) =>
-			wpcom.listRemoteFileTree( remoteSiteId, rewindId, path ),
-		getHostingPhpVersion: ( remoteSiteId ) => wpcom.getHostingPhpVersion( remoteSiteId ),
+		cancelSync: ( siteId, remoteSiteId ) => wpcom.cancelSync( siteId, Number( remoteSiteId ) ),
+		getRemoteBackupId: ( provider, remoteSiteId ) =>
+			wpcomOnly( provider ).getLatestRewindId( Number( remoteSiteId ) ),
+		listRemoteBackupFiles: ( provider, remoteSiteId, backupId, path ) =>
+			wpcomOnly( provider ).listRemoteFileTree( Number( remoteSiteId ), backupId, path ),
 		async listLocalFileTree( siteId, path, depth ) {
 			return listFileTree( await sites.client( siteId ), path, depth );
 		},
@@ -413,6 +432,9 @@ export function createStaticConnector(): Connector {
 		getAiSettings: () => agent.getAiSettings(),
 		connectProvider: ( provider, input ) => agent.connectProvider( provider, input ),
 		disconnectProvider: ( provider ) => agent.disconnectProvider( provider ),
+		async startProviderConnect() {
+			throw new UnsupportedError( 'startProviderConnect' );
+		},
 		setAiProvider: ( provider ) => agent.setAiProvider( provider ),
 
 		async getInstalledApps(): Promise< InstalledApps > {

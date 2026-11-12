@@ -85,8 +85,8 @@ describe( 'createLocalConnector Connect contracts', () => {
 			path: '/sites/remote-site',
 			skipStart: true,
 		} );
-		await connector.fetchSyncableWpcomSites();
-		await connector.getConnectedWpcomSites();
+		await connector.listAccountSites( 'wpcom' );
+		await connector.getRemoteSites( 'wpcom' );
 		await expect( connector.generateNumberedSiteName( 'Remote site', [] ) ).resolves.toBe(
 			'Remote site 2'
 		);
@@ -94,11 +94,11 @@ describe( 'createLocalConnector Connect contracts', () => {
 		const createCall = fetchMock.mock.calls[ 0 ];
 		expect( JSON.parse( String( createCall[ 1 ]?.body ) ) ).toMatchObject( { skipStart: true } );
 		expect( fetchMock ).toHaveBeenCalledWith(
-			'http://localhost:8081/api/wpcom/syncable-sites',
+			'http://localhost:8081/api/remote-sites/wpcom/account',
 			expect.any( Object )
 		);
 		expect( fetchMock ).toHaveBeenCalledWith(
-			'http://localhost:8081/api/wpcom/connected-sites',
+			'http://localhost:8081/api/remote-sites/wpcom',
 			expect.any( Object )
 		);
 		expect( fetchMock ).toHaveBeenCalledWith(

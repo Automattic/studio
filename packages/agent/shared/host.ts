@@ -155,15 +155,15 @@ export interface HostPreviews {
 	delete( hostname: string, onProgress: ProgressCallback ): Promise< void >;
 }
 
-// Push and pull return the WordPress.com site they synced with, or nothing when
-// the user backed out.
+// Push and pull return the remote site they synced with, or nothing when the
+// user backed out.
 export interface HostSync {
 	push(
 		site: HostSite,
 		options: string,
 		remoteSite: string | undefined,
 		onProgress: ProgressCallback
-	): Promise< SyncSite | undefined >;
+	): Promise< Pick< SyncSite, 'name' | 'url' > | undefined >;
 	pull(
 		site: HostSite,
 		options: string,

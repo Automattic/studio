@@ -30,7 +30,11 @@ const anthropicProvider = expect.objectContaining( {
 	descriptor: expect.objectContaining( { id: 'anthropic' } ),
 } );
 
-type Configs = { wpcom?: { token: string }; anthropic?: { method: 'api-key'; apiKey: string } };
+type Configs = {
+	wpcom?: { token: string };
+	anthropic?: { method: 'api-key'; apiKey: string };
+	spacefast?: never;
+};
 
 function storeConfigs( configs: Configs ) {
 	vi.mocked( readProviderConfig ).mockImplementation(

@@ -104,7 +104,7 @@ async function setupChat( {
 			},
 		}
 	);
-	connector.getConnectedWpcomSites.mockResolvedValue( [
+	connector.getRemoteSites.mockResolvedValue( [
 		{ id: 42, localSiteId: SITE_ID, name: 'Hosted example', url: 'https://example.com' },
 	] as never );
 	connector.setSessionEnvironment.mockImplementation( async ( id, environment ) => {

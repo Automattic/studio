@@ -13,8 +13,9 @@ import {
 import {
 	DEFAULT_PROVIDER_ID,
 	getProviderDescriptor,
+	normalizeAiProviderId,
 	normalizeProviderId,
-	PROVIDER_IDS,
+	AI_PROVIDER_IDS,
 	toStoredProviderId,
 	type AiModelId,
 	type Provider,
@@ -251,7 +252,7 @@ export class StaticAgentRuns {
 	async getAiSettings(): Promise< AiSettings > {
 		const settings = await this.readAiSettings();
 		const accounts = await Promise.all(
-			PROVIDER_IDS.map( async ( id ) => {
+			AI_PROVIDER_IDS.map( async ( id ) => {
 				const config = await this.readConfig( id );
 				const { summarize } = getProviderDescriptor( id ) as {
 					summarize?: ( config: unknown ) => string;
@@ -263,7 +264,7 @@ export class StaticAgentRuns {
 			} )
 		);
 		return {
-			provider: normalizeProviderId( settings.provider ) ?? DEFAULT_PROVIDER_ID,
+			provider: normalizeAiProviderId( settings.provider ) ?? DEFAULT_PROVIDER_ID,
 			accounts: Object.fromEntries( accounts ) as AiSettings[ 'accounts' ],
 		};
 	}
@@ -387,7 +388,7 @@ export class StaticAgentRuns {
 			const token = await this.deps.auth.token();
 			let provider =
 				resolveSessionProvider( session.entries ) ??
-				normalizeProviderId( settings.provider ) ??
+				normalizeAiProviderId( settings.provider ) ??
 				DEFAULT_PROVIDER_ID;
 			let config = await this.readConfig( provider );
 			if ( ! config ) {

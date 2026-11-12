@@ -127,12 +127,12 @@ describe( 'createIpcConnector openSiteInEditor', () => {
 
 describe( 'createIpcConnector Connect contracts', () => {
 	const createSite = vi.fn();
-	const fetchSyncableWpcomSites = vi.fn();
+	const listAccountSites = vi.fn();
 	const generateNumberedNameFromList = vi.fn();
 	const getSiteDetails = vi.fn();
-	const getConnectedWpcomSites = vi.fn();
-	const pullSiteFromLive = vi.fn();
-	const pushSiteToLive = vi.fn();
+	const getRemoteSites = vi.fn();
+	const pullSite = vi.fn();
+	const pushSite = vi.fn();
 	const subscribe = vi.fn();
 	const unsubscribe = vi.fn();
 
@@ -140,12 +140,12 @@ describe( 'createIpcConnector Connect contracts', () => {
 		vi.clearAllMocks();
 		vi.stubGlobal( 'ipcApi', {
 			createSite,
-			fetchSyncableWpcomSites,
+			listAccountSites,
 			generateNumberedNameFromList,
 			getSiteDetails,
-			getConnectedWpcomSites,
-			pullSiteFromLive,
-			pushSiteToLive,
+			getRemoteSites,
+			pullSite,
+			pushSite,
 		} );
 		vi.stubGlobal( 'ipcListener', { subscribe } );
 	} );
@@ -170,15 +170,15 @@ describe( 'createIpcConnector Connect contracts', () => {
 	} );
 
 	it( 'uses explicit IPC calls for all remote sites and all local connections', async () => {
-		getConnectedWpcomSites.mockResolvedValue( [ { id: 1 } ] );
-		fetchSyncableWpcomSites.mockResolvedValue( [ { id: 2 } ] );
+		getRemoteSites.mockResolvedValue( [ { id: 1 } ] );
+		listAccountSites.mockResolvedValue( [ { id: 2 } ] );
 		const connector = createIpcConnector();
 
-		await expect( connector.getConnectedWpcomSites() ).resolves.toEqual( [ { id: 1 } ] );
-		await expect( connector.fetchSyncableWpcomSites() ).resolves.toEqual( [ { id: 2 } ] );
+		await expect( connector.getRemoteSites( 'wpcom' ) ).resolves.toEqual( [ { id: 1 } ] );
+		await expect( connector.listAccountSites( 'spacefast' ) ).resolves.toEqual( [ { id: 2 } ] );
 
-		expect( getConnectedWpcomSites ).toHaveBeenCalledWith( undefined );
-		expect( fetchSyncableWpcomSites ).toHaveBeenCalledWith();
+		expect( getRemoteSites ).toHaveBeenCalledWith( 'wpcom', undefined );
+		expect( listAccountSites ).toHaveBeenCalledWith( 'spacefast' );
 	} );
 
 	it( 'generates a numbered name in one IPC call', async () => {
@@ -198,14 +198,14 @@ describe( 'createIpcConnector Connect contracts', () => {
 	// The main process reports a user cancel as a result rather than rejecting, so
 	// Electron doesn't log it as a handler error in the log we point users at when
 	// a sync fails. The connector turns it back into an error for the caller.
-	it.each( [ 'pullSiteFromLive', 'pushSiteToLive' ] as const )(
+	it.each( [ 'pullSite', 'pushSite' ] as const )(
 		'raises a cancel reported by %s as a cancelled error',
 		async ( method ) => {
-			( method === 'pullSiteFromLive' ? pullSiteFromLive : pushSiteToLive ).mockResolvedValue( {
+			( method === 'pullSite' ? pullSite : pushSite ).mockResolvedValue( {
 				cancelled: true,
 			} );
 
-			await expect( createIpcConnector()[ method ]( 'site-1', 42 ) ).rejects.toSatisfy(
+			await expect( createIpcConnector()[ method ]( 'wpcom', 'site-1', 42 ) ).rejects.toSatisfy(
 				isSyncCancelledError
 			);
 		}

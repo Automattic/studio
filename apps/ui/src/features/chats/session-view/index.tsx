@@ -23,8 +23,8 @@ import { useConnector } from '@/data/core';
 import { hasConnectedProvider, useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useAuthUser } from '@/data/queries/use-auth-user';
-import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
 import { useIsOutOfAiCredits } from '@/data/queries/use-is-out-of-ai-credits';
+import { useRemoteSites } from '@/data/queries/use-remote-sites';
 import {
 	useSession,
 	useSessionLiveSite,
@@ -315,7 +315,7 @@ function SessionViewContent( {
 	const selectionTime = useSiteSelectionTime( ownerSite?.id );
 	const isSiteBusy = useIsSiteBusy( ownerSite );
 	const canAutoStart = !! ownerSite && effectiveEnvironment === 'local';
-	const { data: connectedSites } = useConnectedWpcomSites( ownerSite?.id );
+	const { data: connectedSites } = useRemoteSites( 'wpcom', ownerSite?.id );
 	const liveSite = pickLiveSite( connectedSites ?? [] );
 	const { mutate: setEnvironment } = useSetSessionEnvironment( sessionId ?? '' );
 	const sendWithAutoStart = useCallback(

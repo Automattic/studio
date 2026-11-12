@@ -34,10 +34,10 @@ import {
 	getAiModel,
 	getDefaultAiModel,
 	getProviderDescriptor,
-	PROVIDER_IDS,
+	AI_PROVIDER_IDS,
 	toStoredProviderId,
 	type AiModelId,
-	type ProviderId,
+	type AiProviderId,
 } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
@@ -204,7 +204,8 @@ export async function runCommand( options: {
 	};
 	const agent = createAgent( { host } );
 	const resumeContext = resolveResumeSessionContext( options.resumeSession );
-	let currentProvider: ProviderId = resumeContext.provider ?? ( await resolveInitialAiProvider() );
+	let currentProvider: AiProviderId =
+		resumeContext.provider ?? ( await resolveInitialAiProvider() );
 	// A pin whose provider can't run (e.g. its key was removed) falls back to
 	// WordPress.com for this run only; the pin stays so a restored key revives it.
 	if (
@@ -365,7 +366,7 @@ export async function runCommand( options: {
 	}
 
 	async function prepareProviderSelection(
-		provider: ProviderId,
+		provider: AiProviderId,
 		options?: { force?: boolean }
 	): Promise< void > {
 		ui.stop();
@@ -376,7 +377,7 @@ export async function runCommand( options: {
 		}
 	}
 
-	async function switchProvider( provider: ProviderId, announce = true ): Promise< void > {
+	async function switchProvider( provider: AiProviderId, announce = true ): Promise< void > {
 		// The pin written below carries the model, so the quota-based default
 		// must be final first — otherwise an early switch durably records the
 		// static fallback for a paid account.
@@ -463,8 +464,8 @@ export async function runCommand( options: {
 		ui.showOnboarding();
 
 		// Auto-trigger provider selection on first run
-		const labelToProvider = new Map< string, ProviderId >();
-		const providerOptions = PROVIDER_IDS.map( ( id ) => {
+		const labelToProvider = new Map< string, AiProviderId >();
+		const providerOptions = AI_PROVIDER_IDS.map( ( id ) => {
 			const label =
 				id === 'wpcom' ? __( 'WordPress.com (recommended)' ) : getProviderDescriptor( id ).label;
 			labelToProvider.set( label, id );

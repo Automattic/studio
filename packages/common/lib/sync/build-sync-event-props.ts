@@ -5,7 +5,8 @@ import type {
 	TracksSyncType,
 } from '@studio/common/lib/record-tracks-event';
 import type { SyncFailureHint } from '@studio/common/lib/sync/classify-sync-failure';
-import type { SyncOption, SyncSite } from '@studio/common/types/sync';
+import type { SyncOption } from '@studio/common/types/sync';
+import type { SitesProviderId } from '@studio/providers';
 
 // Kept free of Node imports so the renderers can share these helpers with the
 // main process and the `studio ui` server.
@@ -85,13 +86,15 @@ export type SyncEventProps = Partial< SyncSelectionProps > & {
  */
 export function buildSyncEventProps( {
 	startedAt,
+	provider,
 	site,
 	error,
 	hint,
 	selection,
 }: {
 	startedAt: number;
-	site: Pick< SyncSite, 'isPressable' > | undefined;
+	provider?: SitesProviderId;
+	site: object | undefined;
 	error?: unknown;
 	hint?: SyncFailureHint;
 	selection?: SyncSelectionProps;
@@ -100,7 +103,7 @@ export function buildSyncEventProps( {
 	return {
 		success,
 		...selection,
-		sync_type: getSyncType( site ),
+		sync_type: getSyncType( site, provider ),
 		time_ms: Date.now() - startedAt,
 		...( success ? {} : { failure_reason: classifySyncFailure( error, hint ) } ),
 	};

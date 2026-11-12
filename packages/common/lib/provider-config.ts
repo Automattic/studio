@@ -1,12 +1,25 @@
-import { getProviderDescriptor, type ProviderConfigs, type ProviderId } from '@studio/providers';
+import {
+	getProviderDescriptor,
+	ProviderNotReadyError,
+	type ProviderConfigs,
+	type ProviderId,
+} from '@studio/providers';
 import { readCliConfigFileRaw } from './cli-config-file';
-import { readAuthToken, readSharedConfig, updateSharedConfig } from './shared-config';
+import {
+	lockSharedConfig,
+	readAuthToken,
+	readSharedConfig,
+	saveSharedConfig,
+	unlockSharedConfig,
+	updateSharedConfig,
+} from './shared-config';
 
 /**
- * Each provider's config, validated against its descriptor's schema. Until
- * configs get a section of their own, each maps onto the shared.json field
- * builds of every version read: the WordPress.com config is the Studio
- * sign-in (`authToken`), the Anthropic one the saved key (`anthropicApiKey`).
+ * Each provider's config, validated against its descriptor's schema. The first
+ * providers' map onto the shared.json fields builds of every version read: the
+ * WordPress.com config is the Studio sign-in (`authToken`), the Anthropic one
+ * the saved key (`anthropicApiKey`). Later providers keep theirs in
+ * `providerConfigs`.
  */
 
 interface AiFields {
@@ -87,7 +100,41 @@ const STORES: { [ Id in ProviderId ]: ConfigStore< ProviderConfigs[ Id ] > } = {
 			await updateAiFields( { anthropicApiKey: config?.apiKey } );
 		},
 	},
+	spacefast: providerConfigStore( 'spacefast' ),
 };
+
+// A config whose `expiresAt` has passed no longer works, so the provider is no longer connected.
+function hasExpired( config: unknown ): boolean {
+	const expiresAt = ( config as { expiresAt?: unknown } | undefined )?.expiresAt;
+	return (
+		( typeof expiresAt === 'string' || typeof expiresAt === 'number' ) &&
+		new Date( expiresAt ).getTime() <= Date.now()
+	);
+}
+
+// A provider that came after the fields above keeps its config in `providerConfigs`.
+function providerConfigStore( id: ProviderId ): ConfigStore< unknown > {
+	return {
+		read: async () => {
+			const config = ( await readSharedConfig() ).providerConfigs?.[ id ];
+			return hasExpired( config ) ? undefined : config;
+		},
+		write: async ( config ) => {
+			try {
+				await lockSharedConfig();
+				const shared = await readSharedConfig();
+				const { [ id ]: _removed, ...others } = shared.providerConfigs ?? {};
+				shared.providerConfigs = config === undefined ? others : { ...others, [ id ]: config };
+				if ( ! Object.keys( shared.providerConfigs ).length ) {
+					delete shared.providerConfigs;
+				}
+				await saveSharedConfig( shared );
+			} finally {
+				await unlockSharedConfig();
+			}
+		},
+	};
+}
 
 export async function readProviderConfig< Id extends ProviderId >(
 	provider: Id
@@ -105,4 +152,23 @@ export async function writeProviderConfig< Id extends ProviderId >(
 ): Promise< void > {
 	const valid = config && getProviderDescriptor( provider ).configSchema.parse( config );
 	await ( STORES[ provider ] as ConfigStore< ProviderConfigs[ Id ] > ).write( valid );
+}
+
+/**
+ * Runs an operation with the provider's config, forgetting the config when the provider rejects
+ * it, so every surface shows the provider as disconnected and offers to connect it again.
+ * WordPress.com's is the Studio sign-in, which signing in again replaces.
+ */
+export async function forgetRejectedConfig< T >(
+	provider: ProviderId,
+	run: () => Promise< T >
+): Promise< T > {
+	try {
+		return await run();
+	} catch ( error ) {
+		if ( error instanceof ProviderNotReadyError && provider !== 'wpcom' ) {
+			await writeProviderConfig( provider, undefined );
+		}
+		throw error;
+	}
 }

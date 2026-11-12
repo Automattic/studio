@@ -64,7 +64,7 @@ function events() {
 	return send.mock.calls.map( ( [ url ] ) => Object.fromEntries( new URL( url ).searchParams ) );
 }
 
-it( 'joins visible prompt, explicit login and token outcome with existing anonymous Tracks props', async () => {
+it( 'joins visible prompt, explicit login and token outcome, identifying only the logged-in outcome', async () => {
 	const journeyId = crypto.randomUUID();
 	await call( 'wpcom_login_event', { event: 'prompt_viewed', journeyId } );
 	const start = await call( 'wpcom_login', { journeyId } );
@@ -81,10 +81,14 @@ it( 'joins visible prompt, explicit login and token outcome with existing anonym
 	] );
 	const shared = JSON.parse( await fs.readFile( getSharedConfigPath(), 'utf8' ) );
 	expect( shared.authToken.accessToken ).toBe( 'private-token' );
+	const identities = events().map( ( event ) => [ event._ut, event._ui ] );
+	expect( identities ).toEqual( [
+		[ 'anon', shared.analyticsInstallId ],
+		[ 'anon', shared.analyticsInstallId ],
+		[ 'wpcom:user_id', '123' ],
+	] );
 	for ( const event of events() ) {
 		expect( event ).toMatchObject( {
-			_ut: 'anon',
-			_ui: shared.analyticsInstallId,
 			channel: 'studio-mcp',
 			source: 'mcp',
 			placement: 'mcp_library',

@@ -10,6 +10,7 @@ import {
 	type ProviderConfigs,
 	type ProviderId,
 } from '@studio/providers';
+import { signInThroughLoopback, type LoopbackSignInOptions } from './loopback-sign-in';
 import {
 	readAiFields,
 	readProviderConfig,
@@ -66,14 +67,21 @@ export async function persistSelectedAiProvider( provider: AiProviderId ): Promi
 
 /**
  * Connects `provider` (from `@studio/providers/services`) with what the user
- * gave: a form's values or a redirect's parameters. The provider checks them,
- * and its config is stored only when it accepts them.
+ * gave: a form's values or a redirect's parameters. A provider that signs in
+ * through a loopback redirect gets them from signing in in the browser
+ * instead. The provider checks them, and its config is stored only when it
+ * accepts them.
  */
 export async function connectProvider< Config >(
 	provider: Provider< Config >,
-	input: Record< string, string >
+	input: Record< string, string >,
+	options: LoopbackSignInOptions = {}
 ): Promise< AiSettings > {
-	const config = await provider.connect( input );
+	const config = await provider.connect(
+		provider.descriptor.connection.kind === 'loopback'
+			? await signInThroughLoopback( provider as Provider< unknown >, options )
+			: input
+	);
 	await writeProviderConfig( provider.descriptor.id, config as ProviderConfigs[ ProviderId ] );
 	return readAiSettings();
 }

@@ -1,4 +1,5 @@
 import { anthropicDescriptor } from './anthropic/descriptor';
+import { openaiDescriptor } from './openai/descriptor';
 import { spacefastDescriptor } from './spacefast/descriptor';
 import { wpcomDescriptor } from './wpcom/descriptor';
 import type {
@@ -12,7 +13,11 @@ import type {
 } from './types';
 
 // The providers that serve AI models, in fallback order: the first ready provider wins.
-export const AI_PROVIDER_IDS = [ 'wpcom', 'anthropic' ] as const satisfies readonly AiProviderId[];
+export const AI_PROVIDER_IDS = [
+	'wpcom',
+	'anthropic',
+	'openai',
+] as const satisfies readonly AiProviderId[];
 
 export const PROVIDER_IDS = [
 	...AI_PROVIDER_IDS,
@@ -32,6 +37,7 @@ const DESCRIPTORS: {
 } = {
 	wpcom: wpcomDescriptor,
 	anthropic: anthropicDescriptor,
+	openai: openaiDescriptor,
 	spacefast: spacefastDescriptor,
 };
 
@@ -47,6 +53,7 @@ export function getProviderDescriptor< Id extends ProviderId >(
 const STORED_PROVIDER_IDS: Record< ProviderId, string > = {
 	wpcom: 'wpcom',
 	anthropic: 'anthropic-api-key',
+	openai: 'openai',
 	spacefast: 'spacefast',
 };
 

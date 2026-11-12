@@ -1,6 +1,6 @@
 import { password } from '@inquirer/prompts';
 import { connectProvider, readSelectedAiProvider } from '@studio/common/lib/ai-settings';
-import { readProviderConfig } from '@studio/common/lib/provider-config';
+import { readFreshProviderConfig, readProviderConfig } from '@studio/common/lib/provider-config';
 import { InvalidCredentialError } from '@studio/providers';
 import { vi } from 'vitest';
 import {
@@ -23,6 +23,7 @@ vi.mock( '@studio/common/lib/ai-settings', () => ( {
 } ) );
 
 vi.mock( '@studio/common/lib/provider-config', () => ( {
+	readFreshProviderConfig: vi.fn(),
 	readProviderConfig: vi.fn(),
 } ) );
 
@@ -33,12 +34,16 @@ const anthropicProvider = expect.objectContaining( {
 type Configs = {
 	wpcom?: { token: string };
 	anthropic?: { method: 'api-key'; apiKey: string };
+	openai?: never;
 	spacefast?: never;
 };
 
 function storeConfigs( configs: Configs ) {
 	vi.mocked( readProviderConfig ).mockImplementation(
 		async ( provider ) => configs[ provider ] as never
+	);
+	vi.mocked( readFreshProviderConfig ).mockImplementation(
+		async ( provider ) => configs[ provider.descriptor.id ] as never
 	);
 }
 

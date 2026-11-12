@@ -176,7 +176,11 @@ export async function connectAiProvider(
 	input: Record< string, string >
 ) {
 	const provider = parseProviderId( requested );
-	return changeAiSettings( () => connectProvider( getProvider( provider ), input ) );
+	return changeAiSettings( () =>
+		connectProvider( getProvider( provider ), input, {
+			openUrl: ( url ) => shell.openExternal( url ),
+		} )
+	);
 }
 
 export async function disconnectAiProvider( _event: IpcMainInvokeEvent, requested: string ) {

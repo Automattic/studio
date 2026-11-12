@@ -10,7 +10,11 @@ import {
 	readAiSettings,
 	setAiProvider,
 } from '@studio/common/lib/ai-settings';
-import { forgetRejectedConfig, readProviderConfig } from '@studio/common/lib/provider-config';
+import {
+	forgetRejectedConfig,
+	readFreshProviderConfig,
+	readProviderConfig,
+} from '@studio/common/lib/provider-config';
 
 const anthropic = getProvider( 'anthropic' );
 const wpcom = getProvider( 'wpcom' );
@@ -47,7 +51,12 @@ describe( 'ai settings', () => {
 	it( 'defaults to WordPress.com with nothing connected', async () => {
 		await expect( readAiSettings() ).resolves.toEqual( {
 			provider: 'wpcom',
-			accounts: { wpcom: disconnected, anthropic: disconnected, spacefast: disconnected },
+			accounts: {
+				wpcom: disconnected,
+				anthropic: disconnected,
+				openai: disconnected,
+				spacefast: disconnected,
+			},
 		} );
 	} );
 
@@ -61,6 +70,7 @@ describe( 'ai settings', () => {
 			accounts: {
 				wpcom: disconnected,
 				anthropic: { connected: true, summary: 'sk-ant-api03-tes...1234' },
+				openai: disconnected,
 				spacefast: disconnected,
 			},
 		} );
@@ -119,7 +129,12 @@ describe( 'ai settings', () => {
 
 		await expect( disconnectProvider( anthropic ) ).resolves.toEqual( {
 			provider: 'wpcom',
-			accounts: { wpcom: disconnected, anthropic: disconnected, spacefast: disconnected },
+			accounts: {
+				wpcom: disconnected,
+				anthropic: disconnected,
+				openai: disconnected,
+				spacefast: disconnected,
+			},
 		} );
 		const written = readShared();
 		expect( written.anthropicApiKey ).toBeUndefined();
@@ -181,6 +196,28 @@ describe( 'ai settings', () => {
 		await expect( forgetRejectedConfig( 'spacefast', rejected ) ).rejects.toThrow( 'Reconnect' );
 		expect( readShared().providerConfigs ).toBeUndefined();
 		expect( readShared().authToken ).toMatchObject( { accessToken: 'token' } );
+	} );
+
+	it( 'stores a renewed config, and forgets one the provider no longer accepts', async () => {
+		const stored = {
+			method: 'chatgpt',
+			accessToken: 'old',
+			refreshToken: 'refresh',
+			accessTokenExpiresAt: 0,
+			accountId: 'account',
+		} as const;
+		writeShared( { providerConfigs: { openai: stored } } );
+		const refresh = vi.fn().mockResolvedValueOnce( { ...stored, accessToken: 'new' } );
+		const openai = { ...getProvider( 'openai' ), refresh };
+
+		await expect( readFreshProviderConfig( openai ) ).resolves.toMatchObject( {
+			accessToken: 'new',
+		} );
+		expect( readShared().providerConfigs.openai.accessToken ).toBe( 'new' );
+
+		refresh.mockRejectedValueOnce( new ProviderNotReadyError( 'Sign in again' ) );
+		await expect( readFreshProviderConfig( openai ) ).rejects.toThrow( 'Sign in again' );
+		expect( readShared().providerConfigs ).toBeUndefined();
 	} );
 
 	it( 'treats an unknown stored provider as the default', async () => {

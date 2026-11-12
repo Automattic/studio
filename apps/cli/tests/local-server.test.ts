@@ -133,7 +133,8 @@ describe( 'local web server Connect contracts', () => {
 		} );
 		expect( mocks.connectProvider ).toHaveBeenCalledWith(
 			expect.objectContaining( { descriptor: expect.objectContaining( { id: 'anthropic' } ) } ),
-			{ apiKey: '  sk-ant-test-1234  ' }
+			{ apiKey: '  sk-ant-test-1234  ' },
+			{ openUrl: expect.any( Function ) }
 		);
 	} );
 

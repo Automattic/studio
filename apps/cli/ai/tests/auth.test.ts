@@ -1,6 +1,6 @@
 import { password } from '@inquirer/prompts';
 import { connectProvider, readSelectedAiProvider } from '@studio/common/lib/ai-settings';
-import { readProviderConfig } from '@studio/common/lib/provider-config';
+import { readFreshProviderConfig, readProviderConfig } from '@studio/common/lib/provider-config';
 import { InvalidCredentialError } from '@studio/providers';
 import { vi } from 'vitest';
 import {
@@ -23,6 +23,7 @@ vi.mock( '@studio/common/lib/ai-settings', () => ( {
 } ) );
 
 vi.mock( '@studio/common/lib/provider-config', () => ( {
+	readFreshProviderConfig: vi.fn(),
 	readProviderConfig: vi.fn(),
 } ) );
 
@@ -33,12 +34,22 @@ const anthropicProvider = expect.objectContaining( {
 type Configs = {
 	wpcom?: { token: string };
 	anthropic?: { method: 'api-key'; apiKey: string };
+	openai?: {
+		method: 'chatgpt';
+		accessToken: string;
+		refreshToken: string;
+		accessTokenExpiresAt: number;
+		accountId: string;
+	};
 	spacefast?: never;
 };
 
 function storeConfigs( configs: Configs ) {
 	vi.mocked( readProviderConfig ).mockImplementation(
 		async ( provider ) => configs[ provider ] as never
+	);
+	vi.mocked( readFreshProviderConfig ).mockImplementation(
+		async ( provider ) => configs[ provider.descriptor.id ] as never
 	);
 }
 
@@ -170,5 +181,27 @@ describe( 'AI auth helpers', () => {
 
 		storeConfigs( { wpcom: { token: 'wpcom-token' } } );
 		await expect( resolveImageGenerator() ).resolves.toEqual( expect.any( Function ) );
+	} );
+
+	it( 'generates images through the chat’s provider when it offers them', async () => {
+		storeConfigs( {
+			wpcom: { token: 'wpcom-token' },
+			openai: {
+				method: 'chatgpt',
+				accessToken: 'access',
+				refreshToken: 'refresh',
+				accessTokenExpiresAt: Date.now() + 3600_000,
+				accountId: 'account',
+			},
+		} );
+		vi.mocked( fetch ).mockImplementation( async () => new Response( '{}', { status: 400 } ) );
+		const requestedHost = async ( chatProvider: 'openai' | 'anthropic' ) => {
+			vi.mocked( fetch ).mockClear();
+			await ( await resolveImageGenerator( chatProvider ) )!( [ { prompt: 'A bird' } ] );
+			return new URL( String( vi.mocked( fetch ).mock.calls[ 0 ][ 0 ] ) ).host;
+		};
+
+		await expect( requestedHost( 'openai' ) ).resolves.toBe( 'chatgpt.com' );
+		await expect( requestedHost( 'anthropic' ) ).resolves.toBe( 'public-api.wordpress.com' );
 	} );
 } );

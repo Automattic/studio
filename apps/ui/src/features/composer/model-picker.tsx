@@ -7,14 +7,41 @@ import {
 } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { PlugIcon } from 'lucide-react';
-import { useRef, useState, type RefObject } from 'react';
+import { useRef, useState, type ComponentType, type RefObject } from 'react';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { getCreditsLabel, getModelDescription } from '@/features/composer/model-options';
-import { PlusIcon, ChevronDownIcon, ClaudeIcon, WordPressIcon } from '@/lib/icons';
+import { PlusIcon, ChevronDownIcon, IntelligenceIcon } from '@/lib/icons';
 import { Button, CommandSheet, Popover, type Command, type CommandGroup } from '@/lib/ui';
 import type { AiModelId } from '@/data/core';
+
+type Icon = ComponentType< { className?: string } >;
+const providerIcons = new Map< ProviderId, Icon >();
+
+// The provider's mark, or a generic one for a provider without.
+function getProviderIcon( provider: ProviderId ): Icon {
+	let icon = providerIcons.get( provider );
+	if ( ! icon ) {
+		const path = getProviderDescriptor( provider ).icon;
+		icon = path
+			? ( { className } ) => (
+					<svg
+						className={ className }
+						width="16"
+						height="16"
+						viewBox="0 0 24 24"
+						fill="currentColor"
+						aria-hidden="true"
+					>
+						<path d={ path } />
+					</svg>
+			  )
+			: IntelligenceIcon;
+		providerIcons.set( provider, icon );
+	}
+	return icon;
+}
 
 interface ModelPickerProps {
 	open: boolean;
@@ -86,19 +113,23 @@ export function ModelPicker( {
 			label: __( 'Models' ),
 			items: providers.flatMap( ( provider ) =>
 				getAiModels( provider ).map( ( { id } ): Command => {
-					const description = sprintf(
-						/* translators: 1: the model's provider, 2: what the model is good at. */
-						__( '%1$s · %2$s' ),
-						provider === 'wpcom' ? 'WordPress' : 'Claude',
-						getModelDescription( id )
-					);
+					const { label } = getProviderDescriptor( provider );
+					const strengths = getModelDescription( id );
+					const description = strengths
+						? sprintf(
+								/* translators: 1: the model's provider, 2: what the model is good at. */
+								__( '%1$s · %2$s' ),
+								label,
+								strengths
+						  )
+						: label;
 					return {
 						value: id,
 						label: getAiModelLabel( id ),
 						description: isModelLocked( id )
 							? `${ description } · ${ __( 'Purchased credits required' ) }`
 							: description,
-						icon: provider === 'wpcom' ? WordPressIcon : ClaudeIcon,
+						icon: getProviderIcon( provider ),
 						disabled: isModelLocked( id ),
 					};
 				} )

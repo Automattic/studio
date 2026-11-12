@@ -1,10 +1,13 @@
+import path from 'path';
 import {
 	getProviderDescriptor,
 	ProviderNotReadyError,
+	type Provider,
 	type ProviderConfigs,
 	type ProviderId,
 } from '@studio/providers';
 import { readCliConfigFileRaw } from './cli-config-file';
+import { lockFileAsync, unlockFileAsync } from './lockfile';
 import {
 	lockSharedConfig,
 	readAuthToken,
@@ -13,6 +16,7 @@ import {
 	unlockSharedConfig,
 	updateSharedConfig,
 } from './shared-config';
+import { getConfigDirectory } from './well-known-paths';
 
 /**
  * Each provider's config, validated against its descriptor's schema. The first
@@ -100,6 +104,7 @@ const STORES: { [ Id in ProviderId ]: ConfigStore< ProviderConfigs[ Id ] > } = {
 			await updateAiFields( { anthropicApiKey: config?.apiKey } );
 		},
 	},
+	openai: providerConfigStore( 'openai' ),
 	spacefast: providerConfigStore( 'spacefast' ),
 };
 
@@ -170,5 +175,35 @@ export async function forgetRejectedConfig< T >(
 			await writeProviderConfig( provider, undefined );
 		}
 		throw error;
+	}
+}
+
+// Longer than a renewal's requests take, so a waiting process never takes over a live lock.
+const REFRESH_LOCK_TIME = 30_000;
+
+/**
+ * The provider's config, renewed first when its credential is about to expire. A refresh token
+ * works once, so the renewal holds a lock of its own and reads the config inside it: another
+ * process may have just renewed it.
+ */
+export async function readFreshProviderConfig< Config >(
+	provider: Provider< Config >
+): Promise< Config | undefined > {
+	const { id } = provider.descriptor;
+	const { refresh } = provider;
+	if ( ! refresh ) {
+		return ( await readProviderConfig( id ) ) as Config | undefined;
+	}
+	const lockfilePath = path.join( getConfigDirectory(), `${ id }-refresh.lock` );
+	await lockFileAsync( lockfilePath, { wait: REFRESH_LOCK_TIME, stale: REFRESH_LOCK_TIME } );
+	try {
+		const config = ( await readProviderConfig( id ) ) as Config | undefined;
+		const renewed = config && ( await forgetRejectedConfig( id, () => refresh( config ) ) );
+		if ( renewed ) {
+			await writeProviderConfig( id, renewed as ProviderConfigs[ ProviderId ] );
+		}
+		return renewed ?? config;
+	} finally {
+		await unlockFileAsync( lockfilePath );
 	}
 }

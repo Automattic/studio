@@ -1,3 +1,4 @@
+import { generateEach, resolveImageSize } from '../images';
 import { getAiGatewayBaseUrl } from './ai';
 import type { WpcomConfig } from './config';
 import type { GenerateImageRequest, GenerateImageResult, GenerateImages } from '../types';
@@ -15,23 +16,9 @@ const IMAGE_FEATURE_SLUG = 'studio-image';
 const MAX_CONCURRENT_REQUESTS = 5;
 const RETRY_DELAYS_SECONDS = [ 2, 5, 12 ];
 
-// The route renders only these three canvases, so each slot shape maps to the
-// nearest one and CSS crops to the slot.
-const IMAGE_SIZE_BY_ASPECT_RATIO: Record< string, string > = {
-	square: '1024x1024',
-	landscape: '1536x1024',
-	ultrawide: '1536x1024',
-	portrait: '1024x1536',
-	'card-landscape': '1536x1024',
-	'card-portrait': '1024x1536',
-};
 // Error codes the proxy passes through when the moderation system rejected the
 // prompt; any other failure must not be reported as repairable-by-rewriting.
 const FILTERED_ERROR_CODES = new Set( [ 'moderation_blocked', 'content_policy_violation' ] );
-
-export function resolveImageSize( aspectRatio: string | undefined ): string {
-	return IMAGE_SIZE_BY_ASPECT_RATIO[ aspectRatio ?? 'landscape' ] ?? '1536x1024';
-}
 
 export function buildImageRequestBody(
 	prompt: string,
@@ -154,19 +141,10 @@ export const generateWpcomImages: GenerateImages< WpcomConfig > = async (
 		throw new Error( 'Image generation requires a WordPress.com login (studio auth login).' );
 	}
 	const endpoint = `${ getAiGatewayBaseUrl() }/v1/images/generations`;
-	const results: GenerateImageResult[] = new Array( requests.length );
-	let next = 0;
-
-	const worker = async () => {
-		while ( next < requests.length ) {
-			const index = next++;
-			const result = await generateOne( endpoint, config.token, requests[ index ] );
-			results[ index ] = result;
-			onResult?.( index, result );
-		}
-	};
-	await Promise.all(
-		Array.from( { length: Math.min( MAX_CONCURRENT_REQUESTS, requests.length ) }, worker )
+	return generateEach(
+		requests,
+		MAX_CONCURRENT_REQUESTS,
+		( request ) => generateOne( endpoint, config.token, request ),
+		onResult
 	);
-	return results;
 };

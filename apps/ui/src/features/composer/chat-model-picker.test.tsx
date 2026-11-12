@@ -71,7 +71,9 @@ describe( 'Chat model picker', () => {
 		fireEvent.click( trigger );
 		const current = await screen.findByRole( 'option', { name: /Opus 5.5/ } );
 		expect( current ).toHaveAttribute( 'aria-selected', 'true' );
-		expect( current ).toHaveTextContent( 'Claude · Plan complex builds and solve harder problems' );
+		expect( current ).toHaveTextContent(
+			'Anthropic API · Plan complex builds and solve harder problems'
+		);
 	} );
 
 	it( 'lists the tiers and closes after selection', async () => {

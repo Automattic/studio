@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { resolveImageSize } from '../../images';
 import {
 	buildImageRequestBody,
 	ImageFilteredError,
 	interpretImageResponse,
-	resolveImageSize,
 	TransientImageError,
 } from '../images';
 

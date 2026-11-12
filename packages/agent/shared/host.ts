@@ -8,7 +8,7 @@ import type { StudioFeedback } from '@studio/common/lib/feedback';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { SiteStatus } from '@studio/common/types/site-status';
 import type { Snapshot } from '@studio/common/types/snapshot';
-import type { SyncSite } from '@studio/common/types/sync';
+import type { ProviderSites, SitesProviderId } from '@studio/providers';
 
 export type ProgressCallback = ( message: string, update?: boolean ) => void;
 
@@ -142,31 +142,32 @@ export interface HostPreviews {
 	delete( hostname: string, onProgress: ProgressCallback ): Promise< void >;
 }
 
-// Push and pull return the WordPress.com site they synced with, or nothing when
-// the user backed out.
-export interface HostSync {
+// A provider's remote sites, with account state resolved by the host. Push and
+// pull return the site they synced with, or nothing when the user backed out.
+export interface HostRemoteSites< Id extends SitesProviderId = SitesProviderId > {
+	connected(): Promise< boolean >;
+	// The account's site listing, in the shape exposed by the host.
+	sites(): Promise< unknown[] >;
+	connectedSites( site: HostSite ): Promise< ProviderSites[ Id ][] >;
 	push(
 		site: HostSite,
 		options: string,
 		remoteSite: string | undefined,
 		onProgress: ProgressCallback
-	): Promise< SyncSite | undefined >;
-	pull(
+	): Promise< ProviderSites[ Id ] | undefined >;
+	// Publish-only providers omit pull.
+	pull?(
 		site: HostSite,
 		options: string,
 		remoteSite: string | undefined,
 		onProgress: ProgressCallback
-	): Promise< SyncSite | undefined >;
+	): Promise< ProviderSites[ Id ] | undefined >;
 }
 
 // WordPress.com, as the signed-in user.
 export interface HostWpcom {
 	// The user's access token, or nothing when signed out.
 	token(): Promise< string | undefined >;
-	// The signed-in user's sites; empty when signed out.
-	sites(): Promise< unknown[] >;
-	// The WordPress.com sites a local site syncs with; empty when signed out.
-	connectedSites( site: HostSite ): Promise< SyncSite[] >;
 	// A REST request; throws when signed out. An empty `apiNamespace` in `query`
 	// means the WordPress.com REST API v1.1.
 	request(
@@ -201,7 +202,7 @@ export interface StudioAgentHost {
 
 	sites: HostSites;
 	previews: HostPreviews;
-	sync: HostSync;
+	remoteSites: Partial< Record< SitesProviderId, HostRemoteSites > >;
 	wpcom: HostWpcom;
 	tracks: HostTracks;
 	path: HostPath;

@@ -16,7 +16,7 @@ export const listConnectedRemoteSitesTool = defineTool(
 	async ( args, context ) => {
 		try {
 			const site = await context.host.sites.resolve( args.nameOrPath );
-			const connected = await context.host.wpcom.connectedSites( site );
+			const connected = ( await context.host.remoteSites.wpcom?.connectedSites( site ) ) ?? [];
 			const summary = connected.map( ( s ) => ( {
 				type: 'wpcom-remote' as const,
 				id: s.id,

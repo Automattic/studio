@@ -24,7 +24,11 @@ export const pullSiteTool = defineTool(
 	async ( args, context ) => {
 		try {
 			const site = await context.host.sites.resolve( args.nameOrPath );
-			const remoteSite = await context.host.sync.pull(
+			const remoteSites = context.host.remoteSites.wpcom;
+			if ( ! remoteSites?.pull ) {
+				throw new Error( 'WordPress.com pull is not available from this host.' );
+			}
+			const remoteSite = await remoteSites.pull(
 				site,
 				args.options ?? 'all',
 				args.remoteSite,

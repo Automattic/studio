@@ -44,6 +44,8 @@ function routeIdentity( url: string ): string {
 
 type LiberateWebsiteOptions = {
 	onProgress?: ( message: string ) => void;
+	/** Freeze reference evidence for every route, so the compare command covers each page. */
+	referenceEveryRoute?: boolean;
 	loadEngine?: LoadEngine;
 };
 
@@ -114,6 +116,7 @@ export async function liberateWebsite(
 	const result = await engine.captureWebsite( {
 		url: parsed.href,
 		outputDir,
+		...( options.referenceEveryRoute ? { referenceSample: 'all' as const } : {} ),
 		onProgress: ( progress ) => {
 			options.onProgress?.(
 				progress.phase === 'capturing' && progress.total

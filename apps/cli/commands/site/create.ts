@@ -760,6 +760,7 @@ export async function commandHandler(
 			await validateBeforeSourceImport( sitePath, argv.from, config );
 			preparedImport = await prepareSourceImport( argv.from, sitePath, siteName, defaultLogger, {
 				siteNameIsExplicit: argv.name !== undefined,
+				keepSource: !! argv.keepSource,
 				staticSiteImporter: argv.staticSiteImporterPath
 					? { path: argv.staticSiteImporterPath }
 					: argv.staticSiteImporterUrl,

@@ -83,6 +83,8 @@ export async function prepareSourceImport(
 	logger: Logger< LoggerAction >,
 	options: {
 		siteNameIsExplicit?: boolean;
+		/** The capture is kept for comparing page by page: reference every route, not only the homepage. */
+		keepSource?: boolean;
 		staticSiteImporter?: StaticSiteImporterPlugin;
 		liberate?: typeof liberateWebsite;
 	} = {}
@@ -123,6 +125,7 @@ export async function prepareSourceImport(
 			__( 'Preparing source website with Data Liberation…' )
 		);
 		liberated = await ( options.liberate ?? liberateWebsite )( sourceUrl, captureDir, {
+			referenceEveryRoute: options.keepSource,
 			onProgress: ( message ) => {
 				const now = Date.now();
 				if ( now - lastProgressAt >= STATIC_SITE_IMPORT_PROGRESS_INTERVAL_MS ) {

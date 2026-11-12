@@ -46,8 +46,8 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/agent/protocol/agent-events';
-import type { AiSettings } from '@studio/common/lib/ai-settings';
 import type { Blueprint } from '@studio/blueprints';
+import type { AiSettings } from '@studio/common/lib/ai-settings';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 import type { AuthAnalytics, OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
 import type { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';

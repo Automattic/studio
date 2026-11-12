@@ -113,6 +113,7 @@ function mockElectron() {
 				setName: vi.fn(),
 				setAsDefaultProtocolClient: vi.fn(),
 				enableSandbox: vi.fn(),
+				commandLine: { hasSwitch: vi.fn().mockReturnValue( false ) },
 				setAppLogsPath: vi.fn(),
 				getLocale: vi.fn().mockReturnValue( 'en-US' ),
 				getSystemLocale: vi.fn().mockReturnValue( 'en-US' ),
@@ -176,7 +177,56 @@ afterAll( () => {
 	vi.spyOn( console, 'error' ).mockRestore();
 } );
 
+// `process.getuid` does not exist on Windows, so it is set rather than spied on.
+function stubUid( uid: number ) {
+	const original = process.getuid;
+	process.getuid = () => uid;
+	return () => {
+		process.getuid = original;
+	};
+}
+
 describe( 'App initialization', () => {
+	it( 'sandboxes every renderer', async () => {
+		mockElectron();
+		vi.resetModules();
+		const { app } = await import( 'electron' );
+		await import( '../index' );
+
+		expect( app.enableSandbox ).toHaveBeenCalled();
+	} );
+
+	it( 'still sandboxes when started with --no-sandbox as a regular user', async () => {
+		mockElectron();
+		vi.resetModules();
+		const { app } = await import( 'electron' );
+		vi.mocked( app.commandLine.hasSwitch ).mockImplementation(
+			( name: string ) => name === 'no-sandbox'
+		);
+		const restoreUid = stubUid( 1000 );
+		await import( '../index' );
+		restoreUid();
+
+		expect( app.enableSandbox ).toHaveBeenCalled();
+	} );
+
+	it( 'leaves the sandbox off when started with --no-sandbox as root on Linux, as in a container', async () => {
+		mockElectron();
+		vi.resetModules();
+		const { app } = await import( 'electron' );
+		vi.mocked( app.commandLine.hasSwitch ).mockImplementation(
+			( name: string ) => name === 'no-sandbox'
+		);
+		const originalProcessPlatform = process.platform;
+		Object.defineProperty( process, 'platform', { value: 'linux' } );
+		const restoreUid = stubUid( 0 );
+		await import( '../index' );
+		restoreUid();
+		Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
+
+		expect( app.enableSandbox ).not.toHaveBeenCalled();
+	} );
+
 	it( 'should identify YouTube embed requests with the Studio referrer', async () => {
 		const { mockedEvents } = mockElectron();
 		vi.resetModules();

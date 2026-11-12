@@ -6,7 +6,7 @@ import { type TracksSiteCreateFlowType } from '@studio/common/lib/record-tracks-
 import { type SiteFileAccess } from '@studio/common/lib/site-file-access';
 import { type FrontendCreateChoice } from '@studio/common/lib/site-frontend';
 import { isWordPressDevVersion } from '@studio/common/lib/wordpress-version-utils';
-import type { Blueprint } from '@wp-playground/blueprints';
+import type { Blueprint } from '@studio/blueprints';
 
 export interface SiteCreateOptions {
 	path: string;
@@ -17,11 +17,9 @@ export interface SiteCreateOptions {
 	customDomain?: string;
 	enableHttps?: boolean;
 	siteId?: string;
-	// Parsed Blueprint JSON to apply on creation. Written to a temp file and
-	// passed as --blueprint; `originalBlueprintPath` (an extracted bundle's
-	// blueprint.json path or a URL) lets the CLI resolve relative assets.
-	blueprint?: Blueprint;
-	originalBlueprintPath?: string;
+	// What `--blueprint` accepts (a URL, file, folder, zip or Library slug), or a Blueprint
+	// itself, which is written to a temp file.
+	blueprint?: string | Blueprint;
 	adminUsername?: string;
 	adminPassword?: string;
 	adminEmail?: string;
@@ -36,7 +34,7 @@ export interface SiteCreateOptions {
 /**
  * Build the `site create` CLI args shared by the desktop app and the local web
  * server (so both create sites — including from a Blueprint — identically). When
- * a blueprint is supplied it's written to a temp file and passed as
+ * a Blueprint object is supplied it's written to a temp file and passed as
  * `--blueprint`; call the returned `cleanup` once the CLI command settles to
  * remove that temp file.
  */
@@ -88,13 +86,12 @@ export function buildSiteCreateArgs( options: SiteCreateOptions ): {
 	}
 
 	let blueprintTempPath: string | undefined;
-	if ( options.blueprint ) {
+	if ( typeof options.blueprint === 'string' ) {
+		args.push( '--blueprint', options.blueprint );
+	} else if ( options.blueprint ) {
 		blueprintTempPath = path.join( os.tmpdir(), `studio-blueprint-${ crypto.randomUUID() }.json` );
 		fs.writeFileSync( blueprintTempPath, JSON.stringify( options.blueprint ) );
 		args.push( '--blueprint', blueprintTempPath );
-		if ( options.originalBlueprintPath ) {
-			args.push( '--original-blueprint-path', options.originalBlueprintPath );
-		}
 	}
 
 	return {

@@ -66,9 +66,29 @@ export function switchToNightlyAndUpdate(): void {
 	autoUpdater.checkForUpdates();
 }
 
+function classifyWindowsUpdateError( err: Error ): 'lock' | 'network' | null {
+	if ( process.platform !== 'win32' ) {
+		return null;
+	}
+	if ( err.message.includes( "Couldn't acquire lock" ) ) {
+		return 'lock';
+	}
+	if ( /System\.Net\.(WebException|Sockets)/.test( err.message ) ) {
+		return 'network';
+	}
+	return null;
+}
+
 export function setupUpdates() {
 	if ( process.env.E2E ) {
 		console.log( 'Skipping update server setup in E2E tests' );
+		updaterState = 'done';
+		return;
+	}
+
+	if ( process.windowsStore ) {
+		// The Microsoft Store updates MSIX installs, and the feed only serves Squirrel packages.
+		console.log( 'Skipping update server setup in the Microsoft Store build' );
 		updaterState = 'done';
 		return;
 	}
@@ -139,14 +159,18 @@ export function setupUpdates() {
 	} );
 
 	autoUpdater.on( 'error', ( err ) => {
-		if ( 'code' in err && ( err.code === -1009 || err.code === -1005 ) ) {
+		const windowsError = classifyWindowsUpdateError( err );
+		if ( windowsError || ( 'code' in err && ( err.code === -1009 || err.code === -1005 ) ) ) {
 			// Corresponds to errors: "The Internet connection appears to be offline." and "The network connection was lost."
 			// We don't need to stop polling, the internet might come back.
 			queueUpdateCheck();
-			lastError = {
-				reason: 'generic',
-				detail: __( 'Check your internet connection and try again.' ),
-			};
+			lastError =
+				windowsError === 'lock'
+					? null
+					: {
+							reason: 'generic',
+							detail: __( 'Check your internet connection and try again.' ),
+					  };
 			emitAppUpdateStatus();
 			return;
 		}
@@ -181,6 +205,11 @@ export function setupUpdates() {
 			isPackaged: app.isPackaged,
 			version: app.getVersion(),
 		} );
+		return;
+	}
+
+	if ( process.platform === 'win32' && process.argv.includes( '--squirrel-firstrun' ) ) {
+		queueUpdateCheck();
 		return;
 	}
 

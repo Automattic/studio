@@ -190,7 +190,7 @@ Switch tiers at any time, including mid-conversation:
 -   **Desktop**: click the model button in the chat box (it shows the current tier, such as **Fast**), or choose **Choose model** from the **+** menu
 -   **Terminal**: run the `/model` command
 
-If you use your own Anthropic API key, the model menu lists **Sonnet 5** and **Opus 5** instead of tiers. See [AI providers](#ai-providers).
+If you use your own Anthropic API key, the model menu lists **Sonnet 5.5** and **Opus 5.5** instead of tiers. See [AI providers](#ai-providers).
 
 ### [Uploads](#12-uploads)
 
@@ -199,7 +199,7 @@ Upload images and files into WordPress Studio Code to use across your project:
 -   **Desktop**: drag files into the chat, paste them, or click **+** in the chat box and choose **Add files**
 -   **Terminal**: drag into the chat or point to a specific local file or folder
 
-The Fast tier reads text only. To send an image, choose Balanced or Strong (or, with your own API key, Sonnet 5 or Opus 5) first.
+The Fast tier reads text only. To send an image, choose Balanced or Strong (or, with your own API key, Sonnet 5.5 or Opus 5.5) first.
 
 ### [New conversations](#13-new-conversations)
 
@@ -217,7 +217,7 @@ You can choose how AI responses are generated, in both the desktop app and the t
 -   **WordPress.com** (default): uses your WordPress.com account and AI Credits. No additional setup is required beyond logging in.
 -   **Anthropic API key**: uses your own API key for direct access to Claude. In the desktop app, connect **Anthropic** in **Settings → Providers**. In the terminal, set it with the `/api-key` command.
 
-With your own key, the model menu offers **Sonnet 5** and **Opus 5** instead of Fast, Balanced, and Strong. In the desktop app, choose the provider for each chat from the model menu, and set the provider new chats use with **Default provider** in **Settings → Providers**. In the terminal, switch providers with the `/provider` command.
+With your own key, the model menu offers **Sonnet 5.5** and **Opus 5.5** instead of Fast, Balanced, and Strong. In the desktop app, choose the provider for each chat from the model menu, and set the provider new chats use with **Default provider** in **Settings → Providers**. In the terminal, switch providers with the `/provider` command.
 
 Switching a chat between WordPress.com and Anthropic models starts a new chat, because the models don’t share memory. In the desktop app, WordPress Studio asks you to confirm first (**Start a new chat?**), and your previous chat stays in the sidebar.
 
@@ -308,7 +308,7 @@ To use your own key in the desktop app:
 1.  Create an API key at [console.anthropic.com](https://console.anthropic.com/) (requires an Anthropic account with billing set up).
 2.  Open **Settings** from the account menu at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux), and select **Providers**. You can also choose **Providers** from the account menu.
 3.  Next to **Anthropic**, click **Connect**, paste your key in the **Anthropic API key** field, and click **Save**.
-4.  In the chat box, choose **Sonnet 5** or **Opus 5** from the model menu.
+4.  In the chat box, choose **Sonnet 5.5** or **Opus 5.5** from the model menu.
 
 ![The Providers page of WordPress Studio's Settings, with WordPress.com marked Connected and a Manage button, and Anthropic with a Connect button to use your own API key.](../../../../screenshots/images/settings-ai-providers-signed-in.webp)
 

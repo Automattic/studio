@@ -1,0 +1,88 @@
+{
+	"description": "Studio Code asks which of four looks to build for a slow-fashion journal (design-looks/), Moire's own among them.",
+	"events": [
+		{
+			"type": "run.started"
+		},
+		{
+			"type": "turn.started"
+		},
+		{
+			"type": "message",
+			"message": {
+				"type": "message_end",
+				"message": {
+					"role": "assistant",
+					"content": [
+						{
+							"type": "text",
+							"text": "Moire sounds lovely. Let's settle the look first: here are four directions, each drawn as a design board. Pick one and I'll show you layouts in it."
+						},
+						{
+							"type": "toolCall",
+							"id": "docs-call-1",
+							"name": "present_design_options",
+							"arguments": {
+								"catalog": "directions",
+								"question": "Which look should I build?",
+								"options": [
+									{
+										"label": "Dia journal",
+										"description": "Moire's own: a huge brown wordmark on Dia yellow, Poppins and Libertinus Serif."
+									},
+									{
+										"label": "Quiet linen",
+										"description": "Oat and sage, a soft serif, and lots of air around the cloth."
+									},
+									{
+										"label": "Monochrome atelier",
+										"description": "Black on white, a heavy grotesque in capitals, garments on rails."
+									},
+									{
+										"label": "Deep wool",
+										"description": "Navy and rust on parchment, a bookish serif, close-up textures."
+									}
+								]
+							}
+						}
+					],
+					"stopReason": "toolUse"
+				}
+			}
+		},
+		{
+			"type": "question.asked",
+			"questions": [
+				{
+					"question": "Which look should I build?",
+					"options": [
+						{
+							"label": "Dia journal",
+							"description": "Moire's own: a huge brown wordmark on Dia yellow, Poppins and Libertinus Serif.",
+							"image": "scene:design-looks/dia-journal.jpg"
+						},
+						{
+							"label": "Quiet linen",
+							"description": "Oat and sage, a soft serif, and lots of air around the cloth.",
+							"image": "scene:design-looks/quiet-linen.jpg"
+						},
+						{
+							"label": "Monochrome atelier",
+							"description": "Black on white, a heavy grotesque in capitals, garments on rails.",
+							"image": "scene:design-looks/monochrome-atelier.jpg"
+						},
+						{
+							"label": "Deep wool",
+							"description": "Navy and rust on parchment, a bookish serif, close-up textures.",
+							"image": "scene:design-looks/deep-wool.jpg"
+						},
+						{
+							"label": "Show other options",
+							"description": "New ones, none of these again."
+						}
+					]
+				}
+			]
+		}
+	]
+}

@@ -528,7 +528,7 @@ describe( 'AI runCommand — pinned provider falls back when unusable', () => {
 	it( 'runs on WordPress.com when the pinned provider has no key', async () => {
 		( resolveResumeSessionContext as Mock ).mockReturnValue( {
 			provider: 'anthropic',
-			model: 'claude-sonnet-5',
+			model: 'claude-sonnet-5-5',
 		} );
 		( isAiProviderReady as Mock ).mockResolvedValue( false );
 
@@ -552,7 +552,7 @@ describe( 'AI runCommand — pinned provider falls back when unusable', () => {
 		} );
 		( resolveResumeSessionContext as Mock ).mockReturnValue( {
 			provider: 'anthropic',
-			model: 'claude-sonnet-5',
+			model: 'claude-sonnet-5-5',
 		} );
 		( isAiProviderReady as Mock ).mockResolvedValue( false );
 
@@ -570,7 +570,7 @@ describe( 'AI runCommand — pinned provider falls back when unusable', () => {
 		( readSelectedAiProvider as Mock ).mockResolvedValue( undefined );
 		( resolveResumeSessionContext as Mock ).mockReturnValue( {
 			provider: 'anthropic',
-			model: 'claude-sonnet-5',
+			model: 'claude-sonnet-5-5',
 		} );
 		( isAiProviderReady as Mock ).mockResolvedValue( true );
 
@@ -578,7 +578,7 @@ describe( 'AI runCommand — pinned provider falls back when unusable', () => {
 
 		expect( resolveAiConnection ).toHaveBeenCalledWith(
 			'anthropic',
-			'claude-sonnet-5',
+			'claude-sonnet-5-5',
 			expect.anything()
 		);
 		// The Desktop wpcom default must not overwrite the pin on disk.

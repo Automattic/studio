@@ -52,6 +52,7 @@
 		"@electron-forge/plugin-auto-unpack-natives": "^8.0.1",
 		"@electron-forge/shared-types": "^8.0.1",
 		"@studio/agent": "file:../../packages/agent",
+		"@studio/blueprints": "file:../../packages/blueprints",
 		"@studio/common": "file:../../packages/common",
 		"@studio/providers": "file:../../packages/providers",
 		"@types/follow-redirects": "^1.14.4",

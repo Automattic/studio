@@ -33,6 +33,7 @@ import {
 } from '@studio/agent/protocol/chat-images';
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
+import { openBlueprint } from '@studio/blueprints/node';
 import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
 import { isAgentAppId } from '@studio/common/lib/agent-apps';
 import {
@@ -59,7 +60,6 @@ import {
 	getAuthFailureReason,
 	getAuthTracksProps,
 } from '@studio/common/lib/auth-tracks';
-import { downloadAndExtractBlueprintBundle } from '@studio/common/lib/blueprint-bundle';
 import {
 	cliAuthEventSchema,
 	cliSiteEventSchema,
@@ -125,15 +125,8 @@ import { resolveSiteTracksEventProps } from '@studio/common/lib/site-tracks';
 import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
 import { requestStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
-import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import { getLocalFileSize, listLocalFileTree } from '@studio/common/lib/sync/local-file-tree';
 import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
-import {
-	fetchHostingPhpVersion,
-	fetchLatestRewindId,
-	fetchRemoteFileTreeContents,
-	fetchSyncableSites,
-} from '@studio/common/lib/sync/sync-api';
 import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
 import { getStudioUserAgent } from '@studio/common/lib/user-agent';
 import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor';
@@ -156,10 +149,6 @@ import {
 	writeOnboardingHints,
 	writeUserPreferences,
 } from '@studio/common/lib/user-settings/user-preferences';
-import {
-	cleanupBlueprintTempDir,
-	extractBlueprintUpload,
-} from '@studio/common/sites/blueprint-extract';
 import { readBlueprintSource } from '@studio/common/sites/blueprint-source';
 import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/sites/create';
 import { buildSiteSetArgs, getSiteEditOptions } from '@studio/common/sites/edit';
@@ -226,6 +215,8 @@ import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { UserPreferencesContext } from '@studio/common/lib/user-settings/user-preferences';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
+
+const wpcomSites = getProvider( 'wpcom' ).sites!;
 
 /**
  * The local Studio web server: the browser analog of the desktop app, exposed
@@ -448,7 +439,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			let matchId: number | undefined;
 			try {
-				const sites = await fetchSyncableSites( accessToken );
+				const sites = await wpcomSites.list( { token: accessToken } );
 				const fresh = sites.filter( ( candidate ) => ! knownIds.has( candidate.id ) );
 				const match =
 					fresh.find(
@@ -1240,16 +1231,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				skipStart?: boolean;
 				flowType?: TracksSiteCreateFlowType;
 				frontend?: unknown;
-				// Optional Blueprint to apply on creation: `blueprint` is the parsed
-				// blueprint JSON; `filePath` (set for uploaded ZIP bundles) lets the
-				// CLI resolve relative assets. `bundleUrl` names a bundle from Studio's
-				// blueprint catalog, which the server downloads so relative paths resolve.
-				blueprint?: {
-					blueprint?: SiteCreateOptions[ 'blueprint' ];
-					slug?: string;
-					filePath?: string;
-					bundleUrl?: string;
-				};
+				// A Library slug, an uploaded file or a picked path, or a Blueprint itself.
+				blueprint?: SiteCreateOptions[ 'blueprint' ];
 			};
 			if ( ! body.name || ! body.path ) {
 				res.status( 400 ).json( { error: 'name and path are required' } );
@@ -1269,25 +1252,14 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			// Blueprints (and --wp dev→nightly, etc.) are handled identically.
 			let cleanupCreateArgs: () => void = () => undefined;
 			let created: SiteListItem;
-			// If the blueprint has a bundle_url (API blueprints with bundled resources
-			// like theme zips), download and extract the bundle so the CLI can resolve
-			// relative paths. Mirrors the desktop app's ipc-handlers.ts logic.
-			let bundleTempDir: string | undefined;
-			let blueprintFilePath = body.blueprint?.filePath;
-			if ( body.blueprint?.bundleUrl && ! blueprintFilePath ) {
-				// Download the catalog's copy of the URL, so this server only fetches
-				// bundles Studio publishes, whatever a caller sends.
-				const requestedUrl = body.blueprint.bundleUrl;
-				const catalogUrl = ( await fetchStudioBlueprints() ).find(
-					( item ) => item.bundle_url === requestedUrl
-				)?.bundle_url;
-				if ( ! catalogUrl ) {
-					res.status( 400 ).json( { error: 'Unknown blueprint bundle' } );
-					return;
-				}
-				const result = await downloadAndExtractBlueprintBundle( catalogUrl );
-				bundleTempDir = result.tempDir;
-				blueprintFilePath = result.blueprintJsonPath;
+			// Remote Blueprints only come from Studio's Library, by slug.
+			if ( typeof body.blueprint === 'string' && /^https?:/i.test( body.blueprint ) ) {
+				res.status( 400 ).json( { error: 'Unsupported Blueprint source' } );
+				return;
+			}
+			const upload = typeof body.blueprint === 'string' ? uploads.get( body.blueprint ) : undefined;
+			if ( upload ) {
+				uploads.delete( upload.path );
 			}
 			try {
 				const { args, cleanup } = buildSiteCreateArgs( {
@@ -1305,25 +1277,18 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					noStart: body.skipStart,
 					flowType: body.flowType,
 					frontend,
-					blueprint: body.blueprint?.blueprint,
-					originalBlueprintPath: blueprintFilePath,
+					blueprint: body.blueprint,
 				} );
 				cleanupCreateArgs = cleanup;
 				created = await runCliCommand( execute, args, siteListItemSchema );
-				// An uploaded bundle is kept on failure, so the user can retry without uploading it again.
-				if ( body.blueprint?.filePath ) {
-					await cleanupBlueprintTempDir( path.dirname( body.blueprint.filePath ) ).catch(
-						() => undefined
-					);
-				}
 			} catch ( error ) {
 				throw error instanceof CliCommandError && error.lastErrorMessage
 					? new Error( error.lastErrorMessage )
 					: error;
 			} finally {
 				cleanupCreateArgs();
-				if ( bundleTempDir ) {
-					await cleanupBlueprintTempDir( bundleTempDir ).catch( () => undefined );
+				if ( upload ) {
+					rm( upload.directory, { recursive: true, force: true }, () => undefined );
 				}
 			}
 
@@ -1504,21 +1469,22 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	// Reads an uploaded Blueprint file for the add-site preview, then removes the upload.
 	api.post(
-		'/blueprints/extract',
+		'/blueprints/read',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			res.json( await extractBlueprintUpload( req ) );
-		} )
-	);
-
-	api.post(
-		'/blueprints/cleanup',
-		asyncHandler( async ( req: Request, res: Response ) => {
-			const tempDir = req.body?.tempDir;
-			if ( typeof tempDir === 'string' && tempDir ) {
-				await cleanupBlueprintTempDir( tempDir );
+			const upload = uploads.get( req.body?.path );
+			if ( ! upload ) {
+				res.status( 400 ).json( { error: 'Unknown Blueprint upload' } );
+				return;
 			}
-			res.status( 204 ).end();
+			uploads.delete( upload.path );
+			try {
+				await using opened = await openBlueprint( upload.path );
+				res.json( opened.blueprint );
+			} finally {
+				rm( upload.directory, { recursive: true, force: true }, () => undefined );
+			}
 		} )
 	);
 
@@ -1920,7 +1886,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			res.json(
-				await fetchSyncableSites( token.accessToken, { planRequired: ! isReprintPullEnabled() } )
+				await wpcomSites.list(
+					{ token: token.accessToken },
+					{ planRequired: ! isReprintPullEnabled() }
+				)
 			);
 		} )
 	);
@@ -2075,7 +2044,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			// No backup yet (or lookup failure) rejects and surfaces as a 500 via
 			// the error middleware — the dialog needs the error state to disable
 			// per-item selection and force a full sync.
-			res.json( await fetchLatestRewindId( token.accessToken, Number( req.params.remoteSiteId ) ) );
+			res.json(
+				await wpcomSites.pull!.latestBackupId(
+					{ token: token.accessToken },
+					{ id: Number( req.params.remoteSiteId ) }
+				)
+			);
 		} )
 	);
 
@@ -2093,9 +2067,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			res.json(
-				await fetchRemoteFileTreeContents(
-					token.accessToken,
-					Number( req.params.remoteSiteId ),
+				await wpcomSites.pull!.listBackupFiles(
+					{ token: token.accessToken },
+					{ id: Number( req.params.remoteSiteId ) },
 					rewindId,
 					treePath
 				)
@@ -2112,8 +2086,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				return;
 			}
 			res.json(
-				( await fetchHostingPhpVersion( token.accessToken, Number( req.params.remoteSiteId ) ) ) ??
-					null
+				( await wpcomSites.pull!.phpVersion(
+					{ token: token.accessToken },
+					{ id: Number( req.params.remoteSiteId ) }
+				) ) ?? null
 			);
 		} )
 	);
@@ -2157,7 +2133,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			const site = ( await listSites( execute ) ).find( ( s ) => s.id === studioSiteId );
 			const expectedName = site?.customDomain ?? site?.name ?? '';
 			const knownIds = new Set(
-				( await fetchSyncableSites( token.accessToken ) ).map( ( s ) => s.id )
+				( await wpcomSites.list( { token: token.accessToken } ) ).map( ( s ) => s.id )
 			);
 			startPublishWatch( studioSiteId, expectedName, token.accessToken, knownIds );
 			res.sendStatus( 202 );

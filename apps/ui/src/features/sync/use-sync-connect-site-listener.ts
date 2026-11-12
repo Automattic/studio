@@ -88,6 +88,7 @@ export function useSyncConnectSiteListener(): void {
 				...remote,
 				localSiteId: studioSiteId,
 				syncSupport: 'already-connected',
+				...( event.autoOpenPush ? { launchAfterPush: true } : {} ),
 			};
 			await connector.connectWpcomSite( studioSiteId, siteToSave );
 			connected = true;

@@ -5,12 +5,8 @@
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import {
-	addConnectedWpcomSite,
-	getConnectedWpcomSitesForLocalSite,
-	markConnectedWpcomSiteSynced,
-} from '@studio/common/lib/connected-sites';
 import { encodePassword } from '@studio/common/lib/passwords';
+import { getRemoteSites, rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import {
 	buildSyncEventProps,
 	classifySyncSelection,
@@ -18,7 +14,6 @@ import {
 import { PullCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import chalk from 'chalk';
-import { enableReprintExporter } from 'cli/lib/api';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { linkPulledPreview } from 'cli/lib/cli-config/snapshots';
 import { disconnectFromDaemon } from 'cli/lib/daemon-client';
@@ -34,8 +29,8 @@ import {
 } from 'cli/lib/pull/pull-selection';
 import { getPullSession, type PullSession, updateSiteRecord } from 'cli/lib/pull/pull-session';
 import {
-	getReprintApiUrlForSite,
 	normalizeSiteUrl,
+	openExporter,
 	type PullSource,
 	resolveSourceSite,
 } from 'cli/lib/pull/pull-source';
@@ -89,8 +84,7 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 		process.exit( 0 );
 	} catch ( error ) {
 		if ( error instanceof PullError ) {
-			logger.spinner.fail( __( 'Pull failed' ) );
-			console.error( '\n' + chalk.bold.red( error.message ) );
+			logger.reportError( error );
 			if ( verbose && error.technicalDetails ) {
 				console.error( '\n' + chalk.dim( error.technicalDetails ) );
 			} else if ( error.technicalDetails ) {
@@ -157,7 +151,7 @@ function getSiteKind( run: PullRun ): 'preview' | 'site' | 'unknown' {
 
 /** The connected site this local site was last pulled from, so a repeat `studio pull` needs no site. */
 async function lastPulledFrom( localSiteId: string ): Promise< string | undefined > {
-	const pulled = ( await getConnectedWpcomSitesForLocalSite( localSiteId ) )
+	const pulled = ( await getRemoteSites( 'wpcom', localSiteId ) )
 		.filter( ( connected ) => connected.lastPullTimestamp )
 		.sort( ( a, b ) =>
 			String( b.lastPullTimestamp ).localeCompare( String( a.lastPullTimestamp ) )
@@ -171,8 +165,7 @@ async function lastPulledFrom( localSiteId: string ): Promise< string | undefine
  */
 async function rememberConnection( localSiteId: string, remoteSite: SyncSite ): Promise< void > {
 	try {
-		await addConnectedWpcomSite( localSiteId, { ...remoteSite, localSiteId } );
-		await markConnectedWpcomSiteSynced( localSiteId, remoteSite.id, 'pull' );
+		await rememberRemoteSite( 'wpcom', localSiteId, remoteSite, 'pull' );
 	} catch ( error ) {
 		logger.reportError( new LoggerError( __( 'Failed to save connected site' ), error ), false );
 	}
@@ -317,17 +310,10 @@ async function pullSite(
 	run.remoteSite = sourceSite.wpComSite;
 	run.failurePhase = 'remote_backup';
 	run.preview = await findPreview( sourceSite );
+	const normalizedRemoteUrl = normalizeSiteUrl( sourceSite.url );
 	// Fails early with an "update Jetpack" message on a site that can't export.
-	await enableReprintExporter(
-		sourceSite.wpComSite.id,
-		sourceSite.wpComToken.accessToken,
-		verbose
-	);
-
-	const { url: sourceSiteUrl } = sourceSite;
-	const normalizedRemoteUrl = normalizeSiteUrl( sourceSiteUrl );
+	const { apiUrl } = await openExporter( sourceSite );
 	const studioMetadata = getPullSession( site );
-	const apiUrl = getReprintApiUrlForSite( normalizedRemoteUrl );
 
 	const isRepull = Boolean( site.importComplete );
 
@@ -370,8 +356,7 @@ async function pullSite(
 
 	try {
 		await ensureReprintKey( {
-			wpComSiteId: sourceSite.wpComSite.id,
-			wpComAccessToken: sourceSite.wpComToken.accessToken,
+			source: sourceSite,
 			apiUrl,
 			stateDirectory: studioMetadata.stateDirectory,
 			verbose,

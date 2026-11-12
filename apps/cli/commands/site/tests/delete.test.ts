@@ -2,8 +2,8 @@ import fs from 'fs';
 import path from 'path';
 import { deleteAiSessionsForSite } from '@studio/agent/node/sessions/manage';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
-import { removeAllConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { arePathsEqual } from '@studio/common/lib/fs-utils';
+import { forgetRemoteSites } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import trash from 'trash';
 import { vi } from 'vitest';
@@ -30,8 +30,8 @@ import { runCommand, runDeleteCommand } from '../delete';
 vi.mock( 'fs' );
 vi.mock( 'cli/lib/api' );
 vi.mock( '@studio/agent/node/sessions/manage' );
-vi.mock( '@studio/common/lib/connected-sites', () => ( {
-	removeAllConnectedWpcomSitesForLocalSite: vi.fn(),
+vi.mock( '@studio/common/lib/remote-sites', () => ( {
+	forgetRemoteSites: vi.fn(),
 } ) );
 vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) => ( {
 	...( await importOriginal() ),
@@ -157,7 +157,7 @@ describe( 'CLI: studio site delete', () => {
 		vi.mocked( stopProxyIfNoSitesNeedIt ).mockResolvedValue( undefined );
 		vi.mocked( arePathsEqual ).mockImplementation( ( a: string, b: string ) => a === b );
 		vi.mocked( deleteAiSessionsForSite ).mockResolvedValue( [] );
-		vi.mocked( removeAllConnectedWpcomSitesForLocalSite ).mockResolvedValue( undefined );
+		vi.mocked( forgetRemoteSites ).mockResolvedValue( undefined );
 		vi.spyOn( fs, 'existsSync' ).mockReturnValue( true );
 	} );
 
@@ -405,12 +405,10 @@ describe( 'CLI: studio site delete', () => {
 		} );
 
 		it( 'should proceed when deleting WordPress.com connections fails', async () => {
-			vi.mocked( removeAllConnectedWpcomSitesForLocalSite ).mockRejectedValue(
-				new Error( 'shared config failed' )
-			);
+			vi.mocked( forgetRemoteSites ).mockRejectedValue( new Error( 'shared config failed' ) );
 
 			await expect( runCommand( testSiteFolder, true ) ).resolves.not.toThrow();
-			expect( removeAllConnectedWpcomSitesForLocalSite ).toHaveBeenCalledWith( testSite.id );
+			expect( forgetRemoteSites ).toHaveBeenCalledWith( testSite.id );
 			expect( saveCliConfig ).toHaveBeenCalled();
 			expect( trash ).toHaveBeenCalledWith( [ testSiteFolder ] );
 			expect( disconnectFromDaemon ).toHaveBeenCalled();

@@ -157,7 +157,7 @@ export default defineConfig( {
 			'@': resolve( __dirname, 'src' ),
 			// `@wp-playground/blueprints` ships the schema validator as a sibling
 			// module that isn't listed in the package's `exports` map. Shared
-			// helpers in @studio/common (blueprint-validation.ts) import it via
+			// helpers in @studio/blueprints (validate.ts) import it via
 			// this subpath, so map it through explicitly — matches the apps/cli
 			// and apps/studio vite configs.
 			'@wp-playground/blueprints/blueprint-schema-validator': resolve(

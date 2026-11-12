@@ -2,6 +2,7 @@ import { AGENT_APP_IDS } from '@studio/common/lib/agent-apps';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
+import { PROVIDER_IDS, type ProviderId } from '@studio/providers';
 import type {
 	AgentAppId,
 	AiSessionSummary,
@@ -13,6 +14,7 @@ import type {
 	SiteEmail,
 	UserPreferences,
 } from '@/data/core';
+import type { AiSettings } from '@studio/common/lib/ai-settings';
 
 type Methods = {
 	[ K in keyof Connector as Required< Connector >[ K ] extends ( ...args: never[] ) => unknown
@@ -43,6 +45,10 @@ export interface FakeConnectorState {
 
 export type FakeConnectorInitialState = Partial< Omit< FakeConnectorState, 'preferences' > > & {
 	preferences?: Partial< UserPreferences >;
+};
+
+export type ConnectorOverrides = Partial< Omit< Connector, 'capabilities' > > & {
+	capabilities?: Partial< Connector[ 'capabilities' ] >;
 };
 
 export function makeSite( overrides: Partial< SiteDetails > = {} ): SiteDetails {
@@ -76,6 +82,25 @@ export function makeSession( overrides: Partial< AiSessionSummary > = {} ): AiSe
 // module-level stores keyed by id (composer drafts) outlive a render.
 let nextId = 1;
 
+// AI settings with `provider` selected and the `connected` providers' accounts connected.
+export function aiSettings(
+	provider: ProviderId = 'wpcom',
+	connected: readonly ProviderId[] = []
+): AiSettings {
+	return {
+		provider,
+		accounts: Object.fromEntries(
+			PROVIDER_IDS.map( ( id ) => [
+				id,
+				{
+					connected: connected.includes( id ),
+					summary: connected.includes( id ) ? 'sk-ant-…test' : null,
+				},
+			] )
+		) as AiSettings[ 'accounts' ],
+	};
+}
+
 export const TEST_USER: AuthUser = { id: 1, email: 'test@example.test', displayName: 'Test User' };
 
 const defaultPreferences = (): UserPreferences => ( {
@@ -106,7 +131,7 @@ const installedApps = () =>
  */
 export function createInMemoryConnector(
 	initial: FakeConnectorInitialState = {},
-	overrides: Partial< Connector > = {}
+	overrides: ConnectorOverrides = {}
 ): InMemoryConnector {
 	const state: FakeConnectorState = {
 		sites: [],
@@ -265,6 +290,7 @@ export function createInMemoryConnector(
 		getPublishCheckoutUrl: () => undefined,
 		onSyncConnectSite: subscribe( 'onSyncConnectSite' ),
 		watchForPublishedSite: async () => {},
+		connectPreviewFrame: () => ( { run: () => {}, dispose: () => {} } ),
 		getSessions: async () => state.sessions.map( ( session ) => session.summary ),
 		getSession: async ( id ) => findSession( id ),
 		updateSessionMetadata: async ( id, patch ) => {
@@ -311,21 +337,13 @@ export function createInMemoryConnector(
 		saveAgentInstructions: async ( content ) => {
 			agentInstructions = content;
 		},
-		getAiSettings: async () => ( {
-			provider: 'wpcom',
-			hasAnthropicApiKey: false,
-			anthropicApiKeyPreview: null,
-		} ),
-		saveAnthropicApiKey: async ( key ) => ( {
-			provider: 'wpcom',
-			hasAnthropicApiKey: !! key,
-			anthropicApiKeyPreview: key ? 'sk-ant-…test' : null,
-		} ),
-		setAiProvider: async ( provider ) => ( {
-			provider,
-			hasAnthropicApiKey: false,
-			anthropicApiKeyPreview: null,
-		} ),
+		// WordPress.com is connected while signed in.
+		getAiSettings: async () => aiSettings( 'wpcom', state.user ? [ 'wpcom' ] : [] ),
+		connectProvider: async ( provider ) =>
+			aiSettings( 'wpcom', state.user ? [ 'wpcom', provider ] : [ provider ] ),
+		disconnectProvider: async () => aiSettings( 'wpcom', state.user ? [ 'wpcom' ] : [] ),
+		setAiProvider: async ( provider ) =>
+			aiSettings( provider, state.user ? [ 'wpcom', provider ] : [ provider ] ),
 		getInstalledApps: async () => installedApps(),
 		getAgentApps: async () =>
 			AGENT_APP_IDS.map( ( id ) => ( {
@@ -402,16 +420,18 @@ export function createInMemoryConnector(
 	};
 
 	return {
-		capabilities: {
-			nativeFolderPicker: true,
-			annotatePreview: true,
-			studioLogs: true,
-		},
 		agenticRequiresAuth: true,
 		showsAppMenuButton: false,
 		reservesTrafficLightSpace: false,
 		...methods,
 		...overrides,
+		capabilities: {
+			nativeFolderPicker: true,
+			annotatePreview: true,
+			studioLogs: true,
+			nativeSites: true,
+			...overrides.capabilities,
+		},
 		state,
 		emit,
 		listenerCount: ( event ) => listeners.get( event )?.size ?? 0,

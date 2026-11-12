@@ -176,8 +176,10 @@ export function ImportPanel( { backup: selectedFile }: { backup: SiteBackup } ) 
 				isSubmitDisabled={ ! isBlueprintValid }
 				folderDescription={
 					selectedFile.name.toLowerCase().endsWith( '.xml' )
-						? __( 'Studio will create a site in an empty folder and import this WordPress export.' )
-						: __( 'Studio will restore this backup into an empty folder.' )
+						? __(
+								'WordPress Studio will create a site in an empty folder and import this WordPress export.'
+						  )
+						: __( 'WordPress Studio will restore this backup into an empty folder.' )
 				}
 				requiresEmptyPath
 				draft={ restoredDraft }

@@ -1,7 +1,8 @@
+import { disconnectProvider } from '@studio/common/lib/ai-settings';
 import { AUTH_EVENTS } from '@studio/common/lib/cli-events';
-import { revokeAuthToken } from '@studio/common/lib/oauth';
-import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { AuthCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
+import { getProvider } from '@studio/providers/services';
 import { __ } from '@wordpress/i18n';
 import { emitCliEvent } from 'cli/lib/daemon-client';
 import { Logger, LoggerError } from 'cli/logger';
@@ -20,8 +21,7 @@ export async function runCommand(): Promise< void > {
 			return;
 		}
 
-		await revokeAuthToken( token.accessToken ).catch( () => undefined );
-		await updateSharedConfig( { authToken: undefined } );
+		await disconnectProvider( getProvider( 'wpcom' ) );
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {
 			logger.reportError( error );

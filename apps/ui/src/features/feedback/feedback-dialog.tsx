@@ -58,6 +58,10 @@ const getAreaOptions = () => [
  * the `feedback` search param (`?feedback=true`).
  */
 export function FeedbackDialog() {
+	return useConnector().sendFeedback ? <FeedbackDialogRoot /> : null;
+}
+
+function FeedbackDialogRoot() {
 	const navigate = useNavigate();
 	const { feedback } = useSearch( { strict: false } ) as { feedback?: true };
 	const close = () =>
@@ -96,7 +100,7 @@ function FeedbackForm() {
 	const transcriptId = useId();
 	const send = useMutation( {
 		mutationFn: ( feedback: { type: StudioFeedbackType; message: string } ) =>
-			connector.sendFeedback( feedback ),
+			connector.sendFeedback!( feedback ),
 	} );
 	const options = getTypeOptions();
 

@@ -1,10 +1,18 @@
 import path from 'path';
+import { nodeHostServices, type HostSite, type StudioAgentHost } from '@studio/agent/node';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
+import { REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
+import { sendStudioFeedback } from '@studio/common/lib/feedback';
+import { getRemoteSites } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
+import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
+import { getAiPayloadsPath } from '@studio/common/lib/well-known-paths';
+import wpcomFactory from '@studio/common/lib/wpcom-factory';
+import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
+import { withWpcomDetails } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
-import { HOSTS } from 'cli/ai/hosts';
-import { getStudioUserAgent } from 'cli/ai/providers';
+import { getStudioUserAgent, resolveImageGenerator } from 'cli/ai/auth';
 import { runCommand as runExportCommand } from 'cli/commands/export';
 import { runCommand as runImportCommand } from 'cli/commands/import';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
@@ -13,22 +21,27 @@ import {
 	runCommand as runDeletePreviewCommand,
 } from 'cli/commands/preview/delete';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
+import { runCommand as runPullCommand } from 'cli/commands/pull';
+import { runCommand as runLegacyPullCommand } from 'cli/commands/pull-legacy';
+import { runCommand as runPushCommand } from 'cli/commands/push';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
 import { runCommand as runDeleteSiteCommand } from 'cli/commands/site/delete';
 import { listSites } from 'cli/commands/site/list';
 import { runCommand as runStartSiteCommand } from 'cli/commands/site/start';
 import { getSiteStatus } from 'cli/commands/site/status';
 import { Mode as StopMode, runCommand as runStopSiteCommand } from 'cli/commands/site/stop';
+import { getWpComSites } from 'cli/lib/api';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { findSiteByFolder, getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import { pullSelectionFromSyncOptions } from 'cli/lib/pull/pull-selection';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
+import { parseSyncOptions, wpcomSites } from 'cli/lib/sync-api';
 import { getTracksOrigin, recordTracksEvent } from 'cli/lib/tracks';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
-import type { HostSite, StudioAgentHost } from '@studio/agent/node';
 
 function toHostSite( site: SiteData ): HostSite {
 	return {
@@ -83,9 +96,7 @@ async function withDaemon< T >( fn: () => Promise< T > ): Promise< T > {
 
 export const cliAgentHost: StudioAgentHost = {
 	sitesRoot: STUDIO_SITES_ROOT,
-	get userAgent() {
-		return getStudioUserAgent();
-	},
+	imageGenerator: resolveImageGenerator,
 	sites: {
 		resolve: async ( nameOrPath ) => toHostSite( await resolveSite( nameOrPath ) ),
 		findByFolder: async ( folder ) => {
@@ -163,8 +174,83 @@ export const cliAgentHost: StudioAgentHost = {
 				new Logger( { onProgress } )
 			),
 	},
-	remoteHosts: HOSTS,
+	sync: {
+		push: async ( site, options, remoteSite, onProgress ) =>
+			runPushCommand(
+				site.path,
+				parseSyncOptions( options ),
+				remoteSite,
+				new Logger( { onProgress } )
+			),
+		pull: async ( site, options, remoteSite, onProgress ) =>
+			isReprintPullEnabled()
+				? runPullCommand(
+						site.path,
+						remoteSite,
+						false,
+						pullSelectionFromSyncOptions( parseSyncOptions( options ) ),
+						onProgress
+				  )
+				: runLegacyPullCommand(
+						site.path,
+						parseSyncOptions( options ),
+						remoteSite,
+						undefined,
+						new Logger( { onProgress } )
+				  ),
+	},
+	wpcom: {
+		token: async () => ( await readAuthToken() )?.accessToken,
+		sites: async () => {
+			const token = await readAuthToken();
+			return token ? getWpComSites( token.accessToken ) : [];
+		},
+		connectedSites: async ( site ) => {
+			const stored = await getRemoteSites( 'wpcom', site.id );
+			const token = await readAuthToken();
+			return stored.length && token
+				? withWpcomDetails( stored, await wpcomSites.list( { token: token.accessToken } ) )
+				: [];
+		},
+		request: async ( method, path, query, body ) => {
+			const token = await readAuthToken();
+			if ( ! token?.accessToken ) {
+				throw new Error(
+					'Not logged in to WordPress.com. Ask the user to log in with `studio auth login`.'
+				);
+			}
+			const wpcom = wpcomFactory( token.accessToken, wpcomXhrRequest );
+			switch ( method ) {
+				case 'GET':
+					return wpcom.req.get( path, query );
+				case 'POST':
+					return wpcom.req.post( path, query, body );
+				case 'PUT':
+					return wpcom.req.put( path, query, body );
+				case 'DELETE':
+					// wpcom.js's req.del() sends a POST, which wp/v2 handles as an update. req.get()
+					// keeps an explicit method and, unlike req.post(), leaves the query as the query.
+					return wpcom.req.get( { path, method: 'DELETE' }, query );
+			}
+		},
+		get payloadsDirectory() {
+			return getAiPayloadsPath();
+		},
+	},
 	tracks: {
 		record: ( event, props ) => recordTracksEvent( event, { ...getTracksOrigin(), ...props } ),
 	},
+	sendFeedback: async ( feedback ) => {
+		const token = await readAuthToken();
+		if ( ! token?.accessToken ) {
+			throw new Error(
+				`Not logged in to WordPress.com. Ask the user to log in with \`studio auth login\`, or to share feedback at ${ REPORT_ISSUE_URL }.`
+			);
+		}
+		return sendStudioFeedback( feedback, {
+			accessToken: token.accessToken,
+			userAgent: getStudioUserAgent(),
+		} );
+	},
+	...nodeHostServices(),
 };

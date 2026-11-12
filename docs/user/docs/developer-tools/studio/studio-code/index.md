@@ -42,7 +42,7 @@ By default, WordPress Studio Code uses WordPress.com infrastructure to generate 
 3.  A browser window will open. Log into your WordPress.com account and approve the connection.
 4.  Paste the authorization token back into the terminal to complete the login.
 
-Alternatively, you can [use your own Anthropic API key](#use-your-own-anthropic-api-key): type /api-key in the chat in the terminal, or connect **Anthropic** in **Settings → AI Providers** in the desktop app.
+Alternatively, you can [use your own Anthropic API key](#use-your-own-anthropic-api-key): type /api-key in the chat in the terminal, or connect **Anthropic** in **Settings → Providers** in the desktop app.
 
 ### [When the chat box can’t send](#when-the-chat-box-cant-send)
 
@@ -50,7 +50,8 @@ In the desktop app, when a WordPress.com chat can’t send a message yet, the ch
 
 -   “Connect a provider to build and edit your site.” Click **Connect** to log in with WordPress.com or add an Anthropic API key.
 -   “Add a payment method to use WordPress.com AI.” Click **Set up** to add one on WordPress.com. WordPress Studio checks again when you come back to the app.
--   “WordPress Studio Code AI is currently available through limited beta access.” Click **Apply for access**.
+-   “Studio Code AI is currently available through limited beta access.” Click **Learn more**.
+-   “Connect a different provider to continue this chat.” Click **Connect** to open **Settings → Providers**.
 -   “Add AI credits to send another message.” Click **Add credits** to buy more. See [What happens when you reach the limit](#20-what-happens-when-you-reach-the-limit).
 
 You can still read the chat while the notice shows.
@@ -82,11 +83,11 @@ The agent can read and write files in your site directory, run WP-CLI commands, 
 
 When you ask WordPress Studio Code to build a site, it first offers you four looks, and then four layouts previewed in the look you picked. It skips these questions when your request already describes a design. Your choice is saved as `DESIGN.md` in the site’s root folder, and later chats, as well as other coding agents, follow it. Fonts chosen in `DESIGN.md` are self-hosted on the site.
 
-![WordPress Studio Code asking “Which look should I build?” for a neighborhood bakery called Wren & Barley, with four looks drawn as design boards (Quiet luxury editorial, Pastel soft, Mid-century retro, and Scandinavian), Show other options, and the Skip and Done buttons.](../../../../screenshots/images/design-looks.webp)
+![WordPress Studio Code asking “Which look should I build?” for a slow-fashion journal called Moire, with four looks drawn as design boards (Dia journal, Quiet linen, Monochrome atelier, and Deep wool), Show other options, and the Skip and Done buttons.](../../../../screenshots/images/design-looks.webp)
 
-To review the design system, click the site preview’s address bar and choose **Design system**, or choose **Tools → Design system** from the site menu. It shows the colors, type scale, spacing and corners, components, and guidelines from `DESIGN.md`. If the theme’s `theme.json` no longer matches `DESIGN.md`, WordPress Studio lists each difference: choose **Use DESIGN.md** or **Keep theme.json** for each one, or **Apply all from DESIGN.md**.
+To review the design system, click **New tab** (**+**) above the site preview and choose **Design System**, or choose **Tools → Design System** from the site menu. When WordPress Studio Code mentions the design system in a chat, the link opens it too. It shows the colors, type scale, spacing and corners, components, and guidelines from `DESIGN.md`. If the theme’s `theme.json` no longer matches `DESIGN.md`, WordPress Studio lists each difference: choose **Use DESIGN.md** or **Keep theme.json** for each one, or **Apply all from DESIGN.md**.
 
-![The Design system view in the site preview of a bakery site: its name and tagline, a terracotta, white, and umber color palette, Literata type styles, and a primary button, with a note that theme.json matches DESIGN.md.](../../../../screenshots/images/design-system.webp)
+![The Design System view in the site preview of the Moire journal: its name and tagline, Poppins type styles, and a dark brown, golden yellow, and pale yellow color palette, with a note that theme.json matches DESIGN.md.](../../../../screenshots/images/design-system.webp)
 
 WordPress Studio Code can also generate images for your site. See [Image generation in WordPress Studio Code](https://wordpress.studio/docs/studio-code/image-generation/).
 
@@ -96,29 +97,29 @@ To give WordPress Studio Code instructions that apply to every new chat, across 
 
 Instead of describing which part of the page you mean, you can point at it. In the desktop app, annotate a local site’s preview. If the site is stopped, clicking **Annotate** starts it first:
 
-1.  Click **Annotate** above the site preview. The preview switches to annotation mode, and an **Annotations** toolbar appears at the bottom of it.
-2.  Click an element in the preview. A numbered marker appears on it, with a note box.
-3.  Type your note in **Leave a note…**. To add a reference image, click **Attach image** (the paperclip), or paste or drop a PNG, JPEG, GIF, or WebP image into the note.
-4.  Press Enter, or click **Save annotation** (the arrow). The note is staged in the chat box, shown as one attachment such as “2 annotations”, so you can add a message before you send.
-5.  Click more elements to add more notes. Click a marker to edit its note, or click **Delete annotation** (the trash can) to remove it.
-6.  Click **Send** in the toolbar, or send from the chat box. WordPress Studio Code gets your message and every note, each with the element it points at.
+1.  Click **Annotate** at the end of the site preview’s address bar, or press ⇧⌘. (Ctrl+Shift+. on Windows and Linux). The preview switches to annotation mode.
+2.  Click an element in the preview, or drag to select an area of the page. A numbered marker appears, with a note box.
+3.  Type your note in **Describe the change**. To add a reference image, click **Attach image** (the paperclip), or paste or drop a PNG, JPEG, GIF, or WebP image into the note.
+4.  Press Enter, or click **Add annotation to batch** (the arrow). The note is staged in the chat box, shown as one attachment such as “2 annotations”, so you can add a message before you send.
+5.  Add more notes the same way. Click a marker, or the note in the chat box’s list of annotations, to edit it, or click **Delete annotation** (the trash can) to remove it.
+6.  Send from the chat box. WordPress Studio Code gets your message and every note, each with the element or area it points at.
 
-![Annotating a site preview: numbered markers 1 and 2 on the heading and the Order button, and an open note on the hero photo reading “Swap in a photo of our sourdough”, with the attach, delete, and save buttons. The chat box shows 2 annotations, and the toolbar shows Send 2.](../../../../screenshots/images/annotate-note.webp)
+![Annotating a site preview with Annotate turned on in the address bar: numbered markers 1 and 2 on the wordmark and the tagline, and an open note on the photo reading “Swap in the wool close-up”, with the attach, delete, and add buttons. The chat box shows 2 annotations.](../../../../screenshots/images/annotate-note.webp)
 
-![The WordPress Studio window with Annotate turned on above the site preview: two notes marked 1 and 2 on the page wait in the chat box as 2 annotations, and the Annotations toolbar shows Cancel and Send 2.](../../../../screenshots/images/annotate-staged.webp)
+![The WordPress Studio window with Annotate turned on above the site preview: two notes marked 1 and 2 on the page wait in the chat box as 2 annotations, ready to send with a message.](../../../../screenshots/images/annotate-staged.webp)
 
 To send a single note right away, press ⌘Enter (Ctrl+Enter on Windows and Linux) in it. If WordPress Studio Code is still replying, the note waits in the queue and is sent when the reply ends. Notes staged in the chat box also wait for the reply to end, because they point at the page as it is now.
 
+If you’d rather send every note as soon as you finish it, turn off **Batch notes** in **Settings → General** (“Collect annotations and send them together instead of one at a time.”). Enter then sends the note.
+
 To stop:
 
--   Press Esc to close an open note. Press Esc again, or click **Annotate** again, to leave annotation mode. Your notes are kept.
--   Click **Cancel** in the toolbar to delete every note and leave annotation mode. If you have notes, WordPress Studio asks **Discard all pending annotations?** first: click **Discard**.
+-   Press Esc to close an open note. Press Esc again, or click **Annotate** again (**Exit annotation mode**), to leave annotation mode. Your notes are kept.
+-   To delete a note, click its marker and then **Delete annotation**, or delete it from the list of annotations in the chat box.
 
 You can add up to 100 notes before you send them. Annotate isn’t available for the **Database** view or for chats that work on the live site. In the `studio ui` browser app, you can annotate the design system but not the site itself yet.
 
-If you haven’t connected an AI provider, clicking **Annotate** opens **Put your feedback to work**. Click **Continue with WordPress.com** to log in, or **Choose a different provider** to open **Settings → AI Providers**.
-
-**Settings → General** also has a **Confirm before deleting annotations** option: “Ask before deleting pending notes and attached images.”
+If you haven’t connected an AI provider, clicking **Annotate** opens **Put your feedback to work**. Click **Continue with WordPress.com** to log in, or **Choose a different provider** to open **Settings → Providers**.
 
 ### [Working with WordPress.com sites](#working-with-wordpress-com-sites)
 
@@ -130,9 +131,9 @@ When the agent edits a block theme’s template or template part that you’ve c
 
 ### [Slash commands](#10-slash-commands)
 
-While chatting, you can use slash commands for quick actions. In the desktop app, type `/` in the chat box to list the commands and skills that match, or click **+** to see them all: **Add files** and the commands come first, followed by the skills under **Skills**. The desktop app shows commands and skills by name, for example **Choose model** for `/model`, **Performance Audit** for `/need-for-speed`, and **SEO Audit** for `/rank-me-up`.
+While chatting, you can use slash commands for quick actions. In the desktop app, type `/` in the chat box to list the commands and skills that match, or click **+** to see them all: **Add files** and the commands come first, followed by the skills under **Skills**. The desktop app shows commands and skills by name, for example **Choose model** for `/model`, **Performance Audit** for `/need-for-speed`, **SEO Audit** for `/rank-me-up`, and **Send feedback** for `/feedback`.
 
-![The chat box + menu open, listing Add files, Auto-start, Choose model, and Connect AI providers, then Skills: Visual Annotations, Taxonomist, Performance Audit, SEO Audit, and Liberate.](../../../../screenshots/images/composer-add-menu.webp)
+![The chat box + menu open, listing Add files, Choose model, and Connect providers, then Skills: Visual Annotations, Taxonomist, Performance Audit, SEO Audit, Liberate, and Send feedback.](../../../../screenshots/images/composer-add-menu.webp)
 
 | Command | Description | Available in… |
 | --- | --- | --- |
@@ -141,10 +142,10 @@ While chatting, you can use slash commands for quick actions. In the desktop app
 | /auto-start | Start stopped sites when you send a chat message (shown as **Auto-start** while it’s off) | Desktop |
 | /browser | Open the active site in your browser | Terminal |
 | /clear | Clear the conversation and start a fresh session | Terminal |
-| /connect-provider | Open **Settings → AI Providers** to use WordPress.com AI credits or your own API key (shown as **Connect AI providers**) | Desktop |
+| /connect-provider | Open **Settings → Providers** to use WordPress.com AI credits or your own API key (shown as **Connect providers**) | Desktop |
 | /credits | Show your AI credit balance and buy more AI credits | Terminal |
 | /exit | Exit the chat | Terminal |
-| /feedback | Send feedback about WordPress Studio to the WordPress Studio team | Terminal and desktop |
+| /feedback | Send feedback about WordPress Studio to the WordPress Studio team (shown as **Send feedback**). See [Send feedback from a chat](#send-feedback-from-a-chat) | Terminal and desktop |
 | /liberate | Migrate and rebuild a site from a closed platform to WordPress | Terminal and desktop |
 | /local | Switch a chat that works on the live site back to the local site (shown as **Work on local site**) | Desktop |
 | /login | Log in to WordPress.com | Terminal |
@@ -157,6 +158,20 @@ While chatting, you can use slash commands for quick actions. In the desktop app
 | /rank-me-up | Run an on-page SEO audit on your site | Terminal and desktop |
 | /swag | Treat yourself to some WordPress swag | Terminal |
 | /taxonomist | Optimize your category taxonomy | Terminal and desktop |
+
+After WordPress Studio Code builds a site, it suggests running a performance audit and an SEO audit on it.
+
+### [Send feedback from a chat](#send-feedback-from-a-chat)
+
+WordPress Studio Code can send your feedback about WordPress Studio to the WordPress Studio team: a bug, a feature request, or general feedback.
+
+1.  Type `/feedback` in the chat, followed by what you want to say, or choose **Send feedback** from the **+** menu in the desktop app. If you don’t say what the feedback is about, WordPress Studio Code asks, and offers **Bug report**, **Feature request**, and **General feedback**.
+2.  WordPress Studio Code writes the report, using what happened in the chat (for example, the tool that failed and its error), and shows you the exact message.
+3.  Reply to send it, ask for changes, or cancel. Nothing is sent until you approve the message.
+
+After sending, WordPress Studio Code gives you the feedback ID. The report includes your WordPress Studio version and operating system. WordPress Studio Code leaves out passwords, API keys, and private site content unless you ask to include them.
+
+Sending feedback requires being logged in to WordPress.com. You can also ask WordPress Studio Code in your own words to report something to the WordPress Studio team. To send feedback without a chat, see [WordPress Studio feedback](https://wordpress.studio/docs/feedback/).
 
 ### [AI model tiers](#11-ai-model-tiers)
 
@@ -175,7 +190,7 @@ Switch tiers at any time, including mid-conversation:
 -   **Desktop**: click the model button in the chat box (it shows the current tier, such as **Fast**), or choose **Choose model** from the **+** menu
 -   **Terminal**: run the `/model` command
 
-If you use your own Anthropic API key, the model menu lists **Sonnet 5** and **Opus 5** instead of tiers. See [AI providers](#ai-providers).
+If you use your own Anthropic API key, the model menu lists **Sonnet 5.5** and **Opus 5.5** instead of tiers. See [AI providers](#ai-providers).
 
 ### [Uploads](#12-uploads)
 
@@ -184,25 +199,25 @@ Upload images and files into WordPress Studio Code to use across your project:
 -   **Desktop**: drag files into the chat, paste them, or click **+** in the chat box and choose **Add files**
 -   **Terminal**: drag into the chat or point to a specific local file or folder
 
-The Fast tier reads text only. To send an image, choose Balanced or Strong (or, with your own API key, Sonnet 5 or Opus 5) first.
+The Fast tier reads text only. To send an image, choose Balanced or Strong (or, with your own API key, Sonnet 5.5 or Opus 5.5) first.
 
 ### [New conversations](#13-new-conversations)
 
 Clear your conversation and start a new one:
 
--   **Desktop**: hover over the site in the sidebar and click **New chat** (the pencil icon), or choose **New chat** from the command palette (⌘K, or Ctrl+K on Windows and Linux)
+-   **Desktop**: hover over the site in the sidebar and click **New chat** (the pencil icon), choose **New chat** from the site menu or the command palette (⌘K, or Ctrl+K on Windows and Linux), or press ⇧⌘N (Ctrl+Shift+N)
 -   **Terminal**: run the `/clear` command
 
-In the desktop app, each site’s chats are listed under the site in the sidebar, and your latest chats also appear under **Recent**. Right-click a chat to **Pin**, **Rename**, **Mark as unread**, or **Archive** it. Archiving removes the chat from the sidebar; click **Undo** in the notification to bring it back.
+In the desktop app, each site’s chats are listed under the site in the sidebar, and your latest chats also appear under **Recent**. When you switch to another site and back, WordPress Studio reopens the chat you last had open there. Right-click a chat to **Pin**, **Rename**, **Mark as unread**, or **Archive** it. Archiving removes the chat from the sidebar; click **Undo** in the notification to bring it back.
 
 ### [AI providers](#ai-providers)
 
 You can choose how AI responses are generated, in both the desktop app and the terminal:
 
 -   **WordPress.com** (default): uses your WordPress.com account and AI Credits. No additional setup is required beyond logging in.
--   **Anthropic API key**: uses your own API key for direct access to Claude. In the desktop app, connect **Anthropic** in **Settings → AI Providers**. In the terminal, set it with the `/api-key` command.
+-   **Anthropic API key**: uses your own API key for direct access to Claude. In the desktop app, connect **Anthropic** in **Settings → Providers**. In the terminal, set it with the `/api-key` command.
 
-With your own key, the model menu offers **Sonnet 5** and **Opus 5** instead of Fast, Balanced, and Strong. In the desktop app, choose the provider for each chat from the model menu, and set the provider new chats use with **Default provider** in **Settings → AI Providers**. In the terminal, switch providers with the `/provider` command.
+With your own key, the model menu offers **Sonnet 5.5** and **Opus 5.5** instead of Fast, Balanced, and Strong. In the desktop app, choose the provider for each chat from the model menu, and set the provider new chats use with **Default provider** in **Settings → Providers**. In the terminal, switch providers with the `/provider` command.
 
 Switching a chat between WordPress.com and Anthropic models starts a new chat, because the models don’t share memory. In the desktop app, WordPress Studio asks you to confirm first (**Start a new chat?**), and your previous chat stays in the sidebar.
 
@@ -291,11 +306,11 @@ You can connect WordPress Studio Code directly to Anthropic at any time using yo
 To use your own key in the desktop app:
 
 1.  Create an API key at [console.anthropic.com](https://console.anthropic.com/) (requires an Anthropic account with billing set up).
-2.  Open **Settings** from the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux), and select **AI Providers**.
+2.  Open **Settings** from the account menu at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux), and select **Providers**. You can also choose **Providers** from the account menu.
 3.  Next to **Anthropic**, click **Connect**, paste your key in the **Anthropic API key** field, and click **Save**.
-4.  In the chat box, choose **Sonnet 5** or **Opus 5** from the model menu.
+4.  In the chat box, choose **Sonnet 5.5** or **Opus 5.5** from the model menu.
 
-![The AI Providers page of WordPress Studio's Settings, with WordPress.com marked Connected and a Manage button, and Anthropic with a Connect button to use your own API key.](../../../../screenshots/images/settings-ai-providers-signed-in.webp)
+![The Providers page of WordPress Studio's Settings, with WordPress.com marked Connected and a Manage button, and Anthropic with a Connect button to use your own API key.](../../../../screenshots/images/settings-ai-providers-signed-in.webp)
 
 To switch it using CLI:
 

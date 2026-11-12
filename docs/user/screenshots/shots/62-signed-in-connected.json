@@ -1,13 +1,16 @@
 {
+	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "signed-in-connected",
 	"description": "Signed in, with the demo site connected to two made-up WordPress.com sites from wpcom-sites.json: the Publish panel's website switcher and the Choose files… review steps",
+	"scene": "moire",
+	"look": "docs",
 	"signedIn": true,
 	"connectedSites": true,
 	"shots": [
 		{
 			"name": "publish-switcher",
 			"description": "Publish details → the website switcher, listing two connected websites and Connect another site…",
-			"pages": [ "sync.md" ],
+			"meta": { "pages": [ "sync.md" ] },
 			"steps": [
 				{
 					"click": {
@@ -67,8 +70,7 @@
 		{
 			"name": "pull-choose-files",
 			"description": "Publish details → Pull changes → What to pull, with Choose files… and a few items selected",
-			"pages": [ "sync.md" ],
-			"replaces": [ "2025/01/studio-pull-selective.png" ],
+			"meta": { "pages": [ "sync.md" ], "replaces": [ "2025/01/studio-pull-selective.png" ] },
 			"steps": [
 				{
 					"click": {
@@ -152,8 +154,7 @@
 		{
 			"name": "publish-choose-files",
 			"description": "Publish details → Publish changes → What to publish, with Choose files… and a few items selected",
-			"pages": [ "sync.md" ],
-			"replaces": [ "2025/01/studio-selective-push.png" ],
+			"meta": { "pages": [ "sync.md" ], "replaces": [ "2025/01/studio-selective-push.png" ] },
 			"steps": [
 				{
 					"click": {

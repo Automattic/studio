@@ -1,18 +1,14 @@
 import { screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createFakeConnector, makeSite } from '@/test/fake-connector';
+import { aiSettings, createFakeConnector, makeSite } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { Connector } from '@/data/core';
-import type { AiSettings } from '@studio/agent/protocol/providers';
+import type { AiSettings } from '@studio/common/lib/ai-settings';
 
 const site = makeSite( { id: 'one', name: 'My site', path: '/sites/my-site' } );
 
 const withKey = ( provider: AiSettings[ 'provider' ] ): Partial< Connector > => ( {
-	getAiSettings: async () => ( {
-		provider,
-		hasAnthropicApiKey: true,
-		anthropicApiKeyPreview: 'test',
-	} ),
+	getAiSettings: async () => aiSettings( provider, [ 'wpcom', 'anthropic' ] ),
 } );
 
 beforeEach( () => {
@@ -20,7 +16,7 @@ beforeEach( () => {
 } );
 
 describe( 'Conversation usage and model picker', () => {
-	it.each( [ 'wpcom', 'anthropic-api-key' ] as const )(
+	it.each( [ 'wpcom', 'anthropic' ] as const )(
 		'shows credits for the effective provider with a saved key: %s',
 		async ( provider ) => {
 			const connector = createFakeConnector(
@@ -56,7 +52,7 @@ describe( 'Conversation usage and model picker', () => {
 					'Purchased credits required'
 				);
 			}
-			expect( await screen.findByRole( 'option', { name: /^Sonnet 5/ } ) ).toBeVisible();
+			expect( await screen.findByRole( 'option', { name: /^Sonnet 5.5/ } ) ).toBeVisible();
 			expect( screen.getByRole( 'option', { name: /^Connect providers/ } ) ).toBeVisible();
 			await user.keyboard( '{Escape}' );
 			if ( provider === 'wpcom' ) {
@@ -79,11 +75,11 @@ describe( 'Conversation usage and model picker', () => {
 		const { user } = renderApp( { connector, path: '/sites/one/new' } );
 		await screen.findByRole( 'button', { name: 'Site menu' } );
 		await user.click( await screen.findByRole( 'button', { name: 'Model' } ) );
-		await user.click( await screen.findByRole( 'option', { name: /^Sonnet 5/ } ) );
+		await user.click( await screen.findByRole( 'option', { name: /^Sonnet 5.5/ } ) );
 		expect( connector.createSession ).not.toHaveBeenCalled();
 		expect( connector.setSessionProvider ).not.toHaveBeenCalled();
 		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveTextContent( 'Sonnet 5' )
+			expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveTextContent( 'Sonnet 5.5' )
 		);
 		expect( screen.getByRole( 'button', { name: 'Model' } ) ).not.toHaveAttribute(
 			'aria-description',
@@ -97,8 +93,8 @@ describe( 'Conversation usage and model picker', () => {
 		await waitFor( () =>
 			expect( connector.setSessionProvider ).toHaveBeenCalledWith(
 				expect.any( String ),
-				'anthropic-api-key',
-				'claude-sonnet-5'
+				'anthropic',
+				'claude-sonnet-5-5'
 			)
 		);
 		expect( connector.createSession ).toHaveBeenCalledTimes( 1 );

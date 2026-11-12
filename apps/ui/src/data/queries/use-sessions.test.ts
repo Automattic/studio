@@ -79,16 +79,16 @@ describe( 'openNewSession', () => {
 		connector.createSession.mockResolvedValue( summary );
 
 		await expect(
-			openNewSession( { connector, queryClient }, 'site-1', 'claude-opus-5' )
+			openNewSession( { connector, queryClient }, 'site-1', 'claude-opus-5-5' )
 		).resolves.toBe( summary );
 
 		expect( connector.createSession ).toHaveBeenCalledWith( 'site-1' );
-		expect( connector.setSessionModel ).toHaveBeenCalledWith( 'session-1', 'claude-opus-5' );
+		expect( connector.setSessionModel ).toHaveBeenCalledWith( 'session-1', 'claude-opus-5-5' );
 		expect(
 			queryClient.getQueryData< LoadedAiSession >( [ ...SESSIONS_QUERY_KEY, 'session-1' ] )
 		).toEqual( {
 			summary,
-			entries: [ expect.objectContaining( { type: 'model_change', modelId: 'claude-opus-5' } ) ],
+			entries: [ expect.objectContaining( { type: 'model_change', modelId: 'claude-opus-5-5' } ) ],
 		} );
 		expect( invalidateQueries ).toHaveBeenCalledWith( {
 			queryKey: SESSIONS_QUERY_KEY,

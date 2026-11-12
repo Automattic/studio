@@ -28,7 +28,6 @@ import {
 	CURSOR_MARKER,
 } from '@earendil-works/pi-tui';
 import { isOutOfCreditsError, isUsageCapError } from '@studio/agent/protocol/json-events';
-import { DEFAULT_MODEL, getAiModelLabel, type AiModelId } from '@studio/agent/protocol/models';
 import { findLastAssistant } from '@studio/agent/protocol/session-events';
 import { randomThinkingMessage } from '@studio/agent/protocol/thinking-messages';
 import { readAuthToken } from '@studio/common/lib/shared-config';
@@ -39,6 +38,14 @@ import {
 	formatUsageCapNotice,
 	getTotalRemainingAiCredits,
 } from '@studio/common/lib/studio-assistant-quota';
+import {
+	DEFAULT_PROVIDER_ID,
+	getAiModelLabel,
+	getDefaultAiModel,
+	getProviderDescriptor,
+	type AiModelId,
+	type ProviderId,
+} from '@studio/providers';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import {
 	DescriptionAwareAutocompleteProvider,
@@ -46,7 +53,6 @@ import {
 } from 'cli/ai/description-autocomplete';
 import { buildOptionPickerLines, OTHER_VALUE } from 'cli/ai/option-picker';
 import { type AiOutputAdapter } from 'cli/ai/output-adapter';
-import { AI_PROVIDERS, DEFAULT_AI_PROVIDER, type AiProviderId } from 'cli/ai/providers';
 import { getActiveSlashCommands } from 'cli/ai/slash-commands';
 import { initStudioTheme, refineStudioTheme, theme } from 'cli/ai/theme';
 import { getToolRenderDefinition } from 'cli/ai/tool-render-definitions';
@@ -268,8 +274,8 @@ export class AiChatUI implements AiOutputAdapter {
 		{ component: ToolExecutionComponent; toolName: string; input: Record< string, unknown > }
 	>();
 	private renderedToolResultIds = new Set< string >();
-	currentModel: AiModelId = DEFAULT_MODEL;
-	currentProvider: AiProviderId = DEFAULT_AI_PROVIDER;
+	currentModel: AiModelId = getDefaultAiModel( DEFAULT_PROVIDER_ID );
+	currentProvider: ProviderId = DEFAULT_PROVIDER_ID;
 	private numTurns = 0;
 
 	private optionPickerContainer: Container | null = null;
@@ -1154,7 +1160,7 @@ export class AiChatUI implements AiOutputAdapter {
 		// suffix) when the terminal is too narrow, otherwise the welcome wraps
 		// and visually breaks the logo layout.
 		const baseInfo = `${ getAiModelLabel( this.currentModel ) } · ${
-			AI_PROVIDERS[ this.currentProvider ]
+			getProviderDescriptor( this.currentProvider ).label
 		}`;
 		const sep = ' · ';
 		let secondLine: string;

@@ -26,7 +26,6 @@ import { siteSettingsCopy } from '@studio/agent/node/site-settings-copy';
 import { templatePartAreas } from '@studio/agent/node/template-part-areas';
 import { themeErrors } from '@studio/agent/node/theme-errors';
 import { updatableThemeChanges } from '@studio/agent/node/theme-file-changes';
-import { themeLook } from '@studio/agent/node/theme-look';
 import { themeStylesheet } from '@studio/agent/node/theme-stylesheet';
 import type { OpenProblems } from '@studio/agent/node/open-problems';
 import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
@@ -113,7 +112,6 @@ const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	adminCapabilities,
 	blockEditorScripts,
 	inlineBlockClasses,
-	themeLook,
 ];
 
 export class SiteChanges {

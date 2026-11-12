@@ -353,7 +353,6 @@ export function createInMemoryConnector(
 		startProviderConnect: async () => {
 			throw new Error( 'startProviderConnect is not faked' );
 		},
-		startCommandSignIn: async () => ( { id: 'sign-in', url: 'https://example.com/sign-in' } ),
 		setAiProvider: async ( provider ) =>
 			aiSettings( provider, state.user ? [ 'wpcom', provider ] : [ provider ] ),
 		getInstalledApps: async () => installedApps(),

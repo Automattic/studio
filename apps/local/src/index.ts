@@ -73,7 +73,6 @@ import {
 	detectAgentApps,
 	refreshAgentPlugins,
 } from '@studio/common/lib/connect-agent-app';
-import { startCommandSignIn } from '@studio/common/lib/connect-command';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { sendStudioFeedback, STUDIO_FEEDBACK_TYPES } from '@studio/common/lib/feedback';
 import {
@@ -810,23 +809,6 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			await changeAiSettings( res, () =>
 				connectProvider( getProvider( provider ), input, { openUrl } )
 			);
-		} )
-	);
-
-	// Runs a form method's sign-in command; `PUT` above then takes its session and code.
-	api.post(
-		'/ai-settings/providers/:provider/command-sign-in',
-		asyncHandler( async ( req: Request, res: Response ) => {
-			const provider = readProviderParam( req, res );
-			const method = req.body?.method;
-			if ( ! provider ) {
-				return;
-			}
-			if ( typeof method !== 'string' ) {
-				res.status( 400 ).json( { error: 'method must be a string' } );
-				return;
-			}
-			res.json( await startCommandSignIn( provider, method ) );
 		} )
 	);
 

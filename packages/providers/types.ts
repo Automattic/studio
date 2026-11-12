@@ -64,13 +64,8 @@ export interface RedirectOptions {
 // How the user connects an account. Studio passes what it collected to the
 // provider's `connect`, which turns it into the config to store.
 export type ProviderConnection =
-	// A form rendered from `input`, after the steps that get its values.
-	| {
-			kind: 'form';
-			input: () => ConnectInputSchema;
-			steps?: () => ConnectStep[];
-			run?: ConnectCommand;
-	  }
+	// A form rendered from `input`.
+	| { kind: 'form'; input: () => ConnectInputSchema }
 	// Approving access on the provider's site, which redirects back to the app
 	// with the result in the URL's parameters.
 	| { kind: 'redirect'; redirectUrl( options: RedirectOptions ): string }
@@ -88,36 +83,6 @@ export type ProviderConnection =
 // `connect` receives the chosen one's id as `input.method`, and the config
 // records it as `method`.
 export type ConnectionMethod = ProviderConnection & { id: string; label: () => string };
-
-// A step the user takes to get what a form asks for.
-export interface ConnectStep {
-	text: string;
-	// A page with the details.
-	url?: string;
-	// Run in a terminal; surfaces offer to copy it.
-	command?: string;
-	// Skipped when this agent app (Claude Code, `claude-code`) is installed.
-	unlessInstalled?: string;
-}
-
-// A command that prints a form's value, which Studio runs for the user where
-// `app` is installed. It signs in through the browser and asks for the code
-// shown there (`prompt`), then prints the `fills` field's value, the first
-// group of `pattern`.
-export interface ConnectCommand {
-	app: string;
-	args: string[];
-	prompt: () => string;
-	fills: string;
-	pattern: RegExp;
-}
-
-// A running sign-in command, waiting for the code from the browser.
-export interface CommandSignIn {
-	id: string;
-	// Where to sign in, should the browser not open.
-	url?: string;
-}
 
 // A pending device sign-in: the user approves `userCode` at `verificationUrl`.
 export interface DeviceAuthorization {

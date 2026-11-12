@@ -54,7 +54,6 @@ import type { DesignFix } from '@studio/design-md';
 import type {
 	AiModelId,
 	AiProviderId,
-	CommandSignIn,
 	DeviceAuthorization,
 	ProviderId,
 	ProviderSites,
@@ -510,9 +509,6 @@ export interface Connector {
 	connectProvider( provider: ProviderId, input: Record< string, string > ): Promise< AiSettings >;
 	// Starts a device sign-in, for a provider whose connection kind is `device`.
 	startProviderConnect( provider: ProviderId ): Promise< DeviceAuthorization >;
-	// Runs a form method's sign-in command (`run`) on this computer; `connectProvider` then
-	// takes its `session` and the browser's `code`. Absent where nothing runs commands.
-	startCommandSignIn?( provider: ProviderId, method: string ): Promise< CommandSignIn >;
 	disconnectProvider( provider: ProviderId ): Promise< AiSettings >;
 	// The provider new conversations use.
 	setAiProvider( provider: AiProviderId ): Promise< AiSettings >;

@@ -935,11 +935,6 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 			} )
 		);
 		await choose( 'Connect with', 'Claude subscription' );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Paste a token instead' } ) );
-		expect( screen.getByText( 'claude setup-token' ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Copy command' } ) ).toBeVisible();
-		// Claude Code is installed, so the install step is skipped.
-		expect( screen.queryByText( 'Install Claude Code.' ) ).not.toBeInTheDocument();
 		fireEvent.change(
 			await screen.findByLabelText( 'Claude subscription token', { selector: 'input' } ),
 			{ target: { value: 'sk-ant-oat01-token' } }
@@ -952,45 +947,6 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 				token: 'sk-ant-oat01-token',
 			} )
 		);
-	} );
-
-	it( 'signs in through Claude Code and connects with the browser’s code', async () => {
-		const { connector } = await setup( { section: 'ai', signedIn: false } );
-		fireEvent.click(
-			await within( await findProviderRow( 'anthropic-provider' ) ).findByRole( 'button', {
-				name: 'Manage',
-			} )
-		);
-		await choose( 'Connect with', 'Claude subscription' );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Sign in with Claude Code' } ) );
-		fireEvent.change( await screen.findByLabelText( 'Code', { selector: 'input' } ), {
-			target: { value: 'browser#code' },
-		} );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
-
-		await waitFor( () =>
-			expect( connector.connectProvider ).toHaveBeenCalledWith( 'anthropic', {
-				method: 'setup-token',
-				session: 'sign-in',
-				code: 'browser#code',
-			} )
-		);
-	} );
-
-	it( 'asks to install Claude Code first when it is missing', async () => {
-		await setup( {
-			section: 'ai',
-			signedIn: false,
-			overrides: { getAgentApps: async () => [] },
-		} );
-		fireEvent.click(
-			await within( await findProviderRow( 'anthropic-provider' ) ).findByRole( 'button', {
-				name: 'Manage',
-			} )
-		);
-		await choose( 'Connect with', 'Claude subscription' );
-
-		expect( await screen.findByText( 'Install Claude Code.' ) ).toBeVisible();
 	} );
 
 	it( 'preserves a rejected key for retry and only switches providers after it is saved', async () => {

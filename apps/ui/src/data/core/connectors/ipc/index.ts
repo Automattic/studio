@@ -697,9 +697,6 @@ export function createIpcConnector(): Connector {
 		async startProviderConnect( provider ) {
 			return unwrapIpcError( ipcApi.startProviderConnect( provider ) );
 		},
-		async startCommandSignIn( provider, method ) {
-			return unwrapIpcError( ipcApi.startCommandSignIn( provider, method ) );
-		},
 		async setAiProvider( provider ): Promise< AiSettings > {
 			return unwrapIpcError( ipcApi.setAiProvider( provider ) );
 		},

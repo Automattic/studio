@@ -1,7 +1,5 @@
-import { confirm, input, password, select } from '@inquirer/prompts';
+import { password, select } from '@inquirer/prompts';
 import { connectProvider, readSelectedAiProvider } from '@studio/common/lib/ai-settings';
-import { findAgentAppCli } from '@studio/common/lib/connect-agent-app';
-import { startCommandSignIn } from '@studio/common/lib/connect-command';
 import { readFreshProviderConfig, readProviderConfig } from '@studio/common/lib/provider-config';
 import { InvalidCredentialError } from '@studio/providers';
 import { vi } from 'vitest';
@@ -16,14 +14,9 @@ import {
 import { LoggerError } from 'cli/logger';
 
 vi.mock( '@inquirer/prompts', () => ( {
-	confirm: vi.fn(),
-	input: vi.fn(),
 	password: vi.fn(),
 	select: vi.fn(),
 } ) );
-
-vi.mock( '@studio/common/lib/connect-agent-app', () => ( { findAgentAppCli: vi.fn() } ) );
-vi.mock( '@studio/common/lib/connect-command', () => ( { startCommandSignIn: vi.fn() } ) );
 
 vi.mock( '@studio/common/lib/ai-settings', () => ( {
 	connectProvider: vi.fn(),
@@ -112,11 +105,8 @@ describe( 'AI auth helpers', () => {
 	it( 'asks how to connect, then for the chosen method’s fields', async () => {
 		vi.mocked( select ).mockResolvedValue( 'setup-token' );
 		answerPrompt( 'sk-ant-oat01-token' );
-		const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
 
 		await prepareAiProvider( 'anthropic' );
-
-		expect( log ).toHaveBeenCalledWith( '   claude setup-token' );
 
 		expect( vi.mocked( select ).mock.calls[ 0 ][ 0 ].choices ).toEqual( [
 			{ value: 'api-key', name: 'API key' },
@@ -128,24 +118,6 @@ describe( 'AI auth helpers', () => {
 		expect( connectProvider ).toHaveBeenCalledWith( anthropicProvider, {
 			method: 'setup-token',
 			token: 'sk-ant-oat01-token',
-		} );
-	} );
-
-	it( 'signs in through Claude Code when it is installed and the user agrees', async () => {
-		vi.mocked( select ).mockResolvedValue( 'setup-token' );
-		vi.mocked( findAgentAppCli ).mockResolvedValue( '/bin/claude' );
-		vi.mocked( confirm ).mockResolvedValue( true );
-		vi.mocked( startCommandSignIn ).mockResolvedValue( { id: 'run-1', url: 'https://x.test' } );
-		vi.mocked( input ).mockResolvedValue( 'browser#code' );
-		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
-
-		await prepareAiProvider( 'anthropic' );
-
-		expect( password ).not.toHaveBeenCalled();
-		expect( connectProvider ).toHaveBeenCalledWith( anthropicProvider, {
-			method: 'setup-token',
-			session: 'run-1',
-			code: 'browser#code',
 		} );
 	} );
 

@@ -315,34 +315,6 @@
 	gap: var( --space-1 );
 }
 
-.connectSteps {
-	list-style: decimal;
-	display: flex;
-	flex-direction: column;
-	gap: var( --space-2 );
-	margin: 0;
-	padding-inline-start: var( --space-5 );
-	color: var( --muted-foreground );
-	font-size: var( --text-xs );
-	line-height: var( --text-xs--line-height );
-}
-
-.connectCommand {
-	display: flex;
-	align-items: center;
-	justify-content: space-between;
-	gap: var( --space-2 );
-	max-inline-size: 420px;
-	margin-block-start: var( --space-1_5 );
-	padding: var( --space-1 ) var( --space-1 ) var( --space-1 ) var( --space-2_5 );
-	border: 1px solid var( --border );
-	border-radius: var( --radius-lg );
-	background-color: var( --background );
-	color: var( --foreground );
-	font-family: var( --font-mono );
-	font-size: var( --text-xs );
-}
-
 .keyForm {
 	display: flex;
 	align-items: center;

@@ -1,6 +1,12 @@
 let report: ( ( error: unknown ) => void ) | undefined;
 
 /**
+ * Set by a host that reports how the CLI commands it starts fail (the Desktop app, as
+ * `CliCommandError`s), so the CLI doesn't report those failures a second time.
+ */
+export const HOST_REPORTS_CLI_ERRORS_ENV = 'STUDIO_HOST_REPORTS_CLI_ERRORS';
+
+/**
  * Each host passes its Sentry SDK's `captureException` once it has set Sentry up. Importing a
  * Sentry package here instead would only reach the host's client while both use the same version
  * of `@sentry/core`, which keeps its client in a global per version.

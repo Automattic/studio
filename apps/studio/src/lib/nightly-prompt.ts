@@ -1,9 +1,9 @@
 import { app, dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
 import { isAutomatticianAccount } from '@studio/common/lib/automattician';
+import { isDevRelease } from '@studio/common/lib/dev-release';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { __ } from '@wordpress/i18n';
-import { isDevRelease } from 'src/lib/version-utils';
 import { getExistingMainWindow } from 'src/main-window';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
 import { switchToNightlyAndUpdate } from 'src/updates';

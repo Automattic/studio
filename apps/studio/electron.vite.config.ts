@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { sentryVitePlugin } from '@sentry/vite-plugin';
 import { defineConfig } from 'electron-vite';
-import { getSentryReleaseInfo } from './src/lib/sentry-release';
+import { getSentryReleaseInfo } from '../../packages/common/lib/sentry-release';
 
 // Release builds upload the main process's source maps under the app's release, like the
 // renderer's (`apps/ui/vite.config.ts`), and don't ship them.

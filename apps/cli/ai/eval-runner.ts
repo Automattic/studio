@@ -470,6 +470,11 @@ async function runEval( input: EvalRunnerInput ) {
 					startedAt,
 					activeSite: seeded?.activeSite,
 					cwd: seeded?.activeSitePath ?? STUDIO_SITES_ROOT,
+					seededRemoteSites: Boolean(
+						input.seed?.connectedWpcomSites?.length ||
+							input.seed?.remoteSites?.length ||
+							input.seed?.activeSite?.connectedWpcomSites?.length
+					),
 				}
 			);
 		} finally {

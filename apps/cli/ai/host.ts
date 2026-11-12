@@ -1,5 +1,10 @@
 import path from 'path';
-import { nodeHostServices, type HostSite, type StudioAgentHost } from '@studio/agent/node';
+import {
+	nodeHostServices,
+	type HostRemoteSite,
+	type HostSite,
+	type StudioAgentHost,
+} from '@studio/agent/node';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
 import { sendStudioFeedback } from '@studio/common/lib/feedback';
@@ -44,6 +49,30 @@ import { parseSyncOptions } from 'cli/lib/sync-api';
 import { getTracksOrigin, recordTracksEvent } from 'cli/lib/tracks';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
+
+/**
+ * The remote sites a local site is connected to, on every provider. With `fillIn`, each is filled
+ * in from its provider's account when the account can be reached, which says whether it can
+ * still be synced; the stored connection otherwise.
+ */
+export async function connectedRemoteSites(
+	site: HostSite,
+	fillIn: boolean
+): Promise< HostRemoteSite[] > {
+	const connected = await Promise.all(
+		SITES_PROVIDER_IDS.map( async ( provider ) => {
+			const stored = await getRemoteSites( provider, site.id );
+			const account =
+				fillIn && stored.length
+					? await listAccountSites( getProvider( provider ) ).catch( () => undefined )
+					: undefined;
+			return (
+				account ? getSitesDescriptor( provider ).withDetails( stored, account ) : stored
+			).map( ( remote ) => ( { provider, site: remote } ) );
+		} )
+	);
+	return connected.flat();
+}
 
 function toHostSite( site: SiteData ): HostSite {
 	return {
@@ -177,22 +206,7 @@ export const cliAgentHost: StudioAgentHost = {
 			),
 	},
 	sync: {
-		// Filled in from the provider's account when it can be reached; the stored
-		// connection otherwise.
-		connectedSites: async ( site ) =>
-			(
-				await Promise.all(
-					SITES_PROVIDER_IDS.map( async ( provider ) => {
-						const stored = await getRemoteSites( provider, site.id );
-						const account = stored.length
-							? await listAccountSites( getProvider( provider ) ).catch( () => undefined )
-							: undefined;
-						return (
-							account ? getSitesDescriptor( provider ).withDetails( stored, account ) : stored
-						).map( ( remote ) => ( { provider, site: remote } ) );
-					} )
-				)
-			).flat(),
+		connectedSites: ( site ) => connectedRemoteSites( site, true ),
 		push: async ( site, options, remoteSite, onProgress ) =>
 			runPushCommand(
 				site.path,

@@ -50,6 +50,28 @@ steps:
       - github_commit_status:
           context: Lint
 
+  - label: "Lint (warm cache check)"
+    agents:
+      queue: default
+    depends_on: lint
+    env:
+      EXPECT_WARM_NPM_CACHE: "1"
+    command: |
+      export PATH="$$PATH:/a8c-ci-toolkit/bin"
+      bash .buildkite/commands/run-lint.sh
+    plugins:
+      - $CI_TOOLKIT_PLUGIN
+      - $DOCKER_PLUGIN:
+          image: "$NODE_DOCKER_IMAGE"
+          propagate-environment: true
+          propagate-aws-auth-tokens: true
+          environment:
+            - CACHE_BUCKET_NAME
+          mount-buildkite-agent: true
+          expand-volume-vars: true
+          volumes:
+            - "$$A8C_CI_TOOLKIT_PLUGIN_DIR:/a8c-ci-toolkit:ro"
+
   - label: ":fastlane: fastlane Helper Tests"
     agents:
       queue: default

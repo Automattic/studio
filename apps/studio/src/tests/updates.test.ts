@@ -369,6 +369,20 @@ describe( 'update status emissions', () => {
 		}
 	} );
 
+	it( 'leaves updates to the Microsoft Store in Store builds', () => {
+		Object.defineProperty( process, 'platform', { value: 'win32', configurable: true } );
+		Object.defineProperty( process, 'windowsStore', { value: true, configurable: true } );
+		try {
+			setupUpdates();
+
+			expect( autoUpdater.setFeedURL ).not.toHaveBeenCalled();
+			expect( autoUpdater.on ).not.toHaveBeenCalled();
+			expect( autoUpdater.checkForUpdates ).not.toHaveBeenCalled();
+		} finally {
+			Object.defineProperty( process, 'windowsStore', { value: undefined, configurable: true } );
+		}
+	} );
+
 	it( 'defers the first Windows update check after a Squirrel install', async () => {
 		vi.useFakeTimers();
 		const originalArgv = process.argv;

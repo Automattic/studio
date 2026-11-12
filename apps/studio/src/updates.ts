@@ -86,6 +86,13 @@ export function setupUpdates() {
 		return;
 	}
 
+	if ( process.windowsStore ) {
+		// The Microsoft Store updates MSIX installs, and the feed only serves Squirrel packages.
+		console.log( 'Skipping update server setup in the Microsoft Store build' );
+		updaterState = 'done';
+		return;
+	}
+
 	if ( process.platform === 'linux' ) {
 		// Electron's built-in autoUpdater is macOS/Windows only. On Linux we
 		// poll the same WPCOM endpoint ourselves and show a dialog pointing

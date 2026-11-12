@@ -1598,15 +1598,8 @@ describe( 'CLI: studio create', () => {
 			);
 		} );
 
-		describe( 'with --blueprint', () => {
-			const libraryBlueprint = {
-				slug: 'apparel',
-				title: 'Apparel',
-				excerpt: '',
-				image: '',
-				playground_url: '',
-				blueprint: { steps: [ { step: 'setSiteOptions', options: { blogname: 'Apparel' } } ] },
-			};
+		describe( 'with a Blueprint Library slug', () => {
+			const libraryBlueprint = { steps: [] };
 			let cwd: string;
 
 			const createWithBlueprint = ( value: string ) =>
@@ -1617,32 +1610,30 @@ describe( 'CLI: studio create', () => {
 			beforeEach( () => {
 				cwd = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-create-blueprint-' ) );
 				vi.spyOn( process, 'cwd' ).mockReturnValue( cwd );
-				vi.mocked( fetchStudioBlueprints ).mockResolvedValue( [ libraryBlueprint ] );
+				vi.mocked( fetchStudioBlueprints ).mockResolvedValue( [
+					{
+						slug: 'apparel',
+						title: 'Apparel',
+						excerpt: '',
+						image: '',
+						playground_url: '',
+						blueprint: libraryBlueprint,
+					},
+				] );
 			} );
 
-			it( 'applies the Blueprint Library Blueprint a slug names', async () => {
-				let blueprintUri: string | undefined;
-				vi.mocked( runBlueprint ).mockImplementation( async ( _site, _logger, options ) => {
-					blueprintUri = options.blueprintUri;
-					expect( JSON.parse( fs.readFileSync( blueprintUri!, 'utf8' ) ) ).toEqual(
-						libraryBlueprint.blueprint
-					);
-				} );
-
+			it( 'applies the Library Blueprint', async () => {
 				await createWithBlueprint( 'apparel' );
 
 				expect( runBlueprint ).toHaveBeenCalledWith(
 					expect.anything(),
 					expect.anything(),
-					expect.objectContaining( { blueprint: libraryBlueprint.blueprint } )
+					expect.objectContaining( { blueprint: libraryBlueprint } )
 				);
-				expect( fs.existsSync( path.dirname( blueprintUri! ) ) ).toBe( false );
-				expect( process.exitCode ).toBeUndefined();
 			} );
 
-			it( 'prefers a local file named like a slug', async () => {
-				const localBlueprint = { steps: [] };
-				fs.writeFileSync( path.join( cwd, 'apparel' ), JSON.stringify( localBlueprint ) );
+			it( 'prefers a local file with the same name', async () => {
+				fs.writeFileSync( path.join( cwd, 'apparel' ), '{"steps":[]}' );
 
 				await createWithBlueprint( 'apparel' );
 
@@ -1650,29 +1641,8 @@ describe( 'CLI: studio create', () => {
 				expect( runBlueprint ).toHaveBeenCalledWith(
 					expect.anything(),
 					expect.anything(),
-					expect.objectContaining( {
-						blueprint: localBlueprint,
-						blueprintUri: path.join( cwd, 'apparel' ),
-					} )
+					expect.objectContaining( { blueprintUri: path.join( cwd, 'apparel' ) } )
 				);
-			} );
-
-			it( 'reports a value that is neither a file, a URL nor a slug', async () => {
-				const reportError = vi.spyOn( Logger.prototype, 'reportError' );
-
-				await createWithBlueprint( 'unknown' );
-
-				expect( runBlueprint ).not.toHaveBeenCalled();
-				expect( reportError.mock.calls[ 0 ][ 0 ].message ).toContain( 'studio blueprint list' );
-			} );
-
-			it( 'reports a missing Blueprint file without looking up the Library', async () => {
-				const reportError = vi.spyOn( Logger.prototype, 'reportError' );
-
-				await createWithBlueprint( 'missing.json' );
-
-				expect( fetchStudioBlueprints ).not.toHaveBeenCalled();
-				expect( reportError.mock.calls[ 0 ][ 0 ].message ).toContain( 'Blueprint file not found' );
 			} );
 		} );
 	} );

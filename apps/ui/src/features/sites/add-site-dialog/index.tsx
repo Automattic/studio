@@ -1,6 +1,5 @@
 import { ACCEPTED_ADD_SITE_FILE_TYPES } from '@studio/common/constants';
 import { isSupportedBackupFilename } from '@studio/common/lib/backup-files';
-import { BLUEPRINT_USE_CASES } from '@studio/common/lib/blueprint-catalog';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { validateSelectedSitePath } from '@studio/common/lib/site-path-validation';
 import { useNavigate, useSearch } from '@tanstack/react-router';
@@ -49,6 +48,7 @@ import {
 	TabsTrigger,
 	VisuallyHidden,
 } from '@/lib/ui';
+import { BLUEPRINT_USE_CASES } from './blueprint-catalog';
 import { BlueprintDetails } from './blueprint-details';
 import { BlueprintGallery, getUseCaseLabel, getUseCases } from './blueprint-gallery';
 import { ConnectPanel } from './connect-panel';
@@ -57,15 +57,15 @@ import { CreatePanel } from './create-panel';
 import { ImportPanel } from './import-panel';
 import styles from './style.module.css';
 import { useSetupSource } from './use-setup-source';
+import type { BlueprintUseCase } from './blueprint-catalog';
 import type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
 import type { CreateSiteFormDraft } from '@/features/sites/create-site-form';
 import type { AddSiteSection } from '@/features/sites/use-open-add-site';
-import type { BlueprintUseCase } from '@studio/common/lib/blueprint-catalog';
-import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
+import type { LibraryBlueprint } from '@studio/blueprints';
 
 type View =
 	| { name: 'gallery'; useCase?: BlueprintUseCase }
-	| { name: 'details'; blueprint: Blueprint; useCase?: BlueprintUseCase }
+	| { name: 'details'; blueprint: LibraryBlueprint; useCase?: BlueprintUseCase }
 	| { name: 'setup'; from?: View }
 	| { name: 'connect' }
 	| { name: 'import' };
@@ -124,8 +124,7 @@ export function AddSiteDialog() {
 	const [ isBlueprintValid, setIsBlueprintValid ] = useState( true );
 	const [ lastViewed, setLastViewed ] = useState< string >();
 	const [ setupDraft, setSetupDraft ] = useState< CreateSiteFormDraft >();
-	const { source, setSource, adoptFolder, setBlueprintTransferred, folderResetKey, removeFolder } =
-		useSetupSource();
+	const { source, setSource, adoptFolder, folderResetKey, removeFolder } = useSetupSource();
 	const briefDraftKey = useId();
 	useEffect( () => {
 		if ( addSite ) return;
@@ -252,37 +251,15 @@ export function AddSiteDialog() {
 			const request = ++folderRequest.current;
 			const folder = await connector.selectSiteFolder( path, { allowSiteFiles: true, usePath } );
 			if ( ! folder ) return;
-			if ( request !== folderRequest.current ) {
-				if ( folder.blueprint?.tempDir )
-					await connector
-						.cleanupBlueprintTempDir( folder.blueprint.tempDir )
-						.catch( () => undefined );
-				return;
-			}
+			if ( request !== folderRequest.current ) return;
 			if ( folder.file ) {
 				selectBackup( folder.file );
 				return;
 			}
 			if ( folder.blueprint ) {
-				let blueprint: SelectedBlueprint;
-				try {
-					blueprint = await createSelectedBlueprint(
-						folder.blueprint.blueprintJson,
-						{ name: folder.name, size: 0 },
-						{ filePath: folder.blueprint.blueprintJsonPath, tempDir: folder.blueprint.tempDir }
-					);
-				} catch ( error ) {
-					if ( folder.blueprint.tempDir )
-						await connector
-							.cleanupBlueprintTempDir( folder.blueprint.tempDir )
-							.catch( () => undefined );
-					throw error;
-				}
-				if ( request !== folderRequest.current ) {
-					if ( blueprint.tempDir ) await connector.cleanupBlueprintTempDir( blueprint.tempDir );
-					return;
-				}
-				selectBlueprint( blueprint );
+				selectBlueprint(
+					createSelectedBlueprint( folder.blueprint, { name: folder.name, size: 0 }, folder.path )
+				);
 				return;
 			}
 			const matches = await Promise.all(
@@ -357,7 +334,6 @@ export function AddSiteDialog() {
 		onFolder: handleFolder,
 		folderResetKey,
 		removeFolder,
-		setBlueprintTransferred,
 		createdSite,
 		setCreatedSite,
 		briefDraftKey,

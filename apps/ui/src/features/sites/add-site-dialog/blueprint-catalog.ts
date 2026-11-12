@@ -1,4 +1,4 @@
-import type { Blueprint } from './studio-blueprints-api';
+import type { LibraryBlueprint } from '@studio/blueprints';
 
 export const BLUEPRINT_USE_CASES = [
 	'business',
@@ -22,8 +22,9 @@ const DEMO_URLS: Record< string, string > = {
 	'gaming-news-2': 'https://spieldemo.wordpress.com/',
 };
 
-function getBlueprintCategories( blueprint: Pick< Blueprint, 'blueprint' > ): string[] {
-	const meta = blueprint.blueprint.meta as { categories?: unknown } | null | undefined;
+// Takes any Blueprint-shaped `meta`, since the Library only loosely checks it.
+function getBlueprintCategories( { blueprint }: { blueprint: object } ): string[] {
+	const meta = ( blueprint as { meta?: { categories?: unknown } | null } ).meta;
 	if ( ! Array.isArray( meta?.categories ) ) {
 		return [];
 	}
@@ -33,9 +34,7 @@ function getBlueprintCategories( blueprint: Pick< Blueprint, 'blueprint' > ): st
 // Use cases come from the categories each Blueprint has in the registry
 // (`meta.categories`). Matching ignores case and accepts the singular, so the
 // registry's "Event" category maps to `events`.
-export function getBlueprintUseCases(
-	blueprint: Pick< Blueprint, 'blueprint' >
-): BlueprintUseCase[] {
+export function getBlueprintUseCases( blueprint: { blueprint: object } ): BlueprintUseCase[] {
 	const categories = new Set(
 		getBlueprintCategories( blueprint ).map( ( category ) => category.trim().toLowerCase() )
 	);
@@ -45,7 +44,7 @@ export function getBlueprintUseCases(
 }
 
 export function getBlueprintPreviewUrl(
-	blueprint: Pick< Blueprint, 'slug' | 'playground_url' >
+	blueprint: Pick< LibraryBlueprint, 'slug' | 'playgroundUrl' >
 ): string {
-	return DEMO_URLS[ blueprint.slug ] ?? blueprint.playground_url;
+	return DEMO_URLS[ blueprint.slug ] ?? blueprint.playgroundUrl;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getBlueprintUseCases } from '../blueprint-catalog';
+import { getBlueprintUseCases } from './blueprint-catalog';
 
 function withCategories( categories: unknown ) {
 	return { blueprint: { meta: { categories } } };

@@ -17,5 +17,6 @@ export const PUSH_PHASES = [
 	'creatingRemoteBackup',
 	'applyingChanges',
 	'finishing',
+	'launching',
 ] as const;
 export type PushPhase = ( typeof PUSH_PHASES )[ number ];

@@ -33,6 +33,11 @@ function InfoRow( { title, children }: { title: string; children: ReactNode } ) 
 	);
 }
 
+// A WordPress.com site still waiting for its launch hasn't been published yet.
+function lastPublished( website: Website ) {
+	return 'launchAfterPush' in website && website.launchAfterPush ? null : website.lastPushTimestamp;
+}
+
 export function ConnectedWebsite( {
 	provider,
 	website,
@@ -96,7 +101,7 @@ export function ConnectedWebsite( {
 									className={ styles.destinationOptionCard }
 									title={ sites.address( remote ) }
 									thumbnailUrl={ getWebsiteThumbnailUrl( remote.url ) }
-									updatedAt={ remote.lastPushTimestamp }
+									updatedAt={ lastPublished( remote ) }
 									description={ sites.details( remote )[ 0 ]?.value }
 									active={ open }
 								/>
@@ -111,7 +116,7 @@ export function ConnectedWebsite( {
 				<SiteCard
 					thumbnailUrl={ getWebsiteThumbnailUrl( website.url ) }
 					title={ sites.address( website ) }
-					updatedAt={ website.lastPushTimestamp }
+					updatedAt={ lastPublished( website ) }
 					active={ open }
 					description={ __( 'Not published yet' ) }
 					actions={

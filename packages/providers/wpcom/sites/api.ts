@@ -131,6 +131,13 @@ export async function initiateImport(
 	} );
 }
 
+export async function launchSite( token: string, remoteSiteId: number ): Promise< void > {
+	await wpcomClient( token ).req.post( {
+		path: `/sites/${ remoteSiteId }/launch`,
+		apiVersion: '1.1',
+	} );
+}
+
 export async function pollImportStatus(
 	token: string,
 	remoteSiteId: number

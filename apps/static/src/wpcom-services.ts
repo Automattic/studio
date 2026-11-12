@@ -350,15 +350,20 @@ export class WpcomServices {
 		siteId: string,
 		remoteSiteId: number,
 		direction: 'push' | 'pull',
-		run: ( signal: AbortSignal ) => Promise< void >
+		run: ( signal: AbortSignal ) => Promise< void | string >
 	) {
 		const controller = new AbortController();
 		const { signal } = controller;
 		this.cancellations.set( `${ siteId }:${ remoteSiteId }`, controller );
 		try {
-			await run( signal );
+			const launchError = await run( signal );
 			await this.recordSync( siteId, remoteSiteId, direction );
-			this.emitSyncActivity( siteId, { kind: 'success', direction } );
+			this.emitSyncActivity(
+				siteId,
+				launchError
+					? { kind: 'error', direction, message: launchError }
+					: { kind: 'success', direction }
+			);
 		} catch ( error ) {
 			if ( signal.aborted ) {
 				this.emitSyncActivity( siteId, { kind: 'cancelled', direction } );
@@ -381,7 +386,7 @@ export class WpcomServices {
 		const contentOptions = [ 'uploads', 'plugins', 'themes', 'contents' ] as const;
 		await this.runSync( siteId, remoteSiteId, 'push', async ( signal ) => {
 			const progress = (
-				phase: 'creatingBackup' | 'uploading' | 'applyingChanges',
+				phase: 'creatingBackup' | 'uploading' | 'applyingChanges' | 'launching',
 				value: number,
 				message: string
 			) =>
@@ -404,7 +409,7 @@ export class WpcomServices {
 			const remoteSite = ( await this.connections() ).find(
 				( site ) => site.localSiteId === siteId && site.id === remoteSiteId
 			);
-			await wpcomSites.push(
+			const result = await wpcomSites.push(
 				{ token: await this.auth.requireToken() },
 				{ id: remoteSiteId, name: remoteSite?.name ?? String( remoteSiteId ) },
 				{
@@ -413,18 +418,34 @@ export class WpcomServices {
 					name: `push-${ siteId }-${ Date.now() }.tar.gz`,
 					size: archive.byteLength,
 				},
-				{ optionsToSync, specificSelectionPaths: options?.specificSelectionPaths },
+				{
+					optionsToSync,
+					specificSelectionPaths: options?.specificSelectionPaths,
+					launchAfterPush: remoteSite?.launchAfterPush,
+				},
 				( { phase, progress: percent = 0 } ) => {
 					if ( phase === 'uploading' ) {
 						progress( 'uploading', 20 + percent * 0.2, __( 'Uploading…' ) );
 					} else if ( phase === 'creatingRemoteBackup' ) {
 						progress( 'applyingChanges', 40 + percent * 0.2, __( 'Backing up the live site…' ) );
+					} else if ( phase === 'launching' ) {
+						progress( 'launching', 99, __( 'Launching site…' ) );
 					} else {
 						progress( 'applyingChanges', 60 + percent * 0.39, __( 'Applying changes…' ) );
 					}
 				},
 				signal
 			);
+			if ( remoteSite?.launchAfterPush && ! result?.launchError ) {
+				await this.updateConnections( ( connections ) =>
+					connections.map( ( connection ) =>
+						connection.localSiteId === siteId && connection.id === remoteSiteId
+							? { ...connection, launchAfterPush: false }
+							: connection
+					)
+				);
+			}
+			return result?.launchError;
 		} );
 	}
 

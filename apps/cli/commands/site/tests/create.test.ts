@@ -18,6 +18,7 @@ import {
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 	type SiteFileAccess,
 } from '@studio/common/lib/site-file-access';
+import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { type SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { Blueprint } from '@wp-playground/blueprints';
@@ -66,6 +67,7 @@ vi.mock( '@studio/common/lib/passwords', async ( importActual ) => ( {
 	createPassword: vi.fn().mockReturnValue( 'generated-password-123' ),
 } ) );
 vi.mock( '@studio/common/lib/blueprint-validation' );
+vi.mock( '@studio/common/lib/studio-blueprints-api' );
 vi.mock( 'cli/lib/cli-config/core', async () => {
 	const actual = await vi.importActual( 'cli/lib/cli-config/core' );
 	return {
@@ -1594,6 +1596,54 @@ describe( 'CLI: studio create', () => {
 					blueprint: expect.any( Object ),
 				} )
 			);
+		} );
+
+		describe( 'with a Blueprint Library slug', () => {
+			const libraryBlueprint = { steps: [] };
+			let cwd: string;
+
+			const createWithBlueprint = ( value: string ) =>
+				registerCommand( yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } ) )
+					.exitProcess( false )
+					.parseAsync( [ 'create', '--blueprint', value, '--no-start', '--skip-browser' ] );
+
+			beforeEach( () => {
+				cwd = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-create-blueprint-' ) );
+				vi.spyOn( process, 'cwd' ).mockReturnValue( cwd );
+				vi.mocked( fetchStudioBlueprints ).mockResolvedValue( [
+					{
+						slug: 'apparel',
+						title: 'Apparel',
+						excerpt: '',
+						image: '',
+						playground_url: '',
+						blueprint: libraryBlueprint,
+					},
+				] );
+			} );
+
+			it( 'applies the Library Blueprint', async () => {
+				await createWithBlueprint( 'apparel' );
+
+				expect( runBlueprint ).toHaveBeenCalledWith(
+					expect.anything(),
+					expect.anything(),
+					expect.objectContaining( { blueprint: libraryBlueprint } )
+				);
+			} );
+
+			it( 'prefers a local file with the same name', async () => {
+				fs.writeFileSync( path.join( cwd, 'apparel' ), '{"steps":[]}' );
+
+				await createWithBlueprint( 'apparel' );
+
+				expect( fetchStudioBlueprints ).not.toHaveBeenCalled();
+				expect( runBlueprint ).toHaveBeenCalledWith(
+					expect.anything(),
+					expect.anything(),
+					expect.objectContaining( { blueprintUri: path.join( cwd, 'apparel' ) } )
+				);
+			} );
 		} );
 	} );
 

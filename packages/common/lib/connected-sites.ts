@@ -67,6 +67,7 @@ function upsertConnection( connections: SyncSite[], localSiteId: string, site: S
 		Object.assign( existing, incoming, {
 			lastPullTimestamp: incoming.lastPullTimestamp ?? existing.lastPullTimestamp,
 			lastPushTimestamp: incoming.lastPushTimestamp ?? existing.lastPushTimestamp,
+			launchAfterPush: incoming.launchAfterPush ?? existing.launchAfterPush,
 		} );
 		return;
 	}

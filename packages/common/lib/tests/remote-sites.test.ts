@@ -44,6 +44,14 @@ afterEach( () => {
 	rmSync( configDir, { recursive: true, force: true } );
 } );
 
+it( 'keeps publish intent across refreshes and failed launches until explicitly cleared', async () => {
+	await rememberRemoteSite( 'wpcom', 'local-a', { ...listedSite, launchAfterPush: true } );
+	await rememberRemoteSite( 'wpcom', 'local-a', listedSite, 'push' );
+	expect( ( await getRemoteSites( 'wpcom', 'local-a' ) )[ 0 ].launchAfterPush ).toBe( true );
+	await rememberRemoteSite( 'wpcom', 'local-a', { ...listedSite, launchAfterPush: false }, 'push' );
+	expect( ( await getRemoteSites( 'wpcom', 'local-a' ) )[ 0 ].launchAfterPush ).toBe( false );
+} );
+
 it( 'records each sync and keeps the times of the others', async () => {
 	await rememberRemoteSite( 'wpcom', 'local-a', listedSite, 'pull' );
 	await rememberRemoteSite( 'wpcom', 'local-a', { ...listedSite, name: 'Renamed' }, 'push' );

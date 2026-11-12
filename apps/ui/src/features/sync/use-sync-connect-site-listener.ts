@@ -87,6 +87,7 @@ export function useSyncConnectSiteListener(): void {
 				...remote,
 				localSiteId: studioSiteId,
 				syncSupport: 'already-connected',
+				...( event.autoOpenPush ? { launchAfterPush: true } : {} ),
 			};
 			await connector.connectRemoteSite( 'wpcom', studioSiteId, siteToSave );
 			connected = true;

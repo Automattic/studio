@@ -30,6 +30,7 @@ export const syncSiteSchema = z.object( {
 	planName: z.string().optional(),
 	pushNeedsUpgrade: z.boolean().optional(),
 	createdAt: z.string().optional(),
+	launchAfterPush: z.boolean().optional(),
 } );
 
 export type SyncSite = z.infer< typeof syncSiteSchema >;
@@ -50,6 +51,7 @@ export type SyncOption = z.infer< typeof syncOptionSchema >;
 export type PushSyncOptions = {
 	optionsToSync?: SyncOption[];
 	specificSelectionPaths?: string[];
+	launchAfterPush?: boolean;
 };
 /**
  * What a pull includes. By default, all files and the database. A pick of files is sent both as
@@ -89,6 +91,7 @@ export function withWpcomDetails< Connection extends SyncSite >(
 			syncSupport,
 			lastPullTimestamp,
 			lastPushTimestamp,
+			launchAfterPush: connection.launchAfterPush,
 		};
 	} );
 }

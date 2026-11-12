@@ -1,6 +1,7 @@
 import { once } from 'events';
 import fs from 'fs';
 import * as configFile from '@studio/common/lib/cli-config-file';
+import { getRemoteSites, rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { RemoteSiteError, type PushContent, type PushStatus } from '@studio/providers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -40,15 +41,18 @@ vi.mock( 'cli/lib/tracks' );
 const site = { id: 'site-1', path: '/test/site', phpVersion: '8.3' } as SiteData;
 const remoteSite = { id: 42, name: 'Live', syncSupport: 'syncable' } as SyncSite;
 
+const readArchive = ( content: PushContent ) =>
+	once(
+		( ( content as Extract< PushContent, { kind: 'archive' } > ).file as Readable ).resume(),
+		'close'
+	);
+
 // Reads the archive to the end, as the real upload does before the push removes it, reports
 // `statuses`, then ends with `outcome`.
 function pushes( statuses: PushStatus[], outcome?: Error ) {
 	vi.mocked( wpcomSites.push ).mockImplementation(
 		async ( _config, _site, content: PushContent, _options, onStatus ) => {
-			await once(
-				( ( content as Extract< PushContent, { kind: 'archive' } > ).file as Readable ).resume(),
-				'close'
-			);
+			await readArchive( content );
 			statuses.forEach( onStatus );
 			if ( outcome ) {
 				throw outcome;
@@ -77,6 +81,7 @@ describe( 'CLI: studio push', () => {
 		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( site );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ remoteSite ] );
+		vi.mocked( getRemoteSites ).mockResolvedValue( [] );
 		pushes( [] );
 		vi.mocked( getExporter ).mockImplementation( async ( { backupFile } ) => {
 			return {
@@ -85,6 +90,35 @@ describe( 'CLI: studio push', () => {
 			} as never;
 		} );
 	} );
+
+	it.each( [ false, true ] )(
+		'records the successful push and retains intent only on launch failure: %s',
+		async ( failed ) => {
+			vi.mocked( getRemoteSites ).mockResolvedValue( [ { ...remoteSite, launchAfterPush: true } ] );
+			vi.mocked( wpcomSites.push ).mockImplementation(
+				async ( _config, _site, content, options, onStatus ) => {
+					await readArchive( content );
+					expect( options.launchAfterPush ).toBe( true );
+					onStatus( { phase: 'launching' } );
+					return failed ? { launchError: 'Changes pushed, but launch failed' } : undefined;
+				}
+			);
+			await expect(
+				runCommand( site.path, [ 'all' ], String( remoteSite.id ) )
+			).resolves.toBeDefined();
+			expect( rememberRemoteSite ).toHaveBeenCalledWith(
+				'wpcom',
+				site.id,
+				expect.objectContaining( { launchAfterPush: failed } ),
+				'push'
+			);
+			expect( reported().at( -1 ) ).toMatchObject( { kind: failed ? 'error' : 'success' } );
+			expect( recordTracksEvent ).toHaveBeenCalledWith(
+				TRACKS_EVENTS.SYNC_PUSH,
+				expect.objectContaining( { success: true } )
+			);
+		}
+	);
 
 	// The phase gates cancelling a push, so every UI must see it move on.
 	it( 'reports each phase, then the result', async () => {

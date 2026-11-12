@@ -7,7 +7,7 @@ index.ts      the browser-safe entry
 library.ts    fetchLibraryBlueprints, LibraryBlueprint
 validate.ts   validateBlueprint, Blueprint
 details.ts    inspectBlueprint, customizeBlueprint, BlueprintDetails
-node.ts       openBlueprint, openBlueprintFile, the Node entry
+node.ts       openBlueprint, the Node entry
 ```
 
 ## Two entries
@@ -17,7 +17,7 @@ node.ts       openBlueprint, openBlueprintFile, the Node entry
 
 ```ts
 import { fetchLibraryBlueprints, inspectBlueprint, validateBlueprint } from '@studio/blueprints';
-import { openBlueprint, openBlueprintFile } from '@studio/blueprints/node';
+import { openBlueprint } from '@studio/blueprints/node';
 ```
 
 ## The Library
@@ -46,8 +46,6 @@ A `LibraryBlueprint` opens the same way as its slug. Open it with `await using`:
 await using opened = await openBlueprint( 'apparel', { locale } );
 await runBlueprint( site, { blueprint: opened.blueprint, blueprintUri: opened.path } );
 ```
-
-`openBlueprintFile( path )` opens only a local `.json` file, folder or zip bundle, and never reaches the network. Use it for paths a user picked or uploaded, which a server must not turn into requests.
 
 To show a Blueprint before creating a site from it, open it, read `opened.blueprint` and let it close; creating the site opens the source again.
 

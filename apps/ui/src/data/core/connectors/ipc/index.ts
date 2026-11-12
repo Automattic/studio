@@ -300,9 +300,9 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.readLocalMediaFile( path ) ) as LocalMediaFile;
 		},
 
-		async readBlueprint( file ) {
+		async readBlueprint( source ) {
 			return unwrapIpcError(
-				ipcApi.readBlueprint( getBlueprintFilePath( file ) )
+				ipcApi.readBlueprint( source instanceof File ? getBlueprintFilePath( source ) : source )
 			) as Promise< Blueprint >;
 		},
 

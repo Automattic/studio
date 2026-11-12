@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { openBlueprintFile } from '@studio/blueprints/node';
+import { openBlueprint } from '@studio/blueprints/node';
 import { __ } from '@wordpress/i18n';
 import type { Blueprint } from '@studio/blueprints';
 
@@ -20,6 +20,6 @@ export async function readBlueprintSource( sourcePath: string ): Promise< Bluepr
 			__( 'Choose a WordPress site folder, a Blueprint JSON file or a ZIP bundle.' )
 		);
 	}
-	await using opened = await openBlueprintFile( sourcePath );
+	await using opened = await openBlueprint( sourcePath );
 	return opened.blueprint;
 }

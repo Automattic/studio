@@ -36,7 +36,7 @@ export async function openBlueprint(
 
 	const filePath = path.resolve( source );
 	if ( fs.existsSync( filePath ) ) {
-		return openBlueprintFile( filePath );
+		return openPath( filePath );
 	}
 	if ( ! SLUG_PATTERN.test( source ) ) {
 		throw new Error( sprintf( __( 'Blueprint file not found: %s' ), filePath ) );
@@ -81,11 +81,7 @@ async function openUrl( url: string ): Promise< OpenedBlueprint > {
 	} );
 }
 
-/**
- * Opens a Blueprint from a local .json file, a folder holding a blueprint.json, or a .zip bundle,
- * without reaching the network. Use it for paths a user picked or uploaded.
- */
-export async function openBlueprintFile( filePath: string ): Promise< OpenedBlueprint > {
+async function openPath( filePath: string ): Promise< OpenedBlueprint > {
 	if ( ( await fs.promises.stat( filePath ) ).isDirectory() ) {
 		return openFile( path.join( filePath, 'blueprint.json' ) );
 	}

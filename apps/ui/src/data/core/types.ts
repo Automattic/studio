@@ -274,9 +274,9 @@ export interface Connector {
 	getFilePath( file: File ): Promise< string >;
 	readLocalMediaFile( path: string ): Promise< LocalMediaFile >;
 
-	// Reads a picked Blueprint zip for the add-site preview, without keeping anything:
-	// `createSite` opens the same file again.
-	readBlueprint( file: File ): Promise< Blueprint >;
+	// Reads a picked Blueprint file (JSON or zip bundle) or path for the add-site preview,
+	// without keeping anything: `createSite` opens the same source again.
+	readBlueprint( source: File | string ): Promise< Blueprint >;
 
 	// Imports a backup into an already-created site and starts the usable site.
 	// `backupPath` comes from `getFilePath` for the currently selected file.

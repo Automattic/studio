@@ -503,10 +503,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				data: await response.arrayBuffer(),
 			};
 		},
-		async readBlueprint( file ) {
+		async readBlueprint( source ) {
+			if ( ! ( source instanceof File ) ) {
+				throw new UnsupportedError( 'readBlueprint' );
+			}
 			return api< Blueprint >( '/blueprints/read', {
 				method: 'POST',
-				body: JSON.stringify( { path: await uploadFile( file ) } ),
+				body: JSON.stringify( { path: await uploadFile( source ) } ),
 			} );
 		},
 		async importSiteFromBackup( siteId, backupPath, options ): Promise< void > {

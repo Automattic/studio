@@ -25,6 +25,17 @@ import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
 // an element whose "color" is a string rather than { "text": … }; the schema
 // sanitize builds, which it hands to remove_keys_not_in_schema for "styles"
 // and "settings", says which key under it is the one with no place.
+// The kinds of preset a style names, by the settings that define them and the
+// field each preset's value is in.
+const PRESET_KINDS_PHP = `array(
+		'color'       => array( 'color', 'palette', 'color' ),
+		'gradient'    => array( 'color', 'gradients', 'gradient' ),
+		'font-size'   => array( 'typography', 'fontSizes', 'size' ),
+		'font-family' => array( 'typography', 'fontFamilies', 'fontFamily' ),
+		'spacing'     => array( 'spacing', 'spacingSizes', 'size' ),
+		'shadow'      => array( 'shadow', 'presets', 'shadow' ),
+	)`;
+
 const READ = ( file: string ) => `
 $decoded = wp_json_file_decode( ${ JSON.stringify( file ) }, array( 'associative' => true ) );
 $dropped = array();
@@ -133,7 +144,26 @@ if ( is_array( $decoded ) && null === $fails && 0 === strpos( wp_normalize_path(
 		);
 	}
 }
-echo 'THEME_JSON_READ=' . wp_json_encode( array( 'decoded' => is_array( $decoded ), 'error' => json_last_error_msg(), 'version' => isset( $decoded['version'] ), 'latest' => WP_Theme_JSON::LATEST_SCHEMA, 'dropped' => $dropped, 'fails' => $fails, 'listed' => $listed ) );`;
+// The presets the site resolves, by kind, slug and value, as its own or
+// active parent's theme.json is read: WordPress prints a CSS variable for
+// each (WP_Theme_JSON::compute_preset_vars()), named by the kebab-case slug.
+$presets = null;
+if ( is_array( $decoded ) && null === $fails && in_array( wp_normalize_path( ${ JSON.stringify(
+	file
+) } ), array( wp_normalize_path( get_stylesheet_directory() . '/theme.json' ), wp_normalize_path( get_template_directory() . '/theme.json' ) ), true ) ) {
+	$presets = array();
+	foreach ( ${ PRESET_KINDS_PHP } as $kind => list( $group, $key, $field ) ) {
+		$presets[ $kind ] = array();
+		foreach ( (array) wp_get_global_settings( array( $group, $key ) ) as $origin ) {
+			foreach ( (array) $origin as $preset ) {
+				if ( isset( $preset['slug'] ) ) {
+					$presets[ $kind ][ _wp_to_kebab_case( $preset['slug'] ) ] = is_string( $preset[ $field ] ?? null ) ? $preset[ $field ] : '';
+				}
+			}
+		}
+	}
+}
+echo 'THEME_JSON_READ=' . wp_json_encode( array( 'decoded' => is_array( $decoded ), 'error' => json_last_error_msg(), 'version' => isset( $decoded['version'] ), 'latest' => WP_Theme_JSON::LATEST_SCHEMA, 'dropped' => $dropped, 'fails' => $fails, 'listed' => $listed, 'presets' => $presets ) );`;
 
 interface Read {
 	decoded: boolean;
@@ -148,6 +178,69 @@ interface Read {
 		palette: string[];
 		colors: Record< string, string >;
 	} | null;
+	presets: Record< string, Record< string, string > > | null;
+}
+
+// A preset a style names, as theme.json writes it (WP_Theme_JSON::convert_custom_properties()) or as CSS.
+const PRESET_REFERENCE =
+	/var:preset\|([a-z-]+)\|([^|"]+)|var\(\s*--wp--preset--(color|gradient|font-size|font-family|spacing|shadow)--([a-z0-9-]+)\s*\)/g;
+
+/**
+ * The styles of the theme.json just written that name a preset the site does
+ * not have. WordPress prints the reference as the preset's CSS variable
+ * (WP_Theme_JSON::get_property_value()) and defines a variable only for the
+ * presets it resolves (compute_preset_vars()), so the browser drops the
+ * declaration: a background shows none, a text color is inherited. In eval38
+ * taqueria port 1 the buttons' "chile" was a color the palette did not have,
+ * and their text sat on the cream page at 1.1:1.
+ */
+function unknownPresetsNote( read: Read, relativePath: string, text: string ): string | undefined {
+	const { presets } = read;
+	let styles: unknown;
+	try {
+		styles = ( JSON.parse( text ) as { styles?: unknown } ).styles;
+	} catch {
+		return undefined;
+	}
+	if ( ! presets || ! styles ) {
+		return undefined;
+	}
+	const named: string[] = [];
+	const kinds = new Set< string >();
+	const walk = ( value: unknown, at: string ) => {
+		if ( typeof value === 'string' ) {
+			for ( const [ , kind = '', slug = '', cssKind, cssSlug ] of value.matchAll(
+				PRESET_REFERENCE
+			) ) {
+				const [ k, s ] = cssKind ? [ cssKind, cssSlug ] : [ kind, slug ];
+				if ( presets[ k ] && ! ( s in presets[ k ] ) ) {
+					named.push( `${ at } ${ k } ${ s }` );
+					kinds.add( k );
+				}
+			}
+		} else if ( value && typeof value === 'object' ) {
+			for ( const [ key, child ] of Object.entries( value ) ) {
+				walk( child, `${ at }.${ key }` );
+			}
+		}
+	};
+	walk( styles, 'styles' );
+	if ( ! named.length ) {
+		return undefined;
+	}
+	return [
+		`${ relativePath } names presets the site does not have, so WordPress prints a CSS variable no rule defines and the browser drops the declaration: a background shows none, a text color is inherited (get_property_value() and compute_preset_vars() in wp-includes/class-wp-theme-json.php): ${ boundedText(
+			named,
+			SHOWN
+		) }.`,
+		...[ ...kinds ].map(
+			( kind ) =>
+				`The site's ${ kind } presets (wp_get_global_settings()): ${ boundedText(
+					Object.entries( presets[ kind ] ).map( ( [ slug, value ] ) => `${ slug } ${ value }` ),
+					SHOWN * 2
+				) }.`
+		),
+	].join( '\n' );
 }
 
 const SHOWN = 12;
@@ -172,9 +265,12 @@ export async function themeJsonFileRead(
 		? `WordPress fails reading ${ relativePath } as new WP_Theme_JSON( $decoded ) (WP_Theme_JSON_Resolver in wp-includes/class-wp-theme-json-resolver.php): ${ read.fails }. Each page the theme renders fails the same way while it is active. A value of the wrong form does this: the schema gives each setting and style its form (https://schemas.wp.org/trunk/theme.json), as Twenty Twenty-Five's theme.json writes them.`
 		: dropNote( read, relativePath );
 	const listed = read.decoded ? listedNote( read ) : undefined;
+	const unknown = read.decoded
+		? unknownPresetsNote( read, relativePath, readText( file ) ?? '' )
+		: undefined;
 	return {
 		problem,
-		notes: [ problem, listed ].filter( ( note ): note is string => !! note ),
+		notes: [ problem, listed, unknown ].filter( ( note ): note is string => !! note ),
 	};
 }
 

@@ -67,6 +67,45 @@ describe.runIf( WORDPRESS )( 'what WordPress makes of a theme.json just written'
 		).toBeUndefined();
 	}, 60000 );
 
+	// eval38 taqueria port 1: the buttons' "chile" was no color of the palette,
+	// so their background was none and their text sat on the cream page.
+	it( 'names the presets its styles name that the site does not have, and nothing once it has them', async () => {
+		const dir = path.dirname( file );
+		writeFileSync( path.join( dir, 'style.css' ), '/*\nTheme Name: Gym\n*/\n' );
+		mkdirSync( path.join( dir, 'templates' ), { recursive: true } );
+		writeFileSync( path.join( dir, 'templates/index.html' ), '' );
+		await host.sites.wpCli( site, [ 'theme', 'activate', 'gym' ] );
+		const notes = async ( palette: string[] ) => {
+			writeFileSync(
+				file,
+				JSON.stringify( {
+					version: 3,
+					settings: {
+						color: {
+							palette: palette.map( ( slug ) => ( { slug, color: '#c0392b', name: slug } ) ),
+						},
+					},
+					styles: {
+						color: { text: 'var:preset|color|black' },
+						elements: {
+							button: { color: { background: 'var:preset|color|chile', text: '#fffdf7' } },
+							link: { color: { text: 'var(--wp--preset--color--chile)' } },
+						},
+						spacing: { blockGap: 'var:preset|spacing|50' },
+					},
+				} )
+			);
+			return ( await themeJsonFileRead( host, site, file, 'theme.json' ) ).notes;
+		};
+		// black is core's, and 50 core's spacing size.
+		expect( await notes( [ 'accent' ] ) ).toEqual( [
+			expect.stringMatching(
+				/^theme\.json names presets the site does not have, .*: styles\.elements\.button\.color\.background color chile, styles\.elements\.link\.color\.text color chile\.\nThe site's color presets \(wp_get_global_settings\(\)\): .*accent #c0392b/
+			),
+		] );
+		expect( await notes( [ 'accent', 'chile' ] ) ).toEqual( [] );
+	}, 60000 );
+
 	// port eval30 onepage: the note named the elements, which the schema has, for the keys
 	// under them it has no place for, and the model left them as harmless no-ops.
 	it( 'names the keys WordPress removes, not the elements they are under', async () => {

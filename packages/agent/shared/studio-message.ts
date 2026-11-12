@@ -15,7 +15,14 @@ export function studioMessage(
 /** A block validation summary of a checked file or post, as Studio states it. */
 export const validationSummary = ( line: string ) => `Block validation: ${ line }`;
 
-/** A block validation report: a summary line per checked file or post, then its problems. */
+// A summary that says only that every block of its file is valid.
+const ALL_VALID = /^([^\n]+): (\d+)\/\2 blocks valid$/;
+
+/**
+ * A block validation report: a summary line per checked file or post, then
+ * its problems. The files whose every block is valid share one line, as a
+ * call that writes a theme checks each of its templates and parts.
+ */
 export function validationLines( {
 	summaries,
 	problems,
@@ -23,5 +30,19 @@ export function validationLines( {
 	summaries: string[];
 	problems: string[];
 } ): string[] {
-	return [ ...summaries.map( validationSummary ), ...problems ];
+	const valid = summaries.flatMap( ( summary ) => {
+		const [ , file, blocks ] = ALL_VALID.exec( summary ) ?? [];
+		return file ? [ `${ file } ${ blocks }/${ blocks }` ] : [];
+	} );
+	return [
+		...( valid.length > 1
+			? [
+					validationSummary( `every block valid in ${ valid.join( ', ' ) }` ),
+					...summaries
+						.filter( ( summary ) => ! ALL_VALID.test( summary ) )
+						.map( validationSummary ),
+			  ]
+			: summaries.map( validationSummary ) ),
+		...problems,
+	];
 }

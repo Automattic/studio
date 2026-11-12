@@ -33,6 +33,15 @@ foreach ( $styles->to_do as $handle ) {
 }
 echo wp_json_encode( array( get_stylesheet(), get_template(), $queued ) );`;
 
+// A page as the active theme's page template renders it, and the global settings and styles it uses.
+const RENDER_PAGE = `$page = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Menu', 'post_content' => '<!-- wp:paragraph --><p>Sourdough</p><!-- /wp:paragraph -->' ) );
+$GLOBALS['wp_query'] = new WP_Query( array( 'page_id' => $page ) );
+$GLOBALS['wp_the_query'] = $GLOBALS['wp_query'];
+$template = get_block_template( get_stylesheet() . '//page' );
+$GLOBALS['_wp_current_template_id'] = $template->id;
+$GLOBALS['_wp_current_template_content'] = $template->content;
+echo wp_json_encode( array( wp_is_block_theme(), get_the_block_template_html(), wp_get_global_settings( array( 'useRootPaddingAwareAlignments' ) ), wp_get_global_stylesheet( array( 'styles' ) ) ) );`;
+
 describe.runIf( WORDPRESS )( 'scaffold_theme', () => {
 	let site: HostSite;
 	let host: StudioAgentHost;
@@ -83,18 +92,12 @@ describe.runIf( WORDPRESS )( 'scaffold_theme', () => {
 			const markup = readFileSync( path.join( themes, 'corner-bakehouse', file ), 'utf8' );
 			expect( freeTrappedBlocks( markup, () => true ).freed ).toEqual( [] );
 		}
-		const rendered = JSON.parse(
-			await runWpCli( host, site, [
-				'eval',
-				`$page = wp_insert_post( array( 'post_type' => 'page', 'post_status' => 'publish', 'post_title' => 'Menu', 'post_content' => '<!-- wp:paragraph --><p>Sourdough</p><!-- /wp:paragraph -->' ) );
-$GLOBALS['wp_query'] = new WP_Query( array( 'page_id' => $page ) );
-$GLOBALS['wp_the_query'] = $GLOBALS['wp_query'];
-$template = get_block_template( get_stylesheet() . '//page' );
-$GLOBALS['_wp_current_template_id'] = $template->id;
-$GLOBALS['_wp_current_template_content'] = $template->content;
-echo wp_json_encode( array( wp_is_block_theme(), get_the_block_template_html(), wp_get_global_settings( array( 'useRootPaddingAwareAlignments' ) ), wp_get_global_stylesheet( array( 'styles' ) ) ) );`,
-			] )
-		) as [ boolean, string, boolean, string ];
+		const rendered = JSON.parse( await runWpCli( host, site, [ 'eval', RENDER_PAGE ] ) ) as [
+			boolean,
+			string,
+			boolean,
+			string,
+		];
 		expect( rendered[ 0 ] ).toBe( true );
 		// eval6–11: 7 of 48 builds found full-width blocks fighting the page padding and set it later.
 		expect( rendered[ 2 ] ).toBe( true );
@@ -103,6 +106,22 @@ echo wp_json_encode( array( wp_is_block_theme(), get_the_block_template_html(), 
 		);
 		expect( rendered[ 1 ] ).toMatch(
 			/<header[^>]*wp-block-template-part[\s\S]*Sourdough[\s\S]*<footer[^>]*wp-block-template-part/
+		);
+	}, 60_000 );
+
+	// eval36 vinyl and eval37 grooming port 2: a theme.json the agent wrote
+	// whole, without templateParts, rendered the header in a <div>.
+	it( 'keeps its header and footer in their areas when a rewrite of theme.json drops templateParts', async () => {
+		const changes = new SiteChanges( host, createOpenProblems( host ), async () => [ site ] );
+		await changes.snapshot();
+		const file = path.join( themes, 'corner-bakehouse/theme.json' );
+		const { templateParts, ...rest } = JSON.parse( readFileSync( file, 'utf8' ) );
+		expect( templateParts ).toHaveLength( 2 );
+		writeFileSync( file, JSON.stringify( rest, null, '\t' ) );
+		await changes.settle();
+		const [ , html ] = JSON.parse( await runWpCli( host, site, [ 'eval', RENDER_PAGE ] ) );
+		expect( html ).toMatch(
+			/<header[^>]*wp-block-template-part[\s\S]*<footer[^>]*wp-block-template-part/
 		);
 	}, 60_000 );
 

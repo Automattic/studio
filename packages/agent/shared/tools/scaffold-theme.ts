@@ -16,8 +16,12 @@ async function readThemeHeader(
 	return css.match( new RegExp( `^[ \\t/*#@]*${ header }:(.*)$`, 'im' ) )?.[ 1 ].trim() ?? '';
 }
 
-const HEADER = '<!-- wp:template-part {"slug":"header"} /-->';
-const FOOTER = '<!-- wp:template-part {"slug":"footer"} /-->';
+// Each part's block states its area, as the block's area variations insert
+// it (build_template_part_block_area_variations() in
+// wp-includes/blocks/template-part.php), so Studio restores the theme.json
+// templateParts entry a rewrite of theme.json drops.
+const HEADER = '<!-- wp:template-part {"slug":"header","area":"header"} /-->';
+const FOOTER = '<!-- wp:template-part {"slug":"footer","area":"footer"} /-->';
 const main = ( blocks: string ) =>
 	`${ HEADER }\n\n<!-- wp:group {"tagName":"main","layout":{"type":"constrained"}} -->\n<main class="wp-block-group">${ blocks }</main>\n<!-- /wp:group -->\n\n${ FOOTER }\n`;
 const part = ( blocks: string ) =>

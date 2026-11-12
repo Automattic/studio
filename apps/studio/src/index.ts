@@ -28,6 +28,7 @@ import { markAppQuitting } from 'src/ipc-utils';
 import {
 	hasActiveSyncOperations,
 	hasCancellableSyncOperations,
+	hasUncancellableSyncOperations,
 } from 'src/lib/active-sync-operations';
 import { applyAppZoomCommand, getAppZoomCommand, resetPreviewZoom } from 'src/lib/app-zoom';
 import {
@@ -596,6 +597,21 @@ async function appBoot() {
 
 	app.on( 'before-quit', ( event ) => {
 		if ( isQuittingConfirmed ) {
+			return;
+		}
+
+		// Windows ends a sync with Studio's process, so quitting would cut off one that has to finish,
+		// like a pull halfway through rewriting the local site.
+		if ( process.platform === 'win32' && hasUncancellableSyncOperations() ) {
+			event.preventDefault();
+			dialog.showMessageBoxSync( {
+				message: __( 'Sync is finishing' ),
+				detail: __(
+					'WordPress Studio can quit once the sync is done. Quitting now would interrupt it and could leave your site incomplete.'
+				),
+				type: 'info',
+				buttons: [ __( 'OK' ) ],
+			} );
 			return;
 		}
 

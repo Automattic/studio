@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { getSharedBrowser } from '@studio/agent/node';
+import { openSharedPage } from '@studio/agent/node';
 
 /**
  * Screenshots a site page for `studio ui`'s stopped-site preview, on the
@@ -14,7 +14,7 @@ export async function capturePreview(
 	if ( ! existsSync( chromium.executablePath() ) ) {
 		throw new Error( 'Chromium is not installed.' );
 	}
-	const page = await ( await getSharedBrowser() ).newPage( { viewport: size } );
+	const page = await openSharedPage( { viewport: size } );
 	try {
 		await page.goto( new URL( '/?studio-hide-adminbar', url ).href, {
 			waitUntil: 'load',

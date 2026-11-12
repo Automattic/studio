@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { getSharedBrowser } from '@studio/agent/node/browser-utils';
+import { getSharedBrowser, openSharedPage } from '@studio/agent/node/browser-utils';
 import { annotateInBrowser } from '@studio/agent/node/inspector/inspector-inject';
 import type {
 	HostFiles,
@@ -63,7 +63,7 @@ const nodeFiles: HostFiles = {
 const PAGE_LOAD_TIMEOUT_MS = 30_000;
 const PAGE_SETTLE_TIMEOUT_MS = 2500;
 
-type Page = Awaited< ReturnType< Awaited< ReturnType< typeof getSharedBrowser > >[ 'newPage' ] > >;
+type Page = Awaited< ReturnType< typeof openSharedPage > >;
 
 // The requests a page has open, from before it navigates: what it loads
 // without them is all it loads, where waiting for 500ms of no network
@@ -101,8 +101,7 @@ async function waitForPageToSettle( page: Page, openRequests: () => number ): Pr
 
 const playwrightPages: HostPages = {
 	async open( target, options = {} ) {
-		const browser = await getSharedBrowser();
-		const page = await browser.newPage( {
+		const page = await openSharedPage( {
 			viewport: options.viewport,
 			deviceScaleFactor: options.deviceScaleFactor,
 			ignoreHTTPSErrors: true,

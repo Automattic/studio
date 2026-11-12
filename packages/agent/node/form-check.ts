@@ -18,7 +18,7 @@
 import { readdir, stat, unlink } from 'fs/promises';
 import path from 'path';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
-import { getSharedBrowser } from '@studio/agent/node/browser-utils';
+import { openSharedPage } from '@studio/agent/node/browser-utils';
 import {
 	markedEmails,
 	markedRows,
@@ -411,8 +411,8 @@ export class FormCheck {
 	constructor(
 		private readonly host: StudioAgentHost,
 		private readonly open?: OpenProblems,
-		private readonly newPage: () => Promise< Page > = async () =>
-			( await getSharedBrowser() ).newPage( { viewport: { width: 1280, height: 900 } } )
+		private readonly newPage: () => Promise< Page > = () =>
+			openSharedPage( { viewport: { width: 1280, height: 900 } } )
 	) {}
 
 	/** After a call that can change a site. */

@@ -29,7 +29,7 @@ import { promisify } from 'node:util';
 import { captureScreenshotBuffer } from '@studio/agent/node';
 import { blockEditorOf } from '@studio/agent/node/block-validation-gate';
 import { validateBlocks } from '@studio/agent/node/block-validator';
-import { getSharedBrowser } from '@studio/agent/node/browser-utils';
+import { openSharedPage } from '@studio/agent/node/browser-utils';
 import {
 	markedEmails,
 	markedRows,
@@ -379,9 +379,8 @@ function siteEmailDirectory( siteId: string ): string | undefined {
 // are left alone; they are core's, not the page's.
 export async function sendPageForms( sitePath: string, siteId: string, links: string[] ) {
 	const sent: Array< { page: string; marker: string; afterText: string; error?: string } > = [];
-	const browser = await getSharedBrowser();
 	for ( const link of links ) {
-		const page = await browser.newPage( { viewport: { width: 1280, height: 900 } } );
+		const page = await openSharedPage( { viewport: { width: 1280, height: 900 } } );
 		const marker = `studio-eval-message-${ sent.length + 1 }-${ Date.now() }`;
 		try {
 			await page.goto( link, { waitUntil: 'load', timeout: 30000 } );
@@ -441,8 +440,7 @@ async function withHomePage< T >(
 	fn: ( page: Page ) => Promise< T >
 ): Promise< T | { error: string } > {
 	try {
-		const browser = await getSharedBrowser();
-		const page = await browser.newPage( { viewport: { width: 1280, height: 900 } } );
+		const page = await openSharedPage( { viewport: { width: 1280, height: 900 } } );
 		try {
 			await page.goto( url, { waitUntil: 'load', timeout: 30000 } );
 			return await fn( page );

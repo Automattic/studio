@@ -2,7 +2,7 @@ import { mkdtemp, readdir, readFile, rm } from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { vi } from 'vitest';
-import { getSharedBrowser } from '@studio/agent/node/browser-utils';
+import { openSharedPage } from '@studio/agent/node/browser-utils';
 import { nodeHostServices } from '@studio/agent/node/node-host';
 import {
 	resolveStudioTools,
@@ -29,7 +29,7 @@ vi.mock( '@studio/agent/node/block-validator', () => ( {
 } ) );
 
 vi.mock( '@studio/agent/node/browser-utils', () => ( {
-	getSharedBrowser: vi.fn(),
+	openSharedPage: vi.fn(),
 } ) );
 
 vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
@@ -92,11 +92,9 @@ describe( 'Studio AI MCP tools', () => {
 		close: vi.fn(),
 	} );
 	const mockScreenshotBrowser = ( ...pages: Array< ReturnType< typeof createMockPage > > ) => {
-		const newPage = vi.fn();
 		for ( const page of pages ) {
-			newPage.mockResolvedValueOnce( page );
+			vi.mocked( openSharedPage ).mockResolvedValueOnce( page as never );
 		}
-		vi.mocked( getSharedBrowser ).mockResolvedValue( { newPage } as never );
 	};
 	beforeEach( () => {
 		vi.resetAllMocks();

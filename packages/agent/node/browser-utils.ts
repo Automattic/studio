@@ -191,6 +191,34 @@ export async function getSharedBrowser(): Promise< Browser > {
 	return browserPromise;
 }
 
+// Playwright waits for a new page without a timeout. A Chrome under load once
+// answered none of the commands that set a page up (Page.enable,
+// Runtime.enable) for 35 minutes, and every check waiting on the page waited
+// with it.
+const NEW_PAGE_TIMEOUT_MS = 30_000;
+
+/**
+ * A new page on the shared browser. A browser that opens none in 30s is closed,
+ * and the next page is opened on a browser launched again.
+ */
+export async function openSharedPage(
+	options?: Parameters< Browser[ 'newPage' ] >[ 0 ]
+): Promise< Page > {
+	const browser = await getSharedBrowser();
+	const launched = browserPromise;
+	const opening = browser.newPage( options );
+	try {
+		return await withTimeout( opening, NEW_PAGE_TIMEOUT_MS, 'Opening a browser page' );
+	} catch ( error ) {
+		opening.then( ( page ) => page.close() ).catch( () => {} );
+		if ( browserPromise === launched ) {
+			browserPromise = null;
+		}
+		browser.close().catch( () => {} );
+		throw error;
+	}
+}
+
 /**
  * Close the shared browser instance (if any) so the Node.js event loop can
  * drain and the process can exit naturally without calling process.exit().
@@ -288,10 +316,7 @@ export class EditorPage {
 	}
 
 	private async load(): Promise< Page > {
-		const browser = await getSharedBrowser();
-		const page = await browser.newPage( {
-			ignoreHTTPSErrors: true,
-		} );
+		const page = await openSharedPage( { ignoreHTTPSErrors: true } );
 		const loadErrors: string[] = [];
 		page.on( 'pageerror', ( error ) => loadErrors.push( thrownAt( error ) ) );
 

@@ -47,16 +47,6 @@ export async function loadUserData(): Promise< UserData > {
 	}
 }
 
-// Read synchronously so Sentry has the user from its first event, before the app is ready.
-export function readSentryUserId(): string | undefined {
-	try {
-		const { sentryUserId } = JSON.parse( fs.readFileSync( getUserDataFilePath(), 'utf-8' ) );
-		return typeof sentryUserId === 'string' ? sentryUserId : undefined;
-	} catch {
-		return undefined;
-	}
-}
-
 export async function saveUserData( data: UserData ): Promise< void > {
 	const filePath = getUserDataFilePath();
 	const persisted: UserData = { ...data };

@@ -119,6 +119,7 @@ describe( 'AI provider settings', () => {
 		accounts: {
 			wpcom: { connected: false, summary: null },
 			anthropic: { connected: summary !== null, summary },
+			openai: { connected: false, summary: null },
 			spacefast: { connected: false, summary: null },
 		},
 	} );

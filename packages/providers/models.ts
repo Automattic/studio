@@ -1,9 +1,14 @@
 import { getProviderDescriptor, AI_PROVIDER_IDS } from './descriptors';
 import type { ANTHROPIC_AI_MODELS } from './anthropic/descriptor';
+import type { OPENAI_AI_MODELS } from './openai/descriptor';
 import type { AiProviderId, ProviderId, AiModel } from './types';
 import type { WPCOM_AI_MODELS } from './wpcom/descriptor';
 
-export type AiModelId = ( typeof WPCOM_AI_MODELS | typeof ANTHROPIC_AI_MODELS )[ number ][ 'id' ];
+export type AiModelId = (
+	| typeof WPCOM_AI_MODELS
+	| typeof ANTHROPIC_AI_MODELS
+	| typeof OPENAI_AI_MODELS
+)[ number ][ 'id' ];
 
 export function getAiModels( provider: ProviderId ): readonly AiModel< AiModelId >[] {
 	return getProviderDescriptor( provider ).ai?.models ?? [];

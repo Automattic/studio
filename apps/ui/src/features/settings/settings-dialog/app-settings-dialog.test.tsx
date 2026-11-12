@@ -857,6 +857,33 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		).toBeEnabled();
 	} );
 
+	it( 'signs in to ChatGPT in the browser and selects it', async () => {
+		const { connector } = await setup( { section: 'ai' } );
+		fireEvent.click(
+			await within( await findProviderRow( 'openai-provider' ) ).findByRole( 'button', {
+				name: 'Continue with ChatGPT',
+			} )
+		);
+		await waitFor( () => expect( connector.connectProvider ).toHaveBeenCalledWith( 'openai', {} ) );
+		await waitFor( () => expect( connector.setAiProvider ).toHaveBeenCalledWith( 'openai' ) );
+	} );
+
+	it( 'hides ChatGPT on the web, which cannot reach it', async () => {
+		await setup( {
+			section: 'ai',
+			overrides: {
+				capabilities: {
+					nativeFolderPicker: false,
+					annotatePreview: false,
+					studioLogs: false,
+					nativeSites: false,
+				},
+			},
+		} );
+		await findProviderRow( 'anthropic-provider' );
+		expect( row( 'openai-provider' ) ).toBeNull();
+	} );
+
 	it( 'reveals an inline Anthropic key form and collapses after connecting', async () => {
 		let hasKey = false;
 		const { connector } = await setup( {

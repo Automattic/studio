@@ -168,13 +168,14 @@ function toPhpSingleQuotedString( value: string ): string {
 
 export async function removeOwnedSqliteSymlink(
 	symlinkPath: string,
-	symlinkIno: number
+	target: string
 ): Promise< void > {
 	try {
-		// Linux filesystems hand a freed inode number to the next entry created, so
-		// the inode alone would also match a folder that replaced the symlink.
-		const stats = fs.lstatSync( symlinkPath );
-		if ( stats.isSymbolicLink() && stats.ino === symlinkIno ) {
+		if (
+			fs.lstatSync( symlinkPath ).isSymbolicLink() &&
+			path.resolve( path.dirname( symlinkPath ), fs.readlinkSync( symlinkPath ) ) ===
+				path.resolve( target )
+		) {
 			await fs.promises.rm( symlinkPath, { recursive: true, force: true } );
 		}
 	} catch {
@@ -286,11 +287,8 @@ export async function runBlueprint(
 		'sqlite-database-integration'
 	);
 	const needsSymlink = fs.existsSync( muPluginsSqlite ) && ! fs.existsSync( pluginsSqlite );
-	let symlinkIno: number | undefined;
 	if ( needsSymlink ) {
 		fs.symlinkSync( muPluginsSqlite, pluginsSqlite, 'junction' );
-		// Remove only the entry created here, not unrelated content that replaced it.
-		symlinkIno = fs.lstatSync( pluginsSqlite ).ino;
 	}
 
 	const prependPath = writeBlueprintRunnerPrependFile(
@@ -336,7 +334,8 @@ export async function runBlueprint(
 			await fs.promises.rm( fallbackTempDir, { recursive: true, force: true } ).catch( () => {} );
 		}
 		if ( needsSymlink ) {
-			await removeOwnedSqliteSymlink( pluginsSqlite, symlinkIno! );
+			// Remove only the link created here, not content that replaced it.
+			await removeOwnedSqliteSymlink( pluginsSqlite, muPluginsSqlite );
 			// The runner may remove the symlink target while managing its SQLite driver.
 			await keepSqliteIntegrationUpdated( config.sitePath );
 		}

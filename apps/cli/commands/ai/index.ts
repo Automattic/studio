@@ -45,6 +45,7 @@ import {
 	isAiProviderReady,
 	prepareAiProvider,
 	resolveAiConnection,
+	resolveImageGenerator,
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
@@ -166,6 +167,7 @@ export async function runCommand( options: {
 		// Persist images next to the session file (`<session>.screenshots/`)
 		// so artifacts in the transcript keep rendering after OS temp cleanup;
 		// `deleteAiSession` removes the sidecar together with the session.
+		imageGenerator: () => resolveImageGenerator( currentProvider ),
 		...nodeHostServices( {
 			imagesDirectory: async () => {
 				const sm = await ensureSession();

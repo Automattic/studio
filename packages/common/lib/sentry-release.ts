@@ -1,4 +1,4 @@
-import { isDevRelease } from './version-utils';
+import { isDevRelease } from '@studio/common/lib/dev-release';
 
 /**
  * Get the Sentry release info for the current version

@@ -2,7 +2,7 @@
 
 ## About this doc
 
-This document defines how Studio works with the services it holds an account with: WordPress.com, Anthropic, and other hosts. Each service is a provider, described in one package, so the CLI, the apps and the agent never hardcode one.
+This document defines how Studio works with the services it holds an account with: WordPress.com, Anthropic, OpenAI, and other hosts. Each service is a provider, described in one package, so the CLI, the apps and the agent never hardcode one.
 
 It describes the architecture and the rules, not the exact APIs, which are expected to evolve. Items marked _(planned)_ are not implemented yet. For WordPress.com sync and previews, _(planned)_ means the feature works today but does not yet go through a provider.
 
@@ -29,6 +29,7 @@ It describes the architecture and the rules, not the exact APIs, which are expec
 | -------------------------------------------- | --------------------------------- | ------------------------------------ | ---------- | ----------- |
 | WordPress.com (`wpcom`)                      | Studio sign-in                    | `fast`, `balanced`, `strong`; images | push, pull | _(planned)_ |
 | Anthropic (`anthropic`)                      | API key; subscription _(planned)_ | Claude models                        | —          | —           |
+| OpenAI (`openai`)                            | ChatGPT plan, browser sign-in     | GPT models                           | —          | —           |
 | Spacefast (`spacefast`)                      | Device sign-in                    | —                                    | publish    | —           |
 | Other hosts, such as an SSH host _(planned)_ | Per host                          | —                                    | push, pull | —           |
 
@@ -72,9 +73,11 @@ It is a package of its own because sites and previews are not agent concerns, so
   - **A form**, described by a schema whose fields carry their labels, help and whether they are secret. Anthropic asks for an API key this way.
   - **A redirect** to the provider's site, where the user approves access and is sent back to the app. WordPress.com connects this way, and connecting it is signing in to Studio.
   - **A device sign-in**: the provider gives a code to approve on its site while Studio waits for the approval. No redirect comes back, so it works the same in every app and the CLI. Spacefast connects this way.
+  - **A loopback redirect**: like a redirect, but back to this computer: the process that runs the operation (the Desktop main process, the `studio ui` server or the CLI) listens on a free local port while the browser signs in, and gives the provider that address. Where the browser can't reach it, such as over SSH, the CLI asks for the address the browser landed on. OpenAI connects this way, through its sign-in for agents: it registers a client for Studio, which the user allows to use their ChatGPT plan through the public API.
   - A subscription sign-in for Anthropic comes later _(planned)_. When a provider offers several ways, the user picks one.
 - Surfaces render the form from its schema, so neither the settings nor `studio code` know what a provider asks for.
 - Connecting hands what the user gave, a form's values or the redirect's result, to the provider, which checks it and returns its config. Studio stores the config without looking inside it. Disconnecting lets the provider clean up on its side, as WordPress.com revokes its token, then Studio removes the config.
+- A credential that expires before the account does, like a ChatGPT access token, is renewed by the provider (`refresh`) before Studio uses the config. Studio stores the renewed config, under a lock of its own, since a refresh token works once. A provider that no longer accepts the renewal is disconnected.
 - When a provider has no usable config, it says so, along with how it can connect. The CLI asks the user; without a terminal, it reports the error.
 - Studio stores configs in `shared.json` and validates them against each provider's schema. Providers added after the first two keep their config in a per-provider section, `providerConfigs`. The first two keep using their existing fields (`authToken` and `anthropicApiKey`), which builds of every version read. This mapping is Studio's storage code; providers never see it. When `STUDIO_WPCOM_TOKEN` is set, the CLI uses it for the WordPress.com config.
 - The app's settings list every provider with its connection state and a summary the provider gives, such as a key's first and last characters, never the credential itself. WordPress.com shows the Studio sign-in; other providers show their form. In `studio code`, `/provider` asks for what is missing, and one command connects any provider the way it says _(planned)_. No provider connects through `studio auth`.
@@ -99,9 +102,13 @@ The provider owns how its models are reached. For example, WordPress.com sends e
 - Each provider has a default model; WordPress.com picks a stronger one when the account has paid AI credits left. Switching provider keeps the conversation's model when the new provider serves it too, and falls back to its default otherwise.
 - The UI gates paid tiers using the WordPress.com quota. The proxy enforces access.
 
+### In the page
+
+Studio on the web runs the agent in the page, so it offers only the providers it can connect and reach from there. OpenAI's sign-in needs a server on this computer, so the web leaves OpenAI out.
+
 ### Images
 
-Image generation is available when a connected provider offers it, whichever provider serves chat. Today only WordPress.com does. The agent gets it from its host, which finds that provider, so the agent never names one.
+Image generation is available when a connected provider offers it, whichever provider serves chat. Today only WordPress.com does; a ChatGPT plan shared with Studio can't generate images. When several providers do, the chat's provider generates the images; otherwise the first connected provider that does. The agent gets it from its host, which finds that provider, so the agent never names one.
 
 ### Persisted ids
 

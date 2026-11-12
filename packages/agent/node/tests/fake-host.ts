@@ -85,13 +85,13 @@ export function createFakeHost( sitesRoot = '/sites' ): StudioAgentHost {
 			delete: vi.fn( async () => {} ),
 		},
 		sync: {
+			connectedSites: vi.fn( async () => [] ),
 			push: vi.fn( async () => fakeRemoteSite ),
 			pull: vi.fn( async () => fakeRemoteSite ),
 		},
 		wpcom: {
 			token: vi.fn( async () => 'token' ),
 			sites: vi.fn( async () => [] ),
-			connectedSites: vi.fn( async () => [] ),
 			request: vi.fn( async () => ( {} ) ),
 			payloadsDirectory: '/payloads',
 		},

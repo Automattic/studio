@@ -813,7 +813,9 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'input must be an object of strings' } );
 				return;
 			}
-			await changeAiSettings( res, () => connectProvider( getProvider( provider ), input ) );
+			await changeAiSettings( res, () =>
+				connectProvider( getProvider( provider ), input, { openUrl } )
+			);
 		} )
 	);
 

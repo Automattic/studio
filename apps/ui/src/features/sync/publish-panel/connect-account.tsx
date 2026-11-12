@@ -1,7 +1,7 @@
 import { getProviderDescriptor, type SitesProviderId } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { useConnector } from '@/data/core';
-import { useDeviceSignIn } from '@/data/queries/use-ai-settings';
+import { useSignIn } from '@/data/queries/use-ai-settings';
 import { useOffline } from '@/lib/hooks';
 import { SyncIcon } from '@/lib/icons';
 import { Button, EmptyDescription, EmptyHeader, EmptyMedia } from '@/lib/ui';
@@ -13,7 +13,7 @@ export function ConnectAccount( { provider }: { provider: SitesProviderId } ) {
 	const connector = useConnector();
 	const offline = useOffline();
 	const { label, sites } = getProviderDescriptor( provider );
-	const signIn = useDeviceSignIn( provider );
+	const signIn = useSignIn( provider );
 	return (
 		<div className={ styles.content }>
 			<EmptyHeader className={ styles.emptyIntro }>

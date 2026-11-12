@@ -7,6 +7,7 @@ import {
 	createAgent,
 	createTokenUsage,
 	type AskUserHandler,
+	type HostSite,
 } from '@studio/agent/node';
 import { findLastAssistant } from '@studio/agent/protocol/session-events';
 import {
@@ -24,7 +25,7 @@ import {
 } from 'cli/ai/auth';
 import { matchesStopRule } from 'cli/ai/eval-stop';
 import { type ModelRequestRecord } from 'cli/ai/eval-timing';
-import { cliAgentHost } from 'cli/ai/host';
+import { cliAgentHost, connectedRemoteSites } from 'cli/ai/host';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import type { HarnessInput, HarnessContext, HarnessTranscript } from './types';
 
@@ -126,10 +127,18 @@ export async function runStudioConversation(
 	input: HarnessInput,
 	ctx: HarnessContext
 ): Promise< HarnessTranscript > {
+	// Seeded connections are made up, so filling them in from the account would report them gone.
+	const host = ctx.seededRemoteSites
+		? {
+				...cliAgentHost,
+				sync: {
+					...cliAgentHost.sync,
+					connectedSites: ( site: HostSite ) => connectedRemoteSites( site, false ),
+				},
+		  }
+		: cliAgentHost;
 	const agent = createAgent( {
-		host: input.ui
-			? { ...cliAgentHost, ui: { showArtifact: () => {}, reloadPreview: () => {} } }
-			: cliAgentHost,
+		host: input.ui ? { ...host, ui: { showArtifact: () => {}, reloadPreview: () => {} } } : host,
 	} );
 	const resolvedModel =
 		input.model && isAiModelId( input.model )

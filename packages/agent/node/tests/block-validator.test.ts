@@ -1379,6 +1379,15 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 		);
 		expect( report.invalidBlocks ).toBe( 0 );
 	}, 60_000 );
+
+	it( 'keeps the editor for a block it lacked when it loaded', async () => {
+		// As a block of a plugin that is not active, in a post each call validates.
+		const unregistered = '<!-- wp:nope/form /-->';
+		await validateBlocks( unregistered, siteUrl! );
+		const loaded = await editorTab();
+		await validateBlocks( unregistered, siteUrl! );
+		expect( loaded.isClosed() ).toBe( false );
+	}, 60_000 );
 } );
 
 describe.runIf( siteUrl && sitePath )( 'a block whose editor script throws (live)', () => {

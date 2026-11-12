@@ -100,6 +100,11 @@ function getEditorPage( siteUrl: string, editor: BlockEditor ): EditorPage {
 	return ep;
 }
 
+// The blocks each editor page lacked when it was loaded (pages load as they
+// are first used): loading it again would register none of them, as a page
+// loads with the site's code as it is.
+const loadedLacking = new WeakMap< Page, Set< string > >();
+
 // Whether a block is one a site's code registers, not WordPress's own.
 const isSiteBlock = ( name: string ) => ! name.startsWith( 'core/' );
 
@@ -116,9 +121,9 @@ export function blockNames( content: string ): string[] {
 
 /**
  * Runs `fn` on the site's block editor, loaded again when it lacks a block
- * that the names name: the editor registers the blocks of the plugins active
- * when it loaded, and a plugin activated since adds its own; and loaded again
- * for a block of the site's own once the code that registers its blocks
+ * that the names name and did not lack when it loaded: the editor registers
+ * the blocks of the plugins active when it loaded, and a plugin activated
+ * since adds its own; and loaded again for a block of the site's own once the code that registers its blocks
  * changed (seeBlockCode()), as a block's script or its PHP supports can. Other
  * calls on the editor finish on the page they started on.
  */
@@ -135,20 +140,25 @@ async function withEditor< T >(
 		pageBlockCode.set( key, code );
 		await editorPage.replace();
 	}
-	return editorPage.use( async ( page ) => {
-		const knows = await page.evaluate(
+	const run = async ( page: Page ): Promise< T > => {
+		const missing = await page.evaluate(
 			( wanted ) =>
 				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				wanted.every( ( name ) => ( window as any ).wp.blocks.getBlockType( name ) ),
+				wanted.filter( ( name ) => ! ( window as any ).wp.blocks.getBlockType( name ) ),
 			names
 		);
-		if ( knows ) {
-			return fn( page );
+		const lacking = loadedLacking.get( page );
+		// A page used for the first time was loaded for this call.
+		if ( ! lacking ) {
+			loadedLacking.set( page, new Set( missing ) );
+		} else if ( missing.some( ( name ) => ! lacking.has( name ) ) ) {
+			pageBlockCode.set( key, seenBlockCode( siteUrl ) );
+			await editorPage.replace();
+			return editorPage.use( run );
 		}
-		pageBlockCode.set( key, seenBlockCode( siteUrl ) );
-		await editorPage.replace();
-		return editorPage.use( fn );
-	} );
+		return fn( page );
+	};
+	return editorPage.use( run );
 }
 
 /**

@@ -13,7 +13,6 @@
  * styles lost to a child theme the agent made to fix that, after it had
  * changed the background it was asked for.
  */
-import { copiedPageChrome } from '@studio/agent/node/copied-page-chrome';
 import { frontPageTemplateProblem } from '@studio/agent/node/front-page-template';
 import { headerMenu } from '@studio/agent/node/header-menu';
 import { readWordPressSite } from '@studio/agent/node/site-database';
@@ -279,7 +278,6 @@ export const TURN_END_CHECKS: TurnEndCheck[] = [
 	( _host, sitePath ) => frontPageIsPostsPage( sitePath ),
 	( _host, sitePath ) => postsPageContent( sitePath ),
 	headerMenu,
-	( _host, sitePath ) => copiedPageChrome( sitePath ),
 	missingSourceText,
 ];
 

@@ -143,26 +143,34 @@ function electronStubs( app: ElectronApplication, window: Page ): Stubs {
 			{ handler: name, data: value }
 		);
 	return {
-		syncableSites: ( sites ) => answer( 'fetchSyncableWpcomSites', sites ),
+		syncableSites: ( sites ) =>
+			app.evaluate( ( { ipcMain }, data ) => {
+				ipcMain.removeHandler( 'listAccountSites' );
+				ipcMain.handle( 'listAccountSites', ( _event, provider: string ) =>
+					provider === 'wpcom' ? data : []
+				);
+			}, sites ),
 		previewSites: ( snapshots ) => answer( 'fetchSnapshots', snapshots ),
-		async connectedSites( connected, trees: RemoteTrees, hosting ) {
+		async connectedSites( connected, trees: RemoteTrees, backupId ) {
 			await app.evaluate(
-				( { ipcMain }, { list, files, info } ) => {
+				( { ipcMain }, { list, files, backup } ) => {
 					const handle = ( name: string, handler: Parameters< typeof ipcMain.handle >[ 1 ] ) => {
 						ipcMain.removeHandler( name );
 						ipcMain.handle( name, handler );
 					};
-					handle( 'getConnectedWpcomSites', ( _event, localSiteId?: string ) =>
-						list.filter( ( site ) => ! localSiteId || site.localSiteId === localSiteId )
+					handle( 'getRemoteSites', ( _event, provider: string, localSiteId?: string ) =>
+						provider === 'wpcom'
+							? list.filter( ( site ) => ! localSiteId || site.localSiteId === localSiteId )
+							: []
 					);
-					handle( 'getHostingPhpVersion', () => info.phpVersion );
-					handle( 'getLatestRewindId', () => info.rewindId );
+					handle( 'getRemoteBackupId', () => backup );
 					handle(
-						'listRemoteFileTree',
-						( _event, _remoteId: unknown, _rewindId: unknown, dir: string ) => files[ dir ] ?? {}
+						'listRemoteBackupFiles',
+						( _event, _provider: unknown, _remoteId: unknown, _backupId: unknown, dir: string ) =>
+							files[ dir ] ?? {}
 					);
 				},
-				{ list: connected, files: trees, info: hosting }
+				{ list: connected, files: trees, backup: backupId }
 			);
 		},
 		async agentRuns() {

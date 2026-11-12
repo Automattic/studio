@@ -12,7 +12,7 @@ import {
 	PreviewManagementDialog,
 	type PreviewManagementAction,
 } from '@/features/sharing';
-import { PublishPanel, usePublishSetupError } from '@/features/sync';
+import { PublishTab, usePublishTab, usePublishSetupError } from '@/features/sync';
 import { PublishTransferIcon, ShareIcon, SyncIcon } from '@/lib/icons';
 import {
 	Button,
@@ -33,7 +33,6 @@ import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
 type Tab = 'share' | 'publish';
-type PublishRequest = { view: 'publish' | 'pull' | 'websites'; remoteSiteId?: number };
 export function SiteDeliveryDialog( {
 	site,
 	anchor,
@@ -43,7 +42,8 @@ export function SiteDeliveryDialog( {
 } ) {
 	const id = useId();
 	const user = useAuthUser();
-	const signedOut = user.isSuccess && ! user.data;
+	const publish = usePublishTab( site.id );
+	const { open: openPublish } = publish;
 	const [ setupAfterSignup, setSetupAfterSignup ] = useState( false );
 	const [ open, setOpen ] = useState( false );
 	const [ tab, setTab ] = useState< Tab >( 'share' );
@@ -51,33 +51,36 @@ export function SiteDeliveryDialog( {
 	const previewReturnFocus = useRef< HTMLButtonElement | null >( null );
 	const [ publishSubstep, setPublishSubstep ] = useState( false );
 	const [ publishHeader, setPublishHeader ] = useState< HTMLDivElement | null >( null );
-	const [ request, setRequest ] = useState< PublishRequest >();
 	const finalFocus = useRef< HTMLElement | null >( null );
 	useEffect( () => {
-		const show = ( next: Tab, trigger?: HTMLElement, publishRequest?: PublishRequest ) => {
+		const show = ( next: Tab, trigger?: HTMLElement ) => {
 			previewReturnFocus.current = null;
 			finalFocus.current =
 				trigger ??
 				anchor?.current?.querySelector< HTMLElement >( '[data-share-overflow-trigger]' ) ??
 				( document.activeElement instanceof HTMLElement ? document.activeElement : null );
 			setTab( next );
-			if ( next === 'publish' ) setRequest( publishRequest ?? { view: 'publish' } );
 			setOpen( true );
 		};
+
 		const share = subscribeHeaderPanelRequest( site.id, 'share', ( next ) =>
 			show( 'share', next.trigger )
 		);
-		const publish = subscribeHeaderPanelRequest( site.id, 'publish', ( next ) =>
-			show( 'publish', next.trigger, { view: next.view, remoteSiteId: next.remoteSiteId } )
-		);
+		const publishRequest = subscribeHeaderPanelRequest( site.id, 'publish', ( next ) => {
+			openPublish( next );
+			show( 'publish', next.trigger );
+		} );
 		return () => {
 			share();
-			publish();
+			publishRequest();
 		};
-	}, [ site.id, anchor ] );
+	}, [ site.id, anchor, openPublish ] );
+	// WordPress.com's account is the Studio sign-in, which sharing needs too.
+	const signedOut =
+		user.isSuccess && ! user.data && ( tab === 'share' || publish.provider === 'wpcom' );
 	const selectTab = ( value: unknown ) => {
 		setTab( value as Tab );
-		if ( value === 'publish' ) setRequest( ( current ) => current ?? { view: 'publish' } );
+		if ( value === 'publish' && ! publish.screen ) openPublish();
 	};
 	return (
 		<>
@@ -152,17 +155,16 @@ export function SiteDeliveryDialog( {
 							hidden={ tab !== 'publish' }
 							className={ styles.panel }
 						>
-							{ request ? (
-								<PublishPanel
-									site={ site }
-									open={ open && tab === 'publish' }
-									request={ request }
-									headerContainer={ publishHeader }
-									onSubstepChange={ setPublishSubstep }
-									setupAfterSignup={ setupAfterSignup }
-									onSetupAfterSignup={ () => setSetupAfterSignup( false ) }
-								/>
-							) : null }
+							<PublishTab
+								tab={ publish }
+								site={ site }
+								open={ open && tab === 'publish' }
+								headerContainer={ publishHeader }
+								substep={ publishSubstep }
+								onSubstepChange={ setPublishSubstep }
+								setupAfterSignup={ setupAfterSignup }
+								onSetupAfterSignup={ () => setSetupAfterSignup( false ) }
+							/>
 						</div>
 					</Tabs>
 				</DialogContent>

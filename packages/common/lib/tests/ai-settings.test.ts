@@ -1,7 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { InvalidCredentialError } from '@studio/providers';
+import { InvalidCredentialError, ProviderNotReadyError } from '@studio/providers';
 import { getProvider } from '@studio/providers/services';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -10,7 +10,7 @@ import {
 	readAiSettings,
 	setAiProvider,
 } from '@studio/common/lib/ai-settings';
-import { readProviderConfig } from '@studio/common/lib/provider-config';
+import { forgetRejectedConfig, readProviderConfig } from '@studio/common/lib/provider-config';
 
 const anthropic = getProvider( 'anthropic' );
 const wpcom = getProvider( 'wpcom' );
@@ -47,7 +47,7 @@ describe( 'ai settings', () => {
 	it( 'defaults to WordPress.com with nothing connected', async () => {
 		await expect( readAiSettings() ).resolves.toEqual( {
 			provider: 'wpcom',
-			accounts: { wpcom: disconnected, anthropic: disconnected },
+			accounts: { wpcom: disconnected, anthropic: disconnected, spacefast: disconnected },
 		} );
 	} );
 
@@ -61,6 +61,7 @@ describe( 'ai settings', () => {
 			accounts: {
 				wpcom: disconnected,
 				anthropic: { connected: true, summary: 'sk-ant-api03-tes...1234' },
+				spacefast: disconnected,
 			},
 		} );
 		expect( readShared().anthropicApiKey ).toBe( 'sk-ant-api03-testkey-abcd1234' );
@@ -118,7 +119,7 @@ describe( 'ai settings', () => {
 
 		await expect( disconnectProvider( anthropic ) ).resolves.toEqual( {
 			provider: 'wpcom',
-			accounts: { wpcom: disconnected, anthropic: disconnected },
+			accounts: { wpcom: disconnected, anthropic: disconnected, spacefast: disconnected },
 		} );
 		const written = readShared();
 		expect( written.anthropicApiKey ).toBeUndefined();
@@ -156,6 +157,30 @@ describe( 'ai settings', () => {
 			expect.objectContaining( { method: 'DELETE' } )
 		);
 		expect( readShared().authToken ).toBeUndefined();
+	} );
+
+	it( 'disconnects a provider whose config expired or that the provider rejects', async () => {
+		const rejected = () => Promise.reject( new ProviderNotReadyError( 'Reconnect' ) );
+		writeShared( {
+			providerConfigs: { spacefast: { apiKey: 'sfa_old', expiresAt: '2020-01-01T00:00:00Z' } },
+		} );
+		expect( ( await readAiSettings() ).accounts.spacefast.connected ).toBe( false );
+
+		writeShared( {
+			authToken: {
+				accessToken: 'token',
+				expirationTime: Date.now() + 3600_000,
+				expiresIn: 3600,
+				id: 1,
+				email: 'a@b.c',
+				displayName: 'A',
+			},
+			providerConfigs: { spacefast: { apiKey: 'sfa_key', expiresAt: null } },
+		} );
+		await expect( forgetRejectedConfig( 'wpcom', rejected ) ).rejects.toThrow( 'Reconnect' );
+		await expect( forgetRejectedConfig( 'spacefast', rejected ) ).rejects.toThrow( 'Reconnect' );
+		expect( readShared().providerConfigs ).toBeUndefined();
+		expect( readShared().authToken ).toMatchObject( { accessToken: 'token' } );
 	} );
 
 	it( 'treats an unknown stored provider as the default', async () => {

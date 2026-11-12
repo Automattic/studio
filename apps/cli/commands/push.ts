@@ -1,29 +1,42 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { connectProvider } from '@studio/common/lib/ai-settings';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
+import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { formatProgressLabel } from '@studio/common/lib/progress-label';
+import { forgetRejectedConfig, readProviderConfig } from '@studio/common/lib/provider-config';
 import { getRemoteSites, rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import { getSiteTracksProps } from '@studio/common/lib/site-tracks';
 import {
 	buildSyncEventProps,
 	classifySyncSelection,
 } from '@studio/common/lib/sync/build-sync-event-props';
-import {
-	SYNC_IGNORE_DEFAULTS,
-	SYNC_PUSH_SIZE_LIMIT_BYTES,
-	SYNC_PUSH_SIZE_LIMIT_GB,
-} from '@studio/common/lib/sync/constants';
+import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { SyncOption } from '@studio/common/types/sync';
+import {
+	getProviderDescriptor,
+	getSitesDescriptor,
+	normalizeSitesProviderId,
+	type ProviderConfigs,
+	type ProviderSites,
+	type PushContent,
+	type PushStatus,
+	type SitesProviderId,
+} from '@studio/providers';
+import { getProvider } from '@studio/providers/services';
 import { __, sprintf } from '@wordpress/i18n';
+import { openBrowser } from 'cli/lib/browser';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { ExportOptions } from 'cli/lib/import-export/export/types';
+import { confirm, select } from 'cli/lib/prompts';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
-import { exitOnCancel, reportSyncActivity } from 'cli/lib/sync-activity';
-import { fetchSyncableSites, toLoggerError, wpcomSites } from 'cli/lib/sync-api';
+import { exportStaticContent } from 'cli/lib/static-content';
+import { exitOnCancel, onCancel, reportSyncActivity } from 'cli/lib/sync-activity';
+import { fetchSyncableSites, toLoggerError } from 'cli/lib/sync-api';
 import { selectSyncItemsForPush } from 'cli/lib/sync-selector';
 import { findSyncSiteByIdentifier, pickSyncSite } from 'cli/lib/sync-site-picker';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
@@ -37,37 +50,62 @@ import type {
 } from '@studio/common/lib/sync/build-sync-event-props';
 import type { SyncFailurePhase } from '@studio/common/lib/sync/classify-sync-failure';
 import type { PushPhase, SyncSite } from '@studio/common/types/sync';
-import type { PushStatus } from '@studio/providers';
 import type { builder } from 'cli/commands/push.command';
 import type { CommandArgs } from 'cli/types';
 
 const defaultLogger = new Logger< LoggerAction >();
 
+type RemoteSite = ProviderSites[ SitesProviderId ];
+type Config = ProviderConfigs[ SitesProviderId ];
+
+// The remote site a push names: `<provider>:<site>` or `<provider>`, or a WordPress.com site's URL
+// or ID.
+function parseRemoteSite( value: string | undefined ): {
+	provider: SitesProviderId;
+	identifier?: string;
+} {
+	const [ prefix, ...rest ] = value?.split( ':' ) ?? [];
+	const provider = prefix ? normalizeSitesProviderId( prefix ) : undefined;
+	return provider
+		? { provider, identifier: rest.join( ':' ) || undefined }
+		: { provider: 'wpcom', identifier: value };
+}
+
+/**
+ * Pushes the local site to a remote site on any provider. The provider's descriptor says what it
+ * receives, the site's WordPress archive or a static export of its pages; reporting the progress
+ * to the Studio apps, recording the result in Tracks, cleaning up after a cancel and remembering
+ * the connection work the same for every provider.
+ */
 export async function runCommand(
 	siteFolder: string,
 	syncOptions?: SyncOption[],
 	remoteSiteIdentifier?: string,
 	logger: Logger< LoggerAction > = defaultLogger,
 	{ includeOnly }: PushFlags = {}
-): Promise< SyncSite | undefined > {
+): Promise< RemoteSite | undefined > {
 	const startedAt = Date.now();
+	const { provider, identifier } = parseRemoteSite( remoteSiteIdentifier );
 	// The remote site is only known part-way through, but the setup steps before
 	// it (auth, site load, remote-site fetch) can fail too — `runPush` reports the
 	// site back through this ref so those failures are still recorded, just with
 	// `sync_type: unknown`.
 	const pushed: PushOutcome = {
+		provider,
 		selection: syncOptions
 			? classifySyncSelection( { optionsToSync: syncOptions, specificSelectionPaths: includeOnly } )
 			: undefined,
 	};
+	const settled = { direction: 'push' as const, provider };
 
 	try {
-		await runPush( siteFolder, syncOptions, includeOnly, remoteSiteIdentifier, logger, pushed );
+		await runPush( siteFolder, syncOptions, includeOnly, identifier, logger, pushed );
 	} catch ( error ) {
 		if ( pushed.siteId ) {
 			await reportSyncActivity( pushed.siteId, {
 				kind: 'error',
-				direction: 'push',
+				...settled,
+				remoteSiteId: pushed.remoteSite?.id,
 				message: error instanceof Error ? error.message : String( error ),
 			} );
 		}
@@ -75,6 +113,7 @@ export async function runCommand(
 			siteFolder,
 			buildSyncEventProps( {
 				startedAt,
+				provider,
 				site: pushed.remoteSite,
 				selection: pushed.selection,
 				error,
@@ -85,19 +124,25 @@ export async function runCommand(
 	}
 
 	if ( pushed.siteId ) {
-		await reportSyncActivity(
-			pushed.siteId,
-			pushed.launchError
-				? { kind: 'error', direction: 'push', message: pushed.launchError }
-				: { kind: pushed.completed ? 'success' : 'cancelled', direction: 'push' }
-		);
+		await reportSyncActivity( pushed.siteId, {
+			...settled,
+			remoteSiteId: pushed.remoteSite?.id,
+			...( pushed.launchError
+				? { kind: 'error', message: pushed.launchError }
+				: { kind: pushed.completed ? 'success' : 'cancelled' } ),
+		} );
 	}
 	// Backing out of the site picker or the item selector returns without
 	// completing — a cancel, which emits nothing.
 	if ( pushed.completed ) {
 		await recordSyncPushEvent(
 			siteFolder,
-			buildSyncEventProps( { startedAt, site: pushed.remoteSite, selection: pushed.selection } )
+			buildSyncEventProps( {
+				startedAt,
+				provider,
+				site: pushed.remoteSite,
+				selection: pushed.selection,
+			} )
 		);
 	}
 	return pushed.completed ? pushed.remoteSite : undefined;
@@ -105,9 +150,10 @@ export async function runCommand(
 
 type PushFlags = { includeOnly?: string[] };
 type PushOutcome = {
+	provider: SitesProviderId;
 	selection?: SyncSelectionProps;
 	siteId?: string;
-	remoteSite?: SyncSite;
+	remoteSite?: RemoteSite;
 	completed?: boolean;
 	launchError?: string;
 	// The step a failure is attributed to when its error names no cause of its own.
@@ -136,13 +182,14 @@ async function runPush(
 	siteFolder: string,
 	syncOptions: SyncOption[] | undefined,
 	includeOnly: string[] | undefined,
-	remoteSiteIdentifier: string | undefined,
+	identifier: string | undefined,
 	logger: Logger< LoggerAction >,
 	pushed: PushOutcome
 ): Promise< void > {
-	let remoteSite: SyncSite | undefined;
-
-	const token = await requireAuthToken( 'auth' );
+	const { provider } = pushed;
+	const sites = getSitesDescriptor( provider );
+	const service = getProvider( provider ).sites!;
+	const config = await requireConfig( provider );
 
 	logger.reportStart( LoggerAction.LOAD_SITES, __( 'Loading site…' ) );
 	const site = await getSiteByFolder( siteFolder );
@@ -155,6 +202,7 @@ async function runPush(
 		void reportSyncActivity( site.id, {
 			kind: 'pending',
 			direction: 'push',
+			provider,
 			remoteSiteId: pushed.remoteSite?.id,
 			...( phase ? { phase } : {} ),
 			...( progress === undefined ? {} : { progress: Math.round( progress ) } ),
@@ -162,39 +210,32 @@ async function runPush(
 	};
 	reportPhase();
 
-	logger.reportStart(
-		LoggerAction.INSTALL_SQLITE,
-		__( 'Setting up SQLite integration, if needed…' )
-	);
-	await keepSqliteIntegrationUpdated( siteFolder );
-	logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
-
-	logger.reportStart( LoggerAction.FETCH_REMOTE_SITES, __( 'Fetching WordPress.com sites…' ) );
-	const remoteSites = await fetchSyncableSites( token.accessToken );
-	logger.spinner.stop();
-
-	if ( remoteSiteIdentifier ) {
-		remoteSite = findSyncSiteByIdentifier( remoteSites, remoteSiteIdentifier );
-	} else {
-		remoteSite = await pickSyncSite( remoteSites, __( 'Select a site to push to' ) );
-		if ( ! remoteSite ) {
-			return;
-		}
+	if ( ! sites.exportsStaticSite ) {
+		logger.reportStart(
+			LoggerAction.INSTALL_SQLITE,
+			__( 'Setting up SQLite integration, if needed…' )
+		);
+		await keepSqliteIntegrationUpdated( siteFolder );
+		logger.reportSuccess( __( 'SQLite integration configured as needed' ) );
 	}
-	const remoteId = remoteSite.id;
-	const connection = ( ( await getRemoteSites( 'wpcom', site.id ) ) ?? [] ).find(
-		( connected ) => connected.id === remoteId
+
+	const remoteSite = await forgetRejectedConfig( provider, () =>
+		provider === 'wpcom'
+			? resolveWpcomSite( ( config as { token: string } ).token, site.id, identifier, logger )
+			: resolveRemoteSite( provider, config, site, identifier, logger )
 	);
-	if ( connection?.launchAfterPush ) {
-		remoteSite = { ...remoteSite, launchAfterPush: true };
+	if ( ! remoteSite ) {
+		return;
 	}
 	pushed.remoteSite = remoteSite;
 	reportPhase();
 
-	let optionsToSync: SyncOption[];
+	let optionsToSync: SyncOption[] = [ 'all' ];
 	let specificSelectionPaths: string[] | undefined;
 
-	if ( syncOptions ) {
+	if ( ! sites.selective ) {
+		// The whole site, whatever was asked.
+	} else if ( syncOptions ) {
 		optionsToSync = syncOptions;
 		specificSelectionPaths = includeOnly;
 	} else {
@@ -210,66 +251,22 @@ async function runPush(
 
 	reportPhase( 'creatingBackup' );
 	const tempDir = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-sync' ) );
+	const removeTempDir = () => fs.promises.rm( tempDir, { recursive: true, force: true } );
+	const forgetTempDir = onCancel( removeTempDir );
 
 	try {
-		fs.mkdirSync( tempDir, { recursive: true } );
-		const archivePath = path.join( tempDir, `push-${ site.id }-${ Date.now() }.tar.gz` );
-
-		let includes: ExportOptions[ 'includes' ];
-
-		if ( optionsToSync.includes( 'all' ) ) {
-			includes = {
-				database: true,
-				wpContent: true,
-			};
-		} else {
-			includes = {
-				database: optionsToSync.includes( 'sqls' ),
-				wpContent:
-					optionsToSync.includes( 'uploads' ) ||
-					optionsToSync.includes( 'plugins' ) ||
-					optionsToSync.includes( 'themes' ) ||
-					optionsToSync.includes( 'contents' ),
-			};
-		}
-
-		const deployIgnore = await createDeployIgnoreFilter( site.path, SYNC_IGNORE_DEFAULTS );
-
-		const exporter = await getExporter( {
-			site,
-			backupFile: archivePath,
-			includes,
-			phpVersion: site.phpVersion,
-			splitDatabaseDumpByTable: true,
-			specificSelectionPaths,
-			ignoreFilter: deployIgnore,
-			stripStudioWpConfigConstants: true,
-		} );
-
-		if ( ! exporter ) {
-			throw new LoggerError(
-				__( 'No suitable exporter found for the provided backup file' ),
-				undefined,
-				'local_export'
-			);
-		}
-
-		handleExportEvents( exporter, logger );
-		await withSiteOperation( site.path, 'export', () => exporter.export() );
-
-		const archiveSize = fs.statSync( archivePath ).size;
-		if ( archiveSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
-			throw new LoggerError(
-				sprintf(
-					__(
-						'The archive exceeds the %d GB size limit. Please reduce the size of your site and try again.'
-					),
-					SYNC_PUSH_SIZE_LIMIT_GB
-				),
-				undefined,
-				'size_limit'
-			);
-		}
+		const content = sites.exportsStaticSite
+			? await exportStaticContent( site.path, remoteSite.url, path.join( tempDir, 'site' ) )
+			: await exportArchive(
+					provider,
+					site,
+					tempDir,
+					optionsToSync,
+					specificSelectionPaths,
+					logger
+			  );
+		const uploadLabel =
+			content.kind === 'archive' ? __( 'Uploading archive…' ) : __( 'Uploading files…' );
 
 		// Push progress: Export (0-20%) → Upload (20-40%) → Remote backup (40-60%) → Import (60-99%) → Done (100%)
 
@@ -300,39 +297,38 @@ async function runPush(
 		};
 		process.on( 'SIGINT', onSigint );
 
-		logger.reportStart(
-			LoggerAction.UPLOAD,
-			formatProgressLabel( __( 'Uploading archive…' ), 20 )
-		);
+		const launchAfterPush = 'launchAfterPush' in remoteSite && remoteSite.launchAfterPush;
+		logger.reportStart( LoggerAction.UPLOAD, formatProgressLabel( uploadLabel, 20 ) );
 		try {
-			const result = await wpcomSites.push(
-				{ token: token.accessToken },
-				remoteSite,
-				{
-					file: fs.createReadStream( archivePath ),
-					name: path.basename( archivePath ),
-					size: archiveSize,
-				},
-				{ optionsToSync, specificSelectionPaths, launchAfterPush: remoteSite.launchAfterPush },
-				( { phase, progress } ) => {
-					const reported = `${ phase }:${ progress === undefined ? '' : Math.round( progress ) }`;
-					// The upload reports every chunk; the remote steps report every poll, which a
-					// Studio app that restarts or reloads needs to show the push again.
-					if ( phase !== 'uploading' || reported !== lastReported ) {
-						reportPhase( phase, progress );
-					}
-					lastReported = reported;
-					uploading = phase === 'uploading';
-					const [ label, start, span ] = PUSH_PROGRESS[ phase ];
-					logger.reportProgress(
-						formatProgressLabel( label(), Math.round( start + ( ( progress ?? 0 ) / 100 ) * span ) )
-					);
-				},
-				abortUpload.signal
+			const result = await forgetRejectedConfig( provider, () =>
+				service.push(
+					config as never,
+					remoteSite as never,
+					content,
+					{ optionsToSync, specificSelectionPaths, launchAfterPush },
+					( { phase, progress } ) => {
+						const reported = `${ phase }:${ progress === undefined ? '' : Math.round( progress ) }`;
+						// The upload reports every chunk; the remote steps report every poll, which a
+						// Studio app that restarts or reloads needs to show the push again.
+						if ( phase !== 'uploading' || reported !== lastReported ) {
+							reportPhase( phase, progress );
+						}
+						lastReported = reported;
+						uploading = phase === 'uploading';
+						const [ label, start, span ] = PUSH_PROGRESS[ phase ];
+						logger.reportProgress(
+							formatProgressLabel(
+								phase === 'uploading' ? uploadLabel : label(),
+								Math.round( start + ( ( progress ?? 0 ) / 100 ) * span )
+							)
+						);
+					},
+					abortUpload.signal
+				)
 			);
 			pushed.launchError = result?.launchError;
-			if ( remoteSite.launchAfterPush && ! pushed.launchError ) {
-				remoteSite.launchAfterPush = false;
+			if ( launchAfterPush && ! pushed.launchError ) {
+				( remoteSite as SyncSite ).launchAfterPush = false;
 			}
 		} catch ( error ) {
 			throw toLoggerError( error, __( 'Push failed' ) );
@@ -344,7 +340,7 @@ async function runPush(
 		// Remember this connection so future push/pull runs (and the Desktop UI)
 		// can surface it without re-selecting from the full site list.
 		try {
-			await rememberRemoteSite( 'wpcom', site.id, remoteSite, 'push' );
+			await rememberRemoteSite( provider, site.id, remoteSite as never, 'push' );
 		} catch ( error ) {
 			logger.reportError( new LoggerError( 'Failed to save connected site', error ), false );
 		}
@@ -357,8 +353,224 @@ async function runPush(
 		}
 		pushed.completed = true;
 	} finally {
-		fs.rmSync( tempDir, { recursive: true, force: true } );
+		forgetTempDir();
+		await removeTempDir();
 	}
+}
+
+// The provider's config. In a terminal, offers to sign in to WordPress.com, or to connect a
+// provider that connects with a device sign-in.
+async function requireConfig( provider: SitesProviderId ): Promise< Config > {
+	if ( provider === 'wpcom' ) {
+		return { token: ( await requireAuthToken( 'auth' ) ).accessToken } as Config;
+	}
+	const config = await readProviderConfig( provider );
+	if ( config ) {
+		return config;
+	}
+	const { label, connection } = getProviderDescriptor( provider );
+	const { startConnect } = getProvider( provider );
+	if (
+		connection.kind !== 'device' ||
+		! startConnect ||
+		! process.stdin.isTTY ||
+		! ( await confirm( { message: sprintf( __( 'Connect %s now?' ), label ) } ) )
+	) {
+		throw new LoggerError(
+			sprintf( __( 'Connect %s first.' ), label ),
+			undefined,
+			'auth_required'
+		);
+	}
+	const login = await startConnect();
+	console.log(
+		sprintf( __( 'Approve the code %1$s at %2$s' ), login.userCode, login.verificationUrl )
+	);
+	await openBrowser( login.verificationUrl ).catch( () => undefined );
+	await connectProvider( getProvider( provider ), {
+		deviceCode: login.deviceCode,
+		interval: String( login.interval ),
+		expiresAt: login.expiresAt,
+	} );
+	return ( await readProviderConfig( provider ) )!;
+}
+
+async function resolveWpcomSite(
+	token: string,
+	localSiteId: string,
+	identifier: string | undefined,
+	logger: Logger< LoggerAction >
+): Promise< SyncSite | undefined > {
+	logger.reportStart( LoggerAction.FETCH_REMOTE_SITES, __( 'Fetching WordPress.com sites…' ) );
+	const remoteSites = await fetchSyncableSites( token );
+	logger.spinner.stop();
+
+	const remoteSite = identifier
+		? findSyncSiteByIdentifier( remoteSites, identifier )
+		: await pickSyncSite( remoteSites, __( 'Select a site to push to' ) );
+	if ( ! remoteSite ) {
+		return undefined;
+	}
+	const connection = ( await getRemoteSites( 'wpcom', localSiteId ) ).find(
+		( connected ) => connected.id === remoteSite.id
+	);
+	return connection?.launchAfterPush ? { ...remoteSite, launchAfterPush: true } : remoteSite;
+}
+
+const NEW_SITE = Symbol( 'new-site' );
+
+/**
+ * A provider's site to push to: the one `identifier` names (its ID or URL), the one the local
+ * site last pushed to, or, in a terminal, one the user picks or creates.
+ */
+async function resolveRemoteSite(
+	provider: SitesProviderId,
+	config: Config,
+	site: { id: string; name: string },
+	identifier: string | undefined,
+	logger: Logger< LoggerAction >
+): Promise< RemoteSite | undefined > {
+	if ( ! identifier ) {
+		const [ last ] = ( await getRemoteSites( provider, site.id ) ).sort( ( a, b ) =>
+			( b.lastPushTimestamp ?? '' ).localeCompare( a.lastPushTimestamp ?? '' )
+		);
+		if ( last ) {
+			const {
+				localSiteId: _localSiteId,
+				lastPushTimestamp: _push,
+				lastPullTimestamp: _pull,
+				...remoteSite
+			} = last;
+			return remoteSite as RemoteSite;
+		}
+	}
+
+	const { label } = getProviderDescriptor( provider );
+	const service = getProvider( provider ).sites!;
+	logger.reportStart(
+		LoggerAction.FETCH_REMOTE_SITES,
+		sprintf( __( 'Fetching %s sites…' ), label )
+	);
+	let remoteSites: RemoteSite[];
+	try {
+		remoteSites = await service.list( config as never );
+	} catch ( error ) {
+		throw toLoggerError( error, sprintf( __( 'Failed to load your %s sites' ), label ) );
+	}
+	logger.spinner.stop();
+
+	if ( identifier ) {
+		const normalized = normalizeHostname( identifier );
+		const remoteSite = remoteSites.find(
+			( candidate ) =>
+				String( candidate.id ) === identifier ||
+				normalizeHostname( candidate.url ) === normalized ||
+				( 'slug' in candidate && candidate.slug === identifier )
+		);
+		if ( ! remoteSite ) {
+			throw new LoggerError( sprintf( __( 'No site found matching "%s"' ), identifier ) );
+		}
+		const issue = getSitesDescriptor( provider ).issue( remoteSite, 'push' );
+		if ( issue ) {
+			throw new LoggerError( issue );
+		}
+		return remoteSite;
+	}
+
+	if ( ! process.stdin.isTTY ) {
+		throw new LoggerError(
+			sprintf( __( 'Choose a site with `--remote-site %s:<site>` (its ID or URL).' ), provider )
+		);
+	}
+	const choice = await select< RemoteSite | typeof NEW_SITE >( {
+		message: __( 'Select a site to push to' ),
+		choices: [
+			...( service.create
+				? [ { name: sprintf( __( 'New site "%s"' ), site.name ), value: NEW_SITE } as const ]
+				: [] ),
+			...remoteSites.map( ( remoteSite ) => ( {
+				name: `${ remoteSite.name } (${ remoteSite.url })`,
+				value: remoteSite,
+			} ) ),
+		],
+	} );
+	if ( choice !== NEW_SITE ) {
+		return choice;
+	}
+	try {
+		return await forgetRejectedConfig( provider, () =>
+			service.create!( config as never, { name: site.name } )
+		);
+	} catch ( error ) {
+		throw toLoggerError( error, sprintf( __( 'Failed to create the %s site' ), label ) );
+	}
+}
+
+async function exportArchive(
+	provider: SitesProviderId,
+	site: Awaited< ReturnType< typeof getSiteByFolder > >,
+	tempDir: string,
+	optionsToSync: SyncOption[],
+	specificSelectionPaths: string[] | undefined,
+	logger: Logger< LoggerAction >
+): Promise< PushContent > {
+	const archivePath = path.join( tempDir, `push-${ site.id }-${ Date.now() }.tar.gz` );
+
+	const includes: ExportOptions[ 'includes' ] = optionsToSync.includes( 'all' )
+		? { database: true, wpContent: true }
+		: {
+				database: optionsToSync.includes( 'sqls' ),
+				wpContent:
+					optionsToSync.includes( 'uploads' ) ||
+					optionsToSync.includes( 'plugins' ) ||
+					optionsToSync.includes( 'themes' ) ||
+					optionsToSync.includes( 'contents' ),
+		  };
+
+	const deployIgnore = await createDeployIgnoreFilter( site.path, SYNC_IGNORE_DEFAULTS );
+
+	const exporter = await getExporter( {
+		site,
+		backupFile: archivePath,
+		includes,
+		phpVersion: site.phpVersion,
+		splitDatabaseDumpByTable: true,
+		specificSelectionPaths,
+		ignoreFilter: deployIgnore,
+		stripStudioWpConfigConstants: true,
+	} );
+
+	if ( ! exporter ) {
+		throw new LoggerError(
+			__( 'No suitable exporter found for the provided backup file' ),
+			undefined,
+			'local_export'
+		);
+	}
+
+	handleExportEvents( exporter, logger );
+	await withSiteOperation( site.path, 'export', () => exporter.export() );
+
+	const size = fs.statSync( archivePath ).size;
+	const maxPushSize = getSitesDescriptor( provider ).maxPushSize;
+	if ( maxPushSize && size > maxPushSize ) {
+		throw new LoggerError(
+			sprintf(
+				__(
+					'The archive exceeds the %d GB size limit. Please reduce the size of your site and try again.'
+				),
+				Math.round( maxPushSize / 1024 ** 3 )
+			),
+			undefined,
+			'size_limit'
+		);
+	}
+	return {
+		kind: 'archive',
+		file: fs.createReadStream( archivePath ),
+		name: path.basename( archivePath ),
+		size,
+	};
 }
 
 async function recordSyncPushEvent( siteFolder: string, props: SyncEventProps ): Promise< void > {
@@ -372,6 +584,7 @@ async function recordSyncPushEvent( siteFolder: string, props: SyncEventProps ):
 		// Best-effort telemetry — never block or fail the push.
 	}
 }
+
 export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 	exitOnCancel();
 	try {

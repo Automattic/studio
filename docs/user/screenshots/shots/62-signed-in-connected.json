@@ -1,15 +1,15 @@
 {
 	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "signed-in-connected",
-	"description": "Signed in, with the demo site connected to two made-up WordPress.com sites from wpcom-sites.json: the Publish panel's website switcher and the Choose files… review steps",
+	"description": "Signed in, with the demo site connected to two made-up WordPress.com sites from wpcom-sites.json: the Publish tab's list of connected websites and the Choose files… review steps",
 	"scene": "moire",
 	"look": "docs",
 	"signedIn": true,
 	"connectedSites": true,
 	"shots": [
 		{
-			"name": "publish-switcher",
-			"description": "Publish details → the website switcher, listing two connected websites and Connect another site…",
+			"name": "publish-sites",
+			"description": "Publish → Published to: the two connected websites, and Publish to another site…",
 			"meta": { "pages": [ "sync.md" ] },
 			"steps": [
 				{
@@ -31,15 +31,9 @@
 					}
 				},
 				{
-					"click": {
-						"role": "combobox",
-						"pattern": "^Switch website"
-					}
-				},
-				{
 					"waitFor": {
-						"role": "option",
-						"name": "Connect another site…"
+						"role": "heading",
+						"name": "Published to"
 					}
 				}
 			],
@@ -56,15 +50,10 @@
 				}
 			],
 			"capture": {
-				"target": [
-					{
-						"role": "dialog",
-						"name": "Share and publish"
-					},
-					{
-						"role": "listbox"
-					}
-				]
+				"target": {
+					"role": "dialog",
+					"name": "Share and publish"
+				}
 			}
 		},
 		{
@@ -87,6 +76,13 @@
 						},
 						"role": "tab",
 						"name": "Publish",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "button",
+						"name": "moirejournal.wpcomstaging.com",
 						"exact": true
 					}
 				},

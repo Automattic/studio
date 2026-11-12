@@ -29,7 +29,6 @@ import type {
 	SnapshotUsage,
 	StudioAssistantQuota,
 	StudioAssistantTopUpPricing,
-	SyncSite,
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/agent/protocol/agent-events';
@@ -563,29 +562,35 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getPreviewStatus( hostname ): Promise< PreviewStatus > {
 			return api< PreviewStatus >( `/snapshots/${ encodeURIComponent( hostname ) }/status` );
 		},
-		async getConnectedWpcomSites( localSiteId ): Promise< SyncSite[] > {
-			return api< SyncSite[] >(
-				localSiteId
-					? `/sites/${ encodeURIComponent( localSiteId ) }/connected-sites`
-					: '/wpcom/connected-sites'
+		async getRemoteSites( provider, localSiteId ) {
+			return api(
+				`/remote-sites/${ provider }${
+					localSiteId ? `?localSiteId=${ encodeURIComponent( localSiteId ) }` : ''
+				}`
 			);
 		},
-		async fetchSyncableWpcomSites(): Promise< SyncSite[] > {
-			return api< SyncSite[] >( '/wpcom/syncable-sites' );
+		async listAccountSites( provider ) {
+			return api( `/remote-sites/${ provider }/account` );
 		},
-		async connectWpcomSite( localSiteId, site ) {
-			await api( `/sites/${ encodeURIComponent( localSiteId ) }/connected-sites`, {
+		async connectRemoteSite( provider, localSiteId, site ) {
+			await api( `/sites/${ encodeURIComponent( localSiteId ) }/remote-sites/${ provider }`, {
 				method: 'POST',
 				body: JSON.stringify( site ),
 			} );
 		},
-		async disconnectWpcomSite( localSiteId, remoteSiteId ) {
+		async disconnectRemoteSite( provider, localSiteId, remoteSiteId ) {
 			await api(
-				`/sites/${ encodeURIComponent( localSiteId ) }/connected-sites/${ encodeURIComponent(
-					remoteSiteId
-				) }`,
+				`/sites/${ encodeURIComponent(
+					localSiteId
+				) }/remote-sites/${ provider }/${ encodeURIComponent( remoteSiteId ) }`,
 				{ method: 'DELETE' }
 			);
+		},
+		async createRemoteSite( provider, localSiteId, name ) {
+			return api( `/sites/${ encodeURIComponent( localSiteId ) }/remote-sites/${ provider }/new`, {
+				method: 'POST',
+				body: JSON.stringify( { name } ),
+			} );
 		},
 		onSyncConnectSite( listener ) {
 			syncConnectListeners.add( listener );
@@ -600,10 +605,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'POST',
 			} );
 		},
-		async pushSiteToLive( siteId, remoteSiteId, options ) {
+		async pushSite( provider, siteId, remoteSiteId, options ) {
 			const result = await api< { cancelled?: boolean } >(
-				`/sites/${ encodeURIComponent( siteId ) }/push`,
-				{ method: 'POST', body: JSON.stringify( { remoteSiteId, options } ) }
+				`/sites/${ encodeURIComponent( siteId ) }/remote-sites/${ provider }/${ encodeURIComponent(
+					remoteSiteId
+				) }/push`,
+				{ method: 'POST', body: JSON.stringify( { options } ) }
 			);
 			// The server reports a cancel instead of failing the request; turn it
 			// back into an error for the caller.
@@ -618,10 +625,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { remoteSiteId } ),
 			} );
 		},
-		async pullSiteFromLive( siteId, remoteSiteId, options ) {
+		async pullSite( provider, siteId, remoteSiteId, options ) {
 			const result = await api< { cancelled?: boolean } >(
-				`/sites/${ encodeURIComponent( siteId ) }/pull`,
-				{ method: 'POST', body: JSON.stringify( { remoteSiteId, options } ) }
+				`/sites/${ encodeURIComponent( siteId ) }/remote-sites/${ provider }/${ encodeURIComponent(
+					remoteSiteId
+				) }/pull`,
+				{ method: 'POST', body: JSON.stringify( { options } ) }
 			);
 			if ( result?.cancelled ) {
 				throw new SyncCancelledError();
@@ -631,14 +640,18 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			syncActivityListeners.add( listener );
 			return () => syncActivityListeners.delete( listener );
 		},
-		async getLatestRewindId( remoteSiteId ) {
-			return api< string | null >( `/wpcom/sites/${ remoteSiteId }/latest-rewind-id` );
+		async getRemoteBackupId( provider, remoteSiteId ) {
+			return api< string | null >(
+				`/remote-sites/${ provider }/${ encodeURIComponent( remoteSiteId ) }/backup`
+			);
 		},
-		async listRemoteFileTree( remoteSiteId, rewindId, path ) {
+		async listRemoteBackupFiles( provider, remoteSiteId, backupId, path ) {
 			return api< Record< string, unknown > >(
-				`/wpcom/sites/${ remoteSiteId }/remote-file-tree?rewindId=${ encodeURIComponent(
-					rewindId
-				) }&path=${ encodeURIComponent( path ) }`
+				`/remote-sites/${ provider }/${ encodeURIComponent(
+					remoteSiteId
+				) }/backup-files?backupId=${ encodeURIComponent( backupId ) }&path=${ encodeURIComponent(
+					path
+				) }`
 			);
 		},
 		async listLocalFileTree( siteId, path, depth ) {
@@ -664,12 +677,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async getIsMultisite( siteId ) {
 			return api< boolean >( `/sites/${ encodeURIComponent( siteId ) }/multisite` );
-		},
-		async getHostingPhpVersion( remoteSiteId ) {
-			const version = await api< string | null >(
-				`/wpcom/sites/${ remoteSiteId }/hosting-php-version`
-			);
-			return version ?? undefined;
 		},
 		getPublishCheckoutUrl( site ): string {
 			// The post-checkout auto-connect relies on the deep-link listener, which
@@ -827,6 +834,9 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async disconnectProvider( provider ): Promise< AiSettings > {
 			return api< AiSettings >( `/ai-settings/providers/${ provider }`, { method: 'DELETE' } );
+		},
+		async startProviderConnect( provider ) {
+			return api( `/ai-settings/providers/${ provider }/device-sign-in`, { method: 'POST' } );
 		},
 		async setAiProvider( provider ): Promise< AiSettings > {
 			return api< AiSettings >( '/ai-settings/provider', {

@@ -211,15 +211,15 @@ export {
 
 export {
 	cancelSyncOperation,
-	connectWpcomSites,
-	disconnectWpcomSites,
-	fetchSyncableWpcomSites,
-	getConnectedWpcomSites,
-	getHostingPhpVersion,
-	getLatestRewindId,
-	listRemoteFileTree,
-	pullSiteFromLive,
-	pushSiteToLive,
+	connectRemoteSite,
+	createRemoteSite,
+	disconnectRemoteSite,
+	getRemoteBackupId,
+	getRemoteSites,
+	listAccountSites,
+	listRemoteBackupFiles,
+	pullSite,
+	pushSite,
 } from 'src/modules/sync/lib/ipc-handlers';
 
 export {
@@ -242,6 +242,7 @@ export {
 	getWapuuScore,
 	connectAiProvider,
 	disconnectAiProvider,
+	startProviderConnect,
 	saveGlobalAgentInstructions,
 	saveOnboardingHints,
 	saveWapuuScore,

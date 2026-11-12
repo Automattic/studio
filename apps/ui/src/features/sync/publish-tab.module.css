@@ -1,0 +1,109 @@
+.heading {
+	margin: 0;
+	font-size: var( --text-sm );
+	font-weight: var( --font-weight-medium );
+	color: var( --foreground );
+}
+
+.options {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-2 );
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.option {
+	width: 100%;
+	height: auto;
+	justify-content: space-between;
+	gap: var( --space-3 );
+	padding: var( --space-3 );
+	text-align: start;
+	white-space: normal;
+}
+
+.optionText {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-0_5 );
+	min-width: 0;
+}
+
+.optionLabel {
+	font-weight: var( --font-weight-medium );
+	color: var( --foreground );
+}
+
+.optionDescription {
+	font-size: var( --text-xs );
+	font-weight: var( --font-weight-normal );
+	color: var( --muted-foreground );
+}
+
+.screen {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-2_5 );
+}
+
+.screen > :last-child {
+	flex: 1;
+	min-height: 0;
+}
+
+.back {
+	align-self: flex-start;
+	gap: var( --space-1 );
+	color: var( --muted-foreground );
+	font-size: var( --text-xs );
+}
+
+.back svg {
+	width: var( --space-3_5 );
+	height: var( --space-3_5 );
+}
+
+.sites {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-2 );
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.site {
+	position: relative;
+}
+
+.siteButton {
+	position: absolute;
+	inset: 0;
+	padding: 0;
+	border: 0;
+	border-radius: var( --radius-xl );
+	background: transparent;
+	cursor: pointer;
+}
+
+.siteButton:hover {
+	background: color-mix( in oklch, var( --foreground ) 4%, transparent );
+}
+
+.siteButton:focus-visible {
+	outline: 2px solid var( --ring );
+	outline-offset: 2px;
+}
+
+.chevron {
+	flex-shrink: 0;
+	width: var( --space-4 );
+	height: var( --space-4 );
+	color: var( --muted-foreground );
+}
+
+.add {
+	margin-block-start: auto;
+}

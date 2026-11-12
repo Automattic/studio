@@ -3,8 +3,9 @@ import {
 	getAiModel,
 	getDefaultAiModel,
 	isAiModelId,
-	normalizeProviderId,
+	normalizeAiProviderId,
 	type AiModelId,
+	type AiProviderId,
 	type ProviderId,
 } from '@studio/providers';
 import { isStudioCustomEntryOfType } from '@studio/agent/protocol/sessions/entry-types';
@@ -74,11 +75,11 @@ export function resolveSessionModelForProvider(
  * records carry just the model), so pins survive fallback runs. Undefined
  * when never pinned — callers fall back to the saved global selection.
  */
-export function resolveSessionProvider( entries: SessionEntry[] ): ProviderId | undefined {
+export function resolveSessionProvider( entries: SessionEntry[] ): AiProviderId | undefined {
 	for ( let index = entries.length - 1; index >= 0; index -= 1 ) {
 		const entry = entries[ index ];
 		if ( isStudioCustomEntryOfType( entry, 'studio.session_context' ) ) {
-			const provider = entry.data?.provider && normalizeProviderId( entry.data.provider );
+			const provider = entry.data?.provider && normalizeAiProviderId( entry.data.provider );
 			if ( provider ) {
 				return provider;
 			}

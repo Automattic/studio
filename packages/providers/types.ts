@@ -1,24 +1,36 @@
 import type { AnthropicConfig } from './anthropic/config';
 import type { AiModelId } from './models';
+import type { SpacefastConfig } from './spacefast/config';
+import type { Space } from './spacefast/site';
 import type { WpcomConfig } from './wpcom/config';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from './wpcom/site';
 import type { Api, Model } from '@earendil-works/pi-ai';
 import type { z } from 'zod';
 
-export type ProviderId = 'wpcom' | 'anthropic';
+export type ProviderId = 'wpcom' | 'anthropic' | 'spacefast';
+
+// The providers that serve AI models.
+export type AiProviderId = 'wpcom' | 'anthropic';
 
 // What Studio stores for each provider.
 export interface ProviderConfigs {
 	wpcom: WpcomConfig;
 	anthropic: AnthropicConfig;
+	spacefast: SpacefastConfig;
 }
 
 // The remote sites of each provider that offers them.
 export interface ProviderSites {
 	wpcom: SyncSite;
+	spacefast: Space;
 }
 
 export type SitesProviderId = keyof ProviderSites;
+
+// A provider's remote site, or the base every remote site shares.
+export type ProviderSite< Id extends ProviderId > = Id extends SitesProviderId
+	? ProviderSites[ Id ]
+	: RemoteSite;
 
 export interface AiModel< Id extends string = string > {
 	// Stable, stored in sessions; the same id in two providers is the same model.
@@ -54,9 +66,52 @@ export type ProviderConnection =
 	| { kind: 'form'; input: () => ConnectInputSchema }
 	// Approving access on the provider's site, which redirects back to the app
 	// with the result in the URL's parameters.
-	| { kind: 'redirect'; redirectUrl( options: RedirectOptions ): string };
+	| { kind: 'redirect'; redirectUrl( options: RedirectOptions ): string }
+	// Approving a code on the provider's site, while Studio waits for the
+	// approval: the provider's `startConnect` returns the code and where to
+	// approve it, and `connect` takes it back and resolves once approved.
+	| { kind: 'device' };
 
-export interface ProviderDescriptor< Config = unknown > {
+// A pending device sign-in: the user approves `userCode` at `verificationUrl`.
+export interface DeviceAuthorization {
+	deviceCode: string;
+	userCode: string;
+	verificationUrl: string;
+	// Seconds between checks for the approval.
+	interval: number;
+	expiresAt: string;
+}
+
+// How Studio presents a provider's remote sites, so the publish panel names no provider.
+export interface SitesDescriptor< Site extends RemoteSite = RemoteSite > {
+	// The largest archive a push sends, in bytes.
+	maxPushSize?: number;
+	// Whether Studio pulls a site back; without it, Studio only publishes.
+	pull: boolean;
+	// Whether a push or pull can include only part of the site.
+	selective: boolean;
+	// Whether a push publishes a static export of the site, which needs the
+	// site to run on native PHP: Studio on the web can't make one.
+	exportsStaticSite?: boolean;
+	// How a new site is made: a checkout on the provider's site, which then
+	// connects the site to the local one, or created right away from Studio.
+	newSite: 'checkout' | 'create';
+	// What the panel says before a site is connected.
+	intro: { title: () => string; description: () => string; learnMoreUrl: string };
+	// Facts about a connected site, and links to manage it on the provider.
+	details( site: Site ): { title: string; value: string }[];
+	links( site: Site ): { title: string; url: string }[];
+	// Why the site can't be published to or pulled from now, or null.
+	issue( site: Site, direction: 'push' | 'pull' ): string | null;
+	// Something to know before pushing the local site, which doesn't block it.
+	pushWarning?( site: Site, local: { multisite?: boolean } ): string | null;
+	// Whether the site keeps backups a selective pull can browse.
+	hasBackups?( site: Site ): boolean;
+	// Fills stored connections in from the account's current sites.
+	withDetails< Connection extends Site >( connections: Connection[], sites: Site[] ): Connection[];
+}
+
+export interface ProviderDescriptor< Config = unknown, Site extends RemoteSite = RemoteSite > {
 	id: ProviderId;
 	// Brand name, not translated.
 	label: string;
@@ -73,10 +128,7 @@ export interface ProviderDescriptor< Config = unknown > {
 		// The default when the account has paid AI credits left.
 		paidDefaultModel?: AiModelId;
 	};
-	sites?: {
-		// The largest archive a push sends, in bytes.
-		maxPushSize?: number;
-	};
+	sites?: SitesDescriptor< Site >;
 }
 
 // Everything the runtime needs to register one model with pi.
@@ -111,30 +163,36 @@ export type GenerateImages< Config > = (
 	onResult?: ( index: number, result: GenerateImageResult ) => void
 ) => Promise< GenerateImageResult[] >;
 
-// The archive of a local site a push sends: a Blob in the page, a readable
-// stream of the file in Node.
-export interface PushArchive {
-	file: Blob | { pipe: unknown };
-	name: string;
+// What a push sends: the site's WordPress archive (a Blob in the page, a
+// readable stream of the file in Node), or a static export of its pages, each
+// file read when the provider uploads it.
+export type PushContent =
+	| { kind: 'archive'; file: Blob | { pipe: unknown }; name: string; size: number }
+	| { kind: 'files'; files: PushFile[] };
+
+export interface PushFile {
+	// Relative to the export's root, with `/` separators.
+	path: string;
 	size: number;
+	read(): Promise< Uint8Array >;
 }
 
-// The steps of a push on the provider's side, after Studio built the archive.
+// The steps of a push on the provider's side, after Studio built the content.
 // `progress` is the step's own percentage, when the provider reports one.
 export interface PushStatus {
 	phase: 'uploading' | 'creatingRemoteBackup' | 'applyingChanges' | 'finishing' | 'launching';
 	progress?: number;
 }
 
-// Sends local sites to a provider's sites and brings them back. The provider
-// owns the remote side; Studio builds the archives and applies what it pulls.
 // What Studio reads of any provider's remote site.
 export interface RemoteSite {
-	id: unknown;
+	id: string | number;
 	name: string;
 	url: string;
 }
 
+// Sends local sites to a provider's sites and brings them back. The provider
+// owns the remote side; Studio builds the content and applies what it pulls.
 export interface SitesService< Config, Site extends RemoteSite > {
 	// The sites the account can sync with. A deleted site stays in the list
 	// while it is connected (`connectedIds`).
@@ -142,12 +200,14 @@ export interface SitesService< Config, Site extends RemoteSite > {
 		config: Config | undefined,
 		options?: { connectedIds?: Site[ 'id' ][]; planRequired?: boolean }
 	): Promise< Site[] >;
+	// A new site to push to, for a provider that can create one.
+	create?( config: Config | undefined, options: { name: string } ): Promise< Site >;
 	// A launch error means the import succeeded; callers keep the publish intent
 	// for a retry and must not show the site as published yet.
 	push(
 		config: Config | undefined,
 		site: Pick< Site, 'id' | 'name' >,
-		archive: PushArchive,
+		content: PushContent,
 		options: PushSyncOptions,
 		onStatus: ( status: PushStatus ) => void,
 		signal?: AbortSignal
@@ -181,19 +241,16 @@ export interface SitesService< Config, Site extends RemoteSite > {
 			backupId: string,
 			path: string
 		): Promise< Record< string, unknown > >;
-		// The PHP version the site runs, when the provider can tell.
-		phpVersion(
-			config: Config | undefined,
-			site: Pick< Site, 'id' >
-		): Promise< string | undefined >;
 	};
 }
 
 export interface Provider< Config = unknown, Site extends RemoteSite = RemoteSite > {
-	descriptor: ProviderDescriptor< Config >;
+	descriptor: ProviderDescriptor< Config, Site >;
 	// Checks what the user gave, a form's values or a redirect's parameters, and
 	// returns the config to store. Throws InvalidCredentialError when it fails.
 	connect( input: Record< string, string > ): Promise< Config >;
+	// Starts a device sign-in, for a provider whose connection kind is `device`.
+	startConnect?(): Promise< DeviceAuthorization >;
 	// Cleans up on the provider's side before Studio removes the config.
 	disconnect?( config: Config ): Promise< void >;
 	ai?: {

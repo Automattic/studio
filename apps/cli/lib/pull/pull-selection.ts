@@ -136,14 +136,7 @@ export async function applySelection( params: {
 	};
 
 	if ( cli.skipFiles ) {
-		if ( isFirstPull ) {
-			throw new LoggerError(
-				__(
-					'The first pull of a site has to include its files. Pull the whole site once, then pull only the database.'
-				)
-			);
-		}
-		const selection: PullSelection = { skipFiles: true };
+		const selection: PullSelection = isFirstPull ? { databaseOnly: true } : { skipFiles: true };
 		savePullSelection( session, selection );
 		return selection;
 	}

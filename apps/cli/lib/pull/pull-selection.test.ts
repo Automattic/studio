@@ -52,6 +52,34 @@ describe( 'pullSelectionFromSyncOptions', () => {
 	} );
 } );
 
+describe( 'applySelection with --skip-files', () => {
+	let root: string;
+
+	beforeEach( () => {
+		root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-pull-selection-' ) );
+	} );
+
+	afterEach( () => {
+		fs.rmSync( root, { recursive: true, force: true } );
+	} );
+
+	it.each( [
+		[ 'first', true, { databaseOnly: true } ],
+		[ 'later', false, { skipFiles: true } ],
+	] )( 'pulls only the database on a %s pull', async ( _, isFirstPull, expected ) => {
+		const selection = await applySelection( {
+			session: { stateDirectory: path.join( root, 'state' ) } as never,
+			isFirstPull,
+			reprintMetadata: emptyReprintMetadata,
+			cli: { skipFiles: true },
+			wpComAccessToken: 'token',
+			wpComSiteId: 1,
+		} );
+
+		expect( selection ).toEqual( expected );
+	} );
+} );
+
 describe( 'isFullPull', () => {
 	it.each( [
 		[ 'everything', {}, true ],

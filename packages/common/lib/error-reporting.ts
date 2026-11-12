@@ -1,29 +1,65 @@
-import { captureException as coreCaptureException } from '@sentry/core';
+let report: ( ( error: unknown ) => void ) | undefined;
 
 /**
- * Report an exception to Sentry.
- *
- * Uses `@sentry/core` — the SDK-agnostic substrate `@sentry/electron` and
- * `@sentry/node` both build on — and routes to whichever client the host
- * initialized; a safe no-op if none did. Init stays each host's concern (one
- * client per process), so there's intentionally no shared init here.
+ * Each host passes its Sentry SDK's `captureException` once it has set Sentry up. Importing a
+ * Sentry package here instead would only reach the host's client while both use the same version
+ * of `@sentry/core`, which keeps its client in a global per version.
  */
+export function setErrorReporter( captureException: ( error: unknown ) => void ): void {
+	report = captureException;
+}
+
+/** Reports an exception to Sentry, through the host's SDK; a no-op in a host that has none. */
 export function captureException( error: unknown ): void {
-	coreCaptureException( error );
+	report?.( error );
+}
+
+// The account name in a macOS, Linux or Windows home path, with `\` or `/` separators, escaped or not.
+const HOME_PATH_PATTERN =
+	/(?<![\w.])([A-Z]:)?(\\{1,2}|\/)(Users|home)\2[^\\/"'`\n]+(?=[\\/"'`\n]|$)/gi;
+
+export function redactHomePaths( text: string ): string {
+	return text.replace( HOME_PATH_PATTERN, '$1$2$3$2[REDACTED]' );
 }
 
 /**
- * A host's Sentry `beforeSend`: drops errors that set `expected`, like a CLI command its host
- * stopped, so call sites can report everything they catch.
+ * Errors can shape their own report:
+ * - `expected: true`: not a bug, so it isn't sent (a CLI command its host stopped, say);
+ * - `fingerprint`: what groups them into one issue, when the message varies between events.
  */
-export function dropExpectedErrors< Event >(
+type ReportedError = {
+	expected?: unknown;
+	fingerprint?: unknown;
+	domain?: unknown;
+	code?: unknown;
+};
+
+function getFingerprint( error: ReportedError ): string[] | undefined {
+	if ( Array.isArray( error.fingerprint ) ) {
+		return error.fingerprint;
+	}
+	// Electron passes on macOS errors as their `NSError` domain and code; the message is localized.
+	if ( typeof error.domain === 'string' && typeof error.code === 'number' ) {
+		return [ '{{ type }}', error.domain, String( error.code ) ];
+	}
+	return undefined;
+}
+
+/**
+ * Every host's Sentry `beforeSend`, so call sites can report whatever they catch: drops expected
+ * errors, groups errors whose message varies, and redacts account names from paths.
+ */
+export function prepareErrorEvent< Event extends { fingerprint?: string[] } >(
 	event: Event,
-	{ originalException }: { originalException?: unknown }
+	hint: { originalException?: unknown }
 ): Event | null {
-	const expected =
-		typeof originalException === 'object' &&
-		originalException !== null &&
-		'expected' in originalException &&
-		originalException.expected === true;
-	return expected ? null : event;
+	const error = hint.originalException;
+	if ( typeof error === 'object' && error !== null ) {
+		const reported = error as ReportedError;
+		if ( reported.expected === true ) {
+			return null;
+		}
+		event.fingerprint = getFingerprint( reported ) ?? event.fingerprint;
+	}
+	return JSON.parse( redactHomePaths( JSON.stringify( event ) ) );
 }

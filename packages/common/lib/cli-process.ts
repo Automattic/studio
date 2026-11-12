@@ -43,6 +43,11 @@ export class CliCommandError extends Error {
 		return this.stoppedByHost;
 	}
 
+	// The rest of the message carries logs, timestamps and ports that differ in every report.
+	get fingerprint(): string[] {
+		return [ '{{ type }}', this.baseMessage, this.lastErrorMessage?.split( '\n' )[ 0 ] ?? '' ];
+	}
+
 	get message(): string {
 		const messageParts: string[] = [];
 

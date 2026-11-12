@@ -184,7 +184,9 @@ it.runIf( existsSync( chromium.executablePath() ) )(
 );
 
 // A booking form takes a name, an email and a date as text, and no message:
-// the eval sent only a form with a textarea, so it never sent this one.
+// the eval sent only a form with a textarea, so it never sent this one. Its date
+// field opens a picker over the button while it has focus, as Jetpack's does
+// (eval37's grooming port 2), until a visitor moves on.
 it.runIf( existsSync( chromium.executablePath() ) )(
 	'sends a visitor form with name, email and text fields and no textarea, not the search form, and finds what the site stored',
 	async () => {
@@ -209,9 +211,10 @@ it.runIf( existsSync( chromium.executablePath() ) )(
 					<form method="post" action="/book">
 						<input type="text" name="name">
 						<input type="email" name="email">
-						<input type="text" name="date">
+						<input type="text" name="date" onfocus="picker.hidden = false" onblur="setTimeout( () => ( picker.hidden = true ), 5 )">
 						<button type="submit">Book</button>
-					</form>` );
+					</form>
+					<div id="picker" hidden style="position:fixed;inset:0"></div>` );
 			} );
 		} );
 		await new Promise< void >( ( resolve ) => server.listen( 0, '127.0.0.1', resolve ) );

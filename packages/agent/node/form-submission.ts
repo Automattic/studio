@@ -316,6 +316,9 @@ export async function sendForm(
 	page.on( 'requestfinished', onDone );
 	page.on( 'requestfailed', onDone );
 	const before = await page.innerText( 'body' ).catch( () => '' );
+	// A visitor moves on from the last field, which closes what it opened, as
+	// Jetpack's date picker over the button while its field has focus.
+	await page.evaluate( () => ( document.activeElement as HTMLElement | null )?.blur() );
 	try {
 		const button = form
 			.locator( 'button[type="submit"], input[type="submit"], button:not([type])' )

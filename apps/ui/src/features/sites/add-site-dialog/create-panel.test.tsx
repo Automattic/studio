@@ -353,6 +353,7 @@ describe( 'Add site › blank setup', () => {
 				{ name: 'Connect' }
 			)
 		);
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'API key' } ) );
 		fireEvent.change(
 			within( settings ).getByLabelText( 'Anthropic API key', { selector: 'input' } ),
 			{

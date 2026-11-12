@@ -515,6 +515,7 @@ describe( 'Composer access notices', () => {
 			fireEvent.click(
 				anthropicRow( dialog ).getByRole( 'button', { name: saved ? 'Manage' : 'Connect' } )
 			);
+			fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'API key' } ) );
 			if ( ! saved ) {
 				const keyInput = await screen.findByLabelText( 'Anthropic API key', { selector: 'input' } );
 				expect( keyInput ).toHaveAttribute( 'type', 'password' );

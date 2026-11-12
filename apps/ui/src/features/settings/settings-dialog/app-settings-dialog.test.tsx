@@ -698,6 +698,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 				name: 'Manage',
 			} )
 		);
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'API key' } ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Disconnect' } ) );
 		await waitFor( () =>
 			expect( connector.disconnectProvider ).toHaveBeenCalledWith( 'anthropic' )
@@ -902,6 +903,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		await waitFor( () => expect( connect ).toBeEnabled() );
 		expect( screen.queryByLabelText( 'Anthropic API key' ) ).not.toBeInTheDocument();
 		fireEvent.click( connect );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'API key' } ) );
 		const input = await screen.findByLabelText( 'Anthropic API key', { selector: 'input' } );
 		expect( input ).toHaveAttribute( 'type', 'password' );
 		fireEvent.change( input, { target: { value: '  personal-key  ' } } );
@@ -934,7 +936,8 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 				name: 'Manage',
 			} )
 		);
-		await choose( 'Connect with', 'Claude subscription' );
+		expect( await screen.findByRole( 'menuitemradio', { name: 'API key' } ) ).toBeChecked();
+		fireEvent.click( screen.getByRole( 'menuitemradio', { name: 'Claude subscription' } ) );
 		fireEvent.change(
 			await screen.findByLabelText( 'Claude subscription token', { selector: 'input' } ),
 			{ target: { value: 'sk-ant-oat01-token' } }
@@ -960,6 +963,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		);
 		await waitFor( () => expect( manage ).toBeEnabled() );
 		fireEvent.click( manage );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'API key' } ) );
 		const input = await screen.findByLabelText( 'Anthropic API key', { selector: 'input' } );
 		expect( input ).toHaveAttribute( 'type', 'password' );
 		fireEvent.change( input, { target: { value: '  test-key  ' } } );

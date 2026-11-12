@@ -23,7 +23,8 @@ import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { usePublishProviders } from '@/data/queries/use-remote-sites';
 import { LearnMoreLink } from '@/features/onboarding';
 import { useOffline } from '@/lib/hooks';
-import { Button, Input } from '@/lib/ui';
+import { ChevronDownIcon } from '@/lib/icons';
+import { Button, Input, Menu } from '@/lib/ui';
 import { connectedBadge, SettingsGroup, SettingsRow, SettingsSelect } from './rows';
 import styles from './style.module.css';
 
@@ -74,14 +75,39 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 					</>
 				}
 			>
-				<Button
-					variant="outline"
-					aria-expanded={ formOpen }
-					disabled={ pending }
-					onClick={ () => ( formOpen ? closeForm() : setFormOpen( true ) ) }
-				>
-					{ account?.connected ? __( 'Manage' ) : __( 'Connect' ) }
-				</Button>
+				{ methods.length && ! formOpen ? (
+					<Menu.Root>
+						<Menu.Trigger render={ <Button variant="outline" disabled={ pending } /> }>
+							{ account?.connected ? __( 'Manage' ) : __( 'Connect' ) }
+							<ChevronDownIcon />
+						</Menu.Trigger>
+						<Menu.Popup side="bottom" align="end">
+							<Menu.RadioGroup value={ account?.method ?? '' }>
+								{ methods.map( ( { id, label } ) => (
+									<Menu.RadioItem
+										key={ id }
+										value={ id }
+										onClick={ () => {
+											setPickedMethod( id );
+											setFormOpen( true );
+										} }
+									>
+										{ label() }
+									</Menu.RadioItem>
+								) ) }
+							</Menu.RadioGroup>
+						</Menu.Popup>
+					</Menu.Root>
+				) : (
+					<Button
+						variant="outline"
+						aria-expanded={ formOpen }
+						disabled={ pending }
+						onClick={ () => ( formOpen ? closeForm() : setFormOpen( true ) ) }
+					>
+						{ account?.connected ? __( 'Manage' ) : __( 'Connect' ) }
+					</Button>
+				) }
 			</SettingsRow>
 			{ formOpen ? (
 				<form
@@ -97,20 +123,6 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 						}
 					} }
 				>
-					{ methods.length ? (
-						<SettingsRow title={ __( 'Connect with' ) }>
-							<SettingsSelect
-								label={ __( 'Connect with' ) }
-								value={ method ?? '' }
-								disabled={ pending }
-								options={ methods.map( ( { id, label } ) => ( { value: id, label: label() } ) ) }
-								onChange={ ( next ) => {
-									setValues( {} );
-									setPickedMethod( next );
-								} }
-							/>
-						</SettingsRow>
-					) : null }
 					{ fields.map( ( field, index ) => (
 						<SettingsRow
 							key={ field.name }

@@ -57,6 +57,7 @@ export {
 	closeSharedBrowser,
 	ensurePlaywrightChromiumInstalled,
 	getSharedBrowser,
+	openSharedPage,
 } from './browser-utils';
 export { captureScreenshotBuffer } from '@studio/agent/shared/tools/screenshot-helpers';
 export { validateBlocks } from './block-validator';

@@ -121,6 +121,10 @@ describe( 'Add site flow', () => {
 			await screen.findByRole( 'button', { name: 'Start with Blank site' } );
 			fireEvent.click( screen.getByRole( 'tab', { name: 'Connect' } ) );
 			fireEvent.click( await screen.findByRole( 'button', { name: /Remote site/ } ) );
+			expect( await screen.findByRole( 'img', { name: 'Site preview' } ) ).toHaveAttribute(
+				'src',
+				expect.stringContaining( encodeURIComponent( remote.url ) )
+			);
 			await submit();
 			await waitFor( () =>
 				expect( connector.trackEvent ).toHaveBeenCalledWith(

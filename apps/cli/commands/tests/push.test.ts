@@ -9,11 +9,15 @@ import { getProvider } from '@studio/providers/services';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
+import { getSiteVersion } from 'cli/lib/site-versions';
+import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
 import { exportStaticContent } from 'cli/lib/static-content';
 import { onCancel, reportSyncActivity } from 'cli/lib/sync-activity';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
+import { Logger } from 'cli/logger';
 import { runCommand } from '../push';
+import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
 import type { SiteData } from 'cli/lib/cli-config/core';
 import type { Readable } from 'stream';
@@ -58,6 +62,8 @@ vi.mock( '@studio/providers/services', async ( importOriginal ) => {
 	};
 } );
 vi.mock( 'cli/lib/tracks' );
+vi.mock( 'cli/lib/site-versions' );
+vi.mock( 'cli/lib/snapshots', () => ( { getSnapshotsFromConfig: vi.fn() } ) );
 
 const wpcomSites = getProvider( 'wpcom' ).sites!;
 const site = { id: 'site-1', path: '/test/site', phpVersion: '8.3' } as SiteData;
@@ -101,7 +107,9 @@ describe( 'CLI: studio push', () => {
 	beforeEach( () => {
 		vi.clearAllMocks();
 		vi.mocked( onCancel ).mockReturnValue( () => true );
-		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
+		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [] );
+		vi.mocked( getSiteVersion ).mockResolvedValue( 'current' );
+		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token', id: 1 } as never );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( site );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ remoteSite ] );
 		vi.mocked( getRemoteSites ).mockResolvedValue( [] );
@@ -142,6 +150,71 @@ describe( 'CLI: studio push', () => {
 			);
 		}
 	);
+
+	it.each( [
+		{ label: 'no linked preview', previews: [], warning: false },
+		{ label: 'same version', previews: [ { versionId: 'current' } ], warning: false },
+		{ label: 'changed version', previews: [ { versionId: 'older' } ], warning: true },
+		{
+			label: 'another local site',
+			previews: [ { localSiteId: 'other', versionId: 'older' } ],
+			warning: false,
+		},
+		{
+			label: 'another live site',
+			previews: [ { liveSiteId: 99, versionId: 'older' } ],
+			warning: false,
+		},
+		{ label: 'unknown version', previews: [ { versionId: undefined } ], warning: false },
+		{
+			label: 'latest preview matches',
+			previews: [
+				{ versionId: 'current', syncedAt: 20 },
+				{ versionId: 'older', syncedAt: 10 },
+			],
+			warning: false,
+		},
+		{
+			label: 'latest preview differs',
+			previews: [
+				{ versionId: 'current', syncedAt: 10 },
+				{ versionId: 'older', syncedAt: 20 },
+			],
+			warning: true,
+		},
+	] )( 'warns without blocking: $label', async ( { previews, warning } ) => {
+		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue(
+			previews.map(
+				( preview ) =>
+					( {
+						url: 'review.example.com',
+						atomicSiteId: 123,
+						date: 1,
+						localSiteId: site.id,
+						liveSiteId: remoteSite.id,
+						name: 'Design review',
+						...preview,
+					} ) satisfies Snapshot
+			)
+		);
+		const logger = new Logger();
+		const notice = vi.spyOn( logger, 'reportWarning' );
+
+		await expect(
+			runCommand( site.path, [ 'all' ], String( remoteSite.id ), logger )
+		).resolves.toEqual( remoteSite );
+
+		if ( warning ) {
+			expect( notice ).toHaveBeenCalledExactlyOnceWith(
+				expect.stringContaining( 'Design review' )
+			);
+			expect( notice.mock.invocationCallOrder[ 0 ] ).toBeLessThan(
+				vi.mocked( wpcomSites.push ).mock.invocationCallOrder[ 0 ]
+			);
+		} else {
+			expect( notice ).not.toHaveBeenCalled();
+		}
+	} );
 
 	// The phase gates cancelling a push, so every UI must see it move on.
 	it( 'reports each phase, then the result', async () => {

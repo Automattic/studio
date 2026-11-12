@@ -1,6 +1,6 @@
 import {
 	SupportedLocale,
-	getLocaleData,
+	getLocaleDataAsync,
 	DEFAULT_LOCALE,
 	isSupportedLocale,
 } from '@studio/common/lib/locale';
@@ -46,7 +46,7 @@ export async function getAppLocale(): Promise< SupportedLocale > {
 
 export async function loadTranslations() {
 	const locale = await getAppLocale();
-	const translations = getLocaleData( locale )?.messages;
+	const translations = ( await getLocaleDataAsync( locale ) )?.messages;
 
 	if ( translations ) {
 		defaultI18n.setLocaleData( translations );

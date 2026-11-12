@@ -18,7 +18,7 @@ import { SyncOption } from '@studio/common/types/sync';
 import {
 	getProviderDescriptor,
 	getSitesDescriptor,
-	normalizeSitesProviderId,
+	parseRemoteSite,
 	type ProviderConfigs,
 	type ProviderSites,
 	type PushContent,
@@ -57,19 +57,6 @@ const defaultLogger = new Logger< LoggerAction >();
 
 type RemoteSite = ProviderSites[ SitesProviderId ];
 type Config = ProviderConfigs[ SitesProviderId ];
-
-// The remote site a push names: `<provider>:<site>` or `<provider>`, or a WordPress.com site's URL
-// or ID.
-function parseRemoteSite( value: string | undefined ): {
-	provider: SitesProviderId;
-	identifier?: string;
-} {
-	const [ prefix, ...rest ] = value?.split( ':' ) ?? [];
-	const provider = prefix ? normalizeSitesProviderId( prefix ) : undefined;
-	return provider
-		? { provider, identifier: rest.join( ':' ) || undefined }
-		: { provider: 'wpcom', identifier: value };
-}
 
 /**
  * Pushes the local site to a remote site on any provider. The provider's descriptor says what it

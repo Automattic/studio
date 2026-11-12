@@ -40,7 +40,11 @@ foreach ( ${ JSON.stringify( ids ) } as $id ) {
 		return $parsed;
 	};
 	$record = function ( $html, $block ) use ( &$found ) {
-		if ( ! empty( $block['blockName'] ) && empty( $block['studioInDynamicBlock'] ) && '' === trim( $html ) ) {
+		// the_content runs shortcodes after the blocks render (do_shortcode at
+		// priority 11, in wp-includes/default-filters.php), so a shortcode shows
+		// what its callback returns.
+		$shown = trim( do_shortcode( shortcode_unautop( $html ) ) );
+		if ( ! empty( $block['blockName'] ) && empty( $block['studioInDynamicBlock'] ) && '' === $shown ) {
 			$type    = WP_Block_Type_Registry::get_instance()->get_registered( $block['blockName'] );
 			$sourced = array();
 			foreach ( $type ? (array) $type->attributes : array() as $name => $attribute ) {
@@ -56,10 +60,11 @@ foreach ( ${ JSON.stringify( ids ) } as $id ) {
 				$render = isset( $used['template_path'] ) && is_string( $used['template_path'] ) ? $used['template_path'] : null;
 			}
 			$found[] = array(
-				'name'    => $block['blockName'],
-				'saved'   => '' !== trim( implode( '', array_filter( $block['innerContent'], 'is_string' ) ) ),
-				'sourced' => $sourced,
-				'render'  => $render,
+				'name'      => $block['blockName'],
+				'shortcode' => '' === trim( $html ) ? null : wp_strip_all_tags( $html, true ),
+				'saved'     => '' !== trim( implode( '', array_filter( $block['innerContent'], 'is_string' ) ) ),
+				'sourced'   => $sourced,
+				'render'    => $render,
 			);
 		}
 		return $html;
@@ -82,6 +87,8 @@ const blockNames = ( markup: string ) =>
 
 interface EmptyBlock {
 	name: string;
+	/** The shortcode the block holds, when what shows is what it returns. */
+	shortcode: string | null;
 	saved: boolean;
 	sourced: string[];
 	render: string | null;
@@ -101,6 +108,9 @@ export async function emptyBlocks(
 const unsaved = ( block: EmptyBlock ) => ! block.saved && block.sourced.length > 0;
 
 function describe( block: EmptyBlock ): string {
+	if ( block.shortcode ) {
+		return `${ block.name } ${ block.shortcode }, whose output is what the shortcode's callback returns: the_content runs do_shortcode() after do_blocks() (wp-includes/default-filters.php)`;
+	}
 	if ( block.render ) {
 		return `${ block.name }, whose output is what ${ block.render } prints: register_block_type_from_metadata() (wp-includes/blocks.php) requires the file inside ob_start() and returns ob_get_clean()`;
 	}

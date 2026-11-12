@@ -28,6 +28,8 @@ add_action( 'init', function () {
 	register_block_type( __DIR__ . '/returns' );
 	register_block_type( 'studio-test/cart', array( 'render_callback' => function () { return is_user_logged_in() ? '<a>Cart</a>' : ''; } ) );
 } );
+// A form plugin's shortcode, which returns nothing for a form it cannot read (eval36's grooming port).
+add_shortcode( 'studio-test-form', function ( $atts ) { return '1' === $atts['id'] ? '<form></form>' : ''; } );
 `;
 // A block.json render file that returns its HTML instead of printing it.
 const returns = {
@@ -78,6 +80,7 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 			empty: [
 				{
 					name: 'core/image',
+					shortcode: null,
 					saved: false,
 					sourced: expect.arrayContaining( [ 'url', 'alt' ] ),
 					render: null,
@@ -90,6 +93,7 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 			empty: [
 				{
 					name: 'core/image',
+					shortcode: null,
 					saved: false,
 					sourced: expect.arrayContaining( [ 'url' ] ),
 					render: null,
@@ -105,6 +109,11 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 		{
 			name: 'an empty paragraph, which still renders its tag',
 			content: '<!-- wp:paragraph --><p></p><!-- /wp:paragraph -->',
+			empty: [],
+		},
+		{
+			name: 'a shortcode that returns what it shows',
+			content: '<!-- wp:shortcode -->[studio-test-form id="1"]<!-- /wp:shortcode -->',
 			empty: [],
 		},
 		{
@@ -129,6 +138,21 @@ describe.runIf( WORDPRESS )( 'the blocks WordPress renders as nothing', () => {
 			`Seaside Gallery page ${ id } "Gallery": WordPress renders these blocks as nothing on the front end (render_block() through the_content, in wp-includes/blocks.php): studio-test/returns, whose output is what ${ realpathSync(
 				path.join( site.path, 'wp-content/mu-plugins/returns/render.php' )
 			) } prints: register_block_type_from_metadata() (wp-includes/blocks.php) requires the file inside ob_start() and returns ob_get_clean().`
+		);
+	} );
+
+	it( 'names the shortcode of a shortcode block that returns nothing', async () => {
+		const id = await create(
+			'<!-- wp:shortcode -->\n[studio-test-form id="6"]\n<!-- /wp:shortcode -->'
+		);
+		const { reports } = await renderedBlocks.check(
+			site,
+			{ [ id ]: 'before' },
+			{ [ id ]: 'written' },
+			host
+		);
+		expect( reports[ 0 ].problem ).toBe(
+			`Seaside Gallery page ${ id } "Gallery": WordPress renders these blocks as nothing on the front end (render_block() through the_content, in wp-includes/blocks.php): core/shortcode [studio-test-form id="6"], whose output is what the shortcode's callback returns: the_content runs do_shortcode() after do_blocks() (wp-includes/default-filters.php).`
 		);
 	} );
 

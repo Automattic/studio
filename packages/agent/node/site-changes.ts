@@ -10,15 +10,12 @@
 import { adminCapabilities } from '@studio/agent/node/admin-capabilities';
 import { blockEditorScripts } from '@studio/agent/node/block-editor-scripts';
 import { renderedBlocks } from '@studio/agent/node/block-render-check';
-import { blockScriptAssets } from '@studio/agent/node/block-script-assets';
 import { blockTheme } from '@studio/agent/node/block-theme';
 import { childThemeCopies } from '@studio/agent/node/child-theme-copies';
 import { globalStylesFlag } from '@studio/agent/node/global-styles-flag';
 import { inlineBlockClasses } from '@studio/agent/node/inline-block-classes';
 import { jetpackModules } from '@studio/agent/node/jetpack-modules';
 import { linksToNowhereChanges } from '@studio/agent/node/links-to-nowhere';
-import { missingTemplateParts } from '@studio/agent/node/missing-template-parts';
-import { navigationRefs } from '@studio/agent/node/navigation-refs';
 import { postContentChanges } from '@studio/agent/node/post-content-check';
 import { postCopies } from '@studio/agent/node/post-copies';
 import { renamedSlugs } from '@studio/agent/node/renamed-slugs';
@@ -29,7 +26,6 @@ import { siteSettingsCopy } from '@studio/agent/node/site-settings-copy';
 import { templatePartAreas } from '@studio/agent/node/template-part-areas';
 import { themeErrors } from '@studio/agent/node/theme-errors';
 import { updatableThemeChanges } from '@studio/agent/node/theme-file-changes';
-import { themeLook } from '@studio/agent/node/theme-look';
 import { themeStylesheet } from '@studio/agent/node/theme-stylesheet';
 import type { OpenProblems } from '@studio/agent/node/open-problems';
 import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
@@ -95,8 +91,6 @@ const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	globalStylesFlag,
 	// Before the blocks are rendered, so a Jetpack block renders with its module.
 	jetpackModules,
-	// Before the blocks are validated, so the editor loads a block's script after the packages it reads.
-	blockScriptAssets,
 	// Before the posts, so a copy saved to its post is checked as the post.
 	postCopies,
 	// After the checks that save Global Styles, so it states the styles they leave.
@@ -113,14 +107,11 @@ const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	blockTheme,
 	themeErrors,
 	templatePartAreas,
-	missingTemplateParts,
-	navigationRefs,
 	themeStylesheet,
 	siteFileWrites,
 	adminCapabilities,
 	blockEditorScripts,
 	inlineBlockClasses,
-	themeLook,
 ];
 
 export class SiteChanges {

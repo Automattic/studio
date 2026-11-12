@@ -4,7 +4,12 @@ import { useState } from 'react';
 import { useConnector } from '@/data/core';
 import { ACCOUNT_SITES_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
 import type { AiSettings } from '@studio/common/lib/ai-settings';
-import type { AiProviderId, DeviceAuthorization, ProviderId } from '@studio/providers';
+import type {
+	AiProviderId,
+	CommandSignIn,
+	DeviceAuthorization,
+	ProviderId,
+} from '@studio/providers';
 
 // The WordPress.com account is the sign-in, so auth changes refresh it too.
 export const AI_SETTINGS_QUERY_KEY = [ 'ai-settings' ] as const;
@@ -81,4 +86,14 @@ export function useDeviceSignIn( provider: ProviderId ) {
 		onSettled: () => setAuthorization( null ),
 	} );
 	return { ...signIn, authorization };
+}
+
+// Runs a form method's sign-in command, which opens the browser. Not `available` where nothing
+// runs commands.
+export function useCommandSignIn( provider: ProviderId, method: string ) {
+	const connector = useConnector();
+	const start = useMutation< CommandSignIn >( {
+		mutationFn: () => connector.startCommandSignIn!( provider, method ),
+	} );
+	return { ...start, available: !! connector.startCommandSignIn };
 }

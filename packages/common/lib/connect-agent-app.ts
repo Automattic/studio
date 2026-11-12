@@ -257,6 +257,14 @@ async function findCli( plan: CliPlan ): Promise< string | null > {
 	return null;
 }
 
+// The app's CLI, where it installs itself or on the user's shell PATH.
+export async function findAgentAppCli( id: string ): Promise< string | null > {
+	const plan = ( getCliPlans( getMarketplacePath() ) as Partial< Record< string, CliPlan > > )[
+		id
+	];
+	return plan ? findCli( plan ) : null;
+}
+
 function runCli(
 	file: string,
 	args: string[],

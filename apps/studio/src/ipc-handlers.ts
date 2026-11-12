@@ -243,6 +243,7 @@ export {
 	connectAiProvider,
 	disconnectAiProvider,
 	startProviderConnect,
+	startCommandSignIn,
 	saveGlobalAgentInstructions,
 	saveOnboardingHints,
 	saveWapuuScore,

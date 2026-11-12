@@ -838,6 +838,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async startProviderConnect( provider ) {
 			return api( `/ai-settings/providers/${ provider }/device-sign-in`, { method: 'POST' } );
 		},
+		async startCommandSignIn( provider, method ) {
+			return api( `/ai-settings/providers/${ provider }/command-sign-in`, {
+				method: 'POST',
+				body: JSON.stringify( { method } ),
+			} );
+		},
 		async setAiProvider( provider ): Promise< AiSettings > {
 			return api< AiSettings >( '/ai-settings/provider', {
 				method: 'PUT',

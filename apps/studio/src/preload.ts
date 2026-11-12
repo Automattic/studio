@@ -138,6 +138,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'connectAiProvider', provider, input ),
 	disconnectAiProvider: ( provider ) => ipcRendererInvoke( 'disconnectAiProvider', provider ),
 	startProviderConnect: ( provider ) => ipcRendererInvoke( 'startProviderConnect', provider ),
+	startCommandSignIn: ( provider, method ) =>
+		ipcRendererInvoke( 'startCommandSignIn', provider, method ),
 	setAiProvider: ( provider ) => ipcRendererInvoke( 'setAiProvider', provider ),
 	saveWapuuScore: ( score ) => ipcRendererInvoke( 'saveWapuuScore', score ),
 	getWapuuScore: () => ipcRendererInvoke( 'getWapuuScore' ),

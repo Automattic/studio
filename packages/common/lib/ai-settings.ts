@@ -11,6 +11,7 @@ import {
 	type ProviderConfigs,
 	type ProviderId,
 } from '@studio/providers';
+import { finishCommandSignIn } from './connect-command';
 import {
 	readAiFields,
 	readProviderConfig,
@@ -72,14 +73,19 @@ export async function persistSelectedAiProvider( provider: AiProviderId ): Promi
 /**
  * Connects `provider` (from `@studio/providers/services`) with what the user
  * gave: a form's values, with `method` naming the one picked when the provider
- * offers several, or a redirect's parameters. The provider checks them,
- * and its config is stored only when it accepts them.
+ * offers several, or a redirect's parameters. With `session`, Studio ran the
+ * form's sign-in command, which takes the browser's `code` and fills the form
+ * in. The provider checks the values, and its config is stored only when it
+ * accepts them.
  */
 export async function connectProvider< Config >(
 	provider: Provider< Config >,
 	input: Record< string, string >
 ): Promise< AiSettings > {
-	const config = await provider.connect( input );
+	const { session, code, ...values } = input;
+	const config = await provider.connect(
+		session ? { ...values, ...( await finishCommandSignIn( session, code ?? '' ) ) } : input
+	);
 	await writeProviderConfig( provider.descriptor.id, config as ProviderConfigs[ ProviderId ] );
 	return readAiSettings();
 }

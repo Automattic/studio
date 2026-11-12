@@ -15,6 +15,7 @@ import {
 	connectAgentApp as connectAgentAppToStudio,
 	detectAgentApps,
 } from '@studio/common/lib/connect-agent-app';
+import { startCommandSignIn as startCommandSignInForProvider } from '@studio/common/lib/connect-command';
 import { getInstructionsLengthBucket } from '@studio/common/lib/record-tracks-event';
 import {
 	detectInstalledAppsWithDefaultBrowser,
@@ -168,6 +169,14 @@ export async function startProviderConnect( _event: IpcMainInvokeEvent, requeste
 		throw new Error( `${ requested } does not connect with a device sign-in` );
 	}
 	return startConnect();
+}
+
+export async function startCommandSignIn(
+	_event: IpcMainInvokeEvent,
+	requested: string,
+	method: string
+) {
+	return startCommandSignInForProvider( parseProviderId( requested ), method );
 }
 
 export async function connectAiProvider(

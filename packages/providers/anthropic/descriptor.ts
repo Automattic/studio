@@ -80,6 +80,13 @@ export const anthropicDescriptor: ProviderDescriptor< AnthropicConfig > = {
 					command: 'claude setup-token',
 				},
 			],
+			run: {
+				app: 'claude-code',
+				args: [ 'setup-token' ],
+				prompt: () => __( 'Paste the code your browser shows once you approve.' ),
+				fills: 'token',
+				pattern: new RegExp( `(${ SETUP_TOKEN_PREFIX }[\\w-]+)\\s` ),
+			},
 		},
 	],
 	summarize: ( config ) =>

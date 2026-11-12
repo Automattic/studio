@@ -1,3 +1,4 @@
+import { AGENT_APP_NAMES, isAgentAppId } from '@studio/common/lib/agent-apps';
 import {
 	getConnectFields,
 	getConnection,
@@ -5,6 +6,7 @@ import {
 	getProviderDescriptor,
 	AI_PROVIDER_IDS,
 	type AiProviderId,
+	type ConnectField,
 	type ConnectStep,
 	type SitesProviderId,
 } from '@studio/providers';
@@ -15,6 +17,7 @@ import { useConnector } from '@/data/core';
 import { useAgentApps } from '@/data/queries/use-agent-apps';
 import {
 	useAiSettings,
+	useCommandSignIn,
 	useConnectProvider,
 	useDeviceSignIn,
 	useDisconnectProvider,
@@ -70,9 +73,32 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 	const account = settings.data?.accounts[ provider ];
 	const [ pickedMethod, setPickedMethod ] = useState< string >();
 	const method = pickedMethod ?? account?.method ?? methods[ 0 ]?.id;
-	const fields = getConnectFields( provider, method );
 	const connection = getConnection( provider, method );
-	const steps = ( connection.kind === 'form' && connection.steps?.() ) || [];
+	const connector = useConnector();
+	const commandSignIn = useCommandSignIn( provider, method ?? '' );
+	const { data: apps } = useAgentApps();
+	const [ manual, setManual ] = useState( false );
+	const run = connection.kind === 'form' && ! manual ? connection.run : undefined;
+	const signIn =
+		run && commandSignIn.available && apps?.some( ( app ) => app.id === run.app && app.installed )
+			? run
+			: undefined;
+	const session = signIn && commandSignIn.data;
+	const appName =
+		signIn && ( isAgentAppId( signIn.app ) ? AGENT_APP_NAMES[ signIn.app ] : signIn.app );
+	const codeField: ConnectField | undefined = signIn && {
+		name: 'code',
+		title: __( 'Code' ),
+		description: signIn.prompt(),
+		secret: false,
+		validate: () => undefined,
+	};
+	const fields = signIn
+		? session && codeField
+			? [ codeField ]
+			: []
+		: getConnectFields( provider, method );
+	const steps = ( ! signIn && connection.kind === 'form' && connection.steps?.() ) || [];
 	// The account is connected with the form being shown.
 	const current = account?.connected && account.method === method;
 	const [ formOpen, setFormOpen ] = useState( false );
@@ -81,14 +107,24 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 		settings.isLoading || connect.isPending || disconnect.isPending || setProvider.isPending;
 	const filled = fields.every( ( field ) => values[ field.name ]?.trim() );
 
-	const closeForm = () => {
+	const resetSignIn = () => {
 		setValues( {} );
+		setManual( false );
+		commandSignIn.reset();
+	};
+	const closeForm = () => {
+		resetSignIn();
 		setPickedMethod( undefined );
 		setFormOpen( false );
 	};
 	// Saving the values the account already has just selects the provider.
 	const save = async () => {
-		if ( filled ) {
+		if ( session ) {
+			// The sign-in ends with its first code, right or wrong.
+			await connect
+				.mutateAsync( { method: method ?? '', session: session.id, code: values.code ?? '' } )
+				.finally( () => commandSignIn.reset() );
+		} else if ( filled ) {
 			await connect.mutateAsync( method ? { ...values, method } : values );
 		}
 		await setProvider.mutateAsync( provider );
@@ -139,10 +175,62 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 								disabled={ pending }
 								options={ methods.map( ( { id, label } ) => ( { value: id, label: label() } ) ) }
 								onChange={ ( next ) => {
-									setValues( {} );
+									resetSignIn();
 									setPickedMethod( next );
 								} }
 							/>
+						</SettingsRow>
+					) : null }
+					{ signIn && appName ? (
+						<SettingsRow
+							title={ __( 'Sign in' ) }
+							description={
+								session ? (
+									<>
+										{ __( 'Approve in the browser that opened.' ) }{ ' ' }
+										{ session.url ? (
+											<Button
+												variant="inline-link"
+												size="inline"
+												onClick={ () => void connector.openExternalUrl( session.url! ) }
+											>
+												{ __( 'Didn’t open?' ) }
+											</Button>
+										) : null }
+									</>
+								) : (
+									sprintf(
+										/* translators: %s: an app's name, such as Claude Code */
+										__( 'Studio runs %s, which opens your browser to sign in.' ),
+										appName
+									)
+								)
+							}
+							error={ ( commandSignIn.error ?? ( session ? null : connect.error ) )?.message }
+							additionalContent={
+								<Button variant="inline-link" size="inline" onClick={ () => setManual( true ) }>
+									{ __( 'Paste a token instead' ) }
+								</Button>
+							}
+						>
+							<Button
+								variant="outline"
+								disabled={ pending }
+								loading={ commandSignIn.isPending }
+								loadingAnnouncement={ __( 'Starting' ) }
+								onClick={ () => {
+									setValues( {} );
+									commandSignIn.mutate();
+								} }
+							>
+								{ session
+									? __( 'Start again' )
+									: sprintf(
+											/* translators: %s: an app's name, such as Claude Code */
+											__( 'Sign in with %s' ),
+											appName
+									  ) }
+							</Button>
 						</SettingsRow>
 					) : null }
 					{ steps.length ? (

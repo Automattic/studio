@@ -1,4 +1,6 @@
 import { connectProvider, readSelectedAiProvider } from '@studio/common/lib/ai-settings';
+import { findAgentAppCli } from '@studio/common/lib/connect-agent-app';
+import { startCommandSignIn } from '@studio/common/lib/connect-command';
 import { readProviderConfig } from '@studio/common/lib/provider-config';
 import { getStudioUserAgent as buildStudioUserAgent } from '@studio/common/lib/user-agent';
 import {
@@ -17,7 +19,7 @@ import {
 } from '@studio/providers';
 import { getProvider } from '@studio/providers/services';
 import { __, sprintf } from '@wordpress/i18n';
-import { input, password, select } from 'cli/lib/prompts';
+import { confirm, input, password, select } from 'cli/lib/prompts';
 import { LoggerError } from 'cli/logger';
 import type { ImageGenerator } from '@studio/agent/node';
 
@@ -88,6 +90,37 @@ export async function resolveInitialAiProvider(): Promise< AiProviderId > {
 	return ( await getPreferredReadyProvider() ) ?? DEFAULT_PROVIDER_ID;
 }
 
+// Runs the form's sign-in command, when the user agrees, and connects with the
+// code they bring back from the browser. Resolves false when they'd rather type the values.
+async function signInWithCommand( provider: AiProviderId, method?: string ): Promise< boolean > {
+	const connection = getConnection( provider, method );
+	const run = connection.kind === 'form' ? connection.run : undefined;
+	if ( ! run || process.platform === 'win32' || ! ( await findAgentAppCli( run.app ) ) ) {
+		return false;
+	}
+	if (
+		! ( await confirm( { message: __( 'Sign in through your browser now?' ), default: true } ) )
+	) {
+		return false;
+	}
+	const session = await startCommandSignIn( provider, method );
+	console.log( __( 'Approve in the browser that opened.' ) );
+	if ( session.url ) {
+		console.log( sprintf( __( 'If it didn’t open, go to %s' ), session.url ) );
+	}
+	const code = await input( { message: run.prompt(), validate: ( value ) => !! value.trim() } );
+	try {
+		await connectProvider( getProvider( provider ), {
+			method: method ?? '',
+			session: session.id,
+			code,
+		} );
+	} catch ( error ) {
+		throw error instanceof InvalidCredentialError ? new LoggerError( error.message ) : error;
+	}
+	return true;
+}
+
 // Asks for the fields of a provider that connects with a form, after the method
 // when it offers several. The provider checks the values once the last one is
 // entered, and a rejection asks again.
@@ -103,6 +136,9 @@ async function promptForConnection( provider: AiProviderId ): Promise< void > {
 				choices: methods.map( ( { id, label } ) => ( { value: id, name: label() } ) ),
 		  } )
 		: undefined;
+	if ( await signInWithCommand( provider, method ) ) {
+		return;
+	}
 	const connection = getConnection( provider, method );
 	const steps = ( connection.kind === 'form' && connection.steps?.() ) || [];
 	for ( const [ index, step ] of steps.entries() ) {

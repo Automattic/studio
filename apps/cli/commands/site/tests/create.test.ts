@@ -18,6 +18,7 @@ import {
 	SITE_FILE_ACCESS_SITE_DIRECTORY,
 	type SiteFileAccess,
 } from '@studio/common/lib/site-file-access';
+import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import { getServerFilesPath } from '@studio/common/lib/well-known-paths';
 import { type SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { Blueprint } from '@wp-playground/blueprints';
@@ -66,6 +67,7 @@ vi.mock( '@studio/common/lib/passwords', async ( importActual ) => ( {
 	createPassword: vi.fn().mockReturnValue( 'generated-password-123' ),
 } ) );
 vi.mock( '@studio/common/lib/blueprint-validation' );
+vi.mock( '@studio/common/lib/studio-blueprints-api' );
 vi.mock( 'cli/lib/cli-config/core', async () => {
 	const actual = await vi.importActual( 'cli/lib/cli-config/core' );
 	return {
@@ -1594,6 +1596,84 @@ describe( 'CLI: studio create', () => {
 					blueprint: expect.any( Object ),
 				} )
 			);
+		} );
+
+		describe( 'with --blueprint', () => {
+			const libraryBlueprint = {
+				slug: 'apparel',
+				title: 'Apparel',
+				excerpt: '',
+				image: '',
+				playground_url: '',
+				blueprint: { steps: [ { step: 'setSiteOptions', options: { blogname: 'Apparel' } } ] },
+			};
+			let cwd: string;
+
+			const createWithBlueprint = ( value: string ) =>
+				registerCommand( yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } ) )
+					.exitProcess( false )
+					.parseAsync( [ 'create', '--blueprint', value, '--no-start', '--skip-browser' ] );
+
+			beforeEach( () => {
+				cwd = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-create-blueprint-' ) );
+				vi.spyOn( process, 'cwd' ).mockReturnValue( cwd );
+				vi.mocked( fetchStudioBlueprints ).mockResolvedValue( [ libraryBlueprint ] );
+			} );
+
+			it( 'applies the Blueprint Library Blueprint a slug names', async () => {
+				let blueprintUri: string | undefined;
+				vi.mocked( runBlueprint ).mockImplementation( async ( _site, _logger, options ) => {
+					blueprintUri = options.blueprintUri;
+					expect( JSON.parse( fs.readFileSync( blueprintUri!, 'utf8' ) ) ).toEqual(
+						libraryBlueprint.blueprint
+					);
+				} );
+
+				await createWithBlueprint( 'apparel' );
+
+				expect( runBlueprint ).toHaveBeenCalledWith(
+					expect.anything(),
+					expect.anything(),
+					expect.objectContaining( { blueprint: libraryBlueprint.blueprint } )
+				);
+				expect( fs.existsSync( path.dirname( blueprintUri! ) ) ).toBe( false );
+				expect( process.exitCode ).toBeUndefined();
+			} );
+
+			it( 'prefers a local file named like a slug', async () => {
+				const localBlueprint = { steps: [] };
+				fs.writeFileSync( path.join( cwd, 'apparel' ), JSON.stringify( localBlueprint ) );
+
+				await createWithBlueprint( 'apparel' );
+
+				expect( fetchStudioBlueprints ).not.toHaveBeenCalled();
+				expect( runBlueprint ).toHaveBeenCalledWith(
+					expect.anything(),
+					expect.anything(),
+					expect.objectContaining( {
+						blueprint: localBlueprint,
+						blueprintUri: path.join( cwd, 'apparel' ),
+					} )
+				);
+			} );
+
+			it( 'reports a value that is neither a file, a URL nor a slug', async () => {
+				const reportError = vi.spyOn( Logger.prototype, 'reportError' );
+
+				await createWithBlueprint( 'unknown' );
+
+				expect( runBlueprint ).not.toHaveBeenCalled();
+				expect( reportError.mock.calls[ 0 ][ 0 ].message ).toContain( 'studio blueprint list' );
+			} );
+
+			it( 'reports a missing Blueprint file without looking up the Library', async () => {
+				const reportError = vi.spyOn( Logger.prototype, 'reportError' );
+
+				await createWithBlueprint( 'missing.json' );
+
+				expect( fetchStudioBlueprints ).not.toHaveBeenCalled();
+				expect( reportError.mock.calls[ 0 ][ 0 ].message ).toContain( 'Blueprint file not found' );
+			} );
 		} );
 	} );
 

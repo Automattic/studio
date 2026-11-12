@@ -1,5 +1,6 @@
 import type { AnthropicConfig } from './anthropic/config';
 import type { AiModelId } from './models';
+import type { OpenaiConfig } from './openai/config';
 import type { SpacefastConfig } from './spacefast/config';
 import type { Space } from './spacefast/site';
 import type { WpcomConfig } from './wpcom/config';
@@ -7,15 +8,16 @@ import type { PullSyncOptions, PushSyncOptions, SyncSite } from './wpcom/site';
 import type { Api, Model } from '@earendil-works/pi-ai';
 import type { z } from 'zod';
 
-export type ProviderId = 'wpcom' | 'anthropic' | 'spacefast';
+export type ProviderId = 'wpcom' | 'anthropic' | 'openai' | 'spacefast';
 
 // The providers that serve AI models.
-export type AiProviderId = 'wpcom' | 'anthropic';
+export type AiProviderId = 'wpcom' | 'anthropic' | 'openai';
 
 // What Studio stores for each provider.
 export interface ProviderConfigs {
 	wpcom: WpcomConfig;
 	anthropic: AnthropicConfig;
+	openai: OpenaiConfig;
 	spacefast: SpacefastConfig;
 }
 
@@ -75,7 +77,12 @@ export type ProviderConnection =
 	// Approving a code on the provider's site, while Studio waits for the
 	// approval: the provider's `startConnect` returns the code and where to
 	// approve it, and `connect` takes it back and resolves once approved.
-	| { kind: 'device' };
+	| { kind: 'device' }
+	// Signing in on the provider's site, which redirects back to an address on
+	// this computer where Studio listens: Studio passes that address to the
+	// provider's `startLoopbackConnect`, and `connect` takes the redirect's
+	// parameters with the authorization's `verifier` and the `redirectUri`.
+	| { kind: 'loopback' };
 
 // One of several ways a provider's account connects, for the user to pick.
 // `connect` receives the chosen one's id as `input.method`, and the config
@@ -122,6 +129,15 @@ export interface DeviceAuthorization {
 	expiresAt: string;
 }
 
+// A pending loopback sign-in: the user signs in at `url`, and the provider
+// redirects the browser back to Studio, echoing `state`.
+export interface LoopbackAuthorization {
+	url: string;
+	state: string;
+	// Never sent through the browser, such as a PKCE code verifier.
+	verifier: string;
+}
+
 // How Studio presents a provider's remote sites, so the publish panel names no provider.
 export interface SitesDescriptor< Site extends RemoteSite = RemoteSite > {
 	// The largest archive a push sends, in bytes.
@@ -157,16 +173,29 @@ export interface ProviderDescriptor< Config = unknown, Site extends RemoteSite =
 	label: string;
 	description?: () => string;
 	learnMoreUrl?: string;
+	// The provider's mark, drawn in the text color: an SVG path in a 24×24 box.
+	icon?: string;
 	// What Studio stores for this provider.
 	configSchema: z.ZodType< Config >;
 	connection: ProviderConnection | ConnectionMethod[];
 	// What to show for a connected account; never the credential itself.
 	summarize?( config: Config ): string;
+	// What to keep once the provider rejects the config, so signing in again
+	// continues the same registration with it; never a credential.
+	remember?( config: Config ): Record< string, string >;
+	// The connect button's label, when the provider's branding sets one.
+	connectLabel?: () => string;
 	ai?: {
 		models: readonly AiModel< AiModelId >[];
 		defaultModel: AiModelId;
 		// The default when the account has paid AI credits left.
 		paidDefaultModel?: AiModelId;
+		// Defaults to true. Studio on the web runs the agent in the page, which
+		// can't offer a provider that signs in through this computer.
+		inPage?: boolean;
+		// For models that use the user's plan with the provider: what to say
+		// next to the model, and where the user manages that usage.
+		planUsage?: { label: () => string; manageUrl: string };
 	};
 	sites?: SitesDescriptor< Site >;
 }
@@ -292,8 +321,18 @@ export interface Provider< Config = unknown, Site extends RemoteSite = RemoteSit
 	connect( input: Record< string, string > ): Promise< Config >;
 	// Starts a device sign-in, for a provider whose connection kind is `device`.
 	startConnect?(): Promise< DeviceAuthorization >;
+	// Starts a loopback sign-in, for a provider whose connection kind is `loopback`.
+	// `hostId` stays the same on this computer, and `remembered` is what the
+	// descriptor's `remember` kept, which `connect` gets back too.
+	startLoopbackConnect?(
+		redirectUri: string,
+		context: { hostId: string; remembered?: Record< string, string > }
+	): Promise< LoopbackAuthorization >;
 	// Cleans up on the provider's side before Studio removes the config.
 	disconnect?( config: Config ): Promise< void >;
+	// A renewed config when its credential is about to expire, which Studio
+	// stores; undefined while the config still works.
+	refresh?( config: Config ): Promise< Config | undefined >;
 	ai?: {
 		// Whether a selection that isn't ready falls back to another ready
 		// provider instead of asking for credentials.

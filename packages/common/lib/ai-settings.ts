@@ -1,6 +1,7 @@
 import {
 	DEFAULT_PROVIDER_ID,
 	getConnectedMethod,
+	getConnection,
 	getProviderDescriptor,
 	InvalidCredentialError,
 	normalizeAiProviderId,
@@ -12,6 +13,7 @@ import {
 	type ProviderId,
 } from '@studio/providers';
 import { finishCommandSignIn } from './connect-command';
+import { signInThroughLoopback, type LoopbackSignInOptions } from './loopback-sign-in';
 import {
 	readAiFields,
 	readProviderConfig,
@@ -75,16 +77,23 @@ export async function persistSelectedAiProvider( provider: AiProviderId ): Promi
  * gave: a form's values, with `method` naming the one picked when the provider
  * offers several, or a redirect's parameters. With `session`, Studio ran the
  * form's sign-in command, which takes the browser's `code` and fills the form
- * in. The provider checks the values, and its config is stored only when it
+ * in. A provider that signs in through a loopback redirect gets them from
+ * signing in in the browser instead. The provider checks them, and its config
+ * is stored only when it
  * accepts them.
  */
 export async function connectProvider< Config >(
 	provider: Provider< Config >,
-	input: Record< string, string >
+	input: Record< string, string >,
+	options: LoopbackSignInOptions = {}
 ): Promise< AiSettings > {
 	const { session, code, ...values } = input;
 	const config = await provider.connect(
-		session ? { ...values, ...( await finishCommandSignIn( session, code ?? '' ) ) } : input
+		getConnection( provider.descriptor.id, input.method ).kind === 'loopback'
+			? await signInThroughLoopback( provider as Provider< unknown >, options )
+			: session
+			? { ...values, ...( await finishCommandSignIn( session, code ?? '' ) ) }
+			: input
 	);
 	await writeProviderConfig( provider.descriptor.id, config as ProviderConfigs[ ProviderId ] );
 	return readAiSettings();

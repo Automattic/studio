@@ -1,4 +1,5 @@
 import { anthropicProvider } from './anthropic';
+import { openaiProvider } from './openai';
 import { spacefastProvider } from './spacefast';
 import { wpcomProvider } from './wpcom';
 import type { Provider, ProviderConfigs, ProviderId, ProviderSite } from './types';
@@ -8,6 +9,7 @@ const PROVIDERS: {
 } = {
 	wpcom: wpcomProvider,
 	anthropic: anthropicProvider,
+	openai: openaiProvider,
 	spacefast: spacefastProvider,
 };
 

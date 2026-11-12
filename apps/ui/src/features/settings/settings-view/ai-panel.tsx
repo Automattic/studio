@@ -5,10 +5,11 @@ import {
 	getConnectionMethods,
 	getProviderDescriptor,
 	AI_PROVIDER_IDS,
+	normalizeAiProviderId,
 	type AiProviderId,
 	type ConnectField,
 	type ConnectStep,
-	type SitesProviderId,
+	type ProviderId,
 } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useState } from 'react';
@@ -19,7 +20,7 @@ import {
 	useAiSettings,
 	useCommandSignIn,
 	useConnectProvider,
-	useDeviceSignIn,
+	useSignIn,
 	useDisconnectProvider,
 	useSetAiProvider,
 } from '@/data/queries/use-ai-settings';
@@ -315,8 +316,12 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 	const isOffline = useOffline();
 	const [ wpcomRequested, setWpcomRequested ] = useState( false );
 	const connected = AI_PROVIDER_IDS.filter( ( id ) => settings.data?.accounts[ id ].connected );
-	const deviceProviders = usePublishProviders().filter(
-		( id ) => getConnection( id ).kind === 'device'
+	const { capabilities } = useConnector();
+	const aiProviders = AI_PROVIDER_IDS.filter(
+		( id ) => capabilities.nativeSites || getProviderDescriptor( id ).ai?.inPage !== false
+	);
+	const signInProviders = [ ...new Set( [ ...aiProviders, ...usePublishProviders() ] ) ].filter(
+		( id ) => [ 'device', 'loopback' ].includes( getConnection( id ).kind )
 	);
 
 	// Connecting WordPress.com finishes once the sign-up lands.
@@ -365,11 +370,13 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 					{ user ? __( 'Manage' ) : __( 'Connect' ) }
 				</Button>
 			</SettingsRow>
-			{ AI_PROVIDER_IDS.filter( ( id ) => getConnectFields( id ).length ).map( ( id ) => (
-				<ProviderFormRow key={ id } provider={ id } />
-			) ) }
-			{ deviceProviders.map( ( id ) => (
-				<DeviceProviderRow key={ id } provider={ id } />
+			{ aiProviders
+				.filter( ( id ) => getConnectFields( id ).length )
+				.map( ( id ) => (
+					<ProviderFormRow key={ id } provider={ id } />
+				) ) }
+			{ signInProviders.map( ( id ) => (
+				<SignInProviderRow key={ id } provider={ id } />
 			) ) }
 			{ connected.length > 1 && settings.data ? (
 				<SettingsRow
@@ -393,14 +400,17 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 	);
 }
 
-// A provider that connects with a device sign-in, such as one that publishes sites.
-function DeviceProviderRow( { provider }: { provider: SitesProviderId } ) {
+// A provider that connects by signing in on its site, with a code or in the browser.
+function SignInProviderRow( { provider }: { provider: ProviderId } ) {
 	const settings = useAiSettings();
-	const signIn = useDeviceSignIn( provider );
+	const signIn = useSignIn( provider );
+	const setProvider = useSetAiProvider();
 	const disconnect = useDisconnectProvider( provider );
 	const offline = useOffline();
 	const descriptor = getProviderDescriptor( provider );
 	const connected = settings.data?.accounts[ provider ].connected;
+	// Signing in again starts over, for when the browser tab was closed.
+	const inBrowser = signIn.isPending && getConnection( provider ).kind === 'loopback';
 	return (
 		<SettingsRow
 			title={ descriptor.label }
@@ -415,11 +425,17 @@ function DeviceProviderRow( { provider }: { provider: SitesProviderId } ) {
 								signIn.authorization.userCode,
 								descriptor.label
 						  )
+						: inBrowser
+						? sprintf(
+								/* translators: %s: a service name such as ChatGPT */
+								__( 'Finish signing in to %s in your browser.' ),
+								descriptor.label
+						  )
 						: descriptor.description?.() }{ ' ' }
 					{ descriptor.learnMoreUrl ? <LearnMoreLink url={ descriptor.learnMoreUrl } /> : null }
 				</>
 			}
-			error={ ( signIn.error ?? disconnect.error )?.message }
+			error={ ( signIn.error ?? setProvider.error ?? disconnect.error )?.message }
 		>
 			{ connected ? (
 				<Button
@@ -433,10 +449,20 @@ function DeviceProviderRow( { provider }: { provider: SitesProviderId } ) {
 				<Button
 					variant="outline"
 					disabled={ settings.isLoading || offline }
-					loading={ signIn.isPending }
-					onClick={ () => signIn.mutate() }
+					loading={ signIn.isPending && ! inBrowser }
+					onClick={ () =>
+						signIn.mutate( undefined, {
+							// Connecting a chat provider selects it, as saving a form does.
+							onSuccess: () => {
+								const id = normalizeAiProviderId( provider );
+								if ( id ) {
+									setProvider.mutate( id );
+								}
+							},
+						} )
+					}
 				>
-					{ __( 'Connect' ) }
+					{ inBrowser ? __( 'Try again' ) : descriptor.connectLabel?.() ?? __( 'Connect' ) }
 				</Button>
 			) }
 		</SettingsRow>

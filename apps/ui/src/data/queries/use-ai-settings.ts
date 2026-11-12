@@ -1,4 +1,4 @@
-import { AI_PROVIDER_IDS } from '@studio/providers';
+import { AI_PROVIDER_IDS, getConnection } from '@studio/providers';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useConnector } from '@/data/core';
@@ -67,13 +67,17 @@ export function useDisconnectProvider( provider: ProviderId ) {
 	} );
 }
 
-// A device sign-in: shows where to approve the code, and resolves once the user approves it.
-export function useDeviceSignIn( provider: ProviderId ) {
+// Signing in on the provider's site: a device sign-in shows where to approve the code, and a
+// loopback one waits for the browser to come back. Resolves once the user is signed in.
+export function useSignIn( provider: ProviderId ) {
 	const connector = useConnector();
 	const connect = useConnectProvider( provider );
 	const [ authorization, setAuthorization ] = useState< DeviceAuthorization | null >( null );
 	const signIn = useMutation( {
 		mutationFn: async () => {
+			if ( getConnection( provider ).kind === 'loopback' ) {
+				return connect.mutateAsync( {} );
+			}
 			const started = await connector.startProviderConnect( provider );
 			setAuthorization( started );
 			void connector.openExternalUrl( started.verificationUrl );

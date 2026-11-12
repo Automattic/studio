@@ -30,6 +30,7 @@ export {
 	type ConnectField,
 } from './connection';
 export type { AnthropicConfig } from './anthropic/config';
+export type { OpenaiConfig } from './openai/config';
 export type { SpacefastConfig } from './spacefast/config';
 export type { Space } from './spacefast/site';
 export type { WpcomConfig } from './wpcom/config';

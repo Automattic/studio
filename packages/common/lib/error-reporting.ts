@@ -11,3 +11,19 @@ import { captureException as coreCaptureException } from '@sentry/core';
 export function captureException( error: unknown ): void {
 	coreCaptureException( error );
 }
+
+/**
+ * A host's Sentry `beforeSend`: drops errors that set `expected`, like a CLI command its host
+ * stopped, so call sites can report everything they catch.
+ */
+export function dropExpectedErrors< Event >(
+	event: Event,
+	{ originalException }: { originalException?: unknown }
+): Event | null {
+	const expected =
+		typeof originalException === 'object' &&
+		originalException !== null &&
+		'expected' in originalException &&
+		originalException.expected === true;
+	return expected ? null : event;
+}

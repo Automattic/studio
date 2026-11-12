@@ -158,17 +158,17 @@ describe( 'SiteFileUpload', () => {
 		expect( screen.getByRole( 'button', { name: 'Choose file' } ) ).toBeInTheDocument();
 	} );
 
-	it( 'replaces ZIP extraction details with a user-friendly error', async () => {
+	it( 'shows why a ZIP Blueprint cannot be used', async () => {
 		connector.readBlueprint.mockRejectedValue(
 			new Error(
-				"Error invoking remote method 'readBlueprint': Unexpected end of central directory"
+				'Error invoking remote method \'readBlueprint\': Error: "name" is not a valid Blueprint property'
 			)
 		);
 		await renderUpload();
 		chooseFile( createFile( 'bundle.zip', 'zip', 'application/zip' ) );
 
 		expect( await screen.findByRole( 'dialog', { name: 'Blueprint error' } ) ).toHaveTextContent(
-			'This ZIP could not be used. Make sure it contains a valid blueprint.json file at the top level or inside one enclosing folder, and try again.'
+			'"name" is not a valid Blueprint property'
 		);
 		expect( screen.queryByText( /Error invoking remote method/ ) ).not.toBeInTheDocument();
 	} );

@@ -99,7 +99,9 @@ async function openFile( filePath: string ): Promise< OpenedBlueprint > {
 
 function openZip( contents: Buffer ): Promise< OpenedBlueprint > {
 	return inTempDir( async ( tempDir ) => {
-		await extractZip( contents, tempDir );
+		await extractZip( contents, tempDir ).catch( () => {
+			throw new Error( __( 'This ZIP could not be read. Check that it is a valid zip file.' ) );
+		} );
 		const opened = await openFile( await findBlueprintInBundle( tempDir ) );
 		return { blueprint: opened.blueprint, path: opened.path };
 	} );

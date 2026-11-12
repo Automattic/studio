@@ -1,4 +1,5 @@
 import { validateBlueprint } from '@studio/blueprints';
+import { getErrorMessage, stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
 import { __ } from '@wordpress/i18n';
 import { createSelectedBlueprint } from '@/features/sites/blueprint-selection';
 import type { Connector } from '@/data/core';
@@ -45,16 +46,15 @@ export async function loadBlueprintFile(
 	}
 
 	const blueprint = await connector.readBlueprint( file ).catch( ( error: unknown ) => {
-		if (
-			error instanceof Error &&
-			error.message.includes( 'No blueprint.json found in the ZIP.' )
-		) {
-			throw new MissingBlueprintError( error.message );
+		const message = stripIpcErrorPrefix( getErrorMessage( error ) ?? '' );
+		if ( message.includes( 'No blueprint.json found in the ZIP.' ) ) {
+			throw new MissingBlueprintError( message );
 		}
 		throw new Error(
-			__(
-				'This ZIP could not be used. Make sure it contains a valid blueprint.json file at the top level or inside one enclosing folder, and try again.'
-			)
+			message ||
+				__(
+					'This ZIP could not be used. Make sure it contains a valid blueprint.json file at the top level or inside one enclosing folder, and try again.'
+				)
 		);
 	} );
 	return createSelectedBlueprint( blueprint, file, file );

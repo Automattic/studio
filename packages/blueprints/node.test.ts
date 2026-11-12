@@ -99,6 +99,10 @@ describe( 'openBlueprint', () => {
 		await expect( openBlueprint( 'unknown' ) ).rejects.toThrow(
 			'not a Blueprint file, URL or Library slug'
 		);
+		await fs.writeFile( path.join( directory, 'broken.zip' ), 'PK not really a zip' );
+		await expect( openBlueprint( path.join( directory, 'broken.zip' ) ) ).rejects.toThrow(
+			'This ZIP could not be read'
+		);
 		await fs.writeFile( path.join( directory, 'blueprint.json' ), '{"name":"package"}' );
 		await expect( openBlueprint( directory ) ).rejects.toThrow( 'not a valid Blueprint property' );
 	} );

@@ -114,8 +114,14 @@ export function createStaticConnector(): Connector {
 				bundle: entry.bundleUrl ? await loadBlueprintBundle( entry.bundleUrl ) : undefined,
 			};
 		}
-		const bundle = await loadBlueprintBundle( source );
-		const declaration = await ( await loadPlaygroundClient() ).getBlueprintDeclaration( bundle );
+		const { bundle, declaration } = await loadBlueprintBundle( source )
+			.then( async ( loaded ) => ( {
+				bundle: loaded,
+				declaration: await ( await loadPlaygroundClient() ).getBlueprintDeclaration( loaded ),
+			} ) )
+			.catch( () => {
+				throw new Error( __( 'This ZIP could not be read. Check that it is a valid zip file.' ) );
+			} );
 		return { blueprint: validateBlueprint( declaration ), bundle };
 	}
 

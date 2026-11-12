@@ -1,0 +1,9 @@
+{
+	"title": "Photography Portfolio",
+	"description": "A photography portfolio created with the Grammer theme.",
+	"useCases": [
+		"portfolio"
+	],
+	"demoUrl": "https://grammerthemedemo.wordpress.com/",
+	"bundleUrl": "https://blueprintlibrary.wordpress.com/?blueprint=837"
+}

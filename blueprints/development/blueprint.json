@@ -1,0 +1,84 @@
+{
+	"$schema": "https://playground.wordpress.net/blueprint-schema.json",
+	"meta": {
+		"title": "Development",
+		"description": "Building a WordPress theme or plugin? Use this blueprint to streamline your development workflow and ship with confidence.",
+		"categories": [
+			"Studio"
+		],
+		"author": "Automattic"
+	},
+	"landingPage": "/",
+	"login": true,
+	"plugins": [
+		"gutenberg"
+	],
+	"preferredVersions": {
+		"php": "8.3",
+		"wp": "latest"
+	},
+	"steps": [
+		{
+			"step": "defineWpConfigConsts",
+			"consts": {
+				"WP_DEBUG": true,
+				"WP_DEBUG_DISPLAY": false,
+				"WP_DEBUG_LOG": true,
+				"WP_DEVELOPMENT_MODE": true
+			},
+			"method": "rewrite-wp-config"
+		},
+		{
+			"step": "installPlugin",
+			"pluginData": {
+				"resource": "wordpress.org/plugins",
+				"slug": "create-block-theme"
+			},
+			"options": {
+				"activate": false
+			}
+		},
+		{
+			"step": "installPlugin",
+			"pluginData": {
+				"resource": "wordpress.org/plugins",
+				"slug": "plugin-check"
+			},
+			"options": {
+				"activate": false
+			}
+		},
+		{
+			"step": "installPlugin",
+			"pluginData": {
+				"resource": "wordpress.org/plugins",
+				"slug": "query-monitor"
+			},
+			"options": {
+				"activate": false
+			}
+		},
+		{
+			"step": "installPlugin",
+			"pluginData": {
+				"resource": "wordpress.org/plugins",
+				"slug": "theme-check"
+			},
+			"options": {
+				"activate": false
+			}
+		},
+		{
+			"step": "runPHP",
+			"code": "<?php require_once '/wordpress/wp-load.php'; $wp_rewrite->set_permalink_structure( '/%postname%/' ); include_once( ABSPATH . 'wp-admin/includes/plugin.php' ); deactivate_plugins( 'hello.php', 'hello-dolly', 'akismet/akismet.php' ); include_once( ABSPATH . 'wp-admin/includes/file.php' ); delete_plugins( [ 'hello.php', 'hello-dolly', 'akismet/akismet.php' ] );"
+		},
+		{
+			"step": "updateUserMeta",
+			"meta": {
+				"admin_color": "modern",
+				"show_welcome_panel": 0
+			},
+			"userId": 1
+		}
+	]
+}

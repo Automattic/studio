@@ -1,0 +1,38 @@
+{
+	"$schema": "https://playground.wordpress.net/blueprint-schema.json",
+	"meta": {
+		"title": "Photography Portfolio",
+		"description": "A photography portfolio created with the Grammer theme.",
+		"categories": [
+			"Gallery",
+			"Studio"
+		],
+		"author": "Automattic"
+	},
+	"login": true,
+	"siteOptions": {
+		"blogname": "Grammer"
+	},
+	"steps": [
+		{
+			"step": "resetData"
+		},
+		{
+			"step": "installTheme",
+			"themeData": {
+				"resource": "bundled",
+				"path": "./grammer.zip"
+			},
+			"options": {
+				"activate": true
+			}
+		},
+		{
+			"step": "importWxr",
+			"file": {
+				"resource": "bundled",
+				"path": "./content.xml"
+			}
+		}
+	]
+}

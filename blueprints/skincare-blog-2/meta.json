@@ -1,0 +1,9 @@
+{
+	"title": "Skincare Blog",
+	"description": "A skincare blog created with the Piel theme.",
+	"useCases": [
+		"blog"
+	],
+	"demoUrl": "https://goodskindemo.wordpress.com/",
+	"bundleUrl": "https://blueprintlibrary.wordpress.com/?blueprint=840"
+}

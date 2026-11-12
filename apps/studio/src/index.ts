@@ -479,7 +479,7 @@ async function appBoot() {
 				"script-src-attr 'none'",
 				// The email view's frame inherits this policy, and the email a site
 				// sends loads images from the site: a localhost port or a custom domain.
-				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com https://blueprintslibraryv2.wpcomstaging.com http://localhost:* http://*.local https://*.local data:",
+				"img-src 'self' https://*.gravatar.com https://*.wp.com https://blueprintlibrary.wordpress.com https://blueprintslibraryv2.wpcomstaging.com https://wordpress.studio http://localhost:* http://*.local https://*.local data:",
 				"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", // unsafe-inline: components inject their styles at runtime
 				// The agentic UI's design system view loads DESIGN.md fonts.
 				"font-src 'self' https://fonts.gstatic.com",

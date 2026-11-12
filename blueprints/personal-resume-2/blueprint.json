@@ -1,0 +1,42 @@
+{
+	"$schema": "https://playground.wordpress.net/blueprint-schema.json",
+	"meta": {
+		"title": "Personal Resume",
+		"description": "A resume site created with the Readymade theme.",
+		"categories": [
+			"Gallery",
+			"Studio"
+		],
+		"author": "Automattic"
+	},
+	"login": true,
+	"siteOptions": {
+		"blogname": "Readymade"
+	},
+	"steps": [
+		{
+			"step": "resetData"
+		},
+		{
+			"step": "installTheme",
+			"themeData": {
+				"resource": "bundled",
+				"path": "./readymade.zip"
+			},
+			"options": {
+				"activate": true
+			}
+		},
+		{
+			"step": "importWxr",
+			"file": {
+				"resource": "bundled",
+				"path": "./content.xml"
+			}
+		},
+		{
+			"step": "runPHP",
+			"code": "<?php require_once '/wordpress/wp-load.php'; $attachments = get_posts( array(    'post_type'   => 'attachment',    'numberposts' => 1,    'post_status' => 'inherit',    's'           => 'rm-nappyco-dazyah', ) ); if ( ! empty( $attachments ) ) { $attachment_id = $attachments[0]->ID; set_theme_mod( 'custom_logo', $attachment_id ); }"
+		}
+	]
+}

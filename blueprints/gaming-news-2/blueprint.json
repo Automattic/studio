@@ -1,0 +1,38 @@
+{
+	"$schema": "https://playground.wordpress.net/blueprint-schema.json",
+	"meta": {
+		"title": "Gaming News",
+		"description": "A gaming news site created with the Spiel theme.",
+		"categories": [
+			"Gallery",
+			"Studio"
+		],
+		"author": "Automattic"
+	},
+	"login": true,
+	"siteOptions": {
+		"blogname": "Spiel"
+	},
+	"steps": [
+		{
+			"step": "resetData"
+		},
+		{
+			"step": "installTheme",
+			"themeData": {
+				"resource": "bundled",
+				"path": "./spiel.zip"
+			},
+			"options": {
+				"activate": true
+			}
+		},
+		{
+			"step": "importWxr",
+			"file": {
+				"resource": "bundled",
+				"path": "./content.xml"
+			}
+		}
+	]
+}

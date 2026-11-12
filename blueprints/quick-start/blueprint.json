@@ -1,0 +1,107 @@
+{
+	"$schema": "https://playground.wordpress.net/blueprint-schema.json",
+	"meta": {
+		"title": "Quick Start",
+		"description": "Start quickly with a WordPress.com-like environment, which includes all plugins and themes that come pre-installed on a Business plan.",
+		"categories": [
+			"Jetpack",
+			"Studio",
+			"WordPress.com"
+		],
+		"author": "Automattic"
+	},
+	"landingPage": "/",
+	"login": true,
+	"plugins": [
+		"gravatar-enhanced",
+		"gutenberg"
+	],
+	"preferredVersions": {
+		"php": "8.3",
+		"wp": "latest"
+	},
+	"steps": [
+		{
+			"step": "installPlugin",
+			"pluginData": {
+				"resource": "wordpress.org/plugins",
+				"slug": "akismet"
+			},
+			"options": {
+				"activate": false
+			}
+		},
+		{
+			"step": "installPlugin",
+			"pluginData": {
+				"resource": "wordpress.org/plugins",
+				"slug": "classic-editor"
+			},
+			"options": {
+				"activate": false
+			}
+		},
+		{
+			"step": "installPlugin",
+			"pluginData": {
+				"resource": "wordpress.org/plugins",
+				"slug": "crowdsignal-forms"
+			},
+			"options": {
+				"activate": false
+			}
+		},
+		{
+			"step": "installPlugin",
+			"pluginData": {
+				"resource": "wordpress.org/plugins",
+				"slug": "jetpack"
+			},
+			"options": {
+				"activate": false
+			}
+		},
+		{
+			"step": "installPlugin",
+			"pluginData": {
+				"resource": "wordpress.org/plugins",
+				"slug": "page-optimize"
+			},
+			"options": {
+				"activate": false
+			}
+		},
+		{
+			"step": "installPlugin",
+			"pluginData": {
+				"resource": "wordpress.org/plugins",
+				"slug": "polldaddy"
+			},
+			"options": {
+				"activate": false
+			}
+		},
+		{
+			"step": "installPlugin",
+			"pluginData": {
+				"resource": "wordpress.org/plugins",
+				"slug": "layout-grid"
+			},
+			"options": {
+				"activate": false
+			}
+		},
+		{
+			"step": "runPHP",
+			"code": "<?php require_once '/wordpress/wp-load.php'; $wp_rewrite->set_permalink_structure( '/%postname%/' ); include_once( ABSPATH . 'wp-admin/includes/plugin.php' ); deactivate_plugins( 'hello.php', 'hello-dolly' ); include_once( ABSPATH . 'wp-admin/includes/file.php' ); delete_plugins( [ 'hello.php', 'hello-dolly' ] );"
+		},
+		{
+			"step": "updateUserMeta",
+			"meta": {
+				"admin_color": "modern",
+				"show_welcome_panel": 0
+			},
+			"userId": 1
+		}
+	]
+}

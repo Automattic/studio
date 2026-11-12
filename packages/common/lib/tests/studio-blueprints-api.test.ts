@@ -52,6 +52,22 @@ describe( 'fetchStudioBlueprints', () => {
 		expect( globalThis.fetch ).toHaveBeenCalledWith( expect.stringContaining( '?locale=fr_FR' ) );
 	} );
 
+	it( 'should read the catalog from STUDIO_BLUEPRINTS_CATALOG_URL when set', async () => {
+		vi.stubEnv( 'STUDIO_BLUEPRINTS_CATALOG_URL', 'http://localhost:8890/blueprints/index.json' );
+		globalThis.fetch = vi.fn().mockResolvedValue( {
+			ok: true,
+			json: () => Promise.resolve( validResponse ),
+		} );
+
+		const result = await fetchStudioBlueprints( 'fr_FR' );
+		vi.unstubAllEnvs();
+
+		expect( globalThis.fetch ).toHaveBeenCalledWith(
+			'http://localhost:8890/blueprints/index.json?locale=fr_FR'
+		);
+		expect( result ).toHaveLength( 1 );
+	} );
+
 	it( 'should not include locale param when not provided', async () => {
 		globalThis.fetch = vi.fn().mockResolvedValue( {
 			ok: true,

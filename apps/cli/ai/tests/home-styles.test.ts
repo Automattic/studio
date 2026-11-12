@@ -31,8 +31,10 @@ const FOOTERS: Record< string, string > = {
 
 // eval17 and eval18's home pages as a visitor sees them, in one: what each fault looks like, and what is not one, as a ticker running across the window
 // or an eyebrow above a display heading set tighter than its type (eval24's redo runs), whose letters start below it,
-// a form's spam trap set out of the window, and a label led by a dot of another color (eval-compare's Mara Quinn runs).
-const PAGE = `<p class="skip" style="position:absolute;left:0;clip-path:inset(50%)">Skip to content</p>
+// a form's spam trap set out of the window, a label led by a dot of another color (eval-compare's Mara Quinn runs),
+// and WooCommerce's closed mini-cart drawer, kept at the window's edge in a transparent overlay (eval36's candles port).
+const PAGE = `<div style="position:fixed;inset:0;opacity:0;pointer-events:none"><div style="position:fixed;top:0;inset-inline-start:100%;width:400px;transform:translateX(-22px)"><p>Your cart is empty</p></div></div>
+	<p class="skip" style="position:absolute;left:0;clip-path:inset(50%)">Skip to content</p>
 	<form><p style="position:absolute;left:-9999px"><label>Leave empty <input name="website"></label></p></form>
 	<section style="padding:40px;background:#e9e4dc"><p style="color:#3b4552"><span style="display:inline-block;width:8px;height:8px;margin-right:8px;background:#2f5d4a"></span>Now booking 2027</p></section>
 	<section style="padding:0 40px"><p>A welcome set in from the window's edge.</p></section>

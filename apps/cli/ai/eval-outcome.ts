@@ -749,8 +749,10 @@ export async function homeStyles( url: string, siteName: string ) {
 					visible( el ) &&
 					( el.textContent ?? '' ).trim() &&
 					! el.parentElement?.closest( 'p, h1, h2, h3, h4, h5, h6, li' ) &&
-					// Not text kept for screen readers, clipped out of sight, or set left of
-					// the window, where no scroll reaches, as a form's spam trap is.
+					// Not text kept for screen readers, clipped out of sight, set left of
+					// the window, where no scroll reaches, as a form's spam trap is, or in
+					// a transparent box, as WooCommerce's closed mini-cart drawer is.
+					el.checkVisibility( { opacityProperty: true } ) &&
 					getComputedStyle( el ).clipPath === 'none' &&
 					getComputedStyle( el ).clip === 'auto' &&
 					el.getBoundingClientRect().right > 0

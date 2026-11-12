@@ -5,6 +5,8 @@ export {
 	getSitesDescriptor,
 	normalizeAiProviderId,
 	normalizeSitesProviderId,
+	formatRemoteSite,
+	parseRemoteSite,
 	normalizeProviderId,
 	PROVIDER_IDS,
 	SITES_PROVIDER_IDS,

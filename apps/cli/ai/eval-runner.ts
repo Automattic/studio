@@ -25,12 +25,13 @@ import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { addConnectedWpcomSite } from '@studio/common/lib/connected-sites';
 import { portFinder } from '@studio/common/lib/port-finder';
 import { readProviderConfig, writeProviderConfig } from '@studio/common/lib/provider-config';
+import { rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
 import { getConfigDirectory, getSharedConfigPath } from '@studio/common/lib/well-known-paths';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { syncSiteSchema } from '@studio/common/types/sync';
-import { PROVIDER_IDS } from '@studio/providers';
+import { PROVIDER_IDS, SITES_PROVIDER_IDS } from '@studio/providers';
 import { z } from 'zod';
 import { captureTurnOutcome, fingerprintSites, type TurnOutcome } from 'cli/ai/eval-outcome';
 import { stopRuleSchema, type StopRule } from 'cli/ai/eval-stop';
@@ -66,6 +67,16 @@ const evalSeedSchema = z.object( {
 		} )
 		.optional(),
 	connectedWpcomSites: z.array( syncSiteSchema ).optional(),
+	// Sites on the other providers connected to a local site, such as Spacefast Spaces.
+	remoteSites: z
+		.array(
+			z.object( {
+				provider: z.enum( SITES_PROVIDER_IDS ),
+				localSiteId: z.string(),
+				site: z.record( z.string(), z.unknown() ),
+			} )
+		)
+		.optional(),
 	snapshots: z.array( snapshotSchema ).optional(),
 	globalInstructions: z.string().optional(),
 	// A real (stopped) site under STUDIO_SITES_ROOT, active for the turn, with
@@ -247,6 +258,7 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 	const {
 		localSite,
 		connectedWpcomSites = [],
+		remoteSites = [],
 		snapshots = [],
 		globalInstructions,
 		activeSite,
@@ -291,6 +303,9 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 
 	for ( const site of connectedWpcomSites ) {
 		await addConnectedWpcomSite( site.localSiteId, site );
+	}
+	for ( const { provider, localSiteId, site } of remoteSites ) {
+		await rememberRemoteSite( provider, localSiteId, site as never );
 	}
 
 	let seededSite: SiteInfo | undefined;

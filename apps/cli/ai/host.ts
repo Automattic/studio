@@ -10,7 +10,9 @@ import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
 import { getAiPayloadsPath } from '@studio/common/lib/well-known-paths';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
-import { withWpcomDetails } from '@studio/providers';
+import { listAccountSites } from '@studio/common/sites/remote-sites';
+import { getSitesDescriptor, SITES_PROVIDER_IDS } from '@studio/providers';
+import { getProvider } from '@studio/providers/services';
 import { __ } from '@wordpress/i18n';
 import { getStudioUserAgent, resolveImageGenerator } from 'cli/ai/auth';
 import { runCommand as runExportCommand } from 'cli/commands/export';
@@ -38,7 +40,7 @@ import { pullSelectionFromSyncOptions } from 'cli/lib/pull/pull-selection';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
-import { parseSyncOptions, wpcomSites } from 'cli/lib/sync-api';
+import { parseSyncOptions } from 'cli/lib/sync-api';
 import { getTracksOrigin, recordTracksEvent } from 'cli/lib/tracks';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
@@ -175,6 +177,22 @@ export const cliAgentHost: StudioAgentHost = {
 			),
 	},
 	sync: {
+		// Filled in from the provider's account when it can be reached; the stored
+		// connection otherwise.
+		connectedSites: async ( site ) =>
+			(
+				await Promise.all(
+					SITES_PROVIDER_IDS.map( async ( provider ) => {
+						const stored = await getRemoteSites( provider, site.id );
+						const account = stored.length
+							? await listAccountSites( getProvider( provider ) ).catch( () => undefined )
+							: undefined;
+						return (
+							account ? getSitesDescriptor( provider ).withDetails( stored, account ) : stored
+						).map( ( remote ) => ( { provider, site: remote } ) );
+					} )
+				)
+			).flat(),
 		push: async ( site, options, remoteSite, onProgress ) =>
 			runPushCommand(
 				site.path,
@@ -204,13 +222,6 @@ export const cliAgentHost: StudioAgentHost = {
 		sites: async () => {
 			const token = await readAuthToken();
 			return token ? getWpComSites( token.accessToken ) : [];
-		},
-		connectedSites: async ( site ) => {
-			const stored = await getRemoteSites( 'wpcom', site.id );
-			const token = await readAuthToken();
-			return stored.length && token
-				? withWpcomDetails( stored, await wpcomSites.list( { token: token.accessToken } ) )
-				: [];
 		},
 		request: async ( method, path, query, body ) => {
 			const token = await readAuthToken();

@@ -182,19 +182,22 @@ await convertToWindowsStore( {
 	outputDirectory: appxOutputPathUnsigned,
 } );
 
-// Create signed AppX (used for local testing via sideloading)
-const appxOutputPathSigned = path.resolve( outPath, `${ appxName }-${ architecture }-signed` );
-console.log( `~~~ Creating signed .appx for local testing at ${ appxOutputPathSigned }...` );
+// Create AppX for local testing via sideloading
+const appxOutputPathSideload = path.resolve( outPath, `${ appxName }-${ architecture }-sideload` );
+console.log(
+	`~~~ Creating ${
+		signWindows ? 'signed' : 'unsigned'
+	} .appx for local testing at ${ appxOutputPathSideload }...`
+);
 
 const sideloadPublisher =
 	'CN=Automattic Inc., O=Automattic Inc., L=San Francisco, S=California, C=US';
 
-// Build unsigned, then sign with Azure Trusted Signing via signtool.
 await convertToWindowsStore( {
 	...sharedOptions,
 	publisher: sideloadPublisher,
 	devCert: 'nil',
-	outputDirectory: appxOutputPathSigned,
+	outputDirectory: appxOutputPathSideload,
 } );
 
 if ( ! signWindows ) {
@@ -203,7 +206,7 @@ if ( ! signWindows ) {
 }
 
 console.log( '~~~ Signing sideload .appx with Azure Trusted Signing...' );
-const appxFiles = ( await fs.readdir( appxOutputPathSigned ) ).filter( ( f ) =>
+const appxFiles = ( await fs.readdir( appxOutputPathSideload ) ).filter( ( f ) =>
 	f.endsWith( '.appx' )
 );
 if ( appxFiles.length === 0 ) {
@@ -212,7 +215,7 @@ if ( appxFiles.length === 0 ) {
 }
 
 for ( const appxFile of appxFiles ) {
-	const appxPath = path.join( appxOutputPathSigned, appxFile );
+	const appxPath = path.join( appxOutputPathSideload, appxFile );
 	console.log( `Signing ${ appxPath }...` );
 	const { signtoolPath } = getAzureSigningConfig();
 	// The Microsoft timestamp server (timestamp.acs.microsoft.com) fails
@@ -240,7 +243,7 @@ for ( const appxFile of appxFiles ) {
 	// Rename to remove misleading "unsigned" from the filename
 	const renamedFile = appxFile.replace( ' unsigned', '' );
 	if ( renamedFile !== appxFile ) {
-		const renamedPath = path.join( appxOutputPathSigned, renamedFile );
+		const renamedPath = path.join( appxOutputPathSideload, renamedFile );
 		await fs.rename( appxPath, renamedPath );
 		console.log( `Renamed to ${ renamedFile }` );
 	}

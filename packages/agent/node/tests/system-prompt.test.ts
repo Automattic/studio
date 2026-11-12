@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { loadSkills } from '@studio/agent/shared/skills';
-import { buildSystemPrompt } from '@studio/agent/shared/system-prompt';
+import { AGENT_IDENTITY, buildSystemPrompt } from '@studio/agent/shared/system-prompt';
 import { resolveStudioTools, type StudioToolsOptions } from '@studio/agent/shared/tools';
 import { createFakeHost } from './fake-host';
 import type { StudioAgentHost } from '@studio/agent/shared/host';
@@ -100,6 +100,11 @@ describe( 'buildSystemPrompt', () => {
 			'## Available tools\n\n- wp_cli: Run WP-CLI commands on a running site'
 		);
 		expect( prompt ).not.toContain( '- hidden' );
+	} );
+
+	it( 'opens with the identity line', () => {
+		expect( AGENT_IDENTITY ).toBe( 'You are WordPress Studio, built by Automattic.' );
+		expect( buildSystemPrompt().startsWith( `${ AGENT_IDENTITY } ` ) ).toBe( true );
 	} );
 
 	it( "gives external agents their own intro instead of Studio Code's identity and cadence", () => {

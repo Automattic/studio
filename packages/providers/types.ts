@@ -122,7 +122,7 @@ export interface PushArchive {
 // The steps of a push on the provider's side, after Studio built the archive.
 // `progress` is the step's own percentage, when the provider reports one.
 export interface PushStatus {
-	phase: 'uploading' | 'creatingRemoteBackup' | 'applyingChanges' | 'finishing';
+	phase: 'uploading' | 'creatingRemoteBackup' | 'applyingChanges' | 'finishing' | 'launching';
 	progress?: number;
 }
 
@@ -142,6 +142,8 @@ export interface SitesService< Config, Site extends RemoteSite > {
 		config: Config | undefined,
 		options?: { connectedIds?: Site[ 'id' ][]; planRequired?: boolean }
 	): Promise< Site[] >;
+	// A launch error means the import succeeded; callers keep the publish intent
+	// for a retry and must not show the site as published yet.
 	push(
 		config: Config | undefined,
 		site: Pick< Site, 'id' | 'name' >,
@@ -149,7 +151,7 @@ export interface SitesService< Config, Site extends RemoteSite > {
 		options: PushSyncOptions,
 		onStatus: ( status: PushStatus ) => void,
 		signal?: AbortSignal
-	): Promise< void >;
+	): Promise< void | { launchError: string } >;
 	pull?: {
 		// Backs the site up remotely and resolves with where to download the
 		// archive. `onProgress` gets the backup's percentage.

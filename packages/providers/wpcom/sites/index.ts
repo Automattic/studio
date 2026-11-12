@@ -9,6 +9,7 @@ import {
 	fetchSyncableSites,
 	initiateBackup,
 	initiateImport,
+	launchSite,
 	pollBackupStatus,
 	pollImportStatus,
 } from './api';
@@ -147,6 +148,28 @@ export const wpcomSites: SitesService< WpcomConfig, SyncSite > = {
 				);
 			}
 			if ( status.status === 'finished' ) {
+				if ( options.launchAfterPush ) {
+					onStatus( { phase: 'launching' } );
+					try {
+						await launchSite( token, site.id );
+					} catch ( error ) {
+						const reason = error instanceof Error && 'error' in error ? String( error.error ) : '';
+						return {
+							launchError:
+								reason === 'email_unverified'
+									? __(
+											'Changes pushed, but the site could not be launched. Verify your email, then publish again to retry launching.'
+									  )
+									: reason === 'unauthorized'
+									? __(
+											'Changes pushed, but the site could not be launched. Check your plan and permissions, then publish again to retry launching.'
+									  )
+									: __(
+											'Changes pushed, but the site could not be launched. Publish again to retry launching.'
+									  ),
+						};
+					}
+				}
 				return;
 			}
 

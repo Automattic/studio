@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 import { createDeployIgnoreFilter } from '@studio/common/lib/deploy-ignore';
 import { formatProgressLabel } from '@studio/common/lib/progress-label';
-import { rememberRemoteSite } from '@studio/common/lib/remote-sites';
+import { getRemoteSites, rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import { getSiteTracksProps } from '@studio/common/lib/site-tracks';
 import {
 	buildSyncEventProps,
@@ -85,10 +85,12 @@ export async function runCommand(
 	}
 
 	if ( pushed.siteId ) {
-		await reportSyncActivity( pushed.siteId, {
-			kind: pushed.completed ? 'success' : 'cancelled',
-			direction: 'push',
-		} );
+		await reportSyncActivity(
+			pushed.siteId,
+			pushed.launchError
+				? { kind: 'error', direction: 'push', message: pushed.launchError }
+				: { kind: pushed.completed ? 'success' : 'cancelled', direction: 'push' }
+		);
 	}
 	// Backing out of the site picker or the item selector returns without
 	// completing — a cancel, which emits nothing.
@@ -107,6 +109,7 @@ type PushOutcome = {
 	siteId?: string;
 	remoteSite?: SyncSite;
 	completed?: boolean;
+	launchError?: string;
 	// The step a failure is attributed to when its error names no cause of its own.
 	failurePhase?: SyncFailurePhase;
 };
@@ -117,6 +120,7 @@ const PUSH_PROGRESS: Record< PushStatus[ 'phase' ], [ () => string, number, numb
 	creatingRemoteBackup: [ () => __( 'Backing up remote site…' ), 40, 20 ],
 	applyingChanges: [ () => __( 'Applying changes…' ), 60, 35 ],
 	finishing: [ () => __( 'Almost there…' ), 99, 0 ],
+	launching: [ () => __( 'Launching site…' ), 99, 0 ],
 };
 
 const FAILURE_PHASES: Record< PushPhase, SyncFailurePhase > = {
@@ -125,6 +129,7 @@ const FAILURE_PHASES: Record< PushPhase, SyncFailurePhase > = {
 	creatingRemoteBackup: 'remote_backup',
 	applyingChanges: 'remote_import',
 	finishing: 'remote_import',
+	launching: 'remote_import',
 };
 
 async function runPush(
@@ -175,6 +180,13 @@ async function runPush(
 		if ( ! remoteSite ) {
 			return;
 		}
+	}
+	const remoteId = remoteSite.id;
+	const connection = ( ( await getRemoteSites( 'wpcom', site.id ) ) ?? [] ).find(
+		( connected ) => connected.id === remoteId
+	);
+	if ( connection?.launchAfterPush ) {
+		remoteSite = { ...remoteSite, launchAfterPush: true };
 	}
 	pushed.remoteSite = remoteSite;
 	reportPhase();
@@ -293,7 +305,7 @@ async function runPush(
 			formatProgressLabel( __( 'Uploading archive…' ), 20 )
 		);
 		try {
-			await wpcomSites.push(
+			const result = await wpcomSites.push(
 				{ token: token.accessToken },
 				remoteSite,
 				{
@@ -301,7 +313,7 @@ async function runPush(
 					name: path.basename( archivePath ),
 					size: archiveSize,
 				},
-				{ optionsToSync, specificSelectionPaths },
+				{ optionsToSync, specificSelectionPaths, launchAfterPush: remoteSite.launchAfterPush },
 				( { phase, progress } ) => {
 					const reported = `${ phase }:${ progress === undefined ? '' : Math.round( progress ) }`;
 					// The upload reports every chunk; the remote steps report every poll, which a
@@ -318,6 +330,10 @@ async function runPush(
 				},
 				abortUpload.signal
 			);
+			pushed.launchError = result?.launchError;
+			if ( remoteSite.launchAfterPush && ! pushed.launchError ) {
+				remoteSite.launchAfterPush = false;
+			}
 		} catch ( error ) {
 			throw toLoggerError( error, __( 'Push failed' ) );
 		} finally {
@@ -336,6 +352,9 @@ async function runPush(
 		logger.reportSuccess(
 			sprintf( __( 'Successfully pushed to %1$s (%2$s)' ), remoteSite.name, remoteSite.url )
 		);
+		if ( pushed.launchError ) {
+			logger.reportError( new LoggerError( pushed.launchError ), false );
+		}
 		pushed.completed = true;
 	} finally {
 		fs.rmSync( tempDir, { recursive: true, force: true } );

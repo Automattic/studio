@@ -1,6 +1,7 @@
 import { once } from 'events';
 import fs from 'fs';
 import * as configFile from '@studio/common/lib/cli-config-file';
+import { getRemoteSites, rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { RemoteSiteError, type PushArchive, type PushStatus } from '@studio/providers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -74,6 +75,7 @@ describe( 'CLI: studio push', () => {
 		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( site );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ remoteSite ] );
+		vi.mocked( getRemoteSites ).mockResolvedValue( [] );
 		pushes( [] );
 		vi.mocked( getExporter ).mockImplementation( async ( { backupFile } ) => {
 			return {
@@ -82,6 +84,35 @@ describe( 'CLI: studio push', () => {
 			} as never;
 		} );
 	} );
+
+	it.each( [ false, true ] )(
+		'records the successful push and retains intent only on launch failure: %s',
+		async ( failed ) => {
+			vi.mocked( getRemoteSites ).mockResolvedValue( [ { ...remoteSite, launchAfterPush: true } ] );
+			vi.mocked( wpcomSites.push ).mockImplementation(
+				async ( _config, _site, archive, options, onStatus ) => {
+					await once( ( archive.file as Readable ).resume(), 'close' );
+					expect( options.launchAfterPush ).toBe( true );
+					onStatus( { phase: 'launching' } );
+					return failed ? { launchError: 'Changes pushed, but launch failed' } : undefined;
+				}
+			);
+			await expect(
+				runCommand( site.path, [ 'all' ], String( remoteSite.id ) )
+			).resolves.toBeDefined();
+			expect( rememberRemoteSite ).toHaveBeenCalledWith(
+				'wpcom',
+				site.id,
+				expect.objectContaining( { launchAfterPush: failed } ),
+				'push'
+			);
+			expect( reported().at( -1 ) ).toMatchObject( { kind: failed ? 'error' : 'success' } );
+			expect( recordTracksEvent ).toHaveBeenCalledWith(
+				TRACKS_EVENTS.SYNC_PUSH,
+				expect.objectContaining( { success: true } )
+			);
+		}
+	);
 
 	// The phase gates cancelling a push, so every UI must see it move on.
 	it( 'reports each phase, then the result', async () => {

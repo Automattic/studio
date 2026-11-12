@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RemoteSiteError } from '../../../errors';
-import { fetchLatestRewindId, initiateBackup, initiateImport, pollImportStatus } from '../api';
+import {
+	fetchLatestRewindId,
+	initiateBackup,
+	initiateImport,
+	launchSite,
+	pollImportStatus,
+} from '../api';
 import { wpcomSites } from '../index';
 import { createTusUpload } from '../upload';
 
@@ -124,6 +130,49 @@ describe( 'push', () => {
 			{ phase: 'applyingChanges', progress: 50 },
 		] );
 	} );
+
+	it.each( [
+		{ intent: false, refusal: undefined },
+		{ intent: true, refusal: undefined },
+		{ intent: true, refusal: 'unauthorized' },
+		{ intent: true, refusal: 'email_unverified' },
+	] )(
+		'launches only after importing with publish intent: $intent / $refusal',
+		async ( { intent, refusal } ) => {
+			const connection = { launchAfterPush: intent };
+			vi.mocked( pollImportStatus ).mockResolvedValue( {
+				success: true,
+				status: 'finished',
+			} as never );
+			vi.mocked( launchSite ).mockImplementation( async () => {
+				expect( pollImportStatus ).toHaveBeenCalled();
+				if ( refusal ) {
+					throw Object.assign( new Error( 'Forbidden' ), { statusCode: 403, error: refusal } );
+				}
+			} );
+			const onStatus = vi.fn();
+			const result = await wpcomSites.push(
+				config,
+				{ id: 42, name: 'Live' },
+				archive,
+				connection,
+				onStatus
+			);
+			expect( launchSite ).toHaveBeenCalledTimes( intent ? 1 : 0 );
+			if ( intent ) {
+				expect( launchSite ).toHaveBeenCalledWith( 'token', 42 );
+				expect( onStatus ).toHaveBeenLastCalledWith( { phase: 'launching' } );
+			}
+			if ( refusal ) {
+				expect( result ).toMatchObject( {
+					launchError: expect.stringContaining( 'Changes pushed' ),
+				} );
+				expect( connection.launchAfterPush ).toBe( true );
+			} else {
+				expect( result ).toBeUndefined();
+			}
+		}
+	);
 
 	it( 'explains a database the live site failed to import', async () => {
 		vi.mocked( pollImportStatus ).mockResolvedValue( {

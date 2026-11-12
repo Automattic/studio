@@ -42,6 +42,7 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 	const fields = getConnectFields( provider, method );
 	// The account is connected with the form being shown.
 	const current = account?.connected && account.method === method;
+	const connectLabel = account?.connected ? __( 'Manage' ) : __( 'Connect' );
 	const [ formOpen, setFormOpen ] = useState( false );
 	const [ values, setValues ] = useState< Record< string, string > >( {} );
 	const pending =
@@ -78,7 +79,7 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 				{ methods.length && ! formOpen ? (
 					<Menu.Root>
 						<Menu.Trigger render={ <Button variant="outline" disabled={ pending } /> }>
-							{ account?.connected ? __( 'Manage' ) : __( 'Connect' ) }
+							{ connectLabel }
 							<ChevronDownIcon />
 						</Menu.Trigger>
 						<Menu.Popup side="bottom" align="end">
@@ -105,7 +106,7 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 						disabled={ pending }
 						onClick={ () => ( formOpen ? closeForm() : setFormOpen( true ) ) }
 					>
-						{ account?.connected ? __( 'Manage' ) : __( 'Connect' ) }
+						{ connectLabel }
 					</Button>
 				) }
 			</SettingsRow>

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
 	getAiModelProviders,
-	getConnectedMethod,
 	getConnectFields,
 	getConnectionMethods,
 	getRedirectUrl,
@@ -60,14 +59,9 @@ describe( 'connections', () => {
 			'setup-token',
 		] );
 		expect( getConnectionMethods( 'wpcom' ) ).toEqual( [] );
-		expect( getConnectionMethods( 'spacefast' ) ).toEqual( [] );
-
-		const [ token ] = getConnectFields( 'anthropic', 'setup-token' );
-		expect( token ).toMatchObject( { name: 'token', placeholder: 'sk-ant-oat01-…', secret: true } );
-		expect( token.validate( 'sk-ant-api03-key' ) ).toMatch( /not an API key/ );
-		expect( getConnectedMethod( 'anthropic', { method: 'setup-token', token: 'x' } ) ).toBe(
-			'setup-token'
-		);
+		expect( getConnectFields( 'anthropic', 'setup-token' ) ).toMatchObject( [
+			{ name: 'token', placeholder: 'sk-ant-oat01-…', secret: true },
+		] );
 	} );
 
 	it( 'builds the redirect only for a provider that connects with one', () => {

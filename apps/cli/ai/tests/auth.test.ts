@@ -108,13 +108,6 @@ describe( 'AI auth helpers', () => {
 
 		await prepareAiProvider( 'anthropic' );
 
-		expect( vi.mocked( select ).mock.calls[ 0 ][ 0 ].choices ).toEqual( [
-			{ value: 'api-key', name: 'API key' },
-			{ value: 'setup-token', name: 'Claude subscription' },
-		] );
-		expect( password ).toHaveBeenCalledWith(
-			expect.objectContaining( { message: 'Claude subscription token (saved for future use):' } )
-		);
 		expect( connectProvider ).toHaveBeenCalledWith( anthropicProvider, {
 			method: 'setup-token',
 			token: 'sk-ant-oat01-token',

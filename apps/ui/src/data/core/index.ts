@@ -8,6 +8,7 @@ export type {
 	AiSessionSummary,
 	AppUpdateStatus,
 	AuthUser,
+	BlueprintSource,
 	ColorScheme,
 	Connector,
 	CreateSiteParams,

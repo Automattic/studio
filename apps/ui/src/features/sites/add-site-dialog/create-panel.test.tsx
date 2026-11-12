@@ -8,7 +8,6 @@ import {
 } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { Connector, SelectedSiteFolder } from '@/data/core';
-import type { Blueprint as CatalogBlueprint } from '@studio/common/lib/studio-blueprints-api';
 import type { AiProviderId } from '@studio/providers';
 import type { Blueprint } from '@wp-playground/blueprints';
 
@@ -22,7 +21,7 @@ afterEach( () => {
 async function setup(
 	state: FakeConnectorInitialState = {},
 	overrides: Partial< Connector > = {},
-	blueprints: CatalogBlueprint[] = [
+	blueprints: object[] = [
 		{
 			slug: 'portfolio',
 			title: 'Portfolio',
@@ -98,9 +97,7 @@ describe( 'Add site › blank setup', () => {
 		expect( connector.createSite ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				name: 'My bakery',
-				blueprint: expect.objectContaining( {
-					blueprint: expect.objectContaining( { steps: expect.any( Array ) } ),
-				} ),
+				blueprint: 'portfolio',
 			} )
 		);
 		expect( connector.continueSession.mock.calls[ 0 ][ 1 ] ).toBe( 'Make this a bakery' );
@@ -765,15 +762,8 @@ describe( 'Add site › blank setup', () => {
 				path: '/tmp/late-blueprint',
 				isEmpty: false,
 				isWordPress: false,
-				blueprint: {
-					blueprintJson: { steps: [] },
-					blueprintJsonPath: '/tmp/late-blueprint/blueprint.json',
-					tempDir: '/tmp/late-blueprint',
-				},
+				blueprint: { steps: [] },
 			} )
-		);
-		await waitFor( () =>
-			expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/late-blueprint' )
 		);
 		expect( connector.createSite ).not.toHaveBeenCalled();
 		expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument();

@@ -15,7 +15,6 @@ import type {
 	AppGlobals,
 	AuthUser,
 	Connector,
-	ExtractedBlueprintBundle,
 	InstalledApps,
 	LoadedAiSession,
 	LocalMediaFile,
@@ -33,6 +32,7 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/agent/protocol/agent-events';
+import type { Blueprint } from '@studio/blueprints';
 import type { AiSettings } from '@studio/common/lib/ai-settings';
 import type { AuthAnalytics, OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
 import type { SiteEvent, SiteListItem, SnapshotEvent } from '@studio/common/lib/cli-events';
@@ -385,9 +385,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					adminEmail: params.adminEmail,
 					skipStart: params.skipStart,
 					flowType: params.flowType,
-					// The server writes this to a temp file and passes --blueprint to
-					// the CLI (featured blueprint JSON, or an uploaded bundle's filePath).
-					blueprint: params.blueprint,
+					blueprint:
+						params.blueprint instanceof File
+							? await uploadFile( params.blueprint )
+							: params.blueprint,
 				} ),
 			} );
 		},
@@ -501,28 +502,14 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				data: await response.arrayBuffer(),
 			};
 		},
-		async extractBlueprintBundle( file ): Promise< ExtractedBlueprintBundle > {
-			const data = await file.arrayBuffer();
-			const response = await fetch( `${ base }/blueprints/extract`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/octet-stream' },
-				body: data,
-				signal: AbortSignal.timeout( 60_000 ),
-			} );
-			if ( ! response.ok ) {
-				const text = await response.text().catch( () => '' );
-				throw new Error( `POST /blueprints/extract failed (${ response.status }): ${ text }` );
+		async readBlueprint( source ) {
+			if ( ! ( source instanceof File ) ) {
+				throw new UnsupportedError( 'readBlueprint' );
 			}
-			return ( await response.json() ) as ExtractedBlueprintBundle;
-		},
-		async cleanupBlueprintTempDir( tempDir ) {
-			await api( '/blueprints/cleanup', {
+			return api< Blueprint >( '/blueprints/read', {
 				method: 'POST',
-				body: JSON.stringify( { tempDir } ),
+				body: JSON.stringify( { path: await uploadFile( source ) } ),
 			} );
-		},
-		async readBlueprintFile() {
-			throw new UnsupportedError( 'readBlueprintFile' );
 		},
 		async importSiteFromBackup( siteId, backupPath, options ): Promise< void > {
 			await api< void >( `/sites/${ encodeURIComponent( siteId ) }/import`, {

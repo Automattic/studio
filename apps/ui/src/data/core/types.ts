@@ -8,6 +8,7 @@ import type {
 	LoadedAiSession,
 } from '@studio/agent/protocol/sessions/types';
 import type { StudioVisualAnnotationSummary } from '@studio/agent/protocol/visual-annotations';
+import type { Blueprint } from '@studio/blueprints';
 import type { AgentApp, AgentAppId } from '@studio/common/lib/agent-apps';
 import type { SiteAgentFile, SiteAgentFileKind } from '@studio/common/lib/agent-skills';
 import type { AiSettings } from '@studio/common/lib/ai-settings';
@@ -41,7 +42,6 @@ import type {
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
-import type { BlueprintSource } from '@studio/common/sites/blueprint-source';
 import type { SiteDesign } from '@studio/common/sites/site-design';
 import type { SiteEmail, SiteEmailSummary } from '@studio/common/sites/site-email';
 import type { PreviewStatus } from '@studio/common/sites/snapshots';
@@ -59,7 +59,6 @@ import type {
 	ProviderSites,
 	SitesProviderId,
 } from '@studio/providers';
-import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 export type { ActiveAgentRun } from '@studio/agent/protocol/agent-events';
 export type { StudioChatFileAttachment } from '@studio/agent/protocol/chat-files';
@@ -284,14 +283,9 @@ export interface Connector {
 	getFilePath( file: File ): Promise< string >;
 	readLocalMediaFile( path: string ): Promise< LocalMediaFile >;
 
-	// Uploads and extracts a Blueprint ZIP bundle to a temp directory and returns the
-	// parsed `blueprint.json`. The caller is responsible for calling
-	// `cleanupBlueprintTempDir` if the extraction succeeds but the upload
-	// flow never reaches `createSite` — otherwise `createSite` cleans the
-	// temp directory automatically when it uses the extracted blueprint.
-	extractBlueprintBundle( file: File ): Promise< ExtractedBlueprintBundle >;
-	cleanupBlueprintTempDir( tempDir: string ): Promise< void >;
-	readBlueprintFile( filePath: string ): Promise< BlueprintV1Declaration >;
+	// Reads a picked Blueprint file (JSON or zip bundle) or path for the add-site preview,
+	// without keeping anything: `createSite` opens the same source again.
+	readBlueprint( source: File | string ): Promise< Blueprint >;
 
 	// Imports a backup into an already-created site and starts the usable site.
 	// `backupPath` comes from `getFilePath` for the currently selected file.
@@ -678,7 +672,10 @@ export interface Connector {
 	onOpenSite( listener: ( payload: { siteId: string } ) => void ): () => void;
 	// `pull-site` links from WordPress.com pull a remote site into Studio.
 	onPullSite( listener: ( payload: { remoteSiteId: number } ) => void ): () => void;
-	onAddSiteWithBlueprint( listener: ( payload: { blueprintPath: string } ) => void ): () => void;
+	// `source` is what the site is created from, when it isn't the Blueprint itself.
+	onAddSiteWithBlueprint(
+		listener: ( payload: { blueprint: Blueprint; source?: string } ) => void
+	): () => void;
 	// Tells the host the app now listens for the events links send (Settings, Add
 	// site, sync and checkout returns), so a link that arrived earlier opens.
 	readyForDeeplinks?(): void;
@@ -835,25 +832,15 @@ export interface CreateSiteParams {
 	// Creates the local shell without starting its server. Connect onboarding
 	// uses this so remote content lands before the first local start.
 	skipStart?: boolean;
-	// Optional blueprint payload. `filePath` points at the extracted
-	// `blueprint.json` inside a ZIP bundle so the CLI can resolve relative assets.
-	// `bundleUrl` is set for API blueprints that bundle resources (theme zips, WXR
-	// files); the server downloads and extracts it to resolve relative paths.
-	blueprint?: {
-		blueprint: BlueprintV1Declaration;
-		filePath?: string;
-		bundleUrl?: string;
-	};
+	// The Blueprint to create the site from: a Library slug, a path or URL, a picked
+	// file, or the Blueprint itself. The site's name, domain and versions win over it.
+	blueprint?: BlueprintSource;
 	// Telemetry hint for the `studio_site_created` Tracks event. `import`/`sync` are set by the
 	// onboarding flows that create a blank site before populating it.
 	flowType?: TracksSiteCreateFlowType;
 }
 
-export interface ExtractedBlueprintBundle {
-	blueprintJson: BlueprintV1Declaration;
-	blueprintJsonPath: string;
-	tempDir: string;
-}
+export type BlueprintSource = string | File | Blueprint;
 
 export interface ProposedSitePath {
 	path: string;
@@ -864,7 +851,7 @@ export interface ProposedSitePath {
 
 export interface SelectedSiteFolder {
 	file?: { path: string; name: string };
-	blueprint?: BlueprintSource;
+	blueprint?: Blueprint;
 	path: string;
 	name: string;
 	isEmpty: boolean;

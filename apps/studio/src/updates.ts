@@ -66,7 +66,18 @@ export function switchToNightlyAndUpdate(): void {
 	autoUpdater.checkForUpdates();
 }
 
-function classifyWindowsUpdateError( err: Error ): 'lock' | 'network' | null {
+// NSURLErrorDomain: timed out, host not found, can't connect, connection lost, offline.
+const MAC_NETWORK_ERROR_CODES = [ -1001, -1003, -1004, -1005, -1009 ];
+
+/**
+ * Errors that a later check may not hit, so they're retried rather than reported. On Windows
+ * Squirrel's messages are localized, but the exception and frame names they include aren't.
+ */
+function classifyTransientUpdateError( err: Error ): 'lock' | 'network' | null {
+	if ( process.platform === 'darwin' ) {
+		const code = 'code' in err ? err.code : undefined;
+		return typeof code === 'number' && MAC_NETWORK_ERROR_CODES.includes( code ) ? 'network' : null;
+	}
 	if ( process.platform !== 'win32' ) {
 		return null;
 	}
@@ -82,6 +93,13 @@ function classifyWindowsUpdateError( err: Error ): 'lock' | 'network' | null {
 export function setupUpdates() {
 	if ( process.env.E2E ) {
 		console.log( 'Skipping update server setup in E2E tests' );
+		updaterState = 'done';
+		return;
+	}
+
+	if ( process.windowsStore ) {
+		// The Microsoft Store updates MSIX installs, and the feed only serves Squirrel packages.
+		console.log( 'Skipping update server setup in the Microsoft Store build' );
 		updaterState = 'done';
 		return;
 	}
@@ -152,18 +170,13 @@ export function setupUpdates() {
 	} );
 
 	autoUpdater.on( 'error', ( err ) => {
-		const windowsError = classifyWindowsUpdateError( err );
-		if ( windowsError || ( 'code' in err && ( err.code === -1009 || err.code === -1005 ) ) ) {
-			// Corresponds to errors: "The Internet connection appears to be offline." and "The network connection was lost."
-			// We don't need to stop polling, the internet might come back.
+		const transientError = classifyTransientUpdateError( err );
+		if ( transientError ) {
 			queueUpdateCheck();
 			lastError =
-				windowsError === 'lock'
-					? null
-					: {
-							reason: 'generic',
-							detail: __( 'Check your internet connection and try again.' ),
-					  };
+				transientError === 'network'
+					? { reason: 'generic', detail: __( 'Check your internet connection and try again.' ) }
+					: null;
 			emitAppUpdateStatus();
 			return;
 		}

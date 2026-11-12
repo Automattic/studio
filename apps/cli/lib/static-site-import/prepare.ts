@@ -1,6 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-import { removeBlueprintTempDir } from '@studio/common/lib/blueprint-bundle';
 import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, sprintf } from '@wordpress/i18n';
 import { readCliConfig } from 'cli/lib/cli-config/core';
@@ -182,6 +181,6 @@ export async function completeSourceImport(
 
 export async function removeStaticSiteImportBundle( plan?: StaticSiteImportPlan ): Promise< void > {
 	if ( plan?.bundlePath ) {
-		await removeBlueprintTempDir( plan.bundlePath ).catch( () => {} );
+		await fs.promises.rm( plan.bundlePath, { recursive: true, force: true } ).catch( () => {} );
 	}
 }

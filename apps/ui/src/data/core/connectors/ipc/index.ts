@@ -27,7 +27,6 @@ import type {
 	AppGlobals,
 	AuthUser,
 	Connector,
-	ExtractedBlueprintBundle,
 	InstalledApps,
 	LocalMediaFile,
 	LoadedAiSession,
@@ -48,6 +47,7 @@ import type {
 } from '../../types';
 import type { AgentRunEvent } from '@studio/agent/protocol/agent-events';
 import type { AiSettings } from '@studio/agent/protocol/providers';
+import type { Blueprint } from '@studio/blueprints';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 import type { AuthAnalytics, OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
 import type { SiteEvent, SnapshotEvent } from '@studio/common/lib/cli-events';
@@ -55,7 +55,6 @@ import type { TracksAuthSource } from '@studio/common/lib/record-tracks-event';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
-import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 
 function generateBackupFilename( siteName: string ): string {
 	const now = new Date();
@@ -80,6 +79,16 @@ export function createIpcConnector(): Connector {
 		throw new Error(
 			'IPC API not available. Are you running inside Electron with the preload script?'
 		);
+	}
+
+	function getBlueprintFilePath( file: File ): string {
+		const filePath = ( ipcApi.getPathForFile( file ) as string ) ?? '';
+		if ( ! filePath ) {
+			throw new Error(
+				__( 'Unable to resolve the ZIP file path. Try choosing the file via the button.' )
+			);
+		}
+		return filePath;
 	}
 
 	// The IPC connector only runs in Electron, so `navigator` reflects the
@@ -207,14 +216,7 @@ export function createIpcConnector(): Connector {
 				adminPassword,
 				adminEmail,
 				noStart: skipStart,
-				// Map the UI's camelCase `bundleUrl` to the API-shaped `bundle_url`
-				// the desktop IPC handler expects.
-				blueprint: blueprint
-					? {
-							...blueprint,
-							bundle_url: blueprint.bundleUrl,
-					  }
-					: undefined,
+				blueprint: blueprint instanceof File ? getBlueprintFilePath( blueprint ) : blueprint,
 				flowType,
 			} );
 			return ( await unwrapIpcError( created ) ) as SiteDetails;
@@ -298,22 +300,10 @@ export function createIpcConnector(): Connector {
 			return ( await ipcApi.readLocalMediaFile( path ) ) as LocalMediaFile;
 		},
 
-		async extractBlueprintBundle( file ): Promise< ExtractedBlueprintBundle > {
-			const zipFilePath = ( ipcApi.getPathForFile( file ) as string ) ?? '';
-			if ( ! zipFilePath ) {
-				throw new Error(
-					__( 'Unable to resolve the ZIP file path. Try choosing the file via the button.' )
-				);
-			}
-			return ( await ipcApi.extractBlueprintBundle( zipFilePath ) ) as ExtractedBlueprintBundle;
-		},
-
-		async cleanupBlueprintTempDir( tempDir ) {
-			await ipcApi.cleanupBlueprintTempDir( tempDir );
-		},
-
-		async readBlueprintFile( filePath ) {
-			return ipcApi.readBlueprintFile( filePath ) as Promise< BlueprintV1Declaration >;
+		async readBlueprint( source ) {
+			return unwrapIpcError(
+				ipcApi.readBlueprint( source instanceof File ? getBlueprintFilePath( source ) : source )
+			) as Promise< Blueprint >;
 		},
 
 		async importSiteFromBackup( siteId, backupPath, options ): Promise< void > {
@@ -942,7 +932,8 @@ export function createIpcConnector(): Connector {
 		onAddSiteWithBlueprint( listener ) {
 			return ipcListener.subscribe(
 				'add-site-with-blueprint',
-				( _event: unknown, payload: { blueprintPath: string } ) => listener( payload )
+				( _event: unknown, payload: { blueprint: Blueprint; source?: string } ) =>
+					listener( payload )
 			);
 		},
 

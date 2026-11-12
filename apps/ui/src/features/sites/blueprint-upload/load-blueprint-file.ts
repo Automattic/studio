@@ -1,3 +1,4 @@
+import { validateBlueprint } from '@studio/blueprints';
 import { __ } from '@wordpress/i18n';
 import { createSelectedBlueprint } from '@/features/sites/blueprint-selection';
 import type { Connector } from '@/data/core';
@@ -32,7 +33,7 @@ export async function loadBlueprintFile(
 				)
 			);
 		}
-		return createSelectedBlueprint( parsed, file );
+		return createSelectedBlueprint( validateBlueprint( parsed ), file );
 	}
 
 	if ( ! isZip ) {
@@ -43,7 +44,7 @@ export async function loadBlueprintFile(
 		);
 	}
 
-	const extracted = await connector.extractBlueprintBundle( file ).catch( ( error: unknown ) => {
+	const blueprint = await connector.readBlueprint( file ).catch( ( error: unknown ) => {
 		if (
 			error instanceof Error &&
 			error.message.includes( 'No blueprint.json found in the ZIP.' )
@@ -56,13 +57,5 @@ export async function loadBlueprintFile(
 			)
 		);
 	} );
-	try {
-		return await createSelectedBlueprint( extracted.blueprintJson, file, {
-			filePath: extracted.blueprintJsonPath,
-			tempDir: extracted.tempDir,
-		} );
-	} catch ( error ) {
-		await connector.cleanupBlueprintTempDir( extracted.tempDir ).catch( () => undefined );
-		throw error;
-	}
+	return createSelectedBlueprint( blueprint, file, file );
 }

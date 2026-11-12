@@ -1,4 +1,4 @@
-import type { Blueprint } from './studio-blueprints-api';
+import type { LibraryBlueprint } from '@studio/blueprints';
 
 export const BLUEPRINT_USE_CASES = [
 	'business',
@@ -40,12 +40,14 @@ const CATALOG: Record< string, { useCases: BlueprintUseCase[]; demoUrl?: string 
 	'quick-start': { useCases: [ 'business' ] },
 };
 
-export function getBlueprintUseCases( blueprint: Pick< Blueprint, 'slug' > ): BlueprintUseCase[] {
+export function getBlueprintUseCases(
+	blueprint: Pick< LibraryBlueprint, 'slug' >
+): BlueprintUseCase[] {
 	return CATALOG[ blueprint.slug ]?.useCases ?? [];
 }
 
 export function getBlueprintPreviewUrl(
-	blueprint: Pick< Blueprint, 'slug' | 'playground_url' >
+	blueprint: Pick< LibraryBlueprint, 'slug' | 'playgroundUrl' >
 ): string {
-	return CATALOG[ blueprint.slug ]?.demoUrl ?? blueprint.playground_url;
+	return CATALOG[ blueprint.slug ]?.demoUrl ?? blueprint.playgroundUrl;
 }

@@ -231,11 +231,9 @@ export function createInMemoryConnector(
 			mimeType: 'image/png',
 			data: new ArrayBuffer( 0 ),
 		} ),
-		extractBlueprintBundle: async () => {
+		readBlueprint: async () => {
 			throw new Error( 'Not implemented in the fake connector' );
 		},
-		cleanupBlueprintTempDir: async () => {},
-		readBlueprintFile: async () => ( {} ),
 		importSiteFromBackup: async () => {},
 		getSnapshots: async () => [],
 		getSnapshotUsage: async () => null,

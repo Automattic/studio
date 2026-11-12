@@ -36,6 +36,8 @@ import { isAiModelId } from '@studio/agent/protocol/models';
 import { isAiProviderId, providerServesModel } from '@studio/agent/protocol/providers';
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
+import { type Blueprint } from '@studio/blueprints';
+import { openBlueprint } from '@studio/blueprints/node';
 import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
 import {
 	getSiteAgentFiles as readSiteAgentFiles,
@@ -54,10 +56,6 @@ import {
 	type OnboardingAnalytics,
 	type AuthAnalytics,
 } from '@studio/common/lib/auth-tracks';
-import {
-	downloadAndExtractBlueprintBundle,
-	removeBlueprintTempDir,
-} from '@studio/common/lib/blueprint-bundle';
 import { SITE_EVENTS, type SiteListItem } from '@studio/common/lib/cli-events';
 import { CliCommandError } from '@studio/common/lib/cli-process';
 import { stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
@@ -102,12 +100,7 @@ import { openSiteInBrowser } from '@studio/common/lib/user-settings/open-browser
 import { openLinuxTerminal } from '@studio/common/lib/user-settings/open-linux-terminal';
 import { getSiteBrowserUrl } from '@studio/common/lib/user-settings/site-browser-url';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
-import {
-	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
-	extractBlueprintBundle as extractBlueprintBundleShared,
-	type ExtractedBlueprintBundle,
-} from '@studio/common/sites/blueprint-extract';
-import { readBlueprintSource, type BlueprintSource } from '@studio/common/sites/blueprint-source';
+import { readBlueprintSource } from '@studio/common/sites/blueprint-source';
 import { getSiteEditOptions } from '@studio/common/sites/edit';
 import {
 	deleteSite as deleteSiteViaCli,
@@ -201,7 +194,6 @@ import type {
 	AiSessionSummary,
 	LoadedAiSession,
 } from '@studio/agent/protocol/sessions/types';
-import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 
 export {
@@ -530,7 +522,8 @@ export async function createSite(
 		siteId?: string;
 		phpVersion?: string;
 		fileAccess?: SiteFileAccess;
-		blueprint?: Blueprint;
+		// What `studio create --blueprint` accepts, or a Blueprint itself.
+		blueprint?: string | Blueprint;
 		adminUsername?: string;
 		adminPassword?: string;
 		adminEmail?: string;
@@ -556,18 +549,10 @@ export async function createSite(
 
 	const siteId = providedSiteId || crypto.randomUUID();
 
-	const metric = getBlueprintMetric( blueprint?.slug );
+	const librarySlug =
+		typeof blueprint === 'string' && /^[\w-]+$/.test( blueprint ) ? blueprint : undefined;
+	const metric = getBlueprintMetric( librarySlug ?? ( blueprint ? 'file:' : undefined ) );
 	bumpStat( StatsGroup.STUDIO_SITE_CREATE, metric );
-
-	// If the blueprint has a bundle_url (API blueprints with bundled resources like zips),
-	// download and extract the bundle so bundled resources can be resolved locally.
-	let bundleTempDir: string | undefined;
-	let blueprintFilePath = blueprint?.filePath;
-	if ( blueprint?.bundle_url && ! blueprintFilePath ) {
-		const result = await downloadAndExtractBlueprintBundle( blueprint.bundle_url );
-		bundleTempDir = result.tempDir;
-		blueprintFilePath = result.blueprintJsonPath;
-	}
 
 	try {
 		const site = await createSiteViaCli( {
@@ -579,20 +564,13 @@ export async function createSite(
 			customDomain,
 			enableHttps,
 			siteId,
-			blueprint: blueprint?.blueprint,
-			originalBlueprintPath: blueprintFilePath,
+			blueprint,
 			adminUsername,
 			adminPassword,
 			adminEmail,
 			noStart,
 			flowType,
 		} );
-
-		// An uploaded bundle is kept on failure, so the user can retry without uploading it again.
-		if ( blueprint?.filePath ) {
-			const blueprintDir = nodePath.dirname( nodePath.resolve( blueprint.filePath ) );
-			await removeBlueprintTempDir( blueprintDir ).catch( () => {} );
-		}
 
 		return site;
 	} catch ( error ) {
@@ -637,10 +615,6 @@ export async function createSite(
 		throw error instanceof CliCommandError && error.lastErrorMessage
 			? new Error( error.lastErrorMessage )
 			: error;
-	} finally {
-		if ( bundleTempDir ) {
-			await removeBlueprintTempDir( bundleTempDir ).catch( () => {} );
-		}
 	}
 }
 
@@ -775,7 +749,7 @@ export async function stopServer(
 
 export interface FolderDialogResponse {
 	file?: SiteSourceFile;
-	blueprint?: BlueprintSource;
+	blueprint?: Blueprint;
 	path: string;
 	name: string;
 	isEmpty: boolean;
@@ -1474,38 +1448,10 @@ export async function listLocalFileTree(
 	return listSiteFileTree( await requireSitePath( siteId ), path, maxDepth );
 }
 
-export async function readBlueprintFile(
-	_event: IpcMainInvokeEvent,
-	filePath: string
-): Promise< Blueprint[ 'blueprint' ] > {
-	const allowedDir = nodePath.join( app.getPath( 'temp' ), 'wp-studio-blueprints' );
-	const resolvedPath = nodePath.resolve( filePath );
-
-	const normalizedAllowedDir = nodePath.resolve( allowedDir );
-	if ( ! resolvedPath.startsWith( normalizedAllowedDir + nodePath.sep ) ) {
-		throw new Error( 'Blueprint file path must be within the allowed directory' );
-	}
-
-	try {
-		const fileContents = await fsPromises.readFile( resolvedPath, 'utf-8' );
-		return JSON.parse( fileContents );
-	} finally {
-		await fsPromises.rm( resolvedPath, { force: true } );
-	}
-}
-
-export async function extractBlueprintBundle(
-	_event: IpcMainInvokeEvent,
-	zipFilePath: string
-): Promise< ExtractedBlueprintBundle > {
-	return extractBlueprintBundleShared( zipFilePath );
-}
-
-export async function cleanupBlueprintTempDir(
-	_event: IpcMainInvokeEvent,
-	tempDir: string
-): Promise< void > {
-	await cleanupBlueprintTempDirShared( tempDir );
+/** Reads the Blueprint at a path or URL for the add-site preview, without keeping anything. */
+export async function readBlueprint( _event: IpcMainInvokeEvent, source: string ) {
+	await using opened = await openBlueprint( source );
+	return opened.blueprint;
 }
 
 // Repaints the window-controls overlay for whichever surface it is sitting on;

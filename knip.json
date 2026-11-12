@@ -47,6 +47,9 @@
 		"packages/agent": {
 			"project": "**/*.ts"
 		},
+		"packages/blueprints": {
+			"project": "**/*.ts"
+		},
 		"packages/common": {
 			"entry": ["globals.ts"],
 			"project": "**/*.ts"

@@ -73,6 +73,7 @@
 	},
 	"devDependencies": {
 		"@studio/agent": "file:../../packages/agent",
+		"@studio/blueprints": "file:../../packages/blueprints",
 		"@studio/common": "file:../../packages/common",
 		"@studio/local": "file:../local",
 		"@types/archiver": "^8.0.0",

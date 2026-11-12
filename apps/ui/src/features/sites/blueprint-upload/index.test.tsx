@@ -82,8 +82,8 @@ describe( 'SiteFileUpload', () => {
 
 	it( 'reports a stalled upload and discards its late result', async () => {
 		const onSelect = vi.fn();
-		const pending = deferred< Awaited< ReturnType< typeof connector.extractBlueprintBundle > > >();
-		connector.extractBlueprintBundle.mockReturnValueOnce( pending.promise );
+		const pending = deferred< Awaited< ReturnType< typeof connector.readBlueprint > > >();
+		connector.readBlueprint.mockReturnValueOnce( pending.promise );
 		await renderUpload( { onSelect } );
 		vi.useFakeTimers();
 		try {
@@ -94,54 +94,28 @@ describe( 'SiteFileUpload', () => {
 					'This file took too long to load. Please try again or choose another file.'
 				)
 			).toBeVisible();
-			await act( async () =>
-				pending.resolve( {
-					blueprintJson: {},
-					blueprintJsonPath: '/tmp/late/blueprint.json',
-					tempDir: '/tmp/late',
-				} )
-			);
+			await act( async () => pending.resolve( {} ) );
 			expect( onSelect ).not.toHaveBeenCalled();
-			expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/late' );
 		} finally {
 			vi.useRealTimers();
 		}
 	} );
 
-	it( 'extracts a ZIP Blueprint and keeps its temporary-file metadata', async () => {
+	it( 'reads a ZIP Blueprint and creates the site from the file', async () => {
 		const onSelect = vi.fn();
-		connector.extractBlueprintBundle.mockResolvedValue( {
-			blueprintJson: { meta: { title: 'Bundled Blueprint', author: 'Studio' } },
-			blueprintJsonPath: '/tmp/extracted/blueprint.json',
-			tempDir: '/tmp/extracted',
+		connector.readBlueprint.mockResolvedValue( {
+			meta: { title: 'Bundled Blueprint', author: 'Studio' },
 		} );
 		await renderUpload( { onSelect } );
-		chooseFile( createFile( 'bundle.zip', 'zip', 'application/zip' ) );
+		const file = createFile( 'bundle.zip', 'zip', 'application/zip' );
+		chooseFile( file );
 
 		await waitFor( () => expect( onSelect ).toHaveBeenCalledOnce() );
-		expect( connector.extractBlueprintBundle ).toHaveBeenCalledWith(
-			expect.objectContaining( { name: 'bundle.zip' } )
-		);
+		expect( connector.readBlueprint ).toHaveBeenCalledWith( file );
 		expect( onSelect.mock.calls[ 0 ][ 0 ] ).toMatchObject( {
-			filePath: '/tmp/extracted/blueprint.json',
-			tempDir: '/tmp/extracted',
+			title: 'Bundled Blueprint',
+			source: file,
 		} );
-		expect( connector.cleanupBlueprintTempDir ).not.toHaveBeenCalled();
-	} );
-
-	it( 'cleans an extracted ZIP when its Blueprint is invalid', async () => {
-		connector.extractBlueprintBundle.mockResolvedValue( {
-			blueprintJson: null as never,
-			blueprintJsonPath: '/tmp/extracted/blueprint.json',
-			tempDir: '/tmp/extracted',
-		} );
-		await renderUpload();
-		chooseFile( createFile( 'invalid.zip', 'zip', 'application/zip' ) );
-
-		await waitFor( () =>
-			expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/extracted' )
-		);
-		expect( await screen.findByText( /must be object/ ) ).toBeInTheDocument();
 	} );
 
 	it( 'restores validity after a failed upload', async () => {
@@ -185,9 +159,9 @@ describe( 'SiteFileUpload', () => {
 	} );
 
 	it( 'replaces ZIP extraction details with a user-friendly error', async () => {
-		connector.extractBlueprintBundle.mockRejectedValue(
+		connector.readBlueprint.mockRejectedValue(
 			new Error(
-				"Error invoking remote method 'extractBlueprintBundle': No blueprint.json found in the ZIP file."
+				"Error invoking remote method 'readBlueprint': Unexpected end of central directory"
 			)
 		);
 		await renderUpload();
@@ -197,29 +171,6 @@ describe( 'SiteFileUpload', () => {
 			'This ZIP could not be used. Make sure it contains a valid blueprint.json file at the top level or inside one enclosing folder, and try again.'
 		);
 		expect( screen.queryByText( /Error invoking remote method/ ) ).not.toBeInTheDocument();
-	} );
-
-	it( 'cancels and cleans a ZIP still extracting when unmounted', async () => {
-		const onSelect = vi.fn();
-		const extraction = deferred< {
-			blueprintJson: { meta: { title: string; author: string } };
-			blueprintJsonPath: string;
-			tempDir: string;
-		} >();
-		connector.extractBlueprintBundle.mockReturnValue( extraction.promise );
-		const { unmount } = await renderUpload( { onSelect } );
-		chooseFile( createFile( 'bundle.zip', 'zip', 'application/zip' ) );
-		unmount();
-		extraction.resolve( {
-			blueprintJson: { meta: { title: 'Bundled', author: 'Studio' } },
-			blueprintJsonPath: '/tmp/bundle/blueprint.json',
-			tempDir: '/tmp/bundle',
-		} );
-
-		await waitFor( () =>
-			expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/bundle' )
-		);
-		expect( onSelect ).not.toHaveBeenCalled();
 	} );
 
 	it( 'accepts a dropped Blueprint only inside the upload target', async () => {

@@ -1,3 +1,4 @@
+import { fetchLibraryBlueprints, validateBlueprint, type Blueprint } from '@studio/blueprints';
 import { generateBackupFilename } from '@studio/common/lib/generate-backup-filename';
 import { numberedSiteName, pickSiteName } from '@studio/common/lib/site-names';
 import {
@@ -37,6 +38,7 @@ import { UnsupportedError } from '../unsupported-error';
 import { readWapuuScore, writeWapuuScore } from '../wapuu-score-storage';
 import type {
 	AppGlobals,
+	BlueprintSource,
 	Connector,
 	InstalledApps,
 	OnboardingHintsState,
@@ -74,7 +76,6 @@ const noSubscription = () => () => {};
 export function createStaticConnector(): Connector {
 	// Files the user picked, by the pseudo path `getFilePath` hands back.
 	const pickedFiles = new Map< string, File >();
-	const blueprintBundles = new Map< string, BlueprintBundle >();
 	const { sites, auth, wpcom, agent } = createStaticBackend( {
 		readAttachment: ( filePath ) => pickedFiles.get( filePath ),
 		download,
@@ -91,6 +92,31 @@ export function createStaticConnector(): Connector {
 			...DEFAULT_PREFERENCES,
 			...( await kvGet< Partial< UserPreferences > >( PREFERENCES_KEY ) ),
 		};
+	}
+
+	// Playground opens zip bundles and URLs itself; a Library slug resolves to its bundle.
+	async function openBlueprint(
+		source: BlueprintSource
+	): Promise< { blueprint: Blueprint; bundle?: BlueprintBundle } > {
+		if ( typeof source === 'object' && ! ( source instanceof File ) ) {
+			return { blueprint: source };
+		}
+		if ( typeof source === 'string' && /^[\w-]+$/.test( source ) ) {
+			const { locale } = await readPreferences();
+			const entry = ( await fetchLibraryBlueprints( { locale } ) ).find(
+				( item ) => item.slug === source
+			);
+			if ( ! entry ) {
+				throw new Error( `Unknown Blueprint: ${ source }` );
+			}
+			return {
+				blueprint: entry.blueprint,
+				bundle: entry.bundleUrl ? await loadBlueprintBundle( entry.bundleUrl ) : undefined,
+			};
+		}
+		const bundle = await loadBlueprintBundle( source );
+		const declaration = await ( await loadPlaygroundClient() ).getBlueprintDeclaration( bundle );
+		return { blueprint: validateBlueprint( declaration ), bundle };
 	}
 
 	return {
@@ -120,17 +146,8 @@ export function createStaticConnector(): Connector {
 
 		getSites: () => sites.getDetails(),
 		async createSite( params ) {
-			const { filePath, bundleUrl } = params.blueprint ?? {};
-			const bundle = filePath
-				? blueprintBundles.get( filePath )
-				: bundleUrl
-				? await loadBlueprintBundle( bundleUrl )
-				: undefined;
-			const site = await sites.create( params, bundle );
-			if ( filePath ) {
-				blueprintBundles.delete( filePath );
-			}
-			return site;
+			const { blueprint, bundle } = params.blueprint ? await openBlueprint( params.blueprint ) : {};
+			return sites.create( { ...params, blueprint: blueprint && { blueprint } }, bundle );
 		},
 		deleteSite: ( id ) => sites.delete( id ),
 		async copySite( sourceSiteId ) {
@@ -255,31 +272,8 @@ export function createStaticConnector(): Connector {
 			}
 			return { name: file.name, mimeType: file.type, data: await file.arrayBuffer() };
 		},
-		async extractBlueprintBundle( file ) {
-			if ( file.name.endsWith( '.json' ) ) {
-				return {
-					blueprintJson: JSON.parse( await file.text() ),
-					blueprintJsonPath: '',
-					tempDir: '',
-				};
-			}
-			// A bundle stays in memory, under a pseudo path, until a site is
-			// created from it.
-			const bundle = await loadBlueprintBundle( file );
-			const tempDir = `/blueprint-bundles/${ crypto.randomUUID() }`;
-			const blueprintJsonPath = `${ tempDir }/blueprint.json`;
-			blueprintBundles.set( blueprintJsonPath, bundle );
-			return {
-				blueprintJson: await ( await loadPlaygroundClient() ).getBlueprintDeclaration( bundle ),
-				blueprintJsonPath,
-				tempDir,
-			};
-		},
-		async cleanupBlueprintTempDir( tempDir ) {
-			blueprintBundles.delete( `${ tempDir }/blueprint.json` );
-		},
-		async readBlueprintFile() {
-			throw new UnsupportedError( 'readBlueprintFile' );
+		async readBlueprint( source ) {
+			return ( await openBlueprint( source ) ).blueprint;
 		},
 		async importSiteFromBackup( siteId, backupPath ) {
 			const file = pickedFiles.get( backupPath );

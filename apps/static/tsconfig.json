@@ -7,7 +7,8 @@
 		"types": [ "vite/client" ],
 		"paths": {
 			"@studio/common/*": [ "../../packages/common/*" ],
-			"@studio/agent/*": [ "../../packages/agent/*" ]
+			"@studio/agent/*": [ "../../packages/agent/*" ],
+			"@wp-playground/blueprints/blueprint-schema-validator": [ "../../node_modules/@wp-playground/blueprints/blueprint-schema-validator" ]
 		}
 	},
 	"include": [ "**/*" ],

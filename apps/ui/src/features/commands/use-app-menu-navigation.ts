@@ -46,19 +46,14 @@ export function useAppMenuNavigation() {
 							const folder = await connector.selectSiteFolder( '', { allowBlueprints: true } );
 							if ( ! folder ) return;
 							if ( folder.blueprint ) {
-								const source = folder.blueprint;
-								try {
-									const blueprint = await createSelectedBlueprint(
-										source.blueprintJson,
+								pendingBlueprintSlot.set(
+									createSelectedBlueprint(
+										folder.blueprint,
 										{ name: folder.name, size: 0 },
-										{ filePath: source.blueprintJsonPath, tempDir: source.tempDir }
-									);
-									pendingBlueprintSlot.set( blueprint );
-									openAddSite();
-								} catch ( error ) {
-									if ( source.tempDir ) await connector.cleanupBlueprintTempDir( source.tempDir );
-									throw error;
-								}
+										folder.path
+									)
+								);
+								openAddSite();
 								return;
 							}
 							const sites = await connector.getSites();
@@ -193,40 +188,13 @@ export function useAppMenuNavigation() {
 	);
 	useEffect(
 		() =>
-			connector.onAddSiteWithBlueprint( ( { blueprintPath } ) => {
-				void ( async () => {
-					try {
-						const blueprintJson = await connector.readBlueprintFile( blueprintPath );
-						const blueprint = await createSelectedBlueprint( blueprintJson, {
-							name: blueprintPath.split( /[\\/]/ ).pop() || 'blueprint.json',
-							size: 0,
-						} );
-						pendingBlueprintSlot.set( blueprint );
-						openAddSite();
-					} catch ( error ) {
-						console.error( 'Failed to open Blueprint deep link:', error );
-						const ipcApi = (
-							window as unknown as {
-								ipcApi?: {
-									showErrorMessageBox( options: {
-										title: string;
-										message: string;
-										error?: unknown;
-										showOpenLogs?: boolean;
-									} ): void;
-								};
-							}
-						 ).ipcApi;
-						ipcApi?.showErrorMessageBox( {
-							title: __( 'Failed to load Blueprint' ),
-							message: __(
-								'WordPress Studio could not open the Blueprint. Please check the file and try again.'
-							),
-							error,
-							showOpenLogs: true,
-						} );
-					}
-				} )();
+			connector.onAddSiteWithBlueprint( ( { blueprint, source } ) => {
+				const name =
+					( source && new URL( source ).pathname.split( '/' ).pop() ) || 'blueprint.json';
+				pendingBlueprintSlot.set(
+					createSelectedBlueprint( blueprint, { name, size: 0 }, source ?? blueprint )
+				);
+				openAddSite();
 			} ),
 		[ connector, openAddSite ]
 	);

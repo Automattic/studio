@@ -2,8 +2,8 @@
  * @vitest-environment node
  */
 import { IpcMainInvokeEvent, dialog, shell } from 'electron';
-import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
 import { readSitePath } from '@studio/common/sites/site-path';
+import { getProvider } from '@studio/providers/services';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
 import {
@@ -20,7 +20,11 @@ vi.mock( 'fs/promises', async () => {
 	return { default: fs.promises };
 } );
 vi.mock( '@studio/common/sites/site-path' );
-vi.mock( '@studio/common/lib/sync/sync-api' );
+vi.mock( '@studio/providers/services', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('@studio/providers/services') >();
+	const sites = { list: vi.fn() };
+	return { ...actual, getProvider: () => ( { sites } ) };
+} );
 vi.mock( 'src/lib/oauth' );
 
 beforeEach( () => {
@@ -45,11 +49,12 @@ describe( 'fetchSyncableWpcomSites', () => {
 			vi.mocked( getAuthenticationToken ).mockResolvedValue( {
 				accessToken: 'test-token',
 			} as Awaited< ReturnType< typeof getAuthenticationToken > > );
-			vi.mocked( fetchSyncableSites ).mockResolvedValue( [] );
+			const { list } = getProvider( 'wpcom' ).sites!;
+			vi.mocked( list ).mockResolvedValue( [] );
 
 			await fetchSyncableWpcomSites( mockIpcMainInvokeEvent );
 
-			expect( fetchSyncableSites ).toHaveBeenCalledWith( 'test-token', { planRequired } );
+			expect( list ).toHaveBeenCalledWith( { token: 'test-token' }, { planRequired } );
 		}
 	);
 } );

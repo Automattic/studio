@@ -405,7 +405,8 @@ export function createStaticConnector(): Connector {
 		},
 
 		getAiSettings: () => agent.getAiSettings(),
-		saveAnthropicApiKey: ( key ) => agent.saveAnthropicApiKey( key ),
+		connectProvider: ( provider, input ) => agent.connectProvider( provider, input ),
+		disconnectProvider: ( provider ) => agent.disconnectProvider( provider ),
 		setAiProvider: ( provider ) => agent.setAiProvider( provider ),
 
 		async getInstalledApps(): Promise< InstalledApps > {

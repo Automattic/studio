@@ -1,12 +1,15 @@
 {
+	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "signed-in",
-	"description": "Signed in to WordPress.com: the account menu, Share and publish, the model menu, and the account settings",
+	"description": "Signed in to WordPress.com: the account menu, Share and publish, the model menu, the account settings, and Send feedback",
+	"scene": "moire",
+	"look": "docs",
 	"signedIn": true,
 	"shots": [
 		{
 			"name": "main-window-signed-in",
 			"description": "Main window, signed in: the account menu button at the bottom of the sidebar",
-			"pages": [ "index.md" ],
+			"meta": { "pages": [ "index.md" ] },
 			"steps": [
 				{
 					"waitFor": {
@@ -30,8 +33,8 @@
 		},
 		{
 			"name": "account-menu",
-			"description": "Account menu: name, email, Settings, Appearance, AI Providers, Usage, Log out",
-			"pages": [ "index.md" ],
+			"description": "Account menu: name, email, Providers, Usage, Support, Settings, Log out",
+			"meta": { "pages": [ "index.md" ] },
 			"steps": [
 				{
 					"click": {
@@ -47,25 +50,6 @@
 					}
 				}
 			],
-			"capture": {
-				"target": [
-					{
-						"role": "menu",
-						"name": "{{account.name}}"
-					},
-					{
-						"role": "button",
-						"name": "{{account.name}}",
-						"exact": true
-					},
-					{
-						"role": "button",
-						"name": "Add site",
-						"first": true
-					}
-				],
-				"pad": 24
-			},
 			"after": [
 				{
 					"press": "Escape"
@@ -75,7 +59,7 @@
 		{
 			"name": "composer-add-menu",
 			"description": "Chat box + menu, signed in: Add files, the commands, and Skills",
-			"pages": [ "studio-code/index.md" ],
+			"meta": { "pages": [ "studio-code/index.md" ] },
 			"steps": [
 				{
 					"click": {
@@ -125,8 +109,9 @@
 		},
 		{
 			"name": "annotate-toolbar",
-			"description": "Annotate: the Annotations toolbar over the site preview, with Cancel and Send",
-			"pages": [ "studio-code/index.md" ],
+			"description": "Annotate turned on above the site preview, before any note",
+			"desktopOnly": true,
+			"meta": { "pages": [ "studio-code/index.md" ] },
 			"steps": [
 				{
 					"click": {
@@ -136,27 +121,15 @@
 					}
 				},
 				{
-					"waitFor": {
-						"role": "toolbar",
-						"name": "Annotations"
-					}
-				},
-				{
 					"wait": 1000
 				}
-			],
-			"capture": {
-				"target": {
-					"role": "complementary",
-					"name": "Site preview"
-				},
-				"pad": 0
-			}
+			]
 		},
 		{
 			"name": "annotate-note",
 			"description": "Annotate: two saved notes on the page, and a third open on the hero photo, being typed",
-			"pages": [ "studio-code/index.md" ],
+			"desktopOnly": true,
+			"meta": { "pages": [ "studio-code/index.md" ] },
 			"steps": [
 				{
 					"helper": "clickInPreview",
@@ -167,7 +140,7 @@
 				},
 				{
 					"helper": "typeText",
-					"args": [ "Make this heading shorter" ]
+					"args": [ "Make the wordmark a touch smaller" ]
 				},
 				{
 					"press": "Enter"
@@ -177,14 +150,14 @@
 				},
 				{
 					"helper": "clickInPreview",
-					"args": [ "header .wp-block-button__link" ]
+					"args": [ ".wp-block-site-tagline" ]
 				},
 				{
 					"wait": 600
 				},
 				{
 					"helper": "typeText",
-					"args": [ "Make the Order button stand out more" ]
+					"args": [ "Add Autumn edit after the tagline" ]
 				},
 				{
 					"press": "Enter"
@@ -194,25 +167,20 @@
 				},
 				{
 					"helper": "clickInPreview",
-					"args": [ ".wp-block-image.alignfull img" ]
+					"args": [ ".wp-block-cover img, .wp-block-image img, img" ]
 				},
 				{
 					"wait": 600
 				},
 				{
 					"helper": "typeText",
-					"args": [ "Swap in a photo of our sourdough" ]
+					"args": [ "Swap in the wool close-up" ]
 				},
 				{
 					"wait": 500
 				}
 			],
 			"capture": {
-				"target": {
-					"role": "complementary",
-					"name": "Site preview"
-				},
-				"pad": 0,
 				"keepMouse": true
 			},
 			"after": [
@@ -226,9 +194,21 @@
 		},
 		{
 			"name": "annotate-staged",
-			"description": "Annotate: two saved notes marked on the page and waiting in the chat box as \"2 annotations\", with Send in the Annotations toolbar",
-			"pages": [ "studio-code/index.md" ],
-			"steps": [],
+			"description": "Annotate: two saved notes marked on the page and waiting in the chat box as \"2 annotations\"",
+			"desktopOnly": true,
+			"meta": { "pages": [ "studio-code/index.md" ] },
+			"steps": [
+				{
+					"click": {
+						"role": "button",
+						"name": "Delete annotation",
+						"exact": true
+					}
+				},
+				{
+					"wait": 600
+				}
+			],
 			"capture": {
 				"settle": 1200
 			},
@@ -241,8 +221,7 @@
 		{
 			"name": "share-create-preview",
 			"description": "Share and publish → Share, with Create preview",
-			"pages": [ "preview-sites.md" ],
-			"replaces": [ "2025/01/studio-site-new-preview-1.png" ],
+			"meta": { "pages": [ "preview-sites.md" ], "replaces": [ "2025/01/studio-site-new-preview-1.png" ] },
 			"steps": [
 				{
 					"click": {
@@ -269,7 +248,7 @@
 		{
 			"name": "publish-panel",
 			"description": "Share and publish → Publish: Existing site… and New site…",
-			"pages": [ "sync.md" ],
+			"meta": { "pages": [ "sync.md" ] },
 			"steps": [
 				{
 					"click": {
@@ -299,8 +278,7 @@
 		{
 			"name": "publish-choose-site",
 			"description": "Publish → Choose an existing site, listing the account’s WordPress.com and Pressable sites",
-			"pages": [ "sync.md" ],
-			"replaces": [ "2025/01/studio-connect-live-site.png" ],
+			"meta": { "pages": [ "sync.md" ], "replaces": [ "2025/01/studio-connect-live-site.png" ] },
 			"steps": [
 				{
 					"click": {
@@ -340,10 +318,7 @@
 		{
 			"name": "model-menu",
 			"description": "Chat box model menu: Fast, Balanced and Strong, with the AI credits remaining",
-			"pages": [
-				"studio-code/index.md",
-				"studio-code/choosing-an-ai-model-tier-in-studio-code.md"
-			],
+			"meta": { "pages": [ "studio-code/index.md", "studio-code/choosing-an-ai-model-tier-in-studio-code.md" ] },
 			"steps": [
 				{
 					"click": {
@@ -379,7 +354,7 @@
 		{
 			"name": "add-ai-credits",
 			"description": "Add AI credits: the four one-time credit amounts",
-			"pages": [ "studio-code/ai-credits-guidelines.md" ],
+			"meta": { "pages": [ "studio-code/ai-credits-guidelines.md" ] },
 			"steps": [
 				{
 					"click": {
@@ -410,16 +385,21 @@
 			]
 		},
 		{
-			"name": "settings-account",
-			"description": "Settings → General, signed in: the account row with Log out",
-			"pages": [ "index.md" ],
+			"name": "settings-usage",
+			"description": "Settings → Usage: AI credits remaining, Add credits, and Preview sites",
+			"meta": { "pages": [ "preview-sites.md", "studio-code/index.md", "studio-code/ai-credits-guidelines.md" ] },
 			"steps": [
 				{
 					"click": {
 						"role": "button",
-						"name": "Settings",
-						"exact": true,
-						"first": true
+						"name": "{{account.name}}",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "menuitem",
+						"pattern": "^Settings"
 					}
 				},
 				{
@@ -432,30 +412,6 @@
 						"name": "App"
 					}
 				},
-				{
-					"waitFor": {
-						"role": "group",
-						"name": "{{account.name}}"
-					}
-				}
-			],
-			"capture": {
-				"target": {
-					"role": "dialog",
-					"name": "Settings",
-					"exact": true
-				}
-			}
-		},
-		{
-			"name": "settings-usage",
-			"description": "Settings → Usage: AI credits remaining, Add credits, and Preview sites",
-			"pages": [
-				"preview-sites.md",
-				"studio-code/index.md",
-				"studio-code/ai-credits-guidelines.md"
-			],
-			"steps": [
 				{
 					"click": {
 						"within": {
@@ -482,8 +438,7 @@
 		{
 			"name": "settings-sharing",
 			"description": "Settings → Sharing, signed in",
-			"pages": [ "preview-sites.md" ],
-			"replaces": [ "2025/01/studio-delete-all-preview-sites.png" ],
+			"meta": { "pages": [ "preview-sites.md" ], "replaces": [ "2025/01/studio-delete-all-preview-sites.png" ] },
 			"steps": [
 				{
 					"click": {
@@ -513,8 +468,8 @@
 		},
 		{
 			"name": "settings-ai-providers-signed-in",
-			"description": "Settings → AI Providers, signed in: WordPress.com connected",
-			"pages": [ "studio-code/index.md" ],
+			"description": "Settings → Providers, signed in: WordPress.com connected",
+			"meta": { "pages": [ "studio-code/index.md" ] },
 			"steps": [
 				{
 					"click": {
@@ -523,7 +478,7 @@
 							"name": "Settings sections"
 						},
 						"role": "tab",
-						"name": "AI Providers",
+						"name": "Providers",
 						"exact": true
 					}
 				},
@@ -550,7 +505,7 @@
 		{
 			"name": "add-site-connect-signed-in",
 			"description": "Add site → Connect, signed in, listing the account’s WordPress.com and Pressable sites",
-			"pages": [ "sync.md" ],
+			"meta": { "pages": [ "sync.md" ] },
 			"steps": [
 				{
 					"click": {
@@ -587,6 +542,88 @@
 					"press": "Escape"
 				}
 			]
+		},
+		{
+			"name": "send-feedback",
+			"description": "Send feedback dialog, opened from the account menu → Support: Topic, Area, Message, Cancel and Send",
+			"meta": { "pages": [ "feedback/index.md" ] },
+			"steps": [
+				{
+					"helper": "closeMenus"
+				},
+				{
+					"click": {
+						"role": "button",
+						"name": "{{account.name}}",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "menuitem",
+						"name": "Support",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "menuitem",
+						"name": "Send feedback",
+						"exact": true
+					}
+				},
+				{
+					"waitFor": {
+						"role": "dialog",
+						"name": "Send feedback"
+					}
+				},
+				{
+					"click": {
+						"within": {
+							"role": "group",
+							"name": "Feedback areas"
+						},
+						"role": "button",
+						"name": "Preview",
+						"exact": true
+					}
+				},
+				{
+					"fill": {
+						"role": "textbox",
+						"name": "Message"
+					},
+					"value": "The device toolbar is great for checking a page on a phone. It would help to save my own sizes next to the built-in devices.",
+					"blur": true
+				}
+			],
+			"after": [
+				{
+					"click": {
+						"within": {
+							"role": "dialog",
+							"name": "Send feedback"
+						},
+						"role": "button",
+						"name": "Cancel"
+					}
+				},
+				{
+					"waitFor": {
+						"role": "dialog",
+						"name": "Send feedback"
+					},
+					"hidden": true
+				}
+			],
+			"capture": {
+				"target": {
+					"role": "dialog",
+					"name": "Send feedback"
+				},
+				"pad": 48
+			}
 		}
 	]
 }

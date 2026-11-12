@@ -28,6 +28,7 @@
 		"@studio/agent": "file:../../packages/agent",
 		"@studio/blueprints": "file:../../packages/blueprints",
 		"@studio/common": "file:../../packages/common",
+		"@studio/providers": "file:../../packages/providers",
 		"@types/express": "^4.17.23"
 	}
 }

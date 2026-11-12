@@ -1,5 +1,5 @@
-import { getAiModelFamily } from '@studio/agent/protocol/models';
 import { isStudioCustomEntryOfType } from '@studio/agent/protocol/sessions/entry-types';
+import { toStoredProviderId, type ProviderId } from '@studio/providers';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import { useConnector } from '@/data/core';
@@ -12,18 +12,17 @@ import {
 import { saveComposerDraft } from '@/features/composer/draft-store';
 import type { AiModelId, LoadedAiSession, SessionEntry } from '@/data/core';
 import type { ComposerAttachment } from '@/data/use-composer-attachments';
-import type { AiProviderId } from '@studio/agent/protocol/providers';
 
 // Optimistic mirror of the `studio.session_context` entry the backend appends
 // for a provider switch, so the picker updates before the write lands.
-function createSessionContextEntry( provider: AiProviderId, model: AiModelId ): SessionEntry {
+function createSessionContextEntry( provider: ProviderId, model: AiModelId ): SessionEntry {
 	return {
 		type: 'custom',
 		id: Math.random().toString( 36 ).slice( 2, 10 ),
 		parentId: null,
 		timestamp: new Date().toISOString(),
 		customType: 'studio.session_context',
-		data: { provider, model },
+		data: { provider: toStoredProviderId( provider ), model },
 	} as unknown as SessionEntry;
 }
 
@@ -31,10 +30,10 @@ interface ModelSwitchOptions {
 	model: AiModelId;
 	sessionId?: string;
 	entries?: SessionEntry[];
-	sessionProvider: AiProviderId;
+	sessionProvider: ProviderId;
 	ownerSiteId?: string;
 	onSwitchSession?: ( sessionId: string ) => void;
-	onModelChange?: ( model: AiModelId, provider: AiProviderId ) => void;
+	onModelChange?: ( model: AiModelId, provider: ProviderId ) => void;
 	isModelLocked: ( id: AiModelId ) => boolean;
 	// The draft carried over to a fresh session.
 	text: string;
@@ -61,7 +60,7 @@ export function useModelSwitch( {
 	// persisted until the user confirms.
 	const [ pendingFamilyChange, setPendingFamilyChange ] = useState< {
 		model: AiModelId;
-		provider?: AiProviderId;
+		provider?: ProviderId;
 	} | null >( null );
 	const [ familySwitchInFlight, setFamilySwitchInFlight ] = useState( false );
 
@@ -101,15 +100,11 @@ export function useModelSwitch( {
 	);
 
 	// Pin this conversation to a provider and one of its models in the same
-	// entry. Providers don't share a model family, so the switch goes through
-	// the same fresh-session confirmation as a cross-family model switch.
+	// entry. Moving the conversation to another model goes through the
+	// fresh-session confirmation.
 	const handleProviderChange = useCallback(
-		( picked: AiProviderId, nextModel: AiModelId ) => {
-			if (
-				getAiModelFamily( model ) !== getAiModelFamily( nextModel ) &&
-				onSwitchSession &&
-				sessionHasTurns
-			) {
+		( picked: ProviderId, nextModel: AiModelId ) => {
+			if ( model !== nextModel && onSwitchSession && sessionHasTurns ) {
 				setPendingFamilyChange( { model: nextModel, provider: picked } );
 				return;
 			}
@@ -121,7 +116,7 @@ export function useModelSwitch( {
 	);
 
 	const changeModel = useCallback(
-		( provider: AiProviderId, picked: AiModelId ) => {
+		( provider: ProviderId, picked: AiModelId ) => {
 			if ( picked === model || isModelLocked( picked ) ) {
 				return;
 			}
@@ -133,20 +128,6 @@ export function useModelSwitch( {
 				handleProviderChange( provider, picked );
 				return;
 			}
-			// Cross-family switch: defer until the user confirms in the dialog
-			// — the runtimes don't share a transcript, so continuing the same
-			// JSONL across families would make the on-screen history disagree
-			// with the agent's actual memory. We skip the prompt when the
-			// session has no user turns yet, or when the parent cannot switch
-			// to a freshly created session.
-			if (
-				getAiModelFamily( model ) !== getAiModelFamily( picked ) &&
-				onSwitchSession &&
-				sessionHasTurns
-			) {
-				setPendingFamilyChange( { model: picked } );
-				return;
-			}
 			applySameFamilyModel( picked );
 		},
 		[
@@ -155,8 +136,6 @@ export function useModelSwitch( {
 			isModelLocked,
 			model,
 			onModelChange,
-			onSwitchSession,
-			sessionHasTurns,
 			sessionProvider,
 		]
 	);

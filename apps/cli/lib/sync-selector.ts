@@ -3,9 +3,9 @@ import { categorizePath } from '@studio/common/lib/sync/tree-utils';
 import { __ } from '@wordpress/i18n';
 import { fetchLatestRewindId, fetchRemoteFileTree } from 'cli/lib/sync-api';
 import treeCheckbox from 'cli/lib/tree-checkbox';
-import type { RemoteFileEntry } from '@studio/common/lib/sync/sync-api';
 import type { SyncOption } from '@studio/common/types/sync';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
+import type { RemoteFileEntry } from 'cli/lib/sync-api';
 import type { TreeNode } from 'cli/lib/tree-checkbox';
 
 function sortNodes( nodes: TreeNode[] ): TreeNode[] {

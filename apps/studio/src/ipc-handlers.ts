@@ -32,13 +32,11 @@ import {
 import { appendModelChangeEntry, appendStudioEntry } from '@studio/agent/node/sessions/store';
 import { validateStudioChatFiles } from '@studio/agent/protocol/chat-files';
 import { validateStudioChatImages } from '@studio/agent/protocol/chat-images';
-import { isAiModelId } from '@studio/agent/protocol/models';
-import { isAiProviderId, providerServesModel } from '@studio/agent/protocol/providers';
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
 import { type Blueprint } from '@studio/blueprints';
 import { openBlueprint } from '@studio/blueprints/node';
-import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
+import { DEBUG_LOG_RELATIVE_PATH, PROTOCOL_PREFIX } from '@studio/common/constants';
 import {
 	getSiteAgentFiles as readSiteAgentFiles,
 	getSkillsStatusForAllSites,
@@ -50,6 +48,7 @@ import {
 	type SiteAgentFileKind,
 	type SkillStatus,
 } from '@studio/common/lib/agent-skills';
+import { disconnectProvider } from '@studio/common/lib/ai-settings';
 import {
 	getAuthTracksProps,
 	onboardingAnalyticsSchema,
@@ -73,7 +72,6 @@ import { generateNumberedName, generateSiteName } from '@studio/common/lib/gener
 import { getWordPressVersion } from '@studio/common/lib/get-wordpress-version';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
-import { getAuthenticationUrl, revokeAuthToken } from '@studio/common/lib/oauth';
 import { decodePassword } from '@studio/common/lib/passwords';
 import { isTracksEventName } from '@studio/common/lib/record-tracks-event';
 import {
@@ -82,7 +80,7 @@ import {
 	trustRootCA,
 } from '@studio/common/lib/root-ca-trust';
 import { sanitizeFolderName } from '@studio/common/lib/sanitize-folder-name';
-import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { isSitePreviewPath, readSitePreview } from '@studio/common/lib/site-preview-cache';
 import { resolveSiteTracksEventProps } from '@studio/common/lib/site-tracks';
 import {
@@ -129,6 +127,14 @@ import {
 import { readGlobalStyles, readThemeDetails } from '@studio/common/sites/site-identity';
 import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import { readSiteSource, type SiteSourceFile } from '@studio/common/sites/site-source';
+import {
+	getAiModel,
+	getRedirectUrl,
+	isAiModelId,
+	normalizeProviderId,
+	toStoredProviderId,
+} from '@studio/providers';
+import { getProvider } from '@studio/providers/services';
 import { __ } from '@wordpress/i18n';
 import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
@@ -234,7 +240,8 @@ export {
 	getOnboardingHints,
 	getUserPreferences,
 	getWapuuScore,
-	saveAnthropicApiKey,
+	connectAiProvider,
+	disconnectAiProvider,
 	saveGlobalAgentInstructions,
 	saveOnboardingHints,
 	saveWapuuScore,
@@ -363,17 +370,18 @@ export async function setAiSessionModel(
 export async function setAiSessionProvider(
 	_event: IpcMainInvokeEvent,
 	sessionId: string,
-	provider: string,
+	requested: string,
 	model: string
 ): Promise< void > {
-	if ( ! isAiProviderId( provider ) ) {
-		throw new Error( `Unknown AI provider: ${ provider }` );
+	const provider = normalizeProviderId( requested );
+	if ( ! provider ) {
+		throw new Error( `Unknown AI provider: ${ requested }` );
 	}
-	if ( ! isAiModelId( model ) || ! providerServesModel( provider, model ) ) {
+	if ( ! getAiModel( provider, model ) ) {
 		throw new Error( `Model ${ model } is not served by provider ${ provider }` );
 	}
 	await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.session_context', {
-		provider,
+		provider: toStoredProviderId( provider ),
 		model,
 	} );
 }
@@ -926,9 +934,12 @@ export async function authenticate(
 	void recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH_STARTED, props ).catch( () => undefined );
 	try {
 		const locale = await getUserLocaleWithFallback();
-		const authUrl = isSignup
-			? oauthClient.getSignUpUrl( locale, undefined, attempt.auth_attempt_id )
-			: getAuthenticationUrl( locale, undefined, attempt.auth_attempt_id );
+		const authUrl = getRedirectUrl( 'wpcom', {
+			redirectUri: `${ PROTOCOL_PREFIX }://auth`,
+			locale,
+			state: attempt.auth_attempt_id,
+			signup: isSignup,
+		} );
 		await shellOpenExternalWrapper( authUrl, { throwOnError: true } );
 	} catch ( error ) {
 		takePendingAuthContext( attempt.auth_attempt_id );
@@ -944,13 +955,8 @@ export async function getAuthenticationToken() {
 }
 
 export async function clearAuthenticationToken() {
-	const token = await readAuthToken();
-	if ( token ) {
-		// Best-effort: logging out offline still signs out locally.
-		await revokeAuthToken( token.accessToken ).catch( () => undefined );
-	}
+	await disconnectProvider( getProvider( 'wpcom' ) );
 	setSentryWpcomUserIdMain( undefined );
-	return await updateSharedConfig( { authToken: undefined } );
 }
 
 export async function openSiteURL(

@@ -21,6 +21,10 @@ WordPress Studio - Electron desktop app for managing local WordPress sites. Buil
 - **Agentic UI (`apps/ui`)**: To verify UI changes, run `npm run cli:build:ui && node apps/cli/dist/cli/main.mjs ui --no-open`, then open http://localhost:8081 with a browser tool (Playwright/Chrome MCP) and check both light and dark themes. Note: plain `cli:build` does NOT rebuild `apps/ui` — use `cli:build:ui`. Default port 8081 (`--port` to override). In Amp orbs 8081 is already in use, so pass another port (e.g. `--port 8099`).
 - **MCP Apps (`apps/mcp-ui`)**: `npm run cli:build:mcp-ui` builds the page into the CLI; plain `cli:build` does NOT rebuild it. Verify it in an agent app that renders MCP Apps, in light and dark; the WordPress library opens from the ChatGPT app's sidebar once the Studio plugin is installed.
 
+## Capturing Studio (screenshots and video)
+
+`tools/capture-harness` (`@studio/capture-harness`) captures stills and recordings of the Studio app from a **scene** (sites, from a backup or a Blueprint, plus made-up account data), a **script** (steps, crop, annotations) and a **look** (window, color scheme, frame, output sizes), each a JSON file with a schema. Use it for docs images (`npm run screenshots` in `docs/user`), marketing and social stills, and screen recordings, rather than ad-hoc Playwright. The workflow for agents (`inspect` for locators, `validate`, `capture --json`) is in `tools/capture-harness/SKILL.md`. Signed-in captures sign in as a made-up demo person (`personas/`), so they need no account, never a person's login; the harness blocks anything that would change an account.
+
 ## Agent Evals (Studio Code)
 
 `scripts/eval/` holds a promptfoo suite that runs the real Studio Code agent end-to-end (`npm run eval`, view results with `npm run eval:view`; requires `studio auth login`). See `scripts/eval/README.md` for the case list and how to add tests.
@@ -47,6 +51,7 @@ Prefer targeted runs: `npm run eval -- --filter-pattern "<case>"`. The full suit
 **`/apps/mcp-ui`**: MCP Apps pages that agent apps show for `studio mcp` (`@studio/mcp-ui`), currently the WordPress library. React + TanStack Query and plain CSS, built into one HTML document that `studio mcp` serves; the data layer talks to the host through one bridge, with no connectors. Not a target of `apps/ui`: see `docs/design-docs/studio-apps-and-surfaces.md`.
 **`/packages/agent`**: The Studio Code agent (`@studio/agent`). protocol/ is its contract with the apps (events, session types, chat artifacts, models), browser-safe and the only part `apps/ui` imports. shared/ holds what every agent runs, in Node or a browser: tools/, skills/, the system prompt and the host interface (`shared/host.ts`), reaching files, pages and WordPress.com only through the host. node/ is the Node agent: runtime/, pi's file tools, sessions store, run-manager, and the Node host services (`nodeHostServices`). browser/ is the agent in a browser (`createBrowserAgent`), which Studio on the web runs over Playground (`apps/static/src/agent/`). Apps run it with `createAgent( { host } )` from `@studio/agent/node`: the host (the CLI's is `apps/cli/ai/host.ts`) runs the site operations and reaches the user, so the package never imports `apps/cli`.
 **`/packages/blueprints`**: WordPress Blueprints in Studio (`@studio/blueprints`), with no dependency on `@studio/common`. The root is browser-safe: `fetchLibraryBlueprints`, `validateBlueprint`, `inspectBlueprint`, `customizeBlueprint`. `@studio/blueprints/node` has `openBlueprint`, which opens a URL, file, folder, zip or Library slug and removes what it unpacks when disposed (`await using`).
+**`/packages/providers`**: The services Studio holds an account with (`@studio/providers`), one folder per provider (`wpcom/`, `anthropic/`). The `.` entry is what surfaces read (descriptors, models, config schemas); `./services` holds the implementations (`getProvider( id )`), which run in Node and in the page. Providers own no storage and import no workspace package: Studio stores their config through `@studio/common/lib/provider-config.ts` and passes it into every call. See `docs/design-docs/providers.md`.
 **`/packages/common`**: Electron-free code shared by the Desktop app, `studio ui` and the CLI: sites/ (site operations over the CLI), lib/, types/, translations/
 **`/tools/eslint-plugin-studio`**: eslint-plugin-studio
 
@@ -168,7 +173,7 @@ For in-depth information, see these docs:
 ## Quick Reference
 
 **Sites**: CLI runs WordPress with native PHP (`apps/cli/php-server-child.ts`), Blueprints opened with `openBlueprint()` and checked with `validateBlueprint()` from `@studio/blueprints`, applied via `blueprints.phar`
-**Sync**: OAuth via `packages/common/lib/oauth.ts`, pull/push WordPress.com sites through the CLI `push`/`pull` commands
+**Sync**: Studio sign-in through the WordPress.com provider (`packages/providers/wpcom/`), pull/push WordPress.com sites through the CLI `push`/`pull` commands
 **Security**: Renderer sandboxed, IPC validation, strict CSP, no Node integration, self-signed HTTPS certs
 
 ---

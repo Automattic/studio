@@ -11,6 +11,8 @@
 			"@studio/common/*": [ "./packages/common/*" ],
 			"@studio/agent/*": [ "./packages/agent/*" ],
 			"@studio/design-md": [ "./packages/design-md/index.ts" ],
+			"@studio/providers": [ "./packages/providers/index.ts" ],
+			"@studio/providers/*": [ "./packages/providers/*" ],
 			"@studio/blueprints": [ "./packages/blueprints/index.ts" ],
 			"@studio/blueprints/node": [ "./packages/blueprints/node.ts" ]
 		}
@@ -22,6 +24,7 @@
 		"./packages/common/**/*",
 		"./packages/agent/**/*",
 		"./packages/design-md/**/*",
+		"./packages/providers/**/*",
 		"./packages/blueprints/**/*",
 		"./vitest.global-setup.ts",
 		"./scripts/**/*"

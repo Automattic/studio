@@ -16,7 +16,11 @@ const portfolio = {
 	excerpt: 'A portfolio',
 	image: 'https://example.test/wedding-rsvp.jpg',
 	playground_url: 'https://playground.test/portfolio',
-	blueprint: { steps: [], preferredVersions: { php: '8.3', wp: 'latest' } },
+	blueprint: {
+		meta: { categories: [ 'Gallery', 'Portfolio', 'Studio' ] },
+		steps: [],
+		preferredVersions: { php: '8.3', wp: 'latest' },
+	},
 };
 
 const remote = {

@@ -2,7 +2,7 @@ import { inspectBlueprint } from '@studio/blueprints';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
 import { isSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
 	useExistingCustomDomains,
 	useProposedSiteName,
@@ -15,7 +15,7 @@ import { useAddSite } from './context';
 import { SetupSourceField } from './setup-source-field';
 import { getRemoteSiteName } from './site-presentation';
 import { useSetupPrompt } from './use-setup-prompt';
-import type { SelectedSiteFolder, SyncSite } from '@/data/core';
+import type { SyncSite } from '@/data/core';
 import type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
 import type { CreateSiteFormValues } from '@/features/sites/create-site-form';
 
@@ -53,7 +53,7 @@ export function CreatePanel( { remote }: { remote?: SyncSite } ) {
 		formActions,
 		isBlueprintValid,
 		source,
-		setSource,
+		adoptFolder,
 		folderResetKey,
 	} = useAddSite();
 	const [ restoredDraft ] = useState( setupDraft );
@@ -85,18 +85,6 @@ export function CreatePanel( { remote }: { remote?: SyncSite } ) {
 			...( ( remote || selectedBlueprint ) && proposedName ? { name: proposedName } : {} ),
 		} ),
 		[ remote, proposedName, selectedBlueprint ]
-	);
-
-	const onFolderChange = useCallback(
-		( folder: SelectedSiteFolder ) => {
-			if (
-				source.type === 'blank' ||
-				( source.type === 'folder' && source.folder.path !== folder.path )
-			) {
-				setSource( { type: 'folder', folder } );
-			}
-		},
-		[ source, setSource ]
 	);
 
 	const handleSubmit = async ( values: CreateSiteFormValues ) => {
@@ -150,7 +138,7 @@ export function CreatePanel( { remote }: { remote?: SyncSite } ) {
 			requiresCustomDomain={ requiresCustomDomain }
 			sourceControl={ <SetupSourceField disabled={ submittedInitialValues !== null } /> }
 			onExistingChange={ setExisting }
-			onFolderChange={ onFolderChange }
+			onFolderChange={ adoptFolder }
 			resetPathKey={ folderResetKey }
 			requiresExistingPath={ source.type === 'folder' }
 			folderDescription={

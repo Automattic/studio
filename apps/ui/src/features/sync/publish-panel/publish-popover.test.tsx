@@ -843,14 +843,20 @@ describe( 'PublishPopover', () => {
 		);
 	} );
 
-	it( 'connects once without publishing when the checkout callback arrives twice', async () => {
-		const { connector, completeSetup } = setup();
-		await screen.findByRole( 'button', { name: 'Publish…' } );
-		await completeSetup();
-		await completeSetup();
-		await waitFor( () => expect( connector.connectWpcomSite ).toHaveBeenCalledTimes( 1 ) );
-		expect( connector.pushSiteToLive ).not.toHaveBeenCalled();
-	} );
+	it.each( [ true, false ] )(
+		'connects once and stores publish intent only for checkout: %s',
+		async ( autoOpenPush ) => {
+			const { connector, completeSetup } = setup();
+			await screen.findByRole( 'button', { name: 'Publish…' } );
+			await completeSetup( autoOpenPush );
+			await completeSetup( autoOpenPush );
+			await waitFor( () => expect( connector.connectWpcomSite ).toHaveBeenCalledTimes( 1 ) );
+			expect( connector.connectWpcomSite.mock.calls[ 0 ][ 1 ].launchAfterPush ).toBe(
+				autoOpenPush ? true : undefined
+			);
+			expect( connector.pushSiteToLive ).not.toHaveBeenCalled();
+		}
+	);
 
 	it( 'keeps a site over the size limit from publishing after checkout', async () => {
 		const { connector, completeSetup, ready } = setup();

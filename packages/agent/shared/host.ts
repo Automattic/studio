@@ -2,6 +2,7 @@ import type { SiteInfo } from './types';
 import type { StudioChatArtifactData } from '@studio/agent/protocol/chat-artifacts';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
 import type { VisualAnnotation } from '@studio/agent/protocol/visual-annotations';
+import type { ImageGenerator } from '@studio/agent/shared/image-generation';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { StudioFeedback } from '@studio/common/lib/feedback';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
@@ -162,8 +163,6 @@ export interface HostSync {
 export interface HostWpcom {
 	// The user's access token, or nothing when signed out.
 	token(): Promise< string | undefined >;
-	// The token image generation uses, or nothing when it is unavailable.
-	imageToken(): Promise< string | undefined >;
 	// The signed-in user's sites; empty when signed out.
 	sites(): Promise< unknown[] >;
 	// The WordPress.com sites a local site syncs with; empty when signed out.
@@ -226,6 +225,9 @@ export interface StudioAgentHost {
 	annotate?( url: string, timeoutMs: number ): Promise< BrowserAnnotation[] | null >;
 	// The conversation follows a site the agent creates.
 	selectSite?( site: SiteInfo ): Promise< void > | void;
+	// Image generation through a connected provider that offers it, or nothing
+	// when none does: generate_images and the imagery prompt sections.
+	imageGenerator?(): Promise< ImageGenerator | undefined >;
 	// Sends a feedback report to the WordPress Studio team as the signed-in user,
 	// returning the ID the service assigned it: send_feedback and the feedback skill.
 	sendFeedback?( feedback: StudioFeedback ): Promise< { feedbackId: number } >;

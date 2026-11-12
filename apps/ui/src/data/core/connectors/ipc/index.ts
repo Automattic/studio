@@ -46,7 +46,7 @@ import type {
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/agent/protocol/agent-events';
-import type { AiSettings } from '@studio/agent/protocol/providers';
+import type { AiSettings } from '@studio/common/lib/ai-settings';
 import type { Blueprint } from '@studio/blueprints';
 import type { StoredAuthToken } from '@studio/common/lib/auth-token-schema';
 import type { AuthAnalytics, OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
@@ -682,8 +682,11 @@ export function createIpcConnector(): Connector {
 		async getAiSettings(): Promise< AiSettings > {
 			return ( await ipcApi.getAiSettings() ) as AiSettings;
 		},
-		async saveAnthropicApiKey( key: string | null ): Promise< AiSettings > {
-			return unwrapIpcError( ipcApi.saveAnthropicApiKey( key ) );
+		async connectProvider( provider, input ): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.connectAiProvider( provider, input ) );
+		},
+		async disconnectProvider( provider ): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.disconnectAiProvider( provider ) );
 		},
 		async setAiProvider( provider ): Promise< AiSettings > {
 			return unwrapIpcError( ipcApi.setAiProvider( provider ) );

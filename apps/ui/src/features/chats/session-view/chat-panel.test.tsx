@@ -11,11 +11,18 @@ import {
 	setAnnotating,
 } from '@/features/annotations';
 import { clearComposerDrafts } from '@/features/composer';
-import { createFakeConnector, makeSession, makeSite, TEST_USER } from '@/test/fake-connector';
+import {
+	aiSettings,
+	createFakeConnector,
+	makeSession,
+	makeSite,
+	TEST_USER,
+} from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { AgentRunEvent, SessionEntry } from '@/data/core';
-import type { AiSettings } from '@studio/agent/protocol/providers';
+import type { AiSettings } from '@studio/common/lib/ai-settings';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
+import type { ProviderId } from '@studio/providers';
 
 vi.setConfig( { testTimeout: 30_000 } );
 
@@ -34,13 +41,13 @@ async function setupChat( {
 	running = false,
 	annotatePreview = true,
 }: {
-	provider?: 'wpcom' | 'anthropic-api-key';
+	provider?: 'wpcom' | 'anthropic';
 	quota?: Partial< StudioAssistantQuota >;
 	quotaError?: boolean;
 	settingsError?: boolean;
 	hasAnthropicApiKey?: boolean;
 	signedIn?: boolean;
-	pinnedProvider?: 'wpcom' | 'anthropic-api-key';
+	pinnedProvider?: 'wpcom' | 'anthropic';
 	entries?: SessionEntry[];
 	firstPrompt?: string;
 	running?: boolean;
@@ -57,7 +64,12 @@ async function setupChat( {
 				} as SessionEntry,
 		  ]
 		: [];
-	const connected = { hasAnthropicApiKey, provider };
+	const connected = aiSettings(
+		provider,
+		[ signedIn && 'wpcom', hasAnthropicApiKey && 'anthropic' ].filter(
+			( id ): id is ProviderId => !! id
+		)
+	);
 	const connector = createFakeConnector(
 		{
 			sites: [ site ],
@@ -75,7 +87,7 @@ async function setupChat( {
 				if ( settingsError ) {
 					throw new Error( 'Connections unavailable' );
 				}
-				return { ...connected, anthropicApiKeyPreview: null };
+				return connected;
 			},
 			getStudioAssistantQuota: async () => {
 				if ( quotaError ) {
@@ -284,19 +296,19 @@ describe( 'Composer site controls', () => {
 
 function anthropicRow( dialog: HTMLElement ) {
 	return within(
-		within( dialog ).getByText( 'Anthropic', { exact: true } ).closest( '[data-settings-row]' )!
+		within( dialog ).getByText( 'Anthropic API', { exact: true } ).closest( '[data-settings-row]' )!
 	);
 }
 
 describe( 'Composer access notices', () => {
 	beforeEach( () => localStorage.clear() );
 
-	it.each( [ 'wpcom', 'anthropic-api-key' ] as const )(
+	it.each( [ 'wpcom', 'anthropic' ] as const )(
 		'hides the notice when %s can send, even if an unused provider has an error',
 		async ( provider ) => {
 			const { input } = await setupChat( {
 				provider,
-				quotaError: provider === 'anthropic-api-key',
+				quotaError: provider === 'anthropic',
 			} );
 			expect( screen.queryByRole( 'alert' ) ).not.toBeInTheDocument();
 			fireEvent.change( input, { target: { value: 'Keep this draft' } } );
@@ -403,7 +415,7 @@ describe( 'Composer access notices', () => {
 	it.each( [
 		{ provider: 'wpcom' as const, payment: false, gated: true },
 		{ provider: 'wpcom' as const, payment: null, gated: false },
-		{ provider: 'anthropic-api-key' as const, payment: false, gated: false },
+		{ provider: 'anthropic' as const, payment: false, gated: false },
 	] )(
 		'checks payment access for $provider with payment=$payment',
 		async ( { provider, payment, gated } ) => {
@@ -425,11 +437,7 @@ describe( 'Composer access notices', () => {
 			const connector = createFakeConnector(
 				{ sites: [ makeSite( { id: 'one', path: '/sites/my-site' } ) ] },
 				{
-					getAiSettings: async () => ( {
-						provider,
-						hasAnthropicApiKey: true,
-						anthropicApiKeyPreview: 'test',
-					} ),
+					getAiSettings: async () => aiSettings( provider, [ 'wpcom', 'anthropic' ] ),
 					getStudioAssistantQuota: async () => quota,
 				}
 			);
@@ -459,11 +467,7 @@ describe( 'Composer access notices', () => {
 	it.each( [ false, true ] )(
 		'connects a personal key without WordPress.com login (saved=%s)',
 		async ( saved ) => {
-			let connection: AiSettings = {
-				provider: 'wpcom',
-				hasAnthropicApiKey: saved,
-				anthropicApiKeyPreview: saved ? 'test' : null,
-			};
+			let connection: AiSettings = aiSettings( 'wpcom', saved ? [ 'anthropic' ] : [] );
 			const site = makeSite( { id: 'one', path: '/sites/my-site' } );
 			const connector = createFakeConnector(
 				{
@@ -482,12 +486,8 @@ describe( 'Composer access notices', () => {
 				},
 				{
 					getAiSettings: async () => connection,
-					saveAnthropicApiKey: async () => {
-						connection = {
-							...connection,
-							hasAnthropicApiKey: true,
-							anthropicApiKeyPreview: 'test',
-						};
+					connectProvider: async () => {
+						connection = aiSettings( connection.provider, [ 'anthropic' ] );
 						return connection;
 					},
 					setAiProvider: async ( provider ) => {
@@ -521,9 +521,7 @@ describe( 'Composer access notices', () => {
 				fireEvent.change( keyInput, { target: { value: '  test-key  ' } } );
 			}
 			fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Save' } ) );
-			await waitFor( () =>
-				expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic-api-key' )
-			);
+			await waitFor( () => expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic' ) );
 			await waitFor( () =>
 				expect( anthropicRow( dialog ).getByRole( 'button', { name: 'Manage' } ) ).toBeEnabled()
 			);
@@ -587,7 +585,7 @@ describe( 'Chat target selection', () => {
 				connections.signedIn
 			);
 		}
-		for ( const name of [ 'Sonnet 5', 'Opus 5' ] ) {
+		for ( const name of [ 'Sonnet 5.5', 'Opus 5.5' ] ) {
 			expect( !! screen.queryByRole( 'option', { name: new RegExp( `^${ name }` ) } ) ).toBe(
 				connections.hasAnthropicApiKey
 			);
@@ -621,7 +619,7 @@ describe( 'Chat target selection', () => {
 
 	it( 'switches an empty chat to the picked model while preserving the draft', async () => {
 		const { connector, input } = await setupChat( {
-			provider: 'anthropic-api-key',
+			provider: 'anthropic',
 			signedIn: false,
 			firstPrompt: '',
 		} );
@@ -630,16 +628,16 @@ describe( 'Chat target selection', () => {
 		} );
 		fireEvent.change( input, { target: { value: 'Preserve this draft' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Opus 5/ } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Opus 5.5/ } ) );
 		await waitFor( () =>
-			expect( connector.setSessionModel ).toHaveBeenCalledWith( 'chat', 'claude-opus-5' )
+			expect( connector.setSessionModel ).toHaveBeenCalledWith( 'chat', 'claude-opus-5-5' )
 		);
 		expect( screen.getByRole( 'combobox', { name: 'Message WordPress Studio' } ) ).toHaveValue(
 			'Preserve this draft'
 		);
 		expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveAttribute(
 			'aria-description',
-			'Opus 5 · Anthropic API'
+			'Opus 5.5 · Anthropic API'
 		);
 	} );
 } );

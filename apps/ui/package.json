@@ -24,6 +24,7 @@
 		"@studio/agent": "file:../../packages/agent",
 		"@studio/blueprints": "file:../../packages/blueprints",
 		"@studio/common": "file:../../packages/common",
+		"@studio/providers": "file:../../packages/providers",
 		"@studio/design-md": "file:../../packages/design-md",
 		"@studio/static": "file:../static",
 		"@tanstack/query-sync-storage-persister": "^5.96.2",

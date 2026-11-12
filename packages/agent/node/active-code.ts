@@ -13,12 +13,6 @@ import { readWordPressSite } from '@studio/agent/node/site-database';
 export const fileStamp = ( { mtimeMs, size }: { mtimeMs: number; size: number } ) =>
 	`${ mtimeMs }:${ size }`;
 
-// A file as its path, modification time and size.
-async function version( file: string, from: string ): Promise< string > {
-	const stamp = fileStamp( await stat( file ).catch( () => ( { mtimeMs: 0, size: -1 } ) ) );
-	return `${ path.relative( from, file ) }:${ stamp }`;
-}
-
 /**
  * The files under a folder whose names `wanted` keeps, in the order
  * readdir( dir, { recursive: true } ) lists them, leaving out dependencies a
@@ -46,15 +40,28 @@ export async function filesUnder(
 	return found;
 }
 
-/**
- * The version of each of the site's active plugins and themes, by
- * `plugin <file>` (as active_plugins names it) and `theme <slug>`, from the
- * files in them `wanted` keeps.
- */
-export async function activeCode(
-	sitePath: string,
-	wanted: ( name: string ) => boolean
-): Promise< Record< string, string > > {
+// Each active plugin and theme, by `plugin <file>` (as active_plugins names
+// it) and `theme <slug>`, and each file in it as `[ name, path:mtime:size ]`,
+// its path from the plugin's or theme's folder. A plugin in a folder is the
+// folder; a single-file plugin is its file, its path from wp-content, and
+// has no name to leave it out by.
+type Code = Record< string, Array< [ string | undefined, string ] > >;
+
+// The reads of a site's code under way, by its folder: the sources of a
+// snapshot read it side by side (site-changes.ts), each for its own files.
+const reading = new Map< string, Promise< Code > >();
+
+function readCode( sitePath: string ): Promise< Code > {
+	const key = path.resolve( sitePath );
+	let code = reading.get( key );
+	if ( ! code ) {
+		code = walkCode( sitePath ).finally( () => reading.delete( key ) );
+		reading.set( key, code );
+	}
+	return code;
+}
+
+async function walkCode( sitePath: string ): Promise< Code > {
 	const content = path.join( sitePath, 'wp-content' );
 	const active = await readWordPressSite( sitePath, ( site ) => {
 		const plugins = site.option( 'active_plugins' );
@@ -65,26 +72,51 @@ export async function activeCode(
 			),
 		};
 	} );
-	// A plugin in a folder is the folder; a single-file plugin is its file.
-	const dirVersion = async ( dir: string ) =>
-		(
-			await Promise.all(
-				( await filesUnder( dir, wanted ) ).map( ( file ) => version( file, dir ) )
+	const stamped = async ( files: string[], from: string, named = true ) =>
+		Promise.all(
+			files.map(
+				async ( file ): Promise< [ string | undefined, string ] > => [
+					named ? path.basename( file ) : undefined,
+					`${ path.relative( from, file ) }:${ fileStamp(
+						await stat( file ).catch( () => ( { mtimeMs: 0, size: -1 } ) )
+					) }`,
+				]
 			)
-		)
-			.sort()
-			.join( '|' );
+		);
+	const dirFiles = async ( dir: string ) => stamped( await filesUnder( dir, () => true ), dir );
 	const plugins = active.plugins.map( async ( plugin ) => [
 		`plugin ${ plugin }`,
 		plugin.includes( '/' )
-			? await dirVersion( path.join( content, 'plugins', path.dirname( plugin ) ) )
-			: await version( path.join( content, 'plugins', plugin ), content ),
+			? await dirFiles( path.join( content, 'plugins', path.dirname( plugin ) ) )
+			: await stamped( [ path.join( content, 'plugins', plugin ) ], content, false ),
 	] );
 	const themes = active.themes.map( async ( theme ) => [
 		`theme ${ theme }`,
-		await dirVersion( path.join( content, 'themes', theme ) ),
+		await dirFiles( path.join( content, 'themes', theme ) ),
 	] );
 	return Object.fromEntries( await Promise.all( [ ...plugins, ...themes ] ) );
+}
+
+/**
+ * The version of each of the site's active plugins and themes, by
+ * `plugin <file>` (as active_plugins names it) and `theme <slug>`, from the
+ * files in them `wanted` keeps.
+ */
+export async function activeCode(
+	sitePath: string,
+	wanted: ( name: string ) => boolean
+): Promise< Record< string, string > > {
+	const code = await readCode( sitePath );
+	return Object.fromEntries(
+		Object.entries( code ).map( ( [ key, files ] ) => [
+			key,
+			files
+				.filter( ( [ name ] ) => name === undefined || wanted( name ) )
+				.map( ( [ , version ] ) => version )
+				.sort()
+				.join( '|' ),
+		] )
+	);
 }
 
 /** The site's active plugins and themes, and the files in them `wanted` keeps, as one version. */

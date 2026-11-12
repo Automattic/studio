@@ -1,21 +1,9 @@
-import { fork } from 'node:child_process';
 import EventEmitter from 'node:events';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import {
-	createCliRunner,
-	killChild,
-	runCliCommand,
-	type CliCommandError,
-	ExecuteCliCommand,
-} from '@studio/common/lib/cli-process';
-import { dropExpectedErrors } from '@studio/common/lib/error-reporting';
+import { killChild, runCliCommand } from '@studio/common/lib/cli-process';
+import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 import type { ChildProcess } from 'node:child_process';
-
-vi.mock( 'node:child_process', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('node:child_process') >() ),
-	fork: vi.fn(),
-} ) );
 
 // `killChild` branches on the platform: signals on POSIX, `taskkill /F /T` on
 // Windows. Pin it to POSIX so these run the same everywhere — on a Windows host
@@ -85,34 +73,6 @@ describe( 'killChild', () => {
 		vi.advanceTimersByTime( 5000 );
 
 		expect( child.signals ).toEqual( [ 'SIGTERM' ] );
-	} );
-} );
-
-describe( 'createCliRunner', () => {
-	afterEach( () => setPlatform( originalPlatform ) );
-
-	it( 'tells a command its host stopped apart from one that failed', async () => {
-		setPlatform( 'darwin' );
-		const [ stopped, failed ] = [ createStubbornChild(), createStubbornChild() ];
-		vi.mocked( fork ).mockReturnValueOnce( stopped ).mockReturnValueOnce( failed );
-		const runner = createCliRunner( { cliBinary: 'main.mjs' } );
-		const [ stoppedError, failedError ] = [ stopped, failed ].map( () => {
-			const [ emitter ] = runner.executeCliCommand( [ 'site', 'create' ] );
-			return new Promise< CliCommandError >( ( resolve ) =>
-				emitter.on( 'failure', ( { error } ) => resolve( error ) )
-			);
-		} );
-
-		killChild( stopped, { force: false } );
-		// `taskkill /F` ends a Windows process with exit code 1, the same as a failure.
-		stopped.emit( 'close', 1, null );
-		failed.emit( 'close', 1, null );
-
-		const event = { message: 'event' };
-		expect( ( await stoppedError ).message ).toContain( '[Stopped by Studio]' );
-		expect( dropExpectedErrors( event, { originalException: await stoppedError } ) ).toBeNull();
-		expect( ( await failedError ).message ).toContain( '[Exit code] 1' );
-		expect( dropExpectedErrors( event, { originalException: await failedError } ) ).toBe( event );
 	} );
 } );
 

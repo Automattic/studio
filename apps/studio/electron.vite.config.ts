@@ -1,9 +1,28 @@
+import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { sentryVitePlugin } from '@sentry/vite-plugin';
 import { defineConfig } from 'electron-vite';
+import { getSentryReleaseInfo } from './src/lib/sentry-release';
+
+// Release builds upload the main process's source maps under the app's release, like the
+// renderer's (`apps/ui/vite.config.ts`), and don't ship them.
+const { sentryRelease, isDevEnvironment } = getSentryReleaseInfo(
+	JSON.parse( readFileSync( resolve( __dirname, 'package.json' ), 'utf-8' ) ).version
+);
+const uploadSourceMaps = ! isDevEnvironment && !! process.env.SENTRY_AUTH_TOKEN;
 
 export default defineConfig( {
 	main: {
-		plugins: [],
+		plugins: [
+			uploadSourceMaps &&
+				sentryVitePlugin( {
+					authToken: process.env.SENTRY_AUTH_TOKEN,
+					org: 'a8c',
+					project: 'studio',
+					release: { name: sentryRelease },
+					sourcemaps: { filesToDeleteAfterUpload: [ resolve( __dirname, 'dist/main/**/*.map' ) ] },
+				} ),
+		],
 		resolve: {
 			alias: {
 				src: resolve( __dirname, 'src' ),
@@ -23,6 +42,7 @@ export default defineConfig( {
 			),
 		},
 		build: {
+			sourcemap: uploadSourceMaps ? 'hidden' : false,
 			rolldownOptions: {
 				input: {
 					index: resolve( __dirname, 'src/index.ts' ),

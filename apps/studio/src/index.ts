@@ -689,16 +689,22 @@ async function appBoot() {
 		} )();
 	} );
 
-	let isQuitCleanupRunning = false;
+	let quitCleanup: 'pending' | 'running' | 'done' = 'pending';
 	app.on( 'will-quit', ( event ) => {
-		event.preventDefault();
-		// `will-quit` fires again if anything calls `app.quit()` while the cleanup runs, for example
-		// `window-all-closed` on Windows and Linux. Cleanup ends in `app.exit()`, so a repeat only
-		// waits: running it again would kill the `site stop --all` this one started.
-		if ( isQuitCleanupRunning ) {
+		// Once the cleanup is done, the quit goes through. Sentry's own `will-quit` handler then ends
+		// the session; otherwise every session counts as abnormal on the next launch.
+		if ( quitCleanup === 'done' ) {
 			return;
 		}
-		isQuitCleanupRunning = true;
+		event.preventDefault();
+		// `will-quit` fires again if anything calls `app.quit()` while the cleanup runs, for example
+		// `window-all-closed` on Windows and Linux. A repeat only waits: running the cleanup again
+		// would kill the `site stop --all` this one started.
+		if ( quitCleanup === 'running' ) {
+			return;
+		}
+		quitCleanup = 'running';
+		isQuittingConfirmed = true;
 
 		markAppQuitting();
 		globalShortcut.unregisterAll();
@@ -721,7 +727,8 @@ async function appBoot() {
 					await stopAllServers( STOP_ALL_SERVERS_ON_QUIT_TIMEOUT_MS );
 				}
 			} finally {
-				app.exit();
+				quitCleanup = 'done';
+				app.quit();
 			}
 		} )();
 	} );

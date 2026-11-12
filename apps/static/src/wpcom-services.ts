@@ -476,11 +476,4 @@ export class WpcomServices {
 			path
 		);
 	}
-
-	async getHostingPhpVersion( remoteSiteId: number ): Promise< string | undefined > {
-		return wpcomSites.pull!.phpVersion(
-			{ token: await this.auth.requireToken() },
-			{ id: remoteSiteId }
-		);
-	}
 }

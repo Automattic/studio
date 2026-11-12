@@ -70,7 +70,13 @@ it( 'keeps the Spaces a site publishes to, and forgets them with the site', asyn
 	await rememberRemoteSite( 'spacefast', 'local-a', { ...space, name: 'Renamed' } );
 
 	expect( await getRemoteSites( 'spacefast', 'local-a' ) ).toEqual( [
-		{ ...space, name: 'Renamed', lastPushTimestamp: expect.any( String ), lastPullTimestamp: null },
+		{
+			...space,
+			name: 'Renamed',
+			localSiteId: 'local-a',
+			lastPushTimestamp: expect.any( String ),
+			lastPullTimestamp: null,
+		},
 	] );
 
 	await forgetRemoteSites( 'local-a' );

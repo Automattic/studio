@@ -1,3 +1,4 @@
+import { getSitesDescriptor, type SitesProviderId } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { ChevronDownIcon, EllipsisIcon } from 'lucide-react';
 import { useConnector } from '@/data/core';
@@ -19,15 +20,8 @@ import {
 	SelectItem,
 	SelectValue,
 } from '@/lib/ui';
-import {
-	backupsUrl,
-	dashboardUrl,
-	domainsUrl,
-	websiteAddress,
-	websiteEnvironmentLabel,
-} from './options';
 import styles from './style.module.css';
-import type { SyncSite } from '@/data/core';
+import type { Website } from './options';
 import type { ReactNode, RefObject } from 'react';
 
 function InfoRow( { title, children }: { title: string; children: ReactNode } ) {
@@ -40,6 +34,7 @@ function InfoRow( { title, children }: { title: string; children: ReactNode } ) 
 }
 
 export function ConnectedWebsite( {
+	provider,
 	website,
 	disabled,
 	onDisconnect,
@@ -50,34 +45,30 @@ export function ConnectedWebsite( {
 	onSelectWebsite,
 	onConnectWebsite,
 }: {
-	website: SyncSite;
+	provider: SitesProviderId;
+	website: Website;
 	disabled: boolean;
 	onDisconnect: () => void;
 	actionsRef: RefObject< HTMLButtonElement | null >;
 	switcherRef: RefObject< HTMLButtonElement | null >;
 	open: boolean;
-	websites: SyncSite[];
-	onSelectWebsite: ( id: number ) => void;
+	websites: Website[];
+	onSelectWebsite: ( id: Website[ 'id' ] ) => void;
 	onConnectWebsite: () => void;
 } ) {
 	const connector = useConnector();
 	const { copied, copy } = useCopyText( website.url );
-	const backups = backupsUrl( website );
-	const dashboard = dashboardUrl( website );
-	const domains = domainsUrl( website );
-	const links = [
-		{ title: __( 'Domains' ), url: domains },
-		{ title: __( 'Backups' ), url: backups },
-		{ title: __( 'Manage on WordPress.com' ), url: dashboard },
-	].filter( ( link ) => link.url );
+	const sites = getSitesDescriptor( provider );
+	const others = websites.filter( ( remote ) => remote.id !== website.id );
 	return (
 		<FieldSet aria-label={ __( 'Website' ) }>
 			<div className={ styles.destinationCard }>
 				<Select
 					value={ String( website.id ) }
 					onValueChange={ ( value ) => {
+						const selected = others.find( ( remote ) => String( remote.id ) === value );
 						if ( value === 'connect' ) onConnectWebsite();
-						else if ( value ) onSelectWebsite( Number( value ) );
+						else if ( selected ) onSelectWebsite( selected.id );
 					} }
 				>
 					<SelectTrigger
@@ -87,32 +78,30 @@ export function ConnectedWebsite( {
 						className={ styles.destinationTrigger }
 						disabled={ disabled }
 						/* translators: %s: website address */
-						aria-label={ sprintf( __( 'Switch website: %s' ), websiteAddress( website ) ) }
+						aria-label={ sprintf( __( 'Switch website: %s' ), sites.address( website ) ) }
 					>
 						<SelectValue className={ styles.destinationValue } aria-hidden="true">
 							{ '' }
 						</SelectValue>
 					</SelectTrigger>
 					<SelectContent align="start" className={ styles.destinationMenu }>
-						{ [ website, ...websites.filter( ( remote ) => remote.id !== website.id ) ].map(
-							( remote ) => (
-								<SelectItem
-									key={ remote.id }
-									value={ String( remote.id ) }
-									className={ styles.destinationOption }
-									label={ websiteAddress( remote ) }
-								>
-									<SiteCard
-										className={ styles.destinationOptionCard }
-										title={ websiteAddress( remote ) }
-										thumbnailUrl={ getWebsiteThumbnailUrl( remote.url ) }
-										updatedAt={ remote.lastPushTimestamp }
-										description={ websiteEnvironmentLabel( remote ) }
-										active={ open }
-									/>
-								</SelectItem>
-							)
-						) }
+						{ [ website, ...others ].map( ( remote ) => (
+							<SelectItem
+								key={ remote.id }
+								value={ String( remote.id ) }
+								className={ styles.destinationOption }
+								label={ sites.address( remote ) }
+							>
+								<SiteCard
+									className={ styles.destinationOptionCard }
+									title={ sites.address( remote ) }
+									thumbnailUrl={ getWebsiteThumbnailUrl( remote.url ) }
+									updatedAt={ remote.lastPushTimestamp }
+									description={ sites.details( remote )[ 0 ]?.value }
+									active={ open }
+								/>
+							</SelectItem>
+						) ) }
 						<SelectItem value="connect" className={ styles.connectDestination }>
 							<PlusIcon aria-hidden="true" />
 							{ __( 'Connect another site…' ) }
@@ -121,7 +110,7 @@ export function ConnectedWebsite( {
 				</Select>
 				<SiteCard
 					thumbnailUrl={ getWebsiteThumbnailUrl( website.url ) }
-					title={ websiteAddress( website ) }
+					title={ sites.address( website ) }
 					updatedAt={ website.lastPushTimestamp }
 					active={ open }
 					description={ __( 'Not published yet' ) }
@@ -168,19 +157,23 @@ export function ConnectedWebsite( {
 				{ copied ? __( 'Copied' ) : '' }
 			</VisuallyHidden>
 			<FieldGroup className={ styles.connectedSiteDetails }>
-				<InfoRow title={ __( 'Environment' ) }>{ websiteEnvironmentLabel( website ) }</InfoRow>
+				{ sites.details( website ).map( ( detail ) => (
+					<InfoRow key={ detail.title } title={ detail.title }>
+						{ detail.value }
+					</InfoRow>
+				) ) }
 				{ website.lastPullTimestamp ? (
 					<InfoRow title={ __( 'Last pulled' ) }>
 						<RelativeTime timestamp={ website.lastPullTimestamp } active={ open } />
 					</InfoRow>
 				) : null }
-				{ links.map( ( link ) => (
+				{ sites.links( website ).map( ( link ) => (
 					<Button
 						key={ link.title }
 						variant="ghost"
 						size="default"
 						className={ styles.siteLink }
-						onClick={ () => void connector.openExternalUrl( link.url! ) }
+						onClick={ () => void connector.openExternalUrl( link.url ) }
 					>
 						{ link.title }
 						<ExternalLinkIcon />

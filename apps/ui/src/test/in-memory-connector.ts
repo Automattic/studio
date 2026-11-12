@@ -272,17 +272,19 @@ export function createInMemoryConnector(
 			localChanged: null,
 			previewChanged: null,
 		} ),
-		getConnectedWpcomSites: async () => [],
-		fetchSyncableWpcomSites: async () => [],
-		connectWpcomSite: async () => {},
-		disconnectWpcomSite: async () => {},
-		pushSiteToLive: async () => {},
-		pullSiteFromLive: async () => {},
+		getRemoteSites: async () => [],
+		listAccountSites: async () => [],
+		connectRemoteSite: async () => {},
+		disconnectRemoteSite: async () => {},
+		createRemoteSite: async () => {
+			throw new Error( 'createRemoteSite is not faked' );
+		},
+		pushSite: async () => {},
+		pullSite: async () => {},
 		onSyncActivity: subscribe( 'onSyncActivity' ),
 		cancelSync: async () => {},
-		getLatestRewindId: async () => null,
-		listRemoteFileTree: async () => ( {} ),
-		getHostingPhpVersion: async () => undefined,
+		getRemoteBackupId: async () => null,
+		listRemoteBackupFiles: async () => ( {} ),
 		listLocalFileTree: async () => [],
 		getDirectorySize: async () => 0,
 		getFileSize: async () => 0,
@@ -342,6 +344,9 @@ export function createInMemoryConnector(
 		connectProvider: async ( provider ) =>
 			aiSettings( 'wpcom', state.user ? [ 'wpcom', provider ] : [ provider ] ),
 		disconnectProvider: async () => aiSettings( 'wpcom', state.user ? [ 'wpcom' ] : [] ),
+		startProviderConnect: async () => {
+			throw new Error( 'startProviderConnect is not faked' );
+		},
 		setAiProvider: async ( provider ) =>
 			aiSettings( provider, state.user ? [ 'wpcom', provider ] : [ provider ] ),
 		getInstalledApps: async () => installedApps(),

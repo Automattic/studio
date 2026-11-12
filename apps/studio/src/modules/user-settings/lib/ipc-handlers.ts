@@ -162,6 +162,14 @@ async function changeAiSettings( change: () => Promise< AiSettings > ) {
 	return settings;
 }
 
+export async function startProviderConnect( _event: IpcMainInvokeEvent, requested: string ) {
+	const { startConnect } = getProvider( parseProviderId( requested ) );
+	if ( ! startConnect ) {
+		throw new Error( `${ requested } does not connect with a device sign-in` );
+	}
+	return startConnect();
+}
+
 export async function connectAiProvider(
 	_event: IpcMainInvokeEvent,
 	requested: string,

@@ -6,7 +6,7 @@ import { getAccountJourney, scopeAccountJourney } from '@/data/account-analytics
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useCreateSite, useDeleteSite, useStartSite } from '@/data/queries/use-sites';
-import { usePullSiteFromLive } from '@/data/queries/use-sync-site';
+import { usePullSite } from '@/data/queries/use-sync-site';
 import { requestHeaderPanel } from '@/data/use-open-header-panel';
 import { useAddSite } from './context';
 import type { CreateSiteParams, SiteDetails, SyncSite } from '@/data/core';
@@ -85,7 +85,7 @@ export function useConnectSite() {
 	const navigate = useNavigate();
 	const createSite = useCreateSite();
 	const deleteSite = useDeleteSite();
-	const pullSite = usePullSiteFromLive();
+	const pullSite = usePullSite();
 	const startSite = useStartSite();
 	const { setProgress, pinNewSite } = useAddSite();
 
@@ -104,7 +104,7 @@ export function useConnectSite() {
 				},
 				persistConnection: async ( localSiteId ) => {
 					try {
-						await connector.connectWpcomSite( localSiteId, {
+						await connector.connectRemoteSite( 'wpcom', localSiteId, {
 							...remote,
 							localSiteId,
 							syncSupport: 'already-connected',
@@ -137,6 +137,7 @@ export function useConnectSite() {
 				},
 				pullRemoteSite: async ( localSiteId ) => {
 					await pullSite.mutateAsync( {
+						provider: 'wpcom',
 						siteId: localSiteId,
 						remoteSiteId: remote.id,
 					} );
@@ -145,7 +146,12 @@ export function useConnectSite() {
 					await startSite.mutateAsync( localSiteId );
 				},
 				openLocalSite: ( localSiteId ) => {
-					requestHeaderPanel( { panel: 'publish', siteId: localSiteId, view: 'pull' } );
+					requestHeaderPanel( {
+						panel: 'publish',
+						siteId: localSiteId,
+						view: 'pull',
+						provider: 'wpcom',
+					} );
 					return navigate( { to: '/sites/$siteId', params: { siteId: localSiteId } } );
 				},
 				deleteLocalSite: ( localSiteId ) =>

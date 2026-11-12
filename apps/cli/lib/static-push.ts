@@ -17,8 +17,10 @@ import { runCommand as exportStaticSite } from 'cli/commands/export-static';
 import { openBrowser } from 'cli/lib/browser';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { confirm, select } from 'cli/lib/prompts';
+import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { toLoggerError } from 'cli/lib/sync-api';
 import { Logger, LoggerError } from 'cli/logger';
+import type { SyncActivity } from '@studio/common/lib/sync/activity';
 
 const spacefast = getProvider( 'spacefast' );
 const NEW_SPACE = Symbol( 'new-space' );
@@ -38,38 +40,73 @@ export async function pushStaticSite(
 	logger: Logger< string >
 ): Promise< Space | undefined > {
 	const site = await getSiteByFolder( siteFolder );
-	const config = await requireConfig();
+	// Reported to the Studio apps like a WordPress.com push, so they show its progress.
+	let remoteSiteId: string | undefined;
+	const report = ( activity: Partial< Extract< SyncActivity, { kind: 'pending' } > > ) =>
+		void reportSyncActivity( site.id, {
+			kind: 'pending',
+			direction: 'push',
+			provider: 'spacefast',
+			remoteSiteId,
+			...activity,
+		} );
 
-	const space = await resolveSpace( config, site.id, site.name, identifier, logger );
-	if ( ! space ) {
-		return undefined;
-	}
-
-	const outputDir = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-static-' ) );
+	let space: Space | undefined;
 	try {
-		await exportStaticSite( site.path, outputDir, space.url, true );
-		await copyRootFiles( site.path, outputDir );
+		const config = await requireConfig();
+		space = await resolveSpace( config, site.id, site.name, identifier, logger );
+		if ( ! space ) {
+			return undefined;
+		}
+		remoteSiteId = space.id;
 
-		logger.reportStart( 'push', formatProgressLabel( __( 'Publishing…' ), 0 ) );
-		await spacefast.sites!.push(
-			config,
-			space,
-			{ kind: 'files', files: await listFiles( outputDir ) },
-			{},
-			( { phase, progress } ) =>
-				logger.reportProgress(
-					phase === 'uploading'
-						? formatProgressLabel( __( 'Uploading files…' ), Math.round( ( progress ?? 0 ) * 0.9 ) )
-						: formatProgressLabel( __( 'Making it live…' ), 95 )
-				)
-		);
+		const outputDir = await fs.promises.mkdtemp( path.join( os.tmpdir(), 'studio-static-' ) );
+		try {
+			report( { phase: 'creatingBackup' } );
+			await exportStaticSite( site.path, outputDir, space.url, true );
+			await copyRootFiles( site.path, outputDir );
+
+			logger.reportStart( 'push', formatProgressLabel( __( 'Publishing…' ), 0 ) );
+			await spacefast.sites!.push(
+				config,
+				space,
+				{ kind: 'files', files: await listFiles( outputDir ) },
+				{},
+				( { phase, progress } ) => {
+					report( {
+						phase,
+						...( progress === undefined ? {} : { progress: Math.round( progress ) } ),
+					} );
+					logger.reportProgress(
+						phase === 'uploading'
+							? formatProgressLabel(
+									__( 'Uploading files…' ),
+									Math.round( ( progress ?? 0 ) * 0.9 )
+							  )
+							: formatProgressLabel( __( 'Making it live…' ), 95 )
+					);
+				}
+			);
+		} finally {
+			await fs.promises.rm( outputDir, { recursive: true, force: true } );
+		}
 	} catch ( error ) {
-		throw toLoggerError( error, __( 'Failed to publish to Spacefast' ) );
-	} finally {
-		await fs.promises.rm( outputDir, { recursive: true, force: true } );
+		const loggerError = toLoggerError( error, __( 'Failed to publish to Spacefast' ) );
+		await reportSyncActivity( site.id, {
+			kind: 'error',
+			direction: 'push',
+			provider: 'spacefast',
+			message: loggerError.message,
+		} );
+		throw loggerError;
 	}
 
 	await rememberRemoteSite( 'spacefast', site.id, space, 'push' );
+	await reportSyncActivity( site.id, {
+		kind: 'success',
+		direction: 'push',
+		provider: 'spacefast',
+	} );
 	logger.reportSuccess( sprintf( __( 'Published to %1$s (%2$s)' ), space.name, space.url ) );
 	return space;
 }
@@ -117,7 +154,12 @@ async function resolveSpace(
 			String( b.lastPushTimestamp ).localeCompare( String( a.lastPushTimestamp ) )
 		);
 		if ( last ) {
-			const { lastPushTimestamp: _push, lastPullTimestamp: _pull, ...space } = last;
+			const {
+				localSiteId: _localSiteId,
+				lastPushTimestamp: _push,
+				lastPullTimestamp: _pull,
+				...space
+			} = last;
 			return space;
 		}
 	}

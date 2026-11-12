@@ -4,18 +4,18 @@
 import { IpcMainInvokeEvent, dialog, shell } from 'electron';
 import { existsSync } from 'fs';
 import { normalize } from 'path';
+import { readProviderConfig } from '@studio/common/lib/provider-config';
 import { readSitePath } from '@studio/common/sites/site-path';
 import { getProvider } from '@studio/providers/services';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
 import {
-	fetchSyncableWpcomSites,
+	listAccountSites,
 	getFileSize,
 	openURL,
 	readBlueprintFile,
 	showOpenFolderDialog,
 } from 'src/ipc-handlers';
-import { getAuthenticationToken } from 'src/lib/oauth';
 
 vi.mock( 'fs' );
 vi.mock( 'fs/promises', async () => {
@@ -23,10 +23,11 @@ vi.mock( 'fs/promises', async () => {
 	return { default: fs.promises };
 } );
 vi.mock( '@studio/common/sites/site-path' );
+vi.mock( '@studio/common/lib/provider-config' );
 vi.mock( '@studio/providers/services', async ( importOriginal ) => {
 	const actual = await importOriginal< typeof import('@studio/providers/services') >();
 	const sites = { list: vi.fn() };
-	return { ...actual, getProvider: () => ( { sites } ) };
+	return { ...actual, getProvider: () => ( { descriptor: { id: 'wpcom' }, sites } ) };
 } );
 vi.mock( 'src/lib/oauth' );
 
@@ -39,7 +40,7 @@ const mockIpcMainInvokeEvent = {
 	// Double assert the type with `unknown` to simplify mocking this value
 } as unknown as IpcMainInvokeEvent;
 
-describe( 'fetchSyncableWpcomSites', () => {
+describe( 'listAccountSites', () => {
 	afterEach( () => vi.unstubAllEnvs() );
 
 	it.each( [
@@ -49,13 +50,11 @@ describe( 'fetchSyncableWpcomSites', () => {
 		'requires a plan: $planRequired with Reprint flag $flag',
 		async ( { flag, planRequired } ) => {
 			vi.stubEnv( 'STUDIO_ENABLE_PULL_REPRINT', flag );
-			vi.mocked( getAuthenticationToken ).mockResolvedValue( {
-				accessToken: 'test-token',
-			} as Awaited< ReturnType< typeof getAuthenticationToken > > );
+			vi.mocked( readProviderConfig ).mockResolvedValue( { token: 'test-token' } );
 			const { list } = getProvider( 'wpcom' ).sites!;
 			vi.mocked( list ).mockResolvedValue( [] );
 
-			await fetchSyncableWpcomSites( mockIpcMainInvokeEvent );
+			await listAccountSites( mockIpcMainInvokeEvent, 'wpcom' );
 
 			expect( list ).toHaveBeenCalledWith( { token: 'test-token' }, { planRequired } );
 		}

@@ -204,20 +204,3 @@ export async function fetchRemoteFileTreeContents(
 	}
 	return parsed.contents ?? {};
 }
-
-/** PHP version of the remote site's hosting environment, or undefined when it can't be read. */
-export async function fetchHostingPhpVersion(
-	token: string,
-	remoteSiteId: number
-): Promise< string | undefined > {
-	try {
-		const wpcom = wpcomClient( token );
-		const response = await wpcom.req.get( {
-			apiNamespace: 'wpcom/v2',
-			path: `/sites/${ remoteSiteId }/hosting/php-version`,
-		} );
-		return z.string().parse( response );
-	} catch {
-		return undefined;
-	}
-}

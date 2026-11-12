@@ -59,7 +59,7 @@ function setup( {
 					...( connections || providerConnection === 'wpcom' ? [ 'wpcom' as const ] : [] ),
 					...( providerConnection === 'anthropic' ? [ 'anthropic' as const ] : [] ),
 				] ),
-			getConnectedWpcomSites: async () => connections ?? [],
+			getRemoteSites: async () => connections ?? [],
 			getSiteDesign: async () =>
 				designAvailable
 					? {

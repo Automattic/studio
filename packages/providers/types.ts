@@ -27,6 +27,11 @@ export interface ProviderSites {
 
 export type SitesProviderId = keyof ProviderSites;
 
+// A provider's remote site, or the base every remote site shares.
+export type ProviderSite< Id extends ProviderId > = Id extends SitesProviderId
+	? ProviderSites[ Id ]
+	: RemoteSite;
+
 export interface AiModel< Id extends string = string > {
 	// Stable, stored in sessions; the same id in two providers is the same model.
 	id: Id;
@@ -77,7 +82,38 @@ export interface DeviceAuthorization {
 	expiresAt: string;
 }
 
-export interface ProviderDescriptor< Config = unknown > {
+// How Studio presents a provider's remote sites, so the publish panel names no provider.
+export interface SitesDescriptor< Site extends RemoteSite = RemoteSite > {
+	// The largest archive a push sends, in bytes.
+	maxPushSize?: number;
+	// Whether Studio pulls a site back; without it, Studio only publishes.
+	pull: boolean;
+	// Whether a push or pull can include only part of the site.
+	selective: boolean;
+	// Whether a push publishes a static export of the site, which needs the
+	// site to run on native PHP: Studio on the web can't make one.
+	exportsStaticSite?: boolean;
+	// How a new site is made: a checkout on the provider's site, which then
+	// connects the site to the local one, or created right away from Studio.
+	newSite: 'checkout' | 'create';
+	// What the panel says before a site is connected.
+	intro: { title: () => string; description: () => string; learnMoreUrl: string };
+	// The site's address, as the panel shows it.
+	address( site: Site ): string;
+	// Facts about a connected site, and links to manage it on the provider.
+	details( site: Site ): { title: string; value: string }[];
+	links( site: Site ): { title: string; url: string }[];
+	// Why the site can't be published to or pulled from now, or null.
+	issue( site: Site, direction: 'push' | 'pull' ): string | null;
+	// Something to know before pushing the local site, which doesn't block it.
+	pushWarning?( site: Site, local: { multisite?: boolean } ): string | null;
+	// Whether the site keeps backups a selective pull can browse.
+	hasBackups?( site: Site ): boolean;
+	// Fills stored connections in from the account's current sites.
+	withDetails< Connection extends Site >( connections: Connection[], sites: Site[] ): Connection[];
+}
+
+export interface ProviderDescriptor< Config = unknown, Site extends RemoteSite = RemoteSite > {
 	id: ProviderId;
 	// Brand name, not translated.
 	label: string;
@@ -94,10 +130,7 @@ export interface ProviderDescriptor< Config = unknown > {
 		// The default when the account has paid AI credits left.
 		paidDefaultModel?: AiModelId;
 	};
-	sites?: {
-		// The largest archive a push sends, in bytes.
-		maxPushSize?: number;
-	};
+	sites?: SitesDescriptor< Site >;
 }
 
 // Everything the runtime needs to register one model with pi.
@@ -155,7 +188,7 @@ export interface PushStatus {
 
 // What Studio reads of any provider's remote site.
 export interface RemoteSite {
-	id: unknown;
+	id: string | number;
 	name: string;
 	url: string;
 }
@@ -208,16 +241,11 @@ export interface SitesService< Config, Site extends RemoteSite > {
 			backupId: string,
 			path: string
 		): Promise< Record< string, unknown > >;
-		// The PHP version the site runs, when the provider can tell.
-		phpVersion(
-			config: Config | undefined,
-			site: Pick< Site, 'id' >
-		): Promise< string | undefined >;
 	};
 }
 
 export interface Provider< Config = unknown, Site extends RemoteSite = RemoteSite > {
-	descriptor: ProviderDescriptor< Config >;
+	descriptor: ProviderDescriptor< Config, Site >;
 	// Checks what the user gave, a form's values or a redirect's parameters, and
 	// returns the config to store. Throws InvalidCredentialError when it fails.
 	connect( input: Record< string, string > ): Promise< Config >;

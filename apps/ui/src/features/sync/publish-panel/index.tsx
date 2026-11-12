@@ -1,20 +1,21 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import { withWpcomDetails } from '@studio/providers';
+import { getProviderDescriptor, getSitesDescriptor, type SitesProviderId } from '@studio/providers';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { EllipsisIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
-import { useAuthUser } from '@/data/queries/use-auth-user';
 import {
-	connectedWpcomSitesQueryKey,
-	useConnectedWpcomSites,
-} from '@/data/queries/use-connected-wpcom-sites';
+	accountSitesQueryKey,
+	remoteSitesQueryKey,
+	useAccountSites,
+	usePickableSites,
+	useProviderConnected,
+	useRemoteSites,
+} from '@/data/queries/use-remote-sites';
 import { useIsSiteBusy } from '@/data/queries/use-sites';
-import { useCancelSync, useDisconnectWpcomSite } from '@/data/queries/use-sync-site';
-import { usePickableWpcomSites, useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
-import { ALL_CONNECTED_WPCOM_SITES_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
+import { useCancelSync, useDisconnectRemoteSite } from '@/data/queries/use-sync-site';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import {
 	clearPublishSetupError,
@@ -33,15 +34,17 @@ import {
 	EmptyMedia,
 	EmptyDescription,
 } from '@/lib/ui';
+import { ConnectAccount } from './connect-account';
 import { ConnectedView } from './connected-view';
 import { ConnectedWebsite } from './connected-website';
 import { DisconnectSiteDialog } from './disconnect-site-dialog';
-import { websiteAddress, websiteEnvironmentLabel, websiteIssue, type PublishView } from './options';
 import { ErrorMessage, PanelBody, PanelHeader, TransferProgress } from './parts';
 import styles from './style.module.css';
-import type { SiteDetails, SyncSite } from '@/data/core';
+import type { PublishView, Website } from './options';
+import type { SiteDetails } from '@/data/core';
 
 export function PublishPanel( {
+	provider,
 	site,
 	open,
 	request,
@@ -50,45 +53,53 @@ export function PublishPanel( {
 	setupAfterSignup = false,
 	onSetupAfterSignup,
 }: {
+	provider: SitesProviderId;
 	site: SiteDetails;
 	open: boolean;
 	headerContainer: HTMLDivElement | null;
 	onSubstepChange: ( active: boolean ) => void;
-	request?: { view: PublishView; remoteSiteId?: number };
+	request?: { view: PublishView; remoteSiteId?: Website[ 'id' ] };
 	setupAfterSignup?: boolean;
 	onSetupAfterSignup?: () => void;
 } ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	const offline = useOffline();
-	const user = useAuthUser();
-	const connected = useConnectedWpcomSites( site.id );
+	const descriptor = getProviderDescriptor( provider );
+	const sites = getSitesDescriptor( provider );
+	const accountConnected = useProviderConnected( provider );
+	const connected = useRemoteSites( provider, site.id );
 	const [ view, setView ] = useState< PublishView | 'choose-site' | 'start' >( 'publish' );
 	const [ reviewingTransfer, setReviewingTransfer ] = useState( false );
-	const [ disconnecting, setDisconnecting ] = useState< SyncSite | null >( null );
+	const [ disconnecting, setDisconnecting ] = useState< Website | null >( null );
 	const disconnectActions = useRef< HTMLButtonElement >( null );
 	const websiteSwitcher = useRef< HTMLButtonElement >( null );
 	const [ highlightedSite, setHighlightedSite ] = useState< string >();
-	const [ selectedId, setSelectedId ] = useState< number | null >( null );
+	const [ selectedId, setSelectedId ] = useState< Website[ 'id' ] | null >( null );
 	// The websites already connected when the user went to create a new one.
-	const [ waitingFor, setWaitingFor ] = useState< number[] | null >( null );
+	const [ waitingFor, setWaitingFor ] = useState< Website[ 'id' ][] | null >( null );
 	const activity = useSiteSyncActivity( site.id );
+	// Activity reported before Spacefast names no provider: it was WordPress.com.
 	const transfer =
-		activity?.direction === 'push' || activity?.direction === 'pull' ? activity : null;
+		( activity?.direction === 'push' || activity?.direction === 'pull' ) &&
+		( activity.provider ?? 'wpcom' ) === provider
+			? activity
+			: null;
 	const pending = transfer?.kind === 'pending';
 	const [ dismissedTransfer, setDismissedTransfer ] = useState< typeof transfer >( null );
 	const siteBusy = useIsSiteBusy( site );
-	const signedOut = user.isSuccess && ! user.data;
-	const connections = useMemo( () => connected.data ?? [], [ connected.data ] );
-	const syncable = useSyncableWpcomSites( {
+	const connections = useMemo< Website[] >( () => connected.data ?? [], [ connected.data ] );
+	const syncable = useAccountSites( provider, {
 		enabled: open && ! offline,
 	} );
-	const pickable = usePickableWpcomSites( { enabled: open && ! offline } );
+	const pickable = usePickableSites( provider, { enabled: open && ! offline } );
 	const loading =
-		user.isPending ||
+		accountConnected === undefined ||
 		connected.isPending ||
 		( ! pending && connections.length > 0 && ! offline && syncable.isPending );
-	const websites = syncable.data ? withWpcomDetails( connections, syncable.data ) : connections;
+	const websites: Website[] = syncable.data
+		? sites.withDetails( connections, syncable.data )
+		: connections;
 	// The website created at checkout shows up as a new connection.
 	const created = waitingFor
 		? connections.find( ( website ) => ! waitingFor.includes( website.id ) )
@@ -97,7 +108,8 @@ export function PublishPanel( {
 	const destination =
 		websites.find( ( website ) => website.id === ( operationId ?? created?.id ?? selectedId ) ) ??
 		websites[ 0 ];
-	const setupError = usePublishSetupError( site.id );
+	const checkoutError = usePublishSetupError( site.id );
+	const setupError = sites.newSite === 'checkout' ? checkoutError : undefined;
 	const setupErrorMessage = (
 		<ErrorMessage error={ setupError } retry={ () => retryPublishSetup( site.id ) } />
 	);
@@ -107,14 +119,14 @@ export function PublishPanel( {
 			: undefined;
 
 	const cancel = useCancelSync();
-	const disconnect = useDisconnectWpcomSite();
+	const disconnect = useDisconnectRemoteSite();
+	const invalidateConnections = () => {
+		void queryClient.invalidateQueries( { queryKey: remoteSitesQueryKey( provider, site.id ) } );
+		void queryClient.invalidateQueries( { queryKey: remoteSitesQueryKey( provider ) } );
+	};
 	const connect = useMutation( {
-		mutationFn: ( remote: SyncSite ) =>
-			connector.connectWpcomSite( site.id, {
-				...remote,
-				localSiteId: site.id,
-				syncSupport: 'already-connected',
-			} ),
+		mutationFn: ( remote: Website ) =>
+			connector.connectRemoteSite( provider, site.id, remote as never ),
 		onSuccess: ( _result, remote ) => {
 			void connector.trackEvent(
 				TRACKS_EVENTS.SYNC_CONNECT,
@@ -124,13 +136,22 @@ export function PublishPanel( {
 				},
 				site.id
 			);
-			void queryClient.invalidateQueries( { queryKey: connectedWpcomSitesQueryKey( site.id ) } );
-			void queryClient.invalidateQueries( { queryKey: ALL_CONNECTED_WPCOM_SITES_QUERY_KEY } );
+			invalidateConnections();
 			selectWebsite( remote.id );
 			setView( 'publish' );
 		},
 	} );
-	const startSetup = useCallback( () => {
+	// A provider that creates sites from Studio names the new one after the local site.
+	const create = useMutation( {
+		mutationFn: () => connector.createRemoteSite( provider, site.id, site.name ),
+		onSuccess: ( remote ) => {
+			invalidateConnections();
+			void queryClient.invalidateQueries( { queryKey: accountSitesQueryKey( provider ) } );
+			selectWebsite( remote.id );
+			setView( 'publish' );
+		},
+	} );
+	const startCheckout = useCallback( () => {
 		const checkoutUrl = connector.getPublishCheckoutUrl( site );
 		if ( ! checkoutUrl ) {
 			return;
@@ -141,13 +162,24 @@ export function PublishPanel( {
 		void connector.watchForPublishedSite?.( site.id );
 		void connector.openExternalUrl( checkoutUrl );
 	}, [ connections, connector, site ] );
-	const selectWebsite = ( id: number | null ) => {
+	const startSetup = () => {
+		if ( sites.newSite === 'create' ) {
+			create.mutate();
+		} else {
+			startCheckout();
+		}
+	};
+	const selectWebsite = ( id: Website[ 'id' ] | null ) => {
 		if ( id !== destination?.id && ! pending ) setDismissedTransfer( transfer );
 		setSelectedId( id );
 		setWaitingFor( null );
 	};
 	const busy =
-		siteBusy || activity?.kind === 'pending' || connect.isPending || disconnect.isPending;
+		siteBusy ||
+		activity?.kind === 'pending' ||
+		connect.isPending ||
+		create.isPending ||
+		disconnect.isPending;
 
 	useEffect( () => {
 		if ( request ) {
@@ -167,40 +199,43 @@ export function PublishPanel( {
 
 	// Someone who just created an account has no website yet: take them to checkout.
 	useEffect( () => {
-		if ( setupAfterSignup && user.data && connected.isSuccess ) {
+		if ( setupAfterSignup && accountConnected && connected.isSuccess ) {
 			onSetupAfterSignup?.();
-			if ( ! connections.length ) {
-				startSetup();
+			if ( ! connections.length && sites.newSite === 'checkout' ) {
+				startCheckout();
 			}
 		}
 	}, [
 		setupAfterSignup,
 		onSetupAfterSignup,
-		user.data,
+		accountConnected,
 		connected.isSuccess,
 		connections.length,
-		startSetup,
+		sites.newSite,
+		startCheckout,
 	] );
 
 	const availableWebsites = pickable.isLoading || pickable.error ? [] : pickable.data ?? [];
 	const selectableWebsites = [ ...websites, ...availableWebsites ].filter(
 		( website, index, all ) =>
-			! websiteIssue( website, 'pull' ) &&
+			! sites.issue( website, 'pull' ) &&
 			all.findIndex( ( item ) => item.id === website.id ) === index
 	);
 	const connectedWebsite = (
 		<>
 			{ setupErrorMessage }
 			<ErrorMessage
-				error={ connect.error || ( setupError ? undefined : pickable.error ) }
+				error={ connect.error || create.error || ( setupError ? undefined : pickable.error ) }
 				retry={ () => {
 					connect.reset();
+					create.reset();
 					disconnect.reset();
 					pickable.refetch();
 				} }
 			/>
 			{ destination ? (
 				<ConnectedWebsite
+					provider={ provider }
 					open={ open }
 					website={ destination }
 					websites={ websites }
@@ -218,7 +253,7 @@ export function PublishPanel( {
 		</>
 	);
 
-	const chooseWebsite = ( remote: SyncSite ) => {
+	const chooseWebsite = ( remote: Website ) => {
 		if ( connections.some( ( website ) => website.id === remote.id ) ) {
 			selectWebsite( remote.id );
 			setView( 'publish' );
@@ -301,10 +336,10 @@ export function PublishPanel( {
 										items: selectableWebsites.map( ( remote ) => ( {
 											value: String( remote.id ),
 											label: remote.name || remote.url,
-											description: websiteAddress( remote ),
+											description: sites.address( remote ),
 											trailing: (
 												<span className={ styles.environmentLabel }>
-													{ websiteEnvironmentLabel( remote ) }
+													{ sites.details( remote )[ 0 ]?.value }
 												</span>
 											),
 											icon: GlobeIcon,
@@ -364,8 +399,7 @@ export function PublishPanel( {
 				</>
 			);
 		}
-		const loadError =
-			user.error || connected.error || ( connections.length ? syncable.error : null );
+		const loadError = connected.error || ( connections.length ? syncable.error : null );
 		if ( ! pending && loadError ) {
 			return (
 				<>
@@ -374,7 +408,6 @@ export function PublishPanel( {
 						<div className={ styles.reload }>
 							<Button
 								onClick={ () => {
-									void user.refetch();
 									void connected.refetch();
 									void syncable.refetch();
 								} }
@@ -391,6 +424,7 @@ export function PublishPanel( {
 				<ConnectedView
 					key={ destination.id }
 					site={ site }
+					provider={ provider }
 					remote={ destination }
 					connectedWebsite={ connectedWebsite }
 					activity={ transfer === dismissedTransfer ? null : transfer }
@@ -420,15 +454,25 @@ export function PublishPanel( {
 					>
 						{ __( 'Existing site…' ) }
 					</Button>
-					<Button variant="accent" size="lg" disabled={ offline || busy } onClick={ startSetup }>
-						{ __( 'New site…' ) }
+					<Button
+						variant="accent"
+						size="lg"
+						disabled={ offline || busy }
+						loading={ create.isPending }
+						onClick={ startSetup }
+					>
+						{ sites.newSite === 'create' ? __( 'New site' ) : __( 'New site…' ) }
 					</Button>
 				</div>
 			</PanelBody>
 		);
 	};
 
-	if ( signedOut ) return null;
+	// WordPress.com's account is the Studio sign-in, which the dialog asks for.
+	if ( accountConnected === false && descriptor.connection.kind !== 'device' ) return null;
+	if ( accountConnected === false ) {
+		return <ConnectAccount provider={ provider } />;
+	}
 
 	return (
 		<div className={ styles.content } data-choosing-site={ view === 'choose-site' || undefined }>
@@ -437,17 +481,13 @@ export function PublishPanel( {
 					<EmptyMedia className={ styles.emptyIcon }>
 						<SyncIcon width="40" height="40" aria-hidden="true" />
 					</EmptyMedia>
-					<h2 className={ styles.emptyTitle }>{ __( 'Publish your WordPress' ) }</h2>
+					<h2 className={ styles.emptyTitle }>{ sites.intro.title() }</h2>
 					<EmptyDescription className={ styles.emptyDescription }>
-						{ __(
-							'Publish to a new site and choose a domain, or use an existing site on WordPress.com or Pressable.'
-						) }{ ' ' }
+						{ sites.intro.description() }{ ' ' }
 						<Button
 							variant="inline-accent"
 							size="inline"
-							onClick={ () =>
-								void connector.openExternalUrl( 'https://wordpress.studio/docs/sync/' )
-							}
+							onClick={ () => void connector.openExternalUrl( sites.intro.learnMoreUrl ) }
 						>
 							{ __( 'Learn more…' ) }
 						</Button>
@@ -458,6 +498,7 @@ export function PublishPanel( {
 			{ disconnecting ? (
 				<DisconnectSiteDialog
 					website={ disconnecting }
+					address={ sites.address( disconnecting ) }
 					disabled={ offline || siteBusy || Boolean( pending ) }
 					pending={ disconnect.isPending }
 					error={ disconnect.error }
@@ -466,15 +507,12 @@ export function PublishPanel( {
 					onConfirm={ () => {
 						void connector.trackEvent( TRACKS_EVENTS.SYNC_DISCONNECT );
 						disconnect.mutate(
-							{ siteId: site.id, remoteSiteId: disconnecting.id },
+							{ provider, siteId: site.id, remoteSiteId: disconnecting.id },
 							{
 								onSuccess: () => {
 									setDisconnecting( null );
 									selectWebsite( null );
 									setView( websites.length > 1 ? 'publish' : 'choose-site' );
-									void queryClient.invalidateQueries( {
-										queryKey: ALL_CONNECTED_WPCOM_SITES_QUERY_KEY,
-									} );
 								},
 							}
 						);

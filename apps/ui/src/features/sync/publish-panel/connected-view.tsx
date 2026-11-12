@@ -1,30 +1,22 @@
+import { getSitesDescriptor, type SitesProviderId } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
-import {
-	useCancelSync,
-	usePullSiteFromLive,
-	usePushSiteToLive,
-} from '@/data/queries/use-sync-site';
+import { useCancelSync, usePullSite, usePushSite } from '@/data/queries/use-sync-site';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { Button, FieldSet } from '@/lib/ui';
 import { FilePicker } from './file-picker';
-import {
-	overwriteDescription,
-	scopeLabel,
-	websiteAddress,
-	websiteIssue,
-	type PublishView,
-} from './options';
+import { overwriteDescription, scopeLabel, type PublishView, type Website } from './options';
 import { ErrorMessage, PanelBody, PanelHeader, TransferProgress } from './parts';
 import styles from './style.module.css';
 import { useTransferSelection } from './use-transfer-selection';
-import type { SiteDetails, SyncSite } from '@/data/core';
+import type { SiteDetails } from '@/data/core';
 import type { SyncActivity } from '@/data/sync-activity';
 
 export function ConnectedView( {
 	site,
+	provider,
 	remote,
 	connectedWebsite,
 	activity,
@@ -38,7 +30,8 @@ export function ConnectedView( {
 	onReviewingChange,
 }: {
 	site: SiteDetails;
-	remote: SyncSite;
+	provider: SitesProviderId;
+	remote: Website;
 	connectedWebsite: ReactNode;
 	activity: SyncActivity | null;
 	view: PublishView;
@@ -70,8 +63,9 @@ export function ConnectedView( {
 	const id = useId();
 	const publishButton = useRef< HTMLButtonElement >( null );
 	const pullButton = useRef< HTMLButtonElement >( null );
-	const pushSite = usePushSiteToLive();
-	const pullSite = usePullSiteFromLive();
+	const sites = getSitesDescriptor( provider );
+	const pushSite = usePushSite();
+	const pullSite = usePullSite();
 	const cancel = useCancelSync();
 	const startSite = useStartSiteWithChat();
 	const pending = activity?.kind === 'pending';
@@ -83,19 +77,21 @@ export function ConnectedView( {
 		view === 'pull' || ( pending && activity.direction === 'pull' ) ? 'pull' : 'push';
 	const push = useTransferSelection(
 		site,
+		provider,
 		remote,
 		'push',
 		open && direction === 'push' && ! pending && ! offline
 	);
 	const pull = useTransferSelection(
 		site,
+		provider,
 		remote,
 		'pull',
-		open && direction === 'pull' && ! pending && ! offline
+		sites.pull && open && direction === 'pull' && ! pending && ! offline
 	);
 	const selection = direction === 'push' ? push : pull;
-	const pullIssue = accessIssue ?? websiteIssue( remote, 'pull' );
-	const pushIssue = accessIssue ?? websiteIssue( remote, 'push' );
+	const pullIssue = accessIssue ?? sites.issue( remote, 'pull' );
+	const pushIssue = accessIssue ?? sites.issue( remote, 'push' );
 	const issue = direction === 'pull' ? pullIssue : pushIssue;
 	const finished =
 		activity !== dismissedActivity &&
@@ -117,7 +113,7 @@ export function ConnectedView( {
 		);
 	};
 	const start = () => {
-		const variables = { siteId: site.id, remoteSiteId: remote.id };
+		const variables = { provider, siteId: site.id, remoteSiteId: remote.id };
 		if ( direction === 'push' )
 			pushSite.mutate( { ...variables, options: selection.options.push } );
 		else pullSite.mutate( { ...variables, options: selection.options.pull } );
@@ -131,11 +127,15 @@ export function ConnectedView( {
 	if ( pending ) {
 		return (
 			<PanelBody>
-				<p className={ styles.address }>{ websiteAddress( remote ) }</p>
+				<p className={ styles.address }>{ sites.address( remote ) }</p>
 				<TransferProgress
 					siteId={ site.id }
 					activity={ activity }
-					scopeLabel={ scopeLabel( ( activity.direction === 'pull' ? pull : push ).scope ) }
+					scopeLabel={
+						sites.selective
+							? scopeLabel( ( activity.direction === 'pull' ? pull : push ).scope )
+							: undefined
+					}
 					cancel={ () =>
 						cancel.mutate( { siteId: site.id, remoteSiteId: activity.remoteSiteId ?? remote.id } )
 					}
@@ -151,13 +151,13 @@ export function ConnectedView( {
 					<div className={ styles.publishDetailsIntro }>
 						<h2 className={ styles.publishDetailsHeading }>{ __( 'Publish details' ) }</h2>
 						<p className={ styles.publishDetailsDescription }>
-							{ __( 'Publish changes or get the latest updates.' ) }{ ' ' }
+							{ sites.pull
+								? __( 'Publish changes or get the latest updates.' )
+								: __( 'Publish your changes.' ) }{ ' ' }
 							<Button
 								variant="inline-accent"
 								size="inline"
-								onClick={ () =>
-									void connector.openExternalUrl( 'https://wordpress.studio/docs/sync/' )
-								}
+								onClick={ () => void connector.openExternalUrl( sites.intro.learnMoreUrl ) }
 							>
 								{ __( 'Learn more…' ) }
 							</Button>
@@ -166,18 +166,20 @@ export function ConnectedView( {
 					{ connectedWebsite }
 					{ issue ? <p className={ styles.text }>{ issue }</p> : null }
 					<div className={ styles.connectedActions }>
-						<Button
-							ref={ pullButton }
-							variant="outline"
-							size="lg"
-							disabled={ disabled || Boolean( pullIssue ) }
-							onClick={ () => {
-								setView( 'pull' );
-								setReviewing( true );
-							} }
-						>
-							{ __( 'Pull changes' ) }
-						</Button>
+						{ sites.pull ? (
+							<Button
+								ref={ pullButton }
+								variant="outline"
+								size="lg"
+								disabled={ disabled || Boolean( pullIssue ) }
+								onClick={ () => {
+									setView( 'pull' );
+									setReviewing( true );
+								} }
+							>
+								{ __( 'Pull changes' ) }
+							</Button>
+						) : null }
 						<Button
 							ref={ publishButton }
 							variant="accent"
@@ -206,9 +208,11 @@ export function ConnectedView( {
 						: null }
 					<div className={ styles.transferReview }>
 						<div className={ styles.transferFields }>
-							<p className={ styles.address }>{ websiteAddress( remote ) }</p>
+							<p className={ styles.address }>{ sites.address( remote ) }</p>
 							{ ! restartFailed && ! completePull ? (
-								<p className={ styles.text }>{ overwriteDescription( direction ) }</p>
+								<p className={ styles.text }>
+									{ overwriteDescription( direction, sites.selective ) }
+								</p>
 							) : null }
 							{ restartFailed ? (
 								<>
@@ -233,30 +237,34 @@ export function ConnectedView( {
 								</>
 							) : (
 								<>
-									<FieldSet
-										key={ `${ direction }-${ selection.filesUnavailable }` }
-										role="radiogroup"
-										aria-label={
-											direction === 'push' ? __( 'What to publish' ) : __( 'What to pull' )
-										}
-										disabled={ disabled || selection.loadingFiles }
-										className={ styles.scopeChoices }
-									>
-										{ choices.map( ( choice ) => (
-											<label key={ choice.value } className={ styles.scopeChoice }>
-												<input
-													type="radio"
-													name={ `${ id }-scope` }
-													value={ choice.value }
-													disabled={ choice.value === 'custom' && selection.filesUnavailable }
-													defaultChecked={ selection.scope === choice.value }
-													onChange={ () => selection.setScope( choice.value ) }
-												/>
-												<span>{ choice.label }</span>
-											</label>
-										) ) }
-									</FieldSet>
-									{ selection.scope === 'custom' ? <FilePicker selection={ selection } /> : null }
+									{ sites.selective ? (
+										<FieldSet
+											key={ `${ direction }-${ selection.filesUnavailable }` }
+											role="radiogroup"
+											aria-label={
+												direction === 'push' ? __( 'What to publish' ) : __( 'What to pull' )
+											}
+											disabled={ disabled || selection.loadingFiles }
+											className={ styles.scopeChoices }
+										>
+											{ choices.map( ( choice ) => (
+												<label key={ choice.value } className={ styles.scopeChoice }>
+													<input
+														type="radio"
+														name={ `${ id }-scope` }
+														value={ choice.value }
+														disabled={ choice.value === 'custom' && selection.filesUnavailable }
+														defaultChecked={ selection.scope === choice.value }
+														onChange={ () => selection.setScope( choice.value ) }
+													/>
+													<span>{ choice.label }</span>
+												</label>
+											) ) }
+										</FieldSet>
+									) : null }
+									{ sites.selective && selection.scope === 'custom' ? (
+										<FilePicker selection={ selection } />
+									) : null }
 									{ selection.filesUnavailable ? (
 										<p className={ styles.text }>
 											{ __( 'Choosing individual files requires a backup of this website.' ) }

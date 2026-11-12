@@ -57,7 +57,12 @@ afterEach( () => {
 
 it( 'publishes the export and the root files to the Space the site last published to', async () => {
 	vi.mocked( getRemoteSites ).mockResolvedValue( [
-		{ ...space, lastPushTimestamp: '2026-11-01T00:00:00Z', lastPullTimestamp: null },
+		{
+			...space,
+			localSiteId: 'site-1',
+			lastPushTimestamp: '2026-11-01T00:00:00Z',
+			lastPullTimestamp: null,
+		},
 	] );
 	const published: Record< string, string > = {};
 	vi.mocked( sites.push ).mockImplementation( async ( _config, _site, content: PushContent ) => {

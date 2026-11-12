@@ -2,9 +2,11 @@ export {
 	AI_PROVIDER_IDS,
 	DEFAULT_PROVIDER_ID,
 	getProviderDescriptor,
+	getSitesDescriptor,
 	normalizeAiProviderId,
 	normalizeProviderId,
 	PROVIDER_IDS,
+	SITES_PROVIDER_IDS,
 	toStoredProviderId,
 } from './descriptors';
 export {

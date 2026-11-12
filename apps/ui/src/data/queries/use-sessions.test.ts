@@ -4,7 +4,7 @@ import { createElement, type ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { ConnectorProvider } from '@/data/core';
 import { createFakeConnector } from '@/test/fake-connector';
-import { connectedWpcomSitesQueryKey } from './use-connected-wpcom-sites';
+import { remoteSitesQueryKey } from './use-remote-sites';
 import {
 	openNewSession,
 	primeSessionQueryData,
@@ -108,7 +108,7 @@ describe( 'useSessionLiveSite', () => {
 	function getLiveSite( summary: Partial< AiSessionSummary > ) {
 		const connector = createFakeConnector();
 		const queryClient = new QueryClient();
-		queryClient.setQueryData( connectedWpcomSitesQueryKey( 'site-1' ), [ production, staging ] );
+		queryClient.setQueryData( remoteSitesQueryKey( 'wpcom', 'site-1' ), [ production, staging ] );
 		return renderHook( () => useSessionLiveSite( createSummary( summary ), 'site-1' ), {
 			wrapper: ( { children }: { children: ReactNode } ) =>
 				createElement( ConnectorProvider, {

@@ -212,6 +212,11 @@
 	min-width: 0;
 }
 
+/* A provider that only publishes has the one action. */
+.connectedActions > :only-child {
+	grid-column: 1 / -1;
+}
+
 .connectedHome {
 	flex: 1;
 	display: flex;

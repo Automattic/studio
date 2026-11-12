@@ -1,8 +1,10 @@
 import {
 	addConnectedWpcomSite,
+	getAllConnectedWpcomSitesForCurrentUser,
 	getConnectedWpcomSitesForLocalSite,
 	markConnectedWpcomSiteSynced,
 	removeAllConnectedWpcomSitesForLocalSite,
+	removeConnectedWpcomSite,
 } from './connected-sites';
 import {
 	lockSharedConfig,
@@ -21,6 +23,7 @@ import type { ProviderSites, RemoteSite, SitesProviderId } from '@studio/provide
  */
 
 export interface SyncTimes {
+	localSiteId: string;
 	lastPushTimestamp: string | null;
 	lastPullTimestamp: string | null;
 }
@@ -28,8 +31,10 @@ export interface SyncTimes {
 export type RemoteSiteConnection< Id extends SitesProviderId > = ProviderSites[ Id ] & SyncTimes;
 
 type ConnectionStore< Site extends RemoteSite > = {
-	list( localSiteId: string ): Promise< ( Site & SyncTimes )[] >;
+	// Every local site's connections when `localSiteId` is undefined.
+	list( localSiteId?: string ): Promise< ( Site & SyncTimes )[] >;
 	add( localSiteId: string, site: Site, synced?: 'push' | 'pull' ): Promise< void >;
+	remove( localSiteId: string, siteId: Site[ 'id' ] ): Promise< void >;
 	removeAll( localSiteId: string ): Promise< void >;
 };
 
@@ -44,16 +49,38 @@ async function updateRemoteSites( update: ( config: SharedConfig ) => void ): Pr
 	}
 }
 
+// Keeps the connections `keep` accepts, and drops a local site left with none.
+function filterConnections(
+	config: SharedConfig,
+	localSiteId: string,
+	keep: ( connection: NonNullable< SharedConfig[ 'remoteSites' ] >[ string ][ number ] ) => boolean
+): void {
+	const connections = config.remoteSites?.[ localSiteId ]?.filter( keep );
+	if ( ! config.remoteSites ) {
+		return;
+	}
+	if ( connections?.length ) {
+		config.remoteSites[ localSiteId ] = connections;
+	} else {
+		delete config.remoteSites[ localSiteId ];
+	}
+}
+
 function remoteSitesStore< Site extends RemoteSite >( provider: string ): ConnectionStore< Site > {
 	return {
 		list: async ( localSiteId ) =>
-			( ( await readSharedConfig() ).remoteSites?.[ localSiteId ] ?? [] )
-				.filter( ( connection ) => connection.provider === provider )
-				.map( ( { site, lastPushTimestamp, lastPullTimestamp } ) => ( {
-					...( site as Site ),
-					lastPushTimestamp,
-					lastPullTimestamp,
-				} ) ),
+			Object.entries( ( await readSharedConfig() ).remoteSites ?? {} )
+				.filter( ( [ id ] ) => localSiteId === undefined || id === localSiteId )
+				.flatMap( ( [ id, connections ] ) =>
+					connections
+						.filter( ( connection ) => connection.provider === provider )
+						.map( ( { site, lastPushTimestamp, lastPullTimestamp } ) => ( {
+							...( site as Site ),
+							localSiteId: id,
+							lastPushTimestamp,
+							lastPullTimestamp,
+						} ) )
+				),
 		add: ( localSiteId, site, synced ) =>
 			updateRemoteSites( ( config ) => {
 				const connections = ( ( config.remoteSites ??= {} )[ localSiteId ] ??= [] );
@@ -70,37 +97,45 @@ function remoteSitesStore< Site extends RemoteSite >( provider: string ): Connec
 						new Date().toISOString();
 				}
 			} ),
+		remove: ( localSiteId, siteId ) =>
+			updateRemoteSites( ( config ) =>
+				filterConnections(
+					config,
+					localSiteId,
+					( connection ) => connection.provider !== provider || connection.site.id !== siteId
+				)
+			),
 		removeAll: ( localSiteId ) =>
-			updateRemoteSites( ( config ) => {
-				const connections = config.remoteSites?.[ localSiteId ]?.filter(
-					( connection ) => connection.provider !== provider
-				);
-				if ( config.remoteSites && connections?.length ) {
-					config.remoteSites[ localSiteId ] = connections;
-				} else if ( config.remoteSites ) {
-					delete config.remoteSites[ localSiteId ];
-				}
-			} ),
+			updateRemoteSites( ( config ) =>
+				filterConnections( config, localSiteId, ( connection ) => connection.provider !== provider )
+			),
 	};
 }
 
 const STORES: { [ Id in SitesProviderId ]: ConnectionStore< ProviderSites[ Id ] > } = {
 	wpcom: {
-		list: getConnectedWpcomSitesForLocalSite,
+		list: ( localSiteId ) =>
+			localSiteId === undefined
+				? getAllConnectedWpcomSitesForCurrentUser()
+				: getConnectedWpcomSitesForLocalSite( localSiteId ),
 		add: async ( localSiteId, site, synced ) => {
 			await addConnectedWpcomSite( localSiteId, { ...site, localSiteId } );
 			if ( synced ) {
 				await markConnectedWpcomSiteSynced( localSiteId, site.id, synced );
 			}
 		},
+		remove: async ( localSiteId, siteId ) => {
+			await removeConnectedWpcomSite( localSiteId, siteId );
+		},
 		removeAll: removeAllConnectedWpcomSitesForLocalSite,
 	},
 	spacefast: remoteSitesStore( 'spacefast' ),
 };
 
+// The local site's connections, or every local site's when `localSiteId` is undefined.
 export function getRemoteSites< Id extends SitesProviderId >(
 	provider: Id,
-	localSiteId: string
+	localSiteId?: string
 ): Promise< RemoteSiteConnection< Id >[] > {
 	return STORES[ provider ].list( localSiteId ) as Promise< RemoteSiteConnection< Id >[] >;
 }
@@ -113,6 +148,17 @@ export function rememberRemoteSite< Id extends SitesProviderId >(
 	synced?: 'push' | 'pull'
 ): Promise< void > {
 	return STORES[ provider ].add( localSiteId, site, synced );
+}
+
+export function forgetRemoteSite< Id extends SitesProviderId >(
+	provider: Id,
+	localSiteId: string,
+	siteId: ProviderSites[ Id ][ 'id' ]
+): Promise< void > {
+	return ( STORES[ provider ] as ConnectionStore< ProviderSites[ Id ] > ).remove(
+		localSiteId,
+		siteId
+	);
 }
 
 // Every provider's connections of a local site, as when it is deleted.

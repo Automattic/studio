@@ -12,7 +12,14 @@ import {
 	PreviewManagementDialog,
 	type PreviewManagementAction,
 } from '@/features/sharing';
-import { PublishPanel, usePublishSetupError } from '@/features/sync';
+import {
+	PublishDestinationBar,
+	PublishDestinationLoading,
+	PublishDestinationPicker,
+	PublishPanel,
+	usePublishDestination,
+	usePublishSetupError,
+} from '@/features/sync';
 import { PublishTransferIcon, ShareIcon, SyncIcon } from '@/lib/icons';
 import {
 	Button,
@@ -33,7 +40,7 @@ import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
 type Tab = 'share' | 'publish';
-type PublishRequest = { view: 'publish' | 'pull' | 'websites'; remoteSiteId?: number };
+type PublishRequest = { view: 'publish' | 'pull' | 'websites'; remoteSiteId?: string | number };
 export function SiteDeliveryDialog( {
 	site,
 	anchor,
@@ -43,7 +50,8 @@ export function SiteDeliveryDialog( {
 } ) {
 	const id = useId();
 	const user = useAuthUser();
-	const signedOut = user.isSuccess && ! user.data;
+	const destination = usePublishDestination( site.id );
+	const { choose } = destination;
 	const [ setupAfterSignup, setSetupAfterSignup ] = useState( false );
 	const [ open, setOpen ] = useState( false );
 	const [ tab, setTab ] = useState< Tab >( 'share' );
@@ -64,17 +72,22 @@ export function SiteDeliveryDialog( {
 			if ( next === 'publish' ) setRequest( publishRequest ?? { view: 'publish' } );
 			setOpen( true );
 		};
+
 		const share = subscribeHeaderPanelRequest( site.id, 'share', ( next ) =>
 			show( 'share', next.trigger )
 		);
-		const publish = subscribeHeaderPanelRequest( site.id, 'publish', ( next ) =>
-			show( 'publish', next.trigger, { view: next.view, remoteSiteId: next.remoteSiteId } )
-		);
+		const publish = subscribeHeaderPanelRequest( site.id, 'publish', ( next ) => {
+			choose( next.provider );
+			show( 'publish', next.trigger, { view: next.view, remoteSiteId: next.remoteSiteId } );
+		} );
 		return () => {
 			share();
 			publish();
 		};
-	}, [ site.id, anchor ] );
+	}, [ site.id, anchor, choose ] );
+	// WordPress.com's account is the Studio sign-in, which sharing needs too.
+	const signedOut =
+		user.isSuccess && ! user.data && ( tab === 'share' || destination.provider === 'wpcom' );
 	const selectTab = ( value: unknown ) => {
 		setTab( value as Tab );
 		if ( value === 'publish' ) setRequest( ( current ) => current ?? { view: 'publish' } );
@@ -152,17 +165,34 @@ export function SiteDeliveryDialog( {
 							hidden={ tab !== 'publish' }
 							className={ styles.panel }
 						>
-							{ request ? (
-								<PublishPanel
-									site={ site }
-									open={ open && tab === 'publish' }
-									request={ request }
-									headerContainer={ publishHeader }
-									onSubstepChange={ setPublishSubstep }
-									setupAfterSignup={ setupAfterSignup }
-									onSetupAfterSignup={ () => setSetupAfterSignup( false ) }
+							{ ! request ? null : destination.loading ? (
+								<PublishDestinationLoading />
+							) : ! destination.provider ? (
+								<PublishDestinationPicker
+									providers={ destination.providers }
+									onChoose={ destination.choose }
 								/>
-							) : null }
+							) : (
+								<div className={ styles.publishDestination }>
+									{ destination.providers.length > 1 && ! publishSubstep ? (
+										<PublishDestinationBar
+											provider={ destination.provider }
+											onChange={ destination.change }
+										/>
+									) : null }
+									<PublishPanel
+										key={ destination.provider }
+										provider={ destination.provider }
+										site={ site }
+										open={ open && tab === 'publish' }
+										request={ request }
+										headerContainer={ publishHeader }
+										onSubstepChange={ setPublishSubstep }
+										setupAfterSignup={ setupAfterSignup }
+										onSetupAfterSignup={ () => setSetupAfterSignup( false ) }
+									/>
+								</div>
+							) }
 						</div>
 					</Tabs>
 				</DialogContent>

@@ -6,8 +6,8 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
+import { useAccountSites } from '@/data/queries/use-remote-sites';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { useSyncableWpcomSites } from '@/data/queries/use-wpcom-sites';
 import { AccountPrompt } from '@/features/account';
 import { pendingRemoteSiteSlot } from '@/features/sites/pending-remote-site';
 import { useOffline } from '@/lib/hooks';
@@ -149,7 +149,7 @@ export function ConnectPanel( { onConnect }: { onConnect: ( site: SyncSite ) => 
 	const { data: user, isLoading: isAuthLoading } = useAuthUser();
 	const locale = useUserLocale();
 	const isOffline = useOffline();
-	const remoteSites = useSyncableWpcomSites( {
+	const remoteSites = useAccountSites( 'wpcom', {
 		enabled: !! user && ! isOffline,
 	} );
 	const [ searchQuery, setSearchQuery ] = useState( '' );

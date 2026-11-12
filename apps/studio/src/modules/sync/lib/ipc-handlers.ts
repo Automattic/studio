@@ -1,62 +1,31 @@
 import { IpcMainInvokeEvent } from 'electron';
 import {
-	addConnectedWpcomSite,
-	getAllConnectedWpcomSitesForCurrentUser as getAllConnectedWpcomSitesForCurrentUserShared,
-	getConnectedWpcomSitesForLocalSite,
-	removeConnectedWpcomSite,
-} from '@studio/common/lib/connected-sites';
-import { getCurrentUserId } from '@studio/common/lib/shared-config';
-import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
+	forgetRemoteSite,
+	getRemoteSites as readRemoteSites,
+	rememberRemoteSite,
+	type RemoteSiteConnection,
+} from '@studio/common/lib/remote-sites';
+import {
+	createRemoteSite as createRemoteSiteOnProvider,
+	getRemoteBackupId as readRemoteBackupId,
+	listAccountSites as listProviderAccountSites,
+	listRemoteBackupFiles as readRemoteBackupFiles,
+} from '@studio/common/sites/remote-sites';
 import { readSitePath } from '@studio/common/sites/site-path';
 import { createSyncRunner, type SyncResult } from '@studio/common/sites/sync';
-import { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
+import { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync';
+import { SITES_PROVIDER_IDS, type ProviderSites, type SitesProviderId } from '@studio/providers';
 import { getProvider } from '@studio/providers/services';
-import { getAuthenticationToken } from 'src/lib/oauth';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
-
-const wpcomSites = getProvider( 'wpcom' ).sites!;
 
 const syncRunner = createSyncRunner( executeCliCommand );
 
-export function cancelSyncOperation(
-	_event: IpcMainInvokeEvent,
-	siteId: string,
-	remoteSiteId: number
-) {
-	syncRunner.cancel( siteId, remoteSiteId );
-}
-
-type WpcomSitesToConnect = { sites: SyncSite[]; localSiteId: string }[];
-
-export async function connectWpcomSites( event: IpcMainInvokeEvent, list: WpcomSitesToConnect ) {
-	const currentUserId = await getCurrentUserId();
-	if ( ! currentUserId ) {
-		throw new Error( 'User not authenticated' );
+function parseProvider( requested: string ): SitesProviderId {
+	const provider = SITES_PROVIDER_IDS.find( ( id ) => id === requested );
+	if ( ! provider ) {
+		throw new Error( `Unknown provider with sites: ${ requested }` );
 	}
-
-	for ( const { sites, localSiteId } of list ) {
-		for ( const siteToAdd of sites ) {
-			await addConnectedWpcomSite( localSiteId, siteToAdd );
-		}
-	}
-}
-
-type WpcomSitesToDisconnect = { siteIds: number[]; localSiteId: string }[];
-
-export async function disconnectWpcomSites(
-	event: IpcMainInvokeEvent,
-	list: WpcomSitesToDisconnect
-) {
-	const currentUserId = await getCurrentUserId();
-	if ( ! currentUserId ) {
-		throw new Error( 'User not authenticated' );
-	}
-
-	for ( const { siteIds, localSiteId } of list ) {
-		for ( const id of siteIds ) {
-			await removeConnectedWpcomSite( localSiteId, id );
-		}
-	}
+	return provider;
 }
 
 async function requireSitePath( siteId: string ): Promise< string > {
@@ -67,102 +36,117 @@ async function requireSitePath( siteId: string ): Promise< string > {
 	return sitePath;
 }
 
+export async function getRemoteSites(
+	_event: IpcMainInvokeEvent,
+	provider: string,
+	localSiteId?: string
+): Promise< RemoteSiteConnection< SitesProviderId >[] > {
+	return readRemoteSites( parseProvider( provider ), localSiteId );
+}
+
+export async function listAccountSites(
+	_event: IpcMainInvokeEvent,
+	provider: string
+): Promise< ProviderSites[ SitesProviderId ][] > {
+	return listProviderAccountSites( getProvider( parseProvider( provider ) ) );
+}
+
+export async function connectRemoteSite(
+	_event: IpcMainInvokeEvent,
+	provider: string,
+	localSiteId: string,
+	site: ProviderSites[ SitesProviderId ]
+): Promise< void > {
+	await rememberRemoteSite( parseProvider( provider ), localSiteId, site as never );
+}
+
+export async function disconnectRemoteSite(
+	_event: IpcMainInvokeEvent,
+	provider: string,
+	localSiteId: string,
+	remoteSiteId: string | number
+): Promise< void > {
+	await forgetRemoteSite( parseProvider( provider ), localSiteId, remoteSiteId as never );
+}
+
+export async function createRemoteSite(
+	_event: IpcMainInvokeEvent,
+	provider: string,
+	localSiteId: string,
+	name: string
+): Promise< ProviderSites[ SitesProviderId ] > {
+	return createRemoteSiteOnProvider( getProvider( parseProvider( provider ) ), localSiteId, name );
+}
+
 // A cancel resolves rather than rejects, so it isn't logged as a handler error in
 // the very log we point users at when a sync fails.
-export async function pullSiteFromLive(
+export async function pushSite(
 	_event: IpcMainInvokeEvent,
+	provider: string,
 	siteId: string,
-	remoteSiteId: number,
-	options?: PullSyncOptions
-): Promise< SyncResult > {
-	return syncRunner.pull( siteId, await requireSitePath( siteId ), remoteSiteId, options );
-}
-
-export async function pushSiteToLive(
-	_event: IpcMainInvokeEvent,
-	siteId: string,
-	remoteSiteId: number,
+	remoteSiteId: string | number,
 	options?: PushSyncOptions
 ): Promise< SyncResult > {
-	return syncRunner.push( siteId, await requireSitePath( siteId ), remoteSiteId, options );
-}
-
-// Fetches every WordPress.com site the authenticated user can sync to.
-// The desktop renderer builds this list itself via its own WPCOM client
-// (see wpcomSitesApi.getWpComSites); apps/ui doesn't own a wpcom client
-// yet, so we expose a thin IPC wrapper that reuses the stored auth token.
-export async function fetchSyncableWpcomSites( _event: IpcMainInvokeEvent ): Promise< SyncSite[] > {
-	const token = await getAuthenticationToken();
-	if ( ! token?.accessToken ) {
-		throw new Error( 'Authentication required to fetch WordPress.com sites.' );
-	}
-	return wpcomSites.list(
-		{ token: token.accessToken },
-		{ planRequired: ! isReprintPullEnabled() }
+	return syncRunner.push(
+		siteId,
+		await requireSitePath( siteId ),
+		{ provider: parseProvider( provider ), id: remoteSiteId },
+		options
 	);
 }
 
-export async function getConnectedWpcomSites(
+export async function pullSite(
 	_event: IpcMainInvokeEvent,
-	localSiteId?: string
-): Promise< SyncSite[] > {
-	if ( localSiteId ) {
-		return getConnectedWpcomSitesForLocalSite( localSiteId );
-	}
-	return getAllConnectedWpcomSitesForCurrentUserShared();
+	provider: string,
+	siteId: string,
+	remoteSiteId: string | number,
+	options?: PullSyncOptions
+): Promise< SyncResult > {
+	return syncRunner.pull(
+		siteId,
+		await requireSitePath( siteId ),
+		{ provider: parseProvider( provider ), id: remoteSiteId },
+		options
+	);
+}
+
+export function cancelSyncOperation(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	remoteSiteId: string | number
+) {
+	syncRunner.cancel( siteId, remoteSiteId );
 }
 
 /**
- * Latest rewind (backup) id for a remote site, used by selective pull to browse
- * the remote backup file tree. Rejects when the site has no backup yet (or the
- * lookup fails): the dialog relies on the error state to disable per-item
+ * The remote site's latest backup, which a selective pull browses. Rejects when the site has no
+ * backup yet (or the lookup fails): the dialog relies on the error state to disable per-item
  * selection and force a full sync.
  */
-export async function getLatestRewindId(
+export async function getRemoteBackupId(
 	_event: IpcMainInvokeEvent,
-	remoteSiteId: number
+	provider: string,
+	remoteSiteId: string | number
 ): Promise< string | null > {
-	const token = await getAuthenticationToken();
-	if ( ! token?.accessToken ) {
-		throw new Error( 'No token found' );
-	}
-	return wpcomSites.pull!.latestBackupId( { token: token.accessToken }, { id: remoteSiteId } );
+	return readRemoteBackupId( getProvider( parseProvider( provider ) ), remoteSiteId as never );
 }
 
 /**
- * Raw contents of a remote backup directory (rewind backup `ls`), keyed by
- * entry name. The renderer maps entries to tree nodes; returning the raw
- * items preserves `has_children`/`type` used for plugin/theme classification.
+ * Raw contents of a remote backup directory, keyed by entry name. The renderer maps entries to
+ * tree nodes; returning the raw items preserves `has_children`/`type` used for plugin/theme
+ * classification.
  */
-export async function listRemoteFileTree(
+export async function listRemoteBackupFiles(
 	_event: IpcMainInvokeEvent,
-	remoteSiteId: number,
-	rewindId: string,
-	treePath: string
+	provider: string,
+	remoteSiteId: string | number,
+	backupId: string,
+	path: string
 ): Promise< Record< string, unknown > > {
-	const token = await getAuthenticationToken();
-	if ( ! token?.accessToken ) {
-		throw new Error( 'No token found' );
-	}
-	return wpcomSites.pull!.listBackupFiles(
-		{ token: token.accessToken },
-		{ id: remoteSiteId },
-		rewindId,
-		treePath
+	return readRemoteBackupFiles(
+		getProvider( parseProvider( provider ) ),
+		remoteSiteId as never,
+		backupId,
+		path
 	);
-}
-
-/**
- * PHP version of the remote site's hosting environment — used by the sync
- * dialog to warn about version mismatches before pushing.
- */
-export async function getHostingPhpVersion(
-	_event: IpcMainInvokeEvent,
-	remoteSiteId: number
-): Promise< string | undefined > {
-	const token = await getAuthenticationToken();
-	if ( ! token?.accessToken ) {
-		throw new Error( 'No token found' );
-	}
-	return wpcomSites.pull!.phpVersion( { token: token.accessToken }, { id: remoteSiteId } );
 }

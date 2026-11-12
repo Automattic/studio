@@ -17,6 +17,7 @@ export type {
 	PullSyncOptions,
 	PushSyncOptions,
 	QuitSitesBehavior,
+	RemoteSiteConnection,
 	SessionEntry,
 	SelectedSiteFolder,
 	SiteDesign,

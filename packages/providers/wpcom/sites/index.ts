@@ -3,7 +3,6 @@ import { z } from 'zod';
 import { ProviderNotReadyError, RemoteSiteError } from '../../errors';
 import {
 	checkBackupSize,
-	fetchHostingPhpVersion,
 	fetchLatestRewindId,
 	fetchRemoteFileTreeContents,
 	fetchSyncableSites,
@@ -251,7 +250,5 @@ export const wpcomSites: SitesService< WpcomConfig, SyncSite > = {
 			step( __( 'Failed to fetch remote file tree' ), 'remote_backup', () =>
 				fetchRemoteFileTreeContents( requireToken( config ), site.id, backupId, path )
 			),
-
-		phpVersion: ( config, site ) => fetchHostingPhpVersion( requireToken( config ), site.id ),
 	},
 };

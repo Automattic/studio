@@ -1,3 +1,4 @@
+import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 
 // Whether a WordPress.com site can sync with a local site, and why not.
@@ -68,7 +69,10 @@ export type PullSyncOptions = {
  * times are read from storage. A connection missing from the list was deleted, or the user lost
  * access to it.
  */
-export function withWpcomDetails( connections: SyncSite[], wpcomSites: SyncSite[] ): SyncSite[] {
+export function withWpcomDetails< Connection extends SyncSite >(
+	connections: Connection[],
+	wpcomSites: SyncSite[]
+): Connection[] {
 	return connections.map( ( connection ) => {
 		const { id, localSiteId, lastPullTimestamp, lastPushTimestamp } = connection;
 		const site = wpcomSites.find( ( candidate ) => candidate.id === id );
@@ -79,11 +83,85 @@ export function withWpcomDetails( connections: SyncSite[], wpcomSites: SyncSite[
 			: site.syncSupport;
 		return {
 			// A site gone from WordPress.com keeps the name and URL it was connected under.
-			...( site ?? connection ),
+			...connection,
+			...site,
 			localSiteId,
 			syncSupport,
 			lastPullTimestamp,
 			lastPushTimestamp,
 		};
 	} );
+}
+
+export function wpcomSiteAddress( site: SyncSite ): string {
+	return site.url.replace( /^https?:\/\//, '' ).replace( /\/$/, '' );
+}
+
+// Why a site can't be published to or pulled from, from what WordPress.com says about it.
+export function wpcomSiteIssue( site: SyncSite, direction: 'push' | 'pull' ): string | null {
+	switch ( site.syncSupport ) {
+		case 'deleted':
+			return __( 'This website has been deleted. Choose another website.' );
+		case 'missing-permissions':
+			return __( 'You need administrator access to publish or pull changes.' );
+		case 'needs-upgrade':
+			return __(
+				'This website needs a hosting plan that supports publishing from WordPress Studio.'
+			);
+		case 'needs-transfer':
+			return __( 'Finish activating hosting on WordPress.com before publishing.' );
+		case 'unsupported':
+			return __( 'Publishing and pulling require a supported WordPress.com or Pressable website.' );
+		default:
+			return direction === 'push' && site.pushNeedsUpgrade
+				? __( 'This website needs a hosting plan that supports publishing from WordPress Studio.' )
+				: null;
+	}
+}
+
+function wpcomEnvironmentLabel( site: SyncSite ): string {
+	const environment =
+		site.isPressable &&
+		( site.environmentType === 'staging' || site.environmentType === 'development' )
+			? site.environmentType
+			: site.isStaging
+			? 'staging'
+			: 'production';
+	switch ( environment ) {
+		case 'staging':
+			return __( 'Staging' );
+		case 'development':
+			return __( 'Development' );
+		default:
+			return __( 'Production' );
+	}
+}
+
+export function wpcomPushWarning( site: SyncSite, local: { multisite?: boolean } ): string | null {
+	return local.multisite && ! site.isPressable
+		? __( 'WordPress.com does not support multisite. Publishing this network may cause problems.' )
+		: null;
+}
+
+export function wpcomSiteDetails( site: SyncSite ): { title: string; value: string }[] {
+	return [ { title: __( 'Environment' ), value: wpcomEnvironmentLabel( site ) } ];
+}
+
+// Pressable sites are managed on Pressable, so WordPress.com has no pages for them.
+export function wpcomSiteLinks( site: SyncSite ): { title: string; url: string }[] {
+	if ( site.isPressable ) {
+		return [];
+	}
+	let hostname: string;
+	try {
+		hostname = new URL( site.url ).hostname;
+	} catch {
+		return [];
+	}
+	const dashboard = `https://my.wordpress.com/sites/${ hostname }`;
+	return [
+		{ title: __( 'Domains' ), url: `${ dashboard }/domains` },
+		{ title: __( 'Backups' ), url: `https://wordpress.com/backup/${ hostname }` },
+		{ title: __( 'Manage on WordPress.com' ), url: dashboard },
+	];
 }

@@ -1,16 +1,20 @@
 import {
 	getConnectFields,
 	getProviderDescriptor,
+	getSitesDescriptor,
 	AI_PROVIDER_IDS,
+	SITES_PROVIDER_IDS,
 	type AiProviderId,
+	type SitesProviderId,
 } from '@studio/providers';
-import { __, sprintf } from '@wordpress/i18n';
+import { __, _x, sprintf } from '@wordpress/i18n';
 import { useEffect, useState } from 'react';
 import { getProviderIntent } from '@/data/account-analytics';
 import { useConnector } from '@/data/core';
 import {
 	useAiSettings,
 	useConnectProvider,
+	useDeviceSignIn,
 	useDisconnectProvider,
 	useSetAiProvider,
 } from '@/data/queries/use-ai-settings';
@@ -232,6 +236,76 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 	);
 }
 
+// A provider that publishes sites and connects with a device sign-in.
+function PublishingProviderRow( { provider }: { provider: SitesProviderId } ) {
+	const settings = useAiSettings();
+	const signIn = useDeviceSignIn( provider );
+	const disconnect = useDisconnectProvider( provider );
+	const offline = useOffline();
+	const descriptor = getProviderDescriptor( provider );
+	const connected = settings.data?.accounts[ provider ].connected;
+	return (
+		<SettingsRow
+			title={ descriptor.label }
+			settingId={ `${ provider }-provider` }
+			badge={ connected ? connectedBadge() : null }
+			description={
+				<>
+					{ signIn.authorization
+						? sprintf(
+								/* translators: 1: a sign-in code, 2: a service name such as Spacefast */
+								__( 'Approve the code %1$s on %2$s to connect.' ),
+								signIn.authorization.userCode,
+								descriptor.label
+						  )
+						: descriptor.description?.() }{ ' ' }
+					{ descriptor.learnMoreUrl ? <LearnMoreLink url={ descriptor.learnMoreUrl } /> : null }
+				</>
+			}
+			error={ ( signIn.error ?? disconnect.error )?.message }
+		>
+			{ connected ? (
+				<Button
+					variant="outline"
+					disabled={ disconnect.isPending }
+					onClick={ () => disconnect.mutate() }
+				>
+					{ __( 'Disconnect' ) }
+				</Button>
+			) : (
+				<Button
+					variant="outline"
+					disabled={ settings.isLoading || offline }
+					loading={ signIn.isPending }
+					onClick={ () => signIn.mutate() }
+				>
+					{ __( 'Connect' ) }
+				</Button>
+			) }
+		</SettingsRow>
+	);
+}
+
+function PublishingSection() {
+	const { capabilities } = useConnector();
+	// A provider that publishes a static export needs the site to run on native PHP.
+	const providers = SITES_PROVIDER_IDS.filter(
+		( id ) =>
+			getProviderDescriptor( id ).connection.kind === 'device' &&
+			( capabilities.nativeSites || ! getSitesDescriptor( id ).exportsStaticSite )
+	);
+	if ( ! providers.length ) {
+		return null;
+	}
+	return (
+		<SettingsGroup title={ _x( 'Publishing', 'settings section' ) }>
+			{ providers.map( ( id ) => (
+				<PublishingProviderRow key={ id } provider={ id } />
+			) ) }
+		</SettingsGroup>
+	);
+}
+
 export function AiPanel( { onManageCredits }: { onManageCredits: () => void } ) {
 	return (
 		<div className={ styles.preferencesPanel }>
@@ -249,6 +323,7 @@ export function AiPanel( { onManageCredits }: { onManageCredits: () => void } ) 
 				/>
 			</SettingsGroup>
 			<ProvidersSection onManageCredits={ onManageCredits } />
+			<PublishingSection />
 		</div>
 	);
 }

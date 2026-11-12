@@ -1,13 +1,16 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useSessionPreviewUI } from '@/data/use-session-ui';
+import type { SitesProviderId } from '@studio/providers';
 
 type HeaderPanelRequest = (
 	| {
 			panel: 'publish';
 			siteId: string;
 			view: 'publish' | 'pull' | 'websites';
-			remoteSiteId?: number;
+			// The provider to publish to; without one, the panel offers a choice.
+			provider?: SitesProviderId;
+			remoteSiteId?: string | number;
 	  }
 	| { panel: 'share'; siteId: string }
 ) & { trigger?: HTMLElement };

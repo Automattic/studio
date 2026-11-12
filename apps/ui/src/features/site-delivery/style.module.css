@@ -21,6 +21,17 @@
 	flex: 1;
 	min-height: 0;
 }
+
+.publishDestination {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-2_5 );
+}
+
+.publishDestination > :last-child {
+	flex: 1;
+	min-height: 0;
+}
 .triggerLabel {
 	position: relative;
 }

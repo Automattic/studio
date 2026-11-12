@@ -6,7 +6,7 @@ import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
-import { usePullSiteFromLive } from '@/data/queries/use-sync-site';
+import { usePullSite } from '@/data/queries/use-sync-site';
 import { resolveSettingsLink } from '@/data/settings-sections';
 import { getSnapshotHostname } from '@/data/snapshot-url';
 import { requestHeaderPanel } from '@/data/use-open-header-panel';
@@ -30,7 +30,7 @@ export function useAppMenuNavigation() {
 	const openSite = useOpenSite();
 	const { mutate: startSite } = useStartSiteWithChat();
 	const queryClient = useQueryClient();
-	const { mutate: pullSite } = usePullSiteFromLive();
+	const { mutate: pullSite } = usePullSite();
 	const { mutate: publishPreview } = usePublishPreviewSite();
 
 	const pickingFolder = useRef( false );
@@ -125,7 +125,7 @@ export function useAppMenuNavigation() {
 				void ( async () => {
 					const [ snapshots, connected, sites ] = await Promise.all( [
 						connector.getSnapshots().catch( () => [] ),
-						connector.getConnectedWpcomSites().catch( () => [] ),
+						connector.getRemoteSites( 'wpcom' ).catch( () => [] ),
 						queryClient.fetchQuery( {
 							queryKey: SITES_QUERY_KEY,
 							queryFn: () => connector.getSites(),
@@ -144,13 +144,14 @@ export function useAppMenuNavigation() {
 							.getPreviewStatus( getSnapshotHostname( snapshot ) )
 							.catch( () => ( { localChanged: null, previewChanged: null } ) );
 						if ( previewChanged && localChanged === false ) {
-							pullSite( { siteId: previewSite.id, remoteSiteId } );
+							pullSite( { provider: 'wpcom', siteId: previewSite.id, remoteSiteId } );
 						} else if ( previewChanged ) {
 							toast.info( __( 'This site and its preview both changed' ), {
 								description: __( 'Pulling the preview replaces the changes made here.' ),
 								action: {
 									label: __( 'Pull preview' ),
-									onClick: () => pullSite( { siteId: previewSite.id, remoteSiteId } ),
+									onClick: () =>
+										pullSite( { provider: 'wpcom', siteId: previewSite.id, remoteSiteId } ),
 								},
 							} );
 						} else if ( localChanged ) {
@@ -180,6 +181,7 @@ export function useAppMenuNavigation() {
 							panel: 'publish',
 							siteId: site.id,
 							view: 'pull',
+							provider: 'wpcom',
 							remoteSiteId,
 						} );
 						openSite( site );

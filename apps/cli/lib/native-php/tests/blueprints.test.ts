@@ -196,8 +196,12 @@ describe( 'removeOwnedSqliteSymlink', () => {
 		fs.mkdirSync( target );
 		fs.symlinkSync( target, symlink, 'junction' );
 		const symlinkIno = fs.lstatSync( symlink ).ino;
+		// Create the replacement while the symlink still holds its inode: ext4 hands a freed inode
+		// number straight to the next entry, so a mkdir after the rm would reuse the symlink's ino.
+		const replacement = path.join( tempDir, 'replacement' );
+		fs.mkdirSync( replacement );
 		fs.rmSync( symlink );
-		fs.mkdirSync( symlink );
+		fs.renameSync( replacement, symlink );
 
 		await removeOwnedSqliteSymlink( symlink, symlinkIno );
 

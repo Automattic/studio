@@ -124,7 +124,7 @@ Previews are a capability, and WordPress.com is the only provider that offers it
 ## Surfaces
 
 - **`apps/ui`** reads descriptors and account states through its connectors, and never names a provider, apart from Studio sign-in. The `ipc`, `local` and static connectors stay thin wrappers over Studio's storage in `@studio/common` and the providers' services.
-- **The agent**, in Node or in the page, receives a model connection per turn. Tools that depend on a capability are available only when a connected provider offers it. `wpcom_request` also requires Studio sign-in _(planned)_; the MCP runtime can still turn it off per client (Codex).
+- **The agent**, in Node or in the page, receives a model connection per turn and resolved remote-site operations per provider through its host's `remoteSites` entries. Tools that depend on a capability are available only when a connected provider offers it. `wpcom_request` also requires Studio sign-in _(planned)_; the MCP runtime can still turn it off per client (Codex).
 - **The CLI** lists providers and models from descriptors in `studio code`. `studio auth` is Studio sign-in. `studio push` and `pull` hand the remote side to the provider; `preview` does too _(planned)_.
 - **Analytics**: existing Tracks properties keep their names, so reporting stays continuous.
 

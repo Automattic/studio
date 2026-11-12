@@ -26,7 +26,11 @@ export const pushSiteTool = defineTool(
 	async ( args, context ) => {
 		try {
 			const site = await context.host.sites.resolve( args.nameOrPath );
-			const remoteSite = await context.host.sync.push(
+			const remoteSites = context.host.remoteSites.wpcom;
+			if ( ! remoteSites ) {
+				throw new Error( 'WordPress.com push is not available from this host.' );
+			}
+			const remoteSite = await remoteSites.push(
 				site,
 				args.options ?? 'all',
 				args.remoteSite,

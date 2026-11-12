@@ -489,16 +489,22 @@ echo implode( "\\n", $found );`,
 			},
 			delete: ( hostname ) => wpcom.deleteSnapshot( normalizeHostname( hostname ) ),
 		},
-		sync: {
-			push: async ( site, options, remoteSite ): Promise< SyncSite > => {
-				const remote = await findRemoteSite( site, remoteSite );
-				await wpcom.push( site.id, remote.id, { optionsToSync: parseSyncOptions( options ) } );
-				return remote;
-			},
-			pull: async ( site, options, remoteSite ): Promise< SyncSite > => {
-				const remote = await findRemoteSite( site, remoteSite );
-				await wpcom.pull( site.id, remote.id, { optionsToSync: parseSyncOptions( options ) } );
-				return remote;
+		remoteSites: {
+			wpcom: {
+				connected: async () => !! ( await auth.token() )?.accessToken,
+				sites: () => wpcom.fetchSyncableSites(),
+				connectedSites: async ( site ) =>
+					( await auth.token() ) ? wpcom.getConnectedSites( site.id ) : [],
+				push: async ( site, options, remoteSite ): Promise< SyncSite > => {
+					const remote = await findRemoteSite( site, remoteSite );
+					await wpcom.push( site.id, remote.id, { optionsToSync: parseSyncOptions( options ) } );
+					return remote;
+				},
+				pull: async ( site, options, remoteSite ): Promise< SyncSite > => {
+					const remote = await findRemoteSite( site, remoteSite );
+					await wpcom.pull( site.id, remote.id, { optionsToSync: parseSyncOptions( options ) } );
+					return remote;
+				},
 			},
 		},
 		imageGenerator: async () => {
@@ -510,9 +516,6 @@ echo implode( "\\n", $found );`,
 		},
 		wpcom: {
 			token: async () => ( await auth.token() )?.accessToken,
-			sites: () => wpcom.fetchSyncableSites(),
-			connectedSites: async ( site ) =>
-				( await auth.token() ) ? wpcom.getConnectedSites( site.id ) : [],
 			request: async ( method, requestPath, query, body ) => {
 				const { apiNamespace, ...params } = query;
 				const search = new URLSearchParams(

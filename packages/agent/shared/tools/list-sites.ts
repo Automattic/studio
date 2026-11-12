@@ -5,11 +5,12 @@ import type { StudioAgentHost } from '@studio/agent/shared/host';
 // The WordPress.com sites the stored login can reach. A failure here leaves the
 // local listing intact.
 async function listWpcomSites( host: StudioAgentHost ) {
-	if ( ! ( await host.wpcom.token() ) ) {
+	const remoteSites = host.remoteSites.wpcom;
+	if ( ! remoteSites || ! ( await remoteSites.connected() ) ) {
 		return { signedIn: false, sites: [] };
 	}
 	try {
-		return { signedIn: true, sites: await host.wpcom.sites() };
+		return { signedIn: true, sites: await remoteSites.sites() };
 	} catch ( error ) {
 		return {
 			signedIn: true,

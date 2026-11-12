@@ -174,44 +174,47 @@ export const cliAgentHost: StudioAgentHost = {
 				new Logger( { onProgress } )
 			),
 	},
-	sync: {
-		push: async ( site, options, remoteSite, onProgress ) =>
-			runPushCommand(
-				site.path,
-				parseSyncOptions( options ),
-				remoteSite,
-				new Logger( { onProgress } )
-			),
-		pull: async ( site, options, remoteSite, onProgress ) =>
-			isReprintPullEnabled()
-				? runPullCommand(
-						site.path,
-						remoteSite,
-						false,
-						pullSelectionFromSyncOptions( parseSyncOptions( options ) ),
-						onProgress
-				  )
-				: runLegacyPullCommand(
-						site.path,
-						parseSyncOptions( options ),
-						remoteSite,
-						undefined,
-						new Logger( { onProgress } )
-				  ),
+	remoteSites: {
+		wpcom: {
+			connected: async () => !! ( await readAuthToken() )?.accessToken,
+			sites: async () => {
+				const token = await readAuthToken();
+				return token ? getWpComSites( token.accessToken ) : [];
+			},
+			connectedSites: async ( site ) => {
+				const stored = await getRemoteSites( 'wpcom', site.id );
+				const token = await readAuthToken();
+				return stored.length && token
+					? withWpcomDetails( stored, await wpcomSites.list( { token: token.accessToken } ) )
+					: [];
+			},
+			push: async ( site, options, remoteSite, onProgress ) =>
+				runPushCommand(
+					site.path,
+					parseSyncOptions( options ),
+					remoteSite,
+					new Logger( { onProgress } )
+				),
+			pull: async ( site, options, remoteSite, onProgress ) =>
+				isReprintPullEnabled()
+					? runPullCommand(
+							site.path,
+							remoteSite,
+							false,
+							pullSelectionFromSyncOptions( parseSyncOptions( options ) ),
+							onProgress
+					  )
+					: runLegacyPullCommand(
+							site.path,
+							parseSyncOptions( options ),
+							remoteSite,
+							undefined,
+							new Logger( { onProgress } )
+					  ),
+		},
 	},
 	wpcom: {
 		token: async () => ( await readAuthToken() )?.accessToken,
-		sites: async () => {
-			const token = await readAuthToken();
-			return token ? getWpComSites( token.accessToken ) : [];
-		},
-		connectedSites: async ( site ) => {
-			const stored = await getRemoteSites( 'wpcom', site.id );
-			const token = await readAuthToken();
-			return stored.length && token
-				? withWpcomDetails( stored, await wpcomSites.list( { token: token.accessToken } ) )
-				: [];
-		},
 		request: async ( method, path, query, body ) => {
 			const token = await readAuthToken();
 			if ( ! token?.accessToken ) {

@@ -50,8 +50,9 @@ The host (`StudioAgentHost`, `shared/host.ts`) is what the app running the agent
 
 Every host provides these, each a named interface in `shared/host.ts`:
 
-- `sites` (`HostSites`), `previews` (`HostPreviews`), `sync` (`HostSync`): the site operations its tools run. Site operations belong to the app; the CLI implements them with its own commands (`apps/cli/ai/host.ts`), so each operation has one implementation.
-- `wpcom` (`HostWpcom`): WordPress.com as the signed-in user: its token, its sites, the sites a local site syncs with, and REST requests.
+- `sites` (`HostSites`), `previews` (`HostPreviews`), `remoteSites` (per-provider `HostRemoteSites`): the site operations its tools run. Site operations belong to the app; the CLI implements them with its own commands (`apps/cli/ai/host.ts`), so each operation has one implementation.
+- `remoteSites` provides each sites provider's account state, site listings, connected sites and push/pull operations. Pull is optional for publish-only providers.
+- `wpcom` (`HostWpcom`): WordPress.com as the signed-in user: its token and REST requests for `wpcom_request`.
 - `files` (`HostFiles`), `path` (`HostPath`): the sites' files, by the paths the agent sees, and the path functions for them.
 - `pages` (`HostPages`): pages loaded in the host's browser, for screenshots, design inspection, audits and block validation. Page scripts are shared; the host only opens the page.
 - `saveImage`: where images the agent makes, such as screenshots, are kept for the user.

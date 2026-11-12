@@ -627,7 +627,7 @@ describe( 'Studio AI MCP tools', () => {
 			lastPullTimestamp: null,
 			lastPushTimestamp: null,
 		};
-		vi.mocked( host.wpcom.connectedSites ).mockResolvedValue( [
+		vi.mocked( host.remoteSites.wpcom!.connectedSites ).mockResolvedValue( [
 			{ ...site, localSiteId: 'site-123', syncSupport: 'already-connected' },
 		] );
 
@@ -635,7 +635,7 @@ describe( 'Studio AI MCP tools', () => {
 			nameOrPath: 'My Site',
 		} as never );
 
-		expect( host.wpcom.connectedSites ).toHaveBeenCalledWith( mockSite );
+		expect( host.remoteSites.wpcom!.connectedSites ).toHaveBeenCalledWith( mockSite );
 		const parsed = JSON.parse( getTextContent( result ) ?? '[]' );
 		expect( parsed ).toEqual( [
 			{
@@ -661,14 +661,14 @@ describe( 'Studio AI MCP tools', () => {
 		} );
 
 		it( 'lists local and WordPress.com sites together', async () => {
-			vi.mocked( host.wpcom.token ).mockResolvedValue( 'token' );
-			vi.mocked( host.wpcom.sites ).mockResolvedValue( [
+			vi.mocked( host.remoteSites.wpcom!.connected ).mockResolvedValue( true );
+			vi.mocked( host.remoteSites.wpcom!.sites ).mockResolvedValue( [
 				{ id: 111, name: 'My Production Site', url: 'https://myprod.wordpress.com' },
 			] );
 
 			const result = await getTool( 'site_list' ).rawHandler( {} as never );
 
-			expect( host.wpcom.sites ).toHaveBeenCalled();
+			expect( host.remoteSites.wpcom!.sites ).toHaveBeenCalled();
 			expect( JSON.parse( getTextContent( result )! ) ).toEqual( {
 				local: [ { id: 'site-123', name: 'My Site', running: false } ],
 				wordpressCom: {
@@ -679,20 +679,33 @@ describe( 'Studio AI MCP tools', () => {
 		} );
 
 		it( 'says when the user is not logged in to WordPress.com', async () => {
-			vi.mocked( host.wpcom.token ).mockResolvedValue( undefined );
+			vi.mocked( host.remoteSites.wpcom!.connected ).mockResolvedValue( false );
 
 			const result = await getTool( 'site_list' ).rawHandler( {} as never );
 
-			expect( host.wpcom.sites ).not.toHaveBeenCalled();
+			expect( host.remoteSites.wpcom!.sites ).not.toHaveBeenCalled();
 			expect( JSON.parse( getTextContent( result )! ).wordpressCom ).toEqual( {
 				signedIn: false,
 				sites: [],
 			} );
 		} );
 
+		it( 'reports signed out when the host has no WordPress.com remote sites', async () => {
+			delete host.remoteSites.wpcom;
+
+			const result = await getTool( 'site_list' ).rawHandler( {} as never );
+
+			expect( JSON.parse( getTextContent( result )! ) ).toEqual( {
+				local: [ { id: 'site-123', name: 'My Site', running: false } ],
+				wordpressCom: { signedIn: false, sites: [] },
+			} );
+		} );
+
 		it( 'keeps the local sites when WordPress.com cannot be reached', async () => {
-			vi.mocked( host.wpcom.token ).mockResolvedValue( 'token' );
-			vi.mocked( host.wpcom.sites ).mockRejectedValue( new Error( 'Failed to fetch' ) );
+			vi.mocked( host.remoteSites.wpcom!.connected ).mockResolvedValue( true );
+			vi.mocked( host.remoteSites.wpcom!.sites ).mockRejectedValue(
+				new Error( 'Failed to fetch' )
+			);
 
 			const parsed = JSON.parse(
 				getTextContent( await getTool( 'site_list' ).rawHandler( {} as never ) )!

@@ -8,7 +8,14 @@ export type Website = RemoteSite & {
 	lastPullTimestamp?: string | null;
 };
 
-export type PublishView = 'publish' | 'pull' | 'websites';
+export type PublishView = 'publish' | 'pull';
+// What the panel opens on: `start` offers a new or existing site even when one is connected.
+export type PanelRequest = { view: PublishView | 'start'; remoteSiteId?: Website[ 'id' ] };
+
+// A WordPress.com site still waiting for its launch hasn't been published yet.
+export function lastPublished( website: Website ) {
+	return 'launchAfterPush' in website && website.launchAfterPush ? null : website.lastPushTimestamp;
+}
 export type PublishScope = 'all' | 'files' | 'content' | 'custom';
 export type TransferDirection = 'push' | 'pull';
 export type TransferOptions = { push: PushSyncOptions; pull: PullSyncOptions };

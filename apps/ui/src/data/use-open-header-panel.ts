@@ -7,8 +7,8 @@ type HeaderPanelRequest = (
 	| {
 			panel: 'publish';
 			siteId: string;
-			view: 'publish' | 'pull' | 'websites';
-			// The provider to publish to; without one, the panel offers a choice.
+			view: 'publish' | 'pull';
+			// The provider to publish to; without one, the panel lists the published sites.
 			provider?: SitesProviderId;
 			remoteSiteId?: string | number;
 	  }

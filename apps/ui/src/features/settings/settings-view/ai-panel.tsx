@@ -7,7 +7,7 @@ import {
 	type AiProviderId,
 	type SitesProviderId,
 } from '@studio/providers';
-import { __, _x, sprintf } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useState } from 'react';
 import { getProviderIntent } from '@/data/account-analytics';
 import { useConnector } from '@/data/core';
@@ -148,7 +148,9 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } ) {
 	const settings = useAiSettings();
 	const { data: user, isLoading: userLoading } = useAuthUser();
-	const origin = getProviderIntent( useConnector() );
+	const connector = useConnector();
+	const { capabilities } = connector;
+	const origin = getProviderIntent( connector );
 	const { promptRef, ...signup } = useLogin( {
 		signup: true,
 		source: 'settings',
@@ -164,6 +166,12 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 	const isOffline = useOffline();
 	const [ wpcomRequested, setWpcomRequested ] = useState( false );
 	const connected = AI_PROVIDER_IDS.filter( ( id ) => settings.data?.accounts[ id ].connected );
+	// A provider that publishes a static export needs the site to run on native PHP.
+	const deviceProviders = SITES_PROVIDER_IDS.filter(
+		( id ) =>
+			getProviderDescriptor( id ).connection.kind === 'device' &&
+			( capabilities.nativeSites || ! getSitesDescriptor( id ).exportsStaticSite )
+	);
 
 	// Connecting WordPress.com finishes once the sign-up lands.
 	const { mutate: selectProvider } = setProvider;
@@ -214,6 +222,9 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 			{ AI_PROVIDER_IDS.filter( ( id ) => getConnectFields( id ).length ).map( ( id ) => (
 				<ProviderFormRow key={ id } provider={ id } />
 			) ) }
+			{ deviceProviders.map( ( id ) => (
+				<DeviceProviderRow key={ id } provider={ id } />
+			) ) }
 			{ connected.length > 1 && settings.data ? (
 				<SettingsRow
 					title={ __( 'Default provider' ) }
@@ -236,8 +247,8 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 	);
 }
 
-// A provider that publishes sites and connects with a device sign-in.
-function PublishingProviderRow( { provider }: { provider: SitesProviderId } ) {
+// A provider that connects with a device sign-in, such as one that publishes sites.
+function DeviceProviderRow( { provider }: { provider: SitesProviderId } ) {
 	const settings = useAiSettings();
 	const signIn = useDeviceSignIn( provider );
 	const disconnect = useDisconnectProvider( provider );
@@ -286,26 +297,6 @@ function PublishingProviderRow( { provider }: { provider: SitesProviderId } ) {
 	);
 }
 
-function PublishingSection() {
-	const { capabilities } = useConnector();
-	// A provider that publishes a static export needs the site to run on native PHP.
-	const providers = SITES_PROVIDER_IDS.filter(
-		( id ) =>
-			getProviderDescriptor( id ).connection.kind === 'device' &&
-			( capabilities.nativeSites || ! getSitesDescriptor( id ).exportsStaticSite )
-	);
-	if ( ! providers.length ) {
-		return null;
-	}
-	return (
-		<SettingsGroup title={ _x( 'Publishing', 'settings section' ) }>
-			{ providers.map( ( id ) => (
-				<PublishingProviderRow key={ id } provider={ id } />
-			) ) }
-		</SettingsGroup>
-	);
-}
-
 export function AiPanel( { onManageCredits }: { onManageCredits: () => void } ) {
 	return (
 		<div className={ styles.preferencesPanel }>
@@ -315,7 +306,7 @@ export function AiPanel( { onManageCredits }: { onManageCredits: () => void } ) 
 					description={
 						<>
 							{ __(
-								'Providers give WordPress Studio access to the models that understand your requests and make changes to your sites. Connect one to build pages, write content, and customize themes and plugins through chat.'
+								'Providers give WordPress Studio access to the models that understand your requests and make changes to your sites, and to the places you publish them. Connect one to build pages, write content, and customize themes and plugins through chat.'
 							) }{ ' ' }
 							<LearnMoreLink docsLinksKey="docsStudioCode" />
 						</>
@@ -323,7 +314,6 @@ export function AiPanel( { onManageCredits }: { onManageCredits: () => void } ) 
 				/>
 			</SettingsGroup>
 			<ProvidersSection onManageCredits={ onManageCredits } />
-			<PublishingSection />
 		</div>
 	);
 }

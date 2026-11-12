@@ -360,10 +360,11 @@ export function useDisconnectRemoteSite() {
 	return useMutation( {
 		mutationFn: ( { provider, siteId, remoteSiteId }: DisconnectVariables ) =>
 			connector.disconnectRemoteSite( provider, siteId, remoteSiteId ),
-		onSuccess: ( _result, { provider, siteId } ) => {
-			void queryClient.invalidateQueries( { queryKey: remoteSitesQueryKey( provider, siteId ) } );
-			void queryClient.invalidateQueries( { queryKey: remoteSitesQueryKey( provider ) } );
-		},
+		onSuccess: ( _result, { provider, siteId } ) =>
+			Promise.all( [
+				queryClient.invalidateQueries( { queryKey: remoteSitesQueryKey( provider, siteId ) } ),
+				queryClient.invalidateQueries( { queryKey: remoteSitesQueryKey( provider ) } ),
+			] ),
 	} );
 }
 

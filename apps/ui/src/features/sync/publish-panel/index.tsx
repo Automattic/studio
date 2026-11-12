@@ -40,7 +40,7 @@ import { ConnectedWebsite } from './connected-website';
 import { DisconnectSiteDialog } from './disconnect-site-dialog';
 import { ErrorMessage, PanelBody, PanelHeader, TransferProgress } from './parts';
 import styles from './style.module.css';
-import type { PublishView, Website } from './options';
+import type { PanelRequest, PublishView, Website } from './options';
 import type { SiteDetails } from '@/data/core';
 
 export function PublishPanel( {
@@ -50,6 +50,7 @@ export function PublishPanel( {
 	request,
 	headerContainer,
 	onSubstepChange,
+	onDisconnected,
 	setupAfterSignup = false,
 	onSetupAfterSignup,
 }: {
@@ -58,7 +59,8 @@ export function PublishPanel( {
 	open: boolean;
 	headerContainer: HTMLDivElement | null;
 	onSubstepChange: ( active: boolean ) => void;
-	request?: { view: PublishView; remoteSiteId?: Website[ 'id' ] };
+	onDisconnected: () => void;
+	request?: PanelRequest;
 	setupAfterSignup?: boolean;
 	onSetupAfterSignup?: () => void;
 } ) {
@@ -73,7 +75,6 @@ export function PublishPanel( {
 	const [ reviewingTransfer, setReviewingTransfer ] = useState( false );
 	const [ disconnecting, setDisconnecting ] = useState< Website | null >( null );
 	const disconnectActions = useRef< HTMLButtonElement >( null );
-	const websiteSwitcher = useRef< HTMLButtonElement >( null );
 	const [ highlightedSite, setHighlightedSite ] = useState< string >();
 	const [ selectedId, setSelectedId ] = useState< Website[ 'id' ] | null >( null );
 	// The websites already connected when the user went to create a new one.
@@ -238,12 +239,8 @@ export function PublishPanel( {
 					provider={ provider }
 					open={ open }
 					website={ destination }
-					websites={ websites }
-					onSelectWebsite={ selectWebsite }
-					onConnectWebsite={ () => setView( 'choose-site' ) }
 					disabled={ offline || busy }
 					actionsRef={ disconnectActions }
-					switcherRef={ websiteSwitcher }
 					onDisconnect={ () => {
 						disconnect.reset();
 						setDisconnecting( destination );
@@ -266,13 +263,6 @@ export function PublishPanel( {
 		onSubstepChange( view === 'choose-site' || reviewingTransfer );
 	}, [ view, reviewingTransfer, onSubstepChange ] );
 
-	const destinationId = destination?.id;
-	useEffect( () => {
-		if ( selectedId === null ) return;
-		const frame = requestAnimationFrame( () => websiteSwitcher.current?.focus() );
-		return () => cancelAnimationFrame( frame );
-	}, [ selectedId, destinationId ] );
-
 	const renderContent = () => {
 		if ( view === 'choose-site' ) {
 			return (
@@ -282,7 +272,7 @@ export function PublishPanel( {
 								<PanelHeader
 									className={ styles.pickerHeader }
 									title={ __( 'Choose an existing site' ) }
-									onBack={ () => setView( destination ? 'publish' : 'start' ) }
+									onBack={ () => setView( 'start' ) }
 								>
 									{ selectableWebsites.length ? (
 										<Menu.Root modal={ false }>
@@ -427,7 +417,12 @@ export function PublishPanel( {
 					provider={ provider }
 					remote={ destination }
 					connectedWebsite={ connectedWebsite }
-					activity={ transfer === dismissedTransfer ? null : transfer }
+					activity={
+						transfer === dismissedTransfer ||
+						( transfer?.remoteSiteId !== undefined && transfer.remoteSiteId !== destination.id )
+							? null
+							: transfer
+					}
 					view={ view }
 					setView={ setView }
 					open={ open }
@@ -511,8 +506,7 @@ export function PublishPanel( {
 							{
 								onSuccess: () => {
 									setDisconnecting( null );
-									selectWebsite( null );
-									setView( websites.length > 1 ? 'publish' : 'choose-site' );
+									onDisconnected();
 								},
 							}
 						);

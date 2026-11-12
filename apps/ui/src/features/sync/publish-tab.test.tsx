@@ -4,8 +4,9 @@ import { expect, it } from 'vitest';
 import { SessionUIProvider } from '@/data/use-session-ui';
 import { PublishButton, SiteDeliveryDialog } from '@/features/site-delivery';
 import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
+import { aiSettings } from '@/test/in-memory-connector';
 import { renderWithProviders } from '@/test/render';
-import type { RemoteSiteConnection } from '@/data/core';
+import type { RemoteSiteConnection, SyncSite } from '@/data/core';
 import type { Space } from '@studio/providers';
 
 const space: Space = {
@@ -96,4 +97,47 @@ it( 'publishes to WordPress.com directly where a static export can’t be made',
 	await actions.click( await screen.findByRole( 'button', { name: 'Publish…' } ) );
 	expect( await screen.findByRole( 'button', { name: 'New site…' } ) ).toBeVisible();
 	expect( screen.queryByText( 'Where do you want to publish?' ) ).not.toBeInTheDocument();
+} );
+
+it( 'lists the sites published on every provider and publishes to another Space', async () => {
+	const actions = userEvent.setup();
+	const wpcomSite: SyncSite = {
+		id: 42,
+		localSiteId: 'local',
+		name: 'Hosted site',
+		url: 'https://example.com',
+		isStaging: false,
+		isPressable: false,
+		syncSupport: 'syncable',
+		lastPushTimestamp: null,
+		lastPullTimestamp: null,
+	};
+	const second: Space = { ...space, id: 'spc_2', url: 'https://second.space.fast/' };
+	const { connector, site } = setup( {
+		getRemoteSites: async ( provider, localSiteId ) =>
+			provider === 'wpcom'
+				? [ { ...wpcomSite, localSiteId: localSiteId ?? '' } ]
+				: [
+						{
+							...space,
+							localSiteId: localSiteId ?? '',
+							lastPushTimestamp: null,
+							lastPullTimestamp: null,
+						},
+				  ],
+		getAiSettings: async () => aiSettings( 'wpcom', [ 'wpcom', 'spacefast' ] ),
+		createRemoteSite: async () => second,
+	} );
+	await actions.click( await screen.findByRole( 'button', { name: 'Publish…' } ) );
+	expect(
+		await screen.findByRole( 'button', { name: 'example.com' } )
+	).toHaveAccessibleDescription( 'WordPress.com' );
+	expect(
+		screen.getByRole( 'button', { name: 'local-site.space.fast' } )
+	).toHaveAccessibleDescription( 'Spacefast' );
+
+	await actions.click( screen.getByRole( 'button', { name: 'Publish to another site…' } ) );
+	await actions.click( await screen.findByRole( 'button', { name: /^Spacefast/ } ) );
+	await actions.click( await screen.findByRole( 'button', { name: 'New site' } ) );
+	expect( connector.createRemoteSite ).toHaveBeenCalledWith( 'spacefast', site.id, 'Local site' );
 } );

@@ -12,14 +12,7 @@ import {
 	PreviewManagementDialog,
 	type PreviewManagementAction,
 } from '@/features/sharing';
-import {
-	PublishDestinationBar,
-	PublishDestinationLoading,
-	PublishDestinationPicker,
-	PublishPanel,
-	usePublishDestination,
-	usePublishSetupError,
-} from '@/features/sync';
+import { PublishTab, usePublishTab, usePublishSetupError } from '@/features/sync';
 import { PublishTransferIcon, ShareIcon, SyncIcon } from '@/lib/icons';
 import {
 	Button,
@@ -40,7 +33,6 @@ import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 
 type Tab = 'share' | 'publish';
-type PublishRequest = { view: 'publish' | 'pull' | 'websites'; remoteSiteId?: string | number };
 export function SiteDeliveryDialog( {
 	site,
 	anchor,
@@ -50,8 +42,8 @@ export function SiteDeliveryDialog( {
 } ) {
 	const id = useId();
 	const user = useAuthUser();
-	const destination = usePublishDestination( site.id );
-	const { choose } = destination;
+	const publish = usePublishTab( site.id );
+	const { open: openPublish } = publish;
 	const [ setupAfterSignup, setSetupAfterSignup ] = useState( false );
 	const [ open, setOpen ] = useState( false );
 	const [ tab, setTab ] = useState< Tab >( 'share' );
@@ -59,38 +51,36 @@ export function SiteDeliveryDialog( {
 	const previewReturnFocus = useRef< HTMLButtonElement | null >( null );
 	const [ publishSubstep, setPublishSubstep ] = useState( false );
 	const [ publishHeader, setPublishHeader ] = useState< HTMLDivElement | null >( null );
-	const [ request, setRequest ] = useState< PublishRequest >();
 	const finalFocus = useRef< HTMLElement | null >( null );
 	useEffect( () => {
-		const show = ( next: Tab, trigger?: HTMLElement, publishRequest?: PublishRequest ) => {
+		const show = ( next: Tab, trigger?: HTMLElement ) => {
 			previewReturnFocus.current = null;
 			finalFocus.current =
 				trigger ??
 				anchor?.current?.querySelector< HTMLElement >( '[data-share-overflow-trigger]' ) ??
 				( document.activeElement instanceof HTMLElement ? document.activeElement : null );
 			setTab( next );
-			if ( next === 'publish' ) setRequest( publishRequest ?? { view: 'publish' } );
 			setOpen( true );
 		};
 
 		const share = subscribeHeaderPanelRequest( site.id, 'share', ( next ) =>
 			show( 'share', next.trigger )
 		);
-		const publish = subscribeHeaderPanelRequest( site.id, 'publish', ( next ) => {
-			choose( next.provider );
-			show( 'publish', next.trigger, { view: next.view, remoteSiteId: next.remoteSiteId } );
+		const publishRequest = subscribeHeaderPanelRequest( site.id, 'publish', ( next ) => {
+			openPublish( next );
+			show( 'publish', next.trigger );
 		} );
 		return () => {
 			share();
-			publish();
+			publishRequest();
 		};
-	}, [ site.id, anchor, choose ] );
+	}, [ site.id, anchor, openPublish ] );
 	// WordPress.com's account is the Studio sign-in, which sharing needs too.
 	const signedOut =
-		user.isSuccess && ! user.data && ( tab === 'share' || destination.provider === 'wpcom' );
+		user.isSuccess && ! user.data && ( tab === 'share' || publish.provider === 'wpcom' );
 	const selectTab = ( value: unknown ) => {
 		setTab( value as Tab );
-		if ( value === 'publish' ) setRequest( ( current ) => current ?? { view: 'publish' } );
+		if ( value === 'publish' && ! publish.screen ) openPublish();
 	};
 	return (
 		<>
@@ -165,34 +155,16 @@ export function SiteDeliveryDialog( {
 							hidden={ tab !== 'publish' }
 							className={ styles.panel }
 						>
-							{ ! request ? null : destination.loading ? (
-								<PublishDestinationLoading />
-							) : ! destination.provider ? (
-								<PublishDestinationPicker
-									providers={ destination.providers }
-									onChoose={ destination.choose }
-								/>
-							) : (
-								<div className={ styles.publishDestination }>
-									{ destination.providers.length > 1 && ! publishSubstep ? (
-										<PublishDestinationBar
-											provider={ destination.provider }
-											onChange={ destination.change }
-										/>
-									) : null }
-									<PublishPanel
-										key={ destination.provider }
-										provider={ destination.provider }
-										site={ site }
-										open={ open && tab === 'publish' }
-										request={ request }
-										headerContainer={ publishHeader }
-										onSubstepChange={ setPublishSubstep }
-										setupAfterSignup={ setupAfterSignup }
-										onSetupAfterSignup={ () => setSetupAfterSignup( false ) }
-									/>
-								</div>
-							) }
+							<PublishTab
+								tab={ publish }
+								site={ site }
+								open={ open && tab === 'publish' }
+								headerContainer={ publishHeader }
+								substep={ publishSubstep }
+								onSubstepChange={ setPublishSubstep }
+								setupAfterSignup={ setupAfterSignup }
+								onSetupAfterSignup={ () => setSetupAfterSignup( false ) }
+							/>
 						</div>
 					</Tabs>
 				</DialogContent>

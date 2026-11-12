@@ -48,7 +48,6 @@ export function ConnectedView( {
 	const connector = useConnector();
 	useEffect( () => {
 		if ( view === 'pull' ) setReviewing( true );
-		if ( view === 'websites' ) setReviewing( false );
 	}, [ view ] );
 	useEffect( () => {
 		if ( open && activity?.kind === 'error' && activity !== dismissedActivity )

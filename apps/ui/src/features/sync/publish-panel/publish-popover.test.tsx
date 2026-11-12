@@ -25,6 +25,8 @@ const remote: SyncSite = {
 	lastPullTimestamp: null,
 };
 
+const address = ( site: SyncSite ) => site.url.replace( /^https?:\/\//, '' );
+
 // Sync activity outlives a render, so every test publishes its own site.
 let siteCount = 0;
 
@@ -86,19 +88,20 @@ function setup( connections: SyncSite[] = [], signedIn = true, running = true, r
 	);
 	const ready = screen.findByRole( 'button', { name: 'Publish…' } ).then( async ( button ) => {
 		fireEvent.click( button );
-		// A site connected nowhere starts with a choice of where to publish, unless it was
-		// connected in the meantime.
-		const destination =
-			! connections.length &&
-			( await waitFor( () => {
-				const choice =
-					screen.queryByRole( 'button', { name: /^WordPress\.com/ } ) ??
-					screen.queryByText( 'Publishing to WordPress.com' );
-				expect( choice ).not.toBeNull();
-				return choice!;
-			} ) );
-		if ( destination && destination.tagName === 'BUTTON' ) {
-			fireEvent.click( destination );
+		// A site connected nowhere starts with a choice of where to publish, a connected one with
+		// the sites it's published to, unless a transfer is under way.
+		const start = await waitFor( () => {
+			const found =
+				screen.queryByRole( 'button', { name: /^WordPress\.com/ } ) ??
+				screen.queryByRole( 'heading', { name: 'Published to' } ) ??
+				screen.queryByRole( 'group', { name: 'Website' } );
+			expect( found ).not.toBeNull();
+			return found!;
+		} );
+		if ( start.tagName === 'BUTTON' ) {
+			fireEvent.click( start );
+		} else if ( start.tagName === 'H2' ) {
+			fireEvent.click( screen.getByRole( 'button', { name: address( connected[ 0 ] ) } ) );
 		}
 		if ( connections.length && review ) {
 			fireEvent.click( await screen.findByRole( 'button', { name: 'Publish changes' } ) );
@@ -122,6 +125,12 @@ function setup( connections: SyncSite[] = [], signedIn = true, running = true, r
 		emit: ( activity: SyncActivity ) =>
 			act( () => connector.emit( 'onSyncActivity', { siteId: site.id, activity } ) ),
 	};
+}
+
+// Goes back from a site to the list of sites it's published to.
+async function openPublishedSite( actions: ReturnType< typeof userEvent.setup >, name: string ) {
+	await actions.click( await screen.findByRole( 'button', { name: 'Published sites' } ) );
+	await screen.findByRole( 'button', { name } );
 }
 
 async function openPull() {
@@ -199,12 +208,12 @@ describe( 'PublishPopover', () => {
 					finish = resolve;
 				} )
 		);
-		await ready;
 		expect( await screen.findByRole( 'status', { name: 'Loading…' } ) ).toBeVisible();
 		expect(
 			screen.queryByRole( 'heading', { name: 'Publish your WordPress' } )
 		).not.toBeInTheDocument();
 		await act( async () => finish( [ remote ] ) );
+		await ready;
 		expect( await screen.findByRole( 'button', { name: 'Pull changes' } ) ).toBeVisible();
 		expect(
 			screen.queryByRole( 'heading', { name: 'Publish your WordPress' } )
@@ -616,6 +625,7 @@ describe( 'PublishPopover', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Close' } ) );
 		await waitFor( () => expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument() );
 		fireEvent.click( screen.getAllByRole( 'button', { name: 'Publish…', hidden: true } )[ 0 ] );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'example.com' } ) );
 		fireEvent.click( await screen.findByRole( 'button', { name: 'Publish changes' } ) );
 		const publish = await screen.findByRole( 'button', { name: 'Publish changes' } );
 		await waitFor( () => expect( publish ).toBeEnabled() );
@@ -703,7 +713,7 @@ describe( 'PublishPopover', () => {
 		);
 	} );
 
-	it( 'confirms disconnection and returns to the existing-site picker without transferring', async () => {
+	it( 'confirms disconnection and returns to the choice of destination without transferring', async () => {
 		const { connector, ready, site } = setup( [ remote ], true, true, false );
 		await ready;
 		expect( screen.queryByRole( 'button', { name: 'Website' } ) ).not.toBeInTheDocument();
@@ -726,7 +736,7 @@ describe( 'PublishPopover', () => {
 			expect( connector.disconnectRemoteSite ).toHaveBeenCalledWith( 'wpcom', site.id, 42 )
 		);
 		expect(
-			await screen.findByRole( 'heading', { name: 'Choose an existing site' } )
+			await screen.findByRole( 'heading', { name: 'Where do you want to publish?' } )
 		).toBeVisible();
 		expect( connector.pushSite ).not.toHaveBeenCalled();
 		expect( connector.pullSite ).not.toHaveBeenCalled();
@@ -744,7 +754,7 @@ describe( 'PublishPopover', () => {
 			'Could not disconnect'
 		);
 		fireEvent.click( within( confirmation ).getByRole( 'button', { name: 'Disconnect' } ) );
-		await screen.findByRole( 'heading', { name: 'Choose an existing site' } );
+		await screen.findByRole( 'heading', { name: 'Where do you want to publish?' } );
 		expect( connector.disconnectRemoteSite ).toHaveBeenCalledTimes( 2 );
 	} );
 
@@ -840,7 +850,9 @@ describe( 'PublishPopover', () => {
 		const { connector, emit, site } = setup( [ remote ] );
 		connector.getRemoteBackupId.mockResolvedValue( 'rewind-1' );
 		await screen.findByRole( 'button', { name: 'Publish changes' } );
-		act( () => requestHeaderPanel( { panel: 'publish', siteId: site.id, view: 'pull' } ) );
+		act( () =>
+			requestHeaderPanel( { panel: 'publish', siteId: site.id, view: 'pull', provider: 'wpcom' } )
+		);
 		emit( { kind: 'pending', direction: 'pull', remoteSiteId: 42 } );
 		emit( { kind: 'error', direction: 'pull', message: 'Backup failed' } );
 		expect(
@@ -936,13 +948,12 @@ describe( 'PublishPopover', () => {
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Disconnect…' } ) );
 		const confirmation = await screen.findByRole( 'alertdialog' );
 		fireEvent.click( within( confirmation ).getByRole( 'button', { name: 'Disconnect' } ) );
-		await screen.findByRole( 'heading', { name: 'Choose an existing site' } );
-		fireEvent.click( screen.getByRole( 'button', { name: 'Back to Publish' } ) );
-		fireEvent.click( screen.getByRole( 'button', { name: 'New site…' } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: /^WordPress\.com/ } ) );
+		fireEvent.click( await screen.findByRole( 'button', { name: 'New site…' } ) );
 		expect( connector.openExternalUrl ).toHaveBeenCalledTimes( 1 );
 	} );
 
-	it( 'switches the card and its links to another connected destination without connecting again', async () => {
+	it( 'lists every published site and opens another one without connecting again', async () => {
 		const actions = userEvent.setup();
 		const staging = {
 			...remote,
@@ -954,19 +965,12 @@ describe( 'PublishPopover', () => {
 		};
 		const { connector, ready, site } = setup( [ remote, staging ], true, true, false );
 		await ready;
-		await actions.click(
-			await screen.findByRole( 'combobox', { name: 'Switch website: example.com' } )
+		await openPublishedSite( actions, 'staging.example.com' );
+		expect( screen.getByRole( 'button', { name: 'example.com' } ) ).toHaveAccessibleDescription(
+			'WordPress.com'
 		);
-		expect(
-			await screen.findByRole( 'option', { name: 'example.com Production' } )
-		).toHaveAttribute( 'aria-selected', 'true' );
-		await actions.click( screen.getByRole( 'option', { name: 'staging.example.com Staging' } ) );
-		await waitFor( () =>
-			expect(
-				screen.getByRole( 'combobox', { name: 'Switch website: staging.example.com' } )
-			).toHaveFocus()
-		);
-		const card = screen.getByRole( 'group', { name: 'Website' } );
+		await actions.click( screen.getByRole( 'button', { name: 'staging.example.com' } ) );
+		const card = await screen.findByRole( 'group', { name: 'Website' } );
 		expect( card ).toHaveTextContent( 'staging.example.com' );
 		expect( within( card ).getByText( 'Staging' ) ).toBeVisible();
 		expect( within( card ).getByText( 'Last pulled' ) ).toBeVisible();
@@ -990,12 +994,8 @@ describe( 'PublishPopover', () => {
 		const second = { ...remote, id: 43, name: 'Second site', url: 'https://second.example.com' };
 		const { connector, ready, site } = setup( [ remote, second ], true, true, false );
 		await ready;
-		await actions.click(
-			await screen.findByRole( 'combobox', { name: 'Switch website: example.com' } )
-		);
-		await actions.click(
-			await screen.findByRole( 'option', { name: 'second.example.com Production' } )
-		);
+		await openPublishedSite( actions, 'second.example.com' );
+		await actions.click( screen.getByRole( 'button', { name: 'second.example.com' } ) );
 		await openPull();
 		const pull = screen.getByRole( 'button', { name: 'Pull changes' } );
 		await waitFor( () => expect( pull ).toBeEnabled() );
@@ -1009,8 +1009,11 @@ describe( 'PublishPopover', () => {
 		await actions.click( await screen.findByRole( 'menuitem', { name: 'Disconnect…' } ) );
 		const confirmation = await screen.findByRole( 'alertdialog' );
 		await actions.click( within( confirmation ).getByRole( 'button', { name: 'Disconnect' } ) );
-		await screen.findByRole( 'combobox', { name: 'Switch website: example.com' } );
-		expect( await connector.getRemoteSites( 'wpcom', site.id ) ).toEqual( [ remote ] );
+		await screen.findByRole( 'heading', { name: 'Published to' } );
+		expect( screen.getByRole( 'button', { name: 'example.com' } ) ).toBeVisible();
+		expect(
+			screen.queryByRole( 'button', { name: 'second.example.com' } )
+		).not.toBeInTheDocument();
 		expect( connector.disconnectRemoteSite ).toHaveBeenCalledWith( 'wpcom', site.id, 43 );
 	} );
 
@@ -1021,60 +1024,51 @@ describe( 'PublishPopover', () => {
 		await ready;
 		emit( { kind: 'pending', direction: 'pull', remoteSiteId: 42 } );
 		emit( { kind: 'success', direction: 'pull' } );
-		await actions.click(
-			await screen.findByRole( 'combobox', { name: 'Switch website: example.com' } )
-		);
-		await actions.click(
-			await screen.findByRole( 'option', { name: 'second.example.com Production' } )
-		);
+		await openPublishedSite( actions, 'second.example.com' );
+		await actions.click( screen.getByRole( 'button', { name: 'second.example.com' } ) );
 		await openPull();
 		expect( screen.queryByText( 'Changes pulled into WordPress Studio' ) ).not.toBeInTheDocument();
 		expect( screen.queryByRole( 'button', { name: 'Done' } ) ).not.toBeInTheDocument();
 		expect( screen.getByRole( 'button', { name: 'Pull changes' } ) ).toBeVisible();
 	} );
 
-	it( 'returns to the current destination when connecting another site is cancelled', async () => {
+	it( 'returns to the published sites when publishing to another site is cancelled', async () => {
 		const actions = userEvent.setup();
 		const { connector, ready } = setup( [ remote ], true, true, false );
 		await ready;
-		await actions.click(
-			await screen.findByRole( 'combobox', { name: 'Switch website: example.com' } )
-		);
-		await actions.click( await screen.findByRole( 'option', { name: 'Connect another site…' } ) );
-		await actions.click( await screen.findByRole( 'button', { name: 'Back to Publish' } ) );
-		expect(
-			await screen.findByRole( 'combobox', { name: 'Switch website: example.com' } )
-		).toBeVisible();
+		await openPublishedSite( actions, 'example.com' );
+		await actions.click( screen.getByRole( 'button', { name: 'Publish to another site…' } ) );
+		await screen.findByRole( 'heading', { name: 'Where do you want to publish?' } );
+		await actions.click( screen.getByRole( 'button', { name: 'Published sites' } ) );
+		expect( await screen.findByRole( 'button', { name: 'example.com' } ) ).toBeVisible();
 		expect( connector.connectRemoteSite ).not.toHaveBeenCalled();
 	} );
 
-	it( 'connects another destination without replacing the first and can switch back', async () => {
+	it( 'connects another destination without replacing the first and lists both', async () => {
 		const actions = userEvent.setup();
 		const second = { ...remote, id: 43, name: 'Second site', url: 'https://second.example.com' };
 		const { connector, ready, site } = setup( [ remote ], true, true, false );
 		connector.listAccountSites.mockResolvedValue( [ remote, second ] );
 		await ready;
-		await actions.click(
-			await screen.findByRole( 'combobox', { name: 'Switch website: example.com' } )
-		);
-		await actions.click( await screen.findByRole( 'option', { name: 'Connect another site…' } ) );
+		await openPublishedSite( actions, 'example.com' );
+		await actions.click( screen.getByRole( 'button', { name: 'Publish to another site…' } ) );
+		await actions.click( await screen.findByRole( 'button', { name: /^WordPress\.com/ } ) );
+		await actions.click( await screen.findByRole( 'button', { name: 'Existing site…' } ) );
 		await actions.click(
 			await screen.findByRole( 'option', { name: /Second site.*second\.example\.com/ } )
 		);
-		await screen.findByRole( 'combobox', { name: 'Switch website: second.example.com' } );
+		expect( await screen.findByRole( 'group', { name: 'Website' } ) ).toHaveTextContent(
+			'second.example.com'
+		);
 		expect( connector.connectRemoteSite ).toHaveBeenCalledWith(
 			'wpcom',
 			site.id,
 			expect.objectContaining( { id: 43 } )
 		);
-		expect( await connector.getRemoteSites( 'wpcom', site.id ) ).toHaveLength( 2 );
 		expect( connector.pushSite ).not.toHaveBeenCalled();
 		expect( connector.pullSite ).not.toHaveBeenCalled();
-		await actions.click(
-			screen.getByRole( 'combobox', { name: 'Switch website: second.example.com' } )
-		);
-		await actions.click( await screen.findByRole( 'option', { name: 'example.com Production' } ) );
-		expect( screen.getByRole( 'combobox', { name: 'Switch website: example.com' } ) ).toBeVisible();
+		await openPublishedSite( actions, 'second.example.com' );
+		expect( screen.getByRole( 'button', { name: 'example.com' } ) ).toBeVisible();
 	} );
 } );
 
@@ -1085,7 +1079,13 @@ it( 'opens the requested publishing screen for the requested destination without
 	await ready;
 	await screen.findByRole( 'radiogroup', { name: 'What to publish' } );
 	act( () =>
-		requestHeaderPanel( { panel: 'publish', siteId: site.id, view: 'pull', remoteSiteId: 43 } )
+		requestHeaderPanel( {
+			panel: 'publish',
+			siteId: site.id,
+			view: 'pull',
+			provider: 'wpcom',
+			remoteSiteId: 43,
+		} )
 	);
 	const pull = await screen.findByRole( 'button', { name: 'Pull changes' } );
 	await waitFor( () => expect( pull ).toBeEnabled() );
@@ -1099,12 +1099,16 @@ it( 'opens the requested publishing screen for the requested destination without
 		} )
 	);
 	await screen.findByText( 'Changes pulled into WordPress Studio', {}, { timeout: 3000 } );
+	act( () => requestHeaderPanel( { panel: 'publish', siteId: site.id, view: 'publish' } ) );
+	await screen.findByRole( 'heading', { name: 'Published to' } );
 	act( () =>
-		requestHeaderPanel( { panel: 'publish', siteId: site.id, view: 'websites', remoteSiteId: 43 } )
-	);
-	await screen.findByRole( 'dialog', { name: 'Share and publish' } );
-	act( () =>
-		requestHeaderPanel( { panel: 'publish', siteId: site.id, view: 'publish', remoteSiteId: 42 } )
+		requestHeaderPanel( {
+			panel: 'publish',
+			siteId: site.id,
+			view: 'publish',
+			provider: 'wpcom',
+			remoteSiteId: 42,
+		} )
 	);
 	await screen.findByRole( 'button', { name: 'Publish changes' } );
 	expect( screen.getByRole( 'group', { name: 'Website' } ) ).toHaveTextContent( 'example.com' );

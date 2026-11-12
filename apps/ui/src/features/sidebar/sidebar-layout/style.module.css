@@ -136,14 +136,38 @@
 	justify-content: flex-start;
 }
 
-.root:has( > .main > .resizeHandle:hover ) .sidebarFrame:not( .sidebarResizing )::after {
-	background-color: var( --surface-4 );
+.root:where( :has( > .main > .resizeHandle ) )::after {
+	content: '';
+	position: absolute;
+	inset-block: 1px 0;
+	inset-inline-start: var( --sidebar-width );
+	width: var( --focus-width );
+	translate: -50%;
+	z-index: var( --z-overlay );
+	pointer-events: none;
+	background-color: var( --ring );
+	opacity: 0;
 }
 
-.sidebarResizing::after,
-.root:has( > .main > .resizeHandle:focus-visible ) .sidebarFrame::after {
-	width: var( --focus-width );
-	background-color: var( --ring );
+.root:dir( rtl )::after {
+	translate: 50%;
+}
+
+.root:has( > .sidebarResizing )::after,
+.root:has( > .main > .resizeHandle:is( :hover, :focus-visible ) )::after {
+	opacity: 1;
+}
+
+@media ( prefers-reduced-motion: no-preference ) {
+	.root::after {
+		transition: opacity var( --motion-duration-surface ) ease-out;
+	}
+
+	.root:not( :has( > .sidebarResizing ) ):has(
+			> .main > .resizeHandle:is( :hover, :focus-visible )
+		)::after {
+		transition-delay: var( --motion-duration-feedback );
+	}
 }
 
 .sidebarCards {

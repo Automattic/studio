@@ -171,7 +171,8 @@ export async function runCommand(
 				snapshotToUpdate.atomicSiteId,
 				attachmentId,
 				token.accessToken,
-				( await getLivePreviewSite( site.id ) )?.id
+				( await getLivePreviewSite( site.id ) )?.id,
+				site.id
 			);
 
 			reportStep( LoggerAction.APPDATA, __( 'Saving preview site to Studio…' ), 95 );

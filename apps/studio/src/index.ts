@@ -15,7 +15,7 @@ import path from 'path';
 import * as Sentry from '@sentry/electron/main';
 import { PROTOCOL_PREFIX } from '@studio/common/constants';
 import { refreshAgentPlugins } from '@studio/common/lib/connect-agent-app';
-import { dropExpectedErrors } from '@studio/common/lib/error-reporting';
+import { prepareErrorEvent, setErrorReporter } from '@studio/common/lib/error-reporting';
 import { runMigrations } from '@studio/common/lib/migration';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
@@ -73,6 +73,7 @@ import {
 	lockAppdata,
 	saveUserData,
 	unlockAppdata,
+	readSentryUserId,
 	updateAppdata,
 	type QuitSitesBehavior,
 } from 'src/storage/user-data';
@@ -149,14 +150,17 @@ function handleSitePreviewPopups( contents: WebContents ) {
 if ( ! process.env.IS_DEV_BUILD ) {
 	const { sentryRelease, isDevEnvironment } = getSentryReleaseInfo( app.getVersion() );
 
+	const sentryUserId = readSentryUserId();
 	Sentry.init( {
 		dsn: 'https://97693275b2716fb95048c6d12f4318cf@o248881.ingest.sentry.io/4506612776501248',
-		debug: true,
-		enabled: ! isDevEnvironment,
+		// A run from source reports as the release it's built from, so only packaged builds report.
+		enabled: app.isPackaged && ! isDevEnvironment,
 		release: sentryRelease,
 		environment: isDevEnvironment ? 'development' : 'production',
-		beforeSend: dropExpectedErrors,
+		initialScope: sentryUserId ? { user: { id: sentryUserId } } : undefined,
+		beforeSend: prepareErrorEvent,
 	} );
+	setErrorReporter( Sentry.captureException );
 }
 
 suppressPunycodeWarning();

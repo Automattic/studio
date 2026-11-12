@@ -1,8 +1,11 @@
 import '@/lib/theme/tokens.css';
 import '@/lib/theme/base.css';
 import '@/index.css';
-import { init as initSentry } from '@sentry/electron/renderer';
-import { captureException } from '@studio/common/lib/error-reporting';
+import {
+	captureException as captureSentryException,
+	init as initSentry,
+} from '@sentry/electron/renderer';
+import { captureException, setErrorReporter } from '@studio/common/lib/error-reporting';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '@/app';
@@ -14,6 +17,7 @@ import { createIpcConnector } from '@/data/core/connectors/ipc';
 
 // Events go through the main process, which adds the release and the user.
 initSentry();
+setErrorReporter( captureSentryException );
 
 async function bootstrap() {
 	if ( /mac/i.test( navigator.platform ) ) {

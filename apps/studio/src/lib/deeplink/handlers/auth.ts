@@ -41,14 +41,16 @@ export async function handleAuthDeeplink( urlObject: URL ): Promise< void > {
 		void recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH, { ...authProps, success: true } );
 		void sendIpcEventToRenderer( 'auth-updated', { token: authResult } );
 	} catch ( error ) {
-		Sentry.captureException( error );
 		const failureReason = getAuthFailureReason( error );
+		const denied = failureReason === 'access_denied';
+		if ( ! denied ) {
+			Sentry.captureException( error );
+		}
 		void recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH, {
 			...authProps,
 			success: false,
 			failure_reason: failureReason,
 		} );
-		const denied = failureReason === 'access_denied';
 		await dialog.showMessageBox( await getMainWindow(), {
 			type: 'error',
 			message: denied ? __( 'Authorization denied' ) : __( 'Authentication error' ),

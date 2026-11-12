@@ -48,9 +48,7 @@ export const anthropicSetupTokenInput = () =>
 			)
 			.meta( {
 				title: __( 'Claude subscription token' ),
-				description: __(
-					'Run claude setup-token in a terminal and paste the token it prints. Usage counts against your Claude plan.'
-				),
+				description: __( 'Paste the token it prints. Usage counts against your Claude plan.' ),
 				examples: [ `${ SETUP_TOKEN_PREFIX }…` ],
 				writeOnly: true,
 			} ),
@@ -69,6 +67,19 @@ export const anthropicDescriptor: ProviderDescriptor< AnthropicConfig > = {
 			label: () => __( 'Claude subscription' ),
 			kind: 'form',
 			input: anthropicSetupTokenInput,
+			steps: () => [
+				{
+					text: __( 'Install Claude Code.' ),
+					url: 'https://code.claude.com/docs/en/setup',
+					unlessInstalled: 'claude-code',
+				},
+				{
+					text: __(
+						'Run this in a terminal, and sign in with your Claude account in the browser that opens.'
+					),
+					command: 'claude setup-token',
+				},
+			],
 		},
 	],
 	summarize: ( config ) =>

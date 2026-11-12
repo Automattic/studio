@@ -100,8 +100,11 @@ describe( 'AI auth helpers', () => {
 	it( 'asks how to connect, then for the chosen method’s fields', async () => {
 		vi.mocked( select ).mockResolvedValue( 'setup-token' );
 		answerPrompt( 'sk-ant-oat01-token' );
+		const log = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
 
 		await prepareAiProvider( 'anthropic' );
+
+		expect( log ).toHaveBeenCalledWith( '   claude setup-token' );
 
 		expect( vi.mocked( select ).mock.calls[ 0 ][ 0 ].choices ).toEqual( [
 			{ value: 'api-key', name: 'API key' },

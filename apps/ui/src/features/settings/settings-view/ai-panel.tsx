@@ -5,12 +5,14 @@ import {
 	getProviderDescriptor,
 	AI_PROVIDER_IDS,
 	type AiProviderId,
+	type ConnectStep,
 	type SitesProviderId,
 } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useState } from 'react';
 import { getProviderIntent } from '@/data/account-analytics';
 import { useConnector } from '@/data/core';
+import { useAgentApps } from '@/data/queries/use-agent-apps';
 import {
 	useAiSettings,
 	useConnectProvider,
@@ -20,11 +22,42 @@ import {
 } from '@/data/queries/use-ai-settings';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { usePublishProviders } from '@/data/queries/use-remote-sites';
-import { LearnMoreLink } from '@/features/onboarding';
+import { CopyButton } from '@/features/clipboard';
+import { LearnHowLink, LearnMoreLink } from '@/features/onboarding';
 import { useOffline } from '@/lib/hooks';
 import { Button, Input } from '@/lib/ui';
 import { connectedBadge, SettingsGroup, SettingsRow, SettingsSelect } from './rows';
 import styles from './style.module.css';
+
+// What the user does before filling a form in. Installing an app shows once it is known to be missing.
+function ConnectSteps( { steps }: { steps: ConnectStep[] } ) {
+	const { data: apps } = useAgentApps();
+	const missing = ( id: string ) =>
+		!! apps && ! apps.some( ( app ) => app.id === id && app.installed );
+	return (
+		<ol className={ styles.connectSteps }>
+			{ steps
+				.filter( ( step ) => ! step.unlessInstalled || missing( step.unlessInstalled ) )
+				.map( ( step ) => (
+					<li key={ step.text }>
+						{ step.text }
+						{ step.url ? (
+							<>
+								{ ' ' }
+								<LearnHowLink url={ step.url } />
+							</>
+						) : null }
+						{ step.command ? (
+							<div className={ styles.connectCommand }>
+								<code>{ step.command }</code>
+								<CopyButton text={ step.command } label={ __( 'Copy command' ) } />
+							</div>
+						) : null }
+					</li>
+				) ) }
+		</ol>
+	);
+}
 
 // A provider that connects with a form: the form comes from its descriptor.
 function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
@@ -38,6 +71,8 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 	const [ pickedMethod, setPickedMethod ] = useState< string >();
 	const method = pickedMethod ?? account?.method ?? methods[ 0 ]?.id;
 	const fields = getConnectFields( provider, method );
+	const connection = getConnection( provider, method );
+	const steps = ( connection.kind === 'form' && connection.steps?.() ) || [];
 	// The account is connected with the form being shown.
 	const current = account?.connected && account.method === method;
 	const [ formOpen, setFormOpen ] = useState( false );
@@ -108,6 +143,11 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 									setPickedMethod( next );
 								} }
 							/>
+						</SettingsRow>
+					) : null }
+					{ steps.length ? (
+						<SettingsRow title={ __( 'How to connect' ) } stacked>
+							<ConnectSteps steps={ steps } />
 						</SettingsRow>
 					) : null }
 					{ fields.map( ( field, index ) => (

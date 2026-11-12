@@ -4,6 +4,7 @@ import { getStudioUserAgent as buildStudioUserAgent } from '@studio/common/lib/u
 import {
 	DEFAULT_PROVIDER_ID,
 	getConnectFields,
+	getConnection,
 	getConnectionMethods,
 	getProviderDescriptor,
 	InvalidCredentialError,
@@ -102,6 +103,14 @@ async function promptForConnection( provider: AiProviderId ): Promise< void > {
 				choices: methods.map( ( { id, label } ) => ( { value: id, name: label() } ) ),
 		  } )
 		: undefined;
+	const connection = getConnection( provider, method );
+	const steps = ( connection.kind === 'form' && connection.steps?.() ) || [];
+	for ( const [ index, step ] of steps.entries() ) {
+		console.log( `${ index + 1 }. ${ step.text }${ step.url ? ` ${ step.url }` : '' }` );
+		if ( step.command ) {
+			console.log( `   ${ step.command }` );
+		}
+	}
 	const fields = getConnectFields( provider, method );
 	const values: Record< string, string > = method ? { method } : {};
 	for ( const [ index, field ] of fields.entries() ) {

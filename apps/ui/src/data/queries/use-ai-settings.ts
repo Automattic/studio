@@ -15,6 +15,8 @@ export function useAiSettings() {
 		queryKey: AI_SETTINGS_QUERY_KEY,
 		queryFn: () => connector.getAiSettings(),
 		staleTime: Infinity,
+		// Read each launch: a saved copy may come from a build with other providers.
+		meta: { persist: false },
 	} );
 }
 

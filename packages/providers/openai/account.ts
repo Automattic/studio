@@ -68,17 +68,19 @@ async function readTokens( response: Response, clientId: string ): Promise< Open
 
 export const startOpenaiConnect: NonNullable<
 	Provider< OpenaiConfig >[ 'startLoopbackConnect' ]
-> = async ( redirectUri ) => {
+> = async ( redirectUri, { hostId, remembered } ) => {
 	const verifier = base64Url( crypto.getRandomValues( new Uint8Array( 32 ) ) );
 	const challenge = base64Url(
 		new Uint8Array( await crypto.subtle.digest( 'SHA-256', new TextEncoder().encode( verifier ) ) )
 	);
 	const state = base64Url( crypto.getRandomValues( new Uint8Array( 16 ) ) );
 	const url = new URL( `${ AUTH_URL }/authorize` );
+	// The first sign-in registers a client for Studio; signing in again reuses it.
 	url.search = new URLSearchParams( {
-		client_id: 'dynamic_agent_client',
-		agent_name_hint: 'WordPress Studio',
-		ext_agent_host_id: `urn:uuid:${ crypto.randomUUID() }`,
+		...( remembered?.clientId
+			? { client_id: remembered.clientId }
+			: { client_id: 'dynamic_agent_client', agent_name_hint: 'WordPress Studio' } ),
+		ext_agent_host_id: `urn:uuid:${ hostId }`,
 		response_type: 'code',
 		redirect_uri: redirectUri,
 		scope: `openid profile email offline_access resource.invoke ${ SHARING_SCOPE }`,
@@ -90,14 +92,15 @@ export const startOpenaiConnect: NonNullable<
 	return { url: url.toString(), state, verifier } satisfies LoopbackAuthorization;
 };
 
-// The redirect names the client OpenAI registered for this sign-in.
+// A first sign-in's redirect names the client OpenAI registered for it.
 export const connectOpenai: Provider< OpenaiConfig >[ 'connect' ] = async ( input ) => {
-	if ( ! input.code || ! input.client_id || ! input.verifier || ! input.redirectUri ) {
+	const clientId = input.client_id ?? input.clientId;
+	if ( ! input.code || ! clientId || ! input.verifier || ! input.redirectUri ) {
 		throw new InvalidCredentialError( __( 'Start signing in with ChatGPT again.' ) );
 	}
 	const response = await requestTokens( {
 		grant_type: 'authorization_code',
-		client_id: input.client_id,
+		client_id: clientId,
 		code: input.code,
 		code_verifier: input.verifier,
 		redirect_uri: input.redirectUri,
@@ -108,7 +111,7 @@ export const connectOpenai: Provider< OpenaiConfig >[ 'connect' ] = async ( inpu
 			'unverified'
 		);
 	}
-	return readTokens( response, input.client_id );
+	return readTokens( response, clientId );
 };
 
 // Renews the access token shortly before it expires. A refresh token OpenAI

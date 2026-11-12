@@ -140,6 +140,11 @@ export interface ProviderDescriptor< Config = unknown, Site extends RemoteSite =
 	connection: ProviderConnection;
 	// What to show for a connected account; never the credential itself.
 	summarize?( config: Config ): string;
+	// What to keep once the provider rejects the config, so signing in again
+	// continues the same registration with it; never a credential.
+	remember?( config: Config ): Record< string, string >;
+	// The connect button's label, when the provider's branding sets one.
+	connectLabel?: () => string;
 	ai?: {
 		models: readonly AiModel< AiModelId >[];
 		defaultModel: AiModelId;
@@ -148,6 +153,9 @@ export interface ProviderDescriptor< Config = unknown, Site extends RemoteSite =
 		// Defaults to true. Studio on the web runs the agent in the page, which
 		// can't offer a provider that signs in through this computer.
 		inPage?: boolean;
+		// For models that use the user's plan with the provider: what to say
+		// next to the model, and where the user manages that usage.
+		planUsage?: { label: () => string; manageUrl: string };
 	};
 	sites?: SitesDescriptor< Site >;
 }
@@ -273,7 +281,12 @@ export interface Provider< Config = unknown, Site extends RemoteSite = RemoteSit
 	// Starts a device sign-in, for a provider whose connection kind is `device`.
 	startConnect?(): Promise< DeviceAuthorization >;
 	// Starts a loopback sign-in, for a provider whose connection kind is `loopback`.
-	startLoopbackConnect?( redirectUri: string ): Promise< LoopbackAuthorization >;
+	// `hostId` stays the same on this computer, and `remembered` is what the
+	// descriptor's `remember` kept, which `connect` gets back too.
+	startLoopbackConnect?(
+		redirectUri: string,
+		context: { hostId: string; remembered?: Record< string, string > }
+	): Promise< LoopbackAuthorization >;
 	// Cleans up on the provider's side before Studio removes the config.
 	disconnect?( config: Config ): Promise< void >;
 	// A renewed config when its credential is about to expire, which Studio

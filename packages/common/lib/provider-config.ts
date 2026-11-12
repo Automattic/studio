@@ -157,6 +157,56 @@ export async function writeProviderConfig< Id extends ProviderId >(
 ): Promise< void > {
 	const valid = config && getProviderDescriptor( provider ).configSchema.parse( config );
 	await ( STORES[ provider ] as ConfigStore< ProviderConfigs[ Id ] > ).write( valid );
+	if ( ( await readSharedConfig() ).rememberedSignIns?.[ provider ] ) {
+		await rememberSignIn( provider, undefined );
+	}
+}
+
+// What the provider keeps from `config` once it rejects it.
+function rememberFrom( provider: ProviderId, config: unknown ) {
+	const { remember } = getProviderDescriptor( provider ) as {
+		remember?: ( config: unknown ) => Record< string, string >;
+	};
+	return config ? remember?.( config ) : undefined;
+}
+
+async function rememberSignIn(
+	provider: ProviderId,
+	values: Record< string, string > | undefined
+): Promise< void > {
+	try {
+		await lockSharedConfig();
+		const shared = await readSharedConfig();
+		const { [ provider ]: _removed, ...others } = shared.rememberedSignIns ?? {};
+		shared.rememberedSignIns = values ? { ...others, [ provider ]: values } : others;
+		await saveSharedConfig( shared );
+	} finally {
+		await unlockSharedConfig();
+	}
+}
+
+/**
+ * What a provider's sign-in starts from: a stable id for this computer, and what the provider
+ * kept from its current config, or from the last one it rejected.
+ */
+export async function readSignInContext(
+	provider: ProviderId
+): Promise< { hostId: string; remembered?: Record< string, string > } > {
+	const fromConfig = rememberFrom( provider, await readProviderConfig( provider ) );
+	try {
+		await lockSharedConfig();
+		const shared = await readSharedConfig();
+		if ( ! shared.signInHostId ) {
+			shared.signInHostId = crypto.randomUUID();
+			await saveSharedConfig( shared );
+		}
+		return {
+			hostId: shared.signInHostId,
+			remembered: fromConfig ?? shared.rememberedSignIns?.[ provider ],
+		};
+	} finally {
+		await unlockSharedConfig();
+	}
 }
 
 /**
@@ -172,7 +222,11 @@ export async function forgetRejectedConfig< T >(
 		return await run();
 	} catch ( error ) {
 		if ( error instanceof ProviderNotReadyError && provider !== 'wpcom' ) {
+			const remembered = rememberFrom( provider, await readProviderConfig( provider ) );
 			await writeProviderConfig( provider, undefined );
+			if ( remembered ) {
+				await rememberSignIn( provider, remembered );
+			}
 		}
 		throw error;
 	}

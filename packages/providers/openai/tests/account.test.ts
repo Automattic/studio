@@ -34,18 +34,25 @@ describe( 'openai account', () => {
 		vi.unstubAllGlobals();
 	} );
 
-	it( 'registers Studio as an agent sharing the ChatGPT plan', async () => {
+	it( 'registers Studio as an agent on the first sign-in, then reuses its client', async () => {
 		const redirectUri = 'http://127.0.0.1:5000/auth/callback';
-		const { url, state } = await startOpenaiConnect( redirectUri );
+		const params = async ( remembered?: Record< string, string > ) =>
+			Object.fromEntries(
+				new URL( ( await startOpenaiConnect( redirectUri, { hostId: 'host', remembered } ) ).url )
+					.searchParams
+			);
 
-		expect( Object.fromEntries( new URL( url ).searchParams ) ).toMatchObject( {
+		await expect( params() ).resolves.toMatchObject( {
 			client_id: 'dynamic_agent_client',
 			agent_name_hint: 'WordPress Studio',
+			ext_agent_host_id: 'urn:uuid:host',
 			redirect_uri: redirectUri,
 			resource: 'https://api.openai.com/v1',
-			state,
 			code_challenge_method: 'S256',
 		} );
+		const again = await params( { clientId: 'oaiapp_1' } );
+		expect( again ).toMatchObject( { client_id: 'oaiapp_1' } );
+		expect( again ).not.toHaveProperty( 'agent_name_hint' );
 	} );
 
 	it( 'exchanges the code for the client OpenAI registered, and needs plan sharing', async () => {

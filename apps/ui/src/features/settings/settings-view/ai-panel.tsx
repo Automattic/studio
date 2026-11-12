@@ -310,7 +310,7 @@ function SignInProviderRow( { provider }: { provider: ProviderId } ) {
 						} )
 					}
 				>
-					{ inBrowser ? __( 'Try again' ) : __( 'Connect' ) }
+					{ inBrowser ? __( 'Try again' ) : descriptor.connectLabel?.() ?? __( 'Connect' ) }
 				</Button>
 			) }
 		</SettingsRow>

@@ -1,6 +1,7 @@
 import http from 'http';
 import { InvalidCredentialError, type Provider } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
+import { readSignInContext } from './provider-config';
 
 const SIGN_IN_TIMEOUT_MS = 5 * 60_000;
 const CALLBACK_PATH = '/auth/callback';
@@ -14,8 +15,8 @@ export interface LoopbackSignInOptions {
 
 /**
  * Signs in on the provider's site in the browser, listening for its redirect on a free port, and
- * returns what the provider's `connect` takes: the redirect's parameters, the authorization's
- * verifier and the redirect address.
+ * returns what the provider's `connect` takes: what it remembered, the redirect's parameters, the
+ * authorization's verifier and the redirect address.
  */
 export async function signInThroughLoopback(
 	provider: Provider< unknown >,
@@ -39,7 +40,8 @@ export async function signInThroughLoopback(
 		await new Promise< void >( ( resolve ) => server.listen( 0, '127.0.0.1', resolve ) );
 		const { port } = server.address() as { port: number };
 		const redirectUri = `http://127.0.0.1:${ port }${ CALLBACK_PATH }`;
-		const authorization = await provider.startLoopbackConnect!( redirectUri );
+		const context = await readSignInContext( provider.descriptor.id );
+		const authorization = await provider.startLoopbackConnect!( redirectUri, context );
 		await openUrl?.( authorization.url );
 		const url = await Promise.race( [
 			received,
@@ -59,6 +61,7 @@ export async function signInThroughLoopback(
 			throw new InvalidCredentialError( __( 'That sign-in was for another attempt. Try again.' ) );
 		}
 		return {
+			...context.remembered,
 			...Object.fromEntries( url.searchParams ),
 			verifier: authorization.verifier,
 			redirectUri,

@@ -14,6 +14,7 @@ import {
 	forgetRejectedConfig,
 	readFreshProviderConfig,
 	readProviderConfig,
+	readSignInContext,
 } from '@studio/common/lib/provider-config';
 
 const anthropic = getProvider( 'anthropic' );
@@ -198,7 +199,7 @@ describe( 'ai settings', () => {
 		expect( readShared().authToken ).toMatchObject( { accessToken: 'token' } );
 	} );
 
-	it( 'stores a renewed config, and forgets one the provider no longer accepts', async () => {
+	it( 'stores a renewed config, and forgets one the provider no longer accepts but its client', async () => {
 		const stored = {
 			method: 'chatgpt',
 			accessToken: 'old',
@@ -218,6 +219,9 @@ describe( 'ai settings', () => {
 		refresh.mockRejectedValueOnce( new ProviderNotReadyError( 'Sign in again' ) );
 		await expect( readFreshProviderConfig( openai ) ).rejects.toThrow( 'Sign in again' );
 		expect( readShared().providerConfigs ).toBeUndefined();
+		const context = await readSignInContext( 'openai' );
+		expect( context.remembered ).toEqual( { clientId: 'oaiapp_1' } );
+		expect( ( await readSignInContext( 'openai' ) ).hostId ).toBe( context.hostId );
 	} );
 
 	it( 'treats an unknown stored provider as the default', async () => {

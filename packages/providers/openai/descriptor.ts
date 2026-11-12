@@ -16,10 +16,16 @@ export const openaiDescriptor: ProviderDescriptor< OpenaiConfig > = {
 	configSchema: openaiConfigSchema,
 	connection: { kind: 'loopback' },
 	summarize: ( config ) => config.email ?? '',
+	remember: ( config ) => ( { clientId: config.clientId } ),
+	connectLabel: () => __( 'Continue with ChatGPT' ),
 	ai: {
 		models: OPENAI_AI_MODELS,
 		defaultModel: 'gpt-6.1-terra',
 		// Signing in needs a server on this computer.
 		inPage: false,
+		planUsage: {
+			label: () => __( 'Using ChatGPT plan' ),
+			manageUrl: 'https://chatgpt.com/settings/usage',
+		},
 	},
 };

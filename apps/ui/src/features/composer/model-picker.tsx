@@ -9,11 +9,12 @@ import {
 import { __, sprintf } from '@wordpress/i18n';
 import { PlugIcon } from 'lucide-react';
 import { useRef, useState, type ComponentType, type RefObject } from 'react';
+import { useConnector } from '@/data/core';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { getCreditsLabel, getModelDescription } from '@/features/composer/model-options';
-import { PlusIcon, ChevronDownIcon, IntelligenceIcon } from '@/lib/icons';
+import { PlusIcon, ChevronDownIcon, ExternalLinkIcon, IntelligenceIcon } from '@/lib/icons';
 import { Button, CommandSheet, Popover, type Command, type CommandGroup } from '@/lib/ui';
 import type { AiModelId } from '@/data/core';
 
@@ -66,6 +67,7 @@ export function ModelPicker( {
 	const listRef = useRef< HTMLDivElement | null >( null );
 	const triggerRef = useRef< HTMLButtonElement | null >( null );
 	const openSettings = useOpenSettings();
+	const connector = useConnector();
 	const {
 		data: quota,
 		isError: isQuotaError,
@@ -82,9 +84,13 @@ export function ModelPicker( {
 		credits.hasCredits &&
 		getStudioCodeAiAccessState( quota ) === 'available' &&
 		quota.hasPaymentMethod;
+	const planUsage = getProviderDescriptor( sessionProvider ).ai?.planUsage;
 	const modelDetails = [ modelLabel, getProviderDescriptor( sessionProvider ).label ];
 	if ( isWpcom ) {
 		modelDetails.push( credits.label );
+	}
+	if ( planUsage ) {
+		modelDetails.push( planUsage.label() );
 	}
 	const pickCommand = ( value: string ) => {
 		onOpenChange( false );
@@ -92,6 +98,8 @@ export function ModelPicker( {
 			onAddCredits( triggerRef );
 		} else if ( value === 'connect-provider' ) {
 			openSettings( 'ai' );
+		} else if ( value === 'manage-usage' && planUsage ) {
+			void connector.openExternalUrl( planUsage.manageUrl );
 		} else {
 			const provider = providers.find( ( id ) =>
 				getAiModels( id ).some( ( item ) => item.id === value )
@@ -139,6 +147,16 @@ export function ModelPicker( {
 								label: __( 'Get more credits' ),
 								description: credits.label,
 								icon: PlusIcon,
+							},
+					  ]
+					: [] ),
+				...( planUsage
+					? [
+							{
+								value: 'manage-usage',
+								label: __( 'Manage usage' ),
+								description: planUsage.label(),
+								icon: ExternalLinkIcon,
 							},
 					  ]
 					: [] ),

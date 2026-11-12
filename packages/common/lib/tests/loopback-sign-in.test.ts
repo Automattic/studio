@@ -1,6 +1,10 @@
 import { InvalidCredentialError, type Provider } from '@studio/providers';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { signInThroughLoopback } from '@studio/common/lib/loopback-sign-in';
+
+vi.mock( '@studio/common/lib/provider-config', () => ( {
+	readSignInContext: async () => ( { hostId: 'host-1', remembered: { clientId: 'saved' } } ),
+} ) );
 
 // A provider whose site redirects straight back with `query`.
 const providerRedirecting = ( query: string ) =>
@@ -15,13 +19,18 @@ const providerRedirecting = ( query: string ) =>
 const browser = { openUrl: ( url: string ) => void fetch( url ) };
 
 describe( 'signInThroughLoopback', () => {
-	it( 'listens on a free port, and returns the redirect with the verifier and the address', async () => {
+	it( 'listens on a free port, and returns the redirect with what connecting needs', async () => {
 		const input = await signInThroughLoopback(
 			providerRedirecting( 'code=abc&state=state-1' ),
 			browser
 		);
 
-		expect( input ).toMatchObject( { code: 'abc', state: 'state-1', verifier: 'verifier-1' } );
+		expect( input ).toMatchObject( {
+			clientId: 'saved',
+			code: 'abc',
+			state: 'state-1',
+			verifier: 'verifier-1',
+		} );
 		expect( input.redirectUri ).toMatch( /^http:\/\/127\.0\.0\.1:\d+\/auth\/callback$/ );
 	} );
 

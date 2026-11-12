@@ -861,7 +861,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		const { connector } = await setup( { section: 'ai' } );
 		fireEvent.click(
 			await within( await findProviderRow( 'openai-provider' ) ).findByRole( 'button', {
-				name: 'Connect',
+				name: 'Continue with ChatGPT',
 			} )
 		);
 		await waitFor( () => expect( connector.connectProvider ).toHaveBeenCalledWith( 'openai', {} ) );

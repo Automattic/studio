@@ -24,4 +24,7 @@ export const wpcomDescriptor: ProviderDescriptor< WpcomConfig > = {
 		defaultModel: 'fast',
 		paidDefaultModel: 'balanced',
 	},
+	sites: {
+		maxPushSize: 5 * 1024 * 1024 * 1024,
+	},
 };

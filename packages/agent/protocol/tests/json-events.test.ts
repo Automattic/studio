@@ -22,7 +22,7 @@ function assistantMessage(
 		content: [],
 		api: 'anthropic-messages',
 		provider: 'anthropic',
-		model: 'claude-sonnet-5',
+		model: 'claude-sonnet-5-5',
 		usage: {
 			input: 0,
 			output: 0,

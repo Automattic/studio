@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { installAiInstructionsToSite } from '@studio/common/lib/agent-skills';
+import { removeBlueprintTempDir } from '@studio/common/lib/blueprint-bundle';
 import {
 	__isStepDefinition,
 	extractFormValuesFromBlueprint,
@@ -48,6 +49,7 @@ import {
 	type SupportedPHPVersion,
 } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
+import { fetchLibraryBlueprints, prepareLibraryBlueprint } from 'cli/lib/blueprint-library';
 import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import {
 	lockCliConfig,
@@ -571,6 +573,26 @@ function stripWpConfigDbConstants( sitePath: string ): void {
 	}
 }
 
+// Library slugs have no path separator or extension, so a missing `site.json` still reports
+// the missing file rather than an unknown slug.
+const BLUEPRINT_LIBRARY_SLUG_PATTERN = /^[\w-]+$/;
+
+async function resolveLibraryBlueprint( slug: string ) {
+	const blueprint = ( await fetchLibraryBlueprints() ).find( ( bp ) => bp.slug === slug );
+	if ( ! blueprint ) {
+		throw new LoggerError(
+			sprintf(
+				/* translators: %s: value passed to --blueprint */
+				__(
+					'"%s" is not a Blueprint file, URL or Blueprint Library slug. Run "studio blueprint list" to see available slugs.'
+				),
+				slug
+			)
+		);
+	}
+	return prepareLibraryBlueprint( blueprint );
+}
+
 function readBlueprint( blueprintPath: string ) {
 	if ( ! fs.existsSync( blueprintPath ) ) {
 		throw new LoggerError( sprintf( __( 'Blueprint file not found: %s' ), blueprintPath ) );
@@ -782,6 +804,7 @@ export async function commandHandler(
 		flowType: parseFlowType( argv.flowType ),
 	};
 
+	let blueprintTempDir: string | undefined;
 	try {
 		let preparedImport: PreparedSourceImport | undefined;
 		if ( argv.from ) {
@@ -800,17 +823,23 @@ export async function commandHandler(
 			config.flowType = 'static_site_import';
 			config.source = classifySourceImport( argv.from );
 		} else if ( argv.blueprint ) {
+			const blueprintPath = path.resolve( untildify( argv.blueprint ) );
 			if ( isUrl( argv.blueprint ) ) {
 				config.blueprint = {
 					uri: argv.blueprint,
 					contents: await fetchBlueprint( argv.blueprint ),
 				};
+			} else if (
+				! fs.existsSync( blueprintPath ) &&
+				BLUEPRINT_LIBRARY_SLUG_PATTERN.test( argv.blueprint )
+			) {
+				const { tempDir, ...blueprint } = await resolveLibraryBlueprint( argv.blueprint );
+				blueprintTempDir = tempDir;
+				config.blueprint = blueprint;
 			} else {
-				const uri = path.resolve( untildify( argv.blueprint ) );
-
 				config.blueprint = {
-					uri,
-					contents: readBlueprint( uri ),
+					uri: blueprintPath,
+					contents: readBlueprint( blueprintPath ),
 				};
 
 				// When invoked by the desktop app, the blueprint contents come from a temp file
@@ -850,6 +879,10 @@ export async function commandHandler(
 		} else {
 			const loggerError = new LoggerError( __( 'Failed to create site' ), error );
 			defaultLogger.reportError( loggerError );
+		}
+	} finally {
+		if ( blueprintTempDir ) {
+			await removeBlueprintTempDir( blueprintTempDir ).catch( () => {} );
 		}
 	}
 }

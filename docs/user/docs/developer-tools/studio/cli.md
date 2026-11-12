@@ -230,6 +230,12 @@ studio blueprint list
 # Create a local site with selected blueprint
 studio blueprint use <blueprint-slug> --name "<site-name>"
 
+`studio create --blueprint` also accepts a Blueprint slug, alongside a Blueprint JSON file path or URL, so you can combine it with the other `create` options:
+
+studio create --blueprint <blueprint-slug> --name "<site-name>" --path /path/to/site
+
+A URL is always fetched, and a file that exists at the given path wins over a slug of the same name.
+
 ### [Listing and inspecting sites](#13-listing-and-inspecting-sites)
 
 \# Show all local sites known to WordPress Studio:

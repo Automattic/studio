@@ -1,13 +1,14 @@
 import { once } from 'events';
 import fs from 'fs';
 import * as configFile from '@studio/common/lib/cli-config-file';
+import { getRemoteSites, rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
-import { createTusUpload } from '@studio/common/lib/sync/tus-upload';
+import { RemoteSiteError, type PushArchive, type PushStatus } from '@studio/providers';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { reportSyncActivity } from 'cli/lib/sync-activity';
-import { fetchSyncableSites, pollImportStatus } from 'cli/lib/sync-api';
+import { fetchSyncableSites, wpcomSites } from 'cli/lib/sync-api';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { runCommand } from '../push';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -18,13 +19,8 @@ vi.mock( '@studio/common/lib/shared-config', async ( importActual ) => ( {
 	...( await importActual< typeof import('@studio/common/lib/shared-config') >() ),
 	readAuthToken: vi.fn(),
 } ) );
-vi.mock( '@studio/common/lib/connected-sites' );
+vi.mock( '@studio/common/lib/remote-sites' );
 vi.mock( '@studio/common/lib/deploy-ignore' );
-vi.mock( '@studio/common/lib/sync/constants', async ( importActual ) => ( {
-	...( await importActual< typeof import('@studio/common/lib/sync/constants') >() ),
-	SYNC_POLL_INTERVAL_MS: 0,
-} ) );
-vi.mock( '@studio/common/lib/sync/tus-upload', () => ( { createTusUpload: vi.fn() } ) );
 vi.mock( 'cli/lib/cli-config/sites', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/cli-config/sites') >() ),
 	getSiteByFolder: vi.fn(),
@@ -38,13 +34,26 @@ vi.mock( 'cli/lib/sync-activity' );
 vi.mock( 'cli/lib/sync-api', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/sync-api') >() ),
 	fetchSyncableSites: vi.fn(),
-	initiateImport: vi.fn(),
-	pollImportStatus: vi.fn(),
+	wpcomSites: { push: vi.fn() },
 } ) );
 vi.mock( 'cli/lib/tracks' );
 
 const site = { id: 'site-1', path: '/test/site', phpVersion: '8.3' } as SiteData;
 const remoteSite = { id: 42, name: 'Live', syncSupport: 'syncable' } as SyncSite;
+
+// Reads the archive to the end, as the real upload does before the push removes it, reports
+// `statuses`, then ends with `outcome`.
+function pushes( statuses: PushStatus[], outcome?: Error ) {
+	vi.mocked( wpcomSites.push ).mockImplementation(
+		async ( _config, _site, archive: PushArchive, _options, onStatus ) => {
+			await once( ( archive.file as Readable ).resume(), 'close' );
+			statuses.forEach( onStatus );
+			if ( outcome ) {
+				throw outcome;
+			}
+		}
+	);
+}
 
 function reported() {
 	return vi.mocked( reportSyncActivity ).mock.calls.map( ( [ , activity ] ) => activity );
@@ -66,11 +75,8 @@ describe( 'CLI: studio push', () => {
 		vi.mocked( readAuthToken ).mockResolvedValue( { accessToken: 'token' } as never );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( site );
 		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ remoteSite ] );
-		// Reads the archive to the end, as the real upload does before the push removes it.
-		vi.mocked( createTusUpload ).mockImplementation( ( { file } ) => ( {
-			promise: once( ( file as Readable ).resume(), 'close' ).then( () => 'attachment-1' ),
-			abort: vi.fn(),
-		} ) );
+		vi.mocked( getRemoteSites ).mockResolvedValue( [] );
+		pushes( [] );
 		vi.mocked( getExporter ).mockImplementation( async ( { backupFile } ) => {
 			return {
 				on: vi.fn(),
@@ -79,11 +85,42 @@ describe( 'CLI: studio push', () => {
 		} );
 	} );
 
+	it.each( [ false, true ] )(
+		'records the successful push and retains intent only on launch failure: %s',
+		async ( failed ) => {
+			vi.mocked( getRemoteSites ).mockResolvedValue( [ { ...remoteSite, launchAfterPush: true } ] );
+			vi.mocked( wpcomSites.push ).mockImplementation(
+				async ( _config, _site, archive, options, onStatus ) => {
+					await once( ( archive.file as Readable ).resume(), 'close' );
+					expect( options.launchAfterPush ).toBe( true );
+					onStatus( { phase: 'launching' } );
+					return failed ? { launchError: 'Changes pushed, but launch failed' } : undefined;
+				}
+			);
+			await expect(
+				runCommand( site.path, [ 'all' ], String( remoteSite.id ) )
+			).resolves.toBeDefined();
+			expect( rememberRemoteSite ).toHaveBeenCalledWith(
+				'wpcom',
+				site.id,
+				expect.objectContaining( { launchAfterPush: failed } ),
+				'push'
+			);
+			expect( reported().at( -1 ) ).toMatchObject( { kind: failed ? 'error' : 'success' } );
+			expect( recordTracksEvent ).toHaveBeenCalledWith(
+				TRACKS_EVENTS.SYNC_PUSH,
+				expect.objectContaining( { success: true } )
+			);
+		}
+	);
+
 	// The phase gates cancelling a push, so every UI must see it move on.
 	it( 'reports each phase, then the result', async () => {
-		vi.mocked( pollImportStatus )
-			.mockResolvedValueOnce( { success: true, status: 'archive_import_started' } as never )
-			.mockResolvedValueOnce( { success: true, status: 'finished' } as never );
+		pushes( [
+			{ phase: 'uploading', progress: 100 },
+			{ phase: 'creatingRemoteBackup' },
+			{ phase: 'applyingChanges', progress: 10 },
+		] );
 
 		await runCommand( site.path, [ 'all' ], String( remoteSite.id ) );
 
@@ -109,10 +146,6 @@ describe( 'CLI: studio push', () => {
 	} );
 
 	it( 'keeps a successful push and its event when the site ID cannot be read', async () => {
-		vi.mocked( pollImportStatus ).mockResolvedValue( {
-			success: true,
-			status: 'finished',
-		} as never );
 		vi.spyOn( configFile, 'readCliConfigFileRaw' ).mockRejectedValueOnce(
 			new Error( 'Storage unavailable' )
 		);
@@ -126,11 +159,6 @@ describe( 'CLI: studio push', () => {
 		expect( vi.mocked( recordTracksEvent ).mock.calls[ 0 ][ 1 ] ).not.toHaveProperty( 'site_id' );
 	} );
 	it( "keeps Studio's local wp-config.php constants out of the pushed archive", async () => {
-		vi.mocked( pollImportStatus ).mockResolvedValue( {
-			success: true,
-			status: 'finished',
-		} as never );
-
 		await runCommand( site.path, [ 'sqls' ], String( remoteSite.id ) );
 
 		expect( getExporter ).toHaveBeenCalledWith(
@@ -139,11 +167,13 @@ describe( 'CLI: studio push', () => {
 	} );
 
 	it( 'explains a database the live site failed to import', async () => {
-		vi.mocked( pollImportStatus ).mockResolvedValue( {
-			success: false,
-			status: 'failed',
-			error_data: { vp_restore_message: 'Error importing SQL dump' },
-		} as never );
+		pushes(
+			[ { phase: 'applyingChanges' } ],
+			new RemoteSiteError(
+				'The database failed to import on the live site. Review your database and try again.',
+				'remote_import'
+			)
+		);
 
 		await expect( runCommand( site.path, [ 'all' ], String( remoteSite.id ) ) ).rejects.toThrow(
 			'The database failed to import on the live site.'
@@ -167,27 +197,17 @@ describe( 'CLI: studio push', () => {
 		[
 			'upload',
 			'upload',
-			() =>
-				vi.mocked( createTusUpload ).mockImplementation( ( { file } ) => ( {
-					promise: once( ( file as Readable ).resume(), 'close' ).then( () =>
-						Promise.reject( new Error( 'Upload crashed' ) )
-					),
-					abort: vi.fn(),
-				} ) ),
+			() => pushes( [ { phase: 'uploading' } ], new Error( 'Upload crashed' ) ),
 		],
 		[
 			'remote backup',
 			'remote_backup',
-			() => vi.mocked( pollImportStatus ).mockRejectedValue( new Error( 'Poll crashed' ) ),
+			() => pushes( [ { phase: 'creatingRemoteBackup' } ], new Error( 'Poll crashed' ) ),
 		],
 		[
 			'remote import',
 			'remote_import',
-			() =>
-				vi
-					.mocked( pollImportStatus )
-					.mockResolvedValueOnce( { success: true, status: 'archive_import_started' } as never )
-					.mockRejectedValue( new Error( 'Poll crashed' ) ),
+			() => pushes( [ { phase: 'applyingChanges' } ], new Error( 'Poll crashed' ) ),
 		],
 	] )(
 		'attributes an uncoded failure during the %s to that step',

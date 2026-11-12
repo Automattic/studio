@@ -1,5 +1,5 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import { withWpcomDetails } from '@studio/common/lib/sync/transform-sites';
+import { withWpcomDetails } from '@studio/providers';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { EllipsisIcon } from 'lucide-react';

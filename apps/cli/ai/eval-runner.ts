@@ -24,11 +24,13 @@ import { writeGlobalInstructions } from '@studio/agent/node/global-instructions'
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { addConnectedWpcomSite } from '@studio/common/lib/connected-sites';
 import { portFinder } from '@studio/common/lib/port-finder';
+import { readProviderConfig, writeProviderConfig } from '@studio/common/lib/provider-config';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
 import { getConfigDirectory, getSharedConfigPath } from '@studio/common/lib/well-known-paths';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { syncSiteSchema } from '@studio/common/types/sync';
+import { PROVIDER_IDS } from '@studio/providers';
 import { z } from 'zod';
 import { captureTurnOutcome, fingerprintSites, type TurnOutcome } from 'cli/ai/eval-outcome';
 import { stopRuleSchema, type StopRule } from 'cli/ai/eval-stop';
@@ -42,6 +44,7 @@ import {
 	unlockCliConfig,
 } from 'cli/lib/cli-config/core';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
+import { killDaemonAndChildren } from 'cli/lib/daemon-client';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { Logger } from 'cli/logger';
@@ -173,26 +176,32 @@ async function isolateSiteRegistry() {
 // Studio does.
 const STUDIO_DOWNLOADS = [ 'server-files', 'php-bin', 'import-runtime', 'mu-plugins' ];
 
-// Each eval runs against its own Studio config directory, signed in as the
-// user, so what a case seeds (global instructions, WordPress.com connections)
-// and what its turn changes stay in the case: concurrent cases and the user's
-// own Studio never see them.
-function isolateStudioConfig() {
+// Each eval runs against its own Studio config directory, connected to the
+// user's providers, so what a case seeds (global instructions, WordPress.com
+// connections) and what its turn changes stay in the case: concurrent cases
+// and the user's own Studio never see them. Each provider's config moves
+// through Studio's provider storage, so a provider added later carries over.
+async function isolateStudioConfig() {
 	const userDir = getConfigDirectory();
-	const { version, authToken, aiProvider } = JSON.parse(
+	const { version, aiProvider } = JSON.parse(
 		readFileSync( getSharedConfigPath(), 'utf8' )
 	) as Record< string, unknown >;
+	const configs = await Promise.all(
+		PROVIDER_IDS.map( async ( id ) => [ id, await readProviderConfig( id ) ] as const )
+	);
 	const dir = mkdtempSync( path.join( os.tmpdir(), 'studio-eval-config-' ) );
 	for ( const name of STUDIO_DOWNLOADS ) {
 		if ( existsSync( path.join( userDir, name ) ) ) {
 			symlinkSync( path.join( userDir, name ), path.join( dir, name ) );
 		}
 	}
-	writeFileSync(
-		path.join( dir, 'shared.json' ),
-		JSON.stringify( { version, authToken, aiProvider } )
-	);
+	writeFileSync( path.join( dir, 'shared.json' ), JSON.stringify( { version, aiProvider } ) );
 	process.env.E2E_SHARED_CONFIG_PATH = dir;
+	for ( const [ id, config ] of configs ) {
+		if ( config ) {
+			await writeProviderConfig( id, config );
+		}
+	}
 }
 
 // Stopped sites the request is not about, as a user with a few sites has, so
@@ -430,7 +439,7 @@ async function runEval( input: EvalRunnerInput ) {
 	const harness = selectHarness( input.harness );
 	const startedAt = Date.now();
 	await isolateSiteRegistry();
-	isolateStudioConfig();
+	await isolateStudioConfig();
 	const bystanderPaths = await createBystanderSites();
 	let seeded: SeededFixtures | null = null;
 	let inspections: Inspection[] = [];
@@ -507,6 +516,9 @@ async function main() {
 		emit( { success: false, error: error instanceof Error ? error.message : String( error ) } );
 		exitCode = 1;
 	}
+	// The case's own process manager (eval-runner-entry), with whatever of its
+	// sites a failed case left running.
+	await killDaemonAndChildren().catch( () => undefined );
 	// The Agent SDK keeps internal handles open past conversation end; bail out
 	// rather than leaving promptfoo waiting on its exec child.
 	process.exit( exitCode );

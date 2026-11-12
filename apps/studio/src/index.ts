@@ -247,8 +247,16 @@ async function appBoot() {
 	}
 
 	// Forces all renderers to be sandboxed. IPC is the only way render processes will
-	// be able to perform privileged operations.
-	app.enableSandbox();
+	// be able to perform privileged operations. Not as root on Linux with an explicit
+	// --no-sandbox (containers, CI): Chromium cannot sandbox there, and enableSandbox would
+	// override the switch.
+	const cannotSandbox =
+		process.platform === 'linux' &&
+		process.getuid?.() === 0 &&
+		app.commandLine.hasSwitch( 'no-sandbox' );
+	if ( ! cannotSandbox ) {
+		app.enableSandbox();
+	}
 
 	// Prevent navigation to anywhere other than known locations.
 	// The site-preview `<webview>` is a separate webContents that intentionally

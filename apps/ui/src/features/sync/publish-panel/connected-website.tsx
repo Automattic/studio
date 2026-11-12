@@ -106,7 +106,7 @@ export function ConnectedWebsite( {
 										className={ styles.destinationOptionCard }
 										title={ websiteAddress( remote ) }
 										thumbnailUrl={ getWebsiteThumbnailUrl( remote.url ) }
-										updatedAt={ remote.lastPushTimestamp }
+										updatedAt={ remote.launchAfterPush ? null : remote.lastPushTimestamp }
 										description={ websiteEnvironmentLabel( remote ) }
 										active={ open }
 									/>
@@ -122,7 +122,7 @@ export function ConnectedWebsite( {
 				<SiteCard
 					thumbnailUrl={ getWebsiteThumbnailUrl( website.url ) }
 					title={ websiteAddress( website ) }
-					updatedAt={ website.lastPushTimestamp }
+					updatedAt={ website.launchAfterPush ? null : website.lastPushTimestamp }
 					active={ open }
 					description={ __( 'Not published yet' ) }
 					actions={

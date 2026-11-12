@@ -58,6 +58,7 @@ function getPushPhaseMessage( phase: PushPhase, progress?: number ): string {
 		creatingRemoteBackup: __( 'Backing up remote site…' ),
 		applyingChanges: __( 'Applying changes…' ),
 		finishing: __( 'Almost there…' ),
+		launching: __( 'Launching site…' ),
 	}[ phase ];
 
 	return progress ? sprintf( '%1$s (%2$d%%)', message, Math.round( progress ) ) : message;

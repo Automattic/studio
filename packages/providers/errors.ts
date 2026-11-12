@@ -21,3 +21,19 @@ export class InvalidCredentialError extends Error {
 		this.name = 'InvalidCredentialError';
 	}
 }
+
+// A remote site operation failed; the message is for the user, and `code`
+// names the cause for analytics, such as `upload` or `remote_import`.
+export class RemoteSiteError extends Error {
+	readonly cause?: unknown;
+
+	constructor(
+		message: string,
+		readonly code?: string,
+		options?: { cause?: unknown }
+	) {
+		super( message );
+		this.name = 'RemoteSiteError';
+		this.cause = options?.cause;
+	}
+}

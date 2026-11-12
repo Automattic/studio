@@ -2,6 +2,7 @@ import type { AnthropicConfig } from './anthropic/config';
 import type { GeminiConfig } from './gemini/config';
 import type { AiModelId } from './models';
 import type { WpcomConfig } from './wpcom/config';
+import type { PullSyncOptions, PushSyncOptions, SyncSite } from './wpcom/site';
 import type { Api, Model } from '@earendil-works/pi-ai';
 import type { z } from 'zod';
 
@@ -13,6 +14,13 @@ export interface ProviderConfigs {
 	anthropic: AnthropicConfig;
 	gemini: GeminiConfig;
 }
+
+// The remote sites of each provider that offers them.
+export interface ProviderSites {
+	wpcom: SyncSite;
+}
+
+export type SitesProviderId = keyof ProviderSites;
 
 export interface AiModel< Id extends string = string > {
 	// Stable, stored in sessions; the same id in two providers is the same model.
@@ -67,6 +75,10 @@ export interface ProviderDescriptor< Config = unknown > {
 		// The default when the account has paid AI credits left.
 		paidDefaultModel?: AiModelId;
 	};
+	sites?: {
+		// The largest archive a push sends, in bytes.
+		maxPushSize?: number;
+	};
 }
 
 // Everything the runtime needs to register one model with pi.
@@ -101,7 +113,85 @@ export type GenerateImages< Config > = (
 	onResult?: ( index: number, result: GenerateImageResult ) => void
 ) => Promise< GenerateImageResult[] >;
 
-export interface Provider< Config = unknown > {
+// The archive of a local site a push sends: a Blob in the page, a readable
+// stream of the file in Node.
+export interface PushArchive {
+	file: Blob | { pipe: unknown };
+	name: string;
+	size: number;
+}
+
+// The steps of a push on the provider's side, after Studio built the archive.
+// `progress` is the step's own percentage, when the provider reports one.
+export interface PushStatus {
+	phase: 'uploading' | 'creatingRemoteBackup' | 'applyingChanges' | 'finishing' | 'launching';
+	progress?: number;
+}
+
+// Sends local sites to a provider's sites and brings them back. The provider
+// owns the remote side; Studio builds the archives and applies what it pulls.
+// What Studio reads of any provider's remote site.
+export interface RemoteSite {
+	id: unknown;
+	name: string;
+	url: string;
+}
+
+export interface SitesService< Config, Site extends RemoteSite > {
+	// The sites the account can sync with. A deleted site stays in the list
+	// while it is connected (`connectedIds`).
+	list(
+		config: Config | undefined,
+		options?: { connectedIds?: Site[ 'id' ][]; planRequired?: boolean }
+	): Promise< Site[] >;
+	// A launch error means the import succeeded; callers keep the publish intent
+	// for a retry and must not show the site as published yet.
+	push(
+		config: Config | undefined,
+		site: Pick< Site, 'id' | 'name' >,
+		archive: PushArchive,
+		options: PushSyncOptions,
+		onStatus: ( status: PushStatus ) => void,
+		signal?: AbortSignal
+	): Promise< void | { launchError: string } >;
+	pull?: {
+		// Backs the site up remotely and resolves with where to download the
+		// archive. `onProgress` gets the backup's percentage.
+		backup(
+			config: Config | undefined,
+			site: Pick< Site, 'id' >,
+			options: PullSyncOptions,
+			onProgress: ( percent: number ) => void,
+			signal?: AbortSignal
+		): Promise< { url: string; size: number } >;
+		// The site's export API, which a local Reprint reads the site through.
+		// Opening it also reports whether the site has Studio's key.
+		openExporter(
+			config: Config | undefined,
+			site: Pick< Site, 'id' | 'url' >
+		): Promise< { apiUrl: string; hasKey: boolean } >;
+		installExporterKey(
+			config: Config | undefined,
+			site: Pick< Site, 'id' >,
+			publicKey: string
+		): Promise< void >;
+		// The latest backup's id, and the raw entries of one of its folders.
+		latestBackupId( config: Config | undefined, site: Pick< Site, 'id' > ): Promise< string >;
+		listBackupFiles(
+			config: Config | undefined,
+			site: Pick< Site, 'id' >,
+			backupId: string,
+			path: string
+		): Promise< Record< string, unknown > >;
+		// The PHP version the site runs, when the provider can tell.
+		phpVersion(
+			config: Config | undefined,
+			site: Pick< Site, 'id' >
+		): Promise< string | undefined >;
+	};
+}
+
+export interface Provider< Config = unknown, Site extends RemoteSite = RemoteSite > {
 	descriptor: ProviderDescriptor< Config >;
 	// Checks what the user gave, a form's values or a redirect's parameters, and
 	// returns the config to store. Throws InvalidCredentialError when it fails.
@@ -119,4 +209,5 @@ export interface Provider< Config = unknown > {
 		): Promise< AiConnection >;
 		generateImages?: GenerateImages< Config >;
 	};
+	sites?: SitesService< Config, Site >;
 }

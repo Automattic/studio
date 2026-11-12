@@ -7,10 +7,12 @@ index.ts         the entry surfaces read: descriptors, models, ids, errors and t
 descriptors.ts   PROVIDER_IDS, getProviderDescriptor, the stored ids
 models.ts        getAiModel( provider, id ), getAiModelProviders( id ), defaults
 connection.ts    getConnectFields( provider ), getRedirectUrl( provider, options )
-types.ts         ProviderDescriptor, Provider, AiConnection, AiModel
-errors.ts        ProviderNotReadyError, InvalidCredentialError
-services.ts      the implementations: getProvider( id )
-wpcom/           descriptor, config, OAuth URL, sign-in, AI connection, image generation
+types.ts         ProviderDescriptor, Provider, AiConnection, AiModel, SitesService
+errors.ts        ProviderNotReadyError, InvalidCredentialError, RemoteSiteError
+services.ts      the implementations: getProvider( id ), and the WordPress.com client
+wpcom/           descriptor, config, OAuth URL, sign-in, REST client, AI connection, image generation
+wpcom/site.ts    its remote site (`SyncSite`) and sync options, which surfaces read
+wpcom/sites/     push and pull: site list, upload, remote import and backup, Reprint exporter
 anthropic/       descriptor, config, API key form and validation, AI connection
 gemini/          descriptor, config, Google AI Studio key validation, Gemini AI connection
 ```
@@ -18,7 +20,7 @@ gemini/          descriptor, config, Google AI Studio key validation, Gemini AI 
 ## Two entries
 
 - **`@studio/providers`** is what surfaces read: each provider's label, models and config schema, model lookup, and the provider ids. `apps/ui` imports only this.
-- **`@studio/providers/services`** holds the implementations: connecting an account, connecting to a model, generating images. The CLI, the apps' backends and the agent import it. It runs in Node and in the page, where Studio on the web runs the agent.
+- **`@studio/providers/services`** holds the implementations: connecting an account, connecting to a model, generating images, pushing and pulling sites. The CLI, the apps' backends and the agent import it. It runs in Node and in the page, where Studio on the web runs the agent.
 
 ```ts
 import { getDefaultAiModel } from '@studio/providers';
@@ -48,7 +50,7 @@ Provider ids and model ids are stored, so they never change. Builds before the `
 
 ## Adding a provider
 
-Add a folder with its `descriptor.ts` (with its `connection`), `config.ts` and implementations, add its id to `ProviderId` and `ProviderConfigs` in `types.ts`, and register it in `descriptors.ts` and `services.ts`. Studio then needs to know where to store its config (`provider-config.ts`); a form provider then shows up in the settings and in `studio code`'s `/provider` on its own.
+Add a folder with its `descriptor.ts` (with its `connection`), `config.ts` and implementations, add its id to `ProviderId` and `ProviderConfigs` in `types.ts`, and register it in `descriptors.ts` and `services.ts`. Studio then needs to know where to store its config (`provider-config.ts`); a form provider then shows up in the settings and in `studio code`'s `/provider` on its own. A provider with remote sites also adds its site to `ProviderSites`, and Studio a place to store its connections (`remote-sites.ts`).
 
 ## Boundaries
 

@@ -199,7 +199,7 @@ Upload images and files into WordPress Studio Code to use across your project:
 -   **Desktop**: drag files into the chat, paste them, or click **+** in the chat box and choose **Add files**
 -   **Terminal**: drag into the chat or point to a specific local file or folder
 
-The Fast tier reads text only. To send an image, choose Balanced or Strong (or, with your own API key, Sonnet 5 or Opus 5) first.
+The Fast tier reads text only. To send an image, choose Balanced or Strong (or, with your own API key, Sonnet 5.5 or Opus 5.5) first.
 
 ### [New conversations](#13-new-conversations)
 
@@ -215,7 +215,7 @@ In the desktop app, each site’s chats are listed under the site in the sidebar
 You can choose how AI responses are generated, in both the desktop app and the terminal:
 
 -   **WordPress.com** (default): uses your WordPress.com account and AI Credits. No additional setup is required beyond logging in.
--   **Anthropic API key**: uses your own API key for direct access to Claude. In the desktop app, connect **Anthropic** in **Settings → Providers**. In the terminal, set it with the `/api-key` command.
+-   **Anthropic API key**: uses your own API key for direct access to **Sonnet 5.5** and **Opus 5.5**. In the desktop app, connect **Anthropic** in **Settings → Providers**. In the terminal, set it with the `/api-key` command.
 -   **Google Gemini** supports **Gemini 3.8 Flash** (default), **Gemini 4 Argon**, and **Gemini 4 Carbon**. Create a key in [Google AI Studio](https://aistudio.google.com/apikey), then connect **Google Gemini** in **Settings → Providers** or select it with `/provider` in the terminal. Google handles billing through your API project.
 
 In the desktop app, choose the provider for each chat from the model menu, and set the provider new chats use with **Default provider** in **Settings → Providers**. In the terminal, switch providers with the `/provider` command.
@@ -309,7 +309,7 @@ To use your own key in the desktop app:
 1.  Create an API key at [console.anthropic.com](https://console.anthropic.com/) (requires an Anthropic account with billing set up).
 2.  Open **Settings** from the account menu at the bottom of the sidebar, or press ⌘, (Ctrl+, on Windows and Linux), and select **Providers**. You can also choose **Providers** from the account menu.
 3.  Next to **Anthropic**, click **Connect**, paste your key in the **Anthropic API key** field, and click **Save**.
-4.  In the chat box, choose **Sonnet 5** or **Opus 5** from the model menu.
+4.  In the chat box, choose **Sonnet 5.5** or **Opus 5.5** from the model menu.
 
 ![The Providers page of WordPress Studio's Settings, with WordPress.com marked Connected and a Manage button, and Anthropic with a Connect button to use your own API key.](../../../../screenshots/images/settings-ai-providers-signed-in.webp)
 

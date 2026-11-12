@@ -25,12 +25,12 @@ It describes the architecture and the rules, not the exact APIs, which are expec
 
 ## Providers
 
-| Provider                                                  | Account                           | AI                                   | Sites                  | Previews    |
-| --------------------------------------------------------- | --------------------------------- | ------------------------------------ | ---------------------- | ----------- |
-| WordPress.com (`wpcom`)                                   | Studio sign-in                    | `fast`, `balanced`, `strong`; images | push, pull _(planned)_ | _(planned)_ |
-| Anthropic (`anthropic`)                                   | API key; subscription _(planned)_ | Claude models                        | —                      | —           |
-| Google Gemini (`gemini`)                                  | Google AI Studio API key          | Gemini models                        | —                      | —           |
-| Other hosts, such as an SSH host or Spacefast _(planned)_ | Per host                          | —                                    | push, pull             | —           |
+| Provider                                                  | Account                           | AI                                   | Sites      | Previews    |
+| --------------------------------------------------------- | --------------------------------- | ------------------------------------ | ---------- | ----------- |
+| WordPress.com (`wpcom`)                                   | Studio sign-in                    | `fast`, `balanced`, `strong`; images | push, pull | _(planned)_ |
+| Anthropic (`anthropic`)                                   | API key; subscription _(planned)_ | Claude models                        | —          | —           |
+| Google Gemini (`gemini`)                                  | Google AI Studio API key          | Gemini models                        | —          | —           |
+| Other hosts, such as an SSH host or Spacefast _(planned)_ | Per host                          | —                                    | push, pull | —           |
 
 The WordPress.com tiers are capability aliases. The proxy's `studio-agent` lane resolves each one to an upstream model server-side, so the mapping can change without a release.
 
@@ -38,7 +38,7 @@ The WordPress.com tiers are capability aliases. The proxy's `studio-agent` lane 
 
 Signing in to Studio means signing in to WordPress.com. That account is who the user is in Studio, so it is not one provider account among others.
 
-The WordPress.com provider owns how sign-in works: the authorization URL, turning what WordPress.com sends back into its config (checking the token and reading the signed-in user), and token revocation. Its REST client moves there too _(planned)_. Studio's apps and the CLI can always rely on a WordPress.com provider being there, and use its sign-in by name:
+The WordPress.com provider owns how sign-in works: the authorization URL, turning what WordPress.com sends back into its config (checking the token and reading the signed-in user), and token revocation, and its REST client. Studio's apps and the CLI can always rely on a WordPress.com provider being there, and use its sign-in by name:
 
 - `studio auth` signs in to Studio. It takes no provider.
 - The user menu in the apps shows the signed-in WordPress.com user, and signing in and out from it is Studio sign-in.
@@ -108,14 +108,15 @@ An id names the provider only. How the account is connected (an API key, a subsc
 
 The Anthropic provider is `anthropic`. Builds before this design stored `anthropic-api-key`, in `shared.json` (`aiProvider`) and in session entries. Readers map it to `anthropic`, and writers keep storing `anthropic-api-key`. Older builds fall back to WordPress.com on an id they don't know, so this keeps the user's choice in every build.
 
-## Remote sites _(planned)_
+## Remote sites
 
-- A remote site is a site on a provider that a local site syncs with. A generic remote site replaces today's WordPress.com-only `SyncSite`.
-- Whether a site can sync is a status with an optional action, replacing the WordPress.com-specific states. For example, a site that needs a plan upgrade is blocked, with a link to upgrade.
-- Connections are Studio's data about its local sites, not provider config. Studio stores them for every provider, replacing `connectedWpcomSites`, and records when each site was last pushed or pulled.
-- `studio push` and `studio pull` stay the commands, and take a remote that names its provider. Bare WordPress.com site ids and URLs keep working.
-- The provider brings the transport and the remote side. The local side (exporting a site to an archive, importing an archive) is shared by every provider.
-- Progress is reported as generic steps, so each provider describes its own. A provider declares whether it supports selective sync.
+- A remote site is a site on a provider that a local site syncs with. Each provider with remote sites declares the shape of its site; WordPress.com's is `SyncSite`.
+- The provider owns the remote side of a sync: listing the account's sites, sending a pushed archive and applying it remotely, and, for pull, backing the site up remotely or opening the export API a local Reprint reads it through. It reports the steps it runs through as a status.
+- Studio owns the local side, shared by every provider: building the archive a push sends, and running Reprint or importing a downloaded backup on pull. The CLI does this; Studio on the web builds the archive in the page and hands the same provider a Blob.
+- Connections are Studio's data about its local sites, not provider config. `@studio/common/lib/remote-sites.ts` reads and writes them per provider, and records when each site was last pushed or pulled. WordPress.com's stay in `connectedWpcomSites`, so builds of every version read them.
+- Whether a site can sync is a status with an optional action, replacing the WordPress.com-specific states. For example, a site that needs a plan upgrade is blocked, with a link to upgrade _(planned)_.
+- `studio push` and `studio pull` stay the commands, and take a remote that names its provider. Bare WordPress.com site ids and URLs keep working _(planned)_.
+- A provider declares whether it supports selective sync _(planned)_.
 
 ## Previews _(planned)_
 
@@ -125,7 +126,7 @@ Previews are a capability, and WordPress.com is the only provider that offers it
 
 - **`apps/ui`** reads descriptors and account states through its connectors, and never names a provider, apart from Studio sign-in. The `ipc`, `local` and static connectors stay thin wrappers over Studio's storage in `@studio/common` and the providers' services.
 - **The agent**, in Node or in the page, receives a model connection per turn. Tools that depend on a capability are available only when a connected provider offers it. `wpcom_request` also requires Studio sign-in _(planned)_; the MCP runtime can still turn it off per client (Codex).
-- **The CLI** lists providers and models from descriptors in `studio code`. `studio auth` is Studio sign-in. `studio push`, `pull` and `preview` hand the work to providers _(planned)_.
+- **The CLI** lists providers and models from descriptors in `studio code`. `studio auth` is Studio sign-in. `studio push` and `pull` hand the remote side to the provider; `preview` does too _(planned)_.
 - **Analytics**: existing Tracks properties keep their names, so reporting stays continuous.
 
 ## Out of scope
@@ -135,4 +136,4 @@ Previews are a capability, and WordPress.com is the only provider that offers it
 
 ## Open questions
 
-1. **Designing sites against a second host.** The remote-sites direction above is drawn from WordPress.com. It should be checked against a second real host (an SSH host or Spacefast) before it is built, so it doesn't copy WordPress.com's backup, import-polling and transfer steps.
+1. **Designing sites against a second host.** The remote-sites capability above is drawn from WordPress.com. Spacefast, the next host, differs in almost every way: it is publish-only, with no pull; its push takes a static HTML build rather than a WordPress archive, so Studio needs a second local side; it has no remote backup, import polling or selective sync; and it signs in with a device login, a connection kind of its own. The capability should take these on before more of WordPress.com's steps are generalized.

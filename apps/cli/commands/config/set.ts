@@ -245,21 +245,6 @@ async function setSiteConfig( sitePath: string, options: SetCommandOptions ): Pr
 			}
 		}
 
-		if ( xdebug === true ) {
-			const otherXdebugSite = initialCliConfig.sites.find(
-				( s ) => s.enableXdebug && s.id !== site.id
-			);
-			if ( otherXdebugSite ) {
-				throw new LoggerError(
-					sprintf(
-						/* translators: %s: site name */
-						__( 'Only one site can have Xdebug enabled at a time. Disable Xdebug on "%s" first.' ),
-						otherXdebugSite.name
-					)
-				);
-			}
-		}
-
 		const nameChanged = name !== undefined && name !== site.name;
 		const domainChanged = domain !== undefined && domain !== site.customDomain;
 		const httpsChanged = https !== undefined && https !== site.enableHttps;

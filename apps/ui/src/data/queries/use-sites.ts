@@ -4,7 +4,7 @@ import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { getSiteOperationNoun } from '@studio/common/lib/site-operation-labels';
 import { useIsMutating, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { dismissToast, openStudioLogsAction, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { SESSIONS_QUERY_KEY } from '@/data/queries/use-sessions';
@@ -323,16 +323,6 @@ export function useUpdateSite() {
 			toast.success( __( 'Settings saved' ) );
 		},
 	} );
-}
-
-/**
- * The site that currently has Xdebug enabled — exclusive across sites — derived
- * from the loaded site list so the settings form can warn before enabling it
- * elsewhere. `enableXdebug` is already on every SiteDetails, so no separate call.
- */
-export function useXdebugEnabledSite(): SiteDetails | null {
-	const { data: sites } = useSites();
-	return useMemo( () => sites?.find( ( site ) => site.enableXdebug ) ?? null, [ sites ] );
 }
 
 export function useIsSiteMutating(

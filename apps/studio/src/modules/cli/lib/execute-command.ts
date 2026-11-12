@@ -4,6 +4,7 @@ import {
 	type CliRunner,
 	type ExecuteCliCommand,
 } from '@studio/common/lib/cli-process';
+import { HOST_REPORTS_CLI_ERRORS_ENV } from '@studio/common/lib/error-reporting';
 import { getBundledNodeBinaryPath, getCliPath } from 'src/storage/paths';
 
 // Origin tag passed to every app-spawned CLI process so its Tracks events are attributed to the
@@ -20,7 +21,7 @@ function getRunner(): CliRunner {
 		runner = createCliRunner( {
 			cliBinary: getCliPath(),
 			nodeBinary: getBundledNodeBinaryPath(),
-			env: { STUDIO_TRACKS_ORIGIN: getTracksOriginEnv() },
+			env: { STUDIO_TRACKS_ORIGIN: getTracksOriginEnv(), [ HOST_REPORTS_CLI_ERRORS_ENV ]: '1' },
 			echoStderr: true,
 			onError: ( error ) => Sentry.captureException( error ),
 		} );

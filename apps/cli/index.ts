@@ -23,6 +23,7 @@ import {
 	getPlatformMetric,
 } from 'cli/lib/bump-stat';
 import { setupServerFiles } from 'cli/lib/dependency-management/setup';
+import { setupErrorReporting } from 'cli/lib/error-reporting';
 import { loadTranslations } from 'cli/lib/i18n';
 import { setupTosNotice } from 'cli/lib/tos-notice';
 import { StatsGroup, StatsMetric } from 'cli/lib/types/bump-stats';
@@ -35,6 +36,7 @@ const version = __STUDIO_CLI_VERSION__;
 suppressPunycodeWarning();
 
 async function main() {
+	setupErrorReporting();
 	await setupUpdateNotifier( version );
 
 	const yargsLocale = await loadTranslations();

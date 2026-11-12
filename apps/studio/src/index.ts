@@ -13,10 +13,12 @@ import {
 } from 'electron';
 import path from 'path';
 import * as Sentry from '@sentry/electron/main';
-import { PROTOCOL_PREFIX } from '@studio/common/constants';
+import { PROTOCOL_PREFIX, SENTRY_DSN } from '@studio/common/constants';
+import { readSentryUserId } from '@studio/common/lib/app-config';
 import { refreshAgentPlugins } from '@studio/common/lib/connect-agent-app';
 import { prepareErrorEvent, setErrorReporter } from '@studio/common/lib/error-reporting';
 import { runMigrations } from '@studio/common/lib/migration';
+import { getSentryReleaseInfo } from '@studio/common/lib/sentry-release';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
 import { updateSiteMetadata } from '@studio/common/sites/metadata';
@@ -46,7 +48,6 @@ import {
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
 import { forwardPreviewShortcut } from 'src/lib/preview-shortcuts';
-import { getSentryReleaseInfo } from 'src/lib/sentry-release';
 import { parseWebUrl } from 'src/lib/shell-open-external-wrapper';
 import { getSites, stopAllServers } from 'src/lib/sites';
 import { refreshSpotlightIndex, setupSpotlight } from 'src/lib/spotlight';
@@ -73,7 +74,6 @@ import {
 	lockAppdata,
 	saveUserData,
 	unlockAppdata,
-	readSentryUserId,
 	updateAppdata,
 	type QuitSitesBehavior,
 } from 'src/storage/user-data';
@@ -152,12 +152,15 @@ if ( ! process.env.IS_DEV_BUILD ) {
 
 	const sentryUserId = readSentryUserId();
 	Sentry.init( {
-		dsn: 'https://97693275b2716fb95048c6d12f4318cf@o248881.ingest.sentry.io/4506612776501248',
+		dsn: SENTRY_DSN,
 		// A run from source reports as the release it's built from, so only packaged builds report.
 		enabled: app.isPackaged && ! isDevEnvironment,
 		release: sentryRelease,
 		environment: isDevEnvironment ? 'development' : 'production',
-		initialScope: sentryUserId ? { user: { id: sentryUserId } } : undefined,
+		initialScope: {
+			tags: { surface: 'desktop' },
+			user: sentryUserId ? { id: sentryUserId } : undefined,
+		},
 		beforeSend: prepareErrorEvent,
 	} );
 	setErrorReporter( Sentry.captureException );

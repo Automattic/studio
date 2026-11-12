@@ -1,10 +1,10 @@
 import { app, autoUpdater, clipboard, dialog } from 'electron';
 import * as Sentry from '@sentry/electron/main';
+import { isDevRelease } from '@studio/common/lib/sentry-release';
 import { sprintf, __ } from '@wordpress/i18n';
 import { AUTO_UPDATE_INTERVAL_MS, NIGHTLY_UPDATE_TTL_MS } from 'src/constants';
 import { sendIpcEventToRenderer, type AppUpdateStatus } from 'src/ipc-utils';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
-import { isDevRelease } from 'src/lib/version-utils';
 import { getExistingMainWindow } from 'src/main-window';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
 import type { IpcMainInvokeEvent } from 'electron';

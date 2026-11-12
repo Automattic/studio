@@ -9,6 +9,7 @@ import { isAutomatticianEmail } from './automattician';
 import { hideDirectoryOnWindows } from './hide-dir-windows';
 import { lockFileAsync, unlockFileAsync } from './lockfile';
 import { getConfigDirectory, getSharedConfigPath } from './well-known-paths';
+import type { TracksIdentity } from './record-tracks-event';
 
 export { authTokenSchema };
 export type { StoredAuthToken };
@@ -284,6 +285,16 @@ export async function getOrCreateAnalyticsInstallId(): Promise< string > {
 	} finally {
 		await unlockSharedConfig();
 	}
+}
+
+// The identity Tracks events are attributed to: the WordPress.com user id while logged in, the
+// anonymous install id otherwise. The install id is not minted or sent for a logged-in user.
+export async function getTracksIdentity(): Promise< TracksIdentity > {
+	const userId = await getCurrentUserId();
+	if ( userId ) {
+		return { type: 'wpcom:user_id', id: String( userId ) };
+	}
+	return { type: 'anon', id: await getOrCreateAnalyticsInstallId() };
 }
 
 // True when the user has opted out of Tracks analytics. Default is opted IN (analytics ON).

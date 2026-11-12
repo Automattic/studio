@@ -67,6 +67,15 @@ describe( '__buildTracksPixelUrl', () => {
 		expect( url.searchParams.get( '_ts' ) ).toBe( '1700000000000' );
 	} );
 
+	it( 'sends a logged-in identity as a WordPress.com user id', () => {
+		const url = new URL(
+			__buildTracksPixelUrl( TRACKS_EVENTS.APP_LAUNCH, { type: 'wpcom:user_id', id: '12345' }, {} )
+		);
+
+		expect( url.searchParams.get( '_ut' ) ).toBe( 'wpcom:user_id' );
+		expect( url.searchParams.get( '_ui' ) ).toBe( '12345' );
+	} );
+
 	it( 'coerces prop values to strings and drops undefined props', () => {
 		const url = new URL(
 			__buildTracksPixelUrl( TRACKS_EVENTS.SITE_START, IDENTITY, {

@@ -7,7 +7,7 @@ import {
 	type TracksUiVersion,
 } from '@studio/common/lib/record-tracks-event';
 import {
-	getOrCreateAnalyticsInstallId,
+	getTracksIdentity,
 	isAnalyticsOptedOut,
 	isAutomatticianFromToken,
 } from '@studio/common/lib/shared-config';
@@ -88,10 +88,8 @@ export async function recordTracksEvent(
 		return;
 	}
 
-	const installId = await getOrCreateAnalyticsInstallId();
-	__recordTracksEvent(
-		event,
-		{ type: 'anon', id: installId },
-		{ ...( await commonProps() ), ...props }
-	);
+	__recordTracksEvent( event, await getTracksIdentity(), {
+		...( await commonProps() ),
+		...props,
+	} );
 }

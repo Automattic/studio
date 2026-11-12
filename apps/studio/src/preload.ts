@@ -34,8 +34,8 @@ const api: IpcApi = {
 	getAuthenticationToken: () => ipcRendererInvoke( 'getAuthenticationToken' ),
 	clearAuthenticationToken: () => ipcRendererInvoke( 'clearAuthenticationToken' ),
 	fetchSnapshots: () => ipcRendererInvoke( 'fetchSnapshots' ),
-	publishPreviewSite: ( siteFolder, hostname, name ) =>
-		ipcRendererInvoke( 'publishPreviewSite', siteFolder, hostname, name ),
+	publishPreviewSite: ( siteFolder, hostname, name, liveSite ) =>
+		ipcRendererInvoke( 'publishPreviewSite', siteFolder, hostname, name, liveSite ),
 	deletePreviewSite: ( hostname ) => ipcRendererInvoke( 'deletePreviewSite', hostname ),
 	renamePreviewSite: ( hostname, name ) => ipcRendererInvoke( 'renamePreviewSite', hostname, name ),
 	getPreviewStatus: ( hostname ) => ipcRendererInvoke( 'getPreviewStatus', hostname ),

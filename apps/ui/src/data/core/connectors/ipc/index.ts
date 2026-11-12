@@ -439,9 +439,19 @@ export function createIpcConnector(): Connector {
 			await ipcApi.deleteAllSnapshots();
 		},
 
-		async publishPreviewSite( siteId, existingHostname, name ): Promise< { url: string } > {
+		async publishPreviewSite(
+			siteId,
+			existingHostname,
+			name,
+			liveSite
+		): Promise< { url: string } > {
 			const siteFolder = await resolveSiteFolder( siteId );
-			return ( await ipcApi.publishPreviewSite( siteFolder, existingHostname, name ) ) as {
+			return ( await ipcApi.publishPreviewSite(
+				siteFolder,
+				existingHostname,
+				name,
+				liveSite
+			) ) as {
 				url: string;
 			};
 		},

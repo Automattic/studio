@@ -709,7 +709,7 @@ async function appBoot() {
 		markAppQuitting();
 		globalShortcut.unregisterAll();
 		stopCliEventsSubscriber();
-		stopCliCommands();
+		const cliCommandsStopped = stopCliCommands();
 
 		void ( async () => {
 			try {
@@ -727,6 +727,7 @@ async function appBoot() {
 					await stopAllServers( STOP_ALL_SERVERS_ON_QUIT_TIMEOUT_MS );
 				}
 			} finally {
+				await cliCommandsStopped;
 				quitCleanup = 'done';
 				app.quit();
 			}

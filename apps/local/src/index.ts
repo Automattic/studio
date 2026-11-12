@@ -2450,7 +2450,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		url,
 		port: listeningPort,
 		async close() {
-			cliRunner.killAll();
+			void cliRunner.killAll();
 			for ( const watch of publishWatches.values() ) {
 				watch.cancelled = true;
 			}

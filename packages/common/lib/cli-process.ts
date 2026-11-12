@@ -109,6 +109,23 @@ export function isCliCommandDone( message: unknown ): boolean {
 	return cliDoneMessageSchema.safeParse( message ).success;
 }
 
+/**
+ * Windows has no signal a process can catch: `child.kill()` is TerminateProcess. A command that
+ * decides for itself whether to stop (a sync, see `exitOnCancel` in the CLI) announces it with
+ * `CLI_ACCEPTS_STOP_REQUESTS`, and its host asks it with `CLI_STOP_REQUEST` instead.
+ */
+export const CLI_ACCEPTS_STOP_REQUESTS = { action: 'acceptsStopRequests' } as const;
+export const CLI_STOP_REQUEST = { action: 'stop' } as const;
+
+const cliAcceptsStopRequestsSchema = z.object( {
+	action: z.literal( CLI_ACCEPTS_STOP_REQUESTS.action ),
+} );
+const cliStopRequestSchema = z.object( { action: z.literal( CLI_STOP_REQUEST.action ) } );
+
+export function isCliStopRequest( message: unknown ): boolean {
+	return cliStopRequestSchema.safeParse( message ).success;
+}
+
 type CliCommandEventEmitter< CapturesOutput extends boolean > = TypedEventEmitter<
 	CliCommandEventMap< CapturesOutput >
 >;
@@ -162,9 +179,10 @@ export interface CliRunner {
 	): [ CliCommandEventEmitter< false >, ChildProcess ];
 	// Terminates every still-running child this runner spawned. The host calls
 	// this once on shutdown so forked CLI processes don't outlive it. With
-	// `force: false` it only asks (SIGTERM), so a sync past the point where
-	// stopping is safe can finish (see `exitOnCancel` in the CLI).
-	killAll( options?: { force?: boolean } ): void;
+	// `force: false` it only asks, so a sync past the point where stopping is
+	// safe can finish (see `exitOnCancel` in the CLI). Resolves once the children
+	// that must outlive a stop request no longer need the host to stay alive.
+	killAll( options?: { force?: boolean } ): Promise< void >;
 }
 
 // How long a child gets to exit on SIGTERM before it is killed outright.
@@ -174,11 +192,28 @@ const SIGKILL_GRACE_MS = 2000;
 // Windows process with exit code 1.
 const stoppedChildren = new WeakSet< ChildProcess >();
 
+const childrenAcceptingStopRequests = new WeakSet< ChildProcess >();
+
+function asksToStop( child: ChildProcess, force: boolean ): boolean {
+	return (
+		process.platform === 'win32' &&
+		! force &&
+		child.connected &&
+		childrenAcceptingStopRequests.has( child )
+	);
+}
+
 // Only kills the child; its `close` handler still runs so awaiting callers
 // see a failure instead of hanging forever.
 export function killChild( child: ChildProcess, { force = true }: { force?: boolean } = {} ): void {
 	stoppedChildren.add( child );
 	const pid = child.pid;
+
+	if ( asksToStop( child, force ) ) {
+		// It exits, taking its php.exe descendants with it, unless it has to finish.
+		child.send( CLI_STOP_REQUEST, () => undefined );
+		return;
+	}
 
 	// `child.kill()` only terminates the forked CLI process; on Windows its
 	// php.exe descendants would orphan and keep their DLLs locked. `taskkill
@@ -301,6 +336,11 @@ export function createCliRunner( config: CliRunnerConfig ): CliRunner {
 		}
 
 		child.on( 'message', ( message: unknown ) => {
+			if ( cliAcceptsStopRequestsSchema.safeParse( message ).success ) {
+				childrenAcceptingStopRequests.add( child );
+				return;
+			}
+
 			const errorParsed = cliErrorMessageSchema.safeParse( message );
 			if ( errorParsed.success ) {
 				lastErrorMessage = errorParsed.data.message;
@@ -340,11 +380,18 @@ export function createCliRunner( config: CliRunnerConfig ): CliRunner {
 		return [ eventEmitter, child ];
 	}
 
-	function killAll( options?: { force?: boolean } ): void {
+	function killAll( { force = true }: { force?: boolean } = {} ): Promise< void > {
+		// A Windows child dies with its host (libuv puts it in a kill-on-close job object), so one
+		// that keeps going after a stop request only gets to finish if the host waits for it.
+		const finishing: Promise< void >[] = [];
 		for ( const child of liveChildren ) {
-			killChild( child, options );
+			if ( asksToStop( child, force ) ) {
+				finishing.push( new Promise( ( resolve ) => child.once( 'close', () => resolve() ) ) );
+			}
+			killChild( child, { force } );
 		}
 		liveChildren.clear();
+		return Promise.all( finishing ).then( () => undefined );
 	}
 
 	return { executeCliCommand, killAll } as CliRunner;

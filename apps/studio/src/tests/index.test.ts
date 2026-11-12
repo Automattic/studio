@@ -655,6 +655,34 @@ describe( 'App initialization', () => {
 		expect( finalEvent.preventDefault ).not.toHaveBeenCalled();
 	} );
 
+	// On Windows a sync past the point where stopping is safe ends with Studio's process.
+	it( 'waits for CLI commands that have to finish before quitting', async () => {
+		vi.doMock( 'src/lib/sites', () => ( {
+			getSites: vi.fn().mockResolvedValue( [] ),
+			stopAllServers: vi.fn(),
+		} ) );
+		vi.doMock( '@studio/common/sites/metadata', () => ( {
+			updateSiteMetadata: vi.fn().mockResolvedValue( undefined ),
+		} ) );
+		const { mockedEvents } = mockElectron();
+		vi.resetModules();
+		const { stopCliCommands } = await import( 'src/modules/cli/lib/execute-command' );
+		let finishSync = () => {};
+		vi.mocked( stopCliCommands ).mockReturnValue(
+			new Promise< void >( ( resolve ) => ( finishSync = resolve ) )
+		);
+		await import( '../index' );
+		const { app } = await import( 'electron' );
+		const { updateSiteMetadata } = await import( '@studio/common/sites/metadata' );
+
+		await mockedEvents[ 'will-quit' ]( { preventDefault: vi.fn() } );
+		await vi.waitFor( () => expect( updateSiteMetadata ).toHaveBeenCalled() );
+		expect( app.quit ).not.toHaveBeenCalled();
+
+		finishSync();
+		await vi.waitFor( () => expect( app.quit ).toHaveBeenCalledTimes( 1 ) );
+	} );
+
 	it( 'should wait app initialization before creating main window via second-instance event', async () => {
 		vi.mocked( getMainWindow, { partial: true } ).mockResolvedValue( {
 			focus: vi.fn(),

@@ -1,13 +1,20 @@
+import { fork, spawnSync } from 'node:child_process';
 import EventEmitter from 'node:events';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { killChild, runCliCommand } from '@studio/common/lib/cli-process';
+import {
+	CLI_ACCEPTS_STOP_REQUESTS,
+	CLI_STOP_REQUEST,
+	createCliRunner,
+	killChild,
+	runCliCommand,
+} from '@studio/common/lib/cli-process';
 import type { ExecuteCliCommand } from '@studio/common/lib/cli-process';
 import type { ChildProcess } from 'node:child_process';
 
-// `killChild` branches on the platform: signals on POSIX, `taskkill /F /T` on
-// Windows. Pin it to POSIX so these run the same everywhere — on a Windows host
-// they would otherwise fire a real `taskkill` at whatever holds this pid.
+vi.mock( 'node:child_process', () => ( { fork: vi.fn(), spawnSync: vi.fn() } ) );
+
+// `killChild` branches on the platform: signals on POSIX, `taskkill /F /T` on Windows.
 const originalPlatform = process.platform;
 function setPlatform( platform: NodeJS.Platform ) {
 	Object.defineProperty( process, 'platform', { value: platform, configurable: true } );
@@ -22,7 +29,9 @@ function createStubbornChild() {
 		pid: 1234,
 		exitCode: null,
 		signalCode: null,
+		connected: true,
 		signals,
+		send: vi.fn( ( _message: unknown, callback?: () => void ) => callback?.() ),
 		kill: ( signal?: string ) => {
 			signals.push( signal ?? 'SIGTERM' );
 			return true;
@@ -30,6 +39,18 @@ function createStubbornChild() {
 	} );
 	return child as ChildProcess & { signals: string[] };
 }
+
+// A sync command, which announces that it decides for itself whether to stop.
+function runSync() {
+	const child = createStubbornChild();
+	vi.mocked( fork ).mockReturnValue( child );
+	const runner = createCliRunner( { cliBinary: 'main.mjs' } );
+	runner.executeCliCommand( [ 'pull' ] );
+	child.emit( 'message', CLI_ACCEPTS_STOP_REQUESTS );
+	return { runner, child };
+}
+
+const taskkill = [ 'taskkill', [ '/F', '/T', '/PID', '1234' ], expect.anything() ];
 
 describe( 'killChild', () => {
 	beforeEach( () => {
@@ -73,6 +94,51 @@ describe( 'killChild', () => {
 		vi.advanceTimersByTime( 5000 );
 
 		expect( child.signals ).toEqual( [ 'SIGTERM' ] );
+	} );
+
+	it( 'lets a stopped child outlive the host on POSIX', async () => {
+		const { runner, child } = runSync();
+
+		await runner.killAll( { force: false } );
+
+		expect( child.signals ).toEqual( [ 'SIGTERM' ] );
+		expect( child.send ).not.toHaveBeenCalled();
+	} );
+} );
+
+describe( 'killChild on Windows', () => {
+	beforeEach( () => {
+		vi.mocked( spawnSync ).mockClear();
+		setPlatform( 'win32' );
+	} );
+
+	afterEach( () => setPlatform( originalPlatform ) );
+
+	// Windows ends a host's children with it, so a sync that has to finish needs the host to wait.
+	it( 'asks a sync to stop over IPC, and waits for it on quit', async () => {
+		const { runner, child } = runSync();
+		let stopped = false;
+
+		const stopping = runner.killAll( { force: false } ).then( () => ( stopped = true ) );
+		await Promise.resolve();
+
+		expect( child.send ).toHaveBeenCalledWith( CLI_STOP_REQUEST, expect.any( Function ) );
+		expect( spawnSync ).not.toHaveBeenCalled();
+		expect( stopped ).toBe( false );
+
+		child.emit( 'close', 0, null );
+		await stopping;
+		expect( stopped ).toBe( true );
+	} );
+
+	it( 'ends the process tree of a command that takes no requests, or when forced', () => {
+		const other = createStubbornChild();
+		killChild( other, { force: false } );
+		killChild( runSync().child );
+
+		expect( spawnSync ).toHaveBeenCalledTimes( 2 );
+		expect( spawnSync ).toHaveBeenCalledWith( ...taskkill );
+		expect( other.signals ).toEqual( [] );
 	} );
 } );
 

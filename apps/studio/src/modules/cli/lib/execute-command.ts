@@ -32,7 +32,8 @@ export const executeCliCommand = ( ( args, options ) =>
 	getRunner().executeCliCommand( args, options ) ) as ExecuteCliCommand;
 
 // Called on quit before the quit flow starts its own commands, which must not be stopped. Only asks,
-// so a sync past the point where stopping is safe finishes (see `exitOnCancel` in the CLI).
-export function stopCliCommands(): void {
-	runner?.killAll( { force: false } );
+// so a sync past the point where stopping is safe finishes (see `exitOnCancel` in the CLI): the quit
+// waits for the returned promise.
+export function stopCliCommands(): Promise< void > {
+	return runner?.killAll( { force: false } ) ?? Promise.resolve();
 }

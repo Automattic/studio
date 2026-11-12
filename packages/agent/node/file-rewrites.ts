@@ -13,6 +13,13 @@ import { addedMembers } from '@studio/common/lib/json-text';
 // theme.json font faces of 79-109 short lines, and none quoted 5.7k characters.
 const MAX_LINES = 120;
 const MAX_CHARS = 6000;
+// The most a note on Studio's own change to a file quotes. Of 71 such notes
+// in eval36-37 the agent edited the file after 19; it read it again first
+// after 14 and never touched it again after 38, each quote staying in its
+// context for every later call. A quote this long holds the median one (325
+// characters); an Edit of lines past it that misses gets them quoted then
+// (FileViews.missedEdit()).
+const MAX_REWRITE_CHARS = 600;
 // Runs of changed lines this close are quoted as one, with the lines between.
 const JOIN_GAP = 3;
 // Past this many lines on both sides, a file's changes are taken as one run.
@@ -93,10 +100,11 @@ const range = ( { from, to }: LineSpan ) => `${ from + 1 }-${ to }`;
 function quoteSpans(
 	lines: string[],
 	spans: LineSpan[],
-	quote: ( span: LineSpan ) => boolean = () => true
+	quote: ( span: LineSpan ) => boolean = () => true,
+	maxChars = MAX_CHARS
 ) {
 	let linesLeft = MAX_LINES;
-	let charsLeft = MAX_CHARS;
+	let charsLeft = maxChars;
 	const unquoted: LineSpan[] = [];
 	const quotes = spans.map( ( span ) => {
 		const quoted = lines.slice( span.from, span.to );
@@ -165,7 +173,11 @@ function cutSpans( spans: LineSpan[], cut: LineSpan[] ): LineSpan[] {
  * the spans of changed lines, those `JOIN_GAP` apart as one, and the lines gone.
  * The lines of a JSON member Studio added are named, not quoted.
  */
-function changedLines( written: string, now: string ): { parts: string[]; whole: boolean } {
+function changedLines(
+	written: string,
+	now: string,
+	maxChars = MAX_CHARS
+): { parts: string[]; whole: boolean } {
 	const nowLines = now.split( '\n' );
 	const found = runs( written.split( '\n' ), nowLines );
 	const joined: LineSpan[] = [];
@@ -182,7 +194,8 @@ function changedLines( written: string, now: string ): { parts: string[]; whole:
 	const { quotes, left } = quoteSpans(
 		nowLines,
 		spans,
-		( span ) => ! added.some( ( own ) => own.from <= span.from && span.to <= own.to )
+		( span ) => ! added.some( ( own ) => own.from <= span.from && span.to <= own.to ),
+		maxChars
 	);
 	const parts: string[] = [];
 	let next = 0;
@@ -212,7 +225,7 @@ export function rewriteReport(
 	if ( written === now ) {
 		return { notes: [], whole: true };
 	}
-	const { parts, whole } = changedLines( written, now );
+	const { parts, whole } = changedLines( written, now, MAX_REWRITE_CHARS );
 	return {
 		notes: [
 			[

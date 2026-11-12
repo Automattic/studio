@@ -127,11 +127,11 @@ describe( 'rewriteNotes', () => {
 		{
 			case: 'longer changed lines than a note quotes, past which it names them',
 			written: 'a\nb\nc\nd\ne\nf\ng',
-			now: [ 'a', 'x'.repeat( 4000 ), 'c', 'd', 'e', 'f', 'y'.repeat( 4000 ) ].join( '\n' ),
+			now: [ 'a', 'x'.repeat( 500 ), 'c', 'd', 'e', 'f', 'y'.repeat( 500 ) ].join( '\n' ),
 			notes: [
 				[
 					AS_WRITTEN,
-					quote( 2, [ 'x'.repeat( 4000 ) ] ),
+					quote( 2, [ 'x'.repeat( 500 ) ] ),
 					'Lines 7-7 are not quoted here: Read them before editing them.',
 				].join( '\n' ),
 			],

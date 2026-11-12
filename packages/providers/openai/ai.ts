@@ -3,7 +3,6 @@ import { ProviderNotReadyError } from '../errors';
 import { getAiModel } from '../models';
 import type { OpenaiConfig } from './config';
 import type { AiConnection, Provider } from '../types';
-import type { Model } from '@earendil-works/pi-ai';
 
 export const openaiAi: NonNullable< Provider< OpenaiConfig >[ 'ai' ] > = {
 	fallbackWhenNotReady: false,
@@ -13,11 +12,9 @@ export const openaiAi: NonNullable< Provider< OpenaiConfig >[ 'ai' ] > = {
 				'ChatGPT sign-in required. Switch to ChatGPT with /provider to sign in.'
 			);
 		}
-		const model = getAiModel( 'openai', modelId )
-			? ( OPENAI_CODEX_MODELS as Partial< Record< string, Model< 'openai-codex-responses' > > > )[
-					modelId
-			  ]
-			: undefined;
+		const model =
+			getAiModel( 'openai', modelId ) &&
+			OPENAI_CODEX_MODELS[ modelId as keyof typeof OPENAI_CODEX_MODELS ];
 		if ( ! model ) {
 			throw new Error( `ChatGPT does not serve ${ modelId }` );
 		}

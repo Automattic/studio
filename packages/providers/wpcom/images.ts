@@ -1,7 +1,13 @@
-import { generateEach, resolveImageSize } from '../images';
+import {
+	FILTERED_ERROR_CODES,
+	generateEach,
+	ImageFilteredError,
+	resolveImageSize,
+	TransientImageError,
+} from '../images';
 import { getAiGatewayBaseUrl } from './ai';
 import type { WpcomConfig } from './config';
-import type { GenerateImageRequest, GenerateImageResult, GenerateImages } from '../types';
+import type { GenerateImageRequest, GenerateImages } from '../types';
 
 // Image generation through the proxy's OpenAI-compatible images route, which
 // only delivers PNG.
@@ -14,11 +20,6 @@ const IMAGE_QUALITY = 'medium';
 // Studio's image slug on the proxy; it accepts regular user OAuth tokens.
 const IMAGE_FEATURE_SLUG = 'studio-image';
 const MAX_CONCURRENT_REQUESTS = 5;
-const RETRY_DELAYS_SECONDS = [ 2, 5, 12 ];
-
-// Error codes the proxy passes through when the moderation system rejected the
-// prompt; any other failure must not be reported as repairable-by-rewriting.
-const FILTERED_ERROR_CODES = new Set( [ 'moderation_blocked', 'content_policy_violation' ] );
 
 export function buildImageRequestBody(
 	prompt: string,
@@ -32,9 +33,6 @@ export function buildImageRequestBody(
 		size: resolveImageSize( aspectRatioKeyword ),
 	};
 }
-
-export class TransientImageError extends Error {}
-export class ImageFilteredError extends Error {}
 
 interface ImagesResponse {
 	data?: Array< { b64_json?: string } >;
@@ -89,47 +87,21 @@ export function interpretImageResponse( raw: string, status: number ): Uint8Arra
 	return bytes;
 }
 
-const sleep = ( seconds: number ) =>
-	new Promise< void >( ( resolve ) => setTimeout( resolve, seconds * 1000 ) );
-
 async function generateOne(
 	endpoint: string,
 	token: string,
 	request: GenerateImageRequest
-): Promise< GenerateImageResult > {
-	const body = JSON.stringify( buildImageRequestBody( request.prompt, request.aspectRatio ) );
-	// Transient transport errors AND safety-filtered prompts retry: the
-	// non-deterministic filter can pass the same prompt on a later attempt.
-	for ( let attempt = 0; ; attempt++ ) {
-		try {
-			const response = await fetch( endpoint, {
-				method: 'POST',
-				headers: {
-					authorization: `Bearer ${ token }`,
-					'x-wpcom-ai-feature': IMAGE_FEATURE_SLUG,
-					'content-type': 'application/json',
-				},
-				body,
-			} );
-			const raw = await response.text();
-			return { ok: true, bytes: interpretImageResponse( raw, response.status ) };
-		} catch ( error ) {
-			const transient =
-				error instanceof TransientImageError ||
-				error instanceof ImageFilteredError ||
-				// fetch network failures (DNS, reset, timeout) surface as TypeError.
-				error instanceof TypeError;
-			if ( transient && attempt < RETRY_DELAYS_SECONDS.length ) {
-				await sleep( RETRY_DELAYS_SECONDS[ attempt ] );
-				continue;
-			}
-			return {
-				ok: false,
-				error: error instanceof Error ? error.message : String( error ),
-				...( error instanceof ImageFilteredError ? { filtered: true } : {} ),
-			};
-		}
-	}
+): Promise< Uint8Array > {
+	const response = await fetch( endpoint, {
+		method: 'POST',
+		headers: {
+			authorization: `Bearer ${ token }`,
+			'x-wpcom-ai-feature': IMAGE_FEATURE_SLUG,
+			'content-type': 'application/json',
+		},
+		body: JSON.stringify( buildImageRequestBody( request.prompt, request.aspectRatio ) ),
+	} );
+	return interpretImageResponse( await response.text(), response.status );
 }
 
 export const generateWpcomImages: GenerateImages< WpcomConfig > = async (

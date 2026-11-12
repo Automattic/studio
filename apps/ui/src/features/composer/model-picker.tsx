@@ -3,6 +3,7 @@ import {
 	getAiModelLabel,
 	getAiModels,
 	getProviderDescriptor,
+	PROVIDER_IDS,
 	type ProviderId,
 } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
@@ -16,32 +17,24 @@ import { PlusIcon, ChevronDownIcon, IntelligenceIcon } from '@/lib/icons';
 import { Button, CommandSheet, Popover, type Command, type CommandGroup } from '@/lib/ui';
 import type { AiModelId } from '@/data/core';
 
-type Icon = ComponentType< { className?: string } >;
-const providerIcons = new Map< ProviderId, Icon >();
-
-// The provider's mark, or a generic one for a provider without.
-function getProviderIcon( provider: ProviderId ): Icon {
-	let icon = providerIcons.get( provider );
-	if ( ! icon ) {
-		const path = getProviderDescriptor( provider ).icon;
-		icon = path
-			? ( { className } ) => (
-					<svg
-						className={ className }
-						width="16"
-						height="16"
-						viewBox="0 0 24 24"
-						fill="currentColor"
-						aria-hidden="true"
-					>
-						<path d={ path } />
-					</svg>
-			  )
-			: IntelligenceIcon;
-		providerIcons.set( provider, icon );
-	}
-	return icon;
-}
+const PROVIDER_ICONS = Object.fromEntries(
+	PROVIDER_IDS.map( ( id ) => {
+		const path = getProviderDescriptor( id ).icon;
+		const Icon = ( { className }: { className?: string } ) => (
+			<svg
+				className={ className }
+				width="16"
+				height="16"
+				viewBox="0 0 24 24"
+				fill="currentColor"
+				aria-hidden="true"
+			>
+				<path d={ path } />
+			</svg>
+		);
+		return [ id, path ? Icon : IntelligenceIcon ];
+	} )
+) as Record< ProviderId, ComponentType< { className?: string } > >;
 
 interface ModelPickerProps {
 	open: boolean;
@@ -129,7 +122,7 @@ export function ModelPicker( {
 						description: isModelLocked( id )
 							? `${ description } · ${ __( 'Purchased credits required' ) }`
 							: description,
-						icon: getProviderIcon( provider ),
+						icon: PROVIDER_ICONS[ provider ],
 						disabled: isModelLocked( id ),
 					};
 				} )

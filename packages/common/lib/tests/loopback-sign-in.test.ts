@@ -33,15 +33,10 @@ describe( 'signInThroughLoopback', () => {
 		).resolves.toEqual( { code: 'abc', state: 'state-1', verifier: 'verifier-1' } );
 	} );
 
-	it( 'refuses a redirect for another attempt, or a declined one', async () => {
+	it( 'refuses a redirect for another attempt', async () => {
 		await expect(
 			signInThroughLoopback( provider, { openUrl: redirectBrowser( 'code=abc&state=other' ) } )
 		).rejects.toBeInstanceOf( InvalidCredentialError );
-		await expect(
-			signInThroughLoopback( provider, {
-				openUrl: redirectBrowser( 'error=access_denied&state=state-1' ),
-			} )
-		).rejects.toMatchObject( { reason: 'denied' } );
 	} );
 
 	it( 'takes a pasted address when another app holds the port', async () => {

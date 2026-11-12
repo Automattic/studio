@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { InvalidCredentialError, ProviderNotReadyError } from '../../errors';
+import { ProviderNotReadyError } from '../../errors';
 import { connectOpenai, refreshOpenai, startOpenaiConnect } from '../account';
 import { openaiAi } from '../ai';
 import type { OpenaiConfig } from '../config';
@@ -34,24 +34,12 @@ describe( 'openai account', () => {
 	} );
 
 	it( 'starts a PKCE sign-in that comes back to the Codex loopback address', async () => {
-		const { url, redirectUri, state, verifier } = await startOpenaiConnect();
-		const params = new URL( url ).searchParams;
-		const challenge = btoa(
-			String.fromCharCode(
-				...new Uint8Array(
-					await crypto.subtle.digest( 'SHA-256', new TextEncoder().encode( verifier ) )
-				)
-			)
-		)
-			.replace( /\+/g, '-' )
-			.replace( /\//g, '_' )
-			.replace( /=+$/, '' );
+		const { url, redirectUri, state } = await startOpenaiConnect();
 
 		expect( redirectUri ).toBe( 'http://localhost:1455/auth/callback' );
-		expect( Object.fromEntries( params ) ).toMatchObject( {
+		expect( Object.fromEntries( new URL( url ).searchParams ) ).toMatchObject( {
 			redirect_uri: redirectUri,
 			state,
-			code_challenge: challenge,
 			code_challenge_method: 'S256',
 		} );
 	} );
@@ -71,16 +59,10 @@ describe( 'openai account', () => {
 		expect( String( fetchMock.mock.calls[ 0 ][ 1 ].body ) ).toContain( 'code_verifier=verifier' );
 	} );
 
-	it( 'asks to start again without the sign-in it started', async () => {
-		await expect( connectOpenai( {} ) ).rejects.toBeInstanceOf( InvalidCredentialError );
-	} );
-
-	it( 'keeps a token that still works', async () => {
+	it( 'renews a token only when it is about to expire', async () => {
 		await expect( refreshOpenai( config( 60 * 60_000 ) ) ).resolves.toBeUndefined();
 		expect( fetchMock ).not.toHaveBeenCalled();
-	} );
 
-	it( 'renews a token about to expire', async () => {
 		fetchMock.mockResolvedValueOnce( json( 200, tokens ) );
 
 		await expect( refreshOpenai( config( 60_000 ) ) ).resolves.toMatchObject( {

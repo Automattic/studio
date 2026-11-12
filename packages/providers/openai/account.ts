@@ -89,7 +89,6 @@ export const startOpenaiConnect: NonNullable<
 	} satisfies LoopbackAuthorization;
 };
 
-// Takes the redirect's code with the verifier `startConnect` made.
 export const connectOpenai: Provider< OpenaiConfig >[ 'connect' ] = async ( input ) => {
 	if ( ! input.code || ! input.verifier ) {
 		throw new InvalidCredentialError( __( 'Start signing in with ChatGPT again.' ) );

@@ -172,7 +172,8 @@ export async function createPreviewSite(
 	attachmentId: number,
 	title: string,
 	token: string,
-	liveSiteId?: number
+	liveSiteId?: number,
+	originId?: string
 ): Promise< PreviewSite > {
 	let siteId: number;
 	try {
@@ -190,6 +191,7 @@ export async function createPreviewSite(
 						wow_funnel: PREVIEW_FUNNEL,
 						wow_funnel_args: {
 							attachment_id: String( attachmentId ),
+							...( originId && { origin_id: originId } ),
 							...( liveSiteId && { live_site_id: String( liveSiteId ) } ),
 						},
 						// Use a ready-made site when one is available, so the preview comes up faster.
@@ -212,7 +214,8 @@ export async function updatePreviewSite(
 	siteId: number,
 	attachmentId: number,
 	token: string,
-	liveSiteId?: number
+	liveSiteId?: number,
+	originId?: string
 ): Promise< PreviewSite > {
 	const previousImportId = ( await getLatestImport( siteId, token ).catch( () => null ) )?.importId;
 
@@ -223,6 +226,7 @@ export async function updatePreviewSite(
 			body: {
 				args: {
 					attachment_id: String( attachmentId ),
+					...( originId && { origin_id: originId } ),
 					...( liveSiteId && { live_site_id: String( liveSiteId ) } ),
 				},
 			},

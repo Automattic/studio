@@ -77,7 +77,7 @@ export async function createWpcomPreviewSite( {
 
 	reportStep( LoggerAction.READY, __( 'Creating preview site…' ), 60 );
 	const liveSite = await getLivePreviewSite( siteId );
-	const preview = await createPreviewSite( attachmentId, name, accessToken, liveSite?.id );
+	const preview = await createPreviewSite( attachmentId, name, accessToken, liveSite?.id, siteId );
 	return { preview, archiveBytes, versionId, liveSite };
 }
 

@@ -1,4 +1,4 @@
-import { readProviderConfig } from '@studio/common/lib/provider-config';
+import { forgetRejectedConfig, readProviderConfig } from '@studio/common/lib/provider-config';
 import { rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
 import type { Provider, ProviderConfigs, ProviderSites, SitesProviderId } from '@studio/providers';
@@ -22,8 +22,12 @@ function sites< Id extends SitesProviderId >( provider: SitesProvider< Id > ) {
 export async function listAccountSites< Id extends SitesProviderId >(
 	provider: SitesProvider< Id >
 ): Promise< ProviderSites[ Id ][] > {
-	const config = await readProviderConfig( provider.descriptor.id as Id );
-	return sites( provider ).list( config, { planRequired: ! isReprintPullEnabled() } );
+	const id = provider.descriptor.id as Id;
+	return forgetRejectedConfig( id, async () =>
+		sites( provider ).list( await readProviderConfig( id ), {
+			planRequired: ! isReprintPullEnabled(),
+		} )
+	);
 }
 
 // Creates a site on the provider and connects the local site to it.
@@ -37,7 +41,9 @@ export async function createRemoteSite< Id extends SitesProviderId >(
 	if ( ! create ) {
 		throw new Error( `Studio can't create ${ provider.descriptor.label } sites.` );
 	}
-	const site = await create( await readProviderConfig( id ), { name } );
+	const site = await forgetRejectedConfig( id, async () =>
+		create( await readProviderConfig( id ), { name } )
+	);
 	await rememberRemoteSite( id, localSiteId, site );
 	return site;
 }

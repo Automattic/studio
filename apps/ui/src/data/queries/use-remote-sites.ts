@@ -4,10 +4,10 @@ import {
 	type ProviderSites,
 	type SitesProviderId,
 } from '@studio/providers';
-import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo } from 'react';
 import { useConnector } from '@/data/core';
-import { useAiSettings } from '@/data/queries/use-ai-settings';
+import { AI_SETTINGS_QUERY_KEY, useAiSettings } from '@/data/queries/use-ai-settings';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import {
 	ACCOUNT_SITES_QUERY_KEY,
@@ -61,8 +61,9 @@ export function useAccountSites< Id extends SitesProviderId >(
 	options: { enabled?: boolean } = {}
 ) {
 	const connector = useConnector();
+	const queryClient = useQueryClient();
 	const connected = useProviderConnected( provider );
-	return useQuery( {
+	const query = useQuery( {
 		queryKey: accountSitesQueryKey( provider ),
 		queryFn: async () => ( await connector.listAccountSites( provider ) ) as ProviderSites[ Id ][],
 		enabled: ( options.enabled ?? true ) && !! connected,
@@ -71,6 +72,14 @@ export function useAccountSites< Id extends SitesProviderId >(
 		// repeatedly doesn't spam the provider.
 		staleTime: 5 * 60 * 1000,
 	} );
+	// A provider that rejects its config forgets it, which disconnects the account.
+	const { error } = query;
+	useEffect( () => {
+		if ( error ) {
+			void queryClient.invalidateQueries( { queryKey: AI_SETTINGS_QUERY_KEY } );
+		}
+	}, [ error, queryClient ] );
+	return query;
 }
 
 // The account's sites no local site is connected to yet.

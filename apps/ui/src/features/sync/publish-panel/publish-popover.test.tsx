@@ -281,7 +281,7 @@ describe( 'PublishPopover', () => {
 		await waitFor( () => expect( connector.connectRemoteSite ).toHaveBeenCalled() );
 		expect( connector.trackEvent ).toHaveBeenCalledWith(
 			TRACKS_EVENTS.SYNC_CONNECT,
-			{ success: true, num_of_sites: 1 },
+			{ success: true, num_of_sites: 1, sync_type: 'wpcom' },
 			site.id
 		);
 		expect( connector.pushSite ).not.toHaveBeenCalled();
@@ -422,7 +422,7 @@ describe( 'PublishPopover', () => {
 		);
 		expect( connector.trackEvent ).toHaveBeenCalledWith(
 			TRACKS_EVENTS.SYNC_CONNECT,
-			{ success: true, num_of_sites: 1 },
+			{ success: true, num_of_sites: 1, sync_type: isPressable ? 'pressable' : 'wpcom' },
 			site.id
 		);
 		expect( connector.pushSite ).not.toHaveBeenCalled();

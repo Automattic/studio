@@ -126,7 +126,7 @@ describe( 'Add site flow', () => {
 			await waitFor( () =>
 				expect( connector.trackEvent ).toHaveBeenCalledWith(
 					TRACKS_EVENTS.SYNC_CONNECT,
-					{ success: true, num_of_sites: 1 },
+					{ success: true, num_of_sites: 1, sync_type: 'wpcom' },
 					site.id
 				)
 			);

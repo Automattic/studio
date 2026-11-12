@@ -141,3 +141,32 @@ it( 'lists the sites published on every provider and publishes to another Space'
 	await actions.click( await screen.findByRole( 'button', { name: 'New site' } ) );
 	expect( connector.createRemoteSite ).toHaveBeenCalledWith( 'spacefast', site.id, 'Local site' );
 } );
+
+it( 'offers to connect the provider again when it rejects its key', async () => {
+	const actions = userEvent.setup();
+	let connected = true;
+	setup( {
+		getRemoteSites: async ( provider, localSiteId ) =>
+			provider === 'spacefast'
+				? [
+						{
+							...space,
+							localSiteId: localSiteId ?? '',
+							lastPushTimestamp: null,
+							lastPullTimestamp: null,
+						},
+				  ]
+				: [],
+		getAiSettings: async () =>
+			aiSettings( 'wpcom', connected ? [ 'wpcom', 'spacefast' ] : [ 'wpcom' ] ),
+		// The host forgets a key the provider rejects.
+		listAccountSites: async () => {
+			connected = false;
+			throw new Error( 'Your Spacefast key no longer works. Connect Spacefast again.' );
+		},
+	} );
+	await actions.click( await screen.findByRole( 'button', { name: 'Publish…' } ) );
+	await actions.click( await screen.findByRole( 'button', { name: 'local-site.space.fast' } ) );
+
+	expect( await screen.findByRole( 'button', { name: 'Connect Spacefast' } ) ).toBeVisible();
+} );

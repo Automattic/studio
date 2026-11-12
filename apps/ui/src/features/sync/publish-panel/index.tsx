@@ -1,4 +1,5 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
+import { getSyncType } from '@studio/common/lib/sync/sync-type';
 import { getProviderDescriptor, getSitesDescriptor, type SitesProviderId } from '@studio/providers';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
@@ -125,31 +126,31 @@ export function PublishPanel( {
 		void queryClient.invalidateQueries( { queryKey: remoteSitesQueryKey( provider, site.id ) } );
 		void queryClient.invalidateQueries( { queryKey: remoteSitesQueryKey( provider ) } );
 	};
+	const showConnected = ( remote: Website ) => {
+		void connector.trackEvent(
+			TRACKS_EVENTS.SYNC_CONNECT,
+			{
+				success: true,
+				num_of_sites: connections.length + 1,
+				sync_type: getSyncType( remote, provider ),
+			},
+			site.id
+		);
+		invalidateConnections();
+		selectWebsite( remote.id );
+		setView( 'publish' );
+	};
 	const connect = useMutation( {
 		mutationFn: ( remote: Website ) =>
 			connector.connectRemoteSite( provider, site.id, remote as never ),
-		onSuccess: ( _result, remote ) => {
-			void connector.trackEvent(
-				TRACKS_EVENTS.SYNC_CONNECT,
-				{
-					success: true,
-					num_of_sites: connections.length + 1,
-				},
-				site.id
-			);
-			invalidateConnections();
-			selectWebsite( remote.id );
-			setView( 'publish' );
-		},
+		onSuccess: ( _result, remote ) => showConnected( remote ),
 	} );
 	// A provider that creates sites from Studio names the new one after the local site.
 	const create = useMutation( {
 		mutationFn: () => connector.createRemoteSite( provider, site.id, site.name ),
 		onSuccess: ( remote ) => {
-			invalidateConnections();
 			void queryClient.invalidateQueries( { queryKey: accountSitesQueryKey( provider ) } );
-			selectWebsite( remote.id );
-			setView( 'publish' );
+			showConnected( remote );
 		},
 	} );
 	const startCheckout = useCallback( () => {
@@ -500,7 +501,9 @@ export function PublishPanel( {
 					returnFocus={ disconnectActions }
 					onClose={ () => setDisconnecting( null ) }
 					onConfirm={ () => {
-						void connector.trackEvent( TRACKS_EVENTS.SYNC_DISCONNECT );
+						void connector.trackEvent( TRACKS_EVENTS.SYNC_DISCONNECT, {
+							sync_type: getSyncType( disconnecting, provider ),
+						} );
 						disconnect.mutate(
 							{ provider, siteId: site.id, remoteSiteId: disconnecting.id },
 							{

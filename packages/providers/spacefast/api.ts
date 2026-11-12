@@ -262,7 +262,7 @@ export async function publishFiles(
 		);
 		stalled = uploaded === before ? stalled + 1 : 0;
 		if ( stalled > NETWORK_RETRIES ) {
-			throw new SpacefastApiError( 'Spacefast kept refusing the uploads.', 403 );
+			throw new SpacefastApiError( 'Spacefast kept refusing the uploads.', 502 );
 		}
 		// Targets come in pages and expire, so ask for the remaining ones until none are left.
 		( { upload } = (

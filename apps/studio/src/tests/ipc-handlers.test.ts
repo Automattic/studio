@@ -23,7 +23,10 @@ vi.mock( 'fs/promises', async () => {
 	return { default: fs.promises };
 } );
 vi.mock( '@studio/common/sites/site-path' );
-vi.mock( '@studio/common/lib/provider-config' );
+vi.mock( '@studio/common/lib/provider-config', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/provider-config') >() ),
+	readProviderConfig: vi.fn(),
+} ) );
 vi.mock( '@studio/providers/services', async ( importOriginal ) => {
 	const actual = await importOriginal< typeof import('@studio/providers/services') >();
 	const sites = { list: vi.fn() };

@@ -10,6 +10,7 @@ import {
 	type ToastAction,
 } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { AI_SETTINGS_QUERY_KEY } from '@/data/queries/use-ai-settings';
 import { remoteSitesQueryKey } from '@/data/queries/use-remote-sites';
 import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
@@ -179,6 +180,10 @@ export function useSettleSync() {
 
 			const provider = ( getSyncActivity( siteId )?.provider ?? 'wpcom' ) as SitesProviderId;
 			void queryClient.invalidateQueries( { queryKey: remoteSitesQueryKey( provider, siteId ) } );
+			// A provider that rejected its config forgot it, which disconnects the account.
+			if ( settled.kind === 'error' ) {
+				void queryClient.invalidateQueries( { queryKey: AI_SETTINGS_QUERY_KEY } );
+			}
 			if ( settled.direction === 'pull' ) {
 				void queryClient.invalidateQueries( { queryKey: SITES_QUERY_KEY } );
 			}

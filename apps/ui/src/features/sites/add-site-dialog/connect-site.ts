@@ -1,5 +1,6 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
+import { getSyncType } from '@studio/common/lib/sync/sync-type';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { getAccountJourney, scopeAccountJourney } from '@/data/account-analytics';
@@ -131,6 +132,7 @@ export function useConnectSite() {
 						{
 							success: true,
 							num_of_sites: 1,
+							sync_type: getSyncType( remote ),
 						},
 						localSiteId
 					);

@@ -17,7 +17,6 @@ import { globalStylesFlag } from '@studio/agent/node/global-styles-flag';
 import { inlineBlockClasses } from '@studio/agent/node/inline-block-classes';
 import { jetpackModules } from '@studio/agent/node/jetpack-modules';
 import { linksToNowhereChanges } from '@studio/agent/node/links-to-nowhere';
-import { navigationRefs } from '@studio/agent/node/navigation-refs';
 import { postContentChanges } from '@studio/agent/node/post-content-check';
 import { postCopies } from '@studio/agent/node/post-copies';
 import { renamedSlugs } from '@studio/agent/node/renamed-slugs';
@@ -112,7 +111,6 @@ const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	blockTheme,
 	themeErrors,
 	templatePartAreas,
-	navigationRefs,
 	themeStylesheet,
 	siteFileWrites,
 	adminCapabilities,

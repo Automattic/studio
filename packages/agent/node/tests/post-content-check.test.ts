@@ -197,6 +197,31 @@ describe( 'postContentChanges', () => {
 		expect( open.look() ).toEqual( [] );
 	} );
 
+	// eval36-37: WooCommerce's activation made its Refund and Returns Policy
+	// page, whose invalid blocks the agent was told to fix on every later call.
+	it.each( [
+		{ activates: false, told: [ 'page 35', 'page 37' ] },
+		{ activates: true, told: [ 'page 35' ] },
+	] )(
+		'tells the problems of the posts a call made unless it activated code, which made them',
+		async ( { activates, told } ) => {
+			const { site, open, changes } = setup();
+			const unclosed = '<!-- wp:group --><div class="wp-block-group">';
+			site.save( 35, 'page', 'home', '', 1, 'publish', 'Home' );
+			await changes.snapshot();
+			site.edit( 35, unclosed );
+			site.save( 37, 'page', 'refund', unclosed, 1, 'draft', 'Refund' );
+			if ( activates ) {
+				site.setOptions( { active_plugins: 'a:1:{i:0;s:15:"shop/shop.php";}' } );
+			}
+			const pages = ( problems: string[] ) =>
+				problems.map( ( problem ) => /page \d+/.exec( problem )?.[ 0 ] );
+			expect( pages( ( await changes.settle() ).problems ) ).toEqual( told );
+			// Still open at the turn's end, only those told.
+			expect( pages( await open.raise() ) ).toEqual( told );
+		}
+	);
+
 	// eval26 redo1: pages 14 and 17 named colors the model then added to
 	// theme.json, and their problems stayed open, naming the old palette.
 	it( 'validates a post left with a problem again once the presets change, without a note', async () => {

@@ -378,9 +378,19 @@ export const postContentChanges: SiteChangeSource = {
 			.map( ( id ) => ( { key: id } ) );
 		const stillOpen = unchanged.filter( ( id ) => ! recheck.includes( id ) );
 		let saved = false;
-		const posts = changed.length ? await readPosts( site.path, changed ) : [];
-		// What code activated in this call wrote is its own, and stays as it wrote it.
+		// What code activated in this call wrote is its own, and stays as it
+		// wrote it. A post it made is its content, not the agent's: of 23 calls
+		// in eval36-37 that activated a plugin or theme none also wrote a post,
+		// and WooCommerce's Refund and Returns Policy page was told to the agent
+		// to fix on each later call.
 		const save = before[ CODE ] === after[ CODE ];
+		const theirs = ( id: string ) => ! save && ! ( id in before );
+		const posts = changed.some( ( id ) => ! theirs( id ) )
+			? await readPosts(
+					site.path,
+					changed.filter( ( id ) => ! theirs( id ) )
+			  )
+			: [];
 		const validated = await validatePosts( host, site, posts, save, ( post, run ) =>
 			run().catch( ( error: unknown ) => ( {
 				summary: `${ site.name } ${ post.type } ${ post.id }: not validated (${

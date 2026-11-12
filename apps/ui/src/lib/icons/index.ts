@@ -20,6 +20,7 @@ export * from './external-link-icon';
 export * from './folder-icon';
 export * from './folder-open-icon';
 export * from './fullscreen-icon';
+export * from './gemini-icon';
 export * from './globe-icon';
 export * from './import-icon';
 export * from './usage-icon';

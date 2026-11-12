@@ -11,10 +11,12 @@ import { useRef, useState, type RefObject } from 'react';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
-import { getCreditsLabel, getModelDescription } from '@/features/composer/model-options';
-import { PlusIcon, ChevronDownIcon, ClaudeIcon, WordPressIcon } from '@/lib/icons';
+import { getCreditsLabel } from '@/features/composer/model-options';
+import { PlusIcon, ChevronDownIcon, ClaudeIcon, GeminiIcon, WordPressIcon } from '@/lib/icons';
 import { Button, CommandSheet, Popover, type Command, type CommandGroup } from '@/lib/ui';
 import type { AiModelId } from '@/data/core';
+
+const modelIcons = { WordPress: WordPressIcon, Claude: ClaudeIcon, Gemini: GeminiIcon };
 
 interface ModelPickerProps {
 	open: boolean;
@@ -84,25 +86,29 @@ export function ModelPicker( {
 	const groups: CommandGroup[] = [
 		{
 			label: __( 'Models' ),
-			items: providers.flatMap( ( provider ) =>
-				getAiModels( provider ).map( ( { id } ): Command => {
+			items: providers.flatMap( ( provider ) => {
+				const ai = getProviderDescriptor( provider ).ai;
+				if ( ! ai ) {
+					return [];
+				}
+				return ai.models.map( ( model ): Command => {
 					const description = sprintf(
 						/* translators: 1: the model's provider, 2: what the model is good at. */
 						__( '%1$s · %2$s' ),
-						provider === 'wpcom' ? 'WordPress' : 'Claude',
-						getModelDescription( id )
+						ai.brand,
+						model.description()
 					);
 					return {
-						value: id,
-						label: getAiModelLabel( id ),
-						description: isModelLocked( id )
+						value: model.id,
+						label: model.label(),
+						description: isModelLocked( model.id )
 							? `${ description } · ${ __( 'Purchased credits required' ) }`
 							: description,
-						icon: provider === 'wpcom' ? WordPressIcon : ClaudeIcon,
-						disabled: isModelLocked( id ),
+						icon: modelIcons[ ai.brand ],
+						disabled: isModelLocked( model.id ),
 					};
-				} )
-			),
+				} );
+			} ),
 		},
 		{
 			label: __( 'Actions' ),

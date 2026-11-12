@@ -5,6 +5,7 @@ import { aiSettings, createFakeConnector, type FakeConnector } from '@/test/fake
 import { renderWithProviders } from '@/test/render';
 import type { AiModelId } from '@/data/core';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
+import type { ProviderId } from '@studio/providers';
 
 const paidQuota: StudioAssistantQuota = {
 	costCap: 1000,
@@ -29,14 +30,13 @@ const allowanceQuota: StudioAssistantQuota = {
 };
 
 function connectorFor( {
-	anthropic = false,
+	providers = [ 'wpcom' ],
 	quota = async () => paidQuota,
-}: { anthropic?: boolean; quota?: () => Promise< StudioAssistantQuota | null > } = {} ) {
+}: { providers?: ProviderId[]; quota?: () => Promise< StudioAssistantQuota | null > } = {} ) {
 	return createFakeConnector(
 		{},
 		{
-			getAiSettings: async () =>
-				aiSettings( 'wpcom', anthropic ? [ 'wpcom', 'anthropic' ] : [ 'wpcom' ] ),
+			getAiSettings: async () => aiSettings( 'wpcom', providers ),
 			getStudioAssistantQuota: quota,
 			getStudioAssistantTopUpPricing: async () =>
 				( { options: [ { credits: 100000, display: '$10' } ] } ) as never,
@@ -66,12 +66,29 @@ describe( 'Chat model picker', () => {
 	it( 'opens with the current model selected for keyboard navigation', async () => {
 		const { trigger } = await renderPicker(
 			'claude-opus-5-5',
-			connectorFor( { anthropic: true } )
+			connectorFor( { providers: [ 'wpcom', 'anthropic' ] } )
 		);
 		fireEvent.click( trigger );
 		const current = await screen.findByRole( 'option', { name: /Opus 5.5/ } );
 		expect( current ).toHaveAttribute( 'aria-selected', 'true' );
 		expect( current ).toHaveTextContent( 'Claude · Plan complex builds and solve harder problems' );
+	} );
+
+	it( 'shows the Gemini brand and description for each connected Gemini model', async () => {
+		const { trigger } = await renderPicker(
+			'fast',
+			connectorFor( { providers: [ 'wpcom', 'gemini' ] } )
+		);
+		fireEvent.click( trigger );
+		expect( await screen.findByRole( 'option', { name: /^Gemini 3\.8 Flash/ } ) ).toHaveTextContent(
+			'Gemini · Quick fixes and questions'
+		);
+		expect( screen.getByRole( 'option', { name: /^Gemini 4 Argon/ } ) ).toHaveTextContent(
+			'Gemini · Build features, style pages, and fix bugs'
+		);
+		expect( screen.getByRole( 'option', { name: /^Gemini 4 Carbon/ } ) ).toHaveTextContent(
+			'Gemini · Plan complex builds and solve harder problems'
+		);
 	} );
 
 	it( 'lists the tiers and closes after selection', async () => {

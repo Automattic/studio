@@ -26,6 +26,7 @@ export interface AiModel< Id extends string = string > {
 	// Stable, stored in sessions; the same id in two providers is the same model.
 	id: Id;
 	label: () => string;
+	description: () => string;
 	// Defaults to true. Text-only models must not advertise vision they lack:
 	// screenshot tool results are images.
 	supportsImages?: boolean;
@@ -70,6 +71,7 @@ export interface ProviderDescriptor< Config = unknown > {
 	// What to show for a connected account; never the credential itself.
 	summarize?( config: Config ): string;
 	ai?: {
+		brand: 'WordPress' | 'Claude' | 'Gemini';
 		models: readonly AiModel< AiModelId >[];
 		defaultModel: AiModelId;
 		// The default when the account has paid AI credits left.

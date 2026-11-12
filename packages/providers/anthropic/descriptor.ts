@@ -4,8 +4,16 @@ import { anthropicConfigSchema, type AnthropicConfig } from './config';
 import type { AiModel, ProviderDescriptor } from '../types';
 
 export const ANTHROPIC_AI_MODELS = [
-	{ id: 'claude-sonnet-5-5', label: () => 'Sonnet 5.5' },
-	{ id: 'claude-opus-5-5', label: () => 'Opus 5.5' },
+	{
+		id: 'claude-sonnet-5-5',
+		label: () => 'Sonnet 5.5',
+		description: () => __( 'Build features, style pages, and fix bugs' ),
+	},
+	{
+		id: 'claude-opus-5-5',
+		label: () => 'Opus 5.5',
+		description: () => __( 'Plan complex builds and solve harder problems' ),
+	},
 ] as const satisfies readonly AiModel[];
 
 const KEY_PREFIX_LENGTH = 16;
@@ -43,6 +51,7 @@ export const anthropicDescriptor: ProviderDescriptor< AnthropicConfig > = {
 	connection: { kind: 'form', input: anthropicConnectInput },
 	summarize: ( config ) => previewApiKey( config.apiKey ),
 	ai: {
+		brand: 'Claude',
 		models: ANTHROPIC_AI_MODELS,
 		defaultModel: 'claude-sonnet-5-5',
 	},

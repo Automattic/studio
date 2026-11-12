@@ -35,7 +35,7 @@ import { validateStudioChatImages } from '@studio/agent/protocol/chat-images';
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
 import { type Blueprint } from '@studio/blueprints';
-import { openBlueprint } from '@studio/blueprints/node';
+import { openBlueprintFile } from '@studio/blueprints/node';
 import { DEBUG_LOG_RELATIVE_PATH, PROTOCOL_PREFIX } from '@studio/common/constants';
 import {
 	getSiteAgentFiles as readSiteAgentFiles,
@@ -1454,9 +1454,9 @@ export async function listLocalFileTree(
 	return listSiteFileTree( await requireSitePath( siteId ), path, maxDepth );
 }
 
-/** Reads the Blueprint at a path or URL for the add-site preview, without keeping anything. */
-export async function readBlueprint( _event: IpcMainInvokeEvent, source: string ) {
-	await using opened = await openBlueprint( source );
+/** Reads a picked Blueprint file for the add-site preview, without keeping anything. */
+export async function readBlueprint( _event: IpcMainInvokeEvent, filePath: string ) {
+	await using opened = await openBlueprintFile( filePath );
 	return opened.blueprint;
 }
 

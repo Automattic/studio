@@ -278,8 +278,8 @@ export function createStaticConnector(): Connector {
 			}
 			return { name: file.name, mimeType: file.type, data: await file.arrayBuffer() };
 		},
-		async readBlueprint( source ) {
-			return ( await openBlueprint( source ) ).blueprint;
+		async readBlueprint( file ) {
+			return ( await openBlueprint( file ) ).blueprint;
 		},
 		async importSiteFromBackup( siteId, backupPath ) {
 			const file = pickedFiles.get( backupPath );

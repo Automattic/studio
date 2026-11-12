@@ -144,7 +144,7 @@ const api: IpcApi = {
 	comparePaths: ( path1, path2 ) => ipcRendererInvoke( 'comparePaths', path1, path2 ),
 	listLocalFileTree: ( siteId, path, maxDepth ) =>
 		ipcRenderer.invoke( 'listLocalFileTree', siteId, path, maxDepth ),
-	readBlueprint: ( source ) => ipcRendererInvoke( 'readBlueprint', source ),
+	readBlueprint: ( filePath ) => ipcRendererInvoke( 'readBlueprint', filePath ),
 	showTextContextMenu: ( context ) => ipcRendererInvoke( 'showTextContextMenu', context ),
 	setWindowControlsSurface: ( surface ) => ipcRendererInvoke( 'setWindowControlsSurface', surface ),
 	updateSitesSortOrder: ( updates ) => ipcRendererInvoke( 'updateSitesSortOrder', updates ),

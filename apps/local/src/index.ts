@@ -33,7 +33,7 @@ import {
 } from '@studio/agent/protocol/chat-images';
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
-import { openBlueprint } from '@studio/blueprints/node';
+import { openBlueprintFile } from '@studio/blueprints/node';
 import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
 import { isAgentAppId } from '@studio/common/lib/agent-apps';
 import {
@@ -1462,7 +1462,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			uploads.delete( upload.path );
 			try {
-				await using opened = await openBlueprint( upload.path );
+				await using opened = await openBlueprintFile( upload.path );
 				res.json( opened.blueprint );
 			} finally {
 				rm( upload.directory, { recursive: true, force: true }, () => undefined );

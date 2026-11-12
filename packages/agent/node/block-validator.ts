@@ -1502,30 +1502,6 @@ async function validateAsWritten(
 					} );
 				}
 
-				// A preset's value as the browser reads it, as an inline style is read.
-				const asRead = ( property: string, value: string ) => {
-					const scratch = document.createElement( 'div' );
-					scratch.style.setProperty( property, value );
-					return scratch.style.getPropertyValue( property );
-				};
-				// A style written on a block that a preset class its fix saves already
-				// gives it, as font-size:1.05rem on a button saved with
-				// has-medium-font-size for a medium of 1.05rem, or
-				// color:var(--wp--preset--color--surface) saved as has-surface-color.
-				function presetShows( classes: Set< string >, style: string ): boolean {
-					return PRESET_STYLES.some( ( [ property, kind, list, key ] ) =>
-						( editorSettings[ list ] ?? [] ).some(
-							( preset: any ) =>
-								classes.has( `has-${ preset.slug }-${ property }` ) &&
-								[ preset[ key ], `var(--wp--preset--${ kind }--${ preset.slug })` ].some(
-									( value ) =>
-										typeof value === 'string' &&
-										style === `${ property }:${ asRead( property, value ) }`
-								)
-						)
-					);
-				}
-
 				// What the fix loses from each block as written, block by block: its
 				// text, classes, styles and where its inner blocks sit. Its attributes
 				// it keeps, being made from them, apart from the editor's own migrations
@@ -1550,9 +1526,7 @@ async function validateAsWritten(
 						const missing = ( names: Set< string >, kept: Set< string > ) =>
 							[ ...names ].filter( ( name ) => ! kept.has( name ) );
 						const classes = missing( before.classes, after.classes );
-						const styles = missing( before.styles, after.styles ).filter(
-							( style ) => ! presetShows( after.classes, style )
-						);
+						const styles = missing( before.styles, after.styles );
 						const lost = {
 							text: before.text !== after.text ? [ 'change the text' ] : [],
 							classes,

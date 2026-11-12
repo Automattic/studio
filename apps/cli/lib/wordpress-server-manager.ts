@@ -5,6 +5,7 @@
  * process that serves it with native PHP.
  */
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import {
 	SITE_SERVER_ACTIVITY_CHECK_INTERVAL,
@@ -254,6 +255,7 @@ export async function startWordPressServer(
 	const requestedAt =
 		command === 'start' ? Number( process.env[ SITE_START_REQUESTED_AT_ENV ] ) : NaN;
 	const startedAt = requestedAt <= now ? requestedAt : now;
+	const systemUptimeS = Math.round( os.uptime() );
 	try {
 		const processDesc = await startProcess( processName, WORDPRESS_SERVER_CHILD_PATH );
 		await readyOrExit.waitFor( processDesc.pmId );
@@ -288,6 +290,7 @@ export async function startWordPressServer(
 				...getTracksOrigin(),
 				command,
 				success: true,
+				system_uptime_s: systemUptimeS,
 				time_ms: Date.now() - startedAt,
 				...phaseTimings,
 				running_site_count: await getRunningSiteCount(),
@@ -306,6 +309,7 @@ export async function startWordPressServer(
 				...getTracksOrigin(),
 				command,
 				success: false,
+				system_uptime_s: systemUptimeS,
 				failure_reason: classifyStartFailure( error ),
 				time_ms: Date.now() - startedAt,
 				...phaseTimings,

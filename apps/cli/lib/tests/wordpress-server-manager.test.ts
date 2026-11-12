@@ -276,6 +276,7 @@ describe( 'WordPress Server Manager', () => {
 				command: 'start',
 				success: false,
 				failure_reason: 'php_error',
+				system_uptime_s: expect.any( Number ),
 				time_ms: expect.any( Number ),
 				daemon_ms: expect.any( Number ),
 				wp_config_ms: 40,

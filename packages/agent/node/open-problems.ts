@@ -14,7 +14,6 @@
  * changed the background it was asked for.
  */
 import { frontPageTemplateProblem } from '@studio/agent/node/front-page-template';
-import { headerMenu } from '@studio/agent/node/header-menu';
 import { readWordPressSite } from '@studio/agent/node/site-database';
 import { missingSourceText } from '@studio/agent/node/source-text';
 import { isUpdatableTheme } from '@studio/agent/node/themes';
@@ -277,7 +276,6 @@ export const TURN_END_CHECKS: TurnEndCheck[] = [
 	unrenderedPages,
 	( _host, sitePath ) => frontPageIsPostsPage( sitePath ),
 	( _host, sitePath ) => postsPageContent( sitePath ),
-	headerMenu,
 	missingSourceText,
 ];
 

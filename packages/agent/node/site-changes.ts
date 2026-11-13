@@ -13,6 +13,7 @@ import { renderedBlocks } from '@studio/agent/node/block-render-check';
 import { blockTheme } from '@studio/agent/node/block-theme';
 import { childThemeCopies } from '@studio/agent/node/child-theme-copies';
 import { globalStylesFlag } from '@studio/agent/node/global-styles-flag';
+import { headerMenuChanges } from '@studio/agent/node/header-menu';
 import { inlineBlockClasses } from '@studio/agent/node/inline-block-classes';
 import { jetpackModules } from '@studio/agent/node/jetpack-modules';
 import { linksToNowhereChanges } from '@studio/agent/node/links-to-nowhere';
@@ -102,6 +103,7 @@ const SITE_CHANGE_SOURCES: SiteChangeSource[] = [
 	renderedBlocks,
 	sectionLinks,
 	linksToNowhereChanges,
+	headerMenuChanges,
 	updatableThemeChanges,
 	childThemeCopies,
 	blockTheme,

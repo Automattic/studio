@@ -54,6 +54,41 @@
 		}
 	}
 
+	.menuMotion {
+		transform-origin: var( --transform-origin );
+		transition-property: opacity, scale;
+		transition-duration: var( --motion-duration-surface );
+		transition-timing-function: var( --motion-ease-enter );
+	}
+
+	.menuMotion:is( [data-starting-style], [data-ending-style] ) {
+		opacity: 0;
+	}
+
+	.menuMotion[data-starting-style] {
+		scale: 0.98;
+	}
+
+	.menuMotion[data-ending-style] {
+		scale: 1;
+		transition-duration: var( --motion-duration-feedback );
+	}
+
+	.menuMotion:is( [data-instant], :focus-visible, :has( :focus-visible ) ) {
+		transition: none;
+	}
+
+	@media ( prefers-reduced-motion: reduce ) {
+		.menuMotion {
+			transition-property: opacity;
+			transition-duration: var( --motion-duration-feedback );
+		}
+
+		.menuMotion[data-starting-style] {
+			scale: 1;
+		}
+	}
+
 	/* A menu or select row: 32px, 13px/450 text and a 16px icon. */
 	.item {
 		position: relative;

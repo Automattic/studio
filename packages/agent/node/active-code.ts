@@ -14,30 +14,27 @@ export const fileStamp = ( { mtimeMs, size }: { mtimeMs: number; size: number } 
 	`${ mtimeMs }:${ size }`;
 
 /**
- * The files under a folder whose names `wanted` keeps, in the order
- * readdir( dir, { recursive: true } ) lists them, leaving out dependencies a
- * build installs (node_modules). A folder it cannot read has no files.
+ * The files under a folder whose names `wanted` keeps, each folder's in the
+ * order readdir lists them, leaving out dependencies a build installs
+ * (node_modules). A folder it cannot read has no files. Folders are read side
+ * by side: read one after another, the 1,800 folders of WooCommerce and
+ * Jetpack made each read of a site's changes take twice as long.
  */
 export async function filesUnder(
 	dir: string,
 	wanted: ( name: string ) => boolean
 ): Promise< string[] > {
-	const found: string[] = [];
-	const folders = [ dir ];
-	for ( let folder = folders.pop(); folder !== undefined; folder = folders.pop() ) {
-		const entries = await readdir( folder, { withFileTypes: true } ).catch( () => [] );
-		for ( const entry of entries ) {
-			const at = path.join( folder, entry.name );
+	const entries = await readdir( dir, { withFileTypes: true } ).catch( () => [] );
+	const found = await Promise.all(
+		entries.map( ( entry ) => {
+			const at = path.join( dir, entry.name );
 			if ( entry.isDirectory() ) {
-				if ( entry.name !== 'node_modules' ) {
-					folders.push( at );
-				}
-			} else if ( entry.isFile() && wanted( entry.name ) ) {
-				found.push( at );
+				return entry.name === 'node_modules' ? [] : filesUnder( at, wanted );
 			}
-		}
-	}
-	return found;
+			return entry.isFile() && wanted( entry.name ) ? [ at ] : [];
+		} )
+	);
+	return found.flat();
 }
 
 // Each active plugin and theme, by `plugin <file>` (as active_plugins names

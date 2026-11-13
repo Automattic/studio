@@ -178,7 +178,10 @@ test.describe( 'Share and publish', () => {
 		await finishPublish();
 
 		await panel.getByRole( 'button', { name: 'What to publish' } ).click();
-		await page.getByRole( 'checkbox', { name: /^Database\b/ } ).uncheck();
+		const database = page.getByRole( 'checkbox', { name: /^Database\b/ } );
+		await expect( database ).toBeChecked();
+		await database.click();
+		await expect( database ).not.toBeChecked();
 		await page.keyboard.press( 'Escape' );
 		await panel.getByRole( 'button', { name: 'Publish changes', exact: true } ).click();
 		await expect.poll( async () => ( await publishCalls() ).length ).toBe( 2 );

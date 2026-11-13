@@ -166,6 +166,7 @@ function ProviderRow( { provider, methods }: { provider: ProviderId; methods: Co
 			</SettingsRow>
 			{ formMethod ? (
 				<form
+					className={ styles.connectForm }
 					aria-label={ sprintf(
 						/* translators: %s: provider name */
 						__( '%s connection' ),

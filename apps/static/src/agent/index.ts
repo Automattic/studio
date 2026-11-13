@@ -227,12 +227,12 @@ export class StaticAgentRuns {
 	private async readConfig( id: ProviderId ): Promise< unknown > {
 		if ( id === 'wpcom' ) {
 			const token = await this.deps.auth.token();
-			return (
-				token && {
-					token: token.accessToken,
-					user: { id: token.id, email: token.email, displayName: token.displayName },
-				}
-			);
+			return token
+				? {
+						token: token.accessToken,
+						user: { id: token.id, email: token.email, displayName: token.displayName },
+				  }
+				: undefined;
 		}
 		const { account } = getProvider( id ) as {
 			account: {

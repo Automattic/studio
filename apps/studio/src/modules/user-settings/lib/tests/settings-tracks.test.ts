@@ -122,6 +122,7 @@ describe( 'AI provider settings', () => {
 				summary === null ? { connected: false } : { connected: true, method: 'api-key', summary },
 			openai: { connected: false },
 			gemini: { connected: false },
+			'github-copilot': { connected: false },
 			meta: { connected: false },
 			spacefast: { connected: false },
 		},

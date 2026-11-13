@@ -921,6 +921,8 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect(
 			screen.queryByRole( 'menuitemradio', { name: 'ChatGPT plan' } )
 		).not.toBeInTheDocument();
+		// GitHub Copilot only signs in on its site, so the web offers nothing for it at all.
+		expect( row( 'github-copilot-provider' ) ).toBeNull();
 	} );
 
 	it( 'reveals an inline Anthropic key form and collapses after connecting', async () => {

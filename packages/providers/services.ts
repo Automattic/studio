@@ -1,5 +1,6 @@
 import { anthropicServices } from './anthropic/services';
 import { geminiServices } from './gemini/services';
+import { githubCopilotServices } from './github-copilot/services';
 import { metaServices } from './meta/services';
 import { openaiServices } from './openai/services';
 import { spacefastServices } from './spacefast/services';
@@ -13,6 +14,7 @@ const SERVICES: {
 	anthropic: anthropicServices,
 	openai: openaiServices,
 	gemini: geminiServices,
+	'github-copilot': githubCopilotServices,
 	meta: metaServices,
 	spacefast: spacefastServices,
 };

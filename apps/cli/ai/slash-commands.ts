@@ -1,5 +1,6 @@
 import { getAiSkillCommands } from '@studio/agent/protocol/slash-commands';
-import { disconnectProvider } from '@studio/common/lib/ai-settings';
+import { describeAccount, disconnectProvider } from '@studio/common/lib/ai-settings';
+import { readProviderConfig } from '@studio/common/lib/provider-config';
 import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	clampQuotaFraction,
@@ -16,6 +17,7 @@ import {
 import {
 	AI_PROVIDER_IDS,
 	findAiModel,
+	getAiModels,
 	getProvider,
 	normalizeProviderId,
 	PROVIDER_IDS,
@@ -390,9 +392,14 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		name: 'model',
 		description: __( 'Switch the AI model' ),
 		handler: async ( _prompt, ctx ) => {
-			const availableModels = ( getProvider( ctx.currentProvider ).ai?.models ?? [] ).map(
-				( model ) => model.id
+			const account = describeAccount(
+				ctx.currentProvider,
+				await readProviderConfig( ctx.currentProvider )
 			);
+			const availableModels = getAiModels(
+				ctx.currentProvider,
+				account.connected ? account : undefined
+			).map( ( model ) => model.id );
 			const requiresPaidCredits = ( id: AiModelId ) =>
 				findAiModel( id )?.model.requiresPaidAiCredits ?? false;
 			// The paid tiers are only offered once the account has bought credits;

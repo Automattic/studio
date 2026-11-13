@@ -4,7 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
 
 vi.mock( 'cli/lib/providers', () => ( { isProviderConnected: vi.fn() } ) );
-vi.mock( '@studio/common/lib/ai-settings', () => ( { disconnectProvider: vi.fn() } ) );
+vi.mock( '@studio/common/lib/ai-settings', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/ai-settings') >() ),
+	disconnectProvider: vi.fn(),
+} ) );
+vi.mock( '@studio/common/lib/provider-config', () => ( { readProviderConfig: vi.fn() } ) );
 
 vi.mock( 'cli/commands/auth/login', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/auth/logout', () => ( { runCommand: vi.fn() } ) );

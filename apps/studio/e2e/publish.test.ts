@@ -1,3 +1,5 @@
+import { mkdir } from 'node:fs/promises';
+import path from 'node:path';
 import { test, expect } from '@playwright/test';
 import { E2ESession, launchWithSite } from './e2e-helpers';
 import type { PersistedSite } from './e2e-helpers';
@@ -15,6 +17,7 @@ test.describe( 'Share and publish', () => {
 
 	test.beforeAll( async () => {
 		( { site } = await launchWithSite( session, { siteName: 'Publishing verification' } ) );
+		await mkdir( path.join( site.path, 'wp-content', 'uploads' ), { recursive: true } );
 	} );
 
 	test.afterEach( async ( { page: _page }, testInfo ) => {
@@ -176,7 +179,7 @@ test.describe( 'Share and publish', () => {
 		await finishPublish();
 
 		await panel.getByRole( 'button', { name: 'What to publish' } ).click();
-		await page.getByRole( 'checkbox', { name: 'Database', exact: true } ).uncheck();
+		await page.getByRole( 'checkbox', { name: /^Database\b/ } ).uncheck();
 		await page.keyboard.press( 'Escape' );
 		await panel.getByRole( 'button', { name: 'Publish changes', exact: true } ).click();
 		await expect.poll( async () => ( await publishCalls() ).length ).toBe( 2 );
@@ -201,7 +204,10 @@ test.describe( 'Share and publish', () => {
 			'wpcom',
 			site.id,
 			42,
-			{ optionsToSync: [ 'plugins', 'themes', 'uploads', 'contents' ] },
+			{
+				optionsToSync: [ 'plugins', 'themes', 'uploads' ],
+				specificSelectionPaths: [ 'plugins', 'themes', 'uploads' ],
+			},
 		] );
 		expect( calls[ 2 ].args ).toEqual( [ 'wpcom', site.id, 42, { optionsToSync: [ 'sqls' ] } ] );
 	} );

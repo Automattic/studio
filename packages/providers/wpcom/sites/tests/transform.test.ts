@@ -84,6 +84,25 @@ describe( 'transformSitesResponse', () => {
 		const [ legacy ] = transformSitesResponse( [ simpleBusinessSite() ] );
 		expect( legacy.launchStatus ).toBeUndefined();
 	} );
+
+	it( 'keeps a site whose launch and visibility fields have unexpected types', () => {
+		const result = transformSitesResponse( [
+			{
+				...atomicSite(),
+				is_wpcom_atomic: false,
+				hosting_provider_guess: 'pressable',
+				launch_status: false,
+				is_coming_soon: 0,
+				is_private: null,
+			},
+		] );
+
+		expect( result ).toHaveLength( 1 );
+		expect( result[ 0 ] ).toMatchObject( { isPressable: true, syncSupport: 'syncable' } );
+		expect( result[ 0 ].launchStatus ).toBeUndefined();
+		expect( result[ 0 ].isComingSoon ).toBeUndefined();
+		expect( result[ 0 ].isPrivate ).toBeUndefined();
+	} );
 	it( 'retains Simple sites whose options omit software_version and classifies them', () => {
 		const result = transformSitesResponse( [ simpleBusinessSite(), freeSite() ] );
 

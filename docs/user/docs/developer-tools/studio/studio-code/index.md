@@ -213,13 +213,15 @@ In the desktop app, each site’s chats are listed under the site in the sidebar
 
 ### [AI providers](#ai-providers)
 
-You can choose how AI responses are generated, in both the desktop app and the terminal:
+Open **Settings → Providers** and connect the account you want to use for chat in WordPress Studio Code.
 
--   **WordPress.com** (default): uses your WordPress.com account and AI Credits. No additional setup is required beyond logging in.
--   **Anthropic API key**: uses your own API key for direct access to Claude. In the desktop app, connect **Anthropic** in **Settings → Providers**. In the terminal, set it with `/connect anthropic`.
--   **Google Gemini API key**: uses your own key from [Google AI Studio](https://aistudio.google.com/apikey) for **Gemini 3.8 Flash** and **Gemini 4 Argon**. Google bills usage to the key’s project. In the desktop app, connect **Google Gemini** in **Settings → Providers**. In the terminal, set it with `/connect gemini`.
+-   **WordPress.com** uses [AI credits](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/). Click **Connect** to sign in with your WordPress.com account.
+-   **OpenAI** uses your [ChatGPT plan](https://help.openai.com/en/articles/20001542-using-your-chatgpt-plan-in-other-apps-and-sites) or an [OpenAI API key](https://platform.openai.com/api-keys). Choose a method from **Connect** and follow the sign-in prompt or save your key.
+-   **Anthropic** uses a Claude subscription token or an [Anthropic API key](https://platform.claude.com/docs/en/get-api-key). Choose a method from **Connect** and follow the setup instructions.
+-   **Google Gemini** uses an API key from [Google AI Studio](https://aistudio.google.com/apikey). Google bills usage to the key’s project.
+-   **GitHub Copilot** uses your [GitHub Copilot plan](https://github.com/features/copilot/plans). Click **Connect** and approve the sign-in code in your browser.
 
-With your own key, the model menu offers that provider’s models, such as **Sonnet 5.5** and **Opus 5.5**, instead of Fast, Balanced, and Strong. In the desktop app, choose the provider for each chat from the model menu, and set the provider new chats use with **Default provider** in **Settings → Providers**. In the terminal, switch providers with the `/provider` command.
+Use **Default AI provider** to choose which connected account new chats use. The model menu lets you choose a provider for a particular chat. In the terminal, switch providers with the `/provider` command.
 
 Switching a chat between WordPress.com and Anthropic models starts a new chat, because the models don’t share memory. In the desktop app, WordPress Studio asks you to confirm first (**Start a new chat?**), and your previous chat stays in the sidebar.
 

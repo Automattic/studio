@@ -776,6 +776,7 @@ export interface UserPreferences {
 	// See `docs/design-docs/analytics-tracks.md`.
 	analyticsEnabled: boolean;
 	defaultSiteDirectory: string;
+	defaultHostingProvider?: SitesProviderId | null;
 	studioCliInstalled: boolean;
 	// True when the `studio` command on PATH is a standalone (curl) install the
 	// app never installs over or uninstalls — the settings toggle disables

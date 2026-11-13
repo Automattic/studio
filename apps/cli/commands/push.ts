@@ -222,7 +222,7 @@ async function runPush(
 	reportPhase();
 
 	if ( provider === 'wpcom' ) {
-		await warnIfPreviewIsBehind( site, remoteSite.id, logger );
+		await warnIfPreviewIsBehind( site, Number( remoteSite.id ), logger );
 	}
 
 	let optionsToSync: SyncOption[] = [ 'all' ];

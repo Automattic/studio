@@ -38,7 +38,16 @@ export const openaiProvider: Provider< OpenaiConfig > = {
 		configSchema: openaiConfigSchema,
 		methods: [
 			{ id: 'chatgpt', label: () => __( 'ChatGPT plan' ), kind: 'loopback' },
-			{ id: 'api-key', label: () => __( 'API key' ), kind: 'form', input: openaiConnectInput },
+			{
+				id: 'api-key',
+				label: () => __( 'API key' ),
+				kind: 'form',
+				input: openaiConnectInput,
+				instructions: () =>
+					__(
+						'Create a key in the [OpenAI Platform](https://platform.openai.com/api-keys), then paste it below.'
+					),
+			},
 		],
 		describe: ( config ) =>
 			config.method === 'api-key'

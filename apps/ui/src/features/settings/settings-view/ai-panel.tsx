@@ -259,9 +259,7 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 		scope: origin?.scope,
 		trackExposure: ! user && ! userLoading,
 	} );
-	const setProvider = useSetAiProvider();
 	const isOffline = useOffline();
-	const connected = AI_PROVIDER_IDS.filter( ( id ) => settings.data?.accounts[ id ].connected );
 	const { capabilities } = useConnector();
 	// The Studio sign-in has a row of its own; the others connect the ways this app supports.
 	const providers = [ ...new Set( [ ...AI_PROVIDER_IDS, ...usePublishProviders() ] ) ]
@@ -312,24 +310,37 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 			{ providers.map( ( { id, methods } ) => (
 				<ProviderRow key={ id } provider={ id } methods={ methods } />
 			) ) }
-			{ connected.length > 1 && settings.data ? (
-				<SettingsRow
-					title={ __( 'Default provider' ) }
-					description={ __( 'The provider new chats use.' ) }
-					error={ setProvider.error?.message }
-				>
-					<SettingsSelect< AiProviderId >
-						label={ __( 'Default provider' ) }
-						value={ settings.data.provider }
-						disabled={ settings.isLoading || setProvider.isPending }
-						options={ connected.map( ( provider ) => ( {
-							value: provider,
-							label: getProvider( provider ).label,
-						} ) ) }
-						onChange={ ( provider ) => setProvider.mutate( provider ) }
-					/>
-				</SettingsRow>
-			) : null }
+		</SettingsGroup>
+	);
+}
+
+function DefaultProviderGroup() {
+	const settings = useAiSettings();
+	const setProvider = useSetAiProvider();
+	const connected = AI_PROVIDER_IDS.filter( ( id ) => settings.data?.accounts[ id ].connected );
+
+	if ( connected.length < 2 || ! settings.data ) {
+		return null;
+	}
+
+	return (
+		<SettingsGroup>
+			<SettingsRow
+				title={ __( 'Default AI provider' ) }
+				description={ __( 'The provider new chats use.' ) }
+				error={ setProvider.error?.message }
+			>
+				<SettingsSelect< AiProviderId >
+					label={ __( 'Default AI provider' ) }
+					value={ settings.data.provider }
+					disabled={ settings.isLoading || setProvider.isPending }
+					options={ connected.map( ( provider ) => ( {
+						value: provider,
+						label: getProvider( provider ).label,
+					} ) ) }
+					onChange={ ( provider ) => setProvider.mutate( provider ) }
+				/>
+			</SettingsRow>
 		</SettingsGroup>
 	);
 }
@@ -351,6 +362,7 @@ export function AiPanel( { onManageCredits }: { onManageCredits: () => void } ) 
 				/>
 			</SettingsGroup>
 			<ProvidersSection onManageCredits={ onManageCredits } />
+			<DefaultProviderGroup />
 		</div>
 	);
 }

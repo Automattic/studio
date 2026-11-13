@@ -1976,14 +1976,18 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/preview',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const { hostname, name } = req.body as { hostname?: string; name?: string };
+			const { hostname, name, liveSite } = req.body as {
+				hostname?: string;
+				name?: string;
+				liveSite?: string;
+			};
 			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
 			if ( ! site ) {
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
 			// A hostname means "refresh this existing preview"; otherwise create one.
-			res.json( await publishPreviewSite( execute, site.path, hostname, name ) );
+			res.json( await publishPreviewSite( execute, site.path, hostname, name, liveSite ) );
 		} )
 	);
 

@@ -259,7 +259,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 			} else if ( name === 'model' ) {
 				pendingCommandRef.current = () => setModelOpen( true );
 			} else if ( name === 'connect-provider' ) {
-				openSettings( 'ai' );
+				openSettings( 'providers', undefined, 'ai-providers' );
 			} else if ( name === 'local' ) {
 				onEnvironmentChange?.( name );
 			} else if ( name === 'panel' ) {

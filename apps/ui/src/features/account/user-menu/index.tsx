@@ -13,7 +13,7 @@ import { Button, Menu } from '@/lib/ui';
 import styles from './style.module.css';
 import { SupportMenu } from './support-menu';
 
-const MENU_SECTIONS: string[] = [ 'ai', 'usage' ];
+const MENU_SECTIONS: string[] = [ 'providers', 'usage' ];
 
 export function UserMenu() {
 	const { data: user } = useAuthUser();
@@ -69,7 +69,7 @@ export function UserMenu() {
 						{ sections.map( ( section ) => (
 							<Menu.Item key={ section.id } onClick={ () => openSettingsDialog( section.id ) }>
 								<section.icon />
-								{ section.id === 'ai' ? __( 'Providers' ) : section.label }
+								{ section.label }
 							</Menu.Item>
 						) ) }
 						<SupportMenu />

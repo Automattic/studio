@@ -4,7 +4,12 @@ import { __, sprintf } from '@wordpress/i18n';
 import { ChevronLeftIcon } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useConnector } from '@/data/core';
-import { remoteSitesQueryKey, usePublishProviders } from '@/data/queries/use-remote-sites';
+import {
+	remoteSitesQueryKey,
+	useConnectedHostingProviders,
+	usePublishProviders,
+} from '@/data/queries/use-remote-sites';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { getWebsiteThumbnailUrl, RelativeTime, SiteCard } from '@/features/site-card';
 import { ChevronRightIcon, PlusIcon } from '@/lib/icons';
@@ -41,6 +46,12 @@ const ADD: PanelRequest = { view: 'start' };
 export function usePublishTab( siteId: string ) {
 	const connector = useConnector();
 	const providers = usePublishProviders();
+	const preferences = useUserPreferences();
+	const { connected, isPending: hostingPending } = useConnectedHostingProviders( providers );
+	const saved = preferences.data?.defaultHostingProvider;
+	const preferred = saved && connected.includes( saved ) ? saved : undefined;
+	const single = providers.length === 1 ? providers[ 0 ] : undefined;
+	const defaultHost = preferred ?? ( connected.length === 1 ? connected[ 0 ] : single );
 	// Undefined until the tab is first opened, which is when it reads the connections.
 	const [ screen, setScreen ] = useState< Screen >();
 	const results = useQueries( {
@@ -55,10 +66,9 @@ export function usePublishTab( siteId: string ) {
 		( results[ index ]?.data ?? [] ).map( ( website ) => ( { provider, website } ) )
 	);
 	const activity = useSiteSyncActivity( siteId );
-	const single = providers.length === 1 ? providers[ 0 ] : undefined;
 	const hasPublished = published.length > 0;
 
-	// The tab opens on the transfer under way, else on the published sites.
+	// Resolve the default when entering setup, before the user picks a destination.
 	const home = screen?.kind === 'home';
 	const transferProvider =
 		activity?.kind === 'pending'
@@ -67,16 +77,32 @@ export function usePublishTab( siteId: string ) {
 	const transferSiteId = activity?.kind === 'pending' ? activity.remoteSiteId : undefined;
 	useEffect( () => {
 		if ( ! home || loading ) return;
-		setScreen(
-			transferProvider && transferSiteId !== undefined
-				? {
-						kind: 'provider',
-						provider: transferProvider,
-						request: { view: 'publish', remoteSiteId: transferSiteId },
-				  }
-				: { kind: 'list' }
-		);
-	}, [ home, loading, transferProvider, transferSiteId ] );
+		if ( transferProvider && transferSiteId !== undefined ) {
+			setScreen( {
+				kind: 'provider',
+				provider: transferProvider,
+				request: { view: 'publish', remoteSiteId: transferSiteId },
+			} );
+		} else if ( hasPublished ) {
+			setScreen( { kind: 'list' } );
+		} else if ( single || ( ! preferences.isPending && ! hostingPending ) ) {
+			setScreen(
+				defaultHost
+					? { kind: 'provider', provider: defaultHost, request: PUBLISH }
+					: { kind: 'choose' }
+			);
+		}
+	}, [
+		home,
+		loading,
+		hasPublished,
+		defaultHost,
+		hostingPending,
+		preferences.isPending,
+		single,
+		transferProvider,
+		transferSiteId,
+	] );
 
 	// With nothing published, the list gives way to the choice of where to publish.
 	const current: Screen | 'loading' | undefined =
@@ -94,7 +120,8 @@ export function usePublishTab( siteId: string ) {
 		published,
 		screen: current,
 		provider: typeof current === 'object' && current.kind === 'provider' ? current.provider : null,
-		canGoBack: hasPublished || ! single,
+		canChooseHost: providers.length > 1,
+		canGoBack: hasPublished,
 		open: useCallback(
 			( request?: PublishRequest ) =>
 				setScreen(
@@ -112,8 +139,10 @@ export function usePublishTab( siteId: string ) {
 			setScreen( { kind: 'provider', provider, request: { view: 'publish', remoteSiteId } } ),
 		add: () =>
 			setScreen(
-				single ? { kind: 'provider', provider: single, request: ADD } : { kind: 'choose' }
+				defaultHost ? { kind: 'provider', provider: defaultHost, request: ADD } : { kind: 'choose' }
 			),
+		reset: () => setScreen( undefined ),
+		chooseHost: () => setScreen( { kind: 'choose' } ),
 		// A provider's first connection shows as soon as it lands; with some already, the panel
 		// offers a new or existing site.
 		choose: ( provider: SitesProviderId ) =>
@@ -271,11 +300,11 @@ export function PublishTab( {
 	if ( screen.kind !== 'provider' ) return <DestinationPicker tab={ tab } />;
 	return (
 		<div className={ styles.screen }>
-			{ tab.canGoBack && ! substep ? (
-				<BackButton
-					label={ tab.published.length ? __( 'Published sites' ) : __( 'Back' ) }
-					onClick={ tab.back }
-				/>
+			{ ! substep && tab.canGoBack ? (
+				<BackButton label={ __( 'Published sites' ) } onClick={ tab.back } />
+			) : null }
+			{ ! substep && tab.canChooseHost && screen.request.remoteSiteId === undefined ? (
+				<BackButton label={ __( 'Choose another host' ) } onClick={ tab.chooseHost } />
 			) : null }
 			<PublishPanel
 				key={ `${ screen.provider }:${ screen.request.view }:${

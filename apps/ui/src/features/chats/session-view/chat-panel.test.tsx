@@ -295,9 +295,7 @@ describe( 'Composer site controls', () => {
 } );
 
 function anthropicRow( dialog: HTMLElement ) {
-	return within(
-		within( dialog ).getByText( 'Anthropic', { exact: true } ).closest( '[data-settings-row]' )!
-	);
+	return within( within( dialog ).getByRole( 'group', { name: 'Anthropic' } ) );
 }
 
 describe( 'Composer access notices', () => {
@@ -361,7 +359,7 @@ describe( 'Composer access notices', () => {
 		expect( alert ).toHaveTextContent( 'Connect a different provider to continue this chat.' );
 		expect( within( alert ).getAllByRole( 'button' ) ).toHaveLength( 1 );
 		fireEvent.click( within( alert ).getByRole( 'button', { name: 'Connect' } ) );
-		await waitFor( () => expect( history.location.search ).toContain( 'settings=ai' ) );
+		await waitFor( () => expect( history.location.search ).toContain( 'settings=providers' ) );
 		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
 	} );
 
@@ -565,7 +563,7 @@ describe( 'Chat target selection', () => {
 		if ( ! connections.signedIn && ! connections.hasAnthropicApiKey ) {
 			expect( screen.queryByRole( 'button', { name: 'Model' } ) ).not.toBeInTheDocument();
 			fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-			await screen.findByRole( 'option', { name: /^Connect providers/ } );
+			await screen.findByRole( 'option', { name: /^Connect AI providers/ } );
 			expect( screen.queryByRole( 'option', { name: /^Choose model/ } ) ).not.toBeInTheDocument();
 			fireEvent.keyDown( document.activeElement!, { key: 'Escape' } );
 			fireEvent.change( input, { target: { value: '/model' } } );
@@ -573,7 +571,7 @@ describe( 'Chat target selection', () => {
 			return;
 		}
 		fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
-		const connect = await screen.findByRole( 'option', { name: /^Connect providers/ } );
+		const connect = await screen.findByRole( 'option', { name: /^Connect AI providers/ } );
 		for ( const name of [ 'Fast', 'Balanced', 'Strong' ] ) {
 			expect( !! screen.queryByRole( 'option', { name: new RegExp( `^${ name }` ) } ) ).toBe(
 				connections.signedIn
@@ -585,7 +583,7 @@ describe( 'Chat target selection', () => {
 			);
 		}
 		fireEvent.click( connect );
-		await waitFor( () => expect( history.location.search ).toContain( 'settings=ai' ) );
+		await waitFor( () => expect( history.location.search ).toContain( 'settings=providers' ) );
 	} );
 
 	it( 'shows setup before sending and keeps signed-out drafts editable', async () => {
@@ -607,7 +605,7 @@ describe( 'Chat target selection', () => {
 		expect( connector.startSite ).not.toHaveBeenCalled();
 		expect( connector.continueSession ).not.toHaveBeenCalled();
 		fireEvent.click( within( alert ).getByRole( 'button', { name: 'Connect' } ) );
-		await waitFor( () => expect( history.location.search ).toContain( 'settings=ai' ) );
+		await waitFor( () => expect( history.location.search ).toContain( 'settings=providers' ) );
 		expect( connector.authenticate ).not.toHaveBeenCalled();
 	} );
 

@@ -102,8 +102,8 @@ export function getComposerCommands( {
 			: [] ),
 		{
 			name: 'connect-provider',
-			displayName: __( 'Connect providers' ),
-			description: __( 'Use WordPress.com AI credits or your own API key.' ),
+			displayName: __( 'Connect AI providers' ),
+			description: __( 'Choose what powers chat in WordPress Studio.' ),
 		},
 		...( canChangeEnvironment && environment === 'live'
 			? [

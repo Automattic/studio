@@ -5,6 +5,7 @@ import chatgpt from './assets/chatgpt.png';
 import chrome from './assets/chrome.png';
 import chromium from './assets/chromium.png';
 import claude from './assets/claude.png';
+import copilot from './assets/copilot.png';
 import cursor from './assets/cursor.png';
 import dia from './assets/dia.png';
 import duckduckgo from './assets/duckduckgo.png';
@@ -46,6 +47,7 @@ const icons: Record< string, string > = {
 	gemini,
 	ghostty,
 	github,
+	'github-copilot': copilot,
 	'grok-build': grok,
 	openai: chatgpt,
 	opera,
@@ -60,6 +62,8 @@ const icons: Record< string, string > = {
 	zen,
 };
 
+const tileIcons = new Set( [ copilot, gemini, spacefast, wordpressCom ] );
+
 /** An app's bundled logo, or `fallback` when there is none or it fails to load. */
 export function AppIcon( { app, fallback }: { app?: string; fallback: ReactNode } ) {
 	const [ failedSource, setFailedSource ] = useState< string >();
@@ -72,9 +76,7 @@ export function AppIcon( { app, fallback }: { app?: string; fallback: ReactNode 
 			src={ src }
 			alt=""
 			aria-hidden="true"
-			className={
-				app === 'gemini' || app === 'spacefast' || app === 'wpcom' ? styles.tile : styles.icon
-			}
+			className={ tileIcons.has( src ) ? styles.tile : styles.icon }
 			onError={ () => setFailedSource( src ) }
 		/>
 	);

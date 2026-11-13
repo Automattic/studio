@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 import EventEmitter from 'node:events';
 import { createCliRunner } from '@studio/common/lib/cli-process';
 import { listSites } from '@studio/common/sites/list';
-import { InvalidCredentialError } from '@studio/providers';
+import { ConnectError } from '@studio/providers';
 import nock from 'nock';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { startLocalServer } from '../../local/src/index';
@@ -114,7 +114,7 @@ describe( 'local web server Connect contracts', () => {
 		fetch( settingsUrl( '/providers/anthropic' ), {
 			method: 'PUT',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify( { input } ),
+			body: JSON.stringify( { method: 'api-key', input } ),
 		} );
 
 	it( 'reports the AI provider settings without the key itself', async () => {
@@ -132,9 +132,9 @@ describe( 'local web server Connect contracts', () => {
 			accounts: { anthropic: { connected: true, summary: '1234' } },
 		} );
 		expect( mocks.connectProvider ).toHaveBeenCalledWith(
-			expect.objectContaining( { descriptor: expect.objectContaining( { id: 'anthropic' } ) } ),
-			{ apiKey: '  sk-ant-test-1234  ' },
-			{ openUrl: expect.any( Function ) }
+			expect.objectContaining( { id: 'anthropic' } ),
+			'api-key',
+			{ apiKey: '  sk-ant-test-1234  ' }
 		);
 	} );
 
@@ -150,7 +150,7 @@ describe( 'local web server Connect contracts', () => {
 
 	it( 'returns 400 with the message when the provider rejects the values', async () => {
 		mocks.connectProvider.mockRejectedValueOnce(
-			new InvalidCredentialError( 'Anthropic rejected this API key. Check the key and try again.' )
+			new ConnectError( 'Anthropic rejected this API key. Check the key and try again.' )
 		);
 
 		const response = await putInput( { apiKey: 'sk-ant-rejected' } );
@@ -191,9 +191,7 @@ describe( 'local web server Connect contracts', () => {
 	} );
 
 	it( 'returns 400 with the message when the provider is not connected', async () => {
-		mocks.setAiProvider.mockRejectedValueOnce(
-			new InvalidCredentialError( 'Connect Anthropic API first.' )
-		);
+		mocks.setAiProvider.mockRejectedValueOnce( new ConnectError( 'Connect Anthropic API first.' ) );
 
 		const response = await fetch(
 			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings/provider`,

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { InvalidCredentialError } from '../../errors';
-import { connectAnthropic, validateAnthropicConfig } from '../account';
+import { ConnectError } from '../../errors';
+import { anthropicAccount, validateAnthropicConfig } from '../account';
 
 const apiKey = ( key: string ) => ( { method: 'api-key', apiKey: key } ) as const;
 
@@ -67,28 +67,32 @@ describe( 'validateAnthropicConfig', () => {
 	} );
 } );
 
-describe( 'connectAnthropic', () => {
+describe( 'connecting Anthropic', () => {
 	afterEach( () => vi.unstubAllGlobals() );
 
 	it( 'stores a trimmed key Anthropic accepts or cannot check, and refuses one it rejects', async () => {
 		vi.stubGlobal( 'fetch', vi.fn().mockRejectedValue( new Error( 'offline' ) ) );
-		await expect( connectAnthropic( { apiKey: '  sk-ant-key  ' } ) ).resolves.toEqual( {
+		await expect(
+			anthropicAccount.connect( 'api-key', { apiKey: '  sk-ant-key  ' } )
+		).resolves.toEqual( {
 			method: 'api-key',
 			apiKey: 'sk-ant-key',
 		} );
 
 		vi.stubGlobal( 'fetch', vi.fn().mockResolvedValue( { ok: false, status: 401 } ) );
-		await expect( connectAnthropic( { apiKey: 'sk-ant-bad' } ) ).rejects.toBeInstanceOf(
-			InvalidCredentialError
+		await expect(
+			anthropicAccount.connect( 'api-key', { apiKey: 'sk-ant-bad' } )
+		).rejects.toBeInstanceOf( ConnectError );
+		await expect( anthropicAccount.connect( 'api-key', { apiKey: '   ' } ) ).rejects.toThrow(
+			'API key is required'
 		);
-		await expect( connectAnthropic( { apiKey: '   ' } ) ).rejects.toThrow( 'API key is required' );
 	} );
 
 	it( 'stores a subscription token sent with Bearer auth, and refuses an API key in its place', async () => {
 		const fetchMock = vi.fn().mockResolvedValue( { ok: false, status: 403 } );
 		vi.stubGlobal( 'fetch', fetchMock );
 		await expect(
-			connectAnthropic( { method: 'setup-token', token: ' sk-ant-oat01-token ' } )
+			anthropicAccount.connect( 'setup-token', { token: ' sk-ant-oat01-token ' } )
 		).resolves.toEqual( { method: 'setup-token', token: 'sk-ant-oat01-token' } );
 		expect( fetchMock ).toHaveBeenCalledWith(
 			expect.any( String ),
@@ -101,11 +105,11 @@ describe( 'connectAnthropic', () => {
 		);
 
 		await expect(
-			connectAnthropic( { method: 'setup-token', token: 'sk-ant-api03-key' } )
+			anthropicAccount.connect( 'setup-token', { token: 'sk-ant-api03-key' } )
 		).rejects.toThrow( 'not an API key' );
 		fetchMock.mockResolvedValue( { ok: false, status: 401 } );
 		await expect(
-			connectAnthropic( { method: 'setup-token', token: 'sk-ant-oat01-revoked' } )
-		).rejects.toBeInstanceOf( InvalidCredentialError );
+			anthropicAccount.connect( 'setup-token', { token: 'sk-ant-oat01-revoked' } )
+		).rejects.toBeInstanceOf( ConnectError );
 	} );
 } );

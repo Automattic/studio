@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
-import { InvalidCredentialError, ProviderNotReadyError } from '../errors';
+import { ConnectError, NotConnectedError } from '../errors';
 import type { OpenaiConfig } from './config';
-import type { LoopbackAuthorization, Provider } from '../types';
+import type { ProviderServices } from '../types';
 
 // OpenAI's sign-in for agents: each sign-in registers an OAuth client for
 // Studio, and the user agrees to share their ChatGPT plan with it through the
@@ -47,10 +47,10 @@ async function readTokens( response: Response, clientId: string ): Promise< Open
 		scope?: string;
 	};
 	if ( ! tokens.access_token || ! tokens.refresh_token ) {
-		throw new InvalidCredentialError( __( 'ChatGPT sent back an incomplete sign-in.' ) );
+		throw new ConnectError( __( 'ChatGPT sent back an incomplete sign-in.' ) );
 	}
 	if ( ! tokens.scope?.split( ' ' ).includes( SHARING_SCOPE ) ) {
-		throw new InvalidCredentialError(
+		throw new ConnectError(
 			__( 'Allow WordPress Studio to use your ChatGPT plan when signing in.' ),
 			'denied'
 		);
@@ -66,9 +66,15 @@ async function readTokens( response: Response, clientId: string ): Promise< Open
 	};
 }
 
-export const startOpenaiConnect: NonNullable<
-	Provider< OpenaiConfig >[ 'startLoopbackConnect' ]
-> = async ( redirectUri, { hostId, remembered } ) => {
+type OpenaiAccount = ProviderServices< OpenaiConfig >[ 'account' ];
+
+const start: NonNullable< OpenaiAccount[ 'start' ] > = async (
+	_method,
+	{ redirectUri, hostId, remembered }
+) => {
+	if ( ! redirectUri ) {
+		throw new Error( 'Signing in with ChatGPT needs an address on this computer.' );
+	}
 	const verifier = base64Url( crypto.getRandomValues( new Uint8Array( 32 ) ) );
 	const challenge = base64Url(
 		new Uint8Array( await crypto.subtle.digest( 'SHA-256', new TextEncoder().encode( verifier ) ) )
@@ -89,14 +95,22 @@ export const startOpenaiConnect: NonNullable<
 		code_challenge: challenge,
 		code_challenge_method: 'S256',
 	} ).toString();
-	return { url: url.toString(), state, verifier } satisfies LoopbackAuthorization;
+	return {
+		url: url.toString(),
+		handoff: {
+			state,
+			verifier,
+			redirectUri,
+			...( remembered?.clientId ? { clientId: remembered.clientId } : {} ),
+		},
+	};
 };
 
 // A first sign-in's redirect names the client OpenAI registered for it.
-export const connectOpenai: Provider< OpenaiConfig >[ 'connect' ] = async ( input ) => {
+const connect: OpenaiAccount[ 'connect' ] = async ( _method, input ) => {
 	const clientId = input.client_id ?? input.clientId;
 	if ( ! input.code || ! clientId || ! input.verifier || ! input.redirectUri ) {
-		throw new InvalidCredentialError( __( 'Start signing in with ChatGPT again.' ) );
+		throw new ConnectError( __( 'Start signing in with ChatGPT again.' ) );
 	}
 	const response = await requestTokens( {
 		grant_type: 'authorization_code',
@@ -106,7 +120,7 @@ export const connectOpenai: Provider< OpenaiConfig >[ 'connect' ] = async ( inpu
 		redirect_uri: input.redirectUri,
 	} );
 	if ( ! response.ok ) {
-		throw new InvalidCredentialError(
+		throw new ConnectError(
 			__( 'ChatGPT sign-in could not be completed. Try again.' ),
 			'unverified'
 		);
@@ -116,9 +130,7 @@ export const connectOpenai: Provider< OpenaiConfig >[ 'connect' ] = async ( inpu
 
 // Renews the access token shortly before it expires. A refresh token OpenAI
 // no longer accepts means the user has to sign in again.
-export const refreshOpenai: NonNullable< Provider< OpenaiConfig >[ 'refresh' ] > = async (
-	config
-) => {
+const refresh: NonNullable< OpenaiAccount[ 'refresh' ] > = async ( config ) => {
 	if ( config.accessTokenExpiresAt - Date.now() > REFRESH_MARGIN_MS ) {
 		return undefined;
 	}
@@ -128,12 +140,12 @@ export const refreshOpenai: NonNullable< Provider< OpenaiConfig >[ 'refresh' ] >
 		refresh_token: config.refreshToken,
 	} );
 	if ( response.status === 400 || response.status === 401 ) {
-		throw new ProviderNotReadyError(
-			'ChatGPT sign-in expired. Switch to ChatGPT with /provider to sign in again.'
-		);
+		throw new NotConnectedError( 'Your ChatGPT sign-in expired. Connect ChatGPT again.' );
 	}
 	if ( ! response.ok ) {
 		throw new Error( `ChatGPT sign-in could not be renewed (${ response.status }).` );
 	}
 	return readTokens( response, config.clientId );
 };
+
+export const openaiAccount: OpenaiAccount = { start, connect, refresh };

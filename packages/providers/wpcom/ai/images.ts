@@ -1,6 +1,6 @@
-import { getAiGatewayBaseUrl } from './ai';
-import type { WpcomConfig } from './config';
-import type { GenerateImageRequest, GenerateImageResult, GenerateImages } from '../types';
+import { getAiGatewayBaseUrl } from './gateway';
+import type { GenerateImageRequest, GenerateImageResult, ProviderServices } from '../../types';
+import type { WpcomConfig } from '../config';
 
 // Image generation through the proxy's OpenAI-compatible images route, which
 // only delivers PNG.
@@ -145,11 +145,9 @@ async function generateOne(
 	}
 }
 
-export const generateWpcomImages: GenerateImages< WpcomConfig > = async (
-	config,
-	requests,
-	onResult
-) => {
+export const generateWpcomImages: NonNullable<
+	NonNullable< ProviderServices< WpcomConfig >[ 'ai' ] >[ 'generateImages' ]
+> = async ( config, requests, onResult ) => {
 	if ( ! config ) {
 		throw new Error( 'Image generation requires a WordPress.com login (studio auth login).' );
 	}

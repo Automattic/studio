@@ -698,8 +698,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 				name: 'Manage',
 			} )
 		);
-		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'API key' } ) );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Disconnect' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Disconnect' } ) );
 		await waitFor( () =>
 			expect( connector.disconnectProvider ).toHaveBeenCalledWith( 'anthropic' )
 		);
@@ -808,7 +807,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		await waitFor( () => expect( connect ).toBeEnabled() );
 	} );
 
-	it( 'waits for completed WordPress.com OAuth before selecting its provider', async () => {
+	it( 'signs in to WordPress.com from its row', async () => {
 		const { connector } = await setup( {
 			section: 'ai',
 			signedIn: false,
@@ -829,10 +828,8 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 				expect.any( Object )
 			)
 		);
-		expect( connector.setAiProvider ).not.toHaveBeenCalled();
 		connector.state.user = TEST_USER;
 		act( () => connector.emit( 'onAuthStateChanged' ) );
-		await waitFor( () => expect( connector.setAiProvider ).toHaveBeenCalledWith( 'wpcom' ) );
 		const manage = await within( providerRow( 'wpcom-provider' ) ).findByRole( 'button', {
 			name: 'Manage',
 		} );
@@ -858,15 +855,19 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		).toBeEnabled();
 	} );
 
-	it( 'signs in to ChatGPT in the browser and selects it', async () => {
+	it( 'signs in to ChatGPT in the browser', async () => {
 		const { connector } = await setup( { section: 'ai' } );
 		fireEvent.click(
 			await within( await findProviderRow( 'openai-provider' ) ).findByRole( 'button', {
 				name: 'Continue with ChatGPT',
 			} )
 		);
-		await waitFor( () => expect( connector.connectProvider ).toHaveBeenCalledWith( 'openai', {} ) );
-		await waitFor( () => expect( connector.setAiProvider ).toHaveBeenCalledWith( 'openai' ) );
+		await waitFor( () =>
+			expect( connector.connectProvider ).toHaveBeenCalledWith( 'openai', 'chatgpt', {
+				state: 'state-1',
+			} )
+		);
+		expect( connector.openExternalUrl ).toHaveBeenCalledWith( 'https://auth.example.test/sign-in' );
 	} );
 
 	it( 'hides ChatGPT on the web, which cannot reach it', async () => {
@@ -878,6 +879,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 					annotatePreview: false,
 					studioLogs: false,
 					nativeSites: false,
+					loopbackSignIn: false,
 				},
 			},
 		} );
@@ -913,8 +915,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 			} )
 		);
 		await waitFor( () =>
-			expect( connector.connectProvider ).toHaveBeenCalledWith( 'anthropic', {
-				method: 'api-key',
+			expect( connector.connectProvider ).toHaveBeenCalledWith( 'anthropic', 'api-key', {
 				apiKey: '  personal-key  ',
 			} )
 		);
@@ -939,7 +940,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( await screen.findByRole( 'menuitemradio', { name: 'API key' } ) ).toBeChecked();
 		fireEvent.click( screen.getByRole( 'menuitemradio', { name: 'Claude subscription' } ) );
 		expect( await screen.findByText( 'claude setup-token' ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Copy command' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Copy' } ) ).toBeVisible();
 		fireEvent.change(
 			await screen.findByLabelText( 'Claude subscription token', { selector: 'input' } ),
 			{ target: { value: 'sk-ant-oat01-token' } }
@@ -947,14 +948,13 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
 
 		await waitFor( () =>
-			expect( connector.connectProvider ).toHaveBeenCalledWith( 'anthropic', {
-				method: 'setup-token',
+			expect( connector.connectProvider ).toHaveBeenCalledWith( 'anthropic', 'setup-token', {
 				token: 'sk-ant-oat01-token',
 			} )
 		);
 	} );
 
-	it( 'preserves a rejected key for retry and only switches providers after it is saved', async () => {
+	it( 'preserves a rejected key for retry', async () => {
 		const { connector } = await setup( { section: 'ai', signedIn: false } );
 		connector.connectProvider.mockRejectedValueOnce( new Error( 'Invalid API key' ) );
 		const manage = await within( await findProviderRow( 'anthropic-provider' ) ).findByRole(
@@ -976,12 +976,10 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		fireEvent.click( save() );
 		await screen.findByText( 'Invalid API key' );
 		expect( input ).toHaveValue( '  test-key  ' );
-		expect( connector.setAiProvider ).not.toHaveBeenCalled();
 		await waitFor( () => expect( save() ).toBeEnabled() );
 		fireEvent.click( save() );
-		await waitFor( () => expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic' ) );
-		expect( connector.connectProvider ).toHaveBeenCalledWith( 'anthropic', {
-			method: 'api-key',
+		await waitFor( () => expect( connector.connectProvider ).toHaveBeenCalledTimes( 2 ) );
+		expect( connector.connectProvider ).toHaveBeenLastCalledWith( 'anthropic', 'api-key', {
 			apiKey: '  test-key  ',
 		} );
 		await waitFor( () =>

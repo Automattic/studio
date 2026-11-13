@@ -1,12 +1,12 @@
 import { isRetryableAssistantError } from '@earendil-works/pi-ai';
 import { describe, expect, it } from 'vitest';
-import { ProviderNotReadyError } from '../../errors';
-import { wpcomAi } from '../ai';
-import type { AiConnection } from '../../types';
+import { wpcomAi } from '..';
+import { NotConnectedError } from '../../../errors';
+import type { AiConnection } from '../../../types';
 import type { AssistantMessage } from '@earendil-works/pi-ai';
 
 const connect = ( model: 'fast' | 'balanced' | 'strong', sessionId?: string ) =>
-	wpcomAi.connect( { token: 'wpcom-token' }, model, {
+	wpcomAi.model( { token: 'wpcom-token' }, model, {
 		sessionId,
 	} );
 
@@ -21,8 +21,8 @@ function retryable( errorMessage: string ): boolean {
 
 describe( 'wpcom ai', () => {
 	it( 'asks for Studio sign-in without a config', async () => {
-		const connection = wpcomAi.connect( undefined, 'fast', {} );
-		await expect( connection ).rejects.toBeInstanceOf( ProviderNotReadyError );
+		const connection = wpcomAi.model( undefined, 'fast', {} );
+		await expect( connection ).rejects.toBeInstanceOf( NotConnectedError );
 	} );
 
 	it( 'routes the fast tier to Chat Completions with the proxy headers', async () => {

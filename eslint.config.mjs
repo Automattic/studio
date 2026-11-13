@@ -25,22 +25,22 @@ const AGENT_NODE = {
 };
 
 const PROVIDERS_SERVICES = {
-	group: [ '@studio/providers/*' ],
+	group: [ '@studio/providers/*', '!@studio/providers/wpcom' ],
 	message: 'Surfaces read @studio/providers; its services run in the backends and the agent.',
 };
 
-// The entry surfaces read, and the files it is made of.
+// The entries surfaces read, and the files they are made of.
 const PROVIDERS_DESCRIPTORS = [
 	'index.ts',
+	'wpcom.ts',
 	'types.ts',
 	'models.ts',
-	'descriptors.ts',
+	'registry.ts',
 	'errors.ts',
 	'connection.ts',
 	'*/descriptor.ts',
-	'*/site.ts',
 	'*/config.ts',
-	'wpcom/oauth.ts',
+	'wpcom/sites/site.ts',
 ];
 
 const NODE_APIS = [ 'node:*', 'fs', 'fs/*', 'path', 'os', 'child_process', 'crypto' ];

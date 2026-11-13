@@ -1,13 +1,7 @@
-import { getProviderDescriptor } from './descriptors';
-import type {
-	ConnectionMethod,
-	ConnectStep,
-	ProviderConnection,
-	ProviderId,
-	RedirectOptions,
-} from './types';
+import { getProvider } from './registry';
+import type { ConnectMethod, ProviderId } from './types';
 
-// One field of a provider's connection form, as a surface renders it.
+// One field of a connection form, as a surface renders it.
 export interface ConnectField {
 	name: string;
 	title: string;
@@ -19,40 +13,18 @@ export interface ConnectField {
 	validate( value: string ): string | undefined;
 }
 
-// The ways a provider's account connects, for the user to pick; empty when it has only one.
-export function getConnectionMethods( provider: ProviderId ): ConnectionMethod[] {
-	const { connection } = getProviderDescriptor( provider );
-	return Array.isArray( connection ) ? connection : [];
+// The provider's method with that id, or its first.
+export function getConnectMethod( provider: ProviderId, id?: string ): ConnectMethod {
+	const { methods } = getProvider( provider ).account;
+	return methods.find( ( method ) => method.id === id ) ?? methods[ 0 ];
 }
 
-// How the account connects with `method`, or with the provider's first method.
-export function getConnection( provider: ProviderId, method?: string ): ProviderConnection {
-	const { connection } = getProviderDescriptor( provider );
-	if ( ! Array.isArray( connection ) ) {
-		return connection;
-	}
-	return connection.find( ( { id } ) => id === method ) ?? connection[ 0 ];
-}
-
-// The method a config was connected with, for a provider with several.
-export function getConnectedMethod( provider: ProviderId, config: unknown ): string | undefined {
-	const method = ( config as { method?: unknown } | undefined )?.method;
-	return getConnectionMethods( provider ).find( ( { id } ) => id === method )?.id;
-}
-
-// What the user does before filling the provider's form in.
-export function getConnectSteps( provider: ProviderId, method?: string ): ConnectStep[] {
-	const connection = getConnection( provider, method );
-	return ( connection.kind === 'form' && connection.steps?.() ) || [];
-}
-
-// The fields a provider's form asks for; empty when it doesn't connect with a form.
-export function getConnectFields( provider: ProviderId, method?: string ): ConnectField[] {
-	const connection = getConnection( provider, method );
-	if ( connection.kind !== 'form' ) {
+// The fields a method's form asks for; empty when it doesn't connect with a form.
+export function getConnectFields( method: ConnectMethod ): ConnectField[] {
+	if ( method.kind !== 'form' ) {
 		return [];
 	}
-	return Object.entries( connection.input().shape ).map( ( [ name, schema ] ) => {
+	return Object.entries( method.input().shape ).map( ( [ name, schema ] ) => {
 		const meta = schema.meta() ?? {};
 		const examples = Array.isArray( meta.examples ) ? meta.examples : [];
 		return {
@@ -67,13 +39,4 @@ export function getConnectFields( provider: ProviderId, method?: string ): Conne
 			},
 		};
 	} );
-}
-
-// Where to send the user to approve access, for a provider that connects with a redirect.
-export function getRedirectUrl( provider: ProviderId, options: RedirectOptions ): string {
-	const connection = getConnection( provider );
-	if ( connection.kind !== 'redirect' ) {
-		throw new Error( `${ provider } does not connect with a redirect` );
-	}
-	return connection.redirectUrl( options );
 }

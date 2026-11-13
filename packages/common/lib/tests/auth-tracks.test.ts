@@ -1,4 +1,4 @@
-import { InvalidCredentialError } from '@studio/providers';
+import { ConnectError } from '@studio/providers';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	createAuthAttempt,
@@ -52,11 +52,9 @@ describe( 'auth attempt attribution', () => {
 	} );
 
 	it( 'classifies a failed sign-in for Tracks without its message', () => {
-		expect( getAuthFailureReason( new InvalidCredentialError( 'x', 'denied' ) ) ).toBe(
-			'access_denied'
-		);
-		expect( getAuthFailureReason( new InvalidCredentialError( 'x' ) ) ).toBe( 'token_error' );
-		expect( getAuthFailureReason( new InvalidCredentialError( 'x', 'unverified' ) ) ).toBe(
+		expect( getAuthFailureReason( new ConnectError( 'x', 'denied' ) ) ).toBe( 'access_denied' );
+		expect( getAuthFailureReason( new ConnectError( 'x' ) ) ).toBe( 'token_error' );
+		expect( getAuthFailureReason( new ConnectError( 'x', 'unverified' ) ) ).toBe(
 			'profile_fetch_failed'
 		);
 		expect( getAuthFailureReason( new Error( 'x' ) ) ).toBe( 'unknown' );

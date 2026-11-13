@@ -1,22 +1,23 @@
 import { password, select } from '@inquirer/prompts';
 import { connectProvider, readSelectedAiProvider } from '@studio/common/lib/ai-settings';
 import { readFreshProviderConfig, readProviderConfig } from '@studio/common/lib/provider-config';
-import { InvalidCredentialError } from '@studio/providers';
+import { ConnectError } from '@studio/providers';
 import { vi } from 'vitest';
 import {
-	isAiProviderReady,
-	prepareAiProvider,
 	resolveAiConnection,
 	resolveImageGenerator,
 	resolveInitialAiProvider,
 	resolveUnavailableAiProvider,
 } from 'cli/ai/auth';
+import { connectInTerminal, isProviderConnected } from 'cli/lib/providers';
 import { LoggerError } from 'cli/logger';
 
 vi.mock( '@inquirer/prompts', () => ( {
 	password: vi.fn(),
 	select: vi.fn(),
 } ) );
+
+vi.mock( 'cli/commands/auth/login', () => ( { runCommand: vi.fn() } ) );
 
 vi.mock( '@studio/common/lib/ai-settings', () => ( {
 	connectProvider: vi.fn(),
@@ -28,9 +29,7 @@ vi.mock( '@studio/common/lib/provider-config', () => ( {
 	readProviderConfig: vi.fn(),
 } ) );
 
-const anthropicProvider = expect.objectContaining( {
-	descriptor: expect.objectContaining( { id: 'anthropic' } ),
-} );
+const anthropicProvider = expect.objectContaining( { id: 'anthropic' } );
 
 type Configs = {
 	wpcom?: { token: string };
@@ -44,7 +43,7 @@ function storeConfigs( configs: Configs ) {
 		async ( provider ) => configs[ provider ] as never
 	);
 	vi.mocked( readFreshProviderConfig ).mockImplementation(
-		async ( provider ) => configs[ provider.descriptor.id ] as never
+		async ( provider ) => configs[ provider.id as keyof Configs ] as never
 	);
 }
 
@@ -93,11 +92,10 @@ describe( 'AI auth helpers', () => {
 	it( 'prompts for the API key when preparing Anthropic without one', async () => {
 		answerPrompt( 'prompted-key' );
 
-		await prepareAiProvider( 'anthropic' );
+		await connectInTerminal( 'anthropic' );
 
 		expect( password ).toHaveBeenCalledOnce();
-		expect( connectProvider ).toHaveBeenCalledWith( anthropicProvider, {
-			method: 'api-key',
+		expect( connectProvider ).toHaveBeenCalledWith( anthropicProvider, 'api-key', {
 			apiKey: 'prompted-key',
 		} );
 	} );
@@ -106,19 +104,18 @@ describe( 'AI auth helpers', () => {
 		vi.mocked( select ).mockResolvedValue( 'setup-token' );
 		answerPrompt( 'sk-ant-oat01-token' );
 
-		await prepareAiProvider( 'anthropic' );
+		await connectInTerminal( 'anthropic' );
 
-		expect( connectProvider ).toHaveBeenCalledWith( anthropicProvider, {
-			method: 'setup-token',
+		expect( connectProvider ).toHaveBeenCalledWith( anthropicProvider, 'setup-token', {
 			token: 'sk-ant-oat01-token',
 		} );
 	} );
 
 	it( 'shows the provider’s rejection as the prompt’s error', async () => {
-		vi.mocked( connectProvider ).mockRejectedValue( new InvalidCredentialError( 'Rejected key' ) );
+		vi.mocked( connectProvider ).mockRejectedValue( new ConnectError( 'Rejected key' ) );
 		answerPrompt( 'bad-key' );
 
-		await prepareAiProvider( 'anthropic' );
+		await connectInTerminal( 'anthropic' );
 
 		expect( validations.at( -1 ) ).toBe( 'Rejected key' );
 	} );
@@ -127,14 +124,22 @@ describe( 'AI auth helpers', () => {
 		storeConfigs( { anthropic: { method: 'api-key', apiKey: 'saved-key' } } );
 		answerPrompt( 'updated-key' );
 
-		await prepareAiProvider( 'anthropic' );
+		await connectInTerminal( 'anthropic' );
 		expect( password ).not.toHaveBeenCalled();
 
-		await prepareAiProvider( 'anthropic', { force: true } );
-		expect( connectProvider ).toHaveBeenCalledWith( anthropicProvider, {
-			method: 'api-key',
+		await connectInTerminal( 'anthropic', { force: true } );
+		expect( connectProvider ).toHaveBeenCalledWith( anthropicProvider, 'api-key', {
 			apiKey: 'updated-key',
 		} );
+	} );
+
+	it( 'connects WordPress.com by signing in to Studio', async () => {
+		const { runCommand: login } = await import( 'cli/commands/auth/login' );
+
+		await connectInTerminal( 'wpcom' );
+
+		expect( login ).toHaveBeenCalledOnce();
+		expect( connectProvider ).not.toHaveBeenCalled();
 	} );
 
 	it( 'connects to the WordPress.com gateway with the Studio session headers', async () => {
@@ -176,10 +181,10 @@ describe( 'AI auth helpers', () => {
 
 	it( 'reports readiness from the provider config', async () => {
 		storeConfigs( { wpcom: { token: 'wpcom-token' } } );
-		await expect( isAiProviderReady( 'wpcom' ) ).resolves.toBe( true );
+		await expect( isProviderConnected( 'wpcom' ) ).resolves.toBe( true );
 
 		storeConfigs( {} );
-		await expect( isAiProviderReady( 'wpcom' ) ).resolves.toBe( false );
+		await expect( isProviderConnected( 'wpcom' ) ).resolves.toBe( false );
 	} );
 
 	it( 'resolves a fallback provider only for providers that fall back', async () => {

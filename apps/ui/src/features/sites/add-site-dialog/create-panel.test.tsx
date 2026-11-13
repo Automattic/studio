@@ -311,8 +311,10 @@ describe( 'Add site › blank setup', () => {
 			{},
 			{
 				getAiSettings: async () => currentSettings(),
+				// Without WordPress.com, the provider connected becomes the default.
 				connectProvider: async () => {
 					anthropicConnected = true;
+					selected = signedIn ? selected : 'anthropic';
 					return currentSettings();
 				},
 				setAiProvider: async ( provider ) => {
@@ -361,7 +363,10 @@ describe( 'Add site › blank setup', () => {
 			}
 		);
 		fireEvent.submit( within( settings ).getByRole( 'form', { name: 'Anthropic connection' } ) );
-		await waitFor( () => expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic' ) );
+		await waitFor( () => expect( connector.connectProvider ).toHaveBeenCalled() );
+		await waitFor( () =>
+			expect( within( settings ).queryByLabelText( 'Anthropic API key' ) ).not.toBeInTheDocument()
+		);
 		fireEvent.click( within( settings ).getByRole( 'button', { name: /Close .*ettings/ } ) );
 		const restored = await screen.findByRole( 'dialog', { name: 'Add site' } );
 		expect( within( restored ).getByLabelText( 'Site name' ) ).toHaveValue( 'Bakery' );

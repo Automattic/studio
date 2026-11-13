@@ -1,8 +1,8 @@
 import { __ } from '@wordpress/i18n';
-import { InvalidCredentialError } from '../errors';
+import { ConnectError } from '../errors';
 import { anthropicConnectInput, anthropicSetupTokenInput } from './descriptor';
 import type { AnthropicConfig } from './config';
-import type { Provider } from '../types';
+import type { ProviderServices } from '../types';
 import type { z } from 'zod';
 
 const ANTHROPIC_MODELS_URL = 'https://api.anthropic.com/v1/models?limit=1';
@@ -70,21 +70,23 @@ function parseInput< Schema extends z.ZodType >(
 ): z.infer< Schema > {
 	const parsed = schema.safeParse( input );
 	if ( ! parsed.success ) {
-		throw new InvalidCredentialError( parsed.error.issues[ 0 ].message );
+		throw new ConnectError( parsed.error.issues[ 0 ].message );
 	}
 	return parsed.data;
 }
 
 // A credential Anthropic rejects is refused; an unverifiable one (offline, an
 // Anthropic outage) is accepted.
-export const connectAnthropic: Provider< AnthropicConfig >[ 'connect' ] = async ( input ) => {
-	const config: AnthropicConfig =
-		input.method === 'setup-token'
-			? { method: 'setup-token', token: parseInput( anthropicSetupTokenInput(), input ).token }
-			: { method: 'api-key', apiKey: parseInput( anthropicConnectInput(), input ).apiKey };
-	const validation = await validateAnthropicConfig( config );
-	if ( validation.status === 'invalid' ) {
-		throw new InvalidCredentialError( validation.message );
-	}
-	return config;
+export const anthropicAccount: ProviderServices< AnthropicConfig >[ 'account' ] = {
+	async connect( method, input ) {
+		const config: AnthropicConfig =
+			method === 'setup-token'
+				? { method: 'setup-token', token: parseInput( anthropicSetupTokenInput(), input ).token }
+				: { method: 'api-key', apiKey: parseInput( anthropicConnectInput(), input ).apiKey };
+		const validation = await validateAnthropicConfig( config );
+		if ( validation.status === 'invalid' ) {
+			throw new ConnectError( validation.message );
+		}
+		return config;
+	},
 };

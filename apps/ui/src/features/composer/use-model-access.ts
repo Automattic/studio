@@ -1,6 +1,6 @@
 import { getEffectiveSessionProvider } from '@studio/agent/protocol/sessions/model';
 import { canUsePaidAiModels } from '@studio/common/lib/studio-assistant-quota';
-import { getAiModel, AI_PROVIDER_IDS } from '@studio/providers';
+import { findAiModel, AI_PROVIDER_IDS } from '@studio/providers';
 import { useCallback, useMemo } from 'react';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
@@ -38,8 +38,8 @@ export function useModelAccess( {
 	const canUsePaidTiers = canUsePaidAiModels( quota, authUser?.email );
 	const isModelLocked = useCallback(
 		( id: AiModelId ) =>
-			Boolean( getAiModel( sessionProvider, id )?.requiresPaidAiCredits ) && ! canUsePaidTiers,
-		[ canUsePaidTiers, sessionProvider ]
+			Boolean( findAiModel( id )?.model.requiresPaidAiCredits ) && ! canUsePaidTiers,
+		[ canUsePaidTiers ]
 	);
 
 	return { sessionProvider, providers, isModelLocked };

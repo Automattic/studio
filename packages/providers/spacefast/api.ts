@@ -1,5 +1,15 @@
-import type { Space } from './site';
-import type { DeviceAuthorization, PushFile } from '../types';
+import type { Space } from './descriptor';
+import type { PushFile } from '../types';
+
+// A pending device sign-in: the user approves `userCode` at `verificationUrl`.
+interface DeviceAuthorization {
+	deviceCode: string;
+	userCode: string;
+	verificationUrl: string;
+	// Seconds between checks for the approval.
+	interval: number;
+	expiresAt: string;
+}
 
 const API_URL = 'https://api.spacefast.com';
 const CLIENT_ID = 'wordpress-studio';

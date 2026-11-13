@@ -2,9 +2,9 @@ import type { AnthropicConfig } from './anthropic/config';
 import type { AiModelId } from './models';
 import type { OpenaiConfig } from './openai/config';
 import type { SpacefastConfig } from './spacefast/config';
-import type { Space } from './spacefast/site';
+import type { Space } from './spacefast/descriptor';
 import type { WpcomConfig } from './wpcom/config';
-import type { PullSyncOptions, PushSyncOptions, SyncSite } from './wpcom/site';
+import type { PullSyncOptions, PushSyncOptions, SyncSite } from './wpcom/sites/site';
 import type { Api, Model } from '@earendil-works/pi-ai';
 import type { z } from 'zod';
 
@@ -51,86 +51,78 @@ export interface AiModel< Id extends string = string > {
 // `writeOnly: true` marks a secret, which is never shown back.
 export type ConnectInputSchema = z.ZodObject< Record< string, z.ZodType< string > > >;
 
-export interface RedirectOptions {
-	// Where the provider sends the user back, with the result in the URL.
-	redirectUri: string;
-	locale: string;
-	// Echoed back with the result, to tell the redirect is the one this started.
-	state?: string;
-	// Create an account before approving access.
-	signup?: boolean;
-}
-
-// How the user connects an account. Studio passes what it collected to the
-// provider's `connect`, which turns it into the config to store.
-export type ProviderConnection =
-	// A form rendered from `input`, after the steps that get its values.
-	| { kind: 'form'; input: () => ConnectInputSchema; steps?: () => ConnectStep[] }
-	// Approving access on the provider's site, which redirects back to the app
-	// with the result in the URL's parameters.
-	| { kind: 'redirect'; redirectUrl( options: RedirectOptions ): string }
-	// Approving a code on the provider's site, while Studio waits for the
-	// approval: the provider's `startConnect` returns the code and where to
-	// approve it, and `connect` takes it back and resolves once approved.
-	| { kind: 'device' }
+// One way a provider's account connects. Studio hands what the user gave, or
+// what came back from the provider's site, to the provider's `connect` with the
+// method's id, and the provider turns it into the config to store.
+export type ConnectMethod = {
+	// Stable: stored configs record it.
+	id: string;
+	// What the user picks to connect this way, such as "API key".
+	label: () => string;
+	// What to do before connecting, in Markdown.
+	instructions?: () => string;
+} & (
+	| // A form rendered from `input`.
+	{ kind: 'form'; input: () => ConnectInputSchema }
+	// Approving access on the provider's site, which redirects back to the app:
+	// the Studio sign-in, which each app receives its own way.
+	| { kind: 'redirect' }
 	// Signing in on the provider's site, which redirects back to an address on
-	// this computer where Studio listens: Studio passes that address to the
-	// provider's `startLoopbackConnect`, and `connect` takes the redirect's
-	// parameters with the authorization's `verifier` and the `redirectUri`.
-	| { kind: 'loopback' };
+	// this computer where Studio listens.
+	| { kind: 'loopback' }
+	// Approving a code on the provider's site while Studio waits.
+	| { kind: 'device' }
+);
 
-// One of several ways a provider's account connects, for the user to pick.
-// `connect` receives the chosen one's id as `input.method`, and the config
-// records it as `method`.
-export type ConnectionMethod = ProviderConnection & { id: string; label: () => string };
-
-// A step the user takes to get what a form asks for.
-export interface ConnectStep {
-	text: string;
-	// A page with the details.
-	url?: string;
-	// Run in a terminal; surfaces show it apart and offer to copy it.
-	command?: string;
+// What surfaces show of a connected account; never the credential itself.
+export interface AccountDetails {
+	// The method it connected with.
+	method: string;
+	// Who or what is connected, such as an email or the start of a key.
+	summary?: string;
+	// Something to know when using it, such as whose plan pays for it.
+	note?: string;
+	links?: { label: string; url: string }[];
 }
 
-// A pending device sign-in: the user approves `userCode` at `verificationUrl`.
-export interface DeviceAuthorization {
-	deviceCode: string;
-	userCode: string;
-	verificationUrl: string;
-	// Seconds between checks for the approval.
-	interval: number;
-	expiresAt: string;
-}
-
-// A pending loopback sign-in: the user signs in at `url`, and the provider
-// redirects the browser back to Studio, echoing `state`.
-export interface LoopbackAuthorization {
+// A connection `start` began on the provider's site: the user goes to `url`,
+// approving `code` when there is one, and `connect` takes `handoff` back.
+export interface PendingConnect {
 	url: string;
-	state: string;
-	// Never sent through the browser, such as a PKCE code verifier.
-	verifier: string;
+	code?: string;
+	handoff: Record< string, string >;
+}
+
+// What a sign-in starts from. `hostId` stays the same on this computer, and
+// `remembered` is what the provider's `remember` kept from an earlier sign-in.
+export interface ConnectContext {
+	// Where a loopback sign-in comes back to.
+	redirectUri?: string;
+	hostId: string;
+	remembered?: Record< string, string >;
 }
 
 // How Studio presents a provider's remote sites, so the publish panel names no provider.
-export interface SitesDescriptor< Site extends RemoteSite = RemoteSite > {
+export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
 	// The largest archive a push sends, in bytes.
 	maxPushSize?: number;
 	// Whether Studio pulls a site back; without it, Studio only publishes.
 	pull: boolean;
 	// Whether a push or pull can include only part of the site.
 	selective: boolean;
-	// Whether a push publishes a static export of the site, which needs the
-	// site to run on native PHP: Studio on the web can't make one.
-	exportsStaticSite?: boolean;
+	// What a push sends: the site's WordPress archive, or a static export of its
+	// pages, which needs the site to run on native PHP: Studio on the web can't make one.
+	content: 'archive' | 'static';
 	// How a new site is made: a checkout on the provider's site, which then
 	// connects the site to the local one, or created right away from Studio.
 	newSite: 'checkout' | 'create';
 	// What the panel says before a site is connected.
 	intro: { title: () => string; description: () => string; learnMoreUrl: string };
 	// Facts about a connected site, and links to manage it on the provider.
-	details( site: Site ): { title: string; value: string }[];
-	links( site: Site ): { title: string; url: string }[];
+	describe( site: Site ): {
+		details: { title: string; value: string }[];
+		links: { title: string; url: string }[];
+	};
 	// Why the site can't be published to or pulled from now, or null.
 	issue( site: Site, direction: 'push' | 'pull' ): string | null;
 	// Something to know before pushing the local site, which doesn't block it.
@@ -141,38 +133,34 @@ export interface SitesDescriptor< Site extends RemoteSite = RemoteSite > {
 	withDetails< Connection extends Site >( connections: Connection[], sites: Site[] ): Connection[];
 }
 
-export interface ProviderDescriptor< Config = unknown, Site extends RemoteSite = RemoteSite > {
+// A provider as surfaces show it: browser-safe data, from `getProvider`.
+export interface Provider< Config = unknown, Site extends RemoteSite = RemoteSite > {
 	id: ProviderId;
 	// Brand name, not translated.
 	label: string;
 	description?: () => string;
 	learnMoreUrl?: string;
-	// The provider's mark, drawn in the text color: an SVG path in a 24×24 box.
+	// The provider's mark: an SVG document, which may draw in `currentColor`.
 	icon?: string;
-	// What Studio stores for this provider.
-	configSchema: z.ZodType< Config >;
-	connection: ProviderConnection | ConnectionMethod[];
-	// What to show for a connected account; never the credential itself.
-	summarize?( config: Config ): string;
-	// What to keep once the provider rejects the config, so signing in again
-	// continues the same registration with it; never a credential.
-	remember?( config: Config ): Record< string, string >;
-	// The connect button's label, when the provider's branding sets one.
-	connectLabel?: () => string;
+	account: {
+		// What Studio stores.
+		configSchema: z.ZodType< Config >;
+		// The first is the default.
+		methods: readonly [ ConnectMethod, ...ConnectMethod[] ];
+		describe( config: Config ): AccountDetails;
+		// When the config stops working, in milliseconds since the epoch.
+		expiresAt?( config: Config ): number | undefined;
+		// What to keep once the provider rejects the config, so signing in again
+		// continues the same registration with it; never a credential.
+		remember?( config: Config ): Record< string, string >;
+	};
 	ai?: {
 		models: readonly AiModel< AiModelId >[];
 		defaultModel: AiModelId;
 		// The default when the account has paid AI credits left.
 		paidDefaultModel?: AiModelId;
-		// Defaults to true. Studio on the web runs the agent in the page, which
-		// can't offer a provider that signs in through this computer.
-		inPage?: boolean;
-		// For models that use the user's plan with the provider: what to say
-		// next to the model, and where the user manages that usage. With
-		// `method`, only when the account connected with that method.
-		planUsage?: { label: () => string; manageUrl: string; method?: string };
 	};
-	sites?: SitesDescriptor< Site >;
+	sites?: ProviderSitesInfo< Site >;
 }
 
 // Everything the runtime needs to register one model with pi.
@@ -199,13 +187,6 @@ export interface GenerateImageResult {
 	// Rejected by a safety filter; rewriting the prompt may get it through.
 	filtered?: boolean;
 }
-
-// Results keep the requests' order; a failure never aborts the rest.
-export type GenerateImages< Config > = (
-	config: Config | undefined,
-	requests: GenerateImageRequest[],
-	onResult?: ( index: number, result: GenerateImageResult ) => void
-) => Promise< GenerateImageResult[] >;
 
 // What a push sends: the site's WordPress archive (a Blob in the page, a
 // readable stream of the file in Node), or a static export of its pages, each
@@ -237,7 +218,7 @@ export interface RemoteSite {
 
 // Sends local sites to a provider's sites and brings them back. The provider
 // owns the remote side; Studio builds the content and applies what it pulls.
-export interface SitesService< Config, Site extends RemoteSite > {
+export interface SitesServices< Config, Site extends RemoteSite > {
 	// The sites the account can sync with. A deleted site stays in the list
 	// while it is connected (`connectedIds`).
 	list(
@@ -288,36 +269,35 @@ export interface SitesService< Config, Site extends RemoteSite > {
 	};
 }
 
-export interface Provider< Config = unknown, Site extends RemoteSite = RemoteSite > {
-	descriptor: ProviderDescriptor< Config, Site >;
-	// Checks what the user gave, a form's values or a redirect's parameters, and
-	// returns the config to store. Throws InvalidCredentialError when it fails.
-	// Without `input.method`, a provider with several methods takes its first.
-	connect( input: Record< string, string > ): Promise< Config >;
-	// Starts a device sign-in, for a provider whose connection kind is `device`.
-	startConnect?(): Promise< DeviceAuthorization >;
-	// Starts a loopback sign-in, for a provider whose connection kind is `loopback`.
-	// `hostId` stays the same on this computer, and `remembered` is what the
-	// descriptor's `remember` kept, which `connect` gets back too.
-	startLoopbackConnect?(
-		redirectUri: string,
-		context: { hostId: string; remembered?: Record< string, string > }
-	): Promise< LoopbackAuthorization >;
-	// Cleans up on the provider's side before Studio removes the config.
-	disconnect?( config: Config ): Promise< void >;
-	// A renewed config when its credential is about to expire, which Studio
-	// stores; undefined while the config still works.
-	refresh?( config: Config ): Promise< Config | undefined >;
+// What a provider does, for the hosts that run operations: from `getProviderServices`.
+export interface ProviderServices< Config = unknown, Site extends RemoteSite = RemoteSite > {
+	id: ProviderId;
+	account: {
+		// Starts connecting with a method that signs in on the provider's site
+		// (`loopback` or `device`).
+		start?( method: string, context: ConnectContext ): Promise< PendingConnect >;
+		// Checks what the user gave: a form's values, a redirect's parameters, or
+		// a started connection's `handoff`, with a loopback redirect's parameters.
+		// Returns the config to store; throws ConnectError when it fails.
+		connect( method: string, input: Record< string, string > ): Promise< Config >;
+		// A renewed config when its credential is about to expire, which Studio
+		// stores; undefined while the config still works.
+		refresh?( config: Config ): Promise< Config | undefined >;
+		// Cleans up on the provider's side before Studio removes the config.
+		disconnect?( config: Config ): Promise< void >;
+	};
 	ai?: {
-		// Whether a selection that isn't ready falls back to another ready
-		// provider instead of asking for credentials.
-		fallbackWhenNotReady: boolean;
-		connect(
+		model(
 			config: Config | undefined,
 			model: AiModelId,
 			options: { sessionId?: string }
 		): Promise< AiConnection >;
-		generateImages?: GenerateImages< Config >;
+		// Results keep the requests' order; a failure never aborts the rest.
+		generateImages?(
+			config: Config | undefined,
+			requests: GenerateImageRequest[],
+			onResult?: ( index: number, result: GenerateImageResult ) => void
+		): Promise< GenerateImageResult[] >;
 	};
-	sites?: SitesService< Config, Site >;
+	sites?: SitesServices< Config, Site >;
 }

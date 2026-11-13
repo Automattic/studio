@@ -1,11 +1,5 @@
 import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
-import {
-	getAiModelLabel,
-	getAiModels,
-	getProviderDescriptor,
-	PROVIDER_IDS,
-	type ProviderId,
-} from '@studio/providers';
+import { findAiModel, getProvider, PROVIDER_IDS, type ProviderId } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { PlugIcon } from 'lucide-react';
 import { useRef, useState, type ComponentType, type RefObject } from 'react';
@@ -19,22 +13,19 @@ import { PlusIcon, ChevronDownIcon, ExternalLinkIcon, IntelligenceIcon } from '@
 import { Button, CommandSheet, Popover, type Command, type CommandGroup } from '@/lib/ui';
 import type { AiModelId } from '@/data/core';
 
+// A provider's mark is an SVG document from its own package, which may draw in `currentColor`.
 const PROVIDER_ICONS = Object.fromEntries(
 	PROVIDER_IDS.map( ( id ) => {
-		const path = getProviderDescriptor( id ).icon;
+		const svg = getProvider( id ).icon?.replace( '<svg ', '<svg width="16" height="16" ' );
 		const Icon = ( { className }: { className?: string } ) => (
-			<svg
+			<span
 				className={ className }
-				width="16"
-				height="16"
-				viewBox="0 0 24 24"
-				fill="currentColor"
+				style={ { display: 'inline-flex' } }
 				aria-hidden="true"
-			>
-				<path d={ path } />
-			</svg>
+				dangerouslySetInnerHTML={ { __html: svg! } }
+			/>
 		);
-		return [ id, path ? Icon : IntelligenceIcon ];
+		return [ id, svg ? Icon : IntelligenceIcon ];
 	} )
 ) as Record< ProviderId, ComponentType< { className?: string } > >;
 
@@ -78,7 +69,7 @@ export function ModelPicker( {
 	const { data: aiSettings } = useAiSettings();
 	const isWpcom = sessionProvider === 'wpcom';
 
-	const modelLabel = getAiModelLabel( model );
+	const modelLabel = findAiModel( model )?.model.label() ?? model;
 	const credits = getCreditsLabel( isQuotaError ? null : quota, preferences?.locale );
 	const canPurchaseCredits =
 		isWpcom &&
@@ -86,18 +77,14 @@ export function ModelPicker( {
 		credits.hasCredits &&
 		getStudioCodeAiAccessState( quota ) === 'available' &&
 		quota.hasPaymentMethod;
-	const providerPlanUsage = getProviderDescriptor( sessionProvider ).ai?.planUsage;
-	const planUsage =
-		! providerPlanUsage?.method ||
-		providerPlanUsage.method === aiSettings?.accounts[ sessionProvider ]?.method
-			? providerPlanUsage
-			: undefined;
-	const modelDetails = [ modelLabel, getProviderDescriptor( sessionProvider ).label ];
+	const account = aiSettings?.accounts[ sessionProvider ];
+	const { note, links = [] } = account?.connected ? account : {};
+	const modelDetails = [ modelLabel, getProvider( sessionProvider ).label ];
 	if ( isWpcom ) {
 		modelDetails.push( credits.label );
 	}
-	if ( planUsage ) {
-		modelDetails.push( planUsage.label() );
+	if ( note ) {
+		modelDetails.push( note );
 	}
 	const pickCommand = ( value: string ) => {
 		onOpenChange( false );
@@ -105,11 +92,11 @@ export function ModelPicker( {
 			onAddCredits( triggerRef );
 		} else if ( value === 'connect-provider' ) {
 			openSettings( 'ai' );
-		} else if ( value === 'manage-usage' && planUsage ) {
-			void connector.openExternalUrl( planUsage.manageUrl );
+		} else if ( value.startsWith( 'link:' ) ) {
+			void connector.openExternalUrl( value.slice( 'link:'.length ) );
 		} else {
 			const provider = providers.find( ( id ) =>
-				getAiModels( id ).some( ( item ) => item.id === value )
+				( getProvider( id ).ai?.models ?? [] ).some( ( item ) => item.id === value )
 			);
 			if ( provider ) {
 				onChange( provider, value as AiModelId );
@@ -120,8 +107,8 @@ export function ModelPicker( {
 		{
 			label: __( 'Models' ),
 			items: providers.flatMap( ( provider ) =>
-				getAiModels( provider ).map( ( { id } ): Command => {
-					const { label } = getProviderDescriptor( provider );
+				( getProvider( provider ).ai?.models ?? [] ).map( ( { id } ): Command => {
+					const { label } = getProvider( provider );
 					const strengths = getModelDescription( id );
 					const description = strengths
 						? sprintf(
@@ -133,7 +120,7 @@ export function ModelPicker( {
 						: label;
 					return {
 						value: id,
-						label: getAiModelLabel( id ),
+						label: findAiModel( id )?.model.label() ?? id,
 						description: isModelLocked( id )
 							? `${ description } · ${ __( 'Purchased credits required' ) }`
 							: description,
@@ -157,16 +144,12 @@ export function ModelPicker( {
 							},
 					  ]
 					: [] ),
-				...( planUsage
-					? [
-							{
-								value: 'manage-usage',
-								label: __( 'Manage usage' ),
-								description: planUsage.label(),
-								icon: ExternalLinkIcon,
-							},
-					  ]
-					: [] ),
+				...links.map( ( link ) => ( {
+					value: `link:${ link.url }`,
+					label: link.label,
+					description: note,
+					icon: ExternalLinkIcon,
+				} ) ),
 				{
 					value: 'connect-provider',
 					label: __( 'Connect providers' ),

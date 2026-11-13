@@ -4,8 +4,8 @@ import { escapeRegex } from '@studio/common/lib/escape-regex';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { syncOptionSchema, type SyncOption, SyncSite } from '@studio/common/types/sync';
-import { getProviderDescriptor, parseRemoteSite } from '@studio/providers';
-import { getProvider } from '@studio/providers/services';
+import { getProvider, parseRemoteSite } from '@studio/providers';
+import { getProviderServices } from '@studio/providers/services';
 import { posix } from 'pathe';
 import { phpQuote } from '../php';
 import { getSiteUrl, loadPlaygroundClient } from '../playground';
@@ -365,7 +365,7 @@ echo implode( "\\n", $found );`,
 		if ( provider !== 'wpcom' ) {
 			throw new Error(
 				`Studio on the web publishes only to WordPress.com; publishing to ${
-					getProviderDescriptor( provider ).label
+					getProvider( provider ).label
 				} needs the Studio app.`
 			);
 		}
@@ -521,7 +521,7 @@ echo implode( "\\n", $found );`,
 		},
 		imageGenerator: async () => {
 			const token = ( await auth.token() )?.accessToken;
-			const generateImages = getProvider( 'wpcom' ).ai!.generateImages!;
+			const generateImages = getProviderServices( 'wpcom' ).ai!.generateImages!;
 			return token
 				? ( requests, onResult ) => generateImages( { token }, requests, onResult )
 				: undefined;

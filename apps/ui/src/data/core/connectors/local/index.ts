@@ -1,7 +1,7 @@
 import { stripCliErrorEnvelope } from '@studio/common/lib/error-formatting';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
-import { getRedirectUrl } from '@studio/providers';
+import { getSignInUrl } from '@studio/providers/wpcom';
 import { __ } from '@wordpress/i18n';
 import { download, menuShortcuts } from '../browser-tab';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
@@ -203,6 +203,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			annotatePreview: false,
 			studioLogs: false,
 			nativeSites: true,
+			loopbackSignIn: true,
 		},
 
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as
@@ -255,7 +256,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				popup?.close();
 				const redirectUri = 'https://developer.wordpress.com/copy-oauth-token';
 				window.open(
-					getRedirectUrl( 'wpcom', { redirectUri, locale: 'en', signup } ),
+					getSignInUrl( { redirectUri, locale: 'en', signup } ),
 					'_blank',
 					'noopener,noreferrer'
 				);
@@ -831,17 +832,20 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getAiSettings(): Promise< AiSettings > {
 			return api< AiSettings >( '/ai-settings' );
 		},
-		async connectProvider( provider, input ): Promise< AiSettings > {
+		async connectProvider( provider, method, input ): Promise< AiSettings > {
 			return api< AiSettings >( `/ai-settings/providers/${ provider }`, {
 				method: 'PUT',
-				body: JSON.stringify( { input } ),
+				body: JSON.stringify( { method, input } ),
 			} );
 		},
 		async disconnectProvider( provider ): Promise< AiSettings > {
 			return api< AiSettings >( `/ai-settings/providers/${ provider }`, { method: 'DELETE' } );
 		},
-		async startProviderConnect( provider ) {
-			return api( `/ai-settings/providers/${ provider }/device-sign-in`, { method: 'POST' } );
+		async startProviderConnect( provider, method ) {
+			return api( `/ai-settings/providers/${ provider }/start`, {
+				method: 'POST',
+				body: JSON.stringify( { method } ),
+			} );
 		},
 		async setAiProvider( provider ): Promise< AiSettings > {
 			return api< AiSettings >( '/ai-settings/provider', {

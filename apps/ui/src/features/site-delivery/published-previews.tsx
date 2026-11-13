@@ -45,7 +45,7 @@ export function PublishedPreviews( {
 	return (
 		<section aria-label={ __( 'Previews' ) } className={ styles.publishedPreviews }>
 			<div className={ styles.destinationRow }>
-				<h3 className={ styles.destinationLabel }>{ __( 'Previews' ) }</h3>
+				<h3 className={ styles.switcherHeading }>{ __( 'Previews' ) }</h3>
 				{ target && (
 					<Menu.Root>
 						<Menu.Trigger

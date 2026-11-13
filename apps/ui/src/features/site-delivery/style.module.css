@@ -210,6 +210,10 @@
 .switcherHeading + .settingsGroup {
 	margin-top: var( --space-1 );
 }
+.destinationRow > .switcherHeading {
+	flex: 1;
+	margin-top: 0;
+}
 
 .shareDescription {
 	margin-top: var( --space-2 );

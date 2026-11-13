@@ -12,6 +12,7 @@ import { ChevronDownIcon, ChevronRightIcon, SlidersVerticalIcon } from '@/lib/ic
 import { Button, Popover } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
+import type { RemoteSite, SitesProviderId } from '@studio/providers';
 
 export function PublishOptionsControl( {
 	provider,
@@ -19,9 +20,9 @@ export function PublishOptionsControl( {
 	remote,
 	disabled,
 }: {
-	provider: import('@studio/providers').SitesProviderId;
+	provider: SitesProviderId;
 	site: SiteDetails;
-	remote: import('@studio/providers').RemoteSite;
+	remote: RemoteSite;
 	disabled: boolean;
 } ) {
 	const trigger = useRef< HTMLButtonElement >( null );
@@ -105,8 +106,8 @@ function PublishFilesView( {
 	onBack,
 }: {
 	site: SiteDetails;
-	provider: import('@studio/providers').SitesProviderId;
-	remote: import('@studio/providers').RemoteSite;
+	provider: SitesProviderId;
+	remote: RemoteSite;
 	selection: ReturnType< typeof useTransferSelection >;
 	onBack: () => void;
 } ) {

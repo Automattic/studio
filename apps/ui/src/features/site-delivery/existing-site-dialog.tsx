@@ -1,7 +1,6 @@
 import { getProviderSites, type ProviderSites, type SitesProviderId } from '@studio/providers';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
-import { useRef } from 'react';
 import { useConnector } from '@/data/core';
 import { remoteSitesQueryKey, usePickableSites } from '@/data/queries/use-remote-sites';
 import { RemoteSitePicker, RemoteSiteCard } from '@/features/remote-site-picker';
@@ -23,7 +22,6 @@ export function ExistingSiteDialog< Id extends SitesProviderId >( {
 } ) {
 	const connector = useConnector();
 	const client = useQueryClient();
-	const connectTrigger = useRef< string >( undefined );
 	const sites = usePickableSites( provider );
 	const descriptor = getProviderSites( provider );
 	const connect = useMutation( {
@@ -77,10 +75,7 @@ export function ExistingSiteDialog< Id extends SitesProviderId >( {
 										disabled={
 											connect.isPending || sites.isFetching || !! descriptor.issue( site, 'pull' )
 										}
-										onSelect={ () => {
-											connectTrigger.current = String( site.id );
-											connect.mutate( site );
-										} }
+										onSelect={ () => connect.mutate( site ) }
 										badges={ descriptor.describe( site ).details.map( ( detail ) => (
 											<Badge key={ detail.title } variant="secondary">
 												{ detail.value }
@@ -103,7 +98,9 @@ export function ExistingSiteDialog< Id extends SitesProviderId >( {
 							onClick={ () => {
 								const retry =
 									connect.error &&
-									eligible.find( ( site ) => String( site.id ) === connectTrigger.current );
+									eligible.find(
+										( site ) => String( site.id ) === String( connect.variables?.id )
+									);
 								if ( retry ) connect.mutate( retry );
 								else sites.refetch();
 							} }

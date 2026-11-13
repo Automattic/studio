@@ -210,11 +210,9 @@ export function LiveSiteAction( {
 				{ selection.error && (
 					<p role="alert" className={ styles.changeStatus }>
 						{ __( 'The transfer could not be completed. Please try again.' ) }
-						{ selection.error && (
-							<Button variant="inline-link" size="inline" onClick={ selection.retry }>
-								{ __( 'Try again' ) }
-							</Button>
-						) }
+						<Button variant="inline-link" size="inline" onClick={ selection.retry }>
+							{ __( 'Try again' ) }
+						</Button>
 					</p>
 				) }
 				<DialogFooter>

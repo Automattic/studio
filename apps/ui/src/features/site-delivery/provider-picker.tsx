@@ -1,6 +1,5 @@
 import { getProvider, getProviderSites, type SitesProviderId } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
-import { useState } from 'react';
 import { ChevronDownIcon, MapPinIcon, PlusIcon } from '@/lib/icons';
 import { Button, Menu } from '@/lib/ui';
 import { ProviderLogo } from './provider-logo';
@@ -36,7 +35,6 @@ export function ProviderPicker( {
 	disabled?: boolean;
 	selectedProvider: SitesProviderId;
 } ) {
-	const [ open, setOpen ] = useState( false );
 	const selected = getProvider( selectedProvider );
 	const providerValue = (
 		<span className={ styles.destinationProviderValue }>
@@ -53,7 +51,7 @@ export function ProviderPicker( {
 			</div>
 		);
 	return (
-		<Menu.Root open={ open } onOpenChange={ setOpen }>
+		<Menu.Root>
 			<Menu.Trigger
 				render={
 					<Button

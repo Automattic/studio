@@ -481,6 +481,7 @@ function DashboardLayout() {
 							<WindowControlsCornerContext.Provider value={ ! showPanel }>
 								<div
 									ref={ setTabHeader }
+									data-sidebar-flyout-header
 									className={ styles.header }
 									data-panel-open={ showPanel || undefined }
 									data-full-view-control={ showFullView || undefined }

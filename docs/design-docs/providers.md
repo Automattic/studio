@@ -29,7 +29,7 @@ It describes the architecture and the rules, not the exact APIs, which are expec
 | -------------------------------------------- | ------------------------------ | ------------------------------------ | ---------- | ----------- |
 | WordPress.com (`wpcom`)                      | Studio sign-in                 | `fast`, `balanced`, `strong`; images | push, pull | _(planned)_ |
 | Anthropic (`anthropic`)                      | API key, or subscription token | Claude models                        | —          | —           |
-| OpenAI (`openai`)                            | ChatGPT plan, browser sign-in  | GPT models                           | —          | —           |
+| OpenAI (`openai`)                            | ChatGPT plan, or API key       | GPT models; images with an API key   | —          | —           |
 | xAI (`xai`)                                  | Grok plan or API key           | Grok models                          | —          | —           |
 | Spacefast (`spacefast`)                      | Device sign-in                 | —                                    | publish    | —           |
 | Other hosts, such as an SSH host _(planned)_ | Per host                       | —                                    | push, pull | —           |
@@ -108,11 +108,11 @@ The provider owns how its models are reached. For example, WordPress.com sends e
 
 ### In the page
 
-Studio on the web runs the agent in the page, so it offers only the connect methods it supports. A `loopback` sign-in needs a server on this computer, so the web leaves it out, and with it OpenAI.
+Studio on the web runs the agent in the page, so it offers only the connect methods it supports. A `loopback` sign-in needs a server on this computer, so the web leaves it out, and with it the ChatGPT plan; an OpenAI API key works there, since OpenAI's API accepts calls from a page.
 
 ### Images
 
-Image generation is available when a connected provider offers it, whichever provider serves chat. Today only WordPress.com does; a ChatGPT plan shared with Studio can't generate images. When several providers do, the chat's provider generates the images; otherwise the first connected provider that does. The agent gets it from its host, which finds that provider, so the agent never names one.
+Image generation is available when a connected provider offers it, whichever provider serves chat. WordPress.com does, and OpenAI with an API key; a ChatGPT plan shared with Studio can't, which its `canGenerateImages( config )` says. When several providers do, the chat's provider generates the images; otherwise the first connected provider that does. The agent gets it from its host, which finds that provider, so the agent never names one.
 
 ### Persisted ids
 

@@ -13,7 +13,7 @@ import {
 	type StudioChatFileAttachment,
 } from '@studio/agent/protocol/chat-files';
 import { type StudioChatImage } from '@studio/agent/protocol/chat-images';
-import { getAgentEndFailure } from '@studio/agent/protocol/json-events';
+import { getAgentEndFailure } from '@studio/agent/protocol/errors';
 import { getAgentEndTurnResult } from '@studio/agent/protocol/session-events';
 import { readRecordedSessionModel } from '@studio/agent/protocol/sessions/model';
 import {

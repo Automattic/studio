@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
+import { previewApiKey } from '../api-key';
 import { xaiConfigSchema, type XaiConfig } from './config';
 import type { AiModel, Provider } from '../types';
 
@@ -7,13 +8,6 @@ export const XAI_AI_MODELS = [
 	{ id: 'grok-4.7', label: () => 'Grok 4.7' },
 	{ id: 'grok-4.3', label: () => 'Grok 4.3' },
 ] as const satisfies readonly AiModel[];
-
-// Enough to recognise the key, never enough to use it.
-function previewApiKey( key: string ): string {
-	return key.length > 16
-		? `${ key.slice( 0, 8 ) }...${ key.slice( -4 ) }`
-		: `...${ key.slice( -4 ) }`;
-}
 
 export const xaiConnectInput = () =>
 	z.object( {

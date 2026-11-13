@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { ConnectError, NotConnectedError } from '../errors';
-import type { OpenaiConfig } from './config';
+import { openaiConnectInput } from './descriptor';
+import type { ChatgptConfig, OpenaiConfig } from './config';
 import type { ProviderServices } from '../types';
 
 // OpenAI's sign-in for agents: each sign-in registers an OAuth client for
@@ -11,6 +12,7 @@ const RESOURCE = 'https://api.openai.com/v1';
 const SHARING_SCOPE = 'chatgpt.tokens.use.direct';
 const REFRESH_MARGIN_MS = 5 * 60_000;
 const REQUEST_TIMEOUT_MS = 15_000;
+const MODELS_URL = `${ RESOURCE }/models`;
 
 function requestTokens( body: Record< string, string > ): Promise< Response > {
 	return fetch( `${ AUTH_URL }/oauth/token`, {
@@ -38,7 +40,7 @@ function readEmail( idToken: string | undefined ): string | undefined {
 	}
 }
 
-async function readTokens( response: Response, clientId: string ): Promise< OpenaiConfig > {
+async function readTokens( response: Response, clientId: string ): Promise< ChatgptConfig > {
 	const tokens = ( await response.json() ) as {
 		access_token?: string;
 		refresh_token?: string;
@@ -106,8 +108,30 @@ const start: NonNullable< OpenaiAccount[ 'start' ] > = async (
 	};
 };
 
+// Listing models checks the key without spending anything. Only a key OpenAI
+// doesn't know is refused: a restricted key may not list models, and offline or
+// during an OpenAI outage the key is saved unchecked.
+async function connectApiKey( input: Record< string, string > ): Promise< OpenaiConfig > {
+	const parsed = openaiConnectInput().safeParse( input );
+	if ( ! parsed.success ) {
+		throw new ConnectError( parsed.error.issues[ 0 ].message );
+	}
+	const { apiKey } = parsed.data;
+	const response = await fetch( MODELS_URL, {
+		headers: { Authorization: `Bearer ${ apiKey }` },
+		signal: AbortSignal.timeout( REQUEST_TIMEOUT_MS ),
+	} ).catch( () => undefined );
+	if ( response?.status === 401 ) {
+		throw new ConnectError( __( 'OpenAI rejected this API key. Check the key and try again.' ) );
+	}
+	return { method: 'api-key', apiKey };
+}
+
 // A first sign-in's redirect names the client OpenAI registered for it.
-const connect: OpenaiAccount[ 'connect' ] = async ( _method, input ) => {
+const connect: OpenaiAccount[ 'connect' ] = async ( method, input ) => {
+	if ( method === 'api-key' ) {
+		return connectApiKey( input );
+	}
 	const clientId = input.client_id ?? input.clientId;
 	if ( ! input.code || ! clientId || ! input.verifier || ! input.redirectUri ) {
 		throw new ConnectError( __( 'Start signing in with ChatGPT again.' ) );
@@ -131,7 +155,10 @@ const connect: OpenaiAccount[ 'connect' ] = async ( _method, input ) => {
 // Renews the access token shortly before it expires. A refresh token OpenAI
 // no longer accepts means the user has to sign in again.
 const refresh: NonNullable< OpenaiAccount[ 'refresh' ] > = async ( config ) => {
-	if ( config.accessTokenExpiresAt - Date.now() > REFRESH_MARGIN_MS ) {
+	if (
+		config.method === 'api-key' ||
+		config.accessTokenExpiresAt - Date.now() > REFRESH_MARGIN_MS
+	) {
 		return undefined;
 	}
 	const response = await requestTokens( {

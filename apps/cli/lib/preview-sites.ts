@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_GB } from '@studio/common/constants';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
+import { selectLiveSite } from '@studio/common/lib/live-preview-site';
 import { isWpcomPreview } from '@studio/common/lib/snapshots';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
@@ -155,16 +156,12 @@ async function getPreviewLink( siteId: number, token: string ): Promise< Preview
 	return { siteId, hostname: new URL( shareUrl ).hostname, shareUrl, liveSiteId };
 }
 
-/**
- * The site a preview of the local site offers to link to: its only connected production site that
- * is not Pressable and not known to need a plan to push. WordPress.com checks the plan itself and
- * ignores a site that doesn't qualify, so a stale or missing `pushNeedsUpgrade` is safe.
- */
-export async function getLivePreviewSite( localSiteId: string ): Promise< SyncSite | undefined > {
-	const qualifying = ( await getConnectedWpcomSitesForLocalSite( localSiteId ) ).filter(
-		( site ) => ! site.isStaging && ! site.isPressable && site.pushNeedsUpgrade !== true
-	);
-	return qualifying.length === 1 ? qualifying[ 0 ] : undefined;
+/** The local site's live site that a preview shows changes to; see `selectLiveSite`. */
+export async function getLivePreviewSite(
+	localSiteId: string,
+	selection?: string
+): Promise< SyncSite | undefined > {
+	return selectLiveSite( await getConnectedWpcomSitesForLocalSite( localSiteId ), selection );
 }
 
 /** Builds a preview site from an archive uploaded with site ID 0. */
@@ -172,7 +169,8 @@ export async function createPreviewSite(
 	attachmentId: number,
 	title: string,
 	token: string,
-	liveSiteId?: number
+	liveSiteId?: number,
+	originId?: string
 ): Promise< PreviewSite > {
 	let siteId: number;
 	try {
@@ -190,6 +188,7 @@ export async function createPreviewSite(
 						wow_funnel: PREVIEW_FUNNEL,
 						wow_funnel_args: {
 							attachment_id: String( attachmentId ),
+							...( originId && { origin_id: originId } ),
 							...( liveSiteId && { live_site_id: String( liveSiteId ) } ),
 						},
 						// Use a ready-made site when one is available, so the preview comes up faster.
@@ -212,7 +211,8 @@ export async function updatePreviewSite(
 	siteId: number,
 	attachmentId: number,
 	token: string,
-	liveSiteId?: number
+	liveSiteId?: number,
+	originId?: string
 ): Promise< PreviewSite > {
 	const previousImportId = ( await getLatestImport( siteId, token ).catch( () => null ) )?.importId;
 
@@ -223,6 +223,7 @@ export async function updatePreviewSite(
 			body: {
 				args: {
 					attachment_id: String( attachmentId ),
+					...( originId && { origin_id: originId } ),
 					...( liveSiteId && { live_site_id: String( liveSiteId ) } ),
 				},
 			},

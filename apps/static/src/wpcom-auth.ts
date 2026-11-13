@@ -1,6 +1,6 @@
 import { DEFAULT_LOCALE, isSupportedLocale } from '@studio/common/lib/locale';
-import { getRedirectUrl } from '@studio/providers';
-import { getProvider } from '@studio/providers/services';
+import { getProviderServices } from '@studio/providers/services';
+import { getSignInUrl } from '@studio/providers/wpcom';
 import { __ } from '@wordpress/i18n';
 import { kvDelete, kvGet, kvSet } from './store';
 import type { AuthUser } from './types';
@@ -70,7 +70,10 @@ export class WpcomAuth {
 
 	// Signs in with the parameters of WordPress.com's redirect.
 	async signIn( params: Record< string, string > ): Promise< void > {
-		const { token, user } = await getProvider( 'wpcom' ).connect( params );
+		const { token, user } = await getProviderServices( 'wpcom' ).account.connect(
+			'sign-in',
+			params
+		);
 		if ( ! user ) {
 			throw new Error( __( 'WordPress.com did not accept the sign-in.' ) );
 		}
@@ -85,8 +88,8 @@ export class WpcomAuth {
 		await kvDelete( TOKEN_KEY );
 		this.notify();
 		if ( token ) {
-			await getProvider( 'wpcom' )
-				.disconnect?.( { token: token.accessToken } )
+			await getProviderServices( 'wpcom' )
+				.account.disconnect?.( { token: token.accessToken } )
 				.catch( () => undefined );
 		}
 	}
@@ -105,7 +108,7 @@ export class WpcomAuth {
 		// origins the app allows. A deployment registers `<origin>/auth/callback`.
 		const redirectUri = `${ window.location.origin }${ CALLBACK_PATH }`;
 		window.location.assign(
-			getRedirectUrl( 'wpcom', {
+			getSignInUrl( {
 				redirectUri,
 				locale: isSupportedLocale( locale ) ? locale : DEFAULT_LOCALE,
 				state,

@@ -27,7 +27,9 @@ function parseSiteUrl( siteUrl: string | undefined ) {
 	}
 }
 
-function mapBlueprintToFormValues( blueprint: SelectedBlueprint ): Partial< CreateSiteFormValues > {
+export function mapBlueprintToFormValues(
+	blueprint: SelectedBlueprint
+): Partial< CreateSiteFormValues > {
 	const details = inspectBlueprint( blueprint.blueprint );
 	const name = details.siteTitle || blueprint.title;
 	const siteUrl = parseSiteUrl( details.siteUrl );

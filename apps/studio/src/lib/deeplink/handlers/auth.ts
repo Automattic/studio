@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/electron/main';
 import { connectProvider } from '@studio/common/lib/ai-settings';
 import { getAuthFailureReason, getAuthTracksProps } from '@studio/common/lib/auth-tracks';
 import { readAuthToken } from '@studio/common/lib/shared-config';
-import { getProvider } from '@studio/providers/services';
+import { getProviderServices } from '@studio/providers/services';
 import { __ } from '@wordpress/i18n';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { takePendingAuthContext } from 'src/lib/auth-tracks-context';
@@ -28,7 +28,8 @@ export async function handleAuthDeeplink( urlObject: URL ): Promise< void > {
 
 	try {
 		await connectProvider(
-			getProvider( 'wpcom' ),
+			getProviderServices( 'wpcom' ),
+			'sign-in',
 			Object.fromEntries( new URLSearchParams( hash.substring( 1 ) ) )
 		);
 		const authResult = await readAuthToken();

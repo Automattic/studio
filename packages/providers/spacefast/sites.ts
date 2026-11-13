@@ -1,13 +1,13 @@
 import { __ } from '@wordpress/i18n';
-import { ProviderNotReadyError, RemoteSiteError } from '../errors';
+import { NotConnectedError, RemoteSiteError } from '../errors';
 import { createSpace, listSpaces, listTeams, publishFiles, SpacefastApiError } from './api';
 import type { SpacefastConfig } from './config';
-import type { Space } from './site';
-import type { SitesService } from '../types';
+import type { Space } from './descriptor';
+import type { SitesServices } from '../types';
 
 function requireApiKey( config: SpacefastConfig | undefined ): string {
 	if ( ! config?.apiKey ) {
-		throw new ProviderNotReadyError( __( 'Connect Spacefast to publish sites.' ) );
+		throw new NotConnectedError( __( 'Connect Spacefast to publish sites.' ) );
 	}
 	return config.apiKey;
 }
@@ -16,11 +16,11 @@ async function step< T >( message: string, code: string, run: () => Promise< T >
 	try {
 		return await run();
 	} catch ( error ) {
-		if ( error instanceof ProviderNotReadyError ) {
+		if ( error instanceof NotConnectedError ) {
 			throw error;
 		}
 		if ( error instanceof SpacefastApiError && ( error.status === 401 || error.status === 403 ) ) {
-			throw new ProviderNotReadyError(
+			throw new NotConnectedError(
 				__( 'Your Spacefast sign-in no longer works. Connect Spacefast again.' )
 			);
 		}
@@ -32,7 +32,7 @@ async function step< T >( message: string, code: string, run: () => Promise< T >
 	}
 }
 
-export const spacefastSites: SitesService< SpacefastConfig, Space > = {
+export const spacefastSites: SitesServices< SpacefastConfig, Space > = {
 	list: ( config ) =>
 		step( __( 'Failed to load your Spacefast Spaces' ), 'site_fetch', () =>
 			listSpaces( requireApiKey( config ) )

@@ -477,6 +477,7 @@ function DashboardLayout() {
 							: routePreviewContext.pathname
 					}
 					panelOpen={ showPanel }
+					onPanelClose={ () => setPanelOpen( false, { userInitiated: true } ) }
 					chatHidden={ chatHidden }
 					instant={ ( ! previewStopping || ! preview.open ) && preview.instant }
 					panel={ renderPanel }

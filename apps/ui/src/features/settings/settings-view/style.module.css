@@ -61,18 +61,6 @@
 	height: var( --app-icon-size );
 }
 
-/* App icons leave a margin around their artwork, which the fallback keeps. */
-.appIconFallback {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 80%;
-	height: 80%;
-	border-radius: var( --radius-md );
-	background-color: var( --muted );
-	color: var( --muted-foreground );
-}
-
 .rowTitle {
 	display: flex;
 	align-items: center;
@@ -313,6 +301,31 @@
 .pathForm {
 	display: flex;
 	gap: var( --space-1 );
+}
+
+/* A provider's connect form, under its row and lined up with the row's text rather than its logo. */
+.connectForm {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-4 );
+	padding-inline-start: calc( 32px + var( --space-2 ) );
+}
+
+.connectForm + [data-settings-row] {
+	margin-block-start: var( --space-4 );
+	border-top: 1px solid var( --border );
+}
+
+.connectInstructions {
+	color: var( --muted-foreground );
+	font-size: var( --text-xs );
+	line-height: var( --text-xs--line-height );
+}
+
+.connectInstructions :is( div, p, li, ol, ul ) {
+	color: inherit;
+	font-size: inherit;
+	line-height: inherit;
 }
 
 .keyForm {

@@ -34,8 +34,8 @@ const api: IpcApi = {
 	getAuthenticationToken: () => ipcRendererInvoke( 'getAuthenticationToken' ),
 	clearAuthenticationToken: () => ipcRendererInvoke( 'clearAuthenticationToken' ),
 	fetchSnapshots: () => ipcRendererInvoke( 'fetchSnapshots' ),
-	publishPreviewSite: ( siteFolder, hostname, name ) =>
-		ipcRendererInvoke( 'publishPreviewSite', siteFolder, hostname, name ),
+	publishPreviewSite: ( siteFolder, hostname, name, liveSite ) =>
+		ipcRendererInvoke( 'publishPreviewSite', siteFolder, hostname, name, liveSite ),
 	deletePreviewSite: ( hostname ) => ipcRendererInvoke( 'deletePreviewSite', hostname ),
 	renamePreviewSite: ( hostname, name ) => ipcRendererInvoke( 'renamePreviewSite', hostname, name ),
 	getPreviewStatus: ( hostname ) => ipcRendererInvoke( 'getPreviewStatus', hostname ),
@@ -134,10 +134,11 @@ const api: IpcApi = {
 	saveGlobalAgentInstructions: ( content, options ) =>
 		ipcRendererInvoke( 'saveGlobalAgentInstructions', content, options ),
 	getAiSettings: () => ipcRendererInvoke( 'getAiSettings' ),
-	connectAiProvider: ( provider, input ) =>
-		ipcRendererInvoke( 'connectAiProvider', provider, input ),
+	connectAiProvider: ( provider, method, input ) =>
+		ipcRendererInvoke( 'connectAiProvider', provider, method, input ),
 	disconnectAiProvider: ( provider ) => ipcRendererInvoke( 'disconnectAiProvider', provider ),
-	startProviderConnect: ( provider ) => ipcRendererInvoke( 'startProviderConnect', provider ),
+	startProviderConnect: ( provider, method ) =>
+		ipcRendererInvoke( 'startProviderConnect', provider, method ),
 	setAiProvider: ( provider ) => ipcRendererInvoke( 'setAiProvider', provider ),
 	saveWapuuScore: ( score ) => ipcRendererInvoke( 'saveWapuuScore', score ),
 	getWapuuScore: () => ipcRendererInvoke( 'getWapuuScore' ),

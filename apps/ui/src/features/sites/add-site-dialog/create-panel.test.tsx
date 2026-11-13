@@ -311,8 +311,10 @@ describe( 'Add site › blank setup', () => {
 			{},
 			{
 				getAiSettings: async () => currentSettings(),
+				// Without WordPress.com, the provider connected becomes the default.
 				connectProvider: async () => {
 					anthropicConnected = true;
+					selected = signedIn ? selected : 'anthropic';
 					return currentSettings();
 				},
 				setAiProvider: async ( provider ) => {
@@ -348,21 +350,23 @@ describe( 'Add site › blank setup', () => {
 		act( () => history.push( '/?addSite=blank&settings=ai' ) );
 		const settings = await screen.findByRole( 'dialog', { name: 'Settings' } );
 		fireEvent.click(
-			within( within( settings ).getByRole( 'group', { name: 'Anthropic API' } ) ).getByRole(
+			within( within( settings ).getByRole( 'group', { name: 'Anthropic' } ) ).getByRole(
 				'button',
 				{ name: 'Connect' }
 			)
 		);
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'API key' } ) );
 		fireEvent.change(
 			within( settings ).getByLabelText( 'Anthropic API key', { selector: 'input' } ),
 			{
 				target: { value: 'sk-test-local' },
 			}
 		);
-		fireEvent.submit(
-			within( settings ).getByRole( 'form', { name: 'Anthropic API connection' } )
+		fireEvent.submit( within( settings ).getByRole( 'form', { name: 'Anthropic connection' } ) );
+		await waitFor( () => expect( connector.connectProvider ).toHaveBeenCalled() );
+		await waitFor( () =>
+			expect( within( settings ).queryByLabelText( 'Anthropic API key' ) ).not.toBeInTheDocument()
 		);
-		await waitFor( () => expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic' ) );
 		fireEvent.click( within( settings ).getByRole( 'button', { name: /Close .*ettings/ } ) );
 		const restored = await screen.findByRole( 'dialog', { name: 'Add site' } );
 		expect( within( restored ).getByLabelText( 'Site name' ) ).toHaveValue( 'Bakery' );

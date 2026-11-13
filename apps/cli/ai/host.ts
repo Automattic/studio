@@ -16,8 +16,8 @@ import { getAiPayloadsPath } from '@studio/common/lib/well-known-paths';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
 import { listAccountSites } from '@studio/common/sites/remote-sites';
-import { getSitesDescriptor, SITES_PROVIDER_IDS } from '@studio/providers';
-import { getProvider } from '@studio/providers/services';
+import { getProviderSites, SITES_PROVIDER_IDS } from '@studio/providers';
+import { getProviderServices } from '@studio/providers/services';
 import { __ } from '@wordpress/i18n';
 import { getStudioUserAgent, resolveImageGenerator } from 'cli/ai/auth';
 import { runCommand as runExportCommand } from 'cli/commands/export';
@@ -70,11 +70,11 @@ export async function connectedRemoteSites(
 			const stored = await getRemoteSites( provider, site.id );
 			const account =
 				fillIn && stored.length
-					? await listAccountSites( getProvider( provider ) ).catch( () => undefined )
+					? await listAccountSites( getProviderServices( provider ) ).catch( () => undefined )
 					: undefined;
-			return (
-				account ? getSitesDescriptor( provider ).withDetails( stored, account ) : stored
-			).map( ( remote ) => ( { provider, site: remote } ) );
+			return ( account ? getProviderSites( provider ).withDetails( stored, account ) : stored ).map(
+				( remote ) => ( { provider, site: remote } )
+			);
 		} )
 	);
 	return connected.flat();

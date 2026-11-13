@@ -4,7 +4,6 @@ import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
 import { toSelectedBlueprint } from '@/features/sites/blueprint-selection';
-import { pendingBlueprintSlot } from '@/features/sites/pending-blueprint';
 import { ExternalLinkIcon } from '@/lib/icons';
 import { PreviewFrame, PreviewImage, Button } from '@/lib/ui';
 import { getBlueprintPreviewUrl } from './blueprint-catalog';
@@ -12,16 +11,21 @@ import styles from './blueprint-gallery.module.css';
 import { getBlueprintScreenshots } from './blueprint-screenshots';
 import { useAddSite } from './context';
 import type { BlueprintUseCase } from './blueprint-catalog';
+import type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
 import type { LibraryBlueprint } from '@studio/blueprints';
 
 export function BlueprintDetails( {
 	blueprint,
 	useCase,
-	onSetup,
+	choosingBlueprint,
+	busy,
+	onSelect,
 }: {
 	blueprint: LibraryBlueprint;
 	useCase?: BlueprintUseCase;
-	onSetup: () => void;
+	choosingBlueprint: boolean;
+	busy: boolean;
+	onSelect: ( blueprint: SelectedBlueprint ) => void;
 } ) {
 	const connector = useConnector();
 	const { actions } = useAddSite();
@@ -39,6 +43,7 @@ export function BlueprintDetails( {
 							<Button
 								variant="outline"
 								size="sm"
+								disabled={ busy }
 								onClick={ () => {
 									void connector
 										.trackEvent( TRACKS_EVENTS.BLUEPRINT_PREVIEW_IN_BROWSER, {
@@ -57,6 +62,8 @@ export function BlueprintDetails( {
 								ref={ createButton }
 								variant="accent"
 								size="sm"
+								loading={ busy }
+								loadingAnnouncement={ __( 'Adding site' ) }
 								onClick={ () => {
 									void connector
 										.trackEvent( TRACKS_EVENTS.BLUEPRINT_CREATE_SITE_INTENT, {
@@ -65,11 +72,10 @@ export function BlueprintDetails( {
 											placement: 'add_site_blueprint_details',
 										} )
 										.catch( () => undefined );
-									pendingBlueprintSlot.set( toSelectedBlueprint( blueprint ) );
-									onSetup();
+									onSelect( toSelectedBlueprint( blueprint ) );
 								} }
 							>
-								{ __( 'Use Blueprint' ) }
+								{ choosingBlueprint ? __( 'Use Blueprint' ) : __( 'Add site' ) }
 							</Button>
 						</>,
 						actions

@@ -29,6 +29,9 @@ vi.mock( 'cli/lib/cli-config/sites', async ( importActual ) => ( {
 } ) );
 vi.mock( 'cli/lib/daemon-client' );
 vi.mock( 'cli/lib/sqlite-integration' );
+vi.mock( 'cli/lib/snapshots', () => ( {
+	getSnapshotsFromConfig: vi.fn().mockResolvedValue( [] ),
+} ) );
 vi.mock( 'cli/lib/sync-api', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/sync-api') >() ),
 	fetchSyncableSites: vi.fn(),

@@ -125,13 +125,17 @@ export async function publishPreviewSite(
 	executeCliCommand: ExecuteCliCommand,
 	siteFolder: string,
 	hostname?: string,
-	name?: string
+	name?: string,
+	liveSite?: string
 ): Promise< { url: string } > {
 	const { url } = await runCliCommand(
 		executeCliCommand,
-		hostname
-			? [ 'preview', 'update', '--path', siteFolder, hostname ]
-			: [ 'preview', 'create', '--path', siteFolder, ...( name ? [ '--name', name ] : [] ) ],
+		[
+			...( hostname
+				? [ 'preview', 'update', '--path', siteFolder, hostname ]
+				: [ 'preview', 'create', '--path', siteFolder, ...( name ? [ '--name', name ] : [] ) ] ),
+			...( liveSite !== undefined ? [ '--live-site', liveSite ] : [] ),
+		],
 		previewResultSchema,
 		{ logPrefix: 'preview' }
 	);

@@ -89,6 +89,7 @@ import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
 import { isSupportedLocale } from '@studio/common/lib/locale';
 import { decodePassword } from '@studio/common/lib/passwords';
+import { startProviderConnect } from '@studio/common/lib/provider-connect';
 import {
 	getInstructionsLengthBucket,
 	isTracksEventName,
@@ -185,17 +186,17 @@ import {
 } from '@studio/common/sites/snapshots';
 import { createSyncRunner } from '@studio/common/sites/sync';
 import {
-	getAiModel,
-	getRedirectUrl,
-	InvalidCredentialError,
-	isAiModelId,
-	normalizeAiProviderId,
+	AI_PROVIDER_IDS,
+	ConnectError,
+	findAiModel,
+	getProvider,
 	normalizeProviderId,
-	normalizeSitesProviderId,
+	SITES_PROVIDER_IDS,
 	toStoredProviderId,
 	type SitesProviderId,
 } from '@studio/providers';
-import { getProvider } from '@studio/providers/services';
+import { getProviderServices } from '@studio/providers/services';
+import { getSignInUrl } from '@studio/providers/wpcom';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
@@ -223,7 +224,7 @@ import type { UserPreferencesContext } from '@studio/common/lib/user-settings/us
 import type { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
 
-const wpcomSites = getProvider( 'wpcom' ).sites!;
+const wpcomSites = getProviderServices( 'wpcom' ).sites!;
 
 /**
  * The local Studio web server: the browser analog of the desktop app, exposed
@@ -653,7 +654,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		trackEvent( TRACKS_EVENTS.WPCOM_AUTH_STARTED, getAuthTracksProps( attempt ) );
 		res.json( {
 			url: redirectUri
-				? getRedirectUrl( 'wpcom', {
+				? getSignInUrl( {
 						redirectUri,
 						locale: 'en',
 						state: attempt.auth_attempt_id,
@@ -686,7 +687,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			const token = typeof req.body?.token === 'string' ? req.body.token : '';
 			const error = typeof req.body?.error === 'string' ? req.body.error : '';
 			try {
-				await connectProvider( getProvider( 'wpcom' ), { access_token: token, error } );
+				await connectProvider( getProviderServices( 'wpcom' ), 'sign-in', {
+					access_token: token,
+					error,
+				} );
 			} catch ( failure ) {
 				trackEvent( TRACKS_EVENTS.WPCOM_AUTH, {
 					...props,
@@ -694,7 +698,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					failure_reason: getAuthFailureReason( failure ),
 				} );
 				res
-					.status( failure instanceof InvalidCredentialError ? 400 : 500 )
+					.status( failure instanceof ConnectError ? 400 : 500 )
 					.json( { error: 'Authentication failed' } );
 				return;
 			}
@@ -709,7 +713,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/auth/logout',
 		asyncHandler( async ( _req: Request, res: Response ) => {
-			await disconnectProvider( getProvider( 'wpcom' ) );
+			await disconnectProvider( getProviderServices( 'wpcom' ) );
 			res.status( 204 ).end();
 		} )
 	);
@@ -801,38 +805,42 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/ai-settings/providers/:provider',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readProviderParam( req, res );
-			const input = req.body?.input;
+			const { method, input } = req.body ?? {};
 			if ( ! provider ) {
 				return;
 			}
 			if (
+				typeof method !== 'string' ||
 				! input ||
 				typeof input !== 'object' ||
 				! Object.values( input ).every( ( value ) => typeof value === 'string' )
 			) {
-				res.status( 400 ).json( { error: 'input must be an object of strings' } );
+				res
+					.status( 400 )
+					.json( { error: 'method must be a string, and input an object of strings' } );
 				return;
 			}
 			await changeAiSettings( res, () =>
-				connectProvider( getProvider( provider ), input, { openUrl } )
+				connectProvider( getProviderServices( provider ), method, input )
 			);
 		} )
 	);
 
-	// Starts a device sign-in; `PUT` above then takes its code back and answers once approved.
+	// Starts signing in on the provider's site; `PUT` above then takes its handoff back and answers
+	// once the user signed in.
 	api.post(
-		'/ai-settings/providers/:provider/device-sign-in',
+		'/ai-settings/providers/:provider/start',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readProviderParam( req, res );
+			const method = req.body?.method;
 			if ( ! provider ) {
 				return;
 			}
-			const { startConnect } = getProvider( provider );
-			if ( ! startConnect ) {
-				res.status( 400 ).json( { error: `${ provider } does not connect with a device sign-in` } );
+			if ( typeof method !== 'string' || ! getProviderServices( provider ).account.start ) {
+				res.status( 400 ).json( { error: `${ provider } does not sign in on its site` } );
 				return;
 			}
-			res.json( await startConnect() );
+			res.json( await startProviderConnect( getProviderServices( provider ), method ) );
 		} )
 	);
 
@@ -841,7 +849,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readProviderParam( req, res );
 			if ( provider ) {
-				await changeAiSettings( res, () => disconnectProvider( getProvider( provider ) ) );
+				await changeAiSettings( res, () => disconnectProvider( getProviderServices( provider ) ) );
 			}
 		} )
 	);
@@ -852,7 +860,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider =
 				typeof req.body?.provider === 'string'
-					? normalizeAiProviderId( req.body.provider )
+					? normalizeProviderId( req.body.provider, AI_PROVIDER_IDS )
 					: undefined;
 			if ( ! provider ) {
 				res.status( 400 ).json( { error: 'provider must be a known AI provider id' } );
@@ -1910,7 +1918,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	}
 
 	function readSitesProvider( req: Request, res: Response ): SitesProviderId | undefined {
-		const provider = normalizeSitesProviderId( req.params.provider );
+		const provider = normalizeProviderId( req.params.provider, SITES_PROVIDER_IDS );
 		if ( ! provider ) {
 			res.status( 400 ).json( { error: 'provider must be a provider with sites' } );
 		}
@@ -1933,7 +1941,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readSitesProvider( req, res );
 			if ( provider ) {
-				res.json( await listAccountSites( getProvider( provider ) ) );
+				res.json( await listAccountSites( getProviderServices( provider ) ) );
 			}
 		} )
 	);
@@ -1961,7 +1969,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				res.status( 400 ).json( { error: 'name is required' } );
 				return;
 			}
-			res.json( await createRemoteSite( getProvider( provider ), req.params.id, name ) );
+			res.json( await createRemoteSite( getProviderServices( provider ), req.params.id, name ) );
 		} )
 	);
 
@@ -1998,14 +2006,18 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/preview',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const { hostname, name } = req.body as { hostname?: string; name?: string };
+			const { hostname, name, liveSite } = req.body as {
+				hostname?: string;
+				name?: string;
+				liveSite?: string;
+			};
 			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
 			if ( ! site ) {
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
 			// A hostname means "refresh this existing preview"; otherwise create one.
-			res.json( await publishPreviewSite( execute, site.path, hostname, name ) );
+			res.json( await publishPreviewSite( execute, site.path, hostname, name, liveSite ) );
 		} )
 	);
 
@@ -2098,7 +2110,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				// the error middleware — the dialog needs the error state to disable
 				// per-item selection and force a full sync.
 				res.json(
-					await getRemoteBackupId( getProvider( provider ), remoteSiteIdParam( provider, req ) )
+					await getRemoteBackupId(
+						getProviderServices( provider ),
+						remoteSiteIdParam( provider, req )
+					)
 				);
 			}
 		} )
@@ -2118,7 +2133,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			}
 			res.json(
 				await listRemoteBackupFiles(
-					getProvider( provider ),
+					getProviderServices( provider ),
 					remoteSiteIdParam( provider, req ),
 					backupId,
 					treePath
@@ -2216,7 +2231,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/sessions/:id/model',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const { model } = req.body as { model?: string };
-			if ( ! model || ! isAiModelId( model ) ) {
+			if ( ! model || ! findAiModel( model ) ) {
 				res.status( 400 ).json( { error: `Unknown AI model: ${ model }` } );
 				return;
 			}
@@ -2229,12 +2244,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/sessions/:id/provider',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const { provider: requested, model } = req.body as { provider?: string; model?: string };
-			const provider = requested ? normalizeAiProviderId( requested ) : undefined;
+			const provider = requested ? normalizeProviderId( requested, AI_PROVIDER_IDS ) : undefined;
 			if ( ! provider ) {
 				res.status( 400 ).json( { error: `Unknown AI provider: ${ requested }` } );
 				return;
 			}
-			if ( ! model || ! getAiModel( provider, model ) ) {
+			if ( ! model || ! getProvider( provider ).ai?.models.some( ( { id } ) => id === model ) ) {
 				res.status( 400 ).json( { error: `Model ${ model } is not served by ${ provider }` } );
 				return;
 			}
@@ -2462,7 +2477,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	}
 
 	app.use( ( err: unknown, _req: Request, res: Response, _next: ( e?: unknown ) => void ) => {
-		if ( err instanceof InvalidCredentialError ) {
+		if ( err instanceof ConnectError ) {
 			res.status( 400 ).json( { error: err.message } );
 			return;
 		}

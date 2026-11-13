@@ -1,15 +1,10 @@
-import { ProviderNotReadyError } from '../errors';
-import { getAiModel } from '../models';
-import type { WpcomConfig } from './config';
-import type { AiConnection, Provider } from '../types';
+import { NotConnectedError } from '../../errors';
+import { WPCOM_AI_MODELS } from '../descriptor';
+import { getAiGatewayBaseUrl } from './gateway';
+import { generateWpcomImages } from './images';
+import type { AiConnection, AiModel, ProviderServices } from '../../types';
+import type { WpcomConfig } from '../config';
 import type { Api, Model } from '@earendil-works/pi-ai';
-
-const DEFAULT_AI_GATEWAY_BASE_URL = 'https://public-api.wordpress.com/wpcom/v2/ai-api-proxy';
-
-export function getAiGatewayBaseUrl(): string {
-	const customBaseUrl = globalThis.process?.env.WPCOM_AI_PROXY_BASE_URL?.trim();
-	return ( customBaseUrl || DEFAULT_AI_GATEWAY_BASE_URL ).replace( /\/+$/, '' );
-}
 
 // The proxy's `studio-agent` lane accepts the tier aliases and resolves each
 // to an upstream model.
@@ -61,15 +56,12 @@ function rewriteUsageCapError( message: string ): string | undefined {
 		: undefined;
 }
 
-export const wpcomAi: NonNullable< Provider< WpcomConfig >[ 'ai' ] > = {
-	fallbackWhenNotReady: true,
-	async connect( config, modelId, { sessionId } ): Promise< AiConnection > {
+export const wpcomAi: NonNullable< ProviderServices< WpcomConfig >[ 'ai' ] > = {
+	async model( config, modelId, { sessionId } ): Promise< AiConnection > {
 		if ( ! config ) {
-			throw new ProviderNotReadyError(
-				'WordPress.com login required. Use /login to authenticate.'
-			);
+			throw new NotConnectedError( 'Log in to WordPress.com to use its models.' );
 		}
-		const model = getAiModel( 'wpcom', modelId );
+		const model: AiModel | undefined = WPCOM_AI_MODELS.find( ( { id } ) => id === modelId );
 		const tier = TIERS[ modelId ];
 		if ( ! model || ! tier ) {
 			throw new Error( `WordPress.com does not serve ${ modelId }` );
@@ -102,4 +94,5 @@ export const wpcomAi: NonNullable< Provider< WpcomConfig >[ 'ai' ] > = {
 			rewriteError: rewriteUsageCapError,
 		};
 	},
+	generateImages: generateWpcomImages,
 };

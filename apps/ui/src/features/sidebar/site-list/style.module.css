@@ -3,7 +3,6 @@
 	--site-list-chat-status-size: 14px;
 	--site-list-chat-status-start-offset: 0px;
 	--site-list-chat-status-gap: var( --space-1_5 );
-	--site-list-sync-indicator-bg: var( --status-sync );
 
 	padding: 0 var( --space-3 ) var( --space-5 );
 	display: flex;
@@ -62,6 +61,10 @@
 
 .rowAction {
 	--button-hover-background: transparent;
+}
+
+.rowAction[aria-busy='true'] {
+	visibility: visible;
 }
 
 .headlessBadge {

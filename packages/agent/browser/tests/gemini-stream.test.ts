@@ -21,7 +21,8 @@ it( 'streams a Gemini reply through Google’s SDK with the connected key', asyn
 		const context = normalizeContext( {
 			messages: [ { role: 'user', content: 'Hi', timestamp: 0 } ],
 		} );
-		const reply = await createStreamFn( ai )( ai.model, context ).result();
+		const stream = await createStreamFn( ai )( ai.model, context );
+		const reply = await stream.result();
 		expect( reply ).toMatchObject( { stopReason: 'stop' } );
 		expect( reply.content ).toContainEqual( { type: 'text', text: 'Hello' } );
 		const [ url, init ] = request.mock.calls[ 0 ];

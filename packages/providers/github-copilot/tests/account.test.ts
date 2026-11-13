@@ -9,11 +9,12 @@ const json = ( status: number, body: unknown = {} ) =>
 
 const copilotToken = 'tid=1;exp=2;proxy-ep=proxy.business.githubcopilot.com;';
 
-const config = ( expiresIn: number ): GithubCopilotConfig => ( {
+const config = ( expiresIn: number, models?: string[] ): GithubCopilotConfig => ( {
 	method: 'github',
 	githubToken: 'gho_1',
 	copilotToken,
 	copilotTokenExpiresAt: Date.now() + expiresIn,
+	models: models ?? [ 'claude-sonnet-5-5' ],
 } );
 
 const handoff = {
@@ -137,6 +138,15 @@ describe( 'github-copilot account', () => {
 	it( 'renews the Copilot token only when it is about to expire', async () => {
 		await expect( githubCopilotAccount.refresh!( config( 30 * 60_000 ) ) ).resolves.toBeUndefined();
 		expect( fetchMock ).not.toHaveBeenCalled();
+
+		// A sign-in stored before Studio read the plan's models reads them without renewing.
+		respond( { '/models': () => json( 200, planModels ) } );
+		const { models } = ( await githubCopilotAccount.refresh!( {
+			...config( 30 * 60_000 ),
+			models: undefined,
+		} ) )!;
+		expect( models ).toEqual( [ 'claude-sonnet-5-5', 'gpt-6.1-terra' ] );
+		fetchMock.mockReset();
 
 		respond( {
 			'/copilot_internal/v2/token': () => json( 200, { token: 'renewed', expires_at: 3000 } ),

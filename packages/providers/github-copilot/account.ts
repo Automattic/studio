@@ -146,14 +146,15 @@ const connect: GithubCopilotAccount[ 'connect' ] = async ( _method, input ) => {
 };
 
 // Renewing also re-reads the plan's models, so a model added to or dropped from it shows up
-// without connecting again.
+// without connecting again. A sign-in stored before Studio read them fills them in on its own.
 const refresh: NonNullable< GithubCopilotAccount[ 'refresh' ] > = async ( config ) => {
-	if ( config.copilotTokenExpiresAt - Date.now() > REFRESH_MARGIN_MS ) {
+	const renewing = config.copilotTokenExpiresAt - Date.now() <= REFRESH_MARGIN_MS;
+	if ( ! renewing && config.models ) {
 		return undefined;
 	}
-	const copilot = await requestCopilotToken( config.githubToken );
-	const models = await readPlanModels( copilot.copilotToken );
-	return { ...config, ...copilot, ...( models ? { models } : {} ) };
+	const copilot = renewing ? await requestCopilotToken( config.githubToken ) : undefined;
+	const models = await readPlanModels( copilot?.copilotToken ?? config.copilotToken );
+	return copilot || models ? { ...config, ...copilot, ...( models ? { models } : {} ) } : undefined;
 };
 
 export const githubCopilotAccount: GithubCopilotAccount = { start, connect, refresh };

@@ -24,7 +24,7 @@ async function getFreePort(): Promise< number > {
 }
 
 describe( 'waitForServerReady', () => {
-	it( 'resolves once the server answers, whatever the status', async () => {
+	it( 'resolves to the response once the server answers, whatever the status', async () => {
 		const server = http.createServer( ( _req, res ) => {
 			res.writeHead( 500 );
 			res.end( 'error' );
@@ -36,7 +36,7 @@ describe( 'waitForServerReady', () => {
 					timeoutMs: 5_000,
 					pollIntervalMs: 20,
 				} )
-			).resolves.toBeUndefined();
+			).resolves.toMatchObject( { status: 500 } );
 		} finally {
 			await close( server );
 		}
@@ -69,7 +69,7 @@ describe( 'waitForServerReady', () => {
 					timeoutMs: 5_000,
 					pollIntervalMs: 20,
 				} )
-			).resolves.toBeUndefined();
+			).resolves.toMatchObject( { status: 200 } );
 		} finally {
 			await close( server );
 		}
@@ -87,7 +87,7 @@ describe( 'waitForServerReady', () => {
 					timeoutMs: 1_000,
 					pollIntervalMs: 20,
 				} )
-			).resolves.toBeUndefined();
+			).resolves.toMatchObject( { status: 302 } );
 		} finally {
 			await close( server );
 		}

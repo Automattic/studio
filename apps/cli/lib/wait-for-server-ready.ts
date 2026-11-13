@@ -1,12 +1,13 @@
 /**
- * Polls `url` with HTTP requests until the server answers. An HTTP request,
- * not a bare TCP connect: connect/destroy socket churn crashed Node on Windows
+ * Polls `url` with HTTP requests until the server answers, and resolves to that
+ * response with its body discarded. An HTTP request, not a bare TCP connect:
+ * connect/destroy socket churn crashed Node on Windows
  * (see `packages/common/lib/port-finder.ts`).
  */
 export async function waitForServerReady(
 	url: string,
 	options: { timeoutMs: number; pollIntervalMs: number; signal?: AbortSignal }
-): Promise< void > {
+): Promise< Response > {
 	const { timeoutMs, pollIntervalMs, signal } = options;
 	const deadline = Date.now() + timeoutMs;
 
@@ -15,7 +16,7 @@ export async function waitForServerReady(
 		try {
 			const response = await fetch( url, { redirect: 'manual', signal } );
 			await response.body?.cancel().catch( () => {} );
-			return;
+			return response;
 		} catch {
 			signal?.throwIfAborted();
 			if ( Date.now() > deadline ) {

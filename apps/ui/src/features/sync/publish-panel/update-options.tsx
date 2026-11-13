@@ -1,5 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { useId } from 'react';
+import { useId, type ReactNode } from 'react';
 import { Button, Checkbox, Field, FieldLabel } from '@/lib/ui';
 import { checkNodes } from './selection';
 import styles from './update-options.module.css';
@@ -39,7 +39,13 @@ function Option( {
 	);
 }
 
-export function PublishChecklist( { selection }: { selection: TransferSelection } ) {
+export function PublishChecklist( {
+	selection,
+	children,
+}: {
+	selection: TransferSelection;
+	children?: ReactNode;
+} ) {
 	const groups = [
 		{ name: 'plugins', label: __( 'Plugins' ) },
 		{ name: 'themes', label: __( 'Themes' ) },
@@ -126,6 +132,7 @@ export function PublishChecklist( { selection }: { selection: TransferSelection 
 					);
 				} ) }
 			</div>
+			{ children }
 			{ content ? (
 				<p className={ styles.warning }>
 					{ __(

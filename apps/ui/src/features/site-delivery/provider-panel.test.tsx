@@ -1002,26 +1002,57 @@ it( 'chooses a live site before creating a preview when several sites qualify', 
 	);
 } );
 
-it( 'commits individual files on Done and discards a later unfinished edit', async () => {
+it( 'chooses files inside the popover, preserves Database, and discards unfinished edits', async () => {
 	const { connector, user } = setup( {
 		getSitePublishStatus: async () => ( { localChanged: true } ),
 		listLocalFileTree: async () => [
-			{ name: 'style.css', path: 'wp-content/themes/site/style.css', isDirectory: false },
-			{ name: 'theme.json', path: 'wp-content/themes/site/theme.json', isDirectory: false },
+			{
+				name: 'themes',
+				path: 'wp-content/themes',
+				isDirectory: true,
+				children: [
+					{ name: 'style.css', path: 'wp-content/themes/site/style.css', isDirectory: false },
+					{ name: 'theme.json', path: 'wp-content/themes/site/theme.json', isDirectory: false },
+				],
+			},
 		],
 	} );
 	await open();
+	await user.click( screen.getByRole( 'button', { name: 'What to publish' } ) );
+	const database = await screen.findByRole( 'checkbox', {
+		name: 'Database Posts, pages, and settings',
+	} );
+	await waitFor( () => expect( database ).toBeEnabled() );
+	await user.click( database );
 	const openFiles = async () => {
-		await user.click( screen.getByRole( 'button', { name: 'What to publish' } ) );
-		await user.click( await screen.findByRole( 'button', { name: 'Choose individual files…' } ) );
-		return screen.findByRole( 'dialog', { name: 'Choose individual files' } );
+		await user.click( await screen.findByRole( 'button', { name: 'Choose specific files' } ) );
+		const view = await screen.findByRole( 'dialog', { name: 'Choose files' } );
+		expect(
+			within( view ).queryByRole( 'checkbox', { name: 'Content and settings' } )
+		).not.toBeInTheDocument();
+		await user.click( await within( view ).findByRole( 'button', { name: 'Expand themes' } ) );
+		return view;
 	};
 	let dialog = await openFiles();
 	await user.click( await within( dialog ).findByRole( 'checkbox', { name: 'theme.json' } ) );
-	await user.click( within( dialog ).getByRole( 'checkbox', { name: 'Content and settings' } ) );
 	await user.click( within( dialog ).getByRole( 'button', { name: 'Done' } ) );
+	expect(
+		screen.getByRole( 'checkbox', { name: 'Database Posts, pages, and settings' } )
+	).not.toBeChecked();
+	expect( screen.getByRole( 'checkbox', { name: 'Themes' } ) ).toBePartiallyChecked();
+	await waitFor( () =>
+		expect( screen.getByRole( 'button', { name: 'Choose specific files' } ) ).toHaveFocus()
+	);
 	expect( connector.pushSite ).not.toHaveBeenCalled();
 	dialog = await openFiles();
+	await user.click( await within( dialog ).findByRole( 'checkbox', { name: 'theme.json' } ) );
+	await user.click( within( dialog ).getByRole( 'button', { name: 'Back' } ) );
+	dialog = await openFiles();
+	expect(
+		await within( dialog ).findByRole( 'checkbox', { name: 'theme.json' } )
+	).not.toBeChecked();
+	await user.click( await within( dialog ).findByRole( 'checkbox', { name: 'style.css' } ) );
+	expect( within( dialog ).getByRole( 'button', { name: 'Done' } ) ).toBeDisabled();
 	await user.click( await within( dialog ).findByRole( 'checkbox', { name: 'theme.json' } ) );
 	await user.keyboard( '{Escape}' );
 	await user.click( await screen.findByRole( 'button', { name: 'Publish changes' } ) );

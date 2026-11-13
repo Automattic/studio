@@ -516,9 +516,47 @@
 }
 
 .publishOptionsPopover {
-	width: 280px;
+	width: 320px;
 	max-width: calc( 100vw - var( --space-4 ) );
+	max-height: var( --available-height );
+	overflow-y: auto;
 	padding: var( --space-1_5 );
+}
+
+.publishFilesEntry {
+	border-top: 1px solid var( --border );
+	margin-block: var( --space-1 );
+	padding-block-start: var( --space-1 );
+}
+.publishFilesTrigger {
+	width: 100%;
+	justify-content: space-between;
+}
+.publishFilesView {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-3 );
+}
+.publishFilesHeader,
+.publishFilesFooter {
+	padding: var( --space-2 );
+}
+.publishFilesList {
+	max-height: 280px;
+	min-height: 72px;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	padding: var( --space-1 ) var( --space-2 );
+}
+.publishFilesHint {
+	margin: 0 var( --space-2 );
+	font-size: var( --text-xxs );
+	color: var( --muted-foreground );
+}
+.publishFilesFooter {
+	display: flex;
+	justify-content: space-between;
+	border-top: 1px solid var( --border );
 }
 
 .destinationMenu {

@@ -168,6 +168,13 @@
 	overflow-wrap: anywhere;
 }
 
+.selectionCheckbox[data-checked],
+.selectionCheckbox[data-indeterminate] {
+	border-color: var( --accent );
+	background-color: var( --accent );
+	color: var( --accent-foreground );
+}
+
 .symlink {
 	display: inline-flex;
 	flex: none;

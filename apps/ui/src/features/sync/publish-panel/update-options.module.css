@@ -43,9 +43,6 @@
 	margin: var( --space-1 ) 0;
 }
 
-.checkbox[data-checked],
-.checkbox[data-indeterminate] {
-	border-color: var( --accent );
-	background-color: var( --accent );
-	color: var( --accent-foreground );
+.checkbox {
+	composes: selectionCheckbox from './style.module.css';
 }

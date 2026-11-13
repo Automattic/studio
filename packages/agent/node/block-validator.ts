@@ -1,5 +1,6 @@
 import { seenBlockCode } from '@studio/agent/node/block-code';
-import { EditorPage, withTimeout } from './browser-utils';
+import { withTimeout } from '@studio/agent/shared/tools/utils';
+import { EditorPage } from './browser-utils';
 import type { Page } from 'playwright';
 
 const BLOCK_EVALUATION_TIMEOUT_MS = 60_000;
@@ -55,6 +56,8 @@ export interface BlockLoss {
 	 * from, as `drop opacity:0.68 from span.wp-block-cover__background`.
 	 */
 	note: string;
+	/** The editor's fix of the block is invalid too, for these reasons. */
+	unfixed?: string[];
 	/**
 	 * The text written in the comment attributes of a block the server renders
 	 * that the fix drops, as `"Your name" (label)`, where the editor reads the
@@ -2474,6 +2477,26 @@ async function validateAsWritten(
 						lossy.add( place );
 						return { place, written, fixed: fix };
 					} );
+				// A block the editor's fix leaves invalid too, as one the editor has
+				// not registered, stays as written, and the fix is saved for the others.
+				for ( const result of fixed.report.results ) {
+					const place = result.place ?? '';
+					const written = blockAt( initial.blocks, place );
+					if (
+						! result.isValid &&
+						! lossy.has( place ) &&
+						[ written?.name, written?.attributes?.originalName ].includes( result.blockName )
+					) {
+						lossList.push( {
+							place,
+							blockName: result.blockName,
+							lost: '',
+							note: '',
+							unfixed: result.issues.slice( 0, 3 ),
+						} );
+						lossy.add( place );
+					}
+				}
 				const losslessContent = lossList.length
 					? wpBlocks.serialize( lossless( fixed.blocks ) )
 					: fixedContent;

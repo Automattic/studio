@@ -110,8 +110,13 @@ function oneLine( html: string, length: number ): string {
  * as the block saves it would lose when that is known, and the HTML the block
  * saves from its comment attributes — the markup that validates.
  */
-function describeLoss( { note, droppedText }: BlockLoss ): string {
+function describeLoss( { note, droppedText, unfixed }: BlockLoss ): string {
 	return [
+		unfixed
+			? `the block editor's fix of it is invalid too (${
+					unfixed.join( '; ' ) || 'it does not match what the block saves'
+			  }), so it stays as written.`
+			: '',
 		note
 			? `saving it as the block saves it would ${ note }, as nothing in its comment attributes saves that.`
 			: '',
@@ -763,7 +768,18 @@ async function validateSavedMarkup(
 	}
 
 	const fix = report.proposedFix;
-	if ( ! fix || fix.report.error || fix.report.invalidBlocks > 0 ) {
+	// A block stays as written when the fix loses something from it, or leaves
+	// it invalid too (BlockLoss.unfixed); the editor's fix is saved for the
+	// rest, the blocks inside it too, when it makes any of them valid.
+	const lost = new Map( fix?.losses.map( ( loss ) => [ loss.place, loss ] ) );
+	const keptAsWritten = ( place = '' ) => lost.has( place );
+	const unfixed = fix?.losses.filter( ( loss ) => loss.unfixed ).length ?? 0;
+	if (
+		! fix ||
+		fix.report.error ||
+		fix.report.invalidBlocks > unfixed ||
+		report.invalidBlocks === unfixed
+	) {
 		return {
 			summary: `${ label }: ${ report.invalidBlocks } invalid block(s)`,
 			problem: [
@@ -789,10 +805,6 @@ async function validateSavedMarkup(
 	if ( fix.blockStyles && ! styled ) {
 		return validateSavedMarkup( content, label, siteUrl, presetValues, editor, rendersAlike );
 	}
-	// A block stays as written when the fix loses something from it; the
-	// editor's fix is saved for the rest, the blocks inside it too.
-	const lost = new Map( fix.losses.map( ( loss ) => [ loss.place, loss ] ) );
-	const keptAsWritten = ( place = '' ) => lost.has( place );
 	const fixedBlocks = report.results.filter(
 		( result ) => ! result.isValid && ! keptAsWritten( result.place )
 	).length;

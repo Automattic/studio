@@ -1354,6 +1354,19 @@ describe.runIf( siteUrl )( 'storing palette colors as presets (live)', () => {
 		);
 	}, 60_000 );
 
+	it( 'saves the fix of the other blocks beside a block the fix leaves invalid', async () => {
+		const result = await validateBlockMarkup(
+			`${ paragraph( '{"textAlign":"center"}', '<p>Centered</p>' ) }\n\n<!-- wp:nope/form /-->`,
+			'page',
+			siteUrl!
+		);
+		expect( result.fixedContent ).toContain( '{"style":{"typography":{"textAlign":"center"}}}' );
+		expect( result.fixedContent ).toContain( '<!-- wp:nope/form /-->' );
+		expect( result.problem ).toContain(
+			"nope/form: the block editor's fix of it is invalid too (nope/form is not registered on the site"
+		);
+	}, 60_000 );
+
 	it( 'loads the editor again for a block registered since it loaded', async () => {
 		// As a block of a plugin activated after the editor loaded.
 		const forget = async ( name: string ) =>

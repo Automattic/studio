@@ -89,17 +89,18 @@ function setup( connections: SyncSite[] = [], signedIn = true, running = true, r
 	const ready = screen.findByRole( 'button', { name: 'Publish…' } ).then( async ( button ) => {
 		fireEvent.click( button );
 		// A site connected nowhere starts with the default host or a choice of where to publish.
-		const start = await waitFor( () => {
+		const { start, providerOption } = await waitFor( () => {
+			const providerOption = screen.queryByRole( 'button', { name: /^WordPress\.com/ } );
 			const found =
-				screen.queryByRole( 'button', { name: /^WordPress\.com/ } ) ??
+				providerOption ??
 				screen.queryByRole( 'button', { name: 'New site…' } ) ??
 				screen.queryByRole( 'heading', { name: 'Published to' } ) ??
 				screen.queryByRole( 'group', { name: 'Website' } );
 			expect( found ).not.toBeNull();
-			return found!;
+			return { start: found!, providerOption };
 		} );
-		if ( start.matches( 'button' ) && start.textContent?.startsWith( 'WordPress.com' ) ) {
-			fireEvent.click( start );
+		if ( providerOption ) {
+			fireEvent.click( providerOption );
 		} else if ( start.tagName === 'H2' ) {
 			// A site connected meanwhile may open its panel before its row is clicked.
 			const next = await waitFor( () => {

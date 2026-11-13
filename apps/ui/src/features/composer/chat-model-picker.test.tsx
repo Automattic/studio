@@ -1,3 +1,4 @@
+import { getProvider } from '@studio/providers';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { Composer } from '@/features/composer';
@@ -77,9 +78,16 @@ describe( 'Chat model picker', () => {
 	} );
 
 	it( 'offers to manage usage only when Anthropic connects with a Claude subscription', async () => {
-		const connectedWith = ( method: string ) => {
+		const connectedWith = ( method: 'api-key' | 'setup-token' ) => {
 			const settings = aiSettings( 'anthropic', [ 'anthropic' ] );
-			settings.accounts.anthropic.method = method;
+			settings.accounts.anthropic = {
+				connected: true,
+				...getProvider( 'anthropic' ).account.describe(
+					method === 'api-key'
+						? { method, apiKey: 'sk-ant-api03-test' }
+						: { method, token: 'sk-ant-oat01-test' }
+				),
+			};
 			return createFakeConnector( {}, { getAiSettings: async () => settings } );
 		};
 		const subscription = await renderPicker( 'claude-opus-5-5', connectedWith( 'setup-token' ) );

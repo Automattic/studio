@@ -1,20 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { ProviderNotReadyError } from '../../errors';
+import { NotConnectedError } from '../../errors';
 import { anthropicAi } from '../ai';
 import { ANTHROPIC_AI_MODELS } from '../descriptor';
 
 const connect = ( model: ( typeof ANTHROPIC_AI_MODELS )[ number ][ 'id' ] ) =>
-	anthropicAi.connect( { method: 'api-key', apiKey: 'sk-ant-test' }, model, {} );
+	anthropicAi.model( { method: 'api-key', apiKey: 'sk-ant-test' }, model, {} );
 
 describe( 'anthropic ai', () => {
 	it( 'asks for an API key without a config', async () => {
-		await expect(
-			anthropicAi.connect( undefined, 'claude-sonnet-5-5', {} )
-		).rejects.toBeInstanceOf( ProviderNotReadyError );
+		await expect( anthropicAi.model( undefined, 'claude-sonnet-5-5', {} ) ).rejects.toBeInstanceOf(
+			NotConnectedError
+		);
 	} );
 
 	it( 'hands pi a subscription token as the key, which pi sends with Bearer auth', async () => {
-		const { apiKey } = await anthropicAi.connect(
+		const { apiKey } = await anthropicAi.model(
 			{ method: 'setup-token', token: 'sk-ant-oat01-token' },
 			'claude-sonnet-5-5',
 			{}

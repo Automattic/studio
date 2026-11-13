@@ -1,9 +1,9 @@
 import { OPENAI_MODELS } from '@earendil-works/pi-ai/providers/openai.models';
 import { __ } from '@wordpress/i18n';
-import { ProviderNotReadyError } from '../errors';
-import { getAiModel } from '../models';
+import { NotConnectedError } from '../errors';
+import { OPENAI_AI_MODELS } from './descriptor';
 import type { OpenaiConfig } from './config';
-import type { AiConnection, Provider } from '../types';
+import type { AiConnection, ProviderServices } from '../types';
 
 // Plan-sharing errors, said for the user.
 const getPlanErrors = () => ( {
@@ -21,16 +21,14 @@ const getPlanErrors = () => ( {
 	),
 } );
 
-export const openaiAi: NonNullable< Provider< OpenaiConfig >[ 'ai' ] > = {
-	fallbackWhenNotReady: false,
-	async connect( config, modelId ): Promise< AiConnection > {
+export const openaiAi: NonNullable< ProviderServices< OpenaiConfig >[ 'ai' ] > = {
+	async model( config, modelId ): Promise< AiConnection > {
 		if ( ! config ) {
-			throw new ProviderNotReadyError(
-				'ChatGPT sign-in required. Switch to ChatGPT with /provider to sign in.'
-			);
+			throw new NotConnectedError( 'Sign in with ChatGPT to use its models.' );
 		}
 		const model =
-			getAiModel( 'openai', modelId ) && OPENAI_MODELS[ modelId as keyof typeof OPENAI_MODELS ];
+			OPENAI_AI_MODELS.some( ( { id } ) => id === modelId ) &&
+			OPENAI_MODELS[ modelId as keyof typeof OPENAI_MODELS ];
 		if ( ! model ) {
 			throw new Error( `ChatGPT does not serve ${ modelId }` );
 		}

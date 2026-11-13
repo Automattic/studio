@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
-	getAiModelProviders,
+	findAiModel,
 	getConnectFields,
-	getConnectionMethods,
-	getRedirectUrl,
+	getConnectMethod,
 	getDefaultAiModel,
-	isAiModelId,
+	getProvider,
 	normalizeProviderId,
+	SITES_PROVIDER_IDS,
 	toStoredProviderId,
 } from '..';
 
@@ -14,18 +14,18 @@ describe( 'provider ids', () => {
 	it( 'reads the id builds before `anthropic` stored, and keeps writing it', () => {
 		expect( normalizeProviderId( 'anthropic-api-key' ) ).toBe( 'anthropic' );
 		expect( normalizeProviderId( 'anthropic' ) ).toBe( 'anthropic' );
-		expect( normalizeProviderId( 'wpcom' ) ).toBe( 'wpcom' );
 		expect( normalizeProviderId( 'claude-code' ) ).toBeUndefined();
+		expect( normalizeProviderId( 'anthropic', SITES_PROVIDER_IDS ) ).toBeUndefined();
 		expect( toStoredProviderId( 'anthropic' ) ).toBe( 'anthropic-api-key' );
 		expect( toStoredProviderId( 'wpcom' ) ).toBe( 'wpcom' );
 	} );
 } );
 
 describe( 'models', () => {
-	it( 'finds the providers serving a model', () => {
-		expect( getAiModelProviders( 'balanced' ) ).toEqual( [ 'wpcom' ] );
-		expect( getAiModelProviders( 'claude-opus-5-5' ) ).toEqual( [ 'anthropic' ] );
-		expect( isAiModelId( 'gpt-4' ) ).toBe( false );
+	it( 'finds the provider serving a model', () => {
+		expect( findAiModel( 'balanced' )?.provider ).toBe( 'wpcom' );
+		expect( findAiModel( 'claude-opus-5-5' )?.provider ).toBe( 'anthropic' );
+		expect( findAiModel( 'gpt-4' ) ).toBeUndefined();
 	} );
 
 	it( 'defaults to the paid model only when paid credits remain', () => {
@@ -37,9 +37,9 @@ describe( 'models', () => {
 	} );
 } );
 
-describe( 'connections', () => {
-	it( 'describes a form provider’s fields for any surface to render', () => {
-		const [ apiKey, ...others ] = getConnectFields( 'anthropic' );
+describe( 'connecting', () => {
+	it( 'describes a form’s fields for any surface to render', () => {
+		const [ apiKey, ...others ] = getConnectFields( getConnectMethod( 'anthropic' ) );
 
 		expect( others ).toEqual( [] );
 		expect( apiKey ).toMatchObject( {
@@ -50,24 +50,18 @@ describe( 'connections', () => {
 		} );
 		expect( apiKey.validate( ' ' ) ).toBe( 'API key is required' );
 		expect( apiKey.validate( 'sk-ant-key' ) ).toBeUndefined();
-		expect( getConnectFields( 'wpcom' ) ).toEqual( [] );
+		expect( getConnectFields( getConnectMethod( 'wpcom' ) ) ).toEqual( [] );
 	} );
 
-	it( 'lets the user pick a method only when a provider offers several', () => {
-		expect( getConnectionMethods( 'anthropic' ).map( ( { id } ) => id ) ).toEqual( [
+	it( 'finds a method by id, or the first', () => {
+		expect( getProvider( 'anthropic' ).account.methods.map( ( { id } ) => id ) ).toEqual( [
 			'api-key',
 			'setup-token',
 		] );
-		expect( getConnectionMethods( 'wpcom' ) ).toEqual( [] );
-		expect( getConnectFields( 'anthropic', 'setup-token' ) ).toMatchObject( [
+		expect( getConnectMethod( 'anthropic', 'setup-token' ).id ).toBe( 'setup-token' );
+		expect( getConnectMethod( 'anthropic', 'unknown' ).id ).toBe( 'api-key' );
+		expect( getConnectFields( getConnectMethod( 'anthropic', 'setup-token' ) ) ).toMatchObject( [
 			{ name: 'token', placeholder: 'sk-ant-oat01-…', secret: true },
 		] );
-	} );
-
-	it( 'builds the redirect only for a provider that connects with one', () => {
-		expect( getRedirectUrl( 'wpcom', { redirectUri: 'wp-studio://auth', locale: 'en' } ) ).toMatch(
-			/^https:\/\/public-api\.wordpress\.com\/oauth2\/authorize\?/
-		);
-		expect( () => getRedirectUrl( 'anthropic', { redirectUri: 'x', locale: 'en' } ) ).toThrow();
 	} );
 } );

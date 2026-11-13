@@ -1,5 +1,6 @@
 export { ChatActionsMenuItems, useChatActions, useLeaveArchivedChat } from './chat-actions';
 export { CopyButton } from './copy-button';
+export { Markdown } from './markdown';
 export { SessionView } from './session-view';
 export {
 	entriesToTranscriptItems,

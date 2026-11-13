@@ -1,6 +1,6 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { getSyncType } from '@studio/common/lib/sync/sync-type';
-import { getConnection, getSitesDescriptor, type SitesProviderId } from '@studio/providers';
+import { getConnectMethod, getProviderSites, type SitesProviderId } from '@studio/providers';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { EllipsisIcon } from 'lucide-react';
@@ -68,7 +68,7 @@ export function PublishPanel( {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	const offline = useOffline();
-	const sites = getSitesDescriptor( provider );
+	const sites = getProviderSites( provider );
 	const accountConnected = useProviderConnected( provider );
 	const connected = useRemoteSites( provider, site.id );
 	const [ view, setView ] = useState< PublishView | 'choose-site' | 'start' >( 'publish' );
@@ -329,7 +329,7 @@ export function PublishPanel( {
 											description: siteAddress( remote ),
 											trailing: (
 												<span className={ styles.environmentLabel }>
-													{ sites.details( remote )[ 0 ]?.value }
+													{ sites.describe( remote ).details[ 0 ]?.value }
 												</span>
 											),
 											icon: GlobeIcon,
@@ -464,7 +464,7 @@ export function PublishPanel( {
 	};
 
 	// WordPress.com's account is the Studio sign-in, which the dialog asks for.
-	if ( accountConnected === false && getConnection( provider ).kind !== 'device' ) return null;
+	if ( accountConnected === false && getConnectMethod( provider ).kind === 'redirect' ) return null;
 	if ( accountConnected === false ) {
 		return <ConnectAccount provider={ provider } />;
 	}

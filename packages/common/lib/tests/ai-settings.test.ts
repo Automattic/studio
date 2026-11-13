@@ -1,8 +1,8 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { InvalidCredentialError, ProviderNotReadyError } from '@studio/providers';
-import { getProvider } from '@studio/providers/services';
+import { ConnectError, NotConnectedError } from '@studio/providers';
+import { getProviderServices } from '@studio/providers/services';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	connectProvider,
@@ -17,9 +17,9 @@ import {
 	readSignInContext,
 } from '@studio/common/lib/provider-config';
 
-const anthropic = getProvider( 'anthropic' );
-const wpcom = getProvider( 'wpcom' );
-const disconnected = { connected: false, summary: null };
+const anthropic = getProviderServices( 'anthropic' );
+const wpcom = getProviderServices( 'wpcom' );
+const disconnected = { connected: false };
 
 describe( 'ai settings', () => {
 	let configDir: string;
@@ -62,7 +62,7 @@ describe( 'ai settings', () => {
 	} );
 
 	it( 'stores an accepted key where every build reads it, without changing the provider', async () => {
-		const settings = await connectProvider( anthropic, {
+		const settings = await connectProvider( anthropic, 'api-key', {
 			apiKey: '  sk-ant-api03-testkey-abcd1234  ',
 		} );
 
@@ -82,8 +82,7 @@ describe( 'ai settings', () => {
 	it( 'keeps a subscription token in its own section, and clears the other method on write', async () => {
 		writeShared( { anthropicApiKey: 'sk-ant-api03-testkey-abcd1234' } );
 
-		const settings = await connectProvider( anthropic, {
-			method: 'setup-token',
+		const settings = await connectProvider( anthropic, 'setup-token', {
 			token: 'sk-ant-oat01-token-abcd1234',
 		} );
 
@@ -98,7 +97,7 @@ describe( 'ai settings', () => {
 		} );
 		expect( readShared().anthropicApiKey ).toBeUndefined();
 
-		await connectProvider( anthropic, { apiKey: 'sk-ant-api03-testkey-abcd1234' } );
+		await connectProvider( anthropic, 'api-key', { apiKey: 'sk-ant-api03-testkey-abcd1234' } );
 
 		expect( readShared().providerConfigs ).toBeUndefined();
 		await expect( readProviderConfig( 'anthropic' ) ).resolves.toEqual( {
@@ -111,8 +110,8 @@ describe( 'ai settings', () => {
 		vi.stubGlobal( 'fetch', vi.fn().mockResolvedValue( { ok: false, status: 401 } ) );
 
 		await expect(
-			connectProvider( anthropic, { apiKey: 'sk-ant-api03-rejected' } )
-		).rejects.toBeInstanceOf( InvalidCredentialError );
+			connectProvider( anthropic, 'api-key', { apiKey: 'sk-ant-api03-rejected' } )
+		).rejects.toBeInstanceOf( ConnectError );
 		expect( fs.existsSync( sharedConfigPath() ) ).toBe( false );
 	} );
 
@@ -140,9 +139,9 @@ describe( 'ai settings', () => {
 	} );
 
 	it( 'selects only a connected provider, storing the id older builds read', async () => {
-		await expect( setAiProvider( 'anthropic' ) ).rejects.toBeInstanceOf( InvalidCredentialError );
+		await expect( setAiProvider( 'anthropic' ) ).rejects.toBeInstanceOf( ConnectError );
 
-		await connectProvider( anthropic, { apiKey: 'sk-ant-api03-testkey-abcd1234' } );
+		await connectProvider( anthropic, 'api-key', { apiKey: 'sk-ant-api03-testkey-abcd1234' } );
 		await expect( setAiProvider( 'anthropic' ) ).resolves.toMatchObject( {
 			provider: 'anthropic',
 		} );
@@ -179,9 +178,16 @@ describe( 'ai settings', () => {
 			} )
 		);
 
-		const settings = await connectProvider( wpcom, { access_token: 'tok', expires_in: '3600' } );
+		const settings = await connectProvider( wpcom, 'sign-in', {
+			access_token: 'tok',
+			expires_in: '3600',
+		} );
 
-		expect( settings.accounts.wpcom ).toEqual( { connected: true, summary: 'me@example.com' } );
+		expect( settings.accounts.wpcom ).toEqual( {
+			connected: true,
+			method: 'sign-in',
+			summary: 'me@example.com',
+		} );
 		expect( readShared().authToken ).toMatchObject( {
 			accessToken: 'tok',
 			expiresIn: 3600,
@@ -204,7 +210,7 @@ describe( 'ai settings', () => {
 	} );
 
 	it( 'disconnects a provider whose config expired or that the provider rejects', async () => {
-		const rejected = () => Promise.reject( new ProviderNotReadyError( 'Reconnect' ) );
+		const rejected = () => Promise.reject( new NotConnectedError( 'Reconnect' ) );
 		writeShared( {
 			providerConfigs: { spacefast: { apiKey: 'sfa_old', expiresAt: '2020-01-01T00:00:00Z' } },
 		} );
@@ -237,14 +243,15 @@ describe( 'ai settings', () => {
 		} as const;
 		writeShared( { providerConfigs: { openai: stored } } );
 		const refresh = vi.fn().mockResolvedValueOnce( { ...stored, accessToken: 'new' } );
-		const openai = { ...getProvider( 'openai' ), refresh };
+		const services = getProviderServices( 'openai' );
+		const openai = { ...services, account: { ...services.account, refresh } };
 
 		await expect( readFreshProviderConfig( openai ) ).resolves.toMatchObject( {
 			accessToken: 'new',
 		} );
 		expect( readShared().providerConfigs.openai.accessToken ).toBe( 'new' );
 
-		refresh.mockRejectedValueOnce( new ProviderNotReadyError( 'Sign in again' ) );
+		refresh.mockRejectedValueOnce( new NotConnectedError( 'Sign in again' ) );
 		await expect( readFreshProviderConfig( openai ) ).rejects.toThrow( 'Sign in again' );
 		expect( readShared().providerConfigs ).toBeUndefined();
 		const context = await readSignInContext( 'openai' );

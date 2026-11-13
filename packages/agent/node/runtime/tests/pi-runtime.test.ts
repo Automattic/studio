@@ -1,6 +1,6 @@
 import { ModelRegistry, SessionManager } from '@earendil-works/pi-coding-agent';
-import { getAiModelProviders } from '@studio/providers';
-import { getProvider } from '@studio/providers/services';
+import { findAiModel } from '@studio/providers';
+import { getProviderServices } from '@studio/providers/services';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAgent } from '@studio/agent/node/agent';
 import { createFakeHost } from '../../tests/fake-host';
@@ -203,9 +203,9 @@ const findAssistantText = ( events: AgentSessionEvent[] ): string | undefined =>
 
 // Connects through the provider serving `model`, as the CLI does.
 async function connect( model: AiModelId, token = 'wpcom-token' ) {
-	return getAiModelProviders( model )[ 0 ] === 'wpcom'
-		? getProvider( 'wpcom' ).ai!.connect( { token }, model, {} )
-		: getProvider( 'anthropic' ).ai!.connect(
+	return findAiModel( model )?.provider === 'wpcom'
+		? getProviderServices( 'wpcom' ).ai!.model( { token }, model, {} )
+		: getProviderServices( 'anthropic' ).ai!.model(
 				{ method: 'api-key', apiKey: 'sk-ant-test' },
 				model,
 				{}

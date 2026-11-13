@@ -1,4 +1,4 @@
-import { getSitesDescriptor, type SitesProviderId } from '@studio/providers';
+import { getProviderSites, type SitesProviderId } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
 import { EllipsisIcon } from 'lucide-react';
 import { useConnector } from '@/data/core';
@@ -45,7 +45,8 @@ export function ConnectedWebsite( {
 } ) {
 	const connector = useConnector();
 	const { copied, copy } = useCopyText( website.url );
-	const sites = getSitesDescriptor( provider );
+	const sites = getProviderSites( provider );
+	const { details, links } = sites.describe( website );
 	return (
 		<FieldSet aria-label={ __( 'Website' ) }>
 			<SiteCard
@@ -90,7 +91,7 @@ export function ConnectedWebsite( {
 				{ copied ? __( 'Copied' ) : '' }
 			</VisuallyHidden>
 			<FieldGroup className={ styles.connectedSiteDetails }>
-				{ sites.details( website ).map( ( detail ) => (
+				{ details.map( ( detail ) => (
 					<InfoRow key={ detail.title } title={ detail.title }>
 						{ detail.value }
 					</InfoRow>
@@ -100,7 +101,7 @@ export function ConnectedWebsite( {
 						<RelativeTime timestamp={ website.lastPullTimestamp } active={ open } />
 					</InfoRow>
 				) : null }
-				{ sites.links( website ).map( ( link ) => (
+				{ links.map( ( link ) => (
 					<Button
 						key={ link.title }
 						variant="ghost"

@@ -3,7 +3,7 @@ import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
 import {
-	getConnectionMethods,
+	getConnectMethod,
 	PROVIDER_IDS,
 	type ProviderId,
 	type AiProviderId,
@@ -98,12 +98,8 @@ export function aiSettings(
 			PROVIDER_IDS.map( ( id ) => [
 				id,
 				connected.includes( id )
-					? {
-							connected: true,
-							summary: 'sk-ant-…test',
-							method: getConnectionMethods( id )[ 0 ]?.id,
-					  }
-					: { connected: false, summary: null },
+					? { connected: true, summary: 'sk-ant-…test', method: getConnectMethod( id ).id }
+					: { connected: false },
 			] )
 		) as AiSettings[ 'accounts' ],
 	};
@@ -350,9 +346,10 @@ export function createInMemoryConnector(
 		connectProvider: async ( provider ) =>
 			aiSettings( 'wpcom', state.user ? [ 'wpcom', provider ] : [ provider ] ),
 		disconnectProvider: async () => aiSettings( 'wpcom', state.user ? [ 'wpcom' ] : [] ),
-		startProviderConnect: async () => {
-			throw new Error( 'startProviderConnect is not faked' );
-		},
+		startProviderConnect: async () => ( {
+			url: 'https://auth.example.test/sign-in',
+			handoff: { state: 'state-1' },
+		} ),
 		setAiProvider: async ( provider ) =>
 			aiSettings( provider, state.user ? [ 'wpcom', provider ] : [ provider ] ),
 		getInstalledApps: async () => installedApps(),
@@ -441,6 +438,7 @@ export function createInMemoryConnector(
 			annotatePreview: true,
 			studioLogs: true,
 			nativeSites: true,
+			loopbackSignIn: true,
 			...overrides.capabilities,
 		},
 		state,

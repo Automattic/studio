@@ -60,7 +60,7 @@ describe( 'Auth Logout Command', () => {
 
 		expect( readAuthToken ).toHaveBeenCalled();
 		expect( disconnectProvider ).toHaveBeenCalledWith(
-			expect.objectContaining( { descriptor: expect.objectContaining( { id: 'wpcom' } ) } )
+			expect.objectContaining( { id: 'wpcom' } )
 		);
 		expect( mockReportSuccess ).toHaveBeenCalledWith( 'Successfully logged out' );
 	} );

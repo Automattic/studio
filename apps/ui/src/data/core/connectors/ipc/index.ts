@@ -140,6 +140,7 @@ export function createIpcConnector(): Connector {
 			annotatePreview: true,
 			studioLogs: true,
 			nativeSites: true,
+			loopbackSignIn: true,
 		},
 
 		agenticRequiresAuth: true,
@@ -698,14 +699,14 @@ export function createIpcConnector(): Connector {
 		async getAiSettings(): Promise< AiSettings > {
 			return ( await ipcApi.getAiSettings() ) as AiSettings;
 		},
-		async connectProvider( provider, input ): Promise< AiSettings > {
-			return unwrapIpcError( ipcApi.connectAiProvider( provider, input ) );
+		async connectProvider( provider, method, input ): Promise< AiSettings > {
+			return unwrapIpcError( ipcApi.connectAiProvider( provider, method, input ) );
 		},
 		async disconnectProvider( provider ): Promise< AiSettings > {
 			return unwrapIpcError( ipcApi.disconnectAiProvider( provider ) );
 		},
-		async startProviderConnect( provider ) {
-			return unwrapIpcError( ipcApi.startProviderConnect( provider ) );
+		async startProviderConnect( provider, method ) {
+			return unwrapIpcError( ipcApi.startProviderConnect( provider, method ) );
 		},
 		async setAiProvider( provider ): Promise< AiSettings > {
 			return unwrapIpcError( ipcApi.setAiProvider( provider ) );

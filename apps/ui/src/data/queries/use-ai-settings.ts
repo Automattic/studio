@@ -1,10 +1,10 @@
-import { AI_PROVIDER_IDS, getConnection } from '@studio/providers';
+import { AI_PROVIDER_IDS, getConnectMethod } from '@studio/providers';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useConnector } from '@/data/core';
 import { ACCOUNT_SITES_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
 import type { AiSettings } from '@studio/common/lib/ai-settings';
-import type { AiProviderId, DeviceAuthorization, ProviderId } from '@studio/providers';
+import type { AiProviderId, PendingConnect, ProviderId } from '@studio/providers';
 
 // The WordPress.com account is the sign-in, so auth changes refresh it too.
 export const AI_SETTINGS_QUERY_KEY = [ 'ai-settings' ] as const;
@@ -45,15 +45,6 @@ export function useSetAiProvider() {
 	} );
 }
 
-export function useConnectProvider( provider: ProviderId ) {
-	const connector = useConnector();
-	const queryClient = useQueryClient();
-	return useMutation( {
-		mutationFn: ( input: Record< string, string > ) => connector.connectProvider( provider, input ),
-		onSuccess: ( settings ) => setProviderSettings( queryClient, provider, settings ),
-	} );
-}
-
 export function useDisconnectProvider( provider: ProviderId ) {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
@@ -63,27 +54,34 @@ export function useDisconnectProvider( provider: ProviderId ) {
 	} );
 }
 
-// Signing in on the provider's site: a device sign-in shows where to approve the code, and a
-// loopback one waits for the browser to come back. Resolves once the user is signed in.
-export function useSignIn( provider: ProviderId ) {
+// Connects the provider with `method`: a form's values, or a sign-in on the provider's site, which
+// opens it, shows where the user signs in (`pending`), and resolves once they did.
+export function useConnectProvider( provider: ProviderId ) {
 	const connector = useConnector();
-	const connect = useConnectProvider( provider );
-	const [ authorization, setAuthorization ] = useState< DeviceAuthorization | null >( null );
-	const signIn = useMutation( {
-		mutationFn: async () => {
-			if ( getConnection( provider ).kind === 'loopback' ) {
-				return connect.mutateAsync( {} );
+	const queryClient = useQueryClient();
+	const [ pending, setPending ] = useState< PendingConnect | null >( null );
+	const mutation = useMutation( {
+		mutationFn: async ( {
+			method,
+			input = {},
+		}: {
+			method: string;
+			input?: Record< string, string >;
+		} ) => {
+			if ( getConnectMethod( provider, method ).kind === 'form' ) {
+				return connector.connectProvider( provider, method, input );
 			}
-			const started = await connector.startProviderConnect( provider );
-			setAuthorization( started );
-			void connector.openExternalUrl( started.verificationUrl );
-			return connect.mutateAsync( {
-				deviceCode: started.deviceCode,
-				interval: String( started.interval ),
-				expiresAt: started.expiresAt,
-			} );
+			const started = await connector.startProviderConnect( provider, method );
+			setPending( started );
+			void connector.openExternalUrl( started.url );
+			try {
+				return await connector.connectProvider( provider, method, started.handoff );
+			} finally {
+				// Signing in again started another attempt, which owns `pending` now.
+				setPending( ( current ) => ( current === started ? null : current ) );
+			}
 		},
-		onSettled: () => setAuthorization( null ),
+		onSuccess: ( settings ) => setProviderSettings( queryClient, provider, settings ),
 	} );
-	return { ...signIn, authorization };
+	return { ...mutation, pending };
 }

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { InvalidCredentialError, ProviderNotReadyError } from '../../errors';
-import { connectOpenai, refreshOpenai, startOpenaiConnect } from '../account';
+import { ConnectError, NotConnectedError } from '../../errors';
+import { openaiAccount } from '../account';
 import { openaiAi } from '../ai';
 import type { OpenaiConfig } from '../config';
 
@@ -38,8 +38,11 @@ describe( 'openai account', () => {
 		const redirectUri = 'http://127.0.0.1:5000/auth/callback';
 		const params = async ( remembered?: Record< string, string > ) =>
 			Object.fromEntries(
-				new URL( ( await startOpenaiConnect( redirectUri, { hostId: 'host', remembered } ) ).url )
-					.searchParams
+				new URL(
+					(
+						await openaiAccount.start!( 'chatgpt', { redirectUri, hostId: 'host', remembered } )
+					).url
+				).searchParams
 			);
 
 		await expect( params() ).resolves.toMatchObject( {
@@ -59,7 +62,7 @@ describe( 'openai account', () => {
 		const input = { code: 'code', client_id: 'oaiapp_1', verifier: 'v', redirectUri: 'r' };
 		fetchMock.mockResolvedValueOnce( json( 200, tokens ) );
 
-		await expect( connectOpenai( input ) ).resolves.toMatchObject( {
+		await expect( openaiAccount.connect( 'chatgpt', input ) ).resolves.toMatchObject( {
 			clientId: 'oaiapp_1',
 			accessToken: 'access-2',
 			email: 'me@example.com',
@@ -67,16 +70,18 @@ describe( 'openai account', () => {
 		expect( String( fetchMock.mock.calls[ 0 ][ 1 ].body ) ).toContain( 'client_id=oaiapp_1' );
 
 		fetchMock.mockResolvedValueOnce( json( 200, { ...tokens, scope: 'openid email' } ) );
-		await expect( connectOpenai( input ) ).rejects.toBeInstanceOf( InvalidCredentialError );
+		await expect( openaiAccount.connect( 'chatgpt', input ) ).rejects.toBeInstanceOf(
+			ConnectError
+		);
 	} );
 
 	it( 'renews a token only when it is about to expire', async () => {
-		await expect( refreshOpenai( config( 60 * 60_000 ) ) ).resolves.toBeUndefined();
+		await expect( openaiAccount.refresh!( config( 60 * 60_000 ) ) ).resolves.toBeUndefined();
 		expect( fetchMock ).not.toHaveBeenCalled();
 
 		fetchMock.mockResolvedValueOnce( json( 200, tokens ) );
 
-		await expect( refreshOpenai( config( 60_000 ) ) ).resolves.toMatchObject( {
+		await expect( openaiAccount.refresh!( config( 60_000 ) ) ).resolves.toMatchObject( {
 			accessToken: 'access-2',
 			refreshToken: 'refresh-2',
 		} );
@@ -86,25 +91,25 @@ describe( 'openai account', () => {
 	it( 'asks to sign in again when OpenAI rejects the refresh token', async () => {
 		fetchMock.mockResolvedValueOnce( json( 401 ) );
 
-		await expect( refreshOpenai( config( 0 ) ) ).rejects.toBeInstanceOf( ProviderNotReadyError );
+		await expect( openaiAccount.refresh!( config( 0 ) ) ).rejects.toBeInstanceOf(
+			NotConnectedError
+		);
 	} );
 
 	it( 'connects models over the public API with the access token', async () => {
-		await expect( openaiAi.connect( config( 60_000 ), 'gpt-6.1-sol', {} ) ).resolves.toMatchObject(
-			{
-				piProvider: 'openai',
-				apiKey: 'old-access',
-				model: {
-					id: 'gpt-6.1-sol',
-					api: 'openai-responses',
-					baseUrl: 'https://api.openai.com/v1',
-					contextWindow: 200_000,
-					maxTokens: 32_000,
-				},
-			}
-		);
-		await expect( openaiAi.connect( undefined, 'gpt-6.1-sol', {} ) ).rejects.toBeInstanceOf(
-			ProviderNotReadyError
+		await expect( openaiAi.model( config( 60_000 ), 'gpt-6.1-sol', {} ) ).resolves.toMatchObject( {
+			piProvider: 'openai',
+			apiKey: 'old-access',
+			model: {
+				id: 'gpt-6.1-sol',
+				api: 'openai-responses',
+				baseUrl: 'https://api.openai.com/v1',
+				contextWindow: 200_000,
+				maxTokens: 32_000,
+			},
+		} );
+		await expect( openaiAi.model( undefined, 'gpt-6.1-sol', {} ) ).rejects.toBeInstanceOf(
+			NotConnectedError
 		);
 	} );
 } );

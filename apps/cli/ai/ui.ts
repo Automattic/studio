@@ -40,11 +40,11 @@ import {
 } from '@studio/common/lib/studio-assistant-quota';
 import {
 	DEFAULT_PROVIDER_ID,
-	getAiModelLabel,
+	findAiModel,
 	getDefaultAiModel,
-	getProviderDescriptor,
+	getProvider,
 	type AiModelId,
-	type ProviderId,
+	type AiProviderId,
 } from '@studio/providers';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import {
@@ -275,7 +275,7 @@ export class AiChatUI implements AiOutputAdapter {
 	>();
 	private renderedToolResultIds = new Set< string >();
 	currentModel: AiModelId = getDefaultAiModel( DEFAULT_PROVIDER_ID );
-	currentProvider: ProviderId = DEFAULT_PROVIDER_ID;
+	currentProvider: AiProviderId = DEFAULT_PROVIDER_ID;
 	private numTurns = 0;
 
 	private optionPickerContainer: Container | null = null;
@@ -1159,8 +1159,8 @@ export class AiChatUI implements AiOutputAdapter {
 		// Truncate the cwd with a leading ellipsis (preserving the meaningful
 		// suffix) when the terminal is too narrow, otherwise the welcome wraps
 		// and visually breaks the logo layout.
-		const baseInfo = `${ getAiModelLabel( this.currentModel ) } · ${
-			getProviderDescriptor( this.currentProvider ).label
+		const baseInfo = `${ findAiModel( this.currentModel )?.model.label() ?? this.currentModel } · ${
+			getProvider( this.currentProvider ).label
 		}`;
 		const sep = ' · ';
 		let secondLine: string;

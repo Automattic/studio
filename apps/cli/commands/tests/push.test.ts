@@ -5,7 +5,7 @@ import { readProviderConfig } from '@studio/common/lib/provider-config';
 import { getRemoteSites, rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { RemoteSiteError, type PushContent, type PushStatus } from '@studio/providers';
-import { getProvider } from '@studio/providers/services';
+import { getProviderServices } from '@studio/providers/services';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
@@ -55,8 +55,8 @@ vi.mock( '@studio/providers/services', async ( importOriginal ) => {
 	};
 	return {
 		...actual,
-		getProvider: ( id: keyof typeof sites ) => ( {
-			...actual.getProvider( id ),
+		getProviderServices: ( id: keyof typeof sites ) => ( {
+			...actual.getProviderServices( id ),
 			sites: sites[ id ],
 		} ),
 	};
@@ -65,7 +65,7 @@ vi.mock( 'cli/lib/tracks' );
 vi.mock( 'cli/lib/site-versions' );
 vi.mock( 'cli/lib/snapshots', () => ( { getSnapshotsFromConfig: vi.fn() } ) );
 
-const wpcomSites = getProvider( 'wpcom' ).sites!;
+const wpcomSites = getProviderServices( 'wpcom' ).sites!;
 const site = { id: 'site-1', path: '/test/site', phpVersion: '8.3' } as SiteData;
 const remoteSite = { id: 42, name: 'Live', syncSupport: 'syncable' } as SyncSite;
 
@@ -339,7 +339,7 @@ describe( 'CLI: studio push to a provider that publishes a static copy', () => {
 		slug: 'my-site',
 		teamId: 'team_1',
 	};
-	const spacefastSites = getProvider( 'spacefast' ).sites!;
+	const spacefastSites = getProviderServices( 'spacefast' ).sites!;
 	const files: PushContent = {
 		kind: 'files',
 		files: [ { path: 'index.html', size: 4, read: async () => new Uint8Array() } ],

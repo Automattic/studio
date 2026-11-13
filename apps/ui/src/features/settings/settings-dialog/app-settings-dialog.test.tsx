@@ -698,8 +698,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 				name: 'Manage',
 			} )
 		);
-		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'API key' } ) );
-		fireEvent.click( await screen.findByRole( 'button', { name: 'Disconnect' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Disconnect' } ) );
 		await waitFor( () =>
 			expect( connector.disconnectProvider ).toHaveBeenCalledWith( 'anthropic' )
 		);
@@ -865,7 +864,12 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 				name: 'Continue with ChatGPT',
 			} )
 		);
-		await waitFor( () => expect( connector.connectProvider ).toHaveBeenCalledWith( 'openai', {} ) );
+		await waitFor( () =>
+			expect( connector.connectProvider ).toHaveBeenCalledWith( 'openai', 'chatgpt', {
+				state: 'state-1',
+			} )
+		);
+		expect( connector.openExternalUrl ).toHaveBeenCalledWith( 'https://auth.example.test/sign-in' );
 		await waitFor( () => expect( connector.setAiProvider ).toHaveBeenCalledWith( 'openai' ) );
 	} );
 
@@ -878,6 +882,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 					annotatePreview: false,
 					studioLogs: false,
 					nativeSites: false,
+					loopbackSignIn: false,
 				},
 			},
 		} );
@@ -913,8 +918,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 			} )
 		);
 		await waitFor( () =>
-			expect( connector.connectProvider ).toHaveBeenCalledWith( 'anthropic', {
-				method: 'api-key',
+			expect( connector.connectProvider ).toHaveBeenCalledWith( 'anthropic', 'api-key', {
 				apiKey: '  personal-key  ',
 			} )
 		);
@@ -939,7 +943,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( await screen.findByRole( 'menuitemradio', { name: 'API key' } ) ).toBeChecked();
 		fireEvent.click( screen.getByRole( 'menuitemradio', { name: 'Claude subscription' } ) );
 		expect( await screen.findByText( 'claude setup-token' ) ).toBeVisible();
-		expect( screen.getByRole( 'button', { name: 'Copy command' } ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Copy' } ) ).toBeVisible();
 		fireEvent.change(
 			await screen.findByLabelText( 'Claude subscription token', { selector: 'input' } ),
 			{ target: { value: 'sk-ant-oat01-token' } }
@@ -947,8 +951,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
 
 		await waitFor( () =>
-			expect( connector.connectProvider ).toHaveBeenCalledWith( 'anthropic', {
-				method: 'setup-token',
+			expect( connector.connectProvider ).toHaveBeenCalledWith( 'anthropic', 'setup-token', {
 				token: 'sk-ant-oat01-token',
 			} )
 		);
@@ -980,8 +983,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		await waitFor( () => expect( save() ).toBeEnabled() );
 		fireEvent.click( save() );
 		await waitFor( () => expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic' ) );
-		expect( connector.connectProvider ).toHaveBeenCalledWith( 'anthropic', {
-			method: 'api-key',
+		expect( connector.connectProvider ).toHaveBeenCalledWith( 'anthropic', 'api-key', {
 			apiKey: '  test-key  ',
 		} );
 		await waitFor( () =>

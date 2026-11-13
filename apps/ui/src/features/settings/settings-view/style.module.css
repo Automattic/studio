@@ -63,6 +63,16 @@
 	height: var( --app-icon-size );
 }
 
+.providerSelectIcon {
+	--app-icon-size: var( --space-5 );
+
+	display: inline-grid;
+	flex: none;
+	width: var( --app-icon-size );
+	height: var( --app-icon-size );
+	place-items: center;
+}
+
 .rowTitle {
 	display: flex;
 	align-items: center;

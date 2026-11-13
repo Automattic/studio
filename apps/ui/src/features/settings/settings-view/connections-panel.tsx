@@ -60,6 +60,11 @@ function DefaultProviderRow< Id extends ProviderId >( {
 				options={ connected.map( ( id ) => ( {
 					value: id,
 					label: getProvider( id ).label,
+					icon: (
+						<span className={ styles.providerSelectIcon } aria-hidden="true">
+							<ProviderLogo provider={ id } />
+						</span>
+					),
 				} ) ) }
 				onChange={ onChange }
 			/>

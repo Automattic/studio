@@ -231,16 +231,17 @@ export function SettingsSelect< TValue extends string >( {
 }: {
 	label: string;
 	value: TValue | null;
-	options: Array< { value: TValue; label: string } >;
+	options: Array< { value: TValue; label: string; icon?: ReactNode } >;
 	placeholder?: string;
 	disabled?: boolean;
 	onChange: ( value: TValue ) => void;
 } ) {
 	const control = useContext( SettingsRowContext );
+	const selected = options.find( ( option ) => option.value === value );
 	return (
 		<Select
 			items={ options }
-			value={ options.some( ( option ) => option.value === value ) ? value : null }
+			value={ selected?.value ?? null }
 			disabled={ disabled }
 			onValueChange={ ( next ) => {
 				if ( next !== null ) {
@@ -249,11 +250,19 @@ export function SettingsSelect< TValue extends string >( {
 			} }
 		>
 			<SelectTrigger size="default" aria-label={ label } { ...control }>
-				<SelectValue placeholder={ placeholder } />
+				<SelectValue placeholder={ placeholder }>
+					{ selected?.icon ? (
+						<>
+							{ selected.icon }
+							{ selected.label }
+						</>
+					) : undefined }
+				</SelectValue>
 			</SelectTrigger>
 			<SelectContent>
 				{ options.map( ( option ) => (
-					<SelectItem key={ option.value } value={ option.value }>
+					<SelectItem key={ option.value } value={ option.value } label={ option.label }>
+						{ option.icon }
 						{ option.label }
 					</SelectItem>
 				) ) }

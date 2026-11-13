@@ -62,7 +62,7 @@ const icons: Record< string, string > = {
 	zen,
 };
 
-const tileIcons = new Set( [ copilot, gemini, spacefast, wordpressCom ] );
+const tileIcons = new Set( [ gemini, spacefast, wordpressCom ] );
 
 /** An app's bundled logo, or `fallback` when there is none or it fails to load. */
 export function AppIcon( { app, fallback }: { app?: string; fallback: ReactNode } ) {

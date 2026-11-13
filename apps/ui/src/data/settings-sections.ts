@@ -1,20 +1,21 @@
 import { getConnectMethod, getProvider, PROVIDER_IDS } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
-import { BugIcon, FileTextIcon, SettingsIcon } from 'lucide-react';
 import {
-	AppearanceIcon,
+	BugIcon,
+	FileTextIcon,
+	SettingsIcon,
+	PaletteIcon,
 	CodeIcon,
 	ExternalLinkIcon,
-	IntelligenceIcon,
+	SparklesIcon,
 	KeyboardIcon,
-	LanguageIcon,
-	McpIcon,
-	PhpIcon,
-	ShareIcon,
-	SiteSettingsIcon,
+	EarthIcon,
+	PlugIcon,
+	UploadIcon,
+	SlidersVerticalIcon,
 	SkillsIcon,
 	TerminalIcon,
-	UsageIcon,
+	GaugeIcon,
 } from '@/lib/icons';
 import type { ComponentType } from 'react';
 
@@ -95,7 +96,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					__( 'Language' ),
 					__( 'Default language for WordPress Studio.' ),
 					'language',
-					LanguageIcon
+					EarthIcon
 				),
 				setting(
 					'navigate',
@@ -203,7 +204,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 		{
 			id: 'appearance',
 			label: __( 'Appearance' ),
-			icon: AppearanceIcon,
+			icon: PaletteIcon,
 			settings: [
 				setting(
 					'navigate',
@@ -243,7 +244,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 		{
 			id: 'ai',
 			label: __( 'Providers' ),
-			icon: IntelligenceIcon,
+			icon: SparklesIcon,
 			aliases: [ __( 'Connect provider' ) ],
 			settings: [
 				setting(
@@ -269,7 +270,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 		{
 			id: 'sharing',
 			label: __( 'Sharing' ),
-			icon: ShareIcon,
+			icon: UploadIcon,
 			settings: [
 				{
 					...setting(
@@ -286,7 +287,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 		{
 			id: 'mcp',
 			label: __( 'MCP' ),
-			icon: McpIcon,
+			icon: PlugIcon,
 			aliases: [ __( 'Agent apps' ), 'Claude Code', 'ChatGPT', 'Codex', 'Cursor', 'Grok Build' ],
 			settings: [
 				setting(
@@ -300,7 +301,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 		{
 			id: 'usage',
 			label: __( 'Usage' ),
-			icon: UsageIcon,
+			icon: GaugeIcon,
 			settings: [
 				{
 					...setting(
@@ -372,7 +373,7 @@ function getSiteSections(): Section[] {
 			command: 'site-settings',
 			id: 'site',
 			label: __( 'Settings' ),
-			icon: SiteSettingsIcon,
+			icon: SlidersVerticalIcon,
 			settings: [
 				setting(
 					{ command: 'rename-site' },
@@ -464,7 +465,7 @@ function getSiteSections(): Section[] {
 		{
 			id: 'php',
 			label: __( 'PHP' ),
-			icon: PhpIcon,
+			icon: CodeIcon,
 			settings: [
 				setting(
 					'navigate',

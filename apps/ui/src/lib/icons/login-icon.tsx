@@ -5,14 +5,20 @@ export function LoginIcon( {
 	...props
 }: ComponentProps< 'svg' > & { reverse?: boolean } ) {
 	return (
-		<svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" { ...props }>
+		<svg
+			width="16"
+			height="16"
+			viewBox="0 0 256 256"
+			fill="currentColor"
+			stroke="currentColor"
+			strokeWidth="4"
+			strokeLinejoin="round"
+			aria-hidden="true"
+			{ ...props }
+		>
 			<path
-				d="M11.25 20H6C4.89543 20 4 19.1046 4 18V6C4 4.89543 4.89543 4 6 4H11.25M20 12L8.75 12M15.5 7.5L20 12L15.5 16.5"
-				transform={ reverse ? 'translate(24 0) scale(-1 1)' : undefined }
-				stroke="currentColor"
-				strokeWidth="2"
-				strokeLinecap="round"
-				strokeLinejoin="round"
+				d="M120,216a8,8,0,0,1-8,8H48a8,8,0,0,1-8-8V40a8,8,0,0,1,8-8h64a8,8,0,0,1,0,16H56V208h56A8,8,0,0,1,120,216Zm109.66-93.66-40-40a8,8,0,0,0-11.32,11.32L204.69,120H112a8,8,0,0,0,0,16h92.69l-26.35,26.34a8,8,0,0,0,11.32,11.32l40-40A8,8,0,0,0,229.66,122.34Z"
+				transform={ reverse ? 'translate(256 0) scale(-1 1)' : undefined }
 			/>
 		</svg>
 	);

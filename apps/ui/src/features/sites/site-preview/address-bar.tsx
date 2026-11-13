@@ -7,7 +7,7 @@ import {
 	DesignSystemIcon,
 	ExternalLinkIcon,
 	GlobeIcon,
-	MailIcon,
+	PaperPlaneIcon,
 	WordPressIcon,
 } from '@/lib/icons';
 import { Tooltip, TooltipContent, TooltipTrigger, Popover, Button, Input } from '@/lib/ui';
@@ -382,7 +382,7 @@ export function PreviewAddressBar( {
 		frontend: GlobeIcon,
 		admin: WordPressIcon,
 		database: DatabaseIcon,
-		email: MailIcon,
+		email: PaperPlaneIcon,
 		design: DesignSystemIcon,
 	};
 	const recentGroups: CommandGroup[] = [

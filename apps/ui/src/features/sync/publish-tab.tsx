@@ -1,13 +1,13 @@
 import { getProvider, getProviderSites, type SitesProviderId } from '@studio/providers';
 import { useQueries } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
-import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
+import { ChevronLeftIcon } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { remoteSitesQueryKey, usePublishProviders } from '@/data/queries/use-remote-sites';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { getWebsiteThumbnailUrl, RelativeTime, SiteCard } from '@/features/site-card';
-import { PlusIcon } from '@/lib/icons';
+import { ChevronRightIcon, PlusIcon } from '@/lib/icons';
 import { Button } from '@/lib/ui';
 import { PublishPanel } from './publish-panel';
 import {

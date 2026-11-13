@@ -1,6 +1,5 @@
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
-import { PlusIcon } from 'lucide-react';
 import { dismissToast, toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
@@ -10,7 +9,7 @@ import { getSnapshotUrl } from '@/data/snapshot-url';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOpenHeaderPanel } from '@/data/use-open-header-panel';
 import { useOffline } from '@/lib/hooks';
-import { DuplicateIcon, ExternalLinkIcon, GlobeIcon, ShareIcon } from '@/lib/icons';
+import { PlusIcon, DuplicateIcon, ExternalLinkIcon, GlobeIcon, UploadIcon } from '@/lib/icons';
 import { Menu } from '@/lib/ui';
 import type { SiteDetails, Snapshot } from '@/data/core';
 
@@ -75,7 +74,7 @@ export function SiteShareMenuItem( { site, disabled }: { site: SiteDetails; disa
 	return (
 		<Menu.SubmenuRoot>
 			<Menu.SubmenuTrigger disabled={ disabled }>
-				<ShareIcon />
+				<UploadIcon />
 				{ __( 'Share' ) }
 			</Menu.SubmenuTrigger>
 			<Menu.SubmenuPopup>
@@ -84,7 +83,7 @@ export function SiteShareMenuItem( { site, disabled }: { site: SiteDetails; disa
 					{ __( 'Create preview' ) }
 				</Menu.Item>
 				<Menu.Item onClick={ openSharing }>
-					<ShareIcon />
+					<UploadIcon />
 					{ __( 'Manage sharing' ) }
 				</Menu.Item>
 				{ previews.length ? (

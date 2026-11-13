@@ -3,7 +3,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { useConnector } from '@/data/core';
 import { useAgentApps, useConnectAgentApp } from '@/data/queries/use-agent-apps';
 import { AppIcon } from '@/features/sites';
-import { McpIcon } from '@/lib/icons';
+import { PlugIcon } from '@/lib/icons';
 import { Button, LogoTile } from '@/lib/ui';
 import { connectedBadge, SettingsGroup, SettingsRow } from './rows';
 import styles from './style.module.css';
@@ -63,7 +63,7 @@ function AgentAppRow( { app }: { app: AgentApp } ) {
 					app={ app.id }
 					fallback={
 						<LogoTile>
-							<McpIcon />
+							<PlugIcon />
 						</LogoTile>
 					}
 				/>

@@ -3,7 +3,7 @@ import { useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-ro
 import { __ } from '@wordpress/i18n';
 import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
-import { ChevronLeftIcon, SearchIcon, XIcon } from 'lucide-react';
+import { ChevronLeftIcon, SearchIcon } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { setProviderIntent } from '@/data/account-analytics';
 import { toast } from '@/data/app-messages';
@@ -25,6 +25,7 @@ import {
 } from '@/features/settings/settings-view';
 import { SiteSettingsForm } from '@/features/settings/site-settings-view';
 import { readLastVisited } from '@/features/sidebar';
+import { XIcon } from '@/lib/icons';
 import {
 	AlertDialog,
 	Button,

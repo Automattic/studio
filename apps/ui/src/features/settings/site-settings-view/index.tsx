@@ -18,7 +18,6 @@ import {
 	RecommendedPHPVersion,
 } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
-import { EyeIcon, EyeOffIcon } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
@@ -42,6 +41,7 @@ import {
 	validateSiteName,
 } from '@/features/sites';
 import { useOffline } from '@/lib/hooks';
+import { EyeIcon, EyeOffIcon } from '@/lib/icons';
 import { Button, IconButton, Input } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';

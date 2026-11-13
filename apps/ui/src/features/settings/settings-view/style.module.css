@@ -12,6 +12,7 @@
 }
 
 .settingsGroup {
+	--muted: inherit;
 	--surface: color-mix( in oklab, var( --muted ) 60%, var( --chrome ) );
 }
 

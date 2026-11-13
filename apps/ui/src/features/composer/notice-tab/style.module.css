@@ -1,5 +1,6 @@
 /* A tab above the composer, which overlaps its bottom edge. */
 .notice {
+	--muted: inherit;
 	--surface: var( --muted );
 
 	margin-bottom: calc( var( --space-6 ) * -1 );

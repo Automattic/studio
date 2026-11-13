@@ -5,7 +5,7 @@ import { useConnector } from '@/data/core';
 import { useCopyText } from '@/data/host/use-copy-text';
 import { useRenameSnapshot } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { getSnapshotAdminUrl, getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
+import { getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
 import { SiteCard, getWebsiteThumbnailUrl } from '@/features/site-card';
 import {
 	EllipsisIcon,
@@ -14,7 +14,6 @@ import {
 	ExternalLinkIcon,
 	PencilIcon,
 	TrashIcon,
-	WordPressIcon,
 } from '@/lib/icons';
 import {
 	Button,
@@ -50,7 +49,6 @@ function PreviewLinkActions( {
 } ) {
 	const connector = useConnector();
 	const url = getSnapshotUrl( snapshot );
-	const adminUrl = getSnapshotAdminUrl( snapshot );
 	const { copy } = useCopyText( url );
 	return (
 		<>
@@ -66,12 +64,6 @@ function PreviewLinkActions( {
 				<ExternalLinkIcon />
 				{ __( 'Visit preview' ) }
 			</Menu.Item>
-			{ adminUrl ? (
-				<Menu.Item onClick={ () => void connector.openExternalUrl( adminUrl ) }>
-					<WordPressIcon />
-					{ __( 'WordPress admin' ) }
-				</Menu.Item>
-			) : null }
 		</>
 	);
 }

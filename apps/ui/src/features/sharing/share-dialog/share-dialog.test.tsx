@@ -625,13 +625,8 @@ describe( 'ShareDialog', () => {
 		await openMenu();
 		await actions.click( await screen.findByRole( 'menuitem', { name: 'Visit preview' } ) );
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith( shareUrl );
-		// Signing in is its own action, so the preview opens the moment it is built.
 		await openMenu();
-		await actions.click( await screen.findByRole( 'menuitem', { name: 'WordPress admin' } ) );
-		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
-			'https://earlier.example.com/wp-login.php?redirect_to=https%3A%2F%2Fearlier.example.com%2Fwp-admin%2F'
-		);
-		await openMenu();
+		expect( screen.queryByRole( 'menuitem', { name: 'WordPress admin' } ) ).not.toBeInTheDocument();
 		await actions.click( await screen.findByRole( 'menuitem', { name: 'Update' } ) );
 		await waitFor( () =>
 			expect( connector.publishPreviewSite ).toHaveBeenCalledWith(

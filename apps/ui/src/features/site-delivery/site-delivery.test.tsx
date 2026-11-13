@@ -1851,7 +1851,6 @@ it.each( [ false, true, null ] )(
 			( await screen.findAllByRole( 'menuitem' ) ).map( ( item ) => item.textContent?.trim() )
 		).toEqual( [
 			'New preview',
-			'WordPress admin',
 			'Domains',
 			'Backups',
 			'Pull from live site',

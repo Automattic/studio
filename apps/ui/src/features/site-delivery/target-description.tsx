@@ -1,5 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { previewExpiry } from '@/features/sharing';
+import { isNewDestination } from './new-destination';
 import { PublishedTime } from './published-time';
 import type { PublishTarget } from './use-publish-targets';
 
@@ -24,5 +25,5 @@ export function describePublishTarget(
 		return <PublishedTime timestamp={ remote.lastPushTimestamp } />;
 	}
 
-	return remote?.lastPushTimestamp === null ? __( 'Not published yet' ) : undefined;
+	return isNewDestination( remote ) ? __( 'Not published yet' ) : undefined;
 }

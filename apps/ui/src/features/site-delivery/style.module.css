@@ -175,6 +175,15 @@
 	margin-inline-start: auto;
 }
 
+.publishAction {
+	display: grid;
+	flex: 1;
+	gap: var( --space-3 );
+}
+.publishAction > .changeStatus {
+	margin-top: 0;
+}
+
 .viewContent {
 	margin-top: calc( var( --space-3 ) + ( var( --space-8 ) - var( --text-xs--line-height ) ) / 2 );
 }

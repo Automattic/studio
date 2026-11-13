@@ -20,7 +20,7 @@ import { useIsSiteBusy } from '@/data/queries/use-sites';
 import { usePushSite, useDisconnectRemoteSite } from '@/data/queries/use-sync-site';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
-import { getSnapshotAdminUrl, getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
+import { getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { subscribeHeaderPanelRequest } from '@/data/use-open-header-panel';
 import { useOpenSettings } from '@/data/use-open-settings';
@@ -33,7 +33,6 @@ import {
 	PlusIcon,
 	PencilIcon,
 	RefreshCwIcon,
-	WordPressIcon,
 	DuplicateIcon,
 	EllipsisVerticalIcon,
 	ExternalLinkIcon,
@@ -75,6 +74,7 @@ import { DestinationRow } from './destination-row';
 import { ExistingSiteDialog } from './existing-site-dialog';
 import { HostedAccessControl, PreviewAccessControl } from './hosted-access-control';
 import { LiveSiteAction } from './live-site-action';
+import { isNewDestination } from './new-destination';
 import { ProviderLogo } from './provider-logo';
 import {
 	ProviderPicker,
@@ -162,12 +162,7 @@ export function PublishButton( {
 	const remote = selected?.remote;
 	const descriptor = selected ? getProviderSites( selected.provider ) : undefined;
 	const firstPublish = !! remote && ! remote.lastPushTimestamp;
-	const newDestination =
-		firstPublish &&
-		!! remote &&
-		'launchAfterPush' in remote &&
-		remote.launchAfterPush === true &&
-		remote.launchStatus === 'unlaunched';
+	const newDestination = isNewDestination( remote );
 	const liveSites = getQualifyingLiveSites(
 		targets.targets.flatMap( ( target ) =>
 			target.remote && getProviderSites( target.provider ).previews
@@ -289,7 +284,13 @@ export function PublishButton( {
 		!! previewsBeforeCreation &&
 		! preview.previews.some( ( item ) => ! previewsBeforeCreation.has( item.atomicSiteId ) );
 	const hasChanges = !! selected && targets.hasChanges( selected );
-	const upToDate = ! firstPublish && targets.selectedStatus?.data?.localChanged === false;
+	const upToDate = ! newDestination && targets.selectedStatus?.data?.localChanged === false;
+	const uncomparedConnection =
+		!! remote &&
+		! newDestination &&
+		! remote.lastPushTimestamp &&
+		! remote.lastPullTimestamp &&
+		targets.selectedStatus?.data?.localChanged == null;
 	const url = snapshot ? getSnapshotUrl( snapshot ) : remoteUrl;
 	const hostname = url ? new URL( url ).hostname : undefined;
 	const dashboardUrl = remote && descriptor?.dashboardUrl?.( remote );
@@ -476,7 +477,6 @@ export function PublishButton( {
 	const showNewPreview = !! ( descriptor ?? emptyDescriptor ).previews;
 	const renderPreviewActions = ( target: PublishTarget, inPanelMenu = false ) => {
 		const item = target.snapshot!;
-		const admin = getSnapshotAdminUrl( item );
 		return (
 			<>
 				<Menu.Item
@@ -496,12 +496,6 @@ export function PublishButton( {
 					<PullPreviewIcon />
 					{ __( 'Pull from preview' ) }
 				</Menu.Item>
-				{ admin && (
-					<Menu.Item onClick={ () => void connector.openExternalUrl( admin ) }>
-						<WordPressIcon />
-						{ __( 'WordPress admin' ) }
-					</Menu.Item>
-				) }
 				{ inPanelMenu && canConnectExistingSite && (
 					<>
 						<Menu.Separator />
@@ -528,16 +522,14 @@ export function PublishButton( {
 						{ __( 'Copy link' ) }
 					</Menu.Item>
 				) }
-				{ ( adminUrl || dashboardUrl ) && (
-					<Menu.Item onClick={ () => void connector.openExternalUrl( adminUrl || dashboardUrl! ) }>
-						{ adminUrl ? <WordPressIcon /> : <ExternalLinkIcon /> }
-						{ adminUrl
-							? __( 'WordPress admin' )
-							: sprintf(
-									/* translators: %s: hosting provider name. */
-									__( 'Open on %s' ),
-									getProvider( selected.provider ).label
-							  ) }
+				{ ! adminUrl && dashboardUrl && (
+					<Menu.Item onClick={ () => void connector.openExternalUrl( dashboardUrl ) }>
+						<ExternalLinkIcon />
+						{ sprintf(
+							/* translators: %s: hosting provider name. */
+							__( 'Open on %s' ),
+							getProvider( selected.provider ).label
+						) }
 					</Menu.Item>
 				) }
 				{ hostingLinks.map( ( link ) => (
@@ -764,9 +756,15 @@ export function PublishButton( {
 										: remote
 										? selectedPending
 											? __( 'Your changes will be live in a moment.' )
-											: firstPublish
+											: newDestination
 											? descriptor?.publishing.firstPublishDescription?.( remote ) ??
 											  __( 'Publish your WordPress when you’re ready.' )
+											: uncomparedConnection
+											? descriptor?.pull
+												? __(
+														'Publish changes to this site, or bring its content into WordPress Studio.'
+												  )
+												: __( 'Publish changes to this site from WordPress Studio.' )
 											: upToDate
 											? __( 'Your latest changes are live.' )
 											: __( "You have changes that aren't live yet." )

@@ -16,6 +16,7 @@ import { useSnapshots } from '@/data/queries/use-snapshots';
 import { getSnapshotName } from '@/data/snapshot-name';
 import { getSnapshotHostname } from '@/data/snapshot-url';
 import { getSyncActivity, getSyncActivityRunId, useSiteSyncActivity } from '@/data/sync-activity';
+import { isNewDestination } from './new-destination';
 
 export type PublishTarget = {
 	key: string;
@@ -201,7 +202,7 @@ export function usePublishTargets( siteId: string, open: boolean ) {
 		selected,
 		selectedStatus,
 		hasChanges: ( target: PublishTarget ) =>
-			( !! target.remote && ! target.remote.lastPushTimestamp ) ||
+			isNewDestination( target.remote ) ||
 			statuses[ targets.indexOf( target ) ]?.data?.localChanged === true,
 		select: ( target: PublishTarget ) =>
 			client.setQueryData( target.snapshot ? previewKey : key, target.key ),

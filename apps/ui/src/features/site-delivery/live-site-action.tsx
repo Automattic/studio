@@ -102,7 +102,7 @@ export function LiveSiteAction( {
 					? __( 'Publishing…' )
 					: checking
 					? __( 'Checking…' )
-					: firstPublish
+					: forceEntireSite
 					? __( 'Publish' )
 					: __( 'Publish changes' )
 				: __( 'Pull changes' ) }
@@ -131,7 +131,7 @@ export function LiveSiteAction( {
 	] as const;
 	if ( direction === 'push' )
 		return (
-			<>
+			<div className={ styles.publishAction }>
 				{ ! working && ! checking && ( previewWarning || message || selection.error ) && (
 					<p role="status" className={ styles.changeStatus }>
 						{ previewWarning }
@@ -152,7 +152,7 @@ export function LiveSiteAction( {
 					<p className={ styles.changeStatus }>{ firstPushWarning }</p>
 				) }
 				{ action }
-			</>
+			</div>
 		);
 	return (
 		<AlertDialog open onOpenChange={ ( open ) => ! open && onBack?.() }>

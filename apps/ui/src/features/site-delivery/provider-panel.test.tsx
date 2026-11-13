@@ -116,7 +116,6 @@ it( 'renders the selected provider capabilities and isolates its change dot', as
 		( await screen.findAllByRole( 'menuitem' ) ).map( ( item ) => item.textContent?.trim() )
 	).toEqual( [
 		'New preview',
-		'WordPress admin',
 		'Domains',
 		'Backups',
 		'Pull from live site',
@@ -211,7 +210,6 @@ it( 'keeps the Share menu focused on previews when multiple providers are connec
 		'Rename',
 		'Update preview',
 		'Pull from preview',
-		'WordPress admin',
 		'Connect existing site',
 		'Delete preview',
 	] );
@@ -256,7 +254,6 @@ it.each( [
 			'Rename',
 			'Update preview',
 			'Pull from preview',
-			'WordPress admin',
 			'Delete preview',
 		] );
 		expect( within( context ).getAllByRole( 'separator' ) ).toHaveLength( 1 );
@@ -479,10 +476,10 @@ it( 'keeps connected destinations separate from the previews below them', async 
 		within( menu ).queryByRole( 'menuitemradio', { name: 'lente-preview.wpcomstaging.com' } )
 	).not.toBeInTheDocument();
 	const staticSite = within( sites ).getByRole( 'menuitemradio', { name: 'lente.space.fast' } );
-	expect( staticSite ).toHaveTextContent( 'Not published yet' );
+	expect( staticSite ).not.toHaveTextContent( 'Not published yet' );
 	await user.click( staticSite );
 	expect( await within( publish ).findByLabelText( 'Local changes' ) ).toBeVisible();
-	expect( within( panel ).getByRole( 'button', { name: 'Publish' } ) ).toBeVisible();
+	expect( within( panel ).getByRole( 'button', { name: 'Publish changes' } ) ).toBeVisible();
 	expect( within( panel ).getByRole( 'button', { name: 'lente.space.fast' } ) ).toBeVisible();
 	expect( connector.createRemoteSite ).not.toHaveBeenCalled();
 	expect( connector.pushSite ).not.toHaveBeenCalled();
@@ -525,8 +522,8 @@ it( 'switches between two Spacefast sites by keyboard and restores focus', async
 	await waitFor( () => expect( menu ).not.toBeInTheDocument() );
 	expect( switcher ).toHaveFocus();
 	expect( within( panel ).getByRole( 'button', { name: 'second.space.fast' } ) ).toBeVisible();
-	expect( within( panel ).getByText( 'Not published yet' ) ).toBeVisible();
-	expect( within( panel ).getByRole( 'button', { name: 'Publish' } ) ).toBeEnabled();
+	expect( within( panel ).queryByText( 'Not published yet' ) ).not.toBeInTheDocument();
+	expect( within( panel ).getByRole( 'button', { name: 'Copy link' } ) ).toBeEnabled();
 	const row = screen.getByRole( 'button', { name: 'second.space.fast' } );
 	row.focus();
 	await user.keyboard( '{Shift>}{F10}{/Shift}' );
@@ -1066,7 +1063,7 @@ it( 'publishes everything on the first WordPress.com push and then shows the che
 	expect( screen.queryByLabelText( 'Local changes' ) ).not.toBeInTheDocument();
 } );
 
-it( 'uses Publish for a Spacefast destination before its first successful push', async () => {
+it( 'uses a neutral state for a destination with no transfer history', async () => {
 	let lastPushTimestamp: string | null = null;
 	let finish!: () => void;
 	const { connector, user } = setup( {
@@ -1074,16 +1071,19 @@ it( 'uses Publish for a Spacefast destination before its first successful push',
 			provider === 'spacefast' ? [ { ...space, lastPushTimestamp } ] : [],
 		listAccountSites: async () => [],
 		getSnapshots: async () => [],
-		getSitePublishStatus: async () => ( { localChanged: !! lastPushTimestamp } ),
+		getSitePublishStatus: async () => ( { localChanged: lastPushTimestamp ? true : null } ),
 		pushSite: async () => {
 			await new Promise< void >( ( resolve ) => ( finish = resolve ) );
 			lastPushTimestamp = space.lastPushTimestamp;
 		},
 	} );
 	const panel = await open();
-	expect( await within( panel ).findByText( 'Not published yet' ) ).toBeVisible();
-	expect( screen.getByLabelText( 'Local changes' ) ).toBeVisible();
-	await user.click( within( panel ).getByRole( 'button', { name: 'Publish' } ) );
+	expect(
+		await within( panel ).findByText( 'Publish changes to this site from WordPress Studio.' )
+	).toBeVisible();
+	expect( within( panel ).queryByText( 'Not published yet' ) ).not.toBeInTheDocument();
+	expect( screen.queryByLabelText( 'Local changes' ) ).not.toBeInTheDocument();
+	await user.click( within( panel ).getByRole( 'button', { name: 'Publish changes' } ) );
 	expect( await within( panel ).findByRole( 'button', { name: 'Publishing…' } ) ).toBeVisible();
 	expect( connector.pushSite ).toHaveBeenCalledExactlyOnceWith(
 		'spacefast',
@@ -1113,10 +1113,42 @@ it( 'hides the publish-time line when no timestamp was saved', async () => {
 		getSnapshots: async () => [],
 	} );
 	await open();
-	await screen.findByText( 'Publish your WordPress when you’re ready.' );
+	await screen.findByText( 'Your latest changes are live.' );
 	expect( screen.queryByText( 'Not published yet' ) ).not.toBeInTheDocument();
 	expect( document.querySelector( 'time' ) ).not.toBeInTheDocument();
 } );
+
+it.each( [ false, true ] )(
+	'uses the comparison after pulling an existing site before its first push: %s',
+	async ( localChanged ) => {
+		setup( {
+			getRemoteSites: async ( provider ) =>
+				provider === 'wpcom'
+					? [ { ...live, lastPushTimestamp: null, lastPullTimestamp: new Date().toISOString() } ]
+					: [],
+			getSnapshots: async () => [],
+			getSitePublishStatus: async () => ( { localChanged } ),
+		} );
+		const panel = await open();
+		expect(
+			await within( panel ).findByText(
+				localChanged ? "You have changes that aren't live yet." : 'Your latest changes are live.'
+			)
+		).toBeVisible();
+		expect(
+			within( panel ).getByRole( 'button', {
+				name: localChanged ? 'Publish changes' : 'Copy link',
+			} )
+		).toBeVisible();
+		expect( screen.queryByText( 'Not published yet' ) ).not.toBeInTheDocument();
+		expect( document.querySelector( 'time' ) ).not.toBeInTheDocument();
+		if ( localChanged ) {
+			expect( screen.getByLabelText( 'Local changes' ) ).toBeVisible();
+		} else {
+			expect( screen.queryByLabelText( 'Local changes' ) ).not.toBeInTheDocument();
+		}
+	}
+);
 
 it( 'hides the connect-more action when all publishing providers are connected', async () => {
 	const { user } = setup( { getRemoteSites: async () => [], getSnapshots: async () => [] } );
@@ -1147,6 +1179,7 @@ it.each( [ false, true ] )(
 			getRemoteSites: async ( provider ) =>
 				provider === 'wpcom' && connected ? [ destination ] : [],
 			listAccountSites: async ( provider ) => ( provider === 'wpcom' ? [ destination ] : [] ),
+			getSitePublishStatus: async () => ( { localChanged: null } ),
 			connectRemoteSite: async () => {
 				connected = true;
 			},
@@ -1156,7 +1189,14 @@ it.each( [ false, true ] )(
 		await user.click( within( menu ).getByRole( 'menuitem', { name: 'Connect existing site' } ) );
 		const dialog = await screen.findByRole( 'dialog', { name: 'Choose an existing site' } );
 		await user.click( await within( dialog ).findByRole( 'button', { name: /Live.*lente.blog/ } ) );
-		expect( await screen.findByRole( 'button', { name: 'Publish' } ) ).toBeVisible();
+		expect( await screen.findByRole( 'button', { name: 'Publish changes' } ) ).toBeVisible();
+		expect(
+			screen.getByText(
+				'Publish changes to this site, or bring its content into WordPress Studio.'
+			)
+		).toBeVisible();
+		expect( screen.queryByText( 'Not published yet' ) ).not.toBeInTheDocument();
+		expect( screen.queryByLabelText( 'Local changes' ) ).not.toBeInTheDocument();
 		expect( connector.connectRemoteSite ).toHaveBeenCalledExactlyOnceWith(
 			'wpcom',
 			site.id,
@@ -1172,13 +1212,14 @@ it( 'preserves selective publishing on the first push to an existing live site',
 	const { connector, user } = setup( {
 		getRemoteSites: async ( provider ) => ( provider === 'wpcom' ? [ destination ] : [] ),
 		listAccountSites: async ( provider ) => ( provider === 'wpcom' ? [ destination ] : [] ),
+		getSitePublishStatus: async () => ( { localChanged: null } ),
 	} );
 	await open();
 	expect( await screen.findByText( /Publishing the database replaces/ ) ).toBeVisible();
 	await user.click( screen.getByRole( 'button', { name: 'What to publish' } ) );
 	await user.click( await screen.findByRole( 'checkbox', { name: /Database/ } ) );
 	await user.keyboard( '{Escape}' );
-	await user.click( screen.getByRole( 'button', { name: /^Publish$/ } ) );
+	await user.click( screen.getByRole( 'button', { name: 'Publish changes' } ) );
 	expect( connector.pushSite ).toHaveBeenCalledWith(
 		'wpcom',
 		site.id,
@@ -1337,7 +1378,12 @@ it( 'shows which live site a preview represents and warns before publishing newe
 
 it( 'retries a delayed checkout connection without reopening the browser', async () => {
 	let connected = false;
-	const destination = { ...live, lastPushTimestamp: null };
+	const destination = {
+		...live,
+		lastPushTimestamp: null,
+		launchAfterPush: true,
+		launchStatus: 'unlaunched' as const,
+	};
 	const { connector, user } = setup( {
 		getRemoteSites: async ( provider ) =>
 			provider === 'wpcom' && connected ? [ destination ] : [],

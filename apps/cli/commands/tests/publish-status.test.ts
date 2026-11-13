@@ -95,7 +95,7 @@ it( 'does not use a different preview or a different local site baseline', async
 
 it( 'compares destinations independently across providers, including identical ids', async () => {
 	const before = await getSiteVersion( 'local', sitePath );
-	fs.writeFileSync( path.join( sitePath, 'wp-content', 'theme.css' ), 'new' );
+	fs.writeFileSync( path.join( sitePath, 'wp-content', 'theme.css' ), 'updated theme' );
 	const after = await getSiteVersion( 'local', sitePath );
 	vi.mocked( getRemoteSites ).mockImplementation( async ( provider ) => [
 		{ ...remote, localVersionId: provider === 'wpcom' ? before : after },

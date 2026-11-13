@@ -13,6 +13,7 @@ import { Button } from '@/lib/ui';
 import { AiProviders, getProviderConnectMethods, ProviderRow } from './ai-panel';
 import { ProviderLogo } from './provider-logo';
 import { connectedBadge, SettingsGroup, SettingsRow, SettingsSelect } from './rows';
+import { SpacefastProviderRow, type SpacefastConnectControl } from './spacefast-provider-row';
 import styles from './style.module.css';
 import type { AiProviderId, ProviderId, SitesProviderId } from '@studio/providers';
 
@@ -113,7 +114,13 @@ function ProviderDefaults( {
 	);
 }
 
-function HostingProviders( { providers }: { providers: SitesProviderId[] } ) {
+function HostingProviders( {
+	providers,
+	spacefast,
+}: {
+	providers: SitesProviderId[];
+	spacefast: SpacefastConnectControl;
+} ) {
 	const auth = useAuthUser();
 	const login = useLogin( { source: 'settings' } );
 	const offline = useOffline();
@@ -156,6 +163,8 @@ function HostingProviders( { providers }: { providers: SitesProviderId[] } ) {
 							</Button>
 						) : null }
 					</SettingsRow>
+				) : id === 'spacefast' ? (
+					<SpacefastProviderRow key={ id } { ...spacefast } />
 				) : (
 					<ProviderRow
 						key={ id }
@@ -168,7 +177,13 @@ function HostingProviders( { providers }: { providers: SitesProviderId[] } ) {
 	);
 }
 
-export function ProvidersPanel( { onManageCredits }: { onManageCredits: () => void } ) {
+export function ProvidersPanel( {
+	onManageCredits,
+	spacefast,
+}: {
+	onManageCredits: () => void;
+	spacefast: SpacefastConnectControl;
+} ) {
 	const { loopbackSignIn } = useConnector().capabilities;
 	const aiProviders = SETTINGS_AI_PROVIDER_IDS.filter(
 		( id ) => id === 'wpcom' || getProviderConnectMethods( id, loopbackSignIn ).length > 0
@@ -181,7 +196,7 @@ export function ProvidersPanel( { onManageCredits }: { onManageCredits: () => vo
 		<div className={ styles.preferencesPanel }>
 			<ProviderDefaults aiProviders={ aiProviders } hostingProviders={ hostingProviders } />
 			<AiProviders providers={ aiProviders } onManageCredits={ onManageCredits } />
-			<HostingProviders providers={ hostingProviders } />
+			<HostingProviders providers={ hostingProviders } spacefast={ spacefast } />
 		</div>
 	);
 }

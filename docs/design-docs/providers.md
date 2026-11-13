@@ -30,6 +30,7 @@ It describes the architecture and the rules, not the exact APIs, which are expec
 | WordPress.com (`wpcom`)                      | Studio sign-in                 | `fast`, `balanced`, `strong`; images | push, pull | _(planned)_ |
 | Anthropic (`anthropic`)                      | API key, or subscription token | Claude models                        | —          | —           |
 | OpenAI (`openai`)                            | ChatGPT plan, or API key       | GPT models; images with an API key   | —          | —           |
+| Google Gemini (`gemini`)                     | API key                        | Gemini models; images                | —          | —           |
 | Meta (`meta`)                                | API key                        | Muse models                          | —          | —           |
 | Spacefast (`spacefast`)                      | Device sign-in                 | —                                    | publish    | —           |
 | Other hosts, such as an SSH host _(planned)_ | Per host                       | —                                    | push, pull | —           |
@@ -112,7 +113,7 @@ Studio on the web runs the agent in the page, so it offers only the connect meth
 
 ### Images
 
-Image generation is available when a connected provider offers it, whichever provider serves chat. WordPress.com does, and OpenAI with an API key; a ChatGPT plan shared with Studio can't, which its `canGenerateImages( config )` says, and Meta can't either. When several providers do, the chat's provider generates the images; otherwise the first connected provider that does. The agent gets it from its host, which finds that provider, so the agent never names one.
+Image generation is available when a connected provider offers it, whichever provider serves chat. WordPress.com does, as do Google Gemini and OpenAI with an API key; a ChatGPT plan shared with Studio can't, which its `canGenerateImages( config )` says, and Meta can't. When several providers do, the chat's provider generates the images; otherwise the first connected provider that does. The agent gets it from its host, which finds that provider, so the agent never names one.
 
 ### Persisted ids
 

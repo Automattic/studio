@@ -260,7 +260,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				),
 				setting(
 					'navigate',
-					__( 'Default provider' ),
+					__( 'Default AI provider' ),
 					__( 'The provider new chats use.' ),
 					'default-provider'
 				),

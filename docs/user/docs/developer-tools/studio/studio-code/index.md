@@ -217,8 +217,9 @@ You can choose how AI responses are generated, in both the desktop app and the t
 
 -   **WordPress.com** (default): uses your WordPress.com account and AI Credits. No additional setup is required beyond logging in.
 -   **Anthropic API key**: uses your own API key for direct access to Claude. In the desktop app, connect **Anthropic** in **Settings → Providers**. In the terminal, set it with `/connect anthropic`.
+-   **Google Gemini API key**: uses your own key from [Google AI Studio](https://aistudio.google.com/apikey) for **Gemini 3.8 Flash** and **Gemini 4 Argon**. Google bills usage to the key’s project. In the desktop app, connect **Google Gemini** in **Settings → Providers**. In the terminal, set it with `/connect gemini`.
 
-With your own key, the model menu offers **Sonnet 5.5** and **Opus 5.5** instead of Fast, Balanced, and Strong. In the desktop app, choose the provider for each chat from the model menu, and set the provider new chats use with **Default provider** in **Settings → Providers**. In the terminal, switch providers with the `/provider` command.
+With your own key, the model menu offers that provider’s models, such as **Sonnet 5.5** and **Opus 5.5**, instead of Fast, Balanced, and Strong. In the desktop app, choose the provider for each chat from the model menu, and set the provider new chats use with **Default provider** in **Settings → Providers**. In the terminal, switch providers with the `/provider` command.
 
 Switching a chat between WordPress.com and Anthropic models starts a new chat, because the models don’t share memory. In the desktop app, WordPress Studio asks you to confirm first (**Start a new chat?**), and your previous chat stays in the sidebar.
 

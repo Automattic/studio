@@ -442,7 +442,7 @@ export default defineConfig(
 							from: 'packages/providers',
 							except: PROVIDERS_DESCRIPTORS.flatMap( ( file ) =>
 								file.startsWith( '*/' )
-									? [ 'wpcom', 'anthropic', 'openai', 'meta', 'spacefast' ].map(
+									? [ 'wpcom', 'anthropic', 'openai', 'gemini', 'meta', 'spacefast' ].map(
 											( dir ) => `./${ file.replaceAll( '*', dir ) }`
 									  )
 									: [ `./${ file }` ]

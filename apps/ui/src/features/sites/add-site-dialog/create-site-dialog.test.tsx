@@ -89,9 +89,8 @@ const created = ( history: { location: { pathname: string } } ) =>
 
 async function useBlueprint( create = true ) {
 	fireEvent.click( await screen.findByRole( 'button', { name: 'View Portfolio' } ) );
-	fireEvent.click( await screen.findByRole( 'button', { name: 'Use Blueprint' } ) );
-	await screen.findByLabelText( 'Site name' );
-	if ( create ) await submit();
+	fireEvent.click( await screen.findByRole( 'button', { name: 'Add site' } ) );
+	if ( ! create ) await screen.findByLabelText( 'Site name' );
 }
 
 async function submit( name = 'Add site' ) {
@@ -406,17 +405,24 @@ describe( 'Add site flow', () => {
 		expect( connector.trackEvent ).not.toHaveBeenCalled();
 	} );
 
-	it( 'uses the Blueprint title and an available name in shared setup', async () => {
-		const { connector, history } = setup();
-		connector.generateNumberedSiteName.mockResolvedValue( 'Portfolio 2' );
-		await useBlueprint();
-		await created( history );
-		expect( connector.generateNumberedSiteName ).toHaveBeenCalledWith( 'Portfolio', [] );
-		expect( connector.createSite ).toHaveBeenCalledWith(
-			expect.objectContaining( { name: 'Portfolio 2', path: '/sites/Portfolio 2' } )
-		);
-		expect( screen.queryByLabelText( 'Site name' ) ).not.toBeInTheDocument();
-	} );
+	it.each( [ 'light', 'dark' ] as const )(
+		'creates directly with an available name in %s mode',
+		async ( colorScheme ) => {
+			const { connector, history } = setup( { colorScheme } );
+			connector.generateNumberedSiteName.mockResolvedValue( 'Portfolio 2' );
+			await useBlueprint();
+			await created( history );
+			expect( connector.generateNumberedSiteName ).toHaveBeenCalledWith( 'Portfolio', [] );
+			expect( connector.createSite ).toHaveBeenCalledWith(
+				expect.objectContaining( {
+					name: 'Portfolio 2',
+					path: '/sites/Portfolio 2',
+					blueprint: portfolio.slug,
+				} )
+			);
+			expect( screen.queryByLabelText( 'Site name' ) ).not.toBeInTheDocument();
+		}
+	);
 
 	it( 'creates with Blueprint defaults and keeps details locked while pending', async () => {
 		const { connector, history, site } = setup( {
@@ -460,24 +466,16 @@ describe( 'Add site flow', () => {
 		).toHaveLength( 1 );
 		expect( screen.getByRole( 'status', { name: 'Adding site' } ) ).toBeInTheDocument();
 		expect( screen.queryByText( 'Creating site…' ) ).not.toBeInTheDocument();
-		expect( screen.getByRole( 'button', { name: 'Browse Blueprints' } ) ).toHaveAttribute(
-			'aria-disabled',
-			'true'
-		);
-		expect( screen.getByRole( 'button', { name: 'Remove Blueprint' } ) ).toHaveAttribute(
-			'aria-disabled',
-			'true'
-		);
 		expect( screen.getByRole( 'button', { name: 'Close Add site' } ) ).toHaveAttribute(
 			'aria-disabled',
 			'true'
 		);
-		expect( screen.getByRole( 'button', { name: 'Back' } ) ).toHaveAttribute(
+		expect( screen.getByRole( 'button', { name: 'Back to Blueprints' } ) ).toHaveAttribute(
 			'aria-disabled',
 			'true'
 		);
 		expect( screen.queryByText( 'Creating your site…' ) ).not.toBeInTheDocument();
-		expect( screen.getByLabelText( 'Site name' ) ).toHaveValue( 'Recipe name' );
+		expect( screen.queryByLabelText( 'Site name' ) ).not.toBeInTheDocument();
 		fireEvent.keyDown( document.activeElement!, { key: 'Escape', code: 'Escape' } );
 		expect( screen.getByRole( 'dialog', { name: 'Add site' } ) ).toBeInTheDocument();
 		await act( async () => {
@@ -525,7 +523,7 @@ describe( 'Add site flow', () => {
 		expect( screen.queryByRole( 'tablist' ) ).not.toBeInTheDocument();
 		expect( screen.queryByLabelText( 'Site name' ) ).not.toBeInTheDocument();
 		await waitFor( () =>
-			expect( screen.getByRole( 'button', { name: 'Use Blueprint' } ) ).toHaveFocus()
+			expect( screen.getByRole( 'button', { name: 'Add site' } ) ).toHaveFocus()
 		);
 		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
 		expect( connector.createSite ).not.toHaveBeenCalled();
@@ -547,9 +545,7 @@ describe( 'Add site flow', () => {
 		fireEvent.click( await screen.findByRole( 'button', { name: 'View Portfolio' } ) );
 		fireEvent.error( await screen.findByRole( 'img', { name: 'Portfolio screenshot' } ) );
 		expect( screen.queryByRole( 'img', { name: 'Portfolio screenshot' } ) ).not.toBeInTheDocument();
-		fireEvent.click( screen.getByRole( 'button', { name: 'Use Blueprint' } ) );
-		await screen.findByLabelText( 'Site name' );
-		await submit();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		await created( history );
 		expect( screen.queryByLabelText( 'Site name' ) ).not.toBeInTheDocument();
 	} );
@@ -978,13 +974,11 @@ describe( 'Add site Blueprint Tracks actions', () => {
 			expect( connector.trackEvent.mock.invocationCallOrder.at( -1 ) ).toBeLessThan(
 				connector.openExternalUrl.mock.invocationCallOrder[ 0 ]
 			);
-			await user.click( screen.getByRole( 'button', { name: 'Use Blueprint' } ) );
+			await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 			expected.push( [
 				TRACKS_EVENTS.BLUEPRINT_CREATE_SITE_INTENT,
 				{ ...props, placement: 'add_site_blueprint_details' },
 			] );
-			await screen.findByLabelText( 'Site name' );
-			await submit();
 			await created( history );
 			expect( blueprintEvents( connector ) ).toStrictEqual( expected );
 			expect( connector.trackEvent.mock.invocationCallOrder.at( -1 ) ).toBeLessThan(
@@ -1067,7 +1061,7 @@ describe( 'Add site Blueprint Tracks actions', () => {
 					isWordPress: true,
 				} );
 			await user.click( await screen.findByRole( 'button', { name: 'View Portfolio' } ) );
-			await user.click( screen.getByRole( 'button', { name: 'Use Blueprint' } ) );
+			await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 			await screen.findByLabelText( 'Site name' );
 			expect( connector.createSite ).not.toHaveBeenCalled();
 			expect( blueprintEvents( connector ) ).toStrictEqual( [
@@ -1116,9 +1110,7 @@ describe( 'Add site Blueprint Tracks actions', () => {
 			await user.click( screen.getByRole( 'button', { name: 'View Portfolio' } ) );
 			await user.click( screen.getByRole( 'button', { name: 'Preview in browser' } ) );
 			expect( connector.openExternalUrl ).toHaveBeenCalledOnce();
-			await user.click( screen.getByRole( 'button', { name: 'Use Blueprint' } ) );
-			await screen.findByLabelText( 'Site name' );
-			await submit();
+			await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 			await created( history );
 			expect( blueprintEvents( connector ).map( ( [ name ] ) => name ) ).toEqual( [
 				TRACKS_EVENTS.BLANK_SITE_SELECTED,
@@ -1150,9 +1142,7 @@ describe( 'Add site Blueprint Tracks actions', () => {
 		await user.click( await screen.findByRole( 'button', { name: `View ${ sensitive.title }` } ) );
 		await user.click( screen.getByRole( 'button', { name: 'Preview in browser' } ) );
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith( sensitive.playground_url );
-		await user.click( screen.getByRole( 'button', { name: 'Use Blueprint' } ) );
-		await screen.findByLabelText( 'Site name' );
-		await submit();
+		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		await created( history );
 		expect( blueprintEvents( connector ) ).toStrictEqual( [
 			[ TRACKS_EVENTS.BLUEPRINT_VIEWED, { blueprint_slug: sensitive.slug } ],

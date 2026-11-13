@@ -4,7 +4,7 @@ import path from 'node:path';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getSitePublishStatus } from '@studio/common/sites/publish-status';
 import { getSiteVisibility, setSiteVisibility } from '@studio/common/sites/remote-sites';
-import { getProvider } from '@studio/providers/services';
+import { getProviderServices } from '@studio/providers/services';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { startLocalServer, type LocalServer } from '../index';
 
@@ -52,8 +52,12 @@ it( 'uses the shared visibility implementation for reads and writes', async () =
 	} );
 	expect( response.status ).toBe( 200 );
 	expect( await response.json() ).toEqual( details );
-	expect( getSiteVisibility ).toHaveBeenCalledWith( getProvider( 'wpcom' ), 42 );
-	expect( setSiteVisibility ).toHaveBeenCalledWith( getProvider( 'wpcom' ), 42, 'coming-soon' );
+	expect( getSiteVisibility ).toHaveBeenCalledWith( getProviderServices( 'wpcom' ), 42 );
+	expect( setSiteVisibility ).toHaveBeenCalledWith(
+		getProviderServices( 'wpcom' ),
+		42,
+		'coming-soon'
+	);
 } );
 it( 'rejects invalid settings and unauthenticated writes', async () => {
 	const url = `${ server.url }/api/wpcom/sites/42/visibility`;
@@ -90,8 +94,12 @@ it( 'routes provider visibility through the shared service', async () => {
 		body: JSON.stringify( { visibility: 'public' } ),
 	} );
 	expect( response.status ).toBe( 200 );
-	expect( getSiteVisibility ).toHaveBeenCalledWith( getProvider( 'wpcom' ), '42' );
-	expect( setSiteVisibility ).toHaveBeenCalledWith( getProvider( 'wpcom' ), '42', 'public' );
+	expect( getSiteVisibility ).toHaveBeenCalledWith( getProviderServices( 'wpcom' ), '42' );
+	expect( setSiteVisibility ).toHaveBeenCalledWith(
+		getProviderServices( 'wpcom' ),
+		'42',
+		'public'
+	);
 } );
 
 it( 'routes Spacefast restricted access and choice availability without losing metadata', async () => {
@@ -112,9 +120,9 @@ it( 'routes Spacefast restricted access and choice availability without losing m
 	} );
 	expect( response.status ).toBe( 200 );
 	expect( await response.json() ).toEqual( spaceDetails );
-	expect( getSiteVisibility ).toHaveBeenCalledWith( getProvider( 'spacefast' ), 'spc_1' );
+	expect( getSiteVisibility ).toHaveBeenCalledWith( getProviderServices( 'spacefast' ), 'spc_1' );
 	expect( setSiteVisibility ).toHaveBeenCalledWith(
-		getProvider( 'spacefast' ),
+		getProviderServices( 'spacefast' ),
 		'spc_1',
 		'private'
 	);

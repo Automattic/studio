@@ -128,13 +128,13 @@ import { readGlobalStyles, readThemeDetails } from '@studio/common/sites/site-id
 import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import { readSiteSource, type SiteSourceFile } from '@studio/common/sites/site-source';
 import {
-	getAiModel,
-	getRedirectUrl,
-	isAiModelId,
+	findAiModel,
+	getProvider,
 	normalizeProviderId,
 	toStoredProviderId,
 } from '@studio/providers';
-import { getProvider } from '@studio/providers/services';
+import { getProviderServices } from '@studio/providers/services';
+import { getSignInUrl } from '@studio/providers/wpcom';
 import { __ } from '@wordpress/i18n';
 import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
@@ -367,7 +367,7 @@ export async function setAiSessionModel(
 	sessionId: string,
 	model: string
 ): Promise< void > {
-	if ( ! isAiModelId( model ) ) {
+	if ( ! findAiModel( model ) ) {
 		throw new Error( `Unknown AI model: ${ model }` );
 	}
 	await appendModelChangeEntry( getSessionsDirectory(), sessionId, '', model );
@@ -383,7 +383,7 @@ export async function setAiSessionProvider(
 	if ( ! provider ) {
 		throw new Error( `Unknown AI provider: ${ requested }` );
 	}
-	if ( ! getAiModel( provider, model ) ) {
+	if ( ! getProvider( provider ).ai?.models.some( ( { id } ) => id === model ) ) {
 		throw new Error( `Model ${ model } is not served by provider ${ provider }` );
 	}
 	await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.session_context', {
@@ -940,7 +940,7 @@ export async function authenticate(
 	void recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH_STARTED, props ).catch( () => undefined );
 	try {
 		const locale = await getUserLocaleWithFallback();
-		const authUrl = getRedirectUrl( 'wpcom', {
+		const authUrl = getSignInUrl( {
 			redirectUri: `${ PROTOCOL_PREFIX }://auth`,
 			locale,
 			state: attempt.auth_attempt_id,
@@ -961,7 +961,7 @@ export async function getAuthenticationToken() {
 }
 
 export async function clearAuthenticationToken() {
-	await disconnectProvider( getProvider( 'wpcom' ) );
+	await disconnectProvider( getProviderServices( 'wpcom' ) );
 	setSentryWpcomUserIdMain( undefined );
 }
 

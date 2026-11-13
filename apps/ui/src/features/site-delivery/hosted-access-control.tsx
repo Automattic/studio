@@ -5,7 +5,7 @@ import { ChevronDownIcon, EyeIcon, EyeOffIcon, ExternalLinkIcon } from '@/lib/ic
 import { Button, Menu } from '@/lib/ui';
 import styles from './style.module.css';
 import type { useSiteVisibility } from '@/data/queries/use-site-visibility';
-import type { SiteVisibility, SitesDescriptor } from '@studio/providers';
+import type { SiteVisibility, ProviderSitesInfo } from '@studio/providers';
 
 export function HostedAccessControl( {
 	state,
@@ -17,7 +17,7 @@ export function HostedAccessControl( {
 	state: ReturnType< typeof useSiteVisibility >;
 	disabled: boolean;
 	fallback?: SiteVisibility;
-	getOptions: NonNullable< SitesDescriptor[ 'visibilityOptions' ] >;
+	getOptions: NonNullable< ProviderSitesInfo[ 'visibilityOptions' ] >;
 	managementLink?: { title: string; url: string };
 } ) {
 	const [ open, setOpen ] = useState( false );

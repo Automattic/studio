@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { InvalidCredentialError, ProviderNotReadyError } from '../../errors';
-import { spacefastProvider } from '../index';
+import { ConnectError, NotConnectedError } from '../../errors';
+import { spacefastServices } from '../services';
 
 afterEach( () => {
 	vi.unstubAllGlobals();
@@ -13,12 +13,12 @@ it( 'says when the user declined the sign-in', async () => {
 	);
 
 	await expect(
-		spacefastProvider.connect( {
+		spacefastServices.account.connect( 'sign-in', {
 			deviceCode: 'dev_1',
 			interval: '1',
 			expiresAt: new Date( Date.now() + 60_000 ).toISOString(),
 		} )
-	).rejects.toEqual( new InvalidCredentialError( 'Spacefast sign-in was declined.', 'denied' ) );
+	).rejects.toEqual( new ConnectError( 'Spacefast sign-in was declined.', 'denied' ) );
 } );
 
 it( 'asks to connect again when the key no longer works', async () => {
@@ -29,8 +29,8 @@ it( 'asks to connect again when the key no longer works', async () => {
 		)
 	);
 
-	await expect( spacefastProvider.sites!.list( { apiKey: 'sfa_old' } ) ).rejects.toBeInstanceOf(
-		ProviderNotReadyError
+	await expect( spacefastServices.sites!.list( { apiKey: 'sfa_old' } ) ).rejects.toBeInstanceOf(
+		NotConnectedError
 	);
 } );
 
@@ -57,6 +57,6 @@ it( 'keeps the team slug for site-specific dashboard links', async () => {
 				)
 		)
 	);
-	const [ site ] = await spacefastProvider.sites!.list( { apiKey: 'test' } );
+	const [ site ] = await spacefastServices.sites!.list( { apiKey: 'test' } );
 	expect( site ).toMatchObject( { teamSlug: 'studio', slug: 'example' } );
 } );

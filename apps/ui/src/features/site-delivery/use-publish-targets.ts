@@ -1,5 +1,5 @@
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
-import { getSitesDescriptor, type SitesProviderId } from '@studio/providers';
+import { getProviderSites, type SitesProviderId } from '@studio/providers';
 import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { useConnector, type RemoteSiteConnection, type Snapshot } from '@/data/core';
@@ -44,7 +44,7 @@ export function usePublishTargets( siteId: string, open: boolean ) {
 			staleTime: 30_000,
 		} ) ),
 	} );
-	const previewProvider = providers.find( ( id ) => getSitesDescriptor( id ).previews );
+	const previewProvider = providers.find( ( id ) => getProviderSites( id ).previews );
 	useEffect( () => {
 		if ( snapshots.dataUpdatedAt && previewProvider ) {
 			void client.invalidateQueries( { queryKey: remoteSitesQueryKey( previewProvider, siteId ) } );
@@ -54,7 +54,7 @@ export function usePublishTargets( siteId: string, open: boolean ) {
 		.filter( ( snapshot ) => snapshot.localSiteId === siteId && ! isSnapshotExpired( snapshot ) )
 		.sort( ( a, b ) => b.date - a.date );
 	const targets: PublishTarget[] = providers.flatMap( ( provider, index ) => {
-		const descriptor = getSitesDescriptor( provider );
+		const descriptor = getProviderSites( provider );
 		const stored = connections[ index ].data ?? [];
 		const remotes = accountSites[ index ].data
 			? descriptor.withDetails( stored, accountSites[ index ].data! )
@@ -83,7 +83,7 @@ export function usePublishTargets( siteId: string, open: boolean ) {
 						! targets.some(
 							( target ) =>
 								target.remote &&
-								getSitesDescriptor( target.provider ).previews?.matchesSite(
+								getProviderSites( target.provider ).previews?.matchesSite(
 									target.remote,
 									snapshot.atomicSiteId
 								)
@@ -111,7 +111,7 @@ export function usePublishTargets( siteId: string, open: boolean ) {
 			targets.find(
 				( target ) =>
 					target.remote &&
-					getSitesDescriptor( target.provider ).previews?.matchesSite(
+					getProviderSites( target.provider ).previews?.matchesSite(
 						target.remote,
 						savedPreview.atomicSiteId
 					)

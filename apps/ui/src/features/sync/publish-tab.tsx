@@ -1,4 +1,4 @@
-import { getProviderDescriptor, getSitesDescriptor, type SitesProviderId } from '@studio/providers';
+import { getProvider, getProviderSites, type SitesProviderId } from '@studio/providers';
 import { useQueries } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
@@ -145,7 +145,7 @@ function PublishedSites( {
 			<ul className={ styles.sites }>
 				{ tab.published.map( ( { provider, website } ) => {
 					const address = siteAddress( website );
-					const { label } = getProviderDescriptor( provider );
+					const { label } = getProvider( provider );
 					const transfer =
 						activity?.kind === 'pending' &&
 						( activity.provider ?? 'wpcom' ) === provider &&
@@ -208,8 +208,8 @@ function DestinationPicker( { tab }: { tab: PublishTabState } ) {
 			<h2 className={ styles.heading }>{ __( 'Where do you want to publish?' ) }</h2>
 			<ul className={ styles.options }>
 				{ tab.providers.map( ( provider ) => {
-					const { label } = getProviderDescriptor( provider );
-					const { intro } = getSitesDescriptor( provider );
+					const { label } = getProvider( provider );
+					const { intro } = getProviderSites( provider );
 					return (
 						<li key={ provider }>
 							<Button

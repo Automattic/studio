@@ -3,7 +3,7 @@ import { useConnector } from '@/data/core';
 import { getSnapshotHostname } from '@/data/snapshot-url';
 import type { Snapshot } from '@/data/core';
 
-export const previewStatusQueryKey = ( snapshot: Snapshot | undefined ) => [
+const previewStatusQueryKey = ( snapshot: Snapshot | undefined ) => [
 	'preview-status',
 	snapshot?.userId,
 	snapshot?.localSiteId,

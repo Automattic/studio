@@ -6,7 +6,6 @@ import { useSiteAgentActivity } from '@/data/agent-runs/use-agent-run';
 import { sitePinKey } from '@/data/queries/use-sidebar-pins';
 import { useSiteChatDraft } from '@/data/queries/use-site-chat-draft';
 import { useIsSiteStarting, useIsSiteStopping, useSiteOperation } from '@/data/queries/use-sites';
-import { useSiteSyncActivity } from '@/data/sync-activity';
 import { useOpenSite } from '@/data/use-open-site';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
@@ -24,7 +23,6 @@ import {
 	SidebarMenuLabel,
 } from '@/lib/ui';
 import { useRowPressed, useSelectableRow } from './selection';
-import { SiteAgentActivityIndicator } from './site-activity-indicator';
 import { SiteChats } from './site-chats';
 import { SiteRowMenu } from './site-row-menu';
 import { getSiteStatus } from './site-status';
@@ -92,18 +90,6 @@ export function SiteSection( {
 	const isStopping = useIsSiteStopping( site.id );
 	const operation = useSiteOperation( site );
 	const status = getSiteStatus( site, isStarting, isStopping, operation );
-	const syncActivity = useSiteSyncActivity( site.id );
-	// Import gets a row indicator of its own alongside push/pull: it is the only
-	// way to tell which site a long-running import belongs to when several are in
-	// flight, and it is a local operation, so it doesn't read as "syncing".
-	const pendingDirection = syncActivity?.kind === 'pending' ? syncActivity.direction : undefined;
-	const siteActivity =
-		pendingDirection === 'import'
-			? 'import'
-			: pendingDirection === 'push' || pendingDirection === 'pull'
-			? 'sync'
-			: undefined;
-	const displayActivity = siteActivity ?? 'idle';
 	const openSite = useOpenSite( { animateSelection: ! ( onOpen && isActive && expanded ) } );
 	const preview = useOptionalSessionPreviewUI();
 	const runLayoutTransition = useUserWorkspaceLayoutTransition( site.id );
@@ -147,7 +133,6 @@ export function SiteSection( {
 							{ status === 'running' ? <NotificationDot position="icon" /> : null }
 						</span>
 						<div className={ styles.siteText }>
-							<SiteAgentActivityIndicator activity={ displayActivity } />
 							<SidebarMenuLabel
 								render={ <button type="button" /> }
 								className={ status === 'transitioning' ? 'studio-shimmer' : undefined }

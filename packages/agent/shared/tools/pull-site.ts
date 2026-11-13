@@ -1,4 +1,4 @@
-import { getProviderDescriptor, getSitesDescriptor, parseRemoteSite } from '@studio/providers';
+import { getProvider, getProviderSites, parseRemoteSite } from '@studio/providers';
 import { Type } from 'typebox';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { textResult } from './utils';
@@ -26,9 +26,9 @@ export const pullSiteTool = defineTool(
 	async ( args, context ) => {
 		try {
 			const { provider, identifier } = parseRemoteSite( args.remoteSite );
-			if ( ! getSitesDescriptor( provider ).pull ) {
+			if ( ! getProviderSites( provider ).pull ) {
 				throw new Error(
-					`${ getProviderDescriptor( provider ).label } sites can only be published to, not pulled.`
+					`${ getProvider( provider ).label } sites can only be published to, not pulled.`
 				);
 			}
 			const site = await context.host.sites.resolve( args.nameOrPath );

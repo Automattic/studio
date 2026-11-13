@@ -150,7 +150,7 @@ it( 'keeps icon-only annotation available with publishing feedback', async () =>
 		webview,
 		Object.assign( new Event( 'did-start-navigation' ), { isMainFrame: true, isInPlace: false } )
 	);
-	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeDisabled();
+	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeEnabled();
 	expect( screen.queryByRole( 'menuitemcheckbox', { name: 'Annotate' } ) ).not.toBeInTheDocument();
 	expect( screen.getByRole( 'button', { name: /^(Share|Publish)…$/ } ) ).toBeInTheDocument();
 	expect( headerButtons( 'Send 1 annotation' ) ).toHaveLength( 0 );

@@ -1,6 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
 import { z } from 'zod';
-import { ProviderNotReadyError, RemoteSiteError } from '../../errors';
+import { NotConnectedError, RemoteSiteError } from '../../errors';
 import {
 	checkBackupSize,
 	fetchLatestRewindId,
@@ -15,10 +15,10 @@ import {
 import { enableReprintExporter, getReprintApiUrl, installReprintPublicKey } from './reprint';
 import { createTusUpload } from './upload';
 import { getWpcomSiteVisibility, setWpcomSiteVisibility } from './visibility';
-import type { SitesService } from '../../types';
+import type { SitesServices } from '../../types';
 import type { WpcomConfig } from '../config';
-import type { SyncSite } from '../site';
 import type { ImportResponse } from './schemas';
+import type { SyncSite } from './site';
 
 const POLL_INTERVAL_MS = 3000;
 // Remote imports and backups can sit on one progress value for a long time on
@@ -27,7 +27,7 @@ const MAX_STALLED_POLLS = ( 60 * 60 * 1000 ) / POLL_INTERVAL_MS;
 
 function requireToken( config: WpcomConfig | undefined ): string {
 	if ( ! config?.token ) {
-		throw new ProviderNotReadyError( __( 'Log in to WordPress.com to sync sites.' ) );
+		throw new NotConnectedError( __( 'Log in to WordPress.com to sync sites.' ) );
 	}
 	return config.token;
 }
@@ -50,7 +50,7 @@ async function step< T >( message: string, code: string, run: () => Promise< T >
 	try {
 		return await run();
 	} catch ( error ) {
-		if ( error instanceof RemoteSiteError || error instanceof ProviderNotReadyError ) {
+		if ( error instanceof RemoteSiteError || error instanceof NotConnectedError ) {
 			throw error;
 		}
 		if ( error instanceof z.ZodError ) {
@@ -88,7 +88,7 @@ function getImportFailureMessage( response: Extract< ImportResponse, { status: '
 	return __( 'Something went wrong while updating the live site.' );
 }
 
-export const wpcomSites: SitesService< WpcomConfig, SyncSite > = {
+export const wpcomSites: SitesServices< WpcomConfig, SyncSite > = {
 	visibility: {
 		get: ( config, id ) => getWpcomSiteVisibility( requireToken( config ), Number( id ) ),
 		set: ( config, id, value ) =>

@@ -1,6 +1,6 @@
 import { getRemoteSites } from '@studio/common/lib/remote-sites';
 import { getCurrentUserId } from '@studio/common/lib/shared-config';
-import { getSitesDescriptor, type SitesProviderId } from '@studio/providers';
+import { getProviderSites, type SitesProviderId } from '@studio/providers';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getSnapshotsFromConfig } from 'cli/lib/cli-config/snapshots';
 import { getSiteVersion } from 'cli/lib/site-versions';
@@ -18,7 +18,7 @@ export async function runCommand(
 	let version = connection.localVersionId;
 	// An upgraded preview is still the same remote site. Only use its baseline if
 	// no later transfer has replaced it; null explicitly invalidates partial transfers.
-	if ( version === undefined && getSitesDescriptor( provider ).previews ) {
+	if ( version === undefined && getProviderSites( provider ).previews ) {
 		const userId = await getCurrentUserId();
 		const snapshot = userId
 			? ( await getSnapshotsFromConfig( userId ) ).find(

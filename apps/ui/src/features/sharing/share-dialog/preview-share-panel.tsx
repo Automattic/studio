@@ -1,6 +1,5 @@
 import { getSnapshotExpiry } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
-import { EllipsisIcon, RefreshCwIcon } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type RefObject } from 'react';
 import { useConnector } from '@/data/core';
 import { useCopyText } from '@/data/host/use-copy-text';
@@ -28,11 +27,17 @@ import {
 	InputGroupAddon,
 	Menu,
 	Spinner,
+	Select,
+	SelectTrigger,
+	SelectValue,
+	SelectContent,
+	SelectItem,
 	VisuallyHidden,
 } from '@/lib/ui';
 import styles from './style.module.css';
 import type { PreviewManagementAction } from './preview-management-dialog';
 import type { Snapshot } from '@/data/core';
+import type { SyncSite } from '@studio/common/types/sync';
 
 function PreviewLinkActions( {
 	snapshot,
@@ -160,6 +165,8 @@ export function RenamePreview( { snapshot, onDone }: { snapshot: Snapshot; onDon
 
 export function PreviewSharePanel( {
 	primaryAction,
+	connectedSites,
+	qualifyingSites,
 	previews,
 	busy,
 	creating,
@@ -175,6 +182,8 @@ export function PreviewSharePanel( {
 	onManagePreview,
 }: {
 	primaryAction: RefObject< HTMLButtonElement | null >;
+	connectedSites: SyncSite[];
+	qualifyingSites: SyncSite[];
 	previews: Snapshot[];
 	busy: boolean;
 	creating: boolean;
@@ -186,9 +195,18 @@ export function PreviewSharePanel( {
 	restriction?: string;
 	canCreate: boolean;
 	notice?: string;
-	onPublish: ( hostname?: string ) => void;
+	onPublish: ( hostname?: string, liveSite?: string ) => void;
 	onManagePreview: ( action: PreviewManagementAction ) => void;
 } ) {
+	const [ liveSite, setLiveSite ] = useState( 'none' );
+	// The picker is for a new preview; an update keeps the live site the preview already shows.
+	const choosing = qualifyingSites.length > 1;
+	const create = () => onPublish( undefined, choosing ? liveSite : undefined );
+	const update = ( item: Snapshot ) =>
+		onPublish(
+			getSnapshotHostname( item ),
+			choosing ? String( item.liveSiteId ?? 'none' ) : undefined
+		);
 	const locale = useUserLocale();
 	const connector = useConnector();
 	const selectionId = useId();
@@ -221,7 +239,7 @@ export function PreviewSharePanel( {
 					} );
 				} }
 			>
-				<RenameIcon />
+				<PencilIcon />
 				{ __( 'Rename' ) }
 			</Menu.Item>
 			<Menu.Separator />
@@ -270,6 +288,28 @@ export function PreviewSharePanel( {
 
 	return (
 		<div className={ styles.panel }>
+			{ choosing ? (
+				<Field>
+					<FieldLabel>{ __( 'Live site' ) }</FieldLabel>
+					<Select
+						value={ liveSite }
+						onValueChange={ ( value ) => setLiveSite( value ?? 'none' ) }
+						disabled={ locked }
+					>
+						<SelectTrigger aria-label={ __( 'Live site' ) }>
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="none">{ __( 'None' ) }</SelectItem>
+							{ qualifyingSites.map( ( site ) => (
+								<SelectItem key={ site.id } value={ String( site.id ) }>
+									{ site.name || site.url }
+								</SelectItem>
+							) ) }
+						</SelectContent>
+					</Select>
+				</Field>
+			) : null }
 			{ snapshot ? (
 				<div className={ styles.previewListWrap }>
 					<ul className={ styles.previewList } aria-label={ __( 'Previews' ) }>
@@ -277,6 +317,7 @@ export function PreviewSharePanel( {
 							const title =
 								item.name ||
 								sprintf( __( 'Preview %d' ), item.sequence ?? previews.length - index );
+							const live = connectedSites.find( ( site ) => site.id === item.liveSiteId );
 							const selected = item.atomicSiteId === snapshot.atomicSiteId;
 							return (
 								<li
@@ -311,10 +352,14 @@ export function PreviewSharePanel( {
 												<ExternalLinkIcon className={ styles.previewExternalIcon } />
 											</a>
 										}
-										description={ previewExpiry( item, locale, {
-											month: 'short',
-											day: 'numeric',
-										} ) }
+										description={
+											<>
+												{ live ? (
+													<div>{ sprintf( __( 'Changes to %s' ), live.name || live.url ) }</div>
+												) : null }
+												{ previewExpiry( item, locale, { month: 'short', day: 'numeric' } ) }
+											</>
+										}
 										actions={
 											<div onClick={ ( event ) => event.stopPropagation() }>
 												<Menu.Root modal={ false }>
@@ -344,7 +389,7 @@ export function PreviewSharePanel( {
 															locked={ locked }
 															onUpdate={ () => {
 																setSelectedId( item.atomicSiteId );
-																onPublish( getSnapshotHostname( item ) );
+																update( item );
 															} }
 														/>
 														{ managementItems( item ) }
@@ -373,7 +418,7 @@ export function PreviewSharePanel( {
 				size="lg"
 				aria-busy={ creating || undefined }
 				disabled={ locked || ! canCreate }
-				onClick={ ! snapshot && error && onRetry ? onRetry : () => onPublish() }
+				onClick={ ! snapshot && error && onRetry ? onRetry : create }
 			>
 				{ creating ? <Spinner data-icon="inline-start" aria-hidden="true" /> : null }
 				{ creating

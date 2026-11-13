@@ -1,6 +1,6 @@
 import { getQualifyingLiveSites } from '@studio/common/lib/live-preview-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import { getProviderDescriptor, getSitesDescriptor, type SitesProviderId } from '@studio/providers';
+import { getProvider, getProviderSites, type SitesProviderId } from '@studio/providers';
 import { useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useRef, useState } from 'react';
@@ -116,7 +116,7 @@ export function PublishButton( {
 	const openSettings = useOpenSettings();
 	const accountsReady = user.isSuccess && accounts.isSuccess;
 	const connectedProviders = targets.providers.filter( ( provider ) =>
-		getProviderDescriptor( provider ).connection.kind === 'redirect'
+		getProvider( provider ).account.methods.some( ( method ) => method.kind === 'redirect' )
 			? !! user.data
 			: accounts.data?.accounts[ provider ].connected
 	);
@@ -154,7 +154,7 @@ export function PublishButton( {
 	const selected = targets.selected;
 	const snapshot = selected?.snapshot;
 	const remote = selected?.remote;
-	const descriptor = selected ? getSitesDescriptor( selected.provider ) : undefined;
+	const descriptor = selected ? getProviderSites( selected.provider ) : undefined;
 	const firstPublish = !! remote && ! remote.lastPushTimestamp;
 	const newDestination =
 		firstPublish &&
@@ -164,7 +164,7 @@ export function PublishButton( {
 		remote.launchStatus === 'unlaunched';
 	const liveSites = getQualifyingLiveSites(
 		targets.targets.flatMap( ( target ) =>
-			target.remote && getSitesDescriptor( target.provider ).previews
+			target.remote && getProviderSites( target.provider ).previews
 				? [ target.remote as SyncSite ]
 				: []
 		)
@@ -190,11 +190,11 @@ export function PublishButton( {
 			: undefined ) ??
 		orderedPublishProviders( connectedProviders )[ 0 ] ??
 		targets.providers[ 0 ];
-	const emptyDescriptor = getSitesDescriptor( emptyDestination );
+	const emptyDescriptor = getProviderSites( emptyDestination );
 	const previewsCapability =
 		( descriptor ?? emptyDescriptor ).previews ??
 		( remote && targets.previewProvider && connectedProviders.includes( targets.previewProvider )
-			? getSitesDescriptor( targets.previewProvider ).previews
+			? getProviderSites( targets.previewProvider ).previews
 			: undefined );
 	const pullTarget =
 		pullRequest &&
@@ -204,7 +204,7 @@ export function PublishButton( {
 				( ! pullRequest.provider || target.provider === pullRequest.provider ) &&
 				( pullRequest.remoteSiteId === undefined ||
 					target.remote.id === pullRequest.remoteSiteId ) &&
-				getSitesDescriptor( target.provider ).pull
+				getProviderSites( target.provider ).pull
 		);
 	const showLivePull =
 		!! pullTarget?.remote && accountsReady && ! needsAccount && ! targets.loadingConnections;
@@ -230,7 +230,7 @@ export function PublishButton( {
 	const checkoutUrl = activeCheckout?.url;
 	const openingCheckout = !! activeCheckout && ! checkoutUrl && preparing === 'checkout';
 	const checkoutInProgress = openingCheckout || !! checkoutUrl;
-	const checkoutProvider = activeCheckout && getProviderDescriptor( activeCheckout.provider ).label;
+	const checkoutProvider = activeCheckout && getProvider( activeCheckout.provider ).label;
 	const openingDescription = checkoutProvider
 		? sprintf(
 				/* translators: %s: hosting provider name. */
@@ -284,11 +284,11 @@ export function PublishButton( {
 	const adminUrl = remote && descriptor?.adminUrl?.( remote );
 	const domainSettingsUrl = remote && descriptor?.domainSettingsUrl?.( remote );
 	const hostingLinks = remote
-		? descriptor?.links( remote ).filter( ( link ) => link.url !== dashboardUrl ) ?? []
+		? descriptor?.describe( remote ).links.filter( ( link ) => link.url !== dashboardUrl ) ?? []
 		: [];
 	const previewAdmin = snapshot && getSnapshotAdminUrl( snapshot );
 	const publicDestination = snapshot ? selected!.provider : emptyDestination;
-	const publicDescriptor = getSitesDescriptor( publicDestination );
+	const publicDescriptor = getProviderSites( publicDestination );
 	const { copied, copy } = useCopyText( url ?? '' );
 	const { copy: copyLinkFromMenu } = useCopyText( url ?? '', __( 'Link copied' ) );
 	const publicDescription = checkoutUrl
@@ -356,7 +356,7 @@ export function PublishButton( {
 	};
 
 	const startProvider = async ( provider: SitesProviderId ) => {
-		const sites = getSitesDescriptor( provider );
+		const sites = getProviderSites( provider );
 		if ( ! connectedProviders.includes( provider ) ) {
 			close();
 			openSettings( 'ai' );
@@ -491,7 +491,7 @@ export function PublishButton( {
 							: sprintf(
 									/* translators: %s: hosting provider name. */
 									__( 'Open on %s' ),
-									getProviderDescriptor( selected.provider ).label
+									getProvider( selected.provider ).label
 							  ) }
 					</Menu.Item>
 				) }
@@ -951,7 +951,7 @@ export function PublishButton( {
 											disabled={ disabled }
 										/>
 									) }
-									{ ! selected && emptyDescriptor.exportsStaticSite && (
+									{ ! selected && emptyDescriptor.content === 'static' && (
 										<div>
 											<DestinationRow
 												informational

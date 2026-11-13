@@ -1,5 +1,5 @@
-import { CheckIcon } from 'lucide-react';
 import { __ } from '@wordpress/i18n';
+import { CheckIcon } from 'lucide-react';
 import { useState, type Ref } from 'react';
 import { useCopyText } from '@/data/host/use-copy-text';
 import { DuplicateIcon } from '@/lib/icons';

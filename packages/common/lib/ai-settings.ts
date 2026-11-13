@@ -1,14 +1,17 @@
 import {
+	AI_PROVIDER_IDS,
+	ConnectError,
 	DEFAULT_PROVIDER_ID,
-	getProviderDescriptor,
-	InvalidCredentialError,
-	normalizeAiProviderId,
+	getConnectMethod,
+	getProvider,
+	normalizeProviderId,
 	PROVIDER_IDS,
 	toStoredProviderId,
+	type AccountDetails,
 	type AiProviderId,
-	type Provider,
 	type ProviderConfigs,
 	type ProviderId,
+	type ProviderServices,
 } from '@studio/providers';
 import {
 	readAiFields,
@@ -16,12 +19,10 @@ import {
 	updateAiFields,
 	writeProviderConfig,
 } from './provider-config';
+import { receiveRedirect } from './provider-connect';
 
-// A provider's account as the settings UI shows it; never the credential itself.
-export interface ProviderAccount {
-	connected: boolean;
-	summary: string | null;
-}
+// A provider's account as surfaces show it; never the credential itself.
+export type ProviderAccount = { connected: false } | ( { connected: true } & AccountDetails );
 
 export interface AiSettings {
 	// The chat provider new conversations use.
@@ -32,18 +33,19 @@ export interface AiSettings {
 /** The saved chat provider, or undefined when none was ever chosen. */
 export async function readSelectedAiProvider(): Promise< AiProviderId | undefined > {
 	const { aiProvider } = await readAiFields();
-	return aiProvider === undefined ? undefined : normalizeAiProviderId( aiProvider );
+	return aiProvider === undefined ? undefined : normalizeProviderId( aiProvider, AI_PROVIDER_IDS );
+}
+
+// What surfaces show of the provider's account, from its config.
+export function describeAccount( id: ProviderId, config: unknown ): ProviderAccount {
+	const { describe } = getProvider( id ).account as {
+		describe: ( config: unknown ) => AccountDetails;
+	};
+	return config === undefined ? { connected: false } : { connected: true, ...describe( config ) };
 }
 
 async function readAccount( id: ProviderId ): Promise< ProviderAccount > {
-	const config = await readProviderConfig( id );
-	const { summarize } = getProviderDescriptor( id ) as {
-		summarize?: ( config: unknown ) => string;
-	};
-	return {
-		connected: config !== undefined,
-		summary: config && summarize ? summarize( config ) : null,
-	};
+	return describeAccount( id, await readProviderConfig( id ) );
 }
 
 export async function readAiSettings(): Promise< AiSettings > {
@@ -65,16 +67,32 @@ export async function persistSelectedAiProvider( provider: AiProviderId ): Promi
 }
 
 /**
- * Connects `provider` (from `@studio/providers/services`) with what the user
- * gave: a form's values or a redirect's parameters. The provider checks them,
- * and its config is stored only when it accepts them.
+ * Connects the provider (from `@studio/providers/services`) with `method` and what the user
+ * gave: a form's values, or the handoff of the connection `startProviderConnect` started, which a
+ * loopback sign-in completes with its redirect. The provider checks them, and its config is
+ * stored only when it accepts them.
  */
 export async function connectProvider< Config >(
-	provider: Provider< Config >,
-	input: Record< string, string >
+	services: ProviderServices< Config >,
+	method: string,
+	input: Record< string, string >,
+	options: { pasteUrl?: () => Promise< string > } = {}
 ): Promise< AiSettings > {
-	const config = await provider.connect( input );
-	await writeProviderConfig( provider.descriptor.id, config as ProviderConfigs[ ProviderId ] );
+	const { id } = services;
+	const config = await services.account.connect(
+		method,
+		getConnectMethod( id, method ).kind === 'loopback'
+			? await receiveRedirect( id, input, options.pasteUrl )
+			: input
+	);
+	await writeProviderConfig( id, config as ProviderConfigs[ ProviderId ] );
+	// A chat provider becomes the default only when the current default can't be used, so
+	// connecting another provider never takes over from a connected WordPress.com.
+	const aiProvider = normalizeProviderId( id, AI_PROVIDER_IDS );
+	const selected = ( await readSelectedAiProvider() ) ?? DEFAULT_PROVIDER_ID;
+	if ( aiProvider && aiProvider !== selected && ! ( await readProviderConfig( selected ) ) ) {
+		await persistSelectedAiProvider( aiProvider );
+	}
 	return readAiSettings();
 }
 
@@ -83,13 +101,13 @@ export async function connectProvider< Config >(
  * selected provider that is no longer connected falls back to WordPress.com.
  */
 export async function disconnectProvider< Config >(
-	provider: Provider< Config >
+	services: ProviderServices< Config >
 ): Promise< AiSettings > {
-	const { id } = provider.descriptor;
+	const { id } = services;
 	const config = await readProviderConfig( id );
 	if ( config ) {
 		// Best-effort: disconnecting offline still forgets the account here.
-		await provider.disconnect?.( config as Config ).catch( () => undefined );
+		await services.account.disconnect?.( config as Config ).catch( () => undefined );
 	}
 	await writeProviderConfig( id, undefined );
 	if ( ( await readSelectedAiProvider() ) === id ) {
@@ -104,9 +122,7 @@ export async function disconnectProvider< Config >(
  */
 export async function setAiProvider( provider: AiProviderId ): Promise< AiSettings > {
 	if ( ! ( await readProviderConfig( provider ) ) ) {
-		throw new InvalidCredentialError(
-			`Connect ${ getProviderDescriptor( provider ).label } first.`
-		);
+		throw new ConnectError( `Connect ${ getProvider( provider ).label } first.` );
 	}
 	await persistSelectedAiProvider( provider );
 	return readAiSettings();

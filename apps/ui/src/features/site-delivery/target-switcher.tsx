@@ -1,4 +1,4 @@
-import { getSitesDescriptor } from '@studio/providers';
+import { getProviderSites } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
 import { useId } from 'react';
 import { getSnapshotHostname } from '@/data/snapshot-url';
@@ -49,7 +49,7 @@ export function TargetSwitcher( {
 				aria-describedby={ description ? descriptionId : undefined }
 				className={ remote ? styles.providerMenuItem : styles.destinationMenuItem }
 				data-address-theme={
-					remote ? getSitesDescriptor( provider ).publishing.addressTheme : undefined
+					remote ? getProviderSites( provider ).publishing.addressTheme : undefined
 				}
 				onClick={ () => onSelect( target ) }
 			>

@@ -1,4 +1,4 @@
-import { getProviderDescriptor } from '@studio/providers';
+import { getProvider } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
 import { useId, useEffect, useRef, useState, type RefObject } from 'react';
 import { useAuthUser } from '@/data/queries/use-auth-user';
@@ -75,7 +75,9 @@ export function SiteDeliveryDialog( {
 		! user.data &&
 		( tab === 'share' ||
 			( !! publish.provider &&
-				getProviderDescriptor( publish.provider ).connection.kind === 'redirect' ) );
+				getProvider( publish.provider ).account.methods.some(
+					( method ) => method.kind === 'redirect'
+				) ) );
 	useSyncNoticeVisibility( site.id, open && ! signedOut && ! previewAction );
 	const selectTab = ( value: unknown ) => {
 		setCreateRequest( undefined );

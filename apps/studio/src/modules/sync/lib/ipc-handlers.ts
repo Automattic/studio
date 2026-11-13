@@ -18,11 +18,12 @@ import { readSitePath } from '@studio/common/sites/site-path';
 import { createSyncRunner, type SyncResult } from '@studio/common/sites/sync';
 import { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync';
 import {
-	normalizeSitesProviderId,
+	normalizeProviderId,
+	SITES_PROVIDER_IDS,
 	type ProviderSites,
 	type SitesProviderId,
 } from '@studio/providers';
-import { getProvider } from '@studio/providers/services';
+import { getProviderServices } from '@studio/providers/services';
 import { getAuthenticationToken } from 'src/lib/oauth';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
 import type { WpcomSiteVisibility } from '@studio/common/types/site-visibility';
@@ -30,7 +31,7 @@ import type { WpcomSiteVisibility } from '@studio/common/types/site-visibility';
 const syncRunner = createSyncRunner( executeCliCommand );
 
 function parseProvider( requested: string ): SitesProviderId {
-	const provider = normalizeSitesProviderId( requested );
+	const provider = normalizeProviderId( requested, SITES_PROVIDER_IDS );
 	if ( ! provider ) {
 		throw new Error( `Unknown provider with sites: ${ requested }` );
 	}
@@ -57,7 +58,7 @@ export async function listAccountSites(
 	_event: IpcMainInvokeEvent,
 	provider: string
 ): Promise< ProviderSites[ SitesProviderId ][] > {
-	return listProviderAccountSites( getProvider( parseProvider( provider ) ) );
+	return listProviderAccountSites( getProviderServices( parseProvider( provider ) ) );
 }
 
 export async function connectRemoteSite(
@@ -84,7 +85,11 @@ export async function createRemoteSite(
 	localSiteId: string,
 	name: string
 ): Promise< ProviderSites[ SitesProviderId ] > {
-	return createRemoteSiteOnProvider( getProvider( parseProvider( provider ) ), localSiteId, name );
+	return createRemoteSiteOnProvider(
+		getProviderServices( parseProvider( provider ) ),
+		localSiteId,
+		name
+	);
 }
 
 // A cancel resolves rather than rejects, so it isn't logged as a handler error in
@@ -137,7 +142,10 @@ export async function getRemoteBackupId(
 	provider: string,
 	remoteSiteId: string | number
 ): Promise< string | null > {
-	return readRemoteBackupId( getProvider( parseProvider( provider ) ), remoteSiteId as never );
+	return readRemoteBackupId(
+		getProviderServices( parseProvider( provider ) ),
+		remoteSiteId as never
+	);
 }
 
 /**
@@ -153,7 +161,7 @@ export async function listRemoteBackupFiles(
 	path: string
 ): Promise< Record< string, unknown > > {
 	return readRemoteBackupFiles(
-		getProvider( parseProvider( provider ) ),
+		getProviderServices( parseProvider( provider ) ),
 		remoteSiteId as never,
 		backupId,
 		path
@@ -163,7 +171,7 @@ export async function listRemoteBackupFiles(
 export async function getWpcomSiteVisibility( _event: IpcMainInvokeEvent, remoteSiteId: number ) {
 	const token = await getAuthenticationToken();
 	if ( ! token?.accessToken ) throw new Error( 'Authentication required to read site visibility.' );
-	return readVisibility< 'wpcom' >( getProvider( 'wpcom' ), remoteSiteId );
+	return readVisibility< 'wpcom' >( getProviderServices( 'wpcom' ), remoteSiteId );
 }
 
 export async function setWpcomSiteVisibility(
@@ -174,7 +182,7 @@ export async function setWpcomSiteVisibility(
 	const token = await getAuthenticationToken();
 	if ( ! token?.accessToken )
 		throw new Error( 'Authentication required to change site visibility.' );
-	return writeVisibility< 'wpcom' >( getProvider( 'wpcom' ), remoteSiteId, visibility );
+	return writeVisibility< 'wpcom' >( getProviderServices( 'wpcom' ), remoteSiteId, visibility );
 }
 
 export function getSitePublishStatus(
@@ -191,7 +199,7 @@ export function getSiteVisibility(
 	provider: string,
 	id: string | number
 ) {
-	return readVisibility( getProvider( parseProvider( provider ) ), id as never );
+	return readVisibility( getProviderServices( parseProvider( provider ) ), id as never );
 }
 export function setSiteVisibility(
 	_event: IpcMainInvokeEvent,
@@ -199,5 +207,5 @@ export function setSiteVisibility(
 	id: string | number,
 	value: WpcomSiteVisibility
 ) {
-	return writeVisibility( getProvider( parseProvider( provider ) ), id as never, value );
+	return writeVisibility( getProviderServices( parseProvider( provider ) ), id as never, value );
 }

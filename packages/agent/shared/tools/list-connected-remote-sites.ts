@@ -1,4 +1,4 @@
-import { formatRemoteSite, getProviderDescriptor, getSitesDescriptor } from '@studio/providers';
+import { formatRemoteSite, getProvider, getProviderSites } from '@studio/providers';
 import { Type } from 'typebox';
 import { defineTool, REMOTE_READ } from './define-tool';
 import { textResult } from './utils';
@@ -18,18 +18,18 @@ export const listConnectedRemoteSitesTool = defineTool(
 			const site = await context.host.sites.resolve( args.nameOrPath );
 			const connected = await context.host.sync.connectedSites( site );
 			const summary = connected.map( ( { provider, site: remote } ) => {
-				const sites = getSitesDescriptor( provider );
+				const sites = getProviderSites( provider );
 				const pushIssue = sites.issue( remote, 'push' );
 				const pullIssue = sites.pull ? sites.issue( remote, 'pull' ) : null;
 				return {
 					type: 'remote-site' as const,
 					provider,
-					providerName: getProviderDescriptor( provider ).label,
+					providerName: getProvider( provider ).label,
 					remoteSite: formatRemoteSite( provider, remote.id ),
 					name: remote.name,
 					url: remote.url,
 					...Object.fromEntries(
-						sites.details( remote ).map( ( { title, value } ) => [ title, value ] )
+						sites.describe( remote ).details.map( ( { title, value } ) => [ title, value ] )
 					),
 					canPush: ! pushIssue,
 					canPull: sites.pull && ! pullIssue,

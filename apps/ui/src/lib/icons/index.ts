@@ -7,7 +7,6 @@ export * from './arrow-right-icon';
 export * from './chat-icon';
 export * from './chevron-down-icon';
 export * from './circle-check-icon';
-export * from './claude-icon';
 export * from './code-icon';
 export * from './collapse-all-icon';
 export * from './database-icon';
@@ -71,3 +70,12 @@ export { RefreshIcon } from './refresh-icon';
 
 export * from './unread-status-icon';
 export * from './feedback-icon';
+
+export * from './eye-icon';
+export * from './eye-off-icon';
+export * from './upload-icon';
+export * from './pencil-icon';
+export * from './sliders-vertical-icon';
+export * from './ellipsis-vertical-icon';
+export * from './chevron-right-icon';
+export { MapPinIcon, SearchIcon, RefreshCwIcon, EllipsisIcon } from 'lucide-react';

@@ -1,5 +1,5 @@
 import { getLatestLinkedPreview, getPreviewPublishWarning } from '@studio/common/lib/snapshots';
-import { getSitesDescriptor, type RemoteSite, type SitesProviderId } from '@studio/providers';
+import { getProviderSites, type RemoteSite, type SitesProviderId } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { useRef } from 'react';
 import { useAuthUser } from '@/data/queries/use-auth-user';
@@ -49,7 +49,7 @@ export function LiveSiteAction( {
 	onPublishStarted?: () => void;
 	lookupError?: boolean;
 } ) {
-	const descriptor = getSitesDescriptor( provider );
+	const descriptor = getProviderSites( provider );
 	const user = useAuthUser();
 	const snapshots = useSnapshots( user.data?.id );
 	const linkedPreview =

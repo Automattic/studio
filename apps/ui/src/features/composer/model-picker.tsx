@@ -1,20 +1,33 @@
 import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
 import {
-	getAiModelLabel,
+	findAiModel,
 	getAiModels,
-	getProviderDescriptor,
+	getProvider,
+	PROVIDER_IDS,
 	type ProviderId,
 } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { PlugIcon } from 'lucide-react';
-import { useRef, useState, type RefObject } from 'react';
+import { useRef, useState, type ComponentType, type RefObject } from 'react';
+import { useConnector } from '@/data/core';
+import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
+import { ProviderLogo } from '@/features/account';
 import { getCreditsLabel, getModelDescription } from '@/features/composer/model-options';
-import { PlusIcon, ChevronDownIcon, ClaudeIcon, WordPressIcon } from '@/lib/icons';
+import { PlusIcon, ChevronDownIcon, ExternalLinkIcon } from '@/lib/icons';
 import { Button, CommandSheet, Popover, type Command, type CommandGroup } from '@/lib/ui';
 import type { AiModelId } from '@/data/core';
+
+const PROVIDER_ICONS = Object.fromEntries(
+	PROVIDER_IDS.map( ( id ) => [
+		id,
+		( { className }: { className?: string } ) => (
+			<ProviderLogo provider={ id } className={ className } />
+		),
+	] )
+) as Record< ProviderId, ComponentType< { className?: string } > >;
 
 interface ModelPickerProps {
 	open: boolean;
@@ -46,15 +59,17 @@ export function ModelPicker( {
 	const listRef = useRef< HTMLDivElement | null >( null );
 	const triggerRef = useRef< HTMLButtonElement | null >( null );
 	const openSettings = useOpenSettings();
+	const connector = useConnector();
 	const {
 		data: quota,
 		isError: isQuotaError,
 		refetch: refetchQuota,
 	} = useStudioAssistantQuota( { refetchOnWindowFocus: 'always' } );
 	const { data: preferences } = useUserPreferences();
+	const { data: aiSettings } = useAiSettings();
 	const isWpcom = sessionProvider === 'wpcom';
 
-	const modelLabel = getAiModelLabel( model );
+	const modelLabel = findAiModel( model )?.model.label() ?? model;
 	const credits = getCreditsLabel( isQuotaError ? null : quota, preferences?.locale );
 	const canPurchaseCredits =
 		isWpcom &&
@@ -62,19 +77,31 @@ export function ModelPicker( {
 		credits.hasCredits &&
 		getStudioCodeAiAccessState( quota ) === 'available' &&
 		quota.hasPaymentMethod;
-	const modelDetails = [ modelLabel, getProviderDescriptor( sessionProvider ).label ];
+	const account = aiSettings?.accounts[ sessionProvider ];
+	const { note, links = [] } = account?.connected ? account : {};
+	const modelDetails = [ modelLabel, getProvider( sessionProvider ).label ];
 	if ( isWpcom ) {
 		modelDetails.push( credits.label );
 	}
+	if ( note ) {
+		modelDetails.push( note );
+	}
+	// A provider whose plan decides which models it runs offers only those.
+	const modelsOf = ( provider: ProviderId ) => {
+		const account = aiSettings?.accounts[ provider ];
+		return getAiModels( provider, account?.connected ? account : undefined );
+	};
 	const pickCommand = ( value: string ) => {
 		onOpenChange( false );
 		if ( value === 'get-credits' ) {
 			onAddCredits( triggerRef );
 		} else if ( value === 'connect-provider' ) {
 			openSettings( 'ai' );
+		} else if ( value.startsWith( 'link:' ) ) {
+			void connector.openExternalUrl( value.slice( 'link:'.length ) );
 		} else {
 			const provider = providers.find( ( id ) =>
-				getAiModels( id ).some( ( item ) => item.id === value )
+				modelsOf( id ).some( ( item ) => item.id === value )
 			);
 			if ( provider ) {
 				onChange( provider, value as AiModelId );
@@ -85,20 +112,24 @@ export function ModelPicker( {
 		{
 			label: __( 'Models' ),
 			items: providers.flatMap( ( provider ) =>
-				getAiModels( provider ).map( ( { id } ): Command => {
-					const description = sprintf(
-						/* translators: 1: the model's provider, 2: what the model is good at. */
-						__( '%1$s · %2$s' ),
-						provider === 'wpcom' ? 'WordPress' : 'Claude',
-						getModelDescription( id )
-					);
+				modelsOf( provider ).map( ( { id } ): Command => {
+					const { label } = getProvider( provider );
+					const strengths = getModelDescription( id );
+					const description = strengths
+						? sprintf(
+								/* translators: 1: the model's provider, 2: what the model is good at. */
+								__( '%1$s · %2$s' ),
+								label,
+								strengths
+						  )
+						: label;
 					return {
 						value: id,
-						label: getAiModelLabel( id ),
+						label: findAiModel( id )?.model.label() ?? id,
 						description: isModelLocked( id )
 							? `${ description } · ${ __( 'Purchased credits required' ) }`
 							: description,
-						icon: provider === 'wpcom' ? WordPressIcon : ClaudeIcon,
+						icon: PROVIDER_ICONS[ provider ],
 						disabled: isModelLocked( id ),
 					};
 				} )
@@ -118,6 +149,12 @@ export function ModelPicker( {
 							},
 					  ]
 					: [] ),
+				...links.map( ( link ) => ( {
+					value: `link:${ link.url }`,
+					label: link.label,
+					description: note,
+					icon: ExternalLinkIcon,
+				} ) ),
 				{
 					value: 'connect-provider',
 					label: __( 'Connect providers' ),

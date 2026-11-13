@@ -1,4 +1,4 @@
-import { getSitesDescriptor, type RemoteSite, type SitesProviderId } from '@studio/providers';
+import { getProviderSites, type RemoteSite, type SitesProviderId } from '@studio/providers';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useState } from 'react';
@@ -46,7 +46,7 @@ export function useTransferSelection(
 	draftSelection?: Saved
 ) {
 	const connector = useConnector();
-	const sites = getSitesDescriptor( provider );
+	const sites = getProviderSites( provider );
 	const client = useQueryClient();
 	const savedKey = [ 'publish-selection', site.id, provider, remote.id, direction ];
 	const [ draft, setDraft ] = useState( draftSelection );

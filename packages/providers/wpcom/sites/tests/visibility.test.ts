@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { wpcomClient } from '../../client';
+import { wpcomClient } from '../../api';
 import { getWpcomSiteVisibility, setWpcomSiteVisibility } from '../visibility';
 
-vi.mock( '../../client' );
+vi.mock( '../../api' );
 const get = vi.fn();
 const post = vi.fn();
 let settings: Record< string, number >;

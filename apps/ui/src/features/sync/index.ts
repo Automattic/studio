@@ -1,4 +1,3 @@
-export { PublishPanel } from './publish-panel';
 export { PublishChecklist } from './publish-panel/update-options';
 export { PublishTab, usePublishTab } from './publish-tab';
 export { SitePublishMenu } from './publish-panel/publish-menu';

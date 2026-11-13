@@ -528,11 +528,10 @@ it( 'creates another preview without replacing the existing preview and copies i
 		( await screen.findAllByRole( 'menuitem' ) ).map( ( item ) => item.textContent?.trim() )
 	).toEqual( [
 		'New preview',
-		'Connect an existing site…',
-		'Copy preview link',
-		'Rename preview',
+		'Rename',
 		'Update preview',
 		'Pull from preview',
+		'Connect existing site',
 		'Manage sharing',
 		'Delete preview',
 	] );
@@ -721,9 +720,7 @@ it( 'targets the selected preview for its link, expiry, changes, launch, and del
 	expect(
 		screen.queryByRole( 'button', { name: 'More options for newer.example.com' } )
 	).not.toBeInTheDocument();
-	const copy = await previewAction( actions, 'Copy preview link' );
-	expect( screen.getByRole( 'menuitem', { name: 'Delete preview' } ) ).toBeVisible();
-	await actions.click( copy );
+	await copyPreviewLink( actions );
 	await waitFor( () =>
 		expect( connector.copyText ).toHaveBeenLastCalledWith( 'https://newer.example.com' )
 	);
@@ -1863,14 +1860,13 @@ it.each( [ false, true, null ] )(
 			( await screen.findAllByRole( 'menuitem' ) ).map( ( item ) => item.textContent?.trim() )
 		).toEqual( [
 			'New preview',
-			'Connect an existing site…',
-			'Open on WordPress.com',
+			'WordPress admin',
 			'Domains',
 			'Backups',
-			'Site details',
-			...( localChanged === false ? [ 'Publish again' ] : [] ),
 			'Pull from live site',
-			'Remove connection',
+			'Connect existing site',
+			'Manage sharing',
+			'Disconnect site',
 		] );
 		expect( connector.pushSite ).not.toHaveBeenCalled();
 	}

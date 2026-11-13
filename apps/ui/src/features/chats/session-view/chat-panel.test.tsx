@@ -296,7 +296,7 @@ describe( 'Composer site controls', () => {
 
 function anthropicRow( dialog: HTMLElement ) {
 	return within(
-		within( dialog ).getByText( 'Anthropic API', { exact: true } ).closest( '[data-settings-row]' )!
+		within( dialog ).getByText( 'Anthropic', { exact: true } ).closest( '[data-settings-row]' )!
 	);
 }
 
@@ -464,82 +464,76 @@ describe( 'Composer access notices', () => {
 		}
 	);
 
-	it.each( [ false, true ] )(
-		'connects a personal key without WordPress.com login (saved=%s)',
-		async ( saved ) => {
-			let connection: AiSettings = aiSettings( 'wpcom', saved ? [ 'anthropic' ] : [] );
-			const site = makeSite( { id: 'one', path: '/sites/my-site' } );
-			const connector = createFakeConnector(
-				{
-					user: null,
-					sites: [ site ],
-					sessions: [
-						{
-							summary: makeSession( {
-								id: 'key-chat',
-								ownerSiteId: 'one',
-								ownerSitePath: site.path,
-							} ),
-							entries: [],
-						},
-					],
+	it( 'connects a personal key without WordPress.com login', async () => {
+		let connection: AiSettings = aiSettings( 'wpcom', [] );
+		const site = makeSite( { id: 'one', path: '/sites/my-site' } );
+		const connector = createFakeConnector(
+			{
+				user: null,
+				sites: [ site ],
+				sessions: [
+					{
+						summary: makeSession( {
+							id: 'key-chat',
+							ownerSiteId: 'one',
+							ownerSitePath: site.path,
+						} ),
+						entries: [],
+					},
+				],
+			},
+			{
+				getAiSettings: async () => connection,
+				// Without WordPress.com, the provider connected becomes the default.
+				connectProvider: async () => {
+					connection = aiSettings( 'anthropic', [ 'anthropic' ] );
+					return connection;
 				},
-				{
-					getAiSettings: async () => connection,
-					connectProvider: async () => {
-						connection = aiSettings( connection.provider, [ 'anthropic' ] );
-						return connection;
-					},
-					setAiProvider: async ( provider ) => {
-						connection = { ...connection, provider };
-						return connection;
-					},
-					continueSession: async () => ( { runId: 'key-run' } ),
-				}
-			);
-			renderApp( { connector, path: '/sessions/key-chat' } );
-			await screen.findByRole( 'button', { name: 'Site menu' } );
-			const draftInput = await screen.findByRole( 'combobox', COMPOSER );
-			fireEvent.change( draftInput, { target: { value: 'Update my site' } } );
-			await screen.findByRole( 'button', { name: 'Connect' } );
-			expect( draftInput ).toBeEnabled();
-			expect( sendButton() ).toBeEnabled();
-			fireEvent.click( sendButton() );
-			expect( draftInput ).toHaveValue( 'Update my site' );
-			expect( connector.createSession ).not.toHaveBeenCalled();
-			expect( connector.continueSession ).not.toHaveBeenCalled();
-			expect( screen.queryByText( 'Checking access…' ) ).not.toBeInTheDocument();
-			expect( screen.queryByRole( 'button', { name: 'Check again' } ) ).not.toBeInTheDocument();
-			fireEvent.click( screen.getByRole( 'button', { name: 'Connect' } ) );
-			const dialog = await screen.findByRole( 'dialog', { name: 'Settings' } );
-			fireEvent.click(
-				anthropicRow( dialog ).getByRole( 'button', { name: saved ? 'Manage' : 'Connect' } )
-			);
-			if ( ! saved ) {
-				const keyInput = await screen.findByLabelText( 'Anthropic API key', { selector: 'input' } );
-				expect( keyInput ).toHaveAttribute( 'type', 'password' );
-				fireEvent.change( keyInput, { target: { value: '  test-key  ' } } );
+				setAiProvider: async ( provider ) => {
+					connection = { ...connection, provider };
+					return connection;
+				},
+				continueSession: async () => ( { runId: 'key-run' } ),
 			}
-			fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Save' } ) );
-			await waitFor( () => expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic' ) );
-			await waitFor( () =>
-				expect( anthropicRow( dialog ).getByRole( 'button', { name: 'Manage' } ) ).toBeEnabled()
-			);
-			fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Close settings' } ) );
-			await waitFor( () => expect( sendButton() ).toBeEnabled() );
-			const input = screen.getByRole( 'combobox', COMPOSER );
-			expect( input ).toHaveValue( 'Update my site' );
-			expect( connector.authenticate ).not.toHaveBeenCalled();
-			fireEvent.click( sendButton() );
-			await waitFor( () =>
-				expect( connector.continueSession ).toHaveBeenCalledWith(
-					'key-chat',
-					'Update my site',
-					expect.anything()
-				)
-			);
-		}
-	);
+		);
+		renderApp( { connector, path: '/sessions/key-chat' } );
+		await screen.findByRole( 'button', { name: 'Site menu' } );
+		const draftInput = await screen.findByRole( 'combobox', COMPOSER );
+		fireEvent.change( draftInput, { target: { value: 'Update my site' } } );
+		await screen.findByRole( 'button', { name: 'Connect' } );
+		expect( draftInput ).toBeEnabled();
+		expect( sendButton() ).toBeEnabled();
+		fireEvent.click( sendButton() );
+		expect( draftInput ).toHaveValue( 'Update my site' );
+		expect( connector.createSession ).not.toHaveBeenCalled();
+		expect( connector.continueSession ).not.toHaveBeenCalled();
+		expect( screen.queryByText( 'Checking access…' ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'button', { name: 'Check again' } ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Connect' } ) );
+		const dialog = await screen.findByRole( 'dialog', { name: 'Settings' } );
+		fireEvent.click( anthropicRow( dialog ).getByRole( 'button', { name: 'Connect' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'API key' } ) );
+		const keyInput = await screen.findByLabelText( 'Anthropic API key', { selector: 'input' } );
+		expect( keyInput ).toHaveAttribute( 'type', 'password' );
+		fireEvent.change( keyInput, { target: { value: '  test-key  ' } } );
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Save' } ) );
+		await waitFor( () =>
+			expect( anthropicRow( dialog ).getByRole( 'button', { name: 'Manage' } ) ).toBeEnabled()
+		);
+		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Close settings' } ) );
+		await waitFor( () => expect( sendButton() ).toBeEnabled() );
+		const input = screen.getByRole( 'combobox', COMPOSER );
+		expect( input ).toHaveValue( 'Update my site' );
+		expect( connector.authenticate ).not.toHaveBeenCalled();
+		fireEvent.click( sendButton() );
+		await waitFor( () =>
+			expect( connector.continueSession ).toHaveBeenCalledWith(
+				'key-chat',
+				'Update my site',
+				expect.anything()
+			)
+		);
+	} );
 } );
 
 describe( 'Chat target selection', () => {
@@ -637,7 +631,7 @@ describe( 'Chat target selection', () => {
 		);
 		expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveAttribute(
 			'aria-description',
-			'Opus 5.5 · Anthropic API'
+			'Opus 5.5 · Anthropic'
 		);
 	} );
 } );

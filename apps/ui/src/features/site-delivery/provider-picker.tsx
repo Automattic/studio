@@ -1,4 +1,4 @@
-import { getProviderDescriptor, getSitesDescriptor, type SitesProviderId } from '@studio/providers';
+import { getProvider, getProviderSites, type SitesProviderId } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
 import { useState } from 'react';
 import { ChevronDownIcon, MapPinIcon, PlusIcon } from '@/lib/icons';
@@ -37,7 +37,7 @@ export function ProviderPicker( {
 	selectedProvider: SitesProviderId;
 } ) {
 	const [ open, setOpen ] = useState( false );
-	const selected = getProviderDescriptor( selectedProvider );
+	const selected = getProvider( selectedProvider );
 	const providerValue = (
 		<span className={ styles.destinationProviderValue }>
 			<ProviderLogo provider={ selectedProvider } branded compact />
@@ -81,8 +81,8 @@ export function ProviderPicker( {
 			>
 				<Menu.RadioGroup value={ selectedProvider }>
 					{ providers.map( ( provider ) => {
-						const descriptor = getProviderDescriptor( provider );
-						const { publishing } = getSitesDescriptor( provider );
+						const descriptor = getProvider( provider );
+						const { publishing } = getProviderSites( provider );
 						return (
 							<Menu.RadioItem
 								className={ styles.providerMenuItem }

@@ -64,7 +64,6 @@
 
 .publishPopover {
 	--hairline-width: 1px;
-	--border-width: 1px;
 	--surface: var( --surface-1 );
 	width: min( 360px, calc( 100vw - var( --space-2 ) * 2 ) );
 	max-height: calc( 100dvh - var( --band-height ) - var( --space-2 ) );
@@ -337,11 +336,6 @@
 	color: color-mix( in oklab, var( --muted-foreground ) 74%, var( --foreground ) );
 }
 
-.addressRow[data-address-theme='twilight'] .providerBrandSquare {
-	background: var( --brand-twilight-mark );
-	color: var( --brand-twilight-mark-foreground );
-}
-
 .previewOpenButton {
 	flex: 1;
 	min-width: 0;
@@ -578,30 +572,11 @@
 	flex-shrink: 0;
 }
 
-.providerBrandSquare {
-	display: grid;
-	place-items: center;
-	width: 26px;
-	height: 26px;
-	margin: 3px;
-	flex-shrink: 0;
-	border-radius: var( --radius-sm );
-	background: var( --muted );
-	color: var( --foreground );
+.providerLogo {
+	--app-icon-size: 32px;
 }
-.providerBrandSquare[data-compact] {
-	width: 16px;
-	height: 16px;
-	margin: 0;
-	border-radius: var( --radius-xs );
-}
-.providerBrandSquare[data-brand-color='blue'] {
-	background: var( --brand-blue );
-	color: var( --brand-blue-foreground );
-}
-.providerBrandSquare[data-brand-color='green'] {
-	background: var( --brand-green );
-	color: var( --brand-green-foreground );
+.providerLogoCompact {
+	--app-icon-size: 20px;
 }
 
 .describedMenuItem {

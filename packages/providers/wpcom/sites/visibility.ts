@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 const wpcomSiteVisibilitySchema = z.enum( [ 'public', 'coming-soon', 'private' ] );
-import { wpcomClient } from '../client';
+import { wpcomClient } from '../api';
 import type {
 	SiteVisibility as WpcomSiteVisibility,
 	SiteVisibilityDetails as WpcomSiteVisibilityDetails,

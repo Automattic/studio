@@ -20,7 +20,6 @@ export function useSiteChatDraft( siteId: string | undefined ) {
 		queryKey: [ 'site-chat-draft', siteId ],
 		queryFn: skipToken,
 		initialData: EMPTY_DRAFT,
-		staleTime: Infinity,
 		gcTime: Infinity,
 		meta: { persist: false },
 	} );

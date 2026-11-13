@@ -1,4 +1,4 @@
-import { getSitesDescriptor, type ProviderSites, type SitesProviderId } from '@studio/providers';
+import { getProviderSites, type ProviderSites, type SitesProviderId } from '@studio/providers';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { useRef } from 'react';
@@ -25,7 +25,7 @@ export function ExistingSiteDialog< Id extends SitesProviderId >( {
 	const client = useQueryClient();
 	const connectTrigger = useRef< string >( undefined );
 	const sites = usePickableSites( provider );
-	const descriptor = getSitesDescriptor( provider );
+	const descriptor = getProviderSites( provider );
 	const connect = useMutation( {
 		mutationFn: ( site: ProviderSites[ Id ] ) =>
 			connector.connectRemoteSite( provider, siteId, site ),
@@ -61,8 +61,8 @@ export function ExistingSiteDialog< Id extends SitesProviderId >( {
 								getKey={ ( site ) => site.id }
 								getSearchText={ ( site ) =>
 									`${ site.name } ${ site.url } ${ descriptor
-										.details( site )
-										.map( ( detail ) => detail.value )
+										.describe( site )
+										.details.map( ( detail ) => detail.value )
 										.join( ' ' ) }`
 								}
 								isAvailable={ ( site ) => ! descriptor.issue( site, 'pull' ) }
@@ -81,7 +81,7 @@ export function ExistingSiteDialog< Id extends SitesProviderId >( {
 											connectTrigger.current = String( site.id );
 											connect.mutate( site );
 										} }
-										badges={ descriptor.details( site ).map( ( detail ) => (
+										badges={ descriptor.describe( site ).details.map( ( detail ) => (
 											<Badge key={ detail.title } variant="secondary">
 												{ detail.value }
 											</Badge>

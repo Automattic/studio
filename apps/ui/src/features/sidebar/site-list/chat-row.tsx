@@ -9,7 +9,7 @@ import { useSites } from '@/data/queries/use-sites';
 import { useOptionalSessionPreviewUI } from '@/data/use-session-ui';
 import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
 import { ChatActionsMenuItems, useChatActions, getSessionTitle } from '@/features/chats';
-import { ArchiveIcon, ChatIcon, NeedsInputIcon, PinIcon, UnpinIcon } from '@/lib/icons';
+import { ArchiveIcon, ChatIcon, TriangleAlertIcon, PinIcon, UnpinIcon } from '@/lib/icons';
 import {
 	Badge,
 	IconButton,
@@ -118,7 +118,7 @@ export function ChatRow( {
 										role="status"
 										aria-label={ __( 'WordPress Studio needs an answer.' ) }
 									>
-										<NeedsInputIcon />
+										<TriangleAlertIcon />
 									</Badge>
 								) : null }
 								{ session.unread && ! isCurrentChat ? (

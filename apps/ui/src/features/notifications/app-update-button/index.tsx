@@ -4,7 +4,7 @@ import { clsx } from 'clsx';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAppUpdateStatus, useRetryAppUpdate } from '@/data/queries/use-app-update';
-import { UpdateIcon } from '@/lib/icons';
+import { CloudDownloadIcon } from '@/lib/icons';
 import { Button, IconButton, Menu } from '@/lib/ui';
 import styles from './style.module.css';
 
@@ -69,7 +69,7 @@ export function AppUpdateButton( {
 			data-expandable={ status.state === 'ready' && ! install.isPending ? '' : undefined }
 			size="icon"
 			variant="accent"
-			icon={ <UpdateIcon /> }
+			icon={ <CloudDownloadIcon /> }
 			label={ label }
 			tooltip={ status.state !== 'ready' }
 			loading={ checking || downloading || install.isPending }

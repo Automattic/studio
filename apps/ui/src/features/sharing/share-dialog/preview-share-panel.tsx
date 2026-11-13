@@ -8,8 +8,8 @@ import { useUserLocale } from '@/data/queries/use-user-locale';
 import { getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
 import { SiteCard, getWebsiteThumbnailUrl } from '@/features/site-card';
 import {
-	EllipsisIcon,
-	RefreshCwIcon,
+	EllipsisVerticalIcon,
+	RotateCwIcon,
 	DuplicateIcon,
 	ExternalLinkIcon,
 	PencilIcon,
@@ -53,7 +53,7 @@ function PreviewLinkActions( {
 	return (
 		<>
 			<Menu.Item disabled={ locked } onClick={ onUpdate }>
-				<RefreshCwIcon />
+				<RotateCwIcon />
 				{ __( 'Update' ) }
 			</Menu.Item>
 			<Menu.Item onClick={ copy }>
@@ -359,7 +359,7 @@ export function PreviewSharePanel( {
 														render={
 															<IconButton
 																size="icon-sm"
-																icon={ <EllipsisIcon /> }
+																icon={ <EllipsisVerticalIcon /> }
 																label={ __( 'Preview actions' ) }
 																variant="muted-ghost"
 																onClick={ ( event ) => {

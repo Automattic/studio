@@ -1,12 +1,12 @@
 import { buildSettingsLink } from '@studio/common/lib/settings-link';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { CheckIcon, ChevronRightIcon } from 'lucide-react';
+import { CheckIcon } from 'lucide-react';
 import { createContext, useContext, useId } from 'react';
 import { useCopyText } from '@/data/host/use-copy-text';
 import { findSettingId } from '@/data/settings-sections';
 import { SettingsLinkContext } from '@/features/settings/settings-dialog/context';
-import { LinkIcon } from '@/lib/icons';
+import { ChevronRightIcon, LinkIcon } from '@/lib/icons';
 import { Badge, Button, type ButtonProps } from '@/lib/ui';
 import {
 	Field,

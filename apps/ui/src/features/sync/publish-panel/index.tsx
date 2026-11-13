@@ -24,7 +24,7 @@ import {
 	usePublishSetupError,
 } from '@/features/sync/use-sync-connect-site-listener';
 import { useOffline } from '@/lib/hooks';
-import { GlobeIcon, RefreshIcon, SyncIcon } from '@/lib/icons';
+import { GlobeIcon, RotateCwIcon, CloudUploadIcon } from '@/lib/icons';
 import {
 	Button,
 	IconButton,
@@ -292,7 +292,7 @@ export function PublishPanel( {
 													disabled={ offline || busy || pickable.isFetching }
 													onClick={ () => void pickable.refetch() }
 												>
-													<RefreshIcon />
+													<RotateCwIcon />
 													{ __( 'Refresh' ) }
 												</Menu.Item>
 											</Menu.Popup>
@@ -474,7 +474,7 @@ export function PublishPanel( {
 			{ ! loading && ( view === 'start' || ( view === 'publish' && ! destination ) ) ? (
 				<EmptyHeader className={ styles.emptyIntro }>
 					<EmptyMedia className={ styles.emptyIcon }>
-						<SyncIcon width="40" height="40" aria-hidden="true" />
+						<CloudUploadIcon width="40" height="40" aria-hidden="true" />
 					</EmptyMedia>
 					<h2 className={ styles.emptyTitle }>{ sites.intro.title() }</h2>
 					<EmptyDescription className={ styles.emptyDescription }>

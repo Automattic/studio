@@ -10,7 +10,7 @@ import { useUserLocale } from '@/data/queries/use-user-locale';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
 import { getSettingCommands } from '@/features/commands/studio-commands';
-import { ResetTipsIcon } from '@/lib/icons';
+import { RotateCcwIcon } from '@/lib/icons';
 import type { SiteDetails, UserPreferences } from '@/data/core';
 import type { PaletteCommand, SettingToggles } from '@/features/commands/studio-commands';
 
@@ -156,7 +156,7 @@ export function useSettingCommands(
 			id: 'reset-tips',
 			group: 'commands',
 			label: __( 'Reset tips' ),
-			icon: ResetTipsIcon,
+			icon: RotateCcwIcon,
 			keywords: [ __( 'Hints' ), __( 'First use' ) ],
 			run: () => {
 				if ( setHints.isPending ) return;

@@ -33,7 +33,7 @@ import {
 	GlobeIcon,
 	PlusIcon,
 	PencilIcon,
-	RefreshCwIcon,
+	RotateCwIcon,
 	DuplicateIcon,
 	EllipsisVerticalIcon,
 	ExternalLinkIcon,
@@ -495,7 +495,7 @@ export function PublishButton( {
 					{ __( 'Rename' ) }
 				</Menu.Item>
 				<Menu.Item disabled={ disabled } onClick={ () => void preview.updatePreview() }>
-					<RefreshCwIcon />
+					<RotateCwIcon />
 					{ __( 'Update preview' ) }
 				</Menu.Item>
 				<Menu.Item disabled={ disabled } onClick={ () => pullFromPreview( target.provider, item ) }>

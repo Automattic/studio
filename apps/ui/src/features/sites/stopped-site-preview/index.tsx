@@ -3,7 +3,7 @@ import { useSiteThumbnail } from '@/data/queries/use-site-thumbnail';
 import { useIsSiteBusy } from '@/data/queries/use-sites';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { SiteMenuItems, useSiteActions } from '@/features/sites/site-menu';
-import { StartSiteIcon } from '@/lib/icons';
+import { PlayIcon } from '@/lib/icons';
 import { IconButton, Menu } from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
@@ -69,7 +69,7 @@ export function StoppedSitePreview( {
 				variant="accent"
 				shape="round"
 				label={ __( 'Start site' ) }
-				icon={ <StartSiteIcon fill="currentColor" /> }
+				icon={ <PlayIcon filled /> }
 				disabled={ isBusy }
 				onClick={ () => startSite.mutate( site.id ) }
 			/>
@@ -87,7 +87,7 @@ export function StoppedSitePreview( {
 				<img src={ thumbnail } alt={ __( 'Saved site preview' ) } draggable={ false } />
 				<span className={ styles.overlay } aria-hidden="true">
 					<span className={ styles.play }>
-						<StartSiteIcon fill="currentColor" />
+						<PlayIcon filled />
 					</span>
 				</span>
 			</span>

@@ -2,7 +2,7 @@ import { __ } from '@wordpress/i18n';
 import { useAgentApps, useConnectAgentApp } from '@/data/queries/use-agent-apps';
 import { getAgentAppConnectionName, getAgentAppDescription } from '@/data/settings-sections';
 import { AppIcon } from '@/features/sites';
-import { McpIcon } from '@/lib/icons';
+import { PlugIcon } from '@/lib/icons';
 import { Badge, Button } from '@/lib/ui';
 import { SettingsGroup, SettingsRow } from './rows';
 import styles from './style.module.css';
@@ -46,7 +46,7 @@ function AgentAppRow( { app }: { app: AgentApp } ) {
 					app={ app.id }
 					fallback={
 						<span className={ styles.appIconFallback }>
-							<McpIcon />
+							<PlugIcon />
 						</span>
 					}
 				/>

@@ -1,7 +1,6 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
 import { useId, useState, type ReactNode } from 'react';
-import { LinkIcon } from '@/lib/icons';
+import { ChevronDownIcon, ChevronRightIcon, LinkIcon } from '@/lib/icons';
 import {
 	Button,
 	Checkbox,

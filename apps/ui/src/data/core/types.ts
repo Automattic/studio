@@ -56,6 +56,7 @@ import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 import type { WorkspaceLayout } from '@studio/common/types/workspace-layout';
 import type { DesignFix } from '@studio/design-md';
 import type {
+	SiteCreationVisibility,
 	SiteVisibilityDetails,
 	SiteVisibility,
 	AiModelId,
@@ -381,12 +382,14 @@ export interface Connector {
 		localSiteId: string,
 		remoteSiteId: string | number
 	): Promise< void >;
+	getSiteCreationVisibility( provider: SitesProviderId ): Promise< SiteCreationVisibility >;
 	// Creates a site on a provider whose `sites.newSite` is `create`, and connects the local
 	// site to it.
 	createRemoteSite(
 		provider: SitesProviderId,
 		localSiteId: string,
-		name: string
+		name: string,
+		visibility?: SiteCreationVisibility
 	): Promise< ProviderSites[ SitesProviderId ] >;
 	// Pushes the local site to a connected remote site: everything, or what `options` selects.
 	// Its progress and result arrive as sync activity (`onSyncActivity`).

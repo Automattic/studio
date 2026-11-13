@@ -212,6 +212,7 @@ export {
 export {
 	getSitePublishStatus,
 	cancelSyncOperation,
+	getSiteCreationVisibility,
 	getSiteVisibility,
 	setSiteVisibility,
 	getWpcomSiteVisibility,

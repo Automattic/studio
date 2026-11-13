@@ -340,6 +340,11 @@
 	border-start-end-radius: calc( var( --radius-popup ) - var( --hairline-width ) );
 }
 
+.destinationField[data-address-theme='twilight']:only-child {
+	border-end-start-radius: calc( var( --radius-popup ) - var( --hairline-width ) );
+	border-end-end-radius: calc( var( --radius-popup ) - var( --hairline-width ) );
+}
+
 .addressRow[data-address-theme='twilight'] > .destinationRowControl,
 .destinationField[data-address-theme='twilight'] .accessTrigger {
 	--button-hover-background: color-mix( in srgb, var( --foreground ) 8%, transparent );
@@ -377,14 +382,6 @@
 	font-size: var( --text-xs );
 	font-weight: var( --font-weight-medium );
 	line-height: var( --text-xs--line-height );
-}
-
-.destinationRowControl[data-checkout-progress] {
-	opacity: 1;
-}
-
-.settingsGroup[data-opening-checkout] .staticInfo {
-	opacity: 0.5;
 }
 
 .destinationRowIcon {

@@ -1,3 +1,4 @@
+import { getProvider } from '@studio/providers';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, expect, it } from 'vitest';
 import { getVisibleToasts } from '@/data/app-messages';
@@ -7,6 +8,7 @@ import { SNAPSHOT_USAGE_QUERY_KEY } from '@/data/queries/user-scoped-query-keys'
 import { requestHeaderPanel } from '@/data/use-open-header-panel';
 import { createFakeConnector, makeSite, TEST_USER, aiSettings } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
+import pressableLogo from './pressable-logo.svg?raw';
 import { PublishButton } from './publish-button';
 import type { Snapshot } from '@/data/core';
 import type { ConnectorOverrides } from '@/test/in-memory-connector';
@@ -452,6 +454,26 @@ it( 'updates only the preview while keeping the live publishing controls visible
 	expect( connector.pushSite ).not.toHaveBeenCalled();
 } );
 
+it.each( [
+	{ host: 'Pressable', isPressable: true, logo: pressableLogo },
+	{ host: 'WordPress.com', isPressable: false, logo: getProvider( 'wpcom' ).logo! },
+] )( 'uses the $host logo for a connected $host site', async ( { isPressable, logo } ) => {
+	const remote = { ...live, isPressable };
+	const { user } = setup( {
+		getSnapshots: async () => [],
+		getRemoteSites: async ( provider ) => ( provider === 'wpcom' ? [ remote ] : [ space ] ),
+		listAccountSites: async ( provider ) => ( provider === 'wpcom' ? [ remote ] : [ space ] ),
+	} );
+	const hostname = new URL( remote.url ).hostname;
+	const panel = await open();
+	const siteRow = await within( panel ).findByRole( 'button', { name: hostname } );
+	expect( siteRow ).toContainHTML( logo );
+
+	await user.click( within( panel ).getByRole( 'button', { name: 'Choose destination' } ) );
+	const picker = await screen.findByRole( 'menu', { name: 'Destinations' } );
+	expect( within( picker ).getByRole( 'menuitemradio', { name: hostname } ) ).toContainHTML( logo );
+} );
+
 it( 'keeps connected destinations separate from the previews below them', async () => {
 	const { connector, user } = setup( {
 		getRemoteSites: async ( provider ) =>
@@ -547,10 +569,15 @@ it.each( [ 'last used', 'saved default' ] )(
 			connector.state.preferences.defaultHostingProvider = 'spacefast';
 		}
 		await open();
-		expect( screen.getByText( 'Make it with Spacefast' ) ).toBeVisible();
-		expect( screen.getByText( 'A fast, simple version of your pages' ) ).toBeVisible();
+		expect( screen.queryByText( 'Make it with Spacefast' ) ).not.toBeInTheDocument();
+		await waitFor( () =>
+			expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toHaveAccessibleDescription(
+				'Everyone'
+			)
+		);
+		expect( screen.queryByText( 'A fast, simple version of your pages' ) ).not.toBeInTheDocument();
 		expect(
-			screen.getByText( 'Make your WordPress public with a link anyone can open.' )
+			screen.getByText( 'Choose where to share your WordPress and who can view it.' )
 		).toBeVisible();
 		expect( screen.getByRole( 'button', { name: 'Publish' } ) ).toBeVisible();
 		expect( screen.getByRole( 'heading', { name: 'Share' } ) ).toBeVisible();
@@ -563,7 +590,8 @@ it.each( [ 'last used', 'saved default' ] )(
 		expect( within( picker ).getByText( 'A fast, simple version of your pages' ) ).toBeVisible();
 	}
 );
-it( 'shows a static destination when the only publishing provider is connected', async () => {
+
+it( 'shows preview access when WordPress.com is the only available destination', async () => {
 	const { connector } = setup( {
 		capabilities: { nativeSites: false },
 		getRemoteSites: async () => [],
@@ -577,50 +605,83 @@ it( 'shows a static destination when the only publishing provider is connected',
 	await open();
 	expect( screen.getByText( 'Destination' ) ).toBeVisible();
 	expect( screen.queryByRole( 'button', { name: 'Destination' } ) ).not.toBeInTheDocument();
-	fireEvent.click( screen.getByRole( 'button', { name: 'Make it public' } ) );
-	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
-	expect( screen.queryByRole( 'menu', { name: 'Where to publish' } ) ).not.toBeInTheDocument();
-	await waitFor( () =>
-		expect( connector.openExternalUrl ).toHaveBeenCalledWith( buildPublishCheckoutUrl( site ) )
+	expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toHaveAccessibleDescription(
+		'Anyone with the link'
 	);
+	expect( screen.getByRole( 'button', { name: 'Create preview link' } ) ).toBeVisible();
+	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 } );
 
-it( 'publishes a new destination through its provider and selects it', async () => {
-	let created = false;
-	const { connector } = setup( {
-		getSnapshots: async () => [],
-		getRemoteSites: async ( provider ) => ( provider === 'spacefast' && created ? [ space ] : [] ),
-		createRemoteSite: async () => {
-			created = true;
-			return space;
-		},
-	} );
-	await open();
-	fireEvent.click( screen.getByRole( 'button', { name: 'Destination' } ) );
-	fireEvent.click( await screen.findByRole( 'menuitemradio', { name: /Spacefast A fast/ } ) );
-	expect( connector.createRemoteSite ).not.toHaveBeenCalled();
-	expect( connector.pushSite ).not.toHaveBeenCalled();
-	fireEvent.click( await screen.findByRole( 'button', { name: 'Publish' } ) );
-	await waitFor( () =>
-		expect( connector.createRemoteSite ).toHaveBeenCalledExactlyOnceWith(
-			'spacefast',
-			site.id,
-			site.name
-		)
-	);
-	await waitFor( () =>
-		expect( connector.pushSite ).toHaveBeenCalledExactlyOnceWith(
-			'spacefast',
-			site.id,
-			space.id,
-			undefined
-		)
-	);
-	expect( await screen.findByRole( 'button', { name: 'lente.space.fast' } ) ).toBeVisible();
-	expect( screen.queryByText( 'Some features may not work' ) ).not.toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
-	expect( localStorage.getItem( 'studio-last-publish-provider' ) ).toBe( 'spacefast' );
-} );
+it.each( [
+	{ policy: 'public', restrict: false, expected: 'public' },
+	{ policy: 'public', restrict: true, expected: 'private' },
+	{ policy: 'private', restrict: false, expected: 'private' },
+] as const )(
+	'publishes a new Space with $expected access (policy: $policy, restrict: $restrict)',
+	async ( { policy, restrict, expected } ) => {
+		let created = false;
+		const { connector, user } = setup( {
+			getSiteCreationVisibility: async () => policy,
+			getSnapshots: async () => [],
+			getRemoteSites: async ( provider ) =>
+				provider === 'spacefast' && created ? [ space ] : [],
+			createRemoteSite: async () => {
+				created = true;
+				return space;
+			},
+		} );
+		await open();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Destination' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: /Spacefast A fast/ } ) );
+		expect( connector.createRemoteSite ).not.toHaveBeenCalled();
+		expect( connector.pushSite ).not.toHaveBeenCalled();
+		const access = await screen.findByRole( 'button', { name: 'Who can view' } );
+		await waitFor( () =>
+			expect( access ).toHaveAccessibleDescription(
+				policy === 'private' ? 'Restricted' : 'Everyone'
+			)
+		);
+		await user.click( access );
+		const everyone = await screen.findByRole( 'menuitemradio', { name: 'Everyone' } );
+		const restricted = screen.getByRole( 'menuitemradio', { name: 'Restricted' } );
+		if ( policy === 'private' ) {
+			expect( everyone ).toHaveAttribute( 'aria-disabled', 'true' );
+			expect( restricted ).toBeChecked();
+			expect( screen.getByText( 'Your team only allows restricted sites.' ) ).toBeVisible();
+		}
+		if ( restrict ) {
+			await user.click( restricted );
+			expect( access ).toHaveAccessibleDescription( 'Restricted' );
+		} else {
+			await user.keyboard( '{Escape}' );
+		}
+		expect(
+			screen.getByText( 'Choose where to share your WordPress and who can view it.' )
+		).toBeVisible();
+		expect( connector.createRemoteSite ).not.toHaveBeenCalled();
+		await user.click( screen.getByRole( 'button', { name: 'Publish' } ) );
+		await waitFor( () =>
+			expect( connector.createRemoteSite ).toHaveBeenCalledExactlyOnceWith(
+				'spacefast',
+				site.id,
+				site.name,
+				expected
+			)
+		);
+		await waitFor( () =>
+			expect( connector.pushSite ).toHaveBeenCalledExactlyOnceWith(
+				'spacefast',
+				site.id,
+				space.id,
+				undefined
+			)
+		);
+		expect( await screen.findByRole( 'button', { name: 'lente.space.fast' } ) ).toBeVisible();
+		expect( screen.queryByText( 'Some features may not work' ) ).not.toBeInTheDocument();
+		expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
+		expect( localStorage.getItem( 'studio-last-publish-provider' ) ).toBe( 'spacefast' );
+	}
+);
 
 it( 'copies a selected preview without opening it, while the address opens its share URL', async () => {
 	const { connector } = setup();
@@ -724,7 +785,7 @@ it( 'restores the default for an unavailable destination and changes help with s
 		await screen.findByRole( 'menuitemradio', { name: /WordPress.com The full WordPress/ } )
 	);
 	expect( screen.getByRole( 'button', { name: 'Create preview link' } ) ).toBeVisible();
-	expect( screen.getByText( 'The full WordPress, with a domain' ) ).toBeVisible();
+	expect( screen.queryByText( 'The full WordPress, with a domain' ) ).not.toBeInTheDocument();
 	expect( screen.queryByText( 'Some features may not work' ) ).not.toBeInTheDocument();
 } );
 
@@ -758,7 +819,7 @@ it( 'defaults to the connected destination even when a disconnected provider was
 	} );
 	await open();
 	expect( await screen.findByText( 'Spacefast' ) ).toBeVisible();
-	expect( screen.getByText( 'A fast, simple version of your pages' ) ).toBeVisible();
+	expect( screen.queryByText( 'A fast, simple version of your pages' ) ).not.toBeInTheDocument();
 	expect( screen.getByRole( 'button', { name: 'Destination' } ) ).toBeVisible();
 	expect( screen.queryByText( 'WordPress.com' ) ).not.toBeInTheDocument();
 	expect( screen.queryByRole( 'button', { name: 'Create preview link' } ) ).not.toBeInTheDocument();
@@ -785,12 +846,15 @@ it( 'publishes a connected destination without leaving the main panel', async ()
 		createRemoteSite: async () => creation,
 	} );
 	await open();
-	fireEvent.click( screen.getByRole( 'button', { name: 'Publish' } ) );
+	const publish = screen.getByRole( 'button', { name: 'Publish' } );
+	await waitFor( () => expect( publish ).toBeEnabled() );
+	fireEvent.click( publish );
 	await waitFor( () =>
 		expect( connector.createRemoteSite ).toHaveBeenCalledExactlyOnceWith(
 			'spacefast',
 			site.id,
-			site.name
+			site.name,
+			'public'
 		)
 	);
 	expect( screen.getByRole( 'heading', { name: 'Share' } ) ).toBeVisible();

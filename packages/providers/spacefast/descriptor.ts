@@ -49,6 +49,7 @@ export const spacefastProvider: Provider< SpacefastConfig, Space > = {
 		selective: false,
 		content: 'static',
 		newSite: 'create',
+		visibilityAtCreation: true,
 		intro: {
 			title: () => __( 'Publish to Spacefast' ),
 			description: () =>

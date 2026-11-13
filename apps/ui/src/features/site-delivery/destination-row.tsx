@@ -7,14 +7,12 @@ export function DestinationRow( {
 	label,
 	description,
 	trailing,
-	informational,
 	...props
 }: Omit< ComponentProps< typeof Button >, 'children' > & {
 	icon: ReactNode;
 	label: string | undefined;
 	description?: ReactNode;
 	trailing?: ReactNode;
-	informational?: boolean;
 } ) {
 	const content = (
 		<>
@@ -28,9 +26,7 @@ export function DestinationRow( {
 			{ trailing && <span className={ styles.addressExternalIcon }>{ trailing }</span> }
 		</>
 	);
-	return informational ? (
-		<div className={ styles.destinationRowControl }>{ content }</div>
-	) : (
+	return (
 		<Button variant="ghost" className={ styles.destinationRowControl } { ...props }>
 			{ content }
 		</Button>

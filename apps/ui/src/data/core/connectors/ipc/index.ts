@@ -501,8 +501,11 @@ export function createIpcConnector(): Connector {
 			await ipcApi.disconnectRemoteSite( provider, localSiteId, remoteSiteId );
 		},
 
-		async createRemoteSite( provider, localSiteId, name ) {
-			return unwrapIpcError( ipcApi.createRemoteSite( provider, localSiteId, name ) );
+		async getSiteCreationVisibility( provider ) {
+			return unwrapIpcError( ipcApi.getSiteCreationVisibility( provider ) );
+		},
+		async createRemoteSite( provider, localSiteId, name, visibility ) {
+			return unwrapIpcError( ipcApi.createRemoteSite( provider, localSiteId, name, visibility ) );
 		},
 
 		onSyncConnectSite( listener ) {

@@ -617,10 +617,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				{ method: 'DELETE' }
 			);
 		},
-		async createRemoteSite( provider, localSiteId, name ) {
+		async getSiteCreationVisibility( provider ) {
+			return api( `/remote-sites/${ provider }/creation-visibility` );
+		},
+		async createRemoteSite( provider, localSiteId, name, visibility ) {
 			return api( `/sites/${ encodeURIComponent( localSiteId ) }/remote-sites/${ provider }/new`, {
 				method: 'POST',
-				body: JSON.stringify( { name } ),
+				body: JSON.stringify( { name, visibility } ),
 			} );
 		},
 		onSyncConnectSite( listener ) {

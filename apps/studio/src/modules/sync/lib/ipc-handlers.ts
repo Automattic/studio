@@ -7,6 +7,7 @@ import {
 } from '@studio/common/lib/remote-sites';
 import { getSitePublishStatus as getPublishStatus } from '@studio/common/sites/publish-status';
 import {
+	getSiteCreationVisibility as readCreationVisibility,
 	getSiteVisibility as readVisibility,
 	setSiteVisibility as writeVisibility,
 	createRemoteSite as createRemoteSiteOnProvider,
@@ -21,6 +22,7 @@ import {
 	normalizeProviderId,
 	SITES_PROVIDER_IDS,
 	type ProviderSites,
+	type SiteCreationVisibility,
 	type SitesProviderId,
 } from '@studio/providers';
 import { getProviderServices } from '@studio/providers/services';
@@ -79,16 +81,22 @@ export async function disconnectRemoteSite(
 	await forgetRemoteSite( parseProvider( provider ), localSiteId, remoteSiteId as never );
 }
 
+export function getSiteCreationVisibility( _event: IpcMainInvokeEvent, provider: string ) {
+	return readCreationVisibility( getProviderServices( parseProvider( provider ) ) );
+}
+
 export async function createRemoteSite(
 	_event: IpcMainInvokeEvent,
 	provider: string,
 	localSiteId: string,
-	name: string
+	name: string,
+	visibility?: SiteCreationVisibility
 ): Promise< ProviderSites[ SitesProviderId ] > {
 	return createRemoteSiteOnProvider(
 		getProviderServices( parseProvider( provider ) ),
 		localSiteId,
-		name
+		name,
+		visibility
 	);
 }
 

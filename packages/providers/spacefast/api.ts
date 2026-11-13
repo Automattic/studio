@@ -1,5 +1,5 @@
 import type { Space } from './descriptor';
-import type { PushFile } from '../types';
+import type { PushFile, SiteCreationVisibility } from '../types';
 
 // A pending device sign-in: the user approves `userCode` at `verificationUrl`.
 interface DeviceAuthorization {
@@ -180,15 +180,28 @@ export async function listSpaces( apiKey: string ): Promise< Space[] > {
 	return spaces;
 }
 
+export async function getTeamCreationVisibility(
+	apiKey: string,
+	teamId: string
+): Promise< SiteCreationVisibility > {
+	const { data } = await request< { data: { privateSpacesOnly: boolean } } >(
+		`/v1/teams/${ encodeURIComponent( teamId ) }/access/defaults`,
+		{ apiKey }
+	);
+	if ( typeof data?.privateSpacesOnly !== 'boolean' ) {
+		throw new Error( 'Spacefast did not return the team access policy.' );
+	}
+	return data.privateSpacesOnly ? 'private' : 'public';
+}
+
 export async function createSpace(
 	apiKey: string,
-	{ teamId, title }: { teamId: string; title: string }
+	{ teamId, title, access }: { teamId: string; title: string; access: SiteCreationVisibility }
 ): Promise< Space > {
 	const { data } = await request< { data: { space: ApiSpace } } >( '/v1/spaces', {
 		apiKey,
 		method: 'POST',
-		// A published site is meant to be visited; existing Spaces keep their own access.
-		body: { teamId, title, access: 'public' },
+		body: { teamId, title, access, capabilities: [ 'optional_access' ] },
 	} );
 	return toSpace( data.space );
 }

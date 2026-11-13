@@ -5,7 +5,7 @@ import { ChevronDownIcon, EyeIcon, EyeOffIcon, ExternalLinkIcon } from '@/lib/ic
 import { Button, Menu } from '@/lib/ui';
 import styles from './style.module.css';
 import type { useSiteVisibility } from '@/data/queries/use-site-visibility';
-import type { SiteVisibility, ProviderSitesInfo } from '@studio/providers';
+import type { SiteCreationVisibility, SiteVisibility, ProviderSitesInfo } from '@studio/providers';
 import type { ReactNode } from 'react';
 
 function AccessPicker( {
@@ -13,6 +13,7 @@ function AccessPicker( {
 	options,
 	disabled,
 	restricted,
+	valueLabel,
 	open,
 	onOpenChange,
 	onValueChange,
@@ -23,6 +24,7 @@ function AccessPicker( {
 	options: { value: string; label: string; description: string; disabled?: boolean }[];
 	disabled: boolean;
 	restricted?: boolean;
+	valueLabel?: string;
 	open?: boolean;
 	onOpenChange?: ( open: boolean ) => void;
 	onValueChange: ( value: string ) => void;
@@ -30,7 +32,8 @@ function AccessPicker( {
 	children?: ReactNode;
 } ) {
 	const VisibilityIcon = restricted ? EyeOffIcon : EyeIcon;
-	const label = options.find( ( option ) => option.value === value )?.label ?? __( 'Unknown' );
+	const label =
+		valueLabel ?? options.find( ( option ) => option.value === value )?.label ?? __( 'Unknown' );
 	return (
 		<div>
 			<Menu.Root open={ open } onOpenChange={ onOpenChange }>
@@ -99,7 +102,7 @@ export function PreviewAccessControl( {
 				{
 					value: 'link',
 					label: __( 'Anyone with the link' ),
-					description: __( 'Share this preview until it expires' ),
+					description: __( 'Share a temporary preview link' ),
 				},
 				{
 					value: 'public',
@@ -114,6 +117,46 @@ export function PreviewAccessControl( {
 			disabled={ disabled }
 			onValueChange={ ( next ) => onPublicSelectedChange( next === 'public' ) }
 		/>
+	);
+}
+
+export function SiteCreationAccessControl( {
+	value,
+	policy,
+	loading,
+	disabled,
+	getOptions,
+	onChange,
+}: {
+	value?: SiteCreationVisibility;
+	policy?: SiteCreationVisibility;
+	loading: boolean;
+	disabled: boolean;
+	getOptions: NonNullable< ProviderSitesInfo[ 'visibilityOptions' ] >;
+	onChange: ( value: SiteCreationVisibility ) => void;
+} ) {
+	return (
+		<AccessPicker
+			value={ value }
+			valueLabel={ loading ? __( 'Checking…' ) : undefined }
+			options={ getOptions( value )
+				.filter( ( option ) => option.value === 'private' || option.value === 'public' )
+				.map( ( option ) => ( {
+					...option,
+					disabled: option.disabled || ( policy === 'private' && option.value === 'public' ),
+				} ) ) }
+			disabled={ disabled }
+			restricted={ value === 'private' }
+			onValueChange={ ( next ) => {
+				if ( next === 'private' || ( next === 'public' && policy === 'public' ) ) onChange( next );
+			} }
+		>
+			{ policy === 'private' && (
+				<p className={ styles.accessPickerError }>
+					{ __( 'Your team only allows restricted sites.' ) }
+				</p>
+			) }
+		</AccessPicker>
 	);
 }
 

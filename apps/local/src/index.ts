@@ -157,6 +157,7 @@ import {
 import { nodeSiteFiles } from '@studio/common/sites/node-site-files';
 import { getSitePublishStatus } from '@studio/common/sites/publish-status';
 import {
+	getSiteCreationVisibility,
 	getSiteVisibility,
 	setSiteVisibility,
 	createRemoteSite,
@@ -2003,19 +2004,37 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	api.get(
+		'/remote-sites/:provider/creation-visibility',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readSitesProvider( req, res );
+			if ( provider ) {
+				res.json( await getSiteCreationVisibility( getProviderServices( provider ) ) );
+			}
+		} )
+	);
+
 	api.post(
 		'/sites/:id/remote-sites/:provider/new',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readSitesProvider( req, res );
-			const { name } = req.body as { name?: string };
 			if ( ! provider ) {
 				return;
 			}
-			if ( ! name ) {
-				res.status( 400 ).json( { error: 'name is required' } );
+			const input = z
+				.object( {
+					name: z.string().min( 1 ),
+					visibility: z.enum( [ 'public', 'private' ] ).optional(),
+				} )
+				.safeParse( req.body );
+			if ( ! input.success ) {
+				res.status( 400 ).json( { error: 'Invalid site creation request.' } );
 				return;
 			}
-			res.json( await createRemoteSite( getProviderServices( provider ), req.params.id, name ) );
+			const { name, visibility } = input.data;
+			res.json(
+				await createRemoteSite( getProviderServices( provider ), req.params.id, name, visibility )
+			);
 		} )
 	);
 

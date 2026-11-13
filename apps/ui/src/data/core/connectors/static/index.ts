@@ -363,6 +363,9 @@ export function createStaticConnector(): Connector {
 		async disconnectRemoteSite( provider, localSiteId, remoteSiteId ) {
 			await wpcomOnly( provider ).disconnectSite( localSiteId, Number( remoteSiteId ) );
 		},
+		async getSiteCreationVisibility() {
+			throw new UnsupportedError( 'getSiteCreationVisibility' );
+		},
 		async createRemoteSite() {
 			throw new UnsupportedError( 'createRemoteSite' );
 		},

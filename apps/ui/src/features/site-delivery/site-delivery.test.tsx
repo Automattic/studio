@@ -179,7 +179,9 @@ it( 'keeps a single preview upload running when the popover is reopened', async 
 	expect( connector.publishPreviewSite ).toHaveBeenCalledTimes( 1 );
 	const panel = screen.getByRole( 'dialog', { name: 'Share' } );
 	expect( within( panel ).getByText( 'Destination' ) ).toBeVisible();
-	expect( within( panel ).getByRole( 'button', { name: 'Make it public' } ) ).toBeVisible();
+	expect(
+		within( panel ).getByRole( 'button', { name: 'Who can view' } )
+	).toHaveAccessibleDescription( 'Anyone with the link' );
 	expect( within( panel ).queryByRole( 'heading', { name: 'Previews' } ) ).not.toBeInTheDocument();
 	expect(
 		within( panel ).queryByRole( 'button', { name: 'New preview' } )
@@ -1066,6 +1068,7 @@ it( 'chooses preview access locally, continues to checkout, and resets on close'
 	expect(
 		await screen.findByRole( 'menuitemradio', { name: 'Anyone with the link' } )
 	).toBeChecked();
+	expect( screen.getByText( 'Share a temporary preview link' ) ).toBeVisible();
 	await actions.click( screen.getByRole( 'menuitemradio', { name: 'Everyone' } ) );
 	expect( access ).toHaveAccessibleDescription( 'Everyone' );
 	expect( screen.queryByRole( 'button', { name: 'Copy link' } ) ).not.toBeInTheDocument();
@@ -1238,8 +1241,17 @@ it( 'opens checkout at the preview limit without creating a preview', async () =
 	} );
 	const actions = userEvent.setup();
 	await actions.click( await screen.findByRole( 'button', { name: 'Share…' } ) );
-	await actions.click( await screen.findByRole( 'button', { name: 'Make it public' } ) );
-	await screen.findByRole( 'button', { name: 'Reopen WordPress.com' } );
+	expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toHaveAccessibleDescription(
+		'Anyone with the link'
+	);
+	expect( screen.getByRole( 'button', { name: 'Create preview link' } ) ).toBeVisible();
+	await choosePreviewAccess( actions, 'Everyone' );
+	expect( connector.openExternalUrl ).not.toHaveBeenCalled();
+	expect( screen.queryByRole( 'button', { name: 'Create preview link' } ) ).not.toBeInTheDocument();
+	await actions.click( screen.getByRole( 'button', { name: 'Continue on WordPress.com' } ) );
+	await waitFor( () =>
+		expect( screen.getByRole( 'button', { name: 'Continue on WordPress.com' } ) ).toBeEnabled()
+	);
 	expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith(
 		buildPublishCheckoutUrl( connector.state.sites[ 0 ] )
 	);
@@ -1255,12 +1267,14 @@ it( 'can retry opening WordPress.com after the browser handoff fails', async () 
 	connector.openExternalUrl.mockRejectedValueOnce( new Error( 'Could not open the browser.' ) );
 	const actions = userEvent.setup();
 	await actions.click( await screen.findByRole( 'button', { name: 'Share…' } ) );
-	const row = await screen.findByRole( 'button', { name: 'Make it public' } );
-	await actions.click( row );
+	await choosePreviewAccess( actions, 'Everyone' );
+	const button = screen.getByRole( 'button', { name: 'Continue on WordPress.com' } );
+	await actions.click( button );
 	expect( await screen.findByRole( 'alert' ) ).toHaveTextContent( 'Could not open the browser.' );
-	expect( row ).toBeEnabled();
-	await actions.click( row );
-	expect( await screen.findByRole( 'button', { name: 'Reopen WordPress.com' } ) ).toBeVisible();
+	expect( button ).toBeEnabled();
+	await actions.click( button );
+	await waitFor( () => expect( connector.openExternalUrl ).toHaveBeenCalledTimes( 2 ) );
+	expect( screen.queryByRole( 'alert' ) ).not.toBeInTheDocument();
 	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 } );
 
@@ -1407,7 +1421,7 @@ it( 'offers publishing help inline in the description before a preview exists', 
 	).not.toBeInTheDocument();
 	const help = within( panel ).getByRole( 'button', { name: 'Learn more' } );
 	expect( help.closest( 'p' ) ).toHaveTextContent(
-		'Share a temporary preview, or make your WordPress public.'
+		'Choose where to share your WordPress and who can view it.'
 	);
 	expect( help ).toHaveAttribute( 'data-variant', 'inline-accent' );
 	await actions.click( help );

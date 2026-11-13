@@ -1,7 +1,12 @@
 import { getQualifyingLiveSites } from '@studio/common/lib/live-preview-site';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import { getProvider, getProviderSites, type SitesProviderId } from '@studio/providers';
-import { useQueryClient } from '@tanstack/react-query';
+import {
+	getProvider,
+	getProviderSites,
+	type SiteCreationVisibility,
+	type SitesProviderId,
+} from '@studio/providers';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
@@ -37,7 +42,6 @@ import {
 	DuplicateIcon,
 	EllipsisVerticalIcon,
 	ExternalLinkIcon,
-	ChevronRightIcon,
 	LinkIcon,
 	TrashIcon,
 	UploadIcon,
@@ -73,7 +77,11 @@ import {
 import { ConnectSiteIcon, DisconnectSiteIcon } from './connection-icons';
 import { DestinationRow } from './destination-row';
 import { ExistingSiteDialog } from './existing-site-dialog';
-import { HostedAccessControl, PreviewAccessControl } from './hosted-access-control';
+import {
+	HostedAccessControl,
+	PreviewAccessControl,
+	SiteCreationAccessControl,
+} from './hosted-access-control';
 import { LiveSiteAction } from './live-site-action';
 import { isNewDestination } from './new-destination';
 import { ProviderLogo } from './provider-logo';
@@ -94,12 +102,6 @@ import { usePublishPreview } from './use-publish-preview';
 import { usePublishTargets, type PublishTarget } from './use-publish-targets';
 
 type PullRequest = { provider?: SitesProviderId; remoteSiteId?: string | number };
-
-type Checkout = {
-	provider: SitesProviderId;
-	primaryLabel: string;
-	url?: string;
-};
 
 export function PublishButton( {
 	site,
@@ -201,6 +203,19 @@ export function PublishButton( {
 	const destinationProvider = selected?.provider ?? emptyDestination;
 	const connection = targets.connectionState( destinationProvider );
 	const connectionUnavailable = ! selected && connection.unavailable;
+	const showCreationAccess = ! selected && !! emptyDescriptor.visibilityAtCreation;
+	const [ requestedVisibility, setRequestedVisibility ] = useState< SiteCreationVisibility >();
+	const creationPolicy = useQuery( {
+		queryKey: [ 'site-creation-visibility', emptyDestination ],
+		queryFn: () => connector.getSiteCreationVisibility( emptyDestination ),
+		enabled: open && showCreationAccess && connectedProviders.includes( emptyDestination ),
+		retry: false,
+		meta: { persist: false },
+	} );
+	const creationVisibility =
+		creationPolicy.data === 'public' ? requestedVisibility ?? 'public' : creationPolicy.data;
+	const creationAccessUnavailable =
+		showCreationAccess && ( creationPolicy.isError || ! creationVisibility );
 	const previewsCapability =
 		( descriptor ?? emptyDescriptor ).previews ??
 		( remote && targets.previewProvider && connectedProviders.includes( targets.previewProvider )
@@ -231,24 +246,8 @@ export function PublishButton( {
 				: request
 		);
 	}, [ client, site.id, pullKey, pullProvider, pullRemoteId ] );
-	const emptyDescription = emptyDescriptor.previews
-		? __( 'Share a temporary preview, or make your WordPress public.' )
-		: __( 'Make your WordPress public with a link anyone can open.' );
 	const [ preparing, setPreparing ] = useState< 'checkout' | 'create' >();
-	const [ checkout, setCheckout ] = useState< Checkout >();
 	const [ publicPreviewKey, setPublicPreviewKey ] = useState< string >();
-	const activeCheckout = remote ? undefined : checkout;
-	const checkoutUrl = activeCheckout?.url;
-	const openingCheckout = !! activeCheckout && ! checkoutUrl && preparing === 'checkout';
-	const checkoutInProgress = openingCheckout || !! checkoutUrl;
-	const checkoutProvider = activeCheckout && getProvider( activeCheckout.provider ).label;
-	const openingDescription = checkoutProvider
-		? sprintf(
-				/* translators: %s: hosting provider name. */
-				__( 'Opening %s' ),
-				checkoutProvider
-		  )
-		: undefined;
 	const [ failure, setFailure ] = useState< string >();
 	const [ previewLimitOpen, setPreviewLimitOpen ] = useState( false );
 	const [ previewsBeforeCreation, setPreviewsBeforeCreation ] = useState< Set< number > >();
@@ -308,7 +307,16 @@ export function PublishButton( {
 	const publicDestination = snapshot ? selected!.provider : emptyDestination;
 	const publicDescriptor = getProviderSites( publicDestination );
 	const publicProviderLabel = getProvider( publicDestination ).label;
-	const previewPublicSelected = !! snapshot && publicPreviewKey === selected?.key;
+	const showPreviewAccess =
+		! remote && !! publicDescriptor.previews && publicDescriptor.newSite === 'checkout';
+	const previewAccessKey = selected?.key ?? emptyDestination;
+	const previewPublicSelected = showPreviewAccess && publicPreviewKey === previewAccessKey;
+	const openingCheckout = ! remote && preparing === 'checkout';
+	const openingDescription = sprintf(
+		/* translators: %s: hosting provider name. */
+		__( 'Opening %s' ),
+		publicProviderLabel
+	);
 	const continueLabel = sprintf(
 		/* translators: %s: hosting provider name. */
 		__( 'Continue on %s' ),
@@ -316,30 +324,17 @@ export function PublishButton( {
 	);
 	const { copied, copy } = useCopyText( url ?? '' );
 	const { copy: copyLinkFromMenu } = useCopyText( url ?? '', __( 'Link copied' ) );
-	const publicDescription = checkoutUrl
-		? __( 'Waiting for your new site' )
-		: openingCheckout
-		? openingDescription
-		: publicDescriptor.publishing.description();
-	const reopenCheckout = async ( checkoutUrl: string ) => {
-		try {
-			await connector.openExternalUrl( checkoutUrl );
-		} catch {
-			toast.error( __( 'Could not reopen the setup page. Please try again.' ) );
-		}
-	};
 	const close = () => {
 		preview.cancelOverwrite();
 		setOpen( false );
 		setPullRequest( undefined );
-		setCheckout( undefined );
 		setPublicPreviewKey( undefined );
+		setRequestedVisibility( undefined );
 		if ( selected ) setPublishProvider( undefined );
 	};
 	const select = ( target: PublishTarget ) => {
 		setPullRequest( undefined );
 		targets.select( target );
-		setCheckout( undefined );
 		setPublicPreviewKey( undefined );
 		setFailure( undefined );
 		setPublishProvider( undefined );
@@ -360,7 +355,6 @@ export function PublishButton( {
 			return;
 		}
 		setPreviewLiveSite( undefined );
-		setCheckout( undefined );
 		setPublicPreviewKey( undefined );
 		if ( targets.previewProvider ) rememberPublishProvider( targets.previewProvider );
 		setPreviewsBeforeCreation( new Set( preview.previews.map( ( item ) => item.atomicSiteId ) ) );
@@ -378,7 +372,10 @@ export function PublishButton( {
 			.finally( () => setPreviewsBeforeCreation( undefined ) );
 	};
 
-	const startProvider = async ( provider: SitesProviderId ) => {
+	const startProvider = async (
+		provider: SitesProviderId,
+		visibility?: SiteCreationVisibility
+	) => {
 		const sites = getProviderSites( provider );
 		if ( ! connectedProviders.includes( provider ) ) {
 			close();
@@ -396,23 +393,19 @@ export function PublishButton( {
 					setFailure( __( 'Could not open the setup page. Please try again.' ) );
 					return;
 				}
-				const attempt: Checkout = {
-					provider,
-					primaryLabel: snapshot ? continueLabel : __( 'Create preview link' ),
-				};
-				setCheckout( attempt );
 				clearPublishSetupError( site.id );
 				void connector.trackEvent( TRACKS_EVENTS.SYNC_PUBLISH_SITE );
 				void connector.watchForPublishedSite?.( site.id ).catch( () => {
 					toast.error( __( 'Could not watch for your new site. Please try again.' ) );
 				} );
 				await connector.openExternalUrl( checkoutUrl );
-				setCheckout( ( current ) => {
-					if ( current !== attempt ) return current;
-					return snapshot ? undefined : { ...attempt, url: checkoutUrl };
-				} );
 			} else if ( sites.newSite === 'create' ) {
-				const created = await connector.createRemoteSite( provider, site.id, site.name );
+				const created = await connector.createRemoteSite(
+					provider,
+					site.id,
+					site.name,
+					visibility
+				);
 				await client.invalidateQueries( { queryKey: remoteSitesQueryKey( provider, site.id ) } );
 				client.setQueryData(
 					publishTargetQueryKey( site.id ),
@@ -429,6 +422,7 @@ export function PublishButton( {
 				setFailure( __( 'This destination cannot create a site from this panel yet.' ) );
 			}
 		} catch ( error ) {
+			if ( sites.visibilityAtCreation ) void creationPolicy.refetch();
 			setFailure(
 				error instanceof Error ? error.message : __( 'Could not publish. Please try again.' )
 			);
@@ -437,7 +431,8 @@ export function PublishButton( {
 		}
 	};
 	const chooseProvider = ( provider: SitesProviderId ) => {
-		setCheckout( undefined );
+		setPublicPreviewKey( undefined );
+		setRequestedVisibility( undefined );
 		setFailure( undefined );
 		setPublishProvider( provider );
 	};
@@ -473,7 +468,7 @@ export function PublishButton( {
 	);
 	const connectExistingSiteAction = canConnectExistingSite && (
 		<Menu.Item
-			disabled={ disabled || checkoutInProgress || connectionUnavailable }
+			disabled={ disabled || connectionUnavailable }
 			onClick={ () => setExistingProvider( selected?.provider ?? publicDestination ) }
 		>
 			<ConnectSiteIcon />
@@ -699,7 +694,6 @@ export function PublishButton( {
 									<Button
 										variant="outline"
 										onClick={ () => {
-											setCheckout( undefined );
 											preview.cancelOverwrite();
 										} }
 									>
@@ -753,13 +747,7 @@ export function PublishButton( {
 									) }
 								</div>
 								<Popover.Description className={ styles.shareDescription }>
-									{ checkoutUrl && checkoutProvider
-										? sprintf(
-												/* translators: %s: hosting provider name. */
-												__( 'Finish setting up on %s.' ),
-												checkoutProvider
-										  )
-										: remote
+									{ remote
 										? selectedPending
 											? __( 'Your changes will be live in a moment.' )
 											: newDestination
@@ -776,8 +764,8 @@ export function PublishButton( {
 											: __( "You have changes that aren't live yet." )
 										: snapshot
 										? __( 'Anyone with the link can view this preview until it expires.' )
-										: emptyDescription }
-									{ ! checkoutUrl && remote && upToDate && ! selectedPending && (
+										: __( 'Choose where to share your WordPress and who can view it.' ) }
+									{ remote && upToDate && ! selectedPending && (
 										<>
 											{ ' ' }
 											<Button
@@ -790,7 +778,7 @@ export function PublishButton( {
 											</Button>
 										</>
 									) }
-									{ ! checkoutUrl && ( ! selected || snapshot ) && (
+									{ ( ! selected || snapshot ) && (
 										<>
 											{ ' ' }
 											<Button
@@ -844,10 +832,7 @@ export function PublishButton( {
 											</div>
 										</>
 									) }
-								<div
-									className={ styles.settingsGroup }
-									data-opening-checkout={ openingCheckout || undefined }
-								>
+								<div className={ styles.settingsGroup }>
 									{ ! selected && (
 										<div
 											className={ styles.destinationField }
@@ -902,7 +887,12 @@ export function PublishButton( {
 																snapshot ? (
 																	<LinkIcon />
 																) : (
-																	<ProviderLogo provider={ selected.provider } branded compact />
+																	<ProviderLogo
+																		provider={ selected.provider }
+																		site={ selected.remote }
+																		branded
+																		compact
+																	/>
 																)
 															}
 															label={ snapshot ? selected.label : hostname }
@@ -952,42 +942,26 @@ export function PublishButton( {
 											/>
 										</div>
 									) }
-									{ snapshot && publicDescriptor.newSite === 'checkout' && (
+									{ showPreviewAccess && (
 										<PreviewAccessControl
 											publicSelected={ previewPublicSelected }
 											disabled={ disabled }
 											providerLabel={ publicProviderLabel }
 											onPublicSelectedChange={ ( next ) => {
-												setPublicPreviewKey( next ? selected?.key : undefined );
-												setCheckout( undefined );
+												setPublicPreviewKey( next ? previewAccessKey : undefined );
 												setFailure( undefined );
 											} }
 										/>
 									) }
-									{ ! selected && emptyDescriptor.previews && (
-										<div>
-											<DestinationRow
-												icon={ <ProviderLogo provider={ publicDestination } branded compact /> }
-												label={ __( 'Make it public' ) }
-												description={ publicDescription }
-												trailing={
-													checkoutInProgress ? (
-														<Spinner aria-hidden="true" />
-													) : publicDescriptor.newSite === 'checkout' ? (
-														<ExternalLinkIcon />
-													) : (
-														<ChevronRightIcon />
-													)
-												}
-												data-checkout-progress={ checkoutInProgress || undefined }
-												disabled={ disabled || checkoutInProgress || connectionUnavailable }
-												focusableWhenDisabled={ checkoutInProgress }
-												aria-busy={ openingCheckout || undefined }
-												aria-label={ __( 'Make it public' ) }
-												aria-description={ publicDescription }
-												onClick={ () => void startProvider( publicDestination ) }
-											/>
-										</div>
+									{ showCreationAccess && emptyDescriptor.visibilityOptions && (
+										<SiteCreationAccessControl
+											value={ creationVisibility }
+											policy={ creationPolicy.data }
+											loading={ creationPolicy.isPending }
+											disabled={ disabled || creationAccessUnavailable }
+											getOptions={ emptyDescriptor.visibilityOptions }
+											onChange={ setRequestedVisibility }
+										/>
 									) }
 									{ remote && descriptor?.selective && ! newDestination && (
 										<PublishOptionsControl
@@ -998,18 +972,6 @@ export function PublishButton( {
 											remote={ remote }
 											disabled={ disabled }
 										/>
-									) }
-									{ ! selected && emptyDescriptor.content === 'static' && (
-										<div>
-											<DestinationRow
-												informational
-												icon={ <ProviderLogo provider={ emptyDestination } branded compact /> }
-												label={
-													emptyDescriptor.publishing.staticSiteLabel?.() ?? __( 'Make it public' )
-												}
-												description={ emptyDescriptor.publishing.description() }
-											/>
-										</div>
 									) }
 								</div>
 								{ snapshot && preview.status.data?.previewChanged && (
@@ -1090,6 +1052,19 @@ export function PublishButton( {
 										</AlertActions>
 									</Alert>
 								) }
+								{ showCreationAccess && creationPolicy.isError && (
+									<p role="alert" className={ styles.changeStatus }>
+										{ __( 'Couldn’t check who can view new sites for this team.' ) }{ ' ' }
+										<Button
+											variant="inline-accent"
+											size="inline"
+											disabled={ creationPolicy.isFetching }
+											onClick={ () => void creationPolicy.refetch() }
+										>
+											{ __( 'Try again' ) }
+										</Button>
+									</p>
+								) }
 								{ failure && (
 									<p role="alert" className={ styles.changeStatus }>
 										{ failure }
@@ -1101,28 +1076,7 @@ export function PublishButton( {
 									aria-label={ remote ? __( 'Published site actions' ) : __( 'Preview actions' ) }
 								>
 									<div className={ styles.primaryActions }>
-										{ checkoutUrl && checkoutProvider ? (
-											<Button
-												variant="outline"
-												onClick={ () => void reopenCheckout( checkoutUrl ) }
-											>
-												{ sprintf(
-													/* translators: %s: hosting provider name. */
-													__( 'Reopen %s' ),
-													checkoutProvider
-												) }
-												<ExternalLinkIcon />
-											</Button>
-										) : openingCheckout && activeCheckout ? (
-											<Button
-												variant="accent"
-												loading={ !! snapshot }
-												aria-description={ snapshot ? openingDescription : undefined }
-												disabled
-											>
-												{ activeCheckout.primaryLabel }
-											</Button>
-										) : preparing === 'create' ? (
+										{ preparing === 'create' ? (
 											<Button variant="accent" loading disabled>
 												{ __( 'Publishing…' ) }
 											</Button>
@@ -1133,8 +1087,8 @@ export function PublishButton( {
 										) : ! selected && ! emptyDescriptor.previews ? (
 											<Button
 												variant="accent"
-												disabled={ disabled || connectionUnavailable }
-												onClick={ () => void startProvider( emptyDestination ) }
+												disabled={ disabled || connectionUnavailable || creationAccessUnavailable }
+												onClick={ () => void startProvider( emptyDestination, creationVisibility ) }
 											>
 												{ __( 'Publish' ) }
 											</Button>
@@ -1142,6 +1096,8 @@ export function PublishButton( {
 											<Button
 												variant="accent"
 												disabled={ disabled || connectionUnavailable }
+												loading={ openingCheckout }
+												aria-description={ openingCheckout ? openingDescription : undefined }
 												onClick={ () => void startProvider( publicDestination ) }
 											>
 												{ continueLabel }
@@ -1251,7 +1207,6 @@ export function PublishButton( {
 							publishTargetQueryKey( site.id ),
 							remotePublishTargetKey( existingProvider, id )
 						);
-						setCheckout( undefined );
 						setExistingProvider( undefined );
 					} }
 				/>

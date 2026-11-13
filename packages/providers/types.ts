@@ -148,6 +148,7 @@ export interface ProviderSitesInfo< Site extends RemoteSite = RemoteSite > {
 	// How a new site is made: a checkout on the provider's site, which then
 	// connects the site to the local one, or created right away from Studio.
 	newSite: 'checkout' | 'create';
+	visibilityAtCreation?: boolean;
 	// What the panel says before a site is connected.
 	intro: { title: () => string; description: () => string; learnMoreUrl: string };
 	// Facts about a connected site, and links to manage it on the provider.
@@ -247,6 +248,7 @@ export interface PushStatus {
 }
 
 export type SiteVisibility = 'public' | 'coming-soon' | 'private';
+export type SiteCreationVisibility = Extract< SiteVisibility, 'public' | 'private' >;
 export interface SiteVisibilityDetails {
 	visibility: SiteVisibility | 'unknown';
 	availableValues?: SiteVisibility[];
@@ -279,7 +281,11 @@ export interface SitesServices< Config, Site extends RemoteSite > {
 		options?: { connectedIds?: Site[ 'id' ][]; planRequired?: boolean }
 	): Promise< Site[] >;
 	// A new site to push to, for a provider that can create one.
-	create?( config: Config | undefined, options: { name: string } ): Promise< Site >;
+	create?(
+		config: Config | undefined,
+		options: { name: string; visibility?: SiteCreationVisibility }
+	): Promise< Site >;
+	creationVisibility?( config: Config | undefined ): Promise< SiteCreationVisibility >;
 	// A launch error means the import succeeded; callers keep the publish intent
 	// for a retry and must not show the site as published yet.
 	push(

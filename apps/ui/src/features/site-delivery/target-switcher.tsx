@@ -51,7 +51,11 @@ export function TargetSwitcher( {
 				}
 				onClick={ () => onSelect( target ) }
 			>
-				{ snapshot ? <LinkIcon /> : <ProviderLogo provider={ provider } branded compact /> }
+				{ snapshot ? (
+					<LinkIcon />
+				) : (
+					<ProviderLogo provider={ provider } site={ remote } branded compact />
+				) }
 				<span className={ styles.accessChoiceText }>
 					<span className={ styles.previewHostname } title={ label }>
 						{ label }

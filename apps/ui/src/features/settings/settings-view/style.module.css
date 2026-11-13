@@ -12,6 +12,7 @@
 }
 
 .settingsGroup {
+	--muted: inherit;
 	--surface: color-mix( in oklab, var( --muted ) 60%, var( --chrome ) );
 	--settings-row-icon-size: 32px;
 	--settings-row-icon-gap: var( --space-2 );

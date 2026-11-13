@@ -139,6 +139,7 @@
 
 	/* Hovering an action also highlights its row. */
 	.actions {
+		--hover: inherit;
 		--surface: var( --hover );
 
 		position: absolute;

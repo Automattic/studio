@@ -4,7 +4,7 @@
 		min-width: 0;
 		height: var( --control-size );
 		padding: var( --space-1 ) var( --space-2_5 );
-		border: 1px solid var( --input );
+		border: var( --border-width ) solid var( --input );
 		border-radius: var( --radius-lg );
 		font-size: var( --text-sm );
 		line-height: var( --text-sm--line-height );
@@ -12,7 +12,7 @@
 	}
 
 	.input::placeholder {
-		color: var( --muted-foreground );
+		color: var( --placeholder-foreground );
 	}
 
 	.input:disabled {
@@ -23,6 +23,8 @@
 
 	.input:is( [data-variant='default'], [data-variant='ghost'] ):focus-visible {
 		border-color: var( --ring );
+		outline: var( --focus-border-width ) solid var( --ring );
+		outline-offset: calc( -1 * var( --border-width ) );
 	}
 
 	.input[data-variant='ghost'] {

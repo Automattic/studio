@@ -10,6 +10,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { PlugIcon } from 'lucide-react';
 import { useRef, useState, type ComponentType, type RefObject } from 'react';
 import { useConnector } from '@/data/core';
+import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
@@ -74,6 +75,7 @@ export function ModelPicker( {
 		refetch: refetchQuota,
 	} = useStudioAssistantQuota( { refetchOnWindowFocus: 'always' } );
 	const { data: preferences } = useUserPreferences();
+	const { data: aiSettings } = useAiSettings();
 	const isWpcom = sessionProvider === 'wpcom';
 
 	const modelLabel = getAiModelLabel( model );
@@ -84,7 +86,12 @@ export function ModelPicker( {
 		credits.hasCredits &&
 		getStudioCodeAiAccessState( quota ) === 'available' &&
 		quota.hasPaymentMethod;
-	const planUsage = getProviderDescriptor( sessionProvider ).ai?.planUsage;
+	const providerPlanUsage = getProviderDescriptor( sessionProvider ).ai?.planUsage;
+	const planUsage =
+		! providerPlanUsage?.method ||
+		providerPlanUsage.method === aiSettings?.accounts[ sessionProvider ]?.method
+			? providerPlanUsage
+			: undefined;
 	const modelDetails = [ modelLabel, getProviderDescriptor( sessionProvider ).label ];
 	if ( isWpcom ) {
 		modelDetails.push( credits.label );

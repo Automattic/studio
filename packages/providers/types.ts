@@ -168,8 +168,9 @@ export interface ProviderDescriptor< Config = unknown, Site extends RemoteSite =
 		// can't offer a provider that signs in through this computer.
 		inPage?: boolean;
 		// For models that use the user's plan with the provider: what to say
-		// next to the model, and where the user manages that usage.
-		planUsage?: { label: () => string; manageUrl: string };
+		// next to the model, and where the user manages that usage. With
+		// `method`, only when the account connected with that method.
+		planUsage?: { label: () => string; manageUrl: string; method?: string };
 	};
 	sites?: SitesDescriptor< Site >;
 }

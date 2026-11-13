@@ -86,5 +86,10 @@ export const anthropicDescriptor: ProviderDescriptor< AnthropicConfig > = {
 	ai: {
 		models: ANTHROPIC_AI_MODELS,
 		defaultModel: 'claude-sonnet-5-5',
+		planUsage: {
+			label: () => __( 'Using Claude plan' ),
+			manageUrl: 'https://claude.ai/settings/usage',
+			method: 'setup-token',
+		},
 	},
 };

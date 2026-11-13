@@ -38,7 +38,14 @@ export const xaiProvider: Provider< XaiConfig > = {
 		configSchema: xaiConfigSchema,
 		methods: [
 			{ id: 'grok', label: () => __( 'SuperGrok or X Premium' ), kind: 'device' },
-			{ id: 'api-key', label: () => __( 'API key' ), kind: 'form', input: xaiConnectInput },
+			{
+				id: 'api-key',
+				label: () => __( 'API key' ),
+				kind: 'form',
+				input: xaiConnectInput,
+				instructions: () =>
+					__( 'Create a key in the [xAI Console](https://console.x.ai), then paste it below.' ),
+			},
 		],
 		describe: ( config ) =>
 			config.method === 'api-key'

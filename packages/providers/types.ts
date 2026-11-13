@@ -1,4 +1,5 @@
 import type { AnthropicConfig } from './anthropic/config';
+import type { GeminiConfig } from './gemini/config';
 import type { AiModelId } from './models';
 import type { OpenaiConfig } from './openai/config';
 import type { SpacefastConfig } from './spacefast/config';
@@ -9,16 +10,17 @@ import type { XaiConfig } from './xai/config';
 import type { Api, Model } from '@earendil-works/pi-ai';
 import type { z } from 'zod';
 
-export type ProviderId = 'wpcom' | 'anthropic' | 'openai' | 'xai' | 'spacefast';
+export type ProviderId = 'wpcom' | 'anthropic' | 'openai' | 'gemini' | 'xai' | 'spacefast';
 
 // The providers that serve AI models.
-export type AiProviderId = 'wpcom' | 'anthropic' | 'openai' | 'xai';
+export type AiProviderId = 'wpcom' | 'anthropic' | 'openai' | 'gemini' | 'xai';
 
 // What Studio stores for each provider.
 export interface ProviderConfigs {
 	wpcom: WpcomConfig;
 	anthropic: AnthropicConfig;
 	openai: OpenaiConfig;
+	gemini: GeminiConfig;
 	xai: XaiConfig;
 	spacefast: SpacefastConfig;
 }

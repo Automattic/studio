@@ -1,7 +1,7 @@
 import { password, select } from '@inquirer/prompts';
 import { connectProvider, readSelectedAiProvider } from '@studio/common/lib/ai-settings';
 import { readFreshProviderConfig, readProviderConfig } from '@studio/common/lib/provider-config';
-import { ConnectError } from '@studio/providers';
+import { ConnectError, type ProviderId } from '@studio/providers';
 import { vi } from 'vitest';
 import {
 	resolveAiConnection,
@@ -31,20 +31,14 @@ vi.mock( '@studio/common/lib/provider-config', () => ( {
 
 const anthropicProvider = expect.objectContaining( { id: 'anthropic' } );
 
-type Configs = {
-	wpcom?: { token: string };
-	anthropic?: { method: 'api-key'; apiKey: string };
-	openai?: { method: 'api-key'; apiKey: string } | { method: 'chatgpt'; accessToken: string };
-	xai?: never;
-	spacefast?: never;
-};
+type Configs = Partial< Record< ProviderId, object > >;
 
 function storeConfigs( configs: Configs ) {
 	vi.mocked( readProviderConfig ).mockImplementation(
 		async ( provider ) => configs[ provider ] as never
 	);
 	vi.mocked( readFreshProviderConfig ).mockImplementation(
-		async ( provider ) => configs[ provider.id as keyof Configs ] as never
+		async ( provider ) => configs[ provider.id ] as never
 	);
 }
 

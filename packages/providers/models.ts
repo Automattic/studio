@@ -1,5 +1,6 @@
 import { AI_PROVIDER_IDS, getProvider } from './registry';
 import type { ANTHROPIC_AI_MODELS } from './anthropic/descriptor';
+import type { GEMINI_AI_MODELS } from './gemini/descriptor';
 import type { OPENAI_AI_MODELS } from './openai/descriptor';
 import type { AiModel, AiProviderId, ProviderId } from './types';
 import type { WPCOM_AI_MODELS } from './wpcom/descriptor';
@@ -9,6 +10,7 @@ export type AiModelId = (
 	| typeof WPCOM_AI_MODELS
 	| typeof ANTHROPIC_AI_MODELS
 	| typeof OPENAI_AI_MODELS
+	| typeof GEMINI_AI_MODELS
 	| typeof XAI_AI_MODELS
 )[ number ][ 'id' ];
 

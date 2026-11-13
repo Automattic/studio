@@ -110,7 +110,7 @@ describe( 'SiteHeaderActions', () => {
 			within( panel ).queryByRole( 'button', { name: 'Choose destination' } )
 		).not.toBeInTheDocument();
 		expect( within( panel ).getByRole( 'region', { name: 'Previews' } ) ).toContainElement(
-			within( panel ).getByRole( 'button', { name: 'Open preview: preview.example.com' } )
+			within( panel ).getByRole( 'button', { name: 'Open preview: Preview 1' } )
 		);
 	} );
 } );

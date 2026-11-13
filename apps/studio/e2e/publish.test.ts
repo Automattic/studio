@@ -66,7 +66,7 @@ test.describe( 'Share and publish', () => {
 		const dialog = page.getByRole( 'dialog', { name: 'Share', exact: true } );
 		await expect(
 			dialog.getByRole( 'button', {
-				name: 'Open preview: sharing-verification.wp.build',
+				name: 'Open preview: Client review',
 				exact: true,
 			} )
 		).toBeVisible();

@@ -689,6 +689,103 @@ it( 'keeps the confirmed live state while destination metadata refreshes', async
 	await act( async () => finish( { localChanged: false } ) );
 } );
 
+it.each( [ 'failed', 'pending' ] )(
+	'keeps a known destination publishable when another provider lookup is %s',
+	async ( state ) => {
+		const { connector, user } = setup( {
+			getRemoteSites: async ( provider ) => {
+				if ( provider === 'wpcom' ) return [ live ];
+				if ( state === 'pending' ) return new Promise( () => {} );
+				throw new Error( 'Provider unavailable' );
+			},
+			listAccountSites: async () => {
+				throw new Error( 'Account refresh failed' );
+			},
+			getSitePublishStatus: async () => ( { localChanged: true } ),
+			getSnapshots: async () => [],
+			pushSite: async () => new Promise( () => {} ),
+		} );
+		await open();
+		const publish = await screen.findByRole( 'button', { name: 'Publish changes' } );
+		await waitFor( () => expect( publish ).toBeEnabled() );
+		expect( screen.queryByText( 'Could not check your connected sites.' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( /Couldn’t load your .* sites/ ) ).not.toBeInTheDocument();
+		await user.click( publish );
+		await waitFor( () =>
+			expect( connector.pushSite ).toHaveBeenCalledWith(
+				'wpcom',
+				site.id,
+				live.id,
+				expect.any( Object )
+			)
+		);
+	}
+);
+
+it( 'retains a known destination after its saved connection refresh fails', async () => {
+	const { connector, queryClient } = setup( {
+		getRemoteSites: async ( provider ) => ( provider === 'wpcom' ? [ live ] : [] ),
+		getSnapshots: async () => [],
+		getSitePublishStatus: async () => ( { localChanged: true } ),
+	} );
+	await open();
+	await waitFor( () =>
+		expect( screen.getByRole( 'button', { name: 'Publish changes' } ) ).toBeEnabled()
+	);
+	connector.getRemoteSites.mockRejectedValue( new Error( 'Refresh unavailable' ) );
+	await act( async () => {
+		await queryClient.invalidateQueries( { queryKey: remoteSitesQueryKey( 'wpcom', site.id ) } );
+	} );
+	expect( queryClient.getQueryState( remoteSitesQueryKey( 'wpcom', site.id ) )?.status ).toBe(
+		'error'
+	);
+	expect( screen.getByRole( 'button', { name: 'Publish changes' } ) ).toBeEnabled();
+	expect( screen.getByRole( 'button', { name: 'lente.blog' } ) ).toBeVisible();
+	expect( screen.queryByText( /Couldn’t load your .* sites/ ) ).not.toBeInTheDocument();
+} );
+
+it( 'explains an unavailable destination and retries only that provider with visible progress', async () => {
+	const { connector, user } = setup( {
+		getRemoteSites: async ( provider ) => {
+			if ( provider === 'wpcom' ) throw new Error( 'Saved connections unavailable' );
+			return [];
+		},
+		getSnapshots: async () => [],
+		getSitePublishStatus: async () => ( { localChanged: true } ),
+	} );
+	await open();
+	const notice = await screen.findByRole( 'alert' );
+	expect( notice ).toHaveTextContent( 'Couldn’t load your WordPress.com sites' );
+	expect( notice ).toHaveTextContent(
+		'Try again to see where this WordPress is already connected.'
+	);
+	expect( screen.getByRole( 'button', { name: 'Create preview link' } ) ).toBeDisabled();
+	const otherProviderCalls = connector.getRemoteSites.mock.calls.filter(
+		( [ provider ] ) => provider === 'spacefast'
+	).length;
+	let finish!: ( sites: ( typeof live )[] ) => void;
+	connector.getRemoteSites.mockImplementation(
+		async () =>
+			new Promise( ( resolve ) => {
+				finish = resolve;
+			} )
+	);
+	await user.click( within( notice ).getByRole( 'button', { name: 'Try again' } ) );
+	expect( await within( notice ).findByRole( 'button', { name: 'Checking…' } ) ).toHaveAttribute(
+		'aria-disabled',
+		'true'
+	);
+	expect( notice ).toBeVisible();
+	await act( async () => finish( [ live ] ) );
+	await waitFor( () =>
+		expect( screen.getByRole( 'button', { name: 'Publish changes' } ) ).toBeEnabled()
+	);
+	expect( screen.queryByText( /Couldn’t load your .* sites/ ) ).not.toBeInTheDocument();
+	expect(
+		connector.getRemoteSites.mock.calls.filter( ( [ provider ] ) => provider === 'spacefast' )
+	).toHaveLength( otherProviderCalls );
+} );
+
 it( 'holds publishing until the completed destination check returns', async () => {
 	const { connector } = setup( {
 		getRemoteSites: async ( provider ) => ( provider === 'spacefast' ? [ space ] : [] ),

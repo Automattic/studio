@@ -43,6 +43,10 @@ import {
 	UploadIcon,
 } from '@/lib/icons';
 import {
+	Alert,
+	AlertTitle,
+	AlertDescription,
+	AlertActions,
 	Button,
 	NotificationDot,
 	IconButton,
@@ -191,6 +195,9 @@ export function PublishButton( {
 		orderedPublishProviders( connectedProviders )[ 0 ] ??
 		targets.providers[ 0 ];
 	const emptyDescriptor = getProviderSites( emptyDestination );
+	const destinationProvider = selected?.provider ?? emptyDestination;
+	const connection = targets.connectionState( destinationProvider );
+	const connectionUnavailable = ! selected && connection.unavailable;
 	const previewsCapability =
 		( descriptor ?? emptyDescriptor ).previews ??
 		( remote && targets.previewProvider && connectedProviders.includes( targets.previewProvider )
@@ -269,7 +276,7 @@ export function PublishButton( {
 		!! preparing ||
 		push.isPending ||
 		activity?.kind === 'pending';
-	const disabled = pending || offline || busy || targets.loadingConnections;
+	const disabled = pending || offline || busy || ( ! selected && connection.loading );
 	const canRequestPreview = preview.canCreate || preview.limitReached;
 	const creatingPreview = preview.creating || !! previewsBeforeCreation;
 	const showPreviewSkeleton =
@@ -327,7 +334,7 @@ export function PublishButton( {
 			showPreviewLimit();
 			return;
 		}
-		if ( ! preview.canCreate || disabled || targets.lookupError ) return;
+		if ( ! preview.canCreate || disabled || connectionUnavailable ) return;
 		if ( liveSite === undefined && liveSites.length > 1 ) {
 			setPreviewLiveSite( 'none' );
 			return;
@@ -455,7 +462,7 @@ export function PublishButton( {
 		<>
 			{ connectedProviders.includes( selected?.provider ?? publicDestination ) && (
 				<Menu.Item
-					disabled={ disabled || checkoutInProgress || targets.lookupError }
+					disabled={ disabled || checkoutInProgress || connectionUnavailable }
 					onClick={ () => setExistingProvider( selected?.provider ?? publicDestination ) }
 				>
 					<ConnectSiteIcon />
@@ -716,7 +723,7 @@ export function PublishButton( {
 											{ ( descriptor ?? emptyDescriptor ).previews && (
 												<>
 													<Menu.Item
-														disabled={ disabled || ! canRequestPreview || targets.lookupError }
+														disabled={ disabled || ! canRequestPreview || connectionUnavailable }
 														onClick={ () => newPreview() }
 													>
 														<PlusIcon />
@@ -805,7 +812,7 @@ export function PublishButton( {
 													onSelect={ select }
 													onNewPreview={ previewsCapability ? () => newPreview() : undefined }
 													newPreviewDisabled={
-														disabled || ! canRequestPreview || targets.lookupError
+														disabled || ! canRequestPreview || connectionUnavailable
 													}
 												/>
 											) }
@@ -934,7 +941,7 @@ export function PublishButton( {
 													)
 												}
 												data-checkout-progress={ checkoutInProgress || undefined }
-												disabled={ disabled || checkoutInProgress || targets.lookupError }
+												disabled={ disabled || checkoutInProgress || connectionUnavailable }
 												focusableWhenDisabled={ checkoutInProgress }
 												aria-busy={ openingCheckout || undefined }
 												aria-label={ __( 'Make it public' ) }
@@ -1017,13 +1024,30 @@ export function PublishButton( {
 										{ __( 'The site requested for this pull is unavailable.' ) }
 									</p>
 								) }
-								{ targets.lookupError && (
-									<p role="alert" className={ styles.changeStatus }>
-										{ __( 'Could not check your connected sites.' ) }{ ' ' }
-										<Button variant="inline-link" size="inline" onClick={ targets.refresh }>
-											{ __( 'Try again' ) }
-										</Button>
-									</p>
+								{ connectionUnavailable && (
+									<Alert className={ styles.changeStatus }>
+										<AlertTitle>
+											{ sprintf(
+												/* translators: %s: hosting provider name. */
+												__( 'Couldn’t load your %s sites' ),
+												getProvider( destinationProvider ).label
+											) }
+										</AlertTitle>
+										<AlertDescription>
+											{ __( 'Try again to see where this WordPress is already connected.' ) }
+										</AlertDescription>
+										<AlertActions>
+											<Button
+												variant="outline"
+												size="sm"
+												loading={ connection.refreshing }
+												disabled={ connection.refreshing }
+												onClick={ connection.retry }
+											>
+												{ connection.refreshing ? __( 'Checking…' ) : __( 'Try again' ) }
+											</Button>
+										</AlertActions>
+									</Alert>
 								) }
 								{ failure && (
 									<p role="alert" className={ styles.changeStatus }>
@@ -1059,7 +1083,7 @@ export function PublishButton( {
 										) : ! selected && ! emptyDescriptor.previews ? (
 											<Button
 												variant="accent"
-												disabled={ disabled || targets.lookupError }
+												disabled={ disabled || connectionUnavailable }
 												onClick={ () => void startProvider( emptyDestination ) }
 											>
 												{ __( 'Publish' ) }
@@ -1100,7 +1124,6 @@ export function PublishButton( {
 													provider={ selected!.provider }
 													remote={ remote }
 													publishing={ selectedPending }
-													lookupError={ targets.lookupError }
 													firstPublish={ firstPublish }
 													forceEntireSite={ newDestination }
 												/>
@@ -1111,7 +1134,7 @@ export function PublishButton( {
 												disabled={
 													( ! canRequestPreview && ! preview.signedOut ) ||
 													disabled ||
-													targets.lookupError
+													connectionUnavailable
 												}
 												onClick={ () => {
 													if ( preview.signedOut ) {
@@ -1206,7 +1229,6 @@ export function PublishButton( {
 							provider={ selected.provider }
 							remote={ remote }
 							disabled={ disabled }
-							lookupError={ targets.lookupError }
 							onPublishStarted={ () => setRepublishing( false ) }
 						/>
 					</DialogContent>
@@ -1219,7 +1241,6 @@ export function PublishButton( {
 					remote={ pullTarget.remote }
 					direction="pull"
 					disabled={ disabled }
-					lookupError={ targets.lookupError }
 					onBack={ () => {
 						setPullRequest( undefined );
 						trigger.current?.focus();

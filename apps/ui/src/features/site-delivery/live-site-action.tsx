@@ -35,7 +35,6 @@ export function LiveSiteAction( {
 	forceEntireSite = false,
 	onBack,
 	onPublishStarted,
-	lookupError,
 }: {
 	site: SiteDetails;
 	provider: SitesProviderId;
@@ -47,7 +46,6 @@ export function LiveSiteAction( {
 	forceEntireSite?: boolean;
 	onBack?: () => void;
 	onPublishStarted?: () => void;
-	lookupError?: boolean;
 } ) {
 	const descriptor = getProviderSites( provider );
 	const user = useAuthUser();
@@ -73,8 +71,7 @@ export function LiveSiteAction( {
 	const push = usePushSite();
 	const pull = usePullSite();
 	const issue = descriptor.issue( remote, direction );
-	const blocked =
-		lookupError || !! issue || selection.blocked || selection.loading || !! selection.error;
+	const blocked = !! issue || selection.blocked || selection.loading || !! selection.error;
 	const working = push.isPending || publishing;
 	const checking = direction === 'push' && ! working && selection.loading;
 	const submit = () => {

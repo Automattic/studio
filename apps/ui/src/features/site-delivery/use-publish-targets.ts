@@ -165,9 +165,15 @@ export function usePublishTargets( siteId: string, open: boolean ) {
 	return {
 		confirmingPublish,
 		loadingConnections: connections.some( ( query ) => query.isPending ),
-		lookupError:
-			connections.some( ( query ) => query.isError ) ||
-			accountSites.some( ( query ) => query.isError ),
+		connectionState: ( provider: SitesProviderId ) => {
+			const query = connections[ providers.indexOf( provider ) ];
+			return {
+				loading: query.isPending,
+				unavailable: query.data === undefined && ( query.isError || query.errorUpdatedAt > 0 ),
+				refreshing: query.isFetching,
+				retry: () => void query.refetch(),
+			};
+		},
 		providers,
 		previewProvider,
 		targets,

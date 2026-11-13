@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import { SITES_PROVIDER_IDS, type SitesProviderId } from '@studio/providers';
 import { z } from 'zod';
 import { readAppConfig, updateAppConfig, type AppConfig } from '@studio/common/lib/app-config';
 import { isSupportedLocale } from '@studio/common/lib/locale';
@@ -51,6 +52,7 @@ export interface UserPreferences extends ColorTint {
 	locale: string | undefined;
 	analyticsEnabled: boolean;
 	defaultSiteDirectory: string;
+	defaultHostingProvider: SitesProviderId | null;
 	// The sidebar's Pinned group, in order, as `site:<id>` and `chat:<id>` keys.
 	sidebarPins: string[];
 	sidebarPinnedSort: SidebarPinnedSort;
@@ -101,6 +103,7 @@ export const userPreferencesPatchSchema = z.object( {
 	locale: z.string().refine( isSupportedLocale ).nullish(),
 	analyticsEnabled: z.boolean().nullish(),
 	defaultSiteDirectory: z.string().nullish(),
+	defaultHostingProvider: z.enum( SITES_PROVIDER_IDS ).nullish(),
 	sidebarPins: sidebarPinsSchema.nullish(),
 	sidebarPinnedSort: z.enum( SIDEBAR_PINNED_SORTS ).nullish(),
 	sidebarSiteSort: z.enum( SIDEBAR_SITE_SORTS ).nullish(),
@@ -133,6 +136,7 @@ const APP_CONFIG_KEYS = [
 	[ 'colorScheme', 'colorScheme' ],
 	[ 'quitSitesBehavior', 'quitSitesBehavior' ],
 	[ 'defaultSiteDirectory', 'defaultSiteDirectory' ],
+	[ 'defaultHostingProvider', 'defaultHostingProvider' ],
 	[ 'sidebarPins', 'sidebarPins' ],
 	[ 'sidebarPinnedSort', 'sidebarPinnedSort' ],
 	[ 'sidebarSiteSort', 'sidebarSiteSort' ],
@@ -184,6 +188,11 @@ export async function readUserPreferences( {
 		locale: shared.locale,
 		analyticsEnabled: ! isAnalyticsOptedOutInConfig( shared ),
 		defaultSiteDirectory: getDefaultSiteDirectory( config, sitesRoot ),
+		defaultHostingProvider: z
+			.enum( SITES_PROVIDER_IDS )
+			.nullable()
+			.catch( null )
+			.parse( config.defaultHostingProvider ),
 		sidebarPins: sidebarPinsSchema.catch( [] ).parse( config.sidebarPins ),
 		sidebarChatOrder,
 		sidebarPinnedSort: z

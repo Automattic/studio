@@ -7,7 +7,6 @@ import {
 } from '@studio/common/lib/site-frontend';
 import { getLatestVersionLabel } from '@studio/common/lib/wordpress-versions';
 import { __, sprintf } from '@wordpress/i18n';
-import { ChevronDownIcon } from 'lucide-react';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
@@ -23,6 +22,7 @@ import {
 	validateSiteName,
 } from '@/features/sites/site-fields';
 import { useOffline } from '@/lib/hooks';
+import { ChevronDownIcon } from '@/lib/icons';
 import {
 	Alert,
 	AlertDescription,

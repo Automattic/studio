@@ -4,7 +4,7 @@ import { EllipsisIcon } from 'lucide-react';
 import { useConnector } from '@/data/core';
 import { useCopyText } from '@/data/host/use-copy-text';
 import { SiteCard, RelativeTime, getWebsiteThumbnailUrl } from '@/features/site-card';
-import { DisconnectIcon, DuplicateIcon, ExternalLinkIcon } from '@/lib/icons';
+import { UnlinkIcon, DuplicateIcon, ExternalLinkIcon } from '@/lib/icons';
 import {
 	Button,
 	Field,
@@ -80,7 +80,7 @@ export function ConnectedWebsite( {
 							</Menu.Item>
 							<Menu.Separator />
 							<Menu.Item destructive disabled={ disabled } onClick={ onDisconnect }>
-								<DisconnectIcon />
+								<UnlinkIcon />
 								{ __( 'Disconnect…' ) }
 							</Menu.Item>
 						</Menu.Popup>

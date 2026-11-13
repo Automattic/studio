@@ -22,7 +22,7 @@ import {
 	DatabaseIcon,
 	DesignSystemIcon,
 	GlobeIcon,
-	MailIcon,
+	PaperPlaneIcon,
 	WordPressIcon,
 } from '@/lib/icons';
 import { isDialogOpen, isTextEntry } from '@/lib/keyboard';
@@ -50,7 +50,7 @@ export function getSiteTool(
 				shortcut: 'D',
 				action: 'openDatabase',
 			},
-			email: { label: __( 'Email log' ), Icon: MailIcon, shortcut: 'E', action: 'openEmail' },
+			email: { label: __( 'Email log' ), Icon: PaperPlaneIcon, shortcut: 'E', action: 'openEmail' },
 			design: {
 				label: __( 'Design System' ),
 				Icon: DesignSystemIcon,

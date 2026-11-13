@@ -13,7 +13,7 @@ import {
 	type PreviewManagementAction,
 } from '@/features/sharing';
 import { PublishTab, usePublishTab, usePublishSetupError } from '@/features/sync';
-import { PublishTransferIcon, ShareIcon, SyncIcon } from '@/lib/icons';
+import { PublishTransferIcon, UploadIcon, CloudUploadIcon } from '@/lib/icons';
 import {
 	Button,
 	Dialog,
@@ -78,13 +78,20 @@ export function SiteDeliveryDialog( {
 	// WordPress.com's account is the Studio sign-in, which sharing needs too.
 	const signedOut =
 		user.isSuccess && ! user.data && ( tab === 'share' || publish.provider === 'wpcom' );
+	const changeOpen = ( next: boolean ) => {
+		setOpen( next );
+		if ( ! next ) {
+			setSetupAfterSignup( false );
+			publish.reset();
+		}
+	};
 	const selectTab = ( value: unknown ) => {
 		setTab( value as Tab );
 		if ( value === 'publish' && ! publish.screen ) openPublish();
 	};
 	return (
 		<>
-			<Dialog open={ open && ! signedOut && ! previewAction } onOpenChange={ setOpen }>
+			<Dialog open={ open && ! signedOut && ! previewAction } onOpenChange={ changeOpen }>
 				<DialogContent
 					className={ styles.dialog }
 					keepMounted
@@ -179,7 +186,7 @@ export function SiteDeliveryDialog( {
 			<AccountPromptDialog
 				open={ open && signedOut }
 				showStudioIcon={ false }
-				onOpenChange={ setOpen }
+				onOpenChange={ changeOpen }
 				finalFocus={ finalFocus }
 				title={ tab === 'share' ? __( 'Share your WordPress' ) : __( 'Publish your WordPress' ) }
 				description={
@@ -194,6 +201,19 @@ export function SiteDeliveryDialog( {
 				} }
 				scope={ site.id }
 				onCreateAccount={ tab === 'publish' ? () => setSetupAfterSignup( true ) : undefined }
+				footer={
+					tab === 'publish' && publish.canChooseHost ? (
+						<Button
+							variant="inline-link"
+							onClick={ () => {
+								setSetupAfterSignup( false );
+								publish.chooseHost();
+							} }
+						>
+							{ __( 'Choose another host' ) }
+						</Button>
+					) : undefined
+				}
 			/>
 		</>
 	);
@@ -221,7 +241,7 @@ export function ShareButton( props: { site: SiteDetails; className?: string } ) 
 						/>
 					}
 				>
-					<ShareStatusIcon icon={ <ShareIcon /> } status={ status } />
+					<ShareStatusIcon icon={ <UploadIcon /> } status={ status } />
 				</TooltipTrigger>
 				<TooltipContent side="bottom">{ __( 'Share' ) }</TooltipContent>
 			</Tooltip>
@@ -277,7 +297,7 @@ export function PublishButton( props: {
 			) : success ? (
 				<CheckIcon />
 			) : props.compactWhenNarrow ? (
-				<SyncIcon className={ styles.publishIcon } />
+				<CloudUploadIcon className={ styles.publishIcon } />
 			) : null }
 			<span className={ styles.triggerLabel }>
 				{ __( 'Publish' ) }

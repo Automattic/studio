@@ -465,7 +465,10 @@ function DashboardLayout() {
 				secondaryLabel={ __( 'Choose a different provider' ) }
 				onSkip={ () => {
 					setProviderPromptOpen( false );
-					openSettings( 'ai', undefined, undefined, { intent: 'annotate', scope: routeSite?.id } );
+					openSettings( 'providers', undefined, 'ai-providers', {
+						intent: 'annotate',
+						scope: routeSite?.id,
+					} );
 				} }
 			/>
 			<SiteHeaderActionsProvider host={ panelExpanded ? 'panel' : 'chat' }>

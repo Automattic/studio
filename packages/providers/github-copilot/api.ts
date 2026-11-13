@@ -25,11 +25,12 @@ export function copilotApiUrl( copilotToken: string ): string {
 	return host ? `https://${ host.replace( /^proxy\./, 'api.' ) }` : 'https://api.githubcopilot.com';
 }
 
-// A model as the plan lists it: `policy` says whether the account may use it, and an
-// `unconfigured` one has to be turned on first.
+// A model as the plan lists it: `offered` is the model picker Copilot's own clients show, and
+// `policy` says whether the account may use it, an `unconfigured` one having to be turned on first.
 export interface PlanModel {
 	id: string;
 	toolCalls: boolean;
+	offered: boolean;
 	policy?: string;
 }
 
@@ -45,6 +46,7 @@ export async function fetchPlanModels( copilotToken: string ): Promise< PlanMode
 		data?: {
 			id?: unknown;
 			capabilities?: { supports?: { tool_calls?: unknown } };
+			model_picker_enabled?: unknown;
 			policy?: { state?: unknown };
 		}[];
 	};
@@ -55,6 +57,7 @@ export async function fetchPlanModels( copilotToken: string ): Promise< PlanMode
 							{
 								id: model.id,
 								toolCalls: model.capabilities?.supports?.tool_calls !== false,
+								offered: model.model_picker_enabled === true,
 								policy: typeof model.policy?.state === 'string' ? model.policy.state : undefined,
 							},
 					  ]

@@ -23,12 +23,12 @@ const handoff = {
 	expiresAt: String( Date.now() + 60_000 ),
 };
 
-// What the plan lists: a model it runs, one it has to turn on, and one it doesn't include.
+// What the plan lists: a model it runs, one it has to turn on, and one it doesn't offer.
 const planModels = {
 	data: [
-		{ id: 'claude-sonnet-5.5', policy: { state: 'enabled' } },
-		{ id: 'gpt-6.1-terra', policy: { state: 'unconfigured' } },
-		{ id: 'gemini-4-argon', policy: { state: 'disabled' } },
+		{ id: 'claude-sonnet-5.5', model_picker_enabled: true, policy: { state: 'enabled' } },
+		{ id: 'gpt-6.1-terra', model_picker_enabled: true, policy: { state: 'unconfigured' } },
+		{ id: 'gemini-4-argon', model_picker_enabled: false, policy: { state: 'disabled' } },
 	],
 };
 
@@ -94,6 +94,24 @@ describe( 'github-copilot account', () => {
 			'https://api.business.githubcopilot.com/models/claude-sonnet-5.5/policy',
 			expect.anything()
 		);
+	} );
+
+	it( 'falls back to the policy on an account that offers no model picker', async () => {
+		respond( {
+			'/login/oauth/access_token': () => json( 200, { access_token: 'gho_1' } ),
+			'/copilot_internal/v2/token': () => json( 200, { token: copilotToken, expires_at: 2000 } ),
+			'/models': () =>
+				json( 200, {
+					data: planModels.data.map( ( model ) => ( {
+						...model,
+						model_picker_enabled: false,
+					} ) ),
+				} ),
+		} );
+
+		await expect( githubCopilotAccount.connect( 'github', handoff ) ).resolves.toMatchObject( {
+			models: [ 'claude-sonnet-5-5', 'gpt-6.1-terra' ],
+		} );
 	} );
 
 	it( 'keeps every model when Copilot doesn’t say which the plan runs', async () => {

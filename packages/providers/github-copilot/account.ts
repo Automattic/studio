@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { ConnectError, NotConnectedError } from '../errors';
 import { toCopilotModelId } from './ai';
-import { CLIENT_ID, enablePlanModel, fetchPlanModels, request } from './api';
+import { CLIENT_ID, enablePlanModel, fetchPlanModels, request, type PlanModel } from './api';
 import { GITHUB_COPILOT_AI_MODELS } from './descriptor';
 import type { GithubCopilotConfig } from './config';
 import type { AiModelId } from '../models';
@@ -67,10 +67,15 @@ async function readPlanModels( copilotToken: string ): Promise< AiModelId[] | un
 	if ( ! plan ) {
 		return undefined;
 	}
+	// Copilot marks what a plan offers with the picker its own clients show. Some accounts leave
+	// that off on every model, and there the policy alone says what the plan runs.
+	const offers = plan.some( ( model ) => model.offered )
+		? ( model: PlanModel ) => model.offered
+		: ( model: PlanModel ) => model.policy === 'enabled' || model.policy === 'unconfigured';
 	const models: AiModelId[] = [];
 	for ( const { id } of GITHUB_COPILOT_AI_MODELS ) {
 		const model = plan.find( ( candidate ) => candidate.id === toCopilotModelId( id ) );
-		if ( ! model || ! model.toolCalls || model.policy === 'disabled' ) {
+		if ( ! model || ! model.toolCalls || model.policy === 'disabled' || ! offers( model ) ) {
 			continue;
 		}
 		if ( model.policy !== 'unconfigured' || ( await enablePlanModel( copilotToken, model.id ) ) ) {

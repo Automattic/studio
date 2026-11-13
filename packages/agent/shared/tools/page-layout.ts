@@ -824,6 +824,61 @@ export async function pageContrast( page: Page ): Promise< string[] > {
 			const text = ( element.textContent ?? '' ).replace( /\s+/g, ' ' ).trim();
 			return `${ named } "${ text.length > 40 ? `${ text.slice( 0, 40 ) }…` : text }"`;
 		};
+		// The style rule whose color the element takes: of the rules that match it
+		// and set a color, the one without which its color changes, as the
+		// browser's cascade decides it.
+		const colorRule = ( element: Element ) => {
+			const rules: CSSStyleRule[] = [];
+			const collect = ( list: CSSRuleList ) => {
+				for ( const rule of list ) {
+					if ( rule instanceof CSSStyleRule && rule.style.getPropertyValue( 'color' ) ) {
+						try {
+							if ( element.matches( rule.selectorText ) ) {
+								rules.push( rule );
+							}
+						} catch {
+							// A selector matches() does not take, as a pseudo-element's.
+						}
+					}
+					if ( 'cssRules' in rule ) {
+						collect( ( rule as CSSGroupingRule ).cssRules );
+					}
+				}
+			};
+			for ( const sheet of document.styleSheets ) {
+				try {
+					collect( sheet.cssRules );
+				} catch {
+					// Another origin's stylesheet, whose rules a page cannot read.
+				}
+			}
+			const color = getComputedStyle( element ).color;
+			return rules.reverse().find( ( rule ) => {
+				const value = rule.style.getPropertyValue( 'color' );
+				const priority = rule.style.getPropertyPriority( 'color' );
+				rule.style.removeProperty( 'color' );
+				const wins = getComputedStyle( element ).color !== color;
+				rule.style.setProperty( 'color', value, priority );
+				return wins;
+			} );
+		};
+		// The file a rule is in: a linked stylesheet's, or the one WordPress names
+		// in the sourceURL comment it ends a stylesheet it prints inline with
+		// (WP_Styles::print_inline_style() in wp-includes/class-wp-styles.php).
+		const sourceOf = ( rule: CSSStyleRule ) => {
+			const sheet = rule.parentStyleSheet;
+			const node = sheet?.ownerNode;
+			const id = node instanceof Element ? node.id : '';
+			const named = /\/\*# sourceURL=(\S+) \*\//.exec( node?.textContent ?? '' )?.[ 1 ];
+			const url = sheet?.href ?? ( named && decodeURIComponent( named ) );
+			if ( id === 'global-styles-inline-css' ) {
+				return 'the global styles WordPress prints from theme.json';
+			}
+			if ( url && /^(https?:)?\//.test( url ) ) {
+				return new URL( url, location.href ).pathname;
+			}
+			return id ? `<style id="${ id }">` : 'a <style> element';
+		};
 		// Any CSS color, as color-mix() and oklch() compute, read as sRGB by a canvas.
 		const canvas = document.createElement( 'canvas' );
 		canvas.width = canvas.height = 1;
@@ -1012,6 +1067,12 @@ export async function pageContrast( page: Page ): Promise< string[] > {
 				line += ` Its section sets the text color ${ hex(
 					rgba( getComputedStyle( section ).color )
 				) }, which the heading does not take: a heading color in theme.json (styles.elements.heading, styles.elements.${ element.tagName.toLowerCase() } or styles.blocks.core/heading) is a rule on the heading itself, which wins over the color it would inherit.`;
+			}
+			const rule = ! line.includes( 'Its section' ) && colorRule( element );
+			if ( rule ) {
+				line += ` Its color comes from \`${ rule.selectorText }\` in ${ sourceOf(
+					rule
+				) }, the rule that wins for it.`;
 			}
 			// A block that sets a background and no text color leaves its text the color it inherits.
 			if (

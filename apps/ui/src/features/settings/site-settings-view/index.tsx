@@ -24,7 +24,7 @@ import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
 import { useExistingCustomDomains } from '@/data/queries/use-create-site-helpers';
 import { useDebugLogExists } from '@/data/queries/use-debug-log';
-import { useIsSiteBusy, useUpdateSite, useXdebugEnabledSite } from '@/data/queries/use-sites';
+import { useIsSiteBusy, useUpdateSite } from '@/data/queries/use-sites';
 import { useWordPressVersions, useWpVersion } from '@/data/queries/use-wordpress-versions';
 import { CopyButton } from '@/features/chats';
 import { LearnMoreLink } from '@/features/onboarding';
@@ -135,10 +135,6 @@ export function SiteSettingsForm( {
 		() => allDomains.filter( ( domain ) => domain !== site.customDomain ),
 		[ allDomains, site.customDomain ]
 	);
-	const xdebugEnabledSite = useXdebugEnabledSite();
-	const xdebugConflictSiteName =
-		xdebugEnabledSite && xdebugEnabledSite.id !== site.id ? xdebugEnabledSite.name : undefined;
-
 	const connector = useConnector();
 	const updateSite = useUpdateSite();
 	const { data: logExists } = useDebugLogExists( site.id );
@@ -547,21 +543,9 @@ export function SiteSettingsForm( {
 							'enableXdebug',
 							__( 'Xdebug' ),
 							<>
-								{ __(
-									'Connect a debugger to inspect PHP execution. Only one site can have Xdebug enabled at a time.'
-								) }
+								{ __( 'Connect a debugger to inspect PHP execution.' ) }
 								{ learnMore( 'docsXdebug' ) }
-							</>,
-							xdebugConflictSiteName && ! data.enableXdebug
-								? {
-										error: sprintf(
-											/* translators: %s: the name of the site that has Xdebug enabled. */
-											__( 'Xdebug is enabled on another site: %s' ),
-											xdebugConflictSiteName
-										),
-										locked: true,
-								  }
-								: {}
+							</>
 						) }
 					{ toggleRow(
 						'enableDebugLog',

@@ -11,9 +11,10 @@ WordPress Studio includes Xdebug support for local sites. [Xdebug](https://xdebu
 
 The site will restart automatically with Xdebug enabled. While Xdebug is enabled, the site shows an Xdebug icon in the sidebar.
 
+You can enable Xdebug on multiple sites at once. Each site's PHP process connects to your IDE on port **9003**, so a single debugger listener can accept sessions from multiple sites. Configure your IDE to accept multiple debug connections and include each site's files in your workspace.
+
 ## [Important limitations](#1-important-limitations)
 
--   **Only one site at a time**: Xdebug can only be enabled for a single site at once. If another site already has it enabled, the **Debug** page shows “Xdebug is enabled on another site:” followed by that site’s name. To enable it for a different site, you must first disable it on the current site.
 -   **Performance impact**: Xdebug may slow down site performance. Disable it when not actively debugging.
 
 ## [Using Xdebug with your IDE](#2-using-xdebug-with-your-ide)

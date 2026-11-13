@@ -440,16 +440,26 @@ describe( 'site settings', () => {
 		expect( await siteName() ).toBeDisabled();
 	} );
 
-	it( 'disables Xdebug while another site has it, and says which', async () => {
-		setup( {
-			section: 'debugging',
-			sites: [ site, makeSite( { id: 'two', name: 'Other Site', enableXdebug: true } ) ],
-		} );
-		const xdebug = await screen.findByRole( 'switch', { name: 'Xdebug' } );
-		expect( xdebug ).toHaveAttribute( 'data-disabled' );
-		expect( xdebug ).toHaveAttribute( 'aria-invalid', 'true' );
-		expect( xdebug ).toHaveAccessibleDescription( 'Xdebug is enabled on another site: Other Site' );
-	} );
+	it.each( [ 'light', 'dark' ] as const )(
+		'lets sites enable and disable Xdebug independently (%s)',
+		async ( colorScheme ) => {
+			const { connector } = setup( {
+				section: 'debugging',
+				colorScheme,
+				sites: [ site, makeSite( { id: 'two', name: 'Other Site', enableXdebug: true } ) ],
+			} );
+			const xdebug = await screen.findByRole( 'switch', { name: 'Xdebug' } );
+			expect( xdebug ).not.toHaveAttribute( 'data-disabled' );
+			for ( const enabled of [ true, false ] ) {
+				fireEvent.click( await screen.findByRole( 'switch', { name: 'Xdebug' } ) );
+				fireEvent.click( await screen.findByRole( 'button', { name: 'Save' } ) );
+				await waitFor( () => {
+					expect( connector.state.sites[ 0 ].enableXdebug ).toBe( enabled );
+					expect( connector.state.sites[ 1 ].enableXdebug ).toBe( true );
+				} );
+			}
+		}
+	);
 
 	it( 'keeps an unsupported PHP version listed with the version that runs instead', async () => {
 		setup( { section: 'php', sites: [ { ...site, phpVersion: '7.4' } ] } );

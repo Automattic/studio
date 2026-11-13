@@ -58,6 +58,13 @@ export function classifyPreviewFailure( error: unknown, step?: string ): string 
 	return classifyFailure( error, [ [ [ 'enospc', 'no space left' ], 'disk_full' ] ], step );
 }
 
+// Coarse classification of a failed `site create` for the `failure_reason` Tracks prop. A `--from`
+// import tags its capture and Static Site Importer failures; any other error reports the step it
+// failed in (`prepare` before the site exists, `create` after), so no failure is left unattributed.
+export function classifySiteCreateFailure( error: unknown, step: 'prepare' | 'create' ): string {
+	return classifyFailure( error, [ [ [ 'enospc', 'no space left' ], 'disk_full' ] ], step );
+}
+
 export function validatePhpVersion( rawPhpVersion: string ): SupportedPHPVersion {
 	try {
 		return resolveSupportedPhpVersion( rawPhpVersion );

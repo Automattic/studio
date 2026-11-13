@@ -111,6 +111,7 @@ const cssCustomProperties = ( dir ) =>
 		);
 const THEME_TOKENS = cssCustomProperties( 'lib/theme' );
 const PRIMITIVE_HOOKS = [
+	'--app-icon-size',
 	'--button-background',
 	'--button-hover-background',
 	'--button-hover-color',

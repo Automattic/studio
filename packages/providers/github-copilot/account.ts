@@ -69,13 +69,13 @@ async function readPlanModels( copilotToken: string ): Promise< AiModelId[] | un
 	}
 	// Copilot marks what a plan offers with the picker its own clients show. Some accounts leave
 	// that off on every model, and there the policy alone says what the plan runs.
-	const offers = plan.some( ( model ) => model.offered )
-		? ( model: PlanModel ) => model.offered
-		: ( model: PlanModel ) => model.policy === 'enabled' || model.policy === 'unconfigured';
+	const usesPicker = plan.some( ( model ) => model.offered );
+	const runs = ( model: PlanModel ) =>
+		model.policy !== 'disabled' && ( ! usesPicker || model.offered );
 	const models: AiModelId[] = [];
 	for ( const { id } of GITHUB_COPILOT_AI_MODELS ) {
 		const model = plan.find( ( candidate ) => candidate.id === toCopilotModelId( id ) );
-		if ( ! model || ! model.toolCalls || model.policy === 'disabled' || ! offers( model ) ) {
+		if ( ! model || ! runs( model ) ) {
 			continue;
 		}
 		if ( model.policy !== 'unconfigured' || ( await enablePlanModel( copilotToken, model.id ) ) ) {
@@ -150,16 +150,15 @@ const connect: GithubCopilotAccount[ 'connect' ] = async ( _method, input ) => {
 	};
 };
 
-// Renewing also re-reads the plan's models, so a model added to or dropped from it shows up
-// without connecting again. A sign-in stored before Studio read them fills them in on its own.
+// Renewing also re-reads the plan's models, so one added to or dropped from it shows up without
+// connecting again.
 const refresh: NonNullable< GithubCopilotAccount[ 'refresh' ] > = async ( config ) => {
-	const renewing = config.copilotTokenExpiresAt - Date.now() <= REFRESH_MARGIN_MS;
-	if ( ! renewing && config.models ) {
+	if ( config.copilotTokenExpiresAt - Date.now() > REFRESH_MARGIN_MS ) {
 		return undefined;
 	}
-	const copilot = renewing ? await requestCopilotToken( config.githubToken ) : undefined;
-	const models = await readPlanModels( copilot?.copilotToken ?? config.copilotToken );
-	return copilot || models ? { ...config, ...copilot, ...( models ? { models } : {} ) } : undefined;
+	const copilot = await requestCopilotToken( config.githubToken );
+	const models = await readPlanModels( copilot.copilotToken );
+	return { ...config, ...copilot, ...( models ? { models } : {} ) };
 };
 
 export const githubCopilotAccount: GithubCopilotAccount = { start, connect, refresh };

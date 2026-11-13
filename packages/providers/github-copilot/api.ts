@@ -29,7 +29,6 @@ export function copilotApiUrl( copilotToken: string ): string {
 // `policy` says whether the account may use it, an `unconfigured` one having to be turned on first.
 export interface PlanModel {
 	id: string;
-	toolCalls: boolean;
 	offered: boolean;
 	policy?: string;
 }
@@ -43,26 +42,14 @@ export async function fetchPlanModels( copilotToken: string ): Promise< PlanMode
 		return undefined;
 	}
 	const { data } = ( await response.json().catch( () => ( {} ) ) ) as {
-		data?: {
-			id?: unknown;
-			capabilities?: { supports?: { tool_calls?: unknown } };
-			model_picker_enabled?: unknown;
-			policy?: { state?: unknown };
-		}[];
+		data?: { id: string; model_picker_enabled?: boolean; policy?: { state?: string } }[];
 	};
 	return Array.isArray( data )
-		? data.flatMap( ( model ) =>
-				typeof model.id === 'string'
-					? [
-							{
-								id: model.id,
-								toolCalls: model.capabilities?.supports?.tool_calls !== false,
-								offered: model.model_picker_enabled === true,
-								policy: typeof model.policy?.state === 'string' ? model.policy.state : undefined,
-							},
-					  ]
-					: []
-		  )
+		? data.map( ( model ) => ( {
+				id: model.id,
+				offered: model.model_picker_enabled === true,
+				policy: model.policy?.state,
+		  } ) )
 		: undefined;
 }
 

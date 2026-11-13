@@ -13,15 +13,16 @@ export type AiModelId = (
 )[ number ][ 'id' ];
 
 /**
- * The models a surface offers for the provider: the ones its connected account can run
- * (`AccountDetails.models`), or every model it lists when the account doesn't narrow them.
+ * The models a surface offers for the provider: the ones the account it is given can run
+ * (`AccountDetails.models`), or every model the provider lists when it doesn't narrow them.
  */
 export function getAiModels(
 	provider: ProviderId,
 	account?: { models?: readonly AiModelId[] }
 ): readonly AiModel< AiModelId >[] {
 	const models = getProvider( provider ).ai?.models ?? [];
-	return account?.models ? models.filter( ( { id } ) => account.models!.includes( id ) ) : models;
+	const offered = account?.models;
+	return offered ? models.filter( ( { id } ) => offered.includes( id ) ) : models;
 }
 
 // A model by its id, and the first provider that serves it.

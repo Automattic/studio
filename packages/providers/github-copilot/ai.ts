@@ -12,20 +12,20 @@ export function toCopilotModelId( id: string ): string {
 	return id.startsWith( 'claude-' ) ? id.replace( /(\d)-(\d)/g, '$1.$2' ) : id;
 }
 
-const getPlanErrors = () => [
-	{
-		pattern: /model_not_supported|requested model is not supported/i,
-		message: __(
+// Copilot's refusals carry their reason in the message text, said for the user.
+function rewritePlanError( message: string ): string | undefined {
+	if ( /model_not_supported|requested model is not supported/i.test( message ) ) {
+		return __(
 			'Your Copilot plan doesn’t include this model. Pick another one, or turn it on at github.com/settings/copilot.'
-		),
-	},
-	{
-		pattern: /quota|premium request/i,
-		message: __(
+		);
+	}
+	if ( /quota|premium request/i.test( message ) ) {
+		return __(
 			'You reached your Copilot plan’s usage limit. Manage usage at github.com/settings/copilot.'
-		),
-	},
-];
+		);
+	}
+	return undefined;
+}
 
 export const githubCopilotAi: NonNullable< ProviderServices< GithubCopilotConfig >[ 'ai' ] > = {
 	async model( config, modelId ): Promise< AiConnection > {
@@ -33,9 +33,9 @@ export const githubCopilotAi: NonNullable< ProviderServices< GithubCopilotConfig
 			throw new NotConnectedError( 'Sign in with GitHub to use your Copilot plan.' );
 		}
 		const requestModelId = toCopilotModelId( modelId );
-		const model =
-			GITHUB_COPILOT_AI_MODELS.some( ( { id } ) => id === modelId ) &&
-			( GITHUB_COPILOT_MODELS as Partial< Record< string, Model< Api > > > )[ requestModelId ];
+		const model = GITHUB_COPILOT_AI_MODELS.some( ( { id } ) => id === modelId )
+			? ( GITHUB_COPILOT_MODELS as Partial< Record< string, Model< Api > > > )[ requestModelId ]
+			: undefined;
 		if ( ! model ) {
 			throw new Error( `GitHub Copilot does not serve ${ modelId }` );
 		}
@@ -44,8 +44,7 @@ export const githubCopilotAi: NonNullable< ProviderServices< GithubCopilotConfig
 			apiKey: config.copilotToken,
 			headers: COPILOT_HEADERS,
 			requestModelId: requestModelId === modelId ? undefined : requestModelId,
-			rewriteError: ( message ) =>
-				getPlanErrors().find( ( { pattern } ) => pattern.test( message ) )?.message,
+			rewriteError: rewritePlanError,
 			model: {
 				...model,
 				id: modelId,

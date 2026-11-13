@@ -79,11 +79,6 @@ export function ModelPicker( {
 		quota.hasPaymentMethod;
 	const account = aiSettings?.accounts[ sessionProvider ];
 	const { note, links = [] } = account?.connected ? account : {};
-	// A provider whose plan decides which models it runs offers only those.
-	const modelsOf = ( provider: ProviderId ) => {
-		const connected = aiSettings?.accounts[ provider ];
-		return getAiModels( provider, connected?.connected ? connected : undefined );
-	};
 	const modelDetails = [ modelLabel, getProvider( sessionProvider ).label ];
 	if ( isWpcom ) {
 		modelDetails.push( credits.label );
@@ -91,6 +86,11 @@ export function ModelPicker( {
 	if ( note ) {
 		modelDetails.push( note );
 	}
+	// A provider whose plan decides which models it runs offers only those.
+	const modelsOf = ( provider: ProviderId ) => {
+		const account = aiSettings?.accounts[ provider ];
+		return getAiModels( provider, account?.connected ? account : undefined );
+	};
 	const pickCommand = ( value: string ) => {
 		onOpenChange( false );
 		if ( value === 'get-credits' ) {

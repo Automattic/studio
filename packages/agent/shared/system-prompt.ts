@@ -66,9 +66,8 @@ function localSitesLine(
 	) }.`;
 }
 
-// The WordPress.com AI proxy admits Studio requests only when the system prompt
-// opens with this line, byte for byte; everything after it is Studio's.
-export const PROXY_IDENTITY = 'You are WordPress Studio, built by Automattic.';
+// The line Studio Code's system prompt opens with: its identity.
+export const AGENT_IDENTITY = 'You are WordPress Studio, built by Automattic.';
 
 // Another agent drives Studio's tools over MCP; it has its own identity.
 const EXTERNAL_IDENTITY = 'WordPress Studio, built by Automattic, is the app behind these tools.';
@@ -101,7 +100,7 @@ const externalEnvironment = ( remoteHosts: Record< string, RemoteHost > ) => `##
 - A runbook step that asks the user ends the turn; the answer arrives as the user's next message.`;
 
 export function buildSystemPrompt( options: BuildSystemPromptOptions = {} ): string {
-	const identity = options.external ? EXTERNAL_IDENTITY : PROXY_IDENTITY;
+	const identity = options.external ? EXTERNAL_IDENTITY : AGENT_IDENTITY;
 	const remoteHosts = options.remoteHosts ?? {};
 	const environmentSection = options.external
 		? externalEnvironment( remoteHosts )

@@ -4,6 +4,7 @@ import { FileArchiveIcon, FileIcon, FolderIcon, LayoutTemplateIcon, XIcon } from
 import { useId, useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
+import { getRemoteSiteScreenshot } from '@/features/remote-site-picker';
 import { SITE_FILE_UPLOAD_TYPES } from '@/features/sites/blueprint-upload';
 import { ShuffleIcon } from '@/lib/icons';
 import {
@@ -38,6 +39,8 @@ export function SetupSourceField( { disabled = false }: { disabled?: boolean } )
 		: backup?.name ?? remote?.name ?? folder?.name;
 	const image = blueprint?.image
 		? getBlueprintThumbnail( { slug: blueprint.slug ?? '', image: blueprint.image } )
+		: remote
+		? getRemoteSiteScreenshot( remote.url )
 		: undefined;
 	const description = blueprint
 		? __( 'Blueprint' )
@@ -97,12 +100,14 @@ export function SetupSourceField( { disabled = false }: { disabled?: boolean } )
 				{ selected ? (
 					<div className={ styles.selectedSource }>
 						{ image ? (
-							<PreviewFrame className={ styles.sourceThumbnail }>
+							<PreviewFrame
+								className={ remote ? styles.sourceSiteThumbnail : styles.sourceThumbnail }
+							>
 								<PreviewImage
 									key={ image }
 									src={ image }
-									alt={ __( 'Blueprint preview' ) }
-									className={ styles.sourceScreenshot }
+									alt={ remote ? __( 'Site preview' ) : __( 'Blueprint preview' ) }
+									className={ remote ? undefined : styles.sourceScreenshot }
 								/>
 							</PreviewFrame>
 						) : (

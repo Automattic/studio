@@ -684,10 +684,19 @@ async function doStartServer(
 		}
 
 		stopSignal?.throwIfAborted();
+		let firstWorkerReady = false;
 		const needsInstallation = await Promise.all(
-			workerPorts.map( ( workerPort ) =>
-				waitForServerReady( `http://127.0.0.1:${ workerPort }/`, stopSignal )
-			)
+			workerPorts.map( async ( workerPort ) => {
+				const needsInstall = await waitForServerReady(
+					`http://127.0.0.1:${ workerPort }/`,
+					stopSignal
+				);
+				if ( ! firstWorkerReady ) {
+					firstWorkerReady = true;
+					reportPhase( 'php_first_worker', workersStartedAt );
+				}
+				return needsInstall;
+			} )
 		);
 
 		reportPhase( 'php_workers', workersStartedAt );

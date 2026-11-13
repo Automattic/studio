@@ -532,25 +532,37 @@ it( 'switches between two Spacefast sites by keyboard and restores focus', async
 	expect( connector.pushSite ).not.toHaveBeenCalled();
 } );
 
-it( 'keeps registry order while defaulting to the last-used destination', async () => {
-	localStorage.setItem( 'studio-last-publish-provider', 'spacefast' );
-	setup( { getRemoteSites: async () => [], getSnapshots: async () => [] } );
-	await open();
-	expect( screen.getByText( 'Make it with Spacefast' ) ).toBeVisible();
-	expect( screen.getByText( 'A fast, simple version of your pages' ) ).toBeVisible();
-	expect(
-		screen.getByText( 'Make your WordPress public with a link anyone can open.' )
-	).toBeVisible();
-	expect( screen.getByRole( 'button', { name: 'Publish' } ) ).toBeVisible();
-	expect( screen.getByRole( 'heading', { name: 'Share' } ) ).toBeVisible();
-	fireEvent.click( screen.getByRole( 'button', { name: 'Destination' } ) );
-	const picker = await screen.findByRole( 'menu', { name: 'Where to publish' } );
-	expect( within( picker ).getAllByRole( 'menuitemradio' )[ 0 ] ).toHaveTextContent(
-		'WordPress.com'
-	);
-	expect( within( picker ).getByText( 'The full WordPress, with a domain' ) ).toBeVisible();
-	expect( within( picker ).getByText( 'A fast, simple version of your pages' ) ).toBeVisible();
-} );
+it.each( [ 'last used', 'saved default' ] )(
+	'keeps registry order with a Spacefast %s',
+	async ( source ) => {
+		localStorage.setItem(
+			'studio-last-publish-provider',
+			source === 'last used' ? 'spacefast' : 'wpcom'
+		);
+		const { connector } = setup( {
+			getRemoteSites: async () => [],
+			getSnapshots: async () => [],
+		} );
+		if ( source === 'saved default' ) {
+			connector.state.preferences.defaultHostingProvider = 'spacefast';
+		}
+		await open();
+		expect( screen.getByText( 'Make it with Spacefast' ) ).toBeVisible();
+		expect( screen.getByText( 'A fast, simple version of your pages' ) ).toBeVisible();
+		expect(
+			screen.getByText( 'Make your WordPress public with a link anyone can open.' )
+		).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Publish' } ) ).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'Share' } ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Destination' } ) );
+		const picker = await screen.findByRole( 'menu', { name: 'Where to publish' } );
+		expect( within( picker ).getAllByRole( 'menuitemradio' )[ 0 ] ).toHaveTextContent(
+			'WordPress.com'
+		);
+		expect( within( picker ).getByText( 'The full WordPress, with a domain' ) ).toBeVisible();
+		expect( within( picker ).getByText( 'A fast, simple version of your pages' ) ).toBeVisible();
+	}
+);
 it( 'shows a static destination when the only publishing provider is connected', async () => {
 	const { connector } = setup( {
 		capabilities: { nativeSites: false },
@@ -728,7 +740,7 @@ it( 'opens provider settings from the account prompt when no providers are conne
 	expect( screen.getByRole( 'button', { name: 'Continue with WordPress.com' } ) ).toBeVisible();
 	expect( screen.queryByRole( 'button', { name: 'Destination' } ) ).not.toBeInTheDocument();
 	fireEvent.click( screen.getByRole( 'button', { name: 'Choose a different provider' } ) );
-	await waitFor( () => expect( history.location.search ).toContain( 'settings=ai' ) );
+	await waitFor( () => expect( history.location.search ).toContain( 'settings=providers' ) );
 	expect(
 		screen.queryByRole( 'dialog', { name: 'Share your WordPress' } )
 	).not.toBeInTheDocument();
@@ -757,7 +769,7 @@ it( 'defaults to the connected destination even when a disconnected provider was
 	expect( await screen.findByRole( 'menuitemradio', { name: /Spacefast/ } ) ).toBeChecked();
 	expect( screen.getAllByRole( 'menuitemradio' ) ).toHaveLength( 1 );
 	fireEvent.click( screen.getByRole( 'menuitem', { name: 'Connect more providers' } ) );
-	await waitFor( () => expect( history.location.search ).toContain( 'settings=ai' ) );
+	await waitFor( () => expect( history.location.search ).toContain( 'settings=providers' ) );
 } );
 
 it( 'publishes a connected destination without leaving the main panel', async () => {

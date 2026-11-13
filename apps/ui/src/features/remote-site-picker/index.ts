@@ -1,1 +1,1 @@
-export { RemoteSitePicker, RemoteSiteCard } from './remote-site-picker';
+export { RemoteSitePicker, RemoteSiteCard, getRemoteSiteScreenshot } from './remote-site-picker';

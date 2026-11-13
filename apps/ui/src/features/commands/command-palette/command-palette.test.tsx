@@ -109,14 +109,19 @@ describe( 'command palette', () => {
 			expect( screen.queryByRole( 'option', { name: 'Usage' } ) !== null ).toBe( signedIn );
 			expect( screen.queryByRole( 'option', { name: /View AI usage/ } ) ).not.toBeInTheDocument();
 			search( 'Providers' );
-			expect( option( 'Providers' ) ).toBeVisible();
+			expect( option( 'AI providers Providers' ) ).toBeVisible();
 		}
 	);
 
 	it.each( [
-		[ 'MCP', 'MCP', 'mcp' ],
-		[ 'Connect', 'Providers', 'ai' ],
-		[ 'Connect provider', 'Providers', 'ai' ],
+		[ 'Providers', 'Providers', 'providers' ],
+		[ 'MCP', 'Agents', 'mcp' ],
+		[ 'AI apps', 'Agents', 'mcp' ],
+		[ 'Codex', 'ChatGPT (Codex) Agents', 'mcp' ],
+		[ 'Spacefast', 'Spacefast Providers', 'providers' ],
+		[ 'Hosting providers', 'Hosting providers Providers', 'providers' ],
+		[ 'Connect', 'AI providers Providers', 'providers' ],
+		[ 'Connect provider', 'AI providers Providers', 'providers' ],
 		[ 'credits', 'Usage', 'usage' ],
 		[ 'AI credits', 'Usage', 'usage' ],
 		[ 'credit balance', 'Usage', 'usage' ],

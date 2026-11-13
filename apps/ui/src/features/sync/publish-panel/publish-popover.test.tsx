@@ -97,18 +97,18 @@ function setup( connections: SyncSite[] = [], signedIn = true, running = true, r
 					trigger: button,
 				} )
 			);
-			// A site connected nowhere starts with a choice of where to publish, a connected one with
-			// the sites it's published to, unless a transfer is under way.
-			const start = await waitFor( () => {
+			const { start, providerOption } = await waitFor( () => {
+				const providerOption = screen.queryByRole( 'button', { name: /^WordPress\.com/ } );
 				const found =
-					screen.queryByRole( 'button', { name: /^WordPress\.com/ } ) ??
+					providerOption ??
+					screen.queryByRole( 'button', { name: 'New site…' } ) ??
 					screen.queryByRole( 'heading', { name: 'Published to' } ) ??
 					screen.queryByRole( 'group', { name: 'Website' } );
 				expect( found ).not.toBeNull();
-				return found!;
+				return { start: found!, providerOption };
 			} );
-			if ( start.tagName === 'BUTTON' ) {
-				fireEvent.click( start );
+			if ( providerOption ) {
+				fireEvent.click( providerOption );
 			} else if ( start.tagName === 'H2' ) {
 				// A site connected meanwhile may open its panel before its row is clicked.
 				const next = await waitFor( () => {

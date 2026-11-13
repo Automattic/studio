@@ -54,7 +54,7 @@
 
 	.item {
 		width: 100%;
-		--item-padding-end: var( --space-8 );
+		--item-padding-inline-end: var( --space-8 );
 	}
 
 	.item[data-described] {
@@ -84,6 +84,7 @@
 		flex: 1;
 		flex-shrink: 0;
 		gap: var( --space-1_5 );
+		align-items: center;
 		white-space: nowrap;
 	}
 

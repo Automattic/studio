@@ -1,5 +1,6 @@
 .root,
 .sidebarFlyout {
+	--surface: var( --chrome );
 	--surface-fade-size: 14px;
 }
 
@@ -31,6 +32,7 @@
 }
 
 .sidebar {
+	--surface: var( --chrome );
 	width: var( --sidebar-width, 320px );
 	/* Both bounds are owned by useResizablePanel, which clamps --sidebar-width
 	   on every path. CSS min/max widths would compete with that single source
@@ -132,6 +134,7 @@
 }
 
 .main {
+	--surface: var( --chat );
 	flex: 1;
 	min-width: 0;
 	/* Route panels own their scrolling. */

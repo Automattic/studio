@@ -17,26 +17,25 @@
 	--surface-offset: 1%;
 	--surface-step: calc( 7% + var( --contrast, 0 ) * 0.033333% );
 	--surface-0: oklch( from #fff calc( l - var( --tint-intensity, 0 ) * 0.00025 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
-	--surface-1: color-mix( in oklab, var( --foreground ) var( --surface-offset ), var( --surface-0 ) );
-	--surface-2: color-mix( in oklab, var( --foreground ) calc( var( --surface-offset ) + var( --surface-step ) ), var( --surface-0 ) );
-	--surface-3: color-mix( in oklab, var( --foreground ) calc( var( --surface-offset ) + var( --surface-step ) * 2 ), var( --surface-0 ) );
-	--surface-4: color-mix( in oklab, var( --foreground ) calc( var( --surface-offset ) + var( --surface-step ) * 3 ), var( --surface-0 ) );
+	--surface-1: color-mix( in oklab, var( --foreground-base ) var( --surface-offset ), var( --surface-0 ) );
+	--surface-2: color-mix( in oklab, var( --foreground-base ) calc( var( --surface-offset ) + var( --surface-step ) ), var( --surface-0 ) );
+	--surface-3: color-mix( in oklab, var( --foreground-base ) calc( var( --surface-offset ) + var( --surface-step ) * 2 ), var( --surface-0 ) );
+	--surface-4: color-mix( in oklab, var( --foreground-base ) calc( var( --surface-offset ) + var( --surface-step ) * 3 ), var( --surface-0 ) );
 
 	--background: var( --surface-0 );
+	--surface: var( --background );
+	--composer: light-dark( var( --surface-0 ), var( --surface-3 ) );
+	--interaction-step: calc( -0.055 - var( --contrast, 0 ) * 0.0002 );
+	--border-step: calc( -0.075 - var( --contrast, 0 ) * 0.0003 );
 	--chrome: var( --surface-1 );
 	--chat: var( --surface-0 );
-	--composer: var( --surface-0 );
 	--popover: var( --surface-0 );
-	--muted: var( --surface-2 );
-	--preview-dot: color-mix( in oklab, light-dark( var( --surface-4 ), var( --surface-3 ) ), var( --foreground ) 4% );
+	--preview-dot: color-mix( in oklab, light-dark( var( --surface-4 ), var( --surface-3 ) ), var( --foreground-base ) 4% );
 
-	--foreground: oklch( calc( 0.275 - var( --contrast, 0 ) * 0.001 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
-	--muted-foreground: oklch( from var( --background ) calc( l - 0.45 - var( --contrast, 0 ) * 0.0015 ) calc( var( --tint-intensity, 0 ) * 0.0004 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
+	--foreground-base: oklch( calc( 0.275 - var( --contrast, 0 ) * 0.001 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
 	--popover-foreground: var( --foreground );
 	--secondary-foreground: var( --foreground );
 
-	--ring: var( --accent-text );
-	--input-ring: color-mix( in oklab, var( --surface-4 ), var( --foreground ) 20% );
 
 	--primary: oklch( 0.2 0 0 );
 	--primary-hover: var( --foreground );
@@ -51,6 +50,8 @@
 	--accent-hover-fill: initial;
 	--accent-text-fill: initial;
 	--accent-text-hover-fill: initial;
+	--accent-subtle-foreground-fill: initial;
+	--accent-subtle-hover-foreground-fill: initial;
 	--accent: var( --accent-fill, oklch( var( --accent-lightness ) var( --accent-chroma ) var( --accent-hue ) ) );
 	--accent-foreground: #fff;
 	--brand-blue: #3858e9;
@@ -69,22 +70,22 @@
 	--accent-surface-muted: color-mix( in srgb, var( --accent-foreground ) 12%, var( --accent ) );
 	--accent-surface-muted-hover: color-mix( in srgb, var( --accent-foreground ) 18%, var( --accent ) );
 	--accent-surface-muted-foreground: color-mix( in srgb, var( --accent-foreground ) 80%, var( --accent ) );
-	--accent-text: var( --accent-text-fill, oklch( from #304ed6 l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) ) );
-	--accent-text-hover: var( --accent-text-hover-fill, oklch( from #2138ac l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) ) );
+	--accent-text-base: oklch( from #304ed6 l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) );
+	--accent-text: var( --accent-text-fill, var( --accent-text-base ) );
+	--accent-text-hover-base: oklch( from #2138ac l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) );
+	--accent-text-hover: var( --accent-text-hover-fill, var( --accent-text-hover-base ) );
 	--accent-subtle: oklch( from #dfe7ff l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) );
 	--accent-subtle-hover: oklch( from #d3deff l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) );
 
+	--accent-subtle-foreground: var( --accent-subtle-foreground-fill, var( --accent-text-base ) );
+	--accent-subtle-hover-foreground: var( --accent-subtle-hover-foreground-fill, var( --accent-text-hover-base ) );
+
 	--success: #008a20;
 	--warning: #996800;
-	--destructive: #d63638;
-	--destructive-surface: color-mix( in oklab, var( --destructive ) 10%, var( --muted ) );
+	--destructive-fill: #d63638;
 	--destructive-foreground: #fff;
-	--destructive-button-hover: oklch( from var( --destructive ) calc( l - 0.04 ) c h );
-	--destructive-hover: color-mix( in oklab, var( --destructive ) 8.5%, transparent );
+	--destructive-button-hover: oklch( from var( --destructive-fill ) calc( l - 0.04 ) c h );
 
-	--border: color-mix( in oklab, oklch( from var( --foreground ) l calc( var( --tint-intensity, 0 ) * 0.0006 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) ) calc( 10% + var( --contrast, 0 ) * 0.2% ), transparent );
-	--popover-border: rgb( 0 0 0 / 7% );
-	--input: var( --border );
 	--backdrop: rgb( 0 0 0 / 25% );
 
 	/* Vivid status dots, a step brighter than the text colors above. */
@@ -151,6 +152,9 @@
 	--space-12: 48px;
 	--space-16: 64px;
 
+	--border-width: 1px;
+	--hairline-width: 0.5px;
+	--focus-border-width: 1px;
 	--focus-width: 2px;
 
 	/* The workspace's top band, its controls, and the short column separators
@@ -268,77 +272,74 @@
 /* prettier-ignore */
 [data-color-scheme='dark'] {
 	color-scheme: dark;
-	--surface-offset: 3%;
-	--surface-step: calc( 8% + var( --contrast, 0 ) * 0.033333% );
-	--surface-0: oklch( from #161616 calc( l - var( --contrast, 0 ) * 0.0006 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
+	--surface-offset: 8%;
+	--border-step: calc( 0.07 + var( --contrast, 0 ) * 0.0003 );
+	--surface-0: oklch( from #111 calc( l - var( --contrast, 0 ) * 0.0006 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
 
-	--foreground: oklch( calc( 0.83 + var( --contrast, 0 ) * 0.001 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
-	--muted-foreground: oklch( from var( --foreground ) calc( l - 0.255 + var( --contrast, 0 ) * 0.0011 ) calc( var( --tint-intensity, 0 ) * 0.0004 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
+	/* Equal perceptual lightness steps keep interactions consistent on each base. */
+	--surface-lift: calc( 0.08 + var( --contrast, 0 ) * 0.0002 );
+	--interaction-step: var( --surface-lift );
+	--surface-2: oklch( from var( --surface-1 ) calc( l + var( --surface-lift ) ) c h );
+	--surface-3: oklch( from var( --surface-2 ) calc( l + var( --surface-lift ) ) c h );
+	--surface-4: oklch( from var( --surface-3 ) calc( l + var( --surface-lift ) ) c h );
 
-	--chrome: var( --surface-1 );
+	--foreground-base: oklch( calc( 0.83 + var( --contrast, 0 ) * 0.001 ) calc( var( --tint-intensity, 0 ) * 0.00025 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) );
+
+	--chrome: color-mix( in oklab, var( --foreground-base ) 5.5%, var( --surface-0 ) );
 	--chat: var( --surface-0 );
-	--composer: var( --surface-3 );
 	--popover: var( --surface-2 );
-	--border: color-mix( in oklab, oklch( from var( --foreground ) l calc( var( --tint-intensity, 0 ) * 0.0006 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) ) calc( 8% + var( --contrast, 0 ) * 0.2% ), transparent );
-	--popover-border: color-mix( in oklab, oklch( from var( --foreground ) l calc( var( --tint-intensity, 0 ) * 0.0006 * var( --tint-saturation, 1 ) ) var( --tint-hue, 260 ) ) calc( 6% + var( --contrast, 0 ) * 0.2% ), var( --popover ) );
 	--primary: oklch( 0.97 0 0 );
 	--accent-lightness: 0.556431;
 	--accent-chroma: 0.204788;
 	--accent-hue: calc( var( --tint-hue, 260 ) + 9.067086 );
 	--accent-hover: var( --accent-hover-fill, oklch( from #3858e9 l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) ) );
-	--accent-text: var( --accent-text-fill, oklch( from #a1b1ff l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) ) );
-	--accent-text-hover: var( --accent-text-hover-fill, oklch( from #c5cfff l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) ) );
+	--accent-text-base: oklch( from #a1b1ff l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) );
+	--accent-text: var( --accent-text-fill, var( --accent-text-base ) );
+	--accent-text-hover-base: oklch( from #c5cfff l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) );
+	--accent-text-hover: var( --accent-text-hover-fill, var( --accent-text-hover-base ) );
 	--accent-subtle: oklch( from #222d4d l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) );
 	--accent-subtle-hover: oklch( from #2a3964 l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) );
 	--success: #68de7c;
 	--warning: #f0c33c;
-	--destructive: #ff8085;
+	--destructive-fill: #ff8085;
 	--destructive-foreground: var( --background );
 	--backdrop: rgb( 0 0 0 / 35% );
 }
 
-/* Re-resolved per element so a surface that steps `--muted` up also steps its
-   hover fill. */
-* {
-	--hover: var( --muted );
-	--selected: var( --surface-3 );
+/* Text accounts for the strongest local fill, including hover/selection.
+   L³ approximates luminance for low-chroma surfaces; ratio targets leave
+   room for tint and sRGB gamut mapping. */
+/* prettier-ignore */
+@layer base {
+	* {
+		--muted: light-dark( oklch( from var( --surface ) min( l, max( 0.6, l + var( --interaction-step ) ) ) c h ), oklch( from var( --surface ) max( l, min( 0.54, l + var( --interaction-step ) ) ) c h ) );
+		--hover: var( --muted );
+		--hover-subtle: light-dark( oklch( from var( --surface ) min( l, max( 0.6, l + var( --interaction-step ) * 0.5 ) ) c h ), oklch( from var( --surface ) max( l, min( 0.54, l + var( --interaction-step ) * 0.5 ) ) c h ) );
+		--selected: light-dark( oklch( from var( --surface ) min( l, max( 0.6, l + var( --interaction-step ) * 1.5 ) ) c h ), oklch( from var( --surface ) max( l, min( 0.54, l + var( --interaction-step ) * 1.5 ) ) c h ) );
+		--text-surface: var( --selected );
+		--text-lightness: light-dark( oklch( from var( --text-surface ) pow( max( 0, ( pow( l, 3 ) + 0.05 ) / 5.2 - 0.05 ), 0.333333 ) 0 h ), oklch( from var( --text-surface ) pow( max( 0, ( pow( l, 3 ) + 0.05 ) * 5.2 - 0.05 ), 0.333333 ) 0 h ) );
+		--foreground: light-dark( oklch( from var( --text-lightness ) min( l, 0.35 - var( --contrast, 0 ) * 0.001 ) 0 h ), oklch( from var( --text-lightness ) max( l, 0.78 + var( --contrast, 0 ) * 0.001 ) 0 h ) );
+		--muted-foreground: light-dark( oklch( from var( --surface ) pow( max( 0, ( pow( l, 3 ) + 0.05 ) / 4.8 - 0.05 ), 0.333333 ) 0 h ), oklch( from var( --surface ) pow( max( 0, ( pow( l, 3 ) + 0.05 ) * 4.8 - 0.05 ), 0.333333 ) 0 h ) );
+		--section-foreground: var( --muted-foreground );
+		--placeholder-foreground: var( --section-foreground );
+		--popover-foreground: var( --foreground );
+		--secondary-foreground: var( --foreground );
+		--destructive-hover: oklch( from var( --hover ) l 0.025 25 );
+		--destructive-surface: var( --destructive-hover );
+		--destructive-ink: light-dark( oklch( from var( --surface ) calc( pow( max( 0, ( pow( l, 3 ) + 0.05 ) / 5.2 - 0.05 ), 0.333333 ) - 0.02 ) 0.16 25 ), oklch( from var( --surface ) calc( pow( max( 0, ( pow( l, 3 ) + 0.05 ) * 5.2 - 0.05 ), 0.333333 ) + 0.02 ) 0.16 25 ) );
+		--destructive: oklch( from var( --destructive-ink ) l min( c, l * 0.4, max( 0, 1 - l ) * 1.2 ) h );
+		--border: oklch( from var( --surface ) calc( l + var( --border-step ) ) c h );
+		--input: var( --border );
+		--popover-border: var( --border );
+		--input-ring: var( --accent );
+		--ring: var( --input-ring );
+	}
 }
 
-/* A surface sets `--surface` to its fill, and `--muted` inside it resolves one
-   step up so cards and hover fills still show on it, stepping back down at the
-   end of the palette. */
 @property --surface {
 	syntax: '<color>';
 	inherits: true;
 	initial-value: transparent;
-}
-
-@container style( --surface: var( --surface-0 ) ) or style( --surface: var( --surface-1 ) ) {
-	* {
-		--muted: var( --surface-2 );
-		--selected: var( --surface-3 );
-	}
-}
-
-@container style( --surface: var( --surface-2 ) ) {
-	* {
-		--muted: var( --surface-3 );
-		--selected: var( --surface-4 );
-	}
-}
-
-@container style( --surface: var( --surface-3 ) ) {
-	* {
-		--muted: var( --surface-4 );
-		--selected: var( --surface-2 );
-	}
-}
-
-@container style( --surface: var( --surface-4 ) ) {
-	* {
-		--muted: var( --surface-3 );
-		--selected: var( --surface-2 );
-	}
 }
 
 /* Media queries can't read custom properties, so the one breakpoint is written

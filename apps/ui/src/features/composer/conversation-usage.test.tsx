@@ -53,7 +53,7 @@ describe( 'Conversation usage and model picker', () => {
 				);
 			}
 			expect( await screen.findByRole( 'option', { name: /^Sonnet 5.5/ } ) ).toBeVisible();
-			expect( screen.getByRole( 'option', { name: /^Connect providers/ } ) ).toBeVisible();
+			expect( screen.getByRole( 'option', { name: /^Connect AI providers/ } ) ).toBeVisible();
 			await user.keyboard( '{Escape}' );
 			if ( provider === 'wpcom' ) {
 				expect( await screen.findByRole( 'button', { name: 'Model' } ) ).toHaveAttribute(

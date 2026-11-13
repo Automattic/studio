@@ -19,6 +19,7 @@ import { useSiteVisibility } from '@/data/queries/use-site-visibility';
 import { useIsSiteBusy } from '@/data/queries/use-sites';
 import { usePushSite, useDisconnectRemoteSite } from '@/data/queries/use-sync-site';
 import { useUserLocale } from '@/data/queries/use-user-locale';
+import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
 import { getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
 import { useSiteSyncActivity } from '@/data/sync-activity';
@@ -119,6 +120,7 @@ export function PublishButton( {
 	const targets = usePublishTargets( site.id, open );
 	const user = useAuthUser();
 	const accounts = useAiSettings();
+	const { data: preferences } = useUserPreferences();
 	const openSettings = useOpenSettings();
 	const accountsReady = user.isSuccess && accounts.isSuccess;
 	const connectedProviders = targets.providers.filter( ( provider ) =>
@@ -185,9 +187,13 @@ export function PublishButton( {
 	const push = usePushSite();
 	const disconnect = useDisconnectRemoteSite();
 	const [ publishProvider, setPublishProvider ] = useState< SitesProviderId >();
+	const defaultProvider = preferences?.defaultHostingProvider;
 	const emptyDestination =
 		( publishProvider && connectedProviders.includes( publishProvider )
 			? publishProvider
+			: undefined ) ??
+		( defaultProvider && connectedProviders.includes( defaultProvider )
+			? defaultProvider
 			: undefined ) ??
 		orderedPublishProviders( connectedProviders )[ 0 ] ??
 		targets.providers[ 0 ];
@@ -376,7 +382,7 @@ export function PublishButton( {
 		const sites = getProviderSites( provider );
 		if ( ! connectedProviders.includes( provider ) ) {
 			close();
-			openSettings( 'ai' );
+			openSettings( 'providers' );
 			return;
 		}
 		rememberPublishProvider( provider );
@@ -854,7 +860,7 @@ export function PublishButton( {
 													connectedProviders.length < targets.providers.length
 														? () => {
 																close();
-																openSettings( 'ai' );
+																openSettings( 'providers' );
 														  }
 														: undefined
 												}
@@ -1195,7 +1201,7 @@ export function PublishButton( {
 												onClick={ () => {
 													if ( preview.signedOut ) {
 														close();
-														openSettings( 'ai' );
+														openSettings( 'providers' );
 													} else newPreview();
 												} }
 											>
@@ -1366,7 +1372,7 @@ export function PublishButton( {
 				scope={ site.id }
 				onSkip={ () => {
 					setOpen( false );
-					openSettings( 'ai' );
+					openSettings( 'providers' );
 				} }
 				secondaryLabel={ __( 'Choose a different provider' ) }
 			/>

@@ -11,6 +11,10 @@ import {
 } from '@/lib/ui';
 import styles from './style.module.css';
 
+export function getRemoteSiteScreenshot( url: string ): string {
+	return `https://s0.wp.com/mshots/v1/${ encodeURIComponent( url ) }?w=600&h=400`;
+}
+
 export function RemoteSiteCard( {
 	name,
 	url,
@@ -36,10 +40,7 @@ export function RemoteSiteCard( {
 				onClick={ onSelect }
 			>
 				<PreviewFrame className={ styles.siteThumb }>
-					<PreviewImage
-						src={ `https://s0.wp.com/mshots/v1/${ encodeURIComponent( url ) }?w=600&h=400` }
-						alt=""
-					/>
+					<PreviewImage src={ getRemoteSiteScreenshot( url ) } alt="" />
 				</PreviewFrame>
 				<span className={ styles.siteText }>
 					<span className={ styles.siteName }>{ name }</span>

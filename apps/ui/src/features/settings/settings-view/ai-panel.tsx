@@ -85,7 +85,7 @@ export function ProviderRow( {
 			<Menu.Root>
 				<Menu.Trigger render={ <Button variant="outline" disabled={ pending } /> }>
 					{ account?.connected ? __( 'Manage' ) : __( 'Connect' ) }
-					<ChevronDownIcon data-icon="inline-end" />
+					<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
 				</Menu.Trigger>
 				<Menu.Popup side="bottom" align="end">
 					<Menu.RadioGroup value={ connectedMethod ?? '' }>
@@ -115,7 +115,7 @@ export function ProviderRow( {
 				onClick={ () => ( formMethod ? closeForm() : pick( onlyMethod ) ) }
 			>
 				{ account?.connected ? __( 'Manage' ) : __( 'Connect' ) }
-				<ChevronDownIcon data-icon="inline-end" />
+				<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
 			</Button>
 		);
 	} else if ( account?.connected ) {

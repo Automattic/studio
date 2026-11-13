@@ -8,25 +8,19 @@ import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useStudioAssistantQuota } from '@/data/queries/use-assistant-quota';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useOpenSettings } from '@/data/use-open-settings';
+import { ProviderLogo } from '@/features/account';
 import { getCreditsLabel, getModelDescription } from '@/features/composer/model-options';
-import { PlusIcon, ChevronDownIcon, ExternalLinkIcon, IntelligenceIcon } from '@/lib/icons';
+import { PlusIcon, ChevronDownIcon, ExternalLinkIcon } from '@/lib/icons';
 import { Button, CommandSheet, Popover, type Command, type CommandGroup } from '@/lib/ui';
 import type { AiModelId } from '@/data/core';
 
-// A provider's mark is an SVG document from its own package, which may draw in `currentColor`.
 const PROVIDER_ICONS = Object.fromEntries(
-	PROVIDER_IDS.map( ( id ) => {
-		const svg = getProvider( id ).icon?.replace( '<svg ', '<svg width="16" height="16" ' );
-		const Icon = ( { className }: { className?: string } ) => (
-			<span
-				className={ className }
-				style={ { display: 'inline-flex' } }
-				aria-hidden="true"
-				dangerouslySetInnerHTML={ { __html: svg! } }
-			/>
-		);
-		return [ id, svg ? Icon : IntelligenceIcon ];
-	} )
+	PROVIDER_IDS.map( ( id ) => [
+		id,
+		( { className }: { className?: string } ) => (
+			<ProviderLogo provider={ id } className={ className } />
+		),
+	] )
 ) as Record< ProviderId, ComponentType< { className?: string } > >;
 
 interface ModelPickerProps {

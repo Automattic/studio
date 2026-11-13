@@ -447,7 +447,7 @@ export async function runCommand( options: {
 		}
 
 		if ( currentProvider === 'anthropic' ) {
-			ui.showInfo( __( 'Use /api-key to update the Anthropic API key.' ) );
+			ui.showInfo( __( 'Use /api-key to update the Anthropic API key or subscription token.' ) );
 		}
 	}
 
@@ -543,7 +543,9 @@ export async function runCommand( options: {
 			ui.setStatusMessage( __( 'Use /login to authenticate to WordPress.com' ) );
 		}
 	} else if ( currentProvider === 'anthropic' && ! ( await readProviderConfig( 'anthropic' ) ) ) {
-		ui.showInfo( __( 'No Anthropic API key saved. Use /api-key to enter one.' ) );
+		ui.showInfo(
+			__( 'No Anthropic API key or subscription token saved. Use /api-key to enter one.' )
+		);
 	}
 
 	async function askUserAndPersistAnswers(

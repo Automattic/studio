@@ -1,5 +1,7 @@
 import {
 	DEFAULT_PROVIDER_ID,
+	getConnectedMethod,
+	getConnection,
 	getProviderDescriptor,
 	InvalidCredentialError,
 	normalizeAiProviderId,
@@ -22,6 +24,8 @@ import {
 export interface ProviderAccount {
 	connected: boolean;
 	summary: string | null;
+	// How it connected, for a provider with several methods.
+	method?: string;
 }
 
 export interface AiSettings {
@@ -41,9 +45,11 @@ async function readAccount( id: ProviderId ): Promise< ProviderAccount > {
 	const { summarize } = getProviderDescriptor( id ) as {
 		summarize?: ( config: unknown ) => string;
 	};
+	const method = getConnectedMethod( id, config );
 	return {
 		connected: config !== undefined,
 		summary: config && summarize ? summarize( config ) : null,
+		...( method ? { method } : {} ),
 	};
 }
 
@@ -67,7 +73,8 @@ export async function persistSelectedAiProvider( provider: AiProviderId ): Promi
 
 /**
  * Connects `provider` (from `@studio/providers/services`) with what the user
- * gave: a form's values or a redirect's parameters. A provider that signs in
+ * gave: a form's values, with `method` naming the one picked when the provider
+ * offers several, or a redirect's parameters. A provider that signs in
  * through a loopback redirect gets them from signing in in the browser
  * instead. The provider checks them, and its config is stored only when it
  * accepts them.
@@ -78,7 +85,7 @@ export async function connectProvider< Config >(
 	options: LoopbackSignInOptions = {}
 ): Promise< AiSettings > {
 	const config = await provider.connect(
-		provider.descriptor.connection.kind === 'loopback'
+		getConnection( provider.descriptor.id, input.method ).kind === 'loopback'
 			? await signInThroughLoopback( provider as Provider< unknown >, options )
 			: input
 	);

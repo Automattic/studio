@@ -18,6 +18,7 @@ import { SYNC_IGNORE_DEFAULTS } from '@studio/common/lib/sync/constants';
 import { SyncCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { SyncOption } from '@studio/common/types/sync';
 import {
+	getConnection,
 	getProviderDescriptor,
 	getSitesDescriptor,
 	parseRemoteSite,
@@ -389,10 +390,10 @@ async function requireConfig( provider: SitesProviderId ): Promise< Config > {
 	if ( config ) {
 		return config;
 	}
-	const { label, connection } = getProviderDescriptor( provider );
+	const { label } = getProviderDescriptor( provider );
 	const { startConnect } = getProvider( provider );
 	if (
-		connection.kind !== 'device' ||
+		getConnection( provider ).kind !== 'device' ||
 		! startConnect ||
 		! process.stdin.isTTY ||
 		! ( await confirm( { message: sprintf( __( 'Connect %s now?' ), label ) } ) )

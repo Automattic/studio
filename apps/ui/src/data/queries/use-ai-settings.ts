@@ -1,4 +1,4 @@
-import { AI_PROVIDER_IDS, getProviderDescriptor } from '@studio/providers';
+import { AI_PROVIDER_IDS, getConnection } from '@studio/providers';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useConnector } from '@/data/core';
@@ -70,7 +70,7 @@ export function useSignIn( provider: ProviderId ) {
 	const [ authorization, setAuthorization ] = useState< DeviceAuthorization | null >( null );
 	const signIn = useMutation( {
 		mutationFn: async () => {
-			if ( getProviderDescriptor( provider ).connection.kind === 'loopback' ) {
+			if ( getConnection( provider ).kind === 'loopback' ) {
 				return connect.mutateAsync( {} );
 			}
 			const started = await connector.startProviderConnect( provider );

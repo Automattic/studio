@@ -218,11 +218,11 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 	},
 	{
 		name: 'api-key',
-		description: __( 'Set or update the Anthropic API key' ),
+		description: __( 'Set or update the Anthropic API key or subscription token' ),
 		handler: async ( _prompt, ctx ) => {
 			try {
 				await ctx.prepareProviderSelection( 'anthropic', { force: true } );
-				ctx.ui.showInfo( __( 'Anthropic API key updated.' ) );
+				ctx.ui.showInfo( __( 'Anthropic connection updated.' ) );
 				if ( ctx.showCapabilitiesOnConnect ) {
 					ctx.showCapabilitiesOnConnect = false;
 					await ctx.switchProvider( 'anthropic' );
@@ -230,7 +230,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				}
 			} catch ( error ) {
 				if ( isPromptAbortError( error ) ) {
-					ctx.ui.showInfo( __( 'API key update canceled.' ) );
+					ctx.ui.showInfo( __( 'Anthropic connection update canceled.' ) );
 					return 'continue';
 				}
 				if ( error instanceof LoggerError ) {

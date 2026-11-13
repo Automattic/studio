@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { InvalidCredentialError } from '../../errors';
-import { connectAnthropic, validateAnthropicApiKey } from '../account';
+import { connectAnthropic, validateAnthropicConfig } from '../account';
 
-describe( 'validateAnthropicApiKey', () => {
+const apiKey = ( key: string ) => ( { method: 'api-key', apiKey: key } ) as const;
+
+describe( 'validateAnthropicConfig', () => {
 	afterEach( () => {
 		vi.unstubAllGlobals();
 	} );
@@ -19,7 +21,7 @@ describe( 'validateAnthropicApiKey', () => {
 	it( 'reports a working key as valid and sends the Anthropic auth headers', async () => {
 		const fetchMock = stubFetch( { ok: true, status: 200 } );
 
-		await expect( validateAnthropicApiKey( 'sk-ant-test-1234' ) ).resolves.toEqual( {
+		await expect( validateAnthropicConfig( apiKey( 'sk-ant-test-1234' ) ) ).resolves.toEqual( {
 			status: 'valid',
 		} );
 		expect( fetchMock ).toHaveBeenCalledWith(
@@ -35,7 +37,7 @@ describe( 'validateAnthropicApiKey', () => {
 		async ( status ) => {
 			stubFetch( { ok: false, status } );
 
-			await expect( validateAnthropicApiKey( 'sk-ant-bad' ) ).resolves.toMatchObject( {
+			await expect( validateAnthropicConfig( apiKey( 'sk-ant-bad' ) ) ).resolves.toMatchObject( {
 				status: 'invalid',
 			} );
 		}
@@ -46,7 +48,9 @@ describe( 'validateAnthropicApiKey', () => {
 		async ( status ) => {
 			stubFetch( { ok: false, status } );
 
-			await expect( validateAnthropicApiKey( 'sk-ant-test-1234' ) ).resolves.toMatchObject( {
+			await expect(
+				validateAnthropicConfig( apiKey( 'sk-ant-test-1234' ) )
+			).resolves.toMatchObject( {
 				status: 'unverifiable',
 			} );
 		}
@@ -55,9 +59,11 @@ describe( 'validateAnthropicApiKey', () => {
 	it( 'reports a network failure as unverifiable', async () => {
 		stubFetch( new Error( 'network down' ) );
 
-		await expect( validateAnthropicApiKey( 'sk-ant-test-1234' ) ).resolves.toMatchObject( {
-			status: 'unverifiable',
-		} );
+		await expect( validateAnthropicConfig( apiKey( 'sk-ant-test-1234' ) ) ).resolves.toMatchObject(
+			{
+				status: 'unverifiable',
+			}
+		);
 	} );
 } );
 
@@ -76,5 +82,30 @@ describe( 'connectAnthropic', () => {
 			InvalidCredentialError
 		);
 		await expect( connectAnthropic( { apiKey: '   ' } ) ).rejects.toThrow( 'API key is required' );
+	} );
+
+	it( 'stores a subscription token sent with Bearer auth, and refuses an API key in its place', async () => {
+		const fetchMock = vi.fn().mockResolvedValue( { ok: false, status: 403 } );
+		vi.stubGlobal( 'fetch', fetchMock );
+		await expect(
+			connectAnthropic( { method: 'setup-token', token: ' sk-ant-oat01-token ' } )
+		).resolves.toEqual( { method: 'setup-token', token: 'sk-ant-oat01-token' } );
+		expect( fetchMock ).toHaveBeenCalledWith(
+			expect.any( String ),
+			expect.objectContaining( {
+				headers: expect.objectContaining( {
+					Authorization: 'Bearer sk-ant-oat01-token',
+					'anthropic-beta': 'oauth-2025-04-20',
+				} ),
+			} )
+		);
+
+		await expect(
+			connectAnthropic( { method: 'setup-token', token: 'sk-ant-api03-key' } )
+		).rejects.toThrow( 'not an API key' );
+		fetchMock.mockResolvedValue( { ok: false, status: 401 } );
+		await expect(
+			connectAnthropic( { method: 'setup-token', token: 'sk-ant-oat01-revoked' } )
+		).rejects.toBeInstanceOf( InvalidCredentialError );
 	} );
 } );

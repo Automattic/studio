@@ -72,8 +72,27 @@ describe( 'Chat model picker', () => {
 		const current = await screen.findByRole( 'option', { name: /Opus 5.5/ } );
 		expect( current ).toHaveAttribute( 'aria-selected', 'true' );
 		expect( current ).toHaveTextContent(
-			'Anthropic API · Plan complex builds and solve harder problems'
+			'Anthropic · Plan complex builds and solve harder problems'
 		);
+	} );
+
+	it( 'offers to manage usage only when Anthropic connects with a Claude subscription', async () => {
+		const connectedWith = ( method: string ) => {
+			const settings = aiSettings( 'anthropic', [ 'anthropic' ] );
+			settings.accounts.anthropic.method = method;
+			return createFakeConnector( {}, { getAiSettings: async () => settings } );
+		};
+		const subscription = await renderPicker( 'claude-opus-5-5', connectedWith( 'setup-token' ) );
+		fireEvent.click( subscription.trigger );
+		expect( await screen.findByRole( 'option', { name: /Manage usage/ } ) ).toHaveTextContent(
+			'Using Claude plan'
+		);
+		subscription.unmount();
+
+		const apiKey = await renderPicker( 'claude-opus-5-5', connectedWith( 'api-key' ) );
+		fireEvent.click( apiKey.trigger );
+		await screen.findByRole( 'option', { name: /Opus 5.5/ } );
+		expect( screen.queryByRole( 'option', { name: /Manage usage/ } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'lists the tiers and closes after selection', async () => {

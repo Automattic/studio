@@ -1,9 +1,13 @@
 import {
 	getConnectFields,
+	getConnectSteps,
+	getConnection,
+	getConnectionMethods,
 	getProviderDescriptor,
 	AI_PROVIDER_IDS,
 	normalizeAiProviderId,
 	type AiProviderId,
+	type ConnectStep,
 	type ProviderId,
 } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
@@ -19,11 +23,37 @@ import {
 } from '@/data/queries/use-ai-settings';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { usePublishProviders } from '@/data/queries/use-remote-sites';
-import { LearnMoreLink } from '@/features/onboarding';
+import { CopyButton } from '@/features/clipboard';
+import { LearnHowLink, LearnMoreLink } from '@/features/onboarding';
 import { useOffline } from '@/lib/hooks';
-import { Button, Input } from '@/lib/ui';
+import { ChevronDownIcon } from '@/lib/icons';
+import { Button, Input, Menu } from '@/lib/ui';
 import { connectedBadge, SettingsGroup, SettingsRow, SettingsSelect } from './rows';
 import styles from './style.module.css';
+
+function ConnectSteps( { steps }: { steps: ConnectStep[] } ) {
+	return (
+		<ol className={ styles.connectSteps }>
+			{ steps.map( ( step ) => (
+				<li key={ step.text }>
+					{ step.text }
+					{ step.url ? (
+						<>
+							{ ' ' }
+							<LearnHowLink url={ step.url } />
+						</>
+					) : null }
+					{ step.command ? (
+						<div className={ styles.connectCommand }>
+							<code>{ step.command }</code>
+							<CopyButton text={ step.command } label={ __( 'Copy command' ) } />
+						</div>
+					) : null }
+				</li>
+			) ) }
+		</ol>
+	);
+}
 
 // A provider that connects with a form: the form comes from its descriptor.
 function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
@@ -32,8 +62,15 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 	const disconnect = useDisconnectProvider( provider );
 	const setProvider = useSetAiProvider();
 	const descriptor = getProviderDescriptor( provider );
-	const fields = getConnectFields( provider );
+	const methods = getConnectionMethods( provider );
 	const account = settings.data?.accounts[ provider ];
+	const [ pickedMethod, setPickedMethod ] = useState< string >();
+	const method = pickedMethod ?? account?.method ?? methods[ 0 ]?.id;
+	const fields = getConnectFields( provider, method );
+	const steps = getConnectSteps( provider, method );
+	// The account is connected with the form being shown.
+	const current = account?.connected && account.method === method;
+	const connectLabel = account?.connected ? __( 'Manage' ) : __( 'Connect' );
 	const [ formOpen, setFormOpen ] = useState( false );
 	const [ values, setValues ] = useState< Record< string, string > >( {} );
 	const pending =
@@ -42,12 +79,13 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 
 	const closeForm = () => {
 		setValues( {} );
+		setPickedMethod( undefined );
 		setFormOpen( false );
 	};
 	// Saving the values the account already has just selects the provider.
 	const save = async () => {
 		if ( filled ) {
-			await connect.mutateAsync( values );
+			await connect.mutateAsync( method ? { ...values, method } : values );
 		}
 		await setProvider.mutateAsync( provider );
 		closeForm();
@@ -66,14 +104,39 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 					</>
 				}
 			>
-				<Button
-					variant="outline"
-					aria-expanded={ formOpen }
-					disabled={ pending }
-					onClick={ () => ( formOpen ? closeForm() : setFormOpen( true ) ) }
-				>
-					{ account?.connected ? __( 'Manage' ) : __( 'Connect' ) }
-				</Button>
+				{ methods.length && ! formOpen ? (
+					<Menu.Root>
+						<Menu.Trigger render={ <Button variant="outline" disabled={ pending } /> }>
+							{ connectLabel }
+							<ChevronDownIcon />
+						</Menu.Trigger>
+						<Menu.Popup side="bottom" align="end">
+							<Menu.RadioGroup value={ account?.method ?? '' }>
+								{ methods.map( ( { id, label } ) => (
+									<Menu.RadioItem
+										key={ id }
+										value={ id }
+										onClick={ () => {
+											setPickedMethod( id );
+											setFormOpen( true );
+										} }
+									>
+										{ label() }
+									</Menu.RadioItem>
+								) ) }
+							</Menu.RadioGroup>
+						</Menu.Popup>
+					</Menu.Root>
+				) : (
+					<Button
+						variant="outline"
+						aria-expanded={ formOpen }
+						disabled={ pending }
+						onClick={ () => ( formOpen ? closeForm() : setFormOpen( true ) ) }
+					>
+						{ connectLabel }
+					</Button>
+				) }
 			</SettingsRow>
 			{ formOpen ? (
 				<form
@@ -84,11 +147,16 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 					) }
 					onSubmit={ ( event ) => {
 						event.preventDefault();
-						if ( ! pending && ( filled || account?.connected ) ) {
+						if ( ! pending && ( filled || current ) ) {
 							void save().catch( () => {} );
 						}
 					} }
 				>
+					{ steps.length ? (
+						<SettingsRow title={ __( 'How to connect' ) } stacked>
+							<ConnectSteps steps={ steps } />
+						</SettingsRow>
+					) : null }
 					{ fields.map( ( field, index ) => (
 						<SettingsRow
 							key={ field.name }
@@ -107,7 +175,9 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 									type={ field.secret ? 'password' : 'text' }
 									autoComplete="off"
 									aria-label={ field.title }
-									placeholder={ ( field.secret && account?.summary ) || field.placeholder }
+									placeholder={
+										( field.secret && current && account.summary ) || field.placeholder
+									}
 									value={ values[ field.name ] ?? '' }
 									disabled={ pending }
 									onChange={ ( event ) =>
@@ -119,7 +189,7 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 										<Button
 											variant="accent"
 											type="submit"
-											disabled={ pending || ( ! filled && ! account?.connected ) }
+											disabled={ pending || ( ! filled && ! current ) }
 											loading={ connect.isPending || setProvider.isPending }
 											loadingAnnouncement={ __( 'Saving' ) }
 										>
@@ -169,7 +239,7 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 		( id ) => capabilities.nativeSites || getProviderDescriptor( id ).ai?.inPage !== false
 	);
 	const signInProviders = [ ...new Set( [ ...aiProviders, ...usePublishProviders() ] ) ].filter(
-		( id ) => [ 'device', 'loopback' ].includes( getProviderDescriptor( id ).connection.kind )
+		( id ) => [ 'device', 'loopback' ].includes( getConnection( id ).kind )
 	);
 
 	// Connecting WordPress.com finishes once the sign-up lands.
@@ -258,7 +328,7 @@ function SignInProviderRow( { provider }: { provider: ProviderId } ) {
 	const descriptor = getProviderDescriptor( provider );
 	const connected = settings.data?.accounts[ provider ].connected;
 	// Signing in again starts over, for when the browser tab was closed.
-	const inBrowser = signIn.isPending && descriptor.connection.kind === 'loopback';
+	const inBrowser = signIn.isPending && getConnection( provider ).kind === 'loopback';
 	return (
 		<SettingsRow
 			title={ descriptor.label }

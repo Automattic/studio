@@ -1,4 +1,4 @@
-import { password } from '@inquirer/prompts';
+import { password, select } from '@inquirer/prompts';
 import { connectProvider, readSelectedAiProvider } from '@studio/common/lib/ai-settings';
 import { readFreshProviderConfig, readProviderConfig } from '@studio/common/lib/provider-config';
 import { InvalidCredentialError } from '@studio/providers';
@@ -15,6 +15,7 @@ import { LoggerError } from 'cli/logger';
 
 vi.mock( '@inquirer/prompts', () => ( {
 	password: vi.fn(),
+	select: vi.fn(),
 } ) );
 
 vi.mock( '@studio/common/lib/ai-settings', () => ( {
@@ -63,6 +64,7 @@ describe( 'AI auth helpers', () => {
 		vi.stubEnv( 'WPCOM_AI_PROXY_BASE_URL', '' );
 		vi.stubEnv( 'STUDIO_WPCOM_TOKEN', '' );
 		storeConfigs( {} );
+		vi.mocked( select ).mockResolvedValue( 'api-key' );
 	} );
 
 	afterEach( () => {
@@ -94,7 +96,22 @@ describe( 'AI auth helpers', () => {
 		await prepareAiProvider( 'anthropic' );
 
 		expect( password ).toHaveBeenCalledOnce();
-		expect( connectProvider ).toHaveBeenCalledWith( anthropicProvider, { apiKey: 'prompted-key' } );
+		expect( connectProvider ).toHaveBeenCalledWith( anthropicProvider, {
+			method: 'api-key',
+			apiKey: 'prompted-key',
+		} );
+	} );
+
+	it( 'asks how to connect, then for the chosen method’s fields', async () => {
+		vi.mocked( select ).mockResolvedValue( 'setup-token' );
+		answerPrompt( 'sk-ant-oat01-token' );
+
+		await prepareAiProvider( 'anthropic' );
+
+		expect( connectProvider ).toHaveBeenCalledWith( anthropicProvider, {
+			method: 'setup-token',
+			token: 'sk-ant-oat01-token',
+		} );
 	} );
 
 	it( 'shows the provider’s rejection as the prompt’s error', async () => {
@@ -114,7 +131,10 @@ describe( 'AI auth helpers', () => {
 		expect( password ).not.toHaveBeenCalled();
 
 		await prepareAiProvider( 'anthropic', { force: true } );
-		expect( connectProvider ).toHaveBeenCalledWith( anthropicProvider, { apiKey: 'updated-key' } );
+		expect( connectProvider ).toHaveBeenCalledWith( anthropicProvider, {
+			method: 'api-key',
+			apiKey: 'updated-key',
+		} );
 	} );
 
 	it( 'connects to the WordPress.com gateway with the Studio session headers', async () => {

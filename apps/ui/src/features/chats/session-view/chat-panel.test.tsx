@@ -296,7 +296,7 @@ describe( 'Composer site controls', () => {
 
 function anthropicRow( dialog: HTMLElement ) {
 	return within(
-		within( dialog ).getByText( 'Anthropic API', { exact: true } ).closest( '[data-settings-row]' )!
+		within( dialog ).getByText( 'Anthropic', { exact: true } ).closest( '[data-settings-row]' )!
 	);
 }
 
@@ -515,6 +515,7 @@ describe( 'Composer access notices', () => {
 			fireEvent.click(
 				anthropicRow( dialog ).getByRole( 'button', { name: saved ? 'Manage' : 'Connect' } )
 			);
+			fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'API key' } ) );
 			if ( ! saved ) {
 				const keyInput = await screen.findByLabelText( 'Anthropic API key', { selector: 'input' } );
 				expect( keyInput ).toHaveAttribute( 'type', 'password' );
@@ -637,7 +638,7 @@ describe( 'Chat target selection', () => {
 		);
 		expect( screen.getByRole( 'button', { name: 'Model' } ) ).toHaveAttribute(
 			'aria-description',
-			'Opus 5.5 · Anthropic API'
+			'Opus 5.5 · Anthropic'
 		);
 	} );
 } );

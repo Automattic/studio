@@ -22,8 +22,8 @@ import { getConfigDirectory } from './well-known-paths';
  * Each provider's config, validated against its descriptor's schema. The first
  * providers' map onto the shared.json fields builds of every version read: the
  * WordPress.com config is the Studio sign-in (`authToken`), the Anthropic one
- * the saved key (`anthropicApiKey`). Later providers keep theirs in
- * `providerConfigs`.
+ * the saved key (`anthropicApiKey`). Later providers, and Anthropic's
+ * subscription token, keep theirs in `providerConfigs`.
  */
 
 interface AiFields {
@@ -66,6 +66,8 @@ type ConfigStore< Config > = {
 	write( config: Config | undefined ): Promise< void >;
 };
 
+const anthropicSection = providerConfigStore( 'anthropic' );
+
 // The WordPress.com config is the Studio sign-in, so builds of every version
 // share it.
 const STORES: { [ Id in ProviderId ]: ConfigStore< ProviderConfigs[ Id ] > } = {
@@ -95,13 +97,21 @@ const STORES: { [ Id in ProviderId ]: ConfigStore< ProviderConfigs[ Id ] > } = {
 			} );
 		},
 	},
+	// Only an API key stays where older builds read it.
 	anthropic: {
 		read: async () => {
+			const config = await anthropicSection.read();
+			if ( config ) {
+				return config;
+			}
 			const { anthropicApiKey } = await readAiFields();
 			return anthropicApiKey && { method: 'api-key', apiKey: anthropicApiKey };
 		},
 		write: async ( config ) => {
-			await updateAiFields( { anthropicApiKey: config?.apiKey } );
+			await anthropicSection.write( config?.method === 'api-key' ? undefined : config );
+			await updateAiFields( {
+				anthropicApiKey: config?.method === 'api-key' ? config.apiKey : undefined,
+			} );
 		},
 	},
 	openai: providerConfigStore( 'openai' ),

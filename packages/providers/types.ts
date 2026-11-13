@@ -64,8 +64,8 @@ export interface RedirectOptions {
 // How the user connects an account. Studio passes what it collected to the
 // provider's `connect`, which turns it into the config to store.
 export type ProviderConnection =
-	// A form rendered from `input`.
-	| { kind: 'form'; input: () => ConnectInputSchema }
+	// A form rendered from `input`, after the steps that get its values.
+	| { kind: 'form'; input: () => ConnectInputSchema; steps?: () => ConnectStep[] }
 	// Approving access on the provider's site, which redirects back to the app
 	// with the result in the URL's parameters.
 	| { kind: 'redirect'; redirectUrl( options: RedirectOptions ): string }
@@ -78,6 +78,20 @@ export type ProviderConnection =
 	// provider's `startLoopbackConnect`, and `connect` takes the redirect's
 	// parameters with the authorization's `verifier` and the `redirectUri`.
 	| { kind: 'loopback' };
+
+// One of several ways a provider's account connects, for the user to pick.
+// `connect` receives the chosen one's id as `input.method`, and the config
+// records it as `method`.
+export type ConnectionMethod = ProviderConnection & { id: string; label: () => string };
+
+// A step the user takes to get what a form asks for.
+export interface ConnectStep {
+	text: string;
+	// A page with the details.
+	url?: string;
+	// Run in a terminal; surfaces show it apart and offer to copy it.
+	command?: string;
+}
 
 // A pending device sign-in: the user approves `userCode` at `verificationUrl`.
 export interface DeviceAuthorization {
@@ -137,7 +151,7 @@ export interface ProviderDescriptor< Config = unknown, Site extends RemoteSite =
 	icon?: string;
 	// What Studio stores for this provider.
 	configSchema: z.ZodType< Config >;
-	connection: ProviderConnection;
+	connection: ProviderConnection | ConnectionMethod[];
 	// What to show for a connected account; never the credential itself.
 	summarize?( config: Config ): string;
 	// What to keep once the provider rejects the config, so signing in again
@@ -154,8 +168,9 @@ export interface ProviderDescriptor< Config = unknown, Site extends RemoteSite =
 		// can't offer a provider that signs in through this computer.
 		inPage?: boolean;
 		// For models that use the user's plan with the provider: what to say
-		// next to the model, and where the user manages that usage.
-		planUsage?: { label: () => string; manageUrl: string };
+		// next to the model, and where the user manages that usage. With
+		// `method`, only when the account connected with that method.
+		planUsage?: { label: () => string; manageUrl: string; method?: string };
 	};
 	sites?: SitesDescriptor< Site >;
 }
@@ -277,6 +292,7 @@ export interface Provider< Config = unknown, Site extends RemoteSite = RemoteSit
 	descriptor: ProviderDescriptor< Config, Site >;
 	// Checks what the user gave, a form's values or a redirect's parameters, and
 	// returns the config to store. Throws InvalidCredentialError when it fails.
+	// Without `input.method`, a provider with several methods takes its first.
 	connect( input: Record< string, string > ): Promise< Config >;
 	// Starts a device sign-in, for a provider whose connection kind is `device`.
 	startConnect?(): Promise< DeviceAuthorization >;

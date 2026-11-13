@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	getAiModelProviders,
 	getConnectFields,
+	getConnectionMethods,
 	getRedirectUrl,
 	getDefaultAiModel,
 	isAiModelId,
@@ -50,6 +51,17 @@ describe( 'connections', () => {
 		expect( apiKey.validate( ' ' ) ).toBe( 'API key is required' );
 		expect( apiKey.validate( 'sk-ant-key' ) ).toBeUndefined();
 		expect( getConnectFields( 'wpcom' ) ).toEqual( [] );
+	} );
+
+	it( 'lets the user pick a method only when a provider offers several', () => {
+		expect( getConnectionMethods( 'anthropic' ).map( ( { id } ) => id ) ).toEqual( [
+			'api-key',
+			'setup-token',
+		] );
+		expect( getConnectionMethods( 'wpcom' ) ).toEqual( [] );
+		expect( getConnectFields( 'anthropic', 'setup-token' ) ).toMatchObject( [
+			{ name: 'token', placeholder: 'sk-ant-oat01-…', secret: true },
+		] );
 	} );
 
 	it( 'builds the redirect only for a provider that connects with one', () => {

@@ -25,7 +25,7 @@ test.describe( 'Share and publish', () => {
 		await session.cleanup();
 	} );
 
-	test( 'copies a shared preview link and opens checkout from the Publish tab', async () => {
+	test( 'copies a preview link and opens checkout from Share', async () => {
 		const page = session.mainWindow;
 		await expect.poll( () => session.previewText() ).toContain( 'Hello world!' );
 
@@ -48,6 +48,11 @@ test.describe( 'Share and publish', () => {
 					date: Date.now(),
 				},
 			] );
+			ipcMain.removeHandler( 'getPreviewStatus' );
+			ipcMain.handle( 'getPreviewStatus', () => ( {
+				localChanged: false,
+				previewChanged: false,
+			} ) );
 			ipcMain.removeHandler( 'getRemoteSites' );
 			ipcMain.handle( 'getRemoteSites', () => [] );
 			ipcMain.removeAllListeners( 'openURL' );
@@ -57,29 +62,20 @@ test.describe( 'Share and publish', () => {
 		}, site.id );
 		await page.reload();
 
-		// The header folds Share into its More menu when the window is too narrow for it.
-		const share = page.getByRole( 'button', { name: /^(Share|More preview actions)$/ } );
-		const openShare = async () => {
-			const overflow = ( await share.getAttribute( 'aria-label' ) ) === 'More preview actions';
-			await share.click();
-			if ( overflow ) {
-				await page.getByRole( 'menuitem', { name: 'Share', exact: true } ).click();
-			}
-		};
-		const dialog = page.getByRole( 'dialog', { name: 'Share and publish', exact: true } );
-		await openShare();
+		await page.getByRole( 'button', { name: 'Share…', exact: true } ).click();
+		const dialog = page.getByRole( 'dialog', { name: 'Share', exact: true } );
 		await expect(
-			dialog.getByRole( 'link', { name: 'Client review', exact: true } )
+			dialog.getByRole( 'button', {
+				name: 'Open preview: sharing-verification.wp.build',
+				exact: true,
+			} )
 		).toBeVisible();
-		await dialog.getByRole( 'button', { name: 'Preview actions', exact: true } ).click();
-		await page.getByRole( 'menuitem', { name: 'Copy link', exact: true } ).click();
+		await dialog.getByRole( 'button', { name: 'Copy link', exact: true } ).click();
 		await expect
 			.poll( () => session.electronApp.evaluate( ( { clipboard } ) => clipboard.readText() ) )
 			.toBe( 'https://sharing-verification.wp.build' );
 
-		await dialog.getByRole( 'tab', { name: 'Publish', exact: true } ).click();
-		await dialog.getByRole( 'button', { name: /^WordPress\.com/ } ).click();
-		await dialog.getByRole( 'button', { name: 'New site…', exact: true } ).click();
+		await dialog.getByRole( 'button', { name: 'Make it public', exact: true } ).click();
 		await expect( dialog ).toBeVisible();
 		const checkoutUrl = () =>
 			session.electronApp.evaluate(
@@ -91,7 +87,7 @@ test.describe( 'Share and publish', () => {
 			'https://wordpress.com/setup/new-hosted-site'
 		);
 		expect( checkout.searchParams.get( 'studioSiteId' ) ).toBe( site.id );
-		await dialog.getByRole( 'button', { name: 'Close', exact: true } ).click();
+		await page.keyboard.press( 'Escape' );
 	} );
 
 	test( 'connects a WordPress.com site, then publishes and pulls through the main process', async () => {
@@ -107,7 +103,7 @@ test.describe( 'Share and publish', () => {
 				isStaging: false,
 				isPressable: false,
 				syncSupport: 'syncable',
-				lastPushTimestamp: null,
+				lastPushTimestamp: null as string | null,
 				lastPullTimestamp: null,
 			};
 			const handlers: Record< string, ( ...args: unknown[] ) => unknown > = {
@@ -123,13 +119,17 @@ test.describe( 'Share and publish', () => {
 				connectRemoteSite: () => {
 					state.publishTest.connections = [ remote ];
 				},
+				getSitePublishStatus: () => ( { localChanged: true } ),
 				getIsMultisite: () => false,
 				getRemoteBackupId: () => 'backup-1',
 				listRemoteBackupFiles: () => ( {} ),
 				pushSite: ( ...args ) => {
 					state.publishTest.calls.push( { direction: 'push', args } );
 					return new Promise< void >( ( resolve ) => {
-						state.publishTest.finish = resolve;
+						state.publishTest.finish = () => {
+							remote.lastPushTimestamp = new Date().toISOString();
+							resolve();
+						};
 					} );
 				},
 				pullSite: ( ...args ) => {
@@ -148,10 +148,9 @@ test.describe( 'Share and publish', () => {
 			session.electronApp.evaluate( () => ( globalThis as PublishState ).publishTest.finish?.() );
 		await page.reload();
 
-		await page.getByRole( 'button', { name: 'Publish…', exact: true } ).click();
-		const panel = page.getByRole( 'dialog', { name: 'Share and publish', exact: true } );
-		await panel.getByRole( 'button', { name: /^WordPress\.com/ } ).click();
-		await panel.getByRole( 'button', { name: 'New site…', exact: true } ).click();
+		await page.getByRole( 'button', { name: 'Share…', exact: true } ).click();
+		await page.getByRole( 'button', { name: 'Make it public', exact: true } ).click();
+		const panel = page.getByRole( 'dialog', { name: 'Publish', exact: true } );
 		const mainWindow = await session.electronApp.browserWindow( page );
 		await mainWindow.evaluate( ( window, studioSiteId ) => {
 			window.webContents.send( 'sync-connect-site', {
@@ -160,19 +159,17 @@ test.describe( 'Share and publish', () => {
 				autoOpenPush: true,
 			} );
 		}, site.id );
-		await expect(
-			panel.getByRole( 'button', { name: 'Publish changes', exact: true } )
-		).toBeEnabled();
+		await expect( panel.getByRole( 'button', { name: 'Publish', exact: true } ) ).toBeEnabled();
 		expect( await publishCalls() ).toHaveLength( 0 );
-		await panel.getByRole( 'button', { name: 'Publish changes', exact: true } ).click();
-		await expect( panel.getByRole( 'radiogroup', { name: 'What to publish' } ) ).toBeVisible();
+		await expect( panel.getByRole( 'button', { name: 'What to publish' } ) ).toBeVisible();
 		await expect( page.getByRole( 'alertdialog' ) ).toHaveCount( 0 );
-		await panel.getByRole( 'button', { name: 'Publish changes', exact: true } ).click();
+		await panel.getByRole( 'button', { name: 'Publish', exact: true } ).click();
 		await expect.poll( async () => ( await publishCalls() ).length ).toBe( 1 );
 		await finishPublish();
 
-		await panel.getByRole( 'button', { name: 'Publish changes', exact: true } ).click();
-		await panel.getByRole( 'radio', { name: 'Files only', exact: true } ).check();
+		await panel.getByRole( 'button', { name: 'What to publish' } ).click();
+		await page.getByRole( 'checkbox', { name: 'Database', exact: true } ).uncheck();
+		await page.keyboard.press( 'Escape' );
 		await panel.getByRole( 'button', { name: 'Publish changes', exact: true } ).click();
 		await expect.poll( async () => ( await publishCalls() ).length ).toBe( 2 );
 		await finishPublish();
@@ -180,12 +177,14 @@ test.describe( 'Share and publish', () => {
 			panel.getByRole( 'button', { name: 'Publish changes', exact: true } )
 		).toBeEnabled();
 
-		await panel.getByRole( 'button', { name: 'Pull changes', exact: true } ).click();
-		await expect( panel.getByRole( 'radiogroup', { name: 'What to pull' } ) ).toBeVisible();
-		await panel.getByRole( 'radio', { name: 'Content and settings only', exact: true } ).check();
-		await panel.getByRole( 'button', { name: 'Pull changes', exact: true } ).click();
-		await expect( panel.getByText( 'Changes pulled into WordPress Studio' ) ).toBeVisible();
-		await panel.getByRole( 'button', { name: 'Done', exact: true } ).click();
+		await panel.getByRole( 'button', { name: 'More options', exact: true } ).click();
+		await page.getByRole( 'menuitem', { name: 'Pull from live site', exact: true } ).click();
+		const pull = page.getByRole( 'alertdialog', { name: 'Pull from live site?' } );
+		await pull.getByRole( 'combobox', { name: 'What to pull' } ).click();
+		await page.getByRole( 'option', { name: 'Content and settings only', exact: true } ).click();
+		await pull.getByRole( 'button', { name: 'Pull changes', exact: true } ).click();
+		await expect.poll( async () => ( await publishCalls() ).length ).toBe( 3 );
+		await expect( pull ).not.toBeVisible();
 		await page.keyboard.press( 'Escape' );
 
 		const calls = await publishCalls();

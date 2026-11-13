@@ -103,6 +103,27 @@ describe( 'Chat model picker', () => {
 		expect( screen.queryByRole( 'option', { name: /Manage usage/ } ) ).not.toBeInTheDocument();
 	} );
 
+	it( 'offers only the models the connected account can run', async () => {
+		const settings = aiSettings( 'github-copilot', [ 'github-copilot' ] );
+		settings.accounts[ 'github-copilot' ] = {
+			connected: true,
+			...getProvider( 'github-copilot' ).account.describe( {
+				method: 'github',
+				githubToken: 'gho_1',
+				copilotToken: 'copilot',
+				copilotTokenExpiresAt: Date.now() + 60_000,
+				models: [ 'claude-sonnet-5-5' ],
+			} ),
+		};
+		const { trigger } = await renderPicker(
+			'claude-sonnet-5-5',
+			createFakeConnector( {}, { getAiSettings: async () => settings } )
+		);
+		fireEvent.click( trigger );
+		await screen.findByRole( 'option', { name: /Sonnet 5.5/ } );
+		expect( screen.queryByRole( 'option', { name: /Gemini/ } ) ).not.toBeInTheDocument();
+	} );
+
 	it( 'lists the tiers and closes after selection', async () => {
 		const { trigger, onModelChange } = await renderPicker( 'balanced', connectorFor() );
 		fireEvent.click( trigger );

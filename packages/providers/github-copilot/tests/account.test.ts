@@ -22,6 +22,15 @@ const handoff = {
 	expiresAt: String( Date.now() + 60_000 ),
 };
 
+// What the plan lists: a model it runs, one it has to turn on, and one it doesn't include.
+const planModels = {
+	data: [
+		{ id: 'claude-sonnet-5.5', policy: { state: 'enabled' } },
+		{ id: 'gpt-6.1-terra', policy: { state: 'unconfigured' } },
+		{ id: 'gemini-4-argon', policy: { state: 'disabled' } },
+	],
+};
+
 describe( 'github-copilot account', () => {
 	const fetchMock = vi.fn();
 	const respond = ( routes: Record< string, () => Response > ) =>
@@ -64,18 +73,37 @@ describe( 'github-copilot account', () => {
 			'/login/oauth/access_token': () => json( 200, polls.shift() ),
 			'/copilot_internal/v2/token': () => json( 200, { token: copilotToken, expires_at: 2000 } ),
 			'/user': () => json( 200, { login: 'octocat' } ),
+			'/models': () => json( 200, planModels ),
 		} );
 
+		// Only the models the plan runs are kept, and the one it leaves off is turned on first.
 		await expect( githubCopilotAccount.connect( 'github', handoff ) ).resolves.toEqual( {
 			method: 'github',
 			githubToken: 'gho_1',
 			copilotToken,
 			copilotTokenExpiresAt: 2_000_000,
 			login: 'octocat',
+			models: [ 'claude-sonnet-5-5', 'gpt-6.1-terra' ],
 		} );
 		expect( fetchMock ).toHaveBeenCalledWith(
-			'https://api.business.githubcopilot.com/models/claude-sonnet-5.5/policy',
+			'https://api.business.githubcopilot.com/models/gpt-6.1-terra/policy',
 			expect.objectContaining( { method: 'POST' } )
+		);
+		expect( fetchMock ).not.toHaveBeenCalledWith(
+			'https://api.business.githubcopilot.com/models/claude-sonnet-5.5/policy',
+			expect.anything()
+		);
+	} );
+
+	it( 'keeps every model when Copilot doesn’t say which the plan runs', async () => {
+		respond( {
+			'/login/oauth/access_token': () => json( 200, { access_token: 'gho_1' } ),
+			'/copilot_internal/v2/token': () => json( 200, { token: copilotToken, expires_at: 2000 } ),
+			'/models': () => json( 500 ),
+		} );
+
+		await expect( githubCopilotAccount.connect( 'github', handoff ) ).resolves.not.toHaveProperty(
+			'models'
 		);
 	} );
 
@@ -94,6 +122,16 @@ describe( 'github-copilot account', () => {
 		const error = await githubCopilotAccount.connect( 'github', handoff ).catch( ( e ) => e );
 		expect( error ).toBeInstanceOf( ConnectError );
 		expect( error.message ).toMatch( /no Copilot plan/ );
+
+		// A plan that runs none of Studio's models is no more usable than no plan at all.
+		respond( {
+			'/login/oauth/access_token': () => json( 200, { access_token: 'gho_1' } ),
+			'/copilot_internal/v2/token': () => json( 200, { token: copilotToken, expires_at: 2000 } ),
+			'/models': () => json( 200, { data: [ { id: 'gpt-4.1' } ] } ),
+		} );
+		await expect( githubCopilotAccount.connect( 'github', handoff ) ).rejects.toThrow(
+			/no Copilot plan/
+		);
 	} );
 
 	it( 'renews the Copilot token only when it is about to expire', async () => {
@@ -102,11 +140,14 @@ describe( 'github-copilot account', () => {
 
 		respond( {
 			'/copilot_internal/v2/token': () => json( 200, { token: 'renewed', expires_at: 3000 } ),
+			'/models': () => json( 200, planModels ),
 		} );
+		// Renewing re-reads the plan, so a model it no longer runs stops being offered.
 		await expect( githubCopilotAccount.refresh!( config( 60_000 ) ) ).resolves.toMatchObject( {
 			githubToken: 'gho_1',
 			copilotToken: 'renewed',
 			copilotTokenExpiresAt: 3_000_000,
+			models: [ 'claude-sonnet-5-5', 'gpt-6.1-terra' ],
 		} );
 	} );
 

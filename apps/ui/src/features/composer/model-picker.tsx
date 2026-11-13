@@ -1,5 +1,11 @@
 import { getStudioCodeAiAccessState } from '@studio/common/lib/studio-assistant-quota';
-import { findAiModel, getProvider, PROVIDER_IDS, type ProviderId } from '@studio/providers';
+import {
+	findAiModel,
+	getAiModels,
+	getProvider,
+	PROVIDER_IDS,
+	type ProviderId,
+} from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { PlugIcon } from 'lucide-react';
 import { useRef, useState, type ComponentType, type RefObject } from 'react';
@@ -73,6 +79,11 @@ export function ModelPicker( {
 		quota.hasPaymentMethod;
 	const account = aiSettings?.accounts[ sessionProvider ];
 	const { note, links = [] } = account?.connected ? account : {};
+	// A provider whose plan decides which models it runs offers only those.
+	const modelsOf = ( provider: ProviderId ) => {
+		const connected = aiSettings?.accounts[ provider ];
+		return getAiModels( provider, connected?.connected ? connected : undefined );
+	};
 	const modelDetails = [ modelLabel, getProvider( sessionProvider ).label ];
 	if ( isWpcom ) {
 		modelDetails.push( credits.label );
@@ -90,7 +101,7 @@ export function ModelPicker( {
 			void connector.openExternalUrl( value.slice( 'link:'.length ) );
 		} else {
 			const provider = providers.find( ( id ) =>
-				( getProvider( id ).ai?.models ?? [] ).some( ( item ) => item.id === value )
+				modelsOf( id ).some( ( item ) => item.id === value )
 			);
 			if ( provider ) {
 				onChange( provider, value as AiModelId );
@@ -101,7 +112,7 @@ export function ModelPicker( {
 		{
 			label: __( 'Models' ),
 			items: providers.flatMap( ( provider ) =>
-				( getProvider( provider ).ai?.models ?? [] ).map( ( { id } ): Command => {
+				modelsOf( provider ).map( ( { id } ): Command => {
 					const { label } = getProvider( provider );
 					const strengths = getModelDescription( id );
 					const description = strengths

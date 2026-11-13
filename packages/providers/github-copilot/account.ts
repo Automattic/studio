@@ -1,9 +1,10 @@
 import { __ } from '@wordpress/i18n';
 import { ConnectError, NotConnectedError } from '../errors';
 import { toCopilotModelId } from './ai';
-import { CLIENT_ID, copilotApiUrl, request } from './api';
+import { CLIENT_ID, enablePlanModel, fetchPlanModels, request } from './api';
 import { GITHUB_COPILOT_AI_MODELS } from './descriptor';
 import type { GithubCopilotConfig } from './config';
+import type { AiModelId } from '../models';
 import type { ProviderServices } from '../types';
 
 const REFRESH_MARGIN_MS = 5 * 60_000;
@@ -56,22 +57,27 @@ async function readLogin( githubToken: string ): Promise< string | undefined > {
 	return user?.login;
 }
 
-// Some plans leave a model off until it's turned on, as Copilot Chat asks to.
-async function enableModels( copilotToken: string ): Promise< void > {
-	await Promise.allSettled(
-		GITHUB_COPILOT_AI_MODELS.map( ( { id } ) =>
-			request( `${ copilotApiUrl( copilotToken ) }/models/${ toCopilotModelId( id ) }/policy`, {
-				method: 'POST',
-				headers: {
-					Authorization: `Bearer ${ copilotToken }`,
-					'Content-Type': 'application/json',
-					'openai-intent': 'chat-policy',
-					'x-interaction-type': 'chat-policy',
-				},
-				body: JSON.stringify( { state: 'enabled' } ),
-			} )
-		)
-	);
+/**
+ * The models Studio offers that this plan can run: a plan includes its own set, and leaves some
+ * of them off until they are turned on. Undefined when Copilot doesn't say, so that a reply
+ * Studio can't read never hides a model the plan does include.
+ */
+async function readPlanModels( copilotToken: string ): Promise< AiModelId[] | undefined > {
+	const plan = await fetchPlanModels( copilotToken );
+	if ( ! plan ) {
+		return undefined;
+	}
+	const models: AiModelId[] = [];
+	for ( const { id } of GITHUB_COPILOT_AI_MODELS ) {
+		const model = plan.find( ( candidate ) => candidate.id === toCopilotModelId( id ) );
+		if ( ! model || ! model.toolCalls || model.policy === 'disabled' ) {
+			continue;
+		}
+		if ( model.policy !== 'unconfigured' || ( await enablePlanModel( copilotToken, model.id ) ) ) {
+			models.push( id );
+		}
+	}
+	return models;
 }
 
 // Polls until the user approves the code, as GitHub's device flow asks.
@@ -123,18 +129,31 @@ const connect: GithubCopilotAccount[ 'connect' ] = async ( _method, input ) => {
 	const copilot = await requestCopilotToken( githubToken ).catch( ( error: Error ) => {
 		throw new ConnectError( error.message, 'unverified' );
 	} );
-	const [ login ] = await Promise.all( [
+	const [ login, models ] = await Promise.all( [
 		readLogin( githubToken ),
-		enableModels( copilot.copilotToken ),
+		readPlanModels( copilot.copilotToken ),
 	] );
-	return { method: 'github', githubToken, ...copilot, ...( login ? { login } : {} ) };
+	if ( models?.length === 0 ) {
+		throw new ConnectError( getNoCopilotMessage(), 'unverified' );
+	}
+	return {
+		method: 'github',
+		githubToken,
+		...copilot,
+		...( login ? { login } : {} ),
+		...( models ? { models } : {} ),
+	};
 };
 
+// Renewing also re-reads the plan's models, so a model added to or dropped from it shows up
+// without connecting again.
 const refresh: NonNullable< GithubCopilotAccount[ 'refresh' ] > = async ( config ) => {
 	if ( config.copilotTokenExpiresAt - Date.now() > REFRESH_MARGIN_MS ) {
 		return undefined;
 	}
-	return { ...config, ...( await requestCopilotToken( config.githubToken ) ) };
+	const copilot = await requestCopilotToken( config.githubToken );
+	const models = await readPlanModels( copilot.copilotToken );
+	return { ...config, ...copilot, ...( models ? { models } : {} ) };
 };
 
 export const githubCopilotAccount: GithubCopilotAccount = { start, connect, refresh };

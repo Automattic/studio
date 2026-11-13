@@ -7,7 +7,7 @@ index.ts         @studio/providers: what surfaces read
 services.ts      @studio/providers/services: what hosts run, getProviderServices( id )
 wpcom.ts         @studio/providers/wpcom: the Studio sign-in URL, and WordPress.com sync's sites and options
 registry.ts      the provider ids, getProvider( id ), the stored ids, remote-site names
-models.ts        findAiModel( id ), getDefaultAiModel( provider )
+models.ts        findAiModel( id ), getAiModels( provider, account ), getDefaultAiModel( provider )
 connection.ts    getConnectMethod( provider, id ), getConnectFields( method )
 types.ts         Provider, ProviderServices, ConnectMethod, AccountDetails, AiConnection, …
 errors.ts        NotConnectedError, ConnectError, RemoteSiteError

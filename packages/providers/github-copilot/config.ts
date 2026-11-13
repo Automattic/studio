@@ -7,6 +7,8 @@ export const githubCopilotConfigSchema = z.object( {
 	copilotToken: z.string().min( 1 ),
 	copilotTokenExpiresAt: z.number(),
 	login: z.string().optional(),
+	// The models the plan can run, re-read whenever the Copilot token is renewed.
+	models: z.array( z.string() ).optional(),
 } );
 
 export type GithubCopilotConfig = z.infer< typeof githubCopilotConfigSchema >;

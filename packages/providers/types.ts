@@ -84,6 +84,9 @@ export interface AccountDetails {
 	summary?: string;
 	// Something to know when using it, such as whose plan pays for it.
 	note?: string;
+	// The provider's models this account can run, when its plan decides which: surfaces offer
+	// only these. Without it, the account runs every model the provider lists.
+	models?: AiModelId[];
 	links?: { label: string; url: string }[];
 }
 

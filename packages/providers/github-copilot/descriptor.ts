@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { githubCopilotConfigSchema, type GithubCopilotConfig } from './config';
+import type { AiModelId } from '../models';
 import type { AiModel, Provider } from '../types';
 
 export const GITHUB_COPILOT_AI_MODELS = [
@@ -25,6 +26,9 @@ export const githubCopilotProvider: Provider< GithubCopilotConfig > = {
 		describe: ( config ) => ( {
 			method: 'github',
 			summary: config.login,
+			models: config.models?.filter( ( id ) =>
+				GITHUB_COPILOT_AI_MODELS.some( ( model ) => model.id === id )
+			) as AiModelId[] | undefined,
 			note: __( 'Using Copilot plan' ),
 			links: [ { label: __( 'Manage usage' ), url: 'https://github.com/settings/copilot' } ],
 		} ),

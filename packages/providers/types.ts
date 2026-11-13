@@ -1,5 +1,6 @@
 import type { AnthropicConfig } from './anthropic/config';
 import type { GeminiConfig } from './gemini/config';
+import type { GithubCopilotConfig } from './github-copilot/config';
 import type { AiModelId } from './models';
 import type { OpenaiConfig } from './openai/config';
 import type { SpacefastConfig } from './spacefast/config';
@@ -10,10 +11,17 @@ import type { XaiConfig } from './xai/config';
 import type { Api, Model } from '@earendil-works/pi-ai';
 import type { z } from 'zod';
 
-export type ProviderId = 'wpcom' | 'anthropic' | 'openai' | 'gemini' | 'xai' | 'spacefast';
+export type ProviderId =
+	| 'wpcom'
+	| 'anthropic'
+	| 'openai'
+	| 'gemini'
+	| 'github-copilot'
+	| 'xai'
+	| 'spacefast';
 
 // The providers that serve AI models.
-export type AiProviderId = 'wpcom' | 'anthropic' | 'openai' | 'gemini' | 'xai';
+export type AiProviderId = 'wpcom' | 'anthropic' | 'openai' | 'gemini' | 'github-copilot' | 'xai';
 
 // What Studio stores for each provider.
 export interface ProviderConfigs {
@@ -21,6 +29,7 @@ export interface ProviderConfigs {
 	anthropic: AnthropicConfig;
 	openai: OpenaiConfig;
 	gemini: GeminiConfig;
+	'github-copilot': GithubCopilotConfig;
 	xai: XaiConfig;
 	spacefast: SpacefastConfig;
 }
@@ -86,6 +95,9 @@ export interface AccountDetails {
 	summary?: string;
 	// Something to know when using it, such as whose plan pays for it.
 	note?: string;
+	// The provider's models this account can run, when its plan decides which: surfaces offer
+	// only these. Without it, the account runs every model the provider lists.
+	models?: AiModelId[];
 	links?: { label: string; url: string }[];
 }
 

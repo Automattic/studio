@@ -442,9 +442,15 @@ export default defineConfig(
 							from: 'packages/providers',
 							except: PROVIDERS_DESCRIPTORS.flatMap( ( file ) =>
 								file.startsWith( '*/' )
-									? [ 'wpcom', 'anthropic', 'openai', 'gemini', 'xai', 'spacefast' ].map(
-											( dir ) => `./${ file.replaceAll( '*', dir ) }`
-									  )
+									? [
+											'wpcom',
+											'anthropic',
+											'openai',
+											'gemini',
+											'github-copilot',
+											'xai',
+											'spacefast',
+									  ].map( ( dir ) => `./${ file.replaceAll( '*', dir ) }` )
 									: [ `./${ file }` ]
 							),
 							message: 'The @studio/providers entry imports only the files it is made of.',

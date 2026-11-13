@@ -1,9 +1,13 @@
+import { getLatestLinkedPreview, getPreviewPublishWarning } from '@studio/common/lib/snapshots';
 import { getSitesDescriptor, type SitesProviderId } from '@studio/providers';
+import { useQuery } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useConnector } from '@/data/core';
+import { useSnapshots } from '@/data/queries/use-snapshots';
 import { useCancelSync, usePullSite, usePushSite } from '@/data/queries/use-sync-site';
+import { getSnapshotHostname } from '@/data/snapshot-url';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { Button, FieldSet } from '@/lib/ui';
 import { FilePicker } from './file-picker';
@@ -52,6 +56,28 @@ export function ConnectedView( {
 	const [ reviewing, setReviewing ] = useState( view === 'pull' || activity?.kind === 'error' );
 	const [ dismissedActivity, setDismissedActivity ] = useState< SyncActivity | null >( null );
 	const connector = useConnector();
+	const snapshots = useSnapshots();
+	// Only a WordPress.com site has previews linked to it.
+	const preview =
+		provider === 'wpcom'
+			? getLatestLinkedPreview( snapshots.data ?? [], site.id, Number( remote.id ) )
+			: undefined;
+	const previewStatus = useQuery( {
+		queryKey: [
+			'preview-publish-status',
+			site.id,
+			preview?.url,
+			preview?.versionId,
+			preview?.syncedAt,
+		],
+		queryFn: () => connector.getPreviewStatus( getSnapshotHostname( preview! ) ),
+		enabled: open && ! offline && Boolean( preview?.versionId ),
+		meta: { persist: false },
+	} );
+	const previewWarning =
+		preview && previewStatus.data?.localChanged === true
+			? getPreviewPublishWarning( preview )
+			: undefined;
 	useEffect( () => {
 		if ( view === 'pull' ) setReviewing( true );
 	}, [ view ] );
@@ -170,6 +196,11 @@ export function ConnectedView( {
 					</div>
 					{ connectedWebsite }
 					{ issue ? <p className={ styles.text }>{ issue }</p> : null }
+					{ previewWarning ? (
+						<p className={ styles.text } role="status">
+							{ previewWarning }
+						</p>
+					) : null }
 					<div className={ styles.connectedActions }>
 						{ sites.pull ? (
 							<Button
@@ -281,6 +312,11 @@ export function ConnectedView( {
 										</p>
 									) : null }
 									{ issue ? <p className={ styles.text }>{ issue }</p> : null }
+									{ direction === 'push' && previewWarning ? (
+										<p className={ styles.text } role="status">
+											{ previewWarning }
+										</p>
+									) : null }
 									{ selection.warning ? (
 										<p className={ styles.text }>{ selection.warning }</p>
 									) : null }

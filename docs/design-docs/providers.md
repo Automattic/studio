@@ -91,6 +91,8 @@ It is a package of its own because sites and previews are not agent concerns, so
 
 Each provider lists the models it serves. Several providers can serve the same model (for example, a Claude model listed by WordPress.com and by Anthropic), and the same id means the same model. Each listing carries its own access rules, such as paid credits. Model ids are what sessions record, so they never change.
 
+Where the account decides which of those models it runs, rather than the provider, the connected account says so and the pickers offer only those; a provider that doesn't narrow them offers all it lists. The provider reads that set when it connects and keeps it current when it renews its credential, so the pickers never reach the service to build their list. A GitHub Copilot plan works this way: it includes its own set of models, and leaves some of them off until they are turned on.
+
 ### Connection
 
 To run a turn, the CLI asks the selected provider for a connection to the chosen model. The connection holds everything the runtime needs: endpoint, credentials, headers, API dialect and model limits. Credentials never travel through environment variables.

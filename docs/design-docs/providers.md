@@ -100,7 +100,8 @@ The provider owns how its models are reached. For example, WordPress.com sends e
 
 - The user picks a chat provider in the app's settings or with `/provider` in `studio code`. Studio saves it in `shared.json`, and every surface shares it.
 - A conversation pinned to a provider keeps it. Without credentials for the pinned provider, the conversation runs on WordPress.com.
-- When the selected provider isn't ready, WordPress.com, the Studio sign-in, falls back to another ready provider, and the others ask to be connected again.
+- Connecting a provider makes it the default only when the current default isn't connected, so a connected WordPress.com stays the default until the user picks another.
+- When the selected provider isn't ready, WordPress.com, the Studio sign-in, falls back to another ready provider, and the others ask to be connected again. The app runs a chat on the first connected provider, WordPress.com first.
 - Each provider has a default model; WordPress.com picks a stronger one when the account has paid AI credits left. Switching provider keeps the conversation's model when the new provider serves it too, and falls back to its default otherwise.
 - The UI gates paid tiers using the WordPress.com quota. The proxy enforces access.
 

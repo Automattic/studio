@@ -2,13 +2,12 @@ import {
 	AI_PROVIDER_IDS,
 	getConnectFields,
 	getProvider,
-	normalizeProviderId,
 	type AiProviderId,
 	type ConnectMethod,
 	type ProviderId,
 } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { getProviderIntent } from '@/data/account-analytics';
 import { useConnector } from '@/data/core';
 import {
@@ -33,7 +32,6 @@ function ProviderRow( { provider, methods }: { provider: ProviderId; methods: Co
 	const settings = useAiSettings();
 	const connect = useConnectProvider( provider );
 	const disconnect = useDisconnectProvider( provider );
-	const setProvider = useSetAiProvider();
 	const offline = useOffline();
 	const descriptor = getProvider( provider );
 	const account = settings.data?.accounts[ provider ];
@@ -44,23 +42,15 @@ function ProviderRow( { provider, methods }: { provider: ProviderId; methods: Co
 	const instructions = formMethod?.instructions?.();
 	// The account is connected with the form being shown.
 	const current = formMethod !== undefined && formMethod.id === connectedMethod;
-	const pending =
-		settings.isLoading || connect.isPending || disconnect.isPending || setProvider.isPending;
+	const pending = settings.isLoading || connect.isPending || disconnect.isPending;
 	const signingIn = connect.isPending && connect.pending !== null;
 	const filled = fields.every( ( field ) => values[ field.name ]?.trim() );
 	const [ onlyMethod ] = methods;
-	const error = ( connect.error ?? setProvider.error ?? disconnect.error )?.message;
+	const error = ( connect.error ?? disconnect.error )?.message;
 
 	const closeForm = () => {
 		setValues( {} );
 		setFormMethod( undefined );
-	};
-	// Connecting a chat provider selects it.
-	const select = async () => {
-		const aiProvider = normalizeProviderId( provider, AI_PROVIDER_IDS );
-		if ( aiProvider ) {
-			await setProvider.mutateAsync( aiProvider );
-		}
 	};
 	const pick = ( method: ConnectMethod ) => {
 		if ( method.kind === 'form' ) {
@@ -68,14 +58,10 @@ function ProviderRow( { provider, methods }: { provider: ProviderId; methods: Co
 			return;
 		}
 		closeForm();
-		connect.mutate( { method: method.id }, { onSuccess: () => void select().catch( () => {} ) } );
+		connect.mutate( { method: method.id } );
 	};
-	// Saving the values the account already has just selects the provider.
 	const save = async () => {
-		if ( filled && formMethod ) {
-			await connect.mutateAsync( { method: formMethod.id, input: values } );
-		}
-		await select();
+		await connect.mutateAsync( { method: formMethod!.id, input: values } );
 		closeForm();
 	};
 
@@ -183,7 +169,7 @@ function ProviderRow( { provider, methods }: { provider: ProviderId; methods: Co
 					) }
 					onSubmit={ ( event ) => {
 						event.preventDefault();
-						if ( ! pending && ( filled || current ) ) {
+						if ( ! pending && filled ) {
 							void save().catch( () => {} );
 						}
 					} }
@@ -224,8 +210,8 @@ function ProviderRow( { provider, methods }: { provider: ProviderId; methods: Co
 										<Button
 											variant="accent"
 											type="submit"
-											disabled={ pending || ( ! filled && ! current ) }
-											loading={ connect.isPending || setProvider.isPending }
+											disabled={ pending || ! filled }
+											loading={ connect.isPending }
 											loadingAnnouncement={ __( 'Saving' ) }
 										>
 											{ __( 'Save' ) }
@@ -271,7 +257,6 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 	} );
 	const setProvider = useSetAiProvider();
 	const isOffline = useOffline();
-	const [ wpcomRequested, setWpcomRequested ] = useState( false );
 	const connected = AI_PROVIDER_IDS.filter( ( id ) => settings.data?.accounts[ id ].connected );
 	const { capabilities } = useConnector();
 	// The Studio sign-in has a row of its own; the others connect the ways this app supports.
@@ -284,15 +269,6 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 			),
 		} ) )
 		.filter( ( { methods } ) => methods.length );
-
-	// Connecting WordPress.com finishes once the sign-up lands.
-	const { mutate: selectProvider } = setProvider;
-	useEffect( () => {
-		if ( wpcomRequested && user ) {
-			setWpcomRequested( false );
-			selectProvider( 'wpcom' );
-		}
-	}, [ wpcomRequested, user, selectProvider ] );
 
 	return (
 		<SettingsGroup title={ __( 'Providers' ) }>
@@ -322,8 +298,7 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 							onManageCredits();
 							return;
 						}
-						setWpcomRequested( true );
-						signup.mutate( undefined, { onError: () => setWpcomRequested( false ) } );
+						signup.mutate();
 					} }
 				>
 					{ user ? __( 'Manage' ) : __( 'Connect' ) }

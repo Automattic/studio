@@ -95,12 +95,18 @@ export function resolveSessionProvider( entries: SessionEntry[] ): AiProviderId 
 /**
  * The provider a conversation effectively runs on: its pinned choice first,
  * then the saved global selection. A provider that isn't connected can't run
- * it (nor can anything while settings are loading), so WordPress.com wins.
+ * it, so the first connected provider does, WordPress.com first; with none
+ * (or while settings are loading), WordPress.com.
  */
 export function getEffectiveSessionProvider(
 	entries: SessionEntry[],
 	settings?: AiSettings | null
 ): AiProviderId {
 	const provider = settings && ( resolveSessionProvider( entries ) ?? settings.provider );
-	return provider && settings.accounts[ provider ].connected ? provider : DEFAULT_PROVIDER_ID;
+	if ( provider && settings.accounts[ provider ].connected ) {
+		return provider;
+	}
+	return (
+		AI_PROVIDER_IDS.find( ( id ) => settings?.accounts[ id ].connected ) ?? DEFAULT_PROVIDER_ID
+	);
 }

@@ -3,10 +3,12 @@ import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
 import {
+	AI_PROVIDER_IDS,
 	getConnectMethod,
+	normalizeProviderId,
 	PROVIDER_IDS,
-	type ProviderId,
 	type AiProviderId,
+	type ProviderId,
 } from '@studio/providers';
 import type {
 	AgentAppId,
@@ -343,8 +345,11 @@ export function createInMemoryConnector(
 		},
 		// WordPress.com is connected while signed in.
 		getAiSettings: async () => aiSettings( 'wpcom', state.user ? [ 'wpcom' ] : [] ),
+		// Without WordPress.com, the provider connected becomes the default.
 		connectProvider: async ( provider ) =>
-			aiSettings( 'wpcom', state.user ? [ 'wpcom', provider ] : [ provider ] ),
+			state.user
+				? aiSettings( 'wpcom', [ 'wpcom', provider ] )
+				: aiSettings( normalizeProviderId( provider, AI_PROVIDER_IDS ) ?? 'wpcom', [ provider ] ),
 		disconnectProvider: async () => aiSettings( 'wpcom', state.user ? [ 'wpcom' ] : [] ),
 		startProviderConnect: async () => ( {
 			url: 'https://auth.example.test/sign-in',

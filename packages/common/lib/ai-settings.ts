@@ -86,6 +86,13 @@ export async function connectProvider< Config >(
 			: input
 	);
 	await writeProviderConfig( id, config as ProviderConfigs[ ProviderId ] );
+	// A chat provider becomes the default only when the current default can't be used, so
+	// connecting another provider never takes over from a connected WordPress.com.
+	const aiProvider = normalizeProviderId( id, AI_PROVIDER_IDS );
+	const selected = ( await readSelectedAiProvider() ) ?? DEFAULT_PROVIDER_ID;
+	if ( aiProvider && aiProvider !== selected && ! ( await readProviderConfig( selected ) ) ) {
+		await persistSelectedAiProvider( aiProvider );
+	}
 	return readAiSettings();
 }
 

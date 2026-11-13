@@ -8,6 +8,7 @@ vi.mock( '@studio/common/lib/provider-config', () => ( {
 	writeProviderConfig: async () => undefined,
 	readProviderConfig: async () => undefined,
 	readAiFields: async () => ( {} ),
+	updateAiFields: async () => ( {} ),
 } ) );
 
 // A provider whose site sends the browser straight back with `query`.

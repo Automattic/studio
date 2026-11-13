@@ -61,13 +61,13 @@ describe( 'ai settings', () => {
 		} );
 	} );
 
-	it( 'stores an accepted key where every build reads it, without changing the provider', async () => {
+	it( 'stores an accepted key where every build reads it, and makes it the default without another', async () => {
 		const settings = await connectProvider( anthropic, 'api-key', {
 			apiKey: '  sk-ant-api03-testkey-abcd1234  ',
 		} );
 
 		expect( settings ).toEqual( {
-			provider: 'wpcom',
+			provider: 'anthropic',
 			accounts: {
 				wpcom: disconnected,
 				anthropic: { connected: true, summary: 'sk-ant-api03-tes...1234', method: 'api-key' },
@@ -77,6 +77,24 @@ describe( 'ai settings', () => {
 		} );
 		expect( readShared().anthropicApiKey ).toBe( 'sk-ant-api03-testkey-abcd1234' );
 		expect( fs.existsSync( cliConfigPath() ) ).toBe( false );
+	} );
+
+	it( 'keeps a connected WordPress.com the default when another provider connects', async () => {
+		writeShared( {
+			authToken: {
+				accessToken: 'token',
+				expirationTime: Date.now() + 3600_000,
+				expiresIn: 3600,
+				id: 1,
+				email: 'a@b.c',
+				displayName: 'A',
+			},
+		} );
+
+		await expect(
+			connectProvider( anthropic, 'api-key', { apiKey: 'sk-ant-api03-testkey-abcd1234' } )
+		).resolves.toMatchObject( { provider: 'wpcom', accounts: { anthropic: { connected: true } } } );
+		expect( readShared().aiProvider ).toBeUndefined();
 	} );
 
 	it( 'keeps a subscription token in its own section, and clears the other method on write', async () => {

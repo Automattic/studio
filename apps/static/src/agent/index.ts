@@ -290,7 +290,12 @@ export class StaticAgentRuns {
 			id,
 			await ( getProviderServices( id ) as ProviderServices ).account.connect( method, input )
 		);
-		return this.getAiSettings();
+		// A chat provider becomes the default only when the current default can't be used.
+		const settings = await this.getAiSettings();
+		const aiProvider = normalizeProviderId( id, AI_PROVIDER_IDS );
+		return aiProvider && ! settings.accounts[ settings.provider ].connected
+			? this.setAiProvider( aiProvider )
+			: settings;
 	}
 
 	async disconnectProvider( id: ProviderId ): Promise< AiSettings > {

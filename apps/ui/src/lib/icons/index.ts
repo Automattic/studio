@@ -74,18 +74,4 @@ export * from './x-icon';
 export { DeviceRotateIcon } from './device-rotate-icon';
 export { UnlinkIcon } from './unlink-icon';
 
-export {
-	CheckIcon,
-	ChevronLeftIcon,
-	EllipsisIcon,
-	FileIcon,
-	ImageIcon,
-	LayoutTemplateIcon,
-	MenuIcon,
-	PencilRulerIcon,
-	RefreshCwIcon,
-	SearchIcon,
-	WifiOffIcon,
-} from 'lucide-react';
-
 export { ICON_SIZE } from './metrics';

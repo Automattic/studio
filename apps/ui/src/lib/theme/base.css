@@ -29,7 +29,7 @@
 
 :root[data-native-sidebar] {
 	--window-background: transparent;
-	--sidebar-background: color-mix( in oklab, var( --chrome ) 85%, transparent );
+	--sidebar-background: color-mix( in oklab, var( --chrome ) 90%, transparent );
 }
 
 body {

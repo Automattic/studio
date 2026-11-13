@@ -43,7 +43,7 @@
 	top: var( --space-3_5 );
 	right: var( --space-3_5 );
 	left: var( --space-3_5 );
-	color: var( --muted-foreground );
+	color: var( --placeholder-foreground );
 	font-size: var( --text-sm );
 	line-height: var( --text-sm--line-height );
 	pointer-events: none;

@@ -19,7 +19,7 @@ const STALE_TEMP_DIR_AGE_MS = 60 * 60 * 1000;
 
 /** `/Applications/Studio.app` for an executable at `/Applications/Studio.app/Contents/MacOS/Studio`. */
 export function getAppBundlePath( exePath: string ): string {
-	return path.resolve( exePath, '..', '..', '..' );
+	return path.posix.resolve( exePath, '..', '..', '..' );
 }
 
 export function readBundleIdentifier( appBundlePath: string ): string | null {
@@ -34,7 +34,7 @@ export function readBundleIdentifier( appBundlePath: string ): string | null {
 }
 
 /** Squirrel names ShipIt's launchd job, and its temp directories, after the app's bundle id. */
-export function getShipItJobLabel( bundleId: string ): string {
+function getShipItJobLabel( bundleId: string ): string {
 	return `${ bundleId }.ShipIt`;
 }
 
@@ -48,7 +48,7 @@ export function getShipItProcessPattern( bundleId: string ): string {
 	return `[${ escaped[ 0 ] }]${ escaped.slice( 1 ) }`;
 }
 
-export function isShipItRunning( bundleId: string ): boolean {
+function isShipItRunning( bundleId: string ): boolean {
 	const result = spawnSync( 'pgrep', [ '-f', getShipItProcessPattern( bundleId ) ], {
 		stdio: 'ignore',
 	} );

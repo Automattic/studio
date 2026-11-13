@@ -225,32 +225,6 @@ it( 'opens Sharing settings from the preview limit dialog', async () => {
 	expect( connector.openExternalUrl ).not.toHaveBeenCalled();
 } );
 
-it( 'opens Sharing settings from the Share panel menu', async () => {
-	const site = makeSite();
-	const connector = createFakeConnector(
-		{ sites: [ site ], user: TEST_USER },
-		{
-			getSnapshots: async () => [
-				{
-					atomicSiteId: 123,
-					localSiteId: site.id,
-					userId: TEST_USER.id,
-					date: Date.now(),
-					url: 'manage.example.com',
-				},
-			],
-		}
-	);
-	const { history, user } = renderWithProviders( <PublishButton site={ site } />, { connector } );
-	await user.click( await screen.findByRole( 'button', { name: 'Share…' } ) );
-	await user.click( await screen.findByRole( 'button', { name: 'More options' } ) );
-	const menu = await screen.findByRole( 'menu' );
-	const manage = within( menu ).getByRole( 'menuitem', { name: 'Manage sharing' } );
-	await user.click( manage );
-	await waitFor( () => expect( history.location.search ).toBe( '?settings=sharing' ) );
-	expect( screen.queryByRole( 'dialog', { name: 'Share' } ) ).not.toBeInTheDocument();
-} );
-
 it( 'cancels a queued creation when the popover closes before snapshots load', async () => {
 	let resolveSnapshots!: ( snapshots: Snapshot[] ) => void;
 	const connector = setup( {
@@ -535,7 +509,6 @@ it( 'creates another preview without replacing the existing preview and copies i
 		'Update preview',
 		'Pull from preview',
 		'Connect existing site',
-		'Manage sharing',
 		'Delete preview',
 	] );
 	await actions.click( screen.getByRole( 'menuitem', { name: 'New preview' } ) );
@@ -1861,7 +1834,6 @@ it.each( [ false, true, null ] )(
 			'Backups',
 			'Pull from live site',
 			'Connect existing site',
-			'Manage sharing',
 			'Disconnect site',
 		] );
 		expect( connector.pushSite ).not.toHaveBeenCalled();

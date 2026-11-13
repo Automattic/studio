@@ -121,7 +121,6 @@ it( 'renders the selected provider capabilities and isolates its change dot', as
 		'Backups',
 		'Pull from live site',
 		'Connect existing site',
-		'Manage sharing',
 		'Disconnect site',
 	] );
 	await user.click( await screen.findByRole( 'menuitem', { name: 'Pull from live site' } ) );
@@ -153,12 +152,7 @@ it( 'renders the selected provider capabilities and isolates its change dot', as
 	await user.click( screen.getByRole( 'button', { name: 'More options' } ) );
 	expect(
 		( await screen.findAllByRole( 'menuitem' ) ).map( ( item ) => item.textContent?.trim() )
-	).toEqual( [
-		'Open on Spacefast',
-		'Connect existing site',
-		'Manage sharing',
-		'Disconnect site',
-	] );
+	).toEqual( [ 'Open on Spacefast', 'Connect existing site', 'Disconnect site' ] );
 	await user.click( screen.getByRole( 'menuitem', { name: 'Open on Spacefast' } ) );
 	expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith(
 		'https://my.spacefast.com/'
@@ -181,12 +175,7 @@ it( 'keeps actions in the panel menu for a single connected site', async () => {
 		within( menu )
 			.getAllByRole( 'menuitem' )
 			.map( ( item ) => item.textContent?.trim() )
-	).toEqual( [
-		'Open on Spacefast',
-		'Connect existing site',
-		'Manage sharing',
-		'Disconnect site',
-	] );
+	).toEqual( [ 'Open on Spacefast', 'Connect existing site', 'Disconnect site' ] );
 } );
 
 it( 'can create a new preview from the destination selector in Publish', async () => {
@@ -224,7 +213,6 @@ it( 'keeps the Share menu focused on previews when multiple providers are connec
 		'Pull from preview',
 		'WordPress admin',
 		'Connect existing site',
-		'Manage sharing',
 		'Delete preview',
 	] );
 } );
@@ -253,8 +241,7 @@ it.each( [
 	);
 	const ellipsis = await screen.findByRole( 'menu' );
 	const expected = items( ellipsis ).filter(
-		( label ) =>
-			! [ 'New preview', 'Manage sharing', 'Connect existing site' ].includes( label ?? '' )
+		( label ) => ! [ 'New preview', 'Connect existing site' ].includes( label ?? '' )
 	);
 	await user.keyboard( '{Escape}' );
 	await waitFor( () => expect( ellipsis ).not.toBeInTheDocument() );
@@ -1137,10 +1124,9 @@ it( 'hides the connect-more action when all publishing providers are connected',
 	expect( within( panel ).getByRole( 'button', { name: 'Create preview link' } ) ).toBeVisible();
 	await user.click( within( panel ).getByRole( 'button', { name: 'More options' } ) );
 	const menuItems = await screen.findAllByRole( 'menuitem' );
-	expect( menuItems ).toHaveLength( 3 );
+	expect( menuItems ).toHaveLength( 2 );
 	expect( menuItems[ 0 ] ).toHaveAccessibleName( 'New preview' );
 	expect( menuItems[ 1 ] ).toHaveAccessibleName( 'Connect existing site' );
-	expect( menuItems[ 2 ] ).toHaveAccessibleName( 'Manage sharing' );
 	await user.keyboard( '{Escape}' );
 	fireEvent.click( await screen.findByRole( 'button', { name: 'Destination' } ) );
 	const menu = await screen.findByRole( 'menu', { name: 'Where to publish' } );

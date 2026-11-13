@@ -453,30 +453,20 @@ export function PublishButton( {
 			  activity.direction === 'push' &&
 			  activity.provider === selected?.provider &&
 			  activity.remoteSiteId === remote.id );
-	const renderPanelActions = () => (
-		<>
-			{ connectedProviders.includes( selected?.provider ?? publicDestination ) && (
-				<Menu.Item
-					disabled={ disabled || checkoutInProgress || connectionUnavailable }
-					onClick={ () => setExistingProvider( selected?.provider ?? publicDestination ) }
-				>
-					<ConnectSiteIcon />
-					{ __( 'Connect existing site' ) }
-				</Menu.Item>
-			) }
-
-			<Menu.Item
-				onClick={ () => {
-					close();
-					openSettings( 'sharing' );
-				} }
-			>
-				<UploadIcon />
-				{ __( 'Manage sharing' ) }
-			</Menu.Item>
-		</>
+	const canConnectExistingSite = connectedProviders.includes(
+		selected?.provider ?? publicDestination
 	);
-	const renderPreviewActions = ( target: PublishTarget, includeSharing = false ) => {
+	const connectExistingSiteAction = canConnectExistingSite && (
+		<Menu.Item
+			disabled={ disabled || checkoutInProgress || connectionUnavailable }
+			onClick={ () => setExistingProvider( selected?.provider ?? publicDestination ) }
+		>
+			<ConnectSiteIcon />
+			{ __( 'Connect existing site' ) }
+		</Menu.Item>
+	);
+	const showNewPreview = !! ( descriptor ?? emptyDescriptor ).previews;
+	const renderPreviewActions = ( target: PublishTarget, inPanelMenu = false ) => {
 		const item = target.snapshot!;
 		const admin = getSnapshotAdminUrl( item );
 		return (
@@ -504,10 +494,10 @@ export function PublishButton( {
 						{ __( 'WordPress admin' ) }
 					</Menu.Item>
 				) }
-				{ includeSharing && (
+				{ inPanelMenu && canConnectExistingSite && (
 					<>
 						<Menu.Separator />
-						{ renderPanelActions() }
+						{ connectExistingSiteAction }
 					</>
 				) }
 				<Menu.Separator />
@@ -518,13 +508,13 @@ export function PublishButton( {
 			</>
 		);
 	};
-	const renderTargetActions = ( includeSharing = false ) =>
+	const renderTargetActions = ( inPanelMenu = false ) =>
 		selected &&
 		( snapshot ? (
-			renderPreviewActions( selected, includeSharing )
+			renderPreviewActions( selected, inPanelMenu )
 		) : (
 			<>
-				{ url && ! snapshot && ! includeSharing && (
+				{ url && ! inPanelMenu && (
 					<Menu.Item onClick={ copyLinkFromMenu }>
 						<DuplicateIcon />
 						{ __( 'Copy link' ) }
@@ -559,10 +549,10 @@ export function PublishButton( {
 						{ __( 'Pull from live site' ) }
 					</Menu.Item>
 				) }
-				{ includeSharing && (
+				{ inPanelMenu && canConnectExistingSite && (
 					<>
 						<Menu.Separator />
-						{ renderPanelActions() }
+						{ connectExistingSiteAction }
 					</>
 				) }
 				<Menu.Separator />
@@ -722,37 +712,39 @@ export function PublishButton( {
 							<>
 								<div className={ styles.destinationRow }>
 									<Popover.Title className={ styles.destinationLabel }>{ title }</Popover.Title>
-									<Menu.Root>
-										<Menu.Trigger
-											render={
-												<IconButton
-													icon={ <EllipsisVerticalIcon /> }
-													label={ __( 'More options' ) }
-													variant="muted-ghost"
-													size="icon-sm"
-												/>
-											}
-										/>
-										<Menu.Popup
-											side="bottom"
-											align="end"
-											finalFocus={ openingTargetDialog ? false : undefined }
-										>
-											{ ( descriptor ?? emptyDescriptor ).previews && (
-												<>
-													<Menu.Item
-														disabled={ disabled || ! canRequestPreview || connectionUnavailable }
-														onClick={ () => newPreview() }
-													>
-														<PlusIcon />
-														{ __( 'New preview' ) }
-													</Menu.Item>
-													<Menu.Separator />
-												</>
-											) }
-											{ selected ? renderTargetActions( true ) : renderPanelActions() }
-										</Menu.Popup>
-									</Menu.Root>
+									{ ( showNewPreview || selected || canConnectExistingSite ) && (
+										<Menu.Root>
+											<Menu.Trigger
+												render={
+													<IconButton
+														icon={ <EllipsisVerticalIcon /> }
+														label={ __( 'More options' ) }
+														variant="muted-ghost"
+														size="icon-sm"
+													/>
+												}
+											/>
+											<Menu.Popup
+												side="bottom"
+												align="end"
+												finalFocus={ openingTargetDialog ? false : undefined }
+											>
+												{ showNewPreview && (
+													<>
+														<Menu.Item
+															disabled={ disabled || ! canRequestPreview || connectionUnavailable }
+															onClick={ () => newPreview() }
+														>
+															<PlusIcon />
+															{ __( 'New preview' ) }
+														</Menu.Item>
+														{ ( selected || canConnectExistingSite ) && <Menu.Separator /> }
+													</>
+												) }
+												{ selected ? renderTargetActions( true ) : connectExistingSiteAction }
+											</Menu.Popup>
+										</Menu.Root>
+									) }
 								</div>
 								<Popover.Description className={ styles.shareDescription }>
 									{ checkoutUrl && checkoutProvider

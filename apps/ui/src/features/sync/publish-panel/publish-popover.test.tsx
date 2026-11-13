@@ -88,17 +88,17 @@ function setup( connections: SyncSite[] = [], signedIn = true, running = true, r
 	);
 	const ready = screen.findByRole( 'button', { name: 'Publish…' } ).then( async ( button ) => {
 		fireEvent.click( button );
-		// A site connected nowhere starts with a choice of where to publish, a connected one with
-		// the sites it's published to, unless a transfer is under way.
+		// A site connected nowhere starts with the default host or a choice of where to publish.
 		const start = await waitFor( () => {
 			const found =
 				screen.queryByRole( 'button', { name: /^WordPress\.com/ } ) ??
+				screen.queryByRole( 'button', { name: 'New site…' } ) ??
 				screen.queryByRole( 'heading', { name: 'Published to' } ) ??
 				screen.queryByRole( 'group', { name: 'Website' } );
 			expect( found ).not.toBeNull();
 			return found!;
 		} );
-		if ( start.tagName === 'BUTTON' ) {
+		if ( start.matches( 'button' ) && start.textContent?.startsWith( 'WordPress.com' ) ) {
 			fireEvent.click( start );
 		} else if ( start.tagName === 'H2' ) {
 			// A site connected meanwhile may open its panel before its row is clicked.
@@ -1050,7 +1050,7 @@ describe( 'PublishPopover', () => {
 		await ready;
 		await openPublishedSite( actions, 'example.com' );
 		await actions.click( screen.getByRole( 'button', { name: 'Publish to another site…' } ) );
-		await screen.findByRole( 'heading', { name: 'Where do you want to publish?' } );
+		await screen.findByRole( 'button', { name: 'Existing site…' } );
 		await actions.click( screen.getByRole( 'button', { name: 'Published sites' } ) );
 		expect( await screen.findByRole( 'button', { name: 'example.com' } ) ).toBeVisible();
 		expect( connector.connectRemoteSite ).not.toHaveBeenCalled();
@@ -1064,7 +1064,6 @@ describe( 'PublishPopover', () => {
 		await ready;
 		await openPublishedSite( actions, 'example.com' );
 		await actions.click( screen.getByRole( 'button', { name: 'Publish to another site…' } ) );
-		await actions.click( await screen.findByRole( 'button', { name: /^WordPress\.com/ } ) );
 		await actions.click( await screen.findByRole( 'button', { name: 'Existing site…' } ) );
 		await actions.click(
 			await screen.findByRole( 'option', { name: /Second site.*second\.example\.com/ } )

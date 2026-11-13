@@ -3,7 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { useConnector } from '@/data/core';
 import { useAiSettings, useSetAiProvider } from '@/data/queries/use-ai-settings';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
-import { usePublishProviders } from '@/data/queries/use-remote-sites';
+import { useConnectedHostingProviders, usePublishProviders } from '@/data/queries/use-remote-sites';
 import { useSaveUserPreferences, useUserPreferences } from '@/data/queries/use-user-preferences';
 import { SETTINGS_AI_PROVIDER_IDS } from '@/data/settings-sections';
 import { LearnMoreLink } from '@/features/onboarding';
@@ -37,6 +37,7 @@ function DefaultProviderRow< Id extends ProviderId >( {
 	error?: string;
 	onChange: ( value: Id ) => void;
 } ) {
+	const onlyProvider = connected.length === 1 ? connected[ 0 ] : undefined;
 	const hasConnections = connected.length > 0;
 	const placeholder = hasConnections
 		? __( 'Choose a provider' )
@@ -53,7 +54,7 @@ function DefaultProviderRow< Id extends ProviderId >( {
 		>
 			<SettingsSelect
 				label={ title }
-				value={ value }
+				value={ onlyProvider ?? value }
 				placeholder={ placeholder }
 				disabled={ disabled || ! hasConnections }
 				options={ connected.map( ( id ) => ( {
@@ -74,7 +75,7 @@ function ProviderDefaults( {
 	hostingProviders: SitesProviderId[];
 } ) {
 	const settings = useAiSettings();
-	const auth = useAuthUser();
+	const hosting = useConnectedHostingProviders( hostingProviders );
 	const setAiProvider = useSetAiProvider();
 	const preferences = useUserPreferences();
 	const save = useSaveUserPreferences();
@@ -83,7 +84,7 @@ function ProviderDefaults( {
 		<SettingsGroup>
 			<DefaultProviderRow
 				title={ __( 'Default AI provider' ) }
-				description={ __( 'For working on sites' ) }
+				description={ __( 'For working on sites.' ) }
 				settingId="default-provider"
 				connected={ aiProviders.filter( ( id ) => settings.data?.accounts[ id ].connected ) }
 				value={ settings.data?.provider ?? null }
@@ -94,15 +95,11 @@ function ProviderDefaults( {
 			/>
 			<DefaultProviderRow
 				title={ __( 'Default hosting provider' ) }
-				description={ __( 'For publishing sites' ) }
+				description={ __( 'For publishing sites.' ) }
 				settingId="default-hosting-provider"
-				connected={ hostingProviders.filter( ( id ) =>
-					id === 'wpcom' ? !! auth.data : settings.data?.accounts[ id ].connected
-				) }
+				connected={ hosting.connected }
 				value={ preferences.data?.defaultHostingProvider ?? null }
-				loading={ hostingProviders.some( ( id ) =>
-					id === 'wpcom' ? auth.isPending : settings.isPending
-				) }
+				loading={ hosting.isPending }
 				disabled={ ! preferences.data || save.isPending }
 				error={ ( save.error ?? preferences.error )?.message }
 				onChange={ ( defaultHostingProvider ) => save.mutate( { defaultHostingProvider } ) }

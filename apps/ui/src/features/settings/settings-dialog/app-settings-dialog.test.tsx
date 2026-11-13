@@ -903,7 +903,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( connector.setAiProvider ).toHaveBeenCalledOnce();
 	} );
 
-	it( 'shows matching empty defaults and offers a picker when a provider connects', async () => {
+	it( 'shows empty defaults and selects the only connected host over a stale choice', async () => {
 		const { connector } = await setup( {
 			section: 'connections',
 			signedIn: false,
@@ -918,28 +918,20 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		} );
 		expect( ai ).toBeDisabled();
 		expect( hosting ).toBeDisabled();
-		expect( ai ).toHaveAccessibleDescription( 'For working on sites' );
-		expect( hosting ).toHaveAccessibleDescription( 'For publishing sites' );
+		expect( ai ).toHaveAccessibleDescription( 'For working on sites.' );
+		expect( hosting ).toHaveAccessibleDescription( 'For publishing sites.' );
 
 		connector.state.user = TEST_USER;
 		act( () => connector.emit( 'onAuthStateChanged' ) );
-		await waitFor( () => expect( hosting ).toBeEnabled() );
-		fireEvent.click( hosting );
-		const option = await screen.findByRole( 'option', { name: 'WordPress.com' } );
-		expect( screen.getAllByRole( 'option' ) ).toEqual( [ option ] );
+		await waitFor( () => expect( hosting ).toHaveTextContent( 'WordPress.com' ) );
 		expect( connector.setUserPreferences ).not.toHaveBeenCalled();
 	} );
 
-	it( 'can save the only connected AI provider as the default', async () => {
+	it( 'uses the only connected AI provider as the default', async () => {
 		const { connector } = await setup( { section: 'connections', signedIn: false } );
 		const select = await screen.findByRole( 'combobox', { name: 'Default AI provider' } );
-		expect( select ).toBeEnabled();
-		expect( select ).toHaveTextContent( 'Choose a provider' );
-
-		await choose( 'Default AI provider', 'Anthropic' );
-
-		await waitFor( () => expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic' ) );
 		expect( select ).toHaveTextContent( 'Anthropic' );
+		expect( connector.setAiProvider ).not.toHaveBeenCalled();
 	} );
 
 	it( 'shares WordPress.com sign-in across both rows without switching AI from hosting', async () => {
@@ -1046,14 +1038,8 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( screen.queryByText( 'Use WordPress Studio with your agents' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( 'Manual MCP setup' ) ).not.toBeInTheDocument();
 		const select = await screen.findByRole( 'combobox', { name: 'Default hosting provider' } );
-		expect( select ).toHaveTextContent( 'Choose a provider' );
-		await choose( 'Default hosting provider', 'WordPress.com' );
-		await waitFor( () =>
-			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
-				{ defaultHostingProvider: 'wpcom' },
-				undefined
-			)
-		);
+		expect( select ).toHaveTextContent( 'WordPress.com' );
+		expect( connector.setUserPreferences ).not.toHaveBeenCalled();
 	} );
 
 	it( 'reveals an inline Anthropic key form and collapses after connecting', async () => {

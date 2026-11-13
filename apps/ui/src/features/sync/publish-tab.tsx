@@ -4,7 +4,11 @@ import { __, sprintf } from '@wordpress/i18n';
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useConnector } from '@/data/core';
-import { remoteSitesQueryKey, usePublishProviders } from '@/data/queries/use-remote-sites';
+import {
+	remoteSitesQueryKey,
+	useConnectedHostingProviders,
+	usePublishProviders,
+} from '@/data/queries/use-remote-sites';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { getWebsiteThumbnailUrl, RelativeTime, SiteCard } from '@/features/site-card';
@@ -43,8 +47,11 @@ export function usePublishTab( siteId: string ) {
 	const connector = useConnector();
 	const providers = usePublishProviders();
 	const preferences = useUserPreferences();
+	const { connected, isPending: hostingPending } = useConnectedHostingProviders( providers );
 	const saved = preferences.data?.defaultHostingProvider;
-	const preferred = saved && providers.includes( saved ) ? saved : undefined;
+	const preferred = saved && connected.includes( saved ) ? saved : undefined;
+	const single = providers.length === 1 ? providers[ 0 ] : undefined;
+	const defaultHost = preferred ?? ( connected.length === 1 ? connected[ 0 ] : single );
 	// Undefined until the tab is first opened, which is when it reads the connections.
 	const [ screen, setScreen ] = useState< Screen >();
 	const results = useQueries( {
@@ -59,7 +66,6 @@ export function usePublishTab( siteId: string ) {
 		( results[ index ]?.data ?? [] ).map( ( website ) => ( { provider, website } ) )
 	);
 	const activity = useSiteSyncActivity( siteId );
-	const single = providers.length === 1 ? providers[ 0 ] : undefined;
 	const hasPublished = published.length > 0;
 
 	// Resolve the default when entering setup, before the user picks a destination.
@@ -79,15 +85,19 @@ export function usePublishTab( siteId: string ) {
 			} );
 		} else if ( hasPublished ) {
 			setScreen( { kind: 'list' } );
-		} else if ( ! preferences.isPending || single ) {
-			const provider = preferred ?? single;
-			setScreen( provider ? { kind: 'provider', provider, request: PUBLISH } : { kind: 'choose' } );
+		} else if ( single || ( ! preferences.isPending && ! hostingPending ) ) {
+			setScreen(
+				defaultHost
+					? { kind: 'provider', provider: defaultHost, request: PUBLISH }
+					: { kind: 'choose' }
+			);
 		}
 	}, [
 		home,
 		loading,
 		hasPublished,
-		preferred,
+		defaultHost,
+		hostingPending,
 		preferences.isPending,
 		single,
 		transferProvider,
@@ -127,10 +137,10 @@ export function usePublishTab( siteId: string ) {
 		),
 		showSite: ( provider: SitesProviderId, remoteSiteId: Website[ 'id' ] ) =>
 			setScreen( { kind: 'provider', provider, request: { view: 'publish', remoteSiteId } } ),
-		add: () => {
-			const provider = preferred ?? single;
-			setScreen( provider ? { kind: 'provider', provider, request: ADD } : { kind: 'choose' } );
-		},
+		add: () =>
+			setScreen(
+				defaultHost ? { kind: 'provider', provider: defaultHost, request: ADD } : { kind: 'choose' }
+			),
 		reset: () => setScreen( undefined ),
 		chooseHost: () => setScreen( { kind: 'choose' } ),
 		// A provider's first connection shows as soon as it lands; with some already, the panel

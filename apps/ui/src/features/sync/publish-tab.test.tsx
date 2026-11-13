@@ -60,6 +60,8 @@ it( 'connects Spacefast, creates a Space named after the site, and publishes to 
 	const actions = userEvent.setup();
 	const { connector, site } = setup();
 	await actions.click( await screen.findByRole( 'button', { name: 'Publish…' } ) );
+	expect( await screen.findByRole( 'button', { name: 'New site…' } ) ).toBeVisible();
+	await actions.click( screen.getByRole( 'button', { name: 'Choose another host' } ) );
 	await actions.click( await screen.findByRole( 'button', { name: /^Spacefast/ } ) );
 
 	await actions.click( await screen.findByRole( 'button', { name: 'Connect Spacefast' } ) );
@@ -176,10 +178,12 @@ it( 'offers to connect the provider again when it rejects its key', async () => 
 
 it( 'opens the saved host for a first publish and lets the user choose another', async () => {
 	const actions = userEvent.setup();
-	const { connector } = setup();
+	const { connector } = setup( {
+		getAiSettings: async () => aiSettings( 'wpcom', [ 'wpcom', 'spacefast' ] ),
+	} );
 	connector.state.preferences.defaultHostingProvider = 'spacefast';
 	await actions.click( await screen.findByRole( 'button', { name: 'Publish…' } ) );
-	expect( await screen.findByRole( 'button', { name: 'Connect Spacefast' } ) ).toBeVisible();
+	expect( await screen.findByRole( 'button', { name: 'New site' } ) ).toBeVisible();
 	expect( connector.createRemoteSite ).not.toHaveBeenCalled();
 	await actions.click( screen.getByRole( 'button', { name: 'Choose another host' } ) );
 	expect(
@@ -191,6 +195,7 @@ it( 'opens the saved host for a first publish and lets the user choose another',
 it( 'keeps the published sites list first and opens the default for another destination', async () => {
 	const actions = userEvent.setup();
 	const { connector } = setup( {
+		getAiSettings: async () => aiSettings( 'wpcom', [ 'wpcom', 'spacefast' ] ),
 		getRemoteSites: async ( provider, localSiteId ) =>
 			provider === 'spacefast' && localSiteId
 				? [ { ...space, localSiteId, lastPushTimestamp: null, lastPullTimestamp: null } ]
@@ -200,19 +205,19 @@ it( 'keeps the published sites list first and opens the default for another dest
 	await actions.click( await screen.findByRole( 'button', { name: 'Publish…' } ) );
 	expect( await screen.findByRole( 'button', { name: /local-site\.space\.fast/ } ) ).toBeVisible();
 	await actions.click( screen.getByRole( 'button', { name: 'Publish to another site…' } ) );
-	expect( await screen.findByRole( 'button', { name: 'Connect Spacefast' } ) ).toBeVisible();
+	expect( await screen.findByRole( 'button', { name: 'New site' } ) ).toBeVisible();
 	expect( connector.createRemoteSite ).not.toHaveBeenCalled();
 } );
 
-it( 'offers another host while signed out of the saved WordPress.com account', async () => {
+it( 'opens the only connected host while signed out of the saved WordPress.com account', async () => {
 	const actions = userEvent.setup();
-	const { connector } = setup( { getAuthUser: async () => null } );
+	const { connector } = setup( {
+		getAuthUser: async () => null,
+		getAiSettings: async () => aiSettings( 'wpcom', [ 'spacefast' ] ),
+	} );
 	connector.state.preferences.defaultHostingProvider = 'wpcom';
 	await actions.click( await screen.findByRole( 'button', { name: 'Publish…' } ) );
-	expect( await screen.findByRole( 'dialog', { name: 'Publish your WordPress' } ) ).toBeVisible();
-	await actions.click( screen.getByRole( 'button', { name: 'Choose another host' } ) );
-	await actions.click( await screen.findByRole( 'button', { name: /^Spacefast/ } ) );
-	expect( await screen.findByRole( 'button', { name: 'Connect Spacefast' } ) ).toBeVisible();
+	expect( await screen.findByRole( 'button', { name: 'New site' } ) ).toBeVisible();
 	expect( connector.state.preferences.defaultHostingProvider ).toBe( 'wpcom' );
 } );
 

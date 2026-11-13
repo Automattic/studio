@@ -899,7 +899,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		);
 	} );
 
-	it( 'offers only API keys for OpenAI and Meta on the web, which cannot reach their subscription sign-ins', async () => {
+	it( 'offers only an OpenAI API key on the web, which cannot reach a ChatGPT sign-in', async () => {
 		await setup( {
 			section: 'ai',
 			overrides: {
@@ -921,12 +921,6 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect(
 			screen.queryByRole( 'menuitemradio', { name: 'ChatGPT plan' } )
 		).not.toBeInTheDocument();
-		fireEvent.click(
-			await within( await findProviderRow( 'meta-provider' ) ).findByRole( 'button', {
-				name: 'Connect',
-			} )
-		);
-		expect( await screen.findByLabelText( 'Meta API key', { selector: 'input' } ) ).toBeVisible();
 	} );
 
 	it( 'reveals an inline Anthropic key form and collapses after connecting', async () => {

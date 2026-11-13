@@ -8,7 +8,7 @@ import type { AiConnection, ProviderServices } from '../types';
 export const metaAi: NonNullable< ProviderServices< MetaConfig >[ 'ai' ] > = {
 	async model( config, modelId ): Promise< AiConnection > {
 		if ( ! config ) {
-			throw new NotConnectedError( 'Connect Meta with your Muse subscription or an API key.' );
+			throw new NotConnectedError( 'Connect Meta with an API key.' );
 		}
 		const model =
 			META_AI_MODELS.some( ( { id } ) => id === modelId ) &&
@@ -21,7 +21,9 @@ export const metaAi: NonNullable< ProviderServices< MetaConfig >[ 'ai' ] > = {
 			apiKey: config.apiKey,
 			rewriteError: ( message ) =>
 				/^429\b/.test( message )
-					? __( 'You reached your Meta usage limit. Check your usage at dev.meta.ai.' )
+					? __(
+							'Meta is limiting requests on your API key. Try again shortly, or check your limits at dev.meta.ai.'
+					  )
 					: undefined,
 			model: {
 				...model,

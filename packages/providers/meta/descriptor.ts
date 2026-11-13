@@ -9,8 +9,6 @@ export const META_AI_MODELS = [
 	{ id: 'muse-wonder-1.0', label: () => 'Muse Wonder' },
 ] as const satisfies readonly AiModel[];
 
-const DASHBOARD_URL = 'https://dev.meta.ai';
-
 export const metaConnectInput = () =>
 	z.object( {
 		apiKey: z
@@ -32,14 +30,13 @@ const mark =
 export const metaProvider: Provider< MetaConfig > = {
 	id: 'meta',
 	label: 'Meta',
-	description: () => __( 'Use Muse models with your Muse subscription or an API key.' ),
-	learnMoreUrl: DASHBOARD_URL,
+	description: () => __( 'Use Muse models with your Meta API key.' ),
+	learnMoreUrl: 'https://dev.meta.ai/docs/authentication',
 	icon: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">${ mark }</svg>`,
 	logo: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="-6 -6 36 36"><rect x="-6" y="-6" width="36" height="36" fill="#FFF"/><g fill="#0467DF">${ mark }</g></svg>`,
 	account: {
 		configSchema: metaConfigSchema,
 		methods: [
-			{ id: 'subscription', label: () => __( 'Muse subscription' ), kind: 'device' },
 			{
 				id: 'api-key',
 				label: () => __( 'API key' ),
@@ -51,14 +48,7 @@ export const metaProvider: Provider< MetaConfig > = {
 					),
 			},
 		],
-		describe: ( config ) =>
-			config.method === 'api-key'
-				? { method: config.method, summary: previewApiKey( config.apiKey ) }
-				: {
-						method: config.method,
-						note: __( 'Using Muse subscription' ),
-						links: [ { label: __( 'Manage usage' ), url: DASHBOARD_URL } ],
-				  },
+		describe: ( config ) => ( { method: 'api-key', summary: previewApiKey( config.apiKey ) } ),
 	},
 	ai: {
 		models: META_AI_MODELS,

@@ -32,7 +32,16 @@ export const geminiProvider: Provider< GeminiConfig > = {
 	account: {
 		configSchema: geminiConfigSchema,
 		methods: [
-			{ id: 'api-key', label: () => __( 'API key' ), kind: 'form', input: geminiConnectInput },
+			{
+				id: 'api-key',
+				label: () => __( 'API key' ),
+				kind: 'form',
+				input: geminiConnectInput,
+				instructions: () =>
+					__(
+						'Create a key in [Google AI Studio](https://aistudio.google.com/apikey), then paste it below.'
+					),
+			},
 		],
 		describe: ( { apiKey } ) => ( { method: 'api-key', summary: `...${ apiKey.slice( -4 ) }` } ),
 	},

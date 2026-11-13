@@ -64,7 +64,16 @@ export const anthropicProvider: Provider< AnthropicConfig > = {
 	account: {
 		configSchema: anthropicConfigSchema,
 		methods: [
-			{ id: 'api-key', label: () => __( 'API key' ), kind: 'form', input: anthropicConnectInput },
+			{
+				id: 'api-key',
+				label: () => __( 'API key' ),
+				kind: 'form',
+				input: anthropicConnectInput,
+				instructions: () =>
+					__(
+						'Create a key in the [Claude Console](https://platform.claude.com/settings/keys), then paste it below.'
+					),
+			},
 			{
 				id: 'setup-token',
 				label: () => __( 'Claude subscription' ),

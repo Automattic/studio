@@ -7,7 +7,7 @@ import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { formatProgressLabel } from '@studio/common/lib/progress-label';
 import { forgetRejectedConfig, readProviderConfig } from '@studio/common/lib/provider-config';
 import { getRemoteSites, rememberRemoteSite } from '@studio/common/lib/remote-sites';
-import { getCurrentUserId } from '@studio/common/lib/shared-config';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getSiteTracksProps } from '@studio/common/lib/site-tracks';
 import { getLatestLinkedPreview, getPreviewPublishWarning } from '@studio/common/lib/snapshots';
 import {
@@ -364,12 +364,12 @@ async function warnIfPreviewIsBehind(
 	remoteSiteId: number,
 	logger: Logger< LoggerAction >
 ): Promise< void > {
-	const userId = await getCurrentUserId();
-	if ( ! userId ) {
+	const token = await readAuthToken();
+	if ( ! token ) {
 		return;
 	}
 	const preview = getLatestLinkedPreview(
-		await getSnapshotsFromConfig( userId ),
+		await getSnapshotsFromConfig( token.id ),
 		site.id,
 		remoteSiteId
 	);

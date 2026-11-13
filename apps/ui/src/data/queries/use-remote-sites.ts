@@ -30,6 +30,17 @@ export function usePublishProviders(): SitesProviderId[] {
 	);
 }
 
+export function useConnectedHostingProviders( providers: SitesProviderId[] ) {
+	const auth = useAuthUser();
+	const settings = useAiSettings();
+	return {
+		connected: providers.filter( ( id ) =>
+			id === 'wpcom' ? !! auth.data : settings.data?.accounts[ id ].connected
+		),
+		isPending: providers.some( ( id ) => ( id === 'wpcom' ? auth.isPending : settings.isPending ) ),
+	};
+}
+
 // Whether the provider's account is connected. WordPress.com's is the Studio sign-in.
 export function useProviderConnected( provider: SitesProviderId ): boolean | undefined {
 	const { data: authUser, isSuccess } = useAuthUser();

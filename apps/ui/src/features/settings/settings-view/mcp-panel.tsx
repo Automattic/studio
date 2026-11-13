@@ -30,16 +30,41 @@ function CopyableCode( {
 	);
 }
 
-export function McpPanel() {
+function ManualMcpSetup() {
+	return (
+		<SettingsGroup title={ __( 'Manual MCP setup' ) } settingId="mcp-server">
+			<Field>
+				<FieldDescription width="full">
+					{ __( 'Install the WordPress Studio CLI.' ) }
+				</FieldDescription>
+				<CopyableCode
+					code={ INSTALL_COMMAND }
+					language="bash"
+					label={ __( 'Copy install command' ) }
+				/>
+				<FieldDescription width="full">
+					{ __( 'Then add this configuration to your app.' ) }
+				</FieldDescription>
+				<CopyableCode
+					code={ getMcpServerConfigJson() }
+					language="json"
+					label={ __( 'Copy MCP configuration' ) }
+				/>
+			</Field>
+		</SettingsGroup>
+	);
+}
+
+export function ExternalAppsPanel() {
 	return (
 		<div className={ styles.preferencesPanel }>
-			<SettingsGroup>
+			<SettingsGroup settingId="external-ai-apps">
 				<SettingsRow
-					title={ __( 'MCP server' ) }
+					title={ __( 'Use WordPress Studio with your agents' ) }
 					description={
 						<>
 							{ __(
-								'Connect AI apps to WordPress Studio to create, configure, and inspect your local WordPress sites.'
+								'Use your preferred AI agent to create sites, make changes, and check your work. Install the WordPress Studio plugin to give it access to your local sites.'
 							) }{ ' ' }
 							<LearnMoreLink docsLinksKey="docsMcp" />
 						</>
@@ -47,24 +72,7 @@ export function McpPanel() {
 				/>
 			</SettingsGroup>
 			<AgentAppsSection />
-			<SettingsGroup title={ __( 'Manual setup' ) }>
-				<Field>
-					<FieldDescription width="full">{ __( 'Install the Studio CLI:' ) }</FieldDescription>
-					<CopyableCode
-						code={ INSTALL_COMMAND }
-						language="bash"
-						label={ __( 'Copy install command' ) }
-					/>
-					<FieldDescription width="full">
-						{ __( 'Then add this configuration to your app:' ) }
-					</FieldDescription>
-					<CopyableCode
-						code={ getMcpServerConfigJson() }
-						language="json"
-						label={ __( 'Copy MCP configuration' ) }
-					/>
-				</Field>
-			</SettingsGroup>
+			<ManualMcpSetup />
 		</div>
 	);
 }

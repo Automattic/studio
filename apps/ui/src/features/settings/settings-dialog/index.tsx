@@ -4,21 +4,26 @@ import { __ } from '@wordpress/i18n';
 import { ariaKeyShortcut, displayShortcut, isKeyboardEvent } from '@wordpress/keycodes';
 import { clsx } from 'clsx';
 import { ChevronLeftIcon, SearchIcon, XIcon } from 'lucide-react';
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { setProviderIntent } from '@/data/account-analytics';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useSessions } from '@/data/queries/use-sessions';
 import { useSites } from '@/data/queries/use-sites';
-import { getSections, isSiteSection, searchSettings } from '@/data/settings-sections';
 import {
-	AiPanel,
+	getSections,
+	isSiteSection,
+	resolveSettingsLink,
+	searchSettings,
+} from '@/data/settings-sections';
+import {
+	ProvidersPanel,
 	AppearanceSettings,
+	ExternalAppsPanel,
 	GeneralSettings,
 	InstructionsSettings,
 	KeyboardPanel,
-	McpPanel,
 	SharingPanel,
 	SkillsPanel,
 	UsagePanel,
@@ -71,10 +76,10 @@ function StudioSection( {
 			return <AppearanceSettings />;
 		case 'sharing':
 			return <SharingPanel />;
-		case 'ai':
-			return <AiPanel onManageCredits={ () => onNavigate( 'usage' ) } />;
+		case 'providers':
+			return <ProvidersPanel onManageCredits={ () => onNavigate( 'usage' ) } />;
 		case 'mcp':
-			return <McpPanel />;
+			return <ExternalAppsPanel />;
 		case 'usage':
 			return <UsagePanel />;
 		case 'skills':
@@ -108,23 +113,30 @@ function useCurrentSiteId( requested?: string ) {
 	return { site: sites?.find( ( site ) => site.id === siteId ) ?? sites?.[ 0 ], isPending };
 }
 
-// A setting's row, by its link id or its title.
+// A setting or group, by its link id or title.
 function findRow( root: HTMLElement, target: string ) {
-	return [ ...root.querySelectorAll< HTMLElement >( '[data-settings-row]' ) ].find(
-		( row ) =>
-			row.dataset.settingId === target ||
-			row.querySelector( '[data-slot="field-label"]' )?.textContent?.trim() === target
+	const section = [ ...root.querySelectorAll< HTMLElement >( '[data-settings-target]' ) ].find(
+		( entry ) => entry.dataset.settingsTarget === target
+	);
+	return (
+		section ??
+		[ ...root.querySelectorAll< HTMLElement >( '[data-settings-row]' ) ].find(
+			( row ) =>
+				row.dataset.settingId === target ||
+				row.querySelector( '[data-slot="field-label"]' )?.textContent?.trim() === target
+		)
 	);
 }
 
 function focusControl( row: HTMLElement ) {
+	if ( row.matches( '[data-settings-target]' ) ) {
+		row.focus( { preventScroll: true } );
+		return;
+	}
 	const control =
 		row.querySelector< HTMLElement >(
 			'input:not(:disabled):not([type="hidden"]):not([aria-hidden="true"]), textarea:not(:disabled), [role="switch"]:not([data-disabled]), [role="combobox"]:not(:disabled)'
-		) ??
-		row.querySelector< HTMLElement >(
-			':scope > [data-slot="field-content"] ~ * button:not(:disabled)'
-		);
+		) ?? row.querySelector< HTMLElement >( '[data-settings-control] button:not(:disabled)' );
 	control?.focus( { preventScroll: true } );
 	if ( control instanceof HTMLInputElement ) {
 		control.select();
@@ -153,7 +165,21 @@ export function SettingsDialog() {
 		setShown( settings );
 	}
 	const { site, isPending: sitePending } = useCurrentSiteId( settingsSite );
-	const requested = shown === 'usage' && ! signedIn ? 'ai' : shown;
+	const { nativeSites } = connector.capabilities;
+	const linkedSection =
+		settings === 'ai' || ( settings === 'mcp' && ! nativeSites )
+			? 'providers'
+			: settings === 'providers' &&
+			  nativeSites &&
+			  settingsFocus &&
+			  resolveSettingsLink( settingsFocus ) === 'mcp'
+			? 'mcp'
+			: undefined;
+	const requested =
+		linkedSection ??
+		( shown === 'ai' || ( shown === 'mcp' && ! nativeSites ) || ( shown === 'usage' && ! signedIn )
+			? 'providers'
+			: shown );
 	const scope: SettingsScope =
 		isSiteSection( requested ) && ( site || sitePending ) ? 'site' : 'studio';
 	const section = scope === 'site' || ! isSiteSection( requested ) ? requested : 'general';
@@ -180,7 +206,7 @@ export function SettingsDialog() {
 
 	// Each opening starts fresh.
 	useEffect( () => {
-		if ( settings !== 'ai' ) setProviderIntent( connector );
+		if ( settings !== 'ai' && settings !== 'providers' ) setProviderIntent( connector );
 		if ( ! settings ) {
 			setHistory( { entries: [], index: -1 } );
 			setQuery( '' );
@@ -191,17 +217,20 @@ export function SettingsDialog() {
 
 	// A link's setting leaves the URL once taken, so following it again reveals it again.
 	useEffect( () => {
-		if ( settingsFocus ) {
+		if ( settingsFocus || linkedSection ) {
 			setQuery( '' );
-			setTarget( settingsFocus );
+			setTarget( settingsFocus ?? ( settings === 'ai' ? 'ai-providers' : null ) );
 			void navigate( {
 				to: '.',
 				state: true,
-				search: ( { settingsFocus: _focus, ...rest }: Record< string, unknown > ) => rest,
+				search: ( { settingsFocus: _focus, ...rest }: Record< string, unknown > ) => ( {
+					...rest,
+					...( linkedSection ? { settings: linkedSection } : {} ),
+				} ),
 				replace: true,
 			} );
 		}
-	}, [ settingsFocus, navigate ] );
+	}, [ settings, settingsFocus, linkedSection, navigate ] );
 
 	// Every section shown joins the history, unless Back or Forward led there.
 	useEffect( () => {
@@ -272,6 +301,10 @@ export function SettingsDialog() {
 		exit?.();
 	}, [] );
 
+	useLayoutEffect( () => {
+		content?.scrollTo?.( { top: 0, behavior: 'instant' } );
+	}, [ content, section ] );
+
 	// Reveals and focuses the setting a link or search result points at.
 	useEffect( () => {
 		const root = content;
@@ -286,7 +319,7 @@ export function SettingsDialog() {
 				return;
 			}
 			observer.disconnect();
-			row.scrollIntoView?.( { block: 'center' } );
+			row.scrollIntoView?.( { block: row.matches( 'fieldset' ) ? 'start' : 'center' } );
 			row.setAttribute( 'data-settings-match', '' );
 			frame = requestAnimationFrame( () => row && focusControl( row ) );
 		};
@@ -308,7 +341,6 @@ export function SettingsDialog() {
 		};
 	}, [ target, section, content ] );
 
-	const { nativeSites } = useConnector().capabilities;
 	const results = searchSettings( query, scope, { hasSite: !! site, signedIn, nativeSites } );
 	const searching = !! query.trim();
 	const open = ( result: SearchResult ) => {
@@ -414,7 +446,9 @@ export function SettingsDialog() {
 								<TabsList variant="sidebar" aria-label={ __( 'Matching settings' ) }>
 									{ results.map( ( item, index ) => (
 										<TabsTrigger
-											key={ `${ item.scope }-${ item.section.id }-${ item.setting?.title ?? '' }` }
+											key={ `${ item.scope }-${ item.section.id }-${
+												item.setting?.id ?? item.setting?.title ?? ''
+											}` }
 											value={ index }
 											highlighted={ index === 0 }
 											aria-label={ item.setting?.title ?? item.section.label }

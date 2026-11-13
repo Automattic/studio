@@ -210,3 +210,12 @@ it( 'keeps annotation batching on by default and persists it across preference r
 	await writeUserPreferences( { batchAnnotations: null }, context );
 	expect( ( await readUserPreferences( context ) ).batchAnnotations ).toBe( true );
 } );
+
+it( 'stores and clears the default hosting provider', async () => {
+	const context = { sitesRoot: configDir };
+	expect( ( await readUserPreferences( context ) ).defaultHostingProvider ).toBeNull();
+	await writeUserPreferences( { defaultHostingProvider: 'spacefast' }, context );
+	expect( ( await readUserPreferences( context ) ).defaultHostingProvider ).toBe( 'spacefast' );
+	await writeUserPreferences( { defaultHostingProvider: null }, context );
+	expect( ( await readUserPreferences( context ) ).defaultHostingProvider ).toBeNull();
+} );

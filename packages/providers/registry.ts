@@ -1,4 +1,5 @@
 import { anthropicProvider } from './anthropic/descriptor';
+import { geminiProvider } from './gemini/descriptor';
 import { githubCopilotProvider } from './github-copilot/descriptor';
 import { openaiProvider } from './openai/descriptor';
 import { spacefastProvider } from './spacefast/descriptor';
@@ -18,6 +19,7 @@ export const AI_PROVIDER_IDS = [
 	'wpcom',
 	'anthropic',
 	'openai',
+	'gemini',
 	'github-copilot',
 ] as const satisfies readonly AiProviderId[];
 
@@ -40,6 +42,7 @@ const PROVIDERS: {
 	wpcom: wpcomProvider,
 	anthropic: anthropicProvider,
 	openai: openaiProvider,
+	gemini: geminiProvider,
 	'github-copilot': githubCopilotProvider,
 	spacefast: spacefastProvider,
 };
@@ -63,6 +66,7 @@ const STORED_PROVIDER_IDS: Record< ProviderId, string > = {
 	wpcom: 'wpcom',
 	anthropic: 'anthropic-api-key',
 	openai: 'openai',
+	gemini: 'gemini',
 	'github-copilot': 'github-copilot',
 	spacefast: 'spacefast',
 };

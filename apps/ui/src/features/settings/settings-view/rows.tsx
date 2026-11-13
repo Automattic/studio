@@ -49,11 +49,7 @@ export function SettingsGroup( {
 } ) {
 	return (
 		// Without a heading the card isn't a group of its own, only its rows are.
-		<FieldSet
-			role={ title ? undefined : 'none' }
-			data-settings-target={ settingId }
-			tabIndex={ settingId ? -1 : undefined }
-		>
+		<FieldSet role={ title ? undefined : 'none' } data-settings-target={ settingId }>
 			{ title ? (
 				<FieldLegend variant="label" className={ clsx( description && styles.groupLegend ) }>
 					{ title }

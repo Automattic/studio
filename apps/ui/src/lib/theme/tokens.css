@@ -23,6 +23,7 @@
 	--surface-4: color-mix( in oklab, var( --foreground-base ) calc( var( --surface-offset ) + var( --surface-step ) * 3 ), var( --surface-0 ) );
 
 	--background: var( --surface-0 );
+	--startup-logo-foreground: light-dark( black, white );
 	--surface: var( --background );
 	--composer: light-dark( var( --surface-0 ), var( --surface-3 ) );
 	--interaction-step: calc( -0.055 - var( --contrast, 0 ) * 0.0002 );

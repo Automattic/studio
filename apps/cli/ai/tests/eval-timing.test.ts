@@ -45,9 +45,9 @@ describe( 'summarizeTiming', () => {
 		const summary = summarizeTiming(
 			[],
 			[
-				{ toolName: 'wp_cli', startedAtMs: 0, endedAtMs: 500, outputChars: 10 },
+				{ toolName: 'wp_cli', startedAtMs: 0, endedAtMs: 500, outputChars: 10, checksMs: 100 },
 				{ toolName: 'site_start', startedAtMs: 500, endedAtMs: 4500, outputChars: 30 },
-				{ toolName: 'wp_cli', startedAtMs: 4500, endedAtMs: 5700, outputChars: 20 },
+				{ toolName: 'wp_cli', startedAtMs: 4500, endedAtMs: 5700, outputChars: 20, checksMs: 300 },
 			]
 		);
 		expect( Object.keys( summary.tools ) ).toEqual( [ 'site_start', 'wp_cli' ] );
@@ -56,7 +56,9 @@ describe( 'summarizeTiming', () => {
 			totalMs: 1700,
 			maxMs: 1200,
 			outputChars: 30,
+			checksMs: 400,
 		} );
+		expect( summary.checksMs ).toBe( 400 );
 	} );
 
 	it( 'skips tool calls that never finished', () => {

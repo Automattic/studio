@@ -1,47 +1,54 @@
 import { Type } from 'typebox';
-import { toBase64 } from '@studio/agent/shared/base64';
 import {
 	composeImagePrompt,
 	IMAGE_ASPECT_RATIOS,
 	IMAGE_STYLES,
 } from '@studio/agent/shared/image-generation';
 import { defineTool, REMOTE_CHANGE } from './define-tool';
-import { runWpCli, textResult } from './utils';
+import { textResult, wpEval } from './utils';
+import type { StudioToolDefinition } from './define-tool';
 import type { HostPath, HostSite, StudioAgentHost } from '@studio/agent/shared/host';
 import type { GenerateImageResult } from '@studio/providers';
 
 const MAX_IMAGES_PER_CALL = 20;
 
-// Exported for tests. Generated files are jailed to the sites root like the
-// pi Write tool, and must be PNGs — the only format the pipeline delivers.
+// Exported for tests. Generated files are jailed to the sites root, which a
+// relative path is resolved from as the pi Write tool does, and to the folders
+// of the user's Studio sites, which a site created in a folder of its own is in.
 export function resolveImageFilePath(
 	path: HostPath,
 	sitesRoot: string,
+	siteFolders: string[],
 	filePath: string
 ): string {
-	const resolved = path.resolve( filePath );
-	if ( resolved !== sitesRoot && ! resolved.startsWith( sitesRoot + path.sep ) ) {
+	const resolved = path.resolve( sitesRoot, filePath );
+	const inside = ( folder: string ) => resolved.startsWith( path.resolve( folder ) + path.sep );
+	if ( resolved !== sitesRoot && ! inside( sitesRoot ) && ! siteFolders.some( inside ) ) {
 		throw new Error(
-			`Image path must be inside the Studio sites directory (${ sitesRoot }): ${ filePath }`
+			`Image path must be inside the Studio sites directory (${ sitesRoot }) or a Studio site's folder: ${ filePath }`
 		);
 	}
-	if ( ! /\.png$/i.test( resolved ) ) {
-		throw new Error( `Image path must end in .png: ${ filePath }` );
-	}
 	return resolved;
+}
+
+// The site whose folder holds every one of `filePaths`.
+function siteContaining(
+	path: HostPath,
+	sites: HostSite[],
+	filePaths: string[]
+): HostSite | undefined {
+	return sites.find( ( candidate ) =>
+		filePaths.every( ( filePath ) =>
+			filePath.startsWith( path.resolve( candidate.path ) + path.sep )
+		)
+	);
 }
 
 async function findSiteContaining(
 	host: StudioAgentHost,
 	filePaths: string[]
 ): Promise< HostSite > {
-	const { path } = host;
-	const sites = await host.sites.all();
-	const site = sites.find( ( candidate ) =>
-		filePaths.every( ( filePath ) =>
-			filePath.startsWith( path.resolve( candidate.path ) + path.sep )
-		)
-	);
+	const site = siteContaining( host.path, await host.sites.all(), filePaths );
 	if ( ! site ) {
 		throw new Error( 'Images under wp-content/uploads must all be inside one Studio site.' );
 	}
@@ -54,19 +61,8 @@ interface Attachment {
 	url: string;
 }
 
-// Runs `php` through WP-CLI with `data` decoded into `$data`.
-async function evalWithData(
-	host: StudioAgentHost,
-	site: HostSite,
-	php: string,
-	data: unknown
-): Promise< string > {
-	const encoded = toBase64( new TextEncoder().encode( JSON.stringify( data ) ) );
-	return runWpCli( host, site, [
-		'eval',
-		`$data = json_decode( base64_decode( '${ encoded }' ), true );\n${ php }`,
-	] );
-}
+// The JSON `wp eval` printed on its last line.
+const lastLineJson = < T >( output: string ): T => JSON.parse( output.trim().split( '\n' ).pop()! );
 
 // Media-library images get their attachment before they are generated, so the
 // result can give their IDs and URLs right away.
@@ -74,10 +70,44 @@ const RESERVE_ATTACHMENTS = `$upload = wp_upload_dir();
 $reserved = array();
 foreach ( $data as $name ) {
 	$filename = wp_unique_filename( $upload['path'], $name );
-	$id = wp_insert_attachment( array( 'guid' => $upload['url'] . '/' . $filename, 'post_mime_type' => 'image/png', 'post_title' => pathinfo( $filename, PATHINFO_FILENAME ), 'post_content' => '', 'post_status' => 'inherit' ), $upload['path'] . '/' . $filename );
+	$id = wp_insert_attachment( array( 'guid' => $upload['url'] . '/' . $filename, 'post_mime_type' => wp_check_filetype( $filename )['type'] ?: 'image/png', 'post_title' => pathinfo( $filename, PATHINFO_FILENAME ), 'post_content' => '', 'post_status' => 'inherit' ), $upload['path'] . '/' . $filename );
 	$reserved[] = array( 'id' => $id, 'file' => substr( $upload['path'], strlen( ABSPATH ) ) . '/' . $filename, 'url' => wp_get_attachment_url( $id ) );
 }
 echo wp_json_encode( $reserved );`;
+
+/**
+ * The image model delivers PNGs. An image whose path names another format,
+ * such as a.jpg, is saved in it by WordPress's image editor, which takes the
+ * type from the extension (WP_Image_Editor::get_output_format()), where
+ * wp_image_editor_supports() says it saves the type wp_check_filetype()
+ * gives the extension (wp-includes/media.php). The PNG is removed either way; an image WordPress
+ * cannot save gets WordPress's reason.
+ */
+const CONVERT_IMAGES = `require_once ABSPATH . 'wp-admin/includes/image.php';
+$errors = array();
+foreach ( $data as $image ) {
+	$type = wp_check_filetype( $image['to'] )['type'];
+	$editor = wp_get_image_editor( $image['from'] );
+	if ( ! $type || ! wp_image_editor_supports( array( 'mime_type' => $type ) ) ) {
+		$errors[ $image['to'] ] = "WordPress's image editor does not save ." . pathinfo( $image['to'], PATHINFO_EXTENSION ) . ' files (wp_image_editor_supports())';
+	} elseif ( is_wp_error( $editor ) ) {
+		$errors[ $image['to'] ] = $editor->get_error_message();
+	} else {
+		$saved = $editor->save( $image['to'] );
+		$errors[ $image['to'] ] = is_wp_error( $saved ) ? $saved->get_error_message() : '';
+	}
+	wp_delete_file( $image['from'] );
+}
+echo wp_json_encode( (object) $errors );`;
+
+// Each converted image's path, with '' once saved or WordPress's reason not.
+async function convertImages(
+	host: StudioAgentHost,
+	site: HostSite,
+	conversions: { from: string; to: string }[]
+): Promise< Record< string, string > > {
+	return lastLineJson( await wpEval( host, site, CONVERT_IMAGES, conversions ) );
+}
 
 const FINALIZE_ATTACHMENTS = `require_once ABSPATH . 'wp-admin/includes/image.php';
 foreach ( $data['ready'] as $id ) {
@@ -89,8 +119,7 @@ foreach ( $data['failed'] as $id ) {
 
 export const generateImagesTool = defineTool(
 	'generate_images',
-	"Generate AI images (PNG) from text specs and write them to files inside a site. An image written under the site's wp-content/uploads/ is added to its media library; any other image, such as theme imagery in a theme's assets/images, stays where it is written. " +
-		'Load the `imagery` skill FIRST — it defines how to write subjects and page context, which aspect ratio fits which layout slot, and where generated images go (theme assets or the media library). ' +
+	"Generate AI images from text specs and write them to files inside a site. An image written under the site's wp-content/uploads/ is added to its media library; any other image, such as theme imagery in a theme's assets/images, stays where it is written. " +
 		'Batch every image a page or site needs into as few calls as possible; each call accepts up to ' +
 		`${ MAX_IMAGES_PER_CALL } images and generates them concurrently. ` +
 		"The call returns at once with each image's path, and for the media library its attachment ID and URL, while the images are generated in the background: the tools that render the site wait for them, and any that failed is reported with a later tool result. " +
@@ -100,16 +129,16 @@ export const generateImagesTool = defineTool(
 			Type.Object( {
 				path: Type.String( {
 					description:
-						"Absolute file path to write the generated PNG to. Must be inside the Studio sites directory and end in .png. Under a site's wp-content/uploads/, the image is imported into the media library: the file moves to the uploads folder WordPress picks, and the result gives that path, its attachment ID and its URL. Anywhere else, such as a theme's assets/images, the file stays at this path.",
+						"Absolute file path to write the generated image to, inside the Studio sites directory. Its extension picks the format: .png as generated, or another WordPress's image editor saves, such as .jpg or .webp. Under a site's wp-content/uploads/, the image is imported into the media library: the file moves to the uploads folder WordPress picks, and the result gives that path, its attachment ID and its URL. Anywhere else, such as a theme's assets/images, the file stays at this path.",
 				} ),
 				subject: Type.String( {
 					description:
-						'What the image shows and from what point of view (composition, framing, vantage, mood). 1-3 sentences. Never ask for rendered text, and never restate the site-wide imageGrade here.',
+						'What the image shows and from what point of view (composition, framing, vantage, mood). 1-3 sentences, of the scene alone: the page carries the words, and imageGrade the treatment all images share.',
 				} ),
 				pageContext: Type.Optional(
 					Type.String( {
 						description:
-							'Where and how the image is used, in pictorial slot language (e.g. "full-frame editorial photograph with the left third kept as open, low-detail negative space"). Steers mood and composition; it is not drawn. Write in English.',
+							'Where and how the image is used, in pictorial slot language (e.g. "full-frame editorial photograph with the left third kept as open, low-detail negative space"), not layout words such as "hero" or "headline", which get drawn. Steers mood and composition; it is not drawn. Write in English.',
 					} )
 				),
 				style: Type.Optional(
@@ -122,7 +151,7 @@ export const generateImagesTool = defineTool(
 						Object.fromEntries( IMAGE_ASPECT_RATIOS.map( ( ratio ) => [ ratio, ratio ] ) ),
 						{
 							description:
-								'Canvas shape, matched to the layout slot (see the imagery skill). Defaults to landscape.',
+								'Canvas shape, matched to the layout slot: images in one row or grid share a ratio, and full-bleed backgrounds are landscape or ultrawide. Defaults to landscape.',
 						}
 					)
 				),
@@ -132,7 +161,7 @@ export const generateImagesTool = defineTool(
 		siteContext: Type.Optional(
 			Type.String( {
 				description:
-					"One sentence of subject matter steering shared by all images (e.g. 'A neighborhood bakery selling sourdough and pastries.'). NEVER include the site or business name — a name in the prompt is what painted-in fake wordmarks stand in for.",
+					"One sentence of subject matter steering shared by all images (e.g. 'A neighborhood bakery selling sourdough and pastries.'). Studio leaves the site's name out of the prompt, since the image model paints a name it is given in as a fake wordmark.",
 			} )
 		),
 		imageGrade: Type.Optional(
@@ -146,15 +175,17 @@ export const generateImagesTool = defineTool(
 		const generateImages = await host.imageGenerator?.();
 		if ( ! generateImages ) {
 			throw new Error(
-				'Image generation is not available in this session. Build the site without generated imagery.'
+				"Image generation is off in this session. Build the site's imagery from type, color and shape."
 			);
 		}
 		const { path } = host;
 		const uploadsDirectory = path.sep + path.join( 'wp-content', 'uploads' ) + path.sep;
+		const isPng = ( file: string ) => path.extname( file ).toLowerCase() === '.png';
 
+		const siteFolders = ( await host.sites.all() ).map( ( site ) => site.path );
 		const targets = args.images.map( ( image ) => ( {
 			...image,
-			resolvedPath: resolveImageFilePath( path, host.sitesRoot, image.path ),
+			resolvedPath: resolveImageFilePath( path, host.sitesRoot, siteFolders, image.path ),
 		} ) );
 		const libraryTargets = targets.filter( ( target ) =>
 			target.resolvedPath.includes( uploadsDirectory )
@@ -167,13 +198,14 @@ export const generateImagesTool = defineTool(
 			: undefined;
 		const attachments = new Map< string, Attachment >();
 		if ( site ) {
-			const output = await evalWithData(
-				host,
-				site,
-				RESERVE_ATTACHMENTS,
-				libraryTargets.map( ( target ) => path.basename( target.resolvedPath ) )
+			const reserved = lastLineJson< Attachment[] >(
+				await wpEval(
+					host,
+					site,
+					RESERVE_ATTACHMENTS,
+					libraryTargets.map( ( target ) => path.basename( target.resolvedPath ) )
+				)
 			);
-			const reserved: Attachment[] = JSON.parse( output.trim().split( '\n' ).pop() ?? '[]' );
 			libraryTargets.forEach( ( target, index ) =>
 				attachments.set( target.resolvedPath, {
 					...reserved[ index ],
@@ -182,13 +214,35 @@ export const generateImagesTool = defineTool(
 			);
 		}
 
+		// The site the images are for, wherever in it they are written.
+		const forSite =
+			site ??
+			siteContaining(
+				path,
+				await host.sites.all(),
+				targets.map( ( target ) => target.resolvedPath )
+			);
+		const siteName = forSite?.name;
 		const requests = targets.map( ( image ) => ( {
 			prompt: composeImagePrompt( image, {
 				siteContext: args.siteContext,
 				imageGrade: args.imageGrade,
+				siteName,
 			} ),
 			aspectRatio: image.aspectRatio,
 		} ) );
+
+		// Where each image is written: its attachment's file, or its path.
+		const fileOf = ( target: ( typeof targets )[ number ] ) =>
+			attachments.get( target.resolvedPath )?.file ?? target.resolvedPath;
+		// Each image as the markup was told to use it: where its attachment
+		// went, which WordPress names apart from a file already there.
+		const named = ( target: ( typeof targets )[ number ] ) => {
+			const attachment = attachments.get( target.resolvedPath );
+			return attachment
+				? `${ attachment.file }, attachment ID ${ attachment.id }, URL ${ attachment.url }`
+				: target.path;
+		};
 
 		const generation = generateImages( requests )
 			.catch( ( error ): GenerateImageResult[] =>
@@ -196,26 +250,51 @@ export const generateImagesTool = defineTool(
 			)
 			.then( async ( results ) => {
 				const failures: string[] = [];
+				const conversions: { from: string; to: string }[] = [];
 				await Promise.all(
 					results.map( async ( result, index ) => {
 						const target = targets[ index ];
 						if ( ! result.ok || ! result.bytes ) {
 							const hint = result.filtered
-								? ' (safety filter — rewrite the subject to avoid the sensitive element and call generate_images again for this image)'
+								? ' (safety filter — rewrite the subject in plain, everyday terms and call generate_images again for this image)'
 								: '';
-							failures.push( `FAILED ${ target.path }: ${ result.error }${ hint }` );
+							failures.push( `FAILED ${ named( target ) }: ${ result.error }${ hint }` );
 							return;
 						}
-						const file = attachments.get( target.resolvedPath )?.file ?? target.resolvedPath;
-						await host.files.write( file, result.bytes );
+						const file = fileOf( target );
+						if ( isPng( file ) ) {
+							await host.files.write( file, result.bytes );
+							return;
+						}
+						if ( ! forSite ) {
+							const error = 'it is in no Studio site whose WordPress could save it';
+							results[ index ] = { ok: false, error };
+							failures.push( `FAILED ${ named( target ) }: ${ error }` );
+							return;
+						}
+						const png = path.join( path.dirname( file ), `.${ path.basename( file ) }.png` );
+						await host.files.write( png, result.bytes );
+						conversions.push( { from: png, to: file } );
 					} )
 				);
+				if ( forSite && conversions.length ) {
+					const errors = await convertImages( host, forSite, conversions );
+					for ( const { to } of conversions ) {
+						if ( errors[ to ] === '' ) {
+							continue;
+						}
+						const index = targets.findIndex( ( target ) => fileOf( target ) === to );
+						const error = errors[ to ] ?? 'WordPress did not save it';
+						results[ index ] = { ok: false, error };
+						failures.push( `FAILED ${ named( targets[ index ] ) }: ${ error }` );
+					}
+				}
 				if ( site ) {
 					const ids = ( ok: boolean ) =>
 						libraryTargets
 							.filter( ( target ) => results[ targets.indexOf( target ) ].ok === ok )
 							.map( ( target ) => attachments.get( target.resolvedPath )!.id );
-					await evalWithData( host, site, FINALIZE_ATTACHMENTS, {
+					await wpEval( host, site, FINALIZE_ATTACHMENTS, {
 						ready: ids( true ),
 						failed: ids( false ),
 					} );
@@ -233,20 +312,22 @@ export const generateImagesTool = defineTool(
 					`Generating ${ targets.length } image${
 						targets.length === 1 ? '' : 's'
 					} in the background. Use them in the markup now:`,
-					...targets.map( ( target ) => {
-						const attachment = attachments.get( target.resolvedPath );
-						return attachment
-							? `- ${ attachment.file }, attachment ID ${ attachment.id }, URL ${ attachment.url }`
-							: `- ${ target.path }`;
-					} ),
+					...targets.map( ( target ) => `- ${ named( target ) }` ),
 				].join( '\n' )
 			),
 			pending: generation,
+			// As paths in the site, which its absolute paths contain too.
+			pendingFiles: targets
+				.map( fileOf )
+				.map( ( file ) =>
+					forSite ? path.relative( path.resolve( forSite.path ), file ) : file
+				),
+			pendingFolder: forSite?.path,
 		};
 	},
 	{
-		promptSnippet:
-			'Generate AI images (PNG) from text specs into a site: images under its wp-content/uploads/ are added to the media library, others (theme imagery) stay files. Batch all the images a page needs into one call. Load the `imagery` skill first for spec-writing rules and file placement.',
 		annotations: REMOTE_CHANGE,
+		forHost: ( options ): StudioToolDefinition | undefined =>
+			options.imageGeneration ? generateImagesTool : undefined,
 	}
 );

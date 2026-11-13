@@ -8,16 +8,23 @@
  * names, and permalink URL.
  *
  * Usage:
- *   studio wp eval-file export-posts.php
+ *   studio wp eval-file export-posts.php output=/path/to/posts.json
  *
- * Environment variables:
- *   TAXONOMIST_OUTPUT  Path for the output JSON file.
- *                      Default: /tmp/taxonomist-export.json
+ * Arguments:
+ *   output  Path for the output JSON file.
+ *           Default: /tmp/taxonomist-export.json
  *
  * @package Taxonomist
  */
 
-$output_file = getenv( 'TAXONOMIST_OUTPUT' ) ? getenv( 'TAXONOMIST_OUTPUT' ) : '/tmp/taxonomist-export.json';
+// WP-CLI passes the arguments after the file as `$args`: key=value pairs.
+$options = array();
+foreach ( $args as $arg ) {
+	list( $key, $value ) = array_pad( explode( '=', $arg, 2 ), 2, '' );
+	$options[ $key ]     = $value;
+}
+
+$output_file = isset( $options['output'] ) ? $options['output'] : '/tmp/taxonomist-export.json';
 
 // phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fopen
 // phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fwrite

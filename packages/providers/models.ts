@@ -1,5 +1,6 @@
 import { AI_PROVIDER_IDS, getProvider } from './registry';
 import type { ANTHROPIC_AI_MODELS } from './anthropic/descriptor';
+import type { CUSTOM_AI_MODELS } from './custom/descriptor';
 import type { GEMINI_AI_MODELS } from './gemini/descriptor';
 import type { GITHUB_COPILOT_AI_MODELS } from './github-copilot/descriptor';
 import type { OPENAI_AI_MODELS } from './openai/descriptor';
@@ -12,6 +13,7 @@ export type AiModelId = (
 	| typeof OPENAI_AI_MODELS
 	| typeof GEMINI_AI_MODELS
 	| typeof GITHUB_COPILOT_AI_MODELS
+	| typeof CUSTOM_AI_MODELS
 )[ number ][ 'id' ];
 
 /**

@@ -65,11 +65,11 @@ describe( 'createTurnStatsTracker', () => {
 		{
 			name: 'two skills, one loaded twice',
 			events: [
-				skillStart( { name: 'visual-design' } ),
-				skillStart( { name: 'block-content' } ),
-				skillStart( { name: 'visual-design' } ),
+				skillStart( { name: 'need-for-speed' } ),
+				skillStart( { name: 'rank-me-up' } ),
+				skillStart( { name: 'need-for-speed' } ),
 			],
-			expected: 'block-content,visual-design',
+			expected: 'need-for-speed,rank-me-up',
 		},
 		{
 			name: 'a name Studio ships no skill for',
@@ -175,6 +175,24 @@ describe( 'createTurnStatsTracker', () => {
 		expect( props.cache_write_tokens ).toBe( 10 );
 	} );
 
+	it( "adds what a tool call spent on a model of its own, as a subagent's turn", () => {
+		const subagent = {
+			...toolEnd( 'subagent' ),
+			result: {
+				content: [],
+				details: { usage: { input: 50, output: 7, cacheRead: 3, cacheWrite: 1, totalTokens: 61 } },
+			},
+		} as AgentSessionEvent;
+		const props = propsFor( [ assistantEnd( 100, 20 ), subagent ] );
+		expect( props.model_requests ).toBe( 1 );
+		expect( props ).toMatchObject( {
+			input_tokens: 150,
+			output_tokens: 27,
+			cache_read_tokens: 13,
+			cache_write_tokens: 6,
+		} );
+	} );
+
 	it( 'keeps counting across an attempt that will be retried', () => {
 		const tracker = createTurnStatsTracker();
 		tracker.handleEvent( assistantEnd( 100, 0 ) );
@@ -209,11 +227,15 @@ describe( 'createTurnStatsTracker', () => {
 
 	it( 'reports the site kind', () => {
 		const tracker = createTurnStatsTracker();
+		expect( tracker.getProps( { outcome: 'success', site: {}, hasTool } ).site_kind ).toBe(
+			'local'
+		);
 		expect(
-			tracker.getProps( { outcome: 'success', site: { remote: false }, hasTool } ).site_kind
-		).toBe( 'local' );
-		expect(
-			tracker.getProps( { outcome: 'success', site: { remote: true }, hasTool } ).site_kind
+			tracker.getProps( {
+				outcome: 'success',
+				site: { remote: { host: 'wpcom', id: 7 } },
+				hasTool,
+			} ).site_kind
 		).toBe( 'wpcom' );
 	} );
 
@@ -225,7 +247,7 @@ describe( 'createTurnStatsTracker', () => {
 		const props = tracker.getProps( {
 			outcome: 'error',
 			failure: new Error( 'Could not write /Users/me/Studio/acme-shop/wp-config.php' ),
-			site: { remote: false },
+			site: {},
 			hasTool,
 		} );
 		const serialized = JSON.stringify( Object.values( props ) );
@@ -238,9 +260,8 @@ describe( 'createTurnStatsTracker', () => {
 
 describe( 'getTurnSiteKind', () => {
 	it( 'distinguishes local, WordPress.com and no site', () => {
-		expect( getTurnSiteKind( { remote: false } ) ).toBe( 'local' );
 		expect( getTurnSiteKind( {} ) ).toBe( 'local' );
-		expect( getTurnSiteKind( { remote: true } ) ).toBe( 'wpcom' );
+		expect( getTurnSiteKind( { remote: { host: 'wpcom', id: 7 } } ) ).toBe( 'wpcom' );
 		expect( getTurnSiteKind( undefined ) ).toBe( 'none' );
 		expect( getTurnSiteKind( null ) ).toBe( 'none' );
 	} );

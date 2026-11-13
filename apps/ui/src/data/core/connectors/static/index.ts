@@ -6,7 +6,6 @@ import {
 	DEFAULT_HIDE_FRONTEND_ADMIN_BAR,
 } from '@studio/common/lib/user-settings/preferences';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
-import { fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
 import {
 	AGENT_INSTRUCTIONS_ENABLED_KEY,
 	AGENT_INSTRUCTIONS_KEY,
@@ -24,8 +23,6 @@ import {
 	loadBlueprintBundle,
 	loadPlaygroundClient,
 	loadSiteOrigin,
-	playgroundSiteFiles,
-	readActiveThemeSlug,
 	readGlobalStyles,
 	readWordPressVersion,
 	withSitePage,
@@ -198,21 +195,8 @@ export function createStaticConnector(): Connector {
 			}
 			return thumbnail;
 		},
-		async getSiteDesign( siteId ) {
-			const client = await sites.client( siteId );
-			return readSiteDesign(
-				playgroundSiteFiles( client ),
-				() => readActiveThemeSlug( client ),
-				() => readGlobalStyles( client )
-			);
-		},
-		async fixSiteDesignDrift( siteId, fixes ) {
-			const client = await sites.client( siteId );
-			return fixSiteDesign(
-				playgroundSiteFiles( client ),
-				() => readActiveThemeSlug( client ),
-				fixes
-			);
+		async getGlobalStyles( siteId ) {
+			return readGlobalStyles( await sites.client( siteId ) );
 		},
 		// Playground sites send no email Studio can save.
 		async getSiteEmails() {

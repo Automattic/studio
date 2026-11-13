@@ -7,7 +7,6 @@ describe( 'getSections', () => {
 		[ 'studio', 'skills' ],
 		[ 'site', 'php' ],
 		[ 'site', 'site-skills' ],
-		[ 'site', 'site-instructions' ],
 	] as const )( 'leaves out the %s section %s where sites are not native', ( scope, id ) => {
 		const ids = ( nativeSites: boolean ) =>
 			getSections( scope, { nativeSites } ).map( ( section ) => section.id );

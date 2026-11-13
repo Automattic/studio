@@ -1,0 +1,918 @@
+import { createHash } from 'crypto';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import os from 'os';
+import path from 'path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+	BlockValidationGate,
+	blockStylesOn,
+	isBlockMarkupFile,
+	validateBlockMarkupFile,
+} from '@studio/agent/node/block-validation-gate';
+import {
+	bindNavigationLinks,
+	insertedTemplates,
+	storePresetValues,
+	validateBlocks,
+	type BlockLoss,
+	type ValidationReport,
+} from '@studio/agent/node/block-validator';
+import { OpenProblems } from '@studio/agent/node/open-problems';
+
+vi.mock( '@studio/agent/node/block-validator', async () => {
+	const { blockNames, BLOCK_DELIMITER, dropCommentsBetweenBlocks } = await vi.importActual<
+		typeof import('@studio/agent/node/block-validator')
+	>( '@studio/agent/node/block-validator' );
+	return {
+		validateBlocks: vi.fn(),
+		storePresetValues: vi.fn( async ( content: string ) => ( {
+			content,
+			colors: [],
+			fontSizes: [],
+			spacingSizes: [],
+		} ) ),
+		bindNavigationLinks: vi.fn( async ( content: string ) => ( { content, links: [] } ) ),
+		insertedTemplates: vi.fn( async () => [] ),
+		blocksSavingElements: vi.fn( async () => [
+			{ element: 'div', blocks: Array.from( { length: 14 }, ( _, i ) => `core/b${ i + 10 }` ) },
+			{ element: 'details', blocks: [ 'core/details' ] },
+			{ element: 'summary', blocks: [] },
+		] ),
+		blockNames,
+		BLOCK_DELIMITER,
+		dropCommentsBetweenBlocks,
+	};
+} );
+
+let site: string;
+
+function write( relativePath: string, content: string ) {
+	const file = path.join( site, relativePath );
+	mkdirSync( path.dirname( file ), { recursive: true } );
+	writeFileSync( file, content );
+	return file;
+}
+
+function invalidWithFix( fixedContent: string, losses: BlockLoss[] = [] ): ValidationReport {
+	return {
+		totalBlocks: 1,
+		validBlocks: 0,
+		invalidBlocks: 1,
+		results: [
+			{
+				blockName: 'core/paragraph',
+				place: '/0',
+				isValid: false,
+				issues: [ 'mismatch' ],
+				originalContent: '',
+			},
+		],
+		proposedFix: {
+			fixedContent,
+			losses,
+			report: { totalBlocks: 1, validBlocks: 1, invalidBlocks: 0, results: [] },
+		},
+	};
+}
+
+beforeEach( () => {
+	site = mkdtempSync( path.join( os.tmpdir(), 'studio-gate-' ) );
+	vi.mocked( validateBlocks ).mockReset();
+} );
+
+afterEach( () => rmSync( site, { recursive: true, force: true } ) );
+
+describe( 'block markup files', () => {
+	it( 'covers theme templates and parts, and any file that opens with a block', () => {
+		expect( isBlockMarkupFile( '/s/wp-content/themes/t/parts/header.html' ) ).toBe( true );
+		expect( isBlockMarkupFile( '/s/wp-content/themes/t/templates/index.html' ) ).toBe( true );
+		const draft = write( 'wp-content/uploads/home.tmp.html', '\n<!-- wp:paragraph -->' );
+		expect( isBlockMarkupFile( draft ) ).toBe( true );
+		// Code that mentions a delimiter, as a block's built script does.
+		const script = write( 'build/index.js', 'save: () => "<!-- wp:paragraph -->"' );
+		expect( isBlockMarkupFile( script ) ).toBe( false );
+		expect( isBlockMarkupFile( write( 'tmp/page-home.html', '<p>Hi</p>' ) ) ).toBe( false );
+		expect( isBlockMarkupFile( '/s/missing.html' ) ).toBe( false );
+	} );
+
+	const HEADER = '<?php\n/**\n * Title: Cards\n */\n?>\n';
+	it.each( [
+		{ name: 'whose only PHP is its header', content: `${ HEADER }<!-- wp:paragraph -->`, is: true },
+		{
+			name: 'that holds PHP after its header',
+			content: `${ HEADER }<p><?php echo 1; ?></p>`,
+			is: false,
+		},
+		{ name: 'with no header', content: '<?php echo "<p>Hi</p>";', is: false },
+	] )( 'covers a theme pattern $name: $is', ( { content, is } ) => {
+		const pattern = write( 'wp-content/themes/t/patterns/cards.php', content );
+		expect( isBlockMarkupFile( pattern ) ).toBe( is );
+	} );
+} );
+
+describe( 'validating a file', () => {
+	const original = '<!-- wp:paragraph {"align":"center"} --><p>Hello</p><!-- /wp:paragraph -->';
+	const fixed =
+		'<!-- wp:paragraph {"align":"center"} -->\n<p class="has-text-align-center">Hello</p>\n<!-- /wp:paragraph -->';
+
+	it( 'returns a lossless editor fix without writing it', async () => {
+		const file = write( 'tmp/home.html', original );
+		vi.mocked( validateBlocks ).mockResolvedValue( invalidWithFix( fixed ) );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( result.problem ).toBeUndefined();
+		expect( result.summary ).toContain(
+			'1/1 blocks valid; saved through the block editor, which fixes 1 block(s)'
+		);
+		expect( result.fixedContent ).toBe( fixed );
+		expect( readFileSync( file, 'utf8' ) ).toBe( original );
+	} );
+
+	it( 'explains ignored attributes even when the editor fixes them without losing markup', async () => {
+		const diagnostic = '"htmlAnchor" is not an attribute of core/group, so WordPress ignores it.';
+		const report = invalidWithFix( fixed );
+		report.results[ 0 ].issues = [ diagnostic ];
+		report.results[ 0 ].attributeIssues = [ diagnostic ];
+		vi.mocked( validateBlocks ).mockResolvedValue( report );
+		const result = await validateBlockMarkupFile(
+			write( 'tmp/home.html', original ),
+			'http://localhost:8881'
+		);
+		// Its own sentence, after the one that names the save.
+		expect( result.summary ).toContain( `which fixes 1 block(s). ${ diagnostic }` );
+		expect( result.problem ).toBeUndefined();
+		expect( result.fixedContent ).toBe( fixed );
+	} );
+
+	it.each( [
+		[ 'wp-content/themes/t/templates/archive.html', 'site' ],
+		[ 'wp-content/themes/t/parts/header.html', 'site' ],
+		[ 'tmp/home.html', 'post' ],
+	] )( 'validates %s in the editor that edits it, the %s editor', async ( file, editor ) => {
+		vi.mocked( validateBlocks ).mockResolvedValue( invalidWithFix( fixed ) );
+		await validateBlockMarkupFile( write( file, original ), 'http://localhost:8881' );
+		expect( vi.mocked( validateBlocks ).mock.calls[ 0 ][ 2 ] ).toBe( editor );
+	} );
+
+	// A preset the site does not have renders nothing, as a slug made up after
+	// the site's own did, so the block shows the size it inherits.
+	it.each( [
+		{
+			name: 'a font size',
+			attrs: { fontSize: 'size-0-6875-rem' },
+			named: 'font size size-0-6875-rem',
+		},
+		{
+			name: 'a color in the style',
+			attrs: { style: { color: { text: 'var:preset|color|pine' } } },
+			named: 'color pine',
+		},
+		{ name: 'presets the site has', attrs: { fontSize: 'small', textColor: 'ink' } },
+		{
+			name: 'a color its own style sets',
+			attrs: { backgroundColor: '#31405f', style: { color: { background: '#31405f' } } },
+		},
+		{
+			name: 'a kind whose presets were not read',
+			attrs: { style: { spacing: { padding: { top: 'var:preset|spacing|90' } } } },
+		},
+	] )( 'names $name the site does not have', async ( { attrs, named } ) => {
+		vi.mocked( validateBlocks ).mockResolvedValue( {
+			totalBlocks: 1,
+			validBlocks: 1,
+			invalidBlocks: 0,
+			results: [],
+		} );
+		const result = await validateBlockMarkupFile(
+			write(
+				'wp-content/themes/t/parts/footer.html',
+				`<!-- wp:paragraph ${ JSON.stringify( attrs ) } -->\n<p>© 2025</p>\n<!-- /wp:paragraph -->`
+			),
+			'http://localhost:8881',
+			{
+				colors: [ [ 'ink', '#1c2a1e' ] ],
+				fontSizes: [ [ 'small', '0.9375rem' ] ],
+				spacingSizes: [],
+			}
+		);
+		if ( named ) {
+			expect( result.problem ).toContain( `line 1: core/paragraph ${ named }` );
+		} else {
+			expect( result.problem ).toBeUndefined();
+		}
+	} );
+
+	const GROUP = '<!-- wp:group {"layout":{"type":"constrained"}} -->\n<div class="wp-block-group">';
+	it.each< { name: string; content: string; problems: string[] } >( [
+		{
+			name: 'a block another closer closes',
+			content: `${ GROUP }<!-- wp:paragraph -->\n<p>One</p>\n<!-- wp:heading -->\n<h2 class="wp-block-heading">Two</h2>\n<!-- /wp:heading --></div>\n<!-- /wp:group -->`,
+			problems: [
+				'line 2: core/paragraph has no closer of its own, so the parser closes it at the core/group closer on line 7, and each block around it one closer later: the core/group opened on line 1 holds the rest of the content',
+			],
+		},
+		{
+			name: 'a block inside groups in a group',
+			content: `${ GROUP }${ GROUP }<!-- wp:paragraph -->\n<p>a</p></div>\n<!-- /wp:group --></div>\n<!-- /wp:group -->`,
+			problems: [
+				'line 3: core/paragraph has no closer of its own, so the parser closes it at the core/group closer on line 5, and each block around it one closer later: the core/group opened on line 1 holds the rest of the content',
+			],
+		},
+		{
+			name: 'a closer that names no open block',
+			content: `${ GROUP }<!-- wp:paragraph -->\n<p>a</p>\n<!-- /wp:heading --></div>\n<!-- /wp:group -->`,
+			problems: [
+				'line 2: core/paragraph has no closer of its own, so the parser closes it at the core/heading closer on line 4',
+			],
+		},
+		{
+			name: 'a block never closed',
+			content: '<!-- wp:paragraph -->\n<p>One</p>\n\n<!-- wp:my-plugin/card /-->',
+			problems: [
+				'line 1: core/paragraph is never closed, so the parser gives it the rest of the content',
+			],
+		},
+		{
+			name: 'a namespaced block another closer closes',
+			content:
+				'<!-- wp:columns -->\n<!-- wp:my-plugin/card {"a":"}"} -->\n<p>x</p>\n<!-- /wp:columns -->',
+			problems: [
+				'line 2: my-plugin/card has no closer of its own, so the parser closes it at the core/columns closer on line 4, and each block around it one closer later: the core/columns opened on line 1 holds the rest of the content',
+			],
+		},
+	] )(
+		'saves nothing for $name, and names where each block is closed',
+		async ( { content, problems } ) => {
+			const file = write( 'tmp/home.html', content );
+			const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+			expect( result.fixedContent ).toBeUndefined();
+			expect( result.summary ).toBe( `tmp/home.html: ${ problems.length } block(s) not closed` );
+			expect( result.problem?.split( '\n' ).slice( 1 ) ).toEqual(
+				problems.map( ( problem ) => `  - ${ problem }` )
+			);
+			expect( result.problem ).toContain( 'WP_Block_Parser::add_block_from_stack()' );
+			expect( validateBlocks ).not.toHaveBeenCalled();
+		}
+	);
+
+	// As written in eval runs: a nested style object a closing brace short.
+	it.each< { content: string; problem: string } >( [
+		{
+			content: `<!-- wp:group {"style":{"spacing":{"padding":{"top":"1rem"}}} -->\n<div class="wp-block-group" style="padding-top:1rem"></div>\n<!-- /wp:group -->`,
+			problem:
+				"line 1: core/group (Expected ',' or '}' after property value; 4 braces open, 3 close)",
+		},
+		{
+			content: `<!-- wp:columns {"style":{"spacing":{"blockGap":"1rem"}},"align":"wide" -->\n<div class="wp-block-columns alignwide"><!-- wp:column {"width":"50%"} -->\n<div class="wp-block-column"></div>\n<!-- /wp:column --></div>\n<!-- /wp:columns -->`,
+			problem:
+				"line 1: core/columns (Expected ',' or '}' after property value; 4 braces open, 3 close), and its comment runs on to the \"} -->\" on line 2, taking in the core/column comment there",
+		},
+	] )(
+		'saves nothing for a block comment whose attributes are not JSON: $problem',
+		async ( { content, problem } ) => {
+			const file = write( 'tmp/home.html', content );
+			const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+			expect( result.fixedContent ).toBeUndefined();
+			expect( result.summary ).toBe(
+				'tmp/home.html: 1 block comment(s) whose attributes are not JSON'
+			);
+			expect( result.problem?.split( '\n' ).slice( 1 ) ).toEqual( [ `  - ${ problem }` ] );
+			expect( validateBlocks ).not.toHaveBeenCalled();
+		}
+	);
+
+	it( 'validates blocks each closed by its own closer, void blocks and all', async () => {
+		const file = write(
+			'tmp/home.html',
+			`${ GROUP }<!-- wp:spacer {"height":"1px"} /-->\n<!-- wp:paragraph -->\n<p>a</p>\n<!-- /wp:paragraph --></div>\n<!-- /wp:group -->`
+		);
+		vi.mocked( validateBlocks ).mockResolvedValue( invalidWithFix( fixed ) );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( result.fixedContent ).toBe( fixed );
+		expect( validateBlocks ).toHaveBeenCalled();
+	} );
+
+	it( 'validates and fixes the blocks beside a core/html block the policy fails', async () => {
+		const html =
+			'<!-- wp:html -->\n<div class="faq"><details><summary>Hours?</summary><p>9 to 5.</p></details></div>\n<!-- /wp:html -->';
+		const file = write( 'tmp/home.html', `${ original }\n\n${ html }` );
+		vi.mocked( validateBlocks ).mockResolvedValue( invalidWithFix( `${ fixed }\n\n${ html }` ) );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( result.fixedContent ).toBe( `${ fixed }\n\n${ html }` );
+		expect( result.summary ).toMatch(
+			/1\/1 blocks valid; core\/html policy failed; saved through the block editor, which fixes 1 block\(s\)$/
+		);
+		expect( result.problem ).toBe(
+			[
+				`tmp/home.html: 1 core/html block(s) hold markup the editor shows as raw HTML, which convert_to_blocks saves as editable blocks:`,
+				'  - line 3: core/html contains markup that should use editable blocks. core/html is kept only for a single inline `<svg>` element, a single `<script>` element, or markup holding a `<marquee>` element, which no block saves; other elements, whatever their class names, are written as the blocks that save them.',
+				"The site's blocks whose save makes its elements, created with their defaults (createBlock() and getSaveContent() in @wordpress/blocks): <div> core/b10, core/b11, core/b12, core/b13, core/b14, core/b15, core/b16, core/b17, core/b18, core/b19, core/b20, core/b21, and 2 more; <details> core/details.",
+			].join( '\n' )
+		);
+	} );
+
+	it( 'states both a core/html block the policy fails and a block the editor cannot fix', async () => {
+		const file = write(
+			'tmp/home.html',
+			`${ original }\n\n<!-- wp:html --><div><p>Hi</p></div><!-- /wp:html -->`
+		);
+		vi.mocked( validateBlocks ).mockResolvedValue( {
+			totalBlocks: 2,
+			validBlocks: 1,
+			invalidBlocks: 1,
+			results: [
+				{
+					blockName: 'core/paragraph',
+					isValid: false,
+					issues: [ 'Expected token' ],
+					originalContent: original,
+				},
+			],
+		} );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( result.summary ).toBe( 'tmp/home.html: 1 invalid block(s); core/html policy failed' );
+		expect( result.problem ).toMatch(
+			/^tmp\/home\.html: 1 core\/html block\(s\) hold markup the editor shows as raw HTML, which convert_to_blocks saves as editable blocks:\n[\s\S]*\ntmp\/home\.html: 1 invalid block\(s\), which the block editor cannot fix:/
+		);
+	} );
+
+	it( "validates a pattern's markup and keeps its header in the fix", async () => {
+		const header = '<?php\n/**\n * Title: Hello\n */\n?>\n';
+		const file = write( 'wp-content/themes/t/patterns/hello.php', header + original );
+		vi.mocked( validateBlocks ).mockResolvedValue( invalidWithFix( fixed ) );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( validateBlocks ).toHaveBeenCalledWith(
+			original,
+			'http://localhost:8881',
+			'post',
+			undefined,
+			false
+		);
+		expect( result.fixedContent ).toBe( header + fixed );
+	} );
+
+	it.each( [
+		{
+			name: 'PHP beyond its header',
+			content: '<?php\n/**\n * Title: Hello\n */\n?>\n<p><?php echo 1; ?></p>',
+		},
+		{ name: 'no header', content: '<?php echo "<p>Hi</p>";' },
+	] )( 'does not validate a pattern with $name', async ( { content } ) => {
+		const file = write( 'wp-content/themes/t/patterns/hello.php', content );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( validateBlocks ).not.toHaveBeenCalled();
+		expect( result ).toEqual( {
+			contentHash: expect.any( String ),
+			summary: 'patterns/hello.php: not validated, as it holds PHP',
+		} );
+	} );
+
+	it( "returns the content with the palette's colors stored as presets", async () => {
+		const file = write( 'parts/hero.html', original );
+		vi.mocked( validateBlocks ).mockResolvedValue( {
+			totalBlocks: 1,
+			validBlocks: 1,
+			invalidBlocks: 0,
+			results: [],
+		} );
+		vi.mocked( storePresetValues ).mockResolvedValueOnce( {
+			content: fixed,
+			colors: [ { color: '#503AA8', slug: 'accent-3' } ],
+			fontSizes: [],
+			spacingSizes: [],
+		} );
+		const palette = {
+			colors: [ [ 'accent-3', '#503AA8' ] ] as Array< [ string, string ] >,
+			fontSizes: [],
+			spacingSizes: [],
+		};
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881', palette );
+		expect( storePresetValues ).toHaveBeenLastCalledWith(
+			original,
+			'http://localhost:8881',
+			palette,
+			'post'
+		);
+		expect( result.summary ).toBe(
+			"parts/hero.html: 1/1 blocks valid; saved through the block editor, which stores #503AA8 as the palette's accent-3, as the editor stores a palette color (encodeColorValueWithPalette in @wordpress/block-editor), so it follows the palette"
+		);
+		expect( result.fixedContent ).toBe( fixed );
+	} );
+
+	it( 'returns the content with its entity links bound, as the link picker binds them', async () => {
+		const file = write( 'parts/header.html', original );
+		vi.mocked( validateBlocks ).mockResolvedValue( {
+			totalBlocks: 1,
+			validBlocks: 1,
+			invalidBlocks: 0,
+			results: [],
+		} );
+		vi.mocked( bindNavigationLinks ).mockResolvedValueOnce( {
+			content: fixed,
+			links: [ 'About' ],
+		} );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( bindNavigationLinks ).toHaveBeenLastCalledWith(
+			original,
+			'http://localhost:8881',
+			'post'
+		);
+		expect( result.summary ).toContain( 'binds the url of the navigation link(s) "About"' );
+		expect( result.fixedContent ).toBe( fixed );
+	} );
+
+	it( 'returns the content with the comments between its blocks dropped', async () => {
+		const file = write( 'templates/page.html', `<!-- ===== HERO ===== -->\n${ original }` );
+		vi.mocked( validateBlocks ).mockResolvedValue( {
+			totalBlocks: 1,
+			validBlocks: 1,
+			invalidBlocks: 0,
+			results: [],
+		} );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( result.summary ).toContain(
+			'drops 1 HTML comment(s) between blocks, which the editor would turn into Classic blocks'
+		);
+		expect( result.fixedContent ).toBe( original );
+	} );
+
+	it( 'keeps the content as written when what the editor would store has more problems', async () => {
+		const file = write( 'templates/page.html', original );
+		const valid = { totalBlocks: 1, validBlocks: 1, invalidBlocks: 0, results: [] };
+		vi.mocked( validateBlocks )
+			.mockResolvedValueOnce( valid )
+			.mockResolvedValueOnce( { ...valid, validBlocks: 0, invalidBlocks: 1 } );
+		vi.mocked( storePresetValues ).mockResolvedValueOnce( {
+			content: fixed,
+			colors: [ { color: '#503AA8', slug: 'accent-3' } ],
+			fontSizes: [],
+			spacingSizes: [],
+		} );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( validateBlocks ).toHaveBeenLastCalledWith( fixed, 'http://localhost:8881', 'post' );
+		expect( result ).toEqual( {
+			contentHash: expect.any( String ),
+			summary: 'templates/page.html: 1/1 blocks valid',
+		} );
+	} );
+
+	it( 'saves the fix for the blocks that lose nothing, and names the blocks that would', async () => {
+		const file = write( 'tmp/home.html', `${ original }\n${ original }` );
+		const report = invalidWithFix( `${ fixed }\n${ original }`, [
+			{
+				place: '/1',
+				blockName: 'core/paragraph',
+				lost: 'drop the classes eyebrow',
+				note: 'drop the class eyebrow from p',
+			},
+		] );
+		report.invalidBlocks = 3;
+		report.results.push(
+			{ ...report.results[ 0 ], place: '/1', issues: [ 'second' ] },
+			// Inside the block kept as written, whose fix loses nothing: fixed in it.
+			{ ...report.results[ 0 ], blockName: 'core/heading', place: '/1/0', issues: [ 'nested' ] }
+		);
+		vi.mocked( validateBlocks ).mockResolvedValue( report );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( result.fixedContent ).toBe( `${ fixed }\n${ original }` );
+		expect( result.summary ).toBe(
+			'tmp/home.html: 1 invalid block(s); saved through the block editor, which fixes 2 block(s)'
+		);
+		expect( result.problem ).toContain(
+			'core/paragraph: saving it as the block saves it would drop the class eyebrow from p, as nothing in its comment attributes saves that.'
+		);
+		expect( result.problem ).not.toContain( 'second' );
+		expect( result.problem ).not.toContain( 'nested' );
+		expect( result.problem ).not.toContain( 'mismatch' );
+	} );
+
+	// eval29's ledes: a width no attribute of the paragraph saves.
+	describe( 'with a style written on blocks that no attribute saves', () => {
+		const lede = ( className = '' ) =>
+			`<!-- wp:paragraph${
+				className && ` {"className":"${ className }"}`
+			} -->\n<p class="${ className }" style="${
+				className ? '' : 'max-width:640px'
+			}">Three voices</p>\n<!-- /wp:paragraph -->`;
+		const styleFile = 'wp-content/themes/t/styles/blocks/max-width-640px.json';
+		const styleJson = ( blockTypes: string[], css = 'max-width:640px' ) =>
+			JSON.stringify(
+				{
+					$schema: 'https://schemas.wp.org/trunk/theme.json',
+					version: 3,
+					title: 'Max Width 640px',
+					slug: 'max-width-640px',
+					blockTypes,
+					styles: { css },
+				},
+				null,
+				'\t'
+			) + '\n';
+		// The validator's fix gives each block the style when asked to.
+		function styledReport( blockStyles: boolean, blockName = 'core/paragraph' ) {
+			const styled = lede( 'is-style-max-width-640px' );
+			const report = invalidWithFix(
+				blockStyles ? `${ styled }\n\n${ styled }` : `${ lede() }\n\n${ lede() }`,
+				blockStyles
+					? []
+					: [ '/0', '/1' ].map( ( place ) => ( {
+							place,
+							blockName,
+							lost: 'drop the styles max-width:640px',
+							note: 'drop max-width:640px from p',
+					  } ) )
+			);
+			report.invalidBlocks = 2;
+			report.results.push( { ...report.results[ 0 ], place: '/1' } );
+			if ( blockStyles ) {
+				report.proposedFix!.blockStyles = [ '/0', '/1' ].map( ( place ) => ( {
+					place,
+					blockName,
+					slug: 'max-width-640px',
+					css: 'max-width:640px',
+				} ) );
+			}
+			return report;
+		}
+		const validate = async ( themeFiles: string[], blockName?: string ) => {
+			themeFiles.forEach( ( file ) => write( `wp-content/themes/t/${ file }`, '' ) );
+			const file = write( 'wp-content/themes/t/templates/page.html', `${ lede() }\n\n${ lede() }` );
+			vi.mocked( validateBlocks ).mockImplementation( async ( ...args ) =>
+				styledReport( Boolean( args[ 4 ] ), blockName )
+			);
+			return validateBlockMarkupFile(
+				file,
+				'http://localhost:8881',
+				undefined,
+				undefined,
+				await blockStylesOn( site, 't' )
+			);
+		};
+		const note = ( file: string, blockTypes = 'core/paragraph' ) =>
+			`moves max-width:640px on ${ blockTypes } into the block style ${ file }, which WordPress registers for its "blockTypes" (WP_Theme_JSON_Resolver::get_style_variations() in wp-includes/class-wp-theme-json-resolver.php); a block takes the look as "className":"is-style-max-width-640px"`;
+
+		it( 'gives the blocks a block style in one file, which the block theme holds', async () => {
+			const result = await validate( [ 'templates/index.html' ] );
+			const file = path.join( site, styleFile );
+			expect( result.problem ).toBeUndefined();
+			expect( result.fixedContent ).toContain(
+				'<!-- wp:paragraph {"className":"is-style-max-width-640px"} -->'
+			);
+			expect( readFileSync( file, 'utf8' ) ).toBe( styleJson( [ 'core/paragraph' ] ) );
+			expect( result.summary ).toBe(
+				`templates/page.html: 1/1 blocks valid; saved through the block editor, which fixes 2 block(s) and ${ note(
+					file
+				) }`
+			);
+		} );
+
+		it( 'adds a block type to the block style of the same css', async () => {
+			write( styleFile, styleJson( [ 'core/heading' ] ) );
+			const result = await validate( [ 'templates/index.html' ] );
+			expect( result.problem ).toBeUndefined();
+			expect( readFileSync( path.join( site, styleFile ), 'utf8' ) ).toBe(
+				styleJson( [ 'core/heading', 'core/paragraph' ] )
+			);
+		} );
+
+		it.each( [
+			{ name: 'a theme that is no block theme', themeFiles: [ 'index.php' ], written: undefined },
+			{
+				name: 'a block style of the name that holds other css',
+				themeFiles: [ 'templates/index.html' ],
+				written: styleJson( [ 'core/paragraph' ], 'max-width:720px' ),
+			},
+		] )( 'keeps the blocks as written for $name', async ( { themeFiles, written } ) => {
+			if ( written ) {
+				write( styleFile, written );
+			}
+			const result = await validate( themeFiles );
+			expect( result.fixedContent ).toBeUndefined();
+			expect( result.problem ).toContain(
+				'core/paragraph: saving it as the block saves it would drop max-width:640px from p, as nothing in its comment attributes saves that.'
+			);
+			const file = path.join( site, styleFile );
+			expect( existsSync( file ) ? readFileSync( file, 'utf8' ) : undefined ).toBe( written );
+		} );
+	} );
+
+	it( 'saves nothing when the fix itself does not validate', async () => {
+		const file = write( 'tmp/home.html', original );
+		const report = invalidWithFix( fixed );
+		report.proposedFix!.report.invalidBlocks = 1;
+		vi.mocked( validateBlocks ).mockResolvedValue( report );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( result.fixedContent ).toBeUndefined();
+		expect( result.problem ).toContain( 'which the block editor cannot fix' );
+	} );
+
+	it( 'shows each mismatch and the HTML the block saves', async () => {
+		const file = write(
+			'tmp/home.html',
+			'<!-- wp:cover {"dimRatio":45} --><div class="wp-block-cover">x</div><!-- /wp:cover -->'
+		);
+		vi.mocked( validateBlocks ).mockResolvedValue( {
+			totalBlocks: 1,
+			validBlocks: 0,
+			invalidBlocks: 1,
+			results: [
+				{
+					blockName: 'core/cover',
+					isValid: false,
+					issues: [ 'Expected attribute `class` of value `a`, saw `b`.' ],
+					originalContent: '<div class="wp-block-cover">x</div>',
+					expectedContent: '<div class="wp-block-cover has-background-dim-50">x</div>',
+				},
+			],
+		} );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( result.problem ).toContain(
+			'core/cover: Expected attribute `class` of value `a`, saw `b`.'
+		);
+		expect( result.problem ).toContain(
+			'the block saves: <div class="wp-block-cover has-background-dim-50">x</div>'
+		);
+	} );
+
+	const form = {
+		name: 'jetpack/contact-form',
+		markup:
+			'<!-- wp:jetpack/contact-form -->\n<div class="wp-block-jetpack-contact-form"></div>\n<!-- /wp:jetpack/contact-form -->',
+	};
+	const insertsForm = `What the site's block editor inserts for jetpack/contact-form, from its default inserter variation (createBlock in @wordpress/blocks), to write it from:\n${ form.markup }`;
+
+	it( 'validates in the editor beside a core/html block the policy fails, with what the editor inserts for the block it names', async () => {
+		const file = write(
+			'tmp/home.html',
+			'<!-- wp:html --><form><input /></form><!-- /wp:html -->'
+		);
+		vi.mocked( insertedTemplates ).mockResolvedValueOnce( [ form ] );
+		vi.mocked( validateBlocks ).mockResolvedValue( {
+			totalBlocks: 1,
+			validBlocks: 1,
+			invalidBlocks: 0,
+			results: [],
+		} );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( result.summary ).toBe( 'tmp/home.html: 1/1 blocks valid; core/html policy failed' );
+		expect( result.problem ).toContain( 'core/html contains form markup' );
+		expect( result.problem!.endsWith( insertsForm ) ).toBe( true );
+		expect( insertedTemplates ).toHaveBeenLastCalledWith(
+			[ 'jetpack/contact-form' ],
+			'http://localhost:8881'
+		);
+		expect( validateBlocks ).toHaveBeenCalled();
+	} );
+
+	it( 'shows what the editor inserts for the blocks an unfixable block holds', async () => {
+		const written =
+			'<div class="wp-block-group"><!-- wp:jetpack/contact-form --><!-- wp:jetpack/field-name /--><!-- /wp:jetpack/contact-form --></div>';
+		const file = write( 'tmp/home.html', `<!-- wp:group -->${ written }<!-- /wp:group -->` );
+		vi.mocked( validateBlocks ).mockResolvedValue( {
+			totalBlocks: 2,
+			validBlocks: 1,
+			invalidBlocks: 1,
+			results: [
+				{
+					blockName: 'core/paragraph',
+					isValid: true,
+					issues: [],
+					originalContent: '<!-- wp:paragraph -->',
+				},
+				{
+					blockName: 'core/group',
+					isValid: false,
+					issues: [ 'Expected token' ],
+					originalContent: written,
+				},
+			],
+		} );
+		vi.mocked( insertedTemplates ).mockResolvedValueOnce( [ form ] );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( insertedTemplates ).toHaveBeenLastCalledWith(
+			[ 'jetpack/contact-form', 'jetpack/field-name' ],
+			'http://localhost:8881'
+		);
+		expect( result.problem ).toContain( 'which the block editor cannot fix' );
+		expect( result.problem!.endsWith( insertsForm ) ).toBe( true );
+	} );
+
+	it( 'reports an unfixable block when the editor cannot say what it inserts', async () => {
+		const file = write( 'tmp/home.html', original );
+		const report = invalidWithFix( fixed );
+		report.proposedFix!.report.invalidBlocks = 1;
+		vi.mocked( validateBlocks ).mockResolvedValue( report );
+		vi.mocked( insertedTemplates ).mockRejectedValueOnce( new Error( 'editor closed' ) );
+		const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+		expect( result.problem ).toContain( 'which the block editor cannot fix' );
+		expect( result.problem ).not.toContain( 'inserts' );
+	} );
+} );
+
+describe( 'the gate', () => {
+	const ok = ( summary: string, content: string ) => ( {
+		contentHash: createHash( 'sha1' ).update( content ).digest( 'hex' ),
+		summary,
+	} );
+
+	it( 'reports each validated file once, and revalidates a file that changed', async () => {
+		const file = write( 'wp-content/themes/t/templates/home.html', 'v1' );
+		const validateFile = vi.fn( async ( filePath: string ) =>
+			ok( `validated ${ readFileSync( filePath, 'utf8' ) }`, readFileSync( filePath, 'utf8' ) )
+		);
+		const gate = new BlockValidationGate( validateFile );
+		gate.track( file, site );
+		writeFileSync( file, 'v2' );
+		expect( ( await gate.settle() ).summaries ).toEqual( [ 'validated v2' ] );
+		expect( ( await gate.settle() ).summaries ).toEqual( [] );
+	} );
+
+	// eval22 redo port 1: the 8 invalid Jetpack fields of page 8, raised when the
+	// turn ended, which convert_to_blocks then left invalid.
+	it( 'raises a problem again once a change to its file leaves it open, and not before', async () => {
+		const file = write( 'wp-content/themes/t/templates/page-book.html', 'fields as written' );
+		const problem = 'page 8: 8 block(s) do not match what the block saves';
+		const open = new OpenProblems( [] );
+		const gate = new BlockValidationGate( async ( filePath ) => {
+			const content = readFileSync( filePath, 'utf8' );
+			return { ...ok( 'page 8: 8 invalid block(s)', content ), problem };
+		}, open );
+		gate.track( file, site );
+		await gate.settle();
+		expect( await open.raise() ).toEqual( [ problem ] );
+		await gate.settle();
+		expect( await open.raise() ).toEqual( [] );
+		writeFileSync( file, 'fields as converted' );
+		await gate.settle();
+		await gate.settle();
+		expect( await open.raise() ).toEqual( [ problem ] );
+		expect( await open.raise() ).toEqual( [] );
+	} );
+
+	it( "leaves another agent's files for that agent's settle", async () => {
+		const mine = write( 'wp-content/themes/t/templates/home.html', 'home' );
+		const theirs = write( 'wp-content/themes/t/templates/page.html', 'page' );
+		const gate = new BlockValidationGate( async ( filePath ) =>
+			ok( `validated ${ readFileSync( filePath, 'utf8' ) }`, readFileSync( filePath, 'utf8' ) )
+		);
+		gate.track( mine, site );
+		gate.track( theirs, site );
+		expect( ( await gate.settle( { mine: ( file ) => file === mine } ) ).summaries ).toEqual( [
+			'validated home',
+		] );
+		expect( ( await gate.settle() ).summaries ).toEqual( [ 'validated page' ] );
+	} );
+
+	it( 'reports, without waiting, only the validations of current content that have come', async () => {
+		const done = write( 'wp-content/themes/t/templates/home.html', 'home' );
+		const writing = write( 'wp-content/themes/t/parts/header.html', 'header' );
+		const changed = write( 'wp-content/themes/t/parts/footer.html', 'footer' );
+		const slow = write( 'wp-content/themes/t/templates/page.html', 'page' );
+		let finish: () => void = () => {};
+		const gate = new BlockValidationGate( async ( filePath ) => {
+			const content = readFileSync( filePath, 'utf8' );
+			if ( content === 'page' ) {
+				await new Promise< void >( ( resolve ) => ( finish = resolve ) );
+			}
+			return ok( `validated ${ content }`, content );
+		} );
+		for ( const file of [ done, writing, changed, slow ] ) {
+			gate.track( file, site );
+		}
+		await new Promise( ( resolve ) => setTimeout( resolve, 10 ) );
+		writeFileSync( changed, 'footer v2' );
+		expect( ( await gate.settle( { ready: true, except: writing } ) ).summaries ).toEqual( [
+			'validated home',
+		] );
+		finish();
+		expect( ( await gate.settle() ).summaries ).toEqual( [
+			'validated header',
+			'validated footer v2',
+			'validated page',
+		] );
+	} );
+
+	it( 'saves a lossless fix once settled, never over a write made while it validated', async () => {
+		const file = write( 'wp-content/themes/t/templates/home.html', 'v1' );
+		let finish: () => void = () => {};
+		const validateFile = vi.fn( async ( filePath: string ) => {
+			const content = readFileSync( filePath, 'utf8' );
+			if ( content === 'v1' ) {
+				await new Promise< void >( ( resolve ) => ( finish = resolve ) );
+			}
+			return { ...ok( `validated ${ content }`, content ), fixedContent: `${ content } fixed` };
+		} );
+		const gate = new BlockValidationGate( validateFile );
+		gate.track( file, site );
+		writeFileSync( file, 'v2' );
+		finish();
+		expect( ( await gate.settle() ).summaries ).toEqual( [
+			`validated v2\nStudio changed ${ file } after the write; every other line reads as written.\nLines 1-1 now read:\n~~~\nv2 fixed\n~~~`,
+		] );
+		expect( readFileSync( file, 'utf8' ) ).toBe( 'v2 fixed' );
+		expect( ( await gate.settle() ).summaries ).toEqual( [] );
+	} );
+
+	it( 'keeps a file open while its latest validation has a problem', async () => {
+		const file = write( 'wp-content/themes/t/templates/home.html', 'bad' );
+		const open = new OpenProblems( [] );
+		const gate = new BlockValidationGate( async ( filePath ) => {
+			const content = readFileSync( filePath, 'utf8' );
+			return {
+				...ok( content, content ),
+				problem: content === 'bad' ? 'home.html is invalid' : undefined,
+			};
+		}, open );
+		gate.track( file, site );
+		await gate.settle();
+		writeFileSync( file, 'good' );
+		gate.track( file, site );
+		await gate.settle();
+		expect( await open.raise() ).toEqual( [] );
+		writeFileSync( file, 'bad' );
+		gate.track( file, site );
+		await gate.settle();
+		expect( await open.raise() ).toEqual( [ 'home.html is invalid' ] );
+	} );
+
+	// eval31 pileon port 4: parts/footer.html's sudsy/newsletter, registered in
+	// PHP only, stayed open after functions.php gave it "autoRegister".
+	describe( 'once the code the site registers its blocks from changes', () => {
+		const setup = ( files: Record< string, string > ) => {
+			let code = 'v1';
+			const open = new OpenProblems( [] );
+			// The editor registers the site's block once the code is v2.
+			const validateFile = vi.fn( async ( filePath: string ) => {
+				const content = readFileSync( filePath, 'utf8' );
+				const invalid = content.includes( 'sudsy/' ) && code === 'v1';
+				return {
+					...ok( `${ path.basename( filePath ) } ${ invalid ? 'invalid' : 'valid' }`, content ),
+					...( invalid && {
+						problem: `${ path.basename( filePath ) }: sudsy/newsletter unsupported`,
+					} ),
+				};
+			} );
+			const gate = new BlockValidationGate( validateFile, open, () => code );
+			const paths = Object.entries( files ).map( ( [ name, content ] ) =>
+				write( `wp-content/themes/t/parts/${ name }`, content )
+			);
+			paths.forEach( ( file ) => gate.track( file, site ) );
+			return { gate, open, validateFile, paths, change: () => ( code = 'v2' ) };
+		};
+
+		it( "validates again a file with a site's block, and clears its problem", async () => {
+			const { gate, open, change } = setup( { 'footer.html': '<!-- wp:sudsy/newsletter /-->' } );
+			expect( await gate.settle() ).toMatchObject( {
+				summaries: [ 'footer.html invalid' ],
+				problems: [ 'footer.html: sudsy/newsletter unsupported' ],
+			} );
+			expect( await open.raise() ).toEqual( [ 'footer.html: sudsy/newsletter unsupported' ] );
+			change();
+			expect( await gate.settle() ).toEqual( {
+				summaries: [ 'footer.html valid' ],
+				problems: [],
+				saved: [],
+			} );
+			expect( await open.raise() ).toEqual( [] );
+			expect( open.remind() ).toEqual( [] );
+		} );
+
+		it( 'keeps the validation of a file of core blocks with no problem', async () => {
+			const { gate, validateFile, change } = setup( {
+				'header.html': '<!-- wp:site-title /-->',
+			} );
+			await gate.settle();
+			change();
+			expect( ( await gate.settle() ).summaries ).toEqual( [] );
+			expect( validateFile ).toHaveBeenCalledTimes( 1 );
+		} );
+
+		it( 'starts validating again on a call that does not wait, and reports it once come', async () => {
+			const { gate, change } = setup( { 'footer.html': '<!-- wp:sudsy/newsletter /-->' } );
+			await gate.settle();
+			change();
+			expect( ( await gate.settle( { ready: true } ) ).summaries ).toEqual( [] );
+			await new Promise( ( resolve ) => setTimeout( resolve, 10 ) );
+			expect( ( await gate.settle( { ready: true } ) ).summaries ).toEqual( [
+				'footer.html valid',
+			] );
+		} );
+	} );
+
+	it( 'reports a file it could not validate', async () => {
+		const gate = new BlockValidationGate( async () => {
+			throw new Error( 'the site is not running' );
+		} );
+		gate.track( write( 'wp-content/themes/t/parts/header.html', 'x' ), site );
+		expect( ( await gate.settle() ).summaries ).toEqual( [
+			'parts/header.html: not validated (the site is not running)',
+		] );
+		expect( ( await gate.settle() ).summaries ).toEqual( [] );
+	} );
+
+	it( 'ignores files that are not block markup', async () => {
+		const validateFile = vi.fn();
+		const gate = new BlockValidationGate( validateFile );
+		gate.track( write( 'wp-content/themes/t/style.css', '' ), site );
+		expect( validateFile ).not.toHaveBeenCalled();
+	} );
+} );

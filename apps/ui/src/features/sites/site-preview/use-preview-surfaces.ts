@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { siteDesignQueryKey } from '@/data/queries/use-site-design';
+import { globalStylesQueryKey } from '@/data/queries/use-global-styles';
 import { siteEmailsQueryKey } from '@/data/queries/use-site-emails';
 import { getPathFromPreviewUrl, getPreviewRealm } from './address-bar';
 import { EMPTY_BROWSER_STATE, type BrowserCommand } from './browser-state';
@@ -81,7 +81,7 @@ export function usePreviewSurfaces( {
 				if ( type === 'reload' ) {
 					void queryClient.invalidateQueries( {
 						queryKey:
-							key === 'design' ? siteDesignQueryKey( siteId ) : siteEmailsQueryKey( siteId ),
+							key === 'design' ? globalStylesQueryKey( siteId ) : siteEmailsQueryKey( siteId ),
 					} );
 				}
 				return;

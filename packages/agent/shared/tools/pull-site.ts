@@ -1,7 +1,7 @@
 import { getProvider, getProviderSites, parseRemoteSite } from '@studio/providers';
 import { Type } from 'typebox';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
-import { textResult } from './utils';
+import { failsAs, textResult } from './utils';
 
 export const pullSiteTool = defineTool(
 	'site_pull',
@@ -9,7 +9,7 @@ export const pullSiteTool = defineTool(
 		'Copies the remote site into the local one, which can take several minutes ' +
 		'depending on site size. ' +
 		'Make sure a local site exists first (create one with site_create if needed); a running local site is stopped during the pull and restarted afterward. ' +
-		'Never call it without explicit user confirmation: it overwrites the local site.',
+		'Studio asks the user to confirm before the pull overwrites the local site.',
 	{
 		nameOrPath: Type.String( { description: 'The local site name or file system path' } ),
 		remoteSite: Type.String( {
@@ -23,8 +23,8 @@ export const pullSiteTool = defineTool(
 			} )
 		),
 	},
-	async ( args, context ) => {
-		try {
+	( args, context ) =>
+		failsAs( 'Failed to pull site', async () => {
 			const { provider, identifier } = parseRemoteSite( args.remoteSite );
 			if ( ! getProviderSites( provider ).pull ) {
 				throw new Error(
@@ -43,15 +43,6 @@ export const pullSiteTool = defineTool(
 					? `Pulled ${ remoteSite.name } (${ remoteSite.url }) into "${ site.name }".`
 					: 'Pull cancelled.'
 			);
-		} catch ( error ) {
-			throw new Error(
-				`Failed to pull site: ${ error instanceof Error ? error.message : String( error ) }`
-			);
-		}
-	},
-	{
-		promptSnippet:
-			'Pull a WordPress.com site to a local site. Requires authentication. Specify the remote site URL or ID and sync options.',
-		annotations: REMOTE_OVERWRITE,
-	}
+		} ),
+	{ annotations: REMOTE_OVERWRITE }
 );

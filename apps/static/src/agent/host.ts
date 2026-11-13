@@ -1,5 +1,6 @@
 import { readBlobAsDataUrl } from '@studio/agent/protocol/composer-attachments';
 import { fromBase64 } from '@studio/agent/shared/base64';
+import { wpcomApproval, WPCOM_HOST } from '@studio/agent/shared/remote-hosts';
 import { escapeRegex } from '@studio/common/lib/escape-regex';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
@@ -20,6 +21,8 @@ import type {
 	HostPages,
 	HostPath,
 	HostSite,
+	HostSiteListing,
+	RemoteHost,
 	StudioAgentHost,
 } from '@studio/agent/browser';
 import type { PlaygroundClient } from '@wp-playground/client';
@@ -401,6 +404,44 @@ echo implode( "\\n", $found );`,
 		return remote;
 	}
 
+	// The user's WordPress.com sites that `read` lists, once they are logged in.
+	async function wpcomListing(
+		read: () => Promise< HostSiteListing[ 'sites' ] >
+	): Promise< HostSiteListing > {
+		if ( ! ( await auth.token() ) ) {
+			return { signedIn: false, sites: [] };
+		}
+		try {
+			return { signedIn: true, sites: await read() };
+		} catch ( error ) {
+			return {
+				signedIn: true,
+				sites: [],
+				error: error instanceof Error ? error.message : String( error ),
+			};
+		}
+	}
+
+	const wpcomHost: RemoteHost = {
+		...WPCOM_HOST,
+		sites: {
+			listKey: 'wordpressCom',
+			list: () => wpcomListing( () => wpcom.fetchSyncableSites() ),
+			// WordPress.com's own server states what a site's plan and the user's role allow.
+			facts: async () => [],
+		},
+		mcpServer: async () => {
+			const token = ( await auth.token() )?.accessToken;
+			return token
+				? {
+						url: 'https://public-api.wordpress.com/wpcom/v2/mcp/v2',
+						headers: { Authorization: `Bearer ${ token }` },
+						approval: wpcomApproval,
+				  }
+				: undefined;
+		},
+	};
+
 	async function snapshotsOf( site: HostSite ) {
 		return ( await wpcom.getSnapshots() ).filter(
 			( snapshot ) => snapshot.localSiteId === site.id
@@ -500,6 +541,7 @@ echo implode( "\\n", $found );`,
 			},
 			delete: ( hostname ) => wpcom.deleteSnapshot( normalizeHostname( hostname ) ),
 		},
+		remoteHosts: { wpcom: wpcomHost },
 		sync: {
 			connectedSites: async ( site ) =>
 				( await auth.token() )
@@ -525,25 +567,6 @@ echo implode( "\\n", $found );`,
 			return token
 				? ( requests, onResult ) => generateImages( { token }, requests, onResult )
 				: undefined;
-		},
-		wpcom: {
-			token: async () => ( await auth.token() )?.accessToken,
-			sites: () => wpcom.fetchSyncableSites(),
-			request: async ( method, requestPath, query, body ) => {
-				const { apiNamespace, ...params } = query;
-				const search = new URLSearchParams(
-					Object.entries( params ).map( ( [ key, value ] ) => [
-						key,
-						typeof value === 'string' ? value : JSON.stringify( value ),
-					] )
-				).toString();
-				const base = apiNamespace ? `/${ String( apiNamespace ) }` : '/rest/v1.1';
-				return auth.request( `${ base }${ requestPath }${ search ? `?${ search }` : '' }`, {
-					method,
-					...( body ? { body: JSON.stringify( body ) } : {} ),
-				} );
-			},
-			payloadsDirectory: '/payloads',
 		},
 		tracks: { record: async () => {} },
 		path,

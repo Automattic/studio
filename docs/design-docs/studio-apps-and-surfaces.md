@@ -17,7 +17,7 @@ This doc is the map of that structure. It does not replace the per-feature docs 
 | **Desktop** | `apps/studio` | Electron (main/preload/renderer) | `apps/ui` | `@studio/common` in-process + forks the CLI | End users on macOS/Windows/Linux |
 | **CLI** | `apps/cli` | Node (via Electron's `ELECTRON_RUN_AS_NODE`, or standalone npm) | none (terminal) | Native PHP site servers | Power users, scripts, and the other surfaces |
 | **Local web** (`studio ui`) | `apps/local` + `apps/ui` | Node (Express + SSE), bundled into the CLI | `apps/ui` (`dist-local`) in the browser | `@studio/common` in-process + forks the CLI | Users who want the agentic UI in a browser, on their own machine |
-| **External agents** (`studio mcp`) | `apps/cli` + `apps/mcp-ui` | The CLI, started by an agent app over stdio | The agent app's chat, plus MCP Apps pages (`apps/mcp-ui`, the design picker) | The CLI in-process | Users of Codex, ChatGPT, Claude and other agents |
+| **External agents** (`studio mcp`) | `apps/cli` + `apps/mcp-ui` | The CLI, started by an agent app over stdio | The agent app's chat, plus MCP Apps pages (`apps/mcp-ui`) | The CLI in-process | Users of Codex, ChatGPT, Claude and other agents |
 
 Two of these surfaces run **on the user's machine and own real local WordPress sites** (desktop and local web). One is a pure **execution engine** that the others delegate to (CLI). The last runs on the user's machine too, but **inside someone else's agent app**: Studio provides tools and pages, not the app (external agents).
 
@@ -96,7 +96,7 @@ The `studio` command (see [cli.md](./cli.md)). A Node app bundled with Vite, run
 
 `studio mcp` is an MCP server that agent apps (Codex and ChatGPT, Claude, and others) start over stdio. The agent's own model drives Studio's tools, and loads Studio's instructions and runbooks on demand (`studio_instructions`); the tools run in the CLI process, as they do for Studio Code. What the server offers depends on the client, known once it connects (`apps/cli/ai/runtimes/mcp`).
 
-Agent apps that render [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) also show Studio pages: the design picker under `present_design_options`, and the WordPress library (`apps/mcp-ui`), which OpenAI's apps open from their sidebar once the Studio plugin is installed. Each page:
+Agent apps that render [MCP Apps](https://github.com/modelcontextprotocol/ext-apps) also show Studio pages: the WordPress library (`apps/mcp-ui`), which OpenAI's apps open from their sidebar once the Studio plugin is installed. Each page:
 
 - is one self-contained HTML document, served as a `ui://` resource whose URI carries a hash of its content, since hosts cache pages by URI;
 - talks to the host over JSON-RPC on `postMessage`, and calls the server's tools through it, some of them visible to the page only;

@@ -60,14 +60,7 @@ function setup( {
 					...( providerConnection === 'anthropic' ? [ 'anthropic' as const ] : [] ),
 				] ),
 			getRemoteSites: async () => connections ?? [],
-			getSiteDesign: async () =>
-				designAvailable
-					? {
-							design:
-								'---\ncolors:\n  primary: "#c2552b"\n  background: "#ffffff"\ntypography:\n  body:\n    fontFamily: "Inter"\n---',
-							themeJson: {},
-					  }
-					: null,
+			getGlobalStyles: async () => ( designAvailable ? { settings: {}, styles: {} } : null ),
 		}
 	);
 	const site = busy

@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { getSharedBrowser } from '@studio/agent/node/browser-utils';
+import { getSharedBrowser, openSharedPage } from '@studio/agent/node/browser-utils';
 import { annotateInBrowser } from '@studio/agent/node/inspector/inspector-inject';
 import type {
 	HostFiles,
@@ -63,10 +63,45 @@ const nodeFiles: HostFiles = {
 const PAGE_LOAD_TIMEOUT_MS = 30_000;
 const PAGE_SETTLE_TIMEOUT_MS = 2500;
 
+type Page = Awaited< ReturnType< typeof openSharedPage > >;
+
+// The requests a page has open, from before it navigates: what it loads
+// without them is all it loads, where waiting for 500ms of no network
+// activity ('networkidle') adds that half second to every page.
+function trackRequests( page: Page ): () => number {
+	const open = new Set< unknown >();
+	const done = ( request: unknown ) => open.delete( request );
+	page.on( 'request', ( request ) => open.add( request ) );
+	page.on( 'requestfinished', done );
+	page.on( 'requestfailed', done );
+	return () => open.size;
+}
+
+// Settled once no request the page made is open across a paint: what it
+// loads, and what its scripts fetch as it loads.
+async function waitForPageToSettle( page: Page, openRequests: () => number ): Promise< void > {
+	const end = Date.now() + PAGE_SETTLE_TIMEOUT_MS;
+	const paint = () =>
+		page
+			.evaluate(
+				() =>
+					new Promise< void >( ( resolve ) =>
+						requestAnimationFrame( () => requestAnimationFrame( () => resolve() ) )
+					)
+			)
+			.catch( () => {} );
+	await paint();
+	while ( openRequests() > 0 && Date.now() < end ) {
+		await new Promise( ( resolve ) => setTimeout( resolve, 50 ) );
+		if ( openRequests() === 0 ) {
+			await paint();
+		}
+	}
+}
+
 const playwrightPages: HostPages = {
 	async open( target, options = {} ) {
-		const browser = await getSharedBrowser();
-		const page = await browser.newPage( {
+		const page = await openSharedPage( {
 			viewport: options.viewport,
 			deviceScaleFactor: options.deviceScaleFactor,
 			ignoreHTTPSErrors: true,
@@ -85,6 +120,7 @@ const playwrightPages: HostPages = {
 					...( options.colorScheme ? { colorScheme: options.colorScheme } : {} ),
 				} );
 			}
+			const openRequests = trackRequests( page );
 			if ( options.initScript ) {
 				await page.addInitScript( options.initScript );
 			}
@@ -115,9 +151,7 @@ const playwrightPages: HostPages = {
 							timeout: PAGE_LOAD_TIMEOUT_MS,
 					  } );
 			if ( options.waitUntil !== 'networkidle' ) {
-				await page
-					.waitForLoadState( 'networkidle', { timeout: PAGE_SETTLE_TIMEOUT_MS } )
-					.catch( () => {} );
+				await waitForPageToSettle( page, openRequests );
 			}
 			const status = response?.status() ?? 0;
 			const hostPage: HostPage = {
@@ -142,8 +176,12 @@ const playwrightPages: HostPages = {
 							...( clip ? { clip } : {} ),
 						} )
 					),
+				viewportSize: () => page.viewportSize(),
+				setViewportSize: ( size ) => page.setViewportSize( size ),
 				url: () => page.url(),
 				status: () => status,
+				html: async () =>
+					'html' in target ? undefined : response?.text().catch( () => undefined ),
 				isClosed: () => page.isClosed(),
 				close,
 			} as HostPage;

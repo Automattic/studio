@@ -1,7 +1,7 @@
 import { REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
 import { Type } from 'typebox';
-import { defineTool, REMOTE_CHANGE } from './define-tool';
-import { textResult } from './utils';
+import { defineTool, REMOTE_CHANGE, type StudioToolDefinition } from './define-tool';
+import { failsAs, textResult } from './utils';
 
 export const sendFeedbackTool = defineTool(
 	'send_feedback',
@@ -25,20 +25,18 @@ export const sendFeedbackTool = defineTool(
 		if ( ! args.message.trim() ) {
 			throw new Error( 'Submitting feedback needs a message.' );
 		}
-		if ( ! host.sendFeedback ) {
+		const send = host.sendFeedback;
+		if ( ! send ) {
 			throw new Error( `Feedback can't be sent from here. Share it at ${ REPORT_ISSUE_URL }.` );
 		}
-		try {
-			const { feedbackId } = await host.sendFeedback( { type: args.type, message: args.message } );
-			return textResult( `Feedback sent. Feedback ID: ${ feedbackId }.` );
-		} catch ( error ) {
-			throw new Error(
-				`Failed to send feedback: ${ error instanceof Error ? error.message : String( error ) }`
-			);
-		}
+		const { feedbackId } = await failsAs( 'Failed to send feedback', () =>
+			send( { type: args.type, message: args.message } )
+		);
+		return textResult( `Feedback sent. Feedback ID: ${ feedbackId }.` );
 	},
 	{
-		promptSnippet: 'Send the user’s feedback about WordPress Studio to the WordPress Studio team.',
 		annotations: REMOTE_CHANGE,
+		forHost: ( _options, host ): StudioToolDefinition | undefined =>
+			host.sendFeedback ? sendFeedbackTool : undefined,
 	}
 );

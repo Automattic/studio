@@ -1,0 +1,1108 @@
+/**
+ * Block validation as a gate the harness runs, not a tool the model must
+ * remember to call.
+ *
+ * Writing block markup (a theme template or part, or any file that opens with a
+ * block, as a page draft does wherever it is written) queues that file. Validation starts in the background at once,
+ * and what puts content on the site or renders it (a shell command, which
+ * runs WP-CLI, or take_screenshot) waits for it first. A fix the block editor
+ * can make losslessly is applied to the file silently, once validation has
+ * settled and only while the file still holds the content validated, so an
+ * edit made meanwhile is never overwritten; the model hears only about what it
+ * has to change itself.
+ */
+import { readFileSync } from 'fs';
+import { readFile, writeFile } from 'fs/promises';
+import path from 'path';
+import { lastBlockCode } from '@studio/agent/node/block-code';
+import { saveBlockStyles, takesBlockStyles } from '@studio/agent/node/block-style-move';
+import {
+	bindNavigationLinks,
+	blocksSavingElements,
+	blockNames,
+	insertedTemplates,
+	storePresetValues,
+	BLOCK_DELIMITER,
+	dropCommentsBetweenBlocks,
+	validateBlocks,
+	type BlockEditor,
+	type BlockLoss,
+	type BlockStyle,
+	type PresetValues,
+	type PresetValuesResult,
+	type RendersAlike,
+	type ValidationReportBase,
+} from '@studio/agent/node/block-validator';
+import { rewriteNotes } from '@studio/agent/node/file-rewrites';
+import { hash } from '@studio/agent/node/post-copies';
+import { readWordPressSite } from '@studio/agent/node/site-database';
+import { themePresets } from '@studio/agent/node/theme-presets';
+import { themesDir } from '@studio/agent/node/themes';
+import { validateHtmlBlockPolicy } from '@studio/agent/shared/block-content-policy';
+import { boundedText } from '@studio/agent/shared/bounded-list';
+import { printedJson, wpEval } from '@studio/agent/shared/tools/utils';
+import type { OpenProblems } from '@studio/agent/node/open-problems';
+import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
+
+const THEME_MARKUP =
+	/[\\/]wp-content[\\/]themes[\\/][^\\/]+[\\/](templates|parts)[\\/][^\\/]+\.html$/;
+// A theme's patterns are the PHP files in its patterns folder, which WordPress
+// includes for what they output (WP_Theme::get_block_patterns(),
+// WP_Block_Patterns_Registry::get_content()).
+const THEME_PATTERN = /[\\/]wp-content[\\/]themes[\\/][^\\/]+[\\/]patterns[\\/].+\.php$/;
+
+/** The editor that edits markup: the Site Editor a theme's template or part, saved or a file. */
+export function blockEditorOf( place: { file?: string; type?: string } ): BlockEditor {
+	return ( place.file && THEME_MARKUP.test( place.file ) ) ||
+		place.type === 'wp_template' ||
+		place.type === 'wp_template_part'
+		? 'site'
+		: 'post';
+}
+// The header comment a pattern opens with, and the newline PHP drops after its closing tag.
+const PATTERN_HEADER = /^\s*<\?php\s*\/\*[\s\S]*?\*\/\s*\?>\n?/;
+
+/**
+ * A theme pattern's header and the block markup it outputs, when the header
+ * is its only PHP, so the file outputs the markup as written.
+ */
+function splitPattern( content: string ): { header: string; markup: string } | undefined {
+	const header = content.match( PATTERN_HEADER )?.[ 0 ];
+	if ( header === undefined ) {
+		return undefined;
+	}
+	const markup = content.slice( header.length );
+	return markup.includes( '<?' ) ? undefined : { header, markup };
+}
+
+/**
+ * Whether content is block markup: it opens with a block's comment delimiter,
+ * as WordPress serializes a block (get_comment_delimited_block_content()).
+ * A draft is one wherever it is written; code that only mentions a delimiter
+ * does not open with one.
+ */
+export function opensWithBlock( content: string ): boolean {
+	return content.trimStart().startsWith( '<!-- wp:' );
+}
+
+/** Whether a file holds block markup the gate validates: a theme template or part, or any block markup. */
+export function isBlockMarkupFile( filePath: string ): boolean {
+	if ( THEME_MARKUP.test( filePath ) ) {
+		return true;
+	}
+	try {
+		const content = readFileSync( filePath, 'utf8' );
+		return THEME_PATTERN.test( filePath )
+			? splitPattern( content ) !== undefined
+			: opensWithBlock( content );
+	} catch {
+		return false;
+	}
+}
+
+function oneLine( html: string, length: number ): string {
+	const flat = html.replace( /\s+/g, ' ' ).trim();
+	return flat.length > length ? `${ flat.slice( 0, length ) }…` : flat;
+}
+
+/**
+ * Each invalid block with every mismatch the editor found, or what saving it
+ * as the block saves it would lose when that is known, and the HTML the block
+ * saves from its comment attributes — the markup that validates.
+ */
+function describeLoss( { note, droppedText, unfixed }: BlockLoss ): string {
+	return [
+		unfixed
+			? `the block editor's fix of it is invalid too (${
+					unfixed.join( '; ' ) || 'it does not match what the block saves'
+			  }), so it stays as written.`
+			: '',
+		note
+			? `saving it as the block saves it would ${ note }, as nothing in its comment attributes saves that.`
+			: '',
+		droppedText
+			? `The editor reads it without ${ droppedText } written in its comment, and WordPress renders it on the server from its attributes, so saving it drops that text from the page.`
+			: '',
+	]
+		.filter( Boolean )
+		.join( ' ' );
+}
+
+function describeInvalidBlocks(
+	report: ValidationReportBase,
+	lost = new Map< string, BlockLoss >()
+): string[] {
+	return report.results
+		.filter( ( result ) => ( lost.size ? lost.has( result.place ?? '' ) : ! result.isValid ) )
+		.slice( 0, 5 )
+		.flatMap( ( result ) => [
+			`  - ${ result.blockName }: ${
+				lost.has( result.place ?? '' )
+					? describeLoss( lost.get( result.place ?? '' )! )
+					: result.issues.slice( 0, 3 ).join( '; ' ) || 'does not match what the block saves'
+			}`,
+			...( result.originalContent
+				? [ `    written: ${ oneLine( result.originalContent, 700 ) }` ]
+				: [] ),
+			...( result.expectedContent
+				? [ `    the block saves: ${ oneLine( result.expectedContent, 700 ) }` ]
+				: [] ),
+		] );
+}
+
+interface FileValidation {
+	/** The hash of the content validated. */
+	contentHash: string;
+	/** The version of the site's block code it was validated with (lastBlockCode()), when read. */
+	blockCode?: string;
+	summary: string;
+	problem?: string;
+	/** What the block editor would save instead, losing nothing. */
+	fixedContent?: string;
+}
+
+interface MarkupValidation {
+	summary: string;
+	problem?: string;
+	/** What the block editor would save instead, when that loses nothing. */
+	fixedContent?: string;
+	invalidBlocks?: number;
+	/** The palette colors the fix stores as presets. */
+	paletteColors?: PresetValuesResult[ 'colors' ];
+	/** The font sizes the fix stores as presets. */
+	fontSizes?: PresetValuesResult[ 'fontSizes' ];
+	/** The spacing values the fix stores as presets. */
+	spacingSizes?: PresetValuesResult[ 'spacingSizes' ];
+	/** Diagnostics for blocks corrected by the save. */
+	corrections?: string[];
+	/** The navigation links the fix binds to the entity they name. */
+	boundLinks?: string[];
+	/** How many runs of HTML comments between blocks the save drops. */
+	droppedComments?: number;
+	/** The block styles the fix gives blocks, and the theme files that hold them. */
+	blockStyles?: Array< BlockStyle & { file: string } >;
+}
+
+/**
+ * Writes the block styles a fix gives blocks to the theme they render with,
+ * returning each one's file, or undefined, writing nothing, when it cannot.
+ */
+export type SaveBlockStyles = (
+	styles: BlockStyle[]
+) => Promise< Array< BlockStyle & { file: string } > | undefined >;
+
+/**
+ * The writer of block styles to a site's theme (`theme`, or the active one),
+ * when the theme can take them.
+ */
+export async function blockStylesOn(
+	siteRoot: string,
+	theme?: string
+): Promise< SaveBlockStyles | undefined > {
+	const slug =
+		theme ??
+		( await readWordPressSite( siteRoot, ( site ) => site.option( 'stylesheet' ) ).catch(
+			() => undefined
+		) );
+	if ( typeof slug !== 'string' || ! slug ) {
+		return undefined;
+	}
+	const themeDir = themesDir( siteRoot, slug );
+	if ( ! ( await takesBlockStyles( siteRoot, themeDir ) ) ) {
+		return undefined;
+	}
+	return async ( styles ) => {
+		const files = await saveBlockStyles( themeDir, styles );
+		return files && styles.map( ( style, i ) => ( { ...style, file: files[ i ] } ) );
+	};
+}
+
+/** What saving through the editor changes, for a note. */
+export function describeEditorSave( result: MarkupValidation, fixes: string ): string[] {
+	return [
+		result.invalidBlocks ? `fixes ${ result.invalidBlocks } block(s)${ fixes }` : undefined,
+		result.droppedComments
+			? `drops ${ result.droppedComments } HTML comment(s) between blocks, which the editor would turn into Classic blocks (normalizeRawBlock in @wordpress/blocks wraps text outside a block in paragraphs) and which render nothing`
+			: undefined,
+		result.paletteColors?.length
+			? describeStored(
+					result.paletteColors.map(
+						( { color, slug } ) => `${ color } as the palette's ${ slug }`
+					),
+					'a palette color (encodeColorValueWithPalette in @wordpress/block-editor), so it follows the palette'
+			  )
+			: undefined,
+		result.fontSizes?.length
+			? describeStored(
+					result.fontSizes.map( ( { size, slug } ) => `${ size } as the font size ${ slug }` ),
+					'a font size preset (getFontSizeObjectByValue in @wordpress/block-editor), so it follows the preset'
+			  )
+			: undefined,
+		result.spacingSizes?.length
+			? describeStored(
+					result.spacingSizes.map(
+						( { size, slug } ) => `${ size } as the spacing size ${ slug }`
+					),
+					'a spacing size preset (getPresetValueFromCustomValue in @wordpress/block-editor), so it follows the preset'
+			  )
+			: undefined,
+		result.boundLinks?.length ? describeBoundLinks( result.boundLinks ) : undefined,
+		...[ ...new Set( ( result.blockStyles ?? [] ).map( ( style ) => style.file ) ) ].map(
+			( file ) => {
+				const styles = result.blockStyles!.filter( ( style ) => style.file === file );
+				const [ { css, slug } ] = styles;
+				// As block-style-move.ts says of the block styles it writes.
+				return `moves ${ css } on ${ [
+					...new Set( styles.map( ( style ) => style.blockName ) ),
+				].join(
+					', '
+				) } into the block style ${ file }, which WordPress registers for its "blockTypes" (WP_Theme_JSON_Resolver::get_style_variations() in wp-includes/class-wp-theme-json-resolver.php); a block takes the look as "className":"is-style-${ slug }"`;
+			}
+		),
+	].filter( ( note ): note is string => Boolean( note ) );
+}
+
+/**
+ * What the editor's save corrects in the comment attributes, as sentences
+ * of their own that end the one naming the save.
+ */
+export function describeCorrections( result: MarkupValidation ): string {
+	return result.corrections?.length ? `. ${ result.corrections.join( ' ' ) }` : '';
+}
+
+/** How the editor links a navigation link to the post or term it names, for a note. */
+function describeBoundLinks( links: string[] ): string {
+	return `binds the url of the navigation link(s) ${ links
+		.map( ( label ) => `"${ label }"` )
+		.join(
+			', '
+		) }, which named a page or term by id with no url, to its permalink, as the editor's link picker does (useEntityBinding in @wordpress/block-library): core prints a link's href only from its url (wp-includes/blocks/navigation-link.php)`;
+}
+
+/** What the editor inserts for the blocks named, for a note to write them from. */
+// Names per element, as many as a note reads at a glance.
+const MAX_SAVING_BLOCKS = 12;
+
+async function describeSavingBlocks( html: string, siteUrl: string ): Promise< string[] > {
+	const elements = ( await blocksSavingElements( html, siteUrl ).catch( () => [] ) ).filter(
+		( { blocks } ) => blocks.length
+	);
+	if ( ! elements.length ) {
+		return [];
+	}
+	const named = ( blocks: string[] ) => boundedText( blocks, MAX_SAVING_BLOCKS );
+	return [
+		`The site's blocks whose save makes its elements, created with their defaults (createBlock() and getSaveContent() in @wordpress/blocks): ${ elements
+			.map( ( { element, blocks } ) => `<${ element }> ${ named( blocks ) }` )
+			.join( '; ' ) }.`,
+	];
+}
+
+// The core/html blocks the policy keeps for markup no block saves, described
+// with the blocks that save their elements.
+async function htmlPolicyProblem(
+	content: string,
+	label: string,
+	siteUrl: string
+): Promise< string | undefined > {
+	const { invalidHtmlBlocks } = validateHtmlBlockPolicy( content );
+	if ( ! invalidHtmlBlocks.length ) {
+		return undefined;
+	}
+	return [
+		`${ label }: ${ invalidHtmlBlocks.length } core/html block(s) hold markup the editor shows as raw HTML, which convert_to_blocks saves as editable blocks:`,
+		...invalidHtmlBlocks.map( ( block ) => `  - line ${ block.line }: ${ block.issues[ 0 ] }` ),
+		...( await describeSavingBlocks(
+			invalidHtmlBlocks.map( ( block ) => block.content ).join( '\n' ),
+			siteUrl
+		) ),
+		...( await describeTemplates(
+			[ ...new Set( invalidHtmlBlocks.flatMap( ( block ) => block.block ?? [] ) ) ],
+			siteUrl
+		) ),
+	].join( '\n' );
+}
+
+async function describeTemplates( names: string[], siteUrl: string ): Promise< string[] > {
+	const templates = await insertedTemplates( names, siteUrl ).catch( () => [] );
+	return templates.map(
+		( { name, markup } ) =>
+			`What the site's block editor inserts for ${ name }, from its default inserter variation (createBlock in @wordpress/blocks), to write it from:\n${ markup }`
+	);
+}
+
+/** What the editor's save changed besides the blocks it fixes, for a note. */
+type StoredNotes = Pick<
+	MarkupValidation,
+	'droppedComments' | 'paletteColors' | 'fontSizes' | 'spacingSizes' | 'boundLinks'
+>;
+type StoredMarkup = { content: string; changed: boolean } & StoredNotes;
+
+/**
+ * What the editor stores for the markup: comments between blocks dropped, palette
+ * colors as presets, entity links bound. `invalidBefore` counts the problems in
+ * the content it replaces.
+ */
+async function storeAsTheEditorDoes(
+	content: string,
+	siteUrl: string,
+	presetValues: PresetValues,
+	editor: BlockEditor,
+	invalidBefore: () => Promise< number >
+): Promise< StoredMarkup > {
+	const between = dropCommentsBetweenBlocks( content );
+	const presets = await storePresetValues( between.content, siteUrl, presetValues, editor );
+	const bound = await bindNavigationLinks( presets.content, siteUrl, editor );
+	const notes: StoredNotes = {
+		...( between.comments && { droppedComments: between.comments } ),
+		...( presets.colors.length && { paletteColors: presets.colors } ),
+		...( presets.fontSizes.length && { fontSizes: presets.fontSizes } ),
+		...( presets.spacingSizes.length && { spacingSizes: presets.spacingSizes } ),
+		...( bound.links.length && { boundLinks: bound.links } ),
+	};
+	const stored = {
+		content: bound.content,
+		changed: Object.keys( notes ).length > 0,
+		...notes,
+	};
+	// A save stands only when the editor finds no more problems in it than in
+	// what it replaces, whatever the pass that changed it.
+	if (
+		stored.changed &&
+		( await validateBlocks( stored.content, siteUrl, editor ) ).invalidBlocks >
+			( await invalidBefore() )
+	) {
+		return { content, changed: false };
+	}
+	return stored;
+}
+
+/** How the editor stores values written as presets (`each`, how it stores them), for a note. */
+function describeStored( each: string[], how: string ): string {
+	return `stores ${ [ ...new Set( each ) ].join( ', ' ) }, as the editor stores ${ how }`;
+}
+
+/**
+ * The palette colors, font sizes and spacing sizes markup in \`theme\` renders with (the
+ * active theme's by default), as WordPress resolves them.
+ */
+export async function sitePresetValues(
+	host: StudioAgentHost,
+	siteRoot: string,
+	theme?: string
+): Promise< PresetValues > {
+	const presets = await readWordPressSite( siteRoot, ( site ) =>
+		themePresets( host, site, theme )
+	).catch( () => undefined );
+	return {
+		colors: presets?.colors ?? [],
+		fontSizes: presets?.fontSizes ?? [],
+		spacingSizes: presets?.spacingSizes ?? [],
+	};
+}
+
+const NO_PRESETS: PresetValues = { colors: [], fontSizes: [], spacingSizes: [] };
+
+/** Validates one block markup file, with the lossless fix for the caller to save. */
+export async function validateBlockMarkupFile(
+	filePath: string,
+	siteUrl: string,
+	presetValues: PresetValues = NO_PRESETS,
+	rendersAlike?: RendersAlike,
+	blockStyles?: SaveBlockStyles
+): Promise< FileValidation > {
+	const label = filePath.split( path.sep ).slice( -2 ).join( '/' );
+	const content = await readFile( filePath, 'utf8' );
+	// A pattern is validated for the markup it outputs, and saved under its header.
+	const pattern = THEME_PATTERN.test( filePath ) ? splitPattern( content ) : undefined;
+	if ( THEME_PATTERN.test( filePath ) && ! pattern ) {
+		return { contentHash: hash( content ), summary: `${ label }: not validated, as it holds PHP` };
+	}
+
+	const result = await validateBlockMarkup(
+		pattern?.markup ?? content,
+		label,
+		siteUrl,
+		presetValues,
+		blockEditorOf( { file: filePath } ),
+		rendersAlike,
+		blockStyles
+	);
+	if ( result.fixedContent === undefined ) {
+		return { contentHash: hash( content ), summary: result.summary, problem: result.problem };
+	}
+	const notes = describeEditorSave( result, '' );
+	return {
+		contentHash: hash( content ),
+		summary: `${ result.summary }; saved through the block editor, which ${ notes.join(
+			' and '
+		) }${ describeCorrections( result ) }`,
+		...( result.problem && { problem: result.problem } ),
+		fixedContent: ( pattern?.header ?? '' ) + result.fixedContent,
+	};
+}
+
+/**
+ * The block comments whose attributes are not JSON. WordPress's block parser
+ * reads a comment's attributes up to the first "}" before its "-->", decodes
+ * them, and gives the block none of them when they do not decode (json_decode()
+ * in WP_Block_Parser::next_token(), JSON.parse in the editor's
+ * @wordpress/block-serialization-default-parser); a comment whose attributes
+ * end in no "}" runs on to a later comment's.
+ */
+function unparsedAttributes( content: string ): string[] {
+	const lineAt = ( offset: number ) => content.slice( 0, offset ).split( '\n' ).length;
+	return [ ...content.matchAll( BLOCK_DELIMITER ) ].flatMap( ( match ) => {
+		const [ comment, closer, namespace = 'core/', name, attributes ] = match;
+		if ( closer || ! attributes ) {
+			return [];
+		}
+		try {
+			JSON.parse( attributes );
+			return [];
+		} catch ( error ) {
+			const json = attributes.trim();
+			const opens = json.split( '{' ).length - 1;
+			const closes = json.split( '}' ).length - 1;
+			const reason = ( error as Error ).message.replace( / in JSON at position.*$/, '' );
+			const line = lineAt( match.index );
+			const end = lineAt( match.index + comment.length - 1 );
+			// The comments inside it, which the parser reads as its attributes.
+			const swallowed = [
+				...comment.slice( 4 ).matchAll( /<!--\s+wp:([a-z][a-z0-9_-]*\/)?([a-z][a-z0-9_-]*)/g ),
+			].map( ( [ , inner = 'core/', innerName ] ) => `${ inner }${ innerName }` );
+			return [
+				`  - line ${ line }: ${ namespace }${ name } (${ reason }${
+					opens !== closes ? `; ${ opens } braces open, ${ closes } close` : ''
+				})${
+					swallowed.length
+						? `, and its comment runs on to the "} -->" on line ${ end }, taking in the ${ swallowed.join(
+								', '
+						  ) } comment there`
+						: ''
+				}`,
+			];
+		}
+	} );
+}
+
+/**
+ * The blocks WordPress's block parser does not close with their own closer. It
+ * closes the innermost open block at any closer, whatever its name, and at the
+ * end of the content gives each block still open the rest of the content
+ * (WP_Block_Parser::add_block_from_stack()), so the page renders that rest once
+ * for each, and the editor saves it so.
+ */
+function unclosedBlocks( content: string ): string[] {
+	const lineAt = ( offset: number ) => content.slice( 0, offset ).split( '\n' ).length;
+	const delimiters = [ ...content.matchAll( BLOCK_DELIMITER ) ];
+	// The line of the closer the parser closes each block at, by the offset of its opener.
+	const parsedEnd = new Map< number, number >();
+	const parsing: number[] = [];
+	for ( const match of delimiters ) {
+		const [ , closer, , , , , isVoid ] = match;
+		if ( isVoid ) {
+			continue;
+		}
+		if ( closer ) {
+			const opener = parsing.pop();
+			if ( opener !== undefined ) {
+				parsedEnd.set( opener, lineAt( match.index ) );
+			}
+		} else {
+			parsing.push( match.index );
+		}
+	}
+	const open: { name: string; line: number; offset: number }[] = [];
+	const problems: string[] = [];
+	for ( const match of delimiters ) {
+		const [ , closer, namespace = 'core/', name, , , isVoid ] = match;
+		const block = {
+			name: `${ namespace }${ name }`,
+			line: lineAt( match.index ),
+			offset: match.index,
+		};
+		if ( isVoid ) {
+			continue;
+		}
+		if ( ! closer ) {
+			open.push( block );
+			continue;
+		}
+		// The blocks opened inside the one this closer names have no closer of
+		// their own; a closer that names no open block closes the innermost.
+		const at = open.map( ( opened ) => opened.name ).lastIndexOf( block.name );
+		const unclosed = at === -1 ? open.slice( -1 ) : open.slice( at + 1 );
+		// The outermost block around them, which the parser closes later too when
+		// they took the closer of a block around them.
+		const outer = at !== -1 ? open[ 0 ] : undefined;
+		open.length = at === -1 ? Math.max( 0, open.length - 1 ) : at;
+		const later = unclosed.length === 1 ? 'one closer later' : `${ unclosed.length } closers later`;
+		const holds =
+			outer &&
+			`, and each block around it ${ later }: the ${ outer.name } opened on line ${
+				outer.line
+			} holds ${
+				parsedEnd.has( outer.offset )
+					? `everything to line ${ parsedEnd.get( outer.offset ) }`
+					: 'the rest of the content'
+			}`;
+		problems.push(
+			...unclosed.map(
+				( opened ) =>
+					`  - line ${ opened.line }: ${
+						opened.name
+					} has no closer of its own, so the parser closes it at the ${
+						block.name
+					} closer on line ${ block.line }${ holds ?? '' }`
+			)
+		);
+	}
+	return [
+		...problems,
+		...open.map(
+			( { name, line } ) =>
+				`  - line ${ line }: ${ name } is never closed, so the parser gives it the rest of the content`
+		),
+	];
+}
+
+/**
+ * Validates block markup against what each block saves on the site, and
+ * against the core/html policy. A lossless editor fix is returned for the
+ * caller to save where the markup lives, whatever the policy finds.
+ */
+export async function validateBlockMarkup(
+	content: string,
+	label: string,
+	siteUrl: string,
+	presetValues: PresetValues = NO_PRESETS,
+	editor: BlockEditor = 'post',
+	rendersAlike?: RendersAlike,
+	blockStyles?: SaveBlockStyles
+): Promise< MarkupValidation > {
+	// The editor saves such a block without its attributes, so nothing is saved
+	// for it; the blocks it runs into are unclosed for that reason alone.
+	const unparsed = unparsedAttributes( content );
+	if ( unparsed.length ) {
+		return {
+			summary: `${ label }: ${ unparsed.length } block comment(s) whose attributes are not JSON`,
+			problem: [
+				`${ label }: ${ unparsed.length } block comment(s) hold attributes that are not JSON, and WordPress's block parser gives such a block none of its attributes (json_decode() in WP_Block_Parser::next_token() in wp-includes/class-wp-block-parser.php):`,
+				...unparsed,
+			].join( '\n' ),
+		};
+	}
+	// The editor's save of blocks parsed this way repeats what follows them,
+	// so nothing is saved for it.
+	const unclosed = unclosedBlocks( content );
+	if ( unclosed.length ) {
+		return {
+			summary: `${ label }: ${ unclosed.length } block(s) not closed`,
+			problem: [
+				`${ label }: ${ unclosed.length } block(s) are not closed by their own closer, so WordPress's block parser nests what follows inside them and, for a block still open at the end, renders the rest of the content once more (WP_Block_Parser::add_block_from_stack() in wp-includes/class-wp-block-parser.php). Close each where its markup ends:`,
+				...unclosed,
+			].join( '\n' ),
+		};
+	}
+	const policy = await htmlPolicyProblem( content, label, siteUrl );
+	const unknown = unknownPresetsProblem( content, label, presetValues );
+	const result = await validateSavedMarkup(
+		content,
+		label,
+		siteUrl,
+		presetValues,
+		editor,
+		rendersAlike,
+		blockStyles
+	);
+	const problems = [ policy, unknown, result.problem ].filter( Boolean );
+	return policy || unknown
+		? {
+				...result,
+				summary: [
+					result.summary,
+					policy && 'core/html policy failed',
+					unknown && 'names presets the site does not have',
+				]
+					.filter( Boolean )
+					.join( '; ' ),
+				problem: problems.join( '\n' ),
+		  }
+		: result;
+}
+
+// The presets a block can name, by the attribute or `var:preset|<kind>|` that
+// names it. An attribute's value is the block's own style at the path given,
+// where its style sets one, as a block support renders it inline.
+const PRESET_KINDS: Array< {
+	kind: keyof PresetValues;
+	name: string;
+	attributes: Record< string, string | undefined >;
+	variable: string;
+} > = [
+	{
+		kind: 'colors',
+		name: 'color',
+		attributes: {
+			textColor: 'color.text',
+			backgroundColor: 'color.background',
+			borderColor: 'border.color',
+			overlayColor: undefined,
+		},
+		variable: 'color',
+	},
+	{
+		kind: 'fontSizes',
+		name: 'font size',
+		attributes: { fontSize: 'typography.fontSize' },
+		variable: 'font-size',
+	},
+	{ kind: 'spacingSizes', name: 'spacing size', attributes: {}, variable: 'spacing' },
+];
+
+const BLOCK_OPENER = /<!--\s+wp:([a-z0-9-]+(?:\/[a-z0-9-]+)?)\s+(\{.*?\})\s+\/?-->/g;
+
+function styleAt( style: unknown, at: string ): unknown {
+	return at
+		.split( '.' )
+		.reduce< unknown >(
+			( value, key ) =>
+				value && typeof value === 'object'
+					? ( value as Record< string, unknown > )[ key ]
+					: undefined,
+			style
+		);
+}
+
+/**
+ * The blocks that name a preset the site does not have. WordPress outputs a
+ * preset's class and CSS variable only for the presets its settings resolve
+ * (WP_Theme_JSON::get_preset_classes() and compute_preset_vars() in
+ * wp-includes/class-wp-theme-json.php), so such a block shows the value it
+ * inherits. A kind the site's presets were not read for is left out.
+ */
+function unknownPresetsProblem(
+	content: string,
+	label: string,
+	presets: PresetValues
+): string | undefined {
+	const found: string[] = [];
+	const kinds = new Set< ( typeof PRESET_KINDS )[ number ] >();
+	for ( const match of content.matchAll( BLOCK_OPENER ) ) {
+		let attrs: Record< string, unknown >;
+		try {
+			attrs = JSON.parse( match[ 2 ] );
+		} catch {
+			continue;
+		}
+		const json = JSON.stringify( attrs.style ?? {} );
+		for ( const preset of PRESET_KINDS ) {
+			const known = new Set( presets[ preset.kind ].map( ( [ slug ] ) => slug ) );
+			if ( ! known.size ) {
+				continue;
+			}
+			const named = [
+				...Object.entries( preset.attributes )
+					.filter( ( [ , style ] ) => ! style || styleAt( attrs.style, style ) === undefined )
+					.map( ( [ attribute ] ) => attrs[ attribute ] ),
+				...[
+					...json.matchAll( new RegExp( `var:preset\\|${ preset.variable }\\|([^"|]+)`, 'g' ) ),
+				].map( ( [ , slug ] ) => slug ),
+			].filter( ( slug ): slug is string => typeof slug === 'string' && ! known.has( slug ) );
+			for ( const slug of new Set( named ) ) {
+				const line = content.slice( 0, match.index ).split( '\n' ).length;
+				const block = match[ 1 ].includes( '/' ) ? match[ 1 ] : `core/${ match[ 1 ] }`;
+				found.push( `  - line ${ line }: ${ block } ${ preset.name } ${ slug }` );
+				kinds.add( preset );
+			}
+		}
+	}
+	if ( ! found.length ) {
+		return undefined;
+	}
+	return [
+		`${ label }: ${ found.length } preset(s) named that the site does not have, so WordPress outputs no class or CSS variable for them and each block shows the value it inherits (WP_Theme_JSON::get_preset_classes() and compute_preset_vars() in wp-includes/class-wp-theme-json.php):`,
+		...found,
+		...[ ...kinds ].map(
+			( { kind, name } ) =>
+				`The site's ${ name } presets (wp_get_global_settings()): ${ presets[ kind ]
+					.map( ( [ slug, value ] ) => `${ slug } ${ value }` )
+					.join( ', ' ) }. A block names one of them or sets its own value.`
+		),
+	].join( '\n' );
+}
+
+async function validateSavedMarkup(
+	content: string,
+	label: string,
+	siteUrl: string,
+	presetValues: PresetValues,
+	editor: BlockEditor,
+	rendersAlike?: RendersAlike,
+	blockStyles?: SaveBlockStyles
+): Promise< MarkupValidation > {
+	// The editor's fix is saved without the comments between blocks, which it
+	// would otherwise count as Classic blocks it cannot fix.
+	const between = dropCommentsBetweenBlocks( content );
+	const report = await validateBlocks(
+		between.content,
+		siteUrl,
+		editor,
+		rendersAlike,
+		!! blockStyles
+	);
+	if ( report.error ) {
+		return {
+			summary: `${ label }: not validated (${ report.error })`,
+		};
+	}
+	const valid = `${ label }: ${ report.totalBlocks }/${ report.totalBlocks } blocks valid`;
+	if ( report.invalidBlocks === 0 ) {
+		const {
+			content: stored,
+			changed,
+			...notes
+		} = await storeAsTheEditorDoes( content, siteUrl, presetValues, editor, async () => 0 );
+		return changed ? { summary: valid, fixedContent: stored, ...notes } : { summary: valid };
+	}
+
+	const fix = report.proposedFix;
+	// A block stays as written when the fix loses something from it, or leaves
+	// it invalid too (BlockLoss.unfixed); the editor's fix is saved for the
+	// rest, the blocks inside it too, when it makes any of them valid.
+	const lost = new Map( fix?.losses.map( ( loss ) => [ loss.place, loss ] ) );
+	const keptAsWritten = ( place = '' ) => lost.has( place );
+	const unfixed = fix?.losses.filter( ( loss ) => loss.unfixed ).length ?? 0;
+	if (
+		! fix ||
+		fix.report.error ||
+		fix.report.invalidBlocks > unfixed ||
+		report.invalidBlocks === unfixed
+	) {
+		return {
+			summary: `${ label }: ${ report.invalidBlocks } invalid block(s)`,
+			problem: [
+				`${ label }: ${ report.invalidBlocks } invalid block(s), which the block editor cannot fix:`,
+				...describeInvalidBlocks( report ),
+				...( await describeTemplates(
+					blockNames(
+						report.results
+							.filter( ( result ) => ! result.isValid )
+							.map( ( result ) => result.originalContent )
+							.join( '\n' )
+					),
+					siteUrl
+				) ),
+			].join( '\n' ),
+		};
+	}
+
+	// The block styles the fix gives blocks are written to the theme before
+	// the fix is saved; one the theme cannot take leaves the blocks to the fix
+	// without them.
+	const styled = fix.blockStyles && ( await blockStyles?.( fix.blockStyles ) );
+	if ( fix.blockStyles && ! styled ) {
+		return validateSavedMarkup( content, label, siteUrl, presetValues, editor, rendersAlike );
+	}
+	const fixedBlocks = report.results.filter(
+		( result ) => ! result.isValid && ! keptAsWritten( result.place )
+	).length;
+	// Storing presets and links parses the fix again, as the editor does, which
+	// drops the text a block kept as written for it holds in its comment.
+	const stored = ! fixedBlocks
+		? undefined
+		: fix.losses.some( ( loss ) => loss.droppedText )
+		? { content: fix.fixedContent, changed: true }
+		: await storeAsTheEditorDoes( fix.fixedContent, siteUrl, presetValues, editor, async () =>
+				lost.size ? ( await validateBlocks( fix.fixedContent, siteUrl, editor ) ).invalidBlocks : 0
+		  );
+	// The comments between blocks were dropped before the fix, from the content written.
+	const {
+		content: fixedContent,
+		changed,
+		droppedComments,
+		...notes
+	}: Partial< StoredMarkup > = stored ?? {};
+	const saved = stored && {
+		fixedContent,
+		invalidBlocks: fixedBlocks,
+		corrections: [
+			...new Set(
+				report.results
+					.filter( ( result ) => ! result.isValid && ! keptAsWritten( result.place ) )
+					.flatMap( ( result ) => result.attributeIssues ?? [] )
+			),
+		],
+		...notes,
+		...( between.comments && { droppedComments: between.comments } ),
+		...( styled && { blockStyles: styled } ),
+	};
+	if ( lost.size === 0 ) {
+		return { summary: valid, ...saved };
+	}
+	return {
+		summary: `${ label }: ${ report.invalidBlocks - fixedBlocks } invalid block(s)`,
+		problem: [
+			`${ label }: ${ lost.size } block(s) the editor shows as invalid: each differs from what the block saves, and saving it would lose what is listed. Make the written HTML what the block saves, or set the comment attributes it saves from (className and style hold extra classes and styles):`,
+			...describeInvalidBlocks( report, lost ),
+		].join( '\n' ),
+		...saved,
+	};
+}
+
+interface Tracked {
+	siteRoot: string;
+	result: Promise< FileValidation >;
+	// The result once it has come, which a call that does not wait can report.
+	validated?: FileValidation;
+	reported?: string;
+	// The content whose validation the open problems last recorded.
+	recorded?: string;
+}
+
+export class BlockValidationGate {
+	private readonly files = new Map< string, Tracked >();
+
+	constructor(
+		private readonly validateFile: (
+			filePath: string,
+			siteRoot: string
+		) => Promise< FileValidation >,
+		private readonly open?: OpenProblems,
+		// The version of the code a site registers its blocks from, which the
+		// editor's verdict on a block of the site's own depends on, as last read.
+		private readonly blockCode: ( siteRoot: string ) => string | undefined = () => undefined
+	) {}
+
+	/** Queues a written file and starts validating it in the background. */
+	track( filePath: string, siteRoot: string ): void {
+		if ( isBlockMarkupFile( filePath ) ) {
+			this.files.set( filePath, this.start( { siteRoot }, filePath ) );
+		}
+	}
+
+	/**
+	 * Waits for every queued file and returns what is new to report. With
+	 * `ready`, waits for none: reports only the files whose validation of their
+	 * current content has come, leaving out `except`, the file the call about to
+	 * run writes, whose text a saved fix would change under it. With `mine`,
+	 * settles only the files it holds, as those of the agent calling, which
+	 * the agents writing the others hear about from their own calls.
+	 */
+	async settle( {
+		ready = false,
+		except,
+		mine = () => true,
+	}: { ready?: boolean; except?: string; mine?: ( file: string ) => boolean } = {} ): Promise< {
+		summaries: string[];
+		problems: string[];
+		saved: string[];
+	} > {
+		const summaries: string[] = [];
+		const problems: string[] = [];
+		const saved: string[] = [];
+		for ( const [ filePath, tracked ] of this.files ) {
+			if ( ! mine( filePath ) ) {
+				continue;
+			}
+			if ( ready && ( filePath === except || ! ( await this.isCurrent( filePath, tracked ) ) ) ) {
+				continue;
+			}
+			const result = await this.current( filePath, tracked.siteRoot ).then(
+				( current ) => current && this.applyFix( filePath, current, saved )
+			);
+			this.open?.record(
+				tracked.siteRoot,
+				filePath,
+				result?.problem,
+				result !== undefined && result.contentHash !== tracked.recorded
+			);
+			tracked.recorded = result?.contentHash;
+			if ( ! result ) {
+				this.files.delete( filePath );
+				continue;
+			}
+			const reportKey = `${ result.contentHash } ${ result.summary }`;
+			if ( reportKey !== tracked.reported ) {
+				tracked.reported = reportKey;
+				summaries.push( result.summary );
+				problems.push( ...( result.problem ? [ result.problem ] : [] ) );
+			}
+		}
+		return { summaries, problems, saved };
+	}
+
+	/**
+	 * Saves a validation's lossless fix, now that it holds the file's current
+	 * content, and returns the validation of the fixed file.
+	 */
+	private async applyFix(
+		filePath: string,
+		result: FileValidation,
+		saved: string[]
+	): Promise< FileValidation | undefined > {
+		const { fixedContent, ...validation } = result;
+		if ( fixedContent === undefined ) {
+			return result;
+		}
+		const content = await readFile( filePath, 'utf8' ).catch( () => undefined );
+		if ( content === undefined || hash( content ) !== result.contentHash ) {
+			// Written again while it was validated: validate what it holds now.
+			const current = await this.current( filePath, this.files.get( filePath )!.siteRoot );
+			return current && this.applyFix( filePath, current, saved );
+		}
+		await writeFile( filePath, fixedContent, 'utf8' );
+		saved.push( filePath );
+		const fixed = {
+			...validation,
+			// The agent holds the text it wrote, which an edit would no longer find.
+			summary: [ validation.summary, ...rewriteNotes( filePath, content, fixedContent ) ].join(
+				'\n'
+			),
+			contentHash: hash( fixedContent ),
+		};
+		const tracked = this.files.get( filePath )!;
+		tracked.result = Promise.resolve( fixed );
+		tracked.validated = fixed;
+		return fixed;
+	}
+
+	/**
+	 * The validation of a file's current content, reusing the last one while
+	 * it holds for the file and the site's block code; undefined once the file
+	 * is gone.
+	 */
+	private async current(
+		filePath: string,
+		siteRoot: string
+	): Promise< FileValidation | undefined > {
+		const content = await readFile( filePath, 'utf8' ).catch( () => undefined );
+		if ( content === undefined ) {
+			return undefined;
+		}
+		const tracked = this.files.get( filePath ) ?? this.start( { siteRoot }, filePath );
+		let result = await tracked.result;
+		if ( ! holdsFor( result, content, this.blockCode( siteRoot ) ) ) {
+			result = await this.start( tracked, filePath ).result;
+		}
+		this.files.set( filePath, tracked );
+		return result;
+	}
+
+	/**
+	 * Whether a file's validation has come, for the content it holds now and
+	 * the site's block code; a validation of the content that the code changed
+	 * under is started again.
+	 */
+	private async isCurrent( filePath: string, tracked: Tracked ): Promise< boolean > {
+		const { validated } = tracked;
+		if ( ! validated ) {
+			return false;
+		}
+		const content = await readFile( filePath, 'utf8' ).catch( () => undefined );
+		if ( content === undefined || hash( content ) !== validated.contentHash ) {
+			return false;
+		}
+		if ( holdsFor( validated, content, this.blockCode( tracked.siteRoot ) ) ) {
+			return true;
+		}
+		this.start( tracked, filePath );
+		return false;
+	}
+
+	/** Starts validating a file's current content, with the site's block code as last read. */
+	private start( tracked: Omit< Tracked, 'result' > & Partial< Tracked >, filePath: string ) {
+		const blockCode = this.blockCode( tracked.siteRoot );
+		const result = this.validate( filePath, tracked.siteRoot ).then( ( validated ) => ( {
+			...validated,
+			blockCode,
+		} ) );
+		Object.assign( tracked, { result, validated: undefined } );
+		void result.then( ( validated ) => {
+			if ( tracked.result === result ) {
+				tracked.validated = validated;
+			}
+		} );
+		return tracked as Tracked;
+	}
+
+	/** Validates a file; a validation that cannot run is reported, never skipped. */
+	private validate( filePath: string, siteRoot: string ): Promise< FileValidation > {
+		return this.validateFile( filePath, siteRoot ).catch( async ( error: unknown ) => ( {
+			contentHash: hash( ( await readFile( filePath, 'utf8' ).catch( () => '' ) ) ?? '' ),
+			summary: `${ filePath.split( path.sep ).slice( -2 ).join( '/' ) }: not validated (${
+				error instanceof Error ? error.message : String( error )
+			})`,
+		} ) );
+	}
+}
+
+/**
+ * Whether a validation holds for a file's content and the site's block code
+ * `code`: the editor's verdict on a block of the site's own, or on a problem
+ * it found, is the one the code registered then. In eval31 pileon port 4 a
+ * part's sudsy/newsletter, registered in PHP only, stayed reported invalid
+ * after the theme gave it "autoRegister", which registers it in the editor.
+ */
+function holdsFor( result: FileValidation, content: string, code?: string ): boolean {
+	if ( result.contentHash !== hash( content ) ) {
+		return false;
+	}
+	return (
+		result.blockCode === code ||
+		( ! result.problem && ! blockNames( content ).some( ( name ) => ! name.startsWith( 'core/' ) ) )
+	);
+}
+
+// The theme a file is in, by its folder under wp-content/themes.
+const themeOf = ( siteRoot: string, filePath: string ) =>
+	path
+		.relative( siteRoot, filePath )
+		.split( path.sep )
+		.join( '/' )
+		.match( /^wp-content\/themes\/([^/]+)\// )?.[ 1 ];
+
+// What a visitor who is not logged in gets, as WP-CLI runs: do_blocks()
+// renders each block with render_block() (wp-includes/blocks.php).
+const RENDER = `echo 'RENDERED=' . wp_json_encode( array_map( function ( $markup ) {
+	return trim( preg_replace( '/\\s+/', ' ', do_blocks( $markup ) ) );
+}, $data ) );`;
+
+/**
+ * Whether each pair of block markup renders the same on the site, each side
+ * in a request of its own, as wp_unique_id() numbers the ids of each from 1.
+ * Markup that renders nothing shows nothing to compare.
+ */
+export function rendersAlikeOn( host: StudioAgentHost, site: HostSite ): RendersAlike {
+	const render = async ( markup: string[] ) =>
+		printedJson< string[] >( await wpEval( host, site, RENDER, markup ), 'RENDERED=' );
+	return async ( pairs ) => {
+		const [ written, fixed ] = await Promise.all(
+			[ 0, 1 ].map( ( side ) => render( pairs.map( ( pair ) => pair[ side ] ) ) )
+		);
+		return written.map( ( html, i ) => html !== '' && html === fixed[ i ] );
+	};
+}
+
+function validateWithSite( host: StudioAgentHost ) {
+	return async ( filePath: string, siteRoot: string ): Promise< FileValidation > => {
+		const site = await host.sites.resolve( siteRoot );
+		const theme = themeOf( siteRoot, filePath );
+		return validateBlockMarkupFile(
+			filePath,
+			site.url,
+			await sitePresetValues( host, siteRoot, theme ),
+			rendersAlikeOn( host, site ),
+			await blockStylesOn( siteRoot, theme )
+		);
+	};
+}
+
+/** A session's block validation, on the site each file belongs to. */
+export function createBlockValidationGate(
+	host: StudioAgentHost,
+	open: OpenProblems
+): BlockValidationGate {
+	return new BlockValidationGate( validateWithSite( host ), open, lastBlockCode );
+}

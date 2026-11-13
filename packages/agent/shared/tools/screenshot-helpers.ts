@@ -1,5 +1,21 @@
 import { toBase64, fromBase64 } from '@studio/agent/shared/base64';
+import {
+	pageBandGaps,
+	pageBreakage,
+	pageContrast,
+	pageHeaderWraps,
+	pageLargeText,
+	pageSticky,
+	pageLayout,
+	pageOverflow,
+	pageSqueezedText,
+	pageTextFit,
+	pageWideTextBreaks,
+	type TextFit,
+} from './page-layout';
 import type { HostPage, HostPages, StudioAgentHost } from '@studio/agent/shared/host';
+
+type Page = HostPage;
 
 /**
  * Tall portrait viewport used by `take_screenshot` for full-page captures
@@ -32,17 +48,14 @@ const MAX_IMAGE_DIMENSION_PX = 8000;
 const MODEL_IMAGE_MAX_EDGE_PX = 2000;
 
 const IMAGE_SETTLE_TIMEOUT_MS = 3000;
-
-export type ScreenshotFormat = 'png' | 'jpeg';
+type ScreenshotFormat = 'png' | 'jpeg';
 
 export const SCREENSHOT_COLOR_SCHEME_VALUES = [ 'light', 'dark' ] as const;
 export type ScreenshotColorScheme = ( typeof SCREENSHOT_COLOR_SCHEME_VALUES )[ number ];
-export const SCREENSHOT_COLOR_SCHEME_DESCRIPTION =
-	'Color scheme to emulate: "light" or "dark". Defaults to the browser/system preference.';
 
 /**
  * The page options shared by every tool that renders a page for the agent, so
- * `inspect_design` reports styles under the same prefers-color-scheme mode
+ * every check reads styles under the same prefers-color-scheme mode
  * `take_screenshot` renders.
  */
 export function screenshotPageOptions( colorScheme?: ScreenshotColorScheme ) {
@@ -50,6 +63,8 @@ export function screenshotPageOptions( colorScheme?: ScreenshotColorScheme ) {
 }
 
 export interface ScreenshotCapture {
+	/** The address actually captured, after redirects. */
+	url: string;
 	buffer: Uint8Array;
 	modelImage?: { buffer: Uint8Array; width: number; height: number };
 	documentHeight: number;
@@ -58,6 +73,10 @@ export interface ScreenshotCapture {
 	capturedHeight: number;
 	offset: number;
 	clipped: boolean;
+	/** The page's layout as text, for a model that cannot view the capture. */
+	layout?: string[];
+	/** Where the page's text does not fit, as the browser lays it out. */
+	textFit: TextFit;
 }
 
 /** A JPEG copy that fits {@link MODEL_IMAGE_MAX_EDGE_PX}, or undefined when the capture already does. */
@@ -96,6 +115,63 @@ async function scaleForModel(
 }
 
 /**
+ * Waits for the page's fonts and images. For full-page captures, scrolls through
+ * the entire document so lazy-loaded images begin loading; otherwise waits only
+ * on images that intersect the first viewport, so above-the-fold shots stay quick.
+ */
+async function settleImages( page: Page, fullPage: boolean ): Promise< void > {
+	return page.evaluate(
+		async ( { fullPage, imageSettleTimeoutMs } ) => {
+			const delay = ( ms: number ) =>
+				new Promise< void >( ( resolve ) => setTimeout( resolve, ms ) );
+			const waitForPaint = () =>
+				new Promise< void >( ( resolve ) => {
+					requestAnimationFrame( () => requestAnimationFrame( () => resolve() ) );
+				} );
+
+			await Promise.race( [ document.fonts?.ready ?? Promise.resolve(), delay( 1000 ) ] );
+
+			if ( fullPage ) {
+				const scrollHeight = Math.max(
+					document.body.scrollHeight,
+					document.documentElement.scrollHeight
+				);
+				const viewportHeight = window.innerHeight;
+				for ( let y = 0; y < scrollHeight; y += viewportHeight ) {
+					// At once, as a theme's `scroll-behavior: smooth` would only start it.
+					window.scrollTo( { top: y, behavior: 'instant' } );
+					await waitForPaint();
+				}
+				window.scrollTo( { top: 0, behavior: 'instant' } );
+			}
+
+			const pendingImages = Array.from( document.images ).filter( ( img ) => {
+				if ( img.complete ) {
+					return false;
+				}
+				if ( fullPage ) {
+					return true;
+				}
+				const rect = img.getBoundingClientRect();
+				return rect.bottom > 0 && rect.top < window.innerHeight;
+			} );
+			const timeout = delay( imageSettleTimeoutMs );
+			const allImages = Promise.all(
+				pendingImages.map(
+					( img ) =>
+						new Promise< void >( ( resolve ) => {
+							img.addEventListener( 'load', () => resolve(), { once: true } );
+							img.addEventListener( 'error', () => resolve(), { once: true } );
+						} )
+				)
+			);
+			await Promise.race( [ allImages, timeout ] );
+		},
+		{ fullPage, imageSettleTimeoutMs: IMAGE_SETTLE_TIMEOUT_MS }
+	);
+}
+
+/**
  * Capture a screenshot of `url` at the given viewport. Callers decide whether
  * to expose the image as base64 or a temp local file. Use
  * `jpeg` for vision-model input — full-page PNGs balloon to multi-MB and
@@ -119,67 +195,28 @@ export async function captureScreenshotBuffer(
 		forModel?: boolean;
 	}
 ): Promise< ScreenshotCapture > {
-	const format = options.format ?? 'png';
+	const page = await loadPage( pages, target, viewport, options );
+	try {
+		return await capturePage( page, viewport, options );
+	} finally {
+		await page.close();
+	}
+}
+
+// Loads a page as a visitor's browser does, without the admin bar and scrollbars.
+async function loadPage(
+	pages: HostPages,
+	target: { url: string } | { html: string },
+	viewport: { width: number; height: number },
+	options: { fullPage: boolean; deviceScaleFactor?: number; colorScheme?: ScreenshotColorScheme }
+): Promise< Page > {
 	const page = await pages.open( target, {
 		viewport,
 		deviceScaleFactor: options.deviceScaleFactor,
 		...screenshotPageOptions( options.colorScheme ),
 	} );
-
 	try {
-		// For full-page captures, scroll through the entire document so
-		// lazy-loaded images can begin loading. For viewport captures we keep
-		// the page where it is and only wait on images that intersect the
-		// first viewport, so above-the-fold shots stay quick on long pages.
-		await page.evaluate(
-			async ( { fullPage, imageSettleTimeoutMs } ) => {
-				const delay = ( ms: number ) =>
-					new Promise< void >( ( resolve ) => setTimeout( resolve, ms ) );
-				const waitForPaint = () =>
-					new Promise< void >( ( resolve ) => {
-						requestAnimationFrame( () => requestAnimationFrame( () => resolve() ) );
-					} );
-
-				await Promise.race( [ document.fonts?.ready ?? Promise.resolve(), delay( 1000 ) ] );
-
-				if ( fullPage ) {
-					const scrollHeight = Math.max(
-						document.body.scrollHeight,
-						document.documentElement.scrollHeight
-					);
-					const viewportHeight = window.innerHeight;
-					for ( let y = 0; y < scrollHeight; y += viewportHeight ) {
-						window.scrollTo( 0, y );
-						await waitForPaint();
-					}
-					window.scrollTo( 0, 0 );
-				}
-
-				const pendingImages = Array.from( document.images ).filter( ( img ) => {
-					if ( img.complete ) {
-						return false;
-					}
-					if ( fullPage ) {
-						return true;
-					}
-					const rect = img.getBoundingClientRect();
-					return rect.bottom > 0 && rect.top < window.innerHeight;
-				} );
-				const timeout = delay( imageSettleTimeoutMs );
-				const allImages = Promise.all(
-					pendingImages.map(
-						( img ) =>
-							new Promise< void >( ( resolve ) => {
-								img.addEventListener( 'load', () => resolve(), { once: true } );
-								img.addEventListener( 'error', () => resolve(), { once: true } );
-							} )
-					)
-				);
-				await Promise.race( [ allImages, timeout ] );
-			},
-			{ fullPage: options.fullPage, imageSettleTimeoutMs: IMAGE_SETTLE_TIMEOUT_MS }
-		);
-
+		await settleImages( page, options.fullPage );
 		// Hide the WordPress admin bar and scrollbars for cleaner shots.
 		await page.evaluate( () => {
 			const style = document.createElement( 'style' );
@@ -191,74 +228,126 @@ export async function captureScreenshotBuffer(
 			`;
 			document.head.appendChild( style );
 		} );
+		return page;
+	} catch ( error ) {
+		await page.close().catch( () => {} );
+		throw error;
+	}
+}
 
-		const dpr = options.deviceScaleFactor ?? 1;
-		const maxCssHeight = Math.floor( MAX_IMAGE_DIMENSION_PX / dpr );
-		const formatOptions =
-			format === 'jpeg'
-				? { format: 'jpeg' as const, quality: MODEL_JPEG_QUALITY }
-				: { format: 'png' as const };
+async function capturePage(
+	page: Page,
+	viewport: { width: number; height: number },
+	options: {
+		fullPage: boolean;
+		deviceScaleFactor?: number;
+		format?: ScreenshotFormat;
+		offset?: number;
+		forModel?: boolean;
+		// The page's text fit, when the caller has read it from the page as it is.
+		textFit?: TextFit;
+	}
+): Promise< ScreenshotCapture > {
+	const format = options.format ?? 'png';
+	const layout = options.forModel === false ? await pageLayout( page ) : undefined;
+	const textFit = options.textFit ?? ( await pageTextFit( page ) );
+	const dpr = options.deviceScaleFactor ?? 1;
+	const maxCssHeight = Math.floor( MAX_IMAGE_DIMENSION_PX / dpr );
+	const formatOptions =
+		format === 'jpeg'
+			? { format: 'jpeg' as const, quality: MODEL_JPEG_QUALITY }
+			: { format: 'png' as const };
 
-		if ( ! options.fullPage ) {
-			const contentHeight = await page.evaluate( () =>
-				Math.ceil(
-					Array.from( document.body.querySelectorAll( '*' ) ).reduce( ( bottom, element ) => {
-						const rect = element.getBoundingClientRect();
-						return rect.width > 0 && rect.height > 0
-							? Math.max( bottom, rect.bottom + window.scrollY )
-							: bottom;
-					}, 0 )
-				)
-			);
-			const buffer = await page.screenshot( { ...formatOptions } );
-			return {
-				buffer,
-				modelImage: options.forModel
-					? await scaleForModel( page, buffer, viewport.width * dpr, viewport.height * dpr )
-					: undefined,
-				documentHeight: viewport.height,
-				contentHeight,
-				capturedHeight: viewport.height,
-				offset: 0,
-				clipped: false,
-			};
-		}
-
-		const documentHeight = await page.evaluate( () =>
+	let buffer: Uint8Array;
+	let documentHeight: number;
+	let contentHeight: number;
+	let capturedHeight: number;
+	let offset: number;
+	if ( ! options.fullPage ) {
+		contentHeight = await page.evaluate( () =>
+			Math.ceil(
+				Array.from( document.body.querySelectorAll( '*' ) ).reduce( ( bottom, element ) => {
+					const rect = element.getBoundingClientRect();
+					return rect.width > 0 && rect.height > 0
+						? Math.max( bottom, rect.bottom + window.scrollY )
+						: bottom;
+				}, 0 )
+			)
+		);
+		buffer = await page.screenshot( { ...formatOptions } );
+		documentHeight = viewport.height;
+		capturedHeight = viewport.height;
+		offset = 0;
+	} else {
+		documentHeight = await page.evaluate( () =>
 			Math.max( document.body.scrollHeight, document.documentElement.scrollHeight )
 		);
-		const offset = Math.max( 0, Math.floor( options.offset ?? 0 ) );
+		offset = Math.max( 0, Math.floor( options.offset ?? 0 ) );
 		if ( offset >= documentHeight ) {
 			throw new Error(
 				`offset ${ offset } exceeds document height ${ documentHeight }; nothing to capture.`
 			);
 		}
 		const remaining = documentHeight - offset;
-		const capturedHeight = Math.min( remaining, maxCssHeight );
+		capturedHeight = Math.min( remaining, maxCssHeight );
+		// A full-page capture keeps the viewport's size and paints a background
+		// fixed to the viewport (`background-attachment: fixed`, as a page's
+		// gradient or a parallax cover block uses) over the first screen only,
+		// leaving it white further down, where a visitor sees it behind every
+		// screen. Attached to its element for the capture, it paints wherever its
+		// element is.
+		const fixed = await page.evaluate(
+			() =>
+				Array.from( document.querySelectorAll< HTMLElement >( '*' ) ).filter( ( element ) => {
+					if ( ! getComputedStyle( element ).backgroundAttachment.includes( 'fixed' ) ) {
+						return false;
+					}
+					element.dataset.studioFixedBackground =
+						element.style.getPropertyValue( 'background-attachment' );
+					element.style.setProperty( 'background-attachment', 'scroll', 'important' );
+					return true;
+				} ).length
+		);
 		// `fullPage: true` is required alongside `clip` so Playwright renders
 		// the entire document and crops to the requested region. Without it,
 		// the "resulting image" is the viewport and any clip.y beyond the
 		// viewport height fails with "Clipped area is either empty or outside
 		// the resulting image".
-		const buffer = await page.screenshot( {
+		buffer = await page.screenshot( {
 			...formatOptions,
 			fullPage: true,
 			clip: { x: 0, y: offset, width: viewport.width, height: capturedHeight },
 		} );
-		return {
-			buffer,
-			modelImage: options.forModel
-				? await scaleForModel( page, buffer, viewport.width * dpr, capturedHeight * dpr )
-				: undefined,
-			documentHeight,
-			contentHeight: documentHeight,
-			capturedHeight,
-			offset,
-			clipped: offset + capturedHeight < documentHeight,
-		};
-	} finally {
-		await page.close();
+		if ( fixed ) {
+			await page.evaluate( () => {
+				for ( const element of document.querySelectorAll< HTMLElement >(
+					'[data-studio-fixed-background]'
+				) ) {
+					const before = element.dataset.studioFixedBackground ?? '';
+					element.style.removeProperty( 'background-attachment' );
+					if ( before ) {
+						element.style.setProperty( 'background-attachment', before );
+					}
+					delete element.dataset.studioFixedBackground;
+				}
+			} );
+		}
+		contentHeight = documentHeight;
 	}
+	return {
+		url: page.url(),
+		buffer,
+		modelImage: options.forModel
+			? await scaleForModel( page, buffer, viewport.width * dpr, capturedHeight * dpr )
+			: undefined,
+		documentHeight,
+		contentHeight,
+		capturedHeight,
+		offset,
+		clipped: offset + capturedHeight < documentHeight,
+		layout,
+		textFit,
+	};
 }
 
 export async function saveScreenshotFile(
@@ -282,4 +371,171 @@ export async function saveScreenshotFile(
 		.slice( 0, 8 ) }.${ extension }`;
 	const saved = await host.saveImage( buffer, name, mimeType );
 	return { path: saved.path, fileUrl: saved.url, name, mimeType };
+}
+
+/** What a visitor gets that is wrong with a page, at one viewport. */
+export interface PageInspection {
+	// The address the page ended at, after any redirect.
+	url: string;
+	problems: string[];
+	// The usual size of its body text in px: the median computed font size of
+	// the paragraphs outside the header and footer, if it has any.
+	bodyFontSize?: number;
+}
+
+// The median computed font size of the visible paragraphs, with some text,
+// outside the page's header and footer.
+async function bodyFontSize( page: Page ): Promise< number | undefined > {
+	return page
+		.evaluate( () => {
+			const sizes = [ ...document.querySelectorAll( 'p' ) ]
+				.filter( ( el ) => {
+					const box = el.getBoundingClientRect();
+					return (
+						box.width > 0 &&
+						box.height > 0 &&
+						( el.textContent ?? '' ).trim().length > 20 &&
+						! el.closest( 'header, footer' )
+					);
+				} )
+				.map( ( el ) => parseFloat( getComputedStyle( el ).fontSize ) )
+				.sort( ( a, b ) => a - b );
+			return sizes.length ? sizes[ Math.floor( sizes.length / 2 ) ] : null;
+		} )
+		.then( ( size ) => size ?? undefined )
+		.catch( () => undefined );
+}
+
+interface Render {
+	// The page's HTML as served, without its per-request form tokens.
+	version: string;
+	fullPage: ScreenshotCapture;
+	screen: ScreenshotCapture;
+}
+
+// The pages Studio last rendered, by address and viewport, as take_screenshot
+// captures them for a model that views images. A change to what a site renders
+// from that its HTML does not show, such as a stylesheet, forgets them.
+const renders = new Map< string, Promise< Render | undefined > >();
+let generation = 0;
+// By the address a browser requests: a site's root with or without its slash is one page.
+const renderKey = ( url: string, viewport: { width: number } ) =>
+	`${ URL.canParse( url ) ? new URL( url ).href : url } ${ viewport.width }`;
+
+// Hidden form fields carry tokens WordPress and plugins make for each request
+// (wp_nonce_field, a contact form's token), which a visitor does not see.
+async function pageVersion( html: string ): Promise< string > {
+	const digest = await crypto.subtle.digest(
+		'SHA-256',
+		new TextEncoder().encode( html.replace( /<input\b[^>]*\btype=["']?hidden["']?[^>]*>/gi, '' ) )
+	);
+	return toBase64( new Uint8Array( digest ) );
+}
+
+/** Forgets every render, as what the pages render from has changed. */
+export function forgetRenders(): void {
+	generation++;
+	renders.clear();
+}
+
+/**
+ * The capture Studio made of a page when it last rendered it, waiting for one
+ * under way, while the page still serves the same HTML.
+ */
+export async function renderedCapture(
+	pages: HostPages,
+	url: string,
+	viewport: { width: number; height: number },
+	fullPage: boolean
+): Promise< ScreenshotCapture | undefined > {
+	const captured = await renders.get( renderKey( url, viewport ) );
+	if ( ! captured ) {
+		return undefined;
+	}
+	const html = await pages
+		.fetchText( url )
+		.then( ( { body } ) => body )
+		.catch( () => undefined );
+	if ( html === undefined || ( await pageVersion( html ) ) !== captured.version ) {
+		return undefined;
+	}
+	return fullPage ? captured.fullPage : captured.screen;
+}
+
+/**
+ * Loads a page as a visitor's browser does, at one viewport, and states what is
+ * broken on it: an error status, PHP's error output, images that do not load,
+ * a page wider than the screen and text against its edge. It also captures the page as take_screenshot
+ * does for a model that views images, to answer a screenshot of it.
+ */
+export async function inspectPage(
+	pages: HostPages,
+	url: string,
+	viewport: { width: number; height: number }
+): Promise< PageInspection > {
+	const started = generation;
+	let finish: ( render: Render | undefined ) => void = () => {};
+	const rendering = new Promise< Render | undefined >( ( resolve ) => ( finish = resolve ) );
+	renders.set( renderKey( url, viewport ), rendering );
+	let render: Render | undefined;
+	let page: Page | undefined;
+	try {
+		page = await loadPage( pages, { url }, viewport, { fullPage: true } );
+		const status = page.status();
+		const textFit = await pageTextFit( page );
+		const body = await bodyFontSize( page );
+		const problems = [
+			...( status >= 400 ? [ `The server answers ${ status }.` ] : [] ),
+			...( await pageBreakage( page ) ),
+			...( await pageOverflow( page ) ),
+			...( await pageBandGaps( page ) ),
+			...( await pageHeaderWraps( page ) ),
+			...( await pageContrast( page ) ),
+			...( await pageLargeText( page, body ) ),
+			...( await pageSticky( page ) ),
+			// A heading and the lines under it are one problem, so a report that
+			// lists a problem the same on several pages once keeps them together.
+			...( textFit.edges.length
+				? [
+						[
+							"Text against the viewport's edge:",
+							...textFit.edges.map( ( line ) => `  ${ line }` ),
+						].join( '\n' ),
+				  ]
+				: [] ),
+		];
+		const html = await page.html();
+		const options = { format: 'jpeg' as const, forModel: true, textFit };
+		if ( html !== undefined && status < 400 ) {
+			render = {
+				version: await pageVersion( html ),
+				fullPage: await capturePage( page, viewport, { ...options, fullPage: true } ),
+				screen: await capturePage( page, viewport, { ...options, fullPage: false } ),
+			};
+		}
+		// After the captures, as they lay the page out wider and back. On a
+		// desktop only, as a phone's one column is narrow by design.
+		if ( viewport.width === VIEWPORTS.desktop.width ) {
+			const squeezed = await pageSqueezedText( page );
+			if ( squeezed.length ) {
+				problems.push( squeezed.join( '\n' ) );
+			}
+			const wideBreaks = await pageWideTextBreaks( page );
+			if ( wideBreaks.length ) {
+				problems.push( wideBreaks.join( '\n' ) );
+			}
+		}
+		return { url: page.url(), problems, bodyFontSize: body };
+	} finally {
+		const finalUrl = page?.url() ?? url;
+		await page?.close();
+		const current = started === generation ? render : undefined;
+		finish( current );
+		if ( current && finalUrl !== url ) {
+			renders.set( renderKey( finalUrl, viewport ), rendering );
+		}
+		if ( ! current && renders.get( renderKey( url, viewport ) ) === rendering ) {
+			renders.delete( renderKey( url, viewport ) );
+		}
+	}
 }

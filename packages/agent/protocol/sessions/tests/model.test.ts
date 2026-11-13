@@ -17,6 +17,7 @@ const settings = ( provider: AiSettings[ 'provider' ], connected: string[] ): Ai
 		gemini: { connected: false },
 		'github-copilot': { connected: false },
 		spacefast: { connected: false },
+		custom: { connected: false },
 	},
 } );
 

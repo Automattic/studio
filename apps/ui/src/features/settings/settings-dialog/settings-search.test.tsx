@@ -75,9 +75,6 @@ describe( 'Settings search', () => {
 		[ 'keyboard', 'WordPress.com account' ],
 		[ 'keyboard', 'Log out' ],
 		[ 'php', 'WordPress credentials' ],
-		[ 'php', 'AGENTS.md' ],
-		[ 'php', 'CLAUDE.md' ],
-		[ 'php', 'STUDIO.md' ],
 	] )( 'excludes the %s section or group title %s', async ( start, query ) => {
 		const { input, section } = await renderSearch( start );
 		fireEvent.change( input, { target: { value: query } } );

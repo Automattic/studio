@@ -1,6 +1,6 @@
 import fs from 'fs';
-import os from 'os';
-import { type AgentTool } from '@earendil-works/pi-agent-core';
+import path from 'path';
+import { type AgentMessage, type AgentTool } from '@earendil-works/pi-agent-core';
 import { type Credential, type CredentialInfo, type CredentialStore } from '@earendil-works/pi-ai';
 import {
 	createAgentSession,
@@ -16,31 +16,56 @@ import {
 	SettingsManager,
 	type AgentSession,
 	type AgentSessionEvent,
-	type SessionManager,
-	type ToolDefinition,
+	SessionManager,
 } from '@earendil-works/pi-coding-agent';
-import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
-import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { type TSchema } from 'typebox';
+import { environmentFacts } from '@studio/agent/node/environment-facts';
 import { readGlobalInstructions } from '@studio/agent/node/global-instructions';
+import {
+	describeOpenProblems,
+	describeStillInvalid,
+	withoutNoted,
+} from '@studio/agent/node/open-problems';
+import { SiteChanges } from '@studio/agent/node/site-changes';
+import { readActiveSiteFacts } from '@studio/agent/node/site-facts';
+import { createSiteNotes } from '@studio/agent/node/site-notes';
+import { nodeStudioToolDefinitions } from '@studio/agent/node/tools';
+import { readUserSkills } from '@studio/agent/node/user-skills';
 import {
 	findLastAssistant,
 	getEmptyStopContinuation,
 	isEmptyStop,
 	MAX_EMPTY_STOP_CONTINUES,
 } from '@studio/agent/protocol/session-events';
-import { withDesignSystemPreview } from '@studio/agent/shared/chat-artifacts';
-import { getFileToolPrompt } from '@studio/agent/shared/file-tool-prompts';
 import { createConnectionStream } from '@studio/agent/shared/models';
-import { runWithPendingWork, type PendingWork } from '@studio/agent/shared/pending-work';
-import { createResultNotes } from '@studio/agent/shared/result-notes';
-import { findActiveSiteDesign } from '@studio/agent/shared/site-selection';
-import { buildSystemPrompt, type ToolPromptContribution } from '@studio/agent/shared/system-prompt';
-import { assertToolCallAllowed } from '@studio/agent/shared/tool-safety';
+import { studioMessage } from '@studio/agent/shared/studio-message';
+import { buildSystemPrompt, buildTurnContext } from '@studio/agent/shared/system-prompt';
 import { resolveConversationTools } from '@studio/agent/shared/tools';
-import { getPendingWork } from './pending-work';
+import { withStringEdits } from '@studio/agent/shared/tools/edit-arguments';
+import { withDefaultTimeout } from './bash-timeout';
+import { placeCallNotes } from './call-notes';
+import { createConfirmer } from './confirmation';
+import { FileViews } from './file-views';
+import {
+	endsTurn,
+	OPEN_PROBLEMS_TYPE,
+	withoutContinuedReplies,
+	withoutReplyText,
+} from './held-reply';
+import { createMcpTools, isUserMcpTool, readMcpServers } from './mcp-tools';
+import { changesPreview } from './preview-reload';
+import { getSessionState, shareSessionState, type SessionState } from './session-state';
+import { SitePin } from './site-pin';
+import { SkillToolScope } from './skill-tool-scope';
+import { agentShell, ensureStudioShimDirectory, getStudioShims } from './studio-wp-shim';
+import { createSubagentTool } from './subagent';
+import { withTextOnlyImages } from './text-only-read';
+import { AfterChecks, toToolDefinition } from './tool-checks';
+import { type StudioToolPayloadGuardState, updateStudioToolPayloadGuardState } from './tool-safety';
+import { serveWpCli } from './wp-cli-server';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
 import type { StudioAgentHost } from '@studio/agent/shared/host';
+import type { Skill } from '@studio/agent/shared/skills';
 import type { AskUserHandler, SiteInfo } from '@studio/agent/shared/types';
 import type { AiConnection } from '@studio/providers';
 
@@ -63,7 +88,23 @@ export interface StudioAgentTurnConfig {
 	ai: AiConnection;
 	activeSite?: SiteInfo | null;
 	onAskUser?: AskUserHandler;
+	// Answers the harness's confirmations of irreversible calls. Defaults to
+	// onAskUser; a scripted user (the eval runner) answers without exposing
+	// AskUserQuestion to the agent.
+	onConfirm?: AskUserHandler;
 	onEvent: ( event: AgentSessionEvent ) => void;
+	// A turn run for another turn's subagent call, which runs no subagents of its own.
+	subagentOf?: SubagentParent;
+}
+
+/**
+ * The turn running a subagent: the subagent shares its session's state and
+ * its check of what calls change, so each agent hears what Studio finds in
+ * what it wrote, and the parent turn's own checks cover the rest.
+ */
+interface SubagentParent {
+	state: SessionState;
+	siteChanges: SiteChanges;
 }
 
 interface ResolvedStudioAgentTurnConfig extends StudioAgentTurnConfig {
@@ -75,6 +116,8 @@ export interface StudioAgentTurnHandle {
 	interrupt(): Promise< void >;
 	/** Whether `name` is one of the turn's registered tools, not a name the model made up. */
 	hasTool( name: string ): boolean;
+	/** The system prompt the turn's model requests carry, once its session is set up. */
+	systemPrompt(): string | undefined;
 }
 
 export function runStudioAgentTurn(
@@ -83,6 +126,7 @@ export function runStudioAgentTurn(
 ): StudioAgentTurnHandle {
 	const controller = new AbortController();
 	let activeSession: AgentSession | undefined;
+	let systemPrompt: string | undefined;
 	const resolvedConfig: ResolvedStudioAgentTurnConfig = { ...config, host };
 
 	if ( ! fs.existsSync( host.sitesRoot ) ) {
@@ -91,6 +135,7 @@ export function runStudioAgentTurn(
 
 	const result = runAgentSessionTurn( resolvedConfig, controller, ( session ) => {
 		activeSession = session;
+		systemPrompt = session?.systemPrompt ?? systemPrompt;
 	} );
 
 	return {
@@ -100,7 +145,15 @@ export function runStudioAgentTurn(
 			await activeSession?.abort();
 		},
 		hasTool( name ) {
-			return activeSession?.getAllTools().some( ( tool ) => tool.name === name ) ?? false;
+			// A tool from the user's own MCP server is reported like a made-up one,
+			// so its name stays out of telemetry.
+			return (
+				! isUserMcpTool( name ) &&
+				( activeSession?.getAllTools().some( ( tool ) => tool.name === name ) ?? false )
+			);
+		},
+		systemPrompt() {
+			return systemPrompt;
 		},
 	};
 }
@@ -146,35 +199,100 @@ async function runAgentSessionTurn(
 ): Promise< void > {
 	let session: AgentSession | undefined;
 	let unsubscribe: ( () => void ) | undefined;
+	const payloadGuardState: StudioToolPayloadGuardState = {};
+	let heldReply: AgentSessionEvent[] = [];
+	const state = config.subagentOf
+		? shareSessionState( config.session, config.subagentOf.state )
+		: getSessionState( config.host, config.session );
 	try {
-		session = await createStudioAgentSession( config );
+		session = await createStudioAgentSession( config, state, payloadGuardState );
 		setActiveSession( session );
-		let emptyStopContinues = 0;
-		let continueAfterEmptyStop = false;
-		let continuation = '';
-		unsubscribe = session.subscribe( ( event ) => {
-			if (
-				event.type === 'agent_end' &&
-				! event.willRetry &&
-				emptyStopContinues < MAX_EMPTY_STOP_CONTINUES
-			) {
-				const lastAssistant = findLastAssistant( event.messages );
-				if ( isEmptyStop( lastAssistant ) ) {
-					// Not final: consumers wait for the turn's real end.
-					continueAfterEmptyStop = true;
-					continuation = getEmptyStopContinuation( lastAssistant );
-					config.onEvent( { ...event, willRetry: true } );
-					return;
-				}
-			}
+		const emit = ( event: AgentSessionEvent ) => {
 			config.onEvent( event );
+			if ( changesPreview( event ) ) {
+				config.host.ui?.reloadPreview();
+			}
+		};
+		// The end of each run is held until it is known whether the turn
+		// continues: consumers wait for the turn's real end. So is a reply that
+		// would end it, and what follows it, until Studio's checks of the turn.
+		let heldEnd: Extract< AgentSessionEvent, { type: 'agent_end' } > | undefined;
+		unsubscribe = session.subscribe( ( event ) => {
+			updateStudioToolPayloadGuardState( event, payloadGuardState );
+			if ( event.type === 'agent_end' && ! event.willRetry ) {
+				heldEnd = event;
+				return;
+			}
+			if ( heldReply.length || endsTurn( event ) ) {
+				heldReply.push( event );
+				return;
+			}
+			emit( event );
 		} );
+		const continueFrom = session.agent.transformContext;
+		session.agent.transformContext = async ( messages, signal ) =>
+			placeCallNotes(
+				withoutContinuedReplies( continueFrom ? await continueFrom( messages, signal ) : messages )
+			);
 
 		if ( controller.signal.aborted ) {
 			await session.abort();
 			config.onEvent( syntheticErrorAgentEnd( 'aborted', '' ) );
 			return;
 		}
+
+		const { writers, pendingWork } = state;
+		let emptyStopContinues = 0;
+		// What continues the turn after a run ends, if anything: a reply cut off
+		// before it said anything, then the problems still open on the sites.
+		const continuation = async (
+			end: Extract< AgentSessionEvent, { type: 'agent_end' } >
+		): Promise< { customType: string; content: string } | undefined > => {
+			const lastAssistant = findLastAssistant( end.messages );
+			if ( isEmptyStop( lastAssistant ) && emptyStopContinues < MAX_EMPTY_STOP_CONTINUES ) {
+				emptyStopContinues++;
+				return {
+					customType: EMPTY_STOP_CONTINUE_TYPE,
+					content: getEmptyStopContinuation( lastAssistant ),
+				};
+			}
+			if ( lastAssistant?.stopReason !== 'stop' ) {
+				return undefined;
+			}
+			await pendingWork.settle();
+			// A block file the run wrote last is validated, and its lossless fix
+			// saved, before the sites are checked, as on any later tool result.
+			await state.blockValidation.settle( {
+				mine: ( file ) => writers.ofFile( file ) === pendingWork,
+			} );
+			// The sites as the turn leaves them are the parent turn's to check.
+			if ( config.subagentOf ) {
+				const notes = studioMessage( 'notes', [ pendingWork.takeReports() ] );
+				return notes ? { customType: OPEN_PROBLEMS_TYPE, content: notes } : undefined;
+			}
+			// The pages rendered after the last change: their problems are open
+			// until fixed, and a verdict of none ends nothing.
+			await state.renderCheck.settle();
+			await state.renderCheck.takeReports();
+			// The forms a visitor sends on what the turn changed, sent once: those
+			// that store nowhere, or that will not send, are open until fixed.
+			await state.formCheck.check().catch( () => undefined );
+			const raised = await state.openProblems.raise();
+			// The notes on the run's last calls, whose checks ran after their results.
+			const notes = pendingWork.takeReports();
+			// A problem a note here already says is not said again.
+			const problems = withoutNoted( raised, notes );
+			const content = [
+				studioMessage( 'notes', [ notes ] ),
+				problems.length ? describeOpenProblems( problems ) : undefined,
+			]
+				.filter( Boolean )
+				.join( '\n' );
+			// With nothing new, the turn ends: the invalid blocks it was told of and
+			// left as they were are said once more, each once (OpenProblems.remind()).
+			const reminder = content || describeStillInvalid( state.openProblems.remind() );
+			return reminder ? { customType: OPEN_PROBLEMS_TYPE, content: reminder } : undefined;
+		};
 
 		await session.prompt( config.prompt, {
 			expandPromptTemplates: false,
@@ -185,24 +303,28 @@ async function runAgentSessionTurn(
 				mimeType: image.mimeType,
 			} ) ),
 		} );
-		while ( continueAfterEmptyStop ) {
-			continueAfterEmptyStop = false;
+		for ( let end = heldEnd; end; end = heldEnd ) {
+			heldEnd = undefined;
+			const next = await continuation( end );
+			const held = heldReply;
+			heldReply = [];
+			if ( ! next ) {
+				held.forEach( emit );
+				emit( end );
+				break;
+			}
+			const rewinds = next.customType === OPEN_PROBLEMS_TYPE;
+			held.forEach( ( event ) => emit( rewinds ? withoutReplyText( event ) : event ) );
+			emit( { ...end, willRetry: true } );
 			if ( controller.signal.aborted ) {
 				config.onEvent( syntheticErrorAgentEnd( 'aborted', '' ) );
 				break;
 			}
-			emptyStopContinues++;
-			await session.sendCustomMessage(
-				{
-					customType: EMPTY_STOP_CONTINUE_TYPE,
-					content: continuation,
-					display: false,
-				},
-				{ triggerTurn: true }
-			);
+			await session.sendCustomMessage( { ...next, display: false }, { triggerTurn: true } );
 		}
-		await getPendingWork( config.session ).settle();
+		await pendingWork.settle();
 	} catch ( error ) {
+		heldReply.forEach( config.onEvent );
 		const aborted = controller.signal.aborted;
 		const message = aborted ? '' : error instanceof Error ? error.message : String( error );
 		config.onEvent( syntheticErrorAgentEnd( aborted ? 'aborted' : 'error', message ) );
@@ -210,38 +332,125 @@ async function runAgentSessionTurn(
 		unsubscribe?.();
 		session?.dispose();
 		setActiveSession( undefined );
+		state.writers.release( state.pendingWork );
 	}
 }
 
 async function createStudioAgentSession(
-	config: ResolvedStudioAgentTurnConfig
+	config: ResolvedStudioAgentTurnConfig,
+	state: SessionState,
+	payloadGuardState: StudioToolPayloadGuardState
 ): Promise< AgentSession > {
 	const { model } = config.ai;
 	const visionEnabled = model.input.includes( 'image' );
-	const [ userInstructions, imageGenerationEnabled, designPath ] = await Promise.all( [
+	const confirm = createConfirmer( config.onConfirm ?? config.onAskUser );
+	const [
+		userInstructions,
+		imageGenerationEnabled,
+		activeSiteFacts,
+		mcpServers,
+		wpCliServer,
+		localSites,
+	] = await Promise.all( [
 		readGlobalInstructions(),
 		config.host.imageGenerator?.().then( Boolean ) ?? false,
-		findActiveSiteDesign( config.host, config.activeSite ),
+		readActiveSiteFacts( config.host, config.activeSite ),
+		readMcpServers( config.host.remoteHosts ),
+		serveWpCli( config.host ),
+		// With no active site, the turn's context names the user's sites.
+		config.activeSite ? undefined : config.host.sites.all(),
 	] );
 
-	const tools = buildAgentTools( config, imageGenerationEnabled, visionEnabled );
+	const {
+		openProblems,
+		pendingWork,
+		blockValidation: blockValidationGate,
+		renderCheck,
+		writers,
+	} = state;
+	const sitePin = new SitePin( config.host, config.activeSite );
+	const site = config.activeSite;
+	const localSite = site && ! site.remote ? site.path : undefined;
+	const siteNotes = createSiteNotes( config.host, {
+		// The turn's context already states this turn's facts.
+		stated: new Map( localSite ? [ [ path.resolve( localSite ), activeSiteFacts ] ] : [] ),
+		gate: blockValidationGate,
+		open: openProblems,
+	} );
+	// What a call changed on the request's sites, or on every local site until
+	// the request has one, reported on its result.
+	const siteChanges =
+		config.subagentOf?.siteChanges ??
+		new SiteChanges( config.host, openProblems, async () => {
+			const sites = await config.host.sites.all();
+			const pinned = sitePin.localSitePaths();
+			return pinned.length
+				? sites.filter( ( { path: sitePath } ) => pinned.includes( path.resolve( sitePath ) ) )
+				: sites;
+		} );
+	const afterChecks = new AfterChecks( pendingWork );
+	const fileViews = new FileViews();
+
+	const userSkills = readUserSkills();
+	const skillScope = new SkillToolScope( config.session, userSkills );
+	let activateTools: () => void = () => {};
+	const tools = buildAgentTools(
+		config,
+		{ state, siteChanges },
+		// The site this request works on, once it has one: the active site, or
+		// the one it created or first changed.
+		async () => {
+			const sitePath = sitePin.localRequestSite();
+			if ( config.activeSite || ! sitePath ) {
+				return config.activeSite;
+			}
+			const site = await config.host.sites.findByFolder( sitePath );
+			return site && { ...site, running: await config.host.sites.isRunning( site ) };
+		},
+		imageGenerationEnabled,
+		visionEnabled,
+		wpCliServer,
+		userSkills,
+		( skillName ) => {
+			skillScope.unlock( skillName );
+			activateTools();
+		}
+	);
+	const mcpTools = await createMcpTools(
+		mcpServers,
+		confirm,
+		tools.map( ( tool ) => tool.name )
+	);
 	const systemPrompt = buildSystemPrompt( {
+		environmentFacts: environmentFacts(),
 		userInstructions,
-		tools: tools.map( toolPromptContribution ),
+	} );
+	const turnContext = buildTurnContext( {
+		shellDirectory: shellDirectory( config ),
 		activeSite: config.activeSite,
-		activeSiteDesignPath: designPath,
-		activeSiteEmailPath: config.activeSite?.id
-			? getSiteEmailDirectory( config.activeSite.id )
-			: undefined,
+		activeSiteFacts: activeSiteFacts.flat(),
+		localSites,
 	} );
 
-	const pendingWork = getPendingWork( config.session );
-	const site = config.activeSite;
-	const notes = createResultNotes( config.host );
-	const resultNotes =
-		site && ! site.remote ? ( text: string ) => notes( site.path, text ) : undefined;
-	const toolDefinitions = tools.map( ( tool ) =>
-		toToolDefinition( config.host, tool, pendingWork, resultNotes )
+	// The active site as the turn finds it, rendered while the model first
+	// thinks. A subagent's changes are rendered after the parent's call.
+	const renders = ! config.subagentOf;
+	if ( renders && localSite && fs.existsSync( localSite ) ) {
+		void renderCheck.seen( path.resolve( localSite ) ).catch( () => undefined );
+	}
+	const toolDefinitions = [ ...tools, ...mcpTools ].map( ( tool ) =>
+		toToolDefinition( config.host, tool, payloadGuardState, pendingWork, blockValidationGate, {
+			confirm,
+			sitePin,
+			siteNotes,
+			siteChanges,
+			afterChecks,
+			renderCheck: renders ? renderCheck : undefined,
+			formCheck: state.formCheck,
+			openProblems,
+			writers,
+			fileViews,
+		} )
 	);
 	const modelRuntime = await createModelRuntime( config.ai );
 	const settingsManager = createSettingsManager();
@@ -274,7 +483,31 @@ async function createStudioAgentSession(
 		sessionStartEvent: { type: 'session_start', reason: 'startup' },
 	} );
 
+	const allToolNames = toolDefinitions.map( ( tool ) => tool.name );
+	activateTools = () =>
+		result.session.setActiveToolsByName( skillScope.activeToolNames( allToolNames ) );
+	activateTools();
+	// The turn's context comes with its prompt when it differs from the one
+	// the conversation last stated, also when compaction summed that one up.
+	if ( turnContext !== lastTurnContext( result.session.messages ) ) {
+		await result.session.sendCustomMessage(
+			{ customType: TURN_CONTEXT_TYPE, content: turnContext, display: false },
+			{ deliverAs: 'nextTurn' }
+		);
+	}
 	return result.session;
+}
+
+const TURN_CONTEXT_TYPE = 'studio.turn_context';
+
+function lastTurnContext( messages: AgentMessage[] ): string | undefined {
+	for ( let index = messages.length - 1; index >= 0; index-- ) {
+		const message = messages[ index ];
+		if ( message.role === 'custom' && message.customType === TURN_CONTEXT_TYPE ) {
+			return typeof message.content === 'string' ? message.content : undefined;
+		}
+	}
+	return undefined;
 }
 
 // In-memory credential store so the runtime never reads or writes an auth.json
@@ -369,81 +602,84 @@ function createSettingsManager(): SettingsManager {
 	);
 }
 
-// pi's tools declare a prompt snippet and so do Studio's (see define-tool.ts);
-// the AgentTool type does not carry it, hence the cast.
-type ToolPromptFields = { promptSnippet?: string };
-
-function toolPromptContribution( tool: AgentToolAny ): ToolPromptContribution {
-	return { name: tool.name, promptSnippet: ( tool as ToolPromptFields ).promptSnippet };
+function getStudioWpSpawnHook( wpCliServer: string | undefined ) {
+	const cliPath = process.env.STUDIO_CLI_BIN ?? path.join( import.meta.dirname, 'main.mjs' );
+	return agentShell(
+		ensureStudioShimDirectory( getStudioShims( process.execPath, cliPath ) ),
+		wpCliServer
+	);
 }
 
-// Where pi's file tools put a path: without a leading `@`, with `~` expanded.
-function resolveToolPath( { path, sitesRoot }: StudioAgentHost, file: string ): string {
-	const withoutAt = file.replace( /^@/, '' );
-	const expanded =
-		withoutAt === '~' || withoutAt.startsWith( '~/' )
-			? path.join( os.homedir(), withoutAt.slice( 1 ) )
-			: withoutAt;
-	return path.resolve( sitesRoot, expanded );
-}
-
-function toToolDefinition(
-	host: StudioAgentHost,
-	tool: AgentToolAny,
-	pendingWork: PendingWork,
-	resultNotes?: ( text: string ) => Promise< string >
-): ToolDefinition {
-	return {
-		name: tool.name,
-		label: tool.label,
-		description: tool.description,
-		parameters: tool.parameters,
-		prepareArguments: tool.prepareArguments,
-		executionMode: tool.executionMode,
-		promptSnippet: ( tool as ToolPromptFields ).promptSnippet,
-		execute: async ( toolCallId, params, signal, onUpdate ) => {
-			await assertToolCallAllowed( tool.name, params, host, ( file ) =>
-				resolveToolPath( host, file )
-			);
-			return runWithPendingWork(
-				{
-					settles: ( tool as { settlesPendingWork?: boolean } ).settlesPendingWork,
-					pendingWork,
-					resultNotes,
-				},
-				() => tool.execute( toolCallId, params, signal, onUpdate )
-			);
-		},
-	};
+// Bash starts in the active local site's folder, where most commands run and
+// where `studio wp` finds the site (getSiteContainingFolder() in cli/commands/wp.ts).
+function shellDirectory( config: ResolvedStudioAgentTurnConfig ): string {
+	const site = config.activeSite;
+	return site && ! site.remote && fs.existsSync( site.path ) ? site.path : config.host.sitesRoot;
 }
 
 function buildAgentTools(
 	config: ResolvedStudioAgentTurnConfig,
+	checks: SubagentParent,
+	requestSite: () => Promise< SiteInfo | null | undefined >,
 	imageGenerationEnabled: boolean,
-	visionEnabled: boolean
+	visionEnabled: boolean,
+	wpCliServer: string | undefined,
+	userSkills: Skill[],
+	onSkillLoad: ( skillName: string ) => void
 ): AgentToolAny[] {
 	const { host } = config;
-
-	// pi's tools are registered under Studio's names; the prompt text for them
-	// is Studio's too (file-tool-prompts.ts), so nothing of pi's wording leaks.
+	// pi's tools are registered under Studio's names.
 	const renameTool = < S extends TSchema >( tool: AgentTool< S >, name: string ): AgentTool< S > =>
-		( { ...tool, name, label: name, ...getFileToolPrompt( name ) } ) as AgentTool< S >;
+		( { ...tool, name, label: name } ) as AgentTool< S >;
 
 	const { sitesRoot } = host;
 	const piTools: AgentToolAny[] = [
-		renameTool( createReadTool( sitesRoot ), 'Read' ),
-		withDesignSystemPreview( renameTool( createWriteTool( sitesRoot ), 'Write' ), host ),
-		withDesignSystemPreview( renameTool( createEditTool( sitesRoot ), 'Edit' ), host ),
-		renameTool( createBashTool( sitesRoot ), 'Bash' ),
+		renameTool(
+			visionEnabled
+				? createReadTool( sitesRoot )
+				: withTextOnlyImages( createReadTool( sitesRoot ) ),
+			'Read'
+		),
+		renameTool( createWriteTool( sitesRoot ), 'Write' ),
+		renameTool( withStringEdits( createEditTool( sitesRoot ) ), 'Edit' ),
+		renameTool(
+			withDefaultTimeout(
+				createBashTool( shellDirectory( config ), {
+					spawnHook: getStudioWpSpawnHook( wpCliServer ),
+				} )
+			),
+			'Bash'
+		),
 		renameTool( createGrepTool( sitesRoot ), 'Grep' ),
 		renameTool( createFindTool( sitesRoot ), 'Glob' ),
 		renameTool( createLsTool( sitesRoot ), 'Ls' ),
 	];
 	const conversationTools = resolveConversationTools( host, {
+		shell: true,
 		imageGeneration: imageGenerationEnabled,
 		visionEnabled,
 		onAskUser: config.onAskUser,
-		tracks: getAiTracksIdentity( config.session.getSessionId() ),
+		userSkills,
+		onSkillLoad: ( skill ) => onSkillLoad( skill.name ),
+		definitions: nodeStudioToolDefinitions,
 	} ) as unknown as AgentToolAny[];
-	return [ ...conversationTools, ...piTools ];
+	// A subagent's turn is this turn's, from a fresh session and with nobody to
+	// ask: confirmations still reach the user. Its active site is this
+	// request's, so it starts knowing the site as it is now.
+	const subagentTool: AgentToolAny[] = config.subagentOf
+		? []
+		: [
+				createSubagentTool( async ( task, onEvent ) =>
+					runStudioAgentTurn( host, {
+						prompt: task,
+						session: SessionManager.inMemory( sitesRoot ),
+						ai: config.ai,
+						activeSite: await requestSite(),
+						onConfirm: config.onConfirm ?? config.onAskUser,
+						onEvent,
+						subagentOf: checks,
+					} )
+				),
+		  ];
+	return [ ...conversationTools, ...subagentTool, ...piTools ];
 }

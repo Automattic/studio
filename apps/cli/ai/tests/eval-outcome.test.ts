@@ -1,87 +1,236 @@
 import { existsSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'fs';
+import { createServer } from 'node:http';
 import { DatabaseSync } from 'node:sqlite';
 import os from 'os';
 import path from 'path';
+import { closeSharedBrowser } from '@studio/agent/node/browser-utils';
+import { seenFields, visitorValue } from '@studio/agent/node/form-submission';
+import { readSiteFacts } from '@studio/agent/node/site-facts';
+import { createSite } from '@studio/agent/node/tests/fixtures/wordpress-site';
 import { STUDIO_LOADER_MU_PLUGIN_FILENAME } from '@studio/common/lib/mu-plugins';
+import { chromium } from 'playwright';
 import { expect, it, vi } from 'vitest';
-import { captureTurnOutcome, fingerprintSites } from 'cli/ai/eval-outcome';
+import { captureTurnOutcome, fingerprintSites, sendPageForms } from 'cli/ai/eval-outcome';
+import { cliAgentHost } from 'cli/ai/host';
 import { readCliConfig } from 'cli/lib/cli-config/core';
 
+// The site's WordPress is not run: what its code registers is read by admin-capabilities' tests.
+vi.mock( 'cli/lib/daemon-client', () => ( {
+	connectToDaemon: vi.fn(),
+	disconnectFromDaemon: vi.fn(),
+} ) );
+vi.mock( 'cli/lib/run-wp-cli-command', () => ( {
+	runWpCliCommand: vi.fn( async () => {
+		throw new Error( 'WordPress is not run in this test' );
+	} ),
+} ) );
+// The emails a site sent are read from a folder of the test's, not the user's Studio config.
+const emailRoot = mkdtempSync( path.join( os.tmpdir(), 'eval-outcome-email-' ) );
+vi.mock( '@studio/common/sites/site-email', () => ( {
+	getSiteEmailDirectory: ( siteId: string ) => path.join( emailRoot, siteId ),
+} ) );
 vi.mock( 'cli/lib/cli-config/core', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('cli/lib/cli-config/core') >() ),
 	readCliConfig: vi.fn(),
 } ) );
 
-// A Studio site's folder: its SQLite database, in WAL mode as WordPress's
-// SQLite integration runs it, and a theme. It is the one site Studio has.
-function createSite(): string {
-	const root = mkdtempSync( path.join( os.tmpdir(), 'eval-outcome-' ) );
-	mkdirSync( path.join( root, 'wp-content/database' ), { recursive: true } );
-	mkdirSync( path.join( root, 'wp-content/themes/bakery' ), { recursive: true } );
-	writeFileSync(
-		path.join( root, 'wp-content/themes/bakery/style.css' ),
-		'/* Theme Name: Bakery */'
-	);
-	const db = new DatabaseSync( path.join( root, 'wp-content/database/.ht.sqlite' ) );
+// As run 42's active-site-different-name turn only read its site (01a1…6ddc2961).
+it( 'fingerprints a site a turn only reads as unchanged, and one it writes to as changed', async () => {
+	const { root } = createSite();
+	const database = path.join( root, 'wp-content/database/.ht.sqlite' );
+	// WordPress's SQLite database runs in WAL mode, whose index a read updates.
+	const db = new DatabaseSync( database );
 	db.exec( 'PRAGMA journal_mode=WAL' );
-	db.exec( 'CREATE TABLE wp_options ( option_name TEXT, option_value TEXT )' );
 	db.close();
 	vi.mocked( readCliConfig ).mockResolvedValue( {
 		sites: [ { id: 'site', name: 'Site', path: root, port: 8881 } ],
 	} as Awaited< ReturnType< typeof readCliConfig > > );
-	return root;
-}
-
-const tick = () => new Promise( ( resolve ) => setTimeout( resolve, 20 ) );
-
-// As run 42's and 43's active-site-different-name turns only read their site.
-it( 'fingerprints a site a turn only reads as unchanged, and one it writes to as changed', async () => {
-	const root = createSite();
-	const database = path.join( root, 'wp-content/database/.ht.sqlite' );
+	// The facts a turn's start reads.
+	await readSiteFacts( cliAgentHost, root );
 	// The site's last request closed the database, which removed its WAL files;
-	// a read-only read creates them again and cannot remove them
-	// (https://sqlite.org/walformat.html).
+	// a read-only read creates them again and cannot remove them (run 43).
+	const last = new DatabaseSync( database );
+	last.prepare( 'SELECT 1 FROM wp_options' ).all();
+	last.close();
 	expect( existsSync( `${ database }-wal` ) ).toBe( false );
 	const mtime = async () => ( await fingerprintSites() )[ 0 ].mtimeMs;
 	const before = await mtime();
-	await tick();
+	await new Promise( ( resolve ) => setTimeout( resolve, 20 ) );
 
-	const read = new DatabaseSync( database, { readOnly: true } );
-	read.prepare( 'SELECT 1 FROM wp_options' ).all();
-	read.close();
+	await readSiteFacts( cliAgentHost, root );
 	expect( await mtime() ).toBe( before );
 
 	const write = new DatabaseSync( database );
 	write.exec( "INSERT INTO wp_options ( option_name, option_value ) VALUES ( 'changed', '1' )" );
 	expect( await mtime() ).toBeGreaterThan( before );
 	write.close();
-	rmSync( root, { recursive: true, force: true } );
+	const written = await mtime();
+	await new Promise( ( resolve ) => setTimeout( resolve, 20 ) );
+
+	writeFileSync( path.join( root, 'wp-content/themes/bakery/style.css' ), '/* changed */' );
+	expect( await mtime() ).toBeGreaterThan( written );
 } );
 
 // As run 52's preview-vs-remote turns, whose site_list had Studio rewrite the
 // loader of a site the turn only read, after a build changed Studio's mu-plugins.
 it( "fingerprints a site whose Studio loader Studio rewrote as unchanged, and a mu-plugin of the site's as changed", async () => {
-	const root = createSite();
+	const { root } = createSite();
+	vi.mocked( readCliConfig ).mockResolvedValue( {
+		sites: [ { id: 'site', name: 'Site', path: root, port: 8881 } ],
+	} as Awaited< ReturnType< typeof readCliConfig > > );
 	const muPlugins = path.join( root, 'wp-content/mu-plugins' );
 	const loader = path.join( muPlugins, STUDIO_LOADER_MU_PLUGIN_FILENAME );
 	mkdirSync( muPlugins, { recursive: true } );
 	writeFileSync( loader, "<?php require '/studio/mu-plugins/old/loader.php';" );
 	const before = ( await fingerprintSites() )[ 0 ];
-	const othersChanged = async ( from: typeof before ) =>
-		( await captureTurnOutcome( [ from ], undefined, root ) ).otherSitesChanged;
-	await tick();
+	await new Promise( ( resolve ) => setTimeout( resolve, 20 ) );
 
 	// As writeStudioMuPlugins() rewrites it: a temporary file renamed over it.
 	writeFileSync( `${ loader }.tmp`, "<?php require '/studio/mu-plugins/new/loader.php';" );
 	renameSync( `${ loader }.tmp`, loader );
-	expect( await othersChanged( before ) ).toEqual( [] );
+	const loaded = ( await fingerprintSites() )[ 0 ];
+	expect( loaded.mtimeMs ).toBe( before.mtimeMs );
+	expect( loaded.code ).toEqual( before.code );
 
 	writeFileSync( path.join( muPlugins, 'site.php' ), '<?php' );
-	expect( await othersChanged( before ) ).toEqual( [ 'Site' ] );
+	const changed = ( await fingerprintSites() )[ 0 ];
+	expect( changed.mtimeMs ).toBeGreaterThan( before.mtimeMs );
+	expect( Object.keys( changed.code ) ).toContain( 'mu-plugins/site.php' );
+	expect( ( await captureTurnOutcome( [ before ], undefined, root ) ).otherSitesChanged ).toEqual( [
+		'Site',
+	] );
 
-	// A removal moves only the folder's own time.
+	// A removal moves only the folder's time; the code hashes tell it.
 	const added = ( await fingerprintSites() )[ 0 ];
 	rmSync( path.join( muPlugins, 'site.php' ) );
-	expect( await othersChanged( added ) ).toEqual( [ 'Site' ] );
-	rmSync( root, { recursive: true, force: true } );
+	expect( ( await captureTurnOutcome( [ added ], undefined, root ) ).otherSitesChanged ).toEqual( [
+		'Site',
+	] );
+	expect( ( await captureTurnOutcome( [ before ], undefined, root ) ).otherSitesChanged ).toEqual(
+		[]
+	);
 } );
+
+// eval30 pivot: the scorer typed "Eval Visitor" into Jetpack's date field and 1
+// into a guest count of at least 2, so the form's script (and the browser, for a
+// date input) refused the inquiry before sending it: "Please enter a valid date."
+it.runIf( existsSync( chromium.executablePath() ) )(
+	'types what each field asks for: a date in its format, a number within its range',
+	async () => {
+		const browser = await chromium.launch();
+		try {
+			const page = await browser.newPage();
+			await page.setContent( `<form>
+				<input type="text" name="name" required>
+				<input type="date" name="date" required>
+				<input type="text" name="jp-iso" class="date jp-contact-form-date" data-format="yy-mm-dd">
+				<input type="text" name="jp-us" class="date jp-contact-form-date" data-format="mm/dd/yy">
+				<input type="number" name="guests" min="2" required>
+				<input type="number" name="tiny" max="0">
+				<input type="search" name="s">
+			</form>` );
+			const values: Record< string, string | undefined > = {};
+			for ( const field of await page.locator( 'input' ).all() ) {
+				const value = await visitorValue( field );
+				values[ ( await field.getAttribute( 'name' ) ) as string ] = value;
+				if ( value !== undefined ) await field.fill( value );
+			}
+			expect( values.name ).toBe( 'Test Visitor' );
+			expect( values.date ).toMatch( /^\d{4}-\d{2}-\d{2}$/ );
+			expect( values[ 'jp-iso' ] ).toBe( values.date );
+			const [ y, m, d ] = ( values.date as string ).split( '-' );
+			expect( values[ 'jp-us' ] ).toBe( `${ m }/${ d }/${ y }` );
+			expect( values.guests ).toBe( '2' );
+			expect( values.tiny ).toBe( '0' );
+			expect( values.s ).toBeUndefined();
+			expect(
+				await page.locator( 'form' ).evaluate( ( f: HTMLFormElement ) => f.checkValidity() )
+			).toBe( true );
+		} finally {
+			await browser.close();
+		}
+	}
+);
+
+// eval21 redo port 2: the scorer filled the booking form's spam trap, a field
+// moved off the page in a box clipped to nothing, and the form dropped the message.
+it.runIf( existsSync( chromium.executablePath() ) )(
+	'fills only the fields a visitor sees, not a spam trap hidden from them',
+	async () => {
+		const browser = await chromium.launch();
+		try {
+			const page = await browser.newPage();
+			await page.setContent( `<form>
+				<p style="position:absolute;left:-9999px;height:0;overflow:hidden" aria-hidden="true"><input name="trap-offpage"></p>
+				<p style="height:0;overflow:hidden"><input name="trap-clipped"></p>
+				<div aria-hidden="true"><input name="trap-aria"></div>
+				<div style="overflow:auto;height:80px"><input name="name"><select name="artist"><option>Kestrel</option></select></div>
+				<textarea name="idea"></textarea>
+			</form>` );
+			const names = async ( selector: string ) =>
+				Promise.all(
+					( await seenFields( page.locator( 'form' ), selector ) ).map( ( field ) =>
+						field.getAttribute( 'name' )
+					)
+				);
+			expect( [
+				...( await names( 'input:visible' ) ),
+				...( await names( 'select:visible' ) ),
+			] ).toEqual( [ 'name', 'artist' ] );
+		} finally {
+			await browser.close();
+		}
+	}
+);
+
+// A booking form takes a name, an email and a date as text, and no message:
+// the eval sent only a form with a textarea, so it never sent this one. Its date
+// field opens a picker over the button while it has focus, as Jetpack's does
+// (eval37's grooming port 2), until a visitor moves on.
+it.runIf( existsSync( chromium.executablePath() ) )(
+	'sends a visitor form with name, email and text fields and no textarea, not the search form, and finds what the site stored',
+	async () => {
+		const { root } = createSite();
+		const database = path.join( root, 'wp-content/database/.ht.sqlite' );
+		const server = createServer( ( request, response ) => {
+			let body = '';
+			request.on( 'data', ( chunk ) => ( body += chunk ) );
+			request.on( 'end', () => {
+				if ( request.method === 'POST' ) {
+					// The site stores the booking as a post, as a form plugin does.
+					const db = new DatabaseSync( database );
+					db.prepare(
+						"INSERT INTO wp_posts ( post_type, post_status, post_name, post_content, post_date ) VALUES ( 'booking', 'private', 'booking', ?, '2026-10-22 00:00:00' )"
+					).run( decodeURIComponent( body.replace( /\+/g, ' ' ) ) );
+					db.close();
+					response.end( '<p>Thanks, we will be in touch.</p>' );
+					return;
+				}
+				response.setHeader( 'Content-Type', 'text/html' );
+				response.end( `<form role="search" method="get"><input type="search" name="s"><button>Search</button></form>
+					<form method="post" action="/book">
+						<input type="text" name="name">
+						<input type="email" name="email">
+						<input type="text" name="date" onfocus="picker.hidden = false" onblur="setTimeout( () => ( picker.hidden = true ), 5 )">
+						<button type="submit">Book</button>
+					</form>
+					<div id="picker" hidden style="position:fixed;inset:0"></div>` );
+			} );
+		} );
+		await new Promise< void >( ( resolve ) => server.listen( 0, '127.0.0.1', resolve ) );
+		const { port } = server.address() as { port: number };
+		try {
+			const link = `http://127.0.0.1:${ port }/book/`;
+			const [ sent ] = await sendPageForms( root, 'site', [ link ] );
+			expect( sent ).toMatchObject( {
+				page: link,
+				afterText: expect.stringContaining( 'Thanks' ),
+			} );
+			expect( sent.error ).toBeUndefined();
+			expect( sent.stored ).toMatchObject( { postTypes: [ 'booking' ], emails: 0 } );
+		} finally {
+			server.close();
+			await closeSharedBrowser();
+		}
+	}
+);

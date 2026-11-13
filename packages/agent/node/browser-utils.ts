@@ -11,8 +11,10 @@ import { existsSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { promisify } from 'util';
+import { withTimeout } from '@studio/agent/shared/tools/utils';
 
 type Browser = Awaited< ReturnType< ( typeof import('playwright') )[ 'chromium' ][ 'launch' ] > >;
+type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;
 type Chromium = Awaited< typeof import('playwright') >[ 'chromium' ];
 type ChromiumLaunchOptions = Parameters< Chromium[ 'launch' ] >[ 0 ];
 type InstallBrowserFn = () => Promise< void >;
@@ -169,6 +171,34 @@ export async function getSharedBrowser(): Promise< Browser > {
 	return browserPromise;
 }
 
+// Playwright waits for a new page without a timeout. A Chrome under load once
+// answered none of the commands that set a page up (Page.enable,
+// Runtime.enable) for 35 minutes, and every check waiting on the page waited
+// with it.
+const NEW_PAGE_TIMEOUT_MS = 30_000;
+
+/**
+ * A new page on the shared browser. A browser that opens none in 30s is closed,
+ * and the next page is opened on a browser launched again.
+ */
+export async function openSharedPage(
+	options?: Parameters< Browser[ 'newPage' ] >[ 0 ]
+): Promise< Page > {
+	const browser = await getSharedBrowser();
+	const launched = browserPromise;
+	const opening = browser.newPage( options );
+	try {
+		return await withTimeout( opening, NEW_PAGE_TIMEOUT_MS, 'Opening a browser page' );
+	} catch ( error ) {
+		opening.then( ( page ) => page.close() ).catch( () => {} );
+		if ( browserPromise === launched ) {
+			browserPromise = null;
+		}
+		browser.close().catch( () => {} );
+		throw error;
+	}
+}
+
 /**
  * Close the shared browser instance (if any) so the Node.js event loop can
  * drain and the process can exit naturally without calling process.exit().
@@ -201,6 +231,164 @@ async function tryLaunchChromium(
 		} catch ( error ) {
 			launchErrors.push(
 				`${ attemptedTarget }: ${ error instanceof Error ? error.message : String( error ) }`
+			);
+		}
+	}
+}
+
+/** Collect diagnostic info from the page to help debug editor load failures. */
+async function getPageDiagnostics( page: Page ): Promise< string > {
+	try {
+		const url = page.url();
+		const info = await page.evaluate( () => {
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			const wp = ( window as any ).wp;
+			return {
+				hasWp: typeof wp !== 'undefined',
+				hasWpBlocks: !! ( wp && wp.blocks ),
+				hasGetBlockTypes: !! ( wp && wp.blocks && typeof wp.blocks.getBlockTypes === 'function' ),
+				blockTypeCount: wp?.blocks?.getBlockTypes?.()?.length ?? 0,
+				title: document.title,
+				bodyClasses: document.body?.className?.slice( 0, 200 ) ?? '',
+			};
+		} );
+		return `url=${ url }, title="${ info.title }", wp=${ info.hasWp }, wp.blocks=${ info.hasWpBlocks }, getBlockTypes=${ info.hasGetBlockTypes }, blockTypes=${ info.blockTypeCount }, body="${ info.bodyClasses }"`;
+	} catch ( e ) {
+		return `(diagnostics failed: ${ e instanceof Error ? e.message : String( e ) })`;
+	}
+}
+
+/** An error a page threw, with the script line it threw from. */
+function thrownAt( error: Error ): string {
+	const frame = error.stack?.match( /\(?(https?:\/\/[^\s)]+?)(?:\?[^\s):]*)?:(\d+):\d+\)?/ );
+	return frame ? `${ error.message } (${ frame[ 1 ] } line ${ frame[ 2 ] })` : error.message;
+}
+
+/**
+ * A long-lived page that stays open on a site's block editor so repeated
+ * validation calls don't have to re-navigate and re-load all block scripts.
+ */
+export class EditorPage {
+	private page: Page | null = null;
+	private loading: Promise< Page > | null = null;
+	// The calls using a page now, and the pages replaced while calls used them,
+	// which close once no call does.
+	private users = 0;
+	private retired: Page[] = [];
+	private readonly siteUrl: string;
+	private readonly editorPath: string;
+	/** What the editor page threw, as message and the script line that threw it. */
+	loadErrors: string[] = [];
+
+	constructor( siteUrl: string, editorPath = '/wp-admin/post-new.php' ) {
+		this.siteUrl = siteUrl;
+		this.editorPath = editorPath;
+	}
+
+	/** Get or create a page with the block editor loaded. */
+	async getPage(): Promise< Page > {
+		if ( this.page && ! this.page.isClosed() ) {
+			return this.page;
+		}
+		// Concurrent auto-logins overwrite each other's session tokens, so share one load.
+		this.loading ??= this.load().finally( () => ( this.loading = null ) );
+		return this.loading;
+	}
+
+	private async load(): Promise< Page > {
+		const page = await openSharedPage( { ignoreHTTPSErrors: true } );
+		const loadErrors: string[] = [];
+		page.on( 'pageerror', ( error ) => loadErrors.push( thrownAt( error ) ) );
+
+		const { editorPath } = this;
+		const loginUrl = `${ this.siteUrl }/studio-auto-login?redirect_to=${ editorPath }`;
+		await page.goto( loginUrl, { waitUntil: 'commit', timeout: 30_000 } );
+		// A plugin can send the first admin page after its activation elsewhere
+		// once, as WooCommerce's setup wizard does with a transient it deletes on
+		// redirecting, so the editor is loaded again where the login lands elsewhere,
+		// and the page it landed on is left as soon as its address is known: the
+		// wizard's scripts and styles took 5-6s of a cold editor load.
+		if ( ! new URL( page.url() ).pathname.endsWith( editorPath ) ) {
+			await page.goto( `${ this.siteUrl }${ editorPath }`, {
+				waitUntil: 'domcontentloaded',
+				timeout: 30_000,
+			} );
+		} else {
+			await page.waitForLoadState( 'domcontentloaded', { timeout: 30_000 } );
+		}
+
+		// Wait for the block editor scripts to be fully loaded and blocks registered.
+		// wp is set early as a global but wp.blocks is populated later, so every
+		// level must be checked to avoid "Cannot read properties of undefined".
+		try {
+			await page.waitForFunction(
+				() => {
+					try {
+						// eslint-disable-next-line @typescript-eslint/no-explicit-any
+						const wp = ( window as any ).wp;
+						return (
+							wp &&
+							wp.blocks &&
+							typeof wp.blocks.getBlockTypes === 'function' &&
+							wp.blocks.getBlockTypes().length > 0
+						);
+					} catch {
+						return false;
+					}
+				},
+				{ timeout: 30_000 }
+			);
+		} catch ( error ) {
+			const diag = await getPageDiagnostics( page );
+			await page.close();
+			throw new Error(
+				`Block editor failed to load (${ diag }): ${
+					error instanceof Error ? error.message : String( error )
+				}`
+			);
+		}
+
+		this.page = page;
+		this.loadErrors = loadErrors;
+		return page;
+	}
+
+	/**
+	 * Runs `fn` on the editor's page. Calls run side by side; a page replaced
+	 * meanwhile stays open for the calls using it.
+	 */
+	async use< T >( fn: ( page: Page ) => Promise< T > ): Promise< T > {
+		this.users++;
+		try {
+			return await fn( await this.getPage() );
+		} finally {
+			this.users--;
+			await this.closeRetired();
+		}
+	}
+
+	/** Loads the editor again for the next call, as calls using the page finish on it. */
+	async replace(): Promise< void > {
+		await this.retire( false );
+	}
+
+	/** Closes the editor's pages, including those calls use. */
+	async close(): Promise< void > {
+		await this.retire( true );
+	}
+
+	private async retire( now: boolean ): Promise< void > {
+		if ( this.page ) {
+			this.retired.push( this.page );
+			this.page = null;
+		}
+		await this.closeRetired( now );
+	}
+
+	private async closeRetired( now = false ): Promise< void > {
+		if ( now || ! this.users ) {
+			await Promise.all(
+				this.retired.splice( 0 ).map( ( page ) => page.close().catch( () => {} ) )
 			);
 		}
 	}

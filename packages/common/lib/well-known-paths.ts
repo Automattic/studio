@@ -61,7 +61,3 @@ export function getMuPluginsPath(): string {
 export function getMuPluginSettingsPath(): string {
 	return path.join( getMuPluginsPath(), 'settings.json' );
 }
-
-export function getAiPayloadsPath(): string {
-	return path.join( getConfigDirectory(), 'tmp', 'ai-payloads' );
-}

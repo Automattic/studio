@@ -34,7 +34,6 @@ import {
 	SettingsGroup,
 	SettingsLoadState,
 	SettingsRow,
-	SettingsSectionLink,
 	SettingsSelect,
 	SettingsToggle,
 } from './rows';
@@ -523,7 +522,7 @@ export function AppearanceSettings() {
 	);
 }
 
-export function InstructionsSettings( { onManageSite }: { onManageSite?: () => void } ) {
+export function InstructionsSettings() {
 	const { data: enabled } = useAgentInstructionsEnabled();
 	const setEnabled = useSetAgentInstructionsEnabled();
 	return (
@@ -534,13 +533,6 @@ export function InstructionsSettings( { onManageSite }: { onManageSite?: () => v
 					description={ __(
 						'Set coding standards, preferred tools, and response style for new chats across all sites.'
 					) }
-					additionalContent={
-						onManageSite ? (
-							<SettingsSectionLink onClick={ onManageSite }>
-								{ __( 'Manage instructions for this site' ) }
-							</SettingsSectionLink>
-						) : null
-					}
 					error={ setEnabled.error?.message }
 				>
 					<SettingsToggle

@@ -124,6 +124,7 @@ describe( 'AI provider settings', () => {
 			gemini: { connected: false },
 			'github-copilot': { connected: false },
 			spacefast: { connected: false },
+			custom: { connected: false },
 		},
 	} );
 	const keyPreview = 'sk-ant-api03-tes...1234';

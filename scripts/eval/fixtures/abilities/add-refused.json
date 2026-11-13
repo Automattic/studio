@@ -1,0 +1,81 @@
+{
+	"book": "The Left Hand of Darkness",
+	"abilities": [
+		{
+			"name": "book-club/list-books",
+			"inRest": true,
+			"annotations": {
+				"readonly": true,
+				"destructive": null,
+				"idempotent": null
+			},
+			"inputSchema": []
+		},
+		{
+			"name": "book-club/add-book",
+			"inRest": true,
+			"annotations": {
+				"readonly": null,
+				"destructive": null,
+				"idempotent": null
+			},
+			"inputSchema": {
+				"type": "object",
+				"properties": {
+					"title": {
+						"type": "string",
+						"pattern": "^[0-9]+$"
+					},
+					"author": {
+						"type": "string"
+					}
+				},
+				"required": [ "title" ]
+			}
+		}
+	],
+	"runs": [
+		{
+			"name": "book-club/add-book",
+			"method": "POST",
+			"user": 0,
+			"input": {
+				"title": "The Left Hand of Darkness",
+				"author": "The Left Hand of Darkness"
+			},
+			"status": 400,
+			"body": {
+				"code": "ability_invalid_input",
+				"message": "Ability \"book-club/add-book\" has invalid input. Reason: input[title] does not match pattern ^[0-9]+$.",
+				"data": {
+					"status": 400
+				}
+			}
+		},
+		{
+			"name": "book-club/add-book",
+			"method": "POST",
+			"user": 1,
+			"input": {
+				"title": "The Left Hand of Darkness",
+				"author": "The Left Hand of Darkness"
+			},
+			"status": 400,
+			"body": {
+				"code": "ability_invalid_input",
+				"message": "Ability \"book-club/add-book\" has invalid input. Reason: input[title] does not match pattern ^[0-9]+$.",
+				"data": {
+					"status": 400
+				}
+			}
+		},
+		{
+			"name": "book-club/list-books",
+			"method": "GET",
+			"user": 1,
+			"input": null,
+			"status": 200,
+			"body": []
+		}
+	]
+}

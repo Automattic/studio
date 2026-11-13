@@ -1,4 +1,5 @@
 import { anthropicServices } from './anthropic/services';
+import { customServices } from './custom/services';
 import { geminiServices } from './gemini/services';
 import { githubCopilotServices } from './github-copilot/services';
 import { openaiServices } from './openai/services';
@@ -15,6 +16,7 @@ const SERVICES: {
 	gemini: geminiServices,
 	'github-copilot': githubCopilotServices,
 	spacefast: spacefastServices,
+	custom: customServices,
 };
 
 export function getProviderServices< Id extends ProviderId >(

@@ -7,29 +7,40 @@
  * export/analysis and apply phases.
  *
  * Usage:
- *   TAXONOMIST_SUGGESTIONS=/path/to/suggestions.json studio wp eval-file apply-changes.php
+ *   studio wp eval-file apply-changes.php suggestions=/path/to/suggestions.json
  *
- * Environment variables:
- *   TAXONOMIST_SUGGESTIONS  Path to the suggestions JSON file. Required.
- *                           Format: [{"post_id": 123, "cats": ["wordpress", "ai"]}, ...]
- *                           Values in "cats" are category slugs.
- *   TAXONOMIST_LOG          Path for the change log TSV.
- *                           Default: /tmp/taxonomist-changes.tsv
- *   TAXONOMIST_MODE         "preview" (default) shows what would change.
- *                           "apply" executes the changes.
- *   TAXONOMIST_REMOVE_CATS  Comma-separated category slugs to strip from
- *                           posts that receive new suggestions.
+ * Arguments:
+ *   suggestions  Path to the suggestions JSON file. Required.
+ *                Format: [{"post_id": 123, "cats": ["wordpress", "ai"]}, ...]
+ *                Values in "cats" are category slugs.
+ *   categories   Path to the category plan JSON file: the categories to
+ *                create, and the new names or descriptions of existing ones.
+ *                Format: [{"slug": "ai", "name": "AI", "description": "..."}, ...]
+ *   log          Path for the change log TSV.
+ *                Default: /tmp/taxonomist-changes.tsv
+ *   mode         "preview" (default) shows what would change.
+ *                "apply" executes the changes.
+ *   remove       Comma-separated category slugs to strip from posts that
+ *                receive new suggestions.
  *
  * @package Taxonomist
  */
 
-$suggestions_file = getenv( 'TAXONOMIST_SUGGESTIONS' );
-$log_file         = getenv( 'TAXONOMIST_LOG' ) ? getenv( 'TAXONOMIST_LOG' ) : '/tmp/taxonomist-changes.tsv';
-$apply_mode       = getenv( 'TAXONOMIST_MODE' ) ? getenv( 'TAXONOMIST_MODE' ) : 'preview';
-$remove_cats_str  = getenv( 'TAXONOMIST_REMOVE_CATS' ) ? getenv( 'TAXONOMIST_REMOVE_CATS' ) : '';
+// WP-CLI passes the arguments after the file as `$args`: key=value pairs.
+$options = array();
+foreach ( $args as $arg ) {
+	list( $key, $value ) = array_pad( explode( '=', $arg, 2 ), 2, '' );
+	$options[ $key ]     = $value;
+}
+
+$suggestions_file = isset( $options['suggestions'] ) ? $options['suggestions'] : '';
+$categories_file  = isset( $options['categories'] ) ? $options['categories'] : '';
+$log_file         = isset( $options['log'] ) ? $options['log'] : '/tmp/taxonomist-changes.tsv';
+$apply_mode       = isset( $options['mode'] ) ? $options['mode'] : 'preview';
+$remove_cats_str  = isset( $options['remove'] ) ? $options['remove'] : '';
 
 if ( ! $suggestions_file || ! file_exists( $suggestions_file ) ) {
-	WP_CLI::error( 'Set TAXONOMIST_SUGGESTIONS to the suggestions JSON path' );
+	WP_CLI::error( 'Pass the suggestions file as suggestions=<path>' );
 }
 
 $suggestions_json = file_get_contents( $suggestions_file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
@@ -50,11 +61,28 @@ $all_cats     = get_terms(
 		'hide_empty' => false,
 	)
 );
-$slug_to_id   = array();
-$slug_to_name = array();
+$slug_to_id = array();
+$id_to_name = array();
 foreach ( $all_cats as $t ) {
-	$slug_to_id[ $t->slug ]   = $t->term_id;
-	$slug_to_name[ $t->slug ] = $t->name;
+	$slug_to_id[ $t->slug ]    = $t->term_id;
+	$id_to_name[ $t->term_id ] = $t->name;
+}
+
+// The plan's categories: checked here, saved once every check has passed.
+$category_plan = array();
+if ( $categories_file ) {
+	$category_plan = json_decode( (string) file_get_contents( $categories_file ), true ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+	if ( ! is_array( $category_plan ) ) {
+		WP_CLI::error( 'The categories file must decode to a JSON array' );
+	}
+}
+$planned_slugs = array();
+foreach ( $category_plan as $planned ) {
+	$slug = isset( $planned['slug'] ) ? $planned['slug'] : '';
+	if ( ! $slug || ( ! isset( $slug_to_id[ $slug ] ) && empty( $planned['name'] ) ) ) {
+		WP_CLI::error( 'Each planned category needs a slug, and a new one a name: ' . wp_json_encode( $planned ) );
+	}
+	$planned_slugs[ $slug ] = true;
 }
 
 $remove_slugs = array_filter( array_map( 'trim', explode( ',', $remove_cats_str ) ) );
@@ -70,7 +98,7 @@ if ( in_array( $default_cat_id, $remove_ids, true ) ) {
 	$default_term = get_term( $default_cat_id, 'category' );
 	$default_name = $default_term ? $default_term->name : "ID $default_cat_id";
 	WP_CLI::error(
-		"TAXONOMIST_REMOVE_CATS includes '$default_name' which is the site's default category. " .
+		"remove= includes '$default_name' which is the site's default category. " .
 		'Change the default category setting first (wp option update default_category NEW_ID), then retry.'
 	);
 }
@@ -79,7 +107,7 @@ $unresolved = array();
 foreach ( $suggestions as $suggestion ) {
 	$suggested_refs = isset( $suggestion['cats'] ) ? $suggestion['cats'] : array();
 	foreach ( $suggested_refs as $ref ) {
-		if ( ! isset( $slug_to_id[ $ref ] ) ) {
+		if ( ! isset( $slug_to_id[ $ref ] ) && ! isset( $planned_slugs[ $ref ] ) ) {
 			$unresolved[ $ref ] = true;
 		}
 	}
@@ -88,8 +116,36 @@ if ( ! empty( $unresolved ) ) {
 	$list = implode( ', ', array_keys( $unresolved ) );
 	WP_CLI::error(
 		"Taxonomy drift detected: these categories from the suggestions do not exist in the live site: $list. " .
-		'Re-export and re-analyze, or create the missing categories first.'
+		'Add them to the categories file, or re-export and re-analyze.'
 	);
+}
+
+// A preview stands in a placeholder ID for each category it would create.
+foreach ( $category_plan as $planned ) {
+	$slug   = $planned['slug'];
+	$exists = isset( $slug_to_id[ $slug ] );
+	$fields = array_filter(
+		array(
+			'name'        => isset( $planned['name'] ) ? $planned['name'] : '',
+			'description' => isset( $planned['description'] ) ? $planned['description'] : '',
+		),
+		'strlen'
+	);
+	WP_CLI::log( ( $exists ? 'Update' : 'Create' ) . " category $slug" );
+	if ( 'apply' !== $apply_mode ) {
+		$id                  = $exists ? $slug_to_id[ $slug ] : "new:$slug";
+		$slug_to_id[ $slug ] = $id;
+		$id_to_name[ $id ]   = isset( $fields['name'] ) ? $fields['name'] : $id_to_name[ $id ];
+		continue;
+	}
+	$result = $exists
+		? wp_update_term( $slug_to_id[ $slug ], 'category', $fields )
+		: wp_insert_term( $fields['name'], 'category', array_merge( $fields, array( 'slug' => $slug ) ) );
+	if ( is_wp_error( $result ) ) {
+		WP_CLI::error( "Failed to save category $slug: " . $result->get_error_message() );
+	}
+	$slug_to_id[ $slug ]              = $result['term_id'];
+	$id_to_name[ $result['term_id'] ] = get_term( $result['term_id'], 'category' )->name;
 }
 
 // phpcs:disable WordPress.WP.AlternativeFunctions.file_system_operations_fopen
@@ -126,9 +182,8 @@ foreach ( $suggestions as $suggestion ) {
 	$current_ids   = wp_get_post_categories( $current_post_id );
 	$current_names = array();
 	foreach ( $current_ids as $cid ) {
-		$t = get_term( $cid, 'category' );
-		if ( $t && ! is_wp_error( $t ) ) {
-			$current_names[ $cid ] = $t->name;
+		if ( isset( $id_to_name[ $cid ] ) ) {
+			$current_names[ $cid ] = $id_to_name[ $cid ];
 		}
 	}
 
@@ -162,10 +217,7 @@ foreach ( $suggestions as $suggestion ) {
 
 	$added_names = array();
 	foreach ( $added_ids as $aid ) {
-		$t = get_term( $aid, 'category' );
-		if ( $t ) {
-			$added_names[] = $t->name;
-		}
+		$added_names[] = $id_to_name[ $aid ];
 	}
 
 	$removed_names = array();
@@ -175,10 +227,7 @@ foreach ( $suggestions as $suggestion ) {
 
 	$new_names = array();
 	foreach ( $new_ids as $nid ) {
-		$t = get_term( $nid, 'category' );
-		if ( $t ) {
-			$new_names[] = $t->name;
-		}
+		$new_names[] = $id_to_name[ $nid ];
 	}
 
 	$ts      = gmdate( 'Y-m-d H:i:s' );

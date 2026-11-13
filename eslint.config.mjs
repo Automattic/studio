@@ -181,7 +181,6 @@ export default defineConfig(
 						path.join( import.meta.dirname, 'apps/ui/tsconfig.json' ),
 						path.join( import.meta.dirname, 'packages/agent/tsconfig.json' ),
 						path.join( import.meta.dirname, 'packages/common/tsconfig.json' ),
-						path.join( import.meta.dirname, 'packages/design-md/tsconfig.json' ),
 						path.join( import.meta.dirname, 'packages/providers/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/compare-perf/tsconfig.json' ),
 						path.join( import.meta.dirname, 'tools/metrics/tsconfig.json' ),
@@ -442,9 +441,15 @@ export default defineConfig(
 							from: 'packages/providers',
 							except: PROVIDERS_DESCRIPTORS.flatMap( ( file ) =>
 								file.startsWith( '*/' )
-									? [ 'wpcom', 'anthropic', 'openai', 'gemini', 'github-copilot', 'spacefast' ].map(
-											( dir ) => `./${ file.replaceAll( '*', dir ) }`
-									  )
+									? [
+											'wpcom',
+											'anthropic',
+											'openai',
+											'gemini',
+											'github-copilot',
+											'spacefast',
+											'custom',
+									  ].map( ( dir ) => `./${ file.replaceAll( '*', dir ) }` )
 									: [ `./${ file }` ]
 							),
 							message: 'The @studio/providers entry imports only the files it is made of.',

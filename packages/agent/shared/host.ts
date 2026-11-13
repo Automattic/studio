@@ -1,3 +1,4 @@
+import type { RemoteHost } from './remote-hosts';
 import type { SiteInfo } from './types';
 import type { StudioChatArtifactData } from '@studio/agent/protocol/chat-artifacts';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
@@ -21,6 +22,16 @@ export interface HostSite {
 	url: string;
 	phpVersion: string;
 	adminPassword?: string;
+	// WordPress logs PHP errors to wp-content/debug.log (WP_DEBUG_LOG).
+	enableDebugLog?: boolean;
+}
+
+/** A process to spawn: its binary, arguments, directory and environment. */
+export interface WpCliProcess {
+	command: string;
+	args: string[];
+	cwd: string;
+	env: Record< string, string | undefined >;
 }
 
 // A note the user left on a page, with the images they attached to it.
@@ -89,9 +100,14 @@ export interface HostPage {
 		fullPage?: boolean;
 		clip?: { x: number; y: number; width: number; height: number };
 	} ): Promise< Uint8Array >;
+	// The size the page lays out at, and a change of it, as a wider screen gives.
+	viewportSize(): { width: number; height: number } | null;
+	setViewportSize( size: { width: number; height: number } ): Promise< void >;
 	url(): string;
 	// The HTTP status of the page's own response; 0 for a rendered document.
 	status(): number;
+	// The page's HTML as its server sent it; undefined for a rendered document.
+	html(): Promise< string | undefined >;
 	isClosed(): boolean;
 	close(): Promise< void >;
 }
@@ -128,6 +144,16 @@ export interface HostSites {
 		onProgress: ProgressCallback
 	): Promise< void >;
 	wpCli( site: HostSite, args: string[] ): Promise< WpCliOutput >;
+	/**
+	 * The process `studio wp` runs for the arguments after `wp`, given in
+	 * folder `cwd` with environment `env`, for the agent's shell to run
+	 * itself; it rejects with why it does not run.
+	 */
+	wpCliProcess?(
+		cwd: string,
+		argv: string[],
+		env: Record< string, string | undefined >
+	): Promise< WpCliProcess >;
 }
 
 // Preview sites: temporary WordPress.com copies of a local site.
@@ -173,24 +199,6 @@ export interface HostSync {
 	): Promise< SyncSite | undefined >;
 }
 
-// WordPress.com, as the signed-in user.
-export interface HostWpcom {
-	// The user's access token, or nothing when signed out.
-	token(): Promise< string | undefined >;
-	// The signed-in user's sites; empty when signed out.
-	sites(): Promise< unknown[] >;
-	// A REST request; throws when signed out. An empty `apiNamespace` in `query`
-	// means the WordPress.com REST API v1.1.
-	request(
-		method: 'GET' | 'POST' | 'PUT' | 'DELETE',
-		path: string,
-		query: Record< string, unknown >,
-		body?: Record< string, unknown >
-	): Promise< unknown >;
-	// The folder `wpcom_request` reads request bodies from.
-	payloadsDirectory: string;
-}
-
 export interface HostTracks {
 	record( event: TracksEventName, props: TracksProps ): Promise< void >;
 }
@@ -213,8 +221,10 @@ export interface StudioAgentHost {
 
 	sites: HostSites;
 	previews: HostPreviews;
+	// The hosts besides this computer that the user's sites are on, by id.
+	remoteHosts: Record< string, RemoteHost >;
+	// Publishing local sites to remote sites, and pulling them back, on every provider.
 	sync: HostSync;
-	wpcom: HostWpcom;
 	tracks: HostTracks;
 	path: HostPath;
 	files: HostFiles;
@@ -230,16 +240,23 @@ export interface StudioAgentHost {
 	// that need it.
 
 	// A Studio UI shows the conversation: tool results show in it as chat
-	// artifacts, and refresh_browser is offered.
+	// artifacts.
 	ui?: StudioAgentUi;
 	// A browser window the user annotates a site in, resolving with their notes:
 	// open_annotation_browser.
-	annotate?( url: string, timeoutMs: number ): Promise< BrowserAnnotation[] | null >;
+	annotate?(
+		url: string,
+		timeoutMs: number,
+		signal?: AbortSignal
+	): Promise< BrowserAnnotation[] | null >;
 	// The conversation follows a site the agent creates.
 	selectSite?( site: SiteInfo ): Promise< void > | void;
 	// Image generation through a connected provider that offers it, or nothing
 	// when none does: generate_images and the imagery prompt sections.
 	imageGenerator?(): Promise< ImageGenerator | undefined >;
+	// Blocks Engine's PHP transformer, which convert_to_blocks runs in a site's
+	// WordPress: the file that loads it, and its version. Installed on first use.
+	blocksEngine?(): Promise< { bootstrap: string; version: string } >;
 	// Sends a feedback report to the WordPress Studio team as the signed-in user,
 	// returning the ID the service assigned it: send_feedback and the feedback skill.
 	sendFeedback?( feedback: StudioFeedback ): Promise< { feedbackId: number } >;

@@ -9,8 +9,10 @@ interface VisualAnnotationEmail {
 	paragraph?: number;
 }
 
-// What a note points at: an element or area on a site page, a DESIGN.md token on the
-// design system page, or a part of the body of an email the site sent.
+// What a note points at: an element or area on a site page, a value of the site's
+// Styles on the design system page, named as theme.json names it (a preset by
+// its `var:preset|…` reference, a style by its path in `styles`), or a part of
+// the body of an email the site sent.
 export interface VisualAnnotationTarget {
 	kind?: 'region' | 'drawing';
 	selector?: string;
@@ -125,10 +127,6 @@ function truncateText( text: string, maxLength: number ): string {
 	return text.length <= maxLength ? text : `${ text.slice( 0, maxLength - 1 ) }...`;
 }
 
-function isDesignSystemAnnotation( note: VisualAnnotation ): boolean {
-	return note.path === 'DESIGN.md';
-}
-
 /**
  * The agent's view of the notes. `images` is the message's attachment order,
  * which the notes' images are numbered by.
@@ -147,12 +145,6 @@ export function formatVisualAnnotationsPrompt(
 		'When you reference an annotation for the user, identify the element by what is visible on the page rather than by selector. Use selectors and raw annotation data only for implementation.',
 		'',
 	];
-	if ( notes.some( isDesignSystemAnnotation ) ) {
-		lines.push(
-			"Annotations from the Design system page are about the site's DESIGN.md: make the change there, then update the matching presets in the active theme's theme.json so the site follows it.",
-			''
-		);
-	}
 	if ( notes.some( ( note ) => note.email ) ) {
 		lines.push(
 			'Annotations from the Email view are about an email the site sent. Find the code that builds it (a plugin, the theme, or WordPress core) and change the email there. For an email from WordPress core, use its filters in a plugin or mu-plugin: never edit core files. A selector on an email annotation points into the HTML of the email, not a site page.',
@@ -176,8 +168,8 @@ export function formatVisualAnnotationsPrompt(
 		const nearbyText = note.nearbyText?.trim()
 			? ` - "${ truncateText( note.nearbyText.trim(), 120 ) }"`
 			: '';
-		const page = isDesignSystemAnnotation( note )
-			? 'Design system (DESIGN.md)'
+		const page = note.designToken
+			? "Design system (the site's Styles)"
 			: note.email
 			? `Email "${ note.email.subject }"`
 			: note.url || note.path || '/';

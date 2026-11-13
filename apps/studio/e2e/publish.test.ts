@@ -3,10 +3,12 @@ import path from 'node:path';
 import { test, expect } from '@playwright/test';
 import { E2ESession, launchWithSite } from './e2e-helpers';
 import type { PersistedSite } from './e2e-helpers';
+import type { ProviderSites } from '@studio/providers';
 
+type SyncSite = ProviderSites[ 'wpcom' ];
 type PublishCall = { direction: string; args: unknown[] };
 type PublishState = typeof globalThis & {
-	publishTest: { connections: unknown[]; calls: PublishCall[]; finish?: () => void };
+	publishTest: { connections: SyncSite[]; calls: PublishCall[]; finish?: () => void };
 };
 
 // WordPress.com is replaced by IPC handler stubs; the local site, its preview and the main process
@@ -104,7 +106,7 @@ test.describe( 'Share and publish', () => {
 		await session.electronApp.evaluate( ( { ipcMain }, siteId ) => {
 			const state = globalThis as PublishState;
 			state.publishTest = { connections: [], calls: [] };
-			const remote = {
+			const remote: SyncSite = {
 				id: 42,
 				localSiteId: siteId,
 				name: 'Example website',
@@ -112,7 +114,8 @@ test.describe( 'Share and publish', () => {
 				isStaging: false,
 				isPressable: false,
 				syncSupport: 'syncable',
-				lastPushTimestamp: null as string | null,
+				launchStatus: 'unlaunched',
+				lastPushTimestamp: null,
 				lastPullTimestamp: null,
 			};
 			const handlers: Record< string, ( ...args: unknown[] ) => unknown > = {
@@ -126,8 +129,8 @@ test.describe( 'Share and publish', () => {
 				getRemoteSites: ( provider ) =>
 					provider === 'wpcom' ? state.publishTest.connections : [],
 				listAccountSites: ( provider ) => ( provider === 'wpcom' ? [ remote ] : [] ),
-				connectRemoteSite: () => {
-					state.publishTest.connections = [ remote ];
+				connectRemoteSite: ( _provider, _localSiteId, connection ) => {
+					state.publishTest.connections = [ connection as SyncSite ];
 				},
 				getSitePublishStatus: () => ( { localChanged: true } ),
 				getIsMultisite: () => false,
@@ -137,7 +140,9 @@ test.describe( 'Share and publish', () => {
 					state.publishTest.calls.push( { direction: 'push', args } );
 					return new Promise< void >( ( resolve ) => {
 						state.publishTest.finish = () => {
-							remote.lastPushTimestamp = new Date().toISOString();
+							const publishedAt = new Date().toISOString();
+							remote.launchStatus = 'launched';
+							state.publishTest.connections[ 0 ].lastPushTimestamp = publishedAt;
 							resolve();
 						};
 					} );
@@ -171,7 +176,7 @@ test.describe( 'Share and publish', () => {
 		}, site.id );
 		await expect( panel.getByRole( 'button', { name: 'Publish', exact: true } ) ).toBeEnabled();
 		expect( await publishCalls() ).toHaveLength( 0 );
-		await expect( panel.getByRole( 'button', { name: 'What to publish' } ) ).toBeVisible();
+		await expect( panel.getByRole( 'button', { name: 'What to publish' } ) ).toHaveCount( 0 );
 		await expect( page.getByRole( 'alertdialog' ) ).toHaveCount( 0 );
 		await panel.getByRole( 'button', { name: 'Publish', exact: true } ).click();
 		await expect.poll( async () => ( await publishCalls() ).length ).toBe( 1 );
@@ -202,6 +207,7 @@ test.describe( 'Share and publish', () => {
 
 		const calls = await publishCalls();
 		expect( calls.map( ( call ) => call.direction ) ).toEqual( [ 'push', 'push', 'pull' ] );
+		expect( calls[ 0 ].args ).toEqual( [ 'wpcom', site.id, 42, { optionsToSync: [ 'all' ] } ] );
 		expect( calls[ 1 ].args ).toEqual( [
 			'wpcom',
 			site.id,

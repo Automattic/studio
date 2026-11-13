@@ -58,6 +58,7 @@ Styles sit in the `ui` cascade layer, so a feature's CSS module overrides them w
 - Button color, background and border feedback use `--motion-duration-feedback`. Hover-only actions appear immediately, without an opacity transition.
 - Menu items, sidebar rows and tabs respond immediately to hover and selection, without color or background transitions.
 - Change a button's fill with `--button-background`, `--button-hover-background` or `--button-hover-color`, not `background-color`.
+- Size a `LogoTile` with `--app-icon-size`, which app icons share, so a fallback tile matches the icon it stands in for.
 - Don't reach into a primitive's parts with `[data-slot]` selectors, set its other custom properties, or raise specificity to beat it.
 
 ## Constraints

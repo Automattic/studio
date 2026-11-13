@@ -11,6 +11,7 @@ import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector, type SiteDetails, type Snapshot, SyncSite } from '@/data/core';
+import { buildPreviewLaunchUrl } from '@/data/core/connectors/publish-checkout-url';
 import { useCopyText } from '@/data/host/use-copy-text';
 import { useAiSettings } from '@/data/queries/use-ai-settings';
 import { useAuthUser } from '@/data/queries/use-auth-user';
@@ -388,16 +389,26 @@ export function PublishButton( {
 		setPreparing( sites.newSite );
 		try {
 			if ( sites.newSite === 'checkout' ) {
-				const checkoutUrl = connector.getPublishCheckoutUrl( site );
+				const launchingPreview =
+					provider === 'wpcom' &&
+					selected?.provider === 'wpcom' &&
+					snapshot &&
+					! snapshot.liveSiteId &&
+					! remote;
+				const checkoutUrl = launchingPreview
+					? buildPreviewLaunchUrl( getSnapshotHostname( snapshot ) )
+					: connector.getPublishCheckoutUrl( site );
 				if ( ! checkoutUrl ) {
 					setFailure( __( 'Could not open the setup page. Please try again.' ) );
 					return;
 				}
 				clearPublishSetupError( site.id );
 				void connector.trackEvent( TRACKS_EVENTS.SYNC_PUBLISH_SITE );
-				void connector.watchForPublishedSite?.( site.id ).catch( () => {
-					toast.error( __( 'Could not watch for your new site. Please try again.' ) );
-				} );
+				if ( ! launchingPreview ) {
+					void connector.watchForPublishedSite?.( site.id ).catch( () => {
+						toast.error( __( 'Could not watch for your new site. Please try again.' ) );
+					} );
+				}
 				await connector.openExternalUrl( checkoutUrl );
 			} else if ( sites.newSite === 'create' ) {
 				const created = await connector.createRemoteSite(

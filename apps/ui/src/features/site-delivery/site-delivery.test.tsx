@@ -66,6 +66,11 @@ async function selectDestination(
 	await actions.click( within( menu ).getByRole( 'menuitemradio', { name: hostname } ) );
 }
 
+async function choosePreviewAccess( actions: ReturnType< typeof userEvent.setup >, name: string ) {
+	await actions.click( await screen.findByRole( 'button', { name: 'Who can view' } ) );
+	await actions.click( await screen.findByRole( 'menuitemradio', { name } ) );
+}
+
 it( 'opens the replacement panel from the Share entry point without creating anything', async () => {
 	const connector = setup();
 	fireEvent.click( await screen.findByRole( 'button', { name: 'Share' } ) );
@@ -111,6 +116,9 @@ describe( 'Share popover', () => {
 		await waitFor( () => expect( connector.publishPreviewSite ).toHaveBeenCalledTimes( 1 ) );
 		await screen.findByRole( 'button', { name: 'Open preview: My preview' } );
 		expect( screen.getByText( 'My preview' ) ).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toHaveAccessibleDescription(
+			'Anyone with the link'
+		);
 		await copyPreviewLink( actions );
 		await waitFor( () =>
 			expect( connector.copyText ).toHaveBeenCalledWith(
@@ -674,10 +682,8 @@ it( 'targets the selected preview for its link, expiry, changes, launch, and del
 	expect( screen.getByRole( 'button', { name: 'Open preview: Older preview' } ) ).toBeVisible();
 	await copyPreviewLink( actions );
 	expect( connector.copyText ).toHaveBeenCalledWith( older.shareUrl );
-	await waitFor( () =>
-		expect( screen.getByRole( 'button', { name: 'Make it public' } ) ).toBeEnabled()
-	);
-	await actions.click( screen.getByRole( 'button', { name: 'Make it public' } ) );
+	await choosePreviewAccess( actions, 'Everyone' );
+	await actions.click( screen.getByRole( 'button', { name: 'Continue on WordPress.com' } ) );
 	await waitFor( () => expect( connector.openExternalUrl ).toHaveBeenCalled() );
 	expect( connector.openExternalUrl ).toHaveBeenCalledWith(
 		buildPublishCheckoutUrl( connector.state.sites[ 0 ] )
@@ -1034,7 +1040,7 @@ it.each( [
 	}
 );
 
-it( 'shows checkout progress on the row, reopens the same URL, and resets on close', async () => {
+it( 'chooses preview access locally, continues to checkout, and resets on close', async () => {
 	const connector = setup( {
 		getPreviewStatus: async () => ( {
 			localSiteId: null,
@@ -1053,21 +1059,32 @@ it( 'shows checkout progress on the row, reopens the same URL, and resets on clo
 	] );
 	const actions = userEvent.setup();
 	await actions.click( await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
+	const access = await screen.findByRole( 'button', { name: 'Who can view' } );
+	expect( access ).toHaveAccessibleDescription( 'Anyone with the link' );
+	expect( screen.queryByRole( 'button', { name: 'Make it public' } ) ).not.toBeInTheDocument();
+	await actions.click( access );
 	expect(
-		await screen.findByRole( 'button', { name: 'Make it public' } )
-	).toHaveAccessibleDescription( 'The full WordPress, with a domain' );
-	expect( screen.getByText( 'Preview 1' ) ).toBeVisible();
+		await screen.findByRole( 'menuitemradio', { name: 'Anyone with the link' } )
+	).toBeChecked();
+	await actions.click( screen.getByRole( 'menuitemradio', { name: 'Everyone' } ) );
+	expect( access ).toHaveAccessibleDescription( 'Everyone' );
+	expect( screen.queryByRole( 'button', { name: 'Copy link' } ) ).not.toBeInTheDocument();
+	expect( connector.openExternalUrl ).not.toHaveBeenCalled();
+	expect( connector.setSiteVisibility ).not.toHaveBeenCalled();
+	await choosePreviewAccess( actions, 'Anyone with the link' );
 	let finishHandoff!: () => void;
 	connector.openExternalUrl.mockImplementationOnce(
 		() => new Promise< void >( ( resolve ) => ( finishHandoff = resolve ) )
 	);
 	expect( await screen.findByRole( 'button', { name: 'Copy link' } ) ).toBeVisible();
-	await actions.click( screen.getByRole( 'button', { name: 'Make it public' } ) );
+	await choosePreviewAccess( actions, 'Everyone' );
+	const continueButton = screen.getByRole( 'button', { name: 'Continue on WordPress.com' } );
+	expect( continueButton ).toHaveAttribute( 'data-variant', 'accent' );
+	await actions.click( continueButton );
 	await waitFor( () => expect( connector.openExternalUrl ).toHaveBeenCalledTimes( 1 ) );
-	const row = screen.getByRole( 'button', { name: 'Make it public' } );
-	expect( row ).toHaveAccessibleDescription( 'Opening WordPress.com' );
-	expect( row.querySelector( '[data-slot="spinner"]' ) ).toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: 'Copy link' } ) ).toBeDisabled();
+	const opening = screen.getByRole( 'button', { name: 'Continue on WordPress.com' } );
+	expect( opening ).toHaveAccessibleDescription( 'Opening WordPress.com' );
+	expect( opening ).toHaveAttribute( 'aria-busy', 'true' );
 	expect( screen.getByRole( 'button', { name: 'Open preview: Preview 1' } ) ).toBeDisabled();
 	const url = new URL( connector.openExternalUrl.mock.calls[ 0 ][ 0 ] );
 	expect( url.origin + url.pathname ).toBe( 'https://wordpress.com/setup/new-hosted-site' );
@@ -1081,8 +1098,6 @@ it( 'shows checkout progress on the row, reopens the same URL, and resets on clo
 
 	await act( async () => finishHandoff() );
 	expect( await screen.findByText( 'Finish setting up on WordPress.com.' ) ).toBeVisible();
-	expect( row ).toHaveAccessibleDescription( 'Waiting for your new site' );
-	expect( row.querySelector( '[data-slot="spinner"]' ) ).toBeInTheDocument();
 	const reopen = screen.getByRole( 'button', { name: 'Reopen WordPress.com' } );
 	expect( reopen ).toHaveAttribute( 'data-variant', 'outline' );
 	await actions.click( reopen );
@@ -1105,7 +1120,8 @@ it( 'shows checkout progress on the row, reopens the same URL, and resets on clo
 	connector.openExternalUrl.mockImplementationOnce(
 		() => new Promise< void >( ( resolve ) => ( finishHandoff = resolve ) )
 	);
-	await actions.click( screen.getByRole( 'button', { name: 'Make it public' } ) );
+	await choosePreviewAccess( actions, 'Everyone' );
+	await actions.click( screen.getByRole( 'button', { name: 'Continue on WordPress.com' } ) );
 	await waitFor( () => expect( connector.openExternalUrl ).toHaveBeenCalledTimes( 3 ) );
 	await closeAndReopen();
 	await act( async () => finishHandoff() );
@@ -1158,7 +1174,8 @@ it.each( [ false, true ] )(
 		} );
 		const actions = userEvent.setup();
 		await actions.click( await screen.findByRole( 'button', { name: 'Share…' } ) );
-		await actions.click( await screen.findByRole( 'button', { name: 'Make it public' } ) );
+		await choosePreviewAccess( actions, 'Everyone' );
+		await actions.click( screen.getByRole( 'button', { name: 'Continue on WordPress.com' } ) );
 		await screen.findByRole( 'button', { name: 'Reopen WordPress.com' } );
 		expect( connector.connectRemoteSite ).not.toHaveBeenCalled();
 		if ( closed ) await actions.keyboard( '{Escape}' );

@@ -1,4 +1,4 @@
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { useState } from 'react';
 import { useConnector } from '@/data/core';
 import { ChevronDownIcon, EyeIcon, EyeOffIcon, ExternalLinkIcon } from '@/lib/icons';
@@ -6,38 +6,34 @@ import { Button, Menu } from '@/lib/ui';
 import styles from './style.module.css';
 import type { useSiteVisibility } from '@/data/queries/use-site-visibility';
 import type { SiteVisibility, ProviderSitesInfo } from '@studio/providers';
+import type { ReactNode } from 'react';
 
-export function HostedAccessControl( {
-	state,
+function AccessPicker( {
+	value,
+	options,
 	disabled,
-	fallback,
-	getOptions,
-	managementLink,
+	restricted,
+	open,
+	onOpenChange,
+	onValueChange,
+	closeOnClick = true,
+	children,
 }: {
-	state: ReturnType< typeof useSiteVisibility >;
+	value: string | undefined;
+	options: { value: string; label: string; description: string; disabled?: boolean }[];
 	disabled: boolean;
-	fallback?: SiteVisibility;
-	getOptions: NonNullable< ProviderSitesInfo[ 'visibilityOptions' ] >;
-	managementLink?: { title: string; url: string };
+	restricted?: boolean;
+	open?: boolean;
+	onOpenChange?: ( open: boolean ) => void;
+	onValueChange: ( value: string ) => void;
+	closeOnClick?: boolean;
+	children?: ReactNode;
 } ) {
-	const [ open, setOpen ] = useState( false );
-	const connector = useConnector();
-	const { query, save } = state;
-	const value = query.isPending || query.isError ? undefined : query.data?.visibility ?? fallback;
-	const VisibilityIcon = value === 'private' || value === 'coming-soon' ? EyeOffIcon : EyeIcon;
-	const options = getOptions( value );
+	const VisibilityIcon = restricted ? EyeOffIcon : EyeIcon;
 	const label = options.find( ( option ) => option.value === value )?.label ?? __( 'Unknown' );
 	return (
 		<div>
-			<Menu.Root
-				open={ open }
-				onOpenChange={ ( next ) => {
-					if ( ! save.isPending ) {
-						setOpen( next );
-						if ( next ) save.reset();
-					}
-				} }
-			>
+			<Menu.Root open={ open } onOpenChange={ onOpenChange }>
 				<Menu.Trigger
 					render={
 						<Button
@@ -57,36 +53,18 @@ export function HostedAccessControl( {
 					</span>
 				</Menu.Trigger>
 				<Menu.Popup side="bottom" align="end" aria-label={ __( 'Who can view' ) }>
-					<Menu.RadioGroup
-						value={ value ?? '' }
-						onValueChange={ ( next ) => {
-							if ( next === value || ! query.data || query.isError || save.isPending ) return;
-							if (
-								options.some( ( option ) => option.value === next && ! option.disabled ) &&
-								( ! query.data.availableValues ||
-									query.data.availableValues.includes( next as SiteVisibility ) )
-							)
-								save.mutate( next as SiteVisibility, { onSuccess: () => setOpen( false ) } );
-						} }
-					>
+					<Menu.RadioGroup value={ value ?? '' } onValueChange={ onValueChange }>
 						{ options.map( ( option ) => (
 							<Menu.RadioItem
 								className={ styles.describedMenuItem }
 								key={ option.value }
 								value={ option.value }
-								closeOnClick={ false }
-								disabled={
-									save.isPending ||
-									! query.data ||
-									query.isError ||
-									option.disabled ||
-									( query.data.availableValues &&
-										! query.data.availableValues.includes( option.value ) )
-								}
+								closeOnClick={ closeOnClick }
+								disabled={ option.disabled }
 								aria-label={ option.label }
 								aria-description={ option.description }
 								onClick={ () => {
-									if ( option.value === value ) setOpen( false );
+									if ( ! closeOnClick && option.value === value ) onOpenChange?.( false );
 								} }
 							>
 								<span className={ styles.accessChoiceText }>
@@ -96,28 +74,115 @@ export function HostedAccessControl( {
 							</Menu.RadioItem>
 						) ) }
 					</Menu.RadioGroup>
-					{ save.isError && (
-						<p role="alert" className={ styles.accessPickerError }>
-							{ save.error.message }
-						</p>
-					) }
-					{ query.data?.message && (
-						<p className={ styles.accessPickerError }>{ query.data.message }</p>
-					) }
-					{ managementLink && (
-						<>
-							<Menu.Separator />
-							<Menu.Item
-								disabled={ save.isPending }
-								onClick={ () => void connector.openExternalUrl( managementLink.url ) }
-							>
-								{ managementLink.title }
-								<ExternalLinkIcon data-icon="inline-end" />
-							</Menu.Item>
-						</>
-					) }
+					{ children }
 				</Menu.Popup>
 			</Menu.Root>
 		</div>
+	);
+}
+
+export function PreviewAccessControl( {
+	publicSelected,
+	disabled,
+	providerLabel,
+	onPublicSelectedChange,
+}: {
+	publicSelected: boolean;
+	disabled: boolean;
+	providerLabel: string;
+	onPublicSelectedChange: ( selected: boolean ) => void;
+} ) {
+	return (
+		<AccessPicker
+			value={ publicSelected ? 'public' : 'link' }
+			options={ [
+				{
+					value: 'link',
+					label: __( 'Anyone with the link' ),
+					description: __( 'Share this preview until it expires' ),
+				},
+				{
+					value: 'public',
+					label: __( 'Everyone' ),
+					description: sprintf(
+						/* translators: %s: hosting provider name. */
+						__( 'Finish publishing on %s' ),
+						providerLabel
+					),
+				},
+			] }
+			disabled={ disabled }
+			onValueChange={ ( next ) => onPublicSelectedChange( next === 'public' ) }
+		/>
+	);
+}
+
+export function HostedAccessControl( {
+	state,
+	disabled,
+	fallback,
+	getOptions,
+	managementLink,
+}: {
+	state: ReturnType< typeof useSiteVisibility >;
+	disabled: boolean;
+	fallback?: SiteVisibility;
+	getOptions: NonNullable< ProviderSitesInfo[ 'visibilityOptions' ] >;
+	managementLink?: { title: string; url: string };
+} ) {
+	const [ open, setOpen ] = useState( false );
+	const connector = useConnector();
+	const { query, save } = state;
+	const value = query.isPending || query.isError ? undefined : query.data?.visibility ?? fallback;
+	const options = getOptions( value ).map( ( option ) => ( {
+		...option,
+		disabled:
+			save.isPending ||
+			! query.data ||
+			query.isError ||
+			option.disabled ||
+			( query.data.availableValues && ! query.data.availableValues.includes( option.value ) ),
+	} ) );
+	return (
+		<AccessPicker
+			value={ value }
+			options={ options }
+			disabled={ disabled }
+			restricted={ value === 'private' || value === 'coming-soon' }
+			open={ open }
+			closeOnClick={ false }
+			onOpenChange={ ( next ) => {
+				if ( ! save.isPending ) {
+					setOpen( next );
+					if ( next ) save.reset();
+				}
+			} }
+			onValueChange={ ( next ) => {
+				const option = options.find( ( option ) => option.value === next && ! option.disabled );
+				if ( option && next !== value )
+					save.mutate( option.value, { onSuccess: () => setOpen( false ) } );
+			} }
+		>
+			{ save.isError && (
+				<p role="alert" className={ styles.accessPickerError }>
+					{ save.error.message }
+				</p>
+			) }
+			{ query.data?.message && (
+				<p className={ styles.accessPickerError }>{ query.data.message }</p>
+			) }
+			{ managementLink && (
+				<>
+					<Menu.Separator />
+					<Menu.Item
+						disabled={ save.isPending }
+						onClick={ () => void connector.openExternalUrl( managementLink.url ) }
+					>
+						{ managementLink.title }
+						<ExternalLinkIcon data-icon="inline-end" />
+					</Menu.Item>
+				</>
+			) }
+		</AccessPicker>
 	);
 }

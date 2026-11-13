@@ -1347,7 +1347,9 @@ it( 'retries a delayed checkout connection without reopening the browser', async
 		},
 	} );
 	await open();
-	await user.click( screen.getByRole( 'button', { name: 'Make it public' } ) );
+	await user.click( screen.getByRole( 'button', { name: 'Who can view' } ) );
+	await user.click( await screen.findByRole( 'menuitemradio', { name: 'Everyone' } ) );
+	await user.click( screen.getByRole( 'button', { name: 'Continue on WordPress.com' } ) );
 	await screen.findByRole( 'button', { name: 'Reopen WordPress.com' } );
 	act( () =>
 		connector.emit( 'onSyncConnectSite', {

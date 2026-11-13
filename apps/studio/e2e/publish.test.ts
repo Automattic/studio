@@ -75,7 +75,13 @@ test.describe( 'Share and publish', () => {
 			.poll( () => session.electronApp.evaluate( ( { clipboard } ) => clipboard.readText() ) )
 			.toBe( 'https://sharing-verification.wp.build' );
 
-		await dialog.getByRole( 'button', { name: 'Make it public', exact: true } ).click();
+		const access = dialog.getByRole( 'button', { name: 'Who can view', exact: true } );
+		await access.click();
+		await expect(
+			page.getByRole( 'menuitemradio', { name: 'Anyone with the link' } )
+		).toBeChecked();
+		await page.getByRole( 'menuitemradio', { name: 'Everyone', exact: true } ).click();
+		await dialog.getByRole( 'button', { name: 'Continue on WordPress.com', exact: true } ).click();
 		await expect( dialog ).toBeVisible();
 		const checkoutUrl = () =>
 			session.electronApp.evaluate(
@@ -149,7 +155,9 @@ test.describe( 'Share and publish', () => {
 		await page.reload();
 
 		await page.getByRole( 'button', { name: 'Share…', exact: true } ).click();
-		await page.getByRole( 'button', { name: 'Make it public', exact: true } ).click();
+		await page.getByRole( 'button', { name: 'Who can view', exact: true } ).click();
+		await page.getByRole( 'menuitemradio', { name: 'Everyone', exact: true } ).click();
+		await page.getByRole( 'button', { name: 'Continue on WordPress.com', exact: true } ).click();
 		const panel = page.getByRole( 'dialog', { name: 'Publish', exact: true } );
 		const mainWindow = await session.electronApp.browserWindow( page );
 		await mainWindow.evaluate( ( window, studioSiteId ) => {

@@ -688,7 +688,7 @@ it( 'targets the selected preview for its link, expiry, changes, launch, and del
 	await actions.click( screen.getByRole( 'button', { name: 'Continue on WordPress.com' } ) );
 	await waitFor( () => expect( connector.openExternalUrl ).toHaveBeenCalled() );
 	expect( connector.openExternalUrl ).toHaveBeenCalledWith(
-		buildPublishCheckoutUrl( connector.state.sites[ 0 ] )
+		'https://wordpress.com/setup/launch-site?siteSlug=older.example.com&hide_free_plan=1&checkout_source=studio-preview-site'
 	);
 	await waitFor(
 		() =>
@@ -1090,9 +1090,10 @@ it( 'chooses preview access locally, continues to checkout, and resets on close'
 	expect( opening ).toHaveAttribute( 'aria-busy', 'true' );
 	expect( screen.getByRole( 'button', { name: 'Open preview: Preview 1' } ) ).toBeDisabled();
 	const url = new URL( connector.openExternalUrl.mock.calls[ 0 ][ 0 ] );
-	expect( url.origin + url.pathname ).toBe( 'https://wordpress.com/setup/new-hosted-site' );
-	expect( url.searchParams.get( 'studioSiteId' ) ).toBe( connector.state.sites[ 0 ].id );
-	expect( url.searchParams.get( 'autoOpenPush' ) ).toBe( 'true' );
+	expect( url.origin + url.pathname ).toBe( 'https://wordpress.com/setup/launch-site' );
+	expect( url.searchParams.get( 'siteSlug' ) ).toBe( 'domain.example.com' );
+	expect( url.searchParams.get( 'hide_free_plan' ) ).toBe( '1' );
+	expect( url.searchParams.get( 'checkout_source' ) ).toBe( 'studio-preview-site' );
 	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 	expect(
 		screen.queryByRole( 'dialog', { name: 'Your website address' } )

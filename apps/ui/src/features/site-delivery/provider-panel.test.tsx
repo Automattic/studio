@@ -1452,6 +1452,40 @@ it( 'shows which live site a preview represents and warns before publishing newe
 	expect( connector.pushSite ).not.toHaveBeenCalled();
 } );
 
+it.each( [
+	{ kind: 'standalone preview', snapshot: preview, buysPreview: true },
+	{ kind: 'live-site preview', snapshot: { ...preview, liveSiteId: 42 }, buysPreview: false },
+	{ kind: 'no preview', snapshot: undefined, buysPreview: false },
+] )( 'opens checkout for $kind', async ( { snapshot, buysPreview } ) => {
+	const { connector, user } = setup( {
+		getSnapshots: async () => ( snapshot ? [ { ...snapshot, localSiteId: site.id } ] : [] ),
+		getRemoteSites: async () => [],
+		listAccountSites: async () => [],
+	} );
+	await open();
+	await user.click( screen.getByRole( 'button', { name: 'Who can view' } ) );
+	await user.click( await screen.findByRole( 'menuitemradio', { name: 'Everyone' } ) );
+	await user.click( screen.getByRole( 'button', { name: 'Continue on WordPress.com' } ) );
+	await waitFor( () =>
+		expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith(
+			buysPreview
+				? 'https://wordpress.com/setup/launch-site?siteSlug=lente-preview.wpcomstaging.com&hide_free_plan=1&checkout_source=studio-preview-site'
+				: buildPublishCheckoutUrl( site )
+		)
+	);
+	if ( buysPreview ) {
+		expect( connector.getPublishCheckoutUrl ).not.toHaveBeenCalled();
+		expect( connector.watchForPublishedSite ).not.toHaveBeenCalled();
+		connector.getRemoteSites.mockResolvedValue( [ { ...live, id: preview.atomicSiteId } ] );
+		connector.listAccountSites.mockResolvedValue( [ { ...live, id: preview.atomicSiteId } ] );
+		await user.keyboard( '{Escape}' );
+		await open();
+		expect( await screen.findByRole( 'button', { name: 'lente.blog' } ) ).toBeVisible();
+	} else {
+		expect( connector.watchForPublishedSite ).toHaveBeenCalledWith( site.id );
+	}
+} );
+
 it( 'retries a delayed checkout connection without reopening the browser', async () => {
 	let connected = false;
 	const destination = {
@@ -1461,6 +1495,7 @@ it( 'retries a delayed checkout connection without reopening the browser', async
 		launchStatus: 'unlaunched' as const,
 	};
 	const { connector, user } = setup( {
+		getSnapshots: async () => [],
 		getRemoteSites: async ( provider ) =>
 			provider === 'wpcom' && connected ? [ destination ] : [],
 		listAccountSites: async () => [],

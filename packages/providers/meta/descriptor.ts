@@ -19,7 +19,8 @@ export const metaConnectInput = () =>
 			.min( 1, __( 'API key is required' ) )
 			.meta( {
 				title: __( 'Meta API key' ),
-				description: __( 'Create one in the Meta Model API dashboard. Usage is billed there.' ),
+				description: __( 'Usage is billed through your Meta Model API account.' ),
+				examples: [ 'LLM_…' ],
 				writeOnly: true,
 			} ),
 	} );
@@ -39,7 +40,16 @@ export const metaProvider: Provider< MetaConfig > = {
 		configSchema: metaConfigSchema,
 		methods: [
 			{ id: 'subscription', label: () => __( 'Muse subscription' ), kind: 'device' },
-			{ id: 'api-key', label: () => __( 'API key' ), kind: 'form', input: metaConnectInput },
+			{
+				id: 'api-key',
+				label: () => __( 'API key' ),
+				kind: 'form',
+				input: metaConnectInput,
+				instructions: () =>
+					__(
+						'Create a key in the API keys tab of the [Meta Model API dashboard](https://dev.meta.ai), then paste it below.'
+					),
+			},
 		],
 		describe: ( config ) =>
 			config.method === 'api-key'

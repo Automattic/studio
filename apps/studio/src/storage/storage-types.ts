@@ -21,6 +21,11 @@ interface AppdataSiteData {
 	hideFrontendAdminBar?: boolean;
 }
 
+interface PendingAppUpdate {
+	version: string;
+	failedLaunches: number;
+}
+
 interface NightlyPromptResult {
 	response: 'yes' | 'no';
 	dontAskAgain: boolean;
@@ -48,6 +53,8 @@ export interface UserData {
 	wapuuScore?: number;
 	aiSessionPlacements?: Record< string, AiSessionSitePlacement >;
 	lastNightlyUpdateCheck?: number;
+	/** macOS update waiting to be installed, and how many launches since have still run an older version. */
+	pendingAppUpdate?: PendingAppUpdate;
 	nightlyPromptResult?: NightlyPromptResult;
 	dontShowArm64Warning?: boolean;
 	/** Agentic UI onboarding state (orientation tour, getting-started checklist). Opaque blob owned by the renderer. */

@@ -83,6 +83,7 @@ type UserDataSafeKeys =
 	| 'wapuuScore'
 	| 'onboardingHints'
 	| 'lastNightlyUpdateCheck'
+	| 'pendingAppUpdate'
 	| 'nightlyPromptResult'
 	| 'dontShowArm64Warning';
 

@@ -78,7 +78,7 @@ import {
 	updateAppdata,
 	type QuitSitesBehavior,
 } from 'src/storage/user-data';
-import { getAutoUpdaterState, setupUpdates } from 'src/updates';
+import { getAutoUpdaterState, handOffToRunningUpdateInstall, setupUpdates } from 'src/updates';
 // eslint-disable-next-line import-x/order
 import packageJson from '../package.json';
 
@@ -194,7 +194,7 @@ function getYouTubeEmbedRequestHeaders( requestHeaders: Record< string, string >
 	return headers;
 }
 
-if ( gotTheLock && ! isInInstaller ) {
+if ( gotTheLock && ! isInInstaller && ! handOffToRunningUpdateInstall() ) {
 	void appBoot();
 } else if ( ! gotTheLock ) {
 	app.quit();

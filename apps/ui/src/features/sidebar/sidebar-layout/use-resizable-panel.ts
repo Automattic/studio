@@ -104,6 +104,5 @@ export function useResizablePanel( { config, storageKey }: UseResizablePanelOpti
 		isResizing: isDragging,
 		handleResizeStart: onMouseDown,
 		handleKeyDown,
-		resetWidth: () => saveWidth( config.defaultWidth ),
 	};
 }

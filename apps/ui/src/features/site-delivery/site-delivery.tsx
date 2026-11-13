@@ -13,7 +13,7 @@ import {
 	type PreviewManagementAction,
 } from '@/features/sharing';
 import { PublishTab, usePublishTab, usePublishSetupError } from '@/features/sync';
-import { PublishTransferIcon, ShareIcon, SyncIcon } from '@/lib/icons';
+import { PublishTransferIcon, UploadIcon, CloudUploadIcon } from '@/lib/icons';
 import {
 	Button,
 	Dialog,
@@ -241,7 +241,7 @@ export function ShareButton( props: { site: SiteDetails; className?: string } ) 
 						/>
 					}
 				>
-					<ShareStatusIcon icon={ <ShareIcon /> } status={ status } />
+					<ShareStatusIcon icon={ <UploadIcon /> } status={ status } />
 				</TooltipTrigger>
 				<TooltipContent side="bottom">{ __( 'Share' ) }</TooltipContent>
 			</Tooltip>
@@ -297,7 +297,7 @@ export function PublishButton( props: {
 			) : success ? (
 				<CheckIcon />
 			) : props.compactWhenNarrow ? (
-				<SyncIcon className={ styles.publishIcon } />
+				<CloudUploadIcon className={ styles.publishIcon } />
 			) : null }
 			<span className={ styles.triggerLabel }>
 				{ __( 'Publish' ) }

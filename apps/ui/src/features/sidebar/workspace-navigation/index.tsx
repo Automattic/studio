@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
-import { ArrowLeftIcon, ArrowRightIcon } from 'lucide-react';
 import { useWorkspaceHistory } from '@/features/sidebar/use-workspace-history';
+import { ArrowLeftIcon, ArrowRightIcon } from '@/lib/icons';
 import { IconButton } from '@/lib/ui';
 import styles from './style.module.css';
 

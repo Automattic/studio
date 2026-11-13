@@ -12,7 +12,7 @@ import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tr
 import { getStagedAnnotations } from '@/features/annotations';
 import { getComposerDraft } from '@/features/composer';
 import { XdebugIcon } from '@/features/sidebar/xdebug-icon';
-import { GlobeIcon, NeedsInputIcon, NewChatIcon } from '@/lib/icons';
+import { GlobeIcon, TriangleAlertIcon, SquarePenIcon } from '@/lib/icons';
 import {
 	Badge,
 	IconButton,
@@ -160,14 +160,14 @@ export function SiteSection( {
 						role="status"
 						aria-label={ __( 'WordPress Studio needs an answer.' ) }
 					>
-						<NeedsInputIcon />
+						<TriangleAlertIcon />
 					</Badge>
 				) : null }
 				<IconButton
 					className={ styles.rowAction }
 					variant="muted-ghost"
 					size="icon-sm"
-					icon={ <NewChatIcon /> }
+					icon={ <SquarePenIcon /> }
 					label={ sprintf( __( 'New chat for %s' ), site.name ) }
 					onClick={ () => {
 						onSiteOpen?.();

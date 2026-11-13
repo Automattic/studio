@@ -1,11 +1,11 @@
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { __ } from '@wordpress/i18n';
-import { FileArchiveIcon, FileIcon, FolderIcon, LayoutTemplateIcon, XIcon } from 'lucide-react';
+import { FileIcon, LayoutTemplateIcon } from 'lucide-react';
 import { useId, useRef, useState } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { SITE_FILE_UPLOAD_TYPES } from '@/features/sites/blueprint-upload';
-import { ShuffleIcon } from '@/lib/icons';
+import { FileArchiveIcon, FolderIcon, XIcon, ShuffleIcon } from '@/lib/icons';
 import {
 	Button,
 	DropZone,

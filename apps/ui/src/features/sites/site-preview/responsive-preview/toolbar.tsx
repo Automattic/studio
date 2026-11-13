@@ -1,8 +1,7 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { XIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { updateResponsivePreview, type ResponsivePreviewSettings } from '@/data/responsive-preview';
-import { ChevronDownIcon, RefreshIcon } from '@/lib/icons';
+import { XIcon, ChevronDownIcon, DeviceRotateIcon } from '@/lib/icons';
 import { Button, IconButton, Input, Menu } from '@/lib/ui';
 import { devicePresets, parseDimension } from './settings';
 import styles from './style.module.css';
@@ -148,7 +147,7 @@ export function ResponsiveToolbar( {
 							? __( 'Rotate to portrait' )
 							: __( 'Rotate to landscape' )
 					}
-					icon={ <RefreshIcon /> }
+					icon={ <DeviceRotateIcon /> }
 					onClick={ () =>
 						commit( 'manual_resize', { width: settings.height, height: settings.width } )
 					}

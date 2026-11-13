@@ -1,6 +1,6 @@
 import { useRender } from '@base-ui/react/use-render';
 import { clsx } from 'clsx';
-import { ChevronRightIcon } from 'lucide-react';
+import { ChevronRightIcon } from '@/lib/icons';
 import { Skeleton } from '@/lib/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui/tooltip';
 import styles from './style.module.css';

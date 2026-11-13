@@ -859,9 +859,10 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		const { connector } = await setup( { section: 'ai' } );
 		fireEvent.click(
 			await within( await findProviderRow( 'openai-provider' ) ).findByRole( 'button', {
-				name: 'Continue with ChatGPT',
+				name: 'Connect',
 			} )
 		);
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'ChatGPT plan' } ) );
 		await waitFor( () =>
 			expect( connector.connectProvider ).toHaveBeenCalledWith( 'openai', 'chatgpt', {
 				state: 'state-1',
@@ -870,7 +871,35 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith( 'https://auth.example.test/sign-in' );
 	} );
 
-	it( 'hides ChatGPT on the web, which cannot reach it', async () => {
+	it( 'connects with an API key while a ChatGPT sign-in waits on the browser', async () => {
+		const { connector } = await setup( { section: 'ai' } );
+		connector.connectProvider.mockImplementation( async ( _provider, method ) =>
+			method === 'chatgpt' ? new Promise( () => {} ) : aiSettings( 'wpcom', [ 'openai' ] )
+		);
+		const connect = async () =>
+			fireEvent.click(
+				await within( await findProviderRow( 'openai-provider' ) ).findByRole( 'button', {
+					name: 'Connect',
+				} )
+			);
+		await connect();
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'ChatGPT plan' } ) );
+		await screen.findByText( 'Finish signing in to OpenAI in your browser.' );
+		await connect();
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'API key' } ) );
+		fireEvent.change( await screen.findByLabelText( 'OpenAI API key', { selector: 'input' } ), {
+			target: { value: 'sk-proj-key' },
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Save' } ) );
+
+		await waitFor( () =>
+			expect( connector.connectProvider ).toHaveBeenLastCalledWith( 'openai', 'api-key', {
+				apiKey: 'sk-proj-key',
+			} )
+		);
+	} );
+
+	it( 'offers only an OpenAI API key on the web, which cannot reach a ChatGPT sign-in', async () => {
 		await setup( {
 			section: 'ai',
 			overrides: {
@@ -883,8 +912,15 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 				},
 			},
 		} );
-		await findProviderRow( 'anthropic-provider' );
-		expect( row( 'openai-provider' ) ).toBeNull();
+		fireEvent.click(
+			await within( await findProviderRow( 'openai-provider' ) ).findByRole( 'button', {
+				name: 'Connect',
+			} )
+		);
+		expect( await screen.findByLabelText( 'OpenAI API key', { selector: 'input' } ) ).toBeVisible();
+		expect(
+			screen.queryByRole( 'menuitemradio', { name: 'ChatGPT plan' } )
+		).not.toBeInTheDocument();
 	} );
 
 	it( 'reveals an inline Anthropic key form and collapses after connecting', async () => {

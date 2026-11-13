@@ -38,6 +38,7 @@ const PROVIDERS_DESCRIPTORS = [
 	'registry.ts',
 	'errors.ts',
 	'connection.ts',
+	'api-key.ts',
 	'*/descriptor.ts',
 	'*/config.ts',
 	'wpcom/sites/site.ts',

@@ -126,6 +126,30 @@ describe( 'ai settings', () => {
 		} );
 	} );
 
+	it( 'replaces a ChatGPT sign-in with an OpenAI API key', async () => {
+		writeShared( {
+			providerConfigs: {
+				openai: {
+					method: 'chatgpt',
+					clientId: 'oaiapp_1',
+					accessToken: 'access',
+					refreshToken: 'refresh',
+					accessTokenExpiresAt: Date.now() + 3_600_000,
+				},
+			},
+		} );
+
+		const settings = await connectProvider( getProviderServices( 'openai' ), 'api-key', {
+			apiKey: 'sk-proj-key',
+		} );
+
+		expect( settings.accounts.openai ).toMatchObject( { connected: true, method: 'api-key' } );
+		expect( readShared().providerConfigs.openai ).toEqual( {
+			method: 'api-key',
+			apiKey: 'sk-proj-key',
+		} );
+	} );
+
 	it( 'does not store input the provider rejects', async () => {
 		vi.stubGlobal( 'fetch', vi.fn().mockResolvedValue( { ok: false, status: 401 } ) );
 

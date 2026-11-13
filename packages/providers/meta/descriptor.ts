@@ -1,5 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
+import { previewApiKey } from '../api-key';
 import { metaConfigSchema, type MetaConfig } from './config';
 import type { AiModel, Provider } from '../types';
 
@@ -42,7 +43,7 @@ export const metaProvider: Provider< MetaConfig > = {
 		],
 		describe: ( config ) =>
 			config.method === 'api-key'
-				? { method: config.method, summary: `...${ config.apiKey.slice( -4 ) }` }
+				? { method: config.method, summary: previewApiKey( config.apiKey ) }
 				: {
 						method: config.method,
 						note: __( 'Using Muse subscription' ),

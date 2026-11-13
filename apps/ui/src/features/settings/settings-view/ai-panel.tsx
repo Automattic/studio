@@ -43,8 +43,10 @@ function ProviderRow( { provider, methods }: { provider: ProviderId; methods: Co
 	const instructions = formMethod?.instructions?.();
 	// The account is connected with the form being shown.
 	const current = formMethod !== undefined && formMethod.id === connectedMethod;
-	const pending = settings.isLoading || connect.isPending || disconnect.isPending;
 	const signingIn = connect.isPending && connect.pending !== null;
+	// A sign-in waiting on the browser doesn't block connecting another way.
+	const pending =
+		settings.isLoading || ( connect.isPending && ! signingIn ) || disconnect.isPending;
 	const filled = fields.every( ( field ) => values[ field.name ]?.trim() );
 	const [ onlyMethod ] = methods;
 	const error = ( connect.error ?? disconnect.error )?.message;
@@ -70,7 +72,7 @@ function ProviderRow( { provider, methods }: { provider: ProviderId; methods: Co
 	if ( methods.length > 1 && ! formMethod ) {
 		control = (
 			<Menu.Root>
-				<Menu.Trigger render={ <Button variant="outline" disabled={ pending && ! signingIn } /> }>
+				<Menu.Trigger render={ <Button variant="outline" disabled={ pending } /> }>
 					{ account?.connected ? __( 'Manage' ) : __( 'Connect' ) }
 					<ChevronDownIcon />
 				</Menu.Trigger>
@@ -128,14 +130,14 @@ function ProviderRow( { provider, methods }: { provider: ProviderId; methods: Co
 	}
 
 	let description;
-	if ( signingIn && connect.pending?.code ) {
+	if ( signingIn && ! formMethod && connect.pending?.code ) {
 		description = sprintf(
 			/* translators: 1: a sign-in code, 2: a service name such as Spacefast */
 			__( 'Approve the code %1$s on %2$s to connect.' ),
 			connect.pending.code,
 			descriptor.label
 		);
-	} else if ( signingIn ) {
+	} else if ( signingIn && ! formMethod ) {
 		description = sprintf(
 			/* translators: %s: a service name such as ChatGPT */
 			__( 'Finish signing in to %s in your browser.' ),
@@ -213,7 +215,7 @@ function ProviderRow( { provider, methods }: { provider: ProviderId; methods: Co
 											variant="accent"
 											type="submit"
 											disabled={ pending || ! filled }
-											loading={ connect.isPending }
+											loading={ connect.isPending && ! signingIn }
 											loadingAnnouncement={ __( 'Saving' ) }
 										>
 											{ __( 'Save' ) }

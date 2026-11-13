@@ -901,7 +901,7 @@ export function PublishButton( {
 																	<ProviderLogo provider={ selected.provider } branded compact />
 																)
 															}
-															label={ hostname }
+															label={ snapshot ? selected.label : hostname }
 															description={ describePublishTarget(
 																selected,
 																locale,
@@ -911,7 +911,9 @@ export function PublishButton( {
 															disabled={ openingCheckout }
 															onClick={ () => void connector.openExternalUrl( url ) }
 															aria-label={
-																snapshot ? sprintf( __( 'Open preview: %s' ), hostname ) : hostname
+																snapshot
+																	? sprintf( __( 'Open preview: %s' ), selected.label )
+																	: hostname
 															}
 														/>
 													}

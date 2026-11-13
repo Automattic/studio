@@ -1,8 +1,9 @@
 import { __ } from '@wordpress/i18n';
 import { useRef } from 'react';
 import { useIsSiteBusy } from '@/data/queries/use-sites';
-import { useDeleteSnapshot } from '@/data/queries/use-snapshots';
+import { useDeleteSnapshot, useSnapshots } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
+import { getSnapshotName } from '@/data/snapshot-name';
 import { getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { SiteCard, getWebsiteThumbnailUrl } from '@/features/site-card';
@@ -53,6 +54,7 @@ function DeletePreviewDialog( {
 	onClose: () => void;
 } ) {
 	const remove = useDeleteSnapshot();
+	const snapshots = useSnapshots( snapshot.userId );
 	const locale = useUserLocale();
 	const cancel = useRef< HTMLButtonElement >( null );
 	const offline = useOffline();
@@ -82,7 +84,7 @@ function DeletePreviewDialog( {
 					</DialogDescription>
 				</DialogHeader>
 				<SiteCard
-					title={ getSnapshotHostname( snapshot ) }
+					title={ getSnapshotName( snapshot, snapshots.data ) }
 					thumbnailUrl={ getWebsiteThumbnailUrl( getSnapshotUrl( snapshot ) ) }
 					description={ previewExpiry( snapshot, locale, { month: 'short', day: 'numeric' } ) }
 				/>

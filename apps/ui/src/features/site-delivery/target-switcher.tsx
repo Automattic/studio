@@ -1,7 +1,6 @@
 import { getProviderSites } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
 import { useId } from 'react';
-import { getSnapshotHostname } from '@/data/snapshot-url';
 import { ChevronDownIcon, LinkIcon, MapPinIcon, PlusIcon } from '@/lib/icons';
 import { Button, Menu } from '@/lib/ui';
 import { ProviderLogo } from './provider-logo';
@@ -33,14 +32,11 @@ export function TargetSwitcher( {
 	const id = useId();
 	const sites = targets.filter( ( target ) => target.remote );
 	const previews = targets.filter( ( target ) => target.snapshot );
+	const selected = targets.find( ( target ) => target.key === selectedKey );
+	const selectedLabel = selected?.snapshot ? selected.label : hostname;
 	const renderItem = ( target: PublishTarget ) => {
 		const { key, provider, remote, snapshot } = target;
-		const label =
-			key === selectedKey
-				? hostname
-				: snapshot
-				? getSnapshotHostname( snapshot )
-				: new URL( remote!.url ).hostname;
+		const label = key === selectedKey ? selectedLabel : target.label;
 		const description = describePublishTarget( target, locale, targets );
 		const descriptionId = `${ id }-${ key }`;
 		return (
@@ -79,12 +75,12 @@ export function TargetSwitcher( {
 							className={ styles.accessTrigger }
 							disabled={ disabled }
 							aria-label={ previewsOnly ? __( 'Choose preview' ) : __( 'Choose destination' ) }
-							aria-description={ hostname }
+							aria-description={ selectedLabel }
 						/>
 					}
 				>
 					<MapPinIcon data-icon="inline-start" />
-					<span className={ styles.previewHostname }>{ hostname }</span>
+					<span className={ styles.previewHostname }>{ selectedLabel }</span>
 					<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
 				</Menu.Trigger>
 				<Menu.Popup

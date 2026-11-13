@@ -423,7 +423,7 @@ export class StaticAgentRuns {
 			if ( ! config ) {
 				throw new Error(
 					__(
-						'Sign in to WordPress.com, or add an Anthropic API key in Settings, to use Studio Code.'
+						'Sign in to WordPress.com, or connect another provider in Settings, to use Studio Code.'
 					)
 				);
 			}
@@ -445,9 +445,16 @@ export class StaticAgentRuns {
 
 			const instructionsEnabled =
 				( await kvGet< boolean >( AGENT_INSTRUCTIONS_ENABLED_KEY ) ) ?? true;
+			const chatAi = ( getProviderServices( provider ) as ProviderServices ).ai!;
+			const chatConfig = config;
 			const agent = createBrowserAgent( {
 				host: {
 					...this.host,
+					// The chat's provider generates images when it can.
+					imageGenerator: async () =>
+						chatAi.generateImages && chatAi.canGenerateImages?.( chatConfig ) !== false
+							? ( requests, onResult ) => chatAi.generateImages!( chatConfig, requests, onResult )
+							: this.host.imageGenerator?.(),
 					ui: {
 						showArtifact: async ( artifact: StudioChatArtifactData ) => {
 							await this.sessions.appendCustom( sessionId, 'studio.chat_artifact', artifact );
@@ -469,13 +476,9 @@ export class StaticAgentRuns {
 				images: options.images,
 				files: options.files,
 				history: historyFromEntries( session.entries ),
-				ai: await ( getProviderServices( provider ) as ProviderServices ).ai!.model(
-					config,
-					model,
-					{
-						sessionId,
-					}
-				),
+				ai: await chatAi.model( config, model, {
+					sessionId,
+				} ),
 				activeSite,
 				userInstructions: instructionsEnabled
 					? await kvGet< string >( AGENT_INSTRUCTIONS_KEY )

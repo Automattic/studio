@@ -1,4 +1,6 @@
 import { getAiSkillCommands } from '@studio/agent/protocol/slash-commands';
+import { describeAccount, disconnectProvider } from '@studio/common/lib/ai-settings';
+import { readProviderConfig } from '@studio/common/lib/provider-config';
 import { isAutomatticianFromToken, readAuthToken } from '@studio/common/lib/shared-config';
 import {
 	clampQuotaFraction,
@@ -13,35 +15,39 @@ import {
 	formatTopUpOptionCreditsLabel,
 } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import {
-	getAiModel,
-	getAiModelLabel,
+	AI_PROVIDER_IDS,
+	findAiModel,
 	getAiModels,
-	getProviderDescriptor,
+	getProvider,
+	normalizeProviderId,
 	PROVIDER_IDS,
 	type AiModelId,
+	type AiProviderId,
 	type ProviderId,
 } from '@studio/providers';
+import { getProviderServices } from '@studio/providers/services';
 import { __, sprintf } from '@wordpress/i18n';
-import { isAiProviderReady } from 'cli/ai/auth';
-import { cliAgentHost } from 'cli/ai/host';
-import { HOSTS } from 'cli/ai/hosts';
 import { runCommand as runLoginCommand } from 'cli/commands/auth/login';
 import { runCommand as runLogoutCommand } from 'cli/commands/auth/logout';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
 import { runCommand as runUpdatePreviewCommand } from 'cli/commands/preview/update';
+import { runCommand as runPushCommand } from 'cli/commands/push';
 import { openBrowser } from 'cli/lib/browser';
 import { getAppLocale } from 'cli/lib/i18n';
+import { isProviderConnected } from 'cli/lib/providers';
 import { getSnapshotLink, getSnapshotsFromConfig, isSnapshotExpired } from 'cli/lib/snapshots';
+import { fetchSyncableSites } from 'cli/lib/sync-api';
 import { Logger, LoggerError } from 'cli/logger';
 import type { AiChatUI } from 'cli/ai/ui';
 
 export interface SlashCommandContext {
 	ui: AiChatUI;
 	currentModel: AiModelId;
-	currentProvider: ProviderId;
+	currentProvider: AiProviderId;
 	showCapabilitiesOnConnect: boolean;
-	switchProvider( provider: ProviderId, announce?: boolean ): Promise< void >;
-	prepareProviderSelection( provider: ProviderId, options?: { force?: boolean } ): Promise< void >;
+	switchProvider( provider: AiProviderId, announce?: boolean ): Promise< void >;
+	// Connects the provider in the terminal, unless it is connected and `force` isn't set.
+	connect( provider: ProviderId, options?: { force?: boolean } ): Promise< void >;
 	maybeAutoSwitchProvider(): Promise< void >;
 	persistSessionContext(): Promise< void >;
 	clearSession(): Promise< void >;
@@ -55,6 +61,8 @@ type SlashCommandHandler = (
 export interface SlashCommandDef {
 	name: string;
 	description: string;
+	// What follows the command, such as `[provider]`; a command without one takes nothing after it.
+	argument?: string;
 	handler?: SlashCommandHandler;
 }
 
@@ -116,6 +124,42 @@ function showCreditBalance( ctx: SlashCommandContext, quota: StudioAssistantQuot
 		return;
 	}
 	ctx.ui.showInfo( __( 'Studio Code limits are temporarily unavailable.' ) );
+}
+
+function getModelLabel( id: AiModelId ): string {
+	return findAiModel( id )?.model.label() ?? id;
+}
+
+// The provider named after the command, or the one the user picks among `ids`.
+async function pickProvider< Id extends ProviderId >(
+	ctx: SlashCommandContext,
+	prompt: string,
+	ids: readonly Id[],
+	question: string
+): Promise< Id | undefined > {
+	const named = prompt.trim().split( /\s+/ )[ 1 ];
+	if ( named ) {
+		const provider = normalizeProviderId( named, ids );
+		if ( ! provider ) {
+			ctx.ui.showError(
+				sprintf(
+					/* translators: 1: what the user typed, 2: a list of provider ids */
+					__( 'Unknown provider %1$s. Choose one of: %2$s.' ),
+					named,
+					ids.join( ', ' )
+				)
+			);
+		}
+		return provider;
+	}
+	const answer = await ctx.ui.askUser( [
+		{
+			question,
+			options: ids.map( ( id ) => ( { label: getProvider( id ).label, description: id } ) ),
+		},
+	] );
+	const selected = Object.values( answer )[ 0 ];
+	return ids.find( ( id ) => getProvider( id ).label === selected );
 }
 
 export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
@@ -217,20 +261,19 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		},
 	},
 	{
-		name: 'api-key',
-		description: __( 'Set or update the Anthropic API key' ),
-		handler: async ( _prompt, ctx ) => {
+		name: 'connect',
+		argument: '[provider]',
+		description: __( 'Connect a provider' ),
+		handler: async ( prompt, ctx ) => {
+			const provider = await pickProvider( ctx, prompt, PROVIDER_IDS, __( 'Connect a provider' ) );
+			if ( ! provider ) {
+				return 'continue';
+			}
 			try {
-				await ctx.prepareProviderSelection( 'anthropic', { force: true } );
-				ctx.ui.showInfo( __( 'Anthropic API key updated.' ) );
-				if ( ctx.showCapabilitiesOnConnect ) {
-					ctx.showCapabilitiesOnConnect = false;
-					await ctx.switchProvider( 'anthropic' );
-					ctx.ui.showCapabilities();
-				}
+				await ctx.connect( provider, { force: true } );
 			} catch ( error ) {
 				if ( isPromptAbortError( error ) ) {
-					ctx.ui.showInfo( __( 'API key update canceled.' ) );
+					ctx.ui.showInfo( __( 'Canceled.' ) );
 					return 'continue';
 				}
 				if ( error instanceof LoggerError ) {
@@ -239,6 +282,60 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				}
 				throw error;
 			}
+			if ( ! ( await isProviderConnected( provider ) ) ) {
+				return 'continue';
+			}
+			ctx.ui.showSuccess(
+				sprintf(
+					/* translators: %s: provider name */
+					__( 'Connected %s.' ),
+					getProvider( provider ).label
+				)
+			);
+			const aiProvider = normalizeProviderId( provider, AI_PROVIDER_IDS );
+			if ( aiProvider && ctx.showCapabilitiesOnConnect ) {
+				ctx.showCapabilitiesOnConnect = false;
+				await ctx.switchProvider( aiProvider );
+				ctx.ui.showCapabilities();
+			}
+			return 'continue';
+		},
+	},
+	{
+		name: 'disconnect',
+		argument: '[provider]',
+		description: __( 'Disconnect a provider' ),
+		handler: async ( prompt, ctx ) => {
+			const connected: ProviderId[] = [];
+			for ( const id of PROVIDER_IDS ) {
+				if ( await isProviderConnected( id ) ) {
+					connected.push( id );
+				}
+			}
+			if ( ! connected.length ) {
+				ctx.ui.showInfo( __( 'No provider is connected.' ) );
+				return 'continue';
+			}
+			const provider = await pickProvider( ctx, prompt, connected, __( 'Disconnect a provider' ) );
+			if ( ! provider ) {
+				return 'continue';
+			}
+			// Disconnecting WordPress.com is signing out of Studio.
+			if ( getProvider( provider ).account.methods[ 0 ].kind === 'redirect' ) {
+				ctx.ui.stop();
+				await runLogoutCommand();
+				ctx.ui.start();
+			} else {
+				await disconnectProvider( getProviderServices( provider ) );
+			}
+			ctx.ui.showInfo(
+				sprintf(
+					/* translators: %s: provider name */
+					__( 'Disconnected %s.' ),
+					getProvider( provider ).label
+				)
+			);
+			await ctx.maybeAutoSwitchProvider();
 			return 'continue';
 		},
 	},
@@ -249,7 +346,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 			ctx.ui.stop();
 			await runLoginCommand();
 			ctx.ui.start();
-			if ( await isAiProviderReady( 'wpcom' ) ) {
+			if ( await isProviderConnected( 'wpcom' ) ) {
 				const token = await readAuthToken();
 				if ( token ) {
 					ctx.ui.showSuccess(
@@ -295,9 +392,16 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		name: 'model',
 		description: __( 'Switch the AI model' ),
 		handler: async ( _prompt, ctx ) => {
-			const availableModels = getAiModels( ctx.currentProvider ).map( ( model ) => model.id );
+			const account = describeAccount(
+				ctx.currentProvider,
+				await readProviderConfig( ctx.currentProvider )
+			);
+			const availableModels = getAiModels(
+				ctx.currentProvider,
+				account.connected ? account : undefined
+			).map( ( model ) => model.id );
 			const requiresPaidCredits = ( id: AiModelId ) =>
-				getAiModel( ctx.currentProvider, id )?.requiresPaidAiCredits ?? false;
+				findAiModel( id )?.model.requiresPaidAiCredits ?? false;
 			// The paid tiers are only offered once the account has bought credits;
 			// Automatticians are exempt. The current model always stays listed,
 			// so a session already on a paid tier keeps showing what it runs on.
@@ -329,9 +433,9 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 						? sprintf(
 								/* translators: %s: model name */
 								__( '%s (current)' ),
-								getAiModelLabel( id )
+								getModelLabel( id )
 						  )
-						: getAiModelLabel( id );
+						: getModelLabel( id );
 				labelToId.set( label, id );
 				return { label, description: id };
 			} );
@@ -347,7 +451,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 					sprintf(
 						/* translators: %s: model name */
 						__( 'Switched to %s' ),
-						getAiModelLabel( ctx.currentModel )
+						getModelLabel( ctx.currentModel )
 					)
 				);
 				await ctx.persistSessionContext();
@@ -359,28 +463,28 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 		name: 'provider',
 		description: __( 'Switch the AI provider' ),
 		handler: async ( _prompt, ctx ) => {
-			const providerOptions = PROVIDER_IDS.map( ( id ) => ( {
+			const providerOptions = AI_PROVIDER_IDS.map( ( id ) => ( {
 				label:
 					id === ctx.currentProvider
 						? sprintf(
 								/* translators: %s: provider name */
 								__( '%s (current)' ),
-								getProviderDescriptor( id ).label
+								getProvider( id ).label
 						  )
-						: getProviderDescriptor( id ).label,
+						: getProvider( id ).label,
 				description: id,
 			} ) );
 			const answer = await ctx.ui.askUser( [
 				{ question: __( 'Select an AI provider' ), options: providerOptions },
 			] );
 			const selectedLabel = Object.values( answer )[ 0 ] as string;
-			const newProvider = PROVIDER_IDS.find( ( id ) =>
-				selectedLabel.startsWith( getProviderDescriptor( id ).label )
+			const newProvider = AI_PROVIDER_IDS.find( ( id ) =>
+				selectedLabel.startsWith( getProvider( id ).label )
 			);
 			if ( newProvider && newProvider !== ctx.currentProvider ) {
 				const previousModel = ctx.currentModel;
 				try {
-					await ctx.prepareProviderSelection( newProvider );
+					await ctx.connect( newProvider );
 					await ctx.switchProvider( newProvider );
 					// The prior turns ran on a model the new provider doesn't serve.
 					if ( ctx.currentModel !== previousModel ) {
@@ -397,7 +501,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 							sprintf(
 								/* translators: %s: provider name */
 								__( 'Provider setup canceled. Kept %s.' ),
-								getProviderDescriptor( ctx.currentProvider ).label
+								getProvider( ctx.currentProvider ).label
 							)
 						);
 						return 'continue';
@@ -462,13 +566,7 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 	},
 	{
 		name: 'publish',
-		description: sprintf(
-			/* translators: %s: the hosts a site can be published to, such as WordPress.com */
-			__( 'Publish the active site to %s' ),
-			Object.values( HOSTS )
-				.map( ( host ) => host.name )
-				.join( ', ' )
-		),
+		description: __( 'Publish the active site to WordPress.com' ),
 		handler: async ( _prompt, ctx ) => {
 			const site = ctx.ui.activeSite;
 			if ( ! site ) {
@@ -476,77 +574,73 @@ export const AI_CHAT_SLASH_COMMANDS: SlashCommandDef[] = [
 				return 'continue';
 			}
 
+			const token = await readAuthToken();
+			if ( ! token ) {
+				ctx.ui.showInfo( __( 'WordPress.com login required. Use /login to authenticate.' ) );
+				return 'continue';
+			}
+
 			try {
-				ctx.ui.showProgress( __( 'Fetching the sites you can publish to…' ) );
+				ctx.ui.showProgress( __( 'Fetching your WordPress.com sites…' ) );
 				ctx.ui.setBusy( true );
-				const listings = await Promise.all(
-					Object.values( HOSTS ).map( async ( host ) => ( {
-						host,
-						listing: await host.publishable( site.path ),
-					} ) )
-				);
-				ctx.ui.setBusy( false );
 
-				const signedIn = listings.filter( ( { listing } ) => listing.signedIn );
-				if ( ! signedIn.length ) {
-					ctx.ui.showInfo( listings.map( ( { host } ) => host.signIn ).join( '\n' ) );
-					return 'continue';
-				}
-				if ( signedIn.every( ( { listing } ) => listing.error ) ) {
-					ctx.ui.showError( signedIn.map( ( { listing } ) => listing.error ).join( '\n' ) );
-					return 'continue';
-				}
+				const remoteSites = await fetchSyncableSites( token.accessToken );
+				const syncable = remoteSites.filter( ( s ) => s.syncSupport === 'syncable' );
 
-				const targets = signedIn.flatMap( ( { host, listing } ) =>
-					listing.sites.map( ( remoteSite ) => ( { host, remoteSite } ) )
-				);
-				if ( ! targets.length ) {
-					const { host } = signedIn[ 0 ];
-					await openBrowser( host.newSiteUrl( site.name ) );
+				if ( syncable.length === 0 ) {
+					ctx.ui.setBusy( false );
+					const checkoutUrl = new URL( 'https://wordpress.com/setup/new-hosted-site' );
+					checkoutUrl.searchParams.set( 'ref', 'studio' );
+					checkoutUrl.searchParams.set( 'section', 'studio-sync' );
+					checkoutUrl.searchParams.set( 'showDomainStep', 'true' );
+					checkoutUrl.searchParams.set( 'new', site.name );
+
+					await openBrowser( checkoutUrl.toString() );
 					ctx.ui.showInfo(
-						sprintf(
-							/* translators: %s: a host, such as WordPress.com */
-							__(
-								'No %1$s sites found. Opening %1$s to create one — once your site is ready, run /publish again.'
-							),
-							host.name
+						__(
+							'No WordPress.com sites found. Opening WordPress.com to create one — once your site is ready, run /publish again.'
 						)
 					);
 					return 'continue';
 				}
 
 				// Let the user pick which site to publish to.
+				const siteOptions = syncable.map( ( s ) => ( {
+					label: s.name,
+					description: s.url,
+				} ) );
+				ctx.ui.setBusy( false );
 				const answer = await ctx.ui.askUser( [
 					{
-						question: __( 'Select a site to publish to' ),
-						options: targets.map( ( { host, remoteSite } ) => ( {
-							label: remoteSite.name,
-							description: `${ remoteSite.url } · ${ host.name }`,
-						} ) ),
+						question: __( 'Select a WordPress.com site to publish to' ),
+						options: siteOptions,
 					},
 				] );
 				const selectedName = Object.values( answer )[ 0 ] as string;
-				const target = targets.find( ( { remoteSite } ) => remoteSite.name === selectedName );
-				if ( ! target ) {
+				const remoteSite = syncable.find( ( s ) => s.name === selectedName );
+				if ( ! remoteSite ) {
 					ctx.ui.showInfo( __( 'No site selected.' ) );
 					return 'continue';
 				}
-				const { host, remoteSite } = target;
 
 				ctx.ui.showProgress(
 					sprintf( __( 'Publishing to %s… this may take several minutes.' ), remoteSite.name )
 				);
 				ctx.ui.setBusy( true );
 
-				const pushed = await host.push(
-					await cliAgentHost.sites.resolve( site.path ),
+				await runPushCommand(
+					site.path,
+					[ 'all' ],
 					String( remoteSite.id ),
-					'all',
-					( message, update ) => ctx.ui.setLoaderMessage( message, update )
+					new Logger( {
+						onProgress: ( message, update ) => ctx.ui.setLoaderMessage( message, update ),
+					} )
 				);
 
 				ctx.ui.setBusy( false );
-				ctx.ui.showSuccess( pushed + '\n\n   ' + remoteSite.url );
+				ctx.ui.showSuccess(
+					sprintf( __( 'Published to %s' ), remoteSite.url ) + '\n\n   ' + remoteSite.url
+				);
 			} catch ( error ) {
 				ctx.ui.setBusy( false );
 				if ( isPromptAbortError( error ) ) {

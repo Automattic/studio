@@ -20,7 +20,7 @@
 	"dependencies": {
 		"@automattic/generate-password": "^0.2.0",
 		"@modelcontextprotocol/sdk": "^1.27.1",
-		"@sentry/core": "^11.8.0",
+		"@studio/blueprints": "file:../blueprints",
 		"@studio/providers": "file:../providers",
 		"@vscode/sudo-prompt": "^9.3.2",
 		"@wordpress/i18n": "^6.30.0",
@@ -38,7 +38,6 @@
 	"devDependencies": {
 		"@types/lockfile": "^1.0.4",
 		"@types/semver": "^7.7.1",
-		"@types/yauzl": "^2.10.3",
-		"@wp-playground/blueprints": "3.1.53"
+		"@types/yauzl": "^2.10.3"
 	}
 }

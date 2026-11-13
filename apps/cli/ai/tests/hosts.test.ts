@@ -1,17 +1,10 @@
 import { remoteSiteFromStored, storedFromRemoteSite } from '@studio/agent/node';
 import { buildSystemPrompt } from '@studio/agent/shared/system-prompt';
-import { getRemoteSites } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { describe, expect, it, vi } from 'vitest';
 import { HOSTS } from 'cli/ai/hosts';
 import { getWpComSites } from 'cli/lib/api';
-import { fetchSyncableSites } from 'cli/lib/sync-api';
 
-vi.mock( '@studio/common/lib/remote-sites', () => ( { getRemoteSites: vi.fn() } ) );
-vi.mock( 'cli/lib/sync-api', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('cli/lib/sync-api') >() ),
-	fetchSyncableSites: vi.fn(),
-} ) );
 vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/lib/shared-config') >() ),
 	readAuthToken: vi.fn(),
@@ -47,61 +40,17 @@ describe( 'stored site selections', () => {
 
 it( "states each host's sites in the Environment section as before hosts", () => {
 	expect( buildSystemPrompt( { remoteHosts: HOSTS } ) ).toContain(
-		"- Studio runs the user's local WordPress sites on this computer. Each one is a complete WordPress install in its own folder: WordPress core (`wp-includes/`, `wp-admin/`) and every installed theme and plugin (`wp-content/`) are on disk.\n- The user's WordPress.com sites are live sites, reached through the WordPress.com REST API.\n- A Spacefast space holds a static copy of a local site: its pages, styles and media as files, with no WordPress behind them.\n- The active site is the one the user has open in Studio."
+		"- Studio runs the user's local WordPress sites on this computer. Each one is a complete WordPress install in its own folder: WordPress core (`wp-includes/`, `wp-admin/`) and every installed theme and plugin (`wp-content/`) are on disk.\n- The user's WordPress.com sites are live sites, reached through the WordPress.com REST API.\n- The active site is the one the user has open in Studio."
 	);
 } );
 
 it( "states each host's sites in the Environment section an external agent gets", () => {
 	expect( buildSystemPrompt( { external: true, remoteHosts: HOSTS } ) ).toContain(
-		"(`wp-content/`) are on disk.\n- The user's WordPress.com sites are live sites, reached through the WordPress.com REST API.\n- A Spacefast space holds a static copy of a local site: its pages, styles and media as files, with no WordPress behind them.\n- Studio's skills are runbooks"
+		"(`wp-content/`) are on disk.\n- The user's WordPress.com sites are live sites, reached through the WordPress.com REST API.\n- Studio's skills are runbooks"
 	);
 } );
 
 describe( 'WordPress.com', () => {
-	it.each( [
-		{ signedIn: true, expected: { signedIn: true, targets: [ 'already-connected' ] } },
-		{ signedIn: false, expected: { signedIn: false, targets: [] } },
-	] )(
-		'lists the sites connected to a local site (signed in: $signedIn)',
-		async ( { signedIn, expected } ) => {
-			const site = {
-				id: 111,
-				localSiteId: '',
-				name: 'My Production Site',
-				url: 'https://myprod.wordpress.com',
-				isStaging: false,
-				isPressable: false,
-				environmentType: 'production',
-				syncSupport: 'syncable' as const,
-				lastPullTimestamp: null,
-				lastPushTimestamp: null,
-			};
-			vi.mocked( getRemoteSites ).mockResolvedValue( [
-				{ ...site, localSiteId: 'site-123', name: 'Name at connect time' },
-			] as never );
-			vi.mocked( readAuthToken ).mockResolvedValue(
-				( signedIn ? { accessToken: 'token' } : null ) as never
-			);
-			vi.mocked( fetchSyncableSites ).mockResolvedValue( [ site ] );
-
-			const listing = await HOSTS.wpcom.targets( { id: 'site-123', path: '/sites/my-site' } );
-
-			expect( {
-				signedIn: listing.signedIn,
-				targets: listing.targets.map( ( target ) => target.syncSupport ),
-			} ).toEqual( expected );
-			expect( HOSTS.wpcom.publishes ).toContain( 'Pressable' );
-			if ( signedIn ) {
-				expect( getRemoteSites ).toHaveBeenCalledWith( 'wpcom', 'site-123' );
-				expect( listing.targets[ 0 ] ).toMatchObject( {
-					id: 111,
-					name: 'My Production Site',
-					url: 'https://myprod.wordpress.com',
-				} );
-			}
-		}
-	);
-
 	it.each( [
 		{
 			name: 'lists the sites the login reaches',

@@ -308,7 +308,7 @@ export function getToolDisplayName( name: string, input?: Record< string, unknow
 		preview_list: __( 'List previews' ),
 		preview_update: __( 'Update preview' ),
 		preview_delete: __( 'Delete preview' ),
-		site_publish_targets: __( 'List publish targets' ),
+		site_connected_remote_sites: __( 'List connected remote sites' ),
 		scaffold_theme: __( 'Scaffold theme' ),
 		take_screenshot: __( 'Take screenshot' ),
 		generate_images: __( 'Generate images' ),

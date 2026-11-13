@@ -2,12 +2,11 @@
  * The hosts Studio reaches the user's sites on, besides this computer. A
  * remote site is one of a host's sites, by the host's own id for it, and what
  * Studio does with it is the host's: what the system prompt says of its sites,
- * how the user's sites on it are listed, where a site's facts come from, how a
- * local site is published to it and pulled from it, and the MCP server its
- * tools come from. The app running the agent provides its hosts
+ * how the user's sites on it are listed, where a site's facts come from, and
+ * the MCP server its tools come from. Publishing to a provider's sites is
+ * `StudioAgentHost.sync`. The app running the agent provides its hosts
  * (`StudioAgentHost.remoteHosts`).
  */
-import type { HostSite, ProgressCallback } from './host';
 import type { SiteInfo } from './types';
 
 /** A question the harness asks the user before a call that needs their yes. */
@@ -44,16 +43,6 @@ export interface RemoteSite {
 	id: string | number;
 }
 
-/** A site a local site is published to, with what the host says of it. */
-type HostTarget = { id: string | number; name: string; url: string } & Record< string, unknown >;
-
-/** The sites a local site is published to on a host, as far as the host could list them. */
-interface HostTargets {
-	signedIn: boolean;
-	targets: HostTarget[];
-	error?: string;
-}
-
 /** The user's sites on a host, as far as the host could list them. */
 export interface HostSiteListing {
 	signedIn: boolean;
@@ -75,35 +64,8 @@ export interface RemoteHost {
 		/** The facts the agent gets about one of the host's sites, by the fact that states them. */
 		facts( site: SiteInfo ): Promise< string[][] >;
 	};
-	/** What a local site is published to on the host. */
-	publishes: string;
-	/** The sites on the host the local site at `sitePath` can be published to. */
-	publishable( sitePath: string ): Promise< HostSiteListing >;
-	/** Where the user makes a new site on the host, for a local site of this name. */
-	newSiteUrl( name: string ): string;
-	/** How the user signs in to the host. */
-	signIn: string;
-	/** The host's sites already connected to this local site. */
-	targets( site: { id: string; path: string } ): Promise< HostTargets >;
 	/** The host's own MCP server for the signed-in user, served as `<host id>_<tool>`. */
 	mcpServer(): Promise< HostMcpServer | undefined >;
-	/**
-	 * Replaces the target's content with the local site's, with the sync
-	 * `options` (comma-separated). Returns what it did, for the agent.
-	 */
-	push(
-		site: HostSite,
-		target: string,
-		options: string,
-		onProgress: ProgressCallback
-	): Promise< string >;
-	/** Replaces the local site's content with the target's, for a host that serves WordPress. */
-	pull?(
-		site: HostSite,
-		target: string,
-		options: string,
-		onProgress: ProgressCallback
-	): Promise< string >;
 }
 
 /**
@@ -115,16 +77,6 @@ export const WPCOM_HOST = {
 	name: 'WordPress.com',
 	environment:
 		"The user's WordPress.com sites are live sites, reached through the WordPress.com REST API.",
-	publishes:
-		"the user's WordPress.com sites, and the Pressable sites in their WordPress.com account",
-	newSiteUrl( name: string ) {
-		const url = new URL( 'https://wordpress.com/setup/new-hosted-site' );
-		url.searchParams.set( 'ref', 'studio' );
-		url.searchParams.set( 'section', 'studio-sync' );
-		url.searchParams.set( 'showDomainStep', 'true' );
-		url.searchParams.set( 'new', name );
-		return url.toString();
-	},
 } satisfies Partial< RemoteHost >;
 
 const WPCOM_PROMPT = '\n\nWhat to tell the user: ';

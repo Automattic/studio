@@ -1,10 +1,20 @@
 import path from 'path';
-import { nodeHostServices, type HostSite, type StudioAgentHost } from '@studio/agent/node';
+import {
+	nodeHostServices,
+	type HostRemoteSite,
+	type HostSite,
+	type StudioAgentHost,
+} from '@studio/agent/node';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
 import { sendStudioFeedback } from '@studio/common/lib/feedback';
+import { getRemoteSites } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
+import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
+import { listAccountSites } from '@studio/common/sites/remote-sites';
+import { getProviderSites, SITES_PROVIDER_IDS } from '@studio/providers';
+import { getProviderServices } from '@studio/providers/services';
 import { __ } from '@wordpress/i18n';
 import { getStudioUserAgent, resolveImageGenerator } from 'cli/ai/auth';
 import { HOSTS } from 'cli/ai/hosts';
@@ -30,9 +40,34 @@ import { resolvePhpTransformer } from 'cli/lib/import-runtime';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
+import { parseSyncOptions } from 'cli/lib/sync-api';
 import { getTracksOrigin, recordTracksEvent } from 'cli/lib/tracks';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
+
+/**
+ * The remote sites a local site is connected to, on every provider. With `fillIn`, each is filled
+ * in from its provider's account when the account can be reached, which says whether it can
+ * still be synced; the stored connection otherwise.
+ */
+export async function connectedRemoteSites(
+	site: HostSite,
+	fillIn: boolean
+): Promise< HostRemoteSite[] > {
+	const connected = await Promise.all(
+		SITES_PROVIDER_IDS.map( async ( provider ) => {
+			const stored = await getRemoteSites( provider, site.id );
+			const account =
+				fillIn && stored.length
+					? await listAccountSites( getProviderServices( provider ) ).catch( () => undefined )
+					: undefined;
+			return ( account ? getProviderSites( provider ).withDetails( stored, account ) : stored ).map(
+				( remote ) => ( { provider, site: remote } )
+			);
+		} )
+	);
+	return connected.flat();
+}
 
 function toHostSite( site: SiteData ): HostSite {
 	return {
@@ -169,6 +204,42 @@ export const cliAgentHost: StudioAgentHost = {
 	},
 	blocksEngine: () => resolvePhpTransformer(),
 	remoteHosts: HOSTS,
+	// The sync commands load only when the agent pushes or pulls.
+	sync: {
+		connectedSites: ( site ) => connectedRemoteSites( site, true ),
+		push: async ( site, options, remoteSite, onProgress ) => {
+			const { runCommand } = await import( 'cli/commands/push' );
+			return runCommand(
+				site.path,
+				parseSyncOptions( options ),
+				remoteSite,
+				new Logger( { onProgress } )
+			);
+		},
+		pull: async ( site, options, remoteSite, onProgress ) => {
+			if ( isReprintPullEnabled() ) {
+				const [ { runCommand }, { pullSelectionFromSyncOptions } ] = await Promise.all( [
+					import( 'cli/commands/pull' ),
+					import( 'cli/lib/pull/pull-selection' ),
+				] );
+				return runCommand(
+					site.path,
+					remoteSite,
+					false,
+					pullSelectionFromSyncOptions( parseSyncOptions( options ) ),
+					onProgress
+				);
+			}
+			const { runCommand } = await import( 'cli/commands/pull-legacy' );
+			return runCommand(
+				site.path,
+				parseSyncOptions( options ),
+				remoteSite,
+				undefined,
+				new Logger( { onProgress } )
+			);
+		},
+	},
 	tracks: {
 		record: ( event, props ) => recordTracksEvent( event, { ...getTracksOrigin(), ...props } ),
 	},

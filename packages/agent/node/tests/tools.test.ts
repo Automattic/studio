@@ -389,38 +389,80 @@ describe( 'Studio AI MCP tools', () => {
 		] );
 	} );
 
-	it( 'lists each remote host with its connected targets, and how to sign in when signed out', async () => {
-		const wpcom = fakeWpcom();
-		const signedOut = { ...fakeWpcom(), name: 'Other' };
-		vi.mocked( wpcom.targets ).mockResolvedValue( {
-			signedIn: true,
-			targets: [ { id: 111, name: 'Prod', url: 'https://prod.example' } ],
-		} as never );
-		vi.mocked( signedOut.targets ).mockResolvedValue( { signedIn: false, targets: [] } );
-		host.remoteHosts = { wpcom, other: signedOut };
+	it( 'lists the remote sites of every provider with what can be synced and how to name them', async () => {
+		vi.mocked( host.sync.connectedSites ).mockResolvedValue( [
+			{
+				provider: 'wpcom',
+				site: {
+					id: 111,
+					localSiteId: 'site-123',
+					name: 'My Production Site',
+					url: 'https://myprod.wordpress.com',
+					isStaging: false,
+					isPressable: false,
+					environmentType: 'production',
+					syncSupport: 'already-connected',
+					lastPullTimestamp: null,
+					lastPushTimestamp: null,
+				},
+			},
+			{
+				provider: 'spacefast',
+				site: {
+					id: 'spc_1',
+					name: 'My Space',
+					url: 'https://my-space.space.fast/',
+					slug: 'my-space',
+					teamId: 'team_1',
+					teamName: 'My Team',
+					lastPushTimestamp: '2026-11-01T00:00:00Z',
+				},
+			},
+		] );
 
-		const result = await getTool( 'site_publish_targets' ).rawHandler( {
+		const result = await getTool( 'site_connected_remote_sites' ).rawHandler( {
 			nameOrPath: 'My Site',
 		} as never );
 
-		expect( wpcom.targets ).toHaveBeenCalledWith( mockSite );
+		expect( host.sync.connectedSites ).toHaveBeenCalledWith( mockSite );
 		expect( JSON.parse( getTextContent( result ) ?? '[]' ) ).toEqual( [
 			{
-				host: 'wpcom',
-				name: 'WordPress.com',
-				publishes: wpcom.publishes,
-				signedIn: true,
-				targets: [ { id: 111, name: 'Prod', url: 'https://prod.example' } ],
+				type: 'remote-site',
+				provider: 'wpcom',
+				providerName: 'WordPress.com',
+				remoteSite: 'wpcom:111',
+				name: 'My Production Site',
+				url: 'https://myprod.wordpress.com',
+				Environment: 'Production',
+				canPush: true,
+				canPull: true,
+				lastPushTimestamp: null,
+				lastPullTimestamp: null,
 			},
 			{
-				host: 'other',
-				name: 'Other',
-				publishes: signedOut.publishes,
-				signedIn: false,
-				signIn: signedOut.signIn,
-				targets: [],
+				type: 'remote-site',
+				provider: 'spacefast',
+				providerName: 'Spacefast',
+				remoteSite: 'spacefast:spc_1',
+				name: 'My Space',
+				url: 'https://my-space.space.fast/',
+				Team: 'My Team',
+				canPush: true,
+				canPull: false,
+				lastPushTimestamp: '2026-11-01T00:00:00Z',
+				lastPullTimestamp: null,
 			},
 		] );
+	} );
+
+	it( 'refuses to pull from a provider that can only be published to', async () => {
+		await expect(
+			getTool( 'site_pull' ).rawHandler( {
+				nameOrPath: 'My Site',
+				remoteSite: 'spacefast:spc_1',
+			} as never )
+		).rejects.toThrow( 'Spacefast sites can only be published to, not pulled.' );
+		expect( host.sync.pull ).not.toHaveBeenCalled();
 	} );
 
 	it( "lists local sites with each remote host's sites under its key", async () => {

@@ -935,6 +935,34 @@ describe( 'CLI: studio pull requires an existing site', () => {
 			path.join( pullsRoot(), 'existing-id' )
 		);
 	} );
+
+	it( 'exits non-zero when the remote site cannot be reached', async () => {
+		const { commandHandler } = await loadRunCommandWithFakeHome();
+		mockWpComPullSource();
+		const sitePath = path.join( fakeHome, 'Studio', 'Existing-Site' );
+		seedCliConfigSite( fakeHome, [
+			makeSiteRecord( { id: 'existing-id', name: 'Existing Site', path: sitePath } ),
+		] );
+		const reprintClientMod = await import( 'cli/lib/pull/reprint-client' );
+		vi.spyOn( reprintClientMod, 'runReprintCommandUntilComplete' ).mockRejectedValue(
+			new Error( 'connection refused' )
+		);
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
+
+		try {
+			await commandHandler( {
+				path: sitePath,
+				remoteSite: 'https://example.com',
+				verbose: false,
+			} as Parameters< typeof commandHandler >[ 0 ] );
+
+			// The host app reads the exit code to tell a failed pull from a successful one.
+			expect( process.exitCode ).toBe( 1 );
+		} finally {
+			process.exitCode = undefined;
+		}
+	} );
 } );
 
 describe( 'CLI: studio pull delta re-pull of a completed pull', () => {

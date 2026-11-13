@@ -25,11 +25,14 @@ import { writeGlobalInstructions } from '@studio/agent/node/global-instructions'
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
 import { addConnectedWpcomSite } from '@studio/common/lib/connected-sites';
 import { portFinder } from '@studio/common/lib/port-finder';
+import { readProviderConfig, writeProviderConfig } from '@studio/common/lib/provider-config';
+import { rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
 import { getConfigDirectory, getSharedConfigPath } from '@studio/common/lib/well-known-paths';
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { syncSiteSchema } from '@studio/common/types/sync';
+import { PROVIDER_IDS, SITES_PROVIDER_IDS } from '@studio/providers';
 import { z } from 'zod';
 import { evalAnswersSchema, type EvalAnswers } from 'cli/ai/eval-answers';
 import { captureTurnOutcome, fingerprintSites, type TurnOutcome } from 'cli/ai/eval-outcome';
@@ -66,6 +69,16 @@ const evalSeedSchema = z.object( {
 		} )
 		.optional(),
 	connectedWpcomSites: z.array( syncSiteSchema ).optional(),
+	// Sites on the other providers connected to a local site, such as Spacefast Spaces.
+	remoteSites: z
+		.array(
+			z.object( {
+				provider: z.enum( SITES_PROVIDER_IDS ),
+				localSiteId: z.string(),
+				site: z.record( z.string(), z.unknown() ),
+			} )
+		)
+		.optional(),
 	snapshots: z.array( snapshotSchema ).optional(),
 	globalInstructions: z.string().optional(),
 	// A real (stopped) site under STUDIO_SITES_ROOT, active for the turn, with
@@ -175,31 +188,37 @@ async function isolateSiteRegistry() {
 // Studio does.
 const STUDIO_DOWNLOADS = [ 'server-files', 'php-bin', 'import-runtime', 'mu-plugins' ];
 
-// Each eval runs against its own Studio config directory, signed in as the
-// user, so what a case seeds (global instructions, WordPress.com connections)
-// and what its turn changes stay in the case: concurrent cases and the user's
-// own Studio never see them.
-function isolateStudioConfig() {
+// Each eval runs against its own Studio config directory, connected to the
+// user's providers, so what a case seeds (global instructions, WordPress.com
+// connections) and what its turn changes stay in the case: concurrent cases
+// and the user's own Studio never see them. Each provider's config moves
+// through Studio's provider storage, so a provider added later carries over.
+async function isolateStudioConfig() {
 	const userDir = getConfigDirectory();
-	const { version, authToken, aiProvider } = JSON.parse(
+	const { version, aiProvider } = JSON.parse(
 		readFileSync( getSharedConfigPath(), 'utf8' )
 	) as Record< string, unknown >;
+	const configs = await Promise.all(
+		PROVIDER_IDS.map( async ( id ) => [ id, await readProviderConfig( id ) ] as const )
+	);
 	const dir = mkdtempSync( path.join( os.tmpdir(), 'studio-eval-config-' ) );
 	for ( const name of STUDIO_DOWNLOADS ) {
 		if ( existsSync( path.join( userDir, name ) ) ) {
 			symlinkSync( path.join( userDir, name ), path.join( dir, name ) );
 		}
 	}
-	writeFileSync(
-		path.join( dir, 'shared.json' ),
-		JSON.stringify( { version, authToken, aiProvider } )
-	);
+	writeFileSync( path.join( dir, 'shared.json' ), JSON.stringify( { version, aiProvider } ) );
 	// As a returning user's Studio has them, the tools its MCP servers listed;
 	// copied, so a turn that lists them again leaves the user's own file alone.
 	if ( existsSync( path.join( userDir, 'mcp-tools.json' ) ) ) {
 		copyFileSync( path.join( userDir, 'mcp-tools.json' ), path.join( dir, 'mcp-tools.json' ) );
 	}
 	process.env.E2E_SHARED_CONFIG_PATH = dir;
+	for ( const [ id, config ] of configs ) {
+		if ( config ) {
+			await writeProviderConfig( id, config );
+		}
+	}
 }
 
 // Stopped sites the request is not about, as a user with a few sites has, so
@@ -245,6 +264,7 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 	const {
 		localSite,
 		connectedWpcomSites = [],
+		remoteSites = [],
 		snapshots = [],
 		globalInstructions,
 		activeSite,
@@ -289,6 +309,9 @@ async function seedFixtures( seed: EvalSeed ): Promise< SeededFixtures > {
 
 	for ( const site of connectedWpcomSites ) {
 		await addConnectedWpcomSite( site.localSiteId, site );
+	}
+	for ( const { provider, localSiteId, site } of remoteSites ) {
+		await rememberRemoteSite( provider, localSiteId, site as never );
 	}
 
 	let seededSite: SiteInfo | undefined;
@@ -449,7 +472,7 @@ async function runEval( input: EvalRunnerInput ) {
 	const harness = selectHarness( input.harness );
 	const startedAt = Date.now();
 	await isolateSiteRegistry();
-	isolateStudioConfig();
+	await isolateStudioConfig();
 	const bystanderPaths = await createBystanderSites();
 	let seeded: SeededFixtures | null = null;
 	let inspections: Inspection[] = [];
@@ -466,6 +489,11 @@ async function runEval( input: EvalRunnerInput ) {
 					activeSite: seeded?.activeSite,
 					cwd: seeded?.activeSitePath ?? STUDIO_SITES_ROOT,
 					sitesBeforeTurn,
+					seededRemoteSites: Boolean(
+						input.seed?.connectedWpcomSites?.length ||
+							input.seed?.remoteSites?.length ||
+							input.seed?.activeSite?.connectedWpcomSites?.length
+					),
 				}
 			);
 		} finally {

@@ -4,7 +4,7 @@ import { useConnector } from '@/data/core';
 import { useAgentApps, useConnectAgentApp } from '@/data/queries/use-agent-apps';
 import { AppIcon } from '@/features/sites';
 import { McpIcon } from '@/lib/icons';
-import { Button } from '@/lib/ui';
+import { Button, LogoTile } from '@/lib/ui';
 import { connectedBadge, SettingsGroup, SettingsRow } from './rows';
 import styles from './style.module.css';
 import type { AgentApp, AgentAppId } from '@/data/core';
@@ -62,9 +62,9 @@ function AgentAppRow( { app }: { app: AgentApp } ) {
 				<AppIcon
 					app={ app.id }
 					fallback={
-						<span className={ styles.appIconFallback }>
+						<LogoTile>
 							<McpIcon />
-						</span>
+						</LogoTile>
 					}
 				/>
 			}

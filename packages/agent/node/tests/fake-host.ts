@@ -4,6 +4,7 @@ import { nodeHostServices } from '@studio/agent/node/node-host';
 import type { HostSite, StudioAgentHost } from '@studio/agent/shared/host';
 import type { RemoteHost } from '@studio/agent/shared/remote-hosts';
 import type { Snapshot } from '@studio/common/types/snapshot';
+import type { SyncSite } from '@studio/common/types/sync';
 
 export const fakeSite: HostSite = {
 	id: 'site-123',
@@ -22,6 +23,18 @@ export const fakePreview: Snapshot = {
 	name: 'My Site Preview 1',
 };
 
+export const fakeRemoteSite: SyncSite = {
+	id: 111,
+	localSiteId: 'site-123',
+	name: 'My Production Site',
+	url: 'https://myprod.wordpress.com',
+	isStaging: false,
+	isPressable: false,
+	syncSupport: 'syncable',
+	lastPullTimestamp: null,
+	lastPushTimestamp: null,
+};
+
 // WordPress.com as the CLI provides it, with spies that find no sites.
 export function fakeWpcom(): RemoteHost {
 	return {
@@ -33,14 +46,7 @@ export function fakeWpcom(): RemoteHost {
 			list: vi.fn( async () => ( { signedIn: true, sites: [] } ) ),
 			facts: vi.fn( async () => [] ),
 		},
-		publishes: 'WordPress.com sites',
-		publishable: vi.fn( async () => ( { signedIn: true, sites: [] } ) ),
-		newSiteUrl: () => 'https://wordpress.com/setup',
-		signIn: 'Sign in with /login.',
-		targets: vi.fn( async () => ( { signedIn: true, targets: [] } ) ),
 		mcpServer: vi.fn( async () => undefined ),
-		push: vi.fn( async () => 'Pushed.' ),
-		pull: vi.fn( async () => 'Pulled.' ),
 	};
 }
 
@@ -81,6 +87,11 @@ export function createFakeHost( sitesRoot = '/sites' ): StudioAgentHost {
 		},
 		blocksEngine: vi.fn( async () => ( { bootstrap: '/engine/bootstrap.php', version: '1.0.0' } ) ),
 		remoteHosts: {},
+		sync: {
+			connectedSites: vi.fn( async () => [] ),
+			push: vi.fn( async () => fakeRemoteSite ),
+			pull: vi.fn( async () => fakeRemoteSite ),
+		},
 		tracks: {
 			record: vi.fn( async () => {} ),
 		},

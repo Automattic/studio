@@ -10,7 +10,7 @@ import { aiSettings, createFakeConnector, makeSite, TEST_USER } from '@/test/fak
 import { renderWithProviders } from '@/test/render';
 import { SiteMenu } from './index';
 import type { SyncSite } from '@/data/core';
-import type { ProviderId } from '@studio/providers';
+import type { AiProviderId } from '@studio/providers';
 
 const DATABASE_PATH = '/phpmyadmin/index.php?route=/database/structure&db=wordpress';
 const autoLogin = ( path: string ) =>
@@ -44,7 +44,7 @@ function setup( {
 	busy?: boolean;
 	designAvailable?: boolean;
 	connections?: SyncSite[];
-	providerConnection?: ProviderId | null;
+	providerConnection?: AiProviderId | null;
 } = {} ) {
 	const sites = [
 		makeSite( { id: 'selected', name: 'Selected', running: selectedRunning, port: 9010 } ),
@@ -59,7 +59,7 @@ function setup( {
 					...( connections || providerConnection === 'wpcom' ? [ 'wpcom' as const ] : [] ),
 					...( providerConnection === 'anthropic' ? [ 'anthropic' as const ] : [] ),
 				] ),
-			getConnectedWpcomSites: async () => connections ?? [],
+			getRemoteSites: async () => connections ?? [],
 			getGlobalStyles: async () => ( designAvailable ? { settings: {}, styles: {} } : null ),
 		}
 	);

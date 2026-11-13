@@ -1129,7 +1129,7 @@ describe( 'Composer sending', () => {
 		);
 		const trigger = await modelButton();
 		await waitFor( () =>
-			expect( trigger ).toHaveAccessibleDescription( 'Sonnet 5.5 · Anthropic API' )
+			expect( trigger ).toHaveAccessibleDescription( 'Sonnet 5.5 · Anthropic' )
 		);
 
 		fireEvent.change( input, { target: { value: 'One more' } } );

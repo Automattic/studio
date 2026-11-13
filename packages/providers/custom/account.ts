@@ -2,11 +2,11 @@ import { normalizeContext, type Model } from '@earendil-works/pi-ai';
 import { streamSimple as streamAnthropicMessages } from '@earendil-works/pi-ai/api/anthropic-messages';
 import { streamSimple as streamOpenAiCompletions } from '@earendil-works/pi-ai/api/openai-completions';
 import { __, sprintf } from '@wordpress/i18n';
-import { InvalidCredentialError } from '../errors';
+import { ConnectError } from '../errors';
 import { customConnection } from './ai';
 import { customConnectInput } from './descriptor';
 import type { CustomConfig } from './config';
-import type { Provider } from '../types';
+import type { ProviderServices } from '../types';
 
 // The APIs an endpoint may speak, in the order connecting tries them: Chat
 // Completions first, as nearly every gateway and local server takes it. Each
@@ -40,10 +40,13 @@ async function check( config: CustomConfig ): Promise< string | undefined > {
 
 // Tries each API until the model answers in one; only a connection that
 // answers is saved, with the API it answered in.
-export const connectCustom: Provider< CustomConfig >[ 'connect' ] = async ( input ) => {
+const connect: ProviderServices< CustomConfig >[ 'account' ][ 'connect' ] = async (
+	_method,
+	input
+) => {
 	const parsed = customConnectInput().safeParse( input );
 	if ( ! parsed.success ) {
-		throw new InvalidCredentialError( parsed.error.issues[ 0 ].message );
+		throw new ConnectError( parsed.error.issues[ 0 ].message );
 	}
 	const { url, apiKey, model, images } = parsed.data;
 	const failures: string[] = [];
@@ -61,7 +64,7 @@ export const connectCustom: Provider< CustomConfig >[ 'connect' ] = async ( inpu
 		}
 		failures.push( failure );
 	}
-	throw new InvalidCredentialError(
+	throw new ConnectError(
 		sprintf(
 			/* translators: 1: the model's name, 2: what the endpoint answered in each API */
 			__( 'The endpoint did not answer for %1$s, so it was not saved: %2$s' ),
@@ -70,3 +73,5 @@ export const connectCustom: Provider< CustomConfig >[ 'connect' ] = async ( inpu
 		)
 	);
 };
+
+export const customAccount: ProviderServices< CustomConfig >[ 'account' ] = { connect };

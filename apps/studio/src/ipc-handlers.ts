@@ -34,6 +34,8 @@ import { validateStudioChatFiles } from '@studio/agent/protocol/chat-files';
 import { validateStudioChatImages } from '@studio/agent/protocol/chat-images';
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
+import { type Blueprint } from '@studio/blueprints';
+import { openBlueprint } from '@studio/blueprints/node';
 import { DEBUG_LOG_RELATIVE_PATH, PROTOCOL_PREFIX } from '@studio/common/constants';
 import {
 	getSiteAgentFiles as readSiteAgentFiles,
@@ -52,10 +54,6 @@ import {
 	type OnboardingAnalytics,
 	type AuthAnalytics,
 } from '@studio/common/lib/auth-tracks';
-import {
-	downloadAndExtractBlueprintBundle,
-	removeBlueprintTempDir,
-} from '@studio/common/lib/blueprint-bundle';
 import { SITE_EVENTS, type SiteListItem } from '@studio/common/lib/cli-events';
 import { CliCommandError } from '@studio/common/lib/cli-process';
 import { stripIpcErrorPrefix } from '@studio/common/lib/error-formatting';
@@ -99,12 +97,7 @@ import { openSiteInBrowser } from '@studio/common/lib/user-settings/open-browser
 import { openLinuxTerminal } from '@studio/common/lib/user-settings/open-linux-terminal';
 import { getSiteBrowserUrl } from '@studio/common/lib/user-settings/site-browser-url';
 import { getSessionsDirectory } from '@studio/common/lib/well-known-paths';
-import {
-	cleanupBlueprintTempDir as cleanupBlueprintTempDirShared,
-	extractBlueprintBundle as extractBlueprintBundleShared,
-	type ExtractedBlueprintBundle,
-} from '@studio/common/sites/blueprint-extract';
-import { readBlueprintSource, type BlueprintSource } from '@studio/common/sites/blueprint-source';
+import { readBlueprintSource } from '@studio/common/sites/blueprint-source';
 import { getSiteEditOptions } from '@studio/common/sites/edit';
 import {
 	deleteSite as deleteSiteViaCli,
@@ -127,13 +120,13 @@ import { readGlobalStyles, type GlobalStyles } from '@studio/common/sites/site-i
 import { readSite, readSitePath, readSitePaths } from '@studio/common/sites/site-path';
 import { readSiteSource, type SiteSourceFile } from '@studio/common/sites/site-source';
 import {
-	getAiModel,
-	getRedirectUrl,
-	isAiModelId,
+	findAiModel,
+	getProvider,
 	normalizeProviderId,
 	toStoredProviderId,
 } from '@studio/providers';
-import { getProvider } from '@studio/providers/services';
+import { getProviderServices } from '@studio/providers/services';
+import { getSignInUrl } from '@studio/providers/wpcom';
 import { __ } from '@wordpress/i18n';
 import { DEFAULT_TERMINAL } from 'src/constants';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
@@ -199,7 +192,6 @@ import type {
 	AiSessionSummary,
 	LoadedAiSession,
 } from '@studio/agent/protocol/sessions/types';
-import type { Blueprint } from '@studio/common/lib/studio-blueprints-api';
 import type { RawDirectoryEntry } from '@studio/common/types/sync-tree';
 
 export {
@@ -211,15 +203,15 @@ export {
 
 export {
 	cancelSyncOperation,
-	connectWpcomSites,
-	disconnectWpcomSites,
-	fetchSyncableWpcomSites,
-	getConnectedWpcomSites,
-	getHostingPhpVersion,
-	getLatestRewindId,
-	listRemoteFileTree,
-	pullSiteFromLive,
-	pushSiteToLive,
+	connectRemoteSite,
+	createRemoteSite,
+	disconnectRemoteSite,
+	getRemoteBackupId,
+	getRemoteSites,
+	listAccountSites,
+	listRemoteBackupFiles,
+	pullSite,
+	pushSite,
 } from 'src/modules/sync/lib/ipc-handlers';
 
 export {
@@ -242,6 +234,7 @@ export {
 	getWapuuScore,
 	connectAiProvider,
 	disconnectAiProvider,
+	startProviderConnect,
 	saveGlobalAgentInstructions,
 	saveOnboardingHints,
 	saveWapuuScore,
@@ -361,7 +354,7 @@ export async function setAiSessionModel(
 	sessionId: string,
 	model: string
 ): Promise< void > {
-	if ( ! isAiModelId( model ) ) {
+	if ( ! findAiModel( model ) ) {
 		throw new Error( `Unknown AI model: ${ model }` );
 	}
 	await appendModelChangeEntry( getSessionsDirectory(), sessionId, '', model );
@@ -377,7 +370,7 @@ export async function setAiSessionProvider(
 	if ( ! provider ) {
 		throw new Error( `Unknown AI provider: ${ requested }` );
 	}
-	if ( ! getAiModel( provider, model ) ) {
+	if ( ! getProvider( provider ).ai?.models.some( ( { id } ) => id === model ) ) {
 		throw new Error( `Model ${ model } is not served by provider ${ provider }` );
 	}
 	await appendStudioEntry( getSessionsDirectory(), sessionId, 'studio.session_context', {
@@ -526,7 +519,8 @@ export async function createSite(
 		siteId?: string;
 		phpVersion?: string;
 		fileAccess?: SiteFileAccess;
-		blueprint?: Blueprint;
+		// What `studio create --blueprint` accepts, or a Blueprint itself.
+		blueprint?: string | Blueprint;
 		adminUsername?: string;
 		adminPassword?: string;
 		adminEmail?: string;
@@ -552,18 +546,10 @@ export async function createSite(
 
 	const siteId = providedSiteId || crypto.randomUUID();
 
-	const metric = getBlueprintMetric( blueprint?.slug );
+	const librarySlug =
+		typeof blueprint === 'string' && /^[\w-]+$/.test( blueprint ) ? blueprint : undefined;
+	const metric = getBlueprintMetric( librarySlug ?? ( blueprint ? 'file:' : undefined ) );
 	bumpStat( StatsGroup.STUDIO_SITE_CREATE, metric );
-
-	// If the blueprint has a bundle_url (API blueprints with bundled resources like zips),
-	// download and extract the bundle so bundled resources can be resolved locally.
-	let bundleTempDir: string | undefined;
-	let blueprintFilePath = blueprint?.filePath;
-	if ( blueprint?.bundle_url && ! blueprintFilePath ) {
-		const result = await downloadAndExtractBlueprintBundle( blueprint.bundle_url );
-		bundleTempDir = result.tempDir;
-		blueprintFilePath = result.blueprintJsonPath;
-	}
 
 	try {
 		const site = await createSiteViaCli( {
@@ -575,20 +561,13 @@ export async function createSite(
 			customDomain,
 			enableHttps,
 			siteId,
-			blueprint: blueprint?.blueprint,
-			originalBlueprintPath: blueprintFilePath,
+			blueprint,
 			adminUsername,
 			adminPassword,
 			adminEmail,
 			noStart,
 			flowType,
 		} );
-
-		// An uploaded bundle is kept on failure, so the user can retry without uploading it again.
-		if ( blueprint?.filePath ) {
-			const blueprintDir = nodePath.dirname( nodePath.resolve( blueprint.filePath ) );
-			await removeBlueprintTempDir( blueprintDir ).catch( () => {} );
-		}
 
 		return site;
 	} catch ( error ) {
@@ -633,10 +612,6 @@ export async function createSite(
 		throw error instanceof CliCommandError && error.lastErrorMessage
 			? new Error( error.lastErrorMessage )
 			: error;
-	} finally {
-		if ( bundleTempDir ) {
-			await removeBlueprintTempDir( bundleTempDir ).catch( () => {} );
-		}
 	}
 }
 
@@ -771,7 +746,7 @@ export async function stopServer(
 
 export interface FolderDialogResponse {
 	file?: SiteSourceFile;
-	blueprint?: BlueprintSource;
+	blueprint?: Blueprint;
 	path: string;
 	name: string;
 	isEmpty: boolean;
@@ -948,7 +923,7 @@ export async function authenticate(
 	void recordTracksEvent( TRACKS_EVENTS.WPCOM_AUTH_STARTED, props ).catch( () => undefined );
 	try {
 		const locale = await getUserLocaleWithFallback();
-		const authUrl = getRedirectUrl( 'wpcom', {
+		const authUrl = getSignInUrl( {
 			redirectUri: `${ PROTOCOL_PREFIX }://auth`,
 			locale,
 			state: attempt.auth_attempt_id,
@@ -969,7 +944,7 @@ export async function getAuthenticationToken() {
 }
 
 export async function clearAuthenticationToken() {
-	await disconnectProvider( getProvider( 'wpcom' ) );
+	await disconnectProvider( getProviderServices( 'wpcom' ) );
 	setSentryWpcomUserIdMain( undefined );
 }
 
@@ -1446,38 +1421,10 @@ export async function listLocalFileTree(
 	return listSiteFileTree( await requireSitePath( siteId ), path, maxDepth );
 }
 
-export async function readBlueprintFile(
-	_event: IpcMainInvokeEvent,
-	filePath: string
-): Promise< Blueprint[ 'blueprint' ] > {
-	const allowedDir = nodePath.join( app.getPath( 'temp' ), 'wp-studio-blueprints' );
-	const resolvedPath = nodePath.resolve( filePath );
-
-	const normalizedAllowedDir = nodePath.resolve( allowedDir );
-	if ( ! resolvedPath.startsWith( normalizedAllowedDir + nodePath.sep ) ) {
-		throw new Error( 'Blueprint file path must be within the allowed directory' );
-	}
-
-	try {
-		const fileContents = await fsPromises.readFile( resolvedPath, 'utf-8' );
-		return JSON.parse( fileContents );
-	} finally {
-		await fsPromises.rm( resolvedPath, { force: true } );
-	}
-}
-
-export async function extractBlueprintBundle(
-	_event: IpcMainInvokeEvent,
-	zipFilePath: string
-): Promise< ExtractedBlueprintBundle > {
-	return extractBlueprintBundleShared( zipFilePath );
-}
-
-export async function cleanupBlueprintTempDir(
-	_event: IpcMainInvokeEvent,
-	tempDir: string
-): Promise< void > {
-	await cleanupBlueprintTempDirShared( tempDir );
+/** Reads the Blueprint at a path or URL for the add-site preview, without keeping anything. */
+export async function readBlueprint( _event: IpcMainInvokeEvent, source: string ) {
+	await using opened = await openBlueprint( source );
+	return opened.blueprint;
 }
 
 // Repaints the window-controls overlay for whichever surface it is sitting on;

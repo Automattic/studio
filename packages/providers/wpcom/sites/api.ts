@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
-import { wpcomClient } from '../client';
+import { wpcomClient } from '../api';
 import {
 	sitesEndpointResponseSchema,
 	pullSiteResponseSchema,
@@ -9,7 +9,7 @@ import {
 	type ImportResponse,
 } from './schemas';
 import { transformSitesResponse } from './transform';
-import type { SyncOption, SyncSite } from '../site';
+import type { SyncOption, SyncSite } from './site';
 
 const SITE_FIELDS = [
 	'name',
@@ -131,6 +131,13 @@ export async function initiateImport(
 	} );
 }
 
+export async function launchSite( token: string, remoteSiteId: number ): Promise< void > {
+	await wpcomClient( token ).req.post( {
+		path: `/sites/${ remoteSiteId }/launch`,
+		apiVersion: '1.1',
+	} );
+}
+
 export async function pollImportStatus(
 	token: string,
 	remoteSiteId: number
@@ -203,21 +210,4 @@ export async function fetchRemoteFileTreeContents(
 		throw new Error( parsed.error || 'Failed to fetch remote file tree' );
 	}
 	return parsed.contents ?? {};
-}
-
-/** PHP version of the remote site's hosting environment, or undefined when it can't be read. */
-export async function fetchHostingPhpVersion(
-	token: string,
-	remoteSiteId: number
-): Promise< string | undefined > {
-	try {
-		const wpcom = wpcomClient( token );
-		const response = await wpcom.req.get( {
-			apiNamespace: 'wpcom/v2',
-			path: `/sites/${ remoteSiteId }/hosting/php-version`,
-		} );
-		return z.string().parse( response );
-	} catch {
-		return undefined;
-	}
 }

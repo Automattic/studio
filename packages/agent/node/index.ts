@@ -3,7 +3,12 @@
 // run-manager that only show the agent stay importable on their own, so those
 // apps never load the runtime.
 export { createAgent, type StudioAgent } from './agent';
-export type { HostSite, ProgressCallback, StudioAgentHost } from '@studio/agent/shared/host';
+export type {
+	HostRemoteSite,
+	HostSite,
+	ProgressCallback,
+	StudioAgentHost,
+} from '@studio/agent/shared/host';
 export type { StudioAgentTurnConfig, StudioAgentTurnHandle } from './runtime';
 export {
 	remoteSiteFromStored,

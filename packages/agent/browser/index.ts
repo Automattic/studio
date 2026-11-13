@@ -8,7 +8,7 @@ import {
 	buildAttachedFilesPromptBlock,
 	type StudioChatFileAttachment,
 } from '@studio/agent/protocol/chat-files';
-import { getAgentEndFailure } from '@studio/agent/protocol/json-events';
+import { getAgentEndFailure } from '@studio/agent/protocol/errors';
 import {
 	findLastAssistant,
 	getEmptyStopContinuation,

@@ -4,8 +4,9 @@ import { wpcomApproval, WPCOM_HOST } from '@studio/agent/shared/remote-hosts';
 import { escapeRegex } from '@studio/common/lib/escape-regex';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
-import { syncOptionSchema, type SyncOption } from '@studio/common/types/sync';
-import { getProvider } from '@studio/providers/services';
+import { syncOptionSchema, type SyncOption, SyncSite } from '@studio/common/types/sync';
+import { getProvider, parseRemoteSite } from '@studio/providers';
+import { getProviderServices } from '@studio/providers/services';
 import { posix } from 'pathe';
 import { phpQuote } from '../php';
 import { getSiteUrl, loadPlaygroundClient } from '../playground';
@@ -360,7 +361,17 @@ echo implode( "\\n", $found );`,
 		},
 	};
 
-	async function findRemoteSite( site: HostSite, remoteSite: string | undefined ) {
+	// Studio on the web can't make the static export other providers publish, so it syncs with
+	// WordPress.com only.
+	async function findRemoteSite( site: HostSite, named: string | undefined ) {
+		const { provider, identifier: remoteSite } = parseRemoteSite( named );
+		if ( provider !== 'wpcom' ) {
+			throw new Error(
+				`Studio on the web publishes only to WordPress.com; publishing to ${
+					getProvider( provider ).label
+				} needs the Studio app.`
+			);
+		}
 		if ( ! ( await auth.token() ) ) {
 			throw new Error(
 				'This needs WordPress.com authentication: ask the user to log in to WordPress.com from Settings.'
@@ -419,15 +430,6 @@ echo implode( "\\n", $found );`,
 			// WordPress.com's own server states what a site's plan and the user's role allow.
 			facts: async () => [],
 		},
-		signIn: 'The user logs in to WordPress.com from Settings.',
-		publishable: () =>
-			wpcomListing( async () =>
-				( await wpcom.fetchSyncableSites() ).filter( ( site ) => site.syncSupport === 'syncable' )
-			),
-		targets: async ( site ) =>
-			( await auth.token() )
-				? { signedIn: true, targets: await wpcom.getConnectedSites( site.id ) }
-				: { signedIn: false, targets: [] },
 		mcpServer: async () => {
 			const token = ( await auth.token() )?.accessToken;
 			return token
@@ -437,16 +439,6 @@ echo implode( "\\n", $found );`,
 						approval: wpcomApproval,
 				  }
 				: undefined;
-		},
-		push: async ( site, target, options ) => {
-			const remote = await findRemoteSite( site, target );
-			await wpcom.push( site.id, remote.id, { optionsToSync: parseSyncOptions( options ) } );
-			return `Pushed "${ site.name }" to ${ remote.name } (${ remote.url }).`;
-		},
-		pull: async ( site, target, options ) => {
-			const remote = await findRemoteSite( site, target );
-			await wpcom.pull( site.id, remote.id, { optionsToSync: parseSyncOptions( options ) } );
-			return `Pulled ${ remote.name } (${ remote.url }) into "${ site.name }".`;
 		},
 	};
 
@@ -550,9 +542,28 @@ echo implode( "\\n", $found );`,
 			delete: ( hostname ) => wpcom.deleteSnapshot( normalizeHostname( hostname ) ),
 		},
 		remoteHosts: { wpcom: wpcomHost },
+		sync: {
+			connectedSites: async ( site ) =>
+				( await auth.token() )
+					? ( await wpcom.getConnectedSites( site.id ) ).map( ( remote ) => ( {
+							provider: 'wpcom' as const,
+							site: remote,
+					  } ) )
+					: [],
+			push: async ( site, options, remoteSite ): Promise< SyncSite > => {
+				const remote = await findRemoteSite( site, remoteSite );
+				await wpcom.push( site.id, remote.id, { optionsToSync: parseSyncOptions( options ) } );
+				return remote;
+			},
+			pull: async ( site, options, remoteSite ): Promise< SyncSite > => {
+				const remote = await findRemoteSite( site, remoteSite );
+				await wpcom.pull( site.id, remote.id, { optionsToSync: parseSyncOptions( options ) } );
+				return remote;
+			},
+		},
 		imageGenerator: async () => {
 			const token = ( await auth.token() )?.accessToken;
-			const generateImages = getProvider( 'wpcom' ).ai!.generateImages!;
+			const generateImages = getProviderServices( 'wpcom' ).ai!.generateImages!;
 			return token
 				? ( requests, onResult ) => generateImages( { token }, requests, onResult )
 				: undefined;

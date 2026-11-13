@@ -138,7 +138,6 @@ async function main(): Promise< void > {
 			'--exclude=@aws-sdk',
 			'--exclude=@aws-crypto',
 			'--exclude=@smithy',
-			'--exclude=@google/genai',
 			'-C',
 			path.join( repoRoot, 'apps', 'cli', 'dist' ),
 			'cli',

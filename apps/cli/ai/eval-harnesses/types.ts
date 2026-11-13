@@ -17,6 +17,8 @@ export interface HarnessInput {
 
 export interface HarnessContext {
 	startedAt: number;
+	// The case seeded made-up remote-site connections, which the user's real account doesn't have.
+	seededRemoteSites?: boolean;
 	activeSite?: SiteInfo;
 	cwd: string;
 	// The sites before the conversation, to tell what it changes.

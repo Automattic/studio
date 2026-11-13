@@ -50,7 +50,6 @@ interface AddSiteContextValue {
 	browseBlueprints: () => void;
 	onFile: ( file: File ) => void;
 	onFolder: ( path?: string, usePath?: boolean ) => Promise< void >;
-	setBlueprintTransferred: ( transferred: boolean ) => void;
 	createdSite?: CreatedSetupSite;
 	setCreatedSite: Dispatch< SetStateAction< CreatedSetupSite | undefined > >;
 	briefDraftKey: string;

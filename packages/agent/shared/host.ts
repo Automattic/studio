@@ -9,6 +9,8 @@ import type { StudioFeedback } from '@studio/common/lib/feedback';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { SiteStatus } from '@studio/common/types/site-status';
 import type { Snapshot } from '@studio/common/types/snapshot';
+import type { SyncSite } from '@studio/common/types/sync';
+import type { ProviderSites, SitesProviderId } from '@studio/providers';
 
 export type ProgressCallback = ( message: string, update?: boolean ) => void;
 
@@ -167,6 +169,36 @@ export interface HostPreviews {
 	delete( hostname: string, onProgress: ProgressCallback ): Promise< void >;
 }
 
+// A remote site a local site is connected to, on any provider.
+export interface HostRemoteSite {
+	provider: SitesProviderId;
+	site: ProviderSites[ SitesProviderId ] & {
+		lastPushTimestamp?: string | null;
+		lastPullTimestamp?: string | null;
+	};
+}
+
+// Push and pull return the remote site they synced with, or nothing when the
+// user backed out. A remote site is named as `formatRemoteSite` writes it, or by
+// a WordPress.com site's URL or ID.
+export interface HostSync {
+	// The remote sites the local site is connected to, on every provider this
+	// host publishes to.
+	connectedSites( site: HostSite ): Promise< HostRemoteSite[] >;
+	push(
+		site: HostSite,
+		options: string,
+		remoteSite: string | undefined,
+		onProgress: ProgressCallback
+	): Promise< Pick< SyncSite, 'name' | 'url' > | undefined >;
+	pull(
+		site: HostSite,
+		options: string,
+		remoteSite: string | undefined,
+		onProgress: ProgressCallback
+	): Promise< SyncSite | undefined >;
+}
+
 export interface HostTracks {
 	record( event: TracksEventName, props: TracksProps ): Promise< void >;
 }
@@ -191,6 +223,8 @@ export interface StudioAgentHost {
 	previews: HostPreviews;
 	// The hosts besides this computer that the user's sites are on, by id.
 	remoteHosts: Record< string, RemoteHost >;
+	// Publishing local sites to remote sites, and pulling them back, on every provider.
+	sync: HostSync;
 	tracks: HostTracks;
 	path: HostPath;
 	files: HostFiles;

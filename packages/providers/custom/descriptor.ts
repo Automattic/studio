@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 import { customConfigSchema, type CustomConfig } from './config';
-import type { AiModel, ProviderDescriptor } from '../types';
+import type { AiModel, Provider } from '../types';
 
 // The connected endpoint's model, whose name the connection holds. Another of
 // the endpoint's models is a new connection.
@@ -46,13 +46,25 @@ export const customConnectInput = () =>
 			} ),
 	} );
 
-export const customDescriptor: ProviderDescriptor< CustomConfig > = {
+export const customProvider: Provider< CustomConfig > = {
 	id: 'custom',
 	label: 'Custom endpoint',
 	description: () => __( 'Use a model from an endpoint of your own.' ),
-	configSchema: customConfigSchema,
-	connection: { kind: 'form', input: customConnectInput },
-	summarize: ( config ) => `${ config.model } at ${ new URL( config.baseUrl ).host }`,
+	account: {
+		configSchema: customConfigSchema,
+		methods: [
+			{
+				id: 'endpoint',
+				label: () => __( 'Endpoint' ),
+				kind: 'form',
+				input: customConnectInput,
+			},
+		],
+		describe: ( config ) => ( {
+			method: 'endpoint',
+			summary: `${ config.model } at ${ new URL( config.baseUrl ).host }`,
+		} ),
+	},
 	ai: {
 		models: CUSTOM_AI_MODELS,
 		defaultModel: 'custom',

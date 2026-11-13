@@ -3,6 +3,12 @@ import { PUSH_PHASES } from '@studio/common/types/sync';
 
 const syncDirectionSchema = z.enum( [ 'push', 'pull', 'preview', 'import' ] );
 
+// The provider a push or pull goes to; absent from builds before Spacefast, which only sync with
+// WordPress.com.
+const provider = z.string().optional();
+// The connected site a push or pull targets, once the command knows it.
+const remoteSiteId = z.union( [ z.number(), z.string() ] ).optional();
+
 /**
  * What a sync is doing, as published by the CLI command running it. Every UI renders this, so a
  * sync looks the same whether a button, the agent or a terminal started it.
@@ -19,19 +25,28 @@ export const syncActivitySchema = z.discriminatedUnion( 'kind', [
 		action: z.string().optional(),
 		// The preview site a preview update is refreshing; absent while creating one.
 		hostname: z.string().optional(),
-		// The connected site a push or pull targets, once the command knows it.
-		remoteSiteId: z.number().optional(),
+		remoteSiteId,
+		provider,
 	} ),
 	z.object( {
 		kind: z.literal( 'success' ),
 		direction: syncDirectionSchema,
+		provider,
+		remoteSiteId,
 		// Something the user should know about a sync that worked, e.g. a pulled site too big to push.
 		warning: z.string().optional(),
 	} ),
-	z.object( { kind: z.literal( 'cancelled' ), direction: syncDirectionSchema } ),
+	z.object( {
+		kind: z.literal( 'cancelled' ),
+		direction: syncDirectionSchema,
+		provider,
+		remoteSiteId,
+	} ),
 	z.object( {
 		kind: z.literal( 'error' ),
 		direction: syncDirectionSchema,
+		provider,
+		remoteSiteId,
 		message: z.string(),
 		// The pull reached the local site, and only restarting the site failed.
 		localChangesApplied: z.boolean().optional(),

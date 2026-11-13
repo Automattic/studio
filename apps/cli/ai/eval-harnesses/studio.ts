@@ -7,16 +7,17 @@ import {
 	addToolCallUsage,
 	createAgent,
 	createTokenUsage,
+	type HostSite,
 	type SiteInfo,
 } from '@studio/agent/node';
 import { findLastAssistant } from '@studio/agent/protocol/session-events';
 import {
-	getAiModel,
 	DEFAULT_PROVIDER_ID,
-	getAiModelProviders,
+	findAiModel,
 	getDefaultAiModel,
-	isAiModelId,
-	type ProviderId,
+	getProvider,
+	type AiModelId,
+	type AiProviderId,
 } from '@studio/providers';
 import {
 	resolveAiConnection,
@@ -28,7 +29,7 @@ import { captureHomeStyles, fingerprintSites, sitesChanged } from 'cli/ai/eval-o
 import { matchesStopRule } from 'cli/ai/eval-stop';
 import { type ModelRequestRecord } from 'cli/ai/eval-timing';
 import { extractToolResult } from 'cli/ai/eval-tool-results';
-import { cliAgentHost } from 'cli/ai/host';
+import { cliAgentHost, connectedRemoteSites } from 'cli/ai/host';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
 import type { HarnessInput, HarnessContext, HarnessTranscript } from './types';
 
@@ -97,12 +98,22 @@ export async function runStudioConversation(
 	input: HarnessInput,
 	ctx: HarnessContext
 ): Promise< HarnessTranscript > {
+	// Seeded connections are made up, so filling them in from the account would report them gone.
+	const host = ctx.seededRemoteSites
+		? {
+				...cliAgentHost,
+				sync: {
+					...cliAgentHost.sync,
+					connectedSites: ( site: HostSite ) => connectedRemoteSites( site, false ),
+				},
+		  }
+		: cliAgentHost;
 	// A site the agent creates becomes the active site of the turns after it,
 	// as the app makes it (selectSite in commands/ai).
 	let selectedSite: SiteInfo | undefined;
 	const agent = createAgent( {
 		host: {
-			...cliAgentHost,
+			...host,
 			...( input.ui ? { ui: { showArtifact: () => {}, reloadPreview: () => {} } } : {} ),
 			selectSite: ( site ) => {
 				selectedSite = site;
@@ -110,22 +121,22 @@ export async function runStudioConversation(
 		},
 	} );
 	const resolvedModel =
-		input.model && isAiModelId( input.model )
-			? input.model
+		input.model && findAiModel( input.model )
+			? ( input.model as AiModelId )
 			: getDefaultAiModel( DEFAULT_PROVIDER_ID );
 	const evalStartedAt = ctx.startedAt;
 	const elapsed = () => Date.now() - evalStartedAt;
 	const phaseTimingsMs: Record< string, number > = {};
 	let phaseStartedAt = Date.now();
 
-	let aiProvider: ProviderId = await resolveInitialAiProvider();
+	let aiProvider: AiProviderId = await resolveInitialAiProvider();
 	phaseTimingsMs.resolve_initial_provider_ms = Date.now() - phaseStartedAt;
 
 	phaseStartedAt = Date.now();
 	aiProvider = ( await resolveUnavailableAiProvider( aiProvider ) ) ?? aiProvider;
 	// The model runs on a provider that serves it.
-	if ( ! getAiModel( aiProvider, resolvedModel ) ) {
-		[ aiProvider ] = getAiModelProviders( resolvedModel );
+	if ( ! getProvider( aiProvider ).ai?.models.some( ( { id } ) => id === resolvedModel ) ) {
+		aiProvider = findAiModel( resolvedModel )!.provider;
 	}
 	phaseTimingsMs.resolve_unavailable_provider_ms = Date.now() - phaseStartedAt;
 

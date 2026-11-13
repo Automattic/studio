@@ -1,13 +1,14 @@
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import {
+	customizeBlueprint,
+	inspectBlueprint,
+	validateBlueprint,
+	type Blueprint,
+} from '@studio/blueprints';
 import { DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
 import { installSelectedSkillsToSite } from '@studio/common/lib/agent-skills';
-import {
-	__isStepDefinition,
-	extractFormValuesFromBlueprint,
-} from '@studio/common/lib/blueprint-settings';
-import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { getDomainNameValidationError } from '@studio/common/lib/domains';
 import {
@@ -48,6 +49,7 @@ import {
 	type SupportedPHPVersion,
 } from '@studio/common/types/php-versions';
 import { __, sprintf } from '@wordpress/i18n';
+import { openBlueprintSource } from 'cli/lib/blueprint-library';
 import { bumpStat, getPlatformMetric } from 'cli/lib/bump-stat';
 import {
 	lockCliConfig,
@@ -94,7 +96,6 @@ import { untildify } from 'cli/lib/utils';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import {} from 'cli/lib/wp-version-option';
 import { Logger, LoggerError } from 'cli/logger';
-import type { BlueprintV1Declaration } from '@wp-playground/blueprints';
 import type { builder } from 'cli/commands/site/create.command';
 import type { CommandArgs } from 'cli/types';
 
@@ -231,35 +232,32 @@ export async function runCommand(
 			await validateSitePath( sitePath );
 
 		let blueprintUri: string | undefined;
-		let blueprint: BlueprintV1Declaration | undefined;
+		let blueprint: Blueprint | undefined;
 		let blueprintCredentials: { adminUsername?: string; adminPassword?: string } | null = null;
 
 		if ( options.blueprint ) {
-			const validation = await validateBlueprintData( options.blueprint.contents );
-			if ( ! validation.valid ) {
-				throw new LoggerError( validation.error );
+			try {
+				blueprint = validateBlueprint( options.blueprint.contents );
+			} catch ( error ) {
+				throw new LoggerError( ( error as Error ).message );
 			}
-
-			// `validateBlueprintData()` does not give us a proper type guard, but in reality, it ensures
-			// `options.blueprint.contents` conforms to the `BlueprintV1Declaration` schema.
-			const formValues = extractFormValuesFromBlueprint(
-				options.blueprint.contents as BlueprintV1Declaration
-			);
-			if ( formValues.adminUsername || formValues.adminPassword ) {
+			const details = inspectBlueprint( blueprint );
+			if ( details.login?.username || details.login?.password ) {
 				blueprintCredentials = {
-					adminUsername: formValues.adminUsername,
-					adminPassword: formValues.adminPassword,
+					adminUsername: details.login.username,
+					adminPassword: details.login.password,
 				};
 			}
 
+			// The site's own name and domain win over what the Blueprint sets.
+			const scheme = options.enableHttps ? 'https' : 'http';
+			blueprint = customizeBlueprint( blueprint, {
+				siteTitle: options.name,
+				siteUrl: options.customDomain ? `${ scheme }://${ options.customDomain }` : undefined,
+			} );
 			blueprintUri = options.blueprint.uri;
-			blueprint = options.blueprint.contents as BlueprintV1Declaration;
 
-			const blueprintHasMultisite = blueprint?.steps
-				?.filter( __isStepDefinition )
-				.some( ( step ) => step.step === 'enableMultisite' );
-
-			if ( blueprintHasMultisite && ! options.customDomain ) {
+			if ( details.multisite && ! options.customDomain ) {
 				throw new LoggerError(
 					__(
 						'The enableMultisite Blueprint step requires a custom domain. WordPress multisite does not support custom ports. Use --domain <name>.local to set a custom domain.'
@@ -543,20 +541,6 @@ export async function runCommand(
 	}
 }
 
-async function fetchBlueprint( url: string ) {
-	const res = await fetch( url );
-
-	if ( ! res.ok ) {
-		throw new LoggerError( __( 'Failed to fetch Blueprint' ) );
-	}
-
-	try {
-		return await res.json();
-	} catch ( error ) {
-		throw new LoggerError( __( 'Failed to parse Blueprint JSON' ), error );
-	}
-}
-
 function stripWpConfigDbConstants( sitePath: string ): void {
 	const wpConfigPath = path.join( sitePath, 'wp-config.php' );
 	if ( ! fs.existsSync( wpConfigPath ) ) {
@@ -565,22 +549,6 @@ function stripWpConfigDbConstants( sitePath: string ): void {
 	const content = fs.readFileSync( wpConfigPath, 'utf-8' );
 	if ( hasDefaultDbBlock( content ) ) {
 		fs.writeFileSync( wpConfigPath, removeDbConstants( content ), 'utf-8' );
-	}
-}
-
-function readBlueprint( blueprintPath: string ) {
-	if ( ! fs.existsSync( blueprintPath ) ) {
-		throw new LoggerError( sprintf( __( 'Blueprint file not found: %s' ), blueprintPath ) );
-	}
-
-	try {
-		const blueprintContent = fs.readFileSync( blueprintPath, 'utf-8' );
-		return JSON.parse( blueprintContent );
-	} catch ( error ) {
-		throw new LoggerError(
-			sprintf( __( 'Failed to parse Blueprint JSON file: %s' ), blueprintPath ),
-			error
-		);
 	}
 }
 
@@ -781,6 +749,10 @@ export async function commandHandler(
 
 	try {
 		let preparedImport: PreparedSourceImport | undefined;
+		await using openedBlueprint =
+			! argv.from && argv.blueprint
+				? await openBlueprintSource( untildify( argv.blueprint ) )
+				: undefined;
 		if ( argv.from ) {
 			await validateBeforeSourceImport( sitePath, argv.from, config );
 			preparedImport = await prepareSourceImport( argv.from, sitePath, siteName, defaultLogger, {
@@ -796,30 +768,8 @@ export async function commandHandler(
 			// `--flow-type` hint to stay measurable as a static site import.
 			config.flowType = 'static_site_import';
 			config.source = classifySourceImport( argv.from );
-		} else if ( argv.blueprint ) {
-			if ( isUrl( argv.blueprint ) ) {
-				config.blueprint = {
-					uri: argv.blueprint,
-					contents: await fetchBlueprint( argv.blueprint ),
-				};
-			} else {
-				const uri = path.resolve( untildify( argv.blueprint ) );
-
-				config.blueprint = {
-					uri,
-					contents: readBlueprint( uri ),
-				};
-
-				// When invoked by the desktop app, the blueprint contents come from a temp file
-				// but resources should be resolved relative to the original file location.
-				// For gallery blueprints the path is a URL; use it directly.
-				if ( argv.originalBlueprintPath ) {
-					const originalPath = argv.originalBlueprintPath;
-					config.blueprint.uri = isUrl( originalPath )
-						? originalPath
-						: path.resolve( originalPath );
-				}
-			}
+		} else if ( openedBlueprint ) {
+			config.blueprint = { contents: openedBlueprint.blueprint, uri: openedBlueprint.path };
 		}
 
 		try {

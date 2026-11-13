@@ -1,24 +1,28 @@
-import { anthropicProvider } from './anthropic';
-import { customProvider } from './custom';
-import { wpcomProvider } from './wpcom';
-import type { Provider, ProviderConfigs, ProviderId, ProviderSites, RemoteSite } from './types';
+import { anthropicServices } from './anthropic/services';
+import { customServices } from './custom/services';
+import { geminiServices } from './gemini/services';
+import { githubCopilotServices } from './github-copilot/services';
+import { openaiServices } from './openai/services';
+import { spacefastServices } from './spacefast/services';
+import { wpcomServices } from './wpcom/services';
+import type { ProviderConfigs, ProviderId, ProviderServices, ProviderSite } from './types';
 
-type ProviderSite< Id extends ProviderId > = Id extends keyof ProviderSites
-	? ProviderSites[ Id ]
-	: RemoteSite;
-
-const PROVIDERS: {
-	[ Id in ProviderId ]: Provider< ProviderConfigs[ Id ], ProviderSite< Id > >;
+const SERVICES: {
+	[ Id in ProviderId ]: ProviderServices< ProviderConfigs[ Id ], ProviderSite< Id > >;
 } = {
-	wpcom: wpcomProvider,
-	anthropic: anthropicProvider,
-	custom: customProvider,
+	wpcom: wpcomServices,
+	anthropic: anthropicServices,
+	openai: openaiServices,
+	gemini: geminiServices,
+	'github-copilot': githubCopilotServices,
+	spacefast: spacefastServices,
+	custom: customServices,
 };
 
-export function getProvider< Id extends ProviderId >(
+export function getProviderServices< Id extends ProviderId >(
 	id: Id
-): Provider< ProviderConfigs[ Id ], ProviderSite< Id > > {
-	return PROVIDERS[ id ];
+): ProviderServices< ProviderConfigs[ Id ], ProviderSite< Id > > {
+	return SERVICES[ id ];
 }
 
 // Previews upload to WordPress.com the way a push does, until they are a capability of their own.

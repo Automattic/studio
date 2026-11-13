@@ -1,7 +1,7 @@
-import { ProviderNotReadyError } from '../errors';
+import { NotConnectedError } from '../errors';
 import { PORTABLE_COMPLETIONS_COMPAT } from '../openai-compat';
 import type { CustomConfig } from './config';
-import type { AiConnection, Provider } from '../types';
+import type { AiConnection, ProviderServices } from '../types';
 
 // Neither is known for an endpoint's model, so both are a floor most models clear.
 const LIMITS = { contextWindow: 128_000, maxTokens: 32_000 };
@@ -28,13 +28,10 @@ export function customConnection( config: CustomConfig ): AiConnection {
 	};
 }
 
-export const customAi: NonNullable< Provider< CustomConfig >[ 'ai' ] > = {
-	fallbackWhenNotReady: false,
-	async connect( config, modelId ): Promise< AiConnection > {
+export const customAi: NonNullable< ProviderServices< CustomConfig >[ 'ai' ] > = {
+	async model( config, modelId ): Promise< AiConnection > {
 		if ( ! config ) {
-			throw new ProviderNotReadyError(
-				'No custom endpoint is connected. Connect one with /provider.'
-			);
+			throw new NotConnectedError( 'No custom endpoint is connected.' );
 		}
 		if ( modelId !== 'custom' ) {
 			throw new Error( `The custom endpoint does not serve ${ modelId }` );

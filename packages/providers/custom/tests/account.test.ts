@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { describe, expect, it } from 'vitest';
-import { InvalidCredentialError } from '../../errors';
-import { connectCustom } from '../account';
+import { ConnectError } from '../../errors';
+import { customAccount } from '../account';
 import { customAi } from '../ai';
 
 type Seen = { path?: string; authorization?: string; apiKey?: string; model: string };
@@ -97,7 +97,10 @@ describe( 'connecting a custom endpoint', () => {
 		async ( { speaks, entered, paths, saved } ) => {
 			const { seen, server, url } = await serve( [ speaks ] );
 			try {
-				const config = await connectCustom( form( `${ url }${ entered }`, 'Yes' ) );
+				const config = await customAccount.connect(
+					'endpoint',
+					form( `${ url }${ entered }`, 'Yes' )
+				);
 				expect( seen.map( ( call ) => call.path ) ).toEqual( paths );
 				expect( seen.at( -1 ) ).toMatchObject(
 					speaks === 'openai'
@@ -113,7 +116,7 @@ describe( 'connecting a custom endpoint', () => {
 				} );
 
 				// A turn's connection names the endpoint's model in the request only.
-				const ai = await customAi.connect( config, 'custom', {} );
+				const ai = await customAi.model( config, 'custom', {} );
 				expect( ai ).toMatchObject( {
 					apiKey: 'the-key',
 					requestModelId: 'vendor/model',
@@ -129,8 +132,8 @@ describe( 'connecting a custom endpoint', () => {
 	it( 'saves nothing when the model answers in no API, and says what each answered', async () => {
 		const { server, url } = await serve( [] );
 		try {
-			const connecting = connectCustom( form( url ) );
-			await expect( connecting ).rejects.toBeInstanceOf( InvalidCredentialError );
+			const connecting = customAccount.connect( 'endpoint', form( url ) );
+			await expect( connecting ).rejects.toBeInstanceOf( ConnectError );
 			await expect( connecting ).rejects.toThrow(
 				/^The endpoint did not answer for vendor\/model, so it was not saved: .*404.* \/ .*404/
 			);

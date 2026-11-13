@@ -7,7 +7,7 @@ export {
 	type SyncOption,
 	type SyncSite,
 	type SyncSupport,
-} from '@studio/providers';
+} from '@studio/providers/wpcom';
 
 // Phases a push moves through: Studio builds the archive, then the provider
 // takes over (`PushStatus`).
@@ -17,5 +17,6 @@ export const PUSH_PHASES = [
 	'creatingRemoteBackup',
 	'applyingChanges',
 	'finishing',
+	'launching',
 ] as const;
 export type PushPhase = ( typeof PUSH_PHASES )[ number ];

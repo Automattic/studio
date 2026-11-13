@@ -1,0 +1,13 @@
+{
+	"$schema": "../schemas/look.schema.json",
+	"name": "blog",
+	"description": "Blog posts and announcements: the docs look, framed on light gray with rounded corners, a hairline and a soft shadow, so the app's white edges don't wash out on a white page. The gray is lighter than Studio's dimmed backdrop behind dialogs (#E9E9E9)",
+	"frame": {
+		"background": [ "#F7F7F7", "#F1F1F1" ],
+		"padding": 0.06,
+		"radius": 0.012,
+		"shadow": 0.14,
+		"blur": 0.015,
+		"hairline": "rgba(0,0,0,0.10)"
+	}
+}

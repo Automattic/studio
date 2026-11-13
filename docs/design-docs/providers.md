@@ -2,7 +2,7 @@
 
 ## About this doc
 
-This document defines how Studio works with the services it holds an account with: WordPress.com, Anthropic, and other hosts. Each service is a provider, described in one package, so the CLI, the apps and the agent never hardcode one.
+This document defines how Studio works with the services it holds an account with: WordPress.com, Anthropic, OpenAI, and other hosts. Each service is a provider, described in one package, so the CLI, the apps and the agent never hardcode one.
 
 It describes the architecture and the rules, not the exact APIs, which are expected to evolve. Items marked _(planned)_ are not implemented yet. For WordPress.com sync and previews, _(planned)_ means the feature works today but does not yet go through a provider.
 
@@ -25,11 +25,15 @@ It describes the architecture and the rules, not the exact APIs, which are expec
 
 ## Providers
 
-| Provider                                                  | Account                           | AI                                   | Sites      | Previews    |
-| --------------------------------------------------------- | --------------------------------- | ------------------------------------ | ---------- | ----------- |
-| WordPress.com (`wpcom`)                                   | Studio sign-in                    | `fast`, `balanced`, `strong`; images | push, pull | _(planned)_ |
-| Anthropic (`anthropic`)                                   | API key; subscription _(planned)_ | Claude models                        | —          | —           |
-| Other hosts, such as an SSH host or Spacefast _(planned)_ | Per host                          | —                                    | push, pull | —           |
+| Provider                                     | Account                        | AI                                   | Sites      | Previews    |
+| -------------------------------------------- | ------------------------------ | ------------------------------------ | ---------- | ----------- |
+| WordPress.com (`wpcom`)                      | Studio sign-in                 | `fast`, `balanced`, `strong`; images | push, pull | _(planned)_ |
+| Anthropic (`anthropic`)                      | API key, or subscription token | Claude models                        | —          | —           |
+| OpenAI (`openai`)                            | ChatGPT plan, or API key       | GPT models; images with an API key   | —          | —           |
+| Google Gemini (`gemini`)                     | API key                        | Gemini models; images                | —          | —           |
+| GitHub Copilot (`github-copilot`)            | Copilot plan, device sign-in   | Claude, GPT and Gemini models        | —          | —           |
+| Spacefast (`spacefast`)                      | Device sign-in                 | —                                    | publish    | —           |
+| Other hosts, such as an SSH host _(planned)_ | Per host                       | —                                    | push, pull | —           |
 
 The WordPress.com tiers are capability aliases. The proxy's `studio-agent` lane resolves each one to an upstream model server-side, so the mapping can change without a release.
 
@@ -67,21 +71,28 @@ It is a package of its own because sites and previews are not agent concerns, so
 
 ## Accounts
 
-- Each provider says how its account connects, in its descriptor:
-  - **A form**, described by a schema whose fields carry their labels, help and whether they are secret. Anthropic asks for an API key this way.
+- Each provider lists the methods its account connects with, the first being the default. Each has a stable id, which the config records, and a label the user picks it by:
+  - **A form**, described by a schema whose fields carry their labels, help and whether they are secret, and optionally Markdown instructions for getting its values (a page to read, a command to run). Anthropic asks for an API key this way.
   - **A redirect** to the provider's site, where the user approves access and is sent back to the app. WordPress.com connects this way, and connecting it is signing in to Studio.
-  - A subscription sign-in for Anthropic comes later _(planned)_. When a provider offers several ways, the user picks one.
+  - **A device sign-in**: the provider gives a code to approve on its site while Studio waits for the approval. No redirect comes back, so it works the same in every app and the CLI. Spacefast and GitHub Copilot connect this way.
+  - **A loopback redirect**: like a redirect, but back to this computer: the process that runs the operation (the Desktop main process, the `studio ui` server or the CLI) listens on a free local port while the browser signs in, and gives the provider that address. Where the browser can't reach it, such as over SSH, the CLI asks for the address the browser landed on. OpenAI connects this way, through its sign-in for agents: it registers a client for Studio, which the user allows to use their ChatGPT plan through the public API.
+  - **Several methods**, when a provider offers several ways. The user picks one, and only one is connected at a time. Anthropic takes an API key, or a token from `claude setup-token` that bills the Claude subscription; both are forms.
+- A method that signs in on the provider's site (a device code or a loopback redirect) runs the same way everywhere: the provider starts it and says where the user goes, Studio shows that address and any code, then hands the provider back what it started with, which waits for the user.
+- The provider says what surfaces show of a connected account: a summary such as an email or a key's first and last characters, a note such as whose plan pays for it, and links such as where to manage usage; never the credential.
 - Surfaces render the form from its schema, so neither the settings nor `studio code` know what a provider asks for.
 - Connecting hands what the user gave, a form's values or the redirect's result, to the provider, which checks it and returns its config. Studio stores the config without looking inside it. Disconnecting lets the provider clean up on its side, as WordPress.com revokes its token, then Studio removes the config.
+- A credential that expires before the account does, like a ChatGPT access token, is renewed by the provider (`refresh`) before Studio uses the config. Studio stores the renewed config, under a lock of its own, since a refresh token works once. A provider that no longer accepts the renewal is disconnected.
 - When a provider has no usable config, it says so, along with how it can connect. The CLI asks the user; without a terminal, it reports the error.
-- Studio stores configs in `shared.json` and validates them against each provider's schema. Configs move to a per-provider section _(planned)_. Until then, and for a few releases after so older builds keep working, Studio uses the existing fields (`authToken` and `anthropicApiKey`). This mapping is Studio's storage code; providers never see it. When `STUDIO_WPCOM_TOKEN` is set, the CLI uses it for the WordPress.com config.
-- The app's settings list every provider with its connection state and a summary the provider gives, such as a key's first and last characters, never the credential itself. WordPress.com shows the Studio sign-in; other providers show their form. In `studio code`, `/provider` asks for what is missing, and one command connects any provider the way it says _(planned)_. No provider connects through `studio auth`.
+- Studio stores configs in `shared.json` and validates them against each provider's schema. Providers added after the first two keep their config in a per-provider section, `providerConfigs`. The first two keep using their existing fields (`authToken` and `anthropicApiKey`), which builds of every version read. An Anthropic subscription token is a later method, so it goes in `providerConfigs`, and connecting one method clears the other. This mapping is Studio's storage code; providers never see it. When `STUDIO_WPCOM_TOKEN` is set, the CLI uses it for the WordPress.com config.
+- The app's settings list every provider with its connection state and a summary the provider gives, such as a key's first and last characters, never the credential itself. WordPress.com shows the Studio sign-in; other providers show their form, picked from the Connect button's menu when the provider offers several methods. In `studio code`, `/connect [provider]` connects any provider the way it says, first asking how when it offers several methods, and `/disconnect [provider]` removes it; `/provider` asks for what is missing before switching. For WordPress.com these are `/login` and `/logout`, the Studio sign-in. No provider connects through `studio auth`.
 
 ## AI
 
 ### Models
 
 Each provider lists the models it serves. Several providers can serve the same model (for example, a Claude model listed by WordPress.com and by Anthropic), and the same id means the same model. Each listing carries its own access rules, such as paid credits. Model ids are what sessions record, so they never change.
+
+Where the account decides which of those models it runs, rather than the provider, the connected account says so and the pickers offer only those; a provider that doesn't narrow them offers all it lists. The provider reads that set when it connects and keeps it current when it renews its credential, so the pickers never reach the service to build their list. A GitHub Copilot plan works this way: it includes its own set of models, and leaves some of them off until they are turned on.
 
 ### Connection
 
@@ -93,13 +104,18 @@ The provider owns how its models are reached. For example, WordPress.com sends e
 
 - The user picks a chat provider in the app's settings or with `/provider` in `studio code`. Studio saves it in `shared.json`, and every surface shares it.
 - A conversation pinned to a provider keeps it. Without credentials for the pinned provider, the conversation runs on WordPress.com.
-- When the selected provider isn't ready, WordPress.com falls back to another ready provider, and the others ask for credentials.
+- Connecting a provider makes it the default only when the current default isn't connected, so a connected WordPress.com stays the default until the user picks another.
+- When the selected provider isn't ready, WordPress.com, the Studio sign-in, falls back to another ready provider, and the others ask to be connected again. The app runs a chat on the first connected provider, WordPress.com first.
 - Each provider has a default model; WordPress.com picks a stronger one when the account has paid AI credits left. Switching provider keeps the conversation's model when the new provider serves it too, and falls back to its default otherwise.
 - The UI gates paid tiers using the WordPress.com quota. The proxy enforces access.
 
+### In the page
+
+Studio on the web runs the agent in the page, so it offers only the connect methods it supports. A `loopback` sign-in needs a server on this computer, and a `device` sign-in polls endpoints that don't accept the page's origin, so the web leaves both out, and with them the ChatGPT plan and GitHub Copilot; an OpenAI API key works there, since OpenAI's API accepts calls from a page.
+
 ### Images
 
-Image generation is available when a connected provider offers it, whichever provider serves chat. Today only WordPress.com does. The agent gets it from its host, which finds that provider, so the agent never names one.
+Image generation is available when a connected provider offers it, whichever provider serves chat. WordPress.com does, as do Google Gemini and OpenAI with an API key; a ChatGPT plan shared with Studio can't, which its `canGenerateImages( config )` says. When several providers do, the chat's provider generates the images; otherwise the first connected provider that does. The agent gets it from its host, which finds that provider, so the agent never names one.
 
 ### Persisted ids
 
@@ -109,12 +125,12 @@ The Anthropic provider is `anthropic`. Builds before this design stored `anthrop
 
 ## Remote sites
 
-- A remote site is a site on a provider that a local site syncs with. Each provider with remote sites declares the shape of its site; WordPress.com's is `SyncSite`.
-- The provider owns the remote side of a sync: listing the account's sites, sending a pushed archive and applying it remotely, and, for pull, backing the site up remotely or opening the export API a local Reprint reads it through. It reports the steps it runs through as a status.
-- Studio owns the local side, shared by every provider: building the archive a push sends, and running Reprint or importing a downloaded backup on pull. The CLI does this; Studio on the web builds the archive in the page and hands the same provider a Blob.
-- Connections are Studio's data about its local sites, not provider config. `@studio/common/lib/remote-sites.ts` reads and writes them per provider, and records when each site was last pushed or pulled. WordPress.com's stay in `connectedWpcomSites`, so builds of every version read them.
+- A remote site is a site on a provider that a local site syncs with. Each provider with remote sites declares the shape of its site: WordPress.com's is `SyncSite`, Spacefast's a `Space`.
+- The provider owns the remote side of a sync: listing the account's sites, creating one when it can, sending what a push sends and applying it remotely, and, for pull, backing the site up remotely or opening the export API a local Reprint reads it through. It reports the steps it runs through as a status. Pull is optional: Spacefast only publishes.
+- Studio owns the local side, shared by every provider, and builds what the provider's push takes: the site's WordPress archive (WordPress.com), or a static export of its pages (Spacefast). On pull, it runs Reprint or imports a downloaded backup. The CLI does this; Studio on the web builds the archive in the page and hands the same provider a Blob.
+- Connections are Studio's data about its local sites, not provider config. `@studio/common/lib/remote-sites.ts` reads and writes them per provider, and records when each site was last pushed or pulled. WordPress.com's stay in `connectedWpcomSites`, so builds of every version read them; later providers' are in `remoteSites`.
 - Whether a site can sync is a status with an optional action, replacing the WordPress.com-specific states. For example, a site that needs a plan upgrade is blocked, with a link to upgrade _(planned)_.
-- `studio push` and `studio pull` stay the commands, and take a remote that names its provider. Bare WordPress.com site ids and URLs keep working _(planned)_.
+- `studio push` and `studio pull` stay the commands. `studio push --remote-site spacefast[:<space>]` publishes to Spacefast, and bare WordPress.com site ids and URLs keep working. A remote that names any provider comes with the descriptor-driven UI _(planned)_.
 - A provider declares whether it supports selective sync _(planned)_.
 
 ## Previews _(planned)_
@@ -135,4 +151,4 @@ Previews are a capability, and WordPress.com is the only provider that offers it
 
 ## Open questions
 
-1. **Designing sites against a second host.** The remote-sites capability above is drawn from WordPress.com. Spacefast, the next host, differs in almost every way: it is publish-only, with no pull; its push takes a static HTML build rather than a WordPress archive, so Studio needs a second local side; it has no remote backup, import polling or selective sync; and it signs in with a device login, a connection kind of its own. The capability should take these on before more of WordPress.com's steps are generalized.
+1. **The UI for remote sites.** Settings and Share and publish still name WordPress.com. They should render every provider with remote sites from its descriptor: its connection, its sites and the statuses a site can sync with.

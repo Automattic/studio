@@ -84,8 +84,7 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 		process.exit( 0 );
 	} catch ( error ) {
 		if ( error instanceof PullError ) {
-			logger.spinner.fail( __( 'Pull failed' ) );
-			console.error( '\n' + chalk.bold.red( error.message ) );
+			logger.reportError( error );
 			if ( verbose && error.technicalDetails ) {
 				console.error( '\n' + chalk.dim( error.technicalDetails ) );
 			} else if ( error.technicalDetails ) {

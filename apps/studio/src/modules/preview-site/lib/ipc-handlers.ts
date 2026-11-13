@@ -20,9 +20,10 @@ export async function publishPreviewSite(
 	_event: IpcMainInvokeEvent,
 	siteFolder: string,
 	hostname?: string,
-	name?: string
+	name?: string,
+	liveSite?: string
 ): Promise< { url: string } > {
-	return publishPreviewSiteViaCli( executeCliCommand, siteFolder, hostname, name );
+	return publishPreviewSiteViaCli( executeCliCommand, siteFolder, hostname, name, liveSite );
 }
 
 export async function deletePreviewSite( _event: IpcMainInvokeEvent, hostname: string ) {

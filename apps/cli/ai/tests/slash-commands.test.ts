@@ -3,10 +3,12 @@ import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-q
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AI_CHAT_SLASH_COMMANDS, type SlashCommandContext } from 'cli/ai/slash-commands';
 
-vi.mock( 'cli/ai/auth', () => ( {
-	getAvailableAiProviders: vi.fn(),
-	isAiProviderReady: vi.fn(),
+vi.mock( 'cli/lib/providers', () => ( { isProviderConnected: vi.fn() } ) );
+vi.mock( '@studio/common/lib/ai-settings', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/ai-settings') >() ),
+	disconnectProvider: vi.fn(),
 } ) );
+vi.mock( '@studio/common/lib/provider-config', () => ( { readProviderConfig: vi.fn() } ) );
 
 vi.mock( 'cli/commands/auth/login', () => ( { runCommand: vi.fn() } ) );
 vi.mock( 'cli/commands/auth/logout', () => ( { runCommand: vi.fn() } ) );
@@ -42,7 +44,7 @@ function buildModelCtx(
 		currentProvider: 'wpcom',
 		showCapabilitiesOnConnect: false,
 		switchProvider: vi.fn().mockResolvedValue( undefined ),
-		prepareProviderSelection: vi.fn().mockResolvedValue( undefined ),
+		connect: vi.fn().mockResolvedValue( undefined ),
 		maybeAutoSwitchProvider: vi.fn().mockResolvedValue( undefined ),
 		persistSessionContext: persistMock,
 		clearSession: vi.fn().mockResolvedValue( undefined ),
@@ -198,7 +200,7 @@ describe( '/credits slash command', () => {
 			currentProvider: 'wpcom' as SlashCommandContext[ 'currentProvider' ],
 			showCapabilitiesOnConnect: false,
 			switchProvider: vi.fn().mockResolvedValue( undefined ),
-			prepareProviderSelection: vi.fn().mockResolvedValue( undefined ),
+			connect: vi.fn().mockResolvedValue( undefined ),
 			maybeAutoSwitchProvider: vi.fn().mockResolvedValue( undefined ),
 			persistSessionContext: vi.fn().mockResolvedValue( undefined ),
 			clearSession: vi.fn().mockResolvedValue( undefined ),
@@ -346,67 +348,56 @@ describe( '/credits slash command', () => {
 	} );
 } );
 
-vi.mock( 'cli/ai/hosts', () => {
-	const host = ( name: string, sites: Array< { id: number; name: string; url: string } > ) => ( {
-		name,
-		publishable: vi.fn().mockResolvedValue( { signedIn: true, sites } ),
-		newSiteUrl: vi.fn(),
-		push: vi.fn().mockResolvedValue( 'Pushed.' ),
+describe( '/connect and /disconnect', () => {
+	const command = ( name: string ) => AI_CHAT_SLASH_COMMANDS.find( ( c ) => c.name === name )!;
+	function makeCtx() {
+		return {
+			ui: {
+				showInfo: vi.fn(),
+				showError: vi.fn(),
+				showSuccess: vi.fn(),
+				askUser: vi.fn().mockResolvedValue( { 0: 'Anthropic' } ),
+				stop: vi.fn(),
+				start: vi.fn(),
+			} as never,
+			currentModel: 'fast',
+			currentProvider: 'wpcom',
+			showCapabilitiesOnConnect: false,
+			switchProvider: vi.fn(),
+			connect: vi.fn(),
+			maybeAutoSwitchProvider: vi.fn(),
+			persistSessionContext: vi.fn(),
+			clearSession: vi.fn(),
+		} satisfies SlashCommandContext;
+	}
+
+	beforeEach( async () => {
+		const { isProviderConnected } = await import( 'cli/lib/providers' );
+		vi.mocked( isProviderConnected ).mockResolvedValue( true );
 	} );
-	return {
-		HOST_IDS: [ 'north', 'south' ],
-		HOSTS: {
-			north: host( 'North Hosting', [
-				{ id: 1, name: 'Bakery', url: 'https://bakery.north' },
-				{ id: 3, name: 'Cafe', url: 'https://cafe.north' },
-			] ),
-			south: host( 'South Hosting', [ { id: 2, name: 'Florist', url: 'https://florist.south' } ] ),
-		},
-	};
-} );
 
-vi.mock( 'cli/ai/host', () => ( {
-	cliAgentHost: {
-		sites: {
-			resolve: vi.fn( async ( sitePath: string ) => ( { name: 'Local Florist', path: sitePath } ) ),
-		},
-	},
-} ) );
+	it( 'connects the provider named after the command, or the one the user picks', async () => {
+		const ctx = makeCtx();
 
-describe( '/publish slash command', () => {
-	it( "publishes to the site the user picks, through that site's own host", async () => {
-		const { HOSTS } = ( await import( 'cli/ai/hosts' ) ) as unknown as {
-			HOSTS: Record< string, { push: ReturnType< typeof vi.fn > } >;
-		};
-		const askUser = vi.fn().mockResolvedValue( { 0: 'Florist' } );
-		const ui = {
-			activeSite: { name: 'Local Florist', path: '/sites/florist' },
-			askUser,
-			showInfo: vi.fn(),
-			showError: vi.fn(),
-			showSuccess: vi.fn(),
-			showProgress: vi.fn(),
-			setBusy: vi.fn(),
-			setLoaderMessage: vi.fn(),
-		};
-		const cmd = AI_CHAT_SLASH_COMMANDS.find( ( c ) => c.name === 'publish' )!;
+		await command( 'connect' ).handler!( '/connect openai', ctx );
+		expect( ctx.connect ).toHaveBeenLastCalledWith( 'openai', { force: true } );
 
-		await cmd.handler!( '/publish', { ui } as unknown as SlashCommandContext );
+		await command( 'connect' ).handler!( '/connect', ctx );
+		expect( ctx.connect ).toHaveBeenLastCalledWith( 'anthropic', { force: true } );
+	} );
 
-		expect( askUser.mock.calls[ 0 ][ 0 ][ 0 ].options ).toEqual( [
-			{ label: 'Bakery', description: 'https://bakery.north · North Hosting' },
-			{ label: 'Cafe', description: 'https://cafe.north · North Hosting' },
-			{ label: 'Florist', description: 'https://florist.south · South Hosting' },
-		] );
-		expect( HOSTS.north.push ).not.toHaveBeenCalled();
-		expect( HOSTS.south.push ).toHaveBeenCalledWith(
-			expect.objectContaining( { path: '/sites/florist' } ),
-			'2',
-			'all',
-			expect.anything()
+	it( 'disconnects a provider, and signs out of Studio for WordPress.com', async () => {
+		const { disconnectProvider } = await import( '@studio/common/lib/ai-settings' );
+		const { runCommand: logout } = await import( 'cli/commands/auth/logout' );
+		const ctx = makeCtx();
+
+		await command( 'disconnect' ).handler!( '/disconnect anthropic', ctx );
+		expect( disconnectProvider ).toHaveBeenCalledWith(
+			expect.objectContaining( { id: 'anthropic' } )
 		);
-		expect( ui.showSuccess ).toHaveBeenCalledWith(
-			expect.stringContaining( 'https://florist.south' )
-		);
+
+		await command( 'disconnect' ).handler!( '/disconnect wpcom', ctx );
+		expect( logout ).toHaveBeenCalled();
+		expect( ctx.maybeAutoSwitchProvider ).toHaveBeenCalledTimes( 2 );
 	} );
 } );

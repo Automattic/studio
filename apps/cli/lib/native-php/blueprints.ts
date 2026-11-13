@@ -1,9 +1,5 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import {
-	createBlueprintTempDir,
-	removeBlueprintTempDir,
-} from '@studio/common/lib/blueprint-bundle';
 import { getSettingsWpConfigConstants } from '@studio/common/lib/wp-config-constants';
 import { parse as parseShellCommand } from 'shell-quote';
 import {
@@ -172,10 +168,14 @@ function toPhpSingleQuotedString( value: string ): string {
 
 export async function removeOwnedSqliteSymlink(
 	symlinkPath: string,
-	symlinkIno: number
+	target: string
 ): Promise< void > {
 	try {
-		if ( fs.lstatSync( symlinkPath ).ino === symlinkIno ) {
+		if (
+			fs.lstatSync( symlinkPath ).isSymbolicLink() &&
+			path.resolve( path.dirname( symlinkPath ), fs.readlinkSync( symlinkPath ) ) ===
+				path.resolve( target )
+		) {
 			await fs.promises.rm( symlinkPath, { recursive: true, force: true } );
 		}
 	} catch {
@@ -259,14 +259,16 @@ export async function runBlueprint(
 		if ( ! isWriteAccessError( error ) ) {
 			throw error;
 		}
-		fallbackTempDir = await createBlueprintTempDir();
+		fallbackTempDir = await fs.promises.mkdtemp(
+			path.join( getFullyResolvedTmpDirPath(), 'studio-blueprint-' )
+		);
 		tmpPath = path.join( fallbackTempDir, blueprintFilename );
 		try {
 			await fs.promises.writeFile( tmpPath, serializedBlueprint );
 		} catch ( fallbackError ) {
 			// The finally below only runs once the run-blueprint try starts, so clean
 			// up the just-created temp dir here to avoid leaking it under os.tmpdir().
-			await removeBlueprintTempDir( fallbackTempDir ).catch( () => {} );
+			await fs.promises.rm( fallbackTempDir, { recursive: true, force: true } ).catch( () => {} );
 			throw fallbackError;
 		}
 	}
@@ -285,11 +287,8 @@ export async function runBlueprint(
 		'sqlite-database-integration'
 	);
 	const needsSymlink = fs.existsSync( muPluginsSqlite ) && ! fs.existsSync( pluginsSqlite );
-	let symlinkIno: number | undefined;
 	if ( needsSymlink ) {
 		fs.symlinkSync( muPluginsSqlite, pluginsSqlite, 'junction' );
-		// Remove only the entry created here, not unrelated content that replaced it.
-		symlinkIno = fs.lstatSync( pluginsSqlite ).ino;
 	}
 
 	const prependPath = writeBlueprintRunnerPrependFile(
@@ -332,10 +331,11 @@ export async function runBlueprint(
 			.rm( path.dirname( prependPath ), { recursive: true, force: true } )
 			.catch( () => {} );
 		if ( fallbackTempDir ) {
-			await removeBlueprintTempDir( fallbackTempDir ).catch( () => {} );
+			await fs.promises.rm( fallbackTempDir, { recursive: true, force: true } ).catch( () => {} );
 		}
 		if ( needsSymlink ) {
-			await removeOwnedSqliteSymlink( pluginsSqlite, symlinkIno! );
+			// Remove only the link created here, not content that replaced it.
+			await removeOwnedSqliteSymlink( pluginsSqlite, muPluginsSqlite );
 			// The runner may remove the symlink target while managing its SQLite driver.
 			await keepSqliteIntegrationUpdated( config.sitePath );
 		}

@@ -362,6 +362,16 @@ describe( 'reply checks', () => {
 				textSegments: [ 'Let me push it there.' ],
 			} ).pass
 		).toBe( true );
+		expect(
+			run( checks.pushNotRunAndAsks, reply( 'Push to eval-space.space.fast?' ), {
+				target: 'eval-space.space.fast',
+			} ).pass
+		).toBe( true );
+		expect(
+			run( checks.pushNotRunAndAsks, reply( 'Which site should I push to?' ), {
+				target: 'eval-space.space.fast',
+			} ).pass
+		).toBe( false );
 	} );
 
 	test( 'asksCurrentOrNew', () => {

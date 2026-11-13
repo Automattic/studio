@@ -3,7 +3,7 @@ import { getSkillScopedToolNames, loadSkills } from '@studio/agent/shared/skills
 import {
 	buildSystemPrompt,
 	buildTurnContext,
-	PROXY_IDENTITY,
+	AGENT_IDENTITY,
 } from '@studio/agent/shared/system-prompt';
 import { resolveStudioTools } from '@studio/agent/shared/tools';
 import { nodeHostServices } from '../node-host';
@@ -25,10 +25,9 @@ const allTools = () =>
 	);
 
 describe( 'buildSystemPrompt', () => {
-	// The WordPress.com AI proxy refuses any other opening with a 403.
-	it( 'opens with the line the WordPress.com AI proxy admits, byte for byte', () => {
-		expect( PROXY_IDENTITY ).toBe( 'You are WordPress Studio, built by Automattic.' );
-		expect( buildSystemPrompt().startsWith( `${ PROXY_IDENTITY }\n\n## Environment` ) ).toBe(
+	it( 'opens with the identity line', () => {
+		expect( AGENT_IDENTITY ).toBe( 'You are WordPress Studio, built by Automattic.' );
+		expect( buildSystemPrompt().startsWith( `${ AGENT_IDENTITY }\n\n## Environment` ) ).toBe(
 			true
 		);
 	} );

@@ -212,6 +212,7 @@ export function SidebarLayout( {
 						>
 							<div
 								className={ clsx( styles.root, instantSidebarDock && styles.instantSidebarDock ) }
+								style={ sidebarStyle }
 							>
 								<div className={ styles.windowDragStrip } aria-hidden="true" />
 								<div
@@ -292,7 +293,6 @@ export function SidebarLayout( {
 										! docked && styles.sidebarCollapsed,
 										sidebarResize.isResizing && styles.sidebarResizing
 									) }
-									style={ sidebarStyle }
 									inert={ ! docked }
 								>
 									<aside ref={ dockedSidebarRef } className={ styles.sidebar }>
@@ -325,7 +325,7 @@ export function SidebarLayout( {
 											width={ sidebarResize.width }
 											onResizeStart={ sidebarResize.handleResizeStart }
 											onKeyDown={ sidebarResize.handleKeyDown }
-											onReset={ sidebarResize.resetWidth }
+											onDoublePress={ toggleSidebar }
 										/>
 									) : null }
 									{ children }

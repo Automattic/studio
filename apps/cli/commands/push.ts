@@ -7,7 +7,9 @@ import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { formatProgressLabel } from '@studio/common/lib/progress-label';
 import { forgetRejectedConfig, readProviderConfig } from '@studio/common/lib/provider-config';
 import { getRemoteSites, rememberRemoteSite } from '@studio/common/lib/remote-sites';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getSiteTracksProps } from '@studio/common/lib/site-tracks';
+import { getLatestLinkedPreview, getPreviewPublishWarning } from '@studio/common/lib/snapshots';
 import {
 	buildSyncEventProps,
 	classifySyncSelection,
@@ -34,6 +36,8 @@ import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { ExportOptions } from 'cli/lib/import-export/export/types';
 import { confirm, select } from 'cli/lib/prompts';
 import { withSiteOperation } from 'cli/lib/site-operations';
+import { getSiteVersion } from 'cli/lib/site-versions';
+import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { exportStaticContent } from 'cli/lib/static-content';
 import { exitOnCancel, onCancel, reportSyncActivity } from 'cli/lib/sync-activity';
@@ -218,6 +222,10 @@ async function runPush(
 	pushed.remoteSite = remoteSite;
 	reportPhase();
 
+	if ( provider === 'wpcom' ) {
+		await warnIfPreviewIsBehind( site, Number( remoteSite.id ), logger );
+	}
+
 	let optionsToSync: SyncOption[] = [ 'all' ];
 	let specificSelectionPaths: string[] | undefined;
 
@@ -348,6 +356,32 @@ async function runPush(
 
 // The provider's config. In a terminal, offers to sign in to WordPress.com, or to connect a
 // provider that connects with a device sign-in.
+/**
+ * Says so when the latest preview of the WordPress.com site was made from another version of this
+ * local site: publishing sends the site as it is now, including changes that preview didn't show.
+ */
+async function warnIfPreviewIsBehind(
+	site: { id: string; path: string },
+	remoteSiteId: number,
+	logger: Logger< LoggerAction >
+): Promise< void > {
+	const token = await readAuthToken();
+	if ( ! token ) {
+		return;
+	}
+	const preview = getLatestLinkedPreview(
+		await getSnapshotsFromConfig( token.id ),
+		site.id,
+		remoteSiteId
+	);
+	if (
+		preview?.versionId &&
+		( await getSiteVersion( site.id, site.path ) ) !== preview.versionId
+	) {
+		logger.reportWarning( getPreviewPublishWarning( preview ) );
+	}
+}
+
 async function requireConfig( provider: SitesProviderId ): Promise< Config > {
 	if ( provider === 'wpcom' ) {
 		return { token: ( await requireAuthToken( 'auth' ) ).accessToken } as Config;

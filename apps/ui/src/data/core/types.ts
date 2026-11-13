@@ -322,7 +322,8 @@ export interface Connector {
 	publishPreviewSite(
 		siteId: string,
 		existingHostname?: string,
-		name?: string
+		name?: string,
+		liveSite?: string
 	): Promise< { url: string } >;
 	// Deletes one preview site, both on WordPress.com and from the local list.
 	deleteSnapshot( hostname: string ): Promise< void >;

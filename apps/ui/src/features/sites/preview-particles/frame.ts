@@ -33,15 +33,15 @@ export function createPreviewDots(
 ): PreviewDot[] {
 	const centerX = width / 2;
 	const spacing = 26;
-	const insetX = Math.min( 24, width / 2 );
+	const insetX = Math.min( 24, centerX );
 	const insetY = Math.min( 24, height / 2 );
-	const columns = Math.max( 1, Math.floor( ( width - insetX * 2 ) / spacing ) + 1 );
-	const rows = Math.max( 1, Math.floor( ( height - insetY * 2 ) / spacing ) + 1 );
+	const columnPairs = Math.floor( ( centerX - insetX ) / spacing );
+	const rowPairs = Math.floor( ( height / 2 - insetY ) / spacing );
 	const dots: PreviewDot[] = [];
-	for ( let row = 0; row < rows; row++ ) {
-		for ( let column = 0; column < columns; column++ ) {
-			const x = insetX + column * spacing;
-			const y = insetY + row * spacing;
+	for ( let row = -rowPairs; row <= rowPairs; row++ ) {
+		for ( let column = -columnPairs; column <= columnPairs; column++ ) {
+			const x = centerX + column * spacing;
+			const y = height / 2 + row * spacing;
 			const distance = Math.hypot( x - centerX, y - centerY );
 			dots.push( {
 				x,
@@ -53,7 +53,8 @@ export function createPreviewDots(
 					1,
 					Math.max(
 						0,
-						Math.min( x - insetX, width - insetX - x, y - insetY, height - insetY - y ) / 80
+						( Math.min( columnPairs - Math.abs( column ), rowPairs - Math.abs( row ) ) * spacing ) /
+							80
 					)
 				),
 			} );

@@ -1,3 +1,4 @@
+import { getProvider, getProviderSites, parseRemoteSite } from '@studio/providers';
 import { Type } from 'typebox';
 import { defineTool, REMOTE_OVERWRITE } from './define-tool';
 import { textResult } from './utils';
@@ -12,7 +13,8 @@ export const pullSiteTool = defineTool(
 	{
 		nameOrPath: Type.String( { description: 'The local site name or file system path' } ),
 		remoteSite: Type.String( {
-			description: 'The remote WordPress.com site URL or numeric site ID to pull from',
+			description:
+				'The remote site to pull from: the `remoteSite` of an entry from site_connected_remote_sites, or a WordPress.com site URL or numeric site ID',
 		} ),
 		options: Type.Optional(
 			Type.String( {
@@ -23,11 +25,17 @@ export const pullSiteTool = defineTool(
 	},
 	async ( args, context ) => {
 		try {
+			const { provider, identifier } = parseRemoteSite( args.remoteSite );
+			if ( ! getProviderSites( provider ).pull ) {
+				throw new Error(
+					`${ getProvider( provider ).label } sites can only be published to, not pulled.`
+				);
+			}
 			const site = await context.host.sites.resolve( args.nameOrPath );
 			const remoteSite = await context.host.sync.pull(
 				site,
 				args.options ?? 'all',
-				args.remoteSite,
+				identifier,
 				context.onProgress
 			);
 			return textResult(

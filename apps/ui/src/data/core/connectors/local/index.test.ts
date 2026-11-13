@@ -14,24 +14,18 @@ describe( 'createLocalConnector Connect contracts', () => {
 		vi.unstubAllGlobals();
 	} );
 
-	it( 'uploads Blueprint bytes without handing the selected file to the request', async () => {
-		const data = new TextEncoder().encode( 'zip fixture' ).buffer;
-		const file = new File( [ data ], 'blueprint.zip', { type: 'application/zip' } );
-		Object.defineProperty( file, 'arrayBuffer', { value: async () => data } );
-		const extracted = {
-			blueprintJson: {},
-			blueprintJsonPath: '/tmp/blueprint.json',
-			tempDir: '/tmp/bundle',
-		};
-		fetchMock.mockResolvedValueOnce( Response.json( extracted ) );
+	it( 'uploads a picked Blueprint and reads it back for the preview', async () => {
+		const file = new File( [ 'zip fixture' ], 'blueprint.zip', { type: 'application/zip' } );
+		fetchMock
+			.mockResolvedValueOnce( Response.json( { path: '/tmp/upload/blueprint.zip' } ) )
+			.mockResolvedValueOnce( Response.json( { landingPage: '/shop' } ) );
 		const connector = createLocalConnector( { apiBaseUrl: 'http://localhost:8081' } );
-		await expect( connector.extractBlueprintBundle( file ) ).resolves.toEqual( extracted );
-		expect( fetchMock ).toHaveBeenCalledWith(
-			'http://localhost:8081/api/blueprints/extract',
+		await expect( connector.readBlueprint( file ) ).resolves.toEqual( { landingPage: '/shop' } );
+		expect( fetchMock ).toHaveBeenLastCalledWith(
+			'http://localhost:8081/api/blueprints/read',
 			expect.objectContaining( {
 				method: 'POST',
-				body: data,
-				signal: expect.any( AbortSignal ),
+				body: JSON.stringify( { path: '/tmp/upload/blueprint.zip' } ),
 			} )
 		);
 	} );
@@ -67,8 +61,8 @@ describe( 'createLocalConnector Connect contracts', () => {
 			path: '/sites/remote-site',
 			skipStart: true,
 		} );
-		await connector.fetchSyncableWpcomSites();
-		await connector.getConnectedWpcomSites();
+		await connector.listAccountSites( 'wpcom' );
+		await connector.getRemoteSites( 'wpcom' );
 		await expect( connector.generateNumberedSiteName( 'Remote site', [] ) ).resolves.toBe(
 			'Remote site 2'
 		);
@@ -76,11 +70,11 @@ describe( 'createLocalConnector Connect contracts', () => {
 		const createCall = fetchMock.mock.calls[ 0 ];
 		expect( JSON.parse( String( createCall[ 1 ]?.body ) ) ).toMatchObject( { skipStart: true } );
 		expect( fetchMock ).toHaveBeenCalledWith(
-			'http://localhost:8081/api/wpcom/syncable-sites',
+			'http://localhost:8081/api/remote-sites/wpcom/account',
 			expect.any( Object )
 		);
 		expect( fetchMock ).toHaveBeenCalledWith(
-			'http://localhost:8081/api/wpcom/connected-sites',
+			'http://localhost:8081/api/remote-sites/wpcom',
 			expect.any( Object )
 		);
 		expect( fetchMock ).toHaveBeenCalledWith(

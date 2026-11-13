@@ -1,8 +1,4 @@
-import { PRESSABLE_PHP_VERSION } from '@studio/common/constants';
-import {
-	SYNC_PUSH_SIZE_LIMIT_BYTES,
-	SYNC_PUSH_SIZE_LIMIT_GB,
-} from '@studio/common/lib/sync/constants';
+import { getProviderSites, type RemoteSite, type SitesProviderId } from '@studio/providers';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useConnector } from '@/data/core';
@@ -17,7 +13,7 @@ import {
 } from './selection';
 import type { PublishScope, TransferDirection } from './options';
 import type { SyncNode } from './selection';
-import type { SiteDetails, SyncSite } from '@/data/core';
+import type { SiteDetails } from '@/data/core';
 
 type Saved = { scope: PublishScope; nodes: SyncNode[]; content: boolean };
 const EMPTY: Saved = { scope: 'all', nodes: [], content: false };
@@ -41,13 +37,15 @@ function restoreSelection( entries: SyncNode[], previous: SyncNode[] ): SyncNode
 // direction for as long as the app runs.
 export function useTransferSelection(
 	site: SiteDetails,
-	remote: SyncSite,
+	provider: SitesProviderId,
+	remote: RemoteSite,
 	direction: TransferDirection,
 	enabled: boolean
 ) {
 	const connector = useConnector();
+	const sites = getProviderSites( provider );
 	const client = useQueryClient();
-	const savedKey = [ 'publish-selection', site.id, remote.id, direction ];
+	const savedKey = [ 'publish-selection', site.id, provider, remote.id, direction ];
 	const saved = useQuery( {
 		queryKey: savedKey,
 		queryFn: () => EMPTY,
@@ -62,8 +60,9 @@ export function useTransferSelection(
 		} ) );
 
 	const tree = useQuery( {
-		queryKey: [ 'publish-tree', site.id, remote.id, direction ],
-		enabled,
+		queryKey: [ 'publish-tree', site.id, provider, remote.id, direction ],
+		// Without selective sync, everything goes, so there's nothing to pick from.
+		enabled: enabled && sites.selective,
 		staleTime: 0,
 		gcTime: 0,
 		queryFn: async () => {
@@ -73,12 +72,15 @@ export function useTransferSelection(
 				nodes = localNodes( await connector.listLocalFileTree( site.id, 'wp-content', 3 ) );
 			} else {
 				// Individual files can only be browsed when the website has a backup.
-				rewind = remote.pushNeedsUpgrade ? null : await connector.getLatestRewindId( remote.id );
+				rewind =
+					sites.hasBackups?.( remote ) === false
+						? null
+						: await connector.getRemoteBackupId( provider, remote.id );
 				if ( ! rewind ) {
 					return { rewind, filesUnavailable: true };
 				}
 				nodes = remoteNodes(
-					await connector.listRemoteFileTree( remote.id, rewind, '/wp-content/' ),
+					await connector.listRemoteBackupFiles( provider, remote.id, rewind, '/wp-content/' ),
 					'/wp-content/'
 				);
 			}
@@ -92,17 +94,10 @@ export function useTransferSelection(
 	const options =
 		scope === 'custom' ? syncOptions( saved.nodes, saved.content ) : presetOptions( scope );
 
-	const versions = useQuery( {
-		queryKey: [ 'publish-versions', site.id, remote.id ],
-		enabled: enabled && direction === 'push',
-		queryFn: async () => {
-			const [ wp, php, multisite ] = await Promise.all( [
-				connector.getWpVersion( site.id ),
-				remote.isPressable ? PRESSABLE_PHP_VERSION : connector.getHostingPhpVersion( remote.id ),
-				connector.getIsMultisite( site.id ),
-			] );
-			return { wp, php, multisite };
-		},
+	const multisite = useQuery( {
+		queryKey: [ 'publish-multisite', site.id ],
+		enabled: enabled && direction === 'push' && Boolean( sites.pushWarning ),
+		queryFn: async () => ( await connector.getIsMultisite( site.id ) ) ?? null,
 	} );
 	const size = useQuery( {
 		queryKey: [
@@ -133,19 +128,18 @@ export function useTransferSelection(
 		},
 	} );
 
-	const overLimit = ( size.data ?? 0 ) > SYNC_PUSH_SIZE_LIMIT_BYTES;
+	const overLimit = sites.maxPushSize !== undefined && ( size.data ?? 0 ) > sites.maxPushSize;
 	const pushing = direction === 'push';
 	let warning: string | undefined;
 	if ( overLimit ) {
 		warning = sprintf(
 			/* translators: %s: the publishing size limit in GB */
 			__( 'This selection exceeds the %s GB publishing limit. Choose fewer files to continue.' ),
-			String( SYNC_PUSH_SIZE_LIMIT_GB )
+			String( sites.maxPushSize! / 1024 ** 3 )
 		);
-	} else if ( versions.data?.multisite && ! remote.isPressable ) {
-		warning = __(
-			'WordPress.com does not support multisite. Publishing this network may cause problems.'
-		);
+	} else if ( pushing ) {
+		warning =
+			sites.pushWarning?.( remote, { multisite: multisite.data ?? undefined } ) ?? undefined;
 	}
 
 	return {
@@ -156,18 +150,19 @@ export function useTransferSelection(
 		setContent: ( content: boolean ) => save( () => ( { content } ) ),
 		options,
 		filesUnavailable: tree.data?.filesUnavailable === true,
-		error: tree.error || size.error || versions.error,
-		loading: tree.isFetching || ( pushing && ( size.isFetching || versions.isFetching ) ),
+		error: tree.error || size.error || multisite.error,
+		loading: tree.isFetching || ( pushing && ( size.isFetching || multisite.isFetching ) ),
 		loadingFiles: tree.isFetching && ! tree.data,
 		loadingDetails:
-			( tree.isFetching && ! tree.data ) || ( pushing && versions.isFetching && ! versions.data ),
+			( tree.isFetching && ! tree.data ) ||
+			( pushing && multisite.isFetching && ! multisite.isSuccess ),
 		blocked: overLimit || ( scope === 'custom' && ! chosen.length && ! saved.content ),
 		warning,
 		retry: () => {
 			void tree.refetch();
 			if ( pushing ) {
 				void size.refetch();
-				void versions.refetch();
+				void multisite.refetch();
 			}
 		},
 		change: ( id: string, checked: boolean ) =>
@@ -178,7 +173,8 @@ export function useTransferSelection(
 			const children = pushing
 				? localNodes( await connector.listLocalFileTree( site.id, node.path, 1 ) )
 				: remoteNodes(
-						await connector.listRemoteFileTree(
+						await connector.listRemoteBackupFiles(
+							provider,
 							remote.id,
 							tree.data?.rewind ?? '',
 							`${ node.path }/`

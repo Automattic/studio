@@ -1,12 +1,12 @@
 import { normalizeContext } from '@earendil-works/pi-ai';
-import { getProvider } from '@studio/providers/services';
+import { getProviderServices } from '@studio/providers/services';
 import { expect, it, vi } from 'vitest';
 import { createStreamFn } from '../models';
 
-it( 'streams a Gemini reply through the Google SDK using the connected key', async () => {
-	const ai = await getProvider( 'gemini' ).ai!.connect(
+it( 'streams a Gemini reply through Google’s SDK with the connected key', async () => {
+	const ai = await getProviderServices( 'gemini' ).ai!.model(
 		{ method: 'api-key', apiKey: 'test-key' },
-		'gemini-4-carbon',
+		'gemini-3.8-flash',
 		{}
 	);
 	const chunk = {
@@ -21,12 +21,11 @@ it( 'streams a Gemini reply through the Google SDK using the connected key', asy
 		const context = normalizeContext( {
 			messages: [ { role: 'user', content: 'Hi', timestamp: 0 } ],
 		} );
-		const stream = await createStreamFn( ai )( ai.model, context );
-		const reply = await stream.result();
-		expect( reply.stopReason ).toBe( 'stop' );
+		const reply = await createStreamFn( ai )( ai.model, context ).result();
+		expect( reply ).toMatchObject( { stopReason: 'stop' } );
 		expect( reply.content ).toContainEqual( { type: 'text', text: 'Hello' } );
 		const [ url, init ] = request.mock.calls[ 0 ];
-		expect( String( url ) ).toContain( '/v1beta/models/gemini-4-carbon:streamGenerateContent' );
+		expect( String( url ) ).toContain( '/models/gemini-3.8-flash:streamGenerateContent' );
 		expect( new Headers( init?.headers ).get( 'x-goog-api-key' ) ).toBe( 'test-key' );
 	} finally {
 		request.mockRestore();

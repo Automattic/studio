@@ -1,4 +1,4 @@
-import { getConnectFields, getProviderDescriptor, PROVIDER_IDS } from '@studio/providers';
+import { getConnectMethod, getProvider, PROVIDER_IDS } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
 import { BugIcon, FileTextIcon, SettingsIcon } from 'lucide-react';
 import {
@@ -252,10 +252,12 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					__( 'Get started with a one-time free allowance, then buy more as you go.' ),
 					'wpcom-provider'
 				),
-				...PROVIDER_IDS.filter( ( id ) => getConnectFields( id ).length ).map( ( id ) => {
-					const { label, description } = getProviderDescriptor( id );
-					return setting( 'navigate', label, description?.() ?? '', `${ id }-provider` );
-				} ),
+				...PROVIDER_IDS.filter( ( id ) => getConnectMethod( id ).kind !== 'redirect' ).map(
+					( id ) => {
+						const { label, description } = getProvider( id );
+						return setting( 'navigate', label, description?.() ?? '', `${ id }-provider` );
+					}
+				),
 				setting(
 					'navigate',
 					__( 'Default provider' ),

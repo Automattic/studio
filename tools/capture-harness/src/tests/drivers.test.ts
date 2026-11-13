@@ -9,19 +9,24 @@ import { doctor, ready } from '../setup.ts';
 describe( 'browser driver', () => {
 	it( 'refuses the API calls that would change the signed-in account', () => {
 		expect( blockedOperation( 'POST', '/auth/logout' ) ).toBeDefined();
-		expect( blockedOperation( 'POST', '/sites/abc/push' ) ).toBeDefined();
-		expect( blockedOperation( 'POST', '/sites/abc/pull' ) ).toBeDefined();
+		expect( blockedOperation( 'POST', '/sites/abc/remote-sites/wpcom/42/push' ) ).toBe(
+			'publishing or pulling'
+		);
+		expect( blockedOperation( 'POST', '/sites/abc/remote-sites/spacefast/spc_1/pull' ) ).toBe(
+			'publishing or pulling'
+		);
 		expect( blockedOperation( 'POST', '/sites/abc/preview' ) ).toBeDefined();
 		expect( blockedOperation( 'DELETE', '/snapshots/x.wp.build' ) ).toBeDefined();
 		expect( blockedOperation( 'PATCH', '/snapshots/x.wp.build' ) ).toBeDefined();
-		expect( blockedOperation( 'POST', '/sites/abc/connected-sites' ) ).toBeDefined();
-		expect( blockedOperation( 'DELETE', '/sites/abc/connected-sites/123' ) ).toBeDefined();
+		expect( blockedOperation( 'POST', '/sites/abc/remote-sites/wpcom' ) ).toBeDefined();
+		expect( blockedOperation( 'POST', '/sites/abc/remote-sites/spacefast/new' ) ).toBeDefined();
+		expect( blockedOperation( 'DELETE', '/sites/abc/remote-sites/wpcom/123' ) ).toBeDefined();
 		expect( blockedOperation( 'POST', '/sessions/s1/messages' ) ).toBeDefined();
 	} );
 
 	it( 'lets reads and local changes through', () => {
 		expect( blockedOperation( 'GET', '/snapshots' ) ).toBeUndefined();
-		expect( blockedOperation( 'GET', '/sites/abc/connected-sites' ) ).toBeUndefined();
+		expect( blockedOperation( 'GET', '/remote-sites/wpcom' ) ).toBeUndefined();
 		expect( blockedOperation( 'POST', '/sites' ) ).toBeUndefined();
 		expect( blockedOperation( 'POST', '/sessions' ) ).toBeUndefined();
 	} );

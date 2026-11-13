@@ -315,6 +315,18 @@
 	gap: var( --space-1 );
 }
 
+.connectInstructions {
+	color: var( --muted-foreground );
+	font-size: var( --text-xs );
+	line-height: var( --text-xs--line-height );
+}
+
+.connectInstructions :is( div, p, li, ol, ul ) {
+	color: inherit;
+	font-size: inherit;
+	line-height: inherit;
+}
+
 .keyForm {
 	display: flex;
 	align-items: center;

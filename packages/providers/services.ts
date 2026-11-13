@@ -1,24 +1,24 @@
-import { anthropicProvider } from './anthropic';
-import { geminiProvider } from './gemini';
-import { wpcomProvider } from './wpcom';
-import type { Provider, ProviderConfigs, ProviderId, ProviderSites, RemoteSite } from './types';
+import { anthropicServices } from './anthropic/services';
+import { geminiServices } from './gemini/services';
+import { openaiServices } from './openai/services';
+import { spacefastServices } from './spacefast/services';
+import { wpcomServices } from './wpcom/services';
+import type { ProviderConfigs, ProviderId, ProviderServices, ProviderSite } from './types';
 
-type ProviderSite< Id extends ProviderId > = Id extends keyof ProviderSites
-	? ProviderSites[ Id ]
-	: RemoteSite;
-
-const PROVIDERS: {
-	[ Id in ProviderId ]: Provider< ProviderConfigs[ Id ], ProviderSite< Id > >;
+const SERVICES: {
+	[ Id in ProviderId ]: ProviderServices< ProviderConfigs[ Id ], ProviderSite< Id > >;
 } = {
-	wpcom: wpcomProvider,
-	anthropic: anthropicProvider,
-	gemini: geminiProvider,
+	wpcom: wpcomServices,
+	anthropic: anthropicServices,
+	openai: openaiServices,
+	gemini: geminiServices,
+	spacefast: spacefastServices,
 };
 
-export function getProvider< Id extends ProviderId >(
+export function getProviderServices< Id extends ProviderId >(
 	id: Id
-): Provider< ProviderConfigs[ Id ], ProviderSite< Id > > {
-	return PROVIDERS[ id ];
+): ProviderServices< ProviderConfigs[ Id ], ProviderSite< Id > > {
+	return SERVICES[ id ];
 }
 
 // Previews upload to WordPress.com the way a push does, until they are a capability of their own.

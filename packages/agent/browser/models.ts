@@ -20,7 +20,7 @@ export function createStreamFn( ai: AiConnection ): StreamFn {
 		stream( model, context, {
 			...options,
 			apiKey: ai.apiKey,
-			// Google's SDK uses the browser's fetch directly and rejects a custom one.
+			// Google's SDK refuses a custom fetch, and sends no telemetry headers.
 			fetch: model.api === 'google-generative-ai' ? undefined : corsSafeFetch,
 		} );
 }

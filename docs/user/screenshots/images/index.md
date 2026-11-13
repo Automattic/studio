@@ -46,7 +46,7 @@ Shots with annotations also have a `<name>-annotated.webp`.
 | `annotate-note.webp` | signed-in | Annotate: two saved notes on the page, and a third open on the hero photo, being typed | `studio-code/index.md` | — |
 | `annotate-staged.webp` | signed-in | Annotate: two saved notes marked on the page and waiting in the chat box as "2 annotations" | `studio-code/index.md` | — |
 | `share-create-preview.webp` | signed-in | Share and publish → Share, with Create preview | — | `2025/01/studio-site-new-preview-1.png` |
-| `publish-panel.webp` | signed-in | Share and publish → Publish: Existing site… and New site… | — | — |
+| `publish-panel.webp` | signed-in | Share and publish → Publish: where to publish, WordPress.com or Spacefast | — | — |
 | `publish-choose-site.webp` | signed-in | Publish → Choose an existing site, listing the account’s WordPress.com and Pressable sites | `sync.md` | `2025/01/studio-connect-live-site.png` |
 | `model-menu.webp` | signed-in | Chat box model menu: Fast, Balanced and Strong, with the AI credits remaining | `studio-code/choosing-an-ai-model-tier-in-studio-code.md` | — |
 | `add-ai-credits.webp` | signed-in | Add AI credits: the four one-time credit amounts | `studio-code/ai-credits-guidelines.md` | — |
@@ -57,7 +57,7 @@ Shots with annotations also have a `<name>-annotated.webp`.
 | `send-feedback.webp` | signed-in | Send feedback dialog, opened from the account menu → Support: Topic, Area, Message, Cancel and Send | `feedback/index.md` | — |
 | `share-previews.webp` | signed-in-previews | Share tab with previews: the previews list with expiry dates and Create another preview | `preview-sites.md` | `2025/01/studio-new-site-preview-link.png` |
 | `share-preview-actions.webp` | signed-in-previews | Share tab → a preview’s Preview actions menu (Update, Copy link, Visit preview, Rename, Delete preview) | `preview-sites.md` | `2025/01/studio-preview-more-actions.png` |
-| `publish-switcher.webp` | signed-in-connected | Publish details → the website switcher, listing two connected websites and Connect another site… | `sync.md` | — |
+| `publish-sites.webp` | signed-in-connected | Publish → Published to: the two connected websites, and Publish to another site… | `sync.md` | — |
 | `pull-choose-files.webp` | signed-in-connected | Publish details → Pull changes → What to pull, with Choose files… and a few items selected | — | `2025/01/studio-pull-selective.png` |
 | `publish-choose-files.webp` | signed-in-connected | Publish details → Publish changes → What to publish, with Choose files… and a few items selected | `sync.md` | `2025/01/studio-selective-push.png` |
 | `design-looks.webp` | signed-in-agent | A new blank site's first chat asking for a slow-fashion journal called Moire, and Studio Code's pick of four looks (design-looks/), Moire's own among them | `studio-code/index.md` | — |

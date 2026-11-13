@@ -33,6 +33,7 @@ import {
 } from '@studio/agent/protocol/chat-images';
 import { expandSkillCommandPrompt } from '@studio/agent/protocol/slash-commands';
 import { validateStudioVisualAnnotations } from '@studio/agent/protocol/visual-annotations';
+import { openBlueprint } from '@studio/blueprints/node';
 import { DEBUG_LOG_RELATIVE_PATH } from '@studio/common/constants';
 import { isAgentAppId } from '@studio/common/lib/agent-apps';
 import {
@@ -59,7 +60,6 @@ import {
 	getAuthFailureReason,
 	getAuthTracksProps,
 } from '@studio/common/lib/auth-tracks';
-import { downloadAndExtractBlueprintBundle } from '@studio/common/lib/blueprint-bundle';
 import {
 	cliAuthEventSchema,
 	cliSiteEventSchema,
@@ -73,12 +73,6 @@ import {
 	detectAgentApps,
 	refreshAgentPlugins,
 } from '@studio/common/lib/connect-agent-app';
-import {
-	addConnectedWpcomSite,
-	getAllConnectedWpcomSitesForCurrentUser,
-	getConnectedWpcomSitesForLocalSite,
-	removeConnectedWpcomSite,
-} from '@studio/common/lib/connected-sites';
 import { getErrorMessage } from '@studio/common/lib/error-formatting';
 import { sendStudioFeedback, STUDIO_FEEDBACK_TYPES } from '@studio/common/lib/feedback';
 import {
@@ -95,11 +89,17 @@ import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { isMultisite } from '@studio/common/lib/is-multisite';
 import { isSupportedLocale } from '@studio/common/lib/locale';
 import { decodePassword } from '@studio/common/lib/passwords';
+import { startProviderConnect } from '@studio/common/lib/provider-connect';
 import {
 	getInstructionsLengthBucket,
 	isTracksEventName,
 	TRACKS_EVENTS,
 } from '@studio/common/lib/record-tracks-event';
+import {
+	forgetRemoteSite,
+	getRemoteSites,
+	rememberRemoteSite,
+} from '@studio/common/lib/remote-sites';
 import {
 	ROOT_CA_CERT_PATH,
 	hasUntrustedRootCA,
@@ -120,9 +120,7 @@ import { resolveSiteTracksEventProps } from '@studio/common/lib/site-tracks';
 import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
 import { requestStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
-import { fetchStudioBlueprints } from '@studio/common/lib/studio-blueprints-api';
 import { getLocalFileSize, listLocalFileTree } from '@studio/common/lib/sync/local-file-tree';
-import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
 import { getAiTracksIdentity } from '@studio/common/lib/tracks-identity';
 import { getStudioUserAgent } from '@studio/common/lib/user-agent';
 import { getFirstInstalledEditor } from '@studio/common/lib/user-settings/editor';
@@ -145,10 +143,6 @@ import {
 	writeOnboardingHints,
 	writeUserPreferences,
 } from '@studio/common/lib/user-settings/user-preferences';
-import {
-	cleanupBlueprintTempDir,
-	extractBlueprintUpload,
-} from '@studio/common/sites/blueprint-extract';
 import { readBlueprintSource } from '@studio/common/sites/blueprint-source';
 import { buildSiteCreateArgs, type SiteCreateOptions } from '@studio/common/sites/create';
 import { buildSiteSetArgs, getSiteEditOptions } from '@studio/common/sites/edit';
@@ -161,6 +155,12 @@ import {
 	type SiteMetadata,
 } from '@studio/common/sites/metadata';
 import { nodeSiteFiles } from '@studio/common/sites/node-site-files';
+import {
+	createRemoteSite,
+	getRemoteBackupId,
+	listAccountSites,
+	listRemoteBackupFiles,
+} from '@studio/common/sites/remote-sites';
 import { designFixesSchema, fixSiteDesign, readSiteDesign } from '@studio/common/sites/site-design';
 import {
 	ensureSiteEmailDirectory,
@@ -180,14 +180,17 @@ import {
 } from '@studio/common/sites/snapshots';
 import { createSyncRunner } from '@studio/common/sites/sync';
 import {
-	getAiModel,
-	getRedirectUrl,
-	InvalidCredentialError,
-	isAiModelId,
+	AI_PROVIDER_IDS,
+	ConnectError,
+	findAiModel,
+	getProvider,
 	normalizeProviderId,
+	SITES_PROVIDER_IDS,
 	toStoredProviderId,
+	type SitesProviderId,
 } from '@studio/providers';
-import { getProvider } from '@studio/providers/services';
+import { getProviderServices } from '@studio/providers/services';
+import { getSignInUrl } from '@studio/providers/wpcom';
 import express from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
@@ -212,10 +215,10 @@ import type {
 } from '@studio/common/lib/record-tracks-event';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
 import type { UserPreferencesContext } from '@studio/common/lib/user-settings/user-preferences';
-import type { PullSyncOptions, PushSyncOptions, SyncSite } from '@studio/common/types/sync';
+import type { PullSyncOptions, PushSyncOptions } from '@studio/common/types/sync';
 import type { Request, Response } from 'express';
 
-const wpcomSites = getProvider( 'wpcom' ).sites!;
+const wpcomSites = getProviderServices( 'wpcom' ).sites!;
 
 /**
  * The local Studio web server: the browser analog of the desktop app, exposed
@@ -644,7 +647,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		trackEvent( TRACKS_EVENTS.WPCOM_AUTH_STARTED, getAuthTracksProps( attempt ) );
 		res.json( {
 			url: redirectUri
-				? getRedirectUrl( 'wpcom', {
+				? getSignInUrl( {
 						redirectUri,
 						locale: 'en',
 						state: attempt.auth_attempt_id,
@@ -677,7 +680,10 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			const token = typeof req.body?.token === 'string' ? req.body.token : '';
 			const error = typeof req.body?.error === 'string' ? req.body.error : '';
 			try {
-				await connectProvider( getProvider( 'wpcom' ), { access_token: token, error } );
+				await connectProvider( getProviderServices( 'wpcom' ), 'sign-in', {
+					access_token: token,
+					error,
+				} );
 			} catch ( failure ) {
 				trackEvent( TRACKS_EVENTS.WPCOM_AUTH, {
 					...props,
@@ -685,7 +691,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					failure_reason: getAuthFailureReason( failure ),
 				} );
 				res
-					.status( failure instanceof InvalidCredentialError ? 400 : 500 )
+					.status( failure instanceof ConnectError ? 400 : 500 )
 					.json( { error: 'Authentication failed' } );
 				return;
 			}
@@ -700,7 +706,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/auth/logout',
 		asyncHandler( async ( _req: Request, res: Response ) => {
-			await disconnectProvider( getProvider( 'wpcom' ) );
+			await disconnectProvider( getProviderServices( 'wpcom' ) );
 			res.status( 204 ).end();
 		} )
 	);
@@ -792,19 +798,42 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/ai-settings/providers/:provider',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readProviderParam( req, res );
-			const input = req.body?.input;
+			const { method, input } = req.body ?? {};
 			if ( ! provider ) {
 				return;
 			}
 			if (
+				typeof method !== 'string' ||
 				! input ||
 				typeof input !== 'object' ||
 				! Object.values( input ).every( ( value ) => typeof value === 'string' )
 			) {
-				res.status( 400 ).json( { error: 'input must be an object of strings' } );
+				res
+					.status( 400 )
+					.json( { error: 'method must be a string, and input an object of strings' } );
 				return;
 			}
-			await changeAiSettings( res, () => connectProvider( getProvider( provider ), input ) );
+			await changeAiSettings( res, () =>
+				connectProvider( getProviderServices( provider ), method, input )
+			);
+		} )
+	);
+
+	// Starts signing in on the provider's site; `PUT` above then takes its handoff back and answers
+	// once the user signed in.
+	api.post(
+		'/ai-settings/providers/:provider/start',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readProviderParam( req, res );
+			const method = req.body?.method;
+			if ( ! provider ) {
+				return;
+			}
+			if ( typeof method !== 'string' || ! getProviderServices( provider ).account.start ) {
+				res.status( 400 ).json( { error: `${ provider } does not sign in on its site` } );
+				return;
+			}
+			res.json( await startProviderConnect( getProviderServices( provider ), method ) );
 		} )
 	);
 
@@ -813,7 +842,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readProviderParam( req, res );
 			if ( provider ) {
-				await changeAiSettings( res, () => disconnectProvider( getProvider( provider ) ) );
+				await changeAiSettings( res, () => disconnectProvider( getProviderServices( provider ) ) );
 			}
 		} )
 	);
@@ -824,7 +853,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider =
 				typeof req.body?.provider === 'string'
-					? normalizeProviderId( req.body.provider )
+					? normalizeProviderId( req.body.provider, AI_PROVIDER_IDS )
 					: undefined;
 			if ( ! provider ) {
 				res.status( 400 ).json( { error: 'provider must be a known AI provider id' } );
@@ -1228,16 +1257,8 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 				adminEmail?: string;
 				skipStart?: boolean;
 				flowType?: TracksSiteCreateFlowType;
-				// Optional Blueprint to apply on creation: `blueprint` is the parsed
-				// blueprint JSON; `filePath` (set for uploaded ZIP bundles) lets the
-				// CLI resolve relative assets. `bundleUrl` names a bundle from Studio's
-				// blueprint catalog, which the server downloads so relative paths resolve.
-				blueprint?: {
-					blueprint?: SiteCreateOptions[ 'blueprint' ];
-					slug?: string;
-					filePath?: string;
-					bundleUrl?: string;
-				};
+				// A Library slug, an uploaded file or a picked path, or a Blueprint itself.
+				blueprint?: SiteCreateOptions[ 'blueprint' ];
 			};
 			if ( ! body.name || ! body.path ) {
 				res.status( 400 ).json( { error: 'name and path are required' } );
@@ -1248,25 +1269,14 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 			// Blueprints (and --wp dev→nightly, etc.) are handled identically.
 			let cleanupCreateArgs: () => void = () => undefined;
 			let created: SiteListItem;
-			// If the blueprint has a bundle_url (API blueprints with bundled resources
-			// like theme zips), download and extract the bundle so the CLI can resolve
-			// relative paths. Mirrors the desktop app's ipc-handlers.ts logic.
-			let bundleTempDir: string | undefined;
-			let blueprintFilePath = body.blueprint?.filePath;
-			if ( body.blueprint?.bundleUrl && ! blueprintFilePath ) {
-				// Download the catalog's copy of the URL, so this server only fetches
-				// bundles Studio publishes, whatever a caller sends.
-				const requestedUrl = body.blueprint.bundleUrl;
-				const catalogUrl = ( await fetchStudioBlueprints() ).find(
-					( item ) => item.bundle_url === requestedUrl
-				)?.bundle_url;
-				if ( ! catalogUrl ) {
-					res.status( 400 ).json( { error: 'Unknown blueprint bundle' } );
-					return;
-				}
-				const result = await downloadAndExtractBlueprintBundle( catalogUrl );
-				bundleTempDir = result.tempDir;
-				blueprintFilePath = result.blueprintJsonPath;
+			// Remote Blueprints only come from Studio's Library, by slug.
+			if ( typeof body.blueprint === 'string' && /^https?:/i.test( body.blueprint ) ) {
+				res.status( 400 ).json( { error: 'Unsupported Blueprint source' } );
+				return;
+			}
+			const upload = typeof body.blueprint === 'string' ? uploads.get( body.blueprint ) : undefined;
+			if ( upload ) {
+				uploads.delete( upload.path );
 			}
 			try {
 				const { args, cleanup } = buildSiteCreateArgs( {
@@ -1283,25 +1293,18 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 					adminEmail: body.adminEmail,
 					noStart: body.skipStart,
 					flowType: body.flowType,
-					blueprint: body.blueprint?.blueprint,
-					originalBlueprintPath: blueprintFilePath,
+					blueprint: body.blueprint,
 				} );
 				cleanupCreateArgs = cleanup;
 				created = await runCliCommand( execute, args, siteListItemSchema );
-				// An uploaded bundle is kept on failure, so the user can retry without uploading it again.
-				if ( body.blueprint?.filePath ) {
-					await cleanupBlueprintTempDir( path.dirname( body.blueprint.filePath ) ).catch(
-						() => undefined
-					);
-				}
 			} catch ( error ) {
 				throw error instanceof CliCommandError && error.lastErrorMessage
 					? new Error( error.lastErrorMessage )
 					: error;
 			} finally {
 				cleanupCreateArgs();
-				if ( bundleTempDir ) {
-					await cleanupBlueprintTempDir( bundleTempDir ).catch( () => undefined );
+				if ( upload ) {
+					rm( upload.directory, { recursive: true, force: true }, () => undefined );
 				}
 			}
 
@@ -1482,21 +1485,22 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
+	// Reads an uploaded Blueprint file for the add-site preview, then removes the upload.
 	api.post(
-		'/blueprints/extract',
+		'/blueprints/read',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			res.json( await extractBlueprintUpload( req ) );
-		} )
-	);
-
-	api.post(
-		'/blueprints/cleanup',
-		asyncHandler( async ( req: Request, res: Response ) => {
-			const tempDir = req.body?.tempDir;
-			if ( typeof tempDir === 'string' && tempDir ) {
-				await cleanupBlueprintTempDir( tempDir );
+			const upload = uploads.get( req.body?.path );
+			if ( ! upload ) {
+				res.status( 400 ).json( { error: 'Unknown Blueprint upload' } );
+				return;
 			}
-			res.status( 204 ).end();
+			uploads.delete( upload.path );
+			try {
+				await using opened = await openBlueprint( upload.path );
+				res.json( opened.blueprint );
+			} finally {
+				rm( upload.directory, { recursive: true, force: true }, () => undefined );
+			}
 		} )
 	);
 
@@ -1882,53 +1886,79 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// --- WordPress.com sync: connected + syncable sites -----------------------
+	// --- Remote sites: connections to sites on a provider ---------------------
 	// All backed by the same @studio/common code the desktop uses. Reads the
-	// shared auth token (the user logs in via `studio auth login`).
-	api.get(
-		'/wpcom/syncable-sites',
-		asyncHandler( async ( _req: Request, res: Response ) => {
-			const token = await readAuthToken();
-			if ( ! token?.accessToken ) {
-				res.json( [] );
-				return;
-			}
-			res.json(
-				await wpcomSites.list(
-					{ token: token.accessToken },
-					{ planRequired: ! isReprintPullEnabled() }
-				)
-			);
-		} )
-	);
+	// providers' configs from shared.json (WordPress.com: `studio auth login`).
+	// WordPress.com site ids are numbers; other providers' are strings.
+	function remoteSiteIdParam( provider: SitesProviderId, req: Request ): never {
+		const { remoteSiteId } = req.params;
+		return ( provider === 'wpcom' ? Number( remoteSiteId ) : remoteSiteId ) as never;
+	}
+
+	function readSitesProvider( req: Request, res: Response ): SitesProviderId | undefined {
+		const provider = normalizeProviderId( req.params.provider, SITES_PROVIDER_IDS );
+		if ( ! provider ) {
+			res.status( 400 ).json( { error: 'provider must be a provider with sites' } );
+		}
+		return provider;
+	}
 
 	api.get(
-		'/wpcom/connected-sites',
-		asyncHandler( async ( _req: Request, res: Response ) => {
-			res.json( await getAllConnectedWpcomSitesForCurrentUser() );
-		} )
-	);
-
-	api.get(
-		'/sites/:id/connected-sites',
+		'/remote-sites/:provider',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			res.json( await getConnectedWpcomSitesForLocalSite( req.params.id ) );
+			const provider = readSitesProvider( req, res );
+			if ( provider ) {
+				const { localSiteId } = req.query as { localSiteId?: string };
+				res.json( await getRemoteSites( provider, localSiteId ) );
+			}
+		} )
+	);
+
+	api.get(
+		'/remote-sites/:provider/account',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readSitesProvider( req, res );
+			if ( provider ) {
+				res.json( await listAccountSites( getProviderServices( provider ) ) );
+			}
 		} )
 	);
 
 	api.post(
-		'/sites/:id/connected-sites',
+		'/sites/:id/remote-sites/:provider',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const site = req.body as SyncSite;
-			res.json( await addConnectedWpcomSite( req.params.id, site ) );
+			const provider = readSitesProvider( req, res );
+			if ( provider ) {
+				await rememberRemoteSite( provider, req.params.id, req.body as never );
+				res.sendStatus( 204 );
+			}
+		} )
+	);
+
+	api.post(
+		'/sites/:id/remote-sites/:provider/new',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readSitesProvider( req, res );
+			const { name } = req.body as { name?: string };
+			if ( ! provider ) {
+				return;
+			}
+			if ( ! name ) {
+				res.status( 400 ).json( { error: 'name is required' } );
+				return;
+			}
+			res.json( await createRemoteSite( getProviderServices( provider ), req.params.id, name ) );
 		} )
 	);
 
 	api.delete(
-		'/sites/:id/connected-sites/:remoteSiteId',
+		'/sites/:id/remote-sites/:provider/:remoteSiteId',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			await removeConnectedWpcomSite( req.params.id, Number( req.params.remoteSiteId ) );
-			res.sendStatus( 204 );
+			const provider = readSitesProvider( req, res );
+			if ( provider ) {
+				await forgetRemoteSite( provider, req.params.id, remoteSiteIdParam( provider, req ) );
+				res.sendStatus( 204 );
+			}
 		} )
 	);
 
@@ -1954,14 +1984,18 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/preview',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const { hostname, name } = req.body as { hostname?: string; name?: string };
+			const { hostname, name, liveSite } = req.body as {
+				hostname?: string;
+				name?: string;
+				liveSite?: string;
+			};
 			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
 			if ( ! site ) {
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
 			// A hostname means "refresh this existing preview"; otherwise create one.
-			res.json( await publishPreviewSite( execute, site.path, hostname, name ) );
+			res.json( await publishPreviewSite( execute, site.path, hostname, name, liveSite ) );
 		} )
 	);
 
@@ -2001,26 +2035,31 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// --- Sync: pull from a connected WordPress.com live site ------------------
-	api.post(
-		'/sites/:id/pull',
-		asyncHandler( async ( req: Request, res: Response ) => {
-			const { remoteSiteId, options } = req.body as {
-				remoteSiteId?: number;
-				options?: PullSyncOptions;
-			};
-			if ( ! remoteSiteId ) {
-				res.status( 400 ).json( { error: 'remoteSiteId is required' } );
+	// --- Sync: push to and pull from a connected remote site -----------------
+	// Long-running; progress streams on the SSE `sync-activity` channel, and the
+	// response comes once the sync has finished.
+	function syncRoute( direction: 'push' | 'pull' ) {
+		return asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readSitesProvider( req, res );
+			if ( ! provider ) {
 				return;
 			}
+			const { options } = req.body as { options?: PushSyncOptions & PullSyncOptions };
 			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
 			if ( ! site ) {
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
-			res.json( await syncRunner.pull( req.params.id, site.path, remoteSiteId, options ) );
-		} )
-	);
+			const remote = { provider, id: remoteSiteIdParam( provider, req ) as string | number };
+			res.json(
+				await ( direction === 'push'
+					? syncRunner.push( req.params.id, site.path, remote, options )
+					: syncRunner.pull( req.params.id, site.path, remote, options ) )
+			);
+		} );
+	}
+	api.post( '/sites/:id/remote-sites/:provider/:remoteSiteId/push', syncRoute( 'push' ) );
+	api.post( '/sites/:id/remote-sites/:provider/:remoteSiteId/pull', syncRoute( 'pull' ) );
 
 	// Stop an in-flight push or pull. No-op when nothing is running for the site,
 	// and the operation itself refuses to stop once it has moved past its point
@@ -2028,7 +2067,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/sync/cancel',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const { remoteSiteId } = req.body as { remoteSiteId?: number };
+			const { remoteSiteId } = req.body as { remoteSiteId?: string | number };
 			if ( ! remoteSiteId ) {
 				res.status( 400 ).json( { error: 'remoteSiteId is required' } );
 				return;
@@ -2038,90 +2077,46 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		} )
 	);
 
-	// Selective-sync lookups for the agentic UI's sync dialog: the latest
-	// backup (rewind) id, the remote backup file tree under it, and the live
-	// site's hosting PHP version.
+	// Selective-pull lookups for the sync dialog: the remote site's latest
+	// backup, and the files in it.
 	api.get(
-		'/wpcom/sites/:remoteSiteId/latest-rewind-id',
+		'/remote-sites/:provider/:remoteSiteId/backup',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const token = await readAuthToken();
-			if ( ! token?.accessToken ) {
-				res.status( 401 ).json( { error: 'Authentication required.' } );
-				return;
+			const provider = readSitesProvider( req, res );
+			if ( provider ) {
+				// No backup yet (or lookup failure) rejects and surfaces as a 500 via
+				// the error middleware — the dialog needs the error state to disable
+				// per-item selection and force a full sync.
+				res.json(
+					await getRemoteBackupId(
+						getProviderServices( provider ),
+						remoteSiteIdParam( provider, req )
+					)
+				);
 			}
-			// No backup yet (or lookup failure) rejects and surfaces as a 500 via
-			// the error middleware — the dialog needs the error state to disable
-			// per-item selection and force a full sync.
-			res.json(
-				await wpcomSites.pull!.latestBackupId(
-					{ token: token.accessToken },
-					{ id: Number( req.params.remoteSiteId ) }
-				)
-			);
 		} )
 	);
 
 	api.get(
-		'/wpcom/sites/:remoteSiteId/remote-file-tree',
+		'/remote-sites/:provider/:remoteSiteId/backup-files',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const token = await readAuthToken();
-			if ( ! token?.accessToken ) {
-				res.status( 401 ).json( { error: 'Authentication required.' } );
+			const provider = readSitesProvider( req, res );
+			const { backupId, path: treePath } = req.query as { backupId?: string; path?: string };
+			if ( ! provider ) {
 				return;
 			}
-			const { rewindId, path: treePath } = req.query as { rewindId?: string; path?: string };
-			if ( ! rewindId || ! treePath ) {
-				res.status( 400 ).json( { error: 'rewindId and path are required' } );
+			if ( ! backupId || ! treePath ) {
+				res.status( 400 ).json( { error: 'backupId and path are required' } );
 				return;
 			}
 			res.json(
-				await wpcomSites.pull!.listBackupFiles(
-					{ token: token.accessToken },
-					{ id: Number( req.params.remoteSiteId ) },
-					rewindId,
+				await listRemoteBackupFiles(
+					getProviderServices( provider ),
+					remoteSiteIdParam( provider, req ),
+					backupId,
 					treePath
 				)
 			);
-		} )
-	);
-
-	api.get(
-		'/wpcom/sites/:remoteSiteId/hosting-php-version',
-		asyncHandler( async ( req: Request, res: Response ) => {
-			const token = await readAuthToken();
-			if ( ! token?.accessToken ) {
-				res.status( 401 ).json( { error: 'Authentication required.' } );
-				return;
-			}
-			res.json(
-				( await wpcomSites.pull!.phpVersion(
-					{ token: token.accessToken },
-					{ id: Number( req.params.remoteSiteId ) }
-				) ) ?? null
-			);
-		} )
-	);
-
-	// Push the local site to its connected WordPress.com live site. Long-running
-	// (export → upload → import); progress streams on the SSE `sync-activity`
-	// channel. Responds once the remote import has finished.
-	api.post(
-		'/sites/:id/push',
-		asyncHandler( async ( req: Request, res: Response ) => {
-			const { remoteSiteId, options } = req.body as {
-				remoteSiteId?: number;
-				options?: PushSyncOptions;
-			};
-			if ( ! remoteSiteId ) {
-				res.status( 400 ).json( { error: 'remoteSiteId is required' } );
-				return;
-			}
-			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
-			if ( ! site ) {
-				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
-				return;
-			}
-			res.json( await syncRunner.push( req.params.id, site.path, remoteSiteId, options ) );
 		} )
 	);
 
@@ -2214,7 +2209,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/sessions/:id/model',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const { model } = req.body as { model?: string };
-			if ( ! model || ! isAiModelId( model ) ) {
+			if ( ! model || ! findAiModel( model ) ) {
 				res.status( 400 ).json( { error: `Unknown AI model: ${ model }` } );
 				return;
 			}
@@ -2227,12 +2222,12 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/sessions/:id/provider',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const { provider: requested, model } = req.body as { provider?: string; model?: string };
-			const provider = requested ? normalizeProviderId( requested ) : undefined;
+			const provider = requested ? normalizeProviderId( requested, AI_PROVIDER_IDS ) : undefined;
 			if ( ! provider ) {
 				res.status( 400 ).json( { error: `Unknown AI provider: ${ requested }` } );
 				return;
 			}
-			if ( ! model || ! getAiModel( provider, model ) ) {
+			if ( ! model || ! getProvider( provider ).ai?.models.some( ( { id } ) => id === model ) ) {
 				res.status( 400 ).json( { error: `Model ${ model } is not served by ${ provider }` } );
 				return;
 			}
@@ -2460,7 +2455,7 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	}
 
 	app.use( ( err: unknown, _req: Request, res: Response, _next: ( e?: unknown ) => void ) => {
-		if ( err instanceof InvalidCredentialError ) {
+		if ( err instanceof ConnectError ) {
 			res.status( 400 ).json( { error: err.message } );
 			return;
 		}

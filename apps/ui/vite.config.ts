@@ -6,7 +6,7 @@ import { sentryVitePlugin } from '@sentry/vite-plugin';
 import react from '@vitejs/plugin-react';
 import { defineConfig, type Connect, type Plugin, type ServerOptions } from 'vite';
 import { GET as wpcomBackup } from '../static/functions/wpcom-backup/[site]/[download]/data';
-import { getSentryReleaseInfo } from '../studio/src/lib/sentry-release';
+import { getSentryReleaseInfo } from '../../packages/common/lib/sentry-release';
 import type { ReadableStream as NodeReadableStream } from 'stream/web';
 
 const __dirname = import.meta.dirname;
@@ -126,12 +126,13 @@ const TARGETS: Partial<
 };
 const target = TARGETS[ process.env.STUDIO_TARGET ?? '' ];
 
-// The Electron renderer reports errors through the desktop app's Sentry
-// client, so release builds upload its source maps under the app's release.
+// Release builds upload source maps under the app's release. The Electron renderer reports through
+// the desktop app's Sentry client; the browser builds (`studio ui`, the web) report on their own,
+// and don't serve their maps.
 const { sentryRelease, isDevEnvironment } = getSentryReleaseInfo(
 	createRequire( import.meta.url )( '../studio/package.json' ).version
 );
-const uploadSourceMaps = ! target && ! isDevEnvironment && !! process.env.SENTRY_AUTH_TOKEN;
+const uploadSourceMaps = ! isDevEnvironment && !! process.env.SENTRY_AUTH_TOKEN;
 
 // The page the dev server serves for document navigations: the browser app, or
 // the playground homepage (`STUDIO_TARGET=playground`, see src/dev/README.md).
@@ -150,14 +151,21 @@ export default defineConfig( {
 				org: 'a8c',
 				project: 'studio',
 				release: { name: sentryRelease },
+				sourcemaps: target
+					? { filesToDeleteAfterUpload: [ resolve( __dirname, target.outDir, '**/*.map' ) ] }
+					: undefined,
 			} ),
 	],
+	define: {
+		// The release the browser builds report under; the Electron renderer reports through the app.
+		__SENTRY_RELEASE__: JSON.stringify( target && ! isDevEnvironment ? sentryRelease : null ),
+	},
 	resolve: {
 		alias: {
 			'@': resolve( __dirname, 'src' ),
 			// `@wp-playground/blueprints` ships the schema validator as a sibling
 			// module that isn't listed in the package's `exports` map. Shared
-			// helpers in @studio/common (blueprint-validation.ts) import it via
+			// helpers in @studio/blueprints (validate.ts) import it via
 			// this subpath, so map it through explicitly — matches the apps/cli
 			// and apps/studio vite configs.
 			'@wp-playground/blueprints/blueprint-schema-validator': resolve(
@@ -176,7 +184,7 @@ export default defineConfig( {
 	},
 	build: {
 		outDir: target?.outDir ?? 'dist',
-		sourcemap: ! target,
+		sourcemap: ! target || ( uploadSourceMaps && 'hidden' ),
 		rolldownOptions: {
 			input: [ target?.entry ?? 'index.html', ...( target?.pages ?? [] ) ].map( ( page ) =>
 				resolve( __dirname, page )

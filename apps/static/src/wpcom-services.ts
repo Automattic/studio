@@ -3,8 +3,8 @@ import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
-import { withWpcomDetails } from '@studio/providers';
-import { getProvider } from '@studio/providers/services';
+import { getProviderServices } from '@studio/providers/services';
+import { withWpcomDetails } from '@studio/providers/wpcom';
 import { __ } from '@wordpress/i18n';
 import { downloadBackup } from './backup-download';
 import { buildPushArchive, exportSiteZip, importBackup } from './site-data';
@@ -31,7 +31,7 @@ const PREVIEW_STATUS_ACTIVE = '2';
 const PREVIEW_MAX_POLLS = 100;
 const PREVIEW_POLL_INTERVAL_MS = 3000;
 
-const wpcomSites = getProvider( 'wpcom' ).sites!;
+const wpcomSites = getProviderServices( 'wpcom' ).sites!;
 const PUBLISH_WATCH_ATTEMPTS = 60;
 const PUBLISH_WATCH_INTERVAL_MS = 5_000;
 
@@ -413,6 +413,7 @@ export class WpcomServices {
 				{ token: await this.auth.requireToken() },
 				{ id: remoteSiteId, name: remoteSite?.name ?? String( remoteSiteId ) },
 				{
+					kind: 'archive',
 					file: new Blob( [ archive as BlobPart ], { type: 'application/gzip' } ),
 					name: `push-${ siteId }-${ Date.now() }.tar.gz`,
 					size: archive.byteLength,
@@ -494,13 +495,6 @@ export class WpcomServices {
 			{ id: remoteSiteId },
 			rewindId,
 			path
-		);
-	}
-
-	async getHostingPhpVersion( remoteSiteId: number ): Promise< string | undefined > {
-		return wpcomSites.pull!.phpVersion(
-			{ token: await this.auth.requireToken() },
-			{ id: remoteSiteId }
 		);
 	}
 }

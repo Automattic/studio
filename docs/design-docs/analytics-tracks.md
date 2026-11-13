@@ -259,7 +259,7 @@ changes. Like `surface`, the renderer supplies it (Main can't infer it) and it i
 initiating call. `account_type` (`new`/`existing`) and `authenticated` (boolean) are Studio-custom props
 introduced with those events; register them alongside the events.
 
-`sync_type` (`pressable`/`wpcom`/`unknown`) and `num_of_sites` (an integer count of the live sites
+`sync_type` (the provider, such as `wpcom` or `spacefast`, or `pressable`/`unknown`) and `num_of_sites` (an integer count of the live sites
 connected to one local site) are Studio-custom props introduced with the sync events; register them
 alongside those events. `success`, `time_ms`, and `failure_reason` follow the conventions already
 established by the import/export and preview-site events — a coarse, low-cardinality bucket enum for
@@ -498,8 +498,9 @@ No site names, URLs, paths, or raw error text are ever sent — `failure_reason`
 | `studio_sync_create_site`  | Classic Create-site button + agentic UI onboarding connect                                           | (none — opens WordPress.com checkout)                                                                                                                                    |
 | `studio_sync_publish_site` | Classic Publish-site button + agentic UI publish picker                                              | (none — opens WordPress.com checkout)                                                                                                                                    |
 
-`sync_type` is the kind of live site the sync exchanged data with: `pressable`, `wpcom`, or `unknown`
-(the connected site wasn't available at emit time — a deep-link connection whose site lookup missed
+`sync_type` is the kind of live site the sync exchanged data with: the provider it is on (`wpcom`,
+`spacefast`, and any provider added later), `pressable` for a WordPress.com site Pressable hosts, or
+`unknown` (the connected site wasn't available at emit time — a deep-link connection whose site lookup missed
 never learns the hosting kind, and reporting the placeholder's hardcoded value would invent data).
 
 `failure_reason` names the step that broke: `size_limit`, `sql_import`, `timeout`, `remote_backup`,

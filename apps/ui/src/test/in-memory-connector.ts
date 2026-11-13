@@ -2,7 +2,14 @@ import { AGENT_APP_IDS } from '@studio/common/lib/agent-apps';
 import { SITE_EVENTS } from '@studio/common/lib/cli-events';
 import { SUPPORTED_EDITORS } from '@studio/common/lib/user-settings/editor';
 import { SUPPORTED_TERMINALS } from '@studio/common/lib/user-settings/terminal';
-import { PROVIDER_IDS, type ProviderId } from '@studio/providers';
+import {
+	AI_PROVIDER_IDS,
+	getConnectMethod,
+	normalizeProviderId,
+	PROVIDER_IDS,
+	type AiProviderId,
+	type ProviderId,
+} from '@studio/providers';
 import type {
 	AgentAppId,
 	AiSessionSummary,
@@ -84,7 +91,7 @@ let nextId = 1;
 
 // AI settings with `provider` selected and the `connected` providers' accounts connected.
 export function aiSettings(
-	provider: ProviderId = 'wpcom',
+	provider: AiProviderId = 'wpcom',
 	connected: readonly ProviderId[] = []
 ): AiSettings {
 	return {
@@ -92,10 +99,9 @@ export function aiSettings(
 		accounts: Object.fromEntries(
 			PROVIDER_IDS.map( ( id ) => [
 				id,
-				{
-					connected: connected.includes( id ),
-					summary: connected.includes( id ) ? 'sk-ant-…test' : null,
-				},
+				connected.includes( id )
+					? { connected: true, summary: 'sk-ant-…test', method: getConnectMethod( id ).id }
+					: { connected: false },
 			] )
 		) as AiSettings[ 'accounts' ],
 	};
@@ -252,11 +258,9 @@ export function createInMemoryConnector(
 			mimeType: 'image/png',
 			data: new ArrayBuffer( 0 ),
 		} ),
-		extractBlueprintBundle: async () => {
+		readBlueprint: async () => {
 			throw new Error( 'Not implemented in the fake connector' );
 		},
-		cleanupBlueprintTempDir: async () => {},
-		readBlueprintFile: async () => ( {} ),
 		importSiteFromBackup: async () => {},
 		getSnapshots: async () => [],
 		getSnapshotUsage: async () => null,
@@ -272,17 +276,19 @@ export function createInMemoryConnector(
 			localChanged: null,
 			previewChanged: null,
 		} ),
-		getConnectedWpcomSites: async () => [],
-		fetchSyncableWpcomSites: async () => [],
-		connectWpcomSite: async () => {},
-		disconnectWpcomSite: async () => {},
-		pushSiteToLive: async () => {},
-		pullSiteFromLive: async () => {},
+		getRemoteSites: async () => [],
+		listAccountSites: async () => [],
+		connectRemoteSite: async () => {},
+		disconnectRemoteSite: async () => {},
+		createRemoteSite: async () => {
+			throw new Error( 'createRemoteSite is not faked' );
+		},
+		pushSite: async () => {},
+		pullSite: async () => {},
 		onSyncActivity: subscribe( 'onSyncActivity' ),
 		cancelSync: async () => {},
-		getLatestRewindId: async () => null,
-		listRemoteFileTree: async () => ( {} ),
-		getHostingPhpVersion: async () => undefined,
+		getRemoteBackupId: async () => null,
+		listRemoteBackupFiles: async () => ( {} ),
 		listLocalFileTree: async () => [],
 		getDirectorySize: async () => 0,
 		getFileSize: async () => 0,
@@ -339,9 +345,16 @@ export function createInMemoryConnector(
 		},
 		// WordPress.com is connected while signed in.
 		getAiSettings: async () => aiSettings( 'wpcom', state.user ? [ 'wpcom' ] : [] ),
+		// Without WordPress.com, the provider connected becomes the default.
 		connectProvider: async ( provider ) =>
-			aiSettings( 'wpcom', state.user ? [ 'wpcom', provider ] : [ provider ] ),
+			state.user
+				? aiSettings( 'wpcom', [ 'wpcom', provider ] )
+				: aiSettings( normalizeProviderId( provider, AI_PROVIDER_IDS ) ?? 'wpcom', [ provider ] ),
 		disconnectProvider: async () => aiSettings( 'wpcom', state.user ? [ 'wpcom' ] : [] ),
+		startProviderConnect: async () => ( {
+			url: 'https://auth.example.test/sign-in',
+			handoff: { state: 'state-1' },
+		} ),
 		setAiProvider: async ( provider ) =>
 			aiSettings( provider, state.user ? [ 'wpcom', provider ] : [ provider ] ),
 		getInstalledApps: async () => installedApps(),
@@ -430,6 +443,7 @@ export function createInMemoryConnector(
 			annotatePreview: true,
 			studioLogs: true,
 			nativeSites: true,
+			loopbackSignIn: true,
 			...overrides.capabilities,
 		},
 		state,

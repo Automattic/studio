@@ -1,34 +1,28 @@
-import { getProviderDescriptor, PROVIDER_IDS } from './descriptors';
+import { AI_PROVIDER_IDS, getProvider } from './registry';
 import type { ANTHROPIC_AI_MODELS } from './anthropic/descriptor';
 import type { GEMINI_AI_MODELS } from './gemini/descriptor';
-import type { ProviderId, AiModel } from './types';
+import type { OPENAI_AI_MODELS } from './openai/descriptor';
+import type { AiModel, AiProviderId, ProviderId } from './types';
 import type { WPCOM_AI_MODELS } from './wpcom/descriptor';
 
 export type AiModelId = (
 	| typeof WPCOM_AI_MODELS
 	| typeof ANTHROPIC_AI_MODELS
+	| typeof OPENAI_AI_MODELS
 	| typeof GEMINI_AI_MODELS
 )[ number ][ 'id' ];
 
-export function getAiModels( provider: ProviderId ): readonly AiModel< AiModelId >[] {
-	return getProviderDescriptor( provider ).ai?.models ?? [];
-}
-
-export function getAiModel( provider: ProviderId, id: string ): AiModel< AiModelId > | undefined {
-	return getAiModels( provider ).find( ( model ) => model.id === id );
-}
-
-export function getAiModelProviders( id: string ): ProviderId[] {
-	return PROVIDER_IDS.filter( ( provider ) => getAiModel( provider, id ) );
-}
-
-export function isAiModelId( value: string ): value is AiModelId {
-	return getAiModelProviders( value ).length > 0;
-}
-
-export function getAiModelLabel( id: AiModelId ): string {
-	const [ provider ] = getAiModelProviders( id );
-	return getAiModel( provider, id )?.label() ?? id;
+// A model by its id, and the first provider that serves it.
+export function findAiModel(
+	id: string
+): { provider: AiProviderId; model: AiModel< AiModelId > } | undefined {
+	for ( const provider of AI_PROVIDER_IDS ) {
+		const model = getProvider( provider ).ai?.models.find( ( candidate ) => candidate.id === id );
+		if ( model ) {
+			return { provider, model };
+		}
+	}
+	return undefined;
 }
 
 // `paidDefaultModel` when the account has paid AI credits left; callers
@@ -37,7 +31,7 @@ export function getDefaultAiModel(
 	provider: ProviderId,
 	options?: { canUsePaidModels?: boolean }
 ): AiModelId {
-	const ai = getProviderDescriptor( provider ).ai;
+	const ai = getProvider( provider ).ai;
 	if ( ! ai ) {
 		throw new Error( `${ provider } offers no AI models` );
 	}

@@ -1,3 +1,4 @@
+import { getProvider } from '@studio/providers';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { Composer } from '@/features/composer';
@@ -5,7 +6,6 @@ import { aiSettings, createFakeConnector, type FakeConnector } from '@/test/fake
 import { renderWithProviders } from '@/test/render';
 import type { AiModelId } from '@/data/core';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
-import type { ProviderId } from '@studio/providers';
 
 const paidQuota: StudioAssistantQuota = {
 	costCap: 1000,
@@ -30,13 +30,14 @@ const allowanceQuota: StudioAssistantQuota = {
 };
 
 function connectorFor( {
-	providers = [ 'wpcom' ],
+	anthropic = false,
 	quota = async () => paidQuota,
-}: { providers?: ProviderId[]; quota?: () => Promise< StudioAssistantQuota | null > } = {} ) {
+}: { anthropic?: boolean; quota?: () => Promise< StudioAssistantQuota | null > } = {} ) {
 	return createFakeConnector(
 		{},
 		{
-			getAiSettings: async () => aiSettings( 'wpcom', providers ),
+			getAiSettings: async () =>
+				aiSettings( 'wpcom', anthropic ? [ 'wpcom', 'anthropic' ] : [ 'wpcom' ] ),
 			getStudioAssistantQuota: quota,
 			getStudioAssistantTopUpPricing: async () =>
 				( { options: [ { credits: 100000, display: '$10' } ] } ) as never,
@@ -66,29 +67,40 @@ describe( 'Chat model picker', () => {
 	it( 'opens with the current model selected for keyboard navigation', async () => {
 		const { trigger } = await renderPicker(
 			'claude-opus-5-5',
-			connectorFor( { providers: [ 'wpcom', 'anthropic' ] } )
+			connectorFor( { anthropic: true } )
 		);
 		fireEvent.click( trigger );
 		const current = await screen.findByRole( 'option', { name: /Opus 5.5/ } );
 		expect( current ).toHaveAttribute( 'aria-selected', 'true' );
-		expect( current ).toHaveTextContent( 'Claude · Plan complex builds and solve harder problems' );
+		expect( current ).toHaveTextContent(
+			'Anthropic · Plan complex builds and solve harder problems'
+		);
 	} );
 
-	it( 'shows the Gemini brand and description for each connected Gemini model', async () => {
-		const { trigger } = await renderPicker(
-			'fast',
-			connectorFor( { providers: [ 'wpcom', 'gemini' ] } )
+	it( 'offers to manage usage only when Anthropic connects with a Claude subscription', async () => {
+		const connectedWith = ( method: 'api-key' | 'setup-token' ) => {
+			const settings = aiSettings( 'anthropic', [ 'anthropic' ] );
+			settings.accounts.anthropic = {
+				connected: true,
+				...getProvider( 'anthropic' ).account.describe(
+					method === 'api-key'
+						? { method, apiKey: 'sk-ant-api03-test' }
+						: { method, token: 'sk-ant-oat01-test' }
+				),
+			};
+			return createFakeConnector( {}, { getAiSettings: async () => settings } );
+		};
+		const subscription = await renderPicker( 'claude-opus-5-5', connectedWith( 'setup-token' ) );
+		fireEvent.click( subscription.trigger );
+		expect( await screen.findByRole( 'option', { name: /Manage usage/ } ) ).toHaveTextContent(
+			'Using Claude plan'
 		);
-		fireEvent.click( trigger );
-		expect( await screen.findByRole( 'option', { name: /^Gemini 3\.8 Flash/ } ) ).toHaveTextContent(
-			'Gemini · Quick fixes and questions'
-		);
-		expect( screen.getByRole( 'option', { name: /^Gemini 4 Argon/ } ) ).toHaveTextContent(
-			'Gemini · Build features, style pages, and fix bugs'
-		);
-		expect( screen.getByRole( 'option', { name: /^Gemini 4 Carbon/ } ) ).toHaveTextContent(
-			'Gemini · Plan complex builds and solve harder problems'
-		);
+		subscription.unmount();
+
+		const apiKey = await renderPicker( 'claude-opus-5-5', connectedWith( 'api-key' ) );
+		fireEvent.click( apiKey.trigger );
+		await screen.findByRole( 'option', { name: /Opus 5.5/ } );
+		expect( screen.queryByRole( 'option', { name: /Manage usage/ } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'lists the tiers and closes after selection', async () => {

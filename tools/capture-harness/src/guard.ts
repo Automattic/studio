@@ -9,14 +9,15 @@ import type { ElectronApplication } from 'playwright';
  */
 const BLOCKED_SIGNED_IN_HANDLERS = [
 	'clearAuthenticationToken',
-	'connectWpcomSites',
+	'connectRemoteSite',
 	'continueAiSession',
+	'createRemoteSite',
 	'deleteAllSnapshots',
 	'deletePreviewSite',
-	'disconnectWpcomSites',
+	'disconnectRemoteSite',
 	'publishPreviewSite',
-	'pullSiteFromLive',
-	'pushSiteToLive',
+	'pullSite',
+	'pushSite',
 	'renamePreviewSite',
 ];
 

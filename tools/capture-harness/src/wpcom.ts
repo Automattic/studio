@@ -190,7 +190,7 @@ export async function loadAccount( scene: LoadedScene ) {
  * Makes a running Studio treat the remote sites with `connectedTo` as
  * connected to that scene site, as if they had been connected through
  * Publish, and answers what the Publish panel asks WordPress.com about them:
- * the hosting PHP version, the latest backup, and the backup's files, which
+ * the latest backup, and the backup's files, which
  * are the scene site's own `wp-content`. Nothing is sent to WordPress.com, and
  * pulling or publishing is never started.
  */
@@ -212,10 +212,7 @@ export async function replaceConnectedSites(
 	for ( const slug of new Set( remoteSites.map( ( r ) => r.connectedTo ).filter( Boolean ) ) ) {
 		await listBackup( path.join( sitesDir, slug as string ), '/wp-content/', 3, trees );
 	}
-	await studio.stubs.connectedSites( connected, trees, {
-		phpVersion: '8.3',
-		rewindId: '1793318400.123',
-	} );
+	await studio.stubs.connectedSites( connected, trees, '1793318400.123' );
 }
 
 // Studio's SQLite files, which a WordPress.com backup doesn't have.

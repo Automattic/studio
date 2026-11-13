@@ -1,37 +1,16 @@
 export {
+	AI_PROVIDER_IDS,
 	DEFAULT_PROVIDER_ID,
-	getProviderDescriptor,
+	formatRemoteSite,
+	getProvider,
+	getProviderSites,
 	normalizeProviderId,
+	parseRemoteSite,
 	PROVIDER_IDS,
+	SITES_PROVIDER_IDS,
 	toStoredProviderId,
-} from './descriptors';
-export {
-	getAiModel,
-	getAiModelLabel,
-	getAiModelProviders,
-	getAiModels,
-	getDefaultAiModel,
-	isAiModelId,
-	type AiModelId,
-} from './models';
-export { getConnectFields, getRedirectUrl, type ConnectField } from './connection';
-export type { AnthropicConfig } from './anthropic/config';
-export type { WpcomConfig } from './wpcom/config';
+} from './registry';
+export { findAiModel, getDefaultAiModel, type AiModelId } from './models';
+export { getConnectFields, getConnectMethod, type ConnectField } from './connection';
+export { ConnectError, NotConnectedError, RemoteSiteError } from './errors';
 export type * from './types';
-export {
-	InvalidCredentialError,
-	ProviderNotReadyError,
-	RemoteSiteError,
-	type ConnectFailure,
-} from './errors';
-export {
-	syncOptionSchema,
-	syncSiteSchema,
-	syncSupportValues,
-	withWpcomDetails,
-	type PullSyncOptions,
-	type PushSyncOptions,
-	type SyncOption,
-	type SyncSite,
-	type SyncSupport,
-} from './wpcom/site';

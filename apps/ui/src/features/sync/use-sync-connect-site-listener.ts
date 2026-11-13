@@ -1,12 +1,12 @@
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { classifySyncFailure } from '@studio/common/lib/sync/classify-sync-failure';
+import { getSyncType } from '@studio/common/lib/sync/sync-type';
+import { getProvider } from '@studio/providers';
 import { useQueryClient } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useEffectEvent, useRef, useSyncExternalStore } from 'react';
 import { useConnector } from '@/data/core';
-import { connectedWpcomSitesQueryKey } from '@/data/queries/use-connected-wpcom-sites';
-import { SYNCABLE_WPCOM_SITES_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
-import { websiteIssue } from '@/features/sync/publish-panel/options';
+import { accountSitesQueryKey, remoteSitesQueryKey } from '@/data/queries/use-remote-sites';
 import type { Connector, SyncSite } from '@/data/core';
 
 type ConnectSiteEvent = Parameters< Parameters< Connector[ 'onSyncConnectSite' ] >[ 0 ] >[ 0 ];
@@ -66,12 +66,12 @@ export function useSyncConnectSiteListener(): void {
 		}
 		handled.current.add( key );
 		const connectedSites = () =>
-			queryClient.getQueryData< SyncSite[] >( connectedWpcomSitesQueryKey( studioSiteId ) ) ?? [];
+			queryClient.getQueryData< SyncSite[] >( remoteSitesQueryKey( 'wpcom', studioSiteId ) ) ?? [];
 		let connected = false;
 		try {
 			const syncable = await queryClient.fetchQuery( {
-				queryKey: SYNCABLE_WPCOM_SITES_QUERY_KEY,
-				queryFn: () => connector.fetchSyncableWpcomSites(),
+				queryKey: accountSitesQueryKey( 'wpcom' ),
+				queryFn: async () => ( await connector.listAccountSites( 'wpcom' ) ) as SyncSite[],
 				staleTime: 0,
 			} );
 			const remote = syncable.find( ( site ) => site.id === remoteSiteId );
@@ -80,7 +80,7 @@ export function useSyncConnectSiteListener(): void {
 					__( 'Your new website isn’t available yet. Refresh the website list to try again.' )
 				);
 			}
-			const issue = websiteIssue( remote, 'push' );
+			const issue = getProvider( 'wpcom' ).sites!.issue( remote, 'push' );
 			if ( issue ) {
 				throw new Error( issue );
 			}
@@ -90,13 +90,14 @@ export function useSyncConnectSiteListener(): void {
 				syncSupport: 'already-connected',
 				...( event.autoOpenPush ? { launchAfterPush: true } : {} ),
 			};
-			await connector.connectWpcomSite( studioSiteId, siteToSave );
+			await connector.connectRemoteSite( 'wpcom', studioSiteId, siteToSave );
 			connected = true;
 			void connector.trackEvent(
 				TRACKS_EVENTS.SYNC_CONNECT,
 				{
 					success: true,
 					num_of_sites: connectedSites().filter( ( { id } ) => id !== remoteSiteId ).length + 1,
+					sync_type: getSyncType( siteToSave ),
 				},
 				studioSiteId
 			);
@@ -119,7 +120,7 @@ export function useSyncConnectSiteListener(): void {
 			}
 		} finally {
 			void queryClient.invalidateQueries( {
-				queryKey: connectedWpcomSitesQueryKey( studioSiteId ),
+				queryKey: remoteSitesQueryKey( 'wpcom', studioSiteId ),
 			} );
 		}
 	} );

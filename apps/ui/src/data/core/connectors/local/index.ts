@@ -1,7 +1,7 @@
 import { stripCliErrorEnvelope } from '@studio/common/lib/error-formatting';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
-import { getRedirectUrl } from '@studio/providers';
+import { getSignInUrl } from '@studio/providers/wpcom';
 import { __ } from '@wordpress/i18n';
 import { download, menuShortcuts } from '../browser-tab';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
@@ -15,7 +15,6 @@ import type {
 	AppGlobals,
 	AuthUser,
 	Connector,
-	ExtractedBlueprintBundle,
 	InstalledApps,
 	LoadedAiSession,
 	LocalMediaFile,
@@ -30,10 +29,10 @@ import type {
 	SnapshotUsage,
 	StudioAssistantQuota,
 	StudioAssistantTopUpPricing,
-	SyncSite,
 	UserPreferences,
 } from '../../types';
 import type { AgentRunEvent } from '@studio/agent/protocol/agent-events';
+import type { Blueprint } from '@studio/blueprints';
 import type { AiSettings } from '@studio/common/lib/ai-settings';
 import type { AuthAnalytics, OnboardingAnalytics } from '@studio/common/lib/auth-tracks';
 import type { SiteEvent, SiteListItem, SnapshotEvent } from '@studio/common/lib/cli-events';
@@ -204,6 +203,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			annotatePreview: false,
 			studioLogs: false,
 			nativeSites: true,
+			loopbackSignIn: true,
 		},
 
 		// Auth — surfaces the WordPress.com user the CLI is already logged in as
@@ -256,7 +256,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				popup?.close();
 				const redirectUri = 'https://developer.wordpress.com/copy-oauth-token';
 				window.open(
-					getRedirectUrl( 'wpcom', { redirectUri, locale: 'en', signup } ),
+					getSignInUrl( { redirectUri, locale: 'en', signup } ),
 					'_blank',
 					'noopener,noreferrer'
 				);
@@ -386,9 +386,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					adminEmail: params.adminEmail,
 					skipStart: params.skipStart,
 					flowType: params.flowType,
-					// The server writes this to a temp file and passes --blueprint to
-					// the CLI (featured blueprint JSON, or an uploaded bundle's filePath).
-					blueprint: params.blueprint,
+					blueprint:
+						params.blueprint instanceof File
+							? await uploadFile( params.blueprint )
+							: params.blueprint,
 				} ),
 			} );
 		},
@@ -502,28 +503,14 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				data: await response.arrayBuffer(),
 			};
 		},
-		async extractBlueprintBundle( file ): Promise< ExtractedBlueprintBundle > {
-			const data = await file.arrayBuffer();
-			const response = await fetch( `${ base }/blueprints/extract`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/octet-stream' },
-				body: data,
-				signal: AbortSignal.timeout( 60_000 ),
-			} );
-			if ( ! response.ok ) {
-				const text = await response.text().catch( () => '' );
-				throw new Error( `POST /blueprints/extract failed (${ response.status }): ${ text }` );
+		async readBlueprint( source ) {
+			if ( ! ( source instanceof File ) ) {
+				throw new UnsupportedError( 'readBlueprint' );
 			}
-			return ( await response.json() ) as ExtractedBlueprintBundle;
-		},
-		async cleanupBlueprintTempDir( tempDir ) {
-			await api( '/blueprints/cleanup', {
+			return api< Blueprint >( '/blueprints/read', {
 				method: 'POST',
-				body: JSON.stringify( { tempDir } ),
+				body: JSON.stringify( { path: await uploadFile( source ) } ),
 			} );
-		},
-		async readBlueprintFile() {
-			throw new UnsupportedError( 'readBlueprintFile' );
 		},
 		async importSiteFromBackup( siteId, backupPath, options ): Promise< void > {
 			await api< void >( `/sites/${ encodeURIComponent( siteId ) }/import`, {
@@ -557,11 +544,16 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async deleteAllSnapshots() {
 			await api( '/snapshots', { method: 'DELETE' } );
 		},
-		async publishPreviewSite( siteId, existingHostname, name ): Promise< { url: string } > {
+		async publishPreviewSite(
+			siteId,
+			existingHostname,
+			name,
+			liveSite
+		): Promise< { url: string } > {
 			// A hostname means "refresh this preview"; otherwise create a new one.
 			return api< { url: string } >( `/sites/${ encodeURIComponent( siteId ) }/preview`, {
 				method: 'POST',
-				body: JSON.stringify( { hostname: existingHostname, name } ),
+				body: JSON.stringify( { hostname: existingHostname, name, liveSite } ),
 			} );
 		},
 		async deleteSnapshot( hostname ) {
@@ -576,29 +568,35 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getPreviewStatus( hostname ): Promise< PreviewStatus > {
 			return api< PreviewStatus >( `/snapshots/${ encodeURIComponent( hostname ) }/status` );
 		},
-		async getConnectedWpcomSites( localSiteId ): Promise< SyncSite[] > {
-			return api< SyncSite[] >(
-				localSiteId
-					? `/sites/${ encodeURIComponent( localSiteId ) }/connected-sites`
-					: '/wpcom/connected-sites'
+		async getRemoteSites( provider, localSiteId ) {
+			return api(
+				`/remote-sites/${ provider }${
+					localSiteId ? `?localSiteId=${ encodeURIComponent( localSiteId ) }` : ''
+				}`
 			);
 		},
-		async fetchSyncableWpcomSites(): Promise< SyncSite[] > {
-			return api< SyncSite[] >( '/wpcom/syncable-sites' );
+		async listAccountSites( provider ) {
+			return api( `/remote-sites/${ provider }/account` );
 		},
-		async connectWpcomSite( localSiteId, site ) {
-			await api( `/sites/${ encodeURIComponent( localSiteId ) }/connected-sites`, {
+		async connectRemoteSite( provider, localSiteId, site ) {
+			await api( `/sites/${ encodeURIComponent( localSiteId ) }/remote-sites/${ provider }`, {
 				method: 'POST',
 				body: JSON.stringify( site ),
 			} );
 		},
-		async disconnectWpcomSite( localSiteId, remoteSiteId ) {
+		async disconnectRemoteSite( provider, localSiteId, remoteSiteId ) {
 			await api(
-				`/sites/${ encodeURIComponent( localSiteId ) }/connected-sites/${ encodeURIComponent(
-					remoteSiteId
-				) }`,
+				`/sites/${ encodeURIComponent(
+					localSiteId
+				) }/remote-sites/${ provider }/${ encodeURIComponent( remoteSiteId ) }`,
 				{ method: 'DELETE' }
 			);
+		},
+		async createRemoteSite( provider, localSiteId, name ) {
+			return api( `/sites/${ encodeURIComponent( localSiteId ) }/remote-sites/${ provider }/new`, {
+				method: 'POST',
+				body: JSON.stringify( { name } ),
+			} );
 		},
 		onSyncConnectSite( listener ) {
 			syncConnectListeners.add( listener );
@@ -613,10 +611,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				method: 'POST',
 			} );
 		},
-		async pushSiteToLive( siteId, remoteSiteId, options ) {
+		async pushSite( provider, siteId, remoteSiteId, options ) {
 			const result = await api< { cancelled?: boolean } >(
-				`/sites/${ encodeURIComponent( siteId ) }/push`,
-				{ method: 'POST', body: JSON.stringify( { remoteSiteId, options } ) }
+				`/sites/${ encodeURIComponent( siteId ) }/remote-sites/${ provider }/${ encodeURIComponent(
+					remoteSiteId
+				) }/push`,
+				{ method: 'POST', body: JSON.stringify( { options } ) }
 			);
 			// The server reports a cancel instead of failing the request; turn it
 			// back into an error for the caller.
@@ -631,10 +631,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { remoteSiteId } ),
 			} );
 		},
-		async pullSiteFromLive( siteId, remoteSiteId, options ) {
+		async pullSite( provider, siteId, remoteSiteId, options ) {
 			const result = await api< { cancelled?: boolean } >(
-				`/sites/${ encodeURIComponent( siteId ) }/pull`,
-				{ method: 'POST', body: JSON.stringify( { remoteSiteId, options } ) }
+				`/sites/${ encodeURIComponent( siteId ) }/remote-sites/${ provider }/${ encodeURIComponent(
+					remoteSiteId
+				) }/pull`,
+				{ method: 'POST', body: JSON.stringify( { options } ) }
 			);
 			if ( result?.cancelled ) {
 				throw new SyncCancelledError();
@@ -644,14 +646,18 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			syncActivityListeners.add( listener );
 			return () => syncActivityListeners.delete( listener );
 		},
-		async getLatestRewindId( remoteSiteId ) {
-			return api< string | null >( `/wpcom/sites/${ remoteSiteId }/latest-rewind-id` );
+		async getRemoteBackupId( provider, remoteSiteId ) {
+			return api< string | null >(
+				`/remote-sites/${ provider }/${ encodeURIComponent( remoteSiteId ) }/backup`
+			);
 		},
-		async listRemoteFileTree( remoteSiteId, rewindId, path ) {
+		async listRemoteBackupFiles( provider, remoteSiteId, backupId, path ) {
 			return api< Record< string, unknown > >(
-				`/wpcom/sites/${ remoteSiteId }/remote-file-tree?rewindId=${ encodeURIComponent(
-					rewindId
-				) }&path=${ encodeURIComponent( path ) }`
+				`/remote-sites/${ provider }/${ encodeURIComponent(
+					remoteSiteId
+				) }/backup-files?backupId=${ encodeURIComponent( backupId ) }&path=${ encodeURIComponent(
+					path
+				) }`
 			);
 		},
 		async listLocalFileTree( siteId, path, depth ) {
@@ -677,12 +683,6 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async getIsMultisite( siteId ) {
 			return api< boolean >( `/sites/${ encodeURIComponent( siteId ) }/multisite` );
-		},
-		async getHostingPhpVersion( remoteSiteId ) {
-			const version = await api< string | null >(
-				`/wpcom/sites/${ remoteSiteId }/hosting-php-version`
-			);
-			return version ?? undefined;
 		},
 		getPublishCheckoutUrl( site ): string {
 			// The post-checkout auto-connect relies on the deep-link listener, which
@@ -832,14 +832,20 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async getAiSettings(): Promise< AiSettings > {
 			return api< AiSettings >( '/ai-settings' );
 		},
-		async connectProvider( provider, input ): Promise< AiSettings > {
+		async connectProvider( provider, method, input ): Promise< AiSettings > {
 			return api< AiSettings >( `/ai-settings/providers/${ provider }`, {
 				method: 'PUT',
-				body: JSON.stringify( { input } ),
+				body: JSON.stringify( { method, input } ),
 			} );
 		},
 		async disconnectProvider( provider ): Promise< AiSettings > {
 			return api< AiSettings >( `/ai-settings/providers/${ provider }`, { method: 'DELETE' } );
+		},
+		async startProviderConnect( provider, method ) {
+			return api( `/ai-settings/providers/${ provider }/start`, {
+				method: 'POST',
+				body: JSON.stringify( { method } ),
+			} );
 		},
 		async setAiProvider( provider ): Promise< AiSettings > {
 			return api< AiSettings >( '/ai-settings/provider', {

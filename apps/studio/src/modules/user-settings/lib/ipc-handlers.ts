@@ -15,6 +15,7 @@ import {
 	connectAgentApp as connectAgentAppToStudio,
 	detectAgentApps,
 } from '@studio/common/lib/connect-agent-app';
+import { startProviderConnect as startConnect } from '@studio/common/lib/provider-connect';
 import { getInstructionsLengthBucket } from '@studio/common/lib/record-tracks-event';
 import {
 	detectInstalledAppsWithDefaultBrowser,
@@ -31,8 +32,8 @@ import {
 	writeUserPreferences,
 	type UserPreferencesPatch,
 } from '@studio/common/lib/user-settings/user-preferences';
-import { normalizeProviderId, toStoredProviderId } from '@studio/providers';
-import { getProvider } from '@studio/providers/services';
+import { AI_PROVIDER_IDS, normalizeProviderId, toStoredProviderId } from '@studio/providers';
+import { getProviderServices } from '@studio/providers/services';
 import { getUserLocaleWithFallback, loadLocaleData, setMacAppLanguage } from 'src/lib/locale-node';
 import { refreshSpotlightIndex } from 'src/lib/spotlight';
 import { recordTracksEvent, TRACKS_EVENTS } from 'src/lib/tracks';
@@ -162,22 +163,36 @@ async function changeAiSettings( change: () => Promise< AiSettings > ) {
 	return settings;
 }
 
+export async function startProviderConnect(
+	_event: IpcMainInvokeEvent,
+	requested: string,
+	method: string
+) {
+	return startConnect( getProviderServices( parseProviderId( requested ) ), method );
+}
+
 export async function connectAiProvider(
 	_event: IpcMainInvokeEvent,
 	requested: string,
+	method: string,
 	input: Record< string, string >
 ) {
 	const provider = parseProviderId( requested );
-	return changeAiSettings( () => connectProvider( getProvider( provider ), input ) );
+	return changeAiSettings( () =>
+		connectProvider( getProviderServices( provider ), method, input )
+	);
 }
 
 export async function disconnectAiProvider( _event: IpcMainInvokeEvent, requested: string ) {
 	const provider = parseProviderId( requested );
-	return changeAiSettings( () => disconnectProvider( getProvider( provider ) ) );
+	return changeAiSettings( () => disconnectProvider( getProviderServices( provider ) ) );
 }
 
 export async function setAiProvider( _event: IpcMainInvokeEvent, requested: string ) {
-	const provider = parseProviderId( requested );
+	const provider = normalizeProviderId( requested, AI_PROVIDER_IDS );
+	if ( ! provider ) {
+		throw new Error( `Unknown AI provider: ${ requested }` );
+	}
 	return changeAiSettings( () => setAiProviderInConfig( provider ) );
 }
 

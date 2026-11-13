@@ -614,43 +614,80 @@ describe( 'Studio AI MCP tools', () => {
 		] );
 	} );
 
-	it( 'tags connected remote sites with type "wpcom-remote"', async () => {
-		const site = {
-			id: 111,
-			localSiteId: '',
-			name: 'My Production Site',
-			url: 'https://myprod.wordpress.com',
-			isStaging: false,
-			isPressable: false,
-			environmentType: 'production',
-			syncSupport: 'syncable' as const,
-			lastPullTimestamp: null,
-			lastPushTimestamp: null,
-		};
-		vi.mocked( host.wpcom.connectedSites ).mockResolvedValue( [
-			{ ...site, localSiteId: 'site-123', syncSupport: 'already-connected' },
+	it( 'lists the remote sites of every provider with what can be synced and how to name them', async () => {
+		vi.mocked( host.sync.connectedSites ).mockResolvedValue( [
+			{
+				provider: 'wpcom',
+				site: {
+					id: 111,
+					localSiteId: 'site-123',
+					name: 'My Production Site',
+					url: 'https://myprod.wordpress.com',
+					isStaging: false,
+					isPressable: false,
+					environmentType: 'production',
+					syncSupport: 'already-connected',
+					lastPullTimestamp: null,
+					lastPushTimestamp: null,
+				},
+			},
+			{
+				provider: 'spacefast',
+				site: {
+					id: 'spc_1',
+					name: 'My Space',
+					url: 'https://my-space.space.fast/',
+					slug: 'my-space',
+					teamId: 'team_1',
+					teamName: 'My Team',
+					lastPushTimestamp: '2026-11-01T00:00:00Z',
+				},
+			},
 		] );
 
 		const result = await getTool( 'site_connected_remote_sites' ).rawHandler( {
 			nameOrPath: 'My Site',
 		} as never );
 
-		expect( host.wpcom.connectedSites ).toHaveBeenCalledWith( mockSite );
-		const parsed = JSON.parse( getTextContent( result ) ?? '[]' );
-		expect( parsed ).toEqual( [
+		expect( host.sync.connectedSites ).toHaveBeenCalledWith( mockSite );
+		expect( JSON.parse( getTextContent( result ) ?? '[]' ) ).toEqual( [
 			{
-				type: 'wpcom-remote',
-				id: 111,
+				type: 'remote-site',
+				provider: 'wpcom',
+				providerName: 'WordPress.com',
+				remoteSite: 'wpcom:111',
 				name: 'My Production Site',
 				url: 'https://myprod.wordpress.com',
-				isStaging: false,
-				isPressable: false,
-				environmentType: 'production',
-				syncSupport: 'already-connected',
+				Environment: 'Production',
+				canPush: true,
+				canPull: true,
 				lastPushTimestamp: null,
 				lastPullTimestamp: null,
 			},
+			{
+				type: 'remote-site',
+				provider: 'spacefast',
+				providerName: 'Spacefast',
+				remoteSite: 'spacefast:spc_1',
+				name: 'My Space',
+				url: 'https://my-space.space.fast/',
+				Team: 'My Team',
+				canPush: true,
+				canPull: false,
+				lastPushTimestamp: '2026-11-01T00:00:00Z',
+				lastPullTimestamp: null,
+			},
 		] );
+	} );
+
+	it( 'refuses to pull from a provider that can only be published to', async () => {
+		await expect(
+			getTool( 'site_pull' ).rawHandler( {
+				nameOrPath: 'My Site',
+				remoteSite: 'spacefast:spc_1',
+			} as never )
+		).rejects.toThrow( 'Spacefast sites can only be published to, not pulled.' );
+		expect( host.sync.pull ).not.toHaveBeenCalled();
 	} );
 
 	describe( 'site_list', () => {

@@ -8,8 +8,7 @@ import {
 } from '@/test/fake-connector';
 import { renderApp } from '@/test/render';
 import type { Connector, SelectedSiteFolder } from '@/data/core';
-import type { Blueprint as CatalogBlueprint } from '@studio/common/lib/studio-blueprints-api';
-import type { ProviderId } from '@studio/providers';
+import type { AiProviderId } from '@studio/providers';
 import type { Blueprint } from '@wp-playground/blueprints';
 
 afterEach( () => {
@@ -22,7 +21,7 @@ afterEach( () => {
 async function setup(
 	state: FakeConnectorInitialState = {},
 	overrides: Partial< Connector > = {},
-	blueprints: CatalogBlueprint[] = [
+	blueprints: object[] = [
 		{
 			slug: 'portfolio',
 			title: 'Portfolio',
@@ -98,9 +97,7 @@ describe( 'Add site › blank setup', () => {
 		expect( connector.createSite ).toHaveBeenCalledWith(
 			expect.objectContaining( {
 				name: 'My bakery',
-				blueprint: expect.objectContaining( {
-					blueprint: expect.objectContaining( { steps: expect.any( Array ) } ),
-				} ),
+				blueprint: 'portfolio',
 			} )
 		);
 		expect( connector.continueSession.mock.calls[ 0 ][ 1 ] ).toBe( 'Make this a bakery' );
@@ -304,7 +301,7 @@ describe( 'Add site › blank setup', () => {
 	it( 'keeps the site draft and attachments when reconnecting a provider in settings', async () => {
 		let signedIn = true;
 		let anthropicConnected = false;
-		let selected: ProviderId = 'wpcom';
+		let selected: AiProviderId = 'wpcom';
 		const currentSettings = () =>
 			aiSettings( selected, [
 				...( signedIn ? [ 'wpcom' as const ] : [] ),
@@ -314,8 +311,10 @@ describe( 'Add site › blank setup', () => {
 			{},
 			{
 				getAiSettings: async () => currentSettings(),
+				// Without WordPress.com, the provider connected becomes the default.
 				connectProvider: async () => {
 					anthropicConnected = true;
+					selected = signedIn ? selected : 'anthropic';
 					return currentSettings();
 				},
 				setAiProvider: async ( provider ) => {
@@ -351,21 +350,23 @@ describe( 'Add site › blank setup', () => {
 		act( () => history.push( '/?addSite=blank&settings=ai' ) );
 		const settings = await screen.findByRole( 'dialog', { name: 'Settings' } );
 		fireEvent.click(
-			within( within( settings ).getByRole( 'group', { name: 'Anthropic API' } ) ).getByRole(
+			within( within( settings ).getByRole( 'group', { name: 'Anthropic' } ) ).getByRole(
 				'button',
 				{ name: 'Connect' }
 			)
 		);
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: 'API key' } ) );
 		fireEvent.change(
 			within( settings ).getByLabelText( 'Anthropic API key', { selector: 'input' } ),
 			{
 				target: { value: 'sk-test-local' },
 			}
 		);
-		fireEvent.submit(
-			within( settings ).getByRole( 'form', { name: 'Anthropic API connection' } )
+		fireEvent.submit( within( settings ).getByRole( 'form', { name: 'Anthropic connection' } ) );
+		await waitFor( () => expect( connector.connectProvider ).toHaveBeenCalled() );
+		await waitFor( () =>
+			expect( within( settings ).queryByLabelText( 'Anthropic API key' ) ).not.toBeInTheDocument()
 		);
-		await waitFor( () => expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic' ) );
 		fireEvent.click( within( settings ).getByRole( 'button', { name: /Close .*ettings/ } ) );
 		const restored = await screen.findByRole( 'dialog', { name: 'Add site' } );
 		expect( within( restored ).getByLabelText( 'Site name' ) ).toHaveValue( 'Bakery' );
@@ -765,15 +766,8 @@ describe( 'Add site › blank setup', () => {
 				path: '/tmp/late-blueprint',
 				isEmpty: false,
 				isWordPress: false,
-				blueprint: {
-					blueprintJson: { steps: [] },
-					blueprintJsonPath: '/tmp/late-blueprint/blueprint.json',
-					tempDir: '/tmp/late-blueprint',
-				},
+				blueprint: { steps: [] },
 			} )
-		);
-		await waitFor( () =>
-			expect( connector.cleanupBlueprintTempDir ).toHaveBeenCalledWith( '/tmp/late-blueprint' )
 		);
 		expect( connector.createSite ).not.toHaveBeenCalled();
 		expect( screen.queryByRole( 'dialog', { name: 'Add site' } ) ).not.toBeInTheDocument();

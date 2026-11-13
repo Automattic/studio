@@ -1,8 +1,8 @@
 import {
 	getConnectFields,
-	getProviderDescriptor,
-	normalizeAiProviderId,
+	getProvider,
 	type AiProviderId,
+	type ConnectMethod,
 	type ProviderId,
 } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
@@ -12,46 +12,155 @@ import { useConnector } from '@/data/core';
 import {
 	useAiSettings,
 	useConnectProvider,
-	useSignIn,
 	useDisconnectProvider,
 	useSetAiProvider,
 } from '@/data/queries/use-ai-settings';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
+import { Markdown } from '@/features/chats';
 import { LearnMoreLink } from '@/features/onboarding';
 import { useOffline } from '@/lib/hooks';
 import { ChevronDownIcon, ExternalLinkIcon } from '@/lib/icons';
-import { Button, Input } from '@/lib/ui';
+import { Button, Input, Menu } from '@/lib/ui';
 import { ProviderLogo } from './provider-logo';
 import { connectedBadge, SettingsGroup, SettingsRow } from './rows';
 import styles from './style.module.css';
 
-// A provider that connects with a form: the form comes from its descriptor.
-function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
+export function getProviderConnectMethods( id: ProviderId, loopbackSignIn: boolean ) {
+	return getProvider( id ).account.methods.filter(
+		( { kind } ) =>
+			kind !== 'redirect' && ( loopbackSignIn || ( kind !== 'loopback' && kind !== 'device' ) )
+	);
+}
+
+// A provider's row: the ways its account connects, as a button or a menu, a form for the method
+// that asks for one, and where to sign in while a sign-in on its site is pending.
+export function ProviderRow( {
+	provider,
+	methods,
+}: {
+	provider: ProviderId;
+	methods: ConnectMethod[];
+} ) {
 	const settings = useAiSettings();
 	const connect = useConnectProvider( provider );
 	const disconnect = useDisconnectProvider( provider );
-	const setProvider = useSetAiProvider();
-	const descriptor = getProviderDescriptor( provider );
-	const fields = getConnectFields( provider );
+	const offline = useOffline();
+	const descriptor = getProvider( provider );
 	const account = settings.data?.accounts[ provider ];
-	const [ formOpen, setFormOpen ] = useState( false );
+	const connectedMethod = account?.connected ? account.method : undefined;
+	const [ formMethod, setFormMethod ] = useState< ConnectMethod >();
 	const [ values, setValues ] = useState< Record< string, string > >( {} );
+	const fields = formMethod ? getConnectFields( formMethod ) : [];
+	const instructions = formMethod?.instructions?.();
+	// The account is connected with the form being shown.
+	const current = formMethod !== undefined && formMethod.id === connectedMethod;
+	const signingIn = connect.isPending && connect.pending !== null;
+	// A sign-in waiting on the browser doesn't block connecting another way.
 	const pending =
-		settings.isLoading || connect.isPending || disconnect.isPending || setProvider.isPending;
+		settings.isLoading || ( connect.isPending && ! signingIn ) || disconnect.isPending;
 	const filled = fields.every( ( field ) => values[ field.name ]?.trim() );
+	const [ onlyMethod ] = methods;
+	const error = ( connect.error ?? disconnect.error )?.message;
 
 	const closeForm = () => {
 		setValues( {} );
-		setFormOpen( false );
+		setFormMethod( undefined );
 	};
-	// Saving the values the account already has just selects the provider.
-	const save = async () => {
-		if ( filled ) {
-			await connect.mutateAsync( values );
+	const pick = ( method: ConnectMethod ) => {
+		if ( method.kind === 'form' ) {
+			setFormMethod( method );
+			return;
 		}
-		await setProvider.mutateAsync( provider );
+		closeForm();
+		connect.mutate( { method: method.id } );
+	};
+	const save = async () => {
+		await connect.mutateAsync( { method: formMethod!.id, input: values } );
 		closeForm();
 	};
+
+	let control;
+	if ( methods.length > 1 && ! formMethod ) {
+		control = (
+			<Menu.Root>
+				<Menu.Trigger render={ <Button variant="outline" disabled={ pending } /> }>
+					{ account?.connected ? __( 'Manage' ) : __( 'Connect' ) }
+					<ChevronDownIcon data-icon="inline-end" />
+				</Menu.Trigger>
+				<Menu.Popup side="bottom" align="end">
+					<Menu.RadioGroup value={ connectedMethod ?? '' }>
+						{ methods.map( ( method ) => (
+							<Menu.RadioItem
+								key={ method.id }
+								value={ method.id }
+								onClick={ () => pick( method ) }
+							>
+								{ method.label() }
+							</Menu.RadioItem>
+						) ) }
+					</Menu.RadioGroup>
+					{ account?.connected ? (
+						<Menu.Item onClick={ () => disconnect.mutate() }>{ __( 'Disconnect' ) }</Menu.Item>
+					) : null }
+				</Menu.Popup>
+			</Menu.Root>
+		);
+	} else if ( onlyMethod.kind === 'form' || formMethod ) {
+		control = (
+			<Button
+				className={ styles.providerFormToggle }
+				variant="outline"
+				aria-expanded={ !! formMethod }
+				disabled={ pending }
+				onClick={ () => ( formMethod ? closeForm() : pick( onlyMethod ) ) }
+			>
+				{ account?.connected ? __( 'Manage' ) : __( 'Connect' ) }
+				<ChevronDownIcon data-icon="inline-end" />
+			</Button>
+		);
+	} else if ( account?.connected ) {
+		control = (
+			<Button
+				variant="outline"
+				disabled={ disconnect.isPending }
+				onClick={ () => disconnect.mutate() }
+			>
+				{ __( 'Disconnect' ) }
+			</Button>
+		);
+	} else {
+		control = (
+			<Button
+				className={ styles.externalConnect }
+				variant="outline"
+				disabled={ settings.isLoading || offline }
+				loading={ connect.isPending && ! signingIn }
+				onClick={ () => pick( onlyMethod ) }
+			>
+				{ /* Signing in again starts over, for when the browser tab was closed. */ }
+				{ signingIn ? __( 'Try again' ) : __( 'Connect' ) }
+				<ExternalLinkIcon data-icon="inline-end" />
+			</Button>
+		);
+	}
+
+	let description;
+	if ( signingIn && ! formMethod && connect.pending?.code ) {
+		description = sprintf(
+			/* translators: 1: a sign-in code, 2: a service name such as Spacefast */
+			__( 'Approve the code %1$s on %2$s to connect.' ),
+			connect.pending.code,
+			descriptor.label
+		);
+	} else if ( signingIn && ! formMethod ) {
+		description = sprintf(
+			/* translators: %s: a service name such as ChatGPT */
+			__( 'Finish signing in to %s in your browser.' ),
+			descriptor.label
+		);
+	} else {
+		description = descriptor.description?.();
+	}
 
 	return (
 		<>
@@ -60,22 +169,14 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 				settingId={ `${ provider }-provider` }
 				icon={ <ProviderLogo provider={ provider } /> }
 				badge={ account?.connected ? connectedBadge() : null }
-				description={ descriptor.description?.() }
+				description={ description }
+				error={ formMethod ? undefined : error }
 			>
-				<Button
-					className={ styles.providerFormToggle }
-					variant="outline"
-					aria-expanded={ formOpen }
-					disabled={ pending }
-					onClick={ () => ( formOpen ? closeForm() : setFormOpen( true ) ) }
-				>
-					{ account?.connected ? __( 'Manage' ) : __( 'Connect' ) }
-					<ChevronDownIcon data-icon="inline-end" />
-				</Button>
+				{ control }
 			</SettingsRow>
-			{ formOpen ? (
+			{ formMethod ? (
 				<form
-					className={ styles.providerForm }
+					className={ styles.connectForm }
 					aria-label={ sprintf(
 						/* translators: %s: provider name */
 						__( '%s connection' ),
@@ -83,21 +184,24 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 					) }
 					onSubmit={ ( event ) => {
 						event.preventDefault();
-						if ( ! pending && ( filled || account?.connected ) ) {
+						if ( ! pending && filled ) {
 							void save().catch( () => {} );
 						}
 					} }
 				>
+					{ instructions ? (
+						<SettingsRow title={ __( 'How to connect' ) } stacked>
+							<div className={ styles.connectInstructions }>
+								<Markdown>{ instructions }</Markdown>
+							</div>
+						</SettingsRow>
+					) : null }
 					{ fields.map( ( field, index ) => (
 						<SettingsRow
 							key={ field.name }
 							title={ field.title }
 							description={ field.description }
-							error={
-								index === fields.length - 1
-									? ( connect.error ?? setProvider.error ?? disconnect.error )?.message
-									: undefined
-							}
+							error={ index === fields.length - 1 ? error : undefined }
 							stacked
 						>
 							<div className={ styles.keyForm }>
@@ -106,7 +210,10 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 									type={ field.secret ? 'password' : 'text' }
 									autoComplete="off"
 									aria-label={ field.title }
-									placeholder={ ( field.secret && account?.summary ) || field.placeholder }
+									placeholder={
+										( field.secret && current && account?.connected && account.summary ) ||
+										field.placeholder
+									}
 									value={ values[ field.name ] ?? '' }
 									disabled={ pending }
 									onChange={ ( event ) =>
@@ -118,13 +225,13 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 										<Button
 											variant="accent"
 											type="submit"
-											disabled={ pending || ( ! filled && ! account?.connected ) }
-											loading={ connect.isPending || setProvider.isPending }
+											disabled={ pending || ! filled }
+											loading={ connect.isPending && ! signingIn }
 											loadingAnnouncement={ __( 'Saving' ) }
 										>
 											{ __( 'Save' ) }
 										</Button>
-										{ account?.connected ? (
+										{ account?.connected && methods.length === 1 ? (
 											<Button
 												variant="outline"
 												disabled={ pending }
@@ -132,7 +239,11 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 											>
 												{ __( 'Disconnect' ) }
 											</Button>
-										) : null }
+										) : (
+											<Button variant="outline" disabled={ pending } onClick={ closeForm }>
+												{ __( 'Cancel' ) }
+											</Button>
+										) }
 									</>
 								) : null }
 							</div>
@@ -153,7 +264,9 @@ export function AiProviders( {
 } ) {
 	const settings = useAiSettings();
 	const { data: user, isLoading: userLoading } = useAuthUser();
-	const origin = getProviderIntent( useConnector() );
+	const connector = useConnector();
+	const origin = getProviderIntent( connector );
+	const { loopbackSignIn } = connector.capabilities;
 	const { promptRef, ...login } = useLogin( {
 		source: 'settings',
 		analytics: {
@@ -223,84 +336,15 @@ export function AiProviders( {
 					{ ! user ? <ExternalLinkIcon data-icon="inline-end" /> : null }
 				</Button>
 			</SettingsRow>
-			{ providers.map( ( id ) => {
-				const { kind } = getProviderDescriptor( id ).connection;
-				if ( kind === 'device' || kind === 'loopback' ) {
-					return <SignInProviderRow key={ id } provider={ id } />;
-				}
-				return getConnectFields( id ).length ? (
-					<ProviderFormRow key={ id } provider={ id } />
-				) : null;
-			} ) }
+			{ providers
+				.filter( ( id ) => id !== 'wpcom' )
+				.map( ( id ) => (
+					<ProviderRow
+						key={ id }
+						provider={ id }
+						methods={ getProviderConnectMethods( id, loopbackSignIn ) }
+					/>
+				) ) }
 		</SettingsGroup>
-	);
-}
-
-// A provider that connects by signing in on its site, with a code or in the browser.
-export function SignInProviderRow( { provider }: { provider: ProviderId } ) {
-	const settings = useAiSettings();
-	const signIn = useSignIn( provider );
-	const setProvider = useSetAiProvider();
-	const disconnect = useDisconnectProvider( provider );
-	const offline = useOffline();
-	const descriptor = getProviderDescriptor( provider );
-	const connected = settings.data?.accounts[ provider ].connected;
-	// Signing in again starts over, for when the browser tab was closed.
-	const inBrowser = signIn.isPending && descriptor.connection.kind === 'loopback';
-	return (
-		<SettingsRow
-			title={ descriptor.label }
-			settingId={ `${ provider }-provider` }
-			icon={ <ProviderLogo provider={ provider } /> }
-			badge={ connected ? connectedBadge() : null }
-			description={
-				signIn.authorization
-					? sprintf(
-							/* translators: 1: a sign-in code, 2: a service name such as Spacefast */
-							__( 'Approve the code %1$s on %2$s to connect.' ),
-							signIn.authorization.userCode,
-							descriptor.label
-					  )
-					: inBrowser
-					? sprintf(
-							/* translators: %s: a service name such as ChatGPT */
-							__( 'Finish signing in to %s in your browser.' ),
-							descriptor.label
-					  )
-					: descriptor.description?.()
-			}
-			error={ ( signIn.error ?? setProvider.error ?? disconnect.error )?.message }
-		>
-			{ connected ? (
-				<Button
-					variant="outline"
-					disabled={ disconnect.isPending }
-					onClick={ () => disconnect.mutate() }
-				>
-					{ __( 'Disconnect' ) }
-				</Button>
-			) : (
-				<Button
-					className={ styles.externalConnect }
-					variant="outline"
-					disabled={ settings.isLoading || offline }
-					loading={ signIn.isPending && ! inBrowser }
-					onClick={ () =>
-						signIn.mutate( undefined, {
-							// Connecting a chat provider selects it, as saving a form does.
-							onSuccess: () => {
-								const id = normalizeAiProviderId( provider );
-								if ( id ) {
-									setProvider.mutate( id );
-								}
-							},
-						} )
-					}
-				>
-					{ inBrowser ? __( 'Try again' ) : __( 'Connect' ) }
-					<ExternalLinkIcon data-icon="inline-end" />
-				</Button>
-			) }
-		</SettingsRow>
 	);
 }

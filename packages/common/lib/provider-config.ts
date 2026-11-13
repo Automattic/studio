@@ -1,10 +1,10 @@
 import path from 'path';
 import {
-	getProviderDescriptor,
-	ProviderNotReadyError,
-	type Provider,
+	getProvider,
+	NotConnectedError,
 	type ProviderConfigs,
 	type ProviderId,
+	type ProviderServices,
 } from '@studio/providers';
 import { readCliConfigFileRaw } from './cli-config-file';
 import { lockFileAsync, unlockFileAsync } from './lockfile';
@@ -22,8 +22,8 @@ import { getConfigDirectory } from './well-known-paths';
  * Each provider's config, validated against its descriptor's schema. The first
  * providers' map onto the shared.json fields builds of every version read: the
  * WordPress.com config is the Studio sign-in (`authToken`), the Anthropic one
- * the saved key (`anthropicApiKey`). Later providers keep theirs in
- * `providerConfigs`.
+ * the saved key (`anthropicApiKey`). Later providers, and Anthropic's
+ * subscription token, keep theirs in `providerConfigs`.
  */
 
 interface AiFields {
@@ -66,6 +66,8 @@ type ConfigStore< Config > = {
 	write( config: Config | undefined ): Promise< void >;
 };
 
+const anthropicSection = providerConfigStore( 'anthropic' );
+
 // The WordPress.com config is the Studio sign-in, so builds of every version
 // share it.
 const STORES: { [ Id in ProviderId ]: ConfigStore< ProviderConfigs[ Id ] > } = {
@@ -95,34 +97,34 @@ const STORES: { [ Id in ProviderId ]: ConfigStore< ProviderConfigs[ Id ] > } = {
 			} );
 		},
 	},
+	// Only an API key stays where older builds read it.
 	anthropic: {
 		read: async () => {
+			const config = await anthropicSection.read();
+			if ( config ) {
+				return config;
+			}
 			const { anthropicApiKey } = await readAiFields();
 			return anthropicApiKey && { method: 'api-key', apiKey: anthropicApiKey };
 		},
 		write: async ( config ) => {
-			await updateAiFields( { anthropicApiKey: config?.apiKey } );
+			await anthropicSection.write( config?.method === 'api-key' ? undefined : config );
+			await updateAiFields( {
+				anthropicApiKey: config?.method === 'api-key' ? config.apiKey : undefined,
+			} );
 		},
 	},
 	openai: providerConfigStore( 'openai' ),
+	gemini: providerConfigStore( 'gemini' ),
+	'github-copilot': providerConfigStore( 'github-copilot' ),
 	spacefast: providerConfigStore( 'spacefast' ),
 };
-
-// A config whose `expiresAt` has passed no longer works, so the provider is no longer connected.
-function hasExpired( config: unknown ): boolean {
-	const expiresAt = ( config as { expiresAt?: unknown } | undefined )?.expiresAt;
-	return (
-		( typeof expiresAt === 'string' || typeof expiresAt === 'number' ) &&
-		new Date( expiresAt ).getTime() <= Date.now()
-	);
-}
 
 // A provider that came after the fields above keeps its config in `providerConfigs`.
 function providerConfigStore( id: ProviderId ): ConfigStore< unknown > {
 	return {
 		read: async () => {
-			const config = ( await readSharedConfig() ).providerConfigs?.[ id ];
-			return hasExpired( config ) ? undefined : config;
+			return ( await readSharedConfig() ).providerConfigs?.[ id ];
 		},
 		write: async ( config ) => {
 			try {
@@ -141,13 +143,17 @@ function providerConfigStore( id: ProviderId ): ConfigStore< unknown > {
 	};
 }
 
+// The provider's config, or undefined when it has none or the one it has expired.
 export async function readProviderConfig< Id extends ProviderId >(
 	provider: Id
 ): Promise< ProviderConfigs[ Id ] | undefined > {
-	const parsed = getProviderDescriptor( provider ).configSchema.safeParse(
-		await STORES[ provider ].read()
-	);
-	return parsed.success ? parsed.data : undefined;
+	const { account } = getProvider( provider );
+	const parsed = account.configSchema.safeParse( await STORES[ provider ].read() );
+	if ( ! parsed.success ) {
+		return undefined;
+	}
+	const expiresAt = account.expiresAt?.( parsed.data );
+	return expiresAt !== undefined && expiresAt <= Date.now() ? undefined : parsed.data;
 }
 
 // Removes the config when `config` is undefined.
@@ -155,7 +161,7 @@ export async function writeProviderConfig< Id extends ProviderId >(
 	provider: Id,
 	config: ProviderConfigs[ Id ] | undefined
 ): Promise< void > {
-	const valid = config && getProviderDescriptor( provider ).configSchema.parse( config );
+	const valid = config && getProvider( provider ).account.configSchema.parse( config );
 	await ( STORES[ provider ] as ConfigStore< ProviderConfigs[ Id ] > ).write( valid );
 	if ( ( await readSharedConfig() ).rememberedSignIns?.[ provider ] ) {
 		await rememberSignIn( provider, undefined );
@@ -164,7 +170,7 @@ export async function writeProviderConfig< Id extends ProviderId >(
 
 // What the provider keeps from `config` once it rejects it.
 function rememberFrom( provider: ProviderId, config: unknown ) {
-	const { remember } = getProviderDescriptor( provider ) as {
+	const { remember } = getProvider( provider ).account as {
 		remember?: ( config: unknown ) => Record< string, string >;
 	};
 	return config ? remember?.( config ) : undefined;
@@ -221,7 +227,7 @@ export async function forgetRejectedConfig< T >(
 	try {
 		return await run();
 	} catch ( error ) {
-		if ( error instanceof ProviderNotReadyError && provider !== 'wpcom' ) {
+		if ( error instanceof NotConnectedError && provider !== 'wpcom' ) {
 			const remembered = rememberFrom( provider, await readProviderConfig( provider ) );
 			await writeProviderConfig( provider, undefined );
 			if ( remembered ) {
@@ -241,10 +247,10 @@ const REFRESH_LOCK_TIME = 30_000;
  * process may have just renewed it.
  */
 export async function readFreshProviderConfig< Config >(
-	provider: Provider< Config >
+	services: ProviderServices< Config >
 ): Promise< Config | undefined > {
-	const { id } = provider.descriptor;
-	const { refresh } = provider;
+	const { id } = services;
+	const { refresh } = services.account;
 	if ( ! refresh ) {
 		return ( await readProviderConfig( id ) ) as Config | undefined;
 	}

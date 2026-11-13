@@ -1,5 +1,5 @@
 import { resolveSkillFromPrompt } from '@studio/agent/protocol/slash-commands';
-import { getAiModel, type ProviderId } from '@studio/providers';
+import { findAiModel, type ProviderId } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { GlobeIcon } from 'lucide-react';
@@ -387,7 +387,7 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		}
 		if (
 			submission.options.images?.length &&
-			getAiModel( sessionProvider, model )?.supportsImages === false
+			findAiModel( model )?.model.supportsImages === false
 		) {
 			setValidationError( {
 				message: __( 'Choose a model that supports images before sending these attachments' ),
@@ -440,7 +440,6 @@ const ComposerContent = forwardRef< ComposerHandle, ComposerProps >( function Co
 		restoreAttachments,
 		annotationSiteId,
 		model,
-		sessionProvider,
 		stagedNotes,
 	] );
 

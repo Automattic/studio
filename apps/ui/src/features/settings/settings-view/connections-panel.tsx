@@ -1,4 +1,4 @@
-import { getProviderDescriptor } from '@studio/providers';
+import { getProvider } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
 import { useConnector } from '@/data/core';
 import { useAiSettings, useSetAiProvider } from '@/data/queries/use-ai-settings';
@@ -10,7 +10,7 @@ import { LearnMoreLink } from '@/features/onboarding';
 import { useOffline } from '@/lib/hooks';
 import { ExternalLinkIcon } from '@/lib/icons';
 import { Button } from '@/lib/ui';
-import { AiProviders, SignInProviderRow } from './ai-panel';
+import { AiProviders, getProviderConnectMethods, ProviderRow } from './ai-panel';
 import { ProviderLogo } from './provider-logo';
 import { connectedBadge, SettingsGroup, SettingsRow, SettingsSelect } from './rows';
 import styles from './style.module.css';
@@ -58,7 +58,7 @@ function DefaultProviderRow< Id extends ProviderId >( {
 				disabled={ disabled || ! hasConnections }
 				options={ connected.map( ( id ) => ( {
 					value: id,
-					label: getProviderDescriptor( id ).label,
+					label: getProvider( id ).label,
 				} ) ) }
 				onChange={ onChange }
 			/>
@@ -115,6 +115,7 @@ function HostingProviders( { providers }: { providers: SitesProviderId[] } ) {
 	const auth = useAuthUser();
 	const login = useLogin( { source: 'settings' } );
 	const offline = useOffline();
+	const { loopbackSignIn } = useConnector().capabilities;
 
 	return (
 		<SettingsGroup
@@ -131,7 +132,7 @@ function HostingProviders( { providers }: { providers: SitesProviderId[] } ) {
 				id === 'wpcom' ? (
 					<SettingsRow
 						key={ id }
-						title={ getProviderDescriptor( id ).label }
+						title={ getProvider( id ).label }
 						settingId="wpcom-hosting"
 						icon={ <ProviderLogo provider={ id } /> }
 						description={ __(
@@ -154,7 +155,11 @@ function HostingProviders( { providers }: { providers: SitesProviderId[] } ) {
 						) : null }
 					</SettingsRow>
 				) : (
-					<SignInProviderRow key={ id } provider={ id } />
+					<ProviderRow
+						key={ id }
+						provider={ id }
+						methods={ getProviderConnectMethods( id, loopbackSignIn ) }
+					/>
 				)
 			) }
 		</SettingsGroup>
@@ -162,11 +167,13 @@ function HostingProviders( { providers }: { providers: SitesProviderId[] } ) {
 }
 
 export function ConnectionsPanel( { onManageCredits }: { onManageCredits: () => void } ) {
-	const { nativeSites } = useConnector().capabilities;
+	const { loopbackSignIn } = useConnector().capabilities;
 	const aiProviders = SETTINGS_AI_PROVIDER_IDS.filter(
-		( id ) => nativeSites || getProviderDescriptor( id ).ai?.inPage !== false
+		( id ) => id === 'wpcom' || getProviderConnectMethods( id, loopbackSignIn ).length > 0
 	);
-	const hostingProviders = usePublishProviders();
+	const hostingProviders = usePublishProviders().filter(
+		( id ) => id === 'wpcom' || getProviderConnectMethods( id, loopbackSignIn ).length > 0
+	);
 
 	return (
 		<div className={ styles.preferencesPanel }>

@@ -4,7 +4,7 @@
 import { IpcMainInvokeEvent, dialog, shell } from 'electron';
 import { readProviderConfig } from '@studio/common/lib/provider-config';
 import { readSitePath } from '@studio/common/sites/site-path';
-import { getProvider } from '@studio/providers/services';
+import { getProviderServices } from '@studio/providers/services';
 import { vol } from 'memfs';
 import { vi } from 'vitest';
 import { listAccountSites, getFileSize, openURL, showOpenFolderDialog } from 'src/ipc-handlers';
@@ -22,7 +22,7 @@ vi.mock( '@studio/common/lib/provider-config', async ( importOriginal ) => ( {
 vi.mock( '@studio/providers/services', async ( importOriginal ) => {
 	const actual = await importOriginal< typeof import('@studio/providers/services') >();
 	const sites = { list: vi.fn() };
-	return { ...actual, getProvider: () => ( { descriptor: { id: 'wpcom' }, sites } ) };
+	return { ...actual, getProviderServices: () => ( { descriptor: { id: 'wpcom' }, sites } ) };
 } );
 vi.mock( 'src/lib/oauth' );
 
@@ -46,7 +46,7 @@ describe( 'listAccountSites', () => {
 		async ( { flag, planRequired } ) => {
 			vi.stubEnv( 'STUDIO_ENABLE_PULL_REPRINT', flag );
 			vi.mocked( readProviderConfig ).mockResolvedValue( { token: 'test-token' } );
-			const { list } = getProvider( 'wpcom' ).sites!;
+			const { list } = getProviderServices( 'wpcom' ).sites!;
 			vi.mocked( list ).mockResolvedValue( [] );
 
 			await listAccountSites( mockIpcMainInvokeEvent, 'wpcom' );

@@ -117,16 +117,20 @@ describe( 'AI provider settings', () => {
 	const settings = ( provider: 'wpcom' | 'anthropic', summary: string | null ): AiSettings => ( {
 		provider,
 		accounts: {
-			wpcom: { connected: false, summary: null },
-			anthropic: { connected: summary !== null, summary },
-			openai: { connected: false, summary: null },
-			spacefast: { connected: false, summary: null },
+			wpcom: { connected: false },
+			anthropic:
+				summary === null ? { connected: false } : { connected: true, method: 'api-key', summary },
+			openai: { connected: false },
+			gemini: { connected: false },
+			'github-copilot': { connected: false },
+			spacefast: { connected: false },
 		},
 	} );
 	const keyPreview = 'sk-ant-api03-tes...1234';
 	const wpcomWithoutKey = settings( 'wpcom', null );
 	const anthropicWithKey = settings( 'anthropic', keyPreview );
-	const saveKey = ( key: string ) => connectAiProvider( event, 'anthropic', { apiKey: key } );
+	const saveKey = ( key: string ) =>
+		connectAiProvider( event, 'anthropic', 'api-key', { apiKey: key } );
 
 	it( 'emits studio_setting_ai_provider_change when a key is added', async () => {
 		mockReadAiSettings.mockResolvedValue( wpcomWithoutKey );

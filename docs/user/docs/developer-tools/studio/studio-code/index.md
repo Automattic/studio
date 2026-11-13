@@ -42,7 +42,7 @@ By default, WordPress Studio Code uses WordPress.com infrastructure to generate 
 3.  A browser window will open. Log into your WordPress.com account and approve the connection.
 4.  Paste the authorization token back into the terminal to complete the login.
 
-Alternatively, you can [use your own Anthropic API key](#use-your-own-anthropic-api-key): type /api-key in the chat in the terminal, or connect **Anthropic** in **Settings → Providers** in the desktop app.
+Alternatively, you can [use your own Anthropic API key](#use-your-own-anthropic-api-key): type `/connect anthropic` in the chat in the terminal, or connect **Anthropic** in **Settings → Providers** in the desktop app.
 
 ### [When the chat box can’t send](#when-the-chat-box-cant-send)
 
@@ -138,12 +138,13 @@ While chatting, you can use slash commands for quick actions. In the desktop app
 | Command | Description | Available in… |
 | --- | --- | --- |
 | /annotate | Open a visual inspector to annotate page elements and give the AI agent instructions | Terminal and desktop |
-| /api-key | Set or update your Anthropic API key | Terminal |
 | /auto-start | Start stopped sites when you send a chat message (shown as **Auto-start** while it’s off) | Desktop |
 | /browser | Open the active site in your browser | Terminal |
 | /clear | Clear the conversation and start a fresh session | Terminal |
+| /connect | Connect a provider, such as `/connect anthropic` for your own Anthropic API key | Terminal |
 | /connect-provider | Open **Settings → Providers** to use WordPress.com AI credits or your own API key (shown as **Connect providers**) | Desktop |
 | /credits | Show your AI credit balance and buy more AI credits | Terminal |
+| /disconnect | Disconnect a provider | Terminal |
 | /exit | Exit the chat | Terminal |
 | /feedback | Send feedback about WordPress Studio to the WordPress Studio team (shown as **Send feedback**). See [Send feedback from a chat](#send-feedback-from-a-chat) | Terminal and desktop |
 | /liberate | Migrate and rebuild a site from a closed platform to WordPress | Terminal and desktop |
@@ -215,8 +216,10 @@ In the desktop app, each site’s chats are listed under the site in the sidebar
 Open **Settings → Providers** and connect the account you want to use for chat in WordPress Studio Code.
 
 -   **WordPress.com** uses [AI credits](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/). Click **Connect** to sign in with your WordPress.com account.
--   **ChatGPT** uses your existing ChatGPT plan. Click **Connect** and finish signing in to ChatGPT in your browser. See [how ChatGPT plans work in other apps](https://help.openai.com/en/articles/20001542-using-your-chatgpt-plan-in-other-apps-and-sites).
--   **Anthropic API** uses your own API key to chat with Claude. [Create an Anthropic API key](https://platform.claude.com/docs/en/get-api-key), click **Connect**, and save the key in WordPress Studio. Anthropic bills usage to your account.
+-   **OpenAI** uses your [ChatGPT plan](https://help.openai.com/en/articles/20001542-using-your-chatgpt-plan-in-other-apps-and-sites) or an [OpenAI API key](https://platform.openai.com/api-keys). Choose a method from **Connect** and follow the sign-in prompt or save your key.
+-   **Anthropic** uses a Claude subscription token or an [Anthropic API key](https://platform.claude.com/docs/en/get-api-key). Choose a method from **Connect** and follow the setup instructions.
+-   **Google Gemini** uses an API key from [Google AI Studio](https://aistudio.google.com/apikey). Google bills usage to the key’s project.
+-   **GitHub Copilot** uses your [GitHub Copilot plan](https://github.com/features/copilot/plans). Click **Connect** and approve the sign-in code in your browser.
 
 Use **Default AI provider** to choose which connected account new chats use. The model menu lets you choose a provider for a particular chat. In the terminal, switch providers with the `/provider` command.
 
@@ -324,4 +327,4 @@ studio code
 
 3.  Type `/provider`, and select “Anthropic · API key” in the chat and paste your key when prompted. The key is saved locally for future sessions.
 4.  To switch back and forth between providers at any time, use the `/provider` command and choose **WordPress.com** or **Anthropic · API key**.
-5.  To change your API key, use the `/api-key` command, which will prompt you to enter a new key.
+5.  To change your API key, use `/connect anthropic`, which will prompt you to enter a new key. `/disconnect anthropic` removes it.

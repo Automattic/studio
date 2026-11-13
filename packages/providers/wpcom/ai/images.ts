@@ -1,6 +1,6 @@
-import { getAiGatewayBaseUrl } from './ai';
-import type { WpcomConfig } from './config';
-import type { GenerateImageRequest, GenerateImageResult, GenerateImages } from '../types';
+import { getAiGatewayBaseUrl } from './gateway';
+import type { GenerateImageRequest, GenerateImageResult, ProviderServices } from '../../types';
+import type { WpcomConfig } from '../config';
 
 // Image generation through the proxy's OpenAI-compatible images route, which
 // only delivers PNG.
@@ -35,11 +35,12 @@ export function resolveImageSize( aspectRatio: string | undefined ): string {
 
 export function buildImageRequestBody(
 	prompt: string,
-	aspectRatioKeyword: string | undefined
+	aspectRatioKeyword: string | undefined,
+	model = IMAGE_MODEL_ALIAS
 ): Record< string, unknown > {
 	// No `stream` and no `n` above 1: the proxy rejects both.
 	return {
-		model: IMAGE_MODEL_ALIAS,
+		model,
 		prompt,
 		quality: IMAGE_QUALITY,
 		size: resolveImageSize( aspectRatioKeyword ),
@@ -93,11 +94,17 @@ export function interpretImageResponse( raw: string, status: number ): Uint8Arra
 		throw new Error( `Image proxy response had no image data: ${ raw.slice( 0, 300 ) }` );
 	}
 
+	return decodePng( base64, 'Image proxy' );
+}
+
+/**
+ * Decodes base64 image data, refusing anything but a PNG: byte magic is the
+ * source of truth, and Studio writes these bytes under a .png filename.
+ */
+export function decodePng( base64: string, source: string ): Uint8Array {
 	const bytes = Uint8Array.from( atob( base64 ), ( char ) => char.charCodeAt( 0 ) );
-	// Byte magic is the source of truth: never deliver non-PNG bytes under a
-	// .png filename.
 	if ( ! PNG_SIGNATURE.every( ( byte, index ) => bytes[ index ] === byte ) ) {
-		throw new Error( 'Image proxy returned bytes that are not a PNG' );
+		throw new Error( `${ source } returned bytes that are not a PNG` );
 	}
 	return bytes;
 }
@@ -105,27 +112,44 @@ export function interpretImageResponse( raw: string, status: number ): Uint8Arra
 const sleep = ( seconds: number ) =>
 	new Promise< void >( ( resolve ) => setTimeout( resolve, seconds * 1000 ) );
 
+// How a route is asked for an image and read back; the default speaks the
+// OpenAI images API, which the proxy and OpenAI both serve.
+export interface ImageDialect {
+	body( request: GenerateImageRequest, model: string ): unknown;
+	read( raw: string, status: number ): Uint8Array;
+}
+
+const openaiImages: ImageDialect = {
+	body: ( request, model ) => buildImageRequestBody( request.prompt, request.aspectRatio, model ),
+	read: interpretImageResponse,
+};
+
+// An images route: where it is, how to authenticate, the model to ask for, and
+// the dialect it speaks when that is not the OpenAI one.
+export interface ImageRoute {
+	url: string;
+	headers: Record< string, string >;
+	model: string;
+	dialect?: ImageDialect;
+}
+
 async function generateOne(
-	endpoint: string,
-	token: string,
+	route: ImageRoute,
 	request: GenerateImageRequest
 ): Promise< GenerateImageResult > {
-	const body = JSON.stringify( buildImageRequestBody( request.prompt, request.aspectRatio ) );
+	const dialect = route.dialect ?? openaiImages;
+	const body = JSON.stringify( dialect.body( request, route.model ) );
 	// Transient transport errors AND safety-filtered prompts retry: the
 	// non-deterministic filter can pass the same prompt on a later attempt.
 	for ( let attempt = 0; ; attempt++ ) {
 		try {
-			const response = await fetch( endpoint, {
+			const response = await fetch( route.url, {
 				method: 'POST',
-				headers: {
-					authorization: `Bearer ${ token }`,
-					'x-wpcom-ai-feature': IMAGE_FEATURE_SLUG,
-					'content-type': 'application/json',
-				},
+				headers: { ...route.headers, 'content-type': 'application/json' },
 				body,
 			} );
 			const raw = await response.text();
-			return { ok: true, bytes: interpretImageResponse( raw, response.status ) };
+			return { ok: true, bytes: dialect.read( raw, response.status ) };
 		} catch ( error ) {
 			const transient =
 				error instanceof TransientImageError ||
@@ -145,22 +169,19 @@ async function generateOne(
 	}
 }
 
-export const generateWpcomImages: GenerateImages< WpcomConfig > = async (
-	config,
-	requests,
-	onResult
-) => {
-	if ( ! config ) {
-		throw new Error( 'Image generation requires a WordPress.com login (studio auth login).' );
-	}
-	const endpoint = `${ getAiGatewayBaseUrl() }/v1/images/generations`;
+// Renders the requests a few at a time, in their order.
+export async function generateImagesOn(
+	route: ImageRoute,
+	requests: GenerateImageRequest[],
+	onResult?: ( index: number, result: GenerateImageResult ) => void
+): Promise< GenerateImageResult[] > {
 	const results: GenerateImageResult[] = new Array( requests.length );
 	let next = 0;
 
 	const worker = async () => {
 		while ( next < requests.length ) {
 			const index = next++;
-			const result = await generateOne( endpoint, config.token, requests[ index ] );
+			const result = await generateOne( route, requests[ index ] );
 			results[ index ] = result;
 			onResult?.( index, result );
 		}
@@ -169,4 +190,21 @@ export const generateWpcomImages: GenerateImages< WpcomConfig > = async (
 		Array.from( { length: Math.min( MAX_CONCURRENT_REQUESTS, requests.length ) }, worker )
 	);
 	return results;
+}
+
+export const generateWpcomImages: NonNullable<
+	NonNullable< ProviderServices< WpcomConfig >[ 'ai' ] >[ 'generateImages' ]
+> = async ( config, requests, onResult ) => {
+	if ( ! config ) {
+		throw new Error( 'Image generation requires a WordPress.com login (studio auth login).' );
+	}
+	const route = {
+		url: `${ getAiGatewayBaseUrl() }/v1/images/generations`,
+		headers: {
+			authorization: `Bearer ${ config.token }`,
+			'x-wpcom-ai-feature': IMAGE_FEATURE_SLUG,
+		},
+		model: IMAGE_MODEL_ALIAS,
+	};
+	return generateImagesOn( route, requests, onResult );
 };

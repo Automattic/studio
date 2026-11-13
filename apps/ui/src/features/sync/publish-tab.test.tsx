@@ -8,9 +8,9 @@ import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector'
 import { aiSettings } from '@/test/in-memory-connector';
 import { renderWithProviders } from '@/test/render';
 import type { RemoteSiteConnection, SyncSite } from '@/data/core';
-import type { Space } from '@studio/providers';
+import type { ProviderSites } from '@studio/providers';
 
-const space: Space = {
+const space: ProviderSites[ 'spacefast' ] = {
 	id: 'spc_1',
 	name: 'Local site',
 	url: 'https://local-site.space.fast/',
@@ -30,11 +30,9 @@ function setup( overrides: Parameters< typeof createFakeConnector >[ 1 ] = {} ) 
 			getRemoteSites: async ( provider ) => ( provider === 'spacefast' ? connections : [] ),
 			listAccountSites: async ( provider ) => ( provider === 'spacefast' ? connections : [] ),
 			startProviderConnect: async () => ( {
-				deviceCode: 'dev_1',
-				userCode: 'ABCD-1234',
-				verificationUrl: 'https://spacefast.com/device',
-				interval: 1,
-				expiresAt: '2030-01-01T00:00:00Z',
+				url: 'https://spacefast.com/device',
+				code: 'ABCD-1234',
+				handoff: { deviceCode: 'dev_1', interval: '1', expiresAt: '2030-01-01T00:00:00Z' },
 			} ),
 			createRemoteSite: async ( _provider, localSiteId ) => {
 				connections.push( {
@@ -66,7 +64,7 @@ it( 'connects Spacefast, creates a Space named after the site, and publishes to 
 
 	await actions.click( await screen.findByRole( 'button', { name: 'Connect Spacefast' } ) );
 	await waitFor( () =>
-		expect( connector.connectProvider ).toHaveBeenCalledWith( 'spacefast', {
+		expect( connector.connectProvider ).toHaveBeenCalledWith( 'spacefast', 'sign-in', {
 			deviceCode: 'dev_1',
 			interval: '1',
 			expiresAt: '2030-01-01T00:00:00Z',
@@ -113,7 +111,11 @@ it( 'lists the sites published on every provider and publishes to another Space'
 		lastPushTimestamp: null,
 		lastPullTimestamp: null,
 	};
-	const second: Space = { ...space, id: 'spc_2', url: 'https://second.space.fast/' };
+	const second: ProviderSites[ 'spacefast' ] = {
+		...space,
+		id: 'spc_2',
+		url: 'https://second.space.fast/',
+	};
 	const { connector, site } = setup( {
 		getRemoteSites: async ( provider, localSiteId ) =>
 			provider === 'wpcom'

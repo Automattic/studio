@@ -1,8 +1,8 @@
 import { AGENT_APP_IDS, AGENT_APP_NAMES } from '@studio/common/lib/agent-apps';
 import {
 	AI_PROVIDER_IDS,
-	getProviderDescriptor,
-	getSitesDescriptor,
+	getProvider,
+	getProviderSites,
 	SITES_PROVIDER_IDS,
 } from '@studio/providers';
 import { __ } from '@wordpress/i18n';
@@ -298,7 +298,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 					aliases: [ __( 'Default provider' ) ],
 				},
 				...SETTINGS_AI_PROVIDER_IDS.map( ( id ) => {
-					const { label, description, ai } = getProviderDescriptor( id );
+					const { label, description, account } = getProvider( id );
 					return {
 						...setting(
 							'navigate',
@@ -306,7 +306,9 @@ function getStudioSections( signedIn: boolean ): Section[] {
 							description?.() ?? __( 'Start building with free AI credits.' ),
 							`${ id }-provider`
 						),
-						nativeOnly: ai?.inPage === false,
+						nativeOnly: account.methods.every(
+							( { kind } ) => kind === 'device' || kind === 'loopback'
+						),
 					};
 				} ),
 				setting(
@@ -317,7 +319,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 				),
 				setting( 'navigate', __( 'Default hosting provider' ), '', 'default-hosting-provider' ),
 				...SITES_PROVIDER_IDS.map( ( id ) => {
-					const { label, description } = getProviderDescriptor( id );
+					const { label, description } = getProvider( id );
 					return {
 						...setting(
 							'navigate',
@@ -326,7 +328,7 @@ function getStudioSections( signedIn: boolean ): Section[] {
 								__( 'Publish new sites or update existing ones on WordPress.com or Pressable.' ),
 							id === 'wpcom' ? 'wpcom-hosting' : `${ id }-provider`
 						),
-						nativeOnly: getSitesDescriptor( id ).exportsStaticSite,
+						nativeOnly: getProviderSites( id ).content === 'static',
 					};
 				} ),
 			],

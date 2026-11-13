@@ -142,25 +142,29 @@ export function wpcomPushWarning( site: SyncSite, local: { multisite?: boolean }
 		: null;
 }
 
-export function wpcomSiteDetails( site: SyncSite ): { title: string; value: string }[] {
-	return [ { title: __( 'Environment' ), value: wpcomEnvironmentLabel( site ) } ];
-}
-
-// Pressable sites are managed on Pressable, so WordPress.com has no pages for them.
-export function wpcomSiteLinks( site: SyncSite ): { title: string; url: string }[] {
-	if ( site.isPressable ) {
-		return [];
-	}
-	let hostname: string;
+// What WordPress.com says about a site, and its pages there. Pressable sites are managed on
+// Pressable, so WordPress.com has no pages for them.
+export function describeWpcomSite( site: SyncSite ): {
+	details: { title: string; value: string }[];
+	links: { title: string; url: string }[];
+} {
+	const details = [ { title: __( 'Environment' ), value: wpcomEnvironmentLabel( site ) } ];
+	let hostname: string | undefined;
 	try {
-		hostname = new URL( site.url ).hostname;
+		hostname = site.isPressable ? undefined : new URL( site.url ).hostname;
 	} catch {
-		return [];
+		hostname = undefined;
+	}
+	if ( ! hostname ) {
+		return { details, links: [] };
 	}
 	const dashboard = `https://my.wordpress.com/sites/${ hostname }`;
-	return [
-		{ title: __( 'Domains' ), url: `${ dashboard }/domains` },
-		{ title: __( 'Backups' ), url: `https://wordpress.com/backup/${ hostname }` },
-		{ title: __( 'Manage on WordPress.com' ), url: dashboard },
-	];
+	return {
+		details,
+		links: [
+			{ title: __( 'Domains' ), url: `${ dashboard }/domains` },
+			{ title: __( 'Backups' ), url: `https://wordpress.com/backup/${ hostname }` },
+			{ title: __( 'Manage on WordPress.com' ), url: dashboard },
+		],
+	};
 }

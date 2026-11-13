@@ -145,6 +145,7 @@ export function createStaticConnector(): Connector {
 			annotatePreview: true,
 			studioLogs: false,
 			nativeSites: false,
+			loopbackSignIn: false,
 		},
 
 		agenticRequiresAuth: false,
@@ -430,7 +431,8 @@ export function createStaticConnector(): Connector {
 		},
 
 		getAiSettings: () => agent.getAiSettings(),
-		connectProvider: ( provider, input ) => agent.connectProvider( provider, input ),
+		connectProvider: ( provider, method, input ) =>
+			agent.connectProvider( provider, method, input ),
 		disconnectProvider: ( provider ) => agent.disconnectProvider( provider ),
 		async startProviderConnect() {
 			throw new UnsupportedError( 'startProviderConnect' );

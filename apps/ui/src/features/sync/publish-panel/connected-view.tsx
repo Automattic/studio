@@ -1,5 +1,5 @@
 import { getLatestLinkedPreview, getPreviewPublishWarning } from '@studio/common/lib/snapshots';
-import { getSitesDescriptor, type SitesProviderId } from '@studio/providers';
+import { getProviderSites, type SitesProviderId } from '@studio/providers';
 import { useQuery } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
@@ -94,7 +94,7 @@ export function ConnectedView( {
 	const id = useId();
 	const publishButton = useRef< HTMLButtonElement >( null );
 	const pullButton = useRef< HTMLButtonElement >( null );
-	const sites = getSitesDescriptor( provider );
+	const sites = getProviderSites( provider );
 	const pushSite = usePushSite();
 	const pullSite = usePullSite();
 	const cancel = useCancelSync();

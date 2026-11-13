@@ -1,5 +1,5 @@
 import {
-	getSitesDescriptor,
+	getProviderSites,
 	SITES_PROVIDER_IDS,
 	type ProviderSites,
 	type SitesProviderId,
@@ -26,7 +26,7 @@ export const accountSitesQueryKey = ( provider: SitesProviderId ) =>
 export function usePublishProviders(): SitesProviderId[] {
 	const { capabilities } = useConnector();
 	return SITES_PROVIDER_IDS.filter(
-		( id ) => capabilities.nativeSites || ! getSitesDescriptor( id ).exportsStaticSite
+		( id ) => capabilities.nativeSites || getProviderSites( id ).content !== 'static'
 	);
 }
 

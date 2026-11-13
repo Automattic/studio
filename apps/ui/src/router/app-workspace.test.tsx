@@ -203,6 +203,7 @@ describe( 'Studio workspace', () => {
 					nativeFolderPicker: true,
 					studioLogs: true,
 					nativeSites: true,
+					loopbackSignIn: true,
 				},
 			},
 		} );
@@ -1332,6 +1333,7 @@ describe( 'Studio workspace', () => {
 					annotatePreview: true,
 					studioLogs: true,
 					nativeSites: true,
+					loopbackSignIn: true,
 				},
 			},
 		} );

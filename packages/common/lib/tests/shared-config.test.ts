@@ -405,13 +405,22 @@ describe( 'Shared Config', () => {
 	} );
 
 	describe( 'getTracksIdentity', () => {
-		it( 'is the WordPress.com user id when logged in, without minting an install id', async () => {
+		it( 'is the WordPress.com user id when logged in, carrying the install id', async () => {
 			vi.mocked( readFile ).mockResolvedValue(
-				Buffer.from( JSON.stringify( { version: 1, authToken: validToken } ) )
+				Buffer.from(
+					JSON.stringify( {
+						version: 1,
+						authToken: validToken,
+						analyticsInstallId: 'existing-id',
+					} )
+				)
 			);
 
-			expect( await getTracksIdentity() ).toEqual( { type: 'wpcom:user_id', id: '123' } );
-			expect( writeFile ).not.toHaveBeenCalled();
+			expect( await getTracksIdentity() ).toEqual( {
+				type: 'wpcom:user_id',
+				id: '123',
+				installId: 'existing-id',
+			} );
 		} );
 
 		it( 'is the anonymous install id when logged out', async () => {

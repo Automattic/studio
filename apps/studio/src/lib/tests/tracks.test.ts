@@ -189,13 +189,17 @@ it( 'keeps workspace layout telemetry silent when opted out', async () => {
 
 it( 'attributes the event to the WordPress.com user when logged in', async () => {
 	mockOptedOut.mockResolvedValue( false );
-	mockIdentity.mockResolvedValue( { type: 'wpcom:user_id', id: '12345' } );
+	mockIdentity.mockResolvedValue( {
+		type: 'wpcom:user_id',
+		id: '12345',
+		installId: 'install-uuid',
+	} );
 
 	await recordTracksEvent( TRACKS_EVENTS.APP_LAUNCH );
 
 	expect( mockRecord ).toHaveBeenCalledWith(
 		TRACKS_EVENTS.APP_LAUNCH,
-		{ type: 'wpcom:user_id', id: '12345' },
+		{ type: 'wpcom:user_id', id: '12345', installId: 'install-uuid' },
 		expect.any( Object )
 	);
 } );

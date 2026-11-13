@@ -87,6 +87,7 @@ it( 'joins visible prompt, explicit login and token outcome, identifying only th
 		[ 'anon', shared.analyticsInstallId ],
 		[ 'wpcom:user_id', '123' ],
 	] );
+	expect( events()[ 2 ].install_id ).toBe( shared.analyticsInstallId );
 	for ( const event of events() ) {
 		expect( event ).toMatchObject( {
 			channel: 'studio-mcp',

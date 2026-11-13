@@ -94,11 +94,17 @@ export function interpretImageResponse( raw: string, status: number ): Uint8Arra
 		throw new Error( `Image proxy response had no image data: ${ raw.slice( 0, 300 ) }` );
 	}
 
+	return decodePng( base64, 'Image proxy' );
+}
+
+/**
+ * Decodes base64 image data, refusing anything but a PNG: byte magic is the
+ * source of truth, and Studio writes these bytes under a .png filename.
+ */
+export function decodePng( base64: string, source: string ): Uint8Array {
 	const bytes = Uint8Array.from( atob( base64 ), ( char ) => char.charCodeAt( 0 ) );
-	// Byte magic is the source of truth: never deliver non-PNG bytes under a
-	// .png filename.
 	if ( ! PNG_SIGNATURE.every( ( byte, index ) => bytes[ index ] === byte ) ) {
-		throw new Error( 'Image proxy returned bytes that are not a PNG' );
+		throw new Error( `${ source } returned bytes that are not a PNG` );
 	}
 	return bytes;
 }
@@ -106,20 +112,33 @@ export function interpretImageResponse( raw: string, status: number ): Uint8Arra
 const sleep = ( seconds: number ) =>
 	new Promise< void >( ( resolve ) => setTimeout( resolve, seconds * 1000 ) );
 
-// An OpenAI-compatible images route: where it is, how to authenticate, and the model to ask for.
+// How a route is asked for an image and read back; the default speaks the
+// OpenAI images API, which the proxy and OpenAI both serve.
+export interface ImageDialect {
+	body( request: GenerateImageRequest, model: string ): unknown;
+	read( raw: string, status: number ): Uint8Array;
+}
+
+const openaiImages: ImageDialect = {
+	body: ( request, model ) => buildImageRequestBody( request.prompt, request.aspectRatio, model ),
+	read: interpretImageResponse,
+};
+
+// An images route: where it is, how to authenticate, the model to ask for, and
+// the dialect it speaks when that is not the OpenAI one.
 export interface ImageRoute {
 	url: string;
 	headers: Record< string, string >;
 	model: string;
+	dialect?: ImageDialect;
 }
 
 async function generateOne(
 	route: ImageRoute,
 	request: GenerateImageRequest
 ): Promise< GenerateImageResult > {
-	const body = JSON.stringify(
-		buildImageRequestBody( request.prompt, request.aspectRatio, route.model )
-	);
+	const dialect = route.dialect ?? openaiImages;
+	const body = JSON.stringify( dialect.body( request, route.model ) );
 	// Transient transport errors AND safety-filtered prompts retry: the
 	// non-deterministic filter can pass the same prompt on a later attempt.
 	for ( let attempt = 0; ; attempt++ ) {
@@ -130,7 +149,7 @@ async function generateOne(
 				body,
 			} );
 			const raw = await response.text();
-			return { ok: true, bytes: interpretImageResponse( raw, response.status ) };
+			return { ok: true, bytes: dialect.read( raw, response.status ) };
 		} catch ( error ) {
 			const transient =
 				error instanceof TransientImageError ||

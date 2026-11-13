@@ -14,6 +14,7 @@ const settings = ( provider: AiSettings[ 'provider' ], connected: string[] ): Ai
 		openai: connected.includes( 'openai' )
 			? { connected: true, method: 'chatgpt' }
 			: { connected: false },
+		gemini: { connected: false },
 		spacefast: { connected: false },
 	},
 } );

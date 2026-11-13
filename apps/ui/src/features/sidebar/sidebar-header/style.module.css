@@ -10,12 +10,7 @@
 	flex-shrink: 0;
 	padding-inline: var( --toggle-start ) var( --band-inset );
 	-webkit-app-region: drag;
-	/* Stay pinned while the sidebar scrolls. Opaque background so
-	   scrolling content doesn't bleed through. */
-	position: sticky;
-	top: 0;
 	z-index: 2;
-	background-color: var( --studio-sidebar-bg );
 }
 
 /* No traffic lights to clear: non-macOS, the browser (`studio ui`), or macOS

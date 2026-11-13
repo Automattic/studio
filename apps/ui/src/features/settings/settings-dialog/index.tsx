@@ -130,10 +130,6 @@ function findRow( root: HTMLElement, target: string ) {
 }
 
 function focusControl( row: HTMLElement ) {
-	if ( row.matches( '[data-settings-target]' ) ) {
-		row.focus( { preventScroll: true } );
-		return;
-	}
 	const control =
 		row.querySelector< HTMLElement >(
 			'input:not(:disabled):not([type="hidden"]):not([aria-hidden="true"]), textarea:not(:disabled), [role="switch"]:not([data-disabled]), [role="combobox"]:not(:disabled)'
@@ -220,7 +216,7 @@ export function SettingsDialog() {
 	useEffect( () => {
 		if ( settingsFocus || linkedSection ) {
 			setQuery( '' );
-			setTarget( settingsFocus ?? ( settings === 'ai' ? 'ai-providers' : null ) );
+			setTarget( settingsFocus ?? null );
 			void navigate( {
 				to: '.',
 				state: true,
@@ -320,7 +316,11 @@ export function SettingsDialog() {
 				return;
 			}
 			observer.disconnect();
-			row.scrollIntoView?.( { block: row.matches( 'fieldset' ) ? 'start' : 'center' } );
+			if ( row.matches( '[data-settings-target]' ) ) {
+				row.scrollIntoView?.( { block: 'start' } );
+				return;
+			}
+			row.scrollIntoView?.( { block: 'center' } );
 			row.setAttribute( 'data-settings-match', '' );
 			frame = requestAnimationFrame( () => row && focusControl( row ) );
 		};

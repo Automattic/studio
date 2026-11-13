@@ -3,7 +3,12 @@
 // run-manager that only show the agent stay importable on their own, so those
 // apps never load the runtime.
 export { createAgent, type StudioAgent } from './agent';
-export type { HostSite, ProgressCallback, StudioAgentHost } from '@studio/agent/shared/host';
+export type {
+	HostRemoteSite,
+	HostSite,
+	ProgressCallback,
+	StudioAgentHost,
+} from '@studio/agent/shared/host';
 export type { StudioAgentTurnConfig, StudioAgentTurnHandle } from './runtime';
 export type { AskUserHandler, AskUserQuestion, SiteInfo } from '@studio/agent/shared/types';
 
@@ -25,6 +30,7 @@ export { textResult } from '@studio/agent/shared/tools/utils';
 export { loadSkills } from '@studio/agent/shared/skills';
 export { buildSystemPrompt } from '@studio/agent/shared/system-prompt';
 export { createResultNotes } from '@studio/agent/shared/result-notes';
+export type { ImageGenerator } from '@studio/agent/shared/image-generation';
 export type { DesignTracksContext } from '@studio/agent/shared/design-tracks';
 
 // Turns as the host records them.
@@ -40,5 +46,4 @@ export {
 } from './browser-utils';
 export { captureScreenshotBuffer } from '@studio/agent/shared/tools/screenshot-helpers';
 export { validateBlocks } from '@studio/agent/shared/block-validator';
-export { getWpcomAiGatewayEndpoint } from '@studio/agent/shared/ai-gateway';
 export { nodeHostServices } from './node-host';

@@ -7,11 +7,12 @@ import {
 	type StudioChatArtifactWidgetDraft,
 } from '@studio/agent/protocol/chat-artifacts';
 import {
+	formatErrorMessage,
 	isAiAccessRequiredError,
 	isAiBlockedError,
 	isOutOfCreditsError,
 	isUsageCapError,
-} from '@studio/agent/protocol/json-events';
+} from '@studio/agent/protocol/errors';
 import { formatUsageCapNotice } from '@studio/common/lib/studio-assistant-quota';
 import { replaceEqualDeep } from '@tanstack/react-query';
 import { __ } from '@wordpress/i18n';
@@ -118,7 +119,9 @@ const TurnErrorMarker = memo( function TurnErrorMarker( { message }: { message: 
 	} else if ( isUsageCap ) {
 		text = formatUsageCapNotice( quota?.costResetDate );
 	} else {
-		text = message || __( 'Something went wrong and this turn was stopped. Please try again.' );
+		text =
+			formatErrorMessage( message ) ||
+			__( 'Something went wrong and this turn was stopped. Please try again.' );
 	}
 	return (
 		<div className={ styles.marker } role="alert">

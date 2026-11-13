@@ -5,7 +5,6 @@ import { vi } from 'vitest';
 import { getSharedBrowser } from '@studio/agent/node/browser-utils';
 import { nodeHostServices } from '@studio/agent/node/node-host';
 import { validateBlocks } from '@studio/agent/shared/block-validator';
-import { generateImages } from '@studio/agent/shared/image-generation';
 import {
 	resolveConversationTools,
 	resolveStudioTools,
@@ -33,11 +32,6 @@ vi.mock( '@studio/agent/shared/block-validator', () => ( {
 
 vi.mock( '@studio/agent/node/browser-utils', () => ( {
 	getSharedBrowser: vi.fn(),
-} ) );
-
-vi.mock( '@studio/agent/shared/image-generation', async () => ( {
-	...( await vi.importActual( '@studio/agent/shared/image-generation' ) ),
-	generateImages: vi.fn(),
 } ) );
 
 describe( 'Studio AI MCP tools', () => {
@@ -620,43 +614,80 @@ describe( 'Studio AI MCP tools', () => {
 		] );
 	} );
 
-	it( 'tags connected remote sites with type "wpcom-remote"', async () => {
-		const site = {
-			id: 111,
-			localSiteId: '',
-			name: 'My Production Site',
-			url: 'https://myprod.wordpress.com',
-			isStaging: false,
-			isPressable: false,
-			environmentType: 'production',
-			syncSupport: 'syncable' as const,
-			lastPullTimestamp: null,
-			lastPushTimestamp: null,
-		};
-		vi.mocked( host.wpcom.connectedSites ).mockResolvedValue( [
-			{ ...site, localSiteId: 'site-123', syncSupport: 'already-connected' },
+	it( 'lists the remote sites of every provider with what can be synced and how to name them', async () => {
+		vi.mocked( host.sync.connectedSites ).mockResolvedValue( [
+			{
+				provider: 'wpcom',
+				site: {
+					id: 111,
+					localSiteId: 'site-123',
+					name: 'My Production Site',
+					url: 'https://myprod.wordpress.com',
+					isStaging: false,
+					isPressable: false,
+					environmentType: 'production',
+					syncSupport: 'already-connected',
+					lastPullTimestamp: null,
+					lastPushTimestamp: null,
+				},
+			},
+			{
+				provider: 'spacefast',
+				site: {
+					id: 'spc_1',
+					name: 'My Space',
+					url: 'https://my-space.space.fast/',
+					slug: 'my-space',
+					teamId: 'team_1',
+					teamName: 'My Team',
+					lastPushTimestamp: '2026-11-01T00:00:00Z',
+				},
+			},
 		] );
 
 		const result = await getTool( 'site_connected_remote_sites' ).rawHandler( {
 			nameOrPath: 'My Site',
 		} as never );
 
-		expect( host.wpcom.connectedSites ).toHaveBeenCalledWith( mockSite );
-		const parsed = JSON.parse( getTextContent( result ) ?? '[]' );
-		expect( parsed ).toEqual( [
+		expect( host.sync.connectedSites ).toHaveBeenCalledWith( mockSite );
+		expect( JSON.parse( getTextContent( result ) ?? '[]' ) ).toEqual( [
 			{
-				type: 'wpcom-remote',
-				id: 111,
+				type: 'remote-site',
+				provider: 'wpcom',
+				providerName: 'WordPress.com',
+				remoteSite: 'wpcom:111',
 				name: 'My Production Site',
 				url: 'https://myprod.wordpress.com',
-				isStaging: false,
-				isPressable: false,
-				environmentType: 'production',
-				syncSupport: 'already-connected',
+				Environment: 'Production',
+				canPush: true,
+				canPull: true,
 				lastPushTimestamp: null,
 				lastPullTimestamp: null,
 			},
+			{
+				type: 'remote-site',
+				provider: 'spacefast',
+				providerName: 'Spacefast',
+				remoteSite: 'spacefast:spc_1',
+				name: 'My Space',
+				url: 'https://my-space.space.fast/',
+				Team: 'My Team',
+				canPush: true,
+				canPull: false,
+				lastPushTimestamp: '2026-11-01T00:00:00Z',
+				lastPullTimestamp: null,
+			},
 		] );
+	} );
+
+	it( 'refuses to pull from a provider that can only be published to', async () => {
+		await expect(
+			getTool( 'site_pull' ).rawHandler( {
+				nameOrPath: 'My Site',
+				remoteSite: 'spacefast:spc_1',
+			} as never )
+		).rejects.toThrow( 'Spacefast sites can only be published to, not pulled.' );
+		expect( host.sync.pull ).not.toHaveBeenCalled();
 	} );
 
 	describe( 'site_list', () => {
@@ -824,8 +855,7 @@ describe( 'Studio AI MCP tools', () => {
 		const themeImage = path.join( sitePath, 'wp-content/themes/acme/assets/images/band.png' );
 		const urlOf = ( name: string ) => `http://localhost:8888/wp-content/uploads/2026/09/${ name }`;
 		vi.mocked( host.sites.all ).mockResolvedValue( [ mockSite, site ] );
-		vi.mocked( host.wpcom.imageToken ).mockResolvedValue( 'token' );
-		vi.mocked( generateImages ).mockResolvedValue( [
+		const generateImages = vi.fn().mockResolvedValue( [
 			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
 			{ ok: false, error: 'Timed out' },
 			{ ok: true, bytes: Buffer.from( 'jpeg' ) },
@@ -842,6 +872,7 @@ describe( 'Studio AI MCP tools', () => {
 			.mockResolvedValueOnce( { exitCode: 0, stdout: '', stderr: '' } );
 
 		try {
+			host.imageGenerator = async () => generateImages;
 			const result = await getTool( 'generate_images' ).rawHandler( {
 				images: [
 					{ path: path.join( uploads, 'hero.png' ), subject: 'A café counter at dawn' },

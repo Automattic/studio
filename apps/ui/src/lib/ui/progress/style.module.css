@@ -38,7 +38,7 @@
 	}
 
 	.root[data-intent='exhausted'] .indicator {
-		background-color: var( --destructive );
+		background-color: var( --destructive-fill );
 	}
 
 	@media ( prefers-reduced-motion: reduce ) {

@@ -3,19 +3,8 @@ import { fetchSnapshotUsage } from '@studio/common/lib/snapshots';
 import { fetchStudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 import { fetchStudioAssistantTopUpPricing } from '@studio/common/lib/studio-assistant-top-up-pricing';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
-import { SYNC_POLL_INTERVAL_MS } from '@studio/common/lib/sync/constants';
-import {
-	fetchHostingPhpVersion,
-	fetchLatestRewindId,
-	fetchRemoteFileTreeContents,
-	fetchSyncableSites,
-	initiateBackup,
-	initiateImport,
-	pollBackupStatus,
-	pollImportStatus,
-} from '@studio/common/lib/sync/sync-api';
-import { withWpcomDetails } from '@studio/common/lib/sync/transform-sites';
-import { createTusUpload } from '@studio/common/lib/sync/tus-upload';
+import { getProviderServices } from '@studio/providers/services';
+import { withWpcomDetails } from '@studio/providers/wpcom';
 import { __ } from '@wordpress/i18n';
 import { downloadBackup } from './backup-download';
 import { buildPushArchive, exportSiteZip, importBackup } from './site-data';
@@ -40,6 +29,9 @@ type SyncConnectListener = ( event: {
 
 const PREVIEW_STATUS_ACTIVE = '2';
 const PREVIEW_MAX_POLLS = 100;
+const PREVIEW_POLL_INTERVAL_MS = 3000;
+
+const wpcomSites = getProviderServices( 'wpcom' ).sites!;
 const PUBLISH_WATCH_ATTEMPTS = 60;
 const PUBLISH_WATCH_INTERVAL_MS = 5_000;
 
@@ -171,7 +163,7 @@ export class WpcomServices {
 				if ( attempt + 1 >= PREVIEW_MAX_POLLS ) {
 					throw new Error( __( 'The preview site did not finish setting up. Try again later.' ) );
 				}
-				await sleep( SYNC_POLL_INTERVAL_MS );
+				await sleep( PREVIEW_POLL_INTERVAL_MS );
 			}
 			const user = await this.auth.user();
 			const snapshot: Snapshot = {
@@ -267,7 +259,7 @@ export class WpcomServices {
 			return [];
 		}
 		const connectedSiteIds = ( await this.connections() ).map( ( site ) => site.id );
-		return fetchSyncableSites( token.accessToken, { connectedSiteIds } );
+		return wpcomSites.list( { token: token.accessToken }, { connectedIds: connectedSiteIds } );
 	}
 
 	async getConnectedSites( localSiteId?: string ): Promise< SyncSite[] > {
@@ -358,15 +350,20 @@ export class WpcomServices {
 		siteId: string,
 		remoteSiteId: number,
 		direction: 'push' | 'pull',
-		run: ( signal: AbortSignal ) => Promise< void >
+		run: ( signal: AbortSignal ) => Promise< void | string >
 	) {
 		const controller = new AbortController();
 		const { signal } = controller;
 		this.cancellations.set( `${ siteId }:${ remoteSiteId }`, controller );
 		try {
-			await run( signal );
+			const launchError = await run( signal );
 			await this.recordSync( siteId, remoteSiteId, direction );
-			this.emitSyncActivity( siteId, { kind: 'success', direction } );
+			this.emitSyncActivity(
+				siteId,
+				launchError
+					? { kind: 'error', direction, message: launchError }
+					: { kind: 'success', direction }
+			);
 		} catch ( error ) {
 			if ( signal.aborted ) {
 				this.emitSyncActivity( siteId, { kind: 'cancelled', direction } );
@@ -389,7 +386,7 @@ export class WpcomServices {
 		const contentOptions = [ 'uploads', 'plugins', 'themes', 'contents' ] as const;
 		await this.runSync( siteId, remoteSiteId, 'push', async ( signal ) => {
 			const progress = (
-				phase: 'creatingBackup' | 'uploading' | 'applyingChanges',
+				phase: 'creatingBackup' | 'uploading' | 'applyingChanges' | 'launching',
 				value: number,
 				message: string
 			) =>
@@ -409,42 +406,46 @@ export class WpcomServices {
 			} );
 			signal.throwIfAborted();
 			progress( 'uploading', 20, __( 'Uploading…' ) );
-			const token = await this.auth.requireToken();
-			const upload = createTusUpload( {
-				token,
-				remoteSiteId,
-				file: new Blob( [ archive as BlobPart ], { type: 'application/gzip' } ),
-				filename: `push-${ siteId }-${ Date.now() }.tar.gz`,
-				onProgress: ( percent ) => progress( 'uploading', 20 + percent * 0.2, __( 'Uploading…' ) ),
-			} );
-			signal.addEventListener( 'abort', upload.abort );
-			const attachmentId = await upload.promise;
-			await initiateImport( token, remoteSiteId, attachmentId, {
-				optionsToSync,
-				specificSelectionPaths: options?.specificSelectionPaths,
-			} );
-			for (;;) {
-				signal.throwIfAborted();
-				await sleep( SYNC_POLL_INTERVAL_MS );
-				const status = await pollImportStatus( token, remoteSiteId );
-				if ( status.status === 'failed' || ! status.success ) {
-					throw new Error(
-						( status.status === 'failed' && status.error ) ||
-							__( 'WordPress.com could not import the site.' )
-					);
-				}
-				if ( status.status === 'finished' ) {
-					return;
-				}
-				const importing = status.status.startsWith( 'archive_import' );
-				progress(
-					'applyingChanges',
-					importing
-						? 60 + ( status.import_progress ?? 0 ) * 0.39
-						: 40 + ( status.backup_progress ?? 0 ) * 0.2,
-					importing ? __( 'Applying changes…' ) : __( 'Backing up the live site…' )
+			const remoteSite = ( await this.connections() ).find(
+				( site ) => site.localSiteId === siteId && site.id === remoteSiteId
+			);
+			const result = await wpcomSites.push(
+				{ token: await this.auth.requireToken() },
+				{ id: remoteSiteId, name: remoteSite?.name ?? String( remoteSiteId ) },
+				{
+					kind: 'archive',
+					file: new Blob( [ archive as BlobPart ], { type: 'application/gzip' } ),
+					name: `push-${ siteId }-${ Date.now() }.tar.gz`,
+					size: archive.byteLength,
+				},
+				{
+					optionsToSync,
+					specificSelectionPaths: options?.specificSelectionPaths,
+					launchAfterPush: remoteSite?.launchAfterPush,
+				},
+				( { phase, progress: percent = 0 } ) => {
+					if ( phase === 'uploading' ) {
+						progress( 'uploading', 20 + percent * 0.2, __( 'Uploading…' ) );
+					} else if ( phase === 'creatingRemoteBackup' ) {
+						progress( 'applyingChanges', 40 + percent * 0.2, __( 'Backing up the live site…' ) );
+					} else if ( phase === 'launching' ) {
+						progress( 'launching', 99, __( 'Launching site…' ) );
+					} else {
+						progress( 'applyingChanges', 60 + percent * 0.39, __( 'Applying changes…' ) );
+					}
+				},
+				signal
+			);
+			if ( remoteSite?.launchAfterPush && ! result?.launchError ) {
+				await this.updateConnections( ( connections ) =>
+					connections.map( ( connection ) =>
+						connection.localSiteId === siteId && connection.id === remoteSiteId
+							? { ...connection, launchAfterPush: false }
+							: connection
+					)
 				);
 			}
+			return result?.launchError;
 		} );
 	}
 
@@ -459,25 +460,13 @@ export class WpcomServices {
 					remoteSiteId,
 				} );
 			progress( 0, __( 'Requesting a backup…' ) );
-			const token = await this.auth.requireToken();
-			const backupId = await initiateBackup( token, remoteSiteId, {
-				optionsToSync: options?.optionsToSync ?? [ 'all' ],
-				includePathList: options?.includePathList?.length ? options.includePathList : undefined,
-			} );
-			let downloadUrl: string | null = null;
-			while ( ! downloadUrl ) {
-				signal.throwIfAborted();
-				await sleep( SYNC_POLL_INTERVAL_MS );
-				const status = await pollBackupStatus( token, remoteSiteId, backupId );
-				if ( status.status === 'failed' ) {
-					throw new Error( __( 'WordPress.com could not back up the site.' ) );
-				}
-				if ( status.status === 'finished' && status.downloadUrl ) {
-					downloadUrl = status.downloadUrl;
-				} else {
-					progress( status.percent * 0.5, __( 'Backing up the live site…' ) );
-				}
-			}
+			const { url: downloadUrl } = await wpcomSites.pull!.backup(
+				{ token: await this.auth.requireToken() },
+				{ id: remoteSiteId },
+				options ?? {},
+				( percent ) => progress( percent * 0.5, __( 'Backing up the live site…' ) ),
+				signal
+			);
 			progress( 50, __( 'Downloading…' ) );
 			const bytes = await downloadBackup( downloadUrl, {
 				signal,
@@ -490,7 +479,10 @@ export class WpcomServices {
 	}
 
 	async getLatestRewindId( remoteSiteId: number ): Promise< string | null > {
-		return fetchLatestRewindId( await this.auth.requireToken(), remoteSiteId );
+		return wpcomSites.pull!.latestBackupId(
+			{ token: await this.auth.requireToken() },
+			{ id: remoteSiteId }
+		);
 	}
 
 	async listRemoteFileTree(
@@ -498,15 +490,11 @@ export class WpcomServices {
 		rewindId: string,
 		path: string
 	): Promise< Record< string, unknown > > {
-		return fetchRemoteFileTreeContents(
-			await this.auth.requireToken(),
-			remoteSiteId,
+		return wpcomSites.pull!.listBackupFiles(
+			{ token: await this.auth.requireToken() },
+			{ id: remoteSiteId },
 			rewindId,
 			path
 		);
-	}
-
-	async getHostingPhpVersion( remoteSiteId: number ): Promise< string | undefined > {
-		return fetchHostingPhpVersion( await this.auth.requireToken(), remoteSiteId );
 	}
 }

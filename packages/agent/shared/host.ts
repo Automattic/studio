@@ -2,12 +2,14 @@ import type { SiteInfo } from './types';
 import type { StudioChatArtifactData } from '@studio/agent/protocol/chat-artifacts';
 import type { StudioChatImage } from '@studio/agent/protocol/chat-images';
 import type { VisualAnnotation } from '@studio/agent/protocol/visual-annotations';
+import type { ImageGenerator } from '@studio/agent/shared/image-generation';
 import type { SiteListItem } from '@studio/common/lib/cli-events';
 import type { StudioFeedback } from '@studio/common/lib/feedback';
 import type { TracksEventName, TracksProps } from '@studio/common/lib/record-tracks-event';
 import type { SiteStatus } from '@studio/common/types/site-status';
 import type { Snapshot } from '@studio/common/types/snapshot';
 import type { SyncSite } from '@studio/common/types/sync';
+import type { ProviderSites, SitesProviderId } from '@studio/providers';
 
 export type ProgressCallback = ( message: string, update?: boolean ) => void;
 
@@ -141,15 +143,28 @@ export interface HostPreviews {
 	delete( hostname: string, onProgress: ProgressCallback ): Promise< void >;
 }
 
-// Push and pull return the WordPress.com site they synced with, or nothing when
-// the user backed out.
+// A remote site a local site is connected to, on any provider.
+export interface HostRemoteSite {
+	provider: SitesProviderId;
+	site: ProviderSites[ SitesProviderId ] & {
+		lastPushTimestamp?: string | null;
+		lastPullTimestamp?: string | null;
+	};
+}
+
+// Push and pull return the remote site they synced with, or nothing when the
+// user backed out. A remote site is named as `formatRemoteSite` writes it, or by
+// a WordPress.com site's URL or ID.
 export interface HostSync {
+	// The remote sites the local site is connected to, on every provider this
+	// host publishes to.
+	connectedSites( site: HostSite ): Promise< HostRemoteSite[] >;
 	push(
 		site: HostSite,
 		options: string,
 		remoteSite: string | undefined,
 		onProgress: ProgressCallback
-	): Promise< SyncSite | undefined >;
+	): Promise< Pick< SyncSite, 'name' | 'url' > | undefined >;
 	pull(
 		site: HostSite,
 		options: string,
@@ -162,12 +177,8 @@ export interface HostSync {
 export interface HostWpcom {
 	// The user's access token, or nothing when signed out.
 	token(): Promise< string | undefined >;
-	// The token image generation uses, or nothing when it is unavailable.
-	imageToken(): Promise< string | undefined >;
 	// The signed-in user's sites; empty when signed out.
 	sites(): Promise< unknown[] >;
-	// The WordPress.com sites a local site syncs with; empty when signed out.
-	connectedSites( site: HostSite ): Promise< SyncSite[] >;
 	// A REST request; throws when signed out. An empty `apiNamespace` in `query`
 	// means the WordPress.com REST API v1.1.
 	request(
@@ -226,6 +237,9 @@ export interface StudioAgentHost {
 	annotate?( url: string, timeoutMs: number ): Promise< BrowserAnnotation[] | null >;
 	// The conversation follows a site the agent creates.
 	selectSite?( site: SiteInfo ): Promise< void > | void;
+	// Image generation through a connected provider that offers it, or nothing
+	// when none does: generate_images and the imagery prompt sections.
+	imageGenerator?(): Promise< ImageGenerator | undefined >;
 	// Sends a feedback report to the WordPress Studio team as the signed-in user,
 	// returning the ID the service assigned it: send_feedback and the feedback skill.
 	sendFeedback?( feedback: StudioFeedback ): Promise< { feedbackId: number } >;

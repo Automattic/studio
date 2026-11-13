@@ -1,19 +1,25 @@
 import path from 'path';
-import { nodeHostServices, type HostSite, type StudioAgentHost } from '@studio/agent/node';
+import {
+	nodeHostServices,
+	type HostRemoteSite,
+	type HostSite,
+	type StudioAgentHost,
+} from '@studio/agent/node';
 import { DEFAULT_PHP_VERSION } from '@studio/common/constants';
-import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
 import { REPORT_ISSUE_URL } from '@studio/common/lib/docs-links';
 import { sendStudioFeedback } from '@studio/common/lib/feedback';
+import { getRemoteSites } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
 import { isReprintPullEnabled } from '@studio/common/lib/sync/reprint-pull';
-import { fetchSyncableSites } from '@studio/common/lib/sync/sync-api';
-import { withWpcomDetails } from '@studio/common/lib/sync/transform-sites';
 import { getAiPayloadsPath } from '@studio/common/lib/well-known-paths';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
+import { listAccountSites } from '@studio/common/sites/remote-sites';
+import { getProviderSites, SITES_PROVIDER_IDS } from '@studio/providers';
+import { getProviderServices } from '@studio/providers/services';
 import { __ } from '@wordpress/i18n';
-import { getStudioUserAgent } from 'cli/ai/providers';
+import { getStudioUserAgent, resolveImageGenerator } from 'cli/ai/auth';
 import { runCommand as runExportCommand } from 'cli/commands/export';
 import { runCommand as runImportCommand } from 'cli/commands/import';
 import { runCommand as runCreatePreviewCommand } from 'cli/commands/preview/create';
@@ -43,6 +49,30 @@ import { parseSyncOptions } from 'cli/lib/sync-api';
 import { getTracksOrigin, recordTracksEvent } from 'cli/lib/tracks';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger, LoggerError } from 'cli/logger';
+
+/**
+ * The remote sites a local site is connected to, on every provider. With `fillIn`, each is filled
+ * in from its provider's account when the account can be reached, which says whether it can
+ * still be synced; the stored connection otherwise.
+ */
+export async function connectedRemoteSites(
+	site: HostSite,
+	fillIn: boolean
+): Promise< HostRemoteSite[] > {
+	const connected = await Promise.all(
+		SITES_PROVIDER_IDS.map( async ( provider ) => {
+			const stored = await getRemoteSites( provider, site.id );
+			const account =
+				fillIn && stored.length
+					? await listAccountSites( getProviderServices( provider ) ).catch( () => undefined )
+					: undefined;
+			return ( account ? getProviderSites( provider ).withDetails( stored, account ) : stored ).map(
+				( remote ) => ( { provider, site: remote } )
+			);
+		} )
+	);
+	return connected.flat();
+}
 
 function toHostSite( site: SiteData ): HostSite {
 	return {
@@ -97,6 +127,7 @@ async function withDaemon< T >( fn: () => Promise< T > ): Promise< T > {
 
 export const cliAgentHost: StudioAgentHost = {
 	sitesRoot: STUDIO_SITES_ROOT,
+	imageGenerator: resolveImageGenerator,
 	sites: {
 		resolve: async ( nameOrPath ) => toHostSite( await resolveSite( nameOrPath ) ),
 		findByFolder: async ( folder ) => {
@@ -175,6 +206,7 @@ export const cliAgentHost: StudioAgentHost = {
 			),
 	},
 	sync: {
+		connectedSites: ( site ) => connectedRemoteSites( site, true ),
 		push: async ( site, options, remoteSite, onProgress ) =>
 			runPushCommand(
 				site.path,
@@ -201,18 +233,9 @@ export const cliAgentHost: StudioAgentHost = {
 	},
 	wpcom: {
 		token: async () => ( await readAuthToken() )?.accessToken,
-		imageToken: async () =>
-			process.env.STUDIO_IMAGE_API_TOKEN?.trim() || ( await readAuthToken() )?.accessToken,
 		sites: async () => {
 			const token = await readAuthToken();
 			return token ? getWpComSites( token.accessToken ) : [];
-		},
-		connectedSites: async ( site ) => {
-			const stored = await getConnectedWpcomSitesForLocalSite( site.id );
-			const token = await readAuthToken();
-			return stored.length && token
-				? withWpcomDetails( stored, await fetchSyncableSites( token.accessToken ) )
-				: [];
 		},
 		request: async ( method, path, query, body ) => {
 			const token = await readAuthToken();

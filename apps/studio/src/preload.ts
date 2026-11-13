@@ -21,16 +21,12 @@ function ipcRendererSend< T extends keyof IpcHandlers >(
 }
 
 const api: IpcApi = {
-	pushSiteToLive: ( selectedSiteId, remoteSiteId, options ) =>
-		ipcRendererInvoke( 'pushSiteToLive', selectedSiteId, remoteSiteId, options ),
 	deleteSite: ( id, deleteFiles ) => ipcRendererInvoke( 'deleteSite', id, deleteFiles ),
 	copySite: ( sourceSiteId, newSiteId, siteName ) =>
 		ipcRendererInvoke( 'copySite', sourceSiteId, newSiteId, siteName ),
 	createSite: ( path, config ) => ipcRendererInvoke( 'createSite', path, config ),
 	updateSite: ( updatedSite, wpVersion ) =>
 		ipcRendererInvoke( 'updateSite', updatedSite, wpVersion ),
-	connectWpcomSites: ( ...args ) => ipcRendererInvoke( 'connectWpcomSites', ...args ),
-	disconnectWpcomSites: ( ...args ) => ipcRendererInvoke( 'disconnectWpcomSites', ...args ),
 	authenticate: ( isSignup, source, analytics ) =>
 		ipcRendererInvoke( 'authenticate', isSignup, source, analytics ),
 	exportSite: ( site, destinationPath, options ) =>
@@ -38,8 +34,8 @@ const api: IpcApi = {
 	getAuthenticationToken: () => ipcRendererInvoke( 'getAuthenticationToken' ),
 	clearAuthenticationToken: () => ipcRendererInvoke( 'clearAuthenticationToken' ),
 	fetchSnapshots: () => ipcRendererInvoke( 'fetchSnapshots' ),
-	publishPreviewSite: ( siteFolder, hostname, name ) =>
-		ipcRendererInvoke( 'publishPreviewSite', siteFolder, hostname, name ),
+	publishPreviewSite: ( siteFolder, hostname, name, liveSite ) =>
+		ipcRendererInvoke( 'publishPreviewSite', siteFolder, hostname, name, liveSite ),
 	deletePreviewSite: ( hostname ) => ipcRendererInvoke( 'deletePreviewSite', hostname ),
 	renamePreviewSite: ( hostname, name ) => ipcRendererInvoke( 'renamePreviewSite', hostname, name ),
 	getPreviewStatus: ( hostname ) => ipcRendererInvoke( 'getPreviewStatus', hostname ),
@@ -99,16 +95,23 @@ const api: IpcApi = {
 	readyForDeeplinks: () => ipcRendererSend( 'readyForDeeplinks' ),
 	getAbsolutePathFromSite: ( siteId, relativePath ) =>
 		ipcRendererInvoke( 'getAbsolutePathFromSite', siteId, relativePath ),
-	getConnectedWpcomSites: ( localSiteId ) =>
-		ipcRendererInvoke( 'getConnectedWpcomSites', localSiteId ),
-	fetchSyncableWpcomSites: () => ipcRendererInvoke( 'fetchSyncableWpcomSites' ),
-	getHostingPhpVersion: ( remoteSiteId ) =>
-		ipcRendererInvoke( 'getHostingPhpVersion', remoteSiteId ),
-	getLatestRewindId: ( remoteSiteId ) => ipcRendererInvoke( 'getLatestRewindId', remoteSiteId ),
-	listRemoteFileTree: ( remoteSiteId, rewindId, treePath ) =>
-		ipcRendererInvoke( 'listRemoteFileTree', remoteSiteId, rewindId, treePath ),
-	pullSiteFromLive: ( siteId, remoteSiteId, options ) =>
-		ipcRendererInvoke( 'pullSiteFromLive', siteId, remoteSiteId, options ),
+	getRemoteSites: ( provider, localSiteId ) =>
+		ipcRendererInvoke( 'getRemoteSites', provider, localSiteId ),
+	listAccountSites: ( provider ) => ipcRendererInvoke( 'listAccountSites', provider ),
+	connectRemoteSite: ( provider, localSiteId, site ) =>
+		ipcRendererInvoke( 'connectRemoteSite', provider, localSiteId, site ),
+	disconnectRemoteSite: ( provider, localSiteId, remoteSiteId ) =>
+		ipcRendererInvoke( 'disconnectRemoteSite', provider, localSiteId, remoteSiteId ),
+	createRemoteSite: ( provider, localSiteId, name ) =>
+		ipcRendererInvoke( 'createRemoteSite', provider, localSiteId, name ),
+	pushSite: ( provider, siteId, remoteSiteId, options ) =>
+		ipcRendererInvoke( 'pushSite', provider, siteId, remoteSiteId, options ),
+	pullSite: ( provider, siteId, remoteSiteId, options ) =>
+		ipcRendererInvoke( 'pullSite', provider, siteId, remoteSiteId, options ),
+	getRemoteBackupId: ( provider, remoteSiteId ) =>
+		ipcRendererInvoke( 'getRemoteBackupId', provider, remoteSiteId ),
+	listRemoteBackupFiles: ( provider, remoteSiteId, backupId, path ) =>
+		ipcRendererInvoke( 'listRemoteBackupFiles', provider, remoteSiteId, backupId, path ),
 	cancelSyncOperation: ( siteId, remoteSiteId ) =>
 		ipcRendererSend( 'cancelSyncOperation', siteId, remoteSiteId ),
 	getDirectorySize: ( id, subdir ) => ipcRendererInvoke( 'getDirectorySize', id, subdir ),
@@ -131,7 +134,11 @@ const api: IpcApi = {
 	saveGlobalAgentInstructions: ( content, options ) =>
 		ipcRendererInvoke( 'saveGlobalAgentInstructions', content, options ),
 	getAiSettings: () => ipcRendererInvoke( 'getAiSettings' ),
-	saveAnthropicApiKey: ( key ) => ipcRendererInvoke( 'saveAnthropicApiKey', key ),
+	connectAiProvider: ( provider, method, input ) =>
+		ipcRendererInvoke( 'connectAiProvider', provider, method, input ),
+	disconnectAiProvider: ( provider ) => ipcRendererInvoke( 'disconnectAiProvider', provider ),
+	startProviderConnect: ( provider, method ) =>
+		ipcRendererInvoke( 'startProviderConnect', provider, method ),
 	setAiProvider: ( provider ) => ipcRendererInvoke( 'setAiProvider', provider ),
 	saveWapuuScore: ( score ) => ipcRendererInvoke( 'saveWapuuScore', score ),
 	getWapuuScore: () => ipcRendererInvoke( 'getWapuuScore' ),
@@ -142,10 +149,7 @@ const api: IpcApi = {
 	comparePaths: ( path1, path2 ) => ipcRendererInvoke( 'comparePaths', path1, path2 ),
 	listLocalFileTree: ( siteId, path, maxDepth ) =>
 		ipcRenderer.invoke( 'listLocalFileTree', siteId, path, maxDepth ),
-	readBlueprintFile: ( filePath ) => ipcRendererInvoke( 'readBlueprintFile', filePath ),
-	extractBlueprintBundle: ( zipFilePath ) =>
-		ipcRendererInvoke( 'extractBlueprintBundle', zipFilePath ),
-	cleanupBlueprintTempDir: ( tempDir ) => ipcRendererInvoke( 'cleanupBlueprintTempDir', tempDir ),
+	readBlueprint: ( source ) => ipcRendererInvoke( 'readBlueprint', source ),
 	showTextContextMenu: ( context ) => ipcRendererInvoke( 'showTextContextMenu', context ),
 	setWindowControlsSurface: ( surface ) => ipcRendererInvoke( 'setWindowControlsSurface', surface ),
 	updateSitesSortOrder: ( updates ) => ipcRendererInvoke( 'updateSitesSortOrder', updates ),

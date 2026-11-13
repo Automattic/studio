@@ -1,5 +1,6 @@
 @layer ui {
 	.alert {
+		--surface: var( --popover );
 		--alert-tone: var( --foreground );
 
 		position: relative;
@@ -8,9 +9,9 @@
 		gap: var( --space-0_5 ) var( --space-2 );
 		width: 100%;
 		padding: var( --space-2 ) var( --space-2_5 );
-		border: 1px solid var( --border );
+		border: var( --border-width ) solid var( --border );
 		border-radius: var( --radius-lg );
-		background-color: var( --popover );
+		background-color: var( --surface );
 		color: var( --popover-foreground );
 		font-size: var( --text-sm );
 		line-height: var( --text-sm--line-height );
@@ -19,7 +20,7 @@
 
 	.alert:not( [data-variant='default'], [data-variant='destructive'] ) {
 		border-color: color-mix( in oklab, var( --alert-tone ) 30%, transparent );
-		background-color: color-mix( in oklab, var( --alert-tone ) 8%, var( --popover ) );
+		--surface: color-mix( in oklab, var( --alert-tone ) 8%, var( --popover ) );
 	}
 
 	.alert[data-variant='info'] {
@@ -35,6 +36,8 @@
 	}
 
 	.alert[data-variant='destructive'] {
+		--destructive-surface: inherit;
+		--surface: var( --destructive-surface );
 		--alert-tone: var( --destructive );
 
 		color: var( --destructive );
@@ -70,7 +73,7 @@
 	}
 
 	.alert[data-variant='destructive'] .description {
-		color: color-mix( in oklab, var( --destructive ) 90%, transparent );
+		color: var( --destructive );
 	}
 
 	.description a {

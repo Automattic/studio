@@ -13,12 +13,12 @@ The apps that show the agent import its **protocol**; the apps that run it impor
 
 ## protocol/
 
-What both sides agree on: events (`agent-events`, `session-events`, `json-events`), session and entry types (`sessions/`), chat artifacts, files, images and attachments, models and providers, slash commands, tool progress, visual annotations, and the inspector page script.
+What both sides agree on: events (`agent-events`, `session-events`, `json-events`), session and entry types (`sessions/`), chat artifacts, files, images and attachments, a session's model and provider, slash commands, tool progress, visual annotations, and the inspector page script.
 
 It is browser-safe: no Node APIs and nothing from `node/`. `apps/ui` imports this and nothing else from the package.
 
 ```ts
-import { isAiModelId } from '@studio/agent/protocol/models';
+import { resolveSessionModel } from '@studio/agent/protocol/sessions/model';
 ```
 
 ## node/
@@ -32,9 +32,10 @@ import { createAgent } from '@studio/agent/node';
 
 const agent = createAgent( { host } );
 
-// A conversation turn: the prompt, the model's tool calls, its answer.
+// A conversation turn: the prompt, the model's tool calls, its answer. `ai` is
+// the provider's connection to the model (`@studio/providers/services`).
 const session = await agent.sessions.create();
-const turn = agent.runTurn( { session, prompt, model, activeSite, onEvent, onAskUser } );
+const turn = agent.runTurn( { session, prompt, ai, activeSite, onEvent, onAskUser } );
 await turn.result; // turn.interrupt(), turn.hasTool( name )
 
 // The tools alone, for an app that runs them itself, such as an MCP server.
@@ -62,6 +63,7 @@ Some capabilities only some hosts have. Each is an optional member, and a host h
 - `ui`: an app shows the conversation. Tool results show in it as chat artifacts, and `refresh_browser` is offered.
 - `annotate`: a browser window the user annotates a site in. `open_annotation_browser` is offered.
 - `selectSite`: the conversation follows a site the agent creates.
+- `imageGenerator`: image generation through a connected provider that offers it. `generate_images` and the imagery prompt sections are offered when it resolves to one.
 
 There are no separate flags: a flag could say yes while the member is missing, or the other way round. Gate a tool, and any mention of it in the prompt, on the member itself (`if ( ! host.annotate )` in `resolveStudioTools`), which also narrows its type for the code that calls it. A new capability is a new optional member here, documented with the tools it turns on. (The UI's `Connector` uses `capabilities` flags instead, because a connector implements every method and throws from the ones it does not support.)
 
@@ -91,13 +93,17 @@ A tool, or a mention in the prompt, that only makes sense in some apps depends o
 
 Where guidance goes: the system prompt (`shared/system-prompt.ts`) holds only what is always true, plus skill routing; procedures go in skills (`shared/skills/`); facts about one tool go in its description.
 
+### Models
+
+The runtime never picks a provider or reads credentials. The app asks the provider serving the chosen model for a connection (`ai.model` in `@studio/providers/services`) and passes it with each turn. Both runtimes stream through `shared/models.ts`, which applies the connection's upstream model name and error rewrite, strips stale screenshots and cleans leaked tool-call markup, whichever provider serves the turn.
+
 ### In a browser
 
 `createBrowserAgent( { host } )`, from `@studio/agent/browser`, runs a turn with the same tools, skills and prompt. The model is called from the page. The file tools, Read, Write, Edit, Grep, Glob and Ls, are Studio's own over `host.files` (`browser/file-tools.ts`), with pi's names, schemas and descriptions (there is no Bash). Both runtimes refuse the same tool calls before running them (`shared/tool-safety.ts`). The app stores the conversation and passes its messages in with each turn:
 
 ```ts
 const turn = createBrowserAgent( { host } ).runTurn( {
-	sessionId, prompt, history, model, credentials, activeSite,
+	sessionId, prompt, history, ai, activeSite,
 	onEvent, onMessage, onCompaction, onAskUser,
 } );
 const { failure } = await turn.result;
@@ -110,14 +116,15 @@ shared/
   host.ts         StudioAgentHost
   tools/          the tools
   skills/         the skills' runbooks, bundled as text
-  system-prompt.ts, tool-safety.ts, pending-work.ts, page scripts (block-validator, *-audit), image-generation, runtime-guards/
+  models.ts       the stream every provider's connection runs through
+  system-prompt.ts, tool-safety.ts, pending-work.ts, page scripts (block-validator, *-audit), image-generation (prompts), runtime-guards/
 node/
   index.ts        the entry: createAgent, nodeHostServices, the host types, tool authoring, helpers apps share
   agent.ts        createAgent
   node-host.ts    nodeHostServices: files, pages and images in Node
   runtime/        the pi coding-agent session, its file tools and compaction
   sessions/       session files and the sessions store
-  settings-store.ts, global-instructions.ts, run-manager.ts, local-media.ts
+  global-instructions.ts, run-manager.ts, local-media.ts
 browser/
   index.ts        createBrowserAgent
   file-tools.ts   Read, Write, Edit, Grep, Glob and Ls over host.files
@@ -125,7 +132,7 @@ browser/
   models.ts, compaction.ts
 ```
 
-The last line, and the sessions store, are for the apps that show the agent: the Desktop main process and `apps/local` read and write settings and sessions, and fork the CLI to run turns. They import these modules by path (`@studio/agent/node/sessions/store`) rather than from the entry, so they never load the runtime.
+The last line, and the sessions store, are for the apps that show the agent: the Desktop main process and `apps/local` read and write instructions and sessions, and fork the CLI to run turns. They import these modules by path (`@studio/agent/node/sessions/store`) rather than from the entry, so they never load the runtime.
 
 ## Boundaries
 

@@ -72,8 +72,11 @@
 		"typecheck": "tsc -p tsconfig.json --noEmit"
 	},
 	"devDependencies": {
+		"@sentry/node": "^11.7.0",
 		"@studio/agent": "file:../../packages/agent",
+		"@studio/blueprints": "file:../../packages/blueprints",
 		"@studio/common": "file:../../packages/common",
+		"@studio/providers": "file:../../packages/providers",
 		"@studio/local": "file:../local",
 		"@types/archiver": "^8.0.0",
 		"@types/http-proxy": "^1.17.17",

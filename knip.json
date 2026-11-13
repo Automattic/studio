@@ -47,8 +47,15 @@
 		"packages/agent": {
 			"project": "**/*.ts"
 		},
+		"packages/blueprints": {
+			"project": "**/*.ts"
+		},
 		"packages/common": {
 			"entry": ["globals.ts"],
+			"project": "**/*.ts"
+		},
+		"tools/capture-harness": {
+			"entry": ["src/tests/*.test.ts"],
 			"project": "**/*.ts"
 		},
 		"tools/eslint-plugin-studio": {
@@ -58,5 +65,5 @@
 	"ignoreDependencies": [
 		"@automattic/wp-babel-makepot"
 	],
-	"ignoreBinaries": ["mdfind", "attrib"]
+	"ignoreBinaries": ["mdfind", "attrib", "apt-get", "Xvfb"]
 }

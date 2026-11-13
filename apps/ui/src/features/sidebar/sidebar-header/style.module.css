@@ -47,5 +47,6 @@
 
 .action {
 	display: flex;
+	gap: var( --band-gap );
 	margin-inline-start: auto;
 }

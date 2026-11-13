@@ -1,6 +1,9 @@
 {
+	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "studio-settings",
-	"description": "The Settings dialog, App scope: General, AI Providers, Skills, MCP and Keyboard",
+	"description": "The Settings dialog, App scope: General, Providers, Skills, MCP and Keyboard",
+	"scene": "moire",
+	"look": "docs",
 	"capture": {
 		"target": {
 			"role": "dialog",
@@ -12,15 +15,19 @@
 		{
 			"name": "settings-general",
 			"description": "Settings dialog, App scope → General (language, default code editor, browser and terminal, …)",
-			"pages": [ "sites.md" ],
-			"replaces": [ "2025/01/app-settings.png" ],
+			"meta": { "pages": [ "sites.md" ], "replaces": [ "2025/01/app-settings.png" ] },
 			"steps": [
 				{
 					"click": {
 						"role": "button",
-						"name": "Settings",
-						"exact": true,
-						"first": true
+						"name": "Account",
+						"exact": true
+					}
+				},
+				{
+					"click": {
+						"role": "menuitem",
+						"pattern": "^Settings"
 					}
 				},
 				{
@@ -51,8 +58,8 @@
 		{
 			"name": "settings-studio-cli",
 			"description": "Settings → General → Studio CLI for terminal",
-			"pages": [ "cli.md" ],
-			"replaces": [ "2025/05/app-settings-account.png" ],
+			"desktopOnly": true,
+			"meta": { "pages": [ "cli.md" ], "replaces": [ "2025/05/app-settings-account.png" ] },
 			"steps": [
 				{
 					"scrollTo": {
@@ -70,9 +77,8 @@
 		},
 		{
 			"name": "settings-ai-providers",
-			"description": "Settings → AI Providers (WordPress.com and Anthropic)",
-			"pages": [ "studio-code/index.md" ],
-			"replaces": [ "2026/04/app-settings-ai.png" ],
+			"description": "Settings → Providers (WordPress.com and Anthropic)",
+			"meta": { "pages": [ "studio-code/index.md" ], "replaces": [ "2026/04/app-settings-ai.png" ] },
 			"steps": [
 				{
 					"click": {
@@ -81,14 +87,14 @@
 							"name": "Settings sections"
 						},
 						"role": "tab",
-						"name": "AI Providers",
+						"name": "Providers",
 						"exact": true
 					}
 				},
 				{
 					"waitFor": {
 						"role": "tabpanel",
-						"name": "AI Providers",
+						"name": "Providers",
 						"exact": true
 					}
 				}
@@ -97,8 +103,7 @@
 		{
 			"name": "settings-skills",
 			"description": "Settings → Skills",
-			"pages": [ "agent-skills-wordpress-studio.md" ],
-			"replaces": [ "2026/04/app-settings-skills.png" ],
+			"meta": { "pages": [ "agent-skills-wordpress-studio.md" ], "replaces": [ "2026/04/app-settings-skills.png" ] },
 			"steps": [
 				{
 					"click": {
@@ -122,9 +127,8 @@
 		},
 		{
 			"name": "settings-mcp",
-			"description": "Settings → MCP (install instructions and MCP configuration)",
-			"pages": [ "mcp-on-studio.md" ],
-			"replaces": [ "2026/04/app-settings-mcp.png" ],
+			"description": "Settings → MCP (AI apps, and Manual setup with the MCP configuration)",
+			"meta": { "pages": [ "mcp-on-studio.md" ], "replaces": [ "2026/04/app-settings-mcp.png" ] },
 			"steps": [
 				{
 					"click": {
@@ -149,7 +153,7 @@
 		{
 			"name": "settings-keyboard",
 			"description": "Settings → Keyboard (shortcuts)",
-			"pages": [ "index.md" ],
+			"meta": { "pages": [ "index.md" ] },
 			"steps": [
 				{
 					"click": {

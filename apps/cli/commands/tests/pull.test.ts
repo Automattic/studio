@@ -3,7 +3,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { enableReprintExporter } from 'cli/lib/api';
 import * as reprintClient from 'cli/lib/pull/reprint-client';
 import { emptyReprintMetadata } from 'cli/lib/pull/reprint-metadata';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
@@ -19,17 +18,26 @@ vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/lib/shared-config') >() ),
 	readAuthToken: vi.fn(),
 } ) );
-vi.mock( 'cli/lib/api', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('cli/lib/api') >() ),
-	enableReprintExporter: vi.fn(),
-} ) );
 vi.mock( 'cli/lib/pull/reprint-key', () => ( {
 	ensureReprintKey: vi.fn(),
 } ) );
-vi.mock( 'cli/lib/sync-api', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('cli/lib/sync-api') >() ),
-	fetchSyncableSites: vi.fn(),
-} ) );
+vi.mock( 'cli/lib/sync-api', async ( importOriginal ) => {
+	const actual = await importOriginal< typeof import('cli/lib/sync-api') >();
+	return {
+		...actual,
+		fetchSyncableSites: vi.fn(),
+		wpcomSites: {
+			...actual.wpcomSites,
+			pull: {
+				...actual.wpcomSites.pull,
+				openExporter: vi.fn( async ( _config: unknown, { url }: { url: string } ) => ( {
+					apiUrl: `${ url }?reprint-api-jetpack`,
+					hasKey: true,
+				} ) ),
+			},
+		},
+	};
+} );
 
 /**
  * A minimal valid `SiteData` record (as produced by `studio create`):
@@ -72,7 +80,6 @@ function mockWpComPullSource( url = 'https://example.com' ): SyncSite {
 
 	vi.mocked( readAuthToken ).mockResolvedValue( token );
 	vi.mocked( fetchSyncableSites ).mockResolvedValue( [ site ] );
-	vi.mocked( enableReprintExporter ).mockResolvedValue( { hasPublicKey: true } );
 
 	return site;
 }
@@ -894,8 +901,10 @@ describe( 'CLI: studio pull requires an existing site', () => {
 		// The key lives in the site's own state directory, keyed by the API URL.
 		const { ensureReprintKey } = await import( 'cli/lib/pull/reprint-key' );
 		expect( ensureReprintKey ).toHaveBeenCalledWith( {
-			wpComSiteId: 22,
-			wpComAccessToken: 'access-token',
+			source: expect.objectContaining( {
+				wpComSite: expect.objectContaining( { id: 22 } ),
+				wpComToken: expect.objectContaining( { accessToken: 'access-token' } ),
+			} ),
 			apiUrl: 'https://example.com/?reprint-api-jetpack',
 			stateDirectory: path.join( pullsRoot(), 'existing-id', 'state' ),
 			verbose: false,
@@ -925,6 +934,34 @@ describe( 'CLI: studio pull requires an existing site', () => {
 		expect( config.sites[ 0 ].technicalSiteDirectory ).toBe(
 			path.join( pullsRoot(), 'existing-id' )
 		);
+	} );
+
+	it( 'exits non-zero when the remote site cannot be reached', async () => {
+		const { commandHandler } = await loadRunCommandWithFakeHome();
+		mockWpComPullSource();
+		const sitePath = path.join( fakeHome, 'Studio', 'Existing-Site' );
+		seedCliConfigSite( fakeHome, [
+			makeSiteRecord( { id: 'existing-id', name: 'Existing Site', path: sitePath } ),
+		] );
+		const reprintClientMod = await import( 'cli/lib/pull/reprint-client' );
+		vi.spyOn( reprintClientMod, 'runReprintCommandUntilComplete' ).mockRejectedValue(
+			new Error( 'connection refused' )
+		);
+		vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
+
+		try {
+			await commandHandler( {
+				path: sitePath,
+				remoteSite: 'https://example.com',
+				verbose: false,
+			} as Parameters< typeof commandHandler >[ 0 ] );
+
+			// The host app reads the exit code to tell a failed pull from a successful one.
+			expect( process.exitCode ).toBe( 1 );
+		} finally {
+			process.exitCode = undefined;
+		}
 	} );
 } );
 

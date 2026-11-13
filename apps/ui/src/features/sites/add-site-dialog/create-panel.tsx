@@ -1,10 +1,8 @@
-import {
-	extractFormValuesFromBlueprint,
-	updateBlueprintWithFormValues,
-} from '@studio/common/lib/blueprint-settings';
+import { inspectBlueprint } from '@studio/blueprints';
 import { generateCustomDomainFromSiteName } from '@studio/common/lib/domains';
+import { isSupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __ } from '@wordpress/i18n';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
 	useExistingCustomDomains,
 	useProposedSiteName,
@@ -17,25 +15,34 @@ import { useAddSite } from './context';
 import { SetupSourceField } from './setup-source-field';
 import { getRemoteSiteName } from './site-presentation';
 import { useSetupPrompt } from './use-setup-prompt';
-import type { SelectedSiteFolder, SyncSite } from '@/data/core';
+import type { SyncSite } from '@/data/core';
 import type { SelectedBlueprint } from '@/features/sites/blueprint-selection';
 import type { CreateSiteFormValues } from '@/features/sites/create-site-form';
 
-function mapBlueprintSettingsToFormValues(
+function parseSiteUrl( siteUrl: string | undefined ) {
+	try {
+		return siteUrl ? new URL( siteUrl ) : undefined;
+	} catch {
+		return undefined;
+	}
+}
+
+export function mapBlueprintToFormValues(
 	blueprint: SelectedBlueprint
 ): Partial< CreateSiteFormValues > {
-	const settings = extractFormValuesFromBlueprint( blueprint.blueprint );
-	const name = settings.siteName || blueprint.title;
+	const details = inspectBlueprint( blueprint.blueprint );
+	const name = details.siteTitle || blueprint.title;
+	const siteUrl = parseSiteUrl( details.siteUrl );
 	return {
 		name,
-		phpVersion: settings.phpVersion,
-		wpVersion: settings.wpVersion,
+		phpVersion: isSupportedPHPVersion( details.phpVersion ) ? details.phpVersion : undefined,
+		wpVersion: details.wpVersion !== 'latest' ? details.wpVersion : undefined,
 		customDomain:
-			settings.customDomain ??
-			( settings.requiresCustomDomain ? generateCustomDomainFromSiteName( name ) : undefined ),
-		enableHttps: settings.enableHttps,
-		adminUsername: settings.adminUsername,
-		adminPassword: settings.adminPassword,
+			siteUrl?.hostname ??
+			( details.multisite ? generateCustomDomainFromSiteName( name ) : undefined ),
+		enableHttps: siteUrl ? siteUrl.protocol === 'https:' : undefined,
+		adminUsername: details.login?.username,
+		adminPassword: details.login?.password,
 	};
 }
 
@@ -48,9 +55,8 @@ export function CreatePanel( { remote }: { remote?: SyncSite } ) {
 		formActions,
 		isBlueprintValid,
 		source,
-		setSource,
+		adoptFolder,
 		folderResetKey,
-		setBlueprintTransferred,
 	} = useAddSite();
 	const [ restoredDraft ] = useState( setupDraft );
 	const { data: sites } = useSites();
@@ -61,8 +67,7 @@ export function CreatePanel( { remote }: { remote?: SyncSite } ) {
 		remote
 			? getRemoteSiteName( remote )
 			: selectedBlueprint
-			? extractFormValuesFromBlueprint( selectedBlueprint.blueprint ).siteName ||
-			  selectedBlueprint.title
+			? inspectBlueprint( selectedBlueprint.blueprint ).siteTitle || selectedBlueprint.title
 			: undefined
 	);
 	const createSite = useCreateSite();
@@ -75,26 +80,13 @@ export function CreatePanel( { remote }: { remote?: SyncSite } ) {
 	const prompt = useSetupPrompt( { enabled: ! remote, busy: submittedInitialValues !== null } );
 	useEffect( () => () => setProgress( null ), [ setProgress ] );
 	const requiresCustomDomain =
-		!! selectedBlueprint &&
-		!! extractFormValuesFromBlueprint( selectedBlueprint.blueprint ).requiresCustomDomain;
+		!! selectedBlueprint && inspectBlueprint( selectedBlueprint.blueprint ).multisite;
 	const initialValues = useMemo(
 		() => ( {
-			...( selectedBlueprint ? mapBlueprintSettingsToFormValues( selectedBlueprint ) : {} ),
+			...( selectedBlueprint ? mapBlueprintToFormValues( selectedBlueprint ) : {} ),
 			...( ( remote || selectedBlueprint ) && proposedName ? { name: proposedName } : {} ),
 		} ),
 		[ remote, proposedName, selectedBlueprint ]
-	);
-
-	const onFolderChange = useCallback(
-		( folder: SelectedSiteFolder ) => {
-			if (
-				source.type === 'blank' ||
-				( source.type === 'folder' && source.folder.path !== folder.path )
-			) {
-				setSource( { type: 'folder', folder } );
-			}
-		},
-		[ source, setSource ]
 	);
 
 	const handleSubmit = async ( values: CreateSiteFormValues ) => {
@@ -104,19 +96,7 @@ export function CreatePanel( { remote }: { remote?: SyncSite } ) {
 		const hasPrompt = prompt.capture();
 		setSubmittedInitialValues( initialValues );
 		setProgress( __( 'Creating site…' ) );
-		setBlueprintTransferred( !! blueprint );
 		try {
-			const mergedBlueprint = blueprint
-				? updateBlueprintWithFormValues( blueprint.blueprint, {
-						phpVersion: values.phpVersion,
-						wpVersion: values.wpVersion,
-						customDomain: values.customDomain,
-						enableHttps: values.enableHttps,
-						adminUsername: values.adminUsername,
-						adminPassword: values.adminPassword,
-						siteName: values.name,
-				  } )
-				: undefined;
 			const params = {
 				...values,
 				adminUsername: values.adminUsername || undefined,
@@ -130,22 +110,13 @@ export function CreatePanel( { remote }: { remote?: SyncSite } ) {
 			const site = await createSite.mutateAsync( {
 				...params,
 				...( hasPrompt ? { flowType: 'ai' as const } : {} ),
-				...( mergedBlueprint && blueprint
-					? {
-							blueprint: {
-								blueprint: mergedBlueprint,
-								filePath: blueprint.filePath,
-								bundleUrl: blueprint.bundleUrl,
-							},
-					  }
-					: {} ),
+				...( blueprint ? { blueprint: blueprint.source } : {} ),
 			} );
 			pinNewSite( site.id );
 			await prompt.finish( site.id );
 		} catch {
 			setSubmittedInitialValues( null );
 			setProgress( null );
-			setBlueprintTransferred( false );
 		} finally {
 			working.current = false;
 		}
@@ -169,7 +140,7 @@ export function CreatePanel( { remote }: { remote?: SyncSite } ) {
 			requiresCustomDomain={ requiresCustomDomain }
 			sourceControl={ <SetupSourceField disabled={ submittedInitialValues !== null } /> }
 			onExistingChange={ setExisting }
-			onFolderChange={ onFolderChange }
+			onFolderChange={ adoptFolder }
 			resetPathKey={ folderResetKey }
 			requiresExistingPath={ source.type === 'folder' }
 			folderDescription={

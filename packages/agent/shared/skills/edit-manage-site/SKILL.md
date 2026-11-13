@@ -24,4 +24,4 @@ For any change to content, templates, or the theme, load the `visual-design` ski
 
 Take one screenshot of the page you changed and compare it with what you intended; fix real defects. For a larger visual change, load the `visual-polish` skill instead. Then tell the user what changed and where to see it.
 
-To share or publish the site, preview_create makes a temporary preview site, and site_push publishes it to WordPress.com (its description says how to confirm the target).
+To share or publish the site, preview_create makes a temporary preview site, and site_push publishes it to one of its connected remote sites, on WordPress.com or another provider such as Spacefast (its description says how to confirm the target).

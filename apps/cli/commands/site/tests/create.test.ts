@@ -3,7 +3,6 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { input, password } from '@inquirer/prompts';
-import { validateBlueprintData } from '@studio/common/lib/blueprint-validation';
 import {
 	isEmptyDir,
 	isWordPressDirectory,
@@ -65,7 +64,6 @@ vi.mock( '@studio/common/lib/passwords', async ( importActual ) => ( {
 	...( await importActual< typeof import('@studio/common/lib/passwords') >() ),
 	createPassword: vi.fn().mockReturnValue( 'generated-password-123' ),
 } ) );
-vi.mock( '@studio/common/lib/blueprint-validation' );
 vi.mock( 'cli/lib/cli-config/core', async () => {
 	const actual = await vi.importActual( 'cli/lib/cli-config/core' );
 	return {
@@ -268,7 +266,6 @@ describe( 'CLI: studio create', () => {
 		vi.mocked( runWpCliCommand ).mockReset().mockResolvedValue( mockWpCli() );
 		vi.mocked( logSiteDetails ).mockImplementation( () => {} );
 		vi.mocked( openSiteInBrowser ).mockResolvedValue( undefined );
-		vi.mocked( validateBlueprintData ).mockResolvedValue( { valid: true } );
 		vi.mocked( getPreferredSiteLanguage ).mockResolvedValue( 'en' );
 		vi.mocked( copyLanguagePackToSite ).mockResolvedValue( false );
 		vi.mocked( getWordPressVersion ).mockReturnValue( '6.5' );
@@ -431,20 +428,15 @@ describe( 'CLI: studio create', () => {
 		} );
 
 		it( 'should error if Blueprint validation fails', async () => {
-			vi.mocked( validateBlueprintData ).mockResolvedValue( {
-				valid: false,
-				error: 'Invalid Blueprint',
-			} );
-
 			await expect(
 				runCommand( mockSitePath, {
 					...defaultTestOptions,
 					blueprint: {
 						uri: '/home/test/blueprint.json',
-						contents: {},
+						contents: { name: 'package' },
 					},
 				} )
-			).rejects.toThrow( 'Invalid Blueprint' );
+			).rejects.toThrow( '"name" is not a valid Blueprint property' );
 
 			expect( disconnectFromDaemon ).toHaveBeenCalled();
 		} );
@@ -1585,13 +1577,42 @@ describe( 'CLI: studio create', () => {
 				},
 			} );
 
-			expect( validateBlueprintData ).toHaveBeenCalled();
 			expect( startWordPressServer ).toHaveBeenCalledWith(
 				expect.anything(),
 				expect.any( Logger ),
 				'create',
 				expect.objectContaining( {
 					blueprint: expect.any( Object ),
+				} )
+			);
+		} );
+
+		it( 'applies the Blueprint --blueprint opens, titled with --name', async () => {
+			const blueprintPath = path.join(
+				fs.mkdtempSync( path.join( os.tmpdir(), 'studio-create-blueprint-' ) ),
+				'blueprint.json'
+			);
+			fs.writeFileSync( blueprintPath, '{"siteOptions":{"blogname":"Apparel"}}' );
+
+			await registerCommand(
+				yargs( [] ).option( 'path', { type: 'string', default: mockSitePath } )
+			)
+				.exitProcess( false )
+				.parseAsync( [
+					'create',
+					'--blueprint',
+					blueprintPath,
+					'--name',
+					'My Shop',
+					'--no-start',
+				] );
+
+			expect( runBlueprint ).toHaveBeenCalledWith(
+				expect.anything(),
+				expect.anything(),
+				expect.objectContaining( {
+					blueprint: { siteOptions: { blogname: 'My Shop' } },
+					blueprintUri: blueprintPath,
 				} )
 			);
 		} );

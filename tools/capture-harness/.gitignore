@@ -1,0 +1,4 @@
+scenes/*/source/.cache/
+captures/
+framed/
+scenes/*/.baked/

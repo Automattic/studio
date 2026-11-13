@@ -6,6 +6,15 @@ This feature is available for all WordPress.com sites on paid plans and [Pressab
 
 If you’re on a WordPress.com plan, [make sure to activate your plan features](https://wordpress.com/support/activate-your-plan/). Commerce plan sites are automatically activated. For sites on the Free or Pro (legacy) plans, [upgrade your plan](https://wordpress.com/support/manage-purchases/upgrade-your-plan/) to access WordPress Studio Sync.
 
+## [Hosting providers](#hosting-providers)
+
+In **Settings → Providers**, connect an account under **Hosting providers** to publish from WordPress Studio.
+
+-   **WordPress.com** lets you publish to a new or existing WordPress.com site or update a site you host on Pressable. Sign in with your WordPress.com account. You can also [share a temporary preview](https://wordpress.studio/docs/preview-sites/).
+-   **[Spacefast](https://spacefast.com)** hosts a static copy of your site. Click **Connect** and approve the sign-in code in your browser. In your site’s **Publish** panel, choose **Spacefast** and publish to a new or existing Space. Features that need WordPress running, such as comments and server-side forms, are unavailable in the published copy.
+
+Use **Default hosting provider** to choose where WordPress Studio opens publishing setup for a site you haven’t published yet.
+
 ## [Compatible sites](#supported-sites)
 
 ### [WordPress Studio Sync and Jetpack Backups](#1-studio-sync-and-jetpack-backups)
@@ -52,12 +61,13 @@ To connect a local WordPress Studio site to an existing production or staging si
 1.  Select the site you wish to connect from the WordPress Studio sidebar.
 2.  Click **Publish** at the top right of the site preview. You can also choose **Publish** from the site menu.
 3.  [Log in to WordPress.com](https://wordpress.studio/docs/#connect-to-wordpresscom) if you haven’t already.
-4.  Click **Existing site…** to open the **Choose an existing site** list. Each row shows the site’s name, its address, and whether it’s a **Production**, **Staging**, or **Development** site. Sites you can’t publish to, such as sites that need a plan upgrade, deleted sites, or sites you don’t have permission to manage, are left out. To load the list again, open **Site actions** (**⋯**) and choose **Refresh**.
-5.  Click the site you want to connect to. To go back without connecting, click **Back to Publish**.
+4.  If the local site isn’t connected to a website yet, WordPress Studio asks **Where do you want to publish?** Choose **WordPress.com**. If it’s already connected to one, click **Publish to another site…** below its websites, then choose **WordPress.com**.
+5.  Click **Existing site…** to open the **Choose an existing site** list. Each row shows the site’s name, its address, and whether it’s a **Production**, **Staging**, or **Development** site. Sites you can’t publish to, such as sites that need a plan upgrade, deleted sites, or sites you don’t have permission to manage, are left out. To load the list again, open **Site actions** (**⋯**) and choose **Refresh**.
+6.  Click the site you want to connect to. To go back without connecting, click **Back to Publish**.
 
 ![The Choose an existing site list in the WordPress Studio Publish panel, showing each site's name, address, and Production or Staging environment, with a back button and a Site actions menu.](../../../screenshots/images/publish-choose-site.webp)
 
-Once connected, the **Publish** panel shows **Publish details**: a card for the website you’ll publish to, with its address and when you last published (or **Not published yet**). Below the card, you’ll see the website’s **Environment** and, once you’ve pulled from it, when it was **Last pulled**. For WordPress.com sites, there are also links to the site’s **Domains**, **Backups**, and **Manage on WordPress.com**.
+Once connected, the **Publish** tab shows **Publish details**: a card for the website you’ll publish to, with its address and when you last published (or **Not published yet**). Below the card, you’ll see the website’s **Environment** and, once you’ve pulled from it, when it was **Last pulled**. For WordPress.com sites, there are also links to the site’s **Domains**, **Backups**, and **Manage on WordPress.com**.
 
 Open the **Website actions** (**⋯**) menu on the card to **Visit site**, **Copy link**, or **Disconnect…** the website. Disconnecting asks you to confirm, and leaves both your local site and the live website unchanged.
 
@@ -65,28 +75,28 @@ If a connected site was deleted, or you no longer have access to it, WordPress S
 
 If you’re working in a team, your teammates can repeat the same steps to collaborate on the same site.
 
-### [Switch websites](#switch-websites)
+### [Choose a connected website](#switch-websites)
 
-A local site can be connected to more than one website, for example a production site and its staging site. To switch between them:
+A local site can be connected to more than one website, for example a production site and its staging site. When it’s connected to at least one, the **Publish** tab opens on **Published to**, which lists them all, each with where it’s hosted and when you last published to it.
 
-1.  In the **Publish** panel, click the website card.
-2.  Choose another connected website. The current one is listed first.
+1.  Click a website to open its **Publish details**, with its **Pull changes** and **Publish changes** buttons.
+2.  To go back to the list, click **Published sites**.
 
-The details, links, and the **Pull changes** and **Publish changes** buttons follow the website you choose. To connect one more website, click the card and choose **Connect another site…**. You can’t switch websites while a pull or publish is running.
+To connect one more website, click **Publish to another site…** below the list. While a pull or publish is running, the **Publish** tab opens on the website it’s for.
 
-![The Publish tab of the Share and publish panel in WordPress Studio with the website switcher open, listing two connected websites, a production site with a checkmark and its staging site, each with a thumbnail and when it was updated, and Connect another site… below them.](../../../screenshots/images/publish-switcher.webp)
+![The Publish tab of the Share and publish panel in WordPress Studio, listing two connected websites under Published to, a production site and its staging site, each with a thumbnail, WordPress.com, and when it was updated, and Publish to another site… below them.](../../../screenshots/images/publish-sites.webp)
 
 ## [Connect WordPress Studio to a new WordPress.com site](#connect-new)
 
 If you’d like to publish your local site to a new WordPress.com-hosted site, you can purchase a WordPress.com hosting plan and set up WordPress Studio Sync all at once:
 
 1.  Select the site you wish to publish from the WordPress Studio sidebar.
-2.  Click **Publish** at the top right of the site preview. If the local site isn’t connected to a website yet, you’ll see **Existing site…** and **New site…**.
+2.  Click **Publish** at the top right of the site preview. If the local site isn’t connected to a website yet, choose **WordPress.com** under **Where do you want to publish?** If it’s already connected to one, click **Publish to another site…**, then choose **WordPress.com**. You’ll see **Existing site…** and **New site…**.
 3.  Click **New site…** to set up a new site on WordPress.com in your browser.
 4.  Choose a domain and a plan for the new site, and complete the checkout.
 5.  When the new site is added, accept the prompt to open WordPress Studio or click “**Connect Studio**” on your site’s Home screen.
 
-WordPress Studio connects the new site automatically and shows it in the **Publish** panel, so you can synchronize the WordPress Studio site with the connected WordPress.com site in either direction. If the new site isn’t available yet, WordPress Studio tells you, and you can try again.
+WordPress Studio connects the new site automatically and shows it in the **Publish** tab, so you can synchronize the WordPress Studio site with the connected WordPress.com site in either direction. If the new site isn’t available yet, WordPress Studio tells you, and you can try again.
 
 ## [Pull a WordPress.com site into WordPress Studio](#pull)
 

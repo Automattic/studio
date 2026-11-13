@@ -2,11 +2,10 @@ import { isStudioChatImageMimeType } from '@studio/agent/protocol/chat-images';
 import { getComposerAttachmentImageSrc } from '@studio/agent/protocol/composer-attachment-preview';
 import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
-import { PaperclipIcon } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useComposerAttachments, useFileDrop } from '@/data/use-composer-attachments';
-import { SendIcon, TrashIcon } from '@/lib/icons';
+import { PaperclipIcon, ArrowUpIcon, TrashIcon } from '@/lib/icons';
 import { isImeComposing, isShortcut } from '@/lib/keyboard';
 import {
 	DropOverlay,
@@ -302,7 +301,7 @@ function NoteEditor( {
 							/>
 						}
 					>
-						<SendIcon />
+						<ArrowUpIcon />
 					</TooltipTrigger>
 					<TooltipContent className={ styles.submitTooltip }>
 						<span className={ styles.shortcutRow }>

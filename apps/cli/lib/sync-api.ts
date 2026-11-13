@@ -1,20 +1,14 @@
 import fs from 'fs';
 import { Readable } from 'stream';
-import {
-	checkBackupSize as checkBackupSizeBase,
-	fetchSyncableSites as fetchSyncableSitesBase,
-	initiateBackup as initiateBackupBase,
-	pollBackupStatus as pollBackupStatusBase,
-	initiateImport as initiateImportBase,
-	pollImportStatus as pollImportStatusBase,
-	fetchLatestRewindId as fetchLatestRewindIdBase,
-	fetchRemoteFileTree as fetchRemoteFileTreeBase,
-} from '@studio/common/lib/sync/sync-api';
 import { syncOptionSchema } from '@studio/common/types/sync';
+import { backupLsItemSchema } from '@studio/common/types/sync-tree';
+import { NotConnectedError, RemoteSiteError } from '@studio/providers';
+import { getProviderServices } from '@studio/providers/services';
 import { __, sprintf } from '@wordpress/i18n';
-import { z } from 'zod';
 import { LoggerError } from 'cli/logger';
-import type { SyncSite, ImportResponse, SyncOption } from '@studio/common/types/sync';
+import type { SyncSite, SyncOption, PullSyncOptions } from '@studio/common/types/sync';
+
+export const wpcomSites = getProviderServices( 'wpcom' ).sites!;
 
 export function parseSyncOptions( optionsString?: string ): SyncOption[] {
 	if ( ! optionsString ) {
@@ -36,99 +30,47 @@ export function parseSyncOptions( optionsString?: string ): SyncOption[] {
 	} );
 }
 
-// `code` is the machine-readable failure bucket for analytics — the message is
-// `__()`-translated display text and unsafe to match on. Without it, a remote
-// failure here inherits whatever fallback the caller's emitter assumes.
-function wrapError( message: string, error: unknown, code?: string ): LoggerError {
+// Keeps a provider's message and its analytics code, so the failure is reported
+// against the step that failed.
+export function toLoggerError( error: unknown, fallback: string ): LoggerError {
 	if ( error instanceof LoggerError ) {
 		return error;
 	}
-	if ( error instanceof z.ZodError ) {
-		return new LoggerError( __( 'Invalid API response format' ), error, code );
+	if ( error instanceof RemoteSiteError ) {
+		return new LoggerError( error.message, error.cause, error.code );
 	}
-	return new LoggerError( message, withServerDetail( error ), code );
+	if ( error instanceof NotConnectedError ) {
+		return new LoggerError( error.message, error, 'auth_required' );
+	}
+	return new LoggerError( fallback, error );
 }
 
-// wp-error keeps only the status line in `message`; the server's own `error` text is what explains
-// the failure in the logs.
-function withServerDetail( error: unknown ): unknown {
-	if ( ! ( error instanceof Error ) || ! ( 'error' in error ) || typeof error.error !== 'string' ) {
-		return error;
+async function remote< T >( fallback: string, run: () => Promise< T > ): Promise< T > {
+	try {
+		return await run();
+	} catch ( error ) {
+		throw toLoggerError( error, fallback );
 	}
-	if ( ! error.error || error.message.includes( error.error ) ) {
-		return error;
-	}
-	return Object.assign( new Error( `${ error.message } (${ error.error })` ), { cause: error } );
 }
 
-export async function fetchSyncableSites(
+export function fetchSyncableSites(
 	token: string,
 	options: { planRequired?: boolean } = {}
 ): Promise< SyncSite[] > {
-	try {
-		return await fetchSyncableSitesBase( token, options );
-	} catch ( error ) {
-		throw wrapError( __( 'Failed to fetch WordPress.com sites' ), error, 'site_fetch' );
-	}
+	return remote( __( 'Failed to fetch WordPress.com sites' ), () =>
+		wpcomSites.list( { token }, options )
+	);
 }
 
-export async function initiateBackup(
+export function backupRemoteSite(
 	token: string,
 	remoteSiteId: number,
-	options: { optionsToSync: SyncOption[]; includePathList?: string[] }
-): Promise< number > {
-	try {
-		return await initiateBackupBase( token, remoteSiteId, options );
-	} catch ( error ) {
-		throw wrapError( __( 'Failed to initiate backup' ), error, 'remote_backup' );
-	}
-}
-
-export async function pollBackupStatus( token: string, remoteSiteId: number, backupId: number ) {
-	try {
-		return await pollBackupStatusBase( token, remoteSiteId, backupId );
-	} catch ( error ) {
-		throw wrapError( __( 'Failed to check backup status' ), error, 'remote_backup' );
-	}
-}
-
-export async function initiateImport(
-	token: string,
-	remoteSiteId: number,
-	attachmentId: string,
-	options?: { optionsToSync?: SyncOption[]; specificSelectionPaths?: string[] }
-): Promise< void > {
-	try {
-		await initiateImportBase( token, remoteSiteId, attachmentId, options );
-	} catch ( error ) {
-		if ( error instanceof Error && 'statusCode' in error && error.statusCode === 409 ) {
-			throw new LoggerError(
-				__(
-					'A sync operation is already in progress on this site. Please wait for it to finish and try again.'
-				)
-			);
-		}
-		throw wrapError( __( 'Failed to initiate import on remote site' ), error, 'remote_import' );
-	}
-}
-
-export async function pollImportStatus(
-	token: string,
-	remoteSiteId: number
-): Promise< ImportResponse > {
-	try {
-		return await pollImportStatusBase( token, remoteSiteId );
-	} catch ( error ) {
-		throw wrapError( __( 'Failed to check import status' ), error, 'remote_import' );
-	}
-}
-
-export async function checkBackupSize( url: string ): Promise< number > {
-	try {
-		return await checkBackupSizeBase( url );
-	} catch ( error ) {
-		throw wrapError( __( 'Failed to check backup size' ), error, 'remote_backup' );
-	}
+	options: PullSyncOptions,
+	onProgress: ( percent: number ) => void
+): Promise< { url: string; size: number } > {
+	return remote( __( 'Failed to back up the remote site' ), () =>
+		wpcomSites.pull!.backup( { token }, { id: remoteSiteId }, options, onProgress )
+	);
 }
 
 export async function downloadBackup( url: string, destPath: string ): Promise< void > {
@@ -148,41 +90,47 @@ export async function downloadBackup( url: string, destPath: string ): Promise< 
 			readable.on( 'error', reject );
 		} );
 	} catch ( error ) {
-		throw wrapError( __( 'Failed to download backup' ), error, 'network' );
+		throw new LoggerError( __( 'Failed to download backup' ), error, 'network' );
 	}
 }
 
-export async function fetchLatestRewindId(
-	token: string,
-	remoteSiteId: number
-): Promise< string > {
-	try {
-		return await fetchLatestRewindIdBase( token, remoteSiteId );
-	} catch ( error ) {
-		const missingBackup =
-			error instanceof Error &&
-			( error.message === 'No rewind ID available' ||
-				( 'statusCode' in error &&
-					error.statusCode === 412 &&
-					'error' in error &&
-					error.error === 'rest_forbidden' ) );
-		throw wrapError(
-			__( 'Failed to fetch latest rewind ID' ),
-			error,
-			missingBackup ? 'missing_backup' : 'remote_backup'
-		);
-	}
+export function fetchLatestRewindId( token: string, remoteSiteId: number ): Promise< string > {
+	return remote( __( 'Failed to fetch latest rewind ID' ), () =>
+		wpcomSites.pull!.latestBackupId( { token }, { id: remoteSiteId } )
+	);
 }
+
+export type RemoteFileEntry = {
+	name: string;
+	isDirectory: boolean;
+	pathId: string;
+	path: string;
+};
 
 export async function fetchRemoteFileTree(
 	token: string,
 	remoteSiteId: number,
 	rewindId: string,
-	treePath: string = 'wp-content/'
-) {
-	try {
-		return await fetchRemoteFileTreeBase( token, remoteSiteId, rewindId, treePath );
-	} catch ( error ) {
-		throw wrapError( __( 'Failed to fetch remote file tree' ), error, 'remote_backup' );
+	treePath: string = '/wp-content/'
+): Promise< RemoteFileEntry[] > {
+	const contents = await remote( __( 'Failed to fetch remote file tree' ), () =>
+		wpcomSites.pull!.listBackupFiles( { token }, { id: remoteSiteId }, rewindId, treePath )
+	);
+
+	const entries: RemoteFileEntry[] = [];
+	for ( const [ name, rawItem ] of Object.entries( contents ) ) {
+		const itemResult = backupLsItemSchema.safeParse( rawItem );
+		if ( itemResult.success ) {
+			const item = itemResult.data;
+			const isDirectory = item.type === 'dir' || item.has_children === true;
+			entries.push( {
+				name,
+				isDirectory,
+				pathId: item.id,
+				path: `${ treePath }${ name }${ isDirectory ? '/' : '' }`,
+			} );
+		}
 	}
+
+	return entries;
 }

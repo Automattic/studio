@@ -27,7 +27,11 @@ import {
 	truncateToWidth,
 	CURSOR_MARKER,
 } from '@earendil-works/pi-tui';
-import { isOutOfCreditsError, isUsageCapError } from '@studio/agent/protocol/json-events';
+import {
+	formatErrorMessage,
+	isOutOfCreditsError,
+	isUsageCapError,
+} from '@studio/agent/protocol/errors';
 import { findLastAssistant } from '@studio/agent/protocol/session-events';
 import { randomThinkingMessage } from '@studio/agent/protocol/thinking-messages';
 import { readAuthToken } from '@studio/common/lib/shared-config';
@@ -1833,7 +1837,7 @@ export class AiChatUI implements AiOutputAdapter {
 			case 'compaction_end':
 				this.hideLoader();
 				if ( event.errorMessage ) {
-					this.showError( event.errorMessage );
+					this.showError( formatErrorMessage( event.errorMessage ) );
 				} else if ( event.result && ! event.aborted ) {
 					this.showInfo( __( 'Conversation history compacted' ) );
 				}
@@ -1942,7 +1946,7 @@ export class AiChatUI implements AiOutputAdapter {
 				return;
 			}
 			case 'auto_retry_start': {
-				const reason = event.errorMessage.split( '\n' )[ 0 ].trim();
+				const reason = formatErrorMessage( event.errorMessage ).split( '\n' )[ 0 ].trim();
 				if ( reason ) {
 					this.showInfo( reason );
 				}
@@ -1979,7 +1983,7 @@ export class AiChatUI implements AiOutputAdapter {
 					lastAssistant?.stopReason === 'error' || lastAssistant?.stopReason === 'aborted';
 
 				if ( isError ) {
-					const errorText = lastAssistant?.errorMessage?.trim();
+					const errorText = formatErrorMessage( lastAssistant?.errorMessage ?? '' );
 					const fallbackText = lastAssistant?.content
 						.filter( ( block ): block is { type: 'text'; text: string } => block.type === 'text' )
 						.map( ( block ) => block.text )

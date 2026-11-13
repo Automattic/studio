@@ -254,6 +254,32 @@ describe( 'validating a file', () => {
 		}
 	);
 
+	// As written in eval runs: a nested style object a closing brace short.
+	it.each< { content: string; problem: string } >( [
+		{
+			content: `<!-- wp:group {"style":{"spacing":{"padding":{"top":"1rem"}}} -->\n<div class="wp-block-group" style="padding-top:1rem"></div>\n<!-- /wp:group -->`,
+			problem:
+				"line 1: core/group (Expected ',' or '}' after property value; 4 braces open, 3 close)",
+		},
+		{
+			content: `<!-- wp:columns {"style":{"spacing":{"blockGap":"1rem"}},"align":"wide" -->\n<div class="wp-block-columns alignwide"><!-- wp:column {"width":"50%"} -->\n<div class="wp-block-column"></div>\n<!-- /wp:column --></div>\n<!-- /wp:columns -->`,
+			problem:
+				"line 1: core/columns (Expected ',' or '}' after property value; 4 braces open, 3 close), and its comment runs on to the \"} -->\" on line 2, taking in the core/column comment there",
+		},
+	] )(
+		'saves nothing for a block comment whose attributes are not JSON: $problem',
+		async ( { content, problem } ) => {
+			const file = write( 'tmp/home.html', content );
+			const result = await validateBlockMarkupFile( file, 'http://localhost:8881' );
+			expect( result.fixedContent ).toBeUndefined();
+			expect( result.summary ).toBe(
+				'tmp/home.html: 1 block comment(s) whose attributes are not JSON'
+			);
+			expect( result.problem?.split( '\n' ).slice( 1 ) ).toEqual( [ `  - ${ problem }` ] );
+			expect( validateBlocks ).not.toHaveBeenCalled();
+		}
+	);
+
 	it( 'validates blocks each closed by its own closer, void blocks and all', async () => {
 		const file = write(
 			'tmp/home.html',

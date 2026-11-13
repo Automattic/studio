@@ -438,6 +438,50 @@ export async function validateBlockMarkupFile(
 }
 
 /**
+ * The block comments whose attributes are not JSON. WordPress's block parser
+ * reads a comment's attributes up to the first "}" before its "-->", decodes
+ * them, and gives the block none of them when they do not decode (json_decode()
+ * in WP_Block_Parser::next_token(), JSON.parse in the editor's
+ * @wordpress/block-serialization-default-parser); a comment whose attributes
+ * end in no "}" runs on to a later comment's.
+ */
+function unparsedAttributes( content: string ): string[] {
+	const lineAt = ( offset: number ) => content.slice( 0, offset ).split( '\n' ).length;
+	return [ ...content.matchAll( BLOCK_DELIMITER ) ].flatMap( ( match ) => {
+		const [ comment, closer, namespace = 'core/', name, attributes ] = match;
+		if ( closer || ! attributes ) {
+			return [];
+		}
+		try {
+			JSON.parse( attributes );
+			return [];
+		} catch ( error ) {
+			const json = attributes.trim();
+			const opens = json.split( '{' ).length - 1;
+			const closes = json.split( '}' ).length - 1;
+			const reason = ( error as Error ).message.replace( / in JSON at position.*$/, '' );
+			const line = lineAt( match.index );
+			const end = lineAt( match.index + comment.length - 1 );
+			// The comments inside it, which the parser reads as its attributes.
+			const swallowed = [
+				...comment.slice( 4 ).matchAll( /<!--\s+wp:([a-z][a-z0-9_-]*\/)?([a-z][a-z0-9_-]*)/g ),
+			].map( ( [ , inner = 'core/', innerName ] ) => `${ inner }${ innerName }` );
+			return [
+				`  - line ${ line }: ${ namespace }${ name } (${ reason }${
+					opens !== closes ? `; ${ opens } braces open, ${ closes } close` : ''
+				})${
+					swallowed.length
+						? `, and its comment runs on to the "} -->" on line ${ end }, taking in the ${ swallowed.join(
+								', '
+						  ) } comment there`
+						: ''
+				}`,
+			];
+		}
+	} );
+}
+
+/**
  * The blocks WordPress's block parser does not close with their own closer. It
  * closes the innermost open block at any closer, whatever its name, and at the
  * end of the content gives each block still open the rest of the content
@@ -532,6 +576,18 @@ export async function validateBlockMarkup(
 	rendersAlike?: RendersAlike,
 	blockStyles?: SaveBlockStyles
 ): Promise< MarkupValidation > {
+	// The editor saves such a block without its attributes, so nothing is saved
+	// for it; the blocks it runs into are unclosed for that reason alone.
+	const unparsed = unparsedAttributes( content );
+	if ( unparsed.length ) {
+		return {
+			summary: `${ label }: ${ unparsed.length } block comment(s) whose attributes are not JSON`,
+			problem: [
+				`${ label }: ${ unparsed.length } block comment(s) hold attributes that are not JSON, and WordPress's block parser gives such a block none of its attributes (json_decode() in WP_Block_Parser::next_token() in wp-includes/class-wp-block-parser.php):`,
+				...unparsed,
+			].join( '\n' ),
+		};
+	}
 	// The editor's save of blocks parsed this way repeats what follows them,
 	// so nothing is saved for it.
 	const unclosed = unclosedBlocks( content );

@@ -18,6 +18,7 @@ import {
 } from '@/data/queries/use-ai-settings';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { usePublishProviders } from '@/data/queries/use-remote-sites';
+import { ProviderLogo } from '@/features/account';
 import { Markdown } from '@/features/chats';
 import { LearnMoreLink } from '@/features/onboarding';
 import { useOffline } from '@/lib/hooks';
@@ -154,6 +155,7 @@ function ProviderRow( { provider, methods }: { provider: ProviderId; methods: Co
 			<SettingsRow
 				title={ descriptor.label }
 				settingId={ `${ provider }-provider` }
+				icon={ <ProviderLogo provider={ provider } /> }
 				badge={ account?.connected ? connectedBadge() : null }
 				description={ description }
 				error={ formMethod ? undefined : error }
@@ -282,6 +284,7 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 			) : null }
 			<SettingsRow
 				title={ getProvider( 'wpcom' ).label }
+				icon={ <ProviderLogo provider="wpcom" /> }
 				badge={ user ? connectedBadge() : null }
 				description={
 					<>

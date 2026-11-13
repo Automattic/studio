@@ -61,18 +61,6 @@
 	height: var( --app-icon-size );
 }
 
-/* App icons leave a margin around their artwork, which the fallback keeps. */
-.appIconFallback {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 80%;
-	height: 80%;
-	border-radius: var( --radius-md );
-	background-color: var( --muted );
-	color: var( --muted-foreground );
-}
-
 .rowTitle {
 	display: flex;
 	align-items: center;

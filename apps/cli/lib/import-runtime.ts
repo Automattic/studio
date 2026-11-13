@@ -30,6 +30,8 @@ export type CaptureEngine = {
 	captureWebsite: ( options: {
 		url: string;
 		outputDir: string;
+		/** Routes that get frozen reference evidence: `n` sampled routes, or `'all'`. Default: the homepage. */
+		referenceSample?: number | 'all';
 		onProgress?: ( progress: {
 			phase: string;
 			current?: number;

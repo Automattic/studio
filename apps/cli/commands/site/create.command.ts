@@ -86,7 +86,7 @@ export const builder = ( yargs: StudioArgv ) => {
 		.option( 'keep-source', {
 			type: 'boolean',
 			describe: __(
-				'Keep the Data Liberation source capture at the sibling <site>-source directory when importing from a URL'
+				'Keep the Data Liberation source capture at the sibling <site>-source directory when importing from a URL, with reference evidence for every page so it can be compared page by page'
 			),
 			implies: 'from',
 		} )

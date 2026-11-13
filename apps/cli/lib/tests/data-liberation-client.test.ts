@@ -61,6 +61,15 @@ describe( 'liberateWebsite', () => {
 			} )
 		);
 		expect( progress[ 0 ] ).toBe( 'Data Liberation 9.9.9' );
+		expect( vi.mocked( loaded.captureWebsite ).mock.calls[ 0 ][ 0 ] ).not.toHaveProperty( 'referenceSample' );
+
+		await liberateWebsite( 'https://example.com/', tempRoot(), {
+			loadEngine: async () => loaded,
+			referenceEveryRoute: true,
+		} );
+		expect( loaded.captureWebsite ).toHaveBeenLastCalledWith(
+			expect.objectContaining( { referenceSample: 'all' } )
+		);
 	} );
 
 	it( 'builds the command that compares a site against the original', async () => {

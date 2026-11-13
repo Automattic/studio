@@ -2,6 +2,7 @@ import { OPENAI_MODELS } from '@earendil-works/pi-ai/providers/openai.models';
 import { __ } from '@wordpress/i18n';
 import { NotConnectedError } from '../errors';
 import { OPENAI_AI_MODELS } from './descriptor';
+import { generateOpenaiImages } from './images';
 import type { OpenaiConfig } from './config';
 import type { AiConnection, ProviderServices } from '../types';
 
@@ -24,17 +25,17 @@ const getPlanErrors = () => ( {
 export const openaiAi: NonNullable< ProviderServices< OpenaiConfig >[ 'ai' ] > = {
 	async model( config, modelId ): Promise< AiConnection > {
 		if ( ! config ) {
-			throw new NotConnectedError( 'Sign in with ChatGPT to use its models.' );
+			throw new NotConnectedError( 'Connect OpenAI with a ChatGPT plan or an API key.' );
 		}
 		const model =
 			OPENAI_AI_MODELS.some( ( { id } ) => id === modelId ) &&
 			OPENAI_MODELS[ modelId as keyof typeof OPENAI_MODELS ];
 		if ( ! model ) {
-			throw new Error( `ChatGPT does not serve ${ modelId }` );
+			throw new Error( `OpenAI does not serve ${ modelId }` );
 		}
 		return {
 			piProvider: 'openai',
-			apiKey: config.accessToken,
+			apiKey: config.method === 'api-key' ? config.apiKey : config.accessToken,
 			rewriteError: ( message ) =>
 				Object.entries( getPlanErrors() ).find( ( [ code ] ) => message.includes( code ) )?.[ 1 ],
 			model: {
@@ -45,4 +46,7 @@ export const openaiAi: NonNullable< ProviderServices< OpenaiConfig >[ 'ai' ] > =
 			},
 		};
 	},
+	// A ChatGPT plan doesn't cover image generation.
+	canGenerateImages: ( config ) => config.method === 'api-key',
+	generateImages: generateOpenaiImages,
 };

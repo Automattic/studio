@@ -69,6 +69,8 @@ export function useConnectProvider( provider: ProviderId ) {
 			input?: Record< string, string >;
 		} ) => {
 			if ( getConnectMethod( provider, method ).kind === 'form' ) {
+				// Connecting with a form takes over from a sign-in left waiting on the browser.
+				setPending( null );
 				return connector.connectProvider( provider, method, input );
 			}
 			const started = await connector.startProviderConnect( provider, method );

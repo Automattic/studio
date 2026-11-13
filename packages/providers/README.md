@@ -35,8 +35,8 @@ Text a provider gives surfaces is plain strings, except a connect method's `inst
 
 `account.methods` lists the ways an account connects, the first being the default. Each has a stable `id`, which the config records, a `label` for the user to pick it by, optional Markdown `instructions`, and a `kind`:
 
-- **`form`**: `input()` returns a zod object of string fields, whose metadata (`.meta()`) gives each field's `title`, `description` and `examples`; `writeOnly: true` marks a secret. `getConnectFields( method )` reads it for any surface: the settings render a form, `studio code` prompts. Anthropic asks for an API key, or a `claude setup-token` token, this way.
-- **`loopback`**: signing in on the provider's site, which redirects back to this computer. Studio listens on a free port (`startProviderConnect` in `@studio/common/lib/provider-connect.ts`) and passes the address to the provider's `start`. OpenAI connects this way.
+- **`form`**: `input()` returns a zod object of string fields, whose metadata (`.meta()`) gives each field's `title`, `description` and `examples`; `writeOnly: true` marks a secret. `getConnectFields( method )` reads it for any surface: the settings render a form, `studio code` prompts. Anthropic asks for an API key, or a `claude setup-token` token, this way, and OpenAI for an API key.
+- **`loopback`**: signing in on the provider's site, which redirects back to this computer. Studio listens on a free port (`startProviderConnect` in `@studio/common/lib/provider-connect.ts`) and passes the address to the provider's `start`. OpenAI connects a ChatGPT plan this way.
 - **`device`**: approving a code on the provider's site while Studio waits: `start` returns the code. Spacefast and GitHub Copilot connect this way.
 - **`redirect`**: the Studio sign-in. Each app receives WordPress.com's redirect its own way (Desktop's `wp-studio://auth` deep link, `studio ui`'s callback page, Studio on the web's page, the token the CLI user pastes) from `getSignInUrl` in `@studio/providers/wpcom`.
 

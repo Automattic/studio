@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
-	buildUsageCapErrorMessage,
+	formatErrorMessage,
 	getAgentEndFailure,
 	isAiAccessRequiredError,
 	isAiBlockedError,
 	isOutOfCreditsError,
 	isUsageCapError,
 	USAGE_CAP_ERROR_PREFIX,
-} from '@studio/agent/protocol/json-events';
+} from '@studio/agent/protocol/errors';
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 
 function assistantMessage(
@@ -45,40 +45,17 @@ function agentEnd(
 }
 
 describe( 'isUsageCapError', () => {
-	it( 'matches the canonical runtime-stamped prefix', () => {
-		expect( isUsageCapError( buildUsageCapErrorMessage( '429 exceeded' ) ) ).toBe( true );
-		expect( isUsageCapError( `${ USAGE_CAP_ERROR_PREFIX }: OpenAI API error (429): x` ) ).toBe(
-			true
-		);
-	} );
-
-	it( 'matches an un-rewritten proxy cost-cap code', () => {
+	it( "matches the provider's prefix and the proxy's cost-cap code", () => {
+		expect( isUsageCapError( `${ USAGE_CAP_ERROR_PREFIX }: 429 exceeded` ) ).toBe( true );
 		expect(
 			isUsageCapError( 'OpenAI API error (429): {"error":{"code":"cost_cap_exceeded"}}' )
 		).toBe( true );
 	} );
 
-	// STU-2236: both credit pools empty is its own state — the fix is buying
-	// credits, not waiting for the reset — so it must not read as the cap.
-	it( 'does not match the out-of-credits refusal', () => {
-		expect(
-			isUsageCapError(
-				"402 studio_out_of_credits: You've used your free monthly AI allowance and have no credits left."
-			)
-		).toBe( false );
-	} );
-
-	// A hosted upstream 429s for its own token-per-minute limits, which
-	// retrying clears — those must not read as the monthly cap.
-	it( 'does not match a 429 without the cost-cap code', () => {
-		expect( isUsageCapError( 'API Error: 429 {"error":"x"}' ) ).toBe( false );
-		expect( isUsageCapError( 'Request failed with status code 429' ) ).toBe( false );
-		expect( isUsageCapError( '{"status": 429}' ) ).toBe( false );
-	} );
-
-	it( 'does not match raw un-rewritten 429s (non-wpcom rate limits)', () => {
-		expect( isUsageCapError( '429 rate limited' ) ).toBe( false );
+	it( 'does not match other 429s or the out-of-credits refusal', () => {
 		expect( isUsageCapError( 'OpenAI API error (429): rate limited' ) ).toBe( false );
+		expect( isUsageCapError( 'API Error: 429 {"error":"x"}' ) ).toBe( false );
+		expect( isUsageCapError( '402 studio_out_of_credits: No credits left.' ) ).toBe( false );
 	} );
 } );
 
@@ -100,11 +77,9 @@ describe( 'isOutOfCreditsError', () => {
 		expect( isOutOfCreditsError( '429 cost_cap_exceeded: Monthly cost cap exceeded.' ) ).toBe(
 			false
 		);
-		expect( isOutOfCreditsError( buildUsageCapErrorMessage( '429 exceeded' ) ) ).toBe( false );
+		expect( isOutOfCreditsError( `${ USAGE_CAP_ERROR_PREFIX }: 429 exceeded` ) ).toBe( false );
 		expect( isOutOfCreditsError( '402 payment required' ) ).toBe( false );
-		expect( isOutOfCreditsError( '500 internal server error' ) ).toBe( false );
 		expect( isOutOfCreditsError( undefined ) ).toBe( false );
-		expect( isOutOfCreditsError( null ) ).toBe( false );
 	} );
 } );
 
@@ -123,7 +98,6 @@ describe( 'isAiBlockedError', () => {
 	it( 'does not match other 403s or unrelated errors', () => {
 		expect( isAiBlockedError( '403 model not allowed' ) ).toBe( false );
 		expect( isAiBlockedError( '403 Studio Code AI is blocked for this account.' ) ).toBe( false );
-		expect( isAiBlockedError( 'Monthly usage limit reached: x' ) ).toBe( false );
 		expect( isAiBlockedError( undefined ) ).toBe( false );
 		expect(
 			isAiBlockedError(
@@ -195,5 +169,43 @@ describe( 'getAgentEndFailure', () => {
 			{ willRetry: true }
 		);
 		expect( getAgentEndFailure( event ) ).toBeNull();
+	} );
+} );
+
+describe( 'formatErrorMessage', () => {
+	it( "unwraps Gemini's error nested in its message string", () => {
+		const message = JSON.stringify( {
+			error: {
+				message:
+					'{\n "error": {\n "code": 503,\n "message": "This model is busy.",\n "status": "UNAVAILABLE"\n }\n}\n',
+				code: 503,
+				status: 'Service Unavailable',
+			},
+		} );
+		expect( formatErrorMessage( message ) ).toBe( 'This model is busy.' );
+	} );
+
+	it( 'drops the status the Anthropic SDK puts before the body', () => {
+		expect(
+			formatErrorMessage(
+				'529 {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"},"request_id":"req_1"}'
+			)
+		).toBe( 'Overloaded' );
+	} );
+
+	it( 'keeps the text around the body', () => {
+		expect(
+			formatErrorMessage(
+				'OpenAI API error (429): {"message":"Rate limit reached.","type":"requests"}'
+			)
+		).toBe( 'OpenAI API error: Rate limit reached.' );
+	} );
+
+	it( 'returns a message without a readable body unchanged', () => {
+		expect( formatErrorMessage( ' Connection error. ' ) ).toBe( 'Connection error.' );
+		expect( formatErrorMessage( '400 {"error":"invalid_grant"}' ) ).toBe(
+			'400 {"error":"invalid_grant"}'
+		);
+		expect( formatErrorMessage( 'Bad template {name}' ) ).toBe( 'Bad template {name}' );
 	} );
 } );

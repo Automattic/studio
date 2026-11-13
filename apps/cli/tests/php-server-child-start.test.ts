@@ -7,6 +7,7 @@ import { requestSetAdminCredentials } from 'cli/lib/admin-credentials';
 import { runBlueprint } from 'cli/lib/native-php/blueprints';
 import { runPhpCommand } from 'cli/lib/native-php/php-process';
 import { getSiteDatabasePath } from 'cli/lib/sqlite-collations';
+import { childMessageFromProcessManagerSchema } from 'cli/lib/types/wordpress-server-ipc';
 
 vi.mock( 'cli/lib/native-php/php-process', () => ( {
 	runPhpCommand: vi.fn( async () => ( { stdout: '0' } ) ),
@@ -66,7 +67,7 @@ it.each( [
 	async ( scenario ) => {
 		vi.resetModules();
 		const sitePath = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-start-test-' ) );
-		const controller = new AbortController();
+		let handleMessage: ( message: object ) => Promise< void >;
 		const events = [ 'message', 'disconnect', 'SIGTERM', 'SIGINT', 'exit' ] as const;
 		const emitter: EventEmitter = process;
 		const listeners = new Map( events.map( ( event ) => [ event, emitter.listeners( event ) ] ) );
@@ -90,18 +91,38 @@ it.each( [
 				fs.mkdirSync( path.dirname( databasePath ), { recursive: true } );
 				fs.writeFileSync( databasePath, '' );
 			}
-			const { startServer } = await import( 'cli/php-server-child' );
-			await startServer(
-				{
-					siteId: 'test',
-					sitePath,
-					port: 0,
-					fileAccess: 'all-files',
-					...( scenario.blueprint ? { blueprint: { contents: {}, uri: 'test' } } : {} ),
-					...( scenario.imported ? { autoPrependFile: '/tmp/imported.php' } : {} ),
+			await import( 'cli/php-server-child' );
+			handleMessage = emitter.listeners( 'message' ).at( -1 ) as typeof handleMessage;
+			await handleMessage( {
+				messageId: 'test-start',
+				topic: 'start-server',
+				data: {
+					config: {
+						siteId: 'test',
+						sitePath,
+						port: 0,
+						fileAccess: 'all-files',
+						...( scenario.blueprint ? { blueprint: { contents: {}, uri: 'test' } } : {} ),
+						...( scenario.imported ? { autoPrependFile: '/tmp/imported.php' } : {} ),
+					},
 				},
-				controller.signal
-			);
+			} );
+			const phases = vi
+				.mocked( process.send! )
+				.mock.calls.map( ( [ message ] ) => message )
+				.map( ( message ) =>
+					childMessageFromProcessManagerSchema.safeParse( {
+						process: { name: 'test', pm_id: 1 },
+						raw: message,
+					} )
+				)
+				.flatMap( ( result ) =>
+					result.success && result.data.raw.topic === 'start-phase' ? [ result.data.raw.data ] : []
+				);
+			const firstWorker = phases.filter( ( { phase } ) => phase === 'php_first_worker' );
+			const allWorkers = phases.find( ( { phase } ) => phase === 'php_workers' );
+			expect( firstWorker ).toHaveLength( 1 );
+			expect( firstWorker[ 0 ].ms ).toBeLessThanOrEqual( allWorkers!.ms );
 			const commands = vi.mocked( runPhpCommand ).mock.calls.map( ( [ args ] ) => args );
 			expect(
 				commands.some(
@@ -116,11 +137,13 @@ it.each( [
 				scenario.install && ! scenario.blueprint ? 0 : 1
 			);
 		} finally {
-			controller.abort();
 			process.send = originalSend;
 			for ( const event of events ) {
 				for ( const listener of emitter.listeners( event ) ) {
 					if ( ! listeners.get( event )?.includes( listener ) ) {
+						if ( event === 'exit' && listener.name === 'killPhpProcess' ) {
+							listener();
+						}
 						emitter.removeListener( event, listener as ( ...args: unknown[] ) => void );
 					}
 				}

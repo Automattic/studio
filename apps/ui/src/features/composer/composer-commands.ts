@@ -1,13 +1,9 @@
 import { __ } from '@wordpress/i18n';
-import {
-	ChartNoAxesCombinedIcon,
-	LayoutDashboardIcon,
-	PencilRulerIcon,
-	SlidersHorizontalIcon,
-	TagsIcon,
-} from 'lucide-react';
+import { LayoutDashboardIcon, PencilRulerIcon, SlidersHorizontalIcon } from 'lucide-react';
 import {
 	GaugeIcon,
+	TagIcon,
+	TrendingUpIcon,
 	PaperclipIcon,
 	PlayIcon,
 	SparklesIcon,
@@ -26,9 +22,9 @@ const COMMAND_ICONS: Partial< Record< string, ComponentType< { className?: strin
 	start: PlayIcon,
 	stop: SquareIcon,
 	annotate: PencilRulerIcon,
-	taxonomist: TagsIcon,
+	taxonomist: TagIcon,
 	'need-for-speed': GaugeIcon,
-	'rank-me-up': ChartNoAxesCombinedIcon,
+	'rank-me-up': TrendingUpIcon,
 	liberate: UnlockIcon,
 	'curate-admin': LayoutDashboardIcon,
 	feedback: MessageSquareTextIcon,

@@ -250,7 +250,10 @@ export function SettingsSelect< TValue extends string >( {
 			} }
 		>
 			<SelectTrigger size="default" aria-label={ label } { ...control }>
-				<SelectValue placeholder={ placeholder }>
+				<SelectValue
+					placeholder={ placeholder }
+					data-icon={ selected?.icon ? 'inline-start' : undefined }
+				>
 					{ selected?.icon ? (
 						<>
 							{ selected.icon }

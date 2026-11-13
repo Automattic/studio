@@ -29,7 +29,7 @@ const ai = await getProviderServices( 'wpcom' ).ai!.model( config, model, { sess
 // The runtime registers `ai` with pi and runs the turn on it.
 ```
 
-Text a provider gives surfaces is plain strings, except a connect method's `instructions`, which is Markdown: the settings render it, `studio code` prints it. An icon is an SVG document, which may draw in `currentColor`.
+Text a provider gives surfaces is plain strings, except a connect method's `instructions`, which is Markdown: the settings render it, `studio code` prints it. An `icon` is an SVG document, which may draw in `currentColor`. A `logo` is a square SVG document in the brand's colors, background included, that fills its canvas: surfaces round it into a tile like an app icon, so it reads the same in light and dark.
 
 ## Connecting an account
 

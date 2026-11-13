@@ -144,6 +144,9 @@ export interface Provider< Config = unknown, Site extends RemoteSite = RemoteSit
 	learnMoreUrl?: string;
 	// The provider's mark: an SVG document, which may draw in `currentColor`.
 	icon?: string;
+	// The provider's logo in its brand colors: a square SVG document that fills its canvas,
+	// which surfaces round into a tile like an app icon. Surfaces fall back to `icon` without one.
+	logo?: string;
 	account: {
 		// What Studio stores.
 		configSchema: z.ZodType< Config >;

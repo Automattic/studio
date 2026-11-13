@@ -85,6 +85,26 @@ export interface DeviceAuthorization {
 // How Studio presents a provider's remote sites, so the publish panel names no provider.
 export interface SitesDescriptor< Site extends RemoteSite = RemoteSite > {
 	// The largest archive a push sends, in bytes.
+	/** Short destination-picker copy and artwork, shared by every publishing surface. */
+	publishing: {
+		description: () => string;
+		staticSiteLabel?: () => string;
+		addressTheme?: 'twilight';
+		firstPublishDescription?( site: Site ): string | undefined;
+	};
+	logo: { viewBox: string; path: string; color?: 'blue' | 'green'; brandedSize?: number };
+	visibility?( site: Site ): boolean;
+	visibilityOptions?(
+		current?: SiteVisibilityDetails[ 'visibility' ]
+	): { value: SiteVisibility; label: string; description: string; disabled?: boolean }[];
+	visibilitySettingsLink?( site: Site ): { title: string; url: string };
+	domainSettingsUrl?( site: Site ): string | undefined;
+	initialVisibility?( site: Site ): SiteVisibility | undefined;
+	isLaunched?( site: Site ): boolean;
+	previews?: {
+		matchesSite( site: Site, previewSiteId: number ): boolean;
+		isUpgraded( site: Site ): boolean;
+	};
 	maxPushSize?: number;
 	// Whether Studio pulls a site back; without it, Studio only publishes.
 	pull: boolean;
@@ -101,6 +121,8 @@ export interface SitesDescriptor< Site extends RemoteSite = RemoteSite > {
 	// Facts about a connected site, and links to manage it on the provider.
 	details( site: Site ): { title: string; value: string }[];
 	links( site: Site ): { title: string; url: string }[];
+	dashboardUrl?( site: Site ): string | undefined;
+	adminUrl?( site: Site ): string | undefined;
 	// Why the site can't be published to or pulled from now, or null.
 	issue( site: Site, direction: 'push' | 'pull' ): string | null;
 	// Something to know before pushing the local site, which doesn't block it.
@@ -185,6 +207,14 @@ export interface PushStatus {
 }
 
 // What Studio reads of any provider's remote site.
+export type SiteVisibility = 'public' | 'coming-soon' | 'private';
+export interface SiteVisibilityDetails {
+	visibility: SiteVisibility | 'unknown';
+	availableValues?: SiteVisibility[];
+	message?: string;
+	url: string;
+	launchStatus?: string;
+}
 export interface RemoteSite {
 	id: string | number;
 	name: string;
@@ -194,6 +224,14 @@ export interface RemoteSite {
 // Sends local sites to a provider's sites and brings them back. The provider
 // owns the remote side; Studio builds the content and applies what it pulls.
 export interface SitesService< Config, Site extends RemoteSite > {
+	visibility?: {
+		get( config: Config | undefined, id: Site[ 'id' ] ): Promise< SiteVisibilityDetails >;
+		set(
+			config: Config | undefined,
+			id: Site[ 'id' ],
+			value: SiteVisibility
+		): Promise< SiteVisibilityDetails >;
+	};
 	// The sites the account can sync with. A deleted site stays in the list
 	// while it is connected (`connectedIds`).
 	list(

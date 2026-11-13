@@ -125,13 +125,17 @@ export async function publishPreviewSite(
 	executeCliCommand: ExecuteCliCommand,
 	siteFolder: string,
 	hostname?: string,
-	name?: string
+	name?: string,
+	liveSite?: string
 ): Promise< { url: string } > {
 	const { url } = await runCliCommand(
 		executeCliCommand,
-		hostname
-			? [ 'preview', 'update', '--path', siteFolder, hostname ]
-			: [ 'preview', 'create', '--path', siteFolder, ...( name ? [ '--name', name ] : [] ) ],
+		[
+			...( hostname
+				? [ 'preview', 'update', '--path', siteFolder, hostname ]
+				: [ 'preview', 'create', '--path', siteFolder, ...( name ? [ '--name', name ] : [] ) ] ),
+			...( liveSite !== undefined ? [ '--live-site', liveSite ] : [] ),
+		],
 		previewResultSchema,
 		{ logPrefix: 'preview' }
 	);
@@ -194,14 +198,9 @@ export async function renamePreviewSite(
 export async function fetchSnapshots(
 	executeCliCommand: ExecuteCliCommand
 ): Promise< Snapshot[] > {
-	try {
-		return await runCliCommand(
-			executeCliCommand,
-			[ 'preview', 'list', '--format', 'json' ],
-			z.array( snapshotSchema )
-		);
-	} catch ( error ) {
-		console.error( 'Failed to fetch snapshots from CLI:', error );
-		return [];
-	}
+	return runCliCommand(
+		executeCliCommand,
+		[ 'preview', 'list', '--format', 'json' ],
+		z.array( snapshotSchema )
+	);
 }

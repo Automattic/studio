@@ -543,11 +543,16 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		async deleteAllSnapshots() {
 			await api( '/snapshots', { method: 'DELETE' } );
 		},
-		async publishPreviewSite( siteId, existingHostname, name ): Promise< { url: string } > {
+		async publishPreviewSite(
+			siteId,
+			existingHostname,
+			name,
+			liveSite
+		): Promise< { url: string } > {
 			// A hostname means "refresh this preview"; otherwise create a new one.
 			return api< { url: string } >( `/sites/${ encodeURIComponent( siteId ) }/preview`, {
 				method: 'POST',
-				body: JSON.stringify( { hostname: existingHostname, name } ),
+				body: JSON.stringify( { hostname: existingHostname, name, liveSite } ),
 			} );
 		},
 		async deleteSnapshot( hostname ) {
@@ -559,6 +564,13 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 				body: JSON.stringify( { name } ),
 			} );
 		},
+		async getSitePublishStatus( siteId, remoteSiteId, provider ) {
+			return api(
+				`/sites/${ encodeURIComponent( siteId ) }/publish-status/${ remoteSiteId }?provider=${
+					provider ?? 'wpcom'
+				}`
+			);
+		},
 		async getPreviewStatus( hostname ): Promise< PreviewStatus > {
 			return api< PreviewStatus >( `/snapshots/${ encodeURIComponent( hostname ) }/status` );
 		},
@@ -568,6 +580,24 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					localSiteId ? `?localSiteId=${ encodeURIComponent( localSiteId ) }` : ''
 				}`
 			);
+		},
+		async getSiteVisibility( provider, id ) {
+			return api( `/remote-sites/${ provider }/${ id }/visibility` );
+		},
+		async setSiteVisibility( provider, id, visibility ) {
+			return api( `/remote-sites/${ provider }/${ id }/visibility`, {
+				method: 'POST',
+				body: JSON.stringify( { visibility } ),
+			} );
+		},
+		async getWpcomSiteVisibility( remoteSiteId ) {
+			return api( `/wpcom/sites/${ remoteSiteId }/visibility` );
+		},
+		async setWpcomSiteVisibility( remoteSiteId, visibility ) {
+			return api( `/wpcom/sites/${ remoteSiteId }/visibility`, {
+				method: 'POST',
+				body: JSON.stringify( { visibility } ),
+			} );
 		},
 		async listAccountSites( provider ) {
 			return api( `/remote-sites/${ provider }/account` );

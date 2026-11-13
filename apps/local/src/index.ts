@@ -154,7 +154,10 @@ import {
 	type SiteMetadata,
 } from '@studio/common/sites/metadata';
 import { nodeSiteFiles } from '@studio/common/sites/node-site-files';
+import { getSitePublishStatus } from '@studio/common/sites/publish-status';
 import {
+	getSiteVisibility,
+	setSiteVisibility,
 	createRemoteSite,
 	getRemoteBackupId,
 	listAccountSites,
@@ -178,6 +181,7 @@ import {
 	renamePreviewSite,
 } from '@studio/common/sites/snapshots';
 import { createSyncRunner } from '@studio/common/sites/sync';
+import { wpcomSiteVisibilitySchema } from '@studio/common/types/site-visibility';
 import {
 	getAiModel,
 	getRedirectUrl,
@@ -1894,6 +1898,66 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	}
 
 	api.get(
+		'/wpcom/sites/:remoteSiteId/visibility',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const token = await readAuthToken();
+			if ( ! token?.accessToken ) {
+				res.status( 401 ).json( { error: 'Authentication required.' } );
+				return;
+			}
+			const siteId = z.coerce.number().int().positive().safeParse( req.params.remoteSiteId );
+			if ( ! siteId.success ) {
+				res.status( 400 ).json( { error: 'Invalid site ID.' } );
+				return;
+			}
+			res.json( await getSiteVisibility< 'wpcom' >( getProvider( 'wpcom' ), siteId.data ) );
+		} )
+	);
+	api.post(
+		'/wpcom/sites/:remoteSiteId/visibility',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const token = await readAuthToken();
+			if ( ! token?.accessToken ) {
+				res.status( 401 ).json( { error: 'Authentication required.' } );
+				return;
+			}
+			const siteId = z.coerce.number().int().positive().safeParse( req.params.remoteSiteId );
+			const visibility = wpcomSiteVisibilitySchema.safeParse( req.body?.visibility );
+			if ( ! siteId.success || ! visibility.success ) {
+				res.status( 400 ).json( { error: 'Invalid visibility request.' } );
+				return;
+			}
+			res.json(
+				await setSiteVisibility< 'wpcom' >( getProvider( 'wpcom' ), siteId.data, visibility.data )
+			);
+		} )
+	);
+
+	api.get(
+		'/remote-sites/:provider/:remoteSiteId/visibility',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readSitesProvider( req, res );
+			if ( ! provider ) return;
+			res.json(
+				await getSiteVisibility( getProvider( provider ), req.params.remoteSiteId as never )
+			);
+		} )
+	);
+	api.post(
+		'/remote-sites/:provider/:remoteSiteId/visibility',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			const provider = readSitesProvider( req, res );
+			if ( ! provider ) return;
+			res.json(
+				await setSiteVisibility(
+					getProvider( provider ),
+					req.params.remoteSiteId as never,
+					wpcomSiteVisibilitySchema.parse( req.body.visibility )
+				)
+			);
+		} )
+	);
+	api.get(
 		'/remote-sites/:provider',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			const provider = readSitesProvider( req, res );
@@ -1974,14 +2038,18 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 	api.post(
 		'/sites/:id/preview',
 		asyncHandler( async ( req: Request, res: Response ) => {
-			const { hostname, name } = req.body as { hostname?: string; name?: string };
+			const { hostname, name, liveSite } = req.body as {
+				hostname?: string;
+				name?: string;
+				liveSite?: string;
+			};
 			const site = ( await listSites( execute ) ).find( ( s ) => s.id === req.params.id );
 			if ( ! site ) {
 				res.status( 404 ).json( { error: `Site ${ req.params.id } not found` } );
 				return;
 			}
 			// A hostname means "refresh this existing preview"; otherwise create one.
-			res.json( await publishPreviewSite( execute, site.path, hostname, name ) );
+			res.json( await publishPreviewSite( execute, site.path, hostname, name, liveSite ) );
 		} )
 	);
 
@@ -2018,6 +2086,20 @@ export async function startLocalServer( options: LocalServerOptions ): Promise< 
 		'/snapshots/:hostname/status',
 		asyncHandler( async ( req: Request, res: Response ) => {
 			res.json( await getPreviewStatus( execute, req.params.hostname ) );
+		} )
+	);
+
+	api.get(
+		'/sites/:id/publish-status/:remoteSiteId',
+		asyncHandler( async ( req: Request, res: Response ) => {
+			res.json(
+				await getSitePublishStatus(
+					execute,
+					req.params.id,
+					req.params.remoteSiteId,
+					normalizeSitesProviderId( String( req.query.provider ?? 'wpcom' ) ) ?? 'wpcom'
+				)
+			);
 		} )
 	);
 

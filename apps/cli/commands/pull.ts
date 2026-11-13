@@ -163,9 +163,13 @@ async function lastPulledFrom( localSiteId: string ): Promise< string | undefine
  * Remembers the remote site, so later pushes and pulls, and the Studio app, offer it without
  * picking it again. Best-effort: the pull has already succeeded.
  */
-async function rememberConnection( localSiteId: string, remoteSite: SyncSite ): Promise< void > {
+async function rememberConnection(
+	localSiteId: string,
+	remoteSite: SyncSite,
+	localVersionId: string | null = null
+): Promise< void > {
 	try {
-		await rememberRemoteSite( 'wpcom', localSiteId, remoteSite, 'pull' );
+		await rememberRemoteSite( 'wpcom', localSiteId, remoteSite, 'pull', localVersionId );
 	} catch ( error ) {
 		logger.reportError( new LoggerError( __( 'Failed to save connected site' ), error ), false );
 	}
@@ -440,7 +444,7 @@ async function pullSite(
 				record.runtimeBlueprintPath = studioMetadata.runtimeBlueprintPath;
 			} );
 			logger.reportSuccess( `Site "${ site.name }" updated` );
-			await rememberConnection( site.id, sourceSite.wpComSite );
+
 			run.warning = await getPushSizeWarning( site.path );
 			if ( run.warning ) {
 				logger.reportWarning( run.warning );
@@ -462,6 +466,15 @@ async function pullSite(
 			await startPulledSite( site, logger, runtimeStartOptions, {
 				restart: ! isRepull && wasRunning,
 			} );
+			let localVersionId: string | null = null;
+			if ( isFullPull( selection ) ) {
+				try {
+					localVersionId = await getSiteVersion( site.id, site.path );
+				} catch {
+					/* Keep a successful pull usable when comparison fails. */
+				}
+			}
+			await rememberConnection( site.id, sourceSite.wpComSite, localVersionId );
 			// After the start, so what WordPress writes as it boots is part of the pulled version.
 			if ( run.preview ) {
 				await linkPreview( site.id, localPath, sourceSite, run.preview, pulledAt );

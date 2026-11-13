@@ -2,17 +2,24 @@ import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { SYNC_CANCELLED_MESSAGE } from '@studio/common/lib/sync/cancel';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	rememberAccountJourney,
 	scopeAccountJourney,
 	clearAccountJourneys,
 } from '@/data/account-analytics';
-import { dismissToast, getVisibleToasts } from '@/data/app-messages';
+import {
+	dismissToast,
+	getVisibleToasts,
+	runNoticeAction,
+	notifyRendererMounted,
+} from '@/data/app-messages';
 import { ConnectorProvider } from '@/data/core';
 import { siteThumbnailQueryKey } from '@/data/queries/use-site-thumbnail';
 import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
+import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
 import { getSyncActivity, useSiteSyncActivity } from '@/data/sync-activity';
 import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { createTestQueryClient } from '@/test/render';
@@ -22,6 +29,7 @@ import {
 	usePushSite,
 	useSyncActivityEvents,
 	useSettleFromMutation,
+	useSyncNoticeVisibility,
 } from './use-sync-site';
 import type { SyncEvent } from '@studio/common/lib/sync/activity';
 import type { QueryClient } from '@tanstack/react-query';
@@ -432,4 +440,205 @@ it( 'offers restarting after changes were pulled but the site could not restart'
 	expect( failure ).toMatchObject( { durationMs: 0, action: { label: 'Start site' } } );
 	await failure.action!.onClick();
 	expect( connector.startSite ).toHaveBeenCalledWith( 'restart-site' );
+} );
+
+it( 'shows creation progress only outside the share panel, then keeps the same two-line notice', async () => {
+	function PreviewPanel() {
+		const [ open, setOpen ] = useState( true );
+		useSyncNoticeVisibility( 'panel-notice', open );
+		return (
+			<>
+				<SyncActivityEvents />
+				<button onClick={ () => setOpen( ! open ) }>{ open ? 'Close panel' : 'Open panel' }</button>
+			</>
+		);
+	}
+	const queryClient = createTestQueryClient();
+	queryClient.setQueryData( SITES_QUERY_KEY, [
+		makeSite( { id: 'panel-notice', name: 'Ocean' } ),
+	] );
+	const { publish } = setup( <PreviewPanel />, { queryClient } );
+	const pending = () =>
+		publish( {
+			siteId: 'panel-notice',
+			activity: { kind: 'pending', direction: 'preview', message: 'Uploading archive…' },
+		} );
+	const notice = () =>
+		getVisibleToasts().find( ( item ) => item.id === 'preview-panel-notice' && ! item.leaving );
+	act( pending );
+	expect( notice() ).toBeUndefined();
+	fireEvent.click( screen.getByRole( 'button', { name: 'Close panel' } ) );
+	expect( notice() ).toMatchObject( {
+		title: 'Creating preview link…',
+		description: 'Ocean',
+		processing: true,
+	} );
+	fireEvent.click( screen.getByRole( 'button', { name: 'Open panel' } ) );
+	act( pending );
+	expect( notice() ).toBeUndefined();
+	fireEvent.click( screen.getByRole( 'button', { name: 'Close panel' } ) );
+	act( () =>
+		publish( { siteId: 'panel-notice', activity: { kind: 'success', direction: 'preview' } } )
+	);
+	expect( notice() ).toMatchObject( {
+		title: 'Preview link ready',
+		description: 'Ocean',
+		durationMs: 0,
+		processing: undefined,
+	} );
+} );
+
+it( 'confirms copying before starting the preview notice dismissal timer', async () => {
+	const queryClient = createTestQueryClient();
+	queryClient.setQueryData( SITES_QUERY_KEY, [ makeSite( { id: 'copy-notice', name: 'Ocean' } ) ] );
+	queryClient.setQueryData( SNAPSHOTS_QUERY_KEY, [
+		{
+			localSiteId: 'copy-notice',
+			url: 'ocean.example.com',
+			shareUrl: 'https://ocean.example.com/?share=secret',
+			date: Date.now(),
+		},
+	] );
+	const { connector, publish } = setup( <SyncActivityEvents />, { queryClient } );
+	act( () => {
+		notifyRendererMounted();
+		publish( { siteId: 'copy-notice', activity: { kind: 'pending', direction: 'preview' } } );
+		publish( { siteId: 'copy-notice', activity: { kind: 'success', direction: 'preview' } } );
+	} );
+	const notice = () => getVisibleToasts().find( ( item ) => item.id === 'preview-copy-notice' );
+	await act( () => vi.advanceTimersByTimeAsync( 10_000 ) );
+	expect( notice()?.leaving ).toBeUndefined();
+	await act( async () => {
+		await runNoticeAction( notice()!.action! );
+	} );
+	expect( connector.copyText ).toHaveBeenCalledWith( 'https://ocean.example.com/?share=secret' );
+	expect( notice() ).toMatchObject( {
+		title: 'Preview link ready',
+		description: 'Ocean',
+		durationMs: 0,
+		action: { label: 'Copied' },
+	} );
+	await act( () => vi.advanceTimersByTimeAsync( 2000 ) );
+	expect( notice() ).toMatchObject( { durationMs: 4500, action: { label: 'Copy link' } } );
+	await act( () => vi.advanceTimersByTimeAsync( 4400 ) );
+	expect( notice()?.leaving ).toBeUndefined();
+	await act( () => vi.advanceTimersByTimeAsync( 400 ) );
+	expect( notice() ).toBeUndefined();
+} );
+
+it.each( [
+	{ direction: 'preview', hostname: 'ocean.example.com', title: 'Updating preview…' },
+	{ direction: 'push', title: 'Publishing changes…' },
+	{ direction: 'pull', title: 'Pulling changes…' },
+	{ direction: 'import', title: 'Importing backup…' },
+] as const )(
+	'only shows $direction progress when its panel closes',
+	( { direction, title, ...details } ) => {
+		const siteId = `visibility-${ direction }`;
+		function Panel() {
+			const [ open, setOpen ] = useState( true );
+			useSyncNoticeVisibility( siteId, open );
+			return (
+				<>
+					<SyncActivityEvents />
+					<button onClick={ () => setOpen( ! open ) }>Toggle panel</button>
+				</>
+			);
+		}
+		const queryClient = createTestQueryClient();
+		queryClient.setQueryData( SITES_QUERY_KEY, [ makeSite( { id: siteId, name: 'Ocean' } ) ] );
+		const { publish } = setup( <Panel />, { queryClient } );
+		const pending = () =>
+			publish( {
+				siteId,
+				activity: { kind: 'pending', direction, message: 'Transferring files…', ...details },
+			} );
+		const notice = () =>
+			getVisibleToasts().find(
+				( item ) => item.id === `${ direction }-${ siteId }` && ! item.leaving
+			);
+		act( pending );
+		expect( notice() ).toBeUndefined();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Toggle panel' } ) );
+		expect( notice() ).toMatchObject( {
+			title,
+			description:
+				direction === 'push' || direction === 'pull' ? 'Ocean · Transferring files…' : 'Ocean',
+			processing: true,
+		} );
+		fireEvent.click( screen.getByRole( 'button', { name: 'Toggle panel' } ) );
+		act( pending );
+		expect( notice() ).toBeUndefined();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Toggle panel' } ) );
+		expect( notice() ).toMatchObject( {
+			title,
+			description:
+				direction === 'push' || direction === 'pull' ? 'Ocean · Transferring files…' : 'Ocean',
+			processing: true,
+		} );
+	}
+);
+
+it( 'keeps live push cancellation in the notification while the publishing panel is open', async () => {
+	const siteId = 'publish-notification';
+	function Panel() {
+		useSyncNoticeVisibility( siteId, true, true );
+		const push = usePushSite();
+		return (
+			<>
+				<SyncActivityEvents />
+				<button onClick={ () => push.mutate( { provider: 'wpcom', siteId, remoteSiteId: 42 } ) }>
+					Push
+				</button>
+			</>
+		);
+	}
+	const { connector, publish } = setup( <Panel /> );
+	connector.pushSite.mockImplementation( () => new Promise( () => {} ) );
+	fireEvent.click( screen.getByRole( 'button', { name: 'Push' } ) );
+	await waitFor( () => expect( connector.pushSite ).toHaveBeenCalled() );
+	act( () =>
+		publish( {
+			siteId,
+			activity: {
+				kind: 'pending',
+				direction: 'push',
+				provider: 'wpcom',
+				remoteSiteId: 42,
+				phase: 'uploading',
+				progress: 35,
+			},
+		} )
+	);
+	const notice = () => getVisibleToasts().find( ( item ) => item.id === `push-${ siteId }` );
+	expect( notice()?.description ).toContain( '35%' );
+	const cancel = notice()?.action;
+	expect( cancel?.label ).toBe( 'Cancel' );
+	act( () =>
+		publish( {
+			siteId,
+			activity: {
+				kind: 'success',
+				direction: 'push',
+				provider: 'spacefast',
+				remoteSiteId: 'spc_other',
+			},
+		} )
+	);
+	expect( getSyncActivity( siteId )?.kind ).toBe( 'pending' );
+	act( () =>
+		publish( {
+			siteId,
+			activity: {
+				kind: 'pending',
+				direction: 'push',
+				provider: 'wpcom',
+				remoteSiteId: 42,
+				phase: 'applyingChanges',
+			},
+		} )
+	);
+	expect( notice()?.action ).toBeUndefined();
+	await cancel?.onClick();
+	expect( connector.cancelSync ).not.toHaveBeenCalled();
 } );

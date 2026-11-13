@@ -1,7 +1,7 @@
 import { isRTL } from '@wordpress/i18n';
 import { createContext, useContext, useRef, useState, type ReactNode } from 'react';
 import { useTrafficLightSpace } from '@/data/host/use-traffic-light-space';
-import { ShareButton, PublishButton, SiteDeliveryDialog } from '@/features/site-delivery';
+import { PublishButton } from '@/features/site-delivery';
 import { useWindowControlsOverlay } from '@/lib/hooks';
 import styles from './style.module.css';
 import { useSiteHeaderLayout, type SiteHeaderLayout } from './use-site-header-layout';
@@ -83,7 +83,7 @@ export function SiteHeaderActions( { site }: { site: SiteDetails } ) {
 	}
 	const publishButton = (
 		<span data-site-header-publish className={ styles.publish }>
-			<PublishButton site={ site } compactWhenNarrow />
+			<PublishButton key={ site.id } site={ site } />
 		</span>
 	);
 	return (
@@ -93,12 +93,8 @@ export function SiteHeaderActions( { site }: { site: SiteDetails } ) {
 			style={ { paddingInlineEnd: `calc( var( --band-inset ) + ${ inset }px )` } }
 			data-site-header-actions
 		>
-			<SiteDeliveryDialog key={ site.id } site={ site } anchor={ root } />
 			<div ref={ attachActions } className={ styles.actions }>
 				<div data-site-header-delivery className={ styles.delivery }>
-					<span data-site-header-share className={ styles.item }>
-						<ShareButton site={ site } />
-					</span>
 					{ publishButton }
 				</div>
 			</div>

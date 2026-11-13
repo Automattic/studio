@@ -5,7 +5,10 @@ import {
 	rememberRemoteSite,
 	type RemoteSiteConnection,
 } from '@studio/common/lib/remote-sites';
+import { getSitePublishStatus as getPublishStatus } from '@studio/common/sites/publish-status';
 import {
+	getSiteVisibility as readVisibility,
+	setSiteVisibility as writeVisibility,
 	createRemoteSite as createRemoteSiteOnProvider,
 	getRemoteBackupId as readRemoteBackupId,
 	listAccountSites as listProviderAccountSites,
@@ -20,7 +23,9 @@ import {
 	type SitesProviderId,
 } from '@studio/providers';
 import { getProvider } from '@studio/providers/services';
+import { getAuthenticationToken } from 'src/lib/oauth';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
+import type { WpcomSiteVisibility } from '@studio/common/types/site-visibility';
 
 const syncRunner = createSyncRunner( executeCliCommand );
 
@@ -153,4 +158,46 @@ export async function listRemoteBackupFiles(
 		backupId,
 		path
 	);
+}
+
+export async function getWpcomSiteVisibility( _event: IpcMainInvokeEvent, remoteSiteId: number ) {
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken ) throw new Error( 'Authentication required to read site visibility.' );
+	return readVisibility< 'wpcom' >( getProvider( 'wpcom' ), remoteSiteId );
+}
+
+export async function setWpcomSiteVisibility(
+	_event: IpcMainInvokeEvent,
+	remoteSiteId: number,
+	visibility: WpcomSiteVisibility
+) {
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken )
+		throw new Error( 'Authentication required to change site visibility.' );
+	return writeVisibility< 'wpcom' >( getProvider( 'wpcom' ), remoteSiteId, visibility );
+}
+
+export function getSitePublishStatus(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	remoteSiteId: string | number,
+	provider: SitesProviderId = 'wpcom'
+) {
+	return getPublishStatus( executeCliCommand, siteId, remoteSiteId, provider );
+}
+
+export function getSiteVisibility(
+	_event: IpcMainInvokeEvent,
+	provider: string,
+	id: string | number
+) {
+	return readVisibility( getProvider( parseProvider( provider ) ), id as never );
+}
+export function setSiteVisibility(
+	_event: IpcMainInvokeEvent,
+	provider: string,
+	id: string | number,
+	value: WpcomSiteVisibility
+) {
+	return writeVisibility( getProvider( parseProvider( provider ) ), id as never, value );
 }

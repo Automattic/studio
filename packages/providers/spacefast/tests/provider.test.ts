@@ -33,3 +33,30 @@ it( 'asks to connect again when the key no longer works', async () => {
 		ProviderNotReadyError
 	);
 } );
+
+it( 'keeps the team slug for site-specific dashboard links', async () => {
+	vi.stubGlobal(
+		'fetch',
+		vi.fn(
+			async ( url: URL ) =>
+				new Response(
+					JSON.stringify( {
+						data:
+							url.pathname === '/v1/teams'
+								? [ { id: 'team', name: 'Studio', slug: 'studio' } ]
+								: [
+										{
+											id: 'space',
+											title: 'Example',
+											slug: 'example',
+											liveUrl: 'https://example.space.fast',
+											teamId: 'team',
+										},
+								  ],
+					} )
+				)
+		)
+	);
+	const [ site ] = await spacefastProvider.sites!.list( { apiKey: 'test' } );
+	expect( site ).toMatchObject( { teamSlug: 'studio', slug: 'example' } );
+} );

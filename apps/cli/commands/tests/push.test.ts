@@ -9,6 +9,7 @@ import { getProvider } from '@studio/providers/services';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSiteByFolder } from 'cli/lib/cli-config/sites';
 import { getExporter } from 'cli/lib/import-export/export/export-manager';
+import { getSiteVersion } from 'cli/lib/site-versions';
 import { exportStaticContent } from 'cli/lib/static-content';
 import { onCancel, reportSyncActivity } from 'cli/lib/sync-activity';
 import { fetchSyncableSites } from 'cli/lib/sync-api';
@@ -38,6 +39,9 @@ vi.mock( 'cli/lib/site-operations', () => ( {
 	withSiteOperation: ( _folder: string, _kind: string, fn: () => unknown ) => fn(),
 } ) );
 vi.mock( 'cli/lib/sqlite-integration' );
+vi.mock( 'cli/lib/site-versions', () => ( {
+	getSiteVersion: vi.fn().mockResolvedValue( 'before-upload' ),
+} ) );
 vi.mock( 'cli/lib/sync-activity' );
 vi.mock( 'cli/lib/sync-api', async ( importActual ) => ( {
 	...( await importActual< typeof import('cli/lib/sync-api') >() ),
@@ -58,6 +62,7 @@ vi.mock( '@studio/providers/services', async ( importOriginal ) => {
 	};
 } );
 vi.mock( 'cli/lib/tracks' );
+vi.mock( 'cli/lib/snapshots', () => ( { getSnapshotsFromConfig: vi.fn().mockResolvedValue( [] ) } ) );
 
 const wpcomSites = getProvider( 'wpcom' ).sites!;
 const site = { id: 'site-1', path: '/test/site', phpVersion: '8.3' } as SiteData;
@@ -133,7 +138,8 @@ describe( 'CLI: studio push', () => {
 				'wpcom',
 				site.id,
 				expect.objectContaining( { launchAfterPush: failed } ),
-				'push'
+				'push',
+				expect.anything()
 			);
 			expect( reported().at( -1 ) ).toMatchObject( { kind: failed ? 'error' : 'success' } );
 			expect( recordTracksEvent ).toHaveBeenCalledWith(
@@ -277,7 +283,14 @@ describe( 'CLI: studio push to a provider that publishes a static copy', () => {
 		vi.mocked( onCancel ).mockReturnValue( () => true );
 		vi.mocked( getSiteByFolder ).mockResolvedValue( { ...site, name: 'My Site' } );
 		vi.mocked( readProviderConfig ).mockResolvedValue( { apiKey: 'sfa_key' } as never );
-		vi.mocked( exportStaticContent ).mockResolvedValue( files );
+		vi.mocked( exportStaticContent ).mockImplementation(
+			async ( _path, _url, _output, beforeExport ) => {
+				expect( getSiteVersion ).not.toHaveBeenCalled();
+				await beforeExport?.();
+				expect( getSiteVersion ).toHaveBeenCalledExactlyOnceWith( site.id, site.path );
+				return files;
+			}
+		);
 	} );
 
 	it( 'publishes the export to the site last published to, and reports and records it as that provider’s', async () => {
@@ -299,7 +312,8 @@ describe( 'CLI: studio push to a provider that publishes a static copy', () => {
 		expect( exportStaticContent ).toHaveBeenCalledWith(
 			site.path,
 			space.url,
-			expect.any( String )
+			expect.any( String ),
+			expect.any( Function )
 		);
 		expect( spacefastSites.push ).toHaveBeenCalledWith(
 			{ apiKey: 'sfa_key' },
@@ -313,7 +327,8 @@ describe( 'CLI: studio push to a provider that publishes a static copy', () => {
 			'spacefast',
 			site.id,
 			expect.objectContaining( { id: 'spc_2' } ),
-			'push'
+			'push',
+			'before-upload'
 		);
 		expect( reported().at( -1 ) ).toEqual( {
 			kind: 'success',

@@ -2,9 +2,9 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, it } from 'vitest';
 import { SessionUIProvider } from '@/data/use-session-ui';
-import { PublishButton, SiteDeliveryDialog } from '@/features/site-delivery';
 import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
 import { aiSettings } from '@/test/in-memory-connector';
+import { SiteDeliveryDialog, PublishButton } from '@/test/legacy-delivery';
 import { renderWithProviders } from '@/test/render';
 import type { RemoteSiteConnection, SyncSite } from '@/data/core';
 import type { Space } from '@studio/providers';
@@ -99,7 +99,7 @@ it( 'publishes to WordPress.com directly where a static export can’t be made',
 	expect( screen.queryByText( 'Where do you want to publish?' ) ).not.toBeInTheDocument();
 } );
 
-it( 'lists the sites published on every provider and publishes to another Space', async () => {
+it( 'lists connected sites across providers without offering another destination', async () => {
 	const actions = userEvent.setup();
 	const wpcomSite: SyncSite = {
 		id: 42,
@@ -112,8 +112,7 @@ it( 'lists the sites published on every provider and publishes to another Space'
 		lastPushTimestamp: null,
 		lastPullTimestamp: null,
 	};
-	const second: Space = { ...space, id: 'spc_2', url: 'https://second.space.fast/' };
-	const { connector, site } = setup( {
+	const { connector } = setup( {
 		getRemoteSites: async ( provider, localSiteId ) =>
 			provider === 'wpcom'
 				? [ { ...wpcomSite, localSiteId: localSiteId ?? '' } ]
@@ -126,7 +125,6 @@ it( 'lists the sites published on every provider and publishes to another Space'
 						},
 				  ],
 		getAiSettings: async () => aiSettings( 'wpcom', [ 'wpcom', 'spacefast' ] ),
-		createRemoteSite: async () => second,
 	} );
 	await actions.click( await screen.findByRole( 'button', { name: 'Publish…' } ) );
 	expect(
@@ -136,10 +134,10 @@ it( 'lists the sites published on every provider and publishes to another Space'
 		screen.getByRole( 'button', { name: 'local-site.space.fast' } )
 	).toHaveAccessibleDescription( 'Spacefast' );
 
-	await actions.click( screen.getByRole( 'button', { name: 'Publish to another site…' } ) );
-	await actions.click( await screen.findByRole( 'button', { name: /^Spacefast/ } ) );
-	await actions.click( await screen.findByRole( 'button', { name: 'New site' } ) );
-	expect( connector.createRemoteSite ).toHaveBeenCalledWith( 'spacefast', site.id, 'Local site' );
+	expect(
+		screen.queryByRole( 'button', { name: 'Publish to another site…' } )
+	).not.toBeInTheDocument();
+	expect( connector.createRemoteSite ).not.toHaveBeenCalled();
 } );
 
 it( 'offers to connect the provider again when it rejects its key', async () => {

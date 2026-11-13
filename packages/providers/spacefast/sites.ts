@@ -1,6 +1,7 @@
 import { __ } from '@wordpress/i18n';
 import { ProviderNotReadyError, RemoteSiteError } from '../errors';
 import { createSpace, listSpaces, listTeams, publishFiles, SpacefastApiError } from './api';
+import { getVisibility, setVisibility } from './visibility';
 import type { SpacefastConfig } from './config';
 import type { Space } from './site';
 import type { SitesService } from '../types';
@@ -33,6 +34,10 @@ async function step< T >( message: string, code: string, run: () => Promise< T >
 }
 
 export const spacefastSites: SitesService< SpacefastConfig, Space > = {
+	visibility: {
+		get: ( config, id ) => getVisibility( requireApiKey( config ), id ),
+		set: ( config, id, value ) => setVisibility( requireApiKey( config ), id, value ),
+	},
 	list: ( config ) =>
 		step( __( 'Failed to load your Spacefast Spaces' ), 'site_fetch', () =>
 			listSpaces( requireApiKey( config ) )
@@ -49,6 +54,7 @@ export const spacefastSites: SitesService< SpacefastConfig, Space > = {
 			return {
 				...( await createSpace( apiKey, { teamId: team.id, title: name } ) ),
 				teamName: team.name,
+				teamSlug: team.slug,
 			};
 		} ),
 

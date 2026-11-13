@@ -67,6 +67,23 @@ function atomicSite() {
 }
 
 describe( 'transformSitesResponse', () => {
+	it( 'preserves launch and visibility state independently from a paid plan', () => {
+		const [ site ] = transformSitesResponse( [
+			{
+				...simpleBusinessSite(),
+				launch_status: 'unlaunched',
+				is_coming_soon: true,
+				is_private: false,
+			},
+		] );
+		expect( site ).toMatchObject( {
+			launchStatus: 'unlaunched',
+			isComingSoon: true,
+			isPrivate: false,
+		} );
+		const [ legacy ] = transformSitesResponse( [ simpleBusinessSite() ] );
+		expect( legacy.launchStatus ).toBeUndefined();
+	} );
 	it( 'retains Simple sites whose options omit software_version and classifies them', () => {
 		const result = transformSitesResponse( [ simpleBusinessSite(), freeSite() ] );
 

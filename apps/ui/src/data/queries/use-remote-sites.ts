@@ -21,6 +21,11 @@ export const remoteSitesQueryKey = ( provider: SitesProviderId, localSiteId?: st
 export const accountSitesQueryKey = ( provider: SitesProviderId ) =>
 	[ ...ACCOUNT_SITES_QUERY_KEY, provider ] as const;
 
+export const publishTargetQueryKey = ( siteId: string ) => [ 'publish-target', siteId ] as const;
+
+export const remotePublishTargetKey = ( provider: SitesProviderId, id: string | number ) =>
+	`${ provider }:site:${ id }`;
+
 // The providers this app publishes to: one that publishes a static export needs the site to run
 // on native PHP.
 export function usePublishProviders(): SitesProviderId[] {

@@ -1,9 +1,18 @@
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { removeAllConnectedWpcomSitesForLocalSite } from '../connected-sites';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+	markConnectedWpcomSiteSynced,
+	removeAllConnectedWpcomSitesForLocalSite,
+} from '../connected-sites';
+import { getCurrentUserId } from '../shared-config';
 import type { SyncSite } from '../../types/sync';
+
+vi.mock( '../shared-config', async ( actual ) => ( {
+	...( await actual< typeof import('../shared-config') >() ),
+	getCurrentUserId: vi.fn(),
+} ) );
 
 function connection( id: number, localSiteId: string ): SyncSite {
 	return {
@@ -37,6 +46,28 @@ describe( 'removeAllConnectedWpcomSitesForLocalSite', () => {
 	afterEach( () => {
 		delete process.env.DEV_CONFIG_DIR;
 		rmSync( configDir, { recursive: true, force: true } );
+	} );
+
+	it( 'saves a successful transfer baseline with its timestamp for just that connection', async () => {
+		vi.mocked( getCurrentUserId ).mockResolvedValue( 7 );
+		writeConnections( {
+			'7': [ connection( 1, 'local-a' ), connection( 2, 'local-a' ), connection( 1, 'local-b' ) ],
+			'8': [ connection( 1, 'local-a' ) ],
+		} );
+		await markConnectedWpcomSiteSynced( 'local-a', 1, 'push', 'sent-version' );
+		const saved = readConfig().connectedWpcomSites;
+		expect( saved[ '7' ][ 0 ] ).toMatchObject( {
+			localVersionId: 'sent-version',
+			lastPushTimestamp: expect.any( String ),
+		} );
+		expect( saved[ '7' ][ 1 ] ).not.toHaveProperty( 'localVersionId' );
+		expect( saved[ '7' ][ 2 ] ).not.toHaveProperty( 'localVersionId' );
+		expect( saved[ '8' ][ 0 ] ).not.toHaveProperty( 'localVersionId' );
+		await markConnectedWpcomSiteSynced( 'local-a', 1, 'pull' );
+		expect( readConfig().connectedWpcomSites[ '7' ][ 0 ] ).toMatchObject( {
+			localVersionId: null,
+			lastPullTimestamp: expect.any( String ),
+		} );
 	} );
 
 	it( 'removes every connection for the local site across account buckets', async () => {

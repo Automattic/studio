@@ -110,13 +110,15 @@ function stampConnectionSynced(
 	localSiteId: string,
 	remoteSiteId: number,
 	direction: 'push' | 'pull',
-	timestamp: string
+	timestamp: string,
+	localVersionId: string | null
 ): void {
 	const field = direction === 'push' ? 'lastPushTimestamp' : 'lastPullTimestamp';
 
 	for ( const connection of connections ) {
 		if ( connection.id === remoteSiteId && connection.localSiteId === localSiteId ) {
 			connection[ field ] = timestamp;
+			connection.localVersionId = localVersionId;
 		}
 	}
 }
@@ -256,7 +258,8 @@ export async function updateConnectedWpcomSites(
 export async function markConnectedWpcomSiteSynced(
 	localSiteId: string,
 	remoteSiteId: number,
-	direction: 'push' | 'pull'
+	direction: 'push' | 'pull',
+	localVersionId: string | null = null
 ): Promise< void > {
 	const userKey = await getCurrentUserKey();
 	if ( ! userKey ) {
@@ -271,7 +274,14 @@ export async function markConnectedWpcomSiteSynced(
 		if ( connections.length === 0 ) {
 			return;
 		}
-		stampConnectionSynced( connections, localSiteId, remoteSiteId, direction, timestamp );
+		stampConnectionSynced(
+			connections,
+			localSiteId,
+			remoteSiteId,
+			direction,
+			timestamp,
+			localVersionId
+		);
 		await saveSharedConfig( config );
 	} finally {
 		await unlockSharedConfig();

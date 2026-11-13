@@ -8,13 +8,24 @@ import { useRenameSnapshot } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { getSnapshotAdminUrl, getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
 import { SiteCard, getWebsiteThumbnailUrl } from '@/features/site-card';
-import { DuplicateIcon, ExternalLinkIcon, RenameIcon, TrashIcon, WordPressIcon } from '@/lib/icons';
+import {
+	EllipsisIcon,
+	RefreshCwIcon,
+	DuplicateIcon,
+	ExternalLinkIcon,
+	PencilIcon,
+	TrashIcon,
+	WordPressIcon,
+} from '@/lib/icons';
 import {
 	Button,
 	IconButton,
 	Field,
 	FieldLabel,
 	Input,
+	InputGroup,
+	InputGroupInput,
+	InputGroupAddon,
 	Menu,
 	Spinner,
 	VisuallyHidden,
@@ -57,6 +68,25 @@ function PreviewLinkActions( {
 				</Menu.Item>
 			) : null }
 		</>
+	);
+}
+
+function PreviewSharingLink( { url }: { url: string } ) {
+	const { copied, copy } = useCopyText( url );
+	return (
+		<InputGroup>
+			<InputGroupInput
+				aria-label={ __( 'Preview link' ) }
+				value={ url }
+				readOnly
+				onFocus={ ( event ) => event.currentTarget.select() }
+			/>
+			<InputGroupAddon align="inline-end">
+				<Button variant="ghost" size="sm" onClick={ copy }>
+					{ copied ? __( 'Copied' ) : __( 'Copy link' ) }
+				</Button>
+			</InputGroupAddon>
+		</InputGroup>
 	);
 }
 
@@ -328,6 +358,10 @@ export function PreviewSharePanel( {
 						} ) }
 					</ul>
 				</div>
+			) : null }
+
+			{ snapshot ? (
+				<PreviewSharingLink key={ getSnapshotUrl( snapshot ) } url={ getSnapshotUrl( snapshot ) } />
 			) : null }
 
 			{ feedback }

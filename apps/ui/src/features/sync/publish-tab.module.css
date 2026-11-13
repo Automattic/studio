@@ -103,7 +103,3 @@
 	height: var( --space-4 );
 	color: var( --muted-foreground );
 }
-
-.add {
-	margin-block-start: auto;
-}

@@ -79,3 +79,21 @@ export async function listRemoteBackupFiles< Id extends SitesProviderId >(
 		path
 	);
 }
+
+export async function getSiteVisibility< Id extends SitesProviderId >(
+	provider: SitesProvider< Id >,
+	id: ProviderSites[ Id ][ 'id' ]
+) {
+	const capability = sites( provider ).visibility;
+	if ( ! capability ) throw new Error( 'This provider does not support visibility settings.' );
+	return capability.get( await readProviderConfig( provider.descriptor.id as Id ), id );
+}
+export async function setSiteVisibility< Id extends SitesProviderId >(
+	provider: SitesProvider< Id >,
+	id: ProviderSites[ Id ][ 'id' ],
+	value: import('@studio/providers').SiteVisibility
+) {
+	const capability = sites( provider ).visibility;
+	if ( ! capability ) throw new Error( 'This provider does not support visibility settings.' );
+	return capability.set( await readProviderConfig( provider.descriptor.id as Id ), id, value );
+}

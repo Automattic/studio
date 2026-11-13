@@ -6,6 +6,7 @@ import { useSettleSync, useSettleFromMutation } from '@/data/queries/use-sync-si
 type PublishPreviewVariables = {
 	siteId: string;
 	existingHostname?: string;
+	liveSite?: string;
 	name?: string;
 };
 
@@ -14,8 +15,10 @@ export function usePublishPreviewSite() {
 	const settleFromMutation = useSettleFromMutation();
 	const recordActivity = useSettleSync();
 	return useMutation( {
-		mutationFn: ( { siteId, existingHostname, name }: PublishPreviewVariables ) =>
-			connector.publishPreviewSite( siteId, existingHostname, name ),
+		mutationFn: ( { siteId, existingHostname, name, liveSite }: PublishPreviewVariables ) =>
+			liveSite === undefined
+				? connector.publishPreviewSite( siteId, existingHostname, name )
+				: connector.publishPreviewSite( siteId, existingHostname, name, liveSite ),
 		onMutate: ( { siteId, existingHostname } ) => {
 			recordActivity( siteId, {
 				kind: 'pending',

@@ -1,4 +1,5 @@
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
+import { removeConnectedWpcomSite } from '@studio/common/lib/connected-sites';
 import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { PreviewCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
@@ -59,6 +60,12 @@ export async function runCommand(
 			if ( ! isSnapshotExpired( snapshotToDelete ) ) {
 				await deleteSnapshotSite( snapshotToDelete, token.accessToken );
 			}
+			if ( snapshotToDelete.localSiteId ) {
+				await removeConnectedWpcomSite(
+					snapshotToDelete.localSiteId,
+					snapshotToDelete.atomicSiteId
+				);
+			}
 			await deleteSnapshotFromConfig( snapshotToDelete.url );
 			await emitCliEvent( {
 				event: SNAPSHOT_EVENTS.DELETED,
@@ -78,6 +85,11 @@ export async function runCommand(
 			}
 			// Previews made on Jurassic Ninja.
 			await deleteAllSnapshots( token.accessToken );
+			for ( const snapshot of snapshots ) {
+				if ( snapshot.localSiteId ) {
+					await removeConnectedWpcomSite( snapshot.localSiteId, snapshot.atomicSiteId );
+				}
+			}
 			await deleteAllSnapshotsForUserFromConfig( token.id );
 			await emitCliEvent( { event: SNAPSHOT_EVENTS.DELETED_ALL } );
 			await recordPreviewDeleteEvent( TRACKS_EVENTS.PREVIEW_SITE_DELETE_ALL, { count } );

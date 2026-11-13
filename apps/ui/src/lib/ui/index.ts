@@ -26,6 +26,7 @@ export * as Popover from './popover';
 export * from './preview-frame';
 export * from './progress';
 export * from './questionnaire';
+export * from './radio-group';
 export * from './resize-handle';
 export * from './select';
 export * from './scroll-blur';

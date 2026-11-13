@@ -34,10 +34,12 @@ const api: IpcApi = {
 	getAuthenticationToken: () => ipcRendererInvoke( 'getAuthenticationToken' ),
 	clearAuthenticationToken: () => ipcRendererInvoke( 'clearAuthenticationToken' ),
 	fetchSnapshots: () => ipcRendererInvoke( 'fetchSnapshots' ),
-	publishPreviewSite: ( siteFolder, hostname, name ) =>
-		ipcRendererInvoke( 'publishPreviewSite', siteFolder, hostname, name ),
+	publishPreviewSite: ( siteFolder, hostname, name, liveSite ) =>
+		ipcRendererInvoke( 'publishPreviewSite', siteFolder, hostname, name, liveSite ),
 	deletePreviewSite: ( hostname ) => ipcRendererInvoke( 'deletePreviewSite', hostname ),
 	renamePreviewSite: ( hostname, name ) => ipcRendererInvoke( 'renamePreviewSite', hostname, name ),
+	getSitePublishStatus: ( siteId, remoteSiteId, provider ) =>
+		ipcRendererInvoke( 'getSitePublishStatus', siteId, remoteSiteId, provider ),
 	getPreviewStatus: ( hostname ) => ipcRendererInvoke( 'getPreviewStatus', hostname ),
 	deleteAllSnapshots: () => ipcRendererInvoke( 'deleteAllSnapshots' ),
 	getSiteDetails: () => ipcRendererInvoke( 'getSiteDetails' ),
@@ -95,6 +97,11 @@ const api: IpcApi = {
 	readyForDeeplinks: () => ipcRendererSend( 'readyForDeeplinks' ),
 	getAbsolutePathFromSite: ( siteId, relativePath ) =>
 		ipcRendererInvoke( 'getAbsolutePathFromSite', siteId, relativePath ),
+	getWpcomSiteVisibility: ( id ) => ipcRendererInvoke( 'getWpcomSiteVisibility', id ),
+	setWpcomSiteVisibility: ( id, value ) => ipcRendererInvoke( 'setWpcomSiteVisibility', id, value ),
+	getSiteVisibility: ( provider, id ) => ipcRendererInvoke( 'getSiteVisibility', provider, id ),
+	setSiteVisibility: ( provider, id, value ) =>
+		ipcRendererInvoke( 'setSiteVisibility', provider, id, value ),
 	getRemoteSites: ( provider, localSiteId ) =>
 		ipcRendererInvoke( 'getRemoteSites', provider, localSiteId ),
 	listAccountSites: ( provider ) => ipcRendererInvoke( 'listAccountSites', provider ),

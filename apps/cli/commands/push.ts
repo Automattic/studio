@@ -7,7 +7,9 @@ import { normalizeHostname } from '@studio/common/lib/normalize-hostname';
 import { formatProgressLabel } from '@studio/common/lib/progress-label';
 import { forgetRejectedConfig, readProviderConfig } from '@studio/common/lib/provider-config';
 import { getRemoteSites, rememberRemoteSite } from '@studio/common/lib/remote-sites';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { getSiteTracksProps } from '@studio/common/lib/site-tracks';
+import { getLatestLinkedPreview, getPreviewPublishWarning } from '@studio/common/lib/snapshots';
 import {
 	buildSyncEventProps,
 	classifySyncSelection,
@@ -33,6 +35,8 @@ import { getExporter } from 'cli/lib/import-export/export/export-manager';
 import { ExportOptions } from 'cli/lib/import-export/export/types';
 import { confirm, select } from 'cli/lib/prompts';
 import { withSiteOperation } from 'cli/lib/site-operations';
+import { getSiteVersion } from 'cli/lib/site-versions';
+import { getSnapshotsFromConfig } from 'cli/lib/snapshots';
 import { keepSqliteIntegrationUpdated } from 'cli/lib/sqlite-integration';
 import { exportStaticContent } from 'cli/lib/static-content';
 import { exitOnCancel, onCancel, reportSyncActivity } from 'cli/lib/sync-activity';
@@ -217,6 +221,27 @@ async function runPush(
 	pushed.remoteSite = remoteSite;
 	reportPhase();
 
+	if ( sites.previews ) {
+		try {
+			const token = await readAuthToken();
+			const preview =
+				token &&
+				getLatestLinkedPreview(
+					await getSnapshotsFromConfig( token.id ),
+					site.id,
+					Number( remoteSite.id )
+				);
+			if (
+				preview?.versionId &&
+				( await getSiteVersion( site.id, site.path ) ) !== preview.versionId
+			) {
+				logger.reportWarning( getPreviewPublishWarning( preview ) );
+			}
+		} catch {
+			// A preview comparison is advisory.
+		}
+	}
+
 	let optionsToSync: SyncOption[] = [ 'all' ];
 	let specificSelectionPaths: string[] | undefined;
 
@@ -242,16 +267,36 @@ async function runPush(
 	const forgetTempDir = onCancel( removeTempDir );
 
 	try {
-		const content = sites.exportsStaticSite
-			? await exportStaticContent( site.path, remoteSite.url, path.join( tempDir, 'site' ) )
-			: await exportArchive(
-					provider,
-					site,
-					tempDir,
-					optionsToSync,
-					specificSelectionPaths,
-					logger
-			  );
+		let localVersionId: string | null = null;
+		const captureVersion = async () => {
+			if ( ! optionsToSync.includes( 'all' ) || specificSelectionPaths?.length ) return;
+			try {
+				localVersionId = await getSiteVersion( site.id, site.path );
+			} catch {
+				/* Comparison must not block publishing. */
+			}
+		};
+		let content: PushContent;
+		if ( sites.exportsStaticSite ) {
+			// Starting a stopped site can update its files. Capture the version after startup
+			// and before rendering the static pages.
+			content = await exportStaticContent(
+				site.path,
+				remoteSite.url,
+				path.join( tempDir, 'site' ),
+				captureVersion
+			);
+		} else {
+			await captureVersion();
+			content = await exportArchive(
+				provider,
+				site,
+				tempDir,
+				optionsToSync,
+				specificSelectionPaths,
+				logger
+			);
+		}
 		const uploadLabel =
 			content.kind === 'archive' ? __( 'Uploading archive…' ) : __( 'Uploading files…' );
 
@@ -327,7 +372,7 @@ async function runPush(
 		// Remember this connection so future push/pull runs (and the Desktop UI)
 		// can surface it without re-selecting from the full site list.
 		try {
-			await rememberRemoteSite( provider, site.id, remoteSite as never, 'push' );
+			await rememberRemoteSite( provider, site.id, remoteSite as never, 'push', localVersionId );
 		} catch ( error ) {
 			logger.reportError( new LoggerError( 'Failed to save connected site', error ), false );
 		}

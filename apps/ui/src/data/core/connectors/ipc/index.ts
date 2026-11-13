@@ -439,9 +439,19 @@ export function createIpcConnector(): Connector {
 			await ipcApi.deleteAllSnapshots();
 		},
 
-		async publishPreviewSite( siteId, existingHostname, name ): Promise< { url: string } > {
+		async publishPreviewSite(
+			siteId,
+			existingHostname,
+			name,
+			liveSite
+		): Promise< { url: string } > {
 			const siteFolder = await resolveSiteFolder( siteId );
-			return ( await ipcApi.publishPreviewSite( siteFolder, existingHostname, name ) ) as {
+			return ( await ipcApi.publishPreviewSite(
+				siteFolder,
+				existingHostname,
+				name,
+				liveSite
+			) ) as {
 				url: string;
 			};
 		},
@@ -454,6 +464,9 @@ export function createIpcConnector(): Connector {
 			await ipcApi.renamePreviewSite( hostname, name );
 		},
 
+		async getSitePublishStatus( siteId, remoteSiteId, provider ) {
+			return ipcApi.getSitePublishStatus( siteId, remoteSiteId, provider );
+		},
 		async getPreviewStatus( hostname ): Promise< PreviewStatus > {
 			return ( await ipcApi.getPreviewStatus( hostname ) ) as PreviewStatus;
 		},
@@ -463,6 +476,18 @@ export function createIpcConnector(): Connector {
 			return await ipcApi.getRemoteSites( provider, localSiteId );
 		},
 
+		async getSiteVisibility( provider, id ) {
+			return ipcApi.getSiteVisibility( provider, id );
+		},
+		async setSiteVisibility( provider, id, value ) {
+			return ipcApi.setSiteVisibility( provider, id, value );
+		},
+		async getWpcomSiteVisibility( remoteSiteId ) {
+			return ipcApi.getWpcomSiteVisibility( remoteSiteId );
+		},
+		async setWpcomSiteVisibility( remoteSiteId, visibility ) {
+			return ipcApi.setWpcomSiteVisibility( remoteSiteId, visibility );
+		},
 		async listAccountSites( provider ) {
 			return await ipcApi.listAccountSites( provider );
 		},

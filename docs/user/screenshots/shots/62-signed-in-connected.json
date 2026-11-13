@@ -9,7 +9,7 @@
 	"shots": [
 		{
 			"name": "publish-sites",
-			"description": "Publish → Published to: the two connected websites, and Publish to another site…",
+			"description": "Publish → Published to: the two connected websites",
 			"meta": { "pages": [ "sync.md" ] },
 			"steps": [
 				{

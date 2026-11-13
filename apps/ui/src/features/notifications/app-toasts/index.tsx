@@ -25,6 +25,7 @@ function ToastDeck() {
 	return (
 		<Toast.Viewport
 			className={ styles.viewport }
+			data-slot="toast-viewport"
 			data-overflow={ overflow || undefined }
 			aria-label={ __( 'Notifications' ) }
 			onMouseEnter={ pauseAll }

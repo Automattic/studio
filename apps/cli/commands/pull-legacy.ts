@@ -22,6 +22,7 @@ import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
 import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/import/import-manager';
 import { confirm } from 'cli/lib/prompts';
 import { withSiteOperation } from 'cli/lib/site-operations';
+import { getSiteVersion } from 'cli/lib/site-versions';
 import { exitOnCancel, reportSyncActivity } from 'cli/lib/sync-activity';
 import { backupRemoteSite, downloadBackup, fetchSyncableSites } from 'cli/lib/sync-api';
 import { fetchPullTree, selectSyncItemsForPull } from 'cli/lib/sync-selector';
@@ -200,7 +201,13 @@ export async function runCommand(
 			// Remember this connection so future push/pull runs (and the Desktop UI)
 			// can surface it without re-selecting from the full site list.
 			try {
-				await rememberRemoteSite( 'wpcom', site.id, remoteSite, 'pull' );
+				let localVersionId: string | null = null;
+				try {
+					localVersionId = await getSiteVersion( site.id, site.path );
+				} catch {
+					/* The transfer succeeded even if comparison is unavailable. */
+				}
+				await rememberRemoteSite( 'wpcom', site.id, remoteSite, 'pull', localVersionId );
 			} catch ( error ) {
 				logger.reportError( new LoggerError( 'Failed to save connected site', error ), false );
 			}

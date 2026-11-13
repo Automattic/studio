@@ -1,6 +1,6 @@
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from 'react';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { usePublishPreviewSite } from '@/data/queries/use-preview-site';
@@ -38,8 +38,10 @@ export function ShareStatusIcon( {
 export function SharePanel( {
 	site,
 	onManagePreview,
+	createRequest,
 }: {
 	site: SiteDetails;
+	createRequest?: number;
 	onManagePreview: ( action: PreviewManagementAction ) => void;
 } ) {
 	const connector = useConnector();
@@ -114,6 +116,33 @@ export function SharePanel( {
 			name: hostname || previews.length ? undefined : sitePreviews[ 0 ]?.name,
 		} );
 	};
+
+	const handledCreateRequest = useRef< number >( undefined );
+	const createIfMissing = useEffectEvent( () => {
+		if ( createRequest === undefined || handledCreateRequest.current === createRequest ) return;
+		handledCreateRequest.current = createRequest;
+		if ( user.isSuccess && snapshots.isSuccess && usage.isSuccess && previews.length === 0 ) {
+			publishPreview();
+		}
+	} );
+	useEffect( () => {
+		if (
+			! user.data ||
+			snapshots.isFetching ||
+			snapshots.isPending ||
+			usage.isFetching ||
+			usage.isPending
+		)
+			return;
+		createIfMissing();
+	}, [
+		createRequest,
+		user.data,
+		snapshots.isFetching,
+		snapshots.isPending,
+		usage.isFetching,
+		usage.isPending,
+	] );
 
 	const loadError = user.error || ( ! snapshots.data && snapshots.error );
 	if ( signedOut ) return null;

@@ -53,6 +53,17 @@
 	--accent-text-hover-fill: initial;
 	--accent: var( --accent-fill, oklch( var( --accent-lightness ) var( --accent-chroma ) var( --accent-hue ) ) );
 	--accent-foreground: #fff;
+	--brand-blue: #3858e9;
+	--brand-blue-foreground: #fff;
+	--brand-green: #1efe57;
+	--brand-green-foreground: #003323;
+	--brand-twilight-surface:
+		radial-gradient( ellipse at 104% 64%, light-dark( #f3a16c, #b77460 ), light-dark( #e9a57c80, #935e6750 ) 33%, transparent 68% ),
+		radial-gradient( ellipse at 77% 44%, light-dark( #8eace8, #60516f ), transparent 70% ),
+		radial-gradient( ellipse at 10% 128%, light-dark( #68c5a1, #102d27 ), transparent 62% ),
+		linear-gradient( 160deg, light-dark( #e9edf4, #141b27 ) 5%, light-dark( #dce4f1, #292e44 ) 56%, light-dark( #e7edf5, #1d253b ) );
+	--brand-twilight-mark: linear-gradient( 125deg, #24f94e, #d9ff54 );
+	--brand-twilight-mark-foreground: #0a2313;
 	--accent-hover: var( --accent-hover-fill, oklch( from #2b46c7 l calc( c * var( --accent-palette-chroma-scale, 1 ) ) calc( h + var( --accent-palette-hue-shift, 0 ) ) ) );
 	--accent-surface-primary-hover: color-mix( in srgb, var( --accent-foreground ) 82%, var( --accent ) );
 	--accent-surface-muted: color-mix( in srgb, var( --accent-foreground ) 12%, var( --accent ) );

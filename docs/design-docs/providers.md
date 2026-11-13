@@ -116,8 +116,16 @@ The Anthropic provider is `anthropic`. Builds before this design stored `anthrop
 - Studio owns the local side, shared by every provider, and builds what the provider's push takes: the site's WordPress archive (WordPress.com), or a static export of its pages (Spacefast). On pull, it runs Reprint or imports a downloaded backup. The CLI does this; Studio on the web builds the archive in the page and hands the same provider a Blob.
 - Connections are Studio's data about its local sites, not provider config. `@studio/common/lib/remote-sites.ts` reads and writes them per provider, and records when each site was last pushed or pulled. WordPress.com's stay in `connectedWpcomSites`, so builds of every version read them; later providers' are in `remoteSites`.
 - Whether a site can sync is a status with an optional action, replacing the WordPress.com-specific states. For example, a site that needs a plan upgrade is blocked, with a link to upgrade _(planned)_.
-- `studio push` and `studio pull` stay the commands. `studio push --remote-site spacefast[:<space>]` publishes to Spacefast, and bare WordPress.com site ids and URLs keep working. A remote that names any provider comes with the descriptor-driven UI _(planned)_.
-- A provider declares whether it supports selective sync _(planned)_.
+- `studio push` and `studio pull` stay the commands. `studio push --remote-site spacefast[:<space>]` publishes to Spacefast, and bare WordPress.com site ids and URLs keep working. The Share and Publish panel uses the same provider descriptors and remote-site connections.
+- A provider declares whether it supports selective sync.
+
+### Share and Publish panel
+
+The selected destination owns the panel state. Studio stores selection by local site, provider and remote id (or preview hostname), and compares each destination with its own last successful full-transfer baseline. A partial transfer leaves that comparison unknown; it does not mark other destinations up to date.
+
+The sites descriptor supplies the publishing description, logo, optional visibility support and initial visibility, launch state, and optional preview-to-site identity and upgrade link. Surfaces combine these with `selective`, `exportsStaticSite`, `pull`, and `newSite`; they never choose a provider-specific layout by id. Visibility operations are optional services and run through both host connectors. The provider picker uses the descriptor's connection flow before creating or upgrading a destination.
+
+The destination picker groups connected sites and previews by provider. Removing a preview deletes the preview after confirmation. Removing a published destination disconnects it from the local site; providers do not currently expose remote-site deletion.
 
 ## Previews _(planned)_
 
@@ -137,4 +145,4 @@ Previews are a capability, and WordPress.com is the only provider that offers it
 
 ## Open questions
 
-1. **The UI for remote sites.** Settings and Share and publish still name WordPress.com. They should render every provider with remote sites from its descriptor: its connection, its sites and the statuses a site can sync with.
+1. **Provider-owned interaction flows.** Descriptors cover the current connection and publishing flows. Providers that require richer interactions may need to supply a component rather than expanding the shared panel with provider-specific behavior.

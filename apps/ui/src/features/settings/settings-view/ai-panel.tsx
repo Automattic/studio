@@ -19,6 +19,8 @@ import {
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { usePublishProviders } from '@/data/queries/use-remote-sites';
 import { LearnMoreLink } from '@/features/onboarding';
+import { ProviderLogo } from '@/features/site-delivery';
+import { AppIcon } from '@/features/sites';
 import { useOffline } from '@/lib/hooks';
 import { Button, Input } from '@/lib/ui';
 import { connectedBadge, SettingsGroup, SettingsRow, SettingsSelect } from './rows';
@@ -56,6 +58,7 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 		<>
 			<SettingsRow
 				title={ descriptor.label }
+				icon={ <AppIcon app={ provider } fallback={ null } /> }
 				settingId={ `${ provider }-provider` }
 				badge={ account?.connected ? connectedBadge() : null }
 				description={
@@ -187,6 +190,7 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 			) : null }
 			<SettingsRow
 				title={ __( 'WordPress.com' ) }
+				icon={ <ProviderLogo provider="wpcom" branded /> }
 				badge={ user ? connectedBadge() : null }
 				description={
 					<>
@@ -252,6 +256,7 @@ function DeviceProviderRow( { provider }: { provider: SitesProviderId } ) {
 	return (
 		<SettingsRow
 			title={ descriptor.label }
+			icon={ <ProviderLogo provider={ provider } branded /> }
 			settingId={ `${ provider }-provider` }
 			badge={ connected ? connectedBadge() : null }
 			description={

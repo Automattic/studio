@@ -8,6 +8,7 @@ export interface Space {
 	slug: string;
 	teamId: string;
 	teamName?: string;
+	teamSlug?: string;
 }
 
 export function spaceDetails( space: Space ): { title: string; value: string }[] {

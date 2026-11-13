@@ -27,6 +27,7 @@ import styles from './style.module.css';
 
 const icons: Record< string, string > = {
 	arc,
+	anthropic: claude,
 	brave,
 	chrome,
 	chromium,

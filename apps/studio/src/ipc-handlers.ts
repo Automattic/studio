@@ -210,7 +210,12 @@ export {
 } from 'src/modules/cli/lib/ipc-handlers';
 
 export {
+	getSitePublishStatus,
 	cancelSyncOperation,
+	getSiteVisibility,
+	setSiteVisibility,
+	getWpcomSiteVisibility,
+	setWpcomSiteVisibility,
 	connectRemoteSite,
 	createRemoteSite,
 	disconnectRemoteSite,

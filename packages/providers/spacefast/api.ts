@@ -58,7 +58,7 @@ async function fetchWithRetry( url: URL, init: RequestInit ): Promise< Response 
 	}
 }
 
-async function request< T >(
+export async function request< T >(
 	route: string,
 	{
 		apiKey,
@@ -145,9 +145,11 @@ function toSpace( { id, title, slug, liveUrl, teamId }: ApiSpace ): Space {
 	return { id, name: title, slug, url: liveUrl, teamId };
 }
 
-export async function listTeams( apiKey: string ): Promise< { id: string; name: string }[] > {
-	const teams = await listAll< { id: string; name: string } >( '/v1/teams', apiKey );
-	return teams.map( ( { id, name } ) => ( { id, name } ) );
+export async function listTeams(
+	apiKey: string
+): Promise< { id: string; name: string; slug?: string }[] > {
+	const teams = await listAll< { id: string; name: string; slug?: string } >( '/v1/teams', apiKey );
+	return teams.map( ( { id, name, slug } ) => ( { id, name, slug } ) );
 }
 
 export async function listSpaces( apiKey: string ): Promise< Space[] > {
@@ -158,7 +160,11 @@ export async function listSpaces( apiKey: string ): Promise< Space[] > {
 			apiKey
 		);
 		spaces.push(
-			...teamSpaces.map( ( space ) => ( { ...toSpace( space ), teamName: team.name } ) )
+			...teamSpaces.map( ( space ) => ( {
+				...toSpace( space ),
+				teamName: team.name,
+				teamSlug: team.slug,
+			} ) )
 		);
 	}
 	return spaces;

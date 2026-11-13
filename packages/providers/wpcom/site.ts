@@ -31,6 +31,10 @@ export const syncSiteSchema = z.object( {
 	pushNeedsUpgrade: z.boolean().optional(),
 	createdAt: z.string().optional(),
 	launchAfterPush: z.boolean().optional(),
+	localVersionId: z.string().nullable().optional(),
+	launchStatus: z.string().optional(),
+	isComingSoon: z.boolean().optional(),
+	isPrivate: z.boolean().optional(),
 } );
 
 export type SyncSite = z.infer< typeof syncSiteSchema >;
@@ -92,6 +96,7 @@ export function withWpcomDetails< Connection extends SyncSite >(
 			lastPullTimestamp,
 			lastPushTimestamp,
 			launchAfterPush: connection.launchAfterPush,
+			localVersionId: connection.localVersionId,
 		};
 	} );
 }
@@ -146,18 +151,20 @@ export function wpcomSiteDetails( site: SyncSite ): { title: string; value: stri
 	return [ { title: __( 'Environment' ), value: wpcomEnvironmentLabel( site ) } ];
 }
 
+export function wpcomDashboardUrl( site: SyncSite ): string | undefined {
+	if ( site.isPressable ) return;
+	try {
+		return `https://my.wordpress.com/sites/${ new URL( site.url ).hostname }`;
+	} catch {
+		return undefined;
+	}
+}
+
 // Pressable sites are managed on Pressable, so WordPress.com has no pages for them.
 export function wpcomSiteLinks( site: SyncSite ): { title: string; url: string }[] {
-	if ( site.isPressable ) {
-		return [];
-	}
-	let hostname: string;
-	try {
-		hostname = new URL( site.url ).hostname;
-	} catch {
-		return [];
-	}
-	const dashboard = `https://my.wordpress.com/sites/${ hostname }`;
+	const dashboard = wpcomDashboardUrl( site );
+	if ( ! dashboard ) return [];
+	const hostname = new URL( site.url ).hostname;
 	return [
 		{ title: __( 'Domains' ), url: `${ dashboard }/domains` },
 		{ title: __( 'Backups' ), url: `https://wordpress.com/backup/${ hostname }` },

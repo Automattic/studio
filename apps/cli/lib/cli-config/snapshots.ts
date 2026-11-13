@@ -255,16 +255,19 @@ export async function setSnapshotInConfig(
  * after `checkedAt` is left alone, since the server's answer may predate it.
  *
  * @param standing The server's standing previews, by site ID.
+ * @returns The previews of local sites it forgot, for the caller to tell a bought one from an ended one.
  */
 export async function reconcilePreviews(
 	userId: number,
 	standing: Map< number, StandingPreview >,
-	checkedAt: number
-): Promise< void > {
+	checkedAt: number,
+	keepMissingLocalPreviews = false
+): Promise< Snapshot[] > {
 	try {
 		await lockCliConfig();
 		const config = await readCliConfig();
 		const before = JSON.stringify( config.snapshots );
+		const forgotten: Snapshot[] = [];
 		config.snapshots = config.snapshots.filter( ( snapshot ) => {
 			if (
 				snapshot.userId !== userId ||
@@ -275,6 +278,10 @@ export async function reconcilePreviews(
 			}
 			const preview = standing.get( snapshot.atomicSiteId );
 			if ( ! preview ) {
+				if ( snapshot.localSiteId ) {
+					forgotten.push( snapshot );
+					return keepMissingLocalPreviews;
+				}
 				return false;
 			}
 			snapshot.expiresAt = preview.expiresAt;
@@ -304,6 +311,7 @@ export async function reconcilePreviews(
 		if ( JSON.stringify( config.snapshots ) !== before ) {
 			await saveCliConfig( config );
 		}
+		return forgotten;
 	} finally {
 		await unlockCliConfig();
 	}

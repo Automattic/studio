@@ -54,12 +54,21 @@
 
 	.item {
 		width: 100%;
-		padding-inline-end: var( --space-8 );
+		--item-padding-end: var( --space-8 );
 	}
 
 	.item[data-described] {
 		align-items: flex-start;
 		padding-block: var( --space-2 );
+	}
+
+	.item[data-has-icon] {
+		align-items: center;
+	}
+
+	.itemIcon {
+		display: flex;
+		flex-shrink: 0;
 	}
 
 	.itemBody {

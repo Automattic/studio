@@ -7,8 +7,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { getVisibleToasts, resetAppMessagesForTests, runNoticeAction } from '@/data/app-messages';
 import { useSites } from '@/data/queries/use-sites';
 import { applySyncActivity } from '@/data/sync-activity';
-import { ShareButton, SiteDeliveryDialog } from '@/features/site-delivery';
+import { ShareButton } from '@/features/site-delivery';
 import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
+import { SiteDeliveryDialog } from '@/test/legacy-delivery';
 import { renderWithProviders } from '@/test/render';
 import type { AuthUser, Connector, SiteDetails, Snapshot } from '@/data/core';
 
@@ -365,13 +366,13 @@ describe( 'ShareDialog', () => {
 		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
 		await act( async () => finish() );
 		await waitFor(
-			() => expect( getVisibleToasts()[ 0 ]?.title ).toBe( 'My site preview is ready' ),
+			() => expect( getVisibleToasts()[ 0 ]?.title ).toBe( 'Preview link ready' ),
 			SETTLE
 		);
 		expect( isUnread( trigger ) ).toBe( false );
 		expect( isPublishing( trigger ) ).toBe( false );
 		expect( trigger ).not.toHaveAttribute( 'aria-description' );
-		expect( getVisibleToasts()[ 0 ].title ).toBe( 'My site preview is ready' );
+		expect( getVisibleToasts()[ 0 ].title ).toBe( 'Preview link ready' );
 		fireEvent.click( trigger );
 		await screen.findByRole( 'list', { name: 'Previews' } );
 		await waitFor( () => expect( isUnread( trigger ) ).toBe( false ) );
@@ -396,7 +397,7 @@ describe( 'ShareDialog', () => {
 		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
 		await act( async () => finish() );
 		await waitFor(
-			() => expect( getVisibleToasts()[ 0 ]?.title ).toBe( 'My site preview is ready' ),
+			() => expect( getVisibleToasts()[ 0 ]?.title ).toBe( 'Preview link ready' ),
 			SETTLE
 		);
 		expect( getVisibleToasts() ).toHaveLength( 1 );

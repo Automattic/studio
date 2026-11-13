@@ -227,7 +227,7 @@ describe( 'Studio workspace', () => {
 			expect( connector.createSession ).not.toHaveBeenCalled();
 			expect( getSiteAnnotations( 'one' ).notes[ 0 ].comment ).toBe( 'Make this heading larger' );
 			fireEvent.click( screen.getByRole( 'button', { name: 'Choose a different provider' } ) );
-			await waitFor( () => expect( history.location.search ).toContain( 'settings=connections' ) );
+			await waitFor( () => expect( history.location.search ).toContain( 'settings=providers' ) );
 			expect( getSiteAnnotations( 'one' ).notes ).toHaveLength( 1 );
 		} finally {
 			act( () => {

@@ -96,7 +96,7 @@ export function ModelPicker( {
 		if ( value === 'get-credits' ) {
 			onAddCredits( triggerRef );
 		} else if ( value === 'connect-provider' ) {
-			openSettings( 'connections', undefined, 'ai-providers' );
+			openSettings( 'providers', undefined, 'ai-providers' );
 		} else if ( value.startsWith( 'link:' ) ) {
 			void connector.openExternalUrl( value.slice( 'link:'.length ) );
 		} else {

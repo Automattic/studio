@@ -18,7 +18,7 @@ import {
 	searchSettings,
 } from '@/data/settings-sections';
 import {
-	ConnectionsPanel,
+	ProvidersPanel,
 	AppearanceSettings,
 	ExternalAppsPanel,
 	GeneralSettings,
@@ -76,8 +76,8 @@ function StudioSection( {
 			return <AppearanceSettings />;
 		case 'sharing':
 			return <SharingPanel />;
-		case 'connections':
-			return <ConnectionsPanel onManageCredits={ () => onNavigate( 'usage' ) } />;
+		case 'providers':
+			return <ProvidersPanel onManageCredits={ () => onNavigate( 'usage' ) } />;
 		case 'mcp':
 			return <ExternalAppsPanel />;
 		case 'usage':
@@ -168,8 +168,8 @@ export function SettingsDialog() {
 	const { nativeSites } = connector.capabilities;
 	const linkedSection =
 		settings === 'ai' || ( settings === 'mcp' && ! nativeSites )
-			? 'connections'
-			: settings === 'connections' &&
+			? 'providers'
+			: settings === 'providers' &&
 			  nativeSites &&
 			  settingsFocus &&
 			  resolveSettingsLink( settingsFocus ) === 'mcp'
@@ -178,7 +178,7 @@ export function SettingsDialog() {
 	const requested =
 		linkedSection ??
 		( shown === 'ai' || ( shown === 'mcp' && ! nativeSites ) || ( shown === 'usage' && ! signedIn )
-			? 'connections'
+			? 'providers'
 			: shown );
 	const scope: SettingsScope =
 		isSiteSection( requested ) && ( site || sitePending ) ? 'site' : 'studio';
@@ -206,7 +206,7 @@ export function SettingsDialog() {
 
 	// Each opening starts fresh.
 	useEffect( () => {
-		if ( settings !== 'ai' && settings !== 'connections' ) setProviderIntent( connector );
+		if ( settings !== 'ai' && settings !== 'providers' ) setProviderIntent( connector );
 		if ( ! settings ) {
 			setHistory( { entries: [], index: -1 } );
 			setQuery( '' );

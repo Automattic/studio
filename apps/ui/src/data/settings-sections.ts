@@ -28,7 +28,7 @@ import type { ComponentType } from 'react';
 const STUDIO_SECTIONS = [
 	'general',
 	'appearance',
-	'connections',
+	'providers',
 	'mcp',
 	'sharing',
 	'usage',
@@ -277,10 +277,9 @@ function getStudioSections( signedIn: boolean ): Section[] {
 			],
 		},
 		{
-			id: 'connections',
+			id: 'providers',
 			label: __( 'Providers' ),
 			icon: McpIcon,
-			aliases: [ __( 'Connections' ) ],
 			settings: [
 				{
 					...setting(

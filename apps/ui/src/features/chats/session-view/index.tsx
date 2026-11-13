@@ -295,7 +295,7 @@ function SessionViewContent( {
 	const beginAnnotating = () => {
 		if ( ! ownerSite || ! preview ) return;
 		if ( ! hasConnectedProvider( aiSettings ) ) {
-			openSettings( 'connections', undefined, 'ai-providers', {
+			openSettings( 'providers', undefined, 'ai-providers', {
 				intent: 'build',
 				scope: ownerSite.id,
 			} );

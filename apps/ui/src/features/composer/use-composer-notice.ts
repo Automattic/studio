@@ -77,7 +77,7 @@ export function useComposerNotice(
 	const connect = {
 		label: __( 'Connect' ),
 		onClick: () =>
-			openSettings( 'connections', undefined, 'ai-providers', { intent: 'build', scope: siteId } ),
+			openSettings( 'providers', undefined, 'ai-providers', { intent: 'build', scope: siteId } ),
 	};
 	if ( ! user ) {
 		return {

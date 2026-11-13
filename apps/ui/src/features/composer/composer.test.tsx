@@ -268,7 +268,7 @@ describe( 'Chat composer', () => {
 		fireEvent.change( input, { target: { value: 'Keep this draft' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
 		fireEvent.click( await screen.findByRole( 'option', { name: /^Connect AI providers/ } ) );
-		await waitFor( () => expect( history.location.search ).toContain( 'settings=connections' ) );
+		await waitFor( () => expect( history.location.search ).toContain( 'settings=providers' ) );
 		expect( input ).toHaveValue( 'Keep this draft' );
 		expect( onSend ).not.toHaveBeenCalled();
 		await waitFor( () => expect( screen.queryByRole( 'listbox' ) ).not.toBeInTheDocument() );

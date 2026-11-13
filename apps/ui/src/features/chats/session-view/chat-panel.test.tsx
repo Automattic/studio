@@ -359,7 +359,7 @@ describe( 'Composer access notices', () => {
 		expect( alert ).toHaveTextContent( 'Connect a different provider to continue this chat.' );
 		expect( within( alert ).getAllByRole( 'button' ) ).toHaveLength( 1 );
 		fireEvent.click( within( alert ).getByRole( 'button', { name: 'Connect' } ) );
-		await waitFor( () => expect( history.location.search ).toContain( 'settings=connections' ) );
+		await waitFor( () => expect( history.location.search ).toContain( 'settings=providers' ) );
 		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
 	} );
 
@@ -583,7 +583,7 @@ describe( 'Chat target selection', () => {
 			);
 		}
 		fireEvent.click( connect );
-		await waitFor( () => expect( history.location.search ).toContain( 'settings=connections' ) );
+		await waitFor( () => expect( history.location.search ).toContain( 'settings=providers' ) );
 	} );
 
 	it( 'shows setup before sending and keeps signed-out drafts editable', async () => {
@@ -605,7 +605,7 @@ describe( 'Chat target selection', () => {
 		expect( connector.startSite ).not.toHaveBeenCalled();
 		expect( connector.continueSession ).not.toHaveBeenCalled();
 		fireEvent.click( within( alert ).getByRole( 'button', { name: 'Connect' } ) );
-		await waitFor( () => expect( history.location.search ).toContain( 'settings=connections' ) );
+		await waitFor( () => expect( history.location.search ).toContain( 'settings=providers' ) );
 		expect( connector.authenticate ).not.toHaveBeenCalled();
 	} );
 

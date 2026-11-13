@@ -460,7 +460,7 @@ function DashboardLayout() {
 				secondaryLabel={ __( 'Choose a different provider' ) }
 				onSkip={ () => {
 					setProviderPromptOpen( false );
-					openSettings( 'connections', undefined, 'ai-providers', {
+					openSettings( 'providers', undefined, 'ai-providers', {
 						intent: 'annotate',
 						scope: routeSite?.id,
 					} );

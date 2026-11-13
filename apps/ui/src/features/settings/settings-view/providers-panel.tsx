@@ -38,8 +38,8 @@ function DefaultProviderRow< Id extends ProviderId >( {
 	onChange: ( value: Id ) => void;
 } ) {
 	const onlyProvider = connected.length === 1 ? connected[ 0 ] : undefined;
-	const hasConnections = connected.length > 0;
-	const placeholder = hasConnections
+	const hasProviders = connected.length > 0;
+	const placeholder = hasProviders
 		? __( 'Choose a provider' )
 		: loading
 		? __( 'Loading…' )
@@ -56,7 +56,7 @@ function DefaultProviderRow< Id extends ProviderId >( {
 				label={ title }
 				value={ onlyProvider ?? value }
 				placeholder={ placeholder }
-				disabled={ disabled || ! hasConnections }
+				disabled={ disabled || ! hasProviders }
 				options={ connected.map( ( id ) => ( {
 					value: id,
 					label: getProvider( id ).label,
@@ -168,7 +168,7 @@ function HostingProviders( { providers }: { providers: SitesProviderId[] } ) {
 	);
 }
 
-export function ConnectionsPanel( { onManageCredits }: { onManageCredits: () => void } ) {
+export function ProvidersPanel( { onManageCredits }: { onManageCredits: () => void } ) {
 	const { loopbackSignIn } = useConnector().capabilities;
 	const aiProviders = SETTINGS_AI_PROVIDER_IDS.filter(
 		( id ) => id === 'wpcom' || getProviderConnectMethods( id, loopbackSignIn ).length > 0

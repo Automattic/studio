@@ -558,7 +558,7 @@ export function InstructionsSettings( { onManageSite }: { onManageSite?: () => v
 	);
 }
 
-export { ConnectionsPanel } from './connections-panel';
+export { ProvidersPanel } from './providers-panel';
 export { KeyboardPanel } from './keyboard-panel';
 export { ExternalAppsPanel } from './mcp-panel';
 export { SharingPanel } from './sharing-panel';

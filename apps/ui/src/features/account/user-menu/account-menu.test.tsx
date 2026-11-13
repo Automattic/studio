@@ -242,7 +242,7 @@ describe( 'AccountMenu', () => {
 		const { history } = setup( TEST_USER );
 		fireEvent.click( await screen.findByRole( 'button', { name: TEST_USER.displayName } ) );
 		fireEvent.click( await screen.findByRole( 'menuitem', { name: 'Providers' } ) );
-		await waitFor( () => expect( history.location.search ).toContain( 'settings=connections' ) );
+		await waitFor( () => expect( history.location.search ).toContain( 'settings=providers' ) );
 	} );
 
 	it( 'reports a failed logout in a toast', async () => {

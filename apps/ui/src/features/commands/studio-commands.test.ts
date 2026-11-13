@@ -222,8 +222,8 @@ describe( 'getSettingCommands', () => {
 
 	it.each( [
 		[ 'shortcuts', 'settings-keyboard' ],
-		[ 'connect', 'settings-connections-ai-providers' ],
-		[ 'connect provider', 'settings-connections-ai-providers' ],
+		[ 'connect', 'settings-providers-ai-providers' ],
+		[ 'connect provider', 'settings-providers-ai-providers' ],
 		[ 'credit balance', 'settings-usage' ],
 		[ 'snapshots', 'settings-sharing' ],
 	] )( 'finds “%s” first by another name for a setting', ( query, id ) => {
@@ -239,7 +239,7 @@ describe( 'command search', () => {
 	it.each( [
 		[ 'colour', 'settings-appearance-color' ],
 		[ 'intensity tint', 'settings-appearance-intensity' ],
-		[ 'API key', 'settings-connections-anthropic-provider' ],
+		[ 'API key', 'settings-providers-anthropic-provider' ],
 		[ 'folder', 'settings-general-default-directory' ],
 		[ 'editor default', 'settings-general-code-editor' ],
 	] )( 'finds %s', ( query, id ) => {

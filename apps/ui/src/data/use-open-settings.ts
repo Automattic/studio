@@ -18,7 +18,7 @@ export function useOpenSettings() {
 		) => {
 			setProviderIntent(
 				connector,
-				section === 'ai' || section === 'connections' ? accountIntent : undefined
+				section === 'ai' || section === 'providers' ? accountIntent : undefined
 			);
 			void navigate( {
 				to: '.',

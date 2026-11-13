@@ -14,7 +14,7 @@ import { Button, Menu } from '@/lib/ui';
 import styles from './style.module.css';
 import { SupportMenu } from './support-menu';
 
-const MENU_SECTIONS: string[] = [ 'connections', 'usage' ];
+const MENU_SECTIONS: string[] = [ 'providers', 'usage' ];
 
 export function UserMenu() {
 	const { data: user } = useAuthUser();

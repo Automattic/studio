@@ -114,14 +114,14 @@ describe( 'command palette', () => {
 	);
 
 	it.each( [
-		[ 'Connections', 'Providers', 'connections' ],
+		[ 'Providers', 'Providers', 'providers' ],
 		[ 'MCP', 'Agents', 'mcp' ],
 		[ 'AI apps', 'Agents', 'mcp' ],
 		[ 'Codex', 'ChatGPT (Codex) Agents', 'mcp' ],
-		[ 'Spacefast', 'Spacefast Providers', 'connections' ],
-		[ 'Hosting providers', 'Hosting providers Providers', 'connections' ],
-		[ 'Connect', 'AI providers Providers', 'connections' ],
-		[ 'Connect provider', 'AI providers Providers', 'connections' ],
+		[ 'Spacefast', 'Spacefast Providers', 'providers' ],
+		[ 'Hosting providers', 'Hosting providers Providers', 'providers' ],
+		[ 'Connect', 'AI providers Providers', 'providers' ],
+		[ 'Connect provider', 'AI providers Providers', 'providers' ],
 		[ 'credits', 'Usage', 'usage' ],
 		[ 'AI credits', 'Usage', 'usage' ],
 		[ 'credit balance', 'Usage', 'usage' ],

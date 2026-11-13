@@ -808,7 +808,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 	} );
 
 	it( 'links to provider help once per section', async () => {
-		const { connector } = await setup( { section: 'connections', signedIn: false } );
+		const { connector } = await setup( { section: 'providers', signedIn: false } );
 		const ai = await screen.findByRole( 'group', { name: 'AI providers' } );
 		const hosting = await screen.findByRole( 'group', { name: 'Hosting providers' } );
 		fireEvent.click( within( ai ).getByRole( 'button', { name: 'Learn more…' } ) );
@@ -875,7 +875,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 	it( 'switches between connected hosting defaults independently of the AI provider', async () => {
 		const accounts = aiSettings( 'wpcom', [ 'wpcom', 'anthropic', 'spacefast' ] ).accounts;
 		const { connector } = await setup( {
-			section: 'connections',
+			section: 'providers',
 			overrides: {
 				getAiSettings: async () => ( { provider: 'wpcom', accounts } ),
 				setAiProvider: async ( provider ) => ( { provider, accounts } ),
@@ -905,7 +905,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 
 	it( 'shows empty defaults and selects the only connected host over a stale choice', async () => {
 		const { connector } = await setup( {
-			section: 'connections',
+			section: 'providers',
 			signedIn: false,
 			preferences: { defaultHostingProvider: 'spacefast' },
 			overrides: { getAiSettings: async () => aiSettings( 'wpcom', [] ) },
@@ -928,7 +928,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 	} );
 
 	it( 'uses the only connected AI provider as the default', async () => {
-		const { connector } = await setup( { section: 'connections', signedIn: false } );
+		const { connector } = await setup( { section: 'providers', signedIn: false } );
 		const select = await screen.findByRole( 'combobox', { name: 'Default AI provider' } );
 		expect( select ).toHaveTextContent( 'Anthropic' );
 		expect( connector.setAiProvider ).not.toHaveBeenCalled();
@@ -936,7 +936,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 
 	it( 'shares WordPress.com sign-in across both rows without switching AI from hosting', async () => {
 		const { connector } = await setup( {
-			section: 'connections',
+			section: 'providers',
 			signedIn: false,
 			overrides: { authenticate: async () => {} },
 		} );
@@ -956,7 +956,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 
 	it( 'opens the Agents tab and focuses manual MCP setup from a legacy Providers link', async () => {
 		const { history } = await setup();
-		act( () => history.push( '/sites/one?settings=connections&settingsFocus=mcp-server' ) );
+		act( () => history.push( '/sites/one?settings=providers&settingsFocus=mcp-server' ) );
 		const manual = await screen.findByRole( 'group', { name: 'Manual MCP setup' } );
 		expect( screen.getByRole( 'tab', { name: 'Agents', selected: true } ) ).toBeVisible();
 		await waitFor( () => expect( manual ).toHaveFocus() );

@@ -160,6 +160,11 @@
 		opacity: 0;
 	}
 
+	/* Reserve the last action's slot when only its spinner is visible. */
+	.item:has( > .actions > [aria-busy='true'] ) > .button {
+		padding-inline-end: calc( 32px + var( --space-2 ) );
+	}
+
 	/* A trailing dot sits in the last action's slot, and gives way to the actions. */
 	.button:has( > [data-slot='notification-dot'][data-position='end'] ) {
 		padding-inline-end: calc( 32px + var( --space-2 ) );

@@ -178,8 +178,8 @@ interface ConnectorCapabilities {
 	// domains, Xdebug, a site's agent files, file access, and a choice of PHP and
 	// WordPress versions. Studio on the web runs them in Playground instead.
 	nativeSites: boolean;
-	// A sign-in on a provider's site can come back to this computer, where the host listens on a
-	// local port: the `loopback` connect methods. The page can't listen.
+	// A sign-in on a provider's site runs in the host: a `loopback` one comes back to a local port,
+	// which the page can't listen on, and a `device` one waits on endpoints the page can't reach.
 	loopbackSignIn: boolean;
 }
 

@@ -1,5 +1,6 @@
 import { AI_PROVIDER_IDS, getProvider } from './registry';
 import type { ANTHROPIC_AI_MODELS } from './anthropic/descriptor';
+import type { GITHUB_COPILOT_AI_MODELS } from './github-copilot/descriptor';
 import type { OPENAI_AI_MODELS } from './openai/descriptor';
 import type { AiModel, AiProviderId, ProviderId } from './types';
 import type { WPCOM_AI_MODELS } from './wpcom/descriptor';
@@ -8,6 +9,7 @@ export type AiModelId = (
 	| typeof WPCOM_AI_MODELS
 	| typeof ANTHROPIC_AI_MODELS
 	| typeof OPENAI_AI_MODELS
+	| typeof GITHUB_COPILOT_AI_MODELS
 )[ number ][ 'id' ];
 
 // A model by its id, and the first provider that serves it.

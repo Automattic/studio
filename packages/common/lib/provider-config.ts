@@ -115,6 +115,7 @@ const STORES: { [ Id in ProviderId ]: ConfigStore< ProviderConfigs[ Id ] > } = {
 		},
 	},
 	openai: providerConfigStore( 'openai' ),
+	'github-copilot': providerConfigStore( 'github-copilot' ),
 	spacefast: providerConfigStore( 'spacefast' ),
 };
 

@@ -56,6 +56,7 @@ describe( 'ai settings', () => {
 				wpcom: disconnected,
 				anthropic: disconnected,
 				openai: disconnected,
+				'github-copilot': disconnected,
 				spacefast: disconnected,
 			},
 		} );
@@ -72,6 +73,7 @@ describe( 'ai settings', () => {
 				wpcom: disconnected,
 				anthropic: { connected: true, summary: 'sk-ant-api03-tes...1234', method: 'api-key' },
 				openai: disconnected,
+				'github-copilot': disconnected,
 				spacefast: disconnected,
 			},
 		} );
@@ -179,6 +181,7 @@ describe( 'ai settings', () => {
 				wpcom: disconnected,
 				anthropic: disconnected,
 				openai: disconnected,
+				'github-copilot': disconnected,
 				spacefast: disconnected,
 			},
 		} );

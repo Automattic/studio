@@ -1,4 +1,5 @@
 import { anthropicServices } from './anthropic/services';
+import { githubCopilotServices } from './github-copilot/services';
 import { openaiServices } from './openai/services';
 import { spacefastServices } from './spacefast/services';
 import { wpcomServices } from './wpcom/services';
@@ -10,6 +11,7 @@ const SERVICES: {
 	wpcom: wpcomServices,
 	anthropic: anthropicServices,
 	openai: openaiServices,
+	'github-copilot': githubCopilotServices,
 	spacefast: spacefastServices,
 };
 

@@ -870,7 +870,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith( 'https://auth.example.test/sign-in' );
 	} );
 
-	it( 'hides ChatGPT on the web, which cannot reach it', async () => {
+	it( 'hides the sign-ins on a provider’s site on the web, which cannot reach them', async () => {
 		await setup( {
 			section: 'ai',
 			overrides: {
@@ -885,6 +885,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		} );
 		await findProviderRow( 'anthropic-provider' );
 		expect( row( 'openai-provider' ) ).toBeNull();
+		expect( row( 'github-copilot-provider' ) ).toBeNull();
 	} );
 
 	it( 'reveals an inline Anthropic key form and collapses after connecting', async () => {

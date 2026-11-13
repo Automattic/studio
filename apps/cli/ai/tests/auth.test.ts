@@ -40,7 +40,7 @@ type Configs = {
 
 function storeConfigs( configs: Configs ) {
 	vi.mocked( readProviderConfig ).mockImplementation(
-		async ( provider ) => configs[ provider ] as never
+		async ( provider ) => configs[ provider as keyof Configs ] as never
 	);
 	vi.mocked( readFreshProviderConfig ).mockImplementation(
 		async ( provider ) => configs[ provider.id as keyof Configs ] as never

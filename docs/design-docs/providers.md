@@ -30,6 +30,7 @@ It describes the architecture and the rules, not the exact APIs, which are expec
 | WordPress.com (`wpcom`)                      | Studio sign-in                 | `fast`, `balanced`, `strong`; images | push, pull | _(planned)_ |
 | Anthropic (`anthropic`)                      | API key, or subscription token | Claude models                        | —          | —           |
 | OpenAI (`openai`)                            | ChatGPT plan, browser sign-in  | GPT models                           | —          | —           |
+| GitHub Copilot (`github-copilot`)            | Copilot plan, device sign-in   | Claude, GPT and Gemini models        | —          | —           |
 | Spacefast (`spacefast`)                      | Device sign-in                 | —                                    | publish    | —           |
 | Other hosts, such as an SSH host _(planned)_ | Per host                       | —                                    | push, pull | —           |
 
@@ -72,7 +73,7 @@ It is a package of its own because sites and previews are not agent concerns, so
 - Each provider lists the methods its account connects with, the first being the default. Each has a stable id, which the config records, and a label the user picks it by:
   - **A form**, described by a schema whose fields carry their labels, help and whether they are secret, and optionally Markdown instructions for getting its values (a page to read, a command to run). Anthropic asks for an API key this way.
   - **A redirect** to the provider's site, where the user approves access and is sent back to the app. WordPress.com connects this way, and connecting it is signing in to Studio.
-  - **A device sign-in**: the provider gives a code to approve on its site while Studio waits for the approval. No redirect comes back, so it works the same in every app and the CLI. Spacefast connects this way.
+  - **A device sign-in**: the provider gives a code to approve on its site while Studio waits for the approval. No redirect comes back, so it works the same in every app and the CLI. Spacefast and GitHub Copilot connect this way.
   - **A loopback redirect**: like a redirect, but back to this computer: the process that runs the operation (the Desktop main process, the `studio ui` server or the CLI) listens on a free local port while the browser signs in, and gives the provider that address. Where the browser can't reach it, such as over SSH, the CLI asks for the address the browser landed on. OpenAI connects this way, through its sign-in for agents: it registers a client for Studio, which the user allows to use their ChatGPT plan through the public API.
   - **Several methods**, when a provider offers several ways. The user picks one, and only one is connected at a time. Anthropic takes an API key, or a token from `claude setup-token` that bills the Claude subscription; both are forms.
 - A method that signs in on the provider's site (a device code or a loopback redirect) runs the same way everywhere: the provider starts it and says where the user goes, Studio shows that address and any code, then hands the provider back what it started with, which waits for the user.
@@ -107,7 +108,7 @@ The provider owns how its models are reached. For example, WordPress.com sends e
 
 ### In the page
 
-Studio on the web runs the agent in the page, so it offers only the connect methods it supports. A `loopback` sign-in needs a server on this computer, so the web leaves it out, and with it OpenAI.
+Studio on the web runs the agent in the page, so it offers only the connect methods it supports. A `loopback` sign-in needs a server on this computer, and a `device` sign-in polls endpoints that don't accept the page's origin, so the web leaves both out, and with them OpenAI and GitHub Copilot.
 
 ### Images
 

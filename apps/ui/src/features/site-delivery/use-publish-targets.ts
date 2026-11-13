@@ -102,11 +102,24 @@ export function usePublishTargets( siteId: string, open: boolean ) {
 		initialData: null as string | null,
 		staleTime: Infinity,
 	} ).data;
+	const previewKey = [ 'publish-preview-target', siteId ];
+	const savedPreviewKey = useQuery( {
+		queryKey: previewKey,
+		queryFn: () => null as string | null,
+		initialData: null as string | null,
+		staleTime: Infinity,
+	} ).data;
+	const siteTargets = targets.filter( ( target ) => target.remote );
+	const previewTargets = targets.filter( ( target ) => target.snapshot );
+	const selectedPreview =
+		previewTargets.find( ( target ) => target.key === savedPreviewKey ) ??
+		previewTargets.find( ( target ) => target.key === saved ) ??
+		previewTargets[ 0 ];
 	const savedPreview = previews.find(
 		( snapshot ) => `${ previewProvider }:preview:${ getSnapshotHostname( snapshot ) }` === saved
 	);
 	const selected =
-		targets.find( ( target ) => target.key === saved ) ??
+		siteTargets.find( ( target ) => target.key === saved ) ??
 		( savedPreview &&
 			targets.find(
 				( target ) =>
@@ -116,7 +129,8 @@ export function usePublishTargets( siteId: string, open: boolean ) {
 						savedPreview.atomicSiteId
 					)
 			) ) ??
-		targets[ 0 ];
+		siteTargets[ 0 ] ??
+		selectedPreview;
 	const versions = JSON.stringify(
 		targets.map( ( target ) => [
 			target.key,
@@ -177,12 +191,18 @@ export function usePublishTargets( siteId: string, open: boolean ) {
 		providers,
 		previewProvider,
 		targets,
+		siteTargets,
+		previewTargets,
+		selectedPreview,
 		selected,
 		selectedStatus,
 		hasChanges: ( target: PublishTarget ) =>
 			( !! target.remote && ! target.remote.lastPushTimestamp ) ||
 			statuses[ targets.indexOf( target ) ]?.data?.localChanged === true,
-		select: ( target: PublishTarget ) => client.setQueryData( key, target.key ),
+		select: ( target: PublishTarget ) =>
+			client.setQueryData( target.snapshot ? previewKey : key, target.key ),
+		selectPreview: ( hostname: string ) =>
+			client.setQueryData( previewKey, `${ previewProvider }:preview:${ hostname }` ),
 		refresh: () => {
 			connections.forEach( ( query ) => void query.refetch() );
 			if ( user.data ) void snapshots.refetch();

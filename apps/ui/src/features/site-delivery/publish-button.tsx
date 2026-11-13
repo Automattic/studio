@@ -82,6 +82,7 @@ import {
 	orderedPublishProviders,
 } from './provider-picker';
 import { PublishFilesDialog, PublishOptionsControl } from './publish-options-control';
+import { PublishedPreviews } from './published-previews';
 import { PullPreviewDialog } from './pull-preview-dialog';
 import { PullPreviewIcon } from './pull-preview-icon';
 import { ShareView } from './share-view';
@@ -174,7 +175,7 @@ export function PublishButton( {
 				: []
 		)
 	);
-	const preview = usePublishPreview( site, open, snapshot );
+	const preview = usePublishPreview( site, open, targets.selectedPreview?.snapshot );
 	const visibility = useSiteVisibility(
 		selected?.provider ?? targets.providers[ 0 ],
 		remote?.id,
@@ -296,7 +297,6 @@ export function PublishButton( {
 	const hostingLinks = remote
 		? descriptor?.describe( remote ).links.filter( ( link ) => link.url !== dashboardUrl ) ?? []
 		: [];
-	const previewAdmin = snapshot && getSnapshotAdminUrl( snapshot );
 	const publicDestination = snapshot ? selected!.provider : emptyDestination;
 	const publicDescriptor = getProviderSites( publicDestination );
 	const { copied, copy } = useCopyText( url ?? '' );
@@ -348,12 +348,7 @@ export function PublishButton( {
 		setPreviewsBeforeCreation( new Set( preview.previews.map( ( item ) => item.atomicSiteId ) ) );
 		void preview
 			.createPreview( async ( hostname ) => {
-				const provider = targets.previewProvider;
-				if ( provider )
-					client.setQueryData(
-						publishTargetQueryKey( site.id ),
-						`${ provider }:preview:${ hostname }`
-					);
+				targets.selectPreview( hostname );
 				const snapshots = client.getQueryData< Snapshot[] >( SNAPSHOTS_QUERY_KEY );
 				if (
 					! snapshots?.some(
@@ -458,9 +453,6 @@ export function PublishButton( {
 			  activity.direction === 'push' &&
 			  activity.provider === selected?.provider &&
 			  activity.remoteSiteId === remote.id );
-	const renamePreview = () => {
-		if ( snapshot ) setPreviewAction( { kind: 'rename', snapshot, trigger: trigger.current } );
-	};
 	const renderPanelActions = () => (
 		<>
 			{ connectedProviders.includes( selected?.provider ?? publicDestination ) && (
@@ -484,8 +476,53 @@ export function PublishButton( {
 			</Menu.Item>
 		</>
 	);
+	const renderPreviewActions = ( target: PublishTarget, includeSharing = false ) => {
+		const item = target.snapshot!;
+		const admin = getSnapshotAdminUrl( item );
+		return (
+			<>
+				<Menu.Item
+					disabled={ disabled }
+					onClick={ () =>
+						setPreviewAction( { kind: 'rename', snapshot: item, trigger: trigger.current } )
+					}
+				>
+					<PencilIcon />
+					{ __( 'Rename' ) }
+				</Menu.Item>
+				<Menu.Item disabled={ disabled } onClick={ () => void preview.updatePreview() }>
+					<RefreshCwIcon />
+					{ __( 'Update preview' ) }
+				</Menu.Item>
+				<Menu.Item disabled={ disabled } onClick={ () => pullFromPreview( target.provider, item ) }>
+					<PullPreviewIcon />
+					{ __( 'Pull from preview' ) }
+				</Menu.Item>
+				{ admin && (
+					<Menu.Item onClick={ () => void connector.openExternalUrl( admin ) }>
+						<WordPressIcon />
+						{ __( 'WordPress admin' ) }
+					</Menu.Item>
+				) }
+				{ includeSharing && (
+					<>
+						<Menu.Separator />
+						{ renderPanelActions() }
+					</>
+				) }
+				<Menu.Separator />
+				<Menu.Item destructive disabled={ disabled } onClick={ () => deletePreview( item ) }>
+					<TrashIcon />
+					{ __( 'Delete preview' ) }
+				</Menu.Item>
+			</>
+		);
+	};
 	const renderTargetActions = ( includeSharing = false ) =>
-		selected && (
+		selected &&
+		( snapshot ? (
+			renderPreviewActions( selected, includeSharing )
+		) : (
 			<>
 				{ url && ! snapshot && ! includeSharing && (
 					<Menu.Item onClick={ copyLinkFromMenu }>
@@ -511,34 +548,15 @@ export function PublishButton( {
 						{ link.title }
 					</Menu.Item>
 				) ) }
-				{ snapshot && (
-					<Menu.Item disabled={ disabled } onClick={ renamePreview }>
-						<PencilIcon />
-						{ __( 'Rename' ) }
-					</Menu.Item>
-				) }
-				{ snapshot && (
-					<Menu.Item disabled={ disabled } onClick={ () => void preview.updatePreview() }>
-						<RefreshCwIcon />
-						{ __( 'Update preview' ) }
-					</Menu.Item>
-				) }
-				{ ( snapshot || descriptor?.pull ) && (
+				{ descriptor?.pull && (
 					<Menu.Item
 						disabled={ disabled }
-						onClick={ () => {
-							if ( snapshot ) pullFromPreview( selected.provider, snapshot );
-							else setPullRequest( { provider: selected.provider, remoteSiteId: remote?.id } );
-						} }
+						onClick={ () =>
+							setPullRequest( { provider: selected.provider, remoteSiteId: remote?.id } )
+						}
 					>
 						<PullPreviewIcon />
-						{ snapshot ? __( 'Pull from preview' ) : __( 'Pull from live site' ) }
-					</Menu.Item>
-				) }
-				{ previewAdmin && (
-					<Menu.Item onClick={ () => void connector.openExternalUrl( previewAdmin ) }>
-						<WordPressIcon />
-						{ __( 'WordPress admin' ) }
+						{ __( 'Pull from live site' ) }
 					</Menu.Item>
 				) }
 				{ includeSharing && (
@@ -552,20 +570,16 @@ export function PublishButton( {
 					destructive
 					disabled={ disabled }
 					onClick={ () => {
-						if ( snapshot ) {
-							deletePreview( snapshot );
-						} else {
-							close();
-							disconnect.reset();
-							setRemoveTarget( selected );
-						}
+						close();
+						disconnect.reset();
+						setRemoveTarget( selected );
 					} }
 				>
-					{ snapshot ? <TrashIcon /> : <DisconnectSiteIcon /> }
-					{ snapshot ? __( 'Delete preview' ) : __( 'Disconnect site' ) }
+					<DisconnectSiteIcon />
+					{ __( 'Disconnect site' ) }
 				</Menu.Item>
 			</>
-		);
+		) );
 
 	return (
 		<>
@@ -667,8 +681,8 @@ export function PublishButton( {
 					finalFocus={ openingTargetDialog ? false : undefined }
 					aria-label={ title }
 				>
-					<ShareView view={ preview.overwrite ? 'overwrite' : 'main' }>
-						{ preview.overwrite ? (
+					<ShareView view={ preview.overwrite && ! remote ? 'overwrite' : 'main' }>
+						{ preview.overwrite && ! remote ? (
 							<>
 								<p className={ styles.destinationLabel }>
 									{ preview.overwrite.unknown
@@ -786,43 +800,46 @@ export function PublishButton( {
 										</>
 									) }
 								</Popover.Description>
-								{ selected && hostname && ( targets.targets.length > 1 || showPreviewSkeleton ) && (
-									<>
-										{ targets.targets.every( ( target ) => target.snapshot ) && (
-											<h3 className={ styles.switcherHeading }>{ __( 'Switch previews' ) }</h3>
-										) }
-										<div className={ styles.settingsGroup }>
-											{ showPreviewSkeleton ? (
-												<Button
-													variant="ghost"
-													className={ styles.accessTrigger }
-													disabled
-													aria-label={ __( 'Choose destination' ) }
-													aria-busy="true"
-												>
-													<Skeleton className={ styles.previewSkeletonIcon } />
-													<span className={ styles.accessTriggerLabel }>
-														<Skeleton className={ styles.previewSkeletonTitle } />
-													</span>
-													<Skeleton className={ styles.previewSkeletonIcon } />
-												</Button>
-											) : (
-												<TargetSwitcher
-													targets={ targets.targets }
-													selectedKey={ selected.key }
-													hostname={ hostname }
-													locale={ locale }
-													disabled={ disabled || openingCheckout }
-													onSelect={ select }
-													onNewPreview={ previewsCapability ? () => newPreview() : undefined }
-													newPreviewDisabled={
-														disabled || ! canRequestPreview || connectionUnavailable
-													}
-												/>
+								{ selected &&
+									hostname &&
+									( ( remote ? targets.siteTargets.length : targets.previewTargets.length ) > 1 ||
+										showPreviewSkeleton ) && (
+										<>
+											{ targets.targets.every( ( target ) => target.snapshot ) && (
+												<h3 className={ styles.switcherHeading }>{ __( 'Previews' ) }</h3>
 											) }
-										</div>
-									</>
-								) }
+											<div className={ styles.settingsGroup }>
+												{ showPreviewSkeleton ? (
+													<Button
+														variant="ghost"
+														className={ styles.accessTrigger }
+														disabled
+														aria-label={ __( 'Choose destination' ) }
+														aria-busy="true"
+													>
+														<Skeleton className={ styles.previewSkeletonIcon } />
+														<span className={ styles.accessTriggerLabel }>
+															<Skeleton className={ styles.previewSkeletonTitle } />
+														</span>
+														<Skeleton className={ styles.previewSkeletonIcon } />
+													</Button>
+												) : (
+													<TargetSwitcher
+														targets={ remote ? targets.siteTargets : targets.previewTargets }
+														selectedKey={ selected.key }
+														hostname={ hostname }
+														locale={ locale }
+														disabled={ disabled || openingCheckout }
+														onSelect={ select }
+														onNewPreview={ previewsCapability ? () => newPreview() : undefined }
+														newPreviewDisabled={
+															disabled || ! canRequestPreview || connectionUnavailable
+														}
+													/>
+												) }
+											</div>
+										</>
+									) }
 								<div
 									className={ styles.settingsGroup }
 									data-opening-checkout={ openingCheckout || undefined }
@@ -1060,7 +1077,11 @@ export function PublishButton( {
 										{ failure }
 									</p>
 								) }
-								<div className={ styles.shareFooter }>
+								<div
+									className={ styles.shareFooter }
+									role="group"
+									aria-label={ remote ? __( 'Published site actions' ) : __( 'Preview actions' ) }
+								>
 									<div className={ styles.primaryActions }>
 										{ checkoutUrl && checkoutProvider ? (
 											<Button
@@ -1082,7 +1103,7 @@ export function PublishButton( {
 											<Button variant="accent" loading disabled>
 												{ __( 'Publishing…' ) }
 											</Button>
-										) : creatingPreview ? (
+										) : creatingPreview && ! remote ? (
 											<Button variant="accent" loading disabled>
 												{ __( 'Creating preview link…' ) }
 											</Button>
@@ -1118,7 +1139,10 @@ export function PublishButton( {
 												<Button variant="outline" onClick={ copy }>
 													{ copied ? __( 'Copied' ) : __( 'Copy link' ) }
 												</Button>
-											) : disabled && ! selectedPending ? (
+											) : disabled &&
+											  ! selectedPending &&
+											  ! preview.pending &&
+											  ! creatingPreview ? (
 												<p role="status">
 													{ offline
 														? __( "You're offline" )
@@ -1130,6 +1154,7 @@ export function PublishButton( {
 													provider={ selected!.provider }
 													remote={ remote }
 													publishing={ selectedPending }
+													disabled={ disabled }
 													firstPublish={ firstPublish }
 													forceEntireSite={ newDestination }
 												/>
@@ -1154,6 +1179,19 @@ export function PublishButton( {
 										) }
 									</div>
 								</div>
+								{ remote && ( targets.selectedPreview || creatingPreview ) && (
+									<PublishedPreviews
+										targets={ targets }
+										preview={ preview }
+										creating={ creatingPreview }
+										disabled={ disabled }
+										locale={ locale }
+										onNewPreview={ () => newPreview() }
+										newPreviewDisabled={ disabled || ! canRequestPreview || connectionUnavailable }
+										onSelect={ select }
+										renderActions={ renderPreviewActions }
+									/>
+								) }
 							</>
 						) }
 					</ShareView>

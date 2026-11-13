@@ -653,3 +653,16 @@
 .destinationField .providerPickerTrigger[aria-expanded='true'] {
 	--button-hover-background: transparent;
 }
+
+.publishedPreviews {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-3 );
+	margin-block-start: var( --space-4 );
+}
+.publishedPreviews > :is( .settingsGroup, .shareFooter ) {
+	margin-block-start: 0;
+}
+.publishedPreviews > .shareFooter > button {
+	flex: 1;
+}

@@ -99,6 +99,7 @@ async function mainMenu() {
 	return screen.findByRole( 'menu' );
 }
 async function switchTo( hostname: string ) {
+	if ( screen.queryByRole( 'button', { name: `Open preview: ${ hostname }` } ) ) return;
 	fireEvent.click( await screen.findByRole( 'button', { name: 'Choose destination' } ) );
 	const menu = await screen.findByRole( 'menu', { name: 'Destinations' } );
 	fireEvent.click( within( menu ).getByRole( 'menuitemradio', { name: hostname } ) );
@@ -143,7 +144,12 @@ it( 'renders the selected provider capabilities and isolates its change dot', as
 	expect( screen.queryByRole( 'button', { name: 'What to publish' } ) ).not.toBeInTheDocument();
 	expect( screen.getByRole( 'button', { name: 'Publish changes' } ) ).toBeVisible();
 	expect( screen.getByLabelText( 'Local changes' ) ).toBeVisible();
-	expect( screen.queryByRole( 'button', { name: 'Copy link' } ) ).not.toBeInTheDocument();
+	expect(
+		within( screen.getByRole( 'group', { name: 'Published site actions' } ) ).queryByRole(
+			'button',
+			{ name: 'Copy link' }
+		)
+	).not.toBeInTheDocument();
 	await user.click( screen.getByRole( 'button', { name: 'More options' } ) );
 	expect(
 		( await screen.findAllByRole( 'menuitem' ) ).map( ( item ) => item.textContent?.trim() )
@@ -188,7 +194,7 @@ it( 'can create a new preview from the destination selector in Publish', async (
 		publishPreviewSite: () => new Promise( () => {} ),
 	} );
 	const panel = await open();
-	expect( within( panel ).queryByRole( 'heading', { name: 'Previews' } ) ).not.toBeInTheDocument();
+	expect( within( panel ).getByRole( 'heading', { name: 'Previews' } ) ).toBeVisible();
 	expect(
 		within( panel ).queryByRole( 'button', { name: 'New preview' } )
 	).not.toBeInTheDocument();
@@ -204,7 +210,7 @@ it( 'can create a new preview from the destination selector in Publish', async (
 } );
 
 it( 'keeps the Share menu focused on previews when multiple providers are connected', async () => {
-	const { user } = setup();
+	const { user } = setup( { getRemoteSites: async () => [] } );
 	await open();
 	await switchTo( 'lente-preview.wpcomstaging.com' );
 	const panel = await screen.findByRole( 'dialog', { name: 'Share' } );
@@ -240,7 +246,11 @@ it.each( [
 		within( menu )
 			.getAllByRole( 'menuitem' )
 			.map( ( item ) => item.textContent?.trim() );
-	await user.click( screen.getByRole( 'button', { name: 'More options' } ) );
+	await user.click(
+		screen.getByRole( 'button', {
+			name: hostname === 'lente-preview.wpcomstaging.com' ? 'Preview options' : 'More options',
+		} )
+	);
 	const ellipsis = await screen.findByRole( 'menu' );
 	const expected = items( ellipsis ).filter(
 		( label ) =>
@@ -250,7 +260,9 @@ it.each( [
 	await waitFor( () => expect( ellipsis ).not.toBeInTheDocument() );
 	row.focus();
 	await user.keyboard( '{Shift>}{F10}{/Shift}' );
-	const context = await screen.findByRole( 'menu', { name: 'Destination actions' } );
+	const context = await screen.findByRole( 'menu', {
+		name: hostname === 'lente-preview.wpcomstaging.com' ? 'Preview actions' : 'Destination actions',
+	} );
 	if ( hostname === 'lente-preview.wpcomstaging.com' ) {
 		expect( items( context ) ).toEqual( expected );
 		expect( items( context ) ).toEqual( [
@@ -292,16 +304,103 @@ it( 'reports a failed live push as a notification while keeping the panel open',
 	expect( within( panel ).queryByRole( 'alert' ) ).not.toBeInTheDocument();
 	expect( within( panel ).getByRole( 'button', { name: 'Publish changes' } ) ).toBeEnabled();
 } );
-it( 'switches the header and actions back to Share for a preview even with live sites', async () => {
-	setup();
+it( 'keeps the live site visible while switching previews', async () => {
+	const second = {
+		...preview,
+		atomicSiteId: 456,
+		url: 'second-preview.wpcomstaging.com',
+		shareUrl: 'https://second-preview.wpcomstaging.com/?share=second',
+	};
+	const { user, connector } = setup( { getSnapshots: async () => [ preview, second ] } );
 	await open();
-	await switchTo( 'lente-preview.wpcomstaging.com' );
-	expect( await screen.findByRole( 'button', { name: 'Share…' } ) ).toBeVisible();
-	expect( screen.getByRole( 'heading', { name: 'Share' } ) ).toBeVisible();
-	expect( screen.getByRole( 'button', { name: 'Copy link' } ) ).toBeVisible();
+	const previews = screen.getByRole( 'region', { name: 'Previews' } );
+	await user.click( within( previews ).getByRole( 'button', { name: 'Choose preview' } ) );
+	const menu = await screen.findByRole( 'menu', { name: 'Previews' } );
+	expect(
+		within( menu ).queryByRole( 'menuitemradio', { name: 'lente.blog' } )
+	).not.toBeInTheDocument();
+	await user.click( within( menu ).getByRole( 'menuitemradio', { name: second.url } ) );
+	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'lente.blog' } ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'What to publish' } ) ).toBeVisible();
+	expect( screen.queryByRole( 'button', { name: 'Make it public' } ) ).not.toBeInTheDocument();
+	await user.click( within( previews ).getByRole( 'button', { name: 'Copy link' } ) );
+	expect( connector.copyText ).toHaveBeenCalledWith( second.shareUrl );
 	expect( screen.queryByLabelText( 'Local changes' ) ).not.toBeInTheDocument();
 } );
-it( 'groups connected sites and previews in a single destination switcher', async () => {
+it( 'keeps the published controls visible while creating and selecting a new preview', async () => {
+	let finish!: ( result: { url: string } ) => void;
+	let snapshots = [ preview ];
+	const created = {
+		...preview,
+		atomicSiteId: 457,
+		url: 'new-preview.wpcomstaging.com',
+		shareUrl: 'https://new-preview.wpcomstaging.com/?share=new',
+	};
+	const { user } = setup( {
+		getRemoteSites: async ( provider ) => ( provider === 'wpcom' ? [ live ] : [] ),
+		getSnapshots: async () => snapshots,
+		publishPreviewSite: () =>
+			new Promise( ( resolve ) => {
+				finish = resolve;
+			} ),
+	} );
+	await open();
+	await user.click( screen.getByRole( 'button', { name: 'Preview options' } ) );
+	await user.click( await screen.findByRole( 'menuitem', { name: 'New preview' } ) );
+	const previews = screen.getByRole( 'region', { name: 'Previews' } );
+	expect( within( previews ).getByRole( 'button', { name: 'Choose preview' } ) ).toHaveAttribute(
+		'aria-busy',
+		'true'
+	);
+	expect( screen.getByRole( 'button', { name: 'lente.blog' } ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'What to publish' } ) ).toBeVisible();
+	expect(
+		within( screen.getByRole( 'group', { name: 'Published site actions' } ) ).getByRole( 'button', {
+			name: 'Copy link',
+		} )
+	).toBeVisible();
+	snapshots = [ created, preview ];
+	act( () => finish( { url: created.shareUrl } ) );
+	expect(
+		await within( previews ).findByRole( 'button', { name: `Open preview: ${ created.url }` } )
+	).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'lente.blog' } ) ).toBeVisible();
+} );
+
+it( 'updates only the preview while keeping the live publishing controls visible', async () => {
+	const { user, connector } = setup( {
+		getSitePublishStatus: async () => ( { localChanged: false } ),
+		getPreviewStatus: async () => ( {
+			localSiteId: site.id,
+			localChanged: true,
+			previewChanged: true,
+		} ),
+	} );
+	await open();
+	const previews = screen.getByRole( 'region', { name: 'Previews' } );
+	await user.click( within( previews ).getByRole( 'button', { name: 'Update preview' } ) );
+	await within( previews ).findByRole( 'button', { name: 'Replace preview' } );
+	expect( screen.getByRole( 'button', { name: 'lente.blog' } ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'What to publish' } ) ).toBeVisible();
+	expect( screen.queryByLabelText( 'Local changes' ) ).not.toBeInTheDocument();
+	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
+	await user.click( within( previews ).getByRole( 'button', { name: 'Replace preview' } ) );
+	await waitFor( () =>
+		expect( connector.publishPreviewSite ).toHaveBeenCalledExactlyOnceWith(
+			site.id,
+			preview.url,
+			undefined
+		)
+	);
+	expect( connector.pushSite ).not.toHaveBeenCalled();
+} );
+
+it( 'keeps connected destinations separate from the previews below them', async () => {
 	const { connector, user } = setup( {
 		getRemoteSites: async ( provider ) =>
 			provider === 'wpcom' ? [ live ] : [ { ...space, lastPushTimestamp: null } ],
@@ -314,19 +413,16 @@ it( 'groups connected sites and previews in a single destination switcher', asyn
 	expect(
 		within( panel ).queryByRole( 'button', { name: 'lente.space.fast' } )
 	).not.toBeInTheDocument();
-	expect(
-		within( panel ).queryByRole( 'button', { name: /^Open preview:/ } )
-	).not.toBeInTheDocument();
+	expect( within( panel ).getByRole( 'button', { name: /^Open preview:/ } ) ).toBeVisible();
 
 	const switcher = within( panel ).getByRole( 'button', { name: 'Choose destination' } );
 	await user.click( switcher );
 	const menu = await screen.findByRole( 'menu', { name: 'Destinations' } );
-	const sites = within( menu ).getByRole( 'group', { name: 'Connected sites' } );
-	const previews = within( menu ).getByRole( 'group', { name: 'Previews' } );
+	const sites = menu;
 	expect( within( sites ).getByRole( 'menuitemradio', { name: 'lente.blog' } ) ).toBeChecked();
 	expect(
-		within( previews ).getByRole( 'menuitemradio', { name: 'lente-preview.wpcomstaging.com' } )
-	).not.toBeChecked();
+		within( menu ).queryByRole( 'menuitemradio', { name: 'lente-preview.wpcomstaging.com' } )
+	).not.toBeInTheDocument();
 	const staticSite = within( sites ).getByRole( 'menuitemradio', { name: 'lente.space.fast' } );
 	expect( staticSite ).toHaveTextContent( 'Not published yet' );
 	await user.click( staticSite );
@@ -470,9 +566,10 @@ it( 'copies a selected preview without opening it, while the address opens its s
 		screen.getByRole( 'button', { name: 'Open preview: lente-preview.wpcomstaging.com' } )
 	);
 	expect( connector.openExternalUrl ).toHaveBeenCalledWith( preview.shareUrl );
-	const viewPreview = await screen.findByRole( 'button', { name: 'Copy link' } );
+	const previewSection = within( screen.getByRole( 'region', { name: 'Previews' } ) );
+	const viewPreview = await previewSection.findByRole( 'button', { name: 'Copy link' } );
 	expect( viewPreview ).toHaveAttribute( 'data-variant', 'outline' );
-	expect( screen.getByRole( 'button', { name: 'Copy link' } ) ).toHaveAttribute(
+	expect( previewSection.getByRole( 'button', { name: 'Copy link' } ) ).toHaveAttribute(
 		'data-variant',
 		'outline'
 	);
@@ -653,10 +750,11 @@ it( 'copies a published link briefly and still opens the site from its URL row',
 	const { connector } = setup( { getSitePublishStatus: async () => ( { localChanged: false } ) } );
 	await open();
 	await switchTo( 'lente.space.fast' );
-	fireEvent.click( await screen.findByRole( 'button', { name: 'Copy link' } ) );
+	const liveActions = within( screen.getByRole( 'group', { name: 'Published site actions' } ) );
+	fireEvent.click( await liveActions.findByRole( 'button', { name: 'Copy link' } ) );
 	await waitFor( () => expect( connector.copyText ).toHaveBeenCalledWith( space.url ) );
 	expect( await screen.findByRole( 'button', { name: 'Copied' } ) ).toBeVisible();
-	await screen.findByRole( 'button', { name: 'Copy link' }, { timeout: 3000 } );
+	await liveActions.findByRole( 'button', { name: 'Copy link' }, { timeout: 3000 } );
 	fireEvent.click( screen.getByRole( 'button', { name: 'lente.space.fast' } ) );
 	expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith( space.url );
 	fireEvent.click( screen.getByRole( 'button', { name: 'Choose destination' } ) );
@@ -1306,7 +1404,7 @@ it.each( [ 1, 2 ] )(
 		} );
 		await open();
 		expect( !! screen.queryByRole( 'button', { name: 'Choose destination' } ) ).toBe( count > 1 );
-		expect( !! screen.queryByRole( 'heading', { name: 'Switch previews' } ) ).toBe( count > 1 );
+		expect( !! screen.queryByRole( 'heading', { name: 'Previews' } ) ).toBe( count > 1 );
 		const menu = await mainMenu();
 		expect( within( menu ).getByRole( 'menuitem', { name: 'New preview' } ) ).toBeEnabled();
 	}
@@ -1321,7 +1419,7 @@ it( 'shows a skeleton preview selector while creating a second preview', async (
 	expect( screen.queryByRole( 'button', { name: 'Choose destination' } ) ).not.toBeInTheDocument();
 	const menu = await mainMenu();
 	await user.click( within( menu ).getByRole( 'menuitem', { name: 'New preview' } ) );
-	expect( await screen.findByRole( 'heading', { name: 'Switch previews' } ) ).toBeVisible();
+	expect( await screen.findByRole( 'heading', { name: 'Previews' } ) ).toBeVisible();
 	const selector = screen.getByRole( 'button', { name: 'Choose destination' } );
 	expect( selector ).toBeDisabled();
 	expect( selector ).toHaveAttribute( 'aria-busy', 'true' );

@@ -50,7 +50,10 @@ function setup( overrides: Partial< Connector > = {}, signedIn = true ) {
 }
 
 async function previewAction( actions: ReturnType< typeof userEvent.setup >, name: string ) {
-	await actions.click( await screen.findByRole( 'button', { name: 'More options' } ) );
+	await actions.click(
+		screen.queryByRole( 'button', { name: 'Preview options' } ) ??
+			( await screen.findByRole( 'button', { name: 'More options' } ) )
+	);
 	return screen.findByRole( 'menuitem', { name } );
 }
 
@@ -881,10 +884,8 @@ it( 'defaults to the connected website and keeps preview updates separate from l
 	await actions.click( await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
 	expect( screen.getByRole( 'button', { name: 'published.example.com' } ) ).toBeVisible();
 	expect( screen.queryByRole( 'button', { name: 'Copy preview link' } ) ).not.toBeInTheDocument();
-	await selectDestination( actions, 'draft.example.com' );
 	expect( await screen.findByRole( 'button', { name: 'Update preview' } ) ).toBeVisible();
-	expect( screen.queryByRole( 'button', { name: 'Who can view' } ) ).not.toBeInTheDocument();
-	await selectDestination( actions, 'published.example.com' );
+	expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toBeVisible();
 	await waitFor( () =>
 		expect( screen.getByRole( 'button', { name: 'Publish changes' } ) ).toBeEnabled()
 	);
@@ -978,9 +979,6 @@ it.each( [ false, true ] )(
 		} );
 		const actions = userEvent.setup();
 		await actions.click( await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
-		if ( hasLiveSite ) {
-			await selectDestination( actions, 'delete.example.com' );
-		}
 		await actions.click( await previewAction( actions, 'Delete preview' ) );
 		await actions.click( await screen.findByRole( 'button', { name: 'Delete preview' } ) );
 		await waitFor( () => expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument() );

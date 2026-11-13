@@ -18,6 +18,7 @@ export function TargetSwitcher( {
 	onSelect,
 	onNewPreview,
 	newPreviewDisabled,
+	previewsOnly = false,
 }: {
 	targets: PublishTarget[];
 	selectedKey: string;
@@ -27,6 +28,7 @@ export function TargetSwitcher( {
 	onSelect: ( target: PublishTarget ) => void;
 	onNewPreview?: () => void;
 	newPreviewDisabled?: boolean;
+	previewsOnly?: boolean;
 } ) {
 	const id = useId();
 	const sites = targets.filter( ( target ) => target.remote );
@@ -76,7 +78,7 @@ export function TargetSwitcher( {
 							variant="ghost"
 							className={ styles.accessTrigger }
 							disabled={ disabled }
-							aria-label={ __( 'Choose destination' ) }
+							aria-label={ previewsOnly ? __( 'Choose preview' ) : __( 'Choose destination' ) }
 							aria-description={ hostname }
 						/>
 					}
@@ -89,7 +91,7 @@ export function TargetSwitcher( {
 					side="bottom"
 					align="center"
 					className={ styles.targetSwitcherMenu }
-					aria-label={ __( 'Destinations' ) }
+					aria-label={ previewsOnly ? __( 'Previews' ) : __( 'Destinations' ) }
 				>
 					<Menu.RadioGroup value={ selectedKey }>
 						{ sites.length > 0 && previews.length > 0 ? (

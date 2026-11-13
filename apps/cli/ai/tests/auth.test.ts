@@ -34,7 +34,7 @@ const anthropicProvider = expect.objectContaining( { id: 'anthropic' } );
 type Configs = {
 	wpcom?: { token: string };
 	anthropic?: { method: 'api-key'; apiKey: string };
-	openai?: never;
+	openai?: { method: 'api-key'; apiKey: string } | { method: 'chatgpt'; accessToken: string };
 	spacefast?: never;
 };
 
@@ -109,6 +109,17 @@ describe( 'AI auth helpers', () => {
 		expect( connectProvider ).toHaveBeenCalledWith( anthropicProvider, 'setup-token', {
 			token: 'sk-ant-oat01-token',
 		} );
+
+		vi.mocked( select ).mockResolvedValue( 'api-key' );
+		answerPrompt( 'sk-proj-key' );
+
+		await connectInTerminal( 'openai' );
+
+		expect( connectProvider ).toHaveBeenLastCalledWith(
+			expect.objectContaining( { id: 'openai' } ),
+			'api-key',
+			{ apiKey: 'sk-proj-key' }
+		);
 	} );
 
 	it( 'shows the provider’s rejection as the prompt’s error', async () => {
@@ -200,5 +211,26 @@ describe( 'AI auth helpers', () => {
 
 		storeConfigs( { wpcom: { token: 'wpcom-token' } } );
 		await expect( resolveImageGenerator() ).resolves.toEqual( expect.any( Function ) );
+	} );
+
+	it( 'generates images through OpenAI for its chats with an API key, not a ChatGPT plan', async () => {
+		vi.mocked( fetch ).mockImplementation( async () => new Response( '{}', { status: 400 } ) );
+		const generated = async () => {
+			const generate = await resolveImageGenerator( 'openai' );
+			await generate!( [ { prompt: 'A lake' } ] );
+			return String( vi.mocked( fetch ).mock.lastCall![ 0 ] );
+		};
+
+		storeConfigs( {
+			wpcom: { token: 'wpcom-token' },
+			openai: { method: 'api-key', apiKey: 'sk-key' },
+		} );
+		await expect( generated() ).resolves.toBe( 'https://api.openai.com/v1/images/generations' );
+
+		storeConfigs( {
+			wpcom: { token: 'wpcom-token' },
+			openai: { method: 'chatgpt', accessToken: 'access' },
+		} );
+		await expect( generated() ).resolves.toContain( 'public-api.wordpress.com' );
 	} );
 } );

@@ -155,7 +155,7 @@ export interface Provider< Config = unknown, Site extends RemoteSite = RemoteSit
 		expiresAt?( config: Config ): number | undefined;
 		// What to keep once the provider rejects the config, so signing in again
 		// continues the same registration with it; never a credential.
-		remember?( config: Config ): Record< string, string >;
+		remember?( config: Config ): Record< string, string > | undefined;
 	};
 	ai?: {
 		models: readonly AiModel< AiModelId >[];
@@ -295,6 +295,8 @@ export interface ProviderServices< Config = unknown, Site extends RemoteSite = R
 			model: AiModelId,
 			options: { sessionId?: string }
 		): Promise< AiConnection >;
+		// Whether `generateImages` works with this config; defaults to true.
+		canGenerateImages?( config: Config ): boolean;
 		// Results keep the requests' order; a failure never aborts the rest.
 		generateImages?(
 			config: Config | undefined,

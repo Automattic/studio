@@ -35,11 +35,12 @@ export function resolveImageSize( aspectRatio: string | undefined ): string {
 
 export function buildImageRequestBody(
 	prompt: string,
-	aspectRatioKeyword: string | undefined
+	aspectRatioKeyword: string | undefined,
+	model = IMAGE_MODEL_ALIAS
 ): Record< string, unknown > {
 	// No `stream` and no `n` above 1: the proxy rejects both.
 	return {
-		model: IMAGE_MODEL_ALIAS,
+		model,
 		prompt,
 		quality: IMAGE_QUALITY,
 		size: resolveImageSize( aspectRatioKeyword ),
@@ -105,23 +106,27 @@ export function interpretImageResponse( raw: string, status: number ): Uint8Arra
 const sleep = ( seconds: number ) =>
 	new Promise< void >( ( resolve ) => setTimeout( resolve, seconds * 1000 ) );
 
+// An OpenAI-compatible images route: where it is, how to authenticate, and the model to ask for.
+export interface ImageRoute {
+	url: string;
+	headers: Record< string, string >;
+	model: string;
+}
+
 async function generateOne(
-	endpoint: string,
-	token: string,
+	route: ImageRoute,
 	request: GenerateImageRequest
 ): Promise< GenerateImageResult > {
-	const body = JSON.stringify( buildImageRequestBody( request.prompt, request.aspectRatio ) );
+	const body = JSON.stringify(
+		buildImageRequestBody( request.prompt, request.aspectRatio, route.model )
+	);
 	// Transient transport errors AND safety-filtered prompts retry: the
 	// non-deterministic filter can pass the same prompt on a later attempt.
 	for ( let attempt = 0; ; attempt++ ) {
 		try {
-			const response = await fetch( endpoint, {
+			const response = await fetch( route.url, {
 				method: 'POST',
-				headers: {
-					authorization: `Bearer ${ token }`,
-					'x-wpcom-ai-feature': IMAGE_FEATURE_SLUG,
-					'content-type': 'application/json',
-				},
+				headers: { ...route.headers, 'content-type': 'application/json' },
 				body,
 			} );
 			const raw = await response.text();
@@ -145,20 +150,19 @@ async function generateOne(
 	}
 }
 
-export const generateWpcomImages: NonNullable<
-	NonNullable< ProviderServices< WpcomConfig >[ 'ai' ] >[ 'generateImages' ]
-> = async ( config, requests, onResult ) => {
-	if ( ! config ) {
-		throw new Error( 'Image generation requires a WordPress.com login (studio auth login).' );
-	}
-	const endpoint = `${ getAiGatewayBaseUrl() }/v1/images/generations`;
+// Renders the requests a few at a time, in their order.
+export async function generateImagesOn(
+	route: ImageRoute,
+	requests: GenerateImageRequest[],
+	onResult?: ( index: number, result: GenerateImageResult ) => void
+): Promise< GenerateImageResult[] > {
 	const results: GenerateImageResult[] = new Array( requests.length );
 	let next = 0;
 
 	const worker = async () => {
 		while ( next < requests.length ) {
 			const index = next++;
-			const result = await generateOne( endpoint, config.token, requests[ index ] );
+			const result = await generateOne( route, requests[ index ] );
 			results[ index ] = result;
 			onResult?.( index, result );
 		}
@@ -167,4 +171,21 @@ export const generateWpcomImages: NonNullable<
 		Array.from( { length: Math.min( MAX_CONCURRENT_REQUESTS, requests.length ) }, worker )
 	);
 	return results;
+}
+
+export const generateWpcomImages: NonNullable<
+	NonNullable< ProviderServices< WpcomConfig >[ 'ai' ] >[ 'generateImages' ]
+> = async ( config, requests, onResult ) => {
+	if ( ! config ) {
+		throw new Error( 'Image generation requires a WordPress.com login (studio auth login).' );
+	}
+	const route = {
+		url: `${ getAiGatewayBaseUrl() }/v1/images/generations`,
+		headers: {
+			authorization: `Bearer ${ config.token }`,
+			'x-wpcom-ai-feature': IMAGE_FEATURE_SLUG,
+		},
+		model: IMAGE_MODEL_ALIAS,
+	};
+	return generateImagesOn( route, requests, onResult );
 };

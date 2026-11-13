@@ -118,9 +118,10 @@ export async function resolveAiConnection(
 async function bindImageGenerator< Id extends AiProviderId >(
 	provider: Id
 ): Promise< ImageGenerator | undefined > {
-	const generateImages = getProviderServices( provider ).ai?.generateImages;
+	const ai = getProviderServices( provider ).ai;
+	const generateImages = ai?.generateImages;
 	const config = generateImages && ( await readUsableProviderConfig( provider ) );
-	if ( ! generateImages || ! config ) {
+	if ( ! generateImages || ! config || ai.canGenerateImages?.( config ) === false ) {
 		return undefined;
 	}
 	return ( requests, onResult ) => generateImages( config, requests, onResult );

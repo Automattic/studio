@@ -400,9 +400,10 @@ export function PublishButton( {
 					toast.error( __( 'Could not watch for your new site. Please try again.' ) );
 				} );
 				await connector.openExternalUrl( checkoutUrl );
-				setCheckout( ( current ) =>
-					current === attempt ? { ...attempt, url: checkoutUrl } : current
-				);
+				setCheckout( ( current ) => {
+					if ( current !== attempt ) return current;
+					return snapshot ? undefined : { ...attempt, url: checkoutUrl };
+				} );
 			} else if ( sites.newSite === 'create' ) {
 				const created = await connector.createRemoteSite( provider, site.id, site.name );
 				await client.invalidateQueries( { queryKey: remoteSitesQueryKey( provider, site.id ) } );

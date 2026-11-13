@@ -1097,10 +1097,15 @@ it( 'chooses preview access locally, continues to checkout, and resets on close'
 	expect( screen.getByRole( 'button', { name: 'More options' } ) ).toBeVisible();
 
 	await act( async () => finishHandoff() );
-	expect( await screen.findByText( 'Finish setting up on WordPress.com.' ) ).toBeVisible();
-	const reopen = screen.getByRole( 'button', { name: 'Reopen WordPress.com' } );
-	expect( reopen ).toHaveAttribute( 'data-variant', 'outline' );
-	await actions.click( reopen );
+	expect(
+		screen.getByText( 'Anyone with the link can view this preview until it expires.' )
+	).toBeVisible();
+	expect( access ).toHaveAccessibleDescription( 'Everyone' );
+	const ready = screen.getByRole( 'button', { name: 'Continue on WordPress.com' } );
+	expect( ready ).toHaveAttribute( 'data-variant', 'accent' );
+	expect( ready ).toBeEnabled();
+	expect( screen.queryByText( 'Finish setting up on WordPress.com.' ) ).not.toBeInTheDocument();
+	await actions.click( ready );
 	expect( connector.openExternalUrl ).toHaveBeenCalledTimes( 2 );
 	expect( connector.openExternalUrl ).toHaveBeenLastCalledWith( url.toString() );
 
@@ -1176,7 +1181,7 @@ it.each( [ false, true ] )(
 		await actions.click( await screen.findByRole( 'button', { name: 'Share…' } ) );
 		await choosePreviewAccess( actions, 'Everyone' );
 		await actions.click( screen.getByRole( 'button', { name: 'Continue on WordPress.com' } ) );
-		await screen.findByRole( 'button', { name: 'Reopen WordPress.com' } );
+		await waitFor( () => expect( connector.openExternalUrl ).toHaveBeenCalledTimes( 1 ) );
 		expect( connector.connectRemoteSite ).not.toHaveBeenCalled();
 		if ( closed ) await actions.keyboard( '{Escape}' );
 

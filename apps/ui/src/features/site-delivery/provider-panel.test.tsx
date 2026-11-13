@@ -1350,7 +1350,7 @@ it( 'retries a delayed checkout connection without reopening the browser', async
 	await user.click( screen.getByRole( 'button', { name: 'Who can view' } ) );
 	await user.click( await screen.findByRole( 'menuitemradio', { name: 'Everyone' } ) );
 	await user.click( screen.getByRole( 'button', { name: 'Continue on WordPress.com' } ) );
-	await screen.findByRole( 'button', { name: 'Reopen WordPress.com' } );
+	await waitFor( () => expect( connector.openExternalUrl ).toHaveBeenCalledTimes( 1 ) );
 	act( () =>
 		connector.emit( 'onSyncConnectSite', {
 			studioSiteId: site.id,

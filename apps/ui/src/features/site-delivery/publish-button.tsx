@@ -81,7 +81,7 @@ import {
 	rememberPublishProvider,
 	orderedPublishProviders,
 } from './provider-picker';
-import { PublishOptionsControl } from './publish-options-control';
+import { PublishFilesDialog, PublishOptionsControl } from './publish-options-control';
 import { PullPreviewDialog } from './pull-preview-dialog';
 import { PullPreviewIcon } from './pull-preview-icon';
 import { ShareView } from './share-view';
@@ -110,6 +110,7 @@ export function PublishButton( {
 	const client = useQueryClient();
 	const trigger = useRef< HTMLButtonElement >( null );
 	const urlRow = useRef< HTMLButtonElement >( null );
+	const publishOptionsTrigger = useRef< HTMLButtonElement >( null );
 	const anchor = useRef< HTMLSpanElement >( null );
 	const cancel = useRef< HTMLButtonElement >( null );
 	const [ open, setOpen ] = useState( false );
@@ -257,6 +258,7 @@ export function PublishButton( {
 	const [ existingProvider, setExistingProvider ] = useState< SitesProviderId >();
 	const [ previewLiveSite, setPreviewLiveSite ] = useState< string >();
 	const [ republishing, setRepublishing ] = useState( false );
+	const [ chooseFiles, setChooseFiles ] = useState( false );
 	const openingTargetDialog = !! (
 		showLivePull ||
 		pullPreview ||
@@ -264,7 +266,8 @@ export function PublishButton( {
 		removeTarget ||
 		existingProvider ||
 		previewLiveSite !== undefined ||
-		republishing
+		republishing ||
+		chooseFiles
 	);
 	const locale = useUserLocale();
 	const liveTransfer =
@@ -575,6 +578,7 @@ export function PublishButton( {
 					! existingProvider &&
 					previewLiveSite === undefined &&
 					! republishing &&
+					! chooseFiles &&
 					! previewAction
 				}
 				onOpenChange={ ( next, event ) => {
@@ -952,6 +956,8 @@ export function PublishButton( {
 									) : null }
 									{ remote && descriptor?.selective && ! newDestination && (
 										<PublishOptionsControl
+											triggerRef={ publishOptionsTrigger }
+											onChooseFiles={ () => setChooseFiles( true ) }
 											provider={ selected!.provider }
 											site={ site }
 											remote={ remote }
@@ -1153,6 +1159,18 @@ export function PublishButton( {
 					</ShareView>
 				</Popover.Popup>
 			</Popover.Root>
+			{ chooseFiles && selected && remote && (
+				<PublishFilesDialog
+					site={ site }
+					provider={ selected.provider }
+					remote={ remote }
+					onClose={ () => {
+						setChooseFiles( false );
+						requestAnimationFrame( () => publishOptionsTrigger.current?.focus() );
+					} }
+					returnFocus={ publishOptionsTrigger }
+				/>
+			) }
 			{ existingProvider && (
 				<ExistingSiteDialog
 					provider={ existingProvider }

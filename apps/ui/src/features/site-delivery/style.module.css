@@ -532,31 +532,21 @@
 	width: 100%;
 	justify-content: space-between;
 }
-.publishFilesView {
+.publishFilesDialog {
+	max-width: 520px;
 	display: flex;
 	flex-direction: column;
-	gap: var( --space-3 );
-}
-.publishFilesHeader,
-.publishFilesFooter {
-	padding: var( --space-2 );
+	overflow: hidden;
 }
 .publishFilesList {
-	max-height: 280px;
+	max-height: 420px;
 	min-height: 72px;
 	overflow-y: auto;
 	overscroll-behavior: contain;
-	padding: var( --space-1 ) var( --space-2 );
 }
 .publishFilesHint {
-	margin: 0 var( --space-2 );
 	font-size: var( --text-xxs );
 	color: var( --muted-foreground );
-}
-.publishFilesFooter {
-	display: flex;
-	justify-content: space-between;
-	border-top: 1px solid var( --border );
 }
 
 .destinationMenu {

@@ -1099,7 +1099,7 @@ it( 'chooses a live site before creating a preview when several sites qualify', 
 	);
 } );
 
-it( 'chooses files inside the popover, preserves Database, and discards unfinished edits', async () => {
+it( 'chooses files in a modal, preserves Database, and discards unfinished edits', async () => {
 	const { connector, user } = setup( {
 		getSitePublishStatus: async () => ( { localChanged: true } ),
 		listLocalFileTree: async () => [
@@ -1122,8 +1122,12 @@ it( 'chooses files inside the popover, preserves Database, and discards unfinish
 	await waitFor( () => expect( database ).toBeEnabled() );
 	await user.click( database );
 	const openFiles = async () => {
+		if ( ! screen.queryByRole( 'button', { name: 'Choose specific files' } ) ) {
+			await user.click( screen.getByRole( 'button', { name: 'What to publish' } ) );
+		}
 		await user.click( await screen.findByRole( 'button', { name: 'Choose specific files' } ) );
 		const view = await screen.findByRole( 'dialog', { name: 'Choose files' } );
+		expect( screen.queryByRole( 'dialog', { name: 'Publish' } ) ).not.toBeInTheDocument();
 		expect(
 			within( view ).queryByRole( 'checkbox', { name: 'Content and settings' } )
 		).not.toBeInTheDocument();
@@ -1133,17 +1137,18 @@ it( 'chooses files inside the popover, preserves Database, and discards unfinish
 	let dialog = await openFiles();
 	await user.click( await within( dialog ).findByRole( 'checkbox', { name: 'theme.json' } ) );
 	await user.click( within( dialog ).getByRole( 'button', { name: 'Done' } ) );
+	await waitFor( () =>
+		expect( screen.getByRole( 'button', { name: 'What to publish' } ) ).toHaveFocus()
+	);
+	await user.click( screen.getByRole( 'button', { name: 'What to publish' } ) );
 	expect(
 		screen.getByRole( 'checkbox', { name: 'Database Posts, pages, and settings' } )
 	).not.toBeChecked();
 	expect( screen.getByRole( 'checkbox', { name: 'Themes' } ) ).toBePartiallyChecked();
-	await waitFor( () =>
-		expect( screen.getByRole( 'button', { name: 'Choose specific files' } ) ).toHaveFocus()
-	);
 	expect( connector.pushSite ).not.toHaveBeenCalled();
 	dialog = await openFiles();
 	await user.click( await within( dialog ).findByRole( 'checkbox', { name: 'theme.json' } ) );
-	await user.click( within( dialog ).getByRole( 'button', { name: 'Back' } ) );
+	await user.click( within( dialog ).getByRole( 'button', { name: 'Close' } ) );
 	dialog = await openFiles();
 	expect(
 		await within( dialog ).findByRole( 'checkbox', { name: 'theme.json' } )

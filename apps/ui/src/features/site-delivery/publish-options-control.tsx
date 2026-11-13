@@ -1,6 +1,5 @@
 import { __ } from '@wordpress/i18n';
-import { ChevronLeftIcon } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState, type RefObject } from 'react';
 import {
 	checkNodes,
 	FilePicker,
@@ -9,7 +8,16 @@ import {
 	useTransferSelection,
 } from '@/features/sync';
 import { ChevronDownIcon, ChevronRightIcon, SlidersVerticalIcon } from '@/lib/icons';
-import { Button, Popover } from '@/lib/ui';
+import {
+	Button,
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogDescription,
+	DialogFooter,
+	Popover,
+} from '@/lib/ui';
 import styles from './style.module.css';
 import type { SiteDetails } from '@/data/core';
 import type { RemoteSite, SitesProviderId } from '@studio/providers';
@@ -19,36 +27,27 @@ export function PublishOptionsControl( {
 	site,
 	remote,
 	disabled,
+	onChooseFiles,
+	triggerRef,
 }: {
 	provider: SitesProviderId;
 	site: SiteDetails;
 	remote: RemoteSite;
 	disabled: boolean;
+	onChooseFiles: () => void;
+	triggerRef: RefObject< HTMLButtonElement | null >;
 } ) {
-	const trigger = useRef< HTMLButtonElement >( null );
-	const filesTrigger = useRef< HTMLButtonElement >( null );
 	const [ open, setOpen ] = useState( false );
 	const selection = useTransferSelection( site, provider, remote, 'push', open );
-	const [ chooseFiles, setChooseFiles ] = useState( false );
-	const returnToChecklist = () => {
-		setChooseFiles( false );
-		requestAnimationFrame( () => filesTrigger.current?.focus() );
-	};
 	const label = publishSelectionSummary( selection );
 	return (
 		<div>
-			<Popover.Root
-				open={ open }
-				onOpenChange={ ( nextOpen ) => {
-					setOpen( nextOpen );
-					if ( ! nextOpen ) setChooseFiles( false );
-				} }
-			>
+			<Popover.Root open={ open } onOpenChange={ setOpen }>
 				<Popover.Trigger
 					render={
 						<Button
 							variant="ghost"
-							ref={ trigger }
+							ref={ triggerRef }
 							className={ styles.accessTrigger }
 							disabled={ disabled }
 							aria-label={ __( 'What to publish' ) }
@@ -66,53 +65,42 @@ export function PublishOptionsControl( {
 				<Popover.Popup
 					align="end"
 					className={ styles.publishOptionsPopover }
-					aria-label={ chooseFiles ? __( 'Choose files' ) : __( 'What to publish' ) }
+					aria-label={ __( 'What to publish' ) }
 				>
-					{ chooseFiles ? (
-						<PublishFilesView
-							site={ site }
-							provider={ provider }
-							remote={ remote }
-							selection={ selection }
-							onBack={ returnToChecklist }
-						/>
-					) : (
-						<PublishChecklist selection={ selection }>
-							<div className={ styles.publishFilesEntry }>
-								<Button
-									ref={ filesTrigger }
-									variant="ghost"
-									className={ styles.publishFilesTrigger }
-									disabled={ selection.loadingFiles || !! selection.error }
-									onClick={ () => setChooseFiles( true ) }
-								>
-									{ __( 'Choose specific files' ) }
-									<ChevronRightIcon data-icon="inline-end" />
-								</Button>
-							</div>
-						</PublishChecklist>
-					) }
+					<PublishChecklist selection={ selection }>
+						<div className={ styles.publishFilesEntry }>
+							<Button
+								variant="ghost"
+								className={ styles.publishFilesTrigger }
+								disabled={ selection.loadingFiles || !! selection.error }
+								onClick={ onChooseFiles }
+							>
+								{ __( 'Choose specific files' ) }
+								<ChevronRightIcon data-icon="inline-end" />
+							</Button>
+						</div>
+					</PublishChecklist>
 				</Popover.Popup>
 			</Popover.Root>
 		</div>
 	);
 }
 
-function PublishFilesView( {
+export function PublishFilesDialog( {
 	site,
 	provider,
 	remote,
-	selection,
-	onBack,
+	onClose,
+	returnFocus,
 }: {
 	site: SiteDetails;
 	provider: SitesProviderId;
 	remote: RemoteSite;
-	selection: ReturnType< typeof useTransferSelection >;
-	onBack: () => void;
+	onClose: () => void;
+	returnFocus: RefObject< HTMLButtonElement | null >;
 } ) {
 	const heading = useRef< HTMLHeadingElement >( null );
-	useEffect( () => heading.current?.focus(), [] );
+	const selection = useTransferSelection( site, provider, remote, 'push', false );
 	const draft = useTransferSelection( site, provider, remote, 'push', true, false, {
 		scope: 'custom',
 		nodes:
@@ -122,48 +110,51 @@ function PublishFilesView( {
 		content: selection.scope === 'custom' ? selection.content : selection.scope !== 'files',
 	} );
 	return (
-		<div className={ styles.publishFilesView }>
-			<header className={ styles.publishFilesHeader }>
-				<Popover.Title ref={ heading } tabIndex={ -1 }>
-					{ __( 'Choose files' ) }
-				</Popover.Title>
-				<Popover.Description>
-					{ __( 'Select the files and folders to publish.' ) }
-				</Popover.Description>
-			</header>
-			<div className={ styles.publishFilesList }>
-				{ draft.error ? (
-					<p role="alert">
-						{ __( 'Files could not be loaded.' ) }{ ' ' }
-						<Button variant="inline-link" size="inline" onClick={ draft.retry }>
-							{ __( 'Try again' ) }
-						</Button>
+		<Dialog open onOpenChange={ ( next ) => ! next && onClose() }>
+			<DialogContent
+				layout="compact"
+				className={ styles.publishFilesDialog }
+				initialFocus={ heading }
+				finalFocus={ returnFocus }
+			>
+				<DialogHeader>
+					<DialogTitle ref={ heading } tabIndex={ -1 }>
+						{ __( 'Choose files' ) }
+					</DialogTitle>
+					<DialogDescription>
+						{ __( 'Select the files and folders to publish.' ) }
+					</DialogDescription>
+				</DialogHeader>
+				<div className={ styles.publishFilesList }>
+					{ draft.error ? (
+						<p role="alert">
+							{ __( 'Files could not be loaded.' ) }{ ' ' }
+							<Button variant="inline-link" size="inline" onClick={ draft.retry }>
+								{ __( 'Try again' ) }
+							</Button>
+						</p>
+					) : (
+						<FilePicker selection={ draft } includeDatabase={ false } />
+					) }
+				</div>
+				{ draft.blocked && (
+					<p className={ styles.publishFilesHint } role="status">
+						{ __( 'Select at least one file or folder.' ) }
 					</p>
-				) : (
-					<FilePicker selection={ draft } includeDatabase={ false } />
 				) }
-			</div>
-			{ draft.blocked && (
-				<p className={ styles.publishFilesHint } role="status">
-					{ __( 'Select at least one file or folder.' ) }
-				</p>
-			) }
-			<footer className={ styles.publishFilesFooter }>
-				<Button variant="outline" onClick={ onBack }>
-					<ChevronLeftIcon data-icon="inline-start" />
-					{ __( 'Back' ) }
-				</Button>
-				<Button
-					variant="accent"
-					disabled={ draft.loadingFiles || !! draft.error || draft.blocked }
-					onClick={ () => {
-						selection.restore( draft.snapshot );
-						onBack();
-					} }
-				>
-					{ __( 'Done' ) }
-				</Button>
-			</footer>
-		</div>
+				<DialogFooter>
+					<Button
+						variant="accent"
+						disabled={ draft.loadingFiles || !! draft.error || draft.blocked }
+						onClick={ () => {
+							selection.restore( draft.snapshot );
+							onClose();
+						} }
+					>
+						{ __( 'Done' ) }
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
 	);
 }

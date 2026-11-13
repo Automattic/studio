@@ -31,7 +31,7 @@ export {
 } from '@studio/agent/shared/tools/define-tool';
 export type { StudioToolsOptions } from '@studio/agent/shared/tools';
 export { renderSkill } from '@studio/agent/shared/tools/skill';
-export { siteOfCall, textResult } from '@studio/agent/shared/tools/utils';
+export { siteOfCall, textResult, withTimeout } from '@studio/agent/shared/tools/utils';
 export { loadSkills } from '@studio/agent/shared/skills';
 export { buildSystemPrompt } from '@studio/agent/shared/system-prompt';
 export type { ImageGenerator } from '@studio/agent/shared/image-generation';

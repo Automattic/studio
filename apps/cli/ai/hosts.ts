@@ -10,6 +10,7 @@ import {
 	WPCOM_HOST,
 	type HostSiteListing,
 	type RemoteHost,
+	withTimeout,
 } from '@studio/agent/node';
 import { getRemoteSites } from '@studio/common/lib/remote-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
@@ -23,6 +24,10 @@ import { Logger } from 'cli/logger';
 const errorText = ( error: unknown ) =>
 	error instanceof Error ? error.message : String( error );
 
+// A listing takes about a second; one that hangs, as a read that only the
+// system's network timeout ends, fails rather than holding the call open.
+const LISTING_TIMEOUT_MS = 30_000;
+
 /** The user's WordPress.com sites that `read` lists with their token. */
 async function wpcomListing(
 	read: ( token: string ) => Promise< HostSiteListing[ 'sites' ] >
@@ -32,7 +37,14 @@ async function wpcomListing(
 		return { signedIn: false, sites: [] };
 	}
 	try {
-		return { signedIn: true, sites: await read( token.accessToken ) };
+		return {
+			signedIn: true,
+			sites: await withTimeout(
+				read( token.accessToken ),
+				LISTING_TIMEOUT_MS,
+				'Listing WordPress.com sites'
+			),
+		};
 	} catch ( error ) {
 		return {
 			signedIn: true,

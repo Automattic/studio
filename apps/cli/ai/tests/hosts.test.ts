@@ -126,10 +126,24 @@ describe( 'WordPress.com', () => {
 			},
 			listing: { signedIn: true, sites: [], error: 'Failed to fetch' },
 		},
+		{
+			name: 'says when WordPress.com does not answer',
+			token: { accessToken: 'token' },
+			sites: () => new Promise( () => {} ),
+			listing: {
+				signedIn: true,
+				sites: [],
+				error: 'Listing WordPress.com sites timed out after 30s',
+			},
+		},
 	] )( '$name', async ( { token, sites, listing } ) => {
+		vi.useFakeTimers();
 		vi.mocked( readAuthToken ).mockResolvedValue( token as never );
 		vi.mocked( getWpComSites ).mockImplementation( sites as never );
 
-		expect( await HOSTS.wpcom.sites?.list() ).toEqual( listing );
+		const listed = HOSTS.wpcom.sites?.list();
+		await vi.advanceTimersByTimeAsync( 30_000 );
+		expect( await listed ).toEqual( listing );
+		vi.useRealTimers();
 	} );
 } );

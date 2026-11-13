@@ -11,6 +11,7 @@ import { existsSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { promisify } from 'util';
+import { withTimeout } from '@studio/agent/shared/tools/utils';
 
 type Browser = Awaited< ReturnType< ( typeof import('playwright') )[ 'chromium' ][ 'launch' ] > >;
 type Page = Awaited< ReturnType< Browser[ 'newPage' ] > >;
@@ -24,27 +25,6 @@ const BROWSER_INSTALL_TIMEOUT_MS = 15 * 60_000;
 
 let install: { promise: Promise< void >; startedAt: number } | null = null;
 let lastInstallError: string | null = null;
-
-export async function withTimeout< T >(
-	promise: Promise< T >,
-	ms: number,
-	label: string
-): Promise< T > {
-	let timer: ReturnType< typeof setTimeout > | undefined;
-	try {
-		return await Promise.race( [
-			promise,
-			new Promise< never >( ( _, reject ) => {
-				timer = setTimeout(
-					() => reject( new Error( `${ label } timed out after ${ ms / 1000 }s` ) ),
-					ms
-				);
-			} ),
-		] );
-	} finally {
-		clearTimeout( timer );
-	}
-}
 
 function downloadingError(): Error {
 	const seconds = Math.floor( ( Date.now() - ( install?.startedAt ?? Date.now() ) ) / 1000 );

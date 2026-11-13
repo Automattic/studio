@@ -73,7 +73,7 @@ import {
 import { ConnectSiteIcon, DisconnectSiteIcon } from './connection-icons';
 import { DestinationRow } from './destination-row';
 import { ExistingSiteDialog } from './existing-site-dialog';
-import { HostedAccessControl } from './hosted-access-control';
+import { HostedAccessControl, PreviewAccessControl } from './hosted-access-control';
 import { LiveSiteAction } from './live-site-action';
 import { ProviderLogo } from './provider-logo';
 import {
@@ -96,7 +96,7 @@ type PullRequest = { provider?: SitesProviderId; remoteSiteId?: string | number 
 
 type Checkout = {
 	provider: SitesProviderId;
-	primary: { label: string; variant: 'accent' | 'outline' };
+	primaryLabel: string;
 	url?: string;
 };
 
@@ -235,6 +235,7 @@ export function PublishButton( {
 		: __( 'Make your WordPress public with a link anyone can open.' );
 	const [ preparing, setPreparing ] = useState< 'checkout' | 'create' >();
 	const [ checkout, setCheckout ] = useState< Checkout >();
+	const [ publicPreviewKey, setPublicPreviewKey ] = useState< string >();
 	const activeCheckout = remote ? undefined : checkout;
 	const checkoutUrl = activeCheckout?.url;
 	const openingCheckout = !! activeCheckout && ! checkoutUrl && preparing === 'checkout';
@@ -299,6 +300,13 @@ export function PublishButton( {
 		: [];
 	const publicDestination = snapshot ? selected!.provider : emptyDestination;
 	const publicDescriptor = getProviderSites( publicDestination );
+	const publicProviderLabel = getProvider( publicDestination ).label;
+	const previewPublicSelected = !! snapshot && publicPreviewKey === selected?.key;
+	const continueLabel = sprintf(
+		/* translators: %s: hosting provider name. */
+		__( 'Continue on %s' ),
+		publicProviderLabel
+	);
 	const { copied, copy } = useCopyText( url ?? '' );
 	const { copy: copyLinkFromMenu } = useCopyText( url ?? '', __( 'Link copied' ) );
 	const publicDescription = checkoutUrl
@@ -318,12 +326,14 @@ export function PublishButton( {
 		setOpen( false );
 		setPullRequest( undefined );
 		setCheckout( undefined );
+		setPublicPreviewKey( undefined );
 		if ( selected ) setPublishProvider( undefined );
 	};
 	const select = ( target: PublishTarget ) => {
 		setPullRequest( undefined );
 		targets.select( target );
 		setCheckout( undefined );
+		setPublicPreviewKey( undefined );
 		setFailure( undefined );
 		setPublishProvider( undefined );
 		if ( target.snapshot ) preview.selectPreview( getSnapshotHostname( target.snapshot ) );
@@ -344,6 +354,7 @@ export function PublishButton( {
 		}
 		setPreviewLiveSite( undefined );
 		setCheckout( undefined );
+		setPublicPreviewKey( undefined );
 		if ( targets.previewProvider ) rememberPublishProvider( targets.previewProvider );
 		setPreviewsBeforeCreation( new Set( preview.previews.map( ( item ) => item.atomicSiteId ) ) );
 		void preview
@@ -380,11 +391,7 @@ export function PublishButton( {
 				}
 				const attempt: Checkout = {
 					provider,
-					primary: snapshot
-						? upToDate
-							? { label: copied ? __( 'Copied' ) : __( 'Copy link' ), variant: 'outline' }
-							: { label: __( 'Update preview' ), variant: 'accent' }
-						: { label: __( 'Create preview link' ), variant: 'accent' },
+					primaryLabel: snapshot ? continueLabel : __( 'Create preview link' ),
 				};
 				setCheckout( attempt );
 				clearPublishSetupError( site.id );
@@ -940,7 +947,19 @@ export function PublishButton( {
 											/>
 										</div>
 									) }
-									{ snapshot || ( ! selected && emptyDescriptor.previews ) ? (
+									{ snapshot && publicDescriptor.newSite === 'checkout' && (
+										<PreviewAccessControl
+											publicSelected={ previewPublicSelected }
+											disabled={ disabled }
+											providerLabel={ publicProviderLabel }
+											onPublicSelectedChange={ ( next ) => {
+												setPublicPreviewKey( next ? selected?.key : undefined );
+												setCheckout( undefined );
+												setFailure( undefined );
+											} }
+										/>
+									) }
+									{ ! selected && emptyDescriptor.previews && (
 										<div>
 											<DestinationRow
 												icon={ <ProviderLogo provider={ publicDestination } branded compact /> }
@@ -964,7 +983,7 @@ export function PublishButton( {
 												onClick={ () => void startProvider( publicDestination ) }
 											/>
 										</div>
-									) : null }
+									) }
 									{ remote && descriptor?.selective && ! newDestination && (
 										<PublishOptionsControl
 											triggerRef={ publishOptionsTrigger }
@@ -1090,8 +1109,13 @@ export function PublishButton( {
 												<ExternalLinkIcon />
 											</Button>
 										) : openingCheckout && activeCheckout ? (
-											<Button variant={ activeCheckout.primary.variant } disabled>
-												{ activeCheckout.primary.label }
+											<Button
+												variant="accent"
+												loading={ !! snapshot }
+												aria-description={ snapshot ? openingDescription : undefined }
+												disabled
+											>
+												{ activeCheckout.primaryLabel }
 											</Button>
 										) : preparing === 'create' ? (
 											<Button variant="accent" loading disabled>
@@ -1108,6 +1132,14 @@ export function PublishButton( {
 												onClick={ () => void startProvider( emptyDestination ) }
 											>
 												{ __( 'Publish' ) }
+											</Button>
+										) : previewPublicSelected ? (
+											<Button
+												variant="accent"
+												disabled={ disabled || connectionUnavailable }
+												onClick={ () => void startProvider( publicDestination ) }
+											>
+												{ continueLabel }
 											</Button>
 										) : snapshot ? (
 											upToDate && ! selectedPending ? (

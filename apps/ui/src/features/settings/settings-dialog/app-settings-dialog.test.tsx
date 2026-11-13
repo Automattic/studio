@@ -870,7 +870,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith( 'https://auth.example.test/sign-in' );
 	} );
 
-	it( 'hides ChatGPT on the web, which cannot reach it', async () => {
+	it( 'hides ChatGPT and the Muse subscription on the web, which cannot sign in to them', async () => {
 		await setup( {
 			section: 'ai',
 			overrides: {
@@ -885,6 +885,8 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		} );
 		await findProviderRow( 'anthropic-provider' );
 		expect( row( 'openai-provider' ) ).toBeNull();
+		fireEvent.click( within( row( 'meta-provider' )! ).getByRole( 'button', { name: 'Connect' } ) );
+		expect( await screen.findByLabelText( 'Meta API key', { selector: 'input' } ) ).toBeVisible();
 	} );
 
 	it( 'reveals an inline Anthropic key form and collapses after connecting', async () => {

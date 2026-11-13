@@ -121,6 +121,7 @@ describe( 'AI provider settings', () => {
 			anthropic:
 				summary === null ? { connected: false } : { connected: true, method: 'api-key', summary },
 			openai: { connected: false },
+			meta: { connected: false },
 			spacefast: { connected: false },
 		},
 	} );

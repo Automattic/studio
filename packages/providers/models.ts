@@ -3,11 +3,13 @@ import type { ANTHROPIC_AI_MODELS } from './anthropic/descriptor';
 import type { OPENAI_AI_MODELS } from './openai/descriptor';
 import type { AiModel, AiProviderId, ProviderId } from './types';
 import type { WPCOM_AI_MODELS } from './wpcom/descriptor';
+import type { XAI_AI_MODELS } from './xai/descriptor';
 
 export type AiModelId = (
 	| typeof WPCOM_AI_MODELS
 	| typeof ANTHROPIC_AI_MODELS
 	| typeof OPENAI_AI_MODELS
+	| typeof XAI_AI_MODELS
 )[ number ][ 'id' ];
 
 // A model by its id, and the first provider that serves it.

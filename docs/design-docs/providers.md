@@ -30,6 +30,7 @@ It describes the architecture and the rules, not the exact APIs, which are expec
 | WordPress.com (`wpcom`)                      | Studio sign-in                 | `fast`, `balanced`, `strong`; images | push, pull | _(planned)_ |
 | Anthropic (`anthropic`)                      | API key, or subscription token | Claude models                        | —          | —           |
 | OpenAI (`openai`)                            | ChatGPT plan, browser sign-in  | GPT models                           | —          | —           |
+| xAI (`xai`)                                  | Grok plan or API key           | Grok models                          | —          | —           |
 | Spacefast (`spacefast`)                      | Device sign-in                 | —                                    | publish    | —           |
 | Other hosts, such as an SSH host _(planned)_ | Per host                       | —                                    | push, pull | —           |
 

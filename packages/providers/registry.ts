@@ -2,6 +2,7 @@ import { anthropicProvider } from './anthropic/descriptor';
 import { openaiProvider } from './openai/descriptor';
 import { spacefastProvider } from './spacefast/descriptor';
 import { wpcomProvider } from './wpcom/descriptor';
+import { xaiProvider } from './xai/descriptor';
 import type {
 	AiProviderId,
 	Provider,
@@ -17,6 +18,7 @@ export const AI_PROVIDER_IDS = [
 	'wpcom',
 	'anthropic',
 	'openai',
+	'xai',
 ] as const satisfies readonly AiProviderId[];
 
 // The providers with remote sites, in the order the publish panel offers them.
@@ -38,6 +40,7 @@ const PROVIDERS: {
 	wpcom: wpcomProvider,
 	anthropic: anthropicProvider,
 	openai: openaiProvider,
+	xai: xaiProvider,
 	spacefast: spacefastProvider,
 };
 
@@ -60,6 +63,7 @@ const STORED_PROVIDER_IDS: Record< ProviderId, string > = {
 	wpcom: 'wpcom',
 	anthropic: 'anthropic-api-key',
 	openai: 'openai',
+	xai: 'xai',
 	spacefast: 'spacefast',
 };
 

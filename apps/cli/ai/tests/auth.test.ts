@@ -35,6 +35,7 @@ type Configs = {
 	wpcom?: { token: string };
 	anthropic?: { method: 'api-key'; apiKey: string };
 	openai?: never;
+	xai?: never;
 	spacefast?: never;
 };
 

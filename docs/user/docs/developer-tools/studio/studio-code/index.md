@@ -212,12 +212,13 @@ In the desktop app, each site’s chats are listed under the site in the sidebar
 
 ### [AI providers](#ai-providers)
 
-You can choose how AI responses are generated, in both the desktop app and the terminal:
+Open **Settings → Providers** and connect the account you want to use for chat in WordPress Studio Code.
 
--   **WordPress.com** (default): uses your WordPress.com account and AI Credits. No additional setup is required beyond logging in.
--   **Anthropic API key**: uses your own API key for direct access to Claude. In the desktop app, connect **Anthropic** in **Settings → Providers**. In the terminal, set it with the `/api-key` command.
+-   **WordPress.com** uses [AI credits](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/). Click **Connect** to sign in with your WordPress.com account.
+-   **ChatGPT** uses your existing ChatGPT plan. Click **Connect** and finish signing in to ChatGPT in your browser. See [how ChatGPT plans work in other apps](https://help.openai.com/en/articles/20001542-using-your-chatgpt-plan-in-other-apps-and-sites).
+-   **Anthropic API** uses your own API key to chat with Claude. [Create an Anthropic API key](https://platform.claude.com/docs/en/get-api-key), click **Connect**, and save the key in WordPress Studio. Anthropic bills usage to your account.
 
-With your own key, the model menu offers **Sonnet 5.5** and **Opus 5.5** instead of Fast, Balanced, and Strong. In the desktop app, choose the provider for each chat from the model menu, and set the provider new chats use with **Default provider** in **Settings → Providers**. In the terminal, switch providers with the `/provider` command.
+Use **Default AI provider** to choose which connected account new chats use. The model menu lets you choose a provider for a particular chat. In the terminal, switch providers with the `/provider` command.
 
 Switching a chat between WordPress.com and Anthropic models starts a new chat, because the models don’t share memory. In the desktop app, WordPress Studio asks you to confirm first (**Start a new chat?**), and your previous chat stays in the sidebar.
 

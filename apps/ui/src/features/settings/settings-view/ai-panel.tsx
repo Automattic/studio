@@ -1,7 +1,6 @@
 import {
 	getConnectFields,
 	getProviderDescriptor,
-	AI_PROVIDER_IDS,
 	normalizeAiProviderId,
 	type AiProviderId,
 	type ProviderId,
@@ -18,11 +17,12 @@ import {
 	useSetAiProvider,
 } from '@/data/queries/use-ai-settings';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
-import { usePublishProviders } from '@/data/queries/use-remote-sites';
 import { LearnMoreLink } from '@/features/onboarding';
 import { useOffline } from '@/lib/hooks';
+import { ChevronDownIcon, ExternalLinkIcon } from '@/lib/icons';
 import { Button, Input } from '@/lib/ui';
-import { connectedBadge, SettingsGroup, SettingsRow, SettingsSelect } from './rows';
+import { ProviderLogo } from './provider-logo';
+import { connectedBadge, SettingsGroup, SettingsRow } from './rows';
 import styles from './style.module.css';
 
 // A provider that connects with a form: the form comes from its descriptor.
@@ -58,25 +58,24 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 			<SettingsRow
 				title={ descriptor.label }
 				settingId={ `${ provider }-provider` }
+				icon={ <ProviderLogo provider={ provider } /> }
 				badge={ account?.connected ? connectedBadge() : null }
-				description={
-					<>
-						{ descriptor.description?.() }{ ' ' }
-						{ descriptor.learnMoreUrl ? <LearnMoreLink url={ descriptor.learnMoreUrl } /> : null }
-					</>
-				}
+				description={ descriptor.description?.() }
 			>
 				<Button
+					className={ styles.providerFormToggle }
 					variant="outline"
 					aria-expanded={ formOpen }
 					disabled={ pending }
 					onClick={ () => ( formOpen ? closeForm() : setFormOpen( true ) ) }
 				>
 					{ account?.connected ? __( 'Manage' ) : __( 'Connect' ) }
+					<ChevronDownIcon data-icon="inline-end" />
 				</Button>
 			</SettingsRow>
 			{ formOpen ? (
 				<form
+					className={ styles.providerForm }
 					aria-label={ sprintf(
 						/* translators: %s: provider name */
 						__( '%s connection' ),
@@ -145,12 +144,17 @@ function ProviderFormRow( { provider }: { provider: AiProviderId } ) {
 	);
 }
 
-function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } ) {
+export function AiProviders( {
+	providers,
+	onManageCredits,
+}: {
+	providers: AiProviderId[];
+	onManageCredits: () => void;
+} ) {
 	const settings = useAiSettings();
 	const { data: user, isLoading: userLoading } = useAuthUser();
 	const origin = getProviderIntent( useConnector() );
-	const { promptRef, ...signup } = useLogin( {
-		signup: true,
+	const { promptRef, ...login } = useLogin( {
 		source: 'settings',
 		analytics: {
 			placement: 'settings_ai',
@@ -163,16 +167,8 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 	const setProvider = useSetAiProvider();
 	const isOffline = useOffline();
 	const [ wpcomRequested, setWpcomRequested ] = useState( false );
-	const connected = AI_PROVIDER_IDS.filter( ( id ) => settings.data?.accounts[ id ].connected );
-	const { capabilities } = useConnector();
-	const aiProviders = AI_PROVIDER_IDS.filter(
-		( id ) => capabilities.nativeSites || getProviderDescriptor( id ).ai?.inPage !== false
-	);
-	const signInProviders = [ ...new Set( [ ...aiProviders, ...usePublishProviders() ] ) ].filter(
-		( id ) => [ 'device', 'loopback' ].includes( getProviderDescriptor( id ).connection.kind )
-	);
 
-	// Connecting WordPress.com finishes once the sign-up lands.
+	// Connecting WordPress.com finishes once the sign-in lands.
 	const { mutate: selectProvider } = setProvider;
 	useEffect( () => {
 		if ( wpcomRequested && user ) {
@@ -182,7 +178,18 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 	}, [ wpcomRequested, user, selectProvider ] );
 
 	return (
-		<SettingsGroup title={ __( 'Providers' ) }>
+		<SettingsGroup
+			title={ __( 'AI providers' ) }
+			settingId="ai-providers"
+			description={
+				<>
+					{ __(
+						'Build and edit sites through chat. Use WordPress.com AI credits or bring your own subscription or API key.'
+					) }{ ' ' }
+					<LearnMoreLink docsLinksKey="docsAiProviders" />
+				</>
+			}
+		>
 			{ settings.isError ? (
 				<SettingsRow title={ __( "Couldn't load providers." ) }>
 					<Button variant="outline" onClick={ () => void settings.refetch() }>
@@ -192,64 +199,45 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 			) : null }
 			<SettingsRow
 				title={ __( 'WordPress.com' ) }
+				settingId="wpcom-provider"
+				icon={ <ProviderLogo provider="wpcom" /> }
 				badge={ user ? connectedBadge() : null }
-				description={
-					<>
-						{ __(
-							'Get started with a one-time free allowance, then buy more as you go. No API key required.'
-						) }{ ' ' }
-						<LearnMoreLink docsLinksKey="docsAiCredits" />
-					</>
-				}
-				error={ signup.error?.message }
+				description={ __( 'Start building with free AI credits.' ) }
+				error={ login.error?.message }
 			>
 				<Button
+					className={ styles.externalConnect }
 					disabled={ userLoading || ( ! user && isOffline ) }
 					ref={ promptRef }
+					aria-label={ user ? undefined : __( 'Connect to WordPress.com' ) }
 					onClick={ () => {
 						if ( user ) {
 							onManageCredits();
 							return;
 						}
 						setWpcomRequested( true );
-						signup.mutate( undefined, { onError: () => setWpcomRequested( false ) } );
+						login.mutate( undefined, { onError: () => setWpcomRequested( false ) } );
 					} }
 				>
-					{ user ? __( 'Manage' ) : __( 'Connect' ) }
+					{ user ? __( 'Manage AI credits' ) : __( 'Connect' ) }
+					{ ! user ? <ExternalLinkIcon data-icon="inline-end" /> : null }
 				</Button>
 			</SettingsRow>
-			{ aiProviders
-				.filter( ( id ) => getConnectFields( id ).length )
-				.map( ( id ) => (
+			{ providers.map( ( id ) => {
+				const { kind } = getProviderDescriptor( id ).connection;
+				if ( kind === 'device' || kind === 'loopback' ) {
+					return <SignInProviderRow key={ id } provider={ id } />;
+				}
+				return getConnectFields( id ).length ? (
 					<ProviderFormRow key={ id } provider={ id } />
-				) ) }
-			{ signInProviders.map( ( id ) => (
-				<SignInProviderRow key={ id } provider={ id } />
-			) ) }
-			{ connected.length > 1 && settings.data ? (
-				<SettingsRow
-					title={ __( 'Default provider' ) }
-					description={ __( 'The provider new chats use.' ) }
-					error={ setProvider.error?.message }
-				>
-					<SettingsSelect< AiProviderId >
-						label={ __( 'Default provider' ) }
-						value={ settings.data.provider }
-						disabled={ settings.isLoading || setProvider.isPending }
-						options={ connected.map( ( provider ) => ( {
-							value: provider,
-							label: getProviderDescriptor( provider ).label,
-						} ) ) }
-						onChange={ ( provider ) => setProvider.mutate( provider ) }
-					/>
-				</SettingsRow>
-			) : null }
+				) : null;
+			} ) }
 		</SettingsGroup>
 	);
 }
 
 // A provider that connects by signing in on its site, with a code or in the browser.
-function SignInProviderRow( { provider }: { provider: ProviderId } ) {
+export function SignInProviderRow( { provider }: { provider: ProviderId } ) {
 	const settings = useAiSettings();
 	const signIn = useSignIn( provider );
 	const setProvider = useSetAiProvider();
@@ -263,25 +251,23 @@ function SignInProviderRow( { provider }: { provider: ProviderId } ) {
 		<SettingsRow
 			title={ descriptor.label }
 			settingId={ `${ provider }-provider` }
+			icon={ <ProviderLogo provider={ provider } /> }
 			badge={ connected ? connectedBadge() : null }
 			description={
-				<>
-					{ signIn.authorization
-						? sprintf(
-								/* translators: 1: a sign-in code, 2: a service name such as Spacefast */
-								__( 'Approve the code %1$s on %2$s to connect.' ),
-								signIn.authorization.userCode,
-								descriptor.label
-						  )
-						: inBrowser
-						? sprintf(
-								/* translators: %s: a service name such as ChatGPT */
-								__( 'Finish signing in to %s in your browser.' ),
-								descriptor.label
-						  )
-						: descriptor.description?.() }{ ' ' }
-					{ descriptor.learnMoreUrl ? <LearnMoreLink url={ descriptor.learnMoreUrl } /> : null }
-				</>
+				signIn.authorization
+					? sprintf(
+							/* translators: 1: a sign-in code, 2: a service name such as Spacefast */
+							__( 'Approve the code %1$s on %2$s to connect.' ),
+							signIn.authorization.userCode,
+							descriptor.label
+					  )
+					: inBrowser
+					? sprintf(
+							/* translators: %s: a service name such as ChatGPT */
+							__( 'Finish signing in to %s in your browser.' ),
+							descriptor.label
+					  )
+					: descriptor.description?.()
 			}
 			error={ ( signIn.error ?? setProvider.error ?? disconnect.error )?.message }
 		>
@@ -295,6 +281,7 @@ function SignInProviderRow( { provider }: { provider: ProviderId } ) {
 				</Button>
 			) : (
 				<Button
+					className={ styles.externalConnect }
 					variant="outline"
 					disabled={ settings.isLoading || offline }
 					loading={ signIn.isPending && ! inBrowser }
@@ -310,30 +297,10 @@ function SignInProviderRow( { provider }: { provider: ProviderId } ) {
 						} )
 					}
 				>
-					{ inBrowser ? __( 'Try again' ) : descriptor.connectLabel?.() ?? __( 'Connect' ) }
+					{ inBrowser ? __( 'Try again' ) : __( 'Connect' ) }
+					<ExternalLinkIcon data-icon="inline-end" />
 				</Button>
 			) }
 		</SettingsRow>
-	);
-}
-
-export function AiPanel( { onManageCredits }: { onManageCredits: () => void } ) {
-	return (
-		<div className={ styles.preferencesPanel }>
-			<SettingsGroup>
-				<SettingsRow
-					title={ __( 'Providers' ) }
-					description={
-						<>
-							{ __(
-								'Providers give WordPress Studio access to the models that understand your requests and make changes to your sites, and to the places you publish them. Connect one to build pages, write content, and customize themes and plugins through chat.'
-							) }{ ' ' }
-							<LearnMoreLink docsLinksKey="docsStudioCode" />
-						</>
-					}
-				/>
-			</SettingsGroup>
-			<ProvidersSection onManageCredits={ onManageCredits } />
-		</div>
 	);
 }

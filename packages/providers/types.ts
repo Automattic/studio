@@ -132,7 +132,6 @@ export interface ProviderDescriptor< Config = unknown, Site extends RemoteSite =
 	// Brand name, not translated.
 	label: string;
 	description?: () => string;
-	learnMoreUrl?: string;
 	// The provider's mark, drawn in the text color: an SVG path in a 24×24 box.
 	icon?: string;
 	// What Studio stores for this provider.
@@ -143,8 +142,6 @@ export interface ProviderDescriptor< Config = unknown, Site extends RemoteSite =
 	// What to keep once the provider rejects the config, so signing in again
 	// continues the same registration with it; never a credential.
 	remember?( config: Config ): Record< string, string >;
-	// The connect button's label, when the provider's branding sets one.
-	connectLabel?: () => string;
 	ai?: {
 		models: readonly AiModel< AiModelId >[];
 		defaultModel: AiModelId;

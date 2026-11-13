@@ -617,8 +617,8 @@ describe( 'WordPress Studio settings', () => {
 			'General',
 			'Appearance',
 			'Providers',
+			'Agents',
 			'Sharing',
-			'MCP',
 			'Usage',
 			'Skills',
 			'Instructions',
@@ -753,7 +753,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		const connect = await within( await findProviderRow( 'wpcom-provider' ) ).findByRole(
 			'button',
 			{
-				name: 'Connect',
+				name: 'Connect to WordPress.com',
 			}
 		);
 		await waitFor( () => expect( connect ).toBeEnabled() );
@@ -765,7 +765,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		fireEvent.click( connect );
 		await waitFor( () =>
 			expect( connector.authenticate ).toHaveBeenCalledWith(
-				true,
+				false,
 				'settings',
 				expect.any( Object )
 			)
@@ -792,12 +792,12 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		} );
 		const connect = await within( await findProviderRow( 'wpcom-provider' ) ).findByRole(
 			'button',
-			{ name: 'Connect' }
+			{ name: 'Connect to WordPress.com' }
 		);
 		await waitFor( () => expect( connect ).toBeEnabled() );
 		fireEvent.click( connect );
 		await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledOnce() );
-		expect( connect ).toHaveAccessibleName( 'Connect' );
+		expect( connect ).toHaveAccessibleName( 'Connect to WordPress.com' );
 		expect( connect ).not.toHaveAttribute( 'aria-busy', 'true' );
 		expect( connect.querySelector( '[role="status"]' ) ).toBeNull();
 		expect( connect ).toBeEnabled();
@@ -805,6 +805,20 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		await waitFor( () => expect( connector.authenticate ).toHaveBeenCalledTimes( 2 ) );
 		await act( async () => finishLogin() );
 		await waitFor( () => expect( connect ).toBeEnabled() );
+	} );
+
+	it( 'links to provider help once per section', async () => {
+		const { connector } = await setup( { section: 'connections', signedIn: false } );
+		const ai = await screen.findByRole( 'group', { name: 'AI providers' } );
+		const hosting = await screen.findByRole( 'group', { name: 'Hosting providers' } );
+		fireEvent.click( within( ai ).getByRole( 'button', { name: 'Learn more…' } ) );
+		expect( connector.openExternalUrl ).toHaveBeenLastCalledWith(
+			'https://wordpress.studio/docs/studio-code/#ai-providers'
+		);
+		fireEvent.click( within( hosting ).getByRole( 'button', { name: 'Learn more…' } ) );
+		expect( connector.openExternalUrl ).toHaveBeenLastCalledWith(
+			'https://wordpress.studio/docs/sync/#hosting-providers'
+		);
 	} );
 
 	it( 'waits for completed WordPress.com OAuth before selecting its provider', async () => {
@@ -816,14 +830,14 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		const connect = await within( await findProviderRow( 'wpcom-provider' ) ).findByRole(
 			'button',
 			{
-				name: 'Connect',
+				name: 'Connect to WordPress.com',
 			}
 		);
 		await waitFor( () => expect( connect ).toBeEnabled() );
 		fireEvent.click( connect );
 		await waitFor( () =>
 			expect( connector.authenticate ).toHaveBeenCalledWith(
-				true,
+				false,
 				'settings',
 				expect.any( Object )
 			)
@@ -833,7 +847,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		act( () => connector.emit( 'onAuthStateChanged' ) );
 		await waitFor( () => expect( connector.setAiProvider ).toHaveBeenCalledWith( 'wpcom' ) );
 		const manage = await within( providerRow( 'wpcom-provider' ) ).findByRole( 'button', {
-			name: 'Manage',
+			name: 'Manage AI credits',
 		} );
 		fireEvent.click( manage );
 		expect( await screen.findByRole( 'tab', { name: 'Usage', selected: true } ) ).toBeVisible();
@@ -845,7 +859,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		const connect = await within( await findProviderRow( 'wpcom-provider' ) ).findByRole(
 			'button',
 			{
-				name: 'Connect',
+				name: 'Connect to WordPress.com',
 			}
 		);
 		await waitFor( () => expect( connect ).toBeEnabled() );
@@ -853,15 +867,118 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		await screen.findByText( 'Unable to connect' );
 		expect( connector.setAiProvider ).not.toHaveBeenCalled();
 		expect(
-			within( providerRow( 'wpcom-provider' ) ).getByRole( 'button', { name: 'Connect' } )
+			within( providerRow( 'wpcom-provider' ) ).getByRole( 'button', {
+				name: 'Connect to WordPress.com',
+			} )
 		).toBeEnabled();
+	} );
+
+	it( 'switches between connected hosting defaults independently of the AI provider', async () => {
+		const accounts = aiSettings( 'wpcom', [ 'wpcom', 'anthropic', 'spacefast' ] ).accounts;
+		const { connector } = await setup( {
+			section: 'connections',
+			overrides: {
+				getAiSettings: async () => ( { provider: 'wpcom', accounts } ),
+				setAiProvider: async ( provider ) => ( { provider, accounts } ),
+			},
+		} );
+		await choose( 'Default hosting provider', 'Spacefast' );
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+				{ defaultHostingProvider: 'spacefast' },
+				undefined
+			)
+		);
+		await choose( 'Default AI provider', 'Anthropic API' );
+		await waitFor( () => expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic' ) );
+		expect(
+			screen.getByRole( 'combobox', { name: 'Default hosting provider' } )
+		).toHaveTextContent( 'Spacefast' );
+		await choose( 'Default hosting provider', 'WordPress.com' );
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenLastCalledWith(
+				{ defaultHostingProvider: 'wpcom' },
+				undefined
+			)
+		);
+		expect( connector.setAiProvider ).toHaveBeenCalledOnce();
+	} );
+
+	it( 'shows matching empty defaults and offers a picker when a provider connects', async () => {
+		const { connector } = await setup( {
+			section: 'connections',
+			signedIn: false,
+			preferences: { defaultHostingProvider: 'spacefast' },
+			overrides: { getAiSettings: async () => aiSettings( 'wpcom', [] ) },
+		} );
+		const ai = screen.getByRole( 'combobox', { name: 'Default AI provider' } );
+		const hosting = screen.getByRole( 'combobox', { name: 'Default hosting provider' } );
+		await waitFor( () => {
+			expect( ai ).toHaveTextContent( 'No providers' );
+			expect( hosting ).toHaveTextContent( 'No providers' );
+		} );
+		expect( ai ).toBeDisabled();
+		expect( hosting ).toBeDisabled();
+		expect( ai ).toHaveAccessibleDescription( 'For working on sites' );
+		expect( hosting ).toHaveAccessibleDescription( 'For publishing sites' );
+
+		connector.state.user = TEST_USER;
+		act( () => connector.emit( 'onAuthStateChanged' ) );
+		await waitFor( () => expect( hosting ).toBeEnabled() );
+		fireEvent.click( hosting );
+		const option = await screen.findByRole( 'option', { name: 'WordPress.com' } );
+		expect( screen.getAllByRole( 'option' ) ).toEqual( [ option ] );
+		expect( connector.setUserPreferences ).not.toHaveBeenCalled();
+	} );
+
+	it( 'can save the only connected AI provider as the default', async () => {
+		const { connector } = await setup( { section: 'connections', signedIn: false } );
+		const select = await screen.findByRole( 'combobox', { name: 'Default AI provider' } );
+		expect( select ).toBeEnabled();
+		expect( select ).toHaveTextContent( 'Choose a provider' );
+
+		await choose( 'Default AI provider', 'Anthropic API' );
+
+		await waitFor( () => expect( connector.setAiProvider ).toHaveBeenCalledWith( 'anthropic' ) );
+		expect( select ).toHaveTextContent( 'Anthropic API' );
+	} );
+
+	it( 'shares WordPress.com sign-in across both rows without switching AI from hosting', async () => {
+		const { connector } = await setup( {
+			section: 'connections',
+			signedIn: false,
+			overrides: { authenticate: async () => {} },
+		} );
+		const hosting = await findProviderRow( 'wpcom-hosting' );
+		const login = within( hosting ).getByRole( 'button', { name: 'Connect to WordPress.com' } );
+		await waitFor( () => expect( login ).toBeEnabled() );
+		fireEvent.click( login );
+		await waitFor( () =>
+			expect( connector.authenticate ).toHaveBeenCalledWith( false, 'settings' )
+		);
+		connector.state.user = TEST_USER;
+		act( () => connector.emit( 'onAuthStateChanged' ) );
+		expect( await within( hosting ).findByText( 'Connected' ) ).toBeVisible();
+		expect( within( providerRow( 'wpcom-provider' ) ).getByText( 'Connected' ) ).toBeVisible();
+		expect( connector.setAiProvider ).not.toHaveBeenCalled();
+	} );
+
+	it( 'opens the Agents tab and focuses manual MCP setup from a legacy Providers link', async () => {
+		const { history } = await setup();
+		act( () => history.push( '/sites/one?settings=connections&settingsFocus=mcp-server' ) );
+		const manual = await screen.findByRole( 'group', { name: 'Manual MCP setup' } );
+		expect( screen.getByRole( 'tab', { name: 'Agents', selected: true } ) ).toBeVisible();
+		await waitFor( () => expect( manual ).toHaveFocus() );
+		expect(
+			within( manual ).getByRole( 'button', { name: 'Copy MCP configuration' } )
+		).toBeVisible();
 	} );
 
 	it( 'signs in to ChatGPT in the browser and selects it', async () => {
 		const { connector } = await setup( { section: 'ai' } );
 		fireEvent.click(
 			await within( await findProviderRow( 'openai-provider' ) ).findByRole( 'button', {
-				name: 'Continue with ChatGPT',
+				name: 'Connect',
 			} )
 		);
 		await waitFor( () => expect( connector.connectProvider ).toHaveBeenCalledWith( 'openai', {} ) );
@@ -869,7 +986,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 	} );
 
 	it( 'hides ChatGPT on the web, which cannot reach it', async () => {
-		await setup( {
+		const { connector } = await setup( {
 			section: 'ai',
 			overrides: {
 				capabilities: {
@@ -882,6 +999,19 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		} );
 		await findProviderRow( 'anthropic-provider' );
 		expect( row( 'openai-provider' ) ).toBeNull();
+		expect( row( 'spacefast-provider' ) ).toBeNull();
+		expect( screen.queryByRole( 'tab', { name: 'Agents' } ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Use WordPress Studio with your agents' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( 'Manual MCP setup' ) ).not.toBeInTheDocument();
+		const select = await screen.findByRole( 'combobox', { name: 'Default hosting provider' } );
+		expect( select ).toHaveTextContent( 'Choose a provider' );
+		await choose( 'Default hosting provider', 'WordPress.com' );
+		await waitFor( () =>
+			expect( connector.setUserPreferences ).toHaveBeenCalledWith(
+				{ defaultHostingProvider: 'wpcom' },
+				undefined
+			)
+		);
 	} );
 
 	it( 'reveals an inline Anthropic key form and collapses after connecting', async () => {
@@ -966,7 +1096,7 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( connector.authenticate ).not.toHaveBeenCalled();
 	} );
 
-	it( 'links to credits and external assistant setup inside the same dialog', async () => {
+	it( 'keeps providers and external assistant setup on separate tabs in the same dialog', async () => {
 		await setup( { section: 'usage' } );
 		expect( await screen.findByRole( 'tab', { name: 'Usage', selected: true } ) ).toBeVisible();
 		expect(
@@ -974,12 +1104,13 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		).not.toBeInTheDocument();
 		fireEvent.click( screen.getByRole( 'tab', { name: 'Providers' } ) );
 		expect( await screen.findByRole( 'tab', { name: 'Providers', selected: true } ) ).toBeVisible();
+		expect( screen.queryByText( 'Manual MCP setup' ) ).not.toBeInTheDocument();
+		fireEvent.click( screen.getByRole( 'tab', { name: 'Agents' } ) );
+		expect( await screen.findByRole( 'tab', { name: 'Agents', selected: true } ) ).toBeVisible();
 		expect( screen.getAllByRole( 'dialog', { name: 'Settings' } ) ).toHaveLength( 1 );
-		const copyButtons = () =>
-			screen.queryAllByRole( 'button', { name: /^Copy (install command|MCP configuration)$/ } );
-		expect( copyButtons() ).toHaveLength( 0 );
-		fireEvent.click( screen.getByRole( 'tab', { name: 'MCP' } ) );
-		await waitFor( () => expect( copyButtons() ).toHaveLength( 2 ) );
+		const manual = within( screen.getByRole( 'group', { name: 'Manual MCP setup' } ) );
+		expect( manual.getByRole( 'button', { name: 'Copy install command' } ) ).toBeVisible();
+		expect( manual.getByRole( 'button', { name: 'Copy MCP configuration' } ) ).toBeVisible();
 	} );
 
 	it( 'copies the install command and shared MCP configuration independently', async () => {

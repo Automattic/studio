@@ -129,7 +129,8 @@ function FeedbackForm() {
 								state: true,
 								search: ( { feedback: _feedback, ...rest }: Record< string, unknown > ) => ( {
 									...rest,
-									settings: 'ai',
+									settings: 'connections',
+									settingsFocus: 'ai-providers',
 								} ),
 								replace: true,
 							} )

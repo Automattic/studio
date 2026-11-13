@@ -38,16 +38,22 @@ export const connectedBadge = () => (
 /** A card of setting rows, with an optional heading above it. */
 export function SettingsGroup( {
 	title,
+	settingId,
 	description,
 	children,
 }: {
 	title?: string;
+	settingId?: string;
 	description?: ReactNode;
 	children: ReactNode;
 } ) {
 	return (
 		// Without a heading the card isn't a group of its own, only its rows are.
-		<FieldSet role={ title ? undefined : 'none' }>
+		<FieldSet
+			role={ title ? undefined : 'none' }
+			data-settings-target={ settingId }
+			tabIndex={ settingId ? -1 : undefined }
+		>
 			{ title ? (
 				<FieldLegend variant="label" className={ clsx( description && styles.groupLegend ) }>
 					{ title }
@@ -151,7 +157,7 @@ export function SettingsRow( {
 				fieldContent
 			) }
 			{ content ? (
-				<div className={ styles.settingsControl }>
+				<div className={ styles.settingsControl } data-settings-control>
 					<SettingsRowContext.Provider value={ control }>{ content }</SettingsRowContext.Provider>
 				</div>
 			) : null }
@@ -219,12 +225,14 @@ export function SettingsSelect< TValue extends string >( {
 	label,
 	value,
 	options,
+	placeholder,
 	disabled,
 	onChange,
 }: {
 	label: string;
-	value: TValue;
+	value: TValue | null;
 	options: Array< { value: TValue; label: string } >;
+	placeholder?: string;
 	disabled?: boolean;
 	onChange: ( value: TValue ) => void;
 } ) {
@@ -241,7 +249,7 @@ export function SettingsSelect< TValue extends string >( {
 			} }
 		>
 			<SelectTrigger size="default" aria-label={ label } { ...control }>
-				<SelectValue />
+				<SelectValue placeholder={ placeholder } />
 			</SelectTrigger>
 			<SelectContent>
 				{ options.map( ( option ) => (

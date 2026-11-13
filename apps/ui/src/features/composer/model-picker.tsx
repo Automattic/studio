@@ -97,7 +97,7 @@ export function ModelPicker( {
 		if ( value === 'get-credits' ) {
 			onAddCredits( triggerRef );
 		} else if ( value === 'connect-provider' ) {
-			openSettings( 'ai' );
+			openSettings( 'connections', undefined, 'ai-providers' );
 		} else if ( value === 'manage-usage' && planUsage ) {
 			void connector.openExternalUrl( planUsage.manageUrl );
 		} else {
@@ -162,8 +162,8 @@ export function ModelPicker( {
 					: [] ),
 				{
 					value: 'connect-provider',
-					label: __( 'Connect providers' ),
-					description: __( 'Use WordPress.com AI credits or your own API key.' ),
+					label: __( 'Connect AI providers' ),
+					description: __( 'Choose what powers chat in WordPress Studio.' ),
 					icon: PlugIcon,
 				},
 			],

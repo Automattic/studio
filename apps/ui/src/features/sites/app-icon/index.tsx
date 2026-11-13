@@ -18,14 +18,17 @@ import grok from './assets/grok.svg';
 import opera from './assets/opera.png';
 import phpmyadmin from './assets/phpmyadmin.png';
 import safari from './assets/safari.png';
+import spacefast from './assets/spacefast.png';
 import terminal from './assets/terminal.png';
 import vivaldi from './assets/vivaldi.png';
 import vscode from './assets/vscode.png';
 import warp from './assets/warp.png';
+import wordpressCom from './assets/wordpress-com.png';
 import zen from './assets/zen.png';
 import styles from './style.module.css';
 
 const icons: Record< string, string > = {
+	anthropic: claude,
 	arc,
 	brave,
 	chrome,
@@ -42,13 +45,16 @@ const icons: Record< string, string > = {
 	ghostty,
 	github,
 	'grok-build': grok,
+	openai: chatgpt,
 	opera,
 	phpmyadmin,
 	safari,
+	spacefast,
 	terminal,
 	vivaldi,
 	vscode,
 	warp,
+	wpcom: wordpressCom,
 	zen,
 };
 
@@ -64,7 +70,7 @@ export function AppIcon( { app, fallback }: { app?: string; fallback: ReactNode 
 			src={ src }
 			alt=""
 			aria-hidden="true"
-			className={ styles.icon }
+			className={ app === 'spacefast' || app === 'wpcom' ? styles.tile : styles.icon }
 			onError={ () => setFailedSource( src ) }
 		/>
 	);

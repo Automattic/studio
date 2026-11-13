@@ -16,7 +16,10 @@ export function useOpenSettings() {
 			focus?: string,
 			accountIntent?: { intent: 'build' | 'annotate'; scope?: string }
 		) => {
-			setProviderIntent( connector, section === 'ai' ? accountIntent : undefined );
+			setProviderIntent(
+				connector,
+				section === 'ai' || section === 'connections' ? accountIntent : undefined
+			);
 			void navigate( {
 				to: '.',
 				state: true,

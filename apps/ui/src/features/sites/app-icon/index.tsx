@@ -12,6 +12,7 @@ import edge from './assets/edge.png';
 import finder from './assets/finder.png';
 import firefoxDeveloper from './assets/firefox-developer.png';
 import firefox from './assets/firefox.png';
+import gemini from './assets/gemini.png';
 import ghostty from './assets/ghostty.png';
 import github from './assets/github.png';
 import grok from './assets/grok.svg';
@@ -42,6 +43,7 @@ const icons: Record< string, string > = {
 	finder,
 	firefox,
 	'firefox-developer': firefoxDeveloper,
+	gemini,
 	ghostty,
 	github,
 	'grok-build': grok,
@@ -70,7 +72,9 @@ export function AppIcon( { app, fallback }: { app?: string; fallback: ReactNode 
 			src={ src }
 			alt=""
 			aria-hidden="true"
-			className={ app === 'spacefast' || app === 'wpcom' ? styles.tile : styles.icon }
+			className={
+				app === 'gemini' || app === 'spacefast' || app === 'wpcom' ? styles.tile : styles.icon
+			}
 			onError={ () => setFailedSource( src ) }
 		/>
 	);

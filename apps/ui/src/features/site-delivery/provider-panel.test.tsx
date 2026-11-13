@@ -1454,18 +1454,39 @@ it( 'shows which live site a preview represents and warns before publishing newe
 
 it.each( [
 	{ kind: 'standalone preview', snapshot: preview, buysPreview: true },
+	{ kind: 'outdated standalone preview', snapshot: preview, buysPreview: true, localChanged: true },
 	{ kind: 'live-site preview', snapshot: { ...preview, liveSiteId: 42 }, buysPreview: false },
 	{ kind: 'no preview', snapshot: undefined, buysPreview: false },
-] )( 'opens checkout for $kind', async ( { snapshot, buysPreview } ) => {
+] )( 'opens checkout for $kind', async ( { snapshot, buysPreview, localChanged = false } ) => {
+	let finishUpdate!: ( result: { url: string } ) => void;
 	const { connector, user } = setup( {
 		getSnapshots: async () => ( snapshot ? [ { ...snapshot, localSiteId: site.id } ] : [] ),
 		getRemoteSites: async () => [],
 		listAccountSites: async () => [],
+		getPreviewStatus: async () => ( {
+			localSiteId: site.id,
+			localChanged,
+			previewChanged: false,
+		} ),
+		publishPreviewSite: () => new Promise( ( resolve ) => ( finishUpdate = resolve ) ),
 	} );
 	await open();
 	await user.click( screen.getByRole( 'button', { name: 'Who can view' } ) );
 	await user.click( await screen.findByRole( 'menuitemradio', { name: 'Everyone' } ) );
 	await user.click( screen.getByRole( 'button', { name: 'Continue on WordPress.com' } ) );
+	if ( localChanged ) {
+		await waitFor( () =>
+			expect( connector.publishPreviewSite ).toHaveBeenCalledExactlyOnceWith(
+				site.id,
+				preview.url,
+				undefined
+			)
+		);
+		expect( connector.openExternalUrl ).not.toHaveBeenCalled();
+		await act( async () => finishUpdate( { url: preview.url } ) );
+	} else {
+		expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
+	}
 	await waitFor( () =>
 		expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith(
 			buysPreview

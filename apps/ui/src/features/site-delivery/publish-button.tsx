@@ -402,14 +402,21 @@ export function PublishButton( {
 					setFailure( __( 'Could not open the setup page. Please try again.' ) );
 					return;
 				}
-				clearPublishSetupError( site.id );
-				void connector.trackEvent( TRACKS_EVENTS.SYNC_PUBLISH_SITE );
-				if ( ! launchingPreview ) {
-					void connector.watchForPublishedSite?.( site.id ).catch( () => {
-						toast.error( __( 'Could not watch for your new site. Please try again.' ) );
-					} );
+				const openCheckout = async () => {
+					clearPublishSetupError( site.id );
+					void connector.trackEvent( TRACKS_EVENTS.SYNC_PUBLISH_SITE );
+					if ( ! launchingPreview ) {
+						void connector.watchForPublishedSite?.( site.id ).catch( () => {
+							toast.error( __( 'Could not watch for your new site. Please try again.' ) );
+						} );
+					}
+					await connector.openExternalUrl( checkoutUrl );
+				};
+				if ( launchingPreview && targets.selectedStatus?.data?.localChanged === true ) {
+					await preview.updatePreview( openCheckout );
+				} else {
+					await openCheckout();
 				}
-				await connector.openExternalUrl( checkoutUrl );
 			} else if ( sites.newSite === 'create' ) {
 				const created = await connector.createRemoteSite(
 					provider,

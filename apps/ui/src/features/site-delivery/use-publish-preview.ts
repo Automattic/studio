@@ -23,6 +23,7 @@ export function usePublishPreview( site: SiteDetails, open = false, selectedSnap
 	const [ overwrite, setOverwrite ] = useState< {
 		snapshot: Snapshot;
 		unknown: boolean;
+		onUpdated?: () => Promise< void >;
 	} >();
 	const preparingRef = useRef( false );
 	const activity = useSiteSyncActivity( site.id );
@@ -91,7 +92,7 @@ export function usePublishPreview( site: SiteDetails, open = false, selectedSnap
 		} );
 		void status.refetch();
 	};
-	const updatePreview = async () => {
+	const updatePreview = async ( onUpdated?: () => Promise< void > ) => {
 		if ( ! canUpdate || preparingRef.current || ! selectedPreview ) return;
 		preparingRef.current = true;
 		setPreparing( true );
@@ -105,10 +106,12 @@ export function usePublishPreview( site: SiteDetails, open = false, selectedSnap
 				setOverwrite( {
 					snapshot: selectedPreview,
 					unknown: latestStatus.data.previewChanged === null,
+					onUpdated,
 				} );
 				return;
 			}
 			await upload( selectedPreview );
+			await onUpdated?.();
 		} catch {
 			// The preview mutation reports the failure.
 		} finally {
@@ -129,6 +132,7 @@ export function usePublishPreview( site: SiteDetails, open = false, selectedSnap
 		try {
 			await upload( overwrite.snapshot );
 			setOverwrite( undefined );
+			await overwrite.onUpdated?.();
 		} catch {
 			// Keep the confirmation available for retry.
 		} finally {

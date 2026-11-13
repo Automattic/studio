@@ -99,7 +99,7 @@ async function mainMenu() {
 	return screen.findByRole( 'menu' );
 }
 async function switchTo( hostname: string ) {
-	if ( screen.queryByRole( 'button', { name: `Open preview: ${ hostname }` } ) ) return;
+	if ( hostname === preview.url ) return;
 	fireEvent.click( await screen.findByRole( 'button', { name: 'Choose destination' } ) );
 	const menu = await screen.findByRole( 'menu', { name: 'Destinations' } );
 	fireEvent.click( within( menu ).getByRole( 'menuitemradio', { name: hostname } ) );
@@ -121,7 +121,6 @@ it( 'renders the selected provider capabilities and isolates its change dot', as
 		'Backups',
 		'Pull from live site',
 		'Connect existing site',
-		'Manage sharing',
 		'Disconnect site',
 	] );
 	await user.click( await screen.findByRole( 'menuitem', { name: 'Pull from live site' } ) );
@@ -153,12 +152,7 @@ it( 'renders the selected provider capabilities and isolates its change dot', as
 	await user.click( screen.getByRole( 'button', { name: 'More options' } ) );
 	expect(
 		( await screen.findAllByRole( 'menuitem' ) ).map( ( item ) => item.textContent?.trim() )
-	).toEqual( [
-		'Open on Spacefast',
-		'Connect existing site',
-		'Manage sharing',
-		'Disconnect site',
-	] );
+	).toEqual( [ 'Open on Spacefast', 'Connect existing site', 'Disconnect site' ] );
 	await user.click( screen.getByRole( 'menuitem', { name: 'Open on Spacefast' } ) );
 	expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith(
 		'https://my.spacefast.com/'
@@ -181,12 +175,7 @@ it( 'keeps actions in the panel menu for a single connected site', async () => {
 		within( menu )
 			.getAllByRole( 'menuitem' )
 			.map( ( item ) => item.textContent?.trim() )
-	).toEqual( [
-		'Open on Spacefast',
-		'Connect existing site',
-		'Manage sharing',
-		'Disconnect site',
-	] );
+	).toEqual( [ 'Open on Spacefast', 'Connect existing site', 'Disconnect site' ] );
 } );
 
 it( 'can create a new preview from the destination selector in Publish', async () => {
@@ -224,7 +213,6 @@ it( 'keeps the Share menu focused on previews when multiple providers are connec
 		'Pull from preview',
 		'WordPress admin',
 		'Connect existing site',
-		'Manage sharing',
 		'Delete preview',
 	] );
 } );
@@ -234,7 +222,7 @@ it.each( [
 	{ hostname: 'lente.space.fast', rowName: 'lente.space.fast', url: space.url },
 	{
 		hostname: 'lente-preview.wpcomstaging.com',
-		rowName: 'Open preview: lente-preview.wpcomstaging.com',
+		rowName: 'Open preview: Preview 1',
 		url: preview.shareUrl,
 	},
 ] )( 'shares the URL row and panel actions for $hostname', async ( { hostname, rowName, url } ) => {
@@ -253,8 +241,7 @@ it.each( [
 	);
 	const ellipsis = await screen.findByRole( 'menu' );
 	const expected = items( ellipsis ).filter(
-		( label ) =>
-			! [ 'New preview', 'Manage sharing', 'Connect existing site' ].includes( label ?? '' )
+		( label ) => ! [ 'New preview', 'Connect existing site' ].includes( label ?? '' )
 	);
 	await user.keyboard( '{Escape}' );
 	await waitFor( () => expect( ellipsis ).not.toBeInTheDocument() );
@@ -304,6 +291,74 @@ it( 'reports a failed live push as a notification while keeping the panel open',
 	expect( within( panel ).queryByRole( 'alert' ) ).not.toBeInTheDocument();
 	expect( within( panel ).getByRole( 'button', { name: 'Publish changes' } ) ).toBeEnabled();
 } );
+it.each( [ false, true ] )(
+	'uses preview names consistently in the panel, selector and dialogs (published: %s)',
+	async ( published ) => {
+		const unnamed = { ...preview, sequence: 7, date: Date.now() - 1000 };
+		const named = {
+			...preview,
+			atomicSiteId: 456,
+			date: Date.now(),
+			name: 'Homepage refresh',
+			url: 'homepage-preview.wpcomstaging.com',
+			shareUrl: 'https://homepage-preview.wpcomstaging.com/?share=homepage',
+		};
+		let snapshots = [ unnamed, named ];
+		const { user, connector } = setup( {
+			getRemoteSites: async ( provider ) => ( published && provider === 'wpcom' ? [ live ] : [] ),
+			getSnapshots: async () => snapshots,
+			renameSnapshot: async ( hostname, name ) => {
+				snapshots = snapshots.map( ( item ) =>
+					item.url === hostname ? { ...item, name } : item
+				);
+			},
+		} );
+		await open();
+		const selectorName = published ? 'Choose preview' : 'Choose destination';
+		const menuName = published ? 'Preview options' : 'More options';
+		expect( screen.getByRole( 'button', { name: selectorName } ) ).toHaveTextContent( named.name );
+		expect(
+			screen.getByRole( 'button', { name: 'Open preview: Homepage refresh' } )
+		).toBeVisible();
+		await user.click( screen.getByRole( 'button', { name: selectorName } ) );
+		expect( await screen.findByRole( 'menuitemradio', { name: named.name } ) ).toBeChecked();
+		await user.click( screen.getByRole( 'menuitemradio', { name: 'Preview 7' } ) );
+		const row = screen.getByRole( 'button', { name: 'Open preview: Preview 7' } );
+		expect( row ).toHaveTextContent( /Expires / );
+		await user.click( row );
+		expect( connector.openExternalUrl ).toHaveBeenCalledWith( unnamed.shareUrl );
+		const previewActions = published
+			? screen.getByRole( 'region', { name: 'Previews' } )
+			: screen.getByRole( 'group', { name: 'Preview actions' } );
+		await user.click( within( previewActions ).getByRole( 'button', { name: 'Copy link' } ) );
+		expect( connector.copyText ).toHaveBeenCalledWith( unnamed.shareUrl );
+		await user.click( screen.getByRole( 'button', { name: menuName } ) );
+		await user.click( await screen.findByRole( 'menuitem', { name: 'Rename' } ) );
+		const input = await screen.findByRole( 'textbox', { name: 'Preview name' } );
+		expect( input ).toHaveValue( 'Preview 7' );
+		await user.clear( input );
+		await user.type( input, 'Client review{Enter}' );
+		await waitFor( () =>
+			expect( screen.queryByRole( 'dialog', { name: 'Rename preview' } ) ).not.toBeInTheDocument()
+		);
+		expect( connector.renameSnapshot ).toHaveBeenCalledWith( unnamed.url, 'Client review' );
+		if ( ! screen.queryByRole( 'dialog', { name: /^(Share|Publish)$/ } ) ) await open();
+		expect(
+			await screen.findByRole( 'button', { name: 'Open preview: Client review' } )
+		).toBeVisible();
+		expect( screen.getByRole( 'button', { name: selectorName } ) ).toHaveTextContent(
+			'Client review'
+		);
+		await user.click( screen.getByRole( 'button', { name: menuName } ) );
+		await user.click( await screen.findByRole( 'menuitem', { name: 'Delete preview' } ) );
+		const confirmation = await screen.findByRole( 'alertdialog', { name: 'Delete preview?' } );
+		expect( within( confirmation ).getByText( 'Client review' ) ).toBeVisible();
+		await user.click( within( confirmation ).getByRole( 'button', { name: 'Cancel' } ) );
+		expect( connector.deleteSnapshot ).not.toHaveBeenCalled();
+		expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
+	}
+);
+
 it( 'keeps the live site visible while switching previews', async () => {
 	const second = {
 		...preview,
@@ -319,7 +374,7 @@ it( 'keeps the live site visible while switching previews', async () => {
 	expect(
 		within( menu ).queryByRole( 'menuitemradio', { name: 'lente.blog' } )
 	).not.toBeInTheDocument();
-	await user.click( within( menu ).getByRole( 'menuitemradio', { name: second.url } ) );
+	await user.click( within( menu ).getByRole( 'menuitemradio', { name: 'Preview 2' } ) );
 	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 	expect( screen.getByRole( 'button', { name: 'lente.blog' } ) ).toBeVisible();
 	expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toBeVisible();
@@ -365,7 +420,7 @@ it( 'keeps the published controls visible while creating and selecting a new pre
 	snapshots = [ created, preview ];
 	act( () => finish( { url: created.shareUrl } ) );
 	expect(
-		await within( previews ).findByRole( 'button', { name: `Open preview: ${ created.url }` } )
+		await within( previews ).findByRole( 'button', { name: 'Open preview: Preview 2' } )
 	).toBeVisible();
 	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 	expect( screen.getByRole( 'button', { name: 'lente.blog' } ) ).toBeVisible();
@@ -562,9 +617,7 @@ it( 'copies a selected preview without opening it, while the address opens its s
 	const { connector } = setup();
 	await open();
 	await switchTo( 'lente-preview.wpcomstaging.com' );
-	fireEvent.click(
-		screen.getByRole( 'button', { name: 'Open preview: lente-preview.wpcomstaging.com' } )
-	);
+	fireEvent.click( screen.getByRole( 'button', { name: 'Open preview: Preview 1' } ) );
 	expect( connector.openExternalUrl ).toHaveBeenCalledWith( preview.shareUrl );
 	const previewSection = within( screen.getByRole( 'region', { name: 'Previews' } ) );
 	const viewPreview = await previewSection.findByRole( 'button', { name: 'Copy link' } );
@@ -1071,10 +1124,9 @@ it( 'hides the connect-more action when all publishing providers are connected',
 	expect( within( panel ).getByRole( 'button', { name: 'Create preview link' } ) ).toBeVisible();
 	await user.click( within( panel ).getByRole( 'button', { name: 'More options' } ) );
 	const menuItems = await screen.findAllByRole( 'menuitem' );
-	expect( menuItems ).toHaveLength( 3 );
+	expect( menuItems ).toHaveLength( 2 );
 	expect( menuItems[ 0 ] ).toHaveAccessibleName( 'New preview' );
 	expect( menuItems[ 1 ] ).toHaveAccessibleName( 'Connect existing site' );
-	expect( menuItems[ 2 ] ).toHaveAccessibleName( 'Manage sharing' );
 	await user.keyboard( '{Escape}' );
 	fireEvent.click( await screen.findByRole( 'button', { name: 'Destination' } ) );
 	const menu = await screen.findByRole( 'menu', { name: 'Where to publish' } );

@@ -121,10 +121,10 @@ export function PublishedPreviews( {
 										<DestinationRow
 											ref={ row }
 											icon={ <LinkIcon /> }
-											label={ hostname }
+											label={ target.label }
 											description={ describePublishTarget( target, locale, targets.targets ) }
 											trailing={ <ExternalLinkIcon /> }
-											aria-label={ sprintf( __( 'Open preview: %s' ), hostname ) }
+											aria-label={ sprintf( __( 'Open preview: %s' ), target.label ) }
 											onClick={ () => void connector.openExternalUrl( url ) }
 										/>
 									}

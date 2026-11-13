@@ -785,7 +785,11 @@ describe( 'ShareDialog', () => {
 		await actions.click( within( row ).getByRole( 'button', { name: 'Preview actions' } ) );
 		await actions.click( await screen.findByRole( 'menuitem', { name: 'Delete preview' } ) );
 		expect( current ).toBeChecked();
-		expect( screen.getByText( 'earlier.example.com' ) ).toBeVisible();
+		expect(
+			within( screen.getByRole( 'alertdialog', { name: 'Delete preview?' } ) ).getByText(
+				'Earlier'
+			)
+		).toBeVisible();
 		await actions.click( screen.getByRole( 'button', { name: 'Delete preview' } ) );
 		await waitFor( () =>
 			expect( connector.deleteSnapshot ).toHaveBeenCalledWith( 'earlier.example.com' )
@@ -805,7 +809,7 @@ describe( 'ShareDialog', () => {
 		await actions.click( screen.getByRole( 'button', { name: 'Preview actions' } ) );
 		await actions.click( await screen.findByRole( 'menuitem', { name: 'Delete preview' } ) );
 		const confirmation = await screen.findByRole( 'alertdialog', { name: 'Delete preview?' } );
-		expect( within( confirmation ).getByText( 'preview.example.com' ) ).toBeVisible();
+		expect( within( confirmation ).getByText( 'My site preview' ) ).toBeVisible();
 		await waitFor( () =>
 			expect(
 				screen.queryByRole( 'dialog', { name: 'Share and publish' } )

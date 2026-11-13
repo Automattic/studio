@@ -13,11 +13,13 @@ import {
 	usePublishProviders,
 } from '@/data/queries/use-remote-sites';
 import { useSnapshots } from '@/data/queries/use-snapshots';
+import { getSnapshotName } from '@/data/snapshot-name';
 import { getSnapshotHostname } from '@/data/snapshot-url';
 import { getSyncActivity, getSyncActivityRunId, useSiteSyncActivity } from '@/data/sync-activity';
 
 export type PublishTarget = {
 	key: string;
+	label: string;
 	provider: SitesProviderId;
 	snapshot?: Snapshot;
 	remote?: RemoteSiteConnection< SitesProviderId >;
@@ -71,6 +73,7 @@ export function usePublishTargets( siteId: string, open: boolean ) {
 			)
 			.map( ( remote ) => ( {
 				key: remotePublishTargetKey( provider, remote.id ),
+				label: new URL( remote.url ).hostname,
 				provider,
 				remote,
 			} ) );
@@ -91,6 +94,7 @@ export function usePublishTargets( siteId: string, open: boolean ) {
 				)
 				.map( ( snapshot ) => ( {
 					key: `${ previewProvider }:preview:${ getSnapshotHostname( snapshot ) }`,
+					label: getSnapshotName( snapshot, snapshots.data ),
 					provider: previewProvider,
 					snapshot,
 				} ) )

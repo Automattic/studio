@@ -57,6 +57,7 @@ describe( 'ai settings', () => {
 				anthropic: disconnected,
 				openai: disconnected,
 				gemini: disconnected,
+				'github-copilot': disconnected,
 				spacefast: disconnected,
 			},
 		} );
@@ -74,6 +75,7 @@ describe( 'ai settings', () => {
 				anthropic: { connected: true, summary: 'sk-ant-api03-tes...1234', method: 'api-key' },
 				openai: disconnected,
 				gemini: disconnected,
+				'github-copilot': disconnected,
 				spacefast: disconnected,
 			},
 		} );
@@ -206,6 +208,7 @@ describe( 'ai settings', () => {
 				anthropic: disconnected,
 				openai: disconnected,
 				gemini: disconnected,
+				'github-copilot': disconnected,
 				spacefast: disconnected,
 			},
 		} );

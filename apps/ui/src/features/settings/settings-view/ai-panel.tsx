@@ -268,7 +268,8 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 			id,
 			methods: getProvider( id ).account.methods.filter(
 				( { kind } ) =>
-					kind !== 'redirect' && ( capabilities.loopbackSignIn || kind !== 'loopback' )
+					kind !== 'redirect' &&
+					( capabilities.loopbackSignIn || ( kind !== 'loopback' && kind !== 'device' ) )
 			),
 		} ) )
 		.filter( ( { methods } ) => methods.length );

@@ -122,6 +122,7 @@ test.describe( 'Share and publish', () => {
 					displayName: 'Publishing account',
 					accessToken: 'test-only',
 				} ),
+				fetchSnapshots: () => [],
 				getRemoteSites: ( provider ) =>
 					provider === 'wpcom' ? state.publishTest.connections : [],
 				listAccountSites: ( provider ) => ( provider === 'wpcom' ? [ remote ] : [] ),
@@ -158,9 +159,7 @@ test.describe( 'Share and publish', () => {
 		await page.reload();
 
 		await page.getByRole( 'button', { name: 'Share…', exact: true } ).click();
-		await page.getByRole( 'button', { name: 'Who can view', exact: true } ).click();
-		await page.getByRole( 'menuitemradio', { name: 'Everyone', exact: true } ).click();
-		await page.getByRole( 'button', { name: 'Continue on WordPress.com', exact: true } ).click();
+		await expect( page.getByRole( 'dialog', { name: 'Share', exact: true } ) ).toBeVisible();
 		const panel = page.getByRole( 'dialog', { name: 'Publish', exact: true } );
 		const mainWindow = await session.electronApp.browserWindow( page );
 		await mainWindow.evaluate( ( window, studioSiteId ) => {

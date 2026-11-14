@@ -80,6 +80,8 @@ The WordPress Studio window has three areas:
 -   **Chat** (middle): WordPress Studio Code for the selected site.
 -   **Panel** (right): the selected site’s preview, in tabs.
 
+When WordPress Studio Code asks a question, a triangle with an exclamation mark appears beside the chat in the sidebar. The chat stays where it is. If the site is collapsed, the badge appears beside the site name. Open the chat and answer the question to continue. The badge clears when the question is resolved.
+
 ![The WordPress Studio window with the Sites sidebar on the left, the WordPress Studio Code chat in the middle under the Site menu button, and the panel on the right with a preview tab, New tab, Share, Publish, Expand panel and Hide panel, and below them Back, Forward, Reload preview, the address bar, Annotate, and Browser options](../../../screenshots/images/main-window-signed-in.webp)
 
 The header above the chat has the **Site menu** button, which shows the site’s name and opens the site’s actions menu. Above the panel are the preview’s tabs and **New tab** (**+**), followed by **Share**, **Publish**, **Expand panel**, and **Hide panel**. Each tab has its own **Back**, **Forward**, and **Reload preview** buttons and address bar, with **Annotate** and **Browser options** (**⋮**) at the end.
@@ -126,6 +128,16 @@ The menu bar of the desktop app has a few more:
 | View → Chat (only the chat) | ⌘1 | Ctrl+1 |
 | View → Split view (the chat beside the panel) | ⌘2 | Ctrl+2 |
 | View → Panel (only the panel) | ⌘3 | Ctrl+3 |
+
+### App appearance
+
+Open **Settings → Appearance** to customize the WordPress Studio interface.
+
+-   **Interface theme** switches the app between **Light**, **Dark**, and **System**.
+-   **Accent** sets the accent color. **Intensity** adjusts the strength of the tint, and **Contrast** adjusts how clearly app surfaces stand apart.
+-   **Reset** under **Reset appearance** restores the default theme, accent, intensity, and contrast.
+
+To change the color scheme of the site in the browser preview, open **Browser options → Appearance** in the preview toolbar. See [Browser options](https://wordpress.studio/docs/sites/#browser-options).
 
 ### [Connect to WordPress.com](#connect-wordpress-com)
 

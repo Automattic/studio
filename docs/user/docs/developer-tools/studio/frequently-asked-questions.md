@@ -159,11 +159,11 @@ To use WordPress.com AI credits instead, [log into WordPress Studio with your Wo
 
 ### [Is there any cost to use WordPress Studio Code?](#6-is-there-any-cost-to-use-the-studio-assistant-)
 
-WordPress Studio Code runs on AI Credits. Every account starts with a free allowance for the Fast tier; after that, or to use Balanced and Strong, you buy more. With your own Anthropic API key, Anthropic bills you instead. See [How AI Credits Work](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/).
+With WordPress.com as your AI provider, you start with a free allowance of AI Credits for Fast. Your first purchase unlocks Balanced and Strong, and you can use any remaining free allowance with either tier. If you connect your own Anthropic API key, Anthropic bills you for that usage. See [How AI Credits Work](https://wordpress.studio/docs/studio-code/ai-credits-guidelines/).
 
 ### [How many prompts can I use per month?](#7-how-many-prompts-can-i-use-per-month-)
 
-There’s no monthly limit. Each prompt uses AI Credits, and when you run out, AI responses pause until you add more. Your local sites keep running normally.
+WordPress.com AI Credits have no monthly prompt limit. Prompts through WordPress.com pause when your credit balance runs out and resume when you add more. Your local sites keep running normally.
 
 ### [Where can I give feedback about WordPress Studio Code responses?](#8-where-can-i-give-feedback-about-the-studio-assistant-s-responses-)
 

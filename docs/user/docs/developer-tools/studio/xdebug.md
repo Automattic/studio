@@ -25,23 +25,24 @@ WordPress Studio runs sites on native PHP, which uses the real file paths on dis
 ### [Visual Studio Code setup](#3-visual-studio-code-setup)
 
 1.  Install the [PHP Debug extension](https://marketplace.visualstudio.com/items?itemName=xdebug.php-debug).
-2.  Create a `.vscode/launch.json` file in your project:
+2.  Create a `.vscode/launch.json` file in your project using the example below.
+3.  Set breakpoints in your code.
+4.  Start the debugging session in Visual Studio Code (**Run** → **Start Debugging**).
+5.  Navigate to your site in the browser to trigger the breakpoints.
 
+```json
 {
   "version": "0.2.0",
-  "configurations": \[
+  "configurations": [
     {
       "name": "Listen for Xdebug",
       "type": "php",
       "request": "launch",
       "port": 9003
     }
-  \]
+  ]
 }
-
-3.  Set breakpoints in your code.
-4.  Start the debugging session in Visual Studio Code (**Run** → **Start Debugging**).
-5.  Navigate to your site in the browser to trigger the breakpoints.
+```
 
 ### [PhpStorm Setup](#4-phpstorm-setup)
 

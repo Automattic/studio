@@ -17,7 +17,9 @@ When the debug log is enabled, your site will capture PHP errors, notices, and w
 
 You can also write your own messages to the log using PHP’s `error_log()` function:
 
-error\_log( 'My value: ' . print\_r( $my\_variable, true ) );
+```php
+error_log( 'My value: ' . print_r( $my_variable, true ) );
+```
 
 ### [Show errors in browser](#2-show-errors-in-browser)
 

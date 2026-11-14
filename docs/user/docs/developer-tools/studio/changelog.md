@@ -54,6 +54,15 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 
 *November 11, 2026*
 
+## 2.1.1
+
+-   Fixed a crash when starting a site from the CLI.
+-   WordPress Studio keeps its SQLite database at the expected path when a site contains a custom `db-path.php` file, so imports and exports use the correct database.
+
+[View release notes](https://github.com/Automattic/studio/releases/tag/v2.1.1)
+
+*November 2, 2026*
+
 ## [2.1.0](#0-2-1-0)
 
 -   A redesigned WordPress Studio
@@ -64,7 +73,7 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
     -   A welcome dialog for new users, and a What’s New dialog introducing the redesign
 -   Sidebar
     -   Pin sites and chats, and add a site straight into Pinned
-    -   A Needs input group brings chats waiting on your answer to the top
+    -   A badge marks chats waiting for your answer without moving them in the sidebar
     -   Rename chats, mark them read or unread, and archive them with undo
     -   Select several sites and chats to act on them at once, and leave some sites out of a bulk removal
     -   Drag sites to reorder them, and sort groups from their menus
@@ -131,6 +140,14 @@ WordPress Studio ships fast and often. This changelog highlights what’s new, w
 [View release notes](https://github.com/Automattic/studio/releases/tag/v2.1.0)
 
 *October 29, 2026*
+
+## 2.0.4
+
+-   Updated the bundled PHP runtimes to 8.2.35, 8.3.36, 8.4.27, and 8.5.12 for local sites.
+
+[View release notes](https://github.com/Automattic/studio/releases/tag/v2.0.4)
+
+*October 21, 2026*
 
 ## [2.0.0](#0-2-0-0)
 

@@ -173,12 +173,15 @@ interface MarkupValidation {
 	fontSizes?: PresetValuesResult[ 'fontSizes' ];
 	/** The spacing values the fix stores as presets. */
 	spacingSizes?: PresetValuesResult[ 'spacingSizes' ];
-	/** Diagnostics for blocks corrected by the save. */
-	corrections?: string[];
 	/** The navigation links the fix binds to the entity they name. */
 	boundLinks?: string[];
 	/** How many runs of HTML comments between blocks the save drops. */
 	droppedComments?: number;
+	/**
+	 * The comment attributes WordPress ignores, which the fix drops, for the
+	 * report to lead with: said once, as the saved content no longer holds them.
+	 */
+	ignoredAttributes?: string;
 	/** The block styles the fix gives blocks, and the theme files that hold them. */
 	blockStyles?: Array< BlockStyle & { file: string } >;
 }
@@ -260,14 +263,6 @@ export function describeEditorSave( result: MarkupValidation, fixes: string ): s
 			}
 		),
 	].filter( ( note ): note is string => Boolean( note ) );
-}
-
-/**
- * What the editor's save corrects in the comment attributes, as sentences
- * of their own that end the one naming the save.
- */
-export function describeCorrections( result: MarkupValidation ): string {
-	return result.corrections?.length ? `. ${ result.corrections.join( ' ' ) }` : '';
 }
 
 /** How the editor links a navigation link to the post or term it names, for a note. */
@@ -434,9 +429,9 @@ export async function validateBlockMarkupFile(
 	const notes = describeEditorSave( result, '' );
 	return {
 		contentHash: hash( content ),
-		summary: `${ result.summary }; saved through the block editor, which ${ notes.join(
-			' and '
-		) }${ describeCorrections( result ) }`,
+		summary: `${ result.ignoredAttributes ? result.ignoredAttributes + '\n' : '' }${
+			result.summary
+		}; saved through the block editor, which ${ notes.join( ' and ' ) }`,
 		...( result.problem && { problem: result.problem } ),
 		fixedContent: ( pattern?.header ?? '' ) + result.fixedContent,
 	};
@@ -827,19 +822,29 @@ async function validateSavedMarkup(
 	const saved = stored && {
 		fixedContent,
 		invalidBlocks: fixedBlocks,
-		corrections: [
-			...new Set(
-				report.results
-					.filter( ( result ) => ! result.isValid && ! keptAsWritten( result.place ) )
-					.flatMap( ( result ) => result.attributeIssues ?? [] )
-			),
-		],
 		...notes,
 		...( between.comments && { droppedComments: between.comments } ),
 		...( styled && { blockStyles: styled } ),
 	};
+	// What the written comment attributes set that WordPress ignores, as one
+	// its block type does not declare: the save drops it, and the page shows
+	// none of it, as a button's label under a name the button does not read.
+	const ignored = [
+		...new Set(
+			report.results
+				.filter( ( result ) => ! result.isValid && ! keptAsWritten( result.place ) )
+				.flatMap( ( result ) => result.attributeIssues ?? [] )
+		),
+	];
+	const ignoredAttributes =
+		saved && ignored.length
+			? [
+					`${ label }: the page shows nothing of these comment attributes, which WordPress ignores and the editor's save drops. Set what each was for with an attribute its block reads:`,
+					...ignored.map( ( issue ) => `  - ${ issue }` ),
+			  ].join( '\n' )
+			: undefined;
 	if ( lost.size === 0 ) {
-		return { summary: valid, ...saved };
+		return { summary: valid, ...saved, ...( ignoredAttributes && { ignoredAttributes } ) };
 	}
 	return {
 		summary: `${ label }: ${ report.invalidBlocks - fixedBlocks } invalid block(s)`,
@@ -848,6 +853,7 @@ async function validateSavedMarkup(
 			...describeInvalidBlocks( report, lost ),
 		].join( '\n' ),
 		...saved,
+		...( ignoredAttributes && { ignoredAttributes } ),
 	};
 }
 

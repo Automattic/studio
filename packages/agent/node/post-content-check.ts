@@ -10,7 +10,6 @@ import { blockCodeVersion, seeBlockCode } from '@studio/agent/node/block-code';
 import {
 	blockEditorOf,
 	blockStylesOn,
-	describeCorrections,
 	describeEditorSave,
 	rendersAlikeOn,
 	sitePresetValues,
@@ -320,12 +319,11 @@ async function validatePost(
 	if ( saved ) {
 		await rm( fixFile, { force: true } );
 		return {
-			summary: `${ label }: Studio saved the block editor's save of it, which ${ saves.join(
+			summary: `${
+				result.ignoredAttributes ? result.ignoredAttributes + '\n' : ''
+			}${ label }: Studio saved the block editor's save of it, which ${ saves.join(
 				' and '
-			) }, losing nothing, so it now holds what the editor saves${ sentences( [
-				...( result.corrections ?? [] ),
-				...presetNotes,
-			] ) }`,
+			) }, losing nothing, so it now holds what the editor saves${ sentences( presetNotes ) }`,
 			problem: result.problem,
 			saved: true,
 		};
@@ -336,11 +334,12 @@ async function validatePost(
 			? `${ label }: ${ result.invalidBlocks } invalid block(s)`
 			: result.summary,
 		problem: [
+			...( result.ignoredAttributes ? [ result.ignoredAttributes ] : [] ),
 			`${ label }: the block editor's save ${ saves.join(
 				' and '
 			) }, losing nothing; it is saved in ${ shellPath }. Apply it in the site's folder with \`wp post update ${
 				post.id
-			} ${ shellPath }\`${ describeCorrections( result ) || '.' }`,
+			} ${ shellPath }\`.`,
 			...( result.problem ? [ result.problem ] : [] ),
 		].join( '\n' ),
 	};

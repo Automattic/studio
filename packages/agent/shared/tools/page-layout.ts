@@ -765,7 +765,7 @@ export async function pageTextFit( page: Page ): Promise< TextFit > {
 			rootPadding( 'right' ) === 0
 		) {
 			edges.unshift(
-				"The theme's styles.spacing.padding, the padding WordPress puts between the page's content and the viewport's edges, is core's 0px (wp-includes/theme.json); with settings.useRootPaddingAwareAlignments true, WordPress applies it inside each .has-global-padding container, so full-width blocks still reach the edges (get_root_layout_rules() in wp-includes/class-wp-theme-json.php)."
+				`The theme's styles.spacing.padding, the padding WordPress puts between the page's content and the viewport's edges, is core's 0px (wp-includes/theme.json). Its "left" and "right", as Twenty Twenty-Five sets them to var:preset|spacing|50, pad every page's content from the edges; with settings.useRootPaddingAwareAlignments true, WordPress applies them inside each .has-global-padding container, so full-width blocks still reach the edges (get_root_layout_rules() in wp-includes/class-wp-theme-json.php).`
 			);
 		}
 		return { edges, breaks };

@@ -208,7 +208,7 @@ function repeatedLookNotes( markup: string, label: string ): string[] {
 		( { blockName, blocks, styles } ) =>
 			`${ blocks } ${ blockName } blocks in ${ label } share one look: ${ JSON.stringify(
 				styles
-			) }. A look blocks of one type share is a block style in WordPress: a theme's styles/<slug>.json with "blockTypes": [ "${ blockName }" ] and that look as its "styles", which WordPress registers (WP_Theme_JSON_Resolver::get_style_variations() in wp-includes/class-wp-theme-json-resolver.php), the block's Styles panel offers, and Global Styles edits for every block in it. A block takes it as "className":"is-style-<slug>".`
+			) }. A theme's styles/<slug>.json with "blockTypes": [ "${ blockName }" ] and that look as its "styles" makes it a block style (WP_Theme_JSON_Resolver::get_style_variations() in wp-includes/class-wp-theme-json-resolver.php), which the block's Styles panel offers and Global Styles edits for every block that takes it as "className":"is-style-<slug>".`
 	);
 }
 
@@ -248,14 +248,14 @@ const MADE: Partial<
 		settings: [ 'typography', 'fontSizes' ],
 		name: 'font size',
 		renders:
-			"Each renders the size it had (wp_get_typography_font_size_value() in wp-includes/block-supports/typography.php), and the editor's font size picker and Global Styles now offer and change it.",
+			'Each renders the size it had (wp_get_typography_font_size_value() in wp-includes/block-supports/typography.php).',
 		differs: importantFontSize,
 	},
 	spacingSizes: {
 		settings: [ 'spacing', 'spacingSizes' ],
 		name: 'spacing size',
 		renders:
-			"Each renders the value it had, which its CSS variable holds as written (WP_Theme_JSON::PRESETS_METADATA in wp-includes/class-wp-theme-json.php), and the editor's spacing controls and Global Styles now offer and change it.",
+			'Each renders the value it had, which its CSS variable holds as written (WP_Theme_JSON::PRESETS_METADATA in wp-includes/class-wp-theme-json.php).',
 		differs: async () => false,
 	},
 };
@@ -310,13 +310,11 @@ async function addPresets(
 		added: added.map( ( [ , value ] ) => value ),
 		note: `Studio made the ${ made.name }s ${ label } repeats ${ made.name } presets of ${
 			theme.slug
-		}: it added ${ added
+		}, which its blocks now name as the editor stores a picked one: it added ${ added
 			.map( ( [ slug, value ] ) => `${ slug } (${ value })` )
-			.join(
-				', '
-			) } to ${ themeJsonFile }'s "settings": { "${ group }": { "${ list }" } }, which Studio's save of it through the block editor stores its blocks of those values as, as the editor stores a picked preset (Block validation reports it). ${
+			.join( ', ' ) } to ${ themeJsonFile }'s settings.${ group }.${ list }. ${
 			made.renders
-		} Each preset's "name" is its value; a name that says what it is for labels it in the editor.`,
+		} A "name" that says what each is for labels it in the editor.`,
 	};
 }
 

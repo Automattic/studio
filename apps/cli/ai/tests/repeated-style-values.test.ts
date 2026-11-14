@@ -225,7 +225,7 @@ describe.runIf( WORDPRESS )( 'repeatedStyleValueNotes', () => {
 				`3 core/group blocks in ${ path.join(
 					root,
 					file
-				) } share one look: {"border":{"color":"var:preset|color|cream","radius":"20px","width":"1px"},"color":{"background":"var:preset|color|paper"},"shadow":"0 12px 30px rgba(42,33,26,0.10)"}. A look blocks of one type share is a block style in WordPress: a theme's styles/<slug>.json with "blockTypes": [ "core/group" ]`
+				) } share one look: {"border":{"color":"var:preset|color|cream","radius":"20px","width":"1px"},"color":{"background":"var:preset|color|paper"},"shadow":"0 12px 30px rgba(42,33,26,0.10)"}. A theme's styles/<slug>.json with "blockTypes": [ "core/group" ]`
 			),
 		] );
 	} );
@@ -427,7 +427,7 @@ describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', (
 
 		expect( rest ).toEqual( [] );
 		expect( note ).toContain(
-			`Studio made the spacing sizes ${ written } repeats spacing size presets of ${ slug }: it added size-2-rem (2rem), size-0-6-rem (0.6rem) to ${ themeJson }'s "settings": { "spacing": { "spacingSizes" } }`
+			`Studio made the spacing sizes ${ written } repeats spacing size presets of ${ slug }, which its blocks now name as the editor stores a picked one: it added size-2-rem (2rem), size-0-6-rem (0.6rem) to ${ themeJson }'s settings.spacing.spacingSizes.`
 		);
 		expect( await saveThroughEditor( written, slug ) ).toContain(
 			'stores 2rem as the spacing size size-2-rem, 0.6rem as the spacing size size-0-6-rem'
@@ -477,7 +477,7 @@ describe.runIf( WORDPRESS && EDITOR )( 'repeated raw font sizes made presets', (
 
 		const { summaries } = await check.settle();
 		expect( summaries.join( '\n' ) ).toContain(
-			`Studio made the font sizes Ember Roasters page ${ id } "Home" repeats font size presets of ${ slug }: it added size-1-4-rem (1.4rem) to ${ themeJson }`
+			`Studio made the font sizes Ember Roasters page ${ id } "Home" repeats font size presets of ${ slug }, which its blocks now name as the editor stores a picked one: it added size-1-4-rem (1.4rem) to ${ themeJson }`
 		);
 		// The change to theme.json is Studio's, which its note states, not the call's.
 		expect( summaries.join( '\n' ) ).not.toContain( 'This call changed' );

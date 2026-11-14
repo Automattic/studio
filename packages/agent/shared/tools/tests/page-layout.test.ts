@@ -321,7 +321,7 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 			"text against the edge of a block theme's page with core's 0px root padding",
 			'<style>body{padding:0px;--wp--style--root--padding-left:0px}</style><div class="wp-site-blocks"><p class="tagline" style="font:20px/1 monospace">Left</p></div>',
 			[
-				"The theme's styles.spacing.padding, the padding WordPress puts between the page's content and the viewport's edges, is core's 0px (wp-includes/theme.json); with settings.useRootPaddingAwareAlignments true, WordPress applies it inside each .has-global-padding container, so full-width blocks still reach the edges (get_root_layout_rules() in wp-includes/class-wp-theme-json.php).",
+				`The theme's styles.spacing.padding, the padding WordPress puts between the page's content and the viewport's edges, is core's 0px (wp-includes/theme.json). Its "left" and "right", as Twenty Twenty-Five sets them to var:preset|spacing|50, pad every page's content from the edges; with settings.useRootPaddingAwareAlignments true, WordPress applies them inside each .has-global-padding container, so full-width blocks still reach the edges (get_root_layout_rules() in wp-includes/class-wp-theme-json.php).`,
 				'p.tagline "Left": its text starts at the viewport\'s left edge (x 0).',
 			],
 		],

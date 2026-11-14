@@ -171,7 +171,7 @@ describe( 'post content changes', () => {
 	} );
 
 	it( 'saves a lossless editor fix to the post, and compares the post from it', async () => {
-		// With an attribute the fix drops, which its own sentence names.
+		// With an attribute the fix drops, which the summary leads with.
 		const ignored = '"id" is not an attribute of core/group, so WordPress ignores it.';
 		vi.mocked( validateBlocks ).mockResolvedValue( {
 			...losslessFix,
@@ -182,7 +182,15 @@ describe( 'post content changes', () => {
 		fixture.edit( 9, UNWRAPPED_GROUP );
 		expect( await check.settle() ).toEqual( {
 			summaries: [
-				`Block validation: Bakery page 9 "": Studio saved the block editor's save of it, which fixes 1 block(s) that do not match what the block saves, losing nothing, so it now holds what the editor saves. ${ ignored }`,
+				expect.stringMatching(
+					new RegExp(
+						`^Block validation: Bakery page 9 "": the page shows nothing of these comment attributes.*\n {2}- ${ ignored.replace(
+							/[.*+?^${}()|[\]\\]/g,
+							'\\$&'
+						) }\nBakery page 9 "": Studio saved the block editor's save of it, which fixes 1 block\\(s\\) that do not match what the block saves, losing nothing, so it now holds what the editor saves$`,
+						's'
+					)
+				),
 			],
 			problems: [],
 			written: [],

@@ -92,7 +92,7 @@ describe( 'post copies', () => {
 	it( 'names the workspace, outside the site, and writes a copy of each rendered post', async () => {
 		const { fact } = await openedWorkspace();
 		expect( fact ).toContain(
-			`${ path.join( config, 'workspace', 'abc' ) }/<post type>/<ID>.html`
+			`is in ${ path.join( config, 'workspace', 'abc' ) }/: <post type>/<ID>.html`
 		);
 		expect( read( copy( 'page', 9 ) ) ).toBe( PARAGRAPH );
 		expect( read( copy( 'wp_template_part', 10 ) ) ).toBe( HEADING );

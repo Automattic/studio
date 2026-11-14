@@ -82,6 +82,8 @@ beforeEach( () => {
 
 afterEach( () => rmSync( site, { recursive: true, force: true } ) );
 
+const escape = ( text: string ) => text.replace( /[.*+?^${}()|[\]\\]/g, '\\$&' );
+
 describe( 'block markup files', () => {
 	it( 'covers theme templates and parts, and any file that opens with a block', () => {
 		expect( isBlockMarkupFile( '/s/wp-content/themes/t/parts/header.html' ) ).toBe( true );
@@ -127,7 +129,8 @@ describe( 'validating a file', () => {
 		expect( readFileSync( file, 'utf8' ) ).toBe( original );
 	} );
 
-	it( 'explains ignored attributes even when the editor fixes them without losing markup', async () => {
+	// taqueria eval45 run 2: a button's label in an attribute it does not read, buried in a note of a lossless save.
+	it( 'leads with ignored attributes, once, when the editor fixes them without losing markup', async () => {
 		const diagnostic = '"htmlAnchor" is not an attribute of core/group, so WordPress ignores it.';
 		const report = invalidWithFix( fixed );
 		report.results[ 0 ].issues = [ diagnostic ];
@@ -137,8 +140,14 @@ describe( 'validating a file', () => {
 			write( 'tmp/home.html', original ),
 			'http://localhost:8881'
 		);
-		// Its own sentence, after the one that names the save.
-		expect( result.summary ).toContain( `which fixes 1 block(s). ${ diagnostic }` );
+		expect( result.summary ).toMatch(
+			new RegExp(
+				`^tmp/home.html: the page shows nothing of these comment attributes.*:\n {2}- ${ escape(
+					diagnostic
+				) }\ntmp/home.html: 1/1 blocks valid; saved through the block editor`
+			)
+		);
+		// The saved file no longer holds it: nothing stays open.
 		expect( result.problem ).toBeUndefined();
 		expect( result.fixedContent ).toBe( fixed );
 	} );

@@ -5,15 +5,13 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import {
-	addConnectedWpcomSite,
-	markConnectedWpcomSiteSynced,
-} from '@studio/common/lib/connected-sites';
 import { formatProgressLabel } from '@studio/common/lib/progress-label';
-import { buildSyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
+import { rememberRemoteSite } from '@studio/common/lib/remote-sites';
 import {
-	SYNC_MAX_STALLED_ATTEMPTS,
-	SYNC_POLL_INTERVAL_MS,
+	buildSyncEventProps,
+	classifySyncSelection,
+} from '@studio/common/lib/sync/build-sync-event-props';
+import {
 	SYNC_PUSH_SIZE_LIMIT_BYTES,
 	SYNC_PUSH_SIZE_LIMIT_GB,
 } from '@studio/common/lib/sync/constants';
@@ -25,13 +23,7 @@ import { DEFAULT_IMPORTER_OPTIONS, getImporter } from 'cli/lib/import-export/imp
 import { confirm } from 'cli/lib/prompts';
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { exitOnCancel, reportSyncActivity } from 'cli/lib/sync-activity';
-import {
-	checkBackupSize,
-	fetchSyncableSites,
-	initiateBackup,
-	pollBackupStatus,
-	downloadBackup,
-} from 'cli/lib/sync-api';
+import { backupRemoteSite, downloadBackup, fetchSyncableSites } from 'cli/lib/sync-api';
 import { fetchPullTree, selectSyncItemsForPull } from 'cli/lib/sync-selector';
 import { findSyncSiteByIdentifier, pickSyncSite } from 'cli/lib/sync-site-picker';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
@@ -44,7 +36,10 @@ import {
 import { requireAuthToken } from 'cli/lib/wpcom-auth';
 import { Logger, LoggerError } from 'cli/logger';
 import { handleImportEvents } from './import';
-import type { SyncEventProps } from '@studio/common/lib/sync/build-sync-event-props';
+import type {
+	SyncEventProps,
+	SyncSelectionProps,
+} from '@studio/common/lib/sync/build-sync-event-props';
 import type { SyncFailurePhase } from '@studio/common/lib/sync/classify-sync-failure';
 import type { SyncOption, SyncSite } from '@studio/common/types/sync';
 import type { builder } from 'cli/commands/pull.command';
@@ -58,9 +53,13 @@ export async function runCommand(
 	siteIdentifier?: string,
 	syncIncludePathList?: string[],
 	logger: Logger< LoggerAction > = defaultLogger,
-	confirmLargeBackup?: () => Promise< boolean >
+	confirmLargeBackup?: () => Promise< boolean >,
+	specificSelectionPaths?: string[]
 ): Promise< SyncSite | undefined > {
 	let pullError: unknown;
+	let selectionProps: SyncSelectionProps | undefined = syncOptions
+		? classifySyncSelection( { optionsToSync: syncOptions, specificSelectionPaths } )
+		: undefined;
 	let restartSiteError: unknown;
 	let remoteSite: SyncSite | undefined;
 	let pullCompleted = false;
@@ -112,7 +111,10 @@ export async function runCommand(
 			}
 			optionsToSync = selection.optionsToSync;
 			includePathList = selection.includePathList;
+			specificSelectionPaths = selection.specificSelectionPaths;
 		}
+
+		selectionProps ??= classifySyncSelection( { optionsToSync, specificSelectionPaths } );
 
 		// Pull progress: Backup (0-50%) → Download (50-80%) → Import (80-100%)
 		failurePhase = 'remote_backup';
@@ -120,53 +122,18 @@ export async function runCommand(
 			LoggerAction.INITIATE_BACKUP,
 			formatProgressLabel( __( 'Initializing remote backup…' ), 0 )
 		);
-		const backupId = await initiateBackup( token.accessToken, remoteSite.id, {
-			optionsToSync,
-			includePathList,
-		} );
-
-		let downloadUrl: string | null = null;
-		let lastPercent = -1;
-		let stalledAttempts = 0;
-
-		while ( stalledAttempts < SYNC_MAX_STALLED_ATTEMPTS ) {
-			const status = await pollBackupStatus( token.accessToken, remoteSite.id, backupId );
-
-			if ( status.status === 'failed' ) {
-				throw new LoggerError( __( 'Remote backup failed' ), undefined, 'remote_backup' );
+		const { url: downloadUrl, size: backupFileSize } = await backupRemoteSite(
+			token.accessToken,
+			remoteSite.id,
+			{ optionsToSync, includePathList },
+			( percent ) => {
+				// Backup phase: 0-50%
+				logger.reportProgress(
+					formatProgressLabel( __( 'Creating remote backup…' ), Math.round( percent * 0.5 ) )
+				);
 			}
+		);
 
-			if ( status.status === 'finished' && status.downloadUrl ) {
-				downloadUrl = status.downloadUrl;
-				break;
-			}
-
-			const currentPercent = Math.round( status.percent );
-			if ( currentPercent !== lastPercent ) {
-				stalledAttempts = 0;
-				lastPercent = currentPercent;
-			} else {
-				stalledAttempts++;
-			}
-
-			// Backup phase: 0-50%
-			const backupProgress = Math.round( status.percent * 0.5 );
-			logger.reportProgress(
-				formatProgressLabel( __( 'Creating remote backup…' ), backupProgress )
-			);
-
-			await new Promise( ( resolve ) => setTimeout( resolve, SYNC_POLL_INTERVAL_MS ) );
-		}
-
-		if ( ! downloadUrl ) {
-			throw new LoggerError(
-				__( 'Backup timed out — no progress detected' ),
-				undefined,
-				'timeout'
-			);
-		}
-
-		const backupFileSize = await checkBackupSize( downloadUrl );
 		if ( backupFileSize > SYNC_PUSH_SIZE_LIMIT_BYTES ) {
 			if ( confirmLargeBackup ) {
 				logger.spinner.stop();
@@ -233,8 +200,7 @@ export async function runCommand(
 			// Remember this connection so future push/pull runs (and the Desktop UI)
 			// can surface it without re-selecting from the full site list.
 			try {
-				await addConnectedWpcomSite( site.id, { ...remoteSite, localSiteId: site.id } );
-				await markConnectedWpcomSiteSynced( site.id, remoteSite.id, 'pull' );
+				await rememberRemoteSite( 'wpcom', site.id, remoteSite, 'pull' );
 			} catch ( error ) {
 				logger.reportError( new LoggerError( 'Failed to save connected site', error ), false );
 			}
@@ -277,6 +243,7 @@ export async function runCommand(
 			buildSyncEventProps( {
 				startedAt,
 				site: remoteSite,
+				selection: selectionProps,
 				error: pullError,
 				hint: { code: findFailureCode( pullError ), phase: failurePhase },
 			} )
@@ -356,7 +323,8 @@ export async function commandHandler( argv: CommandArgs< typeof builder > ) {
 							),
 							default: true,
 						} )
-				: undefined
+				: undefined,
+			argv.only
 		);
 	} catch ( error ) {
 		if ( error instanceof LoggerError ) {

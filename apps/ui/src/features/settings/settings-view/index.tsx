@@ -194,81 +194,90 @@ function PreferencesPanel( {
 						onChange={ ( locale ) => onChange( { locale } ) }
 					/>
 				</SettingsRow>
-				<SettingsRow
-					title={ __( 'Default code editor' ) }
-					description={ __( 'The default code editor for your sites.' ) }
-				>
-					<SettingsSelect
-						label={ __( 'Default code editor' ) }
-						value={ data.editor }
-						options={ appElements( SUPPORTED_EDITORS, installedApps, data.editor, ( editor ) =>
-							supportedEditorConfig[ editor ].label()
-						) }
-						onChange={ ( editor ) => onChange( { editor } ) }
-					/>
-				</SettingsRow>
-				<SettingsRow
-					title={ __( 'Default browser' ) }
-					description={ __( 'The default browser for your sites.' ) }
-				>
-					<SettingsSelect
-						label={ __( 'Default browser' ) }
-						value={ data.browser }
-						options={ [
-							{ value: UNSET, label: __( 'System' ) },
-							...SUPPORTED_BROWSERS.filter(
-								( browser ) => installedApps?.[ browser ] || browser === data.browser
-							).map( ( browser ) => ( { value: browser, label: browserConfig[ browser ].name } ) ),
-						] }
-						onChange={ ( browser ) => onChange( { browser } ) }
-					/>
-				</SettingsRow>
-				<SettingsRow
-					title={ __( 'Default terminal app' ) }
-					description={ __( 'The default terminal for your sites.' ) }
-				>
-					<SettingsSelect
-						label={ __( 'Default terminal app' ) }
-						value={ data.terminal }
-						options={ appElements(
-							SUPPORTED_TERMINALS,
-							installedApps,
-							data.terminal,
-							( terminal ) => terminalConfig[ terminal ].name()
-						) }
-						onChange={ ( terminal ) => onChange( { terminal } ) }
-					/>
-				</SettingsRow>
-				<DefaultSiteDirectoryRow
-					value={ data.defaultSiteDirectory }
-					onSelect={ onDefaultSiteDirectorySelect }
-					onSave={ ( defaultSiteDirectory ) => onChange( { defaultSiteDirectory } ) }
-				/>
-				<SettingsRow
-					title={ __( 'Improve WordPress Studio for everyone' ) }
-					description={ __( 'Share anonymous usage statistics to improve WordPress Studio.' ) }
-				>
-					<SettingsToggle
-						label={ __( 'Improve WordPress Studio for everyone' ) }
-						checked={ data.analyticsEnabled }
-						onChange={ ( analyticsEnabled ) => onChange( { analyticsEnabled } ) }
-					/>
-				</SettingsRow>
+				{ connector.capabilities.nativeSites && (
+					<>
+						<SettingsRow
+							title={ __( 'Default code editor' ) }
+							description={ __( 'The default code editor for your sites.' ) }
+						>
+							<SettingsSelect
+								label={ __( 'Default code editor' ) }
+								value={ data.editor }
+								options={ appElements( SUPPORTED_EDITORS, installedApps, data.editor, ( editor ) =>
+									supportedEditorConfig[ editor ].label()
+								) }
+								onChange={ ( editor ) => onChange( { editor } ) }
+							/>
+						</SettingsRow>
+						<SettingsRow
+							title={ __( 'Default browser' ) }
+							description={ __( 'The default browser for your sites.' ) }
+						>
+							<SettingsSelect
+								label={ __( 'Default browser' ) }
+								value={ data.browser }
+								options={ [
+									{ value: UNSET, label: __( 'System' ) },
+									...SUPPORTED_BROWSERS.filter(
+										( browser ) => installedApps?.[ browser ] || browser === data.browser
+									).map( ( browser ) => ( {
+										value: browser,
+										label: browserConfig[ browser ].name,
+									} ) ),
+								] }
+								onChange={ ( browser ) => onChange( { browser } ) }
+							/>
+						</SettingsRow>
+						<SettingsRow
+							title={ __( 'Default terminal app' ) }
+							description={ __( 'The default terminal for your sites.' ) }
+						>
+							<SettingsSelect
+								label={ __( 'Default terminal app' ) }
+								value={ data.terminal }
+								options={ appElements(
+									SUPPORTED_TERMINALS,
+									installedApps,
+									data.terminal,
+									( terminal ) => terminalConfig[ terminal ].name()
+								) }
+								onChange={ ( terminal ) => onChange( { terminal } ) }
+							/>
+						</SettingsRow>
+						<DefaultSiteDirectoryRow
+							value={ data.defaultSiteDirectory }
+							onSelect={ onDefaultSiteDirectorySelect }
+							onSave={ ( defaultSiteDirectory ) => onChange( { defaultSiteDirectory } ) }
+						/>
+						<SettingsRow
+							title={ __( 'Improve WordPress Studio for everyone' ) }
+							description={ __( 'Share anonymous usage statistics to improve WordPress Studio.' ) }
+						>
+							<SettingsToggle
+								label={ __( 'Improve WordPress Studio for everyone' ) }
+								checked={ data.analyticsEnabled }
+								onChange={ ( analyticsEnabled ) => onChange( { analyticsEnabled } ) }
+							/>
+						</SettingsRow>
+					</>
+				) }
 			</SettingsGroup>
 			<SettingsGroup title={ __( 'Interface' ) }>
-				<SettingsRow
-					title={ __( 'When WordPress Studio quits' ) }
-					description={ __(
-						'Choose what happens to running sites when you quit WordPress Studio.'
-					) }
-				>
-					<SettingsSelect< QuitSitesBehavior | typeof UNSET >
-						label={ __( 'When WordPress Studio quits' ) }
-						value={ data.quitSitesBehavior }
-						options={ getQuitSitesBehaviorElements() }
-						onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
-					/>
-				</SettingsRow>
+				{ connector.capabilities.nativeSites && (
+					<SettingsRow
+						title={ __( 'When WordPress Studio quits' ) }
+						description={ __(
+							'Choose what happens to running sites when you quit WordPress Studio.'
+						) }
+					>
+						<SettingsSelect< QuitSitesBehavior | typeof UNSET >
+							label={ __( 'When WordPress Studio quits' ) }
+							value={ data.quitSitesBehavior }
+							options={ getQuitSitesBehaviorElements() }
+							onChange={ ( quitSitesBehavior ) => onChange( { quitSitesBehavior } ) }
+						/>
+					</SettingsRow>
+				) }
 				<SettingsRow
 					title={ __( 'Start site when sending a prompt' ) }
 					description={ __( 'Automatically start stopped sites when you send a chat message.' ) }
@@ -549,9 +558,9 @@ export function InstructionsSettings( { onManageSite }: { onManageSite?: () => v
 	);
 }
 
-export { AiPanel } from './ai-panel';
+export { ProvidersPanel } from './providers-panel';
 export { KeyboardPanel } from './keyboard-panel';
-export { McpPanel } from './mcp-panel';
+export { ExternalAppsPanel } from './mcp-panel';
 export { SharingPanel } from './sharing-panel';
 export { SkillsPanel } from './skills-panel';
 export { UsagePanel } from './usage-panel';

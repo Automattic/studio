@@ -1,6 +1,5 @@
 import { isSnapshotExpired } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
-import { PencilIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
@@ -11,7 +10,7 @@ import { AccountPrompt, previewSiteImage } from '@/features/account';
 import { CopyButton } from '@/features/chats';
 import { previewExpiry, RenamePreview } from '@/features/sharing';
 import { SiteCard, getWebsiteThumbnailUrl } from '@/features/site-card';
-import { TrashIcon } from '@/lib/icons';
+import { PencilIcon, TrashIcon } from '@/lib/icons';
 import {
 	Button,
 	IconButton,

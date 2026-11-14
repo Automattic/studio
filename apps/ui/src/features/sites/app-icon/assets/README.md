@@ -14,7 +14,12 @@ from their macOS application bundle icons on October 6, 2026, using `sips` at
 
 Claude, ChatGPT, and Cursor were exported from their macOS application bundle
 icons on November 3, 2026, using `sips` at 256 pixels, for Settings' 32-pixel
-agent app logos. Claude Code uses the Claude icon, and Codex the ChatGPT one.
+agent app logos. Claude Code and the Anthropic API use the Claude icon.
+Codex and the ChatGPT provider use the ChatGPT icon.
+
+GitHub Copilot uses the installed macOS app’s icon, exported with `sips` at 256 pixels.
+
+Gemini, Spacefast, and WordPress.com use the supplied icon artwork, exported at 128 pixels.
 
 Grok Build uses the Grok logo from
 [SVGL](https://github.com/pheralb/svgl/blob/main/static/library/grok-dark.svg),

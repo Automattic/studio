@@ -109,6 +109,8 @@ type IconButtonProps = Omit< ButtonProps, 'children' > & {
 	label: string;
 	shortcut?: Shortcut;
 	tooltip?: boolean;
+	tooltipLabel?: string;
+	tooltipSideOffset?: ComponentProps< typeof TooltipContent >[ 'sideOffset' ];
 	tooltipSide?: ComponentProps< typeof TooltipContent >[ 'side' ];
 	children?: ReactNode;
 };
@@ -119,7 +121,9 @@ export function IconButton( {
 	label,
 	shortcut,
 	tooltip = true,
+	tooltipLabel = label,
 	tooltipSide = 'top',
+	tooltipSideOffset,
 	variant = 'ghost',
 	size = 'icon',
 	children,
@@ -144,8 +148,8 @@ export function IconButton( {
 	return (
 		<Tooltip>
 			<TooltipTrigger render={ button } />
-			<TooltipContent side={ tooltipSide }>
-				{ label }
+			<TooltipContent side={ tooltipSide } sideOffset={ tooltipSideOffset }>
+				{ tooltipLabel }
 				{ shortcut && <Kbd>{ shortcut.displayShortcut }</Kbd> }
 			</TooltipContent>
 		</Tooltip>

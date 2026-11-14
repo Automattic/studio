@@ -4,7 +4,7 @@ import { createElement, type ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { ConnectorProvider } from '@/data/core';
 import { createFakeConnector } from '@/test/fake-connector';
-import { connectedWpcomSitesQueryKey } from './use-connected-wpcom-sites';
+import { remoteSitesQueryKey } from './use-remote-sites';
 import {
 	openNewSession,
 	primeSessionQueryData,
@@ -79,16 +79,16 @@ describe( 'openNewSession', () => {
 		connector.createSession.mockResolvedValue( summary );
 
 		await expect(
-			openNewSession( { connector, queryClient }, 'site-1', 'claude-opus-5' )
+			openNewSession( { connector, queryClient }, 'site-1', 'claude-opus-5-5' )
 		).resolves.toBe( summary );
 
 		expect( connector.createSession ).toHaveBeenCalledWith( 'site-1' );
-		expect( connector.setSessionModel ).toHaveBeenCalledWith( 'session-1', 'claude-opus-5' );
+		expect( connector.setSessionModel ).toHaveBeenCalledWith( 'session-1', 'claude-opus-5-5' );
 		expect(
 			queryClient.getQueryData< LoadedAiSession >( [ ...SESSIONS_QUERY_KEY, 'session-1' ] )
 		).toEqual( {
 			summary,
-			entries: [ expect.objectContaining( { type: 'model_change', modelId: 'claude-opus-5' } ) ],
+			entries: [ expect.objectContaining( { type: 'model_change', modelId: 'claude-opus-5-5' } ) ],
 		} );
 		expect( invalidateQueries ).toHaveBeenCalledWith( {
 			queryKey: SESSIONS_QUERY_KEY,
@@ -108,7 +108,7 @@ describe( 'useSessionLiveSite', () => {
 	function getLiveSite( summary: Partial< AiSessionSummary > ) {
 		const connector = createFakeConnector();
 		const queryClient = new QueryClient();
-		queryClient.setQueryData( connectedWpcomSitesQueryKey( 'site-1' ), [ production, staging ] );
+		queryClient.setQueryData( remoteSitesQueryKey( 'wpcom', 'site-1' ), [ production, staging ] );
 		return renderHook( () => useSessionLiveSite( createSummary( summary ), 'site-1' ), {
 			wrapper: ( { children }: { children: ReactNode } ) =>
 				createElement( ConnectorProvider, {

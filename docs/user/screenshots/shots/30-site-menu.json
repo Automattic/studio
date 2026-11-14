@@ -1,6 +1,9 @@
 {
+	"$schema": "../../../../tools/capture-harness/schemas/script.schema.json",
 	"name": "site-menu",
-	"description": "The site menu and the dialogs it opens: Open in, Export, Delete site, and importing a backup",
+	"description": "The site menu and the dialogs it opens: Open in, Export, Delete, and importing a backup",
+	"scene": "moire",
+	"look": "docs",
 	"capture": {
 		"target": [
 			{
@@ -22,9 +25,8 @@
 	"shots": [
 		{
 			"name": "site-menu",
-			"description": "The site menu, opened from the site icon at the top of the chat",
-			"pages": [ "sites.md" ],
-			"replaces": [ "2025/01/sidebar-site-menu.png" ],
+			"description": "The site menu, opened from the site’s name at the top of the chat",
+			"meta": { "pages": [ "sites.md" ], "replaces": [ "2025/01/sidebar-site-menu.png" ] },
 			"steps": [
 				{
 					"helper": "openSiteMenu"
@@ -34,7 +36,7 @@
 		{
 			"name": "site-menu-open-in",
 			"description": "Site menu → Open in (browser, file manager, editor, terminal, phpMyAdmin)",
-			"pages": [ "sites.md", "frequently-asked-questions.md" ],
+			"meta": { "pages": [ "sites.md", "frequently-asked-questions.md" ] },
 			"steps": [
 				{
 					"helper": "openSubmenu",
@@ -48,8 +50,7 @@
 		{
 			"name": "site-menu-export",
 			"description": "Site menu → Export (Export site / Export database)",
-			"pages": [ "import-export.md" ],
-			"replaces": [ "2025/01/site-overview-1.png" ],
+			"meta": { "pages": [ "import-export.md" ], "replaces": [ "2025/01/site-overview-1.png" ] },
 			"steps": [
 				{
 					"helper": "openSubmenu",
@@ -67,9 +68,8 @@
 		},
 		{
 			"name": "delete-site-dialog",
-			"description": "Delete site confirmation, with Also move files and database to Trash",
-			"pages": [ "sites.md" ],
-			"replaces": [ "2025/01/delete-site-dialog.png" ],
+			"description": "Delete confirmation, with Also move files and database to Trash",
+			"meta": { "pages": [ "sites.md" ], "replaces": [ "2025/01/delete-site-dialog.png" ] },
 			"steps": [
 				{
 					"helper": "closeMenus"
@@ -85,7 +85,7 @@
 				{
 					"click": {
 						"role": "menuitem",
-						"name": "Delete site"
+						"pattern": "^Delete( site)?$"
 					}
 				},
 				{
@@ -121,8 +121,7 @@
 		{
 			"name": "import-overwrite-dialog",
 			"description": "Import a backup into an existing site: the overwrite confirmation",
-			"pages": [ "import-export.md" ],
-			"replaces": [ "2025/01/import-overwrite-dialog.png" ],
+			"meta": { "pages": [ "import-export.md" ], "replaces": [ "2025/01/import-overwrite-dialog.png" ] },
 			"steps": [
 				{
 					"setFiles": {

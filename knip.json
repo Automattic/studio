@@ -32,7 +32,12 @@
 			"project": "**/*.ts"
 		},
 		"apps/ui": {
-			"entry": ["src/main.local.tsx", "src/dev/{chat,animation,annotate-tip,update-preview,email-preview,sidebar-preview}.tsx"],
+			"entry": [
+				"src/main.local.tsx",
+				"src/main.static.tsx",
+				"src/site-viewer.ts",
+				"src/dev/{chat,animation,annotate-tip,update-preview,email-preview,sidebar-preview}.tsx"
+			],
 			"project": "src/**/*.{ts,tsx}"
 		},
 		"apps/local": {
@@ -42,8 +47,15 @@
 		"packages/agent": {
 			"project": "**/*.ts"
 		},
+		"packages/blueprints": {
+			"project": "**/*.ts"
+		},
 		"packages/common": {
 			"entry": ["globals.ts"],
+			"project": "**/*.ts"
+		},
+		"tools/capture-harness": {
+			"entry": ["src/tests/*.test.ts"],
 			"project": "**/*.ts"
 		},
 		"tools/eslint-plugin-studio": {
@@ -53,5 +65,5 @@
 	"ignoreDependencies": [
 		"@automattic/wp-babel-makepot"
 	],
-	"ignoreBinaries": ["mdfind", "attrib"]
+	"ignoreBinaries": ["mdfind", "attrib", "apt-get", "Xvfb"]
 }

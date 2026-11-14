@@ -70,19 +70,33 @@ export function decodeStaticSiteImportReceipt(
 	return undefined;
 }
 
-export function staticSiteImportReceiptError(
+function receiptResponseError(
 	receipt: Record< string, unknown > | undefined
-): string {
+): Record< string, unknown > | undefined {
 	const response = receipt?.response;
 	if ( ! response || typeof response !== 'object' || Array.isArray( response ) ) {
-		return '';
+		return undefined;
 	}
 	const error = ( response as Record< string, unknown > ).error;
 	if ( ! error || typeof error !== 'object' || Array.isArray( error ) ) {
+		return undefined;
+	}
+	return error as Record< string, unknown >;
+}
+
+function receiptErrorCode( receipt: Record< string, unknown > | undefined ): unknown {
+	return receiptResponseError( receipt )?.code;
+}
+
+export function staticSiteImportReceiptError(
+	receipt: Record< string, unknown > | undefined
+): string {
+	const error = receiptResponseError( receipt );
+	if ( ! error ) {
 		return '';
 	}
-	const code = ( error as Record< string, unknown > ).code;
-	const message = ( error as Record< string, unknown > ).message;
+	const code = error.code;
+	const message = error.message;
 	const detail = [ code, message ]
 		.filter( ( value ) => typeof value === 'string' && value )
 		.join( ': ' );
@@ -283,16 +297,24 @@ export class StaticSiteImportRun {
 		const { exitCode, stdout } = result;
 		const receipt = decodeStaticSiteImportReceipt( stdout );
 		const receiptError = staticSiteImportReceiptError( receipt );
+		const failureCode =
+			receiptErrorCode( receipt ) === 'static_site_importer_quality_failed'
+				? 'ssi_quality_failed'
+				: 'ssi_import';
 		if ( exitCode !== 0 ) {
 			throw new LoggerError(
 				__( 'Static site import failed.' ),
-				new Error( receiptError || wpCliFailureDetail( result ) )
+				new Error( receiptError || wpCliFailureDetail( result ) ),
+				failureCode
 			);
 		}
 		if ( receipt?.schema !== STATIC_SITE_IMPORT_RECEIPT_SCHEMA || receipt.status !== 'completed' ) {
 			throw new LoggerError(
 				__( 'Static site import returned an invalid terminal receipt.' ),
-				new Error( receiptError || stdout.trim() || __( 'The importer did not return a receipt.' ) )
+				new Error(
+					receiptError || stdout.trim() || __( 'The importer did not return a receipt.' )
+				),
+				failureCode
 			);
 		}
 		const finalizationStartedAt = Date.now();

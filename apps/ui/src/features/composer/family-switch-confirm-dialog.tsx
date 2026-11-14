@@ -1,4 +1,4 @@
-import { getAiModelLabel } from '@studio/agent/protocol/models';
+import { findAiModel } from '@studio/providers';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
 import { useRef } from 'react';
@@ -61,8 +61,8 @@ export function FamilySwitchConfirmDialog( {
 										__(
 											'Switching from %1$s to %2$s starts a fresh chat because the models don\u2019t share memory. You can find previous chats using <history>Chat history</history> below the chat box.'
 										),
-										getAiModelLabel( currentModel ),
-										getAiModelLabel( pendingModel )
+										findAiModel( currentModel )?.model.label() ?? currentModel,
+										findAiModel( pendingModel )?.model.label() ?? pendingModel
 									),
 									{ history: <strong /> }
 							  )

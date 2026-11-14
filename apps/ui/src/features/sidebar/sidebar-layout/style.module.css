@@ -1,5 +1,6 @@
 .root,
 .sidebarFlyout {
+	--studio-sidebar-bg: var( --surface );
 	--surface-fade-size: 14px;
 }
 
@@ -31,6 +32,7 @@
 }
 
 .sidebar {
+	--surface: var( --chrome );
 	width: var( --sidebar-width, 320px );
 	/* Both bounds are owned by useResizablePanel, which clamps --sidebar-width
 	   on every path. CSS min/max widths would compete with that single source
@@ -53,12 +55,6 @@
 	min-height: 0;
 	overflow-y: auto;
 	scrollbar-width: none;
-	mask-image: linear-gradient(
-		to top,
-		transparent,
-		rgb( 0 0 0 / 0.65 ) calc( var( --scroll-fade-bottom, 0px ) * 0.35 ),
-		#000 var( --scroll-fade-bottom, 0px )
-	);
 }
 
 /* Collapsing animates this frame's width while the sidebar inside keeps its
@@ -84,11 +80,31 @@
 	transition: none;
 }
 
-/* Controls stay outside the masked scrollport. */
+/* Sticky positioning lets rows pass under the footer and reserves space at the end. */
 .sidebarFooter {
+	position: sticky;
+	inset-block-end: 0;
+	z-index: 1;
 	flex-shrink: 0;
+	margin-block-start: auto;
 	padding-block-start: var( --space-1 );
 	-webkit-app-region: no-drag;
+}
+
+.sidebarScroll[data-scroll-bottom] .sidebarFooter::before {
+	content: '';
+	position: absolute;
+	inset-inline: 0;
+	inset-block-end: 0;
+	height: 60px;
+	background-color: color-mix( in oklab, var( --studio-sidebar-bg ) 60%, transparent );
+	backdrop-filter: blur( 4px );
+	mask-image: linear-gradient( to top, #000 50%, transparent 100% );
+	pointer-events: none;
+}
+
+.sidebarFooterControls {
+	position: relative;
 }
 
 /* The sidebar's full-height edge, in its own last column. It slides out
@@ -118,6 +134,7 @@
 }
 
 .main {
+	--surface: var( --chat );
 	flex: 1;
 	min-width: 0;
 	/* Route panels own their scrolling. */
@@ -136,14 +153,38 @@
 	justify-content: flex-start;
 }
 
-.root:has( > .main > .resizeHandle:hover ) .sidebarFrame:not( .sidebarResizing )::after {
-	background-color: var( --surface-4 );
+.root:where( :has( > .main > .resizeHandle ) )::after {
+	content: '';
+	position: absolute;
+	inset-block: 1px 0;
+	inset-inline-start: var( --sidebar-width );
+	width: var( --focus-width );
+	translate: -50%;
+	z-index: var( --z-overlay );
+	pointer-events: none;
+	background-color: var( --ring );
+	opacity: 0;
 }
 
-.sidebarResizing::after,
-.root:has( > .main > .resizeHandle:focus-visible ) .sidebarFrame::after {
-	width: var( --focus-width );
-	background-color: var( --ring );
+.root:dir( rtl )::after {
+	translate: 50%;
+}
+
+.root:has( > .sidebarResizing )::after,
+.root:has( > .main > .resizeHandle:is( :hover, :focus-visible ) )::after {
+	opacity: 1;
+}
+
+@media ( prefers-reduced-motion: no-preference ) {
+	.root::after {
+		transition: opacity var( --motion-duration-surface ) ease-out;
+	}
+
+	.root:not( :has( > .sidebarResizing ) ):has(
+			> .main > .resizeHandle:is( :hover, :focus-visible )
+		)::after {
+		transition-delay: var( --motion-duration-feedback );
+	}
 }
 
 .sidebarCards {
@@ -154,47 +195,70 @@
 	position: absolute;
 	inset-block-start: 0;
 	inset-inline: 0;
-	height: var( --band-height );
+	height: 0;
 	pointer-events: none;
 }
 
+.main :has( > .sidebarFlyout ) {
+	z-index: var( --z-sidebar );
+}
+
+.main:has( :not( [hidden] ) > .sidebarFlyout ) [data-sidebar-flyout-header] {
+	z-index: auto;
+}
+
+/* Keep the header controls above the workspace but below the flyout. */
+.main:has( :not( [hidden] ) > .sidebarFlyout )
+	[data-sidebar-flyout-header]
+	> :not( [data-sidebar-header-slot], :has( [data-sidebar-header-slot] ) ),
+.main:has( :not( [hidden] ) > .sidebarFlyout )
+	[data-site-header-reserved]
+	> :not( [data-sidebar-header-slot] ) {
+	z-index: 4;
+}
+
+.main:has( :not( [hidden] ) > .sidebarFlyout )
+	[data-sidebar-flyout-header]
+	[data-sidebar-header-slot] {
+	position: relative;
+	z-index: calc( var( --z-sidebar ) + 1 );
+}
+
 .sidebarFlyout {
-	--motion-ease-layout: var( --motion-ease-drawer );
-	--studio-sidebar-bg: var( --chrome );
-	--sidebar-flyout-top-inset: calc( var( --space-3 ) - var( --space-0_5 ) );
+	--surface: var( --chrome );
 
 	width: var( --sidebar-width );
-	max-width: calc( 100vw - 12px );
-	padding-block-start: var( --sidebar-flyout-top-inset );
+	max-width: 100vw;
+	padding-block-start: var( --band-height );
+	border-radius: 0;
 	overflow: hidden;
 }
 
 .sidebarFlyoutContents {
 	display: flex;
 	flex-direction: column;
-	height: calc(
-		100dvh - var( --band-height ) - var( --space-1_5 ) - var( --sidebar-flyout-top-inset )
-	);
+	height: calc( 100dvh - var( --band-height ) );
 	min-height: 0;
 	-webkit-app-region: no-drag;
 }
 
+.sidebarFlyout:is( [data-starting-style], [data-ending-style] ) {
+	scale: 1;
+}
+
 @media ( prefers-reduced-motion: no-preference ) {
 	.sidebarFlyout {
-		transition-property: translate, opacity;
-		transition-duration: var( --motion-duration-layout );
-		transition-timing-function: var( --motion-ease-layout );
+		transition:
+			translate var( --motion-duration-layout ) var( --motion-ease-drawer ),
+			opacity var( --motion-duration-layout ) var( --motion-ease-drawer );
 	}
 
-	.sidebarFlyout[data-starting-style],
-	.sidebarFlyout[data-ending-style] {
-		scale: 1;
-		translate: calc( -100% - 6px ) 0;
+	.sidebarFlyout:is( [data-starting-style], [data-ending-style] ) {
+		translate: -100% 0;
 	}
 
-	.sidebarFlyout:dir( rtl )[data-starting-style],
-	.sidebarFlyout:dir( rtl )[data-ending-style] {
-		translate: calc( 100% + 6px ) 0;
+	.sidebarFlyout:dir( rtl ):is( [data-starting-style], [data-ending-style] ) {
+		translate: 100% 0;
 	}
 }
 

@@ -51,7 +51,7 @@ describe( 'SiteHeaderActions', () => {
 
 		act( () => requestHeaderPanel( { panel: 'publish', siteId: site.id, view: 'publish' } ) );
 
-		expect( await screen.findByText( 'Publish your WordPress' ) ).toBeInTheDocument();
+		expect( await screen.findByRole( 'button', { name: 'New site…' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'opens Share and returns focus to its fixed header button', async () => {

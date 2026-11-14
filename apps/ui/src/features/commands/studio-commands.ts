@@ -1,21 +1,21 @@
 import { findAiSessionOwnerSite } from '@studio/agent/protocol/sessions/owner-site';
 import { __, sprintf } from '@wordpress/i18n';
-import { SettingsIcon } from 'lucide-react';
 import { getSections, getSettingsCommandAliases } from '@/data/settings-sections';
 import { getSessionTitle } from '@/features/chats';
 import {
+	SettingsIcon,
 	PlusIcon,
-	AppearanceIcon,
+	PaletteIcon,
 	ArchiveIcon,
 	ChatIcon,
 	CollapseAllIcon,
 	GlobeIcon,
-	FeedbackIcon,
+	MessageSquareTextIcon,
 	PinIcon,
-	RenameIcon,
+	PencilIcon,
 	SidebarIcon,
 	UnpinIcon,
-	WhatsNewIcon,
+	SparkleIcon,
 } from '@/lib/icons';
 import type { AiSessionSummary, SiteDetails, WritableUserPreferences } from '@/data/core';
 import type { useOpenSettings } from '@/data/use-open-settings';
@@ -120,7 +120,7 @@ export function getAppCommands( {
 	savePreferences: ( preferences: Partial< WritableUserPreferences > ) => void;
 	toggleSidebar: () => void;
 	openWhatsNew: () => void;
-	openFeedback: () => void;
+	openFeedback?: () => void;
 	// Set while the sidebar has more than one site unfolded.
 	collapseAll?: () => void;
 } ): PaletteCommand[] {
@@ -166,7 +166,7 @@ export function getAppCommands( {
 			id: 'color-scheme',
 			group: 'commands',
 			label: colorScheme === 'dark' ? __( 'Use light mode' ) : __( 'Use dark mode' ),
-			icon: AppearanceIcon,
+			icon: PaletteIcon,
 			aliases: [ __( 'Toggle theme' ) ],
 			keywords: [ __( 'Appearance' ), __( 'Theme' ), __( 'Dark mode' ), __( 'Light mode' ) ],
 			run: () => savePreferences( { colorScheme: colorScheme === 'dark' ? 'light' : 'dark' } ),
@@ -184,19 +184,27 @@ export function getAppCommands( {
 			id: 'whats-new',
 			group: 'commands',
 			label: __( 'What’s New' ),
-			icon: WhatsNewIcon,
+			icon: SparkleIcon,
 			keywords: [ __( 'New features' ) ],
 			run: openWhatsNew,
 		},
-		{
-			id: 'send-feedback',
-			group: 'commands',
-			label: __( 'Send feedback' ),
-			icon: FeedbackIcon,
-			aliases: [ __( 'Feedback' ) ],
-			keywords: [ __( 'Report a bug' ), __( 'Feature request' ), __( 'WordPress Studio team' ) ],
-			run: openFeedback,
-		},
+		...( openFeedback
+			? [
+					{
+						id: 'send-feedback',
+						group: 'commands' as const,
+						label: __( 'Send feedback' ),
+						icon: MessageSquareTextIcon,
+						aliases: [ __( 'Feedback' ) ],
+						keywords: [
+							__( 'Report a bug' ),
+							__( 'Feature request' ),
+							__( 'WordPress Studio team' ),
+						],
+						run: openFeedback,
+					},
+			  ]
+			: [] ),
 		...( collapseAll
 			? [
 					{
@@ -234,6 +242,7 @@ export function getSettingCommands( {
 	scope,
 	site,
 	signedIn,
+	nativeSites,
 	toggles,
 	actions = {},
 	openSettings,
@@ -241,6 +250,7 @@ export function getSettingCommands( {
 	scope: 'studio' | 'site';
 	site?: SiteDetails;
 	signedIn: boolean;
+	nativeSites?: boolean;
 	// The boolean preferences setting commands turn on or off in place, by the
 	// id of their row in Settings.
 	toggles: SettingToggles;
@@ -249,7 +259,7 @@ export function getSettingCommands( {
 } ): PaletteCommand[] {
 	const group = scope === 'site' ? 'site-settings' : 'settings';
 	if ( scope === 'site' && ! site ) return [];
-	return getSections( scope, { signedIn } ).flatMap( ( section ) => {
+	return getSections( scope, { signedIn, nativeSites } ).flatMap( ( section ) => {
 		const folded = section.settings.filter( ( entry ) => entry.palette === 'section' );
 		const navigation: PaletteCommand[] = ! section.command
 			? [
@@ -348,7 +358,7 @@ export function getChatCommands(
 			id: 'rename-chat',
 			group: 'commands',
 			label: __( 'Rename chat…' ),
-			icon: RenameIcon,
+			icon: PencilIcon,
 			description,
 			run: actions.rename,
 		},

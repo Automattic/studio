@@ -1,0 +1,80 @@
+{
+	"$schema": "https://playground.wordpress.net/blueprint-schema.json",
+	"meta": {
+		"title": "Moire",
+		"description": "A slow-fashion journal of cloth, cut, and getting dressed, built with the Moire theme in its Dia yellow and brown palette.",
+		"author": "Automattic",
+		"categories": [
+			"Website",
+			"Blog"
+		]
+	},
+	"landingPage": "/",
+	"preferredVersions": {
+		"php": "8.3",
+		"wp": "latest"
+	},
+	"login": true,
+	"siteOptions": {
+		"blogname": "Moire",
+		"blogdescription": "A journal of cloth, cut, and the art of getting dressed."
+	},
+	"steps": [
+		{
+			"step": "resetData"
+		},
+		{
+			"step": "installTheme",
+			"themeData": {
+				"resource": "bundled",
+				"path": "moire.zip"
+			},
+			"options": {
+				"activate": true
+			}
+		},
+		{
+			"step": "importWxr",
+			"file": {
+				"resource": "bundled",
+				"path": "content.xml"
+			}
+		},
+		{
+			"step": "unzip",
+			"zipFile": {
+				"resource": "bundled",
+				"path": "uploads.zip"
+			},
+			"extractToPath": "/wordpress/wp-content/uploads"
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/moire-media.json",
+			"data": {
+				"resource": "bundled",
+				"path": "media.json"
+			}
+		},
+		{
+			"step": "writeFile",
+			"path": "/wordpress/wp-content/setup-moire.php",
+			"data": {
+				"resource": "bundled",
+				"path": "setup-moire.php"
+			}
+		},
+		{
+			"step": "runPHP",
+			"code": "<?php require '/wordpress/wp-load.php'; require '/wordpress/wp-content/setup-moire.php';"
+		},
+		{
+			"step": "rm",
+			"path": "/wordpress/wp-content/setup-moire.php"
+		},
+		{
+			"step": "rm",
+			"path": "/wordpress/wp-content/moire-media.json"
+		}
+	]
+}

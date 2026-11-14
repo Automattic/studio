@@ -12,6 +12,9 @@ const DOCS_LINKS = {
 	docsSites: {
 		en: 'https://wordpress.studio/docs/sites/',
 	},
+	docsSync: {
+		en: 'https://wordpress.studio/docs/sync/',
+	},
 	docsSslInStudio: {
 		en: 'https://wordpress.studio/docs/ssl-in-studio/',
 	},
@@ -24,11 +27,14 @@ const DOCS_LINKS = {
 	docsStudioCode: {
 		en: 'https://wordpress.studio/docs/studio-code/',
 	},
+	docsAiProviders: {
+		en: 'https://wordpress.studio/docs/studio-code/#ai-providers',
+	},
+	docsHostingProviders: {
+		en: 'https://wordpress.studio/docs/sync/#hosting-providers',
+	},
 	docsAiCredits: {
 		en: 'https://wordpress.studio/docs/studio-code/ai-credits-guidelines/',
-	},
-	docsAnthropicApiKey: {
-		en: 'https://platform.claude.com/docs/en/get-api-key',
 	},
 	docsCustomDomains: {
 		en: 'https://wordpress.studio/docs/sites/#using-a-custom-domain-and-ssl',

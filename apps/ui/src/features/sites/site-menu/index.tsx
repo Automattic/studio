@@ -3,7 +3,7 @@ import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { displayShortcut } from '@wordpress/keycodes';
-import { useRef, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useSessionsBusy } from '@/data/agent-runs/use-agent-run';
 import { useConnector } from '@/data/core';
 import { hasConnectedProvider, useAiSettings } from '@/data/queries/use-ai-settings';
@@ -22,6 +22,7 @@ import {
 	useSiteBackupImport,
 } from '@/features/sites/import-site-dialog';
 import { useOpenInDestinations } from '@/features/sites/open-in-menu/use-open-in-destinations';
+import { getPhpMyAdminUnavailableReason } from '@/features/sites/phpmyadmin';
 import { SiteToolMenuItems, useSiteToolActions } from '@/features/sites/site-tools';
 import { useItemShortcuts } from '@/features/sites/use-item-shortcuts';
 import {
@@ -177,6 +178,8 @@ export function SiteMenuItems( {
 	const { data: aiSettings } = useAiSettings();
 	const providerConnected = hasConnectedProvider( aiSettings );
 	const destinations = useOpenInDestinations( site );
+	const databaseReason = getPhpMyAdminUnavailableReason( site );
+	const databaseReasonId = useId();
 	const manage = Object.fromEntries(
 		useSiteManagementActions( site, {
 			onDelete: actions.openDelete,
@@ -270,12 +273,20 @@ export function SiteMenuItems( {
 							<Menu.Item
 								key={ destination.id }
 								disabled={ destination.disabled }
+								aria-describedby={
+									destination.id === 'phpmyadmin' && databaseReason ? databaseReasonId : undefined
+								}
 								onClick={ destination.open }
 							>
 								{ destination.logo }
 								{ destination.label }
 							</Menu.Item>
 						) ) }
+					{ databaseReason && (
+						<p id={ databaseReasonId } className={ styles.databaseReason }>
+							{ databaseReason }
+						</p>
+					) }
 				</Menu.SubmenuPopup>
 			</Menu.SubmenuRoot>
 			<Menu.Separator />

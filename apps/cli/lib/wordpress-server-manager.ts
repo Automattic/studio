@@ -15,6 +15,7 @@ import { SITE_START_REQUESTED_AT_ENV } from '@studio/common/lib/cli-events';
 import { readLastLines } from '@studio/common/lib/fs-utils';
 import { STUDIO_ERROR_LOG_FILENAME } from '@studio/common/lib/mu-plugins';
 import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
+import { getSiteFileAccess } from '@studio/common/lib/site-file-access';
 import { getWpEnvironmentType } from '@studio/common/lib/wp-environment-type';
 import { SiteCommandLoggerAction } from '@studio/common/logger-actions';
 import { __ } from '@wordpress/i18n';
@@ -290,6 +291,7 @@ export async function startWordPressServer(
 				...getTracksOrigin(),
 				command,
 				success: true,
+				file_access: getSiteFileAccess( site ),
 				time_ms: Date.now() - startedAt,
 				...phaseTimings,
 				running_site_count: await getRunningSiteCount(),
@@ -308,6 +310,7 @@ export async function startWordPressServer(
 				...getTracksOrigin(),
 				command,
 				success: false,
+				file_access: getSiteFileAccess( site ),
 				failure_reason: classifyStartFailure( error ),
 				time_ms: Date.now() - startedAt,
 				...phaseTimings,

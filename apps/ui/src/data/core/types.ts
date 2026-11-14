@@ -328,8 +328,7 @@ export interface Connector {
 		existingHostname?: string,
 		name?: string,
 		liveSite?: string
-		// `editedThemes`: active default themes whose edited files the preview doesn't show.
-	): Promise< { url: string; editedThemes?: string[] } >;
+	): Promise< { url: string } >;
 	// Deletes one preview site, both on WordPress.com and from the local list.
 	deleteSnapshot( hostname: string ): Promise< void >;
 	renameSnapshot( hostname: string, name: string ): Promise< void >;

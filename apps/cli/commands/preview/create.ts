@@ -34,20 +34,22 @@ export type ReportPreviewStep = ( action: LoggerAction, message: string, progres
 
 /**
  * Warns when the site's active default theme has edited files, which a WordPress.com preview
- * doesn't show. Returns the edited themes, for the command's result. Never fails the preview.
+ * doesn't show. Returns the warning, for the preview's success activity. Never fails the preview.
  */
 export async function warnAboutEditedDefaultThemes(
 	siteFolder: string,
 	logger: Logger< LoggerAction >
-): Promise< string[] > {
+): Promise< string | undefined > {
 	try {
 		const themes = await findEditedDefaultThemes( siteFolder );
-		if ( themes.length > 0 ) {
-			logger.reportWarning( getEditedDefaultThemesWarning( themes ) );
+		if ( themes.length === 0 ) {
+			return undefined;
 		}
-		return themes;
+		const warning = getEditedDefaultThemesWarning( themes );
+		logger.reportWarning( warning );
+		return warning;
 	} catch {
-		return [];
+		return undefined;
 	}
 }
 
@@ -80,11 +82,11 @@ export async function createWpcomPreviewSite( {
 	archiveBytes: number | undefined;
 	versionId: string;
 	liveSite: SyncSite | undefined;
-	editedThemes: string[];
+	warning: string | undefined;
 } > {
 	const liveSite = await getLivePreviewSite( siteId, liveSiteSelection );
 	await validateSiteSize( siteFolder, { onWpcom: true } );
-	const editedThemes = await warnAboutEditedDefaultThemes( siteFolder, logger );
+	const warning = await warnAboutEditedDefaultThemes( siteFolder, logger );
 
 	reportStep( LoggerAction.ARCHIVE, __( 'Creating archive…' ), 5 );
 	// The version is taken under the same lock as the archive, so it's what the preview holds.
@@ -103,7 +105,7 @@ export async function createWpcomPreviewSite( {
 
 	reportStep( LoggerAction.READY, __( 'Creating preview site…' ), 60 );
 	const preview = await createPreviewSite( attachmentId, name, accessToken, liveSite?.id, siteId );
-	return { preview, archiveBytes, versionId, liveSite, editedThemes };
+	return { preview, archiveBytes, versionId, liveSite, warning };
 }
 
 export async function runCommand(
@@ -150,7 +152,7 @@ export async function runCommand(
 			);
 		}
 
-		const { preview, versionId, liveSite, editedThemes } = await createWpcomPreviewSite( {
+		const { preview, versionId, liveSite, warning } = await createWpcomPreviewSite( {
 			siteId: site.id,
 			liveSiteSelection,
 			siteFolder,
@@ -196,9 +198,9 @@ export async function runCommand(
 				token.id
 			),
 		} );
-		await reportSyncActivity( siteId, { kind: 'success', direction: 'preview' } );
+		await reportSyncActivity( siteId, { kind: 'success', direction: 'preview', warning } );
 
-		logger.reportResult( { name: snapshot.name, url: snapshot.url, editedThemes } );
+		logger.reportResult( { name: snapshot.name, url: snapshot.url } );
 		return snapshot;
 	} catch ( error ) {
 		if ( siteId ) {

@@ -47,6 +47,16 @@ describe( 'findEditedDefaultThemes', () => {
 		expect( await findEditedDefaultThemes( site, versions ) ).toEqual( [] );
 	} );
 
+	// WordPress releases bump a theme's "Tested up to" without bumping its version.
+	it( 'accepts files from different stock copies of the same version', async () => {
+		writeTheme( stockTheme( '7.1', 'twentytwentyfive' ), '1.5', 'stock 1.5' );
+		fs.appendFileSync( path.join( stockTheme( '7.1', 'twentytwentyfive' ), 'style.css' ), '7.1' );
+		writeTheme( siteTheme( 'twentytwentyfive' ), '1.5', 'stock 1.5' );
+		fs.appendFileSync( path.join( siteTheme( 'twentytwentyfive' ), 'style.css' ), '7.1' );
+
+		expect( await findEditedDefaultThemes( site, versions ) ).toEqual( [] );
+	} );
+
 	it( 'reports a default theme with an edited file', async () => {
 		writeTheme( siteTheme( 'twentytwentyfive' ), '1.5', 'my footer' );
 

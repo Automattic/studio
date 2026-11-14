@@ -11,8 +11,10 @@ const DEFAULT_THEME_PATTERN = /^twentytwenty[a-z]*$/;
  *
  * WordPress.com keeps its own copy of the default themes and uses it instead of an uploaded one,
  * so edits to a default theme's files don't reach a preview. A theme counts as edited when one of
- * its files isn't in Studio's stock copy of the same version, or differs from it. Themes Studio
- * has no stock copy of are skipped, so this never reports a theme it can't check.
+ * its files matches no stock copy of the same version among the WordPress versions Studio has
+ * downloaded. Each file can match a different copy: WordPress releases bump a theme's "Tested up
+ * to" without bumping its version. Themes Studio has no stock copy of are skipped, so this never
+ * reports a theme it can't check.
  */
 export async function findEditedDefaultThemes(
 	siteFolder: string,
@@ -30,8 +32,8 @@ export async function findEditedDefaultThemes(
 		}
 		const themePath = path.join( siteFolder, 'wp-content', 'themes', slug );
 		const version = readThemeVersion( themePath );
-		const stockPath = version && findStockTheme( wordPressVersionsPath, slug, version );
-		if ( stockPath && ! matchesStockTheme( themePath, stockPath ) ) {
+		const stockPaths = version ? findStockThemes( wordPressVersionsPath, slug, version ) : [];
+		if ( stockPaths.length > 0 && ! matchesStockThemes( themePath, stockPaths ) ) {
 			edited.push( slug );
 		}
 	}
@@ -47,47 +49,43 @@ function readThemeVersion( themePath: string ): string | null {
 	}
 }
 
-// A copy of the theme at this version from one of the WordPress versions Studio has downloaded.
-function findStockTheme( wordPressVersionsPath: string, slug: string, version: string ) {
+// The copies of the theme at this version in the WordPress versions Studio has downloaded.
+function findStockThemes( wordPressVersionsPath: string, slug: string, version: string ) {
 	let wordPressVersions: string[];
 	try {
 		wordPressVersions = fs.readdirSync( wordPressVersionsPath );
 	} catch {
-		return null;
+		return [];
 	}
-	for ( const wordPressVersion of wordPressVersions ) {
-		const stockPath = path.join(
-			wordPressVersionsPath,
-			wordPressVersion,
-			'wp-content',
-			'themes',
-			slug
-		);
-		if ( readThemeVersion( stockPath ) === version ) {
-			return stockPath;
-		}
-	}
-	return null;
+	return wordPressVersions
+		.map( ( wordPressVersion ) =>
+			path.join( wordPressVersionsPath, wordPressVersion, 'wp-content', 'themes', slug )
+		)
+		.filter( ( stockPath ) => readThemeVersion( stockPath ) === version );
 }
 
-// Whether every file of the site's theme is in the stock copy, unchanged. Dotfiles are ignored.
-function matchesStockTheme( themePath: string, stockPath: string ): boolean {
+// Whether every file of the site's theme is unchanged in one of the stock copies. Dotfiles are
+// ignored.
+function matchesStockThemes( themePath: string, stockPaths: string[] ): boolean {
 	const relativePaths = fs.readdirSync( themePath, { recursive: true, encoding: 'utf8' } );
 	for ( const relativePath of relativePaths ) {
 		if ( relativePath.split( path.sep ).some( ( part ) => part.startsWith( '.' ) ) ) {
 			continue;
 		}
 		const filePath = path.join( themePath, relativePath );
-		if ( ! fs.statSync( filePath ).isFile() ) {
+		const stat = fs.statSync( filePath );
+		if ( ! stat.isFile() ) {
 			continue;
 		}
-		const stockFilePath = path.join( stockPath, relativePath );
-		const stockStat = fs.statSync( stockFilePath, { throwIfNoEntry: false } );
-		if (
-			! stockStat?.isFile() ||
-			stockStat.size !== fs.statSync( filePath ).size ||
-			hashFile( stockFilePath ) !== hashFile( filePath )
-		) {
+		const hash = hashFile( filePath );
+		const matchesSomeCopy = stockPaths.some( ( stockPath ) => {
+			const stockFilePath = path.join( stockPath, relativePath );
+			const stockStat = fs.statSync( stockFilePath, { throwIfNoEntry: false } );
+			return (
+				stockStat?.isFile() && stockStat.size === stat.size && hashFile( stockFilePath ) === hash
+			);
+		} );
+		if ( ! matchesSomeCopy ) {
 			return false;
 		}
 	}

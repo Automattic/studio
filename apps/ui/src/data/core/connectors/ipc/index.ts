@@ -451,7 +451,7 @@ export function createIpcConnector(): Connector {
 			existingHostname,
 			name,
 			liveSite
-		): Promise< { url: string; editedThemes?: string[] } > {
+		): Promise< { url: string } > {
 			const siteFolder = await resolveSiteFolder( siteId );
 			return ( await ipcApi.publishPreviewSite(
 				siteFolder,
@@ -460,7 +460,6 @@ export function createIpcConnector(): Connector {
 				liveSite
 			) ) as {
 				url: string;
-				editedThemes?: string[];
 			};
 		},
 

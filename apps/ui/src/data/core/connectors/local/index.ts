@@ -560,15 +560,12 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 			existingHostname,
 			name,
 			liveSite
-		): Promise< { url: string; editedThemes?: string[] } > {
+		): Promise< { url: string } > {
 			// A hostname means "refresh this preview"; otherwise create a new one.
-			return api< { url: string; editedThemes?: string[] } >(
-				`/sites/${ encodeURIComponent( siteId ) }/preview`,
-				{
-					method: 'POST',
-					body: JSON.stringify( { hostname: existingHostname, name, liveSite } ),
-				}
-			);
+			return api< { url: string } >( `/sites/${ encodeURIComponent( siteId ) }/preview`, {
+				method: 'POST',
+				body: JSON.stringify( { hostname: existingHostname, name, liveSite } ),
+			} );
 		},
 		async deleteSnapshot( hostname ) {
 			await api( `/snapshots/${ encodeURIComponent( hostname ) }`, { method: 'DELETE' } );

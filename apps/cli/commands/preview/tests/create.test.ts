@@ -11,6 +11,7 @@ import { createPreviewSite, getLivePreviewSite, uploadPreviewArchive } from 'cli
 import { withSiteOperation } from 'cli/lib/site-operations';
 import { getSiteTracksProps } from 'cli/lib/site-tracks';
 import { getSnapshotsFromConfig, saveSnapshotToConfig } from 'cli/lib/snapshots';
+import { reportSyncActivity } from 'cli/lib/sync-activity';
 import { recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { Logger, LoggerError } from 'cli/logger';
 import { runCommand } from '../create';
@@ -38,6 +39,7 @@ vi.mock( 'cli/lib/validation', () => ( {
 	validateSiteSize: vi.fn(),
 } ) );
 vi.mock( 'cli/lib/archive' );
+vi.mock( 'cli/lib/sync-activity' );
 vi.mock( 'cli/lib/edited-default-themes', () => ( {
 	findEditedDefaultThemes: vi.fn().mockResolvedValue( [] ),
 } ) );
@@ -141,7 +143,7 @@ describe( 'Preview Create Command', () => {
 		vi.restoreAllMocks();
 	} );
 
-	it( 'warns about an edited default theme and reports it in the result', async () => {
+	it( 'warns about an edited default theme, also when the preview is ready', async () => {
 		vi.mocked( findEditedDefaultThemes ).mockResolvedValueOnce( [ 'twentytwentyfive' ] );
 		const logger = new Logger();
 
@@ -151,9 +153,11 @@ describe( 'Preview Create Command', () => {
 		expect( logger.reportWarning ).toHaveBeenCalledWith(
 			expect.stringContaining( 'Edits to the files of twentytwentyfive' )
 		);
-		expect( logger.reportResult ).toHaveBeenCalledWith(
-			expect.objectContaining( { editedThemes: [ 'twentytwentyfive' ] } )
-		);
+		expect( reportSyncActivity ).toHaveBeenLastCalledWith( 'site-123', {
+			kind: 'success',
+			direction: 'preview',
+			warning: expect.stringContaining( 'Edits to the files of twentytwentyfive' ),
+		} );
 	} );
 
 	it( 'still creates the preview when the theme check fails', async () => {
@@ -163,9 +167,11 @@ describe( 'Preview Create Command', () => {
 		await runCommand( mockFolder, undefined, logger );
 
 		expect( logger.reportWarning ).not.toHaveBeenCalled();
-		expect( logger.reportResult ).toHaveBeenCalledWith(
-			expect.objectContaining( { editedThemes: [] } )
-		);
+		expect( reportSyncActivity ).toHaveBeenLastCalledWith( 'site-123', {
+			kind: 'success',
+			direction: 'preview',
+			warning: undefined,
+		} );
 	} );
 
 	it.each( [

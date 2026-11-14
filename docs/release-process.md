@@ -31,6 +31,7 @@ Builds are signed, notarized (macOS), and uploaded to the Apps CDN automatically
 **ReleasesV2 milestone**: Pre-Release
 
 - **Release notes**: Review and refine the draft release notes in `RELEASE-NOTES.txt` on the `release/<version>` branch (a draft is auto-generated during code freeze)
+- **Documentation**: Review the public docs against the release candidate and merge the changelog and any fixes. Follow the [release documentation checklist](#release-documentation).
 - **Smoke tests**: Verify betas on macOS and Windows
 
 ### 4. Finalize Release
@@ -54,8 +55,17 @@ Builds are signed, notarized (macOS), and uploaded to the Apps CDN automatically
 - Publish Windows build to the Microsoft Store
 - Submit the plugin to OpenAI's plugin directory, which has no API for it. Someone with the Apps Management Write permission in Automattic's OpenAI organization opens WordPress Studio in the [plugins dashboard](https://platform.openai.com/plugins), selects **Upload plugin to make changes**, uploads `wp-studio-openai-<version>.zip` from the GitHub release, completes the attestations and submits it for review. Once OpenAI approves it, select **Publish plugin**. A plugin has one review at a time: if the previous version is still in review, cancel it and submit the new one
 - Update Slack channel bookmark
-- Notify team for changelog update
+- Publish the reviewed docs and verify the [release documentation check](#release-documentation) in GitHub Actions.
 - Notify next Release Wrangler
+
+## Release documentation
+
+The Release Wrangler coordinates the docs review for each stable desktop release, including hotfixes. For a stable standalone CLI release, the person preparing the release reviews the CLI pages and changelog.
+
+1. Start with the draft release notes and compare the previous stable release with the release candidate. Check customer-facing changes against the relevant pages in [`docs/user/docs`](user/docs). Verify changed steps, labels, commands, availability, in-app help links and screenshots against the candidate. Refresh screenshots with the [capture harness](user/README.md#screenshots) where they no longer match.
+2. Add a user-facing entry for the version to the [changelog source](user/docs/developer-tools/studio/changelog.md). Merge the reviewed Markdown and screenshots to `trunk`. Link the docs PR in the desktop release's backmerge PR, or include the docs changes in the CLI release preparation PR. Check that the pages describe features available in the release.
+3. When the release is public, run `npm run deploy` from [Automattic/studio-website](https://github.com/Automattic/studio-website#publishing) and open the changed pages on [wordpress.studio/docs](https://wordpress.studio/docs/). A merge to `trunk` does not publish the site.
+4. In GitHub Actions, open **Check release documentation** for a desktop release or the **check-release-docs** job in **Publish npm Package** for a standalone CLI release. It compares the source revision reported by the live site with the complete docs and screenshot trees on `trunk` and checks for the version heading in the live changelog. If it runs before the docs publish, rerun the check after deploying. You can also run **Check release documentation** manually with the release tag.
 
 ## Hotfix Releases
 
@@ -79,6 +89,7 @@ To publish `wp-studio` to npm **without** running a full app release (e.g. a CLI
     - Bumps `apps/studio/package.json` and `apps/cli/package.json` to `<version>`
     - Pushes the branch and opens a PR against `trunk`
 2. **Review and merge** the PR like any other change.
+    - For a stable release, include the reviewed CLI docs and public changelog entry before merging. Follow the [release documentation checklist](#release-documentation).
 3. **Publish** — `publish_npm_package [version:"1.X.Y"]`
     - When `version:` is omitted, defaults to `trunk`'s current `package.json` version — i.e. whatever the prepare PR set it to.
     - Locates the commit on `trunk` where both `apps/studio/package.json` and `apps/cli/package.json` declare `<version>`. Tagging that specific commit (not `trunk` HEAD) means unrelated PRs landing on `trunk` between the prep merge and the publish run are **not** included in the published artifact. The search walks history newest-to-oldest, so a later commit that bumped *past* `<version>` (deleting its line) is correctly skipped in favor of the introduction commit. A half-applied prep PR (only one workspace bumped) leaves no commit where both match, so the lane errors out before tagging.
@@ -86,7 +97,7 @@ To publish `wp-studio` to npm **without** running a full app release (e.g. a CLI
     - Dispatches `publish-npm-package.yml` (publishes to npm with provenance via OIDC trusted publishing)
     - For `X.Y.Z-betaN` the package is published with `--tag next`; otherwise as `latest`
     - For `latest` releases, the same workflow then updates Studio's entry in the [MCP Registry](https://registry.modelcontextprotocol.io) from `apps/cli/server.json`
-4. **Update the public changelog** at https://wordpress.studio/docs/changelog/. The CLI displays a nudge pointing to that page.
+4. **Publish and verify the docs** for a stable release. The npm workflow checks the live docs and changelog after the package publishes.
 
 ### Sanity-checking the npm release lanes locally
 

@@ -7,6 +7,10 @@ on:
         description: 'npm dist-tag (e.g., "next" for prereleases). Leave empty to publish as "latest".'
         required: false
         type: string
+      standalone:
+        description: 'This is a standalone CLI release.'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -76,3 +80,10 @@ jobs:
         run: |
           ./mcp-publisher login github-oidc
           ./mcp-publisher publish
+
+  check-release-docs:
+    needs: publish
+    if: inputs.standalone && inputs.npm-tag == ''
+    uses: ./.github/workflows/check-release-docs.yml
+    with:
+      release-tag: ${{ github.ref_name }}

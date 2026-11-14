@@ -228,6 +228,7 @@ lane :prepare_npm_release do |version: nil, skip_confirm: false|
 
   pr_url = create_npm_release_pr(version: version, branch: branch_name)
 
+  remind_release_docs_review unless StudioReleaseVersion.prerelease?(version)
   UI.success("Prepared npm release #{version}")
   UI.important <<~NEXT
     Next steps:
@@ -286,15 +287,12 @@ lane :publish_npm_package do |version: nil, skip_confirm: false|
     - Push the tag to `origin`
     - Dispatch the `publish-npm-package.yml` GitHub Actions workflow
     - Publish `wp-studio` to npm with the `#{tag_label}` dist-tag
-
-    Reminder: after publishing, update the public changelog at
-      https://wordpress.studio/docs/changelog/
   PROMPT
   next unless skip_confirm || UI.confirm('Continue?')
 
   ensure_release_tag(release_tag: release_tag, commit: bump_commit)
 
-  trigger_npm_publish(ref: release_tag, npm_tag: npm_tag)
+  trigger_npm_publish(ref: release_tag, npm_tag: npm_tag, standalone: true)
 end
 
 desc 'Upload immutable Studio PHP CLI packages to Apps CDN'
@@ -384,6 +382,7 @@ lane :code_freeze do |version:, skip_confirm: false, github_username: nil|
   # Create backmerge PR so that the .pot strings file reaches trunk for GlotPress import
   create_backmerge_pr(source_branch: branch_name, github_username: github_username)
 
+  remind_release_docs_review
   UI.success("Code freeze complete! Created #{branch_name}")
 end
 
@@ -569,6 +568,7 @@ lane :new_hotfix_release do |version:, skip_confirm: false|
 
   bump_version_commit_and_push(version: version, set_upstream: true)
 
+  remind_release_docs_review
   UI.success("Hotfix branch #{branch_name} created from #{base_ref}")
 end
 
@@ -1521,6 +1521,13 @@ def trigger_release_build(version:)
   end
 end
 
+def remind_release_docs_review
+  message = 'Review the public docs and changelog against this release before publishing. ' \
+            'See the [release documentation checklist](https://github.com/Automattic/studio/blob/trunk/docs/release-process.md#release-documentation).'
+  UI.important(message)
+  buildkite_annotate(context: 'release-docs', style: 'info', message: message) if is_ci?
+end
+
 # Trigger the GitHub Actions workflow that publishes the wp-studio npm package.
 #
 # Uses the workflow_dispatch API with `return_run_details` to get the run URL,
@@ -1530,8 +1537,9 @@ end
 #
 # @param ref [String] The git ref (branch or tag) to run the workflow on (e.g., 'release/1.7.4' or 'v1.7.4')
 # @param npm_tag [String, nil] The npm dist-tag (e.g., 'next' for prereleases, nil for 'latest')
+# @param standalone [Boolean] Whether to check docs after a standalone CLI release
 #
-def trigger_npm_publish(ref:, npm_tag: nil)
+def trigger_npm_publish(ref:, npm_tag: nil, standalone: false)
   if DRY_RUN
     UI.message("[DRY RUN] Would trigger npm publish workflow on #{ref} with tag=#{npm_tag || 'latest'}")
     return
@@ -1543,9 +1551,12 @@ def trigger_npm_publish(ref:, npm_tag: nil)
   # We use client.post instead of client.workflow_dispatch because the latter
   # uses boolean_from_response and discards the body — we need the run URL
   # returned by the `return_run_details` parameter.
+  inputs = {}
+  inputs['npm-tag'] = npm_tag if npm_tag
+  inputs['standalone'] = true if standalone && !npm_tag
   response = github_helper.client.post(
     "#{Octokit::Repository.path(GITHUB_REPO)}/actions/workflows/#{workflow_file}/dispatches",
-    { ref: ref, return_run_details: true, inputs: npm_tag ? { 'npm-tag' => npm_tag } : {} }.to_json
+    { ref: ref, return_run_details: true, inputs: inputs }.to_json
   )
 
   html_url = response&.html_url

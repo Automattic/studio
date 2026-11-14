@@ -130,7 +130,9 @@ describe( 'export archive completion', () => {
 		expect( fs.existsSync( backupFile ) ).toBe( false );
 	} );
 
-	it( 'validates the completed bytes before emitting either success event', async () => {
+	it( 'keeps the previous backup when validation of the new archive fails', async () => {
+		fs.writeFileSync( backupFile, 'previous backup must survive' );
+		const originalFiles = fs.readdirSync( root );
 		const complete = vi.fn();
 		const created = vi.fn();
 		exporter.on( ExportEvents.EXPORT_COMPLETE, complete );
@@ -138,30 +140,57 @@ describe( 'export archive completion', () => {
 		const createWriteStream = fs.createWriteStream;
 		vi.spyOn( fs, 'createWriteStream' ).mockImplementation( ( ...args ) => {
 			const output = createWriteStream( ...args );
-			output.once( 'close', () => fs.truncateSync( backupFile, 1 ) );
+			output.once( 'close', () => fs.truncateSync( output.path, 1 ) );
 			return output;
 		} );
 
 		await expect( exporter.export() ).rejects.toThrow( 'Failed to validate exported archive' );
 		expect( complete ).not.toHaveBeenCalled();
 		expect( created ).not.toHaveBeenCalled();
-		expect( fs.existsSync( backupFile ) ).toBe( false );
+		expect( fs.readFileSync( backupFile, 'utf8' ) ).toBe( 'previous backup must survive' );
+		expect( fs.readdirSync( root ) ).toEqual( originalFiles );
 	} );
 
-	it.each( [ 'zip', 'tar.gz' ] )( 'exports a usable %s backup', async ( extension ) => {
-		const complete = vi.fn();
-		backupFile = path.join( root, `backup.${ extension }` );
+	it.each( [ 'zip', 'tar.gz' ] )(
+		'replaces the old backup with a usable %s archive',
+		async ( extension ) => {
+			const complete = vi.fn();
+			backupFile = path.join( root, `backup.${ extension }` );
+			fs.writeFileSync( backupFile, 'previous backup' );
+			exporter = new DefaultExporter( {
+				site: { id: 'site-1', name: 'Export fixture', path: root, port: 8881 },
+				backupFile,
+				includes: { wpContent: true, database: false },
+				phpVersion: '8.3',
+			} as ExportOptions );
+			exporter.on( ExportEvents.EXPORT_COMPLETE, complete );
+
+			await expect( exporter.export() ).resolves.toBeUndefined();
+			expect( complete ).toHaveBeenCalledOnce();
+			expect( fs.statSync( backupFile ).size ).toBeGreaterThan( 0 );
+		}
+	);
+
+	it( 'excludes the old and staged archives when the destination is inside wp-content', async () => {
+		const backupDirectory = path.join( root, 'wp-content', 'uploads' );
+		fs.mkdirSync( backupDirectory );
+		backupFile = path.join( backupDirectory, 'backup.zip' );
+		fs.writeFileSync( backupFile, 'previous backup' );
+		fs.writeFileSync( path.join( backupDirectory, 'photo.txt' ), 'Keep this file' );
 		exporter = new DefaultExporter( {
 			site: { id: 'site-1', name: 'Export fixture', path: root, port: 8881 },
 			backupFile,
 			includes: { wpContent: true, database: false },
 			phpVersion: '8.3',
 		} as ExportOptions );
-		exporter.on( ExportEvents.EXPORT_COMPLETE, complete );
 
-		await expect( exporter.export() ).resolves.toBeUndefined();
-		expect( complete ).toHaveBeenCalledOnce();
-		expect( fs.statSync( backupFile ).size ).toBeGreaterThan( 0 );
+		await exporter.export();
+
+		const entries = ( await readZipEntries( backupFile ) ).map( ( entry ) => entry.fileName );
+		expect( entries.filter( ( name ) => name.startsWith( 'wp-content/uploads/' ) ) ).toEqual( [
+			'wp-content/uploads/photo.txt',
+		] );
+		expect( fs.readdirSync( backupDirectory ) ).toEqual( [ 'backup.zip', 'photo.txt' ] );
 	} );
 
 	it( 'removes the partial archive when collecting site metadata fails', async () => {

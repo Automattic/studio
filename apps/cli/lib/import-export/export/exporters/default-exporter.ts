@@ -122,14 +122,36 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 
 	async export(): Promise< void > {
 		this.emit( ExportEvents.EXPORT_START );
-		const output = fs.createWriteStream( this.options.backupFile );
-		let outputOpened = false;
-		output.once( 'open', () => {
-			outputOpened = true;
-		} );
-		this.archiveBuilder = this.createArchiveBuilder();
+		let stagingDirectory: string | undefined;
+		try {
+			const parent = await fsPromises.realpath( path.dirname( this.options.backupFile ) );
+			const destination = path.join( parent, path.basename( this.options.backupFile ) );
+			stagingDirectory = await fsPromises.mkdtemp( path.join( parent, '.studio-export-' ) );
+			const stagedArchive = path.join( stagingDirectory, path.basename( destination ) );
+			await this.writeArchive( stagedArchive, destination );
+			await validateExportArchive( stagedArchive );
+			await fsPromises.rename( stagedArchive, destination );
+			this.emit( ExportEvents.BACKUP_CREATE_COMPLETE );
+			this.emit( ExportEvents.EXPORT_COMPLETE );
+		} catch ( error ) {
+			this.emit( ExportEvents.EXPORT_ERROR, createExportErrorPayload( error ) );
+			throw error;
+		} finally {
+			if ( stagingDirectory ) {
+				await fsPromises
+					.rm( stagingDirectory, { recursive: true, force: true } )
+					.catch( ( error ) => console.error( 'Failed to remove staged export:', error ) );
+			}
+			if ( this.options.includes.database ) {
+				await this.cleanupTempFiles();
+			}
+		}
+	}
 
+	private async writeArchive( stagedArchive: string, destination: string ): Promise< void > {
+		this.archiveBuilder = this.createArchiveBuilder();
 		this.setupArchiveListeners();
+		const output = fs.createWriteStream( stagedArchive );
 		const archiveWritten = pipeline( this.archiveBuilder, output ).catch( ( error ) => {
 			throw new LoggerError( __( 'Failed to write export archive' ), error, 'archive' );
 		} );
@@ -138,29 +160,17 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 
 		try {
 			this.addWpConfig();
-			await this.addWpContent();
+			const outputPaths = [ stagedArchive, destination ];
+			await this.addWpContent( path.dirname( stagedArchive ), outputPaths );
 			await this.addDatabase();
 			const studioJsonPath = await this.createStudioJsonFile();
 			this.archiveBuilder.file( studioJsonPath, { name: 'meta.json' } );
 			await Promise.all( [ this.archiveBuilder.finalize(), archiveWritten ] );
-			await validateExportArchive( this.options.backupFile );
-			this.emit( ExportEvents.BACKUP_CREATE_COMPLETE );
-			this.emit( ExportEvents.EXPORT_COMPLETE );
 		} catch ( error ) {
 			this.archiveBuilder.abort();
 			output.destroy();
 			await archiveWritten.catch( () => {} );
-			if ( outputOpened ) {
-				await fsPromises.rm( this.options.backupFile, { force: true } ).catch( ( cleanupError ) => {
-					console.error( 'Failed to remove incomplete export:', cleanupError );
-				} );
-			}
-			this.emit( ExportEvents.EXPORT_ERROR, createExportErrorPayload( error ) );
 			throw error;
-		} finally {
-			if ( this.options.includes.database ) {
-				await this.cleanupTempFiles();
-			}
 		}
 	}
 
@@ -204,7 +214,7 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 		}
 	}
 
-	private async addWpContent(): Promise< void > {
+	private async addWpContent( stagingDirectory: string, outputPaths: string[] ): Promise< void > {
 		if ( ! this.options.includes.wpContent ) {
 			return;
 		}
@@ -228,11 +238,18 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 					continue;
 				}
 
+				const resolvedPath = await fsPromises.realpath( fullPath ).catch( () => fullPath );
+				if ( path.relative( resolvedPath, stagingDirectory ) === '' ) {
+					continue;
+				}
 				const stat = await fsPromises.stat( fullPath );
 				if ( stat.isDirectory() ) {
-					await this.addDirectory( fullPath, archivePath );
+					await this.addDirectory( fullPath, archivePath, outputPaths );
 				} else {
 					if (
+						outputPaths.some(
+							( outputPath ) => path.relative( resolvedPath, outputPath ) === ''
+						) ||
 						this.isExactPathExcluded( archivePath ) ||
 						this.options.ignoreFilter?.ignores( archivePath )
 					) {
@@ -253,7 +270,11 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 	// file. We don't want this. By calling realpath first, we ensure the source
 	// file data is always appended. This is preferable to passing readable
 	// streams to `Archiver.append()`, which can lead to EMFILE errors.
-	private async addDirectory( dirPath: string, archivePath: string ): Promise< void > {
+	private async addDirectory(
+		dirPath: string,
+		archivePath: string,
+		outputPaths: string[]
+	): Promise< void > {
 		const relativePaths = await glob( '**/*', {
 			cwd: dirPath,
 			dot: true,
@@ -278,6 +299,12 @@ export class DefaultExporter extends ImportExportEventEmitter implements Exporte
 			}
 			try {
 				const resolvedPath = fs.realpathSync( fullEntryPathOnDisk );
+				// The destination may be inside wp-content, including through a symlink.
+				if (
+					outputPaths.some( ( outputPath ) => path.relative( resolvedPath, outputPath ) === '' )
+				) {
+					continue;
+				}
 				this.archiveBuilder.file( resolvedPath, { name: entryPathRelativeToArchiveRoot } );
 			} catch ( error ) {
 				// Dangling symlink. Skip it rather than aborting the whole archive.

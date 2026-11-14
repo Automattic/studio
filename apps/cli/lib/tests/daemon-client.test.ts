@@ -425,6 +425,26 @@ describe( 'replacing an outdated daemon', () => {
 		expect( fs.existsSync( path.join( home, 'sites-to-restart.json' ) ) ).toBe( false );
 	} );
 
+	it( 'reports only the sites no other process is starting when a start fails', async () => {
+		const { sites } = await readCliConfigMock();
+		sites[ 0 ].operation = { pid: process.ppid, kind: 'start' };
+		spawnMock.mockImplementation( ( _execPath: string, args: string[] ) => {
+			if ( args[ 0 ].endsWith( 'process-manager-daemon.mjs' ) ) {
+				Object.assign( daemon, { running: true, version: CLI_VERSION, processes: [] } );
+				return { unref: vi.fn() };
+			}
+			const child = new EventEmitter();
+			setImmediate( () => child.emit( 'exit', 1 ) );
+			return child;
+		} );
+		const consoleError = vi.spyOn( console, 'error' ).mockImplementation( () => {} );
+		const { connectToDaemon } = await import( '../daemon-client' );
+		await connectToDaemon();
+
+		expect( consoleError ).toHaveBeenCalledTimes( 1 );
+		expect( consoleError ).toHaveBeenCalledWith( expect.stringContaining( '"b"' ) );
+	} );
+
 	it( 'keeps a newer daemon and its sites', async () => {
 		daemon.version = '9.0.0';
 		const { connectToDaemon } = await import( '../daemon-client' );

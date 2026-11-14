@@ -26,7 +26,7 @@ import {
 	SiteStartPhase,
 } from 'cli/lib/types/wordpress-server-ipc';
 import { requestSetAdminCredentials } from './lib/admin-credentials';
-import { getPhpMyAdminPath } from './lib/dependency-management/paths';
+import { installBundledPhpMyAdmin } from './lib/dependency-management/phpmyadmin';
 import { runBlueprint } from './lib/native-php/blueprints';
 import { containsPath, dropCoveredPaths } from './lib/native-php/open-basedir';
 import {
@@ -113,6 +113,8 @@ let appliedOpenBasedirAllowlist: string[] = [];
 let symlinkWatcher: SymlinkWatcher | null = null;
 let symlinkRestartTimer: NodeJS.Timeout | null = null;
 let runningConfig: ServerConfig | null = null;
+// Null when phpMyAdmin couldn't be unpacked: the site still starts, without phpMyAdmin.
+let phpMyAdminPath: string | null = null;
 
 const SYMLINK_RESTART_DEBOUNCE_MS = 750;
 const STOP_SERVER_TIMEOUT = 5000;
@@ -523,12 +525,20 @@ export async function startServer( config: ServerConfig, signal: AbortSignal ): 
 			}
 		}
 
+		phpMyAdminPath = await installBundledPhpMyAdmin().catch( ( error ) => {
+			errorToConsole( 'Failed to unpack phpMyAdmin:', error );
+			return null;
+		} );
+		stopSignal.throwIfAborted();
+
 		// With "all files" access the allowlist stays empty, which disables
 		// open_basedir entirely (see getDefaultPhpArgs).
 		if ( isFileAccessRestricted( config ) ) {
 			staticOpenBasedirAllowlist.add( config.sitePath );
 			staticOpenBasedirAllowlist.add( ROUTER_PATH );
-			staticOpenBasedirAllowlist.add( getPhpMyAdminPath() );
+			if ( phpMyAdminPath ) {
+				staticOpenBasedirAllowlist.add( phpMyAdminPath );
+			}
 			staticOpenBasedirAllowlist.add( getNativePhpMyAdminWpEnvPath( config ) );
 			staticOpenBasedirAllowlist.add( getPhpMyAdminSessionPath( config ) );
 			// The whole root, not this start's hashed folder: a WP-CLI run from another
@@ -647,7 +657,7 @@ async function doStartServer(
 				phpVersion,
 				siteFolder: config.sitePath,
 				env: {
-					STUDIO_PHPMYADMIN_PATH: getPhpMyAdminPath(),
+					STUDIO_PHPMYADMIN_PATH: phpMyAdminPath ?? '',
 					STUDIO_PHPMYADMIN_SUPPORTED: config.phpMyAdminSupported === false ? '0' : '1',
 					STUDIO_NATIVE_PHPMYADMIN_WP_ENV_PATH: phpMyAdminWpEnvPath,
 					STUDIO_PHPMYADMIN_SESSION_PATH: getPhpMyAdminSessionPath( config ),

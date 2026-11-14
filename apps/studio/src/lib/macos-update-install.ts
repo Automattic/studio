@@ -20,7 +20,7 @@ const SHIPIT_POLL_MS = 250;
 const MAX_INSTALL_WAIT_SECONDS = 15 * 60;
 const STALE_TEMP_DIR_AGE_MS = 60 * 60 * 1000;
 
-export function readBundleIdentifier( appBundlePath: string ): string | null {
+function readBundleIdentifier( appBundlePath: string ): string | null {
 	try {
 		const plist = fs.readFileSync( path.join( appBundlePath, 'Contents', 'Info.plist' ), 'utf-8' );
 		return (
@@ -36,7 +36,7 @@ export function readBundleIdentifier( appBundlePath: string ): string | null {
  * `<bundle id>.ShipIt`. The bracketed first character keeps it from matching a command line that
  * contains the pattern itself, like the relaunch helper's `sh`.
  */
-export function getShipItProcessPattern( bundleId: string ): string {
+function getShipItProcessPattern( bundleId: string ): string {
 	return `[${ bundleId[ 0 ] }]${ bundleId.slice( 1 ) }.ShipIt`;
 }
 

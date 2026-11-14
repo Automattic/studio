@@ -187,6 +187,48 @@ function stubUid( uid: number ) {
 }
 
 describe( 'App initialization', () => {
+	it.each( [ true, false ] )(
+		'quits after a failed legacy migration only while app config is missing (app config exists: %s)',
+		async ( completed ) => {
+			const { mockedEvents } = mockElectron();
+			vi.resetModules();
+			const { app, dialog } = await import( 'electron' );
+			const migration = await import( '@studio/common/lib/migration' );
+			const { getAppConfigPath } = await import( '@studio/common/lib/well-known-paths' );
+			const { getOldAppdataFilePath } = await import( 'src/storage/paths' );
+			const { default: appFs } = await import( 'fs' );
+			const existsMock = vi
+				.mocked( appFs.existsSync )
+				.mockImplementation(
+					( file ) =>
+						file === getOldAppdataFilePath() || ( completed && file === getAppConfigPath() )
+				);
+			const error = new Error( 'EACCES: permission denied' );
+			const migrationSpy = vi.spyOn( migration, 'runMigrations' ).mockRejectedValueOnce( error );
+			try {
+				await import( '../index' );
+				await mockedEvents.ready();
+				if ( completed ) {
+					expect( createMainWindow ).toHaveBeenCalledOnce();
+					expect( app.exit ).not.toHaveBeenCalled();
+					expect( dialog.showMessageBox ).not.toHaveBeenCalled();
+				} else {
+					expect( createMainWindow ).not.toHaveBeenCalled();
+					expect( app.exit ).toHaveBeenCalledWith( 1 );
+					expect( dialog.showMessageBox ).toHaveBeenCalledWith(
+						expect.objectContaining( {
+							type: 'error',
+							message: 'Could not migrate your sites',
+							detail: expect.stringContaining( error.message ),
+						} )
+					);
+				}
+			} finally {
+				migrationSpy.mockRestore();
+				existsMock.mockReset();
+			}
+		}
+	);
 	it( 'sandboxes every renderer', async () => {
 		mockElectron();
 		vi.resetModules();

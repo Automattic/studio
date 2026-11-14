@@ -9,7 +9,6 @@ import {
 	getLivePreviewSite,
 	updatePreviewSite,
 } from 'cli/lib/preview-sites';
-import { LoggerError } from 'cli/logger';
 
 vi.mock( 'wpcom' );
 vi.mock( 'cli/lib/api' );

@@ -1527,3 +1527,67 @@ export function pageBreakage( page: Page ): Promise< string[] > {
 		return [ ...new Set( lines ) ];
 	} );
 }
+
+/**
+ * Each element a visitor sees whose text holds a JSON string escape, as
+ * `\u2019`, or one whose backslash a shell took, as `u0026`: only a block
+ * comment's attributes are JSON, which WordPress decodes (json_decode() in
+ * WP_Block_Parser::next_token()); a block's HTML prints as written. Text in
+ * code and pre, which may show an escape on purpose, is left.
+ */
+export function pageEscapedText( page: Page ): Promise< string[] > {
+	return page.evaluate( () => {
+		const escape = /\\u([0-9a-fA-F]{4})|(?<![\w\\&#])u(00[0-9a-fA-F]{2}|20[0-9a-fA-F]{2})(?!\d)/g;
+		const generated = /^(is-|has-|wp-container-|wp-elements-|wp-block-[a-z-]+-is-layout-)/;
+		const label = ( element: Element ) =>
+			element.tagName.toLowerCase() +
+			[ ...element.classList ]
+				.filter( ( name ) => ! generated.test( name ) )
+				.slice( 0, 2 )
+				.map( ( name ) => `.${ name }` )
+				.join( '' );
+		const lines: string[] = [];
+		const walker = document.createTreeWalker( document.body, NodeFilter.SHOW_TEXT );
+		for ( let node = walker.nextNode(); node && lines.length < 5; node = walker.nextNode() ) {
+			const parent = node.parentElement;
+			const text = node.textContent ?? '';
+			if (
+				! parent ||
+				parent.closest( 'code, pre, script, style, textarea, noscript' ) ||
+				! parent.getClientRects().length
+			) {
+				continue;
+			}
+			const found = [ ...text.matchAll( escape ) ];
+			if ( ! found.length ) {
+				continue;
+			}
+			// The words around the first escape, whole, marked where the text goes on.
+			const flat = text.replace( /\s+/g, ' ' ).trim();
+			const from = flat.indexOf( found[ 0 ][ 0 ] );
+			const start = Math.max( 0, from - 24 );
+			const end = from + found[ 0 ][ 0 ].length + 24;
+			const excerpt =
+				( start > 0 ? '…' : '' ) +
+				flat
+					.slice( start, end )
+					.replace( start > 0 ? /^\S*\s/ : /^/, '' )
+					.replace( end < flat.length ? /\s\S*$/ : /$/, '' ) +
+				( end < flat.length ? '…' : '' );
+			const escapes = [ ...new Set( found.map( ( match ) => match[ 0 ] ) ) ]
+				.map(
+					( match ) =>
+						`${ match } where ${ String.fromCharCode(
+							parseInt( match.replace( /^\\?u/, '' ), 16 )
+						) } belongs`
+				)
+				.join( ', ' );
+			lines.push(
+				`\`${ label(
+					parent
+				) }\` shows ${ escapes }: "${ excerpt }". Only a block comment's attributes are JSON (json_decode() in WP_Block_Parser::next_token()); its HTML prints as written, so write the character itself.`
+			);
+		}
+		return lines;
+	} );
+}

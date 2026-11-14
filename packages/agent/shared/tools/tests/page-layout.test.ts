@@ -3,6 +3,7 @@ import { chromium } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
 	pageBlankButtons,
+	pageEscapedText,
 	pageContrast,
 	pageHeaderWraps,
 	pageLargeText,
@@ -580,6 +581,25 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 			'The button `div.wp-block-jetpack-button > button.wp-block-button__link` shows no text: a visitor sees a blank button.',
 			'The button `div.wp-block-buttons > a.wp-block-button__link.wp-element-button` shows no text: a visitor sees a blank button.',
 			'The button `input` shows no text: a visitor sees a blank button.',
+		] );
+	} );
+
+	// eval46 vinyl port 2 wrote "it\u2019s gone" in a paragraph; trunk grooming 1 "Bath u0026 Brush".
+	it( 'names text that shows a JSON escape', async () => {
+		expect(
+			await open(
+				`<p class="wp-block-paragraph">Most are one-of-a-kind \\u2014 when it\\u2019s gone, it\\u2019s gone.</p>
+				<h3 class="wp-block-heading">Bath u0026 Brush</h3>
+				<p>Menu u0026amp; more</p>
+				<code>"\\u2019"</code>
+				<p style="display:none">it\\u2019s</p>
+				<p>Unit u0123b and the u00 bus</p>`,
+				pageEscapedText
+			)
+		).toEqual( [
+			'`p.wp-block-paragraph` shows \\u2014 where \u2014 belongs, \\u2019 where \u2019 belongs: "Most are one-of-a-kind \\u2014 when it\\u2019s gone,…". Only a block comment\'s attributes are JSON (json_decode() in WP_Block_Parser::next_token()); its HTML prints as written, so write the character itself.',
+			'`h3.wp-block-heading` shows u0026 where & belongs: "Bath u0026 Brush". Only a block comment\'s attributes are JSON (json_decode() in WP_Block_Parser::next_token()); its HTML prints as written, so write the character itself.',
+			'`p` shows u0026 where & belongs: "Menu u0026amp; more". Only a block comment\'s attributes are JSON (json_decode() in WP_Block_Parser::next_token()); its HTML prints as written, so write the character itself.',
 		] );
 	} );
 } );

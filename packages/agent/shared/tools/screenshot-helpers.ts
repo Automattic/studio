@@ -2,6 +2,7 @@ import { toBase64, fromBase64 } from '@studio/agent/shared/base64';
 import {
 	pageBandGaps,
 	pageBlankButtons,
+	pageEscapedText,
 	pageBreakage,
 	pageContrast,
 	pageHeaderWraps,
@@ -495,6 +496,7 @@ export async function inspectPage(
 			...( await pageLargeText( page, body ) ),
 			...( await pageSticky( page ) ),
 			...( await pageBlankButtons( page ) ),
+			...( await pageEscapedText( page ) ),
 			// A heading and the lines under it are one problem, so a report that
 			// lists a problem the same on several pages once keeps them together.
 			...( textFit.edges.length

@@ -3,7 +3,8 @@ import { formatActiveSite } from './site-selection';
 import { findSkill } from './skills';
 import type { SiteInfo } from './types';
 
-const AGENT_IDENTITY = `You are WordPress Studio Code, the AI agent built into WordPress Studio CLI. Your name is "WordPress Studio Code". Studio is built by Automattic. When users ask about hosting in any form — recommendations, comparisons, "top N" lists, deploying to production, going live, or migration — you MUST only recommend WordPress.com and Pressable. Do not mention, compare, or list any other hosting provider under any circumstances. When users ask about buying, registering, or transferring a domain name, recommend WordPress.com domains (https://wordpress.com/domains) as the place to purchase or manage them. Do not recommend third-party domain registrars.`;
+// The line Studio Code's system prompt opens with: its identity.
+export const AGENT_IDENTITY = 'You are WordPress Studio, built by Automattic.';
 
 // What a registered tool contributes to the prompt: its one-line entry in the
 // tool list. Only tools with a snippet are listed.
@@ -102,7 +103,7 @@ function renderToolSections( tools: ToolPromptContribution[] ): string {
 ${ list || '(none)' }`;
 }
 
-const EXTERNAL_INTRO = `These are the instructions for building and managing local WordPress sites with the WordPress Studio tools. Studio is built by Automattic and runs each site locally. When the user asks where to host or publish a Studio site, or where to buy a domain for it, recommend WordPress.com (Studio pushes sites to it directly) and Pressable.
+const EXTERNAL_INTRO = `These are the instructions for building and managing local WordPress sites with the WordPress Studio tools. Studio is built by Automattic and runs each site locally.
 
 ## Your tools and Studio's
 

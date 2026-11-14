@@ -1770,7 +1770,7 @@ it( 'searches existing sites and explains unavailable destinations in the shared
 	const { user, connector } = setup( {
 		getRemoteSites: async () => [],
 		getSnapshots: async () => [],
-		listAccountSites: async () => [ live, unavailable ],
+		listAccountSites: async ( provider ) => ( provider === 'wpcom' ? [ live, unavailable ] : [] ),
 	} );
 	await open();
 	const menu = await mainMenu();
@@ -1786,4 +1786,67 @@ it( 'searches existing sites and explains unavailable destinations in the shared
 	expect( within( dialog ).queryByRole( 'button', { name: /^Live / } ) ).not.toBeInTheDocument();
 	expect( within( dialog ).getByRole( 'heading', { name: 'Unavailable' } ) ).toBeVisible();
 	expect( connector.connectRemoteSite ).not.toHaveBeenCalled();
+} );
+
+it( 'finds and connects a Space from a WordPress.com preview', async () => {
+	const linkedSpace = {
+		...space,
+		id: 'spc_linked',
+		name: 'Already connected',
+		url: 'https://linked.space.fast',
+		localSiteId: 'other-local-site',
+	};
+	const { user, connector } = setup( {
+		getRemoteSites: async ( provider, localSiteId ) =>
+			provider === 'spacefast' && ! localSiteId ? [ linkedSpace ] : [],
+		listAccountSites: async ( provider ) =>
+			provider === 'wpcom' ? [ live ] : [ space, linkedSpace ],
+		connectRemoteSite: async () => {
+			connector.getRemoteSites.mockImplementation( async ( provider, localSiteId ) =>
+				provider === 'spacefast' ? ( localSiteId ? [ space ] : [ space, linkedSpace ] ) : []
+			);
+		},
+	} );
+	const panel = await open();
+	expect(
+		await within( panel ).findByRole( 'button', { name: 'Open preview: Preview 1' } )
+	).toBeVisible();
+	const menu = await mainMenu();
+	await user.click( within( menu ).getByRole( 'menuitem', { name: 'Connect existing site' } ) );
+	const dialog = within( await screen.findByRole( 'dialog', { name: 'Choose an existing site' } ) );
+	const wpcomRow = await dialog.findByRole( 'button', { name: /Live.*lente.blog/ } );
+	const spacefastRow = await dialog.findByRole( 'button', { name: /Static.*lente.space.fast/ } );
+	expect( wpcomRow ).toHaveAccessibleDescription( 'WordPress.com' );
+	expect( spacefastRow ).toHaveAccessibleDescription( 'Spacefast' );
+	expect( spacefastRow ).toContainHTML( getProvider( 'spacefast' ).logo! );
+	expect( dialog.queryByRole( 'button', { name: /Already connected/ } ) ).not.toBeInTheDocument();
+	await user.type( dialog.getByRole( 'searchbox', { name: 'Search sites' } ), 'Spacefast' );
+	expect( wpcomRow ).not.toBeInTheDocument();
+	await user.click( spacefastRow );
+	expect( await screen.findByRole( 'button', { name: 'lente.space.fast' } ) ).toBeVisible();
+	expect( connector.connectRemoteSite ).toHaveBeenCalledExactlyOnceWith(
+		'spacefast',
+		site.id,
+		space
+	);
+	expect( connector.pushSite ).not.toHaveBeenCalled();
+	expect( connector.pullSite ).not.toHaveBeenCalled();
+} );
+
+it( 'keeps available sites selectable when another provider cannot load', async () => {
+	const { user } = setup( {
+		getRemoteSites: async () => [],
+		listAccountSites: async ( provider ) => {
+			if ( provider === 'spacefast' ) throw new Error( 'Provider unavailable' );
+			return [ live ];
+		},
+	} );
+	await open();
+	const menu = await mainMenu();
+	await user.click( within( menu ).getByRole( 'menuitem', { name: 'Connect existing site' } ) );
+	const dialog = within( await screen.findByRole( 'dialog', { name: 'Choose an existing site' } ) );
+	expect( await dialog.findByRole( 'alert' ) ).toHaveTextContent(
+		'Could not load Spacefast sites.'
+	);
+	expect( dialog.getByRole( 'button', { name: /Live.*lente.blog/ } ) ).toBeEnabled();
 } );

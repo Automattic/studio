@@ -18,6 +18,8 @@ export function getRemoteSiteScreenshot( url: string ): string {
 export function RemoteSiteCard( {
 	name,
 	url,
+	icon,
+	description,
 	badges,
 	disabled,
 	onSelect,
@@ -25,6 +27,8 @@ export function RemoteSiteCard( {
 }: {
 	name: string;
 	url: string;
+	icon?: ReactNode;
+	description?: string;
 	badges?: ReactNode;
 	disabled?: boolean;
 	onSelect: () => void;
@@ -36,12 +40,15 @@ export function RemoteSiteCard( {
 				variant="outline"
 				layout="row"
 				className={ styles.siteRow }
+				aria-description={ description }
 				disabled={ disabled }
 				onClick={ onSelect }
 			>
-				<PreviewFrame className={ styles.siteThumb }>
-					<PreviewImage src={ getRemoteSiteScreenshot( url ) } alt="" />
-				</PreviewFrame>
+				{ icon ?? (
+					<PreviewFrame className={ styles.siteThumb }>
+						<PreviewImage src={ getRemoteSiteScreenshot( url ) } alt="" />
+					</PreviewFrame>
+				) }
 				<span className={ styles.siteText }>
 					<span className={ styles.siteName }>{ name }</span>
 					<span className={ styles.siteUrl }>{ url.replace( /^https?:\/\//, '' ) }</span>

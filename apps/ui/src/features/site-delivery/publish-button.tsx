@@ -287,7 +287,7 @@ export function PublishButton( {
 		snapshot: Snapshot;
 		provider: SitesProviderId;
 	} >();
-	const [ existingProvider, setExistingProvider ] = useState< SitesProviderId >();
+	const [ choosingExistingSite, setChoosingExistingSite ] = useState( false );
 	const [ previewLiveSite, setPreviewLiveSite ] = useState< string >();
 	const [ publishConfirmation, setPublishConfirmation ] = useState< 'changes' | 'again' >();
 	const [ chooseFiles, setChooseFiles ] = useState( false );
@@ -296,7 +296,7 @@ export function PublishButton( {
 		pullPreview ||
 		previewAction ||
 		removeTarget ||
-		existingProvider ||
+		choosingExistingSite ||
 		previewLiveSite !== undefined ||
 		publishConfirmation ||
 		chooseFiles
@@ -508,13 +508,11 @@ export function PublishButton( {
 			  activity.direction === 'push' &&
 			  activity.provider === selected?.provider &&
 			  activity.remoteSiteId === remote.id );
-	const canConnectExistingSite = connectedProviders.includes(
-		selected?.provider ?? publicDestination
-	);
+	const canConnectExistingSite = connectedProviders.length > 0;
 	const connectExistingSiteAction = canConnectExistingSite && (
 		<Menu.Item
-			disabled={ disabled || connectionUnavailable }
-			onClick={ () => setExistingProvider( selected?.provider ?? publicDestination ) }
+			disabled={ pending || offline || busy }
+			onClick={ () => setChoosingExistingSite( true ) }
 		>
 			<ConnectSiteIcon />
 			{ __( 'Connect existing site' ) }
@@ -1098,7 +1096,7 @@ export function PublishButton( {
 					accountsReady &&
 					! needsAccount &&
 					! showLivePull &&
-					! existingProvider &&
+					! choosingExistingSite &&
 					previewLiveSite === undefined &&
 					! publishConfirmation &&
 					! chooseFiles &&
@@ -1297,18 +1295,18 @@ export function PublishButton( {
 					returnFocus={ publishOptionsTrigger }
 				/>
 			) }
-			{ existingProvider && (
+			{ choosingExistingSite && (
 				<ExistingSiteDialog
-					provider={ existingProvider }
+					providers={ connectedProviders }
 					returnFocus={ trigger }
 					siteId={ site.id }
-					onClose={ () => setExistingProvider( undefined ) }
-					onConnected={ ( id ) => {
+					onClose={ () => setChoosingExistingSite( false ) }
+					onConnected={ ( provider, id ) => {
 						client.setQueryData(
 							publishTargetQueryKey( site.id ),
-							remotePublishTargetKey( existingProvider, id )
+							remotePublishTargetKey( provider, id )
 						);
-						setExistingProvider( undefined );
+						setChoosingExistingSite( false );
 					} }
 				/>
 			) }

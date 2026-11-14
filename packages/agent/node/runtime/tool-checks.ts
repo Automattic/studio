@@ -220,7 +220,9 @@ export function toToolDefinition(
 					  )
 					: undefined;
 			const checksChanges = ! (
-				READ_ONLY_TOOLS.has( tool.name ) || tool.annotations?.readOnlyHint
+				READ_ONLY_TOOLS.has( tool.name ) ||
+				tool.annotations?.readOnlyHint ||
+				tool.changesNoSite
 			);
 			if ( checksChanges ) {
 				await timeCheck( 'siteChanges', () => siteChanges.begin().catch( () => undefined ) );
@@ -363,18 +365,15 @@ export function toToolDefinition(
 				if ( checksChanges ) {
 					// The fixes above saved: the next call starts from the sites as they leave them.
 					siteChanges.afterChecks();
+					// A verdict on the pages, once what the call changed is saved, as
+					// copies of posts are: it holds only of the sites the call left.
+					notes.push( ( await renderCheck?.takeReports() ) ?? '' );
 				}
 				return notes.filter( Boolean ).join( '\n' );
 			} );
-			// A verdict on the pages waits for what the call changed on the sites to
-			// be saved, as copies of posts are, so it is of the sites the call left.
-			// So does a write a check moves or rewrites, as a new page's file it
-			// publishes: the agent's next call would reach for the file it wrote.
-			if (
-				tool.reportsChecks ||
-				( checksChanges && renderCheck?.hasReports() ) ||
-				( writtenFile && siteChanges.rewritesWrite( writtenFile ) )
-			) {
+			// A write a check moves or rewrites, as a new page's file it publishes,
+			// waits for it: the agent's next call would reach for the file it wrote.
+			if ( tool.reportsChecks || ( writtenFile && siteChanges.rewritesWrite( writtenFile ) ) ) {
 				await timeCheck( 'ownChecks', () => afterChecks.settle() );
 			}
 			// The checks of earlier calls, which go on those calls' results (see placeCallNotes).
@@ -384,7 +383,8 @@ export function toToolDefinition(
 				...validationReport,
 				stillOpen,
 				pendingWork.takeReports(),
-				await renderCheck?.takeReports(),
+				// A call that changes the sites takes it once its checks have saved what it changed.
+				checksChanges ? undefined : await renderCheck?.takeReports(),
 			] );
 			const timed = {
 				...result,

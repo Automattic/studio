@@ -252,7 +252,7 @@ describe( 'RenderCheck', () => {
 		appendFileSync( path.join( site.root, 'wp-content/themes/bakery/style.css' ), '\n' );
 		await check.changed( site.root );
 		await check.settle();
-		expect( check.hasReports() ).toBe( true );
+		expect( await check.takeReports() ).toContain( '392px wide' );
 		expect( open.look() ).toEqual( [] );
 
 		let release: () => void = () => {};

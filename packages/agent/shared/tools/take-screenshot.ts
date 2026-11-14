@@ -271,6 +271,7 @@ export function createTakeScreenshotTool( {
 		},
 		{
 			settlesPendingWork: true,
+			changesNoSite: true,
 			annotations: LOCAL_CHANGE,
 			forHost: ( options, host ): StudioToolDefinition | undefined =>
 				createTakeScreenshotTool( {

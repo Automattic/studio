@@ -932,7 +932,7 @@ describe( 'pi runtime', () => {
 
 	// eval26 picky4: a render's verdict came on the result of the call that copied
 	// pages into the workspace, before Studio saved the copies to their posts.
-	it( "holds a render's verdict until the call's own checks have saved what it changed", async () => {
+	it( "takes a render's verdict once the call's own checks have saved what it changed, after its result", async () => {
 		await runRuntime( {
 			prompt: 'hello',
 			session: newSession(),
@@ -942,24 +942,24 @@ describe( 'pi runtime', () => {
 				running: false,
 			} as StudioAgentTurnConfig[ 'activeSite' ],
 		} );
-		// A verdict waits: the browser that renders the pages does not run here.
 		const { RenderCheck } = await import( '@studio/agent/node/render-check' );
-		const waiting = vi.spyOn( RenderCheck.prototype, 'hasReports' ).mockReturnValue( true );
 		const taken = vi
 			.spyOn( RenderCheck.prototype, 'takeReports' )
 			.mockImplementation( async () => ( mocks.steps.push( 'verdict taken' ), '' ) );
 		mocks.settleMs = 40;
 		try {
 			await getCreatedTool( 'Bash' ).execute( 'b', { command: 'cp 12.html page/12.html' } );
+			expect( mocks.steps.slice( mocks.steps.lastIndexOf( 'Bash' ) ) ).not.toContain(
+				'verdict taken'
+			);
+			await takeNotes();
 			expect( mocks.steps.slice( mocks.steps.lastIndexOf( 'Bash' ) ) ).toEqual( [
 				'Bash',
 				'settle',
 				'verdict taken',
 			] );
 		} finally {
-			waiting.mockRestore();
 			taken.mockRestore();
-			await takeNotes();
 			mocks.settleMs = 0;
 		}
 	} );

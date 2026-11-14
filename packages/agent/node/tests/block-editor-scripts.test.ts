@@ -7,6 +7,7 @@ import type { HostSite } from '@studio/agent/shared/host';
 // The site's block editor registers none of the blocks it is asked about.
 vi.mock( '@studio/agent/node/block-validator', () => ( {
 	unregisteredInEditor: async ( names: string[] ) => names,
+	loadEditors: () => undefined,
 } ) );
 
 // As run h2h5's pet store installed Jetpack from WordPress.org beside a plugin of its own.

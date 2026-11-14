@@ -28,7 +28,7 @@
  * blocks are reported.
  */
 import { blockCodeVersion, readBlockCode, seeBlockCode } from '@studio/agent/node/block-code';
-import { unregisteredInEditor } from '@studio/agent/node/block-validator';
+import { loadEditors, unregisteredInEditor } from '@studio/agent/node/block-validator';
 import { printedJson, wpEval } from '@studio/agent/shared/tools/utils';
 import type { SiteChangeSource } from '@studio/agent/node/site-changes';
 
@@ -88,6 +88,7 @@ export const blockEditorScripts: SiteChangeSource = {
 			return { reports: [] };
 		}
 		seeBlockCode( site.url, after.code );
+		loadEditors( site.url );
 		let without: Record< string, string[] >;
 		// The folders of the plugins WordPress's last update check found an update source for.
 		let updated: string[];

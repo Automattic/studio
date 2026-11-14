@@ -103,6 +103,39 @@ function getEditorPage( siteUrl: string, editor: BlockEditor ): EditorPage {
 	return ep;
 }
 
+// The editor pages, by key, that have validated a block of the site's own,
+// which load again once the code that registers it changes (withEditor()).
+const namedSiteBlocks = new Set< string >();
+
+/**
+ * Loads a site's block editors ahead of the validations to come, once one of
+ * them has been used, so a call waits less for one to load: the editor not
+ * loaded yet, as building a site validates its pages in the post editor and
+ * its theme's parts in the Site Editor, and one that would load again for its
+ * next validation, as its blocks' code changed. In eval46 the calls waiting
+ * for the gate waited 5-35s for such loads.
+ */
+export function loadEditors( siteUrl: string ): void {
+	const editors = Object.keys( EDITOR_PATHS ) as BlockEditor[];
+	if ( ! editors.some( ( editor ) => editorPages.has( `${ editor } ${ siteUrl }` ) ) ) {
+		return;
+	}
+	for ( const editor of editors ) {
+		const key = `${ editor } ${ siteUrl }`;
+		const loaded = editorPages.has( key );
+		const code = seenBlockCode( siteUrl );
+		if ( loaded && ! ( namedSiteBlocks.has( key ) && pageBlockCode.get( key ) !== code ) ) {
+			continue;
+		}
+		const editorPage = getEditorPage( siteUrl, editor );
+		pageBlockCode.set( key, code );
+		// What fails to load fails again for the validation that needs it, which reports it.
+		void ( loaded ? editorPage.replace() : Promise.resolve() )
+			.then( () => editorPage.getPage() )
+			.catch( () => undefined );
+	}
+}
+
 // The blocks each editor page lacked when it was loaded (pages load as they
 // are first used): loading it again would register none of them, as a page
 // loads with the site's code as it is.
@@ -136,12 +169,23 @@ async function withEditor< T >(
 	editor: BlockEditor,
 	fn: ( page: Page ) => Promise< T >
 ): Promise< T > {
-	const editorPage = getEditorPage( siteUrl, editor );
 	const key = `${ editor } ${ siteUrl }`;
+	const first = ! editorPages.has( key );
+	const editorPage = getEditorPage( siteUrl, editor );
+	if ( first ) {
+		// Once this one has loaded, which the call waits for: they load slower side by side.
+		void editorPage.getPage().then(
+			() => loadEditors( siteUrl ),
+			() => undefined
+		);
+	}
 	const code = seenBlockCode( siteUrl );
-	if ( pageBlockCode.get( key ) !== code && names.some( isSiteBlock ) ) {
-		pageBlockCode.set( key, code );
-		await editorPage.replace();
+	if ( names.some( isSiteBlock ) ) {
+		namedSiteBlocks.add( key );
+		if ( pageBlockCode.get( key ) !== code ) {
+			pageBlockCode.set( key, code );
+			await editorPage.replace();
+		}
 	}
 	const run = async ( page: Page ): Promise< T > => {
 		const missing = await page.evaluate(

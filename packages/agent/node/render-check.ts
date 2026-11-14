@@ -182,11 +182,6 @@ export class RenderCheck {
 		return verdicts.flat().join( '\n' );
 	}
 
-	/** Whether a verdict has come since the last call. */
-	hasReports(): boolean {
-		return [ ...this.sites.values() ].some( ( state ) => state.verdict );
-	}
-
 	/** Waits for every render under way, as the turn ends. */
 	async settle(): Promise< void > {
 		await Promise.all( [ ...this.sites.values() ].map( ( state ) => state.running ) );

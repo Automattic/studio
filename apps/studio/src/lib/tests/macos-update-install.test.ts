@@ -16,11 +16,11 @@ it( 'removes only stale ShipIt temp copies of this app', async () => {
 		if ( mtime ) fs.utimesSync( dir, mtime, mtime );
 		return dir;
 	};
-	const stale = make( 'com.automattic.studio.ShipIt.AbCdEfGh', old );
-	const fresh = make( 'com.automattic.studio.ShipIt.IjKlMnOp' );
+	const stale = make( 'com.electron.studio.ShipIt.AbCdEfGh', old );
+	const fresh = make( 'com.electron.studio.ShipIt.IjKlMnOp' );
 	const otherApp = make( 'com.example.other.ShipIt.QrStUvWx', old );
 
-	await removeStaleShipItTempDirs( 'com.automattic.studio', tmpDir, now );
+	await removeStaleShipItTempDirs( 'com.electron.studio', tmpDir, now );
 
 	expect( [ stale, fresh, otherApp ].map( ( dir ) => fs.existsSync( dir ) ) ).toEqual( [
 		false,

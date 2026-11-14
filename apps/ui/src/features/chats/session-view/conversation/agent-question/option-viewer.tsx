@@ -1,7 +1,8 @@
 import { __, isRTL } from '@wordpress/i18n';
 import { clsx } from 'clsx';
-import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
+import { ChevronLeftIcon } from 'lucide-react';
 import { useLocalMediaDataUrl } from '@/data/queries/use-local-media';
+import { ChevronRightIcon } from '@/lib/icons';
 import {
 	Button,
 	Dialog,

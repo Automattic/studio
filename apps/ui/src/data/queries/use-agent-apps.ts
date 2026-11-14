@@ -19,8 +19,8 @@ export function useConnectAgentApp() {
 	const connector = useConnector();
 	const queryClient = useQueryClient();
 	return useMutation( {
-		mutationFn: ( id: AgentAppId ) => connector.connectAgentApp( id ),
-		onSuccess: ( _result, id ) => {
+		mutationFn: ( { id }: { id: AgentAppId; retry: boolean } ) => connector.connectAgentApp( id ),
+		onSuccess: ( _result, { id } ) => {
 			queryClient.setQueryData< AgentApp[] >(
 				AGENT_APPS_QUERY_KEY,
 				( apps ) =>

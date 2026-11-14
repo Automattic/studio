@@ -3,7 +3,7 @@ import { __ } from '@wordpress/i18n';
 import { useEffect } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
-import { useConnectedWpcomSites } from '@/data/queries/use-connected-wpcom-sites';
+import { useRemoteSites } from '@/data/queries/use-remote-sites';
 import type {
 	AiModelId,
 	AiSessionMetadata,
@@ -219,7 +219,7 @@ export function useSessionLiveSite(
 	summary: Pick< AiSessionSummary, 'activeEnvironment' | 'lastSelectedWpcomSiteId' > | undefined,
 	ownerLocalSiteId: string | undefined
 ): SyncSite | undefined {
-	const { data: connectedSites } = useConnectedWpcomSites( ownerLocalSiteId );
+	const { data: connectedSites } = useRemoteSites( 'wpcom', ownerLocalSiteId );
 	return summary?.activeEnvironment === 'live'
 		? connectedSites?.find( ( site ) => site.id === summary.lastSelectedWpcomSiteId )
 		: undefined;

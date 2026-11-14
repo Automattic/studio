@@ -1,0 +1,16 @@
+{
+	"description": "Featuring a post on Moire.",
+	"title": "Feature the Soft Armor post",
+	"site": "moire",
+	"minutesAgo": 400,
+	"turns": [
+		{
+			"prompt": "Feature the Soft Armor post at the top of the archive.",
+			"replies": [
+				[
+					"I made **Soft Armor** sticky, so it leads the archive with its wool close-up, and the rest follow by date."
+				]
+			]
+		}
+	]
+}

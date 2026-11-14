@@ -2,11 +2,12 @@ import fs from 'fs';
 import nodePath from 'node:path';
 import * as Sentry from '@sentry/electron/main';
 import { LOCKFILE_STALE_TIME, LOCKFILE_WAIT_TIME } from '@studio/common/constants';
+import { redactHomePaths } from '@studio/common/lib/error-reporting';
 import { isErrnoException } from '@studio/common/lib/is-errno-exception';
 import { lockFileAsync, unlockFileAsync } from '@studio/common/lib/lockfile';
 import { getAppConfigLockFilePath } from '@studio/common/lib/well-known-paths';
 import { readFile, writeFile } from 'atomically';
-import { sanitizeUnstructuredData, sanitizeUserpath } from 'src/lib/sanitize-for-logging';
+import { sanitizeUnstructuredData } from 'src/lib/sanitize-for-logging';
 import { getUserDataFilePath } from 'src/storage/paths';
 import {
 	EMPTY_USER_DATA,
@@ -31,7 +32,7 @@ export async function loadUserData(): Promise< UserData > {
 				Sentry.addBreadcrumb( {
 					data: {
 						fileContents: sanitizeUnstructuredData( asString ),
-						filePath: sanitizeUserpath( filePath ),
+						filePath: redactHomePaths( filePath ),
 					},
 				} );
 			}
@@ -41,7 +42,7 @@ export async function loadUserData(): Promise< UserData > {
 		if ( isErrnoException( err ) && err.code === 'ENOENT' ) {
 			return EMPTY_USER_DATA;
 		}
-		console.error( `Failed to load file ${ sanitizeUserpath( filePath ) }: ${ err }` );
+		console.error( `Failed to load file ${ redactHomePaths( filePath ) }: ${ err }` );
 		throw err;
 	}
 }

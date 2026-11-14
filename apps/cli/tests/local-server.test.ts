@@ -3,9 +3,9 @@
  */
 import crypto from 'node:crypto';
 import EventEmitter from 'node:events';
-import { InvalidAnthropicApiKeyError } from '@studio/agent/node/settings-store';
 import { createCliRunner } from '@studio/common/lib/cli-process';
 import { listSites } from '@studio/common/sites/list';
+import { ConnectError } from '@studio/providers';
 import nock from 'nock';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { startLocalServer } from '../../local/src/index';
@@ -16,9 +16,18 @@ const mocks = vi.hoisted( () => ( {
 	killAll: vi.fn(),
 	readSitePath: vi.fn(),
 	readAiSettings: vi.fn(),
-	saveAnthropicApiKey: vi.fn(),
+	connectProvider: vi.fn(),
+	disconnectProvider: vi.fn(),
 	setAiProvider: vi.fn(),
 } ) );
+
+const settings = ( provider: string, anthropicSummary: string | null ) => ( {
+	provider,
+	accounts: {
+		wpcom: { connected: false, summary: null },
+		anthropic: { connected: anthropicSummary !== null, summary: anthropicSummary },
+	},
+} );
 
 vi.mock( '@studio/common/lib/cli-process', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/lib/cli-process') >() ),
@@ -30,10 +39,11 @@ vi.mock( '@studio/common/lib/cli-process', async ( importOriginal ) => ( {
 } ) );
 vi.mock( '@studio/common/sites/list', () => ( { listSites: vi.fn() } ) );
 vi.mock( '@studio/common/sites/site-path', () => ( { readSitePath: mocks.readSitePath } ) );
-vi.mock( '@studio/agent/node/settings-store', async ( importOriginal ) => ( {
-	...( await importOriginal< typeof import('@studio/agent/node/settings-store') >() ),
+vi.mock( '@studio/common/lib/ai-settings', async ( importOriginal ) => ( {
+	...( await importOriginal< typeof import('@studio/common/lib/ai-settings') >() ),
 	readAiSettings: mocks.readAiSettings,
-	saveAnthropicApiKey: mocks.saveAnthropicApiKey,
+	connectProvider: mocks.connectProvider,
+	disconnectProvider: mocks.disconnectProvider,
 	setAiProvider: mocks.setAiProvider,
 } ) );
 vi.mock( '@studio/agent/node/run-manager', () => ( {
@@ -78,21 +88,12 @@ describe( 'local web server Connect contracts', () => {
 			queueMicrotask( () => emitter.emit( 'success' ) );
 			return [ emitter, {} ];
 		} );
-		mocks.readAiSettings.mockResolvedValue( {
-			provider: 'wpcom',
-			hasAnthropicApiKey: false,
-			anthropicApiKeyPreview: null,
-		} );
-		mocks.saveAnthropicApiKey.mockImplementation( async ( key: string | null ) => ( {
-			provider: 'wpcom',
-			hasAnthropicApiKey: key !== null,
-			anthropicApiKeyPreview: key === null ? null : key.trim().slice( -4 ),
-		} ) );
-		mocks.setAiProvider.mockImplementation( async ( provider: string ) => ( {
-			provider,
-			hasAnthropicApiKey: true,
-			anthropicApiKeyPreview: '1234',
-		} ) );
+		mocks.readAiSettings.mockResolvedValue( settings( 'wpcom', null ) );
+		mocks.connectProvider.mockResolvedValue( settings( 'wpcom', '1234' ) );
+		mocks.disconnectProvider.mockResolvedValue( settings( 'wpcom', null ) );
+		mocks.setAiProvider.mockImplementation( async ( provider: string ) =>
+			settings( provider, '1234' )
+		);
 		server = await startLocalServer( {
 			cliBinary: '/mock/cli.mjs',
 			sessionsRoot: '/sessions',
@@ -107,67 +108,52 @@ describe( 'local web server Connect contracts', () => {
 		nock.disableNetConnect();
 	} );
 
+	const settingsUrl = ( path: string ) =>
+		`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings${ path }`;
+	const putInput = ( input: unknown ) =>
+		fetch( settingsUrl( '/providers/anthropic' ), {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify( { method: 'api-key', input } ),
+		} );
+
 	it( 'reports the AI provider settings without the key itself', async () => {
-		const response = await fetch(
-			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings`
-		);
+		const response = await fetch( settingsUrl( '' ) );
 
 		expect( response.status ).toBe( 200 );
-		await expect( response.json() ).resolves.toEqual( {
-			provider: 'wpcom',
-			hasAnthropicApiKey: false,
-			anthropicApiKeyPreview: null,
-		} );
+		await expect( response.json() ).resolves.toEqual( settings( 'wpcom', null ) );
 	} );
 
-	it( 'passes the Anthropic API key to the settings store untouched', async () => {
-		const response = await fetch(
-			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings`,
-			{
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify( { anthropicApiKey: '  sk-ant-test-1234  ' } ),
-			}
-		);
+	it( 'passes the form values to the provider untouched', async () => {
+		const response = await putInput( { apiKey: '  sk-ant-test-1234  ' } );
 
 		expect( response.status ).toBe( 200 );
 		await expect( response.json() ).resolves.toMatchObject( {
-			hasAnthropicApiKey: true,
-			anthropicApiKeyPreview: '1234',
+			accounts: { anthropic: { connected: true, summary: '1234' } },
 		} );
-		expect( mocks.saveAnthropicApiKey ).toHaveBeenCalledWith( '  sk-ant-test-1234  ' );
+		expect( mocks.connectProvider ).toHaveBeenCalledWith(
+			expect.objectContaining( { id: 'anthropic' } ),
+			'api-key',
+			{ apiKey: '  sk-ant-test-1234  ' }
+		);
 	} );
 
-	it( 'clears the Anthropic API key', async () => {
-		const response = await fetch(
-			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings`,
-			{
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify( { anthropicApiKey: null } ),
-			}
-		);
+	it( 'disconnects a provider', async () => {
+		const response = await fetch( settingsUrl( '/providers/anthropic' ), { method: 'DELETE' } );
 
 		expect( response.status ).toBe( 200 );
-		await expect( response.json() ).resolves.toMatchObject( { hasAnthropicApiKey: false } );
-		expect( mocks.saveAnthropicApiKey ).toHaveBeenCalledWith( null );
+		await expect( response.json() ).resolves.toMatchObject( {
+			accounts: { anthropic: { connected: false } },
+		} );
+		expect( mocks.disconnectProvider ).toHaveBeenCalledOnce();
 	} );
 
-	it( 'returns 400 with the message when Anthropic rejects a key being saved', async () => {
-		mocks.saveAnthropicApiKey.mockRejectedValueOnce(
-			new InvalidAnthropicApiKeyError(
-				'Anthropic rejected this API key. Check the key and try again.'
-			)
+	it( 'returns 400 with the message when the provider rejects the values', async () => {
+		mocks.connectProvider.mockRejectedValueOnce(
+			new ConnectError( 'Anthropic rejected this API key. Check the key and try again.' )
 		);
 
-		const response = await fetch(
-			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings`,
-			{
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify( { anthropicApiKey: 'sk-ant-rejected' } ),
-			}
-		);
+		const response = await putInput( { apiKey: 'sk-ant-rejected' } );
 
 		expect( response.status ).toBe( 400 );
 		await expect( response.json() ).resolves.toEqual( {
@@ -175,18 +161,18 @@ describe( 'local web server Connect contracts', () => {
 		} );
 	} );
 
-	it( 'rejects a non-string Anthropic API key', async () => {
-		const response = await fetch(
-			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings`,
-			{
-				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify( { anthropicApiKey: 42 } ),
-			}
-		);
-
-		expect( response.status ).toBe( 400 );
-		expect( mocks.saveAnthropicApiKey ).not.toHaveBeenCalled();
+	it( 'rejects values that are not strings, and unknown providers', async () => {
+		expect( ( await putInput( { apiKey: 42 } ) ).status ).toBe( 400 );
+		expect(
+			(
+				await fetch( settingsUrl( '/providers/claude-code' ), {
+					method: 'PUT',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify( { input: {} } ),
+				} )
+			).status
+		).toBe( 400 );
+		expect( mocks.connectProvider ).not.toHaveBeenCalled();
 	} );
 
 	it( 'switches the AI provider', async () => {
@@ -195,34 +181,30 @@ describe( 'local web server Connect contracts', () => {
 			{
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify( { provider: 'anthropic-api-key' } ),
+				body: JSON.stringify( { provider: 'anthropic' } ),
 			}
 		);
 
 		expect( response.status ).toBe( 200 );
-		await expect( response.json() ).resolves.toMatchObject( { provider: 'anthropic-api-key' } );
-		expect( mocks.setAiProvider ).toHaveBeenCalledWith( 'anthropic-api-key' );
+		await expect( response.json() ).resolves.toMatchObject( { provider: 'anthropic' } );
+		expect( mocks.setAiProvider ).toHaveBeenCalledWith( 'anthropic' );
 	} );
 
-	it( 'returns 400 with the message when Anthropic rejects the saved key', async () => {
-		mocks.setAiProvider.mockRejectedValueOnce(
-			new InvalidAnthropicApiKeyError(
-				'Anthropic rejected this API key. Check the key and try again.'
-			)
-		);
+	it( 'returns 400 with the message when the provider is not connected', async () => {
+		mocks.setAiProvider.mockRejectedValueOnce( new ConnectError( 'Connect Anthropic API first.' ) );
 
 		const response = await fetch(
 			`${ server.url.replace( 'localhost', '127.0.0.1' ) }/api/ai-settings/provider`,
 			{
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify( { provider: 'anthropic-api-key' } ),
+				body: JSON.stringify( { provider: 'anthropic' } ),
 			}
 		);
 
 		expect( response.status ).toBe( 400 );
 		await expect( response.json() ).resolves.toEqual( {
-			error: 'Anthropic rejected this API key. Check the key and try again.',
+			error: 'Connect Anthropic API first.',
 		} );
 	} );
 
@@ -246,7 +228,7 @@ describe( 'local web server Connect contracts', () => {
 			{
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify( { provider: 'claude-code', model: 'claude-sonnet-5' } ),
+				body: JSON.stringify( { provider: 'claude-code', model: 'claude-sonnet-5-5' } ),
 			}
 		);
 
@@ -262,7 +244,7 @@ describe( 'local web server Connect contracts', () => {
 			{
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify( { provider: 'anthropic-api-key', model: 'balanced' } ),
+				body: JSON.stringify( { provider: 'anthropic', model: 'balanced' } ),
 			}
 		);
 
@@ -386,10 +368,10 @@ describe( 'local web server Connect contracts', () => {
 		} );
 		const baseUrl = server.url.replace( 'localhost', '127.0.0.1' );
 
-		const pulling = fetch( `${ baseUrl }/api/sites/local-a/pull`, {
+		const pulling = fetch( `${ baseUrl }/api/sites/local-a/remote-sites/wpcom/42/pull`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify( { remoteSiteId: 42 } ),
+			body: JSON.stringify( {} ),
 		} );
 		await started;
 		const cancelled = await fetch( `${ baseUrl }/api/sites/local-a/sync/cancel`, {

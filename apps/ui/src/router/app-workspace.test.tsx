@@ -198,7 +198,13 @@ describe( 'Studio workspace', () => {
 			sites: [ site( { running: true } ) ],
 			path: '/sites/one/new',
 			overrides: {
-				capabilities: { annotatePreview: true, nativeFolderPicker: true, studioLogs: true },
+				capabilities: {
+					annotatePreview: true,
+					nativeFolderPicker: true,
+					studioLogs: true,
+					nativeSites: true,
+					loopbackSignIn: true,
+				},
 			},
 		} );
 		await findComposer();
@@ -221,7 +227,7 @@ describe( 'Studio workspace', () => {
 			expect( connector.createSession ).not.toHaveBeenCalled();
 			expect( getSiteAnnotations( 'one' ).notes[ 0 ].comment ).toBe( 'Make this heading larger' );
 			fireEvent.click( screen.getByRole( 'button', { name: 'Choose a different provider' } ) );
-			await waitFor( () => expect( history.location.search ).toContain( 'settings=ai' ) );
+			await waitFor( () => expect( history.location.search ).toContain( 'settings=providers' ) );
 			expect( getSiteAnnotations( 'one' ).notes ).toHaveLength( 1 );
 		} finally {
 			act( () => {
@@ -424,6 +430,8 @@ describe( 'Studio workspace', () => {
 		expect( await screen.findByRole( 'button', { name: 'Share' } ) ).toBeVisible();
 		expect( await screen.findByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
 		await paletteCommand( 'Publish' );
+		// Signing in is only needed to publish to WordPress.com.
+		fireEvent.click( await screen.findByRole( 'button', { name: /^WordPress\.com/ } ) );
 		expect( await screen.findByRole( 'dialog', { name: 'Publish your WordPress' } ) ).toBeVisible();
 		expect( connector.authenticate ).not.toHaveBeenCalled();
 		fireEvent.click( screen.getByRole( 'button', { name: 'Close' } ) );
@@ -577,7 +585,7 @@ describe( 'Studio workspace', () => {
 		const { connector, refreshSessions, history } = setup( {
 			signedIn: true,
 			overrides: {
-				getConnectedWpcomSites: async () =>
+				getRemoteSites: async () =>
 					[ { id: 123, url: 'https://example.test', name: 'Live site' } ] as never,
 			},
 		} );
@@ -1320,7 +1328,13 @@ describe( 'Studio workspace', () => {
 		const { connector } = setup( {
 			signedIn: true,
 			overrides: {
-				capabilities: { nativeFolderPicker: true, annotatePreview: true, studioLogs: true },
+				capabilities: {
+					nativeFolderPicker: true,
+					annotatePreview: true,
+					studioLogs: true,
+					nativeSites: true,
+					loopbackSignIn: true,
+				},
 			},
 		} );
 		await findComposer();
@@ -1596,7 +1610,7 @@ describe( 'Studio workspace', () => {
 				signedIn: true,
 				preferences: { autoStartSiteOnChat: true } as never,
 				overrides: {
-					getConnectedWpcomSites: async () =>
+					getRemoteSites: async () =>
 						[ { id: 123, url: 'https://example.test', name: 'Live site' } ] as never,
 				},
 			} );

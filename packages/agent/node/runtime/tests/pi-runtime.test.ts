@@ -1015,10 +1015,10 @@ describe( 'pi runtime', () => {
 	} );
 
 	// An Edit of `file` that misses a text like no line of it, as its error reads.
-	const missedEdit = async ( file: string ) => {
+	const missedEdit = async ( file: string, oldText = 'x' ) => {
 		mocks.failNext = true;
 		return getCreatedTool( 'Edit' )
-			.execute( 'e', { path: file, edits: [ { oldText: 'x', newText: 'y' } ] } )
+			.execute( 'e', { path: file, edits: [ { oldText, newText: 'y' } ] } )
 			.then(
 				() => '',
 				( error: Error ) => error.message
@@ -1038,15 +1038,6 @@ describe( 'pi runtime', () => {
 				'~~~',
 				...[ 'line 0', 'line 1', 'line 2!', 'line 3', 'line 4', 'line 5' ],
 				'~~~',
-			],
-		},
-		{
-			case: 'how the file changed since the agent held it, for a text like no line',
-			oldText: 'x',
-			notes: [
-				'changed after your Write of it; every other line reads as your Write left it.',
-				...[ 'Lines 3-3 now read:', '~~~', 'line 2!', '~~~' ],
-				...[ 'Lines 10-10 now read:', '~~~', 'line 9!', '~~~' ],
 			],
 		},
 	] )( 'shows an Edit missing its text $case', async ( { oldText, notes } ) => {
@@ -1114,8 +1105,8 @@ describe( 'pi runtime', () => {
 			await getCreatedTool( 'Read' ).execute( 'r', { path: 'a/theme.json', offset: 2 } );
 			await takeNotes();
 			fs.writeFileSync( file, 'one\nTWO\nthree' );
-			expect( await missedEdit( 'a/theme.json' ) ).toContain(
-				`${ file } changed after your Write of it;`
+			expect( await missedEdit( 'a/theme.json', 'two' ) ).toContain(
+				`${ file } changed after your Write of it`
 			);
 		} finally {
 			fs.rmSync( file, { force: true } );

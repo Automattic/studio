@@ -84,18 +84,24 @@ export class FileViews {
 	/**
 	 * Where `file`, now `now`, reads closest to each of `wanted`, the texts an
 	 * Edit looked for, it does not hold, and how the file changed since the
-	 * agent last held it, when it did: an edit made from the file as the agent
-	 * holds it, or recalls it, applies there.
+	 * agent last held it, when the text it looked for was in that: an edit
+	 * made from the file as the agent holds it, or recalls it, applies there.
+	 * A text the agent held no more than the file does is its own to fix.
 	 */
 	missedEdit( file: string, now: string | undefined, wanted: string[] ): string | undefined {
 		if ( now === undefined ) {
 			return undefined;
 		}
+		const missing = wanted.filter( ( text ) => text && ! now.includes( text ) );
 		const held = this.held.get( file );
-		const changed = held && now !== held.text ? held : undefined;
+		const changed =
+			held &&
+			now !== held.text &&
+			( ! missing.length || missing.some( ( text ) => held.text.includes( text ) ) )
+				? held
+				: undefined;
 		const lines = now.split( '\n' );
-		const spans = wanted
-			.filter( ( text ) => text && ! now.includes( text ) )
+		const spans = missing
 			.flatMap( ( text ) => closestLines( lines, text ) ?? [] )
 			.sort( ( a, b ) => a.from - b.from )
 			.reduce< LineSpan[] >( ( joined, span ) => {

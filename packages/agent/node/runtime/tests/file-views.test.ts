@@ -135,6 +135,19 @@ describe( 'FileViews', () => {
 					'~~~',
 				].join( '\n' ),
 		},
+		{
+			// The agent's own recall, not Studio's change, missed it.
+			case: 'where the file reads closest to a text the Write did not leave either',
+			wanted: [ '<div class="wp-block-group alignwide">' ],
+			note: ( file ) =>
+				[
+					`Where ${ file } reads closest to the text the Edit looked for:`,
+					'Lines 1-4 now read:',
+					'~~~',
+					...PART_SAVED.split( '\n' ).slice( 0, 4 ),
+					'~~~',
+				].join( '\n' ),
+		},
 	] )( 'tells an Edit missing its text $case', ( { wanted, note } ) => {
 		const views = new FileViews();
 		const file = put( 'footer.html', PART );

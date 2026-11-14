@@ -32,6 +32,7 @@ It describes the architecture and the rules, not the exact APIs, which are expec
 | OpenAI (`openai`)                            | ChatGPT plan, or API key       | GPT models; images with an API key   | —          | —           |
 | Google Gemini (`gemini`)                     | API key                        | Gemini models; images                | —          | —           |
 | GitHub Copilot (`github-copilot`)            | Copilot plan, device sign-in   | Claude, GPT and Gemini models        | —          | —           |
+| xAI (`xai`)                                  | Grok plan or API key           | Grok models                          | —          | —           |
 | Spacefast (`spacefast`)                      | Device sign-in                 | —                                    | publish    | —           |
 | Other hosts, such as an SSH host _(planned)_ | Per host                       | —                                    | push, pull | —           |
 

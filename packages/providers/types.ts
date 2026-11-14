@@ -7,6 +7,7 @@ import type { SpacefastConfig } from './spacefast/config';
 import type { Space } from './spacefast/descriptor';
 import type { WpcomConfig } from './wpcom/config';
 import type { PullSyncOptions, PushSyncOptions, SyncSite } from './wpcom/sites/site';
+import type { XaiConfig } from './xai/config';
 import type { Api, Model } from '@earendil-works/pi-ai';
 import type { z } from 'zod';
 
@@ -16,10 +17,11 @@ export type ProviderId =
 	| 'openai'
 	| 'gemini'
 	| 'github-copilot'
+	| 'xai'
 	| 'spacefast';
 
 // The providers that serve AI models.
-export type AiProviderId = 'wpcom' | 'anthropic' | 'openai' | 'gemini' | 'github-copilot';
+export type AiProviderId = 'wpcom' | 'anthropic' | 'openai' | 'gemini' | 'github-copilot' | 'xai';
 
 // What Studio stores for each provider.
 export interface ProviderConfigs {
@@ -28,6 +30,7 @@ export interface ProviderConfigs {
 	openai: OpenaiConfig;
 	gemini: GeminiConfig;
 	'github-copilot': GithubCopilotConfig;
+	xai: XaiConfig;
 	spacefast: SpacefastConfig;
 }
 

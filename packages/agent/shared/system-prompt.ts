@@ -118,6 +118,8 @@ const SKILL_ROUTING = `## Skill routing
 
 When the request is to create, build, make, design, redesign, or rebuild a site, load the \`build-site\` skill first — it starts by picking or creating the site — and follow it to the end, even when the prompt already answers its questions. Any other work on an existing local site — answering questions about it, adding a page or section, adjusting styles, plugin work — loads the \`edit-manage-site\` skill first.
 
+When the request is to simplify, curate, lock down or white-label wp-admin, or to prepare a site for handing over to a client, load the \`curate-admin\` skill first.
+
 For any site creation, redesign, landing page, homepage, layout, style, CSS, typography, color, or motion work, load the \`visual-design\` skill before writing design files or block markup.
 
 For any page/post content, template or template-part content, change to an existing theme's files, block markup, block-theme layout, full-width section, or \`core/html\` use, load the \`block-content\` skill before writing markup or validating block content. For long CSS or page-content files (>~200 lines), use its skeleton-first recipes instead of writing the full payload at once.

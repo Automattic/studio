@@ -1,4 +1,5 @@
 import {
+	isAdminLinkWidget,
 	isDesignSystemPreviewWidget,
 	isRenderableMediaWidget,
 	isStudioChatArtifactData,
@@ -299,7 +300,10 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 				continue;
 			}
 			const widgets = data.widgets.filter(
-				( widget ) => isRenderableMediaWidget( widget ) || isDesignSystemPreviewWidget( widget )
+				( widget ) =>
+					isRenderableMediaWidget( widget ) ||
+					isDesignSystemPreviewWidget( widget ) ||
+					isAdminLinkWidget( widget )
 			);
 			if ( widgets.length > 0 ) {
 				items.push( {
@@ -337,6 +341,10 @@ export function entriesToRenderItems( entries: SessionEntry[] ): RenderItem[] {
 
 function isDesignSystemArtifact( item: RenderItem ) {
 	return item.kind === 'chat-artifact' && item.widgets.every( isDesignSystemPreviewWidget );
+}
+
+function isAdminLinkArtifact( item: RenderItem ) {
+	return item.kind === 'chat-artifact' && item.widgets.every( isAdminLinkWidget );
 }
 
 function getTimestamp( entry: SessionEntry | undefined ): number | null {
@@ -393,11 +401,19 @@ export function entriesToTranscriptItems(
 			if ( item.kind === 'progress' ) {
 				return [];
 			}
+			if ( isAdminLinkArtifact( item ) ) {
+				return [];
+			}
 			if ( isDesignSystemArtifact( item ) && item !== lastDesignSystem ) {
 				return [];
 			}
 			return [ item.kind === 'tool-use' && running ? { ...item, running } : item ];
 		} );
+		// Offered once, after the agent's closing message, because that's when it's ready.
+		const adminLink = [ ...turnItems ].reverse().find( isAdminLinkArtifact );
+		if ( adminLink && adminLink.kind !== 'progress' ) {
+			visible.push( adminLink );
+		}
 		if (
 			! worked &&
 			! running &&
@@ -428,14 +444,20 @@ export function entriesToTranscriptItems(
 					item.kind === 'assistant-text' ||
 					item.kind === 'chat-artifact'
 			)
-			.map( ( item ) =>
-				item.kind === 'assistant-text' &&
-				finalEntry !== null &&
-				finalEntry > lastActionEntry &&
-				entryIndexOf( item ) === finalEntry
+			.map( ( item, index, all ) => {
+				const isFinal =
+					finalEntry !== null &&
+					finalEntry > lastActionEntry &&
+					entryIndexOf( item ) === finalEntry;
+				// An open question often refers to what the agent wrote just before it, such as a plan.
+				const next = all[ index + 1 ];
+				const introducesQuestion =
+					next?.kind === 'agent-question-batch' &&
+					next.questions.some( ( { pickedLabel } ) => ! pickedLabel );
+				return item.kind === 'assistant-text' && ( isFinal || introducesQuestion )
 					? { ...item, persistent: true }
-					: item
-			);
+					: item;
+			} );
 		const activityKeys = new Set( activityItems.map( ( item ) => item.key ) );
 		const outside = visible.filter( ( item ) => ! activityKeys.has( item.key ) );
 		const activity: TurnActivity = {

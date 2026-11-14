@@ -38,7 +38,17 @@ export function usePreviewSurfaces( {
 	// Which realm the host is pointing the preview at. Derived from the path
 	// rather than stored alongside it, so the parent stays the single source of
 	// truth for where the preview is aimed.
-	const activeRealm = getPreviewRealm( path );
+	const pathRealm = getPreviewRealm( path );
+	// wp-admin's paths are the same for every account, so only the sign-in hop
+	// says the session is Staff's. It holds until a hop signs in as the admin.
+	const [ isStaffSession, setIsStaffSession ] = useState( false );
+	useEffect( () => setIsStaffSession( false ), [ siteId ] );
+	useEffect( () => {
+		if ( path.startsWith( '/studio-auto-login' ) ) {
+			setIsStaffSession( pathRealm === 'staff' );
+		}
+	}, [ path, pathRealm ] );
+	const activeRealm = pathRealm === 'admin' && isStaffSession ? 'staff' : pathRealm;
 	const activeSurfaceKey = getSurfaceKey( activeRealm );
 	// Surfaces mounted so far. Once created a surface stays mounted and warm;
 	// only the active one is visible.
@@ -129,7 +139,7 @@ export function usePreviewSurfaces( {
 			return;
 		}
 		lastHostReloadNonceRef.current = reloadNonce;
-		if ( ! active || activeRealm === 'admin' ) {
+		if ( ! active || activeRealm === 'admin' || activeRealm === 'staff' ) {
 			return;
 		}
 		if ( activeSurfaceKey === 'design' || activeSurfaceKey === 'email' ) {

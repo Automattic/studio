@@ -11,7 +11,7 @@ export interface Skill {
 
 // Every file of every skill, by its path from here (`./skills/<name>/…`),
 // bundled as text so the skills load the same in Node and in a browser.
-const SKILL_FILES = import.meta.glob< string >( './skills/**/*.{md,php}', {
+const SKILL_FILES = import.meta.glob< string >( './skills/**/*.{md,php,js,css,txt}', {
 	query: '?raw',
 	import: 'default',
 	eager: true,

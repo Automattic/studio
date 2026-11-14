@@ -943,10 +943,10 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 		},
 		async popupAppMenu() {},
 		showsAppMenuButton: false,
-		async openSiteUrl( siteId, relativeUrl = '', { autoLogin = true } = {} ) {
+		async openSiteUrl( siteId, relativeUrl = '', { autoLogin = true, user } = {} ) {
 			await api( `/sites/${ encodeURIComponent( siteId ) }/open-in-browser`, {
 				method: 'POST',
-				body: JSON.stringify( { relativeUrl, autoLogin } ),
+				body: JSON.stringify( { relativeUrl, autoLogin, user } ),
 			} );
 		},
 		async getWordPressSkillsStatusAllSites() {

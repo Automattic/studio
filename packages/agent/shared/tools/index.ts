@@ -9,6 +9,8 @@ import { exportSiteTool } from './export-site';
 import { generateImagesTool } from './generate-images';
 import { importSiteTool } from './import-site';
 import { createInspectDesignTool, inspectDesignTool } from './inspect-design';
+import { inspectWpAdminTool } from './inspect-wp-admin';
+import { installCuratedAdminTool } from './install-curated-admin';
 import { installTaxonomyScriptsTool } from './install-taxonomy-scripts';
 import { listConnectedRemoteSitesTool } from './list-connected-remote-sites';
 import { listPreviewsTool } from './list-previews';
@@ -30,6 +32,7 @@ import { stopSiteTool } from './stop-site';
 import { createTakeScreenshotTool, takeScreenshotTool } from './take-screenshot';
 import { updatePreviewTool } from './update-preview';
 import { validateBlocksTool } from './validate-blocks';
+import { createVerifyCuratedAdminTool, verifyCuratedAdminTool } from './verify-curated-admin';
 import { runWpCliTool } from './wp-cli';
 import { createWpcomRequestTool, WPCOM_REQUEST_TOOL_NAME } from './wpcom-request';
 import type {
@@ -62,6 +65,9 @@ export function studioToolDefinitions( host: StudioAgentHost ): StudioToolDefini
 		inspectDesignTool,
 		generateImagesTool,
 		installTaxonomyScriptsTool,
+		inspectWpAdminTool,
+		installCuratedAdminTool,
+		verifyCuratedAdminTool,
 		auditPerformanceTool,
 		auditSeoTool,
 		listConnectedRemoteSitesTool,
@@ -126,6 +132,9 @@ export function resolveStudioTools(
 		}
 		if ( candidate.name === inspectDesignTool.name && options.visionEnabled === false ) {
 			tool = createInspectDesignTool( { visionEnabled: false } );
+		}
+		if ( candidate.name === verifyCuratedAdminTool.name && options.visionEnabled === false ) {
+			tool = createVerifyCuratedAdminTool( { visionEnabled: false } );
 		}
 		if ( candidate.name === pickDesignTool.name && ( options.canAskUser || options.tracks ) ) {
 			tool = createPickDesignTool( {

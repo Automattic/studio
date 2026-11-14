@@ -374,6 +374,35 @@ describe( 'Conversation activity groups', () => {
 		expect( screen.queryByText( /was updated/ ) ).not.toBeInTheDocument();
 	} );
 
+	it.each( [
+		[ { path: '/studio-auto-login?user=staff', user: 'staff' }, 'Open staff admin' ],
+		[ { path: '/studio-auto-login' }, 'Open wp-admin' ],
+	] )( 'offers wp-admin once, after the closing message', ( widgetProps, name ) => {
+		const verified = {
+			type: 'custom',
+			id: 'verified',
+			timestamp: '2026-06-05T12:00:03.000Z',
+			customType: 'studio.chat_artifact',
+			data: { version: 1, id: 'verified', widgets: [ { type: 'admin-link', widgetProps } ] },
+		} as unknown as SessionEntry;
+		renderConversation(
+			loadedSession( [
+				promptEntry( 'Simplify the backend' ),
+				assistantToolCallEntry( 'verify_curated_admin', {} ),
+				verified,
+				toolResultEntry( 'All checks passed' ),
+				assistantTextEntry( 'The backend is simpler now.' ),
+				turnClosedEntry( 'success' ),
+			] )
+		);
+
+		const button = screen.getByRole( 'button', { name } );
+		expect(
+			screen.getByText( 'The backend is simpler now.' ).compareDocumentPosition( button ) &
+				Node.DOCUMENT_POSITION_FOLLOWING
+		).toBeTruthy();
+	} );
+
 	it( 'automatically collapses activity while keeping a pending question available', () => {
 		renderConversation(
 			loadedSession( [
@@ -392,6 +421,31 @@ describe( 'Conversation activity groups', () => {
 		expect( screen.getByText( 'Checking the theme.' ) ).toBeVisible();
 		expect( screen.getByRole( 'radio', { name: 'Blue' } ) ).toBeVisible();
 	} );
+} );
+
+it( 'keeps the message before an open question visible while the work collapses', () => {
+	renderConversation(
+		loadedSession( [
+			promptEntry( 'Curate wp-admin' ),
+			assistantToolCallEntry( 'Read', { file_path: '/tmp/menu.json' }, 'Reading the site.' ),
+			toolResultEntry( 'contents' ),
+			assistantTextEntry( 'The plan: keep Posts and Comments.' ),
+			agentQuestionEntry( 'Does this look right?', [ 'Yes', 'Change it' ] ),
+		] ),
+		{
+			isRunning: true,
+			startedAt: Date.now(),
+			pendingQuestions: new Set( [ 'Does this look right?' ] ),
+		}
+	);
+
+	expect( screen.getByRole( 'button', { name: /^Waiting/ } ) ).toHaveAttribute(
+		'aria-expanded',
+		'false'
+	);
+	expect( screen.getByText( 'The plan: keep Posts and Comments.' ) ).toBeVisible();
+	expect( screen.queryByText( 'Reading the site.' ) ).not.toBeInTheDocument();
+	expect( screen.getByRole( 'radio', { name: 'Yes' } ) ).toBeVisible();
 } );
 
 it( 'shows the answered question before the work it prompted', () => {

@@ -21,6 +21,7 @@ export const SITE_LIST_PUBLIC_FIELDS = [
 	'enableDebugDisplay',
 	'landingPage',
 	'emailPath',
+	'staffAdmin',
 	'phpMyAdminSupported',
 ] as const;
 

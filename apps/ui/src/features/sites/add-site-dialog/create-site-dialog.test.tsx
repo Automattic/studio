@@ -420,7 +420,7 @@ describe( 'Add site flow', () => {
 				expect.objectContaining( {
 					name: 'Portfolio 2',
 					path: '/sites/Portfolio 2',
-					blueprint: portfolio.slug,
+					blueprint: { librarySlug: portfolio.slug, blueprint: portfolio.blueprint },
 				} )
 			);
 			expect( screen.queryByLabelText( 'Site name' ) ).not.toBeInTheDocument();
@@ -1126,7 +1126,7 @@ describe( 'Add site Blueprint Tracks actions', () => {
 		}
 	);
 
-	it( 'sends only the public catalog slug and fixed props despite sensitive Blueprint fields', async () => {
+	it( 'uses the selected bundle and records only the public catalog slug and fixed props', async () => {
 		const sensitive = {
 			...portfolio,
 			slug: 'public-catalog-entry',
@@ -1147,6 +1147,15 @@ describe( 'Add site Blueprint Tracks actions', () => {
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith( sensitive.playground_url );
 		await user.click( screen.getByRole( 'button', { name: 'Add site' } ) );
 		await created( history );
+		expect( connector.createSite ).toHaveBeenCalledWith(
+			expect.objectContaining( {
+				blueprint: {
+					librarySlug: sensitive.slug,
+					blueprint: sensitive.blueprint,
+					bundleUrl: sensitive.bundle_url,
+				},
+			} )
+		);
 		expect( blueprintEvents( connector ) ).toStrictEqual( [
 			[ TRACKS_EVENTS.BLUEPRINT_VIEWED, { blueprint_slug: sensitive.slug } ],
 			[

@@ -205,6 +205,11 @@ export function createIpcConnector(): Connector {
 				blueprint,
 				flowType,
 			} = params;
+			const libraryEntry =
+				blueprint && typeof blueprint === 'object' && 'librarySlug' in blueprint
+					? blueprint
+					: undefined;
+			const source = libraryEntry ? libraryEntry.bundleUrl ?? libraryEntry.blueprint : blueprint;
 			const created = ipcApi.createSite( path, {
 				siteName: name,
 				phpVersion,
@@ -216,7 +221,8 @@ export function createIpcConnector(): Connector {
 				adminPassword,
 				adminEmail,
 				noStart: skipStart,
-				blueprint: blueprint instanceof File ? getBlueprintFilePath( blueprint ) : blueprint,
+				blueprint: source instanceof File ? getBlueprintFilePath( source ) : source,
+				blueprintSlug: libraryEntry?.librarySlug,
 				flowType,
 			} );
 			return ( await unwrapIpcError( created ) ) as SiteDetails;

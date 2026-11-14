@@ -39,6 +39,10 @@
 	text-wrap: pretty;
 }
 
+:global( [data-settings-match] ) .rowDescription:not( [data-error] ) {
+	color: var( --accent-text );
+}
+
 .rowLead {
 	display: flex;
 	flex: 1 1 auto;

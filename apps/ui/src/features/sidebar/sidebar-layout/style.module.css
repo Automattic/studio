@@ -1,6 +1,6 @@
 .root,
 .sidebarFlyout {
-	--surface: var( --chrome );
+	--studio-sidebar-bg: var( --surface );
 	--surface-fade-size: 14px;
 }
 
@@ -225,7 +225,7 @@
 }
 
 .sidebarFlyout {
-	--studio-sidebar-bg: var( --chrome );
+	--surface: var( --chrome );
 
 	width: var( --sidebar-width );
 	max-width: 100vw;

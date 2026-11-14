@@ -48,6 +48,7 @@ import {
 	loadLocaleData,
 	setMacAppLanguage,
 } from 'src/lib/locale-node';
+import { handOffToRunningUpdateInstall } from 'src/lib/macos-update-install';
 import { setSentryWpcomUserIdMain } from 'src/lib/main-sentry-utils';
 import { maybePromptNightlySwitch, startNightlyPromptPoller } from 'src/lib/nightly-prompt';
 import { forwardPreviewShortcut } from 'src/lib/preview-shortcuts';
@@ -196,7 +197,7 @@ function getYouTubeEmbedRequestHeaders( requestHeaders: Record< string, string >
 	return headers;
 }
 
-if ( gotTheLock && ! isInInstaller ) {
+if ( gotTheLock && ! isInInstaller && ! handOffToRunningUpdateInstall() ) {
 	void appBoot();
 } else if ( ! gotTheLock ) {
 	app.quit();

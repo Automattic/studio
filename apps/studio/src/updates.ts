@@ -4,6 +4,7 @@ import { isDevRelease } from '@studio/common/lib/dev-release';
 import { sprintf, __ } from '@wordpress/i18n';
 import { AUTO_UPDATE_INTERVAL_MS, NIGHTLY_UPDATE_TTL_MS } from 'src/constants';
 import { sendIpcEventToRenderer, type AppUpdateStatus } from 'src/ipc-utils';
+import { removeStaleShipItTempDirs } from 'src/lib/macos-update-install';
 import { shellOpenExternalWrapper } from 'src/lib/shell-open-external-wrapper';
 import { getExistingMainWindow } from 'src/main-window';
 import { loadUserData, updateAppdata } from 'src/storage/user-data';
@@ -217,6 +218,10 @@ export function setupUpdates() {
 	if ( process.platform === 'win32' && process.argv.includes( '--squirrel-firstrun' ) ) {
 		queueUpdateCheck();
 		return;
+	}
+
+	if ( process.platform === 'darwin' ) {
+		void removeStaleShipItTempDirs();
 	}
 
 	if ( isDevRelease( app.getVersion() ) ) {

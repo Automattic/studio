@@ -65,5 +65,5 @@
 	"ignoreDependencies": [
 		"@automattic/wp-babel-makepot"
 	],
-	"ignoreBinaries": ["mdfind", "attrib", "apt-get", "Xvfb"]
+	"ignoreBinaries": ["mdfind", "attrib", "apt-get", "Xvfb", "pgrep"]
 }

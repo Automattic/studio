@@ -144,19 +144,19 @@ describe( 'Preview Create Command', () => {
 	} );
 
 	it( 'warns about an edited default theme, also when the preview is ready', async () => {
-		vi.mocked( findEditedDefaultThemes ).mockResolvedValueOnce( [ 'twentytwentyfive' ] );
+		vi.mocked( findEditedDefaultThemes ).mockResolvedValueOnce( [ 'Twenty Twenty-Five' ] );
 		const logger = new Logger();
 
 		await runCommand( mockFolder, undefined, logger );
 
 		expect( findEditedDefaultThemes ).toHaveBeenCalledWith( mockFolder );
 		expect( logger.reportWarning ).toHaveBeenCalledWith(
-			expect.stringContaining( 'Edits to the files of twentytwentyfive' )
+			expect.stringContaining( 'Your changes to Twenty Twenty-Five’s files' )
 		);
 		expect( reportSyncActivity ).toHaveBeenLastCalledWith( 'site-123', {
 			kind: 'success',
 			direction: 'preview',
-			warning: expect.stringContaining( 'Edits to the files of twentytwentyfive' ),
+			warning: expect.stringContaining( 'Your changes to Twenty Twenty-Five’s files' ),
 		} );
 	} );
 

@@ -15,7 +15,7 @@ describe( 'findEditedDefaultThemes', () => {
 		fs.mkdirSync( path.join( themePath, 'parts' ), { recursive: true } );
 		fs.writeFileSync(
 			path.join( themePath, 'style.css' ),
-			`/*\nTheme Name: Theme\nVersion: ${ version }\n*/\n`
+			`/*\nTheme Name: Twenty Twenty-Five\nVersion: ${ version }\n*/\n`
 		);
 		fs.writeFileSync( path.join( themePath, 'parts', 'footer.html' ), footer );
 	};
@@ -60,14 +60,14 @@ describe( 'findEditedDefaultThemes', () => {
 	it( 'reports a default theme with an edited file', async () => {
 		writeTheme( siteTheme( 'twentytwentyfive' ), '1.5', 'my footer' );
 
-		expect( await findEditedDefaultThemes( site, versions ) ).toEqual( [ 'twentytwentyfive' ] );
+		expect( await findEditedDefaultThemes( site, versions ) ).toEqual( [ 'Twenty Twenty-Five' ] );
 	} );
 
 	it( 'reports a default theme with an added file', async () => {
 		writeTheme( siteTheme( 'twentytwentyfive' ), '1.5', 'stock 1.5' );
 		fs.writeFileSync( path.join( siteTheme( 'twentytwentyfive' ), 'parts', 'extra.html' ), 'x' );
 
-		expect( await findEditedDefaultThemes( site, versions ) ).toEqual( [ 'twentytwentyfive' ] );
+		expect( await findEditedDefaultThemes( site, versions ) ).toEqual( [ 'Twenty Twenty-Five' ] );
 	} );
 
 	it( 'skips a version Studio has no stock copy of', async () => {

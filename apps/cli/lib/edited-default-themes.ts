@@ -7,7 +7,8 @@ import { readActiveThemes } from 'cli/lib/active-themes';
 const DEFAULT_THEME_PATTERN = /^twentytwenty[a-z]*$/;
 
 /**
- * The active default themes (Twenty Twenty-Five and the like) whose files a site has edited.
+ * The names of the active default themes (Twenty Twenty-Five and the like) whose files a site has
+ * edited.
  *
  * WordPress.com keeps its own copy of the default themes and uses it instead of an uploaded one,
  * so edits to a default theme's files don't reach a preview. A theme counts as edited when one of
@@ -34,16 +35,22 @@ export async function findEditedDefaultThemes(
 		const version = readThemeVersion( themePath );
 		const stockPaths = version ? findStockThemes( wordPressVersionsPath, slug, version ) : [];
 		if ( stockPaths.length > 0 && ! matchesStockThemes( themePath, stockPaths ) ) {
-			edited.push( slug );
+			edited.push( readThemeHeader( themePath, 'Theme Name' ) ?? slug );
 		}
 	}
 	return edited;
 }
 
 function readThemeVersion( themePath: string ): string | null {
+	return readThemeHeader( themePath, 'Version' );
+}
+
+function readThemeHeader( themePath: string, header: string ): string | null {
 	try {
 		const styleCss = fs.readFileSync( path.join( themePath, 'style.css' ), 'utf8' );
-		return /^[ \t/*#@]*Version:\s*(.+?)\s*$/im.exec( styleCss )?.[ 1 ] ?? null;
+		return (
+			new RegExp( `^[ \\t/*#@]*${ header }:\\s*(.+?)\\s*$`, 'im' ).exec( styleCss )?.[ 1 ] ?? null
+		);
 	} catch {
 		return null;
 	}

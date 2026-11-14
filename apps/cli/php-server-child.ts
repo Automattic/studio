@@ -12,10 +12,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { writeStudioMuPlugins } from '@studio/common/lib/mu-plugins';
 import { resolveSupportedPhpVersion } from '@studio/common/lib/php-binary-metadata';
-import {
-	getSiteFileAccess,
-	SITE_FILE_ACCESS_SITE_DIRECTORY,
-} from '@studio/common/lib/site-file-access';
 import { getMuPluginsPath } from '@studio/common/lib/well-known-paths';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { z } from 'zod';
@@ -120,8 +116,9 @@ const NATIVE_PHP_WORKER_POOL_SIZE = 4;
 
 // "Site directory" file access applies the open_basedir jail and
 // disable_functions list; "all files" runs PHP unrestricted.
-function isFileAccessRestricted( config: ServerConfig ): boolean {
-	return getSiteFileAccess( config ) === SITE_FILE_ACCESS_SITE_DIRECTORY;
+function isFileAccessRestricted( _config: ServerConfig ): boolean {
+	// Perf experiment (#5989): run every site unrestricted to measure the jail's cost.
+	return false;
 }
 
 function getEffectiveOpenBasedirAllowlist(): string[] {

@@ -6,7 +6,7 @@ import {
 	ImporterEvents,
 	ValidatorEvents,
 } from '@studio/common/lib/import-export-events';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { SiteData } from 'cli/lib/cli-config/core';
 import { resetSqliteJournalModeToRollback } from 'cli/lib/sqlite-journal-mode';
 import { LoggerError } from 'cli/logger';
@@ -34,6 +34,33 @@ import { XmlValidator } from './validators/xml-validator';
 interface ImporterOption {
 	validator: Validator;
 	importer: NewImporter;
+}
+
+function validateSqlFileNames( files: string[] ): void {
+	const sqlFiles = new Map< string, { normalized: string; original: string } >();
+	for ( const file of files ) {
+		const normalized = path.posix.normalize( file.replace( /\\/g, '/' ) );
+		const key = normalized.toLowerCase();
+		if ( ! key.endsWith( '.sql' ) ) {
+			continue;
+		}
+		const previous = sqlFiles.get( key );
+		if ( previous && previous.normalized !== normalized ) {
+			throw new LoggerError(
+				sprintf(
+					/* translators: %1$s and %2$s are conflicting SQL file paths in a backup. */
+					__(
+						'This backup contains SQL files whose names differ only by letter case: "%1$s" and "%2$s". Resolve the conflicting names on the source site, then create a new backup and try again.'
+					),
+					previous.original,
+					file
+				),
+				undefined,
+				'sql_file_name_conflict'
+			);
+		}
+		sqlFiles.set( key, { normalized, original: file } );
+	}
 }
 
 function selectImporter(
@@ -75,6 +102,7 @@ class BackupImporter extends ImportExportEventEmitter implements Importer {
 		try {
 			const fileList = await backupHandler.listFiles( this.backupFile );
 			this.emit( ValidatorEvents.IMPORT_VALIDATION_START );
+			validateSqlFileNames( fileList );
 			const importer = selectImporter( fileList, extractionDirectory, this.importerOptions );
 
 			if ( ! importer ) {

@@ -936,6 +936,24 @@ describe( 'CLI: studio pull requires an existing site', () => {
 		);
 	} );
 
+	it( 'reports the Reprint source environment without inferring it from wpcomstaging.com', async () => {
+		const { runCommand } = await loadRunCommandWithFakeHome();
+		const source = mockWpComPullSource( 'https://example.wpcomstaging.com' );
+		source.environmentType = 'production';
+		const sitePath = path.join( fakeHome, 'Studio', 'Existing-Site' );
+		seedCliConfigSite( fakeHome, [ makeSiteRecord( { path: sitePath } ) ] );
+		const reprint = await import( 'cli/lib/pull/reprint-client' );
+		vi.spyOn( reprint, 'runReprintCommandUntilComplete' ).mockRejectedValue(
+			new Error( 'stop at preflight' )
+		);
+		const logged = vi.spyOn( console, 'log' ).mockImplementation( () => undefined );
+		vi.spyOn( console, 'error' ).mockImplementation( () => undefined );
+		await expect( runCommand( sitePath, source.url, false ) ).rejects.toThrow();
+		expect( logged.mock.calls.flat().join( '\n' ) ).toContain(
+			'Remote environment: {"isStaging":false,"environmentType":"production"}'
+		);
+	} );
+
 	it( 'exits non-zero when the remote site cannot be reached', async () => {
 		const { commandHandler } = await loadRunCommandWithFakeHome();
 		mockWpComPullSource();

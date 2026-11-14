@@ -140,6 +140,7 @@ export interface SiteDetails {
 	operation?: SiteOperation;
 	// The folder the email the site sends is saved in, from the CLI.
 	emailPath?: string;
+	phpMyAdminSupported?: boolean;
 }
 
 export interface LocalMediaFile {

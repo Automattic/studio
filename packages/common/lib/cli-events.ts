@@ -42,6 +42,7 @@ export const siteDetailsSchema = z.object( {
 	operation: siteOperationSchema.optional(),
 	// The folder the email the site sends is saved in.
 	emailPath: z.string().optional(),
+	phpMyAdminSupported: z.boolean().optional(),
 } );
 
 export type SiteDetails = z.infer< typeof siteDetailsSchema >;

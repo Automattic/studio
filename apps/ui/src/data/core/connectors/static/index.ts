@@ -107,6 +107,12 @@ export function createStaticConnector(): Connector {
 		source: BlueprintSource
 	): Promise< { blueprint: Blueprint; bundle?: BlueprintBundle } > {
 		if ( typeof source === 'object' && ! ( source instanceof File ) ) {
+			if ( 'librarySlug' in source ) {
+				return {
+					blueprint: source.blueprint,
+					bundle: source.bundleUrl ? await loadBlueprintBundle( source.bundleUrl ) : undefined,
+				};
+			}
 			return { blueprint: source };
 		}
 		if ( typeof source === 'string' && /^[\w-]+$/.test( source ) ) {

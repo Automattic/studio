@@ -9,7 +9,7 @@ import { AccountPromptDialog } from '@/features/account/account-prompt';
 import { Gravatar } from '@/features/account/gravatar';
 import { AppUpdateButton } from '@/features/notifications';
 import { SettingsIcon, LoginIcon } from '@/lib/icons';
-import { Button, Menu } from '@/lib/ui';
+import { Button, IconButton, Menu } from '@/lib/ui';
 import styles from './style.module.css';
 import { SupportMenu } from './support-menu';
 
@@ -37,18 +37,13 @@ export function UserMenu() {
 						render={
 							<Button
 								ref={ trigger }
-								className={ user ? undefined : styles.loginTrigger }
-								variant={ user ? 'muted-ghost' : 'outline' }
-								size={ user ? 'icon-sm' : 'icon' }
+								variant="muted-ghost"
+								size="icon"
 								aria-label={ user ? user.displayName || user.email : __( 'Account' ) }
 							/>
 						}
 					>
-						{ user ? (
-							<Gravatar email={ user.email } className={ styles.avatar } />
-						) : (
-							<SettingsIcon />
-						) }
+						{ user ? <Gravatar email={ user.email } className={ styles.avatar } /> : <LoginIcon /> }
 					</Menu.Trigger>
 					<Menu.Popup side="top" align="start" className={ styles.popup }>
 						<AppUpdateButton placement="menu" />
@@ -104,6 +99,12 @@ export function UserMenu() {
 				<div className={ styles.updateSlot }>
 					<AppUpdateButton />
 				</div>
+				<IconButton
+					variant="muted"
+					icon={ <SettingsIcon /> }
+					label={ __( 'Settings' ) }
+					onClick={ openSettings }
+				/>
 			</div>
 			<AccountPromptDialog
 				open={ promptOpen }

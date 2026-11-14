@@ -850,8 +850,8 @@ export interface CreateSiteParams {
 	// Creates the local shell without starting its server. Connect onboarding
 	// uses this so remote content lands before the first local start.
 	skipStart?: boolean;
-	// The Blueprint to create the site from: a Library slug, a path or URL, a picked
-	// file, or the Blueprint itself. The site's name, domain and versions win over it.
+	// The selected Library Blueprint, a path or URL, a picked file, or the Blueprint
+	// itself. The site's name, domain and versions win over it.
 	blueprint?: BlueprintSource;
 	// Telemetry hint for the `studio_site_created` Tracks event. `import`/`sync` are set by the
 	// onboarding flows that create a blank site before populating it.
@@ -860,7 +860,11 @@ export interface CreateSiteParams {
 	frontend?: FrontendCreateChoice;
 }
 
-export type BlueprintSource = string | File | Blueprint;
+export type BlueprintSource =
+	| string
+	| File
+	| Blueprint
+	| { librarySlug: string; blueprint: Blueprint; bundleUrl?: string };
 
 export interface ProposedSitePath {
 	path: string;

@@ -2,7 +2,7 @@ import { stripCliErrorEnvelope } from '@studio/common/lib/error-formatting';
 import { SyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { fetchWordPressVersions } from '@studio/common/lib/wordpress-versions';
 import { getSignInUrl } from '@studio/providers/wpcom';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { download, menuShortcuts } from '../browser-tab';
 import { buildPublishCheckoutUrl } from '../publish-checkout-url';
 import { UnsupportedError } from '../unsupported-error';
@@ -371,6 +371,20 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 
 		// Site creation — delegated to the CLI `create` on the local machine.
 		async createSite( params ): Promise< SiteDetails > {
+			let { blueprint } = params;
+			if ( blueprint && typeof blueprint === 'object' && 'librarySlug' in blueprint ) {
+				const { bundleUrl, blueprint: declaration } = blueprint;
+				blueprint = declaration;
+				if ( bundleUrl ) {
+					const response = await fetch( bundleUrl );
+					if ( ! response.ok ) {
+						throw new Error(
+							sprintf( __( 'Failed to fetch Blueprint: HTTP %d' ), response.status )
+						);
+					}
+					blueprint = new File( [ await response.blob() ], 'blueprint.zip' );
+				}
+			}
 			return api< SiteDetails >( '/sites', {
 				method: 'POST',
 				body: JSON.stringify( {
@@ -387,10 +401,7 @@ export function createLocalConnector( { apiBaseUrl }: LocalConnectorOptions ): C
 					skipStart: params.skipStart,
 					flowType: params.flowType,
 					frontend: params.frontend,
-					blueprint:
-						params.blueprint instanceof File
-							? await uploadFile( params.blueprint )
-							: params.blueprint,
+					blueprint: blueprint instanceof File ? await uploadFile( blueprint ) : blueprint,
 				} ),
 			} );
 		},

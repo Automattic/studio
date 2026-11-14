@@ -535,6 +535,7 @@ export async function createSite(
 		fileAccess?: SiteFileAccess;
 		// What `studio create --blueprint` accepts, or a Blueprint itself.
 		blueprint?: string | Blueprint;
+		blueprintSlug?: string;
 		adminUsername?: string;
 		adminPassword?: string;
 		adminEmail?: string;
@@ -562,9 +563,14 @@ export async function createSite(
 
 	const siteId = providedSiteId || crypto.randomUUID();
 
-	const librarySlug =
-		typeof blueprint === 'string' && /^[\w-]+$/.test( blueprint ) ? blueprint : undefined;
-	const metric = getBlueprintMetric( librarySlug ?? ( blueprint ? 'file:' : undefined ) );
+	const librarySlug = config.blueprintSlug ?? blueprint;
+	const metric = getBlueprintMetric(
+		typeof librarySlug === 'string' && /^[\w-]+$/.test( librarySlug )
+			? librarySlug
+			: blueprint
+			? 'file:'
+			: undefined
+	);
 	bumpStat( StatsGroup.STUDIO_SITE_CREATE, metric );
 
 	try {

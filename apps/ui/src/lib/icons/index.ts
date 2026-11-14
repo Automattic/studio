@@ -64,8 +64,10 @@ export * from './sparkle-icon';
 export * from './sparkles-icon';
 export * from './square-icon';
 export * from './square-pen-icon';
+export * from './tag-icon';
 export * from './terminal-icon';
 export * from './trash-icon';
+export * from './trending-up-icon';
 export * from './triangle-alert-icon';
 export { UnlinkIcon } from './unlink-icon';
 export * from './unlock-icon';
@@ -75,3 +77,5 @@ export * from './wordpress-icon';
 export * from './x-icon';
 
 export { ICON_SIZE } from './metrics';
+
+export { UpdateIcon } from './update-icon';

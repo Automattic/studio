@@ -108,7 +108,7 @@ import {
 } from 'cli/lib/static-site-import/source';
 import { getTracksOrigin, recordTracksEvent, TRACKS_EVENTS } from 'cli/lib/tracks';
 import { StatsGroup } from 'cli/lib/types/bump-stats';
-import { untildify } from 'cli/lib/utils';
+import { classifySiteCreateFailure, untildify } from 'cli/lib/utils';
 import { runBlueprint, startWordPressServer } from 'cli/lib/wordpress-server-manager';
 import {} from 'cli/lib/wp-version-option';
 import { Logger, LoggerError } from 'cli/logger';
@@ -883,6 +883,15 @@ export async function commandHandler(
 		frontend: argv.frontend ? { framework: argv.frontend, api: argv.frontendApi } : undefined,
 	};
 
+	if ( argv.from ) {
+		// A `--from` create becomes a blueprint internally, so the inference must win over the
+		// `--flow-type` hint to stay measurable as a static site import.
+		config.flowType = 'static_site_import';
+		config.source = classifySourceImport( argv.from );
+	}
+
+	const startedAt = Date.now();
+	let step: 'prepare' | 'create' = 'prepare';
 	try {
 		let preparedImport: PreparedSourceImport | undefined;
 		await using openedBlueprint =
@@ -900,14 +909,11 @@ export async function commandHandler(
 			} );
 			config.blueprint = preparedImport.blueprint;
 			config.name = preparedImport.siteName;
-			// A `--from` create becomes a blueprint internally, so the inference must win over the
-			// `--flow-type` hint to stay measurable as a static site import.
-			config.flowType = 'static_site_import';
-			config.source = classifySourceImport( argv.from );
 		} else if ( openedBlueprint ) {
 			config.blueprint = { contents: openedBlueprint.blueprint, uri: openedBlueprint.path };
 		}
 
+		step = 'create';
 		try {
 			await runCommand( sitePath, config );
 			if ( preparedImport ) {
@@ -928,6 +934,17 @@ export async function commandHandler(
 			);
 		}
 	} catch ( error ) {
+		try {
+			await recordTracksEvent( TRACKS_EVENTS.SITE_CREATE_FAILED, {
+				flow_type: config.flowType ?? ( config.blueprint || argv.blueprint ? 'blueprint' : 'new' ),
+				source: config.source,
+				failure_reason: classifySiteCreateFailure( error, step ),
+				time_ms: Date.now() - startedAt,
+				...getTracksOrigin(),
+			} );
+		} catch {
+			// Best-effort telemetry — never mask the creation error.
+		}
 		if ( error instanceof LoggerError ) {
 			defaultLogger.reportError( error );
 		} else {

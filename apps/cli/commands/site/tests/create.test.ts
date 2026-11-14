@@ -2518,6 +2518,71 @@ $table_prefix = 'wp_';
 			}
 		);
 
+		it.each( [
+			{ failure: 'capture', source: 'url', reason: 'capture' },
+			{ failure: 'quality', source: 'directory', reason: 'ssi_quality_failed' },
+			{ failure: 'import', source: 'directory', reason: 'ssi_import' },
+			{ failure: 'server', source: 'directory', reason: 'create' },
+		] as const )(
+			'reports a failed --from create ($failure) as studio_site_create_failed',
+			async ( { failure, source, reason } ) => {
+				const root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-tracks-from-failed-' ) );
+				const sitePath = path.join( root, 'site' );
+				let from = 'https://example.com';
+				if ( source === 'directory' ) {
+					from = path.join( root, 'source' );
+					await fs.promises.mkdir( from, { recursive: true } );
+					await fs.promises.writeFile( path.join( from, 'index.html' ), '<main>Hello</main>' );
+				}
+				const liberate = vi.fn().mockRejectedValue( new Error( 'Browser crashed' ) );
+				if ( failure === 'quality' ) {
+					vi.mocked( runWpCliCommand ).mockResolvedValue(
+						mockWpCli( { exitCode: 1, stdout: qualityFailedReceipt } )
+					);
+				}
+				if ( failure === 'import' ) {
+					vi.mocked( runWpCliCommand ).mockResolvedValue(
+						mockWpCli( { exitCode: 1, stdout: '', stderr: 'Fatal error' } )
+					);
+				}
+				if ( failure === 'server' ) {
+					vi.mocked( startWordPressServer ).mockRejectedValue( new Error( 'Server start failed' ) );
+				}
+				vi.spyOn( fs, 'writeFileSync' ).mockImplementation( () => {} );
+				vi.spyOn( fs, 'rmSync' ).mockImplementation( () => {} );
+				vi.spyOn( fs.promises, 'cp' ).mockResolvedValue( undefined );
+				const parser = registerCommand(
+					yargs( [] ).option( 'path', { type: 'string', default: sitePath } ),
+					{ liberate }
+				).exitProcess( false );
+
+				try {
+					await parser.parseAsync( [
+						'create',
+						'--from',
+						from,
+						'--name',
+						'Imported Site',
+						'--skip-browser',
+					] );
+
+					expect( process.exitCode ).toBe( 1 );
+					expect( mockRecord ).toHaveBeenCalledExactlyOnceWith(
+						TRACKS_EVENTS.SITE_CREATE_FAILED,
+						expect.objectContaining( {
+							flow_type: 'static_site_import',
+							source,
+							failure_reason: reason,
+							time_ms: expect.any( Number ),
+							channel: 'studio-cli',
+						} )
+					);
+				} finally {
+					await fs.promises.rm( root, { recursive: true, force: true } );
+				}
+			}
+		);
+
 		it( 'reports custom_domain/ssl_enabled as booleans and never sends the domain string', async () => {
 			await runCommand( mockSitePath, {
 				...defaultTestOptions,

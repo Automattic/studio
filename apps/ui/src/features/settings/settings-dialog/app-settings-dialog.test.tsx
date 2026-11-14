@@ -954,12 +954,13 @@ describe( 'WordPress Studio settings: AI, instructions, skills and MCP', () => {
 		expect( connector.setAiProvider ).not.toHaveBeenCalled();
 	} );
 
-	it( 'opens the Agents tab and focuses manual MCP setup from a legacy Providers link', async () => {
+	it( 'opens the Agents tab and reveals manual MCP setup from a legacy Providers link', async () => {
 		const { history } = await setup();
 		act( () => history.push( '/sites/one?settings=providers&settingsFocus=mcp-server' ) );
 		const manual = await screen.findByRole( 'group', { name: 'Manual MCP setup' } );
 		expect( screen.getByRole( 'tab', { name: 'Agents', selected: true } ) ).toBeVisible();
-		await waitFor( () => expect( manual ).toHaveFocus() );
+		expect( manual ).not.toHaveAttribute( 'data-settings-match' );
+		expect( manual ).not.toHaveAttribute( 'tabindex' );
 		expect(
 			within( manual ).getByRole( 'button', { name: 'Copy MCP configuration' } )
 		).toBeVisible();

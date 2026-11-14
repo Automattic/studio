@@ -199,25 +199,29 @@ describe( 'WordPress Server Manager', () => {
 			);
 		} );
 
-		it( 'records a successful site-start Tracks event with timing and running-site count', async () => {
-			setupIpcMocks();
-			vi.mocked( daemonClient.listProcesses ).mockResolvedValue( [
-				mockProcessDescription,
-				{ ...mockProcessDescription, name: 'studio-site-other', pmId: 6 },
-			] );
+		it.each( [ undefined, 'all-files' ] as const )(
+			'records a successful site-start Tracks event with file access %s, timing and running-site count',
+			async ( fileAccess ) => {
+				setupIpcMocks();
+				vi.mocked( daemonClient.listProcesses ).mockResolvedValue( [
+					mockProcessDescription,
+					{ ...mockProcessDescription, name: 'studio-site-other', pmId: 6 },
+				] );
 
-			await startWordPressServer( mockSiteData, mockLogger, 'config' );
+				await startWordPressServer( { ...mockSiteData, fileAccess }, mockLogger, 'config' );
 
-			expect( recordTracksEvent ).toHaveBeenCalledWith(
-				TRACKS_EVENTS.SITE_START,
-				expect.objectContaining( {
-					command: 'config',
-					success: true,
-					running_site_count: 2,
-					time_ms: expect.any( Number ),
-				} )
-			);
-		} );
+				expect( recordTracksEvent ).toHaveBeenCalledWith(
+					TRACKS_EVENTS.SITE_START,
+					expect.objectContaining( {
+						command: 'config',
+						file_access: fileAccess ?? 'site-directory',
+						success: true,
+						running_site_count: 2,
+						time_ms: expect.any( Number ),
+					} )
+				);
+			}
+		);
 
 		it( 'records a failed site-start Tracks event with a classified reason', async () => {
 			vi.mocked( daemonClient.startProcess ).mockRejectedValue( new Error( 'start timed out' ) );
@@ -228,6 +232,7 @@ describe( 'WordPress Server Manager', () => {
 				TRACKS_EVENTS.SITE_START,
 				expect.objectContaining( {
 					success: false,
+					file_access: 'site-directory',
 					failure_reason: 'timeout',
 					time_ms: expect.any( Number ),
 				} )
@@ -274,6 +279,7 @@ describe( 'WordPress Server Manager', () => {
 			expect( props ).toEqual( {
 				channel: 'studio-cli',
 				command: 'start',
+				file_access: 'site-directory',
 				success: false,
 				failure_reason: 'php_error',
 				time_ms: expect.any( Number ),

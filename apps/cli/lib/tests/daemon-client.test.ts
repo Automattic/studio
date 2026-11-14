@@ -353,11 +353,10 @@ describe( 'replacing an outdated daemon', () => {
 			],
 		};
 		readCliConfigMock.mockResolvedValue( {
-			sites: [
-				{ id: 'a', name: 'A', path: '/sites/a' },
-				{ id: 'b', name: 'B', path: '/sites/b' },
-				{ id: 'c', name: 'C', path: '/sites/c' },
-			],
+			sites: [ 'a', 'b', 'c' ].map( ( id ) => {
+				fs.mkdirSync( path.join( home, id ) );
+				return { id, name: id, path: path.join( home, id ) };
+			} ),
 		} );
 
 		createConnectionMock.mockImplementation( ( peer?: string ) => {
@@ -410,7 +409,20 @@ describe( 'replacing an outdated daemon', () => {
 
 		expect( requests ).toContain( 'kill-daemon' );
 		expect( daemon.version ).toBe( CLI_VERSION );
-		expect( siteStarts.sort() ).toEqual( [ '/sites/a', '/sites/b' ] );
+		expect( siteStarts.sort() ).toEqual( [ path.join( home, 'a' ), path.join( home, 'b' ) ] );
+	} );
+
+	it( 'starts the sites a client exited before starting again', async () => {
+		daemon.version = CLI_VERSION;
+		fs.writeFileSync(
+			path.join( home, 'sites-to-restart.json' ),
+			JSON.stringify( { pid: 2147483646, processNames: [ 'studio-site-a' ] } )
+		);
+		const { connectToDaemon } = await import( '../daemon-client' );
+		await connectToDaemon();
+
+		expect( siteStarts ).toEqual( [ path.join( home, 'a' ) ] );
+		expect( fs.existsSync( path.join( home, 'sites-to-restart.json' ) ) ).toBe( false );
 	} );
 
 	it( 'keeps a newer daemon and its sites', async () => {
@@ -434,6 +446,6 @@ describe( 'replacing an outdated daemon', () => {
 		await Promise.all( clients.map( ( client ) => client.connectToDaemon() ) );
 
 		expect( requests.filter( ( type ) => type === 'kill-daemon' ) ).toHaveLength( 1 );
-		expect( siteStarts.sort() ).toEqual( [ '/sites/a', '/sites/b' ] );
+		expect( siteStarts.sort() ).toEqual( [ path.join( home, 'a' ), path.join( home, 'b' ) ] );
 	} );
 } );

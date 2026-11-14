@@ -258,6 +258,38 @@ export function isDaemonOutdated( daemonVersion: string | undefined, clientVersi
 	return semver.valid( daemonVersion ) !== null && semver.lt( daemonVersion, clientVersion );
 }
 
+// The sites a replaced daemon was running, kept on disk until they're started again, so a client
+// interrupted halfway through leaves them to the next one.
+const SITES_TO_RESTART_PATH = path.join( PROCESS_MANAGER_HOME, 'sites-to-restart.json' );
+const sitesToRestartSchema = z.object( {
+	pid: z.number(),
+	processNames: z.array( z.string() ),
+} );
+
+function writeSitesToRestart( processNames: string[] ) {
+	fs.writeFileSync( SITES_TO_RESTART_PATH, JSON.stringify( { pid: process.pid, processNames } ) );
+}
+
+function readSitesToRestart() {
+	try {
+		return sitesToRestartSchema.parse(
+			JSON.parse( fs.readFileSync( SITES_TO_RESTART_PATH, 'utf8' ) )
+		);
+	} catch {
+		return undefined;
+	}
+}
+
+// Takes over the sites a client left to restart when it exited before finishing.
+function claimSitesToRestart(): string[] {
+	const pending = readSitesToRestart();
+	if ( ! pending || isProcessAlive( pending.pid ) ) {
+		return [];
+	}
+	writeSitesToRestart( pending.processNames );
+	return pending.processNames;
+}
+
 /**
  * Stops an outdated daemon, with the processes it supervises, and starts this CLI's. Returns the
  * names of the processes that were running, so their sites can be started again.
@@ -266,6 +298,8 @@ async function replaceDaemon(): Promise< string[] > {
 	const { processes } = daemonListProcessesSuccessResponseSchema.parse(
 		await sendDaemonRequest( { type: 'list-processes' } )
 	);
+	const processNames = processes.filter( ( p ) => p.status === 'online' ).map( ( p ) => p.name );
+	writeSitesToRestart( processNames );
 	await sendDaemonRequest( { type: 'kill-daemon' } );
 	await waitFor(
 		() =>
@@ -276,7 +310,7 @@ async function replaceDaemon(): Promise< string[] > {
 		'The outdated process daemon did not stop'
 	);
 	await startDaemon();
-	return processes.filter( ( p ) => p.status === 'online' ).map( ( p ) => p.name );
+	return processNames;
 }
 
 async function ensureDaemonIsRunning(): Promise< string[] > {
@@ -312,14 +346,16 @@ function runSiteStart( sitePath: string ): Promise< boolean > {
 
 /**
  * Starts the sites the replaced daemon was running, through this CLI's `site start`. A site this
- * process holds an operation on is left to that operation.
+ * process holds an operation on is left to that operation, and one whose folder is gone stays
+ * stopped: starting it would recreate part of the folder.
  */
 async function restartSites( processNames: string[] ) {
 	const { sites } = await readCliConfig();
 	const sitesToStart = sites.filter(
 		( site ) =>
 			processNames.includes( `${ SITE_PROCESS_PREFIX }${ site.id }` ) &&
-			site.operation?.pid !== process.pid
+			site.operation?.pid !== process.pid &&
+			fs.existsSync( site.path )
 	);
 	await Promise.all(
 		sitesToStart.map( async ( site ) => {
@@ -378,6 +414,9 @@ export async function connectToDaemon(): Promise< void > {
 		// Replaced inside the lock, so concurrent clients wait for one replacement instead of
 		// starting their own.
 		processesToRestart = await ensureDaemonIsRunning();
+		if ( ! processesToRestart.length ) {
+			processesToRestart = claimSitesToRestart();
+		}
 		await ensureDaemonBus();
 		isConnected = true;
 	} catch ( error ) {
@@ -390,6 +429,9 @@ export async function connectToDaemon(): Promise< void > {
 	// After unlocking: each `site start` connects to the daemon itself.
 	if ( processesToRestart.length ) {
 		await restartSites( processesToRestart );
+	}
+	if ( readSitesToRestart()?.pid === process.pid ) {
+		fs.rmSync( SITES_TO_RESTART_PATH, { force: true } );
 	}
 }
 

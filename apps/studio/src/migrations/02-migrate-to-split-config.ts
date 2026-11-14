@@ -12,9 +12,15 @@
 
 import fs from 'fs';
 import path from 'path';
+import { lockAppConfig, unlockAppConfig } from '@studio/common/lib/app-config';
+import { lockCliConfigFile, unlockCliConfigFile } from '@studio/common/lib/cli-config-file';
 import { siteDetailsSchema } from '@studio/common/lib/cli-events';
 import { redactHomePaths } from '@studio/common/lib/error-reporting';
-import { sharedConfigSchema } from '@studio/common/lib/shared-config';
+import {
+	lockSharedConfig,
+	sharedConfigSchema,
+	unlockSharedConfig,
+} from '@studio/common/lib/shared-config';
 import {
 	getAppConfigPath,
 	getCliConfigPath,
@@ -31,6 +37,14 @@ import type { Migration } from '@studio/common/lib/migration';
 const sharedConfigExtractSchema = z.object( {
 	...sharedConfigSchema.pick( { authToken: true, locale: true } ).shape,
 } );
+
+const existingCliConfigSchema = z
+	.object( {
+		version: z.literal( 1 ),
+		sites: z.array( z.unknown() ).default( () => [] ),
+		snapshots: z.array( z.unknown() ).default( () => [] ),
+	} )
+	.loose();
 
 const cliSiteSchema = siteDetailsSchema.extend( {
 	url: z.string().optional(),
@@ -153,6 +167,26 @@ async function writeJsonFile( filePath: string, data: Record< string, unknown > 
 	await writeFile( filePath, content, { encoding: 'utf8' } );
 }
 
+async function readJsonFile( filePath: string ): Promise< unknown > {
+	try {
+		return JSON.parse( await readFile( filePath, { encoding: 'utf8' } ) );
+	} catch ( error ) {
+		if ( error instanceof SyntaxError ) {
+			return undefined;
+		}
+		throw error;
+	}
+}
+
+// Keeps an unreadable config for support instead of blocking the migration on it.
+async function moveAsideInvalidFile( filePath: string ): Promise< void > {
+	const backupPath = `${ filePath }.invalid-${ Date.now() }`;
+	await fs.promises.rename( filePath, backupPath );
+	console.warn(
+		`Moved unreadable ${ redactHomePaths( filePath ) } to ${ redactHomePaths( backupPath ) }`
+	);
+}
+
 export const migrateAppConfig: Migration = {
 	async needsToRun() {
 		const newAppdataPath = getAppConfigPath();
@@ -164,39 +198,76 @@ export const migrateAppConfig: Migration = {
 	},
 	async run() {
 		const oldPath = getOldAppdataFilePath();
-		const rawContent = await readFile( oldPath, { encoding: 'utf8' } );
-		const oldData: Record< string, unknown > = JSON.parse( rawContent );
-
-		// Write shared.json and cli.json first — if the process crashes before writing
-		// app.json, the next boot will retry the migration since we check for
-		// app.json existence as the completion marker.
-		const sharedConfigPath = getSharedConfigPath();
-		if ( ! fs.existsSync( sharedConfigPath ) ) {
-			await writeJsonFile( sharedConfigPath, buildSharedConfig( oldData ) );
-			console.log( `Migrated auth/locale to ${ redactHomePaths( sharedConfigPath ) }` );
+		const old = z.record( z.string(), z.unknown() ).safeParse( await readJsonFile( oldPath ) );
+		if ( ! old.success ) {
+			await moveAsideInvalidFile( oldPath );
+			return;
 		}
+		const oldData = old.data;
+		await lockAppConfig();
+		try {
+			if ( fs.existsSync( getAppConfigPath() ) ) {
+				return;
+			}
 
-		const cliConfigPath = getCliConfigPath();
-		if ( ! fs.existsSync( cliConfigPath ) ) {
-			await writeJsonFile( cliConfigPath, buildCliConfig( oldData ) );
-			console.log( `Migrated sites/snapshots to ${ redactHomePaths( cliConfigPath ) }` );
+			// Write shared.json and cli.json first — if the process crashes before writing
+			// app.json, the next boot will retry the migration since we check for
+			// app.json existence as the completion marker.
+			const sharedConfigPath = getSharedConfigPath();
+			await lockSharedConfig();
+			try {
+				if ( ! fs.existsSync( sharedConfigPath ) ) {
+					await writeJsonFile( sharedConfigPath, buildSharedConfig( oldData ) );
+					console.log( `Migrated auth/locale to ${ redactHomePaths( sharedConfigPath ) }` );
+				}
+			} finally {
+				await unlockSharedConfig();
+			}
+
+			const cliConfigPath = getCliConfigPath();
+			await lockCliConfigFile();
+			try {
+				let existing;
+				if ( fs.existsSync( cliConfigPath ) ) {
+					const parsed = existingCliConfigSchema.safeParse( await readJsonFile( cliConfigPath ) );
+					if ( parsed.success ) {
+						existing = parsed.data;
+					} else {
+						await moveAsideInvalidFile( cliConfigPath );
+					}
+				}
+				if ( ! existing || ( existing.sites.length === 0 && existing.snapshots.length === 0 ) ) {
+					const migrated = buildCliConfig( oldData );
+					await writeJsonFile( cliConfigPath, {
+						...migrated,
+						...existing,
+						sites: migrated.sites,
+						snapshots: migrated.snapshots,
+					} );
+					console.log( `Migrated sites/snapshots to ${ redactHomePaths( cliConfigPath ) }` );
+				}
+			} finally {
+				await unlockCliConfigFile();
+			}
+
+			const newAppdataPath = getAppConfigPath();
+			await writeJsonFile( newAppdataPath, buildAppConfig( oldData ) );
+			console.log(
+				`Migrated Desktop settings from ${ redactHomePaths( oldPath ) } to ${ redactHomePaths(
+					newAppdataPath
+				) }`
+			);
+
+			const oldPathDirname = path.dirname( oldPath );
+			const deprecatedOldAppdataPath = path.join( oldPathDirname, 'appdata-v1.deprecated.json' );
+			await fs.promises.rename( oldPath, deprecatedOldAppdataPath );
+			console.log(
+				`Migrated old appdata file from ${ redactHomePaths( oldPath ) } to ${ redactHomePaths(
+					deprecatedOldAppdataPath
+				) }`
+			);
+		} finally {
+			await unlockAppConfig();
 		}
-
-		const newAppdataPath = getAppConfigPath();
-		await writeJsonFile( newAppdataPath, buildAppConfig( oldData ) );
-		console.log(
-			`Migrated Desktop settings from ${ redactHomePaths( oldPath ) } to ${ redactHomePaths(
-				newAppdataPath
-			) }`
-		);
-
-		const oldPathDirname = path.dirname( oldPath );
-		const deprecatedOldAppdataPath = path.join( oldPathDirname, 'appdata-v1.deprecated.json' );
-		await fs.promises.rename( oldPath, deprecatedOldAppdataPath );
-		console.log(
-			`Migrated old appdata file from ${ redactHomePaths( oldPath ) } to ${ redactHomePaths(
-				deprecatedOldAppdataPath
-			) }`
-		);
 	},
 };

@@ -59,6 +59,22 @@ afterEach( () => vi.unstubAllGlobals() );
 
 describe( 'command palette', () => {
 	beforeEach( () => localStorage.clear() );
+	it.each( [ true, false ] )(
+		'offers the database tool only when supported: %s',
+		async ( phpMyAdminSupported ) => {
+			await renderPalette( {
+				connector: createFakeConnector( {
+					sites: [ { ...testSite, running: true, phpMyAdminSupported } ],
+				} ),
+				path: '/sites/one/new',
+			} );
+			await openPalette();
+			search( 'Open database' );
+			expect( screen.queryByRole( 'option', { name: /^Open database/ } ) !== null ).toBe(
+				phpMyAdminSupported
+			);
+		}
+	);
 
 	it( 'opens a new chat for the current site from the application menu', async () => {
 		const connector = createFakeConnector( { sites: [ testSite ] } );

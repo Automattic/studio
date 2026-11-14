@@ -31,6 +31,7 @@ import {
 	sendMessageToProcess,
 } from 'cli/lib/daemon-client';
 import { ensurePhpBinaryAvailable } from 'cli/lib/dependency-management/php-binary';
+import { isPhpMyAdminSupported } from 'cli/lib/native-php/phpmyadmin';
 import { recordSiteRuntimeUsage } from 'cli/lib/site-runtime-stats';
 import { getSiteDatabasePath, replaceMysql8OnlyCollations } from 'cli/lib/sqlite-collations';
 import { resetSqliteJournalModeToRollback } from 'cli/lib/sqlite-journal-mode';
@@ -100,6 +101,7 @@ function buildServerConfig(
 		port: site.port,
 		phpVersion: resolveSupportedPhpVersion( site.phpVersion ),
 		siteTitle: site.name,
+		phpMyAdminSupported: isPhpMyAdminSupported( site ),
 	};
 
 	if ( site.customDomain ) {

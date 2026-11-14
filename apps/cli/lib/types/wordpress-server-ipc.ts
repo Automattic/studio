@@ -42,6 +42,7 @@ export const serverConfigSchema = z.object( {
 			api: siteFrontendApiSchema.optional(),
 		} )
 		.optional(),
+	phpMyAdminSupported: z.boolean().optional(),
 } );
 
 export type ServerConfig = z.infer< typeof serverConfigSchema >;

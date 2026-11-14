@@ -144,6 +144,7 @@ export interface SiteDetails {
 	emailPath?: string;
 	// The frontend half of a headless site, from the CLI; absent for a classic site.
 	frontend?: SiteFrontend;
+	phpMyAdminSupported?: boolean;
 }
 
 export interface LocalMediaFile {

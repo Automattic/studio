@@ -45,6 +45,7 @@ export const siteDetailsSchema = z.object( {
 	emailPath: z.string().optional(),
 	// The frontend half of a headless site; absent for a classic site.
 	frontend: siteFrontendSchema.optional(),
+	phpMyAdminSupported: z.boolean().optional(),
 } );
 
 export type SiteDetails = z.infer< typeof siteDetailsSchema >;

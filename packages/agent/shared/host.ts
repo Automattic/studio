@@ -177,7 +177,11 @@ export interface HostSync {
 		options: string,
 		remoteSite: string | undefined,
 		onProgress: ProgressCallback
-	): Promise< Pick< SyncSite, 'name' | 'url' > | undefined >;
+	): Promise<
+		| ( Pick< SyncSite, 'name' | 'url' > &
+				Partial< Pick< SyncSite, 'isStaging' | 'environmentType' > > )
+		| undefined
+	>;
 	pull(
 		site: HostSite,
 		options: string,

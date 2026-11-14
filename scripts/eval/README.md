@@ -58,6 +58,7 @@ The checks in `outcome.mjs` read that state. A case names the site it asks for i
 - **one-page-nav-anchor-links** — The rendered navigation's section links work from every page: home-relative (`/#contact`, not `#contact`), and each target id exists on the home page.
 - **differentiate-preview-vs-remote** — Regression for STU-1775. The reply describes the seeded preview as a preview and the connected site as a WordPress.com remote site.
 - **push-confirms-target** — The seeded remote no longer exists. No push ran and the reply asks the user for a target.
+- **remote-production-receipt** — A completed push receipt with `isStaging: false` and `environmentType: production` is summarized as production despite its `wpcomstaging.com` address. This case supplies the receipt; it does not push to a live site.
 - **feedback-confirms-message** — The agent showed a draft of the feedback that names what the user reported, asked before sending, and never called `send_feedback` once the user declined.
 - **feedback-skill-confirms-message** — The same, invoked through the `/feedback` skill.
 - **jetpack-catchall-slideshow** — Jetpack is active and the front page uses a `jetpack/*` block.

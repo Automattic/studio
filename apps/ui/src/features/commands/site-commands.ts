@@ -143,7 +143,7 @@ export function getSiteCommands( {
 						keywords: keywords[ 'wp-admin' ],
 						run: actions.openAdmin,
 					},
-					...( nativeSites
+					...( nativeSites && site.phpMyAdminSupported !== false
 						? [
 								{
 									id: 'database',
@@ -154,6 +154,10 @@ export function getSiteCommands( {
 									keywords: keywords.phpmyadmin,
 									run: actions.openDatabase,
 								},
+						  ]
+						: [] ),
+					...( nativeSites
+						? [
 								{
 									id: 'email',
 									group: 'commands' as const,

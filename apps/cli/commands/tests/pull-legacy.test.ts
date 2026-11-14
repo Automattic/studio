@@ -100,6 +100,24 @@ describe( 'CLI: studio pull', () => {
 		}
 	);
 
+	it( 'reports the remote environment in a completed backup pull', async () => {
+		const destination = {
+			...remoteSite,
+			name: 'Live',
+			url: 'https://example.wpcomstaging.com',
+			isStaging: false,
+			environmentType: 'production',
+		};
+		vi.mocked( fetchSyncableSites ).mockResolvedValue( [ destination ] );
+		const messages: string[] = [];
+		const logger = new Logger< never >( { onProgress: ( message ) => messages.push( message ) } );
+		await runCommand( site.path, [ 'all' ], String( destination.id ), undefined, logger );
+		expect( messages[ messages.length - 1 ] ).toContain( destination.url );
+		expect( messages[ messages.length - 1 ] ).toContain(
+			'Remote environment: {"isStaging":false,"environmentType":"production"}'
+		);
+	} );
+
 	it.each( [ false, true ] )( 'classifies real paths (interactive: %s)', async ( interactive ) => {
 		vi.mocked( fetchPullTree ).mockResolvedValueOnce( { tree: [], rewindId: 'rewind' } );
 		vi.mocked( selectSyncItemsForPull ).mockResolvedValueOnce( {

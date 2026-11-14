@@ -25,6 +25,19 @@ async function setup( active = true, siteOverrides: Parameters< typeof makeSite 
 	return { ...view, actions };
 }
 
+it( 'disables the external database tool, explains the alternative, and leaves D alone', async () => {
+	const { actions } = await setup( true, { phpMyAdminSupported: false } );
+	const button = screen.getByRole( 'button', { name: 'Database D' } );
+	expect( button ).toBeDisabled();
+	expect( button ).toHaveAccessibleDescription( /separate database client for external MySQL/ );
+	const event = new KeyboardEvent( 'keydown', { key: 'd', bubbles: true, cancelable: true } );
+	document.body.dispatchEvent( event );
+	expect( event.defaultPrevented ).toBe( false );
+	expect( actions.openDatabase ).not.toHaveBeenCalled();
+	fireEvent.click( button );
+	expect( actions.openDatabase ).not.toHaveBeenCalled();
+} );
+
 it( 'opens tools without focusing the launcher and uses A for Admin', async () => {
 	const { actions } = await setup();
 	fireEvent.keyDown( document.body, { key: 'a' } );

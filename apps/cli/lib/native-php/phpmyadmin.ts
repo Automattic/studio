@@ -1,7 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { needsSqliteSetup } from 'cli/lib/sqlite-integration';
 import { getFullyResolvedTmpDirPath } from './tmp-dir';
 import type { ServerConfig } from 'cli/lib/types/wordpress-server-ipc';
+
+export function isPhpMyAdminSupported( site: { path: string; runtimeBlueprintPath?: string } ) {
+	// Reprint sites wire SQLite through runtime.php instead of the regular drop-in.
+	return Boolean( site.runtimeBlueprintPath ) || needsSqliteSetup( site.path );
+}
 
 function phpStringLiteral( value: string ): string {
 	return `'${ value.replace( /\\/g, '\\\\' ).replace( /'/g, "\\'" ) }'`;

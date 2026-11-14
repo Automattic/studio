@@ -1148,6 +1148,65 @@ export function pageSticky( page: Page ): Promise< string[] > {
 }
 
 /**
+ * Each button a visitor sees that shows no text and no image: no text node
+ * inside it renders in a box of its own (text a screen reader reads, in a
+ * 1px clipped box as WordPress's screen-reader-text and Jetpack's
+ * is-visually-hidden make it, shows nothing), no image or icon renders in
+ * it, and an input button has no value. A block saved without its label, as
+ * one given an attribute its block type does not have, renders as one.
+ */
+export function pageBlankButtons( page: Page ): Promise< string[] > {
+	return page.evaluate( () => {
+		const generated = /^(is-|has-|wp-container-|wp-elements-|wp-block-[a-z-]+-is-layout-)/;
+		const label = ( element: Element ) =>
+			element.tagName.toLowerCase() +
+			[ ...element.classList ]
+				.filter( ( name ) => ! generated.test( name ) )
+				.slice( 0, 3 )
+				.map( ( name ) => `.${ name }` )
+				.join( '' );
+		const seen = ( element: Element ) => {
+			const box = element.getBoundingClientRect();
+			const style = getComputedStyle( element );
+			return (
+				box.width > 1 &&
+				box.height > 1 &&
+				style.visibility !== 'hidden' &&
+				style.clipPath === 'none' &&
+				parseFloat( style.opacity ) > 0
+			);
+		};
+		const shows = ( button: Element ) => {
+			if ( button instanceof HTMLInputElement ) {
+				return button.value.trim() !== '';
+			}
+			const walker = document.createTreeWalker( button, NodeFilter.SHOW_TEXT );
+			for ( let node = walker.nextNode(); node; node = walker.nextNode() ) {
+				if ( node.textContent?.trim() && node.parentElement && seen( node.parentElement ) ) {
+					return true;
+				}
+			}
+			return [ ...button.querySelectorAll( 'img, svg, picture, video, canvas' ) ].some( seen );
+		};
+		const lines: string[] = [];
+		for ( const button of document.querySelectorAll(
+			'button, input[type="submit"], input[type="button"], [role="button"], .wp-element-button, .wp-block-button__link'
+		) ) {
+			if ( ! seen( button ) || shows( button ) ) {
+				continue;
+			}
+			const block = button.parentElement?.closest( '[class*="wp-block-"]' );
+			lines.push(
+				`The button \`${ block ? `${ label( block ) } > ` : '' }${ label(
+					button
+				) }\` shows no text: a visitor sees a blank button.`
+			);
+		}
+		return [ ...new Set( lines ) ];
+	} );
+}
+
+/**
  * Each paragraph or list item of more than 30 characters whose text renders
  * more than 2.25 times the page's body text size (16px when it has none), as
  * a visitor reads text that large as a heading: the visible P and LI not

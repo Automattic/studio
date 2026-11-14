@@ -2,6 +2,7 @@ import { existsSync } from 'fs';
 import { chromium } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+	pageBlankButtons,
 	pageContrast,
 	pageHeaderWraps,
 	pageLargeText,
@@ -554,6 +555,27 @@ describe.runIf( existsSync( chromium.executablePath() ) )( 'the page layout', ()
 		).toEqual( [
 			"`div.wp-block-group.site-header` is position: sticky inside `header.wp-block-template-part`, a wrapper exactly its height, so it scrolls away with that wrapper: a sticky element sticks within its parent's box. WordPress wraps each template part in that element, so the wrapper is the one to make sticky.",
 			"`aside.pin` is position: sticky inside `div.row`, a wrapper exactly its height, so it scrolls away with that wrapper: a sticky element sticks within its parent's box.",
+		] );
+	} );
+
+	it( 'names a button that shows no text', async () => {
+		const hidden =
+			'<span style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)">Submitting form</span>';
+		expect(
+			await open(
+				`<div class="wp-block-jetpack-button"><button class="wp-block-button__link" type="submit">${ hidden }</button></div>
+				<div class="wp-block-buttons"><a class="wp-block-button__link wp-element-button" href="#" style="display:inline-block;padding:12px 24px"></a></div>
+				<input type="submit" value="">
+				<button class="toggle">${ hidden }<svg width="24" height="24"></svg></button>
+				<div class="wp-block-jetpack-button"><button class="wp-block-button__link">Send</button></div>
+				<input type="submit" value="Send">
+				<button style="display:none"></button>`,
+				pageBlankButtons
+			)
+		).toEqual( [
+			'The button `div.wp-block-jetpack-button > button.wp-block-button__link` shows no text: a visitor sees a blank button.',
+			'The button `div.wp-block-buttons > a.wp-block-button__link.wp-element-button` shows no text: a visitor sees a blank button.',
+			'The button `input` shows no text: a visitor sees a blank button.',
 		] );
 	} );
 } );

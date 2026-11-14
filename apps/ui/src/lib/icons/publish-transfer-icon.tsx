@@ -1,6 +1,6 @@
 import { clsx } from 'clsx';
+import { CloudUploadIcon } from './cloud-upload-icon';
 import styles from './publish-transfer-icon.module.css';
-import { SyncIcon } from './sync-icon';
 import type { ComponentProps } from 'react';
 
 export function PublishTransferIcon( {
@@ -9,7 +9,7 @@ export function PublishTransferIcon( {
 	...props
 }: ComponentProps< 'svg' > & { direction: 'push' | 'pull' } ) {
 	return (
-		<SyncIcon
+		<CloudUploadIcon
 			width="16"
 			height="16"
 			data-publish-transfer={ direction }
@@ -21,6 +21,6 @@ export function PublishTransferIcon( {
 				<circle cx="12" cy="17" r="1" />
 				<circle cx="12" cy="20" r="1" />
 			</g>
-		</SyncIcon>
+		</CloudUploadIcon>
 	);
 }

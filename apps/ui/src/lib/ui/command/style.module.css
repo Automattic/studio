@@ -54,7 +54,10 @@
 		user-select: none;
 	}
 
-	.item[data-highlighted] {
+	.item[data-highlighted],
+	.menuItem[data-highlighted] {
+		--hover: inherit;
+		--surface: var( --hover );
 		background-color: var( --hover );
 		color: var( --foreground );
 	}

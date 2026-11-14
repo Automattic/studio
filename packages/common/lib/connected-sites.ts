@@ -63,7 +63,12 @@ function upsertConnection( connections: SyncSite[], localSiteId: string, site: S
 	);
 
 	if ( existing ) {
-		Object.assign( existing, incoming );
+		// The account's site list has no sync times, so updating a connection from it keeps them.
+		Object.assign( existing, incoming, {
+			lastPullTimestamp: incoming.lastPullTimestamp ?? existing.lastPullTimestamp,
+			lastPushTimestamp: incoming.lastPushTimestamp ?? existing.lastPushTimestamp,
+			launchAfterPush: incoming.launchAfterPush ?? existing.launchAfterPush,
+		} );
 		return;
 	}
 

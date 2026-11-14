@@ -1,5 +1,5 @@
 import { __, sprintf } from '@wordpress/i18n';
-import { XIcon } from 'lucide-react';
+import { XIcon } from '@/lib/icons';
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from '@/lib/ui';
 import styles from './style.module.css';
 import type { ComponentType } from 'react';

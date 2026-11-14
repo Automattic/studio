@@ -1,0 +1,175 @@
+import { DEFAULT_LOCALE, isSupportedLocale } from '@studio/common/lib/locale';
+import { getProviderServices } from '@studio/providers/services';
+import { getSignInUrl } from '@studio/providers/wpcom';
+import { __ } from '@wordpress/i18n';
+import { kvDelete, kvGet, kvSet } from './store';
+import type { AuthUser } from './types';
+
+const TOKEN_KEY = 'wpcom-token';
+const API_BASE = 'https://public-api.wordpress.com';
+const CALLBACK_PATH = '/auth/callback';
+const RETURN_TO_KEY = 'studio-auth-return-to';
+// The sign-in this page started: a callback with any other `state` is not ours.
+const STATE_KEY = 'studio-auth-state';
+
+// A request the browser blocks surfaces as a bare "Load failed" or "Failed to
+// fetch"; say what that means here.
+async function wpcomFetch( url: string, init?: RequestInit ): Promise< Response > {
+	try {
+		return await fetch( url, init );
+	} catch ( error ) {
+		if ( error instanceof TypeError ) {
+			throw new Error(
+				__(
+					'Your browser could not reach WordPress.com. WordPress.com may not allow requests from this address with Studio’s sign-in.'
+				)
+			);
+		}
+		throw error;
+	}
+}
+
+interface WpcomToken extends AuthUser {
+	accessToken: string;
+}
+
+// The WordPress.com account Studio on the web is signed in to. The token stays
+// in this browser profile and goes only to WordPress.com.
+export class WpcomAuth {
+	private readonly listeners = new Set< () => void >();
+	private cached: WpcomToken | null | undefined;
+
+	async token(): Promise< WpcomToken | null > {
+		if ( this.cached === undefined ) {
+			this.cached = ( await kvGet< WpcomToken >( TOKEN_KEY ) ) ?? null;
+		}
+		return this.cached;
+	}
+
+	async requireToken(): Promise< string > {
+		const token = await this.token();
+		if ( ! token ) {
+			throw new Error( __( 'Sign in to WordPress.com first.' ) );
+		}
+		return token.accessToken;
+	}
+
+	async user(): Promise< AuthUser | null > {
+		const token = await this.token();
+		return token ? { id: token.id, email: token.email, displayName: token.displayName } : null;
+	}
+
+	onChange( listener: () => void ): () => void {
+		this.listeners.add( listener );
+		return () => this.listeners.delete( listener );
+	}
+
+	private notify() {
+		this.listeners.forEach( ( listener ) => listener() );
+	}
+
+	// Signs in with the parameters of WordPress.com's redirect.
+	async signIn( params: Record< string, string > ): Promise< void > {
+		const { token, user } = await getProviderServices( 'wpcom' ).account.connect(
+			'sign-in',
+			params
+		);
+		if ( ! user ) {
+			throw new Error( __( 'WordPress.com did not accept the sign-in.' ) );
+		}
+		this.cached = { accessToken: token, ...user };
+		await kvSet( TOKEN_KEY, this.cached );
+		this.notify();
+	}
+
+	async signOut(): Promise< void > {
+		const token = await this.token();
+		this.cached = null;
+		await kvDelete( TOKEN_KEY );
+		this.notify();
+		if ( token ) {
+			await getProviderServices( 'wpcom' )
+				.account.disconnect?.( { token: token.accessToken } )
+				.catch( () => undefined );
+		}
+	}
+
+	// Leaves for WordPress.com, which sends the browser back to /auth/callback
+	// (see completeRedirectSignIn), and from there to the current page.
+	async authenticate( signup: boolean, locale?: string ): Promise< void > {
+		window.sessionStorage.setItem(
+			RETURN_TO_KEY,
+			`${ window.location.pathname }${ window.location.search }`
+		);
+		const state = crypto.randomUUID();
+		window.sessionStorage.setItem( STATE_KEY, state );
+		// WordPress.com sends the token only to a redirect URL registered on the
+		// OAuth app, and answers browser requests made with its tokens only from
+		// origins the app allows. A deployment registers `<origin>/auth/callback`.
+		const redirectUri = `${ window.location.origin }${ CALLBACK_PATH }`;
+		window.location.assign(
+			getSignInUrl( {
+				redirectUri,
+				locale: isSupportedLocale( locale ) ? locale : DEFAULT_LOCALE,
+				state,
+				signup,
+			} )
+		);
+		// The page is navigating away.
+		await new Promise( () => {} );
+	}
+
+	// A WordPress.com REST request with the user's token.
+	async request< T >( path: string, init: RequestInit = {} ): Promise< T > {
+		const accessToken = await this.requireToken();
+		const response = await wpcomFetch( `${ API_BASE }${ path }`, {
+			...init,
+			headers: {
+				Authorization: `Bearer ${ accessToken }`,
+				...( typeof init.body === 'string' ? { 'Content-Type': 'application/json' } : {} ),
+			},
+		} );
+		const text = await response.text();
+		let payload: unknown = undefined;
+		try {
+			payload = text ? JSON.parse( text ) : undefined;
+		} catch {
+			payload = text;
+		}
+		if ( ! response.ok ) {
+			const message =
+				payload && typeof payload === 'object' && 'message' in payload
+					? String( ( payload as { message: unknown } ).message )
+					: `${ init.method ?? 'GET' } ${ path } failed (${ response.status })`;
+			throw new Error( message );
+		}
+		return payload as T;
+	}
+}
+
+// Handles WordPress.com's redirect back to /auth/callback, with the token in
+// the URL fragment: signs in, then returns the address to restore. Resolves
+// null on any other page.
+export async function completeRedirectSignIn(): Promise< {
+	returnTo: string;
+	error?: string;
+} | null > {
+	if ( window.location.pathname !== CALLBACK_PATH ) {
+		return null;
+	}
+	const params = new URLSearchParams( window.location.hash.slice( 1 ) );
+	const returnTo = window.sessionStorage.getItem( RETURN_TO_KEY ) || '/';
+	const state = window.sessionStorage.getItem( STATE_KEY );
+	window.sessionStorage.removeItem( RETURN_TO_KEY );
+	window.sessionStorage.removeItem( STATE_KEY );
+	// Otherwise a link to this page could sign the user in to someone else's account.
+	if ( ! state || params.get( 'state' ) !== state ) {
+		return { returnTo, error: __( 'This sign-in was not started here. Try signing in again.' ) };
+	}
+	try {
+		await new WpcomAuth().signIn( Object.fromEntries( params ) );
+		return { returnTo };
+	} catch ( error ) {
+		return { returnTo, error: error instanceof Error ? error.message : String( error ) };
+	}
+}

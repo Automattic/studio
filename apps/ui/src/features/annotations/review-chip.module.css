@@ -27,6 +27,7 @@
 }
 .row:hover,
 .row:has( :focus-visible ) {
+	--hover: inherit;
 	--surface: var( --hover );
 
 	background-color: var( --hover );

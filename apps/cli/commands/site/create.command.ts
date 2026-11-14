@@ -67,7 +67,9 @@ export const builder = ( yargs: StudioArgv ) => {
 		} )
 		.option( 'blueprint', {
 			type: 'string',
-			describe: __( 'Path or URL to Blueprint JSON file' ),
+			describe: __(
+				'Blueprint URL, JSON file, folder, zip bundle, or Blueprint Library slug (see "studio blueprint list")'
+			),
 		} )
 		.option( 'from', {
 			type: 'string',
@@ -122,10 +124,6 @@ export const builder = ( yargs: StudioArgv ) => {
 				}
 				return pluginPath;
 			},
-		} )
-		.option( 'original-blueprint-path', {
-			type: 'string',
-			hidden: true,
 		} )
 		.option( 'admin-username', {
 			type: 'string',

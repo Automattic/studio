@@ -1,0 +1,139 @@
+import { Upload } from 'tus-js-client';
+import type { PushContent } from '../../types';
+
+// Each chunk waits for a server round trip, so larger chunks upload faster; a failed chunk is
+// resent whole. 10 MB matches WordPress.com's own tus uploaders (Calypso media, VideoPress).
+const TUS_CHUNK_SIZE = 10_000_000;
+
+/**
+ * 5xx and network errors (status 0) are transient. 4xx are terminal, except 409
+ * (Conflict) and 423 (Locked), which the resumable protocol uses transiently.
+ */
+function shouldRetryTusStatus( status: number ): boolean {
+	if ( status >= 400 && status < 500 ) {
+		return status === 409 || status === 423;
+	}
+	return true;
+}
+
+export type TusUploadOptions = {
+	token: string;
+	remoteSiteId: number;
+	// A Blob in a browser; in Node, a stream of the archive with its size.
+	file: Extract< PushContent, { kind: 'archive' } >[ 'file' ];
+	filename: string;
+	size?: number;
+	onProgress?: ( percent: number ) => void;
+	onNetworkPause?: ( error: string ) => void;
+	onResume?: () => void;
+};
+
+export function createTusUpload( options: TusUploadOptions ): {
+	promise: Promise< string >;
+	abort: () => void;
+} {
+	const { token, remoteSiteId, file, filename, size, onProgress, onNetworkPause, onResume } =
+		options;
+	const close = () => ( file as { destroy?: () => void } ).destroy?.();
+
+	let rejectFn: ( error: Error ) => void;
+	let uploadInstance: Upload | null = null;
+	let isAborted = false;
+	let hasUploadStarted = false;
+	let isNetworkPaused = false;
+
+	const abort = () => {
+		isAborted = true;
+		if ( uploadInstance ) {
+			void uploadInstance.abort();
+		}
+		rejectFn?.( new Error( 'Upload aborted' ) );
+	};
+
+	const promise = ( async () => {
+		return new Promise< string >( ( resolve, reject ) => {
+			rejectFn = reject;
+
+			if ( isAborted ) {
+				close();
+				reject( new Error( 'Upload aborted' ) );
+				return;
+			}
+
+			// tus-js-client reads a Node stream in Node and a Blob in the page.
+			const upload = new Upload( file as Blob, {
+				endpoint: `https://public-api.wordpress.com/rest/v1.1/studio-file-uploads/${ remoteSiteId }`,
+				chunkSize: TUS_CHUNK_SIZE,
+				retryDelays: [ 0, 1000, 3000, 5000, 10000, 25000 ],
+				overridePatchMethod: true,
+				removeFingerprintOnSuccess: true,
+				storeFingerprintForResuming: true,
+				headers: {
+					Authorization: `Bearer ${ token }`,
+				},
+				metadata: {
+					filename,
+					filetype: 'application/gzip',
+				},
+				uploadSize: size,
+				onBeforeRequest: ( req ) => {
+					if ( req.getMethod() === 'HEAD' ) {
+						// @ts-expect-error Override method to get response headers
+						req._method = 'GET';
+						req.setHeader( 'X-HTTP-Method-Override', 'HEAD' );
+					}
+				},
+				onError: ( error ) => {
+					close();
+					reject( error );
+				},
+				onProgress: ( bytesSent: number, bytesTotal: number ) => {
+					if ( isNetworkPaused ) {
+						isNetworkPaused = false;
+						onResume?.();
+					}
+
+					if ( ! hasUploadStarted ) {
+						hasUploadStarted = true;
+					}
+
+					if ( onProgress && bytesTotal > 0 ) {
+						onProgress( ( bytesSent / bytesTotal ) * 100 );
+					}
+				},
+				onSuccess: ( payload ) => {
+					close();
+					if ( ! payload.lastResponse ) {
+						reject( new Error( 'Upload completed but no response received' ) );
+						return;
+					}
+
+					const attachmentId = payload.lastResponse.getHeader( 'x-studio-file-upload-media-id' );
+					if ( attachmentId ) {
+						resolve( attachmentId );
+					} else {
+						reject( new Error( 'Upload completed but attachment ID not found' ) );
+					}
+				},
+				onShouldRetry: ( error ) => {
+					if ( isAborted ) {
+						return false;
+					}
+
+					if ( hasUploadStarted ) {
+						isNetworkPaused = true;
+						onNetworkPause?.( error.message );
+					}
+
+					const status = error.originalResponse ? error.originalResponse.getStatus() : 0;
+					return shouldRetryTusStatus( status );
+				},
+			} );
+
+			uploadInstance = upload;
+			upload.start();
+		} );
+	} )();
+
+	return { promise, abort };
+}

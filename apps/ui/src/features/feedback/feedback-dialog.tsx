@@ -3,14 +3,14 @@ import { useMutation } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { createInterpolateElement } from '@wordpress/element';
 import { __, sprintf } from '@wordpress/i18n';
-import { CheckIcon, PlusIcon } from 'lucide-react';
+import { CheckIcon } from 'lucide-react';
 import { useId, useMemo, useState } from 'react';
 import { errorMessage } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
 import { useSession } from '@/data/queries/use-sessions';
 import { entriesToTranscriptItems } from '@/features/chats';
-import { ExternalLinkIcon } from '@/lib/icons';
+import { ExternalLinkIcon, PlusIcon } from '@/lib/icons';
 import {
 	Button,
 	Checkbox,
@@ -59,6 +59,10 @@ const getAreaOptions = () => [
  * the `feedback` search param (`?feedback=true`).
  */
 export function FeedbackDialog() {
+	return useConnector().sendFeedback ? <FeedbackDialogRoot /> : null;
+}
+
+function FeedbackDialogRoot() {
 	const navigate = useNavigate();
 	const user = useAuthUser();
 	const { feedback } = useSearch( { strict: false } ) as { feedback?: true };
@@ -101,7 +105,7 @@ function FeedbackForm() {
 	const transcriptId = useId();
 	const send = useMutation( {
 		mutationFn: ( feedback: { type: StudioFeedbackType; message: string } ) =>
-			connector.sendFeedback( feedback ),
+			connector.sendFeedback!( feedback ),
 	} );
 	const options = getTypeOptions();
 

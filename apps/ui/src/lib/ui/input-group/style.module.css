@@ -1,12 +1,14 @@
 @layer ui {
 	.group {
+		--input-group-border-width: var( --border-width );
+
 		position: relative;
 		display: flex;
 		align-items: center;
 		width: 100%;
 		min-width: 0;
 		height: var( --control-size );
-		border: 1px solid var( --input );
+		border: var( --input-group-border-width ) solid var( --input );
 		border-radius: var( --radius-lg );
 		outline: none;
 	}
@@ -15,6 +17,8 @@
 			:has( [aria-invalid='true'] )
 		) {
 		border-color: var( --ring );
+		outline: var( --focus-border-width ) solid var( --ring );
+		outline-offset: calc( -1 * var( --input-group-border-width ) );
 	}
 
 	.group:has( [aria-invalid='true'] ) {
@@ -35,12 +39,13 @@
 	}
 
 	.group[data-variant='composer'] {
-		--surface: var( --composer );
+		--input-group-border-width: var( --hairline-width );
+		--surface: var( --popover );
 		box-shadow: var( --shadow-sm );
-		border-color: var( --input );
+		border-color: var( --popover-border );
 		border-radius: var( --radius-3xl );
 		background-color: var( --surface );
-		color: var( --foreground );
+		color: var( --popover-foreground );
 	}
 
 	.group:has( > [data-align='inline-end'] ) > input {

@@ -51,6 +51,7 @@
 		background-color var( --motion-duration-feedback ) ease;
 }
 .tab[data-preview-selected] {
+	--muted: inherit;
 	--surface: var( --muted );
 
 	background: var( --muted );
@@ -71,6 +72,7 @@
 	user-select: none;
 }
 .list:not( [data-tab-dragging] ) .tab:hover {
+	--hover: inherit;
 	--surface: var( --hover );
 
 	background: var( --hover );

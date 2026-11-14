@@ -1,19 +1,11 @@
-import fs from 'fs';
 import path from 'path';
 import { DEFAULT_PHP_VERSION, DEFAULT_WORDPRESS_VERSION } from '@studio/common/constants';
-import {
-	createBlueprintTempDir,
-	downloadAndExtractBlueprintBundle,
-	removeBlueprintTempDir,
-} from '@studio/common/lib/blueprint-bundle';
-import { isNetworkError } from '@studio/common/lib/network-utils';
-import { readSharedConfig } from '@studio/common/lib/shared-config';
 import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-access';
-import { fetchStudioBlueprints, type Blueprint } from '@studio/common/lib/studio-blueprints-api';
 import { BlueprintCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { SupportedPHPVersions, type SupportedPHPVersion } from '@studio/common/types/php-versions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { runCommand as runCreateSiteCommand } from 'cli/commands/site/create';
+import { loadLibraryBlueprints, openBlueprintSource } from 'cli/lib/blueprint-library';
 import { select, input } from 'cli/lib/prompts';
 import { getDefaultSitePath } from 'cli/lib/site-paths';
 import { untildify } from 'cli/lib/utils';
@@ -26,29 +18,6 @@ import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
 
 const logger = new Logger< LoggerAction >();
-
-async function resolveBlueprint( blueprint: Blueprint ): Promise< {
-	contents: unknown;
-	uri: string;
-	tempDir?: string;
-} > {
-	if ( blueprint.bundle_url ) {
-		logger.reportStart( LoggerAction.DOWNLOAD_BUNDLE, __( 'Downloading blueprint bundle…' ) );
-		const { blueprintJsonPath, tempDir } = await downloadAndExtractBlueprintBundle(
-			blueprint.bundle_url
-		);
-		const fileContents = await fs.promises.readFile( blueprintJsonPath, 'utf-8' );
-		const contents = JSON.parse( fileContents );
-		logger.reportSuccess( __( 'Blueprint bundle downloaded' ) );
-		return { contents, uri: blueprintJsonPath, tempDir };
-	}
-
-	// Write blueprint JSON to temp file so resource paths can be resolved
-	const tempDir = await createBlueprintTempDir();
-	const tempFile = path.join( tempDir, 'blueprint.json' );
-	await fs.promises.writeFile( tempFile, JSON.stringify( blueprint.blueprint ) );
-	return { contents: blueprint.blueprint, uri: tempFile, tempDir };
-}
 
 export async function runCommand(
 	sitePath: string,
@@ -67,15 +36,7 @@ export async function runCommand(
 	}
 ): Promise< void > {
 	logger.reportStart( LoggerAction.FETCH_BLUEPRINTS, __( 'Fetching blueprints…' ) );
-
-	const sharedConfig = await readSharedConfig();
-	const locale = sharedConfig.locale;
-	const blueprints = await fetchStudioBlueprints( locale ).catch( ( error: unknown ) => {
-		if ( isNetworkError( error ) ) {
-			throw new LoggerError( __( 'An internet connection is required to use blueprints.' ), error );
-		}
-		throw error;
-	} );
+	const blueprints = await loadLibraryBlueprints();
 
 	if ( blueprints.length === 0 ) {
 		throw new LoggerError( __( 'No blueprints available' ) );
@@ -119,35 +80,25 @@ export async function runCommand(
 		);
 	}
 
-	let tempDir: string | undefined;
+	logger.reportStart( LoggerAction.FETCH_BLUEPRINT, __( 'Loading Blueprint…' ) );
+	await using opened = await openBlueprintSource( blueprint );
+	logger.reportSuccess( __( 'Blueprint loaded' ) );
 
-	try {
-		const resolved = await resolveBlueprint( blueprint );
-		tempDir = resolved.tempDir;
-
-		await runCreateSiteCommand( sitePath, {
-			name: options.name,
-			wpVersion: options.wpVersion ?? DEFAULT_WORDPRESS_VERSION,
-			phpVersion: options.phpVersion ?? DEFAULT_PHP_VERSION,
-			fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
-			customDomain: options.customDomain,
-			enableHttps: options.enableHttps,
-			blueprint: {
-				contents: resolved.contents,
-				uri: resolved.uri,
-			},
-			adminUsername: options.adminUsername,
-			adminPassword: options.adminPassword,
-			adminEmail: options.adminEmail,
-			noStart: options.noStart,
-			skipBrowser: options.skipBrowser,
-			skipLogDetails: false,
-		} );
-	} finally {
-		if ( tempDir ) {
-			await removeBlueprintTempDir( tempDir ).catch( () => {} );
-		}
-	}
+	await runCreateSiteCommand( sitePath, {
+		name: options.name,
+		wpVersion: options.wpVersion ?? DEFAULT_WORDPRESS_VERSION,
+		phpVersion: options.phpVersion ?? DEFAULT_PHP_VERSION,
+		fileAccess: SITE_FILE_ACCESS_SITE_DIRECTORY,
+		customDomain: options.customDomain,
+		enableHttps: options.enableHttps,
+		blueprint: { contents: opened.blueprint, uri: opened.path },
+		adminUsername: options.adminUsername,
+		adminPassword: options.adminPassword,
+		adminEmail: options.adminEmail,
+		noStart: options.noStart,
+		skipBrowser: options.skipBrowser,
+		skipLogDetails: false,
+	} );
 }
 
 export const registerCommand = ( yargs: StudioArgv ) => {

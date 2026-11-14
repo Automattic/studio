@@ -3,6 +3,7 @@ import { designSheet, parseDesignMd, themeJsonDesign } from '@studio/design-md';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { useEffect, useMemo, useRef } from 'react';
+import { useConnector } from '@/data/core';
 import { previewTabsKey, usePreviewTabs } from '@/data/preview-tabs';
 import { useSiteDesign } from '@/data/queries/use-site-design';
 import { useIsSiteBusy } from '@/data/queries/use-sites';
@@ -16,7 +17,13 @@ import {
 	getRealmNavigationPath,
 } from '@/features/sites/site-preview/address-bar';
 import { usePreviewOpenTracks } from '@/features/sites/site-preview/use-preview-open-tracks';
-import { DatabaseIcon, DesignSystemIcon, GlobeIcon, MailIcon, WordPressIcon } from '@/lib/icons';
+import {
+	DatabaseIcon,
+	DesignSystemIcon,
+	GlobeIcon,
+	PaperPlaneIcon,
+	WordPressIcon,
+} from '@/lib/icons';
 import { isDialogOpen, isTextEntry } from '@/lib/keyboard';
 import { Button, Kbd, Menu } from '@/lib/ui';
 import styles from './style.module.css';
@@ -33,7 +40,7 @@ export function getSiteTool( id: 'frontend' | 'admin' | 'database' | 'email' | '
 				shortcut: 'D',
 				action: 'openDatabase',
 			},
-			email: { label: __( 'Email log' ), Icon: MailIcon, shortcut: 'E', action: 'openEmail' },
+			email: { label: __( 'Email log' ), Icon: PaperPlaneIcon, shortcut: 'E', action: 'openEmail' },
 			design: {
 				label: __( 'Design System' ),
 				Icon: DesignSystemIcon,
@@ -87,6 +94,7 @@ export function useSiteToolActions(
 }
 
 function useAvailableSiteTools( site: SiteDetails, live: boolean ) {
+	const { nativeSites } = useConnector().capabilities;
 	const { data: design } = useSiteDesign( site );
 	const designAvailable = useMemo( () => {
 		if ( ! design ) return false;
@@ -102,7 +110,9 @@ function useAvailableSiteTools( site: SiteDetails, live: boolean ) {
 	return ( [ 'frontend', 'admin', 'design', 'database', 'email' ] as const )
 		.filter(
 			( id ) =>
-				( ! live || id === 'frontend' || id === 'admin' ) && ( id !== 'design' || designAvailable )
+				( ! live || id === 'frontend' || id === 'admin' ) &&
+				( id !== 'design' || designAvailable ) &&
+				( nativeSites || ( id !== 'database' && id !== 'email' ) )
 		)
 		.map( ( id ) => ( { id, ...getSiteTool( id ) } ) );
 }

@@ -7,8 +7,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { getVisibleToasts, resetAppMessagesForTests, runNoticeAction } from '@/data/app-messages';
 import { useSites } from '@/data/queries/use-sites';
 import { applySyncActivity } from '@/data/sync-activity';
-import { ShareButton, SiteDeliveryDialog } from '@/features/site-delivery';
+import { ShareButton } from '@/features/site-delivery';
 import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
+import { SiteDeliveryDialog } from '@/test/legacy-delivery';
 import { renderWithProviders } from '@/test/render';
 import type { AuthUser, Connector, SiteDetails, Snapshot } from '@/data/core';
 import type { SyncSite } from '@studio/common/types/sync';
@@ -402,13 +403,13 @@ describe( 'ShareDialog', () => {
 		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
 		await act( async () => finish() );
 		await waitFor(
-			() => expect( getVisibleToasts()[ 0 ]?.title ).toBe( 'My site preview is ready' ),
+			() => expect( getVisibleToasts()[ 0 ]?.title ).toBe( 'Preview link ready' ),
 			SETTLE
 		);
 		expect( isUnread( trigger ) ).toBe( false );
 		expect( isPublishing( trigger ) ).toBe( false );
 		expect( trigger ).not.toHaveAttribute( 'aria-description' );
-		expect( getVisibleToasts()[ 0 ].title ).toBe( 'My site preview is ready' );
+		expect( getVisibleToasts()[ 0 ].title ).toBe( 'Preview link ready' );
 		fireEvent.click( trigger );
 		await screen.findByRole( 'list', { name: 'Previews' } );
 		await waitFor( () => expect( isUnread( trigger ) ).toBe( false ) );
@@ -433,7 +434,7 @@ describe( 'ShareDialog', () => {
 		await waitFor( () => expect( screen.queryByRole( 'dialog' ) ).not.toBeInTheDocument() );
 		await act( async () => finish() );
 		await waitFor(
-			() => expect( getVisibleToasts()[ 0 ]?.title ).toBe( 'My site preview is ready' ),
+			() => expect( getVisibleToasts()[ 0 ]?.title ).toBe( 'Preview link ready' ),
 			SETTLE
 		);
 		expect( getVisibleToasts() ).toHaveLength( 1 );
@@ -624,13 +625,8 @@ describe( 'ShareDialog', () => {
 		await openMenu();
 		await actions.click( await screen.findByRole( 'menuitem', { name: 'Visit preview' } ) );
 		expect( connector.openExternalUrl ).toHaveBeenCalledWith( shareUrl );
-		// Signing in is its own action, so the preview opens the moment it is built.
 		await openMenu();
-		await actions.click( await screen.findByRole( 'menuitem', { name: 'WordPress admin' } ) );
-		expect( connector.openExternalUrl ).toHaveBeenCalledWith(
-			'https://earlier.example.com/wp-login.php?redirect_to=https%3A%2F%2Fearlier.example.com%2Fwp-admin%2F'
-		);
-		await openMenu();
+		expect( screen.queryByRole( 'menuitem', { name: 'WordPress admin' } ) ).not.toBeInTheDocument();
 		await actions.click( await screen.findByRole( 'menuitem', { name: 'Update' } ) );
 		await waitFor( () =>
 			expect( connector.publishPreviewSite ).toHaveBeenCalledWith(
@@ -784,7 +780,11 @@ describe( 'ShareDialog', () => {
 		await actions.click( within( row ).getByRole( 'button', { name: 'Preview actions' } ) );
 		await actions.click( await screen.findByRole( 'menuitem', { name: 'Delete preview' } ) );
 		expect( current ).toBeChecked();
-		expect( screen.getByText( 'earlier.example.com' ) ).toBeVisible();
+		expect(
+			within( screen.getByRole( 'alertdialog', { name: 'Delete preview?' } ) ).getByText(
+				'Earlier'
+			)
+		).toBeVisible();
 		await actions.click( screen.getByRole( 'button', { name: 'Delete preview' } ) );
 		await waitFor( () =>
 			expect( connector.deleteSnapshot ).toHaveBeenCalledWith( 'earlier.example.com' )
@@ -804,7 +804,7 @@ describe( 'ShareDialog', () => {
 		await actions.click( screen.getByRole( 'button', { name: 'Preview actions' } ) );
 		await actions.click( await screen.findByRole( 'menuitem', { name: 'Delete preview' } ) );
 		const confirmation = await screen.findByRole( 'alertdialog', { name: 'Delete preview?' } );
-		expect( within( confirmation ).getByText( 'preview.example.com' ) ).toBeVisible();
+		expect( within( confirmation ).getByText( 'My site preview' ) ).toBeVisible();
 		await waitFor( () =>
 			expect(
 				screen.queryByRole( 'dialog', { name: 'Share and publish' } )

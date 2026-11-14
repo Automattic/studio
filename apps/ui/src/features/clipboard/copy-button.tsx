@@ -1,6 +1,6 @@
 import { __ } from '@wordpress/i18n';
 import { CheckIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type Ref } from 'react';
 import { useCopyText } from '@/data/host/use-copy-text';
 import { DuplicateIcon } from '@/lib/icons';
 import { Button, Tooltip, TooltipContent, TooltipTrigger, VisuallyHidden } from '@/lib/ui';
@@ -11,13 +11,17 @@ export function CopyButton( {
 	label,
 	className,
 	size = 'icon-xs',
+	showLabel = false,
 	disabled,
+	ref,
 }: {
 	text: string;
 	label: string;
 	className?: string;
-	size?: 'icon-2xs' | 'icon-xs' | 'icon-sm' | 'icon';
+	size?: 'icon-2xs' | 'icon-xs' | 'icon-sm' | 'icon' | 'sm';
+	showLabel?: boolean;
 	disabled?: boolean;
+	ref?: Ref< HTMLButtonElement >;
 } ) {
 	const { copied, copy } = useCopyText( text );
 	const [ hovered, setHovered ] = useState( false );
@@ -28,7 +32,8 @@ export function CopyButton( {
 				<TooltipTrigger
 					render={
 						<Button
-							variant="muted-ghost"
+							ref={ ref }
+							variant={ showLabel ? 'outline' : 'muted-ghost' }
 							size={ size }
 							className={ className }
 							aria-label={ label }
@@ -37,7 +42,8 @@ export function CopyButton( {
 						/>
 					}
 				>
-					<Icon />
+					<Icon data-icon={ showLabel ? 'inline-start' : undefined } />
+					{ showLabel ? __( 'Copy' ) : null }
 				</TooltipTrigger>
 				<TooltipContent>{ copied ? __( 'Copied' ) : label }</TooltipContent>
 			</Tooltip>

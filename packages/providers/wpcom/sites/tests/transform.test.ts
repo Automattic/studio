@@ -67,6 +67,42 @@ function atomicSite() {
 }
 
 describe( 'transformSitesResponse', () => {
+	it( 'preserves launch and visibility state independently from a paid plan', () => {
+		const [ site ] = transformSitesResponse( [
+			{
+				...simpleBusinessSite(),
+				launch_status: 'unlaunched',
+				is_coming_soon: true,
+				is_private: false,
+			},
+		] );
+		expect( site ).toMatchObject( {
+			launchStatus: 'unlaunched',
+			isComingSoon: true,
+			isPrivate: false,
+		} );
+		const [ legacy ] = transformSitesResponse( [ simpleBusinessSite() ] );
+		expect( legacy.launchStatus ).toBeUndefined();
+	} );
+
+	it( 'keeps a site whose launch and visibility fields have unexpected types', () => {
+		const result = transformSitesResponse( [
+			{
+				...atomicSite(),
+				is_wpcom_atomic: false,
+				hosting_provider_guess: 'pressable',
+				launch_status: false,
+				is_coming_soon: 0,
+				is_private: null,
+			},
+		] );
+
+		expect( result ).toHaveLength( 1 );
+		expect( result[ 0 ] ).toMatchObject( { isPressable: true, syncSupport: 'syncable' } );
+		expect( result[ 0 ].launchStatus ).toBeUndefined();
+		expect( result[ 0 ].isComingSoon ).toBeUndefined();
+		expect( result[ 0 ].isPrivate ).toBeUndefined();
+	} );
 	it( 'retains Simple sites whose options omit software_version and classifies them', () => {
 		const result = transformSitesResponse( [ simpleBusinessSite(), freeSite() ] );
 

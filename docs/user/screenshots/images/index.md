@@ -57,7 +57,7 @@ Shots with annotations also have a `<name>-annotated.webp`.
 | `send-feedback.webp` | signed-in | Send feedback dialog, opened from the account menu → Support: Topic, Area, Message, Cancel and Send | `feedback/index.md` | — |
 | `share-previews.webp` | signed-in-previews | Share tab with previews: the previews list with expiry dates and Create another preview | `preview-sites.md` | `2025/01/studio-new-site-preview-link.png` |
 | `share-preview-actions.webp` | signed-in-previews | Share tab → a preview’s Preview actions menu (Update, Copy link, Visit preview, Rename, Delete preview) | `preview-sites.md` | `2025/01/studio-preview-more-actions.png` |
-| `publish-sites.webp` | signed-in-connected | Publish → Published to: the two connected websites, and Publish to another site… | `sync.md` | — |
+| `publish-sites.webp` | signed-in-connected | Archived screenshot of the connected websites list | — | — |
 | `pull-choose-files.webp` | signed-in-connected | Publish details → Pull changes → What to pull, with Choose files… and a few items selected | — | `2025/01/studio-pull-selective.png` |
 | `publish-choose-files.webp` | signed-in-connected | Publish details → Publish changes → What to publish, with Choose files… and a few items selected | `sync.md` | `2025/01/studio-selective-push.png` |
 | `design-looks.webp` | signed-in-agent | A new blank site's first chat asking for a slow-fashion journal called Moire, and Studio Code's pick of four looks (design-looks/), Moire's own among them | `studio-code/index.md` | — |

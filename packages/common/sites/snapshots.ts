@@ -198,14 +198,9 @@ export async function renamePreviewSite(
 export async function fetchSnapshots(
 	executeCliCommand: ExecuteCliCommand
 ): Promise< Snapshot[] > {
-	try {
-		return await runCliCommand(
-			executeCliCommand,
-			[ 'preview', 'list', '--format', 'json' ],
-			z.array( snapshotSchema )
-		);
-	} catch ( error ) {
-		console.error( 'Failed to fetch snapshots from CLI:', error );
-		return [];
-	}
+	return runCliCommand(
+		executeCliCommand,
+		[ 'preview', 'list', '--format', 'json' ],
+		z.array( snapshotSchema )
+	);
 }

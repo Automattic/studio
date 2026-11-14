@@ -1,4 +1,5 @@
 import { SNAPSHOT_EVENTS } from '@studio/common/lib/cli-events';
+import { removeConnectedWpcomSite } from '@studio/common/lib/connected-sites';
 import { readAuthToken } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
 import { deleteAllSnapshots, deleteSnapshot } from 'cli/lib/api';
@@ -25,6 +26,7 @@ vi.mock( import( '@studio/common/lib/shared-config' ), async ( importOriginal ) 
 	...( await importOriginal() ),
 	readAuthToken: vi.fn(),
 } ) );
+vi.mock( '@studio/common/lib/connected-sites' );
 vi.mock( 'cli/lib/api' );
 vi.mock( 'cli/lib/cli-config/snapshots' );
 vi.mock( 'cli/lib/daemon-client' );
@@ -87,6 +89,7 @@ describe( 'Preview Delete Command', () => {
 
 	it( 'should complete the preview deletion process successfully', async () => {
 		await runCommand( Mode.DELETE_SINGLE_SNAPSHOT, mockSiteUrl );
+		expect( removeConnectedWpcomSite ).toHaveBeenCalledWith( '456', mockAtomicSiteId );
 
 		expect( readAuthToken ).toHaveBeenCalled();
 		expect( getSnapshotsFromConfig ).toHaveBeenCalledWith( mockAuthToken.id );
@@ -149,6 +152,7 @@ describe( 'Preview Delete Command', () => {
 			LoggerError
 		);
 		expect( deleteSnapshotFromConfig ).not.toHaveBeenCalled();
+		expect( removeConnectedWpcomSite ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should complete deleting all preview sites successfully', async () => {

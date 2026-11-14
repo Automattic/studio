@@ -1,0 +1,1852 @@
+import { getProvider } from '@studio/providers';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { beforeEach, expect, it } from 'vitest';
+import { getVisibleToasts } from '@/data/app-messages';
+import { buildPublishCheckoutUrl } from '@/data/core/connectors/publish-checkout-url';
+import { remoteSitesQueryKey } from '@/data/queries/use-remote-sites';
+import { SNAPSHOT_USAGE_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
+import { requestHeaderPanel } from '@/data/use-open-header-panel';
+import { createFakeConnector, makeSite, TEST_USER, aiSettings } from '@/test/fake-connector';
+import { renderWithProviders } from '@/test/render';
+import pressableLogo from './pressable-logo.svg?raw';
+import { PublishButton } from './publish-button';
+import type { Snapshot } from '@/data/core';
+import type { ConnectorOverrides } from '@/test/in-memory-connector';
+const site = makeSite( { id: 'provider-panel' } );
+const live = {
+	id: 42,
+	localSiteId: site.id,
+	name: 'Live',
+	url: 'https://lente.blog',
+	isStaging: false,
+	isPressable: false,
+	syncSupport: 'syncable' as const,
+	launchStatus: 'launched',
+	lastPushTimestamp: new Date().toISOString(),
+	lastPullTimestamp: null,
+};
+const space = {
+	id: 'spc_1',
+	name: 'Static',
+	url: 'https://lente.space.fast',
+	slug: 'lente',
+	teamId: 'team',
+	teamSlug: 'studio',
+	localSiteId: site.id,
+	lastPushTimestamp: new Date().toISOString(),
+	lastPullTimestamp: null,
+};
+const preview: Snapshot = {
+	atomicSiteId: 123,
+	localSiteId: site.id,
+	userId: TEST_USER.id,
+	date: Date.now(),
+	url: 'lente-preview.wpcomstaging.com',
+	shareUrl: 'https://lente-preview.wpcomstaging.com/?share=secret',
+};
+let sequence = 0;
+beforeEach( () => {
+	localStorage.clear();
+	site.id = `provider-panel-${ ++sequence }`;
+	live.localSiteId = site.id;
+	space.localSiteId = site.id;
+	preview.localSiteId = site.id;
+} );
+function setup( overrides: ConnectorOverrides = {} ) {
+	const connector = createFakeConnector(
+		{ sites: [ site ], user: TEST_USER },
+		{
+			getAiSettings: async () => aiSettings( 'wpcom', [ 'wpcom', 'spacefast' ] ),
+			getPublishCheckoutUrl: buildPublishCheckoutUrl,
+			getSnapshots: async () => [ preview ],
+			getSnapshotUsage: async () => ( { siteCount: 1, siteLimit: 5, siteCreationBlocked: false } ),
+			getRemoteSites: async ( provider ) => ( provider === 'wpcom' ? [ live ] : [ space ] ),
+			listAccountSites: async ( provider ) => ( provider === 'wpcom' ? [ live ] : [ space ] ),
+			getSiteVisibility: async ( provider, id ) => ( {
+				url:
+					provider === 'spacefast'
+						? id === 'spc_2'
+							? 'https://second.space.fast'
+							: space.url
+						: live.url,
+				launchStatus: 'launched',
+				visibility: 'public',
+			} ),
+			getSitePublishStatus: async ( _local, _remote, provider ) => ( {
+				localChanged: provider === 'spacefast',
+			} ),
+			getPreviewStatus: async () => ( {
+				localSiteId: site.id,
+				localChanged: false,
+				previewChanged: false,
+			} ),
+			listLocalFileTree: async () =>
+				[ 'plugins', 'themes', 'uploads' ].map( ( name ) => ( {
+					name,
+					path: `wp-content/${ name }`,
+					isDirectory: true,
+					children: [],
+				} ) ),
+			...overrides,
+		}
+	);
+	return { ...renderWithProviders( <PublishButton site={ site } />, { connector } ), connector };
+}
+async function open() {
+	fireEvent.click( await screen.findByRole( 'button', { name: /^(Share|Publish)…$/ } ) );
+	return screen.findByRole( 'dialog', { name: /^(Share|Publish)$/ } );
+}
+async function mainMenu() {
+	fireEvent.click( await screen.findByRole( 'button', { name: 'More options' } ) );
+	return screen.findByRole( 'menu' );
+}
+async function confirmPublish() {
+	const dialog = await screen.findByRole( 'alertdialog', { name: 'Publish changes?' } );
+	const publish = within( dialog ).getByRole( 'button', { name: 'Publish changes' } );
+	await waitFor( () => expect( publish ).toBeEnabled() );
+	fireEvent.click( publish );
+	await waitFor( () => expect( dialog ).not.toBeInTheDocument() );
+}
+async function switchTo( hostname: string ) {
+	if ( hostname === preview.url ) return;
+	fireEvent.click( await screen.findByRole( 'button', { name: 'Choose destination' } ) );
+	const menu = await screen.findByRole( 'menu', { name: 'Destinations' } );
+	fireEvent.click( within( menu ).getByRole( 'menuitemradio', { name: hostname } ) );
+}
+async function openPreviews( user: ReturnType< typeof setup >[ 'user' ] ) {
+	await user.click( await screen.findByRole( 'button', { name: 'Previews' } ) );
+	return screen.findByRole( 'menu', { name: 'Previews' } );
+}
+async function openPreviewActions( user: ReturnType< typeof setup >[ 'user' ], name: string ) {
+	const menu = screen.queryByRole( 'menu', { name: 'Previews' } ) ?? ( await openPreviews( user ) );
+	const preview = await within( menu ).findByRole( 'menuitem', { name } );
+	preview.focus();
+	await user.keyboard( '{ArrowRight}' );
+	return screen.findByRole( 'menu', { name } );
+}
+it( 'renders the selected provider capabilities and isolates its change dot', async () => {
+	const { user, connector } = setup();
+	await open();
+	expect( await screen.findByRole( 'button', { name: 'Who can view' } ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'What to publish' } ) ).toBeVisible();
+	expect( screen.queryByText( 'Some features may not work' ) ).not.toBeInTheDocument();
+	expect( screen.queryByLabelText( 'Local changes' ) ).not.toBeInTheDocument();
+	await user.click( screen.getByRole( 'button', { name: 'More options' } ) );
+	expect(
+		( await screen.findAllByRole( 'menuitem' ) ).map( ( item ) => item.textContent?.trim() )
+	).toEqual( [
+		'Domains',
+		'Backups',
+		'Pull from live site',
+		'Connect existing site',
+		'Disconnect site',
+	] );
+	await user.click( await screen.findByRole( 'menuitem', { name: 'Pull from live site' } ) );
+	const confirmation = await screen.findByRole( 'alertdialog', { name: 'Pull from live site?' } );
+	expect( confirmation ).toHaveTextContent(
+		"Any changes you haven't pushed in those parts will be lost."
+	);
+	expect( connector.pullSite ).not.toHaveBeenCalled();
+	expect( within( confirmation ).getByRole( 'combobox', { name: 'What to pull' } ) ).toBeVisible();
+	await user.click( within( confirmation ).getByRole( 'button', { name: 'Cancel' } ) );
+	await waitFor( () => expect( confirmation ).not.toBeInTheDocument() );
+	const panel = await screen.findByRole( 'dialog', { name: 'Publish' } );
+	await user.click( within( panel ).getByRole( 'button', { name: 'Choose destination' } ) );
+	await user.click( await screen.findByRole( 'menuitemradio', { name: 'lente.space.fast' } ) );
+	expect( await screen.findByRole( 'button', { name: 'lente.space.fast' } ) ).toBeVisible();
+	expect( screen.queryByRole( 'button', { name: 'lente.blog' } ) ).not.toBeInTheDocument();
+	expect( screen.queryByText( 'Some features may not work' ) ).not.toBeInTheDocument();
+	expect( screen.queryByText( 'Like forms, comments, and search' ) ).not.toBeInTheDocument();
+	expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toBeVisible();
+	expect( screen.queryByRole( 'button', { name: 'What to publish' } ) ).not.toBeInTheDocument();
+	expect( screen.getByRole( 'button', { name: 'Publish changes…' } ) ).toBeVisible();
+	expect( screen.getByLabelText( 'Local changes' ) ).toBeVisible();
+	expect(
+		within( screen.getByRole( 'group', { name: 'Published site actions' } ) ).queryByRole(
+			'button',
+			{ name: 'Copy link' }
+		)
+	).not.toBeInTheDocument();
+	await user.click( screen.getByRole( 'button', { name: 'More options' } ) );
+	expect(
+		( await screen.findAllByRole( 'menuitem' ) ).map( ( item ) => item.textContent?.trim() )
+	).toEqual( [ 'Open on Spacefast', 'Versions', 'Connect existing site', 'Disconnect site' ] );
+	await user.click( screen.getByRole( 'menuitem', { name: 'Open on Spacefast' } ) );
+	expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith(
+		'https://my.spacefast.com/'
+	);
+} );
+
+it( 'keeps actions in the panel menu for a single connected site', async () => {
+	const { connector, user } = setup( {
+		getAuthUser: async () => null,
+		getAiSettings: async () => aiSettings( 'wpcom', [ 'spacefast' ] ),
+		getRemoteSites: async ( provider ) => ( provider === 'spacefast' ? [ space ] : [] ),
+	} );
+	const panel = await open();
+	expect( within( panel ).queryByRole( 'button', { name: 'Previews' } ) ).not.toBeInTheDocument();
+	expect(
+		within( panel ).queryByRole( 'button', { name: 'Choose destination' } )
+	).not.toBeInTheDocument();
+	expect( within( panel ).getByRole( 'button', { name: 'lente.space.fast' } ) ).toBeVisible();
+	const menu = await mainMenu();
+	expect(
+		within( menu )
+			.getAllByRole( 'menuitem' )
+			.map( ( item ) => item.textContent?.trim() )
+	).toEqual( [ 'Open on Spacefast', 'Versions', 'Connect existing site', 'Disconnect site' ] );
+	await user.click( within( menu ).getByRole( 'menuitem', { name: 'Versions' } ) );
+	expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith(
+		'https://my.spacefast.com/studio/lente/versions'
+	);
+} );
+
+it( 'opens Sharing settings from an explicit Share request on a Spacefast site', async () => {
+	const { history, connector } = setup( {
+		getRemoteSites: async ( provider ) => ( provider === 'spacefast' ? [ space ] : [] ),
+	} );
+	act( () => requestHeaderPanel( { panel: 'share', siteId: site.id } ) );
+	await waitFor( () => expect( history.location.search ).toBe( '?settings=sharing' ) );
+	expect( screen.queryByRole( 'menu', { name: 'Previews' } ) ).not.toBeInTheDocument();
+	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
+} );
+
+it( 'opens Versions for a saved Spacefast connection without a team slug', async () => {
+	const { connector, user } = setup( {
+		getAiSettings: async () => aiSettings( 'wpcom', [ 'wpcom' ] ),
+		getRemoteSites: async ( provider ) =>
+			provider === 'spacefast' ? [ { ...space, teamSlug: undefined } ] : [],
+	} );
+	await open();
+	const menu = await mainMenu();
+	await user.click( within( menu ).getByRole( 'menuitem', { name: 'Versions' } ) );
+	expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith(
+		'https://my.spacefast.com/team/spc_1/versions'
+	);
+} );
+
+it( 'opens the preview menu for Share requests and closes it for Publish requests', async () => {
+	setup();
+	await screen.findByRole( 'button', { name: 'Publish…' } );
+	act( () => requestHeaderPanel( { panel: 'share', siteId: site.id } ) );
+	expect( await screen.findByRole( 'menu', { name: 'Previews' } ) ).toBeVisible();
+	act( () => requestHeaderPanel( { panel: 'publish', siteId: site.id, view: 'publish' } ) );
+	expect( await screen.findByRole( 'heading', { name: 'Publish' } ) ).toBeVisible();
+	expect( screen.queryByRole( 'menu', { name: 'Previews' } ) ).not.toBeInTheDocument();
+} );
+
+it( 'can create a new preview from the Previews menu', async () => {
+	const { user, connector } = setup( {
+		publishPreviewSite: () => new Promise( () => {} ),
+	} );
+	await open();
+	await openPreviews( user );
+	await user.click( await screen.findByRole( 'menuitem', { name: 'New preview' } ) );
+	await waitFor( () =>
+		expect( connector.publishPreviewSite ).toHaveBeenCalledExactlyOnceWith(
+			site.id,
+			undefined,
+			undefined
+		)
+	);
+} );
+
+it( 'keeps the Share menu focused on previews when multiple providers are connected', async () => {
+	const { user } = setup( { getRemoteSites: async () => [] } );
+	await open();
+	await switchTo( 'lente-preview.wpcomstaging.com' );
+	const panel = await screen.findByRole( 'dialog', { name: 'Share' } );
+	await user.click( within( panel ).getByRole( 'button', { name: 'More options' } ) );
+	expect(
+		( await screen.findAllByRole( 'menuitem' ) ).map( ( item ) => item.textContent?.trim() )
+	).toEqual( [
+		'New preview',
+		'Rename',
+		'Update preview',
+		'Pull from preview',
+		'Connect existing site',
+		'Delete preview',
+	] );
+} );
+
+it.each( [
+	{ hostname: 'lente.blog', rowName: 'lente.blog', url: live.url },
+	{ hostname: 'lente.space.fast', rowName: 'lente.space.fast', url: space.url },
+	{
+		hostname: 'lente-preview.wpcomstaging.com',
+		rowName: 'Open preview: Preview 1',
+		url: preview.shareUrl,
+	},
+] )( 'shares the URL row and panel actions for $hostname', async ( { hostname, rowName, url } ) => {
+	const { user, connector } = setup(
+		hostname === preview.url ? { getRemoteSites: async () => [] } : {}
+	);
+	await open();
+	await switchTo( hostname );
+	const row = await screen.findByRole( 'button', { name: rowName } );
+	const items = ( menu: HTMLElement ) =>
+		within( menu )
+			.getAllByRole( 'menuitem' )
+			.map( ( item ) => item.textContent?.trim() );
+	await user.click( screen.getByRole( 'button', { name: 'More options' } ) );
+	const ellipsis = await screen.findByRole( 'menu' );
+	const expected = items( ellipsis ).filter(
+		( label ) => ! [ 'New preview', 'Connect existing site' ].includes( label ?? '' )
+	);
+	await user.keyboard( '{Escape}' );
+	await waitFor( () => expect( ellipsis ).not.toBeInTheDocument() );
+	row.focus();
+	await user.keyboard( '{Shift>}{F10}{/Shift}' );
+	const context = await screen.findByRole( 'menu', {
+		name: 'Destination actions',
+	} );
+	if ( hostname === 'lente-preview.wpcomstaging.com' ) {
+		expect( items( context ) ).toEqual( expected );
+		expect( items( context ) ).toEqual( [
+			'Rename',
+			'Update preview',
+			'Pull from preview',
+			'Delete preview',
+		] );
+		expect( within( context ).getAllByRole( 'separator' ) ).toHaveLength( 1 );
+		return;
+	}
+	expect( items( context ) ).toEqual( [ 'Copy link', ...expected ] );
+	await user.click( within( context ).getByRole( 'menuitem', { name: /^Copy (preview )?link$/ } ) );
+	expect( connector.copyText ).toHaveBeenCalledExactlyOnceWith( url );
+	expect( connector.openExternalUrl ).not.toHaveBeenCalled();
+} );
+
+it( 'reports a failed live push as a notification while keeping the panel open', async () => {
+	setup( {
+		pushSite: async () => {
+			throw new Error( 'Upload failed' );
+		},
+	} );
+	await open();
+	await switchTo( 'lente.space.fast' );
+	const publish = await screen.findByRole( 'button', { name: 'Publish changes…' } );
+	await waitFor( () => expect( publish ).toBeEnabled() );
+	fireEvent.click( publish );
+	await confirmPublish();
+	await waitFor(
+		() =>
+			expect( getVisibleToasts().filter( ( notice ) => notice.intent === 'error' ) ).toMatchObject(
+				[ { title: 'Publishing didn’t finish' } ]
+			),
+		{ timeout: 3000 }
+	);
+	const panel = screen.getByRole( 'dialog', { name: 'Publish' } );
+	expect( panel ).toBeVisible();
+	expect( within( panel ).queryByRole( 'alert' ) ).not.toBeInTheDocument();
+	expect( within( panel ).getByRole( 'button', { name: 'Publish changes…' } ) ).toBeEnabled();
+} );
+it( 'uses preview names consistently in the Share panel and selector', async () => {
+	const unnamed = { ...preview, sequence: 7, date: Date.now() - 1000 };
+	const named = {
+		...preview,
+		atomicSiteId: 456,
+		date: Date.now(),
+		name: 'Homepage refresh',
+		url: 'homepage-preview.wpcomstaging.com',
+	};
+	const { user, connector } = setup( {
+		getRemoteSites: async () => [],
+		getSnapshots: async () => [ unnamed, named ],
+	} );
+	await open();
+	const selector = screen.getByRole( 'button', { name: 'Choose destination' } );
+	expect( selector ).toHaveTextContent( named.name );
+	await user.click( selector );
+	expect( await screen.findByRole( 'menuitemradio', { name: named.name } ) ).toBeChecked();
+	await user.click( screen.getByRole( 'menuitemradio', { name: 'Preview 7' } ) );
+	const row = screen.getByRole( 'button', { name: 'Open preview: Preview 7' } );
+	expect( row ).toHaveTextContent( /Expires / );
+	await user.click( row );
+	expect( connector.openExternalUrl ).toHaveBeenCalledWith( unnamed.shareUrl );
+	await user.click( screen.getByRole( 'button', { name: 'Copy link' } ) );
+	expect( connector.copyText ).toHaveBeenCalledWith( unnamed.shareUrl );
+} );
+
+it( 'opens the previews and a specific preview’s actions by keyboard', async () => {
+	const second = {
+		...preview,
+		atomicSiteId: 456,
+		name: 'Client review',
+		url: 'second-preview.wpcomstaging.com',
+		shareUrl: 'https://second-preview.wpcomstaging.com/?share=second',
+	};
+	const { user, connector } = setup( { getSnapshots: async () => [ preview, second ] } );
+	const panel = await open();
+	const trigger = within( panel ).getByRole( 'button', { name: 'Previews' } );
+	expect( trigger ).toHaveAccessibleDescription( '2' );
+	trigger.focus();
+	await user.keyboard( '{Enter}' );
+	const menu = await screen.findByRole( 'menu', { name: 'Previews' } );
+	expect( within( panel ).getByRole( 'button', { name: 'lente.blog' } ) ).toBeVisible();
+	expect( within( panel ).getByRole( 'button', { name: 'Who can view' } ) ).toBeVisible();
+	expect( within( menu ).getByRole( 'menuitem', { name: 'Client review' } ) ).toHaveTextContent(
+		/Expires /
+	);
+	const actions = await openPreviewActions( user, 'Client review' );
+	await user.click( within( actions ).getByRole( 'menuitem', { name: 'Copy link' } ) );
+	expect( connector.copyText ).toHaveBeenCalledExactlyOnceWith( second.shareUrl );
+	expect( connector.openExternalUrl ).not.toHaveBeenCalled();
+	expect( panel ).toBeVisible();
+	await waitFor( () => expect( trigger ).toHaveFocus() );
+} );
+
+it( 'uses the preview chosen in the submenu for rename and delete', async () => {
+	const second = {
+		...preview,
+		atomicSiteId: 456,
+		name: 'Homepage refresh',
+		url: 'homepage-preview.wpcomstaging.com',
+	};
+	let snapshots = [ preview, second ];
+	const { user, connector } = setup( {
+		getSnapshots: async () => snapshots,
+		renameSnapshot: async ( hostname, name ) => {
+			snapshots = snapshots.map( ( item ) => ( item.url === hostname ? { ...item, name } : item ) );
+		},
+	} );
+	await open();
+	const actions = await openPreviewActions( user, second.name );
+	await user.click( within( actions ).getByRole( 'menuitem', { name: 'Rename' } ) );
+	const input = await screen.findByRole( 'textbox', { name: 'Preview name' } );
+	expect( input ).toHaveValue( second.name );
+	await user.clear( input );
+	await user.type( input, 'Client review{Enter}' );
+	await waitFor( () =>
+		expect( screen.queryByRole( 'dialog', { name: 'Rename preview' } ) ).not.toBeInTheDocument()
+	);
+	expect( connector.renameSnapshot ).toHaveBeenCalledExactlyOnceWith( second.url, 'Client review' );
+	if ( ! screen.queryByRole( 'dialog', { name: 'Publish' } ) ) await open();
+	const renamedActions = await openPreviewActions( user, 'Client review' );
+	await user.click( within( renamedActions ).getByRole( 'menuitem', { name: 'Delete preview' } ) );
+	const confirmation = await screen.findByRole( 'alertdialog', { name: 'Delete preview?' } );
+	expect( within( confirmation ).getByText( 'Client review' ) ).toBeVisible();
+	await user.click( within( confirmation ).getByRole( 'button', { name: 'Cancel' } ) );
+	expect( connector.deleteSnapshot ).not.toHaveBeenCalled();
+} );
+
+it( 'keeps the publish panel visible while adding a preview to the menu', async () => {
+	let finish!: ( result: { url: string } ) => void;
+	let snapshots = [ preview ];
+	const created = {
+		...preview,
+		atomicSiteId: 457,
+		name: 'New preview for review',
+		url: 'new-preview.wpcomstaging.com',
+	};
+	const { user } = setup( {
+		getRemoteSites: async ( provider ) => ( provider === 'wpcom' ? [ live ] : [] ),
+		getSnapshots: async () => snapshots,
+		publishPreviewSite: () =>
+			new Promise( ( resolve ) => {
+				finish = resolve;
+			} ),
+	} );
+	const panel = await open();
+	const menu = await openPreviews( user );
+	await user.click( within( menu ).getByRole( 'menuitem', { name: 'New preview' } ) );
+	expect(
+		await within( menu ).findByRole( 'menuitem', { name: /Creating preview link/ } )
+	).toBeVisible();
+	expect( within( panel ).getByRole( 'button', { name: 'lente.blog' } ) ).toBeVisible();
+	expect( within( panel ).getByRole( 'button', { name: 'What to publish' } ) ).toBeVisible();
+	snapshots = [ created, preview ];
+	act( () => finish( { url: created.url } ) );
+	expect( await within( menu ).findByRole( 'menuitem', { name: created.name } ) ).toBeVisible();
+} );
+
+it( 'checks and updates the specific preview chosen from the submenu', async () => {
+	const second = {
+		...preview,
+		atomicSiteId: 456,
+		name: 'Client review',
+		url: 'second-preview.wpcomstaging.com',
+	};
+	const { user, connector } = setup( {
+		getSnapshots: async () => [ preview, second ],
+		getSitePublishStatus: async () => ( { localChanged: false } ),
+		getPreviewStatus: async ( hostname ) => ( {
+			localSiteId: site.id,
+			localChanged: true,
+			previewChanged: hostname === second.url,
+		} ),
+	} );
+	await open();
+	const actions = await openPreviewActions( user, second.name );
+	await user.click( within( actions ).getByRole( 'menuitem', { name: 'Update preview' } ) );
+	const confirm = await screen.findByRole( 'alertdialog', { name: 'Replace preview changes?' } );
+	expect( confirm ).toHaveTextContent( second.url );
+	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
+	await user.click( within( confirm ).getByRole( 'button', { name: 'Replace preview' } ) );
+	await waitFor( () =>
+		expect( connector.publishPreviewSite ).toHaveBeenCalledExactlyOnceWith(
+			site.id,
+			second.url,
+			undefined
+		)
+	);
+	expect( connector.pushSite ).not.toHaveBeenCalled();
+} );
+
+it.each( [
+	{ host: 'Pressable', isPressable: true, logo: pressableLogo },
+	{ host: 'WordPress.com', isPressable: false, logo: getProvider( 'wpcom' ).logo! },
+] )( 'uses the $host logo for a connected $host site', async ( { isPressable, logo } ) => {
+	const remote = { ...live, isPressable };
+	const { user } = setup( {
+		getSnapshots: async () => [],
+		getRemoteSites: async ( provider ) => ( provider === 'wpcom' ? [ remote ] : [ space ] ),
+		listAccountSites: async ( provider ) => ( provider === 'wpcom' ? [ remote ] : [ space ] ),
+	} );
+	const hostname = new URL( remote.url ).hostname;
+	const panel = await open();
+	const siteRow = await within( panel ).findByRole( 'button', { name: hostname } );
+	expect( siteRow ).toContainHTML( logo );
+
+	await user.click( within( panel ).getByRole( 'button', { name: 'Choose destination' } ) );
+	const picker = await screen.findByRole( 'menu', { name: 'Destinations' } );
+	expect( within( picker ).getByRole( 'menuitemradio', { name: hostname } ) ).toContainHTML( logo );
+} );
+
+it( 'keeps connected destinations separate from previews', async () => {
+	const { connector, user } = setup( {
+		getRemoteSites: async ( provider ) =>
+			provider === 'wpcom' ? [ live ] : [ { ...space, lastPushTimestamp: null } ],
+		listAccountSites: async ( provider ) => ( provider === 'wpcom' ? [ live ] : [] ),
+	} );
+	const panel = await open();
+	const publish = screen.getByRole( 'button', { name: 'Publish…' } );
+	expect( within( publish ).queryByLabelText( 'Local changes' ) ).not.toBeInTheDocument();
+	expect( within( panel ).getByRole( 'button', { name: 'lente.blog' } ) ).toBeVisible();
+	expect(
+		within( panel ).queryByRole( 'button', { name: 'lente.space.fast' } )
+	).not.toBeInTheDocument();
+	expect(
+		within( panel ).queryByRole( 'button', { name: /^Open preview:/ } )
+	).not.toBeInTheDocument();
+	expect( within( panel ).getByRole( 'button', { name: 'Previews' } ) ).toBeVisible();
+
+	const switcher = within( panel ).getByRole( 'button', { name: 'Choose destination' } );
+	await user.click( switcher );
+	const menu = await screen.findByRole( 'menu', { name: 'Destinations' } );
+	const sites = menu;
+	expect( within( sites ).getByRole( 'menuitemradio', { name: 'lente.blog' } ) ).toBeChecked();
+	expect(
+		within( menu ).queryByRole( 'menuitemradio', { name: 'lente-preview.wpcomstaging.com' } )
+	).not.toBeInTheDocument();
+	const staticSite = within( sites ).getByRole( 'menuitemradio', { name: 'lente.space.fast' } );
+	expect( staticSite ).not.toHaveTextContent( 'Not published yet' );
+	await user.click( staticSite );
+	expect( await within( publish ).findByLabelText( 'Local changes' ) ).toBeVisible();
+	expect( within( panel ).getByRole( 'button', { name: 'Publish changes…' } ) ).toBeVisible();
+	expect( within( panel ).getByRole( 'button', { name: 'lente.space.fast' } ) ).toBeVisible();
+	expect( within( panel ).queryByRole( 'button', { name: 'Previews' } ) ).not.toBeInTheDocument();
+	expect( connector.createRemoteSite ).not.toHaveBeenCalled();
+	expect( connector.pushSite ).not.toHaveBeenCalled();
+	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
+} );
+
+it( 'switches between two Spacefast sites by keyboard and restores focus', async () => {
+	const second = {
+		...space,
+		id: 'spc_2',
+		slug: 'second',
+		url: 'https://second.space.fast',
+		lastPushTimestamp: null,
+	};
+	const { connector, user } = setup( {
+		getSnapshots: async () => [],
+		getRemoteSites: async ( provider ) => ( provider === 'spacefast' ? [ space, second ] : [] ),
+		getSitePublishStatus: async () => ( { localChanged: false } ),
+	} );
+	const panel = await open();
+	expect( within( panel ).getByRole( 'button', { name: 'lente.space.fast' } ) ).toBeVisible();
+	expect( await within( panel ).findByRole( 'button', { name: 'Copy link' } ) ).toBeEnabled();
+	const switcher = within( panel ).getByRole( 'button', { name: 'Choose destination' } );
+	switcher.focus();
+	await user.keyboard( '{ArrowDown}' );
+	const menu = await screen.findByRole( 'menu', { name: 'Destinations' } );
+	const firstOption = within( menu ).getByRole( 'menuitemradio', { name: 'lente.space.fast' } );
+	expect( firstOption ).toBeChecked();
+	await waitFor( () => expect( firstOption ).toHaveFocus() );
+	expect(
+		within( menu ).queryByRole( 'group', { name: 'Connected sites' } )
+	).not.toBeInTheDocument();
+	await user.keyboard( '{ArrowDown}' );
+	await waitFor( () =>
+		expect(
+			within( menu ).getByRole( 'menuitemradio', { name: 'second.space.fast' } )
+		).toHaveFocus()
+	);
+	await user.keyboard( '{Enter}' );
+	await waitFor( () => expect( menu ).not.toBeInTheDocument() );
+	expect( switcher ).toHaveFocus();
+	expect( within( panel ).getByRole( 'button', { name: 'second.space.fast' } ) ).toBeVisible();
+	expect( within( panel ).queryByText( 'Not published yet' ) ).not.toBeInTheDocument();
+	expect( within( panel ).getByRole( 'button', { name: 'Copy link' } ) ).toBeEnabled();
+	const row = screen.getByRole( 'button', { name: 'second.space.fast' } );
+	row.focus();
+	await user.keyboard( '{Shift>}{F10}{/Shift}' );
+	await user.click( await screen.findByRole( 'menuitem', { name: 'Copy link' } ) );
+	expect( connector.copyText ).toHaveBeenCalledExactlyOnceWith( second.url );
+	expect( connector.pushSite ).not.toHaveBeenCalled();
+} );
+
+it.each( [ 'last used', 'saved default' ] )(
+	'keeps registry order with a Spacefast %s',
+	async ( source ) => {
+		localStorage.setItem(
+			'studio-last-publish-provider',
+			source === 'last used' ? 'spacefast' : 'wpcom'
+		);
+		const { connector } = setup( {
+			getRemoteSites: async () => [],
+			getSnapshots: async () => [],
+		} );
+		if ( source === 'saved default' ) {
+			connector.state.preferences.defaultHostingProvider = 'spacefast';
+		}
+		await open();
+		expect( screen.queryByText( 'Make it with Spacefast' ) ).not.toBeInTheDocument();
+		await waitFor( () =>
+			expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toHaveAccessibleDescription(
+				'Everyone'
+			)
+		);
+		expect( screen.queryByText( 'A static copy of your pages' ) ).not.toBeInTheDocument();
+		expect(
+			screen.getByText( 'Choose where to share your WordPress and who can view it.' )
+		).toBeVisible();
+		expect( screen.getByRole( 'button', { name: 'Publish' } ) ).toBeVisible();
+		expect( screen.getByRole( 'heading', { name: 'Share' } ) ).toBeVisible();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Destination' } ) );
+		const picker = await screen.findByRole( 'menu', { name: 'Where to publish' } );
+		expect( within( picker ).getAllByRole( 'menuitemradio' )[ 0 ] ).toHaveTextContent(
+			'WordPress.com'
+		);
+		expect( within( picker ).getByText( 'The full WordPress, with a domain' ) ).toBeVisible();
+		expect( within( picker ).getByText( 'A static copy of your pages' ) ).toBeVisible();
+	}
+);
+
+it( 'shows preview access when WordPress.com is the only available destination', async () => {
+	const { connector } = setup( {
+		capabilities: { nativeSites: false },
+		getRemoteSites: async () => [],
+		getSnapshots: async () => [],
+		getPreviewStatus: async () => ( {
+			localSiteId: site.id,
+			localChanged: false,
+			previewChanged: false,
+		} ),
+	} );
+	await open();
+	expect( screen.getByText( 'Destination' ) ).toBeVisible();
+	expect( screen.queryByRole( 'button', { name: 'Destination' } ) ).not.toBeInTheDocument();
+	expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toHaveAccessibleDescription(
+		'Anyone with the link'
+	);
+	expect( screen.getByRole( 'button', { name: 'Create preview link' } ) ).toBeVisible();
+	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
+} );
+
+it.each( [
+	{ policy: 'public', restrict: false, expected: 'public' },
+	{ policy: 'public', restrict: true, expected: 'private' },
+	{ policy: 'private', restrict: false, expected: 'private' },
+] as const )(
+	'publishes a new Space with $expected access (policy: $policy, restrict: $restrict)',
+	async ( { policy, restrict, expected } ) => {
+		let created = false;
+		const { connector, user } = setup( {
+			getSiteCreationVisibility: async () => policy,
+			getSnapshots: async () => [],
+			getRemoteSites: async ( provider ) =>
+				provider === 'spacefast' && created ? [ space ] : [],
+			createRemoteSite: async () => {
+				created = true;
+				return space;
+			},
+		} );
+		await open();
+		fireEvent.click( screen.getByRole( 'button', { name: 'Destination' } ) );
+		fireEvent.click( await screen.findByRole( 'menuitemradio', { name: /Spacefast A static/ } ) );
+		expect( connector.createRemoteSite ).not.toHaveBeenCalled();
+		expect( connector.pushSite ).not.toHaveBeenCalled();
+		const access = await screen.findByRole( 'button', { name: 'Who can view' } );
+		await waitFor( () =>
+			expect( access ).toHaveAccessibleDescription(
+				policy === 'private' ? 'Restricted' : 'Everyone'
+			)
+		);
+		await user.click( access );
+		const everyone = await screen.findByRole( 'menuitemradio', { name: 'Everyone' } );
+		const restricted = screen.getByRole( 'menuitemradio', { name: 'Restricted' } );
+		if ( policy === 'private' ) {
+			expect( everyone ).toHaveAttribute( 'aria-disabled', 'true' );
+			expect( restricted ).toBeChecked();
+			expect( screen.getByText( 'Your team only allows restricted sites.' ) ).toBeVisible();
+		}
+		if ( restrict ) {
+			await user.click( restricted );
+			expect( access ).toHaveAccessibleDescription( 'Restricted' );
+		} else {
+			await user.keyboard( '{Escape}' );
+		}
+		expect(
+			screen.getByText( 'Choose where to share your WordPress and who can view it.' )
+		).toBeVisible();
+		expect( connector.createRemoteSite ).not.toHaveBeenCalled();
+		await user.click( screen.getByRole( 'button', { name: 'Publish' } ) );
+		await waitFor( () =>
+			expect( connector.createRemoteSite ).toHaveBeenCalledExactlyOnceWith(
+				'spacefast',
+				site.id,
+				site.name,
+				expected
+			)
+		);
+		await waitFor( () =>
+			expect( connector.pushSite ).toHaveBeenCalledExactlyOnceWith(
+				'spacefast',
+				site.id,
+				space.id,
+				undefined
+			)
+		);
+		expect(
+			await screen.findByRole( 'button', { name: 'lente.space.fast' }, { timeout: 4000 } )
+		).toBeVisible();
+		expect( screen.queryByText( 'Some features may not work' ) ).not.toBeInTheDocument();
+		expect(
+			await screen.findByRole( 'button', { name: 'Publish…' }, { timeout: 4000 } )
+		).toBeVisible();
+		expect( localStorage.getItem( 'studio-last-publish-provider' ) ).toBe( 'spacefast' );
+	}
+);
+
+it( 'opens a preview from its submenu without copying the link', async () => {
+	const { user, connector } = setup();
+	await open();
+	const actions = await openPreviewActions( user, 'Preview 1' );
+	await user.click( within( actions ).getByRole( 'menuitem', { name: 'Open preview' } ) );
+	expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith( preview.shareUrl );
+	expect( connector.copyText ).not.toHaveBeenCalled();
+} );
+
+it.each( [ 'selected', 'only' ] )(
+	'removes the %s Spacefast connection only after confirmation',
+	async ( state ) => {
+		let removed = false;
+		const { connector, user } = setup( {
+			getRemoteSites: async ( provider ) =>
+				provider === 'wpcom' ? ( state === 'only' ? [] : [ live ] ) : removed ? [] : [ space ],
+			getSnapshots: async () => [],
+			disconnectRemoteSite: async () => {
+				removed = true;
+			},
+		} );
+		await open();
+		if ( state === 'selected' ) {
+			await switchTo( 'lente.space.fast' );
+			await screen.findByRole( 'button', { name: 'lente.space.fast' } );
+		}
+		const showConfirmation = async () => {
+			const menu = await mainMenu();
+			await user.click( within( menu ).getByRole( 'menuitem', { name: 'Disconnect site' } ) );
+			return screen.findByRole( 'alertdialog', { name: 'Disconnect site?' } );
+		};
+		const cancelled = await showConfirmation();
+		expect( cancelled ).toHaveTextContent(
+			`Remove ${ space.url } from WordPress Studio? The published site and your local WordPress won’t change.`
+		);
+		await waitFor( () =>
+			expect( within( cancelled ).getByRole( 'button', { name: 'Cancel' } ) ).toHaveFocus()
+		);
+		await user.click( within( cancelled ).getByRole( 'button', { name: 'Cancel' } ) );
+		await waitFor( () => expect( cancelled ).not.toBeInTheDocument() );
+		expect( connector.disconnectRemoteSite ).not.toHaveBeenCalled();
+
+		await open();
+		const confirmation = await showConfirmation();
+		await user.click( within( confirmation ).getByRole( 'button', { name: 'Disconnect site' } ) );
+		await waitFor( () => expect( confirmation ).not.toBeInTheDocument() );
+		expect( connector.disconnectRemoteSite ).toHaveBeenCalledExactlyOnceWith(
+			'spacefast',
+			site.id,
+			space.id
+		);
+		expect( connector.deleteSnapshot ).not.toHaveBeenCalled();
+
+		await open();
+		expect( screen.queryByRole( 'button', { name: 'lente.space.fast' } ) ).not.toBeInTheDocument();
+		if ( state === 'only' ) {
+			expect( await screen.findByRole( 'heading', { name: 'Share' } ) ).toBeVisible();
+		} else {
+			expect( await screen.findByRole( 'button', { name: 'lente.blog' } ) ).toBeVisible();
+		}
+	}
+);
+
+it( 'treats an upgraded preview as its published destination without duplicating it', async () => {
+	setup( {
+		getSnapshots: async () => [ { ...preview, atomicSiteId: live.id } ],
+		getRemoteSites: async ( provider ) => ( provider === 'wpcom' ? [ live ] : [] ),
+	} );
+	await open();
+	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
+	expect( screen.queryByRole( 'button', { name: 'Choose destination' } ) ).not.toBeInTheDocument();
+} );
+
+it( 'restores the default for an unavailable destination and changes help with selection', async () => {
+	localStorage.setItem( 'studio-last-publish-provider', 'unknown-provider' );
+	const { connector } = setup( { getRemoteSites: async () => [], getSnapshots: async () => [] } );
+	await open();
+	expect( screen.getByRole( 'button', { name: 'Create preview link' } ) ).toBeVisible();
+	fireEvent.click( screen.getByRole( 'button', { name: 'Destination' } ) );
+	const choice = await screen.findByRole( 'menuitemradio', {
+		name: /WordPress.com The full WordPress/,
+	} );
+	expect( choice ).toBeChecked();
+	fireEvent.click( screen.getByRole( 'menuitemradio', { name: /Spacefast A static/ } ) );
+	fireEvent.click( screen.getByRole( 'button', { name: 'Learn more' } ) );
+	expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith( 'https://spacefast.com' );
+	expect( connector.createRemoteSite ).not.toHaveBeenCalled();
+	fireEvent.click( screen.getByRole( 'button', { name: 'Destination' } ) );
+	fireEvent.click(
+		await screen.findByRole( 'menuitemradio', { name: /WordPress.com The full WordPress/ } )
+	);
+	expect( screen.getByRole( 'button', { name: 'Create preview link' } ) ).toBeVisible();
+	expect( screen.queryByText( 'The full WordPress, with a domain' ) ).not.toBeInTheDocument();
+	expect( screen.queryByText( 'Some features may not work' ) ).not.toBeInTheDocument();
+} );
+
+it( 'opens provider settings from the account prompt when no providers are connected', async () => {
+	const { connector, history } = setup( {
+		getAuthUser: async () => null,
+		getAiSettings: async () => aiSettings( 'wpcom', [] ),
+		getRemoteSites: async () => [],
+		getSnapshots: async () => [],
+	} );
+	fireEvent.click( await screen.findByRole( 'button', { name: 'Share…' } ) );
+	await screen.findByRole( 'dialog', { name: 'Share your WordPress' } );
+	expect( screen.getByRole( 'button', { name: 'Continue with WordPress.com' } ) ).toBeVisible();
+	expect( screen.queryByRole( 'button', { name: 'Destination' } ) ).not.toBeInTheDocument();
+	fireEvent.click( screen.getByRole( 'button', { name: 'Choose a different provider' } ) );
+	await waitFor( () => expect( history.location.search ).toContain( 'settings=providers' ) );
+	expect(
+		screen.queryByRole( 'dialog', { name: 'Share your WordPress' } )
+	).not.toBeInTheDocument();
+	expect( screen.queryByRole( 'button', { name: 'Destination' } ) ).not.toBeInTheDocument();
+	expect( connector.authenticate ).not.toHaveBeenCalled();
+	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
+} );
+it( 'defaults to the connected destination even when a disconnected provider was used last', async () => {
+	localStorage.setItem( 'studio-last-publish-provider', 'wpcom' );
+	const { history } = setup( {
+		getAuthUser: async () => null,
+		getAiSettings: async () => aiSettings( 'wpcom', [ 'spacefast' ] ),
+		getRemoteSites: async () => [],
+		getSnapshots: async () => [],
+	} );
+	await open();
+	expect( await screen.findByText( 'Spacefast' ) ).toBeVisible();
+	expect( screen.queryByText( 'A static copy of your pages' ) ).not.toBeInTheDocument();
+	expect( screen.getByRole( 'button', { name: 'Destination' } ) ).toBeVisible();
+	expect( screen.queryByText( 'WordPress.com' ) ).not.toBeInTheDocument();
+	expect( screen.queryByRole( 'button', { name: 'Create preview link' } ) ).not.toBeInTheDocument();
+	expect(
+		screen.queryByRole( 'dialog', { name: 'Share your WordPress' } )
+	).not.toBeInTheDocument();
+	fireEvent.click( screen.getByRole( 'button', { name: 'Destination' } ) );
+	expect( await screen.findByRole( 'menuitemradio', { name: /Spacefast/ } ) ).toBeChecked();
+	expect( screen.getAllByRole( 'menuitemradio' ) ).toHaveLength( 1 );
+	fireEvent.click( screen.getByRole( 'menuitem', { name: 'Connect more providers' } ) );
+	await waitFor( () => expect( history.location.search ).toContain( 'settings=providers' ) );
+} );
+
+it.each( [ false, true ] )(
+	'keeps first publish steady through creation and upload (with preview: %s)',
+	async ( withPreview ) => {
+		let connected = false;
+		let published = false;
+		let finishCreation!: ( value: typeof space ) => void;
+		const creation = new Promise< typeof space >( ( resolve ) => {
+			finishCreation = resolve;
+		} );
+		let finishUpload!: () => void;
+		const upload = new Promise< void >( ( resolve ) => {
+			finishUpload = resolve;
+		} );
+		const { connector, user } = setup( {
+			getRemoteSites: async ( provider ) =>
+				provider === 'spacefast' && connected
+					? [ { ...space, lastPushTimestamp: published ? space.lastPushTimestamp : null } ]
+					: [],
+			getSnapshots: async () => ( withPreview ? [ preview ] : [] ),
+			getSitePublishStatus: async () => ( { localChanged: ! published } ),
+			createRemoteSite: async () => {
+				const created = await creation;
+				connected = true;
+				return created;
+			},
+			pushSite: async () => {
+				await upload;
+				published = true;
+			},
+		} );
+		const panel = await open();
+		if ( withPreview ) {
+			await user.click(
+				await within( panel ).findByRole( 'button', { name: 'Choose publishing destination' } )
+			);
+			expect(
+				within( panel ).getByRole( 'button', { name: 'Continue on WordPress.com' } )
+			).toBeVisible();
+			await user.click( within( panel ).getByRole( 'button', { name: 'Back' } ) );
+			expect(
+				within( panel ).getByRole( 'button', { name: 'Open preview: Preview 1' } )
+			).toBeVisible();
+			await user.click(
+				within( panel ).getByRole( 'button', { name: 'Choose publishing destination' } )
+			);
+		}
+		await user.click( within( panel ).getByRole( 'button', { name: 'Destination' } ) );
+		await user.click( await screen.findByRole( 'menuitemradio', { name: /Spacefast A static/ } ) );
+		expect(
+			within( panel ).queryByText( 'Forms, comments, and search may not work on a static site.' )
+		).not.toBeInTheDocument();
+		const publish = within( panel ).getByRole( 'button', { name: 'Publish' } );
+		await waitFor( () => expect( publish ).toBeEnabled() );
+		await user.click( publish );
+		await waitFor( () =>
+			expect( connector.createRemoteSite ).toHaveBeenCalledExactlyOnceWith(
+				'spacefast',
+				site.id,
+				site.name,
+				'public'
+			)
+		);
+		expect( within( panel ).getByRole( 'button', { name: 'Publishing…' } ) ).toBeVisible();
+		finishCreation( space );
+		await waitFor( () =>
+			expect( connector.pushSite ).toHaveBeenCalledExactlyOnceWith(
+				'spacefast',
+				site.id,
+				space.id,
+				undefined
+			)
+		);
+		expect( within( panel ).getByRole( 'heading', { name: 'Share' } ) ).toBeVisible();
+		expect( within( panel ).getByRole( 'button', { name: 'Destination' } ) ).toBeDisabled();
+		expect( within( panel ).getByRole( 'button', { name: 'Publishing…' } ) ).toBeVisible();
+		expect(
+			within( panel ).queryByRole( 'button', { name: 'lente.space.fast' } )
+		).not.toBeInTheDocument();
+		expect(
+			within( panel ).queryByRole( 'button', { name: 'Manage domain' } )
+		).not.toBeInTheDocument();
+		finishUpload();
+		expect(
+			await within( panel ).findByRole( 'heading', { name: 'Publish' }, { timeout: 4000 } )
+		).toBeVisible();
+		expect( within( panel ).getByRole( 'button', { name: 'lente.space.fast' } ) ).toBeEnabled();
+		expect( within( panel ).getByRole( 'button', { name: 'Manage domain' } ) ).toBeEnabled();
+		expect(
+			within( panel ).queryByText( 'Forms, comments, and search may not work on a static site.' )
+		).not.toBeInTheDocument();
+		expect( within( panel ).queryByRole( 'button', { name: 'Previews' } ) ).not.toBeInTheDocument();
+	}
+);
+
+it( 'creates the first preview from the Previews menu on a published WordPress.com site', async () => {
+	let previews: Snapshot[] = [];
+	const { connector, user } = setup( {
+		getRemoteSites: async ( provider ) => ( provider === 'wpcom' ? [ live ] : [] ),
+		getSnapshots: async () => previews,
+		publishPreviewSite: async () => {
+			previews = [ preview ];
+			return { url: preview.url };
+		},
+	} );
+	const panel = await open();
+	expect(
+		within( panel ).queryByRole( 'button', { name: 'Create preview link' } )
+	).not.toBeInTheDocument();
+	expect( within( panel ).getByRole( 'button', { name: 'Previews' } ) ).toHaveAccessibleDescription(
+		'None'
+	);
+	const previewsSection = within( await openPreviews( user ) );
+	expect(
+		previewsSection.getByText( 'Anyone with the link can view the preview until it expires.' )
+	).toBeVisible();
+	const create = previewsSection.getByRole( 'menuitem', { name: 'Create preview link' } );
+	await waitFor( () => expect( create ).not.toHaveAttribute( 'aria-disabled', 'true' ) );
+	await user.click( create );
+	expect( await previewsSection.findByRole( 'menuitem', { name: 'Preview 1' } ) ).toBeVisible();
+	expect( within( panel ).getByRole( 'button', { name: 'Previews' } ) ).toHaveAccessibleDescription(
+		'1'
+	);
+	expect( within( panel ).getByRole( 'button', { name: 'lente.blog' } ) ).toBeVisible();
+	expect( connector.publishPreviewSite ).toHaveBeenCalledExactlyOnceWith(
+		site.id,
+		undefined,
+		undefined
+	);
+} );
+
+it( 'copies a published link briefly and still opens the site from its URL row', async () => {
+	const { connector } = setup( { getSitePublishStatus: async () => ( { localChanged: false } ) } );
+	await open();
+	await switchTo( 'lente.space.fast' );
+	const liveActions = within( screen.getByRole( 'group', { name: 'Published site actions' } ) );
+	fireEvent.click( await liveActions.findByRole( 'button', { name: 'Copy link' } ) );
+	await waitFor( () => expect( connector.copyText ).toHaveBeenCalledWith( space.url ) );
+	expect( await screen.findByRole( 'button', { name: 'Copied' } ) ).toBeVisible();
+	await liveActions.findByRole( 'button', { name: 'Copy link' }, { timeout: 3000 } );
+	fireEvent.click( screen.getByRole( 'button', { name: 'lente.space.fast' } ) );
+	expect( connector.openExternalUrl ).toHaveBeenCalledExactlyOnceWith( space.url );
+} );
+
+it( 'keeps the confirmed live state while destination metadata refreshes', async () => {
+	const { connector, queryClient } = setup( {
+		getRemoteSites: async ( provider ) => ( provider === 'wpcom' ? [ live ] : [] ),
+		getSnapshots: async () => [],
+	} );
+	await open();
+	await screen.findByText( 'Your latest changes are live.' );
+	let finish!: ( value: { localChanged: boolean } ) => void;
+	connector.getSitePublishStatus.mockImplementation(
+		() =>
+			new Promise( ( resolve ) => {
+				finish = resolve;
+			} )
+	);
+	act( () => {
+		queryClient.setQueryData( remoteSitesQueryKey( 'wpcom', site.id ), [
+			{ ...live, lastPushTimestamp: new Date( Date.now() + 1000 ).toISOString() },
+		] );
+	} );
+	await waitFor( () => expect( finish ).toBeDefined() );
+	expect( screen.getByText( 'Your latest changes are live.' ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'Copy link' } ) ).toBeVisible();
+	expect( screen.queryByRole( 'button', { name: 'Publish changes…' } ) ).not.toBeInTheDocument();
+	await act( async () => finish( { localChanged: false } ) );
+} );
+
+it.each( [ 'failed', 'pending' ] )(
+	'keeps a known destination publishable when another provider lookup is %s',
+	async ( state ) => {
+		const { connector, user } = setup( {
+			getRemoteSites: async ( provider ) => {
+				if ( provider === 'wpcom' ) return [ live ];
+				if ( state === 'pending' ) return new Promise( () => {} );
+				throw new Error( 'Provider unavailable' );
+			},
+			listAccountSites: async () => {
+				throw new Error( 'Account refresh failed' );
+			},
+			getSitePublishStatus: async () => ( { localChanged: true } ),
+			getSnapshots: async () => [],
+			pushSite: async () => new Promise( () => {} ),
+		} );
+		await open();
+		const publish = await screen.findByRole( 'button', { name: 'Publish changes…' } );
+		await waitFor( () => expect( publish ).toBeEnabled() );
+		expect( screen.queryByText( 'Could not check your connected sites.' ) ).not.toBeInTheDocument();
+		expect( screen.queryByText( /Couldn’t load your .* sites/ ) ).not.toBeInTheDocument();
+		await user.click( publish );
+		await confirmPublish();
+		await waitFor( () =>
+			expect( connector.pushSite ).toHaveBeenCalledWith(
+				'wpcom',
+				site.id,
+				live.id,
+				expect.any( Object )
+			)
+		);
+	}
+);
+
+it( 'retains a known destination after its saved connection refresh fails', async () => {
+	const { connector, queryClient } = setup( {
+		getRemoteSites: async ( provider ) => ( provider === 'wpcom' ? [ live ] : [] ),
+		getSnapshots: async () => [],
+		getSitePublishStatus: async () => ( { localChanged: true } ),
+	} );
+	await open();
+	await waitFor( () =>
+		expect( screen.getByRole( 'button', { name: 'Publish changes…' } ) ).toBeEnabled()
+	);
+	connector.getRemoteSites.mockRejectedValue( new Error( 'Refresh unavailable' ) );
+	await act( async () => {
+		await queryClient.invalidateQueries( { queryKey: remoteSitesQueryKey( 'wpcom', site.id ) } );
+	} );
+	expect( queryClient.getQueryState( remoteSitesQueryKey( 'wpcom', site.id ) )?.status ).toBe(
+		'error'
+	);
+	expect( screen.getByRole( 'button', { name: 'Publish changes…' } ) ).toBeEnabled();
+	expect( screen.getByRole( 'button', { name: 'lente.blog' } ) ).toBeVisible();
+	expect( screen.queryByText( /Couldn’t load your .* sites/ ) ).not.toBeInTheDocument();
+} );
+
+it( 'explains an unavailable destination and retries only that provider with visible progress', async () => {
+	const { connector, user } = setup( {
+		getRemoteSites: async ( provider ) => {
+			if ( provider === 'wpcom' ) throw new Error( 'Saved connections unavailable' );
+			return [];
+		},
+		getSnapshots: async () => [],
+		getSitePublishStatus: async () => ( { localChanged: true } ),
+	} );
+	await open();
+	const notice = await screen.findByRole( 'alert' );
+	expect( notice ).toHaveTextContent( 'Couldn’t load your WordPress.com sites' );
+	expect( notice ).toHaveTextContent(
+		'Try again to see where this WordPress is already connected.'
+	);
+	expect( screen.getByRole( 'button', { name: 'Create preview link' } ) ).toBeDisabled();
+	const otherProviderCalls = connector.getRemoteSites.mock.calls.filter(
+		( [ provider ] ) => provider === 'spacefast'
+	).length;
+	let finish!: ( sites: ( typeof live )[] ) => void;
+	connector.getRemoteSites.mockImplementation(
+		async () =>
+			new Promise( ( resolve ) => {
+				finish = resolve;
+			} )
+	);
+	await user.click( within( notice ).getByRole( 'button', { name: 'Try again' } ) );
+	expect( await within( notice ).findByRole( 'button', { name: 'Checking…' } ) ).toHaveAttribute(
+		'aria-disabled',
+		'true'
+	);
+	expect( notice ).toBeVisible();
+	await act( async () => finish( [ live ] ) );
+	await waitFor( () =>
+		expect( screen.getByRole( 'button', { name: 'Publish changes…' } ) ).toBeEnabled()
+	);
+	expect( screen.queryByText( /Couldn’t load your .* sites/ ) ).not.toBeInTheDocument();
+	expect(
+		connector.getRemoteSites.mock.calls.filter( ( [ provider ] ) => provider === 'spacefast' )
+	).toHaveLength( otherProviderCalls );
+} );
+
+it( 'holds publishing until the completed destination check returns', async () => {
+	const { connector } = setup( {
+		getRemoteSites: async ( provider ) => ( provider === 'spacefast' ? [ space ] : [] ),
+		getSnapshots: async () => [],
+		pushSite: async () => new Promise( () => {} ),
+	} );
+	await open();
+	fireEvent.click( await screen.findByRole( 'button', { name: 'Publish changes…' } ) );
+	await confirmPublish();
+	await screen.findByRole( 'button', { name: 'Publishing…' } );
+	expect( screen.getByText( 'Published just now' ) ).toBeVisible();
+	act( () =>
+		connector.emit( 'onSyncActivity', {
+			siteId: site.id,
+			activity: { kind: 'pending', direction: 'push', provider: 'spacefast' },
+		} )
+	);
+	expect( screen.getByText( 'Your changes will be live in a moment.' ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'Publishing…' } ) ).toBeVisible();
+	expect( screen.queryByLabelText( 'Local changes' ) ).not.toBeInTheDocument();
+	let finish!: ( value: { localChanged: boolean } ) => void;
+	connector.getSitePublishStatus.mockImplementation(
+		() =>
+			new Promise( ( resolve ) => {
+				finish = resolve;
+			} )
+	);
+	act( () =>
+		connector.emit( 'onSyncActivity', {
+			siteId: site.id,
+			activity: {
+				kind: 'success',
+				direction: 'push',
+				provider: 'spacefast',
+				remoteSiteId: space.id,
+			},
+		} )
+	);
+	await waitFor( () => expect( finish ).toBeDefined() );
+	expect( screen.getByText( 'Your changes will be live in a moment.' ) ).toBeVisible();
+	expect( screen.queryByRole( 'button', { name: 'Publish changes…' } ) ).not.toBeInTheDocument();
+	await act( async () => finish( { localChanged: false } ) );
+	await screen.findByText( 'Your latest changes are live.' );
+	expect( screen.getByRole( 'button', { name: 'Copy link' } ) ).toBeVisible();
+} );
+
+it( 'shows an actionable Publish changes button once publish checks finish', async () => {
+	let finish!: ( value: number ) => void;
+	setup( {
+		getRemoteSites: async ( provider ) => ( provider === 'wpcom' ? [ live ] : [] ),
+		getSnapshots: async () => [],
+		getSitePublishStatus: async () => ( { localChanged: true } ),
+		getDirectorySize: async () => new Promise( ( resolve ) => ( finish = resolve ) ),
+	} );
+	await open();
+	await waitFor( () => expect( finish ).toBeDefined() );
+	expect( screen.getByRole( 'button', { name: 'Checking…' } ) ).toBeVisible();
+	expect( screen.queryByRole( 'button', { name: 'Publish changes…' } ) ).not.toBeInTheDocument();
+	await act( async () => finish( 1 ) );
+	expect( await screen.findByRole( 'button', { name: 'Publish changes…' } ) ).toBeEnabled();
+} );
+
+it.each( [ 'wpcom', 'spacefast' ] as const )(
+	'shows the saved publish time for %s destinations',
+	async ( provider ) => {
+		setup( {
+			getRemoteSites: async ( id ) =>
+				id === provider
+					? [
+							{
+								...( provider === 'wpcom' ? live : space ),
+								lastPushTimestamp: new Date().toISOString(),
+							},
+					  ]
+					: [],
+			getSnapshots: async () => [],
+			getSitePublishStatus: async () => ( { localChanged: false } ),
+		} );
+		await open();
+		expect( await screen.findByText( 'Published just now' ) ).toBeVisible();
+		expect( await screen.findByText( 'Your latest changes are live.' ) ).toBeVisible();
+	}
+);
+
+it( 'publishes everything on the first WordPress.com push and then shows the checklist', async () => {
+	let lastPushTimestamp: string | null = null;
+	let finish!: () => void;
+	const { connector, queryClient, user } = setup( {
+		listAccountSites: async ( provider ) =>
+			provider === 'wpcom' ? [ { ...live, launchStatus: 'unlaunched' } ] : [],
+		getRemoteSites: async ( provider ) =>
+			provider === 'wpcom'
+				? [ { ...live, lastPushTimestamp, launchAfterPush: true, launchStatus: 'unlaunched' } ]
+				: [],
+		getSnapshots: async () => [],
+		getSitePublishStatus: async () => ( { localChanged: false } ),
+		pushSite: async () => {
+			await new Promise< void >( ( resolve ) => ( finish = resolve ) );
+			lastPushTimestamp = live.lastPushTimestamp;
+		},
+	} );
+	queryClient.setQueryData( [ 'publish-selection', site.id, 'wpcom', live.id, 'push' ], {
+		scope: 'files',
+		nodes: [],
+		content: false,
+	} );
+	await open();
+	expect( await screen.findByText( 'Not published yet' ) ).toBeVisible();
+	expect( screen.getByText( 'Publish your WordPress when you’re ready.' ) ).toBeVisible();
+	expect( screen.getByLabelText( 'Local changes' ) ).toBeVisible();
+	expect( screen.queryByRole( 'button', { name: 'What to publish' } ) ).not.toBeInTheDocument();
+	const publish = screen.getByRole( 'button', { name: 'Publish' } );
+	await waitFor( () => expect( publish ).toBeEnabled() );
+	await user.click( publish );
+	expect( await screen.findByRole( 'button', { name: 'Publishing…' } ) ).toBeVisible();
+	expect( connector.pushSite ).toHaveBeenCalledExactlyOnceWith( 'wpcom', site.id, live.id, {
+		optionsToSync: [ 'all' ],
+	} );
+	await act( async () => finish() );
+	act( () =>
+		connector.emit( 'onSyncActivity', {
+			siteId: site.id,
+			activity: { kind: 'success', direction: 'push', provider: 'wpcom', remoteSiteId: live.id },
+		} )
+	);
+	expect( await screen.findByRole( 'button', { name: 'What to publish' } ) ).toBeVisible();
+	expect( await screen.findByRole( 'button', { name: 'Copy link' } ) ).toBeVisible();
+	expect( screen.queryByLabelText( 'Local changes' ) ).not.toBeInTheDocument();
+} );
+
+it( 'uses a neutral state for a destination with no transfer history', async () => {
+	let lastPushTimestamp: string | null = null;
+	let finish!: () => void;
+	const { connector, user } = setup( {
+		getRemoteSites: async ( provider ) =>
+			provider === 'spacefast' ? [ { ...space, lastPushTimestamp } ] : [],
+		listAccountSites: async () => [],
+		getSnapshots: async () => [],
+		getSitePublishStatus: async () => ( { localChanged: lastPushTimestamp ? true : null } ),
+		pushSite: async () => {
+			await new Promise< void >( ( resolve ) => ( finish = resolve ) );
+			lastPushTimestamp = space.lastPushTimestamp;
+		},
+	} );
+	const panel = await open();
+	expect(
+		await within( panel ).findByText( 'Publish changes to this site from WordPress Studio.' )
+	).toBeVisible();
+	expect( within( panel ).queryByText( 'Not published yet' ) ).not.toBeInTheDocument();
+	expect( screen.queryByLabelText( 'Local changes' ) ).not.toBeInTheDocument();
+	await user.click( within( panel ).getByRole( 'button', { name: 'Publish changes…' } ) );
+	await confirmPublish();
+	expect( await screen.findByRole( 'button', { name: 'Publishing…' } ) ).toBeVisible();
+	expect( connector.pushSite ).toHaveBeenCalledExactlyOnceWith(
+		'spacefast',
+		site.id,
+		space.id,
+		undefined
+	);
+	await act( async () => finish() );
+	act( () =>
+		connector.emit( 'onSyncActivity', {
+			siteId: site.id,
+			activity: {
+				kind: 'success',
+				direction: 'push',
+				provider: 'spacefast',
+				remoteSiteId: space.id,
+			},
+		} )
+	);
+	expect( await screen.findByRole( 'button', { name: 'Publish changes…' } ) ).toBeVisible();
+} );
+
+it( 'hides the publish-time line when no timestamp was saved', async () => {
+	setup( {
+		getRemoteSites: async ( provider ) =>
+			provider === 'wpcom' ? [ { ...live, lastPushTimestamp: '' } ] : [],
+		getSnapshots: async () => [],
+	} );
+	await open();
+	await screen.findByText( 'Your latest changes are live.' );
+	expect( screen.queryByText( 'Not published yet' ) ).not.toBeInTheDocument();
+	expect( document.querySelector( 'time' ) ).not.toBeInTheDocument();
+} );
+
+it.each( [ false, true ] )(
+	'uses the comparison after pulling an existing site before its first push: %s',
+	async ( localChanged ) => {
+		setup( {
+			getRemoteSites: async ( provider ) =>
+				provider === 'wpcom'
+					? [ { ...live, lastPushTimestamp: null, lastPullTimestamp: new Date().toISOString() } ]
+					: [],
+			getSnapshots: async () => [],
+			getSitePublishStatus: async () => ( { localChanged } ),
+		} );
+		const panel = await open();
+		expect(
+			await within( panel ).findByText(
+				localChanged ? "You have changes that aren't live yet." : 'Your latest changes are live.'
+			)
+		).toBeVisible();
+		expect(
+			within( panel ).getByRole( 'button', {
+				name: localChanged ? 'Publish changes…' : 'Copy link',
+			} )
+		).toBeVisible();
+		expect( screen.queryByText( 'Not published yet' ) ).not.toBeInTheDocument();
+		expect( document.querySelector( 'time' ) ).not.toBeInTheDocument();
+		if ( localChanged ) {
+			expect( screen.getByLabelText( 'Local changes' ) ).toBeVisible();
+		} else {
+			expect( screen.queryByLabelText( 'Local changes' ) ).not.toBeInTheDocument();
+		}
+	}
+);
+
+it( 'hides the connect-more action when all publishing providers are connected', async () => {
+	const { user } = setup( { getRemoteSites: async () => [], getSnapshots: async () => [] } );
+	const panel = await open();
+	expect( within( panel ).getByRole( 'button', { name: 'Create preview link' } ) ).toBeVisible();
+	await user.click( within( panel ).getByRole( 'button', { name: 'More options' } ) );
+	const menuItems = await screen.findAllByRole( 'menuitem' );
+	expect( menuItems ).toHaveLength( 2 );
+	expect( menuItems[ 0 ] ).toHaveAccessibleName( 'New preview' );
+	expect( menuItems[ 1 ] ).toHaveAccessibleName( 'Connect existing site' );
+	await user.keyboard( '{Escape}' );
+	fireEvent.click( await screen.findByRole( 'button', { name: 'Destination' } ) );
+	const menu = await screen.findByRole( 'menu', { name: 'Where to publish' } );
+	expect( within( menu ).getAllByRole( 'menuitemradio' ) ).toHaveLength( 2 );
+	expect(
+		within( menu ).queryByRole( 'menuitem', { name: 'Connect more providers' } )
+	).not.toBeInTheDocument();
+	expect( within( menu ).queryByRole( 'separator' ) ).not.toBeInTheDocument();
+} );
+
+it.each( [ false, true ] )(
+	'connects an existing live site without transferring when a preview exists: %s',
+	async ( hasPreview ) => {
+		let connected = false;
+		const destination = { ...live, lastPushTimestamp: null };
+		const { connector, user } = setup( {
+			getSnapshots: async () => ( hasPreview ? [ preview ] : [] ),
+			getRemoteSites: async ( provider ) =>
+				provider === 'wpcom' && connected ? [ destination ] : [],
+			listAccountSites: async ( provider ) => ( provider === 'wpcom' ? [ destination ] : [] ),
+			getSitePublishStatus: async () => ( { localChanged: null } ),
+			connectRemoteSite: async () => {
+				connected = true;
+			},
+		} );
+		await open();
+		const menu = await mainMenu();
+		await user.click( within( menu ).getByRole( 'menuitem', { name: 'Connect existing site' } ) );
+		const dialog = await screen.findByRole( 'dialog', { name: 'Choose an existing site' } );
+		await user.click( await within( dialog ).findByRole( 'button', { name: /Live.*lente.blog/ } ) );
+		expect( await screen.findByRole( 'button', { name: 'Publish changes…' } ) ).toBeVisible();
+		expect(
+			screen.getByText(
+				'Publish changes to this site, or bring its content into WordPress Studio.'
+			)
+		).toBeVisible();
+		expect( screen.queryByText( 'Not published yet' ) ).not.toBeInTheDocument();
+		expect( screen.queryByLabelText( 'Local changes' ) ).not.toBeInTheDocument();
+		expect( connector.connectRemoteSite ).toHaveBeenCalledExactlyOnceWith(
+			'wpcom',
+			site.id,
+			destination
+		);
+		expect( connector.pushSite ).not.toHaveBeenCalled();
+		expect( connector.pullSite ).not.toHaveBeenCalled();
+	}
+);
+
+it( 'preserves selective publishing on the first push to an existing live site', async () => {
+	const destination = { ...live, lastPushTimestamp: null };
+	const { connector, user } = setup( {
+		getRemoteSites: async ( provider ) => ( provider === 'wpcom' ? [ destination ] : [] ),
+		listAccountSites: async ( provider ) => ( provider === 'wpcom' ? [ destination ] : [] ),
+		getSitePublishStatus: async () => ( { localChanged: null } ),
+	} );
+	await open();
+	const warning = /Publishing the database replaces/;
+	expect( screen.queryByText( warning ) ).not.toBeInTheDocument();
+	await user.click( await screen.findByRole( 'button', { name: 'Publish changes…' } ) );
+	const all = await screen.findByRole( 'alertdialog', { name: 'Publish changes?' } );
+	expect( all ).toHaveTextContent( 'Publish to lente.blog.' );
+	expect( all ).toHaveTextContent( 'What to publish: Everything' );
+	expect( within( all ).getByText( warning ) ).toBeVisible();
+	await user.click( within( all ).getByRole( 'button', { name: 'Cancel' } ) );
+	expect( connector.pushSite ).not.toHaveBeenCalled();
+	await user.click( await screen.findByRole( 'button', { name: 'What to publish' } ) );
+	await user.click( await screen.findByRole( 'checkbox', { name: /Database/ } ) );
+	await user.keyboard( '{Escape}' );
+	await user.click( screen.getByRole( 'button', { name: 'Publish changes…' } ) );
+	const files = await screen.findByRole( 'alertdialog', { name: 'Publish changes?' } );
+	expect( files ).toHaveTextContent( 'What to publish: Files only' );
+	expect( within( files ).queryByText( warning ) ).not.toBeInTheDocument();
+	await confirmPublish();
+	expect( connector.pushSite ).toHaveBeenCalledWith(
+		'wpcom',
+		site.id,
+		live.id,
+		expect.objectContaining( {
+			optionsToSync: expect.not.arrayContaining( [ 'all' ] ),
+		} )
+	);
+	expect( connector.pushSite.mock.calls[ 0 ][ 3 ]?.optionsToSync ).not.toContain( 'sqls' );
+} );
+
+it( 'waits for the exact pull destination requested before connections load', async () => {
+	const destination = { ...live, id: 43, url: 'https://staging.lente.blog' };
+	let resolveConnections!: ( sites: ( typeof live )[] ) => void;
+	const connections = new Promise< ( typeof live )[] >( ( resolve ) => {
+		resolveConnections = resolve;
+	} );
+	const { connector, user } = setup( {
+		getRemoteSites: async ( provider ) => ( provider === 'wpcom' ? connections : [ space ] ),
+		listAccountSites: async ( provider ) =>
+			provider === 'wpcom' ? [ live, destination ] : [ space ],
+	} );
+	act( () =>
+		requestHeaderPanel( {
+			panel: 'publish',
+			siteId: site.id,
+			view: 'pull',
+			provider: 'wpcom',
+			remoteSiteId: destination.id,
+		} )
+	);
+	expect( screen.queryByRole( 'alertdialog' ) ).not.toBeInTheDocument();
+	await act( async () => resolveConnections( [ live, destination ] ) );
+	const dialog = await screen.findByRole( 'alertdialog', { name: 'Pull from live site?' } );
+	expect( dialog ).toHaveTextContent( 'Pull from staging.lente.blog.' );
+	await user.click( within( dialog ).getByRole( 'button', { name: 'Pull changes' } ) );
+	expect( connector.pullSite ).toHaveBeenCalledWith(
+		'wpcom',
+		site.id,
+		destination.id,
+		expect.anything()
+	);
+} );
+
+it( 'chooses a live site before creating a preview when several sites qualify', async () => {
+	const another = { ...live, id: 43, name: 'Another live site', url: 'https://other.blog' };
+	const { connector, user } = setup( {
+		getRemoteSites: async ( provider ) => ( provider === 'wpcom' ? [ live, another ] : [] ),
+		listAccountSites: async ( provider ) => ( provider === 'wpcom' ? [ live, another ] : [] ),
+	} );
+	await open();
+	await openPreviews( user );
+	await user.click( await screen.findByRole( 'menuitem', { name: 'New preview' } ) );
+	const dialog = await screen.findByRole( 'dialog', { name: 'Live site' } );
+	const select = within( dialog ).getByRole( 'combobox', { name: 'Live site' } );
+	expect( select ).toHaveTextContent( 'None' );
+	expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
+	await user.click( select );
+	await user.click( await screen.findByRole( 'option', { name: 'Another live site' } ) );
+	await user.click( within( dialog ).getByRole( 'button', { name: 'Create preview link' } ) );
+	await waitFor( () =>
+		expect( connector.publishPreviewSite ).toHaveBeenCalledExactlyOnceWith(
+			site.id,
+			undefined,
+			undefined,
+			'43'
+		)
+	);
+} );
+
+it( 'chooses files in a modal, preserves Database, and discards unfinished edits', async () => {
+	let readDelay = 0;
+	const { connector, user } = setup( {
+		getSitePublishStatus: async () => ( { localChanged: true } ),
+		listLocalFileTree: async () => {
+			await new Promise( ( resolve ) => setTimeout( resolve, readDelay ) );
+			return [
+				{
+					name: 'themes',
+					path: 'wp-content/themes',
+					isDirectory: true,
+					children: [
+						{ name: 'style.css', path: 'wp-content/themes/site/style.css', isDirectory: false },
+						{ name: 'theme.json', path: 'wp-content/themes/site/theme.json', isDirectory: false },
+					],
+				},
+			];
+		},
+	} );
+	await open();
+	await user.click( screen.getByRole( 'button', { name: 'What to publish' } ) );
+	const database = await screen.findByRole( 'checkbox', {
+		name: 'Database Posts, pages, and settings',
+	} );
+	await waitFor( () => expect( database ).toBeEnabled() );
+	await user.click( database );
+	const openFiles = async () => {
+		if ( ! screen.queryByRole( 'button', { name: 'Choose specific files' } ) ) {
+			await user.click( screen.getByRole( 'button', { name: 'What to publish' } ) );
+		}
+		const chooseFiles = await screen.findByRole( 'button', { name: 'Choose specific files' } );
+		await waitFor( () => expect( chooseFiles ).toBeEnabled() );
+		// The dialog lists the files it already knows while it reads them again.
+		readDelay = 200;
+		await user.click( chooseFiles );
+		readDelay = 0;
+		const view = await screen.findByRole( 'dialog', { name: 'Choose files' } );
+		expect( screen.queryByRole( 'dialog', { name: 'Publish' } ) ).not.toBeInTheDocument();
+		expect(
+			within( view ).queryByRole( 'checkbox', { name: 'Content and settings' } )
+		).not.toBeInTheDocument();
+		await user.click( within( view ).getByRole( 'button', { name: 'Expand themes' } ) );
+		return view;
+	};
+	let dialog = await openFiles();
+	await user.click( await within( dialog ).findByRole( 'checkbox', { name: 'theme.json' } ) );
+	await user.click( within( dialog ).getByRole( 'button', { name: 'Done' } ) );
+	await waitFor( () =>
+		expect( screen.getByRole( 'button', { name: 'What to publish' } ) ).toHaveFocus()
+	);
+	await user.click( screen.getByRole( 'button', { name: 'What to publish' } ) );
+	expect(
+		screen.getByRole( 'checkbox', { name: 'Database Posts, pages, and settings' } )
+	).not.toBeChecked();
+	expect( screen.getByRole( 'checkbox', { name: 'Themes' } ) ).toBePartiallyChecked();
+	expect( connector.pushSite ).not.toHaveBeenCalled();
+	dialog = await openFiles();
+	await user.click( await within( dialog ).findByRole( 'checkbox', { name: 'theme.json' } ) );
+	await user.click( within( dialog ).getByRole( 'button', { name: 'Close' } ) );
+	dialog = await openFiles();
+	expect(
+		await within( dialog ).findByRole( 'checkbox', { name: 'theme.json' } )
+	).not.toBeChecked();
+	await user.click( await within( dialog ).findByRole( 'checkbox', { name: 'style.css' } ) );
+	expect( within( dialog ).getByRole( 'button', { name: 'Done' } ) ).toBeDisabled();
+	await user.click( await within( dialog ).findByRole( 'checkbox', { name: 'theme.json' } ) );
+	await user.keyboard( '{Escape}' );
+	await user.click( await screen.findByRole( 'button', { name: 'Publish changes…' } ) );
+	await confirmPublish();
+	await waitFor( () =>
+		expect( connector.pushSite ).toHaveBeenCalledExactlyOnceWith( 'wpcom', site.id, live.id, {
+			optionsToSync: [ 'themes' ],
+			specificSelectionPaths: [ 'themes/site/style.css' ],
+		} )
+	);
+} );
+
+it( 'shows which live site a preview represents and warns before publishing newer changes', async () => {
+	const linked = { ...preview, liveSiteId: live.id, versionId: 'old-version' };
+	const { connector, user } = setup( {
+		getSnapshots: async () => [ linked ],
+		getSitePublishStatus: async () => ( { localChanged: true } ),
+		getPreviewStatus: async () => ( {
+			localSiteId: site.id,
+			localChanged: true,
+			previewChanged: false,
+		} ),
+	} );
+	await open();
+	await openPreviews( user );
+	expect( await screen.findByText( /Changes to Live · Expires/ ) ).toBeVisible();
+	await user.keyboard( '{Escape}' );
+	await user.click( screen.getByRole( 'button', { name: 'Publish changes…' } ) );
+	const dialog = await screen.findByRole( 'alertdialog', { name: 'Publish changes?' } );
+	expect(
+		await within( dialog ).findByText( /including changes not shown in that preview/ )
+	).toBeVisible();
+	expect( connector.pushSite ).not.toHaveBeenCalled();
+} );
+
+it( 'retries a delayed checkout connection without reopening the browser', async () => {
+	let connected = false;
+	const destination = {
+		...live,
+		lastPushTimestamp: null,
+		launchAfterPush: true,
+		launchStatus: 'unlaunched' as const,
+	};
+	const { connector, user } = setup( {
+		getRemoteSites: async ( provider ) =>
+			provider === 'wpcom' && connected ? [ destination ] : [],
+		listAccountSites: async () => [],
+		connectRemoteSite: async () => {
+			connected = true;
+		},
+	} );
+	await open();
+	await user.click( screen.getByRole( 'button', { name: 'Who can view' } ) );
+	await user.click( await screen.findByRole( 'menuitemradio', { name: 'Everyone' } ) );
+	await user.click( screen.getByRole( 'button', { name: 'Continue on WordPress.com' } ) );
+	await waitFor( () => expect( connector.openExternalUrl ).toHaveBeenCalledTimes( 1 ) );
+	act( () =>
+		connector.emit( 'onSyncConnectSite', {
+			studioSiteId: site.id,
+			remoteSiteId: live.id,
+			autoOpenPush: true,
+		} )
+	);
+	const retry = await screen.findByRole( 'button', { name: 'Try again' } );
+	connector.listAccountSites.mockResolvedValue( [ destination ] );
+	await user.click( retry );
+	expect( await screen.findByRole( 'button', { name: 'Publish' } ) ).toBeVisible();
+	expect( connector.openExternalUrl ).toHaveBeenCalledTimes( 1 );
+	expect( connector.pushSite ).not.toHaveBeenCalled();
+} );
+
+it( 'uses the shared visibility picker with Spacefast options and saves restricted access', async () => {
+	const { user, connector } = setup( {
+		setSiteVisibility: async () => ( { visibility: 'private', url: space.url } ),
+	} );
+	await open();
+	await switchTo( 'lente.space.fast' );
+	await user.click( screen.getByRole( 'button', { name: 'Who can view' } ) );
+	expect( await screen.findByRole( 'menuitemradio', { name: 'Everyone' } ) ).toBeChecked();
+	expect( screen.getByRole( 'menuitemradio', { name: 'Restricted' } ) ).toHaveAccessibleDescription(
+		'Your team and people you give access to'
+	);
+	expect( screen.queryByText( 'Visitors see a coming soon page' ) ).not.toBeInTheDocument();
+	await user.click( screen.getByRole( 'menuitem', { name: 'Manage on Spacefast' } ) );
+	expect( connector.openExternalUrl ).toHaveBeenCalledWith(
+		'https://my.spacefast.com/studio/lente/access'
+	);
+	await user.click( screen.getByRole( 'button', { name: 'Who can view' } ) );
+	await user.click( await screen.findByRole( 'menuitemradio', { name: 'Restricted' } ) );
+	await waitFor( () =>
+		expect( connector.setSiteVisibility ).toHaveBeenCalledWith( 'spacefast', space.id, 'private' )
+	);
+	await waitFor( () =>
+		expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toHaveAccessibleDescription(
+			'Restricted'
+		)
+	);
+} );
+
+it( 'disables unsupported access changes but leaves provider management available', async () => {
+	const { user } = setup( {
+		getSiteVisibility: async ( provider ) => ( {
+			visibility: 'unknown',
+			url: provider === 'spacefast' ? space.url : live.url,
+			availableValues: [],
+			message: 'Manage these access rules on Spacefast.',
+		} ),
+	} );
+	await open();
+	await switchTo( 'lente.space.fast' );
+	await user.click( screen.getByRole( 'button', { name: 'Who can view' } ) );
+	for ( const option of await screen.findAllByRole( 'menuitemradio' ) )
+		expect( option ).toHaveAttribute( 'aria-disabled', 'true' );
+	expect( screen.getByRole( 'menuitem', { name: 'Manage on Spacefast' } ) ).not.toHaveAttribute(
+		'aria-disabled',
+		'true'
+	);
+} );
+
+it( 'opens the selected provider domain settings from the published panel', async () => {
+	const { user, connector } = setup();
+	await open();
+	expect( screen.queryByRole( 'button', { name: 'Manage domain' } ) ).not.toBeInTheDocument();
+	await switchTo( 'lente.space.fast' );
+	await user.click( await screen.findByRole( 'button', { name: 'Manage domain' } ) );
+	expect( connector.openExternalUrl ).toHaveBeenCalledWith(
+		'https://my.spacefast.com/studio/lente/domains'
+	);
+} );
+
+it( 'offers publishing again from the current-site description', async () => {
+	const { user } = setup();
+	await open();
+	await user.click( await screen.findByRole( 'button', { name: 'Publish again…' } ) );
+	expect( await screen.findByRole( 'alertdialog', { name: 'Publish again?' } ) ).toBeVisible();
+} );
+
+it( 'keeps preview creation available during a background availability refresh', async () => {
+	const { connector, queryClient } = setup( {
+		getSnapshots: async () => [],
+		getRemoteSites: async () => [],
+	} );
+	await open();
+	const button = await screen.findByRole( 'button', { name: 'Create preview link' } );
+	await waitFor( () => expect( button ).toBeEnabled() );
+	connector.getSnapshotUsage.mockImplementationOnce( () => new Promise( () => {} ) );
+	act( () => {
+		void queryClient.invalidateQueries( { queryKey: SNAPSHOT_USAGE_QUERY_KEY } );
+	} );
+	await waitFor( () =>
+		expect( queryClient.isFetching( { queryKey: SNAPSHOT_USAGE_QUERY_KEY } ) ).toBeGreaterThan( 0 )
+	);
+	expect( button ).toBeEnabled();
+} );
+
+it.each( [ 1, 2 ] )(
+	'shows the preview selector only for multiple previews (%s)',
+	async ( count ) => {
+		setup( {
+			getRemoteSites: async () => [],
+			getSnapshots: async () =>
+				count === 1
+					? [ preview ]
+					: [ preview, { ...preview, atomicSiteId: 456, url: 'second.wpcomstaging.com' } ],
+		} );
+		await open();
+		expect( !! screen.queryByRole( 'button', { name: 'Choose destination' } ) ).toBe( count > 1 );
+		expect( !! screen.queryByRole( 'heading', { name: 'Previews' } ) ).toBe( count > 1 );
+		const menu = await mainMenu();
+		expect( within( menu ).getByRole( 'menuitem', { name: 'New preview' } ) ).toBeEnabled();
+	}
+);
+
+it( 'shows a skeleton preview selector while creating a second preview', async () => {
+	const { user } = setup( {
+		getRemoteSites: async () => [],
+		publishPreviewSite: () => new Promise( () => {} ),
+	} );
+	await open();
+	expect( screen.queryByRole( 'button', { name: 'Choose destination' } ) ).not.toBeInTheDocument();
+	const menu = await mainMenu();
+	await user.click( within( menu ).getByRole( 'menuitem', { name: 'New preview' } ) );
+	expect( await screen.findByRole( 'heading', { name: 'Previews' } ) ).toBeVisible();
+	const selector = screen.getByRole( 'button', { name: 'Choose destination' } );
+	expect( selector ).toBeDisabled();
+	expect( selector ).toHaveAttribute( 'aria-busy', 'true' );
+} );
+
+it( 'searches existing sites and explains unavailable destinations in the shared picker', async () => {
+	const unavailable = {
+		...live,
+		id: 99,
+		name: 'Unavailable blog',
+		syncSupport: 'missing-permissions' as const,
+	};
+	const { user, connector } = setup( {
+		getRemoteSites: async () => [],
+		getSnapshots: async () => [],
+		listAccountSites: async ( provider ) => ( provider === 'wpcom' ? [ live, unavailable ] : [] ),
+	} );
+	await open();
+	const menu = await mainMenu();
+	await user.click( within( menu ).getByRole( 'menuitem', { name: 'Connect existing site' } ) );
+	const dialog = await screen.findByRole( 'dialog', { name: 'Choose an existing site' } );
+	expect(
+		await within( dialog ).findByRole( 'button', { name: /Unavailable blog/ } )
+	).toBeDisabled();
+	await user.type(
+		within( dialog ).getByRole( 'searchbox', { name: 'Search sites' } ),
+		'Unavailable'
+	);
+	expect( within( dialog ).queryByRole( 'button', { name: /^Live / } ) ).not.toBeInTheDocument();
+	expect( within( dialog ).getByRole( 'heading', { name: 'Unavailable' } ) ).toBeVisible();
+	expect( connector.connectRemoteSite ).not.toHaveBeenCalled();
+} );
+
+it( 'finds and connects a Space from a WordPress.com preview', async () => {
+	const linkedSpace = {
+		...space,
+		id: 'spc_linked',
+		name: 'Already connected',
+		url: 'https://linked.space.fast',
+		localSiteId: 'other-local-site',
+	};
+	const { user, connector } = setup( {
+		getRemoteSites: async ( provider, localSiteId ) =>
+			provider === 'spacefast' && ! localSiteId ? [ linkedSpace ] : [],
+		listAccountSites: async ( provider ) =>
+			provider === 'wpcom' ? [ live ] : [ space, linkedSpace ],
+		connectRemoteSite: async () => {
+			connector.getRemoteSites.mockImplementation( async ( provider, localSiteId ) =>
+				provider === 'spacefast' ? ( localSiteId ? [ space ] : [ space, linkedSpace ] ) : []
+			);
+		},
+	} );
+	const panel = await open();
+	expect(
+		await within( panel ).findByRole( 'button', { name: 'Open preview: Preview 1' } )
+	).toBeVisible();
+	const menu = await mainMenu();
+	await user.click( within( menu ).getByRole( 'menuitem', { name: 'Connect existing site' } ) );
+	const dialog = within( await screen.findByRole( 'dialog', { name: 'Choose an existing site' } ) );
+	const wpcomRow = await dialog.findByRole( 'button', { name: /Live.*lente.blog/ } );
+	const spacefastRow = await dialog.findByRole( 'button', { name: /Static.*lente.space.fast/ } );
+	expect( wpcomRow ).toHaveAccessibleDescription( 'WordPress.com' );
+	expect( spacefastRow ).toHaveAccessibleDescription( 'Spacefast' );
+	expect( spacefastRow ).toContainHTML( getProvider( 'spacefast' ).logo! );
+	expect( dialog.queryByRole( 'button', { name: /Already connected/ } ) ).not.toBeInTheDocument();
+	await user.type( dialog.getByRole( 'searchbox', { name: 'Search sites' } ), 'Spacefast' );
+	expect( wpcomRow ).not.toBeInTheDocument();
+	await user.click( spacefastRow );
+	expect( await screen.findByRole( 'button', { name: 'lente.space.fast' } ) ).toBeVisible();
+	expect( connector.connectRemoteSite ).toHaveBeenCalledExactlyOnceWith(
+		'spacefast',
+		site.id,
+		space
+	);
+	expect( connector.pushSite ).not.toHaveBeenCalled();
+	expect( connector.pullSite ).not.toHaveBeenCalled();
+} );
+
+it( 'keeps available sites selectable when another provider cannot load', async () => {
+	const { user } = setup( {
+		getRemoteSites: async () => [],
+		listAccountSites: async ( provider ) => {
+			if ( provider === 'spacefast' ) throw new Error( 'Provider unavailable' );
+			return [ live ];
+		},
+	} );
+	await open();
+	const menu = await mainMenu();
+	await user.click( within( menu ).getByRole( 'menuitem', { name: 'Connect existing site' } ) );
+	const dialog = within( await screen.findByRole( 'dialog', { name: 'Choose an existing site' } ) );
+	expect( await dialog.findByRole( 'alert' ) ).toHaveTextContent(
+		'Could not load Spacefast sites.'
+	);
+	expect( dialog.getByRole( 'button', { name: /Live.*lente.blog/ } ) ).toBeEnabled();
+} );

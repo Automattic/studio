@@ -4,7 +4,7 @@ import {
 	type ProviderSites,
 	type SitesProviderId,
 } from '@studio/providers';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
 import { useConnector } from '@/data/core';
 import { AI_SETTINGS_QUERY_KEY, useAiSettings } from '@/data/queries/use-ai-settings';
@@ -13,13 +13,42 @@ import {
 	ACCOUNT_SITES_QUERY_KEY,
 	REMOTE_SITES_QUERY_KEY,
 } from '@/data/queries/user-scoped-query-keys';
-import type { RemoteSiteConnection } from '@/data/core';
+import type { Connector, RemoteSiteConnection } from '@/data/core';
 
 export const remoteSitesQueryKey = ( provider: SitesProviderId, localSiteId?: string ) =>
 	[ ...REMOTE_SITES_QUERY_KEY, provider, localSiteId ?? null ] as const;
 
 export const accountSitesQueryKey = ( provider: SitesProviderId ) =>
 	[ ...ACCOUNT_SITES_QUERY_KEY, provider ] as const;
+
+export const publishTargetQueryKey = ( siteId: string ) => [ 'publish-target', siteId ] as const;
+
+export const remotePublishTargetKey = ( provider: SitesProviderId, id: string | number ) =>
+	`${ provider }:site:${ id }`;
+
+function accountSitesQuery< Id extends SitesProviderId >( connector: Connector, provider: Id ) {
+	return {
+		queryKey: accountSitesQueryKey( provider ),
+		queryFn: async () => ( await connector.listAccountSites( provider ) ) as ProviderSites[ Id ][],
+		staleTime: 5 * 60 * 1000,
+	};
+}
+
+function allRemoteConnectionsQuery( connector: Connector, provider: SitesProviderId ) {
+	return {
+		queryKey: remoteSitesQueryKey( provider ),
+		queryFn: () => connector.getRemoteSites( provider ),
+	};
+}
+
+function excludeConnectedSites< Site extends ProviderSites[ SitesProviderId ] >(
+	sites: Site[] | undefined,
+	connections: RemoteSiteConnection< SitesProviderId >[] | undefined
+) {
+	if ( ! sites ) return undefined;
+	const connectedIds = new Set( ( connections ?? [] ).map( ( site ) => site.id ) );
+	return sites.filter( ( site ) => ! connectedIds.has( site.id ) );
+}
 
 // The providers this app publishes to: one that publishes a static export needs the site to run
 // on native PHP.
@@ -75,13 +104,8 @@ export function useAccountSites< Id extends SitesProviderId >(
 	const queryClient = useQueryClient();
 	const connected = useProviderConnected( provider );
 	const query = useQuery( {
-		queryKey: accountSitesQueryKey( provider ),
-		queryFn: async () => ( await connector.listAccountSites( provider ) ) as ProviderSites[ Id ][],
+		...accountSitesQuery( connector, provider ),
 		enabled: ( options.enabled ?? true ) && !! connected,
-		// This query hits the network and the data doesn't change often.
-		// Keep it fresh for a few minutes so opening/closing the picker
-		// repeatedly doesn't spam the provider.
-		staleTime: 5 * 60 * 1000,
 	} );
 	// A provider that rejects its config forgets it, which disconnects the account.
 	const { error } = query;
@@ -102,18 +126,14 @@ export function usePickableSites< Id extends SitesProviderId >(
 	const account = useAccountSites( provider, options );
 	const providerConnected = useProviderConnected( provider );
 	const connected = useQuery( {
-		queryKey: remoteSitesQueryKey( provider ),
-		queryFn: () => connector.getRemoteSites( provider ),
+		...allRemoteConnectionsQuery( connector, provider ),
 		enabled: ( options.enabled ?? true ) && !! providerConnected,
 	} );
 
-	const data = useMemo< ProviderSites[ Id ][] | undefined >( () => {
-		if ( ! account.data ) {
-			return undefined;
-		}
-		const connectedIds = new Set( ( connected.data ?? [] ).map( ( site ) => site.id ) );
-		return account.data.filter( ( site ) => ! connectedIds.has( site.id ) );
-	}, [ account.data, connected.data ] );
+	const data = useMemo(
+		() => excludeConnectedSites( account.data, connected.data ),
+		[ account.data, connected.data ]
+	);
 
 	return {
 		data,
@@ -125,4 +145,41 @@ export function usePickableSites< Id extends SitesProviderId >(
 			void connected.refetch();
 		},
 	};
+}
+
+export function usePickableSitesByProvider( providers: SitesProviderId[] ) {
+	const connector = useConnector();
+	const client = useQueryClient();
+	const accounts = useQueries( {
+		queries: providers.map( ( provider ) => accountSitesQuery( connector, provider ) ),
+	} );
+	const connections = useQueries( {
+		queries: providers.map( ( provider ) => allRemoteConnectionsQuery( connector, provider ) ),
+	} );
+	const latestAccountError = Math.max(
+		0,
+		...accounts.map( ( account ) => account.errorUpdatedAt )
+	);
+	useEffect( () => {
+		if ( latestAccountError ) void client.invalidateQueries( { queryKey: AI_SETTINGS_QUERY_KEY } );
+	}, [ client, latestAccountError ] );
+
+	return providers.map( ( provider, index ) => {
+		const account = accounts[ index ];
+		const connected = connections[ index ];
+		return {
+			provider,
+			data:
+				account.isSuccess && connected.isSuccess
+					? excludeConnectedSites( account.data, connected.data ) ?? []
+					: [],
+			isLoading: account.isLoading || connected.isLoading,
+			isFetching: account.isFetching || connected.isFetching,
+			error: account.error ?? connected.error,
+			refetch: () => {
+				void account.refetch();
+				void connected.refetch();
+			},
+		};
+	} );
 }

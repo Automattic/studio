@@ -12,7 +12,7 @@ import {
 import { useUserPreferences } from '@/data/queries/use-user-preferences';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { getWebsiteThumbnailUrl, RelativeTime, SiteCard } from '@/features/site-card';
-import { ChevronRightIcon, PlusIcon } from '@/lib/icons';
+import { ChevronRightIcon } from '@/lib/icons';
 import { Button } from '@/lib/ui';
 import { PublishPanel } from './publish-panel';
 import {
@@ -41,7 +41,6 @@ type Screen =
 type Published = { provider: SitesProviderId; website: Website };
 
 const PUBLISH: PanelRequest = { view: 'publish' };
-const ADD: PanelRequest = { view: 'start' };
 
 export function usePublishTab( siteId: string ) {
 	const connector = useConnector();
@@ -137,19 +136,12 @@ export function usePublishTab( siteId: string ) {
 		),
 		showSite: ( provider: SitesProviderId, remoteSiteId: Website[ 'id' ] ) =>
 			setScreen( { kind: 'provider', provider, request: { view: 'publish', remoteSiteId } } ),
-		add: () =>
-			setScreen(
-				defaultHost ? { kind: 'provider', provider: defaultHost, request: ADD } : { kind: 'choose' }
-			),
-		reset: () => setScreen( undefined ),
 		chooseHost: () => setScreen( { kind: 'choose' } ),
-		// A provider's first connection shows as soon as it lands; with some already, the panel
-		// offers a new or existing site.
 		choose: ( provider: SitesProviderId ) =>
 			setScreen( {
 				kind: 'provider',
 				provider,
-				request: published.some( ( entry ) => entry.provider === provider ) ? ADD : PUBLISH,
+				request: PUBLISH,
 			} ),
 		back: () => setScreen( { kind: 'list' } ),
 	};
@@ -232,10 +224,6 @@ function PublishedSites( {
 					);
 				} ) }
 			</ul>
-			<Button variant="outline" className={ styles.add } onClick={ tab.add }>
-				<PlusIcon aria-hidden="true" />
-				{ __( 'Publish to another site…' ) }
-			</Button>
 		</PanelBody>
 	);
 }

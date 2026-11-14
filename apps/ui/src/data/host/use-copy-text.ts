@@ -6,9 +6,12 @@ import { useConnector } from '@/data/core';
 // Route through the connector (host clipboard) — the renderer's
 // `navigator.clipboard` is denied in the Electron desktop, which leaves a
 // direct copy silently failing and the button stuck on "Copy".
-export function useCopyText( text: string ): { copied: boolean; copy: () => void } {
+export function useCopyText(
+	text: string,
+	successMessage?: string
+): { copied: boolean; copy: () => void } {
 	const connector = useConnector();
-	const [ copied, setCopied ] = useState( false );
+	const [ copiedText, setCopiedText ] = useState< string >();
 	const resetTimer = useRef< ReturnType< typeof setTimeout > | null >( null );
 
 	useEffect( () => {
@@ -24,13 +27,14 @@ export function useCopyText( text: string ): { copied: boolean; copy: () => void
 			.copyText( text )
 			.then( () => {
 				dismissToast( 'clipboard-error' );
-				setCopied( true );
+				if ( successMessage ) toast.success( successMessage, { id: 'clipboard-success' } );
+				setCopiedText( text );
 				// Re-arm the reset on every click so copying again mid-"Copied"
 				// doesn't let the earlier timer flip the state back too soon.
 				if ( resetTimer.current ) {
 					clearTimeout( resetTimer.current );
 				}
-				resetTimer.current = setTimeout( () => setCopied( false ), 2000 );
+				resetTimer.current = setTimeout( () => setCopiedText( undefined ), 2000 );
 			} )
 			.catch( ( error ) => {
 				toast.error( __( 'Could not copy' ), {
@@ -38,7 +42,7 @@ export function useCopyText( text: string ): { copied: boolean; copy: () => void
 					description: errorMessage( error ),
 				} );
 			} );
-	}, [ connector, text ] );
+	}, [ connector, text, successMessage ] );
 
-	return { copied, copy };
+	return { copied: copiedText === text, copy };
 }

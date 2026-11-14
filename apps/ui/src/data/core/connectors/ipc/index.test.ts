@@ -135,6 +135,22 @@ describe( 'createIpcConnector Connect contracts', () => {
 		vi.stubGlobal( 'ipcListener', { subscribe } );
 	} );
 
+	it( 'reads and saves visibility through Electron', async () => {
+		const details = { visibility: 'coming-soon', url: 'https://example.blog' };
+		const getWpcomSiteVisibility = vi.fn();
+		const setWpcomSiteVisibility = vi.fn();
+		vi.stubGlobal( 'ipcApi', { getWpcomSiteVisibility, setWpcomSiteVisibility } );
+		getWpcomSiteVisibility.mockResolvedValue( details );
+		setWpcomSiteVisibility.mockResolvedValue( details );
+		const connector = createIpcConnector();
+		await expect( connector.getWpcomSiteVisibility( 42 ) ).resolves.toEqual( details );
+		await expect( connector.setWpcomSiteVisibility( 42, 'coming-soon' ) ).resolves.toEqual(
+			details
+		);
+		expect( getWpcomSiteVisibility ).toHaveBeenCalledWith( 42 );
+		expect( setWpcomSiteVisibility ).toHaveBeenCalledWith( 42, 'coming-soon' );
+	} );
+
 	afterEach( () => {
 		vi.unstubAllGlobals();
 	} );
@@ -296,6 +312,19 @@ it( 'passes the telemetry site lookup separately and tolerates recorder failures
 		await expect(
 			connector.trackEvent( 'studio_sync_push', { success: false }, 'operational-id' )
 		).resolves.toBeUndefined();
+	} finally {
+		vi.unstubAllGlobals();
+	}
+} );
+
+it( 'reads local publishing changes through the desktop bridge', async () => {
+	const getSitePublishStatus = vi.fn().mockResolvedValue( { localChanged: true } );
+	vi.stubGlobal( 'ipcApi', { getSitePublishStatus } );
+	try {
+		await expect( createIpcConnector().getSitePublishStatus( 'local', 42 ) ).resolves.toEqual( {
+			localChanged: true,
+		} );
+		expect( getSitePublishStatus ).toHaveBeenCalledWith( 'local', 42, undefined );
 	} finally {
 		vi.unstubAllGlobals();
 	}

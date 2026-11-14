@@ -1,20 +1,29 @@
 import { getSnapshotExpiry } from '@studio/common/lib/snapshots';
 import { __, sprintf } from '@wordpress/i18n';
-import { EllipsisIcon, RefreshCwIcon } from 'lucide-react';
 import { useEffect, useId, useRef, useState, type RefObject } from 'react';
 import { useConnector } from '@/data/core';
 import { useCopyText } from '@/data/host/use-copy-text';
 import { useRenameSnapshot } from '@/data/queries/use-snapshots';
 import { useUserLocale } from '@/data/queries/use-user-locale';
-import { getSnapshotAdminUrl, getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
+import { getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
 import { SiteCard, getWebsiteThumbnailUrl } from '@/features/site-card';
-import { DuplicateIcon, ExternalLinkIcon, PencilIcon, TrashIcon, WordPressIcon } from '@/lib/icons';
+import {
+	EllipsisVerticalIcon,
+	RotateCwIcon,
+	DuplicateIcon,
+	ExternalLinkIcon,
+	PencilIcon,
+	TrashIcon,
+} from '@/lib/icons';
 import {
 	Button,
 	IconButton,
 	Field,
 	FieldLabel,
 	Input,
+	InputGroup,
+	InputGroupInput,
+	InputGroupAddon,
 	Menu,
 	Spinner,
 	Select,
@@ -40,12 +49,11 @@ function PreviewLinkActions( {
 } ) {
 	const connector = useConnector();
 	const url = getSnapshotUrl( snapshot );
-	const adminUrl = getSnapshotAdminUrl( snapshot );
 	const { copy } = useCopyText( url );
 	return (
 		<>
 			<Menu.Item disabled={ locked } onClick={ onUpdate }>
-				<RefreshCwIcon />
+				<RotateCwIcon />
 				{ __( 'Update' ) }
 			</Menu.Item>
 			<Menu.Item onClick={ copy }>
@@ -56,13 +64,26 @@ function PreviewLinkActions( {
 				<ExternalLinkIcon />
 				{ __( 'Visit preview' ) }
 			</Menu.Item>
-			{ adminUrl ? (
-				<Menu.Item onClick={ () => void connector.openExternalUrl( adminUrl ) }>
-					<WordPressIcon />
-					{ __( 'WordPress admin' ) }
-				</Menu.Item>
-			) : null }
 		</>
+	);
+}
+
+function PreviewSharingLink( { url }: { url: string } ) {
+	const { copied, copy } = useCopyText( url );
+	return (
+		<InputGroup>
+			<InputGroupInput
+				aria-label={ __( 'Preview link' ) }
+				value={ url }
+				readOnly
+				onFocus={ ( event ) => event.currentTarget.select() }
+			/>
+			<InputGroupAddon align="inline-end">
+				<Button variant="ghost" size="sm" onClick={ copy }>
+					{ copied ? __( 'Copied' ) : __( 'Copy link' ) }
+				</Button>
+			</InputGroupAddon>
+		</InputGroup>
 	);
 }
 
@@ -259,6 +280,28 @@ export function PreviewSharePanel( {
 
 	return (
 		<div className={ styles.panel }>
+			{ choosing ? (
+				<Field>
+					<FieldLabel>{ __( 'Live site' ) }</FieldLabel>
+					<Select
+						value={ liveSite }
+						onValueChange={ ( value ) => setLiveSite( value ?? 'none' ) }
+						disabled={ locked }
+					>
+						<SelectTrigger aria-label={ __( 'Live site' ) }>
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="none">{ __( 'None' ) }</SelectItem>
+							{ qualifyingSites.map( ( site ) => (
+								<SelectItem key={ site.id } value={ String( site.id ) }>
+									{ site.name || site.url }
+								</SelectItem>
+							) ) }
+						</SelectContent>
+					</Select>
+				</Field>
+			) : null }
 			{ snapshot ? (
 				<div className={ styles.previewListWrap }>
 					<ul className={ styles.previewList } aria-label={ __( 'Previews' ) }>
@@ -316,7 +359,7 @@ export function PreviewSharePanel( {
 														render={
 															<IconButton
 																size="icon-sm"
-																icon={ <EllipsisIcon /> }
+																icon={ <EllipsisVerticalIcon /> }
 																label={ __( 'Preview actions' ) }
 																variant="muted-ghost"
 																onClick={ ( event ) => {
@@ -354,28 +397,10 @@ export function PreviewSharePanel( {
 				</div>
 			) : null }
 
-			{ choosing ? (
-				<Field>
-					<FieldLabel>{ __( 'Live site' ) }</FieldLabel>
-					<Select
-						value={ liveSite }
-						onValueChange={ ( value ) => setLiveSite( value ?? 'none' ) }
-						disabled={ locked }
-					>
-						<SelectTrigger aria-label={ __( 'Live site' ) }>
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="none">{ __( 'None' ) }</SelectItem>
-							{ qualifyingSites.map( ( site ) => (
-								<SelectItem key={ site.id } value={ String( site.id ) }>
-									{ site.name || site.url }
-								</SelectItem>
-							) ) }
-						</SelectContent>
-					</Select>
-				</Field>
+			{ snapshot ? (
+				<PreviewSharingLink key={ getSnapshotUrl( snapshot ) } url={ getSnapshotUrl( snapshot ) } />
 			) : null }
+
 			{ feedback }
 
 			<Button

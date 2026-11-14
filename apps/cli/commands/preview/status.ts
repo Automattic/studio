@@ -32,9 +32,16 @@ export async function getPreviewStatus( host: string ): Promise< PreviewStatus >
 		site && snapshot.versionId
 			? ( await getSiteVersion( site.id, site.path ) ) !== snapshot.versionId
 			: null;
-	const previewChanged = snapshot.syncedAt
-		? ( await getPreviewEditedAt( snapshot.atomicSiteId, token.accessToken ) ) > snapshot.syncedAt
-		: null;
+	let previewChanged: boolean | null = null;
+	if ( snapshot.syncedAt ) {
+		try {
+			previewChanged =
+				( await getPreviewEditedAt( snapshot.atomicSiteId, token.accessToken ) ) >
+				snapshot.syncedAt;
+		} catch {
+			// Remote permissions must not hide the independent local comparison.
+		}
+	}
 	return { localSiteId: site?.id ?? null, localChanged, previewChanged };
 }
 

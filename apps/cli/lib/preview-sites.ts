@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { DEMO_SITE_SIZE_LIMIT_BYTES, DEMO_SITE_SIZE_LIMIT_GB } from '@studio/common/constants';
 import { getConnectedWpcomSitesForLocalSite } from '@studio/common/lib/connected-sites';
-import { selectLiveSite } from '@studio/common/lib/live-preview-site';
+import { getQualifyingLiveSites, selectLiveSite } from '@studio/common/lib/live-preview-site';
 import { isWpcomPreview } from '@studio/common/lib/snapshots';
 import wpcomFactory from '@studio/common/lib/wpcom-factory';
 import wpcomXhrRequest from '@studio/common/lib/wpcom-xhr-request-factory';
@@ -159,9 +159,16 @@ async function getPreviewLink( siteId: number, token: string ): Promise< Preview
 /** The local site's live site that a preview shows changes to; see `selectLiveSite`. */
 export async function getLivePreviewSite(
 	localSiteId: string,
-	selection?: string
+	selection?: string,
+	existingPreview?: Pick< Snapshot, 'liveSiteId' >
 ): Promise< SyncSite | undefined > {
-	return selectLiveSite( await getConnectedWpcomSitesForLocalSite( localSiteId ), selection );
+	const sites = await getConnectedWpcomSitesForLocalSite( localSiteId );
+	if ( selection === undefined && existingPreview ) {
+		return getQualifyingLiveSites( sites ).find(
+			( site ) => site.id === existingPreview.liveSiteId
+		);
+	}
+	return selectLiveSite( sites, selection );
 }
 
 /** Builds a preview site from an archive uploaded with site ID 0. */

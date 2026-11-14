@@ -1,0 +1,16 @@
+.dialog {
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	max-width: 560px;
+	max-height: min( 640px, calc( 100dvh - 2rem ) );
+}
+.body {
+	display: flex;
+	flex-direction: column;
+	gap: var( --space-4 );
+	min-height: 0;
+	min-width: 0;
+	overflow-y: auto;
+	overflow-x: hidden;
+}

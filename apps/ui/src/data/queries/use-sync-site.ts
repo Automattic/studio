@@ -1,9 +1,11 @@
+import { formatProgressLabel } from '@studio/common/lib/progress-label';
 import { canCancelSyncActivity, isSyncCancelledError } from '@studio/common/lib/sync/cancel';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
 import { useCallback, useEffect } from 'react';
 import { getAccountJourney, completeAccountJourney } from '@/data/account-analytics';
 import {
+	clearToast,
 	getVisibleToasts,
 	openStudioLogsAction,
 	toast,
@@ -17,7 +19,12 @@ import { SITES_QUERY_KEY } from '@/data/queries/use-sites';
 import { WP_VERSION_QUERY_KEY } from '@/data/queries/use-wordpress-versions';
 import { SNAPSHOTS_QUERY_KEY } from '@/data/queries/user-scoped-query-keys';
 import { getSnapshotUrl } from '@/data/snapshot-url';
-import { applySyncActivity, getSyncActivity, getSyncActivityRunId } from '@/data/sync-activity';
+import {
+	applySyncActivity,
+	getSyncActivity,
+	getSyncActivityRunId,
+	type SyncActivity,
+} from '@/data/sync-activity';
 import type {
 	Connector,
 	PullSyncOptions,
@@ -25,13 +32,39 @@ import type {
 	SiteDetails,
 	Snapshot,
 } from '@/data/core';
-import type { SyncActivity, SyncDirection } from '@studio/common/lib/sync/activity';
+import type { SyncDirection } from '@studio/common/lib/sync/activity';
 import type { RemoteSite, SitesProviderId } from '@studio/providers';
 
 // Exported so the publish panel can find a site's in-flight push or pull in
 // the mutation cache.
 export const PUSH_TO_LIVE_MUTATION_KEY = [ 'pushSite' ] as const;
 export const PULL_FROM_LIVE_MUTATION_KEY = [ 'pullSite' ] as const;
+
+const openSyncPanels = new Map< string, Map< symbol, boolean > >();
+
+export function useSyncNoticeVisibility( siteId: string, open: boolean, keepLiveNotices = false ) {
+	const settle = useSettleSync();
+	useEffect( () => {
+		if ( ! open ) return;
+		const owner = Symbol();
+		const panels = openSyncPanels.get( siteId ) ?? new Map< symbol, boolean >();
+		panels.set( owner, keepLiveNotices );
+		openSyncPanels.set( siteId, panels );
+		const activity = getSyncActivity( siteId );
+		if (
+			activity?.kind === 'pending' &&
+			( ! keepLiveNotices || activity.direction === 'preview' || activity.direction === 'import' )
+		)
+			clearToast( `${ activity.direction }-${ siteId }` );
+		return () => {
+			panels.delete( owner );
+			if ( panels.size ) return;
+			openSyncPanels.delete( siteId );
+			const activity = getSyncActivity( siteId );
+			if ( activity?.kind === 'pending' ) settle( siteId, activity );
+		};
+	}, [ open, siteId, settle, keepLiveNotices ] );
+}
 
 // Records progress and announces each result once, including work started outside this UI.
 export function useSettleSync() {
@@ -43,12 +76,13 @@ export function useSettleSync() {
 			const canOpenLogs = connector.capabilities.studioLogs;
 			const plainMessage =
 				activity.kind === 'error' ? getPlainErrorMessage( activity, canOpenLogs ) : undefined;
-			const settled =
+			const incoming =
 				activity.kind === 'error' && plainMessage
 					? { ...activity, message: plainMessage }
 					: activity;
 			const previous = getSyncActivity( siteId );
-			const didSettle = applySyncActivity( siteId, settled );
+			const didSettle = applySyncActivity( siteId, incoming );
+			const settled = getSyncActivity( siteId ) ?? incoming;
 			if ( didSettle && activity.kind === 'error' && plainMessage ) {
 				console.error( 'Sync activity failed:', activity.direction, activity.message );
 			}
@@ -59,36 +93,45 @@ export function useSettleSync() {
 					?.find( ( { id } ) => id === siteId )?.name ?? '';
 			const noticeId = `${ settled.direction }-${ siteId }`;
 			if ( settled.kind === 'pending' ) {
+				const panels = openSyncPanels.get( siteId );
+				const live = settled.direction === 'push' || settled.direction === 'pull';
+				if ( panels && ( ! live || ! Array.from( panels.values() ).every( Boolean ) ) ) {
+					clearToast( noticeId );
+					return;
+				}
 				const title =
 					settled.direction === 'preview'
 						? settled.hostname
 							? __( 'Updating preview…' )
-							: __( 'Creating preview…' )
+							: __( 'Creating preview link…' )
 						: settled.direction === 'import'
 						? __( 'Importing backup…' )
 						: settled.direction === 'push'
 						? __( 'Publishing changes…' )
 						: __( 'Pulling changes…' );
-				const current = getSyncActivity( siteId );
 				let action: ToastAction | undefined;
-				if (
-					settled.direction === 'pull' &&
-					settled.remoteSiteId !== undefined &&
-					canCancelSyncActivity( settled )
-				) {
+				if ( live && settled.remoteSiteId !== undefined && canCancelSyncActivity( settled ) ) {
 					const { remoteSiteId } = settled;
-					const ownsPull = () =>
+					const ownsTransfer = () =>
 						queryClient.isMutating( {
-							mutationKey: PULL_FROM_LIVE_MUTATION_KEY,
+							mutationKey:
+								settled.direction === 'push'
+									? PUSH_TO_LIVE_MUTATION_KEY
+									: PULL_FROM_LIVE_MUTATION_KEY,
 							predicate: ( mutation ) => {
-								const variables = mutation.state.variables as CancelSyncVariables | undefined;
-								return variables?.siteId === siteId && variables.remoteSiteId === remoteSiteId;
+								const variables = mutation.state.variables as SyncVariables< unknown > | undefined;
+								return (
+									variables?.siteId === siteId &&
+									variables.remoteSiteId === remoteSiteId &&
+									variables.provider === settled.provider
+								);
 							},
 						} ) > 0;
-					if ( ownsPull() ) {
+					if ( ownsTransfer() ) {
 						const runId = getSyncActivityRunId( siteId );
 						action = ( previous?.kind === 'pending' &&
-						previous.direction === 'pull' &&
+						previous.direction === settled.direction &&
+						previous.provider === settled.provider &&
 						previous.remoteSiteId === remoteSiteId
 							? getVisibleToasts().find( ( notice ) => notice.id === noticeId && notice.processing )
 									?.action
@@ -100,9 +143,11 @@ export function useSettleSync() {
 								if (
 									getSyncActivityRunId( siteId ) === runId &&
 									latest?.kind === 'pending' &&
+									latest.direction === settled.direction &&
+									latest.provider === settled.provider &&
 									latest.remoteSiteId === remoteSiteId &&
 									canCancelSyncActivity( latest ) &&
-									ownsPull()
+									ownsTransfer()
 								) {
 									return connector.cancelSync( siteId, remoteSiteId );
 								}
@@ -114,32 +159,66 @@ export function useSettleSync() {
 					id: noticeId,
 					action,
 					description:
-						[ siteName(), current?.kind === 'pending' ? current.message : undefined ]
+						[
+							siteName(),
+							live &&
+							settled.progress !== undefined &&
+							! settled.phase &&
+							! settled.message?.includes( '%' )
+								? formatProgressLabel( settled.message ?? title, settled.progress )
+								: live
+								? settled.message
+								: undefined,
+						]
 							.filter( Boolean )
 							.join( ' · ' ) || undefined,
 				} );
 				return;
 			}
 			if ( ! didSettle ) return;
+			void queryClient.invalidateQueries( { queryKey: [ 'destination-changes', siteId ] } );
+			void queryClient.invalidateQueries( { queryKey: [ 'preview-status' ] } );
 			if ( settled.direction === 'preview' ) {
 				void queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
 				if ( settled.kind === 'success' ) {
-					/* translators: %s: site name */
-					toast.success( sprintf( __( '%s preview is ready' ), siteName() ), {
-						id: noticeId,
-						action: {
-							label: __( 'Copy link' ),
-							onClick: () => {
-								const latest = queryClient
-									.getQueryData< Snapshot[] >( SNAPSHOTS_QUERY_KEY )
-									?.filter( ( snapshot ) => snapshot.localSiteId === siteId )
-									.sort( ( a, b ) => b.date - a.date )[ 0 ];
-								if ( latest ) {
-									void connector.copyText( getSnapshotUrl( latest ) );
-								}
-							},
+					const title = __( 'Preview link ready' );
+					const description = siteName();
+					const copyAction: ToastAction = {
+						label: __( 'Copy link' ),
+						dismissOnSuccess: false,
+						onClick: async () => {
+							await queryClient.invalidateQueries( { queryKey: SNAPSHOTS_QUERY_KEY } );
+							const latest = queryClient
+								.getQueryData< Snapshot[] >( SNAPSHOTS_QUERY_KEY )
+								?.filter( ( snapshot ) => snapshot.localSiteId === siteId )
+								.sort( ( a, b ) => b.date - a.date )[ 0 ];
+							if ( ! latest )
+								throw new Error( __( 'Preview link is not available yet. Please try again.' ) );
+							await connector.copyText( getSnapshotUrl( latest ) );
+							const ownsNotice = ( action: ToastAction ) =>
+								getVisibleToasts().some(
+									( notice ) =>
+										notice.id === noticeId && notice.action === action && ! notice.leaving
+								);
+							if ( ! ownsNotice( copyAction ) ) return;
+							const copiedAction: ToastAction = {
+								...copyAction,
+								label: __( 'Copied' ),
+								onClick: () => {},
+							};
+							toast.success( title, {
+								id: noticeId,
+								description,
+								durationMs: 0,
+								action: copiedAction,
+							} );
+							setTimeout( () => {
+								if ( ownsNotice( copiedAction ) )
+									toast.success( title, { id: noticeId, description, action: copyAction } );
+							}, 2000 );
 						},
-					} );
+					};
+					toast.success( title, { id: noticeId, description, durationMs: 0, action: copyAction } );
 				} else if ( settled.kind === 'error' ) {
 					/* translators: %s: site name */
 					toast.error( sprintf( __( 'Couldn’t publish preview: %s' ), siteName() ), {

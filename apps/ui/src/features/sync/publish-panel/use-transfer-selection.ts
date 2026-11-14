@@ -1,6 +1,7 @@
 import { getProviderSites, type RemoteSite, type SitesProviderId } from '@studio/providers';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { __, sprintf } from '@wordpress/i18n';
+import { useState } from 'react';
 import { useConnector } from '@/data/core';
 import { presetOptions } from './options';
 import {
@@ -40,27 +41,31 @@ export function useTransferSelection(
 	provider: SitesProviderId,
 	remote: RemoteSite,
 	direction: TransferDirection,
-	enabled: boolean
+	enabled: boolean,
+	forceEntireSite = false,
+	draftSelection?: Saved
 ) {
 	const connector = useConnector();
 	const sites = getProviderSites( provider );
 	const client = useQueryClient();
 	const savedKey = [ 'publish-selection', site.id, provider, remote.id, direction ];
-	const saved = useQuery( {
+	const [ draft, setDraft ] = useState( draftSelection );
+	const committed = useQuery( {
 		queryKey: savedKey,
 		queryFn: () => EMPTY,
 		initialData: EMPTY,
 		staleTime: Infinity,
 		gcTime: Infinity,
 	} ).data;
-	const save = ( patch: ( current: Saved ) => Partial< Saved > ) =>
-		client.setQueryData< Saved >( savedKey, ( current = EMPTY ) => ( {
-			...current,
-			...patch( current ),
-		} ) );
+	const saved = draft ?? committed;
+	const save = ( patch: ( current: Saved ) => Partial< Saved > ) => {
+		const apply = ( current = EMPTY ) => ( { ...current, ...patch( current ) } );
+		if ( draftSelection ) setDraft( apply );
+		else client.setQueryData< Saved >( savedKey, apply );
+	};
 
 	const tree = useQuery( {
-		queryKey: [ 'publish-tree', site.id, provider, remote.id, direction ],
+		queryKey: [ 'publish-tree', site.id, provider, remote.id, direction, !! draftSelection ],
 		// Without selective sync, everything goes, so there's nothing to pick from.
 		enabled: enabled && sites.selective,
 		staleTime: 0,
@@ -89,14 +94,17 @@ export function useTransferSelection(
 		},
 	} );
 
-	const scope = tree.data?.filesUnavailable && saved.scope === 'custom' ? 'all' : saved.scope;
+	const scope =
+		forceEntireSite || ( tree.data?.filesUnavailable && saved.scope === 'custom' )
+			? 'all'
+			: saved.scope;
 	const chosen = selectedNodes( saved.nodes );
 	const options =
 		scope === 'custom' ? syncOptions( saved.nodes, saved.content ) : presetOptions( scope );
 
 	const multisite = useQuery( {
 		queryKey: [ 'publish-multisite', site.id ],
-		enabled: enabled && direction === 'push' && Boolean( sites.pushWarning ),
+		enabled: enabled && ! draftSelection && direction === 'push' && Boolean( sites.pushWarning ),
 		queryFn: async () => ( await connector.getIsMultisite( site.id ) ) ?? null,
 	} );
 	const size = useQuery( {
@@ -107,7 +115,7 @@ export function useTransferSelection(
 			saved.content,
 			chosen.map( ( node ) => node.path ),
 		],
-		enabled: enabled && direction === 'push' && tree.isSuccess,
+		enabled: enabled && ! draftSelection && direction === 'push' && tree.isSuccess,
 		queryFn: async () => {
 			if ( scope === 'all' ) {
 				return connector.getDirectorySize( site.id, [ 'wp-content' ] );
@@ -134,7 +142,11 @@ export function useTransferSelection(
 	if ( overLimit ) {
 		warning = sprintf(
 			/* translators: %s: the publishing size limit in GB */
-			__( 'This selection exceeds the %s GB publishing limit. Choose fewer files to continue.' ),
+			forceEntireSite
+				? __( 'Your WordPress exceeds the %s GB publishing limit.' )
+				: __(
+						'This selection exceeds the %s GB publishing limit. Choose fewer files to continue.'
+				  ),
 			String( sites.maxPushSize! / 1024 ** 3 )
 		);
 	} else if ( pushing ) {
@@ -144,6 +156,8 @@ export function useTransferSelection(
 
 	return {
 		scope,
+		snapshot: saved,
+		restore: ( snapshot: Saved ) => save( () => snapshot ),
 		setScope: ( value: PublishScope ) => save( () => ( { scope: value } ) ),
 		nodes: saved.nodes,
 		content: saved.content,
@@ -152,7 +166,8 @@ export function useTransferSelection(
 		filesUnavailable: tree.data?.filesUnavailable === true,
 		error: tree.error || size.error || multisite.error,
 		loading: tree.isFetching || ( pushing && ( size.isFetching || multisite.isFetching ) ),
-		loadingFiles: tree.isFetching && ! tree.data,
+		// A draft opens on the files its selection already lists, while they are read again.
+		loadingFiles: tree.isFetching && ! tree.data && ! ( draftSelection && saved.nodes.length ),
 		loadingDetails:
 			( tree.isFetching && ! tree.data ) ||
 			( pushing && multisite.isFetching && ! multisite.isSuccess ),

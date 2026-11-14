@@ -1,0 +1,41 @@
+.selection {
+	display: flex;
+	flex-direction: column;
+}
+.row {
+	composes: item from '@/lib/ui/surface/style.module.css';
+	display: flex;
+	align-items: center;
+	gap: var( --space-2 );
+	padding: var( --space-2 );
+}
+.row:hover:not( :has( [data-disabled] ) ) {
+	--hover: inherit;
+	--surface: var( --hover );
+	background-color: var( --surface );
+}
+.label {
+	align-items: flex-start;
+	text-align: start;
+	font-size: var( --text-xs );
+	font-weight: var( --font-weight-normal );
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 0;
+	cursor: pointer;
+}
+.description {
+	font-size: var( --text-xxs );
+	color: var( --muted-foreground );
+	font-weight: var( --font-weight-normal );
+}
+.divider {
+	border: 0;
+	border-top: var( --hairline-width ) solid var( --border );
+	margin: var( --space-1 ) 0;
+}
+
+.checkbox {
+	composes: selectionCheckbox from './style.module.css';
+}

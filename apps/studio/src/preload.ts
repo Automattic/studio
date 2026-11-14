@@ -38,6 +38,8 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'publishPreviewSite', siteFolder, hostname, name, liveSite ),
 	deletePreviewSite: ( hostname ) => ipcRendererInvoke( 'deletePreviewSite', hostname ),
 	renamePreviewSite: ( hostname, name ) => ipcRendererInvoke( 'renamePreviewSite', hostname, name ),
+	getSitePublishStatus: ( siteId, remoteSiteId, provider ) =>
+		ipcRendererInvoke( 'getSitePublishStatus', siteId, remoteSiteId, provider ),
 	getPreviewStatus: ( hostname ) => ipcRendererInvoke( 'getPreviewStatus', hostname ),
 	deleteAllSnapshots: () => ipcRendererInvoke( 'deleteAllSnapshots' ),
 	getSiteDetails: () => ipcRendererInvoke( 'getSiteDetails' ),
@@ -95,6 +97,11 @@ const api: IpcApi = {
 	readyForDeeplinks: () => ipcRendererSend( 'readyForDeeplinks' ),
 	getAbsolutePathFromSite: ( siteId, relativePath ) =>
 		ipcRendererInvoke( 'getAbsolutePathFromSite', siteId, relativePath ),
+	getWpcomSiteVisibility: ( id ) => ipcRendererInvoke( 'getWpcomSiteVisibility', id ),
+	setWpcomSiteVisibility: ( id, value ) => ipcRendererInvoke( 'setWpcomSiteVisibility', id, value ),
+	getSiteVisibility: ( provider, id ) => ipcRendererInvoke( 'getSiteVisibility', provider, id ),
+	setSiteVisibility: ( provider, id, value ) =>
+		ipcRendererInvoke( 'setSiteVisibility', provider, id, value ),
 	getRemoteSites: ( provider, localSiteId ) =>
 		ipcRendererInvoke( 'getRemoteSites', provider, localSiteId ),
 	listAccountSites: ( provider ) => ipcRendererInvoke( 'listAccountSites', provider ),
@@ -102,8 +109,10 @@ const api: IpcApi = {
 		ipcRendererInvoke( 'connectRemoteSite', provider, localSiteId, site ),
 	disconnectRemoteSite: ( provider, localSiteId, remoteSiteId ) =>
 		ipcRendererInvoke( 'disconnectRemoteSite', provider, localSiteId, remoteSiteId ),
-	createRemoteSite: ( provider, localSiteId, name ) =>
-		ipcRendererInvoke( 'createRemoteSite', provider, localSiteId, name ),
+	getSiteCreationVisibility: ( provider ) =>
+		ipcRendererInvoke( 'getSiteCreationVisibility', provider ),
+	createRemoteSite: ( provider, localSiteId, name, visibility ) =>
+		ipcRendererInvoke( 'createRemoteSite', provider, localSiteId, name, visibility ),
 	pushSite: ( provider, siteId, remoteSiteId, options ) =>
 		ipcRendererInvoke( 'pushSite', provider, siteId, remoteSiteId, options ),
 	pullSite: ( provider, siteId, remoteSiteId, options ) =>

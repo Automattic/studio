@@ -12,9 +12,10 @@ const ROOT_FILES = [ '_redirects', '_headers', 'robots.txt', 'llms.txt' ];
 export async function exportStaticContent(
 	sitePath: string,
 	destinationUrl: string,
-	outputDir: string
+	outputDir: string,
+	beforeExport?: () => Promise< void >
 ): Promise< PushContent > {
-	await exportStaticSite( sitePath, outputDir, destinationUrl, true );
+	await exportStaticSite( sitePath, outputDir, destinationUrl, true, beforeExport );
 	for ( const name of ROOT_FILES ) {
 		try {
 			await fs.promises.copyFile( path.join( sitePath, name ), path.join( outputDir, name ) );

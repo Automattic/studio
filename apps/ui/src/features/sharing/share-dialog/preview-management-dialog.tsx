@@ -1,7 +1,9 @@
 import { __ } from '@wordpress/i18n';
 import { useRef } from 'react';
 import { useIsSiteBusy } from '@/data/queries/use-sites';
-import { useDeleteSnapshot } from '@/data/queries/use-snapshots';
+import { useDeleteSnapshot, useSnapshots } from '@/data/queries/use-snapshots';
+import { useUserLocale } from '@/data/queries/use-user-locale';
+import { getSnapshotName } from '@/data/snapshot-name';
 import { getSnapshotHostname, getSnapshotUrl } from '@/data/snapshot-url';
 import { useSiteSyncActivity } from '@/data/sync-activity';
 import { SiteCard, getWebsiteThumbnailUrl } from '@/features/site-card';
@@ -15,6 +17,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from '@/lib/ui';
+import { previewExpiry } from './preview-share-panel';
 import { RenamePreviewDialog } from './rename-preview-dialog';
 import styles from './style.module.css';
 import type { SiteDetails, Snapshot } from '@/data/core';
@@ -51,6 +54,8 @@ function DeletePreviewDialog( {
 	onClose: () => void;
 } ) {
 	const remove = useDeleteSnapshot();
+	const snapshots = useSnapshots( snapshot.userId );
+	const locale = useUserLocale();
 	const cancel = useRef< HTMLButtonElement >( null );
 	const offline = useOffline();
 	const siteBusy = useIsSiteBusy( site );
@@ -72,12 +77,16 @@ function DeletePreviewDialog( {
 			>
 				<DialogHeader>
 					<DialogTitle>{ __( 'Delete preview?' ) }</DialogTitle>
-					<DialogDescription>{ __( 'Its shared link will stop working.' ) }</DialogDescription>
+					<DialogDescription>
+						{ __(
+							'Anyone with the link will lose access, and this can’t be undone. Your local WordPress won’t change.'
+						) }
+					</DialogDescription>
 				</DialogHeader>
 				<SiteCard
-					title={ getSnapshotHostname( snapshot ) }
+					title={ getSnapshotName( snapshot, snapshots.data ) }
 					thumbnailUrl={ getWebsiteThumbnailUrl( getSnapshotUrl( snapshot ) ) }
-					updatedAt={ snapshot.date }
+					description={ previewExpiry( snapshot, locale, { month: 'short', day: 'numeric' } ) }
 				/>
 				{ remove.error ? (
 					<p className={ styles.error } role="alert">

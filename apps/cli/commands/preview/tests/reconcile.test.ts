@@ -45,6 +45,13 @@ it.each( [
 	{ label: 'bought', standing: false, stillASite: true, connects: true },
 	{ label: 'expired or deleted', standing: false, stillASite: false, connects: false },
 	{ label: 'still standing', standing: true, stillASite: true, connects: false },
+	{
+		label: 'bought after a transient error',
+		standing: false,
+		stillASite: true,
+		connects: true,
+		retry: true,
+	},
 ] )(
 	'listing previews connects a preview to its local site once it is $label',
 	async ( scenario ) => {
@@ -88,6 +95,12 @@ it.each( [
 		const output = vi.spyOn( console, 'log' ).mockImplementation( () => {} );
 
 		try {
+			if ( scenario.retry ) {
+				vi.mocked( fetchSyncableSites ).mockRejectedValueOnce( new Error( 'Try later' ) );
+				await runCommand( '/site', 'json' );
+				expect( config.snapshots ).toHaveLength( 1 );
+				expect( await getConnectedWpcomSitesForLocalSite( 'local' ) ).toEqual( [] );
+			}
 			await runCommand( '/site', 'json' );
 		} finally {
 			output.mockRestore();

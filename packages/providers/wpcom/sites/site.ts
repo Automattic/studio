@@ -31,6 +31,10 @@ export const syncSiteSchema = z.object( {
 	pushNeedsUpgrade: z.boolean().optional(),
 	createdAt: z.string().optional(),
 	launchAfterPush: z.boolean().optional(),
+	localVersionId: z.string().nullable().optional(),
+	launchStatus: z.string().optional(),
+	isComingSoon: z.boolean().optional(),
+	isPrivate: z.boolean().optional(),
 } );
 
 export type SyncSite = z.infer< typeof syncSiteSchema >;
@@ -92,6 +96,7 @@ export function withWpcomDetails< Connection extends SyncSite >(
 			lastPullTimestamp,
 			lastPushTimestamp,
 			launchAfterPush: connection.launchAfterPush,
+			localVersionId: connection.localVersionId,
 		};
 	} );
 }
@@ -142,29 +147,30 @@ export function wpcomPushWarning( site: SyncSite, local: { multisite?: boolean }
 		: null;
 }
 
-// What WordPress.com says about a site, and its pages there. Pressable sites are managed on
-// Pressable, so WordPress.com has no pages for them.
-export function describeWpcomSite( site: SyncSite ): {
-	details: { title: string; value: string }[];
-	links: { title: string; url: string }[];
-} {
-	const details = [ { title: __( 'Environment' ), value: wpcomEnvironmentLabel( site ) } ];
-	let hostname: string | undefined;
-	try {
-		hostname = site.isPressable ? undefined : new URL( site.url ).hostname;
-	} catch {
-		hostname = undefined;
-	}
-	if ( ! hostname ) {
-		return { details, links: [] };
-	}
-	const dashboard = `https://my.wordpress.com/sites/${ hostname }`;
+export function describeWpcomSite( site: SyncSite ) {
 	return {
-		details,
-		links: [
-			{ title: __( 'Domains' ), url: `${ dashboard }/domains` },
-			{ title: __( 'Backups' ), url: `https://wordpress.com/backup/${ hostname }` },
-			{ title: __( 'Manage on WordPress.com' ), url: dashboard },
-		],
+		details: [ { title: __( 'Environment' ), value: wpcomEnvironmentLabel( site ) } ],
+		links: wpcomSiteLinks( site ),
 	};
+}
+
+export function wpcomDashboardUrl( site: SyncSite ): string | undefined {
+	if ( site.isPressable ) return;
+	try {
+		return `https://my.wordpress.com/sites/${ new URL( site.url ).hostname }`;
+	} catch {
+		return undefined;
+	}
+}
+
+// Pressable sites are managed on Pressable, so WordPress.com has no pages for them.
+function wpcomSiteLinks( site: SyncSite ): { title: string; url: string }[] {
+	const dashboard = wpcomDashboardUrl( site );
+	if ( ! dashboard ) return [];
+	const hostname = new URL( site.url ).hostname;
+	return [
+		{ title: __( 'Domains' ), url: `${ dashboard }/domains` },
+		{ title: __( 'Backups' ), url: `https://wordpress.com/backup/${ hostname }` },
+		{ title: __( 'Manage on WordPress.com' ), url: dashboard },
+	];
 }

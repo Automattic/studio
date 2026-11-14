@@ -3,6 +3,7 @@ import { wpcomConfigSchema, type WpcomConfig } from './config';
 import {
 	describeWpcomSite,
 	withWpcomDetails,
+	wpcomDashboardUrl,
 	wpcomPushWarning,
 	wpcomSiteIssue,
 	type SyncSite,
@@ -78,6 +79,47 @@ export const wpcomProvider: Provider< WpcomConfig, SyncSite > = {
 		paidDefaultModel: 'balanced',
 	},
 	sites: {
+		publishing: {
+			description: () => __( 'The full WordPress, with a domain' ),
+			firstPublishDescription: ( site ) =>
+				site.isPressable ? undefined : __( 'Publish your WordPress when you’re ready.' ),
+		},
+		visibility: ( site ) => ! site.isPressable,
+		visibilityOptions: ( current ) => [
+			{
+				value: 'coming-soon',
+				label: __( 'Only you' ),
+				description: __( 'Visitors see a coming soon page' ),
+			},
+			{ value: 'public', label: __( 'Everyone' ), description: __( 'Your WordPress is public' ) },
+			...( current === 'private'
+				? [
+						{
+							value: 'private' as const,
+							label: __( 'Invited people' ),
+							description: __( 'Only you and people you invite can view.' ),
+							disabled: true,
+						},
+				  ]
+				: [] ),
+		],
+		visibilitySettingsLink: ( site ) => ( {
+			title: __( 'Manage on WordPress.com' ),
+			url: `https://wordpress.com/settings/general/${ site.id }`,
+		} ),
+		initialVisibility: ( site ) =>
+			site.isPrivate
+				? 'private'
+				: site.isComingSoon || site.launchStatus === 'unlaunched'
+				? 'coming-soon'
+				: site.launchStatus === 'launched'
+				? 'public'
+				: undefined,
+		isLaunched: ( site ) => site.isPressable || site.launchStatus === 'launched',
+		previews: {
+			matchesSite: ( site, id ) => site.id === id,
+			isUpgraded: ( site ) => site.launchStatus === 'launched' || site.pushNeedsUpgrade === false,
+		},
 		maxPushSize: 5 * 1024 * 1024 * 1024,
 		pull: true,
 		selective: true,
@@ -92,6 +134,8 @@ export const wpcomProvider: Provider< WpcomConfig, SyncSite > = {
 			learnMoreUrl: 'https://wordpress.studio/docs/sync/',
 		},
 		describe: describeWpcomSite,
+		dashboardUrl: wpcomDashboardUrl,
+		adminUrl: ( site ) => new URL( '/wp-admin/', site.url ).href,
 		issue: wpcomSiteIssue,
 		pushWarning: wpcomPushWarning,
 		// A site without a plan that supports publishing has no backups to browse.

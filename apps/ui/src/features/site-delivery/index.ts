@@ -1,1 +1,1 @@
-export { ShareButton, PublishButton, SiteDeliveryDialog } from './site-delivery';
+export { ShareButton, PublishButton } from './site-delivery';

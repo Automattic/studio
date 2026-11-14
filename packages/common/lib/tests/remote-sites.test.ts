@@ -81,6 +81,7 @@ it( 'keeps the Spaces a site publishes to, and forgets them with the site', asyn
 		{
 			...space,
 			name: 'Renamed',
+			localVersionId: null,
 			localSiteId: 'local-a',
 			lastPushTimestamp: expect.any( String ),
 			lastPullTimestamp: null,
@@ -89,4 +90,19 @@ it( 'keeps the Spaces a site publishes to, and forgets them with the site', asyn
 
 	await forgetRemoteSites( 'local-a' );
 	expect( await getRemoteSites( 'spacefast', 'local-a' ) ).toEqual( [] );
+} );
+
+it( 'preserves per-destination baselines across metadata refreshes and invalidates partial transfers', async () => {
+	const a = { id: 'a', name: 'A', slug: 'a', url: 'https://a.space.fast', teamId: 't' };
+	const b = { ...a, id: 'b', slug: 'b', url: 'https://b.space.fast' };
+	await rememberRemoteSite( 'spacefast', 'local-a', a, 'push', 'first' );
+	await rememberRemoteSite( 'spacefast', 'local-a', b, 'push', 'second' );
+	await rememberRemoteSite( 'spacefast', 'local-a', { ...a, name: 'Renamed' } );
+	expect(
+		( await getRemoteSites( 'spacefast', 'local-a' ) ).map( ( x ) => x.localVersionId )
+	).toEqual( [ 'first', 'second' ] );
+	await rememberRemoteSite( 'spacefast', 'local-a', a, 'push', null );
+	expect(
+		( await getRemoteSites( 'spacefast', 'local-a' ) ).map( ( x ) => x.localVersionId )
+	).toEqual( [ null, 'second' ] );
 } );

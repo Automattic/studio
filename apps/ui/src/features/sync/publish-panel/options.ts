@@ -9,8 +9,7 @@ export type Website = RemoteSite & {
 };
 
 export type PublishView = 'publish' | 'pull';
-// What the panel opens on: `start` offers a new or existing site even when one is connected.
-export type PanelRequest = { view: PublishView | 'start'; remoteSiteId?: Website[ 'id' ] };
+export type PanelRequest = { view: PublishView; remoteSiteId?: Website[ 'id' ] };
 
 // A remote site's address, as the panel shows it.
 export function siteAddress( website: Website ) {

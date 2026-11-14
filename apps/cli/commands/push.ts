@@ -220,8 +220,12 @@ async function runPush(
 	pushed.remoteSite = remoteSite;
 	reportPhase();
 
-	if ( provider === 'wpcom' ) {
-		await warnIfPreviewIsBehind( site, Number( remoteSite.id ), logger );
+	if ( sites.previews ) {
+		try {
+			await warnIfPreviewIsBehind( site, Number( remoteSite.id ), logger );
+		} catch {
+			// A preview comparison is advisory.
+		}
 	}
 
 	let optionsToSync: SyncOption[] = [ 'all' ];
@@ -249,17 +253,36 @@ async function runPush(
 	const forgetTempDir = onCancel( removeTempDir );
 
 	try {
-		const content =
-			sites.content === 'static'
-				? await exportStaticContent( site.path, remoteSite.url, path.join( tempDir, 'site' ) )
-				: await exportArchive(
-						provider,
-						site,
-						tempDir,
-						optionsToSync,
-						specificSelectionPaths,
-						logger
-				  );
+		let localVersionId: string | null = null;
+		const captureVersion = async () => {
+			if ( ! optionsToSync.includes( 'all' ) || specificSelectionPaths?.length ) return;
+			try {
+				localVersionId = await getSiteVersion( site.id, site.path );
+			} catch {
+				/* Comparison must not block publishing. */
+			}
+		};
+		let content: PushContent;
+		if ( sites.content === 'static' ) {
+			// Starting a stopped site can update its files. Capture the version after startup
+			// and before rendering the static pages.
+			content = await exportStaticContent(
+				site.path,
+				remoteSite.url,
+				path.join( tempDir, 'site' ),
+				captureVersion
+			);
+		} else {
+			await captureVersion();
+			content = await exportArchive(
+				provider,
+				site,
+				tempDir,
+				optionsToSync,
+				specificSelectionPaths,
+				logger
+			);
+		}
 		const uploadLabel =
 			content.kind === 'archive' ? __( 'Uploading archive…' ) : __( 'Uploading files…' );
 
@@ -335,7 +358,7 @@ async function runPush(
 		// Remember this connection so future push/pull runs (and the Desktop UI)
 		// can surface it without re-selecting from the full site list.
 		try {
-			await rememberRemoteSite( provider, site.id, remoteSite as never, 'push' );
+			await rememberRemoteSite( provider, site.id, remoteSite as never, 'push', localVersionId );
 		} catch ( error ) {
 			logger.reportError( new LoggerError( 'Failed to save connected site', error ), false );
 		}

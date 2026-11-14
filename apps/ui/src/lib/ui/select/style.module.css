@@ -56,6 +56,15 @@
 		padding-block: var( --space-2 );
 	}
 
+	.item[data-has-icon] {
+		align-items: center;
+	}
+
+	.itemIcon {
+		display: flex;
+		flex-shrink: 0;
+	}
+
 	.itemBody {
 		display: flex;
 		flex: 1;

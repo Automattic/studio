@@ -3,9 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { expect, it } from 'vitest';
 import { applySyncActivity } from '@/data/sync-activity';
 import { SessionUIProvider } from '@/data/use-session-ui';
-import { PublishButton, SiteDeliveryDialog } from '@/features/site-delivery';
 import { createFakeConnector, makeSite, TEST_USER } from '@/test/fake-connector';
 import { aiSettings } from '@/test/in-memory-connector';
+import { SiteDeliveryDialog, PublishButton } from '@/test/legacy-delivery';
 import { renderWithProviders } from '@/test/render';
 import type { RemoteSiteConnection, SyncSite } from '@/data/core';
 import type { ProviderSites } from '@studio/providers';
@@ -100,7 +100,7 @@ it( 'publishes to WordPress.com directly where a static export can’t be made',
 	expect( screen.queryByText( 'Where do you want to publish?' ) ).not.toBeInTheDocument();
 } );
 
-it( 'lists the sites published on every provider and publishes to another Space', async () => {
+it( 'lists connected sites across providers without offering another destination', async () => {
 	const actions = userEvent.setup();
 	const wpcomSite: SyncSite = {
 		id: 42,
@@ -113,12 +113,7 @@ it( 'lists the sites published on every provider and publishes to another Space'
 		lastPushTimestamp: null,
 		lastPullTimestamp: null,
 	};
-	const second: ProviderSites[ 'spacefast' ] = {
-		...space,
-		id: 'spc_2',
-		url: 'https://second.space.fast/',
-	};
-	const { connector, site } = setup( {
+	const { connector } = setup( {
 		getRemoteSites: async ( provider, localSiteId ) =>
 			provider === 'wpcom'
 				? [ { ...wpcomSite, localSiteId: localSiteId ?? '' } ]
@@ -131,7 +126,6 @@ it( 'lists the sites published on every provider and publishes to another Space'
 						},
 				  ],
 		getAiSettings: async () => aiSettings( 'wpcom', [ 'wpcom', 'spacefast' ] ),
-		createRemoteSite: async () => second,
 	} );
 	await actions.click( await screen.findByRole( 'button', { name: 'Publish…' } ) );
 	expect(
@@ -141,10 +135,10 @@ it( 'lists the sites published on every provider and publishes to another Space'
 		screen.getByRole( 'button', { name: 'local-site.space.fast' } )
 	).toHaveAccessibleDescription( 'Spacefast' );
 
-	await actions.click( screen.getByRole( 'button', { name: 'Publish to another site…' } ) );
-	await actions.click( await screen.findByRole( 'button', { name: /^Spacefast/ } ) );
-	await actions.click( await screen.findByRole( 'button', { name: 'New site' } ) );
-	expect( connector.createRemoteSite ).toHaveBeenCalledWith( 'spacefast', site.id, 'Local site' );
+	expect(
+		screen.queryByRole( 'button', { name: 'Publish to another site…' } )
+	).not.toBeInTheDocument();
+	expect( connector.createRemoteSite ).not.toHaveBeenCalled();
 } );
 
 it( 'offers to connect the provider again when it rejects its key', async () => {
@@ -192,7 +186,7 @@ it( 'opens the saved host for a first publish and lets the user choose another',
 	expect( connector.state.preferences.defaultHostingProvider ).toBe( 'spacefast' );
 } );
 
-it( 'keeps the published sites list first and opens the default for another destination', async () => {
+it( 'keeps the published sites list first when a default host is set', async () => {
 	const actions = userEvent.setup();
 	const { connector } = setup( {
 		getAiSettings: async () => aiSettings( 'wpcom', [ 'wpcom', 'spacefast' ] ),
@@ -204,8 +198,7 @@ it( 'keeps the published sites list first and opens the default for another dest
 	connector.state.preferences.defaultHostingProvider = 'spacefast';
 	await actions.click( await screen.findByRole( 'button', { name: 'Publish…' } ) );
 	expect( await screen.findByRole( 'button', { name: /local-site\.space\.fast/ } ) ).toBeVisible();
-	await actions.click( screen.getByRole( 'button', { name: 'Publish to another site…' } ) );
-	expect( await screen.findByRole( 'button', { name: 'New site' } ) ).toBeVisible();
+	expect( screen.queryByRole( 'button', { name: 'New site' } ) ).not.toBeInTheDocument();
 	expect( connector.createRemoteSite ).not.toHaveBeenCalled();
 } );
 

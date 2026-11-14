@@ -5,7 +5,11 @@ import {
 	rememberRemoteSite,
 	type RemoteSiteConnection,
 } from '@studio/common/lib/remote-sites';
+import { getSitePublishStatus as getPublishStatus } from '@studio/common/sites/publish-status';
 import {
+	getSiteCreationVisibility as readCreationVisibility,
+	getSiteVisibility as readVisibility,
+	setSiteVisibility as writeVisibility,
 	createRemoteSite as createRemoteSiteOnProvider,
 	getRemoteBackupId as readRemoteBackupId,
 	listAccountSites as listProviderAccountSites,
@@ -18,10 +22,13 @@ import {
 	normalizeProviderId,
 	SITES_PROVIDER_IDS,
 	type ProviderSites,
+	type SiteCreationVisibility,
 	type SitesProviderId,
 } from '@studio/providers';
 import { getProviderServices } from '@studio/providers/services';
+import { getAuthenticationToken } from 'src/lib/oauth';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
+import type { WpcomSiteVisibility } from '@studio/common/types/site-visibility';
 
 const syncRunner = createSyncRunner( executeCliCommand );
 
@@ -74,16 +81,22 @@ export async function disconnectRemoteSite(
 	await forgetRemoteSite( parseProvider( provider ), localSiteId, remoteSiteId as never );
 }
 
+export function getSiteCreationVisibility( _event: IpcMainInvokeEvent, provider: string ) {
+	return readCreationVisibility( getProviderServices( parseProvider( provider ) ) );
+}
+
 export async function createRemoteSite(
 	_event: IpcMainInvokeEvent,
 	provider: string,
 	localSiteId: string,
-	name: string
+	name: string,
+	visibility?: SiteCreationVisibility
 ): Promise< ProviderSites[ SitesProviderId ] > {
 	return createRemoteSiteOnProvider(
 		getProviderServices( parseProvider( provider ) ),
 		localSiteId,
-		name
+		name,
+		visibility
 	);
 }
 
@@ -161,4 +174,46 @@ export async function listRemoteBackupFiles(
 		backupId,
 		path
 	);
+}
+
+export async function getWpcomSiteVisibility( _event: IpcMainInvokeEvent, remoteSiteId: number ) {
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken ) throw new Error( 'Authentication required to read site visibility.' );
+	return readVisibility< 'wpcom' >( getProviderServices( 'wpcom' ), remoteSiteId );
+}
+
+export async function setWpcomSiteVisibility(
+	_event: IpcMainInvokeEvent,
+	remoteSiteId: number,
+	visibility: WpcomSiteVisibility
+) {
+	const token = await getAuthenticationToken();
+	if ( ! token?.accessToken )
+		throw new Error( 'Authentication required to change site visibility.' );
+	return writeVisibility< 'wpcom' >( getProviderServices( 'wpcom' ), remoteSiteId, visibility );
+}
+
+export function getSitePublishStatus(
+	_event: IpcMainInvokeEvent,
+	siteId: string,
+	remoteSiteId: string | number,
+	provider: SitesProviderId = 'wpcom'
+) {
+	return getPublishStatus( executeCliCommand, siteId, remoteSiteId, provider );
+}
+
+export function getSiteVisibility(
+	_event: IpcMainInvokeEvent,
+	provider: string,
+	id: string | number
+) {
+	return readVisibility( getProviderServices( parseProvider( provider ) ), id as never );
+}
+export function setSiteVisibility(
+	_event: IpcMainInvokeEvent,
+	provider: string,
+	id: string | number,
+	value: WpcomSiteVisibility
+) {
+	return writeVisibility( getProviderServices( parseProvider( provider ) ), id as never, value );
 }

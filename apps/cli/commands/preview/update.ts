@@ -86,7 +86,11 @@ export async function runCommand(
 		preview = snapshotToUpdate;
 		const site = await getSiteByFolder( siteFolder );
 		siteId = site.id;
-		const liveSite = await getLivePreviewSite( site.id, liveSiteSelection );
+		const liveSite = await getLivePreviewSite(
+			site.id,
+			liveSiteSelection,
+			isWpcomPreview( snapshotToUpdate ) ? snapshotToUpdate : undefined
+		);
 		const reportStep = ( action: LoggerAction, message: string, progress: number ) => {
 			step = action;
 			logger.reportStart( action, message );

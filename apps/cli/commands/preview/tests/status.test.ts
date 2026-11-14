@@ -61,6 +61,33 @@ describe( 'getPreviewStatus', () => {
 		} );
 	} );
 
+	it.each( [ false, true ] )(
+		'preserves local change status when the remote check fails (%s)',
+		async ( editLocal ) => {
+			const versionId = await getSiteVersion( 'one', sitePath );
+			vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [
+				{
+					url: 'preview.wpcomstaging.com',
+					atomicSiteId: 7,
+					localSiteId: 'one',
+					date: 2000,
+					versionId,
+					syncedAt: 2000,
+				},
+			] );
+			vi.mocked( getPreviewEditedAt ).mockRejectedValue(
+				new Error( 'Sorry, you are not allowed to access the templates on this site.' )
+			);
+			if ( editLocal )
+				fs.writeFileSync( path.join( sitePath, 'wp-content', 'style.css' ), 'body {}' );
+			expect( await getPreviewStatus( 'preview.wpcomstaging.com' ) ).toEqual( {
+				localSiteId: 'one',
+				localChanged: editLocal,
+				previewChanged: null,
+			} );
+		}
+	);
+
 	it( "can't tell for a preview synced before Studio recorded versions", async () => {
 		vi.mocked( getSnapshotsFromConfig ).mockResolvedValue( [
 			{ url: 'preview.wpcomstaging.com', atomicSiteId: 7, localSiteId: 'one', date: 2000 },

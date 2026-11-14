@@ -61,7 +61,7 @@ To connect a local WordPress Studio site to an existing production or staging si
 1.  Select the site you wish to connect from the WordPress Studio sidebar.
 2.  Click **Publish** at the top right of the site preview. You can also choose **Publish** from the site menu.
 3.  [Log in to WordPress.com](https://wordpress.studio/docs/#connect-to-wordpresscom) if you haven’t already.
-4.  If the local site isn’t connected to a website yet, WordPress Studio asks **Where do you want to publish?** Choose **WordPress.com**. If it’s already connected to one, click **Publish to another site…** below its websites, then choose **WordPress.com**.
+4.  For a local site without a connected website, choose **WordPress.com** when WordPress Studio asks **Where do you want to publish?**
 5.  Click **Existing site…** to open the **Choose an existing site** list. Each row shows the site’s name, its address, and whether it’s a **Production**, **Staging**, or **Development** site. Sites you can’t publish to, such as sites that need a plan upgrade, deleted sites, or sites you don’t have permission to manage, are left out. To load the list again, open **Site actions** (**⋯**) and choose **Refresh**.
 6.  Click the site you want to connect to. To go back without connecting, click **Back to Publish**.
 
@@ -82,16 +82,14 @@ A local site can be connected to more than one website, for example a production
 1.  Click a website to open its **Publish details**, with its **Pull changes** and **Publish changes** buttons.
 2.  To go back to the list, click **Published sites**.
 
-To connect one more website, click **Publish to another site…** below the list. While a pull or publish is running, the **Publish** tab opens on the website it’s for.
-
-![The Publish tab of the Share and publish panel in WordPress Studio, listing two connected websites under Published to, a production site and its staging site, each with a thumbnail, WordPress.com, and when it was updated, and Publish to another site… below them.](../../../screenshots/images/publish-sites.webp)
+While a pull or publish is running, the **Publish** tab opens on the website it’s for.
 
 ## [Connect WordPress Studio to a new WordPress.com site](#connect-new)
 
 If you’d like to publish your local site to a new WordPress.com-hosted site, you can purchase a WordPress.com hosting plan and set up WordPress Studio Sync all at once:
 
 1.  Select the site you wish to publish from the WordPress Studio sidebar.
-2.  Click **Publish** at the top right of the site preview. If the local site isn’t connected to a website yet, choose **WordPress.com** under **Where do you want to publish?** If it’s already connected to one, click **Publish to another site…**, then choose **WordPress.com**. You’ll see **Existing site…** and **New site…**.
+2.  Click **Publish** at the top right of the site preview. For a local site without a connected website, choose **WordPress.com** under **Where do you want to publish?** You’ll see **Existing site…** and **New site…**.
 3.  Click **New site…** to set up a new site on WordPress.com in your browser.
 4.  Choose a domain and a plan for the new site, and complete the checkout.
 5.  When the new site is added, accept the prompt to open WordPress Studio or click “**Connect Studio**” on your site’s Home screen.

@@ -107,45 +107,43 @@ function readyGuest( extra: Record< string, unknown > = {} ) {
 	return webview as HTMLElement & Record< string, ReturnType< typeof vi.fn > >;
 }
 
-it( 'keeps icon-only annotation available with sharing feedback', async () => {
+it( 'keeps icon-only annotation available with publishing feedback', async () => {
 	setAnnotating( 'annotate-site', true );
 	const { user } = await renderHeader( 'annotate-site', createFakeConnector(), 600 );
 	const webview = readyGuest();
 	expect(
 		screen.queryByRole( 'button', { name: 'More preview actions' } )
 	).not.toBeInTheDocument();
-	const share = screen.getByRole( 'button', { name: 'Share' } );
+	expect( screen.queryByRole( 'button', { name: 'Share' } ) ).not.toBeInTheDocument();
+	const publish = screen.getByRole( 'button', { name: /^(Share|Publish)…$/ } );
 	const annotation = screen.getByRole( 'button', { name: 'Annotate' } );
 	await waitFor( () => expect( annotation ).toBeEnabled() );
-	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: /^(Share|Publish)…$/ } ) ).toBeVisible();
 	expect( headerButtons( /^Send/ ) ).toHaveLength( 0 );
 	expect( annotation ).toHaveAttribute( 'aria-pressed', 'true' );
-	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toHaveAttribute(
+	expect( screen.getByRole( 'button', { name: /^(Share|Publish)…$/ } ) ).toHaveAttribute(
 		'data-variant',
 		'accent'
 	);
-	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeEnabled();
+	expect( screen.getByRole( 'button', { name: /^(Share|Publish)…$/ } ) ).toBeEnabled();
 	expect( annotation ).toHaveTextContent( /^$/ );
 	await user.click( annotation );
 	expect( annotation ).toHaveAttribute( 'aria-pressed', 'false' );
-	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toHaveAttribute(
+	expect( screen.getByRole( 'button', { name: /^(Share|Publish)…$/ } ) ).toHaveAttribute(
 		'data-variant',
 		'accent'
 	);
 	act( () => {
 		applySyncActivity( 'annotate-site', { kind: 'pending', direction: 'preview' } );
 	} );
-	expect( share ).toHaveAttribute(
-		'aria-description',
-		expect.stringContaining( 'Creating preview' )
-	);
+	expect( publish ).toHaveAttribute( 'aria-description', expect.stringContaining( 'Publishing' ) );
 	act( () => {
 		applySyncActivity( 'annotate-site', { kind: 'success', direction: 'preview' } );
 	} );
-	expect( share ).not.toHaveAttribute( 'aria-description' );
-	expect( share.querySelector( '[data-slot="notification-dot"]' ) ).not.toBeInTheDocument();
-	expect( share ).toHaveTextContent( /^$/ );
-	await user.click( share );
+	expect( publish ).not.toHaveAttribute( 'aria-description' );
+	expect( publish.querySelector( '[data-slot="notification-dot"]' ) ).not.toBeInTheDocument();
+	expect( publish ).toHaveTextContent( 'Share' );
+	await user.click( publish );
 	expect( await screen.findByRole( 'dialog' ) ).toBeInTheDocument();
 	await user.keyboard( '{Escape}' );
 	fireEvent(
@@ -154,11 +152,11 @@ it( 'keeps icon-only annotation available with sharing feedback', async () => {
 	);
 	expect( screen.getByRole( 'button', { name: 'Annotate' } ) ).toBeEnabled();
 	expect( screen.queryByRole( 'menuitemcheckbox', { name: 'Annotate' } ) ).not.toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBeInTheDocument();
+	expect( screen.getByRole( 'button', { name: /^(Share|Publish)…$/ } ) ).toBeInTheDocument();
 	expect( headerButtons( 'Send 1 annotation' ) ).toHaveLength( 0 );
 } );
 
-it( 'marks saved annotations with a dot while keeping Publish accented', async () => {
+it( 'marks saved annotations with a dot while keeping Share accented', async () => {
 	const siteId = 'header-batch-site';
 	const { user } = await renderHeader( siteId, createFakeConnector(), 1000, true, vi.fn() );
 	readyGuest();
@@ -173,7 +171,7 @@ it( 'marks saved annotations with a dot while keeping Publish accented', async (
 		setAnnotating( siteId, false );
 	} );
 	expect( annotate.querySelector( '[data-slot="notification-dot"]' ) ).toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toHaveAttribute(
+	expect( screen.getByRole( 'button', { name: /^(Share|Publish)…$/ } ) ).toHaveAttribute(
 		'data-variant',
 		'accent'
 	);
@@ -308,13 +306,13 @@ it( 'keeps site actions in the main header without mobile browser overflow', asy
 	const mainHeader = document.querySelector( '[data-site-header]' )!;
 	const annotate = screen.getByRole( 'button', { name: 'Annotate' } );
 	expect( screen.queryByRole( 'button', { name: 'Stop site' } ) ).not.toBeInTheDocument();
-	const share = screen.getByRole( 'button', { name: 'Share' } );
-	const publish = screen.getByRole( 'button', { name: 'Publish…' } );
+	expect( screen.queryByRole( 'button', { name: 'Share' } ) ).not.toBeInTheDocument();
+	const publish = screen.getByRole( 'button', { name: /^(Share|Publish)…$/ } );
 	expect( browser ).toContainElement( screen.getByRole( 'textbox', { name: 'Address' } ) );
 	expect( mainHeader ).not.toContainElement( browser );
 	expect( browser ).toContainElement( annotate );
 	expect( document.querySelector( '[data-site-header-actions]' ) ).not.toContainElement( annotate );
-	for ( const action of [ share, publish ] ) expect( browser ).not.toContainElement( action );
+	expect( browser ).not.toContainElement( publish );
 	await resize( 540 );
 	expect(
 		screen.queryByRole( 'button', { name: 'More preview actions' } )
@@ -327,7 +325,7 @@ it( 'keeps site actions in the main header without mobile browser overflow', asy
 	expect(
 		screen.queryByRole( 'button', { name: 'More preview actions' } )
 	).not.toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: 'Publish…' } ) ).toBe( publish );
+	expect( screen.getByRole( 'button', { name: /^(Share|Publish)…$/ } ) ).toBe( publish );
 } );
 
 it( 'keeps URL navigation visible in a narrow container', async () => {

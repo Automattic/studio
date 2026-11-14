@@ -14,6 +14,7 @@ import {
 } from './api';
 import { enableReprintExporter, getReprintApiUrl, installReprintPublicKey } from './reprint';
 import { createTusUpload } from './upload';
+import { getWpcomSiteVisibility, setWpcomSiteVisibility } from './visibility';
 import type { SitesServices } from '../../types';
 import type { WpcomConfig } from '../config';
 import type { ImportResponse } from './schemas';
@@ -88,6 +89,11 @@ function getImportFailureMessage( response: Extract< ImportResponse, { status: '
 }
 
 export const wpcomSites: SitesServices< WpcomConfig, SyncSite > = {
+	visibility: {
+		get: ( config, id ) => getWpcomSiteVisibility( requireToken( config ), Number( id ) ),
+		set: ( config, id, value ) =>
+			setWpcomSiteVisibility( requireToken( config ), Number( id ), value ),
+	},
 	list: ( config, options = {} ) =>
 		step( __( 'Failed to fetch WordPress.com sites' ), 'site_fetch', () =>
 			fetchSyncableSites( requireToken( config ), {

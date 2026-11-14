@@ -260,7 +260,8 @@ export async function setSnapshotInConfig(
 export async function reconcilePreviews(
 	userId: number,
 	standing: Map< number, StandingPreview >,
-	checkedAt: number
+	checkedAt: number,
+	keepMissingLocalPreviews = false
 ): Promise< Snapshot[] > {
 	try {
 		await lockCliConfig();
@@ -279,6 +280,7 @@ export async function reconcilePreviews(
 			if ( ! preview ) {
 				if ( snapshot.localSiteId ) {
 					forgotten.push( snapshot );
+					return keepMissingLocalPreviews;
 				}
 				return false;
 			}

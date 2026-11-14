@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { suppressPunycodeWarning } from '@studio/common/lib/suppress-punycode-warning';
+import { SITES_PROVIDER_IDS } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
 import semver from 'semver';
 import yargs from 'yargs';
@@ -212,6 +213,26 @@ async function main() {
 	registerSiteDeleteCommand( studioArgv );
 	registerSiteStatusCommand( studioArgv );
 
+	studioArgv.command( {
+		command: '_publish-status <remoteSiteId>',
+		describe: false,
+		builder: ( yargs ) =>
+			yargs
+				.positional( 'remoteSiteId', { type: 'string', demandOption: true } )
+				.option( 'provider', {
+					type: 'string',
+					choices: SITES_PROVIDER_IDS,
+					default: 'wpcom' as const,
+				} ),
+		handler: async ( argv ) => {
+			const { runCommand } = await import( 'cli/commands/publish-status' );
+			const { Logger } = await import( 'cli/logger' );
+			if ( ! argv.remoteSiteId ) throw new Error( 'Invalid remote site ID' );
+			const result = await runCommand( argv.path, argv.remoteSiteId, argv.provider );
+			new Logger< string >().reportResult( result );
+			console.log( JSON.stringify( result ) );
+		},
+	} );
 	registerPushCommand( studioArgv );
 	registerPullCommand( studioArgv );
 

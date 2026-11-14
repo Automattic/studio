@@ -1,5 +1,5 @@
 import type { Space } from './descriptor';
-import type { PushFile } from '../types';
+import type { PushFile, SiteCreationVisibility } from '../types';
 
 // A pending device sign-in: the user approves `userCode` at `verificationUrl`.
 interface DeviceAuthorization {
@@ -68,7 +68,7 @@ async function fetchWithRetry( url: URL, init: RequestInit ): Promise< Response 
 	}
 }
 
-async function request< T >(
+export async function request< T >(
 	route: string,
 	{
 		apiKey,
@@ -155,9 +155,11 @@ function toSpace( { id, title, slug, liveUrl, teamId }: ApiSpace ): Space {
 	return { id, name: title, slug, url: liveUrl, teamId };
 }
 
-export async function listTeams( apiKey: string ): Promise< { id: string; name: string }[] > {
-	const teams = await listAll< { id: string; name: string } >( '/v1/teams', apiKey );
-	return teams.map( ( { id, name } ) => ( { id, name } ) );
+export async function listTeams(
+	apiKey: string
+): Promise< { id: string; name: string; slug?: string }[] > {
+	const teams = await listAll< { id: string; name: string; slug?: string } >( '/v1/teams', apiKey );
+	return teams.map( ( { id, name, slug } ) => ( { id, name, slug } ) );
 }
 
 export async function listSpaces( apiKey: string ): Promise< Space[] > {
@@ -168,21 +170,38 @@ export async function listSpaces( apiKey: string ): Promise< Space[] > {
 			apiKey
 		);
 		spaces.push(
-			...teamSpaces.map( ( space ) => ( { ...toSpace( space ), teamName: team.name } ) )
+			...teamSpaces.map( ( space ) => ( {
+				...toSpace( space ),
+				teamName: team.name,
+				teamSlug: team.slug,
+			} ) )
 		);
 	}
 	return spaces;
 }
 
+export async function getTeamCreationVisibility(
+	apiKey: string,
+	teamId: string
+): Promise< SiteCreationVisibility > {
+	const { data } = await request< { data: { privateSpacesOnly: boolean } } >(
+		`/v1/teams/${ encodeURIComponent( teamId ) }/access/defaults`,
+		{ apiKey }
+	);
+	if ( typeof data?.privateSpacesOnly !== 'boolean' ) {
+		throw new Error( 'Spacefast did not return the team access policy.' );
+	}
+	return data.privateSpacesOnly ? 'private' : 'public';
+}
+
 export async function createSpace(
 	apiKey: string,
-	{ teamId, title }: { teamId: string; title: string }
+	{ teamId, title, access }: { teamId: string; title: string; access: SiteCreationVisibility }
 ): Promise< Space > {
 	const { data } = await request< { data: { space: ApiSpace } } >( '/v1/spaces', {
 		apiKey,
 		method: 'POST',
-		// A published site is meant to be visited; existing Spaces keep their own access.
-		body: { teamId, title, access: 'public' },
+		body: { teamId, title, access, capabilities: [ 'optional_access' ] },
 	} );
 	return toSpace( data.space );
 }

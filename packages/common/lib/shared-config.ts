@@ -70,6 +70,7 @@ export const sharedConfigSchema = z
 						.object( {
 							provider: z.string(),
 							site: z.record( z.string(), z.unknown() ),
+							localVersionId: z.string().nullable().optional(),
 							lastPushTimestamp: z.string().nullable(),
 							lastPullTimestamp: z.string().nullable(),
 						} )

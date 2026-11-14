@@ -6,6 +6,7 @@ import type {
 	ProviderConfigs,
 	ProviderServices,
 	ProviderSites,
+	SiteCreationVisibility,
 	SitesProviderId,
 } from '@studio/providers';
 
@@ -36,19 +37,36 @@ export async function listAccountSites< Id extends SitesProviderId >(
 	);
 }
 
+export async function getSiteCreationVisibility< Id extends SitesProviderId >(
+	provider: SitesProvider< Id >
+): Promise< SiteCreationVisibility > {
+	const id = provider.id as Id;
+	const creationVisibility = sites( provider ).creationVisibility;
+	if ( ! creationVisibility ) {
+		throw new Error( 'This provider does not support visibility at creation.' );
+	}
+	return forgetRejectedConfig( id, async () =>
+		creationVisibility( await readProviderConfig( id ) )
+	);
+}
+
 // Creates a site on the provider and connects the local site to it.
 export async function createRemoteSite< Id extends SitesProviderId >(
 	provider: SitesProvider< Id >,
 	localSiteId: string,
-	name: string
+	name: string,
+	visibility?: SiteCreationVisibility
 ): Promise< ProviderSites[ Id ] > {
+	if ( visibility !== undefined && visibility !== 'public' && visibility !== 'private' ) {
+		throw new Error( 'Invalid visibility for a new site.' );
+	}
 	const id = provider.id as Id;
 	const create = sites( provider ).create;
 	if ( ! create ) {
 		throw new Error( `Studio can't create ${ getProvider( provider.id ).label } sites.` );
 	}
 	const site = await forgetRejectedConfig( id, async () =>
-		create( await readProviderConfig( id ), { name } )
+		create( await readProviderConfig( id ), { name, visibility } )
 	);
 	await rememberRemoteSite( id, localSiteId, site );
 	return site;
@@ -84,4 +102,22 @@ export async function listRemoteBackupFiles< Id extends SitesProviderId >(
 		backupId,
 		path
 	);
+}
+
+export async function getSiteVisibility< Id extends SitesProviderId >(
+	provider: SitesProvider< Id >,
+	id: ProviderSites[ Id ][ 'id' ]
+) {
+	const capability = sites( provider ).visibility;
+	if ( ! capability ) throw new Error( 'This provider does not support visibility settings.' );
+	return capability.get( await readProviderConfig( provider.id as Id ), id );
+}
+export async function setSiteVisibility< Id extends SitesProviderId >(
+	provider: SitesProvider< Id >,
+	id: ProviderSites[ Id ][ 'id' ],
+	value: import('@studio/providers').SiteVisibility
+) {
+	const capability = sites( provider ).visibility;
+	if ( ! capability ) throw new Error( 'This provider does not support visibility settings.' );
+	return capability.set( await readProviderConfig( provider.id as Id ), id, value );
 }

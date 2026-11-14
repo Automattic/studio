@@ -153,6 +153,7 @@ export function useConnectSite() {
 						siteId: localSiteId,
 						view: 'pull',
 						provider: 'wpcom',
+						remoteSiteId: remote.id,
 					} );
 					return navigate( { to: '/sites/$siteId', params: { siteId: localSiteId } } );
 				},

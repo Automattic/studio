@@ -23,6 +23,7 @@ import type { ProviderSites, RemoteSite, SitesProviderId } from '@studio/provide
  */
 
 export interface SyncTimes {
+	localVersionId?: string | null;
 	localSiteId: string;
 	lastPushTimestamp: string | null;
 	lastPullTimestamp: string | null;
@@ -33,7 +34,12 @@ export type RemoteSiteConnection< Id extends SitesProviderId > = ProviderSites[ 
 type ConnectionStore< Site extends RemoteSite > = {
 	// Every local site's connections when `localSiteId` is undefined.
 	list( localSiteId?: string ): Promise< ( Site & SyncTimes )[] >;
-	add( localSiteId: string, site: Site, synced?: 'push' | 'pull' ): Promise< void >;
+	add(
+		localSiteId: string,
+		site: Site,
+		synced?: 'push' | 'pull',
+		localVersionId?: string | null
+	): Promise< void >;
 	remove( localSiteId: string, siteId: Site[ 'id' ] ): Promise< void >;
 	removeAll( localSiteId: string ): Promise< void >;
 };
@@ -74,14 +80,15 @@ function remoteSitesStore< Site extends RemoteSite >( provider: string ): Connec
 				.flatMap( ( [ id, connections ] ) =>
 					connections
 						.filter( ( connection ) => connection.provider === provider )
-						.map( ( { site, lastPushTimestamp, lastPullTimestamp } ) => ( {
+						.map( ( { site, lastPushTimestamp, lastPullTimestamp, localVersionId } ) => ( {
 							...( site as Site ),
 							localSiteId: id,
+							...( localVersionId === undefined ? {} : { localVersionId } ),
 							lastPushTimestamp,
 							lastPullTimestamp,
 						} ) )
 				),
-		add: ( localSiteId, site, synced ) =>
+		add: ( localSiteId, site, synced, localVersionId ) =>
 			updateRemoteSites( ( config ) => {
 				const connections = ( ( config.remoteSites ??= {} )[ localSiteId ] ??= [] );
 				let connection = connections.find(
@@ -93,6 +100,7 @@ function remoteSitesStore< Site extends RemoteSite >( provider: string ): Connec
 				}
 				connection.site = { ...site } as Record< string, unknown >;
 				if ( synced ) {
+					connection.localVersionId = localVersionId ?? null;
 					connection[ synced === 'push' ? 'lastPushTimestamp' : 'lastPullTimestamp' ] =
 						new Date().toISOString();
 				}
@@ -118,10 +126,10 @@ const STORES: { [ Id in SitesProviderId ]: ConnectionStore< ProviderSites[ Id ] 
 			localSiteId === undefined
 				? getAllConnectedWpcomSitesForCurrentUser()
 				: getConnectedWpcomSitesForLocalSite( localSiteId ),
-		add: async ( localSiteId, site, synced ) => {
+		add: async ( localSiteId, site, synced, localVersionId ) => {
 			await addConnectedWpcomSite( localSiteId, { ...site, localSiteId } );
 			if ( synced ) {
-				await markConnectedWpcomSiteSynced( localSiteId, site.id, synced );
+				await markConnectedWpcomSiteSynced( localSiteId, site.id, synced, localVersionId );
 			}
 		},
 		remove: async ( localSiteId, siteId ) => {
@@ -145,9 +153,10 @@ export function rememberRemoteSite< Id extends SitesProviderId >(
 	provider: Id,
 	localSiteId: string,
 	site: ProviderSites[ Id ],
-	synced?: 'push' | 'pull'
+	synced?: 'push' | 'pull',
+	localVersionId?: string | null
 ): Promise< void > {
-	return STORES[ provider ].add( localSiteId, site, synced );
+	return STORES[ provider ].add( localSiteId, site, synced, localVersionId );
 }
 
 export function forgetRemoteSite< Id extends SitesProviderId >(

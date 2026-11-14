@@ -1,14 +1,14 @@
 import { getLocalizedLink } from '@studio/common/lib/docs-links';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import { __, _x, sprintf } from '@wordpress/i18n';
-import { SearchIcon } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { __, _x } from '@wordpress/i18n';
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { useAccountSites } from '@/data/queries/use-remote-sites';
 import { useUserLocale } from '@/data/queries/use-user-locale';
 import { AccountPrompt } from '@/features/account';
+import { RemoteSiteCard as SiteCard, RemoteSitePicker } from '@/features/remote-site-picker';
 import { pendingRemoteSiteSlot } from '@/features/sites/pending-remote-site';
 import { useOffline } from '@/lib/hooks';
 import { ExternalLinkIcon } from '@/lib/icons';
@@ -20,21 +20,10 @@ import {
 	Badge,
 	Empty,
 	Button,
-	InputGroup,
-	InputGroupAddon,
-	InputGroupInput,
-	PreviewFrame,
-	PreviewImage,
 	Spinner,
 } from '@/lib/ui';
 import styles from './connect-panel.module.css';
-import {
-	getRemoteSiteName,
-	getRemoteSiteScreenshot,
-	presentRemoteSites,
-	searchRemoteSites,
-	type ConnectSiteGroup,
-} from './site-presentation';
+import { getRemoteSiteName, presentRemoteSites, type ConnectSiteGroup } from './site-presentation';
 import dialogStyles from './style.module.css';
 import type { SyncSite } from '@/data/core';
 
@@ -89,26 +78,18 @@ function RemoteSiteCard( {
 	const siteStatus = isAvailable ? '' : getSiteStatus( site, group );
 
 	return (
-		<li className={ styles.site }>
-			<Button
-				variant="outline"
-				layout="row"
-				className={ styles.siteRow }
-				disabled={ ! isAvailable }
-				onClick={ () => onSelect( site ) }
-			>
-				<PreviewFrame className={ styles.siteThumb }>
-					<PreviewImage src={ getRemoteSiteScreenshot( site ) } alt="" />
-				</PreviewFrame>
-				<span className={ styles.siteText }>
-					<span className={ styles.siteName }>{ siteName }</span>
-					<span className={ styles.siteUrl }>{ site.url.replace( /^https?:\/\//, '' ) }</span>
-				</span>
-				<span className={ styles.badges }>
+		<SiteCard
+			name={ siteName }
+			url={ site.url }
+			disabled={ ! isAvailable }
+			onSelect={ () => onSelect( site ) }
+			badges={
+				<>
 					<Badge variant="muted">{ providerLabel }</Badge>
 					<Badge variant={ getEnvironmentVariant( site ) }>{ environmentLabel }</Badge>
-				</span>
-			</Button>
+				</>
+			}
+		>
 			{ siteStatus && <p className={ styles.siteStatus }>{ siteStatus }</p> }
 			{ group === 'needs-transfer' && (
 				<Button
@@ -138,7 +119,7 @@ function RemoteSiteCard( {
 					<ExternalLinkIcon data-icon="inline-end" />
 				</Button>
 			) }
-		</li>
+		</SiteCard>
 	);
 }
 
@@ -150,33 +131,12 @@ export function ConnectPanel( { onConnect }: { onConnect: ( site: SyncSite ) => 
 	const remoteSites = useAccountSites( 'wpcom', {
 		enabled: !! user && ! isOffline,
 	} );
-	const [ searchQuery, setSearchQuery ] = useState( '' );
-
 	const presentedSites = useMemo(
 		() => presentRemoteSites( remoteSites.data ?? [] ),
 		[ remoteSites.data ]
 	);
-	const filteredSites = useMemo(
-		() => searchRemoteSites( presentedSites, searchQuery ),
-		[ presentedSites, searchQuery ]
-	);
-	const isSingleSite = presentedSites.length === 1 && searchQuery.trim() === '';
 	const isLoadingSites = remoteSites.isLoading;
 	const loadError = remoteSites.error;
-	const sections = [
-		{
-			key: 'available',
-			title: __( 'Available to connect' ),
-			description: __( 'Select a site to create its local copy.' ),
-			sites: filteredSites.filter( ( entry ) => entry.group === 'available' ),
-		},
-		{
-			key: 'unavailable',
-			title: __( 'Unavailable' ),
-			description: __( 'These sites cannot currently be connected to WordPress Studio.' ),
-			sites: filteredSites.filter( ( entry ) => entry.group !== 'available' ),
-		},
-	];
 
 	// A `pull-site` link goes straight to setting up the local copy of its site.
 	const pendingRemote = useSyncExternalStore(
@@ -276,84 +236,40 @@ export function ConnectPanel( { onConnect }: { onConnect: ( site: SyncSite ) => 
 			) }
 
 			{ user && ! isOffline && ! isLoadingSites && ! loadError && presentedSites.length > 0 && (
-				<>
-					<div className={ styles.siteControls }>
-						{ ! isSingleSite && (
-							<InputGroup className={ styles.search }>
-								<InputGroupAddon>
-									<SearchIcon />
-								</InputGroupAddon>
-								<InputGroupInput
-									type="search"
-									aria-label={ __( 'Search sites' ) }
-									placeholder={ __( 'Search sites' ) }
-									value={ searchQuery }
-									onChange={ ( event ) => setSearchQuery( event.target.value ) }
-								/>
-							</InputGroup>
-						) }
-						<p className={ styles.helperLinks }>
-							<Button
-								type="button"
-								variant="ghost"
-								size="2xs"
-								disabled={ remoteSites.isFetching }
-								onClick={ retry }
-							>
-								{ remoteSites.isFetching ? __( 'Refreshing…' ) : __( 'Refresh list' ) }
-							</Button>
-							<span aria-hidden="true">·</span>
-							<Button
-								type="button"
-								variant="ghost"
-								size="2xs"
-								onClick={ () =>
-									void connector.openExternalUrl(
-										getLocalizedLink( locale, 'docsSyncSupportedSites' )
-									)
-								}
-							>
-								{ __( 'Supported sites' ) }
-								<ExternalLinkIcon data-icon="inline-end" />
-							</Button>
-						</p>
-					</div>
-
-					{ filteredSites.length === 0 ? (
-						<div className={ styles.state } role="status">
-							<p>
-								{ sprintf(
-									// translators: %s is the site search query.
-									__( 'No sites match “%s”.' ),
-									searchQuery
-								) }
-							</p>
-						</div>
-					) : (
-						<div className={ styles.sections }>
-							{ sections.map(
-								( section ) =>
-									section.sites.length > 0 && (
-										<section key={ section.key } className={ styles.section }>
-											<div className={ styles.sectionHeader }>
-												<h2>{ section.title }</h2>
-												<p>{ section.description }</p>
-											</div>
-											<ul className={ styles.siteList }>
-												{ section.sites.map( ( entry ) => (
-													<RemoteSiteCard
-														key={ entry.site.id }
-														{ ...entry }
-														onSelect={ onConnect }
-													/>
-												) ) }
-											</ul>
-										</section>
-									)
-							) }
-						</div>
-					) }
-				</>
+				<RemoteSitePicker
+					items={ presentedSites }
+					getKey={ ( { site } ) => site.id }
+					getSearchText={ ( { site } ) =>
+						[
+							site.name,
+							site.url,
+							site.isPressable ? 'Pressable' : 'WordPress.com',
+							site.environmentType,
+						]
+							.filter( Boolean )
+							.join( ' ' )
+					}
+					isAvailable={ ( entry ) => entry.group === 'available' }
+					renderItem={ ( entry ) => <RemoteSiteCard { ...entry } onSelect={ onConnect } /> }
+					refreshing={ remoteSites.isFetching }
+					onRefresh={ retry }
+					availableDescription={ __( 'Select a site to create its local copy.' ) }
+					help={
+						<Button
+							type="button"
+							variant="ghost"
+							size="2xs"
+							onClick={ () =>
+								void connector.openExternalUrl(
+									getLocalizedLink( locale, 'docsSyncSupportedSites' )
+								)
+							}
+						>
+							{ __( 'Supported sites' ) }
+							<ExternalLinkIcon data-icon="inline-end" />
+						</Button>
+					}
+				/>
 			) }
 		</div>
 	);

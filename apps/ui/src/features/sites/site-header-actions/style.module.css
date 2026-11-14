@@ -29,7 +29,6 @@
 	pointer-events: auto;
 }
 
-.item,
 .publish {
 	gap: var( --band-gap );
 	display: flex;

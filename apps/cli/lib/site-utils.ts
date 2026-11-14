@@ -158,44 +158,32 @@ export async function stopProxyIfNoSitesNeedIt(
 	logger.reportSuccess( __( 'HTTP proxy server stopped' ) );
 }
 
-export const isSiteRunning = async ( site: SiteData ): Promise< boolean > => {
-	const status = await getSitesRunningStatus( [ site ] );
-	return status.get( site.id ) ?? false;
-};
+export async function isSiteRunning( siteId: string ): Promise< boolean > {
+	return ( await getSitesRunningStatus() ).get( siteId ) ?? false;
+}
 
 /**
- * Check running status for multiple sites with a single daemon call.
+ * Whether each saved site is running, by site id, from a single daemon call.
  */
-export async function getSitesRunningStatus(
-	sites: SiteData[]
-): Promise< Map< string, boolean > > {
-	const result = new Map< string, boolean >();
-
-	let processes: Awaited< ReturnType< typeof listProcesses > > = [];
+export async function getSitesRunningStatus(): Promise< Map< string, boolean > > {
+	let processes: Awaited< ReturnType< typeof listProcesses > >;
 	try {
 		processes = await listProcesses();
 	} catch {
 		// Daemon not running — all sites are stopped.
-		for ( const site of sites ) {
-			result.set( site.id, false );
-		}
-		return result;
+		return new Map();
 	}
 
-	// Callers may have read their sites before connecting, which can restart them with new pids.
-	const { sites: savedSites } = await readCliConfig();
-	for ( const site of sites ) {
-		const processName = SITE_PROCESS_PREFIX + site.id;
-		const processInfo = processes.find( ( p ) => p.name === processName && p.status === 'online' );
-		const latestCliPid = savedSites.find( ( s ) => s.id === site.id )?.latestCliPid;
-		const running = !! (
-			processInfo &&
-			'pid' in processInfo &&
-			latestCliPid !== undefined &&
-			processInfo.pid === latestCliPid
-		);
-		result.set( site.id, running );
-	}
-
-	return result;
+	// Read after connecting, which can replace an outdated daemon and restart its sites with new pids.
+	const { sites } = await readCliConfig();
+	return new Map(
+		sites.map( ( site ) => {
+			const processInfo = processes.find(
+				( p ) => p.name === SITE_PROCESS_PREFIX + site.id && p.status === 'online'
+			);
+			const running =
+				!! processInfo && 'pid' in processInfo && processInfo.pid === site.latestCliPid;
+			return [ site.id, running ];
+		} )
+	);
 }

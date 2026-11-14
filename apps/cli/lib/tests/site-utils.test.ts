@@ -158,25 +158,28 @@ describe( 'openSiteInBrowser', () => {
 } );
 
 describe( 'getSitesRunningStatus', () => {
-	const site: SiteData = {
-		id: 'site-1',
-		name: 'Site',
-		path: '/site',
-		port: 8881,
-		phpVersion: '8.3',
-	};
+	const site = { name: 'Site', path: '/site', port: 8881, phpVersion: '8.3' };
 
-	it( 'checks the pids saved since the caller read its sites', async () => {
+	it( 'counts a saved site as running when its online process has the pid saved for it', async () => {
 		( listProcesses as Mock ).mockResolvedValue( [
-			{ name: 'studio-site-site-1', pmId: 0, status: 'online', pid: 200 },
+			{ name: 'studio-site-current', pmId: 0, status: 'online', pid: 200 },
+			{ name: 'studio-site-stale', pmId: 1, status: 'online', pid: 300 },
 		] );
 		( readCliConfig as Mock ).mockResolvedValue( {
 			version: 1,
-			sites: [ { ...site, latestCliPid: 200 } ],
+			sites: [
+				{ ...site, id: 'current', latestCliPid: 200 },
+				{ ...site, id: 'stale', latestCliPid: 299 },
+				{ ...site, id: 'stopped' },
+			],
 		} );
 
-		const status = await getSitesRunningStatus( [ { ...site, latestCliPid: 100 } ] );
-
-		expect( status.get( 'site-1' ) ).toBe( true );
+		expect( await getSitesRunningStatus() ).toEqual(
+			new Map( [
+				[ 'current', true ],
+				[ 'stale', false ],
+				[ 'stopped', false ],
+			] )
+		);
 	} );
 } );

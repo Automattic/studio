@@ -156,13 +156,6 @@
 	line-height: var( --text-sm--line-height );
 	font-weight: var( --font-weight-medium );
 }
-.staticPublishNote {
-	margin-block-start: var( --space-2 );
-	padding-inline: calc( var( --space-1_5 ) + var( --space-2 ) );
-	font-size: var( --text-xs );
-	line-height: var( --text-xs--line-height );
-	color: var( --muted-foreground );
-}
 .changeStatus {
 	margin-top: var( --space-3 );
 	font-size: var( --text-sm );

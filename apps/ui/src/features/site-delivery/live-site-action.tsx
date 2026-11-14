@@ -1,12 +1,12 @@
 import { getLatestLinkedPreview, getPreviewPublishWarning } from '@studio/common/lib/snapshots';
 import { getProviderSites, type RemoteSite, type SitesProviderId } from '@studio/providers';
 import { __, sprintf } from '@wordpress/i18n';
-import { useRef } from 'react';
+import { useRef, type RefObject } from 'react';
 import { useAuthUser } from '@/data/queries/use-auth-user';
 import { usePreviewStatus } from '@/data/queries/use-preview-status';
 import { useSnapshots } from '@/data/queries/use-snapshots';
 import { usePushSite, usePullSite } from '@/data/queries/use-sync-site';
-import { useTransferSelection, FilePicker } from '@/features/sync';
+import { useTransferSelection, FilePicker, publishSelectionSummary } from '@/features/sync';
 import {
 	AlertDialog,
 	Button,
@@ -31,10 +31,11 @@ export function LiveSiteAction( {
 	direction = 'push',
 	disabled,
 	publishing = false,
-	firstPublish = false,
 	forceEntireSite = false,
+	confirmation,
+	onConfirmPublish,
 	onBack,
-	onPublishStarted,
+	returnFocus,
 }: {
 	site: SiteDetails;
 	provider: SitesProviderId;
@@ -42,16 +43,17 @@ export function LiveSiteAction( {
 	direction?: 'push' | 'pull';
 	disabled?: boolean;
 	publishing?: boolean;
-	firstPublish?: boolean;
 	forceEntireSite?: boolean;
+	confirmation?: 'changes' | 'again';
+	onConfirmPublish?: () => void;
 	onBack?: () => void;
-	onPublishStarted?: () => void;
+	returnFocus?: RefObject< HTMLButtonElement | null >;
 } ) {
 	const descriptor = getProviderSites( provider );
 	const user = useAuthUser();
 	const snapshots = useSnapshots( user.data?.id );
 	const linkedPreview =
-		direction === 'push' && descriptor.previews
+		confirmation && descriptor.previews
 			? getLatestLinkedPreview( snapshots.data ?? [], site.id, Number( remote.id ) )
 			: undefined;
 	const status = usePreviewStatus( linkedPreview, !! linkedPreview?.versionId );
@@ -81,7 +83,7 @@ export function LiveSiteAction( {
 				...variables,
 				options: descriptor.selective ? selection.options.push : undefined,
 			} );
-			onPublishStarted?.();
+			if ( confirmation ) onBack?.();
 		} else {
 			pull.mutate( {
 				...variables,
@@ -95,7 +97,7 @@ export function LiveSiteAction( {
 			variant="accent"
 			disabled={ disabled || blocked || working }
 			loading={ working || checking }
-			onClick={ submit }
+			onClick={ onConfirmPublish ?? submit }
 		>
 			{ direction === 'push'
 				? working
@@ -104,6 +106,8 @@ export function LiveSiteAction( {
 					? __( 'Checking…' )
 					: forceEntireSite
 					? __( 'Publish' )
+					: onConfirmPublish
+					? __( 'Publish changes…' )
 					: __( 'Publish changes' )
 				: __( 'Pull changes' ) }
 		</Button>
@@ -117,40 +121,76 @@ export function LiveSiteAction( {
 	const includesDatabase = selection.options.push.optionsToSync?.some(
 		( option ) => option === 'all' || option === 'sqls'
 	);
-	const firstPushWarning =
-		firstPublish && descriptor.selective && ! forceEntireSite && includesDatabase
-			? __(
-					'Publishing the database replaces anything that changed on your live WordPress, like new comments or orders.'
-			  )
-			: undefined;
+	const publishMessage = ! working && ! checking && ( message || selection.error ) && (
+		<p role="status" className={ styles.changeStatus }>
+			{ message }
+			{ selection.error && (
+				<>
+					{ ' ' }
+					{ __( 'Publish options could not be loaded.' ) }{ ' ' }
+					<Button variant="inline-link" size="inline" onClick={ selection.retry }>
+						{ __( 'Try again' ) }
+					</Button>
+				</>
+			) }
+		</p>
+	);
 	const choices = [
 		{ value: 'all', label: __( 'Entire site' ) },
 		{ value: 'files', label: __( 'Files only' ) },
 		{ value: 'content', label: __( 'Content and settings only' ) },
 		{ value: 'custom', label: __( 'Choose files…' ) },
 	] as const;
+	if ( confirmation )
+		return (
+			<AlertDialog open onOpenChange={ ( open ) => ! open && onBack?.() }>
+				<DialogContent layout="confirmation" initialFocus={ cancel } finalFocus={ returnFocus }>
+					<DialogHeader>
+						<DialogTitle>
+							{ confirmation === 'again' ? __( 'Publish again?' ) : __( 'Publish changes?' ) }
+						</DialogTitle>
+						<DialogDescription render={ <div /> }>
+							<p>
+								{ sprintf(
+									/* translators: %s: the destination site's domain. */
+									__( 'Publish to %s.' ),
+									new URL( remote.url ).hostname
+								) }
+								{ descriptor.selective && (
+									<>
+										{ ' ' }
+										{ sprintf(
+											/* translators: %s: a summary of the selected parts of the site. */
+											__( 'What to publish: %s' ),
+											publishSelectionSummary( selection )
+										) }
+									</>
+								) }
+							</p>
+							{ descriptor.selective && includesDatabase && (
+								<p>
+									{ __(
+										'Publishing the database replaces changes made on the live site, including new comments or orders.'
+									) }
+								</p>
+							) }
+							{ previewWarning && <p>{ previewWarning }</p> }
+						</DialogDescription>
+					</DialogHeader>
+					{ publishMessage }
+					<DialogFooter>
+						<Button ref={ cancel } variant="outline" onClick={ onBack }>
+							{ __( 'Cancel' ) }
+						</Button>
+						{ action }
+					</DialogFooter>
+				</DialogContent>
+			</AlertDialog>
+		);
 	if ( direction === 'push' )
 		return (
 			<div className={ styles.publishAction }>
-				{ ! working && ! checking && ( previewWarning || message || selection.error ) && (
-					<p role="status" className={ styles.changeStatus }>
-						{ previewWarning }
-						{ previewWarning && ( message || selection.error ) ? ' ' : null }
-						{ message }
-						{ selection.error && (
-							<>
-								{ ' ' }
-								{ __( 'Publish options could not be loaded.' ) }{ ' ' }
-								<Button variant="inline-link" size="inline" onClick={ selection.retry }>
-									{ __( 'Try again' ) }
-								</Button>
-							</>
-						) }
-					</p>
-				) }
-				{ firstPushWarning && ! working && ! blocked && (
-					<p className={ styles.changeStatus }>{ firstPushWarning }</p>
-				) }
+				{ publishMessage }
 				{ action }
 			</div>
 		);

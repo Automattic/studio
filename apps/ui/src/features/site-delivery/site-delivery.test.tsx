@@ -875,9 +875,11 @@ it( 'defaults to the connected website and keeps preview updates separate from l
 	expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toBeVisible();
 	await actions.click( screen.getByRole( 'heading', { name: 'Publish' } ) );
 	await waitFor( () =>
-		expect( screen.getByRole( 'button', { name: 'Publish changes' } ) ).toBeEnabled()
+		expect( screen.getByRole( 'button', { name: 'Publish changes…' } ) ).toBeEnabled()
 	);
-	await actions.click( screen.getByRole( 'button', { name: 'Publish changes' } ) );
+	await actions.click( screen.getByRole( 'button', { name: 'Publish changes…' } ) );
+	const confirmation = await screen.findByRole( 'alertdialog', { name: 'Publish changes?' } );
+	await actions.click( within( confirmation ).getByRole( 'button', { name: 'Publish changes' } ) );
 	await waitFor( () =>
 		expect( connector.pushSite ).toHaveBeenCalledExactlyOnceWith( 'wpcom', siteId, remote.id, {
 			optionsToSync: [ 'all' ],
@@ -919,7 +921,7 @@ it( 'keeps a connection created by pulling a preview out of the live destination
 		await screen.findByText( 'Anyone with the link can view this preview until it expires.' )
 	).toBeVisible();
 	expect( screen.queryByRole( 'button', { name: 'Choose destination' } ) ).not.toBeInTheDocument();
-	expect( screen.queryByRole( 'button', { name: 'Publish changes' } ) ).not.toBeInTheDocument();
+	expect( screen.queryByRole( 'button', { name: 'Publish changes…' } ) ).not.toBeInTheDocument();
 	expect( screen.getByRole( 'button', { name: 'More options' } ) ).toBeVisible();
 } );
 
@@ -986,7 +988,7 @@ it.each( [ false, true ] )(
 		await actions.click( trigger );
 		if ( hasLiveSite ) {
 			expect( screen.queryByRole( 'button', { name: 'Add a domain' } ) ).not.toBeInTheDocument();
-			expect( await screen.findByRole( 'button', { name: 'Publish changes' } ) ).toBeEnabled();
+			expect( await screen.findByRole( 'button', { name: 'Publish changes…' } ) ).toBeEnabled();
 			expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
 		} else {
 			expect( connector.publishPreviewSite ).not.toHaveBeenCalled();
@@ -1326,10 +1328,7 @@ it( 'keeps checklist choices live and publishes the popover selection directly',
 	expect( await screen.findByRole( 'checkbox', { name: 'Themes' } ) ).toBeChecked();
 	expect( screen.getAllByRole( 'checkbox' ) ).toHaveLength( 5 );
 	expect( screen.getByRole( 'heading', { name: 'Publish' } ) ).toBeVisible();
-	const warning = /Publishing the database replaces anything/;
-	expect( screen.getByText( warning ) ).toBeVisible();
 	await actions.click( screen.getByRole( 'checkbox', { name: /Database/ } ) );
-	expect( screen.queryByText( warning ) ).not.toBeInTheDocument();
 	expect( screen.getByRole( 'button', { name: 'What to publish' } ) ).toHaveAccessibleDescription(
 		'Files only'
 	);
@@ -1338,7 +1337,6 @@ it( 'keeps checklist choices live and publishes the popover selection directly',
 	expect( everything.querySelector( '.lucide-minus' ) ).toBeInTheDocument();
 	await actions.click( everything );
 	for ( const checkbox of screen.getAllByRole( 'checkbox' ) ) expect( checkbox ).toBeChecked();
-	expect( screen.getByText( warning ) ).toBeVisible();
 	expect( everything ).toHaveAttribute( 'aria-disabled', 'true' );
 	await actions.click( screen.getByRole( 'checkbox', { name: 'Uploads' } ) );
 	expect( screen.getByRole( 'button', { name: 'What to publish' } ) ).toHaveAccessibleDescription(
@@ -1368,9 +1366,11 @@ it( 'keeps checklist choices live and publishes the popover selection directly',
 	expect( screen.queryByRole( 'checkbox' ) ).not.toBeInTheDocument();
 	expect( screen.getByRole( 'heading', { name: 'Publish' } ) ).toBeVisible();
 	expect( screen.getByRole( 'button', { name: 'What to publish' } ) ).toHaveFocus();
-	const publish = screen.getByRole( 'button', { name: 'Publish changes' } );
+	const publish = screen.getByRole( 'button', { name: 'Publish changes…' } );
 	await waitFor( () => expect( publish ).toBeEnabled() );
 	await actions.click( publish );
+	const confirmation = await screen.findByRole( 'alertdialog', { name: 'Publish changes?' } );
+	await actions.click( within( confirmation ).getByRole( 'button', { name: 'Publish changes' } ) );
 	await waitFor( () =>
 		expect( connector.pushSite ).toHaveBeenCalledWith( 'wpcom', connector.state.sites[ 0 ].id, 42, {
 			optionsToSync: [ 'plugins', 'themes' ],
@@ -1869,9 +1869,11 @@ it.each( [ false, true, null ] )(
 			await waitFor( () =>
 				expect( connector.copyText ).toHaveBeenCalledWith( 'https://actual.blog/' )
 			);
-			expect( screen.queryByRole( 'button', { name: 'Publish changes' } ) ).not.toBeInTheDocument();
+			expect(
+				screen.queryByRole( 'button', { name: 'Publish changes…' } )
+			).not.toBeInTheDocument();
 		} else {
-			expect( await screen.findByRole( 'button', { name: 'Publish changes' } ) ).toBeVisible();
+			expect( await screen.findByRole( 'button', { name: 'Publish changes…' } ) ).toBeVisible();
 		}
 		await actions.click( screen.getByRole( 'button', { name: 'More options' } ) );
 		expect(

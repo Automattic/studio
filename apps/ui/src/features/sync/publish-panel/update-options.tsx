@@ -133,13 +133,6 @@ export function PublishChecklist( {
 				} ) }
 			</div>
 			{ children }
-			{ content ? (
-				<p className={ styles.warning }>
-					{ __(
-						'Publishing the database replaces anything that changed on your live WordPress, like new comments or orders.'
-					) }
-				</p>
-			) : null }
 			{ selection.error ? (
 				<p role="alert">
 					{ __( 'Publish options could not be loaded.' ) }{ ' ' }

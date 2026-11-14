@@ -100,6 +100,13 @@ async function mainMenu() {
 	fireEvent.click( await screen.findByRole( 'button', { name: 'More options' } ) );
 	return screen.findByRole( 'menu' );
 }
+async function confirmPublish() {
+	const dialog = await screen.findByRole( 'alertdialog', { name: 'Publish changes?' } );
+	const publish = within( dialog ).getByRole( 'button', { name: 'Publish changes' } );
+	await waitFor( () => expect( publish ).toBeEnabled() );
+	fireEvent.click( publish );
+	await waitFor( () => expect( dialog ).not.toBeInTheDocument() );
+}
 async function switchTo( hostname: string ) {
 	if ( hostname === preview.url ) return;
 	fireEvent.click( await screen.findByRole( 'button', { name: 'Choose destination' } ) );
@@ -152,7 +159,7 @@ it( 'renders the selected provider capabilities and isolates its change dot', as
 	expect( screen.queryByText( 'Like forms, comments, and search' ) ).not.toBeInTheDocument();
 	expect( screen.getByRole( 'button', { name: 'Who can view' } ) ).toBeVisible();
 	expect( screen.queryByRole( 'button', { name: 'What to publish' } ) ).not.toBeInTheDocument();
-	expect( screen.getByRole( 'button', { name: 'Publish changes' } ) ).toBeVisible();
+	expect( screen.getByRole( 'button', { name: 'Publish changes…' } ) ).toBeVisible();
 	expect( screen.getByLabelText( 'Local changes' ) ).toBeVisible();
 	expect(
 		within( screen.getByRole( 'group', { name: 'Published site actions' } ) ).queryByRole(
@@ -318,9 +325,10 @@ it( 'reports a failed live push as a notification while keeping the panel open',
 	} );
 	await open();
 	await switchTo( 'lente.space.fast' );
-	const publish = await screen.findByRole( 'button', { name: 'Publish changes' } );
+	const publish = await screen.findByRole( 'button', { name: 'Publish changes…' } );
 	await waitFor( () => expect( publish ).toBeEnabled() );
 	fireEvent.click( publish );
+	await confirmPublish();
 	await waitFor(
 		() =>
 			expect( getVisibleToasts().filter( ( notice ) => notice.intent === 'error' ) ).toMatchObject(
@@ -331,7 +339,7 @@ it( 'reports a failed live push as a notification while keeping the panel open',
 	const panel = screen.getByRole( 'dialog', { name: 'Publish' } );
 	expect( panel ).toBeVisible();
 	expect( within( panel ).queryByRole( 'alert' ) ).not.toBeInTheDocument();
-	expect( within( panel ).getByRole( 'button', { name: 'Publish changes' } ) ).toBeEnabled();
+	expect( within( panel ).getByRole( 'button', { name: 'Publish changes…' } ) ).toBeEnabled();
 } );
 it( 'uses preview names consistently in the Share panel and selector', async () => {
 	const unnamed = { ...preview, sequence: 7, date: Date.now() - 1000 };
@@ -535,7 +543,7 @@ it( 'keeps connected destinations separate from previews', async () => {
 	expect( staticSite ).not.toHaveTextContent( 'Not published yet' );
 	await user.click( staticSite );
 	expect( await within( publish ).findByLabelText( 'Local changes' ) ).toBeVisible();
-	expect( within( panel ).getByRole( 'button', { name: 'Publish changes' } ) ).toBeVisible();
+	expect( within( panel ).getByRole( 'button', { name: 'Publish changes…' } ) ).toBeVisible();
 	expect( within( panel ).getByRole( 'button', { name: 'lente.space.fast' } ) ).toBeVisible();
 	expect( within( panel ).queryByRole( 'button', { name: 'Previews' } ) ).not.toBeInTheDocument();
 	expect( connector.createRemoteSite ).not.toHaveBeenCalled();
@@ -911,8 +919,8 @@ it.each( [ false, true ] )(
 		await user.click( within( panel ).getByRole( 'button', { name: 'Destination' } ) );
 		await user.click( await screen.findByRole( 'menuitemradio', { name: /Spacefast A static/ } ) );
 		expect(
-			within( panel ).getByText( 'Forms, comments, and search may not work on a static site.' )
-		).toBeVisible();
+			within( panel ).queryByText( 'Forms, comments, and search may not work on a static site.' )
+		).not.toBeInTheDocument();
 		const publish = within( panel ).getByRole( 'button', { name: 'Publish' } );
 		await waitFor( () => expect( publish ).toBeEnabled() );
 		await user.click( publish );
@@ -1027,7 +1035,7 @@ it( 'keeps the confirmed live state while destination metadata refreshes', async
 	await waitFor( () => expect( finish ).toBeDefined() );
 	expect( screen.getByText( 'Your latest changes are live.' ) ).toBeVisible();
 	expect( screen.getByRole( 'button', { name: 'Copy link' } ) ).toBeVisible();
-	expect( screen.queryByRole( 'button', { name: 'Publish changes' } ) ).not.toBeInTheDocument();
+	expect( screen.queryByRole( 'button', { name: 'Publish changes…' } ) ).not.toBeInTheDocument();
 	await act( async () => finish( { localChanged: false } ) );
 } );
 
@@ -1048,11 +1056,12 @@ it.each( [ 'failed', 'pending' ] )(
 			pushSite: async () => new Promise( () => {} ),
 		} );
 		await open();
-		const publish = await screen.findByRole( 'button', { name: 'Publish changes' } );
+		const publish = await screen.findByRole( 'button', { name: 'Publish changes…' } );
 		await waitFor( () => expect( publish ).toBeEnabled() );
 		expect( screen.queryByText( 'Could not check your connected sites.' ) ).not.toBeInTheDocument();
 		expect( screen.queryByText( /Couldn’t load your .* sites/ ) ).not.toBeInTheDocument();
 		await user.click( publish );
+		await confirmPublish();
 		await waitFor( () =>
 			expect( connector.pushSite ).toHaveBeenCalledWith(
 				'wpcom',
@@ -1072,7 +1081,7 @@ it( 'retains a known destination after its saved connection refresh fails', asyn
 	} );
 	await open();
 	await waitFor( () =>
-		expect( screen.getByRole( 'button', { name: 'Publish changes' } ) ).toBeEnabled()
+		expect( screen.getByRole( 'button', { name: 'Publish changes…' } ) ).toBeEnabled()
 	);
 	connector.getRemoteSites.mockRejectedValue( new Error( 'Refresh unavailable' ) );
 	await act( async () => {
@@ -1081,7 +1090,7 @@ it( 'retains a known destination after its saved connection refresh fails', asyn
 	expect( queryClient.getQueryState( remoteSitesQueryKey( 'wpcom', site.id ) )?.status ).toBe(
 		'error'
 	);
-	expect( screen.getByRole( 'button', { name: 'Publish changes' } ) ).toBeEnabled();
+	expect( screen.getByRole( 'button', { name: 'Publish changes…' } ) ).toBeEnabled();
 	expect( screen.getByRole( 'button', { name: 'lente.blog' } ) ).toBeVisible();
 	expect( screen.queryByText( /Couldn’t load your .* sites/ ) ).not.toBeInTheDocument();
 } );
@@ -1120,7 +1129,7 @@ it( 'explains an unavailable destination and retries only that provider with vis
 	expect( notice ).toBeVisible();
 	await act( async () => finish( [ live ] ) );
 	await waitFor( () =>
-		expect( screen.getByRole( 'button', { name: 'Publish changes' } ) ).toBeEnabled()
+		expect( screen.getByRole( 'button', { name: 'Publish changes…' } ) ).toBeEnabled()
 	);
 	expect( screen.queryByText( /Couldn’t load your .* sites/ ) ).not.toBeInTheDocument();
 	expect(
@@ -1135,7 +1144,8 @@ it( 'holds publishing until the completed destination check returns', async () =
 		pushSite: async () => new Promise( () => {} ),
 	} );
 	await open();
-	fireEvent.click( await screen.findByRole( 'button', { name: 'Publish changes' } ) );
+	fireEvent.click( await screen.findByRole( 'button', { name: 'Publish changes…' } ) );
+	await confirmPublish();
 	await screen.findByRole( 'button', { name: 'Publishing…' } );
 	expect( screen.getByText( 'Published just now' ) ).toBeVisible();
 	act( () =>
@@ -1167,7 +1177,7 @@ it( 'holds publishing until the completed destination check returns', async () =
 	);
 	await waitFor( () => expect( finish ).toBeDefined() );
 	expect( screen.getByText( 'Your changes will be live in a moment.' ) ).toBeVisible();
-	expect( screen.queryByRole( 'button', { name: 'Publish changes' } ) ).not.toBeInTheDocument();
+	expect( screen.queryByRole( 'button', { name: 'Publish changes…' } ) ).not.toBeInTheDocument();
 	await act( async () => finish( { localChanged: false } ) );
 	await screen.findByText( 'Your latest changes are live.' );
 	expect( screen.getByRole( 'button', { name: 'Copy link' } ) ).toBeVisible();
@@ -1184,9 +1194,9 @@ it( 'shows an actionable Publish changes button once publish checks finish', asy
 	await open();
 	await waitFor( () => expect( finish ).toBeDefined() );
 	expect( screen.getByRole( 'button', { name: 'Checking…' } ) ).toBeVisible();
-	expect( screen.queryByRole( 'button', { name: 'Publish changes' } ) ).not.toBeInTheDocument();
+	expect( screen.queryByRole( 'button', { name: 'Publish changes…' } ) ).not.toBeInTheDocument();
 	await act( async () => finish( 1 ) );
-	expect( await screen.findByRole( 'button', { name: 'Publish changes' } ) ).toBeEnabled();
+	expect( await screen.findByRole( 'button', { name: 'Publish changes…' } ) ).toBeEnabled();
 } );
 
 it.each( [ 'wpcom', 'spacefast' ] as const )(
@@ -1277,8 +1287,9 @@ it( 'uses a neutral state for a destination with no transfer history', async () 
 	).toBeVisible();
 	expect( within( panel ).queryByText( 'Not published yet' ) ).not.toBeInTheDocument();
 	expect( screen.queryByLabelText( 'Local changes' ) ).not.toBeInTheDocument();
-	await user.click( within( panel ).getByRole( 'button', { name: 'Publish changes' } ) );
-	expect( await within( panel ).findByRole( 'button', { name: 'Publishing…' } ) ).toBeVisible();
+	await user.click( within( panel ).getByRole( 'button', { name: 'Publish changes…' } ) );
+	await confirmPublish();
+	expect( await screen.findByRole( 'button', { name: 'Publishing…' } ) ).toBeVisible();
 	expect( connector.pushSite ).toHaveBeenCalledExactlyOnceWith(
 		'spacefast',
 		site.id,
@@ -1297,7 +1308,7 @@ it( 'uses a neutral state for a destination with no transfer history', async () 
 			},
 		} )
 	);
-	expect( await within( panel ).findByRole( 'button', { name: 'Publish changes' } ) ).toBeVisible();
+	expect( await screen.findByRole( 'button', { name: 'Publish changes…' } ) ).toBeVisible();
 } );
 
 it( 'hides the publish-time line when no timestamp was saved', async () => {
@@ -1331,7 +1342,7 @@ it.each( [ false, true ] )(
 		).toBeVisible();
 		expect(
 			within( panel ).getByRole( 'button', {
-				name: localChanged ? 'Publish changes' : 'Copy link',
+				name: localChanged ? 'Publish changes…' : 'Copy link',
 			} )
 		).toBeVisible();
 		expect( screen.queryByText( 'Not published yet' ) ).not.toBeInTheDocument();
@@ -1383,7 +1394,7 @@ it.each( [ false, true ] )(
 		await user.click( within( menu ).getByRole( 'menuitem', { name: 'Connect existing site' } ) );
 		const dialog = await screen.findByRole( 'dialog', { name: 'Choose an existing site' } );
 		await user.click( await within( dialog ).findByRole( 'button', { name: /Live.*lente.blog/ } ) );
-		expect( await screen.findByRole( 'button', { name: 'Publish changes' } ) ).toBeVisible();
+		expect( await screen.findByRole( 'button', { name: 'Publish changes…' } ) ).toBeVisible();
 		expect(
 			screen.getByText(
 				'Publish changes to this site, or bring its content into WordPress Studio.'
@@ -1409,11 +1420,23 @@ it( 'preserves selective publishing on the first push to an existing live site',
 		getSitePublishStatus: async () => ( { localChanged: null } ),
 	} );
 	await open();
-	expect( await screen.findByText( /Publishing the database replaces/ ) ).toBeVisible();
-	await user.click( screen.getByRole( 'button', { name: 'What to publish' } ) );
+	const warning = /Publishing the database replaces/;
+	expect( screen.queryByText( warning ) ).not.toBeInTheDocument();
+	await user.click( await screen.findByRole( 'button', { name: 'Publish changes…' } ) );
+	const all = await screen.findByRole( 'alertdialog', { name: 'Publish changes?' } );
+	expect( all ).toHaveTextContent( 'Publish to lente.blog.' );
+	expect( all ).toHaveTextContent( 'What to publish: Everything' );
+	expect( within( all ).getByText( warning ) ).toBeVisible();
+	await user.click( within( all ).getByRole( 'button', { name: 'Cancel' } ) );
+	expect( connector.pushSite ).not.toHaveBeenCalled();
+	await user.click( await screen.findByRole( 'button', { name: 'What to publish' } ) );
 	await user.click( await screen.findByRole( 'checkbox', { name: /Database/ } ) );
 	await user.keyboard( '{Escape}' );
-	await user.click( screen.getByRole( 'button', { name: 'Publish changes' } ) );
+	await user.click( screen.getByRole( 'button', { name: 'Publish changes…' } ) );
+	const files = await screen.findByRole( 'alertdialog', { name: 'Publish changes?' } );
+	expect( files ).toHaveTextContent( 'What to publish: Files only' );
+	expect( within( files ).queryByText( warning ) ).not.toBeInTheDocument();
+	await confirmPublish();
 	expect( connector.pushSite ).toHaveBeenCalledWith(
 		'wpcom',
 		site.id,
@@ -1551,7 +1574,8 @@ it( 'chooses files in a modal, preserves Database, and discards unfinished edits
 	expect( within( dialog ).getByRole( 'button', { name: 'Done' } ) ).toBeDisabled();
 	await user.click( await within( dialog ).findByRole( 'checkbox', { name: 'theme.json' } ) );
 	await user.keyboard( '{Escape}' );
-	await user.click( await screen.findByRole( 'button', { name: 'Publish changes' } ) );
+	await user.click( await screen.findByRole( 'button', { name: 'Publish changes…' } ) );
+	await confirmPublish();
 	await waitFor( () =>
 		expect( connector.pushSite ).toHaveBeenCalledExactlyOnceWith( 'wpcom', site.id, live.id, {
 			optionsToSync: [ 'themes' ],
@@ -1572,10 +1596,14 @@ it( 'shows which live site a preview represents and warns before publishing newe
 		} ),
 	} );
 	await open();
-	expect( await screen.findByText( /including changes not shown in that preview/ ) ).toBeVisible();
-	expect( screen.getByRole( 'button', { name: 'Publish changes' } ) ).toBeEnabled();
 	await openPreviews( user );
 	expect( await screen.findByText( /Changes to Live · Expires/ ) ).toBeVisible();
+	await user.keyboard( '{Escape}' );
+	await user.click( screen.getByRole( 'button', { name: 'Publish changes…' } ) );
+	const dialog = await screen.findByRole( 'alertdialog', { name: 'Publish changes?' } );
+	expect(
+		await within( dialog ).findByText( /including changes not shown in that preview/ )
+	).toBeVisible();
 	expect( connector.pushSite ).not.toHaveBeenCalled();
 } );
 

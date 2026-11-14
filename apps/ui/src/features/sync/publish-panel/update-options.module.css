@@ -30,13 +30,6 @@
 	color: var( --muted-foreground );
 	font-weight: var( --font-weight-normal );
 }
-.warning {
-	color: var( --warning );
-	font-size: var( --text-xxs );
-	line-height: var( --text-xxs--line-height );
-	margin: var( --space-2 );
-}
-
 .divider {
 	border: 0;
 	border-top: var( --hairline-width ) solid var( --border );

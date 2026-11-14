@@ -188,11 +188,15 @@ test.describe( 'Share and publish', () => {
 		await database.click();
 		await expect( database ).not.toBeChecked();
 		await page.keyboard.press( 'Escape' );
-		await panel.getByRole( 'button', { name: 'Publish changes', exact: true } ).click();
+		await panel.getByRole( 'button', { name: 'Publish changes…', exact: true } ).click();
+		const confirmation = page.getByRole( 'alertdialog', { name: 'Publish changes?' } );
+		await expect( confirmation ).toContainText( 'example.wordpress.com' );
+		expect( await publishCalls() ).toHaveLength( 1 );
+		await confirmation.getByRole( 'button', { name: 'Publish changes', exact: true } ).click();
 		await expect.poll( async () => ( await publishCalls() ).length ).toBe( 2 );
 		await finishPublish();
 		await expect(
-			panel.getByRole( 'button', { name: 'Publish changes', exact: true } )
+			panel.getByRole( 'button', { name: 'Publish changes…', exact: true } )
 		).toBeEnabled();
 
 		await panel.getByRole( 'button', { name: 'More options', exact: true } ).click();

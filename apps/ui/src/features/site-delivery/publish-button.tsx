@@ -183,7 +183,6 @@ export function PublishButton( {
 		setOpen( ! manageInSettings );
 		if ( manageInSettings ) openSettings( 'sharing' );
 	}, [ shareRequested, remote, descriptor, targets.loadingConnections, openSettings ] );
-	const firstPublish = !! remote && ! remote.lastPushTimestamp;
 	const newDestination = isNewDestination( remote );
 	const liveSites = getQualifyingLiveSites(
 		targets.targets.flatMap( ( target ) =>
@@ -243,7 +242,6 @@ export function PublishButton( {
 		snapshot && connectedProviders.some( ( provider ) => provider !== selected?.provider )
 			? selected
 			: undefined;
-	const staticPublishSetup = ! selected && emptyDescriptor.content === 'static';
 	const creationAccessUnavailable =
 		showCreationAccess && ( creationPolicy.isError || ! creationVisibility );
 	const previewsCapability = ( descriptor ?? emptyDescriptor ).previews;
@@ -291,7 +289,7 @@ export function PublishButton( {
 	} >();
 	const [ existingProvider, setExistingProvider ] = useState< SitesProviderId >();
 	const [ previewLiveSite, setPreviewLiveSite ] = useState< string >();
-	const [ republishing, setRepublishing ] = useState( false );
+	const [ publishConfirmation, setPublishConfirmation ] = useState< 'changes' | 'again' >();
 	const [ chooseFiles, setChooseFiles ] = useState( false );
 	const openingTargetDialog = !! (
 		showLivePull ||
@@ -300,7 +298,7 @@ export function PublishButton( {
 		removeTarget ||
 		existingProvider ||
 		previewLiveSite !== undefined ||
-		republishing ||
+		publishConfirmation ||
 		chooseFiles
 	);
 	const locale = useUserLocale();
@@ -679,7 +677,7 @@ export function PublishButton( {
 							variant="inline-accent"
 							size="inline"
 							disabled={ disabled }
-							onClick={ () => setRepublishing( true ) }
+							onClick={ () => setPublishConfirmation( 'again' ) }
 						>
 							{ __( 'Publish again…' ) }
 						</Button>
@@ -897,11 +895,6 @@ export function PublishButton( {
 					/>
 				) }
 			</div>
-			{ staticPublishSetup && (
-				<p className={ styles.staticPublishNote }>
-					{ __( 'Forms, comments, and search may not work on a static site.' ) }
-				</p>
-			) }
 			{ snapshot && preview.status.data?.previewChanged && (
 				<div role="status" className={ styles.changeStatus }>
 					<p>{ hasChanges ? __( 'Local and preview changes' ) : __( 'Preview has changes' ) }</p>
@@ -1070,8 +1063,10 @@ export function PublishButton( {
 								remote={ remote }
 								publishing={ selectedPending }
 								disabled={ disabled }
-								firstPublish={ firstPublish }
 								forceEntireSite={ newDestination }
+								onConfirmPublish={
+									newDestination ? undefined : () => setPublishConfirmation( 'changes' )
+								}
 							/>
 						)
 					) : (
@@ -1105,7 +1100,7 @@ export function PublishButton( {
 					! showLivePull &&
 					! existingProvider &&
 					previewLiveSite === undefined &&
-					! republishing &&
+					! publishConfirmation &&
 					! chooseFiles &&
 					! previewAction &&
 					! previewOverwrite
@@ -1361,26 +1356,16 @@ export function PublishButton( {
 					</DialogContent>
 				</Dialog>
 			) }
-			{ republishing && selected && remote && (
-				<AlertDialog open onOpenChange={ ( next ) => ! next && setRepublishing( false ) }>
-					<DialogContent layout="confirmation" finalFocus={ trigger }>
-						<DialogHeader>
-							<DialogTitle>{ __( 'Publish again?' ) }</DialogTitle>
-							<DialogDescription>
-								{ __(
-									'The selected files, content, and settings on your live site will be overwritten.'
-								) }
-							</DialogDescription>
-						</DialogHeader>
-						<LiveSiteAction
-							site={ site }
-							provider={ selected.provider }
-							remote={ remote }
-							disabled={ disabled }
-							onPublishStarted={ () => setRepublishing( false ) }
-						/>
-					</DialogContent>
-				</AlertDialog>
+			{ publishConfirmation && selected && remote && (
+				<LiveSiteAction
+					site={ site }
+					provider={ selected.provider }
+					remote={ remote }
+					disabled={ disabled }
+					confirmation={ publishConfirmation }
+					onBack={ () => setPublishConfirmation( undefined ) }
+					returnFocus={ trigger }
+				/>
 			) }
 			{ showLivePull && pullTarget?.remote && (
 				<LiveSiteAction

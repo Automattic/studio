@@ -7,16 +7,6 @@
 	-webkit-app-region: drag;
 }
 
-:global( [data-native-sidebar] ) .root {
-	color: var( --accent-foreground );
-}
-
 .root svg {
-	opacity: 0.4;
-}
-
-@media ( prefers-reduced-transparency: reduce ) {
-	:global( [data-native-sidebar] ) .root {
-		color: var( --foreground );
-	}
+	opacity: 0.5;
 }

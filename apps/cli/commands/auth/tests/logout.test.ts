@@ -1,5 +1,5 @@
-import { revokeAuthToken } from '@studio/common/lib/oauth';
-import { readAuthToken, updateSharedConfig } from '@studio/common/lib/shared-config';
+import { disconnectProvider } from '@studio/common/lib/ai-settings';
+import { readAuthToken } from '@studio/common/lib/shared-config';
 import { vi } from 'vitest';
 import { LoggerError } from 'cli/logger';
 import {
@@ -15,9 +15,8 @@ import { runCommand } from '../logout';
 vi.mock( '@studio/common/lib/shared-config', async ( importOriginal ) => ( {
 	...( await importOriginal< typeof import('@studio/common/lib/shared-config') >() ),
 	readAuthToken: vi.fn(),
-	updateSharedConfig: vi.fn(),
 } ) );
-vi.mock( '@studio/common/lib/oauth' );
+vi.mock( '@studio/common/lib/ai-settings', () => ( { disconnectProvider: vi.fn() } ) );
 vi.mock( 'cli/lib/daemon-client', () => ( {
 	emitCliEvent: vi.fn(),
 } ) );
@@ -49,8 +48,7 @@ describe( 'Auth Logout Command', () => {
 		vi.clearAllMocks();
 
 		vi.mocked( readAuthToken ).mockResolvedValue( mockAuthToken );
-		vi.mocked( revokeAuthToken ).mockResolvedValue( undefined );
-		vi.mocked( updateSharedConfig ).mockResolvedValue( undefined );
+		vi.mocked( disconnectProvider ).mockResolvedValue( undefined as never );
 	} );
 
 	afterEach( () => {
@@ -61,22 +59,12 @@ describe( 'Auth Logout Command', () => {
 		await runCommand();
 
 		expect( readAuthToken ).toHaveBeenCalled();
-		expect( revokeAuthToken ).toHaveBeenCalled();
-		expect( updateSharedConfig ).toHaveBeenCalledWith( { authToken: undefined } );
-		expect( mockReportSuccess ).toHaveBeenCalledWith( 'Successfully logged out' );
-	} );
-
-	it( 'should clear the token even if revoking it fails', async () => {
-		vi.mocked( revokeAuthToken ).mockRejectedValue( new Error( 'Failed to revoke token: 401' ) );
-
-		await runCommand();
-
-		expect( updateSharedConfig ).toHaveBeenCalledWith( { authToken: undefined } );
+		expect( disconnectProvider ).toHaveBeenCalledWith( expect.objectContaining( { id: 'wpcom' } ) );
 		expect( mockReportSuccess ).toHaveBeenCalledWith( 'Successfully logged out' );
 	} );
 
 	it( 'should report an error if clearing the token fails', async () => {
-		vi.mocked( updateSharedConfig ).mockRejectedValue( new Error( 'Failed to write config' ) );
+		vi.mocked( disconnectProvider ).mockRejectedValue( new Error( 'Failed to write config' ) );
 
 		await runCommand();
 
@@ -89,7 +77,7 @@ describe( 'Auth Logout Command', () => {
 		await runCommand();
 
 		expect( readAuthToken ).toHaveBeenCalled();
-		expect( revokeAuthToken ).not.toHaveBeenCalled();
+		expect( disconnectProvider ).not.toHaveBeenCalled();
 		expect( mockReportSuccess ).toHaveBeenCalledWith( 'Already logged out' );
 	} );
 } );

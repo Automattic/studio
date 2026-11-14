@@ -12,6 +12,8 @@ vi.mock( '@studio/common/lib/cli-process', async ( importOriginal ) => ( {
 	killChild: vi.fn(),
 } ) );
 
+const LIVE_SITE = { provider: 'wpcom', id: 42 } as const;
+
 function fakeCli() {
 	const emitter = new EventEmitter();
 	const child = { pid: 4242 };
@@ -23,7 +25,7 @@ describe( 'pullSite', () => {
 	it( 'asks the CLI to stop and rejects as cancelled once it exits', async () => {
 		const { emitter, child, execute } = fakeCli();
 		const controller = new AbortController();
-		const pulling = pullSite( execute, '/sites/local', 42, undefined, controller.signal );
+		const pulling = pullSite( execute, '/sites/local', LIVE_SITE, undefined, controller.signal );
 
 		controller.abort();
 		emitter.emit( 'failure', { error: new Error( 'exited' ) } );
@@ -35,7 +37,7 @@ describe( 'pullSite', () => {
 	it( 'rejects immediately when the signal is already aborted', async () => {
 		const { execute } = fakeCli();
 		await expect(
-			pullSite( execute, '/sites/local', 42, undefined, AbortSignal.abort() )
+			pullSite( execute, '/sites/local', LIVE_SITE, undefined, AbortSignal.abort() )
 		).rejects.toSatisfy( isSyncCancelledError );
 		expect( execute ).not.toHaveBeenCalled();
 	} );
@@ -44,7 +46,7 @@ describe( 'pullSite', () => {
 	it( 'passes both selection forms, one argv value per id or path', async () => {
 		const { emitter, execute } = fakeCli();
 		const includePathList = [ 'cjE6,ZjE6Lw==', 'cjI6,ZjI6Lw==', 'ZjM6Lw==' ];
-		const pulling = pullSite( execute, '/sites/local', 42, {
+		const pulling = pullSite( execute, '/sites/local', LIVE_SITE, {
 			optionsToSync: [ 'paths' ],
 			includePathList,
 			onlyPaths: [ 'themes/one,two', 'uploads' ],
@@ -77,7 +79,7 @@ describe( 'pullSite', () => {
 describe( 'pushSite', () => {
 	it( 'runs the CLI push with the selection and rejects with its error', async () => {
 		const { emitter, execute } = fakeCli();
-		const pushing = pushSite( execute, '/sites/local', 42, {
+		const pushing = pushSite( execute, '/sites/local', LIVE_SITE, {
 			optionsToSync: [ 'themes' ],
 			specificSelectionPaths: [ 'wp-content/themes/twentytwentyfive' ],
 		} );
@@ -140,20 +142,36 @@ describe( 'cancellable phases', () => {
 		expect( isSyncCancelledError( new Error( 'STUDIO_SYNC_CANCELLED' ) ) ).toBe( true );
 		expect(
 			isSyncCancelledError(
-				new Error( "Error invoking remote method 'pushSiteToLive': Error: STUDIO_SYNC_CANCELLED" )
+				new Error( "Error invoking remote method 'pushSite': Error: STUDIO_SYNC_CANCELLED" )
 			)
 		).toBe( true );
 		expect( isSyncCancelledError( new Error( 'Remote backup failed' ) ) ).toBe( false );
 	} );
 } );
 
+describe( 'remote site argument', () => {
+	// WordPress.com sites go by their id; other providers name themselves.
+	it( 'names a site on another provider by provider and id', async () => {
+		const { emitter, execute } = fakeCli();
+		const pushing = pushSite( execute, '/sites/local', { provider: 'spacefast', id: 'spc_1' } );
+
+		emitter.emit( 'success' );
+		await pushing;
+
+		expect( execute ).toHaveBeenCalledWith(
+			expect.arrayContaining( [ '--remote-site', 'spacefast:spc_1' ] ),
+			expect.anything()
+		);
+	} );
+} );
+
 describe( 'createSyncRunner', () => {
 	it( 'cancels only the sync running for that site and remote site', async () => {
 		const first = fakeCli();
-		const pushing = createSyncRunner( first.execute ).push( 'site-1', '/sites/local', 42 );
+		const pushing = createSyncRunner( first.execute ).push( 'site-1', '/sites/local', LIVE_SITE );
 		const second = fakeCli();
 		const runner = createSyncRunner( second.execute );
-		const pulling = runner.pull( 'site-1', '/sites/local', 42 );
+		const pulling = runner.pull( 'site-1', '/sites/local', LIVE_SITE );
 
 		runner.cancel( 'site-1', 7 );
 		first.emitter.emit( 'success' );

@@ -113,6 +113,7 @@ function mockElectron() {
 				setName: vi.fn(),
 				setAsDefaultProtocolClient: vi.fn(),
 				enableSandbox: vi.fn(),
+				commandLine: { hasSwitch: vi.fn().mockReturnValue( false ) },
 				setAppLogsPath: vi.fn(),
 				getLocale: vi.fn().mockReturnValue( 'en-US' ),
 				getSystemLocale: vi.fn().mockReturnValue( 'en-US' ),
@@ -176,6 +177,15 @@ afterAll( () => {
 	vi.spyOn( console, 'error' ).mockRestore();
 } );
 
+// `process.getuid` does not exist on Windows, so it is set rather than spied on.
+function stubUid( uid: number ) {
+	const original = process.getuid;
+	process.getuid = () => uid;
+	return () => {
+		process.getuid = original;
+	};
+}
+
 describe( 'App initialization', () => {
 	it.each( [ true, false ] )(
 		'quits after a failed legacy migration only while app config is missing (app config exists: %s)',
@@ -219,6 +229,45 @@ describe( 'App initialization', () => {
 			}
 		}
 	);
+	it( 'sandboxes every renderer', async () => {
+		mockElectron();
+		vi.resetModules();
+		const { app } = await import( 'electron' );
+		await import( '../index' );
+
+		expect( app.enableSandbox ).toHaveBeenCalled();
+	} );
+
+	it( 'still sandboxes when started with --no-sandbox as a regular user', async () => {
+		mockElectron();
+		vi.resetModules();
+		const { app } = await import( 'electron' );
+		vi.mocked( app.commandLine.hasSwitch ).mockImplementation(
+			( name: string ) => name === 'no-sandbox'
+		);
+		const restoreUid = stubUid( 1000 );
+		await import( '../index' );
+		restoreUid();
+
+		expect( app.enableSandbox ).toHaveBeenCalled();
+	} );
+
+	it( 'leaves the sandbox off when started with --no-sandbox as root on Linux, as in a container', async () => {
+		mockElectron();
+		vi.resetModules();
+		const { app } = await import( 'electron' );
+		vi.mocked( app.commandLine.hasSwitch ).mockImplementation(
+			( name: string ) => name === 'no-sandbox'
+		);
+		const originalProcessPlatform = process.platform;
+		Object.defineProperty( process, 'platform', { value: 'linux' } );
+		const restoreUid = stubUid( 0 );
+		await import( '../index' );
+		restoreUid();
+		Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
+
+		expect( app.enableSandbox ).not.toHaveBeenCalled();
+	} );
 
 	it( 'should identify YouTube embed requests with the Studio referrer', async () => {
 		const { mockedEvents } = mockElectron();
@@ -548,6 +597,42 @@ describe( 'App initialization', () => {
 		await mockedEvents[ 'will-quit' ]( { preventDefault: vi.fn() } );
 	} );
 
+	// Windows ends a sync with Studio's process, while elsewhere it outlives Studio.
+	it.each( [
+		[ 'win32', 'Sync is finishing', false ],
+		[ 'darwin', 'Sync will continue', true ],
+	] )(
+		'on %s, a sync past the safe point shows "%s" and quits: %s',
+		async ( platform, message, quits ) => {
+			const originalProcessPlatform = process.platform;
+			Object.defineProperty( process, 'platform', { value: platform } );
+			const { mockedEvents } = mockElectron();
+			vi.resetModules();
+			await import( '../index' );
+			const { app, dialog } = await import( 'electron' );
+			const { trackSyncActivity } = await import( 'src/lib/active-sync-operations' );
+			trackSyncActivity( {
+				siteId: 'site-1',
+				activity: { kind: 'pending', direction: 'pull', action: 'importDatabase' },
+			} );
+			vi.mocked( dialog.showMessageBoxSync ).mockReturnValue( 0 );
+			const event = { preventDefault: vi.fn() };
+
+			void mockedEvents[ 'before-quit' ]( event );
+			Object.defineProperty( process, 'platform', { value: originalProcessPlatform } );
+
+			expect( dialog.showMessageBoxSync ).toHaveBeenCalledWith(
+				expect.objectContaining( { message } )
+			);
+			if ( quits ) {
+				await vi.waitFor( () => expect( app.quit ).toHaveBeenCalled() );
+			} else {
+				await new Promise( ( resolve ) => setTimeout( resolve ) );
+				expect( app.quit ).not.toHaveBeenCalled();
+			}
+		}
+	);
+
 	async function quitWithRunningSite( dialogResponse: number ) {
 		vi.doMock( 'src/lib/sites', () => ( {
 			getSites: vi.fn().mockResolvedValue( [
@@ -574,7 +659,7 @@ describe( 'App initialization', () => {
 		await vi.waitFor( () => expect( app.quit ).toHaveBeenCalled() );
 		expect( event.preventDefault ).toHaveBeenCalled();
 		await mockedEvents[ 'will-quit' ]( { preventDefault: vi.fn() } );
-		await vi.waitFor( () => expect( app.exit ).toHaveBeenCalled() );
+		await vi.waitFor( () => expect( app.quit ).toHaveBeenCalledTimes( 2 ) );
 
 		return {
 			dialog,
@@ -614,7 +699,7 @@ describe( 'App initialization', () => {
 		expect( stopAllServers ).not.toHaveBeenCalled();
 	} );
 
-	it( 'runs the quit cleanup once when will-quit fires again during it', async () => {
+	it( 'runs the quit cleanup once, then lets the quit through', async () => {
 		let finishStop = () => {};
 		vi.doMock( 'src/lib/sites', () => ( {
 			getSites: vi.fn().mockResolvedValue( [ { id: 'running-site', running: true } ] ),
@@ -638,10 +723,14 @@ describe( 'App initialization', () => {
 		expect( secondEvent.preventDefault ).toHaveBeenCalled();
 		expect( stopCliCommands ).toHaveBeenCalledTimes( 1 );
 		expect( stopAllServers ).toHaveBeenCalledTimes( 1 );
-		expect( app.exit ).not.toHaveBeenCalled();
+		expect( app.quit ).not.toHaveBeenCalled();
 
 		finishStop();
-		await vi.waitFor( () => expect( app.exit ).toHaveBeenCalledTimes( 1 ) );
+		await vi.waitFor( () => expect( app.quit ).toHaveBeenCalledTimes( 1 ) );
+		// So Sentry's own `will-quit` handler ends the session.
+		const finalEvent = { preventDefault: vi.fn() };
+		await mockedEvents[ 'will-quit' ]( finalEvent );
+		expect( finalEvent.preventDefault ).not.toHaveBeenCalled();
 	} );
 
 	it( 'should wait app initialization before creating main window via second-instance event', async () => {

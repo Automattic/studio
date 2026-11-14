@@ -1,9 +1,8 @@
-import { isNetworkError } from '@studio/common/lib/network-utils';
-import { readSharedConfig } from '@studio/common/lib/shared-config';
-import { fetchStudioBlueprints, type Blueprint } from '@studio/common/lib/studio-blueprints-api';
+import { type LibraryBlueprint } from '@studio/blueprints';
 import { BlueprintCommandLoggerAction as LoggerAction } from '@studio/common/logger-actions';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import CliTable3 from 'cli-table3';
+import { loadLibraryBlueprints } from 'cli/lib/blueprint-library';
 import { getColumnWidths } from 'cli/lib/utils';
 import { Logger, LoggerError } from 'cli/logger';
 import { StudioArgv } from 'cli/types';
@@ -17,7 +16,7 @@ function truncate( str: string, maxLength: number ): string {
 	return str.slice( 0, maxLength - 1 ) + '…';
 }
 
-function displayBlueprints( blueprints: Blueprint[], format: 'table' | 'json' ): void {
+function displayBlueprints( blueprints: LibraryBlueprint[], format: 'table' | 'json' ): void {
 	if ( format === 'json' ) {
 		console.log( JSON.stringify( blueprints ) );
 		return;
@@ -46,17 +45,7 @@ function displayBlueprints( blueprints: Blueprint[], format: 'table' | 'json' ):
 export async function runCommand( format: 'table' | 'json', category?: string ): Promise< void > {
 	logger.reportStart( LoggerAction.FETCH_BLUEPRINTS, __( 'Fetching blueprints…' ) );
 
-	const sharedConfig = await readSharedConfig();
-	const locale = sharedConfig.locale;
-	const blueprints = await fetchStudioBlueprints( locale ).catch( ( error: unknown ) => {
-		if ( isNetworkError( error ) ) {
-			throw new LoggerError(
-				__( 'An internet connection is required to list blueprints.' ),
-				error
-			);
-		}
-		throw error;
-	} );
+	const blueprints = await loadLibraryBlueprints();
 
 	if ( blueprints.length === 0 ) {
 		logger.reportSuccess( __( 'No blueprints available' ) );
@@ -70,7 +59,7 @@ export async function runCommand( format: 'table' | 'json', category?: string ):
 	if ( category ) {
 		const lowerCategory = category.toLowerCase();
 		filtered = blueprints.filter( ( bp ) => {
-			const meta = bp.blueprint?.meta as { categories?: string[] } | undefined;
+			const meta = bp.blueprint.meta as { categories?: string[] } | undefined;
 			return meta?.categories?.some( ( cat ) => cat.toLowerCase() === lowerCategory );
 		} );
 	}

@@ -1,5 +1,5 @@
-import { DEFAULT_MODEL } from '@studio/agent/protocol/models';
 import { getAiSkillCommands } from '@studio/agent/protocol/slash-commands';
+import { DEFAULT_PROVIDER_ID, getDefaultAiModel } from '@studio/providers';
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { createRef, useState, type ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -15,7 +15,7 @@ import {
 } from '@/features/annotations';
 import { Composer, type ComposerHandle } from '@/features/composer';
 import { Button } from '@/lib/ui';
-import { createFakeConnector, makeSession, TEST_USER } from '@/test/fake-connector';
+import { aiSettings, createFakeConnector, makeSession, TEST_USER } from '@/test/fake-connector';
 import { renderWithProviders } from '@/test/render';
 import { clearComposerDrafts, getComposerDraft, saveComposerDraft } from './draft-store';
 import { pendingComposerFilesSlot } from './pending-files';
@@ -23,16 +23,14 @@ import type { LoadedAiSession, SessionEntry } from '@/data/core';
 import type { ComposerImageAttachment } from '@studio/agent/protocol/composer-attachments';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
 
+const DEFAULT_MODEL = getDefaultAiModel( DEFAULT_PROVIDER_ID );
+
 type Props = Partial< ComponentProps< typeof Composer > > & { ref?: React.Ref< ComposerHandle > };
 
 const SITE = 'composer-site';
 const interrupt = vi.fn( async () => {} );
 
-const ANTHROPIC_KEY = {
-	provider: 'wpcom' as const,
-	hasAnthropicApiKey: true,
-	anthropicApiKeyPreview: 'sk-ant-api03-tes...1234',
-};
+const ANTHROPIC_KEY = aiSettings( 'wpcom', [ 'wpcom', 'anthropic' ] );
 
 const OUT_OF_CREDITS = {
 	costCap: 100,
@@ -87,7 +85,7 @@ function sessionContextEntry( provider: string ): SessionEntry {
 		parentId: null,
 		timestamp: '2026-06-26T12:00:00.000Z',
 		customType: 'studio.session_context',
-		data: { provider, model: 'claude-sonnet-5' },
+		data: { provider, model: 'claude-sonnet-5-5' },
 	} as SessionEntry;
 }
 
@@ -249,7 +247,7 @@ describe( 'Chat composer', () => {
 				fireEvent.keyDown( input, { key: 'Enter' } );
 			} else {
 				fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-				await screen.findByRole( 'option', { name: /^Connect providers/ } );
+				await screen.findByRole( 'option', { name: /^Connect AI providers/ } );
 				expect( screen.queryByRole( 'option', { name: /^Choose model/ } ) ).not.toBeInTheDocument();
 				fireEvent.keyDown( document.activeElement!, { key: 'Escape' } );
 				fireEvent.click( screen.getByRole( 'button', { name: 'Model' } ) );
@@ -269,8 +267,8 @@ describe( 'Chat composer', () => {
 		const { input, onSend, history } = await setup();
 		fireEvent.change( input, { target: { value: 'Keep this draft' } } );
 		fireEvent.click( screen.getByRole( 'button', { name: 'Add' } ) );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Connect providers/ } ) );
-		await waitFor( () => expect( history.location.search ).toContain( 'settings=ai' ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Connect AI providers/ } ) );
+		await waitFor( () => expect( history.location.search ).toContain( 'settings=providers' ) );
 		expect( input ).toHaveValue( 'Keep this draft' );
 		expect( onSend ).not.toHaveBeenCalled();
 		await waitFor( () => expect( screen.queryByRole( 'listbox' ) ).not.toBeInTheDocument() );
@@ -880,7 +878,7 @@ describe( 'Annotation attachments in the composer', () => {
 
 describe( 'Composer model picker', () => {
 	it( 'falls back to WordPress.com when a pinned conversation has no key', async () => {
-		await setup( { entries: [ sessionContextEntry( 'anthropic-api-key' ) ] } );
+		await setup( { entries: [ sessionContextEntry( 'anthropic' ) ] } );
 
 		const trigger = await modelButton();
 		await waitFor( () =>
@@ -888,7 +886,7 @@ describe( 'Composer model picker', () => {
 		);
 		fireEvent.click( trigger );
 		await screen.findByRole( 'option', { name: /^Fast/ } );
-		expect( screen.queryByRole( 'option', { name: /^Sonnet 5/ } ) ).not.toBeInTheDocument();
+		expect( screen.queryByRole( 'option', { name: /^Sonnet 5.5/ } ) ).not.toBeInTheDocument();
 	} );
 
 	it( 'shows the AI credits left as a count, not a share of past top-ups', async () => {
@@ -995,20 +993,20 @@ describe( 'Composer model picker', () => {
 		);
 
 		fireEvent.click( await modelButton() );
-		fireEvent.click( await screen.findByRole( 'option', { name: /^Sonnet 5/ } ) );
+		fireEvent.click( await screen.findByRole( 'option', { name: /^Sonnet 5.5/ } ) );
 		const dialog = await screen.findByRole( 'dialog' );
 		expect( dialog ).toHaveTextContent( 'Start a new chat?' );
 		expect( connector.createSession ).not.toHaveBeenCalled();
 		expect( dialog ).toHaveTextContent(
-			'Switching from Balanced to Sonnet 5 starts a fresh chat because the models don’t share memory. You can find previous chats using Chat history below the chat box.'
+			'Switching from Balanced to Sonnet 5.5 starts a fresh chat because the models don’t share memory. You can find previous chats using Chat history below the chat box.'
 		);
 		fireEvent.click( within( dialog ).getByRole( 'button', { name: 'Yes, new chat' } ) );
 
 		await waitFor( () => expect( onSwitchSession ).toHaveBeenCalledWith( 'fresh-session' ) );
 		expect( connector.setSessionProvider ).toHaveBeenCalledWith(
 			'fresh-session',
-			'anthropic-api-key',
-			'claude-sonnet-5'
+			'anthropic',
+			'claude-sonnet-5-5'
 		);
 		const cached = queryClient.getQueryData< LoadedAiSession >( [
 			...SESSIONS_QUERY_KEY,
@@ -1018,7 +1016,7 @@ describe( 'Composer model picker', () => {
 		expect( cached?.entries ).toEqual( [
 			expect.objectContaining( {
 				customType: 'studio.session_context',
-				data: { provider: 'anthropic-api-key', model: 'claude-sonnet-5' },
+				data: { provider: 'anthropic-api-key', model: 'claude-sonnet-5-5' },
 			} ),
 		] );
 	} );
@@ -1126,12 +1124,12 @@ describe( 'Composer sending', () => {
 		const connector = createFakeConnector( {}, { getAiSettings: async () => ANTHROPIC_KEY } );
 		connector.getStudioAssistantQuota.mockResolvedValue( OUT_OF_CREDITS );
 		const { input, onSend } = await setup(
-			{ model: 'claude-sonnet-5', entries: [ sessionContextEntry( 'anthropic-api-key' ) ] },
+			{ model: 'claude-sonnet-5-5', entries: [ sessionContextEntry( 'anthropic' ) ] },
 			connector
 		);
 		const trigger = await modelButton();
 		await waitFor( () =>
-			expect( trigger ).toHaveAccessibleDescription( 'Sonnet 5 · Anthropic API' )
+			expect( trigger ).toHaveAccessibleDescription( 'Sonnet 5.5 · Anthropic' )
 		);
 
 		fireEvent.change( input, { target: { value: 'One more' } } );

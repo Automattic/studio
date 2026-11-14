@@ -18,6 +18,7 @@ export default mergeConfig(
 				'@': path.resolve( __dirname, 'src' ),
 				'@studio/common': path.resolve( __dirname, '../../packages/common' ),
 				'@studio/agent': path.resolve( __dirname, '../../packages/agent' ),
+				'@studio/providers': path.resolve( __dirname, '../../packages/providers' ),
 				// See `vite.config.ts` for why this subpath needs an explicit alias.
 				'@wp-playground/blueprints/blueprint-schema-validator': path.resolve(
 					__dirname,

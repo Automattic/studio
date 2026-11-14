@@ -1,27 +1,273 @@
-import { AI_PROVIDER_LABELS } from '@studio/agent/protocol/providers';
-import { __ } from '@wordpress/i18n';
+import {
+	getConnectFields,
+	getProvider,
+	type AiProviderId,
+	type ConnectMethod,
+	type ProviderId,
+} from '@studio/providers';
+import { __, sprintf } from '@wordpress/i18n';
 import { useEffect, useState } from 'react';
 import { getProviderIntent } from '@/data/account-analytics';
 import { useConnector } from '@/data/core';
 import {
 	useAiSettings,
-	useSaveAnthropicApiKey,
+	useConnectProvider,
+	useDisconnectProvider,
 	useSetAiProvider,
 } from '@/data/queries/use-ai-settings';
 import { useAuthUser, useLogin } from '@/data/queries/use-auth-user';
+import { Markdown } from '@/features/chats';
 import { LearnMoreLink } from '@/features/onboarding';
 import { useOffline } from '@/lib/hooks';
-import { Button, Input } from '@/lib/ui';
-import { connectedBadge, SettingsGroup, SettingsRow, SettingsSelect } from './rows';
+import { ChevronDownIcon, ExternalLinkIcon } from '@/lib/icons';
+import { Button, Input, Menu } from '@/lib/ui';
+import { ProviderLogo } from './provider-logo';
+import { connectedBadge, SettingsGroup, SettingsRow } from './rows';
 import styles from './style.module.css';
-import type { AiProviderId } from '@studio/agent/protocol/providers';
 
-function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } ) {
+export function getProviderConnectMethods( id: ProviderId, loopbackSignIn: boolean ) {
+	return getProvider( id ).account.methods.filter(
+		( { kind } ) =>
+			kind !== 'redirect' && ( loopbackSignIn || ( kind !== 'loopback' && kind !== 'device' ) )
+	);
+}
+
+// A provider's row: the ways its account connects, as a button or a menu, a form for the method
+// that asks for one, and where to sign in while a sign-in on its site is pending.
+export function ProviderRow( {
+	provider,
+	methods,
+}: {
+	provider: ProviderId;
+	methods: ConnectMethod[];
+} ) {
+	const settings = useAiSettings();
+	const connect = useConnectProvider( provider );
+	const disconnect = useDisconnectProvider( provider );
+	const offline = useOffline();
+	const descriptor = getProvider( provider );
+	const account = settings.data?.accounts[ provider ];
+	const connectedMethod = account?.connected ? account.method : undefined;
+	const [ formMethod, setFormMethod ] = useState< ConnectMethod >();
+	const [ values, setValues ] = useState< Record< string, string > >( {} );
+	const fields = formMethod ? getConnectFields( formMethod ) : [];
+	const instructions = formMethod?.instructions?.();
+	// The account is connected with the form being shown.
+	const current = formMethod !== undefined && formMethod.id === connectedMethod;
+	const signingIn = connect.isPending && connect.pending !== null;
+	// A sign-in waiting on the browser doesn't block connecting another way.
+	const pending =
+		settings.isLoading || ( connect.isPending && ! signingIn ) || disconnect.isPending;
+	const filled = fields.every( ( field ) => values[ field.name ]?.trim() );
+	const [ onlyMethod ] = methods;
+	const error = ( connect.error ?? disconnect.error )?.message;
+
+	const closeForm = () => {
+		setValues( {} );
+		setFormMethod( undefined );
+	};
+	const pick = ( method: ConnectMethod ) => {
+		if ( method.kind === 'form' ) {
+			setFormMethod( method );
+			return;
+		}
+		closeForm();
+		connect.mutate( { method: method.id } );
+	};
+	const save = async () => {
+		await connect.mutateAsync( { method: formMethod!.id, input: values } );
+		closeForm();
+	};
+
+	let control;
+	if ( methods.length > 1 && ! formMethod ) {
+		control = (
+			<Menu.Root>
+				<Menu.Trigger render={ <Button variant="outline" disabled={ pending } /> }>
+					{ account?.connected ? __( 'Manage' ) : __( 'Connect' ) }
+					<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
+				</Menu.Trigger>
+				<Menu.Popup side="bottom" align="end">
+					<Menu.RadioGroup value={ connectedMethod ?? '' }>
+						{ methods.map( ( method ) => (
+							<Menu.RadioItem
+								key={ method.id }
+								value={ method.id }
+								onClick={ () => pick( method ) }
+							>
+								{ method.label() }
+							</Menu.RadioItem>
+						) ) }
+					</Menu.RadioGroup>
+					{ account?.connected ? (
+						<Menu.Item onClick={ () => disconnect.mutate() }>{ __( 'Disconnect' ) }</Menu.Item>
+					) : null }
+				</Menu.Popup>
+			</Menu.Root>
+		);
+	} else if ( onlyMethod.kind === 'form' || formMethod ) {
+		control = (
+			<Button
+				className={ styles.providerFormToggle }
+				variant="outline"
+				aria-expanded={ !! formMethod }
+				disabled={ pending }
+				onClick={ () => ( formMethod ? closeForm() : pick( onlyMethod ) ) }
+			>
+				{ account?.connected ? __( 'Manage' ) : __( 'Connect' ) }
+				<ChevronDownIcon data-icon="inline-end" data-dropdown-indicator />
+			</Button>
+		);
+	} else if ( account?.connected ) {
+		control = (
+			<Button
+				variant="outline"
+				disabled={ disconnect.isPending }
+				onClick={ () => disconnect.mutate() }
+			>
+				{ __( 'Disconnect' ) }
+			</Button>
+		);
+	} else {
+		control = (
+			<Button
+				className={ styles.externalConnect }
+				variant="outline"
+				disabled={ settings.isLoading || offline }
+				loading={ connect.isPending && ! signingIn }
+				onClick={ () => pick( onlyMethod ) }
+			>
+				{ /* Signing in again starts over, for when the browser tab was closed. */ }
+				{ signingIn ? __( 'Try again' ) : __( 'Connect' ) }
+				<ExternalLinkIcon data-icon="inline-end" />
+			</Button>
+		);
+	}
+
+	let description;
+	if ( signingIn && ! formMethod && connect.pending?.code ) {
+		description = sprintf(
+			/* translators: 1: a sign-in code, 2: a service name such as Spacefast */
+			__( 'Approve the code %1$s on %2$s to connect.' ),
+			connect.pending.code,
+			descriptor.label
+		);
+	} else if ( signingIn && ! formMethod ) {
+		description = sprintf(
+			/* translators: %s: a service name such as ChatGPT */
+			__( 'Finish signing in to %s in your browser.' ),
+			descriptor.label
+		);
+	} else {
+		description = descriptor.description?.();
+	}
+
+	return (
+		<>
+			<SettingsRow
+				title={ descriptor.label }
+				settingId={ `${ provider }-provider` }
+				icon={ <ProviderLogo provider={ provider } /> }
+				badge={ account?.connected ? connectedBadge() : null }
+				description={ description }
+				error={ formMethod ? undefined : error }
+			>
+				{ control }
+			</SettingsRow>
+			{ formMethod ? (
+				<form
+					className={ styles.connectForm }
+					aria-label={ sprintf(
+						/* translators: %s: provider name */
+						__( '%s connection' ),
+						descriptor.label
+					) }
+					onSubmit={ ( event ) => {
+						event.preventDefault();
+						if ( ! pending && filled ) {
+							void save().catch( () => {} );
+						}
+					} }
+				>
+					{ instructions ? (
+						<SettingsRow title={ __( 'How to connect' ) } stacked>
+							<div className={ styles.connectInstructions }>
+								<Markdown>{ instructions }</Markdown>
+							</div>
+						</SettingsRow>
+					) : null }
+					{ fields.map( ( field, index ) => (
+						<SettingsRow
+							key={ field.name }
+							title={ field.title }
+							description={ field.description }
+							error={ index === fields.length - 1 ? error : undefined }
+							stacked
+						>
+							<div className={ styles.keyForm }>
+								<Input
+									className={ styles.apiKeyInput }
+									type={ field.secret ? 'password' : 'text' }
+									autoComplete="off"
+									aria-label={ field.title }
+									placeholder={
+										( field.secret && current && account?.connected && account.summary ) ||
+										field.placeholder
+									}
+									value={ values[ field.name ] ?? '' }
+									disabled={ pending }
+									onChange={ ( event ) =>
+										setValues( { ...values, [ field.name ]: event.target.value } )
+									}
+								/>
+								{ index === fields.length - 1 ? (
+									<>
+										<Button
+											variant="accent"
+											type="submit"
+											disabled={ pending || ! filled }
+											loading={ connect.isPending && ! signingIn }
+											loadingAnnouncement={ __( 'Saving' ) }
+										>
+											{ __( 'Save' ) }
+										</Button>
+										{ account?.connected && methods.length === 1 ? (
+											<Button
+												variant="outline"
+												disabled={ pending }
+												onClick={ () => disconnect.mutate( undefined, { onSuccess: closeForm } ) }
+											>
+												{ __( 'Disconnect' ) }
+											</Button>
+										) : (
+											<Button variant="outline" disabled={ pending } onClick={ closeForm }>
+												{ __( 'Cancel' ) }
+											</Button>
+										) }
+									</>
+								) : null }
+							</div>
+						</SettingsRow>
+					) ) }
+				</form>
+			) : null }
+		</>
+	);
+}
+
+export function AiProviders( {
+	providers,
+	onManageCredits,
+}: {
+	providers: AiProviderId[];
+	onManageCredits: () => void;
+} ) {
 	const settings = useAiSettings();
 	const { data: user, isLoading: userLoading } = useAuthUser();
-	const origin = getProviderIntent( useConnector() );
-	const { promptRef, ...signup } = useLogin( {
-		signup: true,
+	const connector = useConnector();
+	const origin = getProviderIntent( connector );
+	const { loopbackSignIn } = connector.capabilities;
+	const { promptRef, ...login } = useLogin( {
 		source: 'settings',
 		analytics: {
 			placement: 'settings_ai',
@@ -32,15 +278,10 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 		trackExposure: ! user && ! userLoading,
 	} );
 	const setProvider = useSetAiProvider();
-	const saveKey = useSaveAnthropicApiKey();
 	const isOffline = useOffline();
 	const [ wpcomRequested, setWpcomRequested ] = useState( false );
-	const [ keyFormOpen, setKeyFormOpen ] = useState( false );
-	const [ key, setKey ] = useState( '' );
-	const hasKey = !! settings.data?.hasAnthropicApiKey;
-	const pending = settings.isLoading || saveKey.isPending || setProvider.isPending;
 
-	// Connecting WordPress.com finishes once the sign-up lands.
+	// Connecting WordPress.com finishes once the sign-in lands.
 	const { mutate: selectProvider } = setProvider;
 	useEffect( () => {
 		if ( wpcomRequested && user ) {
@@ -49,20 +290,19 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 		}
 	}, [ wpcomRequested, user, selectProvider ] );
 
-	const closeKeyForm = () => {
-		setKey( '' );
-		setKeyFormOpen( false );
-	};
-	const connectKey = async () => {
-		if ( key.trim() ) {
-			await saveKey.mutateAsync( key.trim() );
-		}
-		await setProvider.mutateAsync( 'anthropic-api-key' );
-		closeKeyForm();
-	};
-
 	return (
-		<SettingsGroup title={ __( 'Providers' ) }>
+		<SettingsGroup
+			title={ __( 'AI providers' ) }
+			settingId="ai-providers"
+			description={
+				<>
+					{ __(
+						'Build and edit sites through chat. Use WordPress.com AI credits or bring your own subscription or API key.'
+					) }{ ' ' }
+					<LearnMoreLink docsLinksKey="docsAiProviders" />
+				</>
+			}
+		>
 			{ settings.isError ? (
 				<SettingsRow title={ __( "Couldn't load providers." ) }>
 					<Button variant="outline" onClick={ () => void settings.refetch() }>
@@ -72,139 +312,39 @@ function ProvidersSection( { onManageCredits }: { onManageCredits: () => void } 
 			) : null }
 			<SettingsRow
 				title={ __( 'WordPress.com' ) }
+				settingId="wpcom-provider"
+				icon={ <ProviderLogo provider="wpcom" /> }
 				badge={ user ? connectedBadge() : null }
-				description={
-					<>
-						{ __(
-							'Get started with a one-time free allowance, then buy more as you go. No API key required.'
-						) }{ ' ' }
-						<LearnMoreLink docsLinksKey="docsAiCredits" />
-					</>
-				}
-				error={ signup.error?.message }
+				description={ __( 'Start building with free AI credits.' ) }
+				error={ login.error?.message }
 			>
 				<Button
+					className={ styles.externalConnect }
 					disabled={ userLoading || ( ! user && isOffline ) }
 					ref={ promptRef }
+					aria-label={ user ? undefined : __( 'Connect to WordPress.com' ) }
 					onClick={ () => {
 						if ( user ) {
 							onManageCredits();
 							return;
 						}
 						setWpcomRequested( true );
-						signup.mutate( undefined, { onError: () => setWpcomRequested( false ) } );
+						login.mutate( undefined, { onError: () => setWpcomRequested( false ) } );
 					} }
 				>
-					{ user ? __( 'Manage' ) : __( 'Connect' ) }
+					{ user ? __( 'Manage AI credits' ) : __( 'Connect' ) }
+					{ ! user ? <ExternalLinkIcon data-icon="inline-end" /> : null }
 				</Button>
 			</SettingsRow>
-			<SettingsRow
-				title={ __( 'Anthropic' ) }
-				badge={ hasKey ? connectedBadge() : null }
-				description={
-					<>
-						{ __( 'Use Claude with your own API key.' ) }{ ' ' }
-						<LearnMoreLink docsLinksKey="docsAnthropicApiKey" />
-					</>
-				}
-			>
-				<Button
-					variant="outline"
-					aria-expanded={ keyFormOpen }
-					disabled={ pending }
-					onClick={ () => ( keyFormOpen ? closeKeyForm() : setKeyFormOpen( true ) ) }
-				>
-					{ hasKey ? __( 'Manage' ) : __( 'Connect' ) }
-				</Button>
-			</SettingsRow>
-			{ keyFormOpen ? (
-				<form
-					aria-label={ __( 'Anthropic connection' ) }
-					onSubmit={ ( event ) => {
-						event.preventDefault();
-						if ( ! pending && ( key.trim() || hasKey ) ) {
-							void connectKey().catch( () => {} );
-						}
-					} }
-				>
-					<SettingsRow
-						title={ __( 'Anthropic API key' ) }
-						description={ __( 'Usage is billed through your Anthropic account.' ) }
-						error={ ( saveKey.error ?? setProvider.error )?.message }
-						stacked
-					>
-						<div className={ styles.keyForm }>
-							<Input
-								className={ styles.apiKeyInput }
-								type="password"
-								autoComplete="off"
-								aria-label={ __( 'Anthropic API key' ) }
-								placeholder={ settings.data?.anthropicApiKeyPreview ?? 'sk-…' }
-								value={ key }
-								disabled={ pending }
-								onChange={ ( event ) => setKey( event.target.value ) }
-							/>
-							<Button
-								variant="accent"
-								type="submit"
-								disabled={ pending || ( ! key.trim() && ! hasKey ) }
-								loading={ saveKey.isPending || setProvider.isPending }
-								loadingAnnouncement={ __( 'Saving' ) }
-							>
-								{ __( 'Save' ) }
-							</Button>
-							{ hasKey ? (
-								<Button
-									variant="outline"
-									disabled={ pending }
-									onClick={ () => saveKey.mutate( null, { onSuccess: closeKeyForm } ) }
-								>
-									{ __( 'Remove key' ) }
-								</Button>
-							) : null }
-						</div>
-					</SettingsRow>
-				</form>
-			) : null }
-			{ hasKey && settings.data ? (
-				<SettingsRow
-					title={ __( 'Default provider' ) }
-					description={ __( 'The provider new chats use.' ) }
-					error={ keyFormOpen ? undefined : setProvider.error?.message }
-				>
-					<SettingsSelect< AiProviderId >
-						label={ __( 'Default provider' ) }
-						value={ settings.data.provider }
-						disabled={ pending }
-						options={ ( [ 'wpcom', 'anthropic-api-key' ] as const ).map( ( provider ) => ( {
-							value: provider,
-							label: AI_PROVIDER_LABELS[ provider ],
-						} ) ) }
-						onChange={ ( provider ) => setProvider.mutate( provider ) }
+			{ providers
+				.filter( ( id ) => id !== 'wpcom' )
+				.map( ( id ) => (
+					<ProviderRow
+						key={ id }
+						provider={ id }
+						methods={ getProviderConnectMethods( id, loopbackSignIn ) }
 					/>
-				</SettingsRow>
-			) : null }
+				) ) }
 		</SettingsGroup>
-	);
-}
-
-export function AiPanel( { onManageCredits }: { onManageCredits: () => void } ) {
-	return (
-		<div className={ styles.preferencesPanel }>
-			<SettingsGroup>
-				<SettingsRow
-					title={ __( 'Providers' ) }
-					description={
-						<>
-							{ __(
-								'Providers give WordPress Studio access to the models that understand your requests and make changes to your sites. Connect one to build pages, write content, and customize themes and plugins through chat.'
-							) }{ ' ' }
-							<LearnMoreLink docsLinksKey="docsStudioCode" />
-						</>
-					}
-				/>
-			</SettingsGroup>
-			<ProvidersSection onManageCredits={ onManageCredits } />
-		</div>
 	);
 }

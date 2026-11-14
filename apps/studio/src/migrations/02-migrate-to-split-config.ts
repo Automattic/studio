@@ -15,6 +15,7 @@ import path from 'path';
 import { lockAppConfig, unlockAppConfig } from '@studio/common/lib/app-config';
 import { lockCliConfigFile, unlockCliConfigFile } from '@studio/common/lib/cli-config-file';
 import { siteDetailsSchema } from '@studio/common/lib/cli-events';
+import { redactHomePaths } from '@studio/common/lib/error-reporting';
 import {
 	lockSharedConfig,
 	sharedConfigSchema,
@@ -28,7 +29,6 @@ import {
 import { snapshotSchema } from '@studio/common/types/snapshot';
 import { readFile, writeFile } from 'atomically';
 import { z } from 'zod';
-import { sanitizeUserpath } from 'src/lib/sanitize-for-logging';
 import { getOldAppdataFilePath } from 'src/storage/paths';
 import type { Migration } from '@studio/common/lib/migration';
 
@@ -183,7 +183,7 @@ async function moveAsideInvalidFile( filePath: string ): Promise< void > {
 	const backupPath = `${ filePath }.invalid-${ Date.now() }`;
 	await fs.promises.rename( filePath, backupPath );
 	console.warn(
-		`Moved unreadable ${ sanitizeUserpath( filePath ) } to ${ sanitizeUserpath( backupPath ) }`
+		`Moved unreadable ${ redactHomePaths( filePath ) } to ${ redactHomePaths( backupPath ) }`
 	);
 }
 
@@ -218,7 +218,7 @@ export const migrateAppConfig: Migration = {
 			try {
 				if ( ! fs.existsSync( sharedConfigPath ) ) {
 					await writeJsonFile( sharedConfigPath, buildSharedConfig( oldData ) );
-					console.log( `Migrated auth/locale to ${ sanitizeUserpath( sharedConfigPath ) }` );
+					console.log( `Migrated auth/locale to ${ redactHomePaths( sharedConfigPath ) }` );
 				}
 			} finally {
 				await unlockSharedConfig();
@@ -244,7 +244,7 @@ export const migrateAppConfig: Migration = {
 						sites: migrated.sites,
 						snapshots: migrated.snapshots,
 					} );
-					console.log( `Migrated sites/snapshots to ${ sanitizeUserpath( cliConfigPath ) }` );
+					console.log( `Migrated sites/snapshots to ${ redactHomePaths( cliConfigPath ) }` );
 				}
 			} finally {
 				await unlockCliConfigFile();
@@ -253,7 +253,7 @@ export const migrateAppConfig: Migration = {
 			const newAppdataPath = getAppConfigPath();
 			await writeJsonFile( newAppdataPath, buildAppConfig( oldData ) );
 			console.log(
-				`Migrated Desktop settings from ${ sanitizeUserpath( oldPath ) } to ${ sanitizeUserpath(
+				`Migrated Desktop settings from ${ redactHomePaths( oldPath ) } to ${ redactHomePaths(
 					newAppdataPath
 				) }`
 			);
@@ -262,7 +262,7 @@ export const migrateAppConfig: Migration = {
 			const deprecatedOldAppdataPath = path.join( oldPathDirname, 'appdata-v1.deprecated.json' );
 			await fs.promises.rename( oldPath, deprecatedOldAppdataPath );
 			console.log(
-				`Migrated old appdata file from ${ sanitizeUserpath( oldPath ) } to ${ sanitizeUserpath(
+				`Migrated old appdata file from ${ redactHomePaths( oldPath ) } to ${ redactHomePaths(
 					deprecatedOldAppdataPath
 				) }`
 			);

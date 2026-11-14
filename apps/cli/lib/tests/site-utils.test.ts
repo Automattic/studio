@@ -2,8 +2,12 @@ import { SiteCommandLoggerAction as LoggerAction } from '@studio/common/logger-a
 import { vi, type Mock } from 'vitest';
 import { openBrowser } from 'cli/lib/browser';
 import { SiteData, readCliConfig } from 'cli/lib/cli-config/core';
-import { isProxyProcessRunning, stopProxyProcess } from 'cli/lib/daemon-client';
-import { openSiteInBrowser, stopProxyIfNoSitesNeedIt } from 'cli/lib/site-utils';
+import { isProxyProcessRunning, listProcesses, stopProxyProcess } from 'cli/lib/daemon-client';
+import {
+	getSitesRunningStatus,
+	openSiteInBrowser,
+	stopProxyIfNoSitesNeedIt,
+} from 'cli/lib/site-utils';
 import { isServerRunning } from 'cli/lib/wordpress-server-manager';
 import { Logger } from 'cli/logger';
 
@@ -150,5 +154,29 @@ describe( 'openSiteInBrowser', () => {
 			'http://localhost:8881/studio-auto-login?redirect_to=' +
 				encodeURIComponent( 'http://localhost:8881/wp-admin/edit.php' )
 		);
+	} );
+} );
+
+describe( 'getSitesRunningStatus', () => {
+	const site: SiteData = {
+		id: 'site-1',
+		name: 'Site',
+		path: '/site',
+		port: 8881,
+		phpVersion: '8.3',
+	};
+
+	it( 'checks the pids saved since the caller read its sites', async () => {
+		( listProcesses as Mock ).mockResolvedValue( [
+			{ name: 'studio-site-site-1', pmId: 0, status: 'online', pid: 200 },
+		] );
+		( readCliConfig as Mock ).mockResolvedValue( {
+			version: 1,
+			sites: [ { ...site, latestCliPid: 200 } ],
+		} );
+
+		const status = await getSitesRunningStatus( [ { ...site, latestCliPid: 100 } ] );
+
+		expect( status.get( 'site-1' ) ).toBe( true );
 	} );
 } );

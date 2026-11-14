@@ -182,14 +182,17 @@ export async function getSitesRunningStatus(
 		return result;
 	}
 
+	// Callers may have read their sites before connecting, which can restart them with new pids.
+	const { sites: savedSites } = await readCliConfig();
 	for ( const site of sites ) {
 		const processName = SITE_PROCESS_PREFIX + site.id;
 		const processInfo = processes.find( ( p ) => p.name === processName && p.status === 'online' );
+		const latestCliPid = savedSites.find( ( s ) => s.id === site.id )?.latestCliPid;
 		const running = !! (
 			processInfo &&
 			'pid' in processInfo &&
-			site.latestCliPid !== undefined &&
-			processInfo.pid === site.latestCliPid
+			latestCliPid !== undefined &&
+			processInfo.pid === latestCliPid
 		);
 		result.set( site.id, running );
 	}

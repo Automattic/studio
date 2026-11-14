@@ -39,6 +39,7 @@ const importResponseSchema = z
 	.object( {
 		importId: z.string().optional(),
 		importStatus: z.string().optional(),
+		errorData: z.object( { description: z.string().optional() } ).nullish().catch( null ),
 	} )
 	.nullable()
 	.catch( null );
@@ -106,10 +107,7 @@ export async function uploadPreviewArchive(
 	}
 }
 
-async function getLatestImport(
-	siteId: number,
-	token: string
-): Promise< { importId?: string; importStatus?: string } | null > {
+async function getLatestImport( siteId: number, token: string ) {
 	return importResponseSchema.parse(
 		await wpcom( token ).req.get( {
 			apiNamespace: 'rest/v1.1',
@@ -136,7 +134,18 @@ async function waitForPreviewImport(
 				return;
 			}
 			if ( latest.importStatus === 'importFailure' ) {
-				throw new LoggerError( __( 'The preview site could not be built from the archive.' ) );
+				const reference = latest.errorData?.description?.match( /#(\d+)\s*$/ )?.[ 1 ];
+				throw new LoggerError(
+					reference
+						? sprintf(
+								/* translators: %s: WordPress.com import reference number */
+								__( 'The preview site could not be built from the archive. Import reference #%s.' ),
+								reference
+						  )
+						: __( 'The preview site could not be built from the archive.' ),
+					undefined,
+					'preview_import_failed'
+				);
 			}
 		}
 		await new Promise( ( resolve ) => setTimeout( resolve, IMPORT_POLL_INTERVAL_MS ) );

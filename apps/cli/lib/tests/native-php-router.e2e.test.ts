@@ -95,6 +95,11 @@ describe( 'native PHP router', { tags: [ 'e2e' ] }, () => {
 		server = spawn( phpBinaryPath, [ '-S', `127.0.0.1:${ port }`, routerPath ], {
 			cwd: root,
 			stdio: 'ignore',
+			env: {
+				...process.env,
+				STUDIO_PHPMYADMIN_PATH: path.join( fixtureDirectory, 'phpmyadmin' ),
+				STUDIO_PHPMYADMIN_SUPPORTED: '0',
+			},
 		} );
 		await waitForServer( baseUrl );
 	} );
@@ -102,6 +107,19 @@ describe( 'native PHP router', { tags: [ 'e2e' ] }, () => {
 	afterAll( () => {
 		server.kill();
 		fs.rmSync( fixtureDirectory, { recursive: true, force: true } );
+	} );
+
+	it.each( [
+		'/phpmyadmin',
+		'/phpmyadmin/',
+		'/phpmyadmin/index.php',
+		'/phpmyadmin/themes/dot.gif',
+	] )( 'explains unsupported phpMyAdmin before loading SQLite: %s', async ( requestPath ) => {
+		const response = await request( requestPath );
+		expect( response.status ).toBe( 403 );
+		expect( response.body ).toBe(
+			'Studio’s phpMyAdmin supports SQLite only. Use a separate database client for external MySQL.'
+		);
 	} );
 
 	it.each( [ '/logo+large.gif', '/logo%2Blarge.gif', '/logo%2Blarge.gif?cache=1' ] )(

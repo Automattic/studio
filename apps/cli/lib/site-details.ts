@@ -1,6 +1,7 @@
 import { getStaffAdminLogin } from '@studio/common/lib/curate-admin';
 import { getSiteEmailDirectory } from '@studio/common/sites/site-email';
 import { getSiteUrl } from 'cli/lib/cli-config/sites';
+import { isPhpMyAdminSupported } from 'cli/lib/native-php/phpmyadmin';
 import { getLiveSiteOperation } from 'cli/lib/site-operations';
 import type { SiteData } from 'cli/lib/cli-config/core';
 
@@ -16,5 +17,6 @@ export function getSiteDetails( site: SiteData ) {
 		url: getSiteUrl( site ),
 		emailPath: getSiteEmailDirectory( site.id ),
 		staffAdmin: getStaffAdminLogin( site.path ),
+		phpMyAdminSupported: isPhpMyAdminSupported( site ),
 	};
 }

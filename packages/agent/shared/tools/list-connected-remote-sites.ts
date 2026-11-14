@@ -9,7 +9,7 @@ export const listConnectedRemoteSitesTool = defineTool(
 		'These are NOT temporary preview sites. Preview sites are listed by preview_list and must never be described as connected remote sites. ' +
 		'Use this before calling site_push to determine how to ask the user which remote site to push to. ' +
 		'Each entry names its `provider`, and `remoteSite`, which site_push and site_pull take as is. When `canPush` or `canPull` is false, `issue` says why: explain it to the user and do not attempt that sync. ' +
-		'Returns an empty array when the local site has no connections.',
+		'Use the reported provider details to classify the environment; do not infer it from the URL or hostname. Returns an empty array when the local site has no connections.',
 	{
 		nameOrPath: Type.String( { description: 'The local site name or file system path' } ),
 	},

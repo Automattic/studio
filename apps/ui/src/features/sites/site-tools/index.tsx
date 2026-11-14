@@ -3,7 +3,7 @@ import { designSheet, parseDesignMd, themeJsonDesign } from '@studio/design-md';
 import { useNavigate } from '@tanstack/react-router';
 import { __ } from '@wordpress/i18n';
 import { UserRoundIcon } from 'lucide-react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useId, useMemo, useRef } from 'react';
 import { useConnector } from '@/data/core';
 import { previewTabsKey, usePreviewTabs } from '@/data/preview-tabs';
 import { useSiteDesign } from '@/data/queries/use-site-design';
@@ -12,6 +12,7 @@ import { useSessionPreviewUI } from '@/data/use-session-ui';
 import { useStartSiteWithChat } from '@/data/use-start-site-with-chat';
 import { useUserWorkspaceLayoutTransition } from '@/data/use-workspace-layout-tracks';
 import { getSiteUrl } from '@/features/sites/get-site-url';
+import { getPhpMyAdminUnavailableReason } from '@/features/sites/phpmyadmin';
 import {
 	DATABASE_HOME_PATH,
 	EMAIL_PREVIEW_PATH,
@@ -97,7 +98,9 @@ export function useSiteToolActions(
 		openBrowser: () => void open( '/' ),
 		openAdmin: () => void open( '/wp-admin/' ),
 		openStaffAdmin: () => void open( '/wp-admin/', site.staffAdmin ),
-		openDatabase: () => void open( DATABASE_HOME_PATH ),
+		openDatabase: () => {
+			if ( site.phpMyAdminSupported !== false ) void open( DATABASE_HOME_PATH );
+		},
 		openEmail: () => void open( EMAIL_PREVIEW_PATH ),
 		openDesignSystem: () => void open( DESIGN_SYSTEM_PREVIEW_PATH ),
 	};
@@ -125,7 +128,11 @@ function useAvailableSiteTools( site: SiteDetails, live: boolean ) {
 				( id !== 'staff' || !! site.staffAdmin ) &&
 				( nativeSites || ( id !== 'database' && id !== 'email' ) )
 		)
-		.map( ( id ) => ( { id, ...getSiteTool( id ) } ) );
+		.map( ( id ) => ( {
+			id,
+			...getSiteTool( id ),
+			disabled: id === 'database' && site.phpMyAdminSupported === false,
+		} ) );
 }
 
 export function SiteToolLauncher( {
@@ -141,6 +148,8 @@ export function SiteToolLauncher( {
 } ) {
 	const tools = useAvailableSiteTools( site, live );
 	const busy = useIsSiteBusy( site );
+	const databaseReason = live ? undefined : getPhpMyAdminUnavailableReason( site );
+	const databaseReasonId = useId();
 	useEffect( () => {
 		if ( ! active || busy ) return;
 		const onKeyDown = ( event: KeyboardEvent ) => {
@@ -159,7 +168,7 @@ export function SiteToolLauncher( {
 			)
 				return;
 			const tool = tools.find(
-				( tool ) => tool.shortcut.toLowerCase() === event.key.toLowerCase()
+				( tool ) => ! tool.disabled && tool.shortcut.toLowerCase() === event.key.toLowerCase()
 			);
 			if ( ! tool ) return;
 			event.preventDefault();
@@ -171,12 +180,13 @@ export function SiteToolLauncher( {
 	}, [ active, busy, tools, actions ] );
 	return (
 		<div className={ styles.launcher } role="group" aria-label={ __( 'Project tools' ) }>
-			{ tools.map( ( { id, label, Icon, shortcut, action } ) => (
+			{ tools.map( ( { id, label, Icon, shortcut, action, disabled } ) => (
 				<Button
 					key={ id }
 					variant="muted"
 					layout="inline"
-					disabled={ busy }
+					disabled={ busy || disabled }
+					aria-describedby={ id === 'database' && databaseReason ? databaseReasonId : undefined }
 					onClick={ actions[ action ] }
 					aria-keyshortcuts={ shortcut }
 				>
@@ -185,6 +195,11 @@ export function SiteToolLauncher( {
 					<Kbd className={ styles.shortcut }>{ shortcut }</Kbd>
 				</Button>
 			) ) }
+			{ databaseReason && (
+				<p id={ databaseReasonId } className={ styles.databaseReason }>
+					{ databaseReason }
+				</p>
+			) }
 		</div>
 	);
 }
@@ -200,6 +215,8 @@ export function SiteToolMenuItems( {
 } ) {
 	const tools = useAvailableSiteTools( site, live );
 	const group = useRef< HTMLDivElement >( null );
+	const databaseReason = live ? undefined : getPhpMyAdminUnavailableReason( site );
+	const databaseReasonId = useId();
 	useEffect( () => {
 		const onKeyDown = ( event: KeyboardEvent ) => {
 			const scope = group.current;
@@ -237,10 +254,12 @@ export function SiteToolMenuItems( {
 	}, [] );
 	return (
 		<Menu.Group ref={ group }>
-			{ tools.map( ( { id, label, Icon, shortcut, action } ) => {
+			{ tools.map( ( { id, label, Icon, shortcut, action, disabled } ) => {
 				return (
 					<Menu.Item
 						key={ id }
+						disabled={ disabled }
+						aria-describedby={ id === 'database' && databaseReason ? databaseReasonId : undefined }
 						onClick={ actions[ action ] }
 						data-site-tool-key={ shortcut.toLowerCase() }
 						aria-keyshortcuts={ shortcut }
@@ -251,6 +270,11 @@ export function SiteToolMenuItems( {
 					</Menu.Item>
 				);
 			} ) }
+			{ databaseReason && (
+				<p id={ databaseReasonId } className={ styles.databaseReason }>
+					{ databaseReason }
+				</p>
+			) }
 		</Menu.Group>
 	);
 }

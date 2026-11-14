@@ -77,3 +77,5 @@ export * from './wordpress-icon';
 export * from './x-icon';
 
 export { ICON_SIZE } from './metrics';
+
+export { UpdateIcon } from './update-icon';

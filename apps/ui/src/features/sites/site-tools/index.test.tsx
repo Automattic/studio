@@ -4,7 +4,7 @@ import { createFakeConnector, makeSite } from '@/test/fake-connector';
 import { createTestQueryClient, renderWithProviders } from '@/test/render';
 import { SiteToolLauncher } from './index';
 
-async function setup( active = true, staffAdmin?: string ) {
+async function setup( active = true, phpMyAdminSupported = true, staffAdmin?: string ) {
 	const actions = {
 		openBrowser: vi.fn(),
 		openAdmin: vi.fn(),
@@ -13,7 +13,7 @@ async function setup( active = true, staffAdmin?: string ) {
 		openEmail: vi.fn(),
 		openDesignSystem: vi.fn(),
 	};
-	const site = makeSite( { running: false, staffAdmin } );
+	const site = makeSite( { running: false, phpMyAdminSupported, staffAdmin } );
 	const view = renderWithProviders(
 		<>
 			<input aria-label="Chat" />
@@ -24,6 +24,19 @@ async function setup( active = true, staffAdmin?: string ) {
 	await screen.findByRole( 'group', { name: 'Project tools' } );
 	return { ...view, actions };
 }
+
+it( 'disables the external database tool, explains the alternative, and leaves D alone', async () => {
+	const { actions } = await setup( true, false );
+	const button = screen.getByRole( 'button', { name: 'Database D' } );
+	expect( button ).toBeDisabled();
+	expect( button ).toHaveAccessibleDescription( /separate database client for external MySQL/ );
+	const event = new KeyboardEvent( 'keydown', { key: 'd', bubbles: true, cancelable: true } );
+	document.body.dispatchEvent( event );
+	expect( event.defaultPrevented ).toBe( false );
+	expect( actions.openDatabase ).not.toHaveBeenCalled();
+	fireEvent.click( button );
+	expect( actions.openDatabase ).not.toHaveBeenCalled();
+} );
 
 it( 'opens tools without focusing the launcher and uses A for Admin', async () => {
 	const { actions } = await setup();
@@ -45,7 +58,7 @@ it( 'offers Staff admin only on sites with a staff account', async () => {
 	fireEvent.keyDown( document.body, { key: 't' } );
 	expect( actions.openStaffAdmin ).not.toHaveBeenCalled();
 	unmount();
-	const staff = await setup( true, 'staff' );
+	const staff = await setup( true, true, 'staff' );
 	fireEvent.keyDown( document.body, { key: 't' } );
 	expect( staff.actions.openStaffAdmin ).toHaveBeenCalledOnce();
 } );

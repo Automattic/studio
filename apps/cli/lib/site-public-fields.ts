@@ -22,6 +22,7 @@ export const SITE_LIST_PUBLIC_FIELDS = [
 	'landingPage',
 	'emailPath',
 	'staffAdmin',
+	'phpMyAdminSupported',
 ] as const;
 
 export type SiteListPublicField = ( typeof SITE_LIST_PUBLIC_FIELDS )[ number ];

@@ -37,7 +37,7 @@ export abstract class SqliteIntegrationProvider {
 	 * So: set up SQLite for a fresh site (no wp-config.php), or whenever any SQLite artifact
 	 * is still present; skip only when wp-config.php exists and every SQLite artifact is gone.
 	 */
-	async needsSqliteSetup( sitePath: string ): Promise< boolean > {
+	needsSqliteSetup( sitePath: string ): boolean {
 		const wpContentPath = path.join( sitePath, 'wp-content' );
 		if ( ! fs.existsSync( path.join( sitePath, 'wp-config.php' ) ) ) {
 			return true;

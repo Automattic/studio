@@ -179,9 +179,10 @@ export function useOpenInDestinations(
 			id: 'phpmyadmin',
 			label: __( 'phpMyAdmin' ),
 			logo: <AppIcon app="phpmyadmin" fallback={ <DatabaseIcon /> } />,
-			disabled: false,
+			disabled: site.phpMyAdminSupported === false,
 			open: () =>
 				open( 'phpmyadmin', __( 'phpMyAdmin' ), async () => {
+					if ( site.phpMyAdminSupported === false ) return;
 					void connector.trackEvent( TRACKS_EVENTS.SITE_OPEN_PHPMYADMIN, { browser: 'external' } );
 					await openSiteUrl( DATABASE_HOME_PATH );
 				} ),

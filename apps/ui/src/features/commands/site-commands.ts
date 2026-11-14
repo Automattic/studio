@@ -159,7 +159,7 @@ export function getSiteCommands( {
 								},
 						  ]
 						: [] ),
-					...( nativeSites
+					...( nativeSites && site.phpMyAdminSupported !== false
 						? [
 								{
 									id: 'database',
@@ -170,6 +170,10 @@ export function getSiteCommands( {
 									keywords: keywords.phpmyadmin,
 									run: actions.openDatabase,
 								},
+						  ]
+						: [] ),
+					...( nativeSites
+						? [
 								{
 									id: 'email',
 									group: 'commands' as const,

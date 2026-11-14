@@ -1,10 +1,10 @@
 import { useMutation } from '@tanstack/react-query';
-import { __ } from '@wordpress/i18n';
+import { __, sprintf } from '@wordpress/i18n';
 import { clsx } from 'clsx';
 import { toast } from '@/data/app-messages';
 import { useConnector } from '@/data/core';
 import { useAppUpdateStatus, useRetryAppUpdate } from '@/data/queries/use-app-update';
-import { CloudDownloadIcon } from '@/lib/icons';
+import { UpdateIcon } from '@/lib/icons';
 import { Button, IconButton, Menu } from '@/lib/ui';
 import styles from './style.module.css';
 
@@ -69,9 +69,20 @@ export function AppUpdateButton( {
 			data-expandable={ status.state === 'ready' && ! install.isPending ? '' : undefined }
 			size="icon"
 			variant="accent"
-			icon={ <CloudDownloadIcon /> }
+			icon={ <UpdateIcon /> }
 			label={ label }
-			tooltip={ status.state !== 'ready' }
+			tooltipSideOffset={ 4 }
+			tooltipLabel={
+				status.state === 'ready' && ! install.isPending
+					? status.newVersion
+						? sprintf(
+								/* translators: %s: the new version of Studio. */
+								__( 'Update to %s' ),
+								status.newVersion
+						  )
+						: __( 'Update available' )
+					: undefined
+			}
 			loading={ checking || downloading || install.isPending }
 			loadingMode={ checking || downloading || install.isPending ? 'replace' : 'leading' }
 			onClick={ () => {

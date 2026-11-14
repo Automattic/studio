@@ -323,6 +323,7 @@ function toSiteDetails( site: SiteListItem & SiteMetadata, sortOrder?: number ) 
 		operation: site.operation,
 		emailPath: site.emailPath,
 		staffAdmin: site.staffAdmin,
+		phpMyAdminSupported: site.phpMyAdminSupported,
 		sortOrder,
 		hideFrontendAdminBar: site.hideFrontendAdminBar,
 	};

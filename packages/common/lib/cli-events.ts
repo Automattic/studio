@@ -44,6 +44,7 @@ export const siteDetailsSchema = z.object( {
 	emailPath: z.string().optional(),
 	// The login of the site's Staff account, when its wp-admin is curated for one.
 	staffAdmin: z.string().optional(),
+	phpMyAdminSupported: z.boolean().optional(),
 } );
 
 export type SiteDetails = z.infer< typeof siteDetailsSchema >;

@@ -21,7 +21,11 @@ export function toSelectedBlueprint( entry: LibraryBlueprint ): SelectedBlueprin
 		excerpt: entry.excerpt,
 		image: entry.image,
 		blueprint: entry.blueprint,
-		source: entry.slug,
+		source: {
+			librarySlug: entry.slug,
+			blueprint: entry.blueprint,
+			bundleUrl: entry.bundleUrl,
+		},
 		file: { name: entry.title, size: 0 },
 	};
 }

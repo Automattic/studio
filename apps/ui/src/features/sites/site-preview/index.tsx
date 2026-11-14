@@ -29,7 +29,7 @@ import {
 } from '@/features/annotations';
 import { DesignSystemView } from '@/features/sites/design-system-view';
 import { EmailView } from '@/features/sites/email-view';
-import { getSiteUrl } from '@/features/sites/get-site-url';
+import { getPreviewHomePath, getSiteFrontendUrl, getSiteUrl } from '@/features/sites/get-site-url';
 import { PreviewParticles } from '@/features/sites/preview-particles';
 import { useSiteHeader } from '@/features/sites/site-header-actions';
 import { SiteToolLauncher, useSiteToolActions } from '@/features/sites/site-tools';
@@ -37,7 +37,10 @@ import { SiteContextMenu } from '@/features/sites/stopped-site-preview';
 import { VisuallyHidden } from '@/lib/ui';
 import {
 	EMAIL_PREVIEW_PATH,
+	getFrontendAppRelativePath,
+	getFrontendOrigin,
 	getPathFromPreviewUrl,
+	getPreviewLocationFromUrl,
 	getPreviewRealm,
 	getRealmNavigationPath,
 	isWordPressAuthPath,
@@ -56,7 +59,13 @@ import {
 import { getFitScale } from './responsive-preview/settings';
 import { ResponsiveToolbar } from './responsive-preview/toolbar';
 import styles from './style.module.css';
-import { getFrameKey, getSafePath, type PreviewSurfaceKey } from './surfaces';
+import {
+	getFrameKey,
+	getSafePath,
+	getSurfaceUrl,
+	isPageSurface,
+	type PreviewSurfaceKey,
+} from './surfaces';
 import { useAnnotationTools } from './use-annotation-tools';
 import { useBrowserShortcuts } from './use-browser-shortcuts';
 import { useLoadingStage } from './use-loading-stage';
@@ -123,6 +132,7 @@ function SitePreviewContent( {
 	const isStarting = ! live && ( isRestarting || startPending || operation === 'start' );
 	const isStopping = ! live && ! isRestarting && ( stopPending || operation === 'stop' );
 	const siteUrl = liveUrl ?? getSiteUrl( site );
+	const frontendUrl = live ? undefined : getSiteFrontendUrl( site );
 	const canPreview = live || site.running || isRestarting;
 	const showStoppedPreview = ! blank && ! canPreview && ! isStarting;
 	const tools = useSiteToolActions( site, { liveUrl, onNavigate: onPathChange } );
@@ -142,11 +152,26 @@ function SitePreviewContent( {
 	} = usePreviewSurfaces( {
 		siteId: site.id,
 		siteUrl,
+		frontendUrl,
 		path: safePath,
 		reloadNonce,
 		onPathChange,
 		active: ! inactive,
 	} );
+	// Resolved here rather than in the render loop below: a call there with a
+	// surface path reads to the React Compiler as a late mutation of `safePath`.
+	const surfaceUrls = Object.fromEntries(
+		Object.entries( surfaces ).map( ( [ key, surface ] ) => {
+			const surfaceKey = key as PreviewSurfaceKey;
+			return [
+				key,
+				{
+					url: getSurfaceUrl( surfaceKey, surface.path, siteUrl, frontendUrl ),
+					requestedUrl: getSurfaceUrl( surfaceKey, surface.requestedPath, siteUrl, frontendUrl ),
+				},
+			];
+		} )
+	) as Partial< Record< PreviewSurfaceKey, { url: string; requestedUrl: string } > >;
 	const siteDesign = useSiteDesign( site );
 	const annotations = useSiteAnnotations( site.id );
 	// Surfaces Studio draws itself, with no page to load.
@@ -212,7 +237,8 @@ function SitePreviewContent( {
 		activeRealm === 'frontend' &&
 		! collapsed &&
 		! inactive &&
-		getPreviewRealm( activeSurface?.path ?? safePath ) === 'frontend' &&
+		getPreviewRealm( activeSurface?.path ?? safePath, getFrontendOrigin( frontendUrl ) ) ===
+			'frontend' &&
 		! isWordPressAuthPath( activeSurface?.path ?? safePath ) &&
 		! ( activeSurface?.path ?? safePath ).startsWith( '/studio-auto-login' );
 	const showFrontendAdminBar = useCallback( () => {
@@ -250,7 +276,8 @@ function SitePreviewContent( {
 		},
 	} );
 	const responsiveSettings = useResponsivePreview( site.id );
-	const responsiveEnabled = responsiveSettings.enabled && canPreview && activeSurfaceKey === 'site';
+	const responsiveEnabled =
+		responsiveSettings.enabled && canPreview && isPageSurface( activeSurfaceKey );
 	const responsiveActive = ! inactive && ! collapsed && ! isStarting && ! isStopping;
 	const [ availableSize, setAvailableSize ] = useState( { width: 0, height: 0 } );
 	useLayoutEffect( () => {
@@ -337,7 +364,7 @@ function SitePreviewContent( {
 	);
 	const annotationTools = useAnnotationTools( {
 		siteId: site.id,
-		enabled: canAnnotate && activeSurfaceKey === 'site' && ! inactive && ! collapsed,
+		enabled: canAnnotate && isPageSurface( activeSurfaceKey ) && ! inactive && ! collapsed,
 		viewportRef,
 		onPick: handleAnnotationPick,
 	} );
@@ -395,6 +422,18 @@ function SitePreviewContent( {
 		  }
 		: rendered
 		? undefined
+		: activeRealm === 'frontend-app'
+		? () => {
+				trackOpen( safePath, 'external' );
+				void connector
+					.openSiteUrl( site.id, getFrontendAppRelativePath( safePath ), {
+						autoLogin: false,
+						target: 'frontend',
+					} )
+					.catch( ( error ) => {
+						console.error( 'Failed to open the frontend in browser:', error );
+					} );
+		  }
 		: () => {
 				trackOpen( safePath, 'external' );
 				void connector
@@ -405,7 +444,8 @@ function SitePreviewContent( {
 		  };
 	const responsive = {
 		active: responsiveEnabled,
-		disabled: blank || ! canPreview || isStarting || isStopping || activeSurfaceKey !== 'site',
+		disabled:
+			blank || ! canPreview || isStarting || isStopping || ! isPageSurface( activeSurfaceKey ),
 		onClick: () => {
 			if ( ! responsiveSettings.enabled && adminBarActions.value === 'show' ) {
 				adminBarActions.onChange( 'hide' );
@@ -426,12 +466,12 @@ function SitePreviewContent( {
 	const showBrowserBar =
 		canPreview && ! blank && ( ! loadingStage || isRestarting || restartReveal );
 
-	// A link in an email to the site opens in the preview, like a password reset
-	// link; any other opens in the browser.
+	// A link in an email to the site, or to a headless site's frontend, opens in
+	// the preview, like a password reset link; any other opens in the browser.
 	const openEmailLink = ( url: string ) => {
-		const sitePath = getPathFromPreviewUrl( url, siteUrl );
-		if ( sitePath ) {
-			onPathChange?.( getRealmNavigationPath( sitePath, siteUrl ) );
+		const location = getPreviewLocationFromUrl( url, siteUrl, frontendUrl );
+		if ( location ) {
+			onPathChange?.( getRealmNavigationPath( location, siteUrl ) );
 		} else if ( /^(?:https?|mailto):/i.test( url ) ) {
 			void connector.openExternalUrl( url );
 		}
@@ -511,7 +551,7 @@ function SitePreviewContent( {
 						<AnnotateButton
 							{ ...annotate }
 							annotationCount={ batchNotes.length }
-							pageTools={ activeSurfaceKey === 'site' && canAnnotate }
+							pageTools={ isPageSurface( activeSurfaceKey ) && canAnnotate }
 						/>,
 						annotationSpace
 				  )
@@ -539,7 +579,8 @@ function SitePreviewContent( {
 								return null;
 							}
 							const active = key === activeSurfaceKey;
-							const surfaceUrl = `${ siteUrl }${ surface.path }`;
+							const surfaceUrl = surfaceUrls[ key ]?.url ?? `${ siteUrl }${ surface.path }`;
+							const pageSurface = isPageSurface( key );
 							if ( key === 'design' ) {
 								return (
 									<SurfaceLayer key={ key } active={ active } design>
@@ -579,7 +620,7 @@ function SitePreviewContent( {
 							}
 							const frameKey = getFrameKey( siteUrl, surface );
 							const inspectorProps = {
-								annotations: key === 'site' && ! inactive ? annotations : undefined,
+								annotations: pageSurface && ! inactive ? annotations : undefined,
 								onInspectorReady: ( inspectorReady: boolean ) => {
 									patchSurface( key, { inspectorReady } );
 									if ( ! inspectorReady ) setAnnotationAnchor( null );
@@ -591,7 +632,7 @@ function SitePreviewContent( {
 									key={ key }
 									active={ active }
 									responsive={
-										key === 'site'
+										pageSurface
 											? {
 													siteId: site.id,
 													settings: responsiveSettings,
@@ -611,7 +652,7 @@ function SitePreviewContent( {
 											reloadNonce={ surface.reloadNonce }
 											// phpMyAdmin isn't an annotation target, so the
 											// inspector never goes near it.
-											inspector={ key === 'site' && ! inactive }
+											inspector={ pageSurface && ! inactive }
 											{ ...inspectorProps }
 											annotationTool={ annotationTools.tool }
 											clearSelection={ annotationTools.clearSelection }
@@ -628,7 +669,9 @@ function SitePreviewContent( {
 									) : (
 										<FrameSurface
 											key={ frameKey }
-											src={ `${ siteUrl }${ surface.requestedPath }` }
+											src={
+												surfaceUrls[ key ]?.requestedUrl ?? `${ siteUrl }${ surface.requestedPath }`
+											}
 											title={ site.name }
 											{ ...inspectorProps }
 											annotationTool={ annotationTools.tool }
@@ -694,7 +737,7 @@ function SitePreviewContent( {
 						visible={
 							! inactive && ! collapsed && annotations.active && canAnnotate && !! annotate
 						}
-						pageTools={ activeSurfaceKey === 'site' }
+						pageTools={ isPageSurface( activeSurfaceKey ) }
 						disabled={ isAnnotationsBusy( annotations ) }
 						onDiscard={ discard }
 					/>
@@ -731,9 +774,9 @@ export function SitePreview( props: SitePreviewProps ) {
 	const operation = useSiteOperation( props.site );
 	useLayoutEffect( () => {
 		if ( ! props.liveUrl && ! stopping && operation !== 'stop' && selected.path === null ) {
-			patch( selected.id, { path: '/', title: null } );
+			patch( selected.id, { path: getPreviewHomePath( props.site ), title: null } );
 		}
-	}, [ props.liveUrl, stopping, operation, selected.id, selected.path, patch ] );
+	}, [ props.liveUrl, props.site, stopping, operation, selected.id, selected.path, patch ] );
 
 	const [ observed, setObserved ] = useState< {
 		host: string;
@@ -802,7 +845,7 @@ export function SitePreview( props: SitePreviewProps ) {
 				? EMAIL_PREVIEW_PATH
 				: note.targetKey && note.path === 'DESIGN.md'
 				? DESIGN_SYSTEM_PREVIEW_PATH
-				: note.path ?? '/';
+				: note.path ?? getPreviewHomePath( reviewSite );
 			const match = workspace.tabs.find( ( tab ) => tab.path === path );
 			if ( match ) select( match.id );
 			else navigate( workspace.selectedId, path );

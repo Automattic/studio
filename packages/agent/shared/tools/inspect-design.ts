@@ -1,4 +1,5 @@
 import { Type } from 'typebox';
+import { resolveSitePageUrl, SITE_PAGE_URL_PARAMETERS } from '@studio/agent/shared/headless';
 import { defineTool, READ_ONLY } from './define-tool';
 import {
 	screenshotPageOptions,
@@ -81,7 +82,7 @@ const ANCESTOR_DEPTH = 6;
 export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boolean } ) {
 	return defineTool(
 		'inspect_design',
-		'Inspects the RENDERED DOM of a live page to diagnose visual issues at their root cause. ' +
+		'Inspects the RENDERED DOM of a live page (a URL, or a page of a site given `nameOrPath`: its frontend for a headless site) to diagnose visual issues at their root cause. ' +
 			"Given CSS selectors, returns each matched element's tag and class list, bounding box (so you can see actual rendered width/height vs intent), " +
 			'curated computed styles (box model, background, typography, flex/grid, borders), ' +
 			'and the ancestor chain of layout classes (is-layout-constrained, alignfull, wp-block-group) that controls width and spacing. ' +
@@ -90,7 +91,7 @@ export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boo
 			'Pass `colorScheme: "light"` or `colorScheme: "dark"` to inspect styles under the same prefers-color-scheme mode used by take_screenshot. ' +
 			'Use it before editing CSS so you target the element that actually carries the style (e.g. .wp-block-button__link, not the .wp-block-button wrapper) instead of guessing.',
 		{
-			url: Type.String( { description: 'The URL of the running site page to inspect' } ),
+			...SITE_PAGE_URL_PARAMETERS,
 			selectors: Type.Array( Type.String(), {
 				minItems: 1,
 				description:
@@ -116,8 +117,9 @@ export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boo
 		},
 		async ( args, context ) => {
 			const viewport: InspectViewport = ( args.viewport as InspectViewport ) ?? 'desktop';
+			const url = await resolveSitePageUrl( context.host, args.url, args.nameOrPath );
 			context.onProgress(
-				`Inspecting ${ args.selectors.length } selector(s) on ${ args.url } (${ viewport }${
+				`Inspecting ${ args.selectors.length } selector(s) on ${ url } (${ viewport }${
 					args.colorScheme ? `, ${ args.colorScheme }` : ''
 				})…`
 			);
@@ -125,7 +127,7 @@ export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boo
 			let page: HostPage | undefined;
 			try {
 				page = await context.host.pages.open(
-					{ url: args.url },
+					{ url },
 					{ viewport: INSPECT_VIEWPORTS[ viewport ], ...screenshotPageOptions( args.colorScheme ) }
 				);
 				await page.evaluate(
@@ -243,11 +245,11 @@ export function createInspectDesignTool( { visionEnabled }: { visionEnabled: boo
 					}
 				}
 
-				context.onProgress( `Inspected ${ args.selectors.length } selector(s) on ${ args.url }` );
+				context.onProgress( `Inspected ${ args.selectors.length } selector(s) on ${ url }` );
 				return textResult(
 					JSON.stringify(
 						{
-							url: args.url,
+							url,
 							viewport,
 							viewportWidth: INSPECT_VIEWPORTS[ viewport ].width,
 							...( args.colorScheme ? { colorScheme: args.colorScheme } : {} ),

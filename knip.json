@@ -22,6 +22,7 @@
 			"entry": [
 				"index.ts",
 				"php-server-child.ts",
+				"frontend-server-child.ts",
 				"process-manager-daemon.ts",
 				"proxy-daemon.ts",
 				"logger.ts",

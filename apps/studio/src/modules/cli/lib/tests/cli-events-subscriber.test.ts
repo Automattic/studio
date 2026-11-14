@@ -4,6 +4,7 @@ import { vi } from 'vitest';
 import { sendIpcEventToRenderer } from 'src/ipc-utils';
 import { captureSiteThumbnail } from 'src/lib/capture-site-thumbnail';
 import { isInErrorRecovery } from 'src/lib/php-error-recovery';
+import { refreshHeadlessSiteOrigins } from 'src/lib/site-preview-origins';
 import { forgetSite, getSites } from 'src/lib/sites';
 import { startCliEventsSubscriber } from 'src/modules/cli/lib/cli-events-subscriber';
 import { executeCliCommand } from 'src/modules/cli/lib/execute-command';
@@ -12,6 +13,7 @@ vi.mock( 'src/ipc-utils' );
 vi.mock( 'src/lib/active-sync-operations' );
 vi.mock( 'src/lib/capture-site-thumbnail' );
 vi.mock( 'src/lib/php-error-recovery' );
+vi.mock( 'src/lib/site-preview-origins' );
 vi.mock( 'src/lib/sites' );
 vi.mock( 'src/modules/cli/lib/execute-command' );
 
@@ -93,5 +95,16 @@ describe( 'CLI events subscriber', () => {
 			'site-event',
 			expect.objectContaining( { event: SITE_EVENTS.DELETED, siteId: 'site-c' } )
 		);
+	} );
+
+	it( 'refreshes the preview origins when a site is created, updated or deleted', async () => {
+		await emitSiteEvent( SITE_EVENTS.CREATED, 'site-d', false );
+		await emitSiteEvent( SITE_EVENTS.UPDATED, 'site-d', true );
+		await emitSiteEvent( SITE_EVENTS.DELETED, 'site-d', false );
+		expect( refreshHeadlessSiteOrigins ).toHaveBeenCalledTimes( 3 );
+
+		vi.mocked( refreshHeadlessSiteOrigins ).mockClear();
+		await emitSiteEvent( SITE_EVENTS.OPERATIONS_CHANGED, 'site-a', true );
+		expect( refreshHeadlessSiteOrigins ).not.toHaveBeenCalled();
 	} );
 } );

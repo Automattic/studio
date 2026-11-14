@@ -31,6 +31,7 @@ import {
 } from '@studio/agent/protocol/session-events';
 import { withDesignSystemPreview } from '@studio/agent/shared/chat-artifacts';
 import { getFileToolPrompt } from '@studio/agent/shared/file-tool-prompts';
+import { findActiveSiteHeadlessDetails } from '@studio/agent/shared/headless';
 import { createConnectionStream } from '@studio/agent/shared/models';
 import { runWithPendingWork, type PendingWork } from '@studio/agent/shared/pending-work';
 import { createResultNotes } from '@studio/agent/shared/result-notes';
@@ -218,11 +219,13 @@ async function createStudioAgentSession(
 ): Promise< AgentSession > {
 	const { model } = config.ai;
 	const visionEnabled = model.input.includes( 'image' );
-	const [ userInstructions, imageGenerationEnabled, designPath ] = await Promise.all( [
-		readGlobalInstructions(),
-		config.host.imageGenerator?.().then( Boolean ) ?? false,
-		findActiveSiteDesign( config.host, config.activeSite ),
-	] );
+	const [ userInstructions, imageGenerationEnabled, designPath, activeSiteHeadless ] =
+		await Promise.all( [
+			readGlobalInstructions(),
+			config.host.imageGenerator?.().then( Boolean ) ?? false,
+			findActiveSiteDesign( config.host, config.activeSite ),
+			findActiveSiteHeadlessDetails( config.host, config.activeSite ),
+		] );
 
 	const tools = buildAgentTools( config, imageGenerationEnabled, visionEnabled );
 	const systemPrompt = buildSystemPrompt( {
@@ -233,6 +236,7 @@ async function createStudioAgentSession(
 		activeSiteEmailPath: config.activeSite?.id
 			? getSiteEmailDirectory( config.activeSite.id )
 			: undefined,
+		activeSiteHeadless,
 	} );
 
 	const pendingWork = getPendingWork( config.session );

@@ -41,6 +41,12 @@ import { getWpComSites } from 'cli/lib/api';
 import { readCliConfig, type SiteData } from 'cli/lib/cli-config/core';
 import { findSiteByFolder, getSiteByFolder, getSiteUrl } from 'cli/lib/cli-config/sites';
 import { connectToDaemon, disconnectFromDaemon } from 'cli/lib/daemon-client';
+import {
+	readFrontendLogTail,
+	startFrontendServer,
+	stopFrontendServer,
+	type HeadlessSite,
+} from 'cli/lib/frontend/server';
 import { pullSelectionFromSyncOptions } from 'cli/lib/pull/pull-selection';
 import { runWpCliCommand } from 'cli/lib/run-wp-cli-command';
 import { STUDIO_SITES_ROOT } from 'cli/lib/site-paths';
@@ -82,7 +88,16 @@ function toHostSite( site: SiteData ): HostSite {
 		url: getSiteUrl( site ),
 		phpVersion: site.phpVersion,
 		adminPassword: site.adminPassword,
+		frontend: site.frontend,
 	};
+}
+
+async function getHeadlessSiteByFolder( sitePath: string ): Promise< HeadlessSite > {
+	const site = await getSiteByFolder( sitePath );
+	if ( ! site.frontend ) {
+		throw new LoggerError( `"${ site.name }" is not a headless site.` );
+	}
+	return site as HeadlessSite;
 }
 
 async function findSiteByName( name: string ): Promise< SiteData | undefined > {
@@ -138,7 +153,7 @@ export const cliAgentHost: StudioAgentHost = {
 		list: () => listSites(),
 		status: ( site ) =>
 			withDaemon( async () => getSiteStatus( await getSiteByFolder( site.path ) ) ),
-		create: ( name, sitePath, onProgress ) =>
+		create: ( name, sitePath, onProgress, options ) =>
 			runCreateSiteCommand(
 				sitePath,
 				{
@@ -150,6 +165,7 @@ export const cliAgentHost: StudioAgentHost = {
 					noStart: false,
 					skipBrowser: true,
 					skipLogDetails: true,
+					frontend: options?.frontend,
 				},
 				new Logger( { onProgress } )
 			),
@@ -182,6 +198,14 @@ export const cliAgentHost: StudioAgentHost = {
 					stderr: await command.response.stderrText,
 				};
 			} ),
+		frontendRestart: ( site, onProgress ) =>
+			withDaemon( async () => {
+				const headlessSite = await getHeadlessSiteByFolder( site.path );
+				await stopFrontendServer( headlessSite.id );
+				await startFrontendServer( headlessSite, new Logger( { onProgress } ) );
+			} ),
+		frontendLogs: async ( site, lines ) =>
+			readFrontendLogTail( ( await getHeadlessSiteByFolder( site.path ) ).id, lines ).join( '\n' ),
 	},
 	previews: {
 		// The site's own previews; `preview list --format json` lists every site's.

@@ -15,6 +15,7 @@ import { __ } from '@wordpress/i18n';
 import { z } from 'zod';
 import { StatsMetric } from 'cli/lib/types/bump-stats';
 import { LoggerError } from 'cli/logger';
+import type { SiteFrontend } from '@studio/common/lib/site-frontend';
 
 /**
  * Health of a site's local install.
@@ -82,6 +83,8 @@ const cliConfigSchema = z.looseObject( {
 
 type CliConfig = z.infer< typeof cliConfigSchema >;
 export type SiteData = z.infer< typeof siteSchema >;
+// A site with a frontend project Studio supervises next to WordPress.
+export type HeadlessSite = SiteData & { frontend: SiteFrontend };
 
 const DEFAULT_CLI_CONFIG: CliConfig = {
 	version: CLI_CONFIG_VERSION,

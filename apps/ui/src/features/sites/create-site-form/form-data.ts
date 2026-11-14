@@ -9,8 +9,13 @@ import { SITE_FILE_ACCESS_SITE_DIRECTORY } from '@studio/common/lib/site-file-ac
 import { RecommendedPHPVersion } from '@studio/common/types/php-versions';
 import { getFolderNameError, splitFolderPath } from './folder-path';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
+import type { FrontendCreateChoice, SiteFrontendApi } from '@studio/common/lib/site-frontend';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { SupportedPHPVersion } from '@studio/common/types/php-versions';
+
+// What renders the site: a WordPress theme, or a headless frontend Studio
+// creates and runs beside WordPress.
+export type FrontendChoice = 'theme' | FrontendCreateChoice[ 'framework' ];
 
 export interface CreateSiteFormValues {
 	name: string;
@@ -23,6 +28,8 @@ export interface CreateSiteFormValues {
 	adminUsername: string;
 	adminPassword: string;
 	adminEmail: string;
+	// Set for a headless site.
+	frontend?: FrontendCreateChoice;
 }
 
 export type CreateSiteFormDraft = Partial< CreateSiteFormValues > & {
@@ -48,6 +55,8 @@ export interface FormData {
 	adminUsername: string;
 	adminPassword: string;
 	adminEmail: string;
+	frontend: FrontendChoice;
+	frontendApi: SiteFrontendApi;
 }
 
 const SIMPLE_FIELDS = [
@@ -60,7 +69,12 @@ const SIMPLE_FIELDS = [
 	'adminPassword',
 	'adminEmail',
 ] as const satisfies readonly ( keyof CreateSiteFormValues )[];
-export const INITIAL_VALUE_FIELDS = [ ...SIMPLE_FIELDS, 'path', 'customDomain' ] as const;
+export const INITIAL_VALUE_FIELDS = [
+	...SIMPLE_FIELDS,
+	'path',
+	'customDomain',
+	'frontend',
+] as const;
 
 export function createDefaultFormData(): FormData {
 	return {
@@ -79,6 +93,8 @@ export function createDefaultFormData(): FormData {
 		adminUsername: DEFAULT_ADMIN_USERNAME,
 		adminPassword: generatePassword(),
 		adminEmail: DEFAULT_ADMIN_EMAIL,
+		frontend: 'theme',
+		frontendApi: 'rest',
 	};
 }
 
@@ -121,6 +137,7 @@ export function applyInitialValues(
 		adminUsername: { adminUsername: defaults.adminUsername },
 		adminPassword: { adminPassword: defaults.adminPassword },
 		adminEmail: { adminEmail: defaults.adminEmail },
+		frontend: { frontend: defaults.frontend, frontendApi: defaults.frontendApi },
 	};
 	for ( const field of previousSuggestedFields ) {
 		if ( values[ field ] !== undefined || dirtyFields.has( field ) ) continue;
@@ -141,6 +158,10 @@ export function applyInitialValues(
 	}
 	if ( values.customDomain !== undefined && ! dirtyFields.has( 'customDomain' ) ) {
 		next.customDomain = values.customDomain;
+	}
+	if ( values.frontend !== undefined && ! dirtyFields.has( 'frontend' ) ) {
+		next.frontend = values.frontend.framework;
+		next.frontendApi = values.frontend.api ?? defaults.frontendApi;
 	}
 	updatePathForSiteName( prev, next, suggestedName );
 	return Object.keys( next ).some(
@@ -198,6 +219,8 @@ export function getSubmittedValues( data: FormData, suggestedName = '' ): Create
 		adminUsername: data.adminUsername,
 		adminPassword: data.adminPassword,
 		adminEmail: data.adminEmail,
+		frontend:
+			data.frontend === 'theme' ? undefined : { framework: data.frontend, api: data.frontendApi },
 	};
 }
 

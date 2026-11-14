@@ -5,6 +5,8 @@ import {
 	getFrameKey,
 	getSafePath,
 	getSurfaceKey,
+	getSurfaceUrl,
+	isPageSurface,
 	patchMountedSurface,
 	type MountedSurfaces,
 } from './surfaces';
@@ -21,6 +23,40 @@ describe( 'getSurfaceKey', () => {
 		expect( getSurfaceKey( 'admin' ) ).toBe( 'site' );
 		expect( getSurfaceKey( 'database' ) ).toBe( 'database' );
 		expect( getSurfaceKey( 'design' ) ).toBe( 'design' );
+	} );
+
+	it( 'gives a headless site’s frontend app a page surface of its own', () => {
+		expect( getSurfaceKey( 'frontend-app' ) ).toBe( 'app' );
+		expect( isPageSurface( 'app' ) ).toBe( true );
+		expect( isPageSurface( 'site' ) ).toBe( true );
+		expect( isPageSurface( 'database' ) ).toBe( false );
+		expect( isPageSurface( 'design' ) ).toBe( false );
+	} );
+} );
+
+describe( 'getSurfaceUrl', () => {
+	const FRONTEND_URL = 'http://localhost:3000';
+
+	it( 'loads site paths on the site and frontend paths on the frontend origin', () => {
+		expect( getSurfaceUrl( 'site', '/about/', SITE_URL, FRONTEND_URL ) ).toBe(
+			`${ SITE_URL }/about/`
+		);
+		expect( getSurfaceUrl( 'app', '/about/', SITE_URL, FRONTEND_URL ) ).toBe(
+			`${ FRONTEND_URL }/about/`
+		);
+		expect( getSurfaceUrl( 'app', '/', SITE_URL ) ).toBe( `${ SITE_URL }/` );
+	} );
+
+	it( 'keeps absolute urls, so a surface left on the other origin stays put', () => {
+		expect( getSurfaceUrl( 'app', `${ FRONTEND_URL }/blog/`, SITE_URL, FRONTEND_URL ) ).toBe(
+			`${ FRONTEND_URL }/blog/`
+		);
+		expect( getSurfaceUrl( 'app', `${ SITE_URL }/wp-admin/`, SITE_URL, FRONTEND_URL ) ).toBe(
+			`${ SITE_URL }/wp-admin/`
+		);
+		expect( getSurfaceUrl( 'site', `${ FRONTEND_URL }/`, SITE_URL, FRONTEND_URL ) ).toBe(
+			`${ FRONTEND_URL }/`
+		);
 	} );
 } );
 

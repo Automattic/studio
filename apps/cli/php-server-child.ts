@@ -48,6 +48,7 @@ import {
 import { getAvailablePorts } from './lib/native-php/worker-ports';
 import { getSiteDatabasePath } from './lib/sqlite-collations';
 import { SymlinkWatcher, collectSymlinkAllowlistEntries } from './lib/symlinks';
+import { waitForServerReady } from './lib/wait-for-server-ready';
 import type { ChildProcess } from 'node:child_process';
 
 const ROUTER_PATH = path.resolve( import.meta.dirname, 'php', 'router.php' );
@@ -168,33 +169,23 @@ function pickPhpWorker( req: http.IncomingMessage ): { index: number; port: numb
 	return { index: bestIndex, port: phpWorkerPorts[ bestIndex ] };
 }
 
-export async function waitForServerReady( url: string, signal?: AbortSignal ): Promise< boolean > {
-	const pollIntervalMs = 50;
-	const timeoutMs = 30_000;
-	const deadline = Date.now() + timeoutMs;
+const SERVER_READY_TIMEOUT_MS = 30_000;
+const SERVER_READY_POLL_INTERVAL_MS = 50;
 
-	while ( true ) {
-		signal?.throwIfAborted();
-		try {
-			const response = await fetch( url, { redirect: 'manual', signal } );
-			// Leaving the body unread can crash undici's parser when the server closes the
-			// connection to end the response, as the PHP dev server does.
-			await response.body?.cancel();
-			const location = response.headers.get( 'location' );
-			return (
-				response.status >= 300 &&
-				response.status < 400 &&
-				location !== null &&
-				new URL( location, url ).pathname === '/wp-admin/install.php'
-			);
-		} catch {
-			signal?.throwIfAborted();
-			if ( Date.now() > deadline ) {
-				throw new Error( `PHP server did not start within ${ timeoutMs }ms` );
-			}
-			await new Promise< void >( ( resolve ) => setTimeout( resolve, pollIntervalMs ) );
-		}
-	}
+// Resolves to whether the server answered with a redirect to the WordPress installer.
+async function waitForPhpServerReady( url: string, signal?: AbortSignal ): Promise< boolean > {
+	const response = await waitForServerReady( url, {
+		timeoutMs: SERVER_READY_TIMEOUT_MS,
+		pollIntervalMs: SERVER_READY_POLL_INTERVAL_MS,
+		signal,
+	} );
+	const location = response.headers.get( 'location' );
+	return (
+		response.status >= 300 &&
+		response.status < 400 &&
+		location !== null &&
+		new URL( location, url ).pathname === '/wp-admin/install.php'
+	);
 }
 
 // Reports how long a completed start step took. A failed start reports only the steps it finished.
@@ -504,7 +495,10 @@ export async function startServer( config: ServerConfig, signal: AbortSignal ): 
 			stopSignal.throwIfAborted();
 		}
 
-		await writeStudioMuPlugins( config.sitePath, config.isWpAutoUpdating, config.siteId );
+		await writeStudioMuPlugins( config.sitePath, config.isWpAutoUpdating, {
+			siteId: config.siteId,
+			frontend: config.frontend,
+		} );
 		stopSignal.throwIfAborted();
 
 		if ( ! isImportedSite && ! deferInstallCheck ) {
@@ -688,7 +682,7 @@ async function doStartServer(
 		let firstWorkerReady = false;
 		const needsInstallation = await Promise.all(
 			workerPorts.map( async ( workerPort ) => {
-				const needsInstall = await waitForServerReady(
+				const needsInstall = await waitForPhpServerReady(
 					`http://127.0.0.1:${ workerPort }/`,
 					stopSignal
 				);
@@ -709,7 +703,7 @@ async function doStartServer(
 		phpWorkerProcesses = spawnedChildren;
 
 		stopSignal?.throwIfAborted();
-		await waitForServerReady( `http://localhost:${ config.port }/`, stopSignal );
+		await waitForPhpServerReady( `http://localhost:${ config.port }/`, stopSignal );
 		reportPhase( 'proxy_ready', proxyStartedAt );
 
 		// Watch for symlinks created after startup. open_basedir cannot be extended
@@ -849,11 +843,10 @@ async function ipcMessageHandler( packet: unknown ) {
 					abortController.signal,
 					blueprintConfig
 				);
-				await writeStudioMuPlugins(
-					blueprintConfig.sitePath,
-					blueprintConfig.isWpAutoUpdating,
-					blueprintConfig.siteId
-				);
+				await writeStudioMuPlugins( blueprintConfig.sitePath, blueprintConfig.isWpAutoUpdating, {
+					siteId: blueprintConfig.siteId,
+					frontend: blueprintConfig.frontend,
+				} );
 				await installWordPress(
 					blueprintConfig,
 					blueprintPhpVersion,

@@ -67,6 +67,11 @@
 	visibility: visible;
 }
 
+.headlessBadge {
+	margin-inline-start: var( --space-1 );
+	color: var( --muted-foreground );
+}
+
 .siteRow[data-needs-input] {
 	padding-inline-end: calc( 3 * var( --space-8 ) + var( --space-2 ) );
 }

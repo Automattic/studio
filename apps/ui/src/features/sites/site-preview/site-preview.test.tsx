@@ -2,7 +2,7 @@ import { DESIGN_SYSTEM_PREVIEW_PATH } from '@studio/agent/protocol/chat-artifact
 import { INSPECTOR_PAGE_SCRIPT } from '@studio/agent/protocol/inspector/page-script';
 import { READ_ADMIN_BAR_VISIBILITY_SCRIPT } from '@studio/common/lib/preview-shortcuts-script';
 import { TRACKS_EVENTS } from '@studio/common/lib/record-tracks-event';
-import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { useSyncExternalStore, type ComponentProps } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getVisibleToasts } from '@/data/app-messages';
@@ -1463,3 +1463,109 @@ it.each( [ 'browser', 'desktop' ] as const )(
 		expect( connector.setSiteFrontendAdminBar ).toHaveBeenCalledTimes( 1 );
 	}
 );
+
+describe( 'headless site preview', () => {
+	const FRONTEND_URL = 'http://localhost:3999';
+	const headless = ( overrides: Partial< Props[ 'site' ] > = {} ) =>
+		site( {
+			frontend: { path: '/sites/one/frontend', kind: 'static', framework: 'static', port: 3999 },
+			...overrides,
+		} );
+	const visiblePage = () =>
+		document.querySelector< HTMLElement >(
+			'[class*="realmLayer"]:not([inert]) iframe, [class*="realmLayer"]:not([inert]) webview'
+		);
+
+	it( 'shows the frontend app on its own origin and WordPress on the site’s', async () => {
+		const { update } = await renderPreview( 'browser', {
+			site: headless(),
+			path: `${ FRONTEND_URL }/blog/`,
+			onPathChange: vi.fn(),
+		} );
+		expect( visiblePage() ).toHaveAttribute( 'src', `${ FRONTEND_URL }/blog/` );
+		expect( address() ).toHaveValue( `${ FRONTEND_URL }/blog/` );
+
+		update( { path: '/' } );
+		expect( visiblePage() ).toHaveAttribute( 'src', `${ SITE_URL }/` );
+		expect( address() ).toHaveValue( SITE_URL );
+
+		update( { path: `${ FRONTEND_URL }/blog/` } );
+		expect( visiblePage() ).toHaveAttribute( 'src', `${ FRONTEND_URL }/blog/` );
+	} );
+
+	it( 'opens a stopped headless site’s tools on the frontend app and on WordPress', async () => {
+		const onPathChange = vi.fn();
+		const { user } = await renderPreview( 'browser', {
+			site: headless( { running: false } ),
+			path: `${ FRONTEND_URL }/`,
+			onPathChange,
+		} );
+		const tools = screen.getByRole( 'group', { name: 'Project tools' } );
+		expect( within( tools ).getByRole( 'button', { name: 'WordPress B' } ) ).toBeVisible();
+		expect( within( tools ).getByRole( 'button', { name: 'Admin A' } ) ).toBeVisible();
+		await user.click( within( tools ).getByRole( 'button', { name: 'Frontend app F' } ) );
+		expect( onPathChange ).toHaveBeenLastCalledWith( `${ FRONTEND_URL }/` );
+	} );
+
+	it( 'resolves typed paths within the frontend app, and WordPress tools on WordPress', async () => {
+		const onPathChange = vi.fn();
+		await renderPreview( 'browser', {
+			site: headless(),
+			path: `${ FRONTEND_URL }/`,
+			onPathChange,
+		} );
+		submit( '/about/' );
+		expect( onPathChange ).toHaveBeenLastCalledWith( `${ FRONTEND_URL }/about/` );
+		submit( '/wp-admin/' );
+		expect( onPathChange ).toHaveBeenLastCalledWith(
+			`/studio-auto-login?redirect_to=${ encodeURIComponent( `${ SITE_URL }/wp-admin/` ) }`
+		);
+	} );
+
+	it( 'follows links between the two origins to the surface that shows each', async () => {
+		const onPathChange = vi.fn();
+		const { update } = await renderPreview( 'desktop', {
+			site: headless(),
+			path: `${ FRONTEND_URL }/`,
+			onPathChange,
+		} );
+		expect( visiblePage()?.getAttribute( 'src' ) ).toBe( `${ FRONTEND_URL }/` );
+		const app = guest( { getURL: () => `${ SITE_URL }/wp-admin/` } );
+		fireEvent( app, new Event( 'dom-ready' ) );
+		fireEvent(
+			app,
+			Object.assign( new Event( 'did-navigate' ), { url: `${ SITE_URL }/wp-admin/` } )
+		);
+		expect( onPathChange ).toHaveBeenLastCalledWith( '/wp-admin/' );
+		update( { path: '/wp-admin/' } );
+		const wordpress = visiblePage()!;
+		expect( wordpress ).not.toBe( app );
+		expect( wordpress ).toHaveAttribute( 'src', `${ SITE_URL }/wp-admin/` );
+	} );
+
+	it( 'opens the frontend app externally on its own origin', async () => {
+		const connector = createFakeConnector();
+		const { user } = await renderPreview(
+			'browser',
+			{ site: headless(), path: `${ FRONTEND_URL }/about/`, onPathChange: vi.fn() },
+			connector
+		);
+		await user.click( screen.getByRole( 'button', { name: 'Open this page in your browser' } ) );
+		expect( connector.openSiteUrl ).toHaveBeenLastCalledWith( 'one', '/about/', {
+			autoLogin: false,
+			target: 'frontend',
+		} );
+	} );
+
+	it( 'keeps the device toolbar available on the frontend app', async () => {
+		const { user } = await renderPreview( 'browser', {
+			site: headless(),
+			path: `${ FRONTEND_URL }/`,
+		} );
+		await openBrowserOptions( user );
+		const toggle = screen.getByRole( 'menuitem', { name: 'Show device toolbar' } );
+		expect( toggle ).not.toHaveAttribute( 'aria-disabled', 'true' );
+		await user.click( toggle );
+		expect( screen.getByRole( 'toolbar', { name: 'Responsive preview' } ) ).toBeInTheDocument();
+	} );
+} );

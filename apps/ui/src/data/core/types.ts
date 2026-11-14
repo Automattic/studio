@@ -25,6 +25,7 @@ import type {
 import type { RemoteSiteConnection } from '@studio/common/lib/remote-sites';
 import type { SiteAgentFileOpenTarget } from '@studio/common/lib/site-agent-file-paths';
 import type { SiteFileAccess } from '@studio/common/lib/site-file-access';
+import type { FrontendCreateChoice, SiteFrontend } from '@studio/common/lib/site-frontend';
 import type { SiteOperation } from '@studio/common/lib/site-operation';
 import type { SnapshotUsage } from '@studio/common/lib/snapshots';
 import type { StudioAssistantQuota } from '@studio/common/lib/studio-assistant-quota';
@@ -42,6 +43,7 @@ import type {
 import type { SupportedTerminal } from '@studio/common/lib/user-settings/terminal';
 import type { WordPressVersion } from '@studio/common/lib/wordpress-versions';
 import type { WpEnvironmentType } from '@studio/common/lib/wp-environment-type';
+import type { SiteOpenTarget } from '@studio/common/sites/open-target';
 import type { SiteDesign } from '@studio/common/sites/site-design';
 import type { SiteEmail, SiteEmailSummary } from '@studio/common/sites/site-email';
 import type { PreviewStatus } from '@studio/common/sites/snapshots';
@@ -140,6 +142,8 @@ export interface SiteDetails {
 	operation?: SiteOperation;
 	// The folder the email the site sends is saved in, from the CLI.
 	emailPath?: string;
+	// The frontend half of a headless site, from the CLI; absent for a classic site.
+	frontend?: SiteFrontend;
 	phpMyAdminSupported?: boolean;
 }
 
@@ -542,9 +546,11 @@ export interface Connector {
 	// Open the given site's folder in the system file manager, preferred
 	// editor, or preferred terminal. When no editor/terminal preference is
 	// set these reject — callers are expected to route the user to Settings.
+	// The editor and terminal open a headless site's frontend project with
+	// `target: 'frontend'`.
 	openSiteFolder( siteId: string ): Promise< void >;
-	openSiteInEditor( siteId: string ): Promise< void >;
-	openSiteInTerminal( siteId: string ): Promise< void >;
+	openSiteInEditor( siteId: string, options?: { target?: SiteOpenTarget } ): Promise< void >;
+	openSiteInTerminal( siteId: string, options?: { target?: SiteOpenTarget } ): Promise< void >;
 	// Open the folder the site's email is saved in, in the system file manager.
 	openSiteEmailFolder( siteId: string ): Promise< void >;
 	// The email the site sent, newest first, and one of them in full, or null
@@ -631,10 +637,12 @@ export interface Connector {
 		canQuoteSelection?: boolean;
 	} ): Promise< { action: 'quote-selection'; selectionText: string } | undefined >;
 
+	// `target: 'frontend'` opens a headless site's frontend app instead of
+	// WordPress; it never signs in.
 	openSiteUrl(
 		siteId: string,
 		relativeUrl?: string,
-		options?: { autoLogin?: boolean }
+		options?: { autoLogin?: boolean; target?: SiteOpenTarget }
 	): Promise< void >;
 
 	// Whether this host overlays macOS window controls ("traffic lights") on the
@@ -849,6 +857,8 @@ export interface CreateSiteParams {
 	// Telemetry hint for the `studio_site_created` Tracks event. `import`/`sync` are set by the
 	// onboarding flows that create a blank site before populating it.
 	flowType?: TracksSiteCreateFlowType;
+	// Creates a headless site: WordPress plus a supervised frontend project.
+	frontend?: FrontendCreateChoice;
 }
 
 export type BlueprintSource =

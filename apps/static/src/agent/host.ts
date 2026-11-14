@@ -440,6 +440,13 @@ echo implode( "\\n", $found );`,
 			stop: ( site ) => sites.stop( site.id ),
 			delete: ( site ) => sites.delete( site.id ),
 			isRunning: async ( site ) => sites.runtimes.isRunning( site.id ),
+			// Playground runs WordPress alone: no frontend project to supervise.
+			frontendRestart: async () => {
+				throw new Error( 'Headless sites are not available in Studio on the web.' );
+			},
+			frontendLogs: async () => {
+				throw new Error( 'Headless sites are not available in Studio on the web.' );
+			},
 			import: async ( site, file ) => {
 				const bytes = await files.read( file );
 				await sites.import( site.id, new File( [ bytes as BlobPart ], path.basename( file ) ) );

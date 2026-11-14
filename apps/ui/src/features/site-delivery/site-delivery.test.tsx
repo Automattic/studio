@@ -1339,9 +1339,7 @@ it( 'keeps checklist choices live and publishes the popover selection directly',
 	await actions.click( everything );
 	for ( const checkbox of screen.getAllByRole( 'checkbox' ) ) expect( checkbox ).toBeChecked();
 	expect( screen.getByText( warning ) ).toBeVisible();
-	expect( everything ).not.toHaveAttribute( 'aria-disabled', 'true' );
-	await actions.click( everything );
-	for ( const checkbox of screen.getAllByRole( 'checkbox' ) ) expect( checkbox ).toBeChecked();
+	expect( everything ).toHaveAttribute( 'aria-disabled', 'true' );
 	await actions.click( screen.getByRole( 'checkbox', { name: 'Uploads' } ) );
 	expect( screen.getByRole( 'button', { name: 'What to publish' } ) ).toHaveAccessibleDescription(
 		'All but uploads'

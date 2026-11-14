@@ -166,7 +166,8 @@ export function useTransferSelection(
 		filesUnavailable: tree.data?.filesUnavailable === true,
 		error: tree.error || size.error || multisite.error,
 		loading: tree.isFetching || ( pushing && ( size.isFetching || multisite.isFetching ) ),
-		loadingFiles: tree.isFetching && ! tree.data,
+		// A draft opens on the files its selection already lists, while they are read again.
+		loadingFiles: tree.isFetching && ! tree.data && ! ( draftSelection && saved.nodes.length ),
 		loadingDetails:
 			( tree.isFetching && ! tree.data ) ||
 			( pushing && multisite.isFetching && ! multisite.isSuccess ),

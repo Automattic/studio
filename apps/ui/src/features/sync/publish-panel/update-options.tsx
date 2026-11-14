@@ -85,7 +85,7 @@ export function PublishChecklist( {
 					label={ __( 'Everything' ) }
 					checked={ all }
 					indeterminate={ ! all && some }
-					disabled={ selection.loadingFiles }
+					disabled={ selection.loadingFiles || all }
 					onChange={ () => save( checkNodes( nodes, true ), true ) }
 				/>
 				<hr className={ styles.divider } />

@@ -1485,19 +1485,23 @@ it( 'chooses a live site before creating a preview when several sites qualify', 
 } );
 
 it( 'chooses files in a modal, preserves Database, and discards unfinished edits', async () => {
+	let readDelay = 0;
 	const { connector, user } = setup( {
 		getSitePublishStatus: async () => ( { localChanged: true } ),
-		listLocalFileTree: async () => [
-			{
-				name: 'themes',
-				path: 'wp-content/themes',
-				isDirectory: true,
-				children: [
-					{ name: 'style.css', path: 'wp-content/themes/site/style.css', isDirectory: false },
-					{ name: 'theme.json', path: 'wp-content/themes/site/theme.json', isDirectory: false },
-				],
-			},
-		],
+		listLocalFileTree: async () => {
+			await new Promise( ( resolve ) => setTimeout( resolve, readDelay ) );
+			return [
+				{
+					name: 'themes',
+					path: 'wp-content/themes',
+					isDirectory: true,
+					children: [
+						{ name: 'style.css', path: 'wp-content/themes/site/style.css', isDirectory: false },
+						{ name: 'theme.json', path: 'wp-content/themes/site/theme.json', isDirectory: false },
+					],
+				},
+			];
+		},
 	} );
 	await open();
 	await user.click( screen.getByRole( 'button', { name: 'What to publish' } ) );
@@ -1510,13 +1514,18 @@ it( 'chooses files in a modal, preserves Database, and discards unfinished edits
 		if ( ! screen.queryByRole( 'button', { name: 'Choose specific files' } ) ) {
 			await user.click( screen.getByRole( 'button', { name: 'What to publish' } ) );
 		}
-		await user.click( await screen.findByRole( 'button', { name: 'Choose specific files' } ) );
+		const chooseFiles = await screen.findByRole( 'button', { name: 'Choose specific files' } );
+		await waitFor( () => expect( chooseFiles ).toBeEnabled() );
+		// The dialog lists the files it already knows while it reads them again.
+		readDelay = 200;
+		await user.click( chooseFiles );
+		readDelay = 0;
 		const view = await screen.findByRole( 'dialog', { name: 'Choose files' } );
 		expect( screen.queryByRole( 'dialog', { name: 'Publish' } ) ).not.toBeInTheDocument();
 		expect(
 			within( view ).queryByRole( 'checkbox', { name: 'Content and settings' } )
 		).not.toBeInTheDocument();
-		await user.click( await within( view ).findByRole( 'button', { name: 'Expand themes' } ) );
+		await user.click( within( view ).getByRole( 'button', { name: 'Expand themes' } ) );
 		return view;
 	};
 	let dialog = await openFiles();

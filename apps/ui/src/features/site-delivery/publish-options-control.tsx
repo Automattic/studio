@@ -27,6 +27,7 @@ export function PublishOptionsControl( {
 	site,
 	remote,
 	disabled,
+	choosingFiles,
 	onChooseFiles,
 	triggerRef,
 }: {
@@ -34,6 +35,7 @@ export function PublishOptionsControl( {
 	site: SiteDetails;
 	remote: RemoteSite;
 	disabled: boolean;
+	choosingFiles: boolean;
 	onChooseFiles: () => void;
 	triggerRef: RefObject< HTMLButtonElement | null >;
 } ) {
@@ -42,7 +44,7 @@ export function PublishOptionsControl( {
 	const label = publishSelectionSummary( selection );
 	return (
 		<div>
-			<Popover.Root open={ open } onOpenChange={ setOpen }>
+			<Popover.Root open={ open && ! choosingFiles } onOpenChange={ setOpen }>
 				<Popover.Trigger
 					render={
 						<Button
@@ -64,6 +66,7 @@ export function PublishOptionsControl( {
 				</Popover.Trigger>
 				<Popover.Popup
 					align="end"
+					instant={ choosingFiles }
 					className={ styles.publishOptionsPopover }
 					aria-label={ __( 'What to publish' ) }
 				>

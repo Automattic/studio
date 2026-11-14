@@ -15,24 +15,31 @@ const UNUSED_VERSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const isInstalled = ( target: string ) => pathExists( path.join( target, 'index.php' ) );
 
 /**
- * Unpacks the bundled phpMyAdmin into its own folder under `server-files/phpmyadmin-versions`,
- * named after the zip's hash so a Studio update that changes the patched files gets a fresh copy,
- * and returns that folder. Runs on every site start.
+ * The folder under `server-files/phpmyadmin-versions` that sites serve the bundled phpMyAdmin
+ * from, named after the zip's hash so a Studio update that changes the patched files gets a fresh
+ * copy. Null in a build without the wp-files manifest.
  */
-export async function installBundledPhpMyAdmin(): Promise< string > {
+export function getPhpMyAdminPath(): string | null {
 	const hash = readBundledManifest()?.phpMyAdminHash;
-	if ( ! hash ) {
+	return hash ? path.join( getPhpMyAdminVersionsPath(), hash ) : null;
+}
+
+/**
+ * Unpacks the bundled phpMyAdmin into `getPhpMyAdminPath()` unless it's already there. Runs on
+ * every site start, without holding it up: phpMyAdmin answers 404 for the second it takes to
+ * unpack after an update.
+ */
+export async function installBundledPhpMyAdmin(): Promise< void > {
+	const target = getPhpMyAdminPath();
+	if ( ! target ) {
 		throw new Error( 'The CLI bundle has no wp-files manifest' );
 	}
-	const versionsPath = getPhpMyAdminVersionsPath();
-	const target = path.join( versionsPath, hash );
 	if ( ! ( await isInstalled( target ) ) ) {
 		await installFromZip( getBundledPhpMyAdminZipPath(), 'phpmyadmin', target, isInstalled );
 	}
 	const now = new Date();
 	await fs.promises.utimes( target, now, now );
-	await removeUnusedVersions( versionsPath );
-	return target;
+	await removeUnusedVersions( path.dirname( target ) );
 }
 
 async function removeUnusedVersions( versionsPath: string ) {

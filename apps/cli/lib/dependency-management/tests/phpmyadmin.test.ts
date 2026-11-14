@@ -3,7 +3,7 @@ import os from 'os';
 import path from 'path';
 import { afterAll, expect, it, vi } from 'vitest';
 import { writeZip } from 'cli/tests/zip-fixture';
-import { installBundledPhpMyAdmin } from '../phpmyadmin';
+import { getPhpMyAdminPath, installBundledPhpMyAdmin } from '../phpmyadmin';
 
 const root = fs.mkdtempSync( path.join( os.tmpdir(), 'studio-phpmyadmin-' ) );
 const versionsPath = path.join( root, 'phpmyadmin-versions' );
@@ -33,10 +33,9 @@ it( 'unpacks the bundled phpMyAdmin under its hash and removes versions unused f
 	addVersion( 'used-last-week', 7 );
 	addVersion( 'unused', 45 );
 
-	const installed = await Promise.all( [ installBundledPhpMyAdmin(), installBundledPhpMyAdmin() ] );
+	await Promise.all( [ installBundledPhpMyAdmin(), installBundledPhpMyAdmin() ] );
 
-	const current = path.join( versionsPath, 'current' );
-	expect( installed ).toEqual( [ current, current ] );
-	expect( fs.existsSync( path.join( current, 'js', 'app.js' ) ) ).toBe( true );
+	expect( getPhpMyAdminPath() ).toBe( path.join( versionsPath, 'current' ) );
+	expect( fs.existsSync( path.join( versionsPath, 'current', 'js', 'app.js' ) ) ).toBe( true );
 	expect( fs.readdirSync( versionsPath ).sort() ).toEqual( [ 'current', 'used-last-week' ] );
 } );
